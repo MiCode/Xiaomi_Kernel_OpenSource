@@ -20,6 +20,7 @@
 #include <linux/of_device.h>
 #include <linux/radix-tree.h>
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/power_supply.h>
 #include <linux/bitops.h>
@@ -69,14 +70,17 @@
 #define CHGR_CHG_WDOG_PET			0x64
 #define CHGR_CHG_WDOG_EN			0x65
 #define CHGR_USB_IUSB_MAX			0x44
+#define CHGR_USB_USB_SUSP			0x47
 #define CHGR_USB_ENUM_T_STOP			0x4E
 #define CHGR_CHG_TEMP_THRESH			0x66
 #define CHGR_BAT_IF_PRES_STATUS			0x08
-#define CHGR_BAT_TEMP_STATUS			0x09
+#define CHGR_STATUS				0x09
 #define CHGR_BAT_IF_VCP				0x42
 #define CHGR_BAT_IF_BATFET_CTRL1		0x90
 #define CHGR_MISC_BOOT_DONE			0x42
+#define CHGR_BUCK_COMPARATOR_OVRIDE_3		0xED
 #define MISC_REVISION2				0x01
+#define SEC_ACCESS				0xD0
 
 /* SMBB peripheral subtype values */
 #define REG_OFFSET_PERP_SUBTYPE			0x05
@@ -133,6 +137,9 @@
 /* smbb_misc_interrupts */
 #define TFTWDOG_IRQ			BIT(0)
 
+/* Workaround flags */
+#define CHG_FLAGS_VCP_WA		BIT(0)
+
 /**
  * struct qpnp_chg_chip - device information
  * @dev:			device pointer to access the parent
@@ -156,6 +163,8 @@
  * @usb_psy			power supply to export information to userspace
  * @bms_psy			power supply to export information to userspace
  * @batt_psy:			power supply to export information to userspace
+ * @flags:			flags to activate specific workarounds
+ *				throughout the driver
  *
  */
 struct qpnp_chg_chip {
@@ -185,6 +194,7 @@ struct qpnp_chg_chip {
 	struct power_supply		*usb_psy;
 	struct power_supply		*bms_psy;
 	struct power_supply		batt_psy;
+	uint32_t			flags;
 };
 
 static struct qpnp_chg_chip *the_chip;
@@ -258,6 +268,7 @@ qpnp_chg_masked_write(struct qpnp_chg_chip *chip, u16 base,
 	return 0;
 }
 
+#define USB_VALID_BIT	BIT(7)
 static int
 qpnp_chg_is_usb_chg_plugged_in(struct qpnp_chg_chip *chip)
 {
@@ -265,16 +276,16 @@ qpnp_chg_is_usb_chg_plugged_in(struct qpnp_chg_chip *chip)
 	int rc;
 
 	rc = qpnp_chg_read(chip, &usbin_valid_rt_sts,
-				 INT_RT_STS(chip->usb_chgpth_base), 1);
+				 chip->usb_chgpth_base + CHGR_STATUS , 1);
 
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n",
-				INT_RT_STS(chip->usb_chgpth_base), rc);
+				chip->usb_chgpth_base + CHGR_STATUS, rc);
 		return rc;
 	}
 	pr_debug("chgr usb sts 0x%x\n", usbin_valid_rt_sts);
 
-	return (usbin_valid_rt_sts & USBIN_VALID_IRQ) ? 1 : 0;
+	return (usbin_valid_rt_sts & USB_VALID_BIT) ? 1 : 0;
 }
 
 static int
@@ -294,7 +305,6 @@ qpnp_chg_is_dc_chg_plugged_in(struct qpnp_chg_chip *chip)
 	return (dcin_valid_rt_sts & DCIN_VALID_IRQ) ? 1 : 0;
 }
 
-#define VCP_IUSBMAX_SETTING_MA			2000
 #define QPNP_CHG_IUSB_MAX_MIN_100		100
 #define QPNP_CHG_IUSB_MAX_MIN_150		150
 #define QPNP_CHG_IUSB_MAX_MIN_MA		200
@@ -303,7 +313,8 @@ qpnp_chg_is_dc_chg_plugged_in(struct qpnp_chg_chip *chip)
 static int
 qpnp_chg_iusbmax_set(struct qpnp_chg_chip *chip, int mA)
 {
-	u8 usb_reg = 0;
+	int rc = 0;
+	u8 usb_reg = 0, temp = 8;
 
 	if (mA == QPNP_CHG_IUSB_MAX_MIN_100) {
 		usb_reg = 0x00;
@@ -323,17 +334,42 @@ qpnp_chg_iusbmax_set(struct qpnp_chg_chip *chip, int mA)
 		return -EINVAL;
 	}
 
-	/* Hack for VCP issue make sure IUSBMAX setting
-	 * is at least 2 A to not brown out device */
-	mA = VCP_IUSBMAX_SETTING_MA;
-
 	usb_reg = mA / QPNP_CHG_IUSB_MAX_STEP_MA;
 
+	if (chip->flags & CHG_FLAGS_VCP_WA) {
+		temp = 0xA5;
+		rc =  qpnp_chg_write(chip, &temp,
+			chip->buck_base + SEC_ACCESS, 1);
+		rc =  qpnp_chg_masked_write(chip,
+			chip->buck_base + CHGR_BUCK_COMPARATOR_OVRIDE_3,
+			0x0C, 0x0C, 1);
+	}
+
 	pr_debug("current=%d setting 0x%x\n", mA, usb_reg);
-	return qpnp_chg_write(chip, &usb_reg,
+	rc = qpnp_chg_write(chip, &usb_reg,
 		chip->usb_chgpth_base + CHGR_USB_IUSB_MAX, 1);
-	pr_debug("done\n");
-	return 0;
+
+	if (chip->flags & CHG_FLAGS_VCP_WA) {
+		temp = 0xA5;
+		udelay(200);
+		rc =  qpnp_chg_write(chip, &temp,
+			chip->buck_base + SEC_ACCESS, 1);
+		rc =  qpnp_chg_masked_write(chip,
+			chip->buck_base + CHGR_BUCK_COMPARATOR_OVRIDE_3,
+			0x0C, 0x00, 1);
+	}
+
+	return rc;
+}
+
+#define USB_SUSPEND_BIT	BIT(0)
+static int
+qpnp_chg_usb_suspend_enable(struct qpnp_chg_chip *chip, int enable)
+{
+	return qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + CHGR_USB_USB_SUSP,
+			USB_SUSPEND_BIT,
+			enable ? USB_SUSPEND_BIT : 0, 1);
 }
 
 #define ENUM_T_STOP_BIT		BIT(0)
@@ -350,11 +386,6 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 		chip->usb_present = usb_present;
 		power_supply_set_present(chip->usb_psy,
 			chip->usb_present);
-	} else if (!(chip->usb_present && usb_present)) {
-			qpnp_chg_masked_write(chip,
-				chip->usb_chgpth_base + CHGR_USB_ENUM_T_STOP,
-				ENUM_T_STOP_BIT,
-				ENUM_T_STOP_BIT, 1);
 	}
 
 	return IRQ_HANDLED;
@@ -368,7 +399,7 @@ qpnp_chg_chgr_chg_failed_irq_handler(int irq, void *_chip)
 	int rc, usb_present;
 
 	rc = qpnp_chg_masked_write(chip,
-		chip->usb_chgpth_base + CHGR_CHG_FAILED,
+		chip->chgr_base + CHGR_CHG_FAILED,
 		CHGR_CHG_FAILED_BIT,
 		CHGR_CHG_FAILED_BIT, 1);
 	if (rc)
@@ -488,7 +519,7 @@ get_prop_batt_health(struct qpnp_chg_chip *chip)
 	int rc;
 
 	rc = qpnp_chg_read(chip, &batt_health,
-				chip->bat_if_base + CHGR_BAT_TEMP_STATUS, 1);
+				chip->bat_if_base + CHGR_STATUS, 1);
 	if (rc) {
 		pr_err("Couldn't read battery health read failed rc=%d\n", rc);
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
@@ -647,8 +678,13 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
 		qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
+		if ((ret.intval / 1000) <= QPNP_CHG_IUSB_MAX_MIN_MA)
+			qpnp_chg_usb_suspend_enable(chip, 1);
+		else
+			qpnp_chg_usb_suspend_enable(chip, 0);
 	} else {
-		qpnp_chg_iusbmax_set(chip, QPNP_CHG_IUSB_MAX_MIN_MA);
+		qpnp_chg_iusbmax_set(chip, QPNP_CHG_IUSB_MAX_MIN_100);
+		qpnp_chg_usb_suspend_enable(chip, 0);
 	}
 
 	pr_debug("end of power supply changed\n");
@@ -863,6 +899,14 @@ qpnp_chg_vddmax_set(struct qpnp_chg_chip *chip, int voltage)
 		chip->chgr_base + CHGR_VDD_MAX, 1);
 }
 
+
+static void
+qpnp_chg_setup_flags(struct qpnp_chg_chip *chip)
+{
+	if (chip->revision > 0)
+		chip->flags |= CHG_FLAGS_VCP_WA;
+}
+
 #define WDOG_EN_BIT	BIT(7)
 static int
 qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
@@ -944,7 +988,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_BAT_IF_SUBTYPE:
 		/* HACK: Unlock secure access to override temp comparator */
 		rc = qpnp_chg_masked_write(chip,
-				chip->bat_if_base + 0xD0,
+				chip->bat_if_base + SEC_ACCESS,
 				0xA5, 0xA5, 1);
 		pr_debug("override hot cold\n");
 		rc = qpnp_chg_masked_write(chip,
@@ -980,6 +1024,12 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 				return -ENXIO;
 			}
 		}
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + CHGR_USB_ENUM_T_STOP,
+			ENUM_T_STOP_BIT,
+			ENUM_T_STOP_BIT, 1);
+
 		break;
 	case SMBB_DC_CHGPTH_SUBTYPE:
 		break;
@@ -1198,6 +1248,9 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		pr_err("power_supply_register batt failed rc = %d\n", rc);
 		goto unregister_dc;
 	}
+
+	/* Turn on appropriate workaround flags */
+	qpnp_chg_setup_flags(chip);
 
 	power_supply_set_present(chip->usb_psy,
 			qpnp_chg_is_usb_chg_plugged_in(chip));
