@@ -255,10 +255,12 @@ struct interrupt_stat {
 	uint32_t smd_in_count;
 	uint32_t smd_out_hardcode_count;
 	uint32_t smd_out_config_count;
+	uint32_t smd_interrupt_id;
 
 	uint32_t smsm_in_count;
 	uint32_t smsm_out_hardcode_count;
 	uint32_t smsm_out_config_count;
+	uint32_t smsm_interrupt_id;
 };
 extern struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
 
