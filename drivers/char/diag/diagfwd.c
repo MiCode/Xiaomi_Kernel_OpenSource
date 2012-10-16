@@ -211,8 +211,8 @@ void chk_logging_wakeup(void)
 		 * have their data read/logged.  Detect and remedy this
 		 * situation.
 		 */
-		if ((driver->data_ready[i] & USER_SPACE_LOG_TYPE) == 0) {
-			driver->data_ready[i] |= USER_SPACE_LOG_TYPE;
+		if ((driver->data_ready[i] & USER_SPACE_DATA_TYPE) == 0) {
+			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
 			pr_debug("diag: Force wakeup of logging process\n");
 			wake_up_interruptible(&driver->wait_q);
 		}
@@ -319,7 +319,7 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 						 driver->logging_process_id)
 				break;
 		if (i < driver->num_clients) {
-			driver->data_ready[i] |= USER_SPACE_LOG_TYPE;
+			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
 			pr_debug("diag: wake up logging process\n");
 			wake_up_interruptible(&driver->wait_q);
 		} else
