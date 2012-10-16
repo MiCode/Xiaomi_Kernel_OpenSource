@@ -127,6 +127,15 @@ int pm8921_bms_get_rbatt(void);
  *					soc stored in a coincell backed register
  */
 void pm8921_bms_invalidate_shutdown_soc(void);
+
+/**
+ * pm8921_bms_cc_uah -	function to get the coulomb counter based charge. Note
+ *			that the coulomb counter are reset when the current
+ *			consumption is low (below 8mA for more than 5 minutes),
+ *			This will lead in a very low coulomb counter charge
+ *			value upon wakeup from sleep.
+ */
+int pm8921_bms_cc_uah(int *cc_uah);
 #else
 static inline int pm8921_bms_get_vsense_avg(int *result)
 {
@@ -164,6 +173,10 @@ static inline int pm8921_bms_get_rbatt(void)
 }
 static inline void pm8921_bms_invalidate_shutdown_soc(void)
 {
+}
+static inline int pm8921_bms_cc_uah(int *cc_uah)
+{
+	return -ENXIO;
 }
 #endif
 
