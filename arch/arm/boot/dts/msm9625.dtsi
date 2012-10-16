@@ -238,6 +238,12 @@
 		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
 		status = "disable";
 	};
+
+	qcom,bam_dmux@fc834000 {
+		compatible = "qcom,bam_dmux";
+		reg = <0xfc834000 0x7000>;
+		interrupts = <0 29 1>;
+	};
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
