@@ -35,7 +35,7 @@ struct acg_action {
 	bool set;
 	bool enable;
 };
-static int l2_acg_en_val[MAX_SCALABLES];
+static int l2_acg_en_val;
 static struct dentry *base_dir;
 static struct dentry *sc_dir[MAX_SCALABLES];
 
@@ -51,8 +51,8 @@ static void cpu_action(void *info)
 			val &= ~BIT(0);
 		else
 			val |= BIT(0);
-		asm volatile ("mcr p15, 7, %[l2cpdr], c15, c0, 5\n\t"
-				: : [l2cpdr]"r" (val));
+		asm volatile ("mcr p15, 7, %[cpmr0], c15, c0, 5\n\t"
+				: : [cpmr0]"r" (val));
 	} else {
 		action->enable = !(val & BIT(0));
 	}
@@ -65,7 +65,7 @@ static void disable_acg(int sc_id)
 
 	if (sc_id == L2) {
 		regval = get_l2_indirect_reg(drv->scalable[sc_id].l2cpmr_iaddr);
-		l2_acg_en_val[sc_id] = regval & (0x3 << 10);
+		l2_acg_en_val = regval & (0x3 << 10);
 		regval |= (0x3 << 10);
 		set_l2_indirect_reg(drv->scalable[sc_id].l2cpmr_iaddr, regval);
 	} else {
@@ -82,7 +82,7 @@ static void enable_acg(int sc_id)
 	if (sc_id == L2) {
 		regval = get_l2_indirect_reg(drv->scalable[sc_id].l2cpmr_iaddr);
 		regval &= ~(0x3 << 10);
-		regval |= l2_acg_en_val[sc_id];
+		regval |= l2_acg_en_val;
 		set_l2_indirect_reg(drv->scalable[sc_id].l2cpmr_iaddr, regval);
 	} else {
 		struct acg_action action = { .set = true, .enable = true };
