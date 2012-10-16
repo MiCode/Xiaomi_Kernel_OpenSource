@@ -135,9 +135,14 @@ static struct sys_timer msm_dt_timer = {
 	.init = msm_dt_timer_init
 };
 
-static void __init msm9625_reserve(void)
+static void __init msm9625_early_memory(void)
 {
 	reserve_info = &msm9625_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm9625_reserve_table);
+}
+
+static void __init msm9625_reserve(void)
+{
 	msm_reserve();
 }
 
@@ -312,5 +317,6 @@ DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
 	.timer = &msm_dt_timer,
 	.dt_compat = msm9625_dt_match,
 	.reserve = msm9625_reserve,
+	.init_very_early = msm9625_early_memory,
 	.restart = msm_restart,
 MACHINE_END
