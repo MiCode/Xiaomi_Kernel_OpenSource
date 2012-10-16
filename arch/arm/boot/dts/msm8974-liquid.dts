@@ -345,9 +345,21 @@
 	mpp@a100 { /* MPP 2 */
 	};
 
-	mpp@a200 { /* MPP 3 */
+	mpp@a200 { /* HDMI_MUX_SEL MPP 3*/
+		status = "ok";
+		qcom,mode = <1>; /* DIG_OUT */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,vin-sel = <2>; /* PM8841_S3A 1.8V */
+		qcom,src-select = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
 	};
 
-	mpp@a300 { /* MPP 4 */
+	mpp@a300 { /* HDMI_MUX_EN MPP 4*/
+		status = "ok";
+		qcom,mode = <1>; /* DIG_OUT */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,vin-sel = <0>; /* PM8841_VPH 3.4V */
+		qcom,src-select = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
 	};
 };
