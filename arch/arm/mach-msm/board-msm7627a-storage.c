@@ -378,9 +378,9 @@ void __init msm7627a_init_mmc(void)
 	if (mmc_regulator_init(1, "mmc", 2850000))
 		return;
 	/* 8x25 EVT do not use hw detector */
-	if (!(machine_is_msm8625_evt()))
+	if (!((machine_is_msm8625_evt() || machine_is_qrd_skud_prime())))
 		sdc1_plat_data.status_irq = MSM_GPIO_TO_INT(gpio_sdc1_hw_det);
-	if (machine_is_msm8625_evt())
+	if (machine_is_msm8625_evt() || machine_is_qrd_skud_prime())
 		sdc1_plat_data.status = NULL;
 
 	msm_add_sdcc(1, &sdc1_plat_data);

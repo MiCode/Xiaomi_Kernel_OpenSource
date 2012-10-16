@@ -884,7 +884,8 @@ static void __init msm_add_footswitch_devices(void)
 static void __init add_platform_devices(void)
 {
 	if (machine_is_msm8625_evb() || machine_is_msm8625_qrd7()
-				|| machine_is_msm8625_evt()) {
+				|| machine_is_msm8625_evt()
+				|| machine_is_qrd_skud_prime()) {
 		platform_add_devices(msm8625_evb_devices,
 				ARRAY_SIZE(msm8625_evb_devices));
 		platform_add_devices(qrd3_devices,
@@ -899,7 +900,8 @@ static void __init add_platform_devices(void)
 				ARRAY_SIZE(qrd3_devices));
 
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
-				|| machine_is_msm8625_evt())
+				|| machine_is_msm8625_evt()
+				|| machine_is_qrd_skud_prime())
 		platform_add_devices(msm8625_lcd_camera_devices,
 				ARRAY_SIZE(msm8625_lcd_camera_devices));
 	else if (machine_is_msm8625_qrd7())
@@ -1061,6 +1063,16 @@ MACHINE_START(MSM8625_QRD7, "QRD MSM8625 QRD7")
 	.handle_irq	= gic_handle_irq,
 MACHINE_END
 MACHINE_START(MSM8625_EVT, "QRD MSM8625 EVT")
+	.atag_offset	= 0x100,
+	.map_io		= msm8625_map_io,
+	.reserve	= msm8625_reserve,
+	.init_irq	= msm8625_init_irq,
+	.init_machine	= msm_qrd_init,
+	.timer		= &msm_timer,
+	.init_early	= qrd7627a_init_early,
+	.handle_irq	= gic_handle_irq,
+MACHINE_END
+MACHINE_START(QRD_SKUD_PRIME, "QRD MSM8625 SKUD PRIME")
 	.atag_offset	= 0x100,
 	.map_io		= msm8625_map_io,
 	.reserve	= msm8625_reserve,
