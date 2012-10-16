@@ -396,7 +396,6 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 
 	ctl->width = width;
 	ctl->height = height;
-	ctl->dst_format = mfd->panel_info.out_format;
 
 	if (!ctl->mixer_left) {
 		ctl->mixer_left =
@@ -466,6 +465,20 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 	}
 
 	ctl->opmode |= (ctl->intf_num << 4);
+
+	if (ctl->intf_num == MDSS_MDP_NO_INTF) {
+		ctl->dst_format = mfd->panel_info.out_format;
+	} else {
+		switch (mfd->panel_info.bpp) {
+		case 18:
+			ctl->dst_format = MDSS_MDP_PANEL_FORMAT_RGB666;
+			break;
+		case 24:
+		default:
+			ctl->dst_format = MDSS_MDP_PANEL_FORMAT_RGB888;
+			break;
+		}
+	}
 
 	if (ctl->mixer_right) {
 		ctl->opmode |= MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
@@ -559,6 +572,12 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 	temp = MDSS_MDP_REG_READ(MDSS_MDP_REG_DISP_INTF_SEL);
 	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_DISP_INTF_SEL, temp);
+
+	if (ctl->intf_num != MDSS_MDP_NO_INTF) {
+		off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
+		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_PANEL_FORMAT,
+				   ctl->dst_format);
+	}
 
 	outsize = (mixer->height << 16) | mixer->width;
 	off = MDSS_MDP_REG_LM_OFFSET(mixer->num);
