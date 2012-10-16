@@ -71,6 +71,7 @@ struct msm_bus_node_info {
 	int hw_sel;
 	const char *slaveclk[NUM_CTX];
 	const char *memclk[NUM_CTX];
+	const char *iface_clk_node;
 	unsigned int buswidth;
 	unsigned int ws;
 	unsigned int mode;
@@ -117,6 +118,7 @@ struct msm_bus_inode_info {
 	int commit_index;
 	struct nodeclk nodeclk[NUM_CTX];
 	struct nodeclk memclk[NUM_CTX];
+	struct nodeclk iface_clk;
 	void *hw_data;
 };
 

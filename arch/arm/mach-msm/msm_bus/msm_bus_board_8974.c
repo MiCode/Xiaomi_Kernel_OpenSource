@@ -722,6 +722,7 @@ static struct msm_bus_node_info sys_noc_info[] = {
 		.prio_rd = 2,
 		.prio_wr = 2,
 		.hw_sel = MSM_BUS_NOC,
+		.iface_clk_node = "msm_usb3",
 	},
 	{
 		.id = MSM_BUS_SLAVE_AMPSS,
