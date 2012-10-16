@@ -73,6 +73,7 @@ struct msm_fb_data_type {
 	ktime_t vsync_time;
 	struct completion vsync_comp;
 	spinlock_t vsync_lock;
+	int borderfill_enable;
 
 	int hw_refresh;
 
