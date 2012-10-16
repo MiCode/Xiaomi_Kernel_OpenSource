@@ -2401,6 +2401,7 @@ static struct platform_device *common_not_mpq_devices[] __initdata = {
 static struct platform_device *common_mpq_devices[] __initdata = {
 	&mpq_cpudai_sec_i2s_rx,
 	&mpq_cpudai_mi2s_tx,
+	&mpq_cpudai_pseudo,
 };
 
 static struct platform_device *common_i2s_devices[] __initdata = {

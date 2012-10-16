@@ -542,6 +542,10 @@ struct platform_device apq_cpudai_slim_4_tx = {
 	.id     = 0x4009,
 };
 
+struct platform_device mpq_cpudai_pseudo = {
+	.name   = "msm-dai-q6",
+	.id     = 0x8001,
+};
 #define MSM_TSIF0_PHYS       (0x18200000)
 #define MSM_TSIF1_PHYS       (0x18201000)
 #define MSM_TSIF_SIZE        (0x200)
