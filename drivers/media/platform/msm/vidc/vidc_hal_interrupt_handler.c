@@ -703,7 +703,6 @@ static void hal_process_session_end_done(struct hal_device *device,
 	struct hfi_msg_sys_session_end_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
-	struct list_head *curr, *next;
 	struct hal_session *sess_close;
 
 	dprintk(VIDC_DBG, "RECEIVED:SESSION_END_DONE");
@@ -715,13 +714,11 @@ static void hal_process_session_end_done(struct hal_device *device,
 		return;
 	}
 
-	list_for_each_safe(curr, next, &device->sess_head) {
-		sess_close = list_entry(curr, struct hal_session, list);
-		dprintk(VIDC_INFO, "deleted the session: 0x%x",
-					   sess_close->session_id);
-		list_del(&sess_close->list);
-		kfree(sess_close);
-	}
+	sess_close = (struct hal_session *)pkt->session_id;
+	dprintk(VIDC_INFO, "deleted the session: 0x%x",
+			sess_close->session_id);
+	list_del(&sess_close->list);
+	kfree(sess_close);
 
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device->device_id;
