@@ -216,6 +216,7 @@ extern struct platform_device msm_pcm_routing;
 extern struct platform_device msm_cpudai0;
 extern struct platform_device msm_cpudai1;
 extern struct platform_device mpq_cpudai_sec_i2s_rx;
+extern struct platform_device mpq_cpudai_pseudo;
 extern struct platform_device msm8960_cpudai_slimbus_2_rx;
 extern struct platform_device msm8960_cpudai_slimbus_2_tx;
 extern struct platform_device msm_cpudai_hdmi_rx;
