@@ -55,6 +55,7 @@
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
 #define ENCDEC_CFG_BLK          0x0003
+#define DTS_ENC_SAMPLE_RATE48k	48000
 
 #define CMD_PAUSE          0x0001
 #define CMD_FLUSH          0x0002
@@ -193,6 +194,11 @@ int q6asm_open_read_compressed(struct audio_client *ac,
 int q6asm_open_write(struct audio_client *ac, uint32_t format);
 
 int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format);
+
+int q6asm_open_transcode_loopback(struct audio_client *ac, uint32_t channels);
+
+int q6asm_enc_cfg_blk_dts(struct audio_client *ac,
+				uint32_t sample_rate, uint32_t channels);
 
 int q6asm_open_read_write(struct audio_client *ac,
 			uint32_t rd_format,

@@ -86,7 +86,7 @@
 #define SND_AUDIOCODEC_DTS_TRANSCODE_LOOPBACK ((__u32) 0x00000010)
 #define SND_AUDIOCODEC_PASS_THROUGH          ((__u32) 0x00000011)
 #define SND_AUDIOCODEC_MP2                   ((__u32) 0x00000012)
-#define SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH  ((__u32) 0x00000017)
+#define SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH  ((__u32) 0x00000013)
 #define SND_AUDIOCODEC_MAX                   SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH
 /*
  * Profile and modes are listed with bit masks. This allows for a
@@ -414,6 +414,8 @@ struct snd_codec {
 	__u32 ch_mode;
 	__u32 format;
 	__u32 align;
+	__u32 transcode_dts;
+	struct snd_dec_dts dts;
 	union snd_codec_options options;
 	__u32 reserved[3];
 };

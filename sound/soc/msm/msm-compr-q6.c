@@ -474,7 +474,23 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 	default:
 		return -EINVAL;
 	}
-
+	if (compr->info.codec_param.codec.transcode_dts) {
+		msm_pcm_routing_reg_pseudo_stream(
+			MSM_FRONTEND_DAI_PSEUDO,
+			prtd->enc_audio_client->perf_mode,
+			prtd->enc_audio_client->session,
+			SNDRV_PCM_STREAM_CAPTURE,
+			48000, runtime->channels > 6 ?
+			6 : runtime->channels);
+		pr_debug("%s: cmd: DTS ENCDEC CFG BLK\n", __func__);
+		ret = q6asm_enc_cfg_blk_dts(prtd->enc_audio_client,
+				DTS_ENC_SAMPLE_RATE48k,
+				runtime->channels > 6 ?
+				6 : runtime->channels);
+		if (ret < 0)
+			pr_err("%s: CMD: DTS ENCDEC CFG BLK failed\n",
+				__func__);
+	}
 	prtd->enabled = 1;
 	prtd->cmd_ack = 0;
 
@@ -650,6 +666,8 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("%s: Trigger start\n", __func__);
 		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
+		if (prtd->enc_audio_client)
+			q6asm_run_nowait(prtd->enc_audio_client, 0, 0, 0);
 		atomic_set(&prtd->start, 1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -660,6 +678,8 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		pr_debug("SNDRV_PCM_TRIGGER_PAUSE\n");
 		q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
+		if (prtd->enc_audio_client)
+			q6asm_cmd_nowait(prtd->enc_audio_client, CMD_PAUSE);
 		atomic_set(&prtd->start, 0);
 		runtime->render_flag &= ~SNDRV_RENDER_STOPPED;
 		break;
@@ -811,6 +831,8 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 	atomic_set(&prtd->pending_buffer, 0);
 	prtd->pcm_irq_pos = 0;
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+	if (prtd->enc_audio_client)
+		q6asm_cmd(prtd->enc_audio_client, CMD_CLOSE);
 	compressed_audio.prtd = NULL;
 	q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
@@ -827,6 +849,12 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 			soc_prtd->dai_link->be_id,
 			SNDRV_PCM_STREAM_PLAYBACK);
 	}
+	if (compr->info.codec_param.codec.transcode_dts) {
+		msm_pcm_routing_dereg_pseudo_stream(MSM_FRONTEND_DAI_PSEUDO,
+			prtd->enc_audio_client->session);
+	}
+	if (prtd->enc_audio_client)
+		q6asm_audio_client_free(prtd->enc_audio_client);
 	q6asm_audio_client_free(prtd->audio_client);
 	kfree(prtd);
 	return 0;
@@ -967,6 +995,29 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 				prtd->audio_client->perf_mode,
 				prtd->session_id,
 				substream->stream);
+
+			if (compr->info.codec_param.codec.transcode_dts) {
+				prtd->enc_audio_client =
+					q6asm_audio_client_alloc(
+					(app_cb)compr_event_handler, compr);
+				if (!prtd->enc_audio_client) {
+					pr_err("%s: Could not allocate " \
+							"memory\n", __func__);
+					return -ENOMEM;
+				}
+				prtd->enc_audio_client->perf_mode = false;
+				pr_debug("%s Setting up loopback path\n",
+						__func__);
+				ret = q6asm_open_transcode_loopback(
+					prtd->enc_audio_client,
+					params_channels(params));
+				if (ret < 0) {
+					pr_err("%s: Session transcode " \
+						"loopback open failed\n",
+						__func__);
+					return -ENODEV;
+				}
+			}
 
 			break;
 		}
@@ -1117,6 +1168,22 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			pr_err("%s: ERROR: copy from user\n", __func__);
 			return rc;
 		}
+		/*
+		* DTS Security needed for the transcode path
+		*/
+		if (compr->info.codec_param.codec.transcode_dts) {
+			char modelId[128];
+			struct snd_dec_dts opt_dts =
+				compr->info.codec_param.codec.dts;
+			int modelIdLength = opt_dts.modelIdLength;
+			if (copy_from_user(modelId, (void *)opt_dts.modelId,
+				modelIdLength))
+				pr_err("%s: ERROR: copy modelId\n", __func__);
+			modelId[modelIdLength] = '\0';
+			pr_debug("%s: Received modelId =%s,length=%d\n",
+				__func__, modelId, modelIdLength);
+			core_set_dts_model_id(modelIdLength, modelId);
+		}
 		switch (compr->info.codec_param.codec.id) {
 		case SND_AUDIOCODEC_MP3:
 			/* For MP3 we dont need any other parameter */
@@ -1150,7 +1217,7 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_DTS: {
 			char modelId[128];
 			struct snd_dec_dts opt_dts =
-				compr->info.codec_param.codec.options.dts;
+				compr->info.codec_param.codec.dts;
 			int modelIdLength = opt_dts.modelIdLength;
 			pr_debug("SND_AUDIOCODEC_DTS\n");
 			if (copy_from_user(modelId, (void *)opt_dts.modelId,
@@ -1166,7 +1233,7 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		case SND_AUDIOCODEC_DTS_LBR:{
 			char modelId[128];
 			struct snd_dec_dts opt_dts =
-				compr->info.codec_param.codec.options.dts;
+				compr->info.codec_param.codec.dts;
 			int modelIdLength = opt_dts.modelIdLength;
 			pr_debug("SND_AUDIOCODEC_DTS_LBR\n");
 			if (copy_from_user(modelId, (void *)opt_dts.modelId,

@@ -37,6 +37,8 @@ int adm_memory_unmap_regions(uint32_t *buf_add, uint32_t *bufsz,
 
 int adm_close(int port);
 
+int adm_pseudo_close(int port);
+
 int adm_matrix_map(int session_id, int path, int num_copps,
 				unsigned int *port_id, int copp_id);
 
@@ -44,6 +46,12 @@ int adm_connect_afe_port(int mode, int session_id, int port_id);
 int adm_disconnect_afe_port(int mode, int session_id, int port_id);
 
 void adm_ec_ref_rx_id(int  port_id);
+
+int adm_connect_afe_port_v2(int mode, int session_id, int port_id,
+					int sample_rate, int channels);
+
+int adm_multi_ch_copp_pseudo_open_v3(int port_id, int path, int rate,
+				int channel_mode, int topology);
 
 #ifdef CONFIG_RTAC
 int adm_get_copp_id(int port_id);

@@ -894,6 +894,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 		case ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED:
 		case ASM_STREAM_CMD_OPEN_READ_COMPRESSED:
+		case ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK:
 			if (atomic_read(&ac->cmd_state) && wakeup_flag) {
 				atomic_set(&ac->cmd_state, 0);
 				pr_debug("response payload[1]:%d",
@@ -1064,6 +1065,114 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			data->payload, ac->priv);
 
 	return 0;
+}
+
+int q6asm_open_transcode_loopback(struct audio_client *ac, uint32_t channels)
+{
+	int rc = 0x00;
+	struct asm_stream_cmd_open_transcode_loopback open;
+
+	if ((ac == NULL) || (ac->apr == NULL)) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("%s: session[%d] channels = %d", __func__, ac->session,
+		channels);
+
+	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
+
+	open.hdr.opcode = ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK;
+
+	open.mode_flags = 0;
+
+	if (channels > 2)
+		open.src_format_id = MULTI_CHANNEL_PCM;
+	else
+		open.src_format_id = LINEAR_PCM;
+
+
+	open.sink_format_id = DTS;
+	open.audproc_topo_id = DEFAULT_POPP_TOPOLOGY;
+	open.src_endpoint_type = 0;
+	open.sink_endpoint_type = 0;
+	open.bits_per_sample = 16;
+	open.reserved = 0;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
+	if (rc < 0) {
+		pr_err("%s: open failed op[0x%x]rc[%d]\n", \
+					__func__, open.hdr.opcode, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
+			rc);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
+int q6asm_enc_cfg_blk_dts(struct audio_client *ac,
+			uint32_t sample_rate,
+			uint32_t channels)
+{
+	struct asm_stream_cmd_encdec_cfg_blk enc_cfg;
+	int rc = 0;
+
+	pr_debug("%s: sample_rate=%d,channels=%d\n", __func__,
+				sample_rate, channels);
+
+	q6asm_add_hdr(ac, &enc_cfg.hdr, sizeof(enc_cfg), TRUE);
+
+	enc_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
+	enc_cfg.param_id = ASM_ENCDEC_CFG_BLK_ID;
+	enc_cfg.param_size = sizeof(struct asm_encode_cfg_blk);
+	enc_cfg.enc_blk.frames_per_buf = 0;
+	enc_cfg.enc_blk.format_id = DTS;
+	enc_cfg.enc_blk.cfg_size  = sizeof(struct asm_dts_enc_cfg);
+	enc_cfg.enc_blk.cfg.dts.sample_rate = sample_rate;
+	enc_cfg.enc_blk.cfg.dts.num_channels = channels;
+	if (channels == 2) {
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[0] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[1] = PCM_CHANNEL_FR;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[2] = 0;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[3] = 0;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[4] = 0;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[5] = 0;
+	} else if (channels == 4) {
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[0] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[1] = PCM_CHANNEL_FR;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[2] = PCM_CHANNEL_LS;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[3] = PCM_CHANNEL_RS;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[4] = 0;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[5] = 0;
+	} else if (channels == 6) {
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[0] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[1] = PCM_CHANNEL_FR;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[2] = PCM_CHANNEL_LFE;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[3] = PCM_CHANNEL_LS;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[4] = PCM_CHANNEL_RS;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[5] = PCM_CHANNEL_FC;
+	}
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
+	if (rc < 0) {
+		pr_err("Comamnd %d failed\n", ASM_STREAM_CMD_SET_ENCDEC_PARAM);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("timeout. waited for FORMAT_UPDATE\n");
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
 }
 
 void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac, uint32_t *size,
