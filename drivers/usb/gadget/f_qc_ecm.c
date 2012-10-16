@@ -518,7 +518,7 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		if (ecm->port.in_ep->driver_data) {
 			DBG(cdev, "reset ecm\n");
-			gether_qc_disconnect(&ecm->port);
+			gether_qc_disconnect_name(&ecm->port, "ecm0");
 			ecm_qc_bam_disconnect(ecm);
 		}
 
@@ -548,7 +548,7 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				);
 			ecm->port.cdc_filter = DEFAULT_FILTER;
 			DBG(cdev, "activate ecm\n");
-			net = gether_qc_connect(&ecm->port);
+			net = gether_qc_connect_name(&ecm->port, "ecm0");
 			if (IS_ERR(net))
 				return PTR_ERR(net);
 
@@ -591,7 +591,7 @@ static void ecm_qc_disable(struct usb_function *f)
 	DBG(cdev, "ecm deactivated\n");
 
 	if (ecm->port.in_ep->driver_data) {
-		gether_qc_disconnect(&ecm->port);
+		gether_qc_disconnect_name(&ecm->port, "ecm0");
 		ecm_qc_bam_disconnect(ecm);
 	}
 

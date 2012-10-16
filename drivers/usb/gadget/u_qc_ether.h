@@ -78,14 +78,15 @@ struct qc_gether {
 
 /* netdev setup/teardown as directed by the gadget driver */
 int gether_qc_setup(struct usb_gadget *g, u8 ethaddr[ETH_ALEN]);
-void gether_qc_cleanup(void);
+void gether_qc_cleanup_name(const char *netname);
 /* variant of gether_setup that allows customizing network device name */
 int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 		const char *netname);
 
 /* connect/disconnect is handled by individual functions */
-struct net_device *gether_qc_connect(struct qc_gether *);
-void gether_qc_disconnect(struct qc_gether *);
+struct net_device *gether_qc_connect_name(struct qc_gether *link,
+		const char *netname);
+void gether_qc_disconnect_name(struct qc_gether *link, const char *netname);
 
 /* each configuration may bind one instance of an ethernet link */
 int ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN]);
