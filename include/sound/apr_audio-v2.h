@@ -1627,7 +1627,7 @@ struct afe_param_id_hdmi_multi_chan_audio_cfg {
  * Supported values: #AFE_API_VERSION_HDMI_CONFIG
  */
 
-u16                  dataype;
+u16                  datatype;
 /* data type
  * Supported values:
  * - #LINEAR_PCM_DATA
