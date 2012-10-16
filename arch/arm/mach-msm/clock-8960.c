@@ -376,7 +376,8 @@ enum vdd_dig_levels {
 	VDD_DIG_NONE,
 	VDD_DIG_LOW,
 	VDD_DIG_NOMINAL,
-	VDD_DIG_HIGH
+	VDD_DIG_HIGH,
+	VDD_DIG_NUM
 };
 
 static int set_vdd_dig_8960(struct clk_vdd_class *vdd_class, int level)
@@ -391,7 +392,7 @@ static int set_vdd_dig_8960(struct clk_vdd_class *vdd_class, int level)
 				    vdd_uv[level], 1150000, 1);
 }
 
-static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig_8960);
+static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig_8960, VDD_DIG_NUM);
 
 static int rpm_vreg_dig_8930 = RPM_VREG_ID_PM8038_VDD_DIG_CORNER;
 static int set_vdd_dig_8930(struct clk_vdd_class *vdd_class, int level)
@@ -409,21 +410,31 @@ static int set_vdd_dig_8930(struct clk_vdd_class *vdd_class, int level)
 }
 
 #define VDD_DIG_FMAX_MAP1(l1, f1) \
-	.vdd_class = &vdd_dig, \
-	.fmax[VDD_DIG_##l1] = (f1)
+	.vdd_class = &vdd_dig,			\
+	.fmax = (unsigned long[VDD_DIG_NUM]) {	\
+		[VDD_DIG_##l1] = (f1),		\
+	},					\
+	.num_fmax = VDD_DIG_NUM
 #define VDD_DIG_FMAX_MAP2(l1, f1, l2, f2) \
-	.vdd_class = &vdd_dig, \
-	.fmax[VDD_DIG_##l1] = (f1), \
-	.fmax[VDD_DIG_##l2] = (f2)
+	.vdd_class = &vdd_dig,			\
+	.fmax = (unsigned long[VDD_DIG_NUM]) {	\
+		[VDD_DIG_##l1] = (f1),		\
+		[VDD_DIG_##l2] = (f2),		\
+	},					\
+	.num_fmax = VDD_DIG_NUM
 #define VDD_DIG_FMAX_MAP3(l1, f1, l2, f2, l3, f3) \
-	.vdd_class = &vdd_dig, \
-	.fmax[VDD_DIG_##l1] = (f1), \
-	.fmax[VDD_DIG_##l2] = (f2), \
-	.fmax[VDD_DIG_##l3] = (f3)
+	.vdd_class = &vdd_dig,			\
+	.fmax = (unsigned long[VDD_DIG_NUM]) {	\
+		[VDD_DIG_##l1] = (f1),		\
+		[VDD_DIG_##l2] = (f2),		\
+		[VDD_DIG_##l3] = (f3),		\
+	},					\
+	.num_fmax = VDD_DIG_NUM
 
 enum vdd_sr2_hdmi_pll_levels {
 	VDD_SR2_HDMI_PLL_OFF,
-	VDD_SR2_HDMI_PLL_ON
+	VDD_SR2_HDMI_PLL_ON,
+	VDD_SR2_HDMI_PLL_NUM
 };
 
 static int set_vdd_sr2_hdmi_pll_8960(struct clk_vdd_class *vdd_class, int level)
@@ -455,7 +466,8 @@ static int set_vdd_sr2_hdmi_pll_8960(struct clk_vdd_class *vdd_class, int level)
 	return rc;
 }
 
-static DEFINE_VDD_CLASS(vdd_sr2_hdmi_pll, set_vdd_sr2_hdmi_pll_8960);
+static DEFINE_VDD_CLASS(vdd_sr2_hdmi_pll, set_vdd_sr2_hdmi_pll_8960,
+			VDD_SR2_HDMI_PLL_NUM);
 
 static int sr2_lreg_uv[] = {
 	[VDD_SR2_HDMI_PLL_OFF] = 0,
@@ -530,7 +542,10 @@ static struct pll_clk pll3_clk = {
 		.rate = 1200000000,
 		.ops = &clk_ops_local_pll,
 		.vdd_class = &vdd_sr2_hdmi_pll,
-		.fmax[VDD_SR2_HDMI_PLL_ON] = ULONG_MAX,
+		.fmax = (unsigned long[VDD_SR2_HDMI_PLL_NUM]) {
+			[VDD_SR2_HDMI_PLL_ON] = ULONG_MAX
+		},
+		.num_fmax = VDD_SR2_HDMI_PLL_NUM,
 		CLK_INIT(pll3_clk.c),
 	},
 };
@@ -1534,7 +1549,7 @@ static CLK_SDC(sdc3_clk, 3, 4, 104000000, 208000000);
 static CLK_SDC(sdc4_clk, 4, 3,  33000000,  67000000);
 static CLK_SDC(sdc5_clk, 5, 2,  33000000,  67000000);
 
-static unsigned long fmax_sdc1_8064v2[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_sdc1_8064v2[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 100000000,
 	[VDD_DIG_NOMINAL] = 200000000,
 };
@@ -1935,7 +1950,7 @@ static struct rcg_clk ce3_src_clk = {
 	},
 };
 
-static unsigned long fmax_ce3_8064v2[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_ce3_8064v2[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     =  57000000,
 	[VDD_DIG_NOMINAL] = 120000000,
 };
@@ -3582,25 +3597,25 @@ static struct clk_freq_tbl clk_tbl_gfx3d_8930[] = {
 	F_END
 };
 
-static unsigned long fmax_gfx3d_8064ab[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_gfx3d_8064ab[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 128000000,
 	[VDD_DIG_NOMINAL] = 325000000,
 	[VDD_DIG_HIGH]    = 450000000
 };
 
-static unsigned long fmax_gfx3d_8064[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_gfx3d_8064[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 128000000,
 	[VDD_DIG_NOMINAL] = 325000000,
 	[VDD_DIG_HIGH]    = 400000000
 };
 
-static unsigned long fmax_gfx3d_8930[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_gfx3d_8930[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 192000000,
 	[VDD_DIG_NOMINAL] = 320000000,
 	[VDD_DIG_HIGH]    = 400000000
 };
 
-static unsigned long fmax_gfx3d_8930aa[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_gfx3d_8930aa[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 192000000,
 	[VDD_DIG_NOMINAL] = 320000000,
 	[VDD_DIG_HIGH]    = 450000000
@@ -3752,7 +3767,7 @@ static struct clk_freq_tbl clk_tbl_ijpeg[] = {
 	F_END
 };
 
-static unsigned long fmax_ijpeg_8064[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_ijpeg_8064[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 128000000,
 	[VDD_DIG_NOMINAL] = 266667000,
 	[VDD_DIG_HIGH]    = 320000000
@@ -3879,7 +3894,7 @@ static struct clk_freq_tbl clk_tbl_mdp[] = {
 	F_END
 };
 
-static unsigned long fmax_mdp_8064[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_mdp_8064[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 128000000,
 	[VDD_DIG_NOMINAL] = 266667000
 };
@@ -4073,7 +4088,10 @@ static struct clk hdmi_pll_clk = {
 	.dbg_name = "hdmi_pll_clk",
 	.ops = &clk_ops_hdmi_pll,
 	.vdd_class = &vdd_sr2_hdmi_pll,
-	.fmax[VDD_SR2_HDMI_PLL_ON] = ULONG_MAX,
+	.fmax = (unsigned long [VDD_SR2_HDMI_PLL_NUM]) {
+		[VDD_SR2_HDMI_PLL_ON] = ULONG_MAX,
+	},
+	.num_fmax = VDD_SR2_HDMI_PLL_NUM,
 	CLK_INIT(hdmi_pll_clk),
 };
 
@@ -4105,7 +4123,7 @@ static struct clk_freq_tbl clk_tbl_tv[] = {
 	F_END
 };
 
-static unsigned long fmax_tv_src_8064[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_tv_src_8064[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     =  74250000,
 	[VDD_DIG_NOMINAL] = 149000000
 };
@@ -4344,7 +4362,7 @@ static struct rcg_clk vcodec_clk = {
 	},
 };
 
-static unsigned long fmax_vcodec_8064v2[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_vcodec_8064v2[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 100000000,
 	[VDD_DIG_NOMINAL] = 200000000,
 	[VDD_DIG_HIGH]    = 266670000,
@@ -4426,7 +4444,7 @@ static struct clk_freq_tbl clk_tbl_vfe[] = {
 	F_END
 };
 
-static unsigned long fmax_vfe_8064[MAX_VDD_LEVELS] __initdata = {
+static unsigned long fmax_vfe_8064[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 128000000,
 	[VDD_DIG_NOMINAL] = 266667000,
 	[VDD_DIG_HIGH]    = 320000000
@@ -6567,37 +6585,25 @@ static void __init msm8960_clock_pre_init(void)
 	 */
 	if (cpu_is_apq8064()) {
 		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8064;
-
-		memcpy(gfx3d_clk.c.fmax, fmax_gfx3d_8064,
-		       sizeof(gfx3d_clk.c.fmax));
+		gfx3d_clk.c.fmax = fmax_gfx3d_8064;
 	}
 	if (cpu_is_apq8064ab()) {
 		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8064;
-
-		memcpy(gfx3d_clk.c.fmax, fmax_gfx3d_8064ab,
-		       sizeof(gfx3d_clk.c.fmax));
+		gfx3d_clk.c.fmax = fmax_gfx3d_8064ab;
 	}
 	if ((cpu_is_apq8064() &&
 		SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) ||
 		cpu_is_apq8064ab()) {
 
-		memcpy(vcodec_clk.c.fmax, fmax_vcodec_8064v2,
-			sizeof(vcodec_clk.c.fmax));
-		memcpy(ce3_src_clk.c.fmax, fmax_ce3_8064v2,
-			sizeof(ce3_src_clk.c.fmax));
-		memcpy(sdc1_clk.c.fmax, fmax_sdc1_8064v2,
-			sizeof(sdc1_clk.c.fmax));
+		vcodec_clk.c.fmax = fmax_vcodec_8064v2;
+		ce3_src_clk.c.fmax = fmax_ce3_8064v2;
+		sdc1_clk.c.fmax = fmax_sdc1_8064v2;
 	}
 	if (cpu_is_apq8064() || cpu_is_apq8064ab()) {
-		memcpy(ijpeg_clk.c.fmax, fmax_ijpeg_8064,
-		       sizeof(ijpeg_clk.c.fmax));
-		memcpy(mdp_clk.c.fmax, fmax_mdp_8064,
-		       sizeof(ijpeg_clk.c.fmax));
-		memcpy(tv_src_clk.c.fmax, fmax_tv_src_8064,
-		       sizeof(tv_src_clk.c.fmax));
-		memcpy(vfe_clk.c.fmax, fmax_vfe_8064,
-		       sizeof(vfe_clk.c.fmax));
-
+		ijpeg_clk.c.fmax = fmax_ijpeg_8064;
+		mdp_clk.c.fmax = fmax_mdp_8064;
+		tv_src_clk.c.fmax = fmax_tv_src_8064;
+		vfe_clk.c.fmax = fmax_vfe_8064;
 		gmem_axi_clk.c.depends = &gfx3d_axi_clk.c;
 	}
 
@@ -6606,11 +6612,9 @@ static void __init msm8960_clock_pre_init(void)
 	 * clocks which differ between 8960 and 8930.
 	 */
 	if (cpu_is_msm8930() || cpu_is_msm8627()) {
-		memcpy(gfx3d_clk.c.fmax, fmax_gfx3d_8930,
-		       sizeof(gfx3d_clk.c.fmax));
+		gfx3d_clk.c.fmax = fmax_gfx3d_8930;
 	} else if (cpu_is_msm8930aa()) {
-		memcpy(gfx3d_clk.c.fmax, fmax_gfx3d_8930aa,
-		       sizeof(gfx3d_clk.c.fmax));
+		gfx3d_clk.c.fmax = fmax_gfx3d_8930aa;
 	}
 	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
 		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8930;
