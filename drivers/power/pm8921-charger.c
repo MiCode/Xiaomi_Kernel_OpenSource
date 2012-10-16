@@ -2903,6 +2903,12 @@ static irqreturn_t dcin_valid_irq_handler(int irq, void *data)
 		handle_start_ext_chg(chip);
 	else
 		handle_stop_ext_chg(chip);
+
+	if (!chip->ext_psy) {
+		power_supply_changed(&chip->dc_psy);
+		power_supply_changed(&chip->batt_psy);
+	}
+
 	return IRQ_HANDLED;
 }
 
