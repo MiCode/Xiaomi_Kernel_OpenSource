@@ -76,6 +76,82 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 
 };
 
+static struct gpiomux_setting sdc3_clk_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting sdc3_cmd_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting sdc3_data_0_3_active_cfg = {
+	.func = GPIOMUX_FUNC_6,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting sdc3_suspended_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting sdc3_data_1_suspended_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config sdc3_configs[] __initdata = {
+	{
+		.gpio      = 25,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &sdc3_clk_active_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspended_cfg,
+		},
+	},
+	{
+		.gpio      = 24,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &sdc3_cmd_active_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspended_cfg,
+		},
+
+	},
+	{
+		.gpio      = 16,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &sdc3_data_0_3_active_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspended_cfg,
+		},
+	},
+	{
+		.gpio      = 17,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &sdc3_data_0_3_active_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_data_1_suspended_cfg,
+		},
+	},
+	{
+		.gpio      = 18,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &sdc3_data_0_3_active_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspended_cfg,
+		},
+	},
+	{
+		.gpio      = 19,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &sdc3_data_0_3_active_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspended_cfg,
+		},
+	},
+};
+
 void __init msm9625_init_gpiomux(void)
 {
 	int rc;
@@ -87,4 +163,5 @@ void __init msm9625_init_gpiomux(void)
 	}
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+	msm_gpiomux_install(sdc3_configs, ARRAY_SIZE(sdc3_configs));
 }

@@ -2014,9 +2014,9 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("iface_clk", gcc_sdcc2_ahb_clk.c, "f98a4000.qcom,sdcc"),
 	CLK_LOOKUP("core_clk", gcc_sdcc2_apps_clk.c, "f98a4000.qcom,sdcc"),
 	CLK_LOOKUP("bus_clk",  pnoc_sdcc2_clk.c, "f98a4000.qcom,sdcc"),
-	CLK_LOOKUP("iface_clk", gcc_sdcc3_ahb_clk.c, ""),
-	CLK_LOOKUP("core_clk", gcc_sdcc3_apps_clk.c, ""),
-	CLK_LOOKUP("bus_clk", pnoc_sdcc3_clk.c, ""),
+	CLK_LOOKUP("iface_clk", gcc_sdcc3_ahb_clk.c, "f9864000.qcom,sdcc"),
+	CLK_LOOKUP("core_clk", gcc_sdcc3_apps_clk.c, "f9864000.qcom,sdcc"),
+	CLK_LOOKUP("bus_clk", pnoc_sdcc3_clk.c, "f9864000.qcom,sdcc"),
 
 	CLK_LOOKUP("iface_clk", gcc_usb_hs_ahb_clk.c,     "f9a55000.usb"),
 	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c,   "f9a55000.usb"),
