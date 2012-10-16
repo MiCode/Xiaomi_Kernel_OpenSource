@@ -47,9 +47,9 @@ int power_supply_set_current_limit(struct power_supply *psy, int limit)
 EXPORT_SYMBOL_GPL(power_supply_set_current_limit);
 
 /**
- * power_supply_set_online - set online state of the power supply
+ * power_supply_set_present - set present state of the power supply
  * @psy:	the power supply to control
- * @enable:	sets online property of power supply
+ * @enable:	sets present property of power supply
  */
 int power_supply_set_present(struct power_supply *psy, bool enable)
 {
