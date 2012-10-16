@@ -65,8 +65,8 @@ static int get_bus_vector(int load)
 	int i;
 	if (!load)
 		return 0;
-	for (i = num_rows - 1; i > 1; i--) {
-		if (load >= bus_table[i])
+	for (i = 0; i < num_rows; i++) {
+		if (load <= bus_table[i])
 			break;
 	}
 	dprintk(VIDC_DBG, "Required bus = %d\n", i);
