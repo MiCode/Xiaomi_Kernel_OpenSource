@@ -110,6 +110,7 @@ struct ion_cp_buffer {
 	phys_addr_t buffer;
 	atomic_t secure_cnt;
 	int is_secure;
+	int want_delayed_unsecure;
 	/*
 	 * Currently all user/kernel mapping is protected by the heap lock.
 	 * This is sufficient to protect the map count as well. The lock
@@ -121,6 +122,8 @@ struct ion_cp_buffer {
 	 * protects secure_cnt for securing.
 	 */
 	struct mutex lock;
+	int version;
+	void *data;
 };
 
 static int ion_cp_protect_mem(unsigned int phy_base, unsigned int size,
@@ -139,6 +142,145 @@ static unsigned long ion_cp_get_total_kmap_count(
 					const struct ion_cp_heap *cp_heap)
 {
 	return cp_heap->kmap_cached_count + cp_heap->kmap_uncached_count;
+}
+
+/* Must be protected by ion_cp_buffer lock */
+static int __ion_cp_protect_buffer(struct ion_buffer *buffer, int version,
+					void *data, int flags)
+{
+	struct ion_cp_buffer *buf = buffer->priv_virt;
+	int ret_value = 0;
+
+	if (atomic_inc_return(&buf->secure_cnt) == 1) {
+		ret_value = ion_cp_protect_mem(buf->buffer,
+				buffer->size, 0,
+				version, data);
+
+		if (ret_value) {
+			pr_err("Failed to secure buffer %p, error %d\n",
+				buffer, ret_value);
+			atomic_dec(&buf->secure_cnt);
+		} else {
+			pr_debug("Protected buffer %p from %x-%x\n",
+				buffer, buf->buffer,
+				buf->buffer + buffer->size);
+			buf->want_delayed_unsecure |=
+				flags & ION_UNSECURE_DELAYED ? 1 : 0;
+			buf->data = data;
+			buf->version = version;
+		}
+	}
+	pr_debug("buffer %p protect count %d\n", buffer,
+		atomic_read(&buf->secure_cnt));
+	BUG_ON(atomic_read(&buf->secure_cnt) < 0);
+	return ret_value;
+}
+
+/* Must be protected by ion_cp_buffer lock */
+static int __ion_cp_unprotect_buffer(struct ion_buffer *buffer, int version,
+					void *data, int force_unsecure)
+{
+	struct ion_cp_buffer *buf = buffer->priv_virt;
+	int ret_value = 0;
+
+	if (force_unsecure) {
+		if (!buf->is_secure || atomic_read(&buf->secure_cnt) == 0)
+			return 0;
+
+		if (atomic_read(&buf->secure_cnt) != 1) {
+			WARN(1, "Forcing unsecure of buffer with outstanding secure count %d!\n",
+				atomic_read(&buf->secure_cnt));
+			atomic_set(&buf->secure_cnt, 1);
+		}
+	}
+
+	if (atomic_dec_and_test(&buf->secure_cnt)) {
+		ret_value = ion_cp_unprotect_mem(
+			buf->buffer, buffer->size,
+			0, version, data);
+
+		if (ret_value) {
+			pr_err("Failed to unsecure buffer %p, error %d\n",
+				buffer, ret_value);
+			/*
+			 * If the force unsecure is happening, the buffer
+			 * is being destroyed. We failed to unsecure the
+			 * buffer even though the memory is given back.
+			 * Just die now rather than discovering later what
+			 * happens when trying to use the secured memory as
+			 * unsecured...
+			 */
+			BUG_ON(force_unsecure);
+			/* Bump the count back up one to try again later */
+			atomic_inc(&buf->secure_cnt);
+		} else {
+			buf->version = -1;
+			buf->data = NULL;
+		}
+	}
+	pr_debug("buffer %p unprotect count %d\n", buffer,
+		atomic_read(&buf->secure_cnt));
+	BUG_ON(atomic_read(&buf->secure_cnt) < 0);
+	return ret_value;
+}
+
+int ion_cp_secure_buffer(struct ion_buffer *buffer, int version, void *data,
+				int flags)
+{
+	int ret_value;
+	struct ion_cp_buffer *buf = buffer->priv_virt;
+
+	mutex_lock(&buf->lock);
+	if (!buf->is_secure) {
+		pr_err("%s: buffer %p was not allocated as secure\n",
+			__func__, buffer);
+		ret_value = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (ION_IS_CACHED(buffer->flags)) {
+		pr_err("%s: buffer %p was allocated as cached\n",
+			__func__, buffer);
+		ret_value = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (atomic_read(&buf->map_cnt)) {
+		pr_err("%s: cannot secure buffer %p with outstanding mappings. Total count: %d",
+			__func__, buffer, atomic_read(&buf->map_cnt));
+		ret_value = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (atomic_read(&buf->secure_cnt)) {
+		if (buf->version != version || buf->data != data) {
+			pr_err("%s: Trying to re-secure buffer with different values",
+				__func__);
+			pr_err("Last secured version: %d Currrent %d\n",
+				buf->version, version);
+			pr_err("Last secured data: %p current %p\n",
+				buf->data, data);
+			ret_value = -EINVAL;
+			goto out_unlock;
+		}
+	}
+	ret_value = __ion_cp_protect_buffer(buffer, version, data, flags);
+
+out_unlock:
+	mutex_unlock(&buf->lock);
+	return ret_value;
+}
+
+int ion_cp_unsecure_buffer(struct ion_buffer *buffer, int force_unsecure)
+{
+	int ret_value = 0;
+	struct ion_cp_buffer *buf = buffer->priv_virt;
+
+	mutex_lock(&buf->lock);
+	ret_value = __ion_cp_unprotect_buffer(buffer, buf->version, buf->data,
+						force_unsecure);
+	mutex_unlock(&buf->lock);
+	return ret_value;
 }
 
 /**
@@ -385,6 +527,7 @@ static int ion_cp_heap_allocate(struct ion_heap *heap,
 		return -ENOMEM;
 
 	buf->buffer = addr;
+	buf->want_delayed_unsecure = 0;
 	atomic_set(&buf->secure_cnt, 0);
 	mutex_init(&buf->lock);
 	buf->is_secure = flags & ION_SECURE ? 1 : 0;
@@ -983,6 +1126,8 @@ static struct ion_heap_ops cp_heap_ops = {
 	.unsecure_heap = ion_cp_unsecure_heap,
 	.map_iommu = ion_cp_heap_map_iommu,
 	.unmap_iommu = ion_cp_heap_unmap_iommu,
+	.secure_buffer = ion_cp_secure_buffer,
+	.unsecure_buffer = ion_cp_unsecure_buffer,
 };
 
 struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)

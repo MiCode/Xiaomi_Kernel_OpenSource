@@ -147,6 +147,9 @@ struct ion_heap_ops {
 			   const struct rb_root *mem_map);
 	int (*secure_heap)(struct ion_heap *heap, int version, void *data);
 	int (*unsecure_heap)(struct ion_heap *heap, int version, void *data);
+	int (*secure_buffer)(struct ion_buffer *buffer, int version,
+				void *data, int flags);
+	int (*unsecure_buffer)(struct ion_buffer *buffer, int force_unsecure);
 };
 
 /**
@@ -307,4 +310,10 @@ void ion_cp_heap_get_base(struct ion_heap *heap, unsigned long *base,
 
 void ion_mem_map_show(struct ion_heap *heap);
 
+
+
+int ion_secure_handle(struct ion_client *client, struct ion_handle *handle,
+			int version, void *data, int flags);
+
+int ion_unsecure_handle(struct ion_client *client, struct ion_handle *handle);
 #endif /* _ION_PRIV_H */
