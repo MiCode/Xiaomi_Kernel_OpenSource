@@ -136,11 +136,11 @@ static const struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_IFRAME,
 		.name = "Request I Frame",
-		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.type = V4L2_CTRL_TYPE_BUTTON,
 		.minimum = 0,
-		.maximum = 1,
+		.maximum = 0,
 		.default_value = 0,
-		.step = 1,
+		.step = 0,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
@@ -824,7 +824,7 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_IFRAME:
 		property_id =
 			HAL_CONFIG_VENC_REQUEST_IFRAME;
-		request_iframe.enable = control.value;
+		request_iframe.enable = true;
 		pdata = &request_iframe;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL:
