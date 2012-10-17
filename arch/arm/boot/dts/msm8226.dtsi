@@ -73,3 +73,5 @@
 	};
 
 };
+
+/include/ "msm8226-regulator.dtsi"
