@@ -479,7 +479,7 @@ static int qpnp_lpg_change_table(struct pwm_device *pwm,
 		return -EINVAL;
 	}
 
-	for (i = 0; i <= lut->list_len; i++) {
+	for (i = 0; i < lut->list_len; i++) {
 		if (raw_value)
 			pwm_value = duty_pct[i];
 		else
