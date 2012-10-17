@@ -4020,10 +4020,6 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 			if (ret)
 				goto remove_phy;
 		}
-	} else {
-		ret = msm_otg_register_power_supply(pdev, motg);
-		if (ret)
-			goto remove_phy;
 	}
 
 	return 0;
