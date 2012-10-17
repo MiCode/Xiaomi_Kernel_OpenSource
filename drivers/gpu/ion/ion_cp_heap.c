@@ -85,8 +85,8 @@ struct ion_cp_heap {
 	unsigned int heap_protected;
 	unsigned long allocated_bytes;
 	unsigned long total_size;
-	int (*request_region)(void *);
-	int (*release_region)(void *);
+	int (*heap_request_region)(void *);
+	int (*heap_release_region)(void *);
 	void *bus_id;
 	unsigned long kmap_cached_count;
 	unsigned long kmap_uncached_count;
@@ -148,7 +148,6 @@ static int ion_on_first_alloc(struct ion_heap *heap)
 {
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
-
 	int ret_value;
 
 	if (cp_heap->reusable) {
@@ -632,8 +631,9 @@ static int ion_cp_request_region(struct ion_cp_heap *cp_heap)
 {
 	int ret_value = 0;
 	if ((cp_heap->umap_count + ion_cp_get_total_kmap_count(cp_heap)) == 0)
-		if (cp_heap->request_region)
-			ret_value = cp_heap->request_region(cp_heap->bus_id);
+		if (cp_heap->heap_request_region)
+			ret_value = cp_heap->heap_request_region(
+					cp_heap->bus_id);
 	return ret_value;
 }
 
@@ -644,8 +644,9 @@ static int ion_cp_release_region(struct ion_cp_heap *cp_heap)
 {
 	int ret_value = 0;
 	if ((cp_heap->umap_count + ion_cp_get_total_kmap_count(cp_heap)) == 0)
-		if (cp_heap->release_region)
-			ret_value = cp_heap->release_region(cp_heap->bus_id);
+		if (cp_heap->heap_release_region)
+			ret_value = cp_heap->heap_release_region(
+					cp_heap->bus_id);
 	return ret_value;
 }
 
@@ -1186,9 +1187,11 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 		if (extra_data->setup_region)
 			cp_heap->bus_id = extra_data->setup_region();
 		if (extra_data->request_region)
-			cp_heap->request_region = extra_data->request_region;
+			cp_heap->heap_request_region =
+				extra_data->request_region;
 		if (extra_data->release_region)
-			cp_heap->release_region = extra_data->release_region;
+			cp_heap->heap_release_region =
+				extra_data->release_region;
 		cp_heap->iommu_map_all =
 				extra_data->iommu_map_all;
 		cp_heap->iommu_2x_map_domain =
