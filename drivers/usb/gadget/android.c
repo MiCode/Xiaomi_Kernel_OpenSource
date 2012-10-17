@@ -636,7 +636,7 @@ static int ecm_qc_function_bind_config(struct android_usb_function *f,
 static void ecm_qc_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
-	gether_qc_cleanup();
+	gether_qc_cleanup_name("ecm0");
 }
 
 static ssize_t ecm_ethaddr_show(struct device *dev,
@@ -1181,7 +1181,7 @@ static void rndis_function_unbind_config(struct android_usb_function *f,
 static void rndis_qc_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
-	gether_qc_cleanup();
+	gether_qc_cleanup_name("rndis0");
 }
 
 static ssize_t rndis_manufacturer_show(struct device *dev,

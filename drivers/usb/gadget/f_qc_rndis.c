@@ -661,7 +661,7 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		if (rndis->port.in_ep->driver_data) {
 			DBG(cdev, "reset rndis\n");
-			gether_qc_disconnect(&rndis->port);
+			gether_qc_disconnect_name(&rndis->port, "rndis0");
 			rndis_qc_bam_disconnect(rndis);
 		}
 
@@ -695,7 +695,7 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		rndis->port.cdc_filter = 0;
 
 		DBG(cdev, "RNDIS RX/TX early activation ...\n");
-		net = gether_qc_connect(&rndis->port);
+		net = gether_qc_connect_name(&rndis->port, "rndis0");
 		if (IS_ERR(net))
 			return PTR_ERR(net);
 
@@ -722,7 +722,7 @@ static void rndis_qc_disable(struct usb_function *f)
 	pr_info("rndis deactivated\n");
 
 	rndis_uninit(rndis->config);
-	gether_qc_disconnect(&rndis->port);
+	gether_qc_disconnect_name(&rndis->port, "rndis0");
 	rndis_qc_bam_disconnect(rndis);
 
 	usb_ep_disable(rndis->notify);

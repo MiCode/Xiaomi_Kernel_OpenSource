@@ -222,8 +222,6 @@ static int get_qc_ether_addr(const char *str, u8 *dev_addr)
 	return 1;
 }
 
-static struct eth_qc_dev *qc_dev;
-
 static const struct net_device_ops eth_qc_netdev_ops = {
 	.ndo_open		= eth_qc_open,
 	.ndo_stop		= eth_qc_stop,
@@ -276,9 +274,6 @@ int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	struct net_device	*net;
 	int			status;
 
-	if (qc_dev)
-		return -EBUSY;
-
 	net = alloc_etherdev(sizeof *dev);
 	if (!net)
 		return -ENOMEM;
@@ -318,32 +313,33 @@ int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 		INFO(dev, "MAC %pM\n", net->dev_addr);
 		INFO(dev, "HOST MAC %pM\n", dev->host_mac);
 
-		qc_dev = dev;
 	}
 
 	return status;
 }
 
 /**
- * gether_qc_cleanup - remove Ethernet-over-USB device
+ * gether_qc_cleanup_name - remove Ethernet-over-USB device
  * Context: may sleep
  *
  * This is called to free all resources allocated by @gether_qc_setup().
  */
-void gether_qc_cleanup(void)
+void gether_qc_cleanup_name(const char *netname)
 {
-	if (!qc_dev)
-		return;
+	struct net_device *net_dev;
 
-	unregister_netdev(qc_dev->net);
-	free_netdev(qc_dev->net);
+	/* Extract the eth_qc_dev from the net device */
+	net_dev = dev_get_by_name(&init_net, netname);
 
-	qc_dev = NULL;
+	if (net_dev) {
+		unregister_netdev(net_dev);
+		free_netdev(net_dev);
+	}
 }
 
-
 /**
- * gether_qc_connect - notify network layer that USB link is active
+ * gether_qc_connect_name - notify network layer that USB link
+ * is active
  * @link: the USB link, set up with endpoints, descriptors matching
  *	current device speed, and any framing wrapper(s) set up.
  * Context: irqs blocked
@@ -351,9 +347,15 @@ void gether_qc_cleanup(void)
  * This is called to let the network layer know the connection
  * is active ("carrier detect").
  */
-struct net_device *gether_qc_connect(struct qc_gether *link)
+struct net_device *gether_qc_connect_name(struct qc_gether *link,
+		const char *netname)
 {
-	struct eth_qc_dev		*dev = qc_dev;
+	struct net_device *net_dev;
+	struct eth_qc_dev *dev;
+
+	/* Extract the eth_qc_dev from the net device */
+	net_dev = dev_get_by_name(&init_net, netname);
+	dev = netdev_priv(net_dev);
 
 	if (!dev)
 		return ERR_PTR(-EINVAL);
@@ -381,7 +383,8 @@ struct net_device *gether_qc_connect(struct qc_gether *link)
 }
 
 /**
- * gether_qc_disconnect - notify network layer that USB link is inactive
+ * gether_qc_disconnect_name - notify network layer that USB
+ * link is inactive
  * @link: the USB link, on which gether_connect() was called
  * Context: irqs blocked
  *
@@ -390,9 +393,14 @@ struct net_device *gether_qc_connect(struct qc_gether *link)
  *
  * On return, the state is as if gether_connect() had never been called.
  */
-void gether_qc_disconnect(struct qc_gether *link)
+void gether_qc_disconnect_name(struct qc_gether *link, const char *netname)
 {
-	struct eth_qc_dev		*dev = link->ioport;
+	struct net_device *net_dev;
+	struct eth_qc_dev *dev;
+
+	/* Extract the eth_qc_dev from the net device */
+	net_dev = dev_get_by_name(&init_net, netname);
+	dev = netdev_priv(net_dev);
 
 	if (!dev)
 		return;
