@@ -514,18 +514,19 @@ void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
 	void *addr = memdesc->hostptr;
 	int size = memdesc->size;
 
-	switch (op) {
-	case KGSL_CACHE_OP_FLUSH:
-		dmac_flush_range(addr, addr + size);
-		break;
-	case KGSL_CACHE_OP_CLEAN:
-		dmac_clean_range(addr, addr + size);
-		break;
-	case KGSL_CACHE_OP_INV:
-		dmac_inv_range(addr, addr + size);
-		break;
+	if (addr !=  NULL) {
+		switch (op) {
+		case KGSL_CACHE_OP_FLUSH:
+			dmac_flush_range(addr, addr + size);
+			break;
+		case KGSL_CACHE_OP_CLEAN:
+			dmac_clean_range(addr, addr + size);
+			break;
+		case KGSL_CACHE_OP_INV:
+			dmac_inv_range(addr, addr + size);
+			break;
+		}
 	}
-
 	outer_cache_range_op_sg(memdesc->sg, memdesc->sglen, op);
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);

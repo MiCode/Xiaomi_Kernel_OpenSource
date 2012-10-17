@@ -129,7 +129,8 @@ struct kgsl_memdesc_ops {
 /* shared memory allocation */
 struct kgsl_memdesc {
 	struct kgsl_pagetable *pagetable;
-	void *hostptr;
+	void *hostptr; /* kernel virtual address */
+	unsigned long useraddr; /* userspace address */
 	unsigned int gpuaddr;
 	unsigned int physaddr;
 	unsigned int size;
