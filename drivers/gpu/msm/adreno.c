@@ -1467,6 +1467,7 @@ static int adreno_setup_recovery_data(struct kgsl_device *device,
 		ret = -ENOMEM;
 		goto done;
 	}
+	rec_data->fault = device->mmu.fault;
 
 done:
 	if (ret) {
@@ -1529,9 +1530,9 @@ _adreno_recover_hang(struct kgsl_device *device,
 			goto done;
 	}
 
-	/* Do not try the bad caommands if recovery has failed bad commands
-	 * once already */
-	if (!try_bad_commands)
+	/* Do not try the bad commands if recovery has failed bad commands
+	 * once already or if hang is due to a fault */
+	if (!try_bad_commands || rec_data->fault)
 		rec_data->bad_rb_size = 0;
 
 	if (rec_data->bad_rb_size) {
