@@ -592,7 +592,7 @@ static int vidc_hal_core_start_cpu(struct hal_device *device)
 	u32 ctrl_status = 0, count = 0, rc = 0;
 	int max_tries = 100;
 	write_register(device->hal_data->register_base_addr,
-			VIDC_WRAPPER_INTR_MASK, 0, 0);
+			VIDC_WRAPPER_INTR_MASK, 0x8, 0);
 	write_register(device->hal_data->register_base_addr,
 			VIDC_CPU_CS_SCIACMDARG3, 1, 0);
 	while (!ctrl_status && count < max_tries) {
