@@ -1070,7 +1070,7 @@ static int msm_pc_debug_probe(struct platform_device *pdev)
 
 	msm_pc_debug_counters_phys = res->start;
 	WARN_ON(resource_size(res) < SZ_64);
-	msm_pc_debug_counters = devm_ioremap(&pdev->dev, res->start,
+	msm_pc_debug_counters = devm_ioremap_nocache(&pdev->dev, res->start,
 					resource_size(res));
 
 	if (!msm_pc_debug_counters)
