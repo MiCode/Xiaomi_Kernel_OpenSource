@@ -35,6 +35,7 @@
 #include <mach/msm_memtypes.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_smd.h>
+#include <mach/scm.h>
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/mpm.h>
@@ -44,6 +45,9 @@
 #include "spm.h"
 
 #define MSM_KERNEL_EBI_SIZE	0x51000
+#define SCM_SVC_L2CC_PL310	16
+#define L2CC_PL310_CTRL_ID	1
+#define L2CC_PL310_ON		1
 
 static struct memtype_reserve msm9625_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -133,7 +137,8 @@ static struct of_device_id mpm_match[] __initdata = {
 void __init msm9625_init_irq(void)
 {
 	struct device_node *node;
-	l2x0_of_init(L2CC_AUX_CTRL, L2X0_AUX_CTRL_MASK);
+	scm_call_atomic1(SCM_SVC_L2CC_PL310, L2CC_PL310_CTRL_ID, L2CC_PL310_ON);
+	l2x0_of_init(0, ~0UL);
 	of_irq_init(irq_match);
 	node = of_find_matching_node(NULL, mpm_match);
 
