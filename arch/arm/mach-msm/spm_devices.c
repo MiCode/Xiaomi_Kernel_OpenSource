@@ -260,9 +260,17 @@ EXPORT_SYMBOL(msm_spm_apcs_set_vdd);
 
 int msm_spm_apcs_set_phase(unsigned int phase_cnt)
 {
-	return msm_spm_drv_set_phase(&msm_spm_l2_device.reg_data, phase_cnt);
+	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device.reg_data,
+			MSM_SPM_PMIC_PHASE_PORT, phase_cnt);
 }
 EXPORT_SYMBOL(msm_spm_apcs_set_phase);
+
+int msm_spm_enable_fts_lpm(uint32_t mode)
+{
+	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device.reg_data,
+			MSM_SPM_PMIC_PFM_PORT, mode);
+}
+EXPORT_SYMBOL(msm_spm_enable_fts_lpm);
 
 /* Board file init function */
 int __init msm_spm_l2_init(struct msm_spm_platform_data *data)
@@ -361,25 +369,6 @@ static int __devinit msm_spm_dev_probe(struct platform_device *pdev)
 	if (!ret)
 		spm_data.vctl_timeout_us = val;
 
-	/* optional */
-	key = "qcom,vctl-port";
-	ret = of_property_read_u32(node, key, &val);
-	if (!ret)
-		spm_data.vctl_port = val;
-
-	/* optional */
-	key = "qcom,phase-port";
-	ret = of_property_read_u32(node, key, &val);
-	if (!ret)
-		spm_data.phase_port = val;
-
-	for (i = 0; i < ARRAY_SIZE(spm_of_data); i++) {
-		ret = of_property_read_u32(node, spm_of_data[i].key, &val);
-		if (ret)
-			continue;
-		spm_data.reg_init_values[spm_of_data[i].id] = val;
-	}
-
 	/*
 	 * Device with id 0..NR_CPUS are SPM for apps cores
 	 * Device with id 0xFFFF is for L2 SPM.
@@ -393,6 +382,35 @@ static int __devinit msm_spm_dev_probe(struct platform_device *pdev)
 		mode_of_data = of_l2_modes;
 		num_modes = ARRAY_SIZE(of_l2_modes);
 		dev = &msm_spm_l2_device;
+	}
+
+	spm_data.vctl_port = -1;
+	spm_data.phase_port = -1;
+	spm_data.pfm_port = -1;
+
+	/* optional */
+	if (dev == &msm_spm_l2_device) {
+		key = "qcom,vctl-port";
+		ret = of_property_read_u32(node, key, &val);
+		if (!ret)
+			spm_data.vctl_port = val;
+
+		key = "qcom,phase-port";
+		ret = of_property_read_u32(node, key, &val);
+		if (!ret)
+			spm_data.phase_port = val;
+
+		key = "qcom,pfm-port";
+		ret = of_property_read_u32(node, key, &val);
+		if (!ret)
+			spm_data.pfm_port = val;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(spm_of_data); i++) {
+		ret = of_property_read_u32(node, spm_of_data[i].key, &val);
+		if (ret)
+			continue;
+		spm_data.reg_init_values[spm_of_data[i].id] = val;
 	}
 
 	for (i = 0; i < num_modes; i++) {
