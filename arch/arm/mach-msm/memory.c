@@ -62,7 +62,7 @@ void map_page_strongly_ordered(void)
 	map.pfn = __phys_to_pfn(phys);
 	map.virtual = MSM_STRONGLY_ORDERED_PAGE;
 	map.length = PAGE_SIZE;
-	map.type = MT_DEVICE_STRONGLY_ORDERED;
+	map.type = MT_MEMORY_SO;
 	create_mapping(&map);
 
 	printk(KERN_ALERT "Initialized strongly ordered page successfully\n");
