@@ -1144,6 +1144,14 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 
 #endif	/* CONFIG_PM */
 
+static void ehci_msm_set_autosuspend_delay(struct usb_device *dev)
+{
+	if (!dev->parent) /*for root hub no delay*/
+		pm_runtime_set_autosuspend_delay(&dev->dev, 0);
+	else
+		pm_runtime_set_autosuspend_delay(&dev->dev, 200);
+}
+
 static struct hc_driver msm_hsic_driver = {
 	.description		= hcd_name,
 	.product_desc		= "Qualcomm EHCI Host Controller using HSIC",
@@ -1194,6 +1202,8 @@ static struct hc_driver msm_hsic_driver = {
 
 	.enable_ulpi_control	= ehci_msm_enable_ulpi_control,
 	.disable_ulpi_control	= ehci_msm_disable_ulpi_control,
+
+	.set_autosuspend_delay = ehci_msm_set_autosuspend_delay,
 };
 
 static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
