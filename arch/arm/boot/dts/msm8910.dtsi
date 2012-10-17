@@ -62,4 +62,45 @@
 		compatible = "qcom,android-usb";
 	};
 
+	sdcc1: qcom,sdcc@f9824000 {
+		cell-index = <1>; /* SDC1 eMMC slot */
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf9824000 0x800>;
+		reg-names = "core_mem";
+		interrupts = <0 123 0>;
+		interrupt-names = "core_irq";
+
+		qcom,sdcc-pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,sdcc-pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,sdcc-pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+		qcom,sdcc-pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,sdcc-sup-voltages = <2950 2950>;
+		qcom,sdcc-bus-width = <8>;
+		qcom,sdcc-nonremovable;
+		qcom,sdcc-bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+	};
+
+	sdcc2: qcom,sdcc@f98a4000 {
+		cell-index = <2>; /* SDC2 SD card slot */
+		compatible = "qcom,msm-sdcc";
+		reg = <0xf98a4000 0x800>;
+		reg-names = "core_mem";
+		interrupts = <0 125 0>;
+		interrupt-names = "core_irq";
+
+		qcom,sdcc-pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,sdcc-pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,sdcc-pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+		qcom,sdcc-pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,sdcc-sup-voltages = <2950 2950>;
+		qcom,sdcc-bus-width = <4>;
+		qcom,sdcc-xpc;
+		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+		qcom,sdcc-current-limit = <800>;
+	};
+
 };

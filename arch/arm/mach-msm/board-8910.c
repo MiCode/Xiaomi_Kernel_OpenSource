@@ -48,6 +48,9 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk", NULL, "f9824000.qcom,sdcc", OFF),
 	CLK_DUMMY("core_clk", NULL, "f9824000.qcom,sdcc", OFF),
 	CLK_DUMMY("bus_clk",  NULL, "f9824000.qcom,sdcc", OFF),
+	CLK_DUMMY("iface_clk", NULL, "f98a4000.qcom,sdcc", OFF),
+	CLK_DUMMY("core_clk", NULL, "f98a4000.qcom,sdcc", OFF),
+	CLK_DUMMY("bus_clk",  NULL, "f98a4000.qcom,sdcc", OFF),
 };
 
 struct clock_init_data msm_dummy_clock_init_data __initdata = {
