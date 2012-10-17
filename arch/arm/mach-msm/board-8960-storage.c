@@ -327,9 +327,11 @@ static struct mmc_platform_data msm8960_sdc3_data = {
 #endif
 	.vreg_data	= &mmc_slot_vreg_data[SDCC3],
 	.pin_data	= &mmc_slot_pin_data[SDCC3],
+#ifndef CONFIG_MMC_MSM_SDC3_POLLING
 	.status_gpio	= PM8921_GPIO_PM_TO_SYS(26),
 	.status_irq	= PM8921_GPIO_IRQ(PM8921_IRQ_BASE, 26),
 	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+#endif
 	.is_status_gpio_active_low = true,
 	.xpc_cap	= 1,
 	.uhs_caps	= (MMC_CAP_UHS_SDR12 | MMC_CAP_UHS_SDR25 |

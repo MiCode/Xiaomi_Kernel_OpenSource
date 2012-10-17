@@ -500,6 +500,10 @@ config MMC_MSM_SDC3_SUPPORT
 	help
 	  Select Y to enable Slot 3.
 
+config MMC_MSM_SDC3_POLLING
+	boolean "Qualcomm SDC3 support"
+	depends on MMC_MSM
+
 config MMC_MSM_SDC3_8_BIT_SUPPORT
 	boolean "Qualcomm SDC3 8bit support"
 	depends on MMC_MSM_SDC3_SUPPORT
