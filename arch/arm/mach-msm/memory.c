@@ -278,7 +278,8 @@ void __init msm_reserve(void)
 	unsigned long msm_fixed_area_start;
 
 	memory_pool_init();
-	reserve_info->calculate_reserve_sizes();
+	if (reserve_info->calculate_reserve_sizes)
+		reserve_info->calculate_reserve_sizes();
 
 	msm_fixed_area_size = reserve_info->fixed_area_size;
 	msm_fixed_area_start = reserve_info->fixed_area_start;
