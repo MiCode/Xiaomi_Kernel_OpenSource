@@ -5,6 +5,9 @@ Required properties:
 	- "qcom,msm-smmu-v2"
 - reg : offset and length of the register set for the device.
 
+Optional properties:
+- qcom,iommu-secure-id : Secure identifier for the IOMMU block
+
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:
 
