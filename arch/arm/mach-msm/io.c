@@ -25,6 +25,7 @@
 #include <mach/hardware.h>
 #include <asm/page.h>
 #include <mach/msm_iomap.h>
+#include <mach/memory.h>
 #include <asm/mach/map.h>
 #include <linux/dma-mapping.h>
 
@@ -99,6 +100,7 @@ void __init msm_map_common_io(void)
 	asm("mcr p15, 0, %0, c15, c2, 4" : : "r" (0));
 #endif
 	msm_map_io(msm_io_desc, ARRAY_SIZE(msm_io_desc));
+	map_page_strongly_ordered();
 }
 #endif
 
@@ -452,6 +454,7 @@ static struct map_desc msm8625_io_desc[] __initdata = {
 void __init msm_map_msm8625_io(void)
 {
 	msm_map_io(msm8625_io_desc, ARRAY_SIZE(msm8625_io_desc));
+	map_page_strongly_ordered();
 }
 #else
 void __init msm_map_msm8625_io(void) { return; }
