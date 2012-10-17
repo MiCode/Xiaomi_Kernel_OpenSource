@@ -923,19 +923,22 @@ kgsl_iommu_map(void *mmu_specific_pt,
 	unsigned int iommu_virt_addr;
 	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
 	int size = kgsl_sg_size(memdesc->sg, memdesc->sglen);
+	unsigned int iommu_flags = IOMMU_READ;
 
 	BUG_ON(NULL == iommu_pt);
 
+	if (protflags & GSL_PT_PAGE_WV)
+		iommu_flags |= IOMMU_WRITE;
 
 	iommu_virt_addr = memdesc->gpuaddr;
 
 	ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr, memdesc->sg,
-				size, (IOMMU_READ | IOMMU_WRITE));
+				size, iommu_flags);
 	if (ret) {
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %d, %d) "
 				"failed with err: %d\n", iommu_pt->domain,
 				iommu_virt_addr, memdesc->sg, size,
-				(IOMMU_READ | IOMMU_WRITE), ret);
+				iommu_flags, ret);
 		return ret;
 	}
 
