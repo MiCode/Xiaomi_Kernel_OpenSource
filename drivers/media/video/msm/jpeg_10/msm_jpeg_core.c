@@ -159,7 +159,7 @@ void *msm_jpeg_core_reset_ack_irq(int jpeg_irq_status,
 void *msm_jpeg_core_err_irq(int jpeg_irq_status,
 	struct msm_jpeg_device *pgmn_dev)
 {
-	JPEG_PR_ERR("%s:%d]\n", __func__, jpeg_irq_status);
+	JPEG_PR_ERR("%s: Error %x\n", __func__, jpeg_irq_status);
 	return NULL;
 }
 
@@ -211,6 +211,7 @@ irqreturn_t msm_jpeg_core_irq(int irq_num, void *context)
 
 	if (msm_jpeg_hw_irq_is_frame_done(jpeg_irq_status)) {
 		/* send fe ping pong irq */
+		JPEG_DBG_HIGH("%s:%d] Session done\n", __func__, __LINE__);
 		data = msm_jpeg_core_fe_pingpong_irq(jpeg_irq_status,
 			pgmn_dev);
 		if (msm_jpeg_irq_handler)

@@ -132,6 +132,10 @@ struct msm_jpeg_hw_cmd hw_cmd_fe_ping_update[] = {
 		JPEG_PLN1_RD_OFFSET_BMSK, {0} },
 	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, JPEG_PLN1_RD_PNTR_ADDR,
 		JPEG_PLN1_RD_PNTR_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, JPEG_PLN2_RD_OFFSET_ADDR,
+		JPEG_PLN1_RD_OFFSET_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, JPEG_PLN2_RD_PNTR_ADDR,
+		JPEG_PLN2_RD_PNTR_BMSK, {0} },
 };
 
 void msm_jpeg_hw_fe_buffer_update(struct msm_jpeg_hw_buf *p_input,
@@ -156,7 +160,11 @@ void msm_jpeg_hw_fe_buffer_update(struct msm_jpeg_hw_buf *p_input,
 		hw_cmd_p->data = p_input->cbcr_buffer_addr;
 		msm_jpeg_hw_write(hw_cmd_p++, base);
 		wmb();
-
+		msm_jpeg_hw_write(hw_cmd_p++, base);
+		wmb();
+		hw_cmd_p->data = p_input->pln2_addr;
+		msm_jpeg_hw_write(hw_cmd_p++, base);
+		wmb();
 	}
 	return;
 }
@@ -215,6 +223,7 @@ void msm_jpeg_hw_we_buffer_update(struct msm_jpeg_hw_buf *p_input,
 		JPEG_PR_ERR("%s Output pln1 buffer address is %x\n", __func__,
 			p_input->cbcr_buffer_addr);
 		msm_jpeg_hw_write(hw_cmd_p++, base);
+		hw_cmd_p->data = p_input->pln2_addr;
 		JPEG_PR_ERR("%s Output pln2 buffer address is %x\n", __func__,
 			p_input->pln2_addr);
 		msm_jpeg_hw_write(hw_cmd_p++, base);

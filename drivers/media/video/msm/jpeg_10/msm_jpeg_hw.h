@@ -29,7 +29,7 @@ struct msm_jpeg_hw_buf {
 	uint32_t num_of_mcu_rows;
 	struct ion_handle *handle;
 	uint32_t pln2_addr;
-	uint32_t pln2_offset;
+	uint32_t pln2_len;
 };
 
 struct msm_jpeg_hw_pingpong {
