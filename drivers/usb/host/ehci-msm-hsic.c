@@ -649,6 +649,7 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	int cnt = 0, ret;
 	u32 val;
 	int none_vol, max_vol;
+	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
 
 	if (atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "%s called in lpm\n", __func__);
@@ -727,6 +728,10 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	enable_irq_wake(mehci->wakeup_irq);
 	enable_irq(mehci->wakeup_irq);
 
+	if (pdata && pdata->standalone_latency)
+		pm_qos_update_request(&mehci->pm_qos_req_dma,
+			PM_QOS_DEFAULT_VALUE);
+
 	wake_unlock(&mehci->wlock);
 
 	dev_info(mehci->dev, "HSIC-USB in low power mode\n");
@@ -741,11 +746,16 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	unsigned temp;
 	int min_vol, max_vol;
 	unsigned long flags;
+	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
 
 	if (!atomic_read(&mehci->in_lpm)) {
 		dev_dbg(mehci->dev, "%s called in !in_lpm\n", __func__);
 		return 0;
 	}
+
+	if (pdata && pdata->standalone_latency)
+		pm_qos_update_request(&mehci->pm_qos_req_dma,
+			pdata->standalone_latency + 1);
 
 	spin_lock_irqsave(&mehci->wakeup_lock, flags);
 	if (mehci->wakeup_irq_enabled) {
@@ -1039,9 +1049,9 @@ resume_again:
 				pm_qos_update_request(&mehci->pm_qos_req_dma,
 					pdata->swfi_latency + 1);
 			wait_for_completion(&mehci->gpt0_completion);
-			if (pdata && pdata->swfi_latency)
+			if (pdata && pdata->standalone_latency)
 				pm_qos_update_request(&mehci->pm_qos_req_dma,
-					PM_QOS_DEFAULT_VALUE);
+					pdata->standalone_latency + 1);
 			spin_lock_irq(&ehci->lock);
 		} else {
 			dbg_log_event(NULL, "FPR: Tightloop", 0);
@@ -1653,9 +1663,9 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	__mehci = mehci;
 
-	if (pdata && pdata->swfi_latency)
+	if (pdata && pdata->standalone_latency)
 		pm_qos_add_request(&mehci->pm_qos_req_dma,
-			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+			PM_QOS_CPU_DMA_LATENCY, pdata->standalone_latency + 1);
 
 	/*
 	 * This pdev->dev is assigned parent of root-hub by USB core,
@@ -1694,7 +1704,7 @@ static int ehci_hsic_msm_remove(struct platform_device *pdev)
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
 
-	if (pdata && pdata->swfi_latency)
+	if (pdata && pdata->standalone_latency)
 		pm_qos_remove_request(&mehci->pm_qos_req_dma);
 
 	if (mehci->peripheral_status_irq)
