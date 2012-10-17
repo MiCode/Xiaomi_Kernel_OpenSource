@@ -501,7 +501,7 @@ int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 	buf = container_of(vb, struct vcap_buffer, vb);
 
 	buf->ion_handle = ion_import_dma_buf(dev->ion_client, b->m.userptr);
-	if (IS_ERR((void *)buf->ion_handle)) {
+	if (IS_ERR_OR_NULL((void *)buf->ion_handle)) {
 		pr_err("%s: Could not alloc memory\n", __func__);
 		buf->ion_handle = NULL;
 		return -ENOMEM;
@@ -521,23 +521,32 @@ int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 	return 0;
 }
 
-void free_ion_handle_work(struct vcap_dev *dev, struct vb2_buffer *vb)
+void free_ion_handle_work(struct vcap_client_data *c_data,
+	struct vb2_buffer *vb)
 {
 	struct vcap_buffer *buf;
+	struct vcap_dev *dev = c_data->dev;
+	struct ion_handle *handle;
+	unsigned long flags = 0;
 
 	buf = container_of(vb, struct vcap_buffer, vb);
-	if (buf->ion_handle == NULL) {
+
+	spin_lock_irqsave(&c_data->cap_slock, flags);
+	handle = buf->ion_handle;
+	buf->ion_handle = NULL;
+	spin_unlock_irqrestore(&c_data->cap_slock, flags);
+
+	if (handle == NULL) {
 		pr_debug("%s: no ION handle to free\n", __func__);
 		return;
 	}
 	buf->paddr = 0;
-	ion_unmap_iommu(dev->ion_client, buf->ion_handle, dev->domain_num, 0);
-	ion_free(dev->ion_client, buf->ion_handle);
-	buf->ion_handle = NULL;
+	ion_unmap_iommu(dev->ion_client, handle, dev->domain_num, 0);
+	ion_free(dev->ion_client, handle);
 	return;
 }
 
-int free_ion_handle(struct vcap_dev *dev, struct vb2_queue *q,
+int free_ion_handle(struct vcap_client_data *c_data, struct vb2_queue *q,
 					 struct v4l2_buffer *b)
 {
 	struct vb2_buffer *vb;
@@ -555,7 +564,7 @@ int free_ion_handle(struct vcap_dev *dev, struct vb2_queue *q,
 	if (NULL == vb)
 		return -EINVAL;
 
-	free_ion_handle_work(dev, vb);
+	free_ion_handle_work(c_data, vb);
 	return 0;
 }
 
@@ -627,7 +636,7 @@ static int capture_stop_streaming(struct vb2_queue *vq)
 
 	/* clean ion handles */
 	list_for_each_entry(vb, &vq->queued_list, queued_entry)
-		free_ion_handle_work(c_data->dev, vb);
+		free_ion_handle_work(c_data, vb);
 	return 0;
 }
 
@@ -725,7 +734,7 @@ static int vp_in_stop_streaming(struct vb2_queue *vq)
 
 	/* clean ion handles */
 	list_for_each_entry(vb, &vq->queued_list, queued_entry)
-		free_ion_handle_work(c_data->dev, vb);
+		free_ion_handle_work(c_data, vb);
 	return 0;
 }
 
@@ -823,7 +832,7 @@ static int vp_out_stop_streaming(struct vb2_queue *vq)
 
 	/* clean ion handles */
 	list_for_each_entry(vb, &vq->queued_list, queued_entry)
-		free_ion_handle_work(c_data->dev, vb);
+		free_ion_handle_work(c_data, vb);
 	return 0;
 }
 
@@ -1056,7 +1065,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 				return rc;
 			rc = vcvp_qbuf(&c_data->vc_vidq, p);
 			if (rc < 0)
-				free_ion_handle(c_data->dev,
+				free_ion_handle(c_data,
 					&c_data->vc_vidq, p);
 			return rc;
 		}
@@ -1065,7 +1074,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			return rc;
 		rc = vb2_qbuf(&c_data->vc_vidq, p);
 		if (rc < 0)
-			free_ion_handle(c_data->dev, &c_data->vc_vidq, p);
+			free_ion_handle(c_data, &c_data->vc_vidq, p);
 		return rc;
 	case V4L2_BUF_TYPE_INTERLACED_IN_DECODER:
 		if (c_data->op_mode == VC_AND_VP_VCAP_OP)
@@ -1075,7 +1084,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			return rc;
 		rc = vb2_qbuf(&c_data->vp_in_vidq, p);
 		if (rc < 0)
-			free_ion_handle(c_data->dev, &c_data->vp_in_vidq, p);
+			free_ion_handle(c_data, &c_data->vp_in_vidq, p);
 		return rc;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		rc = get_phys_addr(c_data->dev, &c_data->vp_out_vidq, p);
@@ -1083,7 +1092,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			return rc;
 		rc = vb2_qbuf(&c_data->vp_out_vidq, p);
 		if (rc < 0)
-			free_ion_handle(c_data->dev, &c_data->vp_out_vidq, p);
+			free_ion_handle(c_data, &c_data->vp_out_vidq, p);
 		return rc;
 	default:
 		pr_err("VCAP Error: %s: Unknown buffer type\n", __func__);
@@ -1097,6 +1106,9 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	int rc;
 
+	if (c_data->streaming == 0)
+		return -EPERM;
+
 	pr_debug("VCAP In DQ Buf %08x\n", (unsigned int)p->type);
 	switch (p->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -1105,7 +1117,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		rc = vb2_dqbuf(&c_data->vc_vidq, p, file->f_flags & O_NONBLOCK);
 		if (rc < 0)
 			return rc;
-		return free_ion_handle(c_data->dev, &c_data->vc_vidq, p);
+		return free_ion_handle(c_data, &c_data->vc_vidq, p);
 	case V4L2_BUF_TYPE_INTERLACED_IN_DECODER:
 		if (c_data->op_mode == VC_AND_VP_VCAP_OP)
 			return -EINVAL;
@@ -1113,13 +1125,13 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 				O_NONBLOCK);
 		if (rc < 0)
 			return rc;
-		return free_ion_handle(c_data->dev, &c_data->vp_in_vidq, p);
+		return free_ion_handle(c_data, &c_data->vp_in_vidq, p);
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		rc = vb2_dqbuf(&c_data->vp_out_vidq, p, file->f_flags &
 				O_NONBLOCK);
 		if (rc < 0)
 			return rc;
-		return free_ion_handle(c_data->dev, &c_data->vp_out_vidq, p);
+		return free_ion_handle(c_data, &c_data->vp_out_vidq, p);
 	default:
 		pr_err("VCAP Error: %s: Unknown buffer type", __func__);
 		return -EINVAL;
@@ -1859,6 +1871,9 @@ static unsigned int vcap_poll(struct file *file,
 	struct vcap_client_data *c_data = to_client_data(file->private_data);
 	struct vb2_queue *q;
 	unsigned int mask = 0;
+
+	if (c_data->streaming == 0)
+		return 0;
 
 	pr_debug("%s: Enter slect/poll\n", __func__);
 
