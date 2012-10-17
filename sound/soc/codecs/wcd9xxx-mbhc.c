@@ -37,7 +37,8 @@
 #include "wcd9xxx-resmgr.h"
 
 #define WCD9XXX_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
-			   SND_JACK_OC_HPHR | SND_JACK_UNSUPPORTED)
+			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
+			   SND_JACK_UNSUPPORTED)
 #define WCD9XXX_JACK_BUTTON_MASK (SND_JACK_BTN_0 | SND_JACK_BTN_1 | \
 				  SND_JACK_BTN_2 | SND_JACK_BTN_3 | \
 				  SND_JACK_BTN_4 | SND_JACK_BTN_5 | \
@@ -574,6 +575,8 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 {
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
+	pr_debug("%s: enter insertion %d hph_status %x\n",
+		 __func__, insertion, mbhc->hph_status);
 	if (!insertion) {
 		/* Report removal */
 		mbhc->hph_status &= ~jack_type;
@@ -601,6 +604,16 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		mbhc->current_plug = PLUG_TYPE_NONE;
 		mbhc->polling_active = false;
 	} else {
+		if (mbhc->mbhc_cfg->detect_extn_cable) {
+			/* Report removal of current jack type */
+			if (mbhc->hph_status != jack_type) {
+				pr_debug("%s: Reporting removal (%x)\n",
+					 __func__, mbhc->hph_status);
+				wcd9xxx_jack_report(&mbhc->headset_jack,
+						    0, WCD9XXX_JACK_MASK);
+				mbhc->hph_status = 0;
+			}
+		}
 		/* Report insertion */
 		mbhc->hph_status |= jack_type;
 
@@ -611,6 +624,8 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		} else if (jack_type == SND_JACK_HEADSET) {
 			mbhc->polling_active = BUTTON_POLLING_SUPPORTED;
 			mbhc->current_plug = PLUG_TYPE_HEADSET;
+		} else if (jack_type == SND_JACK_LINEOUT) {
+			mbhc->current_plug = PLUG_TYPE_HIGH_HPH;
 		}
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
@@ -620,6 +635,8 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 	}
 	/* Setup insert detect */
 	wcd9xxx_insert_detect_setup(mbhc, !insertion);
+
+	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
 }
 
 /* should be called under interrupt context that hold suspend */
@@ -929,6 +946,7 @@ wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 	bool highdelta;
 	bool ahighv = false, highv;
 
+	pr_debug("%s: enter\n", __func__);
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
 	/* make sure override is on */
@@ -1035,6 +1053,7 @@ wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 	}
 
 	pr_debug("%s: Detected plug type %d\n", __func__, plug_type[0]);
+	pr_debug("%s: leave\n", __func__);
 	return plug_type[0];
 }
 
@@ -1067,6 +1086,9 @@ static int wcd9xxx_enable_hs_detect(struct wcd9xxx_mbhc *mbhc,
 	    WCD9XXX_MBHC_CAL_GENERAL_PTR(mbhc->mbhc_cfg->calibration);
 	const struct wcd9xxx_mbhc_plug_detect_cfg *plug_det =
 	    WCD9XXX_MBHC_CAL_PLUG_DET_PTR(mbhc->mbhc_cfg->calibration);
+
+	pr_debug("%s: enter insertion(%d) trigger(0x%x)\n",
+		 __func__, insertion, trigger);
 
 	if (!mbhc->mbhc_cfg->calibration) {
 		pr_err("Error, no wcd9xxx calibration\n");
@@ -1179,6 +1201,7 @@ static int wcd9xxx_enable_hs_detect(struct wcd9xxx_mbhc *mbhc,
 
 	wcd9xxx_enable_irq(mbhc->resmgr->core, WCD9XXX_IRQ_MBHC_INSERTION);
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
+	pr_debug("%s: leave\n", __func__);
 
 	return 0;
 }
@@ -1187,6 +1210,9 @@ static int wcd9xxx_enable_hs_detect(struct wcd9xxx_mbhc *mbhc,
 static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 					 enum wcd9xxx_mbhc_plug_type plug_type)
 {
+	pr_debug("%s: enter current_plug(%d) new_plug(%d)\n",
+		 __func__, mbhc->current_plug, plug_type);
+
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
 	if (plug_type == PLUG_TYPE_HEADPHONE &&
@@ -1198,11 +1224,14 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 		wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
 		wcd9xxx_cleanup_hs_polling(mbhc);
 	} else if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
-		if (mbhc->current_plug == PLUG_TYPE_HEADSET)
-			wcd9xxx_report_plug(mbhc, 0, SND_JACK_HEADSET);
-		else if (mbhc->current_plug == PLUG_TYPE_HEADPHONE)
-			wcd9xxx_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
-
+		if (!mbhc->mbhc_cfg->detect_extn_cable) {
+			if (mbhc->current_plug == PLUG_TYPE_HEADSET)
+				wcd9xxx_report_plug(mbhc, 0,
+							 SND_JACK_HEADSET);
+			else if (mbhc->current_plug == PLUG_TYPE_HEADPHONE)
+				wcd9xxx_report_plug(mbhc, 0,
+							 SND_JACK_HEADPHONE);
+		}
 		wcd9xxx_report_plug(mbhc, 1, SND_JACK_UNSUPPORTED);
 		wcd9xxx_cleanup_hs_polling(mbhc);
 	} else if (plug_type == PLUG_TYPE_HEADSET) {
@@ -1214,17 +1243,35 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 		msleep(100);
 		wcd9xxx_start_hs_polling(mbhc);
 	} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
-		if (mbhc->current_plug == PLUG_TYPE_NONE)
-			wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
-		wcd9xxx_cleanup_hs_polling(mbhc);
-		pr_debug("setup mic trigger for further detection\n");
-		mbhc->lpi_enabled = true;
-		wcd9xxx_enable_hs_detect(mbhc, 1, MBHC_USE_MB_TRIGGER |
-						  MBHC_USE_HPHL_TRIGGER, false);
+		if (mbhc->mbhc_cfg->detect_extn_cable) {
+			/* High impedance device found. Report as LINEOUT*/
+			wcd9xxx_report_plug(mbhc, 1, SND_JACK_LINEOUT);
+			wcd9xxx_cleanup_hs_polling(mbhc);
+			pr_debug("%s: setup mic trigger for further detection\n",
+				 __func__);
+			mbhc->lpi_enabled = true;
+			/*
+			 * Do not enable HPHL trigger. If playback is active,
+			 * it might lead to continuous false HPHL triggers
+			 */
+			wcd9xxx_enable_hs_detect(mbhc, 1, MBHC_USE_MB_TRIGGER,
+						 false);
+		} else {
+			if (mbhc->current_plug == PLUG_TYPE_NONE)
+				wcd9xxx_report_plug(mbhc, 1,
+							 SND_JACK_HEADPHONE);
+			wcd9xxx_cleanup_hs_polling(mbhc);
+			pr_debug("setup mic trigger for further detection\n");
+			mbhc->lpi_enabled = true;
+			wcd9xxx_enable_hs_detect(mbhc, 1, MBHC_USE_MB_TRIGGER |
+							  MBHC_USE_HPHL_TRIGGER,
+						 false);
+		}
 	} else {
 		WARN(1, "Unexpected current plug_type %d, plug_type %d\n",
 		     mbhc->current_plug, plug_type);
 	}
+	pr_debug("%s: leave\n", __func__);
 }
 
 /* called under codec_resource_lock acquisition */
@@ -1260,6 +1307,7 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 			 __func__, plug_type);
 		wcd9xxx_find_plug_and_report(mbhc, plug_type);
 	}
+	pr_debug("%s: leave\n", __func__);
 }
 
 /* called under codec_resource_lock acquisition */
@@ -1269,6 +1317,7 @@ static void wcd9xxx_mbhc_detect_plug_type(struct wcd9xxx_mbhc *mbhc)
 	const struct wcd9xxx_mbhc_plug_detect_cfg *plug_det =
 		WCD9XXX_MBHC_CAL_PLUG_DET_PTR(mbhc->mbhc_cfg->calibration);
 
+	pr_debug("%s: enter\n", __func__);
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
 	/*
@@ -1289,6 +1338,7 @@ static void wcd9xxx_mbhc_detect_plug_type(struct wcd9xxx_mbhc *mbhc)
 			 __func__);
 	else
 		wcd9xxx_mbhc_decide_swch_plug(mbhc);
+	pr_debug("%s: leave\n", __func__);
 }
 
 /* called only from interrupt which is under codec_resource_lock acquisition */
@@ -1312,6 +1362,19 @@ static void wcd9xxx_hs_insert_irq_swch(struct wcd9xxx_mbhc *mbhc,
 		} else {
 			pr_debug("%s: Invalid insertion stop plug detection\n",
 				 __func__);
+		}
+	} else if (mbhc->mbhc_cfg->detect_extn_cable) {
+		pr_debug("%s: Removal\n", __func__);
+		if (!wcd9xxx_swch_level_remove(mbhc)) {
+			/*
+			 * Switch indicates, something is still inserted.
+			 * This could be extension cable i.e. headset is
+			 * removed from extension cable.
+			 */
+			/* cancel detect plug */
+			wcd9xxx_cancel_hs_detect_plug(mbhc,
+						      &mbhc->correct_plug_swch);
+			wcd9xxx_mbhc_decide_swch_plug(mbhc);
 		}
 	} else {
 		pr_err("%s: Switch IRQ used, invalid MBHC Removal\n", __func__);
@@ -1398,9 +1461,100 @@ static bool wcd9xxx_hs_remove_settle(struct wcd9xxx_mbhc *mbhc)
 /* called only from interrupt which is under codec_resource_lock acquisition */
 static void wcd9xxx_hs_remove_irq_swch(struct wcd9xxx_mbhc *mbhc)
 {
+	pr_debug("%s: enter\n", __func__);
 	if (wcd9xxx_hs_remove_settle(mbhc))
 		wcd9xxx_start_hs_polling(mbhc);
-	pr_debug("%s: remove settle done\n", __func__);
+	pr_debug("%s: leave\n", __func__);
+}
+
+/* called only from interrupt which is under codec_resource_lock acquisition */
+static void wcd9xxx_hs_remove_irq_noswch(struct wcd9xxx_mbhc *mbhc)
+{
+	short bias_value;
+	bool removed = true;
+	struct snd_soc_codec *codec = mbhc->codec;
+	const struct wcd9xxx_mbhc_general_cfg *generic =
+		WCD9XXX_MBHC_CAL_GENERAL_PTR(mbhc->mbhc_cfg->calibration);
+	int min_us = FAKE_REMOVAL_MIN_PERIOD_MS * 1000;
+
+	pr_debug("%s: enter\n", __func__);
+	if (mbhc->current_plug != PLUG_TYPE_HEADSET) {
+		pr_debug("%s(): Headset is not inserted, ignore removal\n",
+			 __func__);
+		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL,
+				0x08, 0x08);
+		return;
+	}
+
+	usleep_range(generic->t_shutdown_plug_rem,
+			generic->t_shutdown_plug_rem);
+
+	do {
+		bias_value = wcd9xxx_codec_sta_dce(mbhc, 1,  true);
+		pr_debug("%s: DCE %d,%d, %d us left\n", __func__, bias_value,
+			 wcd9xxx_codec_sta_dce_v(mbhc, 1, bias_value), min_us);
+		if (bias_value < wcd9xxx_get_current_v_ins(mbhc, false)) {
+			pr_debug("%s: checking false removal\n", __func__);
+			msleep(500);
+			removed = !wcd9xxx_hs_remove_settle(mbhc);
+			pr_debug("%s: headset %sactually removed\n", __func__,
+				 removed ? "" : "not ");
+			break;
+		}
+		min_us -= mbhc->mbhc_data.t_dce;
+	} while (min_us > 0);
+
+	if (removed) {
+		if (mbhc->mbhc_cfg->detect_extn_cable) {
+			if (!wcd9xxx_swch_level_remove(mbhc)) {
+				/*
+				 * extension cable is still plugged in
+				 * report it as LINEOUT device
+				 */
+				wcd9xxx_report_plug(mbhc, 1, SND_JACK_LINEOUT);
+				wcd9xxx_cleanup_hs_polling(mbhc);
+				wcd9xxx_enable_hs_detect(mbhc, 1,
+							 MBHC_USE_MB_TRIGGER,
+							 false);
+			}
+		} else {
+			/* Cancel possibly running hs_detect_work */
+			wcd9xxx_cancel_hs_detect_plug(mbhc,
+						    &mbhc->correct_plug_noswch);
+			/*
+			 * If this removal is not false, first check the micbias
+			 * switch status and switch it to LDOH if it is already
+			 * switched to VDDIO.
+			 */
+			wcd9xxx_switch_micbias(mbhc, 0);
+
+			wcd9xxx_report_plug(mbhc, 0, SND_JACK_HEADSET);
+			wcd9xxx_cleanup_hs_polling(mbhc);
+			wcd9xxx_enable_hs_detect(mbhc, 1, MBHC_USE_MB_TRIGGER |
+							  MBHC_USE_HPHL_TRIGGER,
+						 true);
+		}
+	} else {
+		wcd9xxx_start_hs_polling(mbhc);
+	}
+	pr_debug("%s: leave\n", __func__);
+}
+
+/* called only from interrupt which is under codec_resource_lock acquisition */
+static void wcd9xxx_hs_insert_irq_extn(struct wcd9xxx_mbhc *mbhc,
+				       bool is_mb_trigger)
+{
+	/* Cancel possibly running hs_detect_work */
+	wcd9xxx_cancel_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
+
+	if (is_mb_trigger) {
+		pr_debug("%s: Waiting for Headphone left trigger\n", __func__);
+		wcd9xxx_enable_hs_detect(mbhc, 1, MBHC_USE_HPHL_TRIGGER, false);
+	} else  {
+		pr_debug("%s: HPHL trigger received, detecting plug type\n",
+			 __func__);
+		wcd9xxx_mbhc_detect_plug_type(mbhc);
+	}
 }
 
 static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
@@ -1415,7 +1569,11 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 	if (vddio)
 		__wcd9xxx_switch_micbias(mbhc, 0, false, true);
 
-	wcd9xxx_hs_remove_irq_swch(mbhc);
+	if (mbhc->mbhc_cfg->detect_extn_cable &&
+	    !wcd9xxx_swch_level_remove(mbhc))
+		wcd9xxx_hs_remove_irq_noswch(mbhc);
+	else
+		wcd9xxx_hs_remove_irq_swch(mbhc);
 
 	/*
 	 * if driver turned off vddio switch and headset is not removed,
@@ -1449,7 +1607,11 @@ static irqreturn_t wcd9xxx_hs_insert_irq(int irq, void *data)
 	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_HPH, 0x13, 0x00);
 	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.ctl_reg, 0x01, 0x00);
 
-	wcd9xxx_hs_insert_irq_swch(mbhc, is_removal);
+	if (mbhc->mbhc_cfg->detect_extn_cable &&
+	    mbhc->current_plug == PLUG_TYPE_HIGH_HPH)
+		wcd9xxx_hs_insert_irq_extn(mbhc, is_mb_trigger);
+	else
+		wcd9xxx_hs_insert_irq_swch(mbhc, is_removal);
 
 	WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 	return IRQ_HANDLED;
@@ -1642,7 +1804,7 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 {
 	struct wcd9xxx_mbhc *mbhc;
 	struct snd_soc_codec *codec;
-	enum wcd9xxx_mbhc_plug_type plug_type;
+	enum wcd9xxx_mbhc_plug_type plug_type = PLUG_TYPE_INVALID;
 	unsigned long timeout;
 	int retry = 0, pt_gnd_mic_swap_cnt = 0;
 	bool correction = false;
@@ -1686,18 +1848,26 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 		plug_type = wcd9xxx_codec_get_plug_type(mbhc, true);
 		WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 
+		pr_debug("%s: attempt(%d) current_plug(%d) new_plug(%d)\n",
+			 __func__, retry, mbhc->current_plug, plug_type);
 		if (plug_type == PLUG_TYPE_INVALID) {
 			pr_debug("Invalid plug in attempt # %d\n", retry);
-			if (retry == NUM_ATTEMPTS_TO_REPORT &&
+			if (!mbhc->mbhc_cfg->detect_extn_cable &&
+			    retry == NUM_ATTEMPTS_TO_REPORT &&
 			    mbhc->current_plug == PLUG_TYPE_NONE) {
 				wcd9xxx_report_plug(mbhc, 1,
 						    SND_JACK_HEADPHONE);
 			}
 		} else if (plug_type == PLUG_TYPE_HEADPHONE) {
 			pr_debug("Good headphone detected, continue polling\n");
-			if (mbhc->current_plug == PLUG_TYPE_NONE)
+			if (mbhc->mbhc_cfg->detect_extn_cable) {
+				if (mbhc->current_plug != plug_type)
+					wcd9xxx_report_plug(mbhc, 1,
+							    SND_JACK_HEADPHONE);
+			} else if (mbhc->current_plug == PLUG_TYPE_NONE) {
 				wcd9xxx_report_plug(mbhc, 1,
 						    SND_JACK_HEADPHONE);
+			}
 		} else {
 			if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
 				pt_gnd_mic_swap_cnt++;
@@ -1741,7 +1911,20 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 		wcd9xxx_turn_onoff_override(codec, false);
 
 	wcd9xxx_onoff_ext_mclk(mbhc, false);
-	pr_debug("%s: leave\n", __func__);
+
+	if (mbhc->mbhc_cfg->detect_extn_cable) {
+		WCD9XXX_BCL_LOCK(mbhc->resmgr);
+		if (mbhc->current_plug == PLUG_TYPE_HEADPHONE ||
+		    mbhc->current_plug == PLUG_TYPE_GND_MIC_SWAP ||
+		    mbhc->current_plug == PLUG_TYPE_INVALID ||
+		    plug_type == PLUG_TYPE_INVALID) {
+			/* Enable removal detection */
+			wcd9xxx_cleanup_hs_polling(mbhc);
+			wcd9xxx_enable_hs_detect(mbhc, 0, 0, false);
+		}
+		WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
+	}
+	pr_debug("%s: leave current_plug(%d)\n", __func__, mbhc->current_plug);
 	/* unlock sleep */
 	wcd9xxx_unlock_sleep(mbhc->resmgr->core);
 }
@@ -1798,6 +1981,9 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 			wcd9xxx_pause_hs_polling(mbhc);
 			wcd9xxx_cleanup_hs_polling(mbhc);
 			wcd9xxx_report_plug(mbhc, 0, SND_JACK_HEADSET);
+			is_removed = true;
+		} else if (mbhc->current_plug == PLUG_TYPE_HIGH_HPH) {
+			wcd9xxx_report_plug(mbhc, 0, SND_JACK_LINEOUT);
 			is_removed = true;
 		}
 
