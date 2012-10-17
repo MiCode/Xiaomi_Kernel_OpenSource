@@ -1257,7 +1257,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	else
 		clk_prepare_enable(dev->hclk);
 
-	ret = msm_slim_sps_init(dev, bam_mem, MGR_STATUS);
+	ret = msm_slim_sps_init(dev, bam_mem, MGR_STATUS, false);
 	if (ret != 0) {
 		dev_err(dev->dev, "error SPS init\n");
 		goto err_sps_init_failed;

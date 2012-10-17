@@ -246,6 +246,6 @@ int msm_send_msg_buf(struct msm_slim_ctrl *dev, u32 *buf, u8 len, u32 tx_reg);
 u32 *msm_get_msg_buf(struct msm_slim_ctrl *dev, int len);
 int msm_slim_rx_msgq_get(struct msm_slim_ctrl *dev, u32 *data, int offset);
 int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
-			u32 pipe_reg);
+			u32 pipe_reg, bool remote);
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev);
 #endif
