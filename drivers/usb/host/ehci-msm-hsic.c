@@ -1151,6 +1151,14 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 
 #endif	/* CONFIG_PM */
 
+static void ehci_msm_set_autosuspend_delay(struct usb_device *dev)
+{
+	if (!dev->parent) /*for root hub no delay*/
+		pm_runtime_set_autosuspend_delay(&dev->dev, 0);
+	else
+		pm_runtime_set_autosuspend_delay(&dev->dev, 200);
+}
+
 static const struct ehci_driver_overrides ehci_msm_hsic_overrides __initdata = {
 	.flags			= HCD_OLD_ENUM,
 
@@ -1164,6 +1172,8 @@ static const struct ehci_driver_overrides ehci_msm_hsic_overrides __initdata = {
 
 	.enable_ulpi_control	= ehci_msm_enable_ulpi_control,
 	.disable_ulpi_control	= ehci_msm_disable_ulpi_control,
+
+	.set_autosuspend_delay = ehci_msm_set_autosuspend_delay,
 };
 
 static struct hc_driver __read_mostly ehci_msm_hsic_hc_driver;

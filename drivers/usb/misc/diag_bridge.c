@@ -31,6 +31,8 @@
 #define DRIVER_DESC	"USB host diag bridge driver"
 #define DRIVER_VERSION	"1.0"
 
+#define AUTOSUSP_DELAY_WITH_USB 1000
+
 struct diag_bridge {
 	struct usb_device	*udev;
 	struct usb_interface	*ifc;
@@ -42,6 +44,7 @@ struct diag_bridge {
 	struct mutex		ifc_mutex;
 	struct diag_bridge_ops	*ops;
 	struct platform_device	*pdev;
+	unsigned		default_autosusp_delay;
 
 	/* debugging counters */
 	unsigned long		bytes_to_host;
@@ -67,6 +70,12 @@ int diag_bridge_open(struct diag_bridge_ops *ops)
 
 	dev->ops = ops;
 	dev->err = 0;
+
+#ifdef CONFIG_PM_RUNTIME
+	dev->default_autosusp_delay = dev->udev->dev.power.autosuspend_delay;
+#endif
+	pm_runtime_set_autosuspend_delay(&dev->udev->dev,
+			AUTOSUSP_DELAY_WITH_USB);
 
 	kref_get(&dev->kref);
 
@@ -101,6 +110,10 @@ void diag_bridge_close(void)
 
 	usb_kill_anchored_urbs(&dev->submitted);
 	dev->ops = 0;
+
+	pm_runtime_set_autosuspend_delay(&dev->udev->dev,
+			dev->default_autosusp_delay);
+
 	kref_put(&dev->kref, diag_bridge_delete);
 }
 EXPORT_SYMBOL(diag_bridge_close);

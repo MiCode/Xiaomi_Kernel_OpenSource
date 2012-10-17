@@ -1238,6 +1238,10 @@ void ehci_init_driver(struct hc_driver *drv,
 			drv->enable_ulpi_control = over->enable_ulpi_control;
 		if (over->disable_ulpi_control)
 			drv->disable_ulpi_control = over->disable_ulpi_control;
+		if (over->set_autosuspend_delay) {
+			drv->set_autosuspend_delay =
+				over->set_autosuspend_delay;
+		}
 		drv->flags |= over->flags;
 	}
 }
