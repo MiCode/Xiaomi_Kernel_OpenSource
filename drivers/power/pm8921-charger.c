@@ -3707,10 +3707,12 @@ static void detect_battery_removal(struct pm8921_chg_chip *chip)
 #define CHG_VCP_EN		BIT(0)
 #define CHG_BAT_TEMP_DIS_BIT	BIT(2)
 #define SAFE_CURRENT_MA		1500
+#define PM_SUB_REV		0x001
 static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 {
 	int rc;
 	int vdd_safe;
+	u8 subrev;
 
 	/* forcing 19p2mhz before accessing any charger registers */
 	pm8921_chg_force_19p2mhz_clk(chip);
@@ -3889,8 +3891,21 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 
 	/* Workarounds for die 3.0 */
 	if (pm8xxx_get_revision(chip->dev->parent) == PM8XXX_REVISION_8921_3p0
-	&& pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8921)
-		pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0xAC);
+	&& pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8921) {
+		rc = pm8xxx_readb(chip->dev->parent, PM_SUB_REV, &subrev);
+		if (rc) {
+			pr_err("read failed: addr=%03X, rc=%d\n",
+				PM_SUB_REV, rc);
+			return rc;
+		}
+		/* Check if die 3.0.1 is present */
+		if (subrev == 0x1)
+			pm8xxx_writeb(chip->dev->parent,
+				CHG_BUCK_CTRL_TEST3, 0xA4);
+		else
+			pm8xxx_writeb(chip->dev->parent,
+				CHG_BUCK_CTRL_TEST3, 0xAC);
+	}
 
 	/* Enable isub_fine resolution AICL for PM8917 */
 	if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8917) {
