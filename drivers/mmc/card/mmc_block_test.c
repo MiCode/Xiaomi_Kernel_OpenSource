@@ -32,10 +32,15 @@
 #define PACKED_HDR_RW_MASK 0x0000FF00
 #define PACKED_HDR_NUM_REQS_MASK 0x00FF0000
 #define PACKED_HDR_BITS_16_TO_29_SET 0x3FFF0000
+#define SECTOR_SIZE 512
+#define NUM_OF_SECTORS_PER_BIO		((BIO_U32_SIZE * 4) / SECTOR_SIZE)
+#define BIO_TO_SECTOR(x)		(x * NUM_OF_SECTORS_PER_BIO)
 
 #define test_pr_debug(fmt, args...) pr_debug("%s: "fmt"\n", MODULE_NAME, args)
 #define test_pr_info(fmt, args...) pr_info("%s: "fmt"\n", MODULE_NAME, args)
 #define test_pr_err(fmt, args...) pr_err("%s: "fmt"\n", MODULE_NAME, args)
+
+#define SANITIZE_TEST_TIMEOUT 240000
 
 enum is_random {
 	NON_RANDOM_TEST,
@@ -101,6 +106,8 @@ enum mmc_block_test_testcases {
 	TEST_PACK_MIX_PACKED_NO_PACKED_PACKED,
 	TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED,
 	PACKING_CONTROL_MAX_TESTCASE = TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED,
+
+	TEST_WRITE_DISCARD_SANITIZE_READ,
 };
 
 enum mmc_block_test_group {
@@ -118,6 +125,7 @@ struct mmc_block_test_debug {
 	struct dentry *send_invalid_packed_test;
 	struct dentry *random_test_seed;
 	struct dentry *packing_control_test;
+	struct dentry *discard_sanitize_test;
 };
 
 struct mmc_block_test_data {
@@ -496,6 +504,8 @@ static char *get_test_case_str(struct test_data *td)
 		return "\nTest packing control - mix: pack -> no pack -> pack";
 	case TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED:
 		return "\nTest packing control - mix: no pack->pack->no pack";
+	case TEST_WRITE_DISCARD_SANITIZE_READ:
+		return "\nTest write, discard, sanitize";
 	default:
 		 return "Unknown testcase";
 	}
@@ -1382,6 +1392,63 @@ static int validate_packed_commands_settings(void)
 	return 0;
 }
 
+static void pseudo_rnd_sector_and_size(unsigned int *seed,
+				       unsigned int min_start_sector,
+				       unsigned int *start_sector,
+				       unsigned int *num_of_bios)
+{
+	unsigned int max_sec = min_start_sector + TEST_MAX_SECTOR_RANGE;
+	do {
+		*start_sector = pseudo_random_seed(seed,
+						   1, max_sec);
+		*num_of_bios = pseudo_random_seed(seed,
+						  1, TEST_MAX_BIOS_PER_REQ);
+		if (!(*num_of_bios))
+			*num_of_bios = 1;
+	} while ((*start_sector < min_start_sector) ||
+		 (*start_sector + (*num_of_bios * BIO_U32_SIZE * 4)) > max_sec);
+}
+
+/* sanitize test functions */
+static int prepare_write_discard_sanitize_read(struct test_data *td)
+{
+	unsigned int start_sector;
+	unsigned int num_of_bios = 0;
+	static unsigned int total_bios;
+	unsigned int *num_bios_seed;
+	int i = 0;
+
+	if (mbtd->random_test_seed == 0) {
+		mbtd->random_test_seed =
+			(unsigned int)(get_jiffies_64() & 0xFFFF);
+		test_pr_info("%s: got seed from jiffies %d",
+			     __func__, mbtd->random_test_seed);
+	}
+	num_bios_seed = &mbtd->random_test_seed;
+
+	do {
+		pseudo_rnd_sector_and_size(num_bios_seed, td->start_sector,
+					   &start_sector, &num_of_bios);
+
+		/* DISCARD */
+		total_bios += num_of_bios;
+		test_pr_info("%s: discard req: id=%d, startSec=%d, NumBios=%d",
+		       __func__, td->unique_next_req_id, start_sector,
+			     num_of_bios);
+		test_iosched_add_unique_test_req(0, REQ_UNIQUE_DISCARD,
+				    start_sector, BIO_TO_SECTOR(num_of_bios),
+						 NULL);
+
+	} while (++i < (BLKDEV_MAX_RQ-10));
+
+	test_pr_info("%s: total discard bios = %d", __func__, total_bios);
+
+	test_pr_info("%s: add sanitize req", __func__);
+	test_iosched_add_unique_test_req(0, REQ_UNIQUE_SANITIZE, 0, 0, NULL);
+
+	return 0;
+}
+
 static bool message_repeat;
 static int test_open(struct inode *inode, struct file *file)
 {
@@ -1809,6 +1876,49 @@ const struct file_operations write_packing_control_test_ops = {
 	.read = write_packing_control_test_read,
 };
 
+static ssize_t write_discard_sanitize_test_write(struct file *file,
+				const char __user *buf,
+				size_t count,
+				loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	sscanf(buf, "%d", &number);
+	if (number <= 0)
+		number = 1;
+
+	test_pr_info("%s: -- write_discard_sanitize TEST --\n", __func__);
+
+	memset(&mbtd->test_info, 0, sizeof(struct test_info));
+
+	mbtd->test_group = TEST_GENERAL_GROUP;
+
+	mbtd->test_info.data = mbtd;
+	mbtd->test_info.prepare_test_fn = prepare_write_discard_sanitize_read;
+	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
+	mbtd->test_info.timeout_msec = SANITIZE_TEST_TIMEOUT;
+
+	for (i = 0 ; i < number ; ++i) {
+		test_pr_info("%s: Cycle # %d / %d\n", __func__, i+1, number);
+		test_pr_info("%s: ===================", __func__);
+
+		mbtd->test_info.testcase = TEST_WRITE_DISCARD_SANITIZE_READ;
+		ret = test_iosched_start_test(&mbtd->test_info);
+
+		if (ret)
+			break;
+	}
+
+	return count;
+}
+
+const struct file_operations write_discard_sanitize_test_ops = {
+	.open = test_open,
+	.write = write_discard_sanitize_test_write,
+};
+
 static void mmc_block_test_debugfs_cleanup(void)
 {
 	debugfs_remove(mbtd->debug.random_test_seed);
@@ -1816,6 +1926,7 @@ static void mmc_block_test_debugfs_cleanup(void)
 	debugfs_remove(mbtd->debug.err_check_test);
 	debugfs_remove(mbtd->debug.send_invalid_packed_test);
 	debugfs_remove(mbtd->debug.packing_control_test);
+	debugfs_remove(mbtd->debug.discard_sanitize_test);
 }
 
 static int mmc_block_test_debugfs_init(void)
@@ -1876,6 +1987,17 @@ static int mmc_block_test_debugfs_init(void)
 
 	if (!mbtd->debug.packing_control_test)
 		goto err_nomem;
+
+	mbtd->debug.discard_sanitize_test =
+		debugfs_create_file("write_discard_sanitize_test",
+				    S_IRUGO | S_IWUGO,
+				    tests_root,
+				    NULL,
+				    &write_discard_sanitize_test_ops);
+	if (!mbtd->debug.discard_sanitize_test) {
+		mmc_block_test_debugfs_cleanup();
+		return -ENOMEM;
+	}
 
 	return 0;
 
