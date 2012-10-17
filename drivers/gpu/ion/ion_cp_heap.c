@@ -144,6 +144,32 @@ static unsigned long ion_cp_get_total_kmap_count(
 	return cp_heap->kmap_cached_count + cp_heap->kmap_uncached_count;
 }
 
+static int ion_on_first_alloc(struct ion_heap *heap)
+{
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+
+	int ret_value;
+
+	if (cp_heap->reusable) {
+		ret_value = fmem_set_state(FMEM_C_STATE);
+		if (ret_value)
+			return 1;
+	}
+	return 0;
+}
+
+static void ion_on_last_free(struct ion_heap *heap)
+{
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+
+	if (cp_heap->reusable)
+		if (fmem_set_state(FMEM_T_STATE) != 0)
+			pr_err("%s: unable to transition heap to T-state\n",
+				__func__);
+}
+
 /* Must be protected by ion_cp_buffer lock */
 static int __ion_cp_protect_buffer(struct ion_buffer *buffer, int version,
 					void *data, int flags)
@@ -296,11 +322,9 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 
 	if (atomic_inc_return(&cp_heap->protect_cnt) == 1) {
 		/* Make sure we are in C state when the heap is protected. */
-		if (cp_heap->reusable && !cp_heap->allocated_bytes) {
-			ret_value = fmem_set_state(FMEM_C_STATE);
-			if (ret_value)
+		if (!cp_heap->allocated_bytes)
+			if (ion_on_first_alloc(heap))
 				goto out;
-		}
 
 		ret_value = ion_cp_protect_mem(cp_heap->secure_base,
 				cp_heap->secure_size, cp_heap->permission_type,
@@ -309,11 +333,9 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 			pr_err("Failed to protect memory for heap %s - "
 				"error code: %d\n", heap->name, ret_value);
 
-			if (cp_heap->reusable && !cp_heap->allocated_bytes) {
-				if (fmem_set_state(FMEM_T_STATE) != 0)
-					pr_err("%s: unable to transition heap to T-state\n",
-						__func__);
-			}
+			if (!cp_heap->allocated_bytes)
+				ion_on_last_free(heap);
+
 			atomic_dec(&cp_heap->protect_cnt);
 		} else {
 			cp_heap->heap_protected = HEAP_PROTECTED;
@@ -350,11 +372,8 @@ static void ion_cp_unprotect(struct ion_heap *heap, int version, void *data)
 			pr_debug("Un-protected heap %s @ 0x%x\n", heap->name,
 				(unsigned int) cp_heap->base);
 
-			if (cp_heap->reusable && !cp_heap->allocated_bytes) {
-				if (fmem_set_state(FMEM_T_STATE) != 0)
-					pr_err("%s: unable to transition heap to T-state",
-						__func__);
-			}
+			if (!cp_heap->allocated_bytes)
+				ion_on_last_free(heap);
 		}
 	}
 	pr_debug("%s: protect count is %d\n", __func__,
@@ -395,12 +414,11 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 	 * if this is the first reusable allocation, transition
 	 * the heap
 	 */
-	if (cp_heap->reusable && !cp_heap->allocated_bytes) {
-		if (fmem_set_state(FMEM_C_STATE) != 0) {
+	if (!cp_heap->allocated_bytes)
+		if (ion_on_first_alloc(heap)) {
 			mutex_unlock(&cp_heap->lock);
 			return ION_RESERVED_ALLOCATE_FAIL;
 		}
-	}
 
 	cp_heap->allocated_bytes += size;
 	mutex_unlock(&cp_heap->lock);
@@ -419,13 +437,9 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 				__func__, heap->name,
 				cp_heap->total_size -
 				cp_heap->allocated_bytes, size);
-
-		if (cp_heap->reusable && !cp_heap->allocated_bytes &&
-		    cp_heap->heap_protected == HEAP_NOT_PROTECTED) {
-			if (fmem_set_state(FMEM_T_STATE) != 0)
-				pr_err("%s: unable to transition heap to T-state\n",
-					__func__);
-		}
+		if (!cp_heap->allocated_bytes &&
+			cp_heap->heap_protected == HEAP_NOT_PROTECTED)
+			ion_on_last_free(heap);
 		mutex_unlock(&cp_heap->lock);
 
 		return ION_CP_ALLOCATE_FAIL;
@@ -470,12 +484,9 @@ void ion_cp_free(struct ion_heap *heap, ion_phys_addr_t addr,
 	mutex_lock(&cp_heap->lock);
 	cp_heap->allocated_bytes -= size;
 
-	if (cp_heap->reusable && !cp_heap->allocated_bytes &&
-	    cp_heap->heap_protected == HEAP_NOT_PROTECTED) {
-		if (fmem_set_state(FMEM_T_STATE) != 0)
-			pr_err("%s: unable to transition heap to T-state\n",
-				__func__);
-	}
+	if (!cp_heap->allocated_bytes &&
+		cp_heap->heap_protected == HEAP_NOT_PROTECTED)
+		ion_on_last_free(heap);
 
 	/* Unmap everything if we previously mapped the whole heap at once. */
 	if (!cp_heap->allocated_bytes) {
