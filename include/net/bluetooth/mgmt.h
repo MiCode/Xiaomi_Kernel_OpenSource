@@ -267,6 +267,11 @@ struct mgmt_cp_le_remove_dev_white_list {
 
 #define MGMT_OP_LE_CANCEL_CREATE_CONN_WHITE_LIST	0xE005
 
+#define MGMT_OP_LE_CANCEL_CREATE_CONN	0xE006
+struct mgmt_cp_le_cancel_create_conn {
+	bdaddr_t	bdaddr;
+} __packed;
+
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
 	__le16 opcode;
