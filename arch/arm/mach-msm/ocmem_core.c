@@ -404,7 +404,7 @@ static int switch_region_mode(unsigned long offset, unsigned long len,
 	if (offset < 0)
 		return -EINVAL;
 
-	if (len < region_size)
+	if (len < OCMEM_MIN_ALLOC)
 		return -EINVAL;
 
 	pr_debug("ocmem: mode_transistion to %x\n", new_mode);
@@ -425,7 +425,7 @@ static int switch_region_mode(unsigned long offset, unsigned long len,
 			/* Set the region to its new mode */
 			region->mode = new_mode;
 			atomic_inc(&region->mode_counter);
-			pr_debug("Region  (%d) switching to mode %d\n",
+			pr_debug("Region (%d) switching to mode %d\n",
 					i, new_mode);
 			continue;
 		} else if (region->mode != new_mode) {

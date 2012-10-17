@@ -58,6 +58,7 @@
 #define BR_CLIENT_n_IDX(x) ((x) * 0x4)
 #define BR_CLIENT_n_ctrl(x) (BR_CLIENT_BASE + (BR_CLIENT_n_IDX(x)))
 #define BR_STATUS (0x14)
+#define BR_LAST_ADDR (0x18)
 /* 16 entries per client are supported */
 /* Use entries 0 - 15 for client0 */
 #define BR_CLIENT0_MASK	(0x1000)
@@ -76,7 +77,7 @@
 #define BR_TBL_ENTRY_ENABLE 0x1
 #define BR_TBL_START 0x0
 #define BR_TBL_END 0x8
-#define BR_RW_SHIFT 0x2
+#define BR_RW_SHIFT 0x1
 
 #define DM_TBL_START 0x10
 #define DM_TBL_END 0x18
@@ -134,13 +135,13 @@ static irqreturn_t ocmem_dm_irq_handler(int irq, void *dev_id)
 	pr_debug("irq:dm_status %x irq_status %x\n", status, irq_status);
 	if (irq_status & BIT(0)) {
 		pr_debug("Data mover completed\n");
-		irq_status &= ~BIT(0);
-		ocmem_write(irq_status, dm_base + DM_INTR_CLR);
+		ocmem_write(BIT(0), dm_base + DM_INTR_CLR);
+		pr_debug("Last re-mapped address block %x\n",
+				ocmem_read(br_base + BR_LAST_ADDR));
 		complete(&dm_transfer_event);
 	} else if (irq_status & BIT(1)) {
 		pr_debug("Data clear engine completed\n");
-		irq_status &= ~BIT(1);
-		ocmem_write(irq_status, dm_base + DM_INTR_CLR);
+		ocmem_write(BIT(1), dm_base + DM_INTR_CLR);
 		complete(&dm_clear_event);
 	} else {
 		BUG_ON(1);
@@ -259,6 +260,7 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 	pr_debug("ocmem: rdm: dm_ctrl %x br_ctrl %x\n", dm_ctrl, br_ctrl);
 
 	wait_for_completion(&dm_transfer_event);
+	pr_debug("Completed transferring %d segments\n", num_chunks);
 	ocmem_disable_core_clock();
 	return 0;
 }
