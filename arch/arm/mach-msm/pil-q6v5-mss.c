@@ -32,6 +32,7 @@
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 #include "ramdump.h"
+#include "sysmon.h"
 
 /* Q6 Register Offsets */
 #define QDSP6SS_RST_EVB			0x010
@@ -74,6 +75,7 @@ struct mba_data {
 	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
+	void *adsp_state_notifier;
 	u32 img_length;
 	struct q6v5_data *q6;
 	int self_auth;
@@ -489,6 +491,20 @@ out:
 	return ret;
 }
 
+static int adsp_state_notifier_fn(struct notifier_block *this,
+				unsigned long code, void *ss_handle)
+{
+	int ret;
+	ret = sysmon_send_event(SYSMON_SS_MODEM, "adsp", code);
+	if (ret < 0)
+		pr_err("%s: sysmon_send_event failed (%d).", __func__, ret);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block adsp_state_notifier_block = {
+	.notifier_call = adsp_state_notifier_fn,
+};
+
 static irqreturn_t modem_wdog_bite_irq(int irq, void *dev_id)
 {
 	struct mba_data *drv = dev_id;
@@ -658,8 +674,20 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 		goto err_irq;
 	}
 
+	drv->adsp_state_notifier = subsys_notif_register_notifier("adsp",
+						&adsp_state_notifier_block);
+	if (IS_ERR(drv->adsp_state_notifier)) {
+		ret = PTR_ERR(drv->adsp_state_notifier);
+		dev_err(&pdev->dev, "%s: Registration with the SSR notification driver failed (%d)",
+			__func__, ret);
+		goto err_smsm;
+	}
+
 	return 0;
 
+err_smsm:
+	smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET, smsm_state_cb,
+					drv);
 err_irq:
 	subsys_unregister(drv->subsys);
 err_subsys:
@@ -676,6 +704,9 @@ err_mba_desc:
 static int __devexit pil_mss_driver_exit(struct platform_device *pdev)
 {
 	struct mba_data *drv = platform_get_drvdata(pdev);
+
+	subsys_notif_unregister_notifier(drv->adsp_state_notifier,
+						&adsp_state_notifier_block);
 	smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET,
 			smsm_state_cb, drv);
 	subsys_unregister(drv->subsys);
