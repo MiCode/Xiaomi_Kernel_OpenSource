@@ -150,6 +150,17 @@ static const struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE,
+		.name = "Sync Frame Decode",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_DISABLE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_ENABLE,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_DISABLE,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
@@ -984,6 +995,12 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER:
 		property_id =
 			HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER;
+		hal_property.enable = control.value;
+		pdata = &hal_property;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE:
+		property_id =
+			HAL_PARAM_VDEC_SYNC_FRAME_DECODE;
 		hal_property.enable = control.value;
 		pdata = &hal_property;
 		break;
