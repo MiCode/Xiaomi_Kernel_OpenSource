@@ -266,6 +266,7 @@ struct iommu_domain *msm_get_iommu_domain(int domain_num)
 	else
 		return NULL;
 }
+EXPORT_SYMBOL(msm_get_iommu_domain);
 
 int msm_allocate_iova_address(unsigned int iommu_domain,
 					unsigned int partition_no,
