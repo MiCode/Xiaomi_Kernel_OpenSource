@@ -17,10 +17,12 @@ Required properties:
 - reg : offset and length of the QFPROM registers used for storing
 	the calibration data for the individual sensors.
 - reg-names : resource names used for the physical address of the TSENS
-	      registers and the QFPROM efuse calibration address.
-	      Should be "tsens_physical" for physical address of the TSENS
-	      and "tsens_eeprom_physical" for physical address where calibration
-	      data is stored.
+	      registers, the QFPROM efuse primary calibration address region,
+	      Should be "tsens_physical" for physical address of the TSENS,
+	      "tsens_eeprom_physical" for physical address where primary
+	      calibration data is stored. This includes the backup
+	      calibration address region if TSENS calibration data is stored
+	      in the region.
 - interrupts : TSENS interrupt for cool/warm temperature threshold.
 - qcom,sensors : Total number of available Temperature sensors for TSENS.
 - qcom,slope : One point calibration characterized slope data for each
@@ -37,8 +39,9 @@ Example:
 tsens@fc4a8000 {
 	compatible = "qcom,msm-tsens";
 	reg = <0xfc4a8000 0x2000>,
-	      <0xfc4b80d0 0x5>;
-	reg-names = "tsens_physical", "tsens_eeprom_physical";
+	      <0xfc4b8000 0x1000>;
+	reg-names = "tsens_physical",
+		    "tsens_eeprom_physical";
 	interrupts = <0 184 0>;
 	qcom,calibration-less-mode;
 	qcom,sensors = <11>;
