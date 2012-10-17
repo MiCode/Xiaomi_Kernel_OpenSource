@@ -147,14 +147,15 @@ struct diagchar_dev {
 	struct diag_write_device *buf_tbl;
 	int use_device_tree;
 	/* DCI related variables */
-	struct diag_dci_tbl *dci_tbl;
-	struct dci_notification_tbl *dci_notify_tbl;
+	struct dci_pkt_req_tracking_tbl *req_tracking_tbl;
+	struct diag_dci_client_tbl *dci_client_tbl;
 	int dci_tag;
 	int dci_client_id;
 	struct mutex dci_mutex;
 	int num_dci_client;
 	unsigned char *apps_dci_buf;
 	int dci_state;
+	struct workqueue_struct *diag_dci_wq;
 	/* Memory pool parameters */
 	unsigned int itemsize;
 	unsigned int poolsize;

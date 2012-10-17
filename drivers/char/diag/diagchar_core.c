@@ -377,7 +377,7 @@ long diagchar_ioctl(struct file *filp,
 	int success = -1;
 	void *temp_buf;
 	uint16_t support_list = 0;
-	struct dci_notification_tbl *notify_params;
+	struct diag_dci_client_tbl *notify_params;
 	int status;
 
 	if (iocmd == DIAG_IOCTL_COMMAND_REG) {
@@ -449,20 +449,31 @@ long diagchar_ioctl(struct file *filp,
 	} else if (iocmd == DIAG_IOCTL_DCI_REG) {
 		if (driver->dci_state == DIAG_DCI_NO_REG)
 			return DIAG_DCI_NO_REG;
-		if (driver->num_dci_client >= MAX_DCI_CLIENT)
+		if (driver->num_dci_client >= MAX_DCI_CLIENTS)
 			return DIAG_DCI_NO_REG;
-		notify_params = (struct dci_notification_tbl *) ioarg;
+		notify_params = (struct diag_dci_client_tbl *) ioarg;
 		mutex_lock(&driver->dci_mutex);
 		driver->num_dci_client++;
 		pr_debug("diag: id = %d\n", driver->dci_client_id);
 		driver->dci_client_id++;
-		for (i = 0; i < MAX_DCI_CLIENT; i++) {
-			if (driver->dci_notify_tbl[i].client == NULL) {
-				driver->dci_notify_tbl[i].client = current;
-				driver->dci_notify_tbl[i].list =
+		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+			if (driver->dci_client_tbl[i].client == NULL) {
+				driver->dci_client_tbl[i].client = current;
+				driver->dci_client_tbl[i].list =
 							 notify_params->list;
-				driver->dci_notify_tbl[i].signal_type =
+				driver->dci_client_tbl[i].signal_type =
 					 notify_params->signal_type;
+				create_dci_log_mask_tbl(driver->
+					dci_client_tbl[i].dci_log_mask);
+				create_dci_event_mask_tbl(driver->
+					dci_client_tbl[i].dci_event_mask);
+				driver->dci_client_tbl[i].data_len = 0;
+				driver->dci_client_tbl[i].dci_data =
+					 kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+				driver->dci_client_tbl[i].total_capacity =
+								 IN_BUF_SIZE;
+				driver->dci_client_tbl[i].dropped_logs = 0;
+				driver->dci_client_tbl[i].dropped_events = 0;
 				break;
 			}
 		}
@@ -473,15 +484,15 @@ long diagchar_ioctl(struct file *filp,
 		/* Delete this process from DCI table */
 		mutex_lock(&driver->dci_mutex);
 		for (i = 0; i < dci_max_reg; i++) {
-			if (driver->dci_tbl[i].pid == current->tgid) {
+			if (driver->req_tracking_tbl[i].pid == current->tgid) {
 				pr_debug("diag: delete %d\n", current->tgid);
-				driver->dci_tbl[i].pid = 0;
+				driver->req_tracking_tbl[i].pid = 0;
 				success = i;
 			}
 		}
-		for (i = 0; i < MAX_DCI_CLIENT; i++) {
-			if (driver->dci_notify_tbl[i].client == current) {
-				driver->dci_notify_tbl[i].client = NULL;
+		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+			if (driver->dci_client_tbl[i].client == current) {
+				driver->dci_client_tbl[i].client = NULL;
 				break;
 			}
 		}
@@ -491,10 +502,6 @@ long diagchar_ioctl(struct file *filp,
 			driver->num_dci_client--;
 		driver->num_dci_client--;
 		mutex_unlock(&driver->dci_mutex);
-		for (i = 0; i < dci_max_reg; i++)
-			if (driver->dci_tbl[i].pid != 0)
-				pr_debug("diag: PID = %d, UID = %d, tag = %d\n",
-	driver->dci_tbl[i].pid, driver->dci_tbl[i].uid, driver->dci_tbl[i].tag);
 		pr_debug("diag: complete deleting registrations\n");
 		return success;
 	} else if (iocmd == DIAG_IOCTL_DCI_SUPPORT) {
@@ -653,6 +660,7 @@ long diagchar_ioctl(struct file *filp,
 static int diagchar_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
+	struct diag_dci_client_tbl *entry;
 	int index = -1, i = 0, ret = 0;
 	int num_data = 0, data_type;
 #if defined(CONFIG_DIAG_SDIO_PIPE) || defined(CONFIG_DIAG_BRIDGE_CODE)
@@ -956,23 +964,26 @@ drop_hsic:
 	}
 
 	if (driver->data_ready[index] & DCI_DATA_TYPE) {
-		/*Copy the type of data being passed*/
+		/* Copy the type of data being passed */
 		data_type = driver->data_ready[index] & DCI_DATA_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
-		COPY_USER_SPACE_OR_EXIT(buf+4,
-			 driver->write_ptr_dci->length, 4);
-		/* check delayed vs immediate response */
-		if (*(uint8_t *)(driver->buf_in_dci+4) == DCI_CMD_CODE)
-			COPY_USER_SPACE_OR_EXIT(buf+8,
-		*(driver->buf_in_dci + 5), driver->write_ptr_dci->length);
-		else
-			COPY_USER_SPACE_OR_EXIT(buf+8,
-		*(driver->buf_in_dci + 8), driver->write_ptr_dci->length);
-		driver->in_busy_dci = 0;
+		/* check the current client and copy its data */
+		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+			entry = &(driver->dci_client_tbl[i]);
+			if (entry && (current->tgid == entry->client->tgid)) {
+				COPY_USER_SPACE_OR_EXIT(buf+4,
+						entry->data_len, 4);
+				COPY_USER_SPACE_OR_EXIT(buf+8,
+					 *(entry->dci_data), entry->data_len);
+				entry->data_len = 0;
+				break;
+			}
+		}
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
+		driver->in_busy_dci = 0;
 		if (driver->ch_dci)
-			queue_work(driver->diag_wq,
-				 &(driver->diag_read_smd_dci_work));
+			queue_work(driver->diag_dci_wq,
+				&(driver->diag_read_smd_dci_work));
 		goto exit;
 	}
 exit:
@@ -981,7 +992,7 @@ exit:
 }
 
 static int diagchar_write(struct file *file, const char __user *buf,
-			      size_t count, loff_t *ppos)
+				size_t count, loff_t *ppos)
 {
 	int err, ret = 0, pkt_type;
 	bool mdm_mask = false;
@@ -1011,7 +1022,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			pr_alert("diag: copy failed for DCI data\n");
 			return DIAG_DCI_SEND_DATA_FAIL;
 		}
-		err = diag_process_dci_client(driver->user_space_data,
+		err = diag_process_dci_transaction(driver->user_space_data,
 							payload_size);
 		return err;
 	}
