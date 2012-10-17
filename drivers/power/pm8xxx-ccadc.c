@@ -480,6 +480,9 @@ static irqreturn_t pm8921_bms_ccadc_eoc_handler(int irq, void *data)
 	struct pm8xxx_ccadc_chip *chip = data;
 	int rc;
 
+	if (!the_chip)
+		goto out;
+
 	pr_debug("irq = %d triggered\n", irq);
 	data_msb = chip->ccadc_offset >> 8;
 	data_lsb = chip->ccadc_offset;
@@ -488,6 +491,7 @@ static irqreturn_t pm8921_bms_ccadc_eoc_handler(int irq, void *data)
 						data_msb, data_lsb, 0);
 	disable_irq_nosync(chip->eoc_irq);
 
+out:
 	return IRQ_HANDLED;
 }
 
@@ -684,7 +688,6 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 		pr_err("failed to request %d irq rc= %d\n", chip->eoc_irq, rc);
 		goto free_chip;
 	}
-
 
 	disable_irq_nosync(chip->eoc_irq);
 
