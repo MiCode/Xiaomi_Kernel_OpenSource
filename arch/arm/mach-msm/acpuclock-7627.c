@@ -754,7 +754,7 @@ static int acpuclk_7627_set_rate(int cpu, unsigned long rate,
 		acpuclk_set_div(tgt_s);
 		drv_state.current_speed = tgt_s;
 		/* Re-adjust lpj for the new clock speed. */
-		update_jiffies(cpu, cur_s->lpj);
+		update_jiffies(cpu, tgt_s->lpj);
 
 		/* Disable the backup PLL */
 		if ((delta > drv_state.max_speed_delta_khz)
