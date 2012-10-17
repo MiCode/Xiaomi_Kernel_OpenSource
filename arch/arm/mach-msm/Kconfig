@@ -2641,4 +2641,14 @@ config MSM_ENABLE_WDOG_DEBUG_CONTROL
 	 used to control debug image.
 	 This support is currently required for MSM8974 to disable debug image
 	 on PS HOLD reset
+
+config MSM_FIQ
+	bool "Enable FIQ for debugging"
+	depends on ARCH_MSM8625
+	select FIQ
+	help
+	  Enable any line to be used as an FIQ. This will help debugging
+	  if apps is not responding and holding lock with irqs disabled.
+	  Modem will then generate an raise a FIQ on this line before sending
+	  SMSM reset.
 endif
