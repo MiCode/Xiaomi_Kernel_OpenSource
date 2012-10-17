@@ -2229,6 +2229,8 @@ static void
 kgsl_gpumem_vm_close(struct vm_area_struct *vma)
 {
 	struct kgsl_mem_entry *entry  = vma->vm_private_data;
+
+	entry->memdesc.useraddr = 0;
 	kgsl_mem_entry_put(entry);
 }
 
@@ -2240,6 +2242,7 @@ static struct vm_operations_struct kgsl_gpumem_vm_ops = {
 
 static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	unsigned int ret;
 	unsigned long vma_offset = vma->vm_pgoff << PAGE_SHIFT;
 	struct kgsl_device_private *dev_priv = file->private_data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
@@ -2266,8 +2269,20 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	if (!entry->memdesc.ops ||
 		!entry->memdesc.ops->vmflags ||
-		!entry->memdesc.ops->vmfault)
-		return -EINVAL;
+		!entry->memdesc.ops->vmfault) {
+		ret = -EINVAL;
+		goto err_put;
+	}
+
+	if (entry->memdesc.useraddr != 0) {
+		ret = -EBUSY;
+		goto err_put;
+	}
+
+	if (entry->memdesc.size != (vma->vm_end - vma->vm_start)) {
+		ret = -ERANGE;
+		goto err_put;
+	}
 
 	vma->vm_flags |= entry->memdesc.ops->vmflags(&entry->memdesc);
 
@@ -2276,7 +2291,12 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	vma->vm_ops = &kgsl_gpumem_vm_ops;
 	vma->vm_file = file;
 
+	entry->memdesc.useraddr = vma->vm_start;
+
 	return 0;
+err_put:
+	kgsl_mem_entry_put(entry);
+	return ret;
 }
 
 static irqreturn_t kgsl_irq_handler(int irq, void *data)
