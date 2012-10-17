@@ -55,7 +55,7 @@ static DEFINE_SPINLOCK(pll_reg_lock);
 
 #define ENABLE_WAIT_MAX_LOOPS 200
 
-int pll_vote_clk_enable(struct clk *c)
+static int pll_vote_clk_enable(struct clk *c)
 {
 	u32 ena, count;
 	unsigned long flags;
@@ -85,7 +85,7 @@ int pll_vote_clk_enable(struct clk *c)
 	return -ETIMEDOUT;
 }
 
-void pll_vote_clk_disable(struct clk *c)
+static void pll_vote_clk_disable(struct clk *c)
 {
 	u32 ena;
 	unsigned long flags;
@@ -98,12 +98,12 @@ void pll_vote_clk_disable(struct clk *c)
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 }
 
-struct clk *pll_vote_clk_get_parent(struct clk *c)
+static struct clk *pll_vote_clk_get_parent(struct clk *c)
 {
 	return to_pll_vote_clk(c)->parent;
 }
 
-int pll_vote_clk_is_enabled(struct clk *c)
+static int pll_vote_clk_is_enabled(struct clk *c)
 {
 	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
 	return !!(readl_relaxed(PLL_STATUS_REG(pllv)) & pllv->status_mask);
@@ -440,6 +440,46 @@ struct clk_ops clk_ops_pll = {
 	.disable = pll_clk_disable,
 	.handoff = pll_clk_handoff,
 	.is_enabled = pll_clk_is_enabled,
+};
+
+static DEFINE_SPINLOCK(soft_vote_lock);
+
+static int pll_acpu_vote_clk_enable(struct clk *c)
+{
+	int ret = 0;
+	unsigned long flags;
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
+
+	spin_lock_irqsave(&soft_vote_lock, flags);
+
+	if (!*pllv->soft_vote)
+		ret = pll_vote_clk_enable(c);
+	if (ret == 0)
+		*pllv->soft_vote |= (pllv->soft_vote_mask);
+
+	spin_unlock_irqrestore(&soft_vote_lock, flags);
+	return ret;
+}
+
+static void pll_acpu_vote_clk_disable(struct clk *c)
+{
+	unsigned long flags;
+	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
+
+	spin_lock_irqsave(&soft_vote_lock, flags);
+
+	*pllv->soft_vote &= ~(pllv->soft_vote_mask);
+	if (!*pllv->soft_vote)
+		pll_vote_clk_disable(c);
+
+	spin_unlock_irqrestore(&soft_vote_lock, flags);
+}
+
+struct clk_ops clk_ops_pll_acpu_vote = {
+	.enable = pll_acpu_vote_clk_enable,
+	.disable = pll_acpu_vote_clk_disable,
+	.is_enabled = pll_vote_clk_is_enabled,
+	.get_parent = pll_vote_clk_get_parent,
 };
 
 static void __init __set_fsm_mode(void __iomem *mode_reg,
