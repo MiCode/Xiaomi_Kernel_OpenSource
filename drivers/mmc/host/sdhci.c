@@ -2582,6 +2582,19 @@ int sdhci_add_host(struct sdhci_host *host)
 		mmc->caps |= MMC_CAP_DRIVER_TYPE_D;
 
 	/*
+	 * If Power Off Notify capability is enabled by the host,
+	 * set notify to short power off notify timeout value.
+	 */
+	if (mmc->caps2 & MMC_CAP2_POWEROFF_NOTIFY)
+		mmc->power_notify_type = MMC_HOST_PW_NOTIFY_SHORT;
+	else
+		mmc->power_notify_type = MMC_HOST_PW_NOTIFY_NONE;
+
+	/* Initial value for re-tuning timer count */
+	host->tuning_count = (caps[1] & SDHCI_RETUNING_TIMER_COUNT_MASK) >>
+			      SDHCI_RETUNING_TIMER_COUNT_SHIFT;
+
+	/*
 	 * In case Re-tuning Timer is not disabled, the actual value of
 	 * re-tuning timer will be 2 ^ (n - 1).
 	 */
