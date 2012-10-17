@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 struct msm_rpmstats_platform_data {
 	phys_addr_t phys_addr_base;
 	u32 phys_size;
+	u32 version;
 };
 
 struct msm_rpm_master_stats_platform_data {

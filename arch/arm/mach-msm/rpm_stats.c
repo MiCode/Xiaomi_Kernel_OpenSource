@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/mm.h>
+#include <linux/types.h>
 #include <asm/uaccess.h>
 
 #include <mach/msm_iomap.h>
@@ -44,7 +45,6 @@ struct msm_rpmstats_record{
 	uint32_t	id;
 	uint32_t	val;
 };
-
 struct msm_rpmstats_private_data{
 	void __iomem *reg_base;
 	u32 num_records;
@@ -53,7 +53,6 @@ struct msm_rpmstats_private_data{
 	char buf[128];
 	struct msm_rpmstats_platform_data *platform_data;
 };
-
 static inline unsigned long  msm_rpmstats_read_register(void __iomem *regbase,
 		int index, int offset)
 {
@@ -120,7 +119,6 @@ static int msm_rpmstats_copy_stats(struct msm_rpmstats_private_data *pdata)
 			msm_rpmstats_id_labels[record.id],
 			usec);
 }
-
 static int msm_rpmstats_file_read(struct file *file, char __user *bufu,
 				  size_t count, loff_t *ppos)
 {
@@ -133,13 +131,16 @@ static int msm_rpmstats_file_read(struct file *file, char __user *bufu,
 	if (!bufu || count < 0)
 		return -EINVAL;
 
-	if (!prvdata->num_records)
-		prvdata->num_records = readl_relaxed(prvdata->reg_base);
+	if (prvdata->platform_data->version == 1) {
+		if (!prvdata->num_records)
+			prvdata->num_records = readl_relaxed(prvdata->reg_base);
+	}
 
 	if ((*ppos >= prvdata->len)
-			&& (prvdata->read_idx < prvdata->num_records)) {
-		prvdata->len = msm_rpmstats_copy_stats(prvdata);
-		*ppos = 0;
+		&& (prvdata->read_idx < prvdata->num_records)) {
+			if (prvdata->platform_data->version == 1)
+				prvdata->len = msm_rpmstats_copy_stats(prvdata);
+			*ppos = 0;
 	}
 
 	return simple_read_from_buffer(bufu, count, ppos,
@@ -198,15 +199,37 @@ static  int __devinit msm_rpmstats_probe(struct platform_device *pdev)
 {
 	struct dentry *dent;
 	struct msm_rpmstats_platform_data *pdata;
+	struct msm_rpmstats_platform_data *pd;
+	struct resource *res = NULL;
 
-	pdata = pdev->dev.platform_data;
-	if (!pdata)
+	if (!pdev)
 		return -EINVAL;
+
+	pdata = kzalloc(sizeof(struct msm_rpmstats_platform_data), GFP_KERNEL);
+
+	if (!pdata)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (!res)
+		return -EINVAL;
+
+	pdata->phys_addr_base  = res->start;
+
+	pdata->phys_size = resource_size(res);
+
+	if (pdev->dev.platform_data) {
+		pd = pdev->dev.platform_data;
+		pdata->version = pd->version ;
+	}
+
 	dent = debugfs_create_file("rpm_stats", S_IRUGO, NULL,
-			pdev->dev.platform_data, &msm_rpmstats_fops);
+			pdata, &msm_rpmstats_fops);
 
 	if (!dent) {
 		pr_err("%s: ERROR debugfs_create_file failed\n", __func__);
+		kfree(pdata);
 		return -ENOMEM;
 	}
 	platform_set_drvdata(pdev, dent);

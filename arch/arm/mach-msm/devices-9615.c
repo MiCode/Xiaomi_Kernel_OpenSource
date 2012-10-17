@@ -1361,16 +1361,29 @@ static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
 };
 
 static struct msm_rpmstats_platform_data msm_rpm_stat_pdata = {
-	.phys_addr_base = 0x0010DD04,
-	.phys_size = SZ_256,
+	.version = 1,
 };
+
+
+static struct resource msm_rpm_stat_resource[] = {
+	{
+		.start	= 0x0010D204,
+		.end	= 0x0010D204 + SZ_8K,
+		.flags	= IORESOURCE_MEM,
+		.name	= "phys_addr_base"
+	},
+};
+
+
 
 struct platform_device msm9615_rpm_stat_device = {
 	.name = "msm_rpm_stat",
 	.id = -1,
-	.dev = {
+	.resource = msm_rpm_stat_resource,
+	.num_resources	= ARRAY_SIZE(msm_rpm_stat_resource),
+	.dev	= {
 		.platform_data = &msm_rpm_stat_pdata,
-	},
+	}
 };
 
 static struct resource resources_rpm_master_stats[] = {
