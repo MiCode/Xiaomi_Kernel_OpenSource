@@ -659,7 +659,7 @@
 		reg = <0xfe200000 0x00100>,
 		      <0xfd485100 0x00010>;
 		reg-names = "qdsp6_base", "halt_base";
-		interrupts = <0 194 1>;
+		interrupts = <0 162 1>;
 
 		qcom,firmware-name = "adsp";
 	};
@@ -820,7 +820,7 @@
 		reg = <0xfc820000 0x0020>,
 		      <0x0d1fc000 0x4000>;
 		reg-names = "rmb_base", "metadata_base";
-		interrupts = <0 56 1>;
+		interrupts = <0 24 1>;
 
 		qcom,firmware-name = "modem";
 		qcom,depends-on    = "mba";
@@ -832,7 +832,7 @@
 		      <0xfc401700 0x4>,
 		      <0xfd485300 0xc>;
 		reg-names = "pmu_base", "clk_base", "halt_base";
-		interrupts = <0 181 1>;
+		interrupts = <0 149 1>;
 		vdd_pronto_pll-supply = <&pm8941_l12>;
 
 		qcom,firmware-name = "wcnss";
