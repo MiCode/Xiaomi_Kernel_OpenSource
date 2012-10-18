@@ -21,13 +21,19 @@
 #include <linux/memory_alloc.h>
 #include <linux/ctype.h>
 #include <linux/debugfs.h>
+#include <linux/regulator/consumer.h>
+#include <linux/clk.h>
+#include <linux/interrupt.h>
 
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/irqs.h>
+#include <mach/clk.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
+#include <mach/iommu_domains.h>
 
 #include <media/videobuf2-msm-mem.h>
-
 #include <media/videobuf2-vmalloc.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -35,16 +41,9 @@
 #include <media/v4l2-fh.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-event.h>
-#include <linux/regulator/consumer.h>
-#include <mach/clk.h>
-#include <linux/clk.h>
-#include <linux/interrupt.h>
-#include <mach/msm_bus.h>
-#include <mach/msm_bus_board.h>
-#include <mach/iommu_domains.h>
-
 #include <media/vcap_v4l2.h>
 #include <media/vcap_fmt.h>
+
 #include "vcap_vc.h"
 #include "vcap_vp.h"
 
@@ -681,6 +680,7 @@ static int vp_in_stop_streaming(struct vb2_queue *vq)
 	struct vb2_buffer *vb;
 
 	pr_debug("VP IN stop streaming\n");
+	vp_stop_capture(c_data);
 
 	while (!list_empty(&c_data->vp_action.in_active)) {
 		struct vcap_buffer *buf;

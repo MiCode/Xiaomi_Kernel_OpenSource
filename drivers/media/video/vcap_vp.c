@@ -15,14 +15,16 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/freezer.h>
-#include <mach/camera.h>
-#include <linux/io.h>
-#include <mach/clk.h>
 #include <linux/clk.h>
+#include <linux/io.h>
+
+#include <mach/camera.h>
+#include <mach/clk.h>
 
 #include <media/v4l2-event.h>
 #include <media/vcap_v4l2.h>
 #include <media/vcap_fmt.h>
+
 #include "vcap_vp.h"
 
 void config_nr_buffer(struct vcap_client_data *c_data,
@@ -393,6 +395,7 @@ void vp_stop_capture(struct vcap_client_data *c_data)
 				msecs_to_jiffies(50));
 		if (rc == 0 && atomic_read(&dev->vp_enabled) == 1) {
 			/* This should not happen, if it does hw is stuck */
+			disable_irq_nosync(dev->vpirq->start);
 			pr_err("%s: VP Timeout and VP still running\n",
 				__func__);
 		}
