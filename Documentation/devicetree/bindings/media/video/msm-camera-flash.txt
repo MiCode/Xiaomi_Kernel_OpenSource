@@ -1,0 +1,23 @@
+* Qualcomm MSM CAMERA FLASH
+
+Required properties:
+- cell-index : Should contain flash source index to diffentiate
+    between different flash devices. These indexes represent flash devices
+    for multiple sensors.
+    - 0, 1, 2, 3
+- compatible :
+    - "qcom,camera-led-flash"
+- qcom,flash-type : Should contain type flash device
+    - 1 for LED flash
+    - 2 for strobe flash
+- qcom,flash-source : Should contain array of phandles to flash source nodes.
+    - pm8941_flash0 pm8941_flash1
+
+Example:
+
+qcom,camera-led-flash {
+	cell-index = <0>;
+	compatible = "qcom,camera-led-flash";
+	qcom,flash-type = <1>;
+	qcom,flash-source = <&pm8941_flash0 &pm8941_flash1>;
+};
