@@ -90,6 +90,7 @@ static struct pll_config pll4_cfg_tbl[] = {
 	[2] = {  63, 0, 1 }, /* 1209.6 MHz */
 	[3] = {  73, 0, 1 }, /* 1401.6 MHz */
 	[4] = {  60, 0, 1 }, /* 1152 MHz */
+	[5] = {  57, 1, 2 }, /* 1104 MHz */
 };
 
 struct clock_state {
@@ -340,6 +341,32 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[] = {
 	{ 0 }
 };
 
+/* 8625 PLL4 @ 1104MHz with GSM capable modem with v2.0 plan */
+static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1104[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
+	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 1, 61440 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+	{ 1, 1104000, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[5]},
+	{ 0 }
+};
+
+/* 8625 PLL4 @ 1104MHz with CDMA capable modem with v2.0 plan */
+static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1104[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 1, 98304 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+	{ 1, 1104000, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[5]},
+	{ 0 }
+};
+
 /* 8625 PLL4 @ 1152MHz with GSM capable modem with v2.0 plan */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1152[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
@@ -484,6 +511,8 @@ static struct pll_freq_tbl_map acpu_freq_tbl_list[] = {
 	PLL_CONFIG(960, 196, 1200, 1209),
 	PLL_CONFIG(960, 245, 1200, 1152),
 	PLL_CONFIG(960, 196, 1200, 1152),
+	PLL_CONFIG(960, 245, 1200, 1104),
+	PLL_CONFIG(960, 196, 1200, 1104),
 	PLL_CONFIG(960, 245, 1200, 1401),
 	PLL_CONFIG(960, 196, 1200, 1401),
 	{ 0, 0, 0, 0, 0 }
