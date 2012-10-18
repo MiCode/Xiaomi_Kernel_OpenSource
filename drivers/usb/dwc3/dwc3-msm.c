@@ -620,7 +620,8 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	params.param0 = 0; /* TDAddr High */
 	params.param1 = lower_32_bits(req->trb_dma); /* DAddr Low */
 
-	cmd = DWC3_DEPCMD_STARTTRANSFER;
+	/* DBM requires IOC to be set */
+	cmd = DWC3_DEPCMD_STARTTRANSFER | DWC3_DEPCMD_CMDIOC;
 	ret = dwc3_send_gadget_ep_cmd(dep->dwc, dep->number, cmd, &params);
 	if (ret < 0) {
 		dev_dbg(dep->dwc->dev,
@@ -1771,8 +1772,9 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	usleep_range(1000, 1200);
 	dwc3_msm_dbm_soft_reset(0);
 
-	dwc3_msm_event_buffer_config(dwc3_readl(msm->base, DWC3_GEVNTADRLO(0)),
-		dwc3_readl(msm->base, DWC3_GEVNTSIZ(0)));
+	dwc3_msm_event_buffer_config(dwc3_msm_read_reg(msm->base,
+							DWC3_GEVNTADRLO(0)),
+				dwc3_msm_read_reg(msm->base, DWC3_GEVNTSIZ(0)));
 
 	msm->otg_xceiv = usb_get_transceiver();
 	if (msm->otg_xceiv) {
