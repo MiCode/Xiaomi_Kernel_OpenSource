@@ -449,6 +449,13 @@ static struct msm_gpiomux_config msm8960_gsbi_configs[] __initdata = {
 		},
 	},
 	{
+		.gpio      = 26,	/* GSBI6 WLAN_PWD_L for AR6004 */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_suspended_cfg,
+			[GPIOMUX_ACTIVE] = &gsbi6_active_cfg,
+		},
+	},
+	{
 		.gpio      = 27,        /* GSBI6 BT_INT2AP_N for AR3002 */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gsbi6_suspended_cfg,

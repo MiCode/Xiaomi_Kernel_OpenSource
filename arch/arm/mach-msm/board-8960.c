@@ -103,6 +103,11 @@
 #include "pm-boot.h"
 #include "msm_watchdog.h"
 
+#if defined(CONFIG_BT) && defined(CONFIG_BT_HCIUART_ATH3K)
+#include <linux/wlan_plat.h>
+#include <linux/mutex.h>
+#endif
+
 static struct platform_device msm_fm_platform_init = {
 	.name = "iris_fm",
 	.id   = -1,
@@ -2602,6 +2607,76 @@ static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
 #endif
 
 #if defined(CONFIG_BT) && defined(CONFIG_BT_HCIUART_ATH3K)
+enum WLANBT_STATUS {
+	WLANOFF_BTOFF = 1,
+	WLANOFF_BTON,
+	WLANON_BTOFF,
+	WLANON_BTON
+};
+
+static DEFINE_MUTEX(ath_wlanbt_mutex);
+static int gpio_wlan_sys_rest_en = 26;
+static int ath_wlanbt_status = WLANOFF_BTOFF;
+
+static int ath6kl_power_control(int on)
+{
+	int rc;
+
+	if (on) {
+		rc = gpio_request(gpio_wlan_sys_rest_en, "wlan sys_rst_n");
+		if (rc) {
+			pr_err("%s: unable to request gpio %d (%d)\n",
+				__func__, gpio_wlan_sys_rest_en, rc);
+			return rc;
+		}
+		rc = gpio_direction_output(gpio_wlan_sys_rest_en, 0);
+		msleep(200);
+		rc = gpio_direction_output(gpio_wlan_sys_rest_en, 1);
+		msleep(100);
+	} else {
+		gpio_set_value(gpio_wlan_sys_rest_en, 0);
+		rc = gpio_direction_input(gpio_wlan_sys_rest_en);
+		msleep(100);
+		gpio_free(gpio_wlan_sys_rest_en);
+	}
+	return 0;
+};
+
+static int ath6kl_wlan_power(int on)
+{
+	int ret = 0;
+
+	mutex_lock(&ath_wlanbt_mutex);
+	if (on) {
+		if (ath_wlanbt_status == WLANOFF_BTOFF) {
+			ret = ath6kl_power_control(1);
+			ath_wlanbt_status = WLANON_BTOFF;
+		} else if (ath_wlanbt_status == WLANOFF_BTON)
+			ath_wlanbt_status = WLANON_BTON;
+	} else {
+		if (ath_wlanbt_status == WLANON_BTOFF) {
+			ret = ath6kl_power_control(0);
+			ath_wlanbt_status = WLANOFF_BTOFF;
+		} else if (ath_wlanbt_status == WLANON_BTON)
+			ath_wlanbt_status = WLANOFF_BTON;
+	}
+	mutex_unlock(&ath_wlanbt_mutex);
+	pr_debug("%s on= %d, wlan_status= %d\n",
+		__func__, on, ath_wlanbt_status);
+	return ret;
+};
+
+static struct wifi_platform_data ath6kl_wifi_control = {
+	.set_power      = ath6kl_wlan_power,
+};
+
+static struct platform_device msm_wlan_power_device = {
+	.name = "ath6kl_power",
+	.dev            = {
+		.platform_data = &ath6kl_wifi_control,
+	},
+};
+
 static struct resource bluesleep_resources[] = {
 	{
 		.name   = "gpio_host_wake",
@@ -2634,50 +2709,54 @@ static struct platform_device msm_bt_power_device = {
 	.name = "bt_power",
 };
 
-int gpio_bt_sys_rest_en = 28;
+static int gpio_bt_sys_rest_en = 28;
 
 static int bluetooth_power(int on)
 {
 	int rc;
 
-	pr_debug("%s on= %d\n", __func__, on);
-
+	mutex_lock(&ath_wlanbt_mutex);
 	if (on) {
+		if (ath_wlanbt_status == WLANOFF_BTOFF) {
+			ath6kl_power_control(1);
+			ath_wlanbt_status = WLANOFF_BTON;
+		} else if (ath_wlanbt_status == WLANON_BTOFF)
+			ath_wlanbt_status = WLANON_BTON;
+
 		rc = gpio_request(gpio_bt_sys_rest_en, "bt sys_rst_n");
 		if (rc) {
 			pr_err("%s: unable to request gpio %d (%d)\n",
 				__func__, gpio_bt_sys_rest_en, rc);
-			goto out;
+			mutex_unlock(&ath_wlanbt_mutex);
+			return rc;
 		}
 		rc = gpio_direction_output(gpio_bt_sys_rest_en, 0);
-		if (rc) {
-			pr_err("%s: Unable to set gpio %d direction\n",
-				__func__, gpio_bt_sys_rest_en);
-			goto free_gpio;
-		}
+		msleep(20);
+		rc = gpio_direction_output(gpio_bt_sys_rest_en, 1);
 		msleep(100);
-		gpio_set_value(gpio_bt_sys_rest_en, 1);
-		msleep(100);
-		goto out;
 	} else {
 		gpio_set_value(gpio_bt_sys_rest_en, 0);
 		rc = gpio_direction_input(gpio_bt_sys_rest_en);
 		msleep(100);
-	}
+		gpio_free(gpio_bt_sys_rest_en);
 
-free_gpio:
-	gpio_free(gpio_bt_sys_rest_en);
-out:
-	return rc;
-}
+		if (ath_wlanbt_status == WLANOFF_BTON) {
+			ath6kl_power_control(0);
+			ath_wlanbt_status = WLANOFF_BTOFF;
+		} else if (ath_wlanbt_status == WLANON_BTON)
+			ath_wlanbt_status = WLANON_BTOFF;
+	}
+	mutex_unlock(&ath_wlanbt_mutex);
+	pr_debug("%s on= %d, wlan_status= %d\n",
+		__func__, on, ath_wlanbt_status);
+	return 0;
+};
 
 static void __init bt_power_init(void)
 {
-	pr_debug("%s enter\n", __func__);
 	msm_bt_power_device.dev.platform_data = &bluetooth_power;
-
 	return;
-}
+};
 #else
 #define bt_power_init(x) do {} while (0)
 #endif
@@ -2703,6 +2782,7 @@ static struct platform_device *common_devices[] __initdata = {
 #if defined(CONFIG_BT) && defined(CONFIG_BT_HCIUART_ATH3K)
 	&msm_bluesleep_device,
 	&msm_bt_power_device,
+	&msm_wlan_power_device,
 #endif
 #if defined(CONFIG_QSEECOM)
 	&qseecom_device,
