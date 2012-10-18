@@ -871,6 +871,7 @@ EXPORT_SYMBOL(smd_edge_to_subsystem);
 /*
  * Returns a pointer to the subsystem name given the
  * remote processor ID.
+ * subsystem is not necessarily PIL-loadable
  *
  * @pid     Remote processor ID
  * @returns Pointer to subsystem name or NULL if not found
@@ -881,11 +882,14 @@ const char *smd_pid_to_subsystem(uint32_t pid)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(edge_to_pids); ++i) {
-		if (pid == edge_to_pids[i].remote_pid &&
-			edge_to_pids[i].subsys_name[0] != 0x0
-			) {
-			subsys = edge_to_pids[i].subsys_name;
-			break;
+		if (pid == edge_to_pids[i].remote_pid) {
+			if (edge_to_pids[i].subsys_name[0] != 0x0) {
+				subsys = edge_to_pids[i].subsys_name;
+				break;
+			} else if (pid == SMD_RPM) {
+				subsys = "rpm";
+				break;
+			}
 		}
 	}
 
