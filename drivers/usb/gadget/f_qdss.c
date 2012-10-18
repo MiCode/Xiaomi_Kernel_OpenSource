@@ -615,6 +615,7 @@ static int qdss_bind_config(struct usb_configuration *c, const char *name)
 	qdss->function.unbind = qdss_unbind;
 	qdss->function.set_alt = qdss_set_alt;
 	qdss->function.disable = qdss_disable;
+	spin_lock_init(&qdss->lock);
 	INIT_LIST_HEAD(&qdss->ctrl_read_pool);
 	INIT_LIST_HEAD(&qdss->ctrl_write_pool);
 	INIT_WORK(&qdss->qdss_work, usb_qdss_work_func);
