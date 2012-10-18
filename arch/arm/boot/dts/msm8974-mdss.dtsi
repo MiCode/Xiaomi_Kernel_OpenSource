@@ -60,4 +60,14 @@
 		qcom,mdss_pan_res = <1920 1080>;
 		qcom,mdss_pan_bpp = <24>;
 	};
+
+	mdss_edp: qcom,mdss_edp@fd923400 {
+		compatible = "qcom,mdss-edp";
+		reg = <0xfd923400 0x700>,
+			<0xfd8c2000 0x1000>;
+		reg-names = "edp_base", "mmss_cc_base";
+		vdda-supply = <&pm8941_l12>;
+		gpio-panel-en = <&msmgpio 58 0>;
+		status = "disable";
+	};
 };
