@@ -532,14 +532,14 @@ int __init msm_clock_init(struct clock_init_data *data)
 	if (!data)
 		return -EINVAL;
 
-	clock_debug_init();
-
 	clk_init_data = data;
 	if (clk_init_data->pre_init)
 		clk_init_data->pre_init();
 
 	clock_tbl = data->table;
 	num_clocks = data->size;
+
+	init_sibling_lists(clock_tbl, num_clocks);
 
 	/*
 	 * Detect and preserve initial clock state until clock_late_init() or
@@ -548,10 +548,13 @@ int __init msm_clock_init(struct clock_init_data *data)
 	for (n = 0; n < num_clocks; n++)
 		__handoff_clk(clock_tbl[n].clk);
 
-	msm_clock_register(clock_tbl, num_clocks);
+	clkdev_add_table(clock_tbl, num_clocks);
 
 	if (clk_init_data->post_init)
 		clk_init_data->post_init();
+
+	clock_debug_init();
+	clock_debug_register(clock_tbl, num_clocks);
 
 	return 0;
 }
