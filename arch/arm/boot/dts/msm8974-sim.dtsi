@@ -11,6 +11,7 @@
  */
 
 /include/ "dsi-panel-sim-video.dtsi"
+/include/ "msm8974-leds.dtsi"
 /include/ "msm8974-camera-sensor.dtsi"
 
 / {

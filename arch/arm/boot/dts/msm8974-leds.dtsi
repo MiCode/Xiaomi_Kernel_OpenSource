@@ -51,7 +51,7 @@
 
 		qcom,leds@d300 {
 			status = "okay";
-			qcom,flash_0 {
+			pm8941_flash0: qcom,flash_0 {
 				qcom,max-current = <1000>;
 				qcom,default-state = "off";
 				qcom,headroom = <0>;
@@ -67,7 +67,7 @@
 				qcom,current = <625>;
 			};
 
-			qcom,flash_1 {
+			pm8941_flash1: qcom,flash_1 {
 				qcom,max-current = <1000>;
 				qcom,default-state = "off";
 				qcom,headroom = <0>;
