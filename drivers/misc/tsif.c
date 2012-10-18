@@ -140,6 +140,10 @@ struct msm_tsif_device {
 	unsigned int irq;
 	int mode;
 	u32 time_limit;
+	int clock_inverse;
+	int data_inverse;
+	int sync_inverse;
+	int enable_inverse;
 	enum tsif_state state;
 	struct wake_lock wake_lock;
 	/* clocks */
@@ -358,6 +362,19 @@ static int tsif_start_hw(struct msm_tsif_device *tsif_device)
 		  TSIF_STS_CTL_EN_TIME_LIM |
 		  TSIF_STS_CTL_EN_TCR |
 		  TSIF_STS_CTL_EN_DM;
+
+	if (tsif_device->clock_inverse)
+		ctl |= TSIF_STS_CTL_INV_CLOCK;
+
+	if (tsif_device->data_inverse)
+		ctl |= TSIF_STS_CTL_INV_DATA;
+
+	if (tsif_device->sync_inverse)
+		ctl |= TSIF_STS_CTL_INV_SYNC;
+
+	if (tsif_device->enable_inverse)
+		ctl |= TSIF_STS_CTL_INV_ENABLE;
+
 	dev_info(&tsif_device->pdev->dev, "%s\n", __func__);
 	switch (tsif_device->mode) {
 	case 1: /* mode 1 */
@@ -805,6 +822,10 @@ static ssize_t show_stats(struct device *dev, struct device_attribute *attr,
 			"Client     = %p\n"
 			"Pkt/Buf    = %d\n"
 			"Pkt/chunk  = %d\n"
+			"Clock inv  = %d\n"
+			"Data inv   = %d\n"
+			"Sync inv   = %d\n"
+			"Enable inv = %d\n"
 			"--statistics--\n"
 			"Rx chunks  = %d\n"
 			"Overflow   = %d\n"
@@ -827,6 +848,10 @@ static ssize_t show_stats(struct device *dev, struct device_attribute *attr,
 			tsif_device->client_data,
 			TSIF_PKTS_IN_BUF,
 			TSIF_PKTS_IN_CHUNK,
+			tsif_device->clock_inverse,
+			tsif_device->data_inverse,
+			tsif_device->sync_inverse,
+			tsif_device->enable_inverse,
 			tsif_device->stat_rx,
 			tsif_device->stat_overflow,
 			tsif_device->stat_lost_sync,
@@ -950,11 +975,120 @@ static ssize_t set_buf_config(struct device *dev,
 static DEVICE_ATTR(buf_config, S_IRUGO | S_IWUSR,
 		   show_buf_config, set_buf_config);
 
+static ssize_t show_clk_inverse(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct msm_tsif_device *tsif_device = dev_get_drvdata(dev);
+	return snprintf(buf, PAGE_SIZE, "%d\n", tsif_device->clock_inverse);
+}
+
+static ssize_t set_clk_inverse(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct msm_tsif_device *tsif_device = dev_get_drvdata(dev);
+	int value;
+	int rc;
+	if (1 != sscanf(buf, "%d", &value)) {
+		dev_err(&tsif_device->pdev->dev,
+			"Failed to parse integer: <%s>\n", buf);
+		return -EINVAL;
+	}
+	rc = tsif_set_clk_inverse(tsif_device, value);
+	if (!rc)
+		rc = count;
+	return rc;
+}
+static DEVICE_ATTR(clk_inverse, S_IRUGO | S_IWUSR,
+	show_clk_inverse, set_clk_inverse);
+
+static ssize_t show_data_inverse(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct msm_tsif_device *tsif_device = dev_get_drvdata(dev);
+	return snprintf(buf, PAGE_SIZE, "%d\n", tsif_device->data_inverse);
+}
+
+static ssize_t set_data_inverse(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct msm_tsif_device *tsif_device = dev_get_drvdata(dev);
+	int value;
+	int rc;
+	if (1 != sscanf(buf, "%d", &value)) {
+		dev_err(&tsif_device->pdev->dev,
+			"Failed to parse integer: <%s>\n", buf);
+		return -EINVAL;
+	}
+	rc = tsif_set_data_inverse(tsif_device, value);
+	if (!rc)
+		rc = count;
+	return rc;
+}
+static DEVICE_ATTR(data_inverse, S_IRUGO | S_IWUSR,
+	show_data_inverse, set_data_inverse);
+
+static ssize_t show_sync_inverse(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct msm_tsif_device *tsif_device = dev_get_drvdata(dev);
+	return snprintf(buf, PAGE_SIZE, "%d\n", tsif_device->sync_inverse);
+}
+
+static ssize_t set_sync_inverse(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct msm_tsif_device *tsif_device = dev_get_drvdata(dev);
+	int value;
+	int rc;
+	if (1 != sscanf(buf, "%d", &value)) {
+		dev_err(&tsif_device->pdev->dev,
+			"Failed to parse integer: <%s>\n", buf);
+		return -EINVAL;
+	}
+	rc = tsif_set_sync_inverse(tsif_device, value);
+	if (!rc)
+		rc = count;
+	return rc;
+}
+static DEVICE_ATTR(sync_inverse, S_IRUGO | S_IWUSR,
+	show_sync_inverse, set_sync_inverse);
+
+static ssize_t show_enable_inverse(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct msm_tsif_device *tsif_device = dev_get_drvdata(dev);
+	return snprintf(buf, PAGE_SIZE, "%d\n", tsif_device->enable_inverse);
+}
+
+static ssize_t set_enable_inverse(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct msm_tsif_device *tsif_device = dev_get_drvdata(dev);
+	int value;
+	int rc;
+	if (1 != sscanf(buf, "%d", &value)) {
+		dev_err(&tsif_device->pdev->dev,
+			"Failed to parse integer: <%s>\n", buf);
+		return -EINVAL;
+	}
+	rc = tsif_set_enable_inverse(tsif_device, value);
+	if (!rc)
+		rc = count;
+	return rc;
+}
+static DEVICE_ATTR(enable_inverse, S_IRUGO | S_IWUSR,
+	show_enable_inverse, set_enable_inverse);
+
+
 static struct attribute *dev_attrs[] = {
 	&dev_attr_stats.attr,
 	&dev_attr_mode.attr,
 	&dev_attr_time_limit.attr,
 	&dev_attr_buf_config.attr,
+	&dev_attr_clk_inverse.attr,
+	&dev_attr_data_inverse.attr,
+	&dev_attr_sync_inverse.attr,
+	&dev_attr_enable_inverse.attr,
 	NULL,
 };
 static struct attribute_group dev_attr_grp = {
@@ -1287,6 +1421,10 @@ static int __devinit msm_tsif_probe(struct platform_device *pdev)
 	tsif_device->pdev = pdev;
 	platform_set_drvdata(pdev, tsif_device);
 	tsif_device->mode = 1;
+	tsif_device->clock_inverse = 0;
+	tsif_device->data_inverse = 0;
+	tsif_device->sync_inverse = 0;
+	tsif_device->enable_inverse = 0;
 	tsif_device->pkts_per_chunk = TSIF_PKTS_IN_CHUNK_DEFAULT;
 	tsif_device->chunks_per_buf = TSIF_CHUNKS_IN_BUF_DEFAULT;
 	tasklet_init(&tsif_device->dma_refill, tsif_dma_refill,
@@ -1533,6 +1671,78 @@ int tsif_set_buf_config(void *cookie, u32 pkts_in_chunk, u32 chunks_in_buf)
 	return 0;
 }
 EXPORT_SYMBOL(tsif_set_buf_config);
+
+int tsif_set_clk_inverse(void *cookie, int value)
+{
+	struct msm_tsif_device *tsif_device = cookie;
+	if (tsif_device->state != tsif_state_stopped) {
+		dev_err(&tsif_device->pdev->dev,
+			"Can't change clock inverse while device is active\n");
+		return -EBUSY;
+	}
+	if ((value != 0) && (value != 1)) {
+		dev_err(&tsif_device->pdev->dev,
+			"Invalid parameter, either 0 or 1: %#x\n", value);
+		return -EINVAL;
+	}
+	tsif_device->clock_inverse = value;
+	return 0;
+}
+EXPORT_SYMBOL(tsif_set_clk_inverse);
+
+int tsif_set_data_inverse(void *cookie, int value)
+{
+	struct msm_tsif_device *tsif_device = cookie;
+	if (tsif_device->state != tsif_state_stopped) {
+		dev_err(&tsif_device->pdev->dev,
+			"Can't change data inverse while device is active\n");
+		return -EBUSY;
+	}
+	if ((value != 0) && (value != 1)) {
+		dev_err(&tsif_device->pdev->dev,
+			"Invalid parameter, either 0 or 1: %#x\n", value);
+		return -EINVAL;
+	}
+	tsif_device->data_inverse = value;
+	return 0;
+}
+EXPORT_SYMBOL(tsif_set_data_inverse);
+
+int tsif_set_sync_inverse(void *cookie, int value)
+{
+	struct msm_tsif_device *tsif_device = cookie;
+	if (tsif_device->state != tsif_state_stopped) {
+		dev_err(&tsif_device->pdev->dev,
+			"Can't change sync inverse while device is active\n");
+		return -EBUSY;
+	}
+	if ((value != 0) && (value != 1)) {
+		dev_err(&tsif_device->pdev->dev,
+			"Invalid parameter, either 0 or 1: %#x\n", value);
+		return -EINVAL;
+	}
+	tsif_device->sync_inverse = value;
+	return 0;
+}
+EXPORT_SYMBOL(tsif_set_sync_inverse);
+
+int tsif_set_enable_inverse(void *cookie, int value)
+{
+	struct msm_tsif_device *tsif_device = cookie;
+	if (tsif_device->state != tsif_state_stopped) {
+		dev_err(&tsif_device->pdev->dev,
+			"Can't change enable inverse while device is active\n");
+		return -EBUSY;
+	}
+	if ((value != 0) && (value != 1)) {
+		dev_err(&tsif_device->pdev->dev,
+			"Invalid parameter, either 0 or 1: %#x\n", value);
+		return -EINVAL;
+	}
+	tsif_device->enable_inverse = value;
+	return 0;
+}
+EXPORT_SYMBOL(tsif_set_enable_inverse);
 
 void tsif_get_state(void *cookie, int *ri, int *wi, enum tsif_state *state)
 {
