@@ -101,8 +101,7 @@ enum rpm_vreg_voter {
  * @init_data:		regulator constraints
  * @id:			regulator id; from enum rpm_vreg_id
  * @sleep_selectable:	flag which indicates that regulator should be accessable
- *			by external private API and that spinlocks should be
- *			used instead of mutex locks
+ *			by external private API
  * @system_uA:		current drawn from regulator not accounted for by any
  *			regulator framework consumer
  * @enable_time:	time in us taken to enable a regulator to the maximum
@@ -184,10 +183,8 @@ struct rpm_regulator_platform_data {
  * Returns 0 on success or errno.
  *
  * This function is used to vote for the voltage of a regulator without
- * using the regulator framework.  It is needed by consumers which hold spin
- * locks or have interrupts disabled because the regulator framework can sleep.
- * It is also needed by consumers which wish to only vote for active set
- * regulator voltage.
+ * using the regulator framework.  It is needed for consumers which wish to only
+ * vote for active set regulator voltage.
  *
  * If sleep_also == 0, then a sleep-set value of 0V will be voted for.
  *
