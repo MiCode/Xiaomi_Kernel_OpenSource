@@ -3,8 +3,7 @@
  *
  * Kernel API
  *
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights
- * reserved.
+ * Copyright (c) 2009-2010, 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,11 +123,13 @@ int tsif_get_active(void);
  * Should be called prior to any other tsif_XXX function.
  */
 void *tsif_attach(int id, void (*notify)(void *client_data), void *client_data);
+
 /**
  * tsif_detach - detach from device
  * @cookie:    TSIF cookie previously obtained with tsif_attach()
  */
 void tsif_detach(void *cookie);
+
 /**
  * tsif_get_info - get data buffer info
  * @cookie:    TSIF cookie previously obtained with tsif_attach()
@@ -140,6 +141,7 @@ void tsif_detach(void *cookie);
  * using data; since data buffer will be re-allocated on tsif_start()
  */
 void tsif_get_info(void *cookie, void **pdata, int *psize);
+
 /**
  * tsif_set_mode - set TSIF mode
  * @cookie:    TSIF cookie previously obtained with tsif_attach()
@@ -150,6 +152,7 @@ void tsif_get_info(void *cookie, void **pdata, int *psize);
  * Mode may be changed only when TSIF device is stopped.
  */
 int tsif_set_mode(void *cookie, int mode);
+
 /**
  * tsif_set_time_limit - set TSIF time limit
  * @cookie:    TSIF cookie previously obtained with tsif_attach()
@@ -160,6 +163,7 @@ int tsif_set_mode(void *cookie, int mode);
  * Time limit may be changed only when TSIF device is stopped.
  */
 int tsif_set_time_limit(void *cookie, u32 value);
+
 /**
  * tsif_set_buf_config - configure data buffer
  *
@@ -180,6 +184,7 @@ int tsif_set_time_limit(void *cookie, u32 value);
  *   stats
  */
 int tsif_set_buf_config(void *cookie, u32 pkts_in_chunk, u32 chunks_in_buf);
+
 /**
  * tsif_get_state - query current data buffer information
  * @cookie:    TSIF cookie previously obtained with tsif_attach()
@@ -188,6 +193,51 @@ int tsif_set_buf_config(void *cookie, u32 pkts_in_chunk, u32 chunks_in_buf);
  * @state:     if not NULL, state will be stored here
  */
 void tsif_get_state(void *cookie, int *ri, int *wi, enum tsif_state *state);
+
+/**
+ * tsif_set_clk_inverse - set whether to inverse the clock signal.
+ * @cookie:   TSIF cookie previously obtained with tsif_attach()
+ * @inverse:  1 to inverse the clock, 0 otherwise. Default is 0.
+ *
+ * Return      error code
+ *
+ * Setting may be changed only when TSIF device is stopped.
+ */
+int tsif_set_clk_inverse(void *cookie, int inverse);
+
+/**
+ * tsif_set_data_inverse - set whether to inverse the data signal.
+ * @cookie:   TSIF cookie previously obtained with tsif_attach()
+ * @inverse:  1 to inverse the clock, 0 otherwise. Default is 0.
+ *
+ * Return      error code
+ *
+ * Setting may be changed only when TSIF device is stopped.
+ */
+int tsif_set_data_inverse(void *cookie, int inverse);
+
+/**
+ * tsif_set_sync_inverse - set whether to inverse the sync signal.
+ * @cookie:   TSIF cookie previously obtained with tsif_attach()
+ * @inverse:  1 to inverse the clock, 0 otherwise. Default is 0.
+ *
+ * Return      error code
+ *
+ * Setting may be changed only when TSIF device is stopped.
+ */
+int tsif_set_sync_inverse(void *cookie, int inverse);
+
+/**
+ * tsif_set_enable_inverse - set whether to inverse the enable signal.
+ * @cookie:   TSIF cookie previously obtained with tsif_attach()
+ * @inverse:  1 to inverse the clock, 0 otherwise. Default is 0.
+ *
+ * Return      error code
+ *
+ * Setting may be changed only when TSIF device is stopped.
+ */
+int tsif_set_enable_inverse(void *cookie, int inverse);
+
 /**
  * tsif_start - start data acquisition
  * @cookie:    TSIF cookie previously obtained with tsif_attach()
@@ -195,6 +245,7 @@ void tsif_get_state(void *cookie, int *ri, int *wi, enum tsif_state *state);
  * Return      error code
  */
 int tsif_start(void *cookie);
+
 /**
  * tsif_stop - stop data acquisition
  * @cookie:    TSIF cookie previously obtained with tsif_attach()
@@ -203,6 +254,7 @@ int tsif_start(void *cookie);
  * query data buffer info using tsif_get_info() and reset its data pointers.
  */
 void tsif_stop(void *cookie);
+
 /**
  * tsif_reclaim_packets - inform that buffer space may be reclaimed
  * @cookie:    TSIF cookie previously obtained with tsif_attach()
