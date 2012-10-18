@@ -396,8 +396,8 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 
 	err = mmc_read_bkops_status(card);
 	if (err) {
-		pr_err("%s: Failed to read bkops status: %d\n",
-		       mmc_hostname(card->host), err);
+		pr_err("%s: %s: Failed to read bkops status: %d\n",
+		       mmc_hostname(card->host), __func__, err);
 		goto out;
 	}
 
@@ -414,8 +414,11 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	 * work, before going to suspend
 	 */
 	if (card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2 &&
-	    from_exception)
+	    from_exception) {
+		pr_debug("%s: %s: Level 1 from exception, exit",
+			 mmc_hostname(card->host), __func__);
 		goto out;
+	}
 
 	if (card->ext_csd.raw_bkops_status >= EXT_CSD_BKOPS_LEVEL_2) {
 		timeout = MMC_BKOPS_MAX_TIMEOUT;
@@ -428,8 +431,8 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			EXT_CSD_BKOPS_START, 1, timeout, use_busy_signal);
 	if (err) {
-		pr_warn("%s: Error %d starting bkops\n",
-			mmc_hostname(card->host), err);
+		pr_warn("%s: %s: Error %d when starting bkops\n",
+			mmc_hostname(card->host), __func__, err);
 		goto out;
 	}
 	MMC_UPDATE_STATS_BKOPS_SEVERITY_LEVEL(card->bkops_info.bkops_stats,
@@ -657,8 +660,11 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 		if (host->card && mmc_card_mmc(host->card) &&
 		    ((mmc_resp_type(host->areq->mrq->cmd) == MMC_RSP_R1) ||
 		     (mmc_resp_type(host->areq->mrq->cmd) == MMC_RSP_R1B)) &&
-		    (host->areq->mrq->cmd->resp[0] & R1_EXCEPTION_EVENT))
+		    (host->areq->mrq->cmd->resp[0] & R1_EXCEPTION_EVENT)) {
 			mmc_start_bkops(host->card, true);
+			pr_debug("%s: %s: completed BKOPs due to exception",
+				 mmc_hostname(host), __func__);
+		}
 	}
 
 	if (!err && areq)
@@ -669,7 +675,7 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 
 	/* Cancel a prepared request if it was not started. */
 	if ((err || start_err) && areq)
-			mmc_post_req(host, areq->mrq, -EINVAL);
+		mmc_post_req(host, areq->mrq, -EINVAL);
 
 	if (err)
 		host->areq = NULL;
@@ -843,6 +849,12 @@ int mmc_read_bkops_status(struct mmc_card *card)
 		pr_err("%s: could not allocate buffer to receive the ext_csd.\n",
 		       mmc_hostname(card->host));
 		return -ENOMEM;
+	}
+
+	if (card->bkops_info.bkops_stats.ignore_card_bkops_status) {
+		pr_debug("%s: skipping read raw_bkops_status in unittest mode",
+			 __func__);
+		return 0;
 	}
 
 	mmc_claim_host(card->host);

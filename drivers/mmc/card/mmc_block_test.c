@@ -21,6 +21,7 @@
 #include <linux/delay.h>
 #include <linux/test-iosched.h>
 #include "queue.h"
+#include <linux/mmc/mmc.h>
 
 #define MODULE_NAME "mmc_block_test"
 #define TEST_MAX_SECTOR_RANGE		(600*1024*1024) /* 600 MB */
@@ -41,6 +42,14 @@
 #define test_pr_err(fmt, args...) pr_err("%s: "fmt"\n", MODULE_NAME, args)
 
 #define SANITIZE_TEST_TIMEOUT 240000
+#define TEST_REQUEST_NUM_OF_BIOS	3
+
+
+#define CHECK_BKOPS_STATS(stats, exp_bkops, exp_hpi, exp_suspend)	\
+				   ((stats.bkops != exp_bkops) ||	\
+				    (stats.hpi != exp_hpi) ||		\
+				    (stats.suspend != exp_suspend))
+#define BKOPS_TEST_TIMEOUT 60000
 
 enum is_random {
 	NON_RANDOM_TEST,
@@ -108,6 +117,16 @@ enum mmc_block_test_testcases {
 	PACKING_CONTROL_MAX_TESTCASE = TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED,
 
 	TEST_WRITE_DISCARD_SANITIZE_READ,
+
+	/* Start of bkops test group */
+	BKOPS_MIN_TESTCASE,
+	BKOPS_DELAYED_WORK_LEVEL_1 = BKOPS_MIN_TESTCASE,
+	BKOPS_DELAYED_WORK_LEVEL_1_HPI,
+	BKOPS_CANCEL_DELAYED_WORK,
+	BKOPS_URGENT_LEVEL_2,
+	BKOPS_URGENT_LEVEL_2_TWO_REQS,
+	BKOPS_URGENT_LEVEL_3,
+	BKOPS_MAX_TESTCASE = BKOPS_URGENT_LEVEL_3,
 };
 
 enum mmc_block_test_group {
@@ -117,6 +136,14 @@ enum mmc_block_test_group {
 	TEST_ERR_CHECK_GROUP,
 	TEST_SEND_INVALID_GROUP,
 	TEST_PACKING_CONTROL_GROUP,
+	TEST_BKOPS_GROUP,
+};
+
+enum bkops_test_stages {
+	BKOPS_STAGE_1,
+	BKOPS_STAGE_2,
+	BKOPS_STAGE_3,
+	BKOPS_STAGE_4,
 };
 
 struct mmc_block_test_debug {
@@ -126,6 +153,7 @@ struct mmc_block_test_debug {
 	struct dentry *random_test_seed;
 	struct dentry *packing_control_test;
 	struct dentry *discard_sanitize_test;
+	struct dentry *bkops_test;
 };
 
 struct mmc_block_test_data {
@@ -157,6 +185,10 @@ struct mmc_block_test_data {
 	struct test_info test_info;
 	/* mmc block device test */
 	struct blk_dev_test_type bdt;
+	/* Current BKOPs test stage */
+	enum bkops_test_stages	bkops_stage;
+	/* A wait queue for BKOPs tests */
+	wait_queue_head_t bkops_wait_q;
 };
 
 static struct mmc_block_test_data *mbtd;
@@ -316,6 +348,7 @@ static int test_err_check(struct mmc_card *card, struct mmc_async_req *areq)
 	struct mmc_queue *mq;
 	int max_packed_reqs;
 	int ret = 0;
+	struct mmc_blk_request *brq;
 
 	if (req_q)
 		mq = req_q->queuedata;
@@ -337,6 +370,7 @@ static int test_err_check(struct mmc_card *card, struct mmc_async_req *areq)
 			mmc_hostname(card->host));
 		return 0;
 	}
+	brq = &mq_rq->brq;
 
 	switch (mbtd->test_info.testcase) {
 	case TEST_RET_ABORT:
@@ -404,6 +438,16 @@ static int test_err_check(struct mmc_card *card, struct mmc_async_req *areq)
 	case TEST_RET_DATA_ERR:
 		test_pr_info("%s: return data err", __func__);
 		ret = MMC_BLK_DATA_ERR;
+		break;
+	case BKOPS_URGENT_LEVEL_2:
+	case BKOPS_URGENT_LEVEL_3:
+	case BKOPS_URGENT_LEVEL_2_TWO_REQS:
+		if (mbtd->err_check_counter++ == 0) {
+			test_pr_info("%s: simulate an exception from the card",
+				     __func__);
+			brq->cmd.resp[0] |= R1_EXCEPTION_EVENT;
+		}
+		mq->err_check_fn = NULL;
 		break;
 	default:
 		test_pr_err("%s: unexpected testcase %d",
@@ -506,6 +550,18 @@ static char *get_test_case_str(struct test_data *td)
 		return "\nTest packing control - mix: no pack->pack->no pack";
 	case TEST_WRITE_DISCARD_SANITIZE_READ:
 		return "\nTest write, discard, sanitize";
+	case BKOPS_DELAYED_WORK_LEVEL_1:
+		return "\nTest delayed work BKOPS level 1";
+	case BKOPS_DELAYED_WORK_LEVEL_1_HPI:
+		return "\nTest delayed work BKOPS level 1 with HPI";
+	case BKOPS_CANCEL_DELAYED_WORK:
+		return "\nTest cancel delayed BKOPS work";
+	case BKOPS_URGENT_LEVEL_2:
+		return "\nTest urgent BKOPS level 2";
+	case BKOPS_URGENT_LEVEL_2_TWO_REQS:
+		return "\nTest urgent BKOPS level 2, followed by a request";
+	case BKOPS_URGENT_LEVEL_3:
+		return "\nTest urgent BKOPS level 3";
 	default:
 		 return "Unknown testcase";
 	}
@@ -1449,6 +1505,389 @@ static int prepare_write_discard_sanitize_read(struct test_data *td)
 	return 0;
 }
 
+/*
+ * Post test operations for BKOPs test
+ * Disable the BKOPs statistics and clear the feature flags
+ */
+static int bkops_post_test(struct test_data *td)
+{
+	struct request_queue *q = td->req_q;
+	struct mmc_queue *mq = (struct mmc_queue *)q->queuedata;
+	struct mmc_card *card = mq->card;
+
+	mmc_card_clr_doing_bkops(mq->card);
+	card->ext_csd.raw_bkops_status = 0;
+
+	spin_lock(&card->bkops_info.bkops_stats.lock);
+	card->bkops_info.bkops_stats.enabled = false;
+	spin_unlock(&card->bkops_info.bkops_stats.lock);
+
+	return 0;
+}
+
+/*
+ * Verify the BKOPs statsistics
+ */
+static int check_bkops_result(struct test_data *td)
+{
+	struct request_queue *q = td->req_q;
+	struct mmc_queue *mq = (struct mmc_queue *)q->queuedata;
+	struct mmc_card *card = mq->card;
+	struct mmc_bkops_stats *bkops_stat;
+
+	if (!card)
+		goto fail;
+
+	bkops_stat = &card->bkops_info.bkops_stats;
+
+	test_pr_info("%s: Test results: bkops:(%d,%d,%d) hpi:%d, suspend:%d",
+			__func__,
+			bkops_stat->bkops_level[BKOPS_SEVERITY_1_INDEX],
+			bkops_stat->bkops_level[BKOPS_SEVERITY_2_INDEX],
+			bkops_stat->bkops_level[BKOPS_SEVERITY_3_INDEX],
+			bkops_stat->hpi,
+			bkops_stat->suspend);
+
+	switch (mbtd->test_info.testcase) {
+	case BKOPS_DELAYED_WORK_LEVEL_1:
+		if ((bkops_stat->bkops_level[BKOPS_SEVERITY_1_INDEX] == 1) &&
+		    (bkops_stat->suspend == 1) &&
+		    (bkops_stat->hpi == 0))
+			goto exit;
+		else
+			goto fail;
+		break;
+	case BKOPS_DELAYED_WORK_LEVEL_1_HPI:
+		if ((bkops_stat->bkops_level[BKOPS_SEVERITY_1_INDEX] == 1) &&
+		    (bkops_stat->suspend == 0) &&
+		    (bkops_stat->hpi == 1))
+			goto exit;
+		else
+			goto fail;
+		break;
+	case BKOPS_CANCEL_DELAYED_WORK:
+		if ((bkops_stat->bkops_level[BKOPS_SEVERITY_1_INDEX] == 0) &&
+		    (bkops_stat->bkops_level[BKOPS_SEVERITY_2_INDEX] == 0) &&
+		    (bkops_stat->bkops_level[BKOPS_SEVERITY_3_INDEX] == 0) &&
+			(bkops_stat->suspend == 0) &&
+			  (bkops_stat->hpi == 0))
+			goto exit;
+		else
+			goto fail;
+	case BKOPS_URGENT_LEVEL_2:
+	case BKOPS_URGENT_LEVEL_2_TWO_REQS:
+		if ((bkops_stat->bkops_level[BKOPS_SEVERITY_2_INDEX] == 1) &&
+		    (bkops_stat->suspend == 0) &&
+		    (bkops_stat->hpi == 0))
+			goto exit;
+		else
+			goto fail;
+	case BKOPS_URGENT_LEVEL_3:
+		if ((bkops_stat->bkops_level[BKOPS_SEVERITY_3_INDEX] == 1) &&
+		    (bkops_stat->suspend == 0) &&
+		    (bkops_stat->hpi == 0))
+			goto exit;
+		else
+			goto fail;
+	default:
+		return -EINVAL;
+	}
+
+exit:
+	return 0;
+fail:
+	if (td->fs_wr_reqs_during_test) {
+		test_pr_info("%s: wr reqs during test, cancel the round",
+		     __func__);
+		test_iosched_set_ignore_round(true);
+		return 0;
+	}
+
+	test_pr_info("%s: BKOPs statistics are not as expected, test failed",
+		     __func__);
+	return -EINVAL;
+}
+
+static void bkops_end_io_final_fn(struct request *rq, int err)
+{
+	struct test_request *test_rq =
+		(struct test_request *)rq->elv.priv[0];
+	BUG_ON(!test_rq);
+
+	test_rq->req_completed = 1;
+	test_rq->req_result = err;
+
+	test_pr_info("%s: request %d completed, err=%d",
+		     __func__, test_rq->req_id, err);
+
+	mbtd->bkops_stage = BKOPS_STAGE_4;
+	wake_up(&mbtd->bkops_wait_q);
+}
+
+static void bkops_end_io_fn(struct request *rq, int err)
+{
+	struct test_request *test_rq =
+		(struct test_request *)rq->elv.priv[0];
+	BUG_ON(!test_rq);
+
+	test_rq->req_completed = 1;
+	test_rq->req_result = err;
+
+	test_pr_info("%s: request %d completed, err=%d",
+		     __func__, test_rq->req_id, err);
+	mbtd->bkops_stage = BKOPS_STAGE_2;
+	wake_up(&mbtd->bkops_wait_q);
+
+}
+
+static int prepare_bkops(struct test_data *td)
+{
+	int ret = 0;
+	struct request_queue *q = td->req_q;
+	struct mmc_queue *mq = (struct mmc_queue *)q->queuedata;
+	struct mmc_card  *card = mq->card;
+	struct mmc_bkops_stats *bkops_stat;
+
+	if (!card)
+		return -EINVAL;
+
+	bkops_stat = &card->bkops_info.bkops_stats;
+
+	if (!card->ext_csd.bkops_en) {
+		test_pr_err("%s: BKOPS is not enabled by card or host)",
+				__func__);
+		return -ENOTSUPP;
+	}
+	if (mmc_card_doing_bkops(card)) {
+		test_pr_err("%s: BKOPS in progress, try later", __func__);
+		return -EAGAIN;
+	}
+
+	mmc_blk_init_bkops_statistics(card);
+
+	if ((mbtd->test_info.testcase == BKOPS_URGENT_LEVEL_2) ||
+	    (mbtd->test_info.testcase ==  BKOPS_URGENT_LEVEL_2_TWO_REQS) ||
+	    (mbtd->test_info.testcase == BKOPS_URGENT_LEVEL_3))
+		mq->err_check_fn = test_err_check;
+	mbtd->err_check_counter = 0;
+
+	return ret;
+}
+
+static int run_bkops(struct test_data *td)
+{
+	int ret = 0;
+	struct request_queue *q = td->req_q;
+	struct mmc_queue *mq = (struct mmc_queue *)q->queuedata;
+	struct mmc_card  *card = mq->card;
+	struct mmc_bkops_stats *bkops_stat;
+
+	if (!card)
+		return -EINVAL;
+
+	bkops_stat = &card->bkops_info.bkops_stats;
+
+	switch (mbtd->test_info.testcase) {
+	case BKOPS_DELAYED_WORK_LEVEL_1:
+		bkops_stat->ignore_card_bkops_status = true;
+		card->ext_csd.raw_bkops_status = 1;
+		card->bkops_info.sectors_changed =
+			card->bkops_info.min_sectors_to_queue_delayed_work + 1;
+		mbtd->bkops_stage = BKOPS_STAGE_1;
+
+		__blk_run_queue(q);
+		/* this long sleep makes sure the host starts bkops and
+		   also, gets into suspend */
+		msleep(10000);
+
+		bkops_stat->ignore_card_bkops_status = false;
+		card->ext_csd.raw_bkops_status = 0;
+
+		test_iosched_mark_test_completion();
+		break;
+
+	case BKOPS_DELAYED_WORK_LEVEL_1_HPI:
+		bkops_stat->ignore_card_bkops_status = true;
+		card->ext_csd.raw_bkops_status = 1;
+		card->bkops_info.sectors_changed =
+			card->bkops_info.min_sectors_to_queue_delayed_work + 1;
+		mbtd->bkops_stage = BKOPS_STAGE_1;
+
+		__blk_run_queue(q);
+		msleep(card->bkops_info.delay_ms);
+
+		ret = test_iosched_add_wr_rd_test_req(0, WRITE,
+				      td->start_sector,
+				      TEST_REQUEST_NUM_OF_BIOS,
+				      TEST_PATTERN_5A,
+				      bkops_end_io_final_fn);
+		if (ret) {
+			test_pr_err("%s: failed to add a write request",
+					__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		td->next_req = list_entry(td->test_queue.prev,
+				struct test_request, queuelist);
+		__blk_run_queue(q);
+		wait_event(mbtd->bkops_wait_q,
+			   mbtd->bkops_stage == BKOPS_STAGE_4);
+		bkops_stat->ignore_card_bkops_status = false;
+
+		test_iosched_mark_test_completion();
+		break;
+
+	case BKOPS_CANCEL_DELAYED_WORK:
+		bkops_stat->ignore_card_bkops_status = true;
+		card->ext_csd.raw_bkops_status = 1;
+		card->bkops_info.sectors_changed =
+			card->bkops_info.min_sectors_to_queue_delayed_work + 1;
+		mbtd->bkops_stage = BKOPS_STAGE_1;
+
+		__blk_run_queue(q);
+
+		ret = test_iosched_add_wr_rd_test_req(0, WRITE,
+				td->start_sector,
+				TEST_REQUEST_NUM_OF_BIOS,
+				TEST_PATTERN_5A,
+				bkops_end_io_final_fn);
+		if (ret) {
+			test_pr_err("%s: failed to add a write request",
+					__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		td->next_req = list_entry(td->test_queue.prev,
+				struct test_request, queuelist);
+		__blk_run_queue(q);
+		wait_event(mbtd->bkops_wait_q,
+			   mbtd->bkops_stage == BKOPS_STAGE_4);
+		bkops_stat->ignore_card_bkops_status = false;
+
+		test_iosched_mark_test_completion();
+		break;
+
+	case BKOPS_URGENT_LEVEL_2:
+	case BKOPS_URGENT_LEVEL_3:
+		bkops_stat->ignore_card_bkops_status = true;
+		if (mbtd->test_info.testcase == BKOPS_URGENT_LEVEL_2)
+			card->ext_csd.raw_bkops_status = 2;
+		else
+			card->ext_csd.raw_bkops_status = 3;
+		mbtd->bkops_stage = BKOPS_STAGE_1;
+
+		ret = test_iosched_add_wr_rd_test_req(0, WRITE,
+				td->start_sector,
+				TEST_REQUEST_NUM_OF_BIOS,
+				TEST_PATTERN_5A,
+				bkops_end_io_fn);
+		if (ret) {
+			test_pr_err("%s: failed to add a write request",
+					__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		td->next_req = list_entry(td->test_queue.prev,
+				struct test_request, queuelist);
+		__blk_run_queue(q);
+		wait_event(mbtd->bkops_wait_q,
+			   mbtd->bkops_stage == BKOPS_STAGE_2);
+		card->ext_csd.raw_bkops_status = 0;
+
+		ret = test_iosched_add_wr_rd_test_req(0, WRITE,
+				td->start_sector,
+				TEST_REQUEST_NUM_OF_BIOS,
+				TEST_PATTERN_5A,
+				bkops_end_io_final_fn);
+		if (ret) {
+			test_pr_err("%s: failed to add a write request",
+					__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		td->next_req = list_entry(td->test_queue.prev,
+				struct test_request, queuelist);
+		__blk_run_queue(q);
+
+		wait_event(mbtd->bkops_wait_q,
+			   mbtd->bkops_stage == BKOPS_STAGE_4);
+
+		bkops_stat->ignore_card_bkops_status = false;
+		test_iosched_mark_test_completion();
+		break;
+
+	case BKOPS_URGENT_LEVEL_2_TWO_REQS:
+		mq->wr_packing_enabled = false;
+		bkops_stat->ignore_card_bkops_status = true;
+		card->ext_csd.raw_bkops_status = 2;
+		mbtd->bkops_stage = BKOPS_STAGE_1;
+
+		ret = test_iosched_add_wr_rd_test_req(0, WRITE,
+				td->start_sector,
+				TEST_REQUEST_NUM_OF_BIOS,
+				TEST_PATTERN_5A,
+				NULL);
+		if (ret) {
+			test_pr_err("%s: failed to add a write request",
+					__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = test_iosched_add_wr_rd_test_req(0, WRITE,
+				td->start_sector,
+				TEST_REQUEST_NUM_OF_BIOS,
+				TEST_PATTERN_5A,
+				bkops_end_io_fn);
+		if (ret) {
+			test_pr_err("%s: failed to add a write request",
+					__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		td->next_req = list_entry(td->test_queue.next,
+				struct test_request, queuelist);
+		__blk_run_queue(q);
+		wait_event(mbtd->bkops_wait_q,
+			   mbtd->bkops_stage == BKOPS_STAGE_2);
+		card->ext_csd.raw_bkops_status = 0;
+
+		ret = test_iosched_add_wr_rd_test_req(0, WRITE,
+				td->start_sector,
+				TEST_REQUEST_NUM_OF_BIOS,
+				TEST_PATTERN_5A,
+				bkops_end_io_final_fn);
+		if (ret) {
+			test_pr_err("%s: failed to add a write request",
+					__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		td->next_req = list_entry(td->test_queue.prev,
+				struct test_request, queuelist);
+		__blk_run_queue(q);
+
+		wait_event(mbtd->bkops_wait_q,
+			   mbtd->bkops_stage == BKOPS_STAGE_4);
+
+		bkops_stat->ignore_card_bkops_status = false;
+		test_iosched_mark_test_completion();
+
+		break;
+	default:
+		test_pr_err("%s: wrong testcase: %d", __func__,
+			    mbtd->test_info.testcase);
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
 static bool message_repeat;
 static int test_open(struct inode *inode, struct file *file)
 {
@@ -1919,6 +2358,78 @@ const struct file_operations write_discard_sanitize_test_ops = {
 	.write = write_discard_sanitize_test_write,
 };
 
+static ssize_t bkops_test_write(struct file *file,
+				const char __user *buf,
+				size_t count,
+				loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0, j;
+	int number = -1;
+
+	test_pr_info("%s: -- bkops_test TEST --", __func__);
+
+	sscanf(buf, "%d", &number);
+
+	if (number <= 0)
+		number = 1;
+
+	mbtd->test_group = TEST_BKOPS_GROUP;
+
+	memset(&mbtd->test_info, 0, sizeof(struct test_info));
+
+	mbtd->test_info.data = mbtd;
+	mbtd->test_info.prepare_test_fn = prepare_bkops;
+	mbtd->test_info.check_test_result_fn = check_bkops_result;
+	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
+	mbtd->test_info.run_test_fn = run_bkops;
+	mbtd->test_info.timeout_msec = BKOPS_TEST_TIMEOUT;
+	mbtd->test_info.post_test_fn = bkops_post_test;
+
+	for (i = 0 ; i < number ; ++i) {
+		test_pr_info("%s: Cycle # %d / %d", __func__, i+1, number);
+		test_pr_info("%s: ===================", __func__);
+		for (j = BKOPS_MIN_TESTCASE ;
+				j <= BKOPS_MAX_TESTCASE ; j++) {
+			mbtd->test_info.testcase = j;
+			ret = test_iosched_start_test(&mbtd->test_info);
+			if (ret)
+				break;
+		}
+	}
+
+	test_pr_info("%s: Completed all the test cases.", __func__);
+
+	return count;
+}
+
+static ssize_t bkops_test_read(struct file *file,
+			       char __user *buffer,
+			       size_t count,
+			       loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nbkops_test\n========================\n"
+		 "Description:\n"
+		 "This test simulates BKOPS status from card\n"
+		 "and verifies that:\n"
+		 " - Starting BKOPS delayed work, level 1\n"
+		 " - Starting BKOPS delayed work, level 1, with HPI\n"
+		 " - Cancel starting BKOPS delayed work, "
+		 " when a request is received\n"
+		 " - Starting BKOPS urgent, level 2,3\n"
+		 " - Starting BKOPS urgent with 2 requests\n");
+	return strnlen(buffer, count);
+}
+
+const struct file_operations bkops_test_ops = {
+	.open = test_open,
+	.write = bkops_test_write,
+	.read = bkops_test_read,
+};
+
 static void mmc_block_test_debugfs_cleanup(void)
 {
 	debugfs_remove(mbtd->debug.random_test_seed);
@@ -1927,6 +2438,7 @@ static void mmc_block_test_debugfs_cleanup(void)
 	debugfs_remove(mbtd->debug.send_invalid_packed_test);
 	debugfs_remove(mbtd->debug.packing_control_test);
 	debugfs_remove(mbtd->debug.discard_sanitize_test);
+	debugfs_remove(mbtd->debug.bkops_test);
 }
 
 static int mmc_block_test_debugfs_init(void)
@@ -1999,6 +2511,16 @@ static int mmc_block_test_debugfs_init(void)
 		return -ENOMEM;
 	}
 
+	mbtd->debug.bkops_test =
+		debugfs_create_file("bkops_test",
+				    S_IRUGO | S_IWUGO,
+				    tests_root,
+				    NULL,
+				    &bkops_test_ops);
+
+	if (!mbtd->debug.bkops_test)
+		goto err_nomem;
+
 	return 0;
 
 err_nomem:
@@ -2046,6 +2568,7 @@ static int __init mmc_block_test_init(void)
 		return -ENODEV;
 	}
 
+	init_waitqueue_head(&mbtd->bkops_wait_q);
 	mbtd->bdt.init_fn = mmc_block_test_probe;
 	mbtd->bdt.exit_fn = mmc_block_test_remove;
 	INIT_LIST_HEAD(&mbtd->bdt.list);
