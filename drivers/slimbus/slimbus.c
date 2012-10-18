@@ -26,6 +26,7 @@
 #define SLIM_HDL_TO_PORT(hdl)	((u32)(hdl) & 0xFF)
 
 #define SLIM_HDL_TO_CHIDX(hdl)	((u16)(hdl) & 0xFF)
+#define SLIM_GRP_TO_NCHAN(hdl)	((u16)(hdl >> 8) & 0xFF)
 
 #define SLIM_SLAVE_PORT(p, la)	(((la)<<16) | (p))
 #define SLIM_MGR_PORT(p)	((0xFF << 16) | (p))
@@ -1845,7 +1846,7 @@ int slim_define_ch(struct slim_device *sb, struct slim_ch *prop, u16 *chanh,
 	}
 
 	if (grp)
-		*grph = chanh[0];
+		*grph = ((nchan << 8) | SLIM_HDL_TO_CHIDX(chanh[0]));
 	for (i = 0; i < nchan; i++) {
 		u8 chan = SLIM_HDL_TO_CHIDX(chanh[i]);
 		struct slim_ich *slc = &ctrl->chans[chan];
@@ -2868,6 +2869,7 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 	int ret = 0;
 	/* Get rid of the group flag in MSB if any */
 	u8 chan = SLIM_HDL_TO_CHIDX(chanh);
+	u8 nchan = 0;
 	struct slim_ich *slc = &ctrl->chans[chan];
 	if (!(slc->nextgrp & SLIM_START_GRP))
 		return -EINVAL;
@@ -2928,9 +2930,10 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 			}
 		}
 
-		if (!(slc->nextgrp & SLIM_END_GRP))
+		nchan++;
+		if (nchan < SLIM_GRP_TO_NCHAN(chanh))
 			chan = SLIM_HDL_TO_CHIDX(slc->nextgrp);
-	} while (!(slc->nextgrp & SLIM_END_GRP));
+	} while (nchan < SLIM_GRP_TO_NCHAN(chanh));
 	mutex_unlock(&ctrl->m_ctrl);
 	if (!ret && commit == true)
 		ret = slim_reconfigure_now(sb);
