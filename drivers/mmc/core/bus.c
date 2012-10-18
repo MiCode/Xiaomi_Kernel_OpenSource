@@ -254,6 +254,7 @@ struct mmc_card *mmc_alloc_card(struct mmc_host *host, struct device_type *type)
 	card->dev.release = mmc_release_card;
 	card->dev.type = type;
 
+	spin_lock_init(&card->bkops_info.bkops_stats.lock);
 	spin_lock_init(&card->wr_pack_stats.lock);
 
 	return card;
