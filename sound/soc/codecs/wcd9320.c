@@ -4467,6 +4467,9 @@ static const struct taiko_reg_mask_val taiko_reg_defaults[] = {
 	TAIKO_REG_VAL(TAIKO_A_CDC_RX5_B6_CTL, 0x80),
 	TAIKO_REG_VAL(TAIKO_A_CDC_RX6_B6_CTL, 0x80),
 	TAIKO_REG_VAL(TAIKO_A_CDC_RX7_B6_CTL, 0x80),
+
+	/* TX VHIGH comparator */
+	TAIKO_REG_VAL(TAIKO_A_TX_SUP_SWITCH_CTRL_2, 0x90),
 };
 
 static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
