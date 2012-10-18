@@ -230,6 +230,9 @@ struct mmc_part {
 };
 
 #define BKOPS_NUM_OF_SEVERITY_LEVELS	3
+#define BKOPS_SEVERITY_1_INDEX		0
+#define BKOPS_SEVERITY_2_INDEX		1
+#define BKOPS_SEVERITY_3_INDEX		2
 struct mmc_bkops_stats {
 	spinlock_t		lock;
 	bool			enabled;
@@ -237,6 +240,7 @@ struct mmc_bkops_stats {
 	unsigned int		suspend;/* card sleed issued */
 	bool			print_stats;
 	unsigned int bkops_level[BKOPS_NUM_OF_SEVERITY_LEVELS];
+	bool			ignore_card_bkops_status;
 };
 
 /**
