@@ -18,6 +18,7 @@
 #include <asm/hardware/gic.h>
 #include <asm/cacheflush.h>
 #include <mach/irqs-8625.h>
+#include <mach/socinfo.h>
 
 #include "msm_watchdog.h"
 
@@ -74,6 +75,9 @@ static int __init msm_setup_fiq_handler(void)
 
 static int __init init7k_fiq(void)
 {
+	if (!cpu_is_msm8625())
+		return 0;
+
 	if (msm_setup_fiq_handler())
 		pr_err("MSM7K FIQ INIT FAILED\n");
 
