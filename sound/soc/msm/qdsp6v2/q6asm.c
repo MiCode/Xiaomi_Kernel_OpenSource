@@ -476,9 +476,13 @@ void q6asm_audio_client_free(struct audio_client *ac)
 	return;
 }
 
-int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode)
+int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode1)
 {
+	uint32_t mode;
+
 	ac->io_mode &= 0xFF00;
+	mode = (mode1 & 0xF);
+
 	pr_debug("%s ac->mode after anding with FF00:0x[%x],\n",
 		__func__, ac->io_mode);
 	if (ac == NULL) {
@@ -486,7 +490,7 @@ int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode)
 		return -EINVAL;
 	}
 	if ((mode == ASYNC_IO_MODE) || (mode == SYNC_IO_MODE)) {
-		ac->io_mode |= mode;
+		ac->io_mode |= mode1;
 		pr_debug("%s:Set Mode to 0x[%x]\n", __func__, ac->io_mode);
 		return 0;
 	} else {
@@ -2961,6 +2965,7 @@ int q6asm_async_write(struct audio_client *ac,
 	struct audio_port_data     *port;
 	u32 lbuf_addr_lsw;
 	u32 liomode;
+	u32 io_compressed;
 
 	if (!ac || ac->apr == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -2981,9 +2986,12 @@ int q6asm_async_write(struct audio_client *ac,
 	write.timestamp_msw = param->msw_ts;
 	write.timestamp_lsw = param->lsw_ts;
 	liomode = (ASYNC_IO_MODE | NT_MODE);
+	io_compressed = (ASYNC_IO_MODE | COMPRESSED_IO);
 
 	if (ac->io_mode == liomode)
 		lbuf_addr_lsw = (write.buf_addr_lsw - 32);
+	else if (ac->io_mode == io_compressed)
+		lbuf_addr_lsw = (write.buf_addr_lsw - 0x40);
 	else
 		lbuf_addr_lsw = write.buf_addr_lsw;
 

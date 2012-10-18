@@ -66,6 +66,7 @@
 
 #define SYNC_IO_MODE	0x0001
 #define ASYNC_IO_MODE	0x0002
+#define COMPRESSED_IO	0x0040
 #define NT_MODE        0x0400
 
 
