@@ -77,7 +77,8 @@ struct qce_device {
 	int dst_nents;
 
 	dma_addr_t phy_iv_in;
-
+	unsigned char dec_iv[16];
+	int dir;
 	void *areq;
 	enum qce_cipher_mode_enum mode;
 	struct ce_sps_data ce_sps;
@@ -753,10 +754,16 @@ static int _ablk_cipher_complete(struct qce_device *pce_dev)
 					pce_dev->ce_sps.producer_status);
 	} else {
 		if (pce_dev->ce_sps.minor_version == 0) {
-			if (pce_dev->mode == QCE_MODE_CBC)
-				memcpy(iv, (char *)sg_virt(areq->src),
-							sizeof(iv));
-
+			if (pce_dev->mode == QCE_MODE_CBC) {
+				if  (pce_dev->dir == QCE_DECRYPT)
+					memcpy(iv, (char *)pce_dev->dec_iv,
+								sizeof(iv));
+				else
+					memcpy(iv, (unsigned char *)
+						(sg_virt(areq->src) +
+						areq->src->length - 16),
+						sizeof(iv));
+			}
 			if ((pce_dev->mode == QCE_MODE_CTR) ||
 				(pce_dev->mode == QCE_MODE_XTS)) {
 				uint32_t num_blk = 0;
@@ -2329,6 +2336,16 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	} else {
 		pce_dev->dst_nents = pce_dev->src_nents;
 	}
+	pce_dev->dir = c_req->dir;
+	if  ((pce_dev->ce_sps.minor_version == 0) && (c_req->dir == QCE_DECRYPT)
+			&& (c_req->mode == QCE_MODE_CBC)) {
+		struct ablkcipher_request *areq =
+				(struct ablkcipher_request *)pce_dev->areq;
+		memcpy(pce_dev->dec_iv, (unsigned char *)sg_virt(areq->src) +
+					 areq->src->length - 16,
+			NUM_OF_CRYPTO_CNTR_IV_REG * CRYPTO_REG_SIZE);
+	}
+
 	/* set up crypto device */
 	rc = _ce_setup_cipher(pce_dev, c_req, areq->nbytes, 0, cmdlistinfo);
 	if (rc < 0)
