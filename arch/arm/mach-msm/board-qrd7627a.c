@@ -32,6 +32,7 @@
 #include <linux/msm_adc.h>
 #include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/msm_ion.h>
+#include <linux/i2c-gpio.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -126,6 +127,27 @@ static struct msm_i2c_platform_data msm_gsbi0_qup_i2c_pdata = {
 static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 	.clk_freq		= 100000,
 	.msm_i2c_config_gpio	= gsbi_qup_i2c_gpio_config,
+};
+
+static struct msm_gpio i2c_gpio_config[] = {
+	{ GPIO_CFG(39, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+		"qup_scl" },
+	{ GPIO_CFG(36, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
+		"qup_sda" },
+};
+
+static struct i2c_gpio_platform_data i2c_gpio_pdata = {
+	.scl_pin = 39,
+	.sda_pin = 36,
+	.udelay = 5, /* 100 Khz */
+};
+
+static struct platform_device msm_i2c_gpio = {
+	.name	= "i2c-gpio",
+	.id	= 2,
+	.dev	= {
+		.platform_data = &i2c_gpio_pdata,
+	}
 };
 
 #ifdef CONFIG_ARCH_MSM7X27A
@@ -651,6 +673,7 @@ static struct platform_device *msm8625_evb_devices[] __initdata = {
 	&msm8625_device_smd,
 	&msm8625_gsbi0_qup_i2c_device,
 	&msm8625_gsbi1_qup_i2c_device,
+	&msm_i2c_gpio,  /* TODO: Make this specific to 8625q */
 	&msm8625_device_uart1,
 	&msm8625_device_uart_dm1,
 	&msm8625_device_otg,
@@ -847,10 +870,20 @@ static void __init msm7627a_device_i2c_init(void)
 
 static void __init msm8625_device_i2c_init(void)
 {
+	int i, rc;
+
 	msm8625_gsbi0_qup_i2c_device.dev.platform_data
 					= &msm_gsbi0_qup_i2c_pdata;
 	msm8625_gsbi1_qup_i2c_device.dev.platform_data
 					= &msm_gsbi1_qup_i2c_pdata;
+	if (machine_is_qrd_skud_prime()) {
+		for (i = 0 ; i < ARRAY_SIZE(i2c_gpio_config); i++) {
+			rc = gpio_tlmm_config(i2c_gpio_config[i].gpio_cfg,
+					GPIO_CFG_ENABLE);
+			if (rc)
+				pr_err("I2C-gpio tlmm config failed\n");
+		}
+	}
 }
 
 static struct platform_device msm_proccomm_regulator_dev = {
