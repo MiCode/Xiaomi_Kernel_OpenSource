@@ -988,6 +988,20 @@ static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
 	}
 	micbias->bias4_cfilt_sel = (u8)prop_val;
 
+	/* micbias external cap */
+	micbias->bias1_cap_mode =
+	    (of_property_read_bool(dev->of_node, "qcom,cdc-micbias1-ext-cap") ?
+	     MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
+	micbias->bias2_cap_mode =
+	    (of_property_read_bool(dev->of_node, "qcom,cdc-micbias2-ext-cap") ?
+	     MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
+	micbias->bias3_cap_mode =
+	    (of_property_read_bool(dev->of_node, "qcom,cdc-micbias3-ext-cap") ?
+	     MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
+	micbias->bias4_cap_mode =
+	    (of_property_read_bool(dev->of_node, "qcom,cdc-micbias4-ext-cap") ?
+	     MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
+
 	dev_dbg(dev, "ldoh_v  %u cfilt1_mv %u cfilt2_mv %u cfilt3_mv %u",
 		(u32)micbias->ldoh_v, (u32)micbias->cfilt1_mv,
 		(u32)micbias->cfilt2_mv, (u32)micbias->cfilt3_mv);
@@ -997,6 +1011,11 @@ static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
 
 	dev_dbg(dev, "bias3_cfilt_sel %u bias4_cfilt_sel %u\n",
 		(u32)micbias->bias3_cfilt_sel, (u32)micbias->bias4_cfilt_sel);
+
+	dev_dbg(dev, "bias1_ext_cap %d bias2_ext_cap %d\n",
+		micbias->bias1_cap_mode, micbias->bias2_cap_mode);
+	dev_dbg(dev, "bias3_ext_cap %d bias4_ext_cap %d\n",
+		micbias->bias3_cap_mode, micbias->bias4_cap_mode);
 
 	return 0;
 }
