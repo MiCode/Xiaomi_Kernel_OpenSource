@@ -24,6 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 #include <linux/interrupt.h>
+#include <linux/iommu.h>
 
 #include <mach/board.h>
 #include <mach/gpio.h>
@@ -31,6 +32,7 @@
 #include <mach/clk.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
+#include <mach/iommu.h>
 #include <mach/iommu_domains.h>
 
 #include <media/videobuf2-msm-mem.h>
@@ -78,7 +80,7 @@ static struct reg_range debug_reg_range[] = {
 };
 #endif
 
-int vcap_reg_powerup(struct vcap_dev *dev)
+static int vcap_reg_powerup(struct vcap_dev *dev)
 {
 	dev->fs_vcap = regulator_get(NULL, "fs_vcap");
 	if (IS_ERR(dev->fs_vcap)) {
@@ -94,7 +96,7 @@ int vcap_reg_powerup(struct vcap_dev *dev)
 	return 0;
 }
 
-void vcap_reg_powerdown(struct vcap_dev *dev)
+static void vcap_reg_powerdown(struct vcap_dev *dev)
 {
 	if (dev->fs_vcap == NULL)
 		return;
@@ -104,7 +106,7 @@ void vcap_reg_powerdown(struct vcap_dev *dev)
 	return;
 }
 
-int config_gpios(int on, struct vcap_platform_data *pdata)
+static int vcap_config_gpios(int on, struct vcap_platform_data *pdata)
 {
 	int i, ret;
 	int num_gpios = pdata->num_gpios;
@@ -139,7 +141,7 @@ gpio_failed:
 	return -EINVAL;
 }
 
-int vcap_clk_powerup(struct vcap_dev *dev, struct device *ddev,
+static int vcap_clk_powerup(struct vcap_dev *dev, struct device *ddev,
 		unsigned long rate)
 {
 	int ret = 0;
@@ -227,7 +229,7 @@ fail_vcap_clk_unprep:
 	return -EINVAL;
 }
 
-void vcap_clk_powerdown(struct vcap_dev *dev)
+static void vcap_clk_powerdown(struct vcap_dev *dev)
 {
 	if (dev->vcap_p_clk != NULL) {
 		clk_disable(dev->vcap_p_clk);
@@ -253,7 +255,7 @@ void vcap_clk_powerdown(struct vcap_dev *dev)
 	dev->dbg_p.clk_rate = 0;
 }
 
-int vcap_get_bus_client_handle(struct vcap_dev *dev)
+static int vcap_get_bus_client_handle(struct vcap_dev *dev)
 {
 	struct msm_bus_scale_pdata *vcap_axi_client_pdata =
 			dev->vcap_pdata->bus_client_pdata;
@@ -263,7 +265,7 @@ int vcap_get_bus_client_handle(struct vcap_dev *dev)
 	return 0;
 }
 
-int vcap_enable(struct vcap_dev *dev, struct device *ddev,
+static int vcap_enable(struct vcap_dev *dev, struct device *ddev,
 		unsigned long rate)
 {
 	int rc;
@@ -278,14 +280,24 @@ int vcap_enable(struct vcap_dev *dev, struct device *ddev,
 	rc = vcap_get_bus_client_handle(dev);
 	if (rc < 0)
 		goto bus_r_failed;
-	rc = config_gpios(1, dev->vcap_pdata);
+	rc = vcap_config_gpios(1, dev->vcap_pdata);
 	if (rc < 0)
 		goto gpio_failed;
+	rc = iommu_attach_device(dev->iommu_vcap_domain, dev->vc_iommu_ctx);
+	if (rc < 0)
+		goto vc_iommu_attach_failed;
+	rc = iommu_attach_device(dev->iommu_vcap_domain, dev->vp_iommu_ctx);
+	if (rc < 0)
+		goto vp_iommu_attach_failed;
 	writel_relaxed(0x00030003, VCAP_OFFSET(0xD78));
 	writel_relaxed(0x00030003, VCAP_OFFSET(0xD7C));
 	pr_debug("Success Exit %s", __func__);
 	return 0;
 
+vp_iommu_attach_failed:
+	iommu_detach_device(dev->iommu_vcap_domain, dev->vc_iommu_ctx);
+vc_iommu_attach_failed:
+	vcap_config_gpios(0, dev->vcap_pdata);
 gpio_failed:
 	msm_bus_scale_unregister_client(dev->bus_client_handle);
 	dev->bus_client_handle = 0;
@@ -297,10 +309,13 @@ reg_failed:
 	return rc;
 }
 
-int vcap_disable(struct vcap_dev *dev)
+static int vcap_disable(struct vcap_dev *dev)
 {
 	pr_debug("Enter %s", __func__);
-	config_gpios(0, dev->vcap_pdata);
+	iommu_detach_device(dev->iommu_vcap_domain, dev->vp_iommu_ctx);
+	iommu_detach_device(dev->iommu_vcap_domain, dev->vc_iommu_ctx);
+
+	vcap_config_gpios(0, dev->vcap_pdata);
 
 	msm_bus_scale_unregister_client(dev->bus_client_handle);
 	dev->bus_client_handle = 0;
@@ -308,6 +323,22 @@ int vcap_disable(struct vcap_dev *dev)
 	vcap_clk_powerdown(dev);
 	vcap_reg_powerdown(dev);
 	return 0;
+}
+
+static int vcap_register_domain(void)
+{
+	struct msm_iova_partition vcap_partition = {
+		.start = 0,
+		.size = SZ_2G,
+	};
+	struct msm_iova_layout vcap_layout = {
+		.partitions = &vcap_partition,
+		.npartitions = 1,
+		.client_name = "vcap",
+		.domain_flags = 0,
+	};
+
+	return msm_register_domain(&vcap_layout);
 }
 
 enum vcap_op_mode determine_mode(struct vcap_client_data *cd)
@@ -475,8 +506,9 @@ int get_phys_addr(struct vcap_dev *dev, struct vb2_queue *q,
 		buf->ion_handle = NULL;
 		return -ENOMEM;
 	}
-	rc = ion_phys(dev->ion_client, buf->ion_handle,
-			&buf->paddr, (size_t *)&len);
+	rc = ion_map_iommu(dev->ion_client, buf->ion_handle,
+		dev->domain_num, 0, SZ_4K, 0, &buf->paddr, &len,
+		0, 0);
 	if (rc < 0) {
 		pr_err("%s: Could not get phys addr\n", __func__);
 		ion_free(dev->ion_client, buf->ion_handle);
@@ -499,6 +531,7 @@ void free_ion_handle_work(struct vcap_dev *dev, struct vb2_buffer *vb)
 		return;
 	}
 	buf->paddr = 0;
+	ion_unmap_iommu(dev->ion_client, buf->ion_handle, dev->domain_num, 0);
 	ion_free(dev->ion_client, buf->ion_handle);
 	buf->ion_handle = NULL;
 	return;
@@ -2243,6 +2276,34 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 	ret = v4l2_device_register(NULL, &dev->v4l2_dev);
 	if (ret)
 		goto free_resource;
+
+	dev->vc_iommu_ctx = msm_iommu_get_ctx("vcap_vc");
+	if (!dev->vc_iommu_ctx) {
+		pr_err("%s: No iommu vc context found\n", __func__);
+		ret = -ENODEV;
+		goto free_resource;
+	}
+
+	dev->vp_iommu_ctx = msm_iommu_get_ctx("vcap_vp");
+	if (!dev->vp_iommu_ctx) {
+		pr_err("%s: No iommu vp context found\n", __func__);
+		ret = -ENODEV;
+		goto free_resource;
+	}
+
+	dev->domain_num = vcap_register_domain();
+	if (dev->domain_num < 0) {
+		pr_err("%s: VCAP iommu domain register failed\n", __func__);
+		ret = -ENODEV;
+		goto free_resource;
+	}
+
+	dev->iommu_vcap_domain = msm_get_iommu_domain(dev->domain_num);
+	if (!dev->iommu_vcap_domain) {
+		pr_err("%s: No iommu vcap domain found\n", __func__);
+		ret = -ENODEV;
+		goto free_resource;
+	}
 
 	ret = vcap_enable(dev, &pdev->dev, 54860000);
 	if (ret)
