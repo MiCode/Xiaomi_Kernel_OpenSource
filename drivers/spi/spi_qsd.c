@@ -127,13 +127,72 @@ static inline void msm_spi_free_gpios(struct msm_spi *dd)
 	}
 }
 
+/**
+ * msm_spi_clk_max_rate: finds the nearest lower rate for a clk
+ * @clk the clock for which to find nearest lower rate
+ * @rate clock frequency in Hz
+ * @return nearest lower rate or negative error value
+ *
+ * Public clock API extends clk_round_rate which is a ceiling function. This
+ * function is a floor function implemented as a binary search using the
+ * ceiling function.
+ */
+static long msm_spi_clk_max_rate(struct clk *clk, unsigned long rate)
+{
+	long lowest_available, nearest_low, step_size, cur;
+	long step_direction = -1;
+	long guess = rate;
+	int  max_steps = 10;
+
+	cur =  clk_round_rate(clk, rate);
+	if (cur == rate)
+		return rate;
+
+	/* if we got here then: cur > rate */
+	lowest_available =  clk_round_rate(clk, 0);
+	if (lowest_available > rate)
+		return -EINVAL;
+
+	step_size = (rate - lowest_available) >> 1;
+	nearest_low = lowest_available;
+
+	while (max_steps-- && step_size) {
+		guess += step_size * step_direction;
+
+		cur =  clk_round_rate(clk, guess);
+
+		if ((cur < rate) && (cur > nearest_low))
+			nearest_low = cur;
+
+		/*
+		 * if we stepped too far, then start stepping in the other
+		 * direction with half the step size
+		 */
+		if (((cur > rate) && (step_direction > 0))
+		 || ((cur < rate) && (step_direction < 0))) {
+			step_direction = -step_direction;
+			step_size >>= 1;
+		 }
+	}
+	return nearest_low;
+}
+
 static void msm_spi_clock_set(struct msm_spi *dd, int speed)
 {
+	long rate;
 	int rc;
 
-	rc = clk_set_rate(dd->clk, speed);
+	rate = msm_spi_clk_max_rate(dd->clk, speed);
+	if (rate < 0) {
+		dev_err(dd->dev,
+		"%s: no match found for requested clock frequency:%d",
+			__func__, speed);
+		return;
+	}
+
+	rc = clk_set_rate(dd->clk, rate);
 	if (!rc)
-		dd->clock_speed = speed;
+		dd->clock_speed = rate;
 }
 
 static int msm_spi_calculate_size(int *fifo_size,
