@@ -401,7 +401,7 @@ static irqreturn_t
 qpnp_chg_chgr_chg_failed_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
-	int rc, usb_present;
+	int rc;
 
 	rc = qpnp_chg_masked_write(chip,
 		chip->chgr_base + CHGR_CHG_FAILED,
@@ -409,14 +409,6 @@ qpnp_chg_chgr_chg_failed_irq_handler(int irq, void *_chip)
 		CHGR_CHG_FAILED_BIT, 1);
 	if (rc)
 		pr_err("Failed to write chg_fail clear bit!\n");
-
-	/* Hack: recheck usbin_valid status after chg_fail triggered */
-	usb_present = qpnp_chg_is_usb_chg_plugged_in(chip);
-	pr_debug("usb_status: %d\n", usb_present);
-	if (usb_present)
-		qpnp_chg_usb_usbin_valid_irq_handler(chip->usbin_valid_irq,
-			_chip);
-
 
 	return IRQ_HANDLED;
 }
