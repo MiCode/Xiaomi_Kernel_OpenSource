@@ -1496,6 +1496,11 @@ _adreno_recover_hang(struct kgsl_device *device,
 	} else {
 		adreno_context = context->devctxt;
 		adreno_context->flags |= CTXT_FLAGS_GPU_HANG;
+		/*
+		 * set the invalid ts flag to 0 for this context since we have
+		 * detected a hang for it
+		 */
+		context->wait_on_invalid_ts = false;
 	}
 
 	/* Extract valid contents from rb which can still be executed after
@@ -2289,14 +2294,24 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	if (timestamp_cmp(timestamp, ts_issued) > 0) {
 		if (adreno_ctx == NULL ||
 			!(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS)) {
-			KGSL_DRV_ERR(device,
+			if (context && !context->wait_on_invalid_ts) {
+				KGSL_DRV_ERR(device,
 				"Cannot wait for invalid ts <%d:0x%x>, "
 				"last issued ts <%d:0x%x>\n",
 				context_id, timestamp, context_id, ts_issued);
+				/*
+				 * Prevent the above message from spamming the
+				 * kernel logs and causing a watchdog
+				 */
+				context->wait_on_invalid_ts = true;
+			}
 			status = -EINVAL;
 			goto done;
 		} else
 			retry_ts_cmp = 1;
+	} else if (context && context->wait_on_invalid_ts) {
+		/* Once we wait for a valid ts reset the invalid wait flag */
+		context->wait_on_invalid_ts = false;
 	}
 
 	/*
@@ -2372,13 +2387,19 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 			ts_issued =
 				adreno_dev->ringbuffer.timestamp[context_id];
 			if (timestamp_cmp(timestamp, ts_issued) > 0) {
-				KGSL_DRV_ERR(device,
-				"Cannot wait for user-generated ts <%d:0x%x>, "
-				"not submitted within server timeout period. "
-				"last issued ts <%d:0x%x>\n",
-				context_id, timestamp, context_id, ts_issued);
+				if (context && !context->wait_on_invalid_ts) {
+					KGSL_DRV_ERR(device,
+					"Cannot wait for user-generated ts <%d:0x%x>, "
+					"not submitted within server timeout period. "
+					"last issued ts <%d:0x%x>\n",
+					context_id, timestamp, context_id,
+					ts_issued);
+					context->wait_on_invalid_ts = true;
+				}
 				status = -EINVAL;
 				goto done;
+			} else if (context && context->wait_on_invalid_ts) {
+				context->wait_on_invalid_ts = false;
 			}
 			retry_ts_cmp = 0;
 		}
