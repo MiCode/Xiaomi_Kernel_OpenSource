@@ -1,0 +1,22 @@
+* Qualcomm Application CPU clock driver
+
+acpuclock-9625 is the application cpu clock driver for MDM9625. It is used for
+cpu frequency scaling, voltage scaling and bus bandwidth scaling.
+
+Required properties:
+- compatible: "qcom,acpuclk-9625"
+- reg: offset and length of the register sets for the acpuclock controller
+- reg-names: name of the bases for the above registers. "rcg_base", "pwr_base"
+	     are expected.
+- a5_cpu-supply: regulator to supply a5 cpu
+- a5_mem-supply: regulator to supply a5 l2 cache
+
+Example:
+        qcom,acpuclk@f9010000 {
+                compatible = "qcom,acpuclk-9625";
+                reg = <0xf9010008 0x10>,
+                      <0xf9008004 0x4>;
+                reg-names = "rcg_base", "pwr_base";
+                a5_cpu-supply = <&pm8019_l10_corner_ao>;
+                a5_mem-supply = <&pm8019_l12_ao>;
+        };
