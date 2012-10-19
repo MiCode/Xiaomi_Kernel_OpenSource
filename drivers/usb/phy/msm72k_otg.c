@@ -536,6 +536,9 @@ static int msm_otg_set_power(struct usb_phy *xceiv, unsigned mA)
 				test_bit(ID_B, &dev->inputs))
 		charge = USB_IDCHG_MAX;
 
+	if (dev->curr_power == charge)
+		return 0;
+
 	pr_debug("Charging with %dmA current\n", charge);
 	/* Call vbus_draw only if the charger is of known type and also
 	 * ignore request to stop charging as a result of suspend interrupt
@@ -544,6 +547,8 @@ static int msm_otg_set_power(struct usb_phy *xceiv, unsigned mA)
 	if (pdata->chg_vbus_draw && new_chg != USB_CHG_TYPE__INVALID &&
 		(charge || new_chg != USB_CHG_TYPE__WALLCHARGER))
 			pdata->chg_vbus_draw(charge);
+
+	dev->curr_power = charge;
 
 	if (new_chg == USB_CHG_TYPE__WALLCHARGER) {
 		wake_lock(&dev->wlock);
