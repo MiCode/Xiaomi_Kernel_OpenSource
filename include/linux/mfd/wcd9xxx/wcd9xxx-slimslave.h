@@ -109,4 +109,8 @@ int wcd9xxx_get_channel(struct wcd9xxx *wcd9xxx,
 int wcd9xxx_get_slave_port(unsigned int ch_num);
 int wcd9xxx_disconnect_port(struct wcd9xxx *wcd9xxx,
 			    struct list_head *wcd9xxx_ch_list, u16 grph);
+int wcd9xxx_rx_vport_validation(u32 port_id,
+				struct list_head *codec_dai_list);
+int wcd9xxx_tx_vport_validation(u32 vtable, u32 port_id,
+				struct wcd9xxx_codec_dai_data *codec_dai);
 #endif /* __WCD9310_SLIMSLAVE_H_ */
