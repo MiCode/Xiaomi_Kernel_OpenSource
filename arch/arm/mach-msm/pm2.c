@@ -981,17 +981,26 @@ static int msm_pm_power_collapse
 		/*
 		 * on system reset, default value of MPA5_GDFS_CNT_VAL
 		 * is = 0x0, later modem reprogram this value to
-		 * 0x00030004. Once APPS did a power collapse and
-		 * coming out of it expected value of this register
-		 * always be 0x00030004. Incase if APPS sees the value
-		 * as 0x00030002 consider this case as a modem early
-		 * exit.
+		 * 0x00030004/0x000F0004(8x25Q). Once APPS did
+		 * a power collapse and coming out of it expected value
+		 * of this register always be 0x00030004/0x000F0004(8x25Q).
+		 * Incase if APPS sees the value as 0x00030002/0x000F0002(8x25Q)
+		 * consider this case as a modem early exit.
 		 */
 		val = __raw_readl(MSM_CFG_CTL_BASE + 0x38);
-		if (val != 0x00030002)
-			power_collapsed = 1;
-		else
-			modem_early_exit = 1;
+
+		/* 8x25Q */
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) {
+			if (val != 0x000F0002)
+				power_collapsed = 1;
+			else
+				modem_early_exit = 1;
+		} else {
+			if (val != 0x00030002)
+				power_collapsed = 1;
+			else
+				modem_early_exit = 1;
+		}
 	}
 
 #ifdef CONFIG_CACHE_L2X0
@@ -1684,12 +1693,16 @@ static int __init msm_pm_init(void)
 
 		/*
 		 * Configure the MPA5_GDFS_CNT_VAL register for
-		 * DBGPWRUPEREQ_OVERRIDE[17:16] = Override the
+		 * DBGPWRUPEREQ_OVERRIDE[19:16] = Override the
 		 * DBGNOPOWERDN for each cpu.
 		 * MPA5_GDFS_CNT_VAL[9:0] = Delay counter for
 		 * GDFS control.
 		 */
-		val = 0x00030002;
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3)
+			val = 0x000F0002;
+		else
+			val = 0x00030002;
+
 		__raw_writel(val, (MSM_CFG_CTL_BASE + 0x38));
 
 		l2x0_base_addr = MSM_L2CC_BASE;
