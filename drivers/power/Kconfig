@@ -290,8 +290,7 @@ config CHARGER_MAX8998
 
 config BATTERY_MSM
 	tristate "MSM battery"
-	depends on ARCH_MSM
-	default m
+	depends on ARCH_MSM && MSM_ONCRPCROUTER
 	help
 	  Say Y to enable support for the battery in Qualcomm MSM.
 
