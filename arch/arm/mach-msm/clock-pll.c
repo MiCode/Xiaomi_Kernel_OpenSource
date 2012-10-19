@@ -98,11 +98,6 @@ static void pll_vote_clk_disable(struct clk *c)
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 }
 
-static struct clk *pll_vote_clk_get_parent(struct clk *c)
-{
-	return to_pll_vote_clk(c)->parent;
-}
-
 static int pll_vote_clk_is_enabled(struct clk *c)
 {
 	struct pll_vote_clk *pllv = to_pll_vote_clk(c);
@@ -122,7 +117,6 @@ struct clk_ops clk_ops_pll_vote = {
 	.enable = pll_vote_clk_enable,
 	.disable = pll_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
-	.get_parent = pll_vote_clk_get_parent,
 	.handoff = pll_vote_clk_handoff,
 };
 
@@ -227,11 +221,6 @@ static enum handoff local_pll_clk_handoff(struct clk *c)
 		return HANDOFF_ENABLED_CLK;
 
 	return HANDOFF_DISABLED_CLK;
-}
-
-static struct clk *local_pll_clk_get_parent(struct clk *c)
-{
-	return to_pll_clk(c)->parent;
 }
 
 static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
@@ -346,7 +335,6 @@ struct clk_ops clk_ops_local_pll = {
 	.disable = local_pll_clk_disable,
 	.set_rate = local_pll_clk_set_rate,
 	.handoff = local_pll_clk_handoff,
-	.get_parent = local_pll_clk_get_parent,
 };
 
 struct pll_rate {
@@ -537,7 +525,6 @@ struct clk_ops clk_ops_pll_acpu_vote = {
 	.enable = pll_acpu_vote_clk_enable,
 	.disable = pll_acpu_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
-	.get_parent = pll_vote_clk_get_parent,
 };
 
 static void __init __set_fsm_mode(void __iomem *mode_reg,

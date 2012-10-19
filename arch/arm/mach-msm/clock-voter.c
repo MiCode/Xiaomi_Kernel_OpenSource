@@ -43,7 +43,7 @@ static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 	mutex_lock(&voter_clk_lock);
 
 	if (v->enabled) {
-		struct clk *parent = v->parent;
+		struct clk *parent = clk->parent;
 
 		/*
 		 * Get the aggregate rate without this clock's vote and update
@@ -79,7 +79,7 @@ static int voter_clk_prepare(struct clk *clk)
 	struct clk_voter *v = to_clk_voter(clk);
 
 	mutex_lock(&voter_clk_lock);
-	parent = v->parent;
+	parent = clk->parent;
 
 	/*
 	 * Increase the rate if this clock is voting for a higher rate
@@ -105,7 +105,7 @@ static void voter_clk_unprepare(struct clk *clk)
 	struct clk_voter *v = to_clk_voter(clk);
 
 	mutex_lock(&voter_clk_lock);
-	parent = v->parent;
+	parent = clk->parent;
 
 	/*
 	 * Decrease the rate if this clock was the only one voting for
@@ -129,14 +129,7 @@ static int voter_clk_is_enabled(struct clk *clk)
 
 static long voter_clk_round_rate(struct clk *clk, unsigned long rate)
 {
-	struct clk_voter *v = to_clk_voter(clk);
-	return clk_round_rate(v->parent, rate);
-}
-
-static struct clk *voter_clk_get_parent(struct clk *clk)
-{
-	struct clk_voter *v = to_clk_voter(clk);
-	return v->parent;
+	return clk_round_rate(clk->parent, rate);
 }
 
 static bool voter_clk_is_local(struct clk *clk)
@@ -159,7 +152,6 @@ struct clk_ops clk_ops_voter = {
 	.set_rate = voter_clk_set_rate,
 	.is_enabled = voter_clk_is_enabled,
 	.round_rate = voter_clk_round_rate,
-	.get_parent = voter_clk_get_parent,
 	.is_local = voter_clk_is_local,
 	.handoff = voter_clk_handoff,
 };

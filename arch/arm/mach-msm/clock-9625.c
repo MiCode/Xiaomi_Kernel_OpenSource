@@ -388,11 +388,11 @@ static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
 	.status_reg = (void __iomem *)GPLL0_STATUS_REG,
 	.status_mask = BIT(17),
-	.parent = &cxo_clk_src.c,
 	.soft_vote = &soft_vote_gpll0,
 	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.rate = 600000000,
 		.dbg_name = "gpll0_clk_src",
 		.ops = &clk_ops_pll_acpu_vote,
@@ -420,9 +420,9 @@ static struct pll_vote_clk lpapll0_clk_src = {
 	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)LPAPLL_STATUS_REG,
 	.status_mask = BIT(17),
-	.parent = &cxo_clk_src.c,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.rate = 393216000,
 		.dbg_name = "lpapll0_clk_src",
 		.ops = &clk_ops_pll_vote,
@@ -435,9 +435,9 @@ static struct pll_vote_clk gpll1_clk_src = {
 	.en_mask = BIT(1),
 	.status_reg = (void __iomem *)GPLL1_STATUS_REG,
 	.status_mask = BIT(17),
-	.parent = &cxo_clk_src.c,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.rate = 480000000,
 		.dbg_name = "gpll1_clk_src",
 		.ops = &clk_ops_pll_vote,
@@ -472,6 +472,7 @@ static struct pll_clk apcspll_clk_src = {
 	},
 	.base = &virt_bases[APCS_PLL_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.dbg_name = "apcspll_clk_src",
 		.ops = &clk_ops_local_pll,
 		CLK_INIT(apcspll_clk_src.c),
@@ -988,10 +989,10 @@ static struct local_vote_clk gcc_blsp1_ahb_clk = {
 
 static struct branch_clk gcc_blsp1_qup1_i2c_apps_clk = {
 	.cbcr_reg = BLSP1_QUP1_I2C_APPS_CBCR,
-	.parent = &cxo_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup1_i2c_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup1_i2c_apps_clk.c),
@@ -1000,10 +1001,10 @@ static struct branch_clk gcc_blsp1_qup1_i2c_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup1_spi_apps_clk = {
 	.cbcr_reg = BLSP1_QUP1_SPI_APPS_CBCR,
-	.parent = &blsp1_qup1_spi_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_qup1_spi_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup1_spi_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup1_spi_apps_clk.c),
@@ -1012,10 +1013,10 @@ static struct branch_clk gcc_blsp1_qup1_spi_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup2_i2c_apps_clk = {
 	.cbcr_reg = BLSP1_QUP2_I2C_APPS_CBCR,
-	.parent = &cxo_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup2_i2c_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup2_i2c_apps_clk.c),
@@ -1024,10 +1025,10 @@ static struct branch_clk gcc_blsp1_qup2_i2c_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup2_spi_apps_clk = {
 	.cbcr_reg = BLSP1_QUP2_SPI_APPS_CBCR,
-	.parent = &blsp1_qup2_spi_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_qup2_spi_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup2_spi_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup2_spi_apps_clk.c),
@@ -1036,10 +1037,10 @@ static struct branch_clk gcc_blsp1_qup2_spi_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup3_i2c_apps_clk = {
 	.cbcr_reg = BLSP1_QUP3_I2C_APPS_CBCR,
-	.parent = &cxo_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup3_i2c_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup3_i2c_apps_clk.c),
@@ -1048,10 +1049,10 @@ static struct branch_clk gcc_blsp1_qup3_i2c_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup3_spi_apps_clk = {
 	.cbcr_reg = BLSP1_QUP3_SPI_APPS_CBCR,
-	.parent = &blsp1_qup3_spi_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_qup3_spi_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup3_spi_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup3_spi_apps_clk.c),
@@ -1060,10 +1061,10 @@ static struct branch_clk gcc_blsp1_qup3_spi_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup4_i2c_apps_clk = {
 	.cbcr_reg = BLSP1_QUP4_I2C_APPS_CBCR,
-	.parent = &cxo_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup4_i2c_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup4_i2c_apps_clk.c),
@@ -1072,10 +1073,10 @@ static struct branch_clk gcc_blsp1_qup4_i2c_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup4_spi_apps_clk = {
 	.cbcr_reg = BLSP1_QUP4_SPI_APPS_CBCR,
-	.parent = &blsp1_qup4_spi_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_qup4_spi_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup4_spi_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup4_spi_apps_clk.c),
@@ -1084,10 +1085,10 @@ static struct branch_clk gcc_blsp1_qup4_spi_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup5_i2c_apps_clk = {
 	.cbcr_reg = BLSP1_QUP5_I2C_APPS_CBCR,
-	.parent = &cxo_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup5_i2c_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup5_i2c_apps_clk.c),
@@ -1096,10 +1097,10 @@ static struct branch_clk gcc_blsp1_qup5_i2c_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup5_spi_apps_clk = {
 	.cbcr_reg = BLSP1_QUP5_SPI_APPS_CBCR,
-	.parent = &blsp1_qup5_spi_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_qup5_spi_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup5_spi_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup5_spi_apps_clk.c),
@@ -1108,10 +1109,10 @@ static struct branch_clk gcc_blsp1_qup5_spi_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup6_i2c_apps_clk = {
 	.cbcr_reg = BLSP1_QUP6_I2C_APPS_CBCR,
-	.parent = &cxo_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &cxo_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup6_i2c_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup6_i2c_apps_clk.c),
@@ -1120,10 +1121,10 @@ static struct branch_clk gcc_blsp1_qup6_i2c_apps_clk = {
 
 static struct branch_clk gcc_blsp1_qup6_spi_apps_clk = {
 	.cbcr_reg = BLSP1_QUP6_SPI_APPS_CBCR,
-	.parent = &blsp1_qup6_spi_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_qup6_spi_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_qup6_spi_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_qup6_spi_apps_clk.c),
@@ -1132,10 +1133,10 @@ static struct branch_clk gcc_blsp1_qup6_spi_apps_clk = {
 
 static struct branch_clk gcc_blsp1_uart1_apps_clk = {
 	.cbcr_reg = BLSP1_UART1_APPS_CBCR,
-	.parent = &blsp1_uart1_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_uart1_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_uart1_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_uart1_apps_clk.c),
@@ -1144,10 +1145,10 @@ static struct branch_clk gcc_blsp1_uart1_apps_clk = {
 
 static struct branch_clk gcc_blsp1_uart2_apps_clk = {
 	.cbcr_reg = BLSP1_UART2_APPS_CBCR,
-	.parent = &blsp1_uart2_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_uart2_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_uart2_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_uart2_apps_clk.c),
@@ -1156,10 +1157,10 @@ static struct branch_clk gcc_blsp1_uart2_apps_clk = {
 
 static struct branch_clk gcc_blsp1_uart3_apps_clk = {
 	.cbcr_reg = BLSP1_UART3_APPS_CBCR,
-	.parent = &blsp1_uart3_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_uart3_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_uart3_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_uart3_apps_clk.c),
@@ -1168,10 +1169,10 @@ static struct branch_clk gcc_blsp1_uart3_apps_clk = {
 
 static struct branch_clk gcc_blsp1_uart4_apps_clk = {
 	.cbcr_reg = BLSP1_UART4_APPS_CBCR,
-	.parent = &blsp1_uart4_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_uart4_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_uart4_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_uart4_apps_clk.c),
@@ -1180,10 +1181,10 @@ static struct branch_clk gcc_blsp1_uart4_apps_clk = {
 
 static struct branch_clk gcc_blsp1_uart5_apps_clk = {
 	.cbcr_reg = BLSP1_UART5_APPS_CBCR,
-	.parent = &blsp1_uart5_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_uart5_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_uart5_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_uart5_apps_clk.c),
@@ -1192,10 +1193,10 @@ static struct branch_clk gcc_blsp1_uart5_apps_clk = {
 
 static struct branch_clk gcc_blsp1_uart6_apps_clk = {
 	.cbcr_reg = BLSP1_UART6_APPS_CBCR,
-	.parent = &blsp1_uart6_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &blsp1_uart6_apps_clk_src.c,
 		.dbg_name = "gcc_blsp1_uart6_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_uart6_apps_clk.c),
@@ -1252,10 +1253,10 @@ static struct local_vote_clk gcc_ce1_clk = {
 
 static struct branch_clk gcc_gp1_clk = {
 	.cbcr_reg = GP1_CBCR,
-	.parent = &gp1_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &gp1_clk_src.c,
 		.dbg_name = "gcc_gp1_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_gp1_clk.c),
@@ -1264,10 +1265,10 @@ static struct branch_clk gcc_gp1_clk = {
 
 static struct branch_clk gcc_gp2_clk = {
 	.cbcr_reg = GP2_CBCR,
-	.parent = &gp2_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &gp2_clk_src.c,
 		.dbg_name = "gcc_gp2_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_gp2_clk.c),
@@ -1276,10 +1277,10 @@ static struct branch_clk gcc_gp2_clk = {
 
 static struct branch_clk gcc_gp3_clk = {
 	.cbcr_reg = GP3_CBCR,
-	.parent = &gp3_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &gp3_clk_src.c,
 		.dbg_name = "gcc_gp3_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_gp3_clk.c),
@@ -1288,10 +1289,10 @@ static struct branch_clk gcc_gp3_clk = {
 
 static struct branch_clk gcc_ipa_clk = {
 	.cbcr_reg = IPA_CBCR,
-	.parent = &ipa_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &ipa_clk_src.c,
 		.dbg_name = "gcc_ipa_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_ipa_clk.c),
@@ -1311,10 +1312,10 @@ static struct branch_clk gcc_ipa_cnoc_clk = {
 
 static struct branch_clk gcc_pdm2_clk = {
 	.cbcr_reg = PDM2_CBCR,
-	.parent = &pdm2_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &pdm2_clk_src.c,
 		.dbg_name = "gcc_pdm2_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_pdm2_clk.c),
@@ -1357,10 +1358,10 @@ static struct branch_clk gcc_qpic_ahb_clk = {
 
 static struct branch_clk gcc_qpic_clk = {
 	.cbcr_reg = QPIC_CBCR,
-	.parent = &qpic_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &qpic_clk_src.c,
 		.dbg_name = "gcc_qpic_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_qpic_clk.c),
@@ -1380,10 +1381,10 @@ static struct branch_clk gcc_sdcc2_ahb_clk = {
 
 static struct branch_clk gcc_sdcc2_apps_clk = {
 	.cbcr_reg = SDCC2_APPS_CBCR,
-	.parent = &sdcc2_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &sdcc2_apps_clk_src.c,
 		.dbg_name = "gcc_sdcc2_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_sdcc2_apps_clk.c),
@@ -1403,10 +1404,10 @@ static struct branch_clk gcc_sdcc3_ahb_clk = {
 
 static struct branch_clk gcc_sdcc3_apps_clk = {
 	.cbcr_reg = SDCC3_APPS_CBCR,
-	.parent = &sdcc3_apps_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &sdcc3_apps_clk_src.c,
 		.dbg_name = "gcc_sdcc3_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_sdcc3_apps_clk.c),
@@ -1415,10 +1416,10 @@ static struct branch_clk gcc_sdcc3_apps_clk = {
 
 static struct branch_clk gcc_sys_noc_ipa_axi_clk = {
 	.cbcr_reg = SYS_NOC_IPA_AXI_CBCR,
-	.parent = &ipa_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &ipa_clk_src.c,
 		.dbg_name = "gcc_sys_noc_ipa_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_sys_noc_ipa_axi_clk.c),
@@ -1439,10 +1440,10 @@ static struct branch_clk gcc_usb_hs_ahb_clk = {
 static struct branch_clk gcc_usb_hs_system_clk = {
 	.cbcr_reg = USB_HS_SYSTEM_CBCR,
 	.bcr_reg = USB_HS_BCR,
-	.parent = &usb_hs_system_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &usb_hs_system_clk_src.c,
 		.dbg_name = "gcc_usb_hs_system_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hs_system_clk.c),
@@ -1462,10 +1463,10 @@ static struct branch_clk gcc_usb_hsic_ahb_clk = {
 
 static struct branch_clk gcc_usb_hsic_clk = {
 	.cbcr_reg = USB_HSIC_CBCR,
-	.parent = &usb_hsic_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &usb_hsic_clk_src.c,
 		.dbg_name = "gcc_usb_hsic_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hsic_clk.c),
@@ -1474,10 +1475,10 @@ static struct branch_clk gcc_usb_hsic_clk = {
 
 static struct branch_clk gcc_usb_hsic_io_cal_clk = {
 	.cbcr_reg = USB_HSIC_IO_CAL_CBCR,
-	.parent = &usb_hsic_io_cal_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &usb_hsic_io_cal_clk_src.c,
 		.dbg_name = "gcc_usb_hsic_io_cal_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hsic_io_cal_clk.c),
@@ -1487,10 +1488,10 @@ static struct branch_clk gcc_usb_hsic_io_cal_clk = {
 static struct branch_clk gcc_usb_hsic_system_clk = {
 	.cbcr_reg = USB_HSIC_SYSTEM_CBCR,
 	.bcr_reg = USB_HS_HSIC_BCR,
-	.parent = &usb_hsic_system_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &usb_hsic_system_clk_src.c,
 		.dbg_name = "gcc_usb_hsic_system_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hsic_system_clk.c),
@@ -1499,10 +1500,10 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 
 static struct branch_clk gcc_usb_hsic_xcvr_fs_clk = {
 	.cbcr_reg = USB_HSIC_XCVR_FS_CBCR,
-	.parent = &usb_hsic_xcvr_fs_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
+		.parent = &usb_hsic_xcvr_fs_clk_src.c,
 		.dbg_name = "gcc_usb_hsic_xcvr_fs_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hsic_xcvr_fs_clk.c),
@@ -1639,9 +1640,9 @@ static struct branch_clk audio_core_slimbus_lfabif_clk = {
 
 static struct branch_clk audio_core_lpaif_pcm_data_oe_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PCM_DATA_OE_CBCR,
-	.parent = &audio_core_lpaif_pcmoe_clk_src.c,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &audio_core_lpaif_pcmoe_clk_src.c,
 		.dbg_name = "audio_core_lpaif_pcm_data_oe_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(audio_core_lpaif_pcm_data_oe_clk.c),
@@ -1650,9 +1651,9 @@ static struct branch_clk audio_core_lpaif_pcm_data_oe_clk = {
 
 static struct branch_clk audio_core_slimbus_core_clk = {
 	.cbcr_reg = AUDIO_CORE_SLIMBUS_CORE_CBCR,
-	.parent = &audio_core_slimbus_core_clk_src.c,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &audio_core_slimbus_core_clk_src.c,
 		.dbg_name = "audio_core_slimbus_core_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(audio_core_slimbus_core_clk.c),
@@ -1672,11 +1673,11 @@ static struct branch_clk audio_core_lpaif_pri_ebit_clk = {
 
 static struct branch_clk audio_core_lpaif_pri_ibit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PRI_IBIT_CBCR,
-	.parent = &audio_core_lpaif_pri_clk_src.c,
 	.has_sibling = 1,
 	.max_div = 15,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &audio_core_lpaif_pri_clk_src.c,
 		.dbg_name = "audio_core_lpaif_pri_ibit_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(audio_core_lpaif_pri_ibit_clk.c),
@@ -1685,10 +1686,10 @@ static struct branch_clk audio_core_lpaif_pri_ibit_clk = {
 
 static struct branch_clk audio_core_lpaif_pri_osr_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PRI_OSR_CBCR,
-	.parent = &audio_core_lpaif_pri_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &audio_core_lpaif_pri_clk_src.c,
 		.dbg_name = "audio_core_lpaif_pri_osr_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(audio_core_lpaif_pri_osr_clk.c),
@@ -1708,10 +1709,10 @@ static struct branch_clk audio_core_lpaif_pcm0_ebit_clk = {
 
 static struct branch_clk audio_core_lpaif_pcm0_ibit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PCM0_IBIT_CBCR,
-	.parent = &audio_core_lpaif_pcm0_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &audio_core_lpaif_pcm0_clk_src.c,
 		.dbg_name = "audio_core_lpaif_pcm0_ibit_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(audio_core_lpaif_pcm0_ibit_clk.c),
@@ -1731,11 +1732,11 @@ static struct branch_clk audio_core_lpaif_sec_ebit_clk = {
 
 static struct branch_clk audio_core_lpaif_sec_ibit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_SEC_IBIT_CBCR,
-	.parent = &audio_core_lpaif_sec_clk_src.c,
 	.has_sibling = 1,
 	.max_div = 15,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &audio_core_lpaif_sec_clk_src.c,
 		.dbg_name = "audio_core_lpaif_sec_ibit_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(audio_core_lpaif_sec_ibit_clk.c),
@@ -1744,10 +1745,10 @@ static struct branch_clk audio_core_lpaif_sec_ibit_clk = {
 
 static struct branch_clk audio_core_lpaif_sec_osr_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_SEC_OSR_CBCR,
-	.parent = &audio_core_lpaif_sec_clk_src.c,
 	.has_sibling = 1,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &audio_core_lpaif_sec_clk_src.c,
 		.dbg_name = "audio_core_lpaif_sec_osr_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(audio_core_lpaif_sec_osr_clk.c),
@@ -1767,10 +1768,10 @@ static struct branch_clk audio_core_lpaif_pcm1_ebit_clk = {
 
 static struct branch_clk audio_core_lpaif_pcm1_ibit_clk = {
 	.cbcr_reg = AUDIO_CORE_LPAIF_PCM1_IBIT_CBCR,
-	.parent = &audio_core_lpaif_pcm1_clk_src.c,
 	.has_sibling = 0,
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
+		.parent = &audio_core_lpaif_pcm1_clk_src.c,
 		.dbg_name = "audio_core_lpaif_pcm1_ibit_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(audio_core_lpaif_pcm1_ibit_clk.c),

@@ -317,8 +317,8 @@ static struct pll_vote_clk pll8_clk = {
 	.en_mask = BIT(8),
 	.status_reg = BB_PLL8_STATUS_REG,
 	.status_mask = BIT(16),
-	.parent = &pxo_clk.c,
 	.c = {
+		.parent = &pxo_clk.c,
 		.dbg_name = "pll8_clk",
 		.rate = 384000000,
 		.ops = &clk_ops_pll_vote,
@@ -328,8 +328,8 @@ static struct pll_vote_clk pll8_clk = {
 
 static struct pll_clk pll2_clk = {
 	.mode_reg = MM_PLL1_MODE_REG,
-	.parent = &pxo_clk.c,
 	.c = {
+		.parent = &pxo_clk.c,
 		.dbg_name = "pll2_clk",
 		.rate = 800000000,
 		.ops = &clk_ops_local_pll,
@@ -339,8 +339,8 @@ static struct pll_clk pll2_clk = {
 
 static struct pll_clk pll3_clk = {
 	.mode_reg = MM_PLL2_MODE_REG,
-	.parent = &pxo_clk.c,
 	.c = {
+		.parent = &pxo_clk.c,
 		.dbg_name = "pll3_clk",
 		.rate = 0, /* TODO: Detect rate dynamically */
 		.ops = &clk_ops_local_pll,
@@ -358,11 +358,6 @@ static void pll4_clk_disable(struct clk *c)
 {
 	struct msm_rpm_iv_pair iv = { MSM_RPM_ID_PLL_4, 0 };
 	msm_rpm_set_noirq(MSM_RPM_CTX_SET_0, &iv, 1);
-}
-
-static struct clk *pll4_clk_get_parent(struct clk *c)
-{
-	return &pxo_clk.c;
 }
 
 static bool pll4_clk_is_local(struct clk *c)
@@ -383,13 +378,13 @@ static enum handoff pll4_clk_handoff(struct clk *clk)
 static struct clk_ops clk_ops_pll4 = {
 	.enable = pll4_clk_enable,
 	.disable = pll4_clk_disable,
-	.get_parent = pll4_clk_get_parent,
 	.is_local = pll4_clk_is_local,
 	.handoff = pll4_clk_handoff,
 };
 
 static struct fixed_clk pll4_clk = {
 	.c = {
+		.parent = &pxo_clk.c,
 		.dbg_name = "pll4_clk",
 		.rate = 540672000,
 		.ops = &clk_ops_pll4,
@@ -1386,8 +1381,8 @@ static struct branch_clk usb_fs1_xcvr_clk = {
 		.halt_reg = CLK_HALT_CFPB_STATEA_REG,
 		.halt_bit = 15,
 	},
-	.parent = &usb_fs1_src_clk.c,
 	.c = {
+		.parent = &usb_fs1_src_clk.c,
 		.dbg_name = "usb_fs1_xcvr_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs1_xcvr_clk.c),
@@ -1403,8 +1398,8 @@ static struct branch_clk usb_fs1_sys_clk = {
 		.halt_reg = CLK_HALT_CFPB_STATEA_REG,
 		.halt_bit = 16,
 	},
-	.parent = &usb_fs1_src_clk.c,
 	.c = {
+		.parent = &usb_fs1_src_clk.c,
 		.dbg_name = "usb_fs1_sys_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs1_sys_clk.c),
@@ -1421,8 +1416,8 @@ static struct branch_clk usb_fs2_xcvr_clk = {
 		.halt_reg = CLK_HALT_CFPB_STATEA_REG,
 		.halt_bit = 12,
 	},
-	.parent = &usb_fs2_src_clk.c,
 	.c = {
+		.parent = &usb_fs2_src_clk.c,
 		.dbg_name = "usb_fs2_xcvr_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs2_xcvr_clk.c),
@@ -1438,8 +1433,8 @@ static struct branch_clk usb_fs2_sys_clk = {
 		.halt_reg = CLK_HALT_CFPB_STATEA_REG,
 		.halt_bit = 13,
 	},
-	.parent = &usb_fs2_src_clk.c,
 	.c = {
+		.parent = &usb_fs2_src_clk.c,
 		.dbg_name = "usb_fs2_sys_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(usb_fs2_sys_clk.c),
@@ -1454,8 +1449,8 @@ static struct branch_clk ce2_p_clk = {
 		.halt_reg = CLK_HALT_CFPB_STATEC_REG,
 		.halt_bit = 0,
 	},
-	.parent = &pxo_clk.c,
 	.c = {
+		.parent = &pxo_clk.c,
 		.dbg_name = "ce2_p_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(ce2_p_clk.c),
@@ -1808,8 +1803,8 @@ static struct branch_clk adm0_clk = {
 		.halt_check = HALT_VOTED,
 		.halt_bit = 14,
 	},
-	.parent = &pxo_clk.c,
 	.c = {
+		.parent = &pxo_clk.c,
 		.dbg_name = "adm0_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(adm0_clk.c),
@@ -1839,8 +1834,8 @@ static struct branch_clk adm1_clk = {
 		.halt_check = HALT_VOTED,
 		.halt_bit = 12,
 	},
-	.parent = &pxo_clk.c,
 	.c = {
+		.parent = &pxo_clk.c,
 		.dbg_name = "adm1_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(adm1_clk.c),
@@ -2044,8 +2039,8 @@ static struct branch_clk csi0_clk = {
 		.halt_reg = DBG_BUS_VEC_B_REG,
 		.halt_bit = 13,
 	},
-	.parent = &csi_src_clk.c,
 	.c = {
+		.parent = &csi_src_clk.c,
 		.dbg_name = "csi0_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi0_clk.c),
@@ -2061,8 +2056,8 @@ static struct branch_clk csi1_clk = {
 		.halt_reg = DBG_BUS_VEC_B_REG,
 		.halt_bit = 14,
 	},
-	.parent = &csi_src_clk.c,
 	.c = {
+		.parent = &csi_src_clk.c,
 		.dbg_name = "csi1_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi1_clk.c),
@@ -2566,8 +2561,8 @@ static struct branch_clk pixel_lcdc_clk = {
 		.halt_reg = DBG_BUS_VEC_C_REG,
 		.halt_bit = 21,
 	},
-	.parent = &pixel_mdp_clk.c,
 	.c = {
+		.parent = &pixel_mdp_clk.c,
 		.dbg_name = "pixel_lcdc_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(pixel_lcdc_clk.c),
@@ -2695,8 +2690,8 @@ static struct branch_clk tv_enc_clk = {
 		.halt_reg = DBG_BUS_VEC_D_REG,
 		.halt_bit = 8,
 	},
-	.parent = &tv_src_clk.c,
 	.c = {
+		.parent = &tv_src_clk.c,
 		.dbg_name = "tv_enc_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(tv_enc_clk.c),
@@ -2710,8 +2705,8 @@ static struct branch_clk tv_dac_clk = {
 		.halt_reg = DBG_BUS_VEC_D_REG,
 		.halt_bit = 9,
 	},
-	.parent = &tv_src_clk.c,
 	.c = {
+		.parent = &tv_src_clk.c,
 		.dbg_name = "tv_dac_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(tv_dac_clk.c),
@@ -2727,8 +2722,8 @@ static struct branch_clk mdp_tv_clk = {
 		.halt_reg = DBG_BUS_VEC_D_REG,
 		.halt_bit = 11,
 	},
-	.parent = &tv_src_clk.c,
 	.c = {
+		.parent = &tv_src_clk.c,
 		.dbg_name = "mdp_tv_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdp_tv_clk.c),
@@ -2744,8 +2739,8 @@ static struct branch_clk hdmi_tv_clk = {
 		.halt_reg = DBG_BUS_VEC_D_REG,
 		.halt_bit = 10,
 	},
-	.parent = &tv_src_clk.c,
 	.c = {
+		.parent = &tv_src_clk.c,
 		.dbg_name = "hdmi_tv_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(hdmi_tv_clk.c),
@@ -2934,8 +2929,8 @@ static struct branch_clk csi0_vfe_clk = {
 		.halt_reg = DBG_BUS_VEC_B_REG,
 		.halt_bit = 7,
 	},
-	.parent = &vfe_clk.c,
 	.c = {
+		.parent = &vfe_clk.c,
 		.dbg_name = "csi0_vfe_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi0_vfe_clk.c),
@@ -2951,8 +2946,8 @@ static struct branch_clk csi1_vfe_clk = {
 		.halt_reg = DBG_BUS_VEC_B_REG,
 		.halt_bit = 8,
 	},
-	.parent = &vfe_clk.c,
 	.c = {
+		.parent = &vfe_clk.c,
 		.dbg_name = "csi1_vfe_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi1_vfe_clk.c),
