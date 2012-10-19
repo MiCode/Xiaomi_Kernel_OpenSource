@@ -202,6 +202,7 @@ static void compr_event_handler(uint32_t opcode,
 			wake_up(&the_locks.eos_wait);
 			atomic_set(&prtd->eos, 0);
 		}
+		atomic_set(&prtd->pending_buffer, 1);
 		break;
 	case ASM_DATA_EVENT_READ_DONE: {
 		pr_debug("ASM_DATA_EVENT_READ_DONE\n");
@@ -1208,6 +1209,7 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 				prtd->cmd_ack = 1;
 				wake_up(&the_locks.eos_wait);
 				atomic_set(&prtd->eos, 0);
+				atomic_set(&prtd->pending_buffer, 1);
 			}
 
 			/* A unlikely race condition possible with FLUSH
