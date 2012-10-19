@@ -436,11 +436,30 @@ static void qdss_eps_disable(struct usb_function *f)
 	}
 }
 
+static void usb_qdss_disconnect_work(struct work_struct *work)
+{
+	struct f_qdss *qdss = container_of(work, struct f_qdss, disconnect_w);
+	int status;
+
+	pr_debug("usb_qdss_disconnect_work\n");
+
+	/* notify qdss to cancell all active transfers*/
+	if (qdss->ch.notify) {
+		qdss->ch.notify(qdss->ch.priv, USB_QDSS_DISCONNECT, NULL,
+			NULL);
+		/* If the app was never started, we can skip USB BAM reset */
+		status = set_qdss_data_connection(qdss->data,
+			qdss->data->address, 0);
+		if (status)
+			pr_err("qdss_disconnect error");
+	}
+
+}
+
 static void qdss_disable(struct usb_function *f)
 {
 	struct f_qdss	*qdss = func_to_qdss(f);
 	unsigned long flags;
-	int status;
 
 	pr_debug("qdss_disable\n");
 
@@ -451,24 +470,15 @@ static void qdss_disable(struct usb_function *f)
 	/*cancell all active xfers*/
 	qdss_eps_disable(f);
 
-	/* notify qdss to cancell all active transfers*/
-	if (qdss->ch.notify) {
-		qdss->ch.notify(qdss->ch.priv, USB_QDSS_DISCONNECT, NULL,
-			NULL);
-		/* If the app was never started, we can skip USB BAM reset */
-		status = set_qdss_data_connection(qdss->data,
-			qdss->data->address, 0);
-		if (status)
-			pr_err("qdss_disable error");
-	}
+	schedule_work(&qdss->disconnect_w);
 }
 
-static void usb_qdss_work_func(struct work_struct *work)
+static void usb_qdss_connect_work(struct work_struct *work)
 {
-	struct f_qdss *qdss = container_of(work, struct f_qdss, qdss_work);
+	struct f_qdss *qdss = container_of(work, struct f_qdss, connect_w);
 	int status;
 
-	pr_debug("usb_qdss_work_func\n");
+	pr_debug("usb_qdss_connect_work\n");
 
 	status = init_data(qdss->data);
 	if (status) {
@@ -549,7 +559,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		qdss->usb_connected = 1;
 
 	if (qdss->usb_connected && ch->app_conn)
-		schedule_work(&qdss->qdss_work);
+		schedule_work(&qdss->connect_w);
 
 	return 0;
 fail:
@@ -618,7 +628,8 @@ static int qdss_bind_config(struct usb_configuration *c, const char *name)
 	spin_lock_init(&qdss->lock);
 	INIT_LIST_HEAD(&qdss->ctrl_read_pool);
 	INIT_LIST_HEAD(&qdss->ctrl_write_pool);
-	INIT_WORK(&qdss->qdss_work, usb_qdss_work_func);
+	INIT_WORK(&qdss->connect_w, usb_qdss_connect_work);
+	INIT_WORK(&qdss->disconnect_w, usb_qdss_disconnect_work);
 
 	status = usb_add_function(c, &qdss->function);
 	if (status) {
@@ -767,7 +778,7 @@ struct usb_qdss_ch *usb_qdss_open(const char *name, void *priv,
 
 	/* the case USB cabel was connected befor qdss called  qdss_open*/
 	if (qdss->usb_connected == 1)
-		schedule_work(&qdss->qdss_work);
+		schedule_work(&qdss->connect_w);
 
 	return ch;
 }
