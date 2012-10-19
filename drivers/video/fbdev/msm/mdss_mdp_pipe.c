@@ -80,16 +80,21 @@ static void mdss_mdp_smp_free(struct mdss_mdp_pipe *pipe)
 static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 {
 	u32 num_blks = 0, reserved = 0;
-	int i;
+	struct mdss_mdp_plane_sizes ps;
+	int i, rc;
 
-	if ((pipe->src_planes.num_planes > 1) &&
-	    (pipe->type == MDSS_MDP_PIPE_TYPE_RGB))
+	rc = mdss_mdp_get_plane_sizes(pipe->src_fmt->format, pipe->src.w,
+				pipe->src.h, &ps);
+	if (rc)
+		return rc;
+
+	if ((ps.num_planes > 1) && (pipe->type == MDSS_MDP_PIPE_TYPE_RGB))
 		return -EINVAL;
 
 	mutex_lock(&mdss_mdp_smp_lock);
-	for (i = 0; i < pipe->src_planes.num_planes; i++) {
-		num_blks = DIV_ROUND_UP(2 * pipe->src_planes.ystride[i],
-					mdss_res->smp_mb_size);
+	for (i = 0; i < ps.num_planes; i++) {
+		num_blks = DIV_ROUND_UP(2 * ps.ystride[i],
+			mdss_res->smp_mb_size);
 
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
