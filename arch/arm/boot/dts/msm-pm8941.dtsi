@@ -189,8 +189,8 @@
 						<0 0x13 0x1>,
 						<0x0 0x13 0x2>;
 
-				interrupt-names =	"usbin-valid",
-							"coarse-det-usb",
+				interrupt-names =	"coarse-det-usb",
+							"usbin-valid",
 							"chg-gone";
 			};
 
