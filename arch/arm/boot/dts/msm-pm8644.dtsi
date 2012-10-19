@@ -1,0 +1,290 @@
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <3>;
+
+	qcom,pm8644@0 {
+		spmi-slave-container;
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pm8644_gpios: gpios {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8644-gpio";
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+			};
+
+			gpio@c400 {
+				reg = <0xc400 0x100>;
+				qcom,pin-num = <5>;
+			};
+
+			gpio@c500 {
+				reg = <0xc500 0x100>;
+				qcom,pin-num = <6>;
+			};
+
+			gpio@c600 {
+				reg = <0xc600 0x100>;
+				qcom,pin-num = <7>;
+			};
+
+			gpio@c700 {
+				reg = <0xc700 0x100>;
+				qcom,pin-num = <8>;
+			};
+
+			gpio@c800 {
+				reg = <0xc800 0x100>;
+				qcom,pin-num = <9>;
+			};
+
+			gpio@c900 {
+				reg = <0xc900 0x100>;
+				qcom,pin-num = <10>;
+			};
+
+			gpio@ca00 {
+				reg = <0xca00 0x100>;
+				qcom,pin-num = <11>;
+			};
+
+			gpio@cb00 {
+				reg = <0xcb00 0x100>;
+				qcom,pin-num = <12>;
+			};
+
+			gpio@cc00 {
+				reg = <0xcc00 0x100>;
+				qcom,pin-num = <13>;
+			};
+
+			gpio@cd00 {
+				reg = <0xcd00 0x100>;
+				qcom,pin-num = <14>;
+			};
+
+			gpio@ce00 {
+				reg = <0xce00 0x100>;
+				qcom,pin-num = <15>;
+			};
+
+			gpio@cf00 {
+				reg = <0xcf00 0x100>;
+				qcom,pin-num = <16>;
+			};
+
+			gpio@d000 {
+				reg = <0xd000 0x100>;
+				qcom,pin-num = <17>;
+			};
+
+			gpio@d100 {
+				reg = <0xd100 0x100>;
+				qcom,pin-num = <18>;
+			};
+
+			gpio@d200 {
+				reg = <0xd200 0x100>;
+				qcom,pin-num = <19>;
+			};
+
+			gpio@d300 {
+				reg = <0xd300 0x100>;
+				qcom,pin-num = <20>;
+			};
+
+			gpio@d400 {
+				reg = <0xd400 0x100>;
+				qcom,pin-num = <21>;
+			};
+
+			gpio@d500 {
+				reg = <0xd500 0x100>;
+				qcom,pin-num = <22>;
+			};
+
+			gpio@d600 {
+				reg = <0xd600 0x100>;
+				qcom,pin-num = <23>;
+			};
+
+			gpio@d700 {
+				reg = <0xd700 0x100>;
+				qcom,pin-num = <24>;
+			};
+
+			gpio@d800 {
+				reg = <0xd800 0x100>;
+				qcom,pin-num = <25>;
+			};
+
+			gpio@d900 {
+				reg = <0xd900 0x100>;
+				qcom,pin-num = <26>;
+			};
+
+			gpio@da00 {
+				reg = <0xda00 0x100>;
+				qcom,pin-num = <27>;
+			};
+
+			gpio@db00 {
+				reg = <0xdb00 0x100>;
+				qcom,pin-num = <28>;
+			};
+
+			gpio@dc00 {
+				reg = <0xdc00 0x100>;
+				qcom,pin-num = <29>;
+			};
+
+			gpio@dd00 {
+				reg = <0xdd00 0x100>;
+				qcom,pin-num = <30>;
+			};
+
+			gpio@de00 {
+				reg = <0xde00 0x100>;
+				qcom,pin-num = <31>;
+			};
+
+			gpio@df00 {
+				reg = <0xdf00 0x100>;
+				qcom,pin-num = <32>;
+			};
+
+			gpio@e000 {
+				reg = <0xe000 0x100>;
+				qcom,pin-num = <33>;
+			};
+
+			gpio@e100 {
+				reg = <0xe100 0x100>;
+				qcom,pin-num = <34>;
+			};
+
+			gpio@e200 {
+				reg = <0xe200 0x100>;
+				qcom,pin-num = <35>;
+			};
+
+			gpio@e300 {
+				reg = <0xe300 0x100>;
+				qcom,pin-num = <36>;
+			};
+
+			gpio@e400 {
+				reg = <0xe400 0x100>;
+				qcom,pin-num = <37>;
+			};
+
+			gpio@e500 {
+				reg = <0xe500 0x100>;
+				qcom,pin-num = <38>;
+			};
+
+			gpio@e600 {
+				reg = <0xe600 0x100>;
+				qcom,pin-num = <39>;
+			};
+
+			gpio@e700 {
+				reg = <0xe700 0x100>;
+				qcom,pin-num = <40>;
+			};
+
+			gpio@e800 {
+				reg = <0xe800 0x100>;
+				qcom,pin-num = <41>;
+			};
+
+			gpio@e900 {
+				reg = <0xe900 0x100>;
+				qcom,pin-num = <42>;
+			};
+
+			gpio@ea00 {
+				reg = <0xea00 0x100>;
+				qcom,pin-num = <43>;
+			};
+		};
+
+		pm8644_mpps: mpps {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8644-mpp";
+
+			mpp@a000 {
+				reg = <0xa000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			mpp@a100 {
+				reg = <0xa100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			mpp@a200 {
+				reg = <0xa200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			mpp@a300 {
+				reg = <0xa300 0x100>;
+				qcom,pin-num = <4>;
+			};
+
+			mpp@a400 {
+				reg = <0xa400 0x100>;
+				qcom,pin-num = <5>;
+			};
+
+			mpp@a500 {
+				reg = <0xa500 0x100>;
+				qcom,pin-num = <6>;
+			};
+		};
+	};
+};

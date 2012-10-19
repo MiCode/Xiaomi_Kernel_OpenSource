@@ -229,3 +229,5 @@
 				 <0x1bc0009f>; /* LPG_PWM */
 	};
 };
+
+/include/ "msm-pm8644.dtsi"
