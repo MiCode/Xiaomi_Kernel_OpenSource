@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -209,7 +209,8 @@ static void set_bus_bw(unsigned int bw)
 }
 
 /* Set the CPU or L2 clock speed. */
-static void set_speed(struct scalable *sc, const struct core_speed *tgt_s)
+static void set_speed(struct scalable *sc, const struct core_speed *tgt_s,
+	bool skip_regulators)
 {
 	const struct core_speed *strt_s = sc->cur_speed;
 
@@ -232,10 +233,10 @@ static void set_speed(struct scalable *sc, const struct core_speed *tgt_s)
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	} else if (strt_s->src == HFPLL && tgt_s->src != HFPLL) {
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
-		hfpll_disable(sc, false);
+		hfpll_disable(sc, skip_regulators);
 	} else if (strt_s->src != HFPLL && tgt_s->src == HFPLL) {
 		hfpll_set_rate(sc, tgt_s);
-		hfpll_enable(sc, false);
+		hfpll_enable(sc, skip_regulators);
 		set_pri_clk_src(sc, tgt_s->pri_src_sel);
 	}
 
@@ -435,6 +436,7 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	int tgt_l2_l;
 	struct vdd_data vdd_data;
 	unsigned long flags;
+	bool skip_regulators;
 	int rc = 0;
 
 	if (cpu > num_possible_cpus())
@@ -483,8 +485,17 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	dev_dbg(drv.dev, "Switching from ACPU%d rate %lu KHz -> %lu KHz\n",
 		cpu, strt_acpu_s->khz, tgt_acpu_s->khz);
 
+	/*
+	 * If we are setting the rate as part of power collapse or in the resume
+	 * path after power collapse, skip the vote for the HFPLL regulators,
+	 * which are active-set-only votes that will be removed when apps enters
+	 * its sleep set. This is needed to avoid voting for regulators with
+	 * sleeping APIs from an atomic context.
+	 */
+	skip_regulators = (reason == SETRATE_PC);
+
 	/* Set the new CPU speed. */
-	set_speed(&drv.scalable[cpu], tgt_acpu_s);
+	set_speed(&drv.scalable[cpu], tgt_acpu_s, skip_regulators);
 
 	/*
 	 * Update the L2 vote and apply the rate change. A spinlock is
@@ -495,7 +506,8 @@ static int acpuclk_krait_set_rate(int cpu, unsigned long rate,
 	 */
 	spin_lock_irqsave(&l2_lock, flags);
 	tgt_l2_l = compute_l2_level(&drv.scalable[cpu], tgt->l2_level);
-	set_speed(&drv.scalable[L2], &drv.l2_freq_tbl[tgt_l2_l].speed);
+	set_speed(&drv.scalable[L2], &drv.l2_freq_tbl[tgt_l2_l].speed,
+			skip_regulators);
 	spin_unlock_irqrestore(&l2_lock, flags);
 
 	/* Nothing else to do for power collapse or SWFI. */
