@@ -29,6 +29,12 @@ Parent node required properties:
 - qcom,chg-ibatmax-ma:	Maximum battery charge current in mA
 - qcom,chg-ibatterm-ma:	Current at which charging is terminated in mA.
 
+Parent node optional properties:
+- qcom,chg-charging-disabled:	Set this property to disable charging
+				by default. This can then be overriden
+				writing the the module parameter
+				"charging_disabled".
+
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
 	the spmi-dev-container property. Each subnode reflects
