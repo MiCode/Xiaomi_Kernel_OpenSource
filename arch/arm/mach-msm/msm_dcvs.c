@@ -384,9 +384,6 @@ out:
 static int msm_dcvs_do_freq(void *data)
 {
 	struct dcvs_core *core = (struct dcvs_core *)data;
-	static struct sched_param param = {.sched_priority = MAX_RT_PRIO - 1};
-
-	sched_setscheduler(current, SCHED_FIFO, &param);
 
 	while (!kthread_should_stop()) {
 		wait_event(core->wait_q, !(core->pending_freq == 0 ||
