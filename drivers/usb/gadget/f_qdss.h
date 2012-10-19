@@ -32,7 +32,8 @@ struct f_qdss {
 	struct usb_qdss_ch ch;
 	struct list_head ctrl_read_pool;
 	struct list_head ctrl_write_pool;
-	struct work_struct qdss_work;
+	struct work_struct connect_w;
+	struct work_struct disconnect_w;
 	spinlock_t lock;
 	unsigned int data_enabled:1;
 	unsigned int ctrl_in_enabled:1;
