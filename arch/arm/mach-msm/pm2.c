@@ -482,66 +482,71 @@ static void msm_pm_config_hw_before_power_down(void)
  * Program the top csr from core0 context to put the
  * core1 into GDFS, as core1 is not running yet.
  */
-static void configure_top_csr(void)
+static void msm_pm_configure_top_csr(void)
 {
+	/*
+	 * Enable TCSR for core
+	 * Set reset bit for SPM
+	 * Set CLK_OFF bit
+	 * Set clamps bit
+	 * Set power_up bit
+	 * Disable TSCR for core
+	 */
+	uint32_t bit_pos[][6] = {
+		/* c2 */
+		{17, 15, 13, 16, 14, 17},
+		/* c1 & c3*/
+		{22, 20, 18, 21, 19, 22},
+	};
+	uint32_t mpa5_cfg_ctl[2] = {0x30, 0x48};
 	void __iomem *base_ptr;
 	unsigned int value = 0;
+	unsigned int cpu;
+	int i;
 
-	base_ptr = core_reset_base(1);
-	if (!base_ptr)
-		return;
-
-	/* bring the core1 out of reset */
-	__raw_writel(0x3, base_ptr);
-	mb();
-	/*
-	 * override DBGNOPOWERDN and program the GDFS
-	 * count val
-	 */
-
-	 __raw_writel(0x00030002, (MSM_CFG_CTL_BASE + 0x38));
-	mb();
-
-	/* Initialize the SPM0 and SPM1 registers */
+	/* Initialize all the SPM registers */
 	msm_spm_reinit();
 
-	/* enable TCSR for core1 */
-	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
-	value |= BIT(22);
-	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
-	mb();
+	for_each_possible_cpu(cpu) {
+		/* skip for C0 */
+		if (!cpu)
+			continue;
 
-	/* set reset bit for SPM1 */
-	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
-	value |= BIT(20);
-	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
-	mb();
+		base_ptr = core_reset_base(cpu);
+		if (!base_ptr)
+			return;
 
-	/* set CLK_OFF bit */
-	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
-	value |= BIT(18);
-	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
-	mb();
+		/* bring the core out of reset */
+		__raw_writel(0x3, base_ptr);
+		mb();
 
-	/* set clamps bit */
-	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
-	value |= BIT(21);
-	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
-	mb();
+		/*
+		 * i == 0, Enable TCSR for core
+		 * i == 1, Set reset bit for SPM
+		 * i == 2, Set CLK_OFF bit
+		 * i == 3, Set clamps bit
+		 * i == 4, Set power_up bit
+		 */
+		for (i = 0; i < 5; i++) {
+			value = __raw_readl(MSM_CFG_CTL_BASE +
+							mpa5_cfg_ctl[cpu/2]);
+			value |= BIT(bit_pos[cpu%2][i]);
+			__raw_writel(value,  MSM_CFG_CTL_BASE +
+							mpa5_cfg_ctl[cpu/2]);
+			mb();
+		}
 
-	/* set power_up bit */
-	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
-	value |= BIT(19);
-	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
-	mb();
+		/* i == 5, Disable TCSR for core */
+		value = __raw_readl(MSM_CFG_CTL_BASE +
+						mpa5_cfg_ctl[cpu/2]);
+		value &= ~BIT(bit_pos[cpu%2][i]);
+		__raw_writel(value,  MSM_CFG_CTL_BASE +
+						mpa5_cfg_ctl[cpu/2]);
+		mb();
 
-	/* Disable TSCR for core0 */
-	value = __raw_readl((MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG));
-	value &= ~BIT(22);
-	__raw_writel(value,  MSM_CFG_CTL_BASE + MPA5_CFG_CTL_REG);
-	mb();
-	__raw_writel(0x0, base_ptr);
-	mb();
+		__raw_writel(0x0, base_ptr);
+		mb();
+	}
 }
 
 /*
@@ -569,7 +574,7 @@ static void msm_pm_config_hw_after_power_up(void)
 			/*
 			 * Program the top csr to put the core1 into GDFS.
 			 */
-			configure_top_csr();
+			msm_pm_configure_top_csr();
 		}
 	} else {
 		__raw_writel(0, APPS_PWRDOWN);
@@ -991,14 +996,26 @@ static int msm_pm_power_collapse
 
 		/* 8x25Q */
 		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) {
-			if (val != 0x000F0002)
+			if (val != 0x000F0002) {
 				power_collapsed = 1;
-			else
+				/*
+				 * override DBGNOPOWERDN and program the GDFS
+				 * count val
+				 */
+				 __raw_writel(0x000F0002,
+						 (MSM_CFG_CTL_BASE + 0x38));
+			} else
 				modem_early_exit = 1;
 		} else {
-			if (val != 0x00030002)
+			if (val != 0x00030002) {
 				power_collapsed = 1;
-			else
+				/*
+				 * override DBGNOPOWERDN and program the GDFS
+				 * count val
+				 */
+				 __raw_writel(0x00030002,
+						 (MSM_CFG_CTL_BASE + 0x38));
+			} else
 				modem_early_exit = 1;
 		}
 	}
