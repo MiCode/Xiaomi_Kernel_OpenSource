@@ -83,7 +83,7 @@ static inline int buf_get_pages(void *addr, int sz, int nr_pages, int access,
 	struct vm_area_struct *vma;
 	uint32_t start = buf_page_start(addr);
 	uint32_t len = nr_pages << PAGE_SHIFT;
-	uint32_t pfn;
+	unsigned long pfn;
 	int n = -1, err = 0;
 
 	VERIFY(err, 0 != access_ok(access ? VERIFY_WRITE : VERIFY_READ,
@@ -97,16 +97,12 @@ static inline int buf_get_pages(void *addr, int sz, int nr_pages, int access,
 	if (err)
 		goto bail;
 	n = 0;
-	VERIFY(err, 0 != (vma->vm_flags & VM_PFNMAP));
-	if (err)
-		goto bail;
-	VERIFY(err, 0 != (vma->vm_flags & VM_PFN_AT_MMAP));
+	VERIFY(err, 0 == follow_pfn(vma, start, &pfn));
 	if (err)
 		goto bail;
 	VERIFY(err, nr_elems > 0);
 	if (err)
 		goto bail;
-	pfn = vma->vm_pgoff + ((start - vma->vm_start) >> PAGE_SHIFT);
 	pages->addr = __pfn_to_phys(pfn);
 	pages->size = len;
 	n++;
