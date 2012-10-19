@@ -21,7 +21,6 @@ extern struct clk_ops clk_ops_voter;
 
 struct clk_voter {
 	bool enabled;
-	struct clk *parent;
 	struct clk c;
 };
 
@@ -32,8 +31,8 @@ static inline struct clk_voter *to_clk_voter(struct clk *clk)
 
 #define DEFINE_CLK_VOTER(clk_name, _parent, _default_rate) \
 	struct clk_voter clk_name = { \
-		.parent = _parent, \
 		.c = { \
+			.parent = _parent, \
 			.dbg_name = #clk_name, \
 			.ops = &clk_ops_voter, \
 			.rate = _default_rate, \
