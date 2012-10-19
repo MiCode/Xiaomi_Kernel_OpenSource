@@ -31,7 +31,7 @@
 #define TLMM_MSM_SUMMARY_IRQ		(GIC_SPI_START + 208)
 
 #define NR_MSM_IRQS 256
-#define NR_GPIO_IRQS 146
+#define NR_GPIO_IRQS 102
 #define NR_QPNP_IRQS 32768 /* SPARSE_IRQ is required to support this */
 #define NR_BOARD_IRQS NR_QPNP_IRQS
 #define NR_TLMM_MSM_DIR_CONN_IRQ 8
