@@ -50,6 +50,7 @@
 #define MSM_FB_OVERLAY1_WRITEBACK_SIZE (0)
 #endif  /* CONFIG_FB_MSM_OVERLAY1_WRITEBACK */
 
+#define AVTIMER_PHYSICAL_ADDRESS 0x28009008
 
 static struct resource msm_fb_resources[] = {
 	{
@@ -255,6 +256,7 @@ static struct msm_panel_common_pdata mdp_pdata = {
 	.mem_hid = MEMTYPE_EBI1,
 #endif
 	.mdp_iommu_split_domain = 1,
+	.avtimer_phy = AVTIMER_PHYSICAL_ADDRESS,
 };
 
 void __init apq8064_mdp_writeback(struct memtype_reserve* reserve_table)

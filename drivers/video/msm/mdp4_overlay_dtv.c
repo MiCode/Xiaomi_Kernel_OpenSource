@@ -33,7 +33,6 @@
 #include "mdp4.h"
 
 #define DTV_BASE	0xD0000
-
 static int dtv_enabled;
 
 /*#define DEBUG*/
@@ -77,6 +76,10 @@ static struct vsycn_ctrl {
 	struct vsync_update vlist[2];
 	int vsync_irq_enabled;
 	ktime_t vsync_time;
+	uint32 *avtimer;
+	int vg1fd;
+	int vg2fd;
+	unsigned long long avtimer_tick;
 } vsync_ctrl_db[MAX_CONTROLLER];
 
 static void vsync_irq_enable(int intr, int term)
@@ -314,10 +317,14 @@ static ssize_t vsync_show_event(struct device *dev,
 	struct vsycn_ctrl *vctrl;
 	ssize_t ret = 0;
 	unsigned long flags;
-	u64 vsync_tick;
+	char ch = '\0';
+	int vg1fd = -1, vg2fd = -1;
+	unsigned long long avtimer_tick = 0;
+	u64 vsync_tick = 0;
 
 	cndx = 0;
 	vctrl = &vsync_ctrl_db[0];
+	memset(buf, 0, 64);
 
 	if (atomic_read(&vctrl->suspend) > 0 ||
 		!external_common_state->hpd_state ||
@@ -329,18 +336,31 @@ static ssize_t vsync_show_event(struct device *dev,
 		INIT_COMPLETION(vctrl->vsync_comp);
 	vctrl->wait_vsync_cnt++;
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+
 	ret = wait_for_completion_interruptible(&vctrl->vsync_comp);
 	if (ret)
 		return ret;
 
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
+	vg1fd = vctrl->vg1fd;
+	vg2fd = vctrl->vg2fd;
+	avtimer_tick = vctrl->avtimer_tick;
 	vsync_tick = ktime_to_ns(vctrl->vsync_time);
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
-	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_tick);
-	buf[strlen(buf) + 1] = '\0';
+	ret = snprintf(buf, PAGE_SIZE,
+			"VSYNC=%llu%c"
+			"AVSYNCTP=%llu%c"
+			"VG1MEMID=%d%c"
+			"VG2MEMID=%d",
+			vsync_tick,
+			ch, avtimer_tick,
+			ch, vg1fd,
+			ch, vg2fd);
+
 	return ret;
 }
+
 void mdp4_dtv_vsync_init(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
@@ -603,6 +623,13 @@ int mdp4_dtv_on(struct platform_device *pdev)
 		pr_debug("%s: kobject_uevent(KOBJ_ADD)\n", __func__);
 		vctrl->sysfs_created = 1;
 	}
+
+	if (mfd->avtimer_phy && (vctrl->avtimer == NULL)) {
+		vctrl->avtimer = (uint32 *)ioremap(mfd->avtimer_phy, 8);
+		if (vctrl->avtimer == NULL)
+			pr_err(" avtimer ioremap fail\n");
+	}
+
 	pr_info("%s:\n", __func__);
 
 	return ret;
@@ -670,6 +697,11 @@ int mdp4_dtv_off(struct platform_device *pdev)
 		 * and iommu_drop statistic will be increased by one
 		 */
 		vp->update_cnt = 0;     /* empty queue */
+	}
+
+	if (vctrl->avtimer != NULL) {
+		iounmap(vctrl->avtimer);
+		vctrl->avtimer = NULL;
 	}
 
 	ret = panel_next_off(pdev);
@@ -850,7 +882,7 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 	struct vsycn_ctrl *vctrl;
 
 	vctrl = &vsync_ctrl_db[cndx];
-	if (vctrl->base_pipe != NULL)
+	if (vctrl->base_pipe == NULL)
 		return 0;
 
 	if (pipe->mixer_stage == MDP4_MIXER_STAGE_BASE &&
@@ -858,6 +890,12 @@ int mdp4_overlay_dtv_unset(struct msm_fb_data_type *mfd,
 		result = mdp4_dtv_stop(mfd);
 		vctrl->base_pipe = NULL;
 	}
+
+	if (pipe->pipe_num == OVERLAY_PIPE_VG1)
+		vctrl->vg1fd = -1;
+	else if (pipe->pipe_num == OVERLAY_PIPE_VG2)
+		vctrl->vg2fd = -1;
+
 	return result;
 }
 
@@ -867,6 +905,7 @@ void mdp4_external_vsync_dtv(void)
 {
 	int cndx;
 	struct vsycn_ctrl *vctrl;
+	uint32 *tp, LSW;
 
 	cndx = 0;
 	vctrl = &vsync_ctrl_db[cndx];
@@ -874,6 +913,15 @@ void mdp4_external_vsync_dtv(void)
 
 	spin_lock(&vctrl->spin_lock);
 	vctrl->vsync_time = ktime_get();
+	vctrl->avtimer_tick = 0;
+
+	if (vctrl->avtimer && ((vctrl->vg1fd > 0) || (vctrl->vg2fd > 0))) {
+		tp = vctrl->avtimer;
+		LSW = inpdw(tp);
+		tp++;
+		vctrl->avtimer_tick = (unsigned long long) inpdw(tp);
+		vctrl->avtimer_tick = ((vctrl->avtimer_tick << 32) | LSW);
+	}
 
 	if (vctrl->wait_vsync_cnt) {
 		complete_all(&vctrl->vsync_comp);
@@ -1102,3 +1150,19 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
+
+void mdp4_dtv_set_avparams(struct mdp4_overlay_pipe *pipe, int id)
+{
+	struct vsycn_ctrl *vctrl;
+
+	if (pipe == NULL) {
+		pr_warn("%s: dtv_pipe == NULL\n", __func__);
+		return;
+	}
+	vctrl = &vsync_ctrl_db[0];
+	if (pipe->pipe_num == OVERLAY_PIPE_VG1)
+		vctrl->vg1fd = id;
+	else if (pipe->pipe_num == OVERLAY_PIPE_VG2)
+		vctrl->vg2fd = id;
+}
+

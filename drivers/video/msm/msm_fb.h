@@ -189,6 +189,7 @@ struct msm_fb_data_type {
 	void *copy_splash_buf;
 	unsigned char *copy_splash_phys;
 	void *cpu_pm_hdl;
+	u32 avtimer_phy;
 };
 
 struct dentry *msm_fb_get_debugfs_root(void);

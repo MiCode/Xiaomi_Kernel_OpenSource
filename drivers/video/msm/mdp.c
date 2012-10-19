@@ -2673,10 +2673,12 @@ static int mdp_probe(struct platform_device *pdev)
 		mfd->ov0_wb_buf->size = mdp_pdata->ov0_wb_size;
 		mfd->ov1_wb_buf->size = mdp_pdata->ov1_wb_size;
 		mfd->mem_hid = mdp_pdata->mem_hid;
+		mfd->avtimer_phy = mdp_pdata->avtimer_phy;
 	} else {
 		mfd->ov0_wb_buf->size = 0;
 		mfd->ov1_wb_buf->size = 0;
 		mfd->mem_hid = 0;
+		mfd->avtimer_phy = 0;
 	}
 
 	/* initialize Post Processing data*/
