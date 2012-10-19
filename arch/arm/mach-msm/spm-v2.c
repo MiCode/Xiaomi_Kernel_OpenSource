@@ -309,6 +309,15 @@ int msm_spm_drv_set_low_power_mode(struct msm_spm_driver_data *dev,
 }
 
 #ifdef CONFIG_MSM_AVS_HW
+static bool msm_spm_drv_is_avs_enabled(struct msm_spm_driver_data *dev)
+{
+	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW2_AVS_CTL);
+	if (dev->major == SAW2_MAJOR_2)
+		return dev->reg_shadow[MSM_SPM_REG_SAW2_AVS_CTL] & BIT(0);
+	else
+		return dev->reg_shadow[MSM_SPM_REG_SAW2_AVS_CTL] & BIT(27);
+}
+
 static void msm_spm_drv_disable_avs(struct msm_spm_driver_data *dev)
 {
 	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW2_AVS_CTL);
@@ -333,6 +342,10 @@ static void msm_spm_drv_set_avs_vlevel(struct msm_spm_driver_data *dev,
 }
 
 #else
+static bool msm_spm_drv_is_avs_enabled(struct msm_spm_driver_data *dev)
+{
+	return false;
+}
 
 static void msm_spm_drv_disable_avs(struct msm_spm_driver_data *dev) { }
 
@@ -345,6 +358,7 @@ static void msm_spm_drv_set_avs_vlevel(struct msm_spm_driver_data *dev,
 int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev, unsigned int vlevel)
 {
 	uint32_t timeout_us, new_level;
+	bool avs_enabled = msm_spm_drv_is_avs_enabled(dev);
 
 	if (!dev)
 		return -EINVAL;
@@ -355,7 +369,8 @@ int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev, unsigned int vlevel)
 	if (msm_spm_debug_mask & MSM_SPM_DEBUG_VCTL)
 		pr_info("%s: requesting vlevel %#x\n", __func__, vlevel);
 
-	msm_spm_drv_disable_avs(dev);
+	if (avs_enabled)
+		msm_spm_drv_disable_avs(dev);
 
 	/* Kick the state machine back to idle */
 	dev->reg_shadow[MSM_SPM_REG_SAW2_RST] = 1;
@@ -384,14 +399,18 @@ int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev, unsigned int vlevel)
 			__func__, timeout_us);
 
 	/* Set AVS min/max */
-	msm_spm_drv_set_avs_vlevel(dev, vlevel);
-	msm_spm_drv_enable_avs(dev);
+	if (avs_enabled) {
+		msm_spm_drv_set_avs_vlevel(dev, vlevel);
+		msm_spm_drv_enable_avs(dev);
+	}
 
 	return 0;
 
 set_vdd_bail:
-	msm_spm_drv_enable_avs(dev);
-	pr_err("%s: failed %#x, remaining timeout %u us, vlevel %#x\n",
+	if (avs_enabled)
+		msm_spm_drv_enable_avs(dev);
+
+	pr_err("%s: failed %#x, remaining timeout %uus, vlevel %#x\n",
 		__func__, vlevel, timeout_us, new_level);
 	return -EIO;
 }
