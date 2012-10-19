@@ -70,6 +70,9 @@ enum pm8921_chg_led_src_config {
  *			trickle to fast. This is also the minimum voltage the
  *			system operates at
  * @uvd_thresh_voltage:	the USB falling UVD threshold (mV) (PM8917 only)
+ * @safe_current_ma:	The upper limit of current allowed to be pushed in
+ *			battery. This ends up writing in a one time
+ *			programmable register.
  * @resume_voltage_delta:	the (mV) drop to wait for before resume charging
  *				after the battery has been fully charged
  * @resume_charge_percent:	the % SOC the charger will drop to after the
@@ -133,6 +136,7 @@ struct pm8921_charger_platform_data {
 	unsigned int			max_voltage;
 	unsigned int			min_voltage;
 	unsigned int			uvd_thresh_voltage;
+	unsigned int			safe_current_ma;
 	unsigned int			alarm_low_mv;
 	unsigned int			alarm_high_mv;
 	unsigned int			resume_voltage_delta;
