@@ -276,7 +276,7 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num);
 int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);
 
-int mdss_mdp_bus_scale_set_quota(u32 ab_quota, u32 ib_quota);
+int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota);
 void mdss_mdp_set_clk_rate(unsigned long min_clk_rate);
 unsigned long mdss_mdp_get_clk_rate(u32 clk_idx);
 int mdss_mdp_vsync_clk_enable(int enable);

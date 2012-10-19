@@ -20,8 +20,10 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 
+/* truncate at 1k */
+#define MDSS_MDP_BUS_FACTOR_SHIFT 10
 /* 1.5 bus fudge factor */
-#define MDSS_MDP_BUS_FUDGE_FACTOR(val) ALIGN((((val) * 3) / 2), SZ_16M)
+#define MDSS_MDP_BUS_FUDGE_FACTOR(val) (((val) / 2) * 3)
 /* 1.25 clock fudge factor */
 #define MDSS_MDP_CLK_FUDGE_FACTOR(val) (((val) * 5) / 4)
 
@@ -44,7 +46,7 @@ static int mdss_mdp_ctl_perf_commit(u32 flags)
 	struct mdss_mdp_ctl *ctl;
 	int cnum;
 	unsigned long clk_rate = 0;
-	u32 bus_ab_quota = 0, bus_ib_quota = 0;
+	u64 bus_ab_quota = 0, bus_ib_quota = 0;
 
 	if (!flags) {
 		pr_err("nothing to update\n");
@@ -63,7 +65,9 @@ static int mdss_mdp_ctl_perf_commit(u32 flags)
 		}
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_BUS) {
+		bus_ab_quota = bus_ab_quota << MDSS_MDP_BUS_FACTOR_SHIFT;
 		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ib_quota);
+		bus_ib_quota <<= MDSS_MDP_BUS_FACTOR_SHIFT;
 		mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_CLK) {
@@ -116,6 +120,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		if (is_writeback) {
 			/* perf for bus writeback */
 			*bus_ab_quota = fps * mixer->width * mixer->height * 3;
+			*bus_ab_quota >>= MDSS_MDP_BUS_FACTOR_SHIFT;
 			*bus_ib_quota = *bus_ab_quota;
 		}
 	}
@@ -148,13 +153,13 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		if (mixer->rotator_mode)
 			rate /= 4; /* block mode fetch at 4 pix/clk */
 
-		*bus_ab_quota += quota;
-		*bus_ib_quota += ib_quota;
-		if (rate > *clk_rate)
-			*clk_rate = rate;
-
 		pr_debug("mixer=%d pnum=%d clk_rate=%u bus ab=%u ib=%u\n",
 			 mixer->num, pipe->num, rate, quota, ib_quota);
+
+		*bus_ab_quota += quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
+		*bus_ib_quota += ib_quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
+		if (rate > *clk_rate)
+			*clk_rate = rate;
 	}
 
 	pr_debug("final mixer=%d clk_rate=%u bus ab=%u ib=%u\n", mixer->num,
