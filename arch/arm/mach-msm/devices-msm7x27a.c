@@ -1848,11 +1848,11 @@ static void __init msm_cpr_init(void)
 	 * Ditto for a 1.0GHz part.
 	 */
 	if (msm8625_cpu_id() == MSM8625A) {
-		msm_cpr_pdata.max_quot += 100;
+		msm_cpr_pdata.max_quot += 30;
 		if (msm_cpr_pdata.max_quot > 1400)
 			msm_cpr_pdata.max_quot = 1400;
 	} else if (msm8625_cpu_id() == MSM8625) {
-		msm_cpr_pdata.max_quot += 120;
+		msm_cpr_pdata.max_quot += 50;
 		if (msm_cpr_pdata.max_quot > 1350)
 			msm_cpr_pdata.max_quot = 1350;
 	}
