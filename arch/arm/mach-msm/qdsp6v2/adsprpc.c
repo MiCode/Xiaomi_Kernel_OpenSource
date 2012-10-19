@@ -189,6 +189,8 @@ static int get_page_list(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 		void *buf;
 		int len, num;
 
+		list[i].num = 0;
+		list[i].pgidx = 0;
 		len = pra[i].buf.len;
 		if (!len)
 			continue;
@@ -250,6 +252,8 @@ static int get_args(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 		int num;
 
 		rpra[i].buf.len = pra[i].buf.len;
+		if (!rpra[i].buf.len)
+			continue;
 		if (list[i].num) {
 			rpra[i].buf.pv = pra[i].buf.pv;
 			continue;
@@ -365,7 +369,7 @@ static void inv_args(uint32_t sc, remote_arg_t *rpra, int used)
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		if (buf_page_start(rpra) == buf_page_start(rpra[i].buf.pv))
 			inv = 1;
-		else
+		else if (rpra[i].buf.len)
 			dmac_inv_range(rpra[i].buf.pv,
 				(char *)rpra[i].buf.pv + rpra[i].buf.len);
 	}
@@ -600,7 +604,6 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t kernel,
 		goto bail;
  bail:
 	if (interrupted) {
-		init_completion(&ctx->work);
 		if (!kernel)
 			(void)fastrpc_release_current_dsp_process();
 		wait_for_completion(&ctx->work);
