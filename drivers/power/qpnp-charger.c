@@ -1006,14 +1006,6 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_BUCK_SUBTYPE:
 		break;
 	case SMBB_BAT_IF_SUBTYPE:
-		/* HACK: Unlock secure access to override temp comparator */
-		rc = qpnp_chg_masked_write(chip,
-				chip->bat_if_base + SEC_ACCESS,
-				0xA5, 0xA5, 1);
-		pr_debug("override hot cold\n");
-		rc = qpnp_chg_masked_write(chip,
-				chip->bat_if_base + 0xE5,
-				0xFF, 0x28, 1);
 		break;
 	case SMBB_USB_CHGPTH_SUBTYPE:
 		chip->usbin_valid_irq = spmi_get_irq_byname(chip->spmi,
