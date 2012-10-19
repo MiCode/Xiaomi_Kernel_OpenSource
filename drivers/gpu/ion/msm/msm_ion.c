@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/sched.h>
 #include <linux/rwsem.h>
 #include <linux/uaccess.h>
+#include <linux/memblock.h>
 #include <mach/ion.h>
 #include <mach/msm_memtypes.h>
 #include "../ion_priv.h"
@@ -86,6 +87,16 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.id	= ION_AUDIO_HEAP_ID,
 		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_AUDIO_HEAP_NAME,
+	},
+	{
+		.id	= ION_PIL1_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_PIL1_HEAP_NAME,
+	},
+	{
+		.id	= ION_PIL2_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_PIL2_HEAP_NAME,
 	},
 	{
 		.id	= ION_CP_WB_HEAP_ID,
@@ -458,6 +469,7 @@ static int msm_ion_get_heap_size(struct device_node *node,
 {
 	unsigned int val;
 	int ret = 0;
+	u32 out_values[2];
 	const char *memory_name_prop;
 
 	ret = of_property_read_u32(node, "qcom,memory-reservation-size", &val);
@@ -481,12 +493,29 @@ static int msm_ion_get_heap_size(struct device_node *node,
 			ret = -EINVAL;
 		}
 	} else {
-		ret = 0;
+		ret = of_property_read_u32_array(node, "qcom,memory-fixed",
+								out_values, 2);
+		if (!ret)
+			heap->size = out_values[1];
+		else
+			ret = 0;
 	}
 out:
 	return ret;
 }
 
+static void msm_ion_get_heap_base(struct device_node *node,
+				 struct ion_platform_heap *heap)
+{
+	u32 out_values[2];
+	int ret = 0;
+
+	ret = of_property_read_u32_array(node, "qcom,memory-fixed",
+							out_values, 2);
+	if (!ret)
+		heap->base = out_values[0];
+	return;
+}
 
 static void msm_ion_get_heap_adjacent(struct device_node *node,
 				      struct ion_platform_heap *heap)
@@ -560,6 +589,7 @@ static struct ion_platform_data *msm_ion_parse_dt(
 		if (ret)
 			goto free_heaps;
 
+		msm_ion_get_heap_base(node, &pdata->heaps[idx]);
 		msm_ion_get_heap_align(node, &pdata->heaps[idx]);
 
 		ret = msm_ion_get_heap_size(node, &pdata->heaps[idx]);
@@ -733,6 +763,19 @@ static int msm_ion_probe(struct platform_device *pdev)
 	}
 	if (pdata_needs_to_be_freed)
 		free_pdata(pdata);
+
+	/* Check if each heap has been removed from the memblock */
+	for (i = 0; i < num_heaps; i++) {
+		struct ion_platform_heap *heap_data = &pdata->heaps[i];
+		if (!heap_data->base)
+			continue;
+		err = memblock_overlaps_memory(heap_data->base,
+						heap_data->size);
+		if (err) {
+			panic("ION heap %s not removed from memblock\n",
+							heap_data->name);
+		}
+	}
 
 	check_for_heap_overlap(pdata->heaps, num_heaps);
 	platform_set_drvdata(pdev, idev);

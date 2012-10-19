@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -39,8 +39,10 @@ enum ion_heap_ids {
 	ION_CP_MFC_HEAP_ID = 12,
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
 	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
+	ION_PIL1_HEAP_ID = 23, /* Currently used for other PIL images */
 	ION_SF_HEAP_ID = 24,
 	ION_IOMMU_HEAP_ID = 25,
+	ION_PIL2_HEAP_ID = 26, /* Currently used for modem firmware images */
 	ION_QSECOM_HEAP_ID = 27,
 	ION_AUDIO_HEAP_ID = 28,
 
@@ -86,6 +88,8 @@ enum cp_mem_usage {
 #define ION_MFC_HEAP_NAME	"mfc"
 #define ION_WB_HEAP_NAME	"wb"
 #define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
+#define ION_PIL1_HEAP_NAME  "pil_1"
+#define ION_PIL2_HEAP_NAME  "pil_2"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
 #define ION_FMEM_HEAP_NAME	"fmem"
 

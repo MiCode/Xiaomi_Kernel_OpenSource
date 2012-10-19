@@ -40,3 +40,21 @@ where in the driver. For the examples above, the driver must add
 EXPORT_COMPAT("qcom,a-driver") to the driver, similar to EXPORT_SYMBOL.
 The EXPORT_COMPAT is to ensure that memory is only carved out if the
 driver is actually enabled, otherwise the memory will not be used.
+
+In order to specify the size and address of the fixed memory which has
+previously been removed the memory-fixed binding can be used. This assumes
+that the region has been removed by a separate memblock-remove property
+present in the device tree.
+
+Required parameters:
+-qcom,memory-fixed: base and size of the fixed memory region
+
+	qcom,a-driver {
+		compatible = "qcom,a-driver";
+		/* Fixed Memory region of 4MB at 0x200000*/
+		qcom,memory-fixed = <0x200000 0x400000>;
+	};
+
+This region is assumed to be a part of a separate hole that has been removed
+and this binding specifies the fixed location and size of the region within
+that hole.
