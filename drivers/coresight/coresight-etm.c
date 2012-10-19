@@ -195,6 +195,7 @@ struct etm_drvdata {
 	struct wake_lock		wake_lock;
 	int				cpu;
 	uint8_t				arch;
+	bool				enable;
 	uint8_t				nr_addr_cmp;
 	uint8_t				nr_cntr;
 	uint8_t				nr_ext_inp;
@@ -203,7 +204,6 @@ struct etm_drvdata {
 	uint8_t				reset;
 	uint32_t			mode;
 	uint32_t			ctrl;
-	uint8_t				ctrl_pwrdwn;
 	uint32_t			trigger_event;
 	uint32_t			startstop_ctrl;
 	uint32_t			enable_event;
@@ -230,7 +230,6 @@ struct etm_drvdata {
 	uint32_t			ctxid_mask;
 	uint32_t			sync_freq;
 	uint32_t			timestamp_event;
-	uint8_t				pdcr_pwrup;
 	bool				pcsave_impl;
 	bool				pcsave_enable;
 };
@@ -339,48 +338,18 @@ static void etm_clr_prog(struct etm_drvdata *drvdata)
 	     etm_readl(drvdata, ETMSR));
 }
 
-static void etm_save_pwrdwn(struct etm_drvdata *drvdata)
-{
-	drvdata->ctrl_pwrdwn = BVAL(etm_readl(drvdata, ETMCR), 0);
-}
-
-static void etm_restore_pwrdwn(struct etm_drvdata *drvdata)
-{
-	uint32_t etmcr;
-
-	etmcr = etm_readl(drvdata, ETMCR);
-	etmcr = (etmcr & ~BIT(0)) | drvdata->ctrl_pwrdwn;
-	etm_writel(drvdata, etmcr, ETMCR);
-}
-
-static void etm_save_pwrup(struct etm_drvdata *drvdata)
-{
-	drvdata->pdcr_pwrup = BVAL(etm_readl_mm(drvdata, ETMPDCR), 3);
-}
-
-static void etm_restore_pwrup(struct etm_drvdata *drvdata)
-{
-	uint32_t etmpdcr;
-
-	etmpdcr = etm_readl_mm(drvdata, ETMPDCR);
-	etmpdcr = (etmpdcr & ~BIT(3)) | (drvdata->pdcr_pwrup << 3);
-	etm_writel_mm(drvdata, etmpdcr, ETMPDCR);
-}
-
 static void etm_enable_pcsave(void *info)
 {
 	struct etm_drvdata *drvdata = info;
 
 	ETM_UNLOCK(drvdata);
 
-	etm_save_pwrup(drvdata);
 	/*
 	 * ETMPDCR is only accessible via memory mapped interface and so use
 	 * it first to enable power/clock to allow subsequent cp14 accesses.
 	 */
 	etm_set_pwrup(drvdata);
 	etm_clr_pwrdwn(drvdata);
-	etm_restore_pwrup(drvdata);
 
 	ETM_LOCK(drvdata);
 }
@@ -391,14 +360,10 @@ static void etm_disable_pcsave(void *info)
 
 	ETM_UNLOCK(drvdata);
 
-	etm_save_pwrup(drvdata);
-	/*
-	 * ETMPDCR is only accessible via memory mapped interface and so use
-	 * it first to enable power/clock to allow subsequent cp14 accesses.
-	 */
-	etm_set_pwrup(drvdata);
-	etm_set_pwrdwn(drvdata);
-	etm_restore_pwrup(drvdata);
+	if (!drvdata->enable) {
+		etm_set_pwrdwn(drvdata);
+		etm_clr_pwrup(drvdata);
+	}
 
 	ETM_LOCK(drvdata);
 }
@@ -416,10 +381,10 @@ static void __etm_enable(void *info)
 	 * to allow subsequent cp14 accesses.
 	 */
 	etm_set_pwrup(drvdata);
-	etm_save_pwrdwn(drvdata);
 	/*
 	 * Clear power down bit since when this bit is set writes to
-	 * certain registers might be ignored.
+	 * certain registers might be ignored. This is also a pre-requisite
+	 * for trace enable.
 	 */
 	etm_clr_pwrdwn(drvdata);
 	etm_set_prog(drvdata);
@@ -463,7 +428,6 @@ static void __etm_enable(void *info)
 	etm_writel(drvdata, 0x00000000, ETMVMIDCVR);
 
 	etm_clr_prog(drvdata);
-	etm_restore_pwrdwn(drvdata);
 	ETM_LOCK(drvdata);
 
 	dev_dbg(drvdata->dev, "cpu: %d enable smp call done\n", drvdata->cpu);
@@ -481,10 +445,12 @@ static int etm_enable(struct coresight_device *csdev)
 		goto err_clk;
 
 	mutex_lock(&drvdata->mutex);
-	/* executing __etm_enable on the cpu whose ETM is being enabled
+	/*
+	 * Executing __etm_enable on the cpu whose ETM is being enabled
 	 * ensures that register writes occur when cpu is powered.
 	 */
 	smp_call_function_single(drvdata->cpu, __etm_enable, drvdata, 1);
+	drvdata->enable = true;
 	mutex_unlock(&drvdata->mutex);
 
 	wake_unlock(&drvdata->wake_lock);
@@ -501,20 +467,15 @@ static void __etm_disable(void *info)
 	struct etm_drvdata *drvdata = info;
 
 	ETM_UNLOCK(drvdata);
-	etm_save_pwrdwn(drvdata);
-	/*
-	 * Clear power down bit since when this bit is set writes to
-	 * certain registers might be ignored.
-	 */
-	etm_clr_pwrdwn(drvdata);
 	etm_set_prog(drvdata);
 
 	/* program trace enable to low by using always false event */
 	etm_writel(drvdata, 0x6F | BIT(14), ETMTEEVR);
 
-	etm_restore_pwrdwn(drvdata);
-	/* Vote for ETM power/clock disable */
-	etm_clr_pwrup(drvdata);
+	if (!drvdata->pcsave_enable) {
+		etm_set_pwrdwn(drvdata);
+		etm_clr_pwrup(drvdata);
+	}
 	ETM_LOCK(drvdata);
 
 	dev_dbg(drvdata->dev, "cpu: %d disable smp call done\n", drvdata->cpu);
@@ -527,10 +488,12 @@ static void etm_disable(struct coresight_device *csdev)
 	wake_lock(&drvdata->wake_lock);
 
 	mutex_lock(&drvdata->mutex);
-	/* executing __etm_disable on the cpu whose ETM is being disabled
+	/*
+	 * Executing __etm_disable on the cpu whose ETM is being disabled
 	 * ensures that register writes occur when cpu is powered.
 	 */
 	smp_call_function_single(drvdata->cpu, __etm_disable, drvdata, 1);
+	drvdata->enable = false;
 	mutex_unlock(&drvdata->mutex);
 
 	clk_disable_unprepare(drvdata->clk);
@@ -1677,7 +1640,6 @@ static void __devinit etm_init_arch_data(void *info)
 	drvdata->nr_ctxid_cmp = BMVAL(etmccr, 24, 25);
 
 	etm_set_pwrdwn(drvdata);
-	/* Vote for ETM power/clock disable */
 	etm_clr_pwrup(drvdata);
 	ETM_LOCK(drvdata);
 }
