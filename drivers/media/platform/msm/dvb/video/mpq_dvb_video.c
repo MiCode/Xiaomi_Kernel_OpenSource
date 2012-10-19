@@ -846,7 +846,6 @@ static int mpq_int_set_full_hd_frame_resolution(
 {
 	struct vdec_picsize pic_res;
 	int rc;
-	struct video_buffer_req vdec_buf_req;
 
 	pic_res.frame_height = 1080;
 	pic_res.frame_width  = 1920;
@@ -863,15 +862,6 @@ static int mpq_int_set_full_hd_frame_resolution(
 	if (rc)
 		DBG("Failed in mpq_int_vid_dec_set_cont_on_reconfig : %d\n",\
 			rc);
-
-	rc = mpq_int_vid_dec_get_buffer_req(client_ctx, &vdec_buf_req);
-	if (rc)
-		DBG("Failed in mpq_int_vid_dec_get_buffer_req : %d\n", rc);
-
-	vdec_buf_req.num_output_buffers = 12;
-	rc = mpq_int_set_out_buffer_req(client_ctx, &vdec_buf_req);
-	if (rc)
-		DBG("Failed in mpq_int_set_out_buffer_req (15) : %d\n", rc);
 
 	return rc;
 
@@ -1281,6 +1271,27 @@ static int mpq_int_vid_dec_get_buffer_req(struct video_client_ctx *client_ctx,
 	vdec_buf_req->output_buf_prop.buf_poolid = vcd_buf_req.buf_pool_id;
 	vdec_buf_req->output_buf_prop.buf_size   = vcd_buf_req.sz;
 	vdec_buf_req->num_output_buffers         = vcd_buf_req.actual_count;
+
+	return 0;
+}
+
+static int mpq_int_vid_dec_set_buffer_req(struct video_client_ctx *client_ctx,
+				  struct video_buffer_req vdec_buf_req)
+{
+	int rc = 0;
+	struct video_buffer_req vdec_req;
+
+	rc = mpq_int_vid_dec_get_buffer_req(client_ctx, &vdec_req);
+	if (rc)
+		DBG("Failed in mpq_int_vid_dec_get_buffer_req : %d\n", rc);
+
+	vdec_req.num_output_buffers = vdec_buf_req.num_output_buffers;
+	DBG(" num_output_buffers Set to %u\n", vdec_buf_req.num_output_buffers);
+	if (!vdec_buf_req.num_output_buffers)
+		return -EINVAL;
+	rc = mpq_int_set_out_buffer_req(client_ctx, &vdec_req);
+	if (rc)
+		DBG("Failed in mpq_int_set_out_buffer_req  %d\n", rc);
 
 	return 0;
 }
@@ -2005,6 +2016,10 @@ static int mpq_dvb_video_command_handler(struct mpq_dvb_video_inst *dev_inst,
 	case VIDEO_CMD_GET_BUFFER_REQ:
 		DBG("cmd : VIDEO_CMD_GET_BUFFER_REQ\n");
 		rc = mpq_int_vid_dec_get_buffer_req(client_ctx, &cmd->buf_req);
+		break;
+	case VIDEO_CMD_SET_BUFFER_COUNT:
+		DBG("cmd : VIDEO_CMD_SET_BUFFER_COUNT\n");
+		rc = mpq_int_vid_dec_set_buffer_req(client_ctx, cmd->buf_req);
 		break;
 	case VIDEO_CMD_READ_RAW_OUTPUT:
 		DBG("cmd : VIDEO_CMD_READ_RAW_OUTPUT\n");
