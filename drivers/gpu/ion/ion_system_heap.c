@@ -80,14 +80,21 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 	if (!cached) {
 		page = ion_page_pool_alloc(pool);
 	} else {
+		struct scatterlist sg;
 		gfp_t gfp_flags = low_order_gfp_flags;
 
 		if (order > 4)
 			gfp_flags = high_order_gfp_flags;
 		page = alloc_pages(gfp_flags, order);
+		if (!page)
+			return 0;
+		sg_init_table(&sg, 1);
+		sg_set_page(&sg, page, PAGE_SIZE << order, 0);
+		dma_sync_sg_for_device(NULL, &sg, 1, DMA_BIDIRECTIONAL);
 	}
 	if (!page)
 		return 0;
+
 	if (split_pages)
 		split_page(page, order);
 	return page;
@@ -209,9 +216,6 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 		list_del(&info->list);
 		kfree(info);
 	}
-
-	dma_sync_sg_for_device(NULL, table->sgl, table->nents,
-			       DMA_BIDIRECTIONAL);
 
 	buffer->priv_virt = table;
 	atomic_add(size, &system_heap_allocated);
