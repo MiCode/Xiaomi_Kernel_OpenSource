@@ -613,11 +613,9 @@ static void set_vbif_registers(struct hal_device *device)
 	write_register(device->hal_data->register_base_addr,
 				   VIDC_VENUS_VBIF_CLK_ON, 1, 0);
 	write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_OUT_AXI_AOOO_EN, 0x00000FFF, 0);
+			VIDC_VBIF_OUT_AXI_AOOO_EN, 0x00001FFF, 0);
 	write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_OUT_AXI_AOOO, 0x0FFF0FFF, 0);
-	write_register(device->hal_data->register_base_addr,
-			VIDC_VENUS_VBIF_CLK_ON, 1, 0);
+			VIDC_VBIF_OUT_AXI_AOOO, 0x1FFF1FFF, 0);
 	write_register(device->hal_data->register_base_addr,
 			VIDC_VBIF_IN_RD_LIM_CONF0, 0x10101001, 0);
 	write_register(device->hal_data->register_base_addr,
@@ -641,7 +639,15 @@ static void set_vbif_registers(struct hal_device *device)
 	write_register(device->hal_data->register_base_addr,
 			VIDC_VBIF_ARB_CTL, 0x00000030, 0);
 	write_register(device->hal_data->register_base_addr,
+			VIDC_VENUS_VBIF_DDR_OUT_MAX_BURST, 0x00000707, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VENUS_VBIF_OCMEM_OUT_MAX_BURST, 0x00000707, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VENUS_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000001, 0);
+	write_register(device->hal_data->register_base_addr,
 			VIDC_VENUS0_WRAPPER_VBIF_REQ_PRIORITY, 0x5555556, 0);
+	write_register(device->hal_data->register_base_addr,
+			VIDC_VENUS0_WRAPPER_VBIF_PRIORITY_LEVEL, 0, 0);
 }
 
 static int vidc_hal_sys_set_debug(struct hal_device *device, int debug)
