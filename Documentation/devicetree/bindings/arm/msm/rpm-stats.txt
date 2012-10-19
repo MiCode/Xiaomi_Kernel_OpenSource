@@ -1,0 +1,22 @@
+* RPM Sleep Stats
+
+RPM maintains sleep data in the RPM RAM. A device tree node is added
+that will hold the address of the RPM RAM from where sleep stats are read.
+Additionally a version number is added to distinguish the type of data
+structure being read from the RAM.
+
+The required properties for rpm-stats are:
+
+- compatible: "qcom,rpm-stats"
+- reg: The address on the RPM RAM from where stats are read.
+- reg-names: Name given the register holding address.
+- qcom,sleep-stats-version: Version number.
+
+Example:
+
+qcom,rpm-stats@0xfc19dbd0{
+		compatible = "qcom,rpm-stats";
+		reg = <0xfc19dbd0 0x1000>;
+		reg-names = "phys_addr_base";
+		qcom,sleep-stats-version = <2>;
+};
