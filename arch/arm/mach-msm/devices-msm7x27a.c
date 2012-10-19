@@ -780,6 +780,16 @@ static struct msm_spm_seq_entry msm_spm_seq_list[] __initdata = {
 		.notify_rpm = false,
 		.cmd = spm_pc_without_modem,
 	},
+	[2] = {
+		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
+		.notify_rpm = false,
+		.cmd = spm_pc_without_modem,
+	},
+	[3] = {
+		.mode = MSM_SPM_MODE_POWER_COLLAPSE,
+		.notify_rpm = false,
+		.cmd = spm_pc_without_modem,
+	},
 };
 
 static struct msm_spm_platform_data msm_spm_data[] __initdata = {
@@ -792,6 +802,20 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 	},
 	[1] = {
 		.reg_base_addr = MSM_SAW1_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x0,
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
+	},
+	[2] = {
+		.reg_base_addr = MSM_SAW2_BASE,
+		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x0,
+		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
+		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
+		.modes = msm_spm_seq_list,
+	},
+	[3] = {
+		.reg_base_addr = MSM_SAW3_BASE,
 		.reg_init_values[MSM_SPM_REG_SAW2_CFG] = 0x0,
 		.reg_init_values[MSM_SPM_REG_SAW2_SPM_CTL] = 0x01,
 		.num_modes = ARRAY_SIZE(msm_spm_seq_list),
