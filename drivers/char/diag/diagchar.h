@@ -140,6 +140,7 @@ struct diagchar_dev {
 	int ref_count;
 	struct mutex diagchar_mutex;
 	wait_queue_head_t wait_q;
+	wait_queue_head_t smd_wait_q;
 	struct diag_client_map *client_map;
 	int *data_ready;
 	int num_clients;
