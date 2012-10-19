@@ -141,6 +141,7 @@ struct pmic_gang_vreg {
 	int			pmic_phase_count;
 	struct list_head	krait_power_vregs;
 	struct mutex		krait_power_vregs_lock;
+	bool			pfm_mode;
 };
 
 static struct pmic_gang_vreg *the_gang;
@@ -542,6 +543,9 @@ out:
 	return rc;
 }
 
+#define PMIC_FTS_MODE_PFM	0x00
+#define PMIC_FTS_MODE_PWM	0x80
+#define PFM_LOAD_UA		500000
 static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
 			int input_uV, int output_uV, int load_uA)
 {
@@ -553,9 +557,39 @@ static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
 
+	reg_mode = kvreg->mode;
+
 	kvreg->load_uA = load_uA;
 
 	load_total_uA = get_total_load(kvreg);
+
+	if (load_total_uA < PFM_LOAD_UA) {
+		if (!pvreg->pfm_mode) {
+			rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PFM);
+			if (rc) {
+				dev_err(&rdev->dev,
+					"%s enter PFM failed load %d rc = %d\n",
+					kvreg->name, load_total_uA, rc);
+				goto out;
+			} else {
+				pvreg->pfm_mode = true;
+			}
+		}
+		mutex_unlock(&pvreg->krait_power_vregs_lock);
+		return reg_mode;
+	}
+
+	if (pvreg->pfm_mode) {
+		rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_PWM);
+		if (rc) {
+			dev_err(&rdev->dev,
+				"%s exit PFM failed load %d rc = %d\n",
+				kvreg->name, load_total_uA, rc);
+			goto out;
+		} else {
+			pvreg->pfm_mode = false;
+		}
+	}
 
 	rc = pmic_gang_set_phases(kvreg, load_total_uA);
 	if (rc < 0) {
@@ -564,7 +598,6 @@ static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
 		goto out;
 	}
 
-	reg_mode = kvreg->mode;
 out:
 	mutex_unlock(&pvreg->krait_power_vregs_lock);
 	return reg_mode;
