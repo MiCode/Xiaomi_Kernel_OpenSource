@@ -292,7 +292,7 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 		msm_bus_scale_unregister_client(mdata->bus_hdl);
 }
 
-int mdss_mdp_bus_scale_set_quota(u32 ab_quota, u32 ib_quota)
+int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 {
 	static int current_bus_idx;
 	int bus_idx;
@@ -309,6 +309,10 @@ int mdss_mdp_bus_scale_set_quota(u32 ab_quota, u32 ib_quota)
 		struct msm_bus_vectors *vect = NULL;
 
 		bus_idx = (current_bus_idx % (num_cases - 1)) + 1;
+
+		/* aligning to avoid performing updates for small changes */
+		ab_quota = ALIGN(ab_quota, SZ_64M);
+		ib_quota = ALIGN(ib_quota, SZ_64M);
 
 		vect = mdp_bus_scale_table.usecase[current_bus_idx].vectors;
 		if ((ab_quota == vect->ab) && (ib_quota == vect->ib)) {
