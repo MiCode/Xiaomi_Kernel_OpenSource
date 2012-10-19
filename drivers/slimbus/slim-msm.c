@@ -494,7 +494,7 @@ sps_init_endpoint_failed:
 
 /* Registers BAM h/w resource with SPS driver and initializes msgq endpoints */
 int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
-			u32 pipe_reg)
+			u32 pipe_reg, bool remote)
 {
 	int i, ret;
 	u32 bam_handle;
@@ -521,10 +521,16 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 	bam_props.virt_addr = dev->bam.base;
 	bam_props.phys_addr = bam_mem->start;
 	bam_props.irq = dev->bam.irq;
-	bam_props.manage = SPS_BAM_MGR_LOCAL;
+	if (!remote) {
+		bam_props.manage = SPS_BAM_MGR_LOCAL;
+		bam_props.sec_config = SPS_BAM_SEC_DO_CONFIG;
+	} else {
+		bam_props.manage = SPS_BAM_MGR_DEVICE_REMOTE |
+					SPS_BAM_MGR_MULTI_EE;
+		bam_props.sec_config = SPS_BAM_SEC_DO_NOT_CONFIG;
+	}
 	bam_props.summing_threshold = MSM_SLIM_PERF_SUMM_THRESHOLD;
 
-	bam_props.sec_config = SPS_BAM_SEC_DO_CONFIG;
 	bam_props.p_sec_config_props = &sec_props;
 
 	bam_props.options = SPS_O_DESC_DONE | SPS_O_ERROR |
