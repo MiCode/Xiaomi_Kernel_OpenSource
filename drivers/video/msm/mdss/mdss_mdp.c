@@ -226,7 +226,7 @@ void mdss_disable_irq(struct mdss_hw *hw)
 		mdss_res->irq_mask &= ~ndx_bit;
 		if (mdss_res->irq_mask == 0) {
 			mdss_res->irq_ena = false;
-			disable_irq(mdss_res->irq);
+			disable_irq_nosync(mdss_res->irq);
 		}
 	}
 	spin_unlock_irqrestore(&mdss_lock, irq_flags);
