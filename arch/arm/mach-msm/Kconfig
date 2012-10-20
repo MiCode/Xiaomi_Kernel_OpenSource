@@ -355,6 +355,7 @@ config ARCH_MSM9625
 	select SMP
 	select MSM_SMP
 	select CPU_V7
+	select MSM_SCM if SMP
 	select MSM_GPIOMUX
 	select MSM_RPM_SMD
 	select MSM_NATIVE_RESTART
