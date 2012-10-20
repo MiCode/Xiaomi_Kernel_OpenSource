@@ -707,7 +707,7 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 				struct mdss_mdp_mixer *mixer)
 {
-	struct mdss_mdp_pipe *pipe, *bgpipe = NULL;
+	struct mdss_mdp_pipe *pipe;
 	u32 off, blend_op, blend_stage;
 	u32 mixercfg = 0, blend_color_out = 0, bgalpha = 0;
 	int stage;
@@ -717,24 +717,22 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 
 	pr_debug("setup mixer=%d\n", mixer->num);
 
-	for (stage = MDSS_MDP_STAGE_BASE; stage < MDSS_MDP_MAX_STAGE; stage++) {
+	pipe = mixer->stage_pipe[MDSS_MDP_STAGE_BASE];
+	if (pipe == NULL) {
+		mixercfg = MDSS_MDP_LM_BORDER_COLOR;
+	} else {
+		mixercfg = 1 << (3 * pipe->num);
+		if (pipe->src_fmt->alpha_enable)
+			bgalpha = 1;
+	}
+
+	for (stage = MDSS_MDP_STAGE_0; stage < MDSS_MDP_MAX_STAGE; stage++) {
 		pipe = mixer->stage_pipe[stage];
-		if (pipe == NULL) {
-			if (stage == MDSS_MDP_STAGE_BASE)
-				mixercfg |= MDSS_MDP_LM_BORDER_COLOR;
+		if (pipe == NULL)
 			continue;
-		}
 
 		if (stage != pipe->mixer_stage) {
 			mixer->stage_pipe[stage] = NULL;
-			continue;
-		}
-		mixercfg |= stage << (3 * pipe->num);
-
-		if (stage == MDSS_MDP_STAGE_BASE) {
-			bgpipe = pipe;
-			if (pipe->src_fmt->alpha_enable)
-				bgalpha = 1;
 			continue;
 		}
 
@@ -744,10 +742,8 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 
 		if (pipe->is_fg) {
 			bgalpha = 0;
-			if (bgpipe) {
-				mixercfg &= ~(0x7 << (3 * bgpipe->num));
-				mixercfg |= MDSS_MDP_LM_BORDER_COLOR;
-			}
+			mixercfg = MDSS_MDP_LM_BORDER_COLOR;
+
 			blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
 				    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
 			/* keep fg alpha */
@@ -777,6 +773,8 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 			pr_debug("pnum=%d stg=%d alpha=CONST\n", pipe->num,
 					stage);
 		}
+
+		mixercfg |= stage << (3 * pipe->num);
 
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_OP_MODE, blend_op);
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_BLEND_FG_ALPHA,
