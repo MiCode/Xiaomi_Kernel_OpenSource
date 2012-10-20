@@ -1,0 +1,86 @@
+Summit SMB137C Battery Charger
+
+The SMB137C is controlled via an I2C bus.  Its 7-bit I2C slave address is
+programmed during manufacturing.
+
+Required properties:
+- compatible:		Must be "summit,smb137c".
+- reg:			The device's 7-bit I2C address.
+
+Optional properties:
+- summit,chg-current-ma		Maximum battery charging current in milliamps.
+				Supported values are: 500, 650, 750, 850, 950,
+				1100, 1300, and 1500.
+- summit,term-current-ma	Charging terminaton current in milliamps.
+				Supported values are: 0, 35, 50, 100, and 150.
+				A value of 0 means no termination current is
+				used.
+- summit,pre-chg-current-ma	Maximum battery pre-charging current in
+				milliamps.  This current limit is applied while
+				the battery voltage is below the pre-charge /
+				fast-charge threshold.  Supported values are:
+				50, 100, 150, and 200.
+- summit,float-voltage-mv	Battery voltage threshold in millivolts at which
+				point charging switches from constant current to
+				constant voltage.  Supported values are: 3460 up
+				through 4730 in 10 mV steps.
+- summit,thresh-voltage-mv	Threshold voltage in millivolts which is used to
+				switch between pre-charge and fast-charge
+				current limits.  Supported values are: 2400 up
+				to 3100 in 100 mV steps.
+- summit,recharge-thresh-mv	Specifies the minimum voltage drop in millivolts
+				below the float voltage that is required in
+				order to initiate a new charging cycle.
+				Supported values are: 75 and 120.
+- summit,system-voltage-mv	Regulated voltage output on the VOUTL pin in
+				millivolts.  Supported values are 4250 and 4460.
+- summit,charging-timeout	Maximum duration in minutes that a single charge
+				cycle may last.  Supported values are: 0, 382,
+				764, and 1527.  A value of 0 means that no
+				charge cycle timeout is used and charging can
+				continue indefinitely.
+- summit,pre-charge-timeout	Maximum time in minutes spent in the pre-charge
+				state in any given charge cycle.  Supports
+				values are: 0, 48, 95, and 191.  A value of 0
+				means that there is no limit to the amount of
+				time that may be spent in the pre-charge state.
+- summit,therm-current-ua	Thermistor current in microamps to be used for
+				battery temperature monitoring.  Supported
+				values are 10, 20, 40, and 100.  These values
+				correspond to 100, 50, 25, and 10 kohm NTC
+				thermistors respectively.
+- summit,temperature-min	Specifies the minimum temperature at which
+				charging is allowed.  Supported values are
+				0 to 7.  These values correspond to -20 C to
+				+15 C in 5 C increments for an NTC thermistor
+				with beta = 4400.
+- summit,temperature-max	Specifies the maximum temperature at which
+				charging is allowed.  Supported values are
+				0 to 7.  These values correspond to +30 C to
+				+65 C in 5 C increments for an NTC thermistor
+				with beta = 4400.
+
+Note: If an optional property is not specified, then the hardware default value
+will be used.
+
+Example:
+/ {
+	i2c@f9925000 {
+		charger@57 {
+			compatible = "summit,smb137c";
+			reg = <0x57>;
+			summit,chg-current-ma = <1500>;
+			summit,term-current-ma = <50>;
+			summit,pre-chg-current-ma = <100>;
+			summit,float-voltage-mv = <4200>;
+			summit,thresh-voltage-mv = <3000>;
+			summit,recharge-thresh-mv = <75>;
+			summit,system-voltage-mv = <4250>;
+			summit,charging-timeout = <382>;
+			summit,pre-charge-timeout = <48>;
+			summit,therm-current-ua = <10>;
+			summit,temperature-min = <4>; /*  0 C */
+			summit,temperature-max = <3>; /* 45 C */
+		};
+	};
+};
