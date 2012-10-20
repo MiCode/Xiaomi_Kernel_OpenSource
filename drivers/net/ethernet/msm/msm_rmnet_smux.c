@@ -482,7 +482,7 @@ void rmnet_smux_notify(void *priv, int event_type, const void *metadata)
 		p = netdev_priv(priv);
 		DBG0("[%s] Low WM hit dev:%s\n", __func__, dev->name);
 		spin_lock_irqsave(&p->tx_queue_lock, flags);
-		netif_start_queue(dev);
+		netif_wake_queue(dev);
 		spin_unlock_irqrestore(&p->tx_queue_lock, flags);
 		break;
 
