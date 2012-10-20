@@ -22,7 +22,7 @@ struct ddl_context *ddl_get_context(void)
 	return &ddl_context;
 }
 
-#ifdef DDL_MSG_LOG
+#if DDL_MSG_LOG
 s8 *ddl_get_state_string(enum ddl_client_state client_state)
 {
 	s8 *ptr;
@@ -265,7 +265,7 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 	luma_size = ddl_get_yuv_buf_size(decoder->frame_size.width,
 			decoder->frame_size.height, DDL_YUV_BUF_TYPE_TILE);
 	dpb = decoder->dp_buf.no_of_dec_pic_buf;
-	DDL_MSG_LOW("%s Decoder num DPB buffers = %u Luma Size = %u"
+	DDL_MSG_LOW("%s Decoder num DPB buffers = %u Luma Size = %u",
 				 __func__, dpb, luma_size);
 	if (dpb > DDL_MAX_BUFFER_COUNT)
 		dpb = DDL_MAX_BUFFER_COUNT;
@@ -298,7 +298,7 @@ u32 ddl_decoder_dpb_init(struct ddl_client_context *ddl)
 		luma[i] = DDL_OFFSET(ddl_context->dram_base_a.
 			align_physical_addr, frame[i].vcd_frm.physical);
 		chroma[i] = luma[i] + luma_size;
-		DDL_MSG_LOW("%s Decoder Luma address = %x Chroma address = %x"
+		DDL_MSG_LOW("%s Decoder Luma address = %x Chroma address = %x",
 					__func__, luma[i], chroma[i]);
 	}
 	switch (decoder->codec.codec) {
@@ -403,6 +403,7 @@ void ddl_release_client_internal_buffers(struct ddl_client_context *ddl)
 		ddl_vidc_encode_dynamic_property(ddl, false);
 		encoder->dynamic_prop_change = 0;
 		ddl_free_enc_hw_buffers(ddl);
+		ddl_free_ltr_list(&encoder->ltr_control);
 	}
 	ddl_pmem_free(&ddl->shared_mem[0]);
 	ddl_pmem_free(&ddl->shared_mem[1]);
@@ -999,7 +1000,7 @@ void ddl_decoder_chroma_dpb_change(struct ddl_client_context *ddl)
 	u32 luma_size, i, dpb;
 	luma_size = decoder->dpb_buf_size.size_y;
 	dpb = decoder->dp_buf.no_of_dec_pic_buf;
-	DDL_MSG_HIGH("%s Decoder num DPB buffers = %u Luma Size = %u"
+	DDL_MSG_HIGH("%s Decoder num DPB buffers = %u Luma Size = %u",
 			 __func__, dpb, luma_size);
 	if (dpb > DDL_MAX_BUFFER_COUNT)
 		dpb = DDL_MAX_BUFFER_COUNT;
@@ -1137,8 +1138,295 @@ void ddl_set_vidc_timeout(struct ddl_client_context *ddl)
 				vidc_time_out = temp;
 		}
 	}
-	DDL_MSG_HIGH("%s Video core time out value = 0x%x",
+	DDL_MSG_LOW("%s Video core time out value = 0x%x",
 		 __func__, vidc_time_out);
 	vidc_sm_set_video_core_timeout_value(
 		&ddl->shared_mem[ddl->command_channel], vidc_time_out);
+}
+
+void ddl_handle_ltr_in_framedone(struct ddl_client_context *ddl)
+{
+	struct ddl_ltr_encoding_type *ltr_control =
+		&ddl->codec_data.encoder.ltr_control;
+	DDL_MSG_LOW("%s:", __func__);
+	if (ltr_control->storing) {
+		ltr_control->ltr_list[ltr_control->storing_idx].ltr_id =
+			ltr_control->curr_ltr_id;
+		DDL_MSG_MED("Encoder output stores LTR ID %d into entry %d",
+			ltr_control->curr_ltr_id, ltr_control->storing_idx);
+		ltr_control->meta_data_reqd = true;
+		ltr_control->storing = false;
+	}
+	ltr_control->out_frame_cnt_before_next_idr++;
+	if (ltr_control->out_frame_cnt_to_use_this_ltr) {
+		ltr_control->out_frame_cnt_to_use_this_ltr--;
+		if (!ltr_control->out_frame_cnt_to_use_this_ltr)
+			ddl_clear_ltr_list(ltr_control, true);
+	}
+}
+
+s32 ddl_encoder_ltr_control(struct ddl_client_context *ddl)
+{
+	s32 vcd_status = VCD_S_SUCCESS;
+	struct ddl_encoder_data *encoder = &ddl->codec_data.encoder;
+	struct ddl_ltr_encoding_type *ltr_ctrl = &encoder->ltr_control;
+	bool intra_period_reached = false;
+
+	DDL_MSG_LOW("%s:", __func__);
+	ddl_print_ltr_list(ltr_ctrl);
+
+	if (DDL_IS_LTR_IN_AUTO_MODE(encoder)) {
+		bool finite_i_period, infinite_i_period;
+		DDL_MSG_LOW("%s: before LTR encoding: output "\
+			"count before next IDR %d", __func__,
+			ltr_ctrl->out_frame_cnt_before_next_idr);
+		finite_i_period =
+			(DDL_MAX_P_FRAMES_IN_INTRA_INTERVAL !=
+			encoder->i_period.p_frames) &&
+			(!(ltr_ctrl->out_frame_cnt_before_next_idr %
+			(encoder->i_period.p_frames + 1)));
+		infinite_i_period =
+			((DDL_MAX_P_FRAMES_IN_INTRA_INTERVAL ==
+			encoder->i_period.p_frames) &&
+			(!ltr_ctrl->out_frame_cnt_before_next_idr));
+		if (finite_i_period || infinite_i_period) {
+			DDL_MSG_HIGH("%s: Intra period reached. "\
+			"finite_i_period (%u), infinite_i_period (%u)",
+			__func__, (u32)finite_i_period,
+			(u32)infinite_i_period);
+			intra_period_reached = true;
+		}
+		if (intra_period_reached ||
+			ltr_ctrl->store_for_intraframe_insertion ||
+			encoder->intra_period_changed) {
+			ddl_clear_ltr_list(ltr_ctrl, false);
+			ltr_ctrl->out_frame_cnt_before_next_idr = 0;
+			ltr_ctrl->first_ltr_use_arvd = false;
+			ltr_ctrl->store_for_intraframe_insertion = false;
+		} else {
+			if (ltr_ctrl->first_ltr_use_arvd == false) {
+				ddl_use_ltr_from_list(ltr_ctrl, 0);
+				ltr_ctrl->out_frame_cnt_to_use_this_ltr =
+					0xFFFFFFFF;
+				ltr_ctrl->use_ltr_reqd = true;
+			}
+		}
+		if (!(ltr_ctrl->out_frame_cnt_before_next_idr %
+			ltr_ctrl->ltr_period)) {
+			s32 idx;
+			DDL_MSG_HIGH("%s: reached LTR period "\
+				"out_frame_cnt_before_next_idr %d",
+				__func__, ltr_ctrl->\
+				out_frame_cnt_before_next_idr);
+			idx = ddl_find_oldest_ltr_not_in_use(
+					ltr_ctrl);
+			if (idx >= 0) {
+				ltr_ctrl->storing = true;
+				ltr_ctrl->storing_idx = idx;
+				if (idx == 0)
+					ltr_ctrl->store_ltr0 = true;
+				else if (idx == 1)
+					ltr_ctrl->store_ltr1 = true;
+			}
+		}
+	}
+	if (encoder->intra_frame_insertion) {
+		DDL_MSG_HIGH("%s: I-frame insertion requested, "\
+			"delay LTR store for one frame", __func__);
+		ltr_ctrl->store_for_intraframe_insertion = true;
+	}
+	if (ltr_ctrl->pending_chg_ltr_useframes) {
+		ltr_ctrl->out_frame_cnt_to_use_this_ltr =
+			ltr_ctrl->ltr_use_frames;
+		ltr_ctrl->pending_chg_ltr_useframes = false;
+	}
+	if (ltr_ctrl->out_frame_cnt_to_use_this_ltr)
+		ltr_ctrl->use_ltr_reqd = true;
+	if (ltr_ctrl->use_ltr_reqd) {
+		s32 idx;
+		idx = ddl_find_ltr_in_use(ltr_ctrl);
+		if (idx == 0)
+			ltr_ctrl->use_ltr0 = true;
+		else if (idx == 1)
+			ltr_ctrl->use_ltr1 = true;
+		ltr_ctrl->using = true;
+		ltr_ctrl->use_ltr_reqd = false;
+	} else {
+		DDL_MSG_HIGH("%s: use_ltr_reqd skipped", __func__);
+	}
+
+	return vcd_status;
+}
+
+
+s32 ddl_allocate_ltr_list(struct ddl_ltr_encoding_type *ltr_control)
+{
+	s32 vcd_status = VCD_S_SUCCESS;
+
+	DDL_MSG_LOW("%s: lrr_cout = %u", __func__, ltr_control->ltr_count);
+	if (!ltr_control->ltr_list) {
+		if (ltr_control->ltr_count) {
+			ltr_control->ltr_list = (struct ddl_ltrlist *)
+				kmalloc(sizeof(struct ddl_ltrlist)*
+					ltr_control->ltr_count, GFP_KERNEL);
+			if (!ltr_control->ltr_list) {
+				DDL_MSG_ERROR("ddl_allocate_ltr_list failed");
+				vcd_status = VCD_ERR_ALLOC_FAIL;
+			}
+		} else {
+			DDL_MSG_ERROR("%s: failed, zero LTR count", __func__);
+			vcd_status = VCD_ERR_FAIL;
+		}
+	} else {
+		DDL_MSG_HIGH("WARN: ltr_list already allocated");
+	}
+
+	return vcd_status;
+}
+
+s32 ddl_free_ltr_list(struct ddl_ltr_encoding_type *ltr_control)
+{
+	s32 vcd_status = VCD_S_SUCCESS;
+
+	DDL_MSG_LOW("%s:", __func__);
+	kfree(ltr_control->ltr_list);
+	ltr_control->ltr_list = NULL;
+
+	return vcd_status;
+}
+
+s32 ddl_clear_ltr_list(struct ddl_ltr_encoding_type *ltr_control,
+	bool only_use_flag)
+{
+	s32 vcd_status = VCD_S_SUCCESS;
+	u32 i;
+
+	DDL_MSG_LOW("%s:", __func__);
+	for (i = 0; i < ltr_control->ltr_count; i++) {
+		ltr_control->ltr_list[i].ltr_in_use = false;
+		if (!only_use_flag)
+			ltr_control->ltr_list[i].ltr_id = 0;
+	}
+
+	return vcd_status;
+}
+
+s32 ddl_find_oldest_ltr_not_in_use(struct ddl_ltr_encoding_type *ltr_control)
+{
+	s32 found_idx = -1;
+	u32 i;
+
+	if (ltr_control->ltr_list) {
+		if (ltr_control->ltr_count == 1)
+			found_idx = 0;
+		else {
+			for (i = 0; i < ltr_control->ltr_count; i++) {
+				if ((ltr_control->ltr_list[i].ltr_in_use ==
+					false) && (found_idx < 0)) {
+					found_idx = i;
+				}
+				if ((found_idx >= 0) &&
+					(ltr_control->ltr_list[i].\
+					ltr_in_use == false) &&
+					(ltr_control->ltr_list[i].ltr_id <
+					ltr_control->ltr_list[found_idx].\
+					ltr_id)) {
+					found_idx = i;
+				}
+			}
+		}
+	}
+
+	DDL_MSG_LOW("%s: found_idx = %d", __func__, found_idx);
+	return found_idx;
+}
+
+s32 ddl_find_ltr_in_use(struct ddl_ltr_encoding_type *ltr_control)
+{
+	s32 found_idx = -1;
+	u32 i;
+
+	if (ltr_control->ltr_list) {
+		for (i = 0; i < ltr_control->ltr_count; i++) {
+			if (ltr_control->ltr_list[i].ltr_in_use == true)
+				found_idx = i;
+		}
+	}
+
+	DDL_MSG_LOW("%s: found_idx = %d", __func__, found_idx);
+	return found_idx;
+}
+
+s32 ddl_find_ltr_from_list(struct ddl_ltr_encoding_type *ltr_control,
+	u32 ltr_id)
+{
+	s32 found_idx = -1;
+	u32 i;
+
+	if (ltr_control->ltr_list) {
+		for (i = 0; i < ltr_control->ltr_count; i++) {
+			if (ltr_control->ltr_list[i].ltr_id == ltr_id) {
+				found_idx = i;
+				break;
+			}
+		}
+	} else {
+		DDL_MSG_ERROR("%s: ltr_list is NULL", __func__);
+	}
+
+	DDL_MSG_LOW("%s: found_idx = %d", __func__, found_idx);
+	return found_idx;
+}
+
+s32 ddl_use_ltr_from_list(struct ddl_ltr_encoding_type *ltr_control,
+	u32 ltr_idx)
+{
+	s32 vcd_status = VCD_S_SUCCESS;
+	u32 i;
+
+	DDL_MSG_LOW("%s: ltr_idx = %u", __func__, ltr_idx);
+	if (ltr_idx > ltr_control->ltr_count) {
+		DDL_MSG_ERROR("%s: fail, idx %d larger than "\
+			"the list array count %d", __func__,
+			ltr_idx, ltr_control->ltr_count);
+		vcd_status = VCD_ERR_FAIL;
+	} else {
+		for (i = 0; i < ltr_control->ltr_count; i++) {
+			if (i == ltr_idx)
+				ltr_control->ltr_list[ltr_idx].ltr_in_use =
+					true;
+			else
+				ltr_control->ltr_list[i].ltr_in_use = false;
+		}
+	}
+
+	return vcd_status;
+}
+
+void ddl_encoder_use_ltr_fail_callback(struct ddl_client_context *ddl)
+{
+	struct ddl_encoder_data *encoder = &(ddl->codec_data.encoder);
+	struct ddl_context *ddl_context = ddl->ddl_context;
+
+	DDL_MSG_ERROR("%s: LTR use failed, callback "\
+		"requested with LTR ID %d", __func__,
+		encoder->ltr_control.failed_use_cmd.ltr_id);
+
+	ddl_context->ddl_callback(VCD_EVT_IND_INFO_LTRUSE_FAILED,
+			VCD_ERR_ILLEGAL_PARM,
+			&(encoder->ltr_control.failed_use_cmd),
+			sizeof(struct vcd_property_ltruse_type),
+			(u32 *)ddl,
+			ddl->client_data);
+}
+
+void ddl_print_ltr_list(struct ddl_ltr_encoding_type *ltr_control)
+{
+	u32 i;
+
+	for (i = 0; i < ltr_control->ltr_count; i++) {
+		DDL_MSG_MED("%s: ltr_id: %d, ltr_in_use: %d",
+			__func__, ltr_control->ltr_list[i].ltr_id,
+			ltr_control->ltr_list[i].ltr_in_use);
+	}
 }

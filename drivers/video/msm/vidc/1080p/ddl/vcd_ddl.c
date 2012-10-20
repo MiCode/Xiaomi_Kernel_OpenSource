@@ -280,6 +280,25 @@ u32 ddl_encode_start(u32 *ddl_handle, void *client_data)
 		return VCD_ERR_ILLEGAL_OP;
 	}
 	encoder = &ddl->codec_data.encoder;
+	if (DDL_IS_LTR_ENABLED(encoder)) {
+		DDL_MSG_HIGH("LTR enabled, mode %u count %u",
+			(u32)encoder->ltr_control.ltrmode.ltr_mode,
+			(u32)encoder->ltr_control.ltr_count);
+		status = ddl_allocate_ltr_list(&encoder->ltr_control);
+		if (status) {
+			DDL_MSG_ERROR("%s: allocate ltr list failed",
+				__func__);
+			return status;
+		} else {
+			ddl_clear_ltr_list(&encoder->ltr_control, false);
+		}
+		encoder->num_references_for_p_frame = 2;
+		encoder->ltr_control.callback_reqd = false;
+		encoder->ltr_control.curr_ltr_id = (u32)DDL_LTR_FRAME_START_ID;
+		DDL_MSG_HIGH("num_ref_for_p_frames %u, curr_ltr_id = %u",
+			(u32)encoder->num_references_for_p_frame,
+			(u32)encoder->ltr_control.curr_ltr_id);
+	}
 	status = ddl_allocate_enc_hw_buffers(ddl);
 	if (status)
 		return status;
@@ -393,7 +412,7 @@ u32 ddl_decode_frame(u32 *ddl_handle,
 		(struct ddl_client_context *) ddl_handle;
 	struct ddl_context *ddl_context;
 	struct ddl_decoder_data *decoder;
-	DDL_MSG_HIGH("ddl_decode_frame");
+	DDL_MSG_MED("ddl_decode_frame");
 	ddl_context = ddl_get_context();
 	if (!DDL_IS_INITIALIZED(ddl_context)) {
 		DDL_MSG_ERROR("ddl_dec_frame:Not_inited");

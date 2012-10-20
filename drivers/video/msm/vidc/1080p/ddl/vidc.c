@@ -83,6 +83,17 @@
 #define VIDC_1080P_SI_RG10_ENCODE_SLICE_IF_ENABLE_SHFT      31
 #define VIDC_1080P_MAX_INTRA_PERIOD 0xffff
 
+#define VIDC_1080P_COMMON_CHX_RG6_I_FRAME_BMASK              0x00000001
+#define VIDC_1080P_COMMON_CHX_RG6_I_FRAME_SHIFT              0
+#define VIDC_1080P_COMMON_CHX_RG6_STORE_LTR0_BMASK           0x00000008
+#define VIDC_1080P_COMMON_CHX_RG6_STORE_LTR0_SHIFT           3
+#define VIDC_1080P_COMMON_CHX_RG6_STORE_LTR1_BMASK           0x00000010
+#define VIDC_1080P_COMMON_CHX_RG6_STORE_LTR1_SHIFT           4
+#define VIDC_1080P_COMMON_CHX_RG6_USE_LTR0_BMASK             0x00000020
+#define VIDC_1080P_COMMON_CHX_RG6_USE_LTR0_SHIFT             5
+#define VIDC_1080P_COMMON_CHX_RG6_USE_LTR1_BMASK             0x00000040
+#define VIDC_1080P_COMMON_CHX_RG6_USE_LTR1_SHIFT             6
+
 u8 *VIDC_BASE_PTR;
 
 void vidc_1080p_do_sw_reset(enum vidc_1080p_reset init_flag)
@@ -787,7 +798,9 @@ void vidc_1080p_encode_seq_start_ch1(
 void vidc_1080p_encode_frame_start_ch0(
 	struct vidc_1080p_enc_frame_start_param *param)
 {
-	u32 input_flush;
+	u32 input_flush = 0;
+	u32 frame_insertion = 0;
+
 	VIDC_HWIO_OUT(REG_695082, VIDC_1080P_RISC2HOST_CMD_EMPTY);
 	VIDC_HWIO_OUT(REG_666957, VIDC_1080P_INIT_CH_INST_ID);
 	VIDC_HWIO_OUT(REG_117192,
@@ -798,7 +811,22 @@ void vidc_1080p_encode_frame_start_ch0(
 		VIDC_1080P_BASE_OFFSET_SHIFT);
 	VIDC_HWIO_OUT(REG_175608, param->current_c_addr_offset >>
 		VIDC_1080P_BASE_OFFSET_SHIFT);
-	VIDC_HWIO_OUT(REG_190381, param->intra_frame);
+	frame_insertion = VIDC_SETFIELD(param->intra_frame,
+			VIDC_1080P_COMMON_CHX_RG6_I_FRAME_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_I_FRAME_BMASK);
+	frame_insertion |= VIDC_SETFIELD(param->store_ltr0,
+			VIDC_1080P_COMMON_CHX_RG6_STORE_LTR0_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_STORE_LTR0_BMASK);
+	frame_insertion |= VIDC_SETFIELD(param->store_ltr1,
+			VIDC_1080P_COMMON_CHX_RG6_STORE_LTR1_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_STORE_LTR1_BMASK);
+	frame_insertion |= VIDC_SETFIELD(param->use_ltr0,
+			VIDC_1080P_COMMON_CHX_RG6_USE_LTR0_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_USE_LTR0_BMASK);
+	frame_insertion |= VIDC_SETFIELD(param->use_ltr1,
+			VIDC_1080P_COMMON_CHX_RG6_USE_LTR1_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_USE_LTR1_BMASK);
+	VIDC_HWIO_OUT(REG_190381, frame_insertion);
 	VIDC_HWIO_OUT(REG_889944, param->shared_mem_addr_offset);
 	input_flush = VIDC_SETFIELD(param->input_flush,
 			VIDC_1080P_SI_RG10_ENCODE_INPUT_BUFFER_FLUSH_SHFT,
@@ -816,7 +844,9 @@ void vidc_1080p_encode_frame_start_ch0(
 void vidc_1080p_encode_frame_start_ch1(
 	struct vidc_1080p_enc_frame_start_param *param)
 {
-	u32 input_flush;
+	u32 input_flush = 0;
+	u32 frame_insertion = 0;
+
 	VIDC_HWIO_OUT(REG_695082, VIDC_1080P_RISC2HOST_CMD_EMPTY);
 	VIDC_HWIO_OUT(REG_313350, VIDC_1080P_INIT_CH_INST_ID);
 	VIDC_HWIO_OUT(REG_980194,
@@ -827,7 +857,22 @@ void vidc_1080p_encode_frame_start_ch1(
 		VIDC_1080P_BASE_OFFSET_SHIFT);
 	VIDC_HWIO_OUT(REG_548308,  param->current_c_addr_offset >>
 		VIDC_1080P_BASE_OFFSET_SHIFT);
-	VIDC_HWIO_OUT(REG_887095, param->intra_frame);
+	frame_insertion = VIDC_SETFIELD(param->intra_frame,
+			VIDC_1080P_COMMON_CHX_RG6_I_FRAME_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_I_FRAME_BMASK);
+	frame_insertion |= VIDC_SETFIELD(param->store_ltr0,
+			VIDC_1080P_COMMON_CHX_RG6_STORE_LTR0_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_STORE_LTR0_BMASK);
+	frame_insertion |= VIDC_SETFIELD(param->store_ltr1,
+			VIDC_1080P_COMMON_CHX_RG6_STORE_LTR1_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_STORE_LTR1_BMASK);
+	frame_insertion |= VIDC_SETFIELD(param->use_ltr0,
+			VIDC_1080P_COMMON_CHX_RG6_USE_LTR0_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_USE_LTR0_BMASK);
+	frame_insertion |= VIDC_SETFIELD(param->use_ltr1,
+			VIDC_1080P_COMMON_CHX_RG6_USE_LTR1_SHIFT,
+			VIDC_1080P_COMMON_CHX_RG6_USE_LTR1_BMASK);
+	VIDC_HWIO_OUT(REG_887095, frame_insertion);
 	VIDC_HWIO_OUT(REG_652528, param->shared_mem_addr_offset);
 	input_flush = VIDC_SETFIELD(param->input_flush,
 			VIDC_1080P_SI_RG10_ENCODE_INPUT_BUFFER_FLUSH_SHFT,

@@ -44,6 +44,8 @@
 #define VEN_MSG_PAUSE	8
 #define VEN_MSG_RESUME	9
 #define VEN_MSG_STOP_READING_MSG	10
+#define VEN_MSG_LTRUSE_FAILED	    11
+
 
 /*Buffer flags bits masks*/
 #define VEN_BUFFLAG_EOS	0x00000001
@@ -56,6 +58,7 @@
 #define VEN_EXTRADATA_NONE          0x001
 #define VEN_EXTRADATA_QCOMFILLER    0x002
 #define VEN_EXTRADATA_SLICEINFO     0x100
+#define VEN_EXTRADATA_LTRINFO       0x200
 
 /*ENCODER CONFIGURATION CONSTANTS*/
 
@@ -461,6 +464,55 @@ struct venc_ioctl_msg{
 #define VEN_IOCTL_SET_H263_PLUSPTYPE \
 	_IOW(VEN_IOCTLBASE_ENC, 51, struct venc_ioctl_msg)
 
+/*IOCTL params:SET: InputData - venc_range, OutputData - NULL.*/
+#define VEN_IOCTL_SET_CAPABILITY_LTRCOUNT \
+	_IOW(VEN_IOCTLBASE_ENC, 52, struct venc_ioctl_msg)
+/*IOCTL params:GET: InputData - NULL, OutputData - venc_range.*/
+#define VEN_IOCTL_GET_CAPABILITY_LTRCOUNT \
+	_IOR(VEN_IOCTLBASE_ENC, 53, struct venc_ioctl_msg)
+
+/*IOCTL params:SET: InputData - venc_ltrmode, OutputData - NULL.*/
+#define VEN_IOCTL_SET_LTRMODE \
+	_IOW(VEN_IOCTLBASE_ENC, 54, struct venc_ioctl_msg)
+/*IOCTL params:GET: InputData - NULL, OutputData - venc_ltrmode.*/
+#define VEN_IOCTL_GET_LTRMODE \
+	_IOR(VEN_IOCTLBASE_ENC, 55, struct venc_ioctl_msg)
+
+/*IOCTL params:SET: InputData - venc_ltrcount, OutputData - NULL.*/
+#define VEN_IOCTL_SET_LTRCOUNT \
+	_IOW(VEN_IOCTLBASE_ENC, 56, struct venc_ioctl_msg)
+/*IOCTL params:GET: InputData - NULL, OutputData - venc_ltrcount.*/
+#define VEN_IOCTL_GET_LTRCOUNT \
+	_IOR(VEN_IOCTLBASE_ENC, 57, struct venc_ioctl_msg)
+
+/*IOCTL params:SET: InputData - venc_ltrperiod, OutputData - NULL.*/
+#define VEN_IOCTL_SET_LTRPERIOD \
+	_IOW(VEN_IOCTLBASE_ENC, 58, struct venc_ioctl_msg)
+/*IOCTL params:GET: InputData - NULL, OutputData - venc_ltrperiod.*/
+#define VEN_IOCTL_GET_LTRPERIOD \
+	_IOR(VEN_IOCTLBASE_ENC, 59, struct venc_ioctl_msg)
+
+/*IOCTL params:SET: InputData - venc_ltruse, OutputData - NULL.*/
+#define VEN_IOCTL_SET_LTRUSE \
+	_IOW(VEN_IOCTLBASE_ENC, 60, struct venc_ioctl_msg)
+/*IOCTL params:GET: InputData - NULL, OutputData - venc_ltruse.*/
+#define VEN_IOCTL_GET_LTRUSE \
+	_IOR(VEN_IOCTLBASE_ENC, 61, struct venc_ioctl_msg)
+
+/*IOCTL params:SET: InputData - venc_ltrmark, OutputData - NULL.*/
+#define VEN_IOCTL_SET_LTRMARK \
+	_IOW(VEN_IOCTLBASE_ENC, 62, struct venc_ioctl_msg)
+/*IOCTL params:GET: InputData - NULL, OutputData - venc_ltrmark.*/
+#define VEN_IOCTL_GET_LTRMARK \
+	_IOR(VEN_IOCTLBASE_ENC, 63, struct venc_ioctl_msg)
+
+
+struct venc_range {
+	unsigned long	max;
+	unsigned long	min;
+	unsigned long	step_size;
+};
+
 struct venc_switch{
 	unsigned char	status;
 };
@@ -620,6 +672,23 @@ struct venc_recon_buff_size{
 	int height;
 	int size;
 	int alignment;
+};
+
+struct venc_ltrmode {
+	unsigned long   ltr_mode;
+};
+
+struct venc_ltrcount {
+	unsigned long   ltr_count;
+};
+
+struct venc_ltrperiod {
+	unsigned long   ltr_period;
+};
+
+struct venc_ltruse {
+	unsigned long   ltr_id;
+	unsigned long   ltr_frames;
 };
 
 #endif /* _UAPI_MSM_VIDC_ENC_H_ */

@@ -52,6 +52,19 @@
 #define DDLCLIENT_STATE_IS(ddl, state) \
 	(state == (ddl)->client_state)
 
+#define DDL_IS_LTR_ENABLED(encoder) \
+	((encoder->ltr_control.ltrmode.ltr_mode == \
+		VCD_LTR_MODE_AUTO || \
+	encoder->ltr_control.ltrmode.ltr_mode == \
+		VCD_LTR_MODE_MANUAL) && \
+	(encoder->ltr_control.ltr_count > 0))
+
+#define DDL_IS_LTR_IN_AUTO_MODE(encoder) \
+	((encoder->ltr_control.ltrmode.ltr_mode == \
+		VCD_LTR_MODE_AUTO) && \
+	(encoder->ltr_control.ltr_count > 0) && \
+	(encoder->ltr_control.ltr_period > 0))
+
 #define DDL_DPB_OP_INIT       1
 #define DDL_DPB_OP_MARK_FREE  2
 #define DDL_DPB_OP_MARK_BUSY  3
@@ -72,6 +85,7 @@
 #define DDL_ENC_CHANGE_BITRATE    0x04
 #define DDL_ENC_CHANGE_FRAMERATE  0x08
 #define DDL_ENC_CHANGE_CIR        0x10
+#define DDL_ENC_LTR_USE_FRAME     0x20
 
 #define DDL_DEC_REQ_OUTPUT_FLUSH  0x1
 
@@ -85,6 +99,9 @@
 #define DDL_MAX_NUM_IN_INPUTFRAME_POOL          (DDL_MAX_NUM_OF_B_FRAME + 1)
 
 #define MDP_MIN_TILE_HEIGHT			96
+
+#define DDL_MAX_NUM_LTR_FRAMES                  2
+#define DDL_LTR_FRAME_START_ID                  1
 
 enum ddl_mem_area {
 	DDL_FW_MEM	= 0x0,
@@ -242,6 +259,43 @@ struct ddl_mp2_datadumpenabletype {
 	u32 seqdisp_extdump_enable;
 	u32 seq_extdump_enable;
 };
+
+
+struct ddl_ltrlist {
+	bool ltr_in_use;
+	u32 ltr_id;
+};
+
+struct ddl_ltr_encoding_type {
+	struct vcd_property_ltrmode_type  ltrmode;
+	struct vcd_property_ltruse_type  failed_use_cmd;
+	struct ddl_ltrlist *ltr_list;
+	u32 ltr_count;
+	u32 ltr_period;
+	u32 ltr_use_frames;
+	u32 curr_ltr_id;
+	u32 storing_idx;
+	u32 out_frame_cnt_to_use_this_ltr;
+	u32 out_frame_cnt_before_next_idr;
+	bool storing;
+	bool callback_reqd;
+	bool meta_data_reqd;
+	bool using;
+	bool first_ltr_use_arvd;
+	bool use_ltr_reqd;
+	bool store_for_intraframe_insertion;
+	bool pending_chg_ltr_useframes; /* True if
+		 * corresponding driver context of
+		 * out_frame_cnt_to_use_this_ltr
+		 * is pending to be changed with
+		 * client settings
+		 */
+	bool store_ltr0;
+	bool store_ltr1;
+	bool use_ltr0;
+	bool use_ltr1;
+};
+
 struct ddl_encoder_data{
 	struct ddl_codec_data_hdr   hdr;
 	struct vcd_property_codec   codec;
@@ -275,6 +329,7 @@ struct ddl_encoder_data{
 	struct ddl_enc_buffers  hw_bufs;
 	struct ddl_yuv_buffer_size  input_buf_size;
 	struct vidc_1080p_enc_frame_info enc_frame_info;
+	struct ddl_ltr_encoding_type  ltr_control;
 	u32  plusptype_enable;
 	u32  meta_data_enable_flag;
 	u32  suffix;
@@ -291,6 +346,7 @@ struct ddl_encoder_data{
 	u32  num_references_for_p_frame;
 	u32  closed_gop;
 	u32  num_slices_comp;
+	bool  intra_period_changed;
 	struct vcd_property_slice_delivery_info slice_delivery_info;
 	struct ddl_batch_frame_data batch_frame;
 	u32 avc_delimiter_enable;
@@ -496,7 +552,7 @@ void ddl_set_vidc_timeout(struct ddl_client_context *ddl);
 #ifdef DDL_BUF_LOG
 void ddl_list_buffers(struct ddl_client_context *ddl);
 #endif
-#ifdef DDL_MSG_LOG
+#if DDL_MSG_LOG
 s8 *ddl_get_state_string(enum ddl_client_state client_state);
 #endif
 extern unsigned char *vidc_video_codec_fw;
@@ -510,4 +566,21 @@ int ddl_vidc_decode_get_avg_time(struct ddl_client_context *ddl);
 void ddl_vidc_decode_reset_avg_time(struct ddl_client_context *ddl);
 void ddl_calc_core_proc_time(const char *func_name, u32 index,
 		struct ddl_client_context *ddl);
+s32 ddl_encoder_ltr_control(struct ddl_client_context *ddl);
+void ddl_encoder_use_ltr_fail_callback(
+	struct ddl_client_context *ddl);
+void ddl_handle_ltr_in_framedone(struct ddl_client_context *ddl);
+s32 ddl_clear_ltr_list(struct ddl_ltr_encoding_type *ltr_control,
+	bool only_use_flag);
+s32 ddl_find_oldest_ltr_not_in_use(
+	struct ddl_ltr_encoding_type *ltr_control);
+s32 ddl_find_ltr_in_use(struct ddl_ltr_encoding_type *ltr_control);
+s32 ddl_find_ltr_from_list(struct ddl_ltr_encoding_type *ltr_control,
+	u32 ltr_id);
+s32 ddl_use_ltr_from_list(struct ddl_ltr_encoding_type *ltr_control,
+	u32 ltr_idx);
+s32 ddl_allocate_ltr_list(struct ddl_ltr_encoding_type *ltr_control);
+s32 ddl_free_ltr_list(struct ddl_ltr_encoding_type *ltr_control);
+void ddl_print_ltr_list(struct ddl_ltr_encoding_type *ltr_control);
+
 #endif

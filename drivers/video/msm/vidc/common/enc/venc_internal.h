@@ -151,4 +151,19 @@ u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx,
 u32 vid_enc_get_recon_buffer_size(struct video_client_ctx *client_ctx,
 		struct venc_recon_buff_size *venc_recon_size);
 
+u32 vid_enc_set_get_ltrmode(struct video_client_ctx *client_ctx,
+		struct venc_ltrmode *encoder_ltrmode, u32 set_flag);
+
+u32 vid_enc_set_get_ltrcount(struct video_client_ctx *client_ctx,
+		struct venc_ltrcount *encoder_ltrcount, u32 set_flag);
+
+u32 vid_enc_set_get_ltrperiod(struct video_client_ctx *client_ctx,
+		struct venc_ltrperiod *encoder_ltrperiod, u32 set_flag);
+
+u32 vid_enc_get_capability_ltrcount(struct video_client_ctx *client_ctx,
+		struct venc_range *venc_capltrcount);
+
+u32 vid_enc_set_get_ltruse(struct video_client_ctx *client_ctx,
+		struct venc_ltruse *encoder_ltruse, u32 set_flag);
+
 #endif
