@@ -176,6 +176,7 @@ config ARCH_MSM8960
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
 	select MSM_KRAIT_WFE_FIXUP
+	select MSM_ULTRASOUND_A
 
 config ARCH_MSM8930
 	bool "MSM8930"
@@ -202,7 +203,7 @@ config ARCH_MSM8930
 	select MSM_REMOTE_SPINLOCK_SFPB
 	select ARCH_SPARSEMEM_ENABLE
 	select ARCH_HAS_HOLES_MEMORYMODEL
-	select MSM_ULTRASOUND
+	select MSM_ULTRASOUND_A
 	select MULTI_IRQ_HANDLER
 	select MSM_PM8X60 if PM
 	select HOLES_IN_ZONE if SPARSEMEM
@@ -235,6 +236,7 @@ config ARCH_APQ8064
 	select ARCH_SUPPORTS_MSI
 	select ARM_HAS_SG_CHAIN
 	select MSM_KRAIT_WFE_FIXUP
+	select MSM_ULTRASOUND_A
 
 config ARCH_MSM8974
 	bool "MSM8974"
@@ -2338,11 +2340,15 @@ config MSM_ADSP_LOADER
 	  for the platforms that use APRv2.
 	  Say M if you want to enable this module.
 
-config MSM_ULTRASOUND
-	bool "MSM ultrasound support"
-	depends on MSM_AUDIO_QDSP6
+config MSM_ULTRASOUND_A
+	bool "QDSP6 HW Ultrasound support"
 	help
-	  Enable support for qdsp6/ultrasound.
+          Enable HW ultrasound support in QDSP6.
+          QDSP6 can support HW encoder & decoder and
+          ultrasound processing. It will enable
+          ultrasound data paths between
+          HW and services, calculating input events
+          upon the  ultrasound data.
 
 config MSM_RPC_VIBRATOR
 	bool "RPC based MSM Vibrator Support"
