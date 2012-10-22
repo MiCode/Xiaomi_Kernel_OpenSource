@@ -91,6 +91,7 @@ enum dwc3_id_state {
 struct dwc3_ext_xceiv {
 	enum dwc3_id_state	id;
 	bool			bsv;
+	bool			otg_capability;
 
 	/* to notify OTG about LPM exit event, provided by OTG */
 	void	(*notify_ext_events)(struct usb_otg *otg,

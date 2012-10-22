@@ -28,6 +28,8 @@ Optional properties :
 - interrupt-names : Optional interrupt resource entries are:
     "hs_phy_irq" : Interrupt from HSPHY for asynchronous events in LPM.
 	This is not used if wakeup events are received externally (e.g. PMIC)
+- qcom,dwc-usb3-msm-otg-capability: If present then depends on PMIC
+  for VBUS notifications, otherwise depends on PHY.
 
 Example MSM USB3.0 controller device node :
 	usb@f9200000 {
