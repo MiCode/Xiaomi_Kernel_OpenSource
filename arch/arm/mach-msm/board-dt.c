@@ -57,3 +57,8 @@ void __init msm_dt_init_irq(void)
 	if (node)
 		of_mpm_init(node);
 }
+
+void __init msm_dt_init_irq_nompm(void)
+{
+	of_irq_init(irq_match);
+}
