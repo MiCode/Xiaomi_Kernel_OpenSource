@@ -59,6 +59,10 @@
 		};
 	};
 
+	qcom,mdss_mdp@fd900000 {
+		qcom,memory-reservation-size = <0x1000000>; /* size 16MB */
+	};
+
 	qcom,hdmi_tx@fd922100 {
 		status = "ok";
 	};
