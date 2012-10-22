@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,6 +152,7 @@ enum msm_ctrl_state {
 	MSM_CTRL_AWAKE,
 	MSM_CTRL_SLEEPING,
 	MSM_CTRL_ASLEEP,
+	MSM_CTRL_DOWN,
 };
 
 struct msm_slim_sps_bam {
@@ -176,6 +177,8 @@ struct msm_slim_qmi {
 	struct kthread_worker		kworker;
 	struct completion		qmi_comp;
 	struct notifier_block		nb;
+	struct work_struct		ssr_down;
+	struct work_struct		ssr_up;
 };
 
 struct msm_slim_ctrl {
@@ -212,8 +215,10 @@ struct msm_slim_ctrl {
 	bool			reconf_busy;
 	bool			chan_active;
 	enum msm_ctrl_state	state;
+	struct completion	ctrl_up;
 	int			nsats;
 	u32			ver;
+	struct work_struct	slave_notify;
 	struct msm_slim_qmi	qmi;
 };
 
@@ -266,7 +271,7 @@ u32 *msm_get_msg_buf(struct msm_slim_ctrl *dev, int len);
 int msm_slim_rx_msgq_get(struct msm_slim_ctrl *dev, u32 *data, int offset);
 int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 			u32 pipe_reg, bool remote);
-void msm_slim_sps_exit(struct msm_slim_ctrl *dev);
+void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg);
 
 void msm_slim_qmi_exit(struct msm_slim_ctrl *dev);
 int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master);

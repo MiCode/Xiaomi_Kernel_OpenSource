@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1409,7 +1409,7 @@ err_clk_get_failed:
 err_request_irq_failed:
 	kthread_stop(dev->rx_msgq_thread);
 err_thread_create_failed:
-	msm_slim_sps_exit(dev);
+	msm_slim_sps_exit(dev, true);
 err_sps_init_failed:
 	if (dev->hclk) {
 		clk_disable_unprepare(dev->hclk);
@@ -1453,7 +1453,7 @@ static int msm_slim_remove(struct platform_device *pdev)
 	clk_put(dev->rclk);
 	if (dev->hclk)
 		clk_put(dev->hclk);
-	msm_slim_sps_exit(dev);
+	msm_slim_sps_exit(dev, true);
 	kthread_stop(dev->rx_msgq_thread);
 	iounmap(dev->bam.base);
 	iounmap(dev->base);
