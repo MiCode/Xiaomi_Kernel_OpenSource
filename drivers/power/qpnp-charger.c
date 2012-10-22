@@ -189,6 +189,7 @@ struct qpnp_chg_chip {
 	bool				chg_done;
 	bool				usb_present;
 	bool				dc_present;
+	bool				charging_disabled;
 	unsigned int			max_bat_chg_current;
 	unsigned int			safe_voltage_mv;
 	unsigned int			max_voltage_mv;
@@ -201,9 +202,6 @@ struct qpnp_chg_chip {
 	struct power_supply		batt_psy;
 	uint32_t			flags;
 };
-
-static struct qpnp_chg_chip *the_chip;
-static bool charging_disabled;
 
 static struct of_device_id qpnp_charger_match_table[] = {
 	{ .compatible = QPNP_CHARGER_DEV_NAME, },
@@ -424,6 +422,20 @@ qpnp_chg_chgr_chg_done_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+static int
+qpnp_batt_property_is_writeable(struct power_supply *psy,
+						enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		return 1;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static enum power_supply_property pm_power_props_mains[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
@@ -462,7 +474,7 @@ qpnp_power_get_property_mains(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = 0;
-		if (charging_disabled)
+		if (chip->charging_disabled)
 			return 0;
 
 		val->intval = qpnp_chg_is_dc_chg_plugged_in(chip);
@@ -753,7 +765,7 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 		val->intval = get_prop_full_design(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = !charging_disabled;
+		val->intval = !(chip->charging_disabled);
 		break;
 	default:
 		return -EINVAL;
@@ -776,7 +788,7 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 			qpnp_chg_charge_en(chip, val->intval);
 		else
 			qpnp_chg_charge_dis(chip, val->intval);
-		charging_disabled = !(val->intval);
+		chip->charging_disabled = !(val->intval);
 		break;
 	default:
 		return -EINVAL;
@@ -785,25 +797,6 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 	power_supply_changed(&chip->batt_psy);
 	return 0;
 }
-
-static int
-qpnp_chg_set_disable_status_param(const char *val, struct kernel_param *kp)
-{
-	int ret;
-	struct qpnp_chg_chip *chip = the_chip;
-
-	ret = param_set_int(val, kp);
-	if (ret) {
-		pr_err("error setting value %d\n", ret);
-		return ret;
-	}
-	pr_info("factory set disable param to %d\n", charging_disabled);
-	if (chip)
-		qpnp_chg_charge_dis(chip, charging_disabled);
-	return 0;
-}
-module_param_call(disabled, qpnp_chg_set_disable_status_param, param_get_bool,
-					&charging_disabled, 0644);
 
 #define QPNP_CHG_VINMIN_MIN_MV		3400
 #define QPNP_CHG_VINMIN_HIGH_MIN_MV	5600
@@ -1146,7 +1139,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 
 	/* Get the charging-disabled property */
-	charging_disabled = of_property_read_bool(spmi->dev.of_node,
+	chip->charging_disabled = of_property_read_bool(spmi->dev.of_node,
 					"qcom,chg-charging-disabled");
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
@@ -1259,6 +1252,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	chip->batt_psy.num_properties = ARRAY_SIZE(msm_batt_power_props);
 	chip->batt_psy.get_property = qpnp_batt_power_get_property;
 	chip->batt_psy.set_property = qpnp_batt_power_set_property;
+	chip->batt_psy.property_is_writeable = qpnp_batt_property_is_writeable;
 	chip->batt_psy.external_power_changed =
 				qpnp_batt_external_power_changed;
 
@@ -1280,9 +1274,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	power_supply_set_present(chip->usb_psy,
 			qpnp_chg_is_usb_chg_plugged_in(chip));
 
-	qpnp_chg_charge_en(chip, 1);
-	the_chip = chip;
-	qpnp_chg_charge_dis(chip, charging_disabled);
+	qpnp_chg_charge_en(chip, !chip->charging_disabled);
+	qpnp_chg_charge_dis(chip, chip->charging_disabled);
 
 	pr_info("Probe success !\n");
 	return 0;
