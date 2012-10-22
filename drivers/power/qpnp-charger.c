@@ -1145,6 +1145,10 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		goto fail_chg_enable;
 	}
 
+	/* Get the charging-disabled property */
+	charging_disabled = of_property_read_bool(spmi->dev.of_node,
+					"qcom,chg-charging-disabled");
+
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
 			pr_err("qpnp_chg: spmi resource absent\n");
@@ -1278,6 +1282,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	qpnp_chg_charge_en(chip, 1);
 	the_chip = chip;
+	qpnp_chg_charge_dis(chip, charging_disabled);
+
 	pr_info("Probe success !\n");
 	return 0;
 
@@ -1293,7 +1299,6 @@ static int __devexit
 qpnp_charger_remove(struct spmi_device *spmi)
 {
 	struct qpnp_chg_chip *chip = dev_get_drvdata(&spmi->dev);
-
 	dev_set_drvdata(&spmi->dev, NULL);
 	kfree(chip);
 
