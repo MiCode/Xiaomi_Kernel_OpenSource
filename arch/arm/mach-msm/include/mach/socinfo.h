@@ -101,6 +101,7 @@ enum msm_cpu {
 	MSM_CPU_8064AB,
 	MSM_CPU_8930,
 	MSM_CPU_8930AA,
+	MSM_CPU_8930AB,
 	MSM_CPU_7X27AA,
 	MSM_CPU_9615,
 	MSM_CPU_8974,
@@ -337,6 +338,15 @@ static inline int cpu_is_msm8930aa(void)
 {
 #ifdef CONFIG_ARCH_MSM8930
 	return read_msm_cpu_type() == MSM_CPU_8930AA;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_msm8930ab(void)
+{
+#ifdef CONFIG_ARCH_MSM8930
+	return read_msm_cpu_type() == MSM_CPU_8930AB;
 #else
 	return 0;
 #endif
