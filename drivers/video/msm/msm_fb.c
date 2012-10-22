@@ -1747,9 +1747,12 @@ static int msm_fb_pan_idle(struct msm_fb_data_type *mfd)
 	mutex_lock(&mfd->sync_mutex);
 	if (mfd->is_committing) {
 		mutex_unlock(&mfd->sync_mutex);
-		ret = wait_for_completion_timeout(&mfd->commit_comp,
+		ret = wait_for_completion_interruptible_timeout(
+				&mfd->commit_comp,
 			msecs_to_jiffies(WAIT_FENCE_TIMEOUT));
 		if (ret <= 0)
+			ret = -ERESTARTSYS;
+		else if (!ret)
 			pr_err("%s wait for commit_comp timeout %d %d",
 				__func__, ret, mfd->is_committing);
 	} else {
