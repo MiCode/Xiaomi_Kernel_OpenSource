@@ -64,7 +64,7 @@
 #define QPNP_PON_RESET_TYPE_MAX		0xF
 #define PON_S1_COUNT_MAX		0xF
 
-#define QPNP_KEY_STATUS_DELAY		msecs_to_jiffies(500)
+#define QPNP_KEY_STATUS_DELAY		msecs_to_jiffies(250)
 
 enum pon_type {
 	PON_KPDPWR,
