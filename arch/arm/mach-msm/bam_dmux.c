@@ -193,6 +193,7 @@ static struct sps_mem_buffer tx_desc_mem_buf;
 static struct sps_mem_buffer rx_desc_mem_buf;
 static struct sps_register_event tx_register_event;
 static struct sps_register_event rx_register_event;
+static bool satellite_mode;
 
 static struct bam_ch_info bam_ch[BAM_DMUX_NUM_CHANNELS];
 static int bam_mux_initialized;
@@ -2074,7 +2075,7 @@ static int bam_init(void)
 	a2_props.options = SPS_BAM_OPT_IRQ_WAKEUP;
 	a2_props.num_pipes = A2_NUM_PIPES;
 	a2_props.summing_threshold = A2_SUMMING_THRESHOLD;
-	if (cpu_is_msm9615())
+	if (cpu_is_msm9615() || satellite_mode)
 		a2_props.manage = SPS_BAM_MGR_DEVICE_REMOTE;
 	/* need to free on tear down */
 	ret = sps_register_bam_device(&a2_props, &h);
@@ -2246,7 +2247,7 @@ static int bam_init_fallback(void)
 	a2_props.options = SPS_BAM_OPT_IRQ_WAKEUP;
 	a2_props.num_pipes = A2_NUM_PIPES;
 	a2_props.summing_threshold = A2_SUMMING_THRESHOLD;
-	if (cpu_is_msm9615())
+	if (cpu_is_msm9615() || satellite_mode)
 		a2_props.manage = SPS_BAM_MGR_DEVICE_REMOTE;
 	ret = sps_register_bam_device(&a2_props, &h);
 	if (ret < 0) {
@@ -2374,10 +2375,14 @@ static int bam_dmux_probe(struct platform_device *pdev)
 			pr_err("%s: irq field missing\n", __func__);
 			return -ENODEV;
 		}
-		DBG("%s: base:%p size:%x irq:%d\n", __func__,
+		satellite_mode = of_property_read_bool(pdev->dev.of_node,
+						"qcom,satellite-mode");
+
+		DBG("%s: base:%p size:%x irq:%d satellite:%d\n", __func__,
 							a2_phys_base,
 							a2_phys_size,
-							a2_bam_irq);
+							a2_bam_irq,
+							satellite_mode);
 	} else { /* fallback to default init data */
 		a2_phys_base = (void *)(A2_PHYS_BASE);
 		a2_phys_size = A2_PHYS_SIZE;
