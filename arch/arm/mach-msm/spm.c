@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -233,6 +233,12 @@ set_vdd_bail:
 	       __func__, cpu, timeout_us, msm_spm_get_sts_curr_pmic_data(dev));
 
 	return -EIO;
+}
+
+unsigned int msm_spm_get_vdd(unsigned int cpu)
+{
+	struct msm_spm_device *dev = &per_cpu(msm_spm_devices, cpu);
+	return dev->reg_shadow[MSM_SPM_REG_SAW_VCTL];
 }
 
 void msm_spm_reinit(void)
