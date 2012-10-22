@@ -1120,14 +1120,12 @@ skip_phy_resume:
 
 static void msm_otg_notify_host_mode(struct msm_otg *motg, bool host_mode)
 {
-	struct power_supply *usb = psy ? psy : &motg->usb_psy;
-
-	if (!usb) {
+	if (!psy) {
 		pr_err("No USB power supply registered!\n");
 		return;
 	}
 
-	if (psy) {
+	if (legacy_power_supply) {
 		/* legacy support */
 		if (host_mode)
 			power_supply_set_scope(psy, POWER_SUPPLY_SCOPE_SYSTEM);
@@ -1136,14 +1134,13 @@ static void msm_otg_notify_host_mode(struct msm_otg *motg, bool host_mode)
 		return;
 	} else {
 		motg->host_mode = host_mode;
-		power_supply_changed(usb);
+		power_supply_changed(psy);
 	}
 }
 
 static int msm_otg_notify_chg_type(struct msm_otg *motg)
 {
 	static int charger_type;
-	struct power_supply *usb = psy ? psy : &motg->usb_psy;
 
 	/*
 	 * TODO
@@ -1167,40 +1164,38 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
 	else
 		charger_type = POWER_SUPPLY_TYPE_BATTERY;
 
-	if (!usb) {
+	if (!psy) {
 		pr_err("No USB power supply registered!\n");
 		return -EINVAL;
 	}
 
 	pr_debug("setting usb power supply type %d\n", charger_type);
-	power_supply_set_supply_type(usb, charger_type);
+	power_supply_set_supply_type(psy, charger_type);
 	return 0;
 }
 
 static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
 {
-	struct power_supply *usb = psy ? psy : &motg->usb_psy;
-
-	if (!usb) {
+	if (!psy) {
 		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
 		goto psy_error;
 	}
 
 	if (motg->cur_power == 0 && mA > 2) {
 		/* Enable charging */
-		if (power_supply_set_online(usb, true))
+		if (power_supply_set_online(psy, true))
 			goto psy_error;
-		if (power_supply_set_current_limit(usb, 1000*mA))
+		if (power_supply_set_current_limit(psy, 1000*mA))
 			goto psy_error;
 	} else if (motg->cur_power > 0 && (mA == 0 || mA == 2)) {
 		/* Disable charging */
-		if (power_supply_set_online(usb, false))
+		if (power_supply_set_online(psy, false))
 			goto psy_error;
 		/* Set max current limit */
-		if (power_supply_set_current_limit(usb, 0))
+		if (power_supply_set_current_limit(psy, 0))
 			goto psy_error;
 	}
-	power_supply_changed(usb);
+	power_supply_changed(psy);
 	return 0;
 
 psy_error:
@@ -3386,8 +3381,7 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
 {
-	struct msm_otg *motg = container_of(psy, struct msm_otg,
-								usb_psy);
+	struct msm_otg *motg = container_of(psy, struct msm_otg, usb_psy);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_SCOPE:
 		if (motg->host_mode)
@@ -3413,8 +3407,7 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
 {
-	struct msm_otg *motg = container_of(psy, struct msm_otg,
-								usb_psy);
+	struct msm_otg *motg = container_of(psy, struct msm_otg, usb_psy);
 
 	switch (psp) {
 	/* Process PMIC notification in PRESENT prop */
@@ -4011,18 +4004,18 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	motg->usb_psy.get_property = otg_power_get_property_usb;
 	motg->usb_psy.set_property = otg_power_set_property_usb;
 
-	if (motg->pdata->otg_control == OTG_PMIC_CONTROL) {
+	if (!pm8921_charger_register_vbus_sn(NULL)) {
 		/* if pm8921 use legacy implementation */
-		if (!pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state)) {
-			dev_dbg(motg->phy.dev, "%s: legacy support\n",
-				__func__);
-			legacy_power_supply = true;
-		} else {
-			ret = msm_otg_register_power_supply(pdev, motg);
-			if (ret)
-				goto remove_phy;
-		}
+		dev_dbg(motg->phy.dev, "%s: legacy support\n", __func__);
+		legacy_power_supply = true;
+	} else {
+		/* otherwise register our own power supply */
+		if (!msm_otg_register_power_supply(pdev, motg))
+			psy = &motg->usb_psy;
 	}
+
+	if (legacy_power_supply && pdata->otg_control == OTG_PMIC_CONTROL)
+		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
 
 	return 0;
 
