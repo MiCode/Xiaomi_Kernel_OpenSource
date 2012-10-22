@@ -379,3 +379,14 @@ config CLEANCACHE
 	  in a negligible performance hit.
 
 	  If unsure, say Y to enable cleancache
+
+config MEMORY_HOLE_CARVEOUT
+        bool
+        help
+          MEMORY_HOLE_CARVEOUT is needed to include the msm_mem_hole driver
+          which is needed to enable/disable memblock-remove features for
+          device tree nodes that set compatible="qcom,msm-mem-hole". The
+          corresponding device tree node provides the address and size of
+          the memory corresponding to the hole to be removed using memblock-
+          remove.
+
