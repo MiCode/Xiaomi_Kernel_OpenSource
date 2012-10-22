@@ -110,6 +110,7 @@ struct vc_action {
 	uint8_t					buf_num;
 
 	bool					top_field;
+	bool					field_dropped;
 
 	struct timeval			vc_ts;
 	uint32_t				last_ts;

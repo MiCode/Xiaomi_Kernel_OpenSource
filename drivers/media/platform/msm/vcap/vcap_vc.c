@@ -248,6 +248,20 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 			c_data->vc_action.top_field =
 				!c_data->vc_action.top_field;
 
+			if (c_data->vc_format.mode == HAL_VCAP_MODE_INT)
+				c_data->vc_action.field_dropped =
+					!c_data->vc_action.field_dropped;
+
+			atomic_inc(&dev->dbg_p.vc_drop_count);
+			continue;
+		}
+		if (c_data->vc_format.mode == HAL_VCAP_MODE_INT &&
+				c_data->vc_action.field_dropped) {
+			spin_unlock(&c_data->cap_slock);
+			c_data->vc_action.field_dropped =
+				!c_data->vc_action.field_dropped;
+			c_data->vc_action.top_field =
+				!c_data->vc_action.top_field;
 			atomic_inc(&dev->dbg_p.vc_drop_count);
 			continue;
 		}
