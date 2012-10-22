@@ -1339,6 +1339,55 @@ int msm_venc_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 	return rc;
 }
 
+int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
+{
+	u32 property_id = 0, us_per_frame = 0;
+	void *pdata;
+	int rc = 0;
+	struct hal_frame_rate frame_rate;
+	property_id = HAL_CONFIG_FRAME_RATE;
+	if (a->parm.output.timeperframe.denominator) {
+		switch (a->type) {
+		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+			us_per_frame = a->parm.output.timeperframe.numerator/
+				a->parm.output.timeperframe.denominator;
+			break;
+		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+			us_per_frame = a->parm.capture.timeperframe.numerator/
+				a->parm.capture.timeperframe.denominator;
+			break;
+		default:
+			dprintk(VIDC_ERR,
+				"Scale clocks : Unknown buffer type\n");
+			break;
+		}
+	}
+
+	if (!us_per_frame) {
+		dprintk(VIDC_ERR,
+			"Failed to scale clocks : time between frames is 0\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+	inst->prop.fps = (u8) (USEC_PER_SEC / us_per_frame);
+	if (inst->prop.fps) {
+		frame_rate.frame_rate = inst->prop.fps * (0x1<<16);
+		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
+		pdata = &frame_rate;
+		rc = vidc_hal_session_set_property((void *)inst->session,
+				property_id, pdata);
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"Failed to set frame rate %d\n", rc);
+		}
+		if (msm_comm_scale_clocks(inst->core, inst->session_type)) {
+			dprintk(VIDC_WARN,
+				"Failed to scale clocks\n");
+		}
+	}
+exit:
+	return rc;
+}
 int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	const struct msm_vidc_format *fmt = NULL;

@@ -544,7 +544,42 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	}
 	return rc;
 }
-
+int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
+{
+	u32 us_per_frame = 0;
+	int rc = 0;
+	if (a->parm.output.timeperframe.denominator) {
+		switch (a->type) {
+		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+			us_per_frame = a->parm.output.timeperframe.numerator/
+				a->parm.output.timeperframe.denominator;
+			break;
+		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+			us_per_frame = a->parm.capture.timeperframe.numerator/
+				a->parm.capture.timeperframe.denominator;
+			break;
+		default:
+			dprintk(VIDC_ERR,
+				"Scale clocks : Unknown buffer type\n");
+			break;
+		}
+	}
+	if (!us_per_frame) {
+		dprintk(VIDC_ERR,
+				"Failed to scale clocks : time between frames is 0\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+	inst->prop.fps = (u8) (USEC_PER_SEC / us_per_frame);
+	if (inst->prop.fps) {
+		if (msm_comm_scale_clocks(inst->core, inst->session_type)) {
+			dprintk(VIDC_WARN,
+					"Failed to scale clocks\n");
+		}
+	}
+exit:
+	return rc;
+}
 int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	const struct msm_vidc_format *fmt = NULL;
