@@ -25,6 +25,9 @@
 
 static void dwc3_otg_reset(struct dwc3_otg *dotg);
 
+static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode);
+static void dwc3_otg_reset(struct dwc3_otg *dotg);
+
 /**
  * dwc3_otg_set_host_regs - reset dwc3 otg registers to host operation.
  *
@@ -124,6 +127,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			return ret;
 		}
 
+		dwc3_otg_notify_host_mode(otg, on);
 		ret = regulator_enable(dotg->vbus_otg);
 		if (ret) {
 			dev_err(otg->phy->dev, "unable to enable vbus_otg\n");
@@ -143,6 +147,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			dev_err(otg->phy->dev, "unable to disable vbus_otg\n");
 			return ret;
 		}
+		dwc3_otg_notify_host_mode(otg, on);
 
 		/* re-init core and OTG register as XHCI reset clears it */
 		dwc3_post_host_reset_core_init(dotg->dwc);
@@ -290,9 +295,11 @@ int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger)
 static void dwc3_ext_event_notify(struct usb_otg *otg,
 					enum dwc3_ext_events event)
 {
+	static bool init;
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
 	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 	struct usb_phy *phy = dotg->otg.phy;
+	int ret = 0;
 
 	if (event == DWC3_EVENT_PHY_RESUME) {
 		if (!pm_runtime_status_suspended(phy->dev)) {
@@ -300,7 +307,16 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 		} else {
 			dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
 			/* ext_xceiver would have taken h/w out of LPM by now */
-			pm_runtime_get(phy->dev);
+			ret = pm_runtime_get(phy->dev);
+			if (ret == -EACCES) {
+				/* pm_runtime_get may fail during system
+				   resume with -EACCES error */
+				pm_runtime_disable(phy->dev);
+				pm_runtime_set_active(phy->dev);
+				pm_runtime_enable(phy->dev);
+			} else if (ret < 0) {
+				dev_warn(phy->dev, "pm_runtime_get failed!\n");
+			}
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
 		if (ext_xceiv->id == DWC3_ID_FLOAT)
@@ -308,11 +324,20 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 		else
 			clear_bit(ID, &dotg->inputs);
 
-		if (ext_xceiv->bsv)
+		if (ext_xceiv->bsv) {
+			dev_dbg(phy->dev, "XCVR: BSV set\n");
 			set_bit(B_SESS_VLD, &dotg->inputs);
-		else
+		} else {
+			dev_dbg(phy->dev, "XCVR: BSV clear\n");
 			clear_bit(B_SESS_VLD, &dotg->inputs);
+		}
 
+		if (!init) {
+			init = true;
+			complete(&dotg->dwc3_xcvr_vbus_init);
+			dev_dbg(phy->dev, "XCVR: BSV init complete\n");
+			return;
+		}
 		schedule_work(&dotg->sm_work);
 	}
 }
@@ -333,6 +358,72 @@ int dwc3_set_ext_xceiv(struct usb_otg *otg, struct dwc3_ext_xceiv *ext_xceiv)
 		ext_xceiv->notify_ext_events = dwc3_ext_event_notify;
 
 	return 0;
+}
+
+static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode)
+{
+	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+
+	if (!dotg->psy) {
+		dev_err(otg->phy->dev, "no usb power supply registered\n");
+		return;
+	}
+
+	if (host_mode)
+		power_supply_set_scope(dotg->psy, POWER_SUPPLY_SCOPE_SYSTEM);
+	else
+		power_supply_set_scope(dotg->psy, POWER_SUPPLY_SCOPE_DEVICE);
+}
+
+static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
+{
+	static int power_supply_type;
+	struct dwc3_otg *dotg = container_of(phy->otg, struct dwc3_otg, otg);
+
+
+	if (!dotg->psy) {
+		dev_err(phy->dev, "no usb power supply registered\n");
+		return 0;
+	}
+
+	if (dotg->charger->chg_type == DWC3_SDP_CHARGER)
+		power_supply_type = POWER_SUPPLY_TYPE_USB;
+	else if (dotg->charger->chg_type == DWC3_CDP_CHARGER)
+		power_supply_type = POWER_SUPPLY_TYPE_USB_CDP;
+	else if (dotg->charger->chg_type == DWC3_DCP_CHARGER)
+		power_supply_type = POWER_SUPPLY_TYPE_USB_DCP;
+	else
+		power_supply_type = POWER_SUPPLY_TYPE_BATTERY;
+
+	power_supply_set_supply_type(dotg->psy, power_supply_type);
+
+	if (dotg->charger->max_power == mA)
+		return 0;
+
+	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
+
+	if (dotg->charger->max_power <= 2 && mA > 2) {
+		/* Enable charging */
+		if (power_supply_set_online(dotg->psy, true))
+			goto psy_error;
+		if (power_supply_set_current_limit(dotg->psy, 1000*mA))
+			goto psy_error;
+	} else if (dotg->charger->max_power > 0 && (mA == 0 || mA == 2)) {
+		/* Disable charging */
+		if (power_supply_set_online(dotg->psy, false))
+			goto psy_error;
+		/* Set max current limit */
+		if (power_supply_set_current_limit(dotg->psy, 0))
+			goto psy_error;
+	}
+
+	power_supply_changed(dotg->psy);
+	dotg->charger->max_power = mA;
+	return 0;
+
+psy_error:
+	dev_dbg(phy->dev, "power supply error when setting property\n");
+	return -ENXIO;
 }
 
 /* IRQs which OTG driver is interested in handling */
@@ -401,23 +492,32 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
 {
 	u32 osts = dwc3_readl(dotg->regs, DWC3_OSTS);
 	struct usb_phy *phy = dotg->otg.phy;
-
-	/*
-	 * TODO: If using external notifications then wait here till initial
-	 * state is reported
-	 */
+	struct dwc3_ext_xceiv *ext_xceiv;
+	int ret;
 
 	dev_dbg(phy->dev, "Initialize OTG inputs, osts: 0x%x\n", osts);
 
-	if (osts & DWC3_OTG_OSTS_CONIDSTS)
-		set_bit(ID, &dotg->inputs);
-	else
-		clear_bit(ID, &dotg->inputs);
+	/*
+	 * VBUS initial state is reported after PMIC
+	 * driver initialization. Wait for it.
+	 */
+	ret = wait_for_completion_timeout(&dotg->dwc3_xcvr_vbus_init, HZ * 5);
+	if (!ret)
+		dev_err(phy->dev, "%s: completion timeout\n", __func__);
 
-	if (osts & DWC3_OTG_OSTS_BSESVALID)
-		set_bit(B_SESS_VLD, &dotg->inputs);
-	else
-		clear_bit(B_SESS_VLD, &dotg->inputs);
+	ext_xceiv = dotg->ext_xceiv;
+	dwc3_otg_reset(dotg);
+	if (ext_xceiv && !ext_xceiv->otg_capability) {
+		if (osts & DWC3_OTG_OSTS_CONIDSTS)
+			set_bit(ID, &dotg->inputs);
+		else
+			clear_bit(ID, &dotg->inputs);
+
+		if (osts & DWC3_OTG_OSTS_BSESVALID)
+			set_bit(B_SESS_VLD, &dotg->inputs);
+		else
+			clear_bit(B_SESS_VLD, &dotg->inputs);
+	}
 }
 
 /**
@@ -442,6 +542,14 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	switch (phy->state) {
 	case OTG_STATE_UNDEFINED:
 		dwc3_otg_init_sm(dotg);
+		if (!dotg->psy) {
+			dotg->psy = power_supply_get_by_name("usb");
+
+			if (!dotg->psy)
+				dev_err(phy->dev,
+					 "couldn't get usb power supply\n");
+		}
+
 		/* Switch to A or B-Device according to ID / BSV */
 		if (!test_bit(ID, &dotg->inputs)) {
 			dev_dbg(phy->dev, "!id\n");
@@ -478,9 +586,13 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				switch (charger->chg_type) {
 				case DWC3_DCP_CHARGER:
 					dev_dbg(phy->dev, "lpm, DCP charger\n");
+					dwc3_otg_set_power(phy,
+							DWC3_IDEV_CHG_MAX);
 					pm_runtime_put_sync(phy->dev);
 					break;
 				case DWC3_CDP_CHARGER:
+					dwc3_otg_set_power(phy,
+							DWC3_IDEV_CHG_MAX);
 					dwc3_otg_start_peripheral(&dotg->otg,
 									1);
 					phy->state = OTG_STATE_B_PERIPHERAL;
@@ -521,6 +633,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					charger->chg_type =
 							DWC3_INVALID_CHARGER;
 			}
+			dwc3_otg_set_power(phy, 0);
 			dev_dbg(phy->dev, "No device, trying to suspend\n");
 			pm_runtime_put_sync(phy->dev);
 		}
@@ -587,6 +700,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 static void dwc3_otg_reset(struct dwc3_otg *dotg)
 {
 	static int once;
+	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
+
 	/*
 	 * OCFG[2] - OTG-Version = 1
 	 * OCFG[1] - HNPCap = 0
@@ -612,9 +727,10 @@ static void dwc3_otg_reset(struct dwc3_otg *dotg)
 	dwc3_writel(dotg->regs, DWC3_OEVT, 0xFFFF);
 
 	/* Enable ID/BSV StsChngEn event*/
-	dwc3_writel(dotg->regs, DWC3_OEVTEN,
-			DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT |
-			DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT);
+	if (ext_xceiv && !ext_xceiv->otg_capability)
+		dwc3_writel(dotg->regs, DWC3_OEVTEN,
+				DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT |
+				DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT);
 }
 
 /**
@@ -687,6 +803,7 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->dwc = dwc;
 	dotg->otg.phy->otg = &dotg->otg;
 	dotg->otg.phy->dev = dwc->dev;
+	dotg->otg.phy->set_power = dwc3_otg_set_power;
 
 	ret = usb_set_transceiver(dotg->otg.phy);
 	if (ret) {
@@ -696,10 +813,9 @@ int dwc3_otg_init(struct dwc3 *dwc)
 		goto err2;
 	}
 
-	dwc3_otg_reset(dotg);
-
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
 
+	init_completion(&dotg->dwc3_xcvr_vbus_init);
 	INIT_WORK(&dotg->sm_work, dwc3_otg_sm_work);
 
 	ret = request_irq(dotg->irq, dwc3_otg_interrupt, IRQF_SHARED,

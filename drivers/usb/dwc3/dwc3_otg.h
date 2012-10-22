@@ -17,8 +17,11 @@
 #define __LINUX_USB_DWC3_OTG_H
 
 #include <linux/workqueue.h>
+#include <linux/power_supply.h>
 
 #include <linux/usb/otg.h>
+
+#define DWC3_IDEV_CHG_MAX 1500
 
 struct dwc3_charger;
 
@@ -43,6 +46,8 @@ struct dwc3_otg {
 #define ID		0
 #define B_SESS_VLD	1
 	unsigned long inputs;
+	struct power_supply	*psy;
+	struct completion	dwc3_xcvr_vbus_init;
 };
 
 /**
@@ -64,6 +69,7 @@ enum dwc3_chg_type {
 
 struct dwc3_charger {
 	enum dwc3_chg_type	chg_type;
+	unsigned		max_power;
 
 	/* start/stop charger detection, provided by external charger module */
 	void	(*start_detection)(struct dwc3_charger *charger, bool start);
