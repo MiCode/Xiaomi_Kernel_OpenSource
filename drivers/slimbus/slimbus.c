@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3047,6 +3047,7 @@ int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup, u8 restart)
 	for (i = 0; i < ctrl->last_tid; i++) {
 		if (ctrl->txnt[i]) {
 			ret = -EBUSY;
+			pr_info("slim_clk_pause: txn-rsp for %d pending", i);
 			mutex_unlock(&ctrl->m_ctrl);
 			return -EBUSY;
 		}
@@ -3057,6 +3058,7 @@ int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup, u8 restart)
 	mutex_lock(&ctrl->sched.m_reconf);
 	/* Data channels active */
 	if (ctrl->sched.usedslots) {
+		pr_info("slim_clk_pause: data channel active");
 		ret = -EBUSY;
 		goto clk_pause_ret;
 	}
