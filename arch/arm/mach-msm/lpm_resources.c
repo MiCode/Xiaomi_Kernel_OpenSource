@@ -695,6 +695,10 @@ static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,
 {
 	struct msm_lpm_resource *rs = &msm_lpm_l2;
 	switch (action) {
+	case CPU_UP_PREPARE:
+	case CPU_UP_PREPARE_FROZEN:
+		rs->rs_data.value = MSM_LPM_L2_CACHE_ACTIVE;
+		break;
 	case CPU_ONLINE_FROZEN:
 	case CPU_ONLINE:
 		if (num_online_cpus() > 1)
