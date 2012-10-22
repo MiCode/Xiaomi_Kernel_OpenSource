@@ -117,13 +117,24 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD,
 		.name = "IDR Period",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 0,
+		.minimum = 1,
 		.maximum = 10*MAX_FRAME_RATE,
 		.default_value = DEFAULT_FRAME_RATE,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
-		.cluster = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
+		.name = "Intra Period",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = 10*MAX_FRAME_RATE,
+		.default_value = DEFAULT_FRAME_RATE,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_INTRA_PERIOD,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES,
@@ -142,7 +153,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Intra Period for B frames",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 10*DEFAULT_FRAME_RATE,
+		.maximum = 2,
 		.default_value = 0,
 		.step = 1,
 		.menu_skip_mask = 0,
@@ -965,6 +976,29 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		idr_period.idr_period = ctrl->val;
 		pdata = &idr_period;
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD: {
+		struct v4l2_ctrl *b;
+		b = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
+
+		if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264 &&
+			inst->fmts[CAPTURE_PORT]->fourcc !=
+				V4L2_PIX_FMT_H264_NO_SC) {
+			dprintk(VIDC_ERR, "Control 0x%x only valid for H264",
+					ctrl->id);
+			rc = -ENOTSUPP;
+			break;
+		}
+
+		/*
+		 * We can't set the I-period explicitly. So set it implicitly
+		 * by setting the number of P and B frames per I-period
+		 */
+		property_id = HAL_CONFIG_VENC_INTRA_PERIOD;
+		intra_period.pframes = (ctrl->val - 1) - b->val;
+		intra_period.bframes = b->val;
+		pdata = &intra_period;
+		break;
+	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
 
