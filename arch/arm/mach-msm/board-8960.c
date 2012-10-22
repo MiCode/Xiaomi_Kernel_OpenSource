@@ -3216,6 +3216,17 @@ static void __init msm8960_tsens_init(void)
 	msm_tsens_early_init(&msm_tsens_pdata);
 }
 
+static void __init msm8960_reset_spm_avs(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		pdata->reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0;
+		pdata->reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0;
+	}
+}
+
 static void __init msm8960_cdp_init(void)
 {
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
@@ -3269,8 +3280,12 @@ static void __init msm8960_cdp_init(void)
 		msm_isa1200_board_info[0].platform_data = &isa1200_1_pdata;
 	msm8960_i2c_init();
 	msm8960_gfx_init();
+
+	if (cpu_is_msm8960ab())
+		msm8960_reset_spm_avs();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
+
 	msm8960_init_buses();
 	platform_add_devices(msm8960_footswitch, msm8960_num_footswitch);
 	if (machine_is_msm8960_liquid())
