@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3080,6 +3080,108 @@ int mdp4_qseed_cfg(struct mdp_qseed_cfg_data *config)
 error:
 	return ret;
 }
+
+static int is_valid_calib_addr(void *addr)
+{
+	int ret = 0;
+	unsigned int ptr;
+
+	if (addr == NULL)
+		goto end;
+
+	ptr = (unsigned int) addr;
+
+	if (mdp_rev >= MDP_REV_30 && mdp_rev < MDP_REV_40) {
+		/* if request is outside the MDP reg-map or is not aligned 4 */
+		if (ptr > 0xF0600 || ptr % 0x4)
+			goto end;
+
+		if (ptr >= 0x90000 && ptr < 0x94000) {
+			if (ptr == 0x90000 || ptr == 0x90070)
+				ret = 1;
+			else if (ptr >= 0x93400 && ptr <= 0x93420)
+				ret = 1;
+			else if (ptr >= 0x93500 && ptr <= 0x93508)
+				ret = 1;
+			else if (ptr >= 0x93580 && ptr <= 0x93588)
+				ret = 1;
+			else if (ptr >= 0x93600 && ptr <= 0x93614)
+				ret = 1;
+			else if (ptr >= 0x93680 && ptr <= 0x93694)
+				ret = 1;
+			else if (ptr >= 0x93800 && ptr <= 0x93BFC)
+				ret = 1;
+		}
+	} else if (mdp_rev >= MDP_REV_40 && mdp_rev <= MDP_REV_44) {
+		/* if request is outside the MDP reg-map or is not aligned 4 */
+		if (ptr > 0xF0600 || ptr % 0x4)
+			goto end;
+
+		if (ptr < 0x90000) {
+			if (ptr == 0x4 || ptr == 0x28200 || ptr == 0x28204)
+				ret = 1;
+		} else if (ptr < 0x95000) {
+			if (ptr == 0x90000 || ptr == 0x90070)
+				ret = 1;
+			else if (ptr >= 0x93400 && ptr <= 0x93420)
+				ret = 1;
+			else if (ptr >= 0x93500 && ptr <= 0x93508)
+				ret = 1;
+			else if (ptr >= 0x93580 && ptr <= 0x93588)
+				ret = 1;
+			else if (ptr >= 0x93600 && ptr <= 0x93614)
+				ret = 1;
+			else if (ptr >= 0x93680 && ptr <= 0x93694)
+				ret = 1;
+			else if (ptr >= 0x94800 && ptr <= 0x94BFC)
+				ret = 1;
+		} else if (ptr < 0x9A000) {
+			if (ptr >= 0x98800 && ptr <= 0x9883C)
+				ret = 1;
+			else if (ptr >= 0x98880 && ptr <= 0x988AC)
+				ret = 1;
+			else if (ptr >= 0x98900 && ptr <= 0x9893C)
+				ret = 1;
+			else if (ptr >= 0x98980 && ptr <= 0x989BC)
+				ret = 1;
+			else if (ptr >= 0x98A00 && ptr <= 0x98A3C)
+				ret = 1;
+			else if (ptr >= 0x98A80 && ptr <= 0x98ABC)
+				ret = 1;
+			else if (ptr >= 0x99000 && ptr <= 0x993FC)
+				ret = 1;
+			else if (ptr >= 0x99800 && ptr <= 0x99BFC)
+				ret = 1;
+		} else if (ptr >= 0x9A000 && ptr <= 0x9a08c) {
+			ret = 1;
+		}
+	}
+end:
+	return ret;
+}
+
+int mdp4_calib_config(struct mdp_calib_config_data *cfg)
+{
+	int ret = -1;
+	void *ptr = (void *) cfg->addr;
+
+	if (is_valid_calib_addr(ptr))
+		ret = 0;
+	else
+		return ret;
+
+	ptr = (void *)(((unsigned int) ptr) + MDP_BASE);
+	mdp_clk_ctrl(1);
+	if (cfg->ops & MDP_PP_OPS_READ) {
+		cfg->data = inpdw(ptr);
+		ret = 1;
+	} else if (cfg->ops & MDP_PP_OPS_WRITE) {
+		outpdw(ptr, cfg->data);
+	}
+	mdp_clk_ctrl(0);
+	return ret;
+}
+
 u32 mdp4_get_mixer_num(u32 panel_type)
 {
 	u32 mixer_num;
