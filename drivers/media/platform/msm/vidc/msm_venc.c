@@ -513,18 +513,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.cluster = 0,
 	},
 	{
-		.id = V4L2_CID_QCOM_VIDEO_SYNC_FRAME_SEQ_HDR,
-		.name = "CodecConfig with sync frame",
-		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.minimum = 0,
-		.maximum = 1,
-		.default_value = 1,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-		.cluster = 0,
-	},
-	{
 		.id = V4L2_CID_MPEG_VIDEO_HEADER_MODE,
 		.name = "Sequence Header Mode",
 		.type = V4L2_CTRL_TYPE_MENU,
@@ -1388,12 +1376,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			HAL_PARAM_VENC_H264_DEBLOCK_CONTROL;
 		h264_db_control.slice_beta_offset = ctrl->val;
 		pdata = &h264_db_control;
-		break;
-	case V4L2_CID_QCOM_VIDEO_SYNC_FRAME_SEQ_HDR:
-		property_id =
-			HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER;
-		enable.enable = ctrl->val;
-		pdata = &enable;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEADER_MODE:
 		property_id =
