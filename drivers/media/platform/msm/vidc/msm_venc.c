@@ -97,6 +97,7 @@ enum msm_venc_ctrl_cluster {
 	MSM_VENC_CTRL_CLUSTER_H264_ENTROPY,
 	MSM_VENC_CTRL_CLUSTER_SLICING,
 	MSM_VENC_CTRL_CLUSTER_INTRA_REFRESH,
+	MSM_VENC_CTRL_CLUSTER_BITRATE,
 	MSM_VENC_CTRL_CLUSTER_MAX,
 };
 
@@ -174,7 +175,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL,
-		.name = "Rate Control",
+		.name = "Video Framerate and Bitrate Control",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_OFF,
 		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR,
@@ -188,7 +189,22 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR)
 		),
 		.qmenu = mpeg_video_rate_control,
-		.cluster = 0,
+		.cluster = MSM_VENC_CTRL_CLUSTER_BITRATE,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
+		.name = "Bitrate Control",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
+		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
+		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
+		.step = 0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) |
+		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_CBR)
+		),
+		.qmenu = mpeg_video_rate_control,
+		.cluster = MSM_VENC_CTRL_CLUSTER_BITRATE,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_BITRATE,
@@ -200,7 +216,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = BIT_RATE_STEP,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
-		.cluster = 0,
+		.cluster = MSM_VENC_CTRL_CLUSTER_BITRATE,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
@@ -1023,6 +1039,58 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		request_iframe.enable = true;
 		pdata = &request_iframe;
 		break;
+	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
+	{
+		bool cfr = true, cbr = true;
+		int final_mode = 0;
+
+		temp_ctrl = TRY_GET_CTRL(
+			V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL);
+
+		switch (temp_ctrl->val) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_OFF:
+			/* Let's assume CFR */
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR:
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR:
+			cfr = true;
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR:
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_VFR:
+			cfr = false;
+			break;
+		default:
+			dprintk(VIDC_WARN, "Unknown framerate mode");
+		}
+
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDEO_BITRATE_MODE_VBR:
+			cbr = false;
+			break;
+		case V4L2_MPEG_VIDEO_BITRATE_MODE_CBR:
+			cbr = true;
+			break;
+		default:
+			dprintk(VIDC_WARN, "Unknown bitrate mode");
+		}
+
+		if (!cfr && !cbr)
+			final_mode =
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR;
+		else if (!cfr && cbr)
+			final_mode =
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_VFR;
+		else if (cfr && !cbr)
+			final_mode =
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR;
+		else /* ... if (cfr && cbr) */
+			final_mode =
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR;
+
+		property_id = HAL_PARAM_VENC_RATE_CONTROL;
+		property_val = final_mode;
+		pdata = &property_val;
+		break;
+	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL:
 		property_id = HAL_PARAM_VENC_RATE_CONTROL;
 		property_val = ctrl->val;
