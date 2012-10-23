@@ -161,6 +161,21 @@
 			};
 		};
 	};
+
+	ext_5v: regulator-smb210 {
+		compatible = "regulator-fixed";
+		regulator-name = "ext_5v";
+		gpio = <&pm8941_mpps 2 0>;
+		enable-active-high;
+	};
+};
+
+&pm8941_mvs1 {
+	parent-supply = <&ext_5v>;
+};
+
+&pm8941_mvs2 {
+	parent-supply = <&ext_5v>;
 };
 
 &pm8941_gpios {
@@ -308,6 +323,12 @@
 	};
 
 	mpp@a100 { /* MPP 2 */
+		/* ext_5v regulator enable */
+		qcom,mode = <1>; /* Digital output */
+		qcom,invert = <0>; /* Output low initially */
+		qcom,vin-sel = <2>; /* PM8941 S3 = 1.8 V */
+		qcom,src-select = <0>; /* Constant */
+		qcom,master-en = <1>; /* Enable MPP */
 	};
 
 	mpp@a200 { /* MPP 3 */
