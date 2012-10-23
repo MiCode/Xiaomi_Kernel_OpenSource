@@ -75,7 +75,7 @@ struct gss_data {
 	struct subsys_desc subsys_desc;
 	int crash_shutdown;
 	int irq;
-	void *pil_handle;
+	void *subsys_handle;
 	struct ramdump_device *ramdump_dev;
 	struct ramdump_device *smem_ramdump_dev;
 };
@@ -371,6 +371,26 @@ static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
 	}
 }
 
+static int gss_start(const struct subsys_desc *desc)
+{
+	void *ret;
+	struct gss_data *drv;
+
+	drv = container_of(desc, struct gss_data, subsys_desc);
+	ret = pil_get("gss");
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void gss_stop(const struct subsys_desc *desc)
+{
+	struct gss_data *drv;
+
+	drv = container_of(desc, struct gss_data, subsys_desc);
+	pil_put(drv->pil);
+}
+
 static int gss_shutdown(const struct subsys_desc *desc)
 {
 	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
@@ -443,13 +463,12 @@ static irqreturn_t gss_wdog_bite_irq(int irq, void *dev_id)
 
 static int gss_open(struct inode *inode, struct file *filp)
 {
-	void *ret;
 	struct miscdevice *c = filp->private_data;
 	struct gss_data *drv = container_of(c, struct gss_data, misc_dev);
 
-	drv->pil_handle = ret = pil_get("gss");
-	if (!ret)
-		pr_debug("%s - pil_get returned NULL\n", __func__);
+	drv->subsys_handle = subsystem_get("gss");
+	if (!drv->subsys_handle)
+		pr_debug("%s - subsystem_get returned NULL\n", __func__);
 
 	return 0;
 }
@@ -459,8 +478,8 @@ static int gss_release(struct inode *inode, struct file *filp)
 	struct miscdevice *c = filp->private_data;
 	struct gss_data *drv = container_of(c, struct gss_data, misc_dev);
 
-	pil_put(drv->pil_handle);
-	pr_debug("%s pil_put called on GSS\n", __func__);
+	subsystem_put(drv->subsys_handle);
+	pr_debug("%s subsystem_put called on GSS\n", __func__);
 
 	return 0;
 }
@@ -538,6 +557,10 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "Unable to register SMSM callback\n");
 
 	drv->subsys_desc.name = "gss";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = gss_start;
+	drv->subsys_desc.stop = gss_stop;
 	drv->subsys_desc.shutdown = gss_shutdown;
 	drv->subsys_desc.powerup = gss_powerup;
 	drv->subsys_desc.ramdump = gss_ramdump;
