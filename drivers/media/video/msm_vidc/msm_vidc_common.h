@@ -34,6 +34,11 @@ int msm_comm_scale_clocks(struct msm_vidc_core *core, enum session_type type);
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
+void msm_comm_unload_fw(struct msm_vidc_core *core);
+void change_inst_state(struct msm_vidc_inst *inst,
+	enum instance_state state);
+int msm_comm_unset_ocmem(struct msm_vidc_core *core);
+int msm_comm_free_ocmem(struct msm_vidc_core *core);
 #define IS_PRIV_CTRL(idx) (\
 		(V4L2_CTRL_ID2CLASS(idx) == V4L2_CTRL_CLASS_MPEG) && \
 		V4L2_CTRL_DRIVER_PRIV(idx))
