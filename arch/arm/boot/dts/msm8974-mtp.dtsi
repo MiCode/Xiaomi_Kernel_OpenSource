@@ -1,0 +1,408 @@
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "dsi-panel-toshiba-720p-video.dtsi"
+
+/ {
+	serial@f991e000 {
+		status = "ok";
+	};
+
+	qcom,mdss_dsi@fd922800 {
+		qcom,mdss_dsi_toshiba_720p_video {
+			status = "ok";
+		};
+	};
+
+	qcom,hdmi_tx@fd922100 {
+		status = "disabled";
+	};
+
+	i2c@f9924000 {
+		atmel_mxt_ts@4a {
+			compatible = "atmel,mxt-ts";
+			reg = <0x4a>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <61 0x2>;
+			vdd_ana-supply = <&pm8941_l18>;
+			vcc_i2c-supply = <&pm8941_lvs1>;
+			atmel,reset-gpio = <&msmgpio 60 0x00>;
+			atmel,irq-gpio = <&msmgpio 61 0x00>;
+			atmel,panel-coords = <0  0 760 1424>;
+			atmel,display-coords = <0 0 720 1280>;
+			atmel,i2c-pull-up = <1>;
+			atmel,cfg_1 {
+				atmel,family-id = <0x82>;
+				atmel,variant-id = <0x19>;
+				atmel,version = <0x10>;
+				atmel,build = <0xaa>;
+				atmel,config = [
+					/* Object 6, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 38, Instance = 0 */
+					15 00 02 10 08 0C 00 00
+					/* Object 7, Instance = 0 */
+					FF FF 32 03
+					/* Object 8, Instance = 0 */
+					0F 00 0A 0A 00 00 0A 00 00 00
+					/* Object 9, Instance = 0 */
+					83 00 00 18 0E 00 70 32 02 01
+					00 03 01 01 05 0A 0A 0A 90 05
+					F8 02 00 00 0F 0F 00 00 48 2D
+					07 0C 00 00 00 00
+					/* Object 15, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					00
+					/* Object 18, Instance = 0 */
+					00 00
+					/* Object 19, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 23, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00
+					/* Object 25, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00
+					/* Object 40, Instance = 0 */
+					00 00 00 00 00
+					/* Object 42, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					/* Object 46, Instance = 0 */
+					00 00 10 10 00 00 03 00 00 01
+					/* Object 47, Instance = 0 */
+					08 0A 28 0A 02 0A 00 8C 00 20
+					00 00 00
+					/* Object 55, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 56, Instance = 0 */
+					03 00 01 18 05 05 05 05 05 05
+					05 05 05 05 05 05 05 05 05 05
+					05 05 05 05 05 05 05 05 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00
+					/* Object 57, Instance = 0 */
+					00 00 00
+					/* Object 61, Instance = 0 */
+					00 00 00 00 00
+					/* Object 61, Instance = 1 */
+					00 00 00 00 00
+					/* Object 62, Instance = 0 */
+					7F 03 00 16 00 00 00 00 00 00
+					04 08 10 18 05 00 0A 05 05 50
+					14 19 34 1A 64 00 00 04 40 00
+					00 00 00 00 30 32 02 00 01 00
+					05 00 00 00 00 00 00 00 00 00
+					00 00 0C 00
+					];
+			};
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&pm8941_gpios 3 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2fe>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		camera_focus {
+			label = "camera_focus";
+			gpios = <&pm8941_gpios 4 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x210>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&pm8941_gpios 5 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
+
+	spi@f9923000 {
+		ethernet-switch@2 {
+			compatible = "micrel,ks8851";
+			reg = <2>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <94 0>;
+			spi-max-frequency = <4800000>;
+			rst-gpio = <&pm8941_mpps 6 0>;
+			vdd-io-supply = <&spi_eth_vreg>;
+			vdd-phy-supply = <&spi_eth_vreg>;
+		};
+	};
+};
+
+&sdcc2 {
+	#address-cells = <0>;
+	interrupt-parent = <&sdcc2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 220 0
+			2 &msmgpio 62 0x3>;
+	interrupt-names = "core_irq", "bam_irq", "status_irq";
+	cd-gpios = <&msmgpio 62 0x1>;
+};
+
+&usb_otg {
+	qcom,hsusb-otg-otg-control = <2>;
+};
+
+&usb3 {
+	qcom,dwc-usb3-msm-otg-capability;
+};
+
+&pm8941_chg {
+	status = "ok";
+
+	qcom,chg-charging-disabled;
+
+	qcom,chg-chgr@1000 {
+		status = "ok";
+	};
+
+	qcom,chg-buck@1100 {
+		status = "ok";
+	};
+
+	qcom,chg-bat-if@1200 {
+		status = "ok";
+	};
+
+	qcom,chg-usb-chgpth@1300 {
+		status = "ok";
+	};
+
+	qcom,chg-dc-chgpth@1400 {
+		status = "ok";
+	};
+
+	qcom,chg-boost@1500 {
+		status = "ok";
+	};
+
+	qcom,chg-misc@1600 {
+		status = "ok";
+	};
+};
+
+&pm8941_gpios {
+	gpio@c000 { /* GPIO 1 */
+	};
+
+	gpio@c100 { /* GPIO 2 */
+	};
+
+	gpio@c200 { /* GPIO 3 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,select = <0>;
+	};
+
+	gpio@c300 { /* GPIO 4 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,select = <0>;
+	};
+
+	gpio@c400 { /* GPIO 5 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,select = <0>;
+	};
+
+	gpio@c500 { /* GPIO 6 */
+	};
+
+	gpio@c600 { /* GPIO 7 */
+	};
+
+	gpio@c700 { /* GPIO 8 */
+	};
+
+	gpio@c800 { /* GPIO 9 */
+	};
+
+	gpio@c900 { /* GPIO 10 */
+	};
+
+	gpio@ca00 { /* GPIO 11 */
+	};
+
+	gpio@cb00 { /* GPIO 12 */
+	};
+
+	gpio@cc00 { /* GPIO 13 */
+	};
+
+	gpio@cd00 { /* GPIO 14 */
+	};
+
+	gpio@ce00 { /* GPIO 15 */
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>;
+		qcom,out-strength = <3>;
+		qcom,src-select = <2>;
+		qcom,master-en = <1>;
+	};
+
+	gpio@cf00 { /* GPIO 16 */
+	};
+
+	gpio@d000 { /* GPIO 17 */
+	};
+
+	gpio@d100 { /* GPIO 18 */
+	};
+
+	gpio@d200 { /* GPIO 19 */
+		qcom,mode = <1>;		/* QPNP_PIN_MODE_DIG_OUT */
+		qcom,output-type = <0>;		/* QPNP_PIN_OUT_BUF_CMOS */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,out-strength = <2>;	/* QPNP_PIN_OUT_STRENGTH_MED */
+		qcom,src-select = <0>;		/* QPNP_PIN_SEL_FUNC_CONSTANT */
+		qcom,master-en = <1>;
+	};
+
+	gpio@d300 { /* GPIO 20 */
+	};
+
+	gpio@d400 { /* GPIO 21 */
+	};
+
+	gpio@d500 { /* GPIO 22 */
+	};
+
+	gpio@d600 { /* GPIO 23 */
+	};
+
+	gpio@d700 { /* GPIO 24 */
+	};
+
+	gpio@d800 { /* GPIO 25 */
+	};
+
+	gpio@d900 { /* GPIO 26 */
+	};
+
+	gpio@da00 { /* GPIO 27 */
+	};
+
+	gpio@db00 { /* GPIO 28 */
+	};
+
+	gpio@dc00 { /* GPIO 29 */
+		qcom,pull = <0>; /* set to default pull */
+		qcom,master-en = <1>;
+		qcom,vin-sel = <2>; /* select 1.8 V source */
+	};
+
+	gpio@dd00 { /* GPIO 30 */
+	};
+
+	gpio@de00 { /* GPIO 31 */
+	};
+
+	gpio@df00 { /* GPIO 32 */
+	};
+
+	gpio@e000 { /* GPIO 33 */
+	};
+
+	gpio@e100 { /* GPIO 34 */
+	};
+
+	gpio@e200 { /* GPIO 35 */
+	};
+
+	gpio@e300 { /* GPIO 36 */
+	};
+};
+
+&pm8941_mpps {
+
+	mpp@a000 { /* MPP 1 */
+	};
+
+	mpp@a100 { /* MPP 2 */
+	};
+
+	mpp@a200 { /* MPP 3 */
+	};
+
+	mpp@a300 { /* MPP 4 */
+	};
+
+	mpp@a400 { /* MPP 5 */
+		/* SPI_ETH config */
+		qcom,mode = <1>; /* DIG_OUT */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,vin-sel = <2>; /* PM8941_S3 1.8V > 1.6V */
+		qcom,src-select = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
+	};
+
+	mpp@a500 { /* MPP 6 */
+		/* SPI_ETH_RST config */
+		qcom,mode = <1>; /* DIG_OUT */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,vin-sel = <2>; /* PM8941_S3 1.8V > 1.6V */
+		qcom,src-select = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
+	};
+
+	mpp@a600 { /* MPP 7 */
+	};
+
+	mpp@a700 { /* MPP 8 */
+	};
+};
+
+&pm8841_mpps {
+
+	mpp@a000 { /* MPP 1 */
+	};
+
+	mpp@a100 { /* MPP 2 */
+	};
+
+	mpp@a200 { /* MPP 3 */
+	};
+
+	mpp@a300 { /* MPP 4 */
+	};
+};
+
+&slim_msm {
+	taiko_codec {
+		qcom,cdc-micbias2-ext-cap;
+	};
+};
