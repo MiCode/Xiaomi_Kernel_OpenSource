@@ -35,6 +35,8 @@ unsigned int dci_max_reg = 100;
 unsigned int dci_max_clients = 10;
 unsigned char dci_cumulative_log_mask[DCI_LOG_MASK_SIZE];
 unsigned char dci_cumulative_event_mask[DCI_EVENT_MASK_SIZE];
+struct mutex dci_log_mask_mutex;
+struct mutex dci_event_mask_mutex;
 
 #define DCI_CHK_CAPACITY(entry, new_data_len)				\
 ((entry->data_len + new_data_len > entry->total_capacity) ? 1 : 0)	\
@@ -91,14 +93,15 @@ static void diag_smd_dci_send_req(int proc_num)
 			read_bytes += 5 + dci_pkt_len;
 			buf += 5 + dci_pkt_len; /* advance to next DCI pkt */
 		}
-		driver->in_busy_dci = 1;
 		/* wake up all sleeping DCI clients which have some data */
 		for (i = 0; i < MAX_DCI_CLIENTS; i++)
 			if (driver->dci_client_tbl[i].client &&
-					 driver->dci_client_tbl[i].data_len)
+				driver->dci_client_tbl[i].data_len) {
+				driver->in_busy_dci = 1;
 				diag_update_sleeping_process(
 					driver->dci_client_tbl[i].client->tgid,
 						 DCI_DATA_TYPE);
+			}
 	}
 }
 
@@ -224,6 +227,8 @@ void extract_dci_events(unsigned char *buf)
 							dropped_events++;
 						return;
 					}
+					driver->dci_client_tbl[i].
+							received_events++;
 					*(int *)(entry->dci_data+
 					entry->data_len) = DCI_EVENT_TYPE;
 					memcpy(entry->dci_data+
@@ -281,6 +286,7 @@ void extract_dci_log(unsigned char *buf)
 								dropped_logs++;
 						return;
 				}
+				driver->dci_client_tbl[i].received_logs++;
 				*(int *)(entry->dci_data+entry->data_len) =
 								DCI_LOG_TYPE;
 				memcpy(entry->dci_data+entry->data_len+4, buf+4,
@@ -378,14 +384,6 @@ int diag_register_dci_transaction(int uid)
 		}
 	}
 	mutex_lock(&driver->dci_mutex);
-	if (new_dci_client)
-		driver->num_dci_client++;
-	if (driver->num_dci_client > MAX_DCI_CLIENTS) {
-		pr_info("diag: Max DCI Client limit reached\n");
-		driver->num_dci_client--;
-		mutex_unlock(&driver->dci_mutex);
-		return ret;
-	}
 	/* Make an entry in kernel DCI table */
 	driver->dci_tag++;
 	for (i = 0; i < dci_max_reg; i++) {
@@ -483,7 +481,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		temp += 4;
 
 		head_log_mask_ptr = driver->dci_client_tbl[i].dci_log_mask;
-		pr_info("diag: head of dci log mask %p\n", head_log_mask_ptr);
+		pr_debug("diag: head of dci log mask %p\n", head_log_mask_ptr);
 		count = 0; /* iterator for extracting log codes */
 		while (count < num_codes) {
 			log_code = *(uint16_t *)temp;
@@ -500,11 +498,11 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			while (log_mask_ptr) {
 				if (*log_mask_ptr == equip_id) {
 					found = 1;
-					pr_info("diag: find equip id = %x at %p\n",
+					pr_debug("diag: find equip id = %x at %p\n",
 						 equip_id, log_mask_ptr);
 					break;
 				} else {
-					pr_info("diag: did not find equip id = %x at %p\n",
+					pr_debug("diag: did not find equip id = %x at %p\n",
 						 equip_id, log_mask_ptr);
 					log_mask_ptr += 514;
 				}
@@ -583,9 +581,11 @@ void update_dci_cumulative_event_mask(int client_index)
 	uint8_t *update_ptr = dci_cumulative_event_mask;
 	uint8_t *event_mask_ptr;
 
+	mutex_lock(&dci_event_mask_mutex);
 	event_mask_ptr = driver->dci_client_tbl[client_index].dci_event_mask;
 	for (i = 0; i < DCI_EVENT_MASK_SIZE; i++)
 		*(update_ptr+i) |= *(event_mask_ptr+i);
+	mutex_unlock(&dci_event_mask_mutex);
 }
 
 void diag_send_dci_event_mask(smd_channel_t *ch)
@@ -631,6 +631,7 @@ void update_dci_cumulative_log_mask(int client_index)
 	uint8_t *log_mask_ptr =
 	driver->dci_client_tbl[client_index].dci_log_mask;
 
+	mutex_lock(&dci_log_mask_mutex);
 	*update_ptr = 0; /* add first equip id */
 	/* skip the first equip id */
 	update_ptr++; log_mask_ptr++;
@@ -644,6 +645,7 @@ void update_dci_cumulative_log_mask(int client_index)
 		update_ptr++;
 		log_mask_ptr++;
 	}
+	mutex_unlock(&dci_log_mask_mutex);
 }
 
 void diag_send_dci_log_mask(smd_channel_t *ch)
@@ -743,6 +745,8 @@ int diag_dci_init(void)
 	driver->num_dci_client = 0;
 	driver->in_busy_dci = 0;
 	mutex_init(&driver->dci_mutex);
+	mutex_init(&dci_log_mask_mutex);
+	mutex_init(&dci_event_mask_mutex);
 	if (driver->buf_in_dci == NULL) {
 		driver->buf_in_dci = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
 		if (driver->buf_in_dci == NULL)
