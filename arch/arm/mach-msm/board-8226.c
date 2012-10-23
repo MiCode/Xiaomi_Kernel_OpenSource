@@ -66,46 +66,6 @@ static int msm8226_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
 }
-static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("core_clk",   NULL,           "f9926000.i2c", OFF),
-	CLK_DUMMY("iface_clk",  NULL,           "f9926000.i2c", OFF),
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "f9a55000.usb", OFF),
-	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "f9a55000.usb", OFF),
-	CLK_DUMMY("dfab_clk",	DFAB_CLK, "msm_sps", OFF),
-	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK, "msm_sps", OFF),
-	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("core_clk",	NULL,		"f9928000.spi", OFF),
-	CLK_DUMMY("iface_clk",	NULL,		"f9928000.spi", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fda64000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fda64000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fda44000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fda44000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fd928000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fd928000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fdb10000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fdb10000.qcom,iommu", OFF),
-	CLK_DUMMY("alt_core_clk",	NULL, "fdb10000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fdc84000.qcom,iommu", OFF),
-	CLK_DUMMY("alt_core_clk",	NULL, "fdc84000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fdc84000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fdd00000.qcom,ocmem", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fdd00000.qcom,ocmem", OFF),
-	CLK_DUMMY("br_clk",		NULL, "fdd00000.qcom,ocmem", OFF),
-	CLK_DUMMY("gpll0",		NULL, "f9011050.qcom,acpuclk", OFF),
-	CLK_DUMMY("a7sspll",		NULL, "f9011050.qcom,acpuclk", OFF),
-};
-
-static struct clock_init_data msm_dummy_clock_init_data __initdata = {
-	.table = msm_clocks_dummy,
-	.size = ARRAY_SIZE(msm_clocks_dummy),
-};
 
 static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
@@ -144,7 +104,11 @@ void __init msm8226_add_drivers(void)
 	msm_rpm_driver_init();
 	msm_lpmrs_module_init();
 	msm_spm_device_init();
-	msm_clock_init(&msm_dummy_clock_init_data);
+	if (machine_is_msm8226_rumi())
+		msm_clock_init(&msm8226_rumi_clock_init_data);
+	else
+		msm_clock_init(&msm8226_clock_init_data);
+
 	msm_thermal_device_init();
 }
 
