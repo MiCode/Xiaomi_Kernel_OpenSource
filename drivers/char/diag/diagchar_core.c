@@ -246,17 +246,23 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	int i = 0;
 	struct diagchar_priv *diagpriv_data = file->private_data;
 
+	pr_debug("diag: process exit %s\n", current->comm);
 	if (!(file->private_data)) {
 		pr_alert("diag: Invalid file pointer");
 		return -ENOMEM;
 	}
-
-	/* clean up any DCI registrations for this client
+	/* clean up any DCI registrations, if this is a DCI client
 	* This will specially help in case of ungraceful exit of any DCI client
 	* This call will remove any pending registrations of such client
 	*/
-	diagchar_ioctl(NULL, DIAG_IOCTL_DCI_DEINIT, 0);
-
+	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		if (driver->dci_client_tbl[i].client &&
+			driver->dci_client_tbl[i].client->tgid ==
+							 current->tgid) {
+			diagchar_ioctl(NULL, DIAG_IOCTL_DCI_DEINIT, 0);
+			break;
+		}
+	}
 	/* If the exiting process is the socket process */
 	if (driver->socket_process &&
 		(driver->socket_process->tgid == current->tgid)) {
@@ -377,7 +383,9 @@ long diagchar_ioctl(struct file *filp,
 	int success = -1;
 	void *temp_buf;
 	uint16_t support_list = 0;
-	struct diag_dci_client_tbl *notify_params;
+	struct diag_dci_client_tbl *params =
+		kzalloc(sizeof(struct diag_dci_client_tbl), GFP_KERNEL);
+	struct diag_dci_health_stats stats;
 	int status;
 
 	if (iocmd == DIAG_IOCTL_COMMAND_REG) {
@@ -451,8 +459,12 @@ long diagchar_ioctl(struct file *filp,
 			return DIAG_DCI_NO_REG;
 		if (driver->num_dci_client >= MAX_DCI_CLIENTS)
 			return DIAG_DCI_NO_REG;
-		notify_params = (struct diag_dci_client_tbl *) ioarg;
+		if (copy_from_user(params, (void *)ioarg,
+				 sizeof(struct diag_dci_client_tbl)))
+			return -EFAULT;
 		mutex_lock(&driver->dci_mutex);
+		if (!(driver->num_dci_client))
+			driver->in_busy_dci = 0;
 		driver->num_dci_client++;
 		pr_debug("diag: id = %d\n", driver->dci_client_id);
 		driver->dci_client_id++;
@@ -460,9 +472,9 @@ long diagchar_ioctl(struct file *filp,
 			if (driver->dci_client_tbl[i].client == NULL) {
 				driver->dci_client_tbl[i].client = current;
 				driver->dci_client_tbl[i].list =
-							 notify_params->list;
+							 params->list;
 				driver->dci_client_tbl[i].signal_type =
-					 notify_params->signal_type;
+					 params->signal_type;
 				create_dci_log_mask_tbl(driver->
 					dci_client_tbl[i].dci_log_mask);
 				create_dci_event_mask_tbl(driver->
@@ -474,6 +486,8 @@ long diagchar_ioctl(struct file *filp,
 								 IN_BUF_SIZE;
 				driver->dci_client_tbl[i].dropped_logs = 0;
 				driver->dci_client_tbl[i].dropped_events = 0;
+				driver->dci_client_tbl[i].received_logs = 0;
+				driver->dci_client_tbl[i].received_events = 0;
 				break;
 			}
 		}
@@ -483,31 +497,51 @@ long diagchar_ioctl(struct file *filp,
 		success = -1;
 		/* Delete this process from DCI table */
 		mutex_lock(&driver->dci_mutex);
-		for (i = 0; i < dci_max_reg; i++) {
-			if (driver->req_tracking_tbl[i].pid == current->tgid) {
-				pr_debug("diag: delete %d\n", current->tgid);
+		for (i = 0; i < dci_max_reg; i++)
+			if (driver->req_tracking_tbl[i].pid == current->tgid)
 				driver->req_tracking_tbl[i].pid = 0;
-				success = i;
-			}
-		}
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-			if (driver->dci_client_tbl[i].client == current) {
+			if (driver->dci_client_tbl[i].client &&
+			driver->dci_client_tbl[i].client->tgid ==
+							 current->tgid) {
 				driver->dci_client_tbl[i].client = NULL;
+				success = i;
 				break;
 			}
 		}
-		/* if any registrations were deleted successfully OR a valid
-		   client_id was sent in DEINIT call , then its DCI client */
-		if (success >= 0 || ioarg)
+		if (success >= 0)
 			driver->num_dci_client--;
-		driver->num_dci_client--;
 		mutex_unlock(&driver->dci_mutex);
-		pr_debug("diag: complete deleting registrations\n");
 		return success;
 	} else if (iocmd == DIAG_IOCTL_DCI_SUPPORT) {
 		if (driver->ch_dci)
 			support_list = support_list | DIAG_CON_MPSS;
 		*(uint16_t *)ioarg = support_list;
+		return DIAG_DCI_NO_ERROR;
+	} else if (iocmd == DIAG_IOCTL_DCI_HEALTH_STATS) {
+		if (copy_from_user(&stats, (void *)ioarg,
+				 sizeof(struct diag_dci_health_stats)))
+			return -EFAULT;
+		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+			params = &(driver->dci_client_tbl[i]);
+			if (params->client &&
+				params->client->tgid == current->tgid) {
+				stats.dropped_logs = params->dropped_logs;
+				stats.dropped_events = params->dropped_events;
+				stats.received_logs = params->received_logs;
+				stats.received_events = params->received_events;
+				if (stats.reset_status) {
+					params->dropped_logs = 0;
+					params->dropped_events = 0;
+					params->received_logs = 0;
+					params->received_events = 0;
+				}
+				break;
+			}
+		}
+		if (copy_to_user((void *)ioarg, &stats,
+				   sizeof(struct diag_dci_health_stats)))
+			return -EFAULT;
 		return DIAG_DCI_NO_ERROR;
 	} else if (iocmd == DIAG_IOCTL_LSM_DEINIT) {
 		for (i = 0; i < driver->num_clients; i++)
