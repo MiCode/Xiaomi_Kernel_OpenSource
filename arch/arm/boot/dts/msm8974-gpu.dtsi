@@ -29,12 +29,15 @@
 		qcom,clk-map = <0x0000006>; //KGSL_CLK_CORE | KGSL_CLK_IFACE
 
 		/* Bus Scale Settings */
-		qcom,grp3d-vectors = <0 0 0 0>, <2 1 0 0>,
-				<0 0 0 2000>, <2 1 0 3000>,
-				<0 0 0 4000>, <2 1 0 5000>,
-				<0 0 0 6400>, <2 1 0 7600>;
-		qcom,grp3d-num-vectors-per-usecase = <2>;
-		qcom,grp3d-num-bus-scale-usecases = <4>;
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>, <89 604 0 0>,
+				<26 512 0 2000000>, <89 604 0 3000000>,
+				<26 512 0 4000000>, <89 604 0 5000000>,
+				<26 512 0 6400000>, <89 604 0 7600000>;
 
 		/* GDSC oxili regulators */
 		vddcx-supply = <&gdsc_oxili_cx>;
