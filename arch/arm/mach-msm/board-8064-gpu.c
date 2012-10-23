@@ -281,8 +281,11 @@ void __init apq8064_init_gpu(void)
 	if (SOCINFO_VERSION_MAJOR(version) == 2) {
 		kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 2);
 	} else {
+		/* The bootloader has started returning 1.2 for chips that
+		   are either 1.1 or 1.2. To handle that and default any
+		   future revisions to this path, check for minor version >=1 */
 		if ((SOCINFO_VERSION_MAJOR(version) == 1) &&
-				(SOCINFO_VERSION_MINOR(version) == 1))
+				(SOCINFO_VERSION_MINOR(version) >= 1))
 			kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 1);
 		else
 			kgsl_3d0_pdata.chipid = ADRENO_CHIPID(3, 2, 0, 0);
