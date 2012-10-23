@@ -163,6 +163,23 @@ static void dsps_smsm_state_cb(void *data, uint32_t old_state,
 	}
 }
 
+static int dsps_start(const struct subsys_desc *desc)
+{
+	void *ret;
+	struct dsps_data *drv = desc_to_drv(desc);
+
+	ret = pil_get(drv->desc.name);
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void dsps_stop(const struct subsys_desc *desc)
+{
+	struct dsps_data *drv = desc_to_drv(desc);
+	pil_put(drv->pil);
+}
+
 static int dsps_shutdown(const struct subsys_desc *desc)
 {
 	struct dsps_data *drv = desc_to_drv(desc);
@@ -290,6 +307,10 @@ static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 	}
 
 	drv->subsys_desc.name = "dsps";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = dsps_start;
+	drv->subsys_desc.stop = dsps_stop;
 	drv->subsys_desc.shutdown = dsps_shutdown;
 	drv->subsys_desc.powerup = dsps_powerup;
 	drv->subsys_desc.ramdump = dsps_ramdump,
