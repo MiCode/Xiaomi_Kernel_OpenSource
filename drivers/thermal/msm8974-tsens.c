@@ -50,7 +50,13 @@
 #define TSENS_TRDY_MASK			BIT(0)
 
 #define TSENS_CTRL_ADDR(n)		(n)
+#define TSENS_EN			BIT(0)
 #define TSENS_SW_RST			BIT(1)
+#define TSENS_ADC_CLK_SEL		BIT(2)
+#define TSENS_SENSOR0_SHIFT		3
+#define TSENS_312_5_MS_MEAS_PERIOD	2
+#define TSENS_MEAS_PERIOD_SHIFT		18
+
 #define TSENS_SN_MIN_MAX_STATUS_CTRL(n)	((n) + 4)
 #define TSENS_GLOBAL_CONFIG(n)		((n) + 0x34)
 #define TSENS_S0_MAIN_CONFIG(n)		((n) + 0x38)
@@ -156,7 +162,6 @@
 #define TSENS_THRESHOLD_MAX_CODE	0x3ff
 #define TSENS_THRESHOLD_MIN_CODE	0x0
 
-#define TSENS_CTRL_INIT_DATA1		0x1cfff9
 #define TSENS_GLOBAL_INIT_DATA		0x302f16c
 #define TSENS_S0_MAIN_CFG_INIT_DATA	0x1c3
 #define TSENS_SN_MIN_MAX_STATUS_CTRL_DATA	0x3ffc00
@@ -521,8 +526,10 @@ static void tsens_hw_init(void)
 	reg_cntl = readl_relaxed(TSENS_CTRL_ADDR(tmdev->tsens_addr));
 	writel_relaxed(reg_cntl | TSENS_SW_RST,
 			TSENS_CTRL_ADDR(tmdev->tsens_addr));
-	writel_relaxed(TSENS_CTRL_INIT_DATA1,
-			TSENS_CTRL_ADDR(tmdev->tsens_addr));
+	reg_cntl |= ((TSENS_312_5_MS_MEAS_PERIOD << TSENS_MEAS_PERIOD_SHIFT) |
+		(((1 << tmdev->tsens_num_sensor) - 1) << TSENS_SENSOR0_SHIFT) |
+		TSENS_EN);
+	writel_relaxed(reg_cntl, TSENS_CTRL_ADDR(tmdev->tsens_addr));
 	writel_relaxed(TSENS_GLOBAL_INIT_DATA,
 			TSENS_GLOBAL_CONFIG(tmdev->tsens_addr));
 	writel_relaxed(TSENS_S0_MAIN_CFG_INIT_DATA,
