@@ -1308,12 +1308,13 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 				pr_info("Set mbim port out_desc = 0x%p",
 					mbim->bam_port.out->desc);
+
+				pr_debug("Activate mbim\n");
+				mbim_bam_connect(mbim);
+
 			} else {
 				pr_info("PORTS already SET");
 			}
-
-			pr_info("Activate mbim\n");
-			mbim_bam_connect(mbim);
 		}
 
 		spin_lock(&mbim->lock);
