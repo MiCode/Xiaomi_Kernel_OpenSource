@@ -242,6 +242,15 @@
 		reg = <0xfc834000 0x7000>;
 		interrupts = <0 29 1>;
 	};
+
+	qcom,acpuclk@f9010000 {
+		compatible = "qcom,acpuclk-9625";
+		reg = <0xf9010008 0x10>,
+		      <0xf9008004 0x4>;
+		reg-names = "rcg_base", "pwr_base";
+		a5_cpu-supply = <&pm8019_l10_corner_ao>;
+		a5_mem-supply = <&pm8019_l12_ao>;
+	};
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
