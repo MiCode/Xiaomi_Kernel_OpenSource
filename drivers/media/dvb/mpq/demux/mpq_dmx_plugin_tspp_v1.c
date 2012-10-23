@@ -272,23 +272,27 @@ static void mpq_tspp_callback(int channel_id, void *user)
 static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 {
 	struct mpq_demux *mpq_demux = feed->demux->priv;
-	enum tspp_source tspp_source;
+	struct tspp_select_source tspp_source;
 	struct tspp_filter tspp_filter;
 	int tsif;
 	int ret;
 	int channel_id;
 	int *channel_ref_count;
-	enum tspp_tsif_mode mode;
+
+	tspp_source.clk_inverse = 0;
+	tspp_source.data_inverse = 0;
+	tspp_source.sync_inverse = 0;
+	tspp_source.enable_inverse = 0;
 
 	/* determine the TSIF we are reading from */
 	if (mpq_demux->source == DMX_SOURCE_FRONT0) {
 		tsif = 0;
-		tspp_source = TSPP_SOURCE_TSIF0;
-		mode = (enum tspp_tsif_mode)tsif0_mode;
+		tspp_source.source = TSPP_SOURCE_TSIF0;
+		tspp_source.mode = (enum tspp_tsif_mode)tsif0_mode;
 	} else if (mpq_demux->source == DMX_SOURCE_FRONT1) {
 		tsif = 1;
-		tspp_source = TSPP_SOURCE_TSIF1;
-		mode = (enum tspp_tsif_mode)tsif1_mode;
+		tspp_source.source = TSPP_SOURCE_TSIF1;
+		tspp_source.mode = (enum tspp_tsif_mode)tsif1_mode;
 	} else {
 		/* invalid source */
 		MPQ_DVB_ERR_PRINT(
@@ -341,13 +345,13 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 		}
 
 		/* set TSPP source */
-		ret = tspp_open_stream(0, channel_id, tspp_source, mode);
+		ret = tspp_open_stream(0, channel_id, &tspp_source);
 		if (ret < 0) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: tspp_select_source(%d,%d) failed (%d)\n",
 				__func__,
 				channel_id,
-				tspp_source,
+				tspp_source.source,
 				ret);
 
 			goto add_channel_close_ch;
@@ -418,7 +422,7 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 	 * accordingly.
 	 */
 	tspp_filter.mode = TSPP_MODE_RAW;
-	tspp_filter.source = tspp_source;
+	tspp_filter.source = tspp_source.source;
 	tspp_filter.decrypt = 0;
 	ret = tspp_add_filter(0, channel_id, &tspp_filter);
 	if (ret < 0) {
@@ -553,6 +557,7 @@ static int mpq_tspp_dmx_remove_channel(struct dvb_demux_feed *feed)
 		/* channel is not used any more, release it */
 		tspp_unregister_notification(0, channel_id);
 		tspp_close_channel(0, channel_id);
+		tspp_close_stream(0, channel_id);
 	}
 
 	mutex_unlock(&mpq_dmx_tspp_info.tsif[tsif].mutex);
