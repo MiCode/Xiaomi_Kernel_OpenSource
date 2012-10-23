@@ -679,6 +679,8 @@ static int __devinit dsps_probe(struct platform_device *pdev)
 		goto cdev_add_err;
 	}
 
+	return 0;
+
 cdev_add_err:
 	kfree(drv->cdev);
 cdev_alloc_err:
