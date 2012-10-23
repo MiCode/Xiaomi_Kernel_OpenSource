@@ -564,10 +564,12 @@
 		};
 	};
 
-	i2c@f9967000 {
+	i2c@f9967000 { /* BLSP#11 */
 		cell-index = <0>;
 		compatible = "qcom,i2c-qup";
 		reg = <0Xf9967000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 		reg-names = "qup_phys_addr";
 		interrupts = <0 105 0>;
 		interrupt-names = "qup_err_intr";
