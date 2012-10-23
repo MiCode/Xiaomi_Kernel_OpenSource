@@ -174,7 +174,6 @@ static void do_read_data(struct work_struct *work);
 static LIST_HEAD(xprt_info_list);
 static DEFINE_MUTEX(xprt_info_list_lock);
 
-DECLARE_COMPLETION(msm_ipc_remote_router_up);
 static DECLARE_COMPLETION(msm_ipc_local_router_up);
 #define IPC_ROUTER_INIT_TIMEOUT (10 * HZ)
 
@@ -765,7 +764,7 @@ static int msm_ipc_router_send_control_msg(
 	return ret;
 }
 
-static int msm_ipc_router_send_server_list(
+static int msm_ipc_router_send_server_list(uint32_t node_id,
 		struct msm_ipc_router_xprt_info *xprt_info)
 {
 	union rr_control_msg ctl;
@@ -787,8 +786,8 @@ static int msm_ipc_router_send_server_list(
 			ctl.srv.instance = server->name.instance;
 			list_for_each_entry(server_port,
 					    &server->server_port_list, list) {
-				if (server_port->server_addr.node_id ==
-				    xprt_info->remote_node_id)
+				if (server_port->server_addr.node_id !=
+				    node_id)
 					continue;
 
 				ctl.srv.node_id =
@@ -1166,14 +1165,86 @@ static void modem_reset_cleanup(struct msm_ipc_router_xprt_info *xprt_info)
 	msm_ipc_cleanup_routing_table(xprt_info);
 }
 
+static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
+			     struct rr_header *hdr)
+{
+	int i, rc = 0;
+	union rr_control_msg ctl;
+	struct msm_ipc_routing_table_entry *rt_entry;
+
+	if (!hdr)
+		return -EINVAL;
+
+	RR("o HELLO NID %d\n", hdr->src_node_id);
+
+	xprt_info->remote_node_id = hdr->src_node_id;
+	/*
+	 * Find the entry from Routing Table corresponding to Node ID.
+	 * Under SSR, an entry will be found. When the system boots up
+	 * for the 1st time, an entry will not be found and hence allocate
+	 * an entry. Update the entry with the Node ID that it corresponds
+	 * to and the XPRT through which it can be reached.
+	 */
+	mutex_lock(&routing_table_lock);
+	rt_entry = lookup_routing_table(hdr->src_node_id);
+	if (!rt_entry) {
+		rt_entry = alloc_routing_table_entry(hdr->src_node_id);
+		if (!rt_entry) {
+			mutex_unlock(&routing_table_lock);
+			pr_err("%s: rt_entry allocation failed\n", __func__);
+			return -ENOMEM;
+		}
+		add_routing_table_entry(rt_entry);
+	}
+	mutex_lock(&rt_entry->lock);
+	rt_entry->neighbor_node_id = xprt_info->remote_node_id;
+	rt_entry->xprt_info = xprt_info;
+	mutex_unlock(&rt_entry->lock);
+	mutex_unlock(&routing_table_lock);
+
+	/* Cleanup any remote ports, if the node is coming out of reset */
+	msm_ipc_cleanup_remote_port_info(xprt_info->remote_node_id);
+
+	/* Send a reply HELLO message */
+	memset(&ctl, 0, sizeof(ctl));
+	ctl.cmd = IPC_ROUTER_CTRL_CMD_HELLO;
+	rc = msm_ipc_router_send_control_msg(xprt_info, &ctl);
+	if (rc < 0) {
+		pr_err("%s: Error sending reply HELLO message\n", __func__);
+		return rc;
+	}
+	xprt_info->initialized = 1;
+
+	/*
+	 * Send list of servers from the local node and from nodes
+	 * outside the mesh network in which this XPRT is part of.
+	 */
+	mutex_lock(&routing_table_lock);
+	for (i = 0; i < RT_HASH_SIZE; i++) {
+		list_for_each_entry(rt_entry, &routing_table[i], list) {
+			if ((rt_entry->node_id != IPC_ROUTER_NID_LOCAL) &&
+			    (rt_entry->xprt_info->xprt->link_id ==
+			     xprt_info->xprt->link_id))
+				continue;
+			rc = msm_ipc_router_send_server_list(rt_entry->node_id,
+							     xprt_info);
+			if (rc < 0) {
+				mutex_unlock(&routing_table_lock);
+				return rc;
+			}
+		}
+	}
+	mutex_unlock(&routing_table_lock);
+	RR("HELLO message processed\n");
+	return rc;
+}
+
 static int process_control_msg(struct msm_ipc_router_xprt_info *xprt_info,
 			       struct rr_packet *pkt)
 {
-	union rr_control_msg ctl;
 	union rr_control_msg *msg;
 	struct msm_ipc_router_remote_port *rport_ptr;
 	int rc = 0;
-	static uint32_t first = 1;
 	struct sk_buff *temp_ptr;
 	struct rr_header *hdr;
 	struct msm_ipc_server *server;
@@ -1199,43 +1270,9 @@ static int process_control_msg(struct msm_ipc_router_xprt_info *xprt_info,
 
 	switch (msg->cmd) {
 	case IPC_ROUTER_CTRL_CMD_HELLO:
-		RR("o HELLO NID %d\n", hdr->src_node_id);
-		xprt_info->remote_node_id = hdr->src_node_id;
-
-		mutex_lock(&routing_table_lock);
-		rt_entry = lookup_routing_table(hdr->src_node_id);
-		if (!rt_entry) {
-			rt_entry = alloc_routing_table_entry(hdr->src_node_id);
-			if (!rt_entry) {
-				mutex_unlock(&routing_table_lock);
-				pr_err("%s: rt_entry allocation failed\n",
-					__func__);
-				return -ENOMEM;
-			}
-			add_routing_table_entry(rt_entry);
-		}
-		mutex_lock(&rt_entry->lock);
-		rt_entry->neighbor_node_id = xprt_info->remote_node_id;
-		rt_entry->xprt_info = xprt_info;
-		mutex_unlock(&rt_entry->lock);
-		mutex_unlock(&routing_table_lock);
-		msm_ipc_cleanup_remote_port_info(xprt_info->remote_node_id);
-
-		memset(&ctl, 0, sizeof(ctl));
-		ctl.cmd = IPC_ROUTER_CTRL_CMD_HELLO;
-		msm_ipc_router_send_control_msg(xprt_info, &ctl);
-
-		xprt_info->initialized = 1;
-
-		/* Send list of servers one at a time */
-		msm_ipc_router_send_server_list(xprt_info);
-
-		if (first) {
-			first = 0;
-			complete_all(&msm_ipc_remote_router_up);
-		}
-		RR("HELLO message processed\n");
+		rc = process_hello_msg(xprt_info, hdr);
 		break;
+
 	case IPC_ROUTER_CTRL_CMD_RESUME_TX:
 		RR("o RESUME_TX id=%d:%08x\n",
 		   msg->cli.node_id, msg->cli.port_id);
