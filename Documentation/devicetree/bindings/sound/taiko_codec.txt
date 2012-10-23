@@ -28,6 +28,10 @@ Required properties:
  - qcom,cdc-micbias2-cfilt-sel = cfilt to use for micbias2 (should be from 1 to 3).
  - qcom,cdc-micbias3-cfilt-sel = cfilt to use for micbias3 (should be from 1 to 3).
  - qcom,cdc-micbias4-cfilt-sel = cfilt to use for micbias4 (should be from 1 to 3).
+ - qcom,cdc-micbias1-ext-cap: Boolean. Enable micbias 1 external capacitor mode.
+ - qcom,cdc-micbias2-ext-cap: Boolean. Enable micbias 2 external capacitor mode.
+ - qcom,cdc-micbias3-ext-cap: Boolean. Enable micbias 3 external capacitor mode.
+ - qcom,cdc-micbias4-ext-cap: Boolean. Enable micbias 4 external capacitor mode.
 
  - qcom,cdc-slim-ifd-dev - namme of the codec slim interface device.
  - qcom,cdc-slim-ifd-elemental-addr - codec slimbus slave interface device
@@ -76,6 +80,10 @@ taiko_codec {
 	qcom,cdc-micbias2-cfilt-sel = <0x1>;
 	qcom,cdc-micbias3-cfilt-sel = <0x2>;
 	qcom,cdc-micbias4-cfilt-sel = <0x2>;
+	qcom,cdc-micbias1-ext-cap;
+	qcom,cdc-micbias2-ext-cap;
+	qcom,cdc-micbias3-ext-cap;
+	qcom,cdc-micbias4-ext-cap;
 
 	qcom,cdc-slim-ifd = "taiko-slim-ifd";
 	qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 00 17 02];
