@@ -297,6 +297,7 @@ static int taiko_codec_enable_class_h(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, TAIKO_A_BUCK_MODE_5, 0x02, 0x02);
 		snd_soc_update_bits(codec, TAIKO_A_BUCK_MODE_4, 0xFF, 0xFF);
 		snd_soc_update_bits(codec, TAIKO_A_BUCK_MODE_1, 0x04, 0x04);
+		snd_soc_update_bits(codec, TAIKO_A_BUCK_MODE_1, 0x04, 0x00);
 		snd_soc_update_bits(codec, TAIKO_A_BUCK_MODE_3, 0x04, 0x00);
 		snd_soc_update_bits(codec, TAIKO_A_BUCK_MODE_3, 0x08, 0x00);
 		snd_soc_update_bits(codec, TAIKO_A_BUCK_MODE_1, 0x80, 0x80);
@@ -309,11 +310,25 @@ static int taiko_codec_enable_class_h(struct snd_soc_dapm_widget *w,
 static int taiko_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
+	struct snd_soc_codec *codec = w->codec;
+
 	pr_debug("%s %s %d\n", __func__, w->name, event);
 
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, w->reg, 0x01, 0x01);
+		snd_soc_update_bits(codec, w->reg, 0x40, 0x00);
+		snd_soc_update_bits(codec, TAIKO_A_NCP_STATIC, 0x0f, 0x01);
+		break;
+
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(1000, 1000);
+		break;
+
+	case SND_SOC_DAPM_PRE_PMD:
+	    snd_soc_update_bits(codec, w->reg, 0x01, 0x00);
+		snd_soc_update_bits(codec, w->reg, 0x40, 0x40);
+		snd_soc_update_bits(codec, TAIKO_A_NCP_STATIC, 0x0f, 0x08);
 		break;
 	}
 	return 0;
@@ -2599,14 +2614,26 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"LINEOUT4", NULL, "LINEOUT4 PA"},
 	{"SPK_OUT", NULL, "SPK PA"},
 
+	{"LINEOUT1 PA", NULL, "CP"},
 	{"LINEOUT1 PA", NULL, "LINEOUT1_PA_MIXER"},
 	{"LINEOUT1_PA_MIXER", NULL, "LINEOUT1 DAC"},
+
+	{"LINEOUT2 PA", NULL, "CP"},
 	{"LINEOUT2 PA", NULL, "LINEOUT2_PA_MIXER"},
 	{"LINEOUT2_PA_MIXER", NULL, "LINEOUT2 DAC"},
+
+	{"LINEOUT3 PA", NULL, "CP"},
 	{"LINEOUT3 PA", NULL, "LINEOUT3_PA_MIXER"},
 	{"LINEOUT3_PA_MIXER", NULL, "LINEOUT3 DAC"},
+
+	{"LINEOUT4 PA", NULL, "CP"},
 	{"LINEOUT4 PA", NULL, "LINEOUT4_PA_MIXER"},
 	{"LINEOUT4_PA_MIXER", NULL, "LINEOUT4 DAC"},
+
+	{"CP", NULL, "CLASS_H_LINEOUTS_PA"},
+	{"CLASS_H_LINEOUTS_PA", NULL, "CLASS_H_CLK"},
+
+
 
 	{"LINEOUT1 DAC", NULL, "RX3 MIX1"},
 
@@ -3884,6 +3911,9 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 		taiko_codec_enable_class_h, SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_SUPPLY("CLASS_H_HPH_R", TAIKO_A_CDC_CLSH_B1_CTL, 2, 0,
+		taiko_codec_enable_class_h, SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_SUPPLY("CLASS_H_LINEOUTS_PA", SND_SOC_NOPM, 0, 0,
 		taiko_codec_enable_class_h, SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_SUPPLY("CP", TAIKO_A_NCP_EN, 0, 0,
