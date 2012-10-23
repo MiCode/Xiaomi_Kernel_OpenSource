@@ -493,6 +493,7 @@ static u32 ddl_dpb_buffers_set_done_callback(
 				ddl_get_state_string(ddl->client_state));
 			ddl_calc_core_proc_time(__func__, DEC_OP_TIME, ddl);
 			ddl_reset_core_time_variables(DEC_OP_TIME);
+			ddl_vidc_decode_reset_avg_time(ddl);
 			ddl->client_state = DDL_CLIENT_WAIT_FOR_FRAME;
 			ddl_vidc_decode_frame_run(ddl);
 			ret_status = false;
