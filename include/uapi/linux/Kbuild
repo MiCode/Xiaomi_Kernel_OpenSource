@@ -78,6 +78,7 @@ header-y += cciss_ioctl.h
 header-y += cdrom.h
 header-y += cgroupstats.h
 header-y += chio.h
+header-y += ci-bridge-spi.h
 header-y += cm4000_cs.h
 header-y += cn_proc.h
 header-y += coda.h
