@@ -571,6 +571,14 @@
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
 	};
+
+	qcom,acpuclk@f9011050 {
+		compatible = "qcom,acpuclk-a7";
+		reg = <0xf9011050 0x8>;
+		reg-names = "rcg_base";
+		a7_cpu-supply = <&pm8026_s2>;
+		a7_mem-supply = <&pm8026_l3>;
+	};
 };
 
 &gdsc_venus {
