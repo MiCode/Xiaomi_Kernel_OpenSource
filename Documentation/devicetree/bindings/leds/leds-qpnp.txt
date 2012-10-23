@@ -12,14 +12,14 @@ Required Properties:
 - compatible	: should be "qcom,leds-qpnp"
 
 Each LED module is represented as a node of "leds-qpnp". This
-node will furthur contain the type of LED supported and its
+node will further contain the type of LED supported and its
 properties.
 
 Required properties:
 - qcom,id		: must be one of values supported in enum qpnp_led
-- qcom,label		: type of led that will be used, ie "wled"
+- label			: type of led that will be used, ie "wled"
 - qcom,max-current	: maximum current that the LED can sustain
-= qcom,name		: name the led will be called by in sysfs entry
+- linux,name		: name of the led that is used in led framework
 
 WLED is primarily used as display backlight. Display subsystem uses
 LED triggers for WLED to control the brightness as needed.
@@ -41,17 +41,22 @@ Example:
 
 	qcom,leds@d800 {
 			compatible = "qcom,leds-qpnp";
-			reg = <0xD800 0x100>;
-			linux,default-trigger = "bkl-trigger"
-			qcom,label = "wled";
-			qcom,cs-out-en;
-			qcom,op-fdbck;
-			qcom,default-state "off";
-			qcom,max-current = <25>;
-			qcom,ctrl-delay-us = <0>;
-			qcom,boost-curr-lim = <3>;
-			qcom,cp-sel = <0>;
-			qcom,switch-freq = <2>;
-			qcom,ovp-val = <2>;
-			qcom,num-strings = <1>;
-	}
+			status = "okay";
+			qcom,wled_0 {
+				linux,default-trigger = "bkl-trigger"
+				label = "wled";
+				qcom,cs-out-en;
+				qcom,op-fdbck;
+				qcom,default-state "off";
+				qcom,max-current = <25>;
+				qcom,ctrl-delay-us = <0>;
+				qcom,boost-curr-lim = <3>;
+				qcom,cp-sel = <0>;
+				qcom,switch-freq = <2>;
+				qcom,ovp-val = <2>;
+				qcom,num-strings = <1>;
+				qcom,id = <0>;
+				linux,name = "led:wled_backlight";
+			};
+	};
+
