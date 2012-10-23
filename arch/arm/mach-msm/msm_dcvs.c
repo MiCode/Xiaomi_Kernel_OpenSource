@@ -61,6 +61,8 @@ struct core_attribs {
 
 	struct kobj_attribute thermal_poll_ms;
 
+	struct kobj_attribute freq_tbl;
+
 	struct attribute_group attrib_group;
 };
 
@@ -633,11 +635,83 @@ DCVS_ENERGY_PARAM(leakage_coeff_d)
 
 DCVS_PARAM_STORE(thermal_poll_ms)
 
+static ssize_t msm_dcvs_attr_freq_tbl_show(struct kobject *kobj,
+					   struct kobj_attribute *attr,
+					   char *buf)
+{
+	struct msm_dcvs_freq_entry *freq_tbl;
+	char *buf_idx = buf;
+	int i, len;
+	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, freq_tbl);
+
+	freq_tbl = core->info->freq_tbl;
+	*buf_idx = '\0';
+
+	/* limit the number of frequencies we will print into
+	 * the PAGE_SIZE sysfs show buffer. */
+	if (core->info->power_param.num_freq > 64)
+		return 0;
+
+	for (i = 0; i < core->info->power_param.num_freq; i++) {
+		if (freq_tbl[i].is_trans_level) {
+			len = snprintf(buf_idx, 10, "%7d ", freq_tbl[i].freq);
+			/* buf_idx always points at terminating null */
+			buf_idx += len;
+		}
+	}
+	/* overwrite final trailing space with newline */
+	if (buf_idx > buf)
+		*(buf_idx - 1) = '\n';
+
+	return buf_idx - buf;
+}
+
+static ssize_t msm_dcvs_attr_freq_tbl_store(struct kobject *kobj,
+					    struct kobj_attribute *attr,
+					    const char *buf,
+					    size_t count)
+{
+	struct msm_dcvs_freq_entry *freq_tbl;
+	uint32_t freq;
+	int i, ret;
+	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, freq_tbl);
+
+	freq_tbl = core->info->freq_tbl;
+
+	ret = kstrtouint(buf, 10, &freq);
+	if (ret) {
+		__err("Invalid input %s for freq_tbl\n", buf);
+		return count;
+	}
+
+	for (i = 0; i < core->info->power_param.num_freq; i++)
+		if (freq_tbl[i].freq == freq) {
+			freq_tbl[i].is_trans_level ^= 1;
+			break;
+		}
+
+	if (i >= core->info->power_param.num_freq) {
+		__err("Invalid frequency for freq_tbl: %d\n", freq);
+		return count;
+	}
+
+	ret = msm_dcvs_scm_set_power_params(core->dcvs_core_id,
+					    &core->info->power_param,
+					    &core->info->freq_tbl[0],
+					    &core->coeffs);
+	if (ret) {
+		freq_tbl[i].is_trans_level ^= 1;
+		__err("Error %d in toggling freq %d (orig enable val %d)\n",
+		      ret, freq_tbl[i].freq, freq_tbl[i].is_trans_level);
+	}
+	return count;
+}
+
 static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 {
 	int ret = 0;
 	struct kobject *core_kobj = NULL;
-	const int attr_count = 24;
+	const int attr_count = 25;
 
 	BUG_ON(!cores_kobj);
 
@@ -675,7 +749,9 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 	DCVS_RW_ATTRIB(21, leakage_coeff_d);
 	DCVS_RW_ATTRIB(22, thermal_poll_ms);
 
-	core->attrib.attrib_group.attrs[23] = NULL;
+	DCVS_RW_ATTRIB(23, freq_tbl);
+
+	core->attrib.attrib_group.attrs[24] = NULL;
 
 	core_kobj = kobject_create_and_add(core->core_name, cores_kobj);
 	if (!core_kobj) {
