@@ -223,7 +223,7 @@ struct profile_data {
 struct msm_vidc_debug {
 	struct profile_data pdata[MAX_PROFILING_POINTS];
 	int profile;
-	int counter;
+	int samples;
 };
 
 struct msm_vidc_ssr_info {

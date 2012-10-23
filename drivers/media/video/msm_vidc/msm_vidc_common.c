@@ -638,6 +638,10 @@ static void handle_fbd(enum command_response cmd, void *data)
 		default:
 			break;
 		}
+		inst->count.fbd++;
+		if (fill_buf_done->filled_len1)
+			msm_vidc_debugfs_update(inst,
+				MSM_VIDC_DEBUGFS_EVENT_FBD);
 
 		dprintk(VIDC_DBG, "Filled length = %d; flags %x\n",
 				vb->v4l2_planes[0].bytesused,
@@ -646,7 +650,6 @@ static void handle_fbd(enum command_response cmd, void *data)
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
 		wake_up(&inst->kernel_event_queue);
-		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FBD);
 	} else {
 		/*
 		 * FIXME:
