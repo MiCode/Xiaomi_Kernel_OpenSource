@@ -1490,7 +1490,7 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *_gadget, int is_active)
 {
 	struct dwc3 *dwc = gadget_to_dwc(_gadget);
 	unsigned long flags;
-	int ret;
+	int ret = 0;
 
 	if (!dwc->dotg)
 		return -EPERM;
