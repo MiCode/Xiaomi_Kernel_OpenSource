@@ -951,39 +951,6 @@ static const struct snd_kcontrol_new dac1_switch[] = {
 	SOC_DAPM_SINGLE("Switch", SITAR_A_RX_EAR_EN, 5, 1, 0),
 };
 
-static int slim_tx_vport_validation(u32 dai_id, u32 port_id,
-				    struct sitar_priv *sitar_p)
-{
-	struct wcd9xxx_ch *ch;
-	int ret = 0;
-	int index = 0;
-	u32 vtable = vport_check_table[dai_id];
-	pr_debug("%s: dai_id %u vtable 0x%x port_id %u\n", __func__,
-		 dai_id, vtable, port_id);
-	while (vtable) {
-		if (vtable & 1) {
-			list_for_each_entry(ch,
-				&sitar_p->dai[index].wcd9xxx_ch_list,
-				list) {
-				pr_debug("%s: index %u ch->port%u  vtable 0x%x\n",
-					__func__, index, ch->port, vtable);
-				if (ch->port == port_id) {
-					pr_err("%s: TX%u is used by AIF%u_CAP Mixer\n",
-						__func__, port_id + 1,
-						(index + 1)/2);
-					ret = -EINVAL;
-					break;
-				}
-			}
-		}
-		if (ret)
-			break;
-		index++;
-		vtable = vtable >> 1;
-	}
-	return ret;
-}
-
 static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1022,8 +989,10 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 	switch (dai_id) {
 	case AIF1_CAP:
 		if (enable && !(widget->value & 1 << port_id)) {
-			if (slim_tx_vport_validation(dai_id,
-						     port_id, sitar_p)) {
+			if (wcd9xxx_tx_vport_validation(
+						vport_check_table[dai_id],
+						port_id,
+						sitar_p->dai)) {
 				pr_info("%s: TX%u is used by other virtual port\n",
 					__func__, port_id + 1);
 				mutex_unlock(&codec->mutex);
@@ -1093,8 +1062,7 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		if (widget->value > 1) {
 			dev_err(codec->dev, "%s: invalid AIF for I2C mode\n",
 				__func__);
-			mutex_unlock(&codec->mutex);
-			return -EINVAL;
+			goto err;
 		}
 	}
 
@@ -1103,17 +1071,29 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		list_del_init(&core->rx_chs[port_id].list);
 		break;
 	case 1:
+		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
+			&sitar_p->dai[AIF1_PB].wcd9xxx_ch_list))
+			goto pr_err;
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &sitar_p->dai[AIF1_PB].wcd9xxx_ch_list);
 		break;
+	break;
 	default:
 		pr_err("Unknown AIF %d\n", widget->value);
-		mutex_unlock(&codec->mutex);
-		return -EINVAL;
+		goto err;
 	}
+
+
 	snd_soc_dapm_mux_update_power(widget, kcontrol, 1, widget->value, e);
+
 	mutex_unlock(&codec->mutex);
 	return 0;
+pr_err:
+	pr_err("%s: RX%u is used by current requesting AIF_PB itself\n",
+		__func__, port_id + 1);
+err:
+	mutex_unlock(&codec->mutex);
+	return -EINVAL;
 }
 
 static const struct soc_enum slim_rx_mux_enum =
