@@ -218,6 +218,8 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 	if (ret < 0) {
 		dev_err(wcd9xxx->dev, "Failed to read interrupt status: %d\n",
 			ret);
+		dev_err(wcd9xxx->dev, "Disable irq %d\n", wcd9xxx->irq);
+		disable_irq_nosync(wcd9xxx->irq);
 		wcd9xxx_unlock_sleep(wcd9xxx);
 		return IRQ_NONE;
 	}
