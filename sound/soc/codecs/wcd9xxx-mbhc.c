@@ -68,7 +68,7 @@
 #define FW_READ_ATTEMPTS 15
 #define FW_READ_TIMEOUT 2000000
 
-#define BUTTON_POLLING_SUPPORTED false
+#define BUTTON_POLLING_SUPPORTED true
 
 #define MCLK_RATE_12288KHZ 12288000
 #define MCLK_RATE_9600KHZ 9600000
@@ -564,9 +564,21 @@ static void wcd9xxx_insert_detect_setup(struct wcd9xxx_mbhc *mbhc, bool ins)
 		return;
 	pr_debug("%s: Setting up %s detection\n", __func__,
 		 ins ? "insert" : "removal");
-	/* Enable interrupt and insertion detection */
+	/* Disable detection to avoid glitch */
+	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT, 1, 0);
+	/* Override mbhc power switch to avoid false IRQs */
+	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MICB_1_MBHC, 1 << 2,
+			    !ins << 2);
+	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MICB_2_MBHC, 1 << 2,
+			    !ins << 2);
+	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MICB_3_MBHC, 1 << 2,
+			    !ins << 2);
+	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MICB_4_MBHC, 1 << 2,
+			    !ins << 2);
 	snd_soc_write(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT,
-		      (0x69 | (ins ? (1 << 1) : 0)));
+		      (0x68 | (ins ? (1 << 1) : 0)));
+	/* Re-enable detection */
+	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT, 1, 1);
 }
 
 /* called under codec_resource_lock acquisition */
