@@ -177,6 +177,10 @@
 	qcom,hsusb-otg-otg-control = <2>;
 };
 
+&usb3 {
+	qcom,dwc-usb3-msm-otg-capability;
+};
+
 &pm8941_chg {
 	status = "ok";
 
