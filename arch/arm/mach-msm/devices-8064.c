@@ -373,6 +373,58 @@ struct platform_device apq8064_device_qup_spi_gsbi5 = {
 	.resource	= resources_qup_spi_gsbi5,
 };
 
+static struct resource resources_qup_spi_gsbi6[] = {
+	{
+		.name   = "spi_base",
+		.start  = MSM_GSBI6_QUP_PHYS,
+		.end    = MSM_GSBI6_QUP_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "gsbi_base",
+		.start  = MSM_GSBI6_PHYS,
+		.end    = MSM_GSBI6_PHYS + 4 - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.name   = "spi_irq_in",
+		.start  = GSBI6_QUP_IRQ,
+		.end    = GSBI6_QUP_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.name   = "spi_clk",
+		.start  = 17,
+		.end    = 17,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_miso",
+		.start  = 15,
+		.end    = 15,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_mosi",
+		.start  = 14,
+		.end    = 14,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "spi_cs",
+		.start  = 16,
+		.end    = 16,
+		.flags  = IORESOURCE_IO,
+	}
+};
+
+struct platform_device mpq8064_device_qup_spi_gsbi6 = {
+	.name		= "spi_qsd",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(resources_qup_spi_gsbi6),
+	.resource	= resources_qup_spi_gsbi6,
+};
+
 static struct resource resources_qup_i2c_gsbi5[] = {
 	{
 		.name	= "gsbi_qup_i2c_addr",

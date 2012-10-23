@@ -42,6 +42,7 @@
 #include <asm/hardware/gic.h>
 #include <asm/mach/mmc.h>
 #include <linux/platform_data/qcom_wcnss_device.h>
+#include <linux/ci-bridge-spi.h>
 
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -2693,10 +2694,20 @@ static struct platform_device *mpq_devices[] __initdata = {
 	&msm8064_device_vcap,
 #endif
 	&rc_input_loopback_pdev,
+	&mpq8064_device_qup_spi_gsbi6,
 };
 
 static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
 	.max_clock_speed = 1100000,
+};
+
+static struct msm_spi_platform_data mpq8064_qup_spi_gsbi6_pdata = {
+	.max_clock_speed = 1100000,
+};
+
+static struct ci_bridge_platform_data mpq8064_ci_bridge_pdata = {
+	.reset_pin = 260,
+	.interrupt_pin = 261,
 };
 
 #define KS8851_IRQ_GPIO		43
@@ -2716,6 +2727,17 @@ static struct spi_board_info spi_board_info[] __initdata = {
 		.bus_num		= 0,
 		.chip_select		= 3,
 		.mode			= SPI_MODE_0,
+	}
+};
+
+static struct spi_board_info mpq8064_spi_board_info[] __initdata = {
+	{
+		.modalias		= "ci_bridge_spi",
+		.max_speed_hz		= 1000000,
+		.bus_num		= 1,
+		.chip_select		= 0,
+		.mode			= SPI_MODE_0,
+		.platform_data		= &mpq8064_ci_bridge_pdata,
 	},
 };
 
@@ -3404,8 +3426,14 @@ static void __init apq8064_cdp_init(void)
 					msm_rpmrs_levels[0].latency_us;
 		enable_avc_i2c_bus();
 		msm_rotator_set_split_iommu_domain();
+
+		mpq8064_device_qup_spi_gsbi6.dev.platform_data =
+						&mpq8064_qup_spi_gsbi6_pdata;
+
 		platform_add_devices(mpq_devices, ARRAY_SIZE(mpq_devices));
 		mpq8064_pcie_init();
+		spi_register_board_info(mpq8064_spi_board_info,
+					ARRAY_SIZE(mpq8064_spi_board_info));
 	} else {
 		ethernet_init();
 		msm_rotator_set_split_iommu_domain();

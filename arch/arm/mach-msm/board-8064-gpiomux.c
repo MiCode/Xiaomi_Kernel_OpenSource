@@ -479,6 +479,12 @@ static struct gpiomux_setting gsbi5_active_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gsbi6_spi_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting sx150x_suspended_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
@@ -1514,6 +1520,33 @@ static struct msm_gpiomux_config mpq8064_uartdm_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config mpq8064_gsbi6_spi_configs[] __initdata = {
+	{
+		.gpio      = 17,        /* GSBI6_0 SPI CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_spi_cfg,
+		},
+	},
+	{
+		.gpio      = 16,        /* GSBI6_1 SPI CS */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_spi_cfg,
+		},
+	},
+	{
+		.gpio      = 15,        /* GSBI6_2 SPI MISO */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_spi_cfg,
+		},
+	},
+	{
+		.gpio      = 14,        /* GSBI6_3 SPI_MOSI */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi6_spi_cfg,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -1630,9 +1663,13 @@ void __init apq8064_init_gpiomux(void)
 		msm_gpiomux_install(apq8064_mhl_configs,
 				ARRAY_SIZE(apq8064_mhl_configs));
 
-	 if (machine_is_mpq8064_cdp())
+	if (machine_is_mpq8064_cdp()) {
 		msm_gpiomux_install(mpq8064_ir_configs,
 				ARRAY_SIZE(mpq8064_ir_configs));
+
+		msm_gpiomux_install(mpq8064_gsbi6_spi_configs,
+				ARRAY_SIZE(mpq8064_gsbi6_spi_configs));
+	}
 
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
 	 msm_gpiomux_install(apq8064_sdc2_configs,
