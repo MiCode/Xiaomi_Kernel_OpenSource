@@ -196,6 +196,7 @@ static int __scm_call(const struct scm_command *cmd)
 	 * side in the buffer.
 	 */
 	flush_cache_all();
+	outer_flush_all();
 	ret = smc(cmd_addr);
 	if (ret < 0)
 		ret = scm_remap_error(ret);
@@ -209,6 +210,7 @@ static void scm_inv_range(unsigned long start, unsigned long end)
 {
 	start = round_down(start, cacheline_size);
 	end = round_up(end, cacheline_size);
+	outer_inv_range(start, end);
 	while (start < end) {
 		asm ("mcr p15, 0, %0, c7, c6, 1" : : "r" (start)
 		     : "memory");
