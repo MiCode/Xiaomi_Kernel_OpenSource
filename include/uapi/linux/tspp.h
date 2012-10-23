@@ -42,6 +42,10 @@ struct tspp_filter {
 struct tspp_select_source {
 	enum tspp_source source;
 	enum tspp_tsif_mode mode;
+	int clk_inverse;
+	int data_inverse;
+	int sync_inverse;
+	int enable_inverse;
 };
 
 struct tspp_pid {
