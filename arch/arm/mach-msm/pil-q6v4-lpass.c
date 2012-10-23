@@ -43,6 +43,7 @@ struct lpass_q6v4 {
 	void *ramdump_dev;
 	struct work_struct work;
 	int loadable;
+	void *pil;
 };
 
 static int pil_q6v4_lpass_boot(struct pil_desc *pil)
@@ -192,6 +193,25 @@ static void send_q6_nmi(void)
 
 #define subsys_to_lpass(d) container_of(d, struct lpass_q6v4, subsys_desc)
 
+static int lpass_start(const struct subsys_desc *desc)
+{
+	struct lpass_q6v4 *drv = subsys_to_lpass(desc);
+
+	if (drv->loadable) {
+		drv->pil = pil_get("q6");
+		if (IS_ERR(drv->pil))
+			return PTR_ERR(drv->pil);
+	}
+	return 0;
+}
+
+static void lpass_stop(const struct subsys_desc *desc)
+{
+	struct lpass_q6v4 *drv = subsys_to_lpass(desc);
+	if (drv->loadable)
+		pil_put(drv->pil);
+}
+
 static int lpass_shutdown(const struct subsys_desc *subsys)
 {
 	struct lpass_q6v4 *drv = subsys_to_lpass(subsys);
@@ -306,6 +326,10 @@ static int __devinit pil_q6v4_lpass_driver_probe(struct platform_device *pdev)
 	}
 
 	drv->subsys_desc.name = "lpass";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = lpass_start;
+	drv->subsys_desc.stop = lpass_stop;
 	drv->subsys_desc.shutdown = lpass_shutdown;
 	drv->subsys_desc.powerup = lpass_powerup;
 	drv->subsys_desc.ramdump = lpass_ramdump;

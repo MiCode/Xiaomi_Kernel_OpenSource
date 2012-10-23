@@ -342,6 +342,26 @@ static int modem_notif_handler(struct notifier_block *nb, unsigned long code,
 	return NOTIFY_DONE;
 }
 
+static int modem_start(const struct subsys_desc *subsys)
+{
+	void *ret;
+	struct modem_data *drv;
+
+	drv = container_of(subsys, struct modem_data, subsys_desc);
+	ret = pil_get("modem");
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void modem_stop(const struct subsys_desc *subsys)
+{
+	struct modem_data *drv;
+
+	drv = container_of(subsys, struct modem_data, subsys_desc);
+	pil_put(drv->pil);
+}
+
 static int modem_shutdown(const struct subsys_desc *subsys)
 {
 	struct modem_data *drv;
@@ -467,6 +487,11 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 		goto err_notify;
 
 	drv->subsys_desc.name = "modem";
+	drv->subsys_desc.depends_on = "q6";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = modem_start;
+	drv->subsys_desc.stop = modem_stop;
 	drv->subsys_desc.shutdown = modem_shutdown;
 	drv->subsys_desc.powerup = modem_powerup;
 	drv->subsys_desc.ramdump = modem_ramdump;

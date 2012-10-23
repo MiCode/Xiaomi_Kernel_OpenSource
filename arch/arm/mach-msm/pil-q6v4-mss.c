@@ -48,6 +48,7 @@ struct q6v4_modem {
 	struct subsys_desc subsys_desc;
 	int crash_shutdown;
 	int loadable;
+	void *pil;
 };
 
 static DEFINE_MUTEX(pil_q6v4_modem_lock);
@@ -168,6 +169,25 @@ static void restart_modem(struct q6v4_modem *drv)
 }
 
 #define desc_to_modem(d) container_of(d, struct q6v4_modem, subsys_desc)
+
+static int modem_start(const struct subsys_desc *desc)
+{
+	struct q6v4_modem *drv = desc_to_modem(desc);
+
+	if (drv->loadable) {
+		drv->pil = pil_get("modem");
+		if (IS_ERR(drv->pil))
+			return PTR_ERR(drv->pil);
+	}
+	return 0;
+}
+
+static void modem_stop(const struct subsys_desc *desc)
+{
+	struct q6v4_modem *drv = desc_to_modem(desc);
+	if (drv->loadable)
+		pil_put(drv->pil);
+}
 
 static int modem_shutdown(const struct subsys_desc *subsys)
 {
@@ -396,6 +416,11 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 	}
 
 	drv->subsys_desc.name = "modem";
+	drv->subsys_desc.depends_on = "lpass";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = modem_start;
+	drv->subsys_desc.stop = modem_stop;
 	drv->subsys_desc.shutdown = modem_shutdown;
 	drv->subsys_desc.powerup = modem_powerup;
 	drv->subsys_desc.ramdump = modem_ramdump;

@@ -248,6 +248,26 @@ static void send_q6_nmi(struct q6v3_data *drv)
 	pr_info("Q6 NMI was sent.\n");
 }
 
+static int lpass_q6_start(const struct subsys_desc *subsys)
+{
+	void *ret;
+	struct q6v3_data *drv;
+
+	drv = container_of(subsys, struct q6v3_data, subsys_desc);
+	ret = pil_get("q6");
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void lpass_q6_stop(const struct subsys_desc *subsys)
+{
+	struct q6v3_data *drv;
+
+	drv = container_of(subsys, struct q6v3_data, subsys_desc);
+	pil_put(drv->pil);
+}
+
 static int lpass_q6_shutdown(const struct subsys_desc *subsys)
 {
 	struct q6v3_data *drv;
@@ -377,6 +397,10 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 		return PTR_ERR(drv->pil);
 
 	drv->subsys_desc.name = "lpass";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = lpass_q6_start;
+	drv->subsys_desc.stop = lpass_q6_stop;
 	drv->subsys_desc.shutdown = lpass_q6_shutdown;
 	drv->subsys_desc.powerup = lpass_q6_powerup;
 	drv->subsys_desc.ramdump = lpass_q6_ramdump;

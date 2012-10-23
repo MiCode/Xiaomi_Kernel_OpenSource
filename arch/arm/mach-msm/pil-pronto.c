@@ -27,6 +27,7 @@
 #include <linux/workqueue.h>
 #include <linux/wcnss_wlan.h>
 
+#include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
 #include <mach/peripheral-loader.h>
 #include <mach/msm_smsm.h>
@@ -75,6 +76,7 @@ struct pronto_data {
 	void __iomem *axi_halt_base;
 	unsigned long start_addr;
 	struct pil_device *pil;
+	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	struct clk *cxo;
@@ -241,6 +243,23 @@ static struct pil_reset_ops pil_pronto_ops = {
 
 #define subsys_to_drv(d) container_of(d, struct pronto_data, subsys_desc)
 
+static int pronto_start(const struct subsys_desc *desc)
+{
+	void *ret;
+	struct pronto_data *drv = subsys_to_drv(desc);
+
+	ret = pil_get(drv->desc.name);
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void pronto_stop(const struct subsys_desc *desc)
+{
+	struct pronto_data *drv = subsys_to_drv(desc);
+	pil_put(drv->pil);
+}
+
 static void log_wcnss_sfr(void)
 {
 	char *smem_reset_reason;
@@ -401,10 +420,7 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
 					  resource_size(res));
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
-
+	desc = &drv->desc;
 	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
 				      &desc->name);
 	if (ret)
@@ -456,6 +472,8 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	drv->subsys_desc.powerup = wcnss_powerup;
 	drv->subsys_desc.ramdump = wcnss_ramdump;
 	drv->subsys_desc.crash_shutdown = crash_shutdown;
+	drv->subsys_desc.start = pronto_start;
+	drv->subsys_desc.stop = pronto_stop;
 
 	INIT_DELAYED_WORK(&drv->cancel_vote_work, wcnss_post_bootup);
 
