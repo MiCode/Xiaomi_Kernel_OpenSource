@@ -4369,6 +4369,20 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 		}
 	}
 
+	/* Set micbias capless mode with tail current */
+	value = (pdata->micbias.bias1_cap_mode == MICBIAS_EXT_BYP_CAP ?
+		 0x00 : 0x16);
+	snd_soc_update_bits(codec, TAIKO_A_MICB_1_CTL, 0x1E, value);
+	value = (pdata->micbias.bias2_cap_mode == MICBIAS_EXT_BYP_CAP ?
+		 0x00 : 0x16);
+	snd_soc_update_bits(codec, TAIKO_A_MICB_2_CTL, 0x1E, value);
+	value = (pdata->micbias.bias3_cap_mode == MICBIAS_EXT_BYP_CAP ?
+		 0x00 : 0x16);
+	snd_soc_update_bits(codec, TAIKO_A_MICB_3_CTL, 0x1E, value);
+	value = (pdata->micbias.bias4_cap_mode == MICBIAS_EXT_BYP_CAP ?
+		 0x00 : 0x16);
+	snd_soc_update_bits(codec, TAIKO_A_MICB_4_CTL, 0x1E, value);
+
 	taiko_config_ear_class_h(codec, 32);
 	taiko_config_hph_class_h(codec, 16);
 

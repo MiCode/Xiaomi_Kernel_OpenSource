@@ -835,8 +835,6 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	cfilt_mode = snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl);
 	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl, 0x70, 0x00);
 
-	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.ctl_reg, 0x1F, 0x16);
-
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
 	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x84);
 
