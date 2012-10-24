@@ -298,6 +298,11 @@ static void msmsdcc_soft_reset(struct msmsdcc_host *host)
 	 */
 	if (is_sw_reset_save_config(host)) {
 		ktime_t start;
+		uint32_t dll_config = 0;
+
+
+		if (is_sw_reset_save_config_broken(host))
+			dll_config = readl_relaxed(host->base + MCI_DLL_CONFIG);
 
 		writel_relaxed(readl_relaxed(host->base + MMCIPOWER)
 				| MCI_SW_RST_CFG, host->base + MMCIPOWER);
@@ -316,6 +321,11 @@ static void msmsdcc_soft_reset(struct msmsdcc_host *host)
 					mmc_hostname(host->mmc), __func__);
 				BUG();
 			}
+		}
+
+		if (is_sw_reset_save_config_broken(host)) {
+			writel_relaxed(dll_config, host->base + MCI_DLL_CONFIG);
+			mb();
 		}
 	} else {
 		writel_relaxed(0, host->base + MMCICOMMAND);
