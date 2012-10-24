@@ -796,7 +796,7 @@ struct vfe40_frame_extra {
 #define VFE_BUS_STATS_BE_WR_PING_ADDR    0x00000168
 #define VFE_BUS_STATS_BE_WR_PONG_ADDR    0x0000016C
 #define VFE_BUS_STATS_BE_WR_ADDR_CFG    0x00000170
-#define VFE_BUS_STATS_BE_UB_CFG          0x00000174
+#define VFE_BUS_STATS_BE_WR_UB_CFG          0x00000174
 #define VFE_BUS_STATS_BE_WR_FRAMEDROP_PATTERN  0x00000178
 #define VFE_BUS_STATS_BE_WR_IRQ_SUBSAMPLE_PATTERN 0x0000017C
 
@@ -1014,9 +1014,10 @@ struct vfe40_ctrl_type {
 	uint32_t sync_timer_number;
 
 	struct msm_ver_num_info ver_num;
-	struct vfe_stats_control afbfStatsControl;
+	struct vfe_stats_control beStatsControl;
+	struct vfe_stats_control bfStatsControl;
 	struct vfe_stats_control awbStatsControl;
-	struct vfe_stats_control aecbgStatsControl;
+	struct vfe_stats_control bgStatsControl;
 	struct vfe_stats_control ihistStatsControl;
 	struct vfe_stats_control rsStatsControl;
 	struct vfe_stats_control csStatsControl;

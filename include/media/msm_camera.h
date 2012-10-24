@@ -536,6 +536,8 @@ struct msm_camera_cfg_cmd {
 #define CMD_STATS_BHIST_BUF_RELEASE 58
 #define CMD_VFE_PIX_SOF_COUNT_UPDATE 59
 #define CMD_VFE_COUNT_PIX_SOF_ENABLE 60
+#define CMD_STATS_BE_ENABLE 61
+#define CMD_STATS_BE_BUF_RELEASE 62
 
 #define CMD_AXI_CFG_PRIM               BIT(8)
 #define CMD_AXI_CFG_PRIM_ALL_CHNLS     BIT(9)
@@ -599,7 +601,8 @@ struct camera_enable_cmd {
 #define MSM_PMEM_BAYER_GRID		20
 #define MSM_PMEM_BAYER_FOCUS	21
 #define MSM_PMEM_BAYER_HIST		22
-#define MSM_PMEM_MAX            23
+#define MSM_PMEM_BAYER_EXPOSURE 23
+#define MSM_PMEM_MAX            24
 
 #define STAT_AEAW			0
 #define STAT_AEC			1
@@ -611,8 +614,9 @@ struct camera_enable_cmd {
 #define STAT_SKIN			7
 #define STAT_BG				8
 #define STAT_BF				9
-#define STAT_BHIST			10
-#define STAT_MAX			11
+#define STAT_BE				10
+#define STAT_BHIST			11
+#define STAT_MAX			12
 
 #define FRAME_PREVIEW_OUTPUT1		0
 #define FRAME_PREVIEW_OUTPUT2		1
@@ -631,6 +635,7 @@ enum msm_stats_enum_type {
 	MSM_STATS_TYPE_SKIN,    /* legacy based SKIN */
 	MSM_STATS_TYPE_BG,  /* Bayer Grids */
 	MSM_STATS_TYPE_BF,  /* Bayer Focus */
+	MSM_STATS_TYPE_BE,  /* Bayer Exposure*/
 	MSM_STATS_TYPE_BHIST,   /* Bayer Hist */
 	MSM_STATS_TYPE_AE_AW,   /* legacy stats for vfe 2.x*/
 	MSM_STATS_TYPE_COMP, /* Composite stats */
@@ -807,6 +812,7 @@ struct msm_stats_buf {
 	struct stats_buff aec;
 	struct stats_buff awb;
 	struct stats_buff af;
+	struct stats_buff be;
 	struct stats_buff ihist;
 	struct stats_buff rs;
 	struct stats_buff cs;
