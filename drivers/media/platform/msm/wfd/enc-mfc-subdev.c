@@ -194,6 +194,9 @@ static void venc_cb(u32 event, u32 status, void *info, u32 size, void *handle,
 			break;
 		}
 
+		if (frame_data->flags & VCD_FRAME_FLAG_CODECCONFIG)
+			vbuf->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_CODECCONFIG;
+
 		vbuf->v4l2_buf.timestamp =
 			ns_to_timeval(frame_data->time_stamp * NSEC_PER_USEC);
 
