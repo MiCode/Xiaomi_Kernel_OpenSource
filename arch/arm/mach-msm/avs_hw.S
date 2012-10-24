@@ -102,23 +102,23 @@ avs_reset_delays:
 
 /*      Read r0=AVSDSCR */
 		mrc p15, 7, r0, c15, c0, 6
-
-/*      AVSCSR(0x61) to enable CPU, V and L2 AVS module  */
-		mov r3, #0x61
-		mcr p15, 7, r3, c15, c1, 7
-
 		bx lr
 
-
+	.global avs_enable
+avs_enable:
+/*	Restore the avs_scr register */
+		mcr p15, 7, r0, c15, c1, 7
+		bx lr
 
         .global avs_disable
 avs_disable:
 
+/*	Get the AVSCSR value */
+		mrc p15, 7, r0, c15, c1, 7
 /*      Clear AVSCSR */
-		mov r0, #0
-
+		mov r1, #0
 /*      Write AVSCSR */
-		mcr p15, 7, r0, c15, c1, 7
+		mcr p15, 7, r1, c15, c1, 7
 
 		bx lr
 

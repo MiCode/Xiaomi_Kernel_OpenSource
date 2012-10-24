@@ -576,11 +576,13 @@ static bool msm_pm_power_collapse_standalone(bool from_idle)
 {
 	unsigned int cpu = smp_processor_id();
 	unsigned int avsdscr_setting;
+	unsigned int avscsr_enable;
 	bool collapsed;
 
 	avsdscr_setting = avs_get_avsdscr();
-	avs_disable();
+	avscsr_enable = avs_disable();
 	collapsed = msm_pm_spm_power_collapse(cpu, from_idle, false);
+	avs_enable(avscsr_enable);
 	avs_reset_delays(avsdscr_setting);
 	return collapsed;
 }
@@ -590,6 +592,7 @@ static bool msm_pm_power_collapse(bool from_idle)
 	unsigned int cpu = smp_processor_id();
 	unsigned long saved_acpuclk_rate;
 	unsigned int avsdscr_setting;
+	unsigned int avscsr_enable;
 	bool collapsed;
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
@@ -601,7 +604,7 @@ static bool msm_pm_power_collapse(bool from_idle)
 		pr_info("CPU%u: %s: pre power down\n", cpu, __func__);
 
 	avsdscr_setting = avs_get_avsdscr();
-	avs_disable();
+	avscsr_enable = avs_disable();
 
 	if (cpu_online(cpu))
 		saved_acpuclk_rate = acpuclk_power_collapse();
@@ -643,6 +646,7 @@ static bool msm_pm_power_collapse(bool from_idle)
 	}
 
 
+	avs_enable(avscsr_enable);
 	avs_reset_delays(avsdscr_setting);
 	msm_pm_config_hw_after_power_up();
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
