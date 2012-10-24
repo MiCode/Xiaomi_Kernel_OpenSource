@@ -1076,8 +1076,11 @@ retry_next_step:
 		/* resolve conflicting regions based on priority */
 		if (overlap_r->max_prio < prio) {
 			if (min == max) {
-				pr_err("ocmem: Requires eviction support\n");
-				goto err_not_supported;
+				req->req_start = zone->z_head;
+				req->req_end = zone->z_head + sz - 1;
+				req->req_sz = 0x0;
+				req->edata = NULL;
+				goto trigger_eviction;
 			} else {
 			/* Try to allocate atleast >= 'min' immediately */
 				sz -= step;
@@ -1119,6 +1122,11 @@ retry_next_step:
 		goto err_not_supported;
 
 	return OP_COMPLETE;
+
+trigger_eviction:
+	pr_debug("Trigger eviction of region %p\n", overlap_r);
+	destroy_region(region);
+	return OP_EVICT;
 
 err_not_supported:
 	pr_err("ocmem: Scheduled unsupported operation\n");
