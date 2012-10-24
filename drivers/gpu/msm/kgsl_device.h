@@ -235,7 +235,8 @@ struct kgsl_context {
 	 * context was responsible for causing it
 	 */
 	unsigned int reset_status;
-
+	/* Flag indicating if we tried to wait for bad timestamp for this ctx */
+	bool wait_on_invalid_ts;
 	/*
 	 * Timeline used to create fences that can be signaled when a
 	 * sync_pt timestamp expires.
