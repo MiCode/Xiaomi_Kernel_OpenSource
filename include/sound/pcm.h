@@ -446,6 +446,7 @@ struct snd_pcm_str {
 	struct snd_info_entry *proc_xrun_debug_entry;
 #endif
 #endif
+	struct snd_kcontrol *chmap_kctl; /* channel-mapping controls */
 };
 
 struct snd_pcm {
@@ -1079,5 +1080,52 @@ static inline void snd_pcm_limit_isa_dma_size(int dma, size_t *max)
 #define PCM_RUNTIME_CHECK(sub) snd_BUG_ON(!(sub) || !(sub)->runtime)
 
 const char *snd_pcm_format_name(snd_pcm_format_t format);
+
+/*
+ * PCM channel-mapping control API
+ */
+/* array element of channel maps */
+struct snd_pcm_chmap_elem {
+	unsigned char channels;
+	unsigned char map[15];
+};
+
+/* channel map information; retrieved via snd_kcontrol_chip() */
+struct snd_pcm_chmap {
+	struct snd_pcm *pcm;	/* assigned PCM instance */
+	int stream;		/* PLAYBACK or CAPTURE */
+	struct snd_kcontrol *kctl;
+	const struct snd_pcm_chmap_elem *chmap;
+	unsigned int max_channels;
+	unsigned int channel_mask;	/* optional: active channels bitmask */
+	void *private_data;	/* optional: private data pointer */
+};
+
+/* get the PCM substream assigned to the given chmap info */
+static inline struct snd_pcm_substream *
+snd_pcm_chmap_substream(struct snd_pcm_chmap *info, unsigned int idx)
+{
+	struct snd_pcm_substream *s;
+	for (s = info->pcm->streams[info->stream].substream; s; s = s->next)
+		if (s->number == idx)
+			return s;
+	return NULL;
+}
+
+/* ALSA-standard channel maps (RL/RR prior to C/LFE) */
+extern const struct snd_pcm_chmap_elem snd_pcm_std_chmaps[];
+/* Other world's standard channel maps (C/LFE prior to RL/RR) */
+extern const struct snd_pcm_chmap_elem snd_pcm_alt_chmaps[];
+
+/* bit masks to be passed to snd_pcm_chmap.channel_mask field */
+#define SND_PCM_CHMAP_MASK_24	((1U << 2) | (1U << 4))
+#define SND_PCM_CHMAP_MASK_246	(SND_PCM_CHMAP_MASK_24 | (1U << 6))
+#define SND_PCM_CHMAP_MASK_2468	(SND_PCM_CHMAP_MASK_246 | (1U << 8))
+
+int snd_pcm_add_chmap_ctls(struct snd_pcm *pcm, int stream,
+			   const struct snd_pcm_chmap_elem *chmap,
+			   int max_channels,
+			   unsigned long private_value,
+			   struct snd_pcm_chmap **info_ret);
 
 #endif /* __SOUND_PCM_H */
