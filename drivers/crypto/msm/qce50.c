@@ -382,7 +382,7 @@ static int _ce_get_cipher_cmdlistinfo(struct qce_device *pce_dev,
 			break;
 
 		case QCE_MODE_XTS:
-			if (creq->encklen ==  AES128_KEY_SIZE)
+			if (creq->encklen/2 ==  AES128_KEY_SIZE)
 				*cmdlistinfo = &cmdlistptr->cipher_aes_128_xts;
 			else
 				*cmdlistinfo = &cmdlistptr->cipher_aes_256_xts;
@@ -1471,10 +1471,11 @@ static int _setup_cipher_aes_cmdlistptrs(struct qce_device *pdev,
 					0, &pcl_info->encr_xts_key);
 		for (i = 1; i < xts_key_reg; i++)
 			qce_add_cmd_element(pdev, &ce_vaddr,
-				(CRYPTO_ENCR_KEY0_REG + i * sizeof(uint32_t)),
-				0, NULL);
+				(CRYPTO_ENCR_XTS_KEY0_REG +
+						i * sizeof(uint32_t)), 0, NULL);
 		qce_add_cmd_element(pdev, &ce_vaddr,
-				CRYPTO_ENCR_XTS_DU_SIZE_REG, 0, NULL);
+				CRYPTO_ENCR_XTS_DU_SIZE_REG, 0,
+					&pcl_info->encr_xts_du_size);
 	}
 	if (iv_reg) {
 		qce_add_cmd_element(pdev, &ce_vaddr, CRYPTO_CNTR0_IV0_REG, 0,
