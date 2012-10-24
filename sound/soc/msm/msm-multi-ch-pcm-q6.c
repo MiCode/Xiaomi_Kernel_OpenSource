@@ -276,8 +276,8 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		if (prtd->channel_mode == 1) {
 			prtd->channel_map[0] = PCM_CHANNEL_FL;
 		} else if (prtd->channel_mode == 2) {
-			prtd->channel_map[1] = PCM_CHANNEL_FL;
-			prtd->channel_map[2] = PCM_CHANNEL_FR;
+			prtd->channel_map[0] = PCM_CHANNEL_FL;
+			prtd->channel_map[1] = PCM_CHANNEL_FR;
 		} else if (prtd->channel_mode == 6) {
 			prtd->channel_map[0] = PCM_CHANNEL_FC;
 			prtd->channel_map[1] = PCM_CHANNEL_FL;
@@ -511,16 +511,6 @@ int multi_ch_pcm_set_volume(unsigned volume)
 	}
 	multi_ch_pcm_audio.volume = volume;
 	return rc;
-}
-
-void multi_ch_pcm_set_channel_map(char *channel_mapping)
-{
-	pr_debug("%s\n", __func__);
-	if (multi_ch_pcm_audio.prtd) {
-		multi_ch_pcm_audio.prtd->set_channel_map = true;
-		memcpy(multi_ch_pcm_audio.prtd->channel_map, channel_mapping,
-			 PCM_FORMAT_MAX_NUM_CHANNEL);
-	}
 }
 
 static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
@@ -823,13 +813,51 @@ static struct snd_pcm_ops msm_pcm_ops = {
 	.mmap		= msm_pcm_mmap,
 };
 
+
+static int pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int i;
+	char channel_mapping[PCM_FORMAT_MAX_NUM_CHANNEL];
+
+	pr_debug("%s", __func__);
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+		channel_mapping[i] = (char)(ucontrol->value.integer.value[i]);
+	if (multi_ch_pcm_audio.prtd) {
+		multi_ch_pcm_audio.prtd->set_channel_map = true;
+		memcpy(multi_ch_pcm_audio.prtd->channel_map, channel_mapping,
+			 PCM_FORMAT_MAX_NUM_CHANNEL);
+	}
+	return 0;
+}
+
+
 static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_card *card = rtd->card->snd_card;
-	int ret = 0;
+	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
+	struct snd_pcm_chmap *chmap_info;
+	struct snd_kcontrol *kctl;
+	char device_num[3];
 
+	int i, ret = 0;
 	if (!card->dev->coherent_dma_mask)
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+
+	pr_debug("%s, Channel map cntrl add\n", __func__);
+	ret = snd_pcm_add_chmap_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+				NULL, PCM_FORMAT_MAX_NUM_CHANNEL, 0,
+				&chmap_info);
+	if (ret < 0)
+		return ret;
+	kctl = chmap_info->kctl;
+	for (i = 0; i < kctl->count; i++)
+		kctl->vd[i].access |= SNDRV_CTL_ELEM_ACCESS_WRITE;
+	snprintf(device_num, sizeof(device_num), "%d", pcm->device);
+	strlcat(kctl->id.name, device_num, sizeof(kctl->id.name));
+	pr_debug("%s, Overwriting channel map control name to: %s",
+			 __func__, kctl->id.name);
+	kctl->put = pcm_chmap_ctl_put;
 	return ret;
 }
 

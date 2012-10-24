@@ -224,14 +224,14 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 			prtd->channel_map[0] = PCM_CHANNEL_FL;
 		} else if (prtd->channel_mode == 2) {
 			prtd->channel_map[0] = PCM_CHANNEL_FL;
-			prtd->channel_map[0] = PCM_CHANNEL_FR;
+			prtd->channel_map[1] = PCM_CHANNEL_FR;
 		} else if (prtd->channel_mode == 6) {
 			prtd->channel_map[0] = PCM_CHANNEL_FC;
-			prtd->channel_map[0] = PCM_CHANNEL_FL;
-			prtd->channel_map[0] = PCM_CHANNEL_FR;
-			prtd->channel_map[0] = PCM_CHANNEL_LB;
-			prtd->channel_map[0] = PCM_CHANNEL_RB;
-			prtd->channel_map[0] = PCM_CHANNEL_LFE;
+			prtd->channel_map[1] = PCM_CHANNEL_FL;
+			prtd->channel_map[2] = PCM_CHANNEL_FR;
+			prtd->channel_map[3] = PCM_CHANNEL_LB;
+			prtd->channel_map[4] = PCM_CHANNEL_RB;
+			prtd->channel_map[5] = PCM_CHANNEL_LFE;
 		} else {
 			pr_err("%s: ERROR.unsupported num_ch = %u\n", __func__,
 				prtd->channel_mode);
