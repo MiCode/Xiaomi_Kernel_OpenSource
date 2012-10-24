@@ -2085,7 +2085,7 @@ static int mpq_dvb_video_get_event(struct video_client_ctx *client_ctx,
 				struct video_event *ev)
 {
 	int rc;
-	struct vdec_msginfo vdec_msg_info;
+	struct vdec_msginfo vdec_msg_info = {};
 
 	memset(ev, 0, sizeof(struct video_event));
 
