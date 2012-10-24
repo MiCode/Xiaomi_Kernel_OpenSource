@@ -216,6 +216,7 @@ struct pm8xxx_pwm_chip {
 	struct mutex			pwm_mutex;
 	struct device			*dev;
 	bool				is_lpg_supported;
+	bool				is_pwm_enable_sync_workaround_needed;
 };
 
 static struct pm8xxx_pwm_chip	*pwm_chip;
@@ -815,9 +816,18 @@ int pwm_enable(struct pwm_device *pwm)
 		if (pwm_chip->is_lpg_supported) {
 			if (pwm->dtest_mode_supported)
 				pm8xxx_pwm_set_dtest(pwm, 1);
+
 			pm8xxx_pwm_bank_sel(pwm);
 			rc = pm8xxx_pwm_bank_enable(pwm, 1);
 			pm8xxx_pwm_start(pwm, 1, 0);
+
+			/* In PM8038, due to hardware bug, PWM_VALUE register
+			 * needs to be written one more time after enabling
+			 * PWM mode.
+			 */
+			if (pwm->chip->is_pwm_enable_sync_workaround_needed)
+				rc = pm8xxx_lpg_pwm_write(pwm, 3, 4);
+
 		} else {
 			pm8xxx_pwm_enable(pwm);
 		}
@@ -1391,6 +1401,12 @@ static int __devinit pm8xxx_pwm_probe(struct platform_device *pdev)
 			version == PM8XXX_VERSION_8038) {
 		chip->is_lpg_supported = 1;
 	}
+
+	if (version == PM8XXX_VERSION_8038)
+		chip->is_pwm_enable_sync_workaround_needed = 1;
+	else
+		chip->is_pwm_enable_sync_workaround_needed = 0;
+
 	if (chip->is_lpg_supported) {
 		if (version == PM8XXX_VERSION_8922 ||
 				version == PM8XXX_VERSION_8038) {
