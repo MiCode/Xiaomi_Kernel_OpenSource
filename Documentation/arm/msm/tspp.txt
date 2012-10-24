@@ -157,13 +157,12 @@ the application is able.
 
 API
 ===
-int tspp_open_stream(tspp_device *dev, void *stream, void *channel, tspp_mode
-	mode);
-int tspp_close_stream(tspp_device *dev, void *stream);
-int tspp_open_channel(tspp_device *dev, int dest, int bufsize, void *channel);
-int tspp_close_channel(tspp_device *dev, void *channel);
-int tspp_register_filter(tspp_device *dev, void *channel, tspp_filter *filter);
-int tspp_unregister_filter(tspp_device *dev, void *channel, int pid);
+int tspp_open_stream(u32 dev, u32 channel, struct tspp_select_source *source);
+int tspp_close_stream(u32 dev, u32 channel);
+int tspp_open_channel(u32 dev, u32 channel);
+int tspp_close_channelu(32 dev, u32 channel);
+int tspp_add_filter(u32 dev, u32 channel, struct tspp_filter *filter);
+int tspp_remove_filter(u32 dev, u32 channel, struct tspp_filter *filter);
 
 Refer to chrdev implementation in kernel/drivers/misc/tspp.c for an example of
 how to use this api.

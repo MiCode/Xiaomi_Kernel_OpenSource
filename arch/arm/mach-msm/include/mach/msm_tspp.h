@@ -35,8 +35,8 @@ typedef void* (tspp_allocator)(int channel, int size,
 	u32 *phys_base, void *user);
 
 /* Kernel API functions */
-int tspp_open_stream(u32 dev, u32 channel_id, enum tspp_source src,
-	enum tspp_tsif_mode mode);
+int tspp_open_stream(u32 dev, u32 channel_id,
+	struct tspp_select_source *source);
 int tspp_close_stream(u32 dev, u32 channel_id);
 int tspp_open_channel(u32 dev, u32 channel_id);
 int tspp_close_channel(u32 dev, u32 channel_id);

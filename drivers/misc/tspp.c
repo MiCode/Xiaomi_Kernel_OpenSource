@@ -323,6 +323,10 @@ struct tspp_tsif_device {
 	u32 time_limit;
 	u32 ref_count;
 	enum tspp_tsif_mode mode;
+	int clock_inverse;
+	int data_inverse;
+	int sync_inverse;
+	int enable_inverse;
 
 	/* debugfs */
 	struct dentry *dent_tsif;
@@ -698,6 +702,19 @@ static int tspp_start_tsif(struct tspp_tsif_device *tsif_device)
 	if (start_hardware) {
 		ctl = TSIF_STS_CTL_EN_IRQ |
 				TSIF_STS_CTL_EN_DM;
+
+		if (tsif_device->clock_inverse)
+			ctl |= TSIF_STS_CTL_INV_CLOCK;
+
+		if (tsif_device->data_inverse)
+			ctl |= TSIF_STS_CTL_INV_DATA;
+
+		if (tsif_device->sync_inverse)
+			ctl |= TSIF_STS_CTL_INV_SYNC;
+
+		if (tsif_device->enable_inverse)
+			ctl |= TSIF_STS_CTL_INV_ENABLE;
+
 		switch (tsif_device->mode) {
 		case TSPP_TSIF_MODE_LOOPBACK:
 			ctl |= TSIF_STS_CTL_EN_NULL |
@@ -852,6 +869,10 @@ static int tspp_global_reset(struct tspp_device *pdev)
 		pdev->tsif[i].ref_count = 1; /* allows stopping hw */
 		tspp_stop_tsif(&pdev->tsif[i]); /* will reset ref_count to 0 */
 		pdev->tsif[i].time_limit = TSPP_TSIF_DEFAULT_TIME_LIMIT;
+		pdev->tsif[i].clock_inverse = 0;
+		pdev->tsif[i].data_inverse = 0;
+		pdev->tsif[i].sync_inverse = 0;
+		pdev->tsif[i].enable_inverse = 0;
 	}
 	writel_relaxed(TSPP_RST_RESET, pdev->base + TSPP_RST);
 	wmb();
@@ -913,7 +934,7 @@ static int tspp_select_source(u32 dev, u32 channel_id,
 	}
 
 	/* open the stream */
-	tspp_open_stream(dev, channel_id, src->source, src->mode);
+	tspp_open_stream(dev, channel_id, src);
 
 	return 0;
 }
@@ -1011,14 +1032,37 @@ static void tspp_set_tsif_mode(struct tspp_channel *channel,
 	channel->pdev->tsif[index].mode = mode;
 }
 
+static void tspp_set_signal_inversion(struct tspp_channel *channel,
+	int clock_inverse, int data_inverse,
+	int sync_inverse, int enable_inverse)
+{
+	int index;
+
+	switch (channel->src) {
+	case TSPP_SOURCE_TSIF0:
+		index = 0;
+		break;
+	case TSPP_SOURCE_TSIF1:
+		index = 1;
+		break;
+	default:
+		return;
+	}
+	channel->pdev->tsif[index].clock_inverse = clock_inverse;
+	channel->pdev->tsif[index].data_inverse = data_inverse;
+	channel->pdev->tsif[index].sync_inverse = sync_inverse;
+	channel->pdev->tsif[index].enable_inverse = enable_inverse;
+}
+
 /*** TSPP API functions ***/
-int tspp_open_stream(u32 dev, u32 channel_id, enum tspp_source src, enum tspp_tsif_mode mode)
+int tspp_open_stream(u32 dev, u32 channel_id, struct tspp_select_source *source)
 {
 	u32 val;
 	struct tspp_device *pdev;
 	struct tspp_channel *channel;
 
-	TSPP_DEBUG("tspp_open_stream %i %i %i %i", dev, channel_id, src, mode);
+	TSPP_DEBUG("tspp_open_stream %i %i %i %i",
+		dev, channel_id, source->source, source->mode);
 	if (dev >= TSPP_MAX_DEVICES) {
 		pr_err("tspp: device id out of range");
 		return -ENODEV;
@@ -1035,10 +1079,13 @@ int tspp_open_stream(u32 dev, u32 channel_id, enum tspp_source src, enum tspp_ts
 		return -ENODEV;
 	}
 	channel = &pdev->channels[channel_id];
-	channel->src = src;
-	tspp_set_tsif_mode(channel, mode);
+	channel->src = source->source;
+	tspp_set_tsif_mode(channel, source->mode);
+	tspp_set_signal_inversion(channel, source->clk_inverse,
+		source->data_inverse, source->sync_inverse,
+		source->enable_inverse);
 
-	switch (src) {
+	switch (source->source) {
 	case TSPP_SOURCE_TSIF0:
 		/* make sure TSIF0 is running & enabled */
 		if (tspp_start_tsif(&pdev->tsif[0]) != 0) {
@@ -1064,7 +1111,8 @@ int tspp_open_stream(u32 dev, u32 channel_id, enum tspp_source src, enum tspp_ts
 	case TSPP_SOURCE_MEM:
 		break;
 	default:
-		pr_err("tspp: channel %i invalid source %i", channel->id, src);
+		pr_err("tspp: channel %i invalid source %i",
+			channel->id, source->source);
 		return -EBUSY;
 	}
 
