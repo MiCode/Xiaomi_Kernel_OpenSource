@@ -63,3 +63,5 @@
 	};
 
 };
+
+/include/ "msm8910-regulator.dtsi"
