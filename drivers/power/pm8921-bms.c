@@ -1398,7 +1398,7 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 						(s64)fcc_uah - uuc_uah);
 	soc_est = bound_soc(soc_est);
 
-	if (ibat_ua < 0) {
+	if (ibat_ua < 0 && pm8921_is_batfet_closed()) {
 		soc = charging_adjustments(chip, soc, vbat_uv, ibat_ua,
 				batt_temp, chargecycles,
 				fcc_uah, cc_uah, uuc_uah);
