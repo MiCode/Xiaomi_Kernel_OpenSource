@@ -99,6 +99,7 @@ struct pp_hist_col_info {
 	u32 hist_cnt_read;
 	u32 hist_cnt_sent;
 	u32 frame_cnt;
+	u32 is_kick_ready;
 	struct completion comp;
 	u32 data[HIST_V_SIZE];
 };
@@ -382,14 +383,15 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 				0x1C, hist_info);
 		spin_lock(&mdss_hist_lock);
 		col_state = hist_info->col_state;
-		if ((col_state == HIST_IDLE) ||
-			(col_state == HIST_READY) ||
-			(col_state == HIST_START)) {
+		if (hist_info->is_kick_ready &&
+				((col_state == HIST_IDLE) ||
+						(col_state == HIST_READY))) {
 			/* Kick off collection */
 			MDSS_MDP_REG_WRITE(base +
 				MDSS_MDP_REG_DSPP_HIST_CTL_BASE, 1);
 			hist_info->col_state = HIST_START;
 		}
+		hist_info->is_kick_ready = true;
 		spin_unlock(&mdss_hist_lock);
 		mutex_unlock(&mdss_mdp_hist_mutex);
 	}
@@ -1304,6 +1306,7 @@ int mdss_mdp_histogram_start(struct mdp_histogram_start_req *req)
 		hist_info->read_request = false;
 		hist_info->col_state = HIST_RESET;
 		hist_info->col_en = true;
+		hist_info->is_kick_ready = false;
 		spin_unlock(&mdss_hist_lock);
 		mdss_pp_res->hist_col[disp_num][i] =
 			&mdss_pp_res->dspp_hist[dspp_num];
@@ -1365,6 +1368,7 @@ int mdss_mdp_histogram_stop(u32 block)
 		spin_lock(&mdss_hist_lock);
 		hist_info->col_en = false;
 		hist_info->col_state = HIST_UNKNOWN;
+		hist_info->is_kick_ready = false;
 		spin_unlock(&mdss_hist_lock);
 		mdss_mdp_hist_irq_disable(done_bit);
 		MDSS_MDP_REG_WRITE(ctl_base, (1 << 1));/* cancel */
