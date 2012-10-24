@@ -127,7 +127,7 @@ struct ocmem_eviction_data {
 	struct list_head req_list;
 	struct work_struct work;
 	int prio;
-	int pending;
+	atomic_t pending;
 	bool passive;
 };
 
