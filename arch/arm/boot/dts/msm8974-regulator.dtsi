@@ -456,6 +456,10 @@
 		reg = <0xf9088000 0x1000>;
 		regulator-min-microvolt = <500000>;
 		regulator-max-microvolt = <1100000>;
+		qcom,headroom-voltage = <150000>;
+		qcom,retention-voltage = <745000>;
+		qcom,ldo-default-voltage = <745000>;
+		qcom,ldo-threshold-voltage = <750000>;
 	};
 
 	krait1_vreg: regulator@f9098000 {
@@ -464,6 +468,10 @@
 		reg = <0xf9098000 0x1000>;
 		regulator-min-microvolt = <500000>;
 		regulator-max-microvolt = <1100000>;
+		qcom,headroom-voltage = <150000>;
+		qcom,retention-voltage = <745000>;
+		qcom,ldo-default-voltage = <745000>;
+		qcom,ldo-threshold-voltage = <750000>;
 	};
 
 	krait2_vreg: regulator@f90a8000 {
@@ -472,6 +480,10 @@
 		reg = <0xf90a8000 0x1000>;
 		regulator-min-microvolt = <500000>;
 		regulator-max-microvolt = <1100000>;
+		qcom,headroom-voltage = <150000>;
+		qcom,retention-voltage = <745000>;
+		qcom,ldo-default-voltage = <745000>;
+		qcom,ldo-threshold-voltage = <750000>;
 	};
 
 	krait3_vreg: regulator@f90b8000 {
@@ -480,6 +492,10 @@
 		reg = <0xf90b8000 0x1000>;
 		regulator-min-microvolt = <500000>;
 		regulator-max-microvolt = <1100000>;
+		qcom,headroom-voltage = <150000>;
+		qcom,retention-voltage = <745000>;
+		qcom,ldo-default-voltage = <745000>;
+		qcom,ldo-threshold-voltage = <750000>;
 	};
 
 	spi_eth_vreg: spi_eth_phy_vreg {
