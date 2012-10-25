@@ -1496,9 +1496,6 @@ int soc_dpcm_be_dai_trigger(struct snd_soc_pcm_runtime *fe, int stream, int cmd)
 	struct snd_soc_dpcm_params *dpcm_params;
 	int ret = 0;
 
-	if ((cmd == SNDRV_PCM_TRIGGER_PAUSE_RELEASE) ||
-				(cmd == SNDRV_PCM_TRIGGER_PAUSE_PUSH))
-		return ret;
 
 	list_for_each_entry(dpcm_params, &fe->dpcm[stream].be_clients, list_be) {
 
@@ -1767,6 +1764,7 @@ static int soc_dpcm_be_dai_hw_free(struct snd_soc_pcm_runtime *fe, int stream)
 		if ((be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_PARAMS) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_PREPARE) &&
 			(be->dpcm[stream].state != SND_SOC_DPCM_STATE_HW_FREE) &&
+		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_PAUSED) &&
 		    (be->dpcm[stream].state != SND_SOC_DPCM_STATE_STOP))
 			continue;
 
