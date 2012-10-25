@@ -22,6 +22,8 @@
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
 #include <linux/err.h>
+#include <linux/regulator/consumer.h>
+#include <linux/pwm.h>
 
 #include <asm/system.h>
 #include <asm/mach-types.h>
@@ -37,15 +39,14 @@
 #define VDDA_UA_ON_LOAD		100000	/* uA units */
 #define VDDA_UA_OFF_LOAD	100		/* uA units */
 
-
 static int mdss_edp_get_base_address(struct mdss_edp_drv_pdata *edp_drv);
 static int mdss_edp_get_mmss_cc_base_address(struct mdss_edp_drv_pdata
 		*edp_drv);
 static int mdss_edp_regulator_init(struct mdss_edp_drv_pdata *edp_drv);
 static int mdss_edp_regulator_on(struct mdss_edp_drv_pdata *edp_drv);
 static int mdss_edp_regulator_off(struct mdss_edp_drv_pdata *edp_drv);
-
 static int mdss_edp_gpio_panel_en(struct mdss_edp_drv_pdata *edp_drv);
+static int mdss_edp_pwm_config(struct mdss_edp_drv_pdata *edp_drv);
 
 static void mdss_edp_edid2pinfo(struct mdss_edp_drv_pdata *edp_drv);
 static void mdss_edp_fill_edid_data(struct mdss_edp_drv_pdata *edp_drv);
@@ -134,7 +135,7 @@ static int mdss_edp_regulator_off(struct mdss_edp_drv_pdata *edp_drv)
 }
 
 /*
- * Enables the gpio that supply power to the panel
+ * Enables the gpio that supply power to the panel and enable the backlight
  */
 static int mdss_edp_gpio_panel_en(struct mdss_edp_drv_pdata *edp_drv)
 {
@@ -143,7 +144,8 @@ static int mdss_edp_gpio_panel_en(struct mdss_edp_drv_pdata *edp_drv)
 	edp_drv->gpio_panel_en = of_get_named_gpio(edp_drv->pdev->dev.of_node,
 			"gpio-panel-en", 0);
 	if (!gpio_is_valid(edp_drv->gpio_panel_en)) {
-		pr_err("%s: gpio_panel_en not specified\n", __func__);
+		pr_err("%s: gpio_panel_en=%d not specified\n", __func__,
+				edp_drv->gpio_panel_en);
 		goto gpio_err;
 	}
 
@@ -171,7 +173,94 @@ gpio_err:
 	return -ENODEV;
 }
 
-static void mdss_edp_config_sync(unsigned char *edp_base)
+static int mdss_edp_pwm_config(struct mdss_edp_drv_pdata *edp_drv)
+{
+	int ret = 0;
+
+	ret = of_property_read_u32(edp_drv->pdev->dev.of_node,
+			"qcom,panel-pwm-period", &edp_drv->pwm_period);
+	if (ret) {
+		pr_err("%s: panel pwm period is not specified, %d", __func__,
+				edp_drv->pwm_period);
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(edp_drv->pdev->dev.of_node,
+			"qcom,panel-lpg-channel", &edp_drv->lpg_channel);
+	if (ret) {
+		pr_err("%s: panel lpg channel is not specified, %d", __func__,
+				edp_drv->lpg_channel);
+		return -EINVAL;
+	}
+
+	edp_drv->bl_pwm = pwm_request(edp_drv->lpg_channel, "lcd-backlight");
+	if (edp_drv->bl_pwm == NULL || IS_ERR(edp_drv->bl_pwm)) {
+		pr_err("%s: pwm request failed", __func__);
+		edp_drv->bl_pwm = NULL;
+		return -EIO;
+	}
+
+	edp_drv->gpio_panel_pwm = of_get_named_gpio(edp_drv->pdev->dev.of_node,
+			"gpio-panel-pwm", 0);
+	if (!gpio_is_valid(edp_drv->gpio_panel_pwm)) {
+		pr_err("%s: gpio_panel_pwm=%d not specified\n", __func__,
+				edp_drv->gpio_panel_pwm);
+		goto edp_free_pwm;
+	}
+
+	ret = gpio_request(edp_drv->gpio_panel_pwm, "disp_pwm");
+	if (ret) {
+		pr_err("%s: Request reset gpio_panel_pwm failed, ret=%d\n",
+				__func__, ret);
+		goto edp_free_gpio_pwm;
+	}
+
+	return 0;
+
+edp_free_gpio_pwm:
+	gpio_free(edp_drv->gpio_panel_pwm);
+edp_free_pwm:
+	pwm_free(edp_drv->bl_pwm);
+	return -ENODEV;
+}
+
+void mdss_edp_set_backlight(struct mdss_panel_data *pdata, u32 bl_level)
+{
+	int ret = 0;
+	struct mdss_edp_drv_pdata *edp_drv = NULL;
+	int bl_max;
+
+	edp_drv = container_of(pdata, struct mdss_edp_drv_pdata, panel_data);
+	if (!edp_drv) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	bl_max = edp_drv->panel_data.panel_info.bl_max;
+	if (bl_level > bl_max)
+		bl_level = bl_max;
+
+	if (edp_drv->bl_pwm == NULL) {
+		pr_err("%s: edp_drv->bl_pwm=NULL.\n", __func__);
+		return;
+	}
+
+	ret = pwm_config(edp_drv->bl_pwm,
+			bl_level * edp_drv->pwm_period / bl_max,
+			edp_drv->pwm_period);
+	if (ret) {
+		pr_err("%s: pwm_config() failed err=%d.\n", __func__, ret);
+		return;
+	}
+
+	ret = pwm_enable(edp_drv->bl_pwm);
+	if (ret) {
+		pr_err("%s: pwm_enable() failed err=%d\n", __func__, ret);
+		return;
+	}
+}
+
+void mdss_edp_config_sync(unsigned char *edp_base)
 {
 	int ret = 0;
 
@@ -251,6 +340,7 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
+	pwm_disable(edp_drv->bl_pwm);
 	mdss_edp_enable(edp_drv->edp_base, 0);
 	mdss_edp_unconfig_clk(edp_drv->edp_base, edp_drv->mmss_cc_base);
 	mdss_edp_enable_mainlink(edp_drv->edp_base, 0);
@@ -322,9 +412,12 @@ static int mdss_edp_device_register(struct mdss_edp_drv_pdata *edp_drv)
 	int ret;
 
 	mdss_edp_edid2pinfo(edp_drv);
+	edp_drv->panel_data.panel_info.bl_min = 1;
+	edp_drv->panel_data.panel_info.bl_max = 255;
 
 	edp_drv->panel_data.on = mdss_edp_on;
 	edp_drv->panel_data.off = mdss_edp_off;
+	edp_drv->panel_data.set_backlight = mdss_edp_set_backlight;
 
 	ret = mdss_register_panel(&edp_drv->panel_data);
 	if (ret) {
@@ -468,12 +561,19 @@ static int mdss_edp_probe(struct platform_device *pdev)
 	if (ret)
 		goto edp_clk_deinit;
 
+	ret = mdss_edp_pwm_config(edp_drv);
+	if (ret)
+		goto edp_free_gpio_panel_en;
+
 	mdss_edp_fill_edid_data(edp_drv);
 	mdss_edp_fill_dpcd_data(edp_drv);
 	mdss_edp_device_register(edp_drv);
 
 	return 0;
 
+
+edp_free_gpio_panel_en:
+	gpio_free(edp_drv->gpio_panel_en);
 edp_clk_deinit:
 	mdss_edp_clk_deinit(edp_drv);
 	mdss_edp_regulator_off(edp_drv);
