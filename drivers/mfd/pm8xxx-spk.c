@@ -118,8 +118,6 @@ int pm8xxx_spk_mute(bool mute)
 	}
 
 	val = pm8xxx_spk_read(PM8XXX_SPK_CTL1_REG_OFF);
-	if (val < 0)
-		return val;
 	val |= mute << 2;
 	ret = pm8xxx_spk_write(PM8XXX_SPK_CTL1_REG_OFF, val);
 	return ret;
@@ -137,8 +135,6 @@ int pm8xxx_spk_gain(u8 gain)
 	}
 
 	val = pm8xxx_spk_read(PM8XXX_SPK_CTL1_REG_OFF);
-	if (val < 0)
-		return val;
 	val = (gain << 4) | (val & 0xF);
 	ret = pm8xxx_spk_write(PM8XXX_SPK_CTL1_REG_OFF, val);
 	if (!ret) {

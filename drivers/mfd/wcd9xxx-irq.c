@@ -56,6 +56,12 @@ static void wcd9xxx_irq_sync_unlock(struct irq_data *data)
 	struct wcd9xxx *wcd9xxx = irq_data_get_irq_chip_data(data);
 	int i;
 
+	if (ARRAY_SIZE(wcd9xxx->irq_masks_cur) > WCD9XXX_NUM_IRQ_REGS ||
+		ARRAY_SIZE(wcd9xxx->irq_masks_cache) > WCD9XXX_NUM_IRQ_REGS) {
+			pr_err("%s: Array Size out of bound\n", __func__);
+			 return;
+	}
+
 	for (i = 0; i < ARRAY_SIZE(wcd9xxx->irq_masks_cur); i++) {
 		/* If there's been a change in the mask write it back
 		 * to the hardware.
