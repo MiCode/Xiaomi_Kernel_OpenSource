@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,11 +16,14 @@
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
-#include <linux/regulator/driver.h>
-#include <linux/regulator/stub-regulator.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/of_regulator.h>
+#include <linux/regulator/stub-regulator.h>
 
 #define STUB_REGULATOR_MAX_NAME 40
 
@@ -138,27 +141,74 @@ static void regulator_stub_cleanup(struct regulator_stub *vreg_priv)
 
 static int __devinit regulator_stub_probe(struct platform_device *pdev)
 {
+	struct regulator_init_data *init_data = NULL;
+	struct device *dev = &pdev->dev;
 	struct stub_regulator_pdata *vreg_pdata;
 	struct regulator_desc *rdesc;
 	struct regulator_stub *vreg_priv;
 	int rc;
 
-	vreg_pdata = pdev->dev.platform_data;
-	if (!vreg_pdata) {
-		dev_err(&pdev->dev, "%s: no platform data\n", __func__);
-		return -EINVAL;
-	}
-
 	vreg_priv = kzalloc(sizeof(*vreg_priv), GFP_KERNEL);
 	if (!vreg_priv) {
-		dev_err(&pdev->dev, "%s: Unable to allocate memory\n",
+		dev_err(dev, "%s: Unable to allocate memory\n",
 				__func__);
 		return -ENOMEM;
 	}
-	dev_set_drvdata(&pdev->dev, vreg_priv);
+
+	if (dev->of_node) {
+		/* Use device tree. */
+		init_data = of_get_regulator_init_data(dev,
+						       dev->of_node);
+		if (!init_data) {
+			dev_err(dev, "%s: unable to allocate memory\n",
+					__func__);
+			rc = -ENOMEM;
+			goto err_probe;
+		}
+
+		if (init_data->constraints.name == NULL) {
+			dev_err(dev, "%s: regulator name not specified\n",
+				__func__);
+			rc = -EINVAL;
+			goto err_probe;
+		}
+
+		if (of_get_property(dev->of_node, "parent-supply", NULL))
+			init_data->supply_regulator = "parent";
+
+		of_property_read_u32(dev->of_node, "qcom,system-load",
+					&vreg_priv->system_uA);
+		of_property_read_u32(dev->of_node, "qcom,hpm-min-load",
+					&vreg_priv->hpm_min_load);
+
+		init_data->constraints.input_uV	= init_data->constraints.max_uV;
+
+		init_data->constraints.valid_ops_mask
+			|= REGULATOR_CHANGE_STATUS;
+		init_data->constraints.valid_ops_mask
+			|= REGULATOR_CHANGE_VOLTAGE;
+		init_data->constraints.valid_ops_mask
+			|= REGULATOR_CHANGE_MODE | REGULATOR_CHANGE_DRMS;
+		init_data->constraints.valid_modes_mask
+			= REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE;
+	} else {
+		/* Use platform data. */
+		vreg_pdata = dev->platform_data;
+		if (!vreg_pdata) {
+			dev_err(dev, "%s: no platform data\n", __func__);
+			rc = -EINVAL;
+			goto err_probe;
+		}
+		init_data = &vreg_pdata->init_data;
+
+		vreg_priv->system_uA = vreg_pdata->system_uA;
+		vreg_priv->hpm_min_load = vreg_pdata->hpm_min_load;
+	}
+
+	dev_set_drvdata(dev, vreg_priv);
 
 	rdesc = &vreg_priv->rdesc;
-	strncpy(vreg_priv->name, vreg_pdata->init_data.constraints.name,
+	strlcpy(vreg_priv->name, init_data->constraints.name,
 						   STUB_REGULATOR_MAX_NAME);
 	rdesc->name = vreg_priv->name;
 	rdesc->ops = &regulator_stub_ops;
@@ -168,8 +218,8 @@ static int __devinit regulator_stub_probe(struct platform_device *pdev)
 	 * which have a specified voltage constraint range, as well as those
 	 * that do not.
 	 */
-	if (vreg_pdata->init_data.constraints.min_uV == 0 &&
-	    vreg_pdata->init_data.constraints.max_uV == 0)
+	if (init_data->constraints.min_uV == 0 &&
+	    init_data->constraints.max_uV == 0)
 		rdesc->n_voltages = 0;
 	else
 		rdesc->n_voltages = 2;
@@ -177,16 +227,20 @@ static int __devinit regulator_stub_probe(struct platform_device *pdev)
 	rdesc->id    = pdev->id;
 	rdesc->owner = THIS_MODULE;
 	rdesc->type  = REGULATOR_VOLTAGE;
-	vreg_priv->system_uA = vreg_pdata->system_uA;
-	vreg_priv->hpm_min_load = vreg_pdata->hpm_min_load;
-	vreg_priv->voltage = vreg_pdata->init_data.constraints.min_uV;
+	vreg_priv->voltage = init_data->constraints.min_uV;
+	if (vreg_priv->system_uA >= vreg_priv->hpm_min_load)
+		vreg_priv->mode = REGULATOR_MODE_NORMAL;
+	else
+		vreg_priv->mode = REGULATOR_MODE_IDLE;
 
-	vreg_priv->rdev = regulator_register(rdesc, &pdev->dev,
-			&(vreg_pdata->init_data), vreg_priv, NULL);
+	vreg_priv->rdev = regulator_register(rdesc, dev, init_data, vreg_priv,
+						dev->of_node);
+
 	if (IS_ERR(vreg_priv->rdev)) {
 		rc = PTR_ERR(vreg_priv->rdev);
 		vreg_priv->rdev = NULL;
-		dev_err(&pdev->dev, "%s: regulator_register failed\n",
+		if (rc != -EPROBE_DEFER)
+			dev_err(dev, "%s: regulator_register failed\n",
 				__func__);
 		goto err_probe;
 	}
@@ -206,12 +260,18 @@ static int __devexit regulator_stub_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id regulator_stub_match_table[] = {
+	{ .compatible = "qcom," STUB_REGULATOR_DRIVER_NAME, },
+	{}
+};
+
 static struct platform_driver regulator_stub_driver = {
 	.probe	= regulator_stub_probe,
 	.remove	= __devexit_p(regulator_stub_remove),
 	.driver	= {
 		.name	= STUB_REGULATOR_DRIVER_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = regulator_stub_match_table,
 	},
 };
 
