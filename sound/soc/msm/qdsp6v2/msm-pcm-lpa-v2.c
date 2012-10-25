@@ -42,6 +42,7 @@ static struct audio_locks the_locks;
 struct snd_msm {
 	struct msm_audio *prtd;
 	unsigned volume;
+	atomic_t audio_ocmem_req;
 };
 static struct snd_msm lpa_audio;
 
@@ -227,7 +228,8 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 		prtd->pcm_irq_pos = 0;
-		audio_ocmem_process_req(AUDIO, true);
+		if (!atomic_cmpxchg(&lpa_audio.audio_ocmem_req, 0, 1))
+			audio_ocmem_process_req(AUDIO, true);
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("SNDRV_PCM_TRIGGER_START\n");
@@ -237,7 +239,6 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");
-		audio_ocmem_process_req(AUDIO, false);
 		atomic_set(&prtd->start, 0);
 		atomic_set(&prtd->stop, 1);
 		if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK)
@@ -328,6 +329,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->dsp_cnt = 0;
 	atomic_set(&prtd->pending_buffer, 1);
 	atomic_set(&prtd->stop, 1);
+	atomic_set(&lpa_audio.audio_ocmem_req, 0);
 	runtime->private_data = prtd;
 	lpa_audio.prtd = prtd;
 	lpa_set_volume(lpa_audio.volume);
@@ -387,6 +389,9 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 
 	dir = IN;
 	atomic_set(&prtd->pending_buffer, 0);
+
+	if (atomic_cmpxchg(&lpa_audio.audio_ocmem_req, 1, 0))
+		audio_ocmem_process_req(AUDIO, false);
 	lpa_audio.prtd = NULL;
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,

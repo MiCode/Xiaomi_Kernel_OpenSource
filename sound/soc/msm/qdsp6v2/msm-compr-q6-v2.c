@@ -48,6 +48,7 @@
 struct snd_msm {
 	struct msm_audio *prtd;
 	unsigned volume;
+	atomic_t audio_ocmem_req;
 };
 static struct snd_msm compressed_audio = {NULL, 0x2000} ;
 
@@ -434,8 +435,11 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 		prtd->pcm_irq_pos = 0;
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			audio_ocmem_process_req(AUDIO, true);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			if (!atomic_cmpxchg(&compressed_audio.audio_ocmem_req,
+									0, 1))
+				audio_ocmem_process_req(AUDIO, true);
+		}
 
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			switch (compr->info.codec_param.codec.id) {
@@ -456,9 +460,6 @@ static int msm_compr_trigger(struct snd_pcm_substream *substream, int cmd)
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			audio_ocmem_process_req(AUDIO, false);
-
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			switch (compr->info.codec_param.codec.id) {
 			case SND_AUDIOCODEC_AMRWB:
@@ -565,6 +566,7 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
 	atomic_set(&prtd->eos, 0);
+	atomic_set(&compressed_audio.audio_ocmem_req, 0);
 	compressed_audio.prtd =  &compr->prtd;
 	ret = compressed_set_volume(compressed_audio.volume);
 	if (ret < 0)
@@ -611,6 +613,8 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 
 	dir = IN;
 	atomic_set(&prtd->pending_buffer, 0);
+	if (atomic_cmpxchg(&compressed_audio.audio_ocmem_req, 1, 0))
+		audio_ocmem_process_req(AUDIO, false);
 	prtd->pcm_irq_pos = 0;
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	compressed_audio.prtd = NULL;
