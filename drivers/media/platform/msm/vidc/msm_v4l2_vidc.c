@@ -671,7 +671,6 @@ static int msm_v4l2_close(struct file *filp)
 	if (rc)
 		dprintk(VIDC_WARN,
 			"Failed in %s for release output buffers\n", __func__);
-	rc = msm_vidc_close(vidc_inst);
 	list_for_each_safe(ptr, next, &v4l2_inst->registered_bufs) {
 		bi = list_entry(ptr, struct buffer_info, list);
 		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -686,6 +685,7 @@ static int msm_v4l2_close(struct file *filp)
 		}
 	}
 	msm_smem_delete_client(v4l2_inst->mem_client);
+	rc = msm_vidc_close(vidc_inst);
 	kfree(v4l2_inst);
 	return rc;
 }

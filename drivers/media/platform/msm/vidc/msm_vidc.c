@@ -540,13 +540,13 @@ int msm_vidc_close(void *instance)
 			list_del(&inst->list);
 	}
 	mutex_unlock(&core->sync_lock);
+	cleanup_instance(inst);
 	if (inst->state != MSM_VIDC_CORE_INVALID &&
 		core->state != VIDC_CORE_INVALID)
 		rc = msm_comm_try_state(inst, MSM_VIDC_CORE_UNINIT);
 	if (rc)
 		dprintk(VIDC_ERR,
 			"Failed to move video instance to uninit state\n");
-	cleanup_instance(inst);
 	pr_info(VIDC_DBG_TAG "Closed video instance: %p\n", VIDC_INFO, inst);
 	kfree(inst);
 	return 0;
