@@ -343,6 +343,18 @@ config SMB349_CHARGER
 	  SMB349 be operated as a slave device via the power supply
 	  framework.
 
+config SMB350_CHARGER
+	tristate "smb350 charger"
+	depends on I2C
+	help
+	  Say Y to enable battery charging by SMB350 switching mode based
+	  external charger. The device supports stack-cell battery charging.
+	  The driver configures the device volatile parameters
+	  and the charger device works autonomously.
+	  The driver supports charger-enable and charger-suspend/resume.
+	  The driver reports the charger status via the power supply framework.
+	  A charger status change triggers an IRQ via the device STAT pin.
+
 config BATTERY_MSM_FAKE
 	tristate "Fake MSM battery"
 	depends on ARCH_MSM && BATTERY_MSM
