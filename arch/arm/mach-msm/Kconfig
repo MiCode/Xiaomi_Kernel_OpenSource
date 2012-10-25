@@ -2004,7 +2004,7 @@ config MSM_PIL_RIVA
 
 config MSM_PIL_TZAPPS
 	tristate "TZApps Boot Support"
-	depends on MSM_PIL
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down TZApps.
 
@@ -2023,13 +2023,13 @@ config MSM_PIL_DSPS
 
 config MSM_PIL_VIDC
 	tristate "Video Core Secure Boot Support"
-	depends on MSM_PIL
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for authenticating the video core image.
 
 config MSM_PIL_VENUS
 	tristate "VENUS (Video) Boot Support"
-	depends on MSM_PIL
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
 	help
 	  Support for booting and shutting down the VENUS processor (Video).
 	  Venus is the Video subsystem processor used for video codecs.

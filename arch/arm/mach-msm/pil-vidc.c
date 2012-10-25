@@ -17,6 +17,9 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 
+#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
+
 #include "peripheral-loader.h"
 #include "scm-pas.h"
 
@@ -24,6 +27,8 @@ struct vidc_data {
 	struct clk *smmu_iface;
 	struct clk *core;
 	struct pil_device *pil;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
 };
 
 static int pil_vidc_init_image(struct pil_desc *pil, const u8 *metadata,
@@ -63,6 +68,24 @@ static struct pil_reset_ops pil_vidc_ops = {
 	.shutdown = pil_vidc_shutdown,
 };
 
+#define subsys_to_drv(d) container_of(d, struct vidc_data, subsys_desc)
+
+static int vidc_start(const struct subsys_desc *desc)
+{
+	void *ret;
+
+	ret = pil_get("vidc");
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void vidc_stop(const struct subsys_desc *desc)
+{
+	struct vidc_data *drv = subsys_to_drv(desc);
+	pil_put(drv->pil);
+}
+
 static int __devinit pil_vidc_driver_probe(struct platform_device *pdev)
 {
 	struct pil_desc *desc;
@@ -95,12 +118,25 @@ static int __devinit pil_vidc_driver_probe(struct platform_device *pdev)
 	drv->pil = msm_pil_register(desc);
 	if (IS_ERR(drv->pil))
 		return PTR_ERR(drv->pil);
+
+	drv->subsys_desc.name = "vidc";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.start = vidc_start;
+	drv->subsys_desc.stop = vidc_stop;
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		msm_pil_unregister(drv->pil);
+		return PTR_ERR(drv->subsys);
+	}
 	return 0;
 }
 
 static int __devexit pil_vidc_driver_exit(struct platform_device *pdev)
 {
 	struct vidc_data *drv = platform_get_drvdata(pdev);
+	subsys_unregister(drv->subsys);
 	msm_pil_unregister(drv->pil);
 	return 0;
 }

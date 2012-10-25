@@ -28,6 +28,8 @@
 
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
+#include <mach/subsystem_restart.h>
+#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -66,6 +68,8 @@ struct venus_data {
 	void __iomem *venus_wrapper_base;
 	void __iomem *venus_vbif_base;
 	struct pil_device *pil;
+	struct subsys_device *subsys;
+	struct subsys_desc subsys_desc;
 	struct regulator *gdsc;
 	phys_addr_t start_addr;
 	struct clk *clks[ARRAY_SIZE(clk_names)];
@@ -77,6 +81,8 @@ struct venus_data {
 	u32 fw_min_paddr;
 	u32 fw_max_paddr;
 };
+
+#define subsys_to_drv(d) container_of(d, struct venus_data, subsys_desc)
 
 static int venus_register_domain(u32 fw_max_sz)
 {
@@ -381,6 +387,23 @@ static struct pil_reset_ops pil_venus_ops_trusted = {
 	.proxy_unvote = pil_venus_remove_proxy_vote,
 };
 
+static int venus_start(const struct subsys_desc *desc)
+{
+	void *ret;
+	struct venus_data *drv = subsys_to_drv(desc);
+
+	ret = pil_get(drv->subsys_desc.name);
+	if (IS_ERR(ret))
+		return PTR_ERR(ret);
+	return 0;
+}
+
+static void venus_stop(const struct subsys_desc *desc)
+{
+	struct venus_data *drv = subsys_to_drv(desc);
+	pil_put(drv->pil);
+}
+
 static int __devinit pil_venus_probe(struct platform_device *pdev)
 {
 	struct venus_data *drv;
@@ -488,12 +511,25 @@ static int __devinit pil_venus_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->pil))
 		return PTR_ERR(drv->pil);
 
+	drv->subsys_desc.name = desc->name;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.start = venus_start;
+	drv->subsys_desc.stop = venus_stop;
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		msm_pil_unregister(drv->pil);
+		return PTR_ERR(drv->subsys);
+	}
+
 	return 0;
 }
 
 static int __devexit pil_venus_remove(struct platform_device *pdev)
 {
 	struct venus_data *drv = platform_get_drvdata(pdev);
+	subsys_unregister(drv->subsys);
 	msm_pil_unregister(drv->pil);
 
 	return 0;
