@@ -1153,6 +1153,37 @@ static int sched_enqueue(struct ocmem_req *priv)
 	return 0;
 }
 
+static void sched_dequeue(struct ocmem_req *victim_req)
+{
+	struct ocmem_req *req = NULL;
+	struct ocmem_req *next = NULL;
+	int id;
+
+	if (!victim_req)
+		return;
+
+	id = victim_req->owner;
+
+	mutex_lock(&sched_queue_mutex);
+
+	if (list_empty(&sched_queue[id]))
+		goto dequeue_done;
+
+	list_for_each_entry_safe(req, next, &sched_queue[id], sched_list)
+	{
+		if (req == victim_req) {
+			pr_debug("ocmem: Cancelling pending request %p\n",
+							req);
+			list_del(&req->sched_list);
+			goto dequeue_done;
+		}
+	}
+
+dequeue_done:
+	mutex_unlock(&sched_queue_mutex);
+	return;
+}
+
 static struct ocmem_req *ocmem_fetch_req(void)
 {
 	int i;
@@ -1378,6 +1409,10 @@ int process_free(int id, struct ocmem_handle *handle)
 		pr_err("Invalid buffer handle passed for free\n");
 		return -EINVAL;
 	}
+
+	mutex_lock(&sched_mutex);
+	sched_dequeue(req);
+	mutex_unlock(&sched_mutex);
 
 	if (!TEST_STATE(req, R_FREE)) {
 
