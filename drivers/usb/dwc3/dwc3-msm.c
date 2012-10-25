@@ -1247,7 +1247,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	 * 1. Set OTGDISABLE to disable OTG block in HSPHY (saves power)
 	 * 2. Clear charger detection control fields
 	 * 3. SUSPEND PHY and turn OFF core clock after some delay
-	 * 4. Clear interrupt latch register and enable BSV HV interrupt
+	 * 4. Clear interrupt latch register and enable BSV, ID HV interrupts
 	 * 5. Enable PHY retention
 	 */
 	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x1000, 0x1000);
@@ -1259,7 +1259,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	clk_disable_unprepare(mdwc->ref_clk);
 
 	dwc3_msm_write_reg(mdwc->base, HS_PHY_IRQ_STAT_REG, 0xFFF);
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x8000, 0x8000);
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x18000, 0x18000);
 	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x0);
 
 	/* make sure above writes are completed before turning off clocks */
@@ -1321,7 +1321,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	clk_prepare_enable(mdwc->core_clk);
 
 	/* Disable HV interrupt */
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x8000, 0x0);
+	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x18000, 0x0);
 	/* Disable Retention */
 	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x2);
 
@@ -1719,8 +1719,8 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	 */
 	dwc3_msm_write_reg(msm->base, HS_PHY_CTRL_REG, 0x5220bb2);
 	usleep_range(2000, 2200);
-	/* Disable (bypass) VBUS filter */
-	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x38);
+	/* Disable (bypass) VBUS and ID filters */
+	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
 
 	pm_runtime_set_active(msm->dev);
 	pm_runtime_enable(msm->dev);
