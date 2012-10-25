@@ -15,6 +15,7 @@
 #include <linux/io.h>
 #include "mdss_io_util.h"
 
+#define MAX_I2C_CMDS  16
 void dss_reg_w(struct dss_io_data *io, u32 offset, u32 value, u32 debug)
 {
 	u32 in_val;
@@ -382,3 +383,59 @@ int msm_dss_enable_clk(struct dss_clk *clk_arry, int num_clk, int enable)
 
 	return rc;
 } /* msm_dss_enable_clk */
+
+
+int mdss_i2c_byte_read(struct i2c_client *client, uint8_t slave_addr,
+			uint8_t reg_offset, uint8_t *read_buf)
+{
+	struct i2c_msg msgs[2];
+	int ret = -1;
+
+	pr_debug("%s: reading from slave_addr=[%x] and offset=[%x]\n",
+		 __func__, slave_addr, reg_offset);
+
+	msgs[0].addr = slave_addr >> 1;
+	msgs[0].flags = 0;
+	msgs[0].buf = &reg_offset;
+	msgs[0].len = 1;
+
+	msgs[1].addr = slave_addr >> 1;
+	msgs[1].flags = I2C_M_RD;
+	msgs[1].buf = read_buf;
+	msgs[1].len = 1;
+
+	ret = i2c_transfer(client->adapter, msgs, 2);
+	if (ret < 1) {
+		pr_err("%s: I2C READ FAILED=[%d]\n", __func__, ret);
+		return -EACCES;
+	}
+	pr_debug("%s: i2c buf is [%x]\n", __func__, *read_buf);
+	return 0;
+}
+
+int mdss_i2c_byte_write(struct i2c_client *client, uint8_t slave_addr,
+			uint8_t reg_offset, uint8_t *value)
+{
+	struct i2c_msg msgs[1];
+	uint8_t data[2];
+	int status = -EACCES;
+
+	pr_debug("%s: writing from slave_addr=[%x] and offset=[%x]\n",
+		 __func__, slave_addr, reg_offset);
+
+	data[0] = reg_offset;
+	data[1] = *value;
+
+	msgs[0].addr = slave_addr >> 1;
+	msgs[0].flags = 0;
+	msgs[0].len = 2;
+	msgs[0].buf = data;
+
+	status = i2c_transfer(client->adapter, msgs, 1);
+	if (status < 1) {
+		pr_err("I2C WRITE FAILED=[%d]\n", status);
+		return -EACCES;
+	}
+	pr_debug("%s: I2C write status=%x\n", __func__, status);
+	return status;
+}

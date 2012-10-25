@@ -16,6 +16,8 @@
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/i2c.h>
+#include <linux/types.h>
 
 #ifdef DEBUG
 #define DEV_DBG(fmt, args...)   pr_err(fmt, ##args)
@@ -96,5 +98,10 @@ int msm_dss_get_clk(struct device *dev, struct dss_clk *clk_arry, int num_clk);
 void msm_dss_put_clk(struct dss_clk *clk_arry, int num_clk);
 int msm_dss_clk_set_rate(struct dss_clk *clk_arry, int num_clk);
 int msm_dss_enable_clk(struct dss_clk *clk_arry, int num_clk, int enable);
+
+int mdss_i2c_byte_read(struct i2c_client *client, uint8_t slave_addr,
+		       uint8_t reg_offset, uint8_t *read_buf);
+int mdss_i2c_byte_write(struct i2c_client *client, uint8_t slave_addr,
+			uint8_t reg_offset, uint8_t *value);
 
 #endif /* __MDSS_IO_UTIL_H__ */
