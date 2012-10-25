@@ -388,6 +388,18 @@ config BQ27520_TEST_ENABLE
 	help
 	  Say Y here to enable Test sysfs Interface for BQ27520 Drivers.
 
+config BATTERY_BQ28400
+	tristate "BQ28400 battery driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable support for batteries with BQ28400 (I2C) chips.
+	  The bq28400 Texas Instruments Inc device monitors the battery
+	  charging/discharging status via Rsens resistor, typically 10 mohm.
+	  It monitors the battery temperature via Thermistor.
+	  The device monitors the battery level (Relative-State-Of-Charge).
+	  The device is SBS compliant, providing battery info over I2C.
+
 config PM8921_CHARGER
 	tristate "PM8921 Charger driver"
 	depends on MFD_PM8921_CORE
