@@ -198,7 +198,7 @@ static struct smd_subsystem_config smd_config_list[] = {
 		.edge = SMD_APPS_RPM,
 
 		.smd_int.irq_name = "rpm_smd_in",
-		.smd_int.flags = IRQF_TRIGGER_RISING,
+		.smd_int.flags = IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
 		.smd_int.irq_id = -1,
 		.smd_int.device_name = "smd_dev",
 		.smd_int.dev_id = 0,
