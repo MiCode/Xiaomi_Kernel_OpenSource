@@ -289,6 +289,7 @@ struct pm8921_chg_chip {
 	bool				has_dc_supply;
 	u8				active_path;
 	int				recent_reported_soc;
+	int				battery_less_hardware;
 };
 
 /* user space parameter to limit usb current */
@@ -1420,6 +1421,9 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 {
 	int percent_soc;
 
+	if (chip->battery_less_hardware)
+		return 100;
+
 	if (!get_prop_batt_present(chip))
 		percent_soc = voltage_based_capacity(chip);
 	else
@@ -1581,6 +1585,9 @@ static int get_prop_batt_temp(struct pm8921_chg_chip *chip)
 {
 	int rc;
 	struct pm8xxx_adc_chan_result result;
+
+	if (chip->battery_less_hardware)
+		return 300;
 
 	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
 	if (rc) {
@@ -4288,6 +4295,10 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->rconn_mohm = pdata->rconn_mohm;
 	chip->led_src_config = pdata->led_src_config;
 	chip->has_dc_supply = pdata->has_dc_supply;
+	chip->battery_less_hardware = pdata->battery_less_hardware;
+
+	if (chip->battery_less_hardware)
+		charging_disabled = 1;
 
 	rc = pm8921_chg_hw_init(chip);
 	if (rc) {

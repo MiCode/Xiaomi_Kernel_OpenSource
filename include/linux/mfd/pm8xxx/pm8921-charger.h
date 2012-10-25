@@ -163,6 +163,7 @@ struct pm8921_charger_platform_data {
 	enum pm8921_chg_hot_thr		hot_thr;
 	int				rconn_mohm;
 	enum pm8921_chg_led_src_config	led_src_config;
+	int				battery_less_hardware;
 };
 
 enum pm8921_charger_source {
