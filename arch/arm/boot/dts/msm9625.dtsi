@@ -234,7 +234,6 @@
 		qcom,sdcc-sup-voltages = <2950 2950>;
 		qcom,sdcc-bus-width = <4>;
 		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
-		status = "disable";
 	};
 
 	qcom,bam_dmux@fc834000 {
