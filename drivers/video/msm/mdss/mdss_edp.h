@@ -92,6 +92,12 @@ struct mdss_edp_drv_pdata {
 
 	/* gpios */
 	int gpio_panel_en;
+	int gpio_panel_pwm;
+
+	/* backlight */
+	struct pwm_device *bl_pwm;
+	int lpg_channel;
+	int pwm_period;
 };
 
 void mdss_edp_phy_sw_reset(unsigned char *edp_base);
