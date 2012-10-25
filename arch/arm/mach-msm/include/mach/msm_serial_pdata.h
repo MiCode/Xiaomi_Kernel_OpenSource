@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
 */
 
-#ifndef __ASM_ARCH_MSM_SERIAL_HS_H
-#define __ASM_ARCH_MSM_SERIAL_HS_H
+#ifndef __ASM_ARCH_MSM_SERIAL_H
+#define __ASM_ARCH_MSM_SERIAL_H
 
 #include <linux/serial_core.h>
 
@@ -22,6 +22,7 @@ struct msm_serial_platform_data {
 	/* bool: inject char into rx tty on wakeup */
 	unsigned char inject_rx_on_wakeup;
 	char rx_to_inject;
+	int userid;
 };
 
 #endif
