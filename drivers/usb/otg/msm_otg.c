@@ -844,9 +844,14 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		motg->caps & ALLOW_LPM_ON_DEV_SUSPEND;
 	dcp = motg->chg_type == USB_DCP_CHARGER;
 
-	/* charging detection in progress due to cable plug-in */
-	if (test_bit(B_SESS_VLD, &motg->inputs) && !device_bus_suspend &&
-		!dcp) {
+	/*
+	 * Abort suspend when,
+	 * 1. charging detection in progress due to cable plug-in
+	 * 2. host mode activation in progress due to Micro-A cable insertion
+	 */
+
+	if ((test_bit(B_SESS_VLD, &motg->inputs) && !device_bus_suspend &&
+		!dcp) || test_bit(A_BUS_REQ, &motg->inputs)) {
 		enable_irq(motg->irq);
 		return -EBUSY;
 	}
