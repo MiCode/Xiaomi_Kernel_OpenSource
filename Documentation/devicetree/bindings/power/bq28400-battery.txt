@@ -1,0 +1,18 @@
+TI BQ28400 Battery Gas Gauge
+
+The bq28400 monitors the battery temperature, capacity, voltage, current etc.
+The device interface is I2C, its I2C slave 7-bit address is 0xb.
+The device is usually embedded inside the "smart battery" pack.
+
+node required properties:
+- compatible:	Must be "ti,bq28400-battery".
+- reg:		I2C Address must be 0xb.
+
+Example:
+	i2c@f9967000 {
+		battery@b {
+			compatible = "ti,bq28400-battery";
+			reg = <0xb>;
+		};
+	};
+
