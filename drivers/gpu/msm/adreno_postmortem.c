@@ -70,6 +70,14 @@ static const struct pm_id_name pm3_types[] = {
 	{CP_WAIT_FOR_IDLE,		"WAIT4IDL"},
 };
 
+static const struct pm_id_name pm3_nop_values[] = {
+	{KGSL_CONTEXT_TO_MEM_IDENTIFIER,	"CTX_SWCH"},
+	{KGSL_CMD_IDENTIFIER,			"CMD__EXT"},
+	{KGSL_CMD_INTERNAL_IDENTIFIER,		"CMD__INT"},
+	{KGSL_START_OF_IB_IDENTIFIER,		"IB_START"},
+	{KGSL_END_OF_IB_IDENTIFIER,		"IB___END"},
+};
+
 static uint32_t adreno_is_pm4_len(uint32_t word)
 {
 	if (word == INVALID_RB_CMD)
@@ -125,6 +133,28 @@ static const char *adreno_pm4_name(uint32_t word)
 				return pm3_types[i].name;
 		}
 		return "????????";
+	}
+	return "????????";
+}
+
+static bool adreno_is_pm3_nop_value(uint32_t word)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(pm3_nop_values); ++i) {
+		if (word == pm3_nop_values[i].id)
+			return 1;
+	}
+	return 0;
+}
+
+static const char *adreno_pm3_nop_name(uint32_t word)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(pm3_nop_values); ++i) {
+		if (word == pm3_nop_values[i].id)
+			return pm3_nop_values[i].name;
 	}
 	return "????????";
 }
@@ -245,8 +275,13 @@ static void adreno_dump_rb_buffer(const void *buf, size_t len,
 				"%s", adreno_pm4_name(ptr4[j]));
 			*argp = -(adreno_is_pm4_len(ptr4[j])+1);
 		} else {
-			lx += scnprintf(linebuf + lx, linebuflen - lx,
-				"%8.8X", ptr4[j]);
+			if (adreno_is_pm3_nop_value(ptr4[j]))
+				lx += scnprintf(linebuf + lx, linebuflen - lx,
+					"%s", adreno_pm3_nop_name(ptr4[j]));
+			else
+				lx += scnprintf(linebuf + lx, linebuflen - lx,
+					"%8.8X", ptr4[j]);
+
 			if (*argp > 1)
 				--*argp;
 			else if (*argp == 1) {
