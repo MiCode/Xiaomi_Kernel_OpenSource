@@ -113,6 +113,10 @@ static struct of_dev_auxdata mpq8092_auxdata_lookup[] __initdata = {
 			"msm_serial_hsl.0", NULL),
 	OF_DEV_AUXDATA("qcom,spmi-pmic-arb", 0xFC4C0000, \
 			"spmi-pmic-arb.0", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
+			"msm_sdcc.1", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
+			"msm_sdcc.2", NULL),
 	{}
 };
 
