@@ -1,5 +1,5 @@
-#ifndef __MACH_STM_H
-#define __MACH_STM_H
+#ifndef _LINUX_CORESIGHT_STM_H
+#define _LINUX_CORESIGHT_STM_H
 
 enum {
 	OST_ENTITY_NONE			= 0x00,
@@ -7,7 +7,7 @@ enum {
 	OST_ENTITY_TRACE_PRINTK		= 0x02,
 	OST_ENTITY_TRACE_MARKER		= 0x04,
 	OST_ENTITY_DEV_NODE		= 0x08,
-	OST_ENTITY_ALL			= 0x1F,
+	OST_ENTITY_MAX			= 0xFF,
 };
 
 enum {
