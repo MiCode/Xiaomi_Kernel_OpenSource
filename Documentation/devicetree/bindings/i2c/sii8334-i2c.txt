@@ -1,0 +1,26 @@
+* Silicon Image-8334 MHL Tx
+
+Required properties:
+- compatible: must be "qcom,mhl-sii8334"
+- reg: i2c slave address
+- mhl-intr-gpio: MHL interrupt gpio coming out of sii8334
+- mhl-pwr-gpio: MHL power gpio required for power rails
+- mhl-rst-gpio: MHL reset gpio going into sii8334 for toggling reset pin
+- <supply-name>-supply: phandle to the regulator device tree node.
+
+Example:
+	i2c@f9967000 {
+		sii8334@72 {
+			compatible = "qcom,mhl-sii8334";
+			reg = <0x72>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <82 0x8>;
+			mhl-intr-gpio = <&msmgpio 82 0>;
+			mhl-pwr-gpio = <&msmgpio 12 0>;
+			mhl-rst-gpio = <&pm8941_mpps 8 0>;
+			avcc_18-supply = <&pm8941_l24>;
+			avcc_12-supply = <&pm8941_l2>;
+			smps3a-supply = <&pm8941_s3>;
+			vdda-supply = <&pm8941_l12>;
+		};
+	};

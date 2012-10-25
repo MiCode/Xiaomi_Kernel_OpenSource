@@ -18,5 +18,6 @@ obj-$(CONFIG_FB_MSM_MDSS) += mdss_io_util.o
 obj-$(CONFIG_FB_MSM_MDSS_HDMI_PANEL) += mdss_hdmi_tx.o
 obj-$(CONFIG_FB_MSM_MDSS_HDMI_PANEL) += mdss_hdmi_util.o
 obj-$(CONFIG_FB_MSM_MDSS_HDMI_PANEL) += mdss_hdmi_edid.o
+obj-$(CONFIG_FB_MSM_MDSS_HDMI_MHL_8334) += mhl_sii8334.o
 
 obj-$(CONFIG_FB_MSM_MDSS_WRITEBACK) += mdss_wb.o

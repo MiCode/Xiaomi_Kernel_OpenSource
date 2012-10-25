@@ -11,3 +11,12 @@ config FB_MSM_MDSS_HDMI_PANEL
 	---help---
 	The MDSS HDMI Panel provides support for transmitting TMDS signals of
 	MDSS frame buffer data to connected hdmi compliant TVs, monitors etc.
+
+config FB_MSM_MDSS_HDMI_MHL_8334
+	depends on FB_MSM_MDSS_HDMI_PANEL
+	bool 'MHL SII8334 support '
+	default n
+	---help---
+	  Support the HDMI to MHL conversion.
+	  MHL (Mobile High-Definition Link) technology
+	  uses USB connector to output HDMI content
