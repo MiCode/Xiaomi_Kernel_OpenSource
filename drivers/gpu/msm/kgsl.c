@@ -1710,6 +1710,8 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	else
 		memtype = param->memtype;
 
+	entry->memdesc.flags = param->flags;
+
 	switch (memtype) {
 	case KGSL_USER_MEM_TYPE_PMEM:
 		if (param->fd == 0 || param->len == 0)
@@ -1768,12 +1770,10 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	if (result)
 		goto error;
 
-	entry->memdesc.priv |= param->flags & KGSL_MEMTYPE_MASK;
-
 	if (entry->memdesc.size >= SZ_1M)
-		entry->memdesc.priv |= ilog2(SZ_1M) << KGSL_MEMALIGN_SHIFT;
+		kgsl_memdesc_set_align(&entry->memdesc, ilog2(SZ_1M));
 	else if (entry->memdesc.size >= SZ_64K)
-		entry->memdesc.priv |= ilog2(SZ_64K) << KGSL_MEMALIGN_SHIFT;
+		kgsl_memdesc_set_align(&entry->memdesc, ilog2(SZ_64));
 
 	result = kgsl_mmu_map(private->pagetable,
 			      &entry->memdesc,
