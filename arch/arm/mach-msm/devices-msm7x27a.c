@@ -1784,6 +1784,7 @@ static struct msm_cpr_config msm_cpr_pdata = {
 	.max_nom_freq = 700800,
 	.max_freq = 1401600,
 	.max_quot = 0,
+	.disable_cpr = false,
 	.vp_data = &vp_data,
 	.get_quot = msm_cpr_get_quot,
 	.clk_enable = msm_cpr_clk_enable,
@@ -1816,6 +1817,7 @@ static void __init msm_cpr_init(void)
 	}
 
 	msm_smem_get_cpr_info(cpr_info);
+	msm_cpr_pdata.disable_cpr = cpr_info->disable_cpr;
 
 	/**
 	 * Set the ring_osc based on efuse BIT(0)
