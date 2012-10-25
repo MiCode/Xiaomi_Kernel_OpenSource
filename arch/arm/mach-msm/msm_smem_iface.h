@@ -16,7 +16,6 @@
 #define __ARCH_ARM_MACH_MSM_SMEM_IFACE_H
 
 #include <mach/msm_smsm.h>
-#include "smd_private.h"
 
 #define MAX_KEY_EVENTS 10
 #define MAX_SEC_KEY_PAYLOAD 32
@@ -39,6 +38,7 @@ struct cpr_info_type {
 	uint8_t turbo_quot; /* CPRFUSE[1:7] : TURBO QUOT*/
 	uint8_t pvs_fuse;   /* TURBO PVS FUSE */
 	uint8_t floor_fuse; /* Vmin Selection. b1: FAB_ID(2), b0: CPR_fuse[0] */
+	bool    disable_cpr;
 };
 
 struct boot_info_for_apps {
@@ -49,7 +49,7 @@ struct boot_info_for_apps {
 	uint16_t boot_keys_pressed[MAX_KEY_EVENTS]; /* Log of key presses */
 	uint32_t timetick; /* Modem tick timer value before apps out of reset */
 	struct cpr_info_type cpr_info;
-	uint8_t PAD[24];
+	uint8_t PAD[23];
 };
 
 void msm_smem_get_cpr_info(struct cpr_info_type *cpr_info);

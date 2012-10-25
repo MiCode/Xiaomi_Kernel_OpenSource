@@ -188,6 +188,7 @@ struct msm_cpr_config {
 	uint32_t max_nom_freq;
 	uint32_t max_freq;
 	uint32_t max_quot;
+	bool disable_cpr;
 	struct msm_cpr_vp_data *vp_data;
 	uint32_t (*get_quot)(uint32_t max_quot, uint32_t max_freq,
 				uint32_t new_freq);
