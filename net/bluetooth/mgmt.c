@@ -3011,6 +3011,12 @@ int mgmt_user_confirm_request(u16 index, u8 event,
 		goto no_auto_confirm;
 	}
 
+	/* Show bonding dialog if neither side requires no bonding */
+	if ((conn->auth_type > 0x01) && (conn->remote_auth > 0x01)) {
+		if (!loc_mitm && !rem_mitm)
+			value = 0;
+		goto no_auto_confirm;
+	}
 
 	if ((!loc_mitm || rem_cap == 0x03) && (!rem_mitm || loc_cap == 0x03))
 		ev.auto_confirm = 1;
