@@ -439,11 +439,10 @@ int config_vc_format(struct vcap_client_data *c_data)
 			vc_format->mode << 10,
 			VCAP_VC_CTRL);
 
-	writel_relaxed(vc_format->h_polar << 4 |
+	writel_relaxed(vc_format->d_polar << 8 |
+			vc_format->h_polar << 4 |
 			vc_format->v_polar << 0, VCAP_VC_POLARITY);
 
-	writel_relaxed(vc_format->h_polar << 4 |
-			vc_format->v_polar << 0, VCAP_VC_POLARITY);
 	writel_relaxed(((vc_format->htotal << 16) | vc_format->vtotal),
 			VCAP_VC_V_H_TOTAL);
 	writel_relaxed(((vc_format->hactive_end << 16) |
