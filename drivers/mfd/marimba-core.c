@@ -173,12 +173,13 @@ int marimba_write_bit_mask(struct marimba *marimba, u8 reg, u8 *value,
 	u8 data[num_bytes + 1];
 	u8 mask_value[num_bytes];
 
+	memset(mask_value, 0, sizeof(mask_value));
+
 	marimba = &marimba_modules[marimba->mod_id];
 	if (marimba == NULL) {
 		pr_err("%s: Unable to access Marimba core\n", __func__);
 		return -ENODEV;
 	}
-
 
 	mutex_lock(&marimba->xfer_lock);
 
@@ -619,7 +620,7 @@ DEFINE_SIMPLE_ATTRIBUTE(dbg_addr_fops, addr_get, addr_set, "0x%03llX\n");
 static int __devinit marimba_dbg_init(int adie_type)
 {
 	struct adie_dbg_device *dbgdev;
-	struct dentry *dent;
+	struct dentry *dent = NULL;
 	struct dentry *temp;
 
 	dbgdev = kzalloc(sizeof *dbgdev, GFP_KERNEL);

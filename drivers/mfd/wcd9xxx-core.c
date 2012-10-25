@@ -550,6 +550,13 @@ static int wcd9xxx_enable_supplies(struct wcd9xxx *wcd9xxx,
 	}
 
 	wcd9xxx->num_of_supplies = 0;
+
+	if (ARRAY_SIZE(pdata->regulator) > MAX_REGULATOR) {
+		pr_err("%s: Array Size out of bound\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
 	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
 		if (pdata->regulator[i].name) {
 			wcd9xxx->supplies[i].supply = pdata->regulator[i].name;
