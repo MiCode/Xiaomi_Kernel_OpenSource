@@ -9,7 +9,7 @@ userspace clients.
 EPM node
 
 Required properties:
-- compatible : should be "qcom,epm-adc" for EPM using PSoC5.
+- compatible : should be "cy,epm-adc-cy8c5568lti-114" for EPM using PSoC5.
 - reg : chip select for the device.
 - interrupt-parent : should be phandle of the interrupt controller
 		     servicing the interrupt for this device.

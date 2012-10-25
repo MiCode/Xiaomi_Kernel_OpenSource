@@ -1703,7 +1703,7 @@ static int __devexit epm_adc_psoc_spi_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id epm_adc_psoc_match_table[] = {
-	{	.compatible = "qcom,epm-adc",
+	{	.compatible = "cy,epm-adc-cy8c5568lti-114",
 	},
 	{}
 };
