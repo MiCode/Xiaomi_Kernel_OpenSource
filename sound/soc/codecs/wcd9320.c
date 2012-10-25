@@ -978,9 +978,14 @@ static const char * const rx_mix2_text[] = {
 	"ZERO", "SRC1", "SRC2", "IIR1", "IIR2"
 };
 
-static const char * const rx_dsm_text[] = {
-	"CIC_OUT", "DSM_INV"
+static const char * const rx_rdac5_text[] = {
+	"DEM4", "DEM3_INV"
 };
+
+static const char * const rx_rdac7_text[] = {
+	"DEM6", "DEM5_INV"
+};
+
 
 static const char * const sb_tx1_mux_text[] = {
 	"ZERO", "RMIX1", "RMIX2", "RMIX3", "RMIX4", "RMIX5", "RMIX6", "RMIX7",
@@ -1135,11 +1140,11 @@ static const struct soc_enum rx7_mix2_inp1_chain_enum =
 static const struct soc_enum rx7_mix2_inp2_chain_enum =
 	SOC_ENUM_SINGLE(TAIKO_A_CDC_CONN_RX7_B3_CTL, 3, 5, rx_mix2_text);
 
-static const struct soc_enum rx4_dsm_enum =
-	SOC_ENUM_SINGLE(TAIKO_A_CDC_RX4_B6_CTL, 4, 2, rx_dsm_text);
+static const struct soc_enum rx_rdac5_enum =
+	SOC_ENUM_SINGLE(TAIKO_A_CDC_CONN_MISC, 2, 2, rx_rdac5_text);
 
-static const struct soc_enum rx6_dsm_enum =
-	SOC_ENUM_SINGLE(TAIKO_A_CDC_RX6_B6_CTL, 4, 2, rx_dsm_text);
+static const struct soc_enum rx_rdac7_enum =
+	SOC_ENUM_SINGLE(TAIKO_A_CDC_CONN_MISC, 1, 2, rx_rdac7_text);
 
 static const struct soc_enum sb_tx1_mux_enum =
 	SOC_ENUM_SINGLE(TAIKO_A_CDC_CONN_TX_SB_B1_CTL, 0, 9, sb_tx1_mux_text);
@@ -1280,11 +1285,11 @@ static const struct snd_kcontrol_new rx7_mix2_inp1_mux =
 static const struct snd_kcontrol_new rx7_mix2_inp2_mux =
 	SOC_DAPM_ENUM("RX7 MIX2 INP2 Mux", rx7_mix2_inp2_chain_enum);
 
-static const struct snd_kcontrol_new rx4_dsm_mux =
-	SOC_DAPM_ENUM("RX4 DSM MUX Mux", rx4_dsm_enum);
+static const struct snd_kcontrol_new rx_dac5_mux =
+	SOC_DAPM_ENUM("RDAC5 MUX Mux", rx_rdac5_enum);
 
-static const struct snd_kcontrol_new rx6_dsm_mux =
-	SOC_DAPM_ENUM("RX6 DSM MUX Mux", rx6_dsm_enum);
+static const struct snd_kcontrol_new rx_dac7_mux =
+	SOC_DAPM_ENUM("RDAC7 MUX Mux", rx_rdac7_enum);
 
 static const struct snd_kcontrol_new sb_tx1_mux =
 	SOC_DAPM_ENUM("SLIM TX1 MUX Mux", sb_tx1_mux_enum);
@@ -2635,15 +2640,18 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"LINEOUT1 DAC", NULL, "RX3 MIX1"},
 
-	{"RX4 DSM MUX", "DSM_INV", "RX3 MIX1"},
-	{"RX4 DSM MUX", "CIC_OUT", "RX4 MIX1"},
-	{"LINEOUT3 DAC", NULL, "RX4 DSM MUX"},
+
+	{"RDAC5 MUX", "DEM3_INV", "RX3 MIX1"},
+	{"RDAC5 MUX", "DEM4", "RX4 MIX1"},
+
+	{"LINEOUT3 DAC", NULL, "RDAC5 MUX"},
 
 	{"LINEOUT2 DAC", NULL, "RX5 MIX1"},
 
-	{"RX6 DSM MUX", "DSM_INV", "RX5 MIX1"},
-	{"RX6 DSM MUX", "CIC_OUT", "RX6 MIX1"},
-	{"LINEOUT4 DAC", NULL, "RX6 DSM MUX"},
+	{"RDAC7 MUX", "DEM5_INV", "RX5 MIX1"},
+	{"RDAC7 MUX", "DEM6", "RX6 MIX1"},
+
+	{"LINEOUT4 DAC", NULL, "RDAC7 MUX"},
 
 	{"SPK PA", NULL, "SPK DAC"},
 	{"SPK DAC", NULL, "RX7 MIX2"},
@@ -3844,13 +3852,6 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 		0, taiko_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX_E("RX4 DSM MUX", TAIKO_A_CDC_CLK_RX_B1_CTL, 3, 0,
-		&rx4_dsm_mux, taiko_codec_enable_interpolator,
-		SND_SOC_DAPM_PRE_PMU),
-
-	SND_SOC_DAPM_MUX_E("RX6 DSM MUX", TAIKO_A_CDC_CLK_RX_B1_CTL, 5, 0,
-		&rx6_dsm_mux, taiko_codec_enable_interpolator,
-		SND_SOC_DAPM_PRE_PMU),
 
 	SND_SOC_DAPM_MIXER("RX1 CHAIN", TAIKO_A_CDC_RX1_B6_CTL, 5, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 CHAIN", TAIKO_A_CDC_RX2_B6_CTL, 5, 0, NULL, 0),
@@ -3897,6 +3898,11 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 		&rx7_mix2_inp1_mux),
 	SND_SOC_DAPM_MUX("RX7 MIX2 INP2", SND_SOC_NOPM, 0, 0,
 		&rx7_mix2_inp2_mux),
+
+	SND_SOC_DAPM_MUX("RDAC5 MUX", SND_SOC_NOPM, 0, 0,
+		&rx_dac5_mux),
+	SND_SOC_DAPM_MUX("RDAC7 MUX", SND_SOC_NOPM, 0, 0,
+		&rx_dac7_mux),
 
 	SND_SOC_DAPM_SUPPLY("CLASS_H_CLK", TAIKO_A_CDC_CLK_OTHR_CTL, 0, 0,
 		taiko_codec_enable_class_h_clk, SND_SOC_DAPM_PRE_PMU |
