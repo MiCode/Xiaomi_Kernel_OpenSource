@@ -4,15 +4,20 @@ MDSS EDP is a edp driver which supports panels that are compatable with
 VESA EDP display interface specification.
 
 Required properties
-- compatible :		Must be "qcom,mdss-edp".
-- reg :				Offset and length of the register set for the device.
-- reg-names :		Names to refer to register sets related to this device
-- vdda-supply :		Phandle for vdd regulator device node.
-- gpio-panel-en	:	GPIO for supplying power to panel and to backlight driver.
-- status :			A string that has to be set to "okay/ok" to enable
-					the driver. By default this property will be set to
-					"disable". Will be set to "ok/okay" status for specific
-					platforms.
+- compatible :				Must be "qcom,mdss-edp".
+- reg :						Offset and length of the register set for the
+							device.
+- reg-names :				Names to refer to register sets related to this
+							device
+- vdda-supply :				Phandle for vdd regulator device node.
+- gpio-panel-en	:			GPIO for supplying power to panel and backlight
+							driver.
+- qcom,panel-lpg-channel :	LPG channel for backlight.
+- qcom,panel-pwm-period :	PWM period in microseconds.
+- status :					A string that has to be set to "okay/ok" to enable
+							the driver. By default this property will be set to
+							"disable". Will be set to "ok/okay" status for
+							specific platforms.
 
 Example:
 	mdss_edp: qcom,mdss_edp@fd923400 {
@@ -22,6 +27,8 @@ Example:
 		reg-names = "edp_base", "mmss_cc_base";
 		vdda-supply = <&pm8941_l12>;
 		gpio-panel-en = <&msmgpio 58 0>;
+		qcom,panel-lpg-channel = <7>; /* LPG Channel 8 */
+		qcom,panel-pwm-period = <53>;
 		status = "disable";
 	};
 
