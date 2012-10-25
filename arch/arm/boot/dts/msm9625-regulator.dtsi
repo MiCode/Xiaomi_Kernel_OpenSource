@@ -215,7 +215,7 @@
 		status = "okay";
 		pm8019_l12: regulator-l12 {
 			parent-supply = <&pm8019_s3>;
-			regulator-min-microvolt = <750000>;
+			regulator-min-microvolt = <675000>;
 			regulator-max-microvolt = <1050000>;
 			status = "okay";
 		};
@@ -224,8 +224,18 @@
 			regulator-name = "8019_l12_ao";
 			qcom,set = <1>;
 			parent-supply = <&pm8019_s3_ao>;
-			regulator-min-microvolt = <750000>;
+			regulator-min-microvolt = <675000>;
 			regulator-max-microvolt = <1050000>;
+			status = "okay";
+		};
+		pm8019_l12_so: regulator-l12-so {
+			compatible = "qcom,rpm-regulator-smd";
+			regulator-name = "8019_l12_so";
+			qcom,set = <2>;
+			parent-supply = <&pm8019_s3>;
+			regulator-min-microvolt = <675000>;
+			regulator-max-microvolt = <1050000>;
+			qcom,init-voltage = <675000>;
 			status = "okay";
 		};
 	};
