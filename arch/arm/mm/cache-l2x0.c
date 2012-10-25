@@ -38,6 +38,8 @@ static unsigned int l2x0_sets;
 static unsigned int l2x0_ways;
 static unsigned long sync_reg_offset = L2X0_CACHE_SYNC;
 static void pl310_save(void);
+static void pl310_resume(void);
+static void l2x0_resume(void);
 
 static inline bool is_pl310_rev(int rev)
 {
@@ -378,15 +380,18 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		sync_reg_offset = L2X0_DUMMY_REG;
 #endif
 		outer_cache.set_debug = pl310_set_debug;
+		outer_cache.resume = pl310_resume;
 		break;
 	case L2X0_CACHE_ID_PART_L210:
 		l2x0_ways = (aux >> 13) & 0xf;
 		type = "L210";
+		outer_cache.resume = l2x0_resume;
 		break;
 	default:
 		/* Assume unknown chips have 8 ways */
 		l2x0_ways = 8;
 		type = "L2x0 series";
+		outer_cache.resume = l2x0_resume;
 		break;
 	}
 
