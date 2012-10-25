@@ -125,6 +125,7 @@ enum mmc_block_test_testcases {
 	TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED,
 	PACKING_CONTROL_MAX_TESTCASE = TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED,
 	TEST_LONG_SEQUENTIAL_READ,
+	TEST_LONG_SEQUENTIAL_WRITE,
 };
 
 enum mmc_block_test_group {
@@ -143,6 +144,7 @@ struct mmc_block_test_debug {
 	struct dentry *random_test_seed;
 	struct dentry *packing_control_test;
 	struct dentry *long_sequential_read_test;
+	struct dentry *long_sequential_write_test;
 };
 
 struct mmc_block_test_data {
@@ -523,6 +525,8 @@ static char *get_test_case_str(struct test_data *td)
 		return "\nTest packing control - mix: no pack->pack->no pack";
 	case TEST_LONG_SEQUENTIAL_READ:
 		return "Test long sequential read";
+	case TEST_LONG_SEQUENTIAL_WRITE:
+		return "Test long sequential write";
 	default:
 		 return "Unknown testcase";
 	}
@@ -1222,9 +1226,12 @@ static int prepare_long_test_requests(struct test_data *td)
 		return -EINVAL;
 	}
 
-	test_direction = READ;
+	if (td->test_info.testcase == TEST_LONG_SEQUENTIAL_WRITE)
+		test_direction = WRITE;
+	else
+		test_direction = READ;
 
-	test_pr_info("%s: Adding %d read requests, first req_id=%d", __func__,
+	test_pr_info("%s: Adding %d write requests, first req_id=%d", __func__,
 		     LONG_TEST_ACTUAL_NUM_REQS, td->wr_rd_next_req_id);
 
 	for (j = 0; j < LONG_TEST_ACTUAL_NUM_REQS; j++) {
@@ -1353,6 +1360,9 @@ static int prepare_test(struct test_data *td)
 	case TEST_PACKING_NOT_EXP_TRIGGER_FLUSH_TRIGGER:
 		ret = prepare_packed_control_tests_requests(td, 0,
 			test_packed_trigger, is_random);
+		break;
+	case TEST_LONG_SEQUENTIAL_WRITE:
+		ret = prepare_long_test_requests(td);
 		break;
 	case TEST_LONG_SEQUENTIAL_READ:
 		ret = prepare_long_test_requests(td);
@@ -1970,6 +1980,96 @@ const struct file_operations long_sequential_read_test_ops = {
 	.read = long_sequential_read_test_read,
 };
 
+static ssize_t long_sequential_write_test_write(struct file *file,
+				const char __user *buf,
+				size_t count,
+				loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+	unsigned int mtime, integer, fraction;
+
+	test_pr_info("%s: -- Long Sequential Write TEST --", __func__);
+
+	sscanf(buf, "%d", &number);
+
+	if (number <= 0)
+		number = 1;
+
+	memset(&mbtd->test_info, 0, sizeof(struct test_info));
+	mbtd->test_group = TEST_GENERAL_GROUP;
+
+	mbtd->test_info.data = mbtd;
+	mbtd->test_info.prepare_test_fn = prepare_test;
+	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
+
+	for (i = 0 ; i < number ; ++i) {
+		test_pr_info("%s: Cycle # %d / %d", __func__, i+1, number);
+		test_pr_info("%s: ====================", __func__);
+
+		mbtd->test_info.testcase = TEST_LONG_SEQUENTIAL_WRITE;
+		mbtd->is_random = NON_RANDOM_TEST;
+		ret = test_iosched_start_test(&mbtd->test_info);
+		if (ret)
+			break;
+
+		mtime = jiffies_to_msecs(mbtd->test_info.test_duration);
+
+		test_pr_info("%s: time is %u msec, size is %u.%u MiB",
+			__func__, mtime, LONG_TEST_SIZE_INTEGER,
+			      LONG_TEST_SIZE_FRACTION);
+
+		/* we first multiply in order not to lose precision */
+		mtime *= MB_MSEC_RATIO_APPROXIMATION;
+		/* divide values to get a MiB/sec integer value with one
+		   digit of precision
+		 */
+		fraction = integer = (LONG_TEST_ACTUAL_BYTE_NUM * 10) / mtime;
+		integer /= 10;
+		/* and calculate the MiB value fraction */
+		fraction -= integer * 10;
+
+		test_pr_info("%s: Throughput: %u.%u MiB/sec\n",
+			__func__, integer, fraction);
+
+		/* Allow FS requests to be dispatched */
+		msleep(1000);
+	}
+
+	return count;
+}
+
+static ssize_t long_sequential_write_test_read(struct file *file,
+			       char __user *buffer,
+			       size_t count,
+			       loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nlong_sequential_write_test\n"
+		 "=========\n"
+		 "Description:\n"
+		 "This test runs the following scenarios\n"
+		 "- Long Sequential Write Test: this test measures write "
+		 "throughput at the driver level by sequentially writing many "
+		 "large requests\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else
+		return 0;
+}
+
+const struct file_operations long_sequential_write_test_ops = {
+	.open = test_open,
+	.write = long_sequential_write_test_write,
+	.read = long_sequential_write_test_read,
+};
+
+
 static void mmc_block_test_debugfs_cleanup(void)
 {
 	debugfs_remove(mbtd->debug.random_test_seed);
@@ -1978,6 +2078,7 @@ static void mmc_block_test_debugfs_cleanup(void)
 	debugfs_remove(mbtd->debug.send_invalid_packed_test);
 	debugfs_remove(mbtd->debug.packing_control_test);
 	debugfs_remove(mbtd->debug.long_sequential_read_test);
+	debugfs_remove(mbtd->debug.long_sequential_write_test);
 }
 
 static int mmc_block_test_debugfs_init(void)
@@ -2047,6 +2148,16 @@ static int mmc_block_test_debugfs_init(void)
 					&long_sequential_read_test_ops);
 
 	if (!mbtd->debug.long_sequential_read_test)
+		goto err_nomem;
+
+	mbtd->debug.long_sequential_write_test = debugfs_create_file(
+					"long_sequential_write_test",
+					S_IRUGO | S_IWUGO,
+					tests_root,
+					NULL,
+					&long_sequential_write_test_ops);
+
+	if (!mbtd->debug.long_sequential_write_test)
 		goto err_nomem;
 
 	return 0;
