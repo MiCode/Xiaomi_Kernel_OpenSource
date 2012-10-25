@@ -37,11 +37,11 @@ int find_vdd_level(struct clk *clk, unsigned long rate)
 {
 	int level;
 
-	for (level = 0; level < ARRAY_SIZE(clk->fmax); level++)
+	for (level = 0; level < clk->num_fmax; level++)
 		if (rate <= clk->fmax[level])
 			break;
 
-	if (level == ARRAY_SIZE(clk->fmax)) {
+	if (level == clk->num_fmax) {
 		pr_err("Rate %lu for %s is greater than highest Fmax\n", rate,
 			clk->dbg_name);
 		return -EINVAL;
@@ -55,7 +55,7 @@ static int update_vdd(struct clk_vdd_class *vdd_class)
 {
 	int level, rc;
 
-	for (level = ARRAY_SIZE(vdd_class->level_votes)-1; level > 0; level--)
+	for (level = vdd_class->num_levels-1; level > 0; level--)
 		if (vdd_class->level_votes[level])
 			break;
 
@@ -74,6 +74,9 @@ int vote_vdd_level(struct clk_vdd_class *vdd_class, int level)
 {
 	int rc;
 
+	if (level >= vdd_class->num_levels)
+		return -EINVAL;
+
 	mutex_lock(&vdd_class->lock);
 	vdd_class->level_votes[level]++;
 	rc = update_vdd(vdd_class);
@@ -88,6 +91,9 @@ int vote_vdd_level(struct clk_vdd_class *vdd_class, int level)
 int unvote_vdd_level(struct clk_vdd_class *vdd_class, int level)
 {
 	int rc = 0;
+
+	if (level >= vdd_class->num_levels)
+		return -EINVAL;
 
 	mutex_lock(&vdd_class->lock);
 	if (WARN(!vdd_class->level_votes[level],
