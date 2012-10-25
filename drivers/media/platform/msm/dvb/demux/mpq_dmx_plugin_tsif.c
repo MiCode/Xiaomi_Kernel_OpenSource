@@ -30,15 +30,16 @@
 #define DMX_TSIF_CHUNKS_IN_BUF			16
 #define DMX_TSIF_TIME_LIMIT			10000
 
-/* TSIF_DRIVER_MODE: 3 means manual control from debugfs. use 1 normally. */
-#define DMX_TSIF_DRIVER_MODE_DEF		1
-
+/* TSIF_DRIVER_MODE: 3 means manual control from debugfs. use 2 normally. */
+#define DMX_TSIF_DRIVER_MODE_DEF		2
 
 /* module parameters for load time configuration: */
 static int threshold = DMX_TSIF_PACKETS_IN_CHUNK_DEF;
-static int mode = DMX_TSIF_DRIVER_MODE_DEF;
+static int tsif_mode = DMX_TSIF_DRIVER_MODE_DEF;
+static int clock_inv;
 module_param(threshold, int, S_IRUGO);
-module_param(mode, int, S_IRUGO);
+module_param(tsif_mode, int, S_IRUGO);
+module_param(clock_inv, int, S_IRUGO);
 
 /*
  * Work scheduled each time TSIF notifies dmx
@@ -273,7 +274,6 @@ static int mpq_tsif_dmx_start(struct mpq_demux *mpq_demux)
 		tsif_driver = &(mpq_dmx_tsif_info.tsif[tsif].tsif_driver);
 
 		/* Attach to TSIF driver */
-
 		tsif_driver->tsif_handler =
 			tsif_attach(tsif, mpq_tsif_callback, (void *)tsif);
 		if (IS_ERR_OR_NULL(tsif_driver->tsif_handler)) {
@@ -284,12 +284,19 @@ static int mpq_tsif_dmx_start(struct mpq_demux *mpq_demux)
 			return -ENODEV;
 		}
 
+		ret = tsif_set_clk_inverse(tsif_driver->tsif_handler,
+					clock_inv);
+		if (ret < 0) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: tsif_set_clk_inverse (%d) failed\n",
+				__func__, clock_inv);
+		}
+
 		/* Set TSIF driver mode */
-		ret = tsif_set_mode(tsif_driver->tsif_handler,
-					mode);
+		ret = tsif_set_mode(tsif_driver->tsif_handler, tsif_mode);
 		if (ret < 0) {
 			MPQ_DVB_ERR_PRINT("%s: tsif_set_mode (%d) failed\n",
-				__func__, mode);
+				__func__, tsif_mode);
 		}
 
 		/* Set TSIF buffer configuration */
@@ -303,18 +310,6 @@ static int mpq_tsif_dmx_start(struct mpq_demux *mpq_demux)
 				DMX_TSIF_CHUNKS_IN_BUF);
 			MPQ_DVB_ERR_PRINT("Using default TSIF driver values\n");
 		}
-
-
-		/* Set TSIF driver time limit */
-		/* TODO: needed?? */
-/*		ret = tsif_set_time_limit(tsif_driver->tsif_handler,
-						DMX_TSIF_TIME_LIMIT);
-		if (ret < 0) {
-			MPQ_DVB_ERR_PRINT(
-				"%s: tsif_set_time_limit (%d) failed\n",
-				__func__, DMX_TSIF_TIME_LIMIT);
-		}
-*/
 
 		/* Start TSIF driver */
 		ret = tsif_start(tsif_driver->tsif_handler);
@@ -705,11 +700,11 @@ static int __init mpq_dmx_tsif_plugin_init(void)
 			__func__, DMX_TSIF_PACKETS_IN_CHUNK_DEF);
 		threshold = DMX_TSIF_PACKETS_IN_CHUNK_DEF;
 	}
-	if ((mode < 1) || (mode > 3)) {
+	if ((tsif_mode < 1) || (tsif_mode > 3)) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: invalid mode parameter, using %d instead\n",
 			__func__, DMX_TSIF_DRIVER_MODE_DEF);
-		mode = DMX_TSIF_DRIVER_MODE_DEF;
+		tsif_mode = DMX_TSIF_DRIVER_MODE_DEF;
 	}
 
 	for (i = 0; i < TSIF_COUNT; i++) {

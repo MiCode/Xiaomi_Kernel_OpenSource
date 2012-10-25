@@ -66,10 +66,10 @@
 #define TSPP_CHANNEL_TIMEOUT			16
 
 /* module parameters for load time configuration */
-static int tsif0_mode = TSPP_TSIF_MODE_2;
-static int tsif1_mode = TSPP_TSIF_MODE_2;
-module_param(tsif0_mode, int, S_IRUGO);
-module_param(tsif1_mode, int, S_IRUGO);
+static int clock_inv;
+static int tsif_mode = 2;
+module_param(tsif_mode, int, S_IRUGO);
+module_param(clock_inv, int, S_IRUGO);
 
 /*
  * Work scheduled each time TSPP notifies dmx
@@ -279,20 +279,30 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 	int channel_id;
 	int *channel_ref_count;
 
-	tspp_source.clk_inverse = 0;
+	tspp_source.clk_inverse = clock_inv;
 	tspp_source.data_inverse = 0;
 	tspp_source.sync_inverse = 0;
 	tspp_source.enable_inverse = 0;
+
+	switch (tsif_mode) {
+	case 1:
+		tspp_source.mode = TSPP_TSIF_MODE_1;
+		break;
+	case 2:
+		tspp_source.mode = TSPP_TSIF_MODE_2;
+		break;
+	default:
+		tspp_source.mode = TSPP_TSIF_MODE_LOOPBACK;
+		break;
+	}
 
 	/* determine the TSIF we are reading from */
 	if (mpq_demux->source == DMX_SOURCE_FRONT0) {
 		tsif = 0;
 		tspp_source.source = TSPP_SOURCE_TSIF0;
-		tspp_source.mode = (enum tspp_tsif_mode)tsif0_mode;
 	} else if (mpq_demux->source == DMX_SOURCE_FRONT1) {
 		tsif = 1;
 		tspp_source.source = TSPP_SOURCE_TSIF1;
-		tspp_source.mode = (enum tspp_tsif_mode)tsif1_mode;
 	} else {
 		/* invalid source */
 		MPQ_DVB_ERR_PRINT(
