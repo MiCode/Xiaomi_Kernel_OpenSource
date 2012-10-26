@@ -34,10 +34,15 @@ Required properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the uart interrupt.
 
+Optional properties:
+- cell-index: An integer specifying the line number of the UART device that
+  represents this HSL hardware instance.
+
 Example:
 
 	serial@19c400000 {
 		compatible = "qcom,msm-lsuart-v14"
 		reg = <0x19c40000 0x1000">;
 		interrupts = <195>;
+		cell-index = <0>;	// this device will be named ttyHSL0
 	};
