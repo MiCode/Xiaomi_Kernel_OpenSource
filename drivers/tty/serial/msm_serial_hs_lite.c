@@ -149,12 +149,9 @@ static unsigned int msm_serial_hsl_has_gsbi(struct uart_port *port)
 
 static int get_line(struct platform_device *pdev)
 {
-	const struct msm_serial_hslite_platform_data *pdata =
-					pdev->dev.platform_data;
-	if (pdata)
-		return pdata->line;
+	struct msm_hsl_port *msm_hsl_port = platform_get_drvdata(pdev);
 
-	return pdev->id;
+	return msm_hsl_port->uart.line;
 }
 
 static int clk_en(struct uart_port *port, int enable)
@@ -1357,18 +1354,32 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	struct resource *uart_resource;
 	struct resource *gsbi_resource;
 	struct uart_port *port;
+	const struct msm_serial_hslite_platform_data *pdata;
 	const struct of_device_id *match;
+	u32 line;
 	int ret;
 
 	if (pdev->id == -1)
 		pdev->id = atomic_inc_return(&msm_serial_hsl_next_id) - 1;
 
-	if (unlikely(get_line(pdev) < 0 || get_line(pdev) >= UART_NR))
+	/* Use line (ttyHSLx) number from pdata or device tree if specified */
+	pdata = pdev->dev.platform_data;
+	if (pdata)
+		line = pdata->line;
+	else
+		line = pdev->id;
+
+	/* Use line number from device tree if present */
+	if (pdev->dev.of_node)
+		of_property_read_u32(pdev->dev.of_node, "cell-index", &line);
+
+	if (unlikely(line < 0 || line >= UART_NR))
 		return -ENXIO;
 
-	printk(KERN_INFO "msm_serial_hsl: detected port #%d\n", pdev->id);
+	printk(KERN_INFO "msm_serial_hsl: detected port #%d (ttyHSL%d)\n",
+	       pdev->id, line);
 
-	port = get_port_from_line(get_line(pdev));
+	port = get_port_from_line(line);
 	port->dev = &pdev->dev;
 	msm_hsl_port = UART_TO_MSM(port);
 
