@@ -18,7 +18,6 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <asm/hardware/gic.h>
-#include <asm/arch_timer.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
 #include <mach/socinfo.h>
@@ -30,14 +29,8 @@
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
 
+#include "board-dt.h"
 #include "clock.h"
-
-static struct of_device_id irq_match[] __initdata  = {
-	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
-	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
-	{ .compatible = "qcom,spmi-pmic-arb", .data = qpnpint_of_init, },
-	{}
-};
 
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
@@ -81,26 +74,7 @@ static void __init mpq8092_dt_reserve(void)
 	msm_reserve();
 }
 
-void __init mpq8092_init_irq(void)
-{
-	of_irq_init(irq_match);
-}
-
-static void __init mpq8092_dt_timer_init(void)
-{
-	arch_timer_of_register();
-}
-
-static struct sys_timer mpq8092_dt_timer = {
-	.init = mpq8092_dt_timer_init
-};
-
-static void __init mpq8092_dt_init_irq(void)
-{
-	mpq8092_init_irq();
-}
-
-static void __init mpq8092_dt_map_io(void)
+static void __init mpq8092_map_io(void)
 {
 	msm_map_mpq8092_io();
 	if (socinfo_init() < 0)
@@ -120,18 +94,12 @@ static struct of_dev_auxdata mpq8092_auxdata_lookup[] __initdata = {
 	{}
 };
 
-static void __init mpq8092_init(struct of_dev_auxdata **adata)
+static void __init mpq8092_init(void)
 {
+	struct of_dev_auxdata *adata = mpq8092_auxdata_lookup;
+
 	mpq8092_init_gpiomux();
-	*adata = mpq8092_auxdata_lookup;
 	msm_clock_init(&mpq8092_clock_init_data);
-}
-
-static void __init mpq8092_dt_init(void)
-{
-	struct of_dev_auxdata *adata = NULL;
-
-	mpq8092_init(&adata);
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
 }
 
@@ -140,12 +108,12 @@ static const char *mpq8092_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM_DT, "Qualcomm MSM (Flattened Device Tree)")
-	.map_io = mpq8092_dt_map_io,
-	.init_irq = mpq8092_dt_init_irq,
-	.init_machine = mpq8092_dt_init,
+DT_MACHINE_START(MSM8092_DT, "Qualcomm MSM 8092 (Flattened Device Tree)")
+	.map_io = mpq8092_map_io,
+	.init_irq = msm_dt_init_irq_nompm,
+	.init_machine = mpq8092_init,
 	.handle_irq = gic_handle_irq,
-	.timer = &mpq8092_dt_timer,
+	.timer = &msm_dt_timer,
 	.dt_compat = mpq8092_dt_match,
 	.reserve = mpq8092_dt_reserve,
 	.init_very_early = mpq8092_early_memory,
