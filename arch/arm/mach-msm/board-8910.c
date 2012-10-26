@@ -37,6 +37,7 @@
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/clk-provider.h>
+#include "board-dt.h"
 #include "clock.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {
@@ -53,26 +54,6 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
 	.table = msm_clocks_dummy,
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };
-
-static struct of_device_id irq_match[] __initdata  = {
-	{ .compatible = "qcom,msm-qgic2", .data = gic_of_init, },
-	{ .compatible = "qcom,msm-gpio", .data = msm_gpio_of_init, },
-	{},
-};
-
-static void __init msm8910_dt_timer_init(void)
-{
-	arch_timer_of_register();
-}
-
-static struct sys_timer msm8910_dt_timer = {
-	.init = msm8910_dt_timer_init
-};
-
-void __init msm8910_init_irq(void)
-{
-	of_irq_init(irq_match);
-}
 
 void __init msm8910_init(void)
 {
@@ -91,9 +72,9 @@ static const char *msm8910_dt_match[] __initconst = {
 
 DT_MACHINE_START(MSM8910_DT, "Qualcomm MSM 8910 (Flattened Device Tree)")
 	.map_io = msm_map_msm8910_io,
-	.init_irq = msm8910_init_irq,
+	.init_irq = msm_dt_init_irq_nompm,
 	.init_machine = msm8910_init,
 	.handle_irq = gic_handle_irq,
-	.timer = &msm8910_dt_timer,
+	.timer = &msm_dt_timer,
 	.dt_compat = msm8910_dt_match,
 MACHINE_END
