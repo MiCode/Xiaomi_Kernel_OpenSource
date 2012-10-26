@@ -873,10 +873,10 @@ void msm_comm_unload_fw(struct msm_vidc_core *core)
 		return;
 	}
 	if (core->resources.fw.cookie) {
-		subsystem_put(core->resources.fw.cookie);
-		core->resources.fw.cookie = NULL;
 		msm_comm_iommu_detach(core);
 		msm_comm_disable_clks(core);
+		subsystem_put(core->resources.fw.cookie);
+		core->resources.fw.cookie = NULL;
 	}
 }
 
