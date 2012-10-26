@@ -87,6 +87,20 @@ struct msm_pm_sleep_ops {
 			bool notify_rpm, bool collapsed);
 };
 
+enum msm_pm_pc_mode_type {
+	MSM_PM_PC_TZ_L2_INT = 0,   /*Power collapse terminates in TZ;
+					integrated L2 cache controller */
+	MSM_PM_PC_NOTZ_L2_EXT = 1, /* Power collapse doesn't terminate in
+					TZ; external L2 cache controller */
+	MSM_PM_PC_TZ_L2_EXT = 2,   /* Power collapse terminates in TZ;
+					external L2 cache controller */
+};
+
+struct msm_pm_init_data_type {
+	enum msm_pm_pc_mode_type pc_mode;
+	bool use_sync_timer;
+};
+
 struct msm_pm_cpr_ops {
 	void (*cpr_suspend)(void);
 	void (*cpr_resume)(void);
