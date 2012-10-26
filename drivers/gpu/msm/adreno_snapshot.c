@@ -510,10 +510,28 @@ static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
 			break;
 
 		if (pkt_is_type3(src[i])) {
-			if (adreno_cmd_is_ib(src[i]))
-				ib_add_gpu_object(device, ptbase,
-					src[i + 1], src[i + 2]);
-			else
+			if (adreno_cmd_is_ib(src[i])) {
+				unsigned int gpuaddr = src[i + 1];
+				unsigned int size = src[i + 2];
+				unsigned int ibbase;
+
+				/* Address of the last processed IB2 */
+				kgsl_regread(device, REG_CP_IB2_BASE, &ibbase);
+
+				/*
+				 * If this is the last IB2 that was executed,
+				 * then push it to make sure it goes into the
+				 * static space
+				 */
+
+				if (ibbase == gpuaddr)
+					push_object(device,
+						SNAPSHOT_OBJ_TYPE_IB, ptbase,
+						gpuaddr, size);
+				else
+					ib_add_gpu_object(device, ptbase,
+						gpuaddr, size);
+			} else
 				ib_parse_type3(device, &src[i], ptbase);
 		} else if (pkt_is_type0(src[i])) {
 			ib_parse_type0(device, &src[i], ptbase);
