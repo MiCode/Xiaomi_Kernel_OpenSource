@@ -1393,7 +1393,7 @@ static void dwc3_resume_work(struct work_struct *w)
 	}
 }
 
-static bool debug_id, debug_bsv, debug_connect;
+static u32 debug_id, debug_bsv, debug_connect;
 
 static int dwc3_connect_show(struct seq_file *s, void *unused)
 {
@@ -1463,11 +1463,11 @@ static void dwc3_debugfs_init(struct dwc3_msm *mdwc)
 		return;
 
 	if (!debugfs_create_bool("id", S_IRUGO | S_IWUSR, dwc3_debugfs_root,
-				 (u32 *)&debug_id))
+				 &debug_id))
 		goto error;
 
 	if (!debugfs_create_bool("bsv", S_IRUGO | S_IWUSR, dwc3_debugfs_root,
-				 (u32 *)&debug_bsv))
+				 &debug_bsv))
 		goto error;
 
 	if (!debugfs_create_file("connect", S_IRUGO | S_IWUSR,
