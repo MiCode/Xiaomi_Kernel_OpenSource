@@ -236,6 +236,11 @@ static void event_handler(uint32_t opcode,
 			}
 			atomic_set(&prtd->start, 1);
 			break;
+		case ASM_STREAM_CMD_FLUSH:
+			pr_debug("ASM_STREAM_CMD_FLUSH\n");
+			prtd->cmd_ack = 1;
+			wake_up(&the_locks.flush_wait);
+			break;
 		default:
 			break;
 		}
@@ -800,13 +805,52 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	return 0;
 }
+static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
+			unsigned int cmd, void *arg)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct msm_audio *prtd = runtime->private_data;
+	int ret = 0, rc;
+
+	pr_debug("%s\n", __func__);
+	ret = snd_pcm_lib_ioctl(substream, cmd, arg);
+	if (ret < 0) {
+		pr_err("%s, snd_pcm_lib_ioctl error\n", __func__);
+		return ret;
+	}
+
+	switch (cmd) {
+	case SNDRV_PCM_IOCTL1_RESET:
+		pr_debug("%s, SNDRV_PCM_IOCTL1_RESET\n", __func__);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			prtd->cmd_ack = 0;
+			rc = q6asm_cmd(prtd->audio_client, CMD_FLUSH);
+			if (rc < 0) {
+				pr_err("%s: flush cmd failed rc=%d\n",
+					 __func__, rc);
+				break;
+			}
+			rc = wait_event_timeout(the_locks.flush_wait,
+				 prtd->cmd_ack, 5 * HZ);
+			if (rc < 0)
+				pr_err("Flush cmd timeout\n");
+			prtd->pcm_irq_pos = 0;
+			atomic_set(&prtd->out_count, runtime->periods);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
 
 static struct snd_pcm_ops msm_pcm_ops = {
 	.open           = msm_pcm_open,
 	.copy		= msm_pcm_copy,
 	.hw_params	= msm_pcm_hw_params,
 	.close          = msm_pcm_close,
-	.ioctl          = snd_pcm_lib_ioctl,
+	.ioctl          = msm_pcm_ioctl,
 	.prepare        = msm_pcm_prepare,
 	.trigger        = msm_pcm_trigger,
 	.pointer        = msm_pcm_pointer,
@@ -894,6 +938,7 @@ static int __init msm_soc_platform_init(void)
 	init_waitqueue_head(&the_locks.eos_wait);
 	init_waitqueue_head(&the_locks.write_wait);
 	init_waitqueue_head(&the_locks.read_wait);
+	init_waitqueue_head(&the_locks.flush_wait);
 
 	return platform_driver_register(&msm_pcm_driver);
 }
