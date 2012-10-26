@@ -295,15 +295,8 @@ static int adsp_powerup(const struct subsys_desc *subsys)
 {
 	struct lpass_data *drv = subsys_to_lpass(subsys);
 	int ret = 0;
-
-	if (get_restart_level() == RESET_SUBSYS_INDEPENDENT) {
-		pr_debug("%s: Wait for ADSP power up!", __func__);
-		msleep(10000);
-	}
-
 	ret = pil_boot(&drv->q6->desc);
 	enable_irq(drv->wdog_irq);
-
 	return ret;
 }
 
