@@ -46,6 +46,7 @@
 #include <mach/usbdiag.h>
 #include <mach/msm_memtypes.h>
 #include <mach/msm_serial_hs.h>
+#include <mach/msm_serial_pdata.h>
 #include <mach/pmic.h>
 #include <mach/socinfo.h>
 #include <mach/vreg.h>
@@ -80,6 +81,10 @@
 static struct platform_device msm_wlan_ar6000_pm_device = {
 	.name           = "wlan_ar6000_pm_dev",
 	.id             = -1,
+};
+
+static struct msm_serial_platform_data msm_8625_uart1_pdata = {
+	.userid		= 10,
 };
 
 static struct msm_gpio qup_i2c_gpios_io[] = {
@@ -955,6 +960,7 @@ static void __init add_platform_devices(void)
 	if (machine_is_msm8625_evb() || machine_is_msm8625_qrd7()
 				|| machine_is_msm8625_evt()
 				|| machine_is_qrd_skud_prime()) {
+		msm8625_device_uart1.dev.platform_data = &msm_8625_uart1_pdata;
 		platform_add_devices(msm8625_evb_devices,
 				ARRAY_SIZE(msm8625_evb_devices));
 		platform_add_devices(qrd3_devices,
