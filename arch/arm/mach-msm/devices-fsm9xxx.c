@@ -228,6 +228,7 @@ struct flash_platform_data msm_nand_data = {
 	.parts		= NULL,
 	.nr_parts	= 0,
 	.interleave     = 0,
+	.version	= VERSION_2,
 };
 
 struct platform_device msm_device_nand = {
