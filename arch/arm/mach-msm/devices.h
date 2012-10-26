@@ -109,6 +109,8 @@ extern struct platform_device msm_device_sdc2;
 extern struct platform_device msm_device_sdc3;
 extern struct platform_device msm_device_sdc4;
 
+extern struct platform_device msm9615_pm_8x60;
+
 extern struct platform_device msm8960_pc_cntr;
 extern struct platform_device msm8064_pc_cntr;
 extern struct platform_device msm8930_pc_cntr;

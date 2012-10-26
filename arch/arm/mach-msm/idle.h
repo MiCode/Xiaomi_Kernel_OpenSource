@@ -33,6 +33,9 @@ int msm_arch_idle(void);
 int msm_pm_collapse(void);
 void msm_pm_collapse_exit(void);
 extern void *msm_saved_state;
+extern void (*msm_pm_disable_l2_fn)(void);
+extern void (*msm_pm_enable_l2_fn)(void);
+extern void (*msm_pm_flush_l2_fn)(void);
 extern unsigned long msm_saved_state_phys;
 
 #ifdef CONFIG_CPU_V7

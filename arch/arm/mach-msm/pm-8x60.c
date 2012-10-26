@@ -35,7 +35,7 @@
 #include <asm/hardware/gic.h>
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
-#include <asm/hardware/cache-l2x0.h>
+#include <asm/outercache.h>
 #ifdef CONFIG_VFP
 #include <asm/vfp.h>
 #endif
@@ -114,6 +114,7 @@ static char *msm_pm_sleep_mode_labels[MSM_PM_SLEEP_MODE_NR] = {
 		"standalone_power_collapse",
 };
 
+static struct msm_pm_init_data_type msm_pm_init_data;
 static struct hrtimer pm_hrtimer;
 static struct msm_pm_sleep_ops pm_sleep_ops;
 /*
@@ -473,7 +474,6 @@ static void msm_pm_restore_cpu_reg(void)
 }
 
 static void *msm_pm_idle_rs_limits;
-static bool msm_pm_use_qtimer;
 
 static void msm_pm_swfi(void)
 {
@@ -498,24 +498,6 @@ static void msm_pm_retention(void)
 
 	msm_pm_config_hw_after_retention();
 }
-
-#ifdef CONFIG_CACHE_L2X0
-static inline bool msm_pm_l2x0_power_collapse(void)
-{
-	bool collapsed = 0;
-
-	l2cc_suspend();
-	collapsed = msm_pm_collapse();
-	l2cc_resume();
-
-	return collapsed;
-}
-#else
-static inline bool msm_pm_l2x0_power_collapse(void)
-{
-	return msm_pm_collapse();
-}
-#endif
 
 static bool __ref msm_pm_spm_power_collapse(
 	unsigned int cpu, bool from_idle, bool notify_rpm)
@@ -547,7 +529,7 @@ static bool __ref msm_pm_spm_power_collapse(
 #ifdef CONFIG_VFP
 	vfp_pm_suspend();
 #endif
-	collapsed = msm_pm_l2x0_power_collapse();
+	collapsed = msm_pm_collapse();
 
 	msm_pm_boot_config_after_pc(cpu);
 
@@ -657,14 +639,11 @@ static void msm_pm_target_init(void)
 {
 	if (cpu_is_apq8064())
 		msm_pm_save_cp15 = true;
-
-	if (cpu_is_msm8974())
-		msm_pm_use_qtimer = true;
 }
 
 static int64_t msm_pm_timer_enter_idle(void)
 {
-	if (msm_pm_use_qtimer)
+	if (msm_pm_init_data.use_sync_timer)
 		return ktime_to_ns(tick_nohz_get_sleep_length());
 
 	return msm_timer_enter_idle();
@@ -672,7 +651,7 @@ static int64_t msm_pm_timer_enter_idle(void)
 
 static void msm_pm_timer_exit_idle(bool timer_halted)
 {
-	if (msm_pm_use_qtimer)
+	if (msm_pm_init_data.use_sync_timer)
 		return;
 
 	msm_timer_exit_idle((int) timer_halted);
@@ -682,7 +661,7 @@ static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 {
 	int64_t time = 0;
 
-	if (msm_pm_use_qtimer)
+	if (msm_pm_init_data.use_sync_timer)
 		return sched_clock();
 
 	time = msm_timer_get_sclk_time(period);
@@ -694,7 +673,7 @@ static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 
 static int64_t msm_pm_timer_exit_suspend(int64_t time, int64_t period)
 {
-	if (msm_pm_use_qtimer)
+	if (msm_pm_init_data.use_sync_timer)
 		return sched_clock() - time;
 
 	if (time != 0) {
@@ -1165,3 +1144,73 @@ static int __init msm_pm_init(void)
 }
 
 late_initcall(msm_pm_init);
+
+static void __devinit msm_pm_set_flush_fn(uint32_t pc_mode)
+{
+	msm_pm_disable_l2_fn = NULL;
+	msm_pm_enable_l2_fn = NULL;
+	msm_pm_flush_l2_fn = outer_flush_all;
+
+	if (pc_mode == MSM_PM_PC_NOTZ_L2_EXT) {
+		msm_pm_disable_l2_fn = outer_disable;
+		msm_pm_enable_l2_fn = outer_resume;
+	}
+}
+
+static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
+{
+	char *key = NULL;
+	uint32_t val = 0;
+	int ret = 0;
+
+	if (!pdev->dev.of_node) {
+		struct msm_pm_init_data_type *d = pdev->dev.platform_data;
+
+		if (!d)
+			goto pm_8x60_probe_done;
+
+		msm_pm_init_data.pc_mode = d->pc_mode;
+		msm_pm_set_flush_fn(msm_pm_init_data.pc_mode);
+		msm_pm_init_data.use_sync_timer = d->use_sync_timer;
+	} else {
+		key = "qcom,pc-mode";
+		ret = of_property_read_u32(pdev->dev.of_node, key, &val);
+
+		if (ret) {
+			pr_debug("%s: Cannot read %s,defaulting to 0",
+					__func__, key);
+			val = MSM_PM_PC_TZ_L2_INT;
+			ret = 0;
+		}
+
+		msm_pm_init_data.pc_mode = val;
+		msm_pm_set_flush_fn(msm_pm_init_data.pc_mode);
+
+		key = "qcom,use-sync-timer";
+		msm_pm_init_data.use_sync_timer =
+			of_property_read_bool(pdev->dev.of_node, key);
+	}
+
+pm_8x60_probe_done:
+	return ret;
+}
+
+static struct of_device_id msm_pm_8x60_table[] = {
+		{.compatible = "qcom,pm-8x60"},
+		{},
+};
+
+static struct platform_driver msm_pm_8x60_driver = {
+		.probe = msm_pm_8x60_probe,
+		.driver = {
+			.name = "pm-8x60",
+			.owner = THIS_MODULE,
+			.of_match_table = msm_pm_8x60_table,
+		},
+};
+
+static int __init msm_pm_8x60_init(void)
+{
+	return platform_driver_register(&msm_pm_8x60_driver);
+}
+module_init(msm_pm_8x60_init);
