@@ -630,7 +630,7 @@
 		l2_hfpll_b-supply = <&pm8941_l12_ao>;
 	};
 
-	qcom,ssusb@f9200000 {
+	usb3: qcom,ssusb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
 			  <0xfd4ab000 0x4>;
