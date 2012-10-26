@@ -593,7 +593,7 @@ static inline struct gen_pool *
 _get_pool(struct kgsl_pagetable *pagetable, unsigned int flags)
 {
 	if (pagetable->kgsl_pool &&
-		(KGSL_MEMFLAGS_GLOBAL & flags))
+		(KGSL_MEMDESC_GLOBAL & flags))
 		return pagetable->kgsl_pool;
 	return pagetable->pool;
 }
@@ -637,10 +637,9 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	 * the address space is so small.
 	 */
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype() &&
-	    (memdesc->priv & KGSL_MEMALIGN_MASK)) {
-		page_align = (memdesc->priv & KGSL_MEMALIGN_MASK)
-				>> KGSL_MEMALIGN_SHIFT;
-	}
+	    kgsl_memdesc_get_align(memdesc) > 0)
+		page_align = kgsl_memdesc_get_align(memdesc);
+
 	memdesc->gpuaddr = gen_pool_alloc_aligned(pool, size, page_align);
 	if (memdesc->gpuaddr == 0) {
 		KGSL_CORE_ERR("gen_pool_alloc(%d) failed from pool: %s\n",
@@ -719,7 +718,7 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 	 * Don't clear the gpuaddr on global mappings because they
 	 * may be in use by other pagetables
 	 */
-	if (!(memdesc->priv & KGSL_MEMFLAGS_GLOBAL))
+	if (!(memdesc->priv & KGSL_MEMDESC_GLOBAL))
 		memdesc->gpuaddr = 0;
 	return 0;
 }
@@ -740,8 +739,7 @@ int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
 		return 0;
 
 	gpuaddr = memdesc->gpuaddr;
-	memdesc->priv |= KGSL_MEMFLAGS_GLOBAL
-			| (KGSL_MEMTYPE_KERNEL << KGSL_MEMTYPE_SHIFT);
+	memdesc->priv |= KGSL_MEMDESC_GLOBAL;
 
 	result = kgsl_mmu_map(pagetable, memdesc, protflags);
 	if (result)
