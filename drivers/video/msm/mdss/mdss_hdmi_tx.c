@@ -1173,7 +1173,7 @@ static int hdmi_tx_core_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (rc) {
 		DEV_ERR("%s: core hdmi_msm_enable_power failed rc = %d\n",
 			__func__, rc);
-		goto disable_hpd_power;
+		return rc;
 	}
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_CEC_PM, 1);
 	if (rc) {
@@ -1185,8 +1185,6 @@ static int hdmi_tx_core_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return rc;
 disable_core_power:
 	hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_CORE_PM, 0);
-disable_hpd_power:
-	hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, 0);
 	return rc;
 } /* hdmi_tx_core_on */
 
