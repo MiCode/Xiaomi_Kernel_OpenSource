@@ -211,6 +211,8 @@ int msm_vidc_release_buf(void *instance, struct v4l2_buffer *b)
 
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_release_buf(instance, b);
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		return msm_venc_release_buf(instance, b);
 	return -EINVAL;
 }
 

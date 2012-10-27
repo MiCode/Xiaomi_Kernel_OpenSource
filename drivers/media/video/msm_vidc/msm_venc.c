@@ -1274,6 +1274,14 @@ int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc)
 			v4l2_event_queue_fh(&inst->event_handler, &dqevent);
 			return rc;
 		}
+		rc = msm_comm_release_scratch_buffers(inst);
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to release scratch buf:%d\n",
+				rc);
+		rc = msm_comm_release_persist_buffers(inst);
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to release persist buf:%d\n",
+				rc);
 		rc = msm_comm_try_state(inst, MSM_VIDC_CLOSE_DONE);
 		break;
 	}
@@ -1502,6 +1510,43 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 	default:
 		dprintk(VIDC_ERR,
 			"Buffer type not recognized: %d\n", b->type);
+		break;
+	}
+	return rc;
+}
+
+int msm_venc_release_buf(struct msm_vidc_inst *inst,
+					struct v4l2_buffer *b)
+{
+	int rc = 0;
+	int i;
+	struct vidc_buffer_addr_info buffer_info;
+
+	switch (b->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		break;
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		for (i = 0; i < b->length; i++) {
+			dprintk(VIDC_DBG,
+				"Release device_addr = %ld, size = %d, %d\n",
+				b->m.planes[i].m.userptr,
+				b->m.planes[i].length, inst->state);
+			buffer_info.buffer_size = b->m.planes[i].length;
+			buffer_info.buffer_type = HAL_BUFFER_OUTPUT;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr =
+				 b->m.planes[i].m.userptr;
+			buffer_info.extradata_size = 0;
+			buffer_info.extradata_addr = 0;
+			rc = vidc_hal_session_release_buffers(
+				(void *)inst->session, &buffer_info);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"vidc_hal_session_release_buffers failed\n");
+		}
+		break;
+	default:
+		dprintk(VIDC_ERR, "Buffer type not recognized: %d\n", b->type);
 		break;
 	}
 	return rc;
