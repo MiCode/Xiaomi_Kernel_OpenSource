@@ -381,3 +381,48 @@ sound {
 	taiko-mclk-clk = <&pm8941_clkdiv1>;
 	qcom,taiko-mclk-clk-freq = <9600000>;
 };
+
+* msm-dai-mi2s
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible : "msm-dai-mi2s"
+
+ [Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-q6-mi2s"
+ - qcom,msm-dai-q6-mi2s-dev-id: MSM or MDM can use Slimbus or I2S interface to transfer data
+								to (WCD9XXX) codec. If slimbus interface is used then
+								"msm-dai-q6" needs to be filled with correct data for slimbus
+								interface. The sections "msm-dai-mi2s" is used by MDM or MSM
+								to use I2S interface with codec. This section is used by CPU
+								driver in ASOC MSM to configure MI2S interface. MSM internally
+								has multiple MI2S namely Primary, Secondary, Tertiary and
+								Quaternary MI2S. They are represented with id 0, 1, 2, 3
+								respectively. The field "qcom,msm-dai-q6-mi2s-dev-id" represents
+								which of the MI2S block is used. These MI2S are connected to I2S
+								interface.
+
+ - qcom,msm-mi2s-rx-lines:		Each MI2S interface in MSM has one or more SD lines. These lines
+								are used for data transfer between codec and MSM. This element in
+								indicates which output RX lines are used in the MI2S interface.
+
+ - qcom,msm-mi2s-tx-lines:  	Each MI2S interface in MSM has one or more SD lines. These lines
+								are used for data transfer between codec and MSM. This element in
+								indicates which input TX lines are used in the MI2S interface.
+
+Example:
+
+qcom,msm-dai-mi2s {
+		compatible = "qcom,msm-dai-mi2s";
+		qcom,msm-dai-q6-mi2s-prim {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <0>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+		};
+};

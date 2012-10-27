@@ -630,6 +630,11 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 	int ret = 0;
 	int index = 0;
 
+	if (rx_port == MI2S_RX)
+		rx_port = AFE_PORT_ID_PRIMARY_MI2S_RX;
+	if (tx_port == MI2S_TX)
+		tx_port = AFE_PORT_ID_PRIMARY_MI2S_TX;
+
 	ret = afe_q6_interface_prepare();
 	if (ret != 0)
 		return ret;

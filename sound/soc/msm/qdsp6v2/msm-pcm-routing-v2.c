@@ -1352,6 +1352,9 @@ static const struct snd_kcontrol_new mi2s_rx_port_mixer_controls[] = {
 	SOC_SINGLE_EXT("SLIM_1_TX", MSM_BACKEND_DAI_MI2S_RX,
 	MSM_BACKEND_DAI_SLIMBUS_1_TX, 1, 0, msm_routing_get_port_mixer,
 	msm_routing_put_port_mixer),
+	SOC_SINGLE_EXT("MI2S_TX", MSM_BACKEND_DAI_MI2S_RX,
+	MSM_BACKEND_DAI_MI2S_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
 };
 
 static const struct snd_kcontrol_new fm_switch_mixer_controls =
@@ -1606,6 +1609,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("AUXPCM_UL_HL", "AUXPCM_HOSTLESS Capture",
 		0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("MI2S_UL_HL", "MI2S_TX_HOSTLESS Capture",
+		0, 0, 0, 0),
+
+	SND_SOC_DAPM_AIF_OUT("MI2S_DL_HL", "MI2S_RX_HOSTLESS Playback",
 		0, 0, 0, 0),
 
 	/* Backend AIF */
@@ -1933,6 +1939,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"INTFM_UL_HL", NULL, "INT_FM_TX"},
 	{"AUX_PCM_RX", NULL, "AUXPCM_DL_HL"},
 	{"AUXPCM_UL_HL", NULL, "AUX_PCM_TX"},
+	{"MI2S_RX", NULL, "MI2S_DL_HL"},
+	{"MI2S_UL_HL", NULL, "MI2S_TX"},
 	{"PCM_RX_DL_HL", "Switch", "SLIM0_DL_HL"},
 	{"PCM_RX", NULL, "PCM_RX_DL_HL"},
 	{"MI2S_UL_HL", NULL, "MI2S_TX"},
@@ -1961,6 +1969,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_1_RX Mixer", "Voice Stub", "VOICE_STUB_DL"},
 	{"SLIMBUS_1_RX", NULL, "SLIMBUS_1_RX Mixer"},
 	{"INTERNAL_BT_SCO_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
+	{"MI2S_RX_Voice Mixer", "CSVoice", "CS-VOICE_DL1"},
+	{"MI2S_RX_Voice Mixer", "Voip", "VOIP_DL"},
+	{"MI2S_RX", NULL, "MI2S_RX_Voice Mixer"},
 	{"MI2S_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
 	{"MI2S_RX", NULL, "MI2S_RX_Voice Mixer"},
 
@@ -1983,6 +1994,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SEC_I2S_RX", NULL, "SEC_I2S_RX Port Mixer"},
 
 	{"MI2S_RX Port Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
+	{"MI2S_RX Port Mixer", "MI2S_TX", "MI2S_TX"},
 	{"MI2S_RX", NULL, "MI2S_RX Port Mixer"},
 	/* Backend Enablement */
 

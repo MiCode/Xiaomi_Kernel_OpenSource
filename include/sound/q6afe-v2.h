@@ -16,6 +16,7 @@
 #define IN			0x000
 #define OUT			0x001
 #define MSM_AFE_MONO        0
+#define MSM_AFE_CH_STEREO   1
 #define MSM_AFE_MONO_RIGHT  1
 #define MSM_AFE_MONO_LEFT   2
 #define MSM_AFE_STEREO      3
