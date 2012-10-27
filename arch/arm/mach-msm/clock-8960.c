@@ -3614,6 +3614,12 @@ static unsigned long fmax_gfx3d_8930ab[VDD_DIG_NUM] = {
 	[VDD_DIG_HIGH]    = 500000000
 };
 
+static unsigned long fmax_gfx3d_8960ab[VDD_DIG_NUM] = {
+	[VDD_DIG_LOW]     = 192000000,
+	[VDD_DIG_NOMINAL] = 325000000,
+	[VDD_DIG_HIGH]    = 400000000
+};
+
 static struct bank_masks bmnd_info_gfx3d = {
 	.bank_sel_mask =		BIT(11),
 	.bank0_mask = {
@@ -3846,26 +3852,6 @@ static struct rcg_clk jpegd_clk = {
 		.ns_val = NS_MND_BANKED8(22, 14, n, m, 3, 0, s##_to_mm_mux), \
 		.ctl_val = CC_BANKED(9, 6, n), \
 	}
-static struct clk_freq_tbl clk_tbl_mdp_8960ab[] = {
-	F_MDP(        0, gnd,  0,  0),
-	F_MDP(  9600000, pll8, 1, 40),
-	F_MDP( 13710000, pll8, 1, 28),
-	F_MDP( 27000000, pxo,  0,  0),
-	F_MDP( 29540000, pll8, 1, 13),
-	F_MDP( 34910000, pll8, 1, 11),
-	F_MDP( 38400000, pll8, 1, 10),
-	F_MDP( 59080000, pll8, 2, 13),
-	F_MDP( 76800000, pll8, 1,  5),
-	F_MDP( 85330000, pll8, 2,  9),
-	F_MDP( 96000000, pll8, 1,  4),
-	F_MDP(128000000, pll8, 1,  3),
-	F_MDP(160000000, pll2, 1,  5),
-	F_MDP(177780000, pll2, 2,  9),
-	F_MDP(200000000, pll2, 1,  4),
-	F_MDP(228571000, pll2, 2,  7),
-	F_MDP(266667000, pll2, 1,  3),
-	F_END
-};
 
 static struct clk_freq_tbl clk_tbl_mdp[] = {
 	F_MDP(        0, gnd,  0,  0),
@@ -3883,6 +3869,7 @@ static struct clk_freq_tbl clk_tbl_mdp[] = {
 	F_MDP(160000000, pll2, 1,  5),
 	F_MDP(177780000, pll2, 2,  9),
 	F_MDP(200000000, pll2, 1,  4),
+	F_MDP(228571000, pll2, 2,  7),
 	F_MDP(266667000, pll2, 1,  3),
 	F_END
 };
@@ -3934,6 +3921,11 @@ static struct rcg_clk mdp_clk = {
 		CLK_INIT(mdp_clk.c),
 		.depends = &mdp_axi_clk.c,
 	},
+};
+
+static unsigned long fmax_mdp_8960ab[VDD_DIG_NUM] = {
+	[VDD_DIG_LOW]     = 128000000,
+	[VDD_DIG_NOMINAL] = 266667000
 };
 
 static struct branch_clk lut_mdp_clk = {
@@ -6595,12 +6587,8 @@ static void __init msm8960_clock_pre_init(void)
 			sizeof(msm_clocks_8960_common));
 	if (cpu_is_msm8960ab()) {
 		pll3_clk.c.rate = 650000000;
-		gfx3d_clk.c.fmax[VDD_DIG_LOW] = 192000000;
-		gfx3d_clk.c.fmax[VDD_DIG_NOMINAL] = 325000000;
-		gfx3d_clk.c.fmax[VDD_DIG_HIGH] = 400000000;
-		mdp_clk.freq_tbl = clk_tbl_mdp_8960ab;
-		mdp_clk.c.fmax[VDD_DIG_LOW] = 128000000;
-		mdp_clk.c.fmax[VDD_DIG_NOMINAL] = 266667000;
+		gfx3d_clk.c.fmax = fmax_gfx3d_8960ab;
+		mdp_clk.c.fmax = fmax_mdp_8960ab;
 
 		memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_common),
 			msm_clocks_8960ab_only, sizeof(msm_clocks_8960ab_only));
