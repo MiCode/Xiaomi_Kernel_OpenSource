@@ -45,7 +45,8 @@
 #define TAIKO_TX_PORT_NUMBER	16
 
 #define TAIKO_I2S_MASTER_MODE_MASK 0x08
-
+#define TAIKO_MCLK_CLK_12P288MHZ 12288000
+#define TAIKO_MCLK_CLK_9P6HZ 9600000
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -1538,45 +1539,50 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			return -EINVAL;
 		}
 	}
-	switch (dai_id) {
-	case AIF1_CAP:
-	case AIF2_CAP:
-	case AIF3_CAP:
-		/* only add to the list if value not set
-		 */
-		if (enable && !(widget->value & 1 << port_id)) {
-			if (wcd9xxx_tx_vport_validation(
+	if (taiko_p->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		switch (dai_id) {
+		case AIF1_CAP:
+		case AIF2_CAP:
+		case AIF3_CAP:
+			/* only add to the list if value not set
+			 */
+			if (enable && !(widget->value & 1 << port_id)) {
+				if (wcd9xxx_tx_vport_validation(
 						vport_check_table[dai_id],
 						port_id,
 						taiko_p->dai)) {
-				pr_info("%s: TX%u is used by other virtual port\n",
-					__func__, port_id + 1);
-				mutex_unlock(&codec->mutex);
-				return -EINVAL;
-			}
-			widget->value |= 1 << port_id;
-			list_add_tail(&core->tx_chs[port_id].list,
+					pr_debug("%s: TX%u is used by other\n"
+						"virtual port\n",
+						__func__, port_id + 1);
+					mutex_unlock(&codec->mutex);
+					return -EINVAL;
+				}
+				widget->value |= 1 << port_id;
+				list_add_tail(&core->tx_chs[port_id].list,
 				      &taiko_p->dai[dai_id].wcd9xxx_ch_list
-				      );
-		} else if (!enable && (widget->value & 1 << port_id)) {
-			widget->value &= ~(1 << port_id);
-			list_del_init(&core->tx_chs[port_id].list);
-		} else {
-			if (enable)
-				pr_info("%s: TX%u port is used by this virtual port\n",
-					__func__, port_id + 1);
-			else
-				pr_info("%s: TX%u port is not used by this virtual port\n",
-					__func__, port_id + 1);
-			/* avoid update power function */
+					      );
+			} else if (!enable && (widget->value & 1 << port_id)) {
+				widget->value &= ~(1 << port_id);
+				list_del_init(&core->tx_chs[port_id].list);
+			} else {
+				if (enable)
+					pr_debug("%s: TX%u port is used by\n"
+						"this virtual port\n",
+						__func__, port_id + 1);
+				else
+					pr_debug("%s: TX%u port is not used by\n"
+						"this virtual port\n",
+						__func__, port_id + 1);
+				/* avoid update power function */
+				mutex_unlock(&codec->mutex);
+				return 0;
+			}
+			break;
+		default:
+			pr_err("Unknown AIF %d\n", dai_id);
 			mutex_unlock(&codec->mutex);
-			return 0;
+			return -EINVAL;
 		}
-		break;
-	default:
-		pr_err("Unknown AIF %d\n", dai_id);
-		mutex_unlock(&codec->mutex);
-		return -EINVAL;
 	}
 	pr_debug("%s: name %s sname %s updated value %u shift %d\n", __func__,
 		widget->name, widget->sname, widget->value, widget->shift);
@@ -2438,10 +2444,10 @@ static const struct snd_soc_dapm_route audio_i2s_map[] = {
 	{"SLIM RX3", NULL, "RX_I2S_CLK"},
 	{"SLIM RX4", NULL, "RX_I2S_CLK"},
 
-	{"SLIM TX7", NULL, "TX_I2S_CLK"},
-	{"SLIM TX8", NULL, "TX_I2S_CLK"},
-	{"SLIM TX9", NULL, "TX_I2S_CLK"},
-	{"SLIM TX10", NULL, "TX_I2S_CLK"},
+	{"SLIM TX7 MUX", NULL, "TX_I2S_CLK"},
+	{"SLIM TX8 MUX", NULL, "TX_I2S_CLK"},
+	{"SLIM TX9 MUX", NULL, "TX_I2S_CLK"},
+	{"SLIM TX10 MUX", NULL, "TX_I2S_CLK"},
 };
 
 static const struct snd_soc_dapm_route audio_map[] = {
@@ -3101,7 +3107,11 @@ int taiko_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 static int taiko_set_dai_sysclk(struct snd_soc_dai *dai,
 		int clk_id, unsigned int freq, int dir)
 {
-	pr_debug("%s\n", __func__);
+	struct snd_soc_codec *codec = dai->codec;
+	if (freq == TAIKO_MCLK_CLK_12P288MHZ)
+		snd_soc_write(codec, TAIKO_A_CHIP_CTL, 0x04);
+	else if (freq == TAIKO_MCLK_CLK_9P6HZ)
+		snd_soc_write(codec, TAIKO_A_CHIP_CTL, 0x0A);
 	return 0;
 }
 
