@@ -35,6 +35,8 @@
 #define MAX_WCD9XXX_DEVICE	4
 #define TABLA_I2C_MODE	0x03
 #define SITAR_I2C_MODE	0x01
+#define CODEC_DT_MAX_PROP_SIZE   40
+#define WCD9XXX_I2C_GSBI_SLAVE_ID "3-000d"
 
 struct wcd9xxx_i2c {
 	struct i2c_client *client;
@@ -42,6 +44,17 @@ struct wcd9xxx_i2c {
 	struct mutex xfer_lock;
 	int mod_id;
 };
+
+static char *taiko_supplies[] = {
+	"cdc-vdd-buck", "cdc-vdd-tx-h", "cdc-vdd-rx-h", "cdc-vddpx-1",
+	"cdc-vdd-a-1p2v", "cdc-vddcx-1", "cdc-vddcx-2",
+};
+
+static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
+	struct wcd9xxx_regulator *vreg, const char *vreg_name);
+static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
+	struct wcd9xxx_micbias_setting *micbias);
+static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev);
 
 struct wcd9xxx_i2c wcd9xxx_modules[MAX_WCD9XXX_DEVICE];
 static int wcd9xxx_intf = -1;
@@ -764,19 +777,31 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 	int ret = 0;
 	int i2c_mode = 0;
 	static int device_id;
+	struct device *dev;
 
 	pr_info("%s\n", __func__);
 	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
-		pr_info("tabla card is already detected in slimbus mode\n");
+		dev_dbg(&client->dev, "%s:Codec is detected in slimbus mode\n",
+			 __func__);
 		return -ENODEV;
 	}
-	pdata = client->dev.platform_data;
 	if (device_id > 0) {
 		wcd9xxx_modules[device_id++].client = client;
-		pr_info("probe for other slaves devices of tabla\n");
+		dev_dbg(&client->dev, "%s:probe for other slaves\n"
+			"devices of codec\n", __func__);
 		return ret;
 	}
-
+	dev = &client->dev;
+	if (client->dev.of_node) {
+		dev_dbg(&client->dev, "%s:Platform data from device tree\n",
+			__func__);
+		pdata = wcd9xxx_populate_dt_pdata(&client->dev);
+		client->dev.platform_data = pdata;
+	} else {
+		dev_dbg(&client->dev, "%s:Platform data from board file\n",
+			__func__);
+		pdata = client->dev.platform_data;
+	}
 	wcd9xxx = kzalloc(sizeof(struct wcd9xxx), GFP_KERNEL);
 	if (wcd9xxx == NULL) {
 		pr_err("%s: error, allocation failed\n", __func__);
@@ -858,7 +883,6 @@ static int wcd9xxx_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
-#define CODEC_DT_MAX_PROP_SIZE   40
 static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
 	struct wcd9xxx_regulator *vreg, const char *vreg_name)
 {
@@ -1057,11 +1081,6 @@ static int wcd9xxx_dt_parse_slim_interface_dev_info(struct device *dev,
 	return 0;
 }
 
-static char *taiko_supplies[] = {
-	"cdc-vdd-buck", "cdc-vdd-tx-h", "cdc-vdd-rx-h", "cdc-vddpx-1",
-	"cdc-vdd-a-1p2v", "cdc-vddcx-1", "cdc-vddcx-2",
-};
-
 static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 {
 	struct wcd9xxx_pdata *pdata;
@@ -1071,12 +1090,11 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
-		dev_err(dev,
-			"could not allocate memory for platform data\n");
+		dev_err(dev, "could not allocate memory for platform data\n");
 		return NULL;
 	}
-
-	if (!strcmp(dev_name(dev), "taiko-slim-pgd")) {
+	if (!strcmp(dev_name(dev), "taiko-slim-pgd") ||
+		(!strcmp(dev_name(dev), WCD9XXX_I2C_GSBI_SLAVE_ID))) {
 		codec_supplies = taiko_supplies;
 		num_of_supplies = ARRAY_SIZE(taiko_supplies);
 	} else {
@@ -1111,11 +1129,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 			pdata->reset_gpio);
 		goto err;
 	}
-
-	ret = wcd9xxx_dt_parse_slim_interface_dev_info(dev,
-			&pdata->slimbus_slave_device);
-	if (ret)
-		goto err;
+	dev_dbg(dev, "%s: reset gpio %d", __func__, pdata->reset_gpio);
 	return pdata;
 err:
 	devm_kfree(dev, pdata);
@@ -1151,6 +1165,14 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
 		pdata = wcd9xxx_populate_dt_pdata(&slim->dev);
+		ret = wcd9xxx_dt_parse_slim_interface_dev_info(&slim->dev,
+				&pdata->slimbus_slave_device);
+		if (ret) {
+			dev_err(&slim->dev, "Error, parsing slim interface\n");
+			devm_kfree(&slim->dev, pdata);
+			ret = -EINVAL;
+			goto err;
+		}
 		slim->dev.platform_data = pdata;
 
 	} else {
@@ -1460,6 +1482,14 @@ static struct slim_driver taiko_slim_driver = {
 #define WCD9XXX_I2C_DIGITAL_1	2
 #define WCD9XXX_I2C_DIGITAL_2	3
 
+static struct i2c_device_id wcd9xxx_id_table[] = {
+	{"wcd9xxx-i2c", WCD9XXX_I2C_TOP_LEVEL},
+	{"wcd9xxx-i2c", WCD9XXX_I2C_ANALOG},
+	{"wcd9xxx-i2c", WCD9XXX_I2C_DIGITAL_1},
+	{"wcd9xxx-i2c", WCD9XXX_I2C_DIGITAL_2},
+	{}
+};
+
 static struct i2c_device_id tabla_id_table[] = {
 	{"tabla top level", WCD9XXX_I2C_TOP_LEVEL},
 	{"tabla analog", WCD9XXX_I2C_ANALOG},
@@ -1481,9 +1511,22 @@ static struct i2c_driver tabla_i2c_driver = {
 	.suspend = wcd9xxx_i2c_suspend,
 };
 
+static struct i2c_driver wcd9xxx_i2c_driver = {
+	.driver                 = {
+		.owner          =       THIS_MODULE,
+		.name           =       "wcd9xxx-i2c-core",
+	},
+	.id_table               =       wcd9xxx_id_table,
+	.probe                  =       wcd9xxx_i2c_probe,
+	.remove                 =       wcd9xxx_i2c_remove,
+	.resume	= wcd9xxx_i2c_resume,
+	.suspend = wcd9xxx_i2c_suspend,
+};
+
+
 static int __init wcd9xxx_init(void)
 {
-	int ret1, ret2, ret3, ret4, ret5, ret6;
+	int ret1, ret2, ret3, ret4, ret5, ret6, ret7;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);
 	if (ret1 != 0)
@@ -1495,7 +1538,7 @@ static int __init wcd9xxx_init(void)
 
 	ret3 = i2c_add_driver(&tabla_i2c_driver);
 	if (ret3 != 0)
-		pr_err("failed to add the I2C driver\n");
+		pr_err("failed to add the tabla2x I2C driver\n");
 
 	ret4 = slim_driver_register(&sitar_slim_driver);
 	if (ret4 != 0)
@@ -1509,7 +1552,11 @@ static int __init wcd9xxx_init(void)
 	if (ret6 != 0)
 		pr_err("Failed to register taiko SB driver: %d\n", ret6);
 
-	return (ret1 && ret2 && ret3 && ret4 && ret5 && ret6) ? -1 : 0;
+	ret7 = i2c_add_driver(&wcd9xxx_i2c_driver);
+	if (ret7 != 0)
+		pr_err("failed to add the wcd9xxx I2C driver\n");
+
+	return (ret1 && ret2 && ret3 && ret4 && ret5 && ret6 && ret7) ? -1 : 0;
 }
 module_init(wcd9xxx_init);
 

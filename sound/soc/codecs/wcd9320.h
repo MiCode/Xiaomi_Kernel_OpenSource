@@ -23,6 +23,7 @@
 #define TAIKO_CACHE_SIZE TAIKO_NUM_REGISTERS
 
 #define TAIKO_REG_VAL(reg, val)		{reg, 0, val}
+#define TAIKO_MCLK_ID 0
 
 extern const u8 taiko_reg_readable[TAIKO_CACHE_SIZE];
 extern const u8 taiko_reset_reg_defaults[TAIKO_CACHE_SIZE];
