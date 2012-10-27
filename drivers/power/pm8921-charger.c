@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -984,30 +984,6 @@ static int pm_chg_led_src_config(struct pm8921_chg_chip *chip,
 
 	return pm_chg_masked_write(chip, CHG_CNTRL_3,
 					PM8921_CHG_LED_SRC_CONFIG_MASK, temp);
-}
-
-static void disable_input_voltage_regulation(struct pm8921_chg_chip *chip)
-{
-	u8 temp;
-	int rc;
-
-	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0x70);
-	if (rc) {
-		pr_err("Failed to write 0x70 to CTRL_TEST3 rc = %d\n", rc);
-		return;
-	}
-	rc = pm8xxx_readb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, &temp);
-	if (rc) {
-		pr_err("Failed to read CTRL_TEST3 rc = %d\n", rc);
-		return;
-	}
-	/* set the input voltage disable bit and the write bit */
-	temp |= 0x81;
-	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, temp);
-	if (rc) {
-		pr_err("Failed to write 0x%x to CTRL_TEST3 rc=%d\n", temp, rc);
-		return;
-	}
 }
 
 static void enable_input_voltage_regulation(struct pm8921_chg_chip *chip)
@@ -2594,29 +2570,49 @@ static irqreturn_t chgstate_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int param_vin_disable_counter = 5;
-module_param(param_vin_disable_counter, int, 0644);
+enum {
+	PON_TIME_25NS	= 0x04,
+	PON_TIME_50NS	= 0x08,
+	PON_TIME_100NS	= 0x0C,
+};
 
-static void attempt_reverse_boost_fix(struct pm8921_chg_chip *chip,
-							int count, int usb_ma)
+static void set_min_pon_time(struct pm8921_chg_chip *chip, int pon_time_ns)
 {
-	if (usb_ma)
-		__pm8921_charger_vbus_draw(500);
-	pr_debug("count = %d iusb=500mA\n", count);
-	disable_input_voltage_regulation(chip);
-	pr_debug("count = %d disable_input_regulation\n", count);
+	u8 temp;
+	int rc;
 
-	msleep(20);
+	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, 0x40);
+	if (rc) {
+		pr_err("Failed to write 0x70 to CTRL_TEST3 rc = %d\n", rc);
+		return;
+	}
+	rc = pm8xxx_readb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, &temp);
+	if (rc) {
+		pr_err("Failed to read CTRL_TEST3 rc = %d\n", rc);
+		return;
+	}
+	/* clear the min pon time select bit */
+	temp &= 0xF3;
+	/* set the pon time */
+	temp |= (u8)pon_time_ns;
+	/* write enable bank 4 */
+	temp |= 0x80;
+	rc = pm8xxx_writeb(chip->dev->parent, CHG_BUCK_CTRL_TEST3, temp);
+	if (rc) {
+		pr_err("Failed to write 0x%x to CTRL_TEST3 rc=%d\n", temp, rc);
+		return;
+	}
+}
 
-	pr_debug("count = %d end sleep 20ms chg_gone=%d, usb_valid = %d\n",
-				count,
-				pm_chg_get_rt_status(chip, CHG_GONE_IRQ),
-				is_usb_chg_plugged_in(chip));
-	pr_debug("count = %d restoring input regulation and usb_ma = %d\n",
-		 count, usb_ma);
-	enable_input_voltage_regulation(chip);
-	if (usb_ma)
-		__pm8921_charger_vbus_draw(usb_ma);
+static void attempt_reverse_boost_fix(struct pm8921_chg_chip *chip)
+{
+	pr_debug("Start\n");
+	set_min_pon_time(chip, PON_TIME_100NS);
+	pm_chg_vinmin_set(chip, chip->vin_min + 200);
+	msleep(250);
+	pm_chg_vinmin_set(chip, chip->vin_min);
+	set_min_pon_time(chip, PON_TIME_25NS);
+	pr_debug("End\n");
 }
 
 #define VIN_ACTIVE_BIT BIT(0)
@@ -2647,11 +2643,6 @@ static void unplug_check_worker(struct work_struct *work)
 		pr_debug("USB charger active\n");
 
 		pm_chg_iusbmax_get(chip, &usb_ma);
-		if (usb_ma == 500 && !usb_target_ma) {
-			pr_debug("Stopping Unplug Check Worker USB == 500mA\n");
-			disable_input_voltage_regulation(chip);
-			return;
-		}
 
 		if (usb_ma <= 100) {
 			pr_debug(
@@ -2661,8 +2652,10 @@ static void unplug_check_worker(struct work_struct *work)
 		}
 	} else if (active_path & DC_ACTIVE_BIT) {
 		pr_debug("DC charger active\n");
-		/* Some board designs are not prone to reverse boost on DC
-		 * charging path */
+		/*
+		 * Some board designs are not prone to reverse boost on DC
+		 * charging path
+		 */
 		if (!chip->dc_unplug_check)
 			return;
 	} else {
@@ -2701,27 +2694,17 @@ static void unplug_check_worker(struct work_struct *work)
 
 	ibat = get_prop_batt_current(chip);
 	if (reg_loop & VIN_ACTIVE_BIT) {
-		pr_debug("ibat = %d fsm = %d reg_loop = 0x%x\n",
-				ibat, pm_chg_get_fsm_state(chip), reg_loop);
 		if (ibat > 0) {
-			int count = 0;
-
-			while (count++ < param_vin_disable_counter
-					&& active_chg_plugged_in == 1) {
-				if (active_path & USB_ACTIVE_BIT)
-					attempt_reverse_boost_fix(chip,
-								count, usb_ma);
-				else
-					attempt_reverse_boost_fix(chip,
-								count, 0);
-				/* after reverse boost fix check if the active
-				 * charger was detected as removed */
-				active_chg_plugged_in
-					= is_active_chg_plugged_in(chip,
-						active_path);
-				pr_debug("active_chg_plugged_in = %d\n",
-						active_chg_plugged_in);
-			}
+			pr_debug("revboost ibat = %d fsm = %d loop = 0x%x\n",
+				ibat, pm_chg_get_fsm_state(chip), reg_loop);
+			attempt_reverse_boost_fix(chip);
+			/* after reverse boost fix check if the active
+			 * charger was detected as removed */
+			active_chg_plugged_in
+				= is_active_chg_plugged_in(chip,
+					active_path);
+			pr_debug("revboost post: active_chg_plugged_in = %d\n",
+					active_chg_plugged_in);
 		}
 	}
 
