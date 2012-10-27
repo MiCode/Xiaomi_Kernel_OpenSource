@@ -111,6 +111,13 @@
 #define QPNP_DATA1					0x61
 #define QPNP_CONV_TIMEOUT_ERR				2
 
+#define QPNP_IADC_SEC_ACCESS				0xD0
+#define QPNP_IADC_SEC_ACCESS_DATA			0xA5
+#define QPNP_IADC_MSB_OFFSET				0xF2
+#define QPNP_IADC_LSB_OFFSET				0xF3
+#define QPNP_IADC_NOMINAL_RSENSE			0xF4
+#define QPNP_IADC_ATE_GAIN_CALIB_OFFSET			0xF5
+
 #define QPNP_IADC_ADC_CH_SEL_CTL			0x48
 #define QPNP_IADC_ADC_CHX_SEL_SHIFT			3
 
@@ -127,15 +134,27 @@
 #define QPNP_ADC_CONV_TIME_MIN				8000
 #define QPNP_ADC_CONV_TIME_MAX				8200
 
-#define QPNP_ADC_GAIN_CALCULATION_UV			17857
-#define QPNP_IADC_RSENSE_MILLI_FACTOR			1000
+#define QPNP_ADC_GAIN_NV				17857
+#define QPNP_OFFSET_CALIBRATION_SHORT_CADC_LEADS_IDEAL	0
+#define QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR		10000000
+#define QPNP_IADC_NANO_VOLTS_FACTOR			1000000000
+#define QPNP_IADC_CALIB_SECONDS				300000
+#define QPNP_IADC_RSENSE_LSB_N_OHMS_PER_BIT		15625
+#define QPNP_IADC_DIE_TEMP_CALIB_OFFSET			5000
+
+#define QPNP_RAW_CODE_16_BIT_MSB_MASK			0xff00
+#define QPNP_RAW_CODE_16_BIT_LSB_MASK			0xff
+#define QPNP_BIT_SHIFT_8				8
+#define QPNP_RSENSE_MSB_SIGN_CHECK			0x80
 
 struct qpnp_iadc_drv {
-	struct qpnp_adc_drv		*adc;
-	int32_t				rsense;
-	struct device			*iadc_hwmon;
-	bool				iadc_init_calib;
-	bool				iadc_initialized;
+	struct qpnp_adc_drv			*adc;
+	int32_t					rsense;
+	struct device				*iadc_hwmon;
+	bool					iadc_init_calib;
+	bool					iadc_initialized;
+	int64_t					die_temp_calib_offset;
+	struct delayed_work			iadc_work;
 	struct sensor_device_attribute		sens_attr[0];
 };
 
@@ -253,9 +272,10 @@ static int32_t qpnp_iadc_enable(bool state)
 	return 0;
 }
 
-static int32_t qpnp_iadc_read_conversion_result(int32_t *data)
+static int32_t qpnp_iadc_read_conversion_result(uint16_t *data)
 {
 	uint8_t rslt_lsb, rslt_msb;
+	uint16_t rslt;
 	int32_t rc;
 
 	rc = qpnp_iadc_read_reg(QPNP_IADC_DATA0, &rslt_lsb);
@@ -270,16 +290,18 @@ static int32_t qpnp_iadc_read_conversion_result(int32_t *data)
 		return rc;
 	}
 
-	*data = (rslt_msb << 8) | rslt_lsb;
+	rslt = (rslt_msb << 8) | rslt_lsb;
+	*data = rslt;
 
 	rc = qpnp_iadc_enable(false);
 	if (rc)
 		return rc;
+
 	return 0;
 }
 
 static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
-						int32_t *result)
+						uint16_t *raw_code)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	u8 qpnp_iadc_mode_reg = 0, qpnp_iadc_ch_sel_reg = 0;
@@ -346,7 +368,7 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 
 	wait_for_completion(&iadc->adc->adc_rslt_completion);
 
-	rc = qpnp_iadc_read_conversion_result(result);
+	rc = qpnp_iadc_read_conversion_result(raw_code);
 	if (rc) {
 		pr_err("qpnp adc read adc failed with %d\n", rc);
 		return rc;
@@ -355,30 +377,107 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 	return 0;
 }
 
-static int32_t qpnp_iadc_init_calib(void)
+static int32_t qpnp_convert_raw_offset_voltage(void)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
-	int32_t rc = 0, result;
+	uint32_t num = 0;
 
-	rc = qpnp_iadc_configure(GAIN_CALIBRATION_25MV, &result);
+	num = iadc->adc->calib.offset_raw - iadc->adc->calib.offset_raw;
+
+	iadc->adc->calib.offset_uv = (num * QPNP_ADC_GAIN_NV)/
+		(iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw);
+
+	num = iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw;
+
+	iadc->adc->calib.gain_uv = (num * QPNP_ADC_GAIN_NV)/
+		(iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw);
+
+	return 0;
+}
+
+static int32_t qpnp_iadc_calibrate_for_trim(void)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+	uint8_t rslt_lsb, rslt_msb;
+	int32_t rc = 0;
+	uint16_t raw_data;
+
+	rc = qpnp_iadc_configure(GAIN_CALIBRATION_17P857MV, &raw_data);
 	if (rc < 0) {
 		pr_err("qpnp adc result read failed with %d\n", rc);
 		goto fail;
 	}
 
-	iadc->adc->calib.gain = result;
+	iadc->adc->calib.gain_raw = raw_data;
 
 	rc = qpnp_iadc_configure(OFFSET_CALIBRATION_SHORT_CADC_LEADS,
-								&result);
+								&raw_data);
 	if (rc < 0) {
 		pr_err("qpnp adc result read failed with %d\n", rc);
 		goto fail;
 	}
 
-	iadc->adc->calib.offset = result;
+	iadc->adc->calib.offset_raw = raw_data;
+	if (rc < 0) {
+		pr_err("qpnp adc offset/gain calculation failed\n");
+		goto fail;
+	}
 
+	rc = qpnp_convert_raw_offset_voltage();
+
+	rslt_msb = (raw_data & QPNP_RAW_CODE_16_BIT_MSB_MASK) >>
+							QPNP_BIT_SHIFT_8;
+	rslt_lsb = raw_data & QPNP_RAW_CODE_16_BIT_LSB_MASK;
+
+	rc = qpnp_iadc_write_reg(QPNP_IADC_SEC_ACCESS,
+					QPNP_IADC_SEC_ACCESS_DATA);
+	if (rc < 0) {
+		pr_err("qpnp iadc configure error for sec access\n");
+		goto fail;
+	}
+
+	rc = qpnp_iadc_write_reg(QPNP_IADC_MSB_OFFSET,
+						rslt_msb);
+	if (rc < 0) {
+		pr_err("qpnp iadc configure error for MSB write\n");
+		goto fail;
+	}
+
+	rc = qpnp_iadc_write_reg(QPNP_IADC_SEC_ACCESS,
+					QPNP_IADC_SEC_ACCESS_DATA);
+	if (rc < 0) {
+		pr_err("qpnp iadc configure error for sec access\n");
+		goto fail;
+	}
+
+	rc = qpnp_iadc_write_reg(QPNP_IADC_LSB_OFFSET,
+						rslt_lsb);
+	if (rc < 0) {
+		pr_err("qpnp iadc configure error for LSB write\n");
+		goto fail;
+	}
 fail:
 	return rc;
+}
+
+static void qpnp_iadc_work(struct work_struct *work)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+	int rc = 0;
+
+	mutex_lock(&iadc->adc->adc_lock);
+
+	rc = qpnp_iadc_calibrate_for_trim();
+	if (rc)
+		pr_err("periodic IADC calibration failed\n");
+
+	mutex_unlock(&iadc->adc->adc_lock);
+
+	schedule_delayed_work(&iadc->iadc_work,
+			round_jiffies_relative(msecs_to_jiffies
+					(QPNP_IADC_CALIB_SECONDS)));
+
+	return;
 }
 
 static int32_t qpnp_iadc_version_check(void)
@@ -411,40 +510,102 @@ int32_t qpnp_iadc_is_ready(void)
 }
 EXPORT_SYMBOL(qpnp_iadc_is_ready);
 
-int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
-						int32_t *result)
+int32_t qpnp_iadc_get_rsense(int32_t *rsense)
+{
+	uint8_t	rslt_rsense;
+	int32_t	rc, sign_bit = 0;
+
+	rc = qpnp_iadc_read_reg(QPNP_IADC_NOMINAL_RSENSE, &rslt_rsense);
+	if (rc < 0) {
+		pr_err("qpnp adc rsense read failed with %d\n", rc);
+		return rc;
+	}
+
+	if (rslt_rsense & QPNP_RSENSE_MSB_SIGN_CHECK)
+		sign_bit = 1;
+
+	rslt_rsense &= ~QPNP_RSENSE_MSB_SIGN_CHECK;
+
+	if (sign_bit)
+		*rsense = QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR -
+			(rslt_rsense * QPNP_IADC_RSENSE_LSB_N_OHMS_PER_BIT);
+	else
+		*rsense = QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR +
+			(rslt_rsense * QPNP_IADC_RSENSE_LSB_N_OHMS_PER_BIT);
+
+	return rc;
+}
+
+int32_t qpnp_check_pmic_temp(void)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
-	int32_t vsense_mv = 0, rc;
+	struct qpnp_vadc_result result_pmic_therm;
+	int rc;
+
+	rc = qpnp_vadc_read(DIE_TEMP, &result_pmic_therm);
+	if (rc < 0)
+		return rc;
+
+	if (((uint64_t) (result_pmic_therm.physical -
+				iadc->die_temp_calib_offset))
+			> QPNP_IADC_DIE_TEMP_CALIB_OFFSET) {
+		mutex_lock(&iadc->adc->adc_lock);
+
+		rc = qpnp_iadc_calibrate_for_trim();
+		if (rc)
+			pr_err("periodic IADC calibration failed\n");
+
+		mutex_unlock(&iadc->adc->adc_lock);
+	}
+
+	return 0;
+}
+
+int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
+				struct qpnp_iadc_result *result)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+	int32_t rc, rsense_n_ohms, sign = 0, num;
+	int64_t result_current;
+	uint16_t raw_data;
 
 	if (!iadc || !iadc->iadc_initialized)
 		return -EPROBE_DEFER;
 
-	mutex_lock(&iadc->adc->adc_lock);
-
-	if (!iadc->iadc_init_calib) {
-		rc = qpnp_iadc_version_check();
-		if (rc)
-			goto fail;
-		rc = qpnp_iadc_init_calib();
-		if (rc) {
-			pr_err("Calibration failed\n");
-			goto fail;
-		} else
-			iadc->iadc_init_calib = true;
+	rc = qpnp_check_pmic_temp();
+	if (rc) {
+		pr_err("Error checking pmic therm temp\n");
+		return rc;
 	}
 
-	rc = qpnp_iadc_configure(channel, result);
+	mutex_lock(&iadc->adc->adc_lock);
+
+	rc = qpnp_iadc_configure(channel, &raw_data);
 	if (rc < 0) {
 		pr_err("qpnp adc result read failed with %d\n", rc);
 		goto fail;
 	}
 
-	*result = ((vsense_mv - iadc->adc->calib.offset) *
-				QPNP_ADC_GAIN_CALCULATION_UV)/
-			(iadc->adc->calib.gain - iadc->adc->calib.offset);
+	rc = qpnp_iadc_get_rsense(&rsense_n_ohms);
 
-	*result = (*result / (qpnp_iadc->rsense));
+	num = raw_data - iadc->adc->calib.offset_raw;
+	if (num < 0) {
+		sign = 1;
+		num = -num;
+	}
+
+	result->result_uv = (num * QPNP_ADC_GAIN_NV)/
+		(iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw);
+	result_current = result->result_uv;
+	result_current *= QPNP_IADC_NANO_VOLTS_FACTOR;
+	do_div(result_current, rsense_n_ohms);
+
+	if (sign) {
+		result->result_uv = -result->result_uv;
+		result_current = -result_current;
+	}
+
+	result->result_ua = (int32_t) result_current;
 fail:
 	mutex_unlock(&iadc->adc->adc_lock);
 
@@ -452,24 +613,39 @@ fail:
 }
 EXPORT_SYMBOL(qpnp_iadc_read);
 
-int32_t qpnp_iadc_get_gain(int32_t *result)
+int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result)
 {
-	return qpnp_iadc_read(GAIN_CALIBRATION_25MV, result);
-}
-EXPORT_SYMBOL(qpnp_iadc_get_gain);
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+	int rc;
 
-int32_t qpnp_iadc_get_offset(enum qpnp_iadc_channels channel,
-						int32_t *result)
-{
-	return qpnp_iadc_read(channel, result);
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+
+	rc = qpnp_check_pmic_temp();
+	if (rc) {
+		pr_err("Error checking pmic therm temp\n");
+		return rc;
+	}
+
+	mutex_lock(&iadc->adc->adc_lock);
+	result->gain_raw = iadc->adc->calib.gain_raw;
+	result->ideal_gain_nv = QPNP_ADC_GAIN_NV;
+	result->gain_uv = iadc->adc->calib.gain_uv;
+	result->offset_raw = iadc->adc->calib.offset_raw;
+	result->ideal_offset_uv =
+				QPNP_OFFSET_CALIBRATION_SHORT_CADC_LEADS_IDEAL;
+	result->offset_uv = iadc->adc->calib.offset_uv;
+	mutex_unlock(&iadc->adc->adc_lock);
+
+	return 0;
 }
-EXPORT_SYMBOL(qpnp_iadc_get_offset);
+EXPORT_SYMBOL(qpnp_iadc_get_gain_and_offset);
 
 static ssize_t qpnp_iadc_show(struct device *dev,
 			struct device_attribute *devattr, char *buf)
 {
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
-	int32_t result;
+	struct qpnp_iadc_result result;
 	int rc = -1;
 
 	rc = qpnp_iadc_read(attr->index, &result);
@@ -478,7 +654,7 @@ static ssize_t qpnp_iadc_show(struct device *dev,
 		return 0;
 
 	return snprintf(buf, QPNP_ADC_HWMON_NAME_LENGTH,
-					"Result:%d\n", result);
+					"Result:%d\n", result.result_ua);
 }
 
 static struct sensor_device_attribute qpnp_adc_attr =
@@ -592,9 +768,27 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 
 	rc = qpnp_iadc_configure_interrupt();
 	if (rc) {
-		dev_err(&spmi->dev, "failed to configure interrupt");
+		dev_err(&spmi->dev, "failed to configure interrupt\n");
 		return rc;
 	}
+
+	rc = qpnp_iadc_version_check();
+	if (rc) {
+		dev_err(&spmi->dev, "IADC version not supported\n");
+		return rc;
+	}
+
+	rc = qpnp_iadc_calibrate_for_trim();
+	if (rc) {
+		dev_err(&spmi->dev, "failed to calibrate for USR trim\n");
+		return rc;
+	}
+	iadc->iadc_init_calib = true;
+	INIT_DELAYED_WORK(&iadc->iadc_work, qpnp_iadc_work);
+	schedule_delayed_work(&iadc->iadc_work,
+			round_jiffies_relative(msecs_to_jiffies
+					(QPNP_IADC_CALIB_SECONDS)));
+	iadc->iadc_initialized = true;
 
 	return 0;
 }
