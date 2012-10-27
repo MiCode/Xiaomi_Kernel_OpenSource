@@ -143,6 +143,7 @@ static struct pm8xxx_gpio_init pm8921_cdp_kp_gpios[] __initdata = {
 
 static struct pm8xxx_gpio_init pm8921_mpq8064_hrd_gpios[] __initdata = {
 	PM8921_GPIO_OUTPUT(37, 0, LOW),	/* MUX1_SEL */
+	PM8921_GPIO_INPUT(40, PM_GPIO_PULL_UP_30), /* irq for sx150 exp2 */
 };
 
 static struct pm8xxx_gpio_init touchscreen_gpios[] __initdata = {
