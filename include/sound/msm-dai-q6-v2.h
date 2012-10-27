@@ -20,6 +20,10 @@
 #define MSM_MI2S_SD3 (1 << 3)
 #define MSM_MI2S_CAP_RX 0
 #define MSM_MI2S_CAP_TX 1
+#define MSM_PRIM_MI2S 0
+#define MSM_SEC_MI2S  1
+#define MSM_TERT_MI2S 2
+#define MSM_QUAD_MI2S 3
 
 struct msm_dai_auxpcm_pdata {
 	const char *clk;
@@ -33,6 +37,11 @@ struct msm_dai_auxpcm_pdata {
 	u16 slot;
 	u16 data;
 	int pcm_clk_rate;
+};
+
+struct msm_mi2s_pdata {
+	u16 rx_sd_lines;
+	u16 tx_sd_lines;
 };
 
 struct msm_i2s_data {
