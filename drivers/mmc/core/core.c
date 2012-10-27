@@ -2639,7 +2639,9 @@ int mmc_cache_ctrl(struct mmc_host *host, u8 enable)
 			mmc_card_is_removable(host))
 		return err;
 
-	mmc_claim_host(host);
+	if (!mmc_try_claim_host(host))
+		return -EBUSY;
+
 	if (card && mmc_card_mmc(card) &&
 			(card->ext_csd.cache_size > 0)) {
 		enable = !!enable;
