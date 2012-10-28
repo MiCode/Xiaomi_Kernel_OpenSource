@@ -83,6 +83,10 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv);
 static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv);
 static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv);
 
+static int voice_send_set_widevoice_enable_cmd(struct voice_data *v);
+static int voice_send_set_pp_enable_cmd(struct voice_data *v,
+					uint32_t module_id, int enable);
+
 static u16 voice_get_mvm_handle(struct voice_data *v)
 {
 	if (v == NULL) {
@@ -758,6 +762,114 @@ static int voice_send_tty_mode_cmd(struct voice_data *v)
 			pr_err("%s: wait_event timeout\n", __func__);
 			goto fail;
 		}
+	}
+	return 0;
+fail:
+	return -EINVAL;
+}
+
+static int voice_send_set_widevoice_enable_cmd(struct voice_data *v)
+{
+	struct mvm_set_widevoice_enable_cmd mvm_set_wv_cmd;
+	int ret = 0;
+	void *apr_mvm;
+	u16 mvm_handle;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	apr_mvm = common.apr_q6_mvm;
+
+	if (!apr_mvm) {
+		pr_err("%s: apr_mvm is NULL.\n", __func__);
+		return -EINVAL;
+	}
+	mvm_handle = voice_get_mvm_handle(v);
+
+	mvm_set_wv_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						     APR_HDR_LEN(APR_HDR_SIZE),
+						     APR_PKT_VER);
+	mvm_set_wv_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+						   sizeof(mvm_set_wv_cmd) -
+						   APR_HDR_SIZE);
+	mvm_set_wv_cmd.hdr.src_port = v->session_id;
+	mvm_set_wv_cmd.hdr.dest_port = mvm_handle;
+	mvm_set_wv_cmd.hdr.token = 0;
+	mvm_set_wv_cmd.hdr.opcode = VSS_IWIDEVOICE_CMD_SET_WIDEVOICE;
+
+	mvm_set_wv_cmd.vss_set_wv.enable = v->wv_enable;
+
+	v->mvm_state = CMD_STATUS_FAIL;
+	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_set_wv_cmd);
+	if (ret < 0) {
+		pr_err("Fail: sending mvm set widevoice enable,\n");
+		goto fail;
+	}
+	ret = wait_event_timeout(v->mvm_wait,
+				 (v->mvm_state == CMD_STATUS_SUCCESS),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		goto fail;
+	}
+	return 0;
+fail:
+	return -EINVAL;
+}
+
+static int voice_send_set_pp_enable_cmd(struct voice_data *v,
+					uint32_t module_id, int enable)
+{
+	struct cvs_set_pp_enable_cmd cvs_set_pp_cmd;
+	int ret = 0;
+	void *apr_cvs;
+	u16 cvs_handle;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	apr_cvs = common.apr_q6_cvs;
+
+	if (!apr_cvs) {
+		pr_err("%s: apr_cvs is NULL.\n", __func__);
+		return -EINVAL;
+	}
+	cvs_handle = voice_get_cvs_handle(v);
+
+	cvs_set_pp_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						     APR_HDR_LEN(APR_HDR_SIZE),
+						     APR_PKT_VER);
+	cvs_set_pp_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+						   sizeof(cvs_set_pp_cmd) -
+						   APR_HDR_SIZE);
+	cvs_set_pp_cmd.hdr.src_port = v->session_id;
+	cvs_set_pp_cmd.hdr.dest_port = cvs_handle;
+	cvs_set_pp_cmd.hdr.token = 0;
+	cvs_set_pp_cmd.hdr.opcode = VSS_ICOMMON_CMD_SET_UI_PROPERTY;
+
+	cvs_set_pp_cmd.vss_set_pp.module_id = module_id;
+	cvs_set_pp_cmd.vss_set_pp.param_id = VOICE_PARAM_MOD_ENABLE;
+	cvs_set_pp_cmd.vss_set_pp.param_size = MOD_ENABLE_PARAM_LEN;
+	cvs_set_pp_cmd.vss_set_pp.reserved = 0;
+	cvs_set_pp_cmd.vss_set_pp.enable = enable;
+	cvs_set_pp_cmd.vss_set_pp.reserved_field = 0;
+	pr_debug("voice_send_set_pp_enable_cmd, module_id=%d, enable=%d\n",
+		module_id, enable);
+
+	v->cvs_state = CMD_STATUS_FAIL;
+	ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_set_pp_cmd);
+	if (ret < 0) {
+		pr_err("Fail: sending cvs set pp enable,\n");
+		goto fail;
+	}
+	ret = wait_event_timeout(v->cvs_wait,
+				 (v->cvs_state == CMD_STATUS_SUCCESS),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		goto fail;
 	}
 	return 0;
 fail:
@@ -2042,6 +2154,20 @@ static int voice_setup_vocproc(struct voice_data *v)
 		voice_send_netid_timing_cmd(v);
 	}
 
+	/* enable widevoice if wv_enable is set */
+	if (v->wv_enable)
+		voice_send_set_widevoice_enable_cmd(v);
+
+	/* enable slowtalk if st_enable is set */
+	if (v->st_enable)
+		voice_send_set_pp_enable_cmd(v,
+					     MODULE_ID_VOICE_MODULE_ST,
+					     v->st_enable);
+
+	voice_send_set_pp_enable_cmd(v,
+				     MODULE_ID_VOICE_MODULE_FENS,
+				     v->fens_enable);
+
 	/* Start in-call music delivery if this feature is enabled */
 	if (v->music_info.play_enable)
 		voice_cvs_start_playback(v);
@@ -3207,6 +3333,22 @@ int voc_enable_cvp(uint16_t session_id)
 	/* Send tty mode if tty device is used */
 	voice_send_tty_mode_cmd(v);
 
+	/* enable widevoice if wv_enable is set */
+	if (v->wv_enable)
+		voice_send_set_widevoice_enable_cmd(v);
+
+	/* enable slowtalk */
+	if (v->st_enable)
+		voice_send_set_pp_enable_cmd(v,
+					     MODULE_ID_VOICE_MODULE_ST,
+					     v->st_enable);
+
+	/* enable FENS */
+	if (v->fens_enable)
+		voice_send_set_pp_enable_cmd(v,
+					     MODULE_ID_VOICE_MODULE_FENS,
+					     v->fens_enable);
+
 	v->voc_state = VOC_RUN;
 	}
 
@@ -3370,7 +3512,8 @@ int voc_set_widevoice_enable(uint16_t session_id, uint32_t wv_enable)
 	v->wv_enable = wv_enable;
 
 	mvm_handle = voice_get_mvm_handle(v);
-
+	if (mvm_handle != 0)
+		voice_send_set_widevoice_enable_cmd(v);
 
 	mutex_unlock(&v->lock);
 
@@ -3413,6 +3556,17 @@ int voc_set_pp_enable(uint16_t session_id, uint32_t module_id, uint32_t enable)
 		v->st_enable = enable;
 	else if (module_id == MODULE_ID_VOICE_MODULE_FENS)
 		v->fens_enable = enable;
+
+	if (v->voc_state == VOC_RUN) {
+		if (module_id == MODULE_ID_VOICE_MODULE_ST)
+			ret = voice_send_set_pp_enable_cmd(v,
+						MODULE_ID_VOICE_MODULE_ST,
+						enable);
+		else if (module_id == MODULE_ID_VOICE_MODULE_FENS)
+			ret = voice_send_set_pp_enable_cmd(v,
+						MODULE_ID_VOICE_MODULE_FENS,
+						enable);
+	}
 
 	mutex_unlock(&v->lock);
 
