@@ -896,10 +896,11 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_READ_COMPRESSED:
 			if (atomic_read(&ac->cmd_state) && wakeup_flag) {
 				atomic_set(&ac->cmd_state, 0);
+				pr_debug("response payload[1]:%d",
+							payload[1]);
 				if (payload[1] == ADSP_EUNSUPPORTED ||
+					payload[1] == ADSP_EBADPARAM ||
 					payload[1] == ADSP_EFAILED) {
-					pr_debug("payload[1]:%d unsupported",
-								payload[1]);
 					atomic_set(&ac->cmd_response, 1);
 				}
 				else
@@ -1483,6 +1484,10 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format)
 	if (!rc) {
 		pr_err("%s: timeout. waited for OPEN_WRITE rc[%d]\n", __func__,
 			rc);
+		goto fail_cmd;
+	}
+	if (atomic_read(&ac->cmd_response)) {
+		pr_err("%s: format = %x not supported\n", __func__, format);
 		goto fail_cmd;
 	}
 	return 0;
