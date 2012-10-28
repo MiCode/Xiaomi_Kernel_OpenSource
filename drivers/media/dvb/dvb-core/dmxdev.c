@@ -98,6 +98,18 @@ static inline u32 dvb_dmxdev_advance_event_idx(u32 index)
 	return index;
 }
 
+static inline int dvb_dmxdev_events_is_full(struct dmxdev_events_queue *events)
+{
+	int new_write_index;
+
+	new_write_index = dvb_dmxdev_advance_event_idx(events->write_index);
+	if (new_write_index == events->read_index)
+		return 1;
+
+	return 0;
+
+}
+
 static inline void dvb_dmxdev_flush_events(struct dmxdev_events_queue *events)
 {
 	events->read_index = 0;
@@ -788,6 +800,13 @@ static ssize_t dvb_dvr_read(struct file *file, char __user *buf, size_t count,
 		spin_lock_irq(&dmxdev->lock);
 		dvb_dmxdev_update_events(&dmxdev->dvr_output_events, res);
 		spin_unlock_irq(&dmxdev->lock);
+
+		/*
+		 * in PULL mode, we might be stalling on
+		 * event queue, so need to wake-up waiters
+		 */
+		if (dmxdev->playback_mode == DMX_PB_MODE_PULL)
+			wake_up_all(&dmxdev->dvr_buffer.queue);
 	} else if (res == -EOVERFLOW) {
 		/*
 		 * When buffer overflowed, demux-dev flushed the
@@ -1036,6 +1055,13 @@ static int dvb_dvr_get_event(struct dmxdev *dmxdev,
 	}
 
 	spin_unlock_irq(&dmxdev->lock);
+
+	/*
+	 * in PULL mode, we might be stalling on
+	 * event queue, so need to wake-up waiters
+	 */
+	if (dmxdev->playback_mode == DMX_PB_MODE_PULL)
+		wake_up_all(&dmxdev->dvr_buffer.queue);
 
 	return res;
 }
@@ -1303,13 +1329,17 @@ static int dvb_dmxdev_ts_fullness_callback(
 {
 	struct dmxdev_filter *dmxdevfilter = filter->priv;
 	struct dvb_ringbuffer *src;
+	struct dmxdev_events_queue *events;
 	int ret;
 
 	if (dmxdevfilter->params.pes.output == DMX_OUT_TAP
-		|| dmxdevfilter->params.pes.output == DMX_OUT_TSDEMUX_TAP)
+		|| dmxdevfilter->params.pes.output == DMX_OUT_TSDEMUX_TAP) {
 		src = &dmxdevfilter->buffer;
-	else
+		events = &dmxdevfilter->events;
+	} else {
 		src = &dmxdevfilter->dev->dvr_buffer;
+		events = &dmxdevfilter->dev->dvr_output_events;
+	}
 
 	do {
 		ret = 0;
@@ -1330,7 +1360,8 @@ static int dvb_dmxdev_ts_fullness_callback(
 			return ret;
 		}
 
-		if (required_space <= dvb_ringbuffer_free(src)) {
+		if ((required_space <= dvb_ringbuffer_free(src)) &&
+			(!dvb_dmxdev_events_is_full(events))) {
 			spin_unlock(&dmxdevfilter->dev->lock);
 			return 0;
 		}
@@ -1339,7 +1370,8 @@ static int dvb_dmxdev_ts_fullness_callback(
 
 		ret = wait_event_interruptible(src->queue,
 				(!src->data) ||
-				(dvb_ringbuffer_free(src) >= required_space) ||
+				((dvb_ringbuffer_free(src) >= required_space) &&
+				 (!dvb_dmxdev_events_is_full(events))) ||
 				(src->error != 0) ||
 				(dmxdevfilter->state != DMXDEV_STATE_GO) ||
 				dmxdevfilter->dev->dvr_in_exit);
@@ -1355,6 +1387,7 @@ static int dvb_dmxdev_sec_fullness_callback(
 {
 	struct dmxdev_filter *dmxdevfilter = filter->priv;
 	struct dvb_ringbuffer *src = &dmxdevfilter->buffer;
+	struct dmxdev_events_queue *events = &dmxdevfilter->events;
 	int ret;
 
 	do {
@@ -1376,7 +1409,8 @@ static int dvb_dmxdev_sec_fullness_callback(
 			return ret;
 		}
 
-		if (required_space <= dvb_ringbuffer_free(src)) {
+		if ((required_space <= dvb_ringbuffer_free(src)) &&
+			(!dvb_dmxdev_events_is_full(events))) {
 			spin_unlock(&dmxdevfilter->dev->lock);
 			return 0;
 		}
@@ -1385,7 +1419,8 @@ static int dvb_dmxdev_sec_fullness_callback(
 
 		ret = wait_event_interruptible(src->queue,
 				(!src->data) ||
-				(dvb_ringbuffer_free(src) >= required_space) ||
+				((dvb_ringbuffer_free(src) >= required_space) &&
+				 (!dvb_dmxdev_events_is_full(events))) ||
 				(src->error != 0) ||
 				(dmxdevfilter->state != DMXDEV_STATE_GO) ||
 				dmxdevfilter->dev->dvr_in_exit);
@@ -1536,6 +1571,13 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 	}
 
 	spin_unlock_irq(&dmxdevfilter->dev->lock);
+
+	/*
+	 * in PULL mode, we might be stalling on
+	 * event queue, so need to wake-up waiters
+	 */
+	if (dmxdevfilter->dev->playback_mode == DMX_PB_MODE_PULL)
+		wake_up_all(&dmxdevfilter->buffer.queue);
 
 	return res;
 
@@ -2608,6 +2650,13 @@ dvb_demux_read(struct file *file, char __user *buf, size_t count,
 		spin_lock_irq(&dmxdevfilter->dev->lock);
 		dvb_dmxdev_update_events(&dmxdevfilter->events, ret);
 		spin_unlock_irq(&dmxdevfilter->dev->lock);
+
+		/*
+		 * in PULL mode, we might be stalling on
+		 * event queue, so need to wake-up waiters
+		 */
+		if (dmxdevfilter->dev->playback_mode == DMX_PB_MODE_PULL)
+			wake_up_all(&dmxdevfilter->buffer.queue);
 	} else if (ret == -EOVERFLOW) {
 		/*
 		 * When buffer overflowed, demux-dev flushed the
