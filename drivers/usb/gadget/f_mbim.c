@@ -541,9 +541,7 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 	unsigned long			flags;
 	int				ret;
 
-	int notif_c = 0;
-
-	pr_info("dev:%p portno#%d\n", dev, dev->port_num);
+	pr_debug("dev:%p portno#%d\n", dev, dev->port_num);
 
 	spin_lock_irqsave(&dev->lock, flags);
 
@@ -565,8 +563,12 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 		return;
 	}
 
-	notif_c = atomic_inc_return(&dev->not_port.notify_count);
-	pr_info("atomic_inc_return[notif_c] = %d", notif_c);
+	if (atomic_inc_return(&dev->not_port.notify_count) != 1) {
+		pr_debug("delay ep_queue: notifications queue is busy[%d]",
+			atomic_read(&dev->not_port.notify_count));
+		spin_unlock_irqrestore(&dev->lock, flags);
+		return;
+	}
 
 	event = req->buf;
 	event->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS
@@ -577,8 +579,6 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 	event->wLength = cpu_to_le16(0);
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	pr_info("Call usb_ep_queue");
-
 	ret = usb_ep_queue(dev->not_port.notify,
 			   dev->not_port.notify_req, GFP_ATOMIC);
 	if (ret) {
@@ -586,7 +586,7 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 		pr_err("ep enqueue error %d\n", ret);
 	}
 
-	pr_info("Succcessfull Exit");
+	pr_debug("Successful Exit");
 }
 
 static int
@@ -672,7 +672,6 @@ static inline void mbim_reset_values(struct f_mbim *mbim)
 
 	mbim->ntb_input_size = NTB_DEFAULT_IN_SIZE;
 
-	atomic_set(&mbim->not_port.notify_count, 0);
 	atomic_set(&mbim->online, 0);
 }
 
@@ -750,6 +749,21 @@ static void mbim_do_notify(struct f_mbim *mbim)
 	switch (mbim->not_port.notify_state) {
 
 	case NCM_NOTIFY_NONE:
+		pr_debug("Notification %02x sent\n", event->bNotificationType);
+
+		if (atomic_read(&mbim->not_port.notify_count) <= 0) {
+			pr_debug("notify_none: done");
+			return;
+		}
+
+		spin_unlock(&mbim->lock);
+		status = usb_ep_queue(mbim->not_port.notify, req, GFP_ATOMIC);
+		spin_lock(&mbim->lock);
+		if (status) {
+			atomic_dec(&mbim->not_port.notify_count);
+			pr_err("Queue notify request failed, err: %d", status);
+		}
+
 		return;
 
 	case NCM_NOTIFY_CONNECT:
@@ -782,20 +796,22 @@ static void mbim_do_notify(struct f_mbim *mbim)
 		mbim->not_port.notify_state = NCM_NOTIFY_CONNECT;
 		break;
 	}
+
 	event->bmRequestType = 0xA1;
 	event->wIndex = cpu_to_le16(mbim->ctrl_id);
 
-	mbim->not_port.notify_req = NULL;
 	/*
 	 * In double buffering if there is a space in FIFO,
 	 * completion callback can be called right after the call,
 	 * so unlocking
 	 */
+	atomic_inc(&mbim->not_port.notify_count);
+	pr_debug("queue request: notify_count = %d",
+		atomic_read(&mbim->not_port.notify_count));
 	spin_unlock(&mbim->lock);
 	status = usb_ep_queue(mbim->not_port.notify, req, GFP_ATOMIC);
 	spin_lock(&mbim->lock);
-	if (status < 0) {
-		mbim->not_port.notify_req = req;
+	if (status) {
 		atomic_dec(&mbim->not_port.notify_count);
 		pr_err("usb_ep_queue failed, err: %d", status);
 	}
@@ -822,27 +838,14 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_mbim			*mbim = req->context;
 	struct usb_cdc_notification	*event = req->buf;
 
-	int notif_c = 0;
-
-	pr_info("dev:%p\n", mbim);
+	pr_debug("dev:%p\n", mbim);
 
 	spin_lock(&mbim->lock);
 	switch (req->status) {
 	case 0:
-		pr_info("Notification %02x sent\n",
-			event->bNotificationType);
-
-		notif_c = atomic_dec_return(&mbim->not_port.notify_count);
-
-		if (notif_c != 0) {
-			pr_info("Continue to mbim_do_notify()");
-			break;
-		} else {
-			pr_info("notify_count decreased to 0. Do not notify");
-			spin_unlock(&mbim->lock);
-			return;
-		}
-
+		atomic_dec(&mbim->not_port.notify_count);
+		pr_debug("notify_count = %d",
+			atomic_read(&mbim->not_port.notify_count));
 		break;
 
 	case -ECONNRESET:
@@ -862,9 +865,7 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 		break;
 	}
 
-	mbim->not_port.notify_req = req;
 	mbim_do_notify(mbim);
-
 	spin_unlock(&mbim->lock);
 
 	pr_info("dev:%p Exit\n", mbim);
@@ -1368,6 +1369,8 @@ static void mbim_disable(struct usb_function *f)
 		mbim->not_port.notify->driver_data = NULL;
 	}
 
+	atomic_set(&mbim->not_port.notify_count, 0);
+
 	pr_info("mbim deactivated\n");
 }
 
@@ -1789,7 +1792,6 @@ static int mbim_open(struct inode *ip, struct file *fp)
 
 	spin_lock(&_mbim_dev->lock);
 	_mbim_dev->is_open = true;
-	mbim_notify(_mbim_dev);
 	spin_unlock(&_mbim_dev->lock);
 
 	pr_info("Exit, mbim file opened\n");
@@ -1805,7 +1807,6 @@ static int mbim_release(struct inode *ip, struct file *fp)
 
 	spin_lock(&mbim->lock);
 	mbim->is_open = false;
-	mbim_notify(mbim);
 	spin_unlock(&mbim->lock);
 
 	mbim_unlock(&_mbim_dev->open_excl);
