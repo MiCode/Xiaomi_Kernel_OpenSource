@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -520,53 +520,6 @@ static void krait_pmu_reset(void *info)
 	armv7_pmnc_write(ARMV7_PMNC_P | ARMV7_PMNC_C);
 }
 
-static void enable_irq_callback(void *info)
-{
-        int irq = *(unsigned int *)info;
-
-        enable_percpu_irq(irq, IRQ_TYPE_EDGE_RISING);
-}
-
-static void disable_irq_callback(void *info)
-{
-        int irq = *(unsigned int *)info;
-
-        disable_percpu_irq(irq);
-}
-
-static int
-msm_request_irq(int irq, irq_handler_t *handle_irq)
-{
-        int err = 0;
-        int cpu;
-
-	err = request_percpu_irq(irq, *handle_irq, "l1-armpmu",
-			&cpu_hw_events);
-
-        if (!err) {
-                for_each_cpu(cpu, cpu_online_mask) {
-                        smp_call_function_single(cpu,
-                                        enable_irq_callback, &irq, 1);
-                }
-        }
-
-        return err;
-}
-
-static void
-msm_free_irq(int irq)
-{
-        int cpu;
-
-        if (irq >= 0) {
-                for_each_cpu(cpu, cpu_online_mask) {
-                        smp_call_function_single(cpu,
-                                        disable_irq_callback, &irq, 1);
-                }
-                free_percpu_irq(irq, &cpu_hw_events);
-        }
-}
-
 /*
  * We check for column exclusion constraints here.
  * Two events cant have same reg and same group.
@@ -621,8 +574,6 @@ static int msm_clear_ev_constraint(struct perf_event *event)
 
 static struct arm_pmu krait_pmu = {
 	.handle_irq		= armv7pmu_handle_irq,
-	.request_pmu_irq	= msm_request_irq,
-	.free_pmu_irq		= msm_free_irq,
 	.enable			= krait_pmu_enable_event,
 	.disable		= krait_pmu_disable_event,
 	.read_counter		= armv7pmu_read_counter,

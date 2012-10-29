@@ -32,6 +32,10 @@ enum arm_pmu_type {
  *	interrupt and passed the address of the low level handler,
  *	and can be used to implement any platform specific handling
  *	before or after calling it.
+ * @request_pmu_irq: an optional handler in case the platform wants
+ *	to use a percpu IRQ API call. e.g. request_percpu_irq
+ * @free_pmu_irq: an optional handler in case the platform wants
+ *	to use a percpu IRQ API call. e.g. free_percpu_irq
  * @enable_irq: an optional handler which will be called after
  *	request_irq and be used to handle some platform specific
  *	irq enablement
@@ -42,6 +46,8 @@ enum arm_pmu_type {
 struct arm_pmu_platdata {
 	irqreturn_t (*handle_irq)(int irq, void *dev,
 				  irq_handler_t pmu_handler);
+	int	(*request_pmu_irq)(int irq, irq_handler_t *irq_h);
+	void	(*free_pmu_irq)(int irq);
 	void (*enable_irq)(int irq);
 	void (*disable_irq)(int irq);
 };
@@ -114,8 +120,8 @@ struct arm_pmu {
 	u64		max_period;
 	struct platform_device	*plat_device;
 	irqreturn_t	(*handle_irq)(int irq_num, void *dev);
-	int     	(*request_pmu_irq)(int irq, irq_handler_t *irq_h);
-	void    	(*free_pmu_irq)(int irq);
+	int		(*request_pmu_irq)(int irq, irq_handler_t *irq_h);
+	void		(*free_pmu_irq)(int irq);
 	void		(*enable)(struct hw_perf_event *evt, int idx, int cpu);
 	void		(*disable)(struct hw_perf_event *evt, int idx);
 	int		(*get_event_idx)(struct pmu_hw_events *hw_events,
