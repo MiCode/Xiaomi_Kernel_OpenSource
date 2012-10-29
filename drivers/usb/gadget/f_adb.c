@@ -56,6 +56,7 @@ struct adb_dev {
 	struct usb_request *rx_req;
 	int rx_done;
 	bool notify_close;
+	bool close_notified;
 };
 
 static struct usb_interface_descriptor adb_interface_desc = {
@@ -424,8 +425,10 @@ static int adb_open(struct inode *ip, struct file *fp)
 	/* clear the error latch */
 	atomic_set(&_adb_dev->error, 0);
 
-	if (_adb_dev->notify_close)
+	if (_adb_dev->close_notified) {
+		_adb_dev->close_notified = false;
 		adb_ready_callback();
+	}
 
 	_adb_dev->notify_close = true;
 	return 0;
@@ -443,8 +446,10 @@ static int adb_release(struct inode *ip, struct file *fp)
 	 * undesired.  We want to force bus reset only for certain
 	 * commands like "adb root" and "adb usb".
 	 */
-	if (_adb_dev->notify_close)
+	if (_adb_dev->notify_close) {
 		adb_closed_callback();
+		_adb_dev->close_notified = true;
+	}
 
 	adb_unlock(&_adb_dev->open_excl);
 	return 0;
@@ -625,7 +630,9 @@ static int adb_setup(void)
 	atomic_set(&dev->open_excl, 0);
 	atomic_set(&dev->read_excl, 0);
 	atomic_set(&dev->write_excl, 0);
-	dev->notify_close = true;
+
+	/* config is disabled by default if adb is present. */
+	dev->close_notified = true;
 
 	INIT_LIST_HEAD(&dev->tx_idle);
 
