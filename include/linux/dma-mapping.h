@@ -56,6 +56,12 @@
  * that gives better TLB efficiency.
  */
 #define DMA_ATTR_ALLOC_SINGLE_PAGES	(1UL << 7)
+/*
+ * DMA_ATTR_STRONGLY_ORDERED: Specifies that accesses to the mapping must
+ * not be buffered, reordered, merged with other accesses, or unaligned.
+ * No speculative access may occur in this mapping.
+ */
+#define DMA_ATTR_STRONGLY_ORDERED	(1UL << 8)
 
 /*
  * A dma_addr_t can hold any valid DMA or bus address for the platform.
