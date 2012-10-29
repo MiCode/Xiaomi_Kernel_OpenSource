@@ -1551,7 +1551,8 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
 			extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
-			if (extra_idx)
+			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES) &&
+				vb->v4l2_planes[extra_idx].m.userptr)
 				frame_data.extradata_addr =
 					vb->v4l2_planes[extra_idx].m.userptr;
 			dprintk(VIDC_DBG,

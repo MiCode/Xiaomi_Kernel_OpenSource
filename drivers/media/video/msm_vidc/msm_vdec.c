@@ -346,7 +346,8 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 			buffer_info.align_device_addr =
 				b->m.planes[0].m.userptr;
 			extra_idx = EXTRADATA_IDX(b->length);
-			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES) &&
+				b->m.planes[extra_idx].m.userptr) {
 				buffer_info.extradata_addr =
 					b->m.planes[extra_idx].m.userptr;
 				dprintk(VIDC_DBG,
@@ -354,6 +355,9 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 				b->m.planes[extra_idx].m.userptr);
 				buffer_info.extradata_size =
 					b->m.planes[extra_idx].length;
+			} else {
+				buffer_info.extradata_addr = 0;
+				buffer_info.extradata_size = 0;
 			}
 			rc = vidc_hal_session_set_buffers((void *)inst->session,
 					&buffer_info);
@@ -409,9 +413,13 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 			buffer_info.align_device_addr =
 				 b->m.planes[0].m.userptr;
 			extra_idx = EXTRADATA_IDX(b->length);
-			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES))
+			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)
+				&& b->m.planes[extra_idx].m.userptr)
 				buffer_info.extradata_addr =
 					b->m.planes[extra_idx].m.userptr;
+			else
+				buffer_info.extradata_addr = 0;
+
 			rc = vidc_hal_session_release_buffers(
 					(void *)inst->session, &buffer_info);
 			if (rc)
