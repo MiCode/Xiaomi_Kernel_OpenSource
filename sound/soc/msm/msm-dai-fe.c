@@ -503,6 +503,20 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.ops = &msm_fe_Multimedia_dai_ops,
 		.name = "Pseudo",
 	},
+	{
+		.playback = {
+			.stream_name = "DTMF_RX Hostless Playback",
+			.aif_name = "DTMF_DL_HL",
+			.rates = SNDRV_PCM_RATE_8000_48000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min =	8000,
+			.rate_max = 48000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "DTMF_RX_HOSTLESS",
+	},
 };
 
 static int msm_fe_dai_dev_probe(struct platform_device *pdev)
