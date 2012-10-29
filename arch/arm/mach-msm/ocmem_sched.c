@@ -119,7 +119,7 @@ struct ocmem_table {
 	int hw_interconnect;
 } ocmem_client_table[OCMEM_CLIENT_MAX] = {
 	{OCMEM_GRAPHICS, PRIO_GFX, OCMEM_PERFORMANCE, OCMEM_PORT},
-	{OCMEM_VIDEO, PRIO_VIDEO, OCMEM_PERFORMANCE, OCMEM_PORT},
+	{OCMEM_VIDEO, PRIO_VIDEO, OCMEM_PERFORMANCE, OCMEM_OCMEMNOC},
 	{OCMEM_CAMERA, NO_PRIO, OCMEM_PERFORMANCE, OCMEM_OCMEMNOC},
 	{OCMEM_HP_AUDIO, PRIO_HP_AUDIO, OCMEM_PASSIVE, OCMEM_BLOCKED},
 	{OCMEM_VOICE, PRIO_VOICE, OCMEM_PASSIVE, OCMEM_BLOCKED},
@@ -155,6 +155,16 @@ static inline int is_tcm(int id)
 		return 1;
 	else
 		return 0;
+}
+
+static inline int is_iface_access(int id)
+{
+	return ocmem_client_table[id].hw_interconnect == OCMEM_OCMEMNOC ? 1 : 0;
+}
+
+static inline int is_remapped_access(int id)
+{
+	return ocmem_client_table[id].hw_interconnect == OCMEM_SYSNOC ? 1 : 0;
 }
 
 static inline int is_blocked(int id)
@@ -223,9 +233,9 @@ static unsigned long device_address(int id, unsigned long addr)
 
 	switch (hw_interconnect) {
 	case OCMEM_PORT:
+	case OCMEM_OCMEMNOC:
 		ret_addr = phys_to_offset(addr);
 		break;
-	case OCMEM_OCMEMNOC:
 	case OCMEM_SYSNOC:
 		ret_addr = addr;
 		break;
@@ -244,9 +254,9 @@ static unsigned long core_address(int id, unsigned long addr)
 
 	switch (hw_interconnect) {
 	case OCMEM_PORT:
+	case OCMEM_OCMEMNOC:
 		ret_addr = offset_to_phys(addr);
 		break;
-	case OCMEM_OCMEMNOC:
 	case OCMEM_SYSNOC:
 		ret_addr = addr;
 		break;
@@ -588,16 +598,20 @@ static int process_map(struct ocmem_req *req, unsigned long start,
 	if (rc < 0)
 		goto core_clock_fail;
 
-	rc = ocmem_enable_iface_clock();
 
-	if (rc < 0)
-		goto iface_clock_fail;
+	if (is_iface_access(req->owner)) {
+		rc = ocmem_enable_iface_clock();
 
-	rc = ocmem_enable_br_clock();
+		if (rc < 0)
+			goto iface_clock_fail;
+	}
 
-	if (rc < 0)
-		goto br_clock_fail;
+	if (is_remapped_access(req->owner)) {
+		rc = ocmem_enable_br_clock();
 
+		if (rc < 0)
+			goto br_clock_fail;
+	}
 
 	rc = ocmem_lock(req->owner, phys_to_offset(req->req_start), req->req_sz,
 							get_mode(req->owner));
@@ -622,9 +636,11 @@ static int process_map(struct ocmem_req *req, unsigned long start,
 process_map_fail:
 	ocmem_unlock(req->owner, phys_to_offset(req->req_start), req->req_sz);
 lock_failed:
-	ocmem_disable_br_clock();
+	if (is_remapped_access(req->owner))
+		ocmem_disable_br_clock();
 br_clock_fail:
-	ocmem_disable_iface_clock();
+	if (is_iface_access(req->owner))
+		ocmem_disable_iface_clock();
 iface_clock_fail:
 	ocmem_disable_core_clock();
 core_clock_fail:
@@ -651,8 +667,10 @@ static int process_unmap(struct ocmem_req *req, unsigned long start,
 		goto unlock_failed;
 	}
 
-	ocmem_disable_br_clock();
-	ocmem_disable_iface_clock();
+	if (is_remapped_access(req->owner))
+		ocmem_disable_br_clock();
+	if (is_iface_access(req->owner))
+		ocmem_disable_iface_clock();
 	ocmem_disable_core_clock();
 	pr_debug("ocmem: Unmapped request %p\n", req);
 	return 0;
