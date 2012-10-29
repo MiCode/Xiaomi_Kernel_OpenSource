@@ -268,12 +268,17 @@ extern void _memset_io(volatile void __iomem *, int, size_t);
 					__raw_readw(c)); __r; })
 #define readl_relaxed(c) ({ u32 __r = le32_to_cpu((__force __le32) \
 					__raw_readl(c)); __r; })
+#define readl_relaxed_no_log(c) ({ u32 __r = le32_to_cpu((__force __le32) \
+					__raw_readl_no_log(c)); __r; })
+
 
 #define writeb_relaxed(v,c)	((void)__raw_writeb(v,c))
 #define writew_relaxed(v,c)	((void)__raw_writew((__force u16) \
 					cpu_to_le16(v),c))
 #define writel_relaxed(v,c)	((void)__raw_writel((__force u32) \
 					cpu_to_le32(v),c))
+#define writel_relaxed_no_log(v, c)  ((void)__raw_writel_no_log((__force u32) \
+					cpu_to_le32(v), c))
 
 #define readb(c)		({ u8  __v = readb_relaxed(c); __iormb(); __v; })
 #define readw(c)		({ u16 __v = readw_relaxed(c); __iormb(); __v; })
