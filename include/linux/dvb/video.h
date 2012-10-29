@@ -151,6 +151,12 @@ struct video_buffer_req {
 	struct video_buffer_prop output_buf_prop; /* Output Buffer Prop */
 };
 
+enum scan_format {
+	INTERLACE_FRAME_PROGRESSIVE,
+	INTERLACE_INTERLEAVE_FRAME_TOP_FIELD_FIRST,
+	INTERLACE_INTERLEAVE_FRAME_BOTTOM_FIELD_FIRST
+};
+
 /* Video Data Buffer Structure for Input and Output */
 struct video_data_buffer {
 	void __user *bufferaddr; /* Pointer to Buffer */
@@ -161,6 +167,7 @@ struct video_data_buffer {
 	void *client_data;
 	void *ip_buffer_tag;
 	__u64 pts;
+	enum scan_format interlaced_format;
 };
 
 struct video_h264_mv {
