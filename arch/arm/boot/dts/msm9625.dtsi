@@ -250,6 +250,12 @@
 		a5_cpu-supply = <&pm8019_l10_corner_ao>;
 		a5_mem-supply = <&pm8019_l12_ao>;
 	};
+
+	gdsc_usb_hsic: qcom,gdsc@fc400404 {
+		compatible = "qcom,gdsc";
+		reg = <0xfc400404 0x4>;
+		regulator-name = "gdsc_usb_hsic";
+	};
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
