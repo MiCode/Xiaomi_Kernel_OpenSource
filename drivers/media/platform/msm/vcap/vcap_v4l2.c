@@ -82,7 +82,7 @@ static struct reg_range debug_reg_range[] = {
 
 static int vcap_reg_powerup(struct vcap_dev *dev)
 {
-	dev->fs_vcap = regulator_get(NULL, "fs_vcap");
+	dev->fs_vcap = regulator_get(dev->ddev, "fs_vcap");
 	if (IS_ERR(dev->fs_vcap)) {
 		pr_err("%s: Regulator FS_VCAP get failed %ld\n", __func__,
 			PTR_ERR(dev->fs_vcap));
