@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,14 +68,14 @@
 #define WLED_SYNC_VAL			0x07
 #define WLED_SYNC_RESET_VAL		0x00
 
-#define WLED_TRIGGER_DEFAULT		"none"
-#define WLED_FLAGS_DEFAULT		0x00
 #define WLED_DEFAULT_STRINGS		0x01
 #define WLED_DEFAULT_OVP_VAL		0x02
 #define WLED_BOOST_LIM_DEFAULT		0x03
 #define WLED_CP_SEL_DEFAULT		0x00
 #define WLED_CTRL_DLY_DEFAULT		0x00
 #define WLED_SWITCH_FREQ_DEFAULT	0x02
+
+#define LED_TRIGGER_DEFAULT		"none"
 
 /**
  * enum qpnp_leds - QPNP supported led ids
@@ -119,9 +119,9 @@ static u8 wled_debug_regs[] = {
 	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59,
 	/* LED1 */
 	0x60, 0x61, 0x62, 0x63, 0x66,
-	/* LED1 */
+	/* LED2 */
 	0x70, 0x71, 0x72, 0x73, 0x76,
-	/* LED1 */
+	/* LED3 */
 	0x80, 0x81, 0x82, 0x83, 0x86,
 };
 
@@ -155,6 +155,7 @@ struct wled_config_data {
  * @base_reg - base register given in device tree
  * @lock - to protect the transactions
  * @reg - cached value of led register
+ * @num_leds - number of leds in the module
  * @max_current - maximum current supported by LED
  * @default_on - true: default state max, false, default state 0
  */
@@ -164,6 +165,7 @@ struct qpnp_led_data {
 	int			id;
 	u16			base;
 	u8			reg;
+	u8			num_leds;
 	spinlock_t		lock;
 	struct wled_config_data *wled_cfg;
 	int			max_current;
@@ -192,6 +194,22 @@ qpnp_led_masked_write(struct qpnp_led_data *led, u16 addr, u8 mask, u8 val)
 		dev_err(&led->spmi_dev->dev,
 			"Unable to write to addr=%x, rc(%d)\n", addr, rc);
 	return rc;
+}
+
+static void qpnp_dump_regs(struct qpnp_led_data *led, u8 regs[], u8 array_size)
+{
+	int i;
+	u8 val;
+
+	pr_debug("===== %s LED register dump start =====\n", led->cdev.name);
+	for (i = 0; i < array_size; i++) {
+		spmi_ext_register_readl(led->spmi_dev->ctrl,
+					led->spmi_dev->sid,
+					led->base + regs[i],
+					&val, sizeof(val));
+		pr_debug("0x%x = 0x%x\n", led->base + regs[i], val);
+	}
+	pr_debug("===== %s LED register dump end =====\n", led->cdev.name);
 }
 
 static int qpnp_wled_set(struct qpnp_led_data *led)
@@ -271,22 +289,6 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 	return 0;
 }
 
-static void qpnp_wled_dump_regs(struct qpnp_led_data *led)
-{
-	int i;
-	u8 val;
-
-	pr_debug("===== WLED register dump start =====\n");
-	for (i = 0; i < ARRAY_SIZE(wled_debug_regs); i++) {
-		spmi_ext_register_readl(led->spmi_dev->ctrl,
-					led->spmi_dev->sid,
-					led->base + wled_debug_regs[i],
-					&val, sizeof(val));
-		pr_debug("0x%x = 0x%x\n", led->base + wled_debug_regs[i], val);
-	}
-	pr_debug("===== WLED register dump end =====\n");
-}
-
 static void qpnp_led_set(struct led_classdev *led_cdev,
 				enum led_brightness value)
 {
@@ -294,9 +296,8 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 	struct qpnp_led_data *led;
 
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
-
 	if (value < LED_OFF || value > led->cdev.max_brightness) {
-		dev_err(led->cdev.dev, "Invalid brightness value\n");
+		dev_err(&led->spmi_dev->dev, "Invalid brightness value\n");
 		return;
 	}
 
@@ -307,11 +308,11 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 	case QPNP_ID_WLED:
 		rc = qpnp_wled_set(led);
 		if (rc < 0)
-			dev_err(led->cdev.dev,
+			dev_err(&led->spmi_dev->dev,
 				"WLED set brightness failed (%d)\n", rc);
 		break;
 	default:
-		dev_err(led->cdev.dev, "Invalid LED(%d)\n", led->id);
+		dev_err(&led->spmi_dev->dev, "Invalid LED(%d)\n", led->id);
 		break;
 	}
 	spin_unlock(&led->lock);
@@ -324,7 +325,7 @@ static int __devinit qpnp_led_set_max_brightness(struct qpnp_led_data *led)
 		led->cdev.max_brightness = WLED_MAX_LEVEL;
 		break;
 	default:
-		dev_err(led->cdev.dev, "Invalid LED(%d)\n", led->id);
+		dev_err(&led->spmi_dev->dev, "Invalid LED(%d)\n", led->id);
 		return -EINVAL;
 	}
 
@@ -465,7 +466,7 @@ static int __devinit qpnp_wled_init(struct qpnp_led_data *led)
 	}
 
 	/* dump wled registers */
-	qpnp_wled_dump_regs(led);
+	qpnp_dump_regs(led, wled_debug_regs, ARRAY_SIZE(wled_debug_regs));
 
 	return 0;
 }
@@ -478,15 +479,41 @@ static int __devinit qpnp_led_initialize(struct qpnp_led_data *led)
 	case QPNP_ID_WLED:
 		rc = qpnp_wled_init(led);
 		if (rc)
-			dev_err(led->cdev.dev,
+			dev_err(&led->spmi_dev->dev,
 				"WLED initialize failed(%d)\n", rc);
 		break;
 	default:
-		dev_err(led->cdev.dev, "Invalid LED(%d)\n", led->id);
+		dev_err(&led->spmi_dev->dev, "Invalid LED(%d)\n", led->id);
 		rc = -EINVAL;
 	}
 
 	return rc;
+}
+
+static int __devinit qpnp_get_common_configs(struct qpnp_led_data *led,
+				struct device_node *node)
+{
+	int rc;
+	const char *temp_string;
+
+	led->cdev.default_trigger = LED_TRIGGER_DEFAULT;
+	rc = of_property_read_string(node, "linux,default-trigger",
+		&temp_string);
+	if (!rc)
+		led->cdev.default_trigger = temp_string;
+	else if (rc != -EINVAL)
+		return rc;
+
+	led->default_on = false;
+	rc = of_property_read_string(node, "qcom,default-state",
+		&temp_string);
+	if (!rc) {
+		if (strncmp(temp_string, "on", sizeof("on")) == 0)
+			led->default_on = true;
+	} else if (rc != -EINVAL)
+		return rc;
+
+	return 0;
 }
 
 /*
@@ -497,9 +524,6 @@ static int __devinit qpnp_get_config_wled(struct qpnp_led_data *led,
 {
 	u32 val;
 	int rc;
-	const char *temp_string;
-
-	led->id = QPNP_ID_WLED;
 
 	led->wled_cfg = devm_kzalloc(&led->spmi_dev->dev,
 				sizeof(struct wled_config_data), GFP_KERNEL);
@@ -507,31 +531,6 @@ static int __devinit qpnp_get_config_wled(struct qpnp_led_data *led,
 		dev_err(&led->spmi_dev->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
 	}
-
-	led->cdev.default_trigger = WLED_TRIGGER_DEFAULT;
-	rc = of_property_read_string(node, "linux,default-trigger",
-		&temp_string);
-	if (!rc)
-		led->cdev.default_trigger = temp_string;
-	else if (rc != -EINVAL)
-		return rc;
-
-
-	led->cdev.flags = WLED_FLAGS_DEFAULT;
-	rc = of_property_read_u32(node, "qcom,flags", &val);
-	if (!rc)
-		led->cdev.flags = (int) val;
-	else if (rc != -EINVAL)
-		return rc;
-
-	led->default_on = true;
-	rc = of_property_read_string(node, "qcom,default-state",
-		&temp_string);
-	if (!rc) {
-		if (!strncmp(temp_string, "off", sizeof("off")))
-			led->default_on = false;
-	} else if (rc != -EINVAL)
-		return rc;
 
 	led->wled_cfg->num_strings = WLED_DEFAULT_STRINGS;
 	rc = of_property_read_u32(node, "qcom,num-strings", &val);
@@ -591,105 +590,135 @@ static int __devinit qpnp_leds_probe(struct spmi_device *spmi)
 {
 	struct qpnp_led_data *led;
 	struct resource *led_resource;
-	struct device_node *node;
-	int rc;
+	struct device_node *node, *temp;
+	int rc, i, num_leds = 0;
 	const char *led_label;
 
-	led = devm_kzalloc(&spmi->dev, (sizeof(struct qpnp_led_data)),
-		GFP_KERNEL);
+	node = spmi->dev.of_node;
+	if (node == NULL)
+		return -ENODEV;
+
+	temp = NULL;
+	while ((temp = of_get_next_child(node, temp)))
+		num_leds++;
+
+	led = devm_kzalloc(&spmi->dev,
+		(sizeof(struct qpnp_led_data) * num_leds), GFP_KERNEL);
 	if (!led) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
 	}
 
-	led->spmi_dev = spmi;
+	led->num_leds = num_leds;
+	num_leds = 0;
 
-	led_resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
-	if (!led_resource) {
-		dev_err(&spmi->dev, "Unable to get LED base address\n");
-		return -ENXIO;
-	}
-	led->base = led_resource->start;
+	for_each_child_of_node(node, temp) {
+		led->spmi_dev = spmi;
 
-	dev_set_drvdata(&spmi->dev, led);
+		led_resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
+		if (!led_resource) {
+			dev_err(&spmi->dev, "Unable to get LED base address\n");
+			return -ENXIO;
+		}
+		led->base = led_resource->start;
 
-	node = led->spmi_dev->dev.of_node;
-	if (node == NULL)
-		return -ENODEV;
+		dev_set_drvdata(&spmi->dev, led);
 
-	rc = of_property_read_string(node, "qcom,label", &led_label);
-	if (rc < 0) {
-		dev_err(&led->spmi_dev->dev,
-			"Failure reading label, rc = %d\n", rc);
-		return rc;
-	}
 
-	rc = of_property_read_string(node, "qcom,name", &led->cdev.name);
-	if (rc < 0) {
-		dev_err(&led->spmi_dev->dev,
-			"Failure reading led name, rc = %d\n", rc);
-		return rc;
-	}
-
-	rc = of_property_read_u32(node, "qcom,max-current", &led->max_current);
-	if (rc < 0) {
-		dev_err(&led->spmi_dev->dev,
-			"Failure reading max_current, rc =  %d\n", rc);
-		return rc;
-	}
-
-	led->cdev.brightness_set    = qpnp_led_set;
-	led->cdev.brightness_get    = qpnp_led_get;
-	led->cdev.brightness	= LED_OFF;
-
-	if (strncmp(led_label, "wled", sizeof("wled")) == 0) {
-		rc = qpnp_get_config_wled(led, node);
+		rc = of_property_read_string(temp, "label", &led_label);
 		if (rc < 0) {
 			dev_err(&led->spmi_dev->dev,
-				"Unable to read wled config data\n");
+				"Failure reading label, rc = %d\n", rc);
 			return rc;
 		}
-	} else {
-		dev_err(&led->spmi_dev->dev, "No LED matching label\n");
-		return -EINVAL;
+
+		rc = of_property_read_string(temp, "linux,name",
+			&led->cdev.name);
+		if (rc < 0) {
+			dev_err(&led->spmi_dev->dev,
+				"Failure reading led name, rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = of_property_read_u32(temp, "qcom,max-current",
+			&led->max_current);
+		if (rc < 0) {
+			dev_err(&led->spmi_dev->dev,
+				"Failure reading max_current, rc =  %d\n", rc);
+			return rc;
+		}
+
+		rc = of_property_read_u32(temp, "qcom,id", &led->id);
+		if (rc < 0) {
+			dev_err(&led->spmi_dev->dev,
+				"Failure reading led id, rc =  %d\n", rc);
+			return rc;
+		}
+
+		rc = qpnp_get_common_configs(led, temp);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"Failure reading common led configuration," \
+				" rc = %d\n", rc);
+			return rc;
+		}
+
+		led->cdev.brightness_set    = qpnp_led_set;
+		led->cdev.brightness_get    = qpnp_led_get;
+
+		if (strncmp(led_label, "wled", sizeof("wled")) == 0) {
+			rc = qpnp_get_config_wled(led, temp);
+			if (rc < 0) {
+				dev_err(&led->spmi_dev->dev,
+					"Unable to read wled config data\n");
+				return rc;
+			}
+		} else {
+			dev_err(&led->spmi_dev->dev, "No LED matching label\n");
+			return -EINVAL;
+		}
+
+		spin_lock_init(&led->lock);
+
+		rc =  qpnp_led_initialize(led);
+		if (rc < 0)
+			goto fail_id_check;
+
+		rc = qpnp_led_set_max_brightness(led);
+		if (rc < 0)
+			goto fail_id_check;
+
+		rc = led_classdev_register(&spmi->dev, &led->cdev);
+		if (rc) {
+			dev_err(&spmi->dev, "unable to register led %d,rc=%d\n",
+						 led->id, rc);
+			goto fail_id_check;
+		}
+		/* configure default state */
+		if (led->default_on)
+			led->cdev.brightness = led->cdev.max_brightness;
+		else
+			led->cdev.brightness = LED_OFF;
+
+		qpnp_led_set(&led->cdev, led->cdev.brightness);
+		led++;
+		num_leds++;
 	}
-
-	spin_lock_init(&led->lock);
-
-	rc =  qpnp_led_initialize(led);
-	if (rc < 0)
-		goto fail_id_check;
-
-	rc = qpnp_led_set_max_brightness(led);
-	if (rc < 0)
-		goto fail_id_check;
-
-
-	rc = led_classdev_register(&spmi->dev, &led->cdev);
-	if (rc) {
-		dev_err(&spmi->dev, "unable to register led %d,rc=%d\n",
-					 led->id, rc);
-		goto fail_id_check;
-	}
-
-	/* configure default state */
-	if (led->default_on)
-		led->cdev.brightness = led->cdev.max_brightness;
-
-	qpnp_led_set(&led->cdev, led->cdev.brightness);
-
 	return 0;
 
 fail_id_check:
-	led_classdev_unregister(&led->cdev);
+	for (i = 0; i < num_leds; i++)
+		led_classdev_unregister(&led[i].cdev);
 	return rc;
 }
 
 static int __devexit qpnp_leds_remove(struct spmi_device *spmi)
 {
 	struct qpnp_led_data *led  = dev_get_drvdata(&spmi->dev);
+	int i;
 
-	led_classdev_unregister(&led->cdev);
+	for (i = 0; i < led->num_leds; i++)
+		led_classdev_unregister(&led[i].cdev);
 
 	return 0;
 }
