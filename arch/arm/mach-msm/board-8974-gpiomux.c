@@ -152,6 +152,26 @@ static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
 
 };
 
+static struct gpiomux_setting mhl_suspend_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting mhl_active_1_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_OUT_HIGH,
+};
+
+static struct gpiomux_setting mhl_active_2_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+
 static struct gpiomux_setting hdmi_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -169,6 +189,34 @@ static struct gpiomux_setting hdmi_active_2_cfg = {
 	.drv = GPIOMUX_DRV_16MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
+
+static struct msm_gpiomux_config msm_mhl_configs[] __initdata = {
+	{
+		/* mhl-sii8334 pwr */
+		.gpio = 12,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mhl_suspend_config,
+			[GPIOMUX_ACTIVE]    = &mhl_active_1_cfg,
+		},
+	},
+	{
+		/* mhl-sii8334 intr */
+		.gpio = 82,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mhl_suspend_config,
+			[GPIOMUX_ACTIVE]    = &mhl_active_1_cfg,
+		},
+	},
+	{
+		/* mhl-sii8334 reset */
+		.gpio = 8,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mhl_suspend_config,
+			[GPIOMUX_ACTIVE]    = &mhl_active_2_cfg,
+		},
+	},
+};
+
 
 static struct msm_gpiomux_config msm_hdmi_configs[] __initdata = {
 	{
@@ -575,4 +623,5 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install(msm_taiko_config, ARRAY_SIZE(msm_taiko_config));
 
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
+	msm_gpiomux_install(msm_mhl_configs, ARRAY_SIZE(msm_mhl_configs));
 }
