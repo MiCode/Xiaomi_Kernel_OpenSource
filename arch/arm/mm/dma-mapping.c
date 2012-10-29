@@ -662,9 +662,14 @@ static void __free_from_contiguous(struct device *dev, struct page *page,
 
 static inline pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot)
 {
-	prot = (attrs & DMA_ATTR_WRITE_COMBINE) ?
-			pgprot_writecombine(prot) :
-			pgprot_dmacoherent(prot);
+	if (attrs & DMA_ATTR_WRITE_COMBINE)
+		prot = pgprot_writecombine(prot);
+	else if (attrs & DMA_ATTR_STRONGLY_ORDERED)
+		prot = pgprot_stronglyordered(prot);
+	/* if non-consistent just pass back what was given */
+	else if ((attrs & DMA_ATTR_NON_CONSISTENT) == 0)
+		prot = pgprot_dmacoherent(prot);
+
 	return prot;
 }
 
