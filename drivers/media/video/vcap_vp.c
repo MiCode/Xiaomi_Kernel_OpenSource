@@ -267,7 +267,7 @@ static void vp_wq_fnc(struct work_struct *work)
 	}
 
 	/* Config VP */
-	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_TOP)
+	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_BOTTOM)
 		top_field = 1;
 
 	writel_iowmb(0x00000000 | top_field, VCAP_VP_CTRL);
@@ -832,7 +832,7 @@ int kickoff_vp(struct vcap_client_data *c_data)
 			chroma_fmt << 11 | 0x1 << 4, VCAP_VP_OUT_CONFIG);
 
 	/* Enable Interrupt */
-	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_TOP)
+	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_BOTTOM)
 		top_field = 1;
 	vp_act->vp_state = VP_FRAME2;
 	writel_relaxed(0x01100001, VCAP_VP_INTERRUPT_ENABLE);
@@ -875,7 +875,7 @@ int continue_vp(struct vcap_client_data *c_data)
 	if (rc < 0)
 		return rc;
 
-	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_TOP)
+	if (vp_act->bufT2->vb.v4l2_buf.field == V4L2_FIELD_BOTTOM)
 		top_field = 1;
 
 	/* Config VP & Enable Interrupt */
