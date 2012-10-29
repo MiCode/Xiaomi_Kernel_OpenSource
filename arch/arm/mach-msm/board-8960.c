@@ -2890,8 +2890,18 @@ static void __init msm8960_gfx_init(void)
 		kgsl_3d0_pdata->chipid = ADRENO_CHIPID(3, 2, 1, 0);
 		/* 8960PRO nominal clock rate is 320Mhz */
 		kgsl_3d0_pdata->pwrlevel[1].gpu_freq = 320000000;
+
+		/*
+		 * If this an A320 GPU device (MSM8960AB), then
+		 * switch the resource table to 8960AB, to reflect the
+		 * separate register and shader memory mapping used in A320.
+		 */
+
+		msm_kgsl_3d0.num_resources = kgsl_num_resources_8960ab;
+		msm_kgsl_3d0.resource = kgsl_3d0_resources_8960ab;
 	} else {
 		kgsl_3d0_pdata->iommu_count = 1;
+
 		if (SOCINFO_VERSION_MAJOR(soc_platform_version) == 1) {
 			kgsl_3d0_pdata->pwrlevel[0].gpu_freq = 320000000;
 			kgsl_3d0_pdata->pwrlevel[1].gpu_freq = 266667000;
