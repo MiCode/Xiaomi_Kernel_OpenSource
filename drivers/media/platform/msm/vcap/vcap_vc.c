@@ -126,28 +126,9 @@ static struct timeval interpolate_ts(struct timeval tv, uint32_t delta)
 	return tv;
 }
 
-irqreturn_t vc_handler(struct vcap_dev *dev)
+inline void vc_isr_error_checking(struct vcap_dev *dev,
+		struct v4l2_event v4l2_evt, uint32_t irq)
 {
-	uint32_t irq, timestamp;
-	struct vcap_buffer *buf;
-	struct vb2_buffer *vb = NULL;
-	struct vcap_client_data *c_data;
-	struct v4l2_event v4l2_evt;
-	uint8_t i, idx, buf_num, tot, done_count = 0;
-	bool work_todo = false;
-
-	irq = readl_relaxed(VCAP_VC_INT_STATUS);
-
-	pr_debug("%s: irq=0x%08x\n", __func__, irq);
-
-	c_data = dev->vc_client;
-	if (!c_data->streaming) {
-		writel_iowmb(irq, VCAP_VC_INT_CLEAR);
-		pr_err("VC no longer streaming\n");
-		return IRQ_HANDLED;
-	}
-
-	v4l2_evt.id = 0;
 	if (irq & 0x8000200) {
 		writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
@@ -166,6 +147,12 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 			VCAP_VC_VSYNC_ERR_EVENT;
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
+	if (irq & 0x00001000) {
+		writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
+		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+			VCAP_VC_VSYNC_SEQ_ERR;
+		v4l2_event_queue(dev->vfd, &v4l2_evt);
+	}
 	if (irq & 0x00000800) {
 		writel_iowmb(0x00000102, VCAP_VC_NPL_CTRL);
 		v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
@@ -178,33 +165,26 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 			VCAP_VC_LBUF_OFLOW_ERR_EVENT;
 		v4l2_event_queue(dev->vfd, &v4l2_evt);
 	}
+}
 
-	if (!(irq & VC_BUFFER_MASK)) {
-		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-		pr_err("VC IRQ shows some error\n");
-		return IRQ_HANDLED;
-	}
-
-	if (dev->vc_client == NULL) {
-		/* This should never happen */
-		writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-		pr_err("VC: There is no active vc client\n");
-		return IRQ_HANDLED;
-	}
-	c_data = dev->vc_client;
-
+inline uint8_t vc_isr_buffer_done_count(struct vcap_dev *dev,
+		struct vcap_client_data *c_data, uint32_t irq)
+{
+	int i;
+	uint8_t done_count = 0;
 	for (i = 0; i < VCAP_VC_MAX_BUF; i++) {
 		if (0x2 & (irq >> i))
 			done_count++;
 	}
+	return done_count;
+}
 
-	/* Assign field value in case somehow got out of sync */
-	if (c_data->vc_format.mode == HAL_VCAP_MODE_INT && done_count == 1)
-		c_data->vc_action.top_field = !(irq & 0x1);
-
+inline bool vc_isr_verify_expect_buf_rdy(struct vcap_dev *dev,
+		struct vcap_client_data *c_data, struct v4l2_event v4l2_evt,
+		uint32_t irq, uint8_t done_count, uint8_t tot, uint8_t buf_num)
+{
+	int i;
 	/* Double check expected buffers are done */
-	buf_num = c_data->vc_action.buf_num;
-	tot = c_data->vc_action.tot_buf;
 	for (i = 0; i < done_count; i++) {
 		if (!(irq & (0x1 << (((buf_num + i) % tot) + 1)))) {
 			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
@@ -213,12 +193,17 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 			pr_debug("Unexpected buffer done\n");
 			c_data->vc_action.buf_num =
 				correct_buf_num(irq) % tot;
-			writel_relaxed(irq, VCAP_VC_INT_CLEAR);
-			return IRQ_HANDLED;
+			return true;
 		}
 	}
+	return false;
+}
 
-	/* If here we know which buffers are done */
+inline void vc_isr_update_timestamp(struct vcap_dev *dev,
+		struct vcap_client_data *c_data)
+{
+	uint32_t timestamp;
+
 	timestamp = readl_relaxed(VCAP_VC_TIMESTAMP);
 	if (timestamp < c_data->vc_action.last_ts) {
 		c_data->vc_action.vc_ts.tv_usec +=
@@ -234,65 +219,142 @@ irqreturn_t vc_handler(struct vcap_dev *dev)
 	c_data->vc_action.vc_ts.tv_usec =
 		c_data->vc_action.vc_ts.tv_usec % VCAP_USEC;
 	c_data->vc_action.last_ts = timestamp;
+}
 
-	c_data->vc_action.buf_num = (buf_num + done_count) % tot;
+inline void vc_isr_no_new_buffer(struct vcap_dev *dev,
+		struct vcap_client_data *c_data, struct v4l2_event v4l2_evt)
+{
+	v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
+		VCAP_VC_BUF_OVERWRITE_EVENT;
+	v4l2_event_queue(dev->vfd, &v4l2_evt);
+
+	c_data->vc_action.field_dropped =
+		!c_data->vc_action.field_dropped;
+
+	c_data->vc_action.field1 =
+		!c_data->vc_action.field1;
+	atomic_inc(&dev->dbg_p.vc_drop_count);
+}
+
+inline void vc_isr_switch_buffers(struct vcap_dev *dev,
+		struct vcap_client_data *c_data, struct vcap_buffer *buf,
+		struct vb2_buffer *vb, uint8_t idx, int done_count, int i)
+{
+	/* Config vc with this new buffer */
+	config_buffer(c_data, buf, VCAP_VC_Y_ADDR_1 + 0x8 * idx,
+			VCAP_VC_C_ADDR_1 + 0x8 * idx);
+	vb->v4l2_buf.timestamp = interpolate_ts(
+		c_data->vc_action.vc_ts,
+		1000000 / c_data->vc_format.frame_rate *
+		(done_count - 1 - i));
+	if (c_data->vc_format.mode == HAL_VCAP_MODE_INT) {
+		if (c_data->vc_action.field1)
+			vb->v4l2_buf.field = V4L2_FIELD_TOP;
+		else
+			vb->v4l2_buf.field = V4L2_FIELD_BOTTOM;
+
+		c_data->vc_action.field1 =
+			!c_data->vc_action.field1;
+	}
+	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+	c_data->vc_action.buf[idx] = buf;
+}
+
+inline bool vc_isr_change_buffers(struct vcap_dev *dev,
+		struct vcap_client_data *c_data, struct v4l2_event v4l2_evt,
+		int done_count, uint8_t tot, uint8_t buf_num)
+{
+	struct vb2_buffer *vb = NULL;
+	struct vcap_buffer *buf;
+	bool schedule_work = false;
+	uint8_t idx;
+	int i;
+
 	for (i = 0; i < done_count; i++) {
 		idx = (buf_num + i) % tot;
 		vb = &c_data->vc_action.buf[idx]->vb;
 		spin_lock(&c_data->cap_slock);
 		if (list_empty(&c_data->vc_action.active)) {
 			spin_unlock(&c_data->cap_slock);
-			v4l2_evt.type = V4L2_EVENT_PRIVATE_START +
-				VCAP_VC_BUF_OVERWRITE_EVENT;
-			v4l2_event_queue(dev->vfd, &v4l2_evt);
-			c_data->vc_action.top_field =
-				!c_data->vc_action.top_field;
-
-			if (c_data->vc_format.mode == HAL_VCAP_MODE_INT)
-				c_data->vc_action.field_dropped =
-					!c_data->vc_action.field_dropped;
-
-			atomic_inc(&dev->dbg_p.vc_drop_count);
+			vc_isr_no_new_buffer(dev, c_data, v4l2_evt);
 			continue;
 		}
 		if (c_data->vc_format.mode == HAL_VCAP_MODE_INT &&
 				c_data->vc_action.field_dropped) {
 			spin_unlock(&c_data->cap_slock);
-			c_data->vc_action.field_dropped =
-				!c_data->vc_action.field_dropped;
-			c_data->vc_action.top_field =
-				!c_data->vc_action.top_field;
-			atomic_inc(&dev->dbg_p.vc_drop_count);
+			vc_isr_no_new_buffer(dev, c_data, v4l2_evt);
 			continue;
 		}
 		buf = list_entry(c_data->vc_action.active.next,
 				struct vcap_buffer, list);
 		list_del(&buf->list);
 		spin_unlock(&c_data->cap_slock);
-		/* Config vc with this new buffer */
-		config_buffer(c_data, buf, VCAP_VC_Y_ADDR_1 + 0x8 * idx,
-				VCAP_VC_C_ADDR_1 + 0x8 * idx);
-		vb->v4l2_buf.timestamp = interpolate_ts(
-			c_data->vc_action.vc_ts,
-			1000000 / c_data->vc_format.frame_rate *
-			(done_count - 1 - i));
-		if (c_data->vc_format.mode == HAL_VCAP_MODE_INT) {
-			if (c_data->vc_action.top_field)
-				vb->v4l2_buf.field = V4L2_FIELD_TOP;
-			else
-				vb->v4l2_buf.field = V4L2_FIELD_BOTTOM;
-			c_data->vc_action.top_field =
-				!c_data->vc_action.top_field;
-		}
-		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-		work_todo = true;
-		c_data->vc_action.buf[idx] = buf;
+		vc_isr_switch_buffers(dev, c_data, buf, vb, idx, done_count, i);
+		schedule_work = true;
+	}
+	return schedule_work;
+}
+
+irqreturn_t vc_handler(struct vcap_dev *dev)
+{
+	uint32_t irq;
+	struct vcap_client_data *c_data;
+	struct v4l2_event v4l2_evt;
+	uint8_t done_count = 0, buf_num, tot;
+	bool schedule_work = false;
+
+	v4l2_evt.id = 0;
+	irq = readl_relaxed(VCAP_VC_INT_STATUS);
+	writel_relaxed(irq, VCAP_VC_INT_CLEAR);
+
+	pr_debug("%s: irq=0x%08x\n", __func__, irq);
+
+	if (dev->vc_client == NULL) {
+		/* This should never happen */
+		pr_err("VC: There is no active vc client\n");
+		return IRQ_HANDLED;
 	}
 
-	if (work_todo && c_data->op_mode == VC_AND_VP_VCAP_OP)
+	c_data = dev->vc_client;
+	if (!c_data->streaming) {
+		pr_err("VC no longer streaming\n");
+		return IRQ_HANDLED;
+	}
+
+	if (irq == VC_VSYNC_MASK) {
+		if (c_data->vc_format.mode == HAL_VCAP_MODE_INT)
+			c_data->vc_action.field1 = irq & 0x1;
+		return IRQ_HANDLED;
+	}
+
+	if (irq & VC_ERR_MASK) {
+		vc_isr_error_checking(dev, v4l2_evt, irq);
+		return IRQ_HANDLED;
+	}
+
+	if (!(irq & VC_BUFFER_MASK)) {
+		pr_debug("No frames done\n");
+		return IRQ_HANDLED;
+	}
+
+	done_count = vc_isr_buffer_done_count(dev, c_data, irq);
+	buf_num = c_data->vc_action.buf_num;
+	tot = c_data->vc_action.tot_buf;
+
+	if (vc_isr_verify_expect_buf_rdy(dev, c_data,
+			v4l2_evt, irq, done_count, tot, buf_num))
+		return IRQ_HANDLED;
+
+	vc_isr_update_timestamp(dev, c_data);
+
+	c_data->vc_action.buf_num = (buf_num + done_count) % tot;
+
+	schedule_work = vc_isr_change_buffers(dev, c_data, v4l2_evt,
+		done_count, tot, buf_num);
+
+	if (schedule_work && c_data->op_mode == VC_AND_VP_VCAP_OP)
 		queue_work(dev->vcap_wq, &dev->vc_to_vp_work.work);
 
-	writel_relaxed(irq, VCAP_VC_INT_CLEAR);
 	return IRQ_HANDLED;
 }
 
@@ -362,6 +424,8 @@ int vc_hw_kick_off(struct vcap_client_data *c_data)
 	rc = 0;
 	for (i = 0; i < c_data->vc_action.tot_buf; i++)
 		rc = rc << 1 | 0x2;
+	rc |= VC_ERR_MASK;
+	rc |= VC_VSYNC_MASK;
 	writel_relaxed(rc, VCAP_VC_INT_MASK);
 
 	enable_irq(dev->vcirq->start);

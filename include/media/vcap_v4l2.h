@@ -109,7 +109,7 @@ struct vc_action {
 	uint8_t					tot_buf;
 	uint8_t					buf_num;
 
-	bool					top_field;
+	bool					field1;
 	bool					field_dropped;
 
 	struct timeval			vc_ts;
