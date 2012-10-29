@@ -140,11 +140,27 @@ struct kgsl_device {
 	unsigned int ver_minor;
 	uint32_t flags;
 	enum kgsl_deviceid id;
+
+	/* Starting physical address for GPU registers */
 	unsigned long reg_phys;
+
+	/* Starting Kernel virtual address for GPU registers */
 	void *reg_virt;
+
+	/* Total memory size for all GPU registers */
 	unsigned int reg_len;
+
+	/* Kernel virtual address for GPU shader memory */
+	void *shader_mem_virt;
+
+	/* Starting physical address for GPU shader memory */
+	unsigned long shader_mem_phys;
+
+	/* GPU shader memory size */
+	unsigned int shader_mem_len;
 	struct kgsl_memdesc memstore;
 	const char *iomemname;
+	const char *shadermemname;
 
 	struct kgsl_mh mh;
 	struct kgsl_mmu mmu;
