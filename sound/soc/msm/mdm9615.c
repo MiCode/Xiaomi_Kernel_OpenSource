@@ -2014,6 +2014,21 @@ static struct snd_soc_dai_link mdm9615_dai_common[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "DTMF RX Hostless",
+		.stream_name = "DTMF RX Hostless",
+		.cpu_dai_name	= "DTMF_RX_HOSTLESS",
+		.platform_name  = "msm-pcm-dtmf",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.be_id = MSM_FRONTEND_DAI_DTMF_RX,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+	},
+
 	/* Backend BT DAI Links */
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
