@@ -100,6 +100,166 @@ static struct kgsl_iommu_device *get_iommu_device(struct kgsl_iommu_unit *unit,
 	return NULL;
 }
 
+/* These functions help find the nearest allocated memory entries on either side
+ * of a faulting address. If we know the nearby allocations memory we can
+ * get a better determination of what we think should have been located in the
+ * faulting region
+ */
+
+/*
+ * A local structure to make it easy to store the interesting bits for the
+ * memory entries on either side of the faulting address
+ */
+
+struct _mem_entry {
+	unsigned int gpuaddr;
+	unsigned int size;
+	unsigned int flags;
+	pid_t pid;
+};
+
+/*
+ * Find the closest alloated memory block with an smaller GPU address then the
+ * given address
+ */
+
+static void _prev_entry(struct kgsl_process_private *priv,
+	unsigned int faultaddr, struct _mem_entry *ret)
+{
+	struct rb_node *node;
+	struct kgsl_mem_entry *entry;
+
+	for (node = rb_first(&priv->mem_rb); node; ) {
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+
+		if (entry->memdesc.gpuaddr > faultaddr)
+			break;
+
+		/*
+		 * If this is closer to the faulting address, then copy
+		 * the entry
+		 */
+
+		if (entry->memdesc.gpuaddr > ret->gpuaddr) {
+			ret->gpuaddr = entry->memdesc.gpuaddr;
+			ret->size = entry->memdesc.size;
+			ret->flags = entry->flags;
+			ret->pid = priv->pid;
+		}
+
+		node = rb_next(&entry->node);
+	}
+}
+
+/*
+ * Find the closest alloated memory block with a greater starting GPU address
+ * then the given address
+ */
+
+static void _next_entry(struct kgsl_process_private *priv,
+	unsigned int faultaddr, struct _mem_entry *ret)
+{
+	struct rb_node *node;
+	struct kgsl_mem_entry *entry;
+
+	for (node = rb_last(&priv->mem_rb); node; ) {
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+
+		if (entry->memdesc.gpuaddr < faultaddr)
+			break;
+
+		/*
+		 * If this is closer to the faulting address, then copy
+		 * the entry
+		 */
+
+		if (entry->memdesc.gpuaddr < ret->gpuaddr) {
+			ret->gpuaddr = entry->memdesc.gpuaddr;
+			ret->size = entry->memdesc.size;
+			ret->flags = entry->flags;
+			ret->pid = priv->pid;
+		}
+
+		node = rb_prev(&entry->node);
+	}
+}
+
+static void _find_mem_entries(struct kgsl_mmu *mmu, unsigned int faultaddr,
+	unsigned int ptbase, struct _mem_entry *preventry,
+	struct _mem_entry *nextentry)
+{
+	struct kgsl_process_private *private;
+	int id = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
+
+	memset(preventry, 0, sizeof(*preventry));
+	memset(nextentry, 0, sizeof(*nextentry));
+
+	/* Set the maximum possible size as an initial value */
+	nextentry->gpuaddr = 0xFFFFFFFF;
+
+	mutex_lock(&kgsl_driver.process_mutex);
+
+	list_for_each_entry(private, &kgsl_driver.process_list, list) {
+
+		if (private->pagetable->name != id)
+			continue;
+
+		spin_lock(&private->mem_lock);
+		_prev_entry(private, faultaddr, preventry);
+		_next_entry(private, faultaddr, nextentry);
+		spin_unlock(&private->mem_lock);
+	}
+
+	mutex_unlock(&kgsl_driver.process_mutex);
+}
+
+static void _print_entry(struct kgsl_device *device, struct _mem_entry *entry)
+{
+	char name[32];
+	memset(name, 0, sizeof(name));
+
+	kgsl_get_memory_usage(name, sizeof(name) - 1, entry->flags);
+
+	KGSL_LOG_DUMP(device,
+		"[%8.8X - %8.8X] (pid = %d) (%s)\n",
+		entry->gpuaddr,
+		entry->gpuaddr + entry->size,
+		entry->pid, name);
+}
+
+static void _check_if_freed(struct kgsl_iommu_device *iommu_dev,
+	unsigned long addr, unsigned int pid)
+{
+	void *base = kgsl_driver.memfree_hist.base_hist_rb;
+	struct kgsl_memfree_hist_elem *wptr;
+	struct kgsl_memfree_hist_elem *p;
+
+	mutex_lock(&kgsl_driver.memfree_hist_mutex);
+	wptr = kgsl_driver.memfree_hist.wptr;
+	p = wptr;
+	for (;;) {
+		if (p->size && p->pid == pid)
+			if (addr >= p->gpuaddr &&
+				addr < (p->gpuaddr + p->size)) {
+
+				KGSL_LOG_DUMP(iommu_dev->kgsldev,
+					"---- premature free ----\n");
+				KGSL_LOG_DUMP(iommu_dev->kgsldev,
+					"[%8.8X-%8.8X] was already freed by pid %d\n",
+					p->gpuaddr,
+					p->gpuaddr + p->size,
+					p->pid);
+			}
+		p++;
+		if ((void *)p >= base + kgsl_driver.memfree_hist.size)
+			p = (struct kgsl_memfree_hist_elem *) base;
+
+		if (p == kgsl_driver.memfree_hist.wptr)
+			break;
+	}
+	mutex_unlock(&kgsl_driver.memfree_hist_mutex);
+}
+
 static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long addr, int flags)
 {
@@ -109,6 +269,9 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct kgsl_iommu_unit *iommu_unit;
 	struct kgsl_iommu_device *iommu_dev;
 	unsigned int ptbase, fsr;
+	unsigned int pid;
+
+	struct _mem_entry prev, next;
 
 	ret = get_iommu_unit(dev, &mmu, &iommu_unit);
 	if (ret)
@@ -127,11 +290,29 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	fsr = KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit,
 		iommu_dev->ctx_id, FSR);
 
+	pid = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
 	KGSL_MEM_CRIT(iommu_dev->kgsldev,
-		"GPU PAGE FAULT: addr = %lX pid = %d\n",
-		addr, kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase));
+		"GPU PAGE FAULT: addr = %lX pid = %d\n", addr, pid);
 	KGSL_MEM_CRIT(iommu_dev->kgsldev, "context = %d FSR = %X\n",
 		iommu_dev->ctx_id, fsr);
+
+	_check_if_freed(iommu_dev, addr, pid);
+
+	KGSL_LOG_DUMP(iommu_dev->kgsldev, "---- nearby memory ----\n");
+
+	_find_mem_entries(mmu, addr, ptbase, &prev, &next);
+
+	if (prev.gpuaddr)
+		_print_entry(iommu_dev->kgsldev, &prev);
+	else
+		KGSL_LOG_DUMP(iommu_dev->kgsldev, "*EMPTY*\n");
+
+	KGSL_LOG_DUMP(iommu_dev->kgsldev, " <- fault @ %8.8lX\n", addr);
+
+	if (next.gpuaddr != 0xFFFFFFFF)
+		_print_entry(iommu_dev->kgsldev, &next);
+	else
+		KGSL_LOG_DUMP(iommu_dev->kgsldev, "*EMPTY*\n");
 
 	mmu->fault = 1;
 	iommu_dev->fault = 1;
