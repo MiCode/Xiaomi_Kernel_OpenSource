@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,6 @@ struct q6v5_data {
 	void __iomem *axi_halt_base;
 	void __iomem *rmb_base;
 	void __iomem *restart_reg;
-	void __iomem *io_clamp_reg;
 	unsigned long start_addr;
 	struct regulator *vreg;
 	bool is_booted;
