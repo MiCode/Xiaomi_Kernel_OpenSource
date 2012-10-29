@@ -961,7 +961,7 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 	uint8 *buf;
 	unsigned int buf_offset;
 	int bpp;
-	int cndx = 0;
+	int cnt, cndx = 0;
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
 
@@ -993,13 +993,13 @@ void mdp4_lcdc_overlay(struct msm_fb_data_type *mfd)
 
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
 
-
-	mdp4_lcdc_pipe_commit(cndx, 0);
-
-	if (pipe->ov_blt_addr)
-		mdp4_lcdc_wait4ov(cndx);
-	else
-		mdp4_lcdc_wait4dmap(cndx);
+	cnt = mdp4_lcdc_pipe_commit(cndx, 0);
+	if (cnt) {
+		if (pipe->ov_blt_addr)
+			mdp4_lcdc_wait4ov(cndx);
+		else
+			mdp4_lcdc_wait4dmap(cndx);
+	}
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
