@@ -777,6 +777,11 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 		goto exit;
 	}
 	for (i = 0; i < b->length; ++i) {
+		if (EXTRADATA_IDX(b->length) &&
+			(i == EXTRADATA_IDX(b->length)) &&
+			!b->m.planes[i].length) {
+			continue;
+		}
 		temp = get_registered_buf(&v4l2_inst->registered_bufs,
 				b->m.planes[i].reserved[0],
 				b->m.planes[i].reserved[1],
@@ -850,6 +855,12 @@ int msm_v4l2_qbuf(struct file *file, void *fh,
 	vidc_inst = get_vidc_inst(file, fh);
 	v4l2_inst = get_v4l2_inst(file, fh);
 	for (i = 0; i < b->length; ++i) {
+		if (EXTRADATA_IDX(b->length) &&
+			(i == EXTRADATA_IDX(b->length)) &&
+			!b->m.planes[i].length) {
+			b->m.planes[i].m.userptr = 0;
+			continue;
+		}
 		binfo = get_registered_buf(&v4l2_inst->registered_bufs,
 				b->m.planes[i].reserved[0],
 				b->m.planes[i].reserved[1],
@@ -902,6 +913,11 @@ int msm_v4l2_dqbuf(struct file *file, void *fh,
 		goto fail_dq_buf;
 	}
 	for (i = 0; i < b->length; i++) {
+		if (EXTRADATA_IDX(b->length) &&
+				(i == EXTRADATA_IDX(b->length)) &&
+				!b->m.planes[i].m.userptr) {
+			continue;
+		}
 		b->m.planes[i].m.userptr = device_to_uvaddr(
 				&v4l2_inst->registered_bufs,
 				b->m.planes[i].m.userptr);
