@@ -1114,6 +1114,7 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 	int cndx = 0;
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
+	int wait = 0;
 
 	mutex_lock(&mfd->dma->ov_mutex);
 	if (!mfd->panel_power_on) {
@@ -1145,8 +1146,12 @@ void mdp4_dtv_overlay(struct msm_fb_data_type *mfd)
 		mdp4_dtv_pipe_queue(0, pipe);
 	}
 	mdp_update_pm(mfd, vsync_ctrl_db[0].vsync_time);
+
+	if (hdmi_prim_display)
+		wait = 1;
+
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
-	mdp4_dtv_pipe_commit(cndx, 0);
+	mdp4_dtv_pipe_commit(cndx, wait);
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 }
