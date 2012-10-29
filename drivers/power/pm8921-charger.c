@@ -263,7 +263,6 @@ struct pm8921_chg_chip {
 	bool				ext_charging;
 	bool				ext_charge_done;
 	bool				iusb_fine_res;
-	bool				dc_unplug_check;
 	bool				disable_hw_clock_switching;
 	DECLARE_BITMAP(enabled_irqs, PM_CHG_MAX_INTS);
 	struct work_struct		battery_id_valid_work;
@@ -2293,7 +2292,10 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 		pr_warn("%s. battery temperature not ok.\n", __func__);
 		return;
 	}
-	pm8921_disable_source_current(true); /* Force BATFET=ON */
+
+	/* Force BATFET=ON */
+	pm8921_disable_source_current(true);
+
 	vbat_ov = pm_chg_get_rt_status(chip, VBAT_OV_IRQ);
 	if (vbat_ov) {
 		pr_warn("%s. battery over voltage.\n", __func__);
@@ -2303,16 +2305,17 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 	schedule_delayed_work(&chip->unplug_check_work,
 	round_jiffies_relative(msecs_to_jiffies
 		(UNPLUG_CHECK_WAIT_PERIOD_MS)));
-	pm8921_chg_enable_irq(chip, CHG_GONE_IRQ);
 
 	power_supply_set_online(chip->ext_psy, dc_present);
 	power_supply_set_charge_type(chip->ext_psy,
 					POWER_SUPPLY_CHARGE_TYPE_FAST);
-	power_supply_changed(&chip->dc_psy);
 	chip->ext_charging = true;
 	chip->ext_charge_done = false;
 	bms_notify_check(chip);
-	/* Start BMS */
+	/*
+	 * since we wont get a fastchg irq from external charger
+	 * use eoc worker to detect end of charging
+	 */
 	schedule_delayed_work(&chip->eoc_work, delay);
 	wake_lock(&chip->eoc_wake_lock);
 	/* Update battery charging LEDs and user space battery info */
@@ -2782,12 +2785,6 @@ static void unplug_check_worker(struct work_struct *work)
 		}
 	} else if (active_path & DC_ACTIVE_BIT) {
 		pr_debug("DC charger active\n");
-		/*
-		 * Some board designs are not prone to reverse boost on DC
-		 * charging path
-		 */
-		if (!chip->dc_unplug_check)
-			return;
 	} else {
 		/* No charger active */
 		if (!(is_usb_chg_plugged_in(chip)
@@ -3060,20 +3057,33 @@ static irqreturn_t dcin_valid_irq_handler(int irq, void *data)
 	struct pm8921_chg_chip *chip = data;
 	int dc_present;
 
+	pm_chg_failed_clear(chip, 1);
 	dc_present = pm_chg_get_rt_status(chip, DCIN_VALID_IRQ);
-	if (chip->ext_psy)
-		power_supply_set_online(chip->ext_psy, dc_present);
-	chip->dc_present = dc_present;
-	if (dc_present)
-		handle_start_ext_chg(chip);
-	else
-		handle_stop_ext_chg(chip);
 
-	if (!chip->ext_psy) {
+	if (chip->dc_present ^ dc_present)
+		pm8921_bms_calibrate_hkadc();
+
+	if (dc_present)
+		pm8921_chg_enable_irq(chip, CHG_GONE_IRQ);
+	else
+		pm8921_chg_disable_irq(chip, CHG_GONE_IRQ);
+
+	chip->dc_present = dc_present;
+
+	if (chip->ext_psy) {
+		if (dc_present)
+			handle_start_ext_chg(chip);
+		else
+			handle_stop_ext_chg(chip);
+	} else {
+		if (dc_present)
+			schedule_delayed_work(&chip->unplug_check_work,
+				round_jiffies_relative(msecs_to_jiffies
+					(UNPLUG_CHECK_WAIT_PERIOD_MS)));
 		power_supply_changed(&chip->dc_psy);
-		power_supply_changed(&chip->batt_psy);
 	}
 
+	power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
 }
 
@@ -4467,7 +4477,6 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 		chip->warm_temp_dc = INT_MIN;
 
 	chip->temp_check_period = pdata->temp_check_period;
-	chip->dc_unplug_check = pdata->dc_unplug_check;
 	chip->max_bat_chg_current = pdata->max_bat_chg_current;
 	chip->cool_bat_chg_current = pdata->cool_bat_chg_current;
 	chip->warm_bat_chg_current = pdata->warm_bat_chg_current;
