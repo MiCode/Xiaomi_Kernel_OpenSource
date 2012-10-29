@@ -109,6 +109,22 @@
 		};
 	};
 
+	i2c@f9967000 {
+		sii8334@72 {
+			compatible = "qcom,mhl-sii8334";
+			reg = <0x72>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <82 0x8>;
+			mhl-intr-gpio = <&msmgpio 82 0>;
+			mhl-pwr-gpio = <&msmgpio 12 0>;
+			mhl-rst-gpio = <&pm8941_mpps 8 0>;
+			avcc_18-supply = <&pm8941_l24>;
+			avcc_12-supply = <&pm8941_l2>;
+			smps3a-supply = <&pm8941_s3>;
+			vdda-supply = <&pm8941_l12>;
+		};
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -256,6 +272,13 @@
 	};
 
 	gpio@cb00 { /* GPIO 12 */
+		qcom,mode = <1>;		/* QPNP_PIN_MODE_DIG_OUT */
+		qcom,output-type = <0>;		/* QPNP_PIN_OUT_BUF_CMOS */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,out-strength = <2>;	/* QPNP_PIN_OUT_STRENGTH_MED */
+		qcom,src-select = <0>;		/* QPNP_PIN_SEL_FUNC_CONSTANT */
+		qcom,master-en = <1>;
 	};
 
 	gpio@cc00 { /* GPIO 13 */
@@ -384,6 +407,12 @@
 	};
 
 	mpp@a700 { /* MPP 8 */
+		qcom,mode = <1>; /* DIG_OUT */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,pull-up = <0>;
+		qcom,vin-sel = <2>; /* PM8941_S3 1.8V > 1.6V */
+		qcom,src-select = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
 	};
 };
 
