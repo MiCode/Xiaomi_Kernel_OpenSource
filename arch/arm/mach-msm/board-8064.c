@@ -2703,7 +2703,7 @@ static struct msm_spi_platform_data apq8064_qup_spi_gsbi5_pdata = {
 };
 
 static struct msm_spi_platform_data mpq8064_qup_spi_gsbi6_pdata = {
-	.max_clock_speed = 1100000,
+	.max_clock_speed = 10800000,
 };
 
 static struct ci_bridge_platform_data mpq8064_ci_bridge_pdata = {
