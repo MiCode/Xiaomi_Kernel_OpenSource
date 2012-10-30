@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,9 +37,6 @@
 #define MSS_Q6_HALT_BASE		0x180
 #define MSS_MODEM_HALT_BASE		0x200
 #define MSS_NC_HALT_BASE		0x280
-
-/* MSS_CLAMP_IO Register Value */
-#define MSS_IO_UNCLAMP_ALL		0x40
 
 /* RMB Status Register Values */
 #define STATUS_PBL_SUCCESS		0x1
@@ -200,9 +197,6 @@ static int pil_mss_reset(struct pil_desc *pil)
 				drv->reg_base + QDSP6SS_RST_EVB);
 	}
 
-	/* De-assert MSS IO clamps */
-	writel_relaxed(MSS_IO_UNCLAMP_ALL, drv->io_clamp_reg);
-
 	ret = pil_q6v5_reset(pil);
 	if (ret)
 		goto err_q6v5_reset;
@@ -268,12 +262,6 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 	drv->restart_reg = devm_ioremap(&pdev->dev, res->start,
 					resource_size(res));
 	if (!drv->restart_reg)
-		return -ENOMEM;
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "clamp_reg");
-	drv->io_clamp_reg = devm_ioremap(&pdev->dev, res->start,
-					resource_size(res));
-	if (!drv->io_clamp_reg)
 		return -ENOMEM;
 
 	drv->vreg = devm_regulator_get(&pdev->dev, "vdd_mss");
