@@ -993,6 +993,36 @@
 			status = "disabled";
 		};
 
+		qcom,leds@d300 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd300 0x100>;
+			label = "flash";
+		};
+
+		qcom,leds@d400 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd400 0x100>;
+			label = "flash";
+		};
+
+		qcom,leds@d500 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd500 0x100>;
+			label = "flash";
+		};
+
+		qcom,leds@d600 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd600 0x100>;
+			label = "flash";
+		};
+
+		qcom,leds@d700 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd700 0x100>;
+			label = "flash";
+		};
+
 		qcom,leds@d800 {
 			compatible = "qcom,leds-qpnp";
 			reg = <0xd800 0x100>;
