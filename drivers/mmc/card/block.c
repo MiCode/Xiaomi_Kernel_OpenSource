@@ -2360,7 +2360,7 @@ static int mmc_add_disk(struct mmc_blk_data *md)
 	ret = device_create_file(disk_to_dev(md->disk),
 				 &md->num_wr_reqs_to_start_packing);
 	if (ret)
-		goto power_ro_lock_fail;
+		goto num_wr_reqs_to_start_packing_fail;
 
 	md->min_sectors_to_check_bkops_status.show =
 		min_sectors_to_check_bkops_status_show;
@@ -2373,14 +2373,19 @@ static int mmc_add_disk(struct mmc_blk_data *md)
 	ret = device_create_file(disk_to_dev(md->disk),
 				 &md->min_sectors_to_check_bkops_status);
 	if (ret)
-		goto power_ro_lock_fail;
+		goto min_sectors_to_check_bkops_status_fails;
 
 	return ret;
 
+min_sectors_to_check_bkops_status_fails:
+	device_remove_file(disk_to_dev(md->disk),
+			   &md->num_wr_reqs_to_start_packing);
+num_wr_reqs_to_start_packing_fail:
+	device_remove_file(disk_to_dev(md->disk), &md->power_ro_lock);
 power_ro_lock_fail:
-		device_remove_file(disk_to_dev(md->disk), &md->force_ro);
+	device_remove_file(disk_to_dev(md->disk), &md->force_ro);
 force_ro_fail:
-		del_gendisk(md->disk);
+	del_gendisk(md->disk);
 
 	return ret;
 }
