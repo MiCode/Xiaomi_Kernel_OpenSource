@@ -25,31 +25,34 @@ struct msm_tspp_platform_data {
 struct tspp_data_descriptor {
 	void *virt_base;   /* logical address of the actual data */
 	u32 phys_base;     /* physical address of the actual data */
-	int size;			 /* size of buffer in bytes */
+	u32 size;          /* size of buffer in bytes */
 	int id;            /* unique identifier */
 	void *user;        /* user-defined data */
 };
 
-typedef void (tspp_notifier)(int channel, void *user);
-typedef void* (tspp_allocator)(int channel, int size,
+typedef void (tspp_notifier)(int channel_id, void *user);
+typedef void* (tspp_allocator)(int channel_id, u32 size,
 	u32 *phys_base, void *user);
+typedef void (tspp_memfree)(int channel_id, u32 size,
+	void *virt_base, u32 phys_base, void *user);
 
 /* Kernel API functions */
 int tspp_open_stream(u32 dev, u32 channel_id,
-	struct tspp_select_source *source);
+			struct tspp_select_source *source);
 int tspp_close_stream(u32 dev, u32 channel_id);
 int tspp_open_channel(u32 dev, u32 channel_id);
 int tspp_close_channel(u32 dev, u32 channel_id);
-int tspp_add_filter(u32 dev, u32 channel_id,	struct tspp_filter *filter);
+int tspp_add_filter(u32 dev, u32 channel_id, struct tspp_filter *filter);
 int tspp_remove_filter(u32 dev, u32 channel_id,	struct tspp_filter *filter);
 int tspp_set_key(u32 dev, u32 channel_id, struct tspp_key *key);
-int tspp_register_notification(u32 dev, u32 channel, tspp_notifier *notify,
+int tspp_register_notification(u32 dev, u32 channel_id, tspp_notifier *notify,
 	void *data, u32 timer_ms);
-int tspp_unregister_notification(u32 dev, u32 channel);
-const struct tspp_data_descriptor *tspp_get_buffer(u32 dev, u32 channel);
-int tspp_release_buffer(u32 dev, u32 channel, u32 descriptor_id);
+int tspp_unregister_notification(u32 dev, u32 channel_id);
+const struct tspp_data_descriptor *tspp_get_buffer(u32 dev, u32 channel_id);
+int tspp_release_buffer(u32 dev, u32 channel_id, u32 descriptor_id);
 int tspp_allocate_buffers(u32 dev, u32 channel_id, u32 count,
-	u32 size, u32 int_freq, tspp_allocator *alloc, void *user);
+	u32 size, u32 int_freq, tspp_allocator *alloc,
+	tspp_memfree *memfree, void *user);
 
 #endif /* _MSM_TSPP_H_ */
 
