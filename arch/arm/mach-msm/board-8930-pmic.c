@@ -472,6 +472,8 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata = {
 	.adjust_soc_low_threshold	= 25,
 	.chg_term_ua			= CHG_TERM_MA * 1000,
 	.rconn_mohm			= 18,
+	.normal_voltage_calc_ms		= 20000,
+	.low_voltage_calc_ms		= 1000,
 };
 
 static struct pm8038_platform_data pm8038_platform_data = {

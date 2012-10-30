@@ -37,6 +37,10 @@ struct pm8xxx_bms_core_data {
  *			is considered empty(mV)
  * @enable_fcc_learning:	if set the driver will learn full charge
  *				capacity of the battery upon end of charge
+ * @normal_voltage_calc_ms:	The period of soc calculation in ms when battery
+ *				voltage higher than cutoff voltage
+ * @low_voltage_calc_ms:	The period of soc calculation in ms when battery
+ *				voltage is near cutoff voltage
  */
 struct pm8921_bms_platform_data {
 	struct pm8xxx_bms_core_data	bms_cdata;
@@ -51,6 +55,8 @@ struct pm8921_bms_platform_data {
 	int				ignore_shutdown_soc;
 	int				adjust_soc_low_threshold;
 	int				chg_term_ua;
+	int				normal_voltage_calc_ms;
+	int				low_voltage_calc_ms;
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)
