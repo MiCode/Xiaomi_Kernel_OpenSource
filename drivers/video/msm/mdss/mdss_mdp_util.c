@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/msm_kgsl.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+#include <media/msm_media_info.h>
 
 #include <mach/iommu_domains.h>
 
@@ -210,6 +211,13 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 		ps->num_planes = 1;
 		ps->plane_size[0] = w * h * bpp;
 		ps->ystride[0] = w * bpp;
+	} else if (format == MDP_Y_CBCR_H2V2_VENUS) {
+		int cf = COLOR_FMT_NV12;
+		ps->num_planes = 2;
+		ps->ystride[0] = VENUS_Y_STRIDE(cf, w);
+		ps->ystride[1] = VENUS_UV_STRIDE(cf, w);
+		ps->plane_size[0] = VENUS_Y_SCANLINES(cf, h) * ps->ystride[0];
+		ps->plane_size[1] = VENUS_UV_SCANLINES(cf, h) * ps->ystride[1];
 	} else {
 		u8 hmap[] = { 1, 2, 1, 2 };
 		u8 vmap[] = { 1, 1, 2, 2 };
@@ -222,10 +230,6 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 		case MDP_Y_CR_CB_GH2V2:
 			stride_align = 16;
 			height_align = 1;
-			break;
-		case MDP_Y_CBCR_H2V2_VENUS:
-			stride_align = 32;
-			height_align = 32;
 			break;
 		default:
 			stride_align = 1;
