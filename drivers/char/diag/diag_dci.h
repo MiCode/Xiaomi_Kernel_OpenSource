@@ -53,6 +53,17 @@ struct diag_dci_client_tbl {
 	int total_capacity;
 	int dropped_logs;
 	int dropped_events;
+	int received_logs;
+	int received_events;
+};
+
+/* This is used for DCI health stats */
+struct diag_dci_health_stats {
+	int dropped_logs;
+	int dropped_events;
+	int received_logs;
+	int received_events;
+	int reset_status;
 };
 
 enum {
