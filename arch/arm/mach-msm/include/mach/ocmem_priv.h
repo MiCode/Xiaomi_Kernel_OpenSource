@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,16 @@
 
 #define TO_OCMEM 0x0
 #define TO_DDR 0x1
+
+#define OCMEM_SVC_ID 15
+#define OCMEM_LOCK_CMD_ID 0x1
+#define OCMEM_UNLOCK_CMD_ID 0x2
+#define OCMEM_ENABLE_DUMP_CMD_ID 0x3
+#define OCMEM_DISABLE_DUMP_CMD_ID 0x4
+
+#define OCMEM_SECURE_SVC_ID 12
+#define OCMEM_SECURE_CFG_ID 0x2
+#define OCMEM_SECURE_DEV_ID 0x5
 
 struct ocmem_zone;
 
@@ -187,6 +197,10 @@ int free_tail(struct ocmem_zone *, unsigned long, unsigned long);
 int ocmem_notifier_init(void);
 int check_notifier(int);
 const char *get_name(int);
+int get_tz_id(int);
+int ocmem_enable_sec_program(int);
+int ocmem_enable_dump(enum ocmem_client, unsigned long, unsigned long);
+int ocmem_disable_dump(enum ocmem_client, unsigned long, unsigned long);
 int check_id(int);
 int dispatch_notification(int, enum ocmem_notif_type, struct ocmem_buf *);
 

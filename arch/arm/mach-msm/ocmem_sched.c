@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -109,6 +109,16 @@ enum ocmem_interconnects {
 	OCMEM_SYSNOC = 3,
 };
 
+enum ocmem_tz_client {
+	TZ_UNUSED = 0x0,
+	TZ_GRAPHICS,
+	TZ_VIDEO,
+	TZ_LP_AUDIO,
+	TZ_SENSORS,
+	TZ_OTHER_OS,
+	TZ_DEBUG,
+};
+
 /**
  * Primary OCMEM Arbitration Table
  **/
@@ -117,15 +127,24 @@ struct ocmem_table {
 	int priority;
 	int mode;
 	int hw_interconnect;
+	int tz_id;
 } ocmem_client_table[OCMEM_CLIENT_MAX] = {
-	{OCMEM_GRAPHICS, PRIO_GFX, OCMEM_PERFORMANCE, OCMEM_PORT},
-	{OCMEM_VIDEO, PRIO_VIDEO, OCMEM_PERFORMANCE, OCMEM_OCMEMNOC},
-	{OCMEM_CAMERA, NO_PRIO, OCMEM_PERFORMANCE, OCMEM_OCMEMNOC},
-	{OCMEM_HP_AUDIO, PRIO_HP_AUDIO, OCMEM_PASSIVE, OCMEM_BLOCKED},
-	{OCMEM_VOICE, PRIO_VOICE, OCMEM_PASSIVE, OCMEM_BLOCKED},
-	{OCMEM_LP_AUDIO, PRIO_LP_AUDIO, OCMEM_LOW_POWER, OCMEM_SYSNOC},
-	{OCMEM_SENSORS, PRIO_SENSORS, OCMEM_LOW_POWER, OCMEM_SYSNOC},
-	{OCMEM_OTHER_OS, PRIO_OTHER_OS, OCMEM_LOW_POWER, OCMEM_SYSNOC},
+	{OCMEM_GRAPHICS, PRIO_GFX, OCMEM_PERFORMANCE, OCMEM_PORT,
+								TZ_GRAPHICS},
+	{OCMEM_VIDEO, PRIO_VIDEO, OCMEM_PERFORMANCE, OCMEM_OCMEMNOC,
+								TZ_VIDEO},
+	{OCMEM_CAMERA, NO_PRIO, OCMEM_PERFORMANCE, OCMEM_OCMEMNOC,
+								TZ_UNUSED},
+	{OCMEM_HP_AUDIO, PRIO_HP_AUDIO, OCMEM_PASSIVE, OCMEM_BLOCKED,
+								TZ_UNUSED},
+	{OCMEM_VOICE, PRIO_VOICE, OCMEM_PASSIVE, OCMEM_BLOCKED,
+								TZ_UNUSED},
+	{OCMEM_LP_AUDIO, PRIO_LP_AUDIO, OCMEM_LOW_POWER, OCMEM_SYSNOC,
+								TZ_LP_AUDIO},
+	{OCMEM_SENSORS, PRIO_SENSORS, OCMEM_LOW_POWER, OCMEM_SYSNOC,
+								TZ_SENSORS},
+	{OCMEM_OTHER_OS, PRIO_OTHER_OS, OCMEM_LOW_POWER, OCMEM_SYSNOC,
+								TZ_OTHER_OS},
 };
 
 static struct rb_root sched_tree;
@@ -223,6 +242,14 @@ inline int get_mode(int id)
 	else
 		return ocmem_client_table[id].mode == OCMEM_PERFORMANCE ?
 							WIDE_MODE : THIN_MODE;
+}
+
+inline int get_tz_id(int id)
+{
+	if (!check_id(id))
+		return TZ_UNUSED;
+	else
+		return ocmem_client_table[id].tz_id;
 }
 
 /* Returns the address that can be used by a device core to access OCMEM */
@@ -1986,6 +2013,7 @@ static int do_dump(struct ocmem_req *req, unsigned long addr)
 
 	void __iomem *req_vaddr;
 	unsigned long offset = 0x0;
+	int rc = 0;
 
 	down_write(&req->rw_sem);
 
@@ -1996,11 +2024,22 @@ static int do_dump(struct ocmem_req *req, unsigned long addr)
 	if (!req_vaddr)
 		goto err_do_dump;
 
+	rc = ocmem_enable_dump(req->owner, offset, req->req_sz);
+
+	if (rc < 0)
+		goto err_do_dump;
+
 	pr_debug("Dumping client %s buffer ocmem p: %lx (v: %p) to ddr %lx\n",
 				get_name(req->owner), req->req_start,
 				req_vaddr, addr);
 
 	memcpy((void *)addr, req_vaddr, req->req_sz);
+
+	rc = ocmem_disable_dump(req->owner, offset, req->req_sz);
+
+	if (rc < 0)
+		pr_err("Failed to secure request %p of %s after dump\n",
+				req, get_name(req->owner));
 
 	up_write(&req->rw_sem);
 	return 0;
