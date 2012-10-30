@@ -204,11 +204,7 @@ static int __init scm_pas_init(void)
 		}
 	}
 
-	/* TODO : Remove once bus scaling driver is in place */
-	if (!cpu_is_msm8226())
-		scm_perf_client = msm_bus_scale_register_client(
-				&scm_pas_bus_pdata);
-
+	scm_perf_client = msm_bus_scale_register_client(&scm_pas_bus_pdata);
 	if (!scm_perf_client)
 		pr_warn("unable to register bus client\n");
 
