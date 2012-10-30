@@ -338,6 +338,68 @@ TRACE_EVENT(kgsl_mem_alloc,
 	)
 );
 
+TRACE_EVENT(kgsl_mem_mmap,
+
+	TP_PROTO(struct kgsl_mem_entry *mem_entry),
+
+	TP_ARGS(mem_entry),
+
+	TP_STRUCT__entry(
+		__field(unsigned long, useraddr)
+		__field(unsigned int, gpuaddr)
+		__field(unsigned int, size)
+		__array(char, usage, 16)
+		__field(unsigned int, id)
+		__field(unsigned int, flags)
+	),
+
+	TP_fast_assign(
+		__entry->useraddr = mem_entry->memdesc.useraddr;
+		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
+		__entry->size = mem_entry->memdesc.size;
+		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
+				     mem_entry->memdesc.flags);
+		__entry->id = mem_entry->id;
+		__entry->flags = mem_entry->memdesc.flags;
+	),
+
+	TP_printk(
+		"useraddr=%lx gpuaddr=0x%08x size=%d usage=%s id=%d"
+		" flags=0x%08x",
+		__entry->useraddr, __entry->gpuaddr, __entry->size,
+		__entry->usage, __entry->id, __entry->flags
+	)
+);
+
+TRACE_EVENT(kgsl_mem_unmapped_area_collision,
+
+	TP_PROTO(struct kgsl_mem_entry *mem_entry,
+		 unsigned long hint,
+		 unsigned long len,
+		 unsigned long addr),
+
+	TP_ARGS(mem_entry, hint, len, addr),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, id)
+		__field(unsigned long, hint)
+		__field(unsigned long, len)
+		__field(unsigned long, addr)
+	),
+
+	TP_fast_assign(
+		__entry->id = mem_entry->id;
+		__entry->hint  = hint;
+		__entry->len = len;
+		__entry->addr = addr;
+	),
+
+	TP_printk(
+		"id=%d hint=0x%lx len=%ld addr=0x%lx",
+		__entry->id, __entry->hint, __entry->len, __entry->addr
+	)
+);
+
 TRACE_EVENT(kgsl_mem_map,
 
 	TP_PROTO(struct kgsl_mem_entry *mem_entry, int fd),

@@ -242,6 +242,10 @@ static inline void kgsl_drm_exit(void)
 static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 				unsigned int gpuaddr, unsigned int size)
 {
+	/* don't overflow */
+	if ((gpuaddr + size) < gpuaddr)
+		return 0;
+
 	if (gpuaddr >= memdesc->gpuaddr &&
 	    ((gpuaddr + size) <= (memdesc->gpuaddr + memdesc->size))) {
 		return 1;

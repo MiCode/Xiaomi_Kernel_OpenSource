@@ -27,9 +27,6 @@
 #include "kgsl_sharedmem.h"
 #include "adreno.h"
 
-#define KGSL_MMU_ALIGN_SHIFT    13
-#define KGSL_MMU_ALIGN_MASK     (~((1 << KGSL_MMU_ALIGN_SHIFT) - 1))
-
 static enum kgsl_mmutype kgsl_mmu_type;
 
 static void pagetable_remove_sysfs_objects(struct kgsl_pagetable *pagetable);
@@ -447,10 +444,10 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 	if ((KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) &&
 		((KGSL_MMU_GLOBAL_PT == name) ||
 		(KGSL_MMU_PRIV_BANK_TABLE_NAME == name))) {
-		pagetable->kgsl_pool = gen_pool_create(PAGE_SHIFT, -1);
+		pagetable->kgsl_pool = gen_pool_create(ilog2(SZ_8K), -1);
 		if (pagetable->kgsl_pool == NULL) {
 			KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
-					KGSL_MMU_ALIGN_SHIFT);
+					ilog2(SZ_8K));
 			goto err_alloc;
 		}
 		if (gen_pool_add(pagetable->kgsl_pool,
@@ -461,10 +458,10 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 		}
 	}
 
-	pagetable->pool = gen_pool_create(KGSL_MMU_ALIGN_SHIFT, -1);
+	pagetable->pool = gen_pool_create(PAGE_SHIFT, -1);
 	if (pagetable->pool == NULL) {
 		KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
-			      KGSL_MMU_ALIGN_SHIFT);
+			      PAGE_SHIFT);
 		goto err_kgsl_pool;
 	}
 
@@ -585,7 +582,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				unsigned int protflags)
 {
 	int ret;
-	struct gen_pool *pool;
+	struct gen_pool *pool = NULL;
 	int size;
 	int page_align = ilog2(PAGE_SIZE);
 
@@ -635,6 +632,10 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				  pagetable->name);
 				return -EINVAL;
 			}
+		} else if (kgsl_memdesc_use_cpu_map(memdesc)) {
+			if (memdesc->gpuaddr == 0)
+				return -EINVAL;
+			pool = NULL;
 		}
 	}
 	if (pool) {
@@ -715,9 +716,11 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 	pool = pagetable->pool;
 
-	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()
-		&& kgsl_memdesc_is_global(memdesc)) {
-		pool = pagetable->kgsl_pool;
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
+		if (kgsl_memdesc_is_global(memdesc))
+			pool = pagetable->kgsl_pool;
+		else if (kgsl_memdesc_use_cpu_map(memdesc))
+			pool = NULL;
 	}
 	if (pool)
 		gen_pool_free(pool, memdesc->gpuaddr, size);
@@ -854,8 +857,13 @@ int kgsl_mmu_gpuaddr_in_range(unsigned int gpuaddr)
 {
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return 1;
-	return ((gpuaddr >= KGSL_PAGETABLE_BASE) &&
-		(gpuaddr < (KGSL_PAGETABLE_BASE + kgsl_mmu_get_ptsize())));
+	if (gpuaddr >= kgsl_mmu_get_base_addr() &&
+		gpuaddr < kgsl_mmu_get_base_addr() + kgsl_mmu_get_ptsize())
+		return 1;
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU
+		&& kgsl_mmu_is_perprocess())
+		return (gpuaddr > 0 && gpuaddr < TASK_SIZE);
+	return 0;
 }
 EXPORT_SYMBOL(kgsl_mmu_gpuaddr_in_range);
 
