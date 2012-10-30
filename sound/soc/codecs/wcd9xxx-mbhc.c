@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/firmware.h>
@@ -938,6 +939,23 @@ static bool wcd9xxx_is_inval_ins_delta(struct snd_soc_codec *codec,
 	return abs(mic_volt - mic_volt_prev) > threshold;
 }
 
+static void wcd9xxx_onoff_vddio_switch(struct wcd9xxx_mbhc *mbhc, bool on)
+{
+	if (on) {
+		snd_soc_update_bits(mbhc->codec, mbhc->mbhc_bias_regs.mbhc_reg,
+				    1 << 7, 1 << 7);
+		snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MAD_ANA_CTRL,
+				    1 << 4, 0);
+	} else {
+		snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MAD_ANA_CTRL,
+				    1 << 4, 1 << 4);
+		snd_soc_update_bits(mbhc->codec, mbhc->mbhc_bias_regs.mbhc_reg,
+				    1 << 7, 0);
+	}
+	if (on)
+		usleep_range(10000, 10000);
+}
+
 /* called under codec_resource_lock acquisition and mbhc override = 1 */
 static enum wcd9xxx_mbhc_plug_type
 wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
@@ -988,8 +1006,7 @@ wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 			scaled = mic_mv[i];
 		} else {
 			if (vddioswitch)
-				__wcd9xxx_switch_micbias(mbhc, 1,
-							     false, false);
+				wcd9xxx_onoff_vddio_switch(mbhc, true);
 			if (gndswitch)
 				wcd9xxx_codec_hphr_gnd_switch(codec, true);
 			mb_v[i] = __wcd9xxx_codec_sta_dce(mbhc, 1, true, true);
@@ -1012,8 +1029,7 @@ wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 			if (gndswitch)
 				wcd9xxx_codec_hphr_gnd_switch(codec, false);
 			if (vddioswitch)
-				__wcd9xxx_switch_micbias(mbhc, 0,
-							     false, false);
+				wcd9xxx_onoff_vddio_switch(mbhc, false);
 			/* claim UNSUPPORTED plug insertion when
 			 * good headset is detected but HPHR GND switch makes
 			 * delta difference */
@@ -1577,7 +1593,7 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 	vddio = (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV &&
 		 mbhc->mbhc_micbias_switched);
 	if (vddio)
-		__wcd9xxx_switch_micbias(mbhc, 0, false, true);
+		wcd9xxx_onoff_vddio_switch(mbhc, true);
 
 	if (mbhc->mbhc_cfg->detect_extn_cable &&
 	    !wcd9xxx_swch_level_remove(mbhc))
@@ -1591,7 +1607,7 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 	 * switch is off by time now and shouldn't be turn on again from here
 	 */
 	if (vddio && mbhc->current_plug == PLUG_TYPE_HEADSET)
-		__wcd9xxx_switch_micbias(mbhc, 1, true, true);
+		wcd9xxx_onoff_vddio_switch(mbhc, true);
 	WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 
 	return IRQ_HANDLED;
@@ -2483,7 +2499,7 @@ static void wcd9xxx_update_mbhc_clk_rate(struct wcd9xxx_mbhc *mbhc, u32 rate)
 
 static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 {
-	u8 cfilt_mode, bg_mode;
+	u8 cfilt_mode;
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
@@ -2501,8 +2517,6 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	 */
 	cfilt_mode = snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl);
 	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl, 0x40, 0x00);
-	bg_mode = snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL,
-				      0x02, 0x02);
 
 	/*
 	 * Micbias, CFILT, LDOH, MBHC MUX mode settings
@@ -2555,14 +2569,13 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x04, 0x00);
 	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl, 0x40,
 			    cfilt_mode);
-	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x02,
-			    bg_mode);
 
 	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x84);
 	usleep_range(100, 100);
 
 	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	wcd9xxx_turn_onoff_rel_detection(codec, true);
+
 	pr_debug("%s: leave\n", __func__);
 }
 
@@ -3031,7 +3044,7 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 		break;
 	/* PA usage change */
 	case WCD9XXX_EVENT_PRE_HPHL_PA_ON:
-		if (!(snd_soc_read(codec, mbhc->mbhc_bias_regs.ctl_reg & 0x80)))
+		if (!(snd_soc_read(codec, mbhc->mbhc_bias_regs.ctl_reg) & 0x80))
 			/* if micbias is enabled, switch to vddio */
 			wcd9xxx_switch_micbias(mbhc, 1);
 		break;

@@ -2084,7 +2084,6 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		/* Let MBHC module know so micbias switch to be off */
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_pre_on);
 
-		snd_soc_update_bits(codec, w->reg, 0x0E, 0x0A);
 		/* Get cfilt */
 		wcd9xxx_resmgr_cfilt_get(&taiko->resmgr, cfilt_sel_val);
 
@@ -4497,6 +4496,14 @@ static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
 	TAIKO_REG_VAL(TAIKO_A_RX_EAR_BIAS_PA, 0x76),
 	/* Reduce LINE DAC bias to 70% */
 	TAIKO_REG_VAL(TAIKO_A_RX_LINE_BIAS_PA, 0x78),
+
+	/*
+	 * There is a diode to pull down the micbias while doing
+	 * insertion detection.  This diode can cause leakage.
+	 * Set bit 0 to 1 to prevent leakage.
+	 * Setting this bit of micbias 2 prevents leakage for all other micbias.
+	 */
+	TAIKO_REG_VAL(TAIKO_A_MICB_2_MBHC, 0x41),
 };
 
 static void taiko_update_reg_defaults(struct snd_soc_codec *codec)

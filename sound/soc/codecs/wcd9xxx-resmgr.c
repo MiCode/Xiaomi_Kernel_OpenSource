@@ -111,7 +111,7 @@ void wcd9xxx_resmgr_notifier_call(struct wcd9xxx_resmgr *resmgr,
 	blocking_notifier_call_chain(&resmgr->notifier, e, resmgr);
 }
 
-static void wcd9xxx_codec_disable_bg(struct wcd9xxx_resmgr *resmgr)
+static void wcd9xxx_disable_bg(struct wcd9xxx_resmgr *resmgr)
 {
 	/* Notify bg mode change */
 	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_PRE_BG_OFF);
@@ -122,18 +122,28 @@ static void wcd9xxx_codec_disable_bg(struct wcd9xxx_resmgr *resmgr)
 	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_POST_BG_OFF);
 }
 
-static void wcd9xxx_codec_enable_bg_audio(struct wcd9xxx_resmgr *resmgr)
+/*
+ * BG enablement should always enable in slow mode.
+ * The fast mode doesn't need to be enabled as fast mode BG is to be driven
+ * by MBHC override.
+ */
+static void wcd9xxx_enable_bg(struct wcd9xxx_resmgr *resmgr)
 {
 	struct snd_soc_codec *codec = resmgr->codec;
 
-	/* Notify bandgap mode change */
-	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_PRE_BG_AUDIO_ON);
-	/* Enable bg */
+	/* Enable BG in slow mode and precharge */
 	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x80, 0x80);
 	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x04, 0x04);
 	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x01, 0x01);
 	usleep_range(1000, 1000);
 	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x80, 0x00);
+}
+
+static void wcd9xxx_enable_bg_audio(struct wcd9xxx_resmgr *resmgr)
+{
+	/* Notify bandgap mode change */
+	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_PRE_BG_AUDIO_ON);
+	wcd9xxx_enable_bg(resmgr);
 	/* Notify bandgap mode change */
 	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_POST_BG_AUDIO_ON);
 }
@@ -146,26 +156,13 @@ static void wcd9xxx_enable_bg_mbhc(struct wcd9xxx_resmgr *resmgr)
 	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_PRE_BG_MBHC_ON);
 
 	/*
-	 * bandgap mode becomes fast,
 	 * mclk should be off or clk buff source souldn't be VBG
 	 * Let's turn off mclk always
 	 */
 	WARN_ON(snd_soc_read(codec, WCD9XXX_A_CLK_BUFF_EN2) & (1 << 2));
-	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x2, 0x2);
-	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x80, 0x80);
-	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x4, 0x4);
-	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x01, 0x01);
-	usleep_range(1000, 1000);
-	snd_soc_update_bits(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x80, 0x00);
-
+	wcd9xxx_enable_bg(resmgr);
 	/* Notify bandgap mode change */
 	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_POST_BG_MBHC_ON);
-}
-
-static void wcd9xxx_disable_bg(struct wcd9xxx_resmgr *resmgr)
-{
-	struct snd_soc_codec *codec = resmgr->codec;
-	snd_soc_write(codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x00);
 }
 
 static void wcd9xxx_disable_clock_block(struct wcd9xxx_resmgr *resmgr)
@@ -223,14 +220,14 @@ void wcd9xxx_resmgr_get_bandgap(struct wcd9xxx_resmgr *resmgr,
 			/* BG mode can be changed only with clock off */
 			clock_save = wcd9xxx_save_clock(resmgr);
 			/* Swtich BG mode */
-			wcd9xxx_codec_disable_bg(resmgr);
-			wcd9xxx_codec_enable_bg_audio(resmgr);
+			wcd9xxx_disable_bg(resmgr);
+			wcd9xxx_enable_bg_audio(resmgr);
 			/* restore clock */
 			wcd9xxx_restore_clock(resmgr, clock_save);
 		} else if (resmgr->bg_audio_users == 1) {
 			/* currently off, just enable it */
 			WARN_ON(resmgr->bandgap_type != WCD9XXX_BANDGAP_OFF);
-			wcd9xxx_codec_enable_bg_audio(resmgr);
+			wcd9xxx_enable_bg_audio(resmgr);
 		}
 		resmgr->bandgap_type = WCD9XXX_BANDGAP_AUDIO_MODE;
 		break;
