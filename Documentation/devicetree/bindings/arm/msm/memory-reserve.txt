@@ -41,6 +41,17 @@ EXPORT_COMPAT("qcom,a-driver") to the driver, similar to EXPORT_SYMBOL.
 The EXPORT_COMPAT is to ensure that memory is only carved out if the
 driver is actually enabled, otherwise the memory will not be used.
 
+If a reservation is needed that isn't associated directly with any one
+driver, the compatible string "qcom,msm-contig-mem" can be used. For
+example:
+
+	qcom,msm-contig-mem {
+		compatible = "qcom,msm-contig-mem";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x280000>; /* 2.5M EBI1 buffer */
+	};
+
+
 In order to specify the size and address of the fixed memory which has
 previously been removed the memory-fixed binding can be used. This assumes
 that the region has been removed by a separate memblock-remove property
