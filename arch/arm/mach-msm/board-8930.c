@@ -2756,6 +2756,9 @@ static void __init msm8930_pm8917_pdata_fixup(void)
 
 	pdata = msm8930_device_acpuclk.dev.platform_data;
 	pdata->uses_pm8917 = true;
+
+	pdata = msm8930ab_device_acpuclk.dev.platform_data;
+	pdata->uses_pm8917 = true;
 }
 
 static void __init msm8930_cdp_init(void)
@@ -2829,6 +2832,8 @@ static void __init msm8930_cdp_init(void)
 		platform_device_register(&msm8930_device_acpuclk);
 	else if (cpu_is_msm8930aa())
 		platform_device_register(&msm8930aa_device_acpuclk);
+	else if (cpu_is_msm8930ab())
+		platform_device_register(&msm8930ab_device_acpuclk);
 	platform_add_devices(early_common_devices,
 				ARRAY_SIZE(early_common_devices));
 	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
