@@ -240,6 +240,7 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 	int rc;
 	unsigned long flags;
 	struct mdp_buf_info mdp_buf = {0};
+	struct mem_region_map mmap_context = {0};
 	spin_lock_irqsave(&inst->inst_lock, flags);
 	if (inst->input_bufs_allocated) {
 		spin_unlock_irqrestore(&inst->inst_lock, flags);
@@ -249,7 +250,6 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 	spin_unlock_irqrestore(&inst->inst_lock, flags);
 
 	for (i = 0; i < VENC_INPUT_BUFFERS; ++i) {
-		struct mem_region_map mmap_context = {0};
 		mpair = kzalloc(sizeof(*mpair), GFP_KERNEL);
 		enc_mregion = kzalloc(sizeof(*enc_mregion), GFP_KERNEL);
 		mdp_mregion = kzalloc(sizeof(*enc_mregion), GFP_KERNEL);
@@ -278,6 +278,10 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 
 		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 				SET_INPUT_BUFFER, (void *)enc_mregion);
+		if (rc) {
+			WFD_MSG_ERR("Setting enc input buffer failed\n");
+			goto set_input_fail;
+		}
 
 		/* map the buffer from encoder to mdp */
 		mdp_mregion->kvaddr = enc_mregion->kvaddr;
@@ -301,7 +305,7 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 			mdp_mregion->kvaddr = NULL;
 			mdp_mregion->paddr = NULL;
 			mdp_mregion->ion_handle = NULL;
-			goto alloc_fail;
+			goto mdp_mmap_fail;
 		}
 
 		mdp_buf.inst = inst->mdp_inst;
@@ -314,34 +318,58 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 				((int)mdp_mregion->paddr + mdp_mregion->size),
 				mdp_mregion->kvaddr);
 
-		INIT_LIST_HEAD(&mpair->list);
-		mpair->enc = enc_mregion;
-		mpair->mdp = mdp_mregion;
-		list_add_tail(&mpair->list, &inst->input_mem_list);
-
 		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 				MDP_Q_BUFFER, (void *)&mdp_buf);
 		if (rc) {
 			WFD_MSG_ERR("Unable to queue the"
 					" buffer to mdp\n");
-			break;
+			goto mdp_q_fail;
 		} else {
 			wfd_stats_update(&inst->stats,
 					WFD_STAT_EVENT_MDP_QUEUE);
 		}
+
+		INIT_LIST_HEAD(&mpair->list);
+		mpair->enc = enc_mregion;
+		mpair->mdp = mdp_mregion;
+		list_add_tail(&mpair->list, &inst->input_mem_list);
+
 	}
+
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 			ALLOC_RECON_BUFFERS, NULL);
 	if (rc) {
 		WFD_MSG_ERR("Failed to allocate recon buffers\n");
-		goto alloc_fail;
+		goto recon_alloc_fail;
 	}
 	return rc;
 
+	/*
+	 * Clean up only the buffer that we failed in setting up.
+	 * Caller will clean up the rest by calling free_input_buffers()
+	 */
+mdp_q_fail:
+	memset(&mmap_context, 0, sizeof(mmap_context));
+	mmap_context.mregion = mdp_mregion;
+	mmap_context.ion_client = wfd_dev->ion_client;
+	mmap_context.cookie = inst->mdp_inst;
+	v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
+			MDP_MUNMAP, (void *)&mmap_context);
+mdp_mmap_fail:
+	v4l2_subdev_call(&wfd_dev->enc_sdev,
+			core, ioctl, FREE_INPUT_BUFFER,
+			(void *)enc_mregion);
+set_input_fail:
+	memset(&mmap_context, 0, sizeof(mmap_context));
+	mmap_context.ion_client = wfd_dev->ion_client;
+	mmap_context.mregion = enc_mregion;
+	v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
+			ENC_MUNMAP, &mmap_context);
 alloc_fail:
 	kfree(mpair);
 	kfree(enc_mregion);
 	kfree(mdp_mregion);
+recon_alloc_fail:
 	return rc;
 }
 void wfd_free_input_buffers(struct wfd_device *wfd_dev,
