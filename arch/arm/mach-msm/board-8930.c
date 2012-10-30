@@ -2812,12 +2812,17 @@ static void __init msm8930_cdp_init(void)
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	msm8930_init_buses();
-	if (cpu_is_msm8627())
+	if (cpu_is_msm8627()) {
 		platform_add_devices(msm8627_footswitch,
 				msm8627_num_footswitch);
-	else
-		platform_add_devices(msm8930_footswitch,
-				msm8930_num_footswitch);
+	} else {
+		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
+			platform_add_devices(msm8930_pm8917_footswitch,
+					msm8930_pm8917_num_footswitch);
+		else
+			platform_add_devices(msm8930_footswitch,
+					msm8930_num_footswitch);
+	}
 	if (cpu_is_msm8627())
 		platform_device_register(&msm8627_device_acpuclk);
 	else if (cpu_is_msm8930())
