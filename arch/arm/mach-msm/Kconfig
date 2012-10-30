@@ -265,6 +265,7 @@ config ARCH_MSM8974
 	select ARM_HAS_SG_CHAIN
 	select MSM_RUN_QUEUE_STATS
 	select MEMORY_HOLE_CARVEOUT
+	select MSM_RPM_STATS_LOG
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
@@ -2095,7 +2096,7 @@ config MSM_RPM_LOG
 config MSM_RPM_STATS_LOG
 	tristate "MSM Resource Power Manager Stat Driver"
 	depends on DEBUG_FS
-	depends on MSM_RPM
+	depends on MSM_RPM || MSM_RPM_SMD
 	default n
 	  help
 	  This option enables a driver which reads RPM messages from a shared
