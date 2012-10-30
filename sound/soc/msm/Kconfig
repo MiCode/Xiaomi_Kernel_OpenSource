@@ -200,4 +200,15 @@ config SND_SOC_MSM8660_APQ
         default n
         help
          To add support for SoC audio on APQ8060 board
+
+config SND_SOC_MDM9625
+	tristate "SoC Machine driver for MDM9625 boards"
+	depends on ARCH_MSM9625
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_WCD9320
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_DYNAMIC_MINORS
+	help
+	 To add support for SoC audio on MDM9625 boards.
 endmenu
