@@ -71,7 +71,6 @@
 
 	rpm-regulator-smpb2 {
 		status = "okay";
-		qcom,allow-atomic = <1>;
 		pm8841_s2: regulator-s2 {
 			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1050000>;
@@ -131,7 +130,6 @@
 
 	rpm-regulator-smpa2 {
 		status = "okay";
-		qcom,allow-atomic = <1>;
 		pm8941_s2: regulator-s2 {
 			regulator-min-microvolt = <2150000>;
 			regulator-max-microvolt = <2150000>;
@@ -284,7 +282,6 @@
 
 	rpm-regulator-ldoa12 {
 		status = "okay";
-		qcom,allow-atomic = <1>;
 		pm8941_l12: regulator-l12 {
 			parent-supply = <&pm8941_s2>;
 			regulator-min-microvolt = <1800000>;
