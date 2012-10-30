@@ -131,7 +131,7 @@
  *			the input is interpreted as a logical 1.
  * @out_strength:	the amount of current supplied for an output gpio,
  *			should be of the type QPNP_PIN_STRENGTH_*.
- * @select:		select alternate function for the pin. Certain pins
+ * @src_sel:		select alternate function for the pin. Certain pins
  *			can be paired (shorted) with each other. Some pins
  *			can act as alternate functions. In the context of
  *			gpio, this acts as a source select. For mpps,
@@ -159,7 +159,7 @@ struct qpnp_pin_cfg {
 	int pull;
 	int vin_sel;
 	int out_strength;
-	int select;
+	int src_sel;
 	int master_en;
 	int aout_ref;
 	int ain_route;

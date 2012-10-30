@@ -38,7 +38,7 @@
 		qcom,invert = <0>; /* Output low */
 		qcom,out-strength = <1>; /* Low */
 		qcom,vin-sel = <2>; /* PM8019 L11 - 1.8V */
-		qcom,src-select = <0>; /* Constant */
+		qcom,src-sel = <0>; /* Constant */
 		qcom,master-en = <1>; /* Enable GPIO */
 	};
 
