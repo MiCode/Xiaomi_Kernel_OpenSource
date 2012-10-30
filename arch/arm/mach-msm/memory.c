@@ -464,3 +464,8 @@ unsigned long get_ddr_size(void)
 
 	return ret;
 }
+
+/* Provide a string that anonymous device tree allocations (those not
+ * directly associated with any driver) can use for their "compatible"
+ * field */
+EXPORT_COMPAT("qcom,msm-contig-mem");

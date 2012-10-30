@@ -1009,6 +1009,12 @@
 		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
 	};
 
+	qcom,msm-contig-mem {
+		compatible = "qcom,msm-contig-mem";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x280000>; /* 2.5M EBI1 buffer */
+	};
+
         qcom,qcedev@fd440000 {
 		compatible = "qcom,qcedev";
 		reg = <0xfd440000 0x20000>,

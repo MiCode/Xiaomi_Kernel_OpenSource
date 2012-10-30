@@ -49,17 +49,6 @@
 #include "modem_notifier.h"
 #include "lpm_resources.h"
 
-#define MSM_KERNEL_EBI1_MEM_SIZE	0x280000
-
-#ifdef CONFIG_KERNEL_PMEM_EBI_REGION
-static unsigned kernel_ebi1_mem_size = MSM_KERNEL_EBI1_MEM_SIZE;
-static int __init kernel_ebi1_mem_size_setup(char *p)
-{
-	kernel_ebi1_mem_size = memparse(p, NULL);
-	return 0;
-}
-early_param("kernel_ebi1_mem_size", kernel_ebi1_mem_size_setup);
-#endif
 
 static struct memtype_reserve msm8974_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -75,13 +64,6 @@ static struct memtype_reserve msm8974_reserve_table[] __initdata = {
 static int msm8974_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
-}
-
-static void __init reserve_ebi_memory(void)
-{
-#ifdef CONFIG_KERNEL_PMEM_EBI_REGION
-	msm8974_reserve_table[MEMTYPE_EBI1].size += kernel_ebi1_mem_size;
-#endif
 }
 
 static struct resource smd_resource[] = {
@@ -246,14 +228,8 @@ struct platform_device msm_device_smd_8974 = {
 	}
 };
 
-static void __init msm8974_calculate_reserve_sizes(void)
-{
-	reserve_ebi_memory();
-}
-
 static struct reserve_info msm8974_reserve_info __initdata = {
 	.memtype_reserve_table = msm8974_reserve_table,
-	.calculate_reserve_sizes = msm8974_calculate_reserve_sizes,
 	.paddr_to_memtype = msm8974_paddr_to_memtype,
 };
 
