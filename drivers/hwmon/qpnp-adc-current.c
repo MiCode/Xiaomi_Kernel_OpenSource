@@ -672,9 +672,9 @@ static int32_t qpnp_iadc_init_hwmon(struct spmi_device *spmi)
 		qpnp_adc_attr.index = iadc->adc->adc_channels[i].channel_num;
 		qpnp_adc_attr.dev_attr.attr.name =
 						iadc->adc->adc_channels[i].name;
-		sysfs_attr_init(&iadc->sens_attr[i].dev_attr.attr);
 		memcpy(&iadc->sens_attr[i], &qpnp_adc_attr,
 						sizeof(qpnp_adc_attr));
+		sysfs_attr_init(&iadc->sens_attr[i].dev_attr.attr);
 		rc = device_create_file(&spmi->dev,
 				&iadc->sens_attr[i].dev_attr);
 		if (rc) {
