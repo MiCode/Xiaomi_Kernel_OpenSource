@@ -1037,8 +1037,8 @@ exit:
 static int diagchar_write(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
-	int err, ret = 0, pkt_type;
-	bool mdm_mask = false;
+	int err, ret = 0, pkt_type, token_offset = 0;
+	bool remote_data = false;
 #ifdef DIAG_DEBUG
 	int length = 0, i;
 #endif
@@ -1072,14 +1072,16 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	if (pkt_type == USER_SPACE_DATA_TYPE) {
 		err = copy_from_user(driver->user_space_data, buf + 4,
 							 payload_size);
+		/* Check for proc_type */
+		if (*(int *)driver->user_space_data == MDM_TOKEN) {
+			remote_data = true;
+			token_offset = 4;
+			payload_size -= 4;
+			buf += 4;
+		}
+
 		/* Check masks for On-Device logging */
 		if (driver->mask_check) {
-			/* Check if mask is for MDM or MSM */
-			if (*(int *)driver->user_space_data == MDM_TOKEN) {
-				mdm_mask = true;
-				driver->user_space_data += 4;
-				buf += 4;
-			}
 			if (!mask_request_validate(driver->user_space_data)) {
 				pr_alert("diag: mask request Invalid\n");
 				return -EFAULT;
@@ -1089,31 +1091,34 @@ static int diagchar_write(struct file *file, const char __user *buf,
 #ifdef DIAG_DEBUG
 		pr_debug("diag: user space data %d\n", payload_size);
 		for (i = 0; i < payload_size; i++)
-			pr_debug("\t %x", *((driver->user_space_data)+i));
+			pr_debug("\t %x", *((driver->user_space_data
+						+ token_offset)+i));
 #endif
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* send masks to 9k too */
-		if (driver->sdio_ch && mdm_mask) {
+		if (driver->sdio_ch && remote_data) {
 			wait_event_interruptible(driver->wait_q,
 				 (sdio_write_avail(driver->sdio_ch) >=
 					 payload_size));
 			if (driver->sdio_ch && (payload_size > 0)) {
 				sdio_write(driver->sdio_ch, (void *)
-				   (driver->user_space_data), payload_size);
+				   (driver->user_space_data + token_offset),
+				   payload_size);
 			}
 		}
 #endif
 #ifdef CONFIG_DIAG_BRIDGE_CODE
 		/* send masks to 9k too */
-		if (driver->hsic_ch && (payload_size > 0) && mdm_mask) {
+		if (driver->hsic_ch && (payload_size > 0) && remote_data) {
 			/* wait sending mask updates if HSIC ch not ready */
 			if (driver->in_busy_hsic_write)
 				wait_event_interruptible(driver->wait_q,
 					(driver->in_busy_hsic_write != 1));
 			driver->in_busy_hsic_write = 1;
 			driver->in_busy_hsic_read_on_device = 0;
-			err = diag_bridge_write(driver->user_space_data,
-							 payload_size);
+			err = diag_bridge_write(
+					driver->user_space_data + token_offset,
+					payload_size);
 			if (err) {
 				pr_err("diag: err sending mask to MDM: %d\n",
 									 err);
@@ -1127,11 +1132,12 @@ static int diagchar_write(struct file *file, const char __user *buf,
 					driver->in_busy_hsic_write = 0;
 			}
 		}
-		if (driver->diag_smux_enabled && mdm_mask && driver->lcid) {
+		if (driver->diag_smux_enabled && remote_data
+						&& driver->lcid) {
 			if (payload_size > 0) {
 				err = msm_smux_write(driver->lcid, NULL,
-						driver->user_space_data,
-						payload_size);
+					driver->user_space_data + token_offset,
+					payload_size);
 				if (err) {
 					pr_err("diag:send mask to MDM err %d",
 							err);
@@ -1141,9 +1147,10 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		}
 #endif
 		/* send masks to 8k now */
-		if (!mdm_mask)
-			diag_process_hdlc((void *)(driver->user_space_data),
-							 payload_size);
+		if (!remote_data)
+			diag_process_hdlc((void *)
+				(driver->user_space_data + token_offset),
+				 payload_size);
 		return 0;
 	}
 
