@@ -705,6 +705,20 @@ static struct fs_driver_data mdp_fs_data_8930 = {
 	.bus_port1 = MSM_BUS_MASTER_MDP_PORT1,
 };
 
+static struct fs_driver_data mdp_fs_data_8930_pm8917 = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk" },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ .name = "vsync_clk" },
+		{ .name = "lut_clk" },
+		{ .name = "reset1_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_MDP_PORT0,
+	.bus_port1 = MSM_BUS_MASTER_MDP_PORT1,
+};
+
 static struct fs_driver_data mdp_fs_data_8627 = {
 	.clks = (struct fs_clk_data[]){
 		{ .name = "core_clk" },
@@ -770,6 +784,18 @@ struct platform_device *msm8930_footswitch[] __initdata = {
 	FS_8X60(FS_VED,    "vdd",	"msm_vidc.0",	&ved_fs_data),
 };
 unsigned msm8930_num_footswitch __initdata = ARRAY_SIZE(msm8930_footswitch);
+
+struct platform_device *msm8930_pm8917_footswitch[] __initdata = {
+	FS_8X60(FS_MDP,    "vdd",	"mdp.0",      &mdp_fs_data_8930_pm8917),
+	FS_8X60(FS_ROT,    "vdd",	"msm_rotator.0", &rot_fs_data),
+	FS_8X60(FS_IJPEG,  "vdd",	"msm_gemini.0", &ijpeg_fs_data),
+	FS_8X60(FS_VFE,    "vdd",	"msm_vfe.0",	&vfe_fs_data),
+	FS_8X60(FS_VPE,    "vdd",	"msm_vpe.0",	&vpe_fs_data),
+	FS_8X60(FS_GFX3D,  "vdd",	"kgsl-3d0.0",	&gfx3d_fs_data),
+	FS_8X60(FS_VED,    "vdd",	"msm_vidc.0",	&ved_fs_data),
+};
+unsigned msm8930_pm8917_num_footswitch __initdata =
+		ARRAY_SIZE(msm8930_pm8917_footswitch);
 
 struct platform_device *msm8627_footswitch[] __initdata = {
 	FS_8X60(FS_MDP,    "vdd",	"mdp.0",	&mdp_fs_data_8627),
