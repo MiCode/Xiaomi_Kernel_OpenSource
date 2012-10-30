@@ -18,15 +18,15 @@
 #include "mpq_dmx_plugin_common.h"
 
 
-#define TSIF_COUNT					2
+#define TSIF_COUNT			2
 
 #define TSPP_MAX_PID_FILTER_NUM		16
 
 /* Max number of section filters */
-#define TSPP_MAX_SECTION_FILTER_NUM		64
+#define TSPP_MAX_SECTION_FILTER_NUM	64
 
 /* For each TSIF we allocate two pipes, one for PES and one for sections */
-#define TSPP_PES_CHANNEL				0
+#define TSPP_PES_CHANNEL			0
 #define TSPP_SECTION_CHANNEL			1
 
 /* the channel_id set to TSPP driver based on TSIF number and channel type */
@@ -35,7 +35,7 @@
 #define TSPP_GET_TSIF_NUM(ch_id)		(ch_id >> 1)
 
 /* mask that set to care for all bits in pid filter */
-#define TSPP_PID_MASK					0x1FFF
+#define TSPP_PID_MASK				0x1FFF
 
 /* dvb-demux defines pid 0x2000 as full capture pid */
 #define TSPP_PASS_THROUGH_PID			0x2000
@@ -53,6 +53,7 @@
  * Meanning about 82 notifications per second.
  */
 #define MAX_BAM_DESCRIPTOR_SIZE		(32*1024 - 1)
+
 #define TSPP_BUFFER_SIZE			\
 	((MAX_BAM_DESCRIPTOR_SIZE / TSPP_RAW_TTS_SIZE) * TSPP_RAW_TTS_SIZE)
 
@@ -65,11 +66,18 @@
 /* Channel timeout in msec */
 #define TSPP_CHANNEL_TIMEOUT			16
 
+enum mem_buffer_allocation_mode {
+	MPQ_DMX_TSPP_INTERNAL_ALLOC = 0,
+	MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC = 1
+};
+
 /* module parameters for load time configuration */
 static int clock_inv;
 static int tsif_mode = 2;
+static int allocation_mode = MPQ_DMX_TSPP_INTERNAL_ALLOC;
 module_param(tsif_mode, int, S_IRUGO);
 module_param(clock_inv, int, S_IRUGO);
+module_param(allocation_mode, int, S_IRUGO);
 
 /*
  * Work scheduled each time TSPP notifies dmx
@@ -97,6 +105,15 @@ static struct
 		/* work used to submit to workqueue to process pes channel */
 		struct tspp_work pes_work;
 
+		/* ION handle used for TSPP data buffer allocation */
+		struct ion_handle *pes_mem_heap_handle;
+		/* TSPP data buffer heap virtual base address */
+		void *pes_mem_heap_virt_base;
+		/* TSPP data buffer heap physical base address */
+		ion_phys_addr_t pes_mem_heap_phys_base;
+		/* buffer allocation index */
+		int pes_index;
+
 		/*
 		 * TSPP pipe holding all TS packets with section data.
 		 * The following is reference count for number of feeds
@@ -106,6 +123,15 @@ static struct
 
 		/* work used to submit to workqueue to process pes channel */
 		struct tspp_work section_work;
+
+		/* ION handle used for TSPP data buffer allocation */
+		struct ion_handle *section_mem_heap_handle;
+		/* TSPP data buffer heap virtual base address */
+		void *section_mem_heap_virt_base;
+		/* TSPP data buffer heap physical base address */
+		ion_phys_addr_t section_mem_heap_phys_base;
+		/* buffer allocation index */
+		int section_index;
 
 		/*
 		 * Holds PIDs of allocated TSPP filters along with
@@ -128,8 +154,65 @@ static struct
 		/* mutex protecting the data-structure */
 		struct mutex mutex;
 	} tsif[TSIF_COUNT];
+
+	/* ION client used for TSPP data buffer allocation */
+	struct ion_client *ion_client;
 } mpq_dmx_tspp_info;
 
+static void *tspp_mem_allocator(int channel_id, u32 size,
+				u32 *phys_base, void *user)
+{
+	void *virt_addr = NULL;
+	int i = TSPP_GET_TSIF_NUM(channel_id);
+
+	if (TSPP_IS_PES_CHANNEL(channel_id)) {
+		if (mpq_dmx_tspp_info.tsif[i].pes_index == TSPP_BUFFER_COUNT)
+			return NULL;
+		virt_addr =
+			(mpq_dmx_tspp_info.tsif[i].pes_mem_heap_virt_base +
+			(mpq_dmx_tspp_info.tsif[i].pes_index * size));
+		*phys_base =
+			(mpq_dmx_tspp_info.tsif[i].pes_mem_heap_phys_base +
+			(mpq_dmx_tspp_info.tsif[i].pes_index * size));
+		mpq_dmx_tspp_info.tsif[i].pes_index++;
+	} else {
+		if (mpq_dmx_tspp_info.tsif[i].section_index ==
+						TSPP_BUFFER_COUNT)
+			return NULL;
+		virt_addr =
+			(mpq_dmx_tspp_info.tsif[i].section_mem_heap_virt_base +
+			(mpq_dmx_tspp_info.tsif[i].section_index * size));
+		*phys_base =
+			(mpq_dmx_tspp_info.tsif[i].section_mem_heap_phys_base +
+			(mpq_dmx_tspp_info.tsif[i].section_index * size));
+		mpq_dmx_tspp_info.tsif[i].section_index++;
+	}
+
+	return virt_addr;
+}
+
+static void tspp_mem_free(int channel_id, u32 size,
+			void *virt_base, u32 phys_base, void *user)
+{
+	int i = TSPP_GET_TSIF_NUM(channel_id);
+
+	/*
+	 * actual buffer heap free is done in mpq_dmx_tspp_plugin_exit().
+	 * we update index here, so if this function is called repetitively
+	 * for all the buffers, then afterwards tspp_mem_allocator()
+	 * can be called again.
+	 * Note: it would be incorrect to call tspp_mem_allocator()
+	 * a few times, then call tspp_mem_free(), then call
+	 * tspp_mem_allocator() again.
+	 */
+	if (TSPP_IS_PES_CHANNEL(channel_id)) {
+		if (mpq_dmx_tspp_info.tsif[i].pes_index > 0)
+			mpq_dmx_tspp_info.tsif[i].pes_index--;
+	} else {
+		if (mpq_dmx_tspp_info.tsif[i].section_index > 0)
+			mpq_dmx_tspp_info.tsif[i].section_index--;
+	}
+}
 
 /**
  * Returns a free filter slot that can be used.
@@ -374,20 +457,34 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 					   (void *)tsif,
 					   TSPP_CHANNEL_TIMEOUT);
 
-		/* TODO: register allocater and provide allocation function
-		 * that allocate from continous memory so that we can have
+		/* register allocater and provide allocation function
+		 * that allocates from continous memory so that we can have
 		 * big notification size, smallest descriptor, and still provide
 		 * TZ with single big buffer based on notification size.
 		 */
 
-		/* set buffer/descriptor size and count */
-		ret = tspp_allocate_buffers(0,
-					    channel_id,
-					    TSPP_BUFFER_COUNT,
-					    TSPP_BUFFER_SIZE,
-					    TSPP_NOTIFICATION_SIZE,
-					    NULL,
-					    NULL);
+		/* set buffer/descriptor size and count,
+		 * allocate TSPP data buffers
+		 */
+		if (allocation_mode == MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC) {
+			ret = tspp_allocate_buffers(0,
+						    channel_id,
+						    TSPP_BUFFER_COUNT,
+						    TSPP_BUFFER_SIZE,
+						    TSPP_NOTIFICATION_SIZE,
+						    tspp_mem_allocator,
+						    tspp_mem_free,
+						    NULL);
+		} else {
+			ret = tspp_allocate_buffers(0,
+						    channel_id,
+						    TSPP_BUFFER_COUNT,
+						    TSPP_BUFFER_SIZE,
+						    TSPP_NOTIFICATION_SIZE,
+						    NULL,
+						    NULL,
+						    NULL);
+		}
 		if (ret < 0) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: tspp_allocate_buffers(%d) failed (%d)\n",
@@ -745,20 +842,152 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	return 0;
 }
 
+static void mpq_dmx_tsif_ion_cleanup(int i)
+{
+	mpq_dmx_tspp_info.tsif[i].pes_mem_heap_phys_base = 0;
+	mpq_dmx_tspp_info.tsif[i].section_mem_heap_phys_base = 0;
+
+	if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle)) {
+		if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
+				pes_mem_heap_virt_base))
+			ion_unmap_kernel(mpq_dmx_tspp_info.ion_client,
+				mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle);
+
+		ion_free(mpq_dmx_tspp_info.ion_client,
+			mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle);
+	}
+
+	if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
+			section_mem_heap_handle)) {
+		if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
+					section_mem_heap_virt_base))
+			ion_unmap_kernel(mpq_dmx_tspp_info.ion_client,
+					mpq_dmx_tspp_info.tsif[i].
+						section_mem_heap_handle);
+
+		ion_free(mpq_dmx_tspp_info.ion_client,
+			mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle);
+	}
+
+	mpq_dmx_tspp_info.tsif[i].pes_mem_heap_virt_base = NULL;
+	mpq_dmx_tspp_info.tsif[i].section_mem_heap_virt_base = NULL;
+	mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle = NULL;
+	mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle = NULL;
+}
+
+static void mpq_dmx_tspp_ion_cleanup(void)
+{
+	int i;
+
+	for (i = 0; i < TSIF_COUNT; i++)
+		mpq_dmx_tsif_ion_cleanup(i);
+}
+
 static int mpq_tspp_dmx_init(
 			struct dvb_adapter *mpq_adapter,
 			struct mpq_demux *mpq_demux)
 {
-	int result;
+	int i, result;
+	size_t len;
 
 	MPQ_DVB_DBG_PRINT("%s executed\n", __func__);
+
+	if (allocation_mode == MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC) {
+		/*
+		 * Save ION client, used to allocate memory
+		 * for TSPP's buffers.
+		 */
+		mpq_dmx_tspp_info.ion_client = mpq_demux->ion_client;
+
+		if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.ion_client))
+			return -EINVAL;
+
+		for (i = 0; i < TSIF_COUNT; i++) {
+			mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle =
+				ion_alloc(mpq_dmx_tspp_info.ion_client,
+					(TSPP_BUFFER_COUNT * TSPP_BUFFER_SIZE),
+					TSPP_RAW_TTS_SIZE,
+					ION_HEAP(ION_CP_MM_HEAP_ID),
+					0); /* non-cached */
+			if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
+						pes_mem_heap_handle)) {
+				MPQ_DVB_ERR_PRINT("%s: ion_alloc() failed\n",
+						__func__);
+				mpq_dmx_tspp_ion_cleanup();
+				return -ENOMEM;
+			}
+			/* save virtual base address of heap */
+			mpq_dmx_tspp_info.tsif[i].pes_mem_heap_virt_base =
+				ion_map_kernel(mpq_dmx_tspp_info.ion_client,
+					mpq_dmx_tspp_info.tsif[i].
+						pes_mem_heap_handle);
+			if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
+						pes_mem_heap_virt_base)) {
+				MPQ_DVB_ERR_PRINT(
+					"%s: ion_map_kernel() failed\n",
+					__func__);
+				mpq_dmx_tspp_ion_cleanup();
+				return -ENOMEM;
+			}
+			/* save physical base address of heap */
+			result = ion_phys(mpq_dmx_tspp_info.ion_client,
+				mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle,
+				&(mpq_dmx_tspp_info.tsif[i].
+					pes_mem_heap_phys_base), &len);
+			if (result < 0) {
+				MPQ_DVB_ERR_PRINT("%s: ion_phys() failed\n",
+						__func__);
+				mpq_dmx_tspp_ion_cleanup();
+				return -ENOMEM;
+			}
+
+			mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle =
+				ion_alloc(mpq_dmx_tspp_info.ion_client,
+					(TSPP_BUFFER_COUNT * TSPP_BUFFER_SIZE),
+					TSPP_RAW_TTS_SIZE,
+					ION_HEAP(ION_CP_MM_HEAP_ID),
+					0); /* non-cached */
+			if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
+						section_mem_heap_handle)) {
+				MPQ_DVB_ERR_PRINT("%s: ion_alloc() failed\n",
+						__func__);
+				mpq_dmx_tspp_ion_cleanup();
+				return -ENOMEM;
+			}
+			/* save virtual base address of heap */
+			mpq_dmx_tspp_info.tsif[i].section_mem_heap_virt_base =
+				ion_map_kernel(mpq_dmx_tspp_info.ion_client,
+				mpq_dmx_tspp_info.tsif[i].
+					section_mem_heap_handle);
+			if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
+					section_mem_heap_virt_base)) {
+				MPQ_DVB_ERR_PRINT(
+					"%s: ion_map_kernel() failed\n",
+					__func__);
+				mpq_dmx_tspp_ion_cleanup();
+				return -ENOMEM;
+			}
+			/* save physical base address of heap */
+			result = ion_phys(mpq_dmx_tspp_info.ion_client,
+				mpq_dmx_tspp_info.tsif[i].
+					section_mem_heap_handle,
+				&(mpq_dmx_tspp_info.tsif[i].
+					section_mem_heap_phys_base), &len);
+			if (result < 0) {
+				MPQ_DVB_ERR_PRINT("%s: ion_phys() failed\n",
+						__func__);
+				mpq_dmx_tspp_ion_cleanup();
+				return -ENOMEM;
+			}
+		}
+	}
 
 	/* Set the kernel-demux object capabilities */
 	mpq_demux->demux.dmx.capabilities =
 		DMX_TS_FILTERING			|
 		DMX_PES_FILTERING			|
-		DMX_SECTION_FILTERING		|
-		DMX_MEMORY_BASED_FILTERING	|
+		DMX_SECTION_FILTERING			|
+		DMX_MEMORY_BASED_FILTERING		|
 		DMX_CRC_CHECKING			|
 		DMX_TS_DESCRAMBLING;
 
@@ -818,6 +1047,7 @@ static int mpq_tspp_dmx_init(
 init_failed_dmx_release:
 	dvb_dmx_release(&mpq_demux->demux);
 init_failed:
+	mpq_dmx_tspp_ion_cleanup();
 	return result;
 }
 
@@ -831,6 +1061,10 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 
 	for (i = 0; i < TSIF_COUNT; i++) {
 		mpq_dmx_tspp_info.tsif[i].pes_channel_ref = 0;
+		mpq_dmx_tspp_info.tsif[i].pes_index = 0;
+		mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle = NULL;
+		mpq_dmx_tspp_info.tsif[i].pes_mem_heap_virt_base = NULL;
+		mpq_dmx_tspp_info.tsif[i].pes_mem_heap_phys_base = 0;
 
 		mpq_dmx_tspp_info.tsif[i].pes_work.channel_id =
 			TSPP_CHANNEL_ID(i, TSPP_PES_CHANNEL);
@@ -839,6 +1073,10 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 				  mpq_dmx_tspp_work);
 
 		mpq_dmx_tspp_info.tsif[i].section_channel_ref = 0;
+		mpq_dmx_tspp_info.tsif[i].section_index = 0;
+		mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle = NULL;
+		mpq_dmx_tspp_info.tsif[i].section_mem_heap_virt_base = NULL;
+		mpq_dmx_tspp_info.tsif[i].section_mem_heap_phys_base = 0;
 
 		mpq_dmx_tspp_info.tsif[i].section_work.channel_id =
 			TSPP_CHANNEL_ID(i, TSPP_SECTION_CHANNEL);
@@ -861,14 +1099,12 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 				mpq_dmx_tspp_info.tsif[i].name);
 
 		if (mpq_dmx_tspp_info.tsif[i].workqueue == NULL) {
-
 			for (j = 0; j < i; j++) {
 				destroy_workqueue(
 					mpq_dmx_tspp_info.tsif[j].workqueue);
 
 				mutex_destroy(&mpq_dmx_tspp_info.tsif[j].mutex);
 			}
-
 			MPQ_DVB_ERR_PRINT(
 				"%s: create_singlethread_workqueue failed\n",
 				__func__);
@@ -905,6 +1141,11 @@ static void __exit mpq_dmx_tspp_plugin_exit(void)
 	for (i = 0; i < TSIF_COUNT; i++) {
 		mutex_lock(&mpq_dmx_tspp_info.tsif[i].mutex);
 
+		/*
+		 * Note: tspp_close_channel will also free the TSPP buffers
+		 * even if we allocated them ourselves,
+		 * using our free function.
+		 */
 		if (mpq_dmx_tspp_info.tsif[i].pes_channel_ref) {
 			tspp_unregister_notification(0, TSPP_PES_CHANNEL);
 			tspp_close_channel(0,
@@ -917,9 +1158,11 @@ static void __exit mpq_dmx_tspp_plugin_exit(void)
 				TSPP_CHANNEL_ID(i, TSPP_SECTION_CHANNEL));
 		}
 
-		/* TODO: if we allocate buffer
-		 * to TSPP ourself, need to free those as well
+		/* if we allocated buffer pools
+		 * to TSPP, need to free those as well
 		 */
+		if (allocation_mode == MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC)
+			mpq_dmx_tsif_ion_cleanup(i);
 
 		mutex_unlock(&mpq_dmx_tspp_info.tsif[i].mutex);
 		flush_workqueue(mpq_dmx_tspp_info.tsif[i].workqueue);
