@@ -19,11 +19,10 @@
  * These defines control the address range for allocations that
  * are mapped into all pagetables.
  */
-#define KGSL_IOMMU_GLOBAL_MEM_BASE	0xC0000000
+#define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
 #define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_4M
 
-#define KGSL_MMU_ALIGN_SHIFT    13
-#define KGSL_MMU_ALIGN_MASK     (~((1 << KGSL_MMU_ALIGN_SHIFT) - 1))
+#define KGSL_MMU_ALIGN_MASK     (~((1 << PAGE_SHIFT) - 1))
 
 /* Identifier for the global page table */
 /* Per process page tables will probably pass in the thread group
@@ -350,32 +349,52 @@ static inline int kgsl_mmu_is_perprocess(void)
 /*
  * kgsl_mmu_base_addr() - Get gpu virtual address base.
  *
- * Returns the start address of the gpu
- * virtual address space.
+ * Returns the start address of the allocatable gpu
+ * virtual address space. Other mappings that mirror
+ * the CPU address space are possible outside this range.
  */
 static inline unsigned int kgsl_mmu_get_base_addr(void)
 {
-	return KGSL_PAGETABLE_BASE;
+	if (KGSL_MMU_TYPE_GPU == kgsl_mmu_get_mmutype()
+		|| !kgsl_mmu_is_perprocess())
+		return KGSL_PAGETABLE_BASE;
+	/*
+	 * This is the start of the kernel address
+	 * space, so allocations from this range will
+	 * never conflict with userpace addresses
+	 */
+	return PAGE_OFFSET;
 }
 
 /*
  * kgsl_mmu_get_ptsize() - Get gpu pagetable size
  *
- * Returns the usable size of the gpu address space.
+ * Returns the usable size of the gpu allocatable
+ * address space.
  */
 static inline unsigned int kgsl_mmu_get_ptsize(void)
 {
 	/*
-	 * For IOMMU, we could do up to 4G virtual range if we wanted to, but
-	 * it makes more sense to return a smaller range and leave the rest of
-	 * the virtual range for future improvements
+	 * For IOMMU per-process pagetables, the allocatable range
+	 * and the kernel global range must both be outside
+	 * the userspace address range. There is a 1Mb gap
+	 * between these address ranges to make overrun
+	 * detection easier.
+	 * For the shared pagetable case use 2GB and because
+	 * mirroring the CPU address space is not possible and
+	 * we're better off with extra room.
 	 */
 	enum kgsl_mmutype mmu_type = kgsl_mmu_get_mmutype();
 
 	if (KGSL_MMU_TYPE_GPU == mmu_type)
 		return CONFIG_MSM_KGSL_PAGE_TABLE_SIZE;
-	else if (KGSL_MMU_TYPE_IOMMU == mmu_type)
-		return SZ_2G;
+	else if (KGSL_MMU_TYPE_IOMMU == mmu_type) {
+		if (kgsl_mmu_is_perprocess())
+			return KGSL_IOMMU_GLOBAL_MEM_BASE
+				- kgsl_mmu_get_base_addr() - SZ_1M;
+		else
+			return SZ_2G;
+	}
 	return 0;
 }
 
