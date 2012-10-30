@@ -30,6 +30,11 @@
 
 #define AUDIO_OCMEM_BUF_SIZE (512 * SZ_1K)
 
+static int enable_ocmem_audio_voice;
+module_param(enable_ocmem_audio_voice, int,
+			S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(enable_ocmem_audio_voice, "control OCMEM usage for audio/voice");
+
 enum {
 	OCMEM_STATE_DEFAULT = 0,
 	OCMEM_STATE_ALLOC = 1,
@@ -71,6 +76,7 @@ struct audio_ocmem_prv {
 	spinlock_t audio_lock;
 	struct workqueue_struct *audio_ocmem_workqueue;
 	struct workqueue_struct *voice_ocmem_workqueue;
+	bool ocmem_en;
 };
 
 static struct audio_ocmem_prv audio_ocmem_lcl;
@@ -416,21 +422,31 @@ int voice_ocmem_process_req(int cid, bool enable)
 
 	struct voice_ocmem_workdata *workdata = NULL;
 
-	if (audio_ocmem_lcl.voice_ocmem_workqueue == NULL) {
-		pr_err("%s: voice ocmem workqueue is NULL\n", __func__);
-		return -EINVAL;
+	if (enable) {
+		if (enable_ocmem_audio_voice)
+			audio_ocmem_lcl.ocmem_en = true;
+		else
+			audio_ocmem_lcl.ocmem_en = false;
 	}
-	workdata = kzalloc(sizeof(struct voice_ocmem_workdata),
-						GFP_ATOMIC);
-	if (workdata == NULL) {
-		pr_err("%s: mem failure\n", __func__);
-		return -ENOMEM;
-	}
-	workdata->id = cid;
-	workdata->en = enable;
+	if (audio_ocmem_lcl.ocmem_en) {
+		if (audio_ocmem_lcl.voice_ocmem_workqueue == NULL) {
+			pr_err("%s: voice ocmem workqueue is NULL\n",
+								__func__);
+			return -EINVAL;
+		}
+		workdata = kzalloc(sizeof(struct voice_ocmem_workdata),
+							GFP_ATOMIC);
+		if (workdata == NULL) {
+			pr_err("%s: mem failure\n", __func__);
+			return -ENOMEM;
+		}
+		workdata->id = cid;
+		workdata->en = enable;
 
-	INIT_WORK(&workdata->work, voice_ocmem_process_workdata);
-	queue_work(audio_ocmem_lcl.voice_ocmem_workqueue, &workdata->work);
+		INIT_WORK(&workdata->work, voice_ocmem_process_workdata);
+		queue_work(audio_ocmem_lcl.voice_ocmem_workqueue,
+							&workdata->work);
+	}
 
 	return 0;
 }
@@ -510,24 +526,35 @@ int audio_ocmem_process_req(int id, bool enable)
 {
 	struct audio_ocmem_workdata *workdata = NULL;
 
-	if (audio_ocmem_lcl.audio_ocmem_workqueue == NULL) {
-		pr_err("%s: audio ocmem workqueue is NULL\n", __func__);
-		return -EINVAL;
+	if (enable) {
+		if (enable_ocmem_audio_voice)
+			audio_ocmem_lcl.ocmem_en = true;
+		else
+			audio_ocmem_lcl.ocmem_en = false;
 	}
-	workdata = kzalloc(sizeof(struct audio_ocmem_workdata),
+
+	if (audio_ocmem_lcl.ocmem_en) {
+		if (audio_ocmem_lcl.audio_ocmem_workqueue == NULL) {
+			pr_err("%s: audio ocmem workqueue is NULL\n",
+								__func__);
+			return -EINVAL;
+		}
+		workdata = kzalloc(sizeof(struct audio_ocmem_workdata),
 							GFP_ATOMIC);
-	if (workdata == NULL) {
-		pr_err("%s: mem failure\n", __func__);
-		return -ENOMEM;
+		if (workdata == NULL) {
+			pr_err("%s: mem failure\n", __func__);
+			return -ENOMEM;
+		}
+		workdata->id = id;
+		workdata->en = enable;
+
+		/* if previous work waiting for ocmem - signal it to exit */
+		atomic_set(&audio_ocmem_lcl.audio_exit, 1);
+
+		INIT_WORK(&workdata->work, audio_ocmem_process_workdata);
+		queue_work(audio_ocmem_lcl.audio_ocmem_workqueue,
+							&workdata->work);
 	}
-	workdata->id = id;
-	workdata->en = enable;
-
-	/* if previous work waiting for ocmem - signal it to exit */
-	atomic_set(&audio_ocmem_lcl.audio_exit, 1);
-
-	INIT_WORK(&workdata->work, audio_ocmem_process_workdata);
-	queue_work(audio_ocmem_lcl.audio_ocmem_workqueue, &workdata->work);
 
 	return 0;
 }
@@ -584,6 +611,7 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_DEFAULT);
 	atomic_set(&audio_ocmem_lcl.audio_exit, 0);
 	spin_lock_init(&audio_ocmem_lcl.audio_lock);
+	audio_ocmem_lcl.ocmem_en = false;
 
 	/* populate platform data */
 	ret = audio_ocmem_platform_data_populate(pdev);
