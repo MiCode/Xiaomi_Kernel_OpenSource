@@ -511,6 +511,82 @@ struct kgsl_timestamp_event_fence {
 #define IOCTL_KGSL_TIMESTAMP_EVENT \
 	_IOWR(KGSL_IOC_TYPE, 0x33, struct kgsl_timestamp_event)
 
+/**
+ * struct kgsl_gpumem_alloc_id - argument to IOCTL_KGSL_GPUMEM_ALLOC_ID
+ * @id: returned id value for this allocation.
+ * @flags: mask of KGSL_MEM* values requested and actual flags on return.
+ * @size: requested size of the allocation and actual size on return.
+ * @mmapsize: returned size to pass to mmap() which may be larger than 'size'
+ * @gpuaddr: returned GPU address for the allocation
+ *
+ * Allocate memory for access by the GPU. The flags and size fields are echoed
+ * back by the kernel, so that the caller can know if the request was
+ * adjusted.
+ *
+ * Supported flags:
+ * KGSL_MEMFLAGS_GPUREADONLY: the GPU will be unable to write to the buffer
+ * KGSL_MEMTYPE*: usage hint for debugging aid
+ * KGSL_MEMALIGN*: alignment hint, may be ignored or adjusted by the kernel.
+ */
+struct kgsl_gpumem_alloc_id {
+	unsigned int id;
+	unsigned int flags;
+	unsigned int size;
+	unsigned int mmapsize;
+	unsigned long gpuaddr;
+/* private: reserved for future use*/
+	unsigned int __pad[2];
+};
+
+#define IOCTL_KGSL_GPUMEM_ALLOC_ID \
+	_IOWR(KGSL_IOC_TYPE, 0x34, struct kgsl_gpumem_alloc_id)
+
+/**
+ * struct kgsl_gpumem_free_id - argument to IOCTL_KGSL_GPUMEM_FREE_ID
+ * @id: GPU allocation id to free
+ *
+ * Free an allocation by id, in case a GPU address has not been assigned or
+ * is unknown. Freeing an allocation by id with this ioctl or by GPU address
+ * with IOCTL_KGSL_SHAREDMEM_FREE are equivalent.
+ */
+struct kgsl_gpumem_free_id {
+	unsigned int id;
+/* private: reserved for future use*/
+	unsigned int __pad;
+};
+
+#define IOCTL_KGSL_GPUMEM_FREE_ID \
+	_IOWR(KGSL_IOC_TYPE, 0x35, struct kgsl_gpumem_free_id)
+
+/**
+ * struct kgsl_gpumem_get_info - argument to IOCTL_KGSL_GPUMEM_GET_INFO
+ * @gpuaddr: GPU address to query. Also set on return.
+ * @id: GPU allocation id to query. Also set on return.
+ * @flags: returned mask of KGSL_MEM* values.
+ * @size: returned size of the allocation.
+ * @mmapsize: returned size to pass mmap(), which may be larger than 'size'
+ * @useraddr: returned address of the userspace mapping for this buffer
+ *
+ * This ioctl allows querying of all user visible attributes of an existing
+ * allocation, by either the GPU address or the id returned by a previous
+ * call to IOCTL_KGSL_GPUMEM_ALLOC_ID. Legacy allocation ioctls may not
+ * return all attributes so this ioctl can be used to look them up if needed.
+ *
+ */
+struct kgsl_gpumem_get_info {
+	unsigned long gpuaddr;
+	unsigned int id;
+	unsigned int flags;
+	unsigned int size;
+	unsigned int mmapsize;
+	unsigned long useraddr;
+/* private: reserved for future use*/
+	unsigned int __pad[4];
+};
+
+#define IOCTL_KGSL_GPUMEM_GET_INFO\
+	_IOWR(KGSL_IOC_TYPE, 0x36, struct kgsl_gpumem_get_info)
+
 #ifdef __KERNEL__
 #ifdef CONFIG_MSM_KGSL_DRM
 int kgsl_gem_obj_addr(int drm_fd, int handle, unsigned long *start,
