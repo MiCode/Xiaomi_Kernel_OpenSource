@@ -159,10 +159,10 @@ int wfd_stats_update(struct wfd_stats *stats, enum wfd_stats_event event)
 	}
 	case WFD_STAT_EVENT_MDP_QUEUE:
 		stats->mdp_buf_count++;
-		stats->mdp_updates++;
 		break;
 	case WFD_STAT_EVENT_MDP_DEQUEUE:
 		stats->mdp_buf_count--;
+		stats->mdp_updates++;
 		break;
 	case WFD_STAT_EVENT_ENC_QUEUE: {
 		struct wfd_stats_encode_sample *sample = NULL;
