@@ -67,6 +67,7 @@ config ARCH_MSM7X30
 	select MSM_PM2 if PM
 	select HOLES_IN_ZONE if SPARSEMEM
 	select MSM_MODEM_RESTART
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_QSD8X50
 	bool "QSD8X50"
