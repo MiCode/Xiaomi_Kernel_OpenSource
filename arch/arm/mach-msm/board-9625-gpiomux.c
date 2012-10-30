@@ -170,6 +170,30 @@ static struct msm_gpiomux_config sdc3_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting wlan_ath6kl_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct gpiomux_setting wlan_ath6kl_suspend_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_IN,
+};
+
+static struct msm_gpiomux_config wlan_ath6kl_configs[] __initdata = {
+	{
+		.gpio      = 62,/* CHIP_PWD_L */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &wlan_ath6kl_active_config,
+			[GPIOMUX_SUSPENDED] = &wlan_ath6kl_suspend_config,
+		},
+	},
+};
+
 void __init msm9625_init_gpiomux(void)
 {
 	int rc;
@@ -182,4 +206,6 @@ void __init msm9625_init_gpiomux(void)
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 	msm_gpiomux_install(sdc3_configs, ARRAY_SIZE(sdc3_configs));
+	msm_gpiomux_install(wlan_ath6kl_configs,
+		ARRAY_SIZE(wlan_ath6kl_configs));
 }
