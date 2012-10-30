@@ -17,6 +17,7 @@
 #include "drmP.h"
 #include "drm.h"
 #include <linux/android_pmem.h>
+#include <linux/msm_ion.h>
 
 #include "kgsl.h"
 #include "kgsl_device.h"
@@ -106,6 +107,7 @@ struct drm_kgsl_gem_object {
 	uint32_t type;
 	struct kgsl_memdesc memdesc;
 	struct kgsl_pagetable *pagetable;
+	struct ion_handle *ion_handle;
 	uint64_t mmap_offset;
 	int bufcount;
 	int flags;
@@ -128,6 +130,8 @@ struct drm_kgsl_gem_object {
 
 	struct list_head wait_list;
 };
+
+static struct ion_client *kgsl_drm_ion_phys_client;
 
 static int kgsl_drm_inited = DRM_KGSL_NOT_INITED;
 
@@ -243,15 +247,50 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 	if (TYPE_IS_PMEM(priv->type)) {
 		if (priv->type == DRM_KGSL_GEM_TYPE_EBI ||
 		    priv->type & DRM_KGSL_GEM_PMEM_EBI) {
-				result = kgsl_sharedmem_ebimem_user(
-						&priv->memdesc,
-						priv->pagetable,
-						obj->size * priv->bufcount);
-				if (result) {
-					DRM_ERROR(
-					"Unable to allocate PMEM memory\n");
-					return result;
-				}
+			priv->ion_handle = ion_alloc(kgsl_drm_ion_phys_client,
+				obj->size * priv->bufcount, PAGE_SIZE,
+				ION_HEAP(ION_SF_HEAP_ID), 0);
+			if (IS_ERR_OR_NULL(priv->ion_handle)) {
+				DRM_ERROR(
+				"Unable to allocate ION Phys memory handle\n");
+				return -ENOMEM;
+			}
+
+			priv->memdesc.pagetable = priv->pagetable;
+
+			result = ion_phys(kgsl_drm_ion_phys_client,
+				priv->ion_handle, (ion_phys_addr_t *)
+				&priv->memdesc.physaddr, &priv->memdesc.size);
+			if (result) {
+				DRM_ERROR(
+				"Unable to get ION Physical memory address\n");
+				ion_free(kgsl_drm_ion_phys_client,
+					priv->ion_handle);
+				priv->ion_handle = NULL;
+				return result;
+			}
+
+			result = memdesc_sg_phys(&priv->memdesc,
+				priv->memdesc.physaddr, priv->memdesc.size);
+			if (result) {
+				DRM_ERROR(
+				"Unable to get sg list\n");
+				ion_free(kgsl_drm_ion_phys_client,
+					priv->ion_handle);
+				priv->ion_handle = NULL;
+				return result;
+			}
+
+			result = kgsl_mmu_map(priv->pagetable, &priv->memdesc,
+					GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+			if (result) {
+				DRM_ERROR(
+				"Unable to map GPU\n");
+				ion_free(kgsl_drm_ion_phys_client,
+					priv->ion_handle);
+				priv->ion_handle = NULL;
+				return result;
+			}
 		}
 		else
 			return -EINVAL;
@@ -296,7 +335,16 @@ kgsl_gem_free_memory(struct drm_gem_object *obj)
 	kgsl_gem_mem_flush(&priv->memdesc,  priv->type,
 			   DRM_KGSL_GEM_CACHE_OP_FROM_DEV);
 
-	kgsl_sharedmem_free(&priv->memdesc);
+	if (priv->memdesc.gpuaddr)
+		kgsl_mmu_unmap(priv->memdesc.pagetable, &priv->memdesc);
+
+	kgsl_sg_free(priv->memdesc.sg, priv->memdesc.sglen);
+
+	if (priv->ion_handle)
+		ion_free(kgsl_drm_ion_phys_client, priv->ion_handle);
+	priv->ion_handle = NULL;
+
+	memset(&priv->memdesc, 0, sizeof(priv->memdesc));
 
 	kgsl_mmu_putpagetable(priv->pagetable);
 	priv->pagetable = NULL;
@@ -1495,6 +1543,14 @@ int kgsl_drm_init(struct platform_device *dev)
 		gem_buf_fence[i].num_buffers = 0;
 		gem_buf_fence[i].ts_valid = 0;
 		gem_buf_fence[i].fence_id = ENTRY_EMPTY;
+	}
+
+	/* Create ION Client */
+	kgsl_drm_ion_phys_client = msm_ion_client_create(
+			ION_HEAP_CARVEOUT_MASK, ION_SF_HEAP_NAME);
+	if (!kgsl_drm_ion_phys_client) {
+		DRM_ERROR("Unable to create ION client\n");
+		return -ENOMEM;
 	}
 
 	return drm_platform_init(&driver, dev);
