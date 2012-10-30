@@ -268,6 +268,7 @@ struct kgsl_process_private {
 	pid_t pid;
 	spinlock_t mem_lock;
 	struct rb_root mem_rb;
+	struct idr mem_idr;
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;
 	struct kobject kobj;
