@@ -546,19 +546,19 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 	spin_lock_irqsave(&dev->lock, flags);
 
 	if (!atomic_read(&dev->online)) {
-		pr_info("dev:%p is not online\n", dev);
+		pr_err("dev:%p is not online\n", dev);
 		spin_unlock_irqrestore(&dev->lock, flags);
 		return;
 	}
 
 	if (!req) {
-		pr_info("dev:%p req is NULL\n", dev);
+		pr_err("dev:%p req is NULL\n", dev);
 		spin_unlock_irqrestore(&dev->lock, flags);
 		return;
 	}
 
 	if (!req->buf) {
-		pr_info("dev:%p req->buf is NULL\n", dev);
+		pr_err("dev:%p req->buf is NULL\n", dev);
 		spin_unlock_irqrestore(&dev->lock, flags);
 		return;
 	}
@@ -601,10 +601,10 @@ fmbim_send_cpkt_response(struct f_mbim *gr, struct ctrl_pkt *cpkt)
 		return -ENODEV;
 	}
 
-	pr_info("dev:%p port_num#%d\n", dev, dev->port_num);
+	pr_debug("dev:%p port_num#%d\n", dev, dev->port_num);
 
 	if (!atomic_read(&dev->online)) {
-		pr_info("dev:%p is not connected\n", dev);
+		pr_err("dev:%p is not connected\n", dev);
 		mbim_free_ctrl_pkt(cpkt);
 		return 0;
 	}
@@ -739,7 +739,7 @@ static void mbim_do_notify(struct f_mbim *mbim)
 	__le32				*data;
 	int				status;
 
-	pr_info("notify_state: %d", mbim->not_port.notify_state);
+	pr_debug("notify_state: %d", mbim->not_port.notify_state);
 
 	if (!req)
 		return;
@@ -827,7 +827,7 @@ static void mbim_notify(struct f_mbim *mbim)
 	 * notification is sent, then it will reset to send the SPEED
 	 * notificaion again (and again, and again), but it's not a problem
 	 */
-	pr_info("dev:%p\n", mbim);
+	pr_debug("dev:%p\n", mbim);
 
 	mbim->not_port.notify_state = NCM_NOTIFY_SPEED;
 	mbim_do_notify(mbim);
@@ -868,7 +868,7 @@ static void mbim_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	mbim_do_notify(mbim);
 	spin_unlock(&mbim->lock);
 
-	pr_info("dev:%p Exit\n", mbim);
+	pr_debug("dev:%p Exit\n", mbim);
 }
 
 static void mbim_ep0out_complete(struct usb_ep *ep, struct usb_request *req)
@@ -879,7 +879,7 @@ static void mbim_ep0out_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_mbim		*mbim = func_to_mbim(f);
 	struct mbim_ntb_input_size *ntb = NULL;
 
-	pr_info("dev:%p\n", mbim);
+	pr_debug("dev:%p\n", mbim);
 
 	req->context = NULL;
 	if (req->status || req->actual != req->length) {
@@ -909,7 +909,7 @@ static void mbim_ep0out_complete(struct usb_ep *ep, struct usb_request *req)
 		goto invalid;
 	}
 
-	pr_info("Set NTB INPUT SIZE %d\n", in_size);
+	pr_debug("Set NTB INPUT SIZE %d\n", in_size);
 
 	mbim->ntb_input_size = in_size;
 	return;
@@ -939,7 +939,7 @@ fmbim_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 		return;
 	}
 
-	pr_info("dev:%p port#%d\n", dev, dev->port_num);
+	pr_debug("dev:%p port#%d\n", dev, dev->port_num);
 
 	spin_lock(&dev->lock);
 	if (!dev->is_open) {
@@ -955,13 +955,14 @@ fmbim_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 		return;
 	}
 
-	pr_info("Add to cpkt_req_q packet with len = %d\n", len);
+	pr_debug("Add to cpkt_req_q packet with len = %d\n", len);
 	memcpy(cpkt->buf, req->buf, len);
+
 	list_add_tail(&cpkt->list, &dev->cpkt_req_q);
 	spin_unlock(&dev->lock);
 
 	/* wakeup read thread */
-	pr_info("Wake up read queue");
+	pr_debug("Wake up read queue");
 	wake_up(&dev->read_wq);
 
 	return;
@@ -993,7 +994,7 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 		| USB_CDC_RESET_FUNCTION:
 
-		pr_info("USB_CDC_RESET_FUNCTION");
+		pr_debug("USB_CDC_RESET_FUNCTION");
 		value = 0;
 		req->complete = fmbim_reset_cmd_complete;
 		req->context = mbim;
@@ -1002,10 +1003,10 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 		| USB_CDC_SEND_ENCAPSULATED_COMMAND:
 
-		pr_info("USB_CDC_SEND_ENCAPSULATED_COMMAND");
+		pr_debug("USB_CDC_SEND_ENCAPSULATED_COMMAND");
 
 		if (w_length > req->length) {
-			pr_err("w_length > req->length: %d > %d",
+			pr_debug("w_length > req->length: %d > %d",
 			w_length, req->length);
 		}
 		value = w_length;
@@ -1016,14 +1017,14 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 		| USB_CDC_GET_ENCAPSULATED_RESPONSE:
 
-		pr_info("USB_CDC_GET_ENCAPSULATED_RESPONSE");
+		pr_debug("USB_CDC_GET_ENCAPSULATED_RESPONSE");
 
 		if (w_value) {
 			pr_err("w_length > 0: %d", w_length);
 			break;
 		}
 
-		pr_info("req%02x.%02x v%04x i%04x l%d\n",
+		pr_debug("req%02x.%02x v%04x i%04x l%d\n",
 			ctrl->bRequestType, ctrl->bRequest,
 			w_value, w_index, w_length);
 
@@ -1043,7 +1044,7 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		memcpy(req->buf, cpkt->buf, value);
 		mbim_free_ctrl_pkt(cpkt);
 
-		pr_info("copied encapsulated_response %d bytes",
+		pr_debug("copied encapsulated_response %d bytes",
 			value);
 
 		break;
@@ -1051,7 +1052,7 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 		| USB_CDC_GET_NTB_PARAMETERS:
 
-		pr_info("USB_CDC_GET_NTB_PARAMETERS");
+		pr_debug("USB_CDC_GET_NTB_PARAMETERS");
 
 		if (w_length == 0 || w_value != 0 || w_index != mbim->ctrl_id)
 			break;
@@ -1064,21 +1065,21 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 		| USB_CDC_GET_NTB_INPUT_SIZE:
 
-		pr_info("USB_CDC_GET_NTB_INPUT_SIZE");
+		pr_debug("USB_CDC_GET_NTB_INPUT_SIZE");
 
 		if (w_length < 4 || w_value != 0 || w_index != mbim->ctrl_id)
 			break;
 
 		put_unaligned_le32(mbim->ntb_input_size, req->buf);
 		value = 4;
-		pr_info("Reply to host INPUT SIZE %d\n",
+		pr_debug("Reply to host INPUT SIZE %d\n",
 		     mbim->ntb_input_size);
 		break;
 
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 		| USB_CDC_SET_NTB_INPUT_SIZE:
 
-		pr_info("USB_CDC_SET_NTB_INPUT_SIZE");
+		pr_debug("USB_CDC_SET_NTB_INPUT_SIZE");
 
 		if (w_length != 4 && w_length != 8) {
 			pr_err("wrong NTB length %d", w_length);
@@ -1100,7 +1101,7 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	{
 		uint16_t format;
 
-		pr_info("USB_CDC_GET_NTB_FORMAT");
+		pr_debug("USB_CDC_GET_NTB_FORMAT");
 
 		if (w_length < 2 || w_value != 0 || w_index != mbim->ctrl_id)
 			break;
@@ -1108,25 +1109,25 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		format = (mbim->parser_opts == &ndp16_opts) ? 0x0000 : 0x0001;
 		put_unaligned_le16(format, req->buf);
 		value = 2;
-		pr_info("NTB FORMAT: sending %d\n", format);
+		pr_debug("NTB FORMAT: sending %d\n", format);
 		break;
 	}
 
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 		| USB_CDC_SET_NTB_FORMAT:
 	{
-		pr_info("USB_CDC_SET_NTB_FORMAT");
+		pr_debug("USB_CDC_SET_NTB_FORMAT");
 
 		if (w_length != 0 || w_index != mbim->ctrl_id)
 			break;
 		switch (w_value) {
 		case 0x0000:
 			mbim->parser_opts = &ndp16_opts;
-			pr_info("NCM16 selected\n");
+			pr_debug("NCM16 selected\n");
 			break;
 		case 0x0001:
 			mbim->parser_opts = &ndp32_opts;
-			pr_info("NCM32 selected\n");
+			pr_debug("NCM32 selected\n");
 			break;
 		default:
 			break;
@@ -1147,7 +1148,7 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 	 /* respond with data transfer or status phase? */
 	if (value >= 0) {
-		pr_info("control request: %02x.%02x v%04x i%04x l%d\n",
+		pr_debug("control request: %02x.%02x v%04x i%04x l%d\n",
 			ctrl->bRequestType, ctrl->bRequest,
 			w_value, w_index, w_length);
 		req->zero = (value < w_length);
@@ -1820,7 +1821,7 @@ static long mbim_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 	struct f_mbim *mbim = fp->private_data;
 	int ret = 0;
 
-	pr_info("Received command %d", cmd);
+	pr_debug("Received command %d", cmd);
 
 	if (mbim_lock(&mbim->ioctl_excl))
 		return -EBUSY;
