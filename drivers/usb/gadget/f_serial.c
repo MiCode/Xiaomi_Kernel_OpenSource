@@ -305,7 +305,6 @@ static int gport_setup(struct usb_configuration *c)
 		ret = ghsic_ctrl_setup(no_hsic_sports, USB_GADGET_SERIAL);
 		if (ret < 0)
 			return ret;
-		return 0;
 	}
 	if (no_hsuart_sports) {
 		port_idx = ghsuart_data_setup(no_hsuart_sports,
@@ -320,8 +319,6 @@ static int gport_setup(struct usb_configuration *c)
 				port_idx++;
 			}
 		}
-
-		return 0;
 	}
 	return ret;
 }
