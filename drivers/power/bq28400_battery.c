@@ -818,6 +818,11 @@ static int __devinit bq28400_probe(struct i2c_client *client,
 		return -EIO;
 	}
 
+	if (bq28400_read_reg(client, SBS_BATTERY_STATUS) < 0) {
+		pr_err("Device doesn't exist.\n");
+		return -ENODEV;
+	}
+
 	bq28400_dev = kzalloc(sizeof(*bq28400_dev), GFP_KERNEL);
 	if (!bq28400_dev) {
 		pr_err(" alloc fail.\n");
