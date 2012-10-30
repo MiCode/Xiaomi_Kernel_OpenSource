@@ -128,7 +128,7 @@ enum qpnp_pin_param_type {
 	Q_PIN_CFG_PULL,
 	Q_PIN_CFG_VIN_SEL,
 	Q_PIN_CFG_OUT_STRENGTH,
-	Q_PIN_CFG_SELECT,
+	Q_PIN_CFG_SRC_SEL,
 	Q_PIN_CFG_MASTER_EN,
 	Q_PIN_CFG_AOUT_REF,
 	Q_PIN_CFG_AIN_ROUTE,
@@ -289,7 +289,7 @@ static int qpnp_pin_check_config(enum qpnp_pin_param_type idx,
 		    val == 0)
 			return -EINVAL;
 		break;
-	case Q_PIN_CFG_SELECT:
+	case Q_PIN_CFG_SRC_SEL:
 		if (q_spec->type == Q_MPP_TYPE &&
 		    (val == QPNP_PIN_SEL_FUNC_1 ||
 		     val == QPNP_PIN_SEL_FUNC_2))
@@ -348,9 +348,9 @@ static int qpnp_pin_check_constraints(struct qpnp_pin_spec *q_spec,
 	else if (Q_CHK_INVALID(Q_PIN_CFG_INVERT, q_spec, param->invert))
 		pr_err("invalid invert polarity value %d for %s %d\n",
 						param->invert,  name, pin);
-	else if (Q_CHK_INVALID(Q_PIN_CFG_SELECT, q_spec, param->select))
+	else if (Q_CHK_INVALID(Q_PIN_CFG_SRC_SEL, q_spec, param->src_sel))
 		pr_err("invalid source select value %d for %s %d\n",
-						param->select, name, pin);
+						param->src_sel, name, pin);
 	else if (Q_CHK_INVALID(Q_PIN_CFG_OUT_STRENGTH,
 						q_spec, param->out_strength))
 		pr_err("invalid out strength value %d for %s %d\n",
@@ -506,10 +506,10 @@ static int _qpnp_pin_config(struct qpnp_pin_chip *q_chip,
 		q_reg_clr_set(&q_spec->regs[Q_REG_I_MODE_CTL],
 			  Q_REG_OUT_INVERT_SHIFT, Q_REG_OUT_INVERT_MASK,
 			  param->invert);
-	if (Q_HAVE_HW_SP(Q_PIN_CFG_SELECT, q_spec, param->select))
+	if (Q_HAVE_HW_SP(Q_PIN_CFG_SRC_SEL, q_spec, param->src_sel))
 		q_reg_clr_set(&q_spec->regs[Q_REG_I_MODE_CTL],
 			  Q_REG_SRC_SEL_SHIFT, Q_REG_SRC_SEL_MASK,
-			  param->select);
+			  param->src_sel);
 	if (Q_HAVE_HW_SP(Q_PIN_CFG_OUT_STRENGTH, q_spec, param->out_strength))
 		q_reg_clr_set(&q_spec->regs[Q_REG_I_DIG_OUT_CTL],
 			  Q_REG_OUT_STRENGTH_SHIFT, Q_REG_OUT_STRENGTH_MASK,
@@ -828,7 +828,7 @@ static int qpnp_pin_apply_config(struct qpnp_pin_chip *q_chip,
 	param.out_strength = q_reg_get(&q_spec->regs[Q_REG_I_DIG_OUT_CTL],
 				       Q_REG_OUT_STRENGTH_SHIFT,
 				       Q_REG_OUT_STRENGTH_MASK);
-	param.select   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
+	param.src_sel   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
 				       Q_REG_SRC_SEL_SHIFT, Q_REG_SRC_SEL_MASK);
 	param.master_en    = q_reg_get(&q_spec->regs[Q_REG_I_EN_CTL],
 				       Q_REG_MASTER_EN_SHIFT,
@@ -855,8 +855,8 @@ static int qpnp_pin_apply_config(struct qpnp_pin_chip *q_chip,
 		&param.vin_sel);
 	of_property_read_u32(node, "qcom,out-strength",
 		&param.out_strength);
-	of_property_read_u32(node, "qcom,src-select",
-		&param.select);
+	of_property_read_u32(node, "qcom,src-sel",
+		&param.src_sel);
 	of_property_read_u32(node, "qcom,master-en",
 		&param.master_en);
 	of_property_read_u32(node, "qcom,aout-ref",
@@ -942,7 +942,7 @@ static int qpnp_pin_reg_attr(enum qpnp_pin_param_type type,
 		cfg->shift = Q_REG_OUT_STRENGTH_SHIFT;
 		cfg->mask = Q_REG_OUT_STRENGTH_MASK;
 		break;
-	case Q_PIN_CFG_SELECT:
+	case Q_PIN_CFG_SRC_SEL:
 		cfg->addr = Q_REG_MODE_CTL;
 		cfg->idx = Q_REG_I_MODE_CTL;
 		cfg->shift = Q_REG_SRC_SEL_SHIFT;
@@ -1036,7 +1036,7 @@ static struct qpnp_pin_debugfs_args dfs_args[] = {
 	{ Q_PIN_CFG_PULL, "pull" },
 	{ Q_PIN_CFG_VIN_SEL, "vin_sel" },
 	{ Q_PIN_CFG_OUT_STRENGTH, "out_strength" },
-	{ Q_PIN_CFG_SELECT, "select" },
+	{ Q_PIN_CFG_SRC_SEL, "src_sel" },
 	{ Q_PIN_CFG_MASTER_EN, "master_en" },
 	{ Q_PIN_CFG_AOUT_REF, "aout_ref" },
 	{ Q_PIN_CFG_AIN_ROUTE, "ain_route" },
