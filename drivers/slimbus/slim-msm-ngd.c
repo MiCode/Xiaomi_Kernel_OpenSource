@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -405,8 +405,9 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 			return -ENXIO;
 		}
 		if (txn.len == 0) {
+			/* Per protocol, only last 5 bits for client no. */
 			wbuf[txn.len++] = (u8) (slc->prop.dataf << 5) |
-					sb->laddr;
+					(sb->laddr & 0x1f);
 			wbuf[txn.len] = slc->seglen;
 			if (slc->coeff == SLIM_COEFF_3)
 				wbuf[txn.len] |= 1 << 5;
@@ -420,6 +421,7 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 			}
 		}
 		wbuf[txn.len++] = slc->chan;
+		pr_debug("slim define chan:%d, tid:0x%x", slc->chan, txn.tid);
 	}
 	if (txn.len) {
 		txn.mc = SLIM_USR_MC_DEF_ACT_CHAN;
@@ -448,8 +450,9 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 			return -ENXIO;
 		}
 		if (txn.len == 0) {
+			/* Per protocol, only last 5 bits for client no. */
 			wbuf[txn.len++] = (u8) (SLIM_CH_REMOVE << 6) |
-					sb->laddr;
+					(sb->laddr & 0x1f);
 			ret = ngd_get_tid(ctrl, &txn, &wbuf[txn.len++], &done);
 			if (ret) {
 				pr_err("no tid for channel define?");
@@ -457,6 +460,7 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 			}
 		}
 		wbuf[txn.len++] = slc->chan;
+		pr_debug("slim remove chan:%d, tid:0x%x", slc->chan, txn.tid);
 	}
 	if (txn.len) {
 		txn.mc = SLIM_USR_MC_CHAN_CTRL;
