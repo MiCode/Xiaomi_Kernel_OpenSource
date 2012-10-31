@@ -41,7 +41,7 @@
 #ifdef CONFIG_ARCH_FSM9XXX
 #define NUM_SMD_PKT_PORTS 4
 #else
-#define NUM_SMD_PKT_PORTS 15
+#define NUM_SMD_PKT_PORTS 24
 #endif
 
 #define PDRIVER_NAME_MAX_SIZE 32
@@ -711,6 +711,15 @@ static char *smd_pkt_dev_name[] = {
 	"smdcntl6",
 	"smdcntl7",
 	"smd22",
+	"smdcnt_rev0",
+	"smdcnt_rev1",
+	"smdcnt_rev2",
+	"smdcnt_rev3",
+	"smdcnt_rev4",
+	"smdcnt_rev5",
+	"smdcnt_rev6",
+	"smdcnt_rev7",
+	"smdcnt_rev8",
 	"smd_sns_dsps",
 	"apr_apps2",
 	"smdcntl8",
@@ -729,6 +738,15 @@ static char *smd_ch_name[] = {
 	"DATA13_CNTL",
 	"DATA14_CNTL",
 	"DATA22",
+	"DATA23_CNTL",
+	"DATA24_CNTL",
+	"DATA25_CNTL",
+	"DATA26_CNTL",
+	"DATA27_CNTL",
+	"DATA28_CNTL",
+	"DATA29_CNTL",
+	"DATA30_CNTL",
+	"DATA31_CNTL",
 	"SENSOR",
 	"apr_apps2",
 	"DATA40_CNTL",
@@ -738,6 +756,15 @@ static char *smd_ch_name[] = {
 };
 
 static uint32_t smd_ch_edge[] = {
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
+	SMD_APPS_MODEM,
 	SMD_APPS_MODEM,
 	SMD_APPS_MODEM,
 	SMD_APPS_MODEM,
