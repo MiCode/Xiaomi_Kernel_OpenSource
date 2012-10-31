@@ -2829,8 +2829,8 @@ static struct clk_freq_tbl byte_freq = {
 	.div_src_val = BVAL(10, 8, dsipll0_byte_mm_source_val),
 };
 static struct clk_freq_tbl pixel_freq = {
-	.src_clk = &dsipll0_byte_clk_src,
-	.div_src_val = BVAL(10, 8, dsipll0_byte_mm_source_val),
+	.src_clk = &dsipll0_pixel_clk_src,
+	.div_src_val = BVAL(10, 8, dsipll0_pixel_mm_source_val),
 };
 static struct clk_ops clk_ops_byte;
 static struct clk_ops clk_ops_pixel;
