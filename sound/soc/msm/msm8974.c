@@ -343,18 +343,20 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		if (!codec_clk) {
 			dev_err(codec->dev, "%s: did not get Taiko MCLK\n",
 				__func__);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto exit;
 		}
 
 		clk_users++;
 		if (clk_users != 1)
-			return ret;
+			goto exit;
 
 		ret = qpnp_clkdiv_enable(codec_clk);
 		if (ret) {
 			dev_err(codec->dev, "%s: Error enabling taiko MCLK\n",
 			       __func__);
-			return -ENODEV;
+			ret = -ENODEV;
+			goto exit;
 		}
 		taiko_mclk_enable(codec, 1, dapm);
 	} else {
@@ -367,8 +369,10 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		} else {
 			pr_err("%s: Error releasing Tabla MCLK\n", __func__);
 			ret = -EINVAL;
+			goto exit;
 		}
 	}
+exit:
 	mutex_unlock(&cdc_mclk_mutex);
 	return ret;
 }
