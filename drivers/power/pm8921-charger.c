@@ -1427,15 +1427,6 @@ static int pm_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = 0;
-		if (charging_disabled)
-			return 0;
-
-		/*
-		 * if drawing any current from usb is disabled behave
-		 * as if no usb cable is connected
-		 */
-		if (pm_is_chg_charge_dis(the_chip))
-			return 0;
 
 		/* USB charging */
 		if (usb_target_ma < USB_WALL_THRESHOLD_MA)
