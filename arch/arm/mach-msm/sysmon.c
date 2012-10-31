@@ -43,6 +43,7 @@ struct sysmon_subsys {
 	struct completion	resp_ready;
 	char			rx_buf[RX_BUF_SIZE];
 	enum transports		transport;
+	struct device		*dev;
 };
 
 static struct sysmon_subsys subsys[SYSMON_NUM_SS] = {
@@ -138,6 +139,9 @@ int sysmon_send_event(enum subsys_id dest_ss, const char *event_ss,
 	char tx_buf[TX_BUF_SIZE];
 	int ret;
 
+	if (ss->dev == NULL)
+		return -ENODEV;
+
 	if (dest_ss < 0 || dest_ss >= SYSMON_NUM_SS ||
 	    notif < 0 || notif >= SUBSYS_NOTIF_TYPE_COUNT ||
 	    event_ss == NULL)
@@ -178,6 +182,9 @@ int sysmon_send_shutdown(enum subsys_id dest_ss)
 	size_t prefix_len = ARRAY_SIZE(expect) - 1;
 	int ret;
 
+	if (ss->dev == NULL)
+		return -ENODEV;
+
 	if (dest_ss < 0 || dest_ss >= SYSMON_NUM_SS)
 		return -EINVAL;
 
@@ -213,6 +220,9 @@ int sysmon_get_reason(enum subsys_id dest_ss, char *buf, size_t len)
 	const char expect[] = "ssr:return:";
 	size_t prefix_len = ARRAY_SIZE(expect) - 1;
 	int ret;
+
+	if (ss->dev == NULL)
+		return -ENODEV;
 
 	if (dest_ss < 0 || dest_ss >= SYSMON_NUM_SS ||
 	    buf == NULL || len == 0)
@@ -293,6 +303,7 @@ static int sysmon_probe(struct platform_device *pdev)
 	default:
 		return -EINVAL;
 	}
+	ss->dev = &pdev->dev;
 
 	return 0;
 }
@@ -301,6 +312,9 @@ static int __devexit sysmon_remove(struct platform_device *pdev)
 {
 	struct sysmon_subsys *ss = &subsys[pdev->id];
 
+	ss->dev = NULL;
+
+	mutex_lock(&ss->lock);
 	switch (ss->transport) {
 	case TRANSPORT_SMD:
 		smd_close(ss->chan);
@@ -309,6 +323,7 @@ static int __devexit sysmon_remove(struct platform_device *pdev)
 		hsic_sysmon_close(HSIC_SYSMON_DEV_EXT_MODEM);
 		break;
 	}
+	mutex_unlock(&ss->lock);
 
 	return 0;
 }
