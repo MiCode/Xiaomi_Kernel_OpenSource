@@ -348,6 +348,8 @@ static int __devinit pil_q6v4_lpass_driver_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->subsys);
 		goto err_subsys;
 	}
+	if (!drv->loadable)
+		subsys_default_online(drv->subsys);
 
 	ret = devm_request_irq(&pdev->dev, q6->wdog_irq, lpass_wdog_bite_irq,
 			IRQF_TRIGGER_RISING, dev_name(&pdev->dev), drv);
