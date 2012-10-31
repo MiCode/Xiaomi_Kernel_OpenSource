@@ -856,6 +856,22 @@ static void calculate_cc_uah(struct pm8921_bms_chip *chip, int cc, int *val)
 	*val = cc_uah;
 }
 
+int pm8921_bms_cc_uah(int *cc_uah)
+{
+	int cc;
+
+	*cc_uah = 0;
+
+	if (!the_chip)
+		return -EINVAL;
+
+	read_cc(the_chip, &cc);
+	calculate_cc_uah(the_chip, cc, cc_uah);
+
+	return 0;
+}
+EXPORT_SYMBOL(pm8921_bms_cc_uah);
+
 static int calculate_termination_uuc(struct pm8921_bms_chip *chip,
 				 int batt_temp, int chargecycles,
 				int fcc_uah, int i_ma,
