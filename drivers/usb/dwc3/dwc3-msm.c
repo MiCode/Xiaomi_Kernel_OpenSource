@@ -1290,6 +1290,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability)
 		dwc3_hsusb_ldo_enable(0);
 
+	dwc3_ssusb_ldo_enable(0);
+	dwc3_ssusb_config_vddcx(0);
 	dwc3_hsusb_config_vddcx(0);
 	wake_unlock(&mdwc->wlock);
 	atomic_set(&mdwc->in_lpm, 1);
@@ -1328,6 +1330,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability)
 		dwc3_hsusb_ldo_enable(1);
 
+	dwc3_ssusb_ldo_enable(1);
+	dwc3_ssusb_config_vddcx(1);
 	dwc3_hsusb_config_vddcx(1);
 	clk_prepare_enable(mdwc->ref_clk);
 	usleep_range(1000, 1200);
