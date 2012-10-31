@@ -411,35 +411,17 @@ static inline int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data)
 	return 0;
 }
 
-static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
+static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
-	struct msm_fb_data_type *mfd = ctl->mfd;
-	int i, ret;
-
-	if (mfd->kickoff_fnc)
-		ret = mfd->kickoff_fnc(ctl);
-	else
-		ret = mdss_mdp_display_commit(ctl, NULL);
-	if (IS_ERR_VALUE(ret))
-		return ret;
-
-	complete(&mfd->update.comp);
-	mutex_lock(&mfd->no_update.lock);
-	if (mfd->no_update.timer.function)
-		del_timer(&(mfd->no_update.timer));
-
-	mfd->no_update.timer.expires = jiffies + (2 * HZ);
-	add_timer(&mfd->no_update.timer);
-	mutex_unlock(&mfd->no_update.lock);
+	LIST_HEAD(destroy_pipes);
+	int i;
 
 	mutex_lock(&mfd->lock);
 	list_for_each_entry_safe(pipe, tmp, &mfd->pipes_cleanup, cleanup_list) {
-		list_del(&pipe->cleanup_list);
+		list_move(&pipe->cleanup_list, &destroy_pipes);
 		for (i = 0; i < ARRAY_SIZE(pipe->buffers); i++)
 			mdss_mdp_overlay_free_buf(&pipe->buffers[i]);
-
-		mdss_mdp_pipe_destroy(pipe);
 	}
 
 	if (!list_empty(&mfd->pipes_used)) {
@@ -458,6 +440,34 @@ static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 		}
 	}
 	mutex_unlock(&mfd->lock);
+	list_for_each_entry_safe(pipe, tmp, &destroy_pipes, cleanup_list)
+		mdss_mdp_pipe_destroy(pipe);
+
+	return 0;
+}
+
+static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
+{
+	struct msm_fb_data_type *mfd = ctl->mfd;
+	int ret;
+
+	if (mfd->kickoff_fnc)
+		ret = mfd->kickoff_fnc(ctl);
+	else
+		ret = mdss_mdp_display_commit(ctl, NULL);
+	if (IS_ERR_VALUE(ret))
+		return ret;
+
+	complete(&mfd->update.comp);
+	mutex_lock(&mfd->no_update.lock);
+	if (mfd->no_update.timer.function)
+		del_timer(&(mfd->no_update.timer));
+
+	mfd->no_update.timer.expires = jiffies + (2 * HZ);
+	add_timer(&mfd->no_update.timer);
+	mutex_unlock(&mfd->no_update.lock);
+
+	ret = mdss_mdp_overlay_cleanup(mfd);
 
 	return ret;
 }
