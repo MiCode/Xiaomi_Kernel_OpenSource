@@ -20,7 +20,7 @@
 #include <linux/types.h>
 
 #include <mach/msm_smd.h>
-#include <mach/peripheral-loader.h>
+#include <mach/subsystem_restart.h>
 
 #include "ipc_router.h"
 #include "smd_private.h"
@@ -210,7 +210,7 @@ static int msm_ipc_router_smd_remote_close(struct msm_ipc_router_xprt *xprt)
 
 	rc = smd_close(smd_xprtp->channel);
 	if (smd_xprtp->pil) {
-		pil_put(smd_xprtp->pil);
+		subsystem_put(smd_xprtp->pil);
 		smd_xprtp->pil = NULL;
 	}
 	return rc;
@@ -402,7 +402,7 @@ static void *msm_ipc_load_subsystem(uint32_t edge)
 
 	peripheral = smd_edge_to_subsystem(edge);
 	if (peripheral) {
-		pil = pil_get(peripheral);
+		pil = subsystem_get(peripheral);
 		if (IS_ERR(pil)) {
 			pr_err("%s: Failed to load %s\n",
 				__func__, peripheral);
@@ -460,7 +460,7 @@ static int msm_ipc_router_smd_remote_probe(struct platform_device *pdev)
 		pr_err("%s: Channel open failed for %s\n",
 			__func__, smd_xprt_cfg[id].ch_name);
 		if (smd_remote_xprt[id].pil) {
-			pil_put(smd_remote_xprt[id].pil);
+			subsystem_put(smd_remote_xprt[id].pil);
 			smd_remote_xprt[id].pil = NULL;
 		}
 		destroy_workqueue(smd_remote_xprt[id].smd_xprt_wq);
@@ -481,7 +481,7 @@ void *msm_ipc_load_default_node(void)
 
 	peripheral = smd_edge_to_subsystem(SMD_APPS_MODEM);
 	if (peripheral && !strncmp(peripheral, "modem", 6)) {
-		pil = pil_get(peripheral);
+		pil = subsystem_get(peripheral);
 		if (IS_ERR(pil)) {
 			pr_err("%s: Failed to load %s\n",
 				__func__, peripheral);
@@ -495,7 +495,7 @@ EXPORT_SYMBOL(msm_ipc_load_default_node);
 void msm_ipc_unload_default_node(void *pil)
 {
 	if (pil)
-		pil_put(pil);
+		subsystem_put(pil);
 }
 EXPORT_SYMBOL(msm_ipc_unload_default_node);
 

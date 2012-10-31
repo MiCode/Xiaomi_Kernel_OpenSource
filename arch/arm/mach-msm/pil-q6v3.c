@@ -396,7 +396,7 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->pil))
 		return PTR_ERR(drv->pil);
 
-	drv->subsys_desc.name = "lpass";
+	drv->subsys_desc.name = "adsp";
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.owner = THIS_MODULE;
 	drv->subsys_desc.start = lpass_q6_start;

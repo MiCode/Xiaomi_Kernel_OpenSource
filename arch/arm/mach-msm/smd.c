@@ -706,7 +706,7 @@ struct edge_to_pid {
  */
 static struct edge_to_pid edge_to_pids[] = {
 	[SMD_APPS_MODEM] = {SMD_APPS, SMD_MODEM, "modem"},
-	[SMD_APPS_QDSP] = {SMD_APPS, SMD_Q6, "q6"},
+	[SMD_APPS_QDSP] = {SMD_APPS, SMD_Q6, "adsp"},
 	[SMD_MODEM_QDSP] = {SMD_MODEM, SMD_Q6},
 	[SMD_APPS_DSPS] = {SMD_APPS, SMD_DSPS, "dsps"},
 	[SMD_MODEM_DSPS] = {SMD_MODEM, SMD_DSPS},
