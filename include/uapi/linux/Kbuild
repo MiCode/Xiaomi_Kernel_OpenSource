@@ -276,6 +276,7 @@ header-y += msm_audio_mvs.h
 header-y += msm_audio_qcp.h
 header-y += msm_audio_amrnb.h
 header-y += msm_audio_amrwb.h
+header-y += msm_audio_amrwbplus.h
 header-y += msm_audio_voicememo.h
 header-y += msm_audio_sbc.h
 header-y += msm_ipc.h
