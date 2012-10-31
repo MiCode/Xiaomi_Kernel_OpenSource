@@ -17,7 +17,6 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 
-#include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
 
 #include "peripheral-loader.h"
@@ -26,7 +25,7 @@
 struct vidc_data {
 	struct clk *smmu_iface;
 	struct clk *core;
-	struct pil_device *pil;
+	struct pil_desc pil_desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 };
@@ -72,31 +71,24 @@ static struct pil_reset_ops pil_vidc_ops = {
 
 static int vidc_start(const struct subsys_desc *desc)
 {
-	void *ret;
-
-	ret = pil_get("vidc");
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	struct vidc_data *drv = subsys_to_drv(desc);
+	return pil_boot(&drv->pil_desc);
 }
 
 static void vidc_stop(const struct subsys_desc *desc)
 {
 	struct vidc_data *drv = subsys_to_drv(desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->pil_desc);
 }
 
 static int __devinit pil_vidc_driver_probe(struct platform_device *pdev)
 {
 	struct pil_desc *desc;
 	struct vidc_data *drv;
+	int ret;
 
 	if (pas_supported(PAS_VIDC) < 0)
 		return -ENOSYS;
-
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -111,13 +103,14 @@ static int __devinit pil_vidc_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->core))
 		return PTR_ERR(drv->core);
 
+	desc = &drv->pil_desc;
 	desc->name = "vidc";
 	desc->dev = &pdev->dev;
 	desc->ops = &pil_vidc_ops;
 	desc->owner = THIS_MODULE;
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
+	ret = pil_desc_init(desc);
+	if (ret)
+		return ret;
 
 	drv->subsys_desc.name = "vidc";
 	drv->subsys_desc.dev = &pdev->dev;
@@ -127,7 +120,7 @@ static int __devinit pil_vidc_driver_probe(struct platform_device *pdev)
 
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
-		msm_pil_unregister(drv->pil);
+		pil_desc_release(desc);
 		return PTR_ERR(drv->subsys);
 	}
 	return 0;
@@ -137,7 +130,7 @@ static int __devexit pil_vidc_driver_exit(struct platform_device *pdev)
 {
 	struct vidc_data *drv = platform_get_drvdata(pdev);
 	subsys_unregister(drv->subsys);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->pil_desc);
 	return 0;
 }
 

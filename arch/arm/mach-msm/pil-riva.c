@@ -25,7 +25,6 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
-#include <mach/peripheral-loader.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -87,7 +86,7 @@ struct riva_data {
 	unsigned long start_addr;
 	struct clk *xo;
 	struct regulator *pll_supply;
-	struct pil_device *pil;
+	struct pil_desc pil_desc;
 	int irq;
 	int crash;
 	int rst_in_progress;
@@ -374,15 +373,10 @@ static void riva_post_bootup(struct work_struct *work)
 
 static int riva_start(const struct subsys_desc *desc)
 {
-	void *ret;
 	struct riva_data *drv;
 
 	drv = container_of(desc, struct riva_data, subsys_desc);
-
-	ret = pil_get("wcnss");
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->pil_desc);
 }
 
 static void riva_stop(const struct subsys_desc *desc)
@@ -390,7 +384,7 @@ static void riva_stop(const struct subsys_desc *desc)
 	struct riva_data *drv;
 
 	drv = container_of(desc, struct riva_data, subsys_desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->pil_desc);
 }
 
 static int riva_shutdown(const struct subsys_desc *desc)
@@ -398,7 +392,7 @@ static int riva_shutdown(const struct subsys_desc *desc)
 	struct riva_data *drv;
 
 	drv = container_of(desc, struct riva_data, subsys_desc);
-	pil_force_shutdown("wcnss");
+	pil_shutdown(&drv->pil_desc);
 	flush_delayed_work(&drv->cancel_work);
 	wcnss_flush_delayed_boot_votes();
 	disable_irq_nosync(drv->irq);
@@ -418,7 +412,7 @@ static int riva_powerup(const struct subsys_desc *desc)
 		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
 					WCNSS_WLAN_SWITCH_ON);
 		if (!ret)
-			pil_force_boot("wcnss");
+			pil_boot(&drv->pil_desc);
 	}
 	drv->rst_in_progress = 0;
 	enable_irq(drv->irq);
@@ -480,10 +474,6 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	if (!drv->base)
 		return -ENOMEM;
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
-
 	drv->pll_supply = devm_regulator_get(&pdev->dev, "pll_vdd");
 	if (IS_ERR(drv->pll_supply)) {
 		dev_err(&pdev->dev, "failed to get pll supply\n");
@@ -509,6 +499,11 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 	if (drv->irq < 0)
 		return drv->irq;
 
+	drv->xo = devm_clk_get(&pdev->dev, "cxo");
+	if (IS_ERR(drv->xo))
+		return PTR_ERR(drv->xo);
+
+	desc = &drv->pil_desc;
 	desc->name = "wcnss";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
@@ -521,14 +516,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 		desc->ops = &pil_riva_ops;
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
-
-	drv->xo = devm_clk_get(&pdev->dev, "cxo");
-	if (IS_ERR(drv->xo))
-		return PTR_ERR(drv->xo);
-
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
+	ret = pil_desc_init(desc);
 
 	ret = smsm_state_cb_register(SMSM_WCNSS_STATE, SMSM_RESET,
 					smsm_state_cb_hdlr, drv);
@@ -573,7 +561,7 @@ err_ramdump:
 	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
 					smsm_state_cb_hdlr, drv);
 err_smsm:
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(desc);
 	return ret;
 }
 
@@ -585,7 +573,7 @@ static int __devexit pil_riva_remove(struct platform_device *pdev)
 	destroy_ramdump_device(drv->ramdump_dev);
 	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
 					smsm_state_cb_hdlr, drv);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->pil_desc);
 
 	return 0;
 }

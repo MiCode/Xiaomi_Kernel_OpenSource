@@ -27,9 +27,7 @@
 #include <linux/workqueue.h>
 #include <linux/wcnss_wlan.h>
 
-#include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
-#include <mach/peripheral-loader.h>
 #include <mach/msm_smsm.h>
 
 #include "peripheral-loader.h"
@@ -245,19 +243,14 @@ static struct pil_reset_ops pil_pronto_ops = {
 
 static int pronto_start(const struct subsys_desc *desc)
 {
-	void *ret;
 	struct pronto_data *drv = subsys_to_drv(desc);
-
-	ret = pil_get(drv->desc.name);
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->desc);
 }
 
 static void pronto_stop(const struct subsys_desc *desc)
 {
 	struct pronto_data *drv = subsys_to_drv(desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->desc);
 }
 
 static void log_wcnss_sfr(void)
@@ -338,7 +331,7 @@ static int wcnss_shutdown(const struct subsys_desc *subsys)
 {
 	struct pronto_data *drv = subsys_to_drv(subsys);
 
-	pil_force_shutdown("wcnss");
+	pil_shutdown(&drv->desc);
 	flush_delayed_work(&drv->cancel_vote_work);
 	wcnss_flush_delayed_boot_votes();
 	disable_irq_nosync(drv->irq);
@@ -358,7 +351,9 @@ static int wcnss_powerup(const struct subsys_desc *subsys)
 					WCNSS_WLAN_SWITCH_ON);
 	if (!ret) {
 		msleep(1000);
-		pil_force_boot("wcnss");
+		ret = pil_boot(&drv->desc);
+		if (ret)
+			return ret;
 	}
 	drv->restart_inprogress = false;
 	enable_irq(drv->irq);
@@ -456,9 +451,9 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->cxo))
 		return PTR_ERR(drv->cxo);
 
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
+	ret = pil_desc_init(desc);
+	if (ret)
+		return ret;
 
 	ret = smsm_state_cb_register(SMSM_WCNSS_STATE, SMSM_RESET,
 					smsm_state_cb_hdlr, drv);
@@ -502,7 +497,7 @@ err_subsys:
 	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
 					smsm_state_cb_hdlr, drv);
 err_smsm:
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(desc);
 	return ret;
 }
 
@@ -512,7 +507,7 @@ static int __devexit pil_pronto_remove(struct platform_device *pdev)
 	subsys_unregister(drv->subsys);
 	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
 					smsm_state_cb_hdlr, drv);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->desc);
 	return 0;
 }
 

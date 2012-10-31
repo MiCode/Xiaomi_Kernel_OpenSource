@@ -25,7 +25,6 @@
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 #include <mach/scm.h>
-#include <mach/peripheral-loader.h>
 
 #include "ramdump.h"
 #include "peripheral-loader.h"
@@ -88,7 +87,7 @@ struct q6v3_data {
 	void __iomem *wd_base;
 	unsigned long start_addr;
 	int irq;
-	struct pil_device *pil;
+	struct pil_desc pil_desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	struct work_struct fatal_wrk;
@@ -250,14 +249,10 @@ static void send_q6_nmi(struct q6v3_data *drv)
 
 static int lpass_q6_start(const struct subsys_desc *subsys)
 {
-	void *ret;
 	struct q6v3_data *drv;
 
 	drv = container_of(subsys, struct q6v3_data, subsys_desc);
-	ret = pil_get("q6");
-	if (IS_ERR(ret))
-		return PTR_ERR(ret);
-	return 0;
+	return pil_boot(&drv->pil_desc);
 }
 
 static void lpass_q6_stop(const struct subsys_desc *subsys)
@@ -265,7 +260,7 @@ static void lpass_q6_stop(const struct subsys_desc *subsys)
 	struct q6v3_data *drv;
 
 	drv = container_of(subsys, struct q6v3_data, subsys_desc);
-	pil_put(drv->pil);
+	pil_shutdown(&drv->pil_desc);
 }
 
 static int lpass_q6_shutdown(const struct subsys_desc *subsys)
@@ -277,7 +272,7 @@ static int lpass_q6_shutdown(const struct subsys_desc *subsys)
 	writel_relaxed(0x0, drv->wd_base + 0x24);
 	mb();
 
-	pil_force_shutdown("q6");
+	pil_shutdown(&drv->pil_desc);
 	disable_irq_nosync(drv->irq);
 
 	return 0;
@@ -289,7 +284,7 @@ static int lpass_q6_powerup(const struct subsys_desc *subsys)
 	int ret;
 
 	drv = container_of(subsys, struct q6v3_data, subsys_desc);
-	ret = pil_force_boot("q6");
+	ret = pil_boot(&drv->pil_desc);
 	enable_irq(drv->irq);
 	return ret;
 }
@@ -375,10 +370,7 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->pll))
 		return PTR_ERR(drv->pll);
 
-	desc = devm_kzalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
-	if (!drv)
-		return -ENOMEM;
-
+	desc = &drv->pil_desc;
 	desc->name = "q6";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
@@ -392,9 +384,9 @@ static int __devinit pil_q6v3_driver_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
-	drv->pil = msm_pil_register(desc);
-	if (IS_ERR(drv->pil))
-		return PTR_ERR(drv->pil);
+	ret = pil_desc_init(desc);
+	if (ret)
+		return ret;
 
 	drv->subsys_desc.name = "adsp";
 	drv->subsys_desc.dev = &pdev->dev;
@@ -433,7 +425,7 @@ err_irq:
 err_subsys:
 	destroy_ramdump_device(drv->ramdump_dev);
 err_ramdump:
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(desc);
 	return ret;
 }
 
@@ -442,7 +434,7 @@ static int __devexit pil_q6v3_driver_exit(struct platform_device *pdev)
 	struct q6v3_data *drv = platform_get_drvdata(pdev);
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->ramdump_dev);
-	msm_pil_unregister(drv->pil);
+	pil_desc_release(&drv->pil_desc);
 	return 0;
 }
 

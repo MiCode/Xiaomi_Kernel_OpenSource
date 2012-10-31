@@ -22,7 +22,6 @@
 #include <linux/delay.h>
 
 #include <mach/scm.h>
-#include <mach/peripheral-loader.h>
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 
@@ -43,7 +42,6 @@ struct lpass_q6v4 {
 	void *ramdump_dev;
 	struct work_struct work;
 	int loadable;
-	void *pil;
 };
 
 static int pil_q6v4_lpass_boot(struct pil_desc *pil)
@@ -197,19 +195,17 @@ static int lpass_start(const struct subsys_desc *desc)
 {
 	struct lpass_q6v4 *drv = subsys_to_lpass(desc);
 
-	if (drv->loadable) {
-		drv->pil = pil_get("q6");
-		if (IS_ERR(drv->pil))
-			return PTR_ERR(drv->pil);
-	}
+	if (drv->loadable)
+		return pil_boot(&drv->q6.desc);
 	return 0;
 }
 
 static void lpass_stop(const struct subsys_desc *desc)
 {
 	struct lpass_q6v4 *drv = subsys_to_lpass(desc);
+
 	if (drv->loadable)
-		pil_put(drv->pil);
+		pil_shutdown(&drv->q6.desc);
 }
 
 static int lpass_shutdown(const struct subsys_desc *subsys)
@@ -218,7 +214,7 @@ static int lpass_shutdown(const struct subsys_desc *subsys)
 
 	send_q6_nmi();
 	if (drv->loadable)
-		pil_force_shutdown("q6");
+		pil_shutdown(&drv->q6.desc);
 	disable_irq_nosync(drv->q6.wdog_irq);
 
 	return 0;
@@ -230,7 +226,7 @@ static int lpass_powerup(const struct subsys_desc *subsys)
 	int ret = 0;
 
 	if (drv->loadable)
-		ret = pil_force_boot("q6");
+		ret = pil_boot(&drv->q6.desc);
 	enable_irq(drv->q6.wdog_irq);
 
 	return ret;
@@ -320,9 +316,9 @@ static int __devinit pil_q6v4_lpass_driver_probe(struct platform_device *pdev)
 			dev_info(&pdev->dev, "using non-secure boot\n");
 		}
 
-		q6->pil = msm_pil_register(desc);
-		if (IS_ERR(q6->pil))
-			return PTR_ERR(q6->pil);
+		ret = pil_desc_init(desc);
+		if (ret)
+			return ret;
 	}
 
 	drv->subsys_desc.name = "adsp";
@@ -385,7 +381,7 @@ err_subsys:
 	destroy_ramdump_device(drv->ramdump_dev);
 err_ramdump:
 	if (drv->loadable)
-		msm_pil_unregister(q6->pil);
+		pil_desc_release(desc);
 	return ret;
 }
 
@@ -399,7 +395,7 @@ static int __devexit pil_q6v4_lpass_driver_exit(struct platform_device *pdev)
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->ramdump_dev);
 	if (drv->loadable)
-		msm_pil_unregister(drv->q6.pil);
+		pil_desc_release(&drv->q6.desc);
 	return 0;
 }
 
