@@ -34,6 +34,7 @@ struct pl310_drv_data {
 	unsigned int slverr;
 	unsigned int decerr;
 	void __iomem *base;
+	unsigned int intr_mask_reg;
 };
 
 #define ECNTR	BIT(0)
@@ -128,19 +129,20 @@ static irqreturn_t pl310_erp_irq(int irq, void *dev_id)
 
 static void pl310_mask_int(struct pl310_drv_data *p, bool enable)
 {
-	uint16_t mask;
-
+	/* L2CC register contents needs to be saved
+	 * as it's power rail will be removed during suspend
+	 */
 	if (enable)
-		mask = 0x1FF;
+		p->intr_mask_reg = 0x1FF;
 	else
-		mask = 0x0;
+		p->intr_mask_reg = 0x0;
 
-	writel_relaxed(mask, p->base + L2X0_INTR_MASK);
+	writel_relaxed(p->intr_mask_reg, p->base + L2X0_INTR_MASK);
 
 	/* Make sure Mask is updated */
 	mb();
 
-	pr_debug("Mask interrupt %x\n",
+	pr_debug("Mask interrupt 0%x\n",
 			readl_relaxed(p->base + L2X0_INTR_MASK));
 }
 
@@ -258,12 +260,42 @@ static int pl310_cache_erp_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int pl310_suspend(struct device *dev)
+{
+	struct pl310_drv_data *p = dev_get_drvdata(dev);
+
+	disable_irq(p->irq);
+
+	return 0;
+}
+
+static int pl310_resume_early(struct device *dev)
+{
+	struct pl310_drv_data *p = dev_get_drvdata(dev);
+
+	pl310_mask_int(p, true);
+
+	enable_irq(p->irq);
+
+	return 0;
+}
+
+static const struct dev_pm_ops pl310_cache_pm_ops = {
+	.suspend = pl310_suspend,
+	.resume_early = pl310_resume_early,
+};
+#endif
+
 static struct platform_driver pl310_cache_erp_driver = {
 	.probe = pl310_cache_erp_probe,
 	.remove = pl310_cache_erp_remove,
 	.driver = {
 		.name = MODULE_NAME,
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm = &pl310_cache_pm_ops,
+#endif
 	},
 };
 
