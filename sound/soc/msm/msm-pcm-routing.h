@@ -18,6 +18,7 @@
 #define LPASS_BE_SLIMBUS_0_RX "SLIMBUS_0_RX"
 #define LPASS_BE_SLIMBUS_0_TX "SLIMBUS_0_TX"
 #define LPASS_BE_HDMI "HDMI"
+#define LPASS_BE_PSEUDO "PSEUDO"
 #define LPASS_BE_INT_BT_SCO_RX "INT_BT_SCO_RX"
 #define LPASS_BE_INT_BT_SCO_TX "INT_BT_SCO_TX"
 #define LPASS_BE_INT_FM_RX "INT_FM_RX"
@@ -61,6 +62,7 @@ enum {
 	MSM_FRONTEND_DAI_MULTIMEDIA6,
 	MSM_FRONTEND_DAI_MULTIMEDIA7,
 	MSM_FRONTEND_DAI_MULTIMEDIA8,
+	MSM_FRONTEND_DAI_PSEUDO,
 	MSM_FRONTEND_DAI_CS_VOICE,
 	MSM_FRONTEND_DAI_VOIP,
 	MSM_FRONTEND_DAI_AFE_RX,
@@ -71,8 +73,8 @@ enum {
 	MSM_FRONTEND_DAI_MAX,
 };
 
-#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA8 + 1)
-#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA8
+#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_PSEUDO + 1)
+#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_PSEUDO
 
 enum {
 	MSM_BACKEND_DAI_PRI_I2S_RX = 0,
@@ -106,6 +108,7 @@ enum {
 	MSM_BACKEND_DAI_EXTPROC_EC_TX,
 	MSM_BACKEND_DAI_SEC_AUXPCM_RX,
 	MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+	MSM_BACKEND_DAI_PSEUDO_PORT,
 	MSM_BACKEND_DAI_MAX,
 };
 
@@ -117,6 +120,12 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 				int dspst_id, int stream_type);
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 		int stream_type, int enable);
+
+void msm_pcm_routing_reg_pseudo_stream(int fedai_id, bool perf_mode,
+				int dspst_id, int stream_type, int sample_rate,
+				int channels);
+
+void msm_pcm_routing_dereg_pseudo_stream(int fedai_id, int dspst_id);
 
 void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
 

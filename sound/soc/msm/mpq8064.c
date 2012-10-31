@@ -1486,6 +1486,20 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.ignore_pmdown_time = 1, /* dainlink has playback support */
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
+
+	},
+	{
+		.name = "MSM8960 Pseudo",
+		.stream_name = "Pseudo",
+		.cpu_dai_name   = "Pseudo",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_PSEUDO,
 	},
 	/* Backend DAI Links */
 	{
@@ -1623,6 +1637,18 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = mpq8064_auxpcm_be_params_fixup,
+	},
+	{
+		.name = LPASS_BE_PSEUDO,
+		.stream_name = "PSEUDO Playback",
+		.cpu_dai_name = "msm-dai-q6.32769",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_PSEUDO_PORT,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
 	},
 };
 

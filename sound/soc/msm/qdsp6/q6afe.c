@@ -156,6 +156,7 @@ int afe_get_port_type(u16 port_id)
 	case VOICE_PLAYBACK_TX:
 	case RT_PROXY_PORT_001_RX:
 	case SLIMBUS_4_RX:
+	case PSEUDOPORT_01:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -225,6 +226,7 @@ int afe_validate_port(u16 port_id)
 	case RT_PROXY_PORT_001_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
+	case PSEUDOPORT_01:
 	{
 		ret = 0;
 		break;
@@ -295,6 +297,7 @@ int afe_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
+	case PSEUDOPORT_01: return IDX_PSEUDOPORT_01;
 
 	default: return -EINVAL;
 	}
@@ -330,6 +333,9 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_port_rtproxy_cfg);
+		break;
+	case PSEUDOPORT_01:
+		ret_size = SIZEOF_CFG_CMD(afe_port_pseudo_cfg);
 		break;
 	case PCM_RX:
 	case PCM_TX:
@@ -505,6 +511,11 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 				config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
 			else
 				config.hdr.opcode = AFE_PORT_CMD_I2S_CONFIG;
+		break;
+		case PSEUDOPORT_01:
+			config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+			pr_debug("%s, config, opcode=%x\n", __func__,
+					config.hdr.opcode);
 		break;
 		default:
 			config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
