@@ -501,7 +501,6 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,pil-q6v5-lpass",   0xFE200000, \
 			"pil-q6v5-lpass", NULL),
 	OF_DEV_AUXDATA("qcom,pil-q6v5-mss", 0xFC880000, "pil-q6v5-mss", NULL),
-	OF_DEV_AUXDATA("qcom,pil-mba",     0xFC820000, "pil-mba", NULL),
 	OF_DEV_AUXDATA("qcom,pil-pronto", 0xFB21B000, \
 			"pil_pronto", NULL),
 	OF_DEV_AUXDATA("arm,coresight-tmc", 0xFC322000, \
