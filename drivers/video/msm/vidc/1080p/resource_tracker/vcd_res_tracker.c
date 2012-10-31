@@ -452,6 +452,10 @@ bail_out:
 static struct ion_client *res_trk_create_ion_client(void){
 	struct ion_client *video_client;
 	video_client = msm_ion_client_create(-1, "video_client");
+	if (IS_ERR_OR_NULL(video_client)) {
+		VCDRES_MSG_ERROR("%s: Unable to create ION client\n", __func__);
+		video_client = NULL;
+	}
 	return video_client;
 }
 

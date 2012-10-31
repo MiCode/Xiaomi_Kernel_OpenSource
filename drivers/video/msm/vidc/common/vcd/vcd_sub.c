@@ -93,7 +93,7 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 		map_buffer->alloc_handle = ion_alloc(
 			    cctxt->vcd_ion_client, sz, SZ_4K,
 			    memtype, 0);
-		if (!map_buffer->alloc_handle) {
+		if (IS_ERR_OR_NULL(map_buffer->alloc_handle)) {
 			pr_err("%s() ION alloc failed", __func__);
 			goto bailout;
 		}
