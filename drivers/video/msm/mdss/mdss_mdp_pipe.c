@@ -268,9 +268,7 @@ int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
 			atomic_read(&pipe->ref_cnt));
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mutex_lock(&mdss_mdp_sspp_lock);
 	mdss_mdp_pipe_free(pipe);
-	mutex_unlock(&mdss_mdp_sspp_lock);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	return 0;
