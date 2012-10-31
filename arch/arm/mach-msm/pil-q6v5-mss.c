@@ -625,7 +625,7 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.start = mss_start;
 	drv->subsys_desc.stop = mss_stop;
 
-	drv->ramdump_dev = create_ramdump_device("modem");
+	drv->ramdump_dev = create_ramdump_device("modem", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		pr_err("%s: Unable to create a modem ramdump device.\n",
 			__func__);
@@ -633,7 +633,7 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 		goto err_ramdump;
 	}
 
-	drv->smem_ramdump_dev = create_ramdump_device("smem-modem");
+	drv->smem_ramdump_dev = create_ramdump_device("smem-modem", &pdev->dev);
 	if (!drv->smem_ramdump_dev) {
 		pr_err("%s: Unable to create an smem ramdump device.\n",
 			__func__);

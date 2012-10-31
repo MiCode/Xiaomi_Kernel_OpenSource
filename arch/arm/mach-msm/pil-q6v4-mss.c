@@ -435,19 +435,19 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 	drv->subsys_desc.ramdump = modem_ramdump;
 	drv->subsys_desc.crash_shutdown = modem_crash_shutdown;
 
-	drv->fw_ramdump_dev = create_ramdump_device("modem_fw");
+	drv->fw_ramdump_dev = create_ramdump_device("modem_fw", &pdev->dev);
 	if (!drv->fw_ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_fw_ramdump;
 	}
 
-	drv->sw_ramdump_dev = create_ramdump_device("modem_sw");
+	drv->sw_ramdump_dev = create_ramdump_device("modem_sw", &pdev->dev);
 	if (!drv->sw_ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_sw_ramdump;
 	}
 
-	drv->smem_ramdump_dev = create_ramdump_device("smem-modem");
+	drv->smem_ramdump_dev = create_ramdump_device("smem-modem", &pdev->dev);
 	if (!drv->smem_ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_smem_ramdump;

@@ -414,7 +414,7 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 
 	INIT_WORK(&drv->work, adsp_fatal_fn);
 
-	drv->ramdump_dev = create_ramdump_device("adsp");
+	drv->ramdump_dev = create_ramdump_device("adsp", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_ramdump;

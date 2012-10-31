@@ -181,7 +181,7 @@ const struct file_operations ramdump_file_ops = {
 	.poll = ramdump_poll
 };
 
-void *create_ramdump_device(const char *dev_name)
+void *create_ramdump_device(const char *dev_name, struct device *parent)
 {
 	int ret;
 	struct ramdump_device *rd_dev;
@@ -207,6 +207,7 @@ void *create_ramdump_device(const char *dev_name)
 	rd_dev->device.minor = MISC_DYNAMIC_MINOR;
 	rd_dev->device.name = rd_dev->name;
 	rd_dev->device.fops = &ramdump_file_ops;
+	rd_dev->device.parent = parent;
 
 	init_waitqueue_head(&rd_dev->dump_wait_q);
 

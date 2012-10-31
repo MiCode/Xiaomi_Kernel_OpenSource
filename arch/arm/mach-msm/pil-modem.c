@@ -498,7 +498,7 @@ static int __devinit pil_modem_driver_probe(struct platform_device *pdev)
 		goto err_subsys;
 	}
 
-	drv->ramdump_dev = create_ramdump_device("modem");
+	drv->ramdump_dev = create_ramdump_device("modem", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_ramdump;

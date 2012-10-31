@@ -535,7 +535,7 @@ static int __devinit pil_riva_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&drv->cancel_work, riva_post_bootup);
 
-	drv->ramdump_dev = create_ramdump_device("riva");
+	drv->ramdump_dev = create_ramdump_device("riva", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_ramdump;
