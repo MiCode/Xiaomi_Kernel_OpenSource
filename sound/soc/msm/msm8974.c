@@ -811,8 +811,8 @@ void *def_taiko_mbhc_cal(void)
 	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
 					       MBHC_BTN_DET_V_BTN_HIGH);
 	btn_low[0] = -50;
-	btn_high[0] = 34;
-	btn_low[1] = 35;
+	btn_high[0] = 10;
+	btn_low[1] = 11;
 	btn_high[1] = 52;
 	btn_low[2] = 53;
 	btn_high[2] = 94;
