@@ -386,7 +386,7 @@ static int __init acpuclk_9625_probe(struct platform_device *pdev)
 {
 	unsigned long max_cpu_khz = 0;
 	struct resource *res;
-	int i;
+	int i, rc;
 	u32 regval;
 
 	mutex_init(&drv_data.lock);
@@ -447,12 +447,43 @@ static int __init acpuclk_9625_probe(struct platform_device *pdev)
 				acpu_freq_tbl[i].use_for_scaling; i++)
 		max_cpu_khz = acpu_freq_tbl[i].khz;
 
+	/* Initialize regulators */
+	rc = increase_vdd(acpu_freq_tbl[i].vdd_cpu, acpu_freq_tbl[i].vdd_mem);
+	if (rc)
+		goto err_vdd;
+
+	rc = regulator_enable(drv_data.vdd_mem);
+	if (rc) {
+		dev_err(&pdev->dev, "regulator_enable for a5_mem failed\n");
+		goto err_vdd;
+	}
+
+	rc = regulator_enable(drv_data.vdd_cpu);
+	if (rc) {
+		dev_err(&pdev->dev, "regulator_enable for a5_cpu failed\n");
+		goto err_vdd_cpu;
+	}
+
 	acpuclk_9625_set_rate(smp_processor_id(), max_cpu_khz, SETRATE_INIT);
 
 	acpuclk_register(&acpuclk_9625_data);
 	cpufreq_table_init();
 
 	return 0;
+
+err_vdd_cpu:
+	regulator_disable(drv_data.vdd_mem);
+err_vdd:
+	regulator_put(drv_data.vdd_mem);
+	regulator_put(drv_data.vdd_cpu);
+
+	for (i = 0; i < NUM_SRC; i++) {
+		if (!src_clocks[i].name)
+			continue;
+		clk_unprepare(src_clocks[i].clk);
+		clk_put(src_clocks[i].clk);
+	}
+	return rc;
 }
 
 static struct of_device_id acpuclk_9625_match_table[] = {
