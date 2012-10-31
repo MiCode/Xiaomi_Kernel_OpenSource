@@ -53,15 +53,12 @@ struct hdmi_msm_cec_msg {
 struct hdmi_msm_state_type {
 	boolean panel_power_on;
 	boolean hpd_initialized;
-	boolean hpd_state_in_isr;
 #ifdef CONFIG_SUSPEND
 	boolean pm_suspended;
 #endif
-	boolean hpd_cable_chg_detected;
 	boolean full_auth_done;
 	boolean hpd_during_auth;
 	struct work_struct hpd_state_work;
-	struct timer_list hpd_state_timer;
 	struct completion ddc_sw_done;
 
 	bool hdcp_enable;
