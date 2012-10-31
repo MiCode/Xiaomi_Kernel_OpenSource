@@ -1037,6 +1037,7 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 	struct vsync_update *vp;
 	int undx;
 	int need_wait, cnt;
+	unsigned long flags;
 
 	pr_debug("%s+: pid=%d\n", __func__, current->pid);
 
@@ -1071,11 +1072,16 @@ int mdp4_dsi_cmd_off(struct platform_device *pdev)
 		}
 	}
 
-	/* message for system suspnded */
-	if (cnt > 10)
-		pr_err("%s:Error,  mdp clocks NOT off\n", __func__);
-	else
-		pr_debug("%s: mdp clocks off at cnt=%d\n", __func__, cnt);
+	if (cnt > 10) {
+		spin_lock_irqsave(&vctrl->spin_lock, flags);
+		vctrl->clk_control = 0;
+		vctrl->clk_enabled = 0;
+		vctrl->expire_tick = 0;
+		spin_unlock_irqrestore(&vctrl->spin_lock, flags);
+		mipi_dsi_clk_cfg(0);
+		mdp_clk_ctrl(0);
+		pr_err("%s: Error, SET_CLK_OFF by force\n", __func__);
+	}
 
 	/* sanity check, free pipes besides base layer */
 	mdp4_overlay_unset_mixer(pipe->mixer_num);
