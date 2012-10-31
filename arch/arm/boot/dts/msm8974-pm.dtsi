@@ -428,4 +428,11 @@
 		qcom,pc-mode = <0>; /*MSM_PC_TZ_L2_INT */
 		qcom,use-sync-timer;
 	};
+
+	qcom,rpm-stats@0xfc19dbd0{
+		compatible = "qcom,rpm-stats";
+		reg = <0xfc19dbd0 0x1000>;
+		reg-names = "phys_addr_base";
+		qcom,sleep-stats-version = <2>;
+	};
 };
