@@ -67,7 +67,6 @@ static unsigned char *mdss_dsi_base;
 static int pll_byte_clk_rate;
 static int pll_pclk_rate;
 static int pll_initialized;
-static int pll_enabled;
 static struct clk *mdss_dsi_ahb_clk;
 static unsigned long dsi_pll_rate;
 
@@ -208,14 +207,11 @@ static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	return 0;
 }
 
-static int mdss_dsi_pll_enable(struct clk *c)
+static int __mdss_dsi_pll_enable(struct clk *c)
 {
 	u32 status;
 	u32 max_reads, timeout_us;
 	int i;
-
-	if (pll_enabled)
-		return 0;
 
 	if (!pll_initialized) {
 		if (dsi_pll_rate)
@@ -266,12 +262,11 @@ static int mdss_dsi_pll_enable(struct clk *c)
 
 	pr_debug("%s: **** PLL Lock success\n", __func__);
 	clk_disable(mdss_dsi_ahb_clk);
-	pll_enabled = 1;
 
 	return 0;
 }
 
-static void mdss_dsi_pll_disable(struct clk *c)
+static void __mdss_dsi_pll_disable(void)
 {
 	if (!mdss_dsi_ahb_clk)
 		pr_err("%s: mdss_dsi_ahb_clk not initialized\n",
@@ -282,7 +277,40 @@ static void mdss_dsi_pll_disable(struct clk *c)
 	clk_disable(mdss_dsi_ahb_clk);
 	pr_debug("%s: **** disable pll Initialize\n", __func__);
 	pll_initialized = 0;
-	pll_enabled = 0;
+}
+
+static DEFINE_SPINLOCK(dsipll_lock);
+static int dsipll_refcount;
+
+static void mdss_dsi_pll_disable(struct clk *c)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&dsipll_lock, flags);
+	if (WARN(dsipll_refcount == 0, "DSI PLL clock is unbalanced"))
+		goto out;
+	if (dsipll_refcount == 1)
+		__mdss_dsi_pll_disable();
+	dsipll_refcount--;
+out:
+	spin_unlock_irqrestore(&dsipll_lock, flags);
+}
+
+static int mdss_dsi_pll_enable(struct clk *c)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&dsipll_lock, flags);
+	if (dsipll_refcount == 0) {
+		ret = __mdss_dsi_pll_enable(c);
+		if (ret < 0)
+			goto out;
+	}
+	dsipll_refcount++;
+out:
+	spin_unlock_irqrestore(&dsipll_lock, flags);
+	return ret;
 }
 
 void hdmi_pll_disable(void)
