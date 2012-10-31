@@ -63,6 +63,8 @@ struct tzbsp_resp {
 	int ret;
 };
 
+#define TIME_DIFF_THRESHOLD 200
+
 static const u32 bus_table[] = {
 	36000,
 	110400,
@@ -756,12 +758,58 @@ static void handle_ebd(enum command_response cmd, void *data)
 	}
 }
 
+static void msm_comm_update_clocks(struct msm_vidc_inst *inst,
+	u64 cur_time_stamp)
+{
+	u32 new_time_diff = 0, cur_time_diff = 0;
+	u8 updated_fps = 0;
+	struct v4l2_ctrl *ctrl = NULL;
+	u32 output_order = 0;
+
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		goto exit;
+	ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
+		V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER);
+	if (!ctrl) {
+		dprintk(VIDC_WARN, "Unable to find output order control\n");
+		dprintk(VIDC_WARN,
+			"Performance might be impacted for higher fps clips\n");
+		goto exit;
+	}
+	output_order = v4l2_ctrl_g_ctrl(ctrl);
+	if (output_order == V4L2_MPEG_VIDC_VIDEO_OUTPUT_ORDER_DISPLAY) {
+		new_time_diff =
+			(u32)(cur_time_stamp - inst->prop.prev_time_stamp);
+		inst->prop.prev_time_stamp = cur_time_stamp;
+		if (!new_time_diff)
+			goto exit;
+		if (inst->prop.fps)
+			cur_time_diff = USEC_PER_SEC / inst->prop.fps;
+		cur_time_diff = cur_time_diff > new_time_diff ?
+			cur_time_diff - new_time_diff :
+			new_time_diff - cur_time_diff;
+		if (cur_time_diff > TIME_DIFF_THRESHOLD) {
+			updated_fps = (u8) (USEC_PER_SEC / new_time_diff);
+			if (updated_fps && (updated_fps != inst->prop.fps)) {
+				inst->prop.fps = updated_fps;
+				dprintk(VIDC_DBG,
+						"Updating clocks: Decoding fps = %d\n",
+						inst->prop.fps);
+				msm_comm_scale_clocks_and_bus(inst);
+			}
+		}
+	}
+exit:
+	return;
+}
+
 static void handle_fbd(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
 	struct msm_vidc_inst *inst;
 	struct vb2_buffer *vb;
 	struct vidc_hal_fbd *fill_buf_done;
+
 	if (!response) {
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
 		return;
@@ -777,9 +825,9 @@ static void handle_fbd(enum command_response cmd, void *data)
 			int64_t time_usec = fill_buf_done->timestamp_hi;
 			time_usec = (time_usec << 32) |
 				fill_buf_done->timestamp_lo;
-
 			vb->v4l2_buf.timestamp =
 				ns_to_timeval(time_usec * NSEC_PER_USEC);
+				msm_comm_update_clocks(inst, time_usec);
 		}
 		vb->v4l2_buf.flags = 0;
 
@@ -1013,16 +1061,17 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 	}
 	if (msm_comm_scale_clocks(core)) {
 		dprintk(VIDC_WARN,
-		"Failed to scale clocks. Performance might be impacted\n");
+				"Failed to scale clocks. Performance might be impacted\n");
 	}
 	if (msm_comm_scale_bus(core, inst->session_type, DDR_MEM)) {
 		dprintk(VIDC_WARN,
-		"Failed to scale DDR bus. Performance might be impacted\n");
+				"Failed to scale DDR bus. Performance might be impacted\n");
 	}
 	if (core->resources.ocmem.buf) {
-		if (msm_comm_scale_bus(core, inst->session_type, OCMEM_MEM))
+		if (msm_comm_scale_bus(core, inst->session_type,
+					OCMEM_MEM))
 			dprintk(VIDC_WARN,
-			"Failed to scale OCMEM bus. Performance might be impacted\n");
+					"Failed to scale OCMEM bus. Performance might be impacted\n");
 	}
 }
 
@@ -1710,7 +1759,6 @@ exit:
 				inst->state, state);
 	return rc;
 }
-
 int msm_comm_qbuf(struct vb2_buffer *vb)
 {
 	int rc = 0;

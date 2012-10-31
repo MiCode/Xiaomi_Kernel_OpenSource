@@ -1060,6 +1060,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->prop.height = DEFAULT_HEIGHT;
 	inst->prop.width = DEFAULT_WIDTH;
 	inst->prop.fps = 30;
+	inst->prop.prev_time_stamp = 0;
 	return rc;
 }
 
