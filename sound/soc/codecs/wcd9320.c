@@ -4470,9 +4470,6 @@ static const struct taiko_reg_mask_val taiko_reg_defaults[] = {
 	TAIKO_REG_VAL(TAIKO_A_CDC_RX5_B6_CTL, 0x80),
 	TAIKO_REG_VAL(TAIKO_A_CDC_RX6_B6_CTL, 0x80),
 	TAIKO_REG_VAL(TAIKO_A_CDC_RX7_B6_CTL, 0x80),
-
-	/* TX VHIGH comparator */
-	TAIKO_REG_VAL(TAIKO_A_TX_SUP_SWITCH_CTRL_2, 0x90),
 };
 
 static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
@@ -4504,6 +4501,9 @@ static const struct taiko_reg_mask_val taiko_1_0_reg_defaults[] = {
 	 * Setting this bit of micbias 2 prevents leakage for all other micbias.
 	 */
 	TAIKO_REG_VAL(TAIKO_A_MICB_2_MBHC, 0x41),
+
+	/* Disable TX7 internal biasing path which can cause leakage */
+	TAIKO_REG_VAL(TAIKO_A_TX_SUP_SWITCH_CTRL_1, 0xBF),
 };
 
 static void taiko_update_reg_defaults(struct snd_soc_codec *codec)
