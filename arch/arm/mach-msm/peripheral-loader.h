@@ -19,7 +19,6 @@ struct pil_priv;
 /**
  * struct pil_desc - PIL descriptor
  * @name: string used for pil_get()
- * @depends_on: booted before this peripheral
  * @dev: parent device
  * @ops: callback functions
  * @owner: module the descriptor belongs to
@@ -28,7 +27,6 @@ struct pil_priv;
  */
 struct pil_desc {
 	const char *name;
-	const char *depends_on;
 	struct device *dev;
 	const struct pil_reset_ops *ops;
 	struct module *owner;
@@ -56,21 +54,12 @@ struct pil_reset_ops {
 	int (*shutdown)(struct pil_desc *pil);
 };
 
-struct pil_device;
-
 #ifdef CONFIG_MSM_PIL
-extern struct pil_device *msm_pil_register(struct pil_desc *desc);
-extern void msm_pil_unregister(struct pil_device *pil);
 extern int pil_desc_init(struct pil_desc *desc);
 extern int pil_boot(struct pil_desc *desc);
 extern void pil_shutdown(struct pil_desc *desc);
 extern void pil_desc_release(struct pil_desc *desc);
 #else
-static inline struct pil_device *msm_pil_register(struct pil_desc *desc)
-{
-	return NULL;
-}
-static inline void msm_pil_unregister(struct pil_device *pil) { }
 static inline int pil_desc_init(struct pil_desc *desc) { return 0; }
 static inline int pil_boot(struct pil_desc *desc) { return 0; }
 static inline void pil_shutdown(struct pil_desc *desc) { }
