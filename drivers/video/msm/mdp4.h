@@ -531,7 +531,7 @@ static inline void mdp4_dtv_base_swap(struct mdp4_overlay_pipe *pipe)
 }
 #endif /* CONFIG_FB_MSM_DTV */
 
-void mdp4_dtv_set_black_screen(void);
+void mdp4_dtv_set_black_screen(bool commit);
 
 int mdp4_overlay_dtv_set(struct msm_fb_data_type *mfd,
 			struct mdp4_overlay_pipe *pipe);

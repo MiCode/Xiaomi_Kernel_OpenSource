@@ -3120,7 +3120,7 @@ static void mdp_early_suspend(struct early_suspend *h)
 {
 	mdp_suspend_sub();
 #ifdef CONFIG_FB_MSM_DTV
-	mdp4_dtv_set_black_screen();
+	mdp4_dtv_set_black_screen(FALSE);
 #endif
 	mdp_footswitch_ctrl(FALSE);
 }
