@@ -84,6 +84,10 @@ struct pil_seg {
  * @desc: pointer to pil_desc this is private data for
  * @seg: list of segments sorted by physical address
  * @entry_addr: physical address where processor starts booting at
+ * @region_start: address where relocatable region starts or lowest address
+ * for non-relocatable images
+ * @region_end: address where relocatable region ends or highest address for
+ * non-relocatable images
  *
  * This struct contains data for a pil_desc that should not be exposed outside
  * of this file. This structure points to the descriptor and the descriptor
@@ -97,6 +101,8 @@ struct pil_priv {
 	struct pil_desc *desc;
 	struct list_head segs;
 	phys_addr_t entry_addr;
+	phys_addr_t region_start;
+	phys_addr_t region_end;
 };
 
 /**
@@ -214,6 +220,31 @@ static int pil_init_entry_addr(struct pil_priv *priv, const struct pil_mdt *mdt)
 	return -EADDRNOTAVAIL;
 }
 
+static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
+{
+	const struct elf32_phdr *phdr;
+	phys_addr_t min_addr, max_addr;
+	int i;
+
+	min_addr = (phys_addr_t)ULLONG_MAX;
+	max_addr = 0;
+
+	/* Find the image limits */
+	for (i = 0; i < mdt->hdr.e_phnum; i++) {
+		phdr = &mdt->phdr[i];
+		if (!segment_is_loadable(phdr))
+			continue;
+
+		min_addr = min(min_addr, phdr->p_paddr);
+		max_addr = max(max_addr, phdr->p_paddr + phdr->p_memsz);
+	}
+
+	priv->region_start = min_addr;
+	priv->region_end = max_addr;
+
+	return 0;
+}
+
 static int pil_cmp_seg(void *priv, struct list_head *a, struct list_head *b)
 {
 	struct pil_seg *seg_a = list_entry(a, struct pil_seg, list);
@@ -227,7 +258,11 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	struct pil_priv *priv = desc->priv;
 	const struct elf32_phdr *phdr;
 	struct pil_seg *seg;
-	int i;
+	int i, ret;
+
+	ret = pil_setup_region(priv, mdt);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < mdt->hdr.e_phnum; i++) {
 		phdr = &mdt->phdr[i];
@@ -355,6 +390,7 @@ int pil_boot(struct pil_desc *desc)
 	struct pil_seg *seg;
 	const struct firmware *fw;
 	unsigned long proxy_timeout = desc->proxy_timeout;
+	struct pil_priv *priv = desc->priv;
 
 	/* Reinitialize for new image */
 	pil_release_mmap(desc);
@@ -402,6 +438,14 @@ int pil_boot(struct pil_desc *desc)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
 		pil_err(desc, "Invalid firmware metadata\n");
+		goto release_fw;
+	}
+
+	if (desc->ops->mem_setup)
+		ret = desc->ops->mem_setup(desc, priv->region_start,
+				priv->region_end - priv->region_start);
+	if (ret) {
+		pil_err(desc, "Memory setup error\n");
 		goto release_fw;
 	}
 
