@@ -1911,7 +1911,8 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 	}
 
 	/* last_soc < soc  ... scale and catch up */
-	if (last_soc != -EINVAL && last_soc < soc && soc != 100)
+	if (last_soc != -EINVAL && last_soc < soc && soc != 100
+				&& chip->catch_up_time_us != 0)
 		soc = scale_soc_while_chg(chip, delta_time_us, soc, last_soc);
 
 	last_soc = soc;
