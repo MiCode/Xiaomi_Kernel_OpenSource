@@ -54,18 +54,6 @@
 #define QPNP_VADC_STATUS2_CONV_SEQ_STATE_SHIFT			4
 #define QPNP_VADC_CONV_TIMEOUT_ERR				2
 
-#define QPNP_VADC_INT_SET_TYPE					0x11
-#define QPNP_VADC_INT_POLARITY_HIGH				0x12
-#define QPNP_VADC_INT_POLARITY_LOW				0x13
-#define QPNP_VADC_INT_LATCHED_CLR				0x14
-#define QPNP_VADC_INT_EN_SET					0x15
-#define QPNP_VADC_INT_CLR					0x16
-#define QPNP_VADC_INT_LOW_THR_BIT				BIT(4)
-#define QPNP_VADC_INT_HIGH_THR_BIT				BIT(3)
-#define QPNP_VADC_INT_CONV_SEQ_TIMEOUT_BIT			BIT(2)
-#define QPNP_VADC_INT_FIFO_NOT_EMPTY_BIT			BIT(1)
-#define QPNP_VADC_INT_EOC_BIT					BIT(0)
-#define QPNP_VADC_INT_CLR_MASK					0x1f
 #define QPNP_VADC_MODE_CTL					0x40
 #define QPNP_VADC_OP_MODE_SHIFT					4
 #define QPNP_VADC_VREF_XO_THM_FORCE				BIT(2)
@@ -156,39 +144,6 @@ static int32_t qpnp_vadc_write_reg(int16_t reg, u8 data)
 	return 0;
 }
 
-static int32_t qpnp_vadc_configure_interrupt(void)
-{
-	int rc = 0;
-	u8 data = 0;
-
-	/* Configure interrupt as an Edge trigger */
-	rc = qpnp_vadc_write_reg(QPNP_VADC_INT_SET_TYPE,
-					QPNP_VADC_INT_CLR_MASK);
-	if (rc < 0) {
-		pr_err("%s Interrupt configure failed\n", __func__);
-		return rc;
-	}
-
-	/* Configure interrupt for rising edge trigger */
-	rc = qpnp_vadc_write_reg(QPNP_VADC_INT_POLARITY_HIGH,
-					QPNP_VADC_INT_CLR_MASK);
-	if (rc < 0) {
-		pr_err("%s Rising edge trigger configure failed\n", __func__);
-		return rc;
-	}
-
-	/* Disable low level interrupt triggering */
-	data = QPNP_VADC_INT_CLR_MASK;
-	rc = qpnp_vadc_write_reg(QPNP_VADC_INT_POLARITY_LOW,
-					(~data & QPNP_VADC_INT_CLR_MASK));
-	if (rc < 0) {
-		pr_err("%s Setting level low to disable failed\n", __func__);
-		return rc;
-	}
-
-	return 0;
-}
-
 static int32_t qpnp_vadc_enable(bool state)
 {
 	int rc = 0;
@@ -221,13 +176,6 @@ int32_t qpnp_vadc_configure(
 	u8 decimation = 0, conv_sequence = 0, conv_sequence_trig = 0;
 	u8 mode_ctrl = 0;
 	int rc = 0;
-
-	rc = qpnp_vadc_write_reg(QPNP_VADC_INT_EN_SET,
-			QPNP_VADC_INT_EOC_BIT);
-	if (rc < 0) {
-		pr_err("Configure error for interrupt setup\n");
-		return rc;
-	}
 
 	/* Mode selection */
 	mode_ctrl = chan_prop->mode_sel << QPNP_VADC_OP_MODE_SHIFT;
@@ -389,11 +337,6 @@ static int32_t qpnp_vadc_read_status(int mode_sel)
 static void qpnp_vadc_work(struct work_struct *work)
 {
 	struct qpnp_vadc_drv *vadc = qpnp_vadc;
-	int rc;
-
-	rc = qpnp_vadc_write_reg(QPNP_VADC_INT_CLR, QPNP_VADC_INT_EOC_BIT);
-	if (rc)
-		pr_err("qpnp_vadc clear mask interrupt failed with %d\n", rc);
 
 	complete(&vadc->adc->adc_rslt_completion);
 
@@ -797,25 +740,14 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 	rc = qpnp_vadc_init_hwmon(spmi);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to initialize qpnp hwmon adc\n");
-		goto fail_free_irq;
+		return rc;
 	}
 	vadc->vadc_hwmon = hwmon_device_register(&vadc->adc->spmi->dev);
 	vadc->vadc_init_calib = false;
-	vadc->vadc_initialized = true;
 	vadc->max_channels_available = count_adc_channel_list;
-
-	rc = qpnp_vadc_configure_interrupt();
-	if (rc) {
-		dev_err(&spmi->dev, "failed to configure interrupt");
-		goto fail_free_irq;
-	}
+	vadc->vadc_initialized = true;
 
 	return 0;
-
-fail_free_irq:
-	free_irq(vadc->adc->adc_irq, vadc);
-
-	return rc;
 }
 
 static int qpnp_vadc_remove(struct spmi_device *spmi)
@@ -830,7 +762,6 @@ static int qpnp_vadc_remove(struct spmi_device *spmi)
 			&vadc->sens_attr[i].dev_attr);
 		i++;
 	}
-	free_irq(vadc->adc->adc_irq, vadc);
 	vadc->vadc_initialized = false;
 	dev_set_drvdata(&spmi->dev, NULL);
 

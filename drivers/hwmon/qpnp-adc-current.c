@@ -54,28 +54,6 @@
 #define QPNP_STATUS2_CONV_SEQ_TIMEOUT_STS		BIT(0)
 #define QPNP_CONV_TIMEOUT_ERR				2
 
-#define QPNP_INT_RT_ST					0x10
-#define QPNP_INT_SET_TYPE				0x11
-#define QPNP_INT_SET_TYPE_LOW_THR_INT_SET		BIT(4)
-#define QPNP_INT_SET_TYPE_HIGH_THR_INT_SET		BIT(3)
-#define QPNP_INT_SET_TYPE_CONV_SEQ_TIMEOUT_INT_SET	BIT(2)
-#define QPNP_INT_SET_TYPE_FIFO_NOT_EMPTY_INT_SET	BIT(1)
-#define QPNP_INT_SET_TYPE_EOC_SET_INT_TYPE		BIT(0)
-#define QPNP_INT_POLARITY_HIGH				0x12
-#define QPNP_INT_POLARITY_LOW				0x13
-#define QPNP_INT_EN_SET					0x15
-#define QPNP_INT_EN_SET_LOW_THR_INT_EN_SET		BIT(4)
-#define QPNP_INT_EN_SET_HIGH_THR_INT_EN_SET		BIT(3)
-#define QPNP_INT_EN_SET_CONV_SEQ_TIMEOUT_INT_EN		BIT(2)
-#define QPNP_INT_EN_SET_FIFO_NOT_EMPTY_INT_EN		BIT(1)
-#define QPNP_INT_EN_SET_EOC_INT_EN_SET			BIT(0)
-#define QPNP_INT_CLR					0x16
-#define QPNP_INT_CLR_LOW_THR_INT_EN_CLR			BIT(4)
-#define QPNP_INT_CLR_HIGH_THR_INT_EN_CLKR		BIT(3)
-#define QPNP_INT_CLR_CONV_SEQ_TIMEOUT_INT_EN		BIT(2)
-#define QPNP_INT_CLR_FIFO_NOT_EMPTY_INT_EN		BIT(1)
-#define QPNP_INT_CLR_EOC_INT_EN_CLR			BIT(0)
-#define QPNP_INT_CLR_MASK				0x1f
 #define QPNP_IADC_MODE_CTL				0x40
 #define QPNP_OP_MODE_SHIFT				4
 #define QPNP_USE_BMS_DATA				BIT(4)
@@ -192,47 +170,9 @@ static int32_t qpnp_iadc_write_reg(uint32_t reg, u8 data)
 	return 0;
 }
 
-static int32_t qpnp_iadc_configure_interrupt(void)
-{
-	int rc = 0;
-	u8 data = 0;
-
-	/* Configure interrupt as an Edge trigger */
-	rc = qpnp_iadc_write_reg(QPNP_INT_SET_TYPE,
-					QPNP_INT_CLR_MASK);
-	if (rc < 0) {
-		pr_err("%s Interrupt configure failed\n", __func__);
-		return rc;
-	}
-
-	/* Configure interrupt for rising edge trigger */
-	rc = qpnp_iadc_write_reg(QPNP_INT_POLARITY_HIGH,
-					QPNP_INT_CLR_MASK);
-	if (rc < 0) {
-		pr_err("%s Rising edge trigger configure failed\n", __func__);
-		return rc;
-	}
-
-	/* Disable low level interrupt triggering */
-	data = QPNP_INT_CLR_MASK;
-	rc = qpnp_iadc_write_reg(QPNP_INT_POLARITY_LOW,
-					(~data & QPNP_INT_CLR_MASK));
-	if (rc < 0) {
-		pr_err("%s Setting level low to disable failed\n", __func__);
-		return rc;
-	}
-
-	return 0;
-}
-
 static void trigger_iadc_completion(struct work_struct *work)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
-	int rc;
-
-	rc = qpnp_iadc_write_reg(QPNP_INT_CLR, QPNP_INT_CLR_MASK);
-	if (rc < 0)
-		pr_err("qpnp iadc interrupt mask failed with %d\n", rc);
 
 	complete(&iadc->adc->adc_rslt_completion);
 
@@ -314,13 +254,6 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 					QPNP_IADC_DEC_RATIO_SEL;
 
 	qpnp_iadc_conv_req = QPNP_IADC_CONV_REQ;
-
-	rc = qpnp_iadc_write_reg(QPNP_INT_EN_SET,
-					QPNP_INT_EN_SET_EOC_INT_EN_SET);
-	if (rc < 0) {
-		pr_err("qpnp adc configure error for interrupt setup\n");
-		return rc;
-	}
 
 	rc = qpnp_iadc_write_reg(QPNP_IADC_MODE_CTL, qpnp_iadc_mode_reg);
 	if (rc) {
@@ -765,12 +698,6 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 		return rc;
 	}
 	iadc->iadc_hwmon = hwmon_device_register(&iadc->adc->spmi->dev);
-
-	rc = qpnp_iadc_configure_interrupt();
-	if (rc) {
-		dev_err(&spmi->dev, "failed to configure interrupt\n");
-		return rc;
-	}
 
 	rc = qpnp_iadc_version_check();
 	if (rc) {
