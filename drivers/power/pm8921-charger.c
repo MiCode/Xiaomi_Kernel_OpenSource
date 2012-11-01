@@ -4210,7 +4210,7 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 			return rc;
 		}
 		/* Check if die 3.0.1 is present */
-		if (subrev == 0x1)
+		if (subrev & 0x1)
 			pm_chg_write(chip, CHG_BUCK_CTRL_TEST3, 0xA4);
 		else
 			pm_chg_write(chip, CHG_BUCK_CTRL_TEST3, 0xAC);
