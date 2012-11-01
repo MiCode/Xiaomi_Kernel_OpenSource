@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,10 +14,10 @@
 /include/ "skeleton.dtsi"
 
 / {
-	qcom,cam_server {
-		compatible = "qcom,cam_server";
+	qcom,msm-cam@fd8C0000 {
+		compatible = "qcom,msm-cam";
 		reg = <0xfd8C0000 0x10000>;
-		reg-names = "server";
+		reg-names = "msm-cam";
 	};
 
 	qcom,csiphy@fda0ac00 {

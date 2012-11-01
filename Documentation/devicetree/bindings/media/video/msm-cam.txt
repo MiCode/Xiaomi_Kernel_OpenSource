@@ -1,0 +1,15 @@
+* Qualcomm MSM Camera
+
+Required properties:
+- compatible :
+    - "qcom,msm-cam"
+- reg : offset and length of msm camera device registers.
+- reg-names : should specify relevant names for each reg property defined.
+
+Example:
+
+   qcom,msm-cam@fd8c0000 {
+       compatible = "qcom,msm-cam";
+       reg = <0xfd8C0000 0x10000>;
+       reg-names = "msm-cam";
+   };
