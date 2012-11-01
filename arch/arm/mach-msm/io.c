@@ -542,6 +542,7 @@ void __init msm_map_msm8226_io(void)
 static struct map_desc msm8910_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8910),
 	MSM_CHIP_DEVICE(TLMM, MSM8910),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8910),
 	MSM_CHIP_DEVICE(IMEM, MSM8910),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
