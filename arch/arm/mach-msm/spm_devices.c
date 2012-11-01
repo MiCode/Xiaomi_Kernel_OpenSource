@@ -57,6 +57,11 @@ static void msm_spm_smp_set_vdd(void *data)
 	info->err = msm_spm_drv_set_vdd(&dev->reg_data, info->vlevel);
 }
 
+/**
+ * msm_spm_set_vdd(): Set core voltage
+ * @cpu: core id
+ * @vlevel: Encoded PMIC data.
+ */
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 {
 	struct msm_spm_vdd_info info;
@@ -91,6 +96,11 @@ int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel)
 }
 EXPORT_SYMBOL(msm_spm_set_vdd);
 
+/**
+ * msm_spm_get_vdd(): Get core voltage
+ * @cpu: core id
+ * @return: Returns encoded PMIC data.
+ */
 unsigned int msm_spm_get_vdd(unsigned int cpu)
 {
 	struct msm_spm_device *dev;
@@ -166,6 +176,10 @@ spm_failed_malloc:
 	return ret;
 }
 
+/**
+ * msm_spm_turn_on_cpu_rail(): Power on cpu rail before turning on core
+ * @cpu: core id
+ */
 int msm_spm_turn_on_cpu_rail(unsigned int cpu)
 {
 	uint32_t val = 0;
@@ -208,6 +222,11 @@ void msm_spm_reinit(void)
 }
 EXPORT_SYMBOL(msm_spm_reinit);
 
+/**
+ * msm_spm_set_low_power_mode() - Configure SPM start address for low power mode
+ * @mode: SPM LPM mode to enter
+ * @notify_rpm: Notify RPM in this mode
+ */
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
 	struct msm_spm_device *dev = &__get_cpu_var(msm_cpu_spm_device);
@@ -215,7 +234,11 @@ int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 }
 EXPORT_SYMBOL(msm_spm_set_low_power_mode);
 
-/* Board file init function */
+/**
+ * msm_spm_init(): Board initalization function
+ * @data: platform specific SPM register configuration data
+ * @nr_devs: Number of SPM devices being initialized
+ */
 int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
 {
 	unsigned int cpu;
@@ -238,6 +261,12 @@ int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
 
 #ifdef CONFIG_MSM_L2_SPM
 
+/**
+ * msm_spm_l2_set_low_power_mode(): Configure L2 SPM start address
+ *                                  for low power mode
+ * @mode: SPM LPM mode to enter
+ * @notify_rpm: Notify RPM in this mode
+ */
 int msm_spm_l2_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
 	return msm_spm_dev_set_low_power_mode(
@@ -251,12 +280,20 @@ void msm_spm_l2_reinit(void)
 }
 EXPORT_SYMBOL(msm_spm_l2_reinit);
 
+/**
+ * msm_spm_apcs_set_vdd(): Set Apps processor core sub-system voltage
+ * @vlevel: Encoded PMIC data.
+ */
 int msm_spm_apcs_set_vdd(unsigned int vlevel)
 {
 	return msm_spm_drv_set_vdd(&msm_spm_l2_device.reg_data, vlevel);
 }
 EXPORT_SYMBOL(msm_spm_apcs_set_vdd);
 
+/**
+ * msm_spm_apcs_set_phase(): Set number of SMPS phases.
+ * phase_cnt: Number of phases to be set active
+ */
 int msm_spm_apcs_set_phase(unsigned int phase_cnt)
 {
 	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device.reg_data,
@@ -264,6 +301,10 @@ int msm_spm_apcs_set_phase(unsigned int phase_cnt)
 }
 EXPORT_SYMBOL(msm_spm_apcs_set_phase);
 
+/** msm_spm_enable_fts_lpm() : Enable FTS to switch to low power
+ *                             when the cores are in low power modes
+ * @mode: The mode configuration for FTS
+ */
 int msm_spm_enable_fts_lpm(uint32_t mode)
 {
 	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device.reg_data,
@@ -271,7 +312,10 @@ int msm_spm_enable_fts_lpm(uint32_t mode)
 }
 EXPORT_SYMBOL(msm_spm_enable_fts_lpm);
 
-/* Board file init function */
+/**
+ * msm_spm_l2_init(): Board initialization function
+ * @data: SPM target specific register configuration
+ */
 int __init msm_spm_l2_init(struct msm_spm_platform_data *data)
 {
 	return msm_spm_dev_init(&msm_spm_l2_device, data);
@@ -453,6 +497,9 @@ static struct platform_driver msm_spm_device_driver = {
 	},
 };
 
+/**
+ * msm_spm_device_init(): Device tree initialization function
+ */
 int __init msm_spm_device_init(void)
 {
 	return platform_driver_register(&msm_spm_device_driver);
