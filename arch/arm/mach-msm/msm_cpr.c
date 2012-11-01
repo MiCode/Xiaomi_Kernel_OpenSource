@@ -906,6 +906,14 @@ static int msm_cpr_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	/* enable clk for cpr */
+	if (!pdata->clk_enable) {
+		pr_err("CPR: Invalid clk_enable hook\n");
+		return -EFAULT;
+	}
+
+	pdata->clk_enable();
+
 	/* Initialize platform_data */
 	cpr->config = pdata;
 
