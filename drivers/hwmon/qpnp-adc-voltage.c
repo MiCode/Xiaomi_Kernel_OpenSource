@@ -89,6 +89,7 @@
 #define QPNP_VADC_CONV_TIMEOUT_ERR				2
 #define QPNP_VADC_CONV_TIME_MIN					2000
 #define QPNP_VADC_CONV_TIME_MAX					2100
+#define QPNP_ADC_COMPLETION_TIMEOUT				HZ
 
 struct qpnp_vadc_drv {
 	struct qpnp_adc_drv		*adc;
@@ -549,8 +550,11 @@ int32_t qpnp_vadc_conv_seq_request(enum qpnp_vadc_trigger trigger_channel,
 			!= channel || dt_index > vadc->max_channels_available)
 		dt_index++;
 
-	if (dt_index > vadc->max_channels_available)
+	if (dt_index > vadc->max_channels_available) {
+		pr_err("not a valid VADC channel\n");
+		rc = -EINVAL;
 		goto fail_unlock;
+	}
 
 	vadc->adc->amux_prop->decimation =
 			vadc->adc->adc_channels[dt_index].adc_decimation;
@@ -578,7 +582,22 @@ int32_t qpnp_vadc_conv_seq_request(enum qpnp_vadc_trigger trigger_channel,
 		goto fail_unlock;
 	}
 
-	wait_for_completion(&vadc->adc->adc_rslt_completion);
+	rc = wait_for_completion_timeout(&vadc->adc->adc_rslt_completion,
+					QPNP_ADC_COMPLETION_TIMEOUT);
+	if (!rc) {
+		u8 status1 = 0;
+		rc = qpnp_vadc_read_reg(QPNP_VADC_STATUS1, &status1);
+		if (rc < 0)
+			goto fail_unlock;
+		status1 &= (QPNP_VADC_STATUS1_REQ_STS | QPNP_VADC_STATUS1_EOC);
+		if (status1 == QPNP_VADC_STATUS1_EOC)
+			pr_debug("End of conversion status set\n");
+		else {
+			pr_err("EOC interrupt not received\n");
+			rc = -EINVAL;
+			goto fail_unlock;
+		}
+	}
 
 	if (trigger_channel < ADC_SEQ_NONE) {
 		rc = qpnp_vadc_read_status(vadc->adc->amux_prop->mode_sel);
