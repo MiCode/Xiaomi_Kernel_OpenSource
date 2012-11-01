@@ -1643,6 +1643,7 @@ static int __init msm8625_cpu_id(void)
 	case 0x771:
 	case 0x77C:
 	case 0x780:
+	case 0x785: /* Edge-only MSM8125-0 */
 	case 0x8D0:
 		cpu = MSM8625;
 		break;
