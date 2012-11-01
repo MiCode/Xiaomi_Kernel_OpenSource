@@ -52,8 +52,11 @@ static DEFINE_PER_CPU(struct cpu_freq, cpu_freq_info);
 static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 {
 	int ret = 0;
+	int saved_sched_policy = -EINVAL;
+	int saved_sched_rt_prio = -EINVAL;
 	struct cpufreq_freqs freqs;
 	struct cpu_freq *limit = &per_cpu(cpu_freq_info, policy->cpu);
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 
 	if (limit->limits_init) {
 		if (new_freq > limit->allowed_max) {
@@ -70,11 +73,29 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq)
 	freqs.old = policy->cur;
 	freqs.new = new_freq;
 	freqs.cpu = policy->cpu;
+
+	/*
+	 * Put the caller into SCHED_FIFO priority to avoid cpu starvation
+	 * in the acpuclk_set_rate path while increasing frequencies
+	 */
+
+	if (freqs.new > freqs.old && current->policy != SCHED_FIFO) {
+		saved_sched_policy = current->policy;
+		saved_sched_rt_prio = current->rt_priority;
+		sched_setscheduler_nocheck(current, SCHED_FIFO, &param);
+	}
+
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
+
 	ret = acpuclk_set_rate(policy->cpu, new_freq, SETRATE_CPUFREQ);
 	if (!ret)
 		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 
+	/* Restore priority after clock ramp-up */
+	if (freqs.new > freqs.old && saved_sched_policy >= 0) {
+		param.sched_priority = saved_sched_rt_prio;
+		sched_setscheduler_nocheck(current, saved_sched_policy, &param);
+	}
 	return ret;
 }
 
