@@ -69,7 +69,6 @@ struct venus_data {
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
 	struct regulator *gdsc;
-	phys_addr_t start_addr;
 	struct clk *clks[ARRAY_SIZE(clk_names)];
 	struct device *iommu_fw_ctx;
 	struct iommu_domain *iommu_fw_domain;
@@ -182,19 +181,28 @@ static void pil_venus_remove_proxy_vote(struct pil_desc *pil)
 	regulator_disable(drv->gdsc);
 }
 
-static int pil_venus_init_image(struct pil_desc *pil, const u8 *metadata,
-		size_t size)
+static int pil_venus_mem_setup(struct pil_desc *pil, phys_addr_t addr,
+			       size_t size)
 {
+	int domain;
 	struct venus_data *drv = dev_get_drvdata(pil->dev);
 
-	drv->start_addr = pil_get_entry_addr(pil);
-	if (drv->start_addr < drv->fw_min_paddr ||
-	    drv->start_addr >= drv->fw_max_paddr) {
-		dev_err(pil->dev, "fw start addr is not within valid range\n");
-		return -EINVAL;
+	/* TODO: unregister? */
+	if (!drv->venus_domain_num) {
+		size = round_up(size, SZ_4K);
+		domain = venus_register_domain(size);
+		if (domain < 0) {
+			dev_err(pil->dev, "Venus fw iommu domain register failed\n");
+			return -ENODEV;
+		}
+		drv->iommu_fw_domain = msm_get_iommu_domain(domain);
+		if (!drv->iommu_fw_domain) {
+			dev_err(pil->dev, "No iommu fw domain found\n");
+			return -ENODEV;
+		}
+		drv->venus_domain_num = domain;
+		drv->fw_sz = size;
 	}
-
-	drv->fw_sz = drv->fw_max_paddr - drv->start_addr;
 
 	return 0;
 }
@@ -204,7 +212,7 @@ static int pil_venus_reset(struct pil_desc *pil)
 	int rc;
 	struct venus_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *wrapper_base = drv->venus_wrapper_base;
-	phys_addr_t pa = drv->start_addr;
+	phys_addr_t pa = pil_get_entry_addr(pil);
 	unsigned long iova;
 
 	/*
@@ -323,7 +331,7 @@ static int pil_venus_shutdown(struct pil_desc *pil)
 }
 
 static struct pil_reset_ops pil_venus_ops = {
-	.init_image = pil_venus_init_image,
+	.mem_setup = pil_venus_mem_setup,
 	.auth_and_reset = pil_venus_reset,
 	.shutdown = pil_venus_shutdown,
 	.proxy_vote = pil_venus_make_proxy_vote,
@@ -440,41 +448,6 @@ static int __devinit pil_venus_probe(struct platform_device *pdev)
 	drv->iommu_fw_ctx  = msm_iommu_get_ctx("venus_fw");
 	if (!drv->iommu_fw_ctx) {
 		dev_err(&pdev->dev, "No iommu fw context found\n");
-		return -ENODEV;
-	}
-
-	/* Get fw address boundaries */
-	rc = of_property_read_u32(pdev->dev.of_node,
-				  "qcom,firmware-max-paddr",
-				  &drv->fw_max_paddr);
-	if (rc) {
-		dev_err(&pdev->dev, "Failed to get fw max paddr\n");
-		return rc;
-	}
-
-	rc = of_property_read_u32(pdev->dev.of_node,
-				  "qcom,firmware-min-paddr",
-				  &drv->fw_min_paddr);
-	if (rc) {
-		dev_err(&pdev->dev, "Failed to get fw min paddr\n");
-		return rc;
-	}
-
-	if (drv->fw_max_paddr <= drv->fw_min_paddr) {
-		dev_err(&pdev->dev, "Invalid fw max paddr or min paddr\n");
-		return -EINVAL;
-	}
-
-	drv->venus_domain_num =
-		venus_register_domain(drv->fw_max_paddr - drv->fw_min_paddr);
-	if (drv->venus_domain_num < 0) {
-		dev_err(&pdev->dev, "Venus fw iommu domain register failed\n");
-		return -ENODEV;
-	}
-
-	drv->iommu_fw_domain = msm_get_iommu_domain(drv->venus_domain_num);
-	if (!drv->iommu_fw_domain) {
-		dev_err(&pdev->dev, "No iommu fw domain found\n");
 		return -ENODEV;
 	}
 
