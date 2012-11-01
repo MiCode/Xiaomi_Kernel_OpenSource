@@ -2295,7 +2295,6 @@ static struct platform_device *pmic_pm8917_devices[] __initdata = {
 
 static struct platform_device *common_devices[] __initdata = {
 	&msm_8960_q6_lpass,
-	&msm_8960_q6_mss,
 	&msm_8960_riva,
 	&msm_pil_tzapps,
 	&msm_pil_vidc,
@@ -2848,6 +2847,10 @@ static void __init msm8930_cdp_init(void)
 	else
 		msm8930_pm8917_gpio_mpp_init();
 #endif
+	/* Don't add modem devices on APQ targets */
+	if (socinfo_get_id() != 119 && socinfo_get_id() != 157
+	    && socinfo_get_id() != 160)
+		platform_device_register(&msm_8960_q6_mss);
 	platform_add_devices(cdp_devices, ARRAY_SIZE(cdp_devices));
 #ifdef CONFIG_MSM_CAMERA
 	msm8930_init_cam();
