@@ -24,6 +24,16 @@
 			compatible = "ti,bq28400-battery";
 			reg = <0xb>;
 		};
+
+		charger@2b {
+			compatible = "summit,smb350-charger";
+			reg = <0x2b>; /* 0x56/0x57 */
+			summit,stat-gpio = <&pm8941_gpios 30 0x00>;
+			summit,chg-en-n-gpio = <&pm8941_gpios 10 0x00>;
+			summit,chg-susp-n-gpio = <&pm8941_gpios 13 0x00>;
+			summit,chg-current-ma = <1600>;
+			summit,term-current-ma = <300>;
+		};
 	};
 
 	gpio_keys {
@@ -219,6 +229,14 @@
 	};
 
 	gpio@c900 { /* GPIO 10 */
+		/* SMB350-CHG-EN-N */
+		qcom,mode = <1>;		/* DIG_OUT */
+		qcom,output-type = <0>;		/* CMOS */
+		qcom,pull = <5>;		/* PULL_NO */
+		qcom,vin-sel = <0>;		/* VPH */
+		qcom,out-strength = <2>;	/* STRENGTH_MED */
+		qcom,src-sel = <0>;		/* CONSTANT */
+		qcom,master-en = <1>;
 	};
 
 	gpio@ca00 { /* GPIO 11 */
@@ -228,6 +246,14 @@
 	};
 
 	gpio@cc00 { /* GPIO 13 */
+		/* SMB350-CHG-SUSP-N */
+		qcom,mode = <1>;		/* DIG_OUT */
+		qcom,output-type = <0>;		/* CMOS */
+		qcom,pull = <5>;		/* PULL_NO */
+		qcom,vin-sel = <0>;		/* VPH */
+		qcom,out-strength = <2>;	/* STRENGTH_MED */
+		qcom,src-sel = <0>;		/* CONSTANT */
+		qcom,master-en = <1>;
 	};
 
 	gpio@cd00 { /* GPIO 14 */
@@ -296,6 +322,12 @@
 	};
 
 	gpio@dd00 { /* GPIO 30 */
+		/* SMB350-STAT */
+		qcom,mode = <0>;		/* DIG_IN */
+		qcom,pull = <5>;		/* PULL_NO */
+		qcom,vin-sel = <2>;		/* S3 1.8V */
+		qcom,src-sel = <0>;		/* CONSTANT */
+		qcom,master-en = <1>;
 	};
 
 	gpio@de00 { /* GPIO 31 */
