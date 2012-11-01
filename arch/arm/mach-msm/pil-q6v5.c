@@ -16,7 +16,6 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
-#include <linux/elf.h>
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/clk.h>
@@ -99,16 +98,6 @@ void pil_q6v5_halt_axi_port(struct pil_desc *pil, void __iomem *halt_base)
 	writel_relaxed(0, halt_base + AXI_HALTREQ);
 }
 EXPORT_SYMBOL(pil_q6v5_halt_axi_port);
-
-int pil_q6v5_init_image(struct pil_desc *pil, const u8 *metadata,
-			       size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
-	drv->start_addr = ehdr->e_entry;
-	return 0;
-}
-EXPORT_SYMBOL(pil_q6v5_init_image);
 
 void pil_q6v5_shutdown(struct pil_desc *pil)
 {

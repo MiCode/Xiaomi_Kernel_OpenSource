@@ -14,7 +14,6 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/io.h>
-#include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -66,7 +65,6 @@
 struct gss_data {
 	void __iomem *base;
 	void __iomem *qgic2_base;
-	unsigned long start_addr;
 	struct clk *xo;
 	struct pil_desc pil_desc;
 	struct miscdevice misc_dev;
@@ -78,15 +76,6 @@ struct gss_data {
 	struct ramdump_device *ramdump_dev;
 	struct ramdump_device *smem_ramdump_dev;
 };
-
-static int pil_gss_init_image(struct pil_desc *pil, const u8 *metadata,
-		size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct gss_data *drv = dev_get_drvdata(pil->dev);
-	drv->start_addr = ehdr->e_entry;
-	return 0;
-}
 
 static int make_gss_proxy_votes(struct pil_desc *pil)
 {
@@ -212,7 +201,7 @@ static int pil_gss_reset(struct pil_desc *pil)
 {
 	struct gss_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
-	unsigned long start_addr = drv->start_addr;
+	unsigned long start_addr = pil_get_entry_addr(pil);
 	int ret;
 
 	/* Unhalt bus port. */
@@ -257,7 +246,6 @@ static int pil_gss_reset(struct pil_desc *pil)
 }
 
 static struct pil_reset_ops pil_gss_ops = {
-	.init_image = pil_gss_init_image,
 	.auth_and_reset = pil_gss_reset,
 	.shutdown = pil_gss_shutdown,
 	.proxy_vote = make_gss_proxy_votes,

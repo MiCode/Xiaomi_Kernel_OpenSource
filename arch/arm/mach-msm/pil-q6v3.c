@@ -16,7 +16,6 @@
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/delay.h>
-#include <linux/elf.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/workqueue.h>
@@ -72,7 +71,6 @@
  * @base: register base
  * @wk_base: wakeup register base
  * @wd_base: watchdog register base
- * @start_addr: address that processor starts running at
  * @irq: watchdog irq
  * @pil: peripheral handle
  * @subsys: subsystem restart handle
@@ -85,7 +83,6 @@ struct q6v3_data {
 	void __iomem *base;
 	void __iomem *wk_base;
 	void __iomem *wd_base;
-	unsigned long start_addr;
 	int irq;
 	struct pil_desc pil_desc;
 	struct subsys_device *subsys;
@@ -94,15 +91,6 @@ struct q6v3_data {
 	struct clk *pll;
 	struct ramdump_device *ramdump_dev;
 };
-
-static int pil_q6v3_init_image(struct pil_desc *pil, const u8 *metadata,
-		size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
-	drv->start_addr = ehdr->e_entry;
-	return 0;
-}
 
 static void pil_q6v3_remove_proxy_votes(struct pil_desc *pil)
 {
@@ -127,6 +115,7 @@ static int pil_q6v3_reset(struct pil_desc *pil)
 {
 	u32 reg;
 	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
+	unsigned long start_addr = pil_get_entry_addr(pil);
 
 	/* Put Q6 into reset */
 	reg = readl_relaxed(LCC_Q6_FUNC);
@@ -151,7 +140,7 @@ static int pil_q6v3_reset(struct pil_desc *pil)
 	/* Wait for clocks to be enabled */
 	mb();
 	/* Program boot address */
-	writel_relaxed((drv->start_addr >> 12) & 0xFFFFF,
+	writel_relaxed((start_addr >> 12) & 0xFFFFF,
 			drv->base + QDSP6SS_RST_EVB);
 
 	writel_relaxed(Q6_STRAP_TCM_CONFIG | Q6_STRAP_TCM_BASE,
@@ -195,7 +184,6 @@ static int pil_q6v3_shutdown(struct pil_desc *pil)
 }
 
 static struct pil_reset_ops pil_q6v3_ops = {
-	.init_image = pil_q6v3_init_image,
 	.auth_and_reset = pil_q6v3_reset,
 	.shutdown = pil_q6v3_shutdown,
 	.proxy_vote = pil_q6v3_make_proxy_votes,

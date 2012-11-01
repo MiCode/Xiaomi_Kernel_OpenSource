@@ -15,7 +15,6 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
-#include <linux/elf.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
@@ -58,7 +57,6 @@
 struct modem_data {
 	void __iomem *base;
 	void __iomem *wdog;
-	unsigned long start_addr;
 	struct pil_device *pil;
 	struct clk *xo;
 	struct notifier_block notifier;
@@ -91,19 +89,11 @@ static void remove_modem_proxy_votes(struct pil_desc *pil)
 	clk_disable_unprepare(drv->xo);
 }
 
-static int modem_init_image(struct pil_desc *pil, const u8 *metadata,
-		size_t size)
-{
-	const struct elf32_hdr *ehdr = (struct elf32_hdr *)metadata;
-	struct modem_data *drv = dev_get_drvdata(pil->dev);
-	drv->start_addr = ehdr->e_entry;
-	return 0;
-}
-
 static int modem_reset(struct pil_desc *pil)
 {
 	u32 reg;
 	const struct modem_data *drv = dev_get_drvdata(pil->dev);
+	unsigned long start_addr = pil_get_entry_addr(pil);
 
 	/* Put modem AHB0,1,2 clocks into reset */
 	writel_relaxed(BIT(0) | BIT(1), MAHB0_SFAB_PORT_RESET);
@@ -168,7 +158,7 @@ static int modem_reset(struct pil_desc *pil)
 	mb();
 
 	/* Setup exception vector table base address */
-	writel_relaxed(drv->start_addr | 0x1, drv->base + MARM_BOOT_CONTROL);
+	writel_relaxed(start_addr | 0x1, drv->base + MARM_BOOT_CONTROL);
 
 	/* Wait for vector table to be setup */
 	mb();
@@ -219,7 +209,6 @@ static int modem_pil_shutdown(struct pil_desc *pil)
 }
 
 static struct pil_reset_ops pil_modem_ops = {
-	.init_image = modem_init_image,
 	.auth_and_reset = modem_reset,
 	.shutdown = modem_pil_shutdown,
 	.proxy_vote = make_modem_proxy_votes,

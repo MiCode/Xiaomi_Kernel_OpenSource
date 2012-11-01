@@ -13,7 +13,6 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/elf.h>
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -267,6 +266,7 @@ static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 	desc->name = pdev->dev.platform_data;
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
+	desc->flags = PIL_SKIP_ENTRY_CHECK;
 	if (pas_supported(PAS_DSPS) > 0) {
 		desc->ops = &pil_dsps_ops_trusted;
 		dev_info(&pdev->dev, "using secure boot\n");

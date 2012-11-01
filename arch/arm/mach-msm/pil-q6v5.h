@@ -30,7 +30,6 @@ struct q6v5_data {
 	struct clk *rom_clk;	/* Boot ROM */
 	void __iomem *axi_halt_base;
 	void __iomem *restart_reg;
-	unsigned long start_addr;
 	struct regulator *vreg;
 	bool is_booted;
 	struct pil_desc desc;
@@ -39,8 +38,6 @@ struct q6v5_data {
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil);
 void pil_q6v5_remove_proxy_votes(struct pil_desc *pil);
 void pil_q6v5_halt_axi_port(struct pil_desc *pil, void __iomem *halt_base);
-int pil_q6v5_init_image(struct pil_desc *pil, const u8 *metadata,
-			size_t size);
 void pil_q6v5_shutdown(struct pil_desc *pil);
 int pil_q6v5_reset(struct pil_desc *pil);
 struct q6v5_data *pil_q6v5_init(struct platform_device *pdev);

@@ -83,6 +83,7 @@ struct pil_seg {
  * @wname: name of @wlock
  * @desc: pointer to pil_desc this is private data for
  * @seg: list of segments sorted by physical address
+ * @entry_addr: physical address where processor starts booting at
  *
  * This struct contains data for a pil_desc that should not be exposed outside
  * of this file. This structure points to the descriptor and the descriptor
@@ -95,7 +96,20 @@ struct pil_priv {
 	char wname[32];
 	struct pil_desc *desc;
 	struct list_head segs;
+	phys_addr_t entry_addr;
 };
+
+/**
+ * pil_get_entry_addr() - Retrieve the entry address of a peripheral image
+ * @desc: descriptor from pil_desc_init()
+ *
+ * Returns the physical address where the image boots at or 0 if unknown.
+ */
+phys_addr_t pil_get_entry_addr(struct pil_desc *desc)
+{
+	return desc->priv ? desc->priv->entry_addr : 0;
+}
+EXPORT_SYMBOL(pil_get_entry_addr);
 
 static void pil_proxy_work(struct work_struct *work)
 {
@@ -167,6 +181,39 @@ static int segment_is_loadable(const struct elf32_phdr *p)
 	return (p->p_type == PT_LOAD) && !segment_is_hash(p->p_flags);
 }
 
+static void pil_dump_segs(const struct pil_priv *priv)
+{
+	struct pil_seg *seg;
+
+	list_for_each_entry(seg, &priv->segs, list) {
+		pil_info(priv->desc, "%d: %#08zx %#08lx\n", seg->num,
+				seg->paddr, seg->paddr + seg->sz);
+	}
+}
+
+/*
+ * Ensure the entry address lies within the image limits.
+ */
+static int pil_init_entry_addr(struct pil_priv *priv, const struct pil_mdt *mdt)
+{
+	struct pil_seg *seg;
+
+	priv->entry_addr = mdt->hdr.e_entry;
+
+	if (priv->desc->flags & PIL_SKIP_ENTRY_CHECK)
+		return 0;
+
+	list_for_each_entry(seg, &priv->segs, list) {
+		if (priv->entry_addr >= seg->paddr &&
+		    priv->entry_addr < seg->paddr + seg->sz)
+			return 0;
+	}
+	pil_err(priv->desc, "boot address %08zx not within range\n",
+		priv->entry_addr);
+	pil_dump_segs(priv);
+	return -EADDRNOTAVAIL;
+}
+
 static int pil_cmp_seg(void *priv, struct list_head *a, struct list_head *b)
 {
 	struct pil_seg *seg_a = list_entry(a, struct pil_seg, list);
@@ -177,9 +224,9 @@ static int pil_cmp_seg(void *priv, struct list_head *a, struct list_head *b)
 
 static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 {
+	struct pil_priv *priv = desc->priv;
 	const struct elf32_phdr *phdr;
 	struct pil_seg *seg;
-	struct pil_priv *priv = desc->priv;
 	int i;
 
 	for (i = 0; i < mdt->hdr.e_phnum; i++) {
@@ -195,7 +242,7 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	}
 	list_sort(NULL, &priv->segs, pil_cmp_seg);
 
-	return 0;
+	return pil_init_entry_addr(priv, mdt);
 }
 
 static void pil_release_mmap(struct pil_desc *desc)
@@ -351,7 +398,8 @@ int pil_boot(struct pil_desc *desc)
 	if (ret)
 		goto release_fw;
 
-	ret = desc->ops->init_image(desc, fw->data, fw->size);
+	if (desc->ops->init_image)
+		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
 		pil_err(desc, "Invalid firmware metadata\n");
 		goto release_fw;
