@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,10 +184,10 @@
 			qcom,mode = <0>;        /* MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT */
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <3>;          /* ACTIVE */
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <950000>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,latency-us = <1>;
 			qcom,ss-power = <784>;
 			qcom,energy-overhead = <190000>;
@@ -199,10 +199,10 @@
 			qcom,mode = <4>;        /* MSM_PM_SLEEP_MODE_RETENTION*/
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <3>;          /* ACTIVE */
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <950000>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,latency-us = <75>;
 			qcom,ss-power = <735>;
 			qcom,energy-overhead = <77341>;
@@ -215,10 +215,10 @@
 			qcom,mode = <2>;        /* MSM_PM_SLEEP_MODE_STANDALONE_POWER_COLLAPSE */
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <3>;          /* ACTIVE */
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <950000>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,latency-us = <95>;
 			qcom,ss-power = <725>;
 			qcom,energy-overhead = <99500>;
@@ -230,10 +230,10 @@
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <1>;          /* GDHS */
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <950000>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,latency-us = <2000>;
 			qcom,ss-power = <138>;
 			qcom,energy-overhead = <1208400>;
@@ -245,10 +245,10 @@
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <1>;          /* ON */
 			qcom,l2 = <0>;          /* OFF */
-			qcom,vdd-mem-upper-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-mem-lower-bound = <750000>;  /* RETENTION HIGH */
-			qcom,vdd-dig-upper-bound = <3>;  /* ACTIVE */
-			qcom,vdd-dig-lower-bound = <2>;  /* RETENTION HIGH */
+			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <950000>; /* SVS SOC */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO  */
+			qcom,vdd-dig-lower-bound = <3>;  /* SVS SOC */
 			qcom,latency-us = <3000>;
 			qcom,ss-power = <110>;
 			qcom,energy-overhead = <1250300>;
@@ -260,10 +260,10 @@
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <1>;          /* GDHS */
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <950000>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,latency-us = <3000>;
 			qcom,ss-power = <68>;
 			qcom,energy-overhead = <1350200>;
@@ -275,10 +275,10 @@
 			qcom,mode = <3>;        /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <0>;          /* OFF */
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <950000>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,latency-us = <10300>;
 			qcom,ss-power = <63>;
 			qcom,energy-overhead = <2128000>;
@@ -290,10 +290,10 @@
 			qcom,mode= <3>;         /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <0>;          /* OFF */
-			qcom,vdd-mem-upper-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-mem-lower-bound = <750000>;  /* RETENTION HIGH */
-			qcom,vdd-dig-upper-bound = <3>;  /* ACTIVE */
-			qcom,vdd-dig-lower-bound = <2>;  /* RETIONTION HIGH */
+			qcom,vdd-mem-upper-bound = <950000>; /* NORMAL */
+			qcom,vdd-mem-lower-bound = <950000>;  /* SVS SOC */
+			qcom,vdd-dig-upper-bound = <4>;  /* NORMAL */
+			qcom,vdd-dig-lower-bound = <3>;  /* SVS SOC */
 			qcom,latency-us = <18000>;
 			qcom,ss-power = <10>;
 			qcom,energy-overhead = <3202600>;
@@ -305,10 +305,10 @@
 			qcom,mode= <3>;         /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <0>;          /* OFF */
-			qcom,vdd-mem-upper-bound = <750000>; /* RETENTION HIGH */
-			qcom,vdd-mem-lower-bound = <750000>; /* RETENTION LOW */
-			qcom,vdd-dig-upper-bound = <2>; /* RETENTION HIGH */
-			qcom,vdd-dig-lower-bound = <0>; /* RETENTION LOW */
+			qcom,vdd-mem-upper-bound = <950000>; /* SVS SOC */
+			qcom,vdd-mem-lower-bound = <675000>; /* RETENTION */
+			qcom,vdd-dig-upper-bound = <3>; /* SVS SOC */
+			qcom,vdd-dig-lower-bound = <1>; /* RETENTION */
 			qcom,latency-us = <20000>;
 			qcom,ss-power = <2>;
 			qcom,energy-overhead = <4252000>;
