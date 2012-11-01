@@ -753,13 +753,22 @@ static int __devinit smb350_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, dev);
 
-	pr_debug("set charge-enable + not suspend.\n");
-	gpio_set_value_cansleep(dev->chg_en_n_gpio, 1);	/* Disable */
+	/* Disable battery charging by default on power up.
+	 * Battery charging is enabled by BMS or Battery-Gauge
+	 * by using the set_property callback.
+	 */
+	smb350_enable_charging(dev, false);
 	msleep(100);
 	gpio_set_value_cansleep(dev->chg_susp_n_gpio, 1); /* Normal */
 	msleep(100); /* Allow the device to exist shutdown */
 
-	smb350_read_reg(client, I2C_SLAVE_ADDR_REG);
+	/* I2C transaction allowed only after device exit suspend */
+	ret = smb350_read_reg(client, I2C_SLAVE_ADDR_REG);
+	if ((ret>>1) != client->addr) {
+		pr_err("No device.\n");
+		ret = -ENODEV;
+		goto err_no_dev;
+	}
 
 	ret = smb350_set_volatile_params(dev);
 	if (ret)
@@ -784,14 +793,13 @@ static int __devinit smb350_probe(struct i2c_client *client,
 		goto err_irq;
 	}
 
-	smb350_enable_charging(dev, true);
-
 	return 0;
 
 err_irq:
 err_debugfs:
 	if (dev->dent)
 		debugfs_remove_recursive(dev->dent);
+err_no_dev:
 err_set_params:
 	gpio_free(dev->chg_en_n_gpio);
 err_en_gpio:
