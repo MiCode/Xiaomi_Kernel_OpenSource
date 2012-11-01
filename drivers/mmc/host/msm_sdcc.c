@@ -2215,7 +2215,9 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		}
 
 		if ((mrq->cmd->opcode == MMC_WRITE_BLOCK) ||
-		    (mrq->cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK))
+		    (mrq->cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK) ||
+		    ((mrq->cmd->opcode == SD_IO_RW_EXTENDED) &&
+		     is_data_pend_for_cmd53(host)))
 			host->curr.use_wr_data_pend = true;
 	}
 
