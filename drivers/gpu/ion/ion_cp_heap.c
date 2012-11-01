@@ -239,14 +239,16 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 		return ION_CP_ALLOCATE_FAIL;
 	}
 
-	if (secure_allocation &&
-	    (cp_heap->umap_count > 0 || cp_heap->kmap_cached_count > 0)) {
-		mutex_unlock(&cp_heap->lock);
-		pr_err("ION cannot allocate secure memory from heap with "
-			"outstanding mappings: User space: %lu, kernel space "
-			"(cached): %lu\n", cp_heap->umap_count,
-					   cp_heap->kmap_cached_count);
-		return ION_CP_ALLOCATE_FAIL;
+	/*
+	 * The check above already checked for non-secure allocations when the
+	 * heap is protected. HEAP_PROTECTED implies that this must be a secure
+	 * allocation. If the heap is protected and there are userspace or
+	 * cached kernel mappings, something has gone wrong in the security
+	 * model.
+	 */
+	if (cp_heap->heap_protected == HEAP_PROTECTED) {
+		BUG_ON(cp_heap->umap_count != 0);
+		BUG_ON(cp_heap->kmap_cached_count != 0);
 	}
 
 	/*
