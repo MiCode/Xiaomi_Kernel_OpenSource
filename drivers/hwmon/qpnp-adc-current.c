@@ -124,6 +124,7 @@
 #define QPNP_RAW_CODE_16_BIT_LSB_MASK			0xff
 #define QPNP_BIT_SHIFT_8				8
 #define QPNP_RSENSE_MSB_SIGN_CHECK			0x80
+#define QPNP_ADC_COMPLETION_TIMEOUT			HZ
 
 struct qpnp_iadc_drv {
 	struct qpnp_adc_drv			*adc;
@@ -299,7 +300,22 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 		return rc;
 	}
 
-	wait_for_completion(&iadc->adc->adc_rslt_completion);
+	rc = wait_for_completion_timeout(&iadc->adc->adc_rslt_completion,
+				QPNP_ADC_COMPLETION_TIMEOUT);
+	if (!rc) {
+		u8 status1 = 0;
+		rc = qpnp_iadc_read_reg(QPNP_STATUS1, &status1);
+		if (rc < 0)
+			return rc;
+		status1 &= (QPNP_STATUS1_REQ_STS | QPNP_STATUS1_EOC);
+		if (status1 == QPNP_STATUS1_EOC)
+			pr_debug("End of conversion status set\n");
+		else {
+			pr_err("EOC interrupt not received\n");
+			return -EINVAL;
+		}
+	}
+
 
 	rc = qpnp_iadc_read_conversion_result(raw_code);
 	if (rc) {
