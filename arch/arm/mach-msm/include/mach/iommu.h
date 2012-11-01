@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,11 +15,11 @@
 
 #include <linux/interrupt.h>
 #include <linux/clk.h>
+#include <linux/list.h>
 #include <linux/regulator/consumer.h>
 #include <mach/socinfo.h>
 
 extern pgprot_t     pgprot_kernel;
-extern struct platform_device *msm_iommu_root_dev;
 extern struct bus_type msm_iommu_sec_bus_type;
 
 /* Domain attributes */
@@ -91,6 +91,8 @@ struct msm_iommu_bfb_settings {
  * @name:	Human-readable name of this IOMMU device
  * @gdsc:	Regulator needed to power this HW block (v2 only)
  * @bfb_settings: Optional BFB performance tuning parameters
+ * @dev:	Struct device this hardware instance is tied to
+ * @list:	List head to link all iommus together
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
@@ -106,7 +108,12 @@ struct msm_iommu_drvdata {
 	struct regulator *gdsc;
 	struct msm_iommu_bfb_settings *bfb_settings;
 	int sec_id;
+	struct device *dev;
+	struct list_head list;
 };
+
+void msm_iommu_add_drv(struct msm_iommu_drvdata *drv);
+void msm_iommu_remove_drv(struct msm_iommu_drvdata *drv);
 
 /**
  * struct msm_iommu_ctx_drvdata - an IOMMU context bank instance

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,6 @@
 #include <linux/interrupt.h>
 #include <linux/err.h>
 #include <linux/slab.h>
-#include <linux/atomic.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -95,9 +94,8 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	struct device_node *child;
 	int ret = 0;
 
-	ret = device_move(&pdev->dev, &msm_iommu_root_dev->dev, DPM_ORDER_NONE);
-	if (ret)
-		goto fail;
+	drvdata->dev = &pdev->dev;
+	msm_iommu_add_drv(drvdata);
 
 	ret = msm_iommu_parse_bfb_settings(pdev, drvdata);
 	if (ret)
@@ -118,19 +116,11 @@ fail:
 	return ret;
 }
 
-static atomic_t msm_iommu_next_id = ATOMIC_INIT(-1);
-
 static int __devinit msm_iommu_probe(struct platform_device *pdev)
 {
 	struct msm_iommu_drvdata *drvdata;
 	struct resource *r;
 	int ret, needs_alt_core_clk;
-
-	if (msm_iommu_root_dev == pdev)
-		return 0;
-
-	if (pdev->id == -1)
-		pdev->id = atomic_inc_return(&msm_iommu_next_id) - 1;
 
 	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -192,6 +182,7 @@ static int __devexit msm_iommu_remove(struct platform_device *pdev)
 
 	drv = platform_get_drvdata(pdev);
 	if (drv) {
+		msm_iommu_remove_drv(drv);
 		if (drv->clk)
 			clk_put(drv->clk);
 		clk_put(drv->pclk);
@@ -315,24 +306,7 @@ static struct platform_driver msm_iommu_ctx_driver = {
 
 static int __init msm_iommu_driver_init(void)
 {
-	struct device_node *node;
 	int ret;
-
-	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v2");
-	if (!node)
-		return -ENODEV;
-
-	of_node_put(node);
-
-	msm_iommu_root_dev = platform_device_register_simple(
-						"msm_iommu", -1, 0, 0);
-	if (!msm_iommu_root_dev) {
-		pr_err("Failed to create root IOMMU device\n");
-		ret = -ENODEV;
-		goto error;
-	}
-
-	atomic_inc(&msm_iommu_next_id);
 
 	ret = platform_driver_register(&msm_iommu_driver);
 	if (ret != 0) {
@@ -354,7 +328,6 @@ static void __exit msm_iommu_driver_exit(void)
 {
 	platform_driver_unregister(&msm_iommu_ctx_driver);
 	platform_driver_unregister(&msm_iommu_driver);
-	platform_device_unregister(msm_iommu_root_dev);
 }
 
 subsys_initcall(msm_iommu_driver_init);
