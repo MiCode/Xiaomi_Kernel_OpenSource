@@ -509,13 +509,15 @@ static int bq28400_get_prop_status(struct i2c_client *client)
 		return POWER_SUPPLY_STATUS_FULL;
 	}
 
+	/* Enable charging when battery is not full */
+	bq28400_enable_charging(bq28400_dev, true);
+
 	/*
 	* Positive current indicates charging
 	* Negative current indicates discharging.
 	* Charging is stopped at termination-current.
 	*/
 	if (current_ma < 0) {
-		bq28400_enable_charging(bq28400_dev, true);
 		pr_debug("Discharging.\n");
 		status = POWER_SUPPLY_STATUS_DISCHARGING;
 	} else if (current_ma > BQ_TERMINATION_CURRENT_MA) {
