@@ -75,6 +75,7 @@
 		HSUSB_VDDCX-supply = <&pm8019_l12>;
 		HSUSB_1p8-supply = <&pm8019_l2>;
 		HSUSB_3p3-supply = <&pm8019_l4>;
+		vbus_otg-supply = <&usb_vbus>;
 
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
