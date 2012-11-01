@@ -27,6 +27,7 @@
 #include <linux/stat.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
+#include <linux/cpu.h>
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <asm/sections.h>
@@ -1490,26 +1491,43 @@ static ssize_t etm_show_pcsave(struct device *dev,
 
 static int __etm_store_pcsave(struct etm_drvdata *drvdata, unsigned long val)
 {
-	int ret;
+	int ret = 0;
 
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
 
 	mutex_lock(&drvdata->mutex);
+	get_online_cpus();
 	if (val) {
-		smp_call_function_single(drvdata->cpu, etm_enable_pcsave,
-					 drvdata, 1);
+		if (drvdata->pcsave_enable)
+			goto out;
+
+		ret = smp_call_function_single(drvdata->cpu, etm_enable_pcsave,
+					       drvdata, 1);
+		if (ret)
+			goto out;
 		drvdata->pcsave_enable = true;
+
+		dev_info(drvdata->dev, "PC save enabled\n");
 	} else {
-		smp_call_function_single(drvdata->cpu, etm_disable_pcsave,
-					 drvdata, 1);
+		if (!drvdata->pcsave_enable)
+			goto out;
+
+		ret = smp_call_function_single(drvdata->cpu, etm_disable_pcsave,
+					       drvdata, 1);
+		if (ret)
+			goto out;
 		drvdata->pcsave_enable = false;
+
+		dev_info(drvdata->dev, "PC save disabled\n");
 	}
+out:
+	put_online_cpus();
 	mutex_unlock(&drvdata->mutex);
 
 	clk_disable_unprepare(drvdata->clk);
-	return 0;
+	return ret;
 }
 
 static ssize_t etm_store_pcsave(struct device *dev,
