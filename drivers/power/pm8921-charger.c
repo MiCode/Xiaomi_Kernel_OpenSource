@@ -2543,15 +2543,25 @@ static void vin_collapse_check_worker(struct work_struct *work)
 	struct pm8921_chg_chip *chip = container_of(dwork,
 			struct pm8921_chg_chip, vin_collapse_check_work);
 
-	/* AICL only for wall-chargers */
-	if (is_usb_chg_plugged_in(chip) &&
-		usb_target_ma > USB_WALL_THRESHOLD_MA) {
+	/*
+	 * AICL only for wall-chargers. If the charger appears to be plugged
+	 * back in now, the corresponding unplug must have been because of we
+	 * were trying to draw more current than the charger can support. In
+	 * such a case reset usb current to 500mA and decrease the target.
+	 * The AICL algorithm will step up the current from 500mA to target
+	 */
+	if (is_usb_chg_plugged_in(chip)
+		&& usb_target_ma > USB_WALL_THRESHOLD_MA) {
 		/* decrease usb_target_ma */
 		decrease_usb_ma_value(&usb_target_ma);
 		/* reset here, increase in unplug_check_worker */
 		__pm8921_charger_vbus_draw(USB_WALL_THRESHOLD_MA);
 		pr_debug("usb_now=%d, usb_target = %d\n",
 				USB_WALL_THRESHOLD_MA, usb_target_ma);
+		if (!delayed_work_pending(&chip->unplug_check_work))
+			schedule_delayed_work(&chip->unplug_check_work,
+				      round_jiffies_relative(msecs_to_jiffies
+						(UNPLUG_CHECK_WAIT_PERIOD_MS)));
 	} else {
 		handle_usb_insertion_removal(chip);
 	}
