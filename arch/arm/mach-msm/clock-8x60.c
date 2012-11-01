@@ -607,7 +607,7 @@ static struct branch_clk smi_2x_axi_clk = {
 	},
 	.c = {
 		.dbg_name = "smi_2x_axi_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_smi_2x,
 		CLK_INIT(smi_2x_axi_clk.c),
 	},
 };
