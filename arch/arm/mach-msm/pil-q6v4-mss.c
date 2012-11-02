@@ -20,7 +20,6 @@
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 
-#include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
 
@@ -30,16 +29,17 @@
 #include "pil-q6v4.h"
 #include "scm-pas.h"
 
-#define MSS_S_HCLK_CTL		(MSM_CLK_CTL_BASE + 0x2C70)
-#define MSS_SLP_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2C60)
-#define SFAB_MSS_M_ACLK_CTL	(MSM_CLK_CTL_BASE + 0x2340)
-#define SFAB_MSS_S_HCLK_CTL	(MSM_CLK_CTL_BASE + 0x2C00)
-#define MSS_RESET		(MSM_CLK_CTL_BASE + 0x2C64)
+#define MSS_S_HCLK_CTL		0x2C70
+#define MSS_SLP_CLK_CTL		0x2C60
+#define SFAB_MSS_M_ACLK_CTL	0x2340
+#define SFAB_MSS_S_HCLK_CTL	0x2C00
+#define MSS_RESET		0x2C64
 
 struct q6v4_modem {
 	struct q6v4_data q6_fw;
 	struct q6v4_data q6_sw;
 	void __iomem *modem_base;
+	void __iomem *cbase;
 	void *fw_ramdump_dev;
 	void *sw_ramdump_dev;
 	void *smem_ramdump_dev;
@@ -54,21 +54,22 @@ static DEFINE_MUTEX(pil_q6v4_modem_lock);
 static unsigned pil_q6v4_modem_count;
 
 /* Bring modem subsystem out of reset */
-static void pil_q6v4_init_modem(void __iomem *base, void __iomem *jtag_clk)
+static void pil_q6v4_init_modem(void __iomem *base, void __iomem *cbase,
+				void __iomem *jtag_clk)
 {
 	mutex_lock(&pil_q6v4_modem_lock);
 	if (!pil_q6v4_modem_count) {
 		/* Enable MSS clocks */
-		writel_relaxed(0x10, SFAB_MSS_M_ACLK_CTL);
-		writel_relaxed(0x10, SFAB_MSS_S_HCLK_CTL);
-		writel_relaxed(0x10, MSS_S_HCLK_CTL);
-		writel_relaxed(0x10, MSS_SLP_CLK_CTL);
+		writel_relaxed(0x10, cbase + SFAB_MSS_M_ACLK_CTL);
+		writel_relaxed(0x10, cbase + SFAB_MSS_S_HCLK_CTL);
+		writel_relaxed(0x10, cbase + MSS_S_HCLK_CTL);
+		writel_relaxed(0x10, cbase + MSS_SLP_CLK_CTL);
 		/* Wait for clocks to enable */
 		mb();
 		udelay(10);
 
 		/* De-assert MSS reset */
-		writel_relaxed(0x0, MSS_RESET);
+		writel_relaxed(0x0, cbase + MSS_RESET);
 		mb();
 		udelay(10);
 		/* Enable MSS */
@@ -84,13 +85,13 @@ static void pil_q6v4_init_modem(void __iomem *base, void __iomem *jtag_clk)
 }
 
 /* Put modem subsystem back into reset */
-static void pil_q6v4_shutdown_modem(void)
+static void pil_q6v4_shutdown_modem(struct q6v4_modem *mdm)
 {
 	mutex_lock(&pil_q6v4_modem_lock);
 	if (pil_q6v4_modem_count)
 		pil_q6v4_modem_count--;
 	if (pil_q6v4_modem_count == 0)
-		writel_relaxed(0x1, MSS_RESET);
+		writel_relaxed(0x1, mdm->cbase + MSS_RESET);
 	mutex_unlock(&pil_q6v4_modem_lock);
 }
 
@@ -104,19 +105,20 @@ static int pil_q6v4_modem_boot(struct pil_desc *pil)
 	if (err)
 		return err;
 
-	pil_q6v4_init_modem(mdm->modem_base, drv->jtag_clk_reg);
+	pil_q6v4_init_modem(mdm->modem_base, mdm->cbase, drv->jtag_clk_reg);
 	return pil_q6v4_boot(pil);
 }
 
 static int pil_q6v4_modem_shutdown(struct pil_desc *pil)
 {
 	struct q6v4_data *drv = pil_to_q6v4_data(pil);
+	struct q6v4_modem *mdm = dev_get_drvdata(pil->dev);
 	int ret;
 
 	ret = pil_q6v4_shutdown(pil);
 	if (ret)
 		return ret;
-	pil_q6v4_shutdown_modem();
+	pil_q6v4_shutdown_modem(mdm);
 	pil_q6v4_power_down(drv);
 	return 0;
 }
@@ -310,7 +312,7 @@ pil_q6v4_proc_init(struct q6v4_data *drv, struct platform_device *pdev, int i)
 	struct pil_desc *desc;
 	struct resource *res;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1 + (i * 2));
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2 + (i * 2));
 	if (!res)
 		return -EINVAL;
 
@@ -318,7 +320,7 @@ pil_q6v4_proc_init(struct q6v4_data *drv, struct platform_device *pdev, int i)
 	if (!drv->base)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 2 + (i * 2));
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 3 + (i * 2));
 	if (!res)
 		return -EINVAL;
 
@@ -408,10 +410,17 @@ static int __devinit pil_q6v4_modem_driver_probe(struct platform_device *pdev)
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		if (!res)
 			return -EINVAL;
-
 		drv->modem_base = devm_ioremap(&pdev->dev, res->start,
 				resource_size(res));
 		if (!drv->modem_base)
+			return -ENOMEM;
+
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (!res)
+			return -EINVAL;
+		drv->cbase = devm_ioremap(&pdev->dev, res->start,
+					  resource_size(res));
+		if (!drv->cbase)
 			return -ENOMEM;
 
 		ret = pil_desc_init(&drv_fw->desc);

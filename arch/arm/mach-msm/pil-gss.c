@@ -24,7 +24,6 @@
 #include <linux/reboot.h>
 #include <linux/interrupt.h>
 
-#include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 #include <mach/socinfo.h>
 #include <mach/msm_bus_board.h>
@@ -44,13 +43,13 @@
 #define GSS_CSR_POWER_UP_DOWN	0x18
 #define GSS_CSR_CFG_HID		0x2C
 
-#define GSS_SLP_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2C60)
-#define GSS_RESET		(MSM_CLK_CTL_BASE + 0x2C64)
-#define GSS_CLAMP_ENA		(MSM_CLK_CTL_BASE + 0x2C68)
-#define GSS_CXO_SRC_CTL		(MSM_CLK_CTL_BASE + 0x2C74)
+#define GSS_SLP_CLK_CTL		0x2C60
+#define GSS_RESET		0x2C64
+#define GSS_CLAMP_ENA		0x2C68
+#define GSS_CXO_SRC_CTL		0x2C74
 
-#define PLL5_STATUS		(MSM_CLK_CTL_BASE + 0x30F8)
-#define PLL_ENA_GSS		(MSM_CLK_CTL_BASE + 0x3480)
+#define PLL5_STATUS		0x30F8
+#define PLL_ENA_GSS		0x3480
 
 #define PLL5_VOTE		BIT(5)
 #define PLL_STATUS		BIT(16)
@@ -65,6 +64,7 @@
 struct gss_data {
 	void __iomem *base;
 	void __iomem *qgic2_base;
+	void __iomem *cbase;
 	struct clk *xo;
 	struct pil_desc pil_desc;
 	struct miscdevice misc_dev;
@@ -99,14 +99,15 @@ static void remove_gss_proxy_votes(struct pil_desc *pil)
 static void gss_init(struct gss_data *drv)
 {
 	void __iomem *base = drv->base;
+	void __iomem *cbase = drv->cbase;
 
 	/* Supply clocks to GSS. */
-	writel_relaxed(XO_CLK_BRANCH_ENA, GSS_CXO_SRC_CTL);
-	writel_relaxed(SLP_CLK_BRANCH_ENA, GSS_SLP_CLK_CTL);
+	writel_relaxed(XO_CLK_BRANCH_ENA, cbase + GSS_CXO_SRC_CTL);
+	writel_relaxed(SLP_CLK_BRANCH_ENA, cbase + GSS_SLP_CLK_CTL);
 
 	/* Deassert GSS reset and clamps. */
-	writel_relaxed(0x0, GSS_RESET);
-	writel_relaxed(0x0, GSS_CLAMP_ENA);
+	writel_relaxed(0x0, cbase + GSS_RESET);
+	writel_relaxed(0x0, cbase + GSS_CLAMP_ENA);
 	mb();
 
 	/*
@@ -147,6 +148,7 @@ static int pil_gss_shutdown(struct pil_desc *pil)
 {
 	struct gss_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
+	void __iomem *cbase = drv->cbase;
 	u32 regval;
 	int ret;
 
@@ -163,8 +165,8 @@ static int pil_gss_shutdown(struct pil_desc *pil)
 	 * Vote PLL on in GSS's voting register and wait for it to enable.
 	 * The PLL must be enable to switch the GFMUX to a low-power source.
 	 */
-	writel_relaxed(PLL5_VOTE, PLL_ENA_GSS);
-	while ((readl_relaxed(PLL5_STATUS) & PLL_STATUS) == 0)
+	writel_relaxed(PLL5_VOTE, cbase + PLL_ENA_GSS);
+	while ((readl_relaxed(cbase + PLL5_STATUS) & PLL_STATUS) == 0)
 		cpu_relax();
 
 	/* Perform one-time GSS initialization. */
@@ -189,7 +191,7 @@ static int pil_gss_shutdown(struct pil_desc *pil)
 	writel_relaxed(0x1F, base + GSS_CSR_CLK_ENABLE);
 
 	/* Clear GSS PLL votes. */
-	writel_relaxed(0, PLL_ENA_GSS);
+	writel_relaxed(0, cbase + PLL_ENA_GSS);
 	mb();
 
 	clk_disable_unprepare(drv->xo);
@@ -202,6 +204,7 @@ static int pil_gss_reset(struct pil_desc *pil)
 	struct gss_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
 	unsigned long start_addr = pil_get_entry_addr(pil);
+	void __iomem *cbase = drv->cbase;
 	int ret;
 
 	/* Unhalt bus port. */
@@ -212,8 +215,8 @@ static int pil_gss_reset(struct pil_desc *pil)
 	}
 
 	/* Vote PLL on in GSS's voting register and wait for it to enable. */
-	writel_relaxed(PLL5_VOTE, PLL_ENA_GSS);
-	while ((readl_relaxed(PLL5_STATUS) & PLL_STATUS) == 0)
+	writel_relaxed(PLL5_VOTE, cbase + PLL_ENA_GSS);
+	while ((readl_relaxed(cbase + PLL5_STATUS) & PLL_STATUS) == 0)
 		cpu_relax();
 
 	/* Perform GSS initialization. */
@@ -495,15 +498,19 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	if (!drv->base)
 		return -ENOMEM;
 
-	desc = &drv->pil_desc;
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res)
 		return -EINVAL;
-
 	drv->qgic2_base = devm_ioremap(&pdev->dev, res->start,
 					resource_size(res));
 	if (!drv->qgic2_base)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (!res)
+		return -EINVAL;
+	drv->cbase = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!drv->cbase)
 		return -ENOMEM;
 
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
@@ -514,6 +521,7 @@ static int __devinit pil_gss_probe(struct platform_device *pdev)
 	if (drv->irq < 0)
 		return drv->irq;
 
+	desc = &drv->pil_desc;
 	desc->name = "gss";
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;

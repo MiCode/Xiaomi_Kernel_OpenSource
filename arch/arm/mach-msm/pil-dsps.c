@@ -19,7 +19,6 @@
 #include <linux/atomic.h>
 #include <linux/interrupt.h>
 
-#include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
 
@@ -27,17 +26,18 @@
 #include "scm-pas.h"
 #include "ramdump.h"
 
-#define PPSS_RESET			(MSM_CLK_CTL_BASE + 0x2594)
+#define PPSS_RESET			0x2594
 #define PPSS_RESET_PROC_RESET		0x2
 #define PPSS_RESET_RESET		0x1
-#define PPSS_PROC_CLK_CTL		(MSM_CLK_CTL_BASE + 0x2588)
+#define PPSS_PROC_CLK_CTL		0x2588
 #define CLK_BRANCH_ENA			0x10
-#define PPSS_HCLK_CTL			(MSM_CLK_CTL_BASE + 0x2580)
-#define CLK_HALT_DFAB_STATE		(MSM_CLK_CTL_BASE + 0x2FC8)
+#define PPSS_HCLK_CTL			0x2580
+#define CLK_HALT_DFAB_STATE		0x2FC8
 
 #define PPSS_WDOG_UNMASKED_INT_EN	0x1808
 
 struct dsps_data {
+	void __iomem *base;
 	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
@@ -55,33 +55,41 @@ struct dsps_data {
 };
 
 #define desc_to_drv(d) container_of(d, struct dsps_data, subsys_desc)
+#define pil_to_drv(d) container_of(d, struct dsps_data, desc)
 
 static int init_image_dsps(struct pil_desc *pil, const u8 *metadata,
 				     size_t size)
 {
+	struct dsps_data *drv = pil_to_drv(pil);
+
 	/* Bring memory and bus interface out of reset */
-	writel_relaxed(PPSS_RESET_PROC_RESET, PPSS_RESET);
-	writel_relaxed(CLK_BRANCH_ENA, PPSS_HCLK_CTL);
+	writel_relaxed(PPSS_RESET_PROC_RESET, drv->base + PPSS_RESET);
+	writel_relaxed(CLK_BRANCH_ENA, drv->base + PPSS_HCLK_CTL);
 	mb();
 	return 0;
 }
 
 static int reset_dsps(struct pil_desc *pil)
 {
-	writel_relaxed(CLK_BRANCH_ENA, PPSS_PROC_CLK_CTL);
-	while (readl_relaxed(CLK_HALT_DFAB_STATE) & BIT(18))
+	struct dsps_data *drv = pil_to_drv(pil);
+
+	writel_relaxed(CLK_BRANCH_ENA, drv->base + PPSS_PROC_CLK_CTL);
+	while (readl_relaxed(drv->base + CLK_HALT_DFAB_STATE) & BIT(18))
 		cpu_relax();
 	/* Bring DSPS out of reset */
-	writel_relaxed(0x0, PPSS_RESET);
+	writel_relaxed(0x0, drv->base + PPSS_RESET);
 	return 0;
 }
 
 static int shutdown_dsps(struct pil_desc *pil)
 {
-	writel_relaxed(PPSS_RESET_PROC_RESET | PPSS_RESET_RESET, PPSS_RESET);
+	struct dsps_data *drv = pil_to_drv(pil);
+
+	writel_relaxed(PPSS_RESET_PROC_RESET | PPSS_RESET_RESET,
+			drv->base + PPSS_RESET);
 	usleep_range(1000, 2000);
-	writel_relaxed(PPSS_RESET_PROC_RESET, PPSS_RESET);
-	writel_relaxed(0x0, PPSS_PROC_CLK_CTL);
+	writel_relaxed(PPSS_RESET_PROC_RESET, drv->base + PPSS_RESET);
+	writel_relaxed(0x0, drv->base + PPSS_PROC_CLK_CTL);
 	return 0;
 }
 
@@ -246,8 +254,8 @@ static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 {
 	struct dsps_data *drv;
 	struct pil_desc *desc;
-	int ret;
 	struct resource *res;
+	int ret;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -255,6 +263,13 @@ static int __devinit pil_dsps_driver_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, drv);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -EINVAL;
+	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!drv->base)
+		return -ENOMEM;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
 		drv->ppss_base = devm_ioremap(&pdev->dev, res->start,
 					      resource_size(res));

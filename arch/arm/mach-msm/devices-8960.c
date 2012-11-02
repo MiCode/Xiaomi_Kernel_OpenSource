@@ -1373,6 +1373,11 @@ static struct resource msm_8960_q6_mss_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	{
+		.start  = 0x00900000,
+		.end    = 0x00900000 + SZ_16K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
 		.start  = 0x08B00000,
 		.end    = 0x08B00000 + SZ_256 - 1,
 		.flags  = IORESOURCE_MEM,
@@ -1442,6 +1447,11 @@ static struct resource msm_8960_riva_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	{
+		.start  = 0x00900000,
+		.end    = 0x00900000 + SZ_16K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
 		.start  = RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ,
 		.end    = RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ,
 		.flags  = IORESOURCE_IRQ,
@@ -1461,6 +1471,11 @@ struct platform_device msm_pil_tzapps = {
 };
 
 static struct resource msm_pil_dsps_resources[] = {
+	{
+		.start  = 0x00900000,
+		.end    = 0x00900000 + SZ_16K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
 	{
 		.start = PPSS_WDOG_TIMER_IRQ,
 		.end   = PPSS_WDOG_TIMER_IRQ,
