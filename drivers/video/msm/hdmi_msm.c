@@ -4345,32 +4345,40 @@ static int hdmi_msm_power_on(struct platform_device *pdev)
 	DEV_INFO("power: ON (%dx%d %d)\n", mfd->var_xres, mfd->var_yres,
 		mfd->var_pixclock);
 
+	/* Only start transmission with supported resolution */
 	changed = hdmi_common_get_video_format_from_drv_data(mfd);
-	hdmi_msm_audio_info_setup(TRUE, 0, 0, 0, FALSE);
+	if (changed || external_common_state->default_res_supported) {
+		hdmi_msm_audio_info_setup(TRUE, 0, 0, 0, FALSE);
+		mutex_lock(&external_common_state_hpd_mutex);
+		hdmi_msm_state->panel_power_on = TRUE;
+		if (external_common_state->hpd_state &&
+				hdmi_msm_is_power_on()) {
+			DEV_DBG("%s: Turning HDMI on\n", __func__);
+			mutex_unlock(&external_common_state_hpd_mutex);
+			hdmi_msm_turn_on();
 
-	mutex_lock(&external_common_state_hpd_mutex);
-	hdmi_msm_state->panel_power_on = TRUE;
-	if (external_common_state->hpd_state && hdmi_msm_is_power_on()) {
-		DEV_DBG("%s: Turning HDMI on\n", __func__);
-		mutex_unlock(&external_common_state_hpd_mutex);
-		hdmi_msm_turn_on();
-
-		if (hdmi_msm_state->hdcp_enable) {
-			/* Kick off HDCP Authentication */
-			mutex_lock(&hdcp_auth_state_mutex);
-			hdmi_msm_state->reauth = FALSE;
-			hdmi_msm_state->full_auth_done = FALSE;
-			mutex_unlock(&hdcp_auth_state_mutex);
-			mod_timer(&hdmi_msm_state->hdcp_timer, jiffies + HZ/2);
+			if (hdmi_msm_state->hdcp_enable) {
+				/* Kick off HDCP Authentication */
+				mutex_lock(&hdcp_auth_state_mutex);
+				hdmi_msm_state->reauth = FALSE;
+				hdmi_msm_state->full_auth_done = FALSE;
+				mutex_unlock(&hdcp_auth_state_mutex);
+				mod_timer(&hdmi_msm_state->hdcp_timer,
+						jiffies + HZ/2);
+			}
+		} else {
+			mutex_unlock(&external_common_state_hpd_mutex);
 		}
-	} else
-		mutex_unlock(&external_common_state_hpd_mutex);
 
-	hdmi_msm_dump_regs("HDMI-ON: ");
-
-	DEV_INFO("power=%s DVI= %s\n",
-		hdmi_msm_is_power_on() ? "ON" : "OFF" ,
-		hdmi_msm_is_dvi_mode() ? "ON" : "OFF");
+		hdmi_msm_dump_regs("HDMI-ON: ");
+		DEV_INFO("power=%s DVI= %s\n",
+			hdmi_msm_is_power_on() ? "ON" : "OFF" ,
+			hdmi_msm_is_dvi_mode() ? "ON" : "OFF");
+	} else {
+		DEV_ERR("%s: Video fmt %d not supp. Returning\n",
+				__func__,
+				external_common_state->video_resolution);
+	}
 
 	/* Enable HPD interrupt and listen to disconnect interrupts */
 	hdmi_msm_hpd_polarity_setup(HPD_DISCONNECT_POLARITY,
