@@ -36,10 +36,34 @@ enum msm_core_control_event {
 	MSM_DCVS_DISABLE_HIGH_LATENCY_MODES,
 };
 
+struct msm_dcvs_sync_rule {
+	unsigned long cpu_khz;
+	unsigned long gpu_floor_khz;
+};
+
+struct msm_dcvs_platform_data {
+	struct msm_dcvs_sync_rule *sync_rules;
+	unsigned num_sync_rules;
+};
+
 struct msm_gov_platform_data {
 	struct msm_dcvs_core_info *info;
 	int latency;
 };
+
+/**
+ * msm_dcvs_register_cpu_freq
+ * @freq: the frequency value to register
+ * @voltage: the operating voltage (in mV) associated with the above frequency
+ *
+ * Register a cpu frequency and its operating voltage with dcvs.
+ */
+#ifdef CONFIG_MSM_DCVS
+void msm_dcvs_register_cpu_freq(uint32_t freq, uint32_t voltage);
+#else
+static inline void msm_dcvs_register_cpu_freq(uint32_t freq, uint32_t voltage)
+{}
+#endif
 
 /**
  * msm_dcvs_idle

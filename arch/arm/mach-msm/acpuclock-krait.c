@@ -33,6 +33,7 @@
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/msm_bus.h>
+#include <mach/msm_dcvs.h>
 
 #include "acpuclock.h"
 #include "acpuclock-krait.h"
@@ -951,6 +952,17 @@ static void __init cpufreq_table_init(void)
 static void __init cpufreq_table_init(void) {}
 #endif
 
+static void __init dcvs_freq_init(void)
+{
+	int i;
+
+	for (i = 0; drv.acpu_freq_tbl[i].speed.khz != 0; i++)
+		if (drv.acpu_freq_tbl[i].use_for_scaling)
+			msm_dcvs_register_cpu_freq(
+				drv.acpu_freq_tbl[i].speed.khz,
+				drv.acpu_freq_tbl[i].vdd_core / 1000);
+}
+
 static int __cpuinit acpuclk_cpu_callback(struct notifier_block *nfb,
 					    unsigned long action, void *hcpu)
 {
@@ -1156,6 +1168,7 @@ int __init acpuclk_krait_init(struct device *dev,
 	hw_init();
 
 	cpufreq_table_init();
+	dcvs_freq_init();
 	acpuclk_register(&acpuclk_krait_data);
 	register_hotcpu_notifier(&acpuclk_cpu_notifier);
 

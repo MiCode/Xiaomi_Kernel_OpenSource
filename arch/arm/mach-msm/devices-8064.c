@@ -2726,18 +2726,26 @@ struct platform_device i2s_mdm_8064_device = {
 	.resource	= i2s_mdm_resources,
 };
 
-static struct msm_dcvs_freq_entry apq8064_freq[] = {
-	{ 384000, 900,  0, 0, 0},
-	{ 594000, 950,  0, 0, 0},
-	{ 702000, 975,  0, 0, 0},
-	{1026000, 1075, 0, 0, 0},
-	{1242000, 1150, 0, 100, 100},
-	{1458000, 1188, 0, 100, 100},
-	{1512000, 1200, 1, 100, 100},
+static struct msm_dcvs_sync_rule apq8064_dcvs_sync_rules[] = {
+	{1026000,	400000},
+	{384000,	200000},
+	{-1,		128000},
+};
+
+static struct msm_dcvs_platform_data apq8064_dcvs_data = {
+	.sync_rules	= apq8064_dcvs_sync_rules,
+	.num_sync_rules = ARRAY_SIZE(apq8064_dcvs_sync_rules),
+};
+
+struct platform_device apq8064_dcvs_device = {
+	.name		= "dcvs",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &apq8064_dcvs_data,
+	},
 };
 
 static struct msm_dcvs_core_info apq8064_core_info = {
-	.freq_tbl		= &apq8064_freq[0],
 	.num_cores		= 4,
 	.sensors		= (int[]){7, 8, 9, 10},
 	.thermal_poll_ms	= 60000,
@@ -2772,7 +2780,7 @@ static struct msm_dcvs_core_info apq8064_core_info = {
 	},
 	.power_param		= {
 		.current_temp	= 25,
-		.num_freq	= ARRAY_SIZE(apq8064_freq),
+		.num_freq	= 0, /* set at runtime */
 	}
 };
 
