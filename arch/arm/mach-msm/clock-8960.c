@@ -6328,12 +6328,12 @@ static void __init reg_init(void)
 	 */
 	/*
 	 * Initialize MM AHB registers: Enable the FPB clock and disable HW
-	 * gating on 8627 and 8960 for all clocks. Also set VFE_AHB's
+	 * gating on 8627, 8960 and 8930ab for all clocks. Also set VFE_AHB's
 	 * FORCE_CORE_ON bit to prevent its memory from being collapsed when
 	 * the clock is halted. The sleep and wake-up delays are set to safe
 	 * values.
 	 */
-	if (cpu_is_msm8627() || cpu_is_msm8960ab()) {
+	if (cpu_is_msm8627() || cpu_is_msm8960ab() || cpu_is_msm8930ab()) {
 		rmwreg(0x00000003, AHB_EN_REG,  0x6C000103);
 		writel_relaxed(0x000007F9, AHB_EN2_REG);
 	} else {
@@ -6353,7 +6353,7 @@ static void __init reg_init(void)
 	 * delays to safe values. */
 	if (cpu_is_msm8960ab() || (cpu_is_msm8960() &&
 			SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 3) ||
-			cpu_is_msm8627()) {
+			cpu_is_msm8627() || cpu_is_msm8930ab()) {
 		rmwreg(0x000007F9, MAXI_EN_REG,  0x0803FFFF);
 		rmwreg(0x3027FCFF, MAXI_EN2_REG, 0x3A3FFFFF);
 	} else {
@@ -6366,12 +6366,13 @@ static void __init reg_init(void)
 
 	if (cpu_is_apq8064() || cpu_is_apq8064ab())
 		rmwreg(0x019FECFF, MAXI_EN5_REG, 0x01FFEFFF);
-	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627())
+	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627() ||
+	    cpu_is_msm8930ab())
 		rmwreg(0x000004FF, MAXI_EN5_REG, 0x00000FFF);
 	if (cpu_is_msm8960ab())
 		rmwreg(0x009FE000, MAXI_EN5_REG, 0x01FFE000);
 
-	if (cpu_is_msm8627())
+	if (cpu_is_msm8627() || cpu_is_msm8930ab())
 		rmwreg(0x000003C7, SAXI_EN_REG,  0x00003FFF);
 	else if (cpu_is_msm8960ab())
 		rmwreg(0x000001C6, SAXI_EN_REG,  0x00001DF6);
@@ -6412,7 +6413,7 @@ static void __init reg_init(void)
 		rmwreg(0x00000001, DSI2_PIXEL_CC2_REG, 0x00000001);
 
 	if (cpu_is_msm8960() || cpu_is_msm8930() || cpu_is_msm8930aa() ||
-	    cpu_is_msm8627())
+	    cpu_is_msm8627() || cpu_is_msm8930ab())
 		rmwreg(0x80FF0000, TV_CC_REG,        0xE1FFC010);
 	if (cpu_is_msm8960ab())
 		rmwreg(0x00000000, TV_CC_REG,        0x00004010);
@@ -6674,7 +6675,7 @@ static void __init msm8960_clock_post_init(void)
 	}
 	clk_set_rate(&usb_fs1_src_clk.c, 60000000);
 	if (cpu_is_msm8960ab() || cpu_is_msm8960() || cpu_is_msm8930() ||
-		cpu_is_msm8930aa() || cpu_is_msm8627())
+		cpu_is_msm8930aa() || cpu_is_msm8627() || cpu_is_msm8930ab())
 		clk_set_rate(&usb_fs2_src_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_xcvr_fs_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_hsic_src_clk.c, 480000000);
