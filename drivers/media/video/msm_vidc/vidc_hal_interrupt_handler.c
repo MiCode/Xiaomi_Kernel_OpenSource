@@ -160,7 +160,6 @@ static void hal_process_event_notify(struct hal_device *device,
 	switch (pkt->event_id) {
 	case HFI_EVENT_SYS_ERROR:
 		dprintk(VIDC_INFO, "HFI_EVENT_SYS_ERROR");
-		hal_process_sys_watchdog_timeout(device);
 		break;
 	case HFI_EVENT_SESSION_ERROR:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR");
