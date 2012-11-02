@@ -485,7 +485,7 @@ static inline struct sg_table *ion_sg_table(struct ion_client *client,
 }
 
 static inline void *ion_map_kernel(struct ion_client *client,
-	struct ion_handle *handle, unsigned long flags)
+	struct ion_handle *handle)
 {
 	return ERR_PTR(-ENODEV);
 }
@@ -516,6 +516,12 @@ static inline int ion_map_iommu(struct ion_client *client,
 			unsigned long *buffer_size,
 			unsigned long flags,
 			unsigned long iommu_flags)
+{
+	return -ENODEV;
+}
+
+static inline int ion_handle_get_size(struct ion_client *client,
+				struct ion_handle *handle, unsigned long *size)
 {
 	return -ENODEV;
 }
