@@ -1043,8 +1043,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR)
 		drvdata->size = SZ_1M;
 	else
-		drvdata->size = (tmc_readl(drvdata, TMC_RSZ) * BYTES_PER_WORD)
-				+ PAGE_SIZE;
+		drvdata->size = tmc_readl(drvdata, TMC_RSZ) * BYTES_PER_WORD;
 
 	clk_disable_unprepare(drvdata->clk);
 
@@ -1067,7 +1066,8 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 		if (ret)
 			goto err0;
 	} else {
-		baddr = devm_kzalloc(dev, drvdata->size, GFP_KERNEL);
+		baddr = devm_kzalloc(dev, PAGE_SIZE + drvdata->size,
+				     GFP_KERNEL);
 		if (!baddr)
 			return -ENOMEM;
 		drvdata->buf = baddr + PAGE_SIZE;
@@ -1075,7 +1075,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 							TMC_ETFETB_DUMP_VER;
 		dump.id = MSM_TMC_ETFETB + etfetb_count;
 		dump.start_addr = virt_to_phys(baddr);
-		dump.end_addr = dump.start_addr + drvdata->size;
+		dump.end_addr = dump.start_addr + PAGE_SIZE + drvdata->size;
 		ret = msm_dump_table_register(&dump);
 		/* Don't free the buffer in case of error since it can still
 		 * be used to provide dump collection via the device node
