@@ -27,6 +27,7 @@
 #include <asm/setup.h>
 #include <asm/mach-types.h>
 #include <mach/msm_memtypes.h>
+#include <mach/memory.h>
 #include <linux/hardirq.h>
 #if defined(CONFIG_MSM_NPA_REMOTE)
 #include "npa_remote.h"
@@ -353,7 +354,7 @@ static int reserve_memory_type(const char *mem_name,
 	return ret;
 }
 
-static int check_for_compat(unsigned long node)
+static int __init check_for_compat(unsigned long node)
 {
 	char **start = __compat_exports_start;
 
@@ -442,6 +443,79 @@ out:
 	return 0;
 }
 
+/* This function scans the device tree to populate the memory hole table */
+int __init dt_scan_for_memory_hole(unsigned long node, const char *uname,
+		int depth, void *data)
+{
+	unsigned int *memory_remove_prop;
+	unsigned long memory_remove_prop_length;
+	unsigned long hole_start;
+	unsigned long hole_size;
+
+	memory_remove_prop = of_get_flat_dt_prop(node,
+						"qcom,memblock-remove",
+						&memory_remove_prop_length);
+
+	if (memory_remove_prop) {
+		if (!check_for_compat(node))
+			goto out;
+	} else {
+		goto out;
+	}
+
+	if (memory_remove_prop) {
+		if (memory_remove_prop_length != (2*sizeof(unsigned int))) {
+			WARN(1, "Memory remove malformed\n");
+			goto out;
+		}
+
+		hole_start = be32_to_cpu(memory_remove_prop[0]);
+		hole_size = be32_to_cpu(memory_remove_prop[1]);
+
+		if (hole_start + hole_size <= MAX_HOLE_ADDRESS) {
+			if (memory_hole_start == 0 && memory_hole_end == 0) {
+				memory_hole_start = hole_start;
+				memory_hole_end = hole_start + hole_size;
+			} else if ((memory_hole_end - memory_hole_start)
+							<= hole_size) {
+				memory_hole_start = hole_start;
+				memory_hole_end = hole_start + hole_size;
+			}
+		}
+		adjust_meminfo(hole_start, hole_size);
+	}
+
+out:
+	return 0;
+}
+
+/*
+ * Split the memory bank to reflect the hole, if present,
+ * using the start and end of the memory hole.
+ */
+void adjust_meminfo(unsigned long start, unsigned long size)
+{
+	int i, j;
+
+	for (i = 0, j = 0; i < meminfo.nr_banks; i++) {
+		struct membank *bank = &meminfo.bank[j];
+		*bank = meminfo.bank[i];
+
+		if (((start + size) <= (bank->start + bank->size)) &&
+			(start >= bank->start)) {
+			memmove(bank + 1, bank,
+				(meminfo.nr_banks - i) * sizeof(*bank));
+			meminfo.nr_banks++;
+			i++;
+			bank[1].size -= (start + size);
+			bank[1].start = (start + size);
+			bank[1].highmem = 0;
+			j++;
+			bank->size = start - bank->start;
+		}
+		j++;
+	}
+}
 unsigned long get_ddr_size(void)
 {
 	unsigned int i;
