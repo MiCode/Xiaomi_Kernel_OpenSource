@@ -73,13 +73,25 @@
 		interrupts = <0 123 0>;
 		interrupt-names = "core_irq";
 
+		vdd-supply = <&pm8110_l17>;
+		qcom,vdd-always-on;
+		qcom,vdd-lpm-sup;
+		qcom,vdd-voltage-level = <2900000 2900000>;
+		qcom,vdd-current-level = <9000 400000>;
+
+		vdd-io-supply = <&pm8110_l6>;
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-lpm-sup;
+		qcom,vdd-io-voltage-level = <1800000 1800000>;
+		qcom,vdd-io-current-level = <9000 60000>;
+
 		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 		qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
 		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
 		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
-		qcom,sup-voltages = <2950 2950>;
+		qcom,sup-voltages = <2900 2900>;
 		qcom,bus-width = <8>;
 		qcom,nonremovable;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
@@ -92,6 +104,14 @@
 		reg-names = "core_mem";
 		interrupts = <0 125 0>;
 		interrupt-names = "core_irq";
+
+		vdd-supply = <&pm8110_l18>;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 400000>;
+
+		vdd-io-supply = <&pm8110_l21>;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <9000 50000>;
 
 		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
