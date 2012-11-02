@@ -26,6 +26,7 @@
 #include "mdss_fb.h"
 #include "mdss_hdmi_tx.h"
 #include "mdss_hdmi_edid.h"
+#include "mdss_hdmi_hdcp.h"
 #include "mdss.h"
 #include "mdss_panel.h"
 
@@ -44,6 +45,9 @@
 #define IFRAME_CHECKSUM_32(d)			\
 	((d & 0xff) + ((d >> 8) & 0xff) +	\
 	((d >> 16) & 0xff) + ((d >> 24) & 0xff))
+
+/* Enable HDCP by default */
+static bool hdcp_feature_on = true;
 
 /* parameters for clock regeneration */
 struct hdmi_tx_audio_acr {
@@ -421,10 +425,75 @@ static void hdmi_tx_sysfs_remove(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->kobj = NULL;
 } /* hdmi_tx_sysfs_remove */
 
+static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	return hdmi_edid_get_sink_mode(
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) ? 0 : 1;
+} /* hdmi_tx_is_dvi_mode */
+
+static inline void hdmi_tx_set_audio_switch_node(struct hdmi_tx_ctrl *hdmi_ctrl,
+	int val, bool force)
+{
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
+		(force || (hdmi_ctrl->audio_sdev.state != val))) {
+		switch_set_state(&hdmi_ctrl->audio_sdev, val);
+		DEV_INFO("%s: hdmi_audio state switched to %d\n", __func__,
+			hdmi_ctrl->audio_sdev.state);
+	}
+} /* hdmi_tx_set_audio_switch_node */
+
+void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
+{
+	int rc = 0;
+	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)ptr;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	DEV_DBG("%s: HDCP status=%s hpd_state=%d\n", __func__,
+		hdcp_state_name(status), hdmi_ctrl->hpd_state);
+
+	switch (status) {
+	case HDCP_STATE_AUTHENTICATED:
+		if (hdmi_ctrl->hpd_state)
+			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1, false);
+		break;
+	case HDCP_STATE_AUTH_FAIL:
+		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
+
+		if (hdmi_ctrl->hpd_state) {
+			DEV_DBG("%s: Reauthenticating\n", __func__);
+			rc = hdmi_hdcp_reauthenticate(
+				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
+			if (rc)
+				DEV_ERR("%s: HDCP reauth failed. rc=%d\n",
+					__func__, rc);
+		} else {
+			DEV_DBG("%s: Not reauthenticating. Cable not conn\n",
+				__func__);
+		}
+
+		break;
+	case HDCP_STATE_AUTHENTICATING:
+	case HDCP_STATE_INACTIVE:
+	default:
+		break;
+		/* do nothing */
+	}
+}
+
 /* Enable HDMI features */
 static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	struct hdmi_edid_init_data edid_init_data;
+	struct hdmi_hdcp_init_data hdcp_init_data;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -446,6 +515,29 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
 		hdmi_ctrl->video_resolution);
 
+	/* Initialize HDCP feature */
+	if (hdmi_ctrl->present_hdcp) {
+		hdcp_init_data.core_io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+		hdcp_init_data.qfprom_io =
+			&hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
+		hdcp_init_data.mutex = &hdmi_ctrl->mutex;
+		hdcp_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
+		hdcp_init_data.workq = hdmi_ctrl->workq;
+		hdcp_init_data.notify_status = hdmi_tx_hdcp_cb;
+		hdcp_init_data.cb_data = (void *)hdmi_ctrl;
+
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP] =
+			hdmi_hdcp_init(&hdcp_init_data);
+		if (!hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) {
+			DEV_ERR("%s: hdmi_hdcp_init failed\n", __func__);
+			hdmi_edid_deinit(hdmi_ctrl->feature_data[
+				HDMI_TX_FEAT_EDID]);
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] = NULL;
+			return -EPERM;
+		}
+
+		DEV_DBG("%s: HDCP feature initialized\n", __func__);
+	}
 	return 0;
 } /* hdmi_tx_init_features */
 
@@ -454,12 +546,6 @@ static inline u32 hdmi_tx_is_controller_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 	struct dss_io_data *io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	return DSS_REG_R_ND(io, HDMI_CTRL) & BIT(0);
 } /* hdmi_tx_is_controller_on */
-
-static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
-{
-	return hdmi_edid_get_sink_mode(
-		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) ? 0 : 1;
-} /* hdmi_tx_is_dvi_mode */
 
 static int hdmi_tx_init_panel_info(uint32_t resolution,
 	struct mdss_panel_info *pinfo)
@@ -556,7 +642,6 @@ error:
 static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
-	struct dss_io_data *io = NULL;
 
 	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, hpd_int_work);
 	if (!hdmi_ctrl || !hdmi_ctrl->hpd_initialized) {
@@ -564,16 +649,8 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		return;
 	}
 
-	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
-	if (!io->base) {
-		DEV_ERR("%s: Core io is not initialized\n", __func__);
-		return;
-	}
-
 	DEV_DBG("%s: Got HPD interrupt\n", __func__);
 
-	hdmi_ctrl->hpd_state =
-		(DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) >> 1;
 	if (hdmi_ctrl->hpd_state) {
 		hdmi_tx_read_sink_info(hdmi_ctrl);
 		DEV_INFO("HDMI HPD: sense CONNECTED: send ONLINE\n");
@@ -593,12 +670,19 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		complete_all(&hdmi_ctrl->hpd_done);
 } /* hdmi_tx_hpd_int_work */
 
-static int hdmi_tx_check_capability(struct dss_io_data *io)
+static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	u32 hdmi_disabled, hdcp_disabled;
+	struct dss_io_data *io = NULL;
 
-	if (!io) {
+	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
+	if (!io->base) {
+		DEV_ERR("%s: QFPROM io is not initialized\n", __func__);
 		return -EINVAL;
 	}
 
@@ -616,8 +700,13 @@ static int hdmi_tx_check_capability(struct dss_io_data *io)
 		return -ENODEV;
 	}
 
-	if (hdcp_disabled)
+	if (hdcp_disabled) {
+		hdmi_ctrl->present_hdcp = 0;
 		DEV_WARN("%s: HDCP disabled\n", __func__);
+	} else {
+		hdmi_ctrl->present_hdcp = 1;
+		DEV_DBG("%s: Device is HDCP enabled\n", __func__);
+	}
 
 	return 0;
 } /* hdmi_tx_check_capability */
@@ -1096,12 +1185,14 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 		reg_val |= BIT(0); /* Enable the block */
 		if (hdmi_edid_get_sink_mode(
 			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) == 0) {
-			if (hdmi_ctrl->present_hdcp)
+			if (hdmi_ctrl->hdcp_feature_on &&
+				hdmi_ctrl->present_hdcp)
 				/* HDMI Encryption */
 				reg_val |= BIT(2);
 			reg_val |= BIT(1);
 		} else {
-			if (hdmi_ctrl->present_hdcp)
+			if (hdmi_ctrl->hdcp_feature_on &&
+				hdmi_ctrl->present_hdcp)
 				/* HDMI_Encryption_ON */
 				reg_val |= BIT(1) | BIT(2);
 			else
@@ -1689,7 +1780,7 @@ static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 			DEV_ERR("%s: audio still on after %d sec. try again\n",
 				__func__, i+1);
 
-			switch_set_state(&hdmi_ctrl->audio_sdev, 0);
+			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, true);
 			continue;
 		}
 		break;
@@ -1744,16 +1835,15 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 			return rc;
 		}
 
-		switch_set_state(&hdmi_ctrl->audio_sdev, 1);
-		DEV_INFO("%s: hdmi_audio state switch to %d\n", __func__,
-			hdmi_ctrl->audio_sdev.state);
+		if (!hdmi_ctrl->hdcp_feature_on || !hdmi_ctrl->present_hdcp)
+			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1, false);
 
 		hdmi_tx_set_avi_infoframe(hdmi_ctrl);
 		hdmi_tx_set_vendor_specific_infoframe(hdmi_ctrl);
 		hdmi_tx_set_spd_infoframe(hdmi_ctrl);
 	}
 
-	/* todo: HDCP/CEC */
+	/* todo: CEC */
 
 	DEV_INFO("%s: HDMI Core: Initialized\n", __func__);
 
@@ -1812,11 +1902,13 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 		return;
 	}
 
-	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl)) {
-		switch_set_state(&hdmi_ctrl->audio_sdev, 0);
-		DEV_INFO("%s: hdmi_audio state switch to %d\n", __func__,
-			hdmi_ctrl->audio_sdev.state);
+	if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp) {
+		DEV_DBG("%s: Turning off HDCP\n", __func__);
+		hdmi_hdcp_off(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
+	}
 
+	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl)) {
+		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0, false);
 		hdmi_tx_audio_off(hdmi_ctrl);
 	}
 
@@ -1895,6 +1987,8 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		return rc;
 	}
 
+	hdmi_ctrl->hdcp_feature_on = hdcp_feature_on;
+
 	DEV_INFO("power: ON (%s)\n", hdmi_get_video_fmt_2string(
 		hdmi_ctrl->video_resolution));
 
@@ -1917,7 +2011,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			hdmi_tx_power_off(panel_data);
 			return rc;
 		}
-		/* todo: HDCP */
 	} else {
 		mutex_unlock(&hdmi_ctrl->mutex);
 	}
@@ -2060,6 +2153,9 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 	}
 
 	if (DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(0)) {
+		hdmi_ctrl->hpd_state =
+			(DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) >> 1;
+
 		/*
 		 * Ack the current hpd interrupt and stop listening to
 		 * new hpd interrupt.
@@ -2071,6 +2167,11 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 	if (hdmi_ddc_isr(&hdmi_ctrl->ddc_ctrl) < 0)
 		DEV_ERR("%s: hdmi_ddc_isr failed\n", __func__);
 
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP])
+		if (hdmi_hdcp_isr(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) < 0)
+			DEV_ERR("%s: hdmi_hdcp_isr failed\n", __func__);
+
 	return IRQ_HANDLED;
 } /* hdmi_tx_isr */
 
@@ -2079,6 +2180,11 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
+	}
+
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) {
+		hdmi_hdcp_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP] = NULL;
 	}
 
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID])
@@ -2105,7 +2211,7 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	pdata = &hdmi_ctrl->pdata;
 
-	rc = hdmi_tx_check_capability(&pdata->io[HDMI_TX_QFPROM_IO]);
+	rc = hdmi_tx_check_capability(hdmi_ctrl);
 	if (rc) {
 		DEV_ERR("%s: no HDMI device\n", __func__);
 		goto fail_no_hdmi;
@@ -2242,6 +2348,14 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_TIMEGEN_ON:
+		if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp) {
+			DEV_DBG("%s: Starting HDCP authentication\n", __func__);
+			rc = hdmi_hdcp_authenticate(
+				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
+			if (rc)
+				DEV_ERR("%s: hdcp auth failed. rc=%d\n",
+					__func__, rc);
+		}
 		break;
 
 	case MDSS_EVENT_SUSPEND:
@@ -2977,6 +3091,26 @@ static void __exit hdmi_tx_drv_exit(void)
 {
 	platform_driver_unregister(&this_driver);
 } /* hdmi_tx_drv_exit */
+
+static int set_hdcp_feature_on(const char *val, const struct kernel_param *kp)
+{
+	int rc = 0;
+
+	rc = param_set_bool(val, kp);
+	if (!rc)
+		pr_debug("%s: HDCP feature = %d\n", __func__, hdcp_feature_on);
+
+	return rc;
+}
+
+static struct kernel_param_ops hdcp_feature_on_param_ops = {
+	.set = set_hdcp_feature_on,
+	.get = param_get_bool,
+};
+
+module_param_cb(hdcp, &hdcp_feature_on_param_ops, &hdcp_feature_on,
+	S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(hdcp, "Enable or Disable HDCP");
 
 module_init(hdmi_tx_drv_init);
 module_exit(hdmi_tx_drv_exit);
