@@ -2918,17 +2918,9 @@ static int msmfb_overlay_play_wait(struct fb_info *info, unsigned long *argp)
 	return ret;
 }
 
-static int msmfb_overlay_commit(struct fb_info *info, unsigned long *argp)
+static int msmfb_overlay_commit(struct fb_info *info)
 {
-	int ret, ndx;
-
-	ret = copy_from_user(&ndx, argp, sizeof(ndx));
-	if (ret) {
-		pr_err("%s: ioctl failed\n", __func__);
-		return ret;
-	}
-
-	return mdp4_overlay_commit(info, ndx);
+	return mdp4_overlay_commit(info);
 }
 
 static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
@@ -3362,7 +3354,7 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case MSMFB_OVERLAY_COMMIT:
 		down(&msm_fb_ioctl_ppp_sem);
-		ret = msmfb_overlay_commit(info, argp);
+		ret = msmfb_overlay_commit(info);
 		up(&msm_fb_ioctl_ppp_sem);
 		break;
 	case MSMFB_OVERLAY_PLAY:
