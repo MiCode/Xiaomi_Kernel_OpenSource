@@ -393,10 +393,13 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 	struct dwc3_otg *dotg = container_of(phy->otg, struct dwc3_otg, otg);
 
 
-	if (!dotg->psy) {
-		dev_err(phy->dev, "no usb power supply registered\n");
+	if (!dotg->psy || !dotg->charger) {
+		dev_err(phy->dev, "no usb power supply/charger registered\n");
 		return 0;
 	}
+
+	if (dotg->charger->charging_disabled)
+		return 0;
 
 	if (dotg->charger->chg_type == DWC3_SDP_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB;
