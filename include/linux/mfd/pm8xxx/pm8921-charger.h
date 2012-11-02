@@ -89,6 +89,7 @@ enum pm8921_chg_led_src_config {
  *			area
  * @max_bat_chg_current:	Max charge current of the battery in mA
  *				Usually 70% of full charge capacity
+ * @usb_max_current:		Maximum USB current in mA
  * @cool_bat_chg_current:	chg current (mA) when the battery is cool
  * @warm_bat_chg_current:	chg current (mA)  when the battery is warm
  * @cool_bat_voltage:		chg voltage (mV) when the battery is cool
@@ -140,6 +141,7 @@ struct pm8921_charger_platform_data {
 	int				warm_temp;
 	unsigned int			temp_check_period;
 	unsigned int			max_bat_chg_current;
+	unsigned int			usb_max_current;
 	unsigned int			cool_bat_chg_current;
 	unsigned int			warm_bat_chg_current;
 	unsigned int			cool_bat_voltage;
