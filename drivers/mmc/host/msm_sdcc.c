@@ -5271,7 +5271,7 @@ static int msmsdcc_dt_get_pad_pull_info(struct device *dev, int id,
 	pull_data->on = pull;
 	pull_data->off = pull + pull_data->size;
 
-	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-pad-pull-on",
+	ret = msmsdcc_dt_get_array(dev, "qcom,pad-pull-on",
 			&tmp, &len, pull_data->size);
 	if (!ret) {
 		for (i = 0; i < len; i++) {
@@ -5284,7 +5284,7 @@ static int msmsdcc_dt_get_pad_pull_info(struct device *dev, int id,
 		goto err;
 	}
 
-	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-pad-pull-off",
+	ret = msmsdcc_dt_get_array(dev, "qcom,pad-pull-off",
 			&tmp, &len, pull_data->size);
 	if (!ret) {
 		for (i = 0; i < len; i++) {
@@ -5349,7 +5349,7 @@ static int msmsdcc_dt_get_pad_drv_info(struct device *dev, int id,
 	drv_data->on = drv;
 	drv_data->off = drv + drv_data->size;
 
-	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-pad-drv-on",
+	ret = msmsdcc_dt_get_array(dev, "qcom,pad-drv-on",
 			&tmp, &len, drv_data->size);
 	if (!ret) {
 		for (i = 0; i < len; i++) {
@@ -5362,7 +5362,7 @@ static int msmsdcc_dt_get_pad_drv_info(struct device *dev, int id,
 		goto err;
 	}
 
-	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-pad-drv-off",
+	ret = msmsdcc_dt_get_array(dev, "qcom,pad-drv-off",
 			&tmp, &len, drv_data->size);
 	if (!ret) {
 		for (i = 0; i < len; i++) {
@@ -5442,7 +5442,7 @@ static int msmsdcc_dt_parse_gpio_info(struct device *dev,
 			char result[32];
 			pin_data->gpio_data->gpio[i].no = of_get_gpio(np, i);
 			of_property_read_string_index(np,
-					"qcom,sdcc-gpio-names", i, &name);
+					"qcom,gpio-names", i, &name);
 
 			snprintf(result, 32, "%s-%s",
 					dev_name(dev), name ? name : "?");
@@ -5501,17 +5501,17 @@ static int msmsdcc_dt_parse_vreg_info(struct device *dev,
 		vreg->name = vreg_name;
 
 		snprintf(prop_name, MAX_PROP_SIZE,
-				"qcom,sdcc-%s-always_on", vreg_name);
+				"qcom,%s-always-on", vreg_name);
 		if (of_get_property(np, prop_name, NULL))
 			vreg->always_on = true;
 
 		snprintf(prop_name, MAX_PROP_SIZE,
-				"qcom,sdcc-%s-lpm_sup", vreg_name);
+				"qcom,%s-lpm-sup", vreg_name);
 		if (of_get_property(np, prop_name, NULL))
 			vreg->lpm_sup = true;
 
 		snprintf(prop_name, MAX_PROP_SIZE,
-				"qcom,sdcc-%s-voltage_level", vreg_name);
+				"qcom,%s-voltage-level", vreg_name);
 		prop = of_get_property(np, prop_name, &len);
 		if (!prop || (len != (2 * sizeof(__be32)))) {
 			dev_warn(dev, "%s %s property\n",
@@ -5522,7 +5522,7 @@ static int msmsdcc_dt_parse_vreg_info(struct device *dev,
 		}
 
 		snprintf(prop_name, MAX_PROP_SIZE,
-				"qcom,sdcc-%s-current_level", vreg_name);
+				"qcom,%s-current-level", vreg_name);
 		prop = of_get_property(np, prop_name, &len);
 		if (!prop || (len != (2 * sizeof(__be32)))) {
 			dev_warn(dev, "%s %s property\n",
@@ -5558,7 +5558,7 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 		goto err;
 	}
 
-	of_property_read_u32(np, "qcom,sdcc-bus-width", &bus_width);
+	of_property_read_u32(np, "qcom,bus-width", &bus_width);
 	if (bus_width == 8) {
 		pdata->mmc_bus_width = MMC_CAP_8_BIT_DATA;
 	} else if (bus_width == 4) {
@@ -5568,7 +5568,7 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 		pdata->mmc_bus_width = 0;
 	}
 
-	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-sup-voltages",
+	ret = msmsdcc_dt_get_array(dev, "qcom,sup-voltages",
 			&sup_voltages, &sup_volt_len, 0);
 	if (!ret) {
 		for (i = 0; i < sup_volt_len; i += 2) {
@@ -5583,7 +5583,7 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 		dev_dbg(dev, "OCR mask=0x%x\n", pdata->ocr_mask);
 	}
 
-	ret = msmsdcc_dt_get_array(dev, "qcom,sdcc-clk-rates",
+	ret = msmsdcc_dt_get_array(dev, "qcom,clk-rates",
 			&clk_table, &clk_table_len, 0);
 	if (!ret) {
 		pdata->sup_clk_table = clk_table;
@@ -5608,13 +5608,13 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 	if (msmsdcc_dt_parse_gpio_info(dev, pdata))
 		goto err;
 
-	len = of_property_count_strings(np, "qcom,sdcc-bus-speed-mode");
+	len = of_property_count_strings(np, "qcom,bus-speed-mode");
 
 	for (i = 0; i < len; i++) {
 		const char *name = NULL;
 
 		of_property_read_string_index(np,
-			"qcom,sdcc-bus-speed-mode", i, &name);
+			"qcom,bus-speed-mode", i, &name);
 		if (!name)
 			continue;
 
@@ -5640,7 +5640,7 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 						| MMC_CAP_UHS_DDR50;
 	}
 
-	of_property_read_u32(np, "qcom,sdcc-current-limit", &current_limit);
+	of_property_read_u32(np, "qcom,current-limit", &current_limit);
 	if (current_limit == 800)
 		pdata->uhs_caps |= MMC_CAP_MAX_CURRENT_800;
 	else if (current_limit == 600)
@@ -5650,11 +5650,11 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 	else if (current_limit == 200)
 		pdata->uhs_caps |= MMC_CAP_MAX_CURRENT_200;
 
-	if (of_get_property(np, "qcom,sdcc-xpc", NULL))
+	if (of_get_property(np, "qcom,xpc", NULL))
 		pdata->xpc_cap = true;
-	if (of_get_property(np, "qcom,sdcc-nonremovable", NULL))
+	if (of_get_property(np, "qcom,nonremovable", NULL))
 		pdata->nonremovable = true;
-	if (of_get_property(np, "qcom,sdcc-disable_cmd23", NULL))
+	if (of_get_property(np, "qcom,disable-cmd23", NULL))
 		pdata->disable_cmd23 = true;
 	of_property_read_u32(np, "qcom,dat1-mpm-int",
 					&pdata->mpm_sdiowakeup_int);
