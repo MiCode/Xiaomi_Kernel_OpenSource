@@ -215,6 +215,8 @@
 /* QFPROM Registers for HDMI/HDCP */
 #define QFPROM_RAW_FEAT_CONFIG_ROW0_LSB  (0x000000F8)
 #define QFPROM_RAW_FEAT_CONFIG_ROW0_MSB  (0x000000FC)
+#define HDCP_KSV_LSB                     (0x000060D8)
+#define HDCP_KSV_MSB                     (0x000060DC)
 
 /* all video formats defined by EIA CEA-861-E */
 #define HDMI_VFRMT_640x480p60_4_3	0
