@@ -70,6 +70,7 @@ enum dwc3_chg_type {
 struct dwc3_charger {
 	enum dwc3_chg_type	chg_type;
 	unsigned		max_power;
+	bool			charging_disabled;
 
 	/* start/stop charger detection, provided by external charger module */
 	void	(*start_detection)(struct dwc3_charger *charger, bool start);
