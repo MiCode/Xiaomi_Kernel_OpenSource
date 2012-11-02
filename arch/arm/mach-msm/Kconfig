@@ -384,6 +384,8 @@ config ARCH_MSM8910
 	select MULTI_IRQ_HANDLER
 	select GPIO_MSM_V3
 	select MSM_GPIOMUX
+	select MSM_NATIVE_RESTART
+	select MSM_RESTART_V2
 endmenu
 
 choice

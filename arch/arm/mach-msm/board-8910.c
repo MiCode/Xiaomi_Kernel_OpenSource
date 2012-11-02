@@ -31,6 +31,7 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
+#include <mach/restart.h>
 #ifdef CONFIG_ION_MSM
 #include <mach/ion.h>
 #endif
@@ -80,4 +81,5 @@ DT_MACHINE_START(MSM8910_DT, "Qualcomm MSM 8910 (Flattened Device Tree)")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
 	.dt_compat = msm8910_dt_match,
+	.restart = msm_restart,
 MACHINE_END
