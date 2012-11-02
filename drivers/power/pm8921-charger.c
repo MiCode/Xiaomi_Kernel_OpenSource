@@ -1799,6 +1799,12 @@ static void __pm8921_charger_vbus_draw(unsigned int mA)
 		return;
 	}
 
+	if (usb_max_current && mA > usb_max_current) {
+		pr_debug("restricting usb current to %d instead of %d\n",
+					usb_max_current, mA);
+		mA = usb_max_current;
+	}
+
 	if (mA <= 2) {
 		usb_chg_current = 0;
 		rc = pm_chg_iusbmax_set(the_chip, 0);
@@ -4479,6 +4485,8 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 
 	chip->temp_check_period = pdata->temp_check_period;
 	chip->max_bat_chg_current = pdata->max_bat_chg_current;
+	/* Assign to corresponding module parameter */
+	usb_max_current = pdata->usb_max_current;
 	chip->cool_bat_chg_current = pdata->cool_bat_chg_current;
 	chip->warm_bat_chg_current = pdata->warm_bat_chg_current;
 	chip->cool_bat_voltage = pdata->cool_bat_voltage;
