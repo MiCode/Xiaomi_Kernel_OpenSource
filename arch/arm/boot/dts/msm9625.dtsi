@@ -184,22 +184,22 @@
 		vdd-supply = <&ext_2p95v>;
 
 		vdd-io-supply = <&pm8019_l13>;
-		qcom,sdcc-vdd-io-always_on;
-		qcom,sdcc-vdd-io-lpm_sup;
-		qcom,sdcc-vdd-io-voltage_level = <1800000 2950000>;
-		qcom,sdcc-vdd-io-current_level = <6 22000>;
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-lpm-sup;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <6 22000>;
 
-		qcom,sdcc-pad-pull-on = <0x0 0x3 0x3>;
-		qcom,sdcc-pad-pull-off = <0x0 0x3 0x3>;
-		qcom,sdcc-pad-drv-on = <0x7 0x4 0x4>;
-		qcom,sdcc-pad-drv-off = <0x0 0x0 0x0>;
+		qcom,pad-pull-on = <0x0 0x3 0x3>;
+		qcom,pad-pull-off = <0x0 0x3 0x3>;
+		qcom,pad-drv-on = <0x7 0x4 0x4>;
+		qcom,pad-drv-off = <0x0 0x0 0x0>;
 
-		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000 200000000>;
-		qcom,sdcc-sup-voltages = <2950 2950>;
-		qcom,sdcc-bus-width = <4>;
-		qcom,sdcc-xpc;
-		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
-		qcom,sdcc-current-limit = <800>;
+		qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+		qcom,sup-voltages = <2950 2950>;
+		qcom,bus-width = <4>;
+		qcom,xpc;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+		qcom,current-limit = <800>;
 
 		interrupt-parent = <&sdcc2>;
 		#address-cells = <0>;
@@ -229,12 +229,12 @@
 			<&msmgpio 17 0>,
 			<&msmgpio 18 0>,
 			<&msmgpio 19 0>;
-		qcom,sdcc-gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
 
-		qcom,sdcc-clk-rates = <400000 25000000 50000000 100000000>;
-		qcom,sdcc-sup-voltages = <2950 2950>;
-		qcom,sdcc-bus-width = <4>;
-		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
+		qcom,clk-rates = <400000 25000000 50000000 100000000>;
+		qcom,sup-voltages = <2950 2950>;
+		qcom,bus-width = <4>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
 	};
 
 	qcom,bam_dmux@fc834000 {

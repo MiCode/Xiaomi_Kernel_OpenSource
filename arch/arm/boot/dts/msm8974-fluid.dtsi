@@ -155,7 +155,7 @@
 };
 
 &sdcc1 {
-	qcom,sdcc-bus-width = <4>;
+	qcom,bus-width = <4>;
 };
 
 &sdcc2 {
