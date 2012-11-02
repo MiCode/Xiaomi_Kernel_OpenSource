@@ -418,17 +418,10 @@ struct sg_table *ion_cp_heap_create_sg_table(struct ion_buffer *buffer)
 	if (!table)
 		return ERR_PTR(-ENOMEM);
 
-	if (buf->is_secure) {
+	if (buf->is_secure && IS_ALIGNED(buffer->size, SZ_1M)) {
 		int n_chunks;
 		int i;
 		struct scatterlist *sg;
-
-		if (!IS_ALIGNED(buffer->size, SZ_1M)) {
-			pr_err("%s: buffer is marked as secure but buffer size %x is not aligned to 1MB\n",
-				__func__, buffer->size);
-
-			return ERR_PTR(-EINVAL);
-		}
 
 		/* Count number of 1MB chunks. Alignment is already checked. */
 		n_chunks = buffer->size >> 20;
