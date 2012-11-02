@@ -487,8 +487,8 @@ int stm_trace(uint32_t options, uint8_t entity_id, uint8_t proto_id,
 
 	/* we don't support sizes more than 24bits (0 to 23) */
 	if (!(drvdata && drvdata->enable &&
-	    test_bit(entity_id, drvdata->entities) &&
-	    (size < 0x1000000)))
+	      test_bit(entity_id, drvdata->entities) && size &&
+	      (size < 0x1000000)))
 		return 0;
 
 	return __stm_trace(options, entity_id, proto_id, data, size);
@@ -504,7 +504,7 @@ static ssize_t stm_write(struct file *file, const char __user *data,
 	uint8_t entity_id, proto_id;
 	uint32_t options;
 
-	if (!drvdata->enable)
+	if (!drvdata->enable || !size)
 		return -EINVAL;
 
 	if (size > STM_TRACE_BUF_SIZE)
@@ -528,7 +528,8 @@ static ssize_t stm_write(struct file *file, const char __user *data,
 		proto_id = buf[3];
 		options = *(uint32_t *)(buf + 4);
 
-		if (!test_bit(entity_id, drvdata->entities)) {
+		if (!test_bit(entity_id, drvdata->entities) ||
+		    !(size - STM_USERSPACE_HEADER_SIZE)) {
 			kfree(buf);
 			return size;
 		}
