@@ -501,18 +501,27 @@ static void vidc_hal_set_queue_hdr_defaults(struct hfi_queue_header *q_hdr)
 static void vidc_hal_interface_queues_release(struct hal_device *device)
 {
 	int i;
+
+	vidc_hal_free(device->hal_client, device->mem_addr.mem_data);
+
 	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
-		vidc_hal_free(device->hal_client,
-			device->iface_queues[i].q_array.mem_data);
 		device->iface_queues[i].q_hdr = NULL;
 		device->iface_queues[i].q_array.mem_data = NULL;
 		device->iface_queues[i].q_array.align_virtual_addr = NULL;
 		device->iface_queues[i].q_array.align_device_addr = NULL;
 	}
-	vidc_hal_free(device->hal_client,
-				device->iface_q_table.mem_data);
 	device->iface_q_table.align_virtual_addr = NULL;
 	device->iface_q_table.align_device_addr = NULL;
+
+	device->qdss.align_virtual_addr = NULL;
+	device->qdss.align_device_addr = NULL;
+
+	device->sfr.align_virtual_addr = NULL;
+	device->sfr.align_device_addr = NULL;
+
+	device->mem_addr.align_virtual_addr = NULL;
+	device->mem_addr.align_device_addr = NULL;
+
 	msm_smem_delete_client(device->hal_client);
 	device->hal_client = NULL;
 }
@@ -524,14 +533,51 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 	u8 i;
 	int rc = 0;
 	struct vidc_iface_q_info *iface_q;
-
-	rc = vidc_hal_alloc((void *) &dev->iface_q_table,
-					dev->hal_client,
-			VIDC_IFACEQ_TABLE_SIZE, 1, SMEM_UNCACHED, domain);
+	struct hfi_sfr_struct *vsfr;
+	struct vidc_mem_addr *mem_addr;
+	int offset = 0;
+	int size_1m = 1024 * 1024;
+	int uc_size = (UC_SIZE + size_1m - 1) & (~(size_1m - 1));
+	mem_addr = &dev->mem_addr;
+	rc = vidc_hal_alloc((void *) mem_addr,
+			dev->hal_client, uc_size, 1,
+			SMEM_UNCACHED, domain);
 	if (rc) {
 		dprintk(VIDC_ERR, "iface_q_table_alloc_fail");
 		return -ENOMEM;
 	}
+	dev->iface_q_table.align_virtual_addr = mem_addr->align_virtual_addr;
+	dev->iface_q_table.align_device_addr = mem_addr->align_device_addr;
+	dev->iface_q_table.mem_size = VIDC_IFACEQ_TABLE_SIZE;
+	dev->iface_q_table.mem_data = NULL;
+	offset += dev->iface_q_table.mem_size;
+
+	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
+		iface_q = &dev->iface_queues[i];
+		iface_q->q_array.align_device_addr =
+			mem_addr->align_device_addr + offset;
+		iface_q->q_array.align_virtual_addr =
+			mem_addr->align_virtual_addr + offset;
+		iface_q->q_array.mem_size = VIDC_IFACEQ_QUEUE_SIZE;
+		iface_q->q_array.mem_data = NULL;
+		offset += iface_q->q_array.mem_size;
+		iface_q->q_hdr = VIDC_IFACEQ_GET_QHDR_START_ADDR(
+				dev->iface_q_table.align_virtual_addr, i);
+		vidc_hal_set_queue_hdr_defaults(iface_q->q_hdr);
+	}
+
+	dev->qdss.align_device_addr = mem_addr->align_device_addr + offset;
+	dev->qdss.align_virtual_addr = mem_addr->align_virtual_addr + offset;
+	dev->qdss.mem_size = QDSS_SIZE;
+	dev->qdss.mem_data = NULL;
+	offset += dev->qdss.mem_size;
+
+	dev->sfr.align_device_addr = mem_addr->align_device_addr + offset;
+	dev->sfr.align_virtual_addr = mem_addr->align_virtual_addr + offset;
+	dev->sfr.mem_size = SFR_SIZE;
+	dev->sfr.mem_data = NULL;
+	offset += dev->sfr.mem_size;
+
 	q_tbl_hdr = (struct hfi_queue_table_header *)
 			dev->iface_q_table.align_virtual_addr;
 	q_tbl_hdr->qtbl_version = 0;
@@ -542,23 +588,6 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 		struct hfi_queue_header);
 	q_tbl_hdr->qtbl_num_q = VIDC_IFACEQ_NUMQ;
 	q_tbl_hdr->qtbl_num_active_q = VIDC_IFACEQ_NUMQ;
-
-	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
-		iface_q = &dev->iface_queues[i];
-		rc = vidc_hal_alloc((void *) &iface_q->q_array,
-				dev->hal_client, VIDC_IFACEQ_QUEUE_SIZE,
-				1, SMEM_UNCACHED, domain);
-		if (rc) {
-			dprintk(VIDC_ERR, "iface_q_table_alloc[%d]_fail", i);
-			vidc_hal_interface_queues_release(dev);
-			return -ENOMEM;
-		} else {
-			iface_q->q_hdr =
-				VIDC_IFACEQ_GET_QHDR_START_ADDR(
-			dev->iface_q_table.align_virtual_addr, i);
-			vidc_hal_set_queue_hdr_defaults(iface_q->q_hdr);
-		}
-	}
 
 	iface_q = &dev->iface_queues[VIDC_IFACEQ_CMDQ_IDX];
 	q_hdr = iface_q->q_hdr;
@@ -577,6 +606,12 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 	q_hdr->qhdr_start_addr = (u32)
 		iface_q->q_array.align_device_addr;
 	q_hdr->qhdr_type |= HFI_Q_ID_CTRL_TO_HOST_DEBUG_Q;
+
+	write_register(dev->hal_data->register_base_addr,
+			VIDC_UC_REGION_ADDR,
+			(u32) mem_addr->align_device_addr, 0);
+	write_register(dev->hal_data->register_base_addr,
+			VIDC_UC_REGION_SIZE, mem_addr->mem_size, 0);
 	write_register(dev->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG2,
 		(u32) dev->iface_q_table.align_device_addr,
@@ -584,6 +619,15 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 	write_register(dev->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG1, 0x01,
 		dev->iface_q_table.align_virtual_addr);
+	write_register(dev->hal_data->register_base_addr,
+			VIDC_MMAP_ADDR,
+			(u32) dev->qdss.align_device_addr, 0);
+
+	vsfr = (struct hfi_sfr_struct *) dev->sfr.align_virtual_addr;
+	vsfr->bufSize = SFR_SIZE;
+
+	write_register(dev->hal_data->register_base_addr,
+			VIDC_SFR_ADDR, (u32)dev->sfr.align_device_addr , 0);
 	return 0;
 }
 
@@ -595,10 +639,15 @@ static int vidc_hal_core_start_cpu(struct hal_device *device)
 			VIDC_WRAPPER_INTR_MASK, 0x8, 0);
 	write_register(device->hal_data->register_base_addr,
 			VIDC_CPU_CS_SCIACMDARG3, 1, 0);
+
 	while (!ctrl_status && count < max_tries) {
 		ctrl_status = read_register(
 		device->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG0);
+		if ((ctrl_status & 0xFE) == 0x4) {
+			dprintk(VIDC_ERR, "invalid setting for UC_REGION\n");
+			break;
+		}
 		usleep_range(500, 1000);
 		count++;
 	}
@@ -685,6 +734,7 @@ int vidc_hal_core_init(void *device, int domain)
 	spin_lock_init(&dev->read_lock);
 	spin_lock_init(&dev->write_lock);
 	set_vbif_registers(dev);
+
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(SMEM_ION);
 		if (dev->hal_client == NULL) {
@@ -693,8 +743,7 @@ int vidc_hal_core_init(void *device, int domain)
 			goto err_no_mem;
 		}
 
-		dprintk(VIDC_DBG, "Device_Virt_Address : 0x%x,"
-		"Register_Virt_Addr: 0x%x",
+		dprintk(VIDC_DBG, "Dev_Virt: 0x%x, Reg_Virt: 0x%x",
 		dev->hal_data->device_base_addr,
 		(u32) dev->hal_data->register_base_addr);
 
@@ -709,12 +758,15 @@ int vidc_hal_core_init(void *device, int domain)
 		rc = -EEXIST;
 		goto err_no_mem;
 	}
+	write_register(dev->hal_data->register_base_addr,
+		VIDC_CTRL_INIT, 0x1, 0);
 	rc = vidc_hal_core_start_cpu(dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to start core");
 		rc = -ENODEV;
 		goto err_no_dev;
 	}
+
 	pkt.size = sizeof(struct hfi_cmd_sys_init_packet);
 	pkt.packet_type = HFI_CMD_SYS_INIT;
 	pkt.arch_type = HFI_ARCH_OX_OFFSET;
@@ -1208,7 +1260,7 @@ int vidc_hal_session_set_property(void *sess,
 	{
 		struct hfi_enable *hfi;
 		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER;
+			HFI_PROPERTY_CONFIG_VENC_SYNC_FRAME_SEQUENCE_HEADER;
 		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
 		hfi->enable = ((struct hfi_enable *) pdata)->enable;
 		pkt->size += sizeof(u32) * 2;
@@ -1734,7 +1786,6 @@ int vidc_hal_session_set_buffers(void *sess,
 		((buffer_info->num_buffers - 1) * sizeof(u32));
 	pkt->packet_type = HFI_CMD_SESSION_SET_BUFFERS;
 	pkt->session_id = (u32) session;
-	pkt->buffer_mode = HFI_BUFFER_MODE_STATIC;
 	pkt->buffer_size = buffer_info->buffer_size;
 	pkt->min_buffer_size = buffer_info->buffer_size;
 	pkt->num_buffers = buffer_info->num_buffers;
@@ -1949,8 +2000,11 @@ int vidc_hal_session_ftb(void *sess,
 	pkt.packet_buffer = (u8 *) output_frame->device_addr;
 	pkt.extra_data_buffer =
 		(u8 *) output_frame->extradata_addr;
-
-	dprintk(VIDC_INFO, "### Q OUTPUT BUFFER ###");
+	pkt.alloc_len = output_frame->alloc_len;
+	pkt.filled_len = output_frame->filled_len;
+	pkt.offset = output_frame->offset;
+	dprintk(VIDC_DBG, "### Q OUTPUT BUFFER ###: %d, %d, %d\n",
+			pkt.alloc_len, pkt.filled_len, pkt.offset);
 	if (vidc_hal_iface_cmdq_write(session->device, &pkt))
 		rc = -ENOTEMPTY;
 	return rc;
@@ -2127,8 +2181,8 @@ static void vidc_hal_core_work_handler(struct work_struct *work)
 
 	dprintk(VIDC_INFO, " GOT INTERRUPT () ");
 	if (!device->callback) {
-		dprintk(VIDC_ERR, "No callback function	"
-					  "to process interrupt: %p\n", device);
+		dprintk(VIDC_ERR, "No interrupt callback function: %p\n",
+				device);
 		return;
 	}
 	vidc_hal_core_clear_interrupt(device);

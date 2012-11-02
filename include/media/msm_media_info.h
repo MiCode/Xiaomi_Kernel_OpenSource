@@ -17,7 +17,7 @@ static inline unsigned int VENUS_Y_STRIDE(int color_fmt, int width)
 
 	switch (color_fmt) {
 	case COLOR_FMT_NV12:
-		alignment = 32;
+		alignment = 128;
 		stride = ALIGN(width, alignment);
 		break;
 	default:
@@ -35,8 +35,8 @@ static inline unsigned int VENUS_UV_STRIDE(int color_fmt, int width)
 
 	switch (color_fmt) {
 	case COLOR_FMT_NV12:
-		alignment = 32;
-		stride = ALIGN(((width + 1) >> 1), alignment) << 1;
+		alignment = 128;
+		stride = ALIGN(width, alignment);
 		break;
 	default:
 		break;
@@ -71,7 +71,7 @@ static inline unsigned int VENUS_UV_SCANLINES(int color_fmt, int height)
 
 	switch (color_fmt) {
 	case COLOR_FMT_NV12:
-		alignment = 32;
+		alignment = 16;
 		sclines = ALIGN(((height + 1) >> 1), alignment);
 		break;
 	default:
@@ -97,7 +97,7 @@ static inline unsigned int VENUS_BUFFER_SIZE(
 	uv_sclines = VENUS_UV_SCANLINES(color_fmt, height);
 	switch (color_fmt) {
 	case COLOR_FMT_NV12:
-		uv_alignment = 32;
+		uv_alignment = 0;
 		y_plane = y_stride * y_sclines;
 		uv_plane = uv_stride * uv_sclines + uv_alignment;
 		size = y_plane + uv_plane;
