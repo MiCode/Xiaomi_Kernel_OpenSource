@@ -46,12 +46,12 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "f9a55000.usb", OFF),
 	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "f9a55000.usb", OFF),
-	CLK_DUMMY("iface_clk", NULL, "f9824000.qcom,sdcc", OFF),
-	CLK_DUMMY("core_clk", NULL, "f9824000.qcom,sdcc", OFF),
-	CLK_DUMMY("bus_clk",  NULL, "f9824000.qcom,sdcc", OFF),
-	CLK_DUMMY("iface_clk", NULL, "f98a4000.qcom,sdcc", OFF),
-	CLK_DUMMY("core_clk", NULL, "f98a4000.qcom,sdcc", OFF),
-	CLK_DUMMY("bus_clk",  NULL, "f98a4000.qcom,sdcc", OFF),
+	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.1", OFF),
+	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.1", OFF),
+	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.1", OFF),
+	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.2", OFF),
+	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.2", OFF),
+	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.2", OFF),
 };
 
 struct clock_init_data msm_dummy_clock_init_data __initdata = {
@@ -59,14 +59,24 @@ struct clock_init_data msm_dummy_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };
 
+static struct of_dev_auxdata msm8910_auxdata_lookup[] __initdata = {
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
+			"msm_sdcc.1", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
+			"msm_sdcc.2", NULL),
+	{}
+};
+
 void __init msm8910_init(void)
 {
+	struct of_dev_auxdata *adata = msm8910_auxdata_lookup;
+
 	msm_clock_init(&msm_dummy_clock_init_data);
 
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
-	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
 }
 
 static const char *msm8910_dt_match[] __initconst = {
