@@ -372,10 +372,6 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	int ret;
 	uint32_t regval;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pmu_base");
-	if (!res)
-		return -EINVAL;
-
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
@@ -385,23 +381,20 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	if (drv->irq < 0)
 		return drv->irq;
 
-	drv->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pmu_base");
+	drv->base = devm_request_and_ioremap(&pdev->dev, res);
 	if (!drv->base)
 		return -ENOMEM;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "clk_base");
-	if (!res)
-		return -EINVAL;
-
-	drv->reset_base = devm_ioremap(&pdev->dev, res->start,
-					resource_size(res));
+	drv->reset_base = devm_request_and_ioremap(&pdev->dev, res);
+	if (!drv->reset_base)
+		return -ENOMEM;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "halt_base");
-	if (!res)
-		return -EINVAL;
-
-	drv->axi_halt_base = devm_ioremap(&pdev->dev, res->start,
-					  resource_size(res));
+	drv->axi_halt_base = devm_request_and_ioremap(&pdev->dev, res);
+	if (!drv->axi_halt_base)
+		return -ENOMEM;
 
 	desc = &drv->desc;
 	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",

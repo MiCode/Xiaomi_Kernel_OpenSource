@@ -552,8 +552,7 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 	if (drv->self_auth) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						    "rmb_base");
-		drv->rmb_base = devm_ioremap(&pdev->dev, res->start,
-					     resource_size(res));
+		drv->rmb_base = devm_request_and_ioremap(&pdev->dev, res);
 		if (!drv->rmb_base)
 			return -ENOMEM;
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -568,8 +567,7 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "restart_reg");
-	q6->restart_reg = devm_ioremap(&pdev->dev, res->start,
-					resource_size(res));
+	q6->restart_reg = devm_request_and_ioremap(&pdev->dev, res);
 	if (!q6->restart_reg)
 		return -ENOMEM;
 
