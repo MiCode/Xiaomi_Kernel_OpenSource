@@ -155,6 +155,19 @@
 		qcom,sdcc-bus-width = <8>;
 		qcom,sdcc-nonremovable;
 		qcom,sdcc-bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+		qcom,msm-bus,name = "sdcc1";
+		qcom,msm-bus,num-cases = <7>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
+				<78 512 6656 13312>, /* 13 MB/s*/
+				<78 512 13312 26624>, /* 26 MB/s */
+				<78 512 26624 53248>, /* 52 MB/s */
+				<78 512 53248 106496>, /* 104 MB/s */
+				<78 512 106496 212992>, /* 208 MB/s */
+				<78 512 2147483647 4294967295>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 13631488 27262976 54525952 109051904 218103808 4294967295>;
 	};
 
 	sdcc2: qcom,sdcc@f98a4000 {
@@ -188,6 +201,19 @@
 		qcom,sdcc-xpc;
 		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 		qcom,sdcc-current-limit = <800>;
+
+		qcom,msm-bus,name = "sdcc2";
+		qcom,msm-bus,num-cases = <7>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+				<81 512 6656 13312>, /* 13 MB/s*/
+				<81 512 13312 26624>, /* 26 MB/s */
+				<81 512 26624 53248>, /* 52 MB/s */
+				<81 512 53248 106496>, /* 104 MB/s */
+				<81 512 106496 212992>, /* 208 MB/s */
+				<81 512 2147483647 4294967295>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 13631488 27262976 54525952 109051904 218103808 4294967295>;
 	};
 
 	sdcc3: qcom,sdcc@f9864000 {
@@ -212,6 +238,19 @@
 		qcom,sdcc-sup-voltages = <1800 1800>;
 		qcom,sdcc-bus-width = <4>;
 		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
+
+		qcom,msm-bus,name = "sdcc3";
+		qcom,msm-bus,num-cases = <7>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <79 512 0 0>, /* No vote */
+				<79 512 6656 13312>, /* 13 MB/s*/
+				<79 512 13312 26624>, /* 26 MB/s */
+				<79 512 26624 53248>, /* 52 MB/s */
+				<79 512 53248 106496>, /* 104 MB/s */
+				<79 512 106496 212992>, /* 208 MB/s */
+				<79 512 2147483647 4294967295>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 13631488 27262976 54525952 109051904 218103808 4294967295>;
 		status = "disable";
 	};
 
@@ -237,6 +276,19 @@
 		qcom,sdcc-sup-voltages = <1800 1800>;
 		qcom,sdcc-bus-width = <4>;
 		qcom,sdcc-bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
+
+		qcom,msm-bus,name = "sdcc4";
+		qcom,msm-bus,num-cases = <7>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <80 512 0 0>, /* No vote */
+				<80 512 6656 13312>, /* 13 MB/s*/
+				<80 512 13312 26624>, /* 26 MB/s */
+				<80 512 26624 53248>, /* 52 MB/s */
+				<80 512 53248 106496>, /* 104 MB/s */
+				<80 512 106496 212992>, /* 208 MB/s */
+				<80 512 2147483647 4294967295>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 13631488 27262976 54525952 109051904 218103808 4294967295>;
 		status = "disable";
 	};
 
