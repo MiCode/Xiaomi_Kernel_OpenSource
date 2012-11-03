@@ -2267,7 +2267,7 @@ static int __devinit vcap_probe(struct platform_device *pdev)
 
 
 	ret = request_irq(dev->vcirq->start, vcap_vc_handler,
-		IRQF_TRIGGER_RISING, "vc_irq", 0);
+		IRQF_TRIGGER_HIGH, "vc_irq", 0);
 	if (ret < 0) {
 		pr_err("%s: vc irq request fail\n", __func__);
 		ret = -EBUSY;

@@ -63,6 +63,8 @@
 
 #define VC_BUFFER_WRITTEN (0x3 << 1)
 #define VC_BUFFER_MASK 0x7E
+#define VC_ERR_MASK 0xE0001E00
+#define VC_VSYNC_MASK 0x1
 
 int vc_start_capture(struct vcap_client_data *c_data);
 int vc_hw_kick_off(struct vcap_client_data *c_data);
