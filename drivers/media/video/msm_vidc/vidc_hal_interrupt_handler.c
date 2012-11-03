@@ -146,6 +146,21 @@ static void hal_process_sys_watchdog_timeout(struct hal_device *device)
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_WATCHDOG_TIMEOUT, &cmd_done);
 }
+static void hal_process_sys_error(struct hal_device *device)
+{
+	struct msm_vidc_cb_cmd_done cmd_done;
+	disable_irq_nosync(device->hal_data->irq);
+	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
+	cmd_done.device_id = device->device_id;
+	device->callback(SYS_ERROR, &cmd_done);
+}
+static void hal_process_session_error(struct hal_device *device)
+{
+	struct msm_vidc_cb_cmd_done cmd_done;
+	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
+	cmd_done.device_id = device->device_id;
+	device->callback(SESSION_ERROR, &cmd_done);
+}
 static void hal_process_event_notify(struct hal_device *device,
 	struct hfi_msg_event_notify_packet *pkt)
 {
@@ -160,9 +175,11 @@ static void hal_process_event_notify(struct hal_device *device,
 	switch (pkt->event_id) {
 	case HFI_EVENT_SYS_ERROR:
 		dprintk(VIDC_INFO, "HFI_EVENT_SYS_ERROR");
+		hal_process_sys_error(device);
 		break;
 	case HFI_EVENT_SESSION_ERROR:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR");
+		hal_process_session_error(device);
 		break;
 	case HFI_EVENT_SESSION_SEQUENCE_CHANGED:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_SEQUENCE_CHANGED");
