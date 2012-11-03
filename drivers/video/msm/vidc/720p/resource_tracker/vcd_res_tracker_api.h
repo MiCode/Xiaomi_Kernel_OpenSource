@@ -29,6 +29,7 @@ u32 res_trk_download_firmware(void);
 u32 res_trk_get_core_type(void);
 u32 res_trk_get_mem_type(void);
 u32 res_trk_get_disable_fullhd(void);
+u32 res_trk_get_ion_flags(void);
 u32 res_trk_get_enable_ion(void);
 u32 res_trk_is_cp_enabled(void);
 struct ion_client *res_trk_get_ion_client(void);
