@@ -53,14 +53,9 @@ struct hdmi_tx_ctrl {
 	u32 panel_power_on;
 
 	u32 hpd_initialized;
-	int hpd_stable;
-	u32 hpd_prev_state;
-	u32 hpd_cable_chg_detected;
 	u32 hpd_state;
 	u32 hpd_feature_on;
-	struct work_struct hpd_state_work;
 	struct work_struct hpd_int_work;
-	struct timer_list hpd_state_timer;
 
 	unsigned long pixel_clk;
 	u32 xres;
