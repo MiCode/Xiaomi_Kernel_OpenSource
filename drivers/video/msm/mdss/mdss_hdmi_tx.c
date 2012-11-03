@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/iopoll.h>
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
 #include <linux/types.h>
@@ -1475,7 +1476,8 @@ static int hdmi_tx_audio_info_setup(void *priv_d, bool enabled,
 	}
 	DSS_REG_W(io, HDMI_INFOFRAME_CTRL0, audio_info_ctrl_reg);
 
-	dss_reg_dump(io->base, io->len, "HDMI-AUDIO-ON: ", REG_DUMP);
+	dss_reg_dump(io->base, io->len,
+		enabled ? "HDMI-AUDIO-ON: " : "HDMI-AUDIO-OFF: ", REG_DUMP);
 
 	return 0;
 } /* hdmi_tx_audio_info_setup */
@@ -1518,8 +1520,7 @@ static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	int i;
-	u32 audio_pkt_ctrl, audio_cfg;
+	u32 i, status, max_reads, timeout_us, timeout_sec = 15;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
@@ -1533,15 +1534,26 @@ static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
-	/* Number of wait iterations */
-	i = 10;
-	do {
-		audio_pkt_ctrl = DSS_REG_R_ND(io, HDMI_AUDIO_PKT_CTRL);
-		audio_cfg = DSS_REG_R_ND(io, HDMI_AUDIO_CFG);
-		DEV_DBG("%s: i=%d, AUDIO PACKET=%08x, AUDIO CFG=%08x",
-			__func__, i, audio_pkt_ctrl, audio_cfg);
-		msleep(20);
-	} while (((audio_pkt_ctrl & BIT(0)) || (audio_cfg & BIT(0))) && i--);
+	/* Check if audio engine is turned off by QDSP or not */
+	/* send off notification after every 1 sec for 15 seconds */
+	for (i = 0; i < timeout_sec; i++) {
+		max_reads = 500;
+		timeout_us = 1000 * 2;
+
+		if (readl_poll_timeout_noirq((io->base + HDMI_AUDIO_CFG),
+			status, ((status & BIT(0)) == 0),
+			max_reads, timeout_us)) {
+
+			DEV_ERR("%s: audio still on after %d sec. try again\n",
+				__func__, i+1);
+
+			switch_set_state(&hdmi_ctrl->audio_sdev, 0);
+			continue;
+		}
+		break;
+	}
+	if (i == timeout_sec)
+		DEV_ERR("%s: Error: cannot turn off audio engine\n", __func__);
 
 	if (hdmi_tx_audio_info_setup(hdmi_ctrl, false, 0, 0, 0, false))
 		DEV_ERR("%s: hdmi_tx_audio_info_setup failed.\n", __func__);
@@ -1629,17 +1641,22 @@ static void hdmi_tx_hpd_polarity_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	}
 } /* hdmi_tx_hpd_polarity_setup */
 
-static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
+static void hdmi_tx_power_off_work(struct work_struct *work)
 {
-	struct hdmi_tx_ctrl *hdmi_ctrl =
-		hdmi_tx_get_drvdata_from_panel_data(panel_data);
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	struct dss_io_data *io = NULL;
 
-	if (!hdmi_ctrl || !hdmi_ctrl->panel_power_on) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
+	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, power_off_work);
+	if (!hdmi_ctrl) {
+		DEV_DBG("%s: invalid input\n", __func__);
+		return;
 	}
 
-	DEV_INFO("%s: HDMI Core: OFF\n", __func__);
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		DEV_ERR("%s: Core io is not initialized\n", __func__);
+		return;
+	}
 
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl)) {
 		switch_set_state(&hdmi_ctrl->audio_sdev, 0);
@@ -1650,10 +1667,34 @@ static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 	}
 
 	hdmi_tx_powerdown_phy(hdmi_ctrl);
-	hdmi_ctrl->panel_power_on = false;
 	hdmi_tx_core_off(hdmi_ctrl);
 
+	mutex_lock(&hdmi_ctrl->mutex);
+	hdmi_ctrl->panel_power_on = false;
+	mutex_unlock(&hdmi_ctrl->mutex);
+
 	hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
+
+	DEV_INFO("%s: HDMI Core: OFF\n", __func__);
+} /* hdmi_tx_power_off_work */
+
+static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl =
+		hdmi_tx_get_drvdata_from_panel_data(panel_data);
+
+	if (!hdmi_ctrl || !hdmi_ctrl->panel_power_on) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	/*
+	 * Queue work item to handle power down sequence.
+	 * This is needed since we need to wait for the audio engine
+	 * to shutdown first before we shutdown the HDMI core.
+	 */
+	DEV_DBG("%s: Queuing work to power off HDMI core\n", __func__);
+	queue_work(hdmi_ctrl->workq, &hdmi_ctrl->power_off_work);
 
 	return 0;
 } /* hdmi_tx_power_off */
@@ -1680,6 +1721,9 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			__func__);
 		return -EPERM;
 	}
+
+	/* If a power down is already underway, wait for it to finish */
+	flush_work(&hdmi_ctrl->power_off_work);
 
 	DEV_INFO("power: ON (%dx%d %ld)\n", hdmi_ctrl->xres, hdmi_ctrl->yres,
 		hdmi_ctrl->pixel_clk);
@@ -1911,6 +1955,8 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->hpd_state = false;
 	INIT_WORK(&hdmi_ctrl->hpd_int_work, hdmi_tx_hpd_int_work);
+
+	INIT_WORK(&hdmi_ctrl->power_off_work, hdmi_tx_power_off_work);
 
 	hdmi_ctrl->audio_sample_rate = HDMI_SAMPLE_RATE_48KHZ;
 
