@@ -169,6 +169,7 @@
 				<78 512 106496 212992>, /* 208 MB/s */
 				<78 512 2147483647 4294967295>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 13631488 27262976 54525952 109051904 218103808 4294967295>;
+		qcom,dat1-mpm-int = <42>;
 	};
 
 	sdcc2: qcom,sdcc@f98a4000 {
@@ -215,6 +216,7 @@
 				<81 512 106496 212992>, /* 208 MB/s */
 				<81 512 2147483647 4294967295>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 13631488 27262976 54525952 109051904 218103808 4294967295>;
+		qcom,dat1-mpm-int = <44>;
 	};
 
 	sdcc3: qcom,sdcc@f9864000 {
@@ -224,8 +226,15 @@
 			<0xf9864800 0x100>,
 			<0xf9844000 0x7000>;
 		reg-names = "core_mem", "dml_mem", "bam_mem";
-		interrupts = <0 127 0>, <0 223 0>;
-		interrupt-names = "core_irq", "bam_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&sdcc3>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 127 0
+				1 &intc 0 223 0
+				2 &msmgpio 37 0x8>;
+		interrupt-names = "core_irq", "bam_irq", "sdiowakeup_irq";
 
 		gpios = <&msmgpio 40 0>, /* CLK */
 			<&msmgpio 39 0>, /* CMD */
@@ -262,8 +271,15 @@
 			<0xf98e4800 0x100>,
 			<0xf98c4000 0x7000>;
 		reg-names = "core_mem", "dml_mem", "bam_mem";
-		interrupts = <0 129 0>, <0 226 0>;
-		interrupt-names = "core_irq", "bam_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&sdcc4>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 129 0
+				1 &intc 0 226 0
+				2 &msmgpio 95 0x8>;
+		interrupt-names = "core_irq", "bam_irq", "sdiowakeup_irq";
 
 		gpios = <&msmgpio 93 0>, /* CLK */
 			<&msmgpio 91 0>, /* CMD */
