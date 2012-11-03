@@ -37,6 +37,9 @@
 #define SW_RESET BIT(2)
 #define SW_RESET_PLL BIT(0)
 
+#define HPD_DISCONNECT_POLARITY 0
+#define HPD_CONNECT_POLARITY    1
+
 #define IFRAME_CHECKSUM_32(d)			\
 	((d & 0xff) + ((d >> 8) & 0xff) +	\
 	((d >> 16) & 0xff) + ((d >> 24) & 0xff))
@@ -457,86 +460,8 @@ error:
 	return status;
 } /* hdmi_tx_read_sink_info */
 
-static void hdmi_tx_hpd_state_work(struct work_struct *work)
-{
-	u32 hpd_state = false;
-	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
-	struct dss_io_data *io = NULL;
-
-	hdmi_ctrl = container_of(work, struct hdmi_tx_ctrl, hpd_state_work);
-	if (!hdmi_ctrl || !hdmi_ctrl->hpd_initialized) {
-		DEV_DBG("%s: invalid input\n", __func__);
-		return;
-	}
-
-	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
-	if (!io->base) {
-		DEV_ERR("%s: Core io is not initialized\n", __func__);
-		return;
-	}
-
-	DEV_DBG("%s: Got HPD interrupt\n", __func__);
-
-	hpd_state = (DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) >> 1;
-	mutex_lock(&hdmi_ctrl->mutex);
-	if ((hdmi_ctrl->hpd_prev_state != hdmi_ctrl->hpd_state) ||
-		(hdmi_ctrl->hpd_state != hpd_state)) {
-
-		hdmi_ctrl->hpd_state = hpd_state;
-		hdmi_ctrl->hpd_prev_state = hdmi_ctrl->hpd_state;
-		hdmi_ctrl->hpd_stable = 0;
-
-		DEV_DBG("%s: state not stable yet, wait again (%d|%d|%d)\n",
-			__func__, hdmi_ctrl->hpd_prev_state,
-			hdmi_ctrl->hpd_state, hpd_state);
-
-		mutex_unlock(&hdmi_ctrl->mutex);
-
-		mod_timer(&hdmi_ctrl->hpd_state_timer, jiffies + HZ/2);
-
-		return;
-	}
-
-	if (hdmi_ctrl->hpd_stable) {
-		mutex_unlock(&hdmi_ctrl->mutex);
-		DEV_DBG("%s: no more timer, depending on IRQ now\n",
-			__func__);
-		return;
-	}
-
-	hdmi_ctrl->hpd_stable = 1;
-
-	/*
-	 *todo: Revisit cable chg detected condition when HPD support is ready
-	 */
-	hdmi_ctrl->hpd_cable_chg_detected = false;
-	mutex_unlock(&hdmi_ctrl->mutex);
-
-	if (hpd_state) {
-		/* todo: what if EDID read fails? */
-		hdmi_tx_read_sink_info(hdmi_ctrl);
-		DEV_INFO("HDMI HPD: sense CONNECTED: send ONLINE\n");
-		kobject_uevent(hdmi_ctrl->kobj, KOBJ_ONLINE);
-		switch_set_state(&hdmi_ctrl->sdev, 1);
-		DEV_INFO("%s: Hdmi state switch to %d\n", __func__,
-			hdmi_ctrl->sdev.state);
-	} else {
-		DEV_INFO("HDMI HPD: sense DISCONNECTED: send OFFLINE\n");
-		kobject_uevent(hdmi_ctrl->kobj, KOBJ_OFFLINE);
-		switch_set_state(&hdmi_ctrl->sdev, 0);
-		DEV_INFO("%s: Hdmi state switch to %d\n", __func__,
-			hdmi_ctrl->sdev.state);
-	}
-
-	/* Set IRQ for HPD */
-	DSS_REG_W(io, HDMI_HPD_INT_CTRL, 4 | (hpd_state ? 0 : 2));
-} /* hdmi_tx_hpd_state_work */
-
 static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
-	u32 hpd_int_status;
-	u32 hpd_int_ctrl;
-	u32 cable_detected;
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
 	struct dss_io_data *io = NULL;
 
@@ -552,23 +477,24 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		return;
 	}
 
-	/* Process HPD Interrupt */
-	hpd_int_status = DSS_REG_R(io, HDMI_HPD_INT_STATUS);
-	hpd_int_ctrl = DSS_REG_R(io, HDMI_HPD_INT_CTRL);
+	DEV_DBG("%s: Got HPD interrupt\n", __func__);
 
-	DSS_REG_W(io, HDMI_HPD_INT_CTRL, BIT(2));
-
-	cable_detected = hpd_int_status & BIT(1);
-	mutex_lock(&hdmi_ctrl->mutex);
-	hdmi_ctrl->hpd_cable_chg_detected = true;
-	hdmi_ctrl->hpd_prev_state = cable_detected ? 0 : 1;
-	hdmi_ctrl->hpd_stable = 0;
-	mutex_unlock(&hdmi_ctrl->mutex);
-
-	mod_timer(&hdmi_ctrl->hpd_state_timer, jiffies + HZ/2);
-
-	DEV_DBG("%s: HPD<Ctrl=%04x, State=%04x>\n", __func__, hpd_int_ctrl,
-		hpd_int_status);
+	hdmi_ctrl->hpd_state =
+		(DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) >> 1;
+	if (hdmi_ctrl->hpd_state) {
+		hdmi_tx_read_sink_info(hdmi_ctrl);
+		DEV_INFO("HDMI HPD: sense CONNECTED: send ONLINE\n");
+		kobject_uevent(hdmi_ctrl->kobj, KOBJ_ONLINE);
+		switch_set_state(&hdmi_ctrl->sdev, 1);
+		DEV_INFO("%s: Hdmi state switch to %d\n", __func__,
+			hdmi_ctrl->sdev.state);
+	} else {
+		DEV_INFO("HDMI HPD: sense DISCONNECTED: send OFFLINE\n");
+		kobject_uevent(hdmi_ctrl->kobj, KOBJ_OFFLINE);
+		switch_set_state(&hdmi_ctrl->sdev, 0);
+		DEV_INFO("%s: Hdmi state switch to %d\n", __func__,
+			hdmi_ctrl->sdev.state);
+	}
 } /* hdmi_tx_hpd_int_work */
 
 static int hdmi_tx_check_capability(struct dss_io_data *io)
@@ -1008,17 +934,6 @@ static void hdmi_tx_set_spd_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 	packet_control |= ((0x1 << 24) | (1 << 5) | (1 << 4));
 	DSS_REG_W(io, HDMI_GEN_PKT_CTRL, packet_control);
 } /* hdmi_tx_set_spd_infoframe */
-
-/* todo: revisit when new HPD debouncing logic is avialble */
-static void hdmi_tx_hpd_state_timer(unsigned long data)
-{
-	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)data;
-
-	if (hdmi_ctrl)
-		queue_work(hdmi_ctrl->workq, &hdmi_ctrl->hpd_state_work);
-	else
-		DEV_ERR("%s: invalid input\n", __func__);
-} /* hdmi_tx_hpd_state_timer */
 
 static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 {
@@ -1678,15 +1593,41 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* todo: CONFIG_FB_MSM_HDMI_3D */
 	hdmi_tx_set_spd_infoframe(hdmi_ctrl);
 
-	/* Set IRQ for HPD */
-	DSS_REG_W(io, HDMI_HPD_INT_CTRL, 4 | (hdmi_ctrl->hpd_state ? 0 : 2));
-
 	/* todo: HDCP/CEC */
 
 	DEV_INFO("%s: HDMI Core: Initialized\n", __func__);
 
 	return rc;
 } /* hdmi_tx_start */
+
+static void hdmi_tx_hpd_polarity_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
+	bool polarity)
+{
+	struct dss_io_data *io = NULL;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		DEV_ERR("%s: core io is not initialized\n", __func__);
+		return;
+	}
+
+	if (polarity)
+		DSS_REG_W(io, HDMI_HPD_INT_CTRL, BIT(2) | BIT(1));
+	else
+		DSS_REG_W(io, HDMI_HPD_INT_CTRL, BIT(2));
+
+	if ((DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) == polarity) {
+		u32 reg_val = DSS_REG_R(io, HDMI_HPD_CTRL);
+
+		/* Toggle HPD circuit to trigger HPD sense */
+		DSS_REG_W(io, HDMI_HPD_CTRL, reg_val & ~BIT(28));
+		DSS_REG_W(io, HDMI_HPD_CTRL, reg_val | BIT(28));
+	}
+} /* hdmi_tx_hpd_polarity_setup */
 
 static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 {
@@ -1711,6 +1652,8 @@ static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 	hdmi_tx_powerdown_phy(hdmi_ctrl);
 	hdmi_ctrl->panel_power_on = false;
 	hdmi_tx_core_off(hdmi_ctrl);
+
+	hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
 
 	return 0;
 } /* hdmi_tx_power_off */
@@ -1778,6 +1721,8 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		hdmi_tx_is_controller_on(hdmi_ctrl) ? "ON" : "OFF" ,
 		hdmi_tx_is_dvi_mode(hdmi_ctrl) ? "ON" : "OFF");
 
+	hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_DISCONNECT_POLARITY);
+
 	return 0;
 } /* hdmi_tx_power_on */
 
@@ -1795,8 +1740,6 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
-	DEV_DBG("%s: (timer, 5V, IRQ off)\n", __func__);
-	del_timer_sync(&hdmi_ctrl->hpd_state_timer);
 	mdss_disable_irq(&hdmi_tx_hw);
 
 	hdmi_tx_set_mode(hdmi_ctrl, false);
@@ -1844,28 +1787,18 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		DSS_REG_W(io, HDMI_USEC_REFTIMER, 0x0001001B);
 
-		/* set timeout to 4.1ms (max) for hardware debounce */
-		reg_val = DSS_REG_R(io, HDMI_HPD_CTRL) | 0x1FFF;
-
-		/* Toggle HPD circuit to trigger HPD sense */
-		DSS_REG_W(io, HDMI_HPD_CTRL,
-			~(1 << 28) & reg_val);
-		DSS_REG_W(io, HDMI_HPD_CTRL, (1 << 28) | reg_val);
+		mdss_enable_irq(&hdmi_tx_hw);
 
 		hdmi_ctrl->hpd_initialized = true;
 
-		/* Check HPD State */
-		mdss_enable_irq(&hdmi_tx_hw);
-	}
+		/* set timeout to 4.1ms (max) for hardware debounce */
+		reg_val = DSS_REG_R(io, HDMI_HPD_CTRL) | 0x1FFF;
 
-	/* Set HPD state machine: ensure at least 2 readouts */
-	mutex_lock(&hdmi_ctrl->mutex);
-	hdmi_ctrl->hpd_stable = 0;
-	hdmi_ctrl->hpd_prev_state = true;
-	hdmi_ctrl->hpd_state = false;
-	hdmi_ctrl->hpd_cable_chg_detected = true;
-	mutex_unlock(&hdmi_ctrl->mutex);
-	mod_timer(&hdmi_ctrl->hpd_state_timer, jiffies + HZ/2);
+		/* Turn on HPD HW circuit */
+		DSS_REG_W(io, HDMI_HPD_CTRL, reg_val | BIT(28));
+
+		hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
+	}
 
 	return rc;
 } /* hdmi_tx_hpd_on */
@@ -1911,10 +1844,10 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 
 	if (DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(0)) {
 		/*
-		 * Turn off HPD irq and clear all interrupts,
-		 * worker will turn IRQ back on
+		 * Ack the current hpd interrupt and stop listening to
+		 * new hpd interrupt.
 		 */
-		DSS_REG_W(io, HDMI_HPD_INT_CTRL, ~BIT(2) | BIT(0));
+		DSS_REG_W(io, HDMI_HPD_INT_CTRL, BIT(0));
 		queue_work(hdmi_ctrl->workq, &hdmi_ctrl->hpd_int_work);
 	}
 
@@ -1936,7 +1869,6 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	switch_dev_unregister(&hdmi_ctrl->audio_sdev);
 	switch_dev_unregister(&hdmi_ctrl->sdev);
-	del_timer_sync(&hdmi_ctrl->hpd_state_timer);
 	if (hdmi_ctrl->workq)
 		destroy_workqueue(hdmi_ctrl->workq);
 	mutex_destroy(&hdmi_ctrl->mutex);
@@ -1977,12 +1909,8 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->ddc_ctrl.io = &pdata->io[HDMI_TX_CORE_IO];
 	init_completion(&hdmi_ctrl->ddc_ctrl.ddc_sw_done);
 
-	INIT_WORK(&hdmi_ctrl->hpd_state_work, hdmi_tx_hpd_state_work);
+	hdmi_ctrl->hpd_state = false;
 	INIT_WORK(&hdmi_ctrl->hpd_int_work, hdmi_tx_hpd_int_work);
-	init_timer(&hdmi_ctrl->hpd_state_timer);
-	hdmi_ctrl->hpd_state_timer.function = hdmi_tx_hpd_state_timer;
-	hdmi_ctrl->hpd_state_timer.data = (u32)hdmi_ctrl;
-	hdmi_ctrl->hpd_state_timer.expires = 0xffffffffL;
 
 	hdmi_ctrl->audio_sample_rate = HDMI_SAMPLE_RATE_48KHZ;
 
@@ -1990,7 +1918,7 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (switch_dev_register(&hdmi_ctrl->sdev) < 0) {
 		DEV_ERR("%s: Hdmi switch registration failed\n", __func__);
 		rc = -ENODEV;
-		goto fail_switch_dev;
+		goto fail_create_workq;
 	}
 
 	hdmi_ctrl->audio_sdev.name = "hdmi_audio";
@@ -2005,8 +1933,6 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 fail_audio_switch_dev:
 	switch_dev_unregister(&hdmi_ctrl->sdev);
-fail_switch_dev:
-	del_timer_sync(&hdmi_ctrl->hpd_state_timer);
 fail_create_workq:
 	if (hdmi_ctrl->workq)
 		destroy_workqueue(hdmi_ctrl->workq);
