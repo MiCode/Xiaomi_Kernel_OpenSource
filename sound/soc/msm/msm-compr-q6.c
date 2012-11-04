@@ -143,6 +143,10 @@ static void compr_event_handler(uint32_t opcode,
 			atomic_set(&prtd->pending_buffer, 0);
 		if (runtime->status->hw_ptr >= runtime->control->appl_ptr) {
 			runtime->render_flag |= SNDRV_RENDER_STOPPED;
+			atomic_set(&prtd->pending_buffer, 1);
+			pr_debug("%s:compr driver underrun hw_ptr = %ld appl_ptr = %ld\n",
+				__func__, runtime->status->hw_ptr,
+				runtime->control->appl_ptr);
 			break;
 		}
 		buf = prtd->audio_client->port[IN].buf;
