@@ -103,29 +103,29 @@
 /*
  * TSPP register offsets
  */
-#define TSPP_RST					0x00
+#define TSPP_RST			0x00
 #define TSPP_CLK_CONTROL		0x04
-#define TSPP_CONFIG				0x08
-#define TSPP_CONTROL				0x0C
+#define TSPP_CONFIG			0x08
+#define TSPP_CONTROL			0x0C
 #define TSPP_PS_DISABLE			0x10
-#define TSPP_MSG_IRQ_STATUS	0x14
+#define TSPP_MSG_IRQ_STATUS		0x14
 #define TSPP_MSG_IRQ_MASK		0x18
 #define TSPP_IRQ_STATUS			0x1C
 #define TSPP_IRQ_MASK			0x20
 #define TSPP_IRQ_CLEAR			0x24
 #define TSPP_PIPE_ERROR_STATUS(_n)	(0x28 + (_n << 2))
-#define TSPP_STATUS				0x68
-#define TSPP_CURR_TSP_HEADER	0x6C
-#define TSPP_CURR_PID_FILTER	0x70
-#define TSPP_SYSTEM_KEY(_n)	(0x74 + (_n << 2))
-#define TSPP_CBC_INIT_VAL(_n)	(0x94 + (_n << 2))
-#define TSPP_DATA_KEY_RESET	0x9C
+#define TSPP_STATUS			0x68
+#define TSPP_CURR_TSP_HEADER		0x6C
+#define TSPP_CURR_PID_FILTER		0x70
+#define TSPP_SYSTEM_KEY(_n)		(0x74 + (_n << 2))
+#define TSPP_CBC_INIT_VAL(_n)		(0x94 + (_n << 2))
+#define TSPP_DATA_KEY_RESET		0x9C
 #define TSPP_KEY_VALID			0xA0
 #define TSPP_KEY_ERROR			0xA4
 #define TSPP_TEST_CTRL			0xA8
-#define TSPP_VERSION				0xAC
+#define TSPP_VERSION			0xAC
 #define TSPP_GENERICS			0xB0
-#define TSPP_NOP					0xB4
+#define TSPP_NOP			0xB4
 
 /*
  * Register bit definitions
@@ -172,30 +172,30 @@
 #define TSPP_MSG_TSIF_0_IRQ               BIT(0)
 
 /* TSPP_IRQ_STATUS + TSPP_IRQ_MASK + TSPP_IRQ_CLEAR */
-#define TSPP_IRQ_STATUS_TSP_RD_CMPL			BIT(19)
-#define TSPP_IRQ_STATUS_KEY_ERROR			BIT(18)
+#define TSPP_IRQ_STATUS_TSP_RD_CMPL		BIT(19)
+#define TSPP_IRQ_STATUS_KEY_ERROR		BIT(18)
 #define TSPP_IRQ_STATUS_KEY_SWITCHED_BAD	BIT(17)
 #define TSPP_IRQ_STATUS_KEY_SWITCHED		BIT(16)
 #define TSPP_IRQ_STATUS_PS_BROKEN(_n)		BIT((_n))
 
 /* TSPP_PIPE_ERROR_STATUS */
-#define TSPP_PIPE_PES_SYNC_ERROR				BIT(3)
-#define TSPP_PIPE_PS_LENGTH_ERROR			BIT(2)
+#define TSPP_PIPE_PES_SYNC_ERROR		BIT(3)
+#define TSPP_PIPE_PS_LENGTH_ERROR		BIT(2)
 #define TSPP_PIPE_PS_CONTINUITY_ERROR		BIT(1)
-#define TSPP_PIP_PS_LOST_START				BIT(0)
+#define TSPP_PIP_PS_LOST_START			BIT(0)
 
 /* TSPP_STATUS			*/
-#define TSPP_STATUS_TSP_PKT_AVAIL			BIT(10)
-#define TSPP_STATUS_TSIF1_DM_REQ				BIT(6)
-#define TSPP_STATUS_TSIF0_DM_REQ				BIT(2)
-#define TSPP_CURR_FILTER_TABLE				BIT(0)
+#define TSPP_STATUS_TSP_PKT_AVAIL		BIT(10)
+#define TSPP_STATUS_TSIF1_DM_REQ		BIT(6)
+#define TSPP_STATUS_TSIF0_DM_REQ		BIT(2)
+#define TSPP_CURR_FILTER_TABLE			BIT(0)
 
 /* TSPP_GENERICS		*/
-#define TSPP_GENERICS_CRYPTO_GEN				BIT(12)
+#define TSPP_GENERICS_CRYPTO_GEN		BIT(12)
 #define TSPP_GENERICS_MAX_CONS_PIPES		BIT(7)
-#define TSPP_GENERICS_MAX_PIPES				BIT(2)
-#define TSPP_GENERICS_TSIF_1_GEN				BIT(1)
-#define TSPP_GENERICS_TSIF_0_GEN				BIT(0)
+#define TSPP_GENERICS_MAX_PIPES			BIT(2)
+#define TSPP_GENERICS_TSIF_1_GEN		BIT(1)
+#define TSPP_GENERICS_TSIF_0_GEN		BIT(0)
 
 /*
  * TSPP memory regions
@@ -375,6 +375,8 @@ struct tspp_channel {
 	tspp_notifier *notifier; /* used only with kernel api */
 	void *notify_data;       /* data to be passed with the notifier */
 	u32 notify_timer;        /* notification for partially filled buffers */
+	tspp_memfree *memfree;   /* user defined memory free function */
+	void *user_info; /* user cookie passed to memory alloc/free function */
 };
 
 struct tspp_pid_filter_table {
@@ -584,8 +586,7 @@ static int tspp_gpios_disable(const struct msm_gpio *table, int size)
 		g = table + i;
 		tmp = gpio_tlmm_config(g->gpio_cfg, GPIO_CFG_DISABLE);
 		if (tmp) {
-			pr_err("tspp_gpios_disable(0x%08x, GPIO_CFG_DISABLE)"
-			       " <%s> failed: %d\n",
+			pr_err("tspp_gpios_disable(0x%08x, GPIO_CFG_DISABLE) <%s> failed: %d\n",
 			       g->gpio_cfg, g->label ?: "?", rc);
 			pr_err("tspp: pin %d func %d dir %d pull %d drvstr %d\n",
 			       GPIO_PIN(g->gpio_cfg), GPIO_FUNC(g->gpio_cfg),
@@ -608,8 +609,7 @@ static int tspp_gpios_enable(const struct msm_gpio *table, int size)
 		g = table + i;
 		rc = gpio_tlmm_config(g->gpio_cfg, GPIO_CFG_ENABLE);
 		if (rc) {
-			pr_err("tspp: gpio_tlmm_config(0x%08x, GPIO_CFG_ENABLE)"
-			       " <%s> failed: %d\n",
+			pr_err("tspp: gpio_tlmm_config(0x%08x, GPIO_CFG_ENABLE) <%s> failed: %d\n",
 			       g->gpio_cfg, g->label ?: "?", rc);
 			pr_err("tspp: pin %d func %d dir %d pull %d drvstr %d\n",
 			       GPIO_PIN(g->gpio_cfg), GPIO_FUNC(g->gpio_cfg),
@@ -820,12 +820,12 @@ static int tspp_alloc_buffer(u32 channel_id, struct tspp_data_descriptor *desc,
 		desc->virt_base = alloc(channel_id, size,
 			&desc->phys_base, user);
 	} else {
-	desc->virt_base = dma_alloc_coherent(NULL, size,
-		&desc->phys_base, GFP_KERNEL);
-	if (desc->virt_base == 0) {
-		pr_err("tspp dma alloc coherent failed %i", size);
-		return -ENOMEM;
-	}
+		desc->virt_base = dma_alloc_coherent(NULL, size,
+			&desc->phys_base, GFP_KERNEL);
+		if (desc->virt_base == 0) {
+			pr_err("tspp dma alloc coherent failed %i", size);
+			return -ENOMEM;
+		}
 	}
 
 	desc->size = size;
@@ -977,9 +977,13 @@ static int tspp_channel_init(struct tspp_channel *channel,
 	channel->buffer_count = 0;
 	channel->filter_count = 0;
 	channel->int_freq = 1;
+	channel->src = TSPP_SOURCE_NONE;
+	channel->mode = TSPP_MODE_DISABLED;
 	channel->notifier = NULL;
 	channel->notify_data = NULL;
 	channel->notify_timer = 0;
+	channel->memfree = NULL;
+	channel->user_info = NULL;
 	init_waitqueue_head(&channel->in_queue);
 
 	if (cdev_add(&channel->cdev, tspp_minor++, 1) != 0) {
@@ -1002,6 +1006,11 @@ static int tspp_channel_init(struct tspp_channel *channel,
 static int tspp_set_buffer_size(struct tspp_channel *channel,
 	struct tspp_buffer *buf)
 {
+	if (channel->buffer_count > 0) {
+		pr_err("tspp: cannot set buffer size - buffers already allocated\n");
+		return -EPERM;
+	}
+
 	if (buf->size < TSPP_MIN_BUFFER_SIZE)
 		channel->buffer_size = TSPP_MIN_BUFFER_SIZE;
 	else if (buf->size > TSPP_MAX_BUFFER_SIZE)
@@ -1033,8 +1042,8 @@ static void tspp_set_tsif_mode(struct tspp_channel *channel,
 }
 
 static void tspp_set_signal_inversion(struct tspp_channel *channel,
-	int clock_inverse, int data_inverse,
-	int sync_inverse, int enable_inverse)
+					int clock_inverse, int data_inverse,
+					int sync_inverse, int enable_inverse)
 {
 	int index;
 
@@ -1054,8 +1063,106 @@ static void tspp_set_signal_inversion(struct tspp_channel *channel,
 	channel->pdev->tsif[index].enable_inverse = enable_inverse;
 }
 
+static int tspp_is_buffer_size_aligned(u32 size, enum tspp_mode mode)
+{
+	u32 alignment;
+
+	switch (mode) {
+	case TSPP_MODE_RAW:
+		/* must be a multiple of 192 */
+		alignment = (TSPP_PACKET_LENGTH + 4);
+		if (size % alignment)
+			return 0;
+		return 1;
+
+	case TSPP_MODE_RAW_NO_SUFFIX:
+		/* must be a multiple of 188 */
+		alignment = TSPP_PACKET_LENGTH;
+		if (size % alignment)
+			return 0;
+		return 1;
+
+	case TSPP_MODE_DISABLED:
+	case TSPP_MODE_PES:
+	default:
+		/* no alignment requirement */
+		return 1;
+	}
+
+}
+
+static u32 tspp_align_buffer_size_by_mode(u32 size, enum tspp_mode mode)
+{
+	u32 new_size;
+	u32 alignment;
+
+	switch (mode) {
+	case TSPP_MODE_RAW:
+		/* must be a multiple of 192 */
+		alignment = (TSPP_PACKET_LENGTH + 4);
+		break;
+
+	case TSPP_MODE_RAW_NO_SUFFIX:
+		/* must be a multiple of 188 */
+		alignment = TSPP_PACKET_LENGTH;
+		break;
+
+	case TSPP_MODE_DISABLED:
+	case TSPP_MODE_PES:
+	default:
+		/* no alignment requirement - give the user what he asks for */
+		alignment = 1;
+		break;
+	}
+	/* align up */
+	new_size = (((size + alignment - 1) / alignment) * alignment);
+	return new_size;
+}
+
+static void tspp_destroy_buffers(u32 channel_id, struct tspp_channel *channel)
+{
+	int i;
+	struct tspp_mem_buffer *pbuf, *temp;
+
+	pbuf = channel->data;
+	for (i = 0; i < channel->buffer_count; i++) {
+		if (pbuf->desc.phys_base) {
+			if (channel->memfree) {
+				channel->memfree(channel_id,
+					pbuf->desc.size,
+					pbuf->desc.virt_base,
+					pbuf->desc.phys_base,
+					channel->user_info);
+			} else {
+				dma_free_coherent(NULL,
+					pbuf->desc.size,
+					pbuf->desc.virt_base,
+					pbuf->desc.phys_base);
+			}
+			pbuf->desc.phys_base = 0;
+		}
+		pbuf->desc.virt_base = 0;
+		pbuf->state = TSPP_BUF_STATE_EMPTY;
+		temp = pbuf;
+		pbuf = pbuf->next;
+		kfree(temp);
+	}
+}
+
 /*** TSPP API functions ***/
-int tspp_open_stream(u32 dev, u32 channel_id, struct tspp_select_source *source)
+
+/**
+ * tspp_open_stream - open a TSPP stream for use.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ * @source: stream source parameters.
+ *
+ * Return  error status
+ *
+ */
+int tspp_open_stream(u32 dev, u32 channel_id,
+			struct tspp_select_source *source)
 {
 	u32 val;
 	struct tspp_device *pdev;
@@ -1063,6 +1170,7 @@ int tspp_open_stream(u32 dev, u32 channel_id, struct tspp_select_source *source)
 
 	TSPP_DEBUG("tspp_open_stream %i %i %i %i",
 		dev, channel_id, source->source, source->mode);
+
 	if (dev >= TSPP_MAX_DEVICES) {
 		pr_err("tspp: device id out of range");
 		return -ENODEV;
@@ -1082,8 +1190,8 @@ int tspp_open_stream(u32 dev, u32 channel_id, struct tspp_select_source *source)
 	channel->src = source->source;
 	tspp_set_tsif_mode(channel, source->mode);
 	tspp_set_signal_inversion(channel, source->clk_inverse,
-		source->data_inverse, source->sync_inverse,
-		source->enable_inverse);
+			source->data_inverse, source->sync_inverse,
+			source->enable_inverse);
 
 	switch (source->source) {
 	case TSPP_SOURCE_TSIF0:
@@ -1120,6 +1228,15 @@ int tspp_open_stream(u32 dev, u32 channel_id, struct tspp_select_source *source)
 }
 EXPORT_SYMBOL(tspp_open_stream);
 
+/**
+ * tspp_close_stream - close a TSPP stream.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ *
+ * Return  error status
+ *
+ */
 int tspp_close_stream(u32 dev, u32 channel_id)
 {
 	u32 val;
@@ -1162,6 +1279,15 @@ int tspp_close_stream(u32 dev, u32 channel_id)
 }
 EXPORT_SYMBOL(tspp_close_stream);
 
+/**
+ * tspp_open_channel - open a TSPP channel.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ *
+ * Return  error status
+ *
+ */
 int tspp_open_channel(u32 dev, u32 channel_id)
 {
 	int rc = 0;
@@ -1269,6 +1395,15 @@ err_sps_alloc:
 }
 EXPORT_SYMBOL(tspp_open_channel);
 
+/**
+ * tspp_close_channel - close a TSPP channel.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ *
+ * Return  error status
+ *
+ */
 int tspp_close_channel(u32 dev, u32 channel_id)
 {
 	int i;
@@ -1278,7 +1413,6 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 	struct sps_connect *config;
 	struct tspp_device *pdev;
 	struct tspp_channel *channel;
-	struct tspp_mem_buffer *pbuf, *temp;
 
 	if (channel_id >= TSPP_NUM_CHANNELS) {
 		pr_err("tspp: channel id out of range");
@@ -1333,21 +1467,12 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 	dma_free_coherent(NULL, config->desc.size, config->desc.base,
 		config->desc.phys_base);
 
-	pbuf = channel->data;
-	for (i = 0; i < channel->buffer_count; i++) {
-		if (pbuf->desc.phys_base) {
-			dma_free_coherent(NULL,
-				pbuf->desc.size,
-				pbuf->desc.virt_base,
-				pbuf->desc.phys_base);
-			pbuf->desc.phys_base = 0;
-		}
-		pbuf->desc.virt_base = 0;
-		pbuf->state = TSPP_BUF_STATE_EMPTY;
-		temp = pbuf;
-		pbuf = pbuf->next;
-		kfree(temp);
-	}
+	tspp_destroy_buffers(channel_id, channel);
+
+	channel->src = TSPP_SOURCE_NONE;
+	channel->mode = TSPP_MODE_DISABLED;
+	channel->memfree = NULL;
+	channel->user_info = NULL;
 	channel->buffer_count = 0;
 	channel->data = NULL;
 	channel->read = NULL;
@@ -1363,10 +1488,20 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 }
 EXPORT_SYMBOL(tspp_close_channel);
 
+/**
+ * tspp_add_filter - add a TSPP filter to a channel.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ * @filter: TSPP filter parameters
+ *
+ * Return  error status
+ *
+ */
 int tspp_add_filter(u32 dev, u32 channel_id,
 	struct tspp_filter *filter)
 {
-	int i;
+	int i, rc;
 	int other_channel;
 	int entry;
 	u32 val, pid, enabled;
@@ -1397,19 +1532,14 @@ int tspp_add_filter(u32 dev, u32 channel_id,
 		return -ENOSR;
 	}
 
-	/* make sure this filter mode matches the channel mode */
-	switch (channel->mode) {
-	case TSPP_MODE_DISABLED:
-		channel->mode = filter->mode;
-		break;
-	case TSPP_MODE_RAW:
-	case TSPP_MODE_PES:
-	case TSPP_MODE_RAW_NO_SUFFIX:
-		if (filter->mode != channel->mode) {
-			pr_err("tspp: wrong filter mode");
-			return -EBADSLT;
-		}
-	}
+	channel->mode = filter->mode;
+	/*
+	 * if buffers are already allocated, verify they fulfil
+	 * the alignment requirements.
+	 */
+	if ((channel->buffer_count > 0) &&
+	   (!tspp_is_buffer_size_aligned(channel->buffer_size, channel->mode)))
+		pr_warn("tspp: buffers allocated with incorrect alignment\n");
 
 	if (filter->mode == TSPP_MODE_PES) {
 		for (i = 0; i < TSPP_NUM_PRIORITIES; i++) {
@@ -1468,13 +1598,22 @@ int tspp_add_filter(u32 dev, u32 channel_id,
 	pdev->filters[channel->src]->
 		filter[filter->priority].filter = p.filter;
 
-	/* allocate buffers if needed */
-	tspp_allocate_buffers(dev, channel->id, channel->max_buffers,
-		channel->buffer_size, channel->int_freq, 0, 0);
-	if (channel->buffer_count < MIN_ACCEPTABLE_BUFFER_COUNT) {
-		pr_err("tspp: failed to allocate at least %i buffers",
-			MIN_ACCEPTABLE_BUFFER_COUNT);
-		return -ENOMEM;
+	/*
+	 * allocate buffers if needed (i.e. if user did has not already called
+	 * tspp_allocate_buffers() explicitly).
+	 */
+	if (channel->buffer_count == 0) {
+		channel->buffer_size =
+			tspp_align_buffer_size_by_mode(channel->buffer_size,
+							channel->mode);
+		rc = tspp_allocate_buffers(dev, channel->id,
+					channel->max_buffers,
+					channel->buffer_size,
+					channel->int_freq, NULL, NULL, NULL);
+		if (rc != 0) {
+			pr_err("tspp: tspp_allocate_buffers failed\n");
+			return rc;
+		}
 	}
 
 	/* reenable pipe */
@@ -1489,6 +1628,16 @@ int tspp_add_filter(u32 dev, u32 channel_id,
 }
 EXPORT_SYMBOL(tspp_add_filter);
 
+/**
+ * tspp_remove_filter - remove a TSPP filter from a channel.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ * @filter: TSPP filter parameters
+ *
+ * Return  error status
+ *
+ */
 int tspp_remove_filter(u32 dev, u32 channel_id,
 	struct tspp_filter *filter)
 {
@@ -1541,6 +1690,16 @@ int tspp_remove_filter(u32 dev, u32 channel_id,
 }
 EXPORT_SYMBOL(tspp_remove_filter);
 
+/**
+ * tspp_set_key - set TSPP key in key table.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ * @key: TSPP key parameters
+ *
+ * Return  error status
+ *
+ */
 int tspp_set_key(u32 dev, u32 channel_id, struct tspp_key *key)
 {
 	int i;
@@ -1591,6 +1750,18 @@ int tspp_set_key(u32 dev, u32 channel_id, struct tspp_key *key)
 }
 EXPORT_SYMBOL(tspp_set_key);
 
+/**
+ * tspp_register_notification - register TSPP channel notification function.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ * @pNotify: notification function
+ * @userdata: user data to pass to notification function
+ * @timer_ms: notification for partially filled buffers
+ *
+ * Return  error status
+ *
+ */
 int tspp_register_notification(u32 dev, u32 channel_id,
 	tspp_notifier *pNotify, void *userdata, u32 timer_ms)
 {
@@ -1614,6 +1785,15 @@ int tspp_register_notification(u32 dev, u32 channel_id,
 }
 EXPORT_SYMBOL(tspp_register_notification);
 
+/**
+ * tspp_unregister_notification - unregister TSPP channel notification function.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ *
+ * Return  error status
+ *
+ */
 int tspp_unregister_notification(u32 dev, u32 channel_id)
 {
 	struct tspp_channel *channel;
@@ -1635,6 +1815,15 @@ int tspp_unregister_notification(u32 dev, u32 channel_id)
 }
 EXPORT_SYMBOL(tspp_unregister_notification);
 
+/**
+ * tspp_get_buffer - get TSPP data buffer.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ *
+ * Return  error status
+ *
+ */
 const struct tspp_data_descriptor *tspp_get_buffer(u32 dev, u32 channel_id)
 {
 	struct tspp_mem_buffer *buffer;
@@ -1675,6 +1864,16 @@ const struct tspp_data_descriptor *tspp_get_buffer(u32 dev, u32 channel_id)
 }
 EXPORT_SYMBOL(tspp_get_buffer);
 
+/**
+ * tspp_release_buffer - release TSPP data buffer back to TSPP.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ * @descriptor_id: buffer descriptor ID
+ *
+ * Return  error status
+ *
+ */
 int tspp_release_buffer(u32 dev, u32 channel_id, u32 descriptor_id)
 {
 	int i, found = 0;
@@ -1726,8 +1925,27 @@ int tspp_release_buffer(u32 dev, u32 channel_id, u32 descriptor_id)
 }
 EXPORT_SYMBOL(tspp_release_buffer);
 
-int tspp_allocate_buffers(u32 dev, u32 channel_id,	u32 count,
-	u32 size, u32 int_freq, tspp_allocator *alloc, void *user)
+/**
+ * tspp_allocate_buffers - allocate TSPP data buffers.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @channel_id: Channel ID number (up to TSPP_NUM_CHANNELS)
+ * @count: number of buffers to allocate
+ * @size: size of each buffer to allocate
+ * @int_freq: interrupt frequency
+ * @alloc: user defined memory allocator function. Pass NULL for default.
+ * @memfree: user defined memory free function. Pass NULL for default.
+ * @user: user data to pass to the memory allocator/free function
+ *
+ * Return  error status
+ *
+ * The user can optionally call this function explicitly to allocate the TSPP
+ * data buffers. Alternatively, if the user did not call this function, it
+ * is called implicitly by tspp_add_filter().
+ */
+int tspp_allocate_buffers(u32 dev, u32 channel_id, u32 count, u32 size,
+			u32 int_freq, tspp_allocator *alloc,
+			tspp_memfree *memfree, void *user)
 {
 	struct tspp_channel *channel;
 	struct tspp_device *pdev;
@@ -1736,56 +1954,62 @@ int tspp_allocate_buffers(u32 dev, u32 channel_id,	u32 count,
 	TSPP_DEBUG("tspp_allocate_buffers");
 
 	if (channel_id >= TSPP_NUM_CHANNELS) {
-		pr_err("tspp: channel id out of range");
+		pr_err("%s: channel id out of range", __func__);
 		return -ECHRNG;
 	}
+
 	pdev = tspp_find_by_id(dev);
 	if (!pdev) {
-		pr_err("tspp_alloc: can't find device %i", dev);
+		pr_err("%s: can't find device %i", __func__, dev);
 		return -ENODEV;
 	}
+
+	if (count < MIN_ACCEPTABLE_BUFFER_COUNT) {
+		pr_err("%s: tspp requires a minimum of %i buffers\n",
+			__func__, MIN_ACCEPTABLE_BUFFER_COUNT);
+		return -EINVAL;
+	}
+
 	channel = &pdev->channels[channel_id];
+	/* allow buffer allocation only if there was no previous buffer
+	 * allocation for this channel.
+	 */
+	if (channel->buffer_count > 0) {
+		pr_err("%s: buffers already allocated for channel %u",
+			__func__, channel_id);
+		return -EINVAL;
+	}
 
 	channel->max_buffers = count;
 
 	/* set up interrupt frequency */
-	if (int_freq > channel->max_buffers)
+	if (int_freq > channel->max_buffers) {
 		int_freq = channel->max_buffers;
-	channel->int_freq = int_freq;
-
-	switch (channel->mode) {
-	case TSPP_MODE_DISABLED:
-	case TSPP_MODE_PES:
-		/* give the user what he asks for */
-		channel->buffer_size = size;
-		break;
-
-	case TSPP_MODE_RAW:
-		/* must be a multiple of 192 */
-		if (size < (TSPP_PACKET_LENGTH+4))
-			channel->buffer_size = (TSPP_PACKET_LENGTH+4);
-		else
-			channel->buffer_size = (size /
-				(TSPP_PACKET_LENGTH+4)) *
-				(TSPP_PACKET_LENGTH+4);
-		break;
-
-	case TSPP_MODE_RAW_NO_SUFFIX:
-		/* must be a multiple of 188 */
-		channel->buffer_size = (size / TSPP_PACKET_LENGTH) *
-			TSPP_PACKET_LENGTH;
-		break;
+		pr_warn("%s: setting interrupt frequency to %u\n",
+			__func__, int_freq);
 	}
+	channel->int_freq = int_freq;
+	/*
+	 * it is the responsibility of the caller to tspp_allocate_buffers(),
+	 * whether it's the user or the driver, to make sure the size parameter
+	 * is compatible to the channel mode.
+	 */
+	channel->buffer_size = size;
 
-	for (; channel->buffer_count < channel->max_buffers;
+	/* save user defined memory free function for later use */
+	channel->memfree = memfree;
+	channel->user_info = user;
+
+	for (channel->buffer_count = 0;
+		channel->buffer_count < channel->max_buffers;
 		channel->buffer_count++) {
 
 		/* allocate the descriptor */
 		struct tspp_mem_buffer *desc = (struct tspp_mem_buffer *)
 			kmalloc(sizeof(struct tspp_mem_buffer), GFP_KERNEL);
 		if (!desc) {
-			pr_warn("tspp: Can't allocate desc %i",
-			channel->buffer_count);
+			pr_warn("%s: Can't allocate desc %i",
+				__func__, channel->buffer_count);
 			break;
 		}
 
@@ -1794,8 +2018,8 @@ int tspp_allocate_buffers(u32 dev, u32 channel_id,	u32 count,
 		if (tspp_alloc_buffer(channel_id, &desc->desc,
 			channel->buffer_size, alloc, user) != 0) {
 			kfree(desc);
-			pr_warn("tspp: Can't allocate buffer %i",
-				channel->buffer_count);
+			pr_warn("%s: Can't allocate buffer %i",
+				__func__, channel->buffer_count);
 			break;
 		}
 
@@ -1818,12 +2042,24 @@ int tspp_allocate_buffers(u32 dev, u32 channel_id,	u32 count,
 
 		/* start the transfer */
 		if (tspp_queue_buffer(channel, desc))
-			pr_err("tspp: can't queue buffer %i", desc->desc.id);
+			pr_err("%s: can't queue buffer %i",
+				__func__, desc->desc.id);
+	}
+
+	if (channel->buffer_count < channel->max_buffers) {
+		/*
+		 * we failed to allocate the requested number of buffers.
+		 * we don't allow a partial success, so need to clean up here.
+		 */
+		tspp_destroy_buffers(channel_id, channel);
+		channel->buffer_count = 0;
+		return -ENOMEM;
 	}
 
 	channel->waiting = channel->data;
 	channel->read = channel->data;
 	channel->locked = channel->data;
+
 	return 0;
 }
 EXPORT_SYMBOL(tspp_allocate_buffers);
@@ -1942,8 +2178,10 @@ static ssize_t tspp_read(struct file *filp, char __user *buf, size_t count,
 		transferred += size;
 		buffer->read_index += size;
 
-		/* after reading the end of the buffer, requeue it,
-			and set up for reading the next one */
+		/*
+		 * after reading the end of the buffer, requeue it,
+		 * and set up for reading the next one
+		 */
 		if (buffer->read_index == buffer->filled) {
 			buffer->state = TSPP_BUF_STATE_WAITING;
 			if (tspp_queue_buffer(channel, buffer))
@@ -2042,8 +2280,10 @@ static long tspp_ioctl(struct file *filp,
 		pr_err("tspp: Unknown ioctl %i", param0);
 	}
 
-	/* normalize the return code in case one of the subfunctions does
-		something weird */
+	/*
+	 * normalize the return code in case one of the subfunctions does
+	 * something weird
+	 */
 	if (rc != 0)
 		rc = -ENOIOCTLCMD;
 
@@ -2136,13 +2376,14 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 {
 	int rc = -ENODEV;
 	u32 version;
-	u32 i;
+	u32 i, j;
 	struct msm_tspp_platform_data *data;
 	struct tspp_device *device;
 	struct resource *mem_tsif0;
 	struct resource *mem_tsif1;
 	struct resource *mem_tspp;
 	struct resource *mem_bam;
+	struct tspp_channel *channel;
 
 	/* must have platform data */
 	data = pdev->dev.platform_data;
@@ -2338,6 +2579,12 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 	return 0;
 
 err_channel:
+	/* uninitialize channels */
+	for (j = 0; j < i; j++) {
+		channel = &(device->channels[i]);
+		device_destroy(tspp_class, channel->cdev.dev);
+		cdev_del(&channel->cdev);
+	}
 err_clock:
 	sps_deregister_bam_device(device->bam_handle);
 err_bam:
