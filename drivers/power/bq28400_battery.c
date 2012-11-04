@@ -757,6 +757,12 @@ static int bq28400_set_property(struct power_supply *psy,
 static void bq28400_external_power_changed(struct power_supply *psy)
 {
 	pr_debug("Notify power_supply_changed.\n");
+
+	/* The battery gauge monitors the current and voltage every 1 second.
+	 * Therefore a delay from the time that the charger start/stop charging
+	 * until the battery gauge detects it.
+	 */
+	msleep(1000);
 	/* Update LEDs and notify uevents */
 	power_supply_changed(&bq28400_dev->batt_psy);
 }
