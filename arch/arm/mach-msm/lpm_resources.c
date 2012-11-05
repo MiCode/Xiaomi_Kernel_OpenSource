@@ -47,8 +47,6 @@ module_param_named(
 static bool msm_lpm_get_rpm_notif = true;
 
 /*Macros*/
-#define VDD_DIG_ACTIVE		(5)
-#define VDD_MEM_ACTIVE		(1050000)
 #define MAX_RS_NAME		(16)
 #define MAX_RS_SIZE		(4)
 #define IS_RPM_CTL(rs) \
@@ -133,10 +131,6 @@ static struct msm_lpm_resource msm_lpm_l2 = {
 	.flush = msm_lpm_flush_l2,
 	.notify = NULL,
 	.valid = false,
-	.rs_data = {
-		.value = MSM_LPM_L2_CACHE_ACTIVE,
-		.default_value = MSM_LPM_L2_CACHE_ACTIVE,
-	},
 	.ko_attr = RPMRS_ATTR(l2),
 };
 
@@ -147,10 +141,6 @@ static struct msm_lpm_resource msm_lpm_vdd_dig = {
 	.flush = msm_lpm_flush_vdd_dig,
 	.notify = msm_lpm_notify_vdd_dig,
 	.valid = false,
-	.rs_data = {
-		.value = VDD_DIG_ACTIVE,
-		.default_value = VDD_DIG_ACTIVE,
-	},
 	.ko_attr = RPMRS_ATTR(vdd_dig),
 };
 
@@ -161,10 +151,6 @@ static struct msm_lpm_resource msm_lpm_vdd_mem = {
 	.flush = msm_lpm_flush_vdd_mem,
 	.notify = msm_lpm_notify_vdd_mem,
 	.valid = false,
-	.rs_data = {
-		.value = VDD_MEM_ACTIVE,
-		.default_value = VDD_MEM_ACTIVE,
-	},
 	.ko_attr = RPMRS_ATTR(vdd_mem),
 };
 
@@ -175,10 +161,6 @@ static struct msm_lpm_resource msm_lpm_pxo = {
 	.flush = msm_lpm_flush_pxo,
 	.notify = msm_lpm_notify_pxo,
 	.valid = false,
-	.rs_data = {
-		.value = MSM_LPM_PXO_ON,
-		.default_value = MSM_LPM_PXO_ON,
-	},
 	.ko_attr = RPMRS_ATTR(pxo),
 };
 
@@ -700,12 +682,12 @@ static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,
 	switch (action) {
 	case CPU_UP_PREPARE:
 	case CPU_UP_PREPARE_FROZEN:
-		rs->rs_data.value = MSM_LPM_L2_CACHE_ACTIVE;
+		rs->rs_data.value = rs->rs_data.default_value;
 		break;
 	case CPU_ONLINE_FROZEN:
 	case CPU_ONLINE:
 		if (num_online_cpus() > 1)
-			rs->rs_data.value = MSM_LPM_L2_CACHE_ACTIVE;
+			rs->rs_data.value = rs->rs_data.default_value;
 		break;
 	case CPU_DEAD_FROZEN:
 	case CPU_DEAD:
@@ -822,6 +804,16 @@ static int msm_lpmrs_probe(struct platform_device *pdev)
 			pr_err("LPM resource not found\n");
 			continue;
 		}
+
+		key = "qcom,init-value";
+		ret = of_property_read_u32(node, key,
+				&rs->rs_data.default_value);
+		if (ret) {
+			pr_err("%s():Failed to read %s\n", __func__, key);
+			goto fail;
+		}
+
+		rs->rs_data.value = rs->rs_data.default_value;
 
 		key = "qcom,resource-type";
 		ret = of_property_read_u32(node, key, &resource_type);

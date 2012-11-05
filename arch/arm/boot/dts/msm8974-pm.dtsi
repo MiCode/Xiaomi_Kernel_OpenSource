@@ -143,6 +143,7 @@
 			qcom,type = <0x62706d73>;	/* "smpb" */
 			qcom,id = <0x02>;
 			qcom,key = <0x6e726f63>;	/* "corn" */
+			qcom,init-value = <5>;		/* Super Turbo */
 		};
 
 		qcom,lpm-resources@1 {
@@ -152,6 +153,7 @@
 			qcom,type = <0x62706d73>;	/* "smpb" */
 			qcom,id = <0x01>;
 			qcom,key = <0x7675>;		/* "uv" */
+			qcom,init-value = <1050000>;	/* Super Turbo */
 		};
 
 		qcom,lpm-resources@2 {
@@ -161,12 +163,14 @@
 			qcom,type = <0x306b6c63>;	/* "clk0" */
 			qcom,id = <0x00>;
 			qcom,key = <0x62616e45>;	/* "Enab" */
+			qcom,init-value = <1>;		/* On */
 		};
 
 		qcom,lpm-resources@3 {
 			reg = <0x3>;
 			qcom,name = "l2";
 			qcom,resource-type = <1>;
+			qcom,init-value = <3>;		/* Active */
 		};
 	};
 
