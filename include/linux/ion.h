@@ -222,11 +222,9 @@ struct sg_table *ion_sg_table(struct ion_client *client,
  * ion_map_kernel - create mapping for the given handle
  * @client:	the client
  * @handle:	handle to map
- * @flags:	flags for this mapping
  *
  * Map the given handle into the kernel and return a kernel address that
- * can be used to access this address. If no flags are specified, this
- * will return a non-secure uncached mapping.
+ * can be used to access this address.
  */
 void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle);
 
