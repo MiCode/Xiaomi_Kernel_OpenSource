@@ -1693,7 +1693,7 @@ static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 	struct hdmi_tx_ctrl *hdmi_ctrl =
 		hdmi_tx_get_drvdata_from_panel_data(panel_data);
 
-	if (!hdmi_ctrl) {
+	if (!hdmi_ctrl || !hdmi_ctrl->panel_power_on) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
@@ -1730,6 +1730,12 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 	if (!io->base) {
 		DEV_ERR("%s: core io is not initialized\n", __func__);
 		return -EINVAL;
+	}
+
+	if (!hdmi_ctrl->hpd_initialized) {
+		DEV_ERR("%s: HDMI on is not possible w/o cable detection.\n",
+			__func__);
+		return -EPERM;
 	}
 
 	DEV_INFO("power: ON (%dx%d %ld)\n", hdmi_ctrl->xres, hdmi_ctrl->yres,
