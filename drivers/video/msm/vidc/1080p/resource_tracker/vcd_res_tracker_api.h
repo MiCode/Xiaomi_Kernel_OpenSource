@@ -30,6 +30,7 @@ u32 res_trk_download_firmware(void);
 u32 res_trk_get_core_type(void);
 u32 res_trk_get_firmware_addr(struct ddl_buf_addr *firm_addr);
 int res_trk_get_mem_type(void);
+unsigned int res_trk_get_ion_flags(void);
 u32 res_trk_get_enable_ion(void);
 u32 res_trk_is_cp_enabled(void);
 u32 res_trk_get_disable_fullhd(void);
