@@ -2575,6 +2575,7 @@ static int __init acdb_init(void)
 
 	memset(&acdb_data, 0, sizeof(acdb_data));
 	spin_lock_init(&acdb_data.dsp_lock);
+	init_waitqueue_head(&acdb_data.wait);
 	acdb_data.cb_thread_task = kthread_run(acdb_calibrate_device,
 		NULL, "acdb_cb_thread");
 
@@ -2590,7 +2591,6 @@ static int __init acdb_init(void)
 		MM_ERR("RTC ACDB=>INIT Failure\n");
 
 #endif
-	init_waitqueue_head(&acdb_data.wait);
 
 	return misc_register(&acdb_misc);
 err:
