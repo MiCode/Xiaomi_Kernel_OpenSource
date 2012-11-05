@@ -764,6 +764,14 @@
 	};
 };
 
+&sdcc1 {
+       status = "disabled";
+};
+
+&sdcc2 {
+       status = "disabled";
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8941_l20>;
 	vdd-io-supply = <&pm8941_s3>;
@@ -783,6 +791,7 @@
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
 	qcom,nonremovable;
+	status = "ok";
 };
 
 &sdhc_2 {
@@ -799,4 +808,5 @@
 	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+	status = "ok";
 };
