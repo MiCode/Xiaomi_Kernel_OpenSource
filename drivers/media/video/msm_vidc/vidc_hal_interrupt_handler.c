@@ -315,16 +315,22 @@ static void hal_process_sess_get_prop_buf_req(
 {
 	struct hfi_buffer_requirements *hfi_buf_req;
 	u32 req_bytes;
-	enum vidc_status rc = VIDC_ERR_NONE;
 
 	dprintk(VIDC_DBG, "Entered ");
+	if (!prop) {
+		dprintk(VIDC_ERR,
+			"hal_process_sess_get_prop_buf_req:bad_prop: %p",
+			prop);
+		return;
+	}
 	req_bytes = prop->size - sizeof(
 	struct hfi_msg_session_property_info_packet);
 
-	if (req_bytes == 0 || (req_bytes % sizeof(
-		struct hfi_buffer_requirements))) {
+	if (!req_bytes || (req_bytes % sizeof(
+		struct hfi_buffer_requirements)) ||
+		(!prop->rg_property_data[1])) {
 		dprintk(VIDC_ERR,
-			"hal_process_sess_get_prop_buf_req:bad_pkt_size: %d",
+			"hal_process_sess_get_prop_buf_req:bad_pkt: %d",
 			req_bytes);
 		return;
 	}
@@ -332,15 +338,14 @@ static void hal_process_sess_get_prop_buf_req(
 	hfi_buf_req = (struct hfi_buffer_requirements *)
 		&prop->rg_property_data[1];
 
-	while (req_bytes != 0) {
-		if ((hfi_buf_req->buffer_count_min > hfi_buf_req->
-			buffer_count_actual)
-			|| (hfi_buf_req->buffer_alignment == 0)
-			|| (hfi_buf_req->buffer_size == 0)) {
-			dprintk(VIDC_ERR, "hal_process_sess_get_prop_buf_req:"
-						"bad_buf_req");
-			rc = VIDC_ERR_FAIL;
-		}
+	while (req_bytes) {
+		if ((hfi_buf_req->buffer_size) &&
+			((hfi_buf_req->buffer_count_min > hfi_buf_req->
+			buffer_count_actual)))
+				dprintk(VIDC_WARN,
+					"hal_process_sess_get_prop_buf_req:"
+					"bad_buf_req");
+
 		dprintk(VIDC_DBG, "got buffer requirements for: %d",
 					hfi_buf_req->buffer_type);
 		switch (hfi_buf_req->buffer_type) {
