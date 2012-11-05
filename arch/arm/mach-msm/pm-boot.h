@@ -15,7 +15,6 @@
 
 /* 8x25 specific macros */
 #define MPA5_CFG_CTL_REG	0x30
-#define MPA5_BOOT_REMAP_ADDR	0x34
 /* end */
 
 enum {
