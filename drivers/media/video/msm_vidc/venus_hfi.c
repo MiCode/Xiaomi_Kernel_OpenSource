@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +19,8 @@
 #include <mach/ocmem.h>
 
 #include <asm/memory.h>
-#include "vidc_hal.h"
-#include "vidc_hal_io.h"
+#include "venus_hfi.h"
+#include "vidc_hfi_io.h"
 #include "msm_vidc_debug.h"
 
 #define FIRMWARE_SIZE			0X00A00000

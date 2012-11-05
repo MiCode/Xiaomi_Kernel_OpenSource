@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef __H_VIDC_HAL_HELPER_H__
-#define __H_VIDC_HAL_HELPER_H__
+#ifndef __H_VIDC_HFI_HELPER_H__
+#define __H_VIDC_HFI_HELPER_H__
 
 #define HFI_COMMON_BASE				(0)
 #define HFI_OX_BASE					(0x01000000)

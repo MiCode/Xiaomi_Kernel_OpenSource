@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,8 +14,8 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/interrupt.h>
-#include "vidc_hal.h"
-#include "vidc_hal_io.h"
+#include "venus_hfi.h"
+#include "vidc_hfi_io.h"
 #include "msm_vidc_debug.h"
 
 static enum vidc_status vidc_map_hal_err_status(int hfi_err)

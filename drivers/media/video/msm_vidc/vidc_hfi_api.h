@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef __VIDC_HAL_API_H__
-#define __VIDC_HAL_API_H__
+#ifndef __VIDC_HFI_API_H__
+#define __VIDC_HFI_API_H__
 
 #include <linux/types.h>
 
@@ -1023,4 +1023,4 @@ void *vidc_hal_add_device(u32 device_id, u32 base_addr,
 	void (*callback) (enum command_response cmd, void *data));
 void vidc_hal_delete_device(void *device);
 
-#endif /*__VIDC_HAL_API_H__ */
+#endif /*__VIDC_HFI_API_H__ */
