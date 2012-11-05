@@ -569,6 +569,17 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 		goto start_fail;
 	}
 
+	/* request bus bandwidth for panel commands */
+	ctl->clk_rate = MDP_CLK_DEFAULT_RATE;
+	ctl->bus_ib_quota = SZ_1M;
+	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
+
+	ret = pdata->on(pdata);
+	if (ret) {
+		pr_err("panel power on failed ctl=%d\n", ctl->num);
+		goto panel_fail;
+	}
+
 	pr_debug("ctl_num=%d\n", ctl->num);
 
 	mixer = ctl->mixer_left;
@@ -596,17 +607,16 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_PACK_3D, 0);
 	}
-
-	/* request bus bandwidth for panel commands */
-	ctl->clk_rate = MDP_CLK_DEFAULT_RATE;
-	ctl->bus_ib_quota = SZ_1M;
-	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
-
-	ret = pdata->on(pdata);
-
+panel_fail:
+	if (ret && ctl->stop_fnc)
+		ctl->stop_fnc(ctl);
 start_fail:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	mutex_unlock(&ctl->lock);
+	if (ret) {
+		mdss_mdp_ctl_destroy(mfd);
+		mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
+	}
 
 	return ret;
 }
