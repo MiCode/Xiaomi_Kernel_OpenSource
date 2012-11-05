@@ -440,6 +440,11 @@
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
 	};
+
+	qcom,mss {
+		compatible = "qcom,pil-q6v5-mss";
+		interrupts = <0 24 1>;
+	};
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
