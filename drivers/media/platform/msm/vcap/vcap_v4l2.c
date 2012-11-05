@@ -922,10 +922,15 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 	case VC_TYPE:
 		vc_format = (struct v4l2_format_vc_ext *) &priv_fmt->u.timing;
 		c_data->vc_format = *vc_format;
+		c_data->stride = priv_fmt->stride;
 
 		size = (c_data->vc_format.hactive_end -
 			c_data->vc_format.hactive_start);
-		size = VCAP_STRIDE_CALC(size);
+		if (c_data->stride == VC_STRIDE_32)
+			size = VCAP_STRIDE_CALC(size, VCAP_STRIDE_ALIGN_32);
+		else
+			size = VCAP_STRIDE_CALC(size, VCAP_STRIDE_ALIGN_16);
+
 
 		if (c_data->vc_format.color_space)
 			size *= 3;

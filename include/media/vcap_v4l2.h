@@ -39,10 +39,10 @@
 
 #define VCAP_USEC (1000000)
 
-#define VCAP_STRIDE_ALIGN 0x10
-#define VCAP_STRIDE_CALC(x) (((x / VCAP_STRIDE_ALIGN) + \
-			(!(!(x % VCAP_STRIDE_ALIGN)))) * \
-			VCAP_STRIDE_ALIGN)
+#define VCAP_STRIDE_ALIGN_16 0x10
+#define VCAP_STRIDE_ALIGN_32 0x20
+#define VCAP_STRIDE_CALC(x, align) (((x / align) + \
+			(!(!(x % align)))) * align)
 
 #define VCAP_BASE (dev->vcapbase)
 #define VCAP_OFFSET(off) (VCAP_BASE + off)
@@ -241,6 +241,7 @@ struct vcap_client_data {
 	enum vcap_op_mode		op_mode;
 
 	struct v4l2_format_vc_ext vc_format;
+	enum vcap_stride		stride;
 
 	enum v4l2_buf_type		vp_buf_type_field;
 	struct vp_format_data	vp_in_fmt;
