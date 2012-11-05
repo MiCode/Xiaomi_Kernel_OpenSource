@@ -2,6 +2,7 @@
 
 Required properties:
 - compatible : Should be "qcom,qseecom"
+- reg : should contain memory region address reserved for loading secure apps.
 - qcom, msm_bus,name: Should be "qseecom-noc"
 - qcom, msm_bus,num_cases: Depends on the use cases for bus scaling
 - qcom, msm_bus,num_paths: The paths for source and destination ports
@@ -10,6 +11,8 @@ Required properties:
 Example:
 	qcom,qseecom@fe806000 {
 		compatible = "qcom,qseecom";
+		reg = <0x7f00000 0x500000>;
+		reg-names = "secapp-region";
 		qcom,msm_bus,name = "qseecom-noc";
 		qcom,msm_bus,num_cases = <4>;
 		qcom,msm_bus,active_only = <0>;
