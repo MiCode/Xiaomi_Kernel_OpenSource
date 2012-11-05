@@ -427,6 +427,7 @@ struct msmsdcc_host {
 	struct dentry *debugfs_idle_tout;
 	struct dentry *debugfs_pio_mode;
 	struct dentry *debugfs_pm_stats;
+	int saved_tuning_phase;
 };
 
 #define MSMSDCC_VERSION_STEP_MASK	0x0000FFFF
