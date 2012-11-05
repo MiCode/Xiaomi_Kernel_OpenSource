@@ -23,6 +23,7 @@ Required Nodes:
 - qcom,resource-type: The type of the LPM resource.
    MSM_LPM_RPM_RS_TYPE    = 0
    MSM_LPM_LOCAL_RS_TYPE  = 1
+- qcom,init-value: Initialization value of the LPM resource.
 
 
 Optional Nodes:
@@ -41,5 +42,6 @@ Example:
                         qcom,type = <0x62706d73>;   /* "smpb" */
                         qcom,id = <0x02>;
                         qcom,key = <0x6e726f63>;   /* "corn" */
+			qcom,init-value= <5>;   /* Active Corner*/
                 };
 
