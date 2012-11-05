@@ -147,6 +147,71 @@ static struct usb_descriptor_header *rmnet_hs_function[] = {
 	NULL,
 };
 
+/* Super speed support */
+static struct usb_endpoint_descriptor rmnet_ss_notify_desc  = {
+	.bLength =		sizeof rmnet_ss_notify_desc,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_INT,
+	.wMaxPacketSize =	__constant_cpu_to_le16(RMNET_MAX_NOTIFY_SIZE),
+	.bInterval =		RMNET_NOTIFY_INTERVAL + 4,
+};
+
+static struct usb_ss_ep_comp_descriptor rmnet_ss_notify_comp_desc = {
+	.bLength =		sizeof rmnet_ss_notify_comp_desc,
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 3 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+	.wBytesPerInterval =	cpu_to_le16(RMNET_MAX_NOTIFY_SIZE),
+};
+
+static struct usb_endpoint_descriptor rmnet_ss_in_desc = {
+	.bLength =		sizeof rmnet_ss_in_desc,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_IN,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	__constant_cpu_to_le16(1024),
+};
+
+static struct usb_ss_ep_comp_descriptor rmnet_ss_in_comp_desc = {
+	.bLength =		sizeof rmnet_ss_in_comp_desc,
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+};
+
+static struct usb_endpoint_descriptor rmnet_ss_out_desc = {
+	.bLength =		sizeof rmnet_ss_out_desc,
+	.bDescriptorType =	USB_DT_ENDPOINT,
+	.bEndpointAddress =	USB_DIR_OUT,
+	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+	.wMaxPacketSize =	__constant_cpu_to_le16(1024),
+};
+
+static struct usb_ss_ep_comp_descriptor rmnet_ss_out_comp_desc = {
+	.bLength =		sizeof rmnet_ss_out_comp_desc,
+	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
+
+	/* the following 2 values can be tweaked if necessary */
+	/* .bMaxBurst =		0, */
+	/* .bmAttributes =	0, */
+};
+
+static struct usb_descriptor_header *rmnet_ss_function[] = {
+	(struct usb_descriptor_header *) &rmnet_interface_desc,
+	(struct usb_descriptor_header *) &rmnet_ss_notify_desc,
+	(struct usb_descriptor_header *) &rmnet_ss_notify_comp_desc,
+	(struct usb_descriptor_header *) &rmnet_ss_in_desc,
+	(struct usb_descriptor_header *) &rmnet_ss_in_comp_desc,
+	(struct usb_descriptor_header *) &rmnet_ss_out_desc,
+	(struct usb_descriptor_header *) &rmnet_ss_out_comp_desc,
+	NULL,
+};
+
 /* String descriptors */
 
 static struct usb_string rmnet_string_defs[] = {
@@ -460,6 +525,8 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	pr_debug("%s: portno:%d\n", __func__, dev->port_num);
 
+	if (gadget_is_superspeed(c->cdev->gadget))
+		usb_free_descriptors(f->ss_descriptors);
 	if (gadget_is_dualspeed(c->cdev->gadget))
 		usb_free_descriptors(f->hs_descriptors);
 	usb_free_descriptors(f->descriptors);
@@ -964,6 +1031,7 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	dev->notify_req->complete = frmnet_notify_complete;
 	dev->notify_req->context = dev;
 
+	ret = -ENOMEM;
 	f->descriptors = usb_copy_descriptors(rmnet_fs_function);
 
 	if (!f->descriptors)
@@ -984,6 +1052,21 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 			goto fail;
 	}
 
+	if (gadget_is_superspeed(cdev->gadget)) {
+		rmnet_ss_in_desc.bEndpointAddress =
+				rmnet_fs_in_desc.bEndpointAddress;
+		rmnet_ss_out_desc.bEndpointAddress =
+				rmnet_fs_out_desc.bEndpointAddress;
+		rmnet_ss_notify_desc.bEndpointAddress =
+				rmnet_fs_notify_desc.bEndpointAddress;
+
+		/* copy descriptors, and track endpoint copies */
+		f->ss_descriptors = usb_copy_descriptors(rmnet_ss_function);
+
+		if (!f->ss_descriptors)
+			goto fail;
+	}
+
 	pr_info("%s: RmNet(%d) %s Speed, IN:%s OUT:%s\n",
 			__func__, dev->port_num,
 			gadget_is_dualspeed(cdev->gadget) ? "dual" : "full",
@@ -992,8 +1075,14 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 	return 0;
 
 fail:
+	if (f->ss_descriptors)
+		usb_free_descriptors(f->ss_descriptors);
+	if (f->hs_descriptors)
+		usb_free_descriptors(f->hs_descriptors);
 	if (f->descriptors)
 		usb_free_descriptors(f->descriptors);
+	if (dev->notify_req)
+		frmnet_free_req(dev->notify, dev->notify_req);
 ep_notify_alloc_fail:
 	dev->notify->driver_data = NULL;
 	dev->notify = NULL;
