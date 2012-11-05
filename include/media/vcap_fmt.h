@@ -120,8 +120,14 @@ enum vcap_type {
 	VP_OUT_TYPE,
 };
 
+enum vcap_stride {
+	VC_STRIDE_16,
+	VC_STRIDE_32,
+};
+
 struct vcap_priv_fmt {
 	enum vcap_type type;
+	enum vcap_stride stride;
 	union {
 		struct v4l2_format_vc_ext timing;
 		struct v4l2_pix_format pix;
