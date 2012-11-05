@@ -136,7 +136,7 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 			curr_vreg = &in_vreg[i];
 			curr_vreg->vreg = regulator_get(dev,
 				curr_vreg->vreg_name);
-			rc = IS_ERR(curr_vreg->vreg);
+			rc = PTR_RET(curr_vreg->vreg);
 			if (rc) {
 				DEV_ERR("%pS->%s: %s get failed. rc=%d\n",
 					 __builtin_return_address(0), __func__,
@@ -215,7 +215,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 	int i = 0, rc = 0;
 	if (enable) {
 		for (i = 0; i < num_vreg; i++) {
-			rc = IS_ERR(in_vreg[i].vreg);
+			rc = PTR_RET(in_vreg[i].vreg);
 			if (rc) {
 				DEV_ERR("%pS->%s: %s regulator error. rc=%d\n",
 					__builtin_return_address(0), __func__,
@@ -286,7 +286,7 @@ int msm_dss_get_clk(struct device *dev, struct dss_clk *clk_arry, int num_clk)
 
 	for (i = 0; i < num_clk; i++) {
 		clk_arry[i].clk = clk_get(dev, clk_arry[i].clk_name);
-		rc = IS_ERR(clk_arry[i].clk);
+		rc = PTR_RET(clk_arry[i].clk);
 		if (rc) {
 			DEV_ERR("%pS->%s: '%s' get failed. rc=%d\n",
 				__builtin_return_address(0), __func__,
