@@ -474,15 +474,25 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 	if (ctl->intf_num == MDSS_MDP_NO_INTF) {
 		ctl->dst_format = mfd->panel_info.out_format;
 	} else {
+		struct mdp_dither_cfg_data dither = {
+			.block = mfd->index + MDP_LOGICAL_BLOCK_DISP_0,
+			.flags = MDP_PP_OPS_DISABLE,
+		};
+
 		switch (mfd->panel_info.bpp) {
 		case 18:
 			ctl->dst_format = MDSS_MDP_PANEL_FORMAT_RGB666;
+			dither.flags = MDP_PP_OPS_ENABLE | MDP_PP_OPS_WRITE;
+			dither.g_y_depth = 2;
+			dither.r_cr_depth = 2;
+			dither.b_cb_depth = 2;
 			break;
 		case 24:
 		default:
 			ctl->dst_format = MDSS_MDP_PANEL_FORMAT_RGB888;
 			break;
 		}
+		mdss_mdp_dither_config(&dither, NULL);
 	}
 
 	if (ctl->mixer_right) {
