@@ -228,9 +228,6 @@ static int msm_rpm_add_kvp_data_common(struct msm_rpm_request *handle,
 	memcpy(handle->kvp[i].value, data, size);
 	handle->kvp[i].valid = true;
 
-	if (handle->msg_hdr.set == MSM_RPM_CTX_SLEEP_SET)
-		msm_rpm_notify_sleep_chain(&handle->msg_hdr, &handle->kvp[i]);
-
 	return 0;
 
 }
@@ -736,6 +733,11 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 
 		memcpy(tmpbuff, cdata->kvp[i].value, cdata->kvp[i].nbytes);
 		tmpbuff += cdata->kvp[i].nbytes;
+
+		if (cdata->msg_hdr.set == MSM_RPM_CTX_SLEEP_SET)
+			msm_rpm_notify_sleep_chain(&cdata->msg_hdr,
+					&cdata->kvp[i]);
+
 	}
 
 	if (msm_rpm_debug_mask
