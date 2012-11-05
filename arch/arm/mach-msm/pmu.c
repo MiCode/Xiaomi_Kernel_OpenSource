@@ -16,7 +16,8 @@
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
 
-#if defined(CONFIG_ARCH_MSM_KRAITMP) || defined(CONFIG_ARCH_MSM_SCORPIONMP)
+#if defined(CONFIG_ARCH_MSM_KRAITMP) || defined(CONFIG_ARCH_MSM_SCORPIONMP) \
+	|| defined(CONFIG_ARCH_MSM8625)
 static DEFINE_PER_CPU(u32, pmu_irq_cookie);
 
 static void enable_irq_callback(void *info)
@@ -103,6 +104,28 @@ static struct platform_device cpu_pmu_device = {
 	.num_resources	= ARRAY_SIZE(cpu_pmu_resource),
 };
 
+/*
+ * The 8625 is a special case. Due to the requirement of a single
+ * kernel image for the 7x27a and 8625 (which share IRQ headers),
+ * this target breaks the uniformity of IRQ names.
+ * See the file - arch/arm/mach-msm/include/mach/irqs-8625.h
+ */
+#ifdef CONFIG_ARCH_MSM8625
+static struct resource msm8625_cpu_pmu_resource[] = {
+	{
+		.start = MSM8625_INT_ARMQC_PERFMON,
+		.end = MSM8625_INT_ARMQC_PERFMON,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm8625_cpu_pmu_device = {
+	.name		= "cpu-arm-pmu",
+	.id		= ARM_PMU_DEVICE_CPU,
+	.resource	= msm8625_cpu_pmu_resource,
+	.num_resources	= ARRAY_SIZE(msm8625_cpu_pmu_resource),
+};
+#endif
 
 static struct platform_device *pmu_devices[] = {
 	&cpu_pmu_device,
@@ -121,6 +144,18 @@ static int __init msm_pmu_init(void)
 	 */
 #if defined(CONFIG_ARCH_MSM_KRAITMP) || defined(CONFIG_ARCH_MSM_SCORPIONMP)
 	cpu_pmu_device.dev.platform_data = &multicore_data;
+#endif
+
+	/*
+	 * The 7x27a and 8625 require a single kernel image.
+	 * So we need to check if we're on an 8625 at runtime
+	 * and point to the appropriate 'struct resource'.
+	 */
+#ifdef CONFIG_ARCH_MSM8625
+	if (cpu_is_msm8625()) {
+		pmu_devices[0] = &msm8625_cpu_pmu_device;
+		msm8625_cpu_pmu_device.dev.platform_data = &multicore_data;
+	}
 #endif
 
 	return platform_add_devices(pmu_devices, ARRAY_SIZE(pmu_devices));
