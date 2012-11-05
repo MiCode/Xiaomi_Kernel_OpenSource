@@ -21,7 +21,7 @@
 #include <mach/scm.h>
 
 #include "msm_vidc_common.h"
-#include "vidc_hal_api.h"
+#include "vidc_hfi_api.h"
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
 

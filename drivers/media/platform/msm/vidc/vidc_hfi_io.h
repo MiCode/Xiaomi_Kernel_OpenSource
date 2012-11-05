@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef __VIDCHALIO_H__
-#define __VIDCHALIO_H__
+#ifndef __VIDC_HFI_IO_H__
+#define __VIDC_HFI_IO_H__
 
 #include <linux/io.h>
 

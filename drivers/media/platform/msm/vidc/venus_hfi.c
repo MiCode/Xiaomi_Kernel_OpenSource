@@ -19,8 +19,8 @@
 #include <mach/ocmem.h>
 
 #include <asm/memory.h>
-#include "vidc_hal.h"
-#include "vidc_hal_io.h"
+#include "venus_hfi.h"
+#include "vidc_hfi_io.h"
 #include "msm_vidc_debug.h"
 
 #define FIRMWARE_SIZE			0X00A00000
