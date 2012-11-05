@@ -3200,10 +3200,6 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		return ret;
 	}
 
-	mbhc->mbhc_cfg = kzalloc(sizeof(*mbhc->mbhc_cfg), GFP_KERNEL);
-	if (!mbhc->mbhc_cfg)
-		return -ENOMEM;
-
 	INIT_DELAYED_WORK(&mbhc->mbhc_firmware_dwork, wcd9xxx_mbhc_fw_read);
 	INIT_DELAYED_WORK(&mbhc->mbhc_btn_dwork, wcd9xxx_btn_lpress_fn);
 	INIT_DELAYED_WORK(&mbhc->mbhc_insert_dwork, wcd9xxx_mbhc_insert_work);
@@ -3313,8 +3309,6 @@ void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc)
 	wcd9xxx_resmgr_unregister_notifier(mbhc->resmgr, &mbhc->nblock);
 
 	wcd9xxx_cleanup_debugfs(mbhc);
-
-	kfree(mbhc->mbhc_cfg);
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_mbhc_deinit);
 
