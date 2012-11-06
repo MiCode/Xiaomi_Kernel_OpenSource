@@ -30,7 +30,7 @@ struct pm8xxx_bms_core_data {
 /**
  * struct pm8921_bms_platform_data -
  * @batt_type:		allows to force chose battery calibration data
- * @r_sense:		sense resistor value in (mOhms)
+ * @r_sense_uohm:	sense resistor value in (micro Ohms)
  * @i_test:		current at which the unusable charger cutoff is to be
  *			calculated or the peak system current (mA)
  * @v_cutoff:		the loaded voltage at which the battery
@@ -41,7 +41,7 @@ struct pm8xxx_bms_core_data {
 struct pm8921_bms_platform_data {
 	struct pm8xxx_bms_core_data	bms_cdata;
 	enum battery_type		battery_type;
-	unsigned int			r_sense;
+	int				r_sense_uohm;
 	unsigned int			i_test;
 	unsigned int			v_cutoff;
 	unsigned int			max_voltage_uv;
