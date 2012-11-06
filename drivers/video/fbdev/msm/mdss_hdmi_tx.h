@@ -54,6 +54,7 @@ struct hdmi_tx_ctrl {
 
 	u32 hpd_initialized;
 	u32 hpd_state;
+	u32 hpd_off_pending;
 	u32 hpd_feature_on;
 	struct work_struct hpd_int_work;
 
