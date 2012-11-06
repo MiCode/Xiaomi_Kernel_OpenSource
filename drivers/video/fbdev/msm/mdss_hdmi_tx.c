@@ -2020,6 +2020,21 @@ fail_no_hdmi:
 	return rc;
 } /* hdmi_tx_dev_init */
 
+static int hdmi_tx_event_handler(struct mdss_panel_data *panel_data,
+				 int event, void *arg)
+{
+	int rc = 0;
+	switch (event) {
+	case MDSS_EVENT_UNBLANK:
+		rc = hdmi_tx_power_on(panel_data);
+		break;
+	case MDSS_EVENT_TIMEGEN_OFF:
+		rc = hdmi_tx_power_off(panel_data);
+		break;
+	}
+	return rc;
+}
+
 static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc = 0;
@@ -2029,8 +2044,7 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return -EINVAL;
 	}
 
-	hdmi_ctrl->panel_data.on = hdmi_tx_power_on;
-	hdmi_ctrl->panel_data.off = hdmi_tx_power_off;
+	hdmi_ctrl->panel_data.event_handler = hdmi_tx_event_handler;
 
 	hdmi_ctrl->video_resolution = DEFAULT_VIDEO_RESOLUTION;
 	rc = hdmi_tx_init_panel_info(hdmi_ctrl->video_resolution,

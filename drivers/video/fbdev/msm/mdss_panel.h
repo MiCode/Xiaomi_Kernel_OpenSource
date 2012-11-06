@@ -55,6 +55,17 @@ enum {
 	MAX_PHYS_TARGET_NUM,
 };
 
+enum mdss_intf_events {
+	MDSS_EVENT_RESET,
+	MDSS_EVENT_UNBLANK,
+	MDSS_EVENT_TIMEGEN_ON,
+	MDSS_EVENT_BLANK,
+	MDSS_EVENT_TIMEGEN_OFF,
+	MDSS_EVENT_CLOSE,
+	MDSS_EVENT_SUSPEND,
+	MDSS_EVENT_RESUME,
+};
+
 /* panel info type */
 struct lcd_panel_info {
 	u32 vsync_enable;
@@ -178,14 +189,11 @@ struct mdss_panel_info {
 
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
-	void (*set_backlight) (struct mdss_panel_data *pdata,
-							u32 bl_level);
-	int (*intf_unprepare) (struct mdss_panel_data *pdata);
+	void (*set_backlight) (struct mdss_panel_data *pdata, u32 bl_level);
 	unsigned char *mmss_cc_base;
 
 	/* function entry chain */
-	int (*on) (struct mdss_panel_data *pdata);
-	int (*off) (struct mdss_panel_data *pdata);
+	int (*event_handler) (struct mdss_panel_data *pdata, int e, void *arg);
 };
 
 int mdss_register_panel(struct mdss_panel_data *pdata);
