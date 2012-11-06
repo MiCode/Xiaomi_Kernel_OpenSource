@@ -195,7 +195,7 @@ static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
 	if (actual_size < 0)
 		pr_err("DIAG in %s: actual_size: %d\n", __func__, actual_size);
 
-	if (driver->usb_mdm_connected)
+	if (driver->usb_mdm_connected && (driver->logging_mode == USB_MODE))
 		queue_work(driver->diag_bridge_wq, &driver->diag_read_mdm_work);
 }
 
@@ -462,7 +462,7 @@ static int diagfwd_read_complete_bridge(struct diag_request *diag_read_ptr)
 	 * If there is no write of the usb mdm data on the
 	 * hsic channel
 	 */
-	if (!driver->in_busy_hsic_write)
+	if (!driver->in_busy_hsic_write && (driver->logging_mode == USB_MODE))
 		queue_work(driver->diag_bridge_wq, &driver->diag_read_mdm_work);
 
 	return 0;
@@ -552,9 +552,9 @@ static void diag_read_mdm_work_fn(struct work_struct *work)
 	 * If for some reason there was no mdm channel read initiated,
 	 * queue up the reading of data from the mdm channel
 	 */
-	if (!driver->in_busy_hsic_read_on_device)
-		queue_work(driver->diag_bridge_wq,
-			 &driver->diag_read_mdm_work);
+	if (!driver->in_busy_hsic_read_on_device &&
+		(driver->logging_mode == USB_MODE))
+		queue_work(driver->diag_bridge_wq, &driver->diag_read_mdm_work);
 }
 
 static int diag_hsic_probe(struct platform_device *pdev)
