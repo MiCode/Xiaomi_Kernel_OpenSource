@@ -91,7 +91,7 @@ struct msm_cpr {
 	struct regulator *vreg_cx;
 	const struct msm_cpr_config *config;
 	struct notifier_block freq_transition;
-	struct msm_cpr_vp_data *vp;
+	uint32_t step_size;
 };
 
 /* Need to maintain state data for suspend and resume APIs */
@@ -219,7 +219,7 @@ cpr_2pt_kv_analysis(struct msm_cpr *cpr, struct msm_cpr_mode *chip_data)
 	 *
 	 */
 	level_uV = chip_data->turbo_Vmax -
-		(chip_data->tgt_volt_offset * cpr->vp->step_size);
+		(chip_data->tgt_volt_offset * cpr->step_size);
 	msm_cpr_debug(MSM_CPR_DEBUG_CONFIG,
 		"tgt_volt_uV = %d\n", level_uV);
 
@@ -260,7 +260,7 @@ cpr_2pt_kv_analysis(struct msm_cpr *cpr, struct msm_cpr_mode *chip_data)
 	quot1 = (cpr_read_reg(cpr, RBCPR_DEBUG1) & QUOT_SLOW_M) >> 12;
 
 	/* Take second CPR measurement at a lower voltage to get QUOT2 */
-	level_uV -= 4 * cpr->vp->step_size;
+	level_uV -= 4 * cpr->step_size;
 	msm_cpr_debug(MSM_CPR_DEBUG_CONFIG,
 		"tgt_volt_uV = %d\n", level_uV);
 
@@ -493,7 +493,7 @@ static void cpr_set_vdd(struct msm_cpr *cpr, enum cpr_action action)
 		error_step += 1;
 
 		/* Calculte new PMIC voltage */
-		new_volt = curr_volt + (error_step * cpr->vp->step_size);
+		new_volt = curr_volt + (error_step * cpr->step_size);
 		msm_cpr_debug(MSM_CPR_DEBUG_STEPS,
 			"UP_INT: new_volt: %d, error_step=%d\n",
 					new_volt, error_step);
@@ -531,7 +531,7 @@ static void cpr_set_vdd(struct msm_cpr *cpr, enum cpr_action action)
 			error_step = 2;
 
 		/* Calculte new PMIC voltage */
-		new_volt = curr_volt - (error_step * cpr->vp->step_size);
+		new_volt = curr_volt - (error_step * cpr->step_size);
 		msm_cpr_debug(MSM_CPR_DEBUG_STEPS,
 			"DOWN_INT: new_volt: %d, error_step=%d\n",
 			new_volt, error_step);
@@ -953,7 +953,7 @@ static int msm_cpr_probe(struct platform_device *pdev)
 
 	cpr->base = base;
 
-	cpr->vp = pdata->vp_data;
+	cpr->step_size = pdata->step_size;
 
 	spin_lock_init(&cpr->cpr_lock);
 

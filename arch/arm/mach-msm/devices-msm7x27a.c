@@ -1775,13 +1775,6 @@ static struct msm_cpr_mode msm_cpr_mode_data[] = {
 	},
 };
 
-struct msm_cpr_vp_data vp_data = {
-	.min_volt = 1000000,
-	.max_volt = 1350000,
-	.default_volt = 1300000,
-	.step_size = 12500,
-};
-
 static uint32_t
 msm_cpr_get_quot(uint32_t max_quot, uint32_t max_freq, uint32_t new_freq)
 {
@@ -1823,7 +1816,7 @@ static struct msm_cpr_config msm_cpr_pdata = {
 	.max_freq = 1401600,
 	.max_quot = 0,
 	.disable_cpr = false,
-	.vp_data = &vp_data,
+	.step_size = 12500,
 	.get_quot = msm_cpr_get_quot,
 	.clk_enable = msm_cpr_clk_enable,
 };
