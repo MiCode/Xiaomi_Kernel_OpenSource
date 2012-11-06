@@ -100,10 +100,22 @@ static void dwc3_otg_set_peripheral_regs(struct dwc3_otg *dotg)
 static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 {
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+	struct dwc3 *dwc = dotg->dwc;
 	int ret = 0;
 
-	if (!dotg->dwc->xhci)
+	if (!dwc->xhci)
 		return -EINVAL;
+
+	if (!dotg->vbus_otg) {
+		dotg->vbus_otg = devm_regulator_get(dwc->dev->parent,
+							"vbus_dwc3");
+		if (IS_ERR(dotg->vbus_otg)) {
+			dev_err(dwc->dev, "Failed to get vbus regulator\n");
+			ret = PTR_ERR(dotg->vbus_otg);
+			dotg->vbus_otg = 0;
+			return ret;
+		}
+	}
 
 	if (on) {
 		dev_dbg(otg->phy->dev, "%s: turn on host\n", __func__);
@@ -119,7 +131,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		 * anymore.
 		 */
 		dwc3_otg_set_host_regs(dotg);
-		ret = platform_device_add(dotg->dwc->xhci);
+		ret = platform_device_add(dwc->xhci);
 		if (ret) {
 			dev_err(otg->phy->dev,
 				"%s: failed to add XHCI pdev ret=%d\n",
@@ -131,7 +143,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		ret = regulator_enable(dotg->vbus_otg);
 		if (ret) {
 			dev_err(otg->phy->dev, "unable to enable vbus_otg\n");
-			platform_device_del(dotg->dwc->xhci);
+			platform_device_del(dwc->xhci);
 			return ret;
 		}
 
@@ -140,7 +152,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 	} else {
 		dev_dbg(otg->phy->dev, "%s: turn off host\n", __func__);
 
-		platform_device_del(dotg->dwc->xhci);
+		platform_device_del(dwc->xhci);
 
 		ret = regulator_disable(dotg->vbus_otg);
 		if (ret) {
@@ -150,7 +162,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		dwc3_otg_notify_host_mode(otg, on);
 
 		/* re-init core and OTG register as XHCI reset clears it */
-		dwc3_post_host_reset_core_init(dotg->dwc);
+		dwc3_post_host_reset_core_init(dwc);
 		dwc3_otg_reset(dotg);
 	}
 
@@ -767,13 +779,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	if (!dotg) {
 		dev_err(dwc->dev, "unable to allocate dwc3_otg\n");
 		return -ENOMEM;
-	}
-
-	dotg->vbus_otg = devm_regulator_get(dwc->dev->parent, "vbus_dwc3");
-	if (IS_ERR(dotg->vbus_otg)) {
-		dev_err(dwc->dev, "Unable to get vbus_dwc3 regulator\n");
-		ret = PTR_ERR(dotg->vbus_otg);
-		goto err1;
 	}
 
 	/* DWC3 has separate IRQ line for OTG events (ID/BSV etc.) */
