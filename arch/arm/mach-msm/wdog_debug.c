@@ -43,6 +43,11 @@ void msm_disable_wdog_debug(void)
 	value = readl_relaxed(wdog_data->base + GCC_WDOG_DEBUG_OFFSET);
 	value &= ~BIT(WDOG_DEBUG_EN);
 	writel_relaxed(value, wdog_data->base + GCC_WDOG_DEBUG_OFFSET);
+
+	/* Ensure the WDOG_DEBUG_EN status has changed */
+	while (readl_relaxed(wdog_data->base + GCC_WDOG_DEBUG_OFFSET) &
+		BIT(WDOG_DEBUG_EN))
+			;
 }
 EXPORT_SYMBOL(msm_disable_wdog_debug);
 
