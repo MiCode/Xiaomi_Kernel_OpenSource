@@ -1630,7 +1630,7 @@ int trace_array_vprintk(struct trace_array *tr,
 	memcpy(&entry->buf, trace_buf, len);
 	entry->buf[len] = '\0';
 	if (!filter_check_discard(call, entry, buffer, event)) {
-		stm_log(OST_ENTITY_TRACE_PRINTK, event, size);
+		stm_log(OST_ENTITY_TRACE_PRINTK, entry->buf, len + 1);
 		ring_buffer_unlock_commit(buffer, event);
 		ftrace_trace_stack(buffer, irq_flags, 6, pc);
 	}
