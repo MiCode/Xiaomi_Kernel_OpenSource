@@ -12,6 +12,10 @@
 
 #ifndef _SLIM_MSM_H
 #define _SLIM_MSM_H
+
+#include <linux/kthread.h>
+#include <mach/msm_qmi_interface.h>
+
 /* Per spec.max 40 bytes per received message */
 #define SLIM_RX_MSGQ_BUF_LEN	40
 
@@ -63,6 +67,10 @@
 #define MSM_SAT_SUCCSS	0x20
 #define MSM_MAX_NSATS	2
 #define MSM_MAX_SATCH	32
+
+/* Slimbus QMI service */
+#define SLIMBUS_QMI_SVC_ID 0x0301
+#define SLIMBUS_QMI_INS_ID 1
 
 #define PGD_THIS_EE(r, v) ((v) ? PGD_THIS_EE_V2(r) : PGD_THIS_EE_V1(r))
 #define PGD_PORT(r, p, v) ((v) ? PGD_PORT_V2(r, p) : PGD_PORT_V1(r, p))
@@ -161,6 +169,13 @@ struct msm_slim_endp {
 	bool				connected;
 };
 
+struct msm_slim_qmi {
+	struct qmi_handle		*handle;
+	struct task_struct		*task;
+	struct kthread_work		kwork;
+	struct kthread_worker		kworker;
+};
+
 struct msm_slim_ctrl {
 	struct slim_controller  ctrl;
 	struct slim_framer	framer;
@@ -197,6 +212,7 @@ struct msm_slim_ctrl {
 	enum msm_ctrl_state	state;
 	int			nsats;
 	u32			ver;
+	struct msm_slim_qmi	qmi;
 };
 
 struct msm_sat_chan {
@@ -249,4 +265,8 @@ int msm_slim_rx_msgq_get(struct msm_slim_ctrl *dev, u32 *data, int offset);
 int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 			u32 pipe_reg, bool remote);
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev);
+
+void msm_slim_qmi_exit(struct msm_slim_ctrl *dev);
+int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master);
+int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active);
 #endif

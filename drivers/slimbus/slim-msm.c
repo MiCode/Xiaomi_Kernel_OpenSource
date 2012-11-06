@@ -582,3 +582,351 @@ void msm_slim_sps_exit(struct msm_slim_ctrl *dev)
 		sps_deregister_bam_device(dev->bam.hdl);
 	}
 }
+
+/* Slimbus QMI Messaging */
+#define SLIMBUS_QMI_SELECT_INSTANCE_REQ_V01 0x0020
+#define SLIMBUS_QMI_SELECT_INSTANCE_RESP_V01 0x0020
+#define SLIMBUS_QMI_POWER_REQ_V01 0x0021
+#define SLIMBUS_QMI_POWER_RESP_V01 0x0021
+
+enum slimbus_mode_enum_type_v01 {
+	/* To force a 32 bit signed enum. Do not change or use*/
+	SLIMBUS_MODE_ENUM_TYPE_MIN_ENUM_VAL_V01 = INT_MIN,
+	SLIMBUS_MODE_SATELLITE_V01 = 1,
+	SLIMBUS_MODE_MASTER_V01 = 2,
+	SLIMBUS_MODE_ENUM_TYPE_MAX_ENUM_VAL_V01 = INT_MAX,
+};
+
+enum slimbus_pm_enum_type_v01 {
+	/* To force a 32 bit signed enum. Do not change or use*/
+	SLIMBUS_PM_ENUM_TYPE_MIN_ENUM_VAL_V01 = INT_MIN,
+	SLIMBUS_PM_INACTIVE_V01 = 1,
+	SLIMBUS_PM_ACTIVE_V01 = 2,
+	SLIMBUS_PM_ENUM_TYPE_MAX_ENUM_VAL_V01 = INT_MAX,
+};
+
+struct slimbus_select_inst_req_msg_v01 {
+	/* Mandatory */
+	/* Hardware Instance Selection */
+	uint32_t instance;
+
+	/* Optional */
+	/* Optional Mode Request Operation */
+	/* Must be set to true if mode is being passed */
+	uint8_t mode_valid;
+	enum slimbus_mode_enum_type_v01 mode;
+};
+
+struct slimbus_select_inst_resp_msg_v01 {
+	/* Mandatory */
+	/* Result Code */
+	struct qmi_response_type_v01 resp;
+};
+
+struct slimbus_power_req_msg_v01 {
+	/* Mandatory */
+	/* Power Request Operation */
+	enum slimbus_pm_enum_type_v01 pm_req;
+};
+
+struct slimbus_power_resp_msg_v01 {
+	/* Mandatory */
+	/* Result Code */
+	struct qmi_response_type_v01 resp;
+};
+
+static struct elem_info slimbus_select_inst_req_msg_v01_ei[] = {
+	{
+		.data_type = QMI_UNSIGNED_4_BYTE,
+		.elem_len  = 1,
+		.elem_size = sizeof(uint32_t),
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x01,
+		.offset    = offsetof(struct slimbus_select_inst_req_msg_v01,
+				      instance),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_OPT_FLAG,
+		.elem_len  = 1,
+		.elem_size = sizeof(uint8_t),
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x10,
+		.offset    = offsetof(struct slimbus_select_inst_req_msg_v01,
+				      mode_valid),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_UNSIGNED_4_BYTE,
+		.elem_len  = 1,
+		.elem_size = sizeof(enum slimbus_mode_enum_type_v01),
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x10,
+		.offset    = offsetof(struct slimbus_select_inst_req_msg_v01,
+				      mode),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_EOTI,
+		.elem_len  = 0,
+		.elem_size = 0,
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x00,
+		.offset    = 0,
+		.ei_array  = NULL,
+	},
+};
+
+static struct elem_info slimbus_select_inst_resp_msg_v01_ei[] = {
+	{
+		.data_type = QMI_STRUCT,
+		.elem_len  = 1,
+		.elem_size = sizeof(struct qmi_response_type_v01),
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x02,
+		.offset    = offsetof(struct slimbus_select_inst_resp_msg_v01,
+				      resp),
+		.ei_array  = get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type = QMI_EOTI,
+		.elem_len  = 0,
+		.elem_size = 0,
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x00,
+		.offset    = 0,
+		.ei_array  = NULL,
+	},
+};
+
+static struct elem_info slimbus_power_req_msg_v01_ei[] = {
+	{
+		.data_type = QMI_UNSIGNED_4_BYTE,
+		.elem_len  = 1,
+		.elem_size = sizeof(enum slimbus_pm_enum_type_v01),
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x01,
+		.offset    = offsetof(struct slimbus_power_req_msg_v01, pm_req),
+		.ei_array  = NULL,
+	},
+	{
+		.data_type = QMI_EOTI,
+		.elem_len  = 0,
+		.elem_size = 0,
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x00,
+		.offset    = 0,
+		.ei_array  = NULL,
+	},
+};
+
+static struct elem_info slimbus_power_resp_msg_v01_ei[] = {
+	{
+		.data_type = QMI_STRUCT,
+		.elem_len  = 1,
+		.elem_size = sizeof(struct qmi_response_type_v01),
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x02,
+		.offset    = offsetof(struct slimbus_power_resp_msg_v01, resp),
+		.ei_array  = get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type = QMI_EOTI,
+		.elem_len  = 0,
+		.elem_size = 0,
+		.is_array  = NO_ARRAY,
+		.tlv_type  = 0x00,
+		.offset    = 0,
+		.ei_array  = NULL,
+	},
+};
+
+static void msm_slim_qmi_recv_msg(struct kthread_work *work)
+{
+	int rc;
+	struct msm_slim_qmi *qmi =
+			container_of(work, struct msm_slim_qmi, kwork);
+
+	rc = qmi_recv_msg(qmi->handle);
+	if (rc < 0)
+		pr_err("%s: Error receiving QMI message\n", __func__);
+}
+
+static void msm_slim_qmi_notify(struct qmi_handle *handle,
+				enum qmi_event_type event, void *notify_priv)
+{
+	struct msm_slim_ctrl *dev = notify_priv;
+	struct msm_slim_qmi *qmi = &dev->qmi;
+
+	switch (event) {
+	case QMI_RECV_MSG:
+		queue_kthread_work(&qmi->kworker, &qmi->kwork);
+		break;
+	default:
+		break;
+	}
+}
+
+static const char *get_qmi_error(struct qmi_response_type_v01 *r)
+{
+	if (r->result == QMI_RESULT_SUCCESS_V01 || r->error == QMI_ERR_NONE_V01)
+		return "No Error";
+	else if (r->error == QMI_ERR_NO_MEMORY_V01)
+		return "Out of Memory";
+	else if (r->error == QMI_ERR_INTERNAL_V01)
+		return "Unexpected error occurred";
+	else if (r->error == QMI_ERR_INCOMPATIBLE_STATE_V01)
+		return "Slimbus s/w already configured to a different mode";
+	else if (r->error == QMI_ERR_INVALID_ID_V01)
+		return "Slimbus hardware instance is not valid";
+	else
+		return "Unknown error";
+}
+
+static int msm_slim_qmi_send_select_inst_req(struct msm_slim_ctrl *dev,
+				struct slimbus_select_inst_req_msg_v01 *req)
+{
+	struct slimbus_select_inst_resp_msg_v01 resp = { { 0, 0 } };
+	struct msg_desc req_desc, resp_desc;
+	int rc;
+
+	req_desc.msg_id = SLIMBUS_QMI_SELECT_INSTANCE_REQ_V01;
+	req_desc.max_msg_len = sizeof(*req);
+	req_desc.ei_array = slimbus_select_inst_req_msg_v01_ei;
+
+	resp_desc.msg_id = SLIMBUS_QMI_SELECT_INSTANCE_RESP_V01;
+	resp_desc.max_msg_len = sizeof(resp);
+	resp_desc.ei_array = slimbus_select_inst_resp_msg_v01_ei;
+
+	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, req, sizeof(*req),
+					&resp_desc, &resp, sizeof(resp), 5000);
+	if (rc < 0) {
+		pr_err("%s: QMI send req failed %d\n", __func__, rc);
+		return rc;
+	}
+
+	/* Check the response */
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		pr_err("%s: QMI request failed 0x%x (%s)\n", __func__,
+				resp.resp.result, get_qmi_error(&resp.resp));
+		return -EREMOTEIO;
+	}
+
+	return 0;
+}
+
+static int msm_slim_qmi_send_power_request(struct msm_slim_ctrl *dev,
+				struct slimbus_power_req_msg_v01 *req)
+{
+	struct slimbus_power_resp_msg_v01 resp = { { 0, 0 } };
+	struct msg_desc req_desc, resp_desc;
+	int rc;
+
+	req_desc.msg_id = SLIMBUS_QMI_POWER_REQ_V01;
+	req_desc.max_msg_len = sizeof(*req);
+	req_desc.ei_array = slimbus_power_req_msg_v01_ei;
+
+	resp_desc.msg_id = SLIMBUS_QMI_POWER_RESP_V01;
+	resp_desc.max_msg_len = sizeof(resp);
+	resp_desc.ei_array = slimbus_power_resp_msg_v01_ei;
+
+	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, req, sizeof(*req),
+					&resp_desc, &resp, sizeof(resp), 5000);
+	if (rc < 0) {
+		pr_err("%s: QMI send req failed %d\n", __func__, rc);
+		return rc;
+	}
+
+	/* Check the response */
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		pr_err("%s: QMI request failed 0x%x (%s)\n", __func__,
+				resp.resp.result, get_qmi_error(&resp.resp));
+		return -EREMOTEIO;
+	}
+
+	return 0;
+}
+
+int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master)
+{
+	int rc = 0;
+	struct qmi_handle *handle;
+	struct slimbus_select_inst_req_msg_v01 req;
+
+	init_kthread_worker(&dev->qmi.kworker);
+
+	dev->qmi.task = kthread_run(kthread_worker_fn,
+			&dev->qmi.kworker, "msm_slim_qmi_clnt%d", dev->ctrl.nr);
+
+	if (IS_ERR(dev->qmi.task)) {
+		pr_err("%s: Failed to create QMI client kthread\n", __func__);
+		return -ENOMEM;
+	}
+
+	init_kthread_work(&dev->qmi.kwork, msm_slim_qmi_recv_msg);
+
+	handle = qmi_handle_create(msm_slim_qmi_notify, dev);
+	if (!handle) {
+		rc = -ENOMEM;
+		pr_err("%s: QMI client handle alloc failed\n", __func__);
+		goto qmi_handle_create_failed;
+	}
+
+	rc = qmi_connect_to_service(handle, SLIMBUS_QMI_SVC_ID,
+						SLIMBUS_QMI_INS_ID);
+	if (rc < 0) {
+		pr_err("%s: QMI server not found\n", __func__);
+		goto qmi_connect_to_service_failed;
+	}
+
+	/* Instance is 0 based */
+	req.instance = dev->ctrl.nr - 1;
+	req.mode_valid = 1;
+
+	/* Mode indicates the role of the ADSP */
+	if (apps_is_master)
+		req.mode = SLIMBUS_MODE_SATELLITE_V01;
+	else
+		req.mode = SLIMBUS_MODE_MASTER_V01;
+
+	dev->qmi.handle = handle;
+
+	rc = msm_slim_qmi_send_select_inst_req(dev, &req);
+	if (rc) {
+		pr_err("%s: failed to select h/w instance\n", __func__);
+		goto qmi_select_instance_failed;
+	}
+
+	return 0;
+
+qmi_select_instance_failed:
+	dev->qmi.handle = NULL;
+qmi_connect_to_service_failed:
+	qmi_handle_destroy(handle);
+qmi_handle_create_failed:
+	flush_kthread_worker(&dev->qmi.kworker);
+	kthread_stop(dev->qmi.task);
+	dev->qmi.task = NULL;
+	return rc;
+}
+
+void msm_slim_qmi_exit(struct msm_slim_ctrl *dev)
+{
+	qmi_handle_destroy(dev->qmi.handle);
+	flush_kthread_worker(&dev->qmi.kworker);
+	kthread_stop(dev->qmi.task);
+	dev->qmi.task = NULL;
+	dev->qmi.handle = NULL;
+}
+
+int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active)
+{
+	struct slimbus_power_req_msg_v01 req;
+
+	if (active)
+		req.pm_req = SLIMBUS_PM_ACTIVE_V01;
+	else
+		req.pm_req = SLIMBUS_PM_INACTIVE_V01;
+
+	return msm_slim_qmi_send_power_request(dev, &req);
+}
