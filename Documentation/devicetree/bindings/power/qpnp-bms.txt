@@ -61,6 +61,9 @@ Optional properties:
 			try to force the startup SoC to be the same as the
 			shutdown SoC. Defining it will make BMS ignore the
 			shutdown SoC.
+- qcom,bms-use-voltage-soc : A boolean that controls whether BMS will use
+			voltage-based SoC instead of a coulomb counter based
+			one. Voltage-based SoC will not guarantee linearity.
 
 Example:
 	bms@4000 {
