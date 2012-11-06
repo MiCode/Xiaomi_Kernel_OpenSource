@@ -291,6 +291,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
 
 int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd);
 int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd);
+int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg);
 
 struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator);
 int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer);

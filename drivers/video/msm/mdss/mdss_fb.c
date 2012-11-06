@@ -325,6 +325,24 @@ static int mdss_fb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static inline int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd, int e)
+{
+	struct mdss_panel_data *pdata;
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (!pdata) {
+		pr_err("no panel connected\n");
+		return -ENODEV;
+	}
+
+	pr_debug("sending event=%d for fb%d\n", e, mfd->index);
+
+	if (pdata->event_handler)
+		return pdata->event_handler(pdata, e, NULL);
+
+	return 0;
+}
+
 static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
@@ -333,6 +351,12 @@ static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 		return 0;
 
 	pr_debug("mdss_fb suspend index=%d\n", mfd->index);
+
+	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_SUSPEND);
+	if (ret) {
+		pr_warn("unable to suspend fb%d (%d)\n", mfd->index, ret);
+		return ret;
+	}
 
 	mfd->suspend.op_enable = mfd->op_enable;
 	mfd->suspend.panel_power_on = mfd->panel_power_on;
@@ -358,6 +382,12 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 		return 0;
 
 	pr_debug("mdss_fb resume index=%d\n", mfd->index);
+
+	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_RESUME);
+	if (ret) {
+		pr_warn("unable to resume fb%d (%d)\n", mfd->index, ret);
+		return ret;
+	}
 
 	/* resume state var recover */
 	mfd->op_enable = mfd->suspend.op_enable;

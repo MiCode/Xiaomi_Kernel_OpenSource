@@ -327,6 +327,26 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 	return ret;
 }
 
+static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
+				  int event, void *arg)
+{
+	int rc = 0;
+
+	pr_debug("%s: event=%d\n", __func__, event);
+	switch (event) {
+	case MDSS_EVENT_UNBLANK:
+		rc = mdss_dsi_on(pdata);
+		break;
+	case MDSS_EVENT_BLANK:
+		rc = mdss_dsi_ctrl_unprepare(pdata);
+		break;
+	case MDSS_EVENT_TIMEGEN_OFF:
+		rc = mdss_dsi_off(pdata);
+		break;
+	}
+	return rc;
+}
+
 static int mdss_dsi_resource_initialized;
 
 static int mdss_dsi_probe(struct platform_device *pdev)
@@ -476,9 +496,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	if (!ctrl_pdata)
 		return -ENOMEM;
 
-	(ctrl_pdata->panel_data).on = mdss_dsi_on;
-	(ctrl_pdata->panel_data).off = mdss_dsi_off;
-	(ctrl_pdata->panel_data).intf_unprepare = mdss_dsi_ctrl_unprepare;
+	ctrl_pdata->panel_data.event_handler = mdss_dsi_event_handler;
 	memcpy(&((ctrl_pdata->panel_data).panel_info),
 				&(panel_data->panel_info),
 				       sizeof(struct mdss_panel_info));
