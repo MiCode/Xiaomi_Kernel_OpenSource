@@ -159,6 +159,8 @@ static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host);
 static void msmsdcc_sg_start(struct msmsdcc_host *host);
 static int msmsdcc_vreg_reset(struct msmsdcc_host *host);
 static int msmsdcc_runtime_resume(struct device *dev);
+static int msmsdcc_dt_get_array(struct device *dev, const char *prop_name,
+		u32 **out_array, int *len, int size);
 
 static inline unsigned short msmsdcc_get_nr_sg(struct msmsdcc_host *host)
 {
@@ -945,7 +947,7 @@ static int msmsdcc_config_dma(struct msmsdcc_host *host, struct mmc_data *data)
 	if ((host->dma.channel == -1) || (host->dma.crci == -1))
 		return -ENOENT;
 
-	BUG_ON((host->pdev_id < 1) || (host->pdev_id > 5));
+	BUG_ON((host->pdev->id < 1) || (host->pdev->id > 5));
 
 	host->dma.sg = data->sg;
 	host->dma.num_ents = data->sg_len;
@@ -2355,7 +2357,7 @@ static int msmsdcc_vreg_init(struct msmsdcc_host *host, bool is_init)
 		rc = msmsdcc_vreg_reset(host);
 		if (rc)
 			pr_err("msmsdcc.%d vreg reset failed (%d)\n",
-			       host->pdev_id, rc);
+			       host->pdev->id, rc);
 		goto out;
 	} else {
 		/* Deregister all regulators from regulator framework */
@@ -2985,6 +2987,27 @@ static int msmsdcc_msm_bus_register(struct msmsdcc_host *host)
 	int rc = 0;
 	struct msm_bus_scale_pdata *use_cases;
 
+	if (host->pdev->dev.of_node) {
+		struct msm_mmc_bus_voting_data *data;
+		struct device *dev = &host->pdev->dev;
+
+		data = devm_kzalloc(dev,
+			sizeof(struct msm_mmc_bus_voting_data), GFP_KERNEL);
+		if (!data) {
+			dev_err(&host->pdev->dev,
+				"%s: failed to allocate memory\n", __func__);
+			rc = -ENOMEM;
+			goto out;
+		}
+
+		rc = msmsdcc_dt_get_array(dev, "qcom,bus-bw-vectors-bps",
+				&data->bw_vecs, &data->bw_vecs_size, 0);
+		if (!rc) {
+			data->use_cases = msm_bus_cl_get_pdata(host->pdev);
+			host->plat->msm_bus_voting_data = data;
+		}
+	}
+
 	if (host->plat->msm_bus_voting_data &&
 	    host->plat->msm_bus_voting_data->use_cases &&
 	    host->plat->msm_bus_voting_data->bw_vecs &&
@@ -3007,7 +3030,7 @@ static int msmsdcc_msm_bus_register(struct msmsdcc_host *host)
 		host->msm_bus_vote.max_bw_vote =
 				msmsdcc_msm_bus_get_vote_for_bw(host, UINT_MAX);
 	}
-
+out:
 	return rc;
 }
 
@@ -5724,7 +5747,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	}
 
 	host = mmc_priv(mmc);
-	host->pdev_id = pdev->id;
+	host->pdev = pdev;
 	host->plat = plat;
 	host->mmc = mmc;
 	host->curr.cmd = NULL;
