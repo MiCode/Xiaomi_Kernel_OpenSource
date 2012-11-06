@@ -144,6 +144,30 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 	return IRQ_HANDLED;
 }
 
+static int ngd_clk_pause_wakeup(struct slim_controller *ctrl)
+{
+	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
+	return msm_slim_qmi_power_request(dev, true);
+}
+
+static int ngd_qmi_available(struct notifier_block *n, unsigned long code,
+				void *_cmd)
+{
+	struct msm_slim_qmi *qmi = container_of(n, struct msm_slim_qmi, nb);
+	pr_info("Slimbus QMI NGD CB received event:%ld", code);
+	switch (code) {
+	case QMI_SERVER_ARRIVE:
+		complete(&qmi->qmi_comp);
+		break;
+	case QMI_SERVER_EXIT:
+		/* SSR implementation */
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 				u8 *tid, struct completion *done)
 {
@@ -184,16 +208,21 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	u32 *pbuf;
 	u8 *puc;
 	int ret = 0;
-	int msgv = -1;
 	u8 la = txn->la;
 	u8 wbuf[SLIM_RX_MSGQ_BUF_LEN];
+
+	if (txn->mc == (SLIM_MSG_CLK_PAUSE_SEQ_FLG |
+			SLIM_MSG_MC_RECONFIGURE_NOW))
+		return msm_slim_qmi_power_request(dev, false);
+	else if (txn->mc & SLIM_MSG_CLK_PAUSE_SEQ_FLG)
+		return 0;
 
 	if (txn->mt == SLIM_MSG_MT_CORE &&
 		(txn->mc >= SLIM_MSG_MC_BEGIN_RECONFIGURATION &&
 		 txn->mc <= SLIM_MSG_MC_RECONFIGURE_NOW)) {
 		return 0;
 	}
-	msgv = msm_slim_get_ctrl(dev);
+	msm_slim_get_ctrl(dev);
 	mutex_lock(&dev->tx_lock);
 	if (txn->mc != SLIM_USR_MC_REPORT_SATELLITE &&
 		(dev->state == MSM_CTRL_ASLEEP ||
@@ -206,8 +235,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		if (timeout) {
 			mutex_lock(&dev->tx_lock);
 		} else {
-			if (msgv >= 0)
-				msm_slim_put_ctrl(dev);
+			msm_slim_put_ctrl(dev);
 			return -EBUSY;
 		}
 	}
@@ -293,8 +321,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			 */
 			dev->pipes[wbuf[1]].connected = false;
 			mutex_unlock(&dev->tx_lock);
-			if (msgv >= 0)
-				msm_slim_put_ctrl(dev);
+			msm_slim_put_ctrl(dev);
 			return 0;
 		}
 		if (dev->err) {
@@ -336,8 +363,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		 txn->mc == SLIM_USR_MC_DISCONNECT_PORT)) {
 		int timeout;
 		mutex_unlock(&dev->tx_lock);
-		if (msgv >= 0)
-			msm_slim_put_ctrl(dev);
+		msm_slim_put_ctrl(dev);
 		timeout = wait_for_completion_timeout(txn->comp, HZ);
 		if (!timeout) {
 			pr_err("connect/disc :0x%x, tid:%d timed out", txn->mc,
@@ -353,8 +379,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	}
 ngd_xfer_err:
 	mutex_unlock(&dev->tx_lock);
-	if (msgv >= 0)
-		msm_slim_put_ctrl(dev);
+	msm_slim_put_ctrl(dev);
 	return ret ? ret : dev->err;
 }
 
@@ -548,6 +573,7 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 		wbuf[3] = SAT_MSG_PROT;
 		txn.wbuf = wbuf;
 		txn.len = 4;
+		pr_info("SLIM SAT: Received master capability");
 		dev->use_rx_msgqs = 1;
 		msm_slim_sps_init(dev, dev->bam_mem,
 			NGD_BASE(dev->ctrl.nr, dev->ver) + NGD_STATUS, true);
@@ -561,6 +587,12 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 		ret = ngd_xfer_msg(&dev->ctrl, &txn);
 		if (!ret) {
 			dev->state = MSM_CTRL_AWAKE;
+
+			pm_runtime_use_autosuspend(dev->dev);
+			pm_runtime_set_autosuspend_delay(dev->dev,
+							MSM_SLIM_AUTOSUSPEND);
+			pm_runtime_set_active(dev->dev);
+			pm_runtime_enable(dev->dev);
 			complete(&dev->reconf);
 		}
 	}
@@ -599,6 +631,41 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 		complete(txn->comp);
 	}
 }
+
+static int ngd_slim_enable(struct msm_slim_ctrl *dev, bool enable)
+{
+	u32 ngd_int = (NGD_INT_RECFG_DONE | NGD_INT_TX_NACKED_2 |
+			NGD_INT_MSG_BUF_CONTE | NGD_INT_MSG_TX_INVAL |
+			NGD_INT_IE_VE_CHG | NGD_INT_DEV_ERR |
+			NGD_INT_TX_MSG_SENT | NGD_INT_RX_MSG_RCVD);
+	if (enable) {
+		int ret = msm_slim_qmi_init(dev, false);
+		if (ret)
+			return ret;
+		ret = msm_slim_qmi_power_request(dev, true);
+		if (ret)
+			return ret;
+		writel_relaxed(ngd_int, dev->base + NGD_INT_EN +
+					NGD_BASE(dev->ctrl.nr, dev->ver));
+		/*
+		 * Enable NGD. Configure NGD in register acc. mode until master
+		 * announcement is received
+		 */
+		writel_relaxed(1, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
+		/* make sure NGD enabling goes through */
+		mb();
+	} else {
+		writel_relaxed(0, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
+		writel_relaxed(0, dev->base + NGD_INT_EN +
+				NGD_BASE(dev->ctrl.nr, dev->ver));
+		/* make sure NGD disabling goes through */
+		mb();
+		msm_slim_qmi_exit(dev);
+	}
+
+	return 0;
+}
+
 static int ngd_slim_rx_msgq_thread(void *data)
 {
 	struct msm_slim_ctrl *dev = (struct msm_slim_ctrl *)data;
@@ -608,6 +675,14 @@ static int ngd_slim_rx_msgq_thread(void *data)
 	u32 mt = 0;
 	u32 buffer[10];
 	u8 msg_len = 0;
+
+	wait_for_completion_interruptible(&dev->qmi.qmi_comp);
+	ret = ngd_slim_enable(dev, true);
+	/* Exit the thread if component can't be enabled */
+	if (ret) {
+		pr_err("Enabling NGD failed:%d", ret);
+		return 0;
+	}
 
 	while (!kthread_should_stop()) {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -652,7 +727,6 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	struct resource		*slim_mem;
 	struct resource		*irq, *bam_irq;
 	enum apr_subsys_state q6_state;
-	u32 ngd_int;
 
 	q6_state = apr_get_q6_state();
 	if (q6_state == APR_SUBSYS_DOWN) {
@@ -729,7 +803,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.get_laddr = ngd_get_laddr;
 	dev->ctrl.allocbw = ngd_allocbw;
 	dev->ctrl.xfer_msg = ngd_xfer_msg;
-	dev->ctrl.wakeup =  NULL;
+	dev->ctrl.wakeup =  ngd_clk_pause_wakeup;
 	dev->ctrl.config_port = msm_config_port;
 	dev->ctrl.port_xfer = msm_slim_port_xfer;
 	dev->ctrl.port_xfer_status = msm_slim_port_xfer_status;
@@ -747,10 +821,6 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	dev->ver = readl_relaxed(dev->base);
 	/* Version info in 16 MSbits */
 	dev->ver >>= 16;
-	ngd_int = (NGD_INT_RECFG_DONE | NGD_INT_TX_NACKED_2 |
-			NGD_INT_MSG_BUF_CONTE | NGD_INT_MSG_TX_INVAL |
-			NGD_INT_IE_VE_CHG | NGD_INT_DEV_ERR |
-			NGD_INT_TX_MSG_SENT | NGD_INT_RX_MSG_RCVD);
 	init_completion(&dev->rx_msgq_notify);
 
 	/* Register with framework */
@@ -772,6 +842,15 @@ static int ngd_slim_probe(struct platform_device *pdev)
 		goto err_request_irq_failed;
 	}
 
+	init_completion(&dev->qmi.qmi_comp);
+	dev->qmi.nb.notifier_call = ngd_qmi_available;
+	ret = qmi_svc_event_notifier_register(SLIMBUS_QMI_SVC_ID,
+				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
+	if (ret) {
+		pr_err("Slimbus QMI service registration failed:%d", ret);
+		goto qmi_register_failed;
+	}
+
 	/* Fire up the Rx message queue thread */
 	dev->rx_msgq_thread = kthread_run(ngd_slim_rx_msgq_thread, dev,
 					NGD_SLIM_NAME "_ngd_msgq_thread");
@@ -781,30 +860,19 @@ static int ngd_slim_probe(struct platform_device *pdev)
 		goto err_thread_create_failed;
 	}
 
-	writel_relaxed(ngd_int, dev->base + NGD_INT_EN +
-				NGD_BASE(dev->ctrl.nr, dev->ver));
-	/*
-	 * Enable NGD. Configure NGD in register access mode until master
-	 * announcement is received
-	 */
-	writel_relaxed(1, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
-	/* make sure NGD enabling goes through */
-	mb();
-
 	if (pdev->dev.of_node)
 		of_register_slim_devices(&dev->ctrl);
 
 	/* Add devices registered with board-info now that controller is up */
 	slim_ctrl_add_boarddevs(&dev->ctrl);
 
-	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_autosuspend_delay(&pdev->dev, MSM_SLIM_AUTOSUSPEND);
-	pm_runtime_set_active(&pdev->dev);
-
 	dev_dbg(dev->dev, "NGD SB controller is up!\n");
 	return 0;
 
 err_thread_create_failed:
+	qmi_svc_event_notifier_unregister(SLIMBUS_QMI_SVC_ID,
+				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
+qmi_register_failed:
 	free_irq(dev->irq, dev);
 err_request_irq_failed:
 	slim_del_controller(&dev->ctrl);
@@ -820,6 +888,9 @@ err_ioremap_failed:
 static int ngd_slim_remove(struct platform_device *pdev)
 {
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
+	ngd_slim_enable(dev, false);
+	qmi_svc_event_notifier_unregister(SLIMBUS_QMI_SVC_ID,
+				SLIMBUS_QMI_INS_ID, &dev->qmi.nb);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	free_irq(dev->irq, dev);
