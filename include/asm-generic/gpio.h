@@ -61,6 +61,11 @@ struct gpio_pin_range {
 	struct pinctrl_dev *pctldev;
 	struct pinctrl_gpio_range range;
 };
+
+int gpiochip_add_pin_range(struct gpio_chip *chip, const char *pinctl_name,
+			   unsigned int pin_base, unsigned int npins);
+void gpiochip_remove_pin_ranges(struct gpio_chip *chip);
+
 #endif
 
 /**
