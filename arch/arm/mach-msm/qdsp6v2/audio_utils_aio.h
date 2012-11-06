@@ -176,7 +176,8 @@ struct q6audio_aio {
 	struct ion_client *client;
 	struct audio_aio_drv_operations drv_ops;
 	union msm_audio_event_payload eos_write_payload;
-
+	uint32_t device_events;
+	uint16_t volume;
 	uint32_t drv_status;
 	int event_abort;
 	int eos_rsp;
