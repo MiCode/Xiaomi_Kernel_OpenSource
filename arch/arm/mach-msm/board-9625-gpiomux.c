@@ -259,6 +259,23 @@ static struct msm_gpiomux_config wlan_ath6kl_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting sdc2_card_det_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_IN,
+};
+
+struct msm_gpiomux_config sdc2_card_det_config[] __initdata = {
+	{
+		.gpio = 66,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc2_card_det_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc2_card_det_cfg,
+		},
+	},
+};
+
 void __init msm9625_init_gpiomux(void)
 {
 	int rc;
@@ -277,4 +294,6 @@ void __init msm9625_init_gpiomux(void)
 			ARRAY_SIZE(mdm9625_mi2s_configs));
 	msm_gpiomux_install(mdm9625_cdc_reset_config,
 			ARRAY_SIZE(mdm9625_cdc_reset_config));
+	msm_gpiomux_install(sdc2_card_det_config,
+		ARRAY_SIZE(sdc2_card_det_config));
 }
