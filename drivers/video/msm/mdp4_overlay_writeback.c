@@ -253,6 +253,12 @@ static int mdp4_overlay_writeback_update(struct msm_fb_data_type *mfd)
 	mdp4_mixer_stage_up(pipe, 0);
 
 	mdp4_overlayproc_cfg(pipe);
+
+	if (hdmi_prim_display)
+		outpdw(MDP_BASE + 0x100F4, 0x01);
+	else
+		outpdw(MDP_BASE + 0x100F4, 0x02);
+
 	/* MDP cmd block disable */
 	mdp_clk_ctrl(0);
 
