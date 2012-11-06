@@ -68,6 +68,7 @@ enum {
 	VOC_CHANGE,
 	VOC_RELEASE,
 	VOC_ERROR,
+	VOC_STANDBY,
 };
 
 struct mem_buffer {
@@ -169,6 +170,9 @@ struct vss_unmap_memory_cmd {
 */
 
 #define VSS_IMVM_CMD_START_VOICE			0x00011190
+/**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
+
+#define VSS_IMVM_CMD_STANDBY_VOICE                       0x00011191
 /**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
 
 #define VSS_IMVM_CMD_STOP_VOICE				0x00011192
@@ -1227,6 +1231,8 @@ uint8_t voc_get_tty_mode(uint16_t session_id);
 int voc_set_tty_mode(uint16_t session_id, uint8_t tty_mode);
 int voc_start_voice_call(uint16_t session_id);
 int voc_end_voice_call(uint16_t session_id);
+int voc_standby_voice_call(uint16_t session_id);
+int voc_resume_voice_call(uint16_t session_id);
 int voc_set_rxtx_port(uint16_t session_id,
 		      uint32_t dev_port_id,
 		      uint32_t dev_type);
