@@ -15,7 +15,7 @@ device is to enabled:
 
 Parent node required properties:
 - compatible : should be "qcom,qpnp-bms" for the BM driver.
-- qcom,bms-r-sense-mohm : sensor resistance in in milli-ohms.
+- qcom,bms-r-sense-uohm : sensor resistance in in micro-ohms.
 - qcom,bms-v-cutoff-uv : cutoff voltage where the battery is considered dead in
 			micro-volts.
 - qcom,bms-max-voltage-uv : maximum voltage for the battery in micro-volts.
@@ -87,7 +87,7 @@ pm8941_bms: qcom,bms {
 	#size-cells = <1>;
 	status = "disabled";
 
-	qcom,bms-r-sense-mohm = <2>;
+	qcom,bms-r-sense-uohm = <10000>;
 	qcom,bms-v-cutoff-uv = <3400000>;
 	qcom,bms-max-voltage-uv = <4200000>;
 	qcom,bms-r-conn-mohm = <18>;

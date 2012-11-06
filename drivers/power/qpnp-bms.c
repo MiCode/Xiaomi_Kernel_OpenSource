@@ -117,7 +117,7 @@ struct qpnp_bms_chip {
 	int				charger_status;
 	bool				online;
 	/* platform data */
-	unsigned int			r_sense_mohm;
+	unsigned int			r_sense_uohm;
 	unsigned int			v_cutoff_uv;
 	unsigned int			max_voltage_uv;
 	unsigned int			r_conn_mohm;
@@ -404,7 +404,7 @@ static int get_battery_current(struct qpnp_bms_chip *chip, int *result_ua)
 {
 	int vsense_uv = 0;
 
-	if (chip->r_sense_mohm == 0) {
+	if (chip->r_sense_uohm == 0) {
 		pr_err("r_sense is zero\n");
 		return -EINVAL;
 	}
@@ -417,7 +417,7 @@ static int get_battery_current(struct qpnp_bms_chip *chip, int *result_ua)
 
 	pr_debug("vsense_uv=%duV\n", vsense_uv);
 	/* cast for signed division */
-	*result_ua = vsense_uv * 1000 / (int)chip->r_sense_mohm;
+	*result_ua = div_s64((vsense_uv * 1000000LL), (int)chip->r_sense_uohm);
 	pr_debug("ibat=%duA\n", *result_ua);
 	return 0;
 }
@@ -649,9 +649,9 @@ static s64 cc_to_uv(s64 cc)
 #define SLEEP_CLK_HZ		32764
 #define SECONDS_PER_HOUR	3600
 
-static s64 cc_uv_to_nvh(s64 cc_uv)
+static s64 cc_uv_to_uvh(s64 cc_uv)
 {
-	return div_s64(cc_uv * CC_READING_TICKS * 1000,
+	return div_s64(cc_uv * CC_READING_TICKS,
 			SLEEP_CLK_HZ * SECONDS_PER_HOUR);
 }
 
@@ -667,7 +667,7 @@ static s64 cc_uv_to_nvh(s64 cc_uv)
  */
 static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 {
-	int64_t cc_voltage_uv, cc_nvh, cc_uah;
+	int64_t cc_voltage_uv, cc_uvh, cc_uah;
 	struct qpnp_iadc_calib calibration;
 
 	qpnp_iadc_get_gain_and_offset(&calibration);
@@ -679,9 +679,9 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 	cc_voltage_uv = cc_to_uv(cc_voltage_uv);
 	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv, calibration.gain_raw);
 	pr_debug("cc_voltage_uv = %lld uv\n", cc_voltage_uv);
-	cc_nvh = cc_uv_to_nvh(cc_voltage_uv);
-	pr_debug("cc_nvh = %lld nano_volt_hour\n", cc_nvh);
-	cc_uah = div_s64(cc_nvh, chip->r_sense_mohm);
+	cc_uvh = cc_uv_to_uvh(cc_voltage_uv);
+	pr_debug("cc_uvh = %lld micro_volt_hour\n", cc_uvh);
+	cc_uah = div_s64(cc_uvh * 1000000LL, chip->r_sense_uohm);
 	/* cc_raw had 4 bits of extra precision.
 	   By now it should be within 32 bit range */
 	return (int)cc_uah;
@@ -1111,7 +1111,7 @@ static int override_mode_batt_v_and_i(
 
 	*vbat_uv = convert_vbatt_raw_to_uv(chip, vbat_raw);
 	vsense_uv = convert_vsense_to_uv(chip, vsense_raw);
-	*ibat_ua = vsense_uv * 1000 / (int)chip->r_sense_mohm;
+	*ibat_ua = div_s64(vsense_uv * 1000000LL, (int)chip->r_sense_uohm);
 
 	pr_debug("vsense_raw = 0x%x vbat_raw = 0x%x ibat_ua = %d vbat_uv = %d\n",
 			(uint16_t)vsense_raw, (uint16_t)vbat_raw,
@@ -2083,7 +2083,7 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 {
 	int rc;
 
-	SPMI_PROP_READ(r_sense_mohm, "r-sense-mohm", rc);
+	SPMI_PROP_READ(r_sense_uohm, "r-sense-uohm", rc);
 	SPMI_PROP_READ(v_cutoff_uv, "v-cutoff-uv", rc);
 	SPMI_PROP_READ(max_voltage_uv, "max-voltage-uv", rc);
 	SPMI_PROP_READ(r_conn_mohm, "r-conn-mohm", rc);
@@ -2112,8 +2112,8 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	if (chip->adjust_soc_low_threshold >= 45)
 		chip->adjust_soc_low_threshold = 45;
 
-	pr_debug("dts data: r_sense_mohm:%d, v_cutoff_uv:%d, max_v:%d\n",
-			chip->r_sense_mohm, chip->v_cutoff_uv,
+	pr_debug("dts data: r_sense_uohm:%d, v_cutoff_uv:%d, max_v:%d\n",
+			chip->r_sense_uohm, chip->v_cutoff_uv,
 			chip->max_voltage_uv);
 	pr_debug("r_conn:%d, shutdown_soc: %d, adjust_soc_low:%d\n",
 			chip->r_conn_mohm, chip->shutdown_soc_valid_limit,
@@ -2267,9 +2267,9 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 								rc);
 			return rc;
 		}
-		chip->r_sense_mohm = rds_rsense_nohm/1000000;
-		pr_debug("rds_rsense = %d nOhm, saved as %d mOhm\n",
-					rds_rsense_nohm, chip->r_sense_mohm);
+		chip->r_sense_uohm = rds_rsense_nohm/1000;
+		pr_debug("rds_rsense = %d nOhm, saved as %d uOhm\n",
+					rds_rsense_nohm, chip->r_sense_uohm);
 	}
 	return 0;
 }
@@ -2375,9 +2375,9 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	vbatt = 0;
 	get_battery_voltage(&vbatt);
 
-	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_mohm = %u\n",
+	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_uohm = %u\n",
 				get_prop_bms_capacity(chip),
-				vbatt, chip->last_ocv_uv, chip->r_sense_mohm);
+				vbatt, chip->last_ocv_uv, chip->r_sense_uohm);
 	return 0;
 
 unregister_dc:

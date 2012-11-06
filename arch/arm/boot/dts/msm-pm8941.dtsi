@@ -65,7 +65,7 @@
 			#size-cells = <1>;
 			status = "disabled";
 
-			qcom,bms-r-sense-mohm = <2>;
+			qcom,bms-r-sense-uohm = <10000>;
 			qcom,bms-v-cutoff-uv = <3400000>;
 			qcom,bms-max-voltage-uv = <4200000>;
 			qcom,bms-r-conn-mohm = <18>;
