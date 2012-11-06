@@ -92,7 +92,7 @@ static int msm_slim_3_rx_ch = 1;
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
-
+static int hdmi_rate_variable;
 static int rec_mode = INCALL_REC_MONO;
 
 static struct clk *codec_clk;
@@ -642,11 +642,13 @@ static const struct snd_soc_dapm_route apq8064_liquid_cdp_audio_map[] = {
 static const char *spk_function[] = {"Off", "On"};
 static const char *slim0_rx_ch_text[] = {"One", "Two"};
 static const char *slim0_tx_ch_text[] = {"One", "Two", "Three", "Four"};
+static const char * const hdmi_rate[] = {"Default", "Variable"};
 
 static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
 	SOC_ENUM_SINGLE_EXT(2, slim0_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
+	SOC_ENUM_SINGLE_EXT(2, hdmi_rate),
 };
 
 static const char *btsco_rate_text[] = {"8000", "16000"};
@@ -756,6 +758,21 @@ static int msm_incall_rec_mode_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_hdmi_rate_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	hdmi_rate_variable = ucontrol->value.integer.value[0];
+	pr_debug("%s: hdmi_rate_variable = %d\n", __func__, hdmi_rate_variable);
+	return 0;
+}
+
+static int msm_hdmi_rate_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = hdmi_rate_variable;
+	return 0;
+}
+
 static const struct snd_kcontrol_new tabla_msm_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm_enum[0], msm_get_spk,
 		msm_set_spk),
@@ -769,6 +786,9 @@ static const struct snd_kcontrol_new tabla_msm_controls[] = {
 			msm_incall_rec_mode_get, msm_incall_rec_mode_put),
 	SOC_ENUM_EXT("SLIM_3_RX Channels", msm_enum[1],
 		msm_slim_3_rx_ch_get, msm_slim_3_rx_ch_put),
+	SOC_ENUM_EXT("HDMI RX Rate", msm_enum[3],
+					msm_hdmi_rate_get,
+					msm_hdmi_rate_put),
 };
 
 static void *def_tabla_mbhc_cal(void)
@@ -1328,7 +1348,8 @@ static int msm_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	if (channels->max < 2)
 		channels->min = channels->max = 2;
-	rate->min = rate->max = 48000;
+	if (!hdmi_rate_variable)
+		rate->min = rate->max = 48000;
 
 	return 0;
 }
