@@ -59,6 +59,7 @@
 /* GSBI UART devices */
 #define MSM_UART1DM_PHYS	(MSM_GSBI1_PHYS + 0x10000)
 #define MSM_UART3DM_PHYS	(MSM_GSBI3_PHYS + 0x40000)
+#define MSM_UART5DM_PHYS	(MSM_GSBI5_PHYS + 0x40000)
 #define MSM_UART6DM_PHYS	(MSM_GSBI6_PHYS + 0x40000)
 #define MSM_UART7DM_PHYS	(MSM_GSBI7_PHYS + 0x40000)
 
@@ -463,6 +464,33 @@ struct platform_device mpq8064_device_qup_i2c_gsbi5 = {
 	.id		= 5,
 	.num_resources	= ARRAY_SIZE(resources_qup_i2c_gsbi5),
 	.resource	= resources_qup_i2c_gsbi5,
+};
+
+static struct resource resources_uart_gsbi5[] = {
+	{
+		.start  = GSBI5_UARTDM_IRQ,
+		.end    = GSBI5_UARTDM_IRQ,
+		.flags  = IORESOURCE_IRQ,
+	},
+	{
+		.start  = MSM_UART5DM_PHYS,
+		.end    = MSM_UART5DM_PHYS + PAGE_SIZE - 1,
+		.name   = "uartdm_resource",
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = MSM_GSBI5_PHYS,
+		.end    = MSM_GSBI5_PHYS + PAGE_SIZE - 1,
+		.name   = "gsbi_resource",
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device mpq8064_device_uart_gsbi5 = {
+	.name	= "msm_serial_hsl",
+	.id	= 2,
+	.num_resources	= ARRAY_SIZE(resources_uart_gsbi5),
+	.resource	= resources_uart_gsbi5,
 };
 
 /* GSBI 6 used into UARTDM Mode */
