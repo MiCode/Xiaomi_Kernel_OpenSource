@@ -58,6 +58,7 @@ struct hdmi_tx_audio_acr_arry {
 
 static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on);
 static irqreturn_t hdmi_tx_isr(int irq, void *data);
+static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl);
 
 struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -1082,6 +1083,8 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	} else {
 		msm_dss_enable_clk(power_data->clk_config,
 			power_data->num_clk, 0);
+		msm_dss_clk_set_rate(power_data->clk_config,
+			power_data->num_clk);
 		msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 0);
 		msm_dss_enable_vreg(power_data->vreg_config,
@@ -1616,6 +1619,7 @@ static void hdmi_tx_hpd_polarity_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	bool polarity)
 {
 	struct dss_io_data *io = NULL;
+	u32 cable_sense;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1632,7 +1636,12 @@ static void hdmi_tx_hpd_polarity_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	else
 		DSS_REG_W(io, HDMI_HPD_INT_CTRL, BIT(2));
 
-	if ((DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) == polarity) {
+	cable_sense = (DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) >> 1;
+	DEV_DBG("%s: listen = %s, sense = %s\n", __func__,
+		polarity ? "connect" : "disconnect",
+		cable_sense ? "connect" : "disconnect");
+
+	if (cable_sense == polarity) {
 		u32 reg_val = DSS_REG_R(io, HDMI_HPD_CTRL);
 
 		/* Toggle HPD circuit to trigger HPD sense */
@@ -1667,13 +1676,25 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 	}
 
 	hdmi_tx_powerdown_phy(hdmi_ctrl);
+
+	/*
+	 * this is needed to avoid pll lock failure due to
+	 * clk framework's rate caching.
+	 */
+	hdmi_ctrl->pdata.power_data[HDMI_TX_CORE_PM].clk_config[0].rate = 0;
+
 	hdmi_tx_core_off(hdmi_ctrl);
 
 	mutex_lock(&hdmi_ctrl->mutex);
 	hdmi_ctrl->panel_power_on = false;
 	mutex_unlock(&hdmi_ctrl->mutex);
 
-	hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
+	if (hdmi_ctrl->hpd_off_pending) {
+		hdmi_tx_hpd_off(hdmi_ctrl);
+		hdmi_ctrl->hpd_off_pending = false;
+	} else {
+		hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
+	}
 
 	DEV_INFO("%s: HDMI Core: OFF\n", __func__);
 } /* hdmi_tx_power_off_work */
@@ -1860,10 +1881,20 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 	if (on) {
 		rc = hdmi_tx_hpd_on(hdmi_ctrl);
 	} else {
-		hdmi_tx_hpd_off(hdmi_ctrl);
-		switch_set_state(&hdmi_ctrl->sdev, 0);
-		DEV_INFO("%s: Hdmi state switch to %d\n", __func__,
-			hdmi_ctrl->sdev.state);
+		/* If power down is already underway, wait for it to finish */
+		flush_work(&hdmi_ctrl->power_off_work);
+
+		if (!hdmi_ctrl->panel_power_on) {
+			hdmi_tx_hpd_off(hdmi_ctrl);
+		} else {
+			hdmi_ctrl->hpd_off_pending = true;
+
+			switch_set_state(&hdmi_ctrl->sdev, 0);
+			DEV_DBG("%s: Hdmi state switch to %d\n", __func__,
+				hdmi_ctrl->sdev.state);
+			DEV_DBG("HDMI HPD: sent fake OFFLINE event\n");
+			kobject_uevent(hdmi_ctrl->kobj, KOBJ_OFFLINE);
+		}
 	}
 
 	return rc;
@@ -1954,6 +1985,8 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	init_completion(&hdmi_ctrl->ddc_ctrl.ddc_sw_done);
 
 	hdmi_ctrl->hpd_state = false;
+	hdmi_ctrl->hpd_initialized = false;
+	hdmi_ctrl->hpd_off_pending = false;
 	INIT_WORK(&hdmi_ctrl->hpd_int_work, hdmi_tx_hpd_int_work);
 
 	INIT_WORK(&hdmi_ctrl->power_off_work, hdmi_tx_power_off_work);
