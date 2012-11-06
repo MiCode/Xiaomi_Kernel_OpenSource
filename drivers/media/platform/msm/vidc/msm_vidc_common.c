@@ -587,7 +587,6 @@ static void handle_sys_error(enum command_response cmd, void *data)
 
 static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
 {
-	subsystem_restart("msm_vidc");
 	dprintk(VIDC_ERR,
 		"msm_vidc: Sub System Restart initiated\n");
 }
