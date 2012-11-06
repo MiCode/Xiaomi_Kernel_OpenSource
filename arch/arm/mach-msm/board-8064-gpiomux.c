@@ -479,6 +479,12 @@ static struct gpiomux_setting gsbi5_active_cfg = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gsbi5_uart_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct gpiomux_setting gsbi6_spi_cfg = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_16MA,
@@ -1547,6 +1553,21 @@ static struct msm_gpiomux_config mpq8064_gsbi6_spi_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config mpq8064_gsbi5_uart_configs[] __initdata = {
+	{
+		.gpio      = 51,        /* GSBI5 UART TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi5_uart_cfg,
+		},
+	},
+	{
+		.gpio      = 52,        /* GSBI5 UART RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gsbi5_uart_cfg,
+		},
+	},
+};
+
 void __init apq8064_init_gpiomux(void)
 {
 	int rc;
@@ -1565,6 +1586,8 @@ void __init apq8064_init_gpiomux(void)
 		 machine_is_mpq8064_dtv()) {
 		msm_gpiomux_install(mpq8064_gsbi5_i2c_configs,
 				ARRAY_SIZE(mpq8064_gsbi5_i2c_configs));
+		msm_gpiomux_install(mpq8064_gsbi5_uart_configs,
+				ARRAY_SIZE(mpq8064_gsbi5_uart_configs));
 #ifdef CONFIG_MSM_VCAP
 		msm_gpiomux_install(vcap_configs,
 				ARRAY_SIZE(vcap_configs));

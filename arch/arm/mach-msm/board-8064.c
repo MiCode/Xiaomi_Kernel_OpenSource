@@ -2696,6 +2696,7 @@ static struct msm_serial_hs_platform_data msm_uart_dm9_pdata;
 #endif
 
 static struct platform_device *mpq_devices[] __initdata = {
+	&mpq8064_device_uart_gsbi5,
 	&msm_device_sps_apq8064,
 	&mpq8064_device_qup_i2c_gsbi5,
 #ifdef CONFIG_MSM_ROTATOR
@@ -2792,10 +2793,21 @@ static struct msm_i2c_platform_data mpq8064_i2c_qup_gsbi5_pdata = {
 
 #define GSBI_DUAL_MODE_CODE 0x60
 #define MSM_GSBI1_PHYS		0x12440000
+#define MSM_GSBI5_PHYS		0x1A200000
 static void __init apq8064_i2c_init(void)
 {
 	void __iomem *gsbi_mem;
-
+	if (machine_is_mpq8064_cdp() || machine_is_mpq8064_hrd() ||
+			machine_is_mpq8064_dtv()) {
+		gsbi_mem = ioremap_nocache(MSM_GSBI5_PHYS, 4);
+		writel_relaxed(GSBI_DUAL_MODE_CODE, gsbi_mem);
+		/* Ensure protocol code is written before proceeding */
+		wmb();
+		iounmap(gsbi_mem);
+		mpq8064_i2c_qup_gsbi5_pdata.use_gsbi_shared_mode = 1;
+		mpq8064_device_qup_i2c_gsbi5.dev.platform_data =
+					&mpq8064_i2c_qup_gsbi5_pdata;
+	}
 	apq8064_device_qup_i2c_gsbi1.dev.platform_data =
 					&apq8064_i2c_qup_gsbi1_pdata;
 	gsbi_mem = ioremap_nocache(MSM_GSBI1_PHYS, 4);
