@@ -47,15 +47,24 @@
 
 #define TSPP_RAW_TTS_SIZE				192
 
-/* Size of single descriptor. Using max descriptor size (170 packets).
+#define MAX_BAM_DESCRIPTOR_SIZE		(32*1024 - 1)
+
+/* Size of single descriptor for PES/rec pipe.
+ * Using max descriptor size (170 packets).
  * Assuming 20MBit/sec stream, with 170 packets
  * per descriptor there would be about 82 descriptors,
  * Meanning about 82 notifications per second.
  */
-#define MAX_BAM_DESCRIPTOR_SIZE		(32*1024 - 1)
-
-#define TSPP_BUFFER_SIZE			\
+#define TSPP_PES_BUFFER_SIZE			\
 	((MAX_BAM_DESCRIPTOR_SIZE / TSPP_RAW_TTS_SIZE) * TSPP_RAW_TTS_SIZE)
+
+/* Size of single descriptor for section pipe.
+ * Assuming 8MBit/sec section rate, with 65 packets
+ * per descriptor there would be about 85 descriptors,
+ * Meanning about 85 notifications per second.
+ */
+#define TSPP_SECTION_BUFFER_SIZE			\
+	(65 * TSPP_RAW_TTS_SIZE)
 
 /* Number of descriptors, total size: TSPP_BUFFER_SIZE*TSPP_BUFFER_COUNT */
 #define TSPP_BUFFER_COUNT				(32)
@@ -361,6 +370,7 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 	int ret;
 	int channel_id;
 	int *channel_ref_count;
+	u32 buffer_size;
 
 	tspp_source.clk_inverse = clock_inv;
 	tspp_source.data_inverse = 0;
@@ -417,10 +427,12 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 		channel_id = TSPP_CHANNEL_ID(tsif, TSPP_PES_CHANNEL);
 		channel_ref_count =
 			&mpq_dmx_tspp_info.tsif[tsif].pes_channel_ref;
+		buffer_size = TSPP_PES_BUFFER_SIZE;
 	} else {
 		channel_id = TSPP_CHANNEL_ID(tsif, TSPP_SECTION_CHANNEL);
 		channel_ref_count =
 			&mpq_dmx_tspp_info.tsif[tsif].section_channel_ref;
+		buffer_size = TSPP_SECTION_BUFFER_SIZE;
 	}
 
 	/* check if required TSPP pipe is already allocated or not */
@@ -470,7 +482,7 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 			ret = tspp_allocate_buffers(0,
 						    channel_id,
 						    TSPP_BUFFER_COUNT,
-						    TSPP_BUFFER_SIZE,
+						    buffer_size,
 						    TSPP_NOTIFICATION_SIZE,
 						    tspp_mem_allocator,
 						    tspp_mem_free,
@@ -479,7 +491,7 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 			ret = tspp_allocate_buffers(0,
 						    channel_id,
 						    TSPP_BUFFER_COUNT,
-						    TSPP_BUFFER_SIZE,
+						    buffer_size,
 						    TSPP_NOTIFICATION_SIZE,
 						    NULL,
 						    NULL,
@@ -905,7 +917,8 @@ static int mpq_tspp_dmx_init(
 		for (i = 0; i < TSIF_COUNT; i++) {
 			mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle =
 				ion_alloc(mpq_dmx_tspp_info.ion_client,
-					(TSPP_BUFFER_COUNT * TSPP_BUFFER_SIZE),
+					(TSPP_BUFFER_COUNT *
+					 TSPP_PES_BUFFER_SIZE),
 					TSPP_RAW_TTS_SIZE,
 					ION_HEAP(ION_CP_MM_HEAP_ID),
 					0); /* non-cached */
@@ -943,7 +956,8 @@ static int mpq_tspp_dmx_init(
 
 			mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle =
 				ion_alloc(mpq_dmx_tspp_info.ion_client,
-					(TSPP_BUFFER_COUNT * TSPP_BUFFER_SIZE),
+					(TSPP_BUFFER_COUNT *
+					 TSPP_SECTION_BUFFER_SIZE),
 					TSPP_RAW_TTS_SIZE,
 					ION_HEAP(ION_CP_MM_HEAP_ID),
 					0); /* non-cached */
