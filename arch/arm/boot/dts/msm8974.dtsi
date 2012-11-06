@@ -1289,6 +1289,34 @@
 	};
 };
 
+&gdsc_venus {
+	status = "ok";
+};
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_jpeg {
+	status = "ok";
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_oxili_gx {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
+};
+
+&gdsc_usb_hsic {
+	status = "ok";
+};
+
 /include/ "msm-pm8x41-rpm-regulator.dtsi"
 /include/ "msm-pm8841.dtsi"
 /include/ "msm-pm8941.dtsi"

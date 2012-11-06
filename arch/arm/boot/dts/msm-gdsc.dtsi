@@ -18,41 +18,48 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_venus";
 		reg = <0xfd8c1024 0x4>;
+		status = "disabled";
 	};
 
 	gdsc_mdss: qcom,gdsc@fd8c2304 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_mdss";
 		reg = <0xfd8c2304 0x4>;
+		status = "disabled";
 	};
 
 	gdsc_jpeg: qcom,gdsc@fd8c35a4 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_jpeg";
 		reg = <0xfd8c35a4 0x4>;
+		status = "disabled";
 	};
 
 	gdsc_vfe: qcom,gdsc@fd8c36a4 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_vfe";
 		reg = <0xfd8c36a4 0x4>;
+		status = "disabled";
 	};
 
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_oxili_gx";
 		reg = <0xfd8c4024 0x4>;
+		status = "disabled";
 	};
 
 	gdsc_oxili_cx: qcom,gdsc@fd8c4034 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_oxili_cx";
 		reg = <0xfd8c4034 0x4>;
+		status = "disabled";
 	};
 
 	gdsc_usb_hsic: qcom,gdsc@fc400404 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_usb_hsic";
 		reg = <0xfc400404 0x4>;
+		status = "disabled";
 	};
 };
