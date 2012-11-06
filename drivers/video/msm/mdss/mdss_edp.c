@@ -353,6 +353,23 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 	return ret;
 }
 
+static int mdss_edp_event_handler(struct mdss_panel_data *pdata,
+				  int event, void *arg)
+{
+	int rc = 0;
+
+	pr_debug("%s: event=%d\n", __func__, event);
+	switch (event) {
+	case MDSS_EVENT_UNBLANK:
+		rc = mdss_edp_on(pdata);
+		break;
+	case MDSS_EVENT_TIMEGEN_OFF:
+		rc = mdss_edp_off(pdata);
+		break;
+	}
+	return rc;
+}
+
 /*
  * Converts from EDID struct to mdss_panel_info
  */
@@ -413,8 +430,7 @@ static int mdss_edp_device_register(struct mdss_edp_drv_pdata *edp_drv)
 	edp_drv->panel_data.panel_info.bl_min = 1;
 	edp_drv->panel_data.panel_info.bl_max = 255;
 
-	edp_drv->panel_data.on = mdss_edp_on;
-	edp_drv->panel_data.off = mdss_edp_off;
+	edp_drv->panel_data.event_handler = mdss_edp_event_handler;
 	edp_drv->panel_data.set_backlight = mdss_edp_set_backlight;
 
 	ret = mdss_register_panel(&edp_drv->panel_data);

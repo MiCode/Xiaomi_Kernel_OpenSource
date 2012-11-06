@@ -25,15 +25,10 @@
 
 #include "mdss_panel.h"
 
-static int mdss_wb_on(struct mdss_panel_data *pdata)
+static int mdss_wb_event_handler(struct mdss_panel_data *pdata,
+				 int event, void *arg)
 {
-	pr_debug("%s\n", __func__);
-	return 0;
-}
-
-static int mdss_wb_off(struct mdss_panel_data *pdata)
-{
-	pr_debug("%s\n", __func__);
+	pr_debug("%s: event=%d\n", __func__, event);
 	return 0;
 }
 
@@ -75,8 +70,7 @@ static int mdss_wb_probe(struct platform_device *pdev)
 	pdata->panel_info.pdest = DISPLAY_3;
 	pdata->panel_info.out_format = MDP_Y_CBCR_H2V2_VENUS;
 
-	pdata->on = mdss_wb_on;
-	pdata->off = mdss_wb_off;
+	pdata->event_handler = mdss_wb_event_handler;
 	pdev->dev.platform_data = pdata;
 
 	rc = mdss_register_panel(pdata);

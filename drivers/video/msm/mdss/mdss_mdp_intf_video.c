@@ -201,7 +201,7 @@ static int mdss_mdp_video_set_vsync_handler(struct mdss_mdp_ctl *ctl,
 static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_video_ctx *ctx;
-	int off;
+	int rc, off;
 
 	pr_debug("stop ctl=%d\n", ctl->num);
 
@@ -211,15 +211,26 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 		return -ENODEV;
 	}
 
-	if (ctx->vsync_handler)
-		mdss_mdp_video_set_vsync_handler(ctl, NULL);
-
 	if (ctx->timegen_en) {
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK, NULL);
+		if (rc == -EBUSY) {
+			pr_debug("intf #%d busy don't turn off\n",
+				 ctl->intf_num);
+			return rc;
+		}
+		WARN(rc, "intf %d blank error (%d)\n", ctl->intf_num, rc);
+
 		off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 		ctx->timegen_en = false;
+
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_TIMEGEN_OFF, NULL);
+		WARN(rc, "intf %d timegen off error (%d)\n", ctl->intf_num, rc);
 	}
+
+	if (ctx->vsync_handler)
+		mdss_mdp_video_set_vsync_handler(ctl, NULL);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num,
 				   NULL, NULL);
@@ -288,6 +299,7 @@ static int mdss_mdp_video_prepare(struct mdss_mdp_ctl *ctl, void *arg)
 static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_video_ctx *ctx;
+	int rc;
 
 	pr_debug("kickoff ctl=%d\n", ctl->num);
 
@@ -306,15 +318,23 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	if (!ctx->timegen_en) {
 		int off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
 
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
+		WARN(rc, "intf %d unblank error (%d)\n", ctl->intf_num, rc);
+
 		pr_debug("enabling timing gen for intf=%d\n", ctl->intf_num);
 
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
-		ctx->timegen_en = true;
 		wmb();
 	}
 
 	wait_for_completion(&ctx->vsync_comp);
+
+	if (!ctx->timegen_en) {
+		ctx->timegen_en = true;
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_TIMEGEN_ON, NULL);
+		WARN(rc, "intf %d timegen on error (%d)\n", ctl->intf_num, rc);
+	}
 	if (!ctx->vsync_handler)
 		mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num);
 	mutex_unlock(&ctx->vsync_lock);
