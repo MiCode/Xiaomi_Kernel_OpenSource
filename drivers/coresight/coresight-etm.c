@@ -363,6 +363,7 @@ static void etm_enable_pcsave(void *info)
 	 */
 	etm_set_pwrup(drvdata);
 	etm_clr_pwrdwn(drvdata);
+	etm_clr_pwrup(drvdata);
 
 	ETM_LOCK(drvdata);
 }
@@ -373,10 +374,8 @@ static void etm_disable_pcsave(void *info)
 
 	ETM_UNLOCK(drvdata);
 
-	if (!drvdata->enable) {
+	if (!drvdata->enable)
 		etm_set_pwrdwn(drvdata);
-		etm_clr_pwrup(drvdata);
-	}
 
 	ETM_LOCK(drvdata);
 }
@@ -400,6 +399,7 @@ static void __etm_enable(void *info)
 	 * for trace enable.
 	 */
 	etm_clr_pwrdwn(drvdata);
+	etm_clr_pwrup(drvdata);
 	etm_set_prog(drvdata);
 
 	etmcr = etm_readl(drvdata, ETMCR);
@@ -495,10 +495,8 @@ static void __etm_disable(void *info)
 	/* program trace enable to low by using always false event */
 	etm_writel(drvdata, 0x6F | BIT(14), ETMTEEVR);
 
-	if (!drvdata->pcsave_enable) {
+	if (!drvdata->pcsave_enable)
 		etm_set_pwrdwn(drvdata);
-		etm_clr_pwrup(drvdata);
-	}
 	ETM_LOCK(drvdata);
 
 	dev_dbg(drvdata->dev, "cpu: %d disable smp call done\n", drvdata->cpu);
@@ -1688,6 +1686,7 @@ static void __devinit etm_init_arch_data(void *info)
 	 * certain registers might be ignored.
 	 */
 	etm_clr_pwrdwn(drvdata);
+	etm_clr_pwrup(drvdata);
 	/* Set prog bit. It will be set from reset but this is included to
 	 * ensure it is set
 	 */
@@ -1705,7 +1704,6 @@ static void __devinit etm_init_arch_data(void *info)
 	drvdata->nr_ctxid_cmp = BMVAL(etmccr, 24, 25);
 
 	etm_set_pwrdwn(drvdata);
-	etm_clr_pwrup(drvdata);
 	ETM_LOCK(drvdata);
 }
 
