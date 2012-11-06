@@ -405,6 +405,10 @@ config ARCH_MSM8610
 	select MSM_SPM_V2
 	select MSM_L2_SPM
 	select MSM_PM8X60 if PM
+	select CPU_FREQ_MSM
+	select CPU_FREQ
+	select CPU_FREQ_GOV_USERSPACE
+	select CPU_FREQ_GOV_ONDEMAND
 
 config ARCH_MSM8226
 	bool "MSM8226"
