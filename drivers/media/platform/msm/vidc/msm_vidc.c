@@ -428,6 +428,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_LIST_HEAD(&inst->pendingq);
 	INIT_LIST_HEAD(&inst->internalbufs);
 	INIT_LIST_HEAD(&inst->persistbufs);
+	INIT_LIST_HEAD(&inst->ctrl_clusters);
 	init_waitqueue_head(&inst->kernel_event_queue);
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
@@ -555,6 +556,12 @@ int msm_vidc_close(void *instance)
 			list_del(&inst->list);
 	}
 	mutex_unlock(&core->sync_lock);
+
+	if (inst->session_type == MSM_VIDC_DECODER)
+		msm_vdec_ctrl_deinit(inst);
+	else if (inst->session_type == MSM_VIDC_ENCODER)
+		msm_venc_ctrl_deinit(inst);
+
 	cleanup_instance(inst);
 	if (inst->state != MSM_VIDC_CORE_INVALID &&
 		core->state != VIDC_CORE_INVALID)
