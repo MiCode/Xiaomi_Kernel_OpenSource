@@ -107,9 +107,6 @@ struct android_usb_function {
 	char *dev_name;
 	struct device_attribute **attributes;
 
-	/* for android_conf.enabled_functions */
-	struct list_head enabled_list;
-
 	struct android_dev *android_dev;
 
 	/* Optional: initialization during gadget bind */
@@ -132,6 +129,14 @@ struct android_usb_function {
 	int (*ctrlrequest)(struct android_usb_function *,
 					struct usb_composite_dev *,
 					const struct usb_ctrlrequest *);
+};
+
+struct android_usb_function_holder {
+
+	struct android_usb_function *f;
+
+	/* for android_conf.enabled_functions */
+	struct list_head enabled_list;
 };
 
 struct android_dev {
@@ -1713,15 +1718,15 @@ static int
 android_bind_enabled_functions(struct android_dev *dev,
 			       struct usb_configuration *c)
 {
-	struct android_usb_function *f;
+	struct android_usb_function_holder *f_holder;
 	struct android_configuration *conf =
 		container_of(c, struct android_configuration, usb_config);
 	int ret;
 
-	list_for_each_entry(f, &conf->enabled_functions, enabled_list) {
-		ret = f->bind_config(f, c);
+	list_for_each_entry(f_holder, &conf->enabled_functions, enabled_list) {
+		ret = f_holder->f->bind_config(f_holder->f, c);
 		if (ret) {
-			pr_err("%s: %s failed", __func__, f->name);
+			pr_err("%s: %s failed", __func__, f_holder->f->name);
 			return ret;
 		}
 	}
@@ -1732,13 +1737,13 @@ static void
 android_unbind_enabled_functions(struct android_dev *dev,
 			       struct usb_configuration *c)
 {
-	struct android_usb_function *f;
+	struct android_usb_function_holder *f_holder;
 	struct android_configuration *conf =
 		container_of(c, struct android_configuration, usb_config);
 
-	list_for_each_entry(f, &conf->enabled_functions, enabled_list) {
-		if (f->unbind_config)
-			f->unbind_config(f, c);
+	list_for_each_entry(f_holder, &conf->enabled_functions, enabled_list) {
+		if (f_holder->f->unbind_config)
+			f_holder->f->unbind_config(f_holder->f, c);
 	}
 }
 
@@ -1748,16 +1753,24 @@ static int android_enable_function(struct android_dev *dev,
 {
 	struct android_usb_function **functions = dev->functions;
 	struct android_usb_function *f;
+	struct android_usb_function_holder *f_holder;
 	while ((f = *functions++)) {
 		if (!strcmp(name, f->name)) {
-			if (f->android_dev)
-				pr_err("%s already enabled in other " \
-					"configuration or device\n",
+			if (f->android_dev && f->android_dev != dev)
+				pr_err("%s is enabled in other device\n",
 					f->name);
 			else {
-				list_add_tail(&f->enabled_list,
-					      &conf->enabled_functions);
+				f_holder = kzalloc(sizeof(*f_holder),
+						GFP_KERNEL);
+				if (!f_holder) {
+					pr_err("Failed to alloc f_holder\n");
+					return -ENOMEM;
+				}
+
 				f->android_dev = dev;
+				f_holder->f = f;
+				list_add_tail(&f_holder->enabled_list,
+					      &conf->enabled_functions);
 				return 0;
 			}
 		}
@@ -1817,7 +1830,7 @@ functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
 	struct android_dev *dev = dev_get_drvdata(pdev);
 	struct android_configuration *conf;
-	struct android_usb_function *f;
+	struct android_usb_function_holder *f_holder;
 	char *buff = buf;
 
 	mutex_lock(&dev->mutex);
@@ -1825,8 +1838,10 @@ functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 	list_for_each_entry(conf, &dev->configs, list_item) {
 		if (buff != buf)
 			*(buff-1) = ':';
-		list_for_each_entry(f, &conf->enabled_functions, enabled_list)
-			buff += snprintf(buff, PAGE_SIZE, "%s,", f->name);
+		list_for_each_entry(f_holder, &conf->enabled_functions,
+					enabled_list)
+			buff += snprintf(buff, PAGE_SIZE, "%s,",
+					f_holder->f->name);
 	}
 
 	mutex_unlock(&dev->mutex);
@@ -1841,10 +1856,10 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 			       const char *buff, size_t size)
 {
 	struct android_dev *dev = dev_get_drvdata(pdev);
-	struct android_usb_function *f;
 	struct list_head *curr_conf = &dev->configs;
 	struct android_configuration *conf;
 	char *conf_str;
+	struct android_usb_function_holder *f_holder;
 	char *name;
 	char buf[256], *b;
 	int err;
@@ -1858,8 +1873,15 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 
 	/* Clear previous enabled list */
 	list_for_each_entry(conf, &dev->configs, list_item) {
-		list_for_each_entry(f, &conf->enabled_functions, enabled_list)
-			f->android_dev = NULL;
+		while (conf->enabled_functions.next !=
+				&conf->enabled_functions) {
+			f_holder = list_entry(conf->enabled_functions.next,
+					typeof(*f_holder),
+					enabled_list);
+			f_holder->f->android_dev = NULL;
+			list_del(&f_holder->enabled_list);
+			kfree(f_holder);
+		}
 		INIT_LIST_HEAD(&conf->enabled_functions);
 	}
 
@@ -1916,7 +1938,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 {
 	struct android_dev *dev = dev_get_drvdata(pdev);
 	struct usb_composite_dev *cdev = dev->cdev;
-	struct android_usb_function *f;
+	struct android_usb_function_holder *f_holder;
 	struct android_configuration *conf;
 	int enabled = 0;
 
@@ -1938,20 +1960,20 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
 		list_for_each_entry(conf, &dev->configs, list_item)
-			list_for_each_entry(f, &conf->enabled_functions,
+			list_for_each_entry(f_holder, &conf->enabled_functions,
 						enabled_list) {
-				if (f->enable)
-					f->enable(f);
+				if (f_holder->f->enable)
+					f_holder->f->enable(f_holder->f);
 			}
 		android_enable(dev);
 		dev->enabled = true;
 	} else if (!enabled && dev->enabled) {
 		android_disable(dev);
 		list_for_each_entry(conf, &dev->configs, list_item)
-			list_for_each_entry(f, &conf->enabled_functions,
+			list_for_each_entry(f_holder, &conf->enabled_functions,
 						enabled_list) {
-				if (f->disable)
-					f->disable(f);
+				if (f_holder->f->disable)
+					f_holder->f->disable(f_holder->f);
 			}
 		dev->enabled = false;
 	} else {
@@ -2199,6 +2221,7 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	struct android_dev		*dev = cdev_to_android_dev(cdev);
 	struct usb_request		*req = cdev->req;
 	struct android_usb_function	*f;
+	struct android_usb_function_holder *f_holder;
 	struct android_configuration	*conf;
 	int value = -EOPNOTSUPP;
 	unsigned long flags;
@@ -2209,14 +2232,16 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	gadget->ep0->driver_data = cdev;
 
 	list_for_each_entry(conf, &dev->configs, list_item)
-			list_for_each_entry(f,
-					    &conf->enabled_functions,
-					    enabled_list)
-				if (f->ctrlrequest) {
-					value = f->ctrlrequest(f, cdev, c);
-					if (value >= 0)
-						break;
-				}
+		list_for_each_entry(f_holder,
+				    &conf->enabled_functions,
+				    enabled_list) {
+			f = f_holder->f;
+			if (f->ctrlrequest) {
+				value = f->ctrlrequest(f, cdev, c);
+				if (value >= 0)
+					break;
+			}
+		}
 
 	/* Special case the accessory function.
 	 * It needs to handle control requests before it is enabled.
