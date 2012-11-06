@@ -18,6 +18,7 @@
 
 int msm_vdec_inst_init(struct msm_vidc_inst *inst);
 int msm_vdec_ctrl_init(struct msm_vidc_inst *inst);
+int msm_vdec_ctrl_deinit(struct msm_vidc_inst *inst);
 int msm_vdec_querycap(void *instance, struct v4l2_capability *cap);
 int msm_vdec_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
 int msm_vdec_s_fmt(void *instance, struct v4l2_format *f);
