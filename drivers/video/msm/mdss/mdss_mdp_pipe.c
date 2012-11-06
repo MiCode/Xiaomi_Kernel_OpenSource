@@ -22,6 +22,7 @@
 #define SMP_MB_CNT (mdss_res->smp_mb_cnt)
 
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
+static DEFINE_MUTEX(mdss_mdp_smp_lock);
 static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
 static struct mdss_mdp_pipe mdss_mdp_pipe_list[MDSS_MDP_MAX_SSPP];
@@ -69,9 +70,11 @@ static void mdss_mdp_smp_mmb_free(unsigned long *smp)
 
 static void mdss_mdp_smp_free(struct mdss_mdp_pipe *pipe)
 {
+	mutex_lock(&mdss_mdp_smp_lock);
 	mdss_mdp_smp_mmb_free(&pipe->smp[0]);
 	mdss_mdp_smp_mmb_free(&pipe->smp[1]);
 	mdss_mdp_smp_mmb_free(&pipe->smp[2]);
+	mutex_unlock(&mdss_mdp_smp_lock);
 }
 
 static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
@@ -83,7 +86,7 @@ static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	    (pipe->type == MDSS_MDP_PIPE_TYPE_RGB))
 		return -EINVAL;
 
-	mutex_lock(&mdss_mdp_sspp_lock);
+	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < pipe->src_planes.num_planes; i++) {
 		num_blks = DIV_ROUND_UP(2 * pipe->src_planes.ystride[i],
 					mdss_res->smp_mb_size);
@@ -98,10 +101,11 @@ static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 	if (reserved < num_blks) {
 		pr_err("insufficient MMB blocks\n");
-		mdss_mdp_smp_free(pipe);
+		for (; i >= 0; i--)
+			mdss_mdp_smp_mmb_free(&pipe->smp[i]);
 		return -ENOMEM;
 	}
-	mutex_unlock(&mdss_mdp_sspp_lock);
+	mutex_unlock(&mdss_mdp_smp_lock);
 
 	return 0;
 }
@@ -141,10 +145,10 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 		return -EINVAL;
 	}
 
-	mutex_lock(&mdss_mdp_sspp_lock);
+	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < pipe->src_planes.num_planes; i++)
 		mdss_mdp_smp_mmb_set(client_id + i, &pipe->smp[i]);
-	mutex_unlock(&mdss_mdp_sspp_lock);
+	mutex_unlock(&mdss_mdp_smp_lock);
 	return 0;
 }
 
