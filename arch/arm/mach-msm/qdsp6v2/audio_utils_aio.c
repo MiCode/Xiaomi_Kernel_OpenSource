@@ -25,6 +25,9 @@
 #include <asm/ioctls.h>
 #include <linux/debugfs.h>
 #include "audio_utils_aio.h"
+#ifdef CONFIG_USE_DEV_CTRL_VOLUME
+#include <mach/qdsp6v2/audio_dev_ctl.h>
+#endif /*CONFIG_USE_DEV_CTRL_VOLUME*/
 
 #ifdef CONFIG_DEBUG_FS
 ssize_t audio_aio_debug_open(struct inode *inode, struct file *file)
@@ -424,6 +427,67 @@ static void audio_aio_unmap_ion_region(struct q6audio_aio *audio)
 	}
 }
 
+#ifdef CONFIG_USE_DEV_CTRL_VOLUME
+
+static void audio_aio_listner(u32 evt_id, union auddev_evt_data *evt_payload,
+			void *private_data)
+{
+	struct q6audio_aio *audio = (struct q6audio_aio *) private_data;
+	int rc  = 0;
+
+	switch (evt_id) {
+	case AUDDEV_EVT_STREAM_VOL_CHG:
+		audio->volume = evt_payload->session_vol;
+		pr_debug("%s[%p]: AUDDEV_EVT_STREAM_VOL_CHG, stream vol %d, enabled = %d\n",
+			__func__, audio, audio->volume, audio->enabled);
+		if (audio->enabled == 1) {
+			if (audio->ac) {
+				rc = q6asm_set_volume(audio->ac, audio->volume);
+				if (rc < 0) {
+					pr_err("%s[%p]: Send Volume command failed rc=%d\n",
+						__func__, audio, rc);
+				}
+			}
+		}
+		break;
+	default:
+		pr_err("%s[%p]:ERROR:wrong event\n", __func__, audio);
+		break;
+	}
+}
+
+int register_volume_listener(struct q6audio_aio *audio)
+{
+	int rc  = 0;
+	audio->device_events = AUDDEV_EVT_STREAM_VOL_CHG;
+	audio->drv_status &= ~ADRV_STATUS_PAUSE;
+
+	rc = auddev_register_evt_listner(audio->device_events,
+					AUDDEV_CLNT_DEC,
+					audio->ac->session,
+					audio_aio_listner,
+					(void *)audio);
+	if (rc < 0) {
+		pr_err("%s[%p]: Event listener failed\n", __func__, audio);
+		rc = -EACCES;
+	}
+	return rc;
+}
+void unregister_volume_listener(struct q6audio_aio *audio)
+{
+	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, audio->ac->session);
+}
+#else /*CONFIG_USE_DEV_CTRL_VOLUME*/
+int register_volume_listener(struct q6audio_aio *audio)
+{
+	return 0;/* do nothing */
+}
+void unregister_volume_listener(struct q6audio_aio *audio)
+{
+	return;/* do nothing */
+}
+#endif /*CONFIG_USE_DEV_CTRL_VOLUME*/
+
 int audio_aio_release(struct inode *inode, struct file *file)
 {
 	struct q6audio_aio *audio = file->private_data;
@@ -448,6 +512,8 @@ int audio_aio_release(struct inode *inode, struct file *file)
 	mutex_destroy(&audio->read_lock);
 	mutex_destroy(&audio->write_lock);
 	mutex_destroy(&audio->get_event_lock);
+	unregister_volume_listener(audio);
+
 #ifdef CONFIG_DEBUG_FS
 	if (audio->dentry)
 		debugfs_remove(audio->dentry);
@@ -1049,7 +1115,13 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 		goto fail;
 	}
 	pr_debug("Ion client create in audio_aio_open %p", audio->client);
+
+	rc = register_volume_listener(audio);
+	if (rc < 0)
+		goto fail;
+
 	return 0;
+
 fail:
 	q6asm_audio_client_free(audio->ac);
 	kfree(audio->codec_cfg);
