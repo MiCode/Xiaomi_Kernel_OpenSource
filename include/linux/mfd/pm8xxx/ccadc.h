@@ -19,11 +19,11 @@
 
 /**
  * struct pm8xxx_ccadc_platform_data -
- * @r_sense:		sense resistor value in (mOhms)
+ * @r_sense_uohm:		sense resistor value in (micro Ohms)
  * @calib_delay_ms:	how often should the adc calculate gain and offset
  */
 struct pm8xxx_ccadc_platform_data {
-	int		r_sense;
+	int		r_sense_uohm;
 	unsigned int	calib_delay_ms;
 };
 
