@@ -12,6 +12,7 @@
 
 /include/ "skeleton.dtsi"
 /include/ "msm8226-ion.dtsi"
+/include/ "msm-gdsc.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226";
@@ -82,6 +83,30 @@
 		qcom,ipi-ping = <1>;
 	};
 
+};
+
+&gdsc_venus {
+	status = "ok";
+};
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_jpeg {
+	status = "ok";
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
+};
+
+&gdsc_usb_hsic {
+	status = "ok";
 };
 
 /include/ "msm8226-regulator.dtsi"

@@ -272,5 +272,33 @@
 	};
 };
 
+&gdsc_venus {
+	status = "ok";
+};
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_jpeg {
+	status = "ok";
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_oxili_gx {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
+};
+
+&gdsc_usb_hsic {
+	status = "ok";
+};
+
 /include/ "msm-pm8644.dtsi"
 /include/ "mpq8092-regulator.dtsi"
