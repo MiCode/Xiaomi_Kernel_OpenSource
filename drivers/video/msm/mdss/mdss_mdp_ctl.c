@@ -68,6 +68,11 @@ static int mdss_mdp_ctl_perf_commit(u32 flags)
 		bus_ab_quota = bus_ab_quota << MDSS_MDP_BUS_FACTOR_SHIFT;
 		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ib_quota);
 		bus_ib_quota <<= MDSS_MDP_BUS_FACTOR_SHIFT;
+
+		if ((bus_ib_quota == 0) && (clk_rate > 0)) {
+			/* allocate min bw for panel cmds if mdp is active */
+			bus_ib_quota = SZ_16M;
+		}
 		mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_CLK) {
@@ -531,9 +536,28 @@ static int mdss_mdp_ctl_destroy(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
-int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
+int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg)
 {
 	struct mdss_panel_data *pdata;
+	if (!ctl || !ctl->mfd)
+		return -ENODEV;
+
+	pdata = dev_get_platdata(&ctl->mfd->pdev->dev);
+	if (!pdata) {
+		pr_err("no panel connected\n");
+		return -ENODEV;
+	}
+
+	pr_debug("sending ctl=%d event=%d\n", ctl->num, event);
+
+	if (pdata->event_handler)
+		return pdata->event_handler(pdata, event, arg);
+
+	return 0;
+}
+
+int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
+{
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_mixer *mixer;
 	u32 outsize, temp, off;
@@ -544,12 +568,6 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
-
-	pdata = dev_get_platdata(&mfd->pdev->dev);
-	if (!pdata) {
-		pr_err("no panel connected\n");
-		return -ENODEV;
-	}
 
 	if (mdss_mdp_ctl_init(mfd)) {
 		pr_err("unable to initialize ctl\n");
@@ -568,6 +586,12 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 	ctl->power_on = true;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_RESET, NULL);
+	if (ret) {
+		pr_err("panel power on failed ctl=%d\n", ctl->num);
+		goto start_fail;
+	}
+
 	if (ctl->start_fnc)
 		ret = ctl->start_fnc(ctl);
 	else
@@ -577,17 +601,6 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 	if (ret) {
 		pr_err("unable to start intf\n");
 		goto start_fail;
-	}
-
-	/* request bus bandwidth for panel commands */
-	ctl->clk_rate = MDP_CLK_DEFAULT_RATE;
-	ctl->bus_ib_quota = SZ_1M;
-	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
-
-	ret = pdata->on(pdata);
-	if (ret) {
-		pr_err("panel power on failed ctl=%d\n", ctl->num);
-		goto panel_fail;
 	}
 
 	pr_debug("ctl_num=%d\n", ctl->num);
@@ -617,23 +630,18 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_PACK_3D, 0);
 	}
-panel_fail:
-	if (ret && ctl->stop_fnc)
-		ctl->stop_fnc(ctl);
+
 start_fail:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	mutex_unlock(&ctl->lock);
-	if (ret) {
+	if (ret)
 		mdss_mdp_ctl_destroy(mfd);
-		mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
-	}
 
 	return ret;
 }
 
 int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 {
-	struct mdss_panel_data *pdata;
 	struct mdss_mdp_ctl *ctl;
 	int ret = 0;
 
@@ -648,12 +656,6 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 		return -ENODEV;
 	}
 
-	pdata = dev_get_platdata(&mfd->pdev->dev);
-	if (!pdata) {
-		pr_err("no panel connected\n");
-		return -ENODEV;
-	}
-
 	ctl = mfd->ctl;
 
 	if (!ctl->power_on) {
@@ -665,41 +667,33 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 
 	mdss_mdp_overlay_release_all(mfd);
 
-	/* request bus bandwidth for panel commands */
-	ctl->bus_ib_quota = SZ_1M;
-	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
-
 	mutex_lock(&ctl->lock);
-	ctl->power_on = false;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-
-	if (pdata->intf_unprepare)
-		ret = pdata->intf_unprepare(pdata);
-
-	if (ret)
-		pr_err("%s: intf_unprepare failed\n", __func__);
 
 	if (ctl->stop_fnc)
 		ret = ctl->stop_fnc(ctl);
 	else
 		pr_warn("no stop func for ctl=%d\n", ctl->num);
 
-	if (ret)
+	if (ret) {
 		pr_warn("error powering off intf ctl=%d\n", ctl->num);
-
-	ret = pdata->off(pdata);
+	} else {
+		ctl->power_on = false;
+		ctl->play_cnt = 0;
+		ctl->clk_rate = 0;
+		mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
+	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
-	ctl->play_cnt = 0;
-
-	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
-
 	mutex_unlock(&ctl->lock);
 
-	if (!mfd->ref_cnt)
+	if (!ret && !mfd->ref_cnt) {
+		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CLOSE, NULL);
+		WARN(ret, "unable to close intf %d\n", ctl->intf_num);
 		mdss_mdp_ctl_destroy(mfd);
+	}
 
 	return ret;
 }
