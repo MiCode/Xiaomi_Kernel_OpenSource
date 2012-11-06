@@ -369,8 +369,16 @@ static struct i2c_driver ncp6335d_regulator_driver = {
 	.remove = ncp6335d_regulator_remove,
 	.id_table = ncp6335d_id,
 };
+static int __init ncp6335d_regulator_init(void)
+{
+	return i2c_add_driver(&ncp6335d_regulator_driver);
+}
+subsys_initcall(ncp6335d_regulator_init);
 
-module_i2c_driver(ncp6335d_regulator_driver);
-
+static void __exit ncp6335d_regulator_exit(void)
+{
+	i2c_del_driver(&ncp6335d_regulator_driver);
+}
+module_exit(ncp6335d_regulator_exit);
 MODULE_DESCRIPTION("OnSemi-NCP6335D regulator driver");
 MODULE_LICENSE("GPL v2");
