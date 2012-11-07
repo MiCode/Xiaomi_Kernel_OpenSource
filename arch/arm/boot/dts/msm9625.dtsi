@@ -242,7 +242,6 @@
 		compatible = "qcom,bam_dmux";
 		reg = <0xfc834000 0x7000>;
 		interrupts = <0 29 1>;
-		qcom,satellite-mode;
 	};
 
 	qcom,acpuclk@f9010000 {
