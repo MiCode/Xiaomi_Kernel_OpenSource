@@ -2132,6 +2132,21 @@ static uint8_t spm_power_collapse_with_rpm[] __initdata = {
 	0x24, 0x30, 0x0f,
 };
 
+/* 8064AB has a different command to assert apc_pdn */
+static uint8_t spm_power_collapse_without_rpm_krait_v3[] __initdata = {
+	0x00, 0x24, 0x84, 0x10,
+	0x09, 0x03, 0x01,
+	0x10, 0x84, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
+static uint8_t spm_power_collapse_with_rpm_krait_v3[] __initdata = {
+	0x00, 0x24, 0x84, 0x10,
+	0x09, 0x07, 0x01, 0x0B,
+	0x10, 0x84, 0x30, 0x0C,
+	0x24, 0x30, 0x0f,
+};
+
 static struct msm_spm_seq_entry msm_spm_boot_cpu_seq_list[] __initdata = {
 	[0] = {
 		.mode = MSM_SPM_MODE_CLOCK_GATING,
@@ -2283,6 +2298,27 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 		.modes = msm_spm_nonboot_cpu_seq_list,
 	},
 };
+
+static void __init apq8064ab_update_krait_spm(void)
+{
+	int i;
+
+	/* Update the SPM sequences for SPC and PC */
+	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
+		int j;
+		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
+		for (j = 0; j < pdata->num_modes; j++) {
+			if (pdata->modes[j].cmd ==
+					spm_power_collapse_without_rpm)
+				pdata->modes[j].cmd =
+				spm_power_collapse_without_rpm_krait_v3;
+			else if (pdata->modes[j].cmd ==
+					spm_power_collapse_with_rpm)
+				pdata->modes[j].cmd =
+				spm_power_collapse_with_rpm_krait_v3;
+		}
+	}
+}
 
 static void __init apq8064_init_buses(void)
 {
@@ -3487,6 +3523,8 @@ static void __init apq8064_common_init(void)
 		apq8064_init_dsps();
 		platform_device_register(&msm_8960_riva);
 	}
+	if (cpu_is_apq8064ab())
+		apq8064ab_update_krait_spm();
 	msm_spm_init(msm_spm_data, ARRAY_SIZE(msm_spm_data));
 	msm_spm_l2_init(msm_spm_l2_data);
 	BUG_ON(msm_pm_boot_init(&msm_pm_boot_pdata));
