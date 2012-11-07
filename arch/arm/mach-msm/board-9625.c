@@ -120,11 +120,13 @@ static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
 static void __init msm9625_early_memory(void)
 {
 	reserve_info = &msm9625_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msm9625_reserve_table);
+	of_scan_flat_dt(dt_scan_for_memory_hole, msm9625_reserve_table);
 }
 
 static void __init msm9625_reserve(void)
 {
+	reserve_info = &msm9625_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm9625_reserve_table);
 	msm_reserve();
 }
 
