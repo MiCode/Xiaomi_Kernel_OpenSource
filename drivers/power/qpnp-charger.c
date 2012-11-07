@@ -702,7 +702,7 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 }
 
 static int
-qpnp_chg_charge_dis(struct qpnp_chg_chip *chip, int disable)
+qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
 {
 	/* This bit forces the charger to run off of the battery rather
 	 * than a connected charger */
@@ -784,11 +784,9 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		if (val->intval)
-			qpnp_chg_charge_en(chip, val->intval);
-		else
-			qpnp_chg_charge_dis(chip, val->intval);
 		chip->charging_disabled = !(val->intval);
+		qpnp_chg_charge_en(chip, !chip->charging_disabled);
+		qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
 		break;
 	default:
 		return -EINVAL;
@@ -1275,7 +1273,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			qpnp_chg_is_usb_chg_plugged_in(chip));
 
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
-	qpnp_chg_charge_dis(chip, chip->charging_disabled);
+	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
 
 	pr_info("Probe success !\n");
 	return 0;
