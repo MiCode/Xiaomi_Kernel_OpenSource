@@ -1262,6 +1262,17 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
 						0xC00000, 0x800000);
 
+	/* Sequence to put SSPHY in low power state:
+	 * 1. Clear REF_SS_PHY_EN in SS_PHY_CTRL_REG
+	 * 2. Clear REF_USE_PAD in SS_PHY_CTRL_REG
+	 * 3. Set TEST_POWERED_DOWN in SS_PHY_CTRL_REG to enable PHY retention
+	 * 4. Disable SSPHY ref clk
+	 */
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 8), 0x0);
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 28), 0x0);
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 26),
+								(1 << 26));
+
 	usleep_range(1000, 1200);
 	clk_disable_unprepare(mdwc->ref_clk);
 
@@ -1346,13 +1357,25 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 	      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) | 0xF0000000);
-	/* 20usec delay required before de-asserting PHY RESET */
-	udelay(20);
+	/* 10usec delay required before de-asserting PHY RESET */
+	udelay(10);
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 	      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) & 0x7FFFFFFF);
 
 	/* Bring PHY out of suspend */
 	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0xC00000, 0x0);
+
+	/* Assert SS PHY RESET */
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 7),
+								(1 << 7));
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 28),
+								(1 << 28));
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 8),
+								(1 << 8));
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 26), 0x0);
+	/* 10usec delay required before de-asserting SS PHY RESET */
+	udelay(10);
+	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 7), 0x0);
 
 	atomic_set(&mdwc->in_lpm, 0);
 
