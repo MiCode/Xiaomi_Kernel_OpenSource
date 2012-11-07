@@ -1844,6 +1844,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->ce_data_in);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_auth_byte_count);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_auth_result_20);
 	*cmd_ptr_vaddr++ = QCE_SET_LAST_CMD_PTR(cmdlist->get_status_ocu);
@@ -1858,6 +1860,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_byte_count);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_go_proc);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->ce_data_in);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_auth_byte_count);
@@ -1877,6 +1881,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->ce_data_in);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_auth_byte_count);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_auth_result_20);
 	*cmd_ptr_vaddr++ = QCE_SET_LAST_CMD_PTR(cmdlist->get_status_ocu);
@@ -1892,6 +1898,8 @@ static int _setup_auth_cmdptrlists(struct qce_device *pce_dev,
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_auth_byte_count);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->set_go_proc);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->ce_data_in);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
+	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_status_wait);
 	*cmd_ptr_vaddr++ = QCE_SET_CMD_PTR(cmdlist->get_auth_byte_count);
