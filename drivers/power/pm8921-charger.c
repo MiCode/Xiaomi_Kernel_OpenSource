@@ -87,6 +87,7 @@
 #define EOC_CHECK_PERIOD_MS	10000
 /* check for USB unplug every 200 msecs */
 #define UNPLUG_CHECK_WAIT_PERIOD_MS 200
+#define USB_TRIM_ENTRIES 16
 
 enum chg_fsm_state {
 	FSM_STATE_OFF_0 = 0,
@@ -260,6 +261,7 @@ struct pm8921_chg_chip {
 	struct power_supply		batt_psy;
 	struct dentry			*dent;
 	struct bms_notify		bms_notify;
+	int				*usb_trim_table;
 	bool				keep_btm_on_suspend;
 	bool				ext_charging;
 	bool				ext_charge_done;
@@ -710,6 +712,46 @@ struct usb_ma_limit_entry {
 	u8	value;
 };
 
+/* USB Trim tables */
+static int usb_trim_8038_table[USB_TRIM_ENTRIES] = {
+	0x0,
+	0x0,
+	-0x9,
+	0x0,
+	-0xD,
+	0x0,
+	-0x10,
+	-0x11,
+	0x0,
+	0x0,
+	-0x25,
+	0x0,
+	-0x28,
+	0x0,
+	-0x32,
+	0x0
+};
+
+static int usb_trim_8917_table[USB_TRIM_ENTRIES] = {
+	0x0,
+	0x0,
+	0xA,
+	0xC,
+	0x10,
+	0x10,
+	0x13,
+	0x14,
+	0x13,
+	0x16,
+	0x1A,
+	0x1D,
+	0x1D,
+	0x21,
+	0x24,
+	0x26
+};
+
+/* Maximum USB  setting table */
 static struct usb_ma_limit_entry usb_ma_table[] = {
 	{100, 0x0},
 	{200, 0x1},
@@ -729,18 +771,92 @@ static struct usb_ma_limit_entry usb_ma_table[] = {
 	{1600, 0xF},
 };
 
+#define REG_SBI_CONFIG		0x04F
+#define PAGE3_ENABLE_MASK	0x6
+#define USB_OVP_TRIM_MASK	0x3F
+#define USB_OVP_TRIM_MIN	0x00
+#define REG_USB_OVP_TRIM_ORIG_LSB	0x10A
+#define REG_USB_OVP_TRIM_ORIG_MSB	0x09C
+static int pm_chg_usb_trim(struct pm8921_chg_chip *chip, int index)
+{
+	u8 temp, sbi_config, msb, lsb;
+	s8 trim;
+	int rc = 0;
+	static u8 usb_trim_reg_orig = 0xFF;
+
+	/* No trim data for PM8921 */
+	if (!chip->usb_trim_table)
+		return 0;
+
+	if (usb_trim_reg_orig == 0xFF) {
+		rc = pm8xxx_readb(chip->dev->parent,
+				REG_USB_OVP_TRIM_ORIG_MSB, &msb);
+		if (rc) {
+			pr_err("error = %d reading sbi config reg\n", rc);
+			return rc;
+		}
+
+		rc = pm8xxx_readb(chip->dev->parent,
+				REG_USB_OVP_TRIM_ORIG_LSB, &lsb);
+		if (rc) {
+			pr_err("error = %d reading sbi config reg\n", rc);
+			return rc;
+		}
+
+		msb = msb >> 5;
+		lsb = lsb >> 5;
+		usb_trim_reg_orig = msb << 3 | lsb;
+	}
+
+	/* use the original trim value */
+	trim = usb_trim_reg_orig;
+
+	trim += chip->usb_trim_table[index];
+	if (trim < 0)
+		trim = 0;
+
+	pr_err("trim_orig %d write 0x%x index=%d value 0x%x to USB_OVP_TRIM\n",
+		usb_trim_reg_orig, trim, index, chip->usb_trim_table[index]);
+
+	rc = pm8xxx_readb(chip->dev->parent, REG_SBI_CONFIG, &sbi_config);
+	if (rc) {
+		pr_err("error = %d reading sbi config reg\n", rc);
+		return rc;
+	}
+
+	temp = sbi_config | PAGE3_ENABLE_MASK;
+	rc = pm8xxx_writeb(chip->dev->parent, REG_SBI_CONFIG, temp);
+	if (rc) {
+		pr_err("error = %d writing sbi config reg\n", rc);
+		return rc;
+	}
+
+	rc = pm_chg_masked_write(chip, USB_OVP_TRIM, USB_OVP_TRIM_MASK, trim);
+	if (rc) {
+		pr_err("error = %d writing USB_OVP_TRIM\n", rc);
+		return rc;
+	}
+
+	rc = pm8xxx_writeb(chip->dev->parent, REG_SBI_CONFIG, sbi_config);
+	if (rc) {
+		pr_err("error = %d writing sbi config reg\n", rc);
+		return rc;
+	}
+	return rc;
+}
+
 #define PM8921_CHG_IUSB_MASK 0x1C
 #define PM8921_CHG_IUSB_SHIFT 2
 #define PM8921_CHG_IUSB_MAX  7
 #define PM8921_CHG_IUSB_MIN  0
 #define PM8917_IUSB_FINE_RES BIT(0)
-static int pm_chg_iusbmax_set(struct pm8921_chg_chip *chip, int reg_val)
+static int pm_chg_iusbmax_set(struct pm8921_chg_chip *chip, int index)
 {
-	u8 temp, fineres;
+	u8 temp, fineres, reg_val;
 	int rc;
 
-	fineres = PM8917_IUSB_FINE_RES & usb_ma_table[reg_val].value;
-	reg_val = usb_ma_table[reg_val].value >> 1;
+	reg_val = usb_ma_table[index].value >> 1;
+	fineres = PM8917_IUSB_FINE_RES & usb_ma_table[index].value;
 
 	if (reg_val < PM8921_CHG_IUSB_MIN || reg_val > PM8921_CHG_IUSB_MAX) {
 		pr_err("bad mA=%d asked to set\n", reg_val);
@@ -765,16 +881,24 @@ static int pm_chg_iusbmax_set(struct pm8921_chg_chip *chip, int reg_val)
 		if (fineres) {
 			rc = pm_chg_masked_write(chip, IUSB_FINE_RES,
 				PM8917_IUSB_FINE_RES, fineres);
-			if (rc)
+			if (rc) {
 				pr_err("Failed to write ISUB_FINE_RES rc=%d\n",
 					rc);
+				return rc;
+			}
 		}
 	} else {
 		rc = pm_chg_masked_write(chip, PBL_ACCESS2,
 			PM8921_CHG_IUSB_MASK, temp);
-		if (rc)
+		if (rc) {
 			pr_err("Failed to write PBL_ACCESS2 rc=%d\n", rc);
+			return rc;
+		}
 	}
+
+	rc = pm_chg_usb_trim(chip, index);
+	if (rc)
+			pr_err("unable to set usb trim rc = %d\n", rc);
 
 	return rc;
 }
@@ -1718,9 +1842,8 @@ static void __pm8921_charger_vbus_draw(unsigned int mA)
 		if (i < 0)
 			i = 0;
 		rc = pm_chg_iusbmax_set(the_chip, i);
-		if (rc) {
+		if (rc)
 			pr_err("unable to set iusb to %d rc = %d\n", i, rc);
-		}
 	}
 }
 
@@ -3552,6 +3675,12 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 			chip->dc_present,
 			get_prop_batt_present(chip),
 			fsm_state);
+
+	/* Determine which USB trim column to use */
+	if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8917)
+		chip->usb_trim_table = usb_trim_8917_table;
+	else if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8038)
+		chip->usb_trim_table = usb_trim_8038_table;
 }
 
 struct pm_chg_irq_init_data {
