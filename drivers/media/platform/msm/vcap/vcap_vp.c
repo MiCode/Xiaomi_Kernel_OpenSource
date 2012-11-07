@@ -396,6 +396,7 @@ void vp_stop_capture(struct vcap_client_data *c_data)
 		if (rc == 0 && atomic_read(&dev->vp_enabled) == 1) {
 			/* This should not happen, if it does hw is stuck */
 			disable_irq_nosync(dev->vpirq->start);
+			atomic_set(&dev->vp_enabled, 0);
 			pr_err("%s: VP Timeout and VP still running\n",
 				__func__);
 		}
