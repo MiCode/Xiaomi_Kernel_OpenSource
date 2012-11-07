@@ -54,7 +54,7 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.2", OFF),
 };
 
-struct clock_init_data msm_dummy_clock_init_data __initdata = {
+static struct clock_init_data msm_dummy_clock_init_data __initdata = {
 	.table = msm_clocks_dummy,
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };

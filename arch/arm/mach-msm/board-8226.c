@@ -50,7 +50,7 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "f9a55000.usb", OFF),
 };
 
-struct clock_init_data msm_dummy_clock_init_data __initdata = {
+static struct clock_init_data msm_dummy_clock_init_data __initdata = {
 	.table = msm_clocks_dummy,
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };
@@ -65,7 +65,6 @@ void __init msm8226_init(void)
 
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 }
-
 
 static const char *msm8226_dt_match[] __initconst = {
 	"qcom,msm8226",
