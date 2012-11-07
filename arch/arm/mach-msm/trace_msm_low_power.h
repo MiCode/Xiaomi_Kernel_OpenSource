@@ -126,6 +126,27 @@ DEFINE_EVENT(msm_pm_exit, msm_pm_exit_wfi,
 
 	TP_ARGS(cpu, success)
 );
+
+TRACE_EVENT(lpm_resources,
+
+	TP_PROTO(uint32_t sleep_value , char *name),
+
+	TP_ARGS(sleep_value, name),
+
+	TP_STRUCT__entry(
+		__field(uint32_t , sleep_value)
+		__string(name, name)
+	),
+
+	TP_fast_assign(
+		__entry->sleep_value = sleep_value;
+		__assign_str(name, name);
+	),
+
+	TP_printk("name:%s sleep_value:%d",
+			 __get_str(name),
+			__entry->sleep_value)
+);
 #endif
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH .
