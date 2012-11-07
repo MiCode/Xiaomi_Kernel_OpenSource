@@ -30,6 +30,8 @@
 
 #include <net/sock.h>
 
+#include <mach/msm_ipc_router.h>
+
 #include "ipc_router.h"
 
 #define msm_ipc_sk(sk) ((struct msm_ipc_sock *)(sk))
