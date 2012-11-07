@@ -619,6 +619,7 @@ static int msm_sat_define_ch(struct msm_slim_sat *sat, u8 *buf, u8 len, u8 mc)
 		u16 chh[40];
 		struct slim_ch prop;
 		u32 exp;
+		u16 *grph = NULL;
 		u8 coeff, cc;
 		u8 prrate = buf[6];
 		if (len <= 8)
@@ -639,6 +640,9 @@ static int msm_sat_define_ch(struct msm_slim_sat *sat, u8 *buf, u8 len, u8 mc)
 					return ret;
 				if (mc == SLIM_USR_MC_DEF_ACT_CHAN)
 					sat->satch[j].req_def++;
+				/* First channel in group from satellite */
+				if (i == 8)
+					grph = &sat->satch[j].chanh;
 				continue;
 			}
 			if (sat->nsatch >= MSM_MAX_SATCH)
@@ -650,6 +654,8 @@ static int msm_sat_define_ch(struct msm_slim_sat *sat, u8 *buf, u8 len, u8 mc)
 			sat->satch[j].chanh = chh[i - 8];
 			if (mc == SLIM_USR_MC_DEF_ACT_CHAN)
 				sat->satch[j].req_def++;
+			if (i == 8)
+				grph = &sat->satch[j].chanh;
 			sat->nsatch++;
 		}
 		prop.dataf = (enum slim_ch_dataf)((buf[3] & 0xE0) >> 5);
@@ -670,10 +676,12 @@ static int msm_sat_define_ch(struct msm_slim_sat *sat, u8 *buf, u8 len, u8 mc)
 					true, &chh[0]);
 		else
 			ret = slim_define_ch(&sat->satcl, &prop,
-					&chh[0], 1, false, NULL);
+					chh, 1, true, &chh[0]);
 		dev_dbg(dev->dev, "define sat grp returned:%d", ret);
 		if (ret)
 			return ret;
+		else if (grph)
+			*grph = chh[0];
 
 		/* part of group so activating 1 will take care of rest */
 		if (mc == SLIM_USR_MC_DEF_ACT_CHAN)
@@ -806,6 +814,8 @@ static void slim_sat_rxprocess(struct work_struct *work)
 						slim_control_ch(&sat->satcl,
 							sat->satch[i].chanh,
 							SLIM_CH_REMOVE, true);
+						slim_dealloc_ch(&sat->satcl,
+							sat->satch[i].chanh);
 						sat->satch[i].reconf = false;
 					}
 				}
