@@ -254,6 +254,8 @@ struct vcap_client_data {
 	uint32_t				hold_vc;
 	uint32_t				hold_vp;
 
+	/* Mutex ensures only one thread is dq buffer or turning streamoff */
+	struct mutex			mutex;
 	spinlock_t				cap_slock;
 	bool					streaming;
 

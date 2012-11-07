@@ -569,6 +569,17 @@ int free_ion_handle(struct vcap_client_data *c_data, struct vb2_queue *q,
 }
 
 /* VC Videobuf operations */
+static void wait_prepare(struct vb2_queue *q)
+{
+	struct vcap_client_data *c_data = vb2_get_drv_priv(q);
+	mutex_unlock(&c_data->mutex);
+}
+
+static void wait_finish(struct vb2_queue *q)
+{
+	struct vcap_client_data *c_data = vb2_get_drv_priv(q);
+	mutex_lock(&c_data->mutex);
+}
 
 static int capture_queue_setup(struct vb2_queue *vq,
 			       const struct v4l2_format *fmt,
@@ -651,6 +662,8 @@ static void capture_buffer_cleanup(struct vb2_buffer *vb)
 
 static struct vb2_ops capture_video_qops = {
 	.queue_setup		= capture_queue_setup,
+	.wait_finish		= wait_finish,
+	.wait_prepare		= wait_prepare,
 	.buf_init			= capture_buffer_init,
 	.buf_prepare		= capture_buffer_prepare,
 	.buf_queue			= capture_buffer_queue,
@@ -749,6 +762,8 @@ static void vp_in_buffer_cleanup(struct vb2_buffer *vb)
 
 static struct vb2_ops vp_in_video_qops = {
 	.queue_setup		= vp_in_queue_setup,
+	.wait_finish		= wait_finish,
+	.wait_prepare		= wait_prepare,
 	.buf_init			= vp_in_buffer_init,
 	.buf_prepare		= vp_in_buffer_prepare,
 	.buf_queue			= vp_in_buffer_queue,
@@ -847,6 +862,8 @@ static void vp_out_buffer_cleanup(struct vb2_buffer *vb)
 
 static struct vb2_ops vp_out_video_qops = {
 	.queue_setup		= vp_out_queue_setup,
+	.wait_finish		= wait_finish,
+	.wait_prepare		= wait_prepare,
 	.buf_init			= vp_out_buffer_init,
 	.buf_prepare		= vp_out_buffer_prepare,
 	.buf_queue			= vp_out_buffer_queue,
@@ -1072,7 +1089,9 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		rc = get_phys_addr(c_data->dev, &c_data->vc_vidq, p);
 		if (rc < 0)
 			return rc;
+		mutex_lock(&c_data->mutex);
 		rc = vb2_qbuf(&c_data->vc_vidq, p);
+		mutex_unlock(&c_data->mutex);
 		if (rc < 0)
 			free_ion_handle(c_data, &c_data->vc_vidq, p);
 		return rc;
@@ -1082,7 +1101,9 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		rc = get_phys_addr(c_data->dev, &c_data->vp_in_vidq, p);
 		if (rc < 0)
 			return rc;
+		mutex_lock(&c_data->mutex);
 		rc = vb2_qbuf(&c_data->vp_in_vidq, p);
+		mutex_unlock(&c_data->mutex);
 		if (rc < 0)
 			free_ion_handle(c_data, &c_data->vp_in_vidq, p);
 		return rc;
@@ -1090,7 +1111,9 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		rc = get_phys_addr(c_data->dev, &c_data->vp_out_vidq, p);
 		if (rc < 0)
 			return rc;
+		mutex_lock(&c_data->mutex);
 		rc = vb2_qbuf(&c_data->vp_out_vidq, p);
+		mutex_unlock(&c_data->mutex);
 		if (rc < 0)
 			free_ion_handle(c_data, &c_data->vp_out_vidq, p);
 		return rc;
@@ -1114,21 +1137,27 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		if (c_data->op_mode == VC_AND_VP_VCAP_OP)
 			return -EINVAL;
+		mutex_lock(&c_data->mutex);
 		rc = vb2_dqbuf(&c_data->vc_vidq, p, file->f_flags & O_NONBLOCK);
+		mutex_unlock(&c_data->mutex);
 		if (rc < 0)
 			return rc;
 		return free_ion_handle(c_data, &c_data->vc_vidq, p);
 	case V4L2_BUF_TYPE_INTERLACED_IN_DECODER:
 		if (c_data->op_mode == VC_AND_VP_VCAP_OP)
 			return -EINVAL;
+		mutex_lock(&c_data->mutex);
 		rc = vb2_dqbuf(&c_data->vp_in_vidq, p, file->f_flags &
 				O_NONBLOCK);
+		mutex_unlock(&c_data->mutex);
 		if (rc < 0)
 			return rc;
 		return free_ion_handle(c_data, &c_data->vp_in_vidq, p);
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		mutex_lock(&c_data->mutex);
 		rc = vb2_dqbuf(&c_data->vp_out_vidq, p, file->f_flags &
 				O_NONBLOCK);
+		mutex_unlock(&c_data->mutex);
 		if (rc < 0)
 			return rc;
 		return free_ion_handle(c_data, &c_data->vp_out_vidq, p);
@@ -1488,8 +1517,10 @@ int streamoff_work(struct vcap_client_data *c_data)
 		dev->vc_resource = 0;
 		mutex_unlock(&dev->dev_mutex);
 		c_data->streaming = 0;
+		mutex_lock(&c_data->mutex);
 		rc = vb2_streamoff(&c_data->vc_vidq,
 				V4L2_BUF_TYPE_VIDEO_CAPTURE);
+		mutex_unlock(&c_data->mutex);
 		if (rc >= 0)
 			atomic_set(&c_data->dev->vc_enabled, 0);
 		return rc;
@@ -1515,14 +1546,18 @@ int streamoff_work(struct vcap_client_data *c_data)
 			return rc;
 		c_data->streaming = 0;
 
+		mutex_unlock(&dev->dev_mutex);
 		/* These stream on calls should not fail */
 		rc = vb2_streamoff(&c_data->vp_in_vidq,
 				V4L2_BUF_TYPE_INTERLACED_IN_DECODER);
-		if (rc < 0)
+		if (rc < 0) {
+			mutex_unlock(&c_data->mutex);
 			return rc;
+		}
 
 		rc = vb2_streamoff(&c_data->vp_out_vidq,
 				V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		mutex_unlock(&c_data->mutex);
 		if (rc < 0)
 			return rc;
 
@@ -1557,20 +1592,26 @@ int streamoff_work(struct vcap_client_data *c_data)
 		if (rc < 0)
 			return rc;
 
-		/* These stream on calls should not fail */
 		c_data->streaming = 0;
+		mutex_lock(&c_data->mutex);
+		/* These stream on calls should not fail */
 		rc = vb2_streamoff(&c_data->vc_vidq,
 				V4L2_BUF_TYPE_VIDEO_CAPTURE);
-		if (rc < 0)
+		if (rc < 0) {
+			mutex_unlock(&c_data->mutex);
 			return rc;
+		}
 
 		rc = vb2_streamoff(&c_data->vp_in_vidq,
 				V4L2_BUF_TYPE_INTERLACED_IN_DECODER);
-		if (rc < 0)
+		if (rc < 0) {
+			mutex_unlock(&c_data->mutex);
 			return rc;
+		}
 
 		rc = vb2_streamoff(&c_data->vp_out_vidq,
 				V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		mutex_unlock(&c_data->mutex);
 		if (rc < 0)
 			return rc;
 
@@ -1716,6 +1757,7 @@ static int vcap_open(struct file *file)
 	c_data->dev = dev;
 
 	spin_lock_init(&c_data->cap_slock);
+	mutex_init(&c_data->mutex);
 
 	/* initialize vc queue */
 	q = &c_data->vc_vidq;
@@ -1799,6 +1841,7 @@ vp_out_q_failed:
 vp_in_q_failed:
 	vb2_queue_release(&c_data->vc_vidq);
 vc_q_failed:
+	mutex_destroy(&c_data->mutex);
 	kfree(c_data);
 	return ret;
 }
@@ -1833,6 +1876,7 @@ static int vcap_close(struct file *file)
 		c_data->dev->vc_client = NULL;
 	if (c_data->dev->vp_client == c_data)
 		c_data->dev->vp_client = NULL;
+	mutex_destroy(&c_data->mutex);
 	kfree(c_data);
 	return 0;
 }
