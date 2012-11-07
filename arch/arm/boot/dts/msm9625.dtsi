@@ -13,6 +13,7 @@
 /include/ "skeleton.dtsi"
 /include/ "msm9625-ion.dtsi"
 /include/ "msm9625-pm.dtsi"
+/include/ "msm9625-coresight.dtsi"
 
 / {
 	model = "Qualcomm MSM 9625";
