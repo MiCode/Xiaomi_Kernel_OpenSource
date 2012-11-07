@@ -25,6 +25,17 @@ config MSM_IOMMU
 
 	  If unsure, say N here.
 
+# MSM IOMMU CPU-GPU sync programming support
+config MSM_IOMMU_GPU_SYNC
+	bool "MSM IOMMU CPU-GPU Sync Support"
+	depends on (ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8930) && MSM_IOMMU && MSM_REMOTE_SPINLOCK_SFPB
+	help
+	  Say Y here if you want to synchronize access to IOMMU configuration
+	  port between CPU and GPU. CPU will grab a remote spinlock before
+	  accessing IOMMU configuration registers and GPU will do the same.
+
+	  If unsure, say N here.
+
 config IOMMU_PGTABLES_L2
 	bool "Allow SMMU page tables in the L2 cache (Experimental)"
 	depends on MSM_IOMMU && MMU && SMP && CPU_DCACHE_DISABLE=n
