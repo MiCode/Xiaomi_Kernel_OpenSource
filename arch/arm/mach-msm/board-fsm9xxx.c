@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@
 #include <linux/msm_adc.h>
 #include <linux/m_adcproc.h>
 #include <linux/platform_data/qcom_crypto_device.h>
+#include <linux/msm_ion.h>
 
 #define PMIC_GPIO_INT		144
 #define PMIC_VREG_WLAN_LEVEL	2900
@@ -723,32 +724,32 @@ static void user_gpios_init(void)
 
 static struct resource qcrypto_resources[] = {
 	[0] = {
-		.start = QCE_0_BASE,
-		.end = QCE_0_BASE + QCE_SIZE - 1,
+		.start = QCE_1_BASE,
+		.end = QCE_1_BASE + QCE_SIZE - 1,
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
 		.name = "crypto_channels",
-		.start = DMOV_CE1_IN_CHAN,
-		.end = DMOV_CE1_OUT_CHAN,
+		.start = DMOV_CE2_IN_CHAN,
+		.end = DMOV_CE2_OUT_CHAN,
 		.flags = IORESOURCE_DMA,
 	},
 	[2] = {
 		.name = "crypto_crci_in",
-		.start = DMOV_CE1_IN_CRCI,
-		.end = DMOV_CE1_IN_CRCI,
+		.start = DMOV_CE2_IN_CRCI,
+		.end = DMOV_CE2_IN_CRCI,
 		.flags = IORESOURCE_DMA,
 	},
 	[3] = {
 		.name = "crypto_crci_out",
-		.start = DMOV_CE1_OUT_CRCI,
-		.end = DMOV_CE1_OUT_CRCI,
+		.start = DMOV_CE2_OUT_CRCI,
+		.end = DMOV_CE2_OUT_CRCI,
 		.flags = IORESOURCE_DMA,
 	},
 	[4] = {
 		.name = "crypto_crci_hash",
-		.start = DMOV_CE1_HASH_CRCI,
-		.end = DMOV_CE1_HASH_CRCI,
+		.start = DMOV_CE2_HASH_CRCI,
+		.end = DMOV_CE2_HASH_CRCI,
 		.flags = IORESOURCE_DMA,
 	},
 };
@@ -773,57 +774,6 @@ struct platform_device qcrypto_device = {
 };
 
 static struct resource qcedev_resources[] = {
-	[0] = {
-		.start = QCE_0_BASE,
-		.end = QCE_0_BASE + QCE_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.name = "crypto_channels",
-		.start = DMOV_CE1_IN_CHAN,
-		.end = DMOV_CE1_OUT_CHAN,
-		.flags = IORESOURCE_DMA,
-	},
-	[2] = {
-		.name = "crypto_crci_in",
-		.start = DMOV_CE1_IN_CRCI,
-		.end = DMOV_CE1_IN_CRCI,
-		.flags = IORESOURCE_DMA,
-	},
-	[3] = {
-		.name = "crypto_crci_out",
-		.start = DMOV_CE1_OUT_CRCI,
-		.end = DMOV_CE1_OUT_CRCI,
-		.flags = IORESOURCE_DMA,
-	},
-	[4] = {
-		.name = "crypto_crci_hash",
-		.start = DMOV_CE1_HASH_CRCI,
-		.end = DMOV_CE1_HASH_CRCI,
-		.flags = IORESOURCE_DMA,
-	},
-};
-
-static struct msm_ce_hw_support qcedev_ce_hw_suppport = {
-	.ce_shared = QCE_NO_CE_SHARED,
-	.shared_ce_resource = QCE_NO_SHARE_CE_RESOURCE,
-	.hw_key_support = QCE_NO_HW_KEY_SUPPORT,
-	.sha_hmac = QCE_NO_SHA_HMAC_SUPPORT,
-	.bus_scale_table = NULL,
-};
-
-static struct platform_device qcedev_device = {
-	.name		= "qce",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(qcedev_resources),
-	.resource	= qcedev_resources,
-	.dev		= {
-		.coherent_dma_mask = DMA_BIT_MASK(32),
-		.platform_data = &qcedev_ce_hw_suppport,
-	},
-};
-
-static struct resource ota_qcrypto_resources[] = {
 	[0] = {
 		.start = QCE_1_BASE,
 		.end = QCE_1_BASE + QCE_SIZE - 1,
@@ -855,6 +805,57 @@ static struct resource ota_qcrypto_resources[] = {
 	},
 };
 
+static struct msm_ce_hw_support qcedev_ce_hw_suppport = {
+	.ce_shared = QCE_NO_CE_SHARED,
+	.shared_ce_resource = QCE_NO_SHARE_CE_RESOURCE,
+	.hw_key_support = QCE_NO_HW_KEY_SUPPORT,
+	.sha_hmac = QCE_NO_SHA_HMAC_SUPPORT,
+	.bus_scale_table = NULL,
+};
+
+static struct platform_device qcedev_device = {
+	.name		= "qce",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(qcedev_resources),
+	.resource	= qcedev_resources,
+	.dev		= {
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+		.platform_data = &qcedev_ce_hw_suppport,
+	},
+};
+
+static struct resource ota_qcrypto_resources[] = {
+	[0] = {
+		.start = QCE_2_BASE,
+		.end = QCE_2_BASE + QCE_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.name = "crypto_channels",
+		.start = DMOV_CE3_IN_CHAN,
+		.end = DMOV_CE3_OUT_CHAN,
+		.flags = IORESOURCE_DMA,
+	},
+	[2] = {
+		.name = "crypto_crci_in",
+		.start = DMOV_CE3_IN_CRCI,
+		.end = DMOV_CE3_IN_CRCI,
+		.flags = IORESOURCE_DMA,
+	},
+	[3] = {
+		.name = "crypto_crci_out",
+		.start = DMOV_CE3_OUT_CRCI,
+		.end = DMOV_CE3_OUT_CRCI,
+		.flags = IORESOURCE_DMA,
+	},
+	[4] = {
+		.name = "crypto_crci_hash",
+		.start = DMOV_CE3_HASH_DONE_CRCI,
+		.end = DMOV_CE3_HASH_DONE_CRCI,
+		.flags = IORESOURCE_DMA,
+	},
+};
+
 struct platform_device ota_qcrypto_device = {
 	.name		= "qcota",
 	.id		= 0,
@@ -868,6 +869,27 @@ struct platform_device ota_qcrypto_device = {
 static struct platform_device fsm9xxx_device_acpuclk = {
 	.name		= "acpuclk-9xxx",
 	.id		= -1,
+};
+
+struct ion_platform_heap msm_ion_heaps[] = {
+	{
+		.id = ION_SYSTEM_HEAP_ID,
+		.type = ION_HEAP_TYPE_SYSTEM_CONTIG,
+		.name = "kmalloc",
+	},
+};
+
+static struct ion_platform_data msm_ion_pdata = {
+	.nr = 1,
+	.heaps = msm_ion_heaps,
+};
+
+static struct platform_device msm_ion_device = {
+	.name = "ion-msm",
+	.id = 1,
+	.dev = {
+		.platform_data = &msm_ion_pdata,
+	},
 };
 
 /*
@@ -905,6 +927,7 @@ static struct platform_device *devices[] __initdata = {
 	&ota_qcrypto_device,
 	&fsm_xo_device,
 	&fsm9xxx_device_watchdog,
+	&msm_ion_device,
 };
 
 static void __init fsm9xxx_init_irq(void)
