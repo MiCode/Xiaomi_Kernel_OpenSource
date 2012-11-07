@@ -768,6 +768,7 @@ ret_assigned_laddr:
 	list_for_each_entry(sbdev, &ctrl->devs, dev_list) {
 		if (memcmp(sbdev->e_addr, e_addr, 6) == 0) {
 			struct slim_driver *sbdrv;
+			sbdev->laddr = *laddr;
 			if (sbdev->dev.driver) {
 				sbdrv = to_slim_driver(sbdev->dev.driver);
 				if (sbdrv->device_up)
