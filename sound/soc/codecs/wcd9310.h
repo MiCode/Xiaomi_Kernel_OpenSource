@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@ enum tabla_micbias_num {
 	TABLA_MICBIAS2,
 	TABLA_MICBIAS3,
 	TABLA_MICBIAS4,
+	TABLA_NUM_MICBIAS,
 };
 
 enum tabla_pid_current {
@@ -179,6 +180,7 @@ struct tabla_mbhc_config {
 	bool detect_extn_cable;
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
+	bool micbias_always_on;
 };
 
 extern int tabla_hs_detect(struct snd_soc_codec *codec,
