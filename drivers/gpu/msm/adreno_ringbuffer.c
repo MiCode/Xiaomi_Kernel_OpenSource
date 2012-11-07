@@ -537,6 +537,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (adreno_is_a3xx(adreno_dev))
 		total_sizedwords += 7;
 
+	if (adreno_is_a2xx(adreno_dev))
+		total_sizedwords += 2; /* CP_WAIT_FOR_IDLE */
+
 	total_sizedwords += 2; /* scratchpad ts for recovery */
 	if (context && context->flags & CTXT_FLAGS_PER_CONTEXT_TS &&
 			!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
@@ -601,6 +604,16 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 			rb->timestamp[context_id]++;
 	}
 	timestamp = rb->timestamp[context_id];
+
+	/* HW Workaround for MMU Page fault
+	* due to memory getting free early before
+	* GPU completes it.
+	*/
+	if (adreno_is_a2xx(adreno_dev)) {
+		GSL_RB_WRITE(ringcmds, rcmd_gpu,
+			cp_type3_packet(CP_WAIT_FOR_IDLE, 1));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, 0x00);
+	}
 
 	/* scratchpad ts for recovery */
 	GSL_RB_WRITE(ringcmds, rcmd_gpu, cp_type0_packet(REG_CP_TIMESTAMP, 1));
