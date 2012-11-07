@@ -1162,7 +1162,9 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		}
 		break;
 	case MSMFB_OVERLAY_COMMIT:
+		mdss_fb_wait_for_fence(mfd);
 		ret = mdss_mdp_overlay_kickoff(mfd->ctl);
+		mdss_fb_signal_timeline(mfd);
 		break;
 	default:
 		if (mfd->panel.type == WRITEBACK_PANEL)
