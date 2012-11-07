@@ -14,7 +14,7 @@ The required properties for rpm-stats are:
 
 Example:
 
-qcom,rpm-stats@0xfc19dbd0{
+qcom,rpm-stats@fc19dbd0 {
 		compatible = "qcom,rpm-stats";
 		reg = <0xfc19dbd0 0x1000>;
 		reg-names = "phys_addr_base";
