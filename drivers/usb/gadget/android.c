@@ -24,6 +24,7 @@
 #include <linux/utsname.h>
 #include <linux/platform_device.h>
 #include <linux/pm_qos.h>
+#include <linux/of.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
@@ -2409,10 +2410,25 @@ static int usb_diag_update_pid_and_serial_num(u32 pid, const char *snum)
 
 static int __devinit android_probe(struct platform_device *pdev)
 {
-	struct android_usb_platform_data *pdata = pdev->dev.platform_data;
+	struct android_usb_platform_data *pdata;
 	struct android_dev *android_dev;
 	struct resource *res;
 	int ret = 0;
+
+	if (pdev->dev.of_node) {
+		dev_dbg(&pdev->dev, "device tree enabled\n");
+		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata) {
+			pr_err("unable to allocate platform data\n");
+			return -ENOMEM;
+		}
+
+		of_property_read_u32(pdev->dev.of_node,
+				"qcom,android-usb-swfi-latency",
+				&pdata->swfi_latency);
+	} else {
+		pdata = pdev->dev.platform_data;
+	}
 
 	if (!android_class) {
 		android_class = class_create(THIS_MODULE, "android_usb");
