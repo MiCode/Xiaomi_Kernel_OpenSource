@@ -43,3 +43,15 @@ The 'cpu' parameter represents the cpu on which the low power mode is chosen.
 The 'success' parameter shows the state of power collapse/standalone power
 collapse. It will be set if power collapse/standalone power collapse were
 successful. For the rest of the low power modes it is set to one.
+
+3) lpm_resources
+=================
+lpm_resources: name:%s sleep_value:%d
+
+This event captures parameters for each of the lpm resources.
+
+The 'name' parameter represents the name of the lpm resource and it can hold
+l2, pxo, vdd mem, vdd dig depending on the resource chosen during power
+collapse.
+
+The 'sleep_value' parameter corresponds to the sleep value set for the resource.
