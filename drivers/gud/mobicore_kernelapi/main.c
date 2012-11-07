@@ -106,7 +106,7 @@ static int mcapi_process(struct sk_buff *skb, struct nlmsghdr *nlh)
 		c = mcapi_find_connection(seq);
 		if (!c) {
 			MCDRV_ERROR(mc_kapi,
-				    "Invalid incomming connection - seq=%u!",
+				    "Invalid incoming connection - seq=%u!",
 				    seq);
 			ret = -1;
 			break;
@@ -150,7 +150,7 @@ static int __init mcapi_init(void)
 					    mcapi_callback, NULL, THIS_MODULE);
 
 	if (!mod_ctx->sk) {
-		MCDRV_ERROR(mc_kapi, "register of recieve handler failed");
+		MCDRV_ERROR(mc_kapi, "register of receive handler failed");
 		return -EFAULT;
 	}
 

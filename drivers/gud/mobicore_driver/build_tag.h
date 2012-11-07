@@ -1,5 +1,5 @@
 /*
- * <-- Copyright Giesecke & Devrient GmbH 2010-2012 -->
+ * <-- Copyright Giesecke & Devrient GmbH 2012-2012 -->
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,4 +26,4 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #define MOBICORE_COMPONENT_BUILD_TAG \
-		"*** Build by haenellu@n500956-ubuntu, svn@r19078 ###"
+		"*** GC_MSM8960_Release_V013 ###"

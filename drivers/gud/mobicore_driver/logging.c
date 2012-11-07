@@ -1,7 +1,7 @@
 /*
  * MobiCore Driver Logging Subsystem.
  *
- * The logging subsytem provides the interface between the Mobicore trace
+ * The logging subsystem provides the interface between the Mobicore trace
  * buffer and the Linux log
  *
  * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
@@ -17,10 +17,12 @@
 #include <linux/mm.h>
 #include <linux/device.h>
 
-#include "mc_drv_module.h"
-#include "mc_drv_module_fastcalls.h"
+#include "main.h"
+#include "debug.h"
+#include "ops.h"
+#include "logging.h"
 
-/* Default len of the log ring buffer 256KB*/
+/* Default length of the log ring buffer 256KB*/
 #define LOG_BUF_SIZE			(64 * PAGE_SIZE)
 
 /* Max Len of a log line for printing */
@@ -29,7 +31,7 @@
 static uint32_t log_size = LOG_BUF_SIZE;
 
 module_param(log_size, uint, 0);
-MODULE_PARM_DESC(log_size, " Size of the log ringbuffer (or 256KB default).");
+MODULE_PARM_DESC(log_size, "Size of the MobiCore log ringbuffer(256KB def)");
 
 /* Definitions for log version 2 */
 #define LOG_TYPE_MASK			(0x0007)
@@ -53,7 +55,7 @@ static uint32_t log_pos;		/* MobiCore log previous position */
 static struct mc_trace_buf *log_buf;	/* MobiCore log buffer structure */
 struct task_struct *log_thread;		/* Log Thread task structure */
 static char *log_line;			/* Log Line buffer */
-static uint32_t log_line_len;		/* Log Line buffer current len */
+static uint32_t log_line_len;		/* Log Line buffer current length */
 
 static void log_eol(void)
 {
@@ -196,6 +198,7 @@ static uint32_t process_v2log(void)
 	return buff - log_buf->buff;
 }
 
+/* log_worker() - Worker thread processing the log_buf buffer. */
 static int log_worker(void *p)
 {
 	if (log_buf == NULL)
@@ -214,8 +217,6 @@ static int log_worker(void *p)
 			break;
 		default:
 			MCDRV_DBG_ERROR(mcd, "Unknown Mobicore log data");
-			MCDRV_DBG_ERROR(mcd, "version %d logging disabled.",
-					log_buf->version);
 			log_pos = log_buf->write_pos;
 			/*
 			 * Stop the thread as we have no idea what
@@ -229,7 +230,7 @@ static int log_worker(void *p)
 }
 
 /*
- * Wakeup the log reader thread
+ * Wake up the log reader thread
  * This should be called from the places where calls into MobiCore have
  * generated some logs(eg, yield, SIQ...)
  */
@@ -245,10 +246,11 @@ void mobicore_log_read(void)
  * Setup MobiCore kernel log. It assumes it's running on CORE 0!
  * The fastcall will complain is that is not the case!
  */
-long mobicore_log_setup(void *data)
+long mobicore_log_setup(void)
 {
 	unsigned long phys_log_buf;
 	union fc_generic fc_log;
+	struct sched_param param = { .sched_priority = 1 };
 
 	long ret;
 	log_pos = 0;
@@ -276,6 +278,7 @@ long mobicore_log_setup(void *data)
 		goto mobicore_log_setup_log_line;
 	}
 
+	sched_setscheduler(log_thread, SCHED_IDLE, &param);
 	/*
 	 * We are going to map this buffer into virtual address space in SWd.
 	 * To reduce complexity there, we use a contiguous buffer.
@@ -321,7 +324,7 @@ mobicore_log_setup_log_line:
 }
 
 /*
- * Free kernel log componenets.
+ * Free kernel log components.
  * ATTN: We can't free the log buffer because it's also in use by MobiCore and
  * even if the module is unloaded MobiCore is still running.
  */
