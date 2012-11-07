@@ -30,6 +30,8 @@ extern struct device *mc_kapi;
 	dev_err(dev, "%s() ### ERROR: " txt, __func__, ##__VA_ARGS__)
 
 #if defined(DEBUG)
+
+/* #define DEBUG_VERBOSE */
 #if defined(DEBUG_VERBOSE)
 #define MCDRV_DBG_VERBOSE		MCDRV_DBG
 #else

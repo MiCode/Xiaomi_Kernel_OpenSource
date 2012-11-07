@@ -171,6 +171,7 @@ struct mc_drv_rsp_notify_t {
 
 struct mc_drv_cmd_map_bulk_mem_payload_t {
 	uint32_t session_id;
+	uint32_t handle;
 	uint32_t phys_addr_l2;
 	uint32_t offset_payload;
 	uint32_t len_bulk_mem;
@@ -195,6 +196,7 @@ struct mc_drv_rsp_map_bulk_mem_t {
 
 struct mc_drv_cmd_unmap_bulk_mem_payload_t {
 	uint32_t session_id;
+	uint32_t handle;
 	uint32_t secure_virtual_adr;
 	uint32_t len_bulk_mem;
 };

@@ -111,7 +111,7 @@ struct mc_session_handle {
 
 /*
  * Information structure about additional mapped Bulk buffer between the
- * Trustlet Connector (Nwd) and the Trustlet (Swd). This structure is
+ * Trustlet Connector (NWd) and the Trustlet (SWd). This structure is
  * initialized from a Trustlet Connector by calling mc_map().
  * In order to use the memory within a Trustlet the Trustlet Connector has to
  * inform the Trustlet with the content of this structure via the TCI.
@@ -173,11 +173,11 @@ __MC_CLIENT_LIB_API enum mc_result mc_close_device(uint32_t device_id);
  * mc_open_session() - Open a new session to a Trustlet.
  * @session:		On success, the session data will be returned
  * @uuid:		UUID of the Trustlet to be opened
- * @tci:		TCI buffer for communicating with the trustlet
+ * @tci:		TCI buffer for communicating with the Trustlet
  * @tci_len:		Length of the TCI buffer. Maximum allowed value
  *			is MC_MAX_TCI_LEN
  *
- * The trustlet with the given UUID has to be available in the flash filesystem.
+ * The Trustlet with the given UUID has to be available in the flash filesystem.
  *
  * Write MCP open message to buffer and notify MobiCore about the availability
  * of a new command.
@@ -213,7 +213,7 @@ __MC_CLIENT_LIB_API enum mc_result mc_open_session(
  *	MC_DRV_ERR_UNKNOWN_SESSION:	session id is invalid
  *	MC_DRV_ERR_UNKNOWN_DEVICE:	device id of session is invalid
  *	MC_DRV_ERR_DAEMON_UNREACHABLE:	problems with daemon occur
- *	MC_DRV_ERR_INVALID_DEVICE_FILE:	daemon cannot open trustlet file
+ *	MC_DRV_ERR_INVALID_DEVICE_FILE:	daemon cannot open Trustlet file
  */
 __MC_CLIENT_LIB_API enum mc_result mc_close_session(
 	struct mc_session_handle *session);
@@ -334,7 +334,7 @@ __MC_CLIENT_LIB_API enum mc_result mc_free_wsm(uint32_t device_id,
  *			possible offset!
  * @len:		length of buffer block in bytes.
  * @map_info:		Information structure about the mapped Bulk buffer
- *			between the TLC (Nwd) and the TL (Swd).
+ *			between the TLC (NWd) and the TL (SWd).
  *
  * Memory allocated in user space of the TLC can be mapped as additional
  * communication channel (besides TCI) to the Trustlet. Limitation of the
@@ -366,7 +366,7 @@ __MC_CLIENT_LIB_API enum mc_result mc_map(
  * @buf:		Virtual address of a memory portion (relative to TLC)
  *			shared with the TL, already includes a possible offset!
  * @map_info:		Information structure about the mapped Bulk buffer
- *			between the TLC (Nwd) and the TL (Swd)
+ *			between the TLC (NWd) and the TL (SWd)
  *
  * The bulk buffer will immediately be unmapped from the session context.
  *
@@ -423,7 +423,7 @@ __MC_CLIENT_LIB_API enum mc_result mc_manage(
 
 /**
  * mc_get_session_error_code() - Get additional error information of the last
- *				 error that occured on a session.
+ *				 error that occurred on a session.
  * @session:		Session handle with information of the device_id and
  *			the session_id
  * @last_error:		>0 Trustlet has terminated itself with this value,

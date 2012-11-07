@@ -11,6 +11,7 @@
 #define _MC_KAPI_CONNECTION_H_
 
 #include <linux/semaphore.h>
+#include <linux/mutex.h>
 
 #include <stddef.h>
 #include <stdbool.h>
