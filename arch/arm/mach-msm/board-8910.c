@@ -71,6 +71,7 @@ void __init msm8910_init(void)
 {
 	struct of_dev_auxdata *adata = msm8910_auxdata_lookup;
 
+	msm8910_init_gpiomux();
 	msm_clock_init(&msm_dummy_clock_init_data);
 
 	if (socinfo_init() < 0)
