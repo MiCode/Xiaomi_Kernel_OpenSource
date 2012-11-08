@@ -83,6 +83,18 @@ kgsl_memdesc_get_align(const struct kgsl_memdesc *memdesc)
 }
 
 /*
+ * kgsl_memdesc_get_cachemode - Get cache mode of a memdesc
+ * @memdesc: the memdesc
+ *
+ * Returns a KGSL_CACHEMODE* value.
+ */
+static inline int
+kgsl_memdesc_get_cachemode(const struct kgsl_memdesc *memdesc)
+{
+	return (memdesc->flags & KGSL_CACHEMODE_MASK) >> KGSL_CACHEMODE_SHIFT;
+}
+
+/*
  * kgsl_memdesc_set_align - Set alignment flags of a memdesc
  * @memdesc - the memdesc
  * @align - alignment requested, as a power of 2 exponent.

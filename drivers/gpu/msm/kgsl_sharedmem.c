@@ -511,7 +511,14 @@ static struct kgsl_memdesc_ops kgsl_coherent_ops = {
 
 void kgsl_cache_range_op(struct kgsl_memdesc *memdesc, int op)
 {
-	void *addr = memdesc->hostptr;
+	/*
+	 * If the buffer is mapped in the kernel operate on that address
+	 * otherwise use the user address
+	 */
+
+	void *addr = (memdesc->hostptr) ?
+		memdesc->hostptr : (void *) memdesc->useraddr;
+
 	int size = memdesc->size;
 
 	if (addr !=  NULL) {

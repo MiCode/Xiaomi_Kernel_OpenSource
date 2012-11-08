@@ -1,6 +1,13 @@
 #ifndef _UAPI_MSM_KGSL_H
 #define _UAPI_MSM_KGSL_H
 
+/*
+ * The KGSL version has proven not to be very useful in userspace if features
+ * are cherry picked into other trees out of order so it is frozen as of 3.14.
+ * It is left here for backwards compatabilty and as a reminder that
+ * software releases are never linear. Also, I like pie.
+ */
+
 #define KGSL_VERSION_MAJOR        3
 #define KGSL_VERSION_MINOR        14
 
@@ -16,13 +23,24 @@
 
 #define KGSL_CONTEXT_INVALID 0xffffffff
 
-/* Memory allocayion flags */
-#define KGSL_MEMFLAGS_GPUREADONLY	0x01000000
+/* --- Memory allocation flags --- */
 
+/* General allocation hints */
+#define KGSL_MEMFLAGS_GPUREADONLY 0x01000000
+
+/* Memory caching hints */
+#define KGSL_CACHEMODE_MASK 0x0C000000
+#define KGSL_CACHEMODE_SHIFT 26
+
+#define KGSL_CACHEMODE_WRITECOMBINE 0
+#define KGSL_CACHEMODE_UNCACHED 1
+#define KGSL_CACHEMODE_WRITETHROUGH 2
+#define KGSL_CACHEMODE_WRITEBACK 3
+
+/* Memory types for which allocations are made */
 #define KGSL_MEMTYPE_MASK		0x0000FF00
 #define KGSL_MEMTYPE_SHIFT		8
 
-/* Memory types for which allocations are made */
 #define KGSL_MEMTYPE_OBJECTANY			0
 #define KGSL_MEMTYPE_FRAMEBUFFER		1
 #define KGSL_MEMTYPE_RENDERBUFFER		2
@@ -53,7 +71,8 @@
 #define KGSL_MEMALIGN_MASK		0x00FF0000
 #define KGSL_MEMALIGN_SHIFT		16
 
-/* generic flag values */
+/* --- generic KGSL flag values --- */
+
 #define KGSL_FLAGS_NORMALMODE  0x00000000
 #define KGSL_FLAGS_SAFEMODE    0x00000001
 #define KGSL_FLAGS_INITIALIZED0 0x00000002
@@ -419,6 +438,14 @@ struct kgsl_sharedmem_from_vmalloc {
 #define IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC \
 	_IOWR(KGSL_IOC_TYPE, 0x23, struct kgsl_sharedmem_from_vmalloc)
 
+/*
+ * This is being deprecated in favor of IOCTL_KGSL_GPUMEM_CACHE_SYNC which
+ * supports both directions (flush and invalidate). This code will still
+ * work, but by definition it will do a flush of the cache which might not be
+ * what you want to have happen on a buffer following a GPU operation.  It is
+ * safer to go with IOCTL_KGSL_GPUMEM_CACHE_SYNC
+ */
+
 #define IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE \
 	_IOW(KGSL_IOC_TYPE, 0x24, struct kgsl_sharedmem_free)
 
@@ -586,5 +613,36 @@ struct kgsl_gpumem_get_info {
 
 #define IOCTL_KGSL_GPUMEM_GET_INFO\
 	_IOWR(KGSL_IOC_TYPE, 0x36, struct kgsl_gpumem_get_info)
+
+/**
+ * struct kgsl_gpumem_sync_cache - argument to IOCTL_KGSL_GPUMEM_SYNC_CACHE
+ * @gpuaddr: GPU address of the buffer to sync.
+ * @id: id of the buffer to sync. Either gpuaddr or id is sufficient.
+ * @op: a mask of KGSL_GPUMEM_CACHE_* values
+ *
+ * Sync the L2 cache for memory headed to and from the GPU - this replaces
+ * KGSL_SHAREDMEM_FLUSH_CACHE since it can handle cache management for both
+ * directions
+ *
+ */
+struct kgsl_gpumem_sync_cache {
+	unsigned int gpuaddr;
+	unsigned int id;
+	unsigned int op;
+/* private: reserved for future use*/
+	unsigned int __pad[2]; /* For future binary compatibility */
+};
+
+#define KGSL_GPUMEM_CACHE_CLEAN (1 << 0)
+#define KGSL_GPUMEM_CACHE_TO_GPU KGSL_GPUMEM_CACHE_CLEAN
+
+#define KGSL_GPUMEM_CACHE_INV (1 << 1)
+#define KGSL_GPUMEM_CACHE_FROM_GPU KGSL_GPUMEM_CACHE_INV
+
+#define KGSL_GPUMEM_CACHE_FLUSH \
+	(KGSL_GPUMEM_CACHE_CLEAN | KGSL_GPUMEM_CACHE_INV)
+
+#define IOCTL_KGSL_GPUMEM_SYNC_CACHE \
+	_IOW(KGSL_IOC_TYPE, 0x37, struct kgsl_gpumem_sync_cache)
 
 #endif /* _UAPI_MSM_KGSL_H */
