@@ -12,13 +12,15 @@
  */
 
 #include <linux/module.h>
-
+#include <asm/proc-fns.h>
 #include <mach/cpuidle.h>
 #include "idle.h"
 #include "pm.h"
 
 void arch_idle(void)
-{ }
+{
+	cpu_do_idle();
+}
 
 void msm_pm_set_platform_data(struct msm_pm_platform_data *data, int count)
 { }
