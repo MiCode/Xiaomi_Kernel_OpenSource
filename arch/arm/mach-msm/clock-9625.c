@@ -2058,6 +2058,7 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("core_clk", gcc_gp2_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_gp3_clk.c, ""),
 
+	CLK_LOOKUP("iface_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng"),
 	CLK_LOOKUP("core_src_clk", ipa_clk_src.c, "fd4c0000.qcom,ipa"),
 	CLK_LOOKUP("core_clk", gcc_ipa_clk.c, "fd4c0000.qcom,ipa"),
 	CLK_LOOKUP("bus_clk",  gcc_sys_noc_ipa_axi_clk.c, "fd4c0000.qcom,ipa"),
