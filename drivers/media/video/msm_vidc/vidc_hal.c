@@ -2236,7 +2236,7 @@ void vidc_hal_delete_device(void *device)
 		list_for_each_entry(close, &hal_ctxt.dev_head, list) {
 			if (close->hal_data->irq == dev->hal_data->irq) {
 				hal_ctxt.dev_count--;
-				free_irq(dev->hal_data->irq, NULL);
+				free_irq(dev->hal_data->irq, close);
 				list_del(&close->list);
 				destroy_workqueue(close->vidc_workq);
 				kfree(close->hal_data);
