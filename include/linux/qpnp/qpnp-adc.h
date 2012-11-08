@@ -137,7 +137,7 @@ enum qpnp_iadc_channels {
 };
 
 #define QPNP_ADC_625_UV	625000
-#define QPNP_ADC_HWMON_NAME_LENGTH				16
+#define QPNP_ADC_HWMON_NAME_LENGTH				64
 
 /**
  * enum qpnp_adc_decimation_type - Sampling rate supported.
