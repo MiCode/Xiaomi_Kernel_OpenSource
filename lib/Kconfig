@@ -416,4 +416,11 @@ config QMI_ENCDEC
 	  The kernel drivers receive the QMI message over a transport
 	  and then decode it into a C structure.
 
+config QMI_ENCDEC_DEBUG
+	bool
+	help
+	  Kernel config option to enable debugging QMI Encode/Decode
+	  library. This will log the information regarding the element
+	  and message being encoded & decoded.
+
 endmenu

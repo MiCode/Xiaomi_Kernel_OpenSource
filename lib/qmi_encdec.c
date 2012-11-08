@@ -25,6 +25,61 @@
 #define TLV_LEN_SIZE sizeof(uint16_t)
 #define TLV_TYPE_SIZE sizeof(uint8_t)
 
+#ifdef CONFIG_QMI_ENCDEC_DEBUG
+
+#define qmi_encdec_dump(prefix_str, buf, buf_len) do { \
+	const u8 *ptr = buf; \
+	int i, linelen, remaining = buf_len; \
+	int rowsize = 16, groupsize = 1; \
+	unsigned char linebuf[256]; \
+	for (i = 0; i < buf_len; i += rowsize) { \
+		linelen = min(remaining, rowsize); \
+		remaining -= linelen; \
+		hex_dump_to_buffer(ptr + i, linelen, rowsize, groupsize, \
+				   linebuf, sizeof(linebuf), false); \
+		pr_debug("%s: %s\n", prefix_str, linebuf); \
+	} \
+} while (0)
+
+#define QMI_ENCODE_LOG_MSG(buf, buf_len) do { \
+	qmi_encdec_dump("QMI_ENCODE_MSG", buf, buf_len); \
+} while (0)
+
+#define QMI_DECODE_LOG_MSG(buf, buf_len) do { \
+	qmi_encdec_dump("QMI_DECODE_MSG", buf, buf_len); \
+} while (0)
+
+#define QMI_ENCODE_LOG_ELEM(level, elem_len, elem_size, buf) do { \
+	pr_debug("QMI_ENCODE_ELEM lvl: %d, len: %d, size: %d\n", \
+		 level, elem_len, elem_size); \
+	qmi_encdec_dump("QMI_ENCODE_ELEM", buf, (elem_len * elem_size)); \
+} while (0)
+
+#define QMI_DECODE_LOG_ELEM(level, elem_len, elem_size, buf) do { \
+	pr_debug("QMI_DECODE_ELEM lvl: %d, len: %d, size: %d\n", \
+		 level, elem_len, elem_size); \
+	qmi_encdec_dump("QMI_DECODE_ELEM", buf, (elem_len * elem_size)); \
+} while (0)
+
+#define QMI_ENCODE_LOG_TLV(tlv_type, tlv_len) do { \
+	pr_debug("QMI_ENCODE_TLV type: %d, len: %d\n", tlv_type, tlv_len); \
+} while (0)
+
+#define QMI_DECODE_LOG_TLV(tlv_type, tlv_len) do { \
+	pr_debug("QMI_DECODE_TLV type: %d, len: %d\n", tlv_type, tlv_len); \
+} while (0)
+
+#else
+
+#define QMI_ENCODE_LOG_MSG(buf, buf_len) { }
+#define QMI_DECODE_LOG_MSG(buf, buf_len) { }
+#define QMI_ENCODE_LOG_ELEM(level, elem_len, elem_size, buf) { }
+#define QMI_DECODE_LOG_ELEM(level, elem_len, elem_size, buf) { }
+#define QMI_ENCODE_LOG_TLV(tlv_type, tlv_len) { }
+#define QMI_DECODE_LOG_TLV(tlv_type, tlv_len) { }
+
+#endif
+
 static int _qmi_kernel_encode(struct elem_info *ei_array,
 			      void *out_buf, void *in_c_struct,
 			      int enc_level);
@@ -232,6 +287,8 @@ static int _qmi_kernel_encode(struct elem_info *ei_array,
 		case QMI_SIGNED_4_BYTE_ENUM:
 			rc = qmi_encode_basic_elem(buf_dst, buf_src,
 				data_len_value, temp_ei->elem_size);
+			QMI_ENCODE_LOG_ELEM(enc_level, data_len_value,
+				temp_ei->elem_size, buf_src);
 			UPDATE_ENCODE_VARIABLES(temp_ei, buf_dst,
 				encoded_bytes, tlv_len, encode_tlv, rc);
 			break;
@@ -253,6 +310,7 @@ static int _qmi_kernel_encode(struct elem_info *ei_array,
 
 		if (encode_tlv && enc_level == 1) {
 			QMI_ENCDEC_ENCODE_TLV(tlv_type, tlv_len, tlv_pointer);
+			QMI_ENCODE_LOG_TLV(tlv_type, tlv_len);
 			encoded_bytes += (TLV_TYPE_SIZE + TLV_LEN_SIZE);
 			tlv_pointer = buf_dst;
 			tlv_len = 0;
@@ -260,6 +318,7 @@ static int _qmi_kernel_encode(struct elem_info *ei_array,
 			encode_tlv = 0;
 		}
 	}
+	QMI_ENCODE_LOG_MSG(out_buf, encoded_bytes);
 	return encoded_bytes;
 }
 
@@ -419,11 +478,13 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 	void *buf_src = in_buf;
 	int rc;
 
+	QMI_DECODE_LOG_MSG(in_buf, in_buf_len);
 	while (decoded_bytes < in_buf_len) {
 		if (dec_level == 1) {
 			tlv_pointer = buf_src;
 			QMI_ENCDEC_DECODE_TLV(&tlv_type,
 					      &tlv_len, tlv_pointer);
+			QMI_DECODE_LOG_TLV(tlv_type, tlv_len);
 			buf_src += (TLV_TYPE_SIZE + TLV_LEN_SIZE);
 			decoded_bytes += (TLV_TYPE_SIZE + TLV_LEN_SIZE);
 			temp_ei = find_ei(ei_array, tlv_type);
@@ -470,6 +531,8 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 		case QMI_SIGNED_4_BYTE_ENUM:
 			rc = qmi_decode_basic_elem(buf_dst, buf_src,
 				data_len_value, temp_ei->elem_size);
+			QMI_DECODE_LOG_ELEM(dec_level, data_len_value,
+				temp_ei->elem_size, buf_dst);
 			UPDATE_DECODE_VARIABLES(buf_src, decoded_bytes, rc);
 			break;
 
