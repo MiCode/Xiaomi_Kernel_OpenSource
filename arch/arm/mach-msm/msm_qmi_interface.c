@@ -34,6 +34,38 @@
 static LIST_HEAD(svc_event_nb_list);
 static DEFINE_MUTEX(svc_event_nb_list_lock);
 
+struct elem_info qmi_response_type_v01_ei[] = {
+	{
+		.data_type	= QMI_SIGNED_2_BYTE_ENUM,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint16_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(struct qmi_response_type_v01,
+					   result),
+		.ei_array	= NULL,
+	},
+	{
+		.data_type      = QMI_SIGNED_2_BYTE_ENUM,
+		.elem_len       = 1,
+		.elem_size      = sizeof(uint16_t),
+		.is_array       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+		.offset         = offsetof(struct qmi_response_type_v01,
+					   error),
+		.ei_array       = NULL,
+	},
+	{
+		.data_type	= QMI_EOTI,
+		.elem_len	= 0,
+		.elem_size	= 0,
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= 0,
+		.ei_array	= NULL,
+	},
+};
+
 static void qmi_event_notify(unsigned event, void *priv)
 {
 	struct qmi_handle *handle = (struct qmi_handle *)priv;

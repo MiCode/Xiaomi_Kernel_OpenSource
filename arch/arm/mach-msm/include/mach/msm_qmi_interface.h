@@ -21,6 +21,8 @@
 #include <linux/gfp.h>
 #include <linux/qmi_encdec.h>
 
+#define QMI_COMMON_TLV_TYPE 0
+
 enum qmi_event_type {
 	QMI_RECV_MSG = 1,
 	QMI_SERVER_ARRIVE,
@@ -45,7 +47,36 @@ struct qmi_handle {
 	wait_queue_head_t reset_waitq;
 };
 
+enum qmi_result_type_v01 {
+	/* To force a 32 bit signed enum. Do not change or use*/
+	QMI_RESULT_TYPE_MIN_ENUM_VAL_V01 = INT_MIN,
+	QMI_RESULT_SUCCESS_V01 = 0,
+	QMI_RESULT_FAILURE_V01 = 1,
+	QMI_RESULT_TYPE_MAX_ENUM_VAL_V01 = INT_MAX,
+};
+
+enum qmi_error_type_v01 {
+	/* To force a 32 bit signed enum. Do not change or use*/
+	QMI_ERROR_TYPE_MIN_ENUM_VAL_V01 = INT_MIN,
+	QMI_ERR_NONE_V01 = 0x0000,
+	QMI_ERROR_MALFORMED_MSG_V01 = 0x0001,
+	QMI_ERR_NO_MEMORY_V01 = 0x0002,
+	QMI_ERR_INTERNAL_V01 = 0x0003,
+	QMI_ERR_INVALID_ID_V01 = 0x0029,
+	QMI_ERR_INCOMPATIBLE_STATE_V01 = 0x005A,
+	QMI_ERROR_TYPE_MAX_ENUM_VAL_V01 = INT_MAX,
+};
+
+struct qmi_response_type_v01 {
+	enum qmi_result_type_v01 result;
+	enum qmi_error_type_v01 error;
+};
+
 #ifdef CONFIG_MSM_QMI_INTERFACE
+
+/* Element info array describing common qmi response structure */
+extern struct elem_info qmi_response_type_v01_ei[];
+#define get_qmi_response_type_v01_ei() qmi_response_type_v01_ei
 
 /**
  * qmi_handle_create() - Create a QMI handle
@@ -170,6 +201,8 @@ int qmi_svc_event_notifier_unregister(uint32_t service_id,
 				      uint32_t instance_id,
 				      struct notifier_block *nb);
 #else
+
+#define get_qmi_response_type_v01_ei() NULL
 
 static inline struct qmi_handle *qmi_handle_create(
 	void (*notify)(struct qmi_handle *handle,
