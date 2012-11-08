@@ -221,12 +221,23 @@ static char get_alignflag(const struct kgsl_memdesc *m)
 	return '-';
 }
 
+static char get_cacheflag(const struct kgsl_memdesc *m)
+{
+	static const char table[] = {
+		[KGSL_CACHEMODE_WRITECOMBINE] = '-',
+		[KGSL_CACHEMODE_UNCACHED] = 'u',
+		[KGSL_CACHEMODE_WRITEBACK] = 'b',
+		[KGSL_CACHEMODE_WRITETHROUGH] = 't',
+	};
+	return table[kgsl_memdesc_get_cachemode(m)];
+}
+
 static int process_mem_print(struct seq_file *s, void *unused)
 {
 	struct kgsl_mem_entry *entry;
 	struct rb_node *node;
 	struct kgsl_process_private *private = s->private;
-	char flags[4];
+	char flags[5];
 	char usage[16];
 
 	spin_lock(&private->mem_lock);
@@ -241,7 +252,8 @@ static int process_mem_print(struct seq_file *s, void *unused)
 		flags[0] = kgsl_memdesc_is_global(m) ?  'g' : '-';
 		flags[1] = m->flags & KGSL_MEMFLAGS_GPUREADONLY ? 'r' : '-';
 		flags[2] = get_alignflag(m);
-		flags[3] = '\0';
+		flags[3] = get_cacheflag(m);
+		flags[4] = '\0';
 
 		kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
 
