@@ -51,6 +51,9 @@
 
 #define QSEOS_CHECK_VERSION_CMD		0x00001803
 
+#define QSEE_CE_CLK_100MHZ		100000000
+#define QSEE_CE_CLK_50MHZ		50000000
+
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
 	QSEOS_LISTENER_ID
@@ -247,8 +250,6 @@ struct clk *ce_bus_clk;
 /* Function proto types */
 static int qsee_vote_for_clock(int32_t);
 static void qsee_disable_clock_vote(int32_t);
-static int __qseecom_init_clk(void);
-static void __qseecom_disable_clk(void);
 
 static int __qseecom_is_svc_unique(struct qseecom_dev_handle *data,
 		struct qseecom_register_listener_req *svc)
@@ -1718,9 +1719,13 @@ static int qsee_vote_for_clock(int32_t clk_type)
 			if (qsee_sfpb_bw_count > 0)
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 3);
-			else
+			else {
+				if (ce_core_src_clk != NULL)
+					clk_set_rate(ce_core_src_clk,
+							QSEE_CE_CLK_100MHZ);
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 1);
+			}
 			if (ret)
 				pr_err("DFAB Bandwidth req failed (%d)\n",
 								ret);
@@ -1737,9 +1742,13 @@ static int qsee_vote_for_clock(int32_t clk_type)
 			if (qsee_bw_count > 0)
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 3);
-			else
+			else {
+				if (ce_core_src_clk != NULL)
+					clk_set_rate(ce_core_src_clk,
+							QSEE_CE_CLK_100MHZ);
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 2);
+			}
 
 			if (ret)
 				pr_err("SFPB Bandwidth req failed (%d)\n",
@@ -1778,9 +1787,13 @@ static void qsee_disable_clock_vote(int32_t clk_type)
 			if (qsee_sfpb_bw_count > 0)
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 2);
-			else
+			else {
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 0);
+				if (ce_core_src_clk != NULL)
+					clk_set_rate(ce_core_src_clk,
+							QSEE_CE_CLK_50MHZ);
+			}
 			if (ret)
 				pr_err("SFPB Bandwidth req fail (%d)\n",
 								ret);
@@ -1798,9 +1811,13 @@ static void qsee_disable_clock_vote(int32_t clk_type)
 			if (qsee_bw_count > 0)
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 1);
-			else
+			else {
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 0);
+				if (ce_core_src_clk != NULL)
+					clk_set_rate(ce_core_src_clk,
+							QSEE_CE_CLK_50MHZ);
+			}
 			if (ret)
 				pr_err("SFPB Bandwidth req fail (%d)\n",
 								ret);
@@ -2261,7 +2278,47 @@ static const struct file_operations qseecom_fops = {
 		.release = qseecom_release
 };
 
-static int __qseecom_init_clk()
+static int __qseecom_enable_clk(void)
+{
+	int rc = 0;
+
+	/* Enable CE core clk */
+	rc = clk_prepare_enable(ce_core_clk);
+	if (rc) {
+		pr_err("Unable to enable/prepare CE core clk\n");
+		return -EIO;
+	} else {
+		/* Enable CE clk */
+		rc = clk_prepare_enable(ce_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE iface clk\n");
+			clk_disable_unprepare(ce_core_clk);
+			return -EIO;
+		} else {
+			/* Enable AXI clk */
+			rc = clk_prepare_enable(ce_bus_clk);
+			if (rc) {
+				pr_err("Unable to enable/prepare CE iface clk\n");
+				clk_disable_unprepare(ce_core_clk);
+				clk_disable_unprepare(ce_clk);
+				return -EIO;
+			}
+		}
+	}
+	return rc;
+}
+
+static void __qseecom_disable_clk(void)
+{
+	if (ce_clk != NULL)
+		clk_disable_unprepare(ce_clk);
+	if (ce_core_clk != NULL)
+		clk_disable_unprepare(ce_core_clk);
+	if (ce_bus_clk != NULL)
+		clk_disable_unprepare(ce_bus_clk);
+}
+
+static int __qseecom_init_clk(void)
 {
 	int rc = 0;
 	struct device *pdev;
@@ -2270,14 +2327,12 @@ static int __qseecom_init_clk()
 	/* Get CE3 src core clk. */
 	ce_core_src_clk = clk_get(pdev, "core_clk_src");
 	if (!IS_ERR(ce_core_src_clk)) {
-		ce_core_src_clk = ce_core_src_clk;
-
-		/* Set the core src clk @100Mhz */
-		rc = clk_set_rate(ce_core_src_clk, 100000000);
+		/* Set the core src clk @50Mhz */
+		rc = clk_set_rate(ce_core_src_clk, QSEE_CE_CLK_50MHZ);
 		if (rc) {
 			clk_put(ce_core_src_clk);
 			pr_err("Unable to set the core src clk @100Mhz.\n");
-			goto err_clk;
+			return -EIO;
 		}
 	} else {
 		pr_warn("Unable to get CE core src clk, set to NULL\n");
@@ -2291,7 +2346,7 @@ static int __qseecom_init_clk()
 		pr_err("Unable to get CE core clk\n");
 		if (ce_core_src_clk != NULL)
 			clk_put(ce_core_src_clk);
-		goto err_clk;
+		return -EIO;
 	}
 
 	/* Get CE Interface clk */
@@ -2302,7 +2357,7 @@ static int __qseecom_init_clk()
 		if (ce_core_src_clk != NULL)
 			clk_put(ce_core_src_clk);
 		clk_put(ce_core_clk);
-		goto err_clk;
+		return -EIO;
 	}
 
 	/* Get CE AXI clk */
@@ -2314,78 +2369,35 @@ static int __qseecom_init_clk()
 			clk_put(ce_core_src_clk);
 		clk_put(ce_core_clk);
 		clk_put(ce_clk);
-		goto err_clk;
+		return -EIO;
 	}
-
-	/* Enable CE core clk */
-	rc = clk_prepare_enable(ce_core_clk);
-	if (rc) {
-		pr_err("Unable to enable/prepare CE core clk\n");
-		if (ce_core_src_clk != NULL)
-			clk_put(ce_core_src_clk);
-		clk_put(ce_core_clk);
-		clk_put(ce_clk);
-		goto err_clk;
-	} else {
-		/* Enable CE clk */
-		rc = clk_prepare_enable(ce_clk);
-		if (rc) {
-			pr_err("Unable to enable/prepare CE iface clk\n");
-			clk_disable_unprepare(ce_core_clk);
-			if (ce_core_src_clk != NULL)
-				clk_put(ce_core_src_clk);
-			clk_put(ce_core_clk);
-			clk_put(ce_clk);
-			goto err_clk;
-		} else {
-			/* Enable AXI clk */
-			rc = clk_prepare_enable(ce_bus_clk);
-			if (rc) {
-				pr_err("Unable to enable/prepare CE iface clk\n");
-				clk_disable_unprepare(ce_core_clk);
-				clk_disable_unprepare(ce_clk);
-				if (ce_core_src_clk != NULL)
-					clk_put(ce_core_src_clk);
-				clk_put(ce_core_clk);
-				clk_put(ce_clk);
-				goto err_clk;
-			}
-		}
-	}
-	return rc;
-
-err_clk:
-	if (rc)
-		pr_err("Unable to init CE clks, rc = %d\n", rc);
-	clk_disable_unprepare(ce_clk);
-	clk_disable_unprepare(ce_core_clk);
-	clk_disable_unprepare(ce_bus_clk);
-	if (ce_core_src_clk != NULL)
-		clk_put(ce_core_src_clk);
-	clk_put(ce_clk);
-	clk_put(ce_core_clk);
-	clk_put(ce_bus_clk);
 	return rc;
 }
 
-
-
-static void __qseecom_disable_clk()
+static void __qseecom_deinit_clk(void)
 {
-	clk_disable_unprepare(ce_clk);
-	clk_disable_unprepare(ce_core_clk);
-	clk_disable_unprepare(ce_bus_clk);
-	if (ce_core_src_clk != NULL)
+	if (ce_clk != NULL) {
+		clk_put(ce_clk);
+		ce_clk = NULL;
+	}
+	if (ce_core_clk != NULL) {
+		clk_put(ce_core_clk);
+		ce_clk = NULL;
+	}
+	if (ce_bus_clk != NULL) {
+		clk_put(ce_bus_clk);
+		ce_clk = NULL;
+	}
+	if (ce_core_src_clk != NULL) {
 		clk_put(ce_core_src_clk);
-	clk_put(ce_clk);
-	clk_put(ce_core_clk);
-	clk_put(ce_bus_clk);
+		ce_core_src_clk = NULL;
+	}
 }
 
 static int __devinit qseecom_probe(struct platform_device *pdev)
 {
 	int rc;
-	int ret;
+	int ret = 0;
 	struct device *class_dev;
 	char qsee_not_legacy = 0;
 	struct msm_bus_scale_pdata *qseecom_platform_support = NULL;
@@ -2393,6 +2405,12 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 
 	qsee_bw_count = 0;
 	qsee_perf_client = 0;
+	qsee_sfpb_bw_count = 0;
+
+	ce_core_clk = NULL;
+	ce_clk = NULL;
+	ce_core_src_clk = NULL;
+	ce_bus_clk = NULL;
 
 	rc = alloc_chrdev_region(&qseecom_device_no, 0, 1, QSEECOM_DEV);
 	if (rc < 0) {
@@ -2471,6 +2489,11 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 		ret = __qseecom_init_clk();
 		if (ret)
 			goto err;
+		ret = __qseecom_enable_clk();
+		if (ret) {
+			__qseecom_deinit_clk();
+			goto err;
+		}
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
 						msm_bus_cl_get_pdata(pdev);
 	} else {
@@ -2550,6 +2573,14 @@ static int __devinit qseecom_remove(struct platform_device *pdev)
 	}
 	if (qseecom.qseos_version  > QSEEE_VERSION_00)
 		qseecom_unload_commonlib_image();
+
+	if (qsee_perf_client)
+		msm_bus_scale_client_update_request(qsee_perf_client, 0);
+	/* register client for bus scaling */
+	if (pdev->dev.of_node) {
+		__qseecom_disable_clk();
+		__qseecom_deinit_clk();
+	}
 	return ret;
 };
 
@@ -2577,9 +2608,6 @@ static int __devinit qseecom_init(void)
 
 static void __devexit qseecom_exit(void)
 {
-
-	__qseecom_disable_clk();
-
 	device_destroy(driver_class, qseecom_device_no);
 	class_destroy(driver_class);
 	unregister_chrdev_region(qseecom_device_no, 1);
