@@ -642,6 +642,8 @@ static struct msm_bus_node_info sys_noc_info[] = {
 		.qport = qports_crypto_c0,
 		.mas_hw_id = MAS_CRYPTO_CORE0,
 		.hw_sel = MSM_BUS_NOC,
+		.prio_rd = 1,
+		.prio_wr = 1,
 	},
 	{
 		.id = MSM_BUS_MASTER_CRYPTO_CORE1,
@@ -653,6 +655,8 @@ static struct msm_bus_node_info sys_noc_info[] = {
 		.qport = qports_crypto_c1,
 		.mas_hw_id = MAS_CRYPTO_CORE1,
 		.hw_sel = MSM_BUS_NOC,
+		.prio_rd = 1,
+		.prio_wr = 1,
 	},
 	{
 		.id = MSM_BUS_MASTER_LPASS_PROC,
