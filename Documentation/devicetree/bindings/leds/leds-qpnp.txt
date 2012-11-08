@@ -24,14 +24,14 @@ LED triggers for WLED to control the brightness as needed.
 
 Optional properties for WLED:
 - qcom,num-strings: number of wled strings supported
-- qcom,ovp_val: over voltage protection threshold,
+- qcom,ovp-val: over voltage protection threshold,
 		follows enum wled_ovp_threshold
-- qcom,boost_curr_lim: boot currnet limit, follows enum wled_current_bost_limit
-- qcom,ctrl_delay_us: delay in activation of led
-- qcom,dig_mod_gen_en: digital module generator
-- qcom,cs_out_en: current sink output enable
-- qcom,op_fdbck: selection of output as feedback for the boost
-- qcom,cp_select: high pole capacitance
+- qcom,boost-curr-lim: boot currnet limit, follows enum wled_current_bost_limit
+- qcom,ctrl-delay-us: delay in activation of led
+- qcom,dig-mod-gen-en: digital module generator
+- qcom,cs-out-en: current sink output enable
+- qcom,op-fdbck: selection of output as feedback for the boost
+- qcom,cp-select: high pole capacitance
 - linux,default-trigger: trigger the led from external modules such as display
 - qcom,default-state:  default state of the led, should be "on" or "off"
 
