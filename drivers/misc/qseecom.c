@@ -1691,6 +1691,21 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 }
 EXPORT_SYMBOL(qseecom_send_command);
 
+int qseecom_set_bandwidth(struct qseecom_handle *handle, bool high)
+{
+	if ((handle == NULL) || (handle->dev == NULL)) {
+		pr_err("No valid kernel client\n");
+		return -EINVAL;
+	}
+	if (high)
+		return qsee_vote_for_clock(CLK_DFAB);
+	else {
+		qsee_disable_clock_vote(CLK_DFAB);
+		return 0;
+	}
+}
+EXPORT_SYMBOL(qseecom_set_bandwidth);
+
 static int qseecom_send_resp(void)
 {
 	qseecom.send_resp_flag = 1;
