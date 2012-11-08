@@ -55,6 +55,9 @@
 #define TEMP_IAVG_STORAGE	0x105
 #define TEMP_IAVG_STORAGE_USE_MASK	0x0F
 
+#define PON_CNTRL_6		0x018
+#define WD_BIT			BIT(7)
+
 enum pmic_bms_interrupts {
 	PM8921_BMS_SBI_WRITE_OK,
 	PM8921_BMS_CC_THR,
@@ -630,17 +633,17 @@ int override_mode_simultaneous_battery_voltage_and_current(int *ibat_ua,
 	return 0;
 }
 
-#define MBG_TRANSIENT_ERROR_RAW 51
-static void adjust_pon_ocv_raw(struct pm8921_bms_chip *chip,
-				struct pm8921_soc_params *raw)
+#define MBG_TRANSIENT_ERROR_UV 15000
+static void adjust_pon_ocv(struct pm8921_bms_chip *chip, int *uv)
 {
-	/* in 8921 parts the PON ocv is taken when the MBG is not settled.
+	/*
+	 * In 8921 parts the PON ocv is taken when the MBG is not settled.
 	 * decrease the pon ocv by 15mV raw value to account for it
 	 * Since a 1/3rd  of vbatt is supplied to the adc the raw value
 	 * needs to be adjusted by 5mV worth bits
 	 */
-	if (raw->last_good_ocv_raw >= MBG_TRANSIENT_ERROR_RAW)
-		raw->last_good_ocv_raw -= MBG_TRANSIENT_ERROR_RAW;
+	if (*uv >= MBG_TRANSIENT_ERROR_UV)
+		*uv -= MBG_TRANSIENT_ERROR_UV;
 }
 
 #define SEL_ALT_OREG_BIT  BIT(2)
@@ -663,10 +666,71 @@ static int ocv_ir_compensation(struct pm8921_bms_chip *chip, int ocv)
 	return compensated_ocv;
 }
 
+#define RESET_CC_BIT BIT(3)
+static int reset_cc(struct pm8921_bms_chip *chip)
+{
+	int rc;
+
+	rc = pm_bms_masked_write(chip, BMS_TEST1, RESET_CC_BIT, RESET_CC_BIT);
+	if (rc < 0) {
+		pr_err("err setting cc reset rc = %d\n", rc);
+		return rc;
+	}
+
+	/* sleep 100uS for the coulomb counter to reset */
+	udelay(100);
+
+	rc = pm_bms_masked_write(chip, BMS_TEST1, RESET_CC_BIT, 0);
+	if (rc < 0)
+		pr_err("err clearing cc reset rc = %d\n", rc);
+	return rc;
+}
+
+static int estimate_ocv(struct pm8921_bms_chip *chip)
+{
+	int ibat_ua, vbat_uv, ocv_est_uv;
+	int rc;
+
+	int rbatt_mohm = chip->default_rbatt_mohm + chip->rconn_mohm;
+
+	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
+							&ibat_ua,
+							&vbat_uv);
+	if (rc) {
+		pr_err("simultaneous failed rc = %d\n", rc);
+		return rc;
+	}
+
+	ocv_est_uv = vbat_uv + (ibat_ua * rbatt_mohm) / 1000;
+	pr_debug("estimated pon ocv = %d\n", ocv_est_uv);
+	return ocv_est_uv;
+}
+
+static bool is_warm_restart(struct pm8921_bms_chip *chip)
+{
+	u8 reg;
+	int rc;
+
+	rc = pm8xxx_readb(chip->dev->parent, PON_CNTRL_6, &reg);
+	if (rc) {
+		pr_err("err reading pon 6 rc = %d\n", rc);
+		return false;
+	}
+	return reg & WD_BIT;
+}
+/*
+ * This reflects what should the CC readings should be for
+ * a 5mAh discharge. This value is dependent on
+ * CC_RESOLUTION_N, CC_RESOLUTION_D, CC_READING_TICKS
+ * and rsense
+ */
+#define CC_RAW_5MAH	0x00110000
+#define MIN_OCV_UV	2000000
 static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 				struct pm8921_soc_params *raw)
 {
 	int usb_chg;
+	int est_ocv_uv;
 
 	mutex_lock(&chip->bms_output_lock);
 	pm_bms_lock_output_data(chip);
@@ -682,12 +746,40 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 
 	if (chip->prev_last_good_ocv_raw == 0) {
 		chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
-		adjust_pon_ocv_raw(chip, raw);
+
 		convert_vbatt_raw_to_uv(chip, usb_chg,
 			raw->last_good_ocv_raw, &raw->last_good_ocv_uv);
+		adjust_pon_ocv(chip, &raw->last_good_ocv_uv);
 		raw->last_good_ocv_uv = ocv_ir_compensation(chip,
 						raw->last_good_ocv_uv);
 		chip->last_ocv_uv = raw->last_good_ocv_uv;
+
+		if (is_warm_restart(chip)
+			|| raw->cc > CC_RAW_5MAH
+			|| (raw->last_good_ocv_uv < MIN_OCV_UV
+			&& raw->cc > 0)) {
+			/*
+			 * The CC value is higher than 5mAh.
+			 * The phone started without going through a pon
+			 * sequence
+			 * OR
+			 * The ocv was very small and there was no
+			 * charging in the bootloader
+			 * - reset the CC and take an ocv again
+			 */
+			pr_debug("cc_raw = 0x%x may be > 5mAh(0x%x)\n",
+				       raw->cc,	CC_RAW_5MAH);
+			pr_debug("ocv_uv = %d ocv_raw = 0x%x may be < 2V\n",
+				       chip->last_ocv_uv,
+				       raw->last_good_ocv_raw);
+			est_ocv_uv = estimate_ocv(chip);
+			if (est_ocv_uv > 0) {
+				raw->last_good_ocv_uv = est_ocv_uv;
+				chip->last_ocv_uv = est_ocv_uv;
+				reset_cc(chip);
+				raw->cc = 0;
+			}
+		}
 		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
 		chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
