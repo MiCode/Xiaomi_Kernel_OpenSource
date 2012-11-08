@@ -1527,6 +1527,13 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *_gadget, int is_active)
 		} else {
 			ret = dwc3_gadget_run_stop(dwc, 0);
 		}
+	} else if (dwc->gadget_driver && !dwc->softconnect &&
+						!dwc->vbus_active) {
+		if (dwc->gadget_driver->disconnect) {
+			spin_unlock_irqrestore(&dwc->lock, flags);
+			dwc->gadget_driver->disconnect(&dwc->gadget);
+			return 0;
+		}
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
