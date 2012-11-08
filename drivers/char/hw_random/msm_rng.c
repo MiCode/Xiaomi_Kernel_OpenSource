@@ -181,7 +181,12 @@ static int msm_rng_probe(struct platform_device *pdev)
 	msm_rng_dev->base = base;
 
 	/* create a handle for clock control */
-	msm_rng_dev->prng_clk = clk_get(&pdev->dev, "core_clk");
+	if ((pdev->dev.of_node) && (of_property_read_bool(pdev->dev.of_node,
+					"qcom,msm-rng-iface-clk")))
+		msm_rng_dev->prng_clk = clk_get(&pdev->dev,
+							"iface_clk");
+	else
+		msm_rng_dev->prng_clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(msm_rng_dev->prng_clk)) {
 		dev_err(&pdev->dev, "failed to register clock source\n");
 		error = -EPERM;
