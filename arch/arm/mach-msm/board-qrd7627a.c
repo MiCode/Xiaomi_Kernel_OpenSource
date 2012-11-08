@@ -667,6 +667,10 @@ static struct platform_device qrd_vreg_gpio_ext_1p8v_sku3_1 __devinitdata = {
 /* Regulator configuration for the NCP6335D buck */
 struct regulator_consumer_supply ncp6335d_consumer_supplies[] = {
 	REGULATOR_SUPPLY("ncp6335d", NULL),
+	/* TO DO: NULL entry needs to be fixed once
+	 * we fix the cross-dependencies.
+	*/
+	REGULATOR_SUPPLY("vddx_cx", NULL),
 };
 
 static struct regulator_init_data ncp6335d_init_data = {
