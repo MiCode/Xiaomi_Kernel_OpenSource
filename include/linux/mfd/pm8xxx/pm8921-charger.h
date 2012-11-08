@@ -58,7 +58,6 @@ enum pm8921_chg_led_src_config {
 
 /**
  * struct pm8921_charger_platform_data -
- * @safety_time:	max charging time in minutes incl. fast and trkl
  *			valid range 4 to 512 min. PON default 120 min
  * @ttrkl_time:		max trckl charging time in minutes
  *			valid range 1 to 64 mins. PON default 15 min
@@ -130,7 +129,6 @@ enum pm8921_chg_led_src_config {
  */
 struct pm8921_charger_platform_data {
 	struct pm8xxx_charger_core_data	charger_cdata;
-	unsigned int			safety_time;
 	unsigned int			ttrkl_time;
 	unsigned int			update_time;
 	unsigned int			max_voltage;

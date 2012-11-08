@@ -210,7 +210,6 @@ struct bms_notify {
  * @dc_present:			present status of dc
  * @usb_charger_current:	usb current to charge the battery with used when
  *				the usb path is enabled or charging is resumed
- * @safety_time:		max time for which charging will happen
  * @update_time:		how frequently the userland needs to be updated
  * @max_voltage_mv:		the max volts the batt should be charged up to
  * @min_voltage_mv:		the min battery voltage before turning the FETon
@@ -231,7 +230,6 @@ struct pm8921_chg_chip {
 	unsigned int			usb_charger_current;
 	unsigned int			max_bat_chg_current;
 	unsigned int			pmic_chg_irq[PM_CHG_MAX_INTS];
-	unsigned int			safety_time;
 	unsigned int			ttrkl_time;
 	unsigned int			update_time;
 	unsigned int			max_voltage_mv;
@@ -3887,11 +3885,15 @@ static void detect_battery_removal(struct pm8921_chg_chip *chip)
 #define CHG_BAT_TEMP_DIS_BIT	BIT(2)
 #define SAFE_CURRENT_MA		1500
 #define PM_SUB_REV		0x001
+#define MIN_CHARGE_CURRENT_MA	350
+#define DEFAULT_SAFETY_MINUTES	500
 static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 {
 	int rc;
 	int vdd_safe;
 	u8 subrev;
+	int fcc_uah;
+	int safety_time = DEFAULT_SAFETY_MINUTES;
 
 	/* forcing 19p2mhz before accessing any charger registers */
 	pm8921_chg_force_19p2mhz_clk(chip);
@@ -3964,20 +3966,26 @@ static int __devinit pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 		return rc;
 	}
 
-	if (chip->safety_time != 0) {
-		rc = pm_chg_tchg_max_set(chip, chip->safety_time);
-		if (rc) {
-			pr_err("Failed to set max time to %d minutes rc=%d\n",
-							chip->safety_time, rc);
-			return rc;
-		}
+	fcc_uah = pm8921_bms_get_fcc();
+	if (fcc_uah > 0) {
+		safety_time = div_s64((s64)fcc_uah * 60,
+						1000 * MIN_CHARGE_CURRENT_MA);
+		/* add 20 minutes of buffer time */
+		safety_time += 20;
+	}
+
+	rc = pm_chg_tchg_max_set(chip, safety_time);
+	if (rc) {
+		pr_err("Failed to set max time to %d minutes rc=%d\n",
+						safety_time, rc);
+		return rc;
 	}
 
 	if (chip->ttrkl_time != 0) {
 		rc = pm_chg_ttrkl_max_set(chip, chip->ttrkl_time);
 		if (rc) {
 			pr_err("Failed to set trkl time to %d minutes rc=%d\n",
-							chip->safety_time, rc);
+							chip->ttrkl_time, rc);
 			return rc;
 		}
 	}
@@ -4383,7 +4391,6 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	}
 
 	chip->dev = &pdev->dev;
-	chip->safety_time = pdata->safety_time;
 	chip->ttrkl_time = pdata->ttrkl_time;
 	chip->update_time = pdata->update_time;
 	chip->max_voltage_mv = pdata->max_voltage;
