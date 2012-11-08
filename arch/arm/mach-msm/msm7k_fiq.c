@@ -75,7 +75,7 @@ static int __init msm_setup_fiq_handler(void)
 
 static int __init init7k_fiq(void)
 {
-	if (!cpu_is_msm8625())
+	if (!cpu_is_msm8625() && !cpu_is_msm8625q())
 		return 0;
 
 	if (msm_setup_fiq_handler())

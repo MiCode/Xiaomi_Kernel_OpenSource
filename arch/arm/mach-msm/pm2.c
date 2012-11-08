@@ -562,7 +562,7 @@ static void msm_pm_config_hw_after_power_up(void)
 		__raw_writel(0, APPS_PWRDOWN);
 		mb();
 		msm_spm_reinit();
-	} else if (cpu_is_msm8625()) {
+	} else if (cpu_is_msm8625() || cpu_is_msm8625q()) {
 		__raw_writel(0, APPS_PWRDOWN);
 		mb();
 
@@ -881,7 +881,7 @@ static int msm_pm_power_collapse
 
 	memset(msm_pm_smem_data, 0, sizeof(*msm_pm_smem_data));
 
-	if (cpu_is_msm8625()) {
+	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
 		/* Program the SPM */
 		ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_COLLAPSE,
 									false);
@@ -971,7 +971,7 @@ static int msm_pm_power_collapse
 #endif
 
 #ifdef CONFIG_CACHE_L2X0
-	if (!cpu_is_msm8625())
+	if (!cpu_is_msm8625() && !cpu_is_msm8625q())
 		l2cc_suspend();
 	else
 		apps_power_collapse = 1;
@@ -983,7 +983,7 @@ static int msm_pm_power_collapse
 	 * TBD: Currently recognise the MODEM early exit
 	 * path by reading the MPA5_GDFS_CNT_VAL register.
 	 */
-	if (cpu_is_msm8625()) {
+	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
 		int cpu;
 		/*
 		 * on system reset, default value of MPA5_GDFS_CNT_VAL
@@ -997,7 +997,7 @@ static int msm_pm_power_collapse
 		val = __raw_readl(MSM_CFG_CTL_BASE + 0x38);
 
 		/* 8x25Q */
-		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3) {
+		if (cpu_is_msm8625q()) {
 			if (val != 0x000F0002) {
 				for_each_possible_cpu(cpu) {
 					if (!cpu)
@@ -1031,7 +1031,7 @@ static int msm_pm_power_collapse
 	}
 
 #ifdef CONFIG_CACHE_L2X0
-	if (!cpu_is_msm8625())
+	if (!cpu_is_msm8625() && !cpu_is_msm8625q())
 		l2cc_resume();
 	else
 		apps_power_collapse = 0;
@@ -1153,7 +1153,7 @@ static int msm_pm_power_collapse
 
 	smd_sleep_exit();
 
-	if (cpu_is_msm8625()) {
+	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
 		ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING,
 									false);
 		WARN_ON(ret);
@@ -1220,7 +1220,7 @@ power_collapse_restore_gpio_bail:
 		msm_cpr_ops->cpr_resume();
 
 power_collapse_bail:
-	if (cpu_is_msm8625()) {
+	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
 		ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING,
 									false);
 		WARN_ON(ret);
@@ -1258,14 +1258,14 @@ static int __ref msm_pm_power_collapse_standalone(bool from_idle)
 #endif
 
 #ifdef CONFIG_CACHE_L2X0
-	if (!cpu_is_msm8625())
+	if (!cpu_is_msm8625() && !cpu_is_msm8625q())
 		l2cc_suspend();
 #endif
 
 	collapsed = msm_pm_collapse();
 
 #ifdef CONFIG_CACHE_L2X0
-	if (!cpu_is_msm8625())
+	if (!cpu_is_msm8625() && !cpu_is_msm8625q())
 		l2cc_resume();
 #endif
 
@@ -1310,7 +1310,7 @@ static int msm_pm_swfi(bool ramp_acpu)
 			return -EIO;
 	}
 
-	if (!cpu_is_msm8625())
+	if (!cpu_is_msm8625() && !cpu_is_msm8625q())
 		msm_pm_config_hw_before_swfi();
 
 	msm_arch_idle();
@@ -1713,7 +1713,7 @@ static int __init msm_pm_init(void)
 		return ret;
 	}
 
-	if (cpu_is_msm8625()) {
+	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
 		target_type = TARGET_IS_8625;
 		clean_caches((unsigned long)&target_type, sizeof(target_type),
 				virt_to_phys(&target_type));
@@ -1725,7 +1725,7 @@ static int __init msm_pm_init(void)
 		 * MPA5_GDFS_CNT_VAL[9:0] = Delay counter for
 		 * GDFS control.
 		 */
-		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 3)
+		if (cpu_is_msm8625q())
 			val = 0x000F0002;
 		else
 			val = 0x00030002;
