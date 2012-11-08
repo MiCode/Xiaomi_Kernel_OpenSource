@@ -53,6 +53,7 @@ struct disp_info_type_suspend {
 	boolean op_enable;
 	boolean sw_refreshing_enable;
 	boolean panel_power_on;
+	boolean op_suspend;
 };
 
 struct msmfb_writeback_data_list {
