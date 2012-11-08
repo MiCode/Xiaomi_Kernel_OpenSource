@@ -1768,7 +1768,9 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	msm->ext_xceiv.otg_capability = of_property_read_bool(node,
-				"qcom,dwc-usb3-msm-otg-capability");
+				"qcom,otg-capability");
+	msm->charger.charging_disabled = of_property_read_bool(node,
+				"qcom,charging-disabled");
 
 	if (!msm->ext_xceiv.otg_capability) {
 		/* DWC3 has separate IRQ line for OTG events (ID/BSV etc.) */

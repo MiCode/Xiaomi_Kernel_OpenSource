@@ -172,7 +172,7 @@
 };
 
 &usb3 {
-	qcom,dwc-usb3-msm-otg-capability;
+	qcom,otg-capability;
 };
 
 &pm8941_chg {
