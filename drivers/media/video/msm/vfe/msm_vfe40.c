@@ -5170,39 +5170,44 @@ static const struct v4l2_subdev_ops msm_vfe_subdev_ops = {
 
 static void msm_vfe40_init_vbif_parms(void __iomem *vfe_vbif_base)
 {
-	msm_camera_io_w_mb(0x1,
+	msm_camera_io_w(0x1,
 		vfe_vbif_base + VFE40_VBIF_CLKON);
-	msm_camera_io_w_mb(0x1,
-		vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
-	msm_camera_io_w_mb(0xFFFF,
-		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
-	msm_camera_io_w_mb(0xFFFFFFFF,
-		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
-
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x01010101,
 		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF0);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x01010101,
 		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF1);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x10010110,
 		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF2);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x10101010,
 		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF0);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x10101010,
 		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF1);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x10101010,
 		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF2);
-	msm_camera_io_w_mb(0x00001010,
+	msm_camera_io_w(0x00001010,
 		vfe_vbif_base + VFE40_VBIF_OUT_RD_LIM_CONF0);
-	msm_camera_io_w_mb(0x00001010,
+	msm_camera_io_w(0x00001010,
 		vfe_vbif_base + VFE40_VBIF_OUT_WR_LIM_CONF0);
-	msm_camera_io_w_mb(0x00000707,
+	msm_camera_io_w(0x00000707,
 		vfe_vbif_base + VFE40_VBIF_DDR_OUT_MAX_BURST);
-	msm_camera_io_w_mb(0x00000030,
+	msm_camera_io_w(0x00000707,
+		vfe_vbif_base + VFE40_VBIF_OCMEM_OUT_MAX_BURST);
+	msm_camera_io_w(0x00000030,
 		vfe_vbif_base + VFE40_VBIF_ARB_CTL);
-	msm_camera_io_w_mb(0x04210842,
+	msm_camera_io_w(0x04210842,
 		vfe_vbif_base + VFE40_VBIF_DDR_ARB_CONF0);
-	msm_camera_io_w_mb(0x04210842,
+	msm_camera_io_w(0x04210842,
 		vfe_vbif_base + VFE40_VBIF_DDR_ARB_CONF1);
+	msm_camera_io_w(0x00000001,
+		vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
+	msm_camera_io_w(0x22222222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF0);
+	msm_camera_io_w(0x00002222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF1);
+	msm_camera_io_w(0x00000FFF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
+	msm_camera_io_w(0x0FFF0FFF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
 }
 
 int msm_axi_subdev_init(struct v4l2_subdev *sd)
