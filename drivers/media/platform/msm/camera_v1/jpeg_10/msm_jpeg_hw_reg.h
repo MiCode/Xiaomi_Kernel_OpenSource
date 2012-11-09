@@ -126,5 +126,11 @@
 #define JPEG_VBIF_OUT_WR_LIM_CONF0             0xD4
 #define JPEG_VBIF_DDR_OUT_MAX_BURST            0xD8
 #define JPEG_VBIF_OCMEM_OUT_MAX_BURST          0xDC
+#define JPEG_VBIF_ARB_CTL                      0xF0
+#define JPEG_VBIF_OUT_AXI_AOOO_EN              0x178
+#define JPEG_VBIF_OUT_AXI_AOOO                 0x17c
+#define JPEG_VBIF_ROUND_ROBIN_QOS_ARB          0x124
+#define JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF0       0x160
+#define JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF1       0x164
 
 #endif /* MSM_JPEG_HW_REG_H */
