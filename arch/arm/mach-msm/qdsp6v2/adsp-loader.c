@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <mach/subsystem_restart.h>
 #include <mach/qdsp6v2/apr.h>
+#include <linux/of_device.h>
 
 #define Q6_PIL_GET_DELAY_MS 100
 
@@ -30,25 +31,41 @@ static int adsp_loader_probe(struct platform_device *pdev)
 {
 	struct adsp_loader_private *priv;
 	int rc = 0;
+	const char *adsp_dt = "qcom,adsp-state";
+	u32 adsp_state;
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
-
-	platform_set_drvdata(pdev, priv);
-
-	priv->pil_h = subsystem_get("adsp");
-	if (IS_ERR(priv->pil_h)) {
-		pr_err("%s: pil get adsp failed, error:%d\n", __func__, rc);
-		devm_kfree(&pdev->dev, priv);
-		goto fail;
+	rc = of_property_read_u32(pdev->dev.of_node, adsp_dt, &adsp_state);
+	if (rc) {
+		dev_err(&pdev->dev,
+			"%s: ADSP state = %x\n", __func__, adsp_state);
+		return rc;
 	}
 
-	/* Query the DSP to check if resources are available */
-	msleep(Q6_PIL_GET_DELAY_MS);
+	if (adsp_state == APR_SUBSYS_DOWN) {
+		priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+		if (!priv)
+			return -ENOMEM;
 
-	/* Set the state of the ADSP in APR driver */
-	apr_set_q6_state(APR_SUBSYS_LOADED);
+		platform_set_drvdata(pdev, priv);
+
+		priv->pil_h = subsystem_get("adsp");
+		if (IS_ERR(priv->pil_h)) {
+			pr_err("%s: pil get adsp failed, error:%d\n",
+				__func__, rc);
+			devm_kfree(&pdev->dev, priv);
+			goto fail;
+		}
+
+		/* Query the DSP to check if resources are available */
+		msleep(Q6_PIL_GET_DELAY_MS);
+
+		/* Set the state of the ADSP in APR driver */
+		apr_set_q6_state(APR_SUBSYS_LOADED);
+	} else if (adsp_state == APR_SUBSYS_LOADED) {
+		dev_dbg(&pdev->dev,
+			"%s:MDM9x25 ADSP state = %x\n", __func__, adsp_state);
+		apr_set_q6_state(APR_SUBSYS_LOADED);
+	}
 
 	/* Query for MMPM API */
 
@@ -62,7 +79,8 @@ static int adsp_loader_remove(struct platform_device *pdev)
 	struct adsp_loader_private *priv;
 
 	priv = platform_get_drvdata(pdev);
-	subsystem_put(priv->pil_h);
+	if (priv != NULL)
+		subsystem_put(priv->pil_h);
 	pr_info("%s: Q6/ADSP image is unloaded\n", __func__);
 
 	return 0;
