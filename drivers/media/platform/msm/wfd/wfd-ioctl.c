@@ -271,8 +271,9 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 			goto alloc_fail;
 		}
 
-		WFD_MSG_ERR("NOTE: enc paddr = %p, kvaddr = %p\n",
-				enc_mregion->paddr,
+		WFD_MSG_DBG("NOTE: enc paddr = [%p->%p], kvaddr = %p\n",
+				enc_mregion->paddr, (int8_t *)
+				enc_mregion->paddr + enc_mregion->size,
 				enc_mregion->kvaddr);
 
 		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
