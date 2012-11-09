@@ -462,7 +462,7 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 					b->m.planes[extra_idx].m.userptr;
 			else
 				buffer_info.extradata_addr = 0;
-
+			buffer_info.response_required = false;
 			rc = vidc_hal_session_release_buffers(
 					(void *)inst->session, &buffer_info);
 			if (rc)
