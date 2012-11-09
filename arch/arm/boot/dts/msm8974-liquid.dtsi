@@ -180,6 +180,10 @@
 	};
 };
 
+&usb3 {
+	qcom,charging-disabled;
+};
+
 &pm8941_mvs1 {
 	parent-supply = <&ext_5v>;
 };
