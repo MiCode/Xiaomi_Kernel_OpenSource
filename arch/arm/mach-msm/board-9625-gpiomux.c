@@ -280,9 +280,9 @@ void __init msm9625_init_gpiomux(void)
 {
 	int rc;
 
-	rc = msm_gpiomux_init(NR_GPIO_IRQS);
+	rc = msm_gpiomux_init_dt();
 	if (rc) {
-		pr_err(KERN_ERR "msm9625_init_gpiomux failed %d\n", rc);
+		pr_err("%s failed %d\n", __func__, rc);
 		return;
 	}
 

@@ -34,6 +34,7 @@
 		reg = <0xfd510000 0x4000>;
 		gpio-controller;
 		#gpio-cells = <2>;
+		ngpio = <117>;
 		interrupts = <0 208 0>;
 	};
 

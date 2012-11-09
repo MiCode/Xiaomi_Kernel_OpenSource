@@ -19,6 +19,7 @@
 #include <linux/gpio.h>
 #include <linux/coresight.h>
 #include <asm/clkdev.h>
+#include <mach/gpio.h>
 #include <mach/kgsl.h>
 #include <linux/android_pmem.h>
 #include <mach/irqs-8960.h>
@@ -4542,11 +4543,16 @@ static struct resource msm_gpio_resources[] = {
 	},
 };
 
+static struct msm_gpio_pdata msm8960_gpio_pdata = {
+	.ngpio = 152,
+};
+
 struct platform_device msm_gpio_device = {
-	.name = "msmgpio",
-	.id = -1,
-	.num_resources	= ARRAY_SIZE(msm_gpio_resources),
-	.resource	= msm_gpio_resources,
+	.name			= "msmgpio",
+	.id			= -1,
+	.num_resources		= ARRAY_SIZE(msm_gpio_resources),
+	.resource		= msm_gpio_resources,
+	.dev.platform_data	= &msm8960_gpio_pdata,
 };
 
 struct platform_device mdm_sglte_device = {
