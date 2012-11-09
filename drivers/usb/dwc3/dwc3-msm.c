@@ -36,6 +36,7 @@
 #include <linux/power_supply.h>
 
 #include <mach/rpm-regulator.h>
+#include <mach/rpm-regulator-smd.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
 
@@ -141,8 +142,6 @@ struct dwc3_msm {
 	struct regulator	*hsusb_vddcx;
 	struct regulator	*ssusb_1p8;
 	struct regulator	*ssusb_vddcx;
-	enum usb_vdd_type	ss_vdd_type;
-	enum usb_vdd_type	hs_vdd_type;
 	struct dwc3_ext_xceiv	ext_xceiv;
 	bool			resume_pending;
 	atomic_t                pm_suspended;
@@ -162,6 +161,9 @@ struct dwc3_msm {
 	unsigned int		online;
 	unsigned int		host_mode;
 	unsigned int		current_max;
+	unsigned int		vdd_no_vol_level;
+	unsigned int		vdd_low_vol_level;
+	unsigned int		vdd_high_vol_level;
 	bool			vbus_active;
 };
 
@@ -176,23 +178,6 @@ struct dwc3_msm {
 #define USB_SSPHY_1P8_VOL_MIN		1800000 /* uV */
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
 #define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
-
-#define USB_PHY_VDD_DIG_VOL_NONE	0	/* uV */
-#define USB_PHY_VDD_DIG_VOL_MIN		1045000 /* uV */
-#define USB_PHY_VDD_DIG_VOL_MAX		1320000 /* uV */
-
-static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
-		{  /* VDD_CX CORNER Voting */
-			[VDD_NONE]	= RPM_VREG_CORNER_NONE,
-			[VDD_MIN]	= RPM_VREG_CORNER_NOMINAL,
-			[VDD_MAX]	= RPM_VREG_CORNER_HIGH,
-		},
-		{ /* VDD_CX Voltage Voting */
-			[VDD_NONE]	= USB_PHY_VDD_DIG_VOL_NONE,
-			[VDD_MIN]	= USB_PHY_VDD_DIG_VOL_MIN,
-			[VDD_MAX]	= USB_PHY_VDD_DIG_VOL_MAX,
-		},
-};
 
 static struct dwc3_msm *context;
 static u64 dwc3_msm_dma_mask = DMA_BIT_MASK(64);
@@ -858,12 +843,11 @@ EXPORT_SYMBOL(msm_ep_unconfig);
 /* HSPHY */
 static int dwc3_hsusb_config_vddcx(int high)
 {
-	int min_vol, ret;
+	int min_vol, max_vol, ret;
 	struct dwc3_msm *dwc = context;
-	enum usb_vdd_type vdd_type = context->hs_vdd_type;
-	int max_vol = vdd_val[vdd_type][VDD_MAX];
 
-	min_vol = vdd_val[vdd_type][high ? VDD_MIN : VDD_NONE];
+	max_vol = dwc->vdd_high_vol_level;
+	min_vol = high ? dwc->vdd_low_vol_level : dwc->vdd_no_vol_level;
 	ret = regulator_set_voltage(dwc->hsusb_vddcx, min_vol, max_vol);
 	if (ret) {
 		dev_err(dwc->dev, "unable to set voltage for HSUSB_VDDCX\n");
@@ -983,12 +967,11 @@ put_1p8_lpm:
 /* SSPHY */
 static int dwc3_ssusb_config_vddcx(int high)
 {
-	int min_vol, ret;
+	int min_vol, max_vol, ret;
 	struct dwc3_msm *dwc = context;
-	enum usb_vdd_type vdd_type = context->ss_vdd_type;
-	int max_vol = vdd_val[vdd_type][VDD_MAX];
 
-	min_vol = vdd_val[vdd_type][high ? VDD_MIN : VDD_NONE];
+	max_vol = dwc->vdd_high_vol_level;
+	min_vol = high ? dwc->vdd_low_vol_level : dwc->vdd_no_vol_level;
 	ret = regulator_set_voltage(dwc->ssusb_vddcx, min_vol, max_vol);
 	if (ret) {
 		dev_err(dwc->dev, "unable to set voltage for SSUSB_VDDCX\n");
@@ -1615,6 +1598,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *tcsr;
 	int ret = 0;
+	int len = 0;
+	u32 tmp[3];
 
 	msm = devm_kzalloc(&pdev->dev, sizeof(*msm), GFP_KERNEL);
 	if (!msm) {
@@ -1689,19 +1674,26 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(msm->ref_clk);
 
+
+	of_get_property(node, "qcom,vdd-voltage-level", &len);
+	if (len == sizeof(tmp)) {
+		of_property_read_u32_array(node, "qcom,vdd-voltage-level",
+							tmp, len/sizeof(*tmp));
+		msm->vdd_no_vol_level = tmp[0];
+		msm->vdd_low_vol_level = tmp[1];
+		msm->vdd_high_vol_level = tmp[2];
+	} else {
+		dev_err(&pdev->dev, "no qcom,vdd-voltage-level property\n");
+		ret = -EINVAL;
+		goto disable_ref_clk;
+	}
+
 	/* SS PHY */
-	msm->ss_vdd_type = VDDCX_CORNER;
 	msm->ssusb_vddcx = devm_regulator_get(&pdev->dev, "ssusb_vdd_dig");
 	if (IS_ERR(msm->ssusb_vddcx)) {
-		msm->ssusb_vddcx = devm_regulator_get(&pdev->dev,
-							"SSUSB_VDDCX");
-		if (IS_ERR(msm->ssusb_vddcx)) {
-			dev_err(&pdev->dev, "unable to get ssusb vddcx\n");
-			ret = PTR_ERR(msm->ssusb_vddcx);
-			goto disable_ref_clk;
-		}
-		msm->ss_vdd_type = VDDCX;
-		dev_dbg(&pdev->dev, "ss_vdd_type: VDDCX\n");
+		dev_err(&pdev->dev, "unable to get ssusb vddcx\n");
+		ret = PTR_ERR(msm->ssusb_vddcx);
+		goto disable_ref_clk;
 	}
 
 	ret = dwc3_ssusb_config_vddcx(1);
@@ -1729,18 +1721,11 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	/* HS PHY */
-	msm->hs_vdd_type = VDDCX_CORNER;
 	msm->hsusb_vddcx = devm_regulator_get(&pdev->dev, "hsusb_vdd_dig");
 	if (IS_ERR(msm->hsusb_vddcx)) {
-		msm->hsusb_vddcx = devm_regulator_get(&pdev->dev,
-							"HSUSB_VDDCX");
-		if (IS_ERR(msm->hsusb_vddcx)) {
-			dev_err(&pdev->dev, "unable to get hsusb vddcx\n");
-			ret = PTR_ERR(msm->ssusb_vddcx);
-			goto disable_ss_ldo;
-		}
-		msm->hs_vdd_type = VDDCX;
-		dev_dbg(&pdev->dev, "hs_vdd_type: VDDCX\n");
+		dev_err(&pdev->dev, "unable to get hsusb vddcx\n");
+		ret = PTR_ERR(msm->hsusb_vddcx);
+		goto disable_ss_ldo;
 	}
 
 	ret = dwc3_hsusb_config_vddcx(1);

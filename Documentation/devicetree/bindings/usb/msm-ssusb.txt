@@ -10,12 +10,20 @@ Required properties :
 	"irq" : Interrupt for DWC3 core
 	"otg_irq" : Interrupt for DWC3 core's OTG Events
 - <supply-name>-supply: phandle to the regulator device tree node
-  Required "supply-name" examples are "SSUSB_VDDCX", "SSUSB_1p8",
-  "HSUSB_VDDCX", "HSUSB_1p8", "HSUSB_3p3" and "vbus_dwc3".
+  Required "supply-name" examples are:
+	"SSUSB_lp8" : 1.8v supply for SSPHY
+	"HSUSB_1p8" : 1.8v supply for HSPHY
+	"HSUSB_3p3" : 3.3v supply for HSPHY
+	"vbus_dwc3" : vbus supply for host mode
+	"ssusb_vdd_dig" : vdd supply for SSPHY digital circuit operation
+	"hsusb_vdd_dig" : vdd supply for HSPHY digital circuit operation
 - qcom,dwc-usb3-msm-dbm-eps: Number of endpoints avaliable for
   the DBM (Device Bus Manager). The DBM is HW unit which is part of
   the MSM USB3.0 core (which also includes the Synopsys DesignWare
   USB3.0 controller)
+- qcom,vdd-voltage-level: This property must be a list of three integer
+  values (no, min, max) where each value represents either a voltage in
+  microvolts or a value corresponding to voltage corner
 
 Optional properties :
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
@@ -40,13 +48,14 @@ Example MSM USB3.0 controller device node :
 		      <0xFD4AB000 0x4>;
 		interrupts = <0 131 0>, <0 179 0>, <0 133 0>;
 		interrupt-names = "irq", "otg_irq", "hs_phy_irq";
-		SSUSB_VDDCX-supply = <&pm8841_s2>;
+		ssusb_vdd_dig-supply = <&pm8841_s2_corner>;
 		SSUSB_1p8-supply = <&pm8941_l6>;
-		HSUSB_VDDCX-supply = <&pm8841_s2>;
+		hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
 		HSUSB_1p8-supply = <&pm8941_l6>;
 		HSUSB_3p3-supply = <&pm8941_l24>;
 		vbus_dwc3-supply = <&pm8941_mvs1>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>
+		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;
