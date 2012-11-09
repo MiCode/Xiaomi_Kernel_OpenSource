@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <mach/gpiomux.h>
@@ -148,3 +149,26 @@ void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs)
 	}
 }
 EXPORT_SYMBOL(msm_gpiomux_install);
+
+int msm_gpiomux_init_dt(void)
+{
+	int rc;
+	unsigned int ngpio;
+	struct device_node *of_gpio_node;
+
+	of_gpio_node = of_find_compatible_node(NULL, NULL, "qcom,msm-gpio");
+	if (!of_gpio_node) {
+		pr_err("%s: Failed to find qcom,msm-gpio node\n", __func__);
+		return -ENODEV;
+	}
+
+	rc = of_property_read_u32(of_gpio_node, "ngpio", &ngpio);
+	if (rc) {
+		pr_err("%s: Failed to find ngpio property in msm-gpio device node %d\n"
+				, __func__, rc);
+		return rc;
+	}
+
+	return msm_gpiomux_init(ngpio);
+}
+EXPORT_SYMBOL(msm_gpiomux_init_dt);

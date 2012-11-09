@@ -108,11 +108,16 @@ static struct resource msm_gpio_resources[] = {
 	},
 };
 
+static struct msm_gpio_pdata msm8660_gpio_pdata = {
+	.ngpio = 173,
+};
+
 struct platform_device msm_gpio_device = {
-	.name = "msmgpio",
-	.id = -1,
-	.num_resources	= ARRAY_SIZE(msm_gpio_resources),
-	.resource	= msm_gpio_resources,
+	.name			= "msmgpio",
+	.id			= -1,
+	.num_resources		= ARRAY_SIZE(msm_gpio_resources),
+	.resource		= msm_gpio_resources,
+	.dev.platform_data	= &msm8660_gpio_pdata,
 };
 
 static void charm_ap2mdm_kpdpwr_on(void)

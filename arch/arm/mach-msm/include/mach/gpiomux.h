@@ -117,6 +117,11 @@ struct msm_gpiomux_configs {
  */
 int msm_gpiomux_init(size_t ngpio);
 
+/* DT Variant of msm_gpiomux_init. This will look up the number of gpios from
+ * device tree rather than relying on NR_GPIO_IRQS
+ */
+int msm_gpiomux_init_dt(void);
+
 /* Install a block of gpiomux configurations in gpiomux.  This is functionally
  * identical to calling msm_gpiomux_write many times.
  */

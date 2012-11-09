@@ -40,6 +40,10 @@ struct msm_gpio {
 	const char *label;
 };
 
+struct msm_gpio_pdata {
+	int ngpio;
+};
+
 /**
  * msm_gpios_request_enable() - request and enable set of GPIOs
  *
