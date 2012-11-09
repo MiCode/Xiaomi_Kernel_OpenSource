@@ -28,7 +28,7 @@
 #define DRIVER_AUTHOR           "Qualcomm"
 #define DRIVER_NAME             "kgsl"
 #define DRIVER_DESC             "KGSL DRM"
-#define DRIVER_DATE             "20100127"
+#define DRIVER_DATE             "20121107"
 
 #define DRIVER_MAJOR            2
 #define DRIVER_MINOR            1
@@ -630,6 +630,43 @@ kgsl_gem_create_fd_ioctl(struct drm_device *dev, void *data,
 
 error_fput:
 	fput_light(file, put_needed);
+
+	return ret;
+}
+
+int
+kgsl_gem_get_ion_fd_ioctl(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_get_ion_fd *args = data;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *priv;
+	int ret = 0;
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+
+	if (obj == NULL) {
+		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
+		return -EBADF;
+	}
+
+	mutex_lock(&dev->struct_mutex);
+	priv = obj->driver_private;
+
+	if (TYPE_IS_FD(priv->type))
+		ret = -EINVAL;
+	else {
+		if (priv->ion_handle) {
+			args->ion_fd = ion_share_dma_buf(
+			kgsl_drm_ion_phys_client, priv->ion_handle);
+		} else {
+			DRM_ERROR("GEM object has no ion memory allocated.\n");
+			ret = -EINVAL;
+		}
+	}
+
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
 
 	return ret;
 }
@@ -1482,6 +1519,7 @@ struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_ALLOC, kgsl_gem_alloc_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_MMAP, kgsl_gem_mmap_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_BUFINFO, kgsl_gem_get_bufinfo_ioctl, 0),
+	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_ION_FD, kgsl_gem_get_ion_fd_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_BUFCOUNT,
 		      kgsl_gem_set_bufcount_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_ACTIVE, kgsl_gem_set_active_ioctl, 0),
@@ -1547,7 +1585,7 @@ int kgsl_drm_init(struct platform_device *dev)
 
 	/* Create ION Client */
 	kgsl_drm_ion_phys_client = msm_ion_client_create(
-			ION_HEAP_CARVEOUT_MASK, ION_SF_HEAP_NAME);
+			ION_HEAP_CARVEOUT_MASK, "kgsl_drm");
 	if (!kgsl_drm_ion_phys_client) {
 		DRM_ERROR("Unable to create ION client\n");
 		return -ENOMEM;
@@ -1559,5 +1597,10 @@ int kgsl_drm_init(struct platform_device *dev)
 void kgsl_drm_exit(void)
 {
 	kgsl_drm_inited = DRM_KGSL_NOT_INITED;
+
+	if (kgsl_drm_ion_phys_client)
+		ion_client_destroy(kgsl_drm_ion_phys_client);
+	kgsl_drm_ion_phys_client = NULL;
+
 	drm_platform_exit(&driver, driver.kdriver.platform_device);
 }
