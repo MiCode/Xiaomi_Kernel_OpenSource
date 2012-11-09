@@ -117,10 +117,10 @@ struct qpnp_bms_chip {
 	int				charger_status;
 	bool				online;
 	/* platform data */
-	unsigned int			r_sense_uohm;
+	int				r_sense_uohm;
 	unsigned int			v_cutoff_uv;
-	unsigned int			max_voltage_uv;
-	unsigned int			r_conn_mohm;
+	int				max_voltage_uv;
+	int				r_conn_mohm;
 	int				shutdown_soc_valid_limit;
 	int				adjust_soc_low_threshold;
 	int				adjust_soc_high_threshold;
@@ -1279,14 +1279,15 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 				int vbat_uv, int ibat_ua, int batt_temp)
 {
 	int chg_soc;
+	int batt_terminal_uv = vbat_uv + (ibat_ua * chip->r_conn_mohm) / 1000;
 
 	if (chip->soc_at_cv == -EINVAL) {
 		/* In constant current charging return the calc soc */
-		if (vbat_uv <= chip->max_voltage_uv)
+		if (batt_terminal_uv <= chip->max_voltage_uv)
 			pr_debug("CC CHG SOC %d\n", soc);
 
 		/* Note the CC to CV point */
-		if (vbat_uv >= chip->max_voltage_uv) {
+		if (batt_terminal_uv >= chip->max_voltage_uv) {
 			chip->soc_at_cv = soc;
 			chip->prev_chg_soc = soc;
 			chip->ibat_at_cv_ua = ibat_ua;
@@ -1305,14 +1306,15 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 	 * if voltage lessened (possibly because of a system load)
 	 * keep reporting the prev chg soc
 	 */
-	if (vbat_uv <= chip->max_voltage_uv) {
-		pr_debug("vbat %d < max = %d CC CHG SOC %d\n",
-			vbat_uv, chip->max_voltage_uv, chip->prev_chg_soc);
+	if (batt_terminal_uv <= chip->max_voltage_uv - 10000) {
+		pr_debug("batt_terminal_uv %d < (max = %d - 10000); CC CHG SOC %d\n",
+			batt_terminal_uv,
+			chip->max_voltage_uv, chip->prev_chg_soc);
 		return chip->prev_chg_soc;
 	}
 
 	chg_soc = linear_interpolate(chip->soc_at_cv, chip->ibat_at_cv_ua,
-					100, -100000,
+					100, -1 * chip->chg_term_ua,
 					ibat_ua);
 	chg_soc = bound_soc(chg_soc);
 
