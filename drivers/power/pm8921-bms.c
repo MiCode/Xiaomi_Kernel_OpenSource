@@ -130,7 +130,7 @@ struct pm8921_bms_chip {
 	int			default_rbatt_mohm;
 	int			amux_2_trim_delta;
 	uint16_t		prev_last_good_ocv_raw;
-	unsigned int		rconn_mohm;
+	int			rconn_mohm;
 	struct mutex		last_ocv_uv_mutex;
 	int			last_ocv_uv;
 	int			pon_ocv_uv;
@@ -1396,14 +1396,16 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 				int fcc_uah, int cc_uah, int uuc_uah)
 {
 	int chg_soc;
+	int vbat_batt_terminal_uv = vbat_uv
+					+ (ibat_ua * chip->rconn_mohm) / 1000;
 
 	if (chip->soc_at_cv == -EINVAL) {
 		/* In constant current charging return the calc soc */
-		if (vbat_uv <= chip->max_voltage_uv)
+		if (vbat_batt_terminal_uv <= chip->max_voltage_uv)
 			pr_debug("CC CHG SOC %d\n", soc);
 
 		/* Note the CC to CV point */
-		if (vbat_uv >= chip->max_voltage_uv) {
+		if (vbat_batt_terminal_uv >= chip->max_voltage_uv) {
 			chip->soc_at_cv = soc;
 			chip->prev_chg_soc = soc;
 			chip->ibat_at_cv_ua = ibat_ua;
@@ -1419,17 +1421,18 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 	 */
 
 	/*
-	 * if voltage lessened (possibly because of a system load)
-	 * keep reporting the prev chg soc
+	 * if voltage lessened by more than 10mV (possibly because of
+	 * a sudden increase in system load) keep reporting the prev chg soc
 	 */
-	if (vbat_uv <= chip->max_voltage_uv) {
-		pr_debug("vbat %d < max = %d CC CHG SOC %d\n",
-			vbat_uv, chip->max_voltage_uv, chip->prev_chg_soc);
+	if (vbat_batt_terminal_uv <= chip->max_voltage_uv - 10000) {
+		pr_debug("vbat_terminals %d < max = %d CC CHG SOC %d\n",
+			vbat_batt_terminal_uv,
+			chip->max_voltage_uv, chip->prev_chg_soc);
 		return chip->prev_chg_soc;
 	}
 
 	chg_soc = linear_interpolate(chip->soc_at_cv, chip->ibat_at_cv_ua,
-					100, -100000,
+					100, -1 * chip->chg_term_ua,
 					ibat_ua);
 
 	/* always report a higher soc */
