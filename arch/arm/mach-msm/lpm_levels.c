@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,6 +144,11 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 
 		if (time_param->latency_us < level->latency_us)
 			continue;
+
+		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == sleep_mode)
+			|| (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == sleep_mode))
+			if (!cpu && msm_rpm_waiting_for_ack())
+					break;
 
 		if (time_param->sleep_us <= 1) {
 			pwr = level->energy_overhead;
