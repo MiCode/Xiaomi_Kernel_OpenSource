@@ -1889,6 +1889,8 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 pr_err:
 	pr_err("%s: RX%u is used by current requesting AIF_PB itself\n",
 		__func__, port_id + 1);
+	mutex_unlock(&codec->mutex);
+	return 0;
 err:
 	mutex_unlock(&codec->mutex);
 	return -EINVAL;
