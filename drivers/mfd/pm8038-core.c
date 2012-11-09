@@ -373,6 +373,11 @@ static struct mfd_cell ccadc_cell __devinitdata = {
 	.num_resources	= ARRAY_SIZE(ccadc_cell_resources),
 };
 
+static struct mfd_cell vibrator_cell __devinitdata = {
+	.name           = PM8XXX_VIBRATOR_DEV_NAME,
+	.id             = -1,
+};
+
 static struct pm8xxx_vreg regulator_data[] = {
 	/*   name	     pc_name	    ctrl   test   hpm_min */
 	NLDO1200("8038_l1",		    0x0AE, 0x0AF, LDO_1200),
@@ -605,6 +610,17 @@ pm8038_add_subdevices(const struct pm8038_platform_data *pdata,
 		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
 		if (ret) {
 			pr_err("Failed to add leds subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->vibrator_pdata) {
+		vibrator_cell.platform_data = pdata->vibrator_pdata;
+		vibrator_cell.pdata_size =
+			sizeof(struct pm8xxx_vibrator_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &vibrator_cell, 1, NULL, 0);
+		if (ret) {
+			pr_err("Failed to add vibrator ret=%d\n", ret);
 			goto bail;
 		}
 	}
