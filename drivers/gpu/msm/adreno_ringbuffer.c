@@ -535,12 +535,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	/* internal ib command identifier for the ringbuffer */
 	total_sizedwords += (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) ? 2 : 0;
 
-	/*
-	 * Add CP_COND_EXEC commands to generate CP_INTERRUPT only
-	 * for submissions from userspace.
-	 */
-	total_sizedwords += (context &&
-			!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) ? 7 : 0;
+	/* Add CP_COND_EXEC commands to generate CP_INTERRUPT */
+	total_sizedwords += context ? 7 : 0;
 
 	if (adreno_is_a3xx(adreno_dev))
 		total_sizedwords += 7;
@@ -676,7 +672,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				rb->timestamp[KGSL_MEMSTORE_GLOBAL]);
 	}
 
-	if (context && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
+	if (context) {
 		/* Conditional execution based on memory values */
 		GSL_RB_WRITE(ringcmds, rcmd_gpu,
 			cp_type3_packet(CP_COND_EXEC, 4));
