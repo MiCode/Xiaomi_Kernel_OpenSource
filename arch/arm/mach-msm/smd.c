@@ -1016,6 +1016,7 @@ void smd_channel_reset(uint32_t restart_pid)
 	notify_dsp_smd();
 	notify_dsps_smd();
 	notify_wcnss_smd();
+	notify_rpm_smd();
 
 	/* change all remote states to CLOSED */
 	mutex_lock(&smd_probe_lock);
@@ -1031,6 +1032,7 @@ void smd_channel_reset(uint32_t restart_pid)
 	notify_dsp_smd();
 	notify_dsps_smd();
 	notify_wcnss_smd();
+	notify_rpm_smd();
 
 	SMD_DBG("%s: finished reset\n", __func__);
 }
