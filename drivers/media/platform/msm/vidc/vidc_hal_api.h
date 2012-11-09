@@ -777,6 +777,12 @@ struct vidc_buffer_addr_info {
 	u32 align_device_addr;
 	u32 extradata_size;
 	u32 extradata_addr;
+	u32 response_required;
+};
+
+struct hal_buffer_info {
+	u32 buffer_addr;
+	u32 extra_data_addr;
 };
 
 struct vidc_frame_plane_config {
