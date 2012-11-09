@@ -2,7 +2,12 @@ Krait Voltage regulators
 
 Required properties:
 - compatible:			Must be "qcom,krait-regulator"
-- reg:				Specifies the address and size for this regulator device
+- reg:				Specifies the address and size for this regulator device,
+				also specifies the address and the size for the MDD area
+				to be used along with the regulator
+- reg-names:			"acs" -string to identify the area where main power control
+					registers reside.
+				"mdd" - string to identify the area where mdd registers reside.
 - qcom,headroom-voltage:	The minimum required voltage drop between the input
 			 	voltage and the output voltage for the LDO to be
 			 	operational, in microvolts
@@ -17,7 +22,9 @@ Example:
 	krait0_vreg: regulator@f9088000 {
 		compatible = "qcom,krait-regulator";
 		regulator-name = "krait0";
-		reg = <0xf9088000 0x1000>;
+		reg = <0xf9088000 0x1000>, /* APCS_ALIAS0_KPSS_ACS */
+			<0xf908a800 0x1000>; /* APCS_ALIAS0_KPSS_MDD */
+		reg-names = "acs", "mdd";
 		regulator-min-microvolt = <500000>;
 		regulator-max-microvolt = <1100000>;
 		qcom,headroom-voltage = <150000>;
@@ -25,3 +32,4 @@ Example:
 		qcom,ldo-default-voltage = <745000>;
 		qcom,ldo-threshold-voltage = <750000>;
 	};
+
