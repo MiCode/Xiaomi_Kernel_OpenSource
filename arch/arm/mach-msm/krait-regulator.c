@@ -159,6 +159,7 @@ struct krait_power_vreg {
 	int				retention_uV;
 	int				headroom_uV;
 	int				ldo_threshold_uV;
+	bool				online;
 };
 
 static u32 version;
@@ -309,6 +310,7 @@ static int set_pmic_gang_voltage(int uV)
 	}
 
 	setpoint = DIV_ROUND_UP(uV, LV_RANGE_STEP);
+
 	return msm_spm_apcs_set_vdd(setpoint);
 }
 
@@ -319,6 +321,8 @@ static int configure_ldo_or_hs(struct krait_power_vreg *from, int vmax)
 	int rc = 0;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
+		if (!kvreg->online)
+			continue;
 		if (kvreg->uV > kvreg->ldo_threshold_uV
 			 || kvreg->uV > vmax - kvreg->headroom_uV) {
 			rc = switch_to_using_hs(kvreg);
@@ -482,6 +486,9 @@ static int get_vmax(struct krait_power_vreg *from, int min_uV)
 	struct pmic_gang_vreg *pvreg = from->pvreg;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
+		if (!kvreg->online)
+			continue;
+
 		v = kvreg->uV;
 
 		if (kvreg == from)
@@ -490,6 +497,7 @@ static int get_vmax(struct krait_power_vreg *from, int min_uV)
 		if (vmax < v)
 			vmax = v;
 	}
+
 	return vmax;
 }
 
@@ -499,20 +507,48 @@ static int get_total_load(struct krait_power_vreg *from)
 	struct krait_power_vreg *kvreg;
 	struct pmic_gang_vreg *pvreg = from->pvreg;
 
-	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link)
+	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
+		if (!kvreg->online)
+			continue;
 		load_total += kvreg->load_uA;
+	}
 
 	return load_total;
 }
 
 #define ROUND_UP_VOLTAGE(v, res) (DIV_ROUND_UP(v, res) * res)
-static int krait_power_set_voltage(struct regulator_dev *rdev,
+static int _set_voltage(struct regulator_dev *rdev,
 			int min_uV, int max_uV, unsigned *selector)
 {
 	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
 	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
 	int rc;
 	int vmax;
+
+	vmax = get_vmax(kvreg, min_uV);
+
+	/* round up the pmic voltage as per its resolution */
+	vmax = ROUND_UP_VOLTAGE(vmax, LV_RANGE_STEP);
+
+	rc = pmic_gang_set_voltage(kvreg, vmax);
+	if (rc < 0) {
+		dev_err(&rdev->dev, "%s failed set voltage (%d, %d) rc = %d\n",
+				kvreg->name, min_uV, max_uV, rc);
+		goto out;
+	}
+
+	pvreg->pmic_vmax_uV = vmax;
+
+out:
+	return rc;
+}
+
+static int krait_power_set_voltage(struct regulator_dev *rdev,
+			int min_uV, int max_uV, unsigned *selector)
+{
+	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
+	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
+	int rc;
 
 	/*
 	 * if the voltage requested is below LDO_THRESHOLD this cpu could
@@ -526,49 +562,29 @@ static int krait_power_set_voltage(struct regulator_dev *rdev,
 	}
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
-
-	vmax = get_vmax(kvreg, min_uV);
-
-	/* round up the pmic voltage as per its resolution */
-	vmax = ROUND_UP_VOLTAGE(vmax, LV_RANGE_STEP);
-
-	/*
-	 * Assign the voltage before updating the gang voltage as we iterate
-	 * over all the core voltages and choose HS or LDO for each of them
-	 */
 	kvreg->uV = min_uV;
 
-	rc = pmic_gang_set_voltage(kvreg, vmax);
-	if (rc < 0) {
-		dev_err(&rdev->dev, "%s failed set voltage (%d, %d) rc = %d\n",
-				kvreg->name, min_uV, max_uV, rc);
-		goto out;
+	if (!kvreg->online) {
+		mutex_unlock(&pvreg->krait_power_vregs_lock);
+		return 0;
 	}
 
-	pvreg->pmic_vmax_uV = vmax;
-
-out:
+	rc = _set_voltage(rdev, min_uV, max_uV, selector);
 	mutex_unlock(&pvreg->krait_power_vregs_lock);
+
 	return rc;
 }
 
 #define PMIC_FTS_MODE_PFM	0x00
 #define PMIC_FTS_MODE_PWM	0x80
 #define PFM_LOAD_UA		500000
-static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
+static unsigned int _get_optimum_mode(struct regulator_dev *rdev,
 			int input_uV, int output_uV, int load_uA)
 {
 	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
 	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
 	int rc;
 	int load_total_uA;
-	int reg_mode = -EINVAL;
-
-	mutex_lock(&pvreg->krait_power_vregs_lock);
-
-	reg_mode = kvreg->mode;
-
-	kvreg->load_uA = load_uA;
 
 	load_total_uA = get_total_load(kvreg);
 
@@ -584,8 +600,7 @@ static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
 				pvreg->pfm_mode = true;
 			}
 		}
-		mutex_unlock(&pvreg->krait_power_vregs_lock);
-		return reg_mode;
+		return kvreg->mode;
 	}
 
 	if (pvreg->pfm_mode) {
@@ -608,8 +623,27 @@ static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
 	}
 
 out:
+	return kvreg->mode;
+}
+
+static unsigned int krait_power_get_optimum_mode(struct regulator_dev *rdev,
+			int input_uV, int output_uV, int load_uA)
+{
+	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
+	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
+	int rc;
+
+	mutex_lock(&pvreg->krait_power_vregs_lock);
+	kvreg->load_uA = load_uA;
+	if (!kvreg->online) {
+		mutex_unlock(&pvreg->krait_power_vregs_lock);
+		return kvreg->mode;
+	}
+
+	rc = _get_optimum_mode(rdev, input_uV, output_uV, load_uA);
 	mutex_unlock(&pvreg->krait_power_vregs_lock);
-	return reg_mode;
+
+	return rc;
 }
 
 static int krait_power_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -624,12 +658,62 @@ static unsigned int krait_power_get_mode(struct regulator_dev *rdev)
 	return kvreg->mode;
 }
 
+static int krait_power_is_enabled(struct regulator_dev *rdev)
+{
+	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
+
+	return kvreg->online;
+}
+
+static int krait_power_enable(struct regulator_dev *rdev)
+{
+	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
+	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
+	int rc;
+
+	mutex_lock(&pvreg->krait_power_vregs_lock);
+	kvreg->online = true;
+	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV,
+							kvreg->load_uA);
+	if (rc < 0)
+		goto en_err;
+	rc = _set_voltage(rdev, kvreg->uV,
+					rdev->constraints->max_uV, NULL);
+en_err:
+	mutex_unlock(&pvreg->krait_power_vregs_lock);
+	return rc;
+}
+
+static int krait_power_disable(struct regulator_dev *rdev)
+{
+	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
+	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
+	int rc;
+
+	mutex_lock(&pvreg->krait_power_vregs_lock);
+	kvreg->online = false;
+
+	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV,
+							kvreg->load_uA);
+	if (rc < 0)
+		goto dis_err;
+
+	rc = _set_voltage(rdev, kvreg->uV,
+					rdev->constraints->max_uV, NULL);
+dis_err:
+	mutex_unlock(&pvreg->krait_power_vregs_lock);
+	return rc;
+}
+
 static struct regulator_ops krait_power_ops = {
 	.get_voltage		= krait_power_get_voltage,
 	.set_voltage		= krait_power_set_voltage,
 	.get_optimum_mode	= krait_power_get_optimum_mode,
 	.set_mode		= krait_power_set_mode,
 	.get_mode		= krait_power_get_mode,
+	.enable			= krait_power_enable,
+	.disable		= krait_power_disable,
+	.is_enabled		= krait_power_is_enabled,
 };
 
 static void kvreg_hw_init(struct krait_power_vreg *kvreg)
