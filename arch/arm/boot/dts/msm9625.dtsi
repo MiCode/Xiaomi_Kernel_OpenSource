@@ -393,6 +393,7 @@
 
 	qcom,msm-adsp-loader {
 		compatible = "qcom,adsp-loader";
+		qcom,adsp-state = <2>;
 	};
 
 	qcom,msm-pcm {
