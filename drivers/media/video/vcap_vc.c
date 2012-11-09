@@ -37,7 +37,10 @@ void config_buffer(struct vcap_client_data *c_data,
 	} else {
 		int size = (c_data->vc_format.hactive_end -
 				c_data->vc_format.hactive_start);
-		size = VCAP_STRIDE_CALC(size);
+		if (c_data->stride == VC_STRIDE_32)
+			size = VCAP_STRIDE_CALC(size, VCAP_STRIDE_ALIGN_32);
+		else
+			size = VCAP_STRIDE_CALC(size, VCAP_STRIDE_ALIGN_16);
 		size *= (c_data->vc_format.vactive_end -
 				c_data->vc_format.vactive_start);
 		writel_relaxed(buf->paddr, y_addr);
@@ -527,7 +530,10 @@ int config_vc_format(struct vcap_client_data *c_data)
 	writel_iowmb(0x000033FF, VCAP_VC_BUF_CTRL);
 
 	rc = vc_format->hactive_end - vc_format->hactive_start;
-	rc = VCAP_STRIDE_CALC(rc);
+	if (c_data->stride == VC_STRIDE_32)
+		rc = VCAP_STRIDE_CALC(rc, VCAP_STRIDE_ALIGN_32);
+	else
+		rc = VCAP_STRIDE_CALC(rc, VCAP_STRIDE_ALIGN_16);
 	if (vc_format->color_space)
 		rc *= 3;
 
