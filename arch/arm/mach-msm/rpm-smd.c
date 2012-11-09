@@ -354,6 +354,18 @@ static void msm_rpm_notify(void *data, unsigned event)
 	}
 }
 
+bool msm_rpm_waiting_for_ack(void)
+{
+	bool ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&msm_rpm_list_lock, flags);
+	ret = list_empty(&msm_rpm_wait_list);
+	spin_unlock_irqrestore(&msm_rpm_list_lock, flags);
+
+	return !ret;
+}
+
 static struct msm_rpm_wait_data *msm_rpm_get_entry_from_msg_id(uint32_t msg_id)
 {
 	struct list_head *ptr;

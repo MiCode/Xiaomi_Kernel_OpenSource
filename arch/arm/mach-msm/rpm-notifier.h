@@ -47,4 +47,12 @@ int msm_rpm_enter_sleep(void);
  * msm_rpm_exit_sleep - Notify RPM driver about resuming from power collapse
  */
 void msm_rpm_exit_sleep(void);
+
+/**
+ * msm_rpm_waiting_for_ack - Indicate if there is RPM message
+ *				pending acknowledgement.
+ * returns true for pending messages and false otherwise
+ */
+bool msm_rpm_waiting_for_ack(void);
+
 #endif /*__ARCH_ARM_MACH_MSM_RPM_NOTIF_H */
