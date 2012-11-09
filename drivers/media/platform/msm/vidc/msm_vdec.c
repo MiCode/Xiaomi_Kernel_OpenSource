@@ -518,6 +518,9 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 					fmt->get_frame_size(i,
 						f->fmt.pix_mp.height,
 						f->fmt.pix_mp.width);
+				inst->bufq[OUTPUT_PORT].
+					vb2_bufq.plane_sizes[i] =
+					f->fmt.pix_mp.plane_fmt[i].sizeimage;
 			}
 		} else {
 			f->fmt.pix_mp.plane_fmt[0].sizeimage =
@@ -527,6 +530,11 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
 		inst->buff_req.buffer[HAL_BUFFER_EXTRADATA_OUTPUT].buffer_size;
 			}
+			for (i = 0; i < fmt->num_planes; ++i)
+				inst->bufq[CAPTURE_PORT].
+					vb2_bufq.plane_sizes[i] =
+					f->fmt.pix_mp.plane_fmt[i].sizeimage;
+
 		}
 	} else {
 		dprintk(VIDC_ERR,
@@ -624,6 +632,10 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			}
 		}
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
+		for (i = 0; i < fmt->num_planes; ++i) {
+			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
+				f->fmt.pix_mp.plane_fmt[i].sizeimage;
+		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		inst->prop.width = f->fmt.pix_mp.width;
 		inst->prop.height = f->fmt.pix_mp.height;
@@ -652,6 +664,10 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			fmt->get_frame_size(0, f->fmt.pix_mp.height,
 					f->fmt.pix_mp.width);
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
+		for (i = 0; i < fmt->num_planes; ++i) {
+			inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[i] =
+				f->fmt.pix_mp.plane_fmt[i].sizeimage;
+		}
 	}
 err_invalid_fmt:
 	return rc;
