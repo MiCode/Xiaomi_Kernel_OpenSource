@@ -3510,24 +3510,26 @@ static struct rcg_clk gfx2d1_clk = {
 		.ctl_val = CC_BANKED(9, 6, n), \
 	}
 
-static struct clk_freq_tbl clk_tbl_gfx3d_8960ab[] = {
-	F_GFX3D(        0, gnd,  0,  0),
-	F_GFX3D( 27000000, pxo,  0,  0),
-	F_GFX3D( 48000000, pll8, 1,  8),
-	F_GFX3D( 54857000, pll8, 1,  7),
-	F_GFX3D( 64000000, pll8, 1,  6),
-	F_GFX3D( 76800000, pll8, 1,  5),
-	F_GFX3D( 96000000, pll8, 1,  4),
-	F_GFX3D(128000000, pll8, 1,  3),
-	F_GFX3D(145455000, pll2, 2, 11),
-	F_GFX3D(160000000, pll2, 1,  5),
-	F_GFX3D(177778000, pll2, 2,  9),
-	F_GFX3D(200000000, pll2, 1,  4),
-	F_GFX3D(228571000, pll2, 2,  7),
-	F_GFX3D(266667000, pll2, 1,  3),
-	F_GFX3D(320000000, pll2, 2,  5),
-	F_GFX3D(325000000, pll3, 1,  2),
-	F_GFX3D(400000000, pll2, 1,  2),
+/*Shared by 8064, 8930, and 8960ab*/
+static struct clk_freq_tbl clk_tbl_gfx3d[] = {
+	F_GFX3D(        0, gnd,   0,  0),
+	F_GFX3D( 27000000, pxo,   0,  0),
+	F_GFX3D( 48000000, pll8,  1,  8),
+	F_GFX3D( 54857000, pll8,  1,  7),
+	F_GFX3D( 64000000, pll8,  1,  6),
+	F_GFX3D( 76800000, pll8,  1,  5),
+	F_GFX3D( 96000000, pll8,  1,  4),
+	F_GFX3D(128000000, pll8,  1,  3),
+	F_GFX3D(145455000, pll2,  2, 11),
+	F_GFX3D(160000000, pll2,  1,  5),
+	F_GFX3D(177778000, pll2,  2,  9),
+	F_GFX3D(192000000, pll8,  1,  2),
+	F_GFX3D(200000000, pll2,  1,  4),
+	F_GFX3D(228571000, pll2,  2,  7),
+	F_GFX3D(266667000, pll2,  1,  3),
+	F_GFX3D(320000000, pll2,  2,  5),
+	F_GFX3D(400000000, pll2,  1,  2),
+	F_GFX3D(450000000, pll15, 1,  2),
 	F_END
 };
 
@@ -3549,49 +3551,6 @@ static struct clk_freq_tbl clk_tbl_gfx3d_8960[] = {
 	F_GFX3D(300000000, pll3, 1,  4),
 	F_GFX3D(320000000, pll2, 2,  5),
 	F_GFX3D(400000000, pll2, 1,  2),
-	F_END
-};
-
-static struct clk_freq_tbl clk_tbl_gfx3d_8064[] = {
-	F_GFX3D(        0, gnd,   0,  0),
-	F_GFX3D( 27000000, pxo,   0,  0),
-	F_GFX3D( 48000000, pll8,  1,  8),
-	F_GFX3D( 54857000, pll8,  1,  7),
-	F_GFX3D( 64000000, pll8,  1,  6),
-	F_GFX3D( 76800000, pll8,  1,  5),
-	F_GFX3D( 96000000, pll8,  1,  4),
-	F_GFX3D(128000000, pll8,  1,  3),
-	F_GFX3D(145455000, pll2,  2, 11),
-	F_GFX3D(160000000, pll2,  1,  5),
-	F_GFX3D(177778000, pll2,  2,  9),
-	F_GFX3D(192000000, pll8,  1,  2),
-	F_GFX3D(200000000, pll2,  1,  4),
-	F_GFX3D(228571000, pll2,  2,  7),
-	F_GFX3D(266667000, pll2,  1,  3),
-	F_GFX3D(400000000, pll2,  1,  2),
-	F_GFX3D(450000000, pll15, 1,  2),
-	F_END
-};
-
-static struct clk_freq_tbl clk_tbl_gfx3d_8930[] = {
-	F_GFX3D(        0, gnd,   0,  0),
-	F_GFX3D( 27000000, pxo,   0,  0),
-	F_GFX3D( 48000000, pll8,  1,  8),
-	F_GFX3D( 54857000, pll8,  1,  7),
-	F_GFX3D( 64000000, pll8,  1,  6),
-	F_GFX3D( 76800000, pll8,  1,  5),
-	F_GFX3D( 96000000, pll8,  1,  4),
-	F_GFX3D(128000000, pll8,  1,  3),
-	F_GFX3D(145455000, pll2,  2, 11),
-	F_GFX3D(160000000, pll2,  1,  5),
-	F_GFX3D(177778000, pll2,  2,  9),
-	F_GFX3D(192000000, pll8,  1,  2),
-	F_GFX3D(200000000, pll2,  1,  4),
-	F_GFX3D(228571000, pll2,  2,  7),
-	F_GFX3D(266667000, pll2,  1,  3),
-	F_GFX3D(320000000, pll2,  2,  5),
-	F_GFX3D(400000000, pll2,  1,  2),
-	F_GFX3D(450000000, pll15, 1,  2),
 	F_END
 };
 
@@ -3651,7 +3610,7 @@ static struct rcg_clk gfx3d_clk = {
 	.ns_reg = GFX3D_NS_REG,
 	.root_en_mask = BIT(2),
 	.set_rate = set_rate_mnd_banked,
-	.freq_tbl = clk_tbl_gfx3d_8960,
+	.freq_tbl = clk_tbl_gfx3d,
 	.bank_info = &bmnd_info_gfx3d,
 	.current_freq = &rcg_dummy_freq,
 	.c = {
@@ -6558,7 +6517,6 @@ static void __init msm8960_clock_pre_init(void)
 			sizeof(msm_clocks_8960_common));
 	if (cpu_is_msm8960ab()) {
 		pll3_clk.c.rate = 650000000;
-		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8960ab;
 		gfx3d_clk.c.fmax[VDD_DIG_LOW] = 192000000;
 		gfx3d_clk.c.fmax[VDD_DIG_NOMINAL] = 325000000;
 		gfx3d_clk.c.fmax[VDD_DIG_HIGH] = 400000000;
@@ -6573,6 +6531,7 @@ static void __init msm8960_clock_pre_init(void)
 
 		gmem_axi_clk.c.depends = &gfx3d_axi_clk.c;
 	} else if (cpu_is_msm8960()) {
+		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8960;
 		memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_common),
 			 msm_clocks_8960_only, sizeof(msm_clocks_8960_only));
 		msm8960_clock_init_data.size -=
@@ -6583,11 +6542,9 @@ static void __init msm8960_clock_pre_init(void)
 	 * clocks which differ between chips.
 	 */
 	if (cpu_is_apq8064()) {
-		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8064;
 		gfx3d_clk.c.fmax = fmax_gfx3d_8064;
 	}
 	if (cpu_is_apq8064ab()) {
-		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8064;
 		gfx3d_clk.c.fmax = fmax_gfx3d_8064ab;
 	}
 	if ((cpu_is_apq8064() &&
@@ -6616,7 +6573,6 @@ static void __init msm8960_clock_pre_init(void)
 		gfx3d_clk.c.fmax = fmax_gfx3d_8930aa;
 	}
 	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
-		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8930;
 		pll15_clk.c.rate = 900000000;
 		gmem_axi_clk.c.depends = &gfx3d_axi_clk_8930.c;
 	}
