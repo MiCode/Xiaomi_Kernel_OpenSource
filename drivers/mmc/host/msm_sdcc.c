@@ -6241,7 +6241,7 @@ msmsdcc_probe(struct platform_device *pdev)
  vreg_deinit:
 	msmsdcc_vreg_init(host, false);
  clk_disable:
-	clk_disable(host->clk);
+	clk_disable_unprepare(host->clk);
 	msmsdcc_msm_bus_unregister(host);
  pm_qos_remove:
 	if (host->cpu_dma_latency)
