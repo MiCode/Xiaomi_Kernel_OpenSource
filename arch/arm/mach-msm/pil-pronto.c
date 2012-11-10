@@ -31,6 +31,7 @@
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
+#include "ramdump.h"
 
 #define PRONTO_PMU_COMMON_GDSCR				0x24
 #define PRONTO_PMU_COMMON_GDSCR_SW_COLLAPSE		BIT(0)
@@ -81,6 +82,7 @@ struct pronto_data {
 	bool crash;
 	struct delayed_work cancel_vote_work;
 	int irq;
+	struct ramdump_device *ramdump_dev;
 };
 
 static int pil_pronto_make_proxy_vote(struct pil_desc *pil)
@@ -359,9 +361,19 @@ static void crash_shutdown(const struct subsys_desc *subsys)
 		smsm_change_state(SMSM_APPS_STATE, SMSM_RESET, SMSM_RESET);
 }
 
-static int wcnss_ramdump(int enable, const struct subsys_desc *crashed_subsys)
+static struct ramdump_segment pronto_segments[] = {
+	{ 0x0D200000, 0x0D980000 - 0x0D200000 }
+};
+
+static int wcnss_ramdump(int enable, const struct subsys_desc *subsys)
 {
-	return 0;
+	struct pronto_data *drv = subsys_to_drv(subsys);
+
+	if (enable)
+		return do_ramdump(drv->ramdump_dev, pronto_segments,
+				ARRAY_SIZE(pronto_segments));
+	else
+		return 0;
 }
 
 static int pil_pronto_probe(struct platform_device *pdev)
@@ -464,6 +476,12 @@ static int pil_pronto_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_irq;
 
+	drv->ramdump_dev = create_ramdump_device("pronto", &pdev->dev);
+	if (!drv->ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_irq;
+	}
+
 	/* Initialize common_ss GDSCR to wait 4 cycles between states */
 	regval = readl_relaxed(drv->base + PRONTO_PMU_COMMON_GDSCR)
 		& PRONTO_PMU_COMMON_GDSCR_SW_COLLAPSE;
@@ -489,6 +507,7 @@ static int pil_pronto_remove(struct platform_device *pdev)
 	smsm_state_cb_deregister(SMSM_WCNSS_STATE, SMSM_RESET,
 					smsm_state_cb_hdlr, drv);
 	pil_desc_release(&drv->desc);
+	destroy_ramdump_device(drv->ramdump_dev);
 	return 0;
 }
 
