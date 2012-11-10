@@ -397,6 +397,7 @@ struct hdmi_tx_ddc_data {
 	int retry;
 };
 
+int hdmi_get_video_id_code(struct hdmi_disp_mode_timing_type *timing_in);
 const struct hdmi_disp_mode_timing_type *hdmi_get_supported_mode(u32 mode);
 void hdmi_set_supported_mode(u32 mode);
 const char *hdmi_get_video_fmt_2string(u32 format);
