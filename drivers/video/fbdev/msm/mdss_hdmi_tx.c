@@ -512,6 +512,9 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		DEV_INFO("%s: Hdmi state switch to %d\n", __func__,
 			hdmi_ctrl->sdev.state);
 	}
+
+	if (!completion_done(&hdmi_ctrl->hpd_done))
+		complete_all(&hdmi_ctrl->hpd_done);
 } /* hdmi_tx_hpd_int_work */
 
 static int hdmi_tx_check_capability(struct dss_io_data *io)
@@ -1779,7 +1782,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 	mutex_lock(&hdmi_ctrl->mutex);
 	hdmi_ctrl->panel_power_on = true;
 
-	/* todo: check hdmi_tx_is_controller_on when hpd is on */
 	if (hdmi_ctrl->hpd_state) {
 		DEV_DBG("%s: Turning HDMI on\n", __func__);
 		mutex_unlock(&hdmi_ctrl->mutex);
@@ -1999,9 +2001,13 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->ddc_ctrl.io = &pdata->io[HDMI_TX_CORE_IO];
 	init_completion(&hdmi_ctrl->ddc_ctrl.ddc_sw_done);
 
+	hdmi_ctrl->panel_power_on = false;
+	hdmi_ctrl->panel_suspend = false;
+
 	hdmi_ctrl->hpd_state = false;
 	hdmi_ctrl->hpd_initialized = false;
 	hdmi_ctrl->hpd_off_pending = false;
+	init_completion(&hdmi_ctrl->hpd_done);
 	INIT_WORK(&hdmi_ctrl->hpd_int_work, hdmi_tx_hpd_int_work);
 
 	INIT_WORK(&hdmi_ctrl->power_off_work, hdmi_tx_power_off_work);
@@ -2035,20 +2041,100 @@ fail_no_hdmi:
 	return rc;
 } /* hdmi_tx_dev_init */
 
-static int hdmi_tx_event_handler(struct mdss_panel_data *panel_data,
-				 int event, void *arg)
+static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
+	int event, void *arg)
 {
 	int rc = 0;
+	struct hdmi_tx_ctrl *hdmi_ctrl =
+		hdmi_tx_get_drvdata_from_panel_data(panel_data);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	DEV_DBG("%s: event = %d suspend=%d, hpd_feature=%d\n", __func__,
+		event, hdmi_ctrl->panel_suspend, hdmi_ctrl->hpd_feature_on);
+
 	switch (event) {
+	case MDSS_EVENT_RESUME:
+		if (hdmi_ctrl->hpd_feature_on) {
+			INIT_COMPLETION(hdmi_ctrl->hpd_done);
+
+			rc = hdmi_tx_hpd_on(hdmi_ctrl);
+			if (rc)
+				DEV_ERR("%s: hdmi_tx_hpd_on failed. rc=%d\n",
+					__func__, rc);
+		}
+		break;
+
+	case MDSS_EVENT_RESET:
+		if (hdmi_ctrl->panel_suspend) {
+			u32 timeout;
+			hdmi_ctrl->panel_suspend = false;
+
+			timeout = wait_for_completion_interruptible_timeout(
+				&hdmi_ctrl->hpd_done, HZ/10);
+			if (!timeout & !hdmi_ctrl->hpd_state) {
+				DEV_INFO("%s: cable removed during suspend\n",
+					__func__);
+
+				kobject_uevent(hdmi_ctrl->kobj, KOBJ_OFFLINE);
+				switch_set_state(&hdmi_ctrl->sdev, 0);
+
+				rc = -EPERM;
+			} else {
+				DEV_DBG("%s: cable present after resume\n",
+					__func__);
+			}
+		}
+		break;
+
 	case MDSS_EVENT_UNBLANK:
 		rc = hdmi_tx_power_on(panel_data);
+		if (rc)
+			DEV_ERR("%s: hdmi_tx_power_on failed. rc=%d\n",
+				__func__, rc);
 		break;
+
+	case MDSS_EVENT_TIMEGEN_ON:
+		break;
+
+	case MDSS_EVENT_SUSPEND:
+		if (!hdmi_ctrl->panel_power_on) {
+			if (hdmi_ctrl->hpd_feature_on)
+				hdmi_tx_hpd_off(hdmi_ctrl);
+			else
+				DEV_ERR("%s: invalid state\n", __func__);
+
+			hdmi_ctrl->panel_suspend = false;
+		} else {
+			hdmi_ctrl->hpd_off_pending = true;
+			hdmi_ctrl->panel_suspend = true;
+		}
+		break;
+
+	case MDSS_EVENT_BLANK:
+		if (hdmi_ctrl->panel_power_on) {
+			rc = hdmi_tx_power_off(panel_data);
+			if (rc)
+				DEV_ERR("%s: hdmi_tx_power_off failed.rc=%d\n",
+					__func__, rc);
+
+		} else {
+			DEV_DBG("%s: hdmi is already powered off\n", __func__);
+		}
+		break;
+
 	case MDSS_EVENT_TIMEGEN_OFF:
-		rc = hdmi_tx_power_off(panel_data);
+		/* If a power off is already underway, wait for it to finish */
+		if (hdmi_ctrl->panel_suspend)
+			flush_work_sync(&hdmi_ctrl->power_off_work);
 		break;
 	}
+
 	return rc;
-}
+} /* hdmi_tx_panel_event_handler */
 
 static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
@@ -2059,7 +2145,7 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return -EINVAL;
 	}
 
-	hdmi_ctrl->panel_data.event_handler = hdmi_tx_event_handler;
+	hdmi_ctrl->panel_data.event_handler = hdmi_tx_panel_event_handler;
 
 	hdmi_ctrl->video_resolution = DEFAULT_VIDEO_RESOLUTION;
 	rc = hdmi_tx_init_panel_info(hdmi_ctrl->video_resolution,
