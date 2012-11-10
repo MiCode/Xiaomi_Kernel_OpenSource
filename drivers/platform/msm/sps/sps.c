@@ -2122,14 +2122,6 @@ static int get_device_tree_data(struct platform_device *pdev)
 		SPS_DBG("sps:bamdma_restricted_pipes=0x%x.",
 			sps->bamdma_restricted_pipes);
 
-	if (of_property_read_u32((&pdev->dev)->of_node,
-				"qcom,device-type",
-				&d_type)) {
-		d_type = 1;
-		SPS_DBG("sps:default device type.\n");
-	} else
-		SPS_DBG("sps:device type is %d.", d_type);
-
 	resource  = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (resource) {
 		sps->bamdma_bam_phys_base = resource->start;
@@ -2173,6 +2165,14 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return -ENODEV;
 	}
 #endif
+
+	if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,device-type",
+				&d_type)) {
+		d_type = 1;
+		SPS_DBG("sps:default device type.\n");
+	} else
+		SPS_DBG("sps:device type is %d.", d_type);
 
 	return 0;
 }
