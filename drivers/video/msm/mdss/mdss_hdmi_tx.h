@@ -50,6 +50,7 @@ struct hdmi_tx_ctrl {
 	struct workqueue_struct *workq;
 
 	uint32_t video_resolution;
+
 	u32 panel_power_on;
 	u32 panel_suspend;
 
@@ -61,11 +62,6 @@ struct hdmi_tx_ctrl {
 	struct work_struct hpd_int_work;
 
 	struct work_struct power_off_work;
-
-	unsigned long pixel_clk;
-	u32 xres;
-	u32 yres;
-	u32 frame_rate;
 
 	u32 present_hdcp;
 
