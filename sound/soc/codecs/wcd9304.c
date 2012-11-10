@@ -2836,7 +2836,7 @@ static void sitar_shutdown(struct snd_pcm_substream *substream,
 	if (dai->id <= NUM_CODEC_DAIS) {
 		if (sitar->dai[dai->id].ch_mask) {
 			active = 1;
-			pr_debug("%s(): Codec DAI: chmask[%d] = 0x%x\n",
+			pr_debug("%s(): Codec DAI: chmask[%d] = 0x%lx\n",
 				__func__, dai->id,
 				sitar->dai[dai->id].ch_mask);
 		}

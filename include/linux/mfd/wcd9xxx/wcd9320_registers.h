@@ -1334,9 +1334,16 @@
 
 /* SLIMBUS Slave Registers */
 #define TAIKO_SLIM_PGD_PORT_INT_EN0                     (0x30)
-#define TAIKO_SLIM_PGD_PORT_INT_STATUS0                 (0x34)
-#define TAIKO_SLIM_PGD_PORT_INT_CLR0                    (0x38)
-#define TAIKO_SLIM_PGD_PORT_INT_SOURCE0			(0x60)
+#define TAIKO_SLIM_PGD_PORT_INT_STATUS_RX_0             (0x34)
+#define TAIKO_SLIM_PGD_PORT_INT_STATUS_RX_1             (0x35)
+#define TAIKO_SLIM_PGD_PORT_INT_STATUS_TX_0             (0x36)
+#define TAIKO_SLIM_PGD_PORT_INT_STATUS_TX_1             (0x37)
+#define TAIKO_SLIM_PGD_PORT_INT_CLR_RX_0                (0x38)
+#define TAIKO_SLIM_PGD_PORT_INT_CLR_RX_1                (0x39)
+#define TAIKO_SLIM_PGD_PORT_INT_CLR_TX_0                (0x3A)
+#define TAIKO_SLIM_PGD_PORT_INT_CLR_TX_1                (0x3B)
+#define TAIKO_SLIM_PGD_PORT_INT_RX_SOURCE0		(0x60)
+#define TAIKO_SLIM_PGD_PORT_INT_TX_SOURCE0		(0x70)
 
 /* Macros for Packing Register Writes into a U32 */
 #define TAIKO_PACKED_REG_SIZE sizeof(u32)
