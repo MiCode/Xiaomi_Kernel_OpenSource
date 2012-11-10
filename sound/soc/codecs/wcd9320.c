@@ -18,6 +18,8 @@
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
+#include <linux/wait.h>
+#include <linux/bitops.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <linux/mfd/wcd9xxx/wcd9320_registers.h>
@@ -47,6 +49,12 @@
 #define TAIKO_I2S_MASTER_MODE_MASK 0x08
 #define TAIKO_MCLK_CLK_12P288MHZ 12288000
 #define TAIKO_MCLK_CLK_9P6HZ 9600000
+
+#define TAIKO_SLIM_CLOSE_TIMEOUT 1000
+#define TAIKO_SLIM_IRQ_OVERFLOW (1 << 0)
+#define TAIKO_SLIM_IRQ_UNDERFLOW (1 << 1)
+#define TAIKO_SLIM_IRQ_PORT_CLOSED (1 << 2)
+
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -3629,6 +3637,37 @@ static struct snd_soc_dai_driver taiko_i2s_dai[] = {
 	},
 };
 
+static int taiko_codec_enable_slim_chmask(struct wcd9xxx_codec_dai_data *dai,
+					  bool up)
+{
+	int ret = 0;
+	struct wcd9xxx_ch *ch;
+
+	if (up) {
+		list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+			ret = wcd9xxx_get_slave_port(ch->ch_num);
+			if (ret < 0) {
+				pr_err("%s: Invalid slave port ID: %d\n",
+				       __func__, ret);
+				ret = -EINVAL;
+			} else {
+				set_bit(ret, &dai->ch_mask);
+			}
+		}
+	} else {
+		ret = wait_event_timeout(dai->dai_wait, (dai->ch_mask == 0),
+					 msecs_to_jiffies(
+						     TAIKO_SLIM_CLOSE_TIMEOUT));
+		if (!ret) {
+			pr_err("%s: Slim close tx/rx wait timeout\n", __func__);
+			ret = -ETIMEDOUT;
+		} else {
+			ret = 0;
+		}
+	}
+	return ret;
+}
+
 static int taiko_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
@@ -3636,7 +3675,7 @@ static int taiko_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	struct wcd9xxx *core;
 	struct snd_soc_codec *codec = w->codec;
 	struct taiko_priv *taiko_p = snd_soc_codec_get_drvdata(codec);
-	u32  ret = 0;
+	int ret = 0;
 	struct wcd9xxx_codec_dai_data *dai;
 
 	core = dev_get_drvdata(codec->dev->parent);
@@ -3655,6 +3694,7 @@ static int taiko_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+		(void) taiko_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
 					      dai->rate, dai->bit_width,
 					      &dai->grph);
@@ -3662,7 +3702,14 @@ static int taiko_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
-		usleep_range(15000, 15000);
+		ret = taiko_codec_enable_slim_chmask(dai, false);
+		if (ret < 0) {
+			ret = wcd9xxx_disconnect_port(core,
+						      &dai->wcd9xxx_ch_list,
+						      dai->grph);
+			pr_debug("%s: Disconnect RX port, ret = %d\n",
+				 __func__, ret);
+		}
 		break;
 	}
 	return ret;
@@ -3693,6 +3740,7 @@ static int taiko_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	dai = &taiko_p->dai[w->shift];
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+		(void) taiko_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 					      dai->rate, dai->bit_width,
 					      &dai->grph);
@@ -3700,6 +3748,14 @@ static int taiko_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
+		ret = taiko_codec_enable_slim_chmask(dai, false);
+		if (ret < 0) {
+			ret = wcd9xxx_disconnect_port(core,
+						      &dai->wcd9xxx_ch_list,
+						      dai->grph);
+			pr_debug("%s: Disconnect RX port, ret = %d\n",
+				 __func__, ret);
+		}
 		break;
 	}
 	return ret;
@@ -4177,34 +4233,69 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 
 };
 
-static unsigned long slimbus_value;
-
 static irqreturn_t taiko_slimbus_irq(int irq, void *data)
 {
 	struct taiko_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
-	int i, j;
+	unsigned long status = 0;
+	int i, j, port_id, k;
+	u32 bit;
 	u8 val;
+	bool tx, cleared;
 
-	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++) {
-		slimbus_value = wcd9xxx_interface_reg_read(codec->control_data,
-			TAIKO_SLIM_PGD_PORT_INT_STATUS0 + i);
-		for_each_set_bit(j, &slimbus_value, BITS_PER_BYTE) {
-			val = wcd9xxx_interface_reg_read(codec->control_data,
-				TAIKO_SLIM_PGD_PORT_INT_SOURCE0 + i*8 + j);
-			if (val & 0x1)
-				pr_err_ratelimited(
-				"overflow error on port %x, value %x\n",
-				i*8 + j, val);
-			if (val & 0x2)
-				pr_err_ratelimited(
-				"underflow error on port %x, value %x\n",
-				i*8 + j, val);
+	for (i = TAIKO_SLIM_PGD_PORT_INT_STATUS_RX_0, j = 0;
+	     i <= TAIKO_SLIM_PGD_PORT_INT_STATUS_TX_1; i++, j++) {
+		val = wcd9xxx_interface_reg_read(codec->control_data, i);
+		status |= ((u32)val << (8 * j));
+	}
+
+	for_each_set_bit(j, &status, 32) {
+		tx = (j >= 16 ? true : false);
+		port_id = (tx ? j - 16 : j);
+		val = wcd9xxx_interface_reg_read(codec->control_data,
+					TAIKO_SLIM_PGD_PORT_INT_RX_SOURCE0 + j);
+		if (val & TAIKO_SLIM_IRQ_OVERFLOW)
+			pr_err_ratelimited(
+			    "%s: overflow error on %s port %d, value %x\n",
+			    __func__, (tx ? "TX" : "RX"), port_id, val);
+		if (val & TAIKO_SLIM_IRQ_UNDERFLOW)
+			pr_err_ratelimited(
+			    "%s: underflow error on %s port %d, value %x\n",
+			    __func__, (tx ? "TX" : "RX"), port_id, val);
+		if (val & TAIKO_SLIM_IRQ_PORT_CLOSED) {
+			/*
+			 * INT SOURCE register starts from RX to TX
+			 * but port number in the ch_mask is in opposite way
+			 */
+			bit = (tx ? j - 16 : j + 16);
+			pr_debug("%s: %s port %d closed value %x, bit %u\n",
+				 __func__, (tx ? "TX" : "RX"), port_id, val,
+				 bit);
+			for (k = 0, cleared = false; k < NUM_CODEC_DAIS; k++) {
+				pr_debug("%s: priv->dai[%d].ch_mask = 0x%lx\n",
+					 __func__, k, priv->dai[k].ch_mask);
+				if (test_and_clear_bit(bit,
+						       &priv->dai[k].ch_mask)) {
+					cleared = true;
+					if (!priv->dai[k].ch_mask)
+						wake_up(&priv->dai[k].dai_wait);
+					/*
+					 * There are cases when multiple DAIs
+					 * might be using the same slimbus
+					 * channel. Hence don't break here.
+					 */
+				}
+			}
+			WARN(!cleared,
+			     "Couldn't find slimbus %s port %d for closing\n",
+			     (tx ? "TX" : "RX"), port_id);
 		}
 		wcd9xxx_interface_reg_write(codec->control_data,
-			TAIKO_SLIM_PGD_PORT_INT_CLR0 + i, 0xFF);
-
+					    TAIKO_SLIM_PGD_PORT_INT_CLR_RX_0 +
+					    (j / 8),
+					    1 << (j % 8));
 	}
+
 	return IRQ_HANDLED;
 }
 

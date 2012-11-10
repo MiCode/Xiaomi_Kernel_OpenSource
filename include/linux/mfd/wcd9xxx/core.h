@@ -131,7 +131,7 @@ struct wcd9xxx_codec_dai_data {
 	u32 bit_width;				/* sit width 16,24,32   */
 	struct list_head wcd9xxx_ch_list;	/* channel list         */
 	u16 grph;				/* slimbus group handle */
-	u32 ch_mask;
+	unsigned long ch_mask;
 	wait_queue_head_t dai_wait;
 };
 
