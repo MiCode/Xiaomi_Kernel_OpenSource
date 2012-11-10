@@ -318,6 +318,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->is_fg = req->is_fg;
 	pipe->alpha = req->alpha;
 	pipe->transp = req->transp_mask;
+	pipe->overfetch_disable = fmt->is_yuv;
 
 	pipe->req_data = *req;
 
