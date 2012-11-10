@@ -163,6 +163,66 @@ static const char *hdmi_tx_io_name(u32 type)
 	}
 } /* hdmi_tx_io_name */
 
+static int hdmi_tx_get_vic_from_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl,
+	struct mdss_panel_info *pinfo)
+{
+	int new_vic = -1;
+	u32 h_total, v_total;
+	struct hdmi_disp_mode_timing_type timing;
+
+	if (!hdmi_ctrl || !pinfo) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (pinfo->vic) {
+		if (hdmi_get_supported_mode(pinfo->vic - 1)) {
+			new_vic = pinfo->vic - 1;
+			DEV_DBG("%s: %s is supported\n", __func__,
+				hdmi_get_video_fmt_2string(new_vic));
+		} else {
+			DEV_ERR("%s: invalid or not supported vic\n",
+				__func__);
+			return -EPERM;
+		}
+	} else {
+		timing.active_h = pinfo->xres;
+		timing.back_porch_h = pinfo->lcdc.h_back_porch;
+		timing.front_porch_h = pinfo->lcdc.h_front_porch;
+		timing.pulse_width_h = pinfo->lcdc.h_pulse_width;
+		h_total = timing.active_h + timing.back_porch_h +
+			timing.front_porch_h + timing.pulse_width_h;
+		DEV_DBG("%s: ah=%d bph=%d fph=%d pwh=%d ht=%d\n", __func__,
+			timing.active_h, timing.back_porch_h,
+			timing.front_porch_h, timing.pulse_width_h, h_total);
+
+		timing.active_v = pinfo->yres;
+		timing.back_porch_v = pinfo->lcdc.v_back_porch;
+		timing.front_porch_v = pinfo->lcdc.v_front_porch;
+		timing.pulse_width_v = pinfo->lcdc.v_pulse_width;
+		v_total = timing.active_v + timing.back_porch_v +
+			timing.front_porch_v + timing.pulse_width_v;
+		DEV_DBG("%s: av=%d bpv=%d fpv=%d pwv=%d vt=%d\n", __func__,
+			timing.active_v, timing.back_porch_v,
+			timing.front_porch_v, timing.pulse_width_v, v_total);
+
+		timing.pixel_freq = pinfo->clk_rate / 1000;
+		if (h_total && v_total) {
+			timing.refresh_rate = ((timing.pixel_freq * 1000) /
+				(h_total * v_total)) * 1000;
+		} else {
+			DEV_ERR("%s: cannot cal refresh rate\n", __func__);
+			return -EPERM;
+		}
+		DEV_DBG("%s: pixel_freq=%d refresh_rate=%d\n", __func__,
+			timing.pixel_freq, timing.refresh_rate);
+
+		new_vic = hdmi_get_video_id_code(&timing);
+	}
+
+	return new_vic;
+} /* hdmi_tx_get_vic_from_panel_info */
+
 static struct hdmi_tx_ctrl *hdmi_tx_get_drvdata_from_panel_data(
 	struct mdss_panel_data *mpd)
 {
@@ -170,14 +230,8 @@ static struct hdmi_tx_ctrl *hdmi_tx_get_drvdata_from_panel_data(
 
 	if (mpd) {
 		hdmi_ctrl = container_of(mpd, struct hdmi_tx_ctrl, panel_data);
-		if (hdmi_ctrl) {
-			hdmi_ctrl->pixel_clk =
-				mpd->panel_info.fbi->var.pixclock;
-			hdmi_ctrl->xres = mpd->panel_info.fbi->var.xres;
-			hdmi_ctrl->yres = mpd->panel_info.fbi->var.yres;
-		} else {
+		if (!hdmi_ctrl)
 			DEV_ERR("%s: hdmi_ctrl = NULL\n", __func__);
-		}
 	} else {
 		DEV_ERR("%s: mdss_panel_data = NULL\n", __func__);
 	}
@@ -546,90 +600,40 @@ static int hdmi_tx_check_capability(struct dss_io_data *io)
 	return 0;
 } /* hdmi_tx_check_capability */
 
-static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl)
+static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
+	struct mdss_panel_info *pinfo)
 {
-	int rc = 0;
+	int new_vic = -1;
 	const struct hdmi_disp_mode_timing_type *timing = NULL;
-	struct hdmi_tx_platform_data *pdata = NULL;
-	u32 format = DEFAULT_VIDEO_RESOLUTION;
 
-	if (!hdmi_ctrl) {
+	if (!hdmi_ctrl || !pinfo) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
-	pdata = &hdmi_ctrl->pdata;
-
-	DEV_DBG("%s: Resolution wanted=%dx%d\n", __func__, hdmi_ctrl->xres,
-		hdmi_ctrl->yres);
-	switch (hdmi_ctrl->xres) {
-	default:
-	case 640:
-		format = HDMI_VFRMT_640x480p60_4_3;
-		break;
-	case 720:
-		format = (hdmi_ctrl->yres == 480)
-			? HDMI_VFRMT_720x480p60_16_9
-			: HDMI_VFRMT_720x576p50_16_9;
-		break;
-	case 1280:
-		if (hdmi_ctrl->frame_rate == 50000)
-			format = HDMI_VFRMT_1280x720p50_16_9;
-		else
-			format = HDMI_VFRMT_1280x720p60_16_9;
-		break;
-	case 1440:
-		/* interlaced has half of y res. */
-		format = (hdmi_ctrl->yres == 240)
-			? HDMI_VFRMT_1440x480i60_16_9
-			: HDMI_VFRMT_1440x576i50_16_9;
-		break;
-	case 1920:
-		if (hdmi_ctrl->yres == 540) {/* interlaced */
-			format = HDMI_VFRMT_1920x1080i60_16_9;
-		} else if (hdmi_ctrl->yres == 1080) {
-			if (hdmi_ctrl->frame_rate == 50000)
-				format = HDMI_VFRMT_1920x1080p50_16_9;
-			else if (hdmi_ctrl->frame_rate == 24000)
-				format = HDMI_VFRMT_1920x1080p24_16_9;
-			else if (hdmi_ctrl->frame_rate == 25000)
-				format = HDMI_VFRMT_1920x1080p25_16_9;
-			else if (hdmi_ctrl->frame_rate == 30000)
-				format = HDMI_VFRMT_1920x1080p30_16_9;
-			else
-				format = HDMI_VFRMT_1920x1080p60_16_9;
-		}
-		break;
+	new_vic = hdmi_tx_get_vic_from_panel_info(hdmi_ctrl, pinfo);
+	if ((new_vic < 0) || (new_vic > HDMI_VFRMT_MAX)) {
+		DEV_ERR("%s: invalid or not supported vic\n", __func__);
+		return -EPERM;
 	}
 
-	if (hdmi_ctrl->video_resolution != format)
-		DEV_DBG("%s: switching %s => %s", __func__,
-			hdmi_get_video_fmt_2string(
-			hdmi_ctrl->video_resolution),
-			hdmi_get_video_fmt_2string(format));
-	else
-		DEV_DBG("resolution %s", hdmi_get_video_fmt_2string(
-			hdmi_ctrl->video_resolution));
+	DEV_DBG("%s: switching from %s => %s", __func__,
+		hdmi_get_video_fmt_2string(hdmi_ctrl->video_resolution),
+		hdmi_get_video_fmt_2string(new_vic));
 
-	timing = hdmi_get_supported_mode(format);
-	if (!timing) {
-		DEV_ERR("%s: invalid video fmt=%d\n", __func__,
-			hdmi_ctrl->video_resolution);
-		rc = -EPERM;
-		goto end;
-	}
+	hdmi_ctrl->video_resolution = (u32)new_vic;
+
+	timing = hdmi_get_supported_mode(hdmi_ctrl->video_resolution);
 
 	/* todo: find a better way */
 	hdmi_ctrl->pdata.power_data[HDMI_TX_CORE_PM].clk_config[0].rate =
 		timing->pixel_freq * 1000;
 
-	hdmi_ctrl->video_resolution = format;
 	hdmi_edid_set_video_resolution(
-		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID], format);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
+		hdmi_ctrl->video_resolution);
 
-end:
-	return rc;
+	return 0;
 } /* hdmi_tx_set_video_fmt */
 
 static void hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
@@ -1710,8 +1714,6 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 	if (hdmi_ctrl->hpd_off_pending) {
 		hdmi_tx_hpd_off(hdmi_ctrl);
 		hdmi_ctrl->hpd_off_pending = false;
-	} else {
-		hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
 	}
 
 	DEV_INFO("%s: HDMI Core: OFF\n", __func__);
@@ -1764,14 +1766,14 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 	/* If a power down is already underway, wait for it to finish */
 	flush_work(&hdmi_ctrl->power_off_work);
 
-	DEV_INFO("power: ON (%dx%d %ld)\n", hdmi_ctrl->xres, hdmi_ctrl->yres,
-		hdmi_ctrl->pixel_clk);
-
-	rc = hdmi_tx_set_video_fmt(hdmi_ctrl);
+	rc = hdmi_tx_set_video_fmt(hdmi_ctrl, &panel_data->panel_info);
 	if (rc) {
 		DEV_ERR("%s: cannot set video_fmt.rc=%d\n", __func__, rc);
 		return rc;
 	}
+
+	DEV_INFO("power: ON (%s)\n", hdmi_get_video_fmt_2string(
+		hdmi_ctrl->video_resolution));
 
 	rc = hdmi_tx_core_on(hdmi_ctrl);
 	if (rc) {
@@ -2044,7 +2046,7 @@ fail_no_hdmi:
 static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 	int event, void *arg)
 {
-	int rc = 0;
+	int rc = 0, new_vic = -1;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
 		hdmi_tx_get_drvdata_from_panel_data(panel_data);
 
@@ -2057,6 +2059,25 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		event, hdmi_ctrl->panel_suspend, hdmi_ctrl->hpd_feature_on);
 
 	switch (event) {
+	case MDSS_EVENT_CHECK_PARAMS:
+		new_vic = hdmi_tx_get_vic_from_panel_info(hdmi_ctrl,
+			(struct mdss_panel_info *)arg);
+		if ((new_vic < 0) || (new_vic > HDMI_VFRMT_MAX)) {
+			DEV_ERR("%s: invalid or not supported vic\n", __func__);
+			return -EPERM;
+		}
+
+		/*
+		 * return value of 1 lets mdss know that panel
+		 * needs a reconfig due to new resolution and
+		 * it will issue close and open subsequently.
+		 */
+		if (new_vic != hdmi_ctrl->video_resolution)
+			rc = 1;
+		else
+			DEV_DBG("%s: no res change.\n", __func__);
+		break;
+
 	case MDSS_EVENT_RESUME:
 		if (hdmi_ctrl->hpd_feature_on) {
 			INIT_COMPLETION(hdmi_ctrl->hpd_done);
@@ -2104,8 +2125,6 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		if (!hdmi_ctrl->panel_power_on) {
 			if (hdmi_ctrl->hpd_feature_on)
 				hdmi_tx_hpd_off(hdmi_ctrl);
-			else
-				DEV_ERR("%s: invalid state\n", __func__);
 
 			hdmi_ctrl->panel_suspend = false;
 		} else {
@@ -2130,6 +2149,12 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		/* If a power off is already underway, wait for it to finish */
 		if (hdmi_ctrl->panel_suspend)
 			flush_work_sync(&hdmi_ctrl->power_off_work);
+		break;
+
+	case MDSS_EVENT_CLOSE:
+		if (hdmi_ctrl->hpd_feature_on)
+			hdmi_tx_hpd_polarity_setup(hdmi_ctrl,
+				HPD_CONNECT_POLARITY);
 		break;
 	}
 
