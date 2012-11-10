@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 #include "lpm_resources.h"
 #include "rpm-notifier.h"
 #include "idle.h"
+#include "trace_msm_low_power.h"
 
 /*Debug Definitions*/
 enum {
@@ -417,6 +418,7 @@ static void msm_lpm_aggregate_l2(struct msm_rpmrs_limits *limits)
 
 	if (rs->valid)
 		rs->sleep_value = limits->l2_cache;
+	trace_lpm_resources(rs->sleep_value, rs->name);
 }
 
 static void msm_lpm_flush_l2(int notify_rpm)
@@ -497,6 +499,7 @@ static void msm_lpm_aggregate_vdd_dig(struct msm_rpmrs_limits *limits)
 		else
 			rs->sleep_value = vdd_buf;
 	}
+	trace_lpm_resources(rs->sleep_value, rs->name);
 }
 
 static void msm_lpm_flush_vdd_dig(int notify_rpm)
@@ -551,6 +554,7 @@ static void msm_lpm_aggregate_vdd_mem(struct msm_rpmrs_limits *limits)
 		else
 			rs->sleep_value = vdd_buf;
 	}
+	trace_lpm_resources(rs->sleep_value, rs->name);
 }
 
 static void msm_lpm_flush_vdd_mem(int notify_rpm)
@@ -608,6 +612,7 @@ static void msm_lpm_aggregate_pxo(struct msm_rpmrs_limits *limits)
 			pr_info("%s: pxo buf %d sleep value %d\n",
 					__func__, pxo_buf, rs->sleep_value);
 	}
+	trace_lpm_resources(rs->sleep_value, rs->name);
 }
 
 static void msm_lpm_flush_pxo(int notify_rpm)
