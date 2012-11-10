@@ -51,11 +51,13 @@ struct hdmi_tx_ctrl {
 
 	uint32_t video_resolution;
 	u32 panel_power_on;
+	u32 panel_suspend;
 
-	u32 hpd_initialized;
 	u32 hpd_state;
 	u32 hpd_off_pending;
 	u32 hpd_feature_on;
+	u32 hpd_initialized;
+	struct completion hpd_done;
 	struct work_struct hpd_int_work;
 
 	struct work_struct power_off_work;
