@@ -98,6 +98,57 @@ const struct hdmi_disp_mode_timing_type *hdmi_get_supported_mode(u32 mode)
 	return ret;
 } /* hdmi_get_supported_mode */
 
+int hdmi_get_video_id_code(struct hdmi_disp_mode_timing_type *timing_in)
+{
+	int i, vic = -1;
+
+	if (!timing_in) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		goto exit;
+	}
+
+	/* active_low_h, active_low_v and interlaced are not checked against */
+	for (i = 0; i < HDMI_VFRMT_MAX; i++) {
+		struct hdmi_disp_mode_timing_type *supported_timing =
+			&hdmi_supported_video_mode_lut[i];
+
+		if (!supported_timing->supported)
+			continue;
+		if (timing_in->active_h != supported_timing->active_h)
+			continue;
+		if (timing_in->front_porch_h != supported_timing->front_porch_h)
+			continue;
+		if (timing_in->pulse_width_h != supported_timing->pulse_width_h)
+			continue;
+		if (timing_in->back_porch_h != supported_timing->back_porch_h)
+			continue;
+		if (timing_in->active_v != supported_timing->active_v)
+			continue;
+		if (timing_in->front_porch_v != supported_timing->front_porch_v)
+			continue;
+		if (timing_in->pulse_width_v != supported_timing->pulse_width_v)
+			continue;
+		if (timing_in->back_porch_v != supported_timing->back_porch_v)
+			continue;
+		if (timing_in->pixel_freq != supported_timing->pixel_freq)
+			continue;
+		if (timing_in->refresh_rate != supported_timing->refresh_rate)
+			continue;
+
+		vic = (int)supported_timing->video_format;
+		break;
+	}
+
+	if (vic < 0)
+		DEV_ERR("%s: timing asked is not yet supported\n", __func__);
+
+exit:
+	DEV_DBG("%s: vic = %d timing = %s\n", __func__, vic,
+		hdmi_get_video_fmt_2string((u32)vic));
+
+	return vic;
+} /* hdmi_get_video_id_code */
+
 void hdmi_set_supported_mode(u32 mode)
 {
 	switch (mode) {
