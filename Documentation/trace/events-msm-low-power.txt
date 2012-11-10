@@ -1,0 +1,45 @@
+Subsystem Trace Points: msm_low_power
+
+The msm_low_power tracing system captures the events during the entry
+and exit of various low power modes like power collapse, standalone
+power collapse, retention and wfi. The tracing system adds the following
+events to capture the state of the low power mode.
+
+1) msm_pm_enter
+===================
+msm_pm_enter: cpu: %u latency: %uus sleep: %uus
+msm_pm_enter_pc: cpu: %u latency: %uus sleep: %uus wake_up: %u
+msm_pm_enter_ret: cpu: %u latency: %uus sleep: %uus wake_up: %u
+msm_pm_enter_spc: cpu: %u latency: %uus sleep: %uus wake_up: %u
+msm_pm_enter_wfi: cpu: %u latency: %uus sleep: %uus wake_up: %u
+
+The event captures various parameters during the entry into low power
+modes.
+
+The 'cpu' parameter represents the cpu on which the low power mode is
+chosen.
+
+The 'latency_us' parameter represents the system latency at the time of
+choosing the low power mode.
+
+The 'sleep_us' parameter tells the maximum amount of time the kernel can
+sleep in this low power mode.
+
+The 'wake_up' parameter tells if there was any immediate wakeup required
+before entering low power mode.
+
+2) msm_pm_exit
+=================
+msm_pm_exit: cpu:%u success:%d
+msm_pm_exit_pc: cpu:%u success:%d
+msm_pm_exit_ret: cpu:%u success:%d
+msm_pm_exit_spc: cpu:%u success:%d
+msm_pm_exit_wfi: cpu:%u success:%d
+
+The event captures parameters during the exit of the low power modes.
+
+The 'cpu' parameter represents the cpu on which the low power mode is chosen.
+
+The 'success' parameter shows the state of power collapse/standalone power
+collapse. It will be set if power collapse/standalone power collapse were
+successful. For the rest of the low power modes it is set to one.

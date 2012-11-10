@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,7 +51,8 @@
 #include "timer.h"
 #include "pm-boot.h"
 #include <mach/event_timer.h>
-
+#define CREATE_TRACE_POINTS
+#include "trace_msm_low_power.h"
 /******************************************************************************
  * Debug Definitions
  *****************************************************************************/
@@ -724,6 +725,51 @@ void arch_idle(void)
 	return;
 }
 
+static inline void msm_pm_ftrace_lpm_enter(unsigned int cpu,
+		uint32_t latency, uint32_t sleep_us,
+		uint32_t wake_up,
+		enum msm_pm_sleep_mode mode)
+{
+	switch (mode) {
+	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
+		trace_msm_pm_enter_wfi(cpu, latency, sleep_us, wake_up);
+		break;
+	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
+		trace_msm_pm_enter_spc(cpu, latency, sleep_us, wake_up);
+		break;
+	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
+		trace_msm_pm_enter_pc(cpu, latency, sleep_us, wake_up);
+		break;
+	case MSM_PM_SLEEP_MODE_RETENTION:
+		trace_msm_pm_enter_ret(cpu, latency, sleep_us, wake_up);
+		break;
+	default:
+		break;
+	}
+}
+
+static inline void msm_pm_ftrace_lpm_exit(unsigned int cpu,
+		enum msm_pm_sleep_mode mode,
+		bool success)
+{
+	switch (mode) {
+	case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
+		trace_msm_pm_exit_wfi(cpu, success);
+		break;
+	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
+		trace_msm_pm_exit_spc(cpu, success);
+		break;
+	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
+		trace_msm_pm_exit_pc(cpu, success);
+		break;
+	case MSM_PM_SLEEP_MODE_RETENTION:
+		trace_msm_pm_exit_ret(cpu, success);
+		break;
+	default:
+		break;
+	}
+}
+
 int msm_pm_idle_prepare(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int index)
 {
@@ -828,6 +874,11 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 
 	if (modified_time_us && !dev->cpu)
 		msm_pm_set_timer(modified_time_us);
+
+	msm_pm_ftrace_lpm_enter(dev->cpu, time_param.latency_us,
+			time_param.sleep_us, time_param.next_event_us,
+			ret);
+
 	return ret;
 }
 
@@ -835,6 +886,7 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 {
 	int64_t time;
 	int exit_stat;
+	bool collapsed = 1;
 
 	if (MSM_PM_DEBUG_IDLE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: mode %d\n",
@@ -854,7 +906,7 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		break;
 
 	case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
-		msm_pm_power_collapse_standalone(true);
+		collapsed = msm_pm_power_collapse_standalone(true);
 		exit_stat = MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE;
 		break;
 
@@ -865,8 +917,6 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 		int ret = -ENODEV;
 		int notify_rpm =
 			(sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE);
-		int collapsed;
-
 		timer_expiration = msm_pm_timer_enter_idle();
 
 		sleep_delay = (uint32_t) msm_pm_convert_and_cap_time(
@@ -901,6 +951,8 @@ int msm_pm_idle_enter(enum msm_pm_sleep_mode sleep_mode)
 
 	time = ktime_to_ns(ktime_get()) - time;
 	msm_pm_add_stat(exit_stat, time);
+	msm_pm_ftrace_lpm_exit(smp_processor_id(), sleep_mode,
+				collapsed);
 
 	do_div(time, 1000);
 	return (int) time;
