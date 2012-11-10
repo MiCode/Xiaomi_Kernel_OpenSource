@@ -43,6 +43,21 @@
 #include "board-dt.h"
 #include "clock.h"
 
+static struct memtype_reserve msm8226_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+	[MEMTYPE_EBI1] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+};
+
+static int msm8226_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
@@ -54,6 +69,23 @@ static struct clock_init_data msm_dummy_clock_init_data __initdata = {
 	.table = msm_clocks_dummy,
 	.size = ARRAY_SIZE(msm_clocks_dummy),
 };
+
+static struct reserve_info msm8226_reserve_info __initdata = {
+	.memtype_reserve_table = msm8226_reserve_table,
+	.paddr_to_memtype = msm8226_paddr_to_memtype,
+};
+
+static void __init msm8226_early_memory(void)
+{
+	reserve_info = &msm8226_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8226_reserve_table);
+}
+
+static void __init msm8226_reserve(void)
+{
+	msm_reserve();
+}
+
 
 void __init msm8226_init(void)
 {
@@ -78,4 +110,6 @@ DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8226 (Flattened Device Tree)")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
 	.dt_compat = msm8226_dt_match,
+	.reserve = msm8226_reserve,
+	.init_very_early = msm8226_early_memory
 MACHINE_END
