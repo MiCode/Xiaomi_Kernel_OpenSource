@@ -355,6 +355,9 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 {
 	int ret;
 
+	if (!mfd->panel_power_on)
+		return -EPERM;
+
 	if (req->flags & MDSS_MDP_ROT_ONLY) {
 		ret = mdss_mdp_overlay_rotator_setup(mfd, req);
 	} else {
@@ -481,6 +484,9 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 
 		return ret;
 	}
+
+	if (!mfd->ctl->power_on)
+		return 0;
 
 	for (i = 0; unset_ndx != ndx && i < MDSS_MDP_MAX_SSPP; i++) {
 		pipe_ndx = BIT(i);
@@ -630,6 +636,9 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 	int ret = 0;
 
 	pr_debug("play req id=%x\n", req->id);
+
+	if (!mfd->panel_power_on)
+		return -EPERM;
 
 	if (req->id & MDSS_MDP_ROT_SESSION_MASK)
 		ret = mdss_mdp_overlay_rotate(mfd, req);
@@ -974,7 +983,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		}
 
 		if (ret) {
-			pr_err("OVERLAY_GET failed (%d)\n", ret);
+			pr_debug("OVERLAY_GET failed (%d)\n", ret);
 			ret = -EFAULT;
 		}
 		break;
@@ -988,7 +997,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 				ret = copy_to_user(argp, &req, sizeof(req));
 		}
 		if (ret) {
-			pr_err("OVERLAY_SET failed (%d)\n", ret);
+			pr_debug("OVERLAY_SET failed (%d)\n", ret);
 			ret = -EFAULT;
 		}
 		break;
@@ -1020,7 +1029,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			}
 
 			if (ret) {
-				pr_err("OVERLAY_PLAY failed (%d)\n", ret);
+				pr_debug("OVERLAY_PLAY failed (%d)\n", ret);
 				ret = -EFAULT;
 			}
 		} else {
