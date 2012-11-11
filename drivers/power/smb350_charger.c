@@ -213,21 +213,6 @@ static int smb350_masked_write(struct i2c_client *client, int reg, u8 mask,
 	return ret;
 }
 
-#define SMB350_FLOAT_VOLT_BASE_MV 6920
-#define SMB350_FLOAT_VOLT_STEP_MV   40
-#define SMB350_FLOAT_VOLT_MAX_MV  (6920 + 0x2F * 40)
-
-/* Fast-to-Taper charging volatge */
-static int smb350_get_float_voltage(struct i2c_client *client)
-{
-	u16 val = smb350_read_reg(client, STATUS_A_REG);
-
-	val = SMB350_FLOAT_VOLT_BASE_MV +
-		((val & 0x2F) * SMB350_FLOAT_VOLT_STEP_MV);
-
-	return val;
-}
-
 static bool smb350_is_dc_present(struct i2c_client *client)
 {
 	u16 irq_status_f = smb350_read_reg(client, IRQ_STATUS_F_REG);
@@ -399,7 +384,6 @@ static enum power_supply_property pm_power_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	/* fixed */
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_MODEL_NAME,
@@ -429,10 +413,6 @@ static int smb350_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = smb350_get_prop_charge_type(dev);
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = smb350_get_float_voltage(client);
-		val->intval *= 1000; /* mV to uV */
 		break;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		val->strval = SMB350_NAME;
