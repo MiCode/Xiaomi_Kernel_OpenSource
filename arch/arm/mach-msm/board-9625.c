@@ -35,6 +35,7 @@
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
 #include "board-dt.h"
+#include <mach/msm_bus_board.h>
 #include "clock.h"
 #include "modem_notifier.h"
 #include "lpm_resources.h"
@@ -253,6 +254,97 @@ struct platform_device msm_device_smd_9625 = {
 	}
 };
 
+#define BIMC_BASE	0xfc380000
+#define BIMC_SIZE	0x0006A000
+#define SYS_NOC_BASE	0xfc460000
+#define PERIPH_NOC_BASE 0xFC468000
+#define CONFIG_NOC_BASE	0xfc480000
+#define NOC_SIZE	0x00004000
+
+static struct resource bimc_res[] = {
+	{
+		.start = BIMC_BASE,
+		.end = BIMC_BASE + BIMC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "bimc_mem",
+	},
+};
+
+static struct resource sys_noc_res[] = {
+	{
+		.start = SYS_NOC_BASE,
+		.end = SYS_NOC_BASE + NOC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "sys_noc_mem",
+	},
+};
+
+static struct resource config_noc_res[] = {
+	{
+		.start = CONFIG_NOC_BASE,
+		.end = CONFIG_NOC_BASE + NOC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "config_noc_mem",
+	},
+};
+
+static struct resource periph_noc_res[] = {
+	{
+		.start = PERIPH_NOC_BASE,
+		.end = PERIPH_NOC_BASE + NOC_SIZE,
+		.flags = IORESOURCE_MEM,
+		.name = "periph_noc_mem",
+	},
+};
+
+static struct platform_device msm_bus_sys_noc = {
+	.name  = "msm_bus_fabric",
+	.id    =  MSM_BUS_FAB_SYS_NOC,
+	.num_resources = ARRAY_SIZE(sys_noc_res),
+	.resource = sys_noc_res,
+};
+
+static struct platform_device msm_bus_bimc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_BIMC,
+	.num_resources = ARRAY_SIZE(bimc_res),
+	.resource = bimc_res,
+};
+
+static struct platform_device msm_bus_periph_noc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_PERIPH_NOC,
+	.num_resources = ARRAY_SIZE(periph_noc_res),
+	.resource = periph_noc_res,
+};
+
+static struct platform_device msm_bus_config_noc = {
+	.name  = "msm_bus_fabric",
+	.id    = MSM_BUS_FAB_CONFIG_NOC,
+	.num_resources = ARRAY_SIZE(config_noc_res),
+	.resource = config_noc_res,
+};
+
+static struct platform_device *msm_bus_9625_devices[] = {
+	&msm_bus_sys_noc,
+	&msm_bus_bimc,
+	&msm_bus_periph_noc,
+	&msm_bus_config_noc,
+};
+
+static void __init msm9625_init_buses(void)
+{
+#ifdef CONFIG_MSM_BUS_SCALING
+	msm_bus_sys_noc.dev.platform_data =
+		&msm_bus_9625_sys_noc_pdata;
+	msm_bus_bimc.dev.platform_data = &msm_bus_9625_bimc_pdata;
+	msm_bus_periph_noc.dev.platform_data = &msm_bus_9625_periph_noc_pdata;
+	msm_bus_config_noc.dev.platform_data = &msm_bus_9625_config_noc_pdata;
+#endif
+	platform_add_devices(msm_bus_9625_devices,
+				ARRAY_SIZE(msm_bus_9625_devices));
+}
+
 void __init msm9625_add_devices(void)
 {
 	platform_device_register(&msm_device_smd_9625);
@@ -273,6 +365,7 @@ void __init msm9625_add_drivers(void)
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	msm_clock_init(&msm9625_clock_init_data);
+	msm9625_init_buses();
 }
 
 void __init msm9625_init(void)
