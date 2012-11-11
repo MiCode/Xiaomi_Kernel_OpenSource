@@ -2855,61 +2855,6 @@ static long msm_ioctl_config(struct file *filep, unsigned int cmd,
 		rc = pmsm->sync->sctrl.s_config(argp);
 		break;
 
-	case MSM_CAM_IOCTL_FLASH_LED_CFG: {
-		uint32_t led_state;
-		if (copy_from_user(&led_state, argp, sizeof(led_state))) {
-			ERR_COPY_FROM_USER();
-			rc = -EFAULT;
-		} else
-			rc = msm_camera_flash_set_led_state(pmsm->sync->
-					sdata->flash_data, led_state);
-		break;
-	}
-
-	case MSM_CAM_IOCTL_STROBE_FLASH_CFG: {
-		uint32_t flash_type;
-		if (copy_from_user(&flash_type, argp, sizeof(flash_type))) {
-			pr_err("msm_strobe_flash_init failed");
-			ERR_COPY_FROM_USER();
-			rc = -EFAULT;
-		} else {
-			CDBG("msm_strobe_flash_init enter");
-			rc = msm_strobe_flash_init(pmsm->sync, flash_type);
-		}
-		break;
-	}
-
-	case MSM_CAM_IOCTL_STROBE_FLASH_RELEASE:
-		if (pmsm->sync->sdata->strobe_flash_data) {
-			rc = pmsm->sync->sfctrl.strobe_flash_release(
-				pmsm->sync->sdata->strobe_flash_data, 0);
-		}
-		break;
-
-	case MSM_CAM_IOCTL_STROBE_FLASH_CHARGE: {
-		uint32_t charge_en;
-		if (copy_from_user(&charge_en, argp, sizeof(charge_en))) {
-			ERR_COPY_FROM_USER();
-			rc = -EFAULT;
-		} else
-			rc = pmsm->sync->sfctrl.strobe_flash_charge(
-			pmsm->sync->sdata->strobe_flash_data->flash_charge,
-			charge_en, pmsm->sync->sdata->strobe_flash_data->
-				flash_recharge_duration);
-		break;
-	}
-
-	case MSM_CAM_IOCTL_FLASH_CTRL: {
-		struct flash_ctrl_data flash_info;
-		if (copy_from_user(&flash_info, argp, sizeof(flash_info))) {
-			ERR_COPY_FROM_USER();
-			rc = -EFAULT;
-		} else
-			rc = msm_flash_ctrl(pmsm->sync->sdata, &flash_info);
-
-		break;
-	}
-
 	case MSM_CAM_IOCTL_ERROR_CONFIG:
 		rc = msm_error_config(pmsm->sync, argp);
 		break;

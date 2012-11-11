@@ -129,6 +129,10 @@ struct msm_camera_sensor_flash_led {
 
 struct msm_camera_sensor_flash_src {
 	int flash_sr_type;
+	struct gpio *init_gpio_tbl;
+	uint8_t init_gpio_tbl_size;
+	struct msm_gpio_set_tbl *set_gpio_tbl;
+	uint8_t set_gpio_tbl_size;
 
 	union {
 		struct msm_camera_sensor_flash_pmic pmic_src;
@@ -144,6 +148,9 @@ struct msm_camera_sensor_flash_src {
 struct msm_camera_sensor_flash_data {
 	int flash_type;
 	struct msm_camera_sensor_flash_src *flash_src;
+	struct i2c_board_info const *board_info;
+	int bus_id;
+	uint8_t flash_src_index;
 };
 
 struct msm_camera_sensor_strobe_flash_data {
