@@ -333,6 +333,16 @@ config SMB137B_CHARGER
 	  To compile this driver as a module, choose M here: the module will
 	  be called smb137b.
 
+config SMB137C_CHARGER
+	tristate "Summit SMB137C Battery Charger"
+	depends on I2C
+	depends on OF
+	help
+	  The SMB137C charger chip from Summit is a switching mode based
+	  charging solution.  This driver supports enabling and disabling
+	  charging, setting the input current limit, and enabling USB OTG mode
+	  in order to supply 5 V on the VBUS line.
+
 config SMB349_CHARGER
 	tristate "smb349 charger"
 	depends on I2C
