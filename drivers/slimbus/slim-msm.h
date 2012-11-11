@@ -174,6 +174,8 @@ struct msm_slim_qmi {
 	struct task_struct		*task;
 	struct kthread_work		kwork;
 	struct kthread_worker		kworker;
+	struct completion		qmi_comp;
+	struct notifier_block		nb;
 };
 
 struct msm_slim_ctrl {
