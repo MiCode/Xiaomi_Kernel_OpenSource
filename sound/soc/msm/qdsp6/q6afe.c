@@ -33,6 +33,7 @@ struct afe_ctl {
 		uint32_t token, uint32_t *payload, void *priv);
 	void *tx_private_data;
 	void *rx_private_data;
+	u16 dtmf_gen_rx_portid;
 };
 
 static struct afe_ctl this_afe;
@@ -91,6 +92,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			case AFE_SERVICE_CMD_MEMORY_MAP:
 			case AFE_SERVICE_CMD_MEMORY_UNMAP:
 			case AFE_SERVICE_CMD_UNREG_RTPORT:
+			case AFE_PORTS_CMD_DTMF_CTL:
 				atomic_set(&this_afe.state, 0);
 				wake_up(&this_afe.wait);
 				break;
@@ -1621,6 +1623,83 @@ static const struct file_operations afe_debug_fops = {
 	.write = afe_debug_write
 };
 #endif
+
+void afe_set_dtmf_gen_rx_portid(u16 port_id, int set)
+{
+	if (set)
+		this_afe.dtmf_gen_rx_portid = port_id;
+	else if (this_afe.dtmf_gen_rx_portid == port_id)
+		this_afe.dtmf_gen_rx_portid = -1;
+}
+
+int afe_dtmf_generate_rx(int64_t duration_in_ms,
+			 uint16_t high_freq,
+			 uint16_t low_freq, uint16_t gain)
+{
+	int ret = 0;
+	struct afe_dtmf_generation_command cmd_dtmf;
+
+	pr_debug("%s: DTMF AFE Gen\n", __func__);
+
+	if (afe_validate_port(this_afe.dtmf_gen_rx_portid) < 0) {
+		pr_err("%s: Failed : Invalid Port id = %d\n",
+		       __func__, this_afe.dtmf_gen_rx_portid);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	if (this_afe.apr == NULL) {
+		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
+					    0xFFFFFFFF, &this_afe);
+		pr_debug("%s: Register AFE\n", __func__);
+		if (this_afe.apr == NULL) {
+			pr_err("%s: Unable to register AFE\n", __func__);
+			ret = -ENODEV;
+			return ret;
+		}
+	}
+
+	pr_debug("dur=%lld: hfreq=%d lfreq=%d gain=%d portid=%x\n",
+		duration_in_ms, high_freq, low_freq, gain,
+		this_afe.dtmf_gen_rx_portid);
+
+	cmd_dtmf.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cmd_dtmf.hdr.pkt_size = sizeof(cmd_dtmf);
+	cmd_dtmf.hdr.src_port = 0;
+	cmd_dtmf.hdr.dest_port = 0;
+	cmd_dtmf.hdr.token = 0;
+	cmd_dtmf.hdr.opcode = AFE_PORTS_CMD_DTMF_CTL;
+	cmd_dtmf.duration_in_ms = duration_in_ms;
+	cmd_dtmf.high_freq = high_freq;
+	cmd_dtmf.low_freq = low_freq;
+	cmd_dtmf.gain = gain;
+	cmd_dtmf.num_ports = 1;
+	cmd_dtmf.port_ids = this_afe.dtmf_gen_rx_portid;
+
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &cmd_dtmf);
+	if (ret < 0) {
+		pr_err("%s: AFE DTMF failed for num_ports:%d ids:%x\n",
+		       __func__, cmd_dtmf.num_ports, cmd_dtmf.port_ids);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+		(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (ret < 0) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	return 0;
+
+fail_cmd:
+	return ret;
+}
+
 int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
 {
 	struct afe_port_sidetone_command cmd_sidetone;
@@ -1755,6 +1834,7 @@ static int __init afe_init(void)
 	atomic_set(&this_afe.state, 0);
 	atomic_set(&this_afe.status, 0);
 	this_afe.apr = NULL;
+	this_afe.dtmf_gen_rx_portid = -1;
 #ifdef CONFIG_DEBUG_FS
 	debugfs_afelb = debugfs_create_file("afe_loopback",
 	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback",
