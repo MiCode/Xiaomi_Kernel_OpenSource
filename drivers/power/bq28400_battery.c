@@ -486,6 +486,8 @@ static int bq28400_get_prop_status(struct i2c_client *client)
 	u16 battery_status;
 
 	battery_status = bq28400_read_reg(client, SBS_BATTERY_STATUS);
+	rsoc = bq28400_read_rsoc(client);
+	current_ma = bq28400_read_current(client);
 
 	if (battery_status & BAT_STATUS_EMPTY)
 		pr_debug("Battery report Empty.\n");
@@ -493,15 +495,15 @@ static int bq28400_get_prop_status(struct i2c_client *client)
 	/* Battery may report FULL before rsoc is 100%
 	 * for protection and cell-balancing.
 	 * The FULL report may remain when rsoc drops from 100%.
+	 * If battery is full but DC-Jack is removed then report discahrging.
 	 */
 	if (battery_status & BAT_STATUS_FULL) {
 		pr_debug("Battery report Full.\n");
 		bq28400_enable_charging(bq28400_dev, false);
+		if (current_ma < 0)
+			return POWER_SUPPLY_STATUS_DISCHARGING;
 		return POWER_SUPPLY_STATUS_FULL;
 	}
-
-	rsoc = bq28400_read_rsoc(client);
-	current_ma = bq28400_read_current(client);
 
 	if (rsoc == 100) {
 		bq28400_enable_charging(bq28400_dev, false);
