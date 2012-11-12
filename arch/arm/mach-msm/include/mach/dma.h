@@ -269,7 +269,7 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV8064_CE_OUT_CHAN       1
 #define DMOV8064_CE_OUT_CRCI       15
 
-#define DMOV8064_TSIF_CHAN         2
+#define DMOV8064_TSIF_CHAN         4
 #define DMOV8064_TSIF_CRCI         1
 
 /* channels for MPQ8064 */
