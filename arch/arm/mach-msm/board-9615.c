@@ -924,6 +924,7 @@ static struct platform_device *common_devices[] = {
 	&msm_cpudai_auxpcm_tx,
 	&msm_cpudai_sec_auxpcm_rx,
 	&msm_cpudai_sec_auxpcm_tx,
+	&msm_cpudai_stub,
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
 		defined(CONFIG_CRYPTO_DEV_QCRYPTO_MODULE)
