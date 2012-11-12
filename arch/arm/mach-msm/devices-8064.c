@@ -2729,7 +2729,7 @@ struct platform_device i2s_mdm_8064_device = {
 static struct msm_dcvs_sync_rule apq8064_dcvs_sync_rules[] = {
 	{1026000,	400000},
 	{384000,	200000},
-	{-1,		128000},
+	{0,		128000},
 };
 
 static struct msm_dcvs_platform_data apq8064_dcvs_data = {

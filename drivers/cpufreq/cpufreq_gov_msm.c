@@ -253,6 +253,7 @@ static int __devinit msm_gov_probe(struct platform_device *pdev)
 						msm_dcvs_freq_set,
 						msm_dcvs_freq_get,
 						msm_dcvs_idle_notifier,
+						NULL,
 						sensor);
 		if (gov->dcvs_core_id < 0) {
 			pr_err("Unable to register core for %d\n", cpu);
