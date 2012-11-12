@@ -244,20 +244,17 @@ static int z180_setup_pt(struct kgsl_device *device,
 	int result = 0;
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 
-	result = kgsl_mmu_map_global(pagetable, &device->mmu.setstate_memory,
-				     GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+	result = kgsl_mmu_map_global(pagetable, &device->mmu.setstate_memory);
 
 	if (result)
 		goto error;
 
-	result = kgsl_mmu_map_global(pagetable, &device->memstore,
-				     GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+	result = kgsl_mmu_map_global(pagetable, &device->memstore);
 	if (result)
 		goto error_unmap_dummy;
 
 	result = kgsl_mmu_map_global(pagetable,
-				     &z180_dev->ringbuffer.cmdbufdesc,
-				     GSL_PT_PAGE_RV);
+				     &z180_dev->ringbuffer.cmdbufdesc);
 	if (result)
 		goto error_unmap_memstore;
 	/*
@@ -498,6 +495,7 @@ static int z180_ringbuffer_init(struct kgsl_device *device)
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 	memset(&z180_dev->ringbuffer, 0, sizeof(struct z180_ringbuffer));
 	z180_dev->ringbuffer.prevctx = Z180_INVALID_CONTEXT;
+	z180_dev->ringbuffer.cmdbufdesc.flags = KGSL_MEMFLAGS_GPUREADONLY;
 	return kgsl_allocate_contiguous(&z180_dev->ringbuffer.cmdbufdesc,
 		Z180_RB_SIZE);
 }
