@@ -26,6 +26,7 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 
+#define VSYNC_PERIOD 16
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
 
@@ -837,30 +838,27 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		mdss_mdp_overlay_kickoff(mfd->ctl);
 }
 
+/* function is called in irq context should have minimum processing */
 static void mdss_mdp_overlay_handle_vsync(struct mdss_mdp_ctl *ctl, ktime_t t)
 {
-	struct device *dev;
-	char buf[64];
-	char *envp[2];
-
-	if (!ctl || !ctl->mfd || !ctl->mfd->fbi) {
+	struct msm_fb_data_type *mfd = ctl->mfd;
+	if (!mfd) {
 		pr_warn("Invalid handle for vsync\n");
 		return;
 	}
 
-	dev = ctl->mfd->fbi->dev;
+	pr_debug("vsync on fb%d play_cnt=%d\n", mfd->index, ctl->play_cnt);
 
-	snprintf(buf, sizeof(buf), "VSYNC=%llu", ktime_to_ns(t));
-	envp[0] = buf;
-	envp[1] = NULL;
-	kobject_uevent_env(&dev->kobj, KOBJ_CHANGE, envp);
-
-	pr_debug("sent vsync on ctl=%d ts=%llu\n", ctl->num, ktime_to_ns(t));
+	spin_lock(&mfd->vsync_lock);
+	mfd->vsync_time = t;
+	complete(&mfd->vsync_comp);
+	spin_unlock(&mfd->vsync_lock);
 }
 
 int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 {
 	struct mdss_mdp_ctl *ctl = mfd->ctl;
+	unsigned long flags;
 	int rc;
 
 	if (!ctl)
@@ -868,12 +866,22 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 	if (!ctl->set_vsync_handler)
 		return -ENOTSUPP;
 
-	pr_debug("vsync en=%d\n", en);
-
 	if (!ctl->power_on) {
+		pr_debug("fb%d vsync pending first update en=%d\n",
+				mfd->index, en);
 		mfd->vsync_pending = en;
 		return 0;
 	}
+
+	pr_debug("fb%d vsync en=%d\n", mfd->index, en);
+
+	spin_lock_irqsave(&mfd->vsync_lock, flags);
+	INIT_COMPLETION(mfd->vsync_comp);
+	if (en && ctl->play_cnt == 0) {
+		mfd->vsync_time = ktime_get();
+		complete(&mfd->vsync_comp);
+	}
+	spin_unlock_irqrestore(&mfd->vsync_lock, flags);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	if (en)
@@ -884,6 +892,47 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 
 	return rc;
 }
+
+static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	unsigned long flags;
+	u64 vsync_ticks;
+	int ret;
+
+	if (!mfd->ctl || !mfd->ctl->power_on)
+		return 0;
+
+	ret = wait_for_completion_interruptible_timeout(&mfd->vsync_comp,
+			msecs_to_jiffies(VSYNC_PERIOD * 5));
+	if (ret <= 0) {
+		pr_warn("vsync wait on fb%d interrupted (%d)\n",
+			mfd->index, ret);
+		return -EBUSY;
+	}
+
+	spin_lock_irqsave(&mfd->vsync_lock, flags);
+	vsync_ticks = ktime_to_ns(mfd->vsync_time);
+	spin_unlock_irqrestore(&mfd->vsync_lock, flags);
+
+	pr_debug("fb%d vsync=%llu", mfd->index, vsync_ticks);
+	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu", vsync_ticks);
+
+	return ret;
+}
+
+static DEVICE_ATTR(vsync_event, S_IRUGO, mdss_mdp_vsync_show_event, NULL);
+
+static struct attribute *vsync_fs_attrs[] = {
+	&dev_attr_vsync_event.attr,
+	NULL,
+};
+
+static struct attribute_group vsync_fs_attr_group = {
+	.attrs = vsync_fs_attrs,
+};
 
 static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 				     struct fb_cursor *cursor)
@@ -1154,6 +1203,9 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 {
+	struct device *dev = mfd->fbi->dev;
+	int rc;
+
 	mfd->on_fnc = mdss_mdp_overlay_on;
 	mfd->off_fnc = mdss_mdp_overlay_off;
 	mfd->hw_refresh = true;
@@ -1168,7 +1220,18 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	INIT_LIST_HEAD(&mfd->pipes_used);
 	INIT_LIST_HEAD(&mfd->pipes_cleanup);
+	init_completion(&mfd->vsync_comp);
+	spin_lock_init(&mfd->vsync_lock);
 	mutex_init(&mfd->ov_lock);
 
-	return 0;
+	rc = sysfs_create_group(&dev->kobj, &vsync_fs_attr_group);
+	if (rc) {
+		pr_err("vsync sysfs group creation failed, ret=%d\n", rc);
+		return rc;
+	}
+
+	kobject_uevent(&dev->kobj, KOBJ_ADD);
+	pr_debug("vsync kobject_uevent(KOBJ_ADD)\n");
+
+	return rc;
 }
