@@ -318,7 +318,6 @@ static int taiko_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		snd_soc_update_bits(codec, w->reg, 0x01, 0x01);
 		snd_soc_update_bits(codec, w->reg, 0x40, 0x00);
-		snd_soc_update_bits(codec, TAIKO_A_NCP_STATIC, 0x0f, 0x01);
 		break;
 
 	case SND_SOC_DAPM_POST_PMU:
@@ -328,7 +327,6 @@ static int taiko_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMD:
 	    snd_soc_update_bits(codec, w->reg, 0x01, 0x00);
 		snd_soc_update_bits(codec, w->reg, 0x40, 0x40);
-		snd_soc_update_bits(codec, TAIKO_A_NCP_STATIC, 0x0f, 0x08);
 		break;
 	}
 	return 0;
