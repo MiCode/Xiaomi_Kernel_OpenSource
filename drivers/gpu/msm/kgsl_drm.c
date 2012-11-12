@@ -210,8 +210,7 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 				return result;
 			}
 
-			result = kgsl_mmu_map(priv->pagetable, &priv->memdesc,
-					GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+			result = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
 			if (result) {
 				DRM_ERROR(
 				"kgsl_mmu_map failed.  result = %d\n", result);
