@@ -56,6 +56,8 @@
 #define CMD_B_REG			0x31	/* Volatile Read-Write */
 #define CMD_C_REG			0x33	/* Volatile Read-Write */
 
+#define HW_VERSION_REG			0x34	/* Volatile Read-Only */
+
 #define IRQ_STATUS_A_REG		0x35	/* Volatile Read-Only */
 #define IRQ_STATUS_B_REG		0x36	/* Volatile Read-Only */
 #define IRQ_STATUS_C_REG		0x37	/* Volatile Read-Only */
@@ -150,6 +152,7 @@ static struct debug_reg smb350_debug_regs[] = {
 	SMB350_DEBUG_REG(CMD_A),
 	SMB350_DEBUG_REG(CMD_B),
 	SMB350_DEBUG_REG(CMD_C),
+	SMB350_DEBUG_REG(HW_VERSION),
 	SMB350_DEBUG_REG(IRQ_STATUS_A),
 	SMB350_DEBUG_REG(IRQ_STATUS_B),
 	SMB350_DEBUG_REG(IRQ_STATUS_C),
@@ -646,6 +649,7 @@ static int smb350_probe(struct i2c_client *client,
 	const struct smb350_platform_data *pdata;
 	struct device_node *dev_node = client->dev.of_node;
 	struct smb350_device *dev;
+	u8 version;
 
 	/* STAT pin change on start/stop charging */
 	u32 irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
@@ -751,6 +755,9 @@ static int smb350_probe(struct i2c_client *client,
 		goto err_no_dev;
 	}
 
+	version = smb350_read_reg(client, HW_VERSION_REG);
+	version &= 0x0F; /* bits 0..3 */
+
 	ret = smb350_set_volatile_params(dev);
 	if (ret)
 		goto err_set_params;
@@ -773,6 +780,8 @@ static int smb350_probe(struct i2c_client *client,
 		pr_err("request_irq %d failed.ret=%d\n", dev->irq, ret);
 		goto err_irq;
 	}
+
+	pr_info("HW Version = 0x%X.\n", version);
 
 	return 0;
 
