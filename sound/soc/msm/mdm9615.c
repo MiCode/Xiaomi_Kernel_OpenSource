@@ -2028,6 +2028,15 @@ static struct snd_soc_dai_link mdm9615_dai_common[] = {
 		.be_id = MSM_FRONTEND_DAI_DTMF_RX,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 	},
+	{
+		.name = "DTMF TX",
+		.stream_name = "DTMF TX",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-pcm-dtmf",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+	},
 
 	/* Backend BT DAI Links */
 	{
