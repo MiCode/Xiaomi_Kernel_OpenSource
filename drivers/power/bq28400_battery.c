@@ -891,7 +891,8 @@ static int bq28400_remove(struct i2c_client *client)
 }
 
 static const struct of_device_id bq28400_match[] = {
-	{ .compatible = "ti,bq28400-battery", },
+	{ .compatible = "ti,bq28400-battery" },
+	{ .compatible = "ti,bq30z55-battery" },
 	{ },
 	};
 
