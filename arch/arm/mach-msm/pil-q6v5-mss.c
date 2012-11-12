@@ -83,6 +83,7 @@ struct mba_data {
 	void *smem_ramdump_dev;
 	bool crash_shutdown;
 	bool ignore_errors;
+	int is_loadable;
 };
 
 static int pbl_mba_boot_timeout_ms = 100;
@@ -421,6 +422,8 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
 
+	if (!drv->is_loadable)
+		return -ENODEV;
 	/* MBA doesn't support shutdown */
 	pil_shutdown(&drv->q6->desc);
 	return 0;
@@ -430,6 +433,9 @@ static int modem_powerup(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
 	int ret;
+
+	if (!drv->is_loadable)
+		return -ENODEV;
 	/*
 	 * At this time, the modem is shutdown. Therefore this function cannot
 	 * run concurrently with either the watchdog bite error handler or the
@@ -520,6 +526,9 @@ static int mss_start(const struct subsys_desc *desc)
 	int ret;
 	struct mba_data *drv = subsys_to_drv(desc);
 
+	if (!drv->is_loadable)
+		return -ENODEV;
+
 	ret = pil_boot(&drv->q6->desc);
 	if (ret)
 		return ret;
@@ -532,26 +541,100 @@ static int mss_start(const struct subsys_desc *desc)
 static void mss_stop(const struct subsys_desc *desc)
 {
 	struct mba_data *drv = subsys_to_drv(desc);
+
+	if (!drv->is_loadable)
+		return;
+
 	/* MBA doesn't support shutdown */
 	pil_shutdown(&drv->q6->desc);
 }
 
-static int pil_mss_driver_probe(struct platform_device *pdev)
+static int pil_subsys_init(struct mba_data *drv,
+					struct platform_device *pdev)
 {
-	struct mba_data *drv;
-	struct q6v5_data *q6;
-	struct pil_desc *q6_desc, *mba_desc;
-	struct resource *res;
-	int ret, irq;
-
-	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
-	if (!drv)
-		return -ENOMEM;
-	platform_set_drvdata(pdev, drv);
+	int irq, ret;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
+
+	drv->subsys_desc.name = "modem";
+	drv->subsys_desc.dev = &pdev->dev;
+	drv->subsys_desc.owner = THIS_MODULE;
+	drv->subsys_desc.shutdown = modem_shutdown;
+	drv->subsys_desc.powerup = modem_powerup;
+	drv->subsys_desc.ramdump = modem_ramdump;
+	drv->subsys_desc.crash_shutdown = modem_crash_shutdown;
+	drv->subsys_desc.start = mss_start;
+	drv->subsys_desc.stop = mss_stop;
+
+	drv->subsys = subsys_register(&drv->subsys_desc);
+	if (IS_ERR(drv->subsys)) {
+		ret = PTR_ERR(drv->subsys);
+		goto err_subsys;
+	}
+
+	drv->ramdump_dev = create_ramdump_device("modem", &pdev->dev);
+	if (!drv->ramdump_dev) {
+		pr_err("%s: Unable to create a modem ramdump device.\n",
+			__func__);
+		ret = -ENOMEM;
+		goto err_ramdump;
+	}
+
+	drv->smem_ramdump_dev = create_ramdump_device("smem-modem", &pdev->dev);
+	if (!drv->smem_ramdump_dev) {
+		pr_err("%s: Unable to create an smem ramdump device.\n",
+			__func__);
+		ret = -ENOMEM;
+		goto err_ramdump_smem;
+	}
+
+	ret = devm_request_irq(&pdev->dev, irq, modem_wdog_bite_irq,
+				IRQF_TRIGGER_RISING, "modem_wdog", drv);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to request watchdog IRQ.\n");
+		goto err_irq;
+	}
+
+	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
+		smsm_state_cb, drv);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Unable to register SMSM callback!\n");
+		goto err_irq;
+	}
+
+	drv->adsp_state_notifier = subsys_notif_register_notifier("adsp",
+						&adsp_state_notifier_block);
+	if (IS_ERR(drv->adsp_state_notifier)) {
+		ret = PTR_ERR(drv->adsp_state_notifier);
+		dev_err(&pdev->dev, "%s: Registration with the SSR notification driver failed (%d)",
+			__func__, ret);
+		goto err_smsm;
+	}
+
+	return 0;
+
+err_smsm:
+	smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET, smsm_state_cb,
+			drv);
+err_irq:
+	destroy_ramdump_device(drv->smem_ramdump_dev);
+err_ramdump_smem:
+	destroy_ramdump_device(drv->ramdump_dev);
+err_ramdump:
+	subsys_unregister(drv->subsys);
+err_subsys:
+	return ret;
+}
+
+static int pil_mss_loadable_init(struct mba_data *drv,
+					struct platform_device *pdev)
+{
+	struct q6v5_data *q6;
+	struct pil_desc *q6_desc, *mba_desc;
+	struct resource *res;
+	int ret;
 
 	q6 = pil_q6v5_init(pdev);
 	if (IS_ERR(q6))
@@ -628,77 +711,33 @@ static int pil_mss_driver_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_mba_desc;
 
-	drv->subsys_desc.name = "modem";
-	drv->subsys_desc.dev = &pdev->dev;
-	drv->subsys_desc.owner = THIS_MODULE;
-	drv->subsys_desc.shutdown = modem_shutdown;
-	drv->subsys_desc.powerup = modem_powerup;
-	drv->subsys_desc.ramdump = modem_ramdump;
-	drv->subsys_desc.crash_shutdown = modem_crash_shutdown;
-	drv->subsys_desc.start = mss_start;
-	drv->subsys_desc.stop = mss_stop;
-
-	drv->ramdump_dev = create_ramdump_device("modem", &pdev->dev);
-	if (!drv->ramdump_dev) {
-		pr_err("%s: Unable to create a modem ramdump device.\n",
-			__func__);
-		ret = -ENOMEM;
-		goto err_ramdump;
-	}
-
-	drv->smem_ramdump_dev = create_ramdump_device("smem-modem", &pdev->dev);
-	if (!drv->smem_ramdump_dev) {
-		pr_err("%s: Unable to create an smem ramdump device.\n",
-			__func__);
-		ret = -ENOMEM;
-		goto err_ramdump_smem;
-	}
-
-	drv->subsys = subsys_register(&drv->subsys_desc);
-	if (IS_ERR(drv->subsys)) {
-		ret = PTR_ERR(drv->subsys);
-		goto err_subsys;
-	}
-
-	ret = devm_request_irq(&pdev->dev, irq, modem_wdog_bite_irq,
-				IRQF_TRIGGER_RISING, "modem_wdog", drv);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to request watchdog IRQ.\n");
-		goto err_irq;
-	}
-
-	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
-		smsm_state_cb, drv);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to register SMSM callback!\n");
-		goto err_irq;
-	}
-
-	drv->adsp_state_notifier = subsys_notif_register_notifier("adsp",
-						&adsp_state_notifier_block);
-	if (IS_ERR(drv->adsp_state_notifier)) {
-		ret = PTR_ERR(drv->adsp_state_notifier);
-		dev_err(&pdev->dev, "%s: Registration with the SSR notification driver failed (%d)",
-			__func__, ret);
-		goto err_smsm;
-	}
-
 	return 0;
 
-err_smsm:
-	smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET, smsm_state_cb,
-					drv);
-err_irq:
-	subsys_unregister(drv->subsys);
-err_subsys:
-	destroy_ramdump_device(drv->smem_ramdump_dev);
-err_ramdump_smem:
-	destroy_ramdump_device(drv->ramdump_dev);
-err_ramdump:
-	pil_desc_release(mba_desc);
 err_mba_desc:
 	pil_desc_release(q6_desc);
 	return ret;
+
+}
+
+static int pil_mss_driver_probe(struct platform_device *pdev)
+{
+	struct mba_data *drv;
+	int ret;
+
+	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
+	if (!drv)
+		return -ENOMEM;
+	platform_set_drvdata(pdev, drv);
+
+	of_property_read_u32(pdev->dev.of_node, "qcom,is_loadable",
+				&drv->is_loadable);
+	if (drv->is_loadable) {
+		ret = pil_mss_loadable_init(drv, pdev);
+		if (ret)
+			return ret;
+	}
+
+	return pil_subsys_init(drv, pdev);
 }
 
 static int pil_mss_driver_exit(struct platform_device *pdev)
