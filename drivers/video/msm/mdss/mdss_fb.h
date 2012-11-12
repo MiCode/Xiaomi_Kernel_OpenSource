@@ -64,6 +64,9 @@ struct msm_fb_data_type {
 	u32 fb_imgType;
 	u32 dst_format;
 	int vsync_pending;
+	ktime_t vsync_time;
+	struct completion vsync_comp;
+	spinlock_t vsync_lock;
 
 	int hw_refresh;
 
