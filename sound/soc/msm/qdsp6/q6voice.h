@@ -567,6 +567,55 @@ struct vss_icommon_cmd_set_ui_property_enable_t {
 	/* Reserved, set to 0. */
 };
 
+/*
+ * Event sent by the stream to the client that enables Rx DTMF
+ * detection whenever DTMF is detected in the Rx path.
+ *
+ * The DTMF detection feature can only be used to detect DTMF
+ * frequencies as listed in the vss_istream_evt_rx_dtmf_detected_t
+ * structure.
+ */
+
+#define VSS_ISTREAM_EVT_RX_DTMF_DETECTED (0x0001101A)
+
+struct vss_istream_cmd_set_rx_dtmf_detection {
+	/*
+	 * Enables/disables Rx DTMF detection
+	 *
+	 * Possible values are
+	 * 0 - disable
+	 * 1 - enable
+	 *
+	 */
+	uint32_t enable;
+};
+
+#define VSS_ISTREAM_CMD_SET_RX_DTMF_DETECTION (0x00011027)
+
+struct vss_istream_evt_rx_dtmf_detected {
+	uint16_t low_freq;
+	/*
+	 * Detected low frequency. Possible values:
+	 * 697 Hz
+	 * 770 Hz
+	 * 852 Hz
+	 * 941 Hz
+	 */
+	uint16_t high_freq;
+	/*
+	 * Detected high frequency. Possible values:
+	 * 1209 Hz
+	 * 1336 Hz
+	 * 1477 Hz
+	 * 1633 Hz
+	 */
+};
+
+struct cvs_set_rx_dtmf_detection_cmd {
+	struct apr_hdr hdr;
+	struct vss_istream_cmd_set_rx_dtmf_detection cvs_dtmf_det;
+} __packed;
+
 struct cvs_create_passive_ctl_session_cmd {
 	struct apr_hdr hdr;
 	struct vss_istream_cmd_create_passive_control_session_t cvs_session;
@@ -858,6 +907,10 @@ typedef void (*dl_cb_fn)(uint8_t *voc_pkt,
 			 uint32_t *pkt_len,
 			 void *private_data);
 
+/* CB for DTMF RX Detection */
+typedef void (*dtmf_rx_det_cb_fn)(uint8_t *pkt,
+				  char *session,
+				  void *private_data);
 
 struct mvs_driver_info {
 	uint32_t media_type;
@@ -866,6 +919,11 @@ struct mvs_driver_info {
 	uint32_t dtx_mode;
 	ul_cb_fn ul_cb;
 	dl_cb_fn dl_cb;
+	void *private_data;
+};
+
+struct dtmf_driver_info {
+	dtmf_rx_det_cb_fn dtmf_rx_ul_cb;
 	void *private_data;
 };
 
@@ -915,6 +973,8 @@ struct voice_data {
 	/* FENC enable value */
 	uint32_t fens_enable;
 
+	uint32_t dtmf_rx_detect_en;
+
 	struct voice_dev_route_state voc_route_state;
 
 	u16 session_id;
@@ -961,12 +1021,17 @@ struct common_data {
 
 	struct mvs_driver_info mvs_info;
 
+	struct dtmf_driver_info dtmf_info;
+
 	struct voice_data voice[MAX_VOC_SESSIONS];
 };
 
 void voc_register_mvs_cb(ul_cb_fn ul_cb,
 			dl_cb_fn dl_cb,
 			void *private_data);
+
+void voc_register_dtmf_rx_detection_cb(dtmf_rx_det_cb_fn dtmf_rx_ul_cb,
+				       void *private_data);
 
 void voc_config_vocoder(uint32_t media_type,
 			uint32_t rate,
@@ -1005,11 +1070,20 @@ int voc_disable_cvp(uint16_t session_id);
 int voc_enable_cvp(uint16_t session_id);
 int voc_set_route_flag(uint16_t session_id, uint8_t path_dir, uint8_t set);
 uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
+int voc_enable_dtmf_rx_detection(uint16_t session_id, uint32_t enable);
+void voc_disable_dtmf_det_on_active_sessions(void);
 
+#define MAX_SESSION_NAME_LEN 32
 #define VOICE_SESSION_NAME "Voice session"
 #define VOIP_SESSION_NAME "VoIP session"
 #define VOLTE_SESSION_NAME "VoLTE session"
 #define SGLTE_SESSION_NAME "SGLTE session"
+
+#define VOC_PATH_PASSIVE 0
+#define VOC_PATH_FULL 1
+#define VOC_PATH_VOLTE_PASSIVE 2
+#define VOC_PATH_SGLTE_PASSIVE 3
+
 uint16_t voc_get_session_id(char *name);
 
 int voc_start_playback(uint32_t set);
