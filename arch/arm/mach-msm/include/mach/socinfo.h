@@ -60,6 +60,8 @@
 	of_machine_is_compatible("qcom,msm8910")
 #define machine_is_msm8910_sim()		\
 	of_machine_is_compatible("qcom,msm8910-sim")
+#define machine_is_msm8910_rumi()		\
+	of_machine_is_compatible("qcom,msm8910-rumi")
 #else
 #define early_machine_is_msm8974()	0
 #define machine_is_msm8974()		0
@@ -75,6 +77,7 @@
 #define early_machine_is_msm8910()	0
 #define machine_is_msm8910()		0
 #define machine_is_msm8910_sim()	0
+#define machine_is_msm8910_rumi()	0
 
 #endif
 
