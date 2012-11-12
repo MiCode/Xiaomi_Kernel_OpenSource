@@ -16,6 +16,7 @@
 #include <asm/page.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
+#include <linux/err.h>
 
 #define OCMEM_MIN_ALLOC SZ_64K
 #define OCMEM_MIN_ALIGN SZ_64K
@@ -99,6 +100,7 @@ enum ocmem_notif_type {
 };
 
 /* APIS */
+#ifdef CONFIG_MSM_OCMEM
 /* Notification APIs */
 struct ocmem_notifier *ocmem_notifier_register(int client_id,
 						struct notifier_block *nb);
@@ -151,4 +153,111 @@ enum ocmem_power_state ocmem_get_power_state(int client_id,
 
 struct ocmem_vectors *ocmem_get_vectors(int client_id,
 						struct ocmem_buf *buf);
+
+#else
+/* Notification APIs */
+static inline struct ocmem_notifier *ocmem_notifier_register
+				(int client_id, struct notifier_block *nb)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline int ocmem_notifier_unregister(struct ocmem_notifier *notif_hndl,
+				struct notifier_block *nb)
+{
+	return -ENODEV;
+}
+
+/* Obtain the maximum quota for the client */
+static inline unsigned long get_max_quota(int client_id)
+{
+	return 0;
+}
+
+/* Allocation APIs */
+static inline struct ocmem_buf *ocmem_allocate(int client_id,
+						unsigned long size)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline struct ocmem_buf *ocmem_allocate_nowait(int client_id,
+							unsigned long size)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline struct ocmem_buf *ocmem_allocate_nb(int client_id,
+							unsigned long size)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline struct ocmem_buf *ocmem_allocate_range(int client_id,
+		unsigned long min, unsigned long goal, unsigned long step)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+/* Free APIs */
+static inline int ocmem_free(int client_id, struct ocmem_buf *buf)
+{
+	return -ENODEV;
+}
+
+/* Dynamic Resize APIs */
+static inline int ocmem_shrink(int client_id, struct ocmem_buf *buf,
+			unsigned long new_size)
+{
+	return -ENODEV;
+}
+
+/* Transfer APIs */
+static inline int ocmem_map(int client_id, struct ocmem_buf *buffer,
+			struct ocmem_map_list *list)
+{
+	return -ENODEV;
+}
+
+static inline int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
+			struct ocmem_map_list *list)
+{
+	return -ENODEV;
+}
+
+static inline int ocmem_dump(int client_id, struct ocmem_buf *buffer,
+				unsigned long dst_phys_addr)
+{
+	return -ENODEV;
+}
+
+/* Priority Enforcement APIs */
+static inline int ocmem_evict(int client_id)
+{
+	return -ENODEV;
+}
+
+static inline int ocmem_restore(int client_id)
+{
+	return -ENODEV;
+}
+
+/* Power Control APIs */
+static inline int ocmem_set_power_state(int client_id,
+		struct ocmem_buf *buf, enum ocmem_power_state new_state)
+{
+	return -ENODEV;
+}
+
+static inline enum ocmem_power_state ocmem_get_power_state(int client_id,
+				struct ocmem_buf *buf)
+{
+	return -ENODEV;
+}
+static inline struct ocmem_vectors *ocmem_get_vectors(int client_id,
+						struct ocmem_buf *buf)
+{
+	return ERR_PTR(-ENODEV);
+}
+#endif
 #endif
