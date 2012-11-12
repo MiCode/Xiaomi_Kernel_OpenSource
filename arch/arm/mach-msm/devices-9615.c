@@ -584,6 +584,10 @@ struct platform_device msm_voip = {
 	.name	= "msm-voip-dsp",
 	.id	= -1,
 };
+struct platform_device msm_cpudai_stub = {
+	.name = "msm-dai-stub",
+	.id = -1,
+};
 struct platform_device msm_dtmf = {
 	.name	= "msm-pcm-dtmf",
 	.id	= -1,
