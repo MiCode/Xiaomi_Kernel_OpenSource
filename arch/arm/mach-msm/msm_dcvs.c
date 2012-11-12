@@ -124,6 +124,7 @@ struct dcvs_core {
 	unsigned int (*get_frequency)(int type_core_num);
 	int (*idle_enable)(int type_core_num,
 			enum msm_core_control_event event);
+	int (*set_floor_frequency)(int type_core_num, unsigned int freq);
 
 	spinlock_t	pending_freq_lock;
 	int pending_freq;
@@ -252,6 +253,35 @@ static void restart_slack_timer(struct dcvs_core *core, int slack_us)
 	spin_unlock_irqrestore(&core->idle_state_change_lock, flags2);
 }
 
+static void apply_gpu_floor(int cpu_freq)
+{
+	int i;
+	int gpu_floor_freq = 0;
+	struct dcvs_core *gpu;
+
+	if (!dcvs_pdata)
+		return;
+
+	for (i = 0; i < dcvs_pdata->num_sync_rules; i++)
+		if (cpu_freq > dcvs_pdata->sync_rules[i].cpu_khz) {
+			gpu_floor_freq =
+				dcvs_pdata->sync_rules[i].gpu_floor_khz;
+			break;
+		}
+
+	if (!gpu_floor_freq)
+		return;
+
+	for (i = GPU_OFFSET; i < CORES_MAX; i++) {
+		gpu = &core_list[i];
+		if (gpu->dcvs_core_id == -1)
+			continue;
+		if (gpu->set_floor_frequency)
+			gpu->set_floor_frequency(gpu->type_core_num,
+						 gpu_floor_freq);
+	}
+}
+
 static int __msm_dcvs_change_freq(struct dcvs_core *core)
 {
 	int ret = 0;
@@ -282,6 +312,10 @@ repeat:
 		goto out;
 
 	spin_unlock_irqrestore(&core->pending_freq_lock, flags);
+
+	if (core->type == MSM_DCVS_CORE_TYPE_CPU &&
+	    core->type_core_num == 0)
+		apply_gpu_floor(requested_freq);
 
 	/**
 	 * Call the frequency sink driver to change the frequency
@@ -871,6 +905,7 @@ int msm_dcvs_register_core(
 	unsigned int (*get_frequency)(int type_core_num),
 	int (*idle_enable)(int type_core_num,
 					enum msm_core_control_event event),
+	int (*set_floor_frequency)(int type_core_num, unsigned int freq),
 	int sensor)
 {
 	int ret = -EINVAL;
@@ -894,6 +929,7 @@ int msm_dcvs_register_core(
 	core->set_frequency = set_frequency;
 	core->get_frequency = get_frequency;
 	core->idle_enable = idle_enable;
+	core->set_floor_frequency = set_floor_frequency;
 	core->pending_freq = STOP_FREQ_CHANGE;
 
 	core->info = info;

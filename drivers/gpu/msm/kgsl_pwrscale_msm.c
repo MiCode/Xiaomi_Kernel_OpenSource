@@ -23,6 +23,8 @@ struct msm_priv {
 	struct kgsl_device		*device;
 	int				enabled;
 	unsigned int			cur_freq;
+	unsigned int			req_level;
+	int				floor_level;
 	struct msm_dcvs_core_info	*core_info;
 	int				gpu_busy;
 	int				dcvs_core_id;
@@ -69,7 +71,39 @@ static int msm_set_freq(int core_num, unsigned int freq)
 		return 0;
 
 	mutex_lock(&device->mutex);
-	kgsl_pwrctrl_pwrlevel_change(device, i);
+	priv->req_level = i;
+	if (priv->req_level <= priv->floor_level) {
+		kgsl_pwrctrl_pwrlevel_change(device, priv->req_level);
+		priv->cur_freq = pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq;
+	}
+	mutex_unlock(&device->mutex);
+
+	/* return current frequency in kHz */
+	return priv->cur_freq / 1000;
+}
+
+static int msm_set_min_freq(int core_num, unsigned int freq)
+{
+	int i, delta = 5000000;
+	struct msm_priv *priv = the_msm_priv;
+	struct kgsl_device *device = priv->device;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+
+	/* msm_dcvs manager uses frequencies in kHz */
+	freq *= 1000;
+	for (i = 0; i < pwr->num_pwrlevels; i++)
+		if (abs(pwr->pwrlevels[i].gpu_freq - freq) < delta)
+			break;
+	if (i == pwr->num_pwrlevels)
+		return 0;
+
+	mutex_lock(&device->mutex);
+	priv->floor_level = i;
+	if (priv->floor_level <= priv->req_level)
+		kgsl_pwrctrl_pwrlevel_change(device, priv->floor_level);
+	else if (priv->floor_level > priv->req_level)
+		kgsl_pwrctrl_pwrlevel_change(device, priv->req_level);
+
 	priv->cur_freq = pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq;
 	mutex_unlock(&device->mutex);
 
@@ -170,6 +204,7 @@ static int msm_init(struct kgsl_device *device,
 
 		priv->core_info = pdata->core_info;
 		tbl = priv->core_info->freq_tbl;
+		priv->floor_level = pwr->num_pwrlevels - 1;
 		/* Fill in frequency table from low to high, reversing order. */
 		low_level = pwr->num_pwrlevels - KGSL_PWRLEVEL_LAST_OFFSET;
 		for (i = 0; i <= low_level; i++)
@@ -180,6 +215,7 @@ static int msm_init(struct kgsl_device *device,
 				0,
 				priv->core_info,
 				msm_set_freq, msm_get_freq, msm_idle_enable,
+				msm_set_min_freq,
 				priv->core_info->sensors[0]);
 		if (priv->dcvs_core_id < 0) {
 			KGSL_PWR_ERR(device, "msm_dcvs_register_core failed");
