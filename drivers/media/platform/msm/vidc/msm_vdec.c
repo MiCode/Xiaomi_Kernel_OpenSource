@@ -47,6 +47,27 @@ static const char *const mpeg_video_output_order[] = {
 	"Decode Order",
 	NULL
 };
+static const char *const mpeg_video_vidc_extradata[] = {
+	"Extradata none",
+	"Extradata MB Quantization",
+	"Extradata Interlace Video",
+	"Extradata VC1 Framedisp",
+	"Extradata VC1 Seqdisp",
+	"Extradata timestamp",
+	"Extradata S3D Frame Packing",
+	"Extradata Frame Rate",
+	"Extradata Panscan Window",
+	"Extradata Recovery point SEI",
+	"Extradata Closed Caption UD",
+	"Extradata AFD UD",
+	"Extradata Multislice info",
+	"Extradata number of concealed MB",
+	"Extradata metadata filler",
+	"Extradata input crop",
+	"Extradata digital zoom",
+	"Extradata aspect ratio",
+};
+
 static const struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT,
@@ -167,6 +188,36 @@ static const struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.step = 0,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA,
+		.name = "Extradata Type",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
+		.maximum = V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO,
+		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
+		.menu_skip_mask = ~(
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_MB_QUANTIZATION) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_INTERLACE_VIDEO) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_VC1_FRAMEDISP) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_VC1_SEQDISP) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_TIMESTAMP) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_S3D_FRAME_PACKING) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_RATE) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_PANSCAN_WINDOW) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_RECOVERY_POINT_SEI) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_CLOSED_CAPTION_UD) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_AFD_UD) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER) |
+			(1 << V4L2_MPEG_VIDC_INDEX_EXTRADATA_INPUT_CROP) |
+			(1 << V4L2_MPEG_VIDC_INDEX_EXTRADATA_DIGITAL_ZOOM) |
+			(1 << V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO)
+			),
+		.qmenu = mpeg_video_vidc_extradata,
+		.step = 0,
 	},
 };
 
@@ -1087,6 +1138,15 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 		inst->mode = VIDC_SECURE;
 		dprintk(VIDC_DBG, "Setting secure mode to :%d\n", inst->mode);
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA:
+	{
+		struct hal_extradata_enable extra;
+		property_id = HAL_PARAM_INDEX_EXTRADATA;
+		extra.index = msm_comm_get_hal_extradata_index(control.value);
+		extra.enable = 1;
+		pdata = &extra;
+		break;
+	}
 	default:
 		break;
 	}
@@ -1111,6 +1171,7 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 failed_open_done:
 	return rc;
 }
+
 static int msm_vdec_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 {
 	return 0;

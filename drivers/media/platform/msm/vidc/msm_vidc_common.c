@@ -2141,3 +2141,61 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	mutex_unlock(&inst->sync_lock);
 	return rc;
 }
+
+
+enum hal_extradata_id msm_comm_get_hal_extradata_index(
+	enum v4l2_mpeg_vidc_extradata index)
+{
+	int ret = 0;
+	switch (index) {
+	case V4L2_MPEG_VIDC_EXTRADATA_NONE:
+		ret = HAL_EXTRADATA_NONE;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_MB_QUANTIZATION:
+		ret = HAL_EXTRADATA_MB_QUANTIZATION;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_INTERLACE_VIDEO:
+		ret = HAL_EXTRADATA_INTERLACE_VIDEO;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_VC1_FRAMEDISP:
+		ret = HAL_EXTRADATA_VC1_FRAMEDISP;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_VC1_SEQDISP:
+		ret = HAL_EXTRADATA_VC1_SEQDISP;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_TIMESTAMP:
+		ret = HAL_EXTRADATA_TIMESTAMP;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_S3D_FRAME_PACKING:
+		ret = HAL_EXTRADATA_S3D_FRAME_PACKING;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_FRAME_RATE:
+		ret = HAL_EXTRADATA_FRAME_RATE;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_PANSCAN_WINDOW:
+		ret = HAL_EXTRADATA_PANSCAN_WINDOW;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_RECOVERY_POINT_SEI:
+		ret = HAL_EXTRADATA_RECOVERY_POINT_SEI;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_CLOSED_CAPTION_UD:
+		ret = HAL_EXTRADATA_CLOSED_CAPTION_UD;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_AFD_UD:
+		ret = HAL_EXTRADATA_AFD_UD;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO:
+		ret = HAL_EXTRADATA_MULTISLICE_INFO;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB:
+		ret = HAL_EXTRADATA_NUM_CONCEALED_MB;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER:
+		ret = HAL_EXTRADATA_METADATA_FILLER;
+		break;
+	default:
+		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);
+		break;
+	}
+	return ret;
+};
