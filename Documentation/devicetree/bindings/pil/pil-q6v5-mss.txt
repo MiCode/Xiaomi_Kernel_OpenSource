@@ -18,6 +18,8 @@ Required properties:
 - qcom,pil-self-auth: <0> if the hardware does not require self-authenticating
 		      images and self-authentication is not desired;
 		      <1> if the hardware requires self-authenticating images.
+- qcom,is_loadable:   <0> if PIL should not load the modem image
+                      <1> if PIL is required to load the modem image
 
 Example:
 	qcom,mss@fc880000 {
@@ -32,6 +34,7 @@ Example:
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8841_s3>;
 
+		qcom,is_loadable = <1>;
 		qcom,firmware-name = "mba";
 		qcom,pil-self-auth = <1>;
 	};
