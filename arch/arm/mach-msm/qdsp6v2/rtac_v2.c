@@ -24,6 +24,7 @@
 #include <mach/qdsp6v2/rtac.h>
 #include "q6audio_common.h"
 #include <sound/q6afe-v2.h>
+#include <sound/apr_audio-v2.h>
 
 #ifndef CONFIG_RTAC
 
@@ -44,10 +45,6 @@ bool rtac_make_voice_callback(u32 mode, uint32_t *payload,
 		u32 payload_size) {return false; }
 
 #else
-
-#define VOICE_CMD_SET_PARAM		0x00011006
-#define VOICE_CMD_GET_PARAM		0x00011007
-#define VOICE_EVT_GET_PARAM_ACK		0x00011008
 
 /* Max size of payload (buf size - apr header) */
 #define MAX_PAYLOAD_SIZE		4076
@@ -353,7 +350,7 @@ void rtac_remove_voice(u32 cvs_handle)
 	return;
 }
 
-static int get_voice_index(u32 cvs_handle)
+static int get_voice_index_cvs(u32 cvs_handle)
 {
 	u32 i;
 
@@ -364,6 +361,32 @@ static int get_voice_index(u32 cvs_handle)
 
 	pr_err("%s: No voice index for CVS handle %d found returning 0\n",
 	       __func__, cvs_handle);
+	return 0;
+}
+
+static int get_voice_index_cvp(u32 cvp_handle)
+{
+	u32 i;
+
+	for (i = 0; i < rtac_voice_data.num_of_voice_combos; i++) {
+		if (rtac_voice_data.voice[i].cvp_handle == cvp_handle)
+			return i;
+	}
+
+	pr_err("%s: No voice index for CVP handle %d found returning 0\n",
+	       __func__, cvp_handle);
+	return 0;
+}
+
+static int get_voice_index(u32 mode, u32 handle)
+{
+	if (mode == RTAC_CVP)
+		return get_voice_index_cvp(handle);
+	if (mode == RTAC_CVS)
+		return get_voice_index_cvs(handle);
+
+	pr_err("%s: Invalid mode %d, returning 0\n",
+	       __func__, mode);
 	return 0;
 }
 
@@ -402,6 +425,7 @@ void rtac_copy_adm_payload_to_user(void *payload, u32 payload_size)
 		if (payload_size > rtac_adm_user_buf_size) {
 			pr_err("%s: Buffer set not big enough for returned data, buf size = %d, ret data = %d\n",
 			 __func__, rtac_adm_user_buf_size, payload_size);
+			rtac_adm_payload_size = 0;
 			goto done;
 		}
 		memcpy(rtac_adm_buffer + sizeof(u32), payload, payload_size);
@@ -470,6 +494,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 
 	/* Set globals for copy of returned payload */
 	rtac_adm_user_buf_size = count;
+
 	/* Copy buffer to in-band payload */
 	if (copy_from_user(rtac_adm_buffer + sizeof(adm_params),
 			buf + 3 * sizeof(u32), payload_size)) {
@@ -572,6 +597,7 @@ void rtac_copy_asm_payload_to_user(void *payload, u32 payload_size)
 		if (payload_size > rtac_asm_user_buf_size) {
 			pr_err("%s: Buffer set not big enough for returned data, buf size = %d, ret data = %d\n",
 			 __func__, rtac_asm_user_buf_size, payload_size);
+			rtac_asm_payload_size = 0;
 			goto done;
 		}
 		memcpy(rtac_asm_buffer + sizeof(u32), payload, payload_size);
@@ -619,6 +645,7 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 			__func__);
 		goto done;
 	}
+
 	if (session_id > (SESSION_MAX + 1)) {
 		pr_err("%s: Invalid Session = %d\n", __func__, session_id);
 		goto done;
@@ -739,6 +766,7 @@ void rtac_copy_voice_payload_to_user(void *payload, u32 payload_size)
 		if (payload_size > rtac_voice_user_buf_size) {
 			pr_err("%s: Buffer set not big enough for returned data, buf size = %d, ret data = %d\n",
 			 __func__, rtac_voice_user_buf_size, payload_size);
+			rtac_voice_payload_size = 0;
 			goto done;
 		}
 		memcpy(rtac_voice_buffer + sizeof(u32), payload, payload_size);
@@ -753,7 +781,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 	u32	count = 0;
 	u32	bytes_returned = 0;
 	u32	payload_size;
-	u16	dest_port;
+	u32	dest_port;
 	struct apr_hdr		voice_params;
 	pr_debug("%s\n", __func__);
 
@@ -818,10 +846,10 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 	voice_params.src_svc = 0;
 	voice_params.src_domain = APR_DOMAIN_APPS;
 	voice_params.src_port = voice_session_id[
-					get_voice_index(dest_port)];
+					get_voice_index(mode, dest_port)];
 	voice_params.dest_svc = 0;
 	voice_params.dest_domain = APR_DOMAIN_MODEM;
-	voice_params.dest_port = dest_port;
+	voice_params.dest_port = (u16)dest_port;
 	voice_params.token = 0;
 	voice_params.opcode = opcode;
 

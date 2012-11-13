@@ -120,10 +120,10 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			}
 			switch (payload[0]) {
 			case ADM_CMD_SET_PP_PARAMS_V5:
+				pr_debug("%s: ADM_CMD_SET_PP_PARAMS_V5\n",
+					__func__);
 				if (rtac_make_adm_callback(
 					payload, data->payload_size)) {
-					pr_debug("%s: payload[0]: 0x%x\n",
-						__func__, payload[0]);
 					break;
 				}
 			case ADM_CMD_DEVICE_CLOSE_V5:
@@ -146,6 +146,20 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 						__func__);
 					atomic_set(&this_adm.copp_stat[0], 1);
 					wake_up(&this_adm.wait[index]);
+				}
+				break;
+			case ADM_CMD_GET_PP_PARAMS_V5:
+				pr_debug("%s: ADM_CMD_GET_PP_PARAMS_V5\n",
+					__func__);
+				/* Should only come here if there is an APR */
+				/* error or malformed APR packet. Otherwise */
+				/* response will be returned as */
+				/* ADM_CMDRSP_GET_PP_PARAMS_V5 */
+				if (payload[1] != 0) {
+					pr_err("%s: ADM get param error = %d, resuming\n",
+						__func__, payload[1]);
+					rtac_make_adm_callback(payload,
+						data->payload_size);
 				}
 				break;
 			default:
@@ -174,8 +188,11 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			wake_up(&this_adm.wait[index]);
 			}
 			break;
-		case ADM_CMD_GET_PP_PARAMS_V5:
-			pr_debug("%s: ADM_CMD_GET_PP_PARAMS_V5\n", __func__);
+		case ADM_CMDRSP_GET_PP_PARAMS_V5:
+			pr_debug("%s: ADM_CMDRSP_GET_PP_PARAMS_V5\n", __func__);
+			if (payload[0] != 0)
+				pr_err("%s: ADM_CMDRSP_GET_PP_PARAMS_V5 returned error = 0x%x\n",
+					__func__, payload[0]);
 			rtac_make_adm_callback(payload,
 				data->payload_size);
 			break;
@@ -668,6 +685,11 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	}
 	for (i = 0; i < num_copps; i++)
 		send_adm_cal(port_id[i], path);
+
+	for (i = 0; i < num_copps; i++)
+		rtac_add_adm_device(port_id[i],	atomic_read(&this_adm.copp_id
+			[afe_get_port_index(port_id[i])]),
+			path, session_id);
 
 fail_cmd:
 	kfree(matrix_map);

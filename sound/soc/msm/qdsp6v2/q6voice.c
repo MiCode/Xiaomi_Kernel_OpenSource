@@ -237,7 +237,7 @@ static int voice_apr_register(void)
 			pr_err("%s: Unable to register CVS\n", __func__);
 			goto err;
 		}
-
+		rtac_set_voice_handle(RTAC_CVS, common.apr_q6_cvs);
 	}
 
 	if (common.apr_q6_cvp == NULL) {
@@ -251,7 +251,7 @@ static int voice_apr_register(void)
 			pr_err("%s: Unable to register CVP\n", __func__);
 			goto err;
 		}
-
+		rtac_set_voice_handle(RTAC_CVP, common.apr_q6_cvp);
 	}
 
 	mutex_unlock(&common.common_lock);
@@ -262,6 +262,7 @@ err:
 	if (common.apr_q6_cvs != NULL) {
 		apr_deregister(common.apr_q6_cvs);
 		common.apr_q6_cvs = NULL;
+		rtac_set_voice_handle(RTAC_CVS, NULL);
 	}
 	if (common.apr_q6_mvm != NULL) {
 		apr_deregister(common.apr_q6_mvm);
@@ -2176,6 +2177,10 @@ static int voice_setup_vocproc(struct voice_data *v)
 	if (v->rec_info.rec_enable)
 		voice_cvs_start_record(v, v->rec_info.rec_mode);
 
+	rtac_add_voice(voice_get_cvs_handle(v),
+		voice_get_cvp_handle(v),
+		v->dev_rx.port_id, v->dev_tx.port_id,
+		v->session_id);
 
 	return 0;
 
@@ -2526,6 +2531,7 @@ static int voice_destroy_vocproc(struct voice_data *v)
 		goto fail;
 	}
 
+	rtac_remove_voice(voice_get_cvs_handle(v));
 	cvp_handle = 0;
 	voice_set_cvp_handle(v, cvp_handle);
 	return 0;
@@ -3281,6 +3287,7 @@ int voc_disable_cvp(uint16_t session_id)
 	mutex_lock(&v->lock);
 
 	if (v->voc_state == VOC_RUN) {
+		rtac_remove_voice(voice_get_cvs_handle(v));
 		/* send cmd to dsp to disable vocproc */
 		ret = voice_send_disable_vocproc_cmd(v);
 		if (ret < 0) {
@@ -3324,32 +3331,36 @@ int voc_enable_cvp(uint16_t session_id)
 		voice_send_cvp_register_cal_cmd(v);
 		voice_send_cvp_register_vol_cal_cmd(v);
 
-	ret = voice_send_enable_vocproc_cmd(v);
-	if (ret < 0) {
-		pr_err("%s: enable vocproc failed %d\n", __func__, ret);
-		goto fail;
-	}
+		ret = voice_send_enable_vocproc_cmd(v);
+		if (ret < 0) {
+			pr_err("%s: enable vocproc failed %d\n", __func__, ret);
+			goto fail;
+		}
 
-	/* Send tty mode if tty device is used */
-	voice_send_tty_mode_cmd(v);
+		/* Send tty mode if tty device is used */
+		voice_send_tty_mode_cmd(v);
 
-	/* enable widevoice if wv_enable is set */
-	if (v->wv_enable)
-		voice_send_set_widevoice_enable_cmd(v);
+		/* enable widevoice if wv_enable is set */
+		if (v->wv_enable)
+			voice_send_set_widevoice_enable_cmd(v);
 
-	/* enable slowtalk */
-	if (v->st_enable)
-		voice_send_set_pp_enable_cmd(v,
+		/* enable slowtalk */
+		if (v->st_enable)
+			voice_send_set_pp_enable_cmd(v,
 					     MODULE_ID_VOICE_MODULE_ST,
 					     v->st_enable);
 
-	/* enable FENS */
-	if (v->fens_enable)
-		voice_send_set_pp_enable_cmd(v,
+		/* enable FENS */
+		if (v->fens_enable)
+			voice_send_set_pp_enable_cmd(v,
 					     MODULE_ID_VOICE_MODULE_FENS,
 					     v->fens_enable);
 
-	v->voc_state = VOC_RUN;
+		rtac_add_voice(voice_get_cvs_handle(v),
+			voice_get_cvp_handle(v),
+			v->dev_rx.port_id, v->dev_tx.port_id,
+			v->session_id);
+		v->voc_state = VOC_RUN;
 	}
 
 fail:
@@ -3974,6 +3985,10 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			ptr = data->payload;
 
 			pr_info("%x %x\n", ptr[0], ptr[1]);
+			if (ptr[1] != 0) {
+				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
+					__func__, ptr[0], ptr[1]);
+			}
 			/*response from  CVS */
 			switch (ptr[0]) {
 			case VSS_ISTREAM_CMD_CREATE_PASSIVE_CONTROL_SESSION:
@@ -4010,6 +4025,24 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 				wake_up(&v->cvs_wait);
 				break;
 			case VOICE_CMD_SET_PARAM:
+				pr_debug("%s: VOICE_CMD_SET_PARAM\n", __func__);
+				rtac_make_voice_callback(RTAC_CVS, ptr,
+							data->payload_size);
+				break;
+			case VOICE_CMD_GET_PARAM:
+				pr_debug("%s: VOICE_CMD_GET_PARAM\n",
+					__func__);
+				/* Should only come here if there is an APR */
+				/* error or malformed APR packet. Otherwise */
+				/* response will be returned as */
+				/* VOICE_EVT_GET_PARAM_ACK */
+				if (ptr[1] != 0) {
+					pr_err("%s: CVP get param error = %d, resuming\n",
+						__func__, ptr[1]);
+					rtac_make_voice_callback(RTAC_CVP,
+						data->payload,
+						data->payload_size);
+				}
 				break;
 			default:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
@@ -4125,7 +4158,16 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 		pr_debug("Recd VSS_ISTREAM_EVT_NOT_READY\n");
 	} else if (data->opcode == VSS_ISTREAM_EVT_READY) {
 		pr_debug("Recd VSS_ISTREAM_EVT_READY\n");
-	} else
+	} else if (data->opcode ==  VOICE_EVT_GET_PARAM_ACK) {
+		pr_debug("%s: VOICE_EVT_GET_PARAM_ACK\n", __func__);
+		ptr = data->payload;
+		if (ptr[0] != 0) {
+			pr_err("%s: VOICE_EVT_GET_PARAM_ACK returned error = 0x%x\n",
+				__func__, ptr[0]);
+		}
+		rtac_make_voice_callback(RTAC_CVS, data->payload,
+					data->payload_size);
+	}  else
 		pr_err("Unknown opcode 0x%x\n", data->opcode);
 
 fail:
@@ -4175,6 +4217,10 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 			ptr = data->payload;
 
 			pr_info("%x %x\n", ptr[0], ptr[1]);
+			if (ptr[1] != 0) {
+				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
+					__func__, ptr[0], ptr[1]);
+			}
 			switch (ptr[0]) {
 			case VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION_V2:
 			/*response from  CVP */
@@ -4206,6 +4252,24 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 				wake_up(&v->cvp_wait);
 				break;
 			case VOICE_CMD_SET_PARAM:
+				pr_debug("%s: VOICE_CMD_SET_PARAM\n", __func__);
+				rtac_make_voice_callback(RTAC_CVP, ptr,
+							data->payload_size);
+				break;
+			case VOICE_CMD_GET_PARAM:
+				pr_debug("%s: VOICE_CMD_GET_PARAM\n",
+					__func__);
+				/* Should only come here if there is an APR */
+				/* error or malformed APR packet. Otherwise */
+				/* response will be returned as */
+				/* VOICE_EVT_GET_PARAM_ACK */
+				if (ptr[1] != 0) {
+					pr_err("%s: CVP get param error = %d, resuming\n",
+						__func__, ptr[1]);
+					rtac_make_voice_callback(RTAC_CVP,
+						data->payload,
+						data->payload_size);
+				}
 				break;
 			default:
 				pr_debug("%s: not match cmd = 0x%x\n",
@@ -4213,6 +4277,15 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 				break;
 			}
 		}
+	} else if (data->opcode ==  VOICE_EVT_GET_PARAM_ACK) {
+		pr_debug("%s: VOICE_EVT_GET_PARAM_ACK\n", __func__);
+		ptr = data->payload;
+		if (ptr[0] != 0) {
+			pr_err("%s: VOICE_EVT_GET_PARAM_ACK returned error = 0x%x\n",
+				__func__, ptr[0]);
+		}
+		rtac_make_voice_callback(RTAC_CVP, data->payload,
+			data->payload_size);
 	}
 	return 0;
 }

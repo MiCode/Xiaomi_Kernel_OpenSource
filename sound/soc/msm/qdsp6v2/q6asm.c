@@ -932,6 +932,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			__func__, payload[0], payload[1]);
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		token = data->token;
+		if (payload[1] != 0) {
+			pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
+				__func__, payload[0], payload[1]);
+		}
 		switch (payload[0]) {
 		case ASM_STREAM_CMD_SET_PP_PARAMS_V2:
 			if (rtac_make_asm_callback(ac->session, payload,
@@ -964,6 +968,20 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			if (ac->cb)
 				ac->cb(data->opcode, data->token,
 					(uint32_t *)data->payload, ac->priv);
+			break;
+		case ASM_STREAM_CMD_GET_PP_PARAMS_V2:
+			pr_debug("%s: ASM_STREAM_CMD_GET_PP_PARAMS_V2\n",
+				__func__);
+			/* Should only come here if there is an APR */
+			/* error or malformed APR packet. Otherwise */
+			/* response will be returned as */
+			/* ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2 */
+			if (payload[1] != 0) {
+				pr_err("%s: ASM get param error = %d, resuming\n",
+					__func__, payload[1]);
+				rtac_make_asm_callback(ac->session, payload,
+							data->payload_size);
+			}
 			break;
 		default:
 			pr_debug("%s:command[0x%x] not expecting rsp\n",
@@ -1008,6 +1026,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		break;
 	}
 	case ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2:
+		pr_debug("%s: ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2\n", __func__);
+			if (payload[0] != 0)
+				pr_err("%s: ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2 returned error = 0x%x\n",
+					__func__, payload[0]);
 		rtac_make_asm_callback(ac->session, payload,
 			data->payload_size);
 		break;

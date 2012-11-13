@@ -6123,6 +6123,11 @@ struct asm_eq_params {
 /*	Band cut equalizer effect.*/
 #define ASM_PARAM_EQ_BAND_CUT       6
 
+/* Voice get & set params */
+#define VOICE_CMD_SET_PARAM				0x0001133D
+#define VOICE_CMD_GET_PARAM				0x0001133E
+#define VOICE_EVT_GET_PARAM_ACK				0x00011008
+
 
 /* ERROR CODES */
 /* Success. The operation completed with no errors. */
