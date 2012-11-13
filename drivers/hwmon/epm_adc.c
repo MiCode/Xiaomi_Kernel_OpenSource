@@ -1677,6 +1677,15 @@ static int epm_adc_psoc_spi_probe(struct spi_device *spi)
 	epm_adc = epm_adc_drv;
 	epm_adc->misc.name = EPM_ADC_DRIVER_NAME;
 	epm_adc->misc.minor = MISC_DYNAMIC_MINOR;
+
+	if (node) {
+		epm_adc->misc.fops = &epm_adc_fops;
+		if (misc_register(&epm_adc->misc)) {
+			pr_err("Unable to register misc device!\n");
+			return -EFAULT;
+		}
+	}
+
 	epm_adc_drv->epm_spi_client = spi;
 	epm_adc_drv->epm_spi_client->bits_per_word =
 				EPM_ADC_ADS_SPI_BITS_PER_WORD;
