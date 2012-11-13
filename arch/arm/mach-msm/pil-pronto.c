@@ -229,6 +229,30 @@ static struct pil_reset_ops pil_pronto_ops = {
 	.proxy_unvote = pil_pronto_remove_proxy_vote,
 };
 
+static int pil_pronto_init_image_trusted(struct pil_desc *pil,
+			const u8 *metadata, size_t size)
+{
+	return pas_init_image(PAS_WCNSS, metadata, size);
+}
+
+static int pil_pronto_reset_trusted(struct pil_desc *pil)
+{
+	return pas_auth_and_reset(PAS_WCNSS);
+}
+
+static int pil_pronto_shutdown_trusted(struct pil_desc *pil)
+{
+	return pas_shutdown(PAS_WCNSS);
+}
+
+static struct pil_reset_ops pil_pronto_ops_trusted = {
+	.init_image = pil_pronto_init_image_trusted,
+	.auth_and_reset = pil_pronto_reset_trusted,
+	.shutdown = pil_pronto_shutdown_trusted,
+	.proxy_vote = pil_pronto_make_proxy_vote,
+	.proxy_unvote = pil_pronto_remove_proxy_vote,
+};
+
 #define subsys_to_drv(d) container_of(d, struct pronto_data, subsys_desc)
 
 static int pronto_start(const struct subsys_desc *desc)
@@ -418,9 +442,13 @@ static int pil_pronto_probe(struct platform_device *pdev)
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = 10000;
 
-	/* TODO: need to add secure boot when the support is available */
-	desc->ops = &pil_pronto_ops;
-	dev_info(&pdev->dev, "using non-secure boot\n");
+	if (pas_supported(PAS_WCNSS) > 0) {
+		desc->ops = &pil_pronto_ops_trusted;
+		dev_info(&pdev->dev, "using secure boot\n");
+	} else {
+		desc->ops = &pil_pronto_ops;
+		dev_info(&pdev->dev, "using non-secure boot\n");
+	}
 
 	drv->vreg = devm_regulator_get(&pdev->dev, "vdd_pronto_pll");
 	if (IS_ERR(drv->vreg)) {
