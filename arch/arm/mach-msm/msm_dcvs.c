@@ -34,6 +34,8 @@
 #define __info(f, ...) pr_info("MSM_DCVS: %s: " f, __func__, __VA_ARGS__)
 #define MAX_PENDING	(5)
 
+#define CORE_FLAG_TEMP_UPDATE		0x1
+
 struct core_attribs {
 	struct kobj_attribute freq_change_us;
 
@@ -131,6 +133,7 @@ struct dcvs_core {
 
 	struct hrtimer	slack_timer;
 	struct delayed_work	temperature_work;
+	int flags;
 };
 
 static int msm_dcvs_enabled = 1;
@@ -392,6 +395,9 @@ static void msm_dcvs_report_temp_work(struct work_struct *work)
 	int ret;
 	unsigned long temp = 0;
 	int interval_ms;
+
+	if (!(core->flags & CORE_FLAG_TEMP_UPDATE))
+		return;
 
 	tsens_dev.sensor_num = core->sensor;
 	ret = tsens_get_temp(&tsens_dev, &temp);
@@ -989,10 +995,6 @@ int msm_dcvs_register_core(
 	core->task = kthread_run(msm_dcvs_do_freq, (void *)core,
 			"msm_dcvs/%d", core->dcvs_core_id);
 	ret = core->dcvs_core_id;
-
-	INIT_DELAYED_WORK(&core->temperature_work, msm_dcvs_report_temp_work);
-	schedule_delayed_work(&core->temperature_work,
-			msecs_to_jiffies(info->thermal_poll_ms));
 	return ret;
 bail:
 	core->dcvs_core_id = -1;
@@ -1061,6 +1063,10 @@ int msm_dcvs_freq_sink_start(int dcvs_core_id)
 	}
 	force_start_slack_timer(core, timer_interval_us);
 
+	core->flags |= CORE_FLAG_TEMP_UPDATE;
+	INIT_DELAYED_WORK(&core->temperature_work, msm_dcvs_report_temp_work);
+	schedule_delayed_work(&core->temperature_work,
+			      msecs_to_jiffies(core->info->thermal_poll_ms));
 
 	core->idle_enable(core->type_core_num, MSM_DCVS_ENABLE_IDLE_PULSE);
 	return 0;
@@ -1086,6 +1092,9 @@ int msm_dcvs_freq_sink_stop(int dcvs_core_id)
 		__err("couldn't find core for coreid = %d\n", dcvs_core_id);
 		return ret;
 	}
+
+	core->flags &= ~CORE_FLAG_TEMP_UPDATE;
+	cancel_delayed_work(&core->temperature_work);
 
 	core->idle_enable(core->type_core_num, MSM_DCVS_DISABLE_IDLE_PULSE);
 	/* Notify TZ to stop receiving idle info for the core */
