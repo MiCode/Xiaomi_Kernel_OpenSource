@@ -18,6 +18,25 @@
 	model = "Qualcomm MSM 9625 CDP";
 	compatible = "qcom,msm9625-cdp", "qcom,msm9625";
 	qcom,msm-id = <134 1 0>, <152 1 0>;
+
+	i2c@f9925000 {
+		charger@57 {
+			compatible = "summit,smb137c";
+			reg = <0x57>;
+			summit,chg-current-ma = <1500>;
+			summit,term-current-ma = <50>;
+			summit,pre-chg-current-ma = <100>;
+			summit,float-voltage-mv = <4200>;
+			summit,thresh-voltage-mv = <3000>;
+			summit,recharge-thresh-mv = <75>;
+			summit,system-voltage-mv = <4250>;
+			summit,charging-timeout = <382>;
+			summit,pre-charge-timeout = <48>;
+			summit,therm-current-ua = <10>;
+			summit,temperature-min = <4>; /*  0 C */
+			summit,temperature-max = <3>; /* 45 C */
+		};
+	};
 };
 
 /* PM8019 GPIO and MPP configuration */
