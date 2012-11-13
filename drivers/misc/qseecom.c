@@ -1339,12 +1339,10 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	/* Populate the remaining parameters */
 	load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
 	memcpy(load_req.app_name, appname, MAX_APP_NAME_SIZE);
-	mutex_lock(&app_access_lock);
 	ret = qsee_vote_for_clock(CLK_SFPB);
 	if (ret) {
 		kzfree(img_data);
 		pr_warning("Unable to vote for SFPB clock");
-		mutex_unlock(&app_access_lock);
 		return -EIO;
 	}
 
@@ -1356,7 +1354,6 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	if (ret) {
 		pr_err("scm_call to load failed : ret %d\n", ret);
 		qsee_disable_clock_vote(CLK_SFPB);
-		mutex_unlock(&app_access_lock);
 		return -EIO;
 	}
 
@@ -1380,7 +1377,6 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 		break;
 	}
 	qsee_disable_clock_vote(CLK_SFPB);
-	mutex_unlock(&app_access_lock);
 
 	return ret;
 }
