@@ -1472,6 +1472,25 @@ exit:
 	return rc;
 }
 
+static int get_flipped_state(int present_state,
+	int desired_state)
+{
+	int flipped_state = present_state;
+	if (flipped_state < MSM_VIDC_STOP
+			&& desired_state > MSM_VIDC_STOP) {
+		flipped_state = MSM_VIDC_STOP + (MSM_VIDC_STOP - flipped_state);
+		flipped_state &= 0xFFFE;
+		flipped_state = flipped_state - 1;
+	} else if (flipped_state > MSM_VIDC_STOP
+			&& desired_state < MSM_VIDC_STOP) {
+		flipped_state = MSM_VIDC_STOP -
+			(flipped_state - MSM_VIDC_STOP + 1);
+		flipped_state &= 0xFFFE;
+		flipped_state = flipped_state - 1;
+	}
+	return flipped_state;
+}
+
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 {
 	int rc = 0;
@@ -1498,89 +1517,77 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 				"Core is in bad state can't change the state");
 		goto exit;
 	}
-	flipped_state = inst->state;
-	if (flipped_state < MSM_VIDC_STOP
-			&& state > MSM_VIDC_STOP) {
-		flipped_state = MSM_VIDC_STOP + (MSM_VIDC_STOP - flipped_state);
-		flipped_state &= 0xFFFE;
-		flipped_state = flipped_state - 1;
-	} else if (flipped_state > MSM_VIDC_STOP
-			&& state < MSM_VIDC_STOP) {
-		flipped_state = MSM_VIDC_STOP -
-			(flipped_state - MSM_VIDC_STOP + 1);
-		flipped_state &= 0xFFFE;
-		flipped_state = flipped_state - 1;
-	}
+	flipped_state = get_flipped_state(inst->state, state);
 	dprintk(VIDC_DBG,
 			"flipped_state = 0x%x\n", flipped_state);
 	switch (flipped_state) {
 	case MSM_VIDC_CORE_UNINIT_DONE:
 	case MSM_VIDC_CORE_INIT:
 		rc = msm_comm_init_core(inst);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_CORE_INIT_DONE:
 		rc = msm_comm_init_core_done(inst);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_OPEN:
 		rc = msm_comm_session_init(flipped_state, inst);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_OPEN_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_OPEN_DONE,
 			SESSION_INIT_DONE);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_LOAD_RESOURCES:
 		rc = msm_vidc_load_resources(flipped_state, inst);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_LOAD_RESOURCES_DONE:
 	case MSM_VIDC_START:
 		rc = msm_vidc_start(flipped_state, inst);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_START_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_START_DONE,
 				SESSION_START_DONE);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_STOP:
 		rc = msm_vidc_stop(flipped_state, inst);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_STOP_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_STOP_DONE,
 				SESSION_STOP_DONE);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 		dprintk(VIDC_DBG, "Moving to Stop Done state\n");
 	case MSM_VIDC_RELEASE_RESOURCES:
 		rc = msm_vidc_release_res(flipped_state, inst);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_RELEASE_RESOURCES_DONE:
 		rc = wait_for_state(inst, flipped_state,
 			MSM_VIDC_RELEASE_RESOURCES_DONE,
 			SESSION_RELEASE_RESOURCE_DONE);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 		dprintk(VIDC_DBG,
 				"Moving to release resources done state\n");
 	case MSM_VIDC_CLOSE:
 		rc = msm_comm_session_close(flipped_state, inst);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_CLOSE_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_CLOSE_DONE,
 				SESSION_END_DONE);
-		if (rc || state <= inst->state)
+		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_CORE_UNINIT:
 		dprintk(VIDC_DBG, "Sending core uninit\n");
 		rc = msm_vidc_deinit_core(inst);
-		if (rc || state == inst->state)
+		if (rc || state == get_flipped_state(inst->state, state))
 			break;
 	default:
 		dprintk(VIDC_ERR, "State not recognized\n");
