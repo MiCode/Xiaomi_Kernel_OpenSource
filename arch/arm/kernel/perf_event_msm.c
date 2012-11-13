@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -729,9 +729,6 @@ static struct arm_pmu *__init armv7_scorpion_pmu_init(void)
 	scorpion_pmu.name	= "ARMv7 Scorpion";
 	scorpion_pmu.num_events	= armv7_read_num_pmnc_events();
 	scorpion_pmu.pmu.attr_groups	= msm_l1_pmu_attr_grps;
-	/* Unicore can't use the percpu IRQ API. */
-	scorpion_pmu.request_pmu_irq	= armpmu_generic_request_irq;
-	scorpion_pmu.free_pmu_irq	= armpmu_generic_free_irq;
 	scorpion_clear_pmuregs();
 	return &scorpion_pmu;
 }
@@ -742,8 +739,6 @@ static struct arm_pmu *__init armv7_scorpionmp_pmu_init(void)
 	scorpion_pmu.name	= "ARMv7 Scorpion-MP";
 	scorpion_pmu.num_events	= armv7_read_num_pmnc_events();
 	scorpion_pmu.pmu.attr_groups	= msm_l1_pmu_attr_grps;
-	scorpion_pmu.request_pmu_irq	= msm_request_irq;
-	scorpion_pmu.free_pmu_irq	= msm_free_irq;
 	scorpion_clear_pmuregs();
 	return &scorpion_pmu;
 }
