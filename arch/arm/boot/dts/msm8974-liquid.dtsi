@@ -176,6 +176,7 @@
 		compatible = "regulator-fixed";
 		regulator-name = "ext_5v";
 		gpio = <&pm8941_mpps 2 0>;
+		startup-delay-us = <12000>;
 		enable-active-high;
 	};
 };
