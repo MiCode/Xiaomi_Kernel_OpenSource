@@ -268,4 +268,9 @@
 		gpio = <&pm8019_gpios 4 0>;
 		enable-active-high;
 	};
+
+	usb_vbus: regulator-usb-vbus {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_vbus";
+	};
 };
