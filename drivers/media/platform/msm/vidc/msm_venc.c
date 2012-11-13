@@ -23,7 +23,6 @@
 #define DEFAULT_WIDTH 1280
 #define MIN_NUM_OUTPUT_BUFFERS 4
 #define MAX_NUM_OUTPUT_BUFFERS 8
-#define MAX_INPUT_BUFFERS 32
 #define MIN_BIT_RATE 64000
 #define MAX_BIT_RATE 160000000
 #define DEFAULT_BIT_RATE 64000
@@ -594,11 +593,11 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		spin_lock_irqsave(&inst->lock, flags);
 		*num_buffers = inst->buff_req.buffer[0].buffer_count_actual =
 			max(*num_buffers, inst->buff_req.buffer[0].
-			buffer_count_actual);
+				buffer_count_actual);
 		spin_unlock_irqrestore(&inst->lock, flags);
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
-		new_buf_count.buffer_count_actual = MAX_INPUT_BUFFERS;
+		new_buf_count.buffer_count_actual = *num_buffers;
 		rc = vidc_hal_session_set_property(inst->session,
 					property_id, &new_buf_count);
 		dprintk(VIDC_DBG, "size = %d, alignment = %d, count = %d\n",
