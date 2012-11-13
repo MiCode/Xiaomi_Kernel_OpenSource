@@ -2772,12 +2772,12 @@ static struct a3xx_vbif_data a320_vbif[] = {
 static struct a3xx_vbif_data a330_vbif[] = {
 	/* Set up 16 deep read/write request queues */
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x18181818 },
-	{ A3XX_VBIF_IN_RD_LIM_CONF1, 0x18181818 },
-	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x18181818 },
-	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x18181818 },
+	{ A3XX_VBIF_IN_RD_LIM_CONF1, 0x00001818 },
+	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x00001818 },
+	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x00001818 },
 	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x0000303 },
 	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x18181818 },
-	{ A3XX_VBIF_IN_WR_LIM_CONF1, 0x18181818 },
+	{ A3XX_VBIF_IN_WR_LIM_CONF1, 0x00001818 },
 	/* Enable WR-REQ */
 	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x00003F },
 	/* Set up round robin arbitration between both AXI ports */
@@ -2785,10 +2785,10 @@ static struct a3xx_vbif_data a330_vbif[] = {
 	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
 	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0001 },
 	/* Set up AOOO */
-	{ A3XX_VBIF_OUT_AXI_AOOO_EN, 0x0000FFFF },
-	{ A3XX_VBIF_OUT_AXI_AOOO, 0xFFFFFFFF },
+	{ A3XX_VBIF_OUT_AXI_AOOO_EN, 0x0000003F },
+	{ A3XX_VBIF_OUT_AXI_AOOO, 0x003F003F },
 	/* Enable 1K sort */
-	{ A3XX_VBIF_ABIT_SORT, 0x1FFFF },
+	{ A3XX_VBIF_ABIT_SORT, 0x0001003F },
 	{ A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
 	/* Disable VBIF clock gating. This is to enable AXI running
 	 * higher frequency than GPU.
