@@ -153,7 +153,7 @@ static int mdss_edp_gpio_panel_en(struct mdss_edp_drv_pdata *edp_drv)
 	if (ret) {
 		pr_err("%s: Request reset gpio_panel_en failed, ret=%d\n",
 				__func__, ret);
-		goto gpio_free;
+		return ret;
 	}
 
 	ret = gpio_direction_output(edp_drv->gpio_panel_en, 1);
@@ -162,8 +162,6 @@ static int mdss_edp_gpio_panel_en(struct mdss_edp_drv_pdata *edp_drv)
 				__func__, ret);
 		goto gpio_free;
 	}
-
-	gpio_set_value(edp_drv->gpio_panel_en, 1);
 
 	return 0;
 
@@ -212,13 +210,11 @@ static int mdss_edp_pwm_config(struct mdss_edp_drv_pdata *edp_drv)
 	if (ret) {
 		pr_err("%s: Request reset gpio_panel_pwm failed, ret=%d\n",
 				__func__, ret);
-		goto edp_free_gpio_pwm;
+		goto edp_free_pwm;
 	}
 
 	return 0;
 
-edp_free_gpio_pwm:
-	gpio_free(edp_drv->gpio_panel_pwm);
 edp_free_pwm:
 	pwm_free(edp_drv->bl_pwm);
 	return -ENODEV;
@@ -323,6 +319,7 @@ int mdss_edp_on(struct mdss_panel_data *pdata)
 	mdss_edp_config_sw_div(edp_drv->edp_base);
 	mdss_edp_config_static_mdiv(edp_drv->edp_base);
 	mdss_edp_enable(edp_drv->edp_base, 1);
+	gpio_set_value(edp_drv->gpio_panel_en, 1);
 
 	return 0;
 }
@@ -340,6 +337,7 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
+	gpio_set_value(edp_drv->gpio_panel_en, 0);
 	pwm_disable(edp_drv->bl_pwm);
 	mdss_edp_enable(edp_drv->edp_base, 0);
 	mdss_edp_unconfig_clk(edp_drv->edp_base, edp_drv->mmss_cc_base);
