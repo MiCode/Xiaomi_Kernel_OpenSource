@@ -1024,6 +1024,9 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 	err = tabla_hs_detect(codec, &mbhc_cfg);
+	msm_gpiomux_install(
+			msm9615_audio_prim_i2s_codec_configs,
+			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
 	return err;
 }
 
