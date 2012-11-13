@@ -449,7 +449,8 @@ VREG_CONSUMERS(VDD_DIG_CORNER) = {
 	{ \
 		.constraints = { \
 			.name		= _name, \
-			.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE, \
+			.valid_ops_mask	= REGULATOR_CHANGE_VOLTAGE | \
+					  REGULATOR_CHANGE_STATUS, \
 			.min_uV		= _min_uV, \
 			.max_uV		= _max_uV, \
 		}, \
