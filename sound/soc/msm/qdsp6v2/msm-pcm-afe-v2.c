@@ -33,8 +33,10 @@
 #include <mach/msm_subsystem_map.h>
 #include "msm-pcm-afe-v2.h"
 
-#define MIN_PERIOD_SIZE (128 * 2)
-#define MAX_PERIOD_SIZE (128 * 2 * 2 * 6)
+#define MIN_PERIOD_SIZE (128 * 2 * 8)
+#define MAX_PERIOD_SIZE (128 * 2 * 2 * 6 * 8)
+#define MAX_NUM_PERIODS 384
+#define MIN_NUM_PERIODS 32
 static struct snd_pcm_hardware msm_afe_hardware = {
 	.info =			(SNDRV_PCM_INFO_MMAP |
 				SNDRV_PCM_INFO_BLOCK_TRANSFER |
@@ -47,12 +49,12 @@ static struct snd_pcm_hardware msm_afe_hardware = {
 	.rate_min =             8000,
 	.rate_max =             48000,
 	.channels_min =         1,
-	.channels_max =         2,
+	.channels_max =         8,
 	.buffer_bytes_max =     MAX_PERIOD_SIZE * 32,
 	.period_bytes_min =     MIN_PERIOD_SIZE,
 	.period_bytes_max =     MAX_PERIOD_SIZE,
-	.periods_min =          32,
-	.periods_max =          384,
+	.periods_min =          MIN_NUM_PERIODS,
+	.periods_max =          MAX_NUM_PERIODS,
 	.fifo_size =            0,
 };
 static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt);
@@ -353,6 +355,17 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_err("snd_pcm_hw_constraint_integer failed\n");
 
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		ret = snd_pcm_hw_constraint_minmax(runtime,
+			SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
+			MAX_NUM_PERIODS * MIN_PERIOD_SIZE,
+			MIN_NUM_PERIODS * MAX_PERIOD_SIZE);
+		if (ret < 0) {
+			pr_err("constraint for buffer bytes min max ret = %d\n",
+									ret);
+		}
+	}
+
 	return 0;
 }
 
@@ -497,8 +510,8 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 		dir = OUT;
 	rc = q6afe_audio_client_buf_alloc_contiguous(dir,
 			prtd->audio_client,
-			runtime->hw.period_bytes_min,
-			runtime->hw.periods_max);
+			(params_buffer_bytes(params) / params_periods(params)),
+			params_periods(params));
 	if (rc < 0) {
 		pr_err("Audio Start: Buffer Allocation failed rc = %d\n", rc);
 		mutex_unlock(&prtd->lock);
@@ -517,14 +530,14 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->private_data = NULL;
 	dma_buf->area = buf[0].data;
 	dma_buf->addr = buf[0].phys;
-	dma_buf->bytes = runtime->hw.buffer_bytes_max;
+	dma_buf->bytes = params_buffer_bytes(params);
 	if (!dma_buf->area) {
 		pr_err("%s:MSM AFE physical memory allocation failed\n",
 							__func__);
 		mutex_unlock(&prtd->lock);
 		return -ENOMEM;
 	}
-	memset(dma_buf->area, 0, runtime->hw.buffer_bytes_max);
+	memset(dma_buf->area, 0, params_buffer_bytes(params));
 	prtd->dma_addr = (u32) dma_buf->addr;
 
 	mutex_unlock(&prtd->lock);
