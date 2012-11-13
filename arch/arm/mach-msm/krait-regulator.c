@@ -443,7 +443,7 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 	return rc;
 }
 
-static int __init pvreg_init(struct platform_device *pdev)
+static int __devinit pvreg_init(struct platform_device *pdev)
 {
 	struct pmic_gang_vreg *pvreg;
 
