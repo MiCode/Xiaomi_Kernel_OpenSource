@@ -207,6 +207,12 @@
 		startup-delay-us = <12000>;
 		enable-active-high;
 	};
+
+	sound {
+		qcom,model = "msm8974-taiko-liquid-snd-card";
+		qcom,ext-spk-amp-supply = <&ext_5v>;
+		qcom,ext-spk-amp-gpio = <&pm8841_mpps 1 0>;
+	};
 };
 
 &usb3 {
@@ -453,6 +459,12 @@
 &pm8841_mpps {
 
 	mpp@a000 { /* MPP 1 */
+		/* CLASS_D_EN speakers PA */
+		qcom,mode = <1>; /* DIG_OUT */
+		qcom,output-type = <0>;  /* PNP_PIN_OUT_BUF_CMOS */
+		qcom,vin-sel = <2>; /* S3A 1.8v */
+		qcom,src-select = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
 	};
 
 	mpp@a100 { /* MPP 2 */
