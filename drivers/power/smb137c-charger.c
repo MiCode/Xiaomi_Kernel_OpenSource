@@ -992,29 +992,47 @@ static void smb137c_external_power_changed(struct power_supply *psy)
 {
 	struct smb137c_chip *chip = container_of(psy, struct smb137c_chip, psy);
 	union power_supply_propval prop = {0,};
+	int scope = POWER_SUPPLY_SCOPE_DEVICE;
+	int current_limit = USB_MIN_CURRENT_UA;
+	int online = 0;
+	int rc;
 
 	mutex_lock(&chip->lock);
 	dev_dbg(&chip->client->dev, "%s: start\n", __func__);
 
-	chip->usb_psy->get_property(chip->usb_psy, POWER_SUPPLY_PROP_ONLINE,
-					&prop);
+	rc = chip->usb_psy->get_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_ONLINE, &prop);
+	if (rc)
+		dev_err(&chip->client->dev, "%s: could not read USB online property, rc=%d\n",
+			__func__, rc);
+	else
+		online = prop.intval;
 
-	if (prop.intval) {
-		/* USB online */
-		chip->usb_psy->get_property(chip->usb_psy,
-						POWER_SUPPLY_PROP_SCOPE, &prop);
-		if (prop.intval == POWER_SUPPLY_SCOPE_SYSTEM) {
-			/* USB host mode */
-			smb137c_enable_otg_mode(chip);
-			smb137c_disable_charging(chip);
-		} else {
-			/* USB device mode */
-			chip->usb_psy->get_property(chip->usb_psy,
+	rc = chip->usb_psy->get_property(chip->usb_psy, POWER_SUPPLY_PROP_SCOPE,
+					&prop);
+	if (rc)
+		dev_err(&chip->client->dev, "%s: could not read USB scope property, rc=%d\n",
+			__func__, rc);
+	else
+		scope = prop.intval;
+
+	rc = chip->usb_psy->get_property(chip->usb_psy,
 					POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
-			smb137c_set_usb_input_current_limit(chip, prop.intval);
-			smb137c_enable_charging(chip);
-			smb137c_disable_otg_mode(chip);
-		}
+	if (rc)
+		dev_err(&chip->client->dev, "%s: could not read USB current_max property, rc=%d\n",
+			__func__, rc);
+	else
+		current_limit = prop.intval;
+
+	if (scope == POWER_SUPPLY_SCOPE_SYSTEM) {
+		/* USB host mode */
+		smb137c_disable_charging(chip);
+		smb137c_enable_otg_mode(chip);
+	} else if (online) {
+		/* USB online in device mode */
+		smb137c_set_usb_input_current_limit(chip, current_limit);
+		smb137c_enable_charging(chip);
+		smb137c_disable_otg_mode(chip);
 	} else {
 		/* USB offline */
 		smb137c_disable_charging(chip);
@@ -1318,7 +1336,6 @@ static const struct i2c_device_id smb137c_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, smb137c_id);
 
-/* TODO: should this be "summit,smb137c-charger"? */
 static const struct of_device_id smb137c_match[] = {
 	{ .compatible = "summit,smb137c", },
 	{ },
