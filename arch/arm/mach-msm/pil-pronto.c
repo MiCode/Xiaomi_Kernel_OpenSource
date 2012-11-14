@@ -303,6 +303,7 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
+	disable_irq_nosync(drv->irq);
 	drv->restart_inprogress = true;
 	restart_wcnss(drv);
 
@@ -324,7 +325,6 @@ static int wcnss_shutdown(const struct subsys_desc *subsys)
 	pil_shutdown(&drv->desc);
 	flush_delayed_work(&drv->cancel_vote_work);
 	wcnss_flush_delayed_boot_votes();
-	disable_irq_nosync(drv->irq);
 
 	return 0;
 }
