@@ -858,7 +858,6 @@ fail_power:
 	else
 		wcnss_gpios_config(penv->gpios_5wire, false);
 fail_gpio_res:
-	kfree(penv);
 	penv = NULL;
 	return ret;
 }
@@ -899,7 +898,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	}
 
 	/* create an environment to track the device */
-	penv = kzalloc(sizeof(*penv), GFP_KERNEL);
+	penv = devm_kzalloc(&pdev->dev, sizeof(*penv), GFP_KERNEL);
 	if (!penv) {
 		dev_err(&pdev->dev, "cannot allocate device memory.\n");
 		return -ENOMEM;
@@ -908,8 +907,10 @@ wcnss_wlan_probe(struct platform_device *pdev)
 
 	/* register sysfs entries */
 	ret = wcnss_create_sysfs(&pdev->dev);
-	if (ret)
+	if (ret) {
+		penv = NULL;
 		return -ENOENT;
+	}
 
 
 #ifdef MODULE
@@ -944,6 +945,7 @@ static int
 wcnss_wlan_remove(struct platform_device *pdev)
 {
 	wcnss_remove_sysfs(&pdev->dev);
+	penv = NULL;
 	return 0;
 }
 
@@ -997,7 +999,6 @@ static void __exit wcnss_wlan_exit(void)
 			subsystem_put(penv->pil);
 
 
-		kfree(penv);
 		penv = NULL;
 	}
 
