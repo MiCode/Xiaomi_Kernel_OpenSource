@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4892,11 +4892,52 @@ int taiko_hs_detect(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL_GPL(taiko_hs_detect);
 
+static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec;
+	struct taiko_priv *taiko;
+
+	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
+	taiko = snd_soc_codec_get_drvdata(codec);
+	mutex_lock(&codec->mutex);
+	WCD9XXX_BCL_LOCK(&taiko->resmgr);
+	if (spkr_drv_wrnd == 1) {
+		wcd9xxx_resmgr_post_ssr(&taiko->resmgr);
+		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80, 0x80);
+	}
+	WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+
+	if (codec->reg_def_copy) {
+		pr_debug("%s: Update ASOC cache", __func__);
+		kfree(codec->reg_cache);
+		codec->reg_cache = kmemdup(codec->reg_def_copy,
+						codec->reg_size, GFP_KERNEL);
+	}
+
+	taiko_update_reg_defaults(codec);
+	taiko_codec_init_reg(codec);
+	ret = taiko_handle_pdata(taiko);
+	if (IS_ERR_VALUE(ret))
+		pr_err("%s: bad pdata\n", __func__);
+	mutex_unlock(&codec->mutex);
+	return ret;
+}
+
+
 static struct wcd9xxx_reg_address taiko_reg_address = {
 	.micb_4_mbhc = TAIKO_A_MICB_4_MBHC,
 	.micb_4_int_rbias = TAIKO_A_MICB_4_INT_RBIAS,
 	.micb_4_ctl = TAIKO_A_MICB_4_CTL,
 };
+
+static int wcd9xxx_ssr_register(struct wcd9xxx *control,
+		int (*post_reset_cb)(struct wcd9xxx *wcd9xxx), void *priv)
+{
+	control->post_reset = post_reset_cb;
+	control->ssr_priv = priv;
+	return 0;
+}
 
 static int taiko_codec_probe(struct snd_soc_codec *codec)
 {
@@ -4911,6 +4952,8 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
+
+	wcd9xxx_ssr_register(control, taiko_post_reset_cb, (void *)codec);
 
 	dev_info(codec->dev, "%s()\n", __func__);
 

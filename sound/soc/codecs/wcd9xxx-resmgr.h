@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,6 +158,7 @@ void wcd9xxx_resmgr_cfilt_put(struct wcd9xxx_resmgr *resmgr,
 			      enum wcd9xxx_cfilt_sel cfilt_sel);
 
 void wcd9xxx_resmgr_bcl_lock(struct wcd9xxx_resmgr *resmgr);
+void wcd9xxx_resmgr_post_ssr(struct wcd9xxx_resmgr *resmgr);
 #define WCD9XXX_BCL_LOCK(resmgr)			\
 {							\
 	pr_debug("%s: Acquiring BCL\n", __func__);	\
