@@ -566,8 +566,6 @@ void wcnss_suspend_notify(void)
 	void __iomem *pmu_spare_reg;
 	u32 reg = 0;
 	unsigned long flags;
-	struct clk *cxo = clk_get(&penv->pdev->dev, "cxo");
-	int rc = 0;
 
 	if (!enable_wcnss_suspend_notify)
 		return;
@@ -576,18 +574,12 @@ void wcnss_suspend_notify(void)
 		return;
 
 	/* For Riva */
-	rc = clk_prepare_enable(cxo);
-	if (rc) {
-		pr_err("cxo enable failed\n");
-		return;
-	}
 	pmu_spare_reg = penv->msm_wcnss_base + RIVA_SPARE_OFFSET;
 	spin_lock_irqsave(&reg_spinlock, flags);
 	reg = readl_relaxed(pmu_spare_reg);
 	reg |= RIVA_SUSPEND_BIT;
 	writel_relaxed(reg, pmu_spare_reg);
 	spin_unlock_irqrestore(&reg_spinlock, flags);
-	clk_disable_unprepare(cxo);
 }
 EXPORT_SYMBOL(wcnss_suspend_notify);
 
@@ -596,8 +588,6 @@ void wcnss_resume_notify(void)
 	void __iomem *pmu_spare_reg;
 	u32 reg = 0;
 	unsigned long flags;
-	struct clk *cxo = clk_get(&penv->pdev->dev, "cxo");
-	int rc = 0;
 
 	if (!enable_wcnss_suspend_notify)
 		return;
@@ -608,17 +598,11 @@ void wcnss_resume_notify(void)
 	/* For Riva */
 	pmu_spare_reg = penv->msm_wcnss_base + RIVA_SPARE_OFFSET;
 
-	rc = clk_prepare_enable(cxo);
-	if (rc) {
-		pr_err("cxo enable failed\n");
-		return;
-	}
 	spin_lock_irqsave(&reg_spinlock, flags);
 	reg = readl_relaxed(pmu_spare_reg);
 	reg &= ~RIVA_SUSPEND_BIT;
 	writel_relaxed(reg, pmu_spare_reg);
 	spin_unlock_irqrestore(&reg_spinlock, flags);
-	clk_disable_unprepare(cxo);
 }
 EXPORT_SYMBOL(wcnss_resume_notify);
 
