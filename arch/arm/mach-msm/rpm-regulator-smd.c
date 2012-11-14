@@ -659,19 +659,6 @@ static int rpm_vreg_get_voltage(struct regulator_dev *rdev)
 	return uV;
 }
 
-static int rpm_vreg_list_voltage(struct regulator_dev *rdev, unsigned selector)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-	int uV = 0;
-
-	if (selector == 0)
-		uV = reg->min_uV;
-	else if (selector == 1)
-		uV = reg->max_uV;
-
-	return uV;
-}
-
 static int rpm_vreg_set_voltage_corner(struct regulator_dev *rdev, int min_uV,
 				int max_uV, unsigned *selector)
 {
@@ -1030,7 +1017,6 @@ static struct regulator_ops ldo_ops = {
 	.is_enabled		= rpm_vreg_is_enabled,
 	.set_voltage		= rpm_vreg_set_voltage,
 	.get_voltage		= rpm_vreg_get_voltage,
-	.list_voltage		= rpm_vreg_list_voltage,
 	.set_mode		= rpm_vreg_set_mode,
 	.get_mode		= rpm_vreg_get_mode,
 	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
@@ -1043,7 +1029,6 @@ static struct regulator_ops ldo_corner_ops = {
 	.is_enabled		= rpm_vreg_is_enabled,
 	.set_voltage		= rpm_vreg_set_voltage_corner,
 	.get_voltage		= rpm_vreg_get_voltage_corner,
-	.list_voltage		= rpm_vreg_list_voltage,
 	.set_mode		= rpm_vreg_set_mode,
 	.get_mode		= rpm_vreg_get_mode,
 	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
@@ -1056,7 +1041,6 @@ static struct regulator_ops smps_ops = {
 	.is_enabled		= rpm_vreg_is_enabled,
 	.set_voltage		= rpm_vreg_set_voltage,
 	.get_voltage		= rpm_vreg_get_voltage,
-	.list_voltage		= rpm_vreg_list_voltage,
 	.set_mode		= rpm_vreg_set_mode,
 	.get_mode		= rpm_vreg_get_mode,
 	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
@@ -1069,7 +1053,6 @@ static struct regulator_ops smps_corner_ops = {
 	.is_enabled		= rpm_vreg_is_enabled,
 	.set_voltage		= rpm_vreg_set_voltage_corner,
 	.get_voltage		= rpm_vreg_get_voltage_corner,
-	.list_voltage		= rpm_vreg_list_voltage,
 	.set_mode		= rpm_vreg_set_mode,
 	.get_mode		= rpm_vreg_get_mode,
 	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
@@ -1089,7 +1072,6 @@ static struct regulator_ops ncp_ops = {
 	.is_enabled		= rpm_vreg_is_enabled,
 	.set_voltage		= rpm_vreg_set_voltage,
 	.get_voltage		= rpm_vreg_get_voltage,
-	.list_voltage		= rpm_vreg_list_voltage,
 	.enable_time		= rpm_vreg_enable_time,
 };
 
