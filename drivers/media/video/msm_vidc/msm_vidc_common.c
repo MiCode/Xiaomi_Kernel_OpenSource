@@ -676,7 +676,6 @@ static void handle_fbd(enum command_response cmd, void *data)
 		(u32)fill_buf_done->packet_buffer1);
 	if (vb) {
 		vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
-
 		if (!(fill_buf_done->flags1 &
 			HAL_BUFFERFLAG_TIMESTAMPINVALID)) {
 			int64_t time_usec = fill_buf_done->timestamp_hi;
@@ -1629,6 +1628,8 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			struct vidc_seq_hdr seq_hdr;
 			int extra_idx = 0;
 			frame_data.filled_len = 0;
+			frame_data.offset = 0;
+			frame_data.alloc_len = vb->v4l2_planes[0].length;
 			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
 			extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);

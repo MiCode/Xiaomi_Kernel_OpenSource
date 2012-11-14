@@ -14,55 +14,6 @@
 #ifndef __H_VIDC_HAL_HELPER_H__
 #define __H_VIDC_HAL_HELPER_H__
 
-#define HFI_NV12_IL_CALC_Y_STRIDE(stride, frame_width, stride_multiple) \
-	{ stride = (frame_width + stride_multiple - 1) & \
-	(0xffffffff - (stride_multiple - 1))}
-
-#define HFI_NV12_IL_CALC_Y_BUFHEIGHT(buf_height, frame_height,\
-	min_buf_height_multiple) \
-	{ buf_height = (frame_height + min_buf_height_multiple - 1) & \
-	(0xffffffff - (min_buf_height_multiple - 1)) }
-
-#define HFI_NV12_IL_CALC_UV_STRIDE(stride, frame_width, stride_multiple) \
-	{ stride = ((((frame_width + 1) >> 1) + stride_multiple - 1) & \
-	(0xffffffff - (stride_multiple - 1))) << 1 }
-
-#define HFI_NV12_IL_CALC_UV_BUFHEIGHT(buf_height, frame_height,\
-	min_buf_height_multiple) \
-	{ buf_height = ((((frame_height + 1) >> 1) + \
-	min_buf_height_multiple - 1) & (0xffffffff - \
-	(min_buf_height_multiple - 1))) }
-
-#define HFI_NV12_IL_CALC_BUF_SIZE(buf_size, y_buf_size, y_stride, \
-	y_buf_height, uv_buf_size, uv_stride, uv_buf_height, uv_alignment) \
-	{ y_buf_size = (y_stride * y_buf_height); \
-	uv_buf_size = (uv_stride * uv_buf_height) + uv_alignment; \
-	buf_size = y_buf_size + uv_buf_size }
-
-#define HFI_YUYV_CALC_STRIDE(stride, frame_width, stride_multiple) \
-	{ stride = ((frame_width << 1) + stride_multiple - 1) & \
-	(0xffffffff - (stride_multiple - 1)) }
-
-#define HFI_YUYV_CALC_BUFHEIGHT(buf_height, frame_height,\
-	min_buf_height_multiple) \
-	{ buf_height = ((frame_height + min_buf_height_multiple - 1) & \
-	(0xffffffff - (min_buf_height_multiple - 1))) }
-
-#define HFI_YUYV_CALC_BUF_SIZE(buf_size, stride, buf_height) \
-	{ buf_size = stride * buf_height }
-
-#define HFI_RGB888_CALC_STRIDE(stride, frame_width, stride_multiple) \
-	{ stride = ((frame_width * 3) + stride_multiple - 1) & \
-	(0xffffffff - (stride_multiple - 1)) }
-
-#define HFI_RGB888_CALC_BUFHEIGHT(buf_height, frame_height,\
-	min_buf_height_multiple) \
-	{ buf_height = ((frame_height + min_buf_height_multiple - 1) & \
-	(0xffffffff - (min_buf_height_multiple - 1))) }
-
-#define HFI_RGB888_CALC_BUF_SIZE(buf_size, stride, buf_height) \
-	{ buf_size = (stride * buf_height) }
-
 #define HFI_COMMON_BASE				(0)
 #define HFI_OX_BASE					(0x01000000)
 
@@ -80,6 +31,9 @@
 
 #define HFI_ARCH_COMMON_OFFSET		(0)
 #define HFI_ARCH_OX_OFFSET			(0x00200000)
+
+#define  HFI_CMD_START_OFFSET		(0x00010000)
+#define  HFI_MSG_START_OFFSET		(0x00020000)
 
 #define HFI_ERR_NONE						HFI_COMMON_BASE
 #define HFI_ERR_SYS_FATAL				(HFI_COMMON_BASE + 0x1)
@@ -110,6 +64,7 @@
 
 #define HFI_ERR_SESSION_STREAM_CORRUPT		(HFI_COMMON_BASE + 0x100B)
 #define HFI_ERR_SESSION_ENC_OVERFLOW		(HFI_COMMON_BASE + 0x100C)
+#define  HFI_ERR_SESSION_UNSUPPORTED_STREAM	(HFI_COMMON_BASE + 0x100D)
 
 #define HFI_EVENT_SYS_ERROR				(HFI_COMMON_BASE + 0x1)
 #define HFI_EVENT_SESSION_ERROR			(HFI_COMMON_BASE + 0x2)
@@ -130,8 +85,8 @@
 #define HFI_H264_PROFILE_HIGH				0x00000004
 #define HFI_H264_PROFILE_STEREO_HIGH		0x00000008
 #define HFI_H264_PROFILE_MULTIVIEW_HIGH		0x00000010
-#define HFI_H264_PROFILE_CONSTRAINED_HIGH	0x00000020
-#define  HFI_H264_PROFILE_CONSTRAINED_BASE  0x00000040
+#define HFI_H264_PROFILE_CONSTRAINED_BASE	0x00000020
+#define HFI_H264_PROFILE_CONSTRAINED_HIGH	0x00000040
 
 #define HFI_H264_LEVEL_1					0x00000001
 #define HFI_H264_LEVEL_1b					0x00000002
@@ -235,8 +190,11 @@ struct hfi_buffer_info {
 #define HFI_PROPERTY_SYS_DEBUG_CONFIG		\
 	(HFI_PROPERTY_SYS_COMMON_START + 0x001)
 #define HFI_PROPERTY_SYS_RESOURCE_OCMEM_REQUIREMENT_INFO	\
-(HFI_PROPERTY_SYS_COMMON_START + 0x002)
-#define HFI_PROPERTY_PARAM_COMMON_START		\
+	(HFI_PROPERTY_SYS_COMMON_START + 0x002)
+#define HFI_PROPERTY_SYS_CONFIG_VCODEC_CLKFREQ				\
+	(HFI_PROPERTY_SYS_COMMON_START + 0x003)
+
+#define HFI_PROPERTY_PARAM_COMMON_START	\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x1000)
 #define HFI_PROPERTY_PARAM_FRAME_SIZE		\
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x001)
@@ -316,16 +274,25 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x00F)
 #define  HFI_PROPERTY_PARAM_VENC_QUALITY_VS_SPEED           \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x010)
-#define HFI_PROPERTY_PARAM_VENC_MPEG4_QPEL				\
-	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x011)
 #define HFI_PROPERTY_PARAM_VENC_ADVANCED				\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x012)
-#define HFI_PROPERTY_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER	\
-	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x013)
 #define  HFI_PROPERTY_PARAM_VENC_H264_SPS_ID                \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x014)
 #define  HFI_PROPERTY_PARAM_VENC_H264_PPS_ID               \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x015)
+#define HFI_PROPERTY_PARAM_VENC_H264_GENERATE_AUDNAL	\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x016)
+#define HFI_PROPERTY_PARAM_VENC_ASPECT_RATIO			\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x017)
+#define HFI_PROPERTY_PARAM_VENC_NUMREF					\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x018)
+#define HFI_PROPERTY_PARAM_VENC_MULTIREF_P				\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x019)
+#define HFI_PROPERTY_PARAM_VENC_HIER_P_NUM_ENH_LAYER	\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01A)
+
+#define HFI_PROPERTY_PARAM_VENC_H264_NAL_SVC_EXT		\
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01B)
 
 #define HFI_PROPERTY_CONFIG_VENC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_COMMON_OFFSET + 0x6000)
@@ -339,13 +306,13 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x004)
 #define  HFI_PROPERTY_CONFIG_VENC_SLICE_SIZE                \
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x005)
-#define HFI_PROPERTY_CONFIG_VENC_FRAME_QP				\
-	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x006)
 #define HFI_PROPERTY_CONFIG_VENC_MAX_BITRATE				\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x007)
 
 #define HFI_PROPERTY_PARAM_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x7000)
+#define  HFI_PROPERTY_CONFIG_VENC_SYNC_FRAME_SEQUENCE_HEADER	\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x008)
 
 #define HFI_PROPERTY_CONFIG_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x8000)
@@ -356,6 +323,7 @@ struct hfi_buffer_info {
 
 struct hfi_bitrate {
 	u32 bit_rate;
+	u32 layer_id;
 };
 
 #define HFI_CAPABILITY_FRAME_WIDTH			(HFI_COMMON_BASE + 0x1)
@@ -367,7 +335,7 @@ struct hfi_bitrate {
 #define HFI_CAPABILITY_SCALE_Y				(HFI_COMMON_BASE + 0x7)
 #define HFI_CAPABILITY_BITRATE				(HFI_COMMON_BASE + 0x8)
 #define  HFI_CAPABILITY_BFRAME				(HFI_COMMON_BASE + 0x9)
-#define  HFI_CAPABILITY_HIERARCHICAL_P_LAYERS	(HFI_COMMON_BASE + 0x10)
+#define  HFI_CAPABILITY_HIER_P_NUM_ENH_LAYERS   (HFI_COMMON_BASE + 0x10)
 
 struct hfi_capability_supported {
 	u32 capability_type;
@@ -386,9 +354,14 @@ struct hfi_capability_supported_info {
 #define HFI_DEBUG_MSG_HIGH					0x00000004
 #define HFI_DEBUG_MSG_ERROR					0x00000008
 #define HFI_DEBUG_MSG_FATAL					0x00000010
+#define HFI_DEBUG_MSG_PERF					0x00000020
+
+#define HFI_DEBUG_MODE_QUEUE				0x00000001
+#define HFI_DEBUG_MODE_QDSS					0x00000002
 
 struct hfi_debug_config {
 	u32 debug_config;
+	u32 debug_mode;
 };
 
 struct hfi_enable {
@@ -396,8 +369,9 @@ struct hfi_enable {
 };
 
 #define HFI_H264_DB_MODE_DISABLE			(HFI_COMMON_BASE + 0x1)
-#define HFI_H264_DB_MODE_SKIP_SLICE_BOUNDARY	(HFI_COMMON_BASE + 0x2)
-#define HFI_H264_DB_MODE_ALL_BOUNDARY			(HFI_COMMON_BASE + 0x3)
+#define HFI_H264_DB_MODE_SKIP_SLICE_BOUNDARY	\
+	(HFI_COMMON_BASE + 0x2)
+#define HFI_H264_DB_MODE_ALL_BOUNDARY		(HFI_COMMON_BASE + 0x3)
 
 struct hfi_h264_db_control {
 	u32 mode;
@@ -465,8 +439,8 @@ struct hfi_multi_view_format {
 };
 
 #define HFI_MULTI_SLICE_OFF				(HFI_COMMON_BASE + 0x1)
-#define HFI_MULTI_SLICE_BY_MB_COUNT			(HFI_COMMON_BASE + 0x2)
-#define HFI_MULTI_SLICE_BY_BYTE_COUNT		(HFI_COMMON_BASE + 0x3)
+#define HFI_MULTI_SLICE_BY_MB_COUNT		(HFI_COMMON_BASE + 0x2)
+#define HFI_MULTI_SLICE_BY_BYTE_COUNT	(HFI_COMMON_BASE + 0x3)
 #define HFI_MULTI_SLICE_GOB				(HFI_COMMON_BASE + 0x4)
 
 struct hfi_multi_slice_control {
@@ -654,9 +628,14 @@ struct hfi_codec_mask_supported {
 struct hfi_seq_header_info {
 	u32 max_hader_len;
 };
+struct hfi_aspect_ratio {
+	u32 aspect_width;
+	u32 aspect_height;
+};
 
 #define HFI_CMD_SYS_COMMON_START			\
-	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x0000)
+(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + HFI_CMD_START_OFFSET \
+	+ 0x0000)
 #define HFI_CMD_SYS_INIT		(HFI_CMD_SYS_COMMON_START + 0x001)
 #define HFI_CMD_SYS_PC_PREP		(HFI_CMD_SYS_COMMON_START + 0x002)
 #define HFI_CMD_SYS_SET_RESOURCE	(HFI_CMD_SYS_COMMON_START + 0x003)
@@ -666,9 +645,11 @@ struct hfi_seq_header_info {
 #define HFI_CMD_SYS_SESSION_INIT	(HFI_CMD_SYS_COMMON_START + 0x007)
 #define HFI_CMD_SYS_SESSION_END		(HFI_CMD_SYS_COMMON_START + 0x008)
 #define HFI_CMD_SYS_SET_BUFFERS		(HFI_CMD_SYS_COMMON_START + 0x009)
+#define HFI_CMD_SYS_TEST_START		(HFI_CMD_SYS_COMMON_START + 0x100)
 
 #define HFI_CMD_SESSION_COMMON_START		\
-	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x1000)
+	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET +	\
+	HFI_CMD_START_OFFSET + 0x1000)
 #define HFI_CMD_SESSION_SET_PROPERTY		\
 	(HFI_CMD_SESSION_COMMON_START + 0x001)
 #define HFI_CMD_SESSION_SET_BUFFERS			\
@@ -677,7 +658,8 @@ struct hfi_seq_header_info {
 	(HFI_CMD_SESSION_COMMON_START + 0x003)
 
 #define HFI_MSG_SYS_COMMON_START			\
-	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x0000)
+	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET +	\
+	HFI_MSG_START_OFFSET + 0x0000)
 #define HFI_MSG_SYS_INIT_DONE			(HFI_MSG_SYS_COMMON_START + 0x1)
 #define HFI_MSG_SYS_PC_PREP_DONE		(HFI_MSG_SYS_COMMON_START + 0x2)
 #define HFI_MSG_SYS_RELEASE_RESOURCE	(HFI_MSG_SYS_COMMON_START + 0x3)
@@ -686,7 +668,8 @@ struct hfi_seq_header_info {
 #define HFI_MSG_SYS_SESSION_END_DONE	(HFI_MSG_SYS_COMMON_START + 0x7)
 
 #define HFI_MSG_SESSION_COMMON_START		\
-	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x1000)
+	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET +	\
+	HFI_MSG_START_OFFSET + 0x1000)
 #define HFI_MSG_EVENT_NOTIFY	(HFI_MSG_SESSION_COMMON_START + 0x1)
 #define HFI_MSG_SESSION_GET_SEQUENCE_HEADER_DONE	\
 	(HFI_MSG_SESSION_COMMON_START + 0x2)
@@ -778,7 +761,6 @@ struct hfi_cmd_session_set_buffers_packet {
 	u32 packet_type;
 	u32 session_id;
 	u32 buffer_type;
-	u32 buffer_mode;
 	u32 buffer_size;
 	u32 extra_data_size;
 	u32 min_buffer_size;
@@ -858,6 +840,24 @@ struct hfi_msg_sys_debug_packet {
 	u32 time_stamp_hi;
 	u32 time_stamp_lo;
 	u8 rg_msg_data[1];
+};
+
+enum HFI_VENUS_QTBL_STATUS {
+	HFI_VENUS_QTBL_DISABLED = 0x00,
+	HFI_VENUS_QTBL_ENABLED = 0x01,
+	HFI_VENUS_QTBL_INITIALIZING = 0x02,
+	HFI_VENUS_QTBL_DEINITIALIZING = 0x03
+};
+
+enum HFI_VENUS_CTRL_INIT_STATUS {
+	HFI_VENUS_CTRL_NOT_INIT = 0x0,
+	HFI_VENUS_CTRL_READY = 0x1,
+	HFI_VENUS_CTRL_ERROR_FATAL = 0x2
+};
+
+struct hfi_sfr_struct {
+	u32 bufSize;
+	u8 rg_data[1];
 };
 
 #endif
