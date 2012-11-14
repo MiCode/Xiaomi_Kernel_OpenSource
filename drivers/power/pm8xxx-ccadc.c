@@ -72,7 +72,7 @@ struct pm8xxx_ccadc_chip {
 	unsigned int		revision;
 	unsigned int		calib_delay_ms;
 	int			eoc_irq;
-	int			r_sense;
+	int			r_sense_uohm;
 	struct delayed_work	calib_ccadc_work;
 };
 
@@ -562,7 +562,8 @@ int pm8xxx_ccadc_get_battery_current(int *bat_current_ua)
 		return rc;
 	}
 
-	*bat_current_ua = voltage_uv * 1000/the_chip->r_sense;
+	*bat_current_ua = div_s64((s64)voltage_uv * 1000000LL,
+						the_chip->r_sense_uohm);
 	/*
 	 * ccadc reads +ve current when the battery is charging
 	 * We need to return -ve if the battery is charging
@@ -675,7 +676,7 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 	chip->dev = &pdev->dev;
 	chip->revision = pm8xxx_get_revision(chip->dev->parent);
 	chip->eoc_irq = res->start;
-	chip->r_sense = pdata->r_sense;
+	chip->r_sense_uohm = pdata->r_sense_uohm;
 	chip->calib_delay_ms = pdata->calib_delay_ms;
 
 	calib_ccadc_read_offset_and_gain(chip,
