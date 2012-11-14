@@ -90,7 +90,11 @@
 			qcom,bms-shutdown-soc-valid-limit = <20>;
 			qcom,bms-adjust-soc-low-threshold = <25>;
 			qcom,bms-adjust-soc-high-threshold = <45>;
+			qcom,bms-low-soc-calculate-soc-threshold = <15>;
+			qcom,bms-low-soc-calculate-soc-ms = <5000>;
+			qcom,bms-calculate-soc-ms = <20000>;
 			qcom,bms-chg-term-ua = <100000>;
+			qcom,bms-batt-type = <0>;
 		};
 
 		clkdiv@5b00 {

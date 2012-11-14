@@ -36,12 +36,31 @@ Required properties:
 - qcom,bms-adjust-soc-low-threshold : The low threshold for the "flat portion"
 			of the charging curve. The BMS will not adjust SoC
 			based on voltage during this time.
-- qcom,bms-adjust-soc-high-threshold :  The high threshold for the "flat
+- qcom,bms-adjust-soc-high-threshold : The high threshold for the "flat
 			portion" of the charging curve. The BMS will not
 			adjust SoC based on voltage during this time.
+- qcom,bms-low-soc-calculate-soc-threshold : The SoC threshold for when
+			the period calculate_soc work speeds up. This ensures
+			SoC is updated in userspace constantly when we are near
+			shutdown.
+- qcom,bms-low-soc-calculate-soc-ms : The time period between subsequent
+			SoC recalculations when the current SoC is below
+			qcom,bms-low-soc-calculate-soc-threshold.
+- qcom,bms-soc-calculate-soc-ms : The time period between subsequent SoC
+			recalculations when the current SoC is above or equal
+			qcom,bms-low-soc-calculate-soc-threshold.
 - qcom,bms-chg-term-ua : current in micro-amps when charging is considered done.
 			As soon as current passes this point, charging is
 			stopped.
+- qcom,bms-batt-type: Type of battery used. This is an integer that corresponds
+			to the enum defined in
+			include/linux/mfd/pm8xxx/batterydata-lib.h
+
+Optional properties:
+- qcom,bms-ignore-shutdown-soc: A boolean that controls whether BMS will
+			try to force the startup SoC to be the same as the
+			shutdown SoC. Defining it will make BMS ignore the
+			shutdown SoC.
 
 Example:
 	bms@4000 {
@@ -76,5 +95,10 @@ Example:
 		qcom,bms-shutdown-soc-valid-limit = <20>;
 		qcom,bms-adjust-soc-low-threshold = <25>;
 		qcom,bms-adjust-soc-high-threshold = <45>;
+		qcom,bms-low-soc-calculate-soc-threshold = <15>;
+		qcom,bms-low-soc-calculate-soc-ms = <5000>;
+		qcom,bms-calculate-soc-ms = <20000>;
 		qcom,bms-chg-term-ua = <100000>;
+		qcom,bms-batt-type = <0>;
+		qcom,bms-ignore-shutdown-soc;
 	};
