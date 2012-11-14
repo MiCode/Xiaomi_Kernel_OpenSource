@@ -603,6 +603,8 @@ static int32_t msm_sensor_init_flash_data(struct device_node *of_node,
 {
 	int32_t rc = 0;
 	uint32_t val = 0;
+	struct msm_camera_sensor_flash_data *flash_data = NULL;
+	struct device_node *flash_src_node = NULL;
 
 	sensordata->flash_data = kzalloc(sizeof(
 		struct msm_camera_sensor_flash_data), GFP_KERNEL);
@@ -611,16 +613,42 @@ static int32_t msm_sensor_init_flash_data(struct device_node *of_node,
 		return -ENOMEM;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,flash-type", &val);
+	if (!of_get_property(of_node, "qcom,flash-src-index", &val)) {
+		CDBG("%s flash not available\n", __func__);
+		return rc;
+	}
+	flash_data = sensordata->flash_data;
+
+	flash_src_node = of_parse_phandle(of_node, "qcom,flash-src-index", 0);
+	if (!flash_src_node) {
+		pr_err("%s:%d flash_src_node NULL\n", __func__,
+			__LINE__);
+		goto ERROR1;
+	}
+
+	rc = of_property_read_u32(flash_src_node, "qcom,flash-type", &val);
 	CDBG("%s qcom,flash-type %d, rc %d\n", __func__, val, rc);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
-		goto ERROR;
+		goto ERROR2;
 	}
-	sensordata->flash_data->flash_type = val;
+	flash_data->flash_type = val;
+
+	rc = of_property_read_u32(flash_src_node, "cell-index", &val);
+	CDBG("%s qcom,flash-src-index %d, rc %d\n", __func__, val, rc);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		goto ERROR2;
+	}
+	flash_data->flash_src_index = val;
+
+	of_node_put(flash_src_node);
+
 	return rc;
-ERROR:
-	kfree(sensordata->flash_data);
+ERROR2:
+	of_node_put(flash_src_node);
+ERROR1:
+	flash_data->flash_type = MSM_CAMERA_FLASH_NONE;
 	return rc;
 }
 
