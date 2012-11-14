@@ -1464,8 +1464,10 @@ static void vfe32_start_common(struct vfe32_ctrl_type *vfe32_ctrl)
 	CDBG("VFE opertaion mode = 0x%x, output mode = 0x%x\n",
 		vfe32_ctrl->share_ctrl->operation_mode,
 		vfe32_ctrl->share_ctrl->outpath.output_mode);
-		msm_camera_io_w_mb(1, vfe32_ctrl->share_ctrl->vfebase +
-			VFE_CAMIF_COMMAND);
+	msm_camera_io_w_mb(1, vfe32_ctrl->share_ctrl->vfebase +
+		VFE_CAMIF_COMMAND);
+	msm_camera_io_w_mb(VFE_AXI_CFG_MASK,
+		vfe32_ctrl->share_ctrl->vfebase + VFE_AXI_CFG);
 }
 
 static int vfe32_start_recording(
@@ -5789,7 +5791,7 @@ config_done:
 void axi_start(struct msm_cam_media_controller *pmctl,
 	struct axi_ctrl_t *axi_ctrl, struct msm_camera_vfe_params_t vfe_params)
 {
-	int rc = 0;
+	int rc = 0, bus_vector_idx = 0;
 	uint32_t reg_update = 0;
 	uint32_t vfe_mode =
 		(axi_ctrl->share_ctrl->current_mode &
@@ -5811,9 +5813,22 @@ void axi_start(struct msm_cam_media_controller *pmctl,
 			pmctl->sdata->pdata->cam_bus_scale_table, S_CAPTURE);
 		break;
 	case AXI_CMD_RECORD:
+		if (cpu_is_msm8930() || cpu_is_msm8930aa() ||
+			cpu_is_msm8930ab()) {
+			if (axi_ctrl->share_ctrl->current_mode &
+				VFE_OUTPUTS_PREVIEW_AND_VIDEO
+			|| axi_ctrl->share_ctrl->current_mode &
+				VFE_OUTPUTS_VIDEO_AND_PREVIEW)
+				bus_vector_idx = S_VIDEO;
+			else
+				bus_vector_idx = S_ADV_VIDEO;
+		} else {
+			bus_vector_idx = S_VIDEO;
+		}
 		if (!axi_ctrl->share_ctrl->dual_enabled)
 			msm_camio_bus_scale_cfg(
-			pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
+			pmctl->sdata->pdata->cam_bus_scale_table,
+			bus_vector_idx);
 		return;
 	case AXI_CMD_ZSL:
 		if (!axi_ctrl->share_ctrl->dual_enabled)
@@ -6046,6 +6061,8 @@ void axi_stop(struct msm_cam_media_controller *pmctl,
 	uint32_t vfe_mode =
 	axi_ctrl->share_ctrl->current_mode & ~(VFE_OUTPUTS_RDI0|
 		VFE_OUTPUTS_RDI1);
+	int bus_vector_idx = 0;
+
 	switch (vfe_params.cmd_type) {
 	case AXI_CMD_PREVIEW:
 	case AXI_CMD_CAPTURE:
@@ -6059,9 +6076,17 @@ void axi_stop(struct msm_cam_media_controller *pmctl,
 			pmctl->sdata->pdata->cam_bus_scale_table, S_PREVIEW);
 		return;
 	case AXI_CMD_LIVESHOT:
-		if (!axi_ctrl->share_ctrl->dual_enabled)
+		if (!axi_ctrl->share_ctrl->dual_enabled) {
+			bus_vector_idx = S_VIDEO;
+
+			if (cpu_is_msm8930() || cpu_is_msm8930aa() ||
+				cpu_is_msm8930ab())
+				bus_vector_idx = S_ADV_VIDEO;
+
 			msm_camio_bus_scale_cfg(
-			pmctl->sdata->pdata->cam_bus_scale_table, S_VIDEO);
+			pmctl->sdata->pdata->cam_bus_scale_table,
+			bus_vector_idx);
+		}
 		return;
 	default:
 		return;

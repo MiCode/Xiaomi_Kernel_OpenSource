@@ -913,6 +913,7 @@ struct vfe32_frame_extra {
 #define VFE_DMI_ADDR                    0x0000059C
 #define VFE_DMI_DATA_HI                 0x000005A0
 #define VFE_DMI_DATA_LO                 0x000005A4
+#define VFE_AXI_CFG                     0x00000600
 #define VFE_BUS_IO_FORMAT_CFG           0x000006F8
 #define VFE_PIXEL_IF_CFG                0x000006FC
 #define VFE_RDI0_CFG                    0x00000734
@@ -922,6 +923,8 @@ struct vfe32_frame_extra {
 
 #define VFE33_DMI_DATA_HI               0x000005A0
 #define VFE33_DMI_DATA_LO               0x000005A4
+
+#define VFE_AXI_CFG_MASK                0xFFFFFFFF
 
 #define VFE32_OUTPUT_MODE_PT			BIT(0)
 #define VFE32_OUTPUT_MODE_S			BIT(1)

@@ -244,7 +244,7 @@ static struct msm_bus_vectors cam_preview_vectors[] = {
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 27648000,
-		.ib  = 110592000,
+		.ib  = 2656000000UL,
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -265,7 +265,7 @@ static struct msm_bus_vectors cam_video_vectors[] = {
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 274406400,
-		.ib  = 561807360,
+		.ib  = 2656000000UL,
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -285,8 +285,8 @@ static struct msm_bus_vectors cam_snapshot_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 274423680,
-		.ib  = 1097694720,
+		.ab  = 600000000,
+		.ib  = 2656000000UL,
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -306,8 +306,8 @@ static struct msm_bus_vectors cam_zsl_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 302071680,
-		.ib  = 1208286720,
+		.ab  = 600000000,
+		.ib  = 2656000000UL,
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -327,8 +327,8 @@ static struct msm_bus_vectors cam_video_ls_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 348192000,
-		.ib  = 617103360,
+		.ab  = 600000000,
+		.ib  = 4264000000UL,
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -349,7 +349,7 @@ static struct msm_bus_vectors cam_dual_vectors[] = {
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 302071680,
-		.ib  = 1208286720,
+		.ib  = 2656000000UL,
 	},
 	{
 		.src = MSM_BUS_MASTER_VPE,
@@ -362,6 +362,27 @@ static struct msm_bus_vectors cam_dual_vectors[] = {
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 540000000,
 		.ib  = 1350000000,
+	},
+};
+
+static struct msm_bus_vectors cam_adv_video_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 274406400,
+		.ib  = 2656000000UL,
+	},
+	{
+		.src = MSM_BUS_MASTER_VPE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 206807040,
+		.ib  = 488816640,
+	},
+	{
+		.src = MSM_BUS_MASTER_JPEG_ENC,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
 	},
 };
 
@@ -395,6 +416,11 @@ static struct msm_bus_paths cam_bus_client_config[] = {
 		ARRAY_SIZE(cam_dual_vectors),
 		cam_dual_vectors,
 	},
+	{
+		ARRAY_SIZE(cam_adv_video_vectors),
+		cam_adv_video_vectors,
+	},
+
 };
 
 static struct msm_bus_scale_pdata cam_bus_client_pdata = {
