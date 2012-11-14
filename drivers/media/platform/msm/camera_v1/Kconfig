@@ -186,6 +186,17 @@ config MSM_CAMERA_FLASH_TPS61310
 	  It is a Texas Instruments multiple LED Flash
 	  for camera flash and video light applications.
 
+config MSM_CAMERA_LED_TRIGGER_FLASH
+	bool "Qualcomm MSM LED trigger flash support"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Enable support for LED flash for msm camera.
+	  It creates LED trigger client, reads LED flash
+	  hardware properties provided in board file /
+	  device tree and uses these information to configure
+	  LED flash using LED trigger event function.
+
 config IMX072
 	bool "Sensor imx072 (Sony 5M)"
 	default n
