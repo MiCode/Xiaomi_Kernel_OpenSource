@@ -88,6 +88,15 @@
 		reg = <0xfc42b0c8 0xc8>;
 	};
 
+	hsic@f9a15000 {
+		compatible = "qcom,hsic-host";
+		reg = <0xf9a15000 0x400>;
+		interrupts = <0 136 0>;
+		interrupt-names = "core_irq";
+		HSIC_VDDCX-supply = <&pm8019_l12>;
+		HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+	};
+
 	qcom,nand@f9ac0000 {
 		compatible = "qcom,msm-nand";
 		reg = <0xf9ac0000 0x1000>,
