@@ -538,15 +538,6 @@ static struct mtd_part *allocate_partition(struct mtd_info *master,
 #ifndef CONFIG_MTD_LAZYECCSTATS
 	part_fill_badblockstats(&(slave->mtd));
 #endif
-	if (master->_block_isbad) {
-		uint64_t offs = 0;
-
-		while (offs < slave->mtd.size) {
-			if (mtd_block_isbad(master, offs + slave->offset))
-				slave->mtd.ecc_stats.badblocks++;
-			offs += slave->mtd.erasesize;
-		}
-	}
 
 out_register:
 	return slave;
