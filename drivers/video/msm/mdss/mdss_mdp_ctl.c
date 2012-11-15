@@ -107,7 +107,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		int is_writeback = false;
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 			struct mdss_panel_info *pinfo;
-			pinfo = &mixer->ctl->mfd->panel_info;
+			pinfo = &mixer->ctl->panel_data->panel_info;
 			v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
 				   pinfo->lcdc.v_front_porch +
 				   pinfo->lcdc.v_pulse_width);
@@ -378,11 +378,18 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_ctl *ctl;
+	struct mdss_panel_data *pdata;
 	u32 width, height;
 	int ret = 0;
 
 	if (!mfd)
 		return -ENODEV;
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (!pdata) {
+		pr_err("no panel connected for fb%d\n", mfd->index);
+		return -ENODEV;
+	}
 
 	width = mfd->fbi->var.xres;
 	height = mfd->fbi->var.yres;
@@ -400,6 +407,7 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 		}
 		ctl->mfd = mfd;
 		mfd->ctl = ctl;
+		ctl->panel_data = pdata;
 	} else {
 		ctl = mfd->ctl;
 	}
@@ -441,7 +449,7 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 		mdss_mdp_mixer_free(ctl->mixer_right);
 	}
 
-	switch (mfd->panel_info.type) {
+	switch (pdata->panel_info.type) {
 	case EDP_PANEL:
 		ctl->intf_num = MDSS_MDP_INTF0;
 		ctl->intf_type = MDSS_INTF_EDP;
@@ -449,7 +457,7 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 		ctl->start_fnc = mdss_mdp_video_start;
 		break;
 	case MIPI_VIDEO_PANEL:
-		if (mfd->panel_info.pdest == DISPLAY_1)
+		if (pdata->panel_info.pdest == DISPLAY_1)
 			ctl->intf_num = MDSS_MDP_INTF1;
 		else
 			ctl->intf_num = MDSS_MDP_INTF2;
@@ -469,7 +477,7 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 		ctl->start_fnc = mdss_mdp_writeback_start;
 		break;
 	default:
-		pr_err("unsupported panel type (%d)\n", mfd->panel_info.type);
+		pr_err("unsupported panel type (%d)\n", pdata->panel_info.type);
 		ret = -EINVAL;
 		goto ctl_init_fail;
 	}
@@ -477,14 +485,14 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 	ctl->opmode |= (ctl->intf_num << 4);
 
 	if (ctl->intf_num == MDSS_MDP_NO_INTF) {
-		ctl->dst_format = mfd->panel_info.out_format;
+		ctl->dst_format = pdata->panel_info.out_format;
 	} else {
 		struct mdp_dither_cfg_data dither = {
 			.block = mfd->index + MDP_LOGICAL_BLOCK_DISP_0,
 			.flags = MDP_PP_OPS_DISABLE,
 		};
 
-		switch (mfd->panel_info.bpp) {
+		switch (pdata->panel_info.bpp) {
 		case 18:
 			ctl->dst_format = MDSS_MDP_PANEL_FORMAT_RGB666;
 			dither.flags = MDP_PP_OPS_ENABLE | MDP_PP_OPS_WRITE;
@@ -539,14 +547,10 @@ static int mdss_mdp_ctl_destroy(struct msm_fb_data_type *mfd)
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg)
 {
 	struct mdss_panel_data *pdata;
-	if (!ctl || !ctl->mfd)
+	if (!ctl || !ctl->panel_data)
 		return -ENODEV;
 
-	pdata = dev_get_platdata(&ctl->mfd->pdev->dev);
-	if (!pdata) {
-		pr_err("no panel connected\n");
-		return -ENODEV;
-	}
+	pdata = ctl->panel_data;
 
 	pr_debug("sending ctl=%d event=%d\n", ctl->num, event);
 
@@ -596,7 +600,7 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 		ret = ctl->start_fnc(ctl);
 	else
 		pr_warn("no start function for ctl=%d type=%d\n", ctl->num,
-				mfd->panel_info.type);
+				ctl->panel_data->panel_info.type);
 
 	if (ret) {
 		pr_err("unable to start intf\n");

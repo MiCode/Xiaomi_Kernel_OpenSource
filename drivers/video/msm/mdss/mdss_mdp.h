@@ -137,6 +137,8 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_mixer *mixer_right;
 	struct mutex lock;
 
+	struct mdss_panel_data *panel_data;
+
 	int (*start_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*stop_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
