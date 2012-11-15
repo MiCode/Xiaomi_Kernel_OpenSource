@@ -29,6 +29,8 @@
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
 
+static atomic_t ov_active_panels = ATOMIC_INIT(0);
+
 static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
 				struct mdp_overlay *req)
 {
@@ -488,19 +490,6 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 	u32 pipe_ndx, unset_ndx = 0;
 	int i;
 
-	if (ndx & MDSS_MDP_ROT_SESSION_MASK) {
-		struct mdss_mdp_rotator_session *rot;
-		rot = mdss_mdp_rotator_session_get(ndx);
-		if (rot) {
-			mdss_mdp_rotator_finish(rot);
-		} else {
-			pr_warn("unknown session id=%x\n", ndx);
-			return -ENODEV;
-		}
-
-		return 0;
-	}
-
 	for (i = 0; unset_ndx != ndx && i < MDSS_MDP_MAX_SSPP; i++) {
 		pipe_ndx = BIT(i);
 		if (pipe_ndx & ndx) {
@@ -538,7 +527,10 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 
 	pr_debug("unset ndx=%x\n", ndx);
 
-	ret = mdss_mdp_overlay_release(mfd, ndx);
+	if (ndx & MDSS_MDP_ROT_SESSION_MASK)
+		ret = mdss_mdp_rotator_release(ndx);
+	else
+		ret = mdss_mdp_overlay_release(mfd, ndx);
 
 	mutex_unlock(&mfd->ov_lock);
 
@@ -593,6 +585,12 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_data src_data, dst_data;
 	int ret;
 
+	rot = mdss_mdp_rotator_session_get(req->id);
+	if (!rot) {
+		pr_err("invalid session id=%x\n", req->id);
+		return -ENOENT;
+	}
+
 	ret = mdss_mdp_overlay_get_buf(mfd, &src_data, &req->data, 1);
 	if (ret) {
 		pr_err("src_data pmem error\n");
@@ -602,13 +600,6 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 	ret = mdss_mdp_overlay_get_buf(mfd, &dst_data, &req->dst_data, 1);
 	if (ret) {
 		pr_err("dst_data pmem error\n");
-		goto rotate_done;
-	}
-
-	rot = mdss_mdp_rotator_session_get(req->id);
-	if (!rot) {
-		pr_err("invalid session id=%x\n", req->id);
-		ret = -ENODEV;
 		goto rotate_done;
 	}
 
@@ -1127,14 +1118,28 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 
 static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 {
-	return mdss_mdp_ctl_on(mfd);
+	int rc;
+
+	rc = mdss_mdp_ctl_on(mfd);
+	if (rc == 0)
+		atomic_inc(&ov_active_panels);
+
+	return rc;
 }
 
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 {
+	int rc;
+
 	mdss_mdp_overlay_release_all(mfd);
 
-	return mdss_mdp_ctl_off(mfd);
+	rc = mdss_mdp_ctl_off(mfd);
+	if (rc == 0) {
+		if (atomic_dec_return(&ov_active_panels) == 0)
+			mdss_mdp_rotator_release_all();
+	}
+
+	return rc;
 }
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
