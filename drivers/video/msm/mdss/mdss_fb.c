@@ -131,8 +131,8 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 	/* This maps android backlight level 0 to 255 into
 	   driver backlight level 0 to bl_max with rounding */
-	bl_lvl = (2 * value * mfd->panel_info.bl_max + MAX_BACKLIGHT_BRIGHTNESS)
-		 /(2 * MAX_BACKLIGHT_BRIGHTNESS);
+	bl_lvl = (2 * value * mfd->panel_info->bl_max +
+		  MAX_BACKLIGHT_BRIGHTNESS) / (2 * MAX_BACKLIGHT_BRIGHTNESS);
 
 	if (!bl_lvl && value)
 		bl_lvl = 1;
@@ -155,7 +155,7 @@ static ssize_t mdss_fb_get_type(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 
-	switch (mfd->panel_info.type) {
+	switch (mfd->panel.type) {
 	case NO_PANEL:
 		ret = snprintf(buf, PAGE_SIZE, "no panel\n");
 		break;
@@ -239,13 +239,13 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd = (struct msm_fb_data_type *)fbi->par;
 	mfd->key = MFD_KEY;
 	mfd->fbi = fbi;
-	mfd->panel_info = pdata->panel_info;
+	mfd->panel_info = &pdata->panel_info;
 	mfd->panel.type = pdata->panel_info.type;
 	mfd->panel.id = mfd->index;
 	mfd->fb_page = MDSS_FB_NUM;
 	mfd->index = fbi_list_index;
 	mfd->mdp_fb_page_protection = MDP_FB_PAGE_PROTECTION_WRITECOMBINE;
-	mfd->panel_info.frame_count = 0;
+
 	mfd->bl_level = 0;
 	mfd->bl_scale = 1024;
 	mfd->bl_min_lvl = 30;
@@ -262,14 +262,6 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	rc = mdss_fb_register(mfd);
 	if (rc)
 		return rc;
-
-	/*
-	 * todo: Currently mfd keeps a full copy of panel data rather than
-	 *       pointer to it.
-	 *       Following line shares the fbi with panel drivers for their
-	 *       sysfs or any external communications with the panel driver.
-	 */
-	pdata->panel_info.fbi = fbi;
 
 	rc = pm_runtime_set_active(mfd->fbi->dev);
 	if (rc < 0)
@@ -675,9 +667,9 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 	void *virt = NULL;
 	unsigned long phys = 0;
 	size_t size;
+	u32 yres = mfd->fbi->var.yres_virtual;
 
-	size = PAGE_ALIGN(mfd->fbi->fix.line_length * mfd->panel_info.yres);
-	size *= mfd->fb_page;
+	size = PAGE_ALIGN(mfd->fbi->fix.line_length * yres);
 
 	if (mfd->index == 0) {
 		int dom;
@@ -710,7 +702,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 {
 	int ret = -ENODEV;
 	int bpp;
-	struct mdss_panel_info *panel_info = &mfd->panel_info;
+	struct mdss_panel_info *panel_info = mfd->panel_info;
 	struct fb_info *fbi = mfd->fbi;
 	struct fb_fix_screeninfo *fix;
 	struct fb_var_screeninfo *var;
@@ -1009,8 +1001,6 @@ static int mdss_fb_pan_display(struct fb_var_screeninfo *var,
 				mfd->panel.type);
 
 	mdss_fb_update_backlight(mfd);
-
-	++mfd->panel_info.frame_count;
 	return 0;
 }
 
@@ -1106,8 +1096,8 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 	if ((var->xres == 0) || (var->yres == 0))
 		return -EINVAL;
 
-	if ((var->xres > mfd->panel_info.xres) ||
-	    (var->yres > mfd->panel_info.yres))
+	if ((var->xres > mfd->panel_info->xres) ||
+	    (var->yres > mfd->panel_info->yres))
 		return -EINVAL;
 
 	if (var->xoffset > (var->xres_virtual - var->xres))

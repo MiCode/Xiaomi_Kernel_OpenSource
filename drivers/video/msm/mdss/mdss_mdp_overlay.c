@@ -682,7 +682,7 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 	} else {
 		ret = mdss_mdp_overlay_queue(mfd, req);
 
-		if ((ret == 0) && (mfd->panel_info.type == WRITEBACK_PANEL)) {
+		if ((ret == 0) && (mfd->panel.type == WRITEBACK_PANEL)) {
 			mutex_unlock(&mfd->ov_lock);
 			ret = mdss_mdp_overlay_kickoff(mfd->ctl);
 			return ret;
@@ -1167,7 +1167,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		ret = mdss_mdp_overlay_kickoff(mfd->ctl);
 		break;
 	default:
-		if (mfd->panel_info.type == WRITEBACK_PANEL)
+		if (mfd->panel.type == WRITEBACK_PANEL)
 			ret = mdss_mdp_wb_ioctl_handler(mfd, cmd, argp);
 		break;
 	}
@@ -1215,7 +1215,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mfd->dma_fnc = mdss_mdp_overlay_pan_display;
 	mfd->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
 
-	if (mfd->panel_info.type == WRITEBACK_PANEL)
+	if (mfd->panel.type == WRITEBACK_PANEL)
 		mfd->kickoff_fnc = mdss_mdp_wb_kickoff;
 
 	INIT_LIST_HEAD(&mfd->pipes_used);

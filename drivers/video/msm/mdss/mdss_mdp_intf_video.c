@@ -337,17 +337,13 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 {
-	struct msm_fb_data_type *mfd;
 	struct mdss_panel_info *pinfo;
 	struct mdss_mdp_video_ctx *ctx;
 	struct mdss_mdp_mixer *mixer;
 	struct intf_timing_params itp = {0};
-	struct fb_info *fbi;
 	int i;
 
-	mfd = ctl->mfd;
-	fbi = mfd->fbi;
-	pinfo = &mfd->panel_info;
+	pinfo = &ctl->panel_data->panel_info;
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 
 	if (!mixer) {
