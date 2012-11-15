@@ -77,6 +77,9 @@
 
 	qcom,hdmi_tx@fd922100 {
 		status = "ok";
+
+		qcom,hdmi-tx-mux-sel = <&pm8841_mpps 3 0>;
+		qcom,hdmi-tx-mux-en = <&pm8841_mpps 4 0>;
 	};
 
 	drv2667_vreg: drv2667_vdd_vreg {

@@ -21,6 +21,13 @@ Required properties:
 
 - <compatible-name>-<gpio-name>: specifies gpios assigned for the device.
 
+Optional properties:
+- qcom,hdmi-tx-mux-sel: gpio required to toggle HDMI output between
+  docking station, type A, and liquid device, type D, ports. Required
+  property for liquid devices.
+- qcom,hdmi-tx-mux-en: gpio required to enable mux for HDMI output
+  on liquid devices. Required property for liquid devices.
+
 Example:
 	qcom,hdmi_tx@fd922100 {
 		cell-index = <0>;
