@@ -32,6 +32,8 @@
 #include <linux/wait.h>
 #include <linux/mm.h>
 #include <asm/uaccess.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include "dmxdev.h"
 
 static int debug;
@@ -3164,6 +3166,73 @@ static struct dvb_device dvbdev_dvr = {
 	.fops = &dvb_dvr_fops
 };
 
+
+/**
+ * debugfs service to print active filters information.
+ */
+static int dvb_dmxdev_dbgfs_print(struct seq_file *s, void *p)
+{
+	int i;
+	struct dmxdev *dmxdev = s->private;
+	struct dmxdev_filter *filter;
+	int active_count = 0;
+	struct dmx_buffer_status buffer_status;
+	const char *pes_feeds[] = {"DEC", "PES", "DVR", "REC"};
+
+	if (!dmxdev)
+		return 0;
+
+	for (i = 0; i < dmxdev->filternum; i++) {
+		filter = &dmxdev->filter[i];
+		if (filter->state >= DMXDEV_STATE_GO) {
+			active_count++;
+
+			seq_printf(s, "filter_%02d - ", i);
+
+		    if (filter->type == DMXDEV_TYPE_SEC) {
+				seq_printf(s, "type: SEC, ");
+				seq_printf(s, "PID %04d ",
+						filter->params.sec.pid);
+		    } else {
+				seq_printf(s, "type: %s, ",
+					pes_feeds[filter->params.pes.output]);
+				seq_printf(s, "PID: %04d ",
+						filter->params.pes.pid);
+		    }
+
+			if (0 == dvb_dmxdev_get_buffer_status(
+						filter, &buffer_status)) {
+				seq_printf(s, "buffer size: %08d, ",
+					buffer_status.size);
+				seq_printf(s, "buffer fullness: %08d\n",
+					buffer_status.fullness);
+				seq_printf(s, "buffer error: %08d\n",
+					buffer_status.error);
+			}
+		}
+	}
+
+	if (!active_count)
+		seq_printf(s, "No active filters\n");
+
+	seq_printf(s, "\n");
+
+	return 0;
+}
+
+static int dvb_dmxdev_dbgfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dvb_dmxdev_dbgfs_print, inode->i_private);
+}
+
+static const struct file_operations dbgfs_filters_fops = {
+	.open = dvb_dmxdev_dbgfs_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.owner = THIS_MODULE,
+};
+
 int dvb_dmxdev_init(struct dmxdev *dmxdev, struct dvb_adapter *dvb_adapter)
 {
 	int i;
@@ -3205,6 +3274,11 @@ int dvb_dmxdev_init(struct dmxdev *dmxdev, struct dvb_adapter *dvb_adapter)
 
 	INIT_WORK(&dmxdev->dvr_input_work,
 			  dvr_input_work_func);
+
+	if (dmxdev->demux->debugfs_demux_dir)
+		debugfs_create_file("filters", S_IRUGO,
+			dmxdev->demux->debugfs_demux_dir, dmxdev,
+			&dbgfs_filters_fops);
 
 	return 0;
 }

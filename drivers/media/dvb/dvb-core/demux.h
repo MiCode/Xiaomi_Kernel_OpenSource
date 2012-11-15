@@ -336,6 +336,8 @@ struct dmx_demux {
 	void* priv;                  /* Pointer to private data of the API client */
 	struct data_buffer dvr_input; /* DVR input buffer */
 
+	struct dentry *debugfs_demux_dir; /* debugfs dir */
+
 	int (*open) (struct dmx_demux* demux);
 	int (*close) (struct dmx_demux* demux);
 	int (*write) (struct dmx_demux *demux, const char *buf, size_t count);

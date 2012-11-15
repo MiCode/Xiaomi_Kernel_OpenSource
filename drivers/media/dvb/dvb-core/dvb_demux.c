@@ -1732,19 +1732,20 @@ int dvb_dmx_init(struct dvb_demux *dvbdemux)
 			"demux%d",
 			dvb_demux_index++);
 
-	dvbdemux->debugfs_demux_dir = debugfs_create_dir(dvbdemux->alias, NULL);
+	dvbdemux->dmx.debugfs_demux_dir =
+		debugfs_create_dir(dvbdemux->alias, NULL);
 
-	if (dvbdemux->debugfs_demux_dir != NULL) {
+	if (dvbdemux->dmx.debugfs_demux_dir != NULL) {
 		debugfs_create_u32(
 			"total_processing_time",
 			S_IRUGO|S_IWUGO,
-			dvbdemux->debugfs_demux_dir,
+			dvbdemux->dmx.debugfs_demux_dir,
 			&dvbdemux->total_process_time);
 
 		debugfs_create_u32(
 			"total_crc_time",
 			S_IRUGO|S_IWUGO,
-			dvbdemux->debugfs_demux_dir,
+			dvbdemux->dmx.debugfs_demux_dir,
 			&dvbdemux->total_crc_time);
 	}
 
@@ -1817,9 +1818,10 @@ EXPORT_SYMBOL(dvb_dmx_init);
 
 void dvb_dmx_release(struct dvb_demux *dvbdemux)
 {
-	if (dvbdemux->debugfs_demux_dir != NULL)
-		debugfs_remove_recursive(dvbdemux->debugfs_demux_dir);
+	if (dvbdemux->dmx.debugfs_demux_dir != NULL)
+		debugfs_remove_recursive(dvbdemux->dmx.debugfs_demux_dir);
 
+	dvb_demux_index--;
 	vfree(dvbdemux->cnt_storage);
 	vfree(dvbdemux->filter);
 	vfree(dvbdemux->feed);
