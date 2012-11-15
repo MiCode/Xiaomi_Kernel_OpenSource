@@ -62,7 +62,8 @@ do { \
 #define DDL_GET_ALIGNED_VITUAL(x)   ((x).align_virtual_addr)
 #define DDL_KILO_BYTE(x)   ((x)*1024)
 #define DDL_MEGA_BYTE(x)   ((x)*1024*1024)
-#define DDL_FRAMERATE_SCALE(x)            ((x) * 1000)
+#define DDL_FRAMERATE_SCALE_FACTOR      (1000)
+#define DDL_FRAMERATE_SCALE(x)          ((x) * DDL_FRAMERATE_SCALE_FACTOR)
 
 #define DDL_MIN(x, y)  ((x < y) ? x : y)
 #define DDL_MAX(x, y)  ((x > y) ? x : y)

@@ -56,6 +56,8 @@
 #define VCD_I_VOP_TIMING_CONSTANT_DELTA (VCD_START_BASE + 0x28)
 #define VCD_I_SET_TURBO_CLK (VCD_START_BASE + 0x29)
 #define VCD_I_ENABLE_DELIMITER_FLAG (VCD_START_BASE + 0x2A)
+#define VCD_I_ENABLE_VUI_TIMING_INFO (VCD_START_BASE + 0x2B)
+
 
 #define VCD_START_REQ      (VCD_START_BASE + 0x1000)
 #define VCD_I_REQ_IFRAME   (VCD_START_REQ + 0x1)
@@ -376,6 +378,10 @@ struct vcd_property_sps_pps_for_idr_enable {
 
 struct vcd_property_avc_delimiter_enable {
 	u32 avc_delimiter_enable_flag;
+};
+
+struct vcd_property_vui_timing_info_enable {
+	u32 vui_timing_info;
 };
 
 #endif

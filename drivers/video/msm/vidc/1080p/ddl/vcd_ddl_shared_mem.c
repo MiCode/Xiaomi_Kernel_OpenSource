@@ -83,6 +83,8 @@
 #define VIDC_SM_ENC_EXT_CTRL_ADDR                    0x0028
 #define VIDC_SM_ENC_EXT_CTRL_VBV_BUFFER_SIZE_BMSK    0xffff0000
 #define VIDC_SM_ENC_EXT_CTRL_VBV_BUFFER_SIZE_SHFT    16
+#define VIDC_SM_ENC_EXT_CTRL_TIMING_INFO_EN_BMSK     0x00004000
+#define VIDC_SM_ENC_EXT_CTRL_TIMING_INFO_EN_SHFT     14
 #define VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_BMSK    0x00000800
 #define VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_SHFT    11
 #define VIDC_SM_ENC_EXT_CTRL_H263_CPCFC_ENABLE_BMSK  0x80
@@ -176,6 +178,13 @@
 #define VIDC_SM_ENC_NUM_OF_SLICE_COMP_ADDR                        0x01d0
 #define VIDC_SM_ENC_NUM_OF_SLICE_COMP_VALUE_BMSK                  0xffffffff
 #define VIDC_SM_ENC_NUM_OF_SLICE_COMP_VALUE_SHFT                  0
+#define VIDC_SM_ENC_NUM_UNITS_IN_TICK_ADDR                        0x01dc
+#define VIDC_SM_ENC_NUM_UNITS_IN_TICK_VALUE_BMSK                  0xffffffff
+#define VIDC_SM_ENC_NUM_UNITS_IN_TICK_VALUE_SHFT                  0
+#define VIDC_SM_ENC_TIME_SCALE_ADDR                               0x01e0
+#define VIDC_SM_ENC_TIME_SCALE_VALUE_BMSK                         0xffffffff
+#define VIDC_SM_ENC_TIME_SCALE_VALUE_SHFT                         0
+
 
 #define VIDC_SM_ALLOCATED_LUMA_DPB_SIZE_ADDR               0x0064
 #define VIDC_SM_ALLOCATED_CHROMA_DPB_SIZE_ADDR             0x0068
@@ -449,7 +458,8 @@ void vidc_sm_set_extended_encoder_control(struct ddl_buf_addr
 	enum VIDC_SM_frame_skip frame_skip_mode,
 	u32 seq_hdr_in_band, u32 vbv_buffer_size, u32 cpcfc_enable,
 	u32 sps_pps_control, u32 closed_gop_enable,
-	u32 au_delim_enable)
+	u32 au_delim_enable,
+	u32 vui_timing_info_enable)
 {
 	u32 enc_ctrl;
 	enc_ctrl = VIDC_SETFIELD((hec_enable) ? 1 : 0,
@@ -475,7 +485,10 @@ void vidc_sm_set_extended_encoder_control(struct ddl_buf_addr
 			VIDC_SM_ENC_EXT_CTRL_CLOSED_GOP_ENABLE_BMSK) |
 			VIDC_SETFIELD((au_delim_enable) ? 1 : 0,
 			VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_SHFT,
-			VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_BMSK);
+			VIDC_SM_ENC_EXT_CTRL_AU_DELIMITER_EN_BMSK) |
+			VIDC_SETFIELD((vui_timing_info_enable) ? 1 : 0,
+			VIDC_SM_ENC_EXT_CTRL_TIMING_INFO_EN_SHFT,
+			VIDC_SM_ENC_EXT_CTRL_TIMING_INFO_EN_BMSK);
 
 	DDL_MEM_WRITE_32(shared_mem, VIDC_SM_ENC_EXT_CTRL_ADDR, enc_ctrl);
 }
@@ -1138,4 +1151,16 @@ void vidc_sm_set_mp2datadumpbuffer(struct ddl_buf_addr *shared_mem,
 	DDL_MEM_WRITE_32(shared_mem,
 			VIDC_SM_MP2_DATA_DUMP_BUFFER_SIZE_ADDR,
 			mp2datadumpsize);
+}
+
+void vidc_sm_set_h264_encoder_timing_info(struct ddl_buf_addr *shared_mem,
+	u32 num_units_in_tick, u32 time_scale)
+{
+	DDL_MEM_WRITE_32(shared_mem,
+			VIDC_SM_ENC_NUM_UNITS_IN_TICK_ADDR,
+			num_units_in_tick);
+
+	DDL_MEM_WRITE_32(shared_mem,
+			VIDC_SM_ENC_TIME_SCALE_ADDR,
+			time_scale);
 }
