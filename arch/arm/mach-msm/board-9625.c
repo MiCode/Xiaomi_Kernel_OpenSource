@@ -101,8 +101,6 @@ static const char *msm9625_dt_match[] __initconst = {
 static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-lsuart-v14", 0xF991F000, \
 			"msm_serial_hsl.0", NULL),
-	OF_DEV_AUXDATA("qcom,spi-qup-v2", 0xF9928000, \
-			"spi_qsd.1", NULL),
 	OF_DEV_AUXDATA("qcom,spmi-pmic-arb", 0xFC4C0000, \
 			"spmi-pmic-arb.0", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
