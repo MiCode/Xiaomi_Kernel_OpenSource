@@ -273,7 +273,9 @@ struct diagchar_dev {
 	struct diag_request *usb_read_mdm_ptr;
 	struct diag_request *write_ptr_mdm;
 #endif
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+	/* common for all bridges */
+	struct work_struct diag_disconnect_work;
 	/* SGLTE variables */
 	int lcid;
 	unsigned char *buf_in_smux;
@@ -290,18 +292,6 @@ struct diagchar_dev {
 	int in_busy_hsic_read_on_device;
 	int in_busy_hsic_write;
 	struct work_struct diag_read_hsic_work;
-	struct mutex bridge_mutex;
-	/* USB MDM channel variables */
-	int usb_mdm_connected;
-	int read_len_mdm;
-	int write_len_mdm;
-	unsigned char *usb_buf_mdm_out;
-	struct usb_diag_ch *mdm_ch;
-	struct workqueue_struct *diag_bridge_wq;
-	struct work_struct diag_read_mdm_work;
-	struct work_struct diag_disconnect_work;
-	struct work_struct diag_usb_read_complete_work;
-	struct diag_request *usb_read_mdm_ptr;
 	int count_hsic_pool;
 	int count_hsic_write_pool;
 	unsigned int poolsize_hsic;
@@ -316,5 +306,6 @@ struct diagchar_dev {
 #endif
 };
 
+extern struct diag_bridge_dev *diag_bridge;
 extern struct diagchar_dev *driver;
 #endif
