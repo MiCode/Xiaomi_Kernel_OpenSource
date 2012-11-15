@@ -477,29 +477,29 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 	mpq_demux->hw_notification_size = 0;
 	mpq_demux->decoder_tsp_drop_count = 0;
 
-	if (mpq_demux->demux.debugfs_demux_dir != NULL) {
+	if (mpq_demux->demux.dmx.debugfs_demux_dir != NULL) {
 		debugfs_create_u32(
 			"hw_notification_rate",
 			S_IRUGO|S_IWUGO,
-			mpq_demux->demux.debugfs_demux_dir,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
 			&mpq_demux->hw_notification_rate);
 
 		debugfs_create_u32(
 			"hw_notification_count",
 			S_IRUGO|S_IWUGO,
-			mpq_demux->demux.debugfs_demux_dir,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
 			&mpq_demux->hw_notification_count);
 
 		debugfs_create_u32(
 			"hw_notification_size",
 			S_IRUGO|S_IWUGO,
-			mpq_demux->demux.debugfs_demux_dir,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
 			&mpq_demux->hw_notification_size);
 
 		debugfs_create_u32(
 			"decoder_tsp_drop_count",
 			S_IRUGO|S_IWUGO,
-			mpq_demux->demux.debugfs_demux_dir,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
 			&mpq_demux->decoder_tsp_drop_count);
 	}
 }

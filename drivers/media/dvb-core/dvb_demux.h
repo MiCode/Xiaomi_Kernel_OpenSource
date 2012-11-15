@@ -174,7 +174,6 @@ struct dvb_demux {
 
 	u32 total_process_time;
 	u32 total_crc_time;
-	struct dentry *debugfs_demux_dir;
 };
 
 int dvb_dmx_init(struct dvb_demux *dvbdemux);
