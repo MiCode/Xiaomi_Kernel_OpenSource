@@ -269,6 +269,12 @@
 		qcom,sensors = <5>;
 		qcom,slope = <3200 3200 3200 3200 3200>;
 	};
+
+	qcom,msm-rng@f9bff000 {
+                compatible = "qcom,msm-rng";
+                reg = <0xf9bff000 0x200>;
+                qcom,msm-rng-iface-clk;
+        };
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
@@ -329,11 +335,5 @@
 		qcom,scale-function = <4>;
 		qcom,hw-settle-time = <0>;
 		qcom,fast-avg-setup = <0>;
-	};
-
-	qcom,msm-rng@f9bff000 {
-		compatible = "qcom,msm-rng";
-		reg = <0xf9bff000 0x200>;
-		qcom,msm-rng-iface-clk;
 	};
 };
