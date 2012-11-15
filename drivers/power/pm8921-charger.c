@@ -1837,7 +1837,7 @@ static void __pm8921_charger_vbus_draw(unsigned int mA)
 		return;
 	}
 
-	if (mA >= 0 && mA <= 2) {
+	if (mA <= 2) {
 		usb_chg_current = 0;
 		rc = pm_chg_iusbmax_set(the_chip, 0);
 		if (rc) {
