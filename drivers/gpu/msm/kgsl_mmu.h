@@ -13,13 +13,14 @@
 #ifndef __KGSL_MMU_H
 #define __KGSL_MMU_H
 
+#include <mach/iommu.h>
+
 /*
- * These defines control the split between ttbr1 and ttbr0 pagetables of IOMMU
- * and what ranges of memory we map to them
+ * These defines control the address range for allocations that
+ * are mapped into all pagetables.
  */
 #define KGSL_IOMMU_GLOBAL_MEM_BASE	0xC0000000
 #define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_4M
-#define KGSL_IOMMU_TTBR1_SPLIT		2
 
 #define KGSL_MMU_ALIGN_SHIFT    13
 #define KGSL_MMU_ALIGN_MASK     (~((1 << KGSL_MMU_ALIGN_SHIFT) - 1))
@@ -148,6 +149,10 @@ struct kgsl_mmu_ops {
 	unsigned int (*mmu_get_pt_base_addr)
 			(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt);
+	int (*mmu_setup_pt) (struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pt);
+	void (*mmu_cleanup_pt) (struct kgsl_mmu *mmu,
+			struct kgsl_pagetable *pt);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -209,7 +214,6 @@ void *kgsl_mmu_ptpool_init(int entries);
 int kgsl_mmu_enabled(void);
 void kgsl_mmu_set_mmutype(char *mmutype);
 enum kgsl_mmutype kgsl_mmu_get_mmutype(void);
-unsigned int kgsl_mmu_get_ptsize(void);
 int kgsl_mmu_gpuaddr_in_range(unsigned int gpuaddr);
 
 /*
@@ -319,6 +323,60 @@ static inline int kgsl_mmu_get_num_iommu_units(struct kgsl_mmu *mmu)
 		return mmu->mmu_ops->mmu_get_num_iommu_units(mmu);
 	else
 		return 0;
+}
+
+/*
+ * kgsl_mmu_is_perprocess() - Runtime check for per-process
+ * pagetables.
+ *
+ * Returns non-zero if per-process pagetables are enabled,
+ * 0 if not.
+ */
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+static inline int kgsl_mmu_is_perprocess(void)
+{
+
+	/* We presently do not support per-process for IOMMU-v2 */
+	return (kgsl_mmu_get_mmutype() != KGSL_MMU_TYPE_IOMMU)
+		|| msm_soc_version_supports_iommu_v1();
+}
+#else
+static inline int kgsl_mmu_is_perprocess(void)
+{
+	return 0;
+}
+#endif
+
+/*
+ * kgsl_mmu_base_addr() - Get gpu virtual address base.
+ *
+ * Returns the start address of the gpu
+ * virtual address space.
+ */
+static inline unsigned int kgsl_mmu_get_base_addr(void)
+{
+	return KGSL_PAGETABLE_BASE;
+}
+
+/*
+ * kgsl_mmu_get_ptsize() - Get gpu pagetable size
+ *
+ * Returns the usable size of the gpu address space.
+ */
+static inline unsigned int kgsl_mmu_get_ptsize(void)
+{
+	/*
+	 * For IOMMU, we could do up to 4G virtual range if we wanted to, but
+	 * it makes more sense to return a smaller range and leave the rest of
+	 * the virtual range for future improvements
+	 */
+	enum kgsl_mmutype mmu_type = kgsl_mmu_get_mmutype();
+
+	if (KGSL_MMU_TYPE_GPU == mmu_type)
+		return CONFIG_MSM_KGSL_PAGE_TABLE_SIZE;
+	else if (KGSL_MMU_TYPE_IOMMU == mmu_type)
+		return SZ_2G;
+	return 0;
 }
 
 #endif /* __KGSL_MMU_H */
