@@ -665,8 +665,6 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 
 	pr_debug("ctl_num=%d\n", mfd->ctl->num);
 
-	mdss_mdp_overlay_release_all(mfd);
-
 	mutex_lock(&ctl->lock);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
@@ -920,13 +918,16 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 		return -ENODEV;
 	}
 
-	if (!ctl->power_on)
-		return 0;
-
 	pr_debug("commit ctl=%d play_cnt=%d\n", ctl->num, ctl->play_cnt);
 
-	if (mutex_lock_interruptible(&ctl->lock))
-		return -EINTR;
+	ret = mutex_lock_interruptible(&ctl->lock);
+	if (ret)
+		return ret;
+
+	if (!ctl->power_on) {
+		mutex_unlock(&ctl->lock);
+		return 0;
+	}
 
 	mixer1_changed = (ctl->mixer_left && ctl->mixer_left->params_changed);
 	mixer2_changed = (ctl->mixer_right && ctl->mixer_right->params_changed);
