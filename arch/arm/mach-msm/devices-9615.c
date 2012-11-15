@@ -562,6 +562,21 @@ struct platform_device msm_voice = {
 	.id	= -1,
 };
 
+struct platform_device msm_cpudai_incall_music_rx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x8005,
+};
+
+struct platform_device msm_cpudai_incall_record_rx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x8004,
+};
+
+struct platform_device msm_cpudai_incall_record_tx = {
+	.name   = "msm-dai-q6",
+	.id     = 0x8003,
+};
+
 struct platform_device msm_i2s_cpudai0 = {
 	.name   = "msm-dai-q6",
 	.id     = PRIMARY_I2S_RX,
