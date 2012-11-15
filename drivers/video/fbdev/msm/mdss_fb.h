@@ -55,7 +55,7 @@ struct msm_fb_data_type {
 	u32 fb_page;
 
 	struct panel_id panel;
-	struct mdss_panel_info panel_info;
+	struct mdss_panel_info *panel_info;
 
 	u32 dest;
 	struct fb_info *fbi;
