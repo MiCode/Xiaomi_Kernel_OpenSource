@@ -1369,9 +1369,12 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	else
 		line = pdev->id;
 
-	/* Use line number from device tree if present */
-	if (pdev->dev.of_node)
-		of_property_read_u32(pdev->dev.of_node, "cell-index", &line);
+	/* Use line number from device tree alias if present */
+	if (pdev->dev.of_node) {
+		ret = of_alias_get_id(pdev->dev.of_node, "serial");
+		if (ret >= 0)
+			line = ret;
+	}
 
 	if (unlikely(line < 0 || line >= UART_NR))
 		return -ENXIO;
