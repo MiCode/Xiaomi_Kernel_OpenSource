@@ -288,7 +288,7 @@ static ssize_t mpu3050_attr_set_polling_rate(struct device *dev,
 
 static struct device_attribute attributes[] = {
 
-	__ATTR(pollrate_ms, 0666,
+	__ATTR(pollrate_ms, 0664,
 		mpu3050_attr_get_polling_rate,
 		mpu3050_attr_set_polling_rate),
 };
