@@ -1,6 +1,6 @@
 /* include/asm-arm/arch-msm/usbdiag.h
  *
- * Copyright (c) 2008-2010, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2010, 2012, The Linux Foundation. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -23,6 +23,7 @@
 
 #define DIAG_LEGACY		"diag"
 #define DIAG_MDM		"diag_mdm"
+#define DIAG_QSC		"diag_qsc"
 
 #define USB_DIAG_CONNECT	0
 #define USB_DIAG_DISCONNECT	1

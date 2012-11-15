@@ -32,13 +32,14 @@
 #ifdef CONFIG_DIAG_SDIO_PIPE
 #include "diagfwd_sdio.h"
 #endif
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
 #endif
 #include <linux/timer.h>
 #include "diag_debugfs.h"
 #include "diag_masks.h"
+#include "diagfwd_bridge.h"
 
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
@@ -127,7 +128,7 @@ void diag_drain_work_fn(struct work_struct *work)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diag_clear_hsic_tbl(void)
 {
 	int i;
@@ -278,7 +279,7 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	if (driver->logging_process_id == current->tgid) {
 		driver->logging_mode = USB_MODE;
 		diagfwd_connect();
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		diag_clear_hsic_tbl();
 		diagfwd_cancel_hsic();
 		diagfwd_connect_bridge(0);
@@ -708,7 +709,7 @@ long diagchar_ioctl(struct file *filp,
 #ifdef CONFIG_DIAG_SDIO_PIPE
 			driver->in_busy_sdio = 1;
 #endif
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 			diagfwd_disconnect_bridge(0);
 			diag_clear_hsic_tbl();
 #endif
@@ -737,7 +738,7 @@ long diagchar_ioctl(struct file *filp,
 				queue_work(driver->diag_sdio_wq,
 					&(driver->diag_read_sdio_work));
 #endif
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 			diagfwd_connect_bridge(0);
 #endif
 		}
@@ -745,13 +746,13 @@ long diagchar_ioctl(struct file *filp,
 		else if (temp == USB_MODE && driver->logging_mode
 							 == NO_LOGGING_MODE) {
 			diagfwd_disconnect();
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 			diagfwd_disconnect_bridge(0);
 #endif
 		} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 								== USB_MODE) {
 			diagfwd_connect();
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 			diagfwd_connect_bridge(0);
 #endif
 		} else if (temp == USB_MODE && driver->logging_mode
@@ -781,14 +782,14 @@ long diagchar_ioctl(struct file *filp,
 				queue_work(driver->diag_sdio_wq,
 					&(driver->diag_read_sdio_work));
 #endif
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 			diagfwd_cancel_hsic();
 			diagfwd_connect_bridge(0);
 #endif
 		} else if (temp == MEMORY_DEVICE_MODE &&
 				 driver->logging_mode == USB_MODE) {
 			diagfwd_connect();
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 			diag_clear_hsic_tbl();
 			diagfwd_cancel_hsic();
 			diagfwd_connect_bridge(0);
@@ -814,7 +815,7 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 	struct diag_dci_client_tbl *entry;
 	int index = -1, i = 0, ret = 0;
 	int num_data = 0, data_type;
-#if defined(CONFIG_DIAG_SDIO_PIPE) || defined(CONFIG_DIAG_BRIDGE_CODE)
+#if defined(CONFIG_DIAG_SDIO_PIPE) || defined(CONFIG_DIAGFWD_BRIDGE_CODE)
 	int mdm_token = MDM_TOKEN;
 #endif
 
@@ -833,7 +834,7 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 
 	if ((driver->data_ready[index] & USER_SPACE_DATA_TYPE) && (driver->
 					logging_mode == MEMORY_DEVICE_MODE)) {
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		unsigned long spin_lock_flags;
 		struct diag_write_device hsic_buf_tbl[NUM_HSIC_BUF_TBL_ENTRIES];
 #endif
@@ -969,7 +970,7 @@ drop:
 			driver->in_busy_sdio = 0;
 		}
 #endif
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		spin_lock_irqsave(&driver->hsic_spinlock, spin_lock_flags);
 		for (i = 0; i < driver->poolsize_hsic_write; i++) {
 			hsic_buf_tbl[i].buf = driver->hsic_buf_tbl[i].buf;
@@ -1202,7 +1203,8 @@ static int diagchar_write(struct file *file, const char __user *buf,
 
 		/* Check masks for On-Device logging */
 		if (driver->mask_check) {
-			if (!mask_request_validate(driver->user_space_data)) {
+			if (!mask_request_validate(driver->user_space_data +
+							 token_offset)) {
 				pr_alert("diag: mask request Invalid\n");
 				return -EFAULT;
 			}
@@ -1227,7 +1229,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 			}
 		}
 #endif
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		/* send masks to 9k too */
 		if (driver->hsic_ch && (payload_size > 0) && remote_data) {
 			/* wait sending mask updates if HSIC ch not ready */
@@ -1533,6 +1535,13 @@ static int diagchar_cleanup(void)
 	return 0;
 }
 
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static void diag_disconnect_work_fn(struct work_struct *w)
+{
+	diagfwd_disconnect_bridge(1);
+}
+#endif
+
 #ifdef CONFIG_DIAG_SDIO_PIPE
 void diag_sdio_fn(int type)
 {
@@ -1547,16 +1556,14 @@ void diag_sdio_fn(int type)
 inline void diag_sdio_fn(int type) {}
 #endif
 
-#ifdef CONFIG_DIAG_BRIDGE_CODE
-void diag_bridge_fn(int type)
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+void diagfwd_bridge_fn(int type)
 {
-	if (type == INIT)
-		diagfwd_bridge_init();
-	else if (type == EXIT)
+	if (type == EXIT)
 		diagfwd_bridge_exit();
 }
 #else
-inline void diag_bridge_fn(int type) {}
+inline void diagfwd_bridge_fn(int type) { }
 #endif
 
 static int __init diagchar_init(void)
@@ -1566,6 +1573,12 @@ static int __init diagchar_init(void)
 
 	pr_debug("diagfwd initializing ..\n");
 	driver = kzalloc(sizeof(struct diagchar_dev) + 5, GFP_KERNEL);
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+	diag_bridge = kzalloc(MAX_BRIDGES * sizeof(struct diag_bridge_dev),
+								 GFP_KERNEL);
+	if (!diag_bridge)
+		pr_warning("diag: could not allocate memory for bridge\n");
+#endif
 
 	if (driver) {
 		driver->used = 0;
@@ -1610,10 +1623,16 @@ static int __init diagchar_init(void)
 		diag_debugfs_init();
 		diag_masks_init();
 		diagfwd_init();
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+		diagfwd_bridge_init(HSIC);
+		diagfwd_bridge_init(SMUX);
+		INIT_WORK(&(driver->diag_disconnect_work),
+						 diag_disconnect_work_fn);
+#endif
 		diagfwd_cntl_init();
 		driver->dci_state = diag_dci_init();
 		diag_sdio_fn(INIT);
-		diag_bridge_fn(INIT);
+
 		pr_debug("diagchar initializing ..\n");
 		driver->num = 1;
 		driver->name = ((void *)driver) + sizeof(struct diagchar_dev);
@@ -1648,7 +1667,7 @@ fail:
 	diagfwd_cntl_exit();
 	diag_masks_exit();
 	diag_sdio_fn(EXIT);
-	diag_bridge_fn(EXIT);
+	diagfwd_bridge_fn(EXIT);
 	return -1;
 }
 
@@ -1662,7 +1681,7 @@ static void diagchar_exit(void)
 	diagfwd_cntl_exit();
 	diag_masks_exit();
 	diag_sdio_fn(EXIT);
-	diag_bridge_fn(EXIT);
+	diagfwd_bridge_fn(EXIT);
 	diag_debugfs_cleanup();
 	diagchar_cleanup();
 	printk(KERN_INFO "done diagchar exit\n");

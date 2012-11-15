@@ -51,7 +51,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type)
 				driver->diag_write_struct_pool, GFP_ATOMIC);
 			}
 		}
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	} else if (pool_type == POOL_TYPE_HSIC) {
 		if (driver->diag_hsic_pool) {
 			if (driver->count_hsic_pool < driver->poolsize_hsic) {
@@ -105,7 +105,7 @@ void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 		} else if (driver->ref_count == 0 && pool_type == POOL_TYPE_ALL)
 			printk(KERN_ALERT "Unable to destroy STRUCT mempool");
 	}
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	if (driver->diag_hsic_pool && (driver->hsic_inited == 0)) {
 		if (driver->count_hsic_pool == 0) {
 			mempool_destroy(driver->diag_hdlc_pool);
@@ -156,7 +156,7 @@ void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type)
 			pr_err("diag: Attempt to free up DIAG driver "
 			   "USB structure mempool which is already free %d ",
 				    driver->count_write_struct_pool);
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	} else if (pool_type == POOL_TYPE_HSIC) {
 		if (driver->diag_hsic_pool != NULL &&
 			driver->count_hsic_pool > 0) {
@@ -210,7 +210,7 @@ void diagmem_init(struct diagchar_dev *driver)
 		printk(KERN_INFO "Cannot allocate diag USB struct mempool\n");
 }
 
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diagmem_hsic_init(struct diagchar_dev *driver)
 {
 	if (driver->count_hsic_pool == 0)
