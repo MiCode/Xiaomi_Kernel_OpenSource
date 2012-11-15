@@ -1,0 +1,81 @@
+Qualcomm Internet Packet Accelerator
+
+Internet Packet Accelerator (IPA) is a programmable protocol
+processor HW block. It is designed to support generic HW processing
+of UL/DL IP packets for various use cases independent of radio technology.
+
+Required properties:
+
+IPA node:
+
+- compatible : "qcom,ipa"
+- reg: Specifies the base physical addresses and the sizes of the IPA
+       registers.
+- reg-names: "ipa-base" - string to identify the IPA CORE base registers.
+	     "bam-base" - string to identify the IPA BAM base registers.
+- interrupts: Specifies the interrupt associated with IPA.
+- interrupt-names: "ipa-irq" - string to identify the IPA core interrupt.
+                   "bam-irq" - string to identify the IPA BAM interrupt.
+
+IPA pipe sub nodes (A2 static pipes configurations):
+
+-label: two labels are supported, a2-to-ipa and ipa-to-a2 which
+supply static configuration for A2-IPA connection.
+-qcom,src-bam-physical-address: The physical address of the source BAM
+-qcom,ipa-bam-mem-type:The memory type:
+                       0(Pipe memory), 1(Private memory), 2(System memory)
+-qcom,src-bam-pipe-index: Source pipe index
+-qcom,dst-bam-physical-address: The physical address of the
+                                destination BAM
+-qcom,dst-bam-pipe-index: Destination pipe index
+-qcom,data-fifo-offset: Data fifo base offset
+-qcom,data-fifo-size:  Data fifo size (bytes)
+-qcom,descriptor-fifo-offset: Descriptor fifo base offset
+-qcom,descriptor-fifo-size: Descriptor fifo size (bytes)
+
+Optional properties:
+-qcom,ipa-pipe-mem: Specifies the base physical address and the
+                    size of the IPA pipe memory region.
+                    Pipe memory is a feature which may be supported by the
+                    target (HW platform). The Driver support using pipe
+                    memory instead of system memory. In case this property
+                    will not appear in the IPA DTS entry, the driver will
+                    use system memory.
+
+Example:
+
+qcom,ipa@fd4c0000 {
+	compatible = "qcom,ipa";
+	reg = <0xfd4c0000 0x26000>,
+	      <0xfd4c4000 0x14818>;
+	reg-names = "ipa-base", "bam-base";
+	interrupts = <0 252 0>,
+	             <0 253 0>;
+	interrupt-names = "ipa-irq", "bam-irq";
+
+	qcom,pipe1 {
+		label = "a2-to-ipa";
+		qcom,src-bam-physical-address = <0xfc834000>;
+		qcom,ipa-bam-mem-type = <0>;
+		qcom,src-bam-pipe-index = <1>;
+		qcom,dst-bam-physical-address = <0xfd4c0000>;
+		qcom,dst-bam-pipe-index = <6>;
+		qcom,data-fifo-offset = <0x1000>;
+		qcom,data-fifo-size = <0xd00>;
+		qcom,descriptor-fifo-offset = <0x1d00>;
+		qcom,descriptor-fifo-size = <0x300>;
+	};
+
+	qcom,pipe2 {
+		label = "ipa-to-a2";
+		qcom,src-bam-physical-address = <0xfd4c0000>;
+		qcom,ipa-bam-mem-type = <0>;
+		qcom,src-bam-pipe-index = <7>;
+		qcom,dst-bam-physical-address = <0xfc834000>;
+		qcom,dst-bam-pipe-index = <0>;
+		qcom,data-fifo-offset = <0x00>;
+		qcom,data-fifo-size = <0xd00>;
+		qcom,descriptor-fifo-offset = <0xd00>;
+		qcom,descriptor-fifo-size = <0x300>;
+	};
+};
