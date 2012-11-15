@@ -187,12 +187,17 @@ int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
 {
 	struct mdss_mdp_pipe *rot_pipe;
 	struct mdss_mdp_ctl *ctl;
-	int ret;
+	int ret, need_wait = false;
 
-	if (!rot)
+	ret = mutex_lock_interruptible(&rotator_lock);
+	if (ret)
+		return ret;
+
+	if (!rot || !rot->ref_cnt) {
+		mutex_unlock(&rotator_lock);
 		return -ENODEV;
+	}
 
-	mutex_lock(&rotator_lock);
 	ret = mdss_mdp_rotator_pipe_dequeue(rot);
 	if (ret) {
 		pr_err("unable to acquire rotator\n");
@@ -225,16 +230,18 @@ int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
 
 	ret = mdss_mdp_rotator_kickoff(ctl, rot, dst_data);
 
+	if (ret == 0 && !rot->no_wait)
+		need_wait = true;
 done:
 	mutex_unlock(&rotator_lock);
 
-	if (!rot->no_wait)
+	if (need_wait)
 		mdss_mdp_rotator_busy_wait(rot);
 
 	return ret;
 }
 
-int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
+static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 {
 	struct mdss_mdp_pipe *rot_pipe;
 
@@ -243,7 +250,6 @@ int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 
 	pr_debug("finish rot id=%x\n", rot->session_id);
 
-	mutex_lock(&rotator_lock);
 	rot_pipe = rot->pipe;
 	if (rot_pipe) {
 		mdss_mdp_rotator_busy_wait(rot);
@@ -255,7 +261,43 @@ int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 		mdss_mdp_pipe_destroy(rot_pipe);
 		mdss_mdp_wb_mixer_destroy(mixer);
 	}
+
+	return 0;
+}
+
+int mdss_mdp_rotator_release(u32 ndx)
+{
+	struct mdss_mdp_rotator_session *rot;
+	mutex_lock(&rotator_lock);
+	rot = mdss_mdp_rotator_session_get(ndx);
+	if (rot) {
+		mdss_mdp_rotator_finish(rot);
+	} else {
+		pr_warn("unknown session id=%x\n", ndx);
+		return -ENOENT;
+	}
 	mutex_unlock(&rotator_lock);
+
+	return 0;
+}
+
+int mdss_mdp_rotator_release_all(void)
+{
+	struct mdss_mdp_rotator_session *rot;
+	int i, cnt;
+
+	mutex_lock(&rotator_lock);
+	for (i = 0, cnt = 0; i < MAX_ROTATOR_SESSIONS; i++) {
+		rot = &rotator_session[i];
+		if (rot->ref_cnt) {
+			mdss_mdp_rotator_finish(rot);
+			cnt++;
+		}
+	}
+	mutex_unlock(&rotator_lock);
+
+	if (cnt)
+		pr_debug("cleaned up %d rotator sessions\n", cnt);
 
 	return 0;
 }
