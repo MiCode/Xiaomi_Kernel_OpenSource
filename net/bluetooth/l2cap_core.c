@@ -1426,6 +1426,11 @@ void l2cap_do_send(struct sock *sk, struct sk_buff *skb)
 	} else {
 		u16 flags;
 
+		if (!(pi->conn)) {
+			kfree_skb(skb);
+			return;
+		}
+
 		bt_cb(skb)->force_active = pi->force_active;
 		BT_DBG("Sending on BR/EDR connection %p", pi->conn->hcon);
 
