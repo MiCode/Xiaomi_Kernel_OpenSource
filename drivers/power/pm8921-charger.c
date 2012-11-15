@@ -947,6 +947,11 @@ static int pm_chg_iusbmax_get(struct pm8921_chg_chip *chip, int *mA)
 			break;
 	}
 
+	if (i < 0) {
+		pr_err("can't find %d in usb_ma_table. Use min.\n", temp);
+		i = 0;
+	}
+
 	*mA = usb_ma_table[i].usb_ma;
 
 	return rc;
@@ -1850,6 +1855,12 @@ static void __pm8921_charger_vbus_draw(unsigned int mA)
 				break;
 		}
 
+		if (i < 0) {
+			pr_err("can't find %dmA in usb_ma_table. Use min.\n",
+			       mA);
+			i = 0;
+		}
+
 		/* Check if IUSB_FINE_RES is available */
 		while ((usb_ma_table[i].value & PM8917_IUSB_FINE_RES)
 				&& !the_chip->iusb_fine_res)
@@ -2547,6 +2558,13 @@ static void decrease_usb_ma_value(int *value)
 		while (!the_chip->iusb_fine_res && i > 0
 			&& (usb_ma_table[i].value & PM8917_IUSB_FINE_RES))
 			i--;
+
+		if (i < 0) {
+			pr_err("can't find %dmA in usb_ma_table. Use min.\n",
+			       *value);
+			i = 0;
+		}
+
 		*value = usb_ma_table[i].usb_ma;
 	}
 }
