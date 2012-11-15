@@ -356,8 +356,14 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 {
 	int ret;
 
-	if (!mfd->panel_power_on)
+	ret = mutex_lock_interruptible(&mfd->ov_lock);
+	if (ret)
+		return ret;
+
+	if (!mfd->panel_power_on) {
+		mutex_unlock(&mfd->ov_lock);
 		return -EPERM;
+	}
 
 	if (req->flags & MDSS_MDP_ROT_ONLY) {
 		ret = mdss_mdp_overlay_rotator_setup(mfd, req);
@@ -371,6 +377,8 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 
 		req->z_order -= MDSS_MDP_STAGE_0;
 	}
+
+	mutex_unlock(&mfd->ov_lock);
 
 	return ret;
 }
@@ -417,6 +425,7 @@ static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	LIST_HEAD(destroy_pipes);
 	int i;
 
+	mutex_lock(&mfd->ov_lock);
 	mutex_lock(&mfd->lock);
 	list_for_each_entry_safe(pipe, tmp, &mfd->pipes_cleanup, cleanup_list) {
 		list_move(&pipe->cleanup_list, &destroy_pipes);
@@ -442,6 +451,7 @@ static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	mutex_unlock(&mfd->lock);
 	list_for_each_entry_safe(pipe, tmp, &destroy_pipes, cleanup_list)
 		mdss_mdp_pipe_destroy(pipe);
+	mutex_unlock(&mfd->ov_lock);
 
 	return 0;
 }
@@ -472,16 +482,11 @@ static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 	return ret;
 }
 
-static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
+static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 {
 	struct mdss_mdp_pipe *pipe;
-	int i, ret = 0;
 	u32 pipe_ndx, unset_ndx = 0;
-
-	if (!mfd || !mfd->ctl)
-		return -ENODEV;
-
-	pr_debug("unset ndx=%x\n", ndx);
+	int i;
 
 	if (ndx & MDSS_MDP_ROT_SESSION_MASK) {
 		struct mdss_mdp_rotator_session *rot;
@@ -490,14 +495,11 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 			mdss_mdp_rotator_finish(rot);
 		} else {
 			pr_warn("unknown session id=%x\n", ndx);
-			ret = -ENODEV;
+			return -ENODEV;
 		}
 
-		return ret;
-	}
-
-	if (!mfd->ctl->power_on)
 		return 0;
+	}
 
 	for (i = 0; unset_ndx != ndx && i < MDSS_MDP_MAX_SSPP; i++) {
 		pipe_ndx = BIT(i);
@@ -515,37 +517,56 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 			mdss_mdp_mixer_pipe_unstage(pipe);
 		}
 	}
+	return 0;
+}
+
+static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
+{
+	int ret = 0;
+
+	if (!mfd || !mfd->ctl)
+		return -ENODEV;
+
+	ret = mutex_lock_interruptible(&mfd->ov_lock);
+	if (ret)
+		return ret;
+
+	if (!mfd->panel_power_on) {
+		mutex_unlock(&mfd->ov_lock);
+		return -EPERM;
+	}
+
+	pr_debug("unset ndx=%x\n", ndx);
+
+	ret = mdss_mdp_overlay_release(mfd, ndx);
+
+	mutex_unlock(&mfd->ov_lock);
 
 	return ret;
 }
 
-int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
+static int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_pipe *pipe;
 	u32 unset_ndx = 0;
 	int cnt = 0;
 
+	mutex_lock(&mfd->ov_lock);
 	mutex_lock(&mfd->lock);
-	if (!list_empty(&mfd->pipes_used)) {
-		list_for_each_entry(pipe, &mfd->pipes_used, used_list) {
-			if (pipe->ndx & MDSS_MDP_ROT_SESSION_MASK) {
-				struct mdss_mdp_rotator_session *rot;
-				rot = mdss_mdp_rotator_session_get(pipe->ndx);
-				if (rot)
-					mdss_mdp_rotator_finish(rot);
-			} else {
-				unset_ndx |= pipe->ndx;
-				cnt++;
-			}
-		}
+	list_for_each_entry(pipe, &mfd->pipes_used, used_list) {
+		unset_ndx |= pipe->ndx;
+		cnt++;
 	}
 	mutex_unlock(&mfd->lock);
 
 	if (unset_ndx) {
 		pr_debug("%d pipes need cleanup (%x)\n", cnt, unset_ndx);
-		mdss_mdp_overlay_unset(mfd, unset_ndx);
-		mdss_mdp_overlay_kickoff(mfd->ctl);
+		mdss_mdp_overlay_release(mfd, unset_ndx);
 	}
+	mutex_unlock(&mfd->ov_lock);
+
+	if (cnt)
+		mdss_mdp_overlay_kickoff(mfd->ctl);
 
 	return 0;
 }
@@ -635,9 +656,6 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	ctl = pipe->mixer->ctl;
 	mdss_mdp_pipe_unlock(pipe);
 
-	if ((ret == 0) && (mfd->panel_info.type == WRITEBACK_PANEL))
-		ret = mdss_mdp_overlay_kickoff(ctl);
-
 	return ret;
 }
 
@@ -648,13 +666,28 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 
 	pr_debug("play req id=%x\n", req->id);
 
-	if (!mfd->panel_power_on)
-		return -EPERM;
+	ret = mutex_lock_interruptible(&mfd->ov_lock);
+	if (ret)
+		return ret;
 
-	if (req->id & MDSS_MDP_ROT_SESSION_MASK)
+	if (!mfd->panel_power_on) {
+		mutex_unlock(&mfd->ov_lock);
+		return -EPERM;
+	}
+
+	if (req->id & MDSS_MDP_ROT_SESSION_MASK) {
 		ret = mdss_mdp_overlay_rotate(mfd, req);
-	else
+	} else {
 		ret = mdss_mdp_overlay_queue(mfd, req);
+
+		if ((ret == 0) && (mfd->panel_info.type == WRITEBACK_PANEL)) {
+			mutex_unlock(&mfd->ov_lock);
+			ret = mdss_mdp_overlay_kickoff(mfd->ctl);
+			return ret;
+		}
+	}
+
+	mutex_unlock(&mfd->ov_lock);
 
 	return ret;
 }
@@ -729,16 +762,21 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	u32 offset;
 	int bpp, ret;
 
-	if (!mfd)
-		return;
-
-	if (!mfd->ctl || !mfd->panel_power_on)
+	if (!mfd || !mfd->ctl)
 		return;
 
 	fbi = mfd->fbi;
 
 	if (fbi->fix.smem_len == 0) {
 		mdss_mdp_overlay_kickoff(mfd->ctl);
+		return;
+	}
+
+	if (mutex_lock_interruptible(&mfd->ov_lock))
+		return;
+
+	if (!mfd->panel_power_on) {
+		mutex_unlock(&mfd->ov_lock);
 		return;
 	}
 
@@ -792,6 +830,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 			return;
 		}
 	}
+	mutex_unlock(&mfd->ov_lock);
 
 	if (fbi->var.activate & FB_ACTIVATE_VBL)
 		mdss_mdp_overlay_kickoff(mfd->ctl);
@@ -1086,10 +1125,22 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
+{
+	return mdss_mdp_ctl_on(mfd);
+}
+
+static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
+{
+	mdss_mdp_overlay_release_all(mfd);
+
+	return mdss_mdp_ctl_off(mfd);
+}
+
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 {
-	mfd->on_fnc = mdss_mdp_ctl_on;
-	mfd->off_fnc = mdss_mdp_ctl_off;
+	mfd->on_fnc = mdss_mdp_overlay_on;
+	mfd->off_fnc = mdss_mdp_overlay_off;
 	mfd->hw_refresh = true;
 	mfd->do_histogram = NULL;
 	mfd->overlay_play_enable = true;
@@ -1102,6 +1153,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	INIT_LIST_HEAD(&mfd->pipes_used);
 	INIT_LIST_HEAD(&mfd->pipes_cleanup);
+	mutex_init(&mfd->ov_lock);
 
 	return 0;
 }

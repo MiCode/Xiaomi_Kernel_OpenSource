@@ -284,7 +284,6 @@ int mdss_mdp_vsync_clk_enable(int enable);
 void mdss_mdp_clk_ctrl(int enable, int isr);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
-int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd);
 int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
