@@ -18,8 +18,9 @@
 #include <linux/iopoll.h>
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
+#include <linux/of_platform.h>
 #include <linux/types.h>
-#include <mach/msm_hdmi_audio.h>
+#include <mach/msm_hdmi_audio_codec.h>
 
 #define REG_DUMP 0
 
@@ -49,6 +50,23 @@
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
 
+/* Supported HDMI Audio channels */
+#define MSM_HDMI_AUDIO_CHANNEL_2	2
+#define MSM_HDMI_AUDIO_CHANNEL_4	4
+#define MSM_HDMI_AUDIO_CHANNEL_6	6
+#define MSM_HDMI_AUDIO_CHANNEL_8	8
+
+enum msm_hdmi_supported_audio_sample_rates {
+	AUDIO_SAMPLE_RATE_32KHZ,
+	AUDIO_SAMPLE_RATE_44_1KHZ,
+	AUDIO_SAMPLE_RATE_48KHZ,
+	AUDIO_SAMPLE_RATE_88_2KHZ,
+	AUDIO_SAMPLE_RATE_96KHZ,
+	AUDIO_SAMPLE_RATE_176_4KHZ,
+	AUDIO_SAMPLE_RATE_192KHZ,
+	AUDIO_SAMPLE_RATE_MAX
+};
+
 /* parameters for clock regeneration */
 struct hdmi_tx_audio_acr {
 	u32 n;
@@ -57,7 +75,7 @@ struct hdmi_tx_audio_acr {
 
 struct hdmi_tx_audio_acr_arry {
 	u32 pclk;
-	struct hdmi_tx_audio_acr lut[HDMI_SAMPLE_RATE_MAX];
+	struct hdmi_tx_audio_acr lut[AUDIO_SAMPLE_RATE_MAX];
 };
 
 static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on);
@@ -1508,13 +1526,13 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 		layout = (MSM_HDMI_AUDIO_CHANNEL_2 == num_of_channels) ? 0 : 1;
 
 		if (
-		(HDMI_SAMPLE_RATE_192KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(HDMI_SAMPLE_RATE_176_4KHZ == hdmi_ctrl->audio_sample_rate)) {
+		(AUDIO_SAMPLE_RATE_192KHZ == hdmi_ctrl->audio_sample_rate) ||
+		(AUDIO_SAMPLE_RATE_176_4KHZ == hdmi_ctrl->audio_sample_rate)) {
 			multiplier = 4;
 			n >>= 2; /* divide N by 4 and use multiplier */
 		} else if (
-		(HDMI_SAMPLE_RATE_96KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(HDMI_SAMPLE_RATE_88_2KHZ == hdmi_ctrl->audio_sample_rate)) {
+		(AUDIO_SAMPLE_RATE_96KHZ == hdmi_ctrl->audio_sample_rate) ||
+		(AUDIO_SAMPLE_RATE_88_2KHZ == hdmi_ctrl->audio_sample_rate)) {
 			multiplier = 2;
 			n >>= 1; /* divide N by 2 and use multiplier */
 		} else {
@@ -1528,9 +1546,9 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 		/* N_MULTIPLE(multiplier) */
 		acr_pck_ctrl_reg |= (multiplier & 7) << 16;
 
-		if ((HDMI_SAMPLE_RATE_48KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(HDMI_SAMPLE_RATE_96KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(HDMI_SAMPLE_RATE_192KHZ == hdmi_ctrl->audio_sample_rate)) {
+		if ((AUDIO_SAMPLE_RATE_48KHZ == hdmi_ctrl->audio_sample_rate) ||
+		(AUDIO_SAMPLE_RATE_96KHZ == hdmi_ctrl->audio_sample_rate) ||
+		(AUDIO_SAMPLE_RATE_192KHZ == hdmi_ctrl->audio_sample_rate)) {
 			/* SELECT(3) */
 			acr_pck_ctrl_reg |= 3 << 4;
 			/* CTS_48 */
@@ -1541,9 +1559,9 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 			/* N */
 			DSS_REG_W(io, HDMI_ACR_48_1, n);
 		} else if (
-		(HDMI_SAMPLE_RATE_44_1KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(HDMI_SAMPLE_RATE_88_2KHZ == hdmi_ctrl->audio_sample_rate) ||
-		(HDMI_SAMPLE_RATE_176_4KHZ == hdmi_ctrl->audio_sample_rate)) {
+		(AUDIO_SAMPLE_RATE_44_1KHZ == hdmi_ctrl->audio_sample_rate) ||
+		(AUDIO_SAMPLE_RATE_88_2KHZ == hdmi_ctrl->audio_sample_rate) ||
+		(AUDIO_SAMPLE_RATE_176_4KHZ == hdmi_ctrl->audio_sample_rate)) {
 			/* SELECT(2) */
 			acr_pck_ctrl_reg |= 2 << 4;
 			/* CTS_44 */
@@ -1581,11 +1599,10 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	return 0;
 } /* hdmi_tx_audio_acr_setup */
 
-static int hdmi_tx_audio_info_setup(void *priv_d, bool enabled,
-	u32 num_of_channels, u32 channel_allocation, u32 level_shift,
-	bool down_mix)
+static int hdmi_tx_audio_iframe_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
+	bool enabled, u32 num_of_channels, u32 channel_allocation,
+	u32 level_shift, bool down_mix)
 {
-	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)priv_d;
 	struct dss_io_data *io = NULL;
 
 	u32 channel_count = 1; /* Def to 2 channels -> Table 17 in CEA-D */
@@ -1630,22 +1647,15 @@ static int hdmi_tx_audio_info_setup(void *priv_d, bool enabled,
 	if (enabled) {
 		switch (num_of_channels) {
 		case MSM_HDMI_AUDIO_CHANNEL_2:
-			channel_allocation = 0;	/* Default to FR, FL */
 			break;
 		case MSM_HDMI_AUDIO_CHANNEL_4:
 			channel_count = 3;
-			/* FC, LFE, FR, FL */
-			channel_allocation = 0x3;
 			break;
 		case MSM_HDMI_AUDIO_CHANNEL_6:
 			channel_count = 5;
-			/* RR, RL, FC, LFE, FR, FL */
-			channel_allocation = 0xB;
 			break;
 		case MSM_HDMI_AUDIO_CHANNEL_8:
 			channel_count = 7;
-			/* FRC, FLC, RR, RL, FC, LFE, FR, FL */
-			channel_allocation = 0x1f;
 			break;
 		default:
 			DEV_ERR("%s: Unsupported num_of_channels = %u\n",
@@ -1713,7 +1723,65 @@ static int hdmi_tx_audio_info_setup(void *priv_d, bool enabled,
 		enabled ? "HDMI-AUDIO-ON: " : "HDMI-AUDIO-OFF: ", REG_DUMP);
 
 	return 0;
+} /* hdmi_tx_audio_iframe_setup */
+
+static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
+	u32 num_of_channels, u32 channel_allocation, u32 level_shift,
+	bool down_mix)
+{
+	int rc = 0;
+	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	if (hdmi_ctrl->panel_power_on) {
+		rc = hdmi_tx_audio_iframe_setup(hdmi_ctrl, true,
+			num_of_channels, channel_allocation, level_shift,
+			down_mix);
+		if (rc)
+			DEV_ERR("%s: hdmi_tx_audio_iframe_setup failed.rc=%d\n",
+				__func__, rc);
+	} else {
+		DEV_ERR("%s: Error. panel is not on.\n", __func__);
+		rc = -EPERM;
+	}
+
+	return 0;
 } /* hdmi_tx_audio_info_setup */
+
+static int hdmi_tx_get_audio_edid_blk(struct platform_device *pdev,
+	struct msm_hdmi_audio_edid_blk *blk)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	return hdmi_edid_get_audio_blk(
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID], blk);
+} /* hdmi_tx_get_audio_edid_blk */
+
+int msm_hdmi_register_audio_codec(struct platform_device *pdev,
+	struct msm_hdmi_audio_codec_ops *ops)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	ops->audio_info_setup = hdmi_tx_audio_info_setup;
+	ops->get_audio_edid_blk = hdmi_tx_get_audio_edid_blk;
+
+	return 0;
+} /* hdmi_tx_audio_register */
+EXPORT_SYMBOL(msm_hdmi_register_audio_codec);
 
 static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
@@ -1739,9 +1807,9 @@ static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return rc;
 	}
 
-	rc = hdmi_tx_audio_info_setup(hdmi_ctrl, true, channels, 0, 0, false);
+	rc = hdmi_tx_audio_iframe_setup(hdmi_ctrl, true, channels, 0, 0, false);
 	if (rc) {
-		DEV_ERR("%s: hdmi_tx_audio_info_setup failed. rc=%d\n",
+		DEV_ERR("%s: hdmi_tx_audio_iframe_setup failed. rc=%d\n",
 			__func__, rc);
 		return rc;
 	}
@@ -1788,8 +1856,8 @@ static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (i == timeout_sec)
 		DEV_ERR("%s: Error: cannot turn off audio engine\n", __func__);
 
-	if (hdmi_tx_audio_info_setup(hdmi_ctrl, false, 0, 0, 0, false))
-		DEV_ERR("%s: hdmi_tx_audio_info_setup failed.\n", __func__);
+	if (hdmi_tx_audio_iframe_setup(hdmi_ctrl, false, 0, 0, 0, false))
+		DEV_ERR("%s: hdmi_tx_audio_iframe_setup failed.\n", __func__);
 
 	if (hdmi_tx_audio_acr_setup(hdmi_ctrl, false, 0))
 		DEV_ERR("%s: hdmi_tx_audio_acr_setup failed.\n", __func__);
@@ -2243,7 +2311,7 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	INIT_WORK(&hdmi_ctrl->power_off_work, hdmi_tx_power_off_work);
 
-	hdmi_ctrl->audio_sample_rate = HDMI_SAMPLE_RATE_48KHZ;
+	hdmi_ctrl->audio_sample_rate = AUDIO_SAMPLE_RATE_48KHZ;
 
 	hdmi_ctrl->sdev.name = "hdmi";
 	if (switch_dev_register(&hdmi_ctrl->sdev) < 0) {
@@ -3024,6 +3092,15 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 	if (rc) {
 		DEV_ERR("%s: init_features failed.rc=%d\n", __func__, rc);
 		goto failed_init_features;
+	}
+
+	rc = of_platform_populate(of_node, NULL, NULL, &pdev->dev);
+	if (rc) {
+		DEV_ERR("%s: failed to add child devices, rc=%d\n",
+			__func__, rc);
+		goto failed_init_features;
+	} else {
+		DEV_DBG("%s: added child devices.\n", __func__);
 	}
 
 	return rc;
