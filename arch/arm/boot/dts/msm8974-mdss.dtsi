@@ -48,11 +48,10 @@
 		qcom,hdmi-tx-max-voltage-level = <0 1800000 1800000>;
 		qcom,hdmi-tx-op-mode = <0 1800000 0>;
 
-		gpios = <&msmgpio 31 0>,
-			<&msmgpio 32 0>,
-			<&msmgpio 33 0>,
-			<&msmgpio 34 0>;
-		qcom,hdmi-tx-gpio-names = "cec-pin", "hpd-ddc-clk", "hpd-ddc-data", "hpd-pin";
+		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
+		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
+		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
+		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
 	};
 
 	qcom,mdss_wb_panel {

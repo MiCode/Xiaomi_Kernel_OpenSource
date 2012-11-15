@@ -66,6 +66,21 @@ struct mdss_hw hdmi_tx_hw = {
 	.irq_handler = hdmi_tx_isr,
 };
 
+struct dss_gpio hpd_gpio_config[] = {
+	{0, 1, COMPATIBLE_NAME "-hpd"},
+	{0, 1, COMPATIBLE_NAME "-ddc-clk"},
+	{0, 1, COMPATIBLE_NAME "-ddc-data"},
+	{0, 1, COMPATIBLE_NAME "-mux-en"},
+	{0, 0, COMPATIBLE_NAME "-mux-sel"}
+};
+
+struct dss_gpio core_gpio_config[] = {
+};
+
+struct dss_gpio cec_gpio_config[] = {
+	{0, 1, COMPATIBLE_NAME "-cec"}
+};
+
 const char *hdmi_pm_name(enum hdmi_tx_power_module_type module)
 {
 	switch (module) {
@@ -2447,29 +2462,32 @@ static void hdmi_tx_put_dt_gpio_data(struct device *dev,
 static int hdmi_tx_get_dt_gpio_data(struct device *dev,
 	struct dss_module_power *mp, u32 module_type)
 {
-	int i, j, rc = 0;
-	int dt_gpio_total = 0, mod_gpio_total = 0;
-	u32 ndx_mask = 0;
-	const char *mod_name = NULL;
+	int i, j;
+	int mp_gpio_cnt = 0, gpio_list_size = 0;
+	struct dss_gpio *gpio_list = NULL;
 	struct device_node *of_node = NULL;
-	char prop_name[32];
-	snprintf(prop_name, 32, "%s-%s", COMPATIBLE_NAME, "gpio-names");
+
+	DEV_DBG("%s: module: '%s'\n", __func__, hdmi_tx_pm_name(module_type));
 
 	if (!dev || !mp) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		rc = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
+
+	of_node = dev->of_node;
 
 	switch (module_type) {
 	case HDMI_TX_HPD_PM:
-		mod_name = "hpd";
+		gpio_list_size = ARRAY_SIZE(hpd_gpio_config);
+		gpio_list = hpd_gpio_config;
 		break;
 	case HDMI_TX_CORE_PM:
-		mod_name = "core";
+		gpio_list_size = ARRAY_SIZE(core_gpio_config);
+		gpio_list = core_gpio_config;
 		break;
 	case HDMI_TX_CEC_PM:
-		mod_name = "cec";
+		gpio_list_size = ARRAY_SIZE(cec_gpio_config);
+		gpio_list = cec_gpio_config;
 		break;
 	default:
 		DEV_ERR("%s: invalid module type=%d\n", __func__,
@@ -2477,90 +2495,49 @@ static int hdmi_tx_get_dt_gpio_data(struct device *dev,
 		return -EINVAL;
 	}
 
-	DEV_DBG("%s: module: '%s'\n", __func__, hdmi_tx_pm_name(module_type));
+	for (i = 0; i < gpio_list_size; i++)
+		if (of_find_property(of_node, gpio_list[i].gpio_name, NULL))
+			mp_gpio_cnt++;
 
-	of_node = dev->of_node;
-
-	dt_gpio_total = of_gpio_count(of_node);
-	if (dt_gpio_total < 0) {
-		DEV_ERR("%s: gpio not found. rc=%d\n", __func__,
-			dt_gpio_total);
-		rc = dt_gpio_total;
-		goto error;
-	}
-
-	/* count how many gpio for particular hdmi module */
-	for (i = 0; i < dt_gpio_total; i++) {
-		const char *st = NULL;
-
-		rc = of_property_read_string_index(of_node,
-			prop_name, i, &st);
-		if (rc) {
-			DEV_ERR("%s: error reading name. i=%d, rc=%d\n",
-				__func__, i, rc);
-			goto error;
-		}
-
-		if (strnstr(st, mod_name, strlen(st))) {
-			ndx_mask |= BIT(i);
-			mod_gpio_total++;
-		}
-	}
-
-	if (mod_gpio_total > 0) {
-		mp->num_gpio = mod_gpio_total;
-		mp->gpio_config = devm_kzalloc(dev, sizeof(struct dss_gpio) *
-			mod_gpio_total, GFP_KERNEL);
-		if (!mp->gpio_config) {
-			DEV_ERR("%s: can't alloc '%s' gpio mem\n", __func__,
-				hdmi_tx_pm_name(module_type));
-			goto error;
-		}
-	} else {
+	if (!mp_gpio_cnt) {
 		DEV_DBG("%s: no gpio\n", __func__);
 		return 0;
 	}
 
+	DEV_DBG("%s: mp_gpio_cnt = %d\n", __func__, mp_gpio_cnt);
+	mp->num_gpio = mp_gpio_cnt;
 
-	for (i = 0, j = 0; (i < dt_gpio_total) && (j < mod_gpio_total); i++) {
-		const char *st = NULL;
+	mp->gpio_config = devm_kzalloc(dev, sizeof(struct dss_gpio) *
+		mp_gpio_cnt, GFP_KERNEL);
+	if (!mp->gpio_config) {
+		DEV_ERR("%s: can't alloc '%s' gpio mem\n", __func__,
+			hdmi_tx_pm_name(module_type));
 
-		if (!(ndx_mask & BIT(0))) {
-			ndx_mask >>= 1;
+		mp->num_gpio = 0;
+		return -ENOMEM;
+	}
+
+	for (i = 0, j = 0; i < gpio_list_size; i++) {
+		int gpio = of_get_named_gpio(of_node,
+			gpio_list[i].gpio_name, 0);
+		if (gpio < 0) {
+			DEV_DBG("%s: no gpio named %s\n", __func__,
+				gpio_list[i].gpio_name);
 			continue;
 		}
+		memcpy(&mp->gpio_config[j], &gpio_list[i],
+			sizeof(struct dss_gpio));
 
-		/* gpio-name */
-		rc = of_property_read_string_index(of_node,
-			prop_name, i, &st);
-		if (rc) {
-			DEV_ERR("%s: error reading name. i=%d, rc=%d\n",
-				__func__, i, rc);
-			goto error;
-		}
-		snprintf(mp->gpio_config[j].gpio_name, 32, "%s", st);
+		mp->gpio_config[j].gpio = (unsigned)gpio;
 
-		/* gpio-number */
-		mp->gpio_config[j].gpio = of_get_gpio(of_node, i);
-
-		DEV_DBG("%s: gpio num=%d, name=%s\n", __func__,
-			mp->gpio_config[j].gpio,
-			mp->gpio_config[j].gpio_name);
-
-		ndx_mask >>= 1;
+		DEV_DBG("%s: gpio num=%d, name=%s, value=%d\n",
+			__func__, mp->gpio_config[j].gpio,
+			mp->gpio_config[j].gpio_name,
+			mp->gpio_config[j].value);
 		j++;
 	}
 
-	return rc;
-
-error:
-	if (mp->gpio_config) {
-		devm_kfree(dev, mp->gpio_config);
-		mp->gpio_config = NULL;
-	}
-	mp->num_gpio = 0;
-
-	return rc;
+	return 0;
 } /* hdmi_tx_get_dt_gpio_data */
 
 static void hdmi_tx_put_dt_data(struct device *dev,

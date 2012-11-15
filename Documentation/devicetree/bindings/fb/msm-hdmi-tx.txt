@@ -9,7 +9,7 @@ Required properties:
 - <supply-name>-supply: phandle to the regulator device tree node.
 - <compatible-name>-supply-names: a list of strings that map in order
   to the list of supplies.
-- <<compatible-name>-supply-type: a type of supply(ies) mentioned above.
+- <compatible-name>-supply-type: a type of supply(ies) mentioned above.
     0 = supply with controlled output
     1 = supply without controlled output. i.e. voltage switch
 - <compatible-name>-min-voltage-level: specifies minimum voltage level
@@ -19,9 +19,7 @@ Required properties:
 - <compatible-name>-op-mode: specifies optimum operating mode of
   supply(ies) mentioned above.
 
-- gpios: specifies gpios assigned for the device.
-- <compatible-name>-gpio-names: a list of strings that map in order to
-  the list of gpios
+- <compatible-name>-<gpio-name>: specifies gpios assigned for the device.
 
 Example:
 	qcom,hdmi_tx@fd922100 {
@@ -41,10 +39,8 @@ Example:
 		qcom,hdmi-tx-max-voltage-level = <0 1800000 1800000>;
 		qcom,hdmi-tx-op-mode = <0 1800000 0>;
 
-		gpios = <&msmgpio 31 0>,
-			<&msmgpio 32 0>,
-			<&msmgpio 33 0>,
-			<&msmgpio 34 0>;
-		qcom,hdmi-tx-gpio-names =
-			"cec-pin", "hpd-ddc-clk", "hpd-ddc-data", "hpd-pin";
+		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
+		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
+		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
+		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
 	};

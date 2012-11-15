@@ -249,6 +249,10 @@ int msm_dss_enable_gpio(struct dss_gpio *in_gpio, int num_gpio, int enable)
 	int i = 0, rc = 0;
 	if (enable) {
 		for (i = 0; i < num_gpio; i++) {
+			DEV_DBG("%pS->%s: %s enable\n",
+				__builtin_return_address(0), __func__,
+				in_gpio[i].gpio_name);
+
 			rc = gpio_request(in_gpio[i].gpio,
 				in_gpio[i].gpio_name);
 			if (rc < 0) {
@@ -257,10 +261,16 @@ int msm_dss_enable_gpio(struct dss_gpio *in_gpio, int num_gpio, int enable)
 					in_gpio[i].gpio_name);
 				goto disable_gpio;
 			}
+			gpio_set_value(in_gpio[i].gpio, in_gpio[i].value);
 		}
 	} else {
-		for (i = num_gpio-1; i >= 0; i--)
+		for (i = num_gpio-1; i >= 0; i--) {
+			DEV_DBG("%pS->%s: %s disable\n",
+				__builtin_return_address(0), __func__,
+				in_gpio[i].gpio_name);
+
 			gpio_free(in_gpio[i].gpio);
+		}
 	}
 	return rc;
 
