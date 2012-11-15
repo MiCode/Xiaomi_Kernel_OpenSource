@@ -34,15 +34,20 @@ Required properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the uart interrupt.
 
-Optional properties:
-- cell-index: An integer specifying the line number of the UART device that
-  represents this HSL hardware instance.
+Aliases:
+An alias may optionally be used to bind the serial device to a tty device
+(ttyHSLx) with a given line number. Aliases are of the form serial<n> where <n>
+is an integer representing the line number to use. On systems with multiple
+serial devices present it is recommended that an alias be defined for each such
+device.
 
 Example:
+	aliases {
+		serial0 = &uart0;       // This device will be called ttyHSL0
+	};
 
-	serial@19c400000 {
+	uart0: serial@19c400000 {
 		compatible = "qcom,msm-lsuart-v14"
 		reg = <0x19c40000 0x1000">;
 		interrupts = <195>;
-		cell-index = <0>;	// this device will be named ttyHSL0
 	};
