@@ -380,6 +380,22 @@ void diag_add_reg(int j, struct bindpkt_params *params,
 	(*count_entries)++;
 }
 
+#ifdef CONFIG_DIAG_BRIDGE_CODE
+uint16_t diag_get_remote_device_mask(void)
+{
+	uint16_t remote_dev = 0;
+
+	if (driver->hsic_inited)
+		remote_dev |= (1 << 0);
+	if (driver->diag_smux_enabled)
+		remote_dev |= (1 << 1);
+
+	return remote_dev;
+}
+#else
+inline uint16_t diag_get_remote_device_mask(void) { return 0; }
+#endif
+
 long diagchar_ioctl(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
@@ -583,6 +599,10 @@ long diagchar_ioctl(struct file *filp,
 				}
 			}
 		}
+		if (driver->logging_mode == SOCKET_MODE)
+			driver->socket_process = current;
+		if (driver->logging_mode == CALLBACK_MODE)
+			driver->callback_process = current;
 		if (driver->logging_mode == UART_MODE ||
 			driver->logging_mode == SOCKET_MODE ||
 			driver->logging_mode == CALLBACK_MODE) {
@@ -590,10 +610,6 @@ long diagchar_ioctl(struct file *filp,
 			driver->mask_check = 0;
 			driver->logging_mode = MEMORY_DEVICE_MODE;
 		}
-		if (driver->logging_mode == SOCKET_MODE)
-			driver->socket_process = current;
-		if (driver->logging_mode == CALLBACK_MODE)
-			driver->callback_process = current;
 		driver->logging_process_id = current->tgid;
 		mutex_unlock(&driver->diagchar_mutex);
 		if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
@@ -695,6 +711,13 @@ long diagchar_ioctl(struct file *filp,
 		}
 #endif /* DIAG over USB */
 		success = 1;
+	} else if (iocmd == DIAG_IOCTL_REMOTE_DEV) {
+		uint16_t remote_dev = diag_get_remote_device_mask();
+
+		if (copy_to_user((void *)ioarg, &remote_dev, sizeof(uint16_t)))
+			success = -EFAULT;
+		else
+			success = 1;
 	}
 
 	return success;
@@ -1206,8 +1229,9 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		if (err) {
 			/*Free the buffer right away if write failed */
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
-			diagmem_free(driver, (unsigned char *)driver->
-				 write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
+			if (driver->logging_mode == USB_MODE)
+				diagmem_free(driver, (unsigned char *)driver->
+					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
@@ -1234,8 +1258,9 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		if (err) {
 			/*Free the buffer right away if write failed */
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
-			diagmem_free(driver, (unsigned char *)driver->
-				 write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
+			if (driver->logging_mode == USB_MODE)
+				diagmem_free(driver, (unsigned char *)driver->
+					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
@@ -1259,8 +1284,9 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		if (err) {
 			/*Free the buffer right away if write failed */
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
-			diagmem_free(driver, (unsigned char *)driver->
-				 write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
+			if (driver->logging_mode == USB_MODE)
+				diagmem_free(driver, (unsigned char *)driver->
+					write_ptr_svc, POOL_TYPE_WRITE_STRUCT);
 			ret = -EIO;
 			goto fail_free_hdlc;
 		}
