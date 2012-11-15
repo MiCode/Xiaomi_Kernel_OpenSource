@@ -21,6 +21,14 @@ Required properties:
 
 - <compatible-name>-<gpio-name>: specifies gpios assigned for the device.
 
+[Optional child nodes]: These nodes are for devices which are
+dependent on HDMI Tx controller. If HDMI Tx controller is disabled then
+these devices will be disabled as well. Ex. HDMI Audio Codec device.
+
+- qcom,msm-hdmi-audio-rx: Node for HDMI audio codec.
+Required properties:
+- compatible : "msm-hdmi-audio-codec-rx";
+
 Example:
 	qcom,hdmi_tx@fd922100 {
 		cell-index = <0>;
@@ -43,4 +51,8 @@ Example:
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
+
+		qcom,msm-hdmi-audio-rx {
+			compatible = "qcom,msm-hdmi-audio-codec-rx";
+		};
 	};
