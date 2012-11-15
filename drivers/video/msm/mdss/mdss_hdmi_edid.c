@@ -19,6 +19,14 @@
 #define HDMI_VSDB_3D_EVF_DATA_OFFSET(vsd) \
 	(!((vsd)[8] & BIT(7)) ? 9 : (!((vsd)[8] & BIT(6)) ? 11 : 13))
 
+/*
+ * As per the CEA-861E spec, there can be a total of 10 short audio
+ * descriptors with each SAD being 3 bytes long.
+ * Thus, the maximum length of the audio data block would be 30 bytes
+ */
+#define MAX_AUDIO_DATA_BLOCK_SIZE	30
+#define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE	3
+
 struct hdmi_edid_sink_data {
 	u32 disp_mode_list[HDMI_VFRMT_MAX];
 	u32 disp_3d_mode_list[HDMI_VFRMT_MAX];
@@ -35,11 +43,13 @@ struct hdmi_edid_ctrl {
 	u16 physical_address;
 	u32 video_resolution; /* selected by user */
 	u32 sink_mode; /* HDMI or DVI */
-	u8 speaker_allocation_block;
-	u8 audio_data_block_cnt;
 	u16 audio_latency;
 	u16 video_latency;
 	u32 present_3d;
+	u8 audio_data_block[MAX_AUDIO_DATA_BLOCK_SIZE];
+	int adb_size;
+	u8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
+	int sadb_size;
 
 	struct hdmi_edid_sink_data sink_data;
 	struct hdmi_edid_init_data init_data;
@@ -551,26 +561,28 @@ static void hdmi_edid_extract_3d_present(struct hdmi_edid_ctrl *edid_ctrl,
 static void hdmi_edid_extract_audio_data_blocks(
 	struct hdmi_edid_ctrl *edid_ctrl, const u8 *in_buf)
 {
-	u8 len;
-	const u8 *sad = NULL;
+	u8 len, cnt = 0;
+	const u8 *adb = NULL;
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
 
-	sad = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 1, &len);
-	if (sad == NULL)
+	adb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 1, &len);
+	if ((adb == NULL) || (len > MAX_AUDIO_DATA_BLOCK_SIZE))
 		return;
 
-	edid_ctrl->audio_data_block_cnt = 0;
-	while (len >= 3 && edid_ctrl->audio_data_block_cnt < 16) {
-		DEV_DBG("%s: ch=%d fmt=%d sampling=0x%02x bitdepth=0x%02x\n",
-			__func__, (sad[1]&0x7)+1, sad[1]>>3, sad[2], sad[3]);
+	memcpy(edid_ctrl->audio_data_block, adb + 1, len);
+	edid_ctrl->adb_size = len;
 
-		++edid_ctrl->audio_data_block_cnt;
+	while (len >= 3 && cnt < 16) {
+		DEV_DBG("%s: ch=%d fmt=%d sampling=0x%02x bitdepth=0x%02x\n",
+			__func__, (adb[1]&0x7)+1, adb[1]>>3, adb[2], adb[3]);
+
+		cnt++;
 		len -= 3;
-		sad += 3;
+		adb += 3;
 	}
 } /* hdmi_edid_extract_audio_data_blocks */
 
@@ -578,27 +590,29 @@ static void hdmi_edid_extract_speaker_allocation_data(
 	struct hdmi_edid_ctrl *edid_ctrl, const u8 *in_buf)
 {
 	u8 len;
-	const u8 *sad = NULL;
+	const u8 *sadb = NULL;
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
 
-	sad = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 4, &len);
-	if (sad == NULL)
+	sadb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 4, &len);
+	if ((sadb == NULL) || (len != MAX_SPKR_ALLOC_DATA_BLOCK_SIZE))
 		return;
 
-	edid_ctrl->speaker_allocation_block = sad[1];
+	memcpy(edid_ctrl->spkr_alloc_data_block, sadb + 1, len);
+	edid_ctrl->sadb_size = len;
+
 	DEV_DBG("%s: EDID: speaker alloc data SP byte = %08x %s%s%s%s%s%s%s\n",
-		__func__, sad[1],
-		(sad[1] & BIT(0)) ? "FL/FR," : "",
-		(sad[1] & BIT(1)) ? "LFE," : "",
-		(sad[1] & BIT(2)) ? "FC," : "",
-		(sad[1] & BIT(3)) ? "RL/RR," : "",
-		(sad[1] & BIT(4)) ? "RC," : "",
-		(sad[1] & BIT(5)) ? "FLC/FRC," : "",
-		(sad[1] & BIT(6)) ? "RLC/RRC," : "");
+		__func__, sadb[1],
+		(sadb[1] & BIT(0)) ? "FL/FR," : "",
+		(sadb[1] & BIT(1)) ? "LFE," : "",
+		(sadb[1] & BIT(2)) ? "FC," : "",
+		(sadb[1] & BIT(3)) ? "RL/RR," : "",
+		(sadb[1] & BIT(4)) ? "RC," : "",
+		(sadb[1] & BIT(5)) ? "FLC/FRC," : "",
+		(sadb[1] & BIT(6)) ? "RLC/RRC," : "");
 } /* hdmi_edid_extract_speaker_allocation_data */
 
 static void hdmi_edid_extract_latency_fields(struct hdmi_edid_ctrl *edid_ctrl,
@@ -1225,6 +1239,12 @@ int hdmi_edid_read(void *input)
 	edid_ctrl->present_3d = 0;
 	memset(&edid_ctrl->sink_data, 0, sizeof(edid_ctrl->sink_data));
 	memset(edid_buf, 0, sizeof(edid_buf));
+	memset(edid_ctrl->audio_data_block, 0,
+		sizeof(edid_ctrl->audio_data_block));
+	memset(edid_ctrl->spkr_alloc_data_block, 0,
+		sizeof(edid_ctrl->spkr_alloc_data_block));
+	edid_ctrl->adb_size = 0;
+	edid_ctrl->sadb_size = 0;
 
 	status = hdmi_edid_read_block(edid_ctrl, 0, edid_buf);
 	if (status || !hdmi_edid_check_header(edid_buf)) {
@@ -1400,6 +1420,24 @@ u32 hdmi_edid_get_sink_mode(void *input)
 
 	return edid_ctrl->sink_mode;
 } /* hdmi_edid_get_sink_mode */
+
+int hdmi_edid_get_audio_blk(void *input, struct msm_hdmi_audio_edid_blk *blk)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	if (!edid_ctrl || !blk) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	blk->audio_data_blk = edid_ctrl->audio_data_block;
+	blk->audio_data_blk_size = edid_ctrl->adb_size;
+
+	blk->spk_alloc_data_blk = edid_ctrl->spkr_alloc_data_block;
+	blk->spk_alloc_data_blk_size = edid_ctrl->sadb_size;
+
+	return 0;
+} /* hdmi_edid_get_audio_blk */
 
 void hdmi_edid_set_video_resolution(void *input, u32 resolution)
 {
