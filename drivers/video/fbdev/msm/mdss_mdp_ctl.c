@@ -992,7 +992,7 @@ int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id)
 	mutex_lock(&mdss_mdp_ctl_lock);
 	for (i = 0; i < MDSS_MDP_MAX_CTL; i++) {
 		ctl = &mdss_mdp_ctl_list[i];
-		if ((ctl->power_on) &&
+		if ((ctl->power_on) && (ctl->mfd) &&
 			(ctl->mfd->index == fb_num)) {
 			if (ctl->mixer_left) {
 				mixer_id[mixer_cnt] = ctl->mixer_left->num;
