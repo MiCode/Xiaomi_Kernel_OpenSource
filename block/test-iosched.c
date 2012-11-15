@@ -665,7 +665,7 @@ int test_iosched_start_test(struct test_info *t_info)
 			test_name = ptd->test_info.get_test_case_str_fn(ptd);
 		else
 			test_name = "Unknown testcase";
-		test_pr_info("%s: Starting test %s\n", __func__, test_name);
+		test_pr_info("%s: Starting test %s", __func__, test_name);
 
 		ret = prepare_test(ptd);
 		if (ret) {
