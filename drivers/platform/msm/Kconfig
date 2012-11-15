@@ -76,4 +76,18 @@ config QPNP_CLKDIV
 	  PNP PMIC. It configures the frequency of clkdiv outputs on the
 	  PMIC. These clocks are typically wired through alternate functions
 	  on gpio pins.
+
+config IPA
+	tristate "IPA support"
+	depends on SPS
+	help
+	  This driver supports the Internet Packet Accelerator (IPA) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
 endmenu
