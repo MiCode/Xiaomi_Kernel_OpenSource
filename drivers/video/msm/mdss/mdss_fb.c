@@ -439,52 +439,11 @@ int mdss_fb_resume_all(void)
 	return result;
 }
 
-#if defined(CONFIG_PM) && defined(CONFIG_SUSPEND)
-static int mdss_fb_ext_suspend(struct device *dev)
-{
-	struct msm_fb_data_type *mfd = dev_get_drvdata(dev);
-	int ret = 0;
-
-	if ((!mfd) || (mfd->key != MFD_KEY))
-		return 0;
-
-	if (mfd->panel_info.type == HDMI_PANEL ||
-	    mfd->panel_info.type == DTV_PANEL)
-		ret = mdss_fb_suspend_sub(mfd);
-
-	return ret;
-}
-
-static int mdss_fb_ext_resume(struct device *dev)
-{
-	struct msm_fb_data_type *mfd = dev_get_drvdata(dev);
-	int ret = 0;
-
-	if ((!mfd) || (mfd->key != MFD_KEY))
-		return 0;
-
-	if (mfd->panel_info.type == HDMI_PANEL ||
-	    mfd->panel_info.type == DTV_PANEL)
-		ret = mdss_fb_resume_sub(mfd);
-
-	return ret;
-}
-#else
-#define mdss_fb_ext_suspend NULL
-#define mdss_fb_ext_resume NULL
-#endif
-
-static const struct dev_pm_ops mdss_fb_dev_pm_ops = {
-	.suspend = mdss_fb_ext_suspend,
-	.resume = mdss_fb_ext_resume,
-};
-
 static struct platform_driver mdss_fb_driver = {
 	.probe = mdss_fb_probe,
 	.remove = mdss_fb_remove,
 	.driver = {
 		.name = "mdss_fb",
-		.pm = &mdss_fb_dev_pm_ops,
 	},
 };
 
