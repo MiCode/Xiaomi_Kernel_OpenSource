@@ -20,6 +20,11 @@
 #include <media/videobuf2-core.h>
 #define VENC_MAGIC_IOCTL 'V'
 
+enum venc_framerate_modes {
+	VENC_MODE_CFR,
+	VENC_MODE_VFR,
+};
+
 struct mem_region {
 	struct list_head list;
 	u8 *kvaddr;
@@ -101,6 +106,7 @@ static inline bool mem_region_equals(struct mem_region *a,
 #define ENCODE_FLUSH _IO('V', 24)
 #define ENC_MMAP _IOWR('V', 25, struct mem_region_map *)
 #define ENC_MUNMAP _IOWR('V', 26, struct mem_region_map *)
+#define SET_FRAMERATE_MODE _IO('V', 27)
 
 extern int venc_init(struct v4l2_subdev *sd, u32 val);
 extern int venc_load_fw(struct v4l2_subdev *sd);
