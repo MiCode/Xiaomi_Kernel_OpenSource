@@ -2351,7 +2351,7 @@ static int msm_nand_probe(struct platform_device *pdev)
 {
 	struct msm_nand_info *info;
 	struct resource *res;
-	int err, n_parts;
+	int err;
 	struct device_node *pnode;
 	struct mtd_part_parser_data parser_data;
 
@@ -2443,10 +2443,10 @@ static int msm_nand_probe(struct platform_device *pdev)
 		goto free_bam;
 	}
 	parser_data.of_node = pnode;
-	n_parts = mtd_device_parse_register(&info->mtd, NULL, &parser_data,
+	err = mtd_device_parse_register(&info->mtd, NULL, &parser_data,
 					NULL, 0);
-	if (n_parts < 0) {
-		pr_err("Unable to register MTD partitions %d\n", n_parts);
+	if (err < 0) {
+		pr_err("Unable to register MTD partitions %d\n", err);
 		goto free_bam;
 	}
 	dev_set_drvdata(&pdev->dev, info);
@@ -2455,7 +2455,6 @@ static int msm_nand_probe(struct platform_device *pdev)
 			info->nand_phys, info->bam_phys, info->bam_irq);
 	pr_info("Allocated DMA buffer at virt_addr 0x%p, phys_addr 0x%x\n",
 		info->nand_chip.dma_virt_addr, info->nand_chip.dma_phys_addr);
-	pr_info("Found %d MTD partitions\n", n_parts);
 	goto out;
 free_bam:
 	msm_nand_bam_free(info);
