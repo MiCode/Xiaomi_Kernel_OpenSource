@@ -122,6 +122,7 @@ extern int msm_dcvs_register_core(
 	unsigned int (*get_frequency)(int type_core_num),
 	int (*idle_enable)(int type_core_num,
 				enum msm_core_control_event event),
+	int (*set_floor_frequency)(int type_core_num, unsigned int freq),
 	int sensor);
 
 /**
