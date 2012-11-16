@@ -170,7 +170,6 @@
 		interrupts = <1 2 0>, <1 1 0>;
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <10000>;
-		qcom,ipi-ping = <0>;
 	};
 
 	rpm_bus: qcom,rpm-smd {

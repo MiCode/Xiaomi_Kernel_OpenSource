@@ -50,7 +50,7 @@ struct msm_watchdog_data {
 	unsigned int bark_time;
 	unsigned int bark_irq;
 	unsigned int bite_irq;
-	unsigned int do_ipi_ping;
+	bool do_ipi_ping;
 	unsigned long long last_pet;
 	unsigned min_slack_ticks;
 	unsigned long long min_slack_ns;
@@ -488,11 +488,7 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 		dev_err(&pdev->dev, "reading pet time failed\n");
 		return -ENXIO;
 	}
-	ret = of_property_read_u32(node, "qcom,ipi-ping", &pdata->do_ipi_ping);
-	if (ret) {
-		dev_err(&pdev->dev, "reading do ipi failed\n");
-		return -ENXIO;
-	}
+	pdata->do_ipi_ping = of_property_read_bool(node, "qcom,ipi-ping");
 	if (!pdata->bark_time) {
 		dev_err(&pdev->dev, "%s watchdog bark time not setup\n",
 								__func__);
@@ -500,11 +496,6 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 	}
 	if (!pdata->pet_time) {
 		dev_err(&pdev->dev, "%s watchdog pet time not setup\n",
-								__func__);
-		return -ENXIO;
-	}
-	if (pdata->do_ipi_ping > 1) {
-		dev_err(&pdev->dev, "%s invalid watchdog ipi value\n",
 								__func__);
 		return -ENXIO;
 	}
