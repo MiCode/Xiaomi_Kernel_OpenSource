@@ -171,6 +171,8 @@ int mdp4_overlay_writeback_off(struct platform_device *pdev)
 	struct vsycn_ctrl *vctrl;
 	struct mdp4_overlay_pipe *pipe;
 	int ret = 0;
+	int undx;
+	struct vsync_update *vp;
 
 	pr_debug("%s+:\n", __func__);
 
@@ -188,6 +190,16 @@ int mdp4_overlay_writeback_off(struct platform_device *pdev)
 	mdp4_mixer_stage_down(pipe, 1);
 	mdp4_overlay_pipe_free(pipe);
 	vctrl->base_pipe = NULL;
+
+	undx =  vctrl->update_ndx;
+	vp = &vctrl->vlist[undx];
+	if (vp->update_cnt) {
+		/*
+		 * pipe's iommu will be freed at next overlay play
+		 * and iommu_drop statistic will be increased by one
+		 */
+		vp->update_cnt = 0;     /* empty queue */
+	}
 
 	ret = panel_next_off(pdev);
 
