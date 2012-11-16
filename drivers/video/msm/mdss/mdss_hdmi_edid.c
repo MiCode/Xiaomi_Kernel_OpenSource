@@ -16,7 +16,7 @@
 #include "mdss_hdmi_edid.h"
 
 #define DBC_START_OFFSET 4
-#define HDMI_VSDB_3D_DATA_OFFSET(vsd) \
+#define HDMI_VSDB_3D_EVF_DATA_OFFSET(vsd) \
 	(!((vsd)[8] & BIT(7)) ? 9 : (!((vsd)[8] & BIT(6)) ? 11 : 13))
 
 struct hdmi_edid_sink_data {
@@ -179,6 +179,10 @@ static struct hdmi_edid_video_mode_property_type
 	 22, 67432, 119880, 148352, 119980, false},
 	{HDMI_VFRMT_1920x1080i120_16_9, 1920, 1080, true,  2200, 280, 1125,
 	 22, 67500, 120000, 148500, 120000, false},
+
+	/* All 2560 H Active */
+	{HDMI_VFRMT_2560x1600p60_16_9, 2560, 1600, false, 2720, 160, 1646,
+	 46, 98700, 60000, 268500, 60000, false},
 
 	/* All 2880 H Active */
 	{HDMI_VFRMT_2880x576i50_4_3, 2880, 576, true,  3456, 576, 625, 24,
@@ -437,7 +441,7 @@ static const u8 *hdmi_edid_find_block(const u8 *in_buf, u32 start_offset,
 		u8 block_len = in_buf[offset] & 0x1F;
 		if ((in_buf[offset] >> 5) == type) {
 			*len = block_len;
-			DEV_DBG("%s: EDID: block=%d found @ %d w/ length=%d\n",
+			DEV_DBG("%s: EDID: block=%d found @ 0x%x w/ len=%d\n",
 				__func__, type, offset, block_len);
 
 			return in_buf + offset;
@@ -533,8 +537,8 @@ static void hdmi_edid_extract_3d_present(struct hdmi_edid_ctrl *edid_ctrl,
 		return;
 	}
 
-	offset = HDMI_VSDB_3D_DATA_OFFSET(vsd);
-	DEV_DBG("%s: EDID: 3D present @ %d = %02x\n", __func__,
+	offset = HDMI_VSDB_3D_EVF_DATA_OFFSET(vsd);
+	DEV_DBG("%s: EDID: 3D present @ 0x%x = %02x\n", __func__,
 		offset, vsd[offset]);
 
 	if (vsd[offset] >> 7) { /* 3D format indication present */
@@ -835,7 +839,7 @@ static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 				3, &len) : NULL;
 	int i;
 
-	offset = HDMI_VSDB_3D_DATA_OFFSET(vsd);
+	offset = HDMI_VSDB_3D_EVF_DATA_OFFSET(vsd);
 	present_multi_3d = (vsd[offset] & 0x60) >> 5;
 
 	offset += 1;
@@ -897,17 +901,16 @@ static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 
 	i = 0;
 	while (hdmi_3d_len > 0) {
-		DEV_DBG("%s: EDID[3D]: 3D_Structure_%d @ %d: %02x\n", __func__,
-			i + 1, offset, vsd[offset]);
+		DEV_DBG("%s: EDID: 3D_Structure_%d @ 0x%x: %02x\n",
+			__func__, i + 1, offset, vsd[offset]);
 
 		if ((vsd[offset] >> 4) >=
 			sink_data->disp_multi_3d_mode_list_cnt) {
 			if ((vsd[offset] & 0x0F) >= 8) {
 				offset += 1;
 				hdmi_3d_len -= 1;
-				DEV_DBG("%s:EDID[3D]:3D_Detail_%d @ %d: %02x\n",
-					__func__, i + 1, offset,
-					vsd[offset]);
+				DEV_DBG("%s:EDID:3D_Detail_%d @ 0x%x: %02x\n",
+					__func__, i + 1, offset, vsd[offset]);
 			}
 			i += 1;
 			offset += 1;
@@ -941,7 +944,7 @@ static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 		if ((vsd[offset] & 0x0F) >= 8) {
 			offset += 1;
 			hdmi_3d_len -= 1;
-			DEV_DBG("%s: EDID[3D]: 3D_Detail_%d @ %d: %02x\n",
+			DEV_DBG("%s: EDID[3D]: 3D_Detail_%d @ 0x%x: %02x\n",
 				__func__, i + 1, offset,
 				vsd[offset]);
 		}
@@ -950,6 +953,49 @@ static void hdmi_edid_get_display_vsd_3d_mode(const u8 *data_buf,
 		hdmi_3d_len -= 1;
 	}
 } /* hdmi_edid_get_display_vsd_3d_mode */
+
+static void hdmi_edid_get_extended_video_formats(
+	struct hdmi_edid_ctrl *edid_ctrl, const u8 *in_buf)
+{
+	u8 db_len, offset, i;
+	u8 hdmi_vic_len;
+	u32 video_format;
+	const u8 *vsd = NULL;
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, 3, &db_len);
+
+	if (vsd == NULL || db_len < 9) {
+		DEV_DBG("%s: blk-id 3 not found or not long enough\n",
+			__func__);
+		return;
+	}
+
+	/* check if HDMI_Video_present flag is set or not */
+	if (!(vsd[8] & BIT(5))) {
+		DEV_DBG("%s: extended vfmts are not supported by the sink.\n",
+			__func__);
+		return;
+	}
+
+	offset = HDMI_VSDB_3D_EVF_DATA_OFFSET(vsd);
+
+	hdmi_vic_len = vsd[offset + 1] >> 5;
+	if (hdmi_vic_len) {
+		DEV_DBG("%s: EDID: EVFRMT @ 0x%x of block 3, len = %02x\n",
+			__func__, offset, hdmi_vic_len);
+
+		for (i = 0; i < hdmi_vic_len; i++) {
+			video_format = HDMI_VFRMT_END + vsd[offset + 2 + i];
+			hdmi_edid_add_sink_video_format(&edid_ctrl->sink_data,
+				video_format);
+		}
+	}
+} /* hdmi_edid_get_extended_video_formats */
 
 static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 	const u8 *data_buf, u32 num_of_cea_blocks)
@@ -1112,6 +1158,8 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 			++i;
 		}
 	}
+
+	hdmi_edid_get_extended_video_formats(edid_ctrl, data_buf+0x80);
 
 	/* mandaroty 3d format */
 	if (edid_ctrl->present_3d) {
