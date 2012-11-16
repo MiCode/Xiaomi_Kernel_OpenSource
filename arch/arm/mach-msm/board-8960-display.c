@@ -988,6 +988,12 @@ error:
 
 void __init msm8960_init_fb(void)
 {
+	uint32_t soc_platform_version = socinfo_get_version();
+
+
+	if (SOCINFO_VERSION_MAJOR(soc_platform_version) >= 3)
+		mdp_pdata.mdp_rev = MDP_REV_43;
+
 	if (cpu_is_msm8960ab())
 		mdp_pdata.mdp_rev = MDP_REV_44;
 
