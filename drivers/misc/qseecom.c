@@ -49,6 +49,9 @@
 #define QSEOS_VERSION_13		0x13
 #define QSEOS_VERSION_14		0x14
 #define QSEEE_VERSION_00		0x400000
+#define QSEE_VERSION_01			0x401000
+#define QSEE_VERSION_02			0x402000
+
 
 #define QSEOS_CHECK_VERSION_CMD		0x00001803
 
@@ -75,6 +78,7 @@ enum qseecom_qceos_cmd_id {
 	QSEOS_GET_APP_STATE_COMMAND,
 	QSEOS_LOAD_SERV_IMAGE_COMMAND,
 	QSEOS_UNLOAD_SERV_IMAGE_COMMAND,
+	QSEOS_APP_REGION_NOTIFICATION,
 	QSEOS_CMD_MAX     = 0xEFFFFFFF
 };
 
@@ -87,6 +91,12 @@ enum qseecom_qceos_cmd_status {
 enum qseecom_clk_definitions {
 	CLK_DFAB = 0,
 	CLK_SFPB,
+};
+
+__packed  struct qsee_apps_region_info_ireq {
+	uint32_t qsee_cmd_id;
+	uint32_t addr;
+	uint32_t size;
 };
 
 __packed struct qseecom_check_app_ireq {
@@ -2558,6 +2568,32 @@ static int qseecom_probe(struct platform_device *pdev)
 		}
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
 						msm_bus_cl_get_pdata(pdev);
+		if (qseecom.qsee_version >= (QSEE_VERSION_02)) {
+			struct resource *resource = NULL;
+			struct qsee_apps_region_info_ireq req;
+			struct qseecom_command_scm_resp resp;
+
+			resource = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "secapp-region");
+			if (resource) {
+				req.qsee_cmd_id = QSEOS_APP_REGION_NOTIFICATION;
+				req.addr = resource->start;
+				req.size = resource_size(resource);
+				pr_warn("secure app region addr=0x%x size=0x%x",
+							req.addr, req.size);
+			} else {
+				pr_err("Fail to get secure app region info\n");
+				rc = -EINVAL;
+				goto err;
+			}
+			rc = scm_call(SCM_SVC_TZSCHEDULER, 1, &req, sizeof(req),
+							&resp, sizeof(resp));
+			if (rc) {
+				pr_err("Failed to send secapp region info %d\n",
+									rc);
+				goto err;
+			}
+		}
 	} else {
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
 						pdev->dev.platform_data;
