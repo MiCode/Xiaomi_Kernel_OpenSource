@@ -30,7 +30,7 @@
 
 #define AUDIO_OCMEM_BUF_SIZE (512 * SZ_1K)
 
-static int enable_ocmem_audio_voice;
+static int enable_ocmem_audio_voice = 1;
 module_param(enable_ocmem_audio_voice, int,
 			S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(enable_ocmem_audio_voice, "control OCMEM usage for audio/voice");
@@ -423,10 +423,10 @@ int voice_ocmem_process_req(int cid, bool enable)
 	struct voice_ocmem_workdata *workdata = NULL;
 
 	if (enable) {
-		if (enable_ocmem_audio_voice)
-			audio_ocmem_lcl.ocmem_en = true;
-		else
+		if (!enable_ocmem_audio_voice)
 			audio_ocmem_lcl.ocmem_en = false;
+		else
+			audio_ocmem_lcl.ocmem_en = true;
 	}
 	if (audio_ocmem_lcl.ocmem_en) {
 		if (audio_ocmem_lcl.voice_ocmem_workqueue == NULL) {
@@ -527,10 +527,10 @@ int audio_ocmem_process_req(int id, bool enable)
 	struct audio_ocmem_workdata *workdata = NULL;
 
 	if (enable) {
-		if (enable_ocmem_audio_voice)
-			audio_ocmem_lcl.ocmem_en = true;
-		else
+		if (!enable_ocmem_audio_voice)
 			audio_ocmem_lcl.ocmem_en = false;
+		else
+			audio_ocmem_lcl.ocmem_en = true;
 	}
 
 	if (audio_ocmem_lcl.ocmem_en) {
@@ -611,7 +611,7 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_DEFAULT);
 	atomic_set(&audio_ocmem_lcl.audio_exit, 0);
 	spin_lock_init(&audio_ocmem_lcl.audio_lock);
-	audio_ocmem_lcl.ocmem_en = false;
+	audio_ocmem_lcl.ocmem_en = true;
 
 	/* populate platform data */
 	ret = audio_ocmem_platform_data_populate(pdev);
