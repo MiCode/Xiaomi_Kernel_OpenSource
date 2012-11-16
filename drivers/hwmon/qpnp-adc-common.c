@@ -373,7 +373,7 @@ static const struct qpnp_vadc_map_pt adcmap_150k_104ef_104fb[] = {
 	{125,	30}
 };
 
-static int32_t qpnp_adc_map_linear(const struct qpnp_vadc_map_pt *pts,
+static int32_t qpnp_adc_map_voltage_temp(const struct qpnp_vadc_map_pt *pts,
 		uint32_t tablesize, int32_t input, int64_t *output)
 {
 	bool descending = 1;
@@ -419,7 +419,7 @@ static int32_t qpnp_adc_map_linear(const struct qpnp_vadc_map_pt *pts,
 	return 0;
 }
 
-static int32_t qpnp_adc_map_batt_therm(const struct qpnp_vadc_map_pt *pts,
+static int32_t qpnp_adc_map_temp_voltage(const struct qpnp_vadc_map_pt *pts,
 		uint32_t tablesize, int32_t input, int64_t *output)
 {
 	bool descending = 1;
@@ -552,7 +552,7 @@ int32_t qpnp_adc_tdkntcg_therm(int32_t adc_code,
 	xo_thm = qpnp_adc_scale_ratiometric_calib(adc_code,
 			adc_properties, chan_properties);
 	xo_thm <<= 4;
-	qpnp_adc_map_linear(adcmap_ntcg_104ef_104fb,
+	qpnp_adc_map_voltage_temp(adcmap_ntcg_104ef_104fb,
 		ARRAY_SIZE(adcmap_ntcg_104ef_104fb),
 		xo_thm, &adc_chan_result->physical);
 
@@ -570,7 +570,7 @@ int32_t qpnp_adc_scale_batt_therm(int32_t adc_code,
 	bat_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
 			adc_properties, chan_properties);
 
-	return qpnp_adc_map_batt_therm(
+	return qpnp_adc_map_temp_voltage(
 			adcmap_btm_threshold,
 			ARRAY_SIZE(adcmap_btm_threshold),
 			bat_voltage,
@@ -588,7 +588,7 @@ int32_t qpnp_adc_scale_therm_pu1(int32_t adc_code,
 	therm_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
 			adc_properties, chan_properties);
 
-	qpnp_adc_map_linear(adcmap_150k_104ef_104fb,
+	qpnp_adc_map_temp_voltage(adcmap_150k_104ef_104fb,
 		ARRAY_SIZE(adcmap_150k_104ef_104fb),
 		therm_voltage, &adc_chan_result->physical);
 
@@ -606,7 +606,7 @@ int32_t qpnp_adc_scale_therm_pu2(int32_t adc_code,
 	therm_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
 			adc_properties, chan_properties);
 
-	qpnp_adc_map_linear(adcmap_100k_104ef_104fb,
+	qpnp_adc_map_temp_voltage(adcmap_100k_104ef_104fb,
 		ARRAY_SIZE(adcmap_100k_104ef_104fb),
 		therm_voltage, &adc_chan_result->physical);
 
