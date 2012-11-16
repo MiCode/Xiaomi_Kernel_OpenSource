@@ -113,7 +113,8 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 		"diag_modem_mask_update_work: %d\n"
 		"diag_lpass_mask_update_work: %d\n"
 		"diag_wcnss_mask_update_work: %d\n"
-		"diag_read_smd_dci_work: %d\n",
+		"diag_read_smd_dci_work: %d\n"
+		"diag_update_smd_dci_work: %d\n",
 		work_pending(&(driver->diag_drain_work)),
 		work_pending(&(driver->diag_read_smd_work)),
 		work_pending(&(driver->diag_read_smd_cntl_work)),
@@ -124,7 +125,8 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 		work_pending(&(driver->diag_modem_mask_update_work)),
 		work_pending(&(driver->diag_lpass_mask_update_work)),
 		work_pending(&(driver->diag_wcnss_mask_update_work)),
-		work_pending(&(driver->diag_read_smd_dci_work)));
+		work_pending(&(driver->diag_read_smd_dci_work)),
+		work_pending(&(driver->diag_update_smd_dci_work)));
 
 #ifdef CONFIG_DIAG_OVER_USB
 	ret += scnprintf(buf+ret, DEBUG_BUF_SIZE,
