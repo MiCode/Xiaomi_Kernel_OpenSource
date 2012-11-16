@@ -27,7 +27,10 @@
 #include <linux/io.h>
 #include <linux/ctype.h>
 #include <linux/of_device.h>
+#include <linux/msm_dsps.h>
+#include <linux/uaccess.h>
 #include <asm/mach-types.h>
+#include <asm/arch_timer.h>
 #include <mach/subsystem_restart.h>
 #include <mach/ocmem.h>
 #include <mach/msm_smd.h>
@@ -35,7 +38,7 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 
-#define DRV_NAME	"sensors_adsp"
+#define DRV_NAME	"sensors"
 #define DRV_VERSION	"1.00"
 
 #define SNS_OCMEM_SMD_CHANNEL	"SENSOR"
@@ -77,6 +80,10 @@ struct sns_adsp_control_s {
 	uint32_t sns_ocmem_bus_client;
 	struct platform_device *pdev;
 	void *pil;
+	struct class *dev_class;
+	dev_t dev_num;
+	struct device *dev;
+	struct cdev *cdev;
 };
 
 static struct sns_adsp_control_s sns_ctl;
@@ -1017,16 +1024,122 @@ static void sns_ocmem_main(struct work_struct *work)
 					&sns_ctl.ocmem_nb);
 }
 
+static int sensors_adsp_open(struct inode *ip, struct file *fp)
+{
+	int ret = 0;
+	pr_debug("%s\n", __func__);
+	return ret;
+}
+
+static int sensors_adsp_release(struct inode *inode, struct file *file)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+/**
+ * Read QTimer clock ticks and scale down to 32KHz clock as used
+ * in DSPS
+ */
+static u32 sns_read_qtimer(void)
+{
+	u64 val;
+	val = arch_counter_get_cntpct();
+	/*
+	 * To convert ticks from 19.2 Mhz clock to 32768 Hz clock:
+	 * x = (value * 32768) / 19200000
+	 * This is same as first left shift the value by 4 bits, i.e. mutiply
+	 * by 16, and then divide by 9375. The latter is preferable since
+	 * QTimer tick (value) is 56-bit, so (value * 32768) could overflow,
+	 * while (value * 16) will never do
+	 */
+	val <<= 4;
+	do_div(val, 9375);
+
+	pr_debug("%s.count=%llu\n", __func__, val);
+	return (u32)val;
+}
+
+/**
+ * IO Control - handle commands from client.
+ *
+ */
+static long sensors_adsp_ioctl(struct file *file,
+			unsigned int cmd, unsigned long arg)
+{
+	int ret = 0;
+	u32 val = 0;
+	pr_debug("%s\n", __func__);
+
+	switch (cmd) {
+	case DSPS_IOCTL_READ_SLOW_TIMER:
+		val = sns_read_qtimer();
+		ret = put_user(val, (u32 __user *) arg);
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
+/**
+ * platform driver
+ *
+ */
+const struct file_operations sensors_adsp_fops = {
+	.owner = THIS_MODULE,
+	.open = sensors_adsp_open,
+	.release = sensors_adsp_release,
+	.unlocked_ioctl = sensors_adsp_ioctl,
+};
+
 static int sensors_adsp_probe(struct platform_device *pdev)
 {
+	int ret = 0;
 	pr_debug("%s.\n", __func__);
+	sns_ctl.dev_class = class_create(THIS_MODULE, DRV_NAME);
+	if (sns_ctl.dev_class == NULL) {
+		pr_err("%s: class_create fail.\n", __func__);
+		goto res_err;
+	}
+
+	ret = alloc_chrdev_region(&sns_ctl.dev_num, 0, 1, DRV_NAME);
+	if (ret) {
+		pr_err("%s: alloc_chrdev_region fail.\n", __func__);
+		goto alloc_chrdev_region_err;
+	}
+
+	sns_ctl.dev = device_create(sns_ctl.dev_class, NULL,
+				     sns_ctl.dev_num,
+				     &sns_ctl, DRV_NAME);
+	if (IS_ERR(sns_ctl.dev)) {
+		pr_err("%s: device_create fail.\n", __func__);
+		goto device_create_err;
+	}
+
+	sns_ctl.cdev = cdev_alloc();
+	if (sns_ctl.cdev == NULL) {
+		pr_err("%s: cdev_alloc fail.\n", __func__);
+		goto cdev_alloc_err;
+	}
+	cdev_init(sns_ctl.cdev, &sensors_adsp_fops);
+	sns_ctl.cdev->owner = THIS_MODULE;
+
+	ret = cdev_add(sns_ctl.cdev, sns_ctl.dev_num, 1);
+	if (ret) {
+		pr_err("%s: cdev_add fail.\n", __func__);
+		goto cdev_add_err;
+	}
 
 	sns_ctl.sns_workqueue =
 			alloc_workqueue("sns_ocmem", WQ_NON_REENTRANT, 0);
 	if (!sns_ctl.sns_workqueue) {
-		pr_err("%s: Failed to create ocmem audio work queue\n",
+		pr_err("%s: Failed to create work queue\n",
 			__func__);
-		return -EFAULT;
+		goto cdev_add_err;
 	}
 
 	init_waitqueue_head(&sns_ctl.sns_wait);
@@ -1044,6 +1157,17 @@ static int sensors_adsp_probe(struct platform_device *pdev)
 	queue_work(sns_ctl.sns_workqueue, &sns_ctl.sns_work);
 
 	return 0;
+
+cdev_add_err:
+	kfree(sns_ctl.cdev);
+cdev_alloc_err:
+	device_destroy(sns_ctl.dev_class, sns_ctl.dev_num);
+device_create_err:
+	unregister_chrdev_region(sns_ctl.dev_num, 1);
+alloc_chrdev_region_err:
+	class_destroy(sns_ctl.dev_class);
+res_err:
+	return -ENODEV;
 }
 
 static int sensors_adsp_remove(struct platform_device *pdev)
@@ -1061,6 +1185,14 @@ static int sensors_adsp_remove(struct platform_device *pdev)
 	ocmem_notifier_unregister(sns_ctl.ocmem_handle,
 					&sns_ctl.ocmem_nb);
 	destroy_workqueue(sns_ctl.sns_workqueue);
+
+	cdev_del(sns_ctl.cdev);
+	kfree(sns_ctl.cdev);
+	sns_ctl.cdev = NULL;
+	device_destroy(sns_ctl.dev_class, sns_ctl.dev_num);
+	unregister_chrdev_region(sns_ctl.dev_num, 1);
+	class_destroy(sns_ctl.dev_class);
+
 	return 0;
 }
 
