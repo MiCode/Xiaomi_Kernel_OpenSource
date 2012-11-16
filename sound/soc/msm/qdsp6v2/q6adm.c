@@ -34,11 +34,11 @@
 
 struct adm_ctl {
 	void *apr;
-	atomic_t copp_id[Q6_AFE_MAX_PORTS];
-	atomic_t copp_cnt[Q6_AFE_MAX_PORTS];
-	atomic_t copp_stat[Q6_AFE_MAX_PORTS];
-	u32      mem_map_handle[Q6_AFE_MAX_PORTS];
-	wait_queue_head_t wait[Q6_AFE_MAX_PORTS];
+	atomic_t copp_id[AFE_MAX_PORTS];
+	atomic_t copp_cnt[AFE_MAX_PORTS];
+	atomic_t copp_stat[AFE_MAX_PORTS];
+	u32      mem_map_handle[AFE_MAX_PORTS];
+	wait_queue_head_t wait[AFE_MAX_PORTS];
 };
 
 static struct acdb_cal_block mem_addr_audproc[MAX_AUDPROC_TYPES];
@@ -81,7 +81,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				this_adm.apr);
 		if (this_adm.apr) {
 			apr_reset(this_adm.apr);
-			for (i = 0; i < Q6_AFE_MAX_PORTS; i++) {
+			for (i = 0; i < AFE_MAX_PORTS; i++) {
 				atomic_set(&this_adm.copp_id[i],
 							RESET_COPP_ID);
 				atomic_set(&this_adm.copp_cnt[i], 0);
@@ -107,7 +107,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 	adm_callback_debug_print(data);
 	if (data->payload_size) {
 		index = q6audio_get_port_index(data->token);
-		if (index < 0 || index >= Q6_AFE_MAX_PORTS) {
+		if (index < 0 || index >= AFE_MAX_PORTS) {
 			pr_err("%s: invalid port idx %d token %d\n",
 					__func__, index, data->token);
 			return 0;
@@ -219,15 +219,15 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
 	struct adm_cmd_set_pp_params_v5	adm_params;
 	int index = afe_get_port_index(port_id);
 	if (index < 0 || index >= AFE_MAX_PORTS) {
-		pr_err("%s: invalid port idx %d portid %d\n",
+		pr_err("%s: invalid port idx %d portid %#x\n",
 				__func__, index, port_id);
 		return 0;
 	}
 
-	pr_debug("%s: Port id %d, index %d\n", __func__, port_id, index);
+	pr_debug("%s: Port id %#x, index %d\n", __func__, port_id, index);
 
 	if (!aud_cal || aud_cal->cal_size == 0) {
-		pr_debug("%s: No ADM cal to send for port_id = %d!\n",
+		pr_debug("%s: No ADM cal to send for port_id = %#x!\n",
 			__func__, port_id);
 		result = -EINVAL;
 		goto done;
@@ -257,7 +257,7 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
 		adm_params.payload_size);
 	result = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_params);
 	if (result < 0) {
-		pr_err("%s: Set params failed port = %d payload = 0x%x\n",
+		pr_err("%s: Set params failed port = %#x payload = 0x%x\n",
 			__func__, port_id, aud_cal->cal_paddr);
 		result = -EINVAL;
 		goto done;
@@ -267,7 +267,7 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
 		atomic_read(&this_adm.copp_stat[index]),
 		msecs_to_jiffies(TIMEOUT_MS));
 	if (!result) {
-		pr_err("%s: Set params timed out port = %d, payload = 0x%x\n",
+		pr_err("%s: Set params timed out port = %#x, payload = 0x%x\n",
 			__func__, port_id, aud_cal->cal_paddr);
 		result = -EINVAL;
 		goto done;
@@ -317,10 +317,10 @@ static void send_adm_cal(int port_id, int path)
 	}
 
 	if (!send_adm_cal_block(port_id, &aud_cal))
-		pr_debug("%s: Audproc cal sent for port id: %d, path %d\n",
+		pr_debug("%s: Audproc cal sent for port id: %#x, path %d\n",
 			__func__, port_id, acdb_path);
 	else
-		pr_debug("%s: Audproc cal not sent for port id: %d, path %d\n",
+		pr_debug("%s: Audproc cal not sent for port id: %#x, path %d\n",
 			__func__, port_id, acdb_path);
 
 	pr_debug("%s: Sending audvol cal\n", __func__);
@@ -351,10 +351,10 @@ static void send_adm_cal(int port_id, int path)
 	}
 
 	if (!send_adm_cal_block(port_id, &aud_cal))
-		pr_debug("%s: Audvol cal sent for port id: %d, path %d\n",
+		pr_debug("%s: Audvol cal sent for port id: %#x, path %d\n",
 			__func__, port_id, acdb_path);
 	else
-		pr_debug("%s: Audvol cal not sent for port id: %d, path %d\n",
+		pr_debug("%s: Audvol cal not sent for port id: %#x, path %d\n",
 			__func__, port_id, acdb_path);
 }
 
@@ -384,7 +384,7 @@ int adm_connect_afe_port(int mode, int session_id, int port_id)
 		rtac_set_adm_handle(this_adm.apr);
 	}
 	index = afe_get_port_index(port_id);
-	pr_debug("%s: Port ID %d, index %d\n", __func__, port_id, index);
+	pr_debug("%s: Port ID %#x, index %d\n", __func__, port_id, index);
 
 	cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -405,7 +405,7 @@ int adm_connect_afe_port(int mode, int session_id, int port_id)
 	atomic_set(&this_adm.copp_stat[index], 0);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&cmd);
 	if (ret < 0) {
-		pr_err("%s:ADM enable for port %d failed\n",
+		pr_err("%s:ADM enable for port %#x failed\n",
 					__func__, port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -415,7 +415,7 @@ int adm_connect_afe_port(int mode, int session_id, int port_id)
 		atomic_read(&this_adm.copp_stat[index]),
 		msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
-		pr_err("%s ADM connect AFE failed for port %d\n", __func__,
+		pr_err("%s ADM connect AFE failed for port %#x\n", __func__,
 							port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -435,18 +435,18 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 	int index;
 	int tmp_port = q6audio_get_port_id(port_id);
 
-	pr_debug("%s: port %d path:%d rate:%d mode:%d\n", __func__,
+	pr_debug("%s: port %#x path:%d rate:%d mode:%d\n", __func__,
 				port_id, path, rate, channel_mode);
 
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 
 	if (q6audio_validate_port(port_id) < 0) {
-		pr_err("%s port idi[%d] is invalid\n", __func__, port_id);
+		pr_err("%s port idi[%#x] is invalid\n", __func__, port_id);
 		return -ENODEV;
 	}
 
 	index = q6audio_get_port_index(port_id);
-	pr_debug("%s: Port ID %d, index %d\n", __func__, port_id, index);
+	pr_debug("%s: Port ID %#x, index %d\n", __func__, port_id, index);
 
 	if (this_adm.apr == NULL) {
 		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
@@ -543,15 +543,15 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 			return -EINVAL;
 		}
 
-		pr_debug("%s: port_id=%d rate=%d"
-			"topology_id=0x%X\n", __func__,	open.endpoint_id_1, \
-				  open.sample_rate, open.topology_id);
+		pr_debug("%s: port_id=%#x rate=%d topology_id=0x%X\n",
+			__func__, open.endpoint_id_1, open.sample_rate,
+			open.topology_id);
 
 		atomic_set(&this_adm.copp_stat[index], 0);
 
 		ret = apr_send_pkt(this_adm.apr, (uint32_t *)&open);
 		if (ret < 0) {
-			pr_err("%s:ADM enable for port %d for[%d] failed\n",
+			pr_err("%s:ADM enable for port %#x for[%d] failed\n",
 						__func__, tmp_port, port_id);
 			ret = -EINVAL;
 			goto fail_cmd;
@@ -561,7 +561,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 			atomic_read(&this_adm.copp_stat[index]),
 			msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
-			pr_err("%s ADM open failed for port %d"
+			pr_err("%s ADM open failed for port %#x"
 			"for [%d]\n", __func__, tmp_port, port_id);
 			ret = -EINVAL;
 			goto fail_cmd;
@@ -599,7 +599,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 
 	/* Assumes port_ids have already been validated during adm_open */
 	int index = q6audio_get_port_index(copp_id);
-	if (index < 0 || index >= Q6_AFE_MAX_PORTS) {
+	if (index < 0 || index >= AFE_MAX_PORTS) {
 		pr_err("%s: invalid port idx %d token %d\n",
 					__func__, index, copp_id);
 		return 0;
@@ -615,7 +615,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	}
 	route = (struct adm_cmd_matrix_map_routings_v5 *)matrix_map;
 
-	pr_debug("%s: session 0x%x path:%d num_copps:%d port_id[0] :%d coppid[%d]\n",
+	pr_debug("%s: session 0x%x path:%d num_copps:%d port_id[0]:%#x coppid[%d]\n",
 		 __func__, session_id, path, num_copps, port_id[0], copp_id);
 
 	route->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -658,10 +658,10 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		tmp = q6audio_get_port_index(port_id[i]);
 
 
-		if (tmp >= 0 && tmp < Q6_AFE_MAX_PORTS)
+		if (tmp >= 0 && tmp < AFE_MAX_PORTS)
 			copps_list[i] =
 					atomic_read(&this_adm.copp_id[tmp]);
-		pr_debug("%s: port_id[%d]: %d, index: %d act coppid[0x%x]\n",
+		pr_debug("%s: port_id[%#x]: %d, index: %d act coppid[0x%x]\n",
 			__func__, i, port_id[i], tmp,
 			atomic_read(&this_adm.copp_id[tmp]));
 	}
@@ -669,7 +669,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *)matrix_map);
 	if (ret < 0) {
-		pr_err("%s: ADM routing for port %d failed\n",
+		pr_err("%s: ADM routing for port %#x failed\n",
 					__func__, port_id[0]);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -678,7 +678,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 				atomic_read(&this_adm.copp_stat[index]),
 				msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
-		pr_err("%s: ADM cmd Route failed for port %d\n",
+		pr_err("%s: ADM cmd Route failed for port %#x\n",
 					__func__, port_id[0]);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -724,7 +724,7 @@ int adm_memory_map_regions(int port_id,
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 
 	if (q6audio_validate_port(port_id) < 0) {
-		pr_err("%s port id[%d] is invalid\n", __func__, port_id);
+		pr_err("%s port id[%#x] is invalid\n", __func__, port_id);
 		return -ENODEV;
 	}
 
@@ -864,10 +864,10 @@ int adm_close(int port_id)
 	if (q6audio_validate_port(port_id) < 0)
 		return -EINVAL;
 
-	pr_debug("%s port_id=%d index %d\n", __func__, port_id, index);
+	pr_debug("%s port_id=%#x index %d\n", __func__, port_id, index);
 
 	if (!(atomic_read(&this_adm.copp_cnt[index]))) {
-		pr_err("%s: copp count for port[%d]is 0\n", __func__, port_id);
+		pr_err("%s: copp count for port[%#x]is 0\n", __func__, port_id);
 
 		goto fail_cmd;
 	}
@@ -890,7 +890,7 @@ int adm_close(int port_id)
 		atomic_set(&this_adm.copp_stat[index], 0);
 
 
-		pr_debug("%s:coppid %d portid=%d index=%d coppcnt=%d\n",
+		pr_debug("%s:coppid %d portid=%#x index=%d coppcnt=%d\n",
 				__func__,
 				atomic_read(&this_adm.copp_id[index]),
 				port_id, index,
@@ -907,7 +907,7 @@ int adm_close(int port_id)
 				atomic_read(&this_adm.copp_stat[index]),
 				msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
-			pr_err("%s: ADM cmd Route failed for port %d\n",
+			pr_err("%s: ADM cmd Route failed for port %#x\n",
 						__func__, port_id);
 			ret = -EINVAL;
 			goto fail_cmd;
@@ -925,7 +925,7 @@ static int __init adm_init(void)
 	int i = 0;
 	this_adm.apr = NULL;
 
-	for (i = 0; i < Q6_AFE_MAX_PORTS; i++) {
+	for (i = 0; i < AFE_MAX_PORTS; i++) {
 		atomic_set(&this_adm.copp_id[i], RESET_COPP_ID);
 		atomic_set(&this_adm.copp_cnt[i], 0);
 		atomic_set(&this_adm.copp_stat[i], 0);
