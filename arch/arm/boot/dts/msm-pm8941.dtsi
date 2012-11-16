@@ -95,6 +95,7 @@
 			qcom,bms-calculate-soc-ms = <20000>;
 			qcom,bms-chg-term-ua = <100000>;
 			qcom,bms-batt-type = <0>;
+			qcom,bms-use-voltage-soc;
 		};
 
 		clkdiv@5b00 {
