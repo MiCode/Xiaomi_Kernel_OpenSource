@@ -93,6 +93,72 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting  mi2s_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting  mi2s_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting codec_reset = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config mdm9625_mi2s_configs[] __initdata = {
+	{
+		.gpio	= 12,		/* mi2s ws */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio	= 15,		/* mi2s sclk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio	= 14,		/* mi2s dout */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio	= 13,		/* mi2s din */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio	= 71,		/* mi2s mclk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+};
+
+static struct msm_gpiomux_config mdm9625_cdc_reset_config[] __initdata = {
+	{
+		.gpio   = 22,           /* SYS_RST_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &codec_reset,
+		},
+	}
+};
+
 static struct gpiomux_setting sdc3_clk_active_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -207,4 +273,8 @@ void __init msm9625_init_gpiomux(void)
 	msm_gpiomux_install(sdc3_configs, ARRAY_SIZE(sdc3_configs));
 	msm_gpiomux_install(wlan_ath6kl_configs,
 		ARRAY_SIZE(wlan_ath6kl_configs));
+	msm_gpiomux_install(mdm9625_mi2s_configs,
+			ARRAY_SIZE(mdm9625_mi2s_configs));
+	msm_gpiomux_install(mdm9625_cdc_reset_config,
+			ARRAY_SIZE(mdm9625_cdc_reset_config));
 }
