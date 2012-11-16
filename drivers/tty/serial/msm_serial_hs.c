@@ -391,8 +391,6 @@ static int msm_hs_remove(struct platform_device *pdev)
 
 	struct msm_hs_port *msm_uport;
 	struct device *dev;
-	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
-
 
 	if (pdev->id < 0 || pdev->id >= UARTDM_NR) {
 		printk(KERN_ERR "Invalid plaform device ID = %d\n", pdev->id);
@@ -401,10 +399,6 @@ static int msm_hs_remove(struct platform_device *pdev)
 
 	msm_uport = &q_uart_port[pdev->id];
 	dev = msm_uport->uport.dev;
-
-	if (pdata && pdata->gpio_config)
-		if (pdata->gpio_config(0))
-			dev_err(dev, "GPIO config error\n");
 
 	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_clock.attr);
 	debugfs_remove(msm_uport->loopback_dir);
@@ -1647,6 +1641,9 @@ static int msm_hs_startup(struct uart_port *uport)
 	unsigned long flags;
 	unsigned int data;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	struct platform_device *pdev = to_platform_device(uport->dev);
+	const struct msm_serial_hs_platform_data *pdata =
+					pdev->dev.platform_data;
 	struct circ_buf *tx_buf = &uport->state->xmit;
 	struct msm_hs_tx *tx = &msm_uport->tx;
 
@@ -1665,6 +1662,10 @@ static int msm_hs_startup(struct uart_port *uport)
 		wake_unlock(&msm_uport->dma_wake_lock);
 		return ret;
 	}
+
+	if (pdata && pdata->gpio_config)
+		if (unlikely(pdata->gpio_config(1)))
+			dev_err(uport->dev, "Cannot configure gpios\n");
 
 	/* Set auto RFR Level */
 	data = msm_hs_read(uport, UARTDM_MR1_ADDR);
@@ -1946,10 +1947,6 @@ static int msm_hs_probe(struct platform_device *pdev)
 		if (unlikely(msm_uport->wakeup.irq < 0))
 			return -ENXIO;
 
-		if (pdata->gpio_config)
-			if (unlikely(pdata->gpio_config(1)))
-				dev_err(uport->dev, "Cannot configure"
-					"gpios\n");
 	}
 
 	resource = platform_get_resource_byname(pdev, IORESOURCE_DMA,
@@ -2087,6 +2084,9 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	unsigned int data;
 	unsigned long flags;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	struct platform_device *pdev = to_platform_device(uport->dev);
+	const struct msm_serial_hs_platform_data *pdata =
+				pdev->dev.platform_data;
 
 	if (msm_uport->tx.dma_in_flight) {
 		spin_lock_irqsave(&uport->lock, flags);
@@ -2149,6 +2149,10 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	free_irq(uport->irq, msm_uport);
 	if (use_low_power_wakeup(msm_uport))
 		free_irq(msm_uport->wakeup.irq, msm_uport);
+
+	if (pdata && pdata->gpio_config)
+		if (pdata->gpio_config(0))
+			dev_err(uport->dev, "GPIO config error\n");
 }
 
 static void __exit msm_serial_hs_exit(void)
