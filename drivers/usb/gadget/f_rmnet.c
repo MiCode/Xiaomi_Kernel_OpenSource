@@ -17,6 +17,7 @@
 #include <linux/spinlock.h>
 
 #include <mach/usb_gadget_xport.h>
+#include <mach/usb_bam.h>
 
 #include "u_rmnet.h"
 #include "gadget_chips.h"
@@ -48,6 +49,9 @@ struct f_rmnet {
 	struct list_head		cpkt_resp_q;
 	atomic_t			notify_count;
 	unsigned long			cpkts_len;
+
+	/* IPA / RmNet Bridge support*/
+	struct usb_bam_connect_ipa_params ipa_params;
 };
 
 #define NR_RMNET_PORTS	3
@@ -429,7 +433,17 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	case USB_GADGET_XPORT_BAM:
 	case USB_GADGET_XPORT_BAM2BAM:
 		ret = gbam_connect(&dev->port, port_num,
-						   dxport, port_num);
+						   dxport, port_num, NULL);
+		if (ret) {
+			pr_err("%s: gbam_connect failed: err:%d\n",
+					__func__, ret);
+			gsmd_ctrl_disconnect(&dev->port, port_num);
+			return ret;
+		}
+		break;
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		ret = gbam_connect(&dev->port, port_num,
+					dxport, port_num, &(dev->ipa_params));
 		if (ret) {
 			pr_err("%s: gbam_connect failed: err:%d\n",
 					__func__, ret);
@@ -499,7 +513,11 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 	case USB_GADGET_XPORT_BAM2BAM:
-		gbam_disconnect(&dev->port, port_num, dxport);
+		gbam_disconnect(&dev->port, port_num, dxport, NULL);
+		break;
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		gbam_disconnect(&dev->port, port_num, dxport,
+						&(dev->ipa_params));
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		ghsic_data_disconnect(&dev->port, port_num);
@@ -550,6 +568,7 @@ static void frmnet_suspend(struct usb_function *f)
 	case USB_GADGET_XPORT_BAM:
 		break;
 	case USB_GADGET_XPORT_BAM2BAM:
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		gbam_suspend(&dev->port, port_num, dxport);
 		break;
 	case USB_GADGET_XPORT_HSIC:
@@ -579,6 +598,7 @@ static void frmnet_resume(struct usb_function *f)
 	case USB_GADGET_XPORT_BAM:
 		break;
 	case USB_GADGET_XPORT_BAM2BAM:
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		gbam_resume(&dev->port, port_num, dxport);
 		break;
 	case USB_GADGET_XPORT_HSIC:
@@ -1234,6 +1254,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		no_data_bam_ports++;
 		break;
 	case USB_GADGET_XPORT_BAM2BAM:
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		rmnet_port->data_xport_num = no_data_bam2bam_ports;
 		no_data_bam2bam_ports++;
 		break;
