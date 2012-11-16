@@ -78,6 +78,11 @@
 		status = "ok";
 	};
 
+	drv2667_vreg: drv2667_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_drv2667";
+	};
+
 	i2c@f9924000 {
 		atmel_mxt_ts@4a {
 			compatible = "atmel,mxt-ts";
