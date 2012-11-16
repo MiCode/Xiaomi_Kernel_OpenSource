@@ -337,9 +337,12 @@ static ssize_t vsync_show_event(struct device *dev,
 	vctrl->wait_vsync_cnt++;
 	spin_unlock_irqrestore(&vctrl->spin_lock, flags);
 
-	ret = wait_for_completion_interruptible(&vctrl->vsync_comp);
-	if (ret)
-		return ret;
+	ret = wait_for_completion_interruptible_timeout(&vctrl->vsync_comp,
+		msecs_to_jiffies(VSYNC_PERIOD * 4));
+	if (ret <= 0) {
+		vctrl->wait_vsync_cnt = 0;
+		return -EBUSY;
+	}
 
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
 	vg1fd = vctrl->vg1fd;
