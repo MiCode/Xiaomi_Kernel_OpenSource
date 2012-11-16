@@ -35,6 +35,7 @@
 #include <linux/elf.h>
 #include <linux/firmware.h>
 #include <linux/freezer.h>
+#include <linux/scatterlist.h>
 #include <mach/board.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
@@ -53,6 +54,8 @@
 
 #define QSEE_CE_CLK_100MHZ		100000000
 #define QSEE_CE_CLK_50MHZ		50000000
+
+#define QSEECOM_MAX_SG_ENTRY	10
 
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
@@ -246,6 +249,11 @@ struct clk *ce_core_clk;
 struct clk *ce_clk;
 struct clk *ce_core_src_clk;
 struct clk *ce_bus_clk;
+
+struct qseecom_sg_entry {
+	uint32_t phys_addr;
+	uint32_t len;
+};
 
 /* Function proto types */
 static int qsee_vote_for_clock(int32_t);
@@ -1093,13 +1101,11 @@ static int __qseecom_update_with_phy_addr(
 {
 	struct ion_handle *ihandle;
 	char *field;
-	uint32_t *update;
-	ion_phys_addr_t pa;
 	int ret = 0;
 	int i = 0;
-	uint32_t length;
 
 	for (i = 0; i < MAX_ION_FD; i++) {
+		struct sg_table *sg_ptr = NULL;
 		if (req->ifd_data[i].fd > 0) {
 			/* Get the handle of the shared fd */
 			ihandle = ion_import_dma_buf(qseecom.ion_clnt,
@@ -1110,20 +1116,51 @@ static int __qseecom_update_with_phy_addr(
 			}
 			field = (char *) req->cmd_req_buf +
 						req->ifd_data[i].cmd_buf_offset;
-			update = (uint32_t *) field;
 
 			/* Populate the cmd data structure with the phys_addr */
-			ret = ion_phys(qseecom.ion_clnt, ihandle, &pa, &length);
-			if (ret)
-				return -ENOMEM;
-
-			*update = (uint32_t)pa;
+			sg_ptr = ion_sg_table(qseecom.ion_clnt, ihandle);
+			if (sg_ptr == NULL) {
+				pr_err("IOn client could not retrieve sg table\n");
+				goto err;
+			}
+			if (sg_ptr->nents == 0) {
+				pr_err("Num of scattered entries is 0\n");
+				goto err;
+			}
+			if (sg_ptr->nents > QSEECOM_MAX_SG_ENTRY) {
+				pr_err("Num of scattered entries");
+				pr_err(" (%d) is greater than max supported %d\n",
+					sg_ptr->nents, QSEECOM_MAX_SG_ENTRY);
+				goto err;
+			}
+			if (sg_ptr->nents == 1) {
+				uint32_t *update;
+				update = (uint32_t *) field;
+				*update = (uint32_t)sg_dma_address(sg_ptr->sgl);
+			} else {
+				struct qseecom_sg_entry *update;
+				struct scatterlist *sg;
+				int j = 0;
+				update = (struct qseecom_sg_entry *) field;
+				sg = sg_ptr->sgl;
+				for (j = 0; j < sg_ptr->nents; j++) {
+					update->phys_addr = (uint32_t)
+						sg_dma_address(sg);
+					update->len = (uint32_t)sg->length;
+					update++;
+					sg = sg_next(sg);
+				}
+			}
 			/* Deallocate the handle */
 			if (!IS_ERR_OR_NULL(ihandle))
 				ion_free(qseecom.ion_clnt, ihandle);
 		}
 	}
 	return ret;
+err:
+	if (!IS_ERR_OR_NULL(ihandle))
+		ion_free(qseecom.ion_clnt, ihandle);
+	return -ENOMEM;
 }
 
 static int qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
