@@ -729,8 +729,8 @@ static int pil_mss_driver_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, drv);
 
-	of_property_read_u32(pdev->dev.of_node, "qcom,is_loadable",
-				&drv->is_loadable);
+	drv->is_loadable = of_property_read_bool(pdev->dev.of_node,
+							"qcom,is-loadable");
 	if (drv->is_loadable) {
 		ret = pil_mss_loadable_init(drv, pdev);
 		if (ret)
