@@ -165,6 +165,7 @@ int afe_get_port_type(u16 port_id)
 	case INT_FM_RX:
 	case VOICE_PLAYBACK_TX:
 	case RT_PROXY_PORT_001_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -183,12 +184,13 @@ int afe_get_port_type(u16 port_id)
 	case VOICE_RECORD_RX:
 	case INT_BT_SCO_TX:
 	case RT_PROXY_PORT_001_TX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 		ret = MSM_AFE_PORT_TYPE_TX;
 		break;
 
 	default:
 		WARN_ON(1);
-		pr_err("%s: invalid port id %d\n", __func__, port_id);
+		pr_err("%s: invalid port id %#x\n", __func__, port_id);
 		ret = -EINVAL;
 	}
 
@@ -283,10 +285,10 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		(port_id == RT_PROXY_DAI_001_TX))
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 
-	pr_debug("%s: port id: %d\n", __func__, port_id);
+	pr_debug("%s: port id: %#x\n", __func__, port_id);
 	index = q6audio_get_port_index(port_id);
 	if (q6audio_validate_port(port_id) < 0) {
-		pr_err("%s: port id: %d\n", __func__, port_id);
+		pr_err("%s: port id: %#x\n", __func__, port_id);
 		return -EINVAL;
 	}
 
@@ -295,7 +297,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		return ret;
 
 	if (q6audio_validate_port(port_id) < 0) {
-		pr_err("%s: Failed : Invalid Port id = %d\n", __func__,
+		pr_err("%s: Failed : Invalid Port id = %#x\n", __func__,
 				port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -321,6 +323,12 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
 	case MI2S_TX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 		cfg_type = AFE_PARAM_ID_I2S_CONFIG;
 		break;
 	case HDMI_RX:
@@ -370,7 +378,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
 	if (ret < 0) {
-		pr_err("%s: AFE enable for port %d failed\n", __func__,
+		pr_err("%s: AFE enable for port %#x failed\n", __func__,
 				port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -407,7 +415,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &start);
 
 	if (IS_ERR_VALUE(ret)) {
-		pr_err("%s: AFE enable for port %d failed\n", __func__,
+		pr_err("%s: AFE enable for port %#x failed\n", __func__,
 				port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -468,7 +476,10 @@ int afe_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
-
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_TX;
 	default: return -EINVAL;
 	}
 }

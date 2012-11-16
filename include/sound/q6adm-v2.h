@@ -16,13 +16,13 @@
 #define ADM_PATH_PLAYBACK 0x1
 #define ADM_PATH_LIVE_REC 0x2
 #define ADM_PATH_NONLIVE_REC 0x3
+#include <sound/q6afe-v2.h>
 #include <sound/q6audio-v2.h>
 
-#define Q6_AFE_MAX_PORTS 32
 
 /* multiple copp per stream. */
 struct route_payload {
-	unsigned int copp_ids[Q6_AFE_MAX_PORTS];
+	unsigned int copp_ids[AFE_MAX_PORTS];
 	unsigned short num_copps;
 	unsigned int session_id;
 };

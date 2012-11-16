@@ -1310,6 +1310,16 @@ static int msm_mi2s_get_port_id(u32 mi2s_id, int stream, u16 *port_id)
 		switch (mi2s_id) {
 		case MSM_PRIM_MI2S:
 			*port_id = MI2S_RX;
+			break;
+		case MSM_SEC_MI2S:
+			*port_id = AFE_PORT_ID_SECONDARY_MI2S_RX;
+			break;
+		case MSM_TERT_MI2S:
+			*port_id = AFE_PORT_ID_TERTIARY_MI2S_RX;
+			break;
+		case MSM_QUAT_MI2S:
+			*port_id = AFE_PORT_ID_QUATERNARY_MI2S_RX;
+			break;
 		break;
 		default:
 			ret = -1;
@@ -1320,7 +1330,16 @@ static int msm_mi2s_get_port_id(u32 mi2s_id, int stream, u16 *port_id)
 		switch (mi2s_id) {
 		case MSM_PRIM_MI2S:
 			*port_id = MI2S_TX;
-		break;
+			break;
+		case MSM_SEC_MI2S:
+			*port_id = AFE_PORT_ID_SECONDARY_MI2S_TX;
+			break;
+		case MSM_TERT_MI2S:
+			*port_id = AFE_PORT_ID_TERTIARY_MI2S_TX;
+			break;
+		case MSM_QUAT_MI2S:
+			*port_id = AFE_PORT_ID_QUATERNARY_MI2S_TX;
+			break;
 		default:
 			ret = -1;
 		break;
@@ -1330,7 +1349,7 @@ static int msm_mi2s_get_port_id(u32 mi2s_id, int stream, u16 *port_id)
 		ret = -1;
 	break;
 	}
-	pr_debug("%s: port_id = %x\n", __func__, *port_id);
+	pr_debug("%s: port_id = %#x\n", __func__, *port_id);
 	return ret;
 }
 
@@ -1346,14 +1365,16 @@ static int msm_dai_q6_mi2s_prepare(struct snd_pcm_substream *substream,
 	u16 port_id = 0;
 	int rc = 0;
 
-	dev_dbg(dai->dev, "%s: device name %s dai id %x,port id = %x\n",
-		__func__, dai->name, dai->id, port_id);
-
 	if (msm_mi2s_get_port_id(dai->id, substream->stream,
 				 &port_id) != 0) {
-		dev_err(dai->dev, "%s: Invalid Port ID\n", __func__);
+		dev_err(dai->dev, "%s: Invalid Port ID %#x\n",
+				__func__, port_id);
 		return -EINVAL;
 	}
+
+	dev_dbg(dai->dev, "%s: dai id %d, afe port id = %x\n"
+		"dai_data->channels = %u sample_rate = %u\n", __func__,
+		dai->id, port_id, dai_data->channels, dai_data->rate);
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		/* PORT START should be set if prepare called
@@ -1382,6 +1403,8 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_substream *substream,
 		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
 		&mi2s_dai_data->rx_dai : &mi2s_dai_data->tx_dai);
 	struct msm_dai_q6_dai_data *dai_data = &mi2s_dai_config->mi2s_dai_data;
+	struct afe_param_id_i2s_cfg *i2s = &dai_data->port_config.i2s;
+
 
 	dai_data->channels = params_channels(params);
 	switch (dai_data->channels) {
@@ -1451,13 +1474,19 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_substream *substream,
 		mi2s_dai_data->bitwidth_constraint.list = &dai_data->bitwidth;
 	}
 
-	pr_debug("%s: dai_data->channels = %d, line = %d\n"
-		 ",mono_stereo =%x sample rate = %x\n", __func__,
-		 dai_data->channels, dai_data->port_config.i2s.channel_mode,
-		 dai_data->port_config.i2s.mono_stereo, dai_data->rate);
+	dev_dbg(dai->dev, "%s: dai id %d dai_data->channels = %d\n"
+		"sample_rate = %u i2s_cfg_minor_version = %#x\n"
+		"bit_width = %hu  channel_mode = %#x mono_stereo = %#x\n"
+		"ws_src = %#x sample_rate = %u data_format = %#x\n"
+		"reserved = %u\n", __func__, dai->id, dai_data->channels,
+		dai_data->rate, i2s->i2s_cfg_minor_version, i2s->bit_width,
+		i2s->channel_mode, i2s->mono_stereo, i2s->ws_src,
+		i2s->sample_rate, i2s->data_format, i2s->reserved);
+
 	return 0;
+
 error_invalid_data:
-	pr_debug("%s: dai_data->channels = %d, line = %d\n", __func__,
+	pr_debug("%s: dai_data->channels = %d channel_mode = %d\n", __func__,
 		 dai_data->channels, dai_data->port_config.i2s.channel_mode);
 	return -EINVAL;
 }
@@ -1507,11 +1536,12 @@ static void msm_dai_q6_mi2s_shutdown(struct snd_pcm_substream *substream,
 
 	if (msm_mi2s_get_port_id(dai->id, substream->stream,
 				 &port_id) != 0) {
-		dev_err(dai->dev, "%s: Invalid Port ID\n", __func__);
+		dev_err(dai->dev, "%s: Invalid Port ID %#x\n",
+				__func__, port_id);
 	}
 
-	dev_dbg(dai->dev, "%s: device name %s port id = %x\n",
-		__func__, dai->name, port_id);
+	dev_dbg(dai->dev, "%s: closing afe port id = %x\n",
+			__func__, port_id);
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		rc = afe_close(port_id);
@@ -1714,20 +1744,21 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev,
 			"%s: missing %x in dt node\n", __func__, mi2s_intf);
-	return rc;
+		return rc;
 	}
 
-	if (mi2s_intf > MSM_QUAD_MI2S) {
-		dev_err(&pdev->dev, "%s: Invalid MI2S ID from Device Tree\n",
-			 __func__);
-		return -EINVAL;
+	dev_dbg(&pdev->dev, "dev name %s dev id %x\n", dev_name(&pdev->dev),
+			     mi2s_intf);
+
+	if (mi2s_intf < MSM_PRIM_MI2S || mi2s_intf > MSM_QUAT_MI2S) {
+		dev_err(&pdev->dev,
+			"%s: Invalid MI2S ID %u from Device Tree\n",
+			__func__, mi2s_intf);
+		return -ENXIO;
 	}
 
-	if (mi2s_intf == MSM_PRIM_MI2S) {
-		dev_set_name(&pdev->dev, "%s.%d", "msm-dai-q6-mi2s",
-			     MSM_PRIM_MI2S);
-		pdev->id = MSM_PRIM_MI2S;
-	}
+	dev_set_name(&pdev->dev, "%s.%d", "msm-dai-q6-mi2s", mi2s_intf);
+	pdev->id = mi2s_intf;
 
 	mi2s_pdata = kzalloc(sizeof(struct msm_mi2s_pdata), GFP_KERNEL);
 	if (!mi2s_pdata) {
@@ -1735,9 +1766,6 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto rtn;
 	}
-
-	dev_dbg(&pdev->dev, "dev name %s dev id %x\n", dev_name(&pdev->dev),
-		pdev->id);
 
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-mi2s-rx-lines",
 				  &rx_line);
