@@ -1613,7 +1613,9 @@ static int __init diagchar_init(void)
 		INIT_WORK(&(driver->diag_read_smd_wcnss_cntl_work),
 			diag_read_smd_wcnss_cntl_work_fn);
 		INIT_WORK(&(driver->diag_read_smd_dci_work),
-						 diag_read_smd_dci_work_fn);
+						diag_read_smd_dci_work_fn);
+		INIT_WORK(&(driver->diag_update_smd_dci_work),
+						diag_update_smd_dci_work_fn);
 		INIT_WORK(&(driver->diag_clean_modem_reg_work),
 						 diag_clean_modem_reg_fn);
 		INIT_WORK(&(driver->diag_clean_lpass_reg_work),
