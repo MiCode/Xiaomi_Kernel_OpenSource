@@ -336,8 +336,7 @@ static int adjust_vbatt_reading(struct qpnp_bms_chip *chip,
 		return VBATT_MUL_FACTOR * reading_uv;
 	}
 
-	numerator = ((s64)reading_uv - chip->vadc_v0625)
-							* VADC_CALIB_UV;
+	numerator = ((s64)reading_uv - chip->vadc_v0625) * VADC_CALIB_UV;
 	denominator =  (s64)chip->vadc_v1250 - chip->vadc_v0625;
 	if (denominator == 0)
 		return reading_uv * VBATT_MUL_FACTOR;
@@ -348,7 +347,13 @@ static int adjust_vbatt_reading(struct qpnp_bms_chip *chip,
 static inline int convert_vbatt_raw_to_uv(struct qpnp_bms_chip *chip,
 					uint16_t reading)
 {
-	return adjust_vbatt_reading(chip, vadc_reading_to_uv(reading));
+	int uv;
+
+	uv = vadc_reading_to_uv(reading);
+	pr_debug("%u raw converted into %d uv\n", reading, uv);
+	uv = adjust_vbatt_reading(chip, uv);
+	pr_debug("adjusted into %d uv\n", uv);
+	return uv;
 }
 
 #define CC_READING_RESOLUTION_N	542535
@@ -360,16 +365,16 @@ static int cc_reading_to_uv(int16_t reading)
 }
 
 #define QPNP_ADC_GAIN_NV				17857LL
-static s64 cc_adjust_for_gain(s64 uv, s64 gain)
+static s64 cc_adjust_for_gain(s64 uv, uint16_t gain)
 {
 	s64 result_uv;
 
 	pr_debug("adjusting_uv = %lld\n", uv);
-	pr_debug("adjusting by factor: %lld/%lld = %lld%%\n",
+	pr_debug("adjusting by factor: %lld/%hu = %lld%%\n",
 			QPNP_ADC_GAIN_NV, gain,
-			div_s64(QPNP_ADC_GAIN_NV * 100LL, gain));
+			div_s64(QPNP_ADC_GAIN_NV * 100LL, (s64)gain));
 
-	result_uv = div_s64(uv * QPNP_ADC_GAIN_NV, gain);
+	result_uv = div_s64(uv * QPNP_ADC_GAIN_NV, (s64)gain);
 	pr_debug("result_uv = %lld\n", result_uv);
 	return result_uv;
 }
@@ -377,7 +382,11 @@ static s64 cc_adjust_for_gain(s64 uv, s64 gain)
 static int convert_vsense_to_uv(struct qpnp_bms_chip *chip,
 					int16_t reading)
 {
-	return cc_adjust_for_gain(cc_reading_to_uv(reading), QPNP_ADC_GAIN_NV);
+	struct qpnp_iadc_calib calibration;
+
+	qpnp_iadc_get_gain_and_offset(&calibration);
+	return cc_adjust_for_gain(cc_reading_to_uv(reading),
+			calibration.gain_raw);
 }
 
 static int read_vsense_avg(struct qpnp_bms_chip *chip, int *result_uv)
@@ -460,13 +469,45 @@ static int read_cc_raw(struct qpnp_bms_chip *chip, int64_t *reading)
 	return 0;
 }
 
+static int calib_vadc(struct qpnp_bms_chip *chip)
+{
+	int rc;
+	struct qpnp_vadc_result result;
+
+	rc = qpnp_vadc_read(REF_625MV, &result);
+	if (rc) {
+		pr_debug("vadc read failed with rc = %d\n", rc);
+		return rc;
+	}
+	chip->vadc_v0625 = result.physical;
+
+	rc = qpnp_vadc_read(REF_125V, &result);
+	if (rc) {
+		pr_debug("vadc read failed with rc = %d\n", rc);
+		return rc;
+	}
+	chip->vadc_v1250 = result.physical;
+	pr_debug("vadc calib: 0625 = %d, 1250 = %d\n",
+			chip->vadc_v0625, chip->vadc_v1250);
+	return 0;
+}
+
 static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw)
 {
+	int rc;
+
+	pr_debug("prev_last_good_ocv_raw = %d, last_good_ocv_raw = %d\n",
+			chip->prev_last_good_ocv_raw,
+			raw->last_good_ocv_raw);
+	rc = calib_vadc(chip);
+	if (rc)
+		pr_err("Vadc reference voltage read failed, rc = %d\n", rc);
 	chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
 	raw->last_good_ocv_uv = convert_vbatt_raw_to_uv(chip,
 					raw->last_good_ocv_raw);
 	chip->last_ocv_uv = raw->last_good_ocv_uv;
+	pr_debug("last_good_ocv_uv = %d\n", raw->last_good_ocv_uv);
 }
 
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
@@ -596,13 +637,16 @@ static s64 cc_uv_to_nvh(s64 cc_uv)
 static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 {
 	int64_t cc_voltage_uv, cc_nvh, cc_uah;
+	struct qpnp_iadc_calib calibration;
+
+	qpnp_iadc_get_gain_and_offset(&calibration);
 	cc_voltage_uv = cc;
 	cc_voltage_uv -= chip->cc_reading_at_100;
 	pr_debug("cc = %lld. after subtracting 0x%llx cc = %lld\n",
 					cc, chip->cc_reading_at_100,
 					cc_voltage_uv);
 	cc_voltage_uv = cc_to_uv(cc_voltage_uv);
-	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv, QPNP_ADC_GAIN_NV);
+	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv, calibration.gain_raw);
 	pr_debug("cc_voltage_uv = %lld uv\n", cc_voltage_uv);
 	cc_nvh = cc_uv_to_nvh(cc_voltage_uv);
 	pr_debug("cc_nvh = %lld nano_volt_hour\n", cc_nvh);
