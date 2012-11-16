@@ -216,7 +216,7 @@
 #define QFPROM_RAW_FEAT_CONFIG_ROW0_LSB  (0x000000F8)
 #define QFPROM_RAW_FEAT_CONFIG_ROW0_MSB  (0x000000FC)
 
-/* all video formats defined by EIA CEA 861D */
+/* all video formats defined by EIA CEA-861-E */
 #define HDMI_VFRMT_640x480p60_4_3	0
 #define HDMI_VFRMT_720x480p60_4_3	1
 #define HDMI_VFRMT_720x480p60_16_9	2
@@ -292,7 +292,18 @@
 #define HDMI_VFRMT_1440x480i240_4_3	HDMI_VFRMT_720x480i240_4_3
 #define HDMI_VFRMT_720x480i240_16_9	58
 #define HDMI_VFRMT_1440x480i240_16_9	HDMI_VFRMT_720x480i240_16_9
-#define HDMI_VFRMT_MAX			59
+/* Video Identification Codes from 65-127 are reserved for the future */
+#define HDMI_VFRMT_END			127
+/* extended video formats */
+#define HDMI_VFRMT_3840x2160p30_16_9	(HDMI_VFRMT_END + 1)
+#define HDMI_VFRMT_3840x2160p25_16_9	(HDMI_VFRMT_END + 2)
+#define HDMI_VFRMT_3840x2160p24_16_9	(HDMI_VFRMT_END + 3)
+#define HDMI_VFRMT_4096x2160p24_16_9	(HDMI_VFRMT_END + 4)
+#define HDMI_EVFRMT_END			HDMI_VFRMT_4096x2160p24_16_9
+/* DVI only resolutions */
+#define HDMI_VFRMT_2560x1600p60_16_9	(HDMI_EVFRMT_END + 1)
+#define DVI_VFRMT_END			HDMI_VFRMT_2560x1600p60_16_9
+#define HDMI_VFRMT_MAX			(DVI_VFRMT_END + 1)
 #define HDMI_VFRMT_FORCE_32BIT		0x7FFFFFFF
 
 #define VFRMT_NOT_SUPPORTED(VFRMT) \
@@ -349,6 +360,21 @@
 #define HDMI_SETTINGS_1920x1080p30_16_9					\
 	{HDMI_VFRMT_1920x1080p30_16_9,   1920,  88,   44,  148,  false,	\
 	 1080, 4, 5, 36, false, 74250, 30000, false, true}
+#define HDMI_SETTINGS_2560x1600p60_16_9					\
+	{HDMI_VFRMT_2560x1600p60_16_9,   2560,  48,   32,  80,  false,	\
+	 1600, 3, 6, 37, false, 268500, 60000, false, true}
+#define HDMI_SETTINGS_3840x2160p30_16_9					\
+	{HDMI_VFRMT_3840x2160p30_16_9, 3840, 176, 88, 296, false,	\
+	 2160, 8, 10, 72, false, 297000, 30000, false, true}
+#define HDMI_SETTINGS_3840x2160p25_16_9					\
+	{HDMI_VFRMT_3840x2160p25_16_9, 3840, 1056, 88, 296, false,	\
+	 2160, 8, 10, 72, false, 297000, 25000, false, true}
+#define HDMI_SETTINGS_3840x2160p24_16_9					\
+	{HDMI_VFRMT_3840x2160p24_16_9, 3840, 1276, 88, 296, false,	\
+	 2160, 8, 10, 72, false, 297000, 24000, false, true}
+#define HDMI_SETTINGS_4096x2160p24_16_9					\
+	{HDMI_VFRMT_4096x2160p24_16_9, 4096, 1020, 88, 296, false,	\
+	 2160, 8, 10, 72, false, 297000, 24000, false, true}
 
 #define TOP_AND_BOTTOM		0x10
 #define FRAME_PACKING		0x20
@@ -397,6 +423,8 @@ struct hdmi_tx_ddc_data {
 	int retry;
 };
 
+/* video timing related utility routines */
+void hdmi_init_supported_video_timings(void);
 int hdmi_get_video_id_code(struct hdmi_disp_mode_timing_type *timing_in);
 const struct hdmi_disp_mode_timing_type *hdmi_get_supported_mode(u32 mode);
 void hdmi_set_supported_mode(u32 mode);
