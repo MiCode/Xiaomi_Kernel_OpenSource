@@ -37,30 +37,65 @@
 #define HDMI_PHY_PLL_SIZE	0x000000D4
 
 /* hdmi phy registers */
-#define HDMI_PHY_PD_CTRL0		(0x0010)
-#define HDMI_PHY_GLB_CFG		(0x0018)
-#define HDMI_PHY_STATUS			(0x005C)
+#define HDMI_PHY_ANA_CFG0               (0x0000)
+#define HDMI_PHY_ANA_CFG1               (0x0004)
+#define HDMI_PHY_ANA_CFG2               (0x0008)
+#define HDMI_PHY_ANA_CFG3               (0x000C)
+#define HDMI_PHY_PD_CTRL0               (0x0010)
+#define HDMI_PHY_PD_CTRL1               (0x0014)
+#define HDMI_PHY_GLB_CFG                (0x0018)
+#define HDMI_PHY_DCC_CFG0               (0x001C)
+#define HDMI_PHY_DCC_CFG1               (0x0020)
+#define HDMI_PHY_TXCAL_CFG0             (0x0024)
+#define HDMI_PHY_TXCAL_CFG1             (0x0028)
+#define HDMI_PHY_TXCAL_CFG2             (0x002C)
+#define HDMI_PHY_TXCAL_CFG3             (0x0030)
+#define HDMI_PHY_BIST_CFG0              (0x0034)
+#define HDMI_PHY_BIST_CFG1              (0x0038)
+#define HDMI_PHY_BIST_PATN0             (0x003C)
+#define HDMI_PHY_BIST_PATN1             (0x0040)
+#define HDMI_PHY_BIST_PATN2             (0x0044)
+#define HDMI_PHY_BIST_PATN3             (0x0048)
+#define HDMI_PHY_STATUS                 (0x005C)
 
 /* hdmi phy unified pll registers */
-#define	 HDMI_UNI_PLL_REFCLK_CF		(0x0000)
-#define	 HDMI_UNI_PLL_POSTDIV1_CFG	(0x0004)
-#define	 HDMI_UNI_PLL_VCOLPF_CFG	(0x000C)
-#define	 HDMI_UNI_PLL_GLB_CFG		(0x0020)
-#define	 HDMI_UNI_PLL_POSTDIV2_CFG	(0x0024)
-#define	 HDMI_UNI_PLL_POSTDIV3_CFG	(0x0028)
-#define	 HDMI_UNI_PLL_SDM_CFG0		(0x0038)
-#define	 HDMI_UNI_PLL_SDM_CFG1		(0x003C)
-#define	 HDMI_UNI_PLL_SDM_CFG2		(0x0040)
-#define	 HDMI_UNI_PLL_SDM_CFG3		(0x0044)
-#define	 HDMI_UNI_PLL_SDM_CFG4		(0x0048)
-#define	 HDMI_UNI_PLL_LKDET_CFG0	(0x005C)
-#define	 HDMI_UNI_PLL_LKDET_CFG1	(0x0060)
-#define	 HDMI_UNI_PLL_LKDET_CFG2	(0x0064)
-#define	 HDMI_UNI_PLL_CAL_CFG8		(0x008C)
-#define	 HDMI_UNI_PLL_CAL_CFG9		(0x0090)
-#define	 HDMI_UNI_PLL_CAL_CFG10		(0x0094)
-#define	 HDMI_UNI_PLL_CAL_CFG11		(0x0098)
-#define  HDMI_UNI_PLL_STATUS		(0x00C0)
+#define HDMI_UNI_PLL_REFCLK_CFG         (0x0000)
+#define HDMI_UNI_PLL_POSTDIV1_CFG       (0x0004)
+#define HDMI_UNI_PLL_CHFPUMP_CFG        (0x0008)
+#define HDMI_UNI_PLL_VCOLPF_CFG         (0x000C)
+#define HDMI_UNI_PLL_VREG_CFG           (0x0010)
+#define HDMI_UNI_PLL_PWRGEN_CFG         (0x0014)
+#define HDMI_UNI_PLL_GLB_CFG            (0x0020)
+#define HDMI_UNI_PLL_POSTDIV2_CFG       (0x0024)
+#define HDMI_UNI_PLL_POSTDIV3_CFG       (0x0028)
+#define HDMI_UNI_PLL_LPFR_CFG           (0x002C)
+#define HDMI_UNI_PLL_LPFC1_CFG          (0x0030)
+#define HDMI_UNI_PLL_LPFC2_CFG          (0x0034)
+#define HDMI_UNI_PLL_SDM_CFG0           (0x0038)
+#define HDMI_UNI_PLL_SDM_CFG1           (0x003C)
+#define HDMI_UNI_PLL_SDM_CFG2           (0x0040)
+#define HDMI_UNI_PLL_SDM_CFG3           (0x0044)
+#define HDMI_UNI_PLL_SDM_CFG4           (0x0048)
+#define HDMI_UNI_PLL_SSC_CFG0           (0x004C)
+#define HDMI_UNI_PLL_SSC_CFG1           (0x0050)
+#define HDMI_UNI_PLL_SSC_CFG2           (0x0054)
+#define HDMI_UNI_PLL_SSC_CFG3           (0x0058)
+#define HDMI_UNI_PLL_LKDET_CFG0         (0x005C)
+#define HDMI_UNI_PLL_LKDET_CFG1         (0x0060)
+#define HDMI_UNI_PLL_LKDET_CFG2         (0x0064)
+#define HDMI_UNI_PLL_CAL_CFG0           (0x006C)
+#define HDMI_UNI_PLL_CAL_CFG1           (0x0070)
+#define HDMI_UNI_PLL_CAL_CFG2           (0x0074)
+#define HDMI_UNI_PLL_CAL_CFG3           (0x0078)
+#define HDMI_UNI_PLL_CAL_CFG4           (0x007C)
+#define HDMI_UNI_PLL_CAL_CFG5           (0x0080)
+#define HDMI_UNI_PLL_CAL_CFG6           (0x0084)
+#define HDMI_UNI_PLL_CAL_CFG7           (0x0088)
+#define HDMI_UNI_PLL_CAL_CFG8           (0x008C)
+#define HDMI_UNI_PLL_CAL_CFG9           (0x0090)
+#define HDMI_UNI_PLL_CAL_CFG10          (0x0094)
+#define HDMI_UNI_PLL_CAL_CFG11          (0x0098)
+#define HDMI_UNI_PLL_STATUS             (0x00C0)
 
 #define VCO_CLK				424000000
 static unsigned char *mdss_dsi_base;
@@ -391,32 +426,61 @@ int hdmi_pll_set_rate(unsigned long rate)
 
 	case 25200000:
 		/* 640x480p60 */
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CF);
-		REG_W(0x20, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
-		REG_W(0x36, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
-		REG_W(0x4C, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG1);
+		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
+		REG_W(0x19, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
+		REG_W(0x0E, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFR_CFG);
+		REG_W(0x20, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC1_CFG);
+		REG_W(0x0D, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC2_CFG);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
+		REG_W(0x52, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG1);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
-		REG_W(0x20, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG3);
+		REG_W(0xB0, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG3);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG4);
 		REG_W(0x10, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG0);
 		REG_W(0x1A, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG1);
 		REG_W(0x05, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG2);
-		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV1_CFG);
+		REG_W(0x03, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV1_CFG);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV2_CFG);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV3_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG2);
 		REG_W(0x60, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG8);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG9);
-		REG_W(0xFC, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG10);
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG11);
+		REG_W(0xF4, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG10);
+		REG_W(0x02, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG11);
+		REG_W(0x1F, hdmi_phy_base + HDMI_PHY_PD_CTRL0);
+		udelay(50);
+
+		REG_W(0x0F, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_PD_CTRL1);
+		REG_W(0x10, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0xDB, hdmi_phy_base + HDMI_PHY_ANA_CFG0);
+		REG_W(0x43, hdmi_phy_base + HDMI_PHY_ANA_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_ANA_CFG3);
+		REG_W(0x04, hdmi_phy_pll_base + HDMI_UNI_PLL_VREG_CFG);
+		REG_W(0xD0, hdmi_phy_base + HDMI_PHY_DCC_CFG0);
+		REG_W(0x1A, hdmi_phy_base + HDMI_PHY_DCC_CFG1);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG0);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_TXCAL_CFG2);
+		REG_W(0x05, hdmi_phy_base + HDMI_PHY_TXCAL_CFG3);
+		udelay(200);
 	break;
 
 	case 27030000:
 		/* 480p60/480i60 case */
-		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CF);
-		REG_W(0x18, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
-		REG_W(0x36, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
-		REG_W(0x14, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG1);
-		REG_W(0x63, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
+		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
+		REG_W(0x19, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
+		REG_W(0x0E, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFR_CFG);
+		REG_W(0x20, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC1_CFG);
+		REG_W(0x0D, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC2_CFG);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
+		REG_W(0x54, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG1);
+		REG_W(0x66, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
 		REG_W(0x1D, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG3);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG4);
 		REG_W(0x10, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG0);
@@ -425,10 +489,29 @@ int hdmi_pll_set_rate(unsigned long rate)
 		REG_W(0x03, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV1_CFG);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV2_CFG);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV3_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG2);
 		REG_W(0x60, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG8);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG9);
 		REG_W(0x2A, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG10);
 		REG_W(0x03, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG11);
+		REG_W(0x1F, hdmi_phy_base + HDMI_PHY_PD_CTRL0);
+		udelay(50);
+
+		REG_W(0x0F, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_PD_CTRL1);
+		REG_W(0x10, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0xDB, hdmi_phy_base + HDMI_PHY_ANA_CFG0);
+		REG_W(0x43, hdmi_phy_base + HDMI_PHY_ANA_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_ANA_CFG3);
+		REG_W(0x04, hdmi_phy_pll_base + HDMI_UNI_PLL_VREG_CFG);
+		REG_W(0xD0, hdmi_phy_base + HDMI_PHY_DCC_CFG0);
+		REG_W(0x1A, hdmi_phy_base + HDMI_PHY_DCC_CFG1);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG0);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_TXCAL_CFG2);
+		REG_W(0x05, hdmi_phy_base + HDMI_PHY_TXCAL_CFG3);
+		udelay(200);
 	break;
 
 	case 74250000:
@@ -436,51 +519,104 @@ int hdmi_pll_set_rate(unsigned long rate)
 		 * 720p60/720p50/1080i60/1080i50
 		 * 1080p24/1080p30/1080p25 case
 		 */
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CF);
-		REG_W(0x20, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
-		REG_W(0x36, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
+		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
+		REG_W(0x19, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
+		REG_W(0x0E, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFR_CFG);
+		REG_W(0x20, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC1_CFG);
+		REG_W(0x0D, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC2_CFG);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
 		REG_W(0x52, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG1);
-		REG_W(0xFD, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
-		REG_W(0x55, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG3);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
+		REG_W(0x56, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG3);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG4);
 		REG_W(0x10, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG0);
 		REG_W(0x1A, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG1);
 		REG_W(0x05, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG2);
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV1_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV1_CFG);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV2_CFG);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV3_CFG);
-		REG_W(0x60, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG8);
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG9);
-		REG_W(0x73, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG10);
-		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG11);
-	break;
-
-	case 148500000:
-		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CF);
-		REG_W(0x18, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
-		REG_W(0x36, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
-		REG_W(0x52, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG1);
-		REG_W(0xFD, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
-		REG_W(0x55, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG3);
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG4);
-		REG_W(0x10, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG0);
-		REG_W(0x1A, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG1);
-		REG_W(0x05, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG2);
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV1_CFG);
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV2_CFG);
-		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV3_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG2);
 		REG_W(0x60, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG8);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG9);
 		REG_W(0xE6, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG10);
 		REG_W(0x02, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG11);
+		REG_W(0x1F, hdmi_phy_base + HDMI_PHY_PD_CTRL0);
+		udelay(50);
+
+		REG_W(0x0F, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_PD_CTRL1);
+		REG_W(0x10, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0xDB, hdmi_phy_base + HDMI_PHY_ANA_CFG0);
+		REG_W(0x43, hdmi_phy_base + HDMI_PHY_ANA_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_ANA_CFG3);
+		REG_W(0x04, hdmi_phy_pll_base + HDMI_UNI_PLL_VREG_CFG);
+		REG_W(0xD0, hdmi_phy_base + HDMI_PHY_DCC_CFG0);
+		REG_W(0x1A, hdmi_phy_base + HDMI_PHY_DCC_CFG1);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG0);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_TXCAL_CFG2);
+		REG_W(0x05, hdmi_phy_base + HDMI_PHY_TXCAL_CFG3);
+		udelay(200);
+	break;
+
+	case 148500000:
+		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
+		REG_W(0x19, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
+		REG_W(0x0E, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFR_CFG);
+		REG_W(0x20, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC1_CFG);
+		REG_W(0x0D, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC2_CFG);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
+		REG_W(0x52, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG1);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
+		REG_W(0x56, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG3);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG4);
+		REG_W(0x10, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG0);
+		REG_W(0x1A, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG1);
+		REG_W(0x05, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG2);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV1_CFG);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV2_CFG);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV3_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG2);
+		REG_W(0x60, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG8);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG9);
+		REG_W(0xE6, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG10);
+		REG_W(0x02, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG11);
+		REG_W(0x1F, hdmi_phy_base + HDMI_PHY_PD_CTRL0);
+		udelay(50);
+
+		REG_W(0x0F, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_PD_CTRL1);
+		REG_W(0x10, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0xDB, hdmi_phy_base + HDMI_PHY_ANA_CFG0);
+		REG_W(0x43, hdmi_phy_base + HDMI_PHY_ANA_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_ANA_CFG3);
+		REG_W(0x04, hdmi_phy_pll_base + HDMI_UNI_PLL_VREG_CFG);
+		REG_W(0xD0, hdmi_phy_base + HDMI_PHY_DCC_CFG0);
+		REG_W(0x1A, hdmi_phy_base + HDMI_PHY_DCC_CFG1);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG0);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_TXCAL_CFG2);
+		REG_W(0x05, hdmi_phy_base + HDMI_PHY_TXCAL_CFG3);
+		udelay(200);
 	break;
 
 	case 297000000:
-		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CF);
-		REG_W(0x18, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
-		REG_W(0x36, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
+		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
+		REG_W(0x19, hdmi_phy_pll_base + HDMI_UNI_PLL_VCOLPF_CFG);
+		REG_W(0x0E, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFR_CFG);
+		REG_W(0x20, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC1_CFG);
+		REG_W(0x0D, hdmi_phy_pll_base + HDMI_UNI_PLL_LPFC2_CFG);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG0);
 		REG_W(0x65, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG1);
-		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
+		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG2);
 		REG_W(0xAC, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG3);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_SDM_CFG4);
 		REG_W(0x10, hdmi_phy_pll_base + HDMI_UNI_PLL_LKDET_CFG0);
@@ -489,10 +625,29 @@ int hdmi_pll_set_rate(unsigned long rate)
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV1_CFG);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV2_CFG);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_POSTDIV3_CFG);
+		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG2);
 		REG_W(0x60, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG8);
 		REG_W(0x00, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG9);
 		REG_W(0xCD, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG10);
 		REG_W(0x05, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG11);
+		REG_W(0x1F, hdmi_phy_base + HDMI_PHY_PD_CTRL0);
+		udelay(50);
+
+		REG_W(0x0F, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_PD_CTRL1);
+		REG_W(0x10, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0xDB, hdmi_phy_base + HDMI_PHY_ANA_CFG0);
+		REG_W(0x43, hdmi_phy_base + HDMI_PHY_ANA_CFG1);
+		REG_W(0x06, hdmi_phy_base + HDMI_PHY_ANA_CFG2);
+		REG_W(0x03, hdmi_phy_base + HDMI_PHY_ANA_CFG3);
+		REG_W(0x04, hdmi_phy_pll_base + HDMI_UNI_PLL_VREG_CFG);
+		REG_W(0xD0, hdmi_phy_base + HDMI_PHY_DCC_CFG0);
+		REG_W(0x1A, hdmi_phy_base + HDMI_PHY_DCC_CFG1);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG0);
+		REG_W(0x00, hdmi_phy_base + HDMI_PHY_TXCAL_CFG1);
+		REG_W(0x02, hdmi_phy_base + HDMI_PHY_TXCAL_CFG2);
+		REG_W(0x05, hdmi_phy_base + HDMI_PHY_TXCAL_CFG3);
+		udelay(200);
 	break;
 
 	case 27000000:
