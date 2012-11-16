@@ -671,8 +671,7 @@ int pm8xxx_coincell_chg_config(struct pm8xxx_coincell_chg *chg_config)
 	voltage = chg_config->voltage;
 	resistor = chg_config->resistor;
 
-	if (resistor < PM8XXX_COINCELL_RESISTOR_2100_OHMS ||
-			resistor > PM8XXX_COINCELL_RESISTOR_800_OHMS) {
+	if (resistor > PM8XXX_COINCELL_RESISTOR_800_OHMS) {
 		pr_err("Invalid resistor value provided\n");
 		return -EINVAL;
 	}
