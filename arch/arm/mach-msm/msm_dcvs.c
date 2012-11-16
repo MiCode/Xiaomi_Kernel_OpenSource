@@ -23,6 +23,7 @@
 #include <linux/stringify.h>
 #include <linux/debugfs.h>
 #include <linux/msm_tsens.h>
+#include <linux/platform_device.h>
 #include <asm/atomic.h>
 #include <asm/page.h>
 #include <mach/msm_dcvs.h>
@@ -139,6 +140,11 @@ static struct dentry		*debugfs_base;
 static struct dcvs_core core_list[CORES_MAX];
 
 static struct kobject *cores_kobj;
+
+#define DCVS_MAX_NUM_FREQS 15
+static struct msm_dcvs_freq_entry cpu_freq_tbl[DCVS_MAX_NUM_FREQS];
+static unsigned num_cpu_freqs;
+static struct msm_dcvs_platform_data *dcvs_pdata;
 
 static void force_stop_slack_timer(struct dcvs_core *core)
 {
@@ -825,6 +831,37 @@ static struct dcvs_core *msm_dcvs_get_core(int offset)
 	return &core_list[offset];
 }
 
+void msm_dcvs_register_cpu_freq(uint32_t freq, uint32_t voltage)
+{
+	BUG_ON(freq == 0 || voltage == 0 ||
+	       num_cpu_freqs == DCVS_MAX_NUM_FREQS);
+
+	cpu_freq_tbl[num_cpu_freqs].freq = freq;
+	cpu_freq_tbl[num_cpu_freqs].voltage = voltage;
+
+	num_cpu_freqs++;
+}
+
+static void update_cpu_dcvs_params(struct msm_dcvs_core_info *info)
+{
+	int i;
+
+	BUG_ON(num_cpu_freqs == 0);
+
+	info->freq_tbl = cpu_freq_tbl;
+	info->power_param.num_freq = num_cpu_freqs;
+
+	if (!dcvs_pdata || dcvs_pdata->num_sync_rules == 0)
+		return;
+
+	/* the first sync rule shows what the turbo frequencies are -
+	 * these frequencies need energy offsets set */
+	for (i = 0; i < DCVS_MAX_NUM_FREQS && cpu_freq_tbl[i].freq != 0; i++)
+		if (cpu_freq_tbl[i].freq > dcvs_pdata->sync_rules[0].cpu_khz) {
+			cpu_freq_tbl[i].active_energy_offset = 100;
+			cpu_freq_tbl[i].leakage_energy_offset = 100;
+		}
+}
 
 int msm_dcvs_register_core(
 	enum msm_dcvs_core_type type,
@@ -860,6 +897,9 @@ int msm_dcvs_register_core(
 	core->pending_freq = STOP_FREQ_CHANGE;
 
 	core->info = info;
+	if (type == MSM_DCVS_CORE_TYPE_CPU)
+		update_cpu_dcvs_params(info);
+
 	memcpy(&core->algo_param, &info->algo_param,
 			sizeof(struct msm_dcvs_algo_param));
 
@@ -1109,10 +1149,28 @@ err:
 }
 late_initcall(msm_dcvs_late_init);
 
+static int __devinit dcvs_probe(struct platform_device *pdev)
+{
+	if (pdev->dev.platform_data)
+		dcvs_pdata = pdev->dev.platform_data;
+
+	return 0;
+}
+
+static struct platform_driver dcvs_driver = {
+	.probe = dcvs_probe,
+	.driver = {
+		.name = "dcvs",
+		.owner = THIS_MODULE,
+	},
+};
+
 static int __init msm_dcvs_early_init(void)
 {
 	int ret = 0;
 	int i;
+
+	platform_driver_register(&dcvs_driver);
 
 	if (!msm_dcvs_enabled) {
 		__info("Not enabled (%d)\n", msm_dcvs_enabled);
