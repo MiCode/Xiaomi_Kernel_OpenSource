@@ -101,6 +101,7 @@ static uint8_t msm_gic_irq_to_smsm[NR_IRQS] = {
 
 static uint16_t msm_bypassed_apps_irqs[] = {
 	MSM8625_INT_CPR_IRQ0,
+	MSM8625_INT_L2CC_INTR,
 };
 
 /* Check IRQ falls into bypassed list are not */
