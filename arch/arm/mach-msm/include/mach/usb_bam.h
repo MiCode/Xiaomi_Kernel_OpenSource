@@ -13,6 +13,7 @@
 #ifndef _USB_BAM_H_
 #define _USB_BAM_H_
 #include "sps.h"
+#include <mach/ipa.h>
 
 /**
  * SPS Pipes direction.
@@ -25,6 +26,22 @@
 enum usb_bam_pipe_dir {
 	USB_TO_PEER_PERIPHERAL,
 	PEER_PERIPHERAL_TO_USB,
+};
+
+struct usb_bam_connect_ipa_params {
+	u8 idx;
+	u32 *src_pipe;
+	u32 *dst_pipe;
+	enum usb_bam_pipe_dir dir;
+	/* client handle assigned by IPA to client */
+	u32 prod_clnt_hdl;
+	u32 cons_clnt_hdl;
+	/* params assigned by the CD */
+	enum ipa_client_type client;
+	struct ipa_ep_cfg ipa_ep_cfg;
+	void *priv;
+	void (*notify)(void *priv, enum ipa_dp_evt_type evt,
+			unsigned long data);
 };
 
 #ifdef CONFIG_USB_BAM
@@ -45,6 +62,31 @@ enum usb_bam_pipe_dir {
  *
  */
 int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx);
+
+/**
+ * Connect USB-to-IPA SPS connection.
+ *
+ * This function returns the allocated pipes number adn clnt handles.
+ *
+ * @ipa_params - in/out parameters
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params);
+
+/**
+ * Disconnect USB-to-IPA SPS connection.
+ *
+ * @idx - Connection index.
+ *
+ * @ipa_params - in/out parameters
+ *
+ * @return 0 on success, negative value on error
+ *
+ */
+int usb_bam_disconnect_ipa(u8 idx,
+		struct usb_bam_connect_ipa_params *ipa_params);
 
 /**
  * Register a wakeup callback from peer BAM.
@@ -92,6 +134,18 @@ void get_bam2bam_connection_info(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 
 #else
 static inline int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
+{
+	return -ENODEV;
+}
+
+static inline int usb_bam_connect_ipa(
+			struct usb_bam_connect_ipa_params *ipa_params)
+{
+	return -ENODEV;
+}
+
+static inline int usb_bam_disconnect_ipa(u8 idx,
+			struct usb_bam_connect_ipa_params *ipa_params)
 {
 	return -ENODEV;
 }

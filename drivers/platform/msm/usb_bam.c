@@ -23,11 +23,12 @@
 #include <linux/usb/msm_hsusb.h>
 #include <mach/usb_bam.h>
 #include <mach/sps.h>
+#include <mach/ipa.h>
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
 
 #define USB_SUMMING_THRESHOLD 512
-#define CONNECTIONS_NUM	4
+#define CONNECTIONS_NUM	8
 
 static struct sps_bam_props usb_props;
 static struct sps_pipe *sps_pipes[CONNECTIONS_NUM][2];
@@ -49,7 +50,8 @@ struct usb_bam_connect_info {
 	u32 *src_pipe;
 	u32 *dst_pipe;
 	struct usb_bam_wake_event_info peer_event;
-	bool enabled;
+	bool src_enabled;
+	bool dst_enabled;
 };
 
 static struct usb_bam_connect_info usb_bam_connections[CONNECTIONS_NUM];
@@ -206,7 +208,7 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 
 	ret = sps_connect(*pipe, connection);
 	if (ret < 0) {
-		pr_err("%s: tx connect error %d\n", __func__, ret);
+		pr_err("%s: sps_connect failed %d\n", __func__, ret);
 		goto error;
 	}
 	return 0;
@@ -218,9 +220,119 @@ free_sps_endpoint:
 	return ret;
 }
 
+static int connect_pipe_ipa(
+			struct usb_bam_connect_ipa_params *connection_params)
+{
+	int ret;
+	u8 conn_idx = connection_params->idx;
+	enum usb_bam_pipe_dir pipe_dir = connection_params->dir;
+	struct sps_pipe **pipe = &sps_pipes[conn_idx][pipe_dir];
+	struct sps_connect *connection =
+		&sps_connections[conn_idx][pipe_dir];
+	struct msm_usb_bam_platform_data *pdata =
+		usb_bam_pdev->dev.platform_data;
+	struct usb_bam_pipe_connect *pipe_connection =
+				&msm_usb_bam_connections_info
+				[pdata->usb_active_bam][conn_idx][pipe_dir];
 
-static int disconnect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
-						u32 *usb_pipe_idx)
+	struct ipa_connect_params ipa_in_params;
+	struct ipa_sps_params sps_out_params;
+	u32 usb_handle, usb_phy_addr;
+	u32 clnt_hdl = 0;
+
+	memset(&ipa_in_params, 0, sizeof(ipa_in_params));
+	memset(&sps_out_params, 0, sizeof(sps_out_params));
+
+	if (pipe_dir == USB_TO_PEER_PERIPHERAL) {
+		usb_phy_addr = pipe_connection->src_phy_addr;
+		ipa_in_params.client_ep_idx = pipe_connection->src_pipe_index;
+	} else {
+		usb_phy_addr = pipe_connection->dst_phy_addr;
+		ipa_in_params.client_ep_idx = pipe_connection->dst_pipe_index;
+	}
+	/* Get HSUSB / HSIC bam handle */
+	ret = sps_phy2h(usb_phy_addr, &usb_handle);
+	if (ret) {
+		pr_err("%s: sps_phy2h failed (HSUSB/HSIC BAM) %d\n",
+			   __func__, ret);
+		goto get_config_failed;
+	}
+
+	/* IPA input parameters */
+	ipa_in_params.client_bam_hdl = usb_handle;
+	ipa_in_params.desc_fifo_sz = pipe_connection->desc_fifo_size;
+	ipa_in_params.data_fifo_sz = pipe_connection->data_fifo_size;
+	ipa_in_params.notify = connection_params->notify;
+	ipa_in_params.priv = connection_params->priv;
+	ipa_in_params.client = connection_params->client;
+	if (pipe_connection->mem_type != SYSTEM_MEM)
+		ipa_in_params.pipe_mem_preferred = true;
+
+	memcpy(&ipa_in_params.ipa_ep_cfg, &connection_params->ipa_ep_cfg,
+		   sizeof(struct ipa_ep_cfg));
+
+	ret = ipa_connect(&ipa_in_params, &sps_out_params, &clnt_hdl);
+	if (ret) {
+		pr_err("%s: ipa_connect failed\n", __func__);
+		return ret;
+	}
+
+	*pipe = sps_alloc_endpoint();
+	if (*pipe == NULL) {
+		pr_err("%s: sps_alloc_endpoint failed\n", __func__);
+		ret = -ENOMEM;
+		goto disconnect_ipa;
+	}
+
+	ret = sps_get_config(*pipe, connection);
+	if (ret) {
+		pr_err("%s: tx get config failed %d\n", __func__, ret);
+		goto get_config_failed;
+	}
+
+	if (pipe_dir == USB_TO_PEER_PERIPHERAL) {
+		/* USB src IPA dest */
+		connection->mode = SPS_MODE_SRC;
+		connection_params->cons_clnt_hdl = clnt_hdl;
+		connection->source = usb_handle;
+		connection->destination = sps_out_params.ipa_bam_hdl;
+		connection->src_pipe_index = pipe_connection->src_pipe_index;
+		connection->dest_pipe_index = sps_out_params.ipa_ep_idx;
+		*(connection_params->src_pipe) = connection->src_pipe_index;
+	} else {
+		/* IPA src, USB dest */
+		connection->mode = SPS_MODE_DEST;
+		connection_params->prod_clnt_hdl = clnt_hdl;
+		connection->source = sps_out_params.ipa_bam_hdl;
+		connection->destination = usb_handle;
+		connection->src_pipe_index = sps_out_params.ipa_ep_idx;
+		connection->dest_pipe_index = pipe_connection->dst_pipe_index;
+		*(connection_params->dst_pipe) = connection->dest_pipe_index;
+	}
+
+	connection->data = sps_out_params.data;
+	connection->desc = sps_out_params.desc;
+	connection->event_thresh = 16;
+	connection->options = SPS_O_AUTO_ENABLE;
+
+	ret = sps_connect(*pipe, connection);
+	if (ret < 0) {
+		pr_err("%s: sps_connect failed %d\n", __func__, ret);
+		goto error;
+	}
+
+	return 0;
+
+error:
+	sps_disconnect(*pipe);
+get_config_failed:
+	sps_free_endpoint(*pipe);
+disconnect_ipa:
+	ipa_disconnect(clnt_hdl);
+	return ret;
+}
+
+static int disconnect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir)
 {
 	struct msm_usb_bam_platform_data *pdata =
 				usb_bam_pdev->dev.platform_data;
@@ -269,7 +381,7 @@ int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 		return -EINVAL;
 	}
 
-	if (connection->enabled) {
+	if (connection->src_enabled && connection->dst_enabled) {
 		pr_debug("%s: connection %d was already established\n",
 			__func__, idx);
 		return 0;
@@ -281,22 +393,66 @@ int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 	if (src_pipe_idx) {
 		/* open USB -> Peripheral pipe */
 		ret = connect_pipe(connection->idx, USB_TO_PEER_PERIPHERAL,
-			connection->src_pipe);
+						   connection->src_pipe);
 		if (ret) {
 			pr_err("%s: src pipe connection failure\n", __func__);
 			return ret;
 		}
 	}
+	connection->src_enabled = 1;
+
 	if (dst_pipe_idx) {
 		/* open Peripheral -> USB pipe */
 		ret = connect_pipe(connection->idx, PEER_PERIPHERAL_TO_USB,
-			connection->dst_pipe);
+						   connection->dst_pipe);
 		if (ret) {
 			pr_err("%s: dst pipe connection failure\n", __func__);
 			return ret;
 		}
 	}
-	connection->enabled = 1;
+	connection->dst_enabled = 1;
+
+	return 0;
+}
+
+int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
+{
+	u8 idx = ipa_params->idx;
+	struct usb_bam_connect_info *connection = &usb_bam_connections[idx];
+	int ret;
+
+	if (idx >= CONNECTIONS_NUM) {
+		pr_err("%s: Invalid connection index\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if ((connection->src_enabled &&
+		 ipa_params->dir == USB_TO_PEER_PERIPHERAL) ||
+		 (connection->dst_enabled &&
+		  ipa_params->dir == PEER_PERIPHERAL_TO_USB)) {
+		pr_debug("%s: connection %d was already established\n",
+			__func__, idx);
+		return 0;
+	}
+
+	if (ipa_params->dir == USB_TO_PEER_PERIPHERAL)
+		connection->src_pipe = ipa_params->src_pipe;
+	else
+		connection->dst_pipe = ipa_params->dst_pipe;
+
+	connection->idx = idx;
+
+	ret = connect_pipe_ipa(ipa_params);
+	if (ret) {
+		pr_err("%s: dst pipe connection failure\n", __func__);
+		return ret;
+	}
+
+	if (ipa_params->dir == USB_TO_PEER_PERIPHERAL)
+		connection->src_enabled = 1;
+	else
+		connection->dst_enabled = 1;
 
 	return 0;
 }
@@ -364,39 +520,78 @@ int usb_bam_disconnect_pipe(u8 idx)
 		return -EINVAL;
 	}
 
-	if (!connection->enabled) {
+	if (!connection->src_enabled && !connection->dst_enabled) {
 		pr_debug("%s: connection %d isn't enabled\n",
 			__func__, idx);
 		return 0;
 	}
 
-	if (connection->src_pipe) {
+	if (connection->src_enabled) {
 		/* close USB -> Peripheral pipe */
-		ret = disconnect_pipe(connection->idx, USB_TO_PEER_PERIPHERAL,
-						   connection->src_pipe);
+		ret = disconnect_pipe(connection->idx, USB_TO_PEER_PERIPHERAL);
 		if (ret) {
 			pr_err("%s: src pipe connection failure\n", __func__);
 			return ret;
 		}
-
+		connection->src_enabled = 0;
 	}
-	if (connection->dst_pipe) {
+	if (connection->dst_enabled) {
 		/* close Peripheral -> USB pipe */
-		ret = disconnect_pipe(connection->idx, PEER_PERIPHERAL_TO_USB,
-			connection->dst_pipe);
+		ret = disconnect_pipe(connection->idx, PEER_PERIPHERAL_TO_USB);
 		if (ret) {
 			pr_err("%s: dst pipe connection failure\n", __func__);
 			return ret;
 		}
+		connection->dst_enabled = 0;
 	}
 
 	connection->src_pipe = 0;
 	connection->dst_pipe = 0;
-	connection->enabled = 0;
 
 	return 0;
 }
+int usb_bam_disconnect_ipa(u8 idx,
+		struct usb_bam_connect_ipa_params *ipa_params)
+{
+	struct usb_bam_connect_info *connection = &usb_bam_connections[idx];
+	int ret;
 
+	if (!usb_bam_pdev) {
+		pr_err("%s: usb_bam device not found\n", __func__);
+		return -ENODEV;
+	}
+
+	if (idx >= CONNECTIONS_NUM) {
+		pr_err("%s: Invalid connection index\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	/* Currently just calls ipa_disconnect, no sps pipes
+	   disconenction support */
+
+	/* close IPA -> USB pipe */
+	if (connection->dst_pipe) {
+		ret = ipa_disconnect(ipa_params->prod_clnt_hdl);
+		if (ret) {
+			pr_err("%s: dst pipe disconnection failure\n",
+				__func__);
+			return ret;
+		}
+	}
+	/* close USB -> IPA pipe */
+	if (connection->src_pipe) {
+		ret = ipa_disconnect(ipa_params->cons_clnt_hdl);
+		if (ret) {
+			pr_err("%s: src pipe disconnection failure\n",
+				__func__);
+			return ret;
+		}
+	}
+
+	return 0;
+
+}
 static int update_connections_info(struct device_node *node, int bam,
 	int conn_num, int dir, enum usb_pipe_mem_type mem_type)
 {
@@ -412,33 +607,28 @@ static int update_connections_info(struct device_node *node, int bam,
 
 	key = "qcom,src-bam-physical-address";
 	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->src_phy_addr = val;
+	if (!rc)
+		pipe_connection->src_phy_addr = val;
 
 	key = "qcom,src-bam-pipe-index";
 	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->src_pipe_index = val;
+	if (!rc)
+		pipe_connection->src_pipe_index = val;
 
 	key = "qcom,dst-bam-physical-address";
 	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->dst_phy_addr = val;
+	if (!rc)
+		pipe_connection->dst_phy_addr = val;
 
 	key = "qcom,dst-bam-pipe-index";
 	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->dst_pipe_index = val;
+	if (!rc)
+		pipe_connection->dst_pipe_index = val;
 
 	key = "qcom,data-fifo-offset";
 	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->data_fifo_base_offset = val;
+	if (!rc)
+		pipe_connection->data_fifo_base_offset = val;
 
 	key = "qcom,data-fifo-size";
 	rc = of_property_read_u32(node, key, &val);
@@ -448,9 +638,8 @@ static int update_connections_info(struct device_node *node, int bam,
 
 	key = "qcom,descriptor-fifo-offset";
 	rc = of_property_read_u32(node, key, &val);
-	if (rc)
-		goto err;
-	pipe_connection->desc_fifo_base_offset = val;
+	if (!rc)
+		pipe_connection->desc_fifo_base_offset = val;
 
 	key = "qcom,descriptor-fifo-size";
 	rc = of_property_read_u32(node, key, &val);
@@ -539,10 +728,8 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 
 	rc = of_property_read_u32(node, "qcom,usb-base-address",
 		&pdata->usb_base_address);
-	if (rc) {
-		pr_err("Invalid usb base address property\n");
-		return NULL;
-	}
+	if (rc)
+		pr_debug("%s: Invalid usb base address property\n", __func__);
 
 	pdata->ignore_core_reset_ack = of_property_read_bool(node,
 					"qcom,ignore-core-reset-ack");
@@ -588,22 +775,28 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		if (rc)
 			goto err;
 
+		if (mem_type == USB_PRIVATE_MEM &&
+			!pdata->usb_base_address)
+			goto err;
+
 		rc = of_property_read_string(node, "label", &str);
 		if (rc) {
 			pr_err("Cannot read string\n");
 			goto err;
 		}
 
-		if (strstr(str, "usb-to-peri"))
+		if (strnstr(str, "usb-to", 30))
 			dir = USB_TO_PEER_PERIPHERAL;
-		else if (strstr(str, "peri-to-usb"))
+		else if (strnstr(str, "to-usb", 30))
 			dir = PEER_PERIPHERAL_TO_USB;
 		else
 			goto err;
 
-		/* Check if connection type is suported */
+		/* Check if connection type is supported */
 		if (!strcmp(str, "usb-to-peri-qdss-dwc3") ||
 			!strcmp(str, "peri-to-usb-qdss-dwc3") ||
+			!strcmp(str, "usb-to-ipa") ||
+			!strcmp(str, "ipa-to-usb") ||
 			!strcmp(str, "usb-to-peri-qdss-hsusb") ||
 			!strcmp(str, "peri-to-usb-qdss-hsusb"))
 				conn_num = 0;
@@ -772,7 +965,8 @@ static int usb_bam_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "usb_bam_probe\n");
 
 	for (i = 0; i < CONNECTIONS_NUM; i++) {
-		usb_bam_connections[i].enabled = 0;
+		usb_bam_connections[i].src_enabled = 0;
+		usb_bam_connections[i].dst_enabled = 0;
 		INIT_WORK(&usb_bam_connections[i].peer_event.wake_w,
 			usb_bam_wake_work);
 	}
