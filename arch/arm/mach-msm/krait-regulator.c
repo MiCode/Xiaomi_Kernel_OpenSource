@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s: " fmt, __func__
+#define pr_fmt(fmt) "PDN %s: " fmt, __func__
 
 #include <linux/err.h>
 #include <linux/kernel.h>
@@ -247,6 +247,7 @@ static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 				LDO_PWR_DWN_MASK, LDO_PWR_DWN_MASK);
 
 	kvreg->mode = HS_MODE;
+	pr_debug("%s using BHS\n", kvreg->name);
 	return 0;
 }
 
@@ -282,6 +283,7 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 		BHS_EN_MASK | LDO_BYP_MASK, 0);
 
 	kvreg->mode = LDO_MODE;
+	pr_debug("%s using LDO\n", kvreg->name);
 	return 0;
 }
 
@@ -294,9 +296,15 @@ static int set_pmic_gang_phases(int phase_count)
 	return 0;
 }
 
-static int set_pmic_gang_voltage(int uV)
+static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
 {
 	int setpoint;
+	int rc;
+
+	if (pvreg->pmic_vmax_uV == uV)
+		return 0;
+
+	pr_debug("%d\n", uV);
 
 	if (uV < PMIC_VOLTAGE_MIN) {
 		pr_err("requested %d < %d, restricting it to %d\n",
@@ -311,10 +319,17 @@ static int set_pmic_gang_voltage(int uV)
 
 	setpoint = DIV_ROUND_UP(uV, LV_RANGE_STEP);
 
-	return msm_spm_apcs_set_vdd(setpoint);
+	rc = msm_spm_apcs_set_vdd(setpoint);
+	if (rc < 0)
+		pr_err("could not set %duV setpt = 0x%x rc = %d\n",
+				uV, setpoint, rc);
+	else
+		pvreg->pmic_vmax_uV = uV;
+
+	return rc;
 }
 
-static int configure_ldo_or_hs(struct krait_power_vreg *from, int vmax)
+static int configure_ldo_or_hs_all(struct krait_power_vreg *from, int vmax)
 {
 	struct pmic_gang_vreg *pvreg = from->pvreg;
 	struct krait_power_vreg *kvreg;
@@ -345,7 +360,7 @@ static int configure_ldo_or_hs(struct krait_power_vreg *from, int vmax)
 }
 
 #define SLEW_RATE 2994
-static int pmic_gang_set_voltage_increase(struct krait_power_vreg *from,
+static int krait_voltage_increase(struct krait_power_vreg *from,
 							int vmax)
 {
 	struct pmic_gang_vreg *pvreg = from->pvreg;
@@ -353,20 +368,21 @@ static int pmic_gang_set_voltage_increase(struct krait_power_vreg *from,
 	int settling_us;
 
 	/*
-	 * since pmic gang voltage is increasing set the gang voltage
+	 * since krait voltage is increasing set the gang voltage
 	 * prior to changing ldo/hs states of the requesting krait
 	 */
-	rc = set_pmic_gang_voltage(vmax);
+	rc = set_pmic_gang_voltage(pvreg, vmax);
 	if (rc < 0) {
 		dev_err(&from->rdev->dev, "%s failed set voltage %d rc = %d\n",
 				pvreg->name, vmax, rc);
+		return rc;
 	}
 
 	/* delay until the voltage is settled when it is raised */
 	settling_us = DIV_ROUND_UP(vmax - pvreg->pmic_vmax_uV, SLEW_RATE);
 	udelay(settling_us);
 
-	rc = configure_ldo_or_hs(from, vmax);
+	rc = configure_ldo_or_hs_all(from, vmax);
 	if (rc < 0) {
 		dev_err(&from->rdev->dev, "%s failed ldo/hs conf %d rc = %d\n",
 				pvreg->name, vmax, rc);
@@ -375,44 +391,31 @@ static int pmic_gang_set_voltage_increase(struct krait_power_vreg *from,
 	return rc;
 }
 
-static int pmic_gang_set_voltage_decrease(struct krait_power_vreg *from,
+static int krait_voltage_decrease(struct krait_power_vreg *from,
 							int vmax)
 {
 	struct pmic_gang_vreg *pvreg = from->pvreg;
 	int rc = 0;
 
 	/*
-	 * since pmic gang voltage is decreasing ldos might get out of their
+	 * since krait voltage is decreasing ldos might get out of their
 	 * operating range. Hence configure such kraits to be in hs mode prior
 	 * to setting the pmic gang voltage
 	 */
-	rc = configure_ldo_or_hs(from, vmax);
+	rc = configure_ldo_or_hs_all(from, vmax);
 	if (rc < 0) {
 		dev_err(&from->rdev->dev, "%s failed ldo/hs conf %d rc = %d\n",
 				pvreg->name, vmax, rc);
 		return rc;
 	}
 
-	rc = set_pmic_gang_voltage(vmax);
+	rc = set_pmic_gang_voltage(pvreg, vmax);
 	if (rc < 0) {
 		dev_err(&from->rdev->dev, "%s failed set voltage %d rc = %d\n",
 				pvreg->name, vmax, rc);
 	}
 
 	return rc;
-}
-
-static int pmic_gang_set_voltage(struct krait_power_vreg *from,
-				 int vmax)
-{
-	struct pmic_gang_vreg *pvreg = from->pvreg;
-
-	if (pvreg->pmic_vmax_uV == vmax)
-		return 0;
-	else if (vmax < pvreg->pmic_vmax_uV)
-		return pmic_gang_set_voltage_decrease(from, vmax);
-
-	return pmic_gang_set_voltage_increase(from, vmax);
 }
 
 #define PHASE_SETTLING_TIME_US		10
@@ -478,21 +481,17 @@ static int krait_power_get_voltage(struct regulator_dev *rdev)
 	return kvreg->uV;
 }
 
-static int get_vmax(struct krait_power_vreg *from, int min_uV)
+static int get_vmax(struct pmic_gang_vreg *pvreg)
 {
 	int vmax = 0;
 	int v;
 	struct krait_power_vreg *kvreg;
-	struct pmic_gang_vreg *pvreg = from->pvreg;
 
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
 		if (!kvreg->online)
 			continue;
 
 		v = kvreg->uV;
-
-		if (kvreg == from)
-			v = min_uV;
 
 		if (vmax < v)
 			vmax = v;
@@ -518,28 +517,35 @@ static int get_total_load(struct krait_power_vreg *from)
 
 #define ROUND_UP_VOLTAGE(v, res) (DIV_ROUND_UP(v, res) * res)
 static int _set_voltage(struct regulator_dev *rdev,
-			int min_uV, int max_uV, unsigned *selector)
+			int orig_krait_uV, int requested_uV)
 {
 	struct krait_power_vreg *kvreg = rdev_get_drvdata(rdev);
 	struct pmic_gang_vreg *pvreg = kvreg->pvreg;
 	int rc;
 	int vmax;
 
-	vmax = get_vmax(kvreg, min_uV);
+	pr_debug("%s: %d to %d\n", kvreg->name, orig_krait_uV, requested_uV);
+	/*
+	 * Assign the voltage before updating the gang voltage as we iterate
+	 * over all the core voltages and choose HS or LDO for each of them
+	 */
+	kvreg->uV = requested_uV;
+
+	vmax = get_vmax(pvreg);
 
 	/* round up the pmic voltage as per its resolution */
 	vmax = ROUND_UP_VOLTAGE(vmax, LV_RANGE_STEP);
 
-	rc = pmic_gang_set_voltage(kvreg, vmax);
+	if (requested_uV > orig_krait_uV)
+		rc = krait_voltage_increase(kvreg, vmax);
+	else
+		rc = krait_voltage_decrease(kvreg, vmax);
+
 	if (rc < 0) {
-		dev_err(&rdev->dev, "%s failed set voltage (%d, %d) rc = %d\n",
-				kvreg->name, min_uV, max_uV, rc);
-		goto out;
+		dev_err(&rdev->dev, "%s failed to set %duV from %duV rc = %d\n",
+				kvreg->name, requested_uV, orig_krait_uV, rc);
 	}
 
-	pvreg->pmic_vmax_uV = vmax;
-
-out:
 	return rc;
 }
 
@@ -562,14 +568,13 @@ static int krait_power_set_voltage(struct regulator_dev *rdev,
 	}
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
-	kvreg->uV = min_uV;
-
 	if (!kvreg->online) {
+		kvreg->uV = min_uV;
 		mutex_unlock(&pvreg->krait_power_vregs_lock);
 		return 0;
 	}
 
-	rc = _set_voltage(rdev, min_uV, max_uV, selector);
+	rc = _set_voltage(rdev, kvreg->uV, min_uV);
 	mutex_unlock(&pvreg->krait_power_vregs_lock);
 
 	return rc;
@@ -673,12 +678,14 @@ static int krait_power_enable(struct regulator_dev *rdev)
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
 	kvreg->online = true;
-	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV,
-							kvreg->load_uA);
+	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load_uA);
 	if (rc < 0)
 		goto en_err;
-	rc = _set_voltage(rdev, kvreg->uV,
-					rdev->constraints->max_uV, NULL);
+	/*
+	 * since the core is being enabled, behave as if it is increasing
+	 * the core voltage
+	 */
+	rc = _set_voltage(rdev, 0, kvreg->uV);
 en_err:
 	mutex_unlock(&pvreg->krait_power_vregs_lock);
 	return rc;
@@ -698,8 +705,7 @@ static int krait_power_disable(struct regulator_dev *rdev)
 	if (rc < 0)
 		goto dis_err;
 
-	rc = _set_voltage(rdev, kvreg->uV,
-					rdev->constraints->max_uV, NULL);
+	rc = _set_voltage(rdev, kvreg->uV, kvreg->uV);
 dis_err:
 	mutex_unlock(&pvreg->krait_power_vregs_lock);
 	return rc;
