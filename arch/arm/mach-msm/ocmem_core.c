@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -973,7 +973,7 @@ int ocmem_core_init(struct platform_device *pdev)
 	num_ports = (hw_ver & NUM_PORTS_MASK) >> NUM_PORTS_SHIFT;
 
 	if (num_macros != OCMEM_V1_MACROS) {
-		pr_err("Invalid number of macros (%d)\n", pdata->nr_macros);
+		pr_err("Invalid number of macros (%d)\n", num_macros);
 		goto hw_not_supported;
 	}
 
