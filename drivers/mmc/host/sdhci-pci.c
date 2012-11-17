@@ -23,8 +23,9 @@
 #include <linux/scatterlist.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
-#include <linux/pm_runtime.h>
 #include <linux/mmc/sdhci-pci-data.h>
+#include <linux/sfi.h>
+#include <linux/pm_runtime.h>
 
 #include "sdhci.h"
 
@@ -1171,8 +1172,6 @@ static int sdhci_pci_runtime_idle(struct device *dev)
 #endif
 
 static const struct dev_pm_ops sdhci_pci_pm_ops = {
-	.suspend = sdhci_pci_suspend,
-	.resume = sdhci_pci_resume,
 	.runtime_suspend = sdhci_pci_runtime_suspend,
 	.runtime_resume = sdhci_pci_runtime_resume,
 	.runtime_idle = sdhci_pci_runtime_idle,
@@ -1451,6 +1450,8 @@ static void __devexit sdhci_pci_remove(struct pci_dev *pdev)
 	int i;
 	struct sdhci_pci_chip *chip;
 
+	sdhci_pci_runtime_pm_forbid(&pdev->dev);
+
 	chip = pci_get_drvdata(pdev);
 
 	if (chip) {
@@ -1472,6 +1473,8 @@ static struct pci_driver sdhci_driver = {
 	.id_table =	pci_ids,
 	.probe =	sdhci_pci_probe,
 	.remove =	__devexit_p(sdhci_pci_remove),
+	.suspend =	sdhci_pci_suspend,
+	.resume	=	sdhci_pci_resume,
 	.driver =	{
 		.pm =   &sdhci_pci_pm_ops
 	},
