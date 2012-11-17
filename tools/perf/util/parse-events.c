@@ -297,9 +297,37 @@ const char *event_name(struct perf_evsel *evsel)
 {
 	u64 config = evsel->attr.config;
 	int type = evsel->attr.type;
+	char *buf;
+	size_t buf_sz;
 
-	if (evsel->name)
+	if (evsel->name) {
+		/* Make new space for the modifier bits. */
+		buf_sz = strlen(evsel->name) + 3;
+		buf = malloc(buf_sz);
+		if (!buf)
+			/*
+			 * Always return what was already in 'name'.
+			 */
+			return evsel->name;
+
+		strlcpy(buf, evsel->name, buf_sz);
+
+		free(evsel->name);
+
+		evsel->name = buf;
+
+		/* User mode profiling. */
+		if (!evsel->attr.exclude_user && evsel->attr.exclude_kernel)
+			strlcpy(&evsel->name[strlen(evsel->name)], ":u",
+					buf_sz);
+		/* Kernel mode profiling. */
+		else if (!evsel->attr.exclude_kernel &&
+				evsel->attr.exclude_user)
+			strlcpy(&evsel->name[strlen(evsel->name)], ":k",
+					buf_sz);
+
 		return evsel->name;
+	}
 
 	return __event_name(type, config, NULL);
 }
