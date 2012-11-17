@@ -740,11 +740,29 @@ static int hdmi_gpio_config(int on)
 		return 0;
 
 	if (on) {
+		if (!(hdmi_msm_data.is_mhl_enabled)) {
+			rc = gpio_request(HDMI_MHL_MUX_GPIO, "MHL_HDMI_MUX");
+			if (rc < 0) {
+				pr_err("gpio hdmi_mhl mux req failed:%d\n",
+					rc);
+				return rc;
+			}
+			rc = gpio_direction_output(HDMI_MHL_MUX_GPIO, 1);
+			if (rc < 0) {
+				pr_err("set gpio hdmi_mhl dir failed:%d\n",
+					rc);
+				goto error0;
+			}
+			gpio_set_value(HDMI_MHL_MUX_GPIO, 1);
+			pr_debug("set gpio hdmi mhl mux %d to 1\n",
+				HDMI_MHL_MUX_GPIO);
+		}
+
 		rc = gpio_request(100, "HDMI_DDC_CLK");
 		if (rc) {
 			pr_err("'%s'(%d) gpio_request failed, rc=%d\n",
 				"HDMI_DDC_CLK", 100, rc);
-			return rc;
+			goto error0;
 		}
 		rc = gpio_request(101, "HDMI_DDC_DATA");
 		if (rc) {
@@ -760,6 +778,8 @@ static int hdmi_gpio_config(int on)
 		}
 		pr_debug("%s(on): success\n", __func__);
 	} else {
+		if (!(hdmi_msm_data.is_mhl_enabled))
+			gpio_free(HDMI_MHL_MUX_GPIO);
 		gpio_free(100);
 		gpio_free(101);
 		gpio_free(102);
@@ -773,6 +793,9 @@ error2:
 	gpio_free(101);
 error1:
 	gpio_free(100);
+error0:
+	if (!(hdmi_msm_data.is_mhl_enabled))
+		gpio_free(HDMI_MHL_MUX_GPIO);
 	return rc;
 }
 
