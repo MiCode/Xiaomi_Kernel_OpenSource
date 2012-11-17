@@ -204,10 +204,13 @@ static int __scm_call(const struct scm_command *cmd)
 	return ret;
 }
 
-static u32 cacheline_size;
-
 static void scm_inv_range(unsigned long start, unsigned long end)
 {
+	u32 cacheline_size, ctr;
+
+	asm volatile("mrc p15, 0, %0, c0, c0, 1" : "=r" (ctr));
+	cacheline_size = 4 << ((ctr >> 16) & 0xf);
+
 	start = round_down(start, cacheline_size);
 	end = round_up(end, cacheline_size);
 	outer_inv_range(start, end);
@@ -444,13 +447,3 @@ int scm_get_feat_version(u32 feat)
 }
 EXPORT_SYMBOL(scm_get_feat_version);
 
-static int scm_init(void)
-{
-	u32 ctr;
-
-	asm volatile("mrc p15, 0, %0, c0, c0, 1" : "=r" (ctr));
-	cacheline_size =  4 << ((ctr >> 16) & 0xf);
-
-	return 0;
-}
-early_initcall(scm_init);
