@@ -2336,7 +2336,7 @@ out:
 
 #ifdef CONFIG_PM
 
-int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
+int sdhci_suspend_host(struct sdhci_host *host)
 {
 	int ret;
 
