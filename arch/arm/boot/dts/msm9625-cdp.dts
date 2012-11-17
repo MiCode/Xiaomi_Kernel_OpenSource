@@ -37,6 +37,14 @@
 			summit,temperature-max = <3>; /* 45 C */
 		};
 	};
+
+	wlan0: qca,wlan {
+		cell-index = <0>;
+		compatible = "qca,ar6004-sdio";
+		qca,chip-pwd-l-gpios = <&msmgpio 62 0>;
+		qca,pm-enable-gpios = <&pm8019_gpios 3 0x0>;
+		qca,ar6004-vdd-io-supply = <&pm8019_l11>;
+	};
 };
 
 /* PM8019 GPIO and MPP configuration */
