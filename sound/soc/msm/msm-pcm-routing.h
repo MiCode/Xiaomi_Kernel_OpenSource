@@ -113,6 +113,10 @@ enum {
 	MSM_BACKEND_DAI_MAX,
 };
 
+enum msm_pcm_routing_event {
+	MSM_PCM_RT_EVT_BUF_RECFG,
+	MSM_PCM_RT_EVT_MAX,
+};
 /* dai_id: front-end ID,
  * dspst_id:  DSP audio stream ID
  * stream_type: playback or capture
@@ -127,6 +131,15 @@ void msm_pcm_routing_reg_pseudo_stream(int fedai_id, bool perf_mode,
 				int channels);
 
 void msm_pcm_routing_dereg_pseudo_stream(int fedai_id, int dspst_id);
+
+struct msm_pcm_routing_evt {
+	void (*event_func)(enum msm_pcm_routing_event, void *);
+	void *priv_data;
+};
+
+void msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
+				       int dspst_id, int stream_type,
+				       struct msm_pcm_routing_evt event_info);
 
 void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
 
