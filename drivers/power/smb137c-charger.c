@@ -31,6 +31,7 @@ struct smb137c_chip {
 	bool			charging_enabled;
 	bool			otg_mode_enabled;
 	bool			charging_allowed;
+	bool			usb_suspend_enabled;
 };
 
 struct input_current_config {
@@ -130,6 +131,9 @@ struct term_current_config {
 
 #define VAR_FUNC_REG			0x0C
 #define VAR_FUNC_USB_MODE_MASK		0x80
+#define VAR_FUNC_USB_SUSPEND_CTRL_MASK	0x20
+#define VAR_FUNC_USB_SUSPEND_CTRL_REG	0x00
+#define VAR_FUNC_USB_SUSPEND_CTRL_PIN	0x20
 #define VAR_FUNC_BMD_MASK		0x0C
 #define VAR_FUNC_BMD_DISABLED		0x00
 #define VAR_FUNC_BMD_ALGO_PERIODIC	0x04
@@ -146,6 +150,9 @@ struct term_current_config {
 #define CMD_A_OTG_MASK			0x10
 #define CMD_A_OTG_ENABLED		0x10
 #define CMD_A_OTG_DISABLED		0x00
+#define CMD_A_USB_SUSPEND_MASK		0x04
+#define CMD_A_USB_SUSPEND_DISABLED	0x00
+#define CMD_A_USB_SUSPEND_ENABLED	0x04
 #define CMD_A_CHARGING_MASK		0x02
 #define CMD_A_CHARGING_ENABLED		0x00
 #define CMD_A_CHARGING_DISABLED		0x02
@@ -257,16 +264,15 @@ static int smb137c_enable_charging(struct smb137c_chip *chip)
 
 	chip->charging_allowed = true;
 
-	if (chip->input_current_limit_ua > 0
-	    && chip->charge_current_limit_ua > 0) {
-		if (!chip->charging_enabled)
-			rc = smb137c_masked_write_reg(chip, CMD_A_REG,
-				CMD_A_CHARGING_MASK, CMD_A_CHARGING_ENABLED);
-		chip->charging_enabled = true;
-
+	if (!chip->charging_enabled && chip->charge_current_limit_ua > 0) {
+		rc = smb137c_masked_write_reg(chip, CMD_A_REG,
+			CMD_A_CHARGING_MASK, CMD_A_CHARGING_ENABLED);
 		if (!rc)
-			dev_dbg(&chip->client->dev, "%s\n", __func__);
+			chip->charging_enabled = true;
 	}
+
+	if (!rc)
+		dev_dbg(&chip->client->dev, "%s\n", __func__);
 
 	return rc;
 }
@@ -280,9 +286,9 @@ static int smb137c_disable_charging(struct smb137c_chip *chip)
 	if (chip->charging_enabled) {
 		rc = smb137c_masked_write_reg(chip, CMD_A_REG,
 			CMD_A_CHARGING_MASK, CMD_A_CHARGING_DISABLED);
+		if (!rc)
+			chip->charging_enabled = false;
 	}
-
-	chip->charging_enabled = false;
 
 	if (!rc)
 		dev_dbg(&chip->client->dev, "%s\n", __func__);
@@ -297,7 +303,8 @@ static int smb137c_enable_otg_mode(struct smb137c_chip *chip)
 	if (!chip->otg_mode_enabled) {
 		rc = smb137c_masked_write_reg(chip, CMD_A_REG, CMD_A_OTG_MASK,
 					CMD_A_OTG_ENABLED);
-		chip->otg_mode_enabled = true;
+		if (!rc)
+			chip->otg_mode_enabled = true;
 	}
 
 	if (!rc)
@@ -313,7 +320,42 @@ static int smb137c_disable_otg_mode(struct smb137c_chip *chip)
 	if (chip->otg_mode_enabled) {
 		rc = smb137c_masked_write_reg(chip, CMD_A_REG, CMD_A_OTG_MASK,
 					CMD_A_OTG_DISABLED);
-		chip->otg_mode_enabled = false;
+		if (!rc)
+			chip->otg_mode_enabled = false;
+	}
+
+	if (!rc)
+		dev_dbg(&chip->client->dev, "%s\n", __func__);
+
+	return rc;
+}
+
+static int smb137c_enable_usb_suspend(struct smb137c_chip *chip)
+{
+	int rc = 0;
+
+	if (!chip->usb_suspend_enabled) {
+		rc = smb137c_masked_write_reg(chip, CMD_A_REG,
+			CMD_A_USB_SUSPEND_MASK, CMD_A_USB_SUSPEND_ENABLED);
+		if (!rc)
+			chip->usb_suspend_enabled = true;
+	}
+
+	if (!rc)
+		dev_dbg(&chip->client->dev, "%s\n", __func__);
+
+	return rc;
+}
+
+static int smb137c_disable_usb_suspend(struct smb137c_chip *chip)
+{
+	int rc = 0;
+
+	if (chip->input_current_limit_ua > 0 && chip->usb_suspend_enabled) {
+		rc = smb137c_masked_write_reg(chip, CMD_A_REG,
+			CMD_A_USB_SUSPEND_MASK, CMD_A_USB_SUSPEND_DISABLED);
+		if (!rc)
+			chip->usb_suspend_enabled = false;
 	}
 
 	if (!rc)
@@ -371,13 +413,11 @@ static int smb137c_set_usb_input_current_limit(struct smb137c_chip *chip,
 			chip->input_current_limit_ua = config->current_limit_ua;
 		}
 
-		if (chip->charging_allowed)
-			rc = smb137c_enable_charging(chip);
+		rc = smb137c_disable_usb_suspend(chip);
 	} else {
-		/* Current limit is below all set points so disable charging. */
 		chip->input_current_limit_ua = 0;
 
-		rc = smb137c_disable_charging(chip);
+		rc = smb137c_enable_usb_suspend(chip);
 	}
 
 	if (!rc)
@@ -993,7 +1033,7 @@ static void smb137c_external_power_changed(struct power_supply *psy)
 	struct smb137c_chip *chip = container_of(psy, struct smb137c_chip, psy);
 	union power_supply_propval prop = {0,};
 	int scope = POWER_SUPPLY_SCOPE_DEVICE;
-	int current_limit = USB_MIN_CURRENT_UA;
+	int current_limit = 0;
 	int online = 0;
 	int rc;
 
@@ -1037,7 +1077,8 @@ static void smb137c_external_power_changed(struct power_supply *psy)
 		/* USB offline */
 		smb137c_disable_charging(chip);
 		smb137c_disable_otg_mode(chip);
-		smb137c_set_usb_input_current_limit(chip, USB_MIN_CURRENT_UA);
+		smb137c_set_usb_input_current_limit(chip,
+			min(current_limit, USB_MIN_CURRENT_UA));
 	}
 
 	dev_dbg(&chip->client->dev, "%s: end\n", __func__);
@@ -1086,6 +1127,14 @@ static int smb137c_set_register_defaults(struct smb137c_chip *chip)
 	val = CTRL_A_AUTO_RECHARGE_ENABLED | CTRL_A_THERM_MONITOR_ENABLED;
 	mask = CTRL_A_AUTO_RECHARGE_MASK | CTRL_A_THERM_MONITOR_MASK;
 	rc = smb137c_masked_write_reg(chip, CTRL_A_REG, mask, val);
+	if (rc)
+		return rc;
+
+	/* Use register value instead of pin to control USB suspend. */
+	rc = smb137c_masked_write_reg(chip, VAR_FUNC_REG,
+		VAR_FUNC_USB_SUSPEND_CTRL_MASK, VAR_FUNC_USB_SUSPEND_CTRL_REG);
+	if (rc)
+		return rc;
 
 	return rc;
 }
