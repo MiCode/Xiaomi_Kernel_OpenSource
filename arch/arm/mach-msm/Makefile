@@ -46,14 +46,14 @@ ifdef CONFIG_ARCH_QSD8X50
 endif
 
 obj-$(CONFIG_SMP) += headsmp.o
+ifdef CONFIG_ARCH_MSM_CORTEXMP
 ifdef CONFIG_ARCH_MSM8625
 	obj-$(CONFIG_SMP) += platsmp-8625.o
 else
-ifdef CONFIG_ARCH_MSM8910
 	obj-$(CONFIG_SMP) += platsmp-8910.o
+endif
 else
 	obj-$(CONFIG_SMP) += platsmp.o
-endif
 endif
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 
