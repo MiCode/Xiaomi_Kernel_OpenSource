@@ -134,33 +134,37 @@ void extract_dci_pkt_rsp(unsigned char *buf)
 		pr_alert("diag: No matching PID for DCI data\n");
 	/* Using PID of client process, find client buffer */
 	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-		if (curr_client_pid == driver->dci_client_tbl[i].client->tgid) {
-			/* copy pkt rsp in client buf */
-			entry = &(driver->dci_client_tbl[i]);
-			if (DCI_CHK_CAPACITY(entry, 8+write_len)) {
-				pr_alert("diag: create capacity for pkt rsp\n");
-				entry->total_capacity += 8+write_len;
-				temp_buf = krealloc(entry->dci_data,
-					 entry->total_capacity, GFP_KERNEL);
-				if (!temp_buf) {
-					pr_err("diag: DCI realloc failed\n");
-					break;
-				} else {
-					entry->dci_data = temp_buf;
+		if (driver->dci_client_tbl[i].client != NULL) {
+			if (curr_client_pid ==
+				driver->dci_client_tbl[i].client->tgid) {
+				/* copy pkt rsp in client buf */
+				entry = &(driver->dci_client_tbl[i]);
+				if (DCI_CHK_CAPACITY(entry, 8+write_len)) {
+					pr_alert("diag: create capacity for pkt rsp\n");
+					entry->total_capacity += 8+write_len;
+					temp_buf = krealloc(entry->dci_data,
+					entry->total_capacity, GFP_KERNEL);
+					if (!temp_buf) {
+						pr_err("diag: DCI realloc failed\n");
+						break;
+					} else {
+						entry->dci_data = temp_buf;
+					}
 				}
-			}
-			*(int *)(entry->dci_data+entry->data_len) =
+				*(int *)(entry->dci_data+entry->data_len) =
 							DCI_PKT_RSP_TYPE;
-			entry->data_len += 4;
-			*(int *)(entry->dci_data+entry->data_len) = write_len;
-			entry->data_len += 4;
-			memcpy(entry->dci_data+entry->data_len,
-				 buf+4+cmd_code_len, write_len);
-			entry->data_len += write_len;
-			/* delete immediate response entry */
-			if (driver->buf_in_dci[8+cmd_code_len] != 0x80)
-				driver->req_tracking_tbl[index].pid = 0;
-			break;
+				entry->data_len += 4;
+				*(int *)(entry->dci_data+entry->data_len)
+								= write_len;
+				entry->data_len += 4;
+				memcpy(entry->dci_data+entry->data_len,
+					buf+4+cmd_code_len, write_len);
+				entry->data_len += write_len;
+				/* delete immediate response entry */
+				if (driver->buf_in_dci[8+cmd_code_len] != 0x80)
+					driver->req_tracking_tbl[index].pid = 0;
+				break;
+			}
 		}
 	}
 }
@@ -408,6 +412,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 	int count, set_mask, num_codes, byte_index, bit_index, event_id;
 	uint8_t equip_id, *log_mask_ptr, *head_log_mask_ptr, byte_mask;
 	uint8_t *event_mask_ptr;
+	int offset = 0;
 
 	/* This is Pkt request/response transaction */
 	if (*(int *)temp > 0) {
@@ -463,10 +468,12 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 	} else if (*(int *)temp == DCI_LOG_TYPE) {
 		/* find client id and table */
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-			if (driver->dci_client_tbl[i].client->tgid ==
-							 current->tgid) {
-				found = 1;
-				break;
+			if (driver->dci_client_tbl[i].client != NULL) {
+				if (driver->dci_client_tbl[i].client->tgid ==
+							current->tgid) {
+					found = 1;
+					break;
+				}
 			}
 		}
 		if (!found) {
@@ -495,6 +502,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			 */
 			log_mask_ptr = head_log_mask_ptr;
 			found = 0;
+			offset = 0;
 			while (log_mask_ptr) {
 				if (*log_mask_ptr == equip_id) {
 					found = 1;
@@ -505,6 +513,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 					pr_debug("diag: did not find equip id = %x at %p\n",
 						 equip_id, log_mask_ptr);
 					log_mask_ptr += 514;
+					offset += 514;
 				}
 			}
 			if (!found) {
@@ -517,21 +526,25 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 				*log_mask_ptr |= byte_mask;
 			else
 				*log_mask_ptr &= ~byte_mask;
+			/* add to cumulative mask */
+			update_dci_cumulative_log_mask(
+				offset, byte_index,
+				byte_mask);
 			temp += 2;
 			count++;
 			ret = DIAG_DCI_NO_ERROR;
 		}
-		/* add to cumulative mask */
-		update_dci_cumulative_log_mask(i);
 		/* send updated mask to peripherals */
 		diag_send_dci_log_mask(driver->ch_cntl);
 	} else if (*(int *)temp == DCI_EVENT_TYPE) {
 		/* find client id and table */
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-			if (driver->dci_client_tbl[i].client->tgid ==
-							 current->tgid) {
-				found = 1;
-				break;
+			if (driver->dci_client_tbl[i].client != NULL) {
+				if (driver->dci_client_tbl[i].client->tgid ==
+							current->tgid) {
+					found = 1;
+					break;
+				}
 			}
 		}
 		if (!found) {
@@ -561,12 +574,12 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 				*(event_mask_ptr + byte_index) |= byte_mask;
 			else
 				*(event_mask_ptr + byte_index) &= ~byte_mask;
+			/* add to cumulative mask */
+			update_dci_cumulative_event_mask(byte_index, byte_mask);
 			temp += sizeof(int);
 			count++;
 			ret = DIAG_DCI_NO_ERROR;
 		}
-		/* add to cumulative mask */
-		update_dci_cumulative_event_mask(i);
 		/* send updated mask to peripherals */
 		diag_send_dci_event_mask(driver->ch_cntl);
 	} else {
@@ -575,16 +588,29 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 	return ret;
 }
 
-void update_dci_cumulative_event_mask(int client_index)
+void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask)
 {
 	int i;
-	uint8_t *update_ptr = dci_cumulative_event_mask;
 	uint8_t *event_mask_ptr;
+	uint8_t *update_ptr = dci_cumulative_event_mask;
+	bool is_set = false;
 
 	mutex_lock(&dci_event_mask_mutex);
-	event_mask_ptr = driver->dci_client_tbl[client_index].dci_event_mask;
-	for (i = 0; i < DCI_EVENT_MASK_SIZE; i++)
-		*(update_ptr+i) |= *(event_mask_ptr+i);
+	update_ptr += offset;
+	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		event_mask_ptr =
+			driver->dci_client_tbl[i].dci_event_mask;
+		event_mask_ptr += offset;
+		if ((*event_mask_ptr & byte_mask) == byte_mask) {
+			is_set = true;
+			/* break even if one client has the event mask set */
+			break;
+		}
+	}
+	if (is_set == false)
+		*update_ptr &= ~byte_mask;
+	else
+		*update_ptr |= byte_mask;
 	mutex_unlock(&dci_event_mask_mutex);
 }
 
@@ -624,27 +650,39 @@ void diag_send_dci_event_mask(smd_channel_t *ch)
 	mutex_unlock(&driver->diag_cntl_mutex);
 }
 
-void update_dci_cumulative_log_mask(int client_index)
+void update_dci_cumulative_log_mask(int offset, int byte_index,
+						uint8_t byte_mask)
 {
-	int i, j;
+	int i;
 	uint8_t *update_ptr = dci_cumulative_log_mask;
-	uint8_t *log_mask_ptr =
-	driver->dci_client_tbl[client_index].dci_log_mask;
+	uint8_t *log_mask_ptr;
+	bool is_set = false;
 
 	mutex_lock(&dci_log_mask_mutex);
-	*update_ptr = 0; /* add first equip id */
-	/* skip the first equip id */
-	update_ptr++; log_mask_ptr++;
-	for (i = 0; i < 16; i++) {
-		for (j = 0; j < 513; j++) {
-			*update_ptr |= *log_mask_ptr;
-			update_ptr++;
-			log_mask_ptr++;
+	*update_ptr = 0;
+	/* set the equipment IDs */
+	for (i = 0; i < 16; i++)
+		*(update_ptr + (i*514)) = i;
+
+	update_ptr += offset;
+	/* update the dirty bit */
+	*(update_ptr+1) = 1;
+	update_ptr = update_ptr + byte_index;
+	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		log_mask_ptr =
+			(driver->dci_client_tbl[i].dci_log_mask);
+		log_mask_ptr = log_mask_ptr + offset + byte_index;
+		if ((*log_mask_ptr & byte_mask) == byte_mask) {
+			is_set = true;
+			/* break even if one client has the log mask set */
+			break;
 		}
-		*update_ptr = i+1;
-		update_ptr++;
-		log_mask_ptr++;
 	}
+
+	if (is_set == false)
+		*update_ptr &= ~byte_mask;
+	else
+		*update_ptr |= byte_mask;
 	mutex_unlock(&dci_log_mask_mutex);
 }
 

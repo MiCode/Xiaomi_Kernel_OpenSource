@@ -1120,14 +1120,17 @@ drop_hsic:
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		/* check the current client and copy its data */
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-			entry = &(driver->dci_client_tbl[i]);
-			if (entry && (current->tgid == entry->client->tgid)) {
-				COPY_USER_SPACE_OR_EXIT(buf+4,
-						entry->data_len, 4);
-				COPY_USER_SPACE_OR_EXIT(buf+8,
-					 *(entry->dci_data), entry->data_len);
-				entry->data_len = 0;
-				break;
+			if (driver->dci_client_tbl[i].client != NULL) {
+				entry = &(driver->dci_client_tbl[i]);
+				if (entry && (current->tgid ==
+						entry->client->tgid)) {
+					COPY_USER_SPACE_OR_EXIT(buf+4,
+							entry->data_len, 4);
+					COPY_USER_SPACE_OR_EXIT(buf+8,
+					*(entry->dci_data), entry->data_len);
+					entry->data_len = 0;
+					break;
+				}
 			}
 		}
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
