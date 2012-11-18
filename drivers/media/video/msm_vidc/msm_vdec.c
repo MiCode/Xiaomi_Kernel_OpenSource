@@ -156,7 +156,15 @@ static const struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.minimum = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_DISABLE,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_ENABLE,
 		.default_value = V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_DISABLE,
-		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_SECURE,
+		.name = "Secure mode",
+		.type = V4L2_CTRL_TYPE_BUTTON,
+		.minimum = 0,
+		.maximum = 0,
+		.default_value = 0,
+		.step = 0,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
@@ -949,7 +957,8 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 	case V4L2_DEC_CMD_STOP:
 		rc = msm_comm_release_scratch_buffers(inst);
 		if (rc)
-			pr_err("Failed to release scratch buffers: %d\n", rc);
+			dprintk(VIDC_ERR,
+				"Failed to release scratch buffers: %d\n", rc);
 		rc = msm_comm_release_persist_buffers(inst);
 		if (rc)
 			pr_err("Failed to release persist buffers: %d\n", rc);
@@ -1018,17 +1027,8 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	void *pdata;
 	struct msm_vidc_inst *inst = container_of(ctrl->handler,
 				struct msm_vidc_inst, ctrl_handler);
-	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
-
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to move inst: %p to start done state\n", inst);
-		goto failed_open_done;
-	}
-
 	control.id = ctrl->id;
 	control.value = ctrl->val;
-
 	switch (control.id) {
 	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
 		property_id =
@@ -1083,10 +1083,20 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 		hal_property.enable = control.value;
 		pdata = &hal_property;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
+		inst->mode = VIDC_SECURE;
+		dprintk(VIDC_DBG, "Setting secure mode to :%d\n", inst->mode);
+		break;
 	default:
 		break;
-		}
+	}
 	if (property_id) {
+		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
+		if (rc) {
+			dprintk(VIDC_ERR,
+			"Failed to move inst: %p to start done state\n", inst);
+			goto failed_open_done;
+		}
 		dprintk(VIDC_DBG,
 			"Control: HAL property=%d,ctrl_id=%d,ctrl_value=%d\n",
 			property_id,
@@ -1098,9 +1108,7 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set hal property for framesize\n");
-
 failed_open_done:
-
 	return rc;
 }
 static int msm_vdec_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
