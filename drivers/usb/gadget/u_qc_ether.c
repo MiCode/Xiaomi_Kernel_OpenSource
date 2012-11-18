@@ -332,6 +332,7 @@ void gether_qc_cleanup_name(const char *netname)
 	net_dev = dev_get_by_name(&init_net, netname);
 
 	if (net_dev) {
+		dev_put(net_dev);
 		unregister_netdev(net_dev);
 		free_netdev(net_dev);
 	}
@@ -355,6 +356,10 @@ struct net_device *gether_qc_connect_name(struct qc_gether *link,
 
 	/* Extract the eth_qc_dev from the net device */
 	net_dev = dev_get_by_name(&init_net, netname);
+	if (!net_dev)
+		return ERR_PTR(-EINVAL);
+
+	dev_put(net_dev);
 	dev = netdev_priv(net_dev);
 
 	if (!dev)
@@ -400,6 +405,10 @@ void gether_qc_disconnect_name(struct qc_gether *link, const char *netname)
 
 	/* Extract the eth_qc_dev from the net device */
 	net_dev = dev_get_by_name(&init_net, netname);
+	if (!net_dev)
+		return;
+
+	dev_put(net_dev);
 	dev = netdev_priv(net_dev);
 
 	if (!dev)
