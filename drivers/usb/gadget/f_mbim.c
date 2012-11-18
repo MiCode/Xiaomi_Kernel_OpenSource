@@ -941,22 +941,22 @@ fmbim_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 
 	pr_debug("dev:%p port#%d\n", dev, dev->port_num);
 
-	spin_lock(&dev->lock);
-	if (!dev->is_open) {
-		pr_err("mbim file handler %p is not open", dev);
-		spin_unlock(&dev->lock);
-		return;
-	}
-
 	cpkt = mbim_alloc_ctrl_pkt(len, GFP_ATOMIC);
 	if (!cpkt) {
 		pr_err("Unable to allocate ctrl pkt\n");
-		spin_unlock(&dev->lock);
 		return;
 	}
 
 	pr_debug("Add to cpkt_req_q packet with len = %d\n", len);
 	memcpy(cpkt->buf, req->buf, len);
+
+	spin_lock(&dev->lock);
+	if (!dev->is_open) {
+		pr_err("mbim file handler %p is not open", dev);
+		spin_unlock(&dev->lock);
+		mbim_free_ctrl_pkt(cpkt);
+		return;
+	}
 
 	list_add_tail(&cpkt->list, &dev->cpkt_req_q);
 	spin_unlock(&dev->lock);
