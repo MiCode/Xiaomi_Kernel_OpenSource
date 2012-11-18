@@ -250,7 +250,7 @@ static int _ce_setup_hash(struct qce_device *pce_dev,
 
 		pce = cmdlistinfo->go_proc;
 		if (i == authk_size_in_word) {
-			pce->addr = (uint32_t)(CRYPTO_GOPROC_OEM_KEY_REG +
+			pce->addr = (uint32_t)(CRYPTO_GOPROC_QC_KEY_REG +
 							pce_dev->phy_iobase);
 		} else {
 			pce->addr = (uint32_t)(CRYPTO_GOPROC_REG +
@@ -434,7 +434,7 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	pce = cmdlistinfo->go_proc;
 	if (i == enck_size_in_word) {
 		use_hw_key = true;
-		pce->addr = (uint32_t)(CRYPTO_GOPROC_OEM_KEY_REG +
+		pce->addr = (uint32_t)(CRYPTO_GOPROC_QC_KEY_REG +
 						pce_dev->phy_iobase);
 	} else {
 		pce->addr = (uint32_t)(CRYPTO_GOPROC_REG +
