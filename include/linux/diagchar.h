@@ -675,18 +675,18 @@ static const uint32_t msg_bld_masks_21[] = {
 };
 
 static const uint32_t msg_bld_masks_22[] = {
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH,
-	MSG_LVL_HIGH
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW
 };
 
 /* LOG CODES */
