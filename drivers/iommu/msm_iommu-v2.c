@@ -148,6 +148,9 @@ fail:
 	return ret;
 }
 
+/*
+ * May only be called for non-secure iommus
+ */
 static void __reset_iommu(void __iomem *base)
 {
 	int i, smt_size;
@@ -170,6 +173,9 @@ static void __reset_iommu(void __iomem *base)
 	mb();
 }
 
+/*
+ * May only be called for non-secure iommus
+ */
 static void __program_iommu(void __iomem *base,
 			    struct msm_iommu_bfb_settings *bfb_settings)
 {
@@ -223,14 +229,14 @@ static void __release_smg(void __iomem *base, int ctx)
 
 static void __program_context(void __iomem *base, int ctx, int ncb,
 				phys_addr_t pgtable, int redirect,
-				u32 *sids, int len)
+				u32 *sids, int len, bool is_secure)
 {
 	unsigned int prrr, nmrr;
 	unsigned int pn;
 	int i, j, found, num = 0, smt_size;
 
 	__reset_context(base, ctx);
-	smt_size = GET_IDR0_NUMSMRG(base);
+
 	pn = pgtable >> CB_TTBR0_ADDR_SHIFT;
 	SET_TTBCR(base, ctx, 0);
 	SET_CB_TTBR0_ADDR(base, ctx, pn);
@@ -266,40 +272,43 @@ static void __program_context(void __iomem *base, int ctx, int ncb,
 		SET_CB_TTBR0_RGN(base, ctx, 1);   /* WB, WA */
 	}
 
-	/* Program the M2V tables for this context */
-	for (i = 0; i < len / sizeof(*sids); i++) {
-		for (; num < smt_size; num++)
-			if (GET_SMR_VALID(base, num) == 0)
-				break;
-		BUG_ON(num >= smt_size);
+	if (!is_secure) {
+		smt_size = GET_IDR0_NUMSMRG(base);
+		/* Program the M2V tables for this context */
+		for (i = 0; i < len / sizeof(*sids); i++) {
+			for (; num < smt_size; num++)
+				if (GET_SMR_VALID(base, num) == 0)
+					break;
+			BUG_ON(num >= smt_size);
 
-		SET_SMR_VALID(base, num, 1);
-		SET_SMR_MASK(base, num, 0);
-		SET_SMR_ID(base, num, sids[i]);
+			SET_SMR_VALID(base, num, 1);
+			SET_SMR_MASK(base, num, 0);
+			SET_SMR_ID(base, num, sids[i]);
 
-		SET_S2CR_N(base, num, 0);
-		SET_S2CR_CBNDX(base, num, ctx);
-		SET_S2CR_MEMATTR(base, num, 0x0A);
-		/* Set security bit override to be Non-secure */
-		SET_S2CR_NSCFG(base, num, 3);
+			SET_S2CR_N(base, num, 0);
+			SET_S2CR_CBNDX(base, num, ctx);
+			SET_S2CR_MEMATTR(base, num, 0x0A);
+			/* Set security bit override to be Non-secure */
+			SET_S2CR_NSCFG(base, num, 3);
+		}
+		SET_CBAR_N(base, ctx, 0);
+
+		/* Stage 1 Context with Stage 2 bypass */
+		SET_CBAR_TYPE(base, ctx, 1);
+
+		/* Route page faults to the non-secure interrupt */
+		SET_CBAR_IRPTNDX(base, ctx, 1);
+
+		/* Set VMID to non-secure HLOS */
+		SET_CBAR_VMID(base, ctx, 3);
+
+		/* Bypass is treated as inner-shareable */
+		SET_CBAR_BPSHCFG(base, ctx, 2);
+
+		/* Do not downgrade memory attributes */
+		SET_CBAR_MEMATTR(base, ctx, 0x0A);
+
 	}
-
-	SET_CBAR_N(base, ctx, 0);
-
-	/* Stage 1 Context with Stage 2 bypass */
-	SET_CBAR_TYPE(base, ctx, 1);
-
-	/* Route page faults to the non-secure interrupt */
-	SET_CBAR_IRPTNDX(base, ctx, 1);
-
-	/* Set VMID to non-secure HLOS */
-	SET_CBAR_VMID(base, ctx, 3);
-
-	/* Bypass is treated as inner-shareable */
-	SET_CBAR_BPSHCFG(base, ctx, 2);
-
-	/* Do not downgrade memory attributes */
-	SET_CBAR_MEMATTR(base, ctx, 0x0A);
 
        /* Find if this page table is used elsewhere, and re-use ASID */
 	found = 0;
@@ -399,6 +408,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
 	int ret;
+	int is_secure;
 
 	mutex_lock(&msm_iommu_lock);
 
@@ -426,6 +436,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			goto fail;
 		}
 
+	is_secure = iommu_drvdata->sec_id != -1;
+
 	ret = regulator_enable(iommu_drvdata->gdsc);
 	if (ret)
 		goto fail;
@@ -436,13 +448,25 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 	}
 
-	if (!msm_iommu_ctx_attached(dev->parent))
-		__program_iommu(iommu_drvdata->base,
+	if (!msm_iommu_ctx_attached(dev->parent)) {
+		if (!is_secure) {
+			__program_iommu(iommu_drvdata->base,
 				iommu_drvdata->bfb_settings);
+		} else {
+			ret = msm_iommu_sec_program_iommu(
+				iommu_drvdata->sec_id);
+			if (ret) {
+				regulator_disable(iommu_drvdata->gdsc);
+				__disable_clocks(iommu_drvdata);
+				goto fail;
+			}
+		}
+	}
 
 	__program_context(iommu_drvdata->base, ctx_drvdata->num,
 		iommu_drvdata->ncb, __pa(priv->pt.fl_table),
-		priv->pt.redirect, ctx_drvdata->sids, ctx_drvdata->nsid);
+		priv->pt.redirect, ctx_drvdata->sids, ctx_drvdata->nsid,
+		is_secure);
 	__disable_clocks(iommu_drvdata);
 
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
@@ -460,6 +484,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret;
+	int is_secure;
 
 	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
@@ -475,11 +500,14 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	if (ret)
 		goto fail;
 
+	is_secure = iommu_drvdata->sec_id != -1;
+
 	SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num,
 		GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_drvdata->num));
 
 	__reset_context(iommu_drvdata->base, ctx_drvdata->num);
-	__release_smg(iommu_drvdata->base, ctx_drvdata->num);
+	if (!is_secure)
+		__release_smg(iommu_drvdata->base, ctx_drvdata->num);
 
 	__disable_clocks(iommu_drvdata);
 

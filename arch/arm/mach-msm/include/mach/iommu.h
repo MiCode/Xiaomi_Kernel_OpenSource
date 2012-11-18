@@ -161,6 +161,12 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 }
 #endif
 
+/*
+ * Function to program the global registers of an IOMMU securely.
+ * This should only be called on IOMMUs for which kernel programming
+ * of global registers is not possible
+ */
+int msm_iommu_sec_program_iommu(int sec_id);
 
 static inline int msm_soc_version_supports_iommu_v1(void)
 {
