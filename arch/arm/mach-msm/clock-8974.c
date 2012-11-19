@@ -522,6 +522,14 @@ static void __iomem *virt_bases[N_BASES];
 #define dsipll0_pixel_mm_source_val 1
 #define hdmipll_mm_source_val 3
 
+#define F_GCC_GND \
+	{ \
+		.freq_hz = 0, \
+		.m_val = 0, \
+		.n_val  = 0, \
+		.div_src_val = BVAL(4, 0, 1) | BVAL(10, 8, gnd_source_val), \
+	}
+
 #define F(f, s, div, m, n) \
 	{ \
 		.freq_hz = (f), \
@@ -914,6 +922,7 @@ static struct rcg_clk blsp1_qup6_spi_apps_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_blsp1_2_uart1_6_apps_clk[] = {
+	F_GCC_GND,
 	F( 3686400,  gpll0,    1,  96,  15625),
 	F( 7372800,  gpll0,    1, 192,  15625),
 	F(14745600,  gpll0,    1, 384,  15625),
