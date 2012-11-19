@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
+#include <linux/file.h>
 #include "mpq_dvb_debug.h"
 #include "mpq_dmx_plugin_common.h"
 
@@ -983,6 +984,19 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 		goto init_failed_free_payload_buffer;
 	}
 
+	feed_data->buffer_desc.read_ptr = 0;
+	feed_data->buffer_desc.write_ptr = 0;
+	feed_data->buffer_desc.base = payload_buffer;
+	feed_data->buffer_desc.size = actual_buffer_size;
+	feed_data->buffer_desc.handle =
+		ion_share_dma_buf(
+			mpq_demux->ion_client,
+			feed_data->payload_buff_handle);
+	if (feed_data->buffer_desc.handle < 0) {
+		ret = -EFAULT;
+		goto init_failed_unmap_payload_buffer;
+	}
+
 	/* Register the new stream-buffer interface to MPQ adapter */
 	switch (feed->pes_type) {
 	case DMX_TS_PES_VIDEO0:
@@ -1011,7 +1025,7 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 			__func__,
 			feed->pes_type);
 		ret = -EINVAL;
-		goto init_failed_unmap_payload_buffer;
+		goto init_failed_unshare_payload_buffer;
 	}
 
 	/* make sure not occupied already */
@@ -1025,30 +1039,36 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 			__func__,
 			feed_data->stream_interface);
 		ret = -EBUSY;
-		goto init_failed_unmap_payload_buffer;
+		goto init_failed_unshare_payload_buffer;
 	}
 
 	feed_data->video_buffer =
 		&mpq_dmx_info.decoder_buffers[feed_data->stream_interface];
 
-	mpq_streambuffer_init(
-			feed_data->video_buffer,
-			payload_buffer,
-			actual_buffer_size,
-			packet_buffer,
-			VIDEO_META_DATA_BUFFER_SIZE);
+	ret = mpq_streambuffer_init(
+		feed_data->video_buffer,
+		MPQ_STREAMBUFFER_BUFFER_MODE_RING,
+		&feed_data->buffer_desc,
+		1,
+		packet_buffer,
+		VIDEO_META_DATA_BUFFER_SIZE);
+	if (ret < 0) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_streambuffer_init failed, err = %d\n",
+			__func__, ret);
+		goto init_failed_unshare_payload_buffer;
+	}
 
-	ret =
-		mpq_adapter_register_stream_if(
-			feed_data->stream_interface,
-			feed_data->video_buffer);
+	ret = mpq_adapter_register_stream_if(
+		feed_data->stream_interface,
+		feed_data->video_buffer);
 
 	if (ret < 0) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: mpq_adapter_register_stream_if failed, "
 			"err = %d\n",
 			__func__, ret);
-		goto init_failed_unmap_payload_buffer;
+		goto init_failed_unshare_payload_buffer;
 	}
 
 	feed->buffer_size = actual_buffer_size;
@@ -1075,6 +1095,8 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 
 	return 0;
 
+init_failed_unshare_payload_buffer:
+	put_unused_fd(feed_data->buffer_desc.handle);
 init_failed_unmap_payload_buffer:
 	ion_unmap_kernel(mpq_demux->ion_client,
 					 feed_data->payload_buff_handle);
@@ -1118,6 +1140,8 @@ int mpq_dmx_terminate_video_feed(struct dvb_demux_feed *feed)
 	mpq_adapter_unregister_stream_if(feed_data->stream_interface);
 
 	vfree(feed_data->video_buffer->packet_data.data);
+
+	put_unused_fd(feed_data->buffer_desc.handle);
 
 	ion_unmap_kernel(mpq_demux->ion_client,
 					 feed_data->payload_buff_handle);
@@ -1692,6 +1716,8 @@ static int mpq_dmx_process_video_packet_framing(
 		feed->peslen += bytes_avail;
 
 		meta_data.packet_type = DMX_FRAMING_INFO_PACKET;
+		packet.raw_data_handle = feed_data->buffer_desc.handle;
+		packet.raw_data_offset = 0;
 		packet.user_data_len =
 				sizeof(struct mpq_adapter_video_meta_data);
 
@@ -1717,8 +1743,6 @@ static int mpq_dmx_process_video_packet_framing(
 				 */
 				meta_data.info.framing.pattern_type =
 					feed_data->last_framing_match_type;
-				packet.raw_data_addr =
-					feed_data->last_framing_match_address;
 
 				pattern_addr = feed_data->pes_payload_address +
 					framing_res.info[i].offset -
@@ -1742,10 +1766,8 @@ static int mpq_dmx_process_video_packet_framing(
 					  feed_data->first_pattern_offset;
 				}
 
-				MPQ_DVB_DBG_PRINT("Writing Packet: "
-					"addr = 0x%X, len = %d, type = %d, "
-					"isPts = %d, isDts = %d\n",
-					packet.raw_data_addr,
+				MPQ_DVB_DBG_PRINT(
+					"Writing Packet: len = %d, type = %d, isPts = %d, isDts = %d\n",
 					packet.raw_data_len,
 					meta_data.info.framing.pattern_type,
 					meta_data.info.framing.
@@ -1754,13 +1776,11 @@ static int mpq_dmx_process_video_packet_framing(
 						pts_dts_info.dts_exist);
 
 				if (mpq_streambuffer_pkt_write(stream_buffer,
-						&packet,
-						(u8 *)&meta_data) < 0) {
-							MPQ_DVB_ERR_PRINT(
-								"%s: "
-								"Couldn't write packet. "
-								"Should never happen\n",
-								__func__);
+					&packet,
+					(u8 *)&meta_data) < 0) {
+					MPQ_DVB_ERR_PRINT(
+						"%s: Couldn't write packet. Should never happen\n",
+						__func__);
 				} else {
 					if (is_video_frame == 1)
 						feed_data->write_pts_dts = 0;
@@ -1855,11 +1875,10 @@ static int mpq_dmx_process_video_packet_no_framing(
 			 */
 
 			if (0 == feed_data->pes_header_left_bytes) {
-				packet.raw_data_addr =
-					feed_data->pes_payload_address;
-
 				packet.raw_data_len = feed->peslen;
-
+				packet.raw_data_handle =
+					feed_data->buffer_desc.handle;
+				packet.raw_data_offset = 0;
 				packet.user_data_len =
 					sizeof(struct
 						mpq_adapter_video_meta_data);
