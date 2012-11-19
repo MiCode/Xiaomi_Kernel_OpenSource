@@ -295,21 +295,16 @@ static int __msm_dcvs_change_freq(struct dcvs_core *core)
 	uint32_t ret1 = 0;
 
 	spin_lock_irqsave(&core->pending_freq_lock, flags);
+	if (core->pending_freq == STOP_FREQ_CHANGE)
+		goto out;
 repeat:
 	BUG_ON(!core->pending_freq);
-	if (core->pending_freq == STOP_FREQ_CHANGE)
-		BUG();
 
 	requested_freq = core->pending_freq;
 	time_start = core->time_start;
 	core->time_start = ns_to_ktime(0);
 
-	if (requested_freq < 0) {
-		requested_freq = -1 * requested_freq;
-		core->pending_freq = STOP_FREQ_CHANGE;
-	} else {
-		core->pending_freq = NO_OUTSTANDING_FREQ_CHANGE;
-	}
+	core->pending_freq = NO_OUTSTANDING_FREQ_CHANGE;
 
 	if (requested_freq == core->actual_freq)
 		goto out;
@@ -458,10 +453,7 @@ static void request_freq_change(struct dcvs_core *core, int new_freq)
 	}
 
 	if (new_freq == STOP_FREQ_CHANGE) {
-		if (core->pending_freq == NO_OUTSTANDING_FREQ_CHANGE)
-			core->pending_freq = STOP_FREQ_CHANGE;
-		else if (core->pending_freq > 0)
-			core->pending_freq = -1 * core->pending_freq;
+		core->pending_freq = STOP_FREQ_CHANGE;
 		return;
 	}
 
