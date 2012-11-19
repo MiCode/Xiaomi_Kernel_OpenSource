@@ -275,6 +275,7 @@ struct mpq_framing_prefix_size_masks {
  * @plugin_data: Underlying plugin's own private data.
  * @video_buffer: Holds the streamer buffer shared with
  * the decoder for feeds having the data going to the decoder.
+ * @buffer_desc: Holds decoder buffer(s) information used for stream buffer.
  * @pes_header: Used for feeds that output data to decoder,
  * holds PES header of current processed PES.
  * @pes_header_left_bytes: Used for feeds that output data to decoder,
@@ -316,6 +317,7 @@ struct mpq_framing_prefix_size_masks {
 struct mpq_video_feed_info {
 	void *plugin_data;
 	struct mpq_streambuffer *video_buffer;
+	struct mpq_streambuffer_buffer_desc buffer_desc;
 	struct pes_packet_header pes_header;
 	u32 pes_header_left_bytes;
 	u32 pes_header_offset;
