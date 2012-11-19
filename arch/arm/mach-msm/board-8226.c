@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,6 +75,18 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.2", OFF),
 	CLK_DUMMY("core_clk",	NULL,		"f9928000.spi", OFF),
 	CLK_DUMMY("iface_clk",	NULL,		"f9928000.spi", OFF),
+	CLK_DUMMY("iface_clk",		NULL, "fda64000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",		NULL, "fda64000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",		NULL, "fda44000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",		NULL, "fda44000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",		NULL, "fd928000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",		NULL, "fd928000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",		NULL, "fdb10000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",		NULL, "fdb10000.qcom,iommu", OFF),
+	CLK_DUMMY("alt_core_clk",	NULL, "fdb10000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",		NULL, "fdc84000.qcom,iommu", OFF),
+	CLK_DUMMY("alt_core_clk",	NULL, "fdc84000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",		NULL, "fdc84000.qcom,iommu", OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
