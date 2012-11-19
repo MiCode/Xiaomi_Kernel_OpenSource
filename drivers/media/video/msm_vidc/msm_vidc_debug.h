@@ -81,23 +81,8 @@ static inline void toc(struct msm_vidc_inst *i, enum profiling_points p)
 		do_gettimeofday(&__ddl_tv);
 		i->debug.pdata[p].stop = (__ddl_tv.tv_sec * 1000)
 		+ (__ddl_tv.tv_usec / 1000);
-		i->debug.pdata[p].cumulative =
+		i->debug.pdata[p].cumulative +=
 		(i->debug.pdata[p].stop - i->debug.pdata[p].start);
-		if (i->count.fbd) {
-			if (i->debug.pdata[p].average != 0) {
-				i->debug.pdata[p].average = ((i->debug.pdata[p].
-					average * (i->count.fbd -
-					i->debug.counter) +
-					i->debug.pdata[p].cumulative)
-					/ i->count.fbd);
-			} else {
-				i->debug.pdata[p].average =
-					i->debug.pdata[p].cumulative
-					/ i->count.fbd;
-			}
-		}
-		i->debug.counter = 0;
-		i->debug.pdata[p].cumulative = 0;
 		i->debug.pdata[p].sampling = true;
 	}
 }
@@ -110,9 +95,11 @@ static inline void show_stats(struct msm_vidc_inst *i)
 			(msm_vidc_debug & VIDC_PROF)) {
 			dprintk(VIDC_PROF, "%s averaged %d ms/sample\n",
 				i->debug.pdata[x].name,
-				i->debug.pdata[x].average);
+				i->debug.pdata[x].cumulative /
+					i->debug.samples);
 			dprintk(VIDC_PROF, "%s Samples: %d",
-					i->debug.pdata[x].name, i->count.fbd);
+					i->debug.pdata[x].name,
+					i->debug.samples);
 		}
 	}
 }
