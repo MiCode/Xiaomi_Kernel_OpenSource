@@ -22,7 +22,7 @@
 
 /* Maximum number of slots in DM */
 #define OCMEM_MAX_CHUNKS 32
-#define MIN_CHUNK_SIZE 128
+#define MIN_CHUNK_SIZE SZ_4K
 
 struct ocmem_notifier;
 
