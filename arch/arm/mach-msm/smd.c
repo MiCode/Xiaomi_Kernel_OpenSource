@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -3152,6 +3152,17 @@ int smsm_state_cb_deregister(uint32_t smsm_entry, uint32_t mask,
 	return ret;
 }
 EXPORT_SYMBOL(smsm_state_cb_deregister);
+
+/**
+ * smem_get_remote_spinlock - Remote spinlock pointer for unit testing.
+ *
+ * @returns: pointer to SMEM remote spinlock
+ */
+remote_spinlock_t *smem_get_remote_spinlock(void)
+{
+	return &remote_spinlock;
+}
+EXPORT_SYMBOL(smem_get_remote_spinlock);
 
 int smd_module_init_notifier_register(struct notifier_block *nb)
 {

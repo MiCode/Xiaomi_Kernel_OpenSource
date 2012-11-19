@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -198,7 +198,11 @@ enum {
 	SMEM_SSR_REASON_LPASS0,
 	SMEM_SSR_REASON_DSPS0,
 	SMEM_SSR_REASON_VCODEC0,
-	SMEM_MEM_LAST = SMEM_SSR_REASON_VCODEC0,
+	SMEM_SMP2P_APPS_BASE = 427,
+	SMEM_SMP2P_MODEM_BASE = 435,
+	SMEM_SMP2P_AUDIO_BASE = 443,
+	SMEM_SMP2P_WIRLESS_BASE = 451,
+	SMEM_SMP2P_POWER_BASE = 459,
 	SMEM_NUM_ITEMS,
 };
 
