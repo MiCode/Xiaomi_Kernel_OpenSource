@@ -1,0 +1,416 @@
+Introduction
+============
+The Shared Memory Point to Point (SMP2P) protocol facilitates communication of
+a single 32-bit value between two processors.  Each value has a single writer
+(the local side) and a single reader (the remote side).  Values are uniquely
+identified in the system by the directed edge (local processor ID to remote
+processor ID) and a string identifier.
+
+Version and feature negotiation has been included in the design to allow for
+phased upgrades of all processors.
+
+Software Architecture Description
+=================================
+The data and interrupt coupling between processors is shown in Fig. 1.  Each
+processor is responsible for creating the outgoing SMEM items and each item is
+writable by the local processor and readable by the remote processor.  By using
+two separate SMEM items that are single-reader and single-writer, SMP2P does
+not require any remote locking mechanisms.
+
+The client API uses the Linux GPIO and interrupt framework to expose a virtual
+GPIO and a virtual interrupt controller for each entry.
+
+                                      =================
+                                      |               |
+                     -----write------>|SMEM item A->B |-----read------
+                    |                 |               |               |
+                    |                 =================               |
+                    |                                                 |
+                    |                                                 v
+  GPIO API =>  ------------    ======= Interrupt line ======>     ------------
+               Processor A                                        Processor B
+ Interrupt <=  ------------    <====== Interrupt line =======     ------------
+    API             ^                                                 |
+                    |                                                 |
+                    |                                                 |
+                    |                 =================               |
+                    |                 |               |               |
+                     ------read-------|SMEM item A<-B |<-----write----
+                                      |               |
+                                      =================
+
+                                    Fig 1
+
+
+Design
+======
+Each SMEM item contains a header that is used to identify and manage the edge
+along with an array of actual entries.  The overall structure is captured in
+Fig 2 and the details of the header and entries are covered later in this
+section.  The memory format of all shared structures is little-endian.
+
+      -----------------------------------------------
+     |               SMEM item A->B                  |
+     |                                               |
+     |   -----------------------------------------   |
+     |  |31      24|       16|         8|        0|  |
+     |  |----------|---------|----------|---------|  |
+     |  |       Identifier Constant(Magic Number) |  |
+     |  |----------|---------|----------|---------|  |
+     |  | Feature Flags                 |Version  |  |
+     |  |                               |Number   |  |
+     |  |----------|---------|----------|---------|  |
+     |  | Remote Proc ID     |Local Proc ID       |  |
+     |  |----------|---------|----------|---------|  |
+     |  | Entries Valid      | Entries Total      |  |
+     |  |-----------------------------------------|  |
+     |                                               |
+     |                                               |
+     |   -----------------------------------------   |
+     |   |            Entry 0                    |   |
+     |   |  ----------------------------------   |   |
+     |   |  |       Identifier String         |  |   |
+     |   |  |---------------------------------|  |   |
+     |   |  |       Data                      |  |   |
+     |   |  |---------------------------------|  |   |
+     |   |---------------------------------------|   |
+     |   -----------------------------------------   |
+     |   |            Entry 1                    |   |
+     |   |  ----------------------------------   |   |
+     |   |  |       Identifier String         |  |   |
+     |   |  |---------------------------------|  |   |
+     |   |  |       Data                      |  |   |
+     |   |  |---------------------------------|  |   |
+     |   |---------------------------------------|   |
+     |                      -                        |
+     |                      -                        |
+     |                      -                        |
+     |   -----------------------------------------   |
+     |   |            Entry N                    |   |
+     |   |  ----------------------------------   |   |
+     |   |  |       Identifier String         |  |   |
+     |   |  |---------------------------------|  |   |
+     |   |  |       Data                      |  |   |
+     |   |  |---------------------------------|  |   |
+     |   |---------------------------------------|   |
+      -----------------------------------------------
+
+                            Fig 2
+
+
+The header of each SMEM item contains metadata that describes the processors
+using the edge, the version information, and the entry count.  The constant
+identifier is used as a magic number to enable extraction of the items from a
+memory dump.  The size of each entry depends upon the version, but the number
+of total entries (and hence the size of each SMEM item) is configurable with a
+suggested value of 16.
+
+The number of valid entries is used to indicate how many of the Entries Total
+are currently used and are current valid.
+
+   ---------------------------------------------------------------------------
+  |Field        Size       Description                Valid Values            |
+   ---------------------------------------------------------------------------
+  | Identifier  4 Bytes    Value used to identify                             |
+  | Constant               structure in memory.     Must be set to $SMP       |
+  |                        Useful for debugging.    (0x504D5324)              |
+   ---------------------------------------------------------------------------
+  | Local       2 Bytes    Writing processor ID.    Refer Processor ID Table 3|
+  | Processor                                                                 |
+  | ID                                                                        |
+   ---------------------------------------------------------------------------
+  | Remote      2 Bytes    Reading processor ID.    Refer Processor ID Table 3|
+  | Processor                                                                 |
+  | ID                                                                        |
+   ---------------------------------------------------------------------------
+  | Version      1 Bytes   Refer to Version                                   |
+  | Number                 Feature Negotiation      Must be set to 1.         |
+  |                        section.                                           |
+   ---------------------------------------------------------------------------
+  | Feature      3 Bytes   Refer to Version                                   |
+  | flags                  and Feature Negotiation  Must be set to zero.      |
+  |                        section.                                           |
+   ---------------------------------------------------------------------------
+  | Entries      2 Bytes   Total number of          Must be 0 or greater.     |
+  | Total                  entries.                                           |
+   ---------------------------------------------------------------------------
+  | Entries      2 Bytes   Number of valid          Must be between 0         |
+  | Valid                  entries.                 and Entries Total.        |
+   ---------------------------------------------------------------------------
+  | Reserved     4 Bytes   Reserved                 Must be set to 0.         |
+   ---------------------------------------------------------------------------
+                           Table 1 - SMEM Item Header
+
+The content of each SMEM entries is described in Table 2 and consists of a
+string identifier and a 32-bit data value.  The string identifier must be
+unique for each SMEM item.  The data value is opaque to SMP2P giving the client
+complete flexibility as to its usage.
+
+   ----------------------- --------------------- -----------------------------
+  | Field      | Size     | Description         |      Valid Values           |
+   ------------|----------|---------------------|-----------------------------
+  |            |          |                     |                             |
+  | Identifier | 16 Bytes | Null Terminated     |     NON-NULL for            |
+  | String     |          | ASCII string.       |     valid entries.          |
+  |            |          |                     |                             |
+   ------------|----------|---------------------|-----------------------------
+  | Data       |  4 Bytes | Data                |     Any (client defined)    |
+   ------------ ---------- --------------------- -----------------------------
+                              Table 2 - Entry Format
+
+
+The processor IDs in the system are fixed and new processors IDs will be
+added to the end of the list (Table 3).
+
+              -------------------------------------------------
+             | Processor Name             |     ID value       |
+              -------------------------------------------------
+             | Application processor      |        0           |
+              -------------------------------------------------
+             | Modem processor            |        1           |
+              -------------------------------------------------
+             | Audio processor            |        2           |
+              -------------------------------------------------
+             | Sensor processor           |        3           |
+              -------------------------------------------------
+             | Wireless processor         |        4           |
+              -------------------------------------------------
+             | Modem Fw                   |        5           |
+              -------------------------------------------------
+             | Power processor            |        6           |
+              -------------------------------------------------
+             | NUM PROCESSORS             |        7           |
+              -------------------------------------------------
+                            Table 3 - Processor IDs
+
+SMEM Item
+---------
+The responsibility of creating an SMEM item is with the local processor that is
+initiating outbound traffic.  After creating the item, the local and remote
+processors negotiate the version and feature flags for the item to ensure
+compatibility.
+
+Table 4 lists the SMEM item base identifiers.  To get the SMEM item ID for a
+particular edge, the remote processor ID (Table 3) is added to the base item ID
+for the local processor (Table 4).  For example, the Apps ==> Modem (id 1) SMEM
+Item ID will be 427 + 1 = 428.
+
+          --------------------------------------------------
+         | Description                   | SMEM ID value    |
+          --------------------------------------------------
+         | Apps SMP2P SMEM Item base     |       427        |
+          --------------------------------------------------
+         | Modem SMP2P SMEM Item base    |       435        |
+          --------------------------------------------------
+         | Audio SMP2P SMEM Item base    |       443        |
+          --------------------------------------------------
+         | Wireless SMP2P SMEM Item base |       451        |
+          --------------------------------------------------
+         | Power SMP2P SMEM Item base    |       459        |
+          --------------------------------------------------
+                      Table 4 - SMEM Items Base IDs
+
+
+Version and Feature Negotiation
+-------------------------------
+To enable upgrading without breaking the system and to enable graceful feature
+fall-back support, SMP2P supports a version number and feature flags.  The
+combination of the version number and feature flags enable:
+ 1) SMP2P software updates to be rolled out to each processor separately.
+ 2) Individual features to be enabled or disabled per connection or edge.
+
+The version number represents any change in SMP2P that breaks compatibility
+between processors.  Examples would be a change in the shared data structures
+or changes to fundamental behavior.  Each implementation of SMP2P must be able
+to support a minimum of the current version and the previous version.
+
+The feature flags represent any changes in SMP2P that are optional and
+backwards compatible.  Endpoints will negotiate the supported flag when the
+SMEM items are created and they cannot be changed after negotiation has been
+completed.
+
+
+Negotiation Algorithm
+----------------------
+While creating the SMEM item the following algorithm shall be used.
+
+    if remote endpoint's SMEM Item exists
+        Read remote version number and flags
+        Local version number must be lower of
+            - remote version number
+            - highest supported local version number
+        Flags value is bitwise AND of
+            - remote feature flags
+            - locally supported flags
+        Create SMEM item and populate negotiated number and flags
+        Interrupt remote processor
+        if version and flags match, negotiation is complete, else wait
+        for remote interrupt below.
+    Else
+        Create SMEM item and populate it with highest supported version and any
+        requested feature flag.
+        Interrupt remote processor.
+        Wait for Interrupt below.
+
+Upon receiving the interrupt from remote processor and negotiation is not
+complete, check the version number and feature flags:
+    if equal, negotiation is complete.
+    if remote number is less than local number, and remote number is
+    supported:
+        Set local version number to remote version number
+        Bitwise AND local flags with remote flags
+        Interrupt remote processor
+        Negotiation is complete
+    if remote number is not supported, then negotiation has failed
+        Set version number to 0xFF and report failure in kernel log.
+    if remote number is more than local number:
+        Wait for remote endpoint to process our interrupt and negotiate down.
+
+
+Creating an SMEM Entry
+----------------------
+Each new SMEM entry used in data transfer must be created at the end of the
+entry array in the SMEM item and cannot be deleted until the system is
+rebooted.  The following sequence is be followed:
+    1) Compare Entries Valid and Entries Total to verify if there is room in the
+       entry array for this request (if not, return error code to client).
+    2) Populate the Identifier of new entry and do a write memory barrier.
+    3) Update Entries Valid and Entries Total and do a write memory barrier.
+    4) Interrupt remote endpoint.
+
+
+Entry Write
+-----------
+An entry write is achieved by the following sequence of operations:
+    1) Update data field in the entry and do a write memory barrier.
+    2) Interrupt remote endpoint.
+
+
+Entry Read / Receiving Interrupts
+---------------------------------
+An interrupt will be received from the remote system for one or more of the following events:
+    1) Initialization
+    2) Entry change
+    3) New Entry
+
+As long as the SMEM item initialization is complete, then each interrupt should
+trigger SMP2P to:
+    1) Compare valid entry data value to cached value and notify client if it
+       has changed.
+    2) Compare Entries Valid to cached value.  If changed, initialize new entries.
+
+Performance
+===========
+No performance issues are anticipated as the signaling rate is expected to be
+low and is performed in interrupt context which minimizes latency.
+
+Interfaces
+================
+SMP2P is only supported in the kernel and interfaces with clients through the
+GPIO and interrupt subsystems.
+
+To map an entry to the client, the client must add two nodes to the Device
+Tree:
+  1) A node that matches "qcom,smp2pgpio" to create the entry
+  2) A node that matches the client driver to provide the GPIO pin mapping
+
+The details of the device tree entries are contained in the file
+Documentionat/devicetree/bindings/arm/msm/smp2p.txt.
+
+
+    /* SMP2P Test Driver for inbound entry. */
+    smp2pgpio_smp2p_7_in: qcom,smp2pgpio-smp2p-7-in {
+        compatible = "qcom,smp2pgpio";
+        qcom,entry-name = "smp2p";
+        qcom,remote-pid = <7>;
+        qcom,is_inbound;
+        gpio-controller;
+        #gpio-cells = <2>;
+        interrupt-controller;
+        #interrupt-cells = <2>;
+    };
+
+    /* SMP2P Test Client for inbound entry. */
+    qcom,smp2pgpio_test_smp2p_7_in {
+        compatible = "qcom,smp2pgpio_test_smp2p_7_in";
+        gpios = <&smp2pgpio_smp2p_7_in 0 0>,
+            <&smp2pgpio_smp2p_7_in 1 0>,
+            . . .
+            <&smp2pgpio_smp2p_7_in 31 0>;
+    };
+
+    /* SMP2P Test Driver for outbound entries */
+    smp2pgpio_smp2p_345_out: qcom,smp2pgpio-smp2p-7-out {
+        compatible = "qcom,smp2pgpio";
+        qcom,entry-name = "smp2p";
+        qcom,remote-pid = <7>;
+        gpio-controller;
+        #gpio-cells = <2>;
+        interrupt-controller;
+        #interrupt-cells = <2>;
+    };
+
+    /* SMP2P Test Client for outbound entry. */
+    qcom,smp2pgpio_test_smp2p_7_out {
+        compatible = "qcom,smp2pgpio_test_smp2p_7_out";
+        gpios = <&smp2pgpio_smp2p_7_out 0 0>,
+            <&smp2pgpio_smp2p_7_out 1 0>,
+            . . .
+            <&smp2pgpio_smp2p_7_out 31 0>;
+
+The client can use a match entry for "qcom,smp2pgpio_test_smp2p_7_in" to
+retrieve the Device Tree configuration node.  Once that node has been
+retrieved, the client can call of_get_gpio() to get the virtual GPIO pin and
+also use gpio_to_irq() to map the GPIO pin to a virtual interrupt.  After that
+point, the standard GPIO and Interrupt APIs can be used to manipulate the SMP2P
+entries and receive notifications of changes.  Examples of typical function
+calls are shown below:
+    of_get_gpio()
+    gpio_get_value()
+    gpio_set_value()
+    gpio_to_irq()
+    request_irq()
+    free_irq()
+
+Please reference the unit test code for example usage.
+
+Debug
+=====
+The state values and names for all entries accessible by the Apps are
+accessible through debugfs nodes for general debug purposes.
+
+Debugfs entries for triggering unit-tests are also exported.
+
+Internal logging will be performed using the IPC Logging module to enable
+post-mortem analysis.
+
+Testing
+=======
+On-target unit testing will be done to verify internal functionality and the
+GPIO/IRQ API's.
+
+Driver parameters
+=================
+One module parameter will be provided to change the verbosity of internal logging.
+
+Config options
+==============
+Configuration of interrupts will be done using Device Tree.  By default, the
+testing components will be enabled since it does not affect performance and has
+a minimal impact on kernel size.  However, customers can disable the testing
+components for size optimization.
+
+    CONFIG_MSM_SMP2P - enables SMP2P core functionality
+    CONFIG_MSM_SMP2P_TEST - enables unit test support
+
+Dependencies
+===========
+Requires SMEM for creating the SMEM items.
+
+User Space utilities
+====================
+No userspace utilities are planned.
+
+Known issues
+============
+None.
