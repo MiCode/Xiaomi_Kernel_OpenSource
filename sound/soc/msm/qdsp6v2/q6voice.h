@@ -884,10 +884,6 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 #define VSS_MEDIA_ID_4GV_WB_MODEM	0x00010FC4
 /*CDMA EVRC-WB vocoder modem format */
 
-#define VOICE_CMD_SET_PARAM				0x00011006
-#define VOICE_CMD_GET_PARAM				0x00011007
-#define VOICE_EVT_GET_PARAM_ACK				0x00011008
-
 #define VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION_V2	0x000112BF
 
 struct vss_ivocproc_cmd_create_full_control_session_v2_t {
