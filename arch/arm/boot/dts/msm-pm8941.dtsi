@@ -58,10 +58,10 @@
 			};
 		};
 
-		bms@4000 {
+		pm8941_bms: bms@4000 {
 			#address-cells = <1>;
 			#size-cells = <1>;
-
+			status = "disabled";
 			compatible = "qcom,qpnp-bms";
 			reg = <0x4000 0x100>;
 
