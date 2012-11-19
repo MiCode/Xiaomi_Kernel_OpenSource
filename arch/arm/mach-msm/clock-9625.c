@@ -472,7 +472,6 @@ static struct pll_clk apcspll_clk_src = {
 	},
 	.base = &virt_bases[APCS_PLL_BASE],
 	.c = {
-		.parent = &cxo_clk_src.c,
 		.dbg_name = "apcspll_clk_src",
 		.ops = &clk_ops_local_pll,
 		CLK_INIT(apcspll_clk_src.c),
