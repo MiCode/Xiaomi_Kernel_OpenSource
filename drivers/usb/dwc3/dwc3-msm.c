@@ -34,6 +34,7 @@
 #include <linux/usb/msm_hsusb.h>
 #include <linux/regulator/consumer.h>
 #include <linux/power_supply.h>
+#include <linux/qpnp/qpnp-adc.h>
 
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
@@ -43,6 +44,19 @@
 #include "dwc3_otg.h"
 #include "core.h"
 #include "gadget.h"
+
+/* ADC threshold values */
+static int adc_low_threshold = 700;
+module_param(adc_low_threshold, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(adc_low_threshold, "ADC ID Low voltage threshold");
+
+static int adc_high_threshold = 950;
+module_param(adc_high_threshold, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(adc_high_threshold, "ADC ID High voltage threshold");
+
+static int adc_meas_interval = ADC_MEAS1_INTERVAL_1S;
+module_param(adc_meas_interval, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(adc_meas_interval, "ADC ID polling period");
 
 /**
  *  USB DBM Hardware registers.
@@ -160,6 +174,9 @@ struct dwc3_msm {
 	struct usb_phy		*otg_xceiv;
 	struct delayed_work	chg_work;
 	enum usb_chg_state	chg_state;
+	struct qpnp_adc_tm_usbid_param	adc_param;
+	struct delayed_work	init_adc_work;
+	bool			id_adc_detect;
 	u8			dcd_retries;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
@@ -1482,7 +1499,7 @@ static void dwc3_resume_work(struct work_struct *w)
 	}
 }
 
-static u32 debug_id, debug_bsv, debug_connect;
+static u32 debug_id = true, debug_bsv, debug_connect;
 
 static int dwc3_connect_show(struct seq_file *s, void *unused)
 {
@@ -1628,7 +1645,6 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		if (mdwc->otg_xceiv && (mdwc->ext_xceiv.otg_capability ||
 							!init)) {
 			mdwc->ext_xceiv.bsv = val->intval;
-			mdwc->ext_xceiv.id = DWC3_ID_FLOAT;
 			if (atomic_read(&mdwc->in_lpm)) {
 				dev_dbg(mdwc->dev,
 					"%s received in LPM\n", __func__);
@@ -1669,6 +1685,88 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 };
 
+static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
+{
+	struct dwc3_msm *mdwc = ctx;
+
+	if (state >= ADC_TM_STATE_NUM) {
+		pr_err("%s: invalid notification %d\n", __func__, state);
+		return;
+	}
+
+	dev_dbg(mdwc->dev, "%s: state = %s\n", __func__,
+			state == ADC_TM_HIGH_STATE ? "high" : "low");
+
+	if (state == ADC_TM_HIGH_STATE) {
+		mdwc->ext_xceiv.id = DWC3_ID_FLOAT;
+		mdwc->adc_param.state_request = ADC_TM_LOW_THR_ENABLE;
+	} else {
+		mdwc->ext_xceiv.id = DWC3_ID_GROUND;
+		mdwc->adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
+	}
+
+	/* notify OTG */
+	queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
+
+	/* re-arm notification interrupt */
+	qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
+}
+
+static void dwc3_init_adc_work(struct work_struct *w)
+{
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
+							init_adc_work.work);
+	int ret;
+
+	ret = qpnp_adc_tm_is_ready();
+	if (ret == -EPROBE_DEFER) {
+		queue_delayed_work(system_nrt_wq, to_delayed_work(w), 100);
+		return;
+	}
+
+	mdwc->adc_param.low_thr = adc_low_threshold;
+	mdwc->adc_param.high_thr = adc_high_threshold;
+	mdwc->adc_param.timer_interval = adc_meas_interval;
+	mdwc->adc_param.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
+	mdwc->adc_param.usbid_ctx = mdwc;
+	mdwc->adc_param.threshold_notification = dwc3_adc_notification;
+
+	ret = qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
+	if (ret) {
+		dev_err(mdwc->dev, "%s: request ADC error %d\n", __func__, ret);
+		return;
+	}
+
+	mdwc->id_adc_detect = true;
+}
+
+static ssize_t adc_enable_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", context->id_adc_detect ?
+						"enabled" : "disabled");
+}
+
+static ssize_t adc_enable_store(struct device *dev,
+		struct device_attribute *attr, const char
+		*buf, size_t size)
+{
+	if (!strnicmp(buf, "enable", 6)) {
+		if (!context->id_adc_detect)
+			dwc3_init_adc_work(&context->init_adc_work.work);
+		return size;
+	} else if (!strnicmp(buf, "disable", 7)) {
+		qpnp_adc_tm_usbid_end();
+		context->id_adc_detect = false;
+		return size;
+	}
+
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(adc_enable, S_IRUGO | S_IWUSR, adc_enable_show,
+		adc_enable_store);
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -1694,6 +1792,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&msm->req_complete_list);
 	INIT_DELAYED_WORK(&msm->chg_work, dwc3_chg_detect_work);
 	INIT_DELAYED_WORK(&msm->resume_work, dwc3_resume_work);
+	INIT_DELAYED_WORK(&msm->init_adc_work, dwc3_init_adc_work);
 
 	msm->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
 	if (IS_ERR(msm->xo_handle)) {
@@ -1832,6 +1931,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto free_hs_ldo_init;
 	}
 
+	msm->ext_xceiv.id = DWC3_ID_FLOAT;
 	msm->ext_xceiv.otg_capability = of_property_read_bool(node,
 				"qcom,otg-capability");
 	msm->charger.charging_disabled = of_property_read_bool(node,
@@ -1852,6 +1952,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			}
 			enable_irq_wake(msm->hs_phy_irq);
 		}
+	} else {
+		/* Use ADC for ID pin detection */
+		queue_delayed_work(system_nrt_wq, &msm->init_adc_work, 0);
+		device_create_file(&pdev->dev, &dev_attr_adc_enable);
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
@@ -2080,12 +2184,15 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 {
 	struct dwc3_msm	*msm = platform_get_drvdata(pdev);
 
+	if (msm->id_adc_detect)
+		qpnp_adc_tm_usbid_end();
 	if (dwc3_debugfs_root)
 		debugfs_remove_recursive(dwc3_debugfs_root);
 	if (msm->otg_xceiv) {
 		dwc3_start_chg_det(&msm->charger, false);
 		usb_put_transceiver(msm->otg_xceiv);
 	}
+
 	pm_runtime_disable(msm->dev);
 	platform_device_unregister(msm->dwc3);
 	wake_lock_destroy(&msm->wlock);

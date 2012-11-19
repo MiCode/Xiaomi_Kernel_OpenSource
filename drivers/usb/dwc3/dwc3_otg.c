@@ -331,10 +331,13 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			}
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
-		if (ext_xceiv->id == DWC3_ID_FLOAT)
+		if (ext_xceiv->id == DWC3_ID_FLOAT) {
+			dev_dbg(phy->dev, "XCVR: ID set\n");
 			set_bit(ID, &dotg->inputs);
-		else
+		} else {
+			dev_dbg(phy->dev, "XCVR: ID clear\n");
 			clear_bit(ID, &dotg->inputs);
+		}
 
 		if (ext_xceiv->bsv) {
 			dev_dbg(phy->dev, "XCVR: BSV set\n");
