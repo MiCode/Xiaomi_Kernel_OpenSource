@@ -84,3 +84,6 @@ obj-$(CONFIG_SND_SOC_MSM8974) += snd-soc-msm8974.o
 snd-soc-qdsp6v2-objs := msm-dai-fe.o msm-dai-stub.o
 obj-$(CONFIG_SND_SOC_QDSP6V2) += snd-soc-qdsp6v2.o
 
+#for MDM9625 sound card driver
+snd-soc-mdm9625-objs := mdm9625.o
+obj-$(CONFIG_SND_SOC_MDM9625) += snd-soc-mdm9625.o
