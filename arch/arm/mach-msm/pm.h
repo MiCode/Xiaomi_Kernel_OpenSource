@@ -27,7 +27,7 @@ extern void msm_secondary_startup(void);
 #define msm_secondary_startup NULL
 #endif
 
-extern int power_collapsed;
+DECLARE_PER_CPU(int,  power_collapsed);
 
 struct msm_pm_irq_calls {
 	unsigned int (*irq_pending)(void);

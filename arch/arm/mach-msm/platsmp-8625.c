@@ -121,10 +121,10 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	write_pen_release(-1);
 
 	/* clear the IPC pending SPI */
-	if (power_collapsed) {
+	if (per_cpu(power_collapsed, cpu)) {
 		raise_clear_spi(cpu, false);
 		clear_pending_spi(cpu_data[cpu].ipc_irq);
-		power_collapsed = 0;
+		per_cpu(power_collapsed, cpu) = 0;
 	}
 
 	/*
@@ -216,7 +216,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * GDFS which needs to be brought out by raising an SPI.
 	 */
 
-	if (power_collapsed) {
+	if (per_cpu(power_collapsed, cpu)) {
 		gic_configure_and_raise(cpu_data[cpu].ipc_irq, cpu);
 		raise_clear_spi(cpu, true);
 	} else {
