@@ -304,6 +304,7 @@ int pre_validate_chunk_list(struct ocmem_map_list *list)
 
 	for (i = 0; i < list->num_chunks; i++) {
 		if (!chunks[i].ddr_paddr ||
+			!IS_ALIGNED(chunks[i].ddr_paddr, MIN_CHUNK_SIZE) ||
 			chunks[i].size < MIN_CHUNK_SIZE ||
 			!IS_ALIGNED(chunks[i].size, MIN_CHUNK_SIZE)) {
 			pr_err("Invalid ocmem chunk at index %d (p: %lx, size %lx)\n",
