@@ -1012,6 +1012,19 @@ static struct local_timer_ops msm_lt_ops = {
 };
 #endif /* CONFIG_LOCAL_TIMERS */
 
+#ifdef CONFIG_ARCH_MSM8625
+static void fixup_msm8625_timer(void)
+{
+	struct msm_clock *dgt = &msm_clocks[MSM_CLOCK_DGT];
+	struct msm_clock *gpt = &msm_clocks[MSM_CLOCK_GPT];
+	dgt->irq = MSM8625_INT_DEBUG_TIMER_EXP;
+	gpt->irq = MSM8625_INT_GP_TIMER_EXP;
+	global_timer_offset =  MSM_TMR0_BASE - MSM_TMR_BASE;
+}
+#else
+static inline void fixup_msm8625_timer(void) { };
+#endif
+
 static void __init msm_timer_init(void)
 {
 	int i;
@@ -1032,11 +1045,8 @@ static void __init msm_timer_init(void)
 		gpt->flags |= MSM_CLOCK_FLAGS_UNSTABLE_COUNT
 			   |  MSM_CLOCK_FLAGS_ODD_MATCH_WRITE
 			   |  MSM_CLOCK_FLAGS_DELAYED_WRITE_POST;
-		if (cpu_is_msm8625()) {
-			dgt->irq = MSM8625_INT_DEBUG_TIMER_EXP;
-			gpt->irq = MSM8625_INT_GP_TIMER_EXP;
-			global_timer_offset =  MSM_TMR0_BASE - MSM_TMR_BASE;
-		}
+		if (cpu_is_msm8625())
+			fixup_msm8625_timer();
 	} else if (cpu_is_qsd8x50()) {
 		dgt->freq = 4800000;
 		gpt->regbase = MSM_TMR_BASE;

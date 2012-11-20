@@ -19,8 +19,6 @@
 
 #define MSM_IRQ_BIT(irq)     (1 << ((irq) & 31))
 
-#include "irqs-8625.h"
-
 #if defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930)
 
@@ -78,7 +76,8 @@
 #elif defined(CONFIG_ARCH_MSM8X60)
 #include "irqs-8x60.h"
 #elif defined(CONFIG_ARCH_MSM7X01A) || defined(CONFIG_ARCH_MSM7X25) \
-	|| defined(CONFIG_ARCH_MSM7X27)
+	|| defined(CONFIG_ARCH_MSM7X27) || defined(CONFIG_ARCH_MSM8625)
+#include "irqs-8625.h"
 #include "irqs-7xxx.h"
 
 #define NR_GPIO_IRQS 133
