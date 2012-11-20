@@ -473,16 +473,15 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	kfree(ctrlcmd);
 	free_qcmd(rcmd);
 	D("%s: rc %d\n", __func__, rc);
-	/* rc is the time elapsed. */
-	if (rc >= 0) {
-		/* TODO: Refactor msm_ctrl_cmd::status field */
-		if (out->status == 0)
-			rc = -1;
-		else if (out->status == 1 || out->status == 4)
-			rc = 0;
-		else
-			rc = -EINVAL;
-	}
+	/* rc is the time elapsed.
+	 * This means that the communication with the daemon itself was
+	 * successful(irrespective of the handling of the ctrlcmd).
+	 * So, just reset the rc to 0 to indicate success.
+	 * Its upto the caller to parse the ctrlcmd to check the status. We
+	 * dont need to parse it here. */
+	if (rc >= 0)
+		rc = 0;
+
 	return rc;
 
 ctrlcmd_alloc_fail:
@@ -846,9 +845,9 @@ int msm_server_proc_ctrl_cmd(struct msm_cam_v4l2_device *pcam,
 			rc = -EINVAL;
 			goto end;
 		}
-
+		tmp_cmd.status = cmd_ptr->status = ctrlcmd.status;
 		if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
-			(void *)&tmp_cmd, cmd_len)) {
+			(void *)cmd_ptr, cmd_len)) {
 			pr_err("%s: copy_to_user failed in cpy, size=%d\n",
 				__func__, cmd_len);
 			rc = -EINVAL;
