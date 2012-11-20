@@ -15,6 +15,7 @@
 #include <linux/gpio.h>
 #include <mach/camera.h>
 #include <mach/msm_bus_board.h>
+#include <mach/socinfo.h>
 #include <mach/gpiomux.h>
 #include "devices.h"
 #include "board-8960.h"
@@ -166,6 +167,23 @@ static struct msm_gpiomux_config msm8960_cam_2d_configs[] = {
 			[GPIOMUX_SUSPENDED] = &cam_settings[8],
 		},
 	},
+	{
+		.gpio = 20,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[8],
+		},
+	},
+	{
+		.gpio = 21,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &cam_settings[3],
+			[GPIOMUX_SUSPENDED] = &cam_settings[8],
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm8960_cam_2d_configs_sglte[] = {
 	{
 		.gpio = 20,
 		.settings = {
@@ -828,6 +846,16 @@ static struct platform_device msm_camera_server = {
 
 void __init msm8960_init_cam(void)
 {
+	if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
+		msm_8960_front_cam_gpio_conf.cam_gpiomux_conf_tbl =
+			msm8960_cam_2d_configs_sglte;
+		msm_8960_front_cam_gpio_conf.cam_gpiomux_conf_tbl_size =
+			ARRAY_SIZE(msm8960_cam_2d_configs_sglte);
+		msm_8960_back_cam_gpio_conf.cam_gpiomux_conf_tbl =
+			msm8960_cam_2d_configs_sglte;
+		msm_8960_back_cam_gpio_conf.cam_gpiomux_conf_tbl_size =
+			ARRAY_SIZE(msm8960_cam_2d_configs_sglte);
+	}
 	msm_gpiomux_install(msm8960_cam_common_configs,
 			ARRAY_SIZE(msm8960_cam_common_configs));
 
