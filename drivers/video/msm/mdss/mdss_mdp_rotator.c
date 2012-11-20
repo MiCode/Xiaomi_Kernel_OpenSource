@@ -212,7 +212,7 @@ int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
 
 	if (rot->params_changed) {
 		rot->params_changed = 0;
-		rot_pipe->flags = rot->rotations;
+		rot_pipe->flags = rot->flags;
 		rot_pipe->src_fmt = mdss_mdp_get_format_params(rot->format);
 		rot_pipe->img_width = rot->img_width;
 		rot_pipe->img_height = rot->img_height;
