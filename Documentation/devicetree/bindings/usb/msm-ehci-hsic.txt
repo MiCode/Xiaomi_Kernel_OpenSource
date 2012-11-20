@@ -1,0 +1,20 @@
+MSM HSIC EHCI controller
+
+Required properties :
+- compatible : should be "qcom,hsic-host"
+- regs : offset and length of the register set in the memory map
+- interrupts: IRQ lines used by this controller
+- interrupt-names : Required interrupt resource entries are:
+            HSIC EHCI expects "core_irq" and optionally "async_irq".
+- <supply-name>-supply: handle to the regulator device tree node
+  Required "supply-name" is "HSIC_VDDCX" and optionally - "HSIC_GDSC".
+
+Example MSM HSIC EHCI controller device node :
+	hsic@f9a15000 {
+		compatible = "qcom,hsic-host";
+		reg = <0xf9a15000 0x400>;
+		interrupts = <0 136 0>;
+		interrupt-names = "core_irq";
+		HSIC_VDDCX-supply = <&pm8019_l12>;
+		HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+	};
