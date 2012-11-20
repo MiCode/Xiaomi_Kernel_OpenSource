@@ -46,8 +46,8 @@
 /* wled control registers */
 #define WLED_MOD_CTRL_REG		SSBI_REG_ADDR_WLED_CTRL(1)
 #define WLED_MAX_CURR_CFG_REG(n)	SSBI_REG_ADDR_WLED_CTRL(n + 2)
-#define WLED_BRIGHTNESS_CNTL_REG1(n)	SSBI_REG_ADDR_WLED_CTRL(n + 5)
-#define WLED_BRIGHTNESS_CNTL_REG2(n)	SSBI_REG_ADDR_WLED_CTRL(n + 6)
+#define WLED_BRIGHTNESS_CNTL_REG1(n)	SSBI_REG_ADDR_WLED_CTRL((2 * n) + 5)
+#define WLED_BRIGHTNESS_CNTL_REG2(n)	SSBI_REG_ADDR_WLED_CTRL((2 * n) + 6)
 #define WLED_SYNC_REG			SSBI_REG_ADDR_WLED_CTRL(11)
 #define WLED_OVP_CFG_REG		SSBI_REG_ADDR_WLED_CTRL(13)
 #define WLED_BOOST_CFG_REG		SSBI_REG_ADDR_WLED_CTRL(14)
@@ -640,7 +640,7 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 	/* program activation delay and maximum current */
 	for (i = 0; i < num_wled_strings; i++) {
 		rc = pm8xxx_readb(led->dev->parent,
-				WLED_MAX_CURR_CFG_REG(i + 2), &val);
+				WLED_MAX_CURR_CFG_REG(i), &val);
 		if (rc) {
 			dev_err(led->dev->parent, "can't read wled max current"
 				" config register rc=%d\n", rc);
@@ -665,7 +665,7 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 		val = (val & ~WLED_MAX_CURR_MASK) | led->max_current;
 
 		rc = pm8xxx_writeb(led->dev->parent,
-				WLED_MAX_CURR_CFG_REG(i + 2), val);
+				WLED_MAX_CURR_CFG_REG(i), val);
 		if (rc) {
 			dev_err(led->dev->parent, "can't write wled max current"
 				" config register rc=%d\n", rc);
