@@ -504,6 +504,22 @@ void kgsl_timestamp_expired(struct work_struct *work)
 		kfree(event);
 	}
 
+	/* Send the next pending event for each context to the device */
+	if (device->ftbl->next_event) {
+		unsigned int id = KGSL_MEMSTORE_GLOBAL;
+
+		list_for_each_entry(event, &device->events, list) {
+
+			if (!event->context)
+				continue;
+
+			if (event->context->id != id) {
+				device->ftbl->next_event(device, event);
+				id = event->context->id;
+			}
+		}
+	}
+
 	mutex_unlock(&device->mutex);
 }
 EXPORT_SYMBOL(kgsl_timestamp_expired);
