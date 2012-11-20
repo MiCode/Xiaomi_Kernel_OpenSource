@@ -525,6 +525,7 @@ static struct map_desc msm_8226_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8226),
 	MSM_CHIP_DEVICE(TLMM, MSM8226),
 	MSM_CHIP_DEVICE(IMEM, MSM8226),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8226),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
