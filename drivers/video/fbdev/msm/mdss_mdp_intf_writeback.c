@@ -245,7 +245,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 
 	ctx->format = rot->format;
 
-	ctx->rot90 = !!(rot->rotations & MDP_ROT_90);
+	ctx->rot90 = !!(rot->flags & MDP_ROT_90);
 	if (ctx->rot90) {
 		ctx->opmode |= BIT(5); /* ROT 90 */
 		swap(ctx->width, ctx->height);

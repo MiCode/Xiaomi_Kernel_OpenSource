@@ -25,7 +25,7 @@ struct mdss_mdp_rotator_session {
 	u32 params_changed;
 
 	u32 format;
-	u32 rotations;
+	u32 flags;
 
 	u16 img_width;
 	u16 img_height;

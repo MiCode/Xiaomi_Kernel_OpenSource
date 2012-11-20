@@ -95,28 +95,29 @@ static struct msm_bus_scale_pdata mdp_bus_scale_table = {
 	.name = "mdss_mdp",
 };
 
-struct msm_iova_partition mdp_iommu_partitions[] = {
-	{
-		.start = SZ_128K,
-		.size = SZ_2G - SZ_128K,
+struct mdss_iommu_map_type mdss_iommu_map[MDSS_IOMMU_MAX_DOMAIN] = {
+	[MDSS_IOMMU_DOMAIN_UNSECURE] = {
+		.client_name = "mdp_ns",
+		.ctx_name = "mdp_0",
+		.partitions = {
+			{
+				.start = SZ_128K,
+				.size = SZ_1G - SZ_128K,
+			},
+		},
+		.npartitions = 1,
 	},
-};
-struct msm_iova_layout mdp_iommu_layout = {
-	.client_name = "mdss_mdp",
-	.partitions = mdp_iommu_partitions,
-	.npartitions = ARRAY_SIZE(mdp_iommu_partitions),
-};
-
-struct {
-	char *name;
-	struct device *ctx;
-} mdp_iommu_ctx[] = {
-	{
-		.name = "mdp_0",
+	[MDSS_IOMMU_DOMAIN_SECURE] = {
+		.client_name = "mdp_secure",
+		.ctx_name = "mdp_1",
+		.partitions = {
+			{
+				.start = SZ_1G,
+				.size = SZ_1G,
+			},
+		},
+		.npartitions = 1,
 	},
-	{
-		.name = "mdp_1",
-	}
 };
 
 struct mdss_hw mdss_mdp_hw = {
@@ -670,85 +671,103 @@ static int mdss_iommu_fault_handler(struct iommu_domain *domain,
 	return 0;
 }
 
-int mdss_iommu_attach(void)
+int mdss_iommu_attach(struct mdss_data_type *mdata)
 {
 	struct iommu_domain *domain;
-	int i, domain_idx;
+	struct mdss_iommu_map_type *iomap;
+	int i;
 
-	if (mdss_res->iommu_attached) {
+	if (mdata->iommu_attached) {
 		pr_warn("mdp iommu already attached\n");
 		return 0;
 	}
 
-	domain_idx = mdss_get_iommu_domain();
-	domain = msm_get_iommu_domain(domain_idx);
-	if (!domain) {
-		pr_err("unable to get iommu domain(%d)\n", domain_idx);
-		return -EINVAL;
+	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
+		iomap = mdata->iommu_map + i;
+
+		domain = msm_get_iommu_domain(iomap->domain_idx);
+		if (!domain) {
+			WARN(1, "could not attach iommu client %s to ctx %s\n",
+				iomap->client_name, iomap->ctx_name);
+			continue;
+		}
+		iommu_attach_device(domain, iomap->ctx);
 	}
 
-	for (i = 0; i < ARRAY_SIZE(mdp_iommu_ctx); i++) {
-		if (iommu_attach_device(domain, mdp_iommu_ctx[i].ctx)) {
-			WARN(1, "could not attach iommu domain %d to ctx %s\n",
-				domain_idx, mdp_iommu_ctx[i].name);
-			return -EINVAL;
-		}
-	}
-	mdss_res->iommu_attached = true;
+	mdata->iommu_attached = true;
 
 	return 0;
 }
 
-int mdss_iommu_dettach(void)
+int mdss_iommu_dettach(struct mdss_data_type *mdata)
 {
 	struct iommu_domain *domain;
-	int i, domain_idx;
+	struct mdss_iommu_map_type *iomap;
+	int i;
 
-	if (!mdss_res->iommu_attached) {
+	if (!mdata->iommu_attached) {
 		pr_warn("mdp iommu already dettached\n");
 		return 0;
 	}
 
-	domain_idx = mdss_get_iommu_domain();
-	domain = msm_get_iommu_domain(domain_idx);
-	if (!domain) {
-		pr_err("unable to get iommu domain(%d)\n", domain_idx);
-		return -EINVAL;
+	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
+		iomap = mdata->iommu_map + i;
+
+		domain = msm_get_iommu_domain(iomap->domain_idx);
+		if (!domain) {
+			pr_err("unable to get iommu domain(%d)\n",
+				iomap->domain_idx);
+			continue;
+		}
+		iommu_detach_device(domain, iomap->ctx);
 	}
 
-	for (i = 0; i < ARRAY_SIZE(mdp_iommu_ctx); i++)
-		iommu_detach_device(domain, mdp_iommu_ctx[i].ctx);
-	mdss_res->iommu_attached = false;
+	mdata->iommu_attached = false;
 
 	return 0;
 }
 
-int mdss_iommu_init(void)
+int mdss_iommu_init(struct mdss_data_type *mdata)
 {
+	struct msm_iova_layout layout;
 	struct iommu_domain *domain;
-	int domain_idx, i;
+	struct mdss_iommu_map_type *iomap;
+	int i;
 
-	domain_idx = msm_register_domain(&mdp_iommu_layout);
-	if (IS_ERR_VALUE(domain_idx))
-		return -EINVAL;
-
-	domain = msm_get_iommu_domain(domain_idx);
-	if (!domain) {
-		pr_err("unable to get iommu domain(%d)\n", domain_idx);
-		return -EINVAL;
+	if (mdata->iommu_map) {
+		pr_warn("iommu already initialized\n");
+		return 0;
 	}
 
-	iommu_set_fault_handler(domain, mdss_iommu_fault_handler);
+	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
+		iomap = &mdss_iommu_map[i];
 
-	for (i = 0; i < ARRAY_SIZE(mdp_iommu_ctx); i++) {
-		mdp_iommu_ctx[i].ctx = msm_iommu_get_ctx(mdp_iommu_ctx[i].name);
-		if (!mdp_iommu_ctx[i].ctx) {
+		layout.client_name = iomap->client_name;
+		layout.partitions = iomap->partitions;
+		layout.npartitions = iomap->npartitions;
+		layout.is_secure = (i == MDSS_IOMMU_DOMAIN_SECURE);
+
+		iomap->domain_idx = msm_register_domain(&layout);
+		if (IS_ERR_VALUE(iomap->domain_idx))
+			return -EINVAL;
+
+		domain = msm_get_iommu_domain(iomap->domain_idx);
+		if (!domain) {
+			pr_err("unable to get iommu domain(%d)\n",
+				iomap->domain_idx);
+			return -EINVAL;
+		}
+		iommu_set_fault_handler(domain, mdss_iommu_fault_handler);
+
+		iomap->ctx = msm_iommu_get_ctx(iomap->ctx_name);
+		if (!iomap->ctx) {
 			pr_warn("unable to get iommu ctx(%s)\n",
-					mdp_iommu_ctx[i].name);
+				iomap->ctx_name);
 			return -EINVAL;
 		}
 	}
-	mdss_res->iommu_domain = domain_idx;
+
+	mdata->iommu_map = mdss_iommu_map;
 
 	return 0;
 }
@@ -815,9 +834,9 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 		mdata->iclient = NULL;
 	}
 
-	rc = mdss_iommu_init();
+	rc = mdss_iommu_init(mdata);
 	if (!IS_ERR_VALUE(rc))
-		mdss_iommu_attach();
+		mdss_iommu_attach(mdata);
 
 	rc = mdss_hw_init(mdata);
 
@@ -938,11 +957,11 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 		ret = regulator_enable(mdata->fs);
 		if (ret)
 			pr_err("Footswitch failed to enable\n");
-		mdss_iommu_attach();
+		mdss_iommu_attach(mdata);
 		mdata->fs_ena = true;
 	} else if (!on && mdata->fs_ena) {
 		pr_debug("Disable MDP FS\n");
-		mdss_iommu_dettach();
+		mdss_iommu_dettach(mdata);
 		regulator_disable(mdata->fs);
 		mdata->fs_ena = false;
 	}

@@ -520,8 +520,12 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_mdp_format_params *fmt;
 	u32 opmode, chroma_samp, unpack, src_format;
+	u32 secure = 0;
 
 	fmt = pipe->src_fmt;
+
+	if (pipe->flags & MDP_SECURE_OVERLAY_SESSION)
+		secure = 0xF;
 
 	opmode = pipe->bwc_mode;
 	if (pipe->flags & MDP_FLIP_LR)
@@ -569,6 +573,7 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, src_format);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_OP_MODE, opmode);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_ADDR_SW_STATUS, secure);
 
 	return 0;
 }
