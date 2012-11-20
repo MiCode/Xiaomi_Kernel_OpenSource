@@ -61,6 +61,7 @@
 #include "rndis.c"
 #include "u_bam_data.c"
 #include "f_mbim.c"
+#include "f_ecm.c"
 #include "f_qc_ecm.c"
 #include "f_qc_rndis.c"
 #include "u_ether.c"
@@ -780,6 +781,7 @@ static struct android_usb_function rmnet_function = {
 
 struct ecm_function_config {
 	u8      ethaddr[ETH_ALEN];
+	struct eth_dev *dev;
 };
 
 static int ecm_function_init(struct android_usb_function *f,
@@ -1470,6 +1472,54 @@ static struct android_usb_function rndis_qc_function = {
 	.attributes	= rndis_function_attributes,
 };
 
+static int ecm_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	int ret;
+	struct eth_dev *dev;
+	struct ecm_function_config *ecm = f->config;
+
+	if (!ecm) {
+		pr_err("%s: ecm_pdata\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
+		ecm->ethaddr[0], ecm->ethaddr[1], ecm->ethaddr[2],
+		ecm->ethaddr[3], ecm->ethaddr[4], ecm->ethaddr[5]);
+
+	dev = gether_setup_name(c->cdev->gadget, ecm->ethaddr, "ecm");
+	if (dev) {
+		ret = PTR_ERR(dev);
+		pr_err("%s: gether_setup failed\n", __func__);
+		return ret;
+	}
+	ecm->dev = dev;
+
+	ret = ecm_bind_config(c, ecm->ethaddr, dev);
+	if (ret) {
+		pr_err("%s: ecm_bind_config failed\n", __func__);
+		gether_cleanup(dev);
+	}
+	return ret;
+}
+
+static void ecm_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	struct ecm_function_config *ecm = f->config;
+	gether_cleanup(ecm->dev);
+}
+
+static struct android_usb_function ecm_function = {
+	.name		= "ecm",
+	.init		= ecm_function_init,
+	.cleanup	= ecm_function_cleanup,
+	.bind_config	= ecm_function_bind_config,
+	.unbind_config	= ecm_function_unbind_config,
+	.attributes	= ecm_function_attributes,
+};
+
 struct mass_storage_function_config {
 	struct fsg_config fsg;
 	struct fsg_common *common;
@@ -1739,6 +1789,7 @@ static struct android_usb_function *supported_functions[] = {
 	&ptp_function,
 	&rndis_function,
 	&rndis_qc_function,
+	&ecm_function,
 	&mass_storage_function,
 	&accessory_function,
 	&audio_source_function,
