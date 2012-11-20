@@ -550,11 +550,12 @@ static int qpnp_regulator_common_disable(struct regulator_dev *rdev)
 }
 
 static int qpnp_regulator_select_voltage(struct qpnp_regulator *vreg,
-		int min_uV, int max_uV, int *range_sel, int *voltage_sel)
+		int min_uV, int max_uV, int *range_sel, int *voltage_sel,
+		unsigned *selector)
 {
 	struct qpnp_voltage_range *range;
 	int uV = min_uV;
-	int lim_min_uV, lim_max_uV, i;
+	int lim_min_uV, lim_max_uV, i, range_id;
 
 	/* Check if request voltage is outside of physically settable range. */
 	lim_min_uV = vreg->set_points->range[0].set_point_min_uV;
@@ -575,7 +576,8 @@ static int qpnp_regulator_select_voltage(struct qpnp_regulator *vreg,
 	for (i = vreg->set_points->count - 1; i > 0; i--)
 		if (uV > vreg->set_points->range[i - 1].max_uV)
 			break;
-	range = &vreg->set_points->range[i];
+	range_id = i;
+	range = &vreg->set_points->range[range_id];
 	*range_sel = range->range_sel;
 
 	/*
@@ -594,6 +596,11 @@ static int qpnp_regulator_select_voltage(struct qpnp_regulator *vreg,
 		return -EINVAL;
 	}
 
+	*selector = 0;
+	for (i = 0; i < range_id; i++)
+		*selector += vreg->set_points->range[i].n_voltages;
+	*selector += (uV - range->set_point_min_uV) / range->step_uV;
+
 	return 0;
 }
 
@@ -605,7 +612,7 @@ static int qpnp_regulator_common_set_voltage(struct regulator_dev *rdev,
 	u8 buf[2];
 
 	rc = qpnp_regulator_select_voltage(vreg, min_uV, max_uV, &range_sel,
-		&voltage_sel);
+		&voltage_sel, selector);
 	if (rc) {
 		vreg_err(vreg, "could not set voltage, rc=%d\n", rc);
 		return rc;
@@ -669,7 +676,7 @@ static int qpnp_regulator_boost_set_voltage(struct regulator_dev *rdev,
 	int rc, range_sel, voltage_sel;
 
 	rc = qpnp_regulator_select_voltage(vreg, min_uV, max_uV, &range_sel,
-		&voltage_sel);
+		&voltage_sel, selector);
 	if (rc) {
 		vreg_err(vreg, "could not set voltage, rc=%d\n", rc);
 		return rc;
