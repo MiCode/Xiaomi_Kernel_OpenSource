@@ -11,6 +11,7 @@ Required properties:
 - compatible : should be "qcom,qpnp-iadc" for Current ADC driver.
 - reg : offset and length of the PMIC Aribter register map.
 - interrupts : The USR bank peripheral IADC interrupt.
+- interrupt-names : Should contain "eoc-int-en-set".
 - qcom,adc-bit-resolution : Bit resolution of the ADC.
 - qcom,adc-vdd-reference : Voltage reference used by the ADC.
 - qcom,rsense : Internal rsense resistor used for current measurements.
@@ -84,6 +85,7 @@ Example:
                         compatible = "qcom,qpnp-iadc";
                         reg = <0x3200 0x100>;
                         interrupts = <0 0x36 0>;
+			interrupt-names = "eoc-int-en-set";
                         qcom,adc-bit-resolution = <16>;
                         qcom,adc-vdd-reference = <1800>;
 			qcom,rsense = <1500>;

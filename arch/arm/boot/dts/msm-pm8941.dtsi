@@ -487,6 +487,7 @@
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
 			interrupts = <0x0 0x31 0x0>;
+			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
 
@@ -704,6 +705,7 @@
 			compatible = "qcom,qpnp-iadc";
 			reg = <0x3600 0x100>;
 			interrupts = <0x0 0x36 0x0>;
+			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <16>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,rsense = <1500>;

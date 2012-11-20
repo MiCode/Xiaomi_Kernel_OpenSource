@@ -844,8 +844,9 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	adc_qpnp->offset = res->start;
 
 	/* Register the ADC peripheral interrupt */
-	adc_qpnp->adc_irq = spmi_get_irq(spmi, 0, 0);
-	if (adc_qpnp->adc_irq < 0) {
+	adc_qpnp->adc_irq_eoc = spmi_get_irq_byname(spmi, NULL,
+						"eoc-int-en-set");
+	if (adc_qpnp->adc_irq_eoc < 0) {
 		pr_err("Invalid irq\n");
 		return -ENXIO;
 	}

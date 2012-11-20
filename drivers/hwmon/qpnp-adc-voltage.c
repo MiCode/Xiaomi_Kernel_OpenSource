@@ -743,7 +743,7 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-	rc = devm_request_irq(&spmi->dev, vadc->adc->adc_irq,
+	rc = devm_request_irq(&spmi->dev, vadc->adc->adc_irq_eoc,
 				qpnp_vadc_isr, IRQF_TRIGGER_RISING,
 				"qpnp_vadc_interrupt", vadc);
 	if (rc) {
@@ -751,7 +751,7 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 			"failed to request adc irq with error %d\n", rc);
 		return rc;
 	} else {
-		enable_irq_wake(vadc->adc->adc_irq);
+		enable_irq_wake(vadc->adc->adc_irq_eoc);
 	}
 
 	qpnp_vadc = vadc;
