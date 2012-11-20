@@ -809,6 +809,7 @@
 
 	qcom,msm-adsp-loader {
 		compatible = "qcom,adsp-loader";
+		qcom,adsp-state = <0>;
 	};
 
 	qcom,msm-pcm {

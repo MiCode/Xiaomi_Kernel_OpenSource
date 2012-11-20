@@ -474,3 +474,22 @@ sound {
 			"MIC BIAS4 External", "Digital Mic6";
 			qcom,taiko-mclk-clk-freq = <12288000>;
 };
+
+* msm-adsp-loader
+
+Required properties:
+ - compatible : "msm-adsp-loader"
+ - qcom,adsp-state:
+	It is possible that some MSM use PIL to load the ADSP image. While
+	other MSM may use SBL to load the ADSP image at boot. Audio APR needs
+	state of ADSP to register and enable APR to be used for sending commands
+	to ADSP. so adsp-state represents the state of ADSP to ADSP loader. Value
+	of 0 indicates ADSP loader needs to use PIL and value of 2 means ADSP
+	image is already loaded by SBL.
+
+Example:
+
+qcom,msm-adsp-loader {
+	compatible = "qcom,adsp-loader";
+	qcom,adsp-state = <2>;
+};
