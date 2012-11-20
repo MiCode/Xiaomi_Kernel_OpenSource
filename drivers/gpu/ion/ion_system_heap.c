@@ -518,14 +518,26 @@ out:
 	return ret;
 }
 
+void *ion_system_contig_heap_map_kernel(struct ion_heap *heap,
+	struct ion_buffer *buffer)
+{
+	return buffer->priv_virt;
+}
+
+void ion_system_contig_heap_unmap_kernel(struct ion_heap *heap,
+	struct ion_buffer *buffer)
+{
+	return;
+}
+
 static struct ion_heap_ops kmalloc_ops = {
 	.allocate = ion_system_contig_heap_allocate,
 	.free = ion_system_contig_heap_free,
 	.phys = ion_system_contig_heap_phys,
 	.map_dma = ion_system_contig_heap_map_dma,
 	.unmap_dma = ion_system_heap_unmap_dma,
-	.map_kernel = ion_system_heap_map_kernel,
-	.unmap_kernel = ion_system_heap_unmap_kernel,
+	.map_kernel = ion_system_contig_heap_map_kernel,
+	.unmap_kernel = ion_system_contig_heap_unmap_kernel,
 	.map_user = ion_system_contig_heap_map_user,
 	.cache_op = ion_system_contig_heap_cache_ops,
 	.print_debug = ion_system_contig_print_debug,
