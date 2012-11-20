@@ -2369,7 +2369,7 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 						list);
 		if (buf_node->buf_addr_lsw == buf_add) {
-			pr_info("%s: Found the element\n", __func__);
+			pr_debug("%s: Found the element\n", __func__);
 			mem_unmap.mem_map_handle = buf_node->mmap_hdl;
 			break;
 		}
@@ -2387,7 +2387,7 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
 	rc = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5 * HZ);
 	if (!rc) {
-		pr_err("timeout. waited for memory_map\n");
+		pr_err("timeout. waited for memory_unmap\n");
 		rc = -EINVAL;
 		goto fail_cmd;
 	}
@@ -2397,6 +2397,7 @@ int q6asm_memory_unmap(struct audio_client *ac, uint32_t buf_add, int dir)
 		if (buf_node->buf_addr_lsw == buf_add) {
 			list_del(&buf_node->list);
 			kfree(buf_node);
+			break;
 		}
 	}
 
