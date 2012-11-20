@@ -123,6 +123,21 @@ enum pm8921_chg_led_src_config {
  *			resistance of the pads, connectors, battery terminals
  *			and rsense.
  * @led_src_config:	Power source for anode of charger indicator LED.
+ * @btc_override:	disable the comparators for conifugrations where a
+ *			suitable voltages don't appear on vbatt therm line
+ *			for the charger to detect battery is either cold / hot.
+ * @btc_override_cold_degc:	Temperature in degCelcius when the battery is
+ *				deemed cold and charging never happens. Used
+ *				only if btc_override = 1
+ * @btc_override_hot_degc:	Temperature in degCelcius when the battery is
+ *				deemed hot and charging never happens. Used
+ *				only if btc_override = 1
+ * @btc_delay_ms:	Delay in milliseconds to monitor the battery temperature
+ *			while charging when btc_override = 1
+ * @btc_panic_if_cant_stop_chg:	flag to instruct the driver to panic if the
+ *				driver couldn't stop charging when battery
+ *				temperature is out of bounds. Used only if
+ *				btc_override = 1
  */
 struct pm8921_charger_platform_data {
 	struct pm8xxx_charger_core_data	charger_cdata;
@@ -163,6 +178,11 @@ struct pm8921_charger_platform_data {
 	int				rconn_mohm;
 	enum pm8921_chg_led_src_config	led_src_config;
 	int				battery_less_hardware;
+	int				btc_override;
+	int				btc_override_cold_degc;
+	int				btc_override_hot_degc;
+	int				btc_delay_ms;
+	int				btc_panic_if_cant_stop_chg;
 };
 
 enum pm8921_charger_source {

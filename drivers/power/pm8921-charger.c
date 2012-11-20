@@ -280,6 +280,7 @@ struct pm8921_chg_chip {
 	struct delayed_work		eoc_work;
 	struct delayed_work		unplug_check_work;
 	struct delayed_work		vin_collapse_check_work;
+	struct delayed_work		btc_override_work;
 	struct wake_lock		eoc_wake_lock;
 	enum pm8921_chg_cold_thr	cold_thr;
 	enum pm8921_chg_hot_thr		hot_thr;
@@ -291,6 +292,11 @@ struct pm8921_chg_chip {
 	int				recent_reported_soc;
 	int				battery_less_hardware;
 	int				ibatmax_max_adj_ma;
+	int				btc_override;
+	int				btc_override_cold_decidegc;
+	int				btc_override_hot_decidegc;
+	int				btc_delay_ms;
+	bool				btc_panic_if_cant_stop_chg;
 };
 
 /* user space parameter to limit usb current */
@@ -2300,6 +2306,10 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 	 */
 	schedule_delayed_work(&chip->eoc_work, delay);
 	wake_lock(&chip->eoc_wake_lock);
+	if (chip->btc_override)
+		schedule_delayed_work(&chip->btc_override_work,
+				round_jiffies_relative(msecs_to_jiffies
+					(chip->btc_delay_ms)));
 	/* Update battery charging LEDs and user space battery info */
 	power_supply_changed(&chip->batt_psy);
 }
@@ -2912,6 +2922,13 @@ static irqreturn_t fastchg_irq_handler(int irq, void *data)
 				      round_jiffies_relative(msecs_to_jiffies
 						     (EOC_CHECK_PERIOD_MS)));
 	}
+	if (high_transition
+		&& chip->btc_override
+		&& !delayed_work_pending(&chip->btc_override_work)) {
+		schedule_delayed_work(&chip->btc_override_work,
+					round_jiffies_relative(msecs_to_jiffies
+						(chip->btc_delay_ms)));
+	}
 	power_supply_changed(&chip->batt_psy);
 	bms_notify_check(chip);
 	return IRQ_HANDLED;
@@ -3402,6 +3419,155 @@ static int is_charging_finished(struct pm8921_chg_chip *chip,
 		return CHG_IN_PROGRESS;
 
 	return CHG_FINISHED;
+}
+
+#define COMP_OVERRIDE_HOT_BANK	6
+#define COMP_OVERRIDE_COLD_BANK	7
+#define COMP_OVERRIDE_BIT  BIT(1)
+static int pm_chg_override_cold(struct pm8921_chg_chip *chip, int flag)
+{
+	u8 val;
+	int rc = 0;
+
+	val = 0x80 | COMP_OVERRIDE_COLD_BANK << 2 | COMP_OVERRIDE_BIT;
+
+	if (flag)
+		val |= 0x01;
+
+	rc = pm8xxx_writeb(chip->dev->parent, COMPARATOR_OVERRIDE, val);
+	if (rc < 0)
+		pr_err("Could not write 0x%x to override rc = %d\n", val, rc);
+
+	pr_debug("btc cold = %d val = 0x%x\n", flag, val);
+	return rc;
+}
+
+static int pm_chg_override_hot(struct pm8921_chg_chip *chip, int flag)
+{
+	u8 val;
+	int rc = 0;
+
+	val = 0x80 | COMP_OVERRIDE_HOT_BANK << 2 | COMP_OVERRIDE_BIT;
+
+	if (flag)
+		val |= 0x01;
+
+	rc = pm8xxx_writeb(chip->dev->parent, COMPARATOR_OVERRIDE, val);
+	if (rc < 0)
+		pr_err("Could not write 0x%x to override rc = %d\n", val, rc);
+
+	pr_debug("btc hot = %d val = 0x%x\n", flag, val);
+	return rc;
+}
+
+static void pm8921_chg_btc_override_init(struct pm8921_chg_chip *chip)
+{
+	int rc = 0;
+	u8 reg;
+	u8 val;
+
+	val = COMP_OVERRIDE_HOT_BANK << 2;
+	rc = pm8xxx_writeb(chip->dev->parent, COMPARATOR_OVERRIDE, val);
+	if (rc < 0) {
+		pr_err("Could not write 0x%x to override rc = %d\n", val, rc);
+		goto cold_init;
+	}
+	rc = pm8xxx_readb(chip->dev->parent, COMPARATOR_OVERRIDE, &reg);
+	if (rc < 0) {
+		pr_err("Could not read bank %d of override rc = %d\n",
+				COMP_OVERRIDE_HOT_BANK, rc);
+		goto cold_init;
+	}
+	if ((reg & COMP_OVERRIDE_BIT) != COMP_OVERRIDE_BIT) {
+		/* for now override it as not hot */
+		rc = pm_chg_override_hot(chip, 0);
+		if (rc < 0)
+			pr_err("Could not override hot rc = %d\n", rc);
+	}
+
+cold_init:
+	val = COMP_OVERRIDE_COLD_BANK << 2;
+	rc = pm8xxx_writeb(chip->dev->parent, COMPARATOR_OVERRIDE, val);
+	if (rc < 0) {
+		pr_err("Could not write 0x%x to override rc = %d\n", val, rc);
+		return;
+	}
+	rc = pm8xxx_readb(chip->dev->parent, COMPARATOR_OVERRIDE, &reg);
+	if (rc < 0) {
+		pr_err("Could not read bank %d of override rc = %d\n",
+				COMP_OVERRIDE_COLD_BANK, rc);
+		return;
+	}
+	if ((reg & COMP_OVERRIDE_BIT) != COMP_OVERRIDE_BIT) {
+		/* for now override it as not cold */
+		rc = pm_chg_override_cold(chip, 0);
+		if (rc < 0)
+			pr_err("Could not override cold rc = %d\n", rc);
+	}
+}
+
+static void btc_override_worker(struct work_struct *work)
+{
+	int decidegc;
+	int temp;
+	int rc = 0;
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct pm8921_chg_chip *chip = container_of(dwork,
+				struct pm8921_chg_chip, btc_override_work);
+
+	if (!chip->btc_override) {
+		pr_err("called when not enabled\n");
+		return;
+	}
+
+	decidegc = get_prop_batt_temp(chip);
+
+	pr_debug("temp=%d\n", decidegc);
+
+	temp = pm_chg_get_rt_status(chip, BATTTEMP_HOT_IRQ);
+	if (temp) {
+		if (decidegc < chip->btc_override_hot_decidegc)
+			/* stop forcing batt hot */
+			rc = pm_chg_override_hot(chip, 0);
+			if (rc)
+				pr_err("Couldnt write 0 to hot comp\n");
+	} else {
+		if (decidegc >= chip->btc_override_hot_decidegc)
+			/* start forcing batt hot */
+			rc = pm_chg_override_hot(chip, 1);
+			if (rc && chip->btc_panic_if_cant_stop_chg)
+				panic("Couldnt override comps to stop chg\n");
+	}
+
+	temp = pm_chg_get_rt_status(chip, BATTTEMP_COLD_IRQ);
+	if (temp) {
+		if (decidegc > chip->btc_override_cold_decidegc)
+			/* stop forcing batt cold */
+			rc = pm_chg_override_cold(chip, 0);
+			if (rc)
+				pr_err("Couldnt write 0 to cold comp\n");
+	} else {
+		if (decidegc <= chip->btc_override_cold_decidegc)
+			/* start forcing batt cold */
+			rc = pm_chg_override_cold(chip, 1);
+			if (rc && chip->btc_panic_if_cant_stop_chg)
+				panic("Couldnt override comps to stop chg\n");
+	}
+
+	if ((is_dc_chg_plugged_in(the_chip) || is_usb_chg_plugged_in(the_chip))
+		&& get_prop_batt_status(chip) != POWER_SUPPLY_STATUS_FULL) {
+		schedule_delayed_work(&chip->btc_override_work,
+					round_jiffies_relative(msecs_to_jiffies
+						(chip->btc_delay_ms)));
+		return;
+	}
+
+	rc = pm_chg_override_hot(chip, 0);
+	if (rc)
+		pr_err("Couldnt write 0 to hot comp\n");
+	rc = pm_chg_override_cold(chip, 0);
+	if (rc)
+		pr_err("Couldnt write 0 to cold comp\n");
 }
 
 /**
@@ -4492,6 +4658,16 @@ static int pm8921_charger_probe(struct platform_device *pdev)
 	chip->led_src_config = pdata->led_src_config;
 	chip->has_dc_supply = pdata->has_dc_supply;
 	chip->battery_less_hardware = pdata->battery_less_hardware;
+	chip->btc_override = pdata->btc_override;
+	if (chip->btc_override) {
+		chip->btc_delay_ms = pdata->btc_delay_ms;
+		chip->btc_override_cold_decidegc
+			= pdata->btc_override_cold_degc * 10;
+		chip->btc_override_hot_decidegc
+			= pdata->btc_override_hot_degc * 10;
+		chip->btc_panic_if_cant_stop_chg
+			= pdata->btc_panic_if_cant_stop_chg;
+	}
 
 	if (chip->battery_less_hardware)
 		charging_disabled = 1;
@@ -4504,6 +4680,9 @@ static int pm8921_charger_probe(struct platform_device *pdev)
 		pr_err("couldn't init hardware rc=%d\n", rc);
 		goto free_chip;
 	}
+
+	if (chip->btc_override)
+		pm8921_chg_btc_override_init(chip);
 
 	chip->usb_psy.name = "usb",
 	chip->usb_psy.type = POWER_SUPPLY_TYPE_USB,
@@ -4559,6 +4738,7 @@ static int pm8921_charger_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->battery_id_valid_work, battery_id_valid);
 
 	INIT_DELAYED_WORK(&chip->update_heartbeat_work, update_heartbeat);
+	INIT_DELAYED_WORK(&chip->btc_override_work, btc_override_worker);
 
 	rc = request_irqs(chip, pdev);
 	if (rc) {
@@ -4596,6 +4776,7 @@ static int pm8921_charger_probe(struct platform_device *pdev)
 free_irq:
 	free_irqs(chip);
 unregister_batt:
+	wake_lock_destroy(&chip->eoc_wake_lock);
 	power_supply_unregister(&chip->batt_psy);
 unregister_dc:
 	power_supply_unregister(&chip->dc_psy);
