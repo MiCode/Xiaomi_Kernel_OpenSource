@@ -545,12 +545,13 @@ static void rpcrouter_register_board_dev(struct rr_server *server)
 			D("%s: registering device %x\n",
 			  __func__, board_info->dev->prog);
 			list_del(&board_info->list);
+			spin_unlock_irqrestore(&rpc_board_dev_list_lock, flags);
 			rc = platform_device_register(&board_info->dev->pdev);
 			if (rc)
 				pr_err("%s: board dev register failed %d\n",
 				       __func__, rc);
 			kfree(board_info);
-			break;
+			return;
 		}
 	}
 	spin_unlock_irqrestore(&rpc_board_dev_list_lock, flags);
