@@ -399,6 +399,8 @@ config ARCH_MSM8226
 	select GPIO_MSM_V3
 	select MSM_GPIOMUX
 	select HAVE_ARM_ARCH_TIMER
+	select MSM_NATIVE_RESTART
+	select MSM_RESTART_V2
 endmenu
 
 choice

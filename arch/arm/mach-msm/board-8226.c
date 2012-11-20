@@ -32,6 +32,7 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
+#include <mach/restart.h>
 #ifdef CONFIG_ION_MSM
 #include <mach/ion.h>
 #endif
@@ -125,5 +126,6 @@ DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8226 (Flattened Device Tree)")
 	.init_machine = msm8226_init,
 	.dt_compat = msm8226_dt_match,
 	.reserve = msm8226_reserve,
-	.init_very_early = msm8226_early_memory
+	.init_very_early = msm8226_early_memory,
+	.restart = msm_restart,
 MACHINE_END
