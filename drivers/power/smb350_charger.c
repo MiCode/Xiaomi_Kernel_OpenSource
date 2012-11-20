@@ -230,20 +230,18 @@ static bool smb350_is_dc_present(struct i2c_client *client)
 	return power_ok;
 }
 
-static bool smb350_is_charging(struct i2c_client *client)
+static bool smb350_is_charger_present(struct i2c_client *client)
 {
 	int val;
-	bool is_charging;
 
+	/* Normally the device is non-removable and embedded on the board.
+	 * Verify that charger is present by getting I2C response.
+	 */
 	val = smb350_read_reg(client, STATUS_B_REG);
 	if (val < 0)
 		return false;
 
-	val = (val >> 1) & 0x3;
-
-	is_charging = (val != 0);
-
-	return is_charging;
+	return true;
 }
 
 static int smb350_get_prop_charge_type(struct smb350_device *dev)
@@ -409,10 +407,10 @@ static int smb350_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = smb350_is_dc_present(client);
+		val->intval = smb350_is_charger_present(client);
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = smb350_is_charging(client);
+		val->intval = smb350_is_dc_present(client);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = smb350_get_prop_charge_type(dev);
