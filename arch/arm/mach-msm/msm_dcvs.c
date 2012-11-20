@@ -150,6 +150,8 @@ static struct msm_dcvs_freq_entry cpu_freq_tbl[DCVS_MAX_NUM_FREQS];
 static unsigned num_cpu_freqs;
 static struct msm_dcvs_platform_data *dcvs_pdata;
 
+static DEFINE_MUTEX(gpu_floor_mutex);
+
 static void force_stop_slack_timer(struct dcvs_core *core)
 {
 	unsigned long flags;
@@ -279,9 +281,12 @@ static void apply_gpu_floor(int cpu_freq)
 		gpu = &core_list[i];
 		if (gpu->dcvs_core_id == -1)
 			continue;
-		if (gpu->set_floor_frequency)
+		mutex_lock(&gpu_floor_mutex);
+		if (gpu->pending_freq != STOP_FREQ_CHANGE &&
+		    gpu->set_floor_frequency)
 			gpu->set_floor_frequency(gpu->type_core_num,
 						 gpu_floor_freq);
+		mutex_unlock(&gpu_floor_mutex);
 	}
 }
 
@@ -928,7 +933,6 @@ int msm_dcvs_register_core(
 	core->get_frequency = get_frequency;
 	core->idle_enable = idle_enable;
 	core->set_floor_frequency = set_floor_frequency;
-	core->pending_freq = STOP_FREQ_CHANGE;
 
 	core->info = info;
 	if (type == MSM_DCVS_CORE_TYPE_CPU)
@@ -1094,10 +1098,18 @@ int msm_dcvs_freq_sink_stop(int dcvs_core_id)
 				0, core->actual_freq, &freq, &ret1);
 	core->idle_enable(core->type_core_num,
 			MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
+
+	if (core->type == MSM_DCVS_CORE_TYPE_GPU)
+		mutex_lock(&gpu_floor_mutex);
+
 	spin_lock_irqsave(&core->pending_freq_lock, flags);
 	/* flush out all the pending freq changes */
 	request_freq_change(core, STOP_FREQ_CHANGE);
 	spin_unlock_irqrestore(&core->pending_freq_lock, flags);
+
+	if (core->type == MSM_DCVS_CORE_TYPE_GPU)
+		mutex_unlock(&gpu_floor_mutex);
+
 	force_stop_slack_timer(core);
 
 	return 0;
@@ -1222,8 +1234,10 @@ static int __init msm_dcvs_early_init(void)
 		goto done;
 	}
 
-	for (i = 0; i < CORES_MAX; i++)
+	for (i = 0; i < CORES_MAX; i++) {
 		core_list[i].dcvs_core_id = -1;
+		core_list[i].pending_freq = STOP_FREQ_CHANGE;
+	}
 done:
 	return ret;
 }
