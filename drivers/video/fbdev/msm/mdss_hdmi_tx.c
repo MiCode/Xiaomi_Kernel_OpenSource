@@ -636,7 +636,7 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 	return 0;
 } /* hdmi_tx_set_video_fmt */
 
-static void hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
+static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	int video_format)
 {
 	u32 total_v   = 0;
@@ -652,47 +652,53 @@ static void hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	if (timing == NULL) {
 		DEV_ERR("%s: video format not supported: %d\n", __func__,
 			video_format);
-		return;
+		return -EPERM;
 	}
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		return;
+		return -EINVAL;
 	}
 
 	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	if (!io->base) {
 		DEV_ERR("%s: Core io is not initialized\n", __func__);
-		return;
+		return -EPERM;
 	}
 
 	total_h = timing->active_h + timing->front_porch_h +
 		timing->back_porch_h + timing->pulse_width_h - 1;
 	total_v = timing->active_v + timing->front_porch_v +
 		timing->back_porch_v + timing->pulse_width_v - 1;
-	DSS_REG_W(io, HDMI_TOTAL,
-		((total_v << 16) & 0x0FFF0000) |
-		((total_h << 0) & 0x00000FFF));
+	if (((total_v << 16) & 0xE0000000) || (total_h & 0xFFFFE000)) {
+		DEV_ERR("%s: total v=%d or h=%d is larger than supported\n",
+			__func__, total_v, total_h);
+		return -EPERM;
+	}
+	DSS_REG_W(io, HDMI_TOTAL, (total_v << 16) | (total_h << 0));
 
 	start_h = timing->back_porch_h + timing->pulse_width_h;
 	end_h   = (total_h + 1) - timing->front_porch_h;
-	DSS_REG_W(io, HDMI_ACTIVE_H,
-		((end_h << 16) & 0x0FFF0000) |
-		((start_h << 0) & 0x00000FFF));
+	if (((end_h << 16) & 0xE0000000) || (start_h & 0xFFFFE000)) {
+		DEV_ERR("%s: end_h=%d or start_h=%d is larger than supported\n",
+			__func__, end_h, start_h);
+		return -EPERM;
+	}
+	DSS_REG_W(io, HDMI_ACTIVE_H, (end_h << 16) | (start_h << 0));
 
 	start_v = timing->back_porch_v + timing->pulse_width_v - 1;
 	end_v   = total_v - timing->front_porch_v;
-	DSS_REG_W(io, HDMI_ACTIVE_V,
-		((end_v << 16) & 0x0FFF0000) |
-		((start_v << 0) & 0x00000FFF));
+	if (((end_v << 16) & 0xE0000000) || (start_v & 0xFFFFE000)) {
+		DEV_ERR("%s: end_v=%d or start_v=%d is larger than supported\n",
+			__func__, end_v, start_v);
+		return -EPERM;
+	}
+	DSS_REG_W(io, HDMI_ACTIVE_V, (end_v << 16) | (start_v << 0));
 
 	if (timing->interlaced) {
-		DSS_REG_W(io, HDMI_V_TOTAL_F2,
-			((total_v + 1) << 0) & 0x00000FFF);
-
+		DSS_REG_W(io, HDMI_V_TOTAL_F2, (total_v + 1) << 0);
 		DSS_REG_W(io, HDMI_ACTIVE_V_F2,
-			(((start_v + 1) << 0) & 0x00000FFF) |
-			(((end_v + 1) << 16) & 0x0FFF0000));
+			((end_v + 1) << 16) | ((start_v + 1) << 0));
 	} else {
 		DSS_REG_W(io, HDMI_V_TOTAL_F2, 0);
 		DSS_REG_W(io, HDMI_ACTIVE_V_F2, 0);
@@ -702,6 +708,8 @@ static void hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 		((timing->interlaced << 31) & 0x80000000) |
 		((timing->active_low_h << 29) & 0x20000000) |
 		((timing->active_low_v << 28) & 0x10000000));
+
+	return 0;
 } /* hdmi_tx_video_setup */
 
 static void hdmi_tx_set_avi_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -1610,7 +1618,13 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_tx_set_mode(hdmi_ctrl, true);
 
-	hdmi_tx_video_setup(hdmi_ctrl, hdmi_ctrl->video_resolution);
+	rc = hdmi_tx_video_setup(hdmi_ctrl, hdmi_ctrl->video_resolution);
+	if (rc) {
+		DEV_ERR("%s: hdmi_tx_video_setup failed. rc=%d\n",
+			__func__, rc);
+		hdmi_tx_set_mode(hdmi_ctrl, false);
+		return rc;
+	}
 
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl)) {
 		rc = hdmi_tx_audio_setup(hdmi_ctrl);
