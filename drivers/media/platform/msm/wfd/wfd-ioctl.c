@@ -536,7 +536,7 @@ void wfd_vidbuf_buf_cleanup(struct vb2_buffer *vb)
 	struct mem_region mregion;
 
 	if (minfo == NULL) {
-		WFD_MSG_ERR("not freeing buffers since allocation failed");
+		WFD_MSG_DBG("not freeing buffers since allocation failed");
 		return;
 	}
 

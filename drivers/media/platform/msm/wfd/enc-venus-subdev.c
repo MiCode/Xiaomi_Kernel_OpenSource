@@ -136,7 +136,7 @@ static int venc_vidc_callback_thread(void *data)
 
 			msm_vidc_dqevent(inst->vidc_context, &event);
 			if (event.type == V4L2_EVENT_MSM_VIDC_CLOSE_DONE) {
-				WFD_MSG_ERR("enc callback thread shutting " \
+				WFD_MSG_DBG("enc callback thread shutting " \
 						"down normally\n");
 				bail_out = true;
 			} else {
