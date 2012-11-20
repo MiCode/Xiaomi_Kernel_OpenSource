@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -695,14 +695,14 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 		return -EINVAL;
 	}
 
-	rc = devm_request_irq(&spmi->dev, iadc->adc->adc_irq,
+	rc = devm_request_irq(&spmi->dev, iadc->adc->adc_irq_eoc,
 				qpnp_iadc_isr,
 	IRQF_TRIGGER_RISING, "qpnp_iadc_interrupt", iadc);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to request adc irq\n");
 		return rc;
 	} else
-		enable_irq_wake(iadc->adc->adc_irq);
+		enable_irq_wake(iadc->adc->adc_irq_eoc);
 
 	iadc->iadc_init_calib = false;
 	dev_set_drvdata(&spmi->dev, iadc);

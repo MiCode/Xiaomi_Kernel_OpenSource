@@ -624,7 +624,7 @@ struct qpnp_iadc_result {
  * @adc_prop - ADC properties specific to the ADC peripheral.
  * @amux_prop - AMUX properties representing the ADC peripheral.
  * @adc_channels - ADC channel properties for the ADC peripheral.
- * @adc_irq - IRQ number that is mapped to the ADC peripheral.
+ * @adc_irq_eoc - End of Conversion IRQ.
  * @adc_lock - ADC lock for access to the peripheral.
  * @adc_rslt_completion - ADC result notification after interrupt
  *			  is received.
@@ -637,7 +637,7 @@ struct qpnp_adc_drv {
 	struct qpnp_adc_properties	*adc_prop;
 	struct qpnp_adc_amux_properties	*amux_prop;
 	struct qpnp_vadc_amux		*adc_channels;
-	int				adc_irq;
+	int				adc_irq_eoc;
 	struct mutex			adc_lock;
 	struct completion		adc_rslt_completion;
 	struct qpnp_iadc_calib		calib;
