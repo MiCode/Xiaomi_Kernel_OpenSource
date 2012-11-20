@@ -972,6 +972,61 @@ static u32 get_hfi_buffer(int hal_buffer)
 	}
 	return buffer;
 }
+
+
+static int get_hfi_extradata_index(enum hal_extradata_id index)
+{
+	int ret = 0;
+	switch (index) {
+	case HAL_EXTRADATA_MB_QUANTIZATION:
+		ret = HFI_PROPERTY_PARAM_VDEC_MB_QUANTIZATION;
+		break;
+	case HAL_EXTRADATA_INTERLACE_VIDEO:
+		ret = HFI_PROPERTY_PARAM_VDEC_INTERLACE_VIDEO_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_VC1_FRAMEDISP:
+		ret = HFI_PROPERTY_PARAM_VDEC_VC1_FRAMEDISP_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_VC1_SEQDISP:
+		ret = HFI_PROPERTY_PARAM_VDEC_VC1_SEQDISP_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_TIMESTAMP:
+		ret = HFI_PROPERTY_PARAM_VDEC_TIMESTAMP_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_S3D_FRAME_PACKING:
+		ret = HFI_PROPERTY_PARAM_S3D_FRAME_PACKING_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_FRAME_RATE:
+		ret = HFI_PROPERTY_PARAM_VDEC_FRAME_RATE_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_PANSCAN_WINDOW:
+		ret = HFI_PROPERTY_PARAM_VDEC_PANSCAN_WNDW_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_RECOVERY_POINT_SEI:
+		ret = HFI_PROPERTY_PARAM_VDEC_RECOVERY_POINT_SEI_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_CLOSED_CAPTION_UD:
+		ret = HFI_PROPERTY_PARAM_VDEC_CLOSED_CAPTION_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_AFD_UD:
+		ret = HFI_PROPERTY_PARAM_VDEC_AFD_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_MULTISLICE_INFO:
+		ret = HFI_PROPERTY_PARAM_VENC_MULTI_SLICE_INFO;
+		break;
+	case HAL_EXTRADATA_NUM_CONCEALED_MB:
+		ret = HFI_PROPERTY_PARAM_VDEC_NUM_CONCEALED_MB;
+		break;
+	case HAL_EXTRADATA_INDEX:
+		ret = HFI_PROPERTY_PARAM_EXTRA_DATA_HEADER_CONFIG;
+		break;
+	default:
+		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
+		break;
+	}
+	return ret;
+}
+
 int vidc_hal_session_set_property(void *sess,
 	enum hal_property ptype, void *pdata)
 {
@@ -979,6 +1034,7 @@ int vidc_hal_session_set_property(void *sess,
 	struct hfi_cmd_session_set_property_packet *pkt =
 		(struct hfi_cmd_session_set_property_packet *) &packet;
 	struct hal_session *session;
+	int rc = 0;
 
 	if (!sess || !pdata) {
 		dprintk(VIDC_ERR, "Invalid Params");
@@ -1528,6 +1584,30 @@ int vidc_hal_session_set_property(void *sess,
 					hfi_multi_slice_control);
 		break;
 	}
+	case HAL_PARAM_INDEX_EXTRADATA:
+	{
+		struct hfi_index_extradata_config *hfi;
+		struct hal_extradata_enable *extra = pdata;
+		int index = 0;
+		pkt->rg_property_data[0] =
+			get_hfi_extradata_index(extra->index);
+		hfi =
+			(struct hfi_index_extradata_config *)
+			&pkt->rg_property_data[1];
+		hfi->enable = extra->enable;
+		index = get_hfi_extradata_index(extra->index);
+		if (index)
+			hfi->index_extra_data_id = index;
+		else {
+			dprintk(VIDC_WARN,
+				"Failed to find extradata index: %d\n",
+				index);
+			rc = -EINVAL;
+		}
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_index_extradata_config);
+		break;
+	}
 	case HAL_CONFIG_VPE_DEINTERLACE:
 		break;
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
@@ -1562,9 +1642,10 @@ int vidc_hal_session_set_property(void *sess,
 		dprintk(VIDC_INFO, "DEFAULT: Calling 0x%x", ptype);
 		break;
 	}
-	if (vidc_hal_iface_cmdq_write(session->device, pkt))
-		return -ENOTEMPTY;
-	return 0;
+	if (!rc)
+		rc = vidc_hal_iface_cmdq_write(session->device, pkt);
+
+	return rc;
 }
 
 int vidc_hal_session_get_property(void *sess,
