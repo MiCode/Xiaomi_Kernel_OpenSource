@@ -977,7 +977,11 @@ static int __cpuinit acpuclk_cpu_callback(struct notifier_block *nfb,
 		/* Fall through. */
 	case CPU_UP_CANCELED:
 		acpuclk_krait_set_rate(cpu, hot_unplug_khz, SETRATE_HOTPLUG);
+
+		regulator_disable(sc->vreg[VREG_CORE].reg);
 		regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg, 0);
+		regulator_set_voltage(sc->vreg[VREG_CORE].reg, 0,
+						sc->vreg[VREG_CORE].max_vdd);
 		break;
 	case CPU_UP_PREPARE:
 		if (!sc->initialized) {
@@ -988,10 +992,20 @@ static int __cpuinit acpuclk_cpu_callback(struct notifier_block *nfb,
 		}
 		if (WARN_ON(!prev_khz[cpu]))
 			return NOTIFY_BAD;
+
+		rc = regulator_set_voltage(sc->vreg[VREG_CORE].reg,
+					sc->vreg[VREG_CORE].cur_vdd,
+					sc->vreg[VREG_CORE].max_vdd);
+		if (rc < 0)
+			return NOTIFY_BAD;
 		rc = regulator_set_optimum_mode(sc->vreg[VREG_CORE].reg,
 						sc->vreg[VREG_CORE].cur_ua);
 		if (rc < 0)
 			return NOTIFY_BAD;
+		rc = regulator_enable(sc->vreg[VREG_CORE].reg);
+		if (rc < 0)
+			return NOTIFY_BAD;
+
 		acpuclk_krait_set_rate(cpu, prev_khz[cpu], SETRATE_HOTPLUG);
 		break;
 	default:
