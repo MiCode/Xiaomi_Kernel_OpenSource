@@ -423,7 +423,7 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 	struct mba_data *drv = subsys_to_drv(subsys);
 
 	if (!drv->is_loadable)
-		return -ENODEV;
+		return 0;
 	/* MBA doesn't support shutdown */
 	pil_shutdown(&drv->q6->desc);
 	return 0;
@@ -435,7 +435,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	int ret;
 
 	if (!drv->is_loadable)
-		return -ENODEV;
+		return 0;
 	/*
 	 * At this time, the modem is shutdown. Therefore this function cannot
 	 * run concurrently with either the watchdog bite error handler or the
@@ -527,7 +527,7 @@ static int mss_start(const struct subsys_desc *desc)
 	struct mba_data *drv = subsys_to_drv(desc);
 
 	if (!drv->is_loadable)
-		return -ENODEV;
+		return 0;
 
 	ret = pil_boot(&drv->q6->desc);
 	if (ret)
