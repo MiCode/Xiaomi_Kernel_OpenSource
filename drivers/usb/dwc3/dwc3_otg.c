@@ -640,14 +640,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				}
 			}
 		} else {
-			if (charger) {
-				if (charger->chg_type == DWC3_INVALID_CHARGER)
-					charger->start_detection(dotg->charger,
-									false);
-				else
-					charger->chg_type =
-							DWC3_INVALID_CHARGER;
-			}
+			if (charger)
+				charger->start_detection(dotg->charger, false);
+
 			dwc3_otg_set_power(phy, 0);
 			dev_dbg(phy->dev, "No device, trying to suspend\n");
 			pm_runtime_put_sync(phy->dev);
