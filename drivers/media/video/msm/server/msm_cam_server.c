@@ -1645,6 +1645,7 @@ static const struct v4l2_file_operations msm_fops_server = {
 
 static const struct v4l2_ioctl_ops msm_ioctl_ops_server = {
 	.vidioc_subscribe_event = msm_server_v4l2_subscribe_event,
+	.vidioc_unsubscribe_event = msm_server_v4l2_unsubscribe_event,
 	.vidioc_default = msm_ioctl_server,
 };
 
