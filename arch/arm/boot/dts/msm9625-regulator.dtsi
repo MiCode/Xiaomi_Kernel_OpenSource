@@ -23,7 +23,6 @@
 
 	rpm-regulator-smpa2 {
 		status = "okay";
-		qcom,allow-atomic = <1>;
 		pm8019_s2: regulator-s2 {
 			regulator-min-microvolt = <1250000>;
 			regulator-max-microvolt = <1250000>;
