@@ -317,9 +317,20 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
 		pr_debug("ion hdl=%p buf=0x%x\n", data->srcp_ihdl, data->addr);
 
-		if (is_mdss_iommu_attached())
+		if (is_mdss_iommu_attached()) {
+			int domain;
+			if (data->flags & MDP_SECURE_OVERLAY_SESSION)
+				domain = MDSS_IOMMU_DOMAIN_SECURE;
+			else
+				domain = MDSS_IOMMU_DOMAIN_UNSECURE;
 			ion_unmap_iommu(iclient, data->srcp_ihdl,
-					mdss_get_iommu_domain(), 0);
+					mdss_get_iommu_domain(domain), 0);
+
+			if (domain == MDSS_IOMMU_DOMAIN_SECURE) {
+				msm_ion_unsecure_buffer(iclient,
+					data->srcp_ihdl);
+			}
+		}
 
 		ion_free(iclient, data->srcp_ihdl);
 		data->srcp_ihdl = NULL;
@@ -340,7 +351,7 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 
 	start = (unsigned long *) &data->addr;
 	len = (unsigned long *) &data->len;
-	data->flags = img->flags;
+	data->flags |= img->flags;
 	data->p_need = 0;
 
 	if (img->flags & MDP_BLIT_SRC_GEM) {
@@ -375,8 +386,24 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 		}
 
 		if (is_mdss_iommu_attached()) {
+			int domain;
+			if (data->flags & MDP_SECURE_OVERLAY_SESSION) {
+				domain = MDSS_IOMMU_DOMAIN_SECURE;
+				ret = msm_ion_secure_buffer(iclient,
+					data->srcp_ihdl, 0x2,
+					ION_UNSECURE_DELAYED);
+				if (IS_ERR_VALUE(ret)) {
+					ion_free(iclient, data->srcp_ihdl);
+					pr_err("failed to secure handle (%d)\n",
+						ret);
+					return ret;
+				}
+			} else {
+				domain = MDSS_IOMMU_DOMAIN_UNSECURE;
+			}
+
 			ret = ion_map_iommu(iclient, data->srcp_ihdl,
-					    mdss_get_iommu_domain(),
+					    mdss_get_iommu_domain(domain),
 					    0, SZ_4K, 0, start, len, 0,
 					    ION_IOMMU_UNMAP_DELAYED);
 		} else {

@@ -22,6 +22,8 @@
 #include <linux/workqueue.h>
 #include <linux/irqreturn.h>
 
+#include <mach/iommu_domains.h>
+
 #define MDSS_REG_WRITE(addr, val) writel_relaxed(val, mdss_res->mdp_base + addr)
 #define MDSS_REG_READ(addr) readl_relaxed(mdss_res->mdp_base + addr)
 
@@ -33,6 +35,21 @@ enum mdss_mdp_clk_type {
 	MDSS_CLK_MDP_LUT,
 	MDSS_CLK_MDP_VSYNC,
 	MDSS_MAX_CLK
+};
+
+enum mdss_iommu_domain_type {
+	MDSS_IOMMU_DOMAIN_SECURE,
+	MDSS_IOMMU_DOMAIN_UNSECURE,
+	MDSS_IOMMU_MAX_DOMAIN
+};
+
+struct mdss_iommu_map_type {
+	char *client_name;
+	char *ctx_name;
+	struct device *ctx;
+	struct msm_iova_partition partitions[1];
+	int npartitions;
+	int domain_idx;
 };
 
 struct mdss_data_type {
@@ -73,8 +90,8 @@ struct mdss_data_type {
 	u32 *mixer_type_map;
 
 	struct ion_client *iclient;
-	int iommu_domain;
 	int iommu_attached;
+	struct mdss_iommu_map_type *iommu_map;
 
 	struct early_suspend early_suspend;
 };
@@ -113,14 +130,14 @@ static inline int is_mdss_iommu_attached(void)
 	return mdss_res->iommu_attached;
 }
 
-static inline int mdss_get_iommu_domain(void)
+static inline int mdss_get_iommu_domain(u32 type)
 {
+	if (type >= MDSS_IOMMU_MAX_DOMAIN)
+		return -EINVAL;
+
 	if (!mdss_res)
 		return -ENODEV;
 
-	return mdss_res->iommu_domain;
+	return mdss_res->iommu_map[type].domain_idx;
 }
-
-int mdss_iommu_attach(void);
-int mdss_iommu_dettach(void);
 #endif /* MDSS_H */

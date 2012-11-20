@@ -721,6 +721,7 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 	size *= mfd->fb_page;
 
 	if (mfd->index == 0) {
+		int dom;
 		virt = allocate_contiguous_memory(size, MEMTYPE_EBI1, SZ_1M, 0);
 		if (!virt) {
 			pr_err("unable to alloc fbmem size=%u\n", size);
@@ -728,9 +729,9 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 		}
 		phys = memory_pool_node_paddr(virt);
 		if (is_mdss_iommu_attached()) {
-			msm_iommu_map_contig_buffer(phys,
-				mdss_get_iommu_domain(), 0, size, SZ_4K, 0,
-				&(mfd->iova));
+			dom = mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE);
+			msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K,
+						    0, &(mfd->iova));
 		}
 		pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
 			size, virt, phys, mfd->index);

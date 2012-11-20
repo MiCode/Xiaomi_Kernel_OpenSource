@@ -96,8 +96,9 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 		ion_phys(iclient, ihdl, &mdss_wb_mem, &img_size);
 
 		if (is_mdss_iommu_attached()) {
+			int domain = MDSS_IOMMU_DOMAIN_UNSECURE;
 			rc = ion_map_iommu(iclient, ihdl,
-					   mdss_get_iommu_domain(),
+					   mdss_get_iommu_domain(domain),
 					   0, SZ_4K, 0,
 					   (unsigned long *) &img->addr,
 					   (unsigned long *) &img->len,
@@ -569,6 +570,6 @@ EXPORT_SYMBOL(msm_fb_writeback_terminate);
 
 int msm_fb_get_iommu_domain(void)
 {
-	return mdss_get_iommu_domain();
+	return mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE);
 }
 EXPORT_SYMBOL(msm_fb_get_iommu_domain);

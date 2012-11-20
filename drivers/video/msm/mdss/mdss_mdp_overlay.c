@@ -198,7 +198,9 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 		return -EINVAL;
 	}
 
-	rot->rotations = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD);
+	/* keep only flags of interest to rotator */
+	rot->flags = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD |
+				   MDP_SECURE_OVERLAY_SESSION);
 
 	rot->format = fmt->format;
 	rot->img_width = req->src.width;
@@ -209,7 +211,7 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 	rot->src_rect.h = req->src_rect.h;
 
 	if (req->flags & MDP_DEINTERLACE) {
-		rot->rotations |= MDP_DEINTERLACE;
+		rot->flags |= MDP_DEINTERLACE;
 		rot->src_rect.h /= 2;
 	}
 
@@ -388,12 +390,14 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 static inline int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 					   struct mdss_mdp_data *data,
 					   struct msmfb_data *planes,
-					   int num_planes)
+					   int num_planes,
+					   u32 flags)
 {
 	int i;
 
 	memset(data, 0, sizeof(*data));
 	for (i = 0; i < num_planes; i++) {
+		data->p[i].flags = flags;
 		mdss_mdp_get_img(&planes[i], &data->p[i]);
 		if (data->p[0].len == 0)
 			break;
@@ -584,6 +588,7 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_rotator_session *rot;
 	struct mdss_mdp_data src_data, dst_data;
 	int ret;
+	u32 flgs;
 
 	rot = mdss_mdp_rotator_session_get(req->id);
 	if (!rot) {
@@ -591,13 +596,15 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 		return -ENOENT;
 	}
 
-	ret = mdss_mdp_overlay_get_buf(mfd, &src_data, &req->data, 1);
+	flgs = rot->flags & MDP_SECURE_OVERLAY_SESSION;
+
+	ret = mdss_mdp_overlay_get_buf(mfd, &src_data, &req->data, 1, flgs);
 	if (ret) {
 		pr_err("src_data pmem error\n");
 		goto rotate_done;
 	}
 
-	ret = mdss_mdp_overlay_get_buf(mfd, &dst_data, &req->dst_data, 1);
+	ret = mdss_mdp_overlay_get_buf(mfd, &dst_data, &req->dst_data, 1, flgs);
 	if (ret) {
 		pr_err("dst_data pmem error\n");
 		goto rotate_done;
@@ -623,6 +630,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_data *src_data;
 	int ret, buf_ndx;
+	u32 flags;
 
 	pipe = mdss_mdp_pipe_get_locked(req->id);
 	if (pipe == NULL) {
@@ -632,11 +640,13 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 
 	pr_debug("ov queue pnum=%d\n", pipe->num);
 
+	flags = (pipe->flags & MDP_SECURE_OVERLAY_SESSION);
+
 	buf_ndx = (pipe->play_cnt + 1) & 1; /* next buffer */
 	src_data = &pipe->buffers[buf_ndx];
 	mdss_mdp_overlay_free_buf(src_data);
 
-	ret = mdss_mdp_overlay_get_buf(mfd, src_data, &req->data, 1);
+	ret = mdss_mdp_overlay_get_buf(mfd, src_data, &req->data, 1, flags);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("src_data pmem error\n");
 	} else {
@@ -893,9 +903,9 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 		}
 
 		ret = msm_iommu_map_contig_buffer(mfd->cursor_buf_phys,
-						mdss_get_iommu_domain(), 0,
-						MDSS_MDP_CURSOR_SIZE, SZ_4K,
-						0, &(mfd->cursor_buf_iova));
+			mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE),
+			0, MDSS_MDP_CURSOR_SIZE, SZ_4K, 0,
+			&(mfd->cursor_buf_iova));
 		if (IS_ERR_VALUE(ret)) {
 			dma_free_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
 					  mfd->cursor_buf,
