@@ -148,7 +148,7 @@ static struct usb_descriptor_header *rmnet_hs_function[] = {
 
 /* Super speed support */
 static struct usb_endpoint_descriptor rmnet_ss_notify_desc  = {
-	.bLength =		sizeof rmnet_ss_notify_desc,
+	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
@@ -167,7 +167,7 @@ static struct usb_ss_ep_comp_descriptor rmnet_ss_notify_comp_desc = {
 };
 
 static struct usb_endpoint_descriptor rmnet_ss_in_desc = {
-	.bLength =		sizeof rmnet_ss_in_desc,
+	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
@@ -184,7 +184,7 @@ static struct usb_ss_ep_comp_descriptor rmnet_ss_in_comp_desc = {
 };
 
 static struct usb_endpoint_descriptor rmnet_ss_out_desc = {
-	.bLength =		sizeof rmnet_ss_out_desc,
+	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
