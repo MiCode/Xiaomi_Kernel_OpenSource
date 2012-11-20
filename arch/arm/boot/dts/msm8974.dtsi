@@ -985,7 +985,7 @@
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8841_s3>;
 
-		qcom,is_loadable = <1>;
+		qcom,is-loadable;
 		qcom,firmware-name = "mba";
 		qcom,pil-self-auth = <1>;
 	};
