@@ -2192,178 +2192,225 @@ unsigned int adreno_hang_detect(struct kgsl_device *device,
 	return hang_detected;
 }
 
-
-/* MUST be called with the device mutex held */
-static int adreno_waittimestamp(struct kgsl_device *device,
-				struct kgsl_context *context,
-				unsigned int timestamp,
-				unsigned int msecs)
+/**
+ * adreno_handle_hang - Process a hang detected in adreno_waittimestamp
+ * @device - pointer to a KGSL device structure
+ * @context - pointer to the active KGSL context
+ * @timestamp - the timestamp that the process was waiting for
+ *
+ * Process a possible GPU hang and try to recover from it cleanly
+ */
+static int adreno_handle_hang(struct kgsl_device *device,
+	struct kgsl_context *context, unsigned int timestamp)
 {
-	long status = 0;
-	uint io = 1;
-	static uint io_cnt;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct adreno_context *adreno_ctx = context ? context->devctxt : NULL;
-	int retries = 0;
-	unsigned int ts_issued;
 	unsigned int context_id = _get_context_id(context);
-	unsigned int time_elapsed = 0;
-	unsigned int prev_reg_val[hang_detect_regs_count];
-	unsigned int wait;
-	unsigned int retry_ts_cmp = 0;
-	unsigned int retry_ts_cmp_msecs = KGSL_SYNCOBJ_SERVER_TIMEOUT;
+	unsigned int ts_issued;
 
-	memset(prev_reg_val, 0, sizeof(prev_reg_val));
+	/* Do one last check to see if we somehow made it through */
+	if (kgsl_check_timestamp(device, context, timestamp))
+		return 0;
 
 	ts_issued = adreno_dev->ringbuffer.timestamp[context_id];
 
-	/* Don't wait forever, set a max value for now */
-	if (msecs == KGSL_TIMEOUT_DEFAULT)
-		msecs = adreno_dev->wait_timeout;
-
-	/*
-	 * With user generated ts, if this check fails perform this check
-	 * again after 'retry_ts_cmp_msecs' milliseconds.
-	 */
-	if (timestamp_cmp(timestamp, ts_issued) > 0) {
-		if (adreno_ctx == NULL ||
-			!(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS)) {
-			if (context && !context->wait_on_invalid_ts) {
-				KGSL_DRV_ERR(device,
-				"Cannot wait for invalid ts <%d:0x%x>, "
-				"last issued ts <%d:0x%x>\n",
-				context_id, timestamp, context_id, ts_issued);
-				/*
-				 * Prevent the above message from spamming the
-				 * kernel logs and causing a watchdog
-				 */
-				context->wait_on_invalid_ts = true;
-			}
-			status = -EINVAL;
-			goto done;
-		} else
-			retry_ts_cmp = 1;
-	} else if (context && context->wait_on_invalid_ts) {
-		/* Once we wait for a valid ts reset the invalid wait flag */
-		context->wait_on_invalid_ts = false;
-	}
-
-	/*
-	 * Make the first timeout interval 100 msecs and then try to kick the
-	 * wptr again.  This helps to ensure the wptr is updated properly.  If
-	 * the requested timeout is less than 100 msecs, then wait 20msecs which
-	 * is the minimum amount of time we can safely wait at 100HZ
-	 */
-
-	if (msecs == 0 || msecs >= 100)
-		wait = 100;
-	else
-		wait = 20;
-
-	do {
-		/*
-		 * If the context ID is invalid, we are in a race with
-		 * the context being destroyed by userspace so bail.
-		 */
-		if (context_id == KGSL_CONTEXT_INVALID) {
-			KGSL_DRV_WARN(device, "context was detached");
-			status = -EINVAL;
-			goto done;
-		}
-		if (kgsl_check_timestamp(device, context, timestamp)) {
-			/* if the timestamp happens while we're not
-			 * waiting, there's a chance that an interrupt
-			 * will not be generated and thus the timestamp
-			 * work needs to be queued.
-			 */
-			queue_work(device->work_queue, &device->ts_expired_ws);
-			status = 0;
-			goto done;
-		}
-
-		io_cnt = (io_cnt + 1) % 100;
-		if (io_cnt <
-		    pwr->pwrlevels[pwr->active_pwrlevel].io_fraction)
-			io = 0;
-
-		if ((retries > 0) &&
-			(adreno_hang_detect(device, prev_reg_val)))
-			goto hang_dump;
-
-		mutex_unlock(&device->mutex);
-		/* We need to make sure that the process is
-		 * placed in wait-q before its condition is called
-		 */
-		status = kgsl_wait_event_interruptible_timeout(
-				device->wait_queue,
-				kgsl_check_interrupt_timestamp(device,
-					context, timestamp),
-				msecs_to_jiffies(wait), io);
-
-		mutex_lock(&device->mutex);
-
-		if (status > 0) {
-			/*completed before the wait finished */
-			status = 0;
-			goto done;
-		} else if (status < 0) {
-			/*an error occurred*/
-			goto done;
-		}
-		/*this wait timed out*/
-
-		time_elapsed += wait;
-		wait = KGSL_TIMEOUT_PART;
-
-		if (!retry_ts_cmp)
-			retries++;
-		else if (time_elapsed >= retry_ts_cmp_msecs) {
-			ts_issued =
-				adreno_dev->ringbuffer.timestamp[context_id];
-			if (timestamp_cmp(timestamp, ts_issued) > 0) {
-				if (context && !context->wait_on_invalid_ts) {
-					KGSL_DRV_ERR(device,
-					"Cannot wait for user-generated ts <%d:0x%x>, "
-					"not submitted within server timeout period. "
-					"last issued ts <%d:0x%x>\n",
-					context_id, timestamp, context_id,
-					ts_issued);
-					context->wait_on_invalid_ts = true;
-				}
-				status = -EINVAL;
-				goto done;
-			} else if (context && context->wait_on_invalid_ts) {
-				context->wait_on_invalid_ts = false;
-			}
-			retry_ts_cmp = 0;
-		}
-
-	} while (!msecs || time_elapsed < msecs);
-
-hang_dump:
-	/*
-	 * Check if timestamp has retired here because we may have hit
-	 * recovery which can take some time and cause waiting threads
-	 * to timeout
-	 */
-	if (kgsl_check_timestamp(device, context, timestamp))
-		goto done;
-	status = -ETIMEDOUT;
 	KGSL_DRV_ERR(device,
 		     "Device hang detected while waiting for timestamp: "
 		     "<%d:0x%x>, last submitted timestamp: <%d:0x%x>, "
 		     "wptr: 0x%x\n",
 		      context_id, timestamp, context_id, ts_issued,
 		      adreno_dev->ringbuffer.wptr);
-	if (!adreno_dump_and_recover(device)) {
-		/* The timestamp that this process wanted
-		 * to wait on may be invalid or expired now
-		 * after successful recovery */
-			status = 0;
+
+	/* Return 0 after a successful recovery */
+	if (!adreno_dump_and_recover(device))
+		return 0;
+
+	return -ETIMEDOUT;
+}
+
+static int _check_pending_timestamp(struct kgsl_device *device,
+		struct kgsl_context *context, unsigned int timestamp)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int context_id = _get_context_id(context);
+	unsigned int ts_issued;
+
+	if (context_id == KGSL_CONTEXT_INVALID)
+		return -EINVAL;
+
+	ts_issued = adreno_dev->ringbuffer.timestamp[context_id];
+
+	if (timestamp_cmp(timestamp, ts_issued) <= 0)
+		return 0;
+
+	if (context && !context->wait_on_invalid_ts) {
+		KGSL_DRV_ERR(device, "Cannot wait for invalid ts <%d:0x%x>, last issued ts <%d:0x%x>\n",
+			context_id, timestamp, context_id, ts_issued);
+
+			/* Only print this message once */
+			context->wait_on_invalid_ts = true;
 	}
-done:
-	return (int)status;
+
+	return -EINVAL;
+}
+
+/**
+ * adreno_waittimestamp - sleep while waiting for the specified timestamp
+ * @device - pointer to a KGSL device structure
+ * @context - pointer to the active kgsl context
+ * @timestamp - GPU timestamp to wait for
+ * @msecs - amount of time to wait (in milliseconds)
+ *
+ * Wait 'msecs' milliseconds for the specified timestamp to expire. Wake up
+ * every KGSL_TIMEOUT_PART milliseconds to check for a device hang and process
+ * one if it happened.  Otherwise, spend most of our time in an interruptible
+ * wait for the timestamp interrupt to be processed.  This function must be
+ * called with the mutex already held.
+ */
+static int adreno_waittimestamp(struct kgsl_device *device,
+				struct kgsl_context *context,
+				unsigned int timestamp,
+				unsigned int msecs)
+{
+	static unsigned int io_cnt;
+	struct adreno_context *adreno_ctx = context ? context->devctxt : NULL;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	unsigned int context_id = _get_context_id(context);
+	unsigned int prev_reg_val[hang_detect_regs_count];
+	unsigned int time_elapsed = 0;
+	unsigned int wait;
+	int ts_compare = 1;
+	int io, ret = -ETIMEDOUT;
+
+	/* Get out early if the context has already been destroyed */
+
+	if (context_id == KGSL_CONTEXT_INVALID) {
+		KGSL_DRV_WARN(device, "context was detached");
+		return -EINVAL;
+	}
+
+	/*
+	 * Check to see if the requested timestamp is "newer" then the last
+	 * timestamp issued. If it is complain once and return error.  Only
+	 * print the message once per context so that badly behaving
+	 * applications don't spam the logs
+	 */
+
+	if (adreno_ctx && !(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS)) {
+		if (_check_pending_timestamp(device, context, timestamp))
+			return -EINVAL;
+
+		/* Reset the invalid timestamp flag on a valid wait */
+		context->wait_on_invalid_ts = false;
+	}
+
+
+	/* Clear the registers used for hang detection */
+	memset(prev_reg_val, 0, sizeof(prev_reg_val));
+
+	/*
+	 * On the first time through the loop only wait 100ms.
+	 * this gives enough time for the engine to start moving and oddly
+	 * provides better hang detection results than just going the full
+	 * KGSL_TIMEOUT_PART right off the bat. The exception to this rule
+	 * is if msecs happens to be < 100ms then just use the full timeout
+	 */
+
+	wait = 100;
+
+	do {
+		long status;
+
+		if (wait > (msecs - time_elapsed))
+			wait = msecs - time_elapsed;
+
+		/*
+		 * if the timestamp happens while we're not
+		 * waiting, there's a chance that an interrupt
+		 * will not be generated and thus the timestamp
+		 * work needs to be queued.
+		 */
+
+		if (kgsl_check_timestamp(device, context, timestamp)) {
+			queue_work(device->work_queue, &device->ts_expired_ws);
+			ret = 0;
+			break;
+		}
+
+		/* Check to see if the GPU is hung */
+		if (adreno_hang_detect(device, prev_reg_val)) {
+			ret = adreno_handle_hang(device, context, timestamp);
+			break;
+		}
+
+		/*
+		 * For proper power accounting sometimes we need to call
+		 * io_wait_interruptible_timeout and sometimes we need to call
+		 * plain old wait_interruptible_timeout. We call the regular
+		 * timeout N times out of 100, where N is a number specified by
+		 * the current power level
+		 */
+
+		io_cnt = (io_cnt + 1) % 100;
+		io = (io_cnt < pwr->pwrlevels[pwr->active_pwrlevel].io_fraction)
+			? 0 : 1;
+
+		mutex_unlock(&device->mutex);
+
+		/* Wait for a timestamp event */
+		status = kgsl_wait_event_interruptible_timeout(
+			device->wait_queue,
+			kgsl_check_interrupt_timestamp(device, context,
+				timestamp), msecs_to_jiffies(wait), io);
+
+		mutex_lock(&device->mutex);
+
+		/*
+		 * If status is non zero then either the condition was satisfied
+		 * or there was an error.  In either event, this is the end of
+		 * the line for us
+		 */
+
+		if (status != 0) {
+			ret = (status > 0) ? 0 : (int) status;
+			break;
+		}
+
+		time_elapsed += wait;
+
+		/* If user specified timestamps are being used, wait at least
+		 * KGSL_SYNCOBJ_SERVER_TIMEOUT msecs for the user driver to
+		 * issue a IB for a timestamp before checking to see if the
+		 * current timestamp we are waiting for is valid or not
+		 */
+
+		if (ts_compare && (adreno_ctx &&
+			(adreno_ctx->flags & CTXT_FLAGS_USER_GENERATED_TS))) {
+			if (time_elapsed > KGSL_SYNCOBJ_SERVER_TIMEOUT) {
+				ret = _check_pending_timestamp(device, context,
+					timestamp);
+				if (ret)
+					break;
+
+				/* Don't do this check again */
+				ts_compare = 0;
+
+				/*
+				 * Reset the invalid timestamp flag on a valid
+				 * wait
+				 */
+				context->wait_on_invalid_ts = false;
+			}
+		}
+
+		/*
+		 * all subsequent trips through the loop wait the full
+		 * KGSL_TIMEOUT_PART interval
+		 */
+		wait = KGSL_TIMEOUT_PART;
+
+	} while (!msecs || time_elapsed < msecs);
+
+	return ret;
 }
 
 static unsigned int adreno_readtimestamp(struct kgsl_device *device,
