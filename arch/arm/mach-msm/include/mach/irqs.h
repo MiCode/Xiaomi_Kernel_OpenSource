@@ -29,6 +29,15 @@
 #include "irqs-8092.h"
 #endif
 
+#elif defined(CONFIG_ARCH_MSM8910) || defined(CONFIG_ARCH_MSM8226)
+#ifdef CONFIG_ARCH_MSM8910
+#include "irqs-8910.h"
+#endif
+
+#ifdef CONFIG_ARCH_MSM8226
+#include "irqs-8226.h"
+#endif
+
 #elif defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930)
 
@@ -66,14 +75,10 @@
 
 #else
 
-#if defined(CONFIG_ARCH_MSM8910)
-#include "irqs-8910.h"
-#elif defined(CONFIG_ARCH_MSM9615)
+#if defined(CONFIG_ARCH_MSM9615)
 #include "irqs-9615.h"
 #elif defined(CONFIG_ARCH_MSM9625)
 #include "irqs-9625.h"
-#elif defined(CONFIG_ARCH_MSM8226)
-#include "irqs-8226.h"
 #elif defined(CONFIG_ARCH_MSM7X30)
 #include "irqs-7x30.h"
 #elif defined(CONFIG_ARCH_QSD8X50)
