@@ -547,6 +547,36 @@ static enum hrtimer_restart msm_dcvs_core_slack_timer(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
+int msm_dcvs_update_algo_params(void)
+{
+	static struct msm_dcvs_algo_param curr_params;
+	static DEFINE_MUTEX(param_update_mutex);
+	struct msm_dcvs_algo_param *new_params;
+	int cpu, ret = 0;
+
+	mutex_lock(&param_update_mutex);
+	new_params = &core_list[CPU_OFFSET + num_online_cpus() - 1].algo_param;
+
+	if (memcmp(&curr_params, new_params,
+		   sizeof(struct msm_dcvs_algo_param))) {
+		for_each_possible_cpu(cpu) {
+			ret = msm_dcvs_scm_set_algo_params(CPU_OFFSET + cpu,
+							   new_params);
+			if (ret) {
+				pr_err("scm set algo params failed on cpu %d, ret %d\n",
+				       cpu, ret);
+				mutex_unlock(&param_update_mutex);
+				return ret;
+			}
+		}
+		memcpy(&curr_params, new_params,
+		       sizeof(struct msm_dcvs_algo_param));
+	}
+
+	mutex_unlock(&param_update_mutex);
+	return ret;
+}
+
 /* Helper functions and macros for sysfs nodes for a core */
 #define CORE_FROM_ATTRIBS(attr, name) \
 	container_of(container_of(attr, struct core_attribs, name), \
@@ -601,12 +631,9 @@ static ssize_t msm_dcvs_attr_##_name##_store(struct kobject *kobj, \
 	} else { \
 		uint32_t old_val = core->algo_param._name; \
 		core->algo_param._name = val; \
-		ret = msm_dcvs_scm_set_algo_params(core->dcvs_core_id, \
-				&core->algo_param); \
+		ret = msm_dcvs_update_algo_params(); \
 		if (ret) { \
 			core->algo_param._name = old_val; \
-			__err("Error(%d) in setting %d for algo param %s\n",\
-					ret, val, __stringify(_name)); \
 		} \
 	} \
 	return count; \

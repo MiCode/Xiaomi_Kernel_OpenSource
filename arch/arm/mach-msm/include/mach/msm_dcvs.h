@@ -164,4 +164,14 @@ extern void msm_dcvs_update_limits(int dcvs_core_id);
  * or the number of CPUs online, requires it.
  */
 extern void msm_dcvs_apply_gpu_floor(unsigned long cpu_freq);
+
+/**
+ * msm_dcvs_update_algo_params
+ * @return:
+ *      0 on success, < 0 on error
+ *
+ * Updates the DCVS algorithm with parameters depending on the
+ * number of CPUs online.
+ */
+extern int msm_dcvs_update_algo_params(void);
 #endif
