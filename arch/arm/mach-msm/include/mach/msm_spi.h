@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2009, 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,10 @@ struct msm_spi_platform_data {
 	void (*gpio_release)(void);
 	int (*dma_config)(void);
 	const char *rsl_id;
-	uint32_t pm_lat;
-	uint32_t infinite_mode;
+	u32  pm_lat;
+	u32  infinite_mode;
+	bool ver_reg_exists;
+	bool use_bam;
+	u32  bam_consumer_pipe_index;
+	u32  bam_producer_pipe_index;
 };
