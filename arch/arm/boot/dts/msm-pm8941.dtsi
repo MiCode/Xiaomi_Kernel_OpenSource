@@ -742,6 +742,82 @@
 				qcom,fast-avg-setup = <0>;
 			};
 		};
+
+		qcom,vadc@3400 {
+			compatible = "qcom,qpnp-adc-tm";
+			reg = <0x3400 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts =	<0x0 0x34 0x0>,
+					<0x0 0x34 0x3>,
+				     <0x0 0x34 0x4>;
+			interrupt-names =	"eoc-int-en-set",
+						"high-thr-en-set",
+						"low-thr-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+
+			/* Channel Node */
+			chan@b9 {
+				label = "usb_id";
+				reg = <0xb9>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x48>;
+			};
+
+			chan@30 {
+				label = "batt_therm";
+				reg = <0x30>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <1>;
+				qcom,hw-settle-time = <0xf>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x68>;
+			};
+
+			chan@b5 {
+				label = "pa_therm1";
+				reg = <0xb5>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x70>;
+			};
+
+			chan@b7 {
+				label = "pa_therm2";
+				reg = <0xb7>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x78>;
+			};
+
+			chan@b4 {
+				label = "emmc_therm";
+				reg = <0xb4>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x80>;
+			};
+		};
 	};
 
 	qcom,pm8941@1 {
