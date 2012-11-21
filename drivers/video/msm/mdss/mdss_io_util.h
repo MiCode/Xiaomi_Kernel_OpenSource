@@ -58,6 +58,7 @@ struct dss_vreg {
 
 struct dss_gpio {
 	unsigned gpio;
+	unsigned value;
 	char gpio_name[32];
 };
 
