@@ -391,6 +391,9 @@ static void qpnp_vadc_work(struct work_struct *work)
 {
 	struct qpnp_vadc_drv *vadc = qpnp_vadc;
 
+	if (!vadc || !vadc->vadc_initialized)
+		return;
+
 	complete(&vadc->adc->adc_rslt_completion);
 
 	return;
@@ -819,7 +822,8 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 			GFP_KERNEL);
 	if (!adc_qpnp) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto fail;
 	}
 
 	vadc->adc = adc_qpnp;
@@ -827,7 +831,7 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 	rc = qpnp_adc_get_devicetree_data(spmi, vadc->adc);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to read device tree\n");
-		return rc;
+		goto fail;
 	}
 
 	rc = devm_request_irq(&spmi->dev, vadc->adc->adc_irq_eoc,
@@ -836,7 +840,7 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 	if (rc) {
 		dev_err(&spmi->dev,
 			"failed to request adc irq with error %d\n", rc);
-		return rc;
+		goto fail;
 	} else {
 		enable_irq_wake(vadc->adc->adc_irq_eoc);
 	}
@@ -846,7 +850,7 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 	rc = qpnp_vadc_init_hwmon(spmi);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to initialize qpnp hwmon adc\n");
-		return rc;
+		goto fail;
 	}
 	vadc->vadc_hwmon = hwmon_device_register(&vadc->adc->spmi->dev);
 	vadc->vadc_init_calib = false;
@@ -854,6 +858,9 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 	vadc->vadc_initialized = true;
 
 	return 0;
+fail:
+	qpnp_vadc = NULL;
+	return rc;
 }
 
 static int qpnp_vadc_remove(struct spmi_device *spmi)

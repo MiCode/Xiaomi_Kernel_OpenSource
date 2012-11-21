@@ -175,6 +175,9 @@ static void trigger_iadc_completion(struct work_struct *work)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 
+	if (!iadc || !iadc->iadc_initialized)
+		return;
+
 	complete(&iadc->adc->adc_rslt_completion);
 
 	return;
@@ -727,7 +730,8 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 			GFP_KERNEL);
 	if (!adc_qpnp) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto fail;
 	}
 
 	iadc->adc = adc_qpnp;
@@ -735,14 +739,14 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 	rc = qpnp_adc_get_devicetree_data(spmi, iadc->adc);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to read device tree\n");
-		return rc;
+		goto fail;
 	}
 
 	rc = of_property_read_u32(node, "qcom,rsense",
 			&iadc->rsense);
 	if (rc) {
 		pr_err("Invalid rsens reference property\n");
-		return -EINVAL;
+		goto fail;
 	}
 
 	rc = devm_request_irq(&spmi->dev, iadc->adc->adc_irq_eoc,
@@ -750,7 +754,7 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 	IRQF_TRIGGER_RISING, "qpnp_iadc_interrupt", iadc);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to request adc irq\n");
-		return rc;
+		goto fail;
 	} else
 		enable_irq_wake(iadc->adc->adc_irq_eoc);
 
@@ -761,20 +765,20 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 	rc = qpnp_iadc_init_hwmon(spmi);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to initialize qpnp hwmon adc\n");
-		return rc;
+		goto fail;
 	}
 	iadc->iadc_hwmon = hwmon_device_register(&iadc->adc->spmi->dev);
 
 	rc = qpnp_iadc_version_check();
 	if (rc) {
 		dev_err(&spmi->dev, "IADC version not supported\n");
-		return rc;
+		goto fail;
 	}
 
 	rc = qpnp_iadc_calibrate_for_trim();
 	if (rc) {
 		dev_err(&spmi->dev, "failed to calibrate for USR trim\n");
-		return rc;
+		goto fail;
 	}
 	iadc->iadc_init_calib = true;
 	INIT_DELAYED_WORK(&iadc->iadc_work, qpnp_iadc_work);
@@ -784,6 +788,9 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 	iadc->iadc_initialized = true;
 
 	return 0;
+fail:
+	adc_qpnp = NULL;
+	return rc;
 }
 
 static int qpnp_iadc_remove(struct spmi_device *spmi)

@@ -944,6 +944,9 @@ static int qpnp_adc_tm_read_status(void)
 	u8 thr_int_disable = 0;
 	int rc = 0, sensor_notify_num = 0;
 
+	if (!adc_tm || !adc_tm->adc_tm_initialized)
+		return -ENODEV;
+
 	rc = qpnp_adc_tm_read_reg(QPNP_ADC_TM_STATUS_LOW, &status_low);
 	if (rc) {
 		pr_err("adc-tm-tm read status low failed with %d\n", rc);
@@ -1364,7 +1367,8 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 			GFP_KERNEL);
 	if (!adc_qpnp) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto fail;
 	}
 
 	adc_tm->adc = adc_qpnp;
@@ -1372,7 +1376,7 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 	rc = qpnp_adc_get_devicetree_data(spmi, adc_tm->adc);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to read device tree\n");
-		return rc;
+		goto fail;
 	}
 
 	/* Register the ADC peripheral interrupt */
@@ -1380,14 +1384,16 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 						NULL, "high-thr-en-set");
 	if (adc_tm->adc->adc_high_thr_irq < 0) {
 		pr_err("Invalid irq\n");
-		return -ENXIO;
+		rc = -ENXIO;
+		goto fail;
 	}
 
 	adc_tm->adc->adc_low_thr_irq = spmi_get_irq_byname(spmi,
 						NULL, "low-thr-en-set");
 	if (adc_tm->adc->adc_low_thr_irq < 0) {
 		pr_err("Invalid irq\n");
-		return -ENXIO;
+		rc = -ENXIO;
+		goto fail;
 	}
 
 	rc = devm_request_irq(&spmi->dev, adc_tm->adc->adc_irq_eoc,
@@ -1396,7 +1402,7 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 	if (rc) {
 		dev_err(&spmi->dev,
 			"failed to request adc irq with error %d\n", rc);
-		return rc;
+		goto fail;
 	} else {
 		enable_irq_wake(adc_tm->adc->adc_irq_eoc);
 	}
@@ -1406,7 +1412,7 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 		IRQF_TRIGGER_RISING, "qpnp_adc_tm_high_interrupt", adc_tm);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to request adc irq\n");
-		return rc;
+		goto fail;
 	} else {
 		enable_irq_wake(adc_tm->adc->adc_high_thr_irq);
 	}
@@ -1416,7 +1422,7 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 		IRQF_TRIGGER_RISING, "qpnp_adc_tm_low_interrupt", adc_tm);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to request adc irq\n");
-		return rc;
+		goto fail;
 	} else {
 		enable_irq_wake(adc_tm->adc->adc_low_thr_irq);
 	}
@@ -1428,7 +1434,7 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 				"qcom,btm-channel-number", &btm_channel_num);
 		if (rc) {
 			pr_err("Invalid btm channel number\n");
-			return -EINVAL;
+			goto fail;
 		}
 
 		if ((btm_channel_num != QPNP_ADC_TM_M0_ADC_CH_SEL_CTL) &&
@@ -1463,24 +1469,27 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 	rc = qpnp_adc_tm_write_reg(QPNP_ADC_TM_HIGH_THR_INT_EN, thr_init);
 	if (rc < 0) {
 		pr_err("high thr init failed\n");
-		return rc;
+		goto fail;
 	}
 
 	rc = qpnp_adc_tm_write_reg(QPNP_ADC_TM_LOW_THR_INT_EN, thr_init);
 	if (rc < 0) {
 		pr_err("low thr init failed\n");
-		return rc;
+		goto fail;
 	}
 
 	rc = qpnp_adc_tm_write_reg(QPNP_ADC_TM_MULTI_MEAS_EN, thr_init);
 	if (rc < 0) {
 		pr_err("multi meas en failed\n");
-		return rc;
+		goto fail;
 	}
 
 	adc_tm->adc_tm_initialized = true;
 
 	return 0;
+fail:
+	adc_qpnp = NULL;
+	return rc;
 }
 
 static int qpnp_adc_tm_remove(struct spmi_device *spmi)
