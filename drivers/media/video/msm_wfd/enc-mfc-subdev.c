@@ -23,6 +23,8 @@
 
 #define VID_ENC_MAX_ENCODER_CLIENTS 1
 #define MAX_NUM_CTRLS 20
+#define V4L2_FRAME_FLAGS (V4L2_BUF_FLAG_KEYFRAME | V4L2_BUF_FLAG_PFRAME | \
+		V4L2_BUF_FLAG_BFRAME | V4L2_QCOM_BUF_FLAG_CODECCONFIG)
 
 static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg);
 
@@ -179,6 +181,7 @@ static void venc_cb(u32 event, u32 status, void *info, u32 size, void *handle,
 		vbuf->v4l2_planes[0].bytesused =
 			frame_data->data_len;
 
+		vbuf->v4l2_buf.flags &= ~(V4L2_FRAME_FLAGS);
 		switch (frame_data->frame) {
 		case VCD_FRAME_I:
 		case VCD_FRAME_IDR:
