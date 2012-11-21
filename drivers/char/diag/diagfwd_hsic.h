@@ -17,14 +17,14 @@
 
 #define N_MDM_WRITE	8
 #define N_MDM_READ	1
-
 #define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
 
-int diagfwd_connect_bridge(int);
-int diagfwd_disconnect_bridge(int);
 int diagfwd_write_complete_hsic(struct diag_request *);
 int diagfwd_cancel_hsic(void);
-void diagfwd_bridge_init(void);
-void diagfwd_bridge_exit(void);
+void diag_read_usb_hsic_work_fn(struct work_struct *work);
+void diag_usb_read_complete_hsic_fn(struct work_struct *w);
+extern struct diag_bridge_ops hsic_diag_bridge_ops;
+extern struct platform_driver msm_hsic_ch_driver;
+void diag_hsic_close(void);
 
 #endif

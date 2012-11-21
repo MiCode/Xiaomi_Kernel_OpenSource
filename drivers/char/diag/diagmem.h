@@ -18,7 +18,7 @@ void *diagmem_alloc(struct diagchar_dev *driver, int size, int pool_type);
 void diagmem_free(struct diagchar_dev *driver, void *buf, int pool_type);
 void diagmem_init(struct diagchar_dev *driver);
 void diagmem_exit(struct diagchar_dev *driver, int pool_type);
-#ifdef CONFIG_DIAG_BRIDGE_CODE
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diagmem_hsic_init(struct diagchar_dev *driver);
 #endif
 #endif

@@ -16,6 +16,7 @@
 #include <linux/debugfs.h>
 #include "diagchar.h"
 #include "diagfwd.h"
+#include "diagfwd_bridge.h"
 
 #define DEBUG_BUF_SIZE	4096
 static struct dentry *diag_dbgfs_dent;
@@ -195,8 +196,8 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	return ret;
 }
 
-#ifdef CONFIG_DIAG_BRIDGE_CODE
-static ssize_t diag_dbgfs_read_hsic(struct file *file, char __user *ubuf,
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 				    size_t count, loff_t *ppos)
 {
 	char *buf;
@@ -220,13 +221,17 @@ static ssize_t diag_dbgfs_read_hsic(struct file *file, char __user *ubuf,
 		"count_hsic_write_pool: %d\n"
 		"diag_hsic_pool: %x\n"
 		"diag_hsic_write_pool: %x\n"
-		"write_len_mdm: %d\n"
+		"HSIC write_len: %d\n"
 		"num_hsic_buf_tbl_entries: %d\n"
-		"usb_mdm_connected: %d\n"
-		"diag_read_mdm_work: %d\n"
+		"HSIC usb_connected: %d\n"
+		"HSIC diag_read_work: %d\n"
 		"diag_read_hsic_work: %d\n"
 		"diag_disconnect_work: %d\n"
-		"diag_usb_read_complete_work: %d\n",
+		"diag_usb_read_complete_work: %d\n"
+		"smux ch: %d"
+		"smux enabled %d"
+		"smux in busy %d"
+		"smux connected %d",
 		driver->hsic_ch,
 		driver->hsic_inited,
 		driver->hsic_device_enabled,
@@ -238,13 +243,17 @@ static ssize_t diag_dbgfs_read_hsic(struct file *file, char __user *ubuf,
 		driver->count_hsic_write_pool,
 		(unsigned int)driver->diag_hsic_pool,
 		(unsigned int)driver->diag_hsic_write_pool,
-		driver->write_len_mdm,
+			diag_bridge[HSIC].write_len,
 		driver->num_hsic_buf_tbl_entries,
-		driver->usb_mdm_connected,
-		work_pending(&(driver->diag_read_mdm_work)),
+			diag_bridge[HSIC].usb_connected,
+			work_pending(&(diag_bridge[HSIC].diag_read_work)),
 		work_pending(&(driver->diag_read_hsic_work)),
 		work_pending(&(driver->diag_disconnect_work)),
-		work_pending(&(driver->diag_usb_read_complete_work)));
+		work_pending(&(diag_bridge[HSIC].usb_read_complete_work)),
+		driver->lcid,
+		driver->diag_smux_enabled,
+		driver->in_busy_smux,
+		driver->smux_connected);
 
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
 
@@ -252,8 +261,8 @@ static ssize_t diag_dbgfs_read_hsic(struct file *file, char __user *ubuf,
 	return ret;
 }
 
-const struct file_operations diag_dbgfs_hsic_ops = {
-	.read = diag_dbgfs_read_hsic,
+const struct file_operations diag_dbgfs_bridge_ops = {
+	.read = diag_dbgfs_read_bridge,
 };
 #endif
 
@@ -284,9 +293,9 @@ void diag_debugfs_init(void)
 	debugfs_create_file("work_pending", 0444, diag_dbgfs_dent, 0,
 		&diag_dbgfs_workpending_ops);
 
-#ifdef CONFIG_DIAG_BRIDGE_CODE
-	debugfs_create_file("hsic", 0444, diag_dbgfs_dent, 0,
-		&diag_dbgfs_hsic_ops);
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+	debugfs_create_file("bridge", 0444, diag_dbgfs_dent, 0,
+		&diag_dbgfs_bridge_ops);
 #endif
 
 	diag_dbgfs_table_index = 0;
