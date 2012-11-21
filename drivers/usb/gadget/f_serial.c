@@ -246,7 +246,7 @@ static struct usb_ss_ep_comp_descriptor gser_ss_bulk_comp_desc = {
 
 #ifdef CONFIG_MODEM_SUPPORT
 static struct usb_endpoint_descriptor gser_ss_notify_desc  = {
-	.bLength =		sizeof gser_ss_notify_desc,
+	.bLength =		USB_DT_ENDPOINT_SIZE,
 	.bDescriptorType =	USB_DT_ENDPOINT,
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
