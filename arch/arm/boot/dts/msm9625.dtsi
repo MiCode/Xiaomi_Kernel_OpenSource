@@ -97,6 +97,38 @@
 		HSIC_GDSC-supply = <&gdsc_usb_hsic>;
 	};
 
+	qcom,usbbam@f9a44000 {
+		compatible = "qcom,usb-bam-msm";
+		reg = <0xf9a44000 0x11000>;
+		reg-names = "hsusb";
+		interrupts = <0 135 0>;
+		interrupt-names = "hsusb";
+		qcom,usb-active-bam = <1>;
+		qcom,usb-total-bam-num = <3>;
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,ignore-core-reset-ack;
+
+		qcom,pipe0 {
+			label = "usb-to-ipa";
+			qcom,usb-bam-type = <1>;
+			qcom,usb-bam-mem-type = <2>;
+			qcom,src-bam-physical-address = <0xf9a44000>;
+			qcom,src-bam-pipe-index = <1>;
+			qcom,data-fifo-size = <0x600>;
+			qcom,descriptor-fifo-size = <0x300>;
+		};
+
+		qcom,pipe1 {
+			label = "ipa-to-usb";
+			qcom,usb-bam-type = <1>;
+			qcom,usb-bam-mem-type = <2>;
+			qcom,dst-bam-physical-address = <0xf9a44000>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-size = <0x600>;
+			qcom,descriptor-fifo-size = <0x100>;
+		};
+	};
+
 	qcom,nand@f9ac0000 {
 		compatible = "qcom,msm-nand";
 		reg = <0xf9ac0000 0x1000>,
