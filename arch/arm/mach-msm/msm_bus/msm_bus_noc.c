@@ -362,16 +362,18 @@ static int msm_bus_noc_mas_init(struct msm_bus_noc_info *ninfo,
 	}
 
 	for (i = 0; i < info->node_info->num_mports; i++) {
-		if (info->node_info->mode != NOC_QOS_MODE_BYPASS)
+		if (info->node_info->mode != NOC_QOS_MODE_BYPASS) {
 			noc_set_qos_priority(ninfo, info->node_info->qport[i],
 				prio);
 
-		if (info->node_info->mode != NOC_QOS_MODE_FIXED) {
-			struct msm_bus_noc_qos_bw qbw;
-			qbw.ws = info->node_info->ws;
-			qbw.bw = 0;
-			msm_bus_noc_set_qos_bw(ninfo, info->node_info->qport[i],
-				info->node_info->perm_mode, &qbw);
+			if (info->node_info->mode != NOC_QOS_MODE_FIXED) {
+				struct msm_bus_noc_qos_bw qbw;
+				qbw.ws = info->node_info->ws;
+				qbw.bw = 0;
+				msm_bus_noc_set_qos_bw(ninfo, info->node_info->
+					qport[i], info->node_info->perm_mode,
+					&qbw);
+			}
 		}
 
 		noc_set_qos_mode(ninfo, info->node_info->qport[i], info->
