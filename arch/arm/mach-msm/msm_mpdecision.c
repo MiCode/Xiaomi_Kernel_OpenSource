@@ -392,6 +392,7 @@ restart:
 				}
 		msm_mpd.hpupdate = HPUPDATE_WAITING;
 		msm_dcvs_apply_gpu_floor(0);
+		msm_dcvs_update_algo_params();
 	}
 
 	return 0;
