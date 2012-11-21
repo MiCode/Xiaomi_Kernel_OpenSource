@@ -375,29 +375,61 @@ static int __init meminfo_cmp(const void *_a, const void *_b)
 	return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
 }
 
+unsigned long memory_hole_offset;
+EXPORT_SYMBOL(memory_hole_offset);
+unsigned long memory_hole_start;
+EXPORT_SYMBOL(memory_hole_start);
+unsigned long memory_hole_end;
+EXPORT_SYMBOL(memory_hole_end);
+
 #ifdef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
-unsigned long membank0_size;
-EXPORT_SYMBOL(membank0_size);
-unsigned long membank1_start;
-EXPORT_SYMBOL(membank1_start);
-
-void __init find_membank0_hole(void)
+void find_memory_hole(void)
 {
-	sort(&meminfo.bank, meminfo.nr_banks,
-		sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
+	int i;
+	unsigned long hole_start;
+	unsigned long hole_size;
 
-	membank0_size = meminfo.bank[0].size;
-	membank1_start = meminfo.bank[1].start;
+	/*
+	 * Find the start and end of the hole, using meminfo
+	 * if it hasnt been found already.
+	 */
+	if (memory_hole_start == 0 && memory_hole_end == 0) {
+		for (i = 0; i < (meminfo.nr_banks - 1); i++) {
+			if ((meminfo.bank[i].start + meminfo.bank[i].size) !=
+						meminfo.bank[i+1].start) {
+				if (meminfo.bank[i].start + meminfo.bank[i].size
+							<= MAX_HOLE_ADDRESS) {
+
+					hole_start = meminfo.bank[i].start +
+							meminfo.bank[i].size;
+					hole_size = meminfo.bank[i+1].start -
+								hole_start;
+
+					if (memory_hole_start == 0 &&
+							memory_hole_end == 0) {
+						memory_hole_start = hole_start;
+						memory_hole_end = hole_start +
+								hole_size;
+					} else if ((memory_hole_end -
+					memory_hole_start) <= hole_size) {
+						memory_hole_start = hole_start;
+						memory_hole_end = hole_start +
+								hole_size;
+					}
+				}
+			}
+		}
+	}
+	memory_hole_offset = memory_hole_start - PHYS_OFFSET;
 }
+
 #endif
 
 void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 {
 	int i;
 
-#ifndef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
 	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
-#endif
 
 	for (i = 0; i < mi->nr_banks; i++)
 		memblock_add(mi->bank[i].start, mi->bank[i].size);

@@ -98,26 +98,25 @@ extern void store_ttbr0(void);
 #define finish_arch_switch(prev)	do { store_ttbr0(); } while (0)
 #endif
 
+#define MAX_HOLE_ADDRESS    (PHYS_OFFSET + 0x10000000)
+extern unsigned long memory_hole_offset;
+extern unsigned long memory_hole_start;
+extern unsigned long memory_hole_end;
 #ifdef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
-extern unsigned long membank0_size;
-extern unsigned long membank1_start;
-void find_membank0_hole(void);
+void find_memory_hole(void);
 
-#define MEMBANK0_PHYS_OFFSET PHYS_OFFSET
-#define MEMBANK0_PAGE_OFFSET PAGE_OFFSET
-
-#define MEMBANK1_PHYS_OFFSET (membank1_start)
-#define MEMBANK1_PAGE_OFFSET (MEMBANK0_PAGE_OFFSET + (membank0_size))
+#define MEM_HOLE_END_PHYS_OFFSET (memory_hole_end)
+#define MEM_HOLE_PAGE_OFFSET (PAGE_OFFSET + memory_hole_offset)
 
 #define __phys_to_virt(phys)				\
-	((MEMBANK1_PHYS_OFFSET && ((phys) >= MEMBANK1_PHYS_OFFSET)) ?	\
-	(phys) - MEMBANK1_PHYS_OFFSET + MEMBANK1_PAGE_OFFSET :	\
-	(phys) - MEMBANK0_PHYS_OFFSET + MEMBANK0_PAGE_OFFSET)
+	((MEM_HOLE_END_PHYS_OFFSET && ((phys) >= MEM_HOLE_END_PHYS_OFFSET)) ? \
+	(phys) - MEM_HOLE_END_PHYS_OFFSET + MEM_HOLE_PAGE_OFFSET :	\
+	(phys) - PHYS_OFFSET + PAGE_OFFSET)
 
 #define __virt_to_phys(virt)				\
-	((MEMBANK1_PHYS_OFFSET && ((virt) >= MEMBANK1_PAGE_OFFSET)) ?	\
-	(virt) - MEMBANK1_PAGE_OFFSET + MEMBANK1_PHYS_OFFSET :	\
-	(virt) - MEMBANK0_PAGE_OFFSET + MEMBANK0_PHYS_OFFSET)
+	((MEM_HOLE_END_PHYS_OFFSET && ((virt) >= MEM_HOLE_PAGE_OFFSET)) ? \
+	(virt) - MEM_HOLE_PAGE_OFFSET + MEM_HOLE_END_PHYS_OFFSET :	\
+	(virt) - PAGE_OFFSET + PHYS_OFFSET)
 #endif
 
 /*

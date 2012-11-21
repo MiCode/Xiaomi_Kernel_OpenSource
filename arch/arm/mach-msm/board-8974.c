@@ -71,10 +71,17 @@ static struct reserve_info msm8974_reserve_info __initdata = {
 	.paddr_to_memtype = msm8974_paddr_to_memtype,
 };
 
-static void __init msm8974_early_memory(void)
+void __init msm_8974_reserve(void)
 {
 	reserve_info = &msm8974_reserve_info;
 	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8974_reserve_table);
+	msm_reserve();
+}
+
+static void __init msm8974_early_memory(void)
+{
+	reserve_info = &msm8974_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_hole, msm8974_reserve_table);
 }
 
 #define BIMC_BASE	0xfc380000
@@ -389,7 +396,7 @@ DT_MACHINE_START(MSM8974_DT, "Qualcomm MSM 8974 (Flattened Device Tree)")
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
 	.dt_compat = msm8974_dt_match,
-	.reserve = msm_reserve,
+	.reserve = msm_8974_reserve,
 	.init_very_early = msm8974_init_very_early,
 	.restart = msm_restart,
 MACHINE_END
