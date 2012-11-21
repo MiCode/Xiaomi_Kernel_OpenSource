@@ -121,11 +121,13 @@ static struct reserve_info msm8226_reserve_info __initdata = {
 static void __init msm8226_early_memory(void)
 {
 	reserve_info = &msm8226_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8226_reserve_table);
+	of_scan_flat_dt(dt_scan_for_memory_hole, msm8226_reserve_table);
 }
 
 static void __init msm8226_reserve(void)
 {
+	reserve_info = &msm8226_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8226_reserve_table);
 	msm_reserve();
 }
 
