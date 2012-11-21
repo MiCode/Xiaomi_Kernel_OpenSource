@@ -595,18 +595,22 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 #define HSIC_PAD_CALIBRATION	0xA8
 #define HSIC_GPIO_PAD_VAL	0x0A0AAA10
 #define LINK_RESET_TIMEOUT_USEC		(250 * 1000)
-static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
+
+static void msm_hsic_phy_reset(struct msm_hsic_hcd *mehci)
 {
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
-	int ret;
-	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
 
 	msm_hsic_clk_reset(mehci);
 
 	/* select ulpi phy */
 	writel_relaxed(0x80000000, USB_PORTSC);
-
 	mb();
+}
+
+static int msm_hsic_start(struct msm_hsic_hcd *mehci)
+{
+	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
+	int ret;
 
 	/* HSIC init sequence when HSIC signals (Strobe/Data) are
 	routed via GPIOs */
@@ -667,6 +671,15 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 #define PHY_RESUME_TIMEOUT_USEC		(100 * 1000)
 
 #ifdef CONFIG_PM_SLEEP
+static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
+{
+	/* reset HSIC phy */
+	msm_hsic_phy_reset(mehci);
+
+	/* HSIC init procedure (caliberation) */
+	return msm_hsic_start(mehci);
+}
+
 static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 {
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
@@ -1660,11 +1673,8 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	init_completion(&mehci->rt_completion);
 	init_completion(&mehci->gpt0_completion);
-	ret = msm_hsic_reset(mehci);
-	if (ret) {
-		dev_err(&pdev->dev, "unable to initialize PHY\n");
-		goto deinit_vddcx;
-	}
+
+	msm_hsic_phy_reset(mehci);
 
 	ehci_wq = create_singlethread_workqueue("ehci_wq");
 	if (!ehci_wq) {
@@ -1678,7 +1688,13 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	ret = usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to register HCD\n");
-		goto unconfig_gpio;
+		goto destroy_wq;
+	}
+
+	ret = msm_hsic_start(mehci);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to initialize PHY\n");
+		goto destroy_wq;
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
@@ -1754,9 +1770,8 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	return 0;
 
-unconfig_gpio:
+destroy_wq:
 	destroy_workqueue(ehci_wq);
-	msm_hsic_config_gpios(mehci, 0);
 deinit_vddcx:
 	msm_hsic_init_vddcx(mehci, 0);
 	msm_hsic_init_gdsc(mehci, 0);
