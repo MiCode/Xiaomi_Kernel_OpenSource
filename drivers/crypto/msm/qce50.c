@@ -1161,6 +1161,7 @@ static int qce_sps_init(struct qce_device *pce_dev)
 		/* Register CE Peripheral BAM device to SPS driver */
 		rc = sps_register_bam_device(&bam, &bam_registry.handle);
 		if (rc) {
+			mutex_unlock(&bam_register_cnt);
 			pr_err("sps_register_bam_device() failed! err=%d", rc);
 			return -EIO;
 		}
