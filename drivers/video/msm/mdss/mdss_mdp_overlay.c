@@ -280,12 +280,12 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		else
 			pipe_type = MDSS_MDP_PIPE_TYPE_RGB;
 
-		pipe = mdss_mdp_pipe_alloc(pipe_type);
+		pipe = mdss_mdp_pipe_alloc(mixer, pipe_type);
 
 		/* VIG pipes can also support RGB format */
 		if (!pipe && pipe_type == MDSS_MDP_PIPE_TYPE_RGB) {
 			pipe_type = MDSS_MDP_PIPE_TYPE_VIG;
-			pipe = mdss_mdp_pipe_alloc(pipe_type);
+			pipe = mdss_mdp_pipe_alloc(mixer, pipe_type);
 		}
 
 		if (pipe == NULL) {
@@ -1325,6 +1325,12 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 {
 	struct device *dev = mfd->fbi->dev;
 	int rc;
+
+	mfd->mdata = dev_get_drvdata(mfd->pdev->dev.parent);
+	if (!mfd->mdata) {
+		pr_err("unable to initialize overlay for fb%d\n", mfd->index);
+		return -ENODEV;
+	}
 
 	mfd->on_fnc = mdss_mdp_overlay_on;
 	mfd->off_fnc = mdss_mdp_overlay_off;

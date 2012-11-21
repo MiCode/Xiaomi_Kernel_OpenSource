@@ -179,16 +179,24 @@ int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
-static struct mdss_mdp_pipe *mdss_mdp_pipe_init(u32 pnum)
+static struct mdss_mdp_pipe *mdss_mdp_pipe_init(
+		struct mdss_mdp_mixer *mixer, u32 pnum)
 {
-	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_pipe *pipe = NULL;
+	struct mdss_data_type *mdata;
 
+	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
+		return NULL;
+
+	mdata = mixer->ctl->mdata;
 	pipe = &mdss_mdp_pipe_list[pnum];
 
 	if (atomic_cmpxchg(&pipe->ref_cnt, 0, 1) == 0) {
 		pipe->num = pnum;
 		pipe->type = mdss_res->pipe_type_map[pnum];
 		pipe->ndx = BIT(pnum);
+		pipe->base = mdata->mdp_base + MDSS_MDP_REG_SSPP_OFFSET(pnum);
+		pipe->mixer = mixer;
 
 		pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
 
@@ -198,17 +206,19 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(u32 pnum)
 	return NULL;
 }
 
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum)
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(
+		struct mdss_mdp_mixer *mixer, u32 pnum)
 {
 	struct mdss_mdp_pipe *pipe = NULL;
 	mutex_lock(&mdss_mdp_sspp_lock);
 	if (mdss_res->pipe_type_map[pnum] != MDSS_MDP_PIPE_TYPE_UNUSED)
-		pipe = mdss_mdp_pipe_init(pnum);
+		pipe = mdss_mdp_pipe_init(mixer, pnum);
 	mutex_unlock(&mdss_mdp_sspp_lock);
 	return pipe;
 }
 
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(u32 type)
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(
+		struct mdss_mdp_mixer *mixer, u32 type)
 {
 	struct mdss_mdp_pipe *pipe = NULL;
 	int pnum;
@@ -216,7 +226,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(u32 type)
 	mutex_lock(&mdss_mdp_sspp_lock);
 	for (pnum = 0; pnum < MDSS_MDP_MAX_SSPP; pnum++) {
 		if (type == mdss_res->pipe_type_map[pnum]) {
-			pipe = mdss_mdp_pipe_init(pnum);
+			pipe = mdss_mdp_pipe_init(mixer, pnum);
 			if (pipe)
 				break;
 		}
@@ -283,14 +293,12 @@ int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
 {
-	int offset = MDSS_MDP_REG_SSPP_OFFSET(pipe->num);
-	MDSS_MDP_REG_WRITE(offset + reg, val);
+	writel_relaxed(val, pipe->base + reg);
 }
 
 static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 {
-	int offset = MDSS_MDP_REG_SSPP_OFFSET(pipe->num);
-	return MDSS_MDP_REG_READ(offset + reg);
+	return readl_relaxed(pipe->base + reg);
 }
 
 static int mdss_mdp_leading_zero(u32 num)

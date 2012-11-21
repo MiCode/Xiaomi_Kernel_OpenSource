@@ -87,10 +87,7 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 		goto done;
 	}
 
-	pipe = mdss_mdp_pipe_alloc_pnum(pnum);
-
-	if (!IS_ERR_OR_NULL(pipe))
-		pipe->mixer = mixer;
+	pipe = mdss_mdp_pipe_alloc_pnum(mixer, pnum);
 done:
 	if (!pipe)
 		mdss_mdp_wb_mixer_destroy(mixer);
