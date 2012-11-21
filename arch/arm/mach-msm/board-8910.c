@@ -35,11 +35,28 @@
 #ifdef CONFIG_ION_MSM
 #include <mach/ion.h>
 #endif
+#include <mach/msm_memtypes.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/clk-provider.h>
 #include "board-dt.h"
 #include "clock.h"
+
+static struct memtype_reserve msm8910_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+	[MEMTYPE_EBI1] = {
+		.flags	=	MEMTYPE_FLAGS_1M_ALIGN,
+	},
+};
+
+static int msm8910_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
 
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
@@ -67,6 +84,22 @@ static struct of_dev_auxdata msm8910_auxdata_lookup[] __initdata = {
 	{}
 };
 
+static struct reserve_info msm8910_reserve_info __initdata = {
+	.memtype_reserve_table = msm8910_reserve_table,
+	.paddr_to_memtype = msm8910_paddr_to_memtype,
+};
+
+static void __init msm8910_early_memory(void)
+{
+	reserve_info = &msm8910_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8910_reserve_table);
+}
+
+static void __init msm8910_reserve(void)
+{
+	msm_reserve();
+}
+
 void __init msm8910_init(void)
 {
 	struct of_dev_auxdata *adata = msm8910_auxdata_lookup;
@@ -93,4 +126,6 @@ DT_MACHINE_START(MSM8910_DT, "Qualcomm MSM 8910 (Flattened Device Tree)")
 	.timer = &msm_dt_timer,
 	.dt_compat = msm8910_dt_match,
 	.restart = msm_restart,
+	.reserve = msm8910_reserve,
+	.init_very_early = msm8910_early_memory
 MACHINE_END
