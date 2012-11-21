@@ -131,6 +131,8 @@ struct mdss_mdp_ctl {
 	u32 bus_ib_quota;
 	u32 clk_rate;
 
+	char __iomem *base;
+	struct mdss_data_type *mdata;
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_mixer *mixer_left;
 	struct mdss_mdp_mixer *mixer_right;
@@ -150,6 +152,7 @@ struct mdss_mdp_ctl {
 struct mdss_mdp_mixer {
 	u32 num;
 	u32 ref_cnt;
+	char __iomem *base;
 	u8 type;
 	u8 params_changed;
 
@@ -213,6 +216,7 @@ struct mdss_mdp_pipe {
 	u32 num;
 	u32 type;
 	u32 ndx;
+	char __iomem *base;
 	atomic_t ref_cnt;
 	u32 play_cnt;
 
@@ -260,14 +264,12 @@ struct mdss_mdp_writeback_arg {
 static inline void mdss_mdp_ctl_write(struct mdss_mdp_ctl *ctl,
 				      u32 reg, u32 val)
 {
-	int offset = MDSS_MDP_REG_CTL_OFFSET(ctl->num);
-	MDSS_MDP_REG_WRITE(offset + reg, val);
+	writel_relaxed(val, ctl->base + reg);
 }
 
 static inline u32 mdss_mdp_ctl_read(struct mdss_mdp_ctl *ctl, u32 reg)
 {
-	int offset = MDSS_MDP_REG_CTL_OFFSET(ctl->num);
-	return MDSS_MDP_REG_READ(offset + reg);
+	return readl_relaxed(ctl->base + reg);
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
@@ -333,9 +335,10 @@ int mdss_mdp_hist_collect(struct fb_info *info,
 		   struct mdp_histogram_data *hist, u32 *hist_data_addr);
 void mdss_mdp_hist_intr_done(u32 isr);
 
-
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum);
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(u32 type);
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(
+		struct mdss_mdp_mixer *mixer, u32 pnum);
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(
+		struct mdss_mdp_mixer *mixer, u32 type);
 struct mdss_mdp_pipe *mdss_mdp_pipe_get(u32 ndx);
 int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe);
