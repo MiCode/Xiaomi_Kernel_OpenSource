@@ -54,6 +54,8 @@
 	of_machine_is_compatible("qcom,msm8226")
 #define machine_is_msm8226_sim()		\
 	of_machine_is_compatible("qcom,msm8226-sim")
+#define machine_is_msm8226_rumi()		\
+	of_machine_is_compatible("qcom,msm8226-rumi")
 #define early_machine_is_msm8910()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8910")
 #define machine_is_msm8910()		\
@@ -74,6 +76,7 @@
 #define early_machine_is_msm8226()	0
 #define machine_is_msm8226()		0
 #define machine_is_msm8226_sim()	0
+#define machine_is_msm8226_rumi()	0
 #define early_machine_is_msm8910()	0
 #define machine_is_msm8910()		0
 #define machine_is_msm8910_sim()	0
