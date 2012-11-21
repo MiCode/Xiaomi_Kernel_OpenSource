@@ -46,7 +46,7 @@ struct bam_registration_info {
 	uint32_t cnt;
 };
 static struct bam_registration_info bam_registry;
-
+static bool ce_bam_registered;
 /*
  * CE HW device structure.
  * Each engine has an instance of the structure.
@@ -1157,6 +1157,10 @@ static int qce_sps_init(struct qce_device *pce_dev)
 	pr_debug("bam virtual base=0x%x\n", (u32)bam.virt_addr);
 
 	mutex_lock(&bam_register_cnt);
+	if (ce_bam_registered == false) {
+		bam_registry.handle = 0;
+		bam_registry.cnt = 0;
+	}
 	if ((bam_registry.handle == 0) && (bam_registry.cnt == 0)) {
 		/* Register CE Peripheral BAM device to SPS driver */
 		rc = sps_register_bam_device(&bam, &bam_registry.handle);
@@ -1167,6 +1171,7 @@ static int qce_sps_init(struct qce_device *pce_dev)
 		}
 		bam_registry.cnt++;
 		register_bam = true;
+		ce_bam_registered = true;
 	} else {
 		   bam_registry.cnt++;
 	}
@@ -1192,9 +1197,14 @@ static int qce_sps_init(struct qce_device *pce_dev)
 sps_connect_consumer_err:
 	qce_sps_exit_ep_conn(pce_dev, &pce_dev->ce_sps.producer);
 sps_connect_producer_err:
-	if (register_bam)
+	if (register_bam) {
+		mutex_lock(&bam_register_cnt);
 		sps_deregister_bam_device(pce_dev->ce_sps.bam_handle);
-
+		ce_bam_registered = false;
+		bam_registry.handle = 0;
+		bam_registry.cnt = 0;
+		mutex_unlock(&bam_register_cnt);
+	}
 	return rc;
 }
 
@@ -2787,22 +2797,6 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 	return 0;
 }
 EXPORT_SYMBOL(qce_hw_support);
-
-static int __init qce_init(void)
-{
-	bam_registry.handle = 0;
-	bam_registry.cnt = 0;
-	return 0;
-}
-
-static void __exit qce_exit(void)
-{
-	bam_registry.handle = 0;
-	bam_registry.cnt = 0;
-}
-
-module_init(qce_init);
-module_exit(qce_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Crypto Engine driver");
