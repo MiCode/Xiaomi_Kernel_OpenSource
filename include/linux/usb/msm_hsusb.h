@@ -394,6 +394,10 @@ struct msm_otg {
 struct msm_hsic_host_platform_data {
 	unsigned strobe;
 	unsigned data;
+	bool ignore_cal_pad_config;
+	int strobe_pad_offset;
+	int data_pad_offset;
+
 	struct msm_bus_scale_pdata *bus_scale_table;
 	unsigned log2_irq_thresh;
 
