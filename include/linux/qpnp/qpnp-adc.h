@@ -402,8 +402,11 @@ enum qpnp_adc_conv_seq_state {
 };
 
 /**
- * enum qpnp_adc_meas_timer - Selects the measurement interval time.
+ * enum qpnp_adc_meas_timer_1 - Selects the measurement interval time.
  *		If value = 0, use 0ms else use 2^(value + 4)/ 32768).
+ * The timer period is used by the USB_ID. Do not set a polling rate
+ * greater than 1 second on PMIC 2.0. The max polling rate on the PMIC 2.0
+ * appears to be limited to 1 second.
  * %ADC_MEAS_INTERVAL_0MS : 0ms
  * %ADC_MEAS_INTERVAL_1P0MS : 1ms
  * %ADC_MEAS_INTERVAL_2P0MS : 2ms
@@ -421,24 +424,126 @@ enum qpnp_adc_conv_seq_state {
  * %ADC_MEAS_INTERVAL_8S : 8seconds
  * %ADC_MEAS_INTERVAL_16S: 16seconds
  */
-enum qpnp_adc_meas_timer {
-	ADC_MEAS_INTERVAL_0MS = 0,
-	ADC_MEAS_INTERVAL_1P0MS,
-	ADC_MEAS_INTERVAL_2P0MS,
-	ADC_MEAS_INTERVAL_3P9MS,
-	ADC_MEAS_INTERVAL_7P8MS,
-	ADC_MEAS_INTERVAL_15P6MS,
-	ADC_MEAS_INTERVAL_31P3MS,
-	ADC_MEAS_INTERVAL_62P5MS,
-	ADC_MEAS_INTERVAL_125MS,
-	ADC_MEAS_INTERVAL_250MS,
-	ADC_MEAS_INTERVAL_500MS,
-	ADC_MEAS_INTERVAL_1S,
-	ADC_MEAS_INTERVAL_2S,
-	ADC_MEAS_INTERVAL_4S,
-	ADC_MEAS_INTERVAL_8S,
-	ADC_MEAS_INTERVAL_16S,
-	ADC_MEAS_INTERVAL_NONE,
+enum qpnp_adc_meas_timer_1 {
+	ADC_MEAS1_INTERVAL_0MS = 0,
+	ADC_MEAS1_INTERVAL_1P0MS,
+	ADC_MEAS1_INTERVAL_2P0MS,
+	ADC_MEAS1_INTERVAL_3P9MS,
+	ADC_MEAS1_INTERVAL_7P8MS,
+	ADC_MEAS1_INTERVAL_15P6MS,
+	ADC_MEAS1_INTERVAL_31P3MS,
+	ADC_MEAS1_INTERVAL_62P5MS,
+	ADC_MEAS1_INTERVAL_125MS,
+	ADC_MEAS1_INTERVAL_250MS,
+	ADC_MEAS1_INTERVAL_500MS,
+	ADC_MEAS1_INTERVAL_1S,
+	ADC_MEAS1_INTERVAL_2S,
+	ADC_MEAS1_INTERVAL_4S,
+	ADC_MEAS1_INTERVAL_8S,
+	ADC_MEAS1_INTERVAL_16S,
+	ADC_MEAS1_INTERVAL_NONE,
+};
+
+/**
+ * enum qpnp_adc_meas_timer_2 - Selects the measurement interval time.
+ *		If value = 0, use 0ms else use 2^(value + 4)/ 32768).
+ * The timer period is used by the batt_therm. Do not set a polling rate
+ * greater than 1 second on PMIC 2.0. The max polling rate on the PMIC 2.0
+ * appears to be limited to 1 second.
+ * %ADC_MEAS_INTERVAL_0MS : 0ms
+ * %ADC_MEAS_INTERVAL_100MS : 100ms
+ * %ADC_MEAS_INTERVAL_200MS : 200ms
+ * %ADC_MEAS_INTERVAL_300MS : 300ms
+ * %ADC_MEAS_INTERVAL_400MS : 400ms
+ * %ADC_MEAS_INTERVAL_500MS : 500ms
+ * %ADC_MEAS_INTERVAL_600MS : 600ms
+ * %ADC_MEAS_INTERVAL_700MS : 700ms
+ * %ADC_MEAS_INTERVAL_800MS : 800ms
+ * %ADC_MEAS_INTERVAL_900MS : 900ms
+ * %ADC_MEAS_INTERVAL_1S: 1seconds
+ * %ADC_MEAS_INTERVAL_1P1S: 1.1seconds
+ * %ADC_MEAS_INTERVAL_1P2S: 1.2seconds
+ * %ADC_MEAS_INTERVAL_1P3S: 1.3seconds
+ * %ADC_MEAS_INTERVAL_1P4S: 1.4seconds
+ * %ADC_MEAS_INTERVAL_1P5S: 1.5seconds
+ */
+enum qpnp_adc_meas_timer_2 {
+	ADC_MEAS2_INTERVAL_0MS = 0,
+	ADC_MEAS2_INTERVAL_100MS,
+	ADC_MEAS2_INTERVAL_200MS,
+	ADC_MEAS2_INTERVAL_300MS,
+	ADC_MEAS2_INTERVAL_400MS,
+	ADC_MEAS2_INTERVAL_500MS,
+	ADC_MEAS2_INTERVAL_600MS,
+	ADC_MEAS2_INTERVAL_700MS,
+	ADC_MEAS2_INTERVAL_800MS,
+	ADC_MEAS2_INTERVAL_900MS,
+	ADC_MEAS2_INTERVAL_1S,
+	ADC_MEAS2_INTERVAL_1P1S,
+	ADC_MEAS2_INTERVAL_1P2S,
+	ADC_MEAS2_INTERVAL_1P3S,
+	ADC_MEAS2_INTERVAL_1P4S,
+	ADC_MEAS2_INTERVAL_1P5S,
+	ADC_MEAS2_INTERVAL_NONE,
+};
+
+/**
+ * enum qpnp_adc_meas_timer_3 - Selects the measurement interval time.
+ *		If value = 0, use 0ms else use 2^(value + 4)/ 32768).
+ * Do not set a polling rate greater than 1 second on PMIC 2.0.
+ * The max polling rate on the PMIC 2.0 appears to be limited to 1 second.
+ * %ADC_MEAS_INTERVAL_0MS : 0ms
+ * %ADC_MEAS_INTERVAL_1S : 1seconds
+ * %ADC_MEAS_INTERVAL_2S : 2seconds
+ * %ADC_MEAS_INTERVAL_3S : 3seconds
+ * %ADC_MEAS_INTERVAL_4S : 4seconds
+ * %ADC_MEAS_INTERVAL_5S : 5seconds
+ * %ADC_MEAS_INTERVAL_6S: 6seconds
+ * %ADC_MEAS_INTERVAL_7S : 7seconds
+ * %ADC_MEAS_INTERVAL_8S : 8seconds
+ * %ADC_MEAS_INTERVAL_9S : 9seconds
+ * %ADC_MEAS_INTERVAL_10S : 10seconds
+ * %ADC_MEAS_INTERVAL_11S : 11seconds
+ * %ADC_MEAS_INTERVAL_12S : 12seconds
+ * %ADC_MEAS_INTERVAL_13S : 13seconds
+ * %ADC_MEAS_INTERVAL_14S : 14seconds
+ * %ADC_MEAS_INTERVAL_15S : 15seconds
+ */
+enum qpnp_adc_meas_timer_3 {
+	ADC_MEAS3_INTERVAL_0S = 0,
+	ADC_MEAS3_INTERVAL_1S,
+	ADC_MEAS3_INTERVAL_2S,
+	ADC_MEAS3_INTERVAL_3S,
+	ADC_MEAS3_INTERVAL_4S,
+	ADC_MEAS3_INTERVAL_5S,
+	ADC_MEAS3_INTERVAL_6S,
+	ADC_MEAS3_INTERVAL_7S,
+	ADC_MEAS3_INTERVAL_8S,
+	ADC_MEAS3_INTERVAL_9S,
+	ADC_MEAS3_INTERVAL_10S,
+	ADC_MEAS3_INTERVAL_11S,
+	ADC_MEAS3_INTERVAL_12S,
+	ADC_MEAS3_INTERVAL_13S,
+	ADC_MEAS3_INTERVAL_14S,
+	ADC_MEAS3_INTERVAL_15S,
+	ADC_MEAS3_INTERVAL_NONE,
+};
+
+/**
+ * enum qpnp_adc_meas_timer_select - Selects the timer for which
+ *	the appropriate polling frequency is set.
+ * %ADC_MEAS_TIMER_SELECT1 - Select this timer if the client is USB_ID.
+ * %ADC_MEAS_TIMER_SELECT2 - Select this timer if the client is batt_therm.
+ * %ADC_MEAS_TIMER_SELECT3 - The timer is added only for completion. It is
+ *	not used by kernel space clients and user space clients cannot set
+ *	the polling frequency. The driver will set a appropriate polling
+ *	frequency to measure the user space clients from qpnp_adc_meas_timer_3.
+ */
+enum qpnp_adc_meas_timer_select {
+	ADC_MEAS_TIMER_SELECT1 = 0,
+	ADC_MEAS_TIMER_SELECT2,
+	ADC_MEAS_TIMER_SELECT3,
+	ADC_MEAS_TIMER_NUM,
 };
 
 /**
@@ -452,6 +557,134 @@ enum qpnp_adc_meas_interval_op_ctl {
 	ADC_MEAS_INTERVAL_OP_SINGLE = 0,
 	ADC_MEAS_INTERVAL_OP_CONTINUOUS,
 	ADC_MEAS_INTERVAL_OP_NONE,
+};
+
+/**
+ * Channel selection registers for each of the 5 configurable measurements
+ * Channels allotment is fixed for the given channels below.
+ * The USB_ID and BATT_THERM channels are used only by the kernel space
+ * USB and Battery drivers.
+ * The other 3 channels are configurable for use by userspace clients.
+ * USB_ID uses QPNP_ADC_TM_M0_ADC_CH_SEL_CTL
+ * BATT_TEMP uses QPNP_ADC_TM_M1_ADC_CH_SEL_CTL
+ * PA_THERM1 uses QPNP_ADC_TM_M2_ADC_CH_SEL_CTL
+ * PA_THERM2 uses QPNP_ADC_TM_M3_ADC_CH_SEL_CTL
+ * EMMC_THERM uses QPNP_ADC_TM_M4_ADC_CH_SEL_CTL
+ */
+enum qpnp_adc_tm_channel_select	{
+	QPNP_ADC_TM_M0_ADC_CH_SEL_CTL = 0x48,
+	QPNP_ADC_TM_M1_ADC_CH_SEL_CTL = 0x68,
+	QPNP_ADC_TM_M2_ADC_CH_SEL_CTL = 0x70,
+	QPNP_ADC_TM_M3_ADC_CH_SEL_CTL = 0x78,
+	QPNP_ADC_TM_M4_ADC_CH_SEL_CTL = 0x80,
+	QPNP_ADC_TM_CH_SELECT_NONE
+};
+
+/**
+ * struct qpnp_adc_tm_config - Represent ADC Thermal Monitor configuration.
+ * @channel: ADC channel for which thermal monitoring is requested.
+ * @adc_code: The pre-calibrated digital output of a given ADC releative to the
+ *		ADC reference.
+ * @high_thr_temp: Temperature at which high threshold notification is required.
+ * @low_thr_temp: Temperature at which low threshold notification is required.
+ * @low_thr_voltage : Low threshold voltage ADC code used for reverse
+ *			calibration.
+ * @high_thr_voltage: High threshold voltage ADC code used for reverse
+ *			calibration.
+ */
+struct qpnp_adc_tm_config {
+	int	channel;
+	int	adc_code;
+	int	high_thr_temp;
+	int	low_thr_temp;
+	int64_t	high_thr_voltage;
+	int64_t	low_thr_voltage;
+};
+
+/**
+ * enum qpnp_adc_tm_trip_type - Type for setting high/low temperature/voltage.
+ * %ADC_TM_TRIP_HIGH_WARM: Setting high temperature. Note that high temperature
+ *			corresponds to low voltage. Driver handles this case
+ *			appropriately to set high/low thresholds for voltage.
+ *			threshold.
+ * %ADC_TM_TRIP_LOW_COOL: Setting low temperature.
+ */
+enum qpnp_adc_tm_trip_type {
+	ADC_TM_TRIP_HIGH_WARM = 0,
+	ADC_TM_TRIP_LOW_COOL,
+	ADC_TM_TRIP_NUM,
+};
+
+/**
+ * enum qpnp_tm_state - This lets the client know whether the threshold
+ *		that was crossed was high/low.
+ * %ADC_TM_HIGH_STATE: Client is notified of crossing the requested high
+ *			threshold.
+ * %ADC_TM_LOW_STATE: Client is notified of crossing the requested low
+ *			threshold.
+ */
+enum qpnp_tm_state {
+	ADC_TM_HIGH_STATE = 0,
+	ADC_TM_LOW_STATE,
+	ADC_TM_STATE_NUM,
+};
+
+/**
+ * enum qpnp_state_request - Request to enable/disable the corresponding
+ *			high/low voltage/temperature thresholds.
+ * %ADC_TM_HIGH_THR_ENABLE: Enable high voltage/temperature threshold.
+ * %ADC_TM_LOW_THR_ENABLE: Enable low voltage/temperature threshold.
+ * %ADC_TM_HIGH_LOW_THR_ENABLE: Enable high and low voltage/temperature
+ *				threshold.
+ * %ADC_TM_HIGH_THR_DISABLE: Disable high voltage/temperature threshold.
+ * %ADC_TM_LOW_THR_DISABLE: Disable low voltage/temperature threshold.
+ * %ADC_TM_HIGH_THR_DISABLE: Disable high and low voltage/temperature
+ *				threshold.
+ */
+enum qpnp_state_request {
+	ADC_TM_HIGH_THR_ENABLE = 0,
+	ADC_TM_LOW_THR_ENABLE,
+	ADC_TM_HIGH_LOW_THR_ENABLE,
+	ADC_TM_HIGH_THR_DISABLE,
+	ADC_TM_LOW_THR_DISABLE,
+	ADC_TM_HIGH_LOW_THR_DISABLE,
+	ADC_TM_THR_NUM,
+};
+
+/**
+ * struct qpnp_adc_tm_usbid_param - Represent USB_ID threshold
+ *				monitoring configuration.
+ * @high_thr: High voltage threshold for which notification is requested.
+ * @low_thr: Low voltage threshold for which notification is requested.
+ * @state_request: Enable/disable the corresponding high and low voltage
+ *		thresholds.
+ * @timer_interval: Select polling rate from qpnp_adc_meas_timer_1 type.
+ * @threshold_notification: Notification callback once threshold are crossed.
+ */
+struct qpnp_adc_tm_usbid_param {
+	int32_t					high_thr;
+	int32_t					low_thr;
+	enum qpnp_state_request			state_request;
+	enum qpnp_adc_meas_timer_1		timer_interval;
+	void	(*threshold_notification) (enum qpnp_tm_state state);
+};
+
+/**
+ * struct qpnp_adc_tm_btm_param - Represent Battery temperature threshold
+ *				monitoring configuration.
+ * @high_temp: High temperature threshold for which notification is requested.
+ * @low_temp: Low temperature threshold for which notification is requested.
+ * @state_request: Enable/disable the corresponding high and low temperature
+ *		thresholds.
+ * @timer_interval: Select polling rate from qpnp_adc_meas_timer_2 type.
+ * @threshold_notification: Notification callback once threshold are crossed.
+ */
+struct qpnp_adc_tm_btm_param {
+	int32_t					high_temp;
+	int32_t					low_temp;
+	enum qpnp_state_request			state_request;
+	enum qpnp_adc_meas_timer_2		timer_interval;
+	void	(*threshold_notification) (enum qpnp_tm_state state);
 };
 
 /**
@@ -541,7 +774,7 @@ struct qpnp_vadc_result {
 };
 
 /**
- * struct qpnp_adc_amux - AMUX properties for individual channel
+ * struct qpnp_vadc_amux - AMUX properties for individual channel
  * @name: Channel string name.
  * @channel_num: Channel in integer used from qpnp_adc_channels.
  * @chan_path_prescaling: Channel scaling performed on the input signal.
@@ -828,6 +1061,70 @@ int32_t qpnp_adc_scale_therm_pu2(int32_t adc_code,
  *		has not occured.
  */
 int32_t qpnp_vadc_is_ready(void);
+/**
+ * qpnp_adc_tm_scaler() - Performs reverse calibration.
+ * @config:	Thermal monitoring configuration.
+ * @adc_prop:	adc properties of the qpnp adc such as bit resolution and
+ *		reference voltage.
+ * @chan_prop:	Individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ */
+static inline int32_t qpnp_adc_tm_scaler(struct qpnp_adc_tm_config *tm_config,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop)
+{ return -ENXIO; }
+/**
+ * qpnp_get_vadc_gain_and_offset() - Obtains the VADC gain and offset
+ *		for absolute and ratiometric calibration.
+ * @param:	The result in which the ADC offset and gain values are stored.
+ * @type:	The calibration type whether client needs the absolute or
+ *		ratiometric gain and offset values.
+ */
+int32_t qpnp_get_vadc_gain_and_offset(struct qpnp_vadc_linear_graph *param,
+			enum qpnp_adc_calib_type calib_type);
+/**
+ * qpnp_adc_btm_scaler() - Performs reverse calibration on the low/high
+ *		temperature threshold values passed by the client.
+ *		The function maps the temperature to voltage and applies
+ *		ratiometric calibration on the voltage values.
+ * @param:	The input parameters that contain the low/high temperature
+ *		values.
+ * @low_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ * @high_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ */
+int32_t qpnp_adc_btm_scaler(struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold);
+/**
+ * qpnp_adc_tm_scale_therm_voltage_pu2() - Performs reverse calibration
+ *		and convert given temperature to voltage on supported
+ *		thermistor channels using 100k pull-up.
+ * @param:	The input temperature values.
+ */
+int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_adc_tm_config *param);
+/**
+ * qpnp_adc_tm_scale_therm_voltage_pu2() - Performs reverse calibration
+ *		and converts the given ADC code to temperature for
+ *		thermistor channels using 100k pull-up.
+ * @reg:	The input ADC code.
+ * @result:	The physical measurement temperature on the thermistor.
+ */
+int32_t qpnp_adc_tm_scale_voltage_therm_pu2(uint32_t reg, int64_t *result);
+/**
+ * qpnp_adc_usb_scaler() - Performs reverse calibration on the low/high
+ *		voltage threshold values passed by the client.
+ *		The function applies ratiometric calibration on the
+ *		voltage values.
+ * @param:	The input parameters that contain the low/high voltage
+ *		threshold values.
+ * @low_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ * @high_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ */
+int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_usbid_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold);
 #else
 static inline int32_t qpnp_vadc_read(uint32_t channel,
 				struct qpnp_vadc_result *result)
@@ -873,6 +1170,29 @@ static inline int32_t qpnp_adc_scale_therm_pu2(int32_t adc_code,
 			struct qpnp_vadc_result *chan_rslt);
 { return -ENXIO; }
 static inline int32_t qpnp_vadc_is_ready(void)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_default(int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_adc_chan_properties *chan_prop,
+			struct qpnp_adc_chan_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_get_vadc_gain_and_offset(
+			struct qpnp_vadc_linear_graph *param,
+			enum qpnp_adc_calib_type calib_type)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_usb_scaler(
+		struct qpnp_adc_tm_usbid_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_btm_scaler(
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_tm_scale_therm_voltage_pu2(
+				struct qpnp_adc_tm_config *param)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_tm_scale_voltage_therm_pu2(
+				uint32_t reg, int64_t *result)
 { return -ENXIO; }
 #endif
 

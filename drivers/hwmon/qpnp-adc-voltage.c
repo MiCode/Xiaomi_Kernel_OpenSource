@@ -509,6 +509,39 @@ calib_fail:
 	return rc;
 }
 
+int32_t qpnp_get_vadc_gain_and_offset(struct qpnp_vadc_linear_graph *param,
+				enum qpnp_adc_calib_type calib_type)
+{
+
+	struct qpnp_vadc_drv *vadc = qpnp_vadc;
+
+	switch (calib_type) {
+	case CALIB_RATIOMETRIC:
+	param->dy =
+	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_RATIOMETRIC].dy;
+	param->dx =
+	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_RATIOMETRIC].dx;
+	param->adc_vref = vadc->adc->adc_prop->adc_vdd_reference;
+	param->adc_gnd =
+	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_RATIOMETRIC].adc_gnd;
+	break;
+	case CALIB_ABSOLUTE:
+	param->dy =
+	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_ABSOLUTE].dy;
+	param->dx =
+	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_ABSOLUTE].dx;
+	param->adc_vref = vadc->adc->adc_prop->adc_vdd_reference;
+	param->adc_gnd =
+	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_ABSOLUTE].adc_gnd;
+	break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_get_vadc_gain_and_offset);
+
 int32_t qpnp_vadc_is_ready(void)
 {
 	struct qpnp_vadc_drv *vadc = qpnp_vadc;
