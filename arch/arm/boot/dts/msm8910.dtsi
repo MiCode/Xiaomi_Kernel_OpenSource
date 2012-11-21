@@ -11,6 +11,7 @@
  */
 
 /include/ "skeleton.dtsi"
+/include/ "msm8910-ion.dtsi"
 
 / {
 	model = "Qualcomm MSM 8910";
