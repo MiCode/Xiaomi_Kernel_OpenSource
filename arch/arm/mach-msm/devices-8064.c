@@ -2735,6 +2735,7 @@ static struct msm_dcvs_sync_rule apq8064_dcvs_sync_rules[] = {
 static struct msm_dcvs_platform_data apq8064_dcvs_data = {
 	.sync_rules	= apq8064_dcvs_sync_rules,
 	.num_sync_rules = ARRAY_SIZE(apq8064_dcvs_sync_rules),
+	.gpu_max_nom_khz = 320000,
 };
 
 struct platform_device apq8064_dcvs_device = {
