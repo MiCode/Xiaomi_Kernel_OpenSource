@@ -132,6 +132,15 @@ static struct platform_device msm_fb_device = {
 };
 
 static bool dsi_power_on;
+static struct mipi_dsi_panel_platform_data novatek_pdata;
+static void pm8917_gpio_set_backlight(int bl_level)
+{
+	int gpio24 = PM8917_GPIO_PM_TO_SYS(24);
+	if (bl_level > 0)
+		gpio_set_value_cansleep(gpio24, 1);
+	else
+		gpio_set_value_cansleep(gpio24, 0);
+}
 
 /*
  * TODO: When physical 8930/PM8038 hardware becomes
@@ -214,9 +223,13 @@ static int mipi_dsi_cdp_panel_power(int on)
 					rc);
 				return -ENODEV;
 			}
+			gpio_set_value_cansleep(gpio24, 0);
+			novatek_pdata.gpio_set_backlight =
+				pm8917_gpio_set_backlight;
 		}
 		dsi_power_on = true;
 	}
+
 	if (on) {
 		rc = regulator_set_optimum_mode(reg_l8, 100000);
 		if (rc < 0) {
@@ -256,8 +269,6 @@ static int mipi_dsi_cdp_panel_power(int on)
 		gpio_set_value(DISP_RST_GPIO, 1);
 		gpio_set_value(DISP_3D_2D_MODE, 1);
 		usleep(20);
-		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
-			gpio_set_value_cansleep(gpio24, 1);
 	} else {
 
 		gpio_set_value(DISP_RST_GPIO, 0);
@@ -294,8 +305,6 @@ static int mipi_dsi_cdp_panel_power(int on)
 		}
 		gpio_set_value(DISP_3D_2D_MODE, 0);
 		usleep(20);
-		if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
-			gpio_set_value_cansleep(gpio24, 0);
 	}
 	return 0;
 }
