@@ -9,6 +9,17 @@ Required properties :
 - <supply-name>-supply: handle to the regulator device tree node
   Required "supply-name" is "HSIC_VDDCX" and optionally - "HSIC_GDSC".
 
+Optional properties :
+- hsic,<gpio-name>-gpio : handle to the GPIO node, see "gpios property"
+  in Documentation/devicetree/bindings/gpio/gpio.txt.
+  Optional "gpio-name" can be "strobe" and "data".
+- hsic,ignore-cal-pad-config : If present then HSIC CAL PAD configuration
+  using TLMM is not performed.
+- hsic,strobe-pad-offset : Offset of TLMM register for configuring HSIC
+  STROBE GPIO PAD.
+- hsic,data-pad-offset : Offset of TLMM register for configuring HSIC
+  DATA GPIO PAD.
+
 Example MSM HSIC EHCI controller device node :
 	hsic@f9a15000 {
 		compatible = "qcom,hsic-host";
@@ -17,4 +28,47 @@ Example MSM HSIC EHCI controller device node :
 		interrupt-names = "core_irq";
 		HSIC_VDDCX-supply = <&pm8019_l12>;
 		HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+		hsic,strobe-gpio = <&msmgpio 144 0x00>;
+		hsic,data-gpio = <&msmgpio 145 0x00>;
+		hsic,ignore-cal-pad-config;
+		hsic,strobe-pad-offset = <0x2050>;
+		hsic,data-pad-offset = <0x2054>;
 	};
+
+SMSC HSIC HUB
+
+Required properties :
+- compatible : should be "qcom,hsic-smsc-hub"
+- smsc,<gpio-name>-gpio : handle to the GPIO node, see "gpios property"
+  in Documentation/devicetree/bindings/gpio/gpio.txt.
+  Required "gpio-name" is "reset" and optionally - "refclk", "int".
+- <supply-name>-supply: handle to the regulator device tree node
+  Required "supply-name" is "hub_init" and optionally - "hub_vbus".
+- Sub node for "MSM HSIC EHCI controller".
+  Sub node has the required properties mentioned above.
+
+Example SMSC HSIC HUB :
+	hsic_hub {
+		compatible = "qcom,hsic-smsc-hub";
+		ranges;
+		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
+		smsc,refclk-gpio = <&pm8941_gpios 16 0x00>;
+		smsc,int-gpio = <&msmgpio 50 0x00>;
+		hub_int-supply = <&pm8941_l10>;
+		hub_vbus-supply = <&pm8941_mvs1>;
+
+		hsic@f9a00000 {
+			compatible = "qcom,hsic-host";
+			reg = <0xf9a00000 0x400>;
+			interrupts = <0 136 0>;
+			interrupt-names = "core_irq";
+			HSIC_VDDCX-supply = <&pm8841_s2>;
+			HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+			hsic,strobe-gpio = <&msmgpio 144 0x00>;
+			hsic,data-gpio = <&msmgpio 145 0x00>;
+			hsic,ignore-cal-pad-config;
+			hsic,strobe-pad-offset = <0x2050>;
+			hsic,data-pad-offset = <0x2054>;
+		};
+	};
+
