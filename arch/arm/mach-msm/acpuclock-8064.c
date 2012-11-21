@@ -213,6 +213,32 @@ static struct acpu_level tbl_fast[] __initdata = {
 	{ 0, { 0 } }
 };
 
+static struct acpu_level tbl_faster[] __initdata = {
+	{ 1, {   384000, PLL_8, 0, 0x00 }, L2(0),   850000 },
+	{ 0, {   432000, HFPLL, 2, 0x20 }, L2(6),   875000 },
+	{ 1, {   486000, HFPLL, 2, 0x24 }, L2(6),   875000 },
+	{ 0, {   540000, HFPLL, 2, 0x28 }, L2(6),   900000 },
+	{ 1, {   594000, HFPLL, 1, 0x16 }, L2(6),   900000 },
+	{ 0, {   648000, HFPLL, 1, 0x18 }, L2(6),   925000 },
+	{ 1, {   702000, HFPLL, 1, 0x1A }, L2(6),   925000 },
+	{ 0, {   756000, HFPLL, 1, 0x1C }, L2(6),   962500 },
+	{ 1, {   810000, HFPLL, 1, 0x1E }, L2(6),   962500 },
+	{ 0, {   864000, HFPLL, 1, 0x20 }, L2(6),   975000 },
+	{ 1, {   918000, HFPLL, 1, 0x22 }, L2(6),   975000 },
+	{ 0, {   972000, HFPLL, 1, 0x24 }, L2(6),  1000000 },
+	{ 1, {  1026000, HFPLL, 1, 0x26 }, L2(6),  1000000 },
+	{ 0, {  1080000, HFPLL, 1, 0x28 }, L2(15), 1050000 },
+	{ 1, {  1134000, HFPLL, 1, 0x2A }, L2(15), 1050000 },
+	{ 0, {  1188000, HFPLL, 1, 0x2C }, L2(15), 1075000 },
+	{ 1, {  1242000, HFPLL, 1, 0x2E }, L2(15), 1075000 },
+	{ 0, {  1296000, HFPLL, 1, 0x30 }, L2(15), 1100000 },
+	{ 1, {  1350000, HFPLL, 1, 0x32 }, L2(15), 1100000 },
+	{ 0, {  1404000, HFPLL, 1, 0x34 }, L2(15), 1112500 },
+	{ 1, {  1458000, HFPLL, 1, 0x36 }, L2(15), 1112500 },
+	{ 1, {  1512000, HFPLL, 1, 0x38 }, L2(15), 1125000 },
+	{ 0, { 0 } }
+};
+
 static struct acpu_level tbl_PVS0_1700MHz[] __initdata = {
 	{ 1, {   384000, PLL_8, 0, 0x00 }, L2(0),   950000 },
 	{ 1, {   486000, HFPLL, 2, 0x24 }, L2(6),   975000 },
@@ -369,7 +395,7 @@ static struct pvs_table pvs_tables[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	[0][PVS_SLOW]    = {tbl_slow, sizeof(tbl_slow),     0 },
 	[0][PVS_NOMINAL] = {tbl_nom,  sizeof(tbl_nom),  25000 },
 	[0][PVS_FAST]    = {tbl_fast, sizeof(tbl_fast), 25000 },
-	[0][PVS_FASTER]  = {tbl_fast, sizeof(tbl_fast), 25000 },
+	[0][PVS_FASTER]  = {tbl_faster, sizeof(tbl_faster), 25000 },
 
 	[1][0] = { tbl_PVS0_1700MHz, sizeof(tbl_PVS0_1700MHz),     0 },
 	[1][1] = { tbl_PVS0_1700MHz, sizeof(tbl_PVS0_1700MHz),     0 },
