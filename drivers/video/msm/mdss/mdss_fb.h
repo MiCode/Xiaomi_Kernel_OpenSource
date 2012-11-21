@@ -110,6 +110,7 @@ struct msm_fb_data_type {
 
 	u32 mdp_fb_page_protection;
 
+	struct mdss_data_type *mdata;
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_wb *wb;
 	struct list_head overlay_list;

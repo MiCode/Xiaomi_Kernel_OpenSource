@@ -41,6 +41,12 @@ static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 static struct mdss_mdp_ctl mdss_mdp_ctl_list[MDSS_MDP_MAX_CTL];
 static struct mdss_mdp_mixer mdss_mdp_mixer_list[MDSS_MDP_MAX_LAYERMIXER];
 
+static inline void mdp_mixer_write(struct mdss_mdp_mixer *mixer,
+				   u32 reg, u32 val)
+{
+	writel_relaxed(val, mixer->base + reg);
+}
+
 static int mdss_mdp_ctl_perf_commit(u32 flags)
 {
 	struct mdss_mdp_ctl *ctl;
@@ -227,7 +233,7 @@ static int mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl, u32 *flags)
 	return ret;
 }
 
-static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(void)
+static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata)
 {
 	struct mdss_mdp_ctl *ctl = NULL;
 	int cnum;
@@ -238,6 +244,9 @@ static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(void)
 			ctl = &mdss_mdp_ctl_list[cnum];
 			ctl->num = cnum;
 			ctl->ref_cnt++;
+			ctl->mdata = mdata;
+			ctl->base = mdata->mdp_base +
+					MDSS_MDP_REG_CTL_OFFSET(cnum);
 			mutex_init(&ctl->lock);
 
 			pr_debug("alloc ctl_num=%d\n", ctl->num);
@@ -269,20 +278,27 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
-static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(u32 type)
+static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
+		struct mdss_mdp_ctl *ctl, u32 type)
 {
 	struct mdss_mdp_mixer *mixer = NULL;
 	int mnum;
 
+	if (!ctl || !ctl->mdata)
+		return NULL;
+
 	mutex_lock(&mdss_mdp_ctl_lock);
 	for (mnum = 0; mnum < MDSS_MDP_MAX_LAYERMIXER; mnum++) {
-		if (type == mdss_res->mixer_type_map[mnum] &&
+		if (type == ctl->mdata->mixer_type_map[mnum] &&
 		    mdss_mdp_mixer_list[mnum].ref_cnt == 0) {
 			mixer = &mdss_mdp_mixer_list[mnum];
 			mixer->num = mnum;
 			mixer->ref_cnt++;
 			mixer->params_changed++;
 			mixer->type = type;
+			mixer->base = ctl->mdata->mdp_base +
+				MDSS_MDP_REG_LM_OFFSET(mnum);
+			mixer->ctl = ctl;
 
 			pr_debug("mixer_num=%d\n", mixer->num);
 			break;
@@ -318,12 +334,11 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	struct mdss_mdp_ctl *ctl = NULL;
 	struct mdss_mdp_mixer *mixer = NULL;
 
-	ctl = mdss_mdp_ctl_alloc();
-
+	ctl = mdss_mdp_ctl_alloc(mdss_res);
 	if (!ctl)
 		return NULL;
 
-	mixer = mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_WRITEBACK);
+	mixer = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_WRITEBACK);
 	if (!mixer)
 		goto error;
 
@@ -344,7 +359,6 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	}
 
 	ctl->mixer_left = mixer;
-	mixer->ctl = ctl;
 
 	ctl->start_fnc = mdss_mdp_writeback_start;
 	ctl->power_on = true;
@@ -429,7 +443,7 @@ static int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	if (!ctl->mixer_left) {
 		ctl->mixer_left =
-			mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
+			mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF);
 		if (!ctl->mixer_left) {
 			pr_err("unable to allocate layer mixer\n");
 			return -ENOMEM;
@@ -441,7 +455,6 @@ static int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	ctl->mixer_left->width = width;
 	ctl->mixer_left->height = height;
-	ctl->mixer_left->ctl = ctl;
 
 	if (split_ctl) {
 		pr_debug("split display detected\n");
@@ -450,8 +463,8 @@ static int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	if (width < ctl->width) {
 		if (ctl->mixer_right == NULL) {
-			ctl->mixer_right =
-				mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
+			ctl->mixer_right = mdss_mdp_mixer_alloc(ctl,
+					MDSS_MDP_MIXER_TYPE_INTF);
 			if (!ctl->mixer_right) {
 				pr_err("unable to allocate right mixer\n");
 				if (ctl->mixer_left)
@@ -461,7 +474,6 @@ static int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 		}
 		ctl->mixer_right->width = width;
 		ctl->mixer_right->height = height;
-		ctl->mixer_right->ctl = ctl;
 	} else if (ctl->mixer_right) {
 		mdss_mdp_mixer_free(ctl->mixer_right);
 	}
@@ -483,7 +495,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	struct mdss_mdp_ctl *ctl;
 	int ret = 0;
 
-	ctl = mdss_mdp_ctl_alloc();
+	ctl = mdss_mdp_ctl_alloc(mfd->mdata);
 	if (!ctl) {
 		pr_err("unable to allocate ctl\n");
 		return ERR_PTR(-ENOMEM);
@@ -586,15 +598,14 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 	sctl->width = pdata->panel_info.xres;
 	sctl->height = pdata->panel_info.yres;
 
-	ctl->mixer_left = mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
+	ctl->mixer_left = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF);
 	if (!ctl->mixer_left) {
 		pr_err("unable to allocate layer mixer\n");
 		mdss_mdp_ctl_destroy(sctl);
 		return -ENOMEM;
 	}
-	ctl->mixer_left->ctl = ctl;
 
-	mixer = mdss_mdp_mixer_alloc(MDSS_MDP_MIXER_TYPE_INTF);
+	mixer = mdss_mdp_mixer_alloc(sctl, MDSS_MDP_MIXER_TYPE_INTF);
 	if (!mixer) {
 		pr_err("unable to allocate layer mixer\n");
 		mdss_mdp_ctl_destroy(sctl);
@@ -603,7 +614,6 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 
 	mixer->width = sctl->width;
 	mixer->height = sctl->height;
-	mixer->ctl = sctl;
 	sctl->mixer_left = mixer;
 
 	return mdss_mdp_set_split_ctl(ctl, sctl);
@@ -689,7 +699,7 @@ int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg)
 static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_mixer *mixer;
-	u32 outsize, temp, off;
+	u32 outsize, temp;
 	int ret = 0;
 
 	if (ctl->start_fnc)
@@ -713,15 +723,8 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl)
 	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_DISP_INTF_SEL, temp);
 
-	if (ctl->intf_num != MDSS_MDP_NO_INTF) {
-		off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
-		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_PANEL_FORMAT,
-				   ctl->dst_format);
-	}
-
 	outsize = (mixer->height << 16) | mixer->width;
-	off = MDSS_MDP_REG_LM_OFFSET(mixer->num);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_OUT_SIZE, outsize);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 
 	return ret;
 }
@@ -868,8 +871,7 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 		}
 
 		blend_stage = stage - MDSS_MDP_STAGE_0;
-		off = MDSS_MDP_REG_LM_OFFSET(mixer->num) +
-		      MDSS_MDP_REG_LM_BLEND_OFFSET(blend_stage);
+		off = MDSS_MDP_REG_LM_BLEND_OFFSET(blend_stage);
 
 		if (pipe->is_fg) {
 			bgalpha = 0;
@@ -915,10 +917,10 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 
 		mixercfg |= stage << (3 * pipe->num);
 
-		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_OP_MODE, blend_op);
-		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_BLEND_FG_ALPHA,
+		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_OP_MODE, blend_op);
+		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_BLEND_FG_ALPHA,
 				   pipe->alpha);
-		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_BLEND_BG_ALPHA,
+		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_BLEND_BG_ALPHA,
 				   0xFF - pipe->alpha);
 	}
 
@@ -930,7 +932,7 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 	ctl->flush_bits |= BIT(6) << mixer->num;	/* LAYER_MIXER */
 
 	off = MDSS_MDP_REG_LM_OFFSET(mixer->num);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_LM_OP_MODE, blend_color_out);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OP_MODE, blend_color_out);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(mixer->num), mixercfg);
 
 	return 0;
