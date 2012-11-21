@@ -109,6 +109,8 @@ static struct of_dev_auxdata msm9625_auxdata_lookup[] __initdata = {
 			"msm_sdcc.3", NULL),
 	OF_DEV_AUXDATA("qcom,msm-tsens", 0xFC4A8000, \
 			"msm-tsens", NULL),
+	OF_DEV_AUXDATA("qcom,usb-bam-msm", 0xF9A44000, \
+			"usb_bam", NULL),
 	{}
 };
 
