@@ -1,6 +1,6 @@
 /* include/asm-arm/arch-msm/usbdiag.h
  *
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, 2012, The Linux Foundation. All rights reserved.
  *
  * All source code in this file is licensed under the following license except
  * where indicated.
@@ -20,6 +20,8 @@
 
 #ifndef _DRIVERS_USB_DIAG_H_
 #define _DRIVERS_USB_DIAG_H_
+
+#include <linux/err.h>
 
 #define DIAG_LEGACY		"diag"
 #define DIAG_MDM		"diag_mdm"
@@ -45,6 +47,7 @@ struct usb_diag_ch {
 	void *priv_usb;
 };
 
+#ifdef CONFIG_USB_G_ANDROID
 struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 		void (*notify)(void *, unsigned, struct diag_request *));
 void usb_diag_close(struct usb_diag_ch *ch);
@@ -52,7 +55,32 @@ int usb_diag_alloc_req(struct usb_diag_ch *ch, int n_write, int n_read);
 void usb_diag_free_req(struct usb_diag_ch *ch);
 int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req);
 int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req);
-
-int diag_read_from_cb(unsigned char * , int);
-
+#else
+static inline struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
+		void (*notify)(void *, unsigned, struct diag_request *))
+{
+	return ERR_PTR(-ENODEV);
+}
+static inline void usb_diag_close(struct usb_diag_ch *ch)
+{
+}
+static inline
+int usb_diag_alloc_req(struct usb_diag_ch *ch, int n_write, int n_read)
+{
+	return -ENODEV;
+}
+static inline void usb_diag_free_req(struct usb_diag_ch *ch)
+{
+}
+static inline
+int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
+{
+	return -ENODEV;
+}
+static inline
+int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
+{
+	return -ENODEV;
+}
+#endif /* CONFIG_USB_G_ANDROID */
 #endif /* _DRIVERS_USB_DIAG_H_ */
