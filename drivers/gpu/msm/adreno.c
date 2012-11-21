@@ -1776,12 +1776,6 @@ static int adreno_setproperty(struct kgsl_device *device,
 	return status;
 }
 
-static inline void adreno_poke(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	adreno_regwrite(device, REG_CP_RB_WPTR, adreno_dev->ringbuffer.wptr);
-}
-
 static int adreno_ringbuffer_drain(struct kgsl_device *device,
 	unsigned int *regs)
 {
@@ -1802,12 +1796,8 @@ static int adreno_ringbuffer_drain(struct kgsl_device *device,
 
 	wait = jiffies + msecs_to_jiffies(100);
 
-	adreno_poke(device);
-
 	do {
 		if (time_after(jiffies, wait)) {
-			adreno_poke(device);
-
 			/* Check to see if the core is hung */
 			if (adreno_hang_detect(device, regs))
 				return -ETIMEDOUT;
@@ -2167,8 +2157,24 @@ unsigned int adreno_hang_detect(struct kgsl_device *device,
 	if (!adreno_dev->fast_hang_detect)
 		return 0;
 
-	if (is_adreno_rbbm_status_idle(device))
+	if (is_adreno_rbbm_status_idle(device)) {
+
+		/*
+		 * On A2XX if the RPTR != WPTR and the device is idle, then
+		 * the last write to WPTR probably failed to latch so write it
+		 * again
+		 */
+
+		if (adreno_is_a2xx(adreno_dev)) {
+			unsigned int rptr;
+			adreno_regread(device, REG_CP_RB_RPTR, &rptr);
+			if (rptr != adreno_dev->ringbuffer.wptr)
+				adreno_regwrite(device, REG_CP_RB_WPTR,
+					adreno_dev->ringbuffer.wptr);
+		}
+
 		return 0;
+	}
 
 	for (i = 0; i < hang_detect_regs_count; i++) {
 
@@ -2275,7 +2281,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 			status = 0;
 			goto done;
 		}
-		adreno_poke(device);
+
 		io_cnt = (io_cnt + 1) % 100;
 		if (io_cnt <
 		    pwr->pwrlevels[pwr->active_pwrlevel].io_fraction)
