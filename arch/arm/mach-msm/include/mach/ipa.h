@@ -346,6 +346,8 @@ struct ipa_msg_wrapper {
  */
 typedef int (*ipa_pull_fn)(void *buf, uint16_t sz);
 
+#ifdef CONFIG_IPA
+
 /*
  * Connect / Disconnect
  */
@@ -454,5 +456,277 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
 
 int ipa_teardown_sys_pipe(u32 clnt_hdl);
+
+#else
+
+/*
+ * Connect / Disconnect
+ */
+static inline int ipa_connect(const struct ipa_connect_params *in,
+		struct ipa_sps_params *sps,	u32 *clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_disconnect(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+
+/*
+ * Configuration
+ */
+static inline int ipa_cfg_ep(u32 clnt_hdl,
+		const struct ipa_ep_cfg *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_cfg_ep_nat(u32 clnt_hdl,
+		const struct ipa_ep_cfg_nat *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_cfg_ep_hdr(u32 clnt_hdl,
+		const struct ipa_ep_cfg_hdr *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_cfg_ep_mode(u32 clnt_hdl,
+		const struct ipa_ep_cfg_mode *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_cfg_ep_aggr(u32 clnt_hdl,
+		const struct ipa_ep_cfg_aggr *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_cfg_ep_route(u32 clnt_hdl,
+		const struct ipa_ep_cfg_route *ipa_ep_cfg)
+{
+	return -EPERM;
+}
+
+
+/*
+ * Header removal / addition
+ */
+static inline int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_commit_hdr(void)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_reset_hdr(void)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_put_hdr(u32 hdr_hdl)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy)
+{
+	return -EPERM;
+}
+
+
+/*
+ * Routing
+ */
+static inline int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_commit_rt(enum ipa_ip_type ip)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_reset_rt(enum ipa_ip_type ip)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_put_rt_tbl(u32 rt_tbl_hdl)
+{
+	return -EPERM;
+}
+
+
+/*
+ * Filtering
+ */
+static inline int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_commit_flt(enum ipa_ip_type ip)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_reset_flt(enum ipa_ip_type ip)
+{
+	return -EPERM;
+}
+
+
+/*
+ * NAT
+ */
+static inline int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
+{
+	return -EPERM;
+}
+
+
+/*
+ * Aggregation
+ */
+static inline int ipa_set_aggr_mode(enum ipa_aggr_mode mode)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_set_qcncm_ndp_sig(char sig[3])
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_set_single_ndp_per_mbim(bool enable)
+{
+	return -EPERM;
+}
+
+
+/*
+ * rmnet bridge
+ */
+static inline int rmnet_bridge_init(void)
+{
+	return -EPERM;
+}
+
+
+static inline int rmnet_bridge_disconnect(void)
+{
+	return -EPERM;
+}
+
+
+static inline int rmnet_bridge_connect(u32 producer_hdl,
+			 u32 consumer_hdl,
+			 int wwan_logical_channel_id)
+{
+	return -EPERM;
+}
+
+
+/*
+ * Data path
+ */
+static inline int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
+		struct ipa_tx_meta *metadata)
+{
+	return -EPERM;
+}
+
+
+/*
+ * System pipes
+ */
+static inline int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in,
+		u32 *clnt_hdl)
+{
+	return -EPERM;
+}
+
+
+static inline int ipa_teardown_sys_pipe(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+
+#endif /* CONFIG_IPA*/
 
 #endif /* _IPA_H_ */
