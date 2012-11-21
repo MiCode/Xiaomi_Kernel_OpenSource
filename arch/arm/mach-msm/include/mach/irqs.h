@@ -29,6 +29,13 @@
 #include "irqs-8092.h"
 #endif
 
+#define NR_MSM_IRQS 1020 /* Should be 256 - but higher due to bug in sim */
+#define NR_GPIO_IRQS 146
+#define NR_QPNP_IRQS 32768
+#define NR_BOARD_IRQS NR_QPNP_IRQS
+#define NR_TLMM_MSM_DIR_CONN_IRQ 8
+#define NR_MSM_GPIOS NR_GPIO_IRQS
+
 #elif defined(CONFIG_ARCH_MSM8910) || defined(CONFIG_ARCH_MSM8226)
 #ifdef CONFIG_ARCH_MSM8910
 #include "irqs-8910.h"
@@ -37,6 +44,13 @@
 #ifdef CONFIG_ARCH_MSM8226
 #include "irqs-8226.h"
 #endif
+
+#define NR_MSM_IRQS 256
+#define NR_GPIO_IRQS 117
+#define NR_QPNP_IRQS 32768
+#define NR_BOARD_IRQS NR_QPNP_IRQS
+#define NR_TLMM_MSM_DIR_CONN_IRQ 8
+#define NR_MSM_GPIOS NR_GPIO_IRQS
 
 #elif defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930)
