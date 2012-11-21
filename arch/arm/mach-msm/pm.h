@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/pm.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -27,7 +27,7 @@ extern void msm_secondary_startup(void);
 #define msm_secondary_startup NULL
 #endif
 
-extern int power_collapsed;
+DECLARE_PER_CPU(int,  power_collapsed);
 
 struct msm_pm_irq_calls {
 	unsigned int (*irq_pending)(void);
