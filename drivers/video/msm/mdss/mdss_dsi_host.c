@@ -1199,6 +1199,7 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 {
 	int len;
 	int i;
+	int domain = MDSS_IOMMU_DOMAIN_UNSECURE;
 	char *bp;
 	unsigned long size, addr;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -1229,7 +1230,7 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 
 	if (is_mdss_iommu_attached()) {
 		int ret = msm_iommu_map_contig_buffer(tp->dmap,
-					mdss_get_iommu_domain(), 0,
+					mdss_get_iommu_domain(domain), 0,
 					size, SZ_4K, 0, &(addr));
 		if (IS_ERR_VALUE(ret)) {
 			pr_err("unable to map dma memory to iommu(%d)\n", ret);
@@ -1251,8 +1252,8 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 	wait_for_completion(&dsi_dma_comp);
 
 	if (is_mdss_iommu_attached())
-		msm_iommu_unmap_contig_buffer(addr, mdss_get_iommu_domain(),
-					      0, size);
+		msm_iommu_unmap_contig_buffer(addr,
+			mdss_get_iommu_domain(domain), 0, size);
 
 	dma_unmap_single(&dsi_dev, tp->dmap, size, DMA_TO_DEVICE);
 	tp->dmap = 0;
