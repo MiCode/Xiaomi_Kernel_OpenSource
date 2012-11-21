@@ -154,11 +154,14 @@ static void hal_process_sys_error(struct hal_device *device)
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_ERROR, &cmd_done);
 }
-static void hal_process_session_error(struct hal_device *device)
+static void hal_process_session_error(struct hal_device *device,
+		struct hfi_msg_event_notify_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device->device_id;
+	cmd_done.session_id = ((struct hal_session *) pkt->session_id)->
+		session_id;
 	device->callback(SESSION_ERROR, &cmd_done);
 }
 static void hal_process_event_notify(struct hal_device *device,
@@ -179,7 +182,7 @@ static void hal_process_event_notify(struct hal_device *device,
 		break;
 	case HFI_EVENT_SESSION_ERROR:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR");
-		hal_process_session_error(device);
+		hal_process_session_error(device, pkt);
 		break;
 	case HFI_EVENT_SESSION_SEQUENCE_CHANGED:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_SEQUENCE_CHANGED");
