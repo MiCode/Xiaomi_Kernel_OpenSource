@@ -1620,6 +1620,7 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 
 	if (hs_detect_use_gpio) {
+		pr_debug("%s: GPIO Headset detection enabled\n", __func__);
 		mbhc_cfg.gpio = PM8018_GPIO_PM_TO_SYS(JACK_DETECT_GPIO);
 		mbhc_cfg.gpio_irq = JACK_DETECT_INT;
 	}
@@ -2430,6 +2431,8 @@ static int __init mdm9615_audio_init(void)
 		pr_err("%s: SIF or Spare ptr are NULL", __func__);
 	sif_virt_addr = ioremap(LPASS_SIF_MUX_ADDR, 4);
 	secpcm_portslc_virt_addr = ioremap(SEC_PCM_PORT_SLC_ADDR, 4);
+
+	hs_detect_use_gpio = true;
 
 	return ret;
 }
