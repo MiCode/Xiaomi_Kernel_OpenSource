@@ -42,6 +42,8 @@
 */
 // #define DVB_DEMUX_SECTION_LOSS_LOG
 
+#define TIMESTAMP_LEN	4
+
 static int dvb_demux_tscheck;
 module_param(dvb_demux_tscheck, int, 0644);
 MODULE_PARM_DESC(dvb_demux_tscheck,
@@ -417,17 +419,16 @@ static int dvb_dmx_swfilter_section_packet(struct dvb_demux_feed *feed,
 
 static inline void dvb_dmx_swfilter_output_packet(
 	struct dvb_demux_feed *feed,
-	const u8 *buf)
+	const u8 *buf,
+	const u8 timestamp[TIMESTAMP_LEN])
 {
-	u8 time_stamp[4] = {0};
-	struct dvb_demux *demux = feed->demux;
-
 	/*
 	 * if we output 192 packet with timestamp at head of packet,
 	 * output the timestamp now before the 188 TS packet
 	 */
-	if (demux->tsp_out_format == DMX_TSP_FORMAT_192_HEAD)
-		feed->cb.ts(time_stamp, 4, NULL, 0, &feed->feed.ts, DMX_OK);
+	if (feed->tsp_out_format == DMX_TSP_FORMAT_192_HEAD)
+		feed->cb.ts(timestamp, TIMESTAMP_LEN, NULL,
+			0, &feed->feed.ts, DMX_OK);
 
 	feed->cb.ts(buf, 188, NULL, 0, &feed->feed.ts, DMX_OK);
 
@@ -435,8 +436,9 @@ static inline void dvb_dmx_swfilter_output_packet(
 	 * if we output 192 packet with timestamp at tail of packet,
 	 * output the timestamp now after the 188 TS packet
 	 */
-	if (demux->tsp_out_format == DMX_TSP_FORMAT_192_TAIL)
-		feed->cb.ts(time_stamp, 4, NULL, 0, &feed->feed.ts, DMX_OK);
+	if (feed->tsp_out_format == DMX_TSP_FORMAT_192_TAIL)
+		feed->cb.ts(timestamp, TIMESTAMP_LEN, NULL,
+			0, &feed->feed.ts, DMX_OK);
 }
 
 static inline void dvb_dmx_configure_decoder_fullness(
@@ -571,7 +573,7 @@ static inline int dvb_dmx_swfilter_buffer_check(
 }
 
 static inline void dvb_dmx_swfilter_packet_type(struct dvb_demux_feed *feed,
-						const u8 *buf)
+			const u8 *buf, const u8 timestamp[TIMESTAMP_LEN])
 {
 	switch (feed->type) {
 	case DMX_TYPE_TS:
@@ -581,7 +583,8 @@ static inline void dvb_dmx_swfilter_packet_type(struct dvb_demux_feed *feed,
 			if (feed->ts_type & TS_PAYLOAD_ONLY)
 				dvb_dmx_swfilter_payload(feed, buf);
 			else
-				dvb_dmx_swfilter_output_packet(feed, buf);
+				dvb_dmx_swfilter_output_packet(feed,
+						buf, timestamp);
 		}
 		if (feed->ts_type & TS_DECODER)
 			if (feed->demux->write_to_decoder)
@@ -605,7 +608,8 @@ static inline void dvb_dmx_swfilter_packet_type(struct dvb_demux_feed *feed,
 	((f)->feed.ts.is_filtering) &&					\
 	(((f)->ts_type & (TS_PACKET | TS_DEMUX)) == TS_PACKET))
 
-static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf)
+static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf,
+				const u8 timestamp[TIMESTAMP_LEN])
 {
 	struct dvb_demux_feed *feed;
 	u16 pid = ts_pid(buf);
@@ -678,10 +682,10 @@ static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf)
 			continue;
 
 		if (feed->pid == pid)
-			dvb_dmx_swfilter_packet_type(feed, buf);
+			dvb_dmx_swfilter_packet_type(feed, buf, timestamp);
 		else if ((feed->pid == 0x2000) &&
 			     (feed->feed.ts.is_filtering))
-			dvb_dmx_swfilter_output_packet(feed, buf);
+			dvb_dmx_swfilter_output_packet(feed, buf, timestamp);
 	}
 }
 
@@ -735,6 +739,7 @@ void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
 			      size_t count)
 {
 	struct timespec pre_time;
+	u8 timestamp[TIMESTAMP_LEN] = {0};
 
 	if (dvb_demux_performancecheck)
 		pre_time = current_kernel_time();
@@ -746,7 +751,7 @@ void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
 
 	while (count--) {
 		if (buf[0] == 0x47)
-			dvb_dmx_swfilter_packet(demux, buf);
+			dvb_dmx_swfilter_packet(demux, buf, timestamp);
 		buf += 188;
 	}
 
@@ -794,6 +799,7 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
 	int p = 0, i, j;
 	const u8 *q;
 	struct timespec pre_time;
+	u8 timestamp[TIMESTAMP_LEN];
 
 	if (dvb_demux_performancecheck)
 		pre_time = current_kernel_time();
@@ -812,12 +818,23 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
 			goto bailout;
 		}
 		memcpy(&demux->tsbuf[i], buf, j);
+
+		if (pktsize == 192) {
+			if (leadingbytes)
+				memcpy(timestamp, &buf[p], TIMESTAMP_LEN);
+			else
+				memcpy(timestamp, &buf[188], TIMESTAMP_LEN);
+		} else {
+			memset(timestamp, 0, TIMESTAMP_LEN);
+		}
+
 		if (pktsize == 192 &&
 			leadingbytes &&
 			demux->tsbuf[leadingbytes] == 0x47)  /* double check */
-			dvb_dmx_swfilter_packet(demux, demux->tsbuf+4);
+			dvb_dmx_swfilter_packet(demux,
+				demux->tsbuf + TIMESTAMP_LEN, timestamp);
 		else if (demux->tsbuf[0] == 0x47) /* double check */
-			dvb_dmx_swfilter_packet(demux, demux->tsbuf);
+			dvb_dmx_swfilter_packet(demux, demux->tsbuf, timestamp);
 		demux->tsbufp = 0;
 		p += j;
 	}
@@ -841,10 +858,18 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
 			q = demux->tsbuf;
 		}
 
-		if (pktsize == 192 && leadingbytes)
-			q = &buf[p+leadingbytes];
+		if (pktsize == 192) {
+			if (leadingbytes) {
+				q = &buf[p+leadingbytes];
+				memcpy(timestamp, &buf[p], TIMESTAMP_LEN);
+			} else {
+				memcpy(timestamp, &buf[188], TIMESTAMP_LEN);
+			}
+		} else {
+			memset(timestamp, 0, TIMESTAMP_LEN);
+		}
 
-		dvb_dmx_swfilter_packet(demux, q);
+		dvb_dmx_swfilter_packet(demux, q, timestamp);
 		p += pktsize;
 	}
 
@@ -891,7 +916,7 @@ void dvb_dmx_swfilter_format(
 		break;
 
 	case DMX_TSP_FORMAT_192_HEAD:
-		_dvb_dmx_swfilter(demux, buf, count, 192, 4);
+		_dvb_dmx_swfilter(demux, buf, count, 192, TIMESTAMP_LEN);
 		break;
 
 	case DMX_TSP_FORMAT_204:
@@ -1154,6 +1179,25 @@ static int dmx_ts_set_indexing_params(
 	return 0;
 }
 
+static int dmx_ts_set_tsp_out_format(
+	struct dmx_ts_feed *ts_feed,
+	enum dmx_tsp_format_t tsp_format)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
+	struct dvb_demux *dvbdmx = feed->demux;
+
+	mutex_lock(&dvbdmx->mutex);
+
+	if (feed->state == DMX_STATE_GO) {
+		mutex_unlock(&dvbdmx->mutex);
+		return -EINVAL;
+	}
+
+	feed->tsp_out_format = tsp_format;
+	mutex_unlock(&dvbdmx->mutex);
+	return 0;
+}
+
 static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 				   struct dmx_ts_feed **ts_feed,
 				   dmx_ts_cb callback)
@@ -1175,6 +1219,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	feed->pid = 0xffff;
 	feed->peslen = 0;
 	feed->buffer = NULL;
+	feed->tsp_out_format = DMX_TSP_FORMAT_188;
 	memset(&feed->indexing_params, 0,
 			sizeof(struct dmx_indexing_video_params));
 
@@ -1193,6 +1238,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->stop_filtering = dmx_ts_feed_stop_filtering;
 	(*ts_feed)->set = dmx_ts_feed_set;
 	(*ts_feed)->set_indexing_params = dmx_ts_set_indexing_params;
+	(*ts_feed)->set_tsp_out_format = dmx_ts_set_tsp_out_format;
 	(*ts_feed)->get_decoder_buff_status = dmx_ts_feed_decoder_buff_status;
 	(*ts_feed)->data_ready_cb = dmx_ts_feed_data_ready_cb;
 	(*ts_feed)->notify_data_read = NULL;
@@ -1689,23 +1735,6 @@ static int dvbdmx_set_tsp_format(
 	return 0;
 }
 
-static int dvbdmx_set_tsp_out_format(
-	struct dmx_demux *demux,
-	enum dmx_tsp_format_t tsp_format)
-{
-	struct dvb_demux *dvbdemux = (struct dvb_demux *)demux;
-
-	if ((tsp_format > DMX_TSP_FORMAT_192_HEAD) ||
-		(tsp_format < DMX_TSP_FORMAT_188))
-		return -EINVAL;
-
-	mutex_lock(&dvbdemux->mutex);
-
-	dvbdemux->tsp_out_format = tsp_format;
-	mutex_unlock(&dvbdemux->mutex);
-	return 0;
-}
-
 int dvb_dmx_init(struct dvb_demux *dvbdemux)
 {
 	int i;
@@ -1776,7 +1805,6 @@ int dvb_dmx_init(struct dvb_demux *dvbdemux)
 	dvbdemux->tsbufp = 0;
 
 	dvbdemux->tsp_format = DMX_TSP_FORMAT_188;
-	dvbdemux->tsp_out_format = DMX_TSP_FORMAT_188;
 
 	if (!dvbdemux->check_crc32)
 		dvbdemux->check_crc32 = dvb_dmx_crc32;
@@ -1806,7 +1834,6 @@ int dvb_dmx_init(struct dvb_demux *dvbdemux)
 	dmx->get_pes_pids = dvbdmx_get_pes_pids;
 
 	dmx->set_tsp_format = dvbdmx_set_tsp_format;
-	dmx->set_tsp_out_format = dvbdmx_set_tsp_out_format;
 
 	mutex_init(&dvbdemux->mutex);
 	spin_lock_init(&dvbdemux->lock);

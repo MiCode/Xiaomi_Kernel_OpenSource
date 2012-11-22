@@ -122,6 +122,8 @@ struct dmxdev_filter {
 	/* relevent for decoder PES */
 	unsigned long pes_buffer_size;
 
+	/* for recording output */
+	enum dmx_tsp_format_t dmx_tsp_format;
 	u32 rec_chunk_size;
 
 	/* only for sections */

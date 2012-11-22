@@ -205,6 +205,8 @@ struct dmx_ts_feed {
 			dmx_ts_data_ready_cb callback);
 	int (*notify_data_read)(struct dmx_ts_feed *feed,
 			u32 bytes_num);
+	int (*set_tsp_out_format) (struct dmx_ts_feed *feed,
+				enum dmx_tsp_format_t tsp_format);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -367,9 +369,6 @@ struct dmx_demux {
 	int (*set_source) (struct dmx_demux *demux, const dmx_source_t *src);
 
 	int (*set_tsp_format) (struct dmx_demux *demux,
-				enum dmx_tsp_format_t tsp_format);
-
-	int (*set_tsp_out_format) (struct dmx_demux *demux,
 				enum dmx_tsp_format_t tsp_format);
 
 	int (*set_playback_mode) (struct dmx_demux *demux,
