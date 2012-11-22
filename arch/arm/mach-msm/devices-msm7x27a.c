@@ -1917,8 +1917,6 @@ static void __init msm_cpr_init(void)
 	else if (msm8625_cpu_id() == MSM8625)
 		msm_cpr_pdata.max_freq = 1008000;
 
-	msm_cpr_clk_enable();
-
 	platform_device_register(&msm8625_vp_device);
 	platform_device_register(&msm8625_device_cpr);
 }
