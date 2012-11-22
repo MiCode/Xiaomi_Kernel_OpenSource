@@ -555,6 +555,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		total_sizedwords += 4; /* global timestamp for recovery*/
 	}
 
+	if (adreno_is_a20x(adreno_dev))
+		total_sizedwords += 2; /* CACHE_FLUSH */
+
 	ringcmds = adreno_ringbuffer_allocspace(rb, context, total_sizedwords);
 	if (!ringcmds) {
 		/*
@@ -670,6 +673,12 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 						eoptimestamp)));
 		GSL_RB_WRITE(ringcmds, rcmd_gpu,
 				rb->timestamp[KGSL_MEMSTORE_GLOBAL]);
+	}
+
+	if (adreno_is_a20x(adreno_dev)) {
+		GSL_RB_WRITE(ringcmds, rcmd_gpu,
+			cp_type3_packet(CP_EVENT_WRITE, 1));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, CACHE_FLUSH);
 	}
 
 	if (context) {
