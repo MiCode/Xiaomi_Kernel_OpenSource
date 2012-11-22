@@ -16,13 +16,6 @@
 
 /* MSM ACPU Interrupt Numbers */
 
-/* 0-15:  STI/SGI (software triggered/generated interrupts)
-   16-31: PPI (private peripheral interrupts)
-   32+:   SPI (shared peripheral interrupts) */
-
-#define GIC_PPI_START 16
-#define GIC_SPI_START 32
-
 #define INT_DEBUG_TIMER_EXP			(GIC_PPI_START + 0)
 #define INT_GP_TIMER_EXP			(GIC_PPI_START + 1)
 #define INT_GP_TIMER2_EXP			(GIC_PPI_START + 2)
