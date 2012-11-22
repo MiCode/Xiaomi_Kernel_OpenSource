@@ -13,9 +13,6 @@
 #ifndef __ASM_ARCH_MSM_IRQS_8625_H
 #define __ASM_ARCH_MSM_IRQS_8625_H
 
-#define GIC_PPI_START		16
-#define GIC_SPI_START		32
-
 #ifdef CONFIG_MSM_FIQ
 #define FIQ_START               0
 #endif
