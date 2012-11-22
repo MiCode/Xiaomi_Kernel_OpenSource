@@ -44,6 +44,7 @@ struct msm_dcvs_sync_rule {
 struct msm_dcvs_platform_data {
 	struct msm_dcvs_sync_rule *sync_rules;
 	unsigned num_sync_rules;
+	unsigned long gpu_max_nom_khz;
 };
 
 struct msm_gov_platform_data {
@@ -154,4 +155,13 @@ extern int msm_dcvs_freq_sink_stop(int dcvs_core_id);
  * Update the frequency known to dcvs when the limits are changed.
  */
 extern void msm_dcvs_update_limits(int dcvs_core_id);
+
+/**
+ * msm_dcvs_apply_gpu_floor
+ * @cpu_freq: CPU frequency to compare to GPU sync rules
+ *
+ * Apply a GPU floor frequency if the corresponding CPU frequency,
+ * or the number of CPUs online, requires it.
+ */
+extern void msm_dcvs_apply_gpu_floor(unsigned long cpu_freq);
 #endif

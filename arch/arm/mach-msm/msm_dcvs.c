@@ -258,36 +258,49 @@ static void restart_slack_timer(struct dcvs_core *core, int slack_us)
 	spin_unlock_irqrestore(&core->idle_state_change_lock, flags2);
 }
 
-static void apply_gpu_floor(int cpu_freq)
+void msm_dcvs_apply_gpu_floor(unsigned long cpu_freq)
 {
-	int i;
-	int gpu_floor_freq = 0;
+	static unsigned long curr_cpu0_freq;
+	unsigned long gpu_floor_freq = 0;
 	struct dcvs_core *gpu;
+	int i;
 
 	if (!dcvs_pdata)
 		return;
 
+	mutex_lock(&gpu_floor_mutex);
+
+	if (cpu_freq)
+		curr_cpu0_freq = cpu_freq;
+
 	for (i = 0; i < dcvs_pdata->num_sync_rules; i++)
-		if (cpu_freq > dcvs_pdata->sync_rules[i].cpu_khz) {
+		if (curr_cpu0_freq > dcvs_pdata->sync_rules[i].cpu_khz) {
 			gpu_floor_freq =
 				dcvs_pdata->sync_rules[i].gpu_floor_khz;
 			break;
 		}
 
-	if (!gpu_floor_freq)
+	if (num_online_cpus() > 1)
+		gpu_floor_freq = max(gpu_floor_freq,
+				     dcvs_pdata->gpu_max_nom_khz);
+
+	if (!gpu_floor_freq) {
+		mutex_unlock(&gpu_floor_mutex);
 		return;
+	}
 
 	for (i = GPU_OFFSET; i < CORES_MAX; i++) {
 		gpu = &core_list[i];
 		if (gpu->dcvs_core_id == -1)
 			continue;
-		mutex_lock(&gpu_floor_mutex);
+
 		if (gpu->pending_freq != STOP_FREQ_CHANGE &&
 		    gpu->set_floor_frequency)
 			gpu->set_floor_frequency(gpu->type_core_num,
 						 gpu_floor_freq);
-		mutex_unlock(&gpu_floor_mutex);
 	}
+
+	mutex_unlock(&gpu_floor_mutex);
 }
 
 static int __msm_dcvs_change_freq(struct dcvs_core *core)
@@ -318,7 +331,7 @@ repeat:
 
 	if (core->type == MSM_DCVS_CORE_TYPE_CPU &&
 	    core->type_core_num == 0)
-		apply_gpu_floor(requested_freq);
+		msm_dcvs_apply_gpu_floor(requested_freq);
 
 	/**
 	 * Call the frequency sink driver to change the frequency
