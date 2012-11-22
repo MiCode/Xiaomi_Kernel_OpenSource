@@ -1290,6 +1290,21 @@ static int dvb_dmxdev_set_buffer(struct dmxdev_filter *dmxdevfilter,
 	return 0;
 }
 
+static int dvb_dmxdev_set_tsp_out_format(struct dmxdev_filter *dmxdevfilter,
+				enum dmx_tsp_format_t dmx_tsp_format)
+{
+	if (dmxdevfilter->state >= DMXDEV_STATE_GO)
+		return -EBUSY;
+
+	if ((dmx_tsp_format > DMX_TSP_FORMAT_192_HEAD) ||
+		(dmx_tsp_format < DMX_TSP_FORMAT_188))
+		return -EINVAL;
+
+	dmxdevfilter->dmx_tsp_format = dmx_tsp_format;
+
+	return 0;
+}
+
 static int dvb_dmxdev_set_pes_buffer_size(struct dmxdev_filter *dmxdevfilter,
 					unsigned long size)
 {
@@ -2214,6 +2229,9 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 		return ret;
 	}
 
+	if (tsfeed->set_tsp_out_format)
+		tsfeed->set_tsp_out_format(tsfeed, filter->dmx_tsp_format);
+
 	/* Support indexing for video PES */
 	if ((para->pes_type == DMX_PES_VIDEO0) ||
 	    (para->pes_type == DMX_PES_VIDEO1) ||
@@ -2423,6 +2441,8 @@ static int dvb_demux_open(struct inode *inode, struct file *file)
 	init_timer(&dmxdevfilter->timer);
 
 	dmxdevfilter->pes_buffer_size = 32768;
+
+	dmxdevfilter->dmx_tsp_format = DMX_TSP_FORMAT_188;
 
 	dvbdev->users++;
 
@@ -2813,19 +2833,15 @@ static int dvb_demux_do_ioctl(struct file *file,
 		break;
 
 	case DMX_SET_TS_OUT_FORMAT:
-		if (!dmxdev->demux->set_tsp_out_format) {
-			ret = -EINVAL;
-			break;
+		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+			mutex_unlock(&dmxdev->mutex);
+			return -ERESTARTSYS;
 		}
 
-		if (dmxdevfilter->state >= DMXDEV_STATE_GO) {
-			ret = -EBUSY;
-			break;
-		}
-
-		ret = dmxdev->demux->set_tsp_out_format(
-				dmxdev->demux,
+		ret = dvb_dmxdev_set_tsp_out_format(dmxdevfilter,
 				*(enum dmx_tsp_format_t *)parg);
+
+		mutex_unlock(&dmxdevfilter->mutex);
 		break;
 
 	case DMX_SET_DECODER_BUFFER_SIZE:
