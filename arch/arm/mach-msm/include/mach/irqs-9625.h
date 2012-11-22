@@ -21,6 +21,10 @@
  * 32+:   SPI (shared peripheral interrupts)
  */
 
+#define GIC_PPI_START 16
+
+#define INT_ARMQC_PERFMON		(GIC_PPI_START + 7)
+
 #define GIC_SPI_START 32
 
 #define APCC_QGICL2PERFMONIRPTREQ	(GIC_SPI_START + 1)

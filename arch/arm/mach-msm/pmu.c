@@ -16,8 +16,20 @@
 #include <mach/irqs.h>
 #include <mach/socinfo.h>
 
+/*
+ * If a GIC is present, then all IRQ's < 32 are PPI's and can only be
+ * requested and free'd using the percpu IRQ API.
+ * If a VIC is present, then only the traditional request, free API works.
+ *
+ * All MPCore's have GIC's. The Cortex A5 however may or may not be MPcore, but
+ * it still has a GIC. Except, the 7x27a, which is an A5 and yet has a VIC.
+ * So if the chip is A5 but does not have a GIC, default to the traditional
+ * IRQ {request, free}_irq API.
+ */
+
 #if defined(CONFIG_ARCH_MSM_KRAITMP) || defined(CONFIG_ARCH_MSM_SCORPIONMP) \
-	|| defined(CONFIG_ARCH_MSM8625)
+	|| defined(CONFIG_ARCH_MSM8625) || \
+	(defined(CONFIG_ARCH_MSM_CORTEX_A5) && !defined(CONFIG_MSM_VIC))
 static DEFINE_PER_CPU(u32, pmu_irq_cookie);
 
 static void enable_irq_callback(void *info)
@@ -141,8 +153,10 @@ static int __init msm_pmu_init(void)
 	 * handlers to call the percpu API.
 	 * Defaults to unicore API {request,free}_irq().
 	 * See arch/arm/kernel/perf_event.c
+	 * See Comment above on the A5 and MSM_VIC.
 	 */
-#if defined(CONFIG_ARCH_MSM_KRAITMP) || defined(CONFIG_ARCH_MSM_SCORPIONMP)
+#if defined(CONFIG_ARCH_MSM_KRAITMP) || defined(CONFIG_ARCH_MSM_SCORPIONMP) \
+	|| (defined(CONFIG_ARCH_MSM_CORTEX_A5) && !defined(CONFIG_MSM_VIC))
 	cpu_pmu_device.dev.platform_data = &multicore_data;
 #endif
 
