@@ -1233,6 +1233,14 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
+	if (cancel_delayed_work_sync(&mdwc->chg_work))
+		dev_dbg(mdwc->dev, "%s: chg_work was pending\n", __func__);
+	if (mdwc->chg_state != USB_CHG_STATE_DETECTED) {
+		/* charger detection wasn't complete; re-init flags */
+		mdwc->chg_state = USB_CHG_STATE_UNDEFINED;
+		mdwc->charger.chg_type = DWC3_INVALID_CHARGER;
+	}
+
 	/* Sequence to put hardware in low power state:
 	 * 1. Set OTGDISABLE to disable OTG block in HSPHY (saves power)
 	 * 2. Clear charger detection control fields
