@@ -100,13 +100,24 @@ Required properties:
 - compatible: should be "qcom,usb-bam-msm"
 - reg  : pairs of physical base addresses and region sizes
             of all the memory mapped BAM devices present
-- reg-names : Register region name(s) referenced in reg above
-            SSUSB BAM expects "ssusb" and "hsusb" for HSSUB BAM.
-            Specify "qscratch_ram1_reg" to provide QSCRATCH's RAM1
-            register to control USB3 private memory for uses as BAM FIFOs.
+- reg-names : Register region name(s), in 1-1 correspondence with the
+	    registers in 'reg'. This list should contain at least as many names
+            as the number of unique values given in both 'usb-active-bam' and
+            all the subnodes' 'usb-bam-type' properties.
+
+            If SSUSB_BAM is used, "ssusb" should be present.
+            If HSUSB_BAM is used, "hsusb" should be present.
+            If HSIC_BAM is used, "hsic" should be present.
+
+            If a QSCRATCH RAM1 register is designated for providing USB3
+            private memory to use as a BAM FIFO, specify "qscratch_ram1_reg".
 - interrupts: IRQ lines for BAM devices
-- interrupt-names: BAM interrupt name(s) referenced in interrupts above
-            SSUSB BAM expects "ssusb" and "hsusb" for HSSUB BAM
+- interrupt-names: BAM interrupt name(s), in 1-1 correspondence with
+            'interrupts' above.
+
+            If SSUSB_BAM is used, "ssusb" should be present.
+            If HSUSB_BAM is used, "hsusb" should be present.
+            If HSIC_BAM is used, "hsic" should be present.
 - qcom,usb-active-bam: active BAM type. Can be one of
             0 - SSUSB_BAM
             1 - HSUSB_BAM
