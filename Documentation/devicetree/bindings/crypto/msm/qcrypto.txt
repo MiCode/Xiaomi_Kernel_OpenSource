@@ -3,6 +3,7 @@
 Required properties:
   - compatible : should be "qcom,qcrypto"
   - reg : should contain crypto, BAM register map.
+  - reg-names : should contain the crypto and bam base register names.
   - interrupts : should contain crypto BAM interrupt.
   - qcom,bam-pipe-pair : should contain crypto BAM pipe pair.
 
