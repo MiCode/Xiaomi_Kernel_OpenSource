@@ -45,14 +45,8 @@
 #define NR_MSM_GPIOS NR_GPIO_IRQS
 
 #elif defined(CONFIG_ARCH_MSM8910) || defined(CONFIG_ARCH_MSM8226)
-#ifdef CONFIG_ARCH_MSM8910
-#include "irqs-8910.h"
-#endif
 
-#ifdef CONFIG_ARCH_MSM8226
-#include "irqs-8226.h"
-#endif
-
+#define TLMM_MSM_SUMMARY_IRQ		(GIC_SPI_START + 208)
 #define NR_MSM_IRQS 256
 #define NR_GPIO_IRQS 117
 #define NR_QPNP_IRQS 32768
