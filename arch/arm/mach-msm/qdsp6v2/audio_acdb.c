@@ -730,12 +730,19 @@ static int acdb_open(struct inode *inode, struct file *f)
 
 static int deregister_memory(void)
 {
+	int i;
+
 	if (atomic64_read(&acdb_data.mem_len)) {
 		mutex_lock(&acdb_data.acdb_mutex);
+		atomic64_set(&acdb_data.mem_len, 0);
 		atomic_set(&acdb_data.vocstrm_total_cal_size, 0);
 		atomic_set(&acdb_data.vocproc_total_cal_size, 0);
 		atomic_set(&acdb_data.vocvol_total_cal_size, 0);
-		atomic64_set(&acdb_data.mem_len, 0);
+
+		for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
+			kfree(acdb_data.col_data[i]);
+			acdb_data.col_data[i] = NULL;
+		}
 		ion_unmap_kernel(acdb_data.ion_client, acdb_data.ion_handle);
 		ion_free(acdb_data.ion_client, acdb_data.ion_handle);
 		ion_client_destroy(acdb_data.ion_client);
@@ -747,12 +754,19 @@ static int deregister_memory(void)
 static int register_memory(void)
 {
 	int			result;
+	int			i;
 	unsigned long		paddr;
 	void                    *kvptr;
 	unsigned long		kvaddr;
 	unsigned long		mem_len;
 
 	mutex_lock(&acdb_data.acdb_mutex);
+	for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
+		acdb_data.col_data[i] = kmalloc(MAX_COL_SIZE, GFP_KERNEL);
+		atomic_set(&acdb_data.vocproc_col_cal[i].cal_kvaddr,
+			(uint32_t)acdb_data.col_data[i]);
+	}
+
 	acdb_data.ion_client =
 		msm_ion_client_create(UINT_MAX, "audio_acdb_client");
 	if (IS_ERR_OR_NULL(acdb_data.ion_client)) {
@@ -1029,7 +1043,6 @@ static int acdb_mmap(struct file *file, struct vm_area_struct *vma)
 
 static int acdb_release(struct inode *inode, struct file *f)
 {
-	int i;
 	s32 result = 0;
 
 	atomic_dec(&usage_count);
@@ -1037,11 +1050,6 @@ static int acdb_release(struct inode *inode, struct file *f)
 
 	pr_debug("%s: ref count %d!\n", __func__,
 		atomic_read(&usage_count));
-
-	for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
-		kfree(acdb_data.col_data[i]);
-		acdb_data.col_data[i] = NULL;
-	}
 
 	if (atomic_read(&usage_count) >= 1)
 		result = -EBUSY;
@@ -1067,16 +1075,10 @@ struct miscdevice acdb_misc = {
 
 static int __init acdb_init(void)
 {
-	int i;
 	memset(&acdb_data, 0, sizeof(acdb_data));
 	mutex_init(&acdb_data.acdb_mutex);
 	atomic_set(&usage_count, 0);
 
-	for (i = 0; i < MAX_VOCPROC_TYPES; i++) {
-		acdb_data.col_data[i] = kmalloc(MAX_COL_SIZE, GFP_KERNEL);
-		atomic_set(&acdb_data.vocproc_col_cal[i].cal_kvaddr,
-			(uint32_t)acdb_data.col_data[i]);
-	}
 	return misc_register(&acdb_misc);
 }
 
