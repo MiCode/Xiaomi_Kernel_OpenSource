@@ -46,6 +46,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/pm_qos.h>
+#include <linux/iopoll.h>
 
 #include <asm/cacheflush.h>
 #include <asm/div64.h>
@@ -348,23 +349,23 @@ static void msmsdcc_hard_reset(struct msmsdcc_host *host)
 	 * SDCC controller itself can support hard reset.
 	 */
 	if (is_sw_hard_reset(host)) {
-		ktime_t start;
+		u32 pwr;
 
 		writel_relaxed(readl_relaxed(host->base + MMCIPOWER)
 				| MCI_SW_RST, host->base + MMCIPOWER);
 		msmsdcc_sync_reg_wr(host);
 
-		start = ktime_get();
-		while (readl_relaxed(host->base + MMCIPOWER) & MCI_SW_RST) {
-			/*
-			 * See comment in msmsdcc_soft_reset() on choosing 1ms
-			 * poll timeout.
-			 */
-			if (ktime_to_us(ktime_sub(ktime_get(), start)) > 1000) {
-				pr_err("%s: %s failed\n",
-					mmc_hostname(host->mmc), __func__);
-				BUG();
-			}
+		/*
+		 * See comment in msmsdcc_soft_reset() on choosing 1ms
+		 * poll timeout.
+		 */
+		ret = readl_poll_timeout_noirq(host->base + MMCIPOWER,
+				pwr, !(pwr & MCI_SW_RST), 100, 10);
+
+		if (ret) {
+			pr_err("%s: %s failed (%d)\n",
+			mmc_hostname(host->mmc), __func__, ret);
+			BUG();
 		}
 	} else {
 		ret = clk_reset(host->clk, CLK_RESET_ASSERT);
