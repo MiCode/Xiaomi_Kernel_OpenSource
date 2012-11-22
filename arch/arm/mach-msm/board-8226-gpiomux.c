@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,11 +25,6 @@ static struct gpiomux_setting gpio_eth_config = {
 	.drv = GPIOMUX_DRV_2MA,
 	.func = GPIOMUX_FUNC_GPIO,
 };
-static struct gpiomux_setting gpio_spi_config = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
 
 static struct msm_gpiomux_config msm_eth_configs[] = {
 	{
@@ -38,6 +33,19 @@ static struct msm_gpiomux_config msm_eth_configs[] = {
 			[GPIOMUX_SUSPENDED] = &gpio_eth_config,
 		}
 	},
+};
+#endif
+
+static struct gpiomux_setting gpio_spi_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gpio_i2c_config = {
+	.func = GPIOMUX_FUNC_3,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
@@ -65,8 +73,19 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
+	{
+		.gpio      = 14,		/* BLSP-1 QUP-4 I2C_SDA */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 15,		/* BLSP-1 QUP-4 I2C_SCL */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
 };
-#endif
 
 void __init msm8226_init_gpiomux(void)
 {
@@ -77,8 +96,10 @@ void __init msm8226_init_gpiomux(void)
 		pr_err("%s failed %d\n", __func__, rc);
 		return;
 	}
+
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	msm_gpiomux_install(msm_eth_configs, ARRAY_SIZE(msm_eth_configs));
-	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 #endif
+
+	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 }
