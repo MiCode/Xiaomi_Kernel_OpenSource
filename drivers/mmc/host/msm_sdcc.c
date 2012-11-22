@@ -471,7 +471,9 @@ static void msmsdcc_reset_dpsm(struct msmsdcc_host *host)
 					readl_relaxed(host->base + MMCISTATUS)
 					& MCI_TXACTIVE ? "TX" : "RX");
 				msmsdcc_dump_sdcc_state(host);
-				BUG();
+				msmsdcc_reset_and_restore(host);
+				host->pending_dpsm_reset = false;
+				goto out;
 			}
 		}
 	}
