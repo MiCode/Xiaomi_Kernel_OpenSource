@@ -438,7 +438,6 @@ void msm_pcm_routing_dereg_pseudo_stream(int fedai_id, int dspst_id)
 
 	mutex_lock(&routing_lock);
 
-	adm_pseudo_close(PSEUDOPORT_01);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (!is_be_dai_extproc(i) &&
 			(msm_bedais[i].active) &&
@@ -480,8 +479,12 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
-		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions)))
-			adm_close(msm_bedais[i].port_id);
+		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
+			if (msm_bedais[i].port_id == PSEUDOPORT_01)
+				adm_pseudo_close(msm_bedais[i].port_id);
+			else
+				adm_close(msm_bedais[i].port_id);
+		}
 	}
 
 	fe_dai_map[fedai_id][session_type] = INVALID_SESSION;
