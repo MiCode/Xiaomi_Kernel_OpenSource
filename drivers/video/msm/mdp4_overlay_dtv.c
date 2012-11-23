@@ -991,22 +991,27 @@ void mdp4_overlay1_done_dtv(void)
 	spin_unlock(&vctrl->spin_lock);
 }
 
-void mdp4_dtv_set_black_screen(bool commit)
+void mdp4_dtv_set_black_screen()
 {
 	char *rgb_base;
 	/*Black color*/
 	uint32 color = 0x00000000;
 	uint32 temp_src_format;
-	int cndx = 0;
+	int commit = 1, cndx = 0;
+	int pipe_num = OVERLAY_PIPE_RGB1;
 	struct vsycn_ctrl *vctrl;
 
 	vctrl = &vsync_ctrl_db[cndx];
-	if (vctrl->base_pipe == NULL || !hdmi_prim_display) {
-		pr_debug("dtv_pipe is not configured yet\n");
+	if (!hdmi_prim_display)
 		return;
-	}
+
+	if (vctrl->base_pipe == NULL)
+		commit = 0;
+	else
+		pipe_num = vctrl->base_pipe->pipe_num;
+
 	rgb_base = MDP_BASE;
-	rgb_base += (MDP4_RGB_OFF * (vctrl->base_pipe->pipe_num + 2));
+	rgb_base += (MDP4_RGB_OFF * (pipe_num + 2));
 
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 
@@ -1021,13 +1026,12 @@ void mdp4_dtv_set_black_screen(bool commit)
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
 		mdp4_overlay_reg_flush(vctrl->base_pipe, 1);
-
 		mdp4_mixer_stage_up(vctrl->base_pipe, 0);
 		mdp4_mixer_stage_commit(vctrl->base_pipe->mixer_num);
 	} else {
 		/* MDP_OVERLAY_REG_FLUSH for pipe*/
 		MDP_OUTP(MDP_BASE + 0x18000,
-			BIT(vctrl->base_pipe->pipe_num + 2) | BIT(MDP4_MIXER1));
+			BIT(pipe_num + 2) | BIT(MDP4_MIXER1));
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 	}
 }
