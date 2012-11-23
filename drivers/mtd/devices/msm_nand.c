@@ -6757,6 +6757,23 @@ int msm_onenand_scan(struct mtd_info *mtd, int maxchips)
 	return 0;
 }
 
+static const unsigned int bch_sup_cntrl[] = {
+	0x307, /* MSM7x2xA */
+	0x4030, /* MDM 9x15 */
+};
+
+static inline bool msm_nand_has_bch_ecc_engine(unsigned int hw_id)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(bch_sup_cntrl); i++) {
+		if (hw_id == bch_sup_cntrl[i])
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * msm_nand_scan - [msm_nand Interface] Scan for the msm_nand device
  * @param mtd		MTD device structure
@@ -6778,6 +6795,7 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 	uint32_t devcfg;
 	struct nand_flash_dev *flashdev = NULL;
 	struct nand_manufacturers  *flashman = NULL;
+	unsigned int hw_id;
 
 	/* Probe the Flash device for ONFI compliance */
 	if (!flash_onfi_probe(chip)) {
@@ -6845,7 +6863,8 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 			mtd_writesize = mtd->writesize >> 1;
 
 		/* Check whether controller and NAND device support 8bit ECC*/
-		if ((flash_rd_reg(chip, MSM_NAND_HW_INFO) == 0x307)
+		hw_id = flash_rd_reg(chip, MSM_NAND_HW_INFO);
+		if (msm_nand_has_bch_ecc_engine(hw_id)
 				&& (supported_flash.ecc_correctability >= 8)) {
 			pr_info("Found supported NAND device for %dbit ECC\n",
 					supported_flash.ecc_correctability);
@@ -6853,7 +6872,8 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 		} else {
 			pr_info("Found a supported NAND device\n");
 		}
-		pr_info("NAND Id  : 0x%x\n", supported_flash.flash_id);
+		pr_info("NAND Controller ID : 0x%x\n", hw_id);
+		pr_info("NAND Device ID  : 0x%x\n", supported_flash.flash_id);
 		pr_info("Buswidth : %d Bits\n", (wide_bus) ? 16 : 8);
 		pr_info("Density  : %lld MByte\n", (mtd->size>>20));
 		pr_info("Pagesize : %d Bytes\n", mtd->writesize);
