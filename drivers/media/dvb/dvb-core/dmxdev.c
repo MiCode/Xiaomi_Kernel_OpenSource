@@ -465,6 +465,90 @@ static struct dmx_frontend *get_fe(struct dmx_demux *demux, int type)
 	return NULL;
 }
 
+static int dvr_input_thread_entry(void *arg)
+{
+	struct dmxdev *dmxdev = arg;
+	struct dvb_ringbuffer *src = &dmxdev->dvr_input_buffer;
+	int ret;
+	size_t todo;
+	size_t split;
+
+	while (1) {
+		/* wait for input */
+		ret = wait_event_interruptible(src->queue,
+						   (!src->data) ||
+					       (dvb_ringbuffer_avail(src)) ||
+					       (src->error != 0) ||
+					       (dmxdev->dvr_in_exit) ||
+					       kthread_should_stop());
+
+		if ((ret < 0) || kthread_should_stop())
+			break;
+
+		spin_lock(&dmxdev->dvr_in_lock);
+
+		if (!src->data || dmxdev->exit || dmxdev->dvr_in_exit) {
+			spin_unlock(&dmxdev->dvr_in_lock);
+			break;
+		}
+
+		if (src->error) {
+			spin_unlock(&dmxdev->dvr_in_lock);
+			wake_up_all(&src->queue);
+			break;
+		}
+
+		dmxdev->dvr_processing_input = 1;
+
+		ret = dvb_ringbuffer_avail(src);
+		todo = ret;
+
+		split = (src->pread + ret > src->size) ?
+				src->size - src->pread :
+				0;
+
+		/*
+		 * In DVR PULL mode, write might block.
+		 * Lock on DVR buffer is released before calling to
+		 * write, if DVR was released meanwhile, dvr_in_exit is
+		 * prompted. Lock is aquired when updating the read pointer
+		 * again to preserve read/write pointers consistancy
+		 */
+		if (split > 0) {
+			spin_unlock(&dmxdev->dvr_in_lock);
+			dmxdev->demux->write(dmxdev->demux,
+						src->data + src->pread,
+						split);
+
+			if (dmxdev->dvr_in_exit)
+				break;
+
+			spin_lock(&dmxdev->dvr_in_lock);
+
+			todo -= split;
+			DVB_RINGBUFFER_SKIP(src, split);
+		}
+
+		spin_unlock(&dmxdev->dvr_in_lock);
+		dmxdev->demux->write(dmxdev->demux,
+					src->data + src->pread, todo);
+
+		if (dmxdev->dvr_in_exit)
+			break;
+
+		spin_lock(&dmxdev->dvr_in_lock);
+
+		DVB_RINGBUFFER_SKIP(src, todo);
+		dmxdev->dvr_processing_input = 0;
+		spin_unlock(&dmxdev->dvr_in_lock);
+
+		wake_up_all(&src->queue);
+	}
+
+	return 0;
+}
+
+
 static int dvb_dvr_open(struct inode *inode, struct file *file)
 {
 	struct dvb_device *dvbdev = file->private_data;
@@ -542,6 +626,17 @@ static int dvb_dvr_open(struct inode *inode, struct file *file)
 		dmxdev->demux->dvr_input.priv_handle = NULL;
 		dmxdev->demux->dvr_input.ringbuff = &dmxdev->dvr_input_buffer;
 		dvbdev->writers--;
+
+		dmxdev->dvr_input_thread =
+			kthread_run(
+				dvr_input_thread_entry,
+				(void *)dmxdev,
+				"dvr_input");
+
+		if (IS_ERR(dmxdev->dvr_input_thread)) {
+			mutex_unlock(&dmxdev->mutex);
+			return -ENOMEM;
+		}
 	}
 
 	dvbdev->users++;
@@ -601,11 +696,11 @@ static int dvb_dvr_release(struct inode *inode, struct file *file)
 			dmxdev->demux->write_cancel(dmxdev->demux);
 
 		/*
-		 * Now flush dvr-in workqueue so that no one
+		 * Now stop dvr-input thread so that no one
 		 * would process data from dvr input buffer any more
 		 * before it gets freed.
 		 */
-		flush_workqueue(dmxdev->dvr_input_workqueue);
+		kthread_stop(dmxdev->dvr_input_thread);
 
 		dvbdev->writers++;
 		dmxdev->demux->disconnect_frontend(dmxdev->demux);
@@ -773,12 +868,7 @@ static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 		buf += ret;
 
 		mutex_unlock(&dmxdev->mutex);
-
 		wake_up_all(&src->queue);
-
-		if (!work_pending(&dmxdev->dvr_input_work))
-			queue_work(dmxdev->dvr_input_workqueue,
-						&dmxdev->dvr_input_work);
 	}
 
 	return (count - todo) ? (count - todo) : ret;
@@ -825,87 +915,6 @@ static ssize_t dvb_dvr_read(struct file *file, char __user *buf, size_t count,
 	}
 
 	return res;
-}
-
-static void dvr_input_work_func(struct work_struct *worker)
-{
-	struct dmxdev *dmxdev =
-		container_of(worker, struct dmxdev, dvr_input_work);
-	struct dvb_ringbuffer *src = &dmxdev->dvr_input_buffer;
-	int ret;
-	size_t todo;
-	size_t split;
-
-	while (1) {
-		/* wait for input */
-		ret = wait_event_interruptible(src->queue,
-						   (!src->data) ||
-					       (dvb_ringbuffer_avail(src)) ||
-					       (src->error != 0) ||
-					       (dmxdev->dvr_in_exit));
-
-		if (ret < 0)
-			break;
-
-		spin_lock(&dmxdev->dvr_in_lock);
-
-		if (!src->data || dmxdev->exit || dmxdev->dvr_in_exit) {
-			spin_unlock(&dmxdev->dvr_in_lock);
-			break;
-		}
-
-		if (src->error) {
-			spin_unlock(&dmxdev->dvr_in_lock);
-			wake_up_all(&src->queue);
-			break;
-		}
-
-		dmxdev->dvr_processing_input = 1;
-
-		ret = dvb_ringbuffer_avail(src);
-		todo = ret;
-
-		split = (src->pread + ret > src->size) ?
-				src->size - src->pread :
-				0;
-
-		/*
-		 * In DVR PULL mode, write might block.
-		 * Lock on DVR buffer is released before calling to
-		 * write, if DVR was released meanwhile, dvr_in_exit is
-		 * prompted. Lock is aquired when updating the read pointer
-		 * again to preserve read/write pointers consistancy
-		 */
-		if (split > 0) {
-			spin_unlock(&dmxdev->dvr_in_lock);
-			dmxdev->demux->write(dmxdev->demux,
-						src->data + src->pread,
-						split);
-
-			if (dmxdev->dvr_in_exit)
-				break;
-
-			spin_lock(&dmxdev->dvr_in_lock);
-
-			todo -= split;
-			DVB_RINGBUFFER_SKIP(src, split);
-		}
-
-		spin_unlock(&dmxdev->dvr_in_lock);
-		dmxdev->demux->write(dmxdev->demux,
-					src->data + src->pread, todo);
-
-		if (dmxdev->dvr_in_exit)
-			break;
-
-		spin_lock(&dmxdev->dvr_in_lock);
-
-		DVB_RINGBUFFER_SKIP(src, todo);
-		dmxdev->dvr_processing_input = 0;
-		spin_unlock(&dmxdev->dvr_in_lock);
-
-		wake_up_all(&src->queue);
-	}
 }
 
 static int dvb_dvr_set_buffer_size(struct dmxdev *dmxdev,
@@ -1204,10 +1213,6 @@ static int dvb_dvr_feed_data(struct dmxdev *dmxdev,
 		(buffer->pwrite + bytes_count) % buffer->size;
 
 	wake_up_all(&buffer->queue);
-
-	if (!work_pending(&dmxdev->dvr_input_work))
-		queue_work(dmxdev->dvr_input_workqueue,
-					&dmxdev->dvr_input_work);
 
 	return 0;
 }
@@ -3260,14 +3265,6 @@ int dvb_dmxdev_init(struct dmxdev *dmxdev, struct dvb_adapter *dvb_adapter)
 	if (!dmxdev->filter)
 		return -ENOMEM;
 
-	dmxdev->dvr_input_workqueue =
-		create_singlethread_workqueue("dvr_workqueue");
-
-	if (dmxdev->dvr_input_workqueue == NULL) {
-		vfree(dmxdev->filter);
-		return -ENOMEM;
-	}
-
 	dmxdev->playback_mode = DMX_PB_MODE_PUSH;
 
 	mutex_init(&dmxdev->mutex);
@@ -3287,9 +3284,6 @@ int dvb_dmxdev_init(struct dmxdev *dmxdev, struct dvb_adapter *dvb_adapter)
 
 	dvb_ringbuffer_init(&dmxdev->dvr_buffer, NULL, 8192);
 	dvb_ringbuffer_init(&dmxdev->dvr_input_buffer, NULL, 8192);
-
-	INIT_WORK(&dmxdev->dvr_input_work,
-			  dvr_input_work_func);
 
 	if (dmxdev->demux->debugfs_demux_dir)
 		debugfs_create_file("filters", S_IRUGO,
@@ -3312,9 +3306,6 @@ void dvb_dmxdev_release(struct dmxdev *dmxdev)
 		wait_event(dmxdev->dvr_dvbdev->wait_queue,
 				dmxdev->dvr_dvbdev->users==1);
 	}
-
-	flush_workqueue(dmxdev->dvr_input_workqueue);
-	destroy_workqueue(dmxdev->dvr_input_workqueue);
 
 	dvb_unregister_device(dmxdev->dvbdev);
 	dvb_unregister_device(dmxdev->dvr_dvbdev);
