@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/qpnp/clkdiv.h>
+#include <linux/regulator/consumer.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -30,9 +31,6 @@
 
 #define DRV_NAME "msm8974-asoc-taiko"
 
-#define PM8921_GPIO_BASE		NR_GPIO_IRQS
-#define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
-
 #define MSM8974_SPK_ON 1
 #define MSM8974_SPK_OFF 0
 
@@ -42,10 +40,10 @@
 #define BTSCO_RATE_8KHZ 8000
 #define BTSCO_RATE_16KHZ 16000
 
-#define BOTTOM_SPK_AMP_POS	0x1
-#define BOTTOM_SPK_AMP_NEG	0x2
-#define TOP_SPK_AMP_POS		0x4
-#define TOP_SPK_AMP_NEG		0x8
+#define LO_1_SPK_AMP	0x1
+#define LO_3_SPK_AMP	0x2
+#define LO_2_SPK_AMP	0x4
+#define LO_4_SPK_AMP	0x8
 
 #define GPIO_AUX_PCM_DOUT 43
 #define GPIO_AUX_PCM_DIN 44
@@ -55,6 +53,9 @@
 #define WCD9XXX_MBHC_DEF_BUTTONS 8
 #define WCD9XXX_MBHC_DEF_RLOADS 5
 #define TAIKO_EXT_CLK_RATE 9600000
+
+/* It takes about 13ms for Class-D PAs to ramp-up */
+#define EXT_CLASS_D_EN_DELAY 13000
 
 void *def_taiko_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
@@ -89,11 +90,11 @@ enum {
 	SLIM_4_TX_1 = 150, /* In-call musid delivery TX */
 };
 
-static u32 top_spk_pamp_gpio  = PM8921_GPIO_PM_TO_SYS(18);
-static u32 bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(19);
-static int msm_spk_control;
-static int msm_ext_bottom_spk_pamp;
-static int msm_ext_top_spk_pamp;
+static struct platform_device *spdev;
+static struct regulator *ext_spk_amp_regulator;
+static int ext_spk_amp_gpio = -1;
+static int msm8974_spk_control = 1;
+static int msm8974_ext_spk_pamp;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
 
@@ -105,103 +106,70 @@ static struct q_clkdiv *codec_clk;
 static int clk_users;
 static atomic_t auxpcm_rsc_ref;
 
-static void msm_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
+static int msm8974_liquid_ext_spk_power_amp_init(void)
 {
 	int ret = 0;
 
-	struct pm_gpio param = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.output_value   = 1,
-		.pull      = PM_GPIO_PULL_NO,
-		.vin_sel	= PM_GPIO_VIN_S4,
-		.out_strength   = PM_GPIO_STRENGTH_MED,
-		.
-			function       = PM_GPIO_FUNC_NORMAL,
-	};
-
-	if (spk_amp_gpio == bottom_spk_pamp_gpio) {
-
-		ret = gpio_request(bottom_spk_pamp_gpio, "BOTTOM_SPK_AMP");
+	ext_spk_amp_gpio = of_get_named_gpio(spdev->dev.of_node,
+		"qcom,ext-spk-amp-gpio", 0);
+	if (ext_spk_amp_gpio >= 0) {
+		ret = gpio_request(ext_spk_amp_gpio, "ext_spk_amp_gpio");
 		if (ret) {
-			pr_err("%s: Error requesting BOTTOM SPK AMP GPIO %u\n",
-				__func__, bottom_spk_pamp_gpio);
-			return;
+			pr_err("%s: gpio_request failed for ext_spk_amp_gpio.\n",
+				__func__);
+			return -EINVAL;
 		}
-		ret = pm8xxx_gpio_config(bottom_spk_pamp_gpio, &param);
-		if (ret)
-			pr_err("%s: Failed to configure Bottom Spk Ampl gpio %u\n",
-				__func__, bottom_spk_pamp_gpio);
-		else {
-			pr_debug("%s: enable Bottom spkr amp gpio\n", __func__);
-			gpio_direction_output(bottom_spk_pamp_gpio, 1);
-		}
+		gpio_direction_output(ext_spk_amp_gpio, 0);
 
-	} else if (spk_amp_gpio == top_spk_pamp_gpio) {
+		if (ext_spk_amp_regulator == NULL) {
+			ext_spk_amp_regulator = regulator_get(&spdev->dev,
+									"qcom,ext-spk-amp");
 
-		ret = gpio_request(top_spk_pamp_gpio, "TOP_SPK_AMP");
-		if (ret) {
-			pr_err("%s: Error requesting GPIO %d\n", __func__,
-				top_spk_pamp_gpio);
-			return;
+			if (IS_ERR(ext_spk_amp_regulator)) {
+				pr_err("%s: Cannot get regulator %s.\n",
+					__func__, "qcom,ext-spk-amp");
+
+				gpio_free(ext_spk_amp_gpio);
+				return PTR_ERR(ext_spk_amp_regulator);
+			}
 		}
-		ret = pm8xxx_gpio_config(top_spk_pamp_gpio, &param);
-		if (ret)
-			pr_err("%s: Failed to configure Top Spk Ampl gpio %u\n",
-				__func__, top_spk_pamp_gpio);
-		else {
-			pr_debug("%s: enable Top spkr amp gpio\n", __func__);
-			gpio_direction_output(top_spk_pamp_gpio, 1);
-		}
-	} else {
-		pr_err("%s: ERROR : Invalid External Speaker Ampl GPIO. gpio = %u\n",
-			__func__, spk_amp_gpio);
-		return;
 	}
+
+	return 0;
 }
 
-static void msm_ext_spk_power_amp_on(u32 spk)
+static void msm8974_liquid_ext_spk_power_amp_enable(u32 on)
 {
-	if (spk & (BOTTOM_SPK_AMP_POS | BOTTOM_SPK_AMP_NEG)) {
+	if (on)
+		regulator_enable(ext_spk_amp_regulator);
+	else
+		regulator_disable(ext_spk_amp_regulator);
 
-		if ((msm_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
-			(msm_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
+	gpio_direction_output(ext_spk_amp_gpio, on);
+	usleep_range(EXT_CLASS_D_EN_DELAY, EXT_CLASS_D_EN_DELAY);
+	pr_debug("%s: %s external speaker PAs.\n", __func__,
+			on ? "Enable" : "Disable");
+}
 
-			pr_debug("%s() External Bottom Speaker Ampl already turned on. spk = 0x%08x\n",
+static void msm8974_ext_spk_power_amp_on(u32 spk)
+{
+	if (spk & (LO_1_SPK_AMP |
+					  LO_3_SPK_AMP |
+					  LO_2_SPK_AMP |
+					  LO_4_SPK_AMP)) {
+
+		pr_debug("%s() External Left/Right Speakers already turned on. spk = 0x%08x\n",
 						__func__, spk);
-			return;
-		}
 
-		msm_ext_bottom_spk_pamp |= spk;
+		msm8974_ext_spk_pamp |= spk;
 
-		if ((msm_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
-			(msm_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
+		if ((msm8974_ext_spk_pamp & LO_1_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_3_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_4_SPK_AMP)) {
 
-			msm_enable_ext_spk_amp_gpio(bottom_spk_pamp_gpio);
-			pr_debug("%s: slepping 4 ms after turning on external Bottom Speaker Ampl\n",
-							__func__);
-			usleep_range(4000, 4000);
-		}
-
-	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
-
-		if ((msm_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
-			(msm_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
-
-			pr_debug("%s() External Top Speaker Ampl already turned on. spk = 0x%08x\n",
-						__func__, spk);
-			return;
-		}
-
-		msm_ext_top_spk_pamp |= spk;
-
-		if ((msm_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
-			(msm_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
-
-			msm_enable_ext_spk_amp_gpio(top_spk_pamp_gpio);
-			pr_debug("%s: sleeping 4 ms after turning on external Top Speaker Ampl\n",
-						__func__);
-			usleep_range(4000, 4000);
+			if (ext_spk_amp_gpio >= 0)
+				msm8974_liquid_ext_spk_power_amp_enable(1);
 		}
 	} else  {
 
@@ -211,35 +179,22 @@ static void msm_ext_spk_power_amp_on(u32 spk)
 	}
 }
 
-static void msm_ext_spk_power_amp_off(u32 spk)
+static void msm8974_ext_spk_power_amp_off(u32 spk)
 {
-	if (spk & (BOTTOM_SPK_AMP_POS | BOTTOM_SPK_AMP_NEG)) {
+	if (spk & (LO_1_SPK_AMP |
+					  LO_3_SPK_AMP |
+					  LO_2_SPK_AMP |
+					  LO_4_SPK_AMP)) {
 
-		if (!msm_ext_bottom_spk_pamp)
-			return;
+		pr_debug("%s Left and right speakers case spk = 0x%08x",
+				  __func__, spk);
 
-		gpio_direction_output(bottom_spk_pamp_gpio, 0);
-		gpio_free(bottom_spk_pamp_gpio);
-		msm_ext_bottom_spk_pamp = 0;
+		if (!msm8974_ext_spk_pamp) {
+			if (ext_spk_amp_gpio >= 0)
+				msm8974_liquid_ext_spk_power_amp_enable(0);
+			msm8974_ext_spk_pamp = 0;
+		}
 
-		pr_debug("%s: sleeping 4 ms after turning off external Bottom Speaker Ampl\n",
-					__func__);
-
-		usleep_range(4000, 4000);
-
-	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
-
-		if (!msm_ext_top_spk_pamp)
-			return;
-
-		gpio_direction_output(top_spk_pamp_gpio, 0);
-		gpio_free(top_spk_pamp_gpio);
-		msm_ext_top_spk_pamp = 0;
-
-		pr_debug("%s: sleeping 4 ms after turning off external Top Spkaker Ampl\n",
-					__func__);
-
-		usleep_range(4000, 4000);
 	} else  {
 
 		pr_err("%s: ERROR : Invalid Ext Spk Ampl. spk = 0x%08x\n",
@@ -248,87 +203,89 @@ static void msm_ext_spk_power_amp_off(u32 spk)
 	}
 }
 
-static void msm_ext_control(struct snd_soc_codec *codec)
+static void msm8974_ext_control(struct snd_soc_codec *codec)
 {
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
 	mutex_lock(&dapm->codec->mutex);
 
-	pr_debug("%s: msm_spk_control = %d", __func__, msm_spk_control);
-	if (msm_spk_control == MSM8974_SPK_ON) {
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+	pr_debug("%s: msm8974_spk_control = %d", __func__, msm8974_spk_control);
+	if (msm8974_spk_control == MSM8974_SPK_ON) {
+		snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
+		snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
+		snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
+		snd_soc_dapm_enable_pin(dapm, "Lineout_4 amp");
 	} else {
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Bottom Pos");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Bottom Neg");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top Pos");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top Neg");
+		snd_soc_dapm_disable_pin(dapm, "Lineout_1 amp");
+		snd_soc_dapm_disable_pin(dapm, "Lineout_3 amp");
+		snd_soc_dapm_disable_pin(dapm, "Lineout_2 amp");
+		snd_soc_dapm_disable_pin(dapm, "Lineout_4 amp");
 	}
 
 	snd_soc_dapm_sync(dapm);
 	mutex_unlock(&dapm->codec->mutex);
 }
 
-static int msm_get_spk(struct snd_kcontrol *kcontrol,
+static int msm8974_get_spk(struct snd_kcontrol *kcontrol,
 		       struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s: msm_spk_control = %d", __func__, msm_spk_control);
-	ucontrol->value.integer.value[0] = msm_spk_control;
+	pr_debug("%s: msm8974_spk_control = %d", __func__, msm8974_spk_control);
+	ucontrol->value.integer.value[0] = msm8974_spk_control;
 	return 0;
 }
 
-static int msm_set_spk(struct snd_kcontrol *kcontrol,
+static int msm8974_set_spk(struct snd_kcontrol *kcontrol,
 		       struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
 	pr_debug("%s()\n", __func__);
-	if (msm_spk_control == ucontrol->value.integer.value[0])
+	if (msm8974_spk_control == ucontrol->value.integer.value[0])
 		return 0;
 
-	msm_spk_control = ucontrol->value.integer.value[0];
-	msm_ext_control(codec);
+	msm8974_spk_control = ucontrol->value.integer.value[0];
+	msm8974_ext_control(codec);
 	return 1;
 }
 
-static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
+
+static int msm_ext_spkramp_event(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *k, int event)
 {
-	pr_debug("%s() %x\n", __func__, SND_SOC_DAPM_EVENT_ON(event));
+	pr_debug("%s()\n", __func__);
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		if (!strncmp(w->name, "Ext Spk Bottom Pos", 18))
-			msm_ext_spk_power_amp_on(BOTTOM_SPK_AMP_POS);
-		else if (!strncmp(w->name, "Ext Spk Bottom Neg", 18))
-			msm_ext_spk_power_amp_on(BOTTOM_SPK_AMP_NEG);
-		else if (!strncmp(w->name, "Ext Spk Top Pos", 15))
-			msm_ext_spk_power_amp_on(TOP_SPK_AMP_POS);
-		else if  (!strncmp(w->name, "Ext Spk Top Neg", 15))
-			msm_ext_spk_power_amp_on(TOP_SPK_AMP_NEG);
+		if (!strncmp(w->name, "Lineout_1 amp", 14))
+			msm8974_ext_spk_power_amp_on(LO_1_SPK_AMP);
+		else if (!strncmp(w->name, "Lineout_3 amp", 14))
+			msm8974_ext_spk_power_amp_on(LO_3_SPK_AMP);
+		else if (!strncmp(w->name, "Lineout_2 amp", 14))
+			msm8974_ext_spk_power_amp_on(LO_2_SPK_AMP);
+		else if  (!strncmp(w->name, "Lineout_4 amp", 14))
+			msm8974_ext_spk_power_amp_on(LO_4_SPK_AMP);
 		else {
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
 			return -EINVAL;
 		}
-
 	} else {
-		if (!strncmp(w->name, "Ext Spk Bottom Pos", 18))
-			msm_ext_spk_power_amp_off(BOTTOM_SPK_AMP_POS);
-		else if (!strncmp(w->name, "Ext Spk Bottom Neg", 18))
-			msm_ext_spk_power_amp_off(BOTTOM_SPK_AMP_NEG);
-		else if (!strncmp(w->name, "Ext Spk Top Pos", 15))
-			msm_ext_spk_power_amp_off(TOP_SPK_AMP_POS);
-		else if  (!strncmp(w->name, "Ext Spk Top Neg", 15))
-			msm_ext_spk_power_amp_off(TOP_SPK_AMP_NEG);
+		if (!strncmp(w->name, "Lineout_1 amp", 14))
+			msm8974_ext_spk_power_amp_off(LO_1_SPK_AMP);
+		else if (!strncmp(w->name, "Lineout_3 amp", 14))
+			msm8974_ext_spk_power_amp_off(LO_3_SPK_AMP);
+		else if (!strncmp(w->name, "Lineout_2 amp", 14))
+			msm8974_ext_spk_power_amp_off(LO_2_SPK_AMP);
+		else if  (!strncmp(w->name, "Lineout_4 amp", 14))
+			msm8974_ext_spk_power_amp_off(LO_4_SPK_AMP);
 		else {
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
 			return -EINVAL;
 		}
 	}
+
 	return 0;
+
 }
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
@@ -397,11 +354,11 @@ static const struct snd_soc_dapm_widget msm8974_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 	msm8974_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_SPK("Ext Spk Bottom Pos", msm_spkramp_event),
-	SND_SOC_DAPM_SPK("Ext Spk Bottom Neg", msm_spkramp_event),
+	SND_SOC_DAPM_SPK("Lineout_1 amp", msm_ext_spkramp_event),
+	SND_SOC_DAPM_SPK("Lineout_3 amp", msm_ext_spkramp_event),
 
-	SND_SOC_DAPM_SPK("Ext Spk Top Pos", msm_spkramp_event),
-	SND_SOC_DAPM_SPK("Ext Spk Top Neg", msm_spkramp_event),
+	SND_SOC_DAPM_SPK("Lineout_2 amp", msm_ext_spkramp_event),
+	SND_SOC_DAPM_SPK("Lineout_4 amp", msm_ext_spkramp_event),
 
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -693,8 +650,8 @@ static const struct soc_enum msm_snd_enum[] = {
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
-	SOC_ENUM_EXT("Speaker Function", msm_snd_enum[0], msm_get_spk,
-		     msm_set_spk),
+	SOC_ENUM_EXT("Speaker Function", msm_snd_enum[0], msm8974_get_spk,
+		     msm8974_set_spk),
 	SOC_ENUM_EXT("SLIM_0_RX Channels", msm_snd_enum[1],
 		     msm_slim_0_rx_ch_get, msm_slim_0_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_TX Channels", msm_snd_enum[2],
@@ -723,11 +680,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	pr_info("%s(), dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
-	if (machine_is_msm8960_liquid()) {
-		top_spk_pamp_gpio = (PM8921_GPIO_PM_TO_SYS(19));
-		bottom_spk_pamp_gpio = (PM8921_GPIO_PM_TO_SYS(18));
-	}
-
 	rtd->pmdown_time = 0;
 
 	err = snd_soc_add_codec_controls(codec, msm_snd_controls,
@@ -735,13 +687,21 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (err < 0)
 		return err;
 
+	err = msm8974_liquid_ext_spk_power_amp_init();
+	if (err) {
+		pr_err("%s: LiQUID 8974 CLASS_D PAs init failed (%d)\n",
+			__func__, err);
+		return err;
+	}
+
 	snd_soc_dapm_new_controls(dapm, msm8974_dapm_widgets,
 				ARRAY_SIZE(msm8974_dapm_widgets));
 
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
+	snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
+	snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
+	snd_soc_dapm_enable_pin(dapm, "Lineout_4 amp");
+
 
 	snd_soc_dapm_sync(dapm);
 
@@ -1458,8 +1418,12 @@ static int msm8974_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
+
 	mutex_init(&cdc_mclk_mutex);
 	atomic_set(&auxpcm_rsc_ref, 0);
+
+	spdev = pdev;
+	ext_spk_amp_regulator = NULL;
 
 	return 0;
 err:
@@ -1472,7 +1436,13 @@ static int msm8974_asoc_machine_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
+	if (ext_spk_amp_regulator)
+		regulator_put(ext_spk_amp_regulator);
+
 	gpio_free(pdata->mclk_gpio);
+	if (ext_spk_amp_gpio >= 0)
+		gpio_free(ext_spk_amp_gpio);
+
 	snd_soc_unregister_card(card);
 
 	return 0;
