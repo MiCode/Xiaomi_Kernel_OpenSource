@@ -1128,21 +1128,47 @@ static int dmx_ts_feed_decoder_buff_status(struct dmx_ts_feed *ts_feed,
 	struct dvb_demux *demux = feed->demux;
 	int ret;
 
-	spin_lock_irq(&demux->lock);
+	mutex_lock(&demux->mutex);
 
 	if (feed->state < DMX_STATE_GO) {
-		spin_unlock_irq(&demux->lock);
+		mutex_unlock(&demux->mutex);
 		return -EINVAL;
 	}
 
 	if (!demux->decoder_buffer_status) {
-		spin_unlock_irq(&demux->lock);
+		mutex_unlock(&demux->mutex);
 		return -ENODEV;
 	}
 
 	ret = demux->decoder_buffer_status(feed, dmx_buffer_status);
 
-	spin_unlock_irq(&demux->lock);
+	mutex_unlock(&demux->mutex);
+
+	return ret;
+}
+
+static int dmx_ts_feed_reuse_decoder_buffer(struct dmx_ts_feed *ts_feed,
+						int cookie)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
+	struct dvb_demux *demux = feed->demux;
+	int ret;
+
+	mutex_lock(&demux->mutex);
+
+	if (feed->state < DMX_STATE_GO) {
+		mutex_unlock(&demux->mutex);
+		return -EINVAL;
+	}
+
+	if (!demux->reuse_decoder_buffer) {
+		mutex_unlock(&demux->mutex);
+		return -ENODEV;
+	}
+
+	ret = demux->reuse_decoder_buffer(feed, cookie);
+
+	mutex_unlock(&demux->mutex);
 
 	return ret;
 }
@@ -1239,6 +1265,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->set_indexing_params = dmx_ts_set_indexing_params;
 	(*ts_feed)->set_tsp_out_format = dmx_ts_set_tsp_out_format;
 	(*ts_feed)->get_decoder_buff_status = dmx_ts_feed_decoder_buff_status;
+	(*ts_feed)->reuse_decoder_buffer = dmx_ts_feed_reuse_decoder_buffer;
 	(*ts_feed)->data_ready_cb = dmx_ts_feed_data_ready_cb;
 	(*ts_feed)->notify_data_read = NULL;
 

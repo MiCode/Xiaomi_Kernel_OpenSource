@@ -64,14 +64,15 @@
 
 enum dmx_success {
 	DMX_OK = 0, /* Received Ok */
-	DMX_OK_PES_END, /* Received ok, data reached end of PES packet */
+	DMX_OK_PES_END, /* Received OK, data reached end of PES packet */
 	DMX_OK_PCR, /* Received OK, data with new PCR/STC pair */
 	DMX_LENGTH_ERROR, /* Incorrect length */
 	DMX_OVERRUN_ERROR, /* Receiver ring buffer overrun */
 	DMX_CRC_ERROR, /* Incorrect CRC */
 	DMX_FRAME_ERROR, /* Frame alignment error */
 	DMX_FIFO_ERROR, /* Receiver FIFO overrun */
-	DMX_MISSED_ERROR /* Receiver missed packet */
+	DMX_MISSED_ERROR, /* Receiver missed packet */
+	DMX_OK_DECODER_BUF /* Received OK, new ES data in decoder buffer */
 } ;
 
 
@@ -106,6 +107,21 @@ struct dmx_data_ready {
 			u64 stc;
 			int disc_indicator_set;
 		} pcr;
+
+		struct {
+			int handle;
+			int cookie;
+			u32 offset;
+			u32 len;
+			int pts_exists;
+			u64 pts;
+			int dts_exists;
+			u64 dts;
+			u32 tei_counter;
+			u32 cont_err_counter;
+			u32 ts_packets_num;
+			u32 ts_dropped_bytes;
+		} buf;
 	};
 };
 
@@ -202,6 +218,9 @@ struct dmx_ts_feed {
 	int (*get_decoder_buff_status)(
 			struct dmx_ts_feed *feed,
 			struct dmx_buffer_status *dmx_buffer_status);
+	int (*reuse_decoder_buffer)(
+			struct dmx_ts_feed *feed,
+			int cookie);
 	int (*data_ready_cb)(struct dmx_ts_feed *feed,
 			dmx_ts_data_ready_cb callback);
 	int (*notify_data_read)(struct dmx_ts_feed *feed,
