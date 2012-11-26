@@ -54,7 +54,8 @@
 #define TAIKO_SLIM_IRQ_OVERFLOW (1 << 0)
 #define TAIKO_SLIM_IRQ_UNDERFLOW (1 << 1)
 #define TAIKO_SLIM_IRQ_PORT_CLOSED (1 << 2)
-
+#define TAIKO_MCLK_CLK_12P288MHZ 12288000
+#define TAIKO_MCLK_CLK_9P6HZ 9600000
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -3120,11 +3121,7 @@ int taiko_mclk_enable(struct snd_soc_codec *codec, int mclk_enable, bool dapm)
 static int taiko_set_dai_sysclk(struct snd_soc_dai *dai,
 		int clk_id, unsigned int freq, int dir)
 {
-	struct snd_soc_codec *codec = dai->codec;
-	if (freq == TAIKO_MCLK_CLK_12P288MHZ)
-		snd_soc_write(codec, TAIKO_A_CHIP_CTL, 0x04);
-	else if (freq == TAIKO_MCLK_CLK_9P6HZ)
-		snd_soc_write(codec, TAIKO_A_CHIP_CTL, 0x0A);
+	pr_debug("%s\n", __func__);
 	return 0;
 }
 
@@ -4810,6 +4807,11 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	taiko->aux_l_gain = 0x1F;
 	taiko->aux_r_gain = 0x1F;
 	taiko_update_reg_defaults(codec);
+	pr_debug("%s: MCLK Rate = %x\n", __func__, wcd9xxx->mclk_rate);
+	if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ)
+		snd_soc_write(codec, TAIKO_A_CHIP_CTL, 0x04);
+	else if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_9P6HZ)
+		snd_soc_write(codec, TAIKO_A_CHIP_CTL, 0x0A);
 	taiko_codec_init_reg(codec);
 	ret = taiko_handle_pdata(taiko);
 	if (IS_ERR_VALUE(ret)) {

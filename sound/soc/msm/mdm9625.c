@@ -68,7 +68,6 @@ struct request_gpio {
 	unsigned gpio_no;
 	char *gpio_name;
 };
-static bool cdc_mclk_init;
 static struct mutex cdc_mclk_mutex;
 static int mdm9625_mi2s_rx_ch = 1;
 static int mdm9625_mi2s_tx_ch = 1;
@@ -292,25 +291,6 @@ static int mdm9625_mi2s_startup(struct snd_pcm_substream *substream)
 	return ret;
 }
 
-static int set_codec_mclk(struct snd_soc_pcm_runtime *rtd)
-{
-	int ret = 0;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_card *card = rtd->card;
-	struct mdm9625_machine_data *pdata = snd_soc_card_get_drvdata(card);
-
-	if (cdc_mclk_init == true)
-		return 0;
-	ret = snd_soc_dai_set_sysclk(codec_dai, TAIKO_MCLK_ID, pdata->mclk_freq,
-				     SND_SOC_CLOCK_IN);
-	if (ret < 0) {
-		pr_err("%s: Set codec sys clk failed %x", __func__, ret);
-		return ret;
-	}
-	cdc_mclk_init = true;
-	return 0;
-}
-
 static int mdm9625_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					     struct snd_pcm_hw_params *params)
 {
@@ -320,7 +300,6 @@ static int mdm9625_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = mdm9625_mi2s_rx_ch;
-	set_codec_mclk(rtd);
 	return 0;
 }
 
@@ -333,7 +312,6 @@ static int mdm9625_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 						SNDRV_PCM_HW_PARAM_CHANNELS);
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = mdm9625_mi2s_tx_ch;
-	set_codec_mclk(rtd);
 	return 0;
 }
 
@@ -713,7 +691,6 @@ static int mdm9625_asoc_machine_probe(struct platform_device *pdev)
 
 	mutex_init(&cdc_mclk_mutex);
 	gpio_enable = false;
-	cdc_mclk_init = false;
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
 		return -EINVAL;

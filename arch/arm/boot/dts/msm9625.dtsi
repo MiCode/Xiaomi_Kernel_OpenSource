@@ -417,6 +417,7 @@
 			qcom,cdc-micbias2-cfilt-sel = <0x1>;
 			qcom,cdc-micbias3-cfilt-sel = <0x2>;
 			qcom,cdc-micbias4-cfilt-sel = <0x2>;
+			qcom,cdc-mclk-clk-rate = <12288000>;
 		};
 
 		wcd9xxx_codec@77{

@@ -37,6 +37,14 @@
 #define SITAR_I2C_MODE	0x01
 #define CODEC_DT_MAX_PROP_SIZE   40
 #define WCD9XXX_I2C_GSBI_SLAVE_ID "3-000d"
+#define WCD9XXX_I2C_TOP_SLAVE_ADDR	0x0d
+#define WCD9XXX_ANALOG_I2C_SLAVE_ADDR	0x77
+#define WCD9XXX_DIGITAL1_I2C_SLAVE_ADDR	0x66
+#define WCD9XXX_DIGITAL2_I2C_SLAVE_ADDR	0x55
+#define WCD9XXX_I2C_TOP_LEVEL	0
+#define WCD9XXX_I2C_ANALOG	1
+#define WCD9XXX_I2C_DIGITAL_1	2
+#define WCD9XXX_I2C_DIGITAL_2	3
 
 struct wcd9xxx_i2c {
 	struct i2c_client *client;
@@ -644,10 +652,11 @@ static void wcd9xxx_disable_supplies(struct wcd9xxx *wcd9xxx,
 	kfree(wcd9xxx->supplies);
 }
 
-int wcd9xxx_get_intf_type(void)
+enum wcd9xxx_intf_status wcd9xxx_get_intf_type(void)
 {
 	return wcd9xxx_intf;
 }
+
 EXPORT_SYMBOL_GPL(wcd9xxx_get_intf_type);
 
 struct wcd9xxx_i2c *get_i2c_wcd9xxx_device_info(u16 reg)
@@ -768,100 +777,146 @@ int wcd9xxx_i2c_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 	return wcd9xxx_i2c_write_device(reg, src, bytes);
 }
 
+static int wcd9xxx_i2c_get_client_index(struct i2c_client *client,
+					int *wcd9xx_index)
+{
+	int ret = 0;
+	switch (client->addr) {
+	case WCD9XXX_I2C_TOP_SLAVE_ADDR:
+		*wcd9xx_index = WCD9XXX_I2C_TOP_LEVEL;
+	break;
+	case WCD9XXX_ANALOG_I2C_SLAVE_ADDR:
+		*wcd9xx_index = WCD9XXX_I2C_ANALOG;
+	break;
+	case WCD9XXX_DIGITAL1_I2C_SLAVE_ADDR:
+		*wcd9xx_index = WCD9XXX_I2C_DIGITAL_1;
+	break;
+	case WCD9XXX_DIGITAL2_I2C_SLAVE_ADDR:
+		*wcd9xx_index = WCD9XXX_I2C_DIGITAL_2;
+	break;
+	default:
+		ret = -EINVAL;
+	break;
+	}
+	return ret;
+}
+
 static int wcd9xxx_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	struct wcd9xxx *wcd9xxx;
-	struct wcd9xxx_pdata *pdata;
+	struct wcd9xxx *wcd9xxx = NULL;
+	struct wcd9xxx_pdata *pdata = NULL;
 	int val = 0;
 	int ret = 0;
 	int i2c_mode = 0;
-	static int device_id;
+	int wcd9xx_index = 0;
 	struct device *dev;
 
-	pr_info("%s\n", __func__);
+	pr_debug("%s: interface status %d\n", __func__, wcd9xxx_intf);
 	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		dev_dbg(&client->dev, "%s:Codec is detected in slimbus mode\n",
-			 __func__);
+			__func__);
 		return -ENODEV;
-	}
-	if (device_id > 0) {
-		wcd9xxx_modules[device_id++].client = client;
-		dev_dbg(&client->dev, "%s:probe for other slaves\n"
-			"devices of codec\n", __func__);
+	} else if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_I2C) {
+		ret = wcd9xxx_i2c_get_client_index(client, &wcd9xx_index);
+		if (ret != 0)
+			dev_err(&client->dev, "%s: I2C set codec I2C\n"
+				"client failed\n", __func__);
+		else {
+			dev_err(&client->dev, "%s:probe for other slaves\n"
+				"devices of codec I2C slave Addr = %x\n",
+				__func__, client->addr);
+			wcd9xxx_modules[wcd9xx_index].client = client;
+		}
 		return ret;
-	}
-	dev = &client->dev;
-	if (client->dev.of_node) {
-		dev_dbg(&client->dev, "%s:Platform data from device tree\n",
-			__func__);
-		pdata = wcd9xxx_populate_dt_pdata(&client->dev);
-		client->dev.platform_data = pdata;
-	} else {
-		dev_dbg(&client->dev, "%s:Platform data from board file\n",
-			__func__);
-		pdata = client->dev.platform_data;
-	}
-	wcd9xxx = kzalloc(sizeof(struct wcd9xxx), GFP_KERNEL);
-	if (wcd9xxx == NULL) {
-		pr_err("%s: error, allocation failed\n", __func__);
-		ret = -ENOMEM;
-		goto fail;
-	}
+	} else if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_PROBING) {
+		dev = &client->dev;
+		if (client->dev.of_node) {
+			dev_dbg(&client->dev, "%s:Platform data\n"
+				"from device tree\n", __func__);
+			pdata = wcd9xxx_populate_dt_pdata(&client->dev);
+			client->dev.platform_data = pdata;
+		} else {
+			dev_dbg(&client->dev, "%s:Platform data from\n"
+				"board file\n", __func__);
+			pdata = client->dev.platform_data;
+		}
+		wcd9xxx = kzalloc(sizeof(struct wcd9xxx), GFP_KERNEL);
+		if (wcd9xxx == NULL) {
+			pr_err("%s: error, allocation failed\n", __func__);
+			ret = -ENOMEM;
+			goto fail;
+		}
 
-	if (!pdata) {
-		dev_dbg(&client->dev, "no platform data?\n");
-		ret = -EINVAL;
-		goto fail;
-	}
-	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
-		dev_dbg(&client->dev, "can't talk I2C?\n");
-		ret = -EIO;
-		goto fail;
-	}
-	dev_set_drvdata(&client->dev, wcd9xxx);
-	wcd9xxx->dev = &client->dev;
-	wcd9xxx->reset_gpio = pdata->reset_gpio;
-	ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
-	if (ret) {
-		pr_err("%s: Fail to enable Codec supplies\n", __func__);
-		goto err_codec;
-	}
+		if (!pdata) {
+			dev_dbg(&client->dev, "no platform data?\n");
+			ret = -EINVAL;
+			goto fail;
+		}
+		if (i2c_check_functionality(client->adapter,
+					    I2C_FUNC_I2C) == 0) {
+			dev_dbg(&client->dev, "can't talk I2C?\n");
+			ret = -EIO;
+			goto fail;
+		}
+		dev_set_drvdata(&client->dev, wcd9xxx);
+		wcd9xxx->dev = &client->dev;
+		wcd9xxx->reset_gpio = pdata->reset_gpio;
+		if (client->dev.of_node)
+			wcd9xxx->mclk_rate = pdata->mclk_rate;
+		ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
+		if (ret) {
+			pr_err("%s: Fail to enable Codec supplies\n",
+			       __func__);
+			goto err_codec;
+		}
 
-	usleep_range(5, 5);
-	ret = wcd9xxx_reset(wcd9xxx);
-	if (ret) {
-		pr_err("%s: Resetting Codec failed\n", __func__);
+		usleep_range(5, 5);
+		ret = wcd9xxx_reset(wcd9xxx);
+		if (ret) {
+			pr_err("%s: Resetting Codec failed\n", __func__);
 		goto err_supplies;
-	}
-	wcd9xxx_modules[device_id++].client = client;
+		}
 
-	wcd9xxx->read_dev = wcd9xxx_i2c_read;
-	wcd9xxx->write_dev = wcd9xxx_i2c_write;
-	if (!wcd9xxx->dev->of_node) {
-		wcd9xxx->irq = pdata->irq;
-		wcd9xxx->irq_base = pdata->irq_base;
-	}
+		ret = wcd9xxx_i2c_get_client_index(client, &wcd9xx_index);
+		if (ret != 0) {
+			pr_err("%s:Set codec I2C client failed\n", __func__);
+			goto err_supplies;
+		}
 
-	ret = wcd9xxx_device_init(wcd9xxx);
-	if (ret) {
-		pr_err("%s: error, initializing device failed\n", __func__);
-		goto err_device_init;
-	}
+		wcd9xxx_modules[wcd9xx_index].client = client;
+		wcd9xxx->read_dev = wcd9xxx_i2c_read;
+		wcd9xxx->write_dev = wcd9xxx_i2c_write;
+		if (!wcd9xxx->dev->of_node) {
+			wcd9xxx->irq = pdata->irq;
+			wcd9xxx->irq_base = pdata->irq_base;
+		}
 
-	if ((wcd9xxx->idbyte[0] == 0x2) || (wcd9xxx->idbyte[0] == 0x1))
-		i2c_mode = TABLA_I2C_MODE;
-	else if (wcd9xxx->idbyte[0] == 0x0)
-		i2c_mode = SITAR_I2C_MODE;
+		ret = wcd9xxx_device_init(wcd9xxx);
+		if (ret) {
+			pr_err("%s: error, initializing device failed\n",
+			       __func__);
+			goto err_device_init;
+		}
 
-	ret = wcd9xxx_read(wcd9xxx, WCD9XXX_A_CHIP_STATUS, 1, &val, 0);
+		if ((wcd9xxx->idbyte[0] == 0x2) || (wcd9xxx->idbyte[0] == 0x1))
+			i2c_mode = TABLA_I2C_MODE;
+		else if (wcd9xxx->idbyte[0] == 0x0)
+			i2c_mode = SITAR_I2C_MODE;
 
-	if ((ret < 0) || (val != i2c_mode))
-		pr_err("failed to read the wcd9xxx status ret = %d\n", ret);
+		ret = wcd9xxx_read(wcd9xxx, WCD9XXX_A_CHIP_STATUS, 1, &val, 0);
+
+		if ((ret < 0) || (val != i2c_mode))
+			pr_err("failed to read the wcd9xxx status ret = %d\n",
+			       ret);
 
 	wcd9xxx_intf = WCD9XXX_INTERFACE_TYPE_I2C;
 
-	return ret;
+		return ret;
+	} else
+		pr_err("%s: I2C probe in wrong state\n", __func__);
+
+
 err_device_init:
 	wcd9xxx_free_reset(wcd9xxx);
 err_supplies:
@@ -1087,6 +1142,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	int ret, i;
 	char **codec_supplies;
 	u32 num_of_supplies = 0;
+	u32 mclk_rate = 0;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -1130,6 +1186,19 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 		goto err;
 	}
 	dev_dbg(dev, "%s: reset gpio %d", __func__, pdata->reset_gpio);
+	ret = of_property_read_u32(dev->of_node,
+				   "qcom,cdc-mclk-clk-rate",
+				   &mclk_rate);
+	if (ret) {
+		dev_err(dev, "Looking up %s property in\n"
+			"node %s failed",
+			"qcom,cdc-mclk-clk-rate",
+			dev->of_node->full_name);
+		devm_kfree(dev, pdata);
+		ret = -EINVAL;
+		goto err;
+	}
+	pdata->mclk_rate = mclk_rate;
 	return pdata;
 err:
 	devm_kfree(dev, pdata);
@@ -1162,6 +1231,11 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	struct wcd9xxx_pdata *pdata;
 	int ret = 0;
 
+	if (wcd9xxx_intf == WCD9XXX_INTERFACE_TYPE_I2C) {
+		dev_dbg(&slim->dev, "%s:Codec is detected in I2C mode\n",
+			__func__);
+		return -ENODEV;
+	}
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
 		pdata = wcd9xxx_populate_dt_pdata(&slim->dev);
@@ -1201,6 +1275,7 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	slim_set_clientdata(slim, wcd9xxx);
 	wcd9xxx->reset_gpio = pdata->reset_gpio;
 	wcd9xxx->dev = &slim->dev;
+	wcd9xxx->mclk_rate = pdata->mclk_rate;
 
 	ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
 	if (ret)
@@ -1477,11 +1552,6 @@ static struct slim_driver taiko_slim_driver = {
 	.suspend = wcd9xxx_slim_suspend,
 };
 
-#define WCD9XXX_I2C_TOP_LEVEL	0
-#define WCD9XXX_I2C_ANALOG	1
-#define WCD9XXX_I2C_DIGITAL_1	2
-#define WCD9XXX_I2C_DIGITAL_2	3
-
 static struct i2c_device_id wcd9xxx_id_table[] = {
 	{"wcd9xxx-i2c", WCD9XXX_I2C_TOP_LEVEL},
 	{"wcd9xxx-i2c", WCD9XXX_I2C_ANALOG},
@@ -1527,6 +1597,8 @@ static struct i2c_driver wcd9xxx_i2c_driver = {
 static int __init wcd9xxx_init(void)
 {
 	int ret1, ret2, ret3, ret4, ret5, ret6, ret7;
+
+	wcd9xxx_intf = WCD9XXX_INTERFACE_TYPE_PROBING;
 
 	ret1 = slim_driver_register(&tabla_slim_driver);
 	if (ret1 != 0)
