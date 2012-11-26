@@ -81,11 +81,13 @@ static struct reserve_info msm8610_reserve_info __initdata = {
 static void __init msm8610_early_memory(void)
 {
 	reserve_info = &msm8610_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8610_reserve_table);
+	of_scan_flat_dt(dt_scan_for_memory_hole, msm8610_reserve_table);
 }
 
 static void __init msm8610_reserve(void)
 {
+	reserve_info = &msm8610_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8610_reserve_table);
 	msm_reserve();
 }
 
