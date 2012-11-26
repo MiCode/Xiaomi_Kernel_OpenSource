@@ -4479,6 +4479,9 @@ static int pm8921_charger_suspend(struct device *dev)
 		enable_irq_wake(chip->pmic_chg_irq[LOOP_CHANGE_IRQ]);
 	}
 
+	rc = pm8xxx_batt_alarm_enable(PM8XXX_BATT_ALARM_LOWER_COMPARATOR);
+	if (rc < 0)
+		pr_err("Failed to enable lower comparator\n");
 	return 0;
 }
 static int __devinit pm8921_charger_probe(struct platform_device *pdev)
