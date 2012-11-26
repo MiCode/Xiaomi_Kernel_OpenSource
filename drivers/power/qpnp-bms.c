@@ -1950,6 +1950,18 @@ qpnp_bms_probe(struct spmi_device *spmi)
 		goto error_read;
 	}
 
+	rc = qpnp_vadc_is_ready();
+	if (rc) {
+		pr_info("vadc not ready: %d, deferring probe\n", rc);
+		goto error_read;
+	}
+
+	rc = qpnp_iadc_is_ready();
+	if (rc) {
+		pr_info("iadc not ready: %d, deferring probe\n", rc);
+		goto error_read;
+	}
+
 	rc = set_battery_data(chip);
 	if (rc) {
 		pr_err("Bad battery data %d\n", rc);
@@ -1996,7 +2008,7 @@ qpnp_bms_probe(struct spmi_device *spmi)
 	vbatt = 0;
 	get_battery_voltage(&vbatt);
 
-	pr_info("OK battery_capacity_at_boot=%d vbatt = %d\n",
+	pr_debug("OK battery_capacity_at_boot=%d vbatt = %d\n",
 				get_prop_bms_capacity(chip),
 				vbatt);
 	pr_info("probe success\n");
