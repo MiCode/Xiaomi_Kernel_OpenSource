@@ -327,10 +327,15 @@ struct tspp_tsif_device {
 	int data_inverse;
 	int sync_inverse;
 	int enable_inverse;
+	u32 tsif_irq;
 
 	/* debugfs */
 	struct dentry *dent_tsif;
 	struct dentry *debugfs_tsif_regs[ARRAY_SIZE(debugfs_tsif_regs)];
+	u32 stat_rx;
+	u32 stat_overflow;
+	u32 stat_lost_sync;
+	u32 stat_timeout;
 };
 
 enum tspp_buf_state {
@@ -480,6 +485,49 @@ static irqreturn_t tspp_isr(int irq, void *dev)
 		dev_info(&device->pdev->dev, "broken pipe %i", status & 0xffff);
 
 	writel_relaxed(status, device->base + TSPP_IRQ_CLEAR);
+
+	/*
+	 * Before returning IRQ_HANDLED to the generic interrupt handling
+	 * framework need to make sure all operations including clearing of
+	 * interrupt status registers in the hardware is performed.
+	 * Thus a barrier after clearing the interrupt status register
+	 * is required to guarantee that the interrupt status register has
+	 * really been cleared by the time we return from this handler.
+	 */
+	wmb();
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t tsif_isr(int irq, void *dev)
+{
+	struct tspp_tsif_device *tsif_device = dev;
+	u32 sts_ctl = ioread32(tsif_device->base + TSIF_STS_CTL_OFF);
+
+	if (!(sts_ctl & (TSIF_STS_CTL_PACK_AVAIL |
+			 TSIF_STS_CTL_OVERFLOW |
+			 TSIF_STS_CTL_LOST_SYNC |
+			 TSIF_STS_CTL_TIMEOUT)))
+		return IRQ_NONE;
+
+	if (sts_ctl & TSIF_STS_CTL_OVERFLOW)
+		tsif_device->stat_overflow++;
+
+	if (sts_ctl & TSIF_STS_CTL_LOST_SYNC)
+		tsif_device->stat_lost_sync++;
+
+	if (sts_ctl & TSIF_STS_CTL_TIMEOUT)
+		tsif_device->stat_timeout++;
+
+	iowrite32(sts_ctl, tsif_device->base + TSIF_STS_CTL_OFF);
+
+	/*
+	 * Before returning IRQ_HANDLED to the generic interrupt handling
+	 * framework need to make sure all operations including clearing of
+	 * interrupt status registers in the hardware is performed.
+	 * Thus a barrier after clearing the interrupt status register
+	 * is required to guarantee that the interrupt status register has
+	 * really been cleared by the time we return from this handler.
+	 */
 	wmb();
 	return IRQ_HANDLED;
 }
@@ -526,6 +574,11 @@ static void tspp_sps_complete_tlet(unsigned long data)
 			channel->waiting->state = TSPP_BUF_STATE_DATA;
 			channel->waiting->filled = iovec.size;
 			channel->waiting->read_index = 0;
+
+			if (channel->src == TSPP_SOURCE_TSIF0)
+				device->tsif[0].stat_rx++;
+			else if (channel->src == TSPP_SOURCE_TSIF1)
+				device->tsif[1].stat_rx++;
 
 			/* update the pointers */
 			channel->waiting = channel->waiting->next;
@@ -2326,6 +2379,31 @@ static void tsif_debugfs_init(struct tspp_tsif_device *tsif_device,
 				base + debugfs_tsif_regs[i].offset,
 				&fops_iomem_x32);
 		}
+
+		debugfs_create_u32(
+			"stat_rx_chunks",
+			S_IRUGO|S_IWUGO,
+			tsif_device->dent_tsif,
+			&tsif_device->stat_rx);
+
+		debugfs_create_u32(
+			"stat_overflow",
+			S_IRUGO|S_IWUGO,
+			tsif_device->dent_tsif,
+			&tsif_device->stat_overflow);
+
+		debugfs_create_u32(
+			"stat_lost_sync",
+			S_IRUGO|S_IWUGO,
+			tsif_device->dent_tsif,
+			&tsif_device->stat_lost_sync);
+
+		debugfs_create_u32(
+			"stat_timeout",
+			S_IRUGO|S_IWUGO,
+			tsif_device->dent_tsif,
+			&tsif_device->stat_timeout);
+
 	}
 }
 
@@ -2504,6 +2582,21 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 		goto err_irq;
 	}
 
+	/* map TSIF IRQs */
+	device->tsif[0].tsif_irq = TSIF1_IRQ;
+	device->tsif[1].tsif_irq = TSIF2_IRQ;
+
+	for (i = 0; i < TSPP_TSIF_INSTANCES; i++) {
+		rc = request_irq(device->tsif[i].tsif_irq,
+				tsif_isr, IRQF_SHARED,
+				dev_name(&pdev->dev), &device->tsif[i]);
+		if (rc) {
+			dev_warn(&pdev->dev, "failed to request TSIF%d IRQ: %d",
+				i, rc);
+			device->tsif[i].tsif_irq = 0;
+		}
+	}
+
 	/* BAM IRQ */
 	device->bam_irq = TSIF_BAM_IRQ;
 
@@ -2635,8 +2728,11 @@ static int __devexit msm_tspp_remove(struct platform_device *pdev)
 
 	sps_deregister_bam_device(device->bam_handle);
 
-	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
+	for (i = 0; i < TSPP_TSIF_INSTANCES; i++) {
 		tsif_debugfs_exit(&device->tsif[i]);
+		if (device->tsif[i].tsif_irq)
+			free_irq(device->tsif[i].tsif_irq,  &device->tsif[i]);
+	}
 
 	wake_lock_destroy(&device->wake_lock);
 	free_irq(device->tspp_irq, device);
