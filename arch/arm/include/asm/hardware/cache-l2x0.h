@@ -116,6 +116,7 @@
 #define REV_PL310_R2P0				4
 
 #ifndef __ASSEMBLY__
+extern void __iomem *l2x0_base;
 extern void l2cc_suspend(void);
 extern void l2cc_resume(void);
 extern void l2x0_cache_sync(void);
