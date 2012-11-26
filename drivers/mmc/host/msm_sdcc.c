@@ -1202,8 +1202,9 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		*c |= MCI_CSPM_DATCMD;
 
 	/* Check if AUTO CMD19/CMD21 is required or not? */
-	if (host->tuning_needed &&
-		(host->en_auto_cmd19 || host->en_auto_cmd21)) {
+	if (host->tuning_needed && (cmd->mrq->data &&
+	    (cmd->mrq->data->flags & MMC_DATA_READ)) &&
+	    (host->en_auto_cmd19 || host->en_auto_cmd21)) {
 		/*
 		 * For open ended block read operation (without CMD23),
 		 * AUTO_CMD19/AUTO_CMD21 bit should be set while sending
@@ -1217,7 +1218,8 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 				MMC_READ_MULTIPLE_BLOCK) ||
 			(!host->curr.mrq->sbc &&
 			(cmd->opcode == MMC_READ_SINGLE_BLOCK ||
-			cmd->opcode == MMC_READ_MULTIPLE_BLOCK))) {
+			cmd->opcode == MMC_READ_MULTIPLE_BLOCK ||
+			cmd->opcode == SD_IO_RW_EXTENDED))) {
 			msmsdcc_enable_cdr_cm_sdc4_dll(host);
 			if (host->en_auto_cmd19 &&
 			    host->mmc->ios.timing == MMC_TIMING_UHS_SDR104)
