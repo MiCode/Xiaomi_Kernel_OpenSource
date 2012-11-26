@@ -34,7 +34,7 @@
 #include <linux/string.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
-#include <linux/workqueue.h>
+#include <linux/kthread.h>
 #include <linux/dvb/dmx.h>
 
 #include "dvbdev.h"
@@ -133,8 +133,6 @@ struct dmxdev_filter {
 };
 
 struct dmxdev {
-	struct work_struct dvr_input_work;
-
 	struct dvb_device *dvbdev;
 	struct dvb_device *dvr_dvbdev;
 
@@ -167,7 +165,7 @@ struct dmxdev {
 
 	struct dvb_ringbuffer dvr_input_buffer;
 	enum dmx_buffer_mode dvr_input_buffer_mode;
-	struct workqueue_struct *dvr_input_workqueue;
+	struct task_struct *dvr_input_thread;
 
 #define DVR_BUFFER_SIZE (10*188*1024)
 
