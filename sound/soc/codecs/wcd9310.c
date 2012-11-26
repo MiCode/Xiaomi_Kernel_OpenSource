@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6684,6 +6684,13 @@ void tabla_find_plug_and_report(struct snd_soc_codec *codec,
 		 * only report the mic line
 		 */
 		tabla_codec_report_plug(codec, 1, SND_JACK_HEADSET);
+		if (!tabla->mbhc_micbias_switched &&
+			tabla_is_hph_pa_on(codec)) {
+			/*If the headphone path is on, switch the micbias
+			to VDDIO to avoid noise due to button polling */
+			tabla_codec_switch_micbias(codec, 1);
+			pr_debug("%s: HPH path is still up\n", __func__);
+		}
 		msleep(100);
 		tabla_codec_start_hs_polling(codec);
 	} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
@@ -7106,7 +7113,6 @@ static void tabla_codec_detect_plug_type(struct snd_soc_codec *codec)
 	} else if (plug_type == PLUG_TYPE_HEADSET) {
 		pr_debug("%s: Headset detected\n", __func__);
 		tabla_codec_report_plug(codec, 1, SND_JACK_HEADSET);
-
 		/* avoid false button press detect */
 		msleep(50);
 		tabla_codec_start_hs_polling(codec);
@@ -7588,6 +7594,7 @@ static void tabla_hs_gpio_handler(struct snd_soc_codec *codec)
 					    0x08, 0x00);
 			/* Turn off override */
 			tabla_turn_onoff_override(codec, false);
+			tabla_codec_switch_micbias(codec, 0);
 		}
 	}
 
