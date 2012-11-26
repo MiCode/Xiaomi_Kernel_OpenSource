@@ -212,51 +212,6 @@ static struct platform_device *msm_bus_8974_devices[] = {
 	&msm_fm_platform_init,
 };
 
-static ssize_t mxt336s_vkeys_show(struct kobject *kobj,
-			struct kobj_attribute *attr, char *buf)
-{
-	return snprintf(buf, 200,
-	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":62:1345:90:90" \
-	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":240:1345:90:90" \
-	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":470:1345:90:90" \
-	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":658:1345:90:90" \
-	"\n");
-}
-
-static struct kobj_attribute mxt336s_vkeys_attr = {
-	.attr = {
-		.mode = S_IRUGO,
-	},
-	.show = &mxt336s_vkeys_show,
-};
-
-static struct attribute *mxt336s_properties_attrs[] = {
-	&mxt336s_vkeys_attr.attr,
-	NULL
-};
-
-static struct attribute_group mxt336s_properties_attr_group = {
-	.attrs = mxt336s_properties_attrs,
-};
-
-static void mxt_init_vkeys_8974(void)
-{
-	int rc = 0;
-	static struct kobject *mxt336s_properties_kobj;
-
-	mxt336s_vkeys_attr.attr.name = "virtualkeys.atmel_mxt_ts";
-	mxt336s_properties_kobj = kobject_create_and_add("board_properties",
-								NULL);
-	if (mxt336s_properties_kobj)
-		rc = sysfs_create_group(mxt336s_properties_kobj,
-					&mxt336s_properties_attr_group);
-	if (!mxt336s_properties_kobj || rc)
-		pr_err("%s: failed to create board_properties\n",
-				__func__);
-
-	return;
-}
-
 static void __init msm8974_init_buses(void)
 {
 #ifdef CONFIG_MSM_BUS_SCALING
@@ -294,7 +249,6 @@ void __init msm8974_add_drivers(void)
 		msm_clock_init(&msm8974_clock_init_data);
 	msm8974_init_buses();
 	msm_thermal_device_init();
-	mxt_init_vkeys_8974();
 }
 
 static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {

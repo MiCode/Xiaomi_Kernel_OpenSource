@@ -105,6 +105,16 @@
 		};
 	};
 
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "atmel_mxt_ts";
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <760>;
+		qcom,panel-maxy = <1424>;
+		qcom,key-codes = <158 139 102 217>;
+	};
+
 	i2c@f9967000 {
 		isa1200@48 {
 			status = "okay";
