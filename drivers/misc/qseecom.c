@@ -1566,17 +1566,17 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	if (ret)
 		return -EIO;
 
-	*handle = kzalloc(sizeof(struct qseecom_handle), GFP_KERNEL);
-	if (!(*handle)) {
-		pr_err("failed to allocate memory for kernel client handle\n");
-		return -ENOMEM;
-	}
-
 	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	memcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
 	ret = __qseecom_check_app_exists(app_ireq);
 	if (ret < 0)
 		return -EINVAL;
+
+	*handle = kzalloc(sizeof(struct qseecom_handle), GFP_KERNEL);
+	if (!(*handle)) {
+		pr_err("failed to allocate memory for kernel client handle\n");
+		return -ENOMEM;
+	}
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data) {
