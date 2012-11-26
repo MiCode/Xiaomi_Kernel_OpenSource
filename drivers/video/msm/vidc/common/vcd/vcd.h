@@ -398,4 +398,8 @@ u32 vcd_set_num_slices(struct vcd_clnt_ctxt *cctxt);
 u32 vcd_update_decoder_perf_level(struct vcd_dev_ctxt *dev_ctxt, u32 perf_lvl);
 
 u32 vcd_set_perf_turbo_level(struct vcd_clnt_ctxt *cctxt);
+
+struct vcd_transc *vcd_get_first_in_use_trans_for_clnt(
+	struct vcd_clnt_ctxt *cctxt);
+
 #endif
