@@ -1702,6 +1702,12 @@ static int check_bkops_result(struct test_data *td)
 		    (bkops_stat->suspend == 0) &&
 		    (bkops_stat->hpi == 1))
 			goto exit;
+		/* this might happen due to timing issues */
+		else if
+		   ((bkops_stat->bkops_level[BKOPS_SEVERITY_1_INDEX] == 0) &&
+		    (bkops_stat->suspend == 0) &&
+		    (bkops_stat->hpi == 0))
+			goto ignore;
 		else
 			goto fail;
 		break;
@@ -1734,6 +1740,9 @@ static int check_bkops_result(struct test_data *td)
 	}
 
 exit:
+	return 0;
+ignore:
+	test_iosched_set_ignore_round(true);
 	return 0;
 fail:
 	if (td->fs_wr_reqs_during_test) {
