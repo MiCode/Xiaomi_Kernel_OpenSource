@@ -176,7 +176,8 @@ struct qpnp_bms_chip {
 	int				soc_at_cv;
 	int				prev_chg_soc;
 	int				calculated_soc;
-	int				last_vbat_read_uv;
+	int				prev_voltage_based_soc;
+	bool				use_voltage_soc;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -196,37 +197,6 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 };
 
-static bool use_voltage_soc;
-
-/* module params */
-static int bms_param_set_bool(const char *val, const struct kernel_param *kp)
-{
-	int rc;
-	struct power_supply *bms_psy;
-
-	rc = param_set_bool(val, kp);
-	if (rc) {
-		pr_err("failed to set %s, rc = %d\n", kp->name, rc);
-		return rc;
-	}
-
-	bms_psy = power_supply_get_by_name("bms");
-
-	if (bms_psy)
-		power_supply_changed(bms_psy);
-	else
-		pr_debug("%s changed but bms has not been initialized yet\n",
-				kp->name);
-
-	return 0;
-}
-
-static struct kernel_param_ops bms_param_ops = {
-	.set = bms_param_set_bool,
-	.get = param_get_bool,
-};
-
-module_param_cb(use_voltage_soc, &bms_param_ops, &use_voltage_soc, 0644);
 
 static int qpnp_read_wrapper(struct qpnp_bms_chip *chip, u8 *val,
 			u16 base, int count)
@@ -1381,12 +1351,12 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 	}
 
 	chip->calculated_soc = new_calculated_soc;
-	pr_debug("Set calculated SOC = %d\n", chip->calculated_soc);
+	pr_debug("CC based calculated SOC = %d\n", chip->calculated_soc);
 	chip->first_time_calc_soc = 0;
 	return chip->calculated_soc;
 }
 
-static void read_vbat(struct qpnp_bms_chip *chip)
+static int read_vbat(struct qpnp_bms_chip *chip)
 {
 	int rc;
 	struct qpnp_vadc_result result;
@@ -1395,9 +1365,35 @@ static void read_vbat(struct qpnp_bms_chip *chip)
 	if (rc) {
 		pr_err("error reading vadc VBAT_SNS = %d, rc = %d\n",
 					VBAT_SNS, rc);
-		return;
+		return rc;
 	}
-	chip->last_vbat_read_uv = (int)result.physical;
+	pr_debug("read %duv from vadc\n", (int)result.physical);
+	return (int)result.physical;
+}
+
+static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
+{
+	int voltage_range_uv, voltage_remaining_uv, voltage_based_soc;
+	int vbat_uv;
+
+	vbat_uv = read_vbat(chip);
+
+	voltage_range_uv = chip->max_voltage_uv - chip->v_cutoff_uv;
+	voltage_remaining_uv = vbat_uv - chip->v_cutoff_uv;
+	voltage_based_soc = voltage_remaining_uv * 100 / voltage_range_uv;
+
+	voltage_based_soc = clamp(voltage_based_soc, 0, 100);
+
+	if (chip->prev_voltage_based_soc != voltage_based_soc
+				&& chip->bms_psy.name != NULL) {
+		power_supply_changed(&chip->bms_psy);
+		pr_debug("power supply changed\n");
+	}
+	chip->prev_voltage_based_soc = voltage_based_soc;
+
+	pr_debug("vbat used = %duv\n", vbat_uv);
+	pr_debug("Calculated voltage based soc = %d\n", voltage_based_soc);
+	return voltage_based_soc;
 }
 
 static void calculate_soc_work(struct work_struct *work)
@@ -1409,22 +1405,25 @@ static void calculate_soc_work(struct work_struct *work)
 	struct qpnp_vadc_result result;
 	struct raw_soc_params raw;
 
-	read_vbat(chip);
-
-	rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
-	if (rc) {
-		pr_err("error reading vadc LR_MUX1_BATT_THERM = %d, rc = %d\n",
-					LR_MUX1_BATT_THERM, rc);
-		return;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+	if (chip->use_voltage_soc) {
+		soc = calculate_soc_from_voltage(chip);
+	} else {
+		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
+		if (rc) {
+			pr_err("error reading vadc LR_MUX1_BATT_THERM = %d, rc = %d\n",
+						LR_MUX1_BATT_THERM, rc);
+			return;
+		}
+		pr_debug("batt_temp phy = %lld meas = 0x%llx\n",
+						result.physical,
 						result.measurement);
-	batt_temp = (int)result.physical;
+		batt_temp = (int)result.physical;
 
-	mutex_lock(&chip->last_ocv_uv_mutex);
-	read_soc_params_raw(chip, &raw);
-	soc = calculate_state_of_charge(chip, &raw, batt_temp);
-	mutex_unlock(&chip->last_ocv_uv_mutex);
+		mutex_lock(&chip->last_ocv_uv_mutex);
+		read_soc_params_raw(chip, &raw);
+		soc = calculate_state_of_charge(chip, &raw, batt_temp);
+		mutex_unlock(&chip->last_ocv_uv_mutex);
+	}
 
 	if (soc < chip->low_soc_calc_threshold)
 		schedule_delayed_work(&chip->calculate_soc_delayed_work,
@@ -1514,7 +1513,14 @@ static int scale_soc_while_chg(struct qpnp_bms_chip *chip,
 static int bms_fake_battery = -EINVAL;
 module_param(bms_fake_battery, int, 0644);
 
-static int report_state_of_charge(struct qpnp_bms_chip *chip)
+static int report_voltage_based_soc(struct qpnp_bms_chip *chip)
+{
+	pr_debug("Reported voltage based soc = %d\n",
+			chip->prev_voltage_based_soc);
+	return chip->prev_voltage_based_soc;
+}
+
+static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 {
 	int soc;
 	int delta_time_us;
@@ -1522,11 +1528,6 @@ static int report_state_of_charge(struct qpnp_bms_chip *chip)
 	struct qpnp_vadc_result result;
 	int batt_temp;
 	int rc;
-
-	if (bms_fake_battery != -EINVAL) {
-		pr_debug("Returning Fake SOC = %d%%\n", bms_fake_battery);
-		return bms_fake_battery;
-	}
 
 	soc = chip->calculated_soc;
 
@@ -1598,27 +1599,21 @@ static int report_state_of_charge(struct qpnp_bms_chip *chip)
 	return chip->last_soc;
 }
 
-static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
+static int report_state_of_charge(struct qpnp_bms_chip *chip)
 {
-	int voltage_range_uv, voltage_remaining_uv, voltage_based_soc;
-
-	if (chip->last_vbat_read_uv < 0)
-		read_vbat(chip);
-
-	voltage_range_uv = chip->max_voltage_uv - chip->v_cutoff_uv;
-	voltage_remaining_uv = chip->last_vbat_read_uv - chip->v_cutoff_uv;
-	voltage_based_soc = voltage_remaining_uv * 100 / voltage_range_uv;
-
-	return clamp(voltage_based_soc, 0, 100);
+	if (bms_fake_battery != -EINVAL) {
+		pr_debug("Returning Fake SOC = %d%%\n", bms_fake_battery);
+		return bms_fake_battery;
+	} else if (chip->use_voltage_soc)
+		return report_voltage_based_soc(chip);
+	else
+		return report_cc_based_soc(chip);
 }
 
 /* Returns capacity as a SoC percentage between 0 and 100 */
 static int get_prop_bms_capacity(struct qpnp_bms_chip *chip)
 {
-	if (use_voltage_soc)
-		return calculate_soc_from_voltage(chip);
-	else
-		return report_state_of_charge(chip);
+	return report_state_of_charge(chip);
 }
 
 /* Returns instantaneous current in uA */
@@ -1873,7 +1868,7 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	chip->ignore_shutdown_soc = of_property_read_bool(
 			chip->spmi->dev.of_node,
 			"qcom,bms-ignore-shutdown-soc");
-	use_voltage_soc = of_property_read_bool(chip->spmi->dev.of_node,
+	chip->use_voltage_soc = of_property_read_bool(chip->spmi->dev.of_node,
 			"qcom,bms-use-voltage-soc");
 
 	if (chip->adjust_soc_low_threshold >= 45)
@@ -1889,7 +1884,7 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 			chip->adjust_soc_high_threshold, chip->chg_term_ua,
 			chip->batt_type);
 	pr_debug("ignore_shutdown_soc:%d, use_voltage_soc:%d\n",
-			chip->ignore_shutdown_soc, use_voltage_soc);
+			chip->ignore_shutdown_soc, chip->use_voltage_soc);
 
 	return 0;
 }
@@ -1902,7 +1897,6 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->soc_at_cv = -EINVAL;
 	chip->calculated_soc = -EINVAL;
 	chip->last_soc = -EINVAL;
-	chip->last_vbat_read_uv = -EINVAL;
 	chip->last_soc_est = -EINVAL;
 	chip->first_time_calc_soc = 1;
 	chip->first_time_calc_uuc = 1;
