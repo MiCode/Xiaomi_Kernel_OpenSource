@@ -1090,6 +1090,9 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->demux.decoder_buffer_status =
 		mpq_dmx_decoder_buffer_status;
 
+	mpq_demux->demux.reuse_decoder_buffer =
+		mpq_dmx_reuse_decoder_buffer;
+
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);
 	if (result < 0) {

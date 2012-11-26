@@ -333,6 +333,15 @@ struct mpq_decoder_buffers_desc {
  * new_pts_dts_info that should be saved to saved_pts_dts_info.
  * @first_pts_dts_copy: a flag used to indicate if PTS/DTS information needs
  * to be copied from the currently parsed PES header to the saved_pts_dts_info.
+ * @tei_errs: Transport stream Transport Error Indicator (TEI) counter.
+ * @last_continuity: last continuity counter value found in TS packet header.
+ * Initialized to -1.
+ * @continuity_errs: Transport stream continuity error counter.
+ * @ts_packets_num: TS packets counter.
+ * @ts_dropped_bytes: counts the number of bytes dropped due to insufficient
+ * buffer space.
+ * @last_pkt_index: used to save the last streambuffer packet index reported in
+ * a new elementary stream data event.
  */
 struct mpq_video_feed_info {
 	void *plugin_data;
@@ -358,6 +367,12 @@ struct mpq_video_feed_info {
 	int saved_info_used;
 	int new_info_exists;
 	int first_pts_dts_copy;
+	u32 tei_errs;
+	int last_continuity;
+	u32 continuity_errs;
+	u32 ts_packets_num;
+	u32 ts_dropped_bytes;
+	int last_pkt_index;
 };
 
 /**
@@ -498,6 +513,20 @@ int mpq_dmx_decoder_fullness_abort(struct dvb_demux_feed *feed);
  */
 int mpq_dmx_decoder_buffer_status(struct dvb_demux_feed *feed,
 		struct dmx_buffer_status *dmx_buffer_status);
+
+/**
+ * mpq_dmx_reuse_decoder_buffer - release buffer passed to decoder for reuse
+ * by the stream-buffer.
+ *
+ * @feed: The decoder's feed.
+ * @cookie: stream-buffer handle of the buffer.
+ *
+ * Return     error code
+ *
+ * The function releases the buffer provided by the stream-buffer
+ * connected to the decoder back to the stream-buffer for reuse.
+ */
+int mpq_dmx_reuse_decoder_buffer(struct dvb_demux_feed *feed, int cookie);
 
 /**
  * mpq_dmx_process_video_packet - Assemble PES data and output it
