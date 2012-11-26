@@ -106,6 +106,7 @@ struct hdmi_msm_state_type {
 
 	struct external_common_state_type common;
 	boolean is_mhl_enabled;
+	struct completion hpd_event_processed;
 };
 
 extern struct hdmi_msm_state_type *hdmi_msm_state;
