@@ -30,3 +30,4 @@ obj-$(CONFIG_THERMAL_PM8XXX)	+= pm8xxx-tm.o
 obj-$(CONFIG_THERMAL_MONITOR)	+= msm_thermal.o
 obj-$(CONFIG_THERMAL_TSENS8974)	+= msm8974-tsens.o
 obj-$(CONFIG_THERMAL_QPNP)	+= qpnp-temp-alarm.o
+obj-$(CONFIG_THERMAL_QPNP_ADC_TM)	+= qpnp-adc-tm.o

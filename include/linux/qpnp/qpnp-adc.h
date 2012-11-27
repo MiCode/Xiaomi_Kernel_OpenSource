@@ -615,6 +615,8 @@ enum qpnp_adc_tm_trip_type {
 	ADC_TM_TRIP_NUM,
 };
 
+#define ADC_TM_WRITABLE_TRIPS_MASK ((1 << ADC_TM_TRIP_NUM) - 1)
+
 /**
  * enum qpnp_tm_state - This lets the client know whether the threshold
  *		that was crossed was high/low.
@@ -660,13 +662,16 @@ enum qpnp_state_request {
  *		thresholds.
  * @timer_interval: Select polling rate from qpnp_adc_meas_timer_1 type.
  * @threshold_notification: Notification callback once threshold are crossed.
+ * @usbid_ctx: A context of void type.
  */
 struct qpnp_adc_tm_usbid_param {
 	int32_t					high_thr;
 	int32_t					low_thr;
 	enum qpnp_state_request			state_request;
 	enum qpnp_adc_meas_timer_1		timer_interval;
-	void	(*threshold_notification) (enum qpnp_tm_state state);
+	void					*usbid_ctx;
+	void	(*threshold_notification) (enum qpnp_tm_state state,
+				void *ctx);
 };
 
 /**
@@ -743,16 +748,32 @@ struct qpnp_adc_properties {
  *			   input channel.
  * @offset_gain_denominator: The inverse denominator of the gain applied to the
  *			     input channel.
+ * @high_thr: High threshold voltage that is requested to be set.
+ * @low_thr: Low threshold voltage that is requested to be set.
+ * @timer_select: Choosen from one of the 3 timers to set the polling rate for
+ *		  the VADC_BTM channel.
+ * @meas_interval1: Polling rate to set for timer 1.
+ * @meas_interval2: Polling rate to set for timer 2.
+ * @tm_channel_select: BTM channel number for the 5 VADC_BTM channels.
+ * @state_request: User can select either enable or disable high/low or both
+ * activation levels based on the qpnp_state_request type.
  * @adc_graph: ADC graph for the channel of struct type qpnp_adc_linear_graph.
  */
 struct qpnp_vadc_chan_properties {
 	uint32_t			offset_gain_numerator;
 	uint32_t			offset_gain_denominator;
+	uint32_t				high_thr;
+	uint32_t				low_thr;
+	enum qpnp_adc_meas_timer_select		timer_select;
+	enum qpnp_adc_meas_timer_1		meas_interval1;
+	enum qpnp_adc_meas_timer_2		meas_interval2;
+	enum qpnp_adc_tm_channel_select		tm_channel_select;
+	enum qpnp_state_request			state_request;
 	struct qpnp_vadc_linear_graph	adc_graph[2];
 };
 
 /**
- * struct qpnp_adc_result - Represent the result of the QPNP ADC.
+ * struct qpnp_vadc_result - Represent the result of the QPNP ADC.
  * @chan: The channel number of the requested conversion.
  * @adc_code: The pre-calibrated digital output of a given ADC relative to the
  *	      the ADC reference.
@@ -774,7 +795,7 @@ struct qpnp_vadc_result {
 };
 
 /**
- * struct qpnp_vadc_amux - AMUX properties for individual channel
+ * struct qpnp_adc_amux - AMUX properties for individual channel
  * @name: Channel string name.
  * @channel_num: Channel in integer used from qpnp_adc_channels.
  * @chan_path_prescaling: Channel scaling performed on the input signal.
@@ -783,7 +804,7 @@ struct qpnp_vadc_result {
  *		 each individual channel whether it is voltage, current,
  *		 temperature, etc and compensates the channel properties.
  */
-struct qpnp_vadc_amux {
+struct qpnp_adc_amux {
 	char					*name;
 	enum qpnp_vadc_channels			channel_num;
 	enum qpnp_adc_channel_scaling_param	chan_path_prescaling;
@@ -858,6 +879,11 @@ struct qpnp_iadc_result {
  * @amux_prop - AMUX properties representing the ADC peripheral.
  * @adc_channels - ADC channel properties for the ADC peripheral.
  * @adc_irq_eoc - End of Conversion IRQ.
+ * @adc_irq_fifo_not_empty - Conversion sequencer request written
+ *			to FIFO when not empty.
+ * @adc_irq_conv_seq_timeout - Conversion sequencer trigger timeout.
+ * @adc_high_thr_irq - Output higher than high threshold set for measurement.
+ * @adc_low_thr_irq - Output lower than low threshold set for measurement.
  * @adc_lock - ADC lock for access to the peripheral.
  * @adc_rslt_completion - ADC result notification after interrupt
  *			  is received.
@@ -869,8 +895,12 @@ struct qpnp_adc_drv {
 	uint16_t			offset;
 	struct qpnp_adc_properties	*adc_prop;
 	struct qpnp_adc_amux_properties	*amux_prop;
-	struct qpnp_vadc_amux		*adc_channels;
+	struct qpnp_adc_amux		*adc_channels;
 	int				adc_irq_eoc;
+	int				adc_irq_fifo_not_empty;
+	int				adc_irq_conv_seq_timeout;
+	int				adc_high_thr_irq;
+	int				adc_low_thr_irq;
 	struct mutex			adc_lock;
 	struct completion		adc_rslt_completion;
 	struct qpnp_iadc_calib		calib;
@@ -1231,6 +1261,67 @@ static inline int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib
 									*result)
 { return -ENXIO; }
 static inline int32_t qpnp_iadc_is_ready(void)
+{ return -ENXIO; }
+#endif
+
+/* Public API */
+#if defined(CONFIG_THERMAL_QPNP_ADC_TM)				\
+			|| defined(CONFIG_THERMAL_QPNP_ADC_TM_MODULE)
+/**
+ * qpnp_adc_tm_usbid_configure() - Configures Channel 0 of VADC_BTM to
+ *		monitor USB_ID channel using 100k internal pull-up.
+ *		USB driver passes the high/low voltage threshold along
+ *		with the notification callback once the set thresholds
+ *		are crossed.
+ * @param:	Structure pointer of qpnp_adc_tm_usbid_param type.
+ *		Clients pass the low/high voltage along with the threshold
+ *		notification callback.
+ */
+int32_t qpnp_adc_tm_usbid_configure(struct qpnp_adc_tm_usbid_param *param);
+/**
+ * qpnp_adc_tm_usbid_end() - Disables the monitoring of channel 0 thats
+ *		assigned for monitoring USB_ID. Disables the low/high
+ *		threshold activation for channel 0 as well.
+ * @param:	none.
+ */
+int32_t qpnp_adc_tm_usbid_end(void);
+/**
+ * qpnp_adc_tm_usbid_configure() - Configures Channel 1 of VADC_BTM to
+ *		monitor batt_therm channel using 100k internal pull-up.
+ *		Battery driver passes the high/low voltage threshold along
+ *		with the notification callback once the set thresholds
+ *		are crossed.
+ * @param:	Structure pointer of qpnp_adc_tm_btm_param type.
+ *		Clients pass the low/high temperature along with the threshold
+ *		notification callback.
+ */
+int32_t qpnp_adc_tm_btm_configure(struct qpnp_adc_tm_btm_param *param);
+/**
+ * qpnp_adc_tm_btm_end() - Disables the monitoring of channel 1 thats
+ *		assigned for monitoring batt_therm. Disables the low/high
+ *		threshold activation for channel 1 as well.
+ * @param:	none.
+ */
+int32_t qpnp_adc_tm_btm_end(void);
+/**
+ * qpnp_adc_tm_is_ready() - Clients can use this API to check if the
+ *			  device is ready to use.
+ * @result:	0 on success and -EPROBE_DEFER when probe for the device
+ *		has not occured.
+ */
+int32_t	qpnp_adc_tm_is_ready(void);
+#else
+static inline int32_t qpnp_adc_tm_usbid_configure(
+			struct qpnp_adc_tm_usbid_param *param)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_tm_usbid_end(void)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_tm_btm_configure(
+		struct qpnp_adc_tm_btm_param *param)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_tm_btm_end(void)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_tm_is_ready(void)
 { return -ENXIO; }
 #endif
 
