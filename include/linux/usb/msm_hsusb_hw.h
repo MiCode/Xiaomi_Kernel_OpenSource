@@ -18,6 +18,7 @@
 
 #define USB_AHBBURST         (MSM_USB_BASE + 0x0090)
 #define USB_AHBMODE          (MSM_USB_BASE + 0x0098)
+#define USB_GENCONFIG        (MSM_USB_BASE + 0x009C)
 #define USB_CAPLENGTH        (MSM_USB_BASE + 0x0100) /* 8 bit */
 #define USB_HS_GPTIMER_BASE  (MSM_USB_BASE + 0x80)
 
@@ -48,6 +49,8 @@
 #define ULPI_ADDR(n)          (((n) & 255) << 16)
 #define ULPI_DATA(n)          ((n) & 255)
 #define ULPI_DATA_READ(n)     (((n) >> 8) & 255)
+
+#define GENCONFIG_BAM_DISABLE (1 << 13)
 
 /* synopsys 28nm phy registers */
 #define ULPI_PWR_CLK_MNG_REG	0x88
