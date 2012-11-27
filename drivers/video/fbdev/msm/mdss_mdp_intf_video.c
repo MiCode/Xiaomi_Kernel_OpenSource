@@ -244,11 +244,16 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_TIMEGEN_OFF, NULL);
 		WARN(rc, "intf %d timegen off error (%d)\n", ctl->intf_num, rc);
+
+		mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_UNDER_RUN,
+			ctl->intf_num);
 	}
 
 	mdss_mdp_video_set_vsync_handler(ctl, NULL);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num,
+				   NULL, NULL);
+	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_UNDER_RUN, ctl->intf_num,
 				   NULL, NULL);
 
 	ctx->ref_cnt--;
@@ -304,6 +309,17 @@ static int mdss_mdp_video_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 	return rc;
 }
 
+static void mdss_mdp_video_underrun_intr_done(void *arg)
+{
+	struct mdss_mdp_ctl *ctl = arg;
+	if (unlikely(!ctl))
+		return;
+
+	ctl->underrun_cnt++;
+	pr_warn("display underrun detected for ctl=%d count=%d\n", ctl->num,
+			ctl->underrun_cnt);
+}
+
 static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_video_ctx *ctx;
@@ -332,6 +348,8 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		pr_debug("enabling timing gen for intf=%d\n", ctl->intf_num);
 
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+		mdss_mdp_irq_enable(MDSS_MDP_IRQ_INTF_UNDER_RUN, ctl->intf_num);
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
 		wmb();
 
@@ -390,6 +408,8 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num,
 				   mdss_mdp_video_vsync_intr_done, ctl);
+	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_UNDER_RUN, ctl->intf_num,
+				   mdss_mdp_video_underrun_intr_done, ctl);
 
 	itp.width = pinfo->xres + pinfo->lcdc.xres_pad;
 	itp.height = pinfo->yres + pinfo->lcdc.yres_pad;
