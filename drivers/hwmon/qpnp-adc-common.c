@@ -632,7 +632,7 @@ int32_t qpnp_adc_tm_scale_voltage_therm_pu2(uint32_t reg, int64_t *result)
 
 	do_div(adc_voltage, param1.dy);
 
-	qpnp_adc_map_temp_voltage(adcmap_100k_104ef_104fb,
+	qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb,
 		ARRAY_SIZE(adcmap_100k_104ef_104fb),
 		adc_voltage, result);
 	if (negative_offset)
@@ -649,7 +649,7 @@ int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_adc_tm_config *param)
 
 	qpnp_get_vadc_gain_and_offset(&param1, CALIB_RATIOMETRIC);
 
-	rc = qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb,
+	rc = qpnp_adc_map_temp_voltage(adcmap_100k_104ef_104fb,
 		ARRAY_SIZE(adcmap_100k_104ef_104fb),
 		param->low_thr_temp, &param->low_thr_voltage);
 	if (rc)
@@ -659,7 +659,7 @@ int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_adc_tm_config *param)
 	do_div(param->low_thr_voltage, param1.adc_vref);
 	param->low_thr_voltage += param1.adc_gnd;
 
-	rc = qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb,
+	rc = qpnp_adc_map_temp_voltage(adcmap_100k_104ef_104fb,
 		ARRAY_SIZE(adcmap_100k_104ef_104fb),
 		param->high_thr_temp, &param->high_thr_voltage);
 	if (rc)
@@ -822,7 +822,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	struct device_node *node = spmi->dev.of_node;
 	struct resource *res;
 	struct device_node *child;
-	struct qpnp_vadc_amux *adc_channel_list;
+	struct qpnp_adc_amux *adc_channel_list;
 	struct qpnp_adc_properties *adc_prop;
 	struct qpnp_adc_amux_properties *amux_prop;
 	int count_adc_channel_list = 0, decimation, rc = 0, i = 0;
@@ -847,7 +847,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 		return -ENOMEM;
 	}
 	adc_channel_list = devm_kzalloc(&spmi->dev,
-		((sizeof(struct qpnp_vadc_amux)) * count_adc_channel_list),
+		((sizeof(struct qpnp_adc_amux)) * count_adc_channel_list),
 				GFP_KERNEL);
 	if (!adc_channel_list) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
