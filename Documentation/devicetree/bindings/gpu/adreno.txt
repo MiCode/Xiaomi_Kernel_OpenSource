@@ -5,7 +5,12 @@ Qualcomm Adreno GPU
 Required properties:
 - label:		A string used as a descriptive name for the device.
 - compatible:		Must be "qcom,kgsl-3d0" and "qcom,kgsl-3d"
-- reg:			Specifies the base address and address size for this device.
+- reg:			Specifies the register base address and size. The second interval
+			specifies the shader memory base address and size.
+- reg-names:		Resource names used for the physical address of device registers
+			and shader memory. "kgsl_3d0_reg_memory" gives the physical address
+			and length of device registers while "kgsl_3d0_shader_memory" gives
+			physical address and length of device shader memory.
 - interrupts:		Interrupt mapping for GPU IRQ.
 - interrupt-names:	String property to describe the name of the interrupt.
 - qcom,id:		An integer used as an identification number for the device.
@@ -70,8 +75,9 @@ Example of A330 GPU in MSM8974:
 	qcom,kgsl-3d0@fdb00000 {
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
-		reg = <0xfdb00000 0x20000>;
-		reg-names = "kgsl_3d0_reg_memory";
+		reg = <0xfdb00000 0x10000
+		       0xfdb20000 0x10000>;
+		reg-names = "kgsl_3d0_reg_memory", "kgsl_3d0_shader_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
