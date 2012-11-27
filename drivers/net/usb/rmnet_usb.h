@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __RMNET_USB_CTRL_H
-#define __RMNET_USB_CTRL_H
+#ifndef __RMNET_USB_H
+#define __RMNET_USB_H
 
 #include <linux/mutex.h>
 #include <linux/usb.h>
@@ -20,7 +20,35 @@
 #include <linux/usb/cdc.h>
 
 #define MAX_RMNET_DEVS		4
+#define MAX_RMNET_INSTS_PER_DEV	17
+#define TOTAL_RMNET_DEV_COUNT	(MAX_RMNET_DEVS * MAX_RMNET_INSTS_PER_DEV)
+
 #define CTRL_DEV_MAX_LEN	10
+
+#define RMNET_CTRL_DEV_OPEN	0
+#define RMNET_CTRL_DEV_READY	1
+#define RMNET_CTRL_DEV_MUX_EN	2
+
+/*MUX header bit masks*/
+#define MUX_CTRL_MASK	0x1
+#define MUX_PAD_SHIFT	0x2
+
+/*max padding bytes for n byte alignment*/
+#define MAX_PAD_BYTES(n)	(n-1)
+
+/*
+ *MUX Header Format
+ *BIT 0 : Mux type 0: Data, 1: control
+ *BIT 1: Reserved
+ *BIT 2-7: Pad bytes
+ *BIT 8-15: Mux ID
+ *BIT 16-31: PACKET_LEN_WITH_PADDING (Bytes)
+ */
+struct mux_hdr {
+	__u8	padding_info;
+	__u8	mux_id;
+	__le16	pkt_len_w_padding;
+} __packed;
 
 struct rmnet_ctrl_dev {
 
@@ -29,6 +57,10 @@ struct rmnet_ctrl_dev {
 
 	struct cdev		cdev;
 	struct device		*devicep;
+	unsigned		ch_id;
+
+	/*to identify the usb device*/
+	unsigned		id;
 
 	struct usb_interface	*intf;
 	unsigned int		int_pipe;
@@ -49,15 +81,7 @@ struct rmnet_ctrl_dev {
 	struct workqueue_struct	*wq;
 	struct work_struct	get_encap_work;
 
-	unsigned		is_opened;
-
-	bool			is_connected;
-
-	/*
-	 * track first resp available from mdm when it boots up
-	 * to avoid bigger  timeout value used by qmuxd
-	 */
-	bool			resp_available;
+	unsigned long		status;
 
 	bool			claimed;
 
@@ -78,6 +102,8 @@ struct rmnet_ctrl_dev {
 	unsigned int		zlp_cnt;
 };
 
+extern struct workqueue_struct	*usbnet_wq;
+
 extern int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *);
 extern int rmnet_usb_ctrl_suspend(struct rmnet_ctrl_dev *dev);
 extern int rmnet_usb_ctrl_init(int num_devs, int insts_per_dev);
@@ -85,7 +111,8 @@ extern void rmnet_usb_ctrl_exit(int num_devs, int insts_per_dev);
 extern int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 				struct usb_host_endpoint *int_in,
 				unsigned long rmnet_devnum,
-				struct rmnet_ctrl_dev **ctrldev);
+				unsigned long *data);
 extern void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *);
+extern void rmnet_usb_ctrl_cleanup(struct rmnet_ctrl_dev *dev);
 
 #endif /* __RMNET_USB_H*/
