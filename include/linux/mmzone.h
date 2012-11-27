@@ -70,9 +70,11 @@ enum {
 extern int *get_migratetype_fallbacks(int mtype);
 
 #ifdef CONFIG_CMA
+bool is_cma_pageblock(struct page *page);
 #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
 #  define cma_wmark_pages(zone)	zone->min_cma_pages
 #else
+#  define is_cma_pageblock(page) false
 #  define is_migrate_cma(migratetype) false
 #  define cma_wmark_pages(zone) 0
 #endif
