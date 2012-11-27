@@ -16,6 +16,7 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
+#include <mach/socinfo.h>
 
 #define KS8851_IRQ_GPIO 94
 
@@ -245,6 +246,21 @@ static struct msm_gpiomux_config msm_hdmi_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_ACTIVE]    = &hdmi_active_2_cfg,
 			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm_rumi_blsp_configs[] __initdata = {
+	{
+		.gpio      = 45,	/* BLSP2 UART8 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{
+		.gpio      = 46,	/* BLSP2 UART8 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
 		},
 	},
 };
@@ -624,4 +640,8 @@ void __init msm_8974_init_gpiomux(void)
 
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
 	msm_gpiomux_install(msm_mhl_configs, ARRAY_SIZE(msm_mhl_configs));
+
+	if (machine_is_msm8974_rumi())
+		msm_gpiomux_install(msm_rumi_blsp_configs,
+				    ARRAY_SIZE(msm_rumi_blsp_configs));
 }
