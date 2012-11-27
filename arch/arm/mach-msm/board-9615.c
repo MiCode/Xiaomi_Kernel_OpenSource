@@ -621,7 +621,7 @@ static int shelby_phy_init_seq[] = {
 #define USB_BAM_PHY_BASE	0x12502000
 #define HSIC_BAM_PHY_BASE	0x12542000
 #define A2_BAM_PHY_BASE		0x124C2000
-static struct usb_bam_pipe_connect msm_usb_bam_connections[MAX_BAMS][4][2] = {
+static struct usb_bam_pipe_connect msm_usb_bam_connections[MAX_BAMS][8][2] = {
 	[HSUSB_BAM][0][USB_TO_PEER_PERIPHERAL] = {
 		.src_phy_addr = USB_BAM_PHY_BASE,
 		.src_pipe_index = 11,
