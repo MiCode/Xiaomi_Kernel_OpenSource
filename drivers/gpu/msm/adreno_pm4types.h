@@ -142,6 +142,12 @@
 /* copy sequencer instruction memory to system memory */
 #define CP_IM_STORE            0x2c
 
+/* test 2 memory locations to dword values specified */
+#define CP_TEST_TWO_MEMS	0x71
+
+/* PFP waits until the FIFO between the PFP and the ME is empty */
+#define CP_WAIT_FOR_ME		0x13
+
 /*
  * for a20x
  * program an offset that will added to the BIN_BASE value of

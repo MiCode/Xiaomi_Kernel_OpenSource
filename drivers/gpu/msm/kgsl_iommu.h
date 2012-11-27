@@ -120,6 +120,13 @@ struct kgsl_iommu_unit {
  * @ctx_offset: The context offset to be added to base address when
  * accessing IOMMU registers
  * @iommu_reg_list: List of IOMMU registers { offset, map, shift } array
+ * @sync_lock_vars: Pointer to the IOMMU spinlock for serializing access to the
+ * IOMMU registers
+ * @sync_lock_desc: GPU Memory descriptor for the memory containing the
+ * spinlocks
+ * @sync_lock_offset - The page offset within a page at which the sync
+ * variables are located
+ * @sync_lock_initialized: True if the sync_lock feature is enabled
  */
 struct kgsl_iommu {
 	struct kgsl_iommu_unit iommu_units[KGSL_IOMMU_MAX_UNITS];
@@ -129,6 +136,10 @@ struct kgsl_iommu {
 	struct kgsl_device *device;
 	unsigned int ctx_offset;
 	struct kgsl_iommu_register_list *iommu_reg_list;
+	struct remote_iommu_petersons_spinlock *sync_lock_vars;
+	struct kgsl_memdesc sync_lock_desc;
+	unsigned int sync_lock_offset;
+	bool sync_lock_initialized;
 };
 
 /*
