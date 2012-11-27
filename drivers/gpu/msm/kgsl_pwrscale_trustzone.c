@@ -93,7 +93,7 @@ static ssize_t tz_governor_store(struct kgsl_device *device,
 		priv->governor = TZ_GOVERNOR_PERFORMANCE;
 
 	if (priv->governor == TZ_GOVERNOR_PERFORMANCE)
-		kgsl_pwrctrl_pwrlevel_change(device, pwr->thermal_pwrlevel);
+		kgsl_pwrctrl_pwrlevel_change(device, pwr->max_pwrlevel);
 
 	mutex_unlock(&device->mutex);
 	return count;

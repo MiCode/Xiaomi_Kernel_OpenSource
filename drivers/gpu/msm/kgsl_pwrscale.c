@@ -299,8 +299,14 @@ static void _kgsl_pwrscale_detach_policy(struct kgsl_device *device)
 {
 	if (device->pwrscale.policy != NULL) {
 		device->pwrscale.policy->close(device, &device->pwrscale);
+
+		/*
+		 * Try to set max pwrlevel which will be limited to thermal by
+		 * kgsl_pwrctrl_pwrlevel_change if thermal is indeed lower
+		 */
+
 		kgsl_pwrctrl_pwrlevel_change(device,
-				device->pwrctrl.thermal_pwrlevel);
+				device->pwrctrl.max_pwrlevel);
 	}
 	device->pwrscale.policy = NULL;
 }
