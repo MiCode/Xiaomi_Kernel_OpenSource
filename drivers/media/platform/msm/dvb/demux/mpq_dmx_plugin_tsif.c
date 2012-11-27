@@ -13,7 +13,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/tsif_api.h>
-#include <linux/workqueue.h>
+#include <linux/kthread.h>
 #include <linux/moduleparam.h>
 #include "mpq_dvb_debug.h"
 #include "mpq_dmx_plugin_common.h"
@@ -38,17 +38,8 @@ static int threshold = DMX_TSIF_PACKETS_IN_CHUNK_DEF;
 static int tsif_mode = DMX_TSIF_DRIVER_MODE_DEF;
 static int clock_inv;
 module_param(threshold, int, S_IRUGO);
-module_param(tsif_mode, int, S_IRUGO);
-module_param(clock_inv, int, S_IRUGO);
-
-/*
- * Work scheduled each time TSIF notifies dmx
- * of new TS packet
- */
-struct tsif_work {
-	struct work_struct work;
-	int tsif_id;
-};
+module_param(tsif_mode, int, S_IRUGO | S_IWUSR);
+module_param(clock_inv, int, S_IRUGO | S_IWUSR);
 
 
 /*
@@ -78,11 +69,12 @@ static struct
 {
 	/* Information for each TSIF input processing */
 	struct {
-		/* work used to submit to workqueue for processing */
-		struct tsif_work work;
+		/* thread processing TS packets from TSIF */
+		struct task_struct *thread;
+		wait_queue_head_t wait_queue;
 
-		/* workqueue that processes TS packets from specific TSIF */
-		struct workqueue_struct *workqueue;
+		/* Counter for data notifications from TSIF */
+		atomic_t data_cnt;
 
 		/* TSIF alias */
 		char name[TSIF_NAME_LENGTH];
@@ -103,94 +95,72 @@ static struct
 
 
 /**
- * Worker function that processes the TS packets notified by the TSIF driver.
+ * Demux thread function handling data from specific TSIF.
  *
- * @worker: the executed work
+ * @arg: TSIF number
  */
-static void mpq_dmx_tsif_work(struct work_struct *worker)
+static int mpq_dmx_tsif_thread(void *arg)
 {
-	struct tsif_work *tsif_work =
-		container_of(worker, struct tsif_work, work);
 	struct mpq_demux *mpq_demux;
 	struct tsif_driver_info *tsif_driver;
 	size_t packets = 0;
-	int tsif = tsif_work->tsif_id;
+	int tsif = (int)arg;
+	int ret;
 
-	mpq_demux = mpq_dmx_tsif_info.tsif[tsif].mpq_demux;
-	tsif_driver = &(mpq_dmx_tsif_info.tsif[tsif].tsif_driver);
+	do {
+		ret = wait_event_interruptible(
+			mpq_dmx_tsif_info.tsif[tsif].wait_queue,
+			(atomic_read(
+				&mpq_dmx_tsif_info.tsif[tsif].data_cnt) != 0) ||
+			kthread_should_stop());
 
-	MPQ_DVB_DBG_PRINT(
-		"%s executed, tsif = %d\n",
-		__func__,
-		tsif);
+		if ((ret < 0) || kthread_should_stop()) {
+			MPQ_DVB_DBG_PRINT("%s: exit\n", __func__);
+			break;
+		}
 
-	if (mutex_lock_interruptible(&mpq_dmx_tsif_info.tsif[tsif].mutex))
-		return;
+		if (mutex_lock_interruptible(
+			&mpq_dmx_tsif_info.tsif[tsif].mutex))
+			return -ERESTARTSYS;
 
-	/* Check if driver handler is still valid */
-	if (tsif_driver->tsif_handler == NULL) {
-		mutex_unlock(&mpq_dmx_tsif_info.tsif[tsif].mutex);
-		MPQ_DVB_ERR_PRINT("%s: tsif_driver->tsif_handler is NULL!\n",
+		tsif_driver = &(mpq_dmx_tsif_info.tsif[tsif].tsif_driver);
+		mpq_demux = mpq_dmx_tsif_info.tsif[tsif].mpq_demux;
+
+		/* Check if driver handler is still valid */
+		if (tsif_driver->tsif_handler == NULL) {
+			mutex_unlock(&mpq_dmx_tsif_info.tsif[tsif].mutex);
+			MPQ_DVB_DBG_PRINT(
+				"%s: tsif was detached\n",
 				__func__);
-		return;
-	}
+			continue;
+		}
 
-	tsif_get_state(tsif_driver->tsif_handler, &(tsif_driver->ri),
-				&(tsif_driver->wi), &(tsif_driver->state));
+		tsif_get_state(
+			tsif_driver->tsif_handler, &(tsif_driver->ri),
+			&(tsif_driver->wi), &(tsif_driver->state));
 
-	if ((tsif_driver->wi == tsif_driver->ri) ||
-		(tsif_driver->state == tsif_state_stopped) ||
-		(tsif_driver->state == tsif_state_error)) {
+		if ((tsif_driver->wi == tsif_driver->ri) ||
+			(tsif_driver->state == tsif_state_stopped) ||
+			(tsif_driver->state == tsif_state_error)) {
 
-		mpq_demux->hw_notification_size = 0;
+			mpq_demux->hw_notification_size = 0;
 
-		mutex_unlock(&mpq_dmx_tsif_info.tsif[tsif].mutex);
+			mutex_unlock(&mpq_dmx_tsif_info.tsif[tsif].mutex);
 
-		MPQ_DVB_ERR_PRINT(
-			"%s: invalid TSIF state (%d), wi = (%d), ri = (%d)\n",
-			__func__,
-			tsif_driver->state, tsif_driver->wi, tsif_driver->ri);
-		return;
-	}
+			MPQ_DVB_DBG_PRINT(
+				"%s: TSIF invalid state %d, %d, %d\n",
+				__func__,
+				tsif_driver->state,
+				tsif_driver->wi,
+				tsif_driver->ri);
+			continue;
+		}
 
-	if (tsif_driver->wi > tsif_driver->ri) {
-		packets = (tsif_driver->wi - tsif_driver->ri);
-		mpq_demux->hw_notification_size = packets;
+		atomic_dec(&mpq_dmx_tsif_info.tsif[tsif].data_cnt);
 
-		dvb_dmx_swfilter_format(
-			&mpq_demux->demux,
-			(tsif_driver->data_buffer +
-			(tsif_driver->ri * TSIF_PKT_SIZE)),
-			(packets * TSIF_PKT_SIZE),
-			DMX_TSP_FORMAT_192_TAIL);
-
-		tsif_driver->ri =
-			(tsif_driver->ri + packets) % tsif_driver->buffer_size;
-
-		tsif_reclaim_packets(tsif_driver->tsif_handler,
-					tsif_driver->ri);
-	} else {
-		/*
-		 * wi < ri, means wraparound on cyclic buffer.
-		 * Handle in two stages.
-		 */
-		packets = (tsif_driver->buffer_size - tsif_driver->ri);
-		mpq_demux->hw_notification_size = packets;
-
-		dvb_dmx_swfilter_format(
-			&mpq_demux->demux,
-			(tsif_driver->data_buffer +
-			(tsif_driver->ri * TSIF_PKT_SIZE)),
-			(packets * TSIF_PKT_SIZE),
-			DMX_TSP_FORMAT_192_TAIL);
-
-		/* tsif_driver->ri should be 0 after this */
-		tsif_driver->ri =
-			(tsif_driver->ri + packets) % tsif_driver->buffer_size;
-
-		packets = tsif_driver->wi;
-		if (packets > 0) {
-			mpq_demux->hw_notification_size += packets;
+		if (tsif_driver->wi > tsif_driver->ri) {
+			packets = (tsif_driver->wi - tsif_driver->ri);
+			mpq_demux->hw_notification_size = packets;
 
 			dvb_dmx_swfilter_format(
 				&mpq_demux->demux,
@@ -202,13 +172,55 @@ static void mpq_dmx_tsif_work(struct work_struct *worker)
 			tsif_driver->ri =
 				(tsif_driver->ri + packets) %
 				tsif_driver->buffer_size;
+
+			tsif_reclaim_packets(
+				tsif_driver->tsif_handler,
+					tsif_driver->ri);
+		} else {
+			/*
+			 * wi < ri, means wraparound on cyclic buffer.
+			 * Handle in two stages.
+			 */
+			packets = (tsif_driver->buffer_size - tsif_driver->ri);
+			mpq_demux->hw_notification_size = packets;
+
+			dvb_dmx_swfilter_format(
+				&mpq_demux->demux,
+				(tsif_driver->data_buffer +
+				(tsif_driver->ri * TSIF_PKT_SIZE)),
+				(packets * TSIF_PKT_SIZE),
+				DMX_TSP_FORMAT_192_TAIL);
+
+			/* tsif_driver->ri should be 0 after this */
+			tsif_driver->ri =
+				(tsif_driver->ri + packets) %
+				tsif_driver->buffer_size;
+
+			packets = tsif_driver->wi;
+			if (packets > 0) {
+				mpq_demux->hw_notification_size += packets;
+
+				dvb_dmx_swfilter_format(
+					&mpq_demux->demux,
+					(tsif_driver->data_buffer +
+					(tsif_driver->ri * TSIF_PKT_SIZE)),
+					(packets * TSIF_PKT_SIZE),
+					DMX_TSP_FORMAT_192_TAIL);
+
+				tsif_driver->ri =
+					(tsif_driver->ri + packets) %
+					tsif_driver->buffer_size;
+			}
+
+			tsif_reclaim_packets(
+				tsif_driver->tsif_handler,
+				tsif_driver->ri);
 		}
 
-		tsif_reclaim_packets(tsif_driver->tsif_handler,
-					tsif_driver->ri);
-	}
+		mutex_unlock(&mpq_dmx_tsif_info.tsif[tsif].mutex);
+	} while (1);
 
-	mutex_unlock(&mpq_dmx_tsif_info.tsif[tsif].mutex);
+	return 0;
 }
 
 
@@ -220,7 +232,6 @@ static void mpq_dmx_tsif_work(struct work_struct *worker)
 static void mpq_tsif_callback(void *user)
 {
 	int tsif = (int)user;
-	struct work_struct *work;
 	struct mpq_demux *mpq_demux;
 
 	MPQ_DVB_DBG_PRINT("%s executed, tsif = %d\n", __func__,	tsif);
@@ -229,11 +240,8 @@ static void mpq_tsif_callback(void *user)
 	mpq_demux = mpq_dmx_tsif_info.tsif[tsif].mpq_demux;
 	mpq_dmx_update_hw_statistics(mpq_demux);
 
-	work = &mpq_dmx_tsif_info.tsif[tsif].work.work;
-
-	/* Scheudle a new work to demux workqueue */
-	if (!work_pending(work))
-		queue_work(mpq_dmx_tsif_info.tsif[tsif].workqueue, work);
+	atomic_inc(&mpq_dmx_tsif_info.tsif[tsif].data_cnt);
+	wake_up(&mpq_dmx_tsif_info.tsif[tsif].wait_queue);
 }
 
 
@@ -376,20 +384,10 @@ static int mpq_tsif_dmx_stop(struct mpq_demux *mpq_demux)
 		tsif_driver = &(mpq_dmx_tsif_info.tsif[tsif].tsif_driver);
 		tsif_stop(tsif_driver->tsif_handler);
 		tsif_detach(tsif_driver->tsif_handler);
-		/*
-		 * temporarily release mutex and flush the work queue
-		 * before setting tsif_handler to NULL
-		 */
-		mutex_unlock(&mpq_dmx_tsif_info.tsif[tsif].mutex);
-		flush_workqueue(mpq_dmx_tsif_info.tsif[tsif].workqueue);
-		/* re-acquire mutex */
-		if (mutex_lock_interruptible(
-				&mpq_dmx_tsif_info.tsif[tsif].mutex))
-			return -ERESTARTSYS;
-
 		tsif_driver->tsif_handler = NULL;
 		tsif_driver->data_buffer = NULL;
 		tsif_driver->buffer_size = 0;
+		atomic_set(&mpq_dmx_tsif_info.tsif[tsif].data_cnt, 0);
 		mpq_dmx_tsif_info.tsif[tsif].mpq_demux = NULL;
 	}
 
@@ -708,31 +706,28 @@ static int __init mpq_dmx_tsif_plugin_init(void)
 	}
 
 	for (i = 0; i < TSIF_COUNT; i++) {
-		mpq_dmx_tsif_info.tsif[i].work.tsif_id = i;
-
-		INIT_WORK(&mpq_dmx_tsif_info.tsif[i].work.work,
-				  mpq_dmx_tsif_work);
-
 		snprintf(mpq_dmx_tsif_info.tsif[i].name,
 				TSIF_NAME_LENGTH,
-				"tsif_%d",
+				"dmx_tsif%d",
 				i);
 
-		mpq_dmx_tsif_info.tsif[i].workqueue =
-			create_singlethread_workqueue(
+		atomic_set(&mpq_dmx_tsif_info.tsif[i].data_cnt, 0);
+		init_waitqueue_head(&mpq_dmx_tsif_info.tsif[i].wait_queue);
+		mpq_dmx_tsif_info.tsif[i].thread =
+			kthread_run(
+				mpq_dmx_tsif_thread, (void *)i,
 				mpq_dmx_tsif_info.tsif[i].name);
 
-		if (mpq_dmx_tsif_info.tsif[i].workqueue == NULL) {
+		if (IS_ERR(mpq_dmx_tsif_info.tsif[i].thread)) {
 			int j;
 
 			for (j = 0; j < i; j++) {
-				destroy_workqueue(
-					mpq_dmx_tsif_info.tsif[j].workqueue);
+				kthread_stop(mpq_dmx_tsif_info.tsif[j].thread);
 				mutex_destroy(&mpq_dmx_tsif_info.tsif[j].mutex);
 			}
 
 			MPQ_DVB_ERR_PRINT(
-				"%s: create_singlethread_workqueue failed\n",
+				"%s: kthread_run failed\n",
 				__func__);
 
 			return -ENOMEM;
@@ -753,7 +748,7 @@ static int __init mpq_dmx_tsif_plugin_init(void)
 			ret);
 
 		for (i = 0; i < TSIF_COUNT; i++) {
-			destroy_workqueue(mpq_dmx_tsif_info.tsif[i].workqueue);
+			kthread_stop(mpq_dmx_tsif_info.tsif[i].thread);
 			mutex_destroy(&mpq_dmx_tsif_info.tsif[i].mutex);
 		}
 	}
@@ -781,16 +776,13 @@ static void __exit mpq_dmx_tsif_plugin_exit(void)
 			if (tsif_driver->tsif_handler)
 				tsif_stop(tsif_driver->tsif_handler);
 		}
+
 		/* Detach from TSIF driver to avoid further notifications. */
 		if (tsif_driver->tsif_handler)
 			tsif_detach(tsif_driver->tsif_handler);
 
-		/* release mutex to allow work queue to finish scheduled work */
 		mutex_unlock(&mpq_dmx_tsif_info.tsif[i].mutex);
-		/* flush the work queue and destroy it */
-		flush_workqueue(mpq_dmx_tsif_info.tsif[i].workqueue);
-		destroy_workqueue(mpq_dmx_tsif_info.tsif[i].workqueue);
-
+		kthread_stop(mpq_dmx_tsif_info.tsif[i].thread);
 		mutex_destroy(&mpq_dmx_tsif_info.tsif[i].mutex);
 	}
 
