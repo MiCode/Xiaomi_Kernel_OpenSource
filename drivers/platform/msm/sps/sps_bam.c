@@ -1005,6 +1005,8 @@ int sps_bam_pipe_set_params(struct sps_bam *dev, u32 pipe_index, u32 options)
 	no_queue = ((options & SPS_O_NO_Q));
 	ack_xfers = ((options & SPS_O_ACK_TRANSFERS));
 
+	pipe->hybrid = options & SPS_O_HYBRID;
+
 	/* Create interrupt source mask */
 	mask = 0;
 	for (n = 0; n < ARRAY_SIZE(opt_event_table); n++) {
@@ -1773,7 +1775,7 @@ int sps_bam_pipe_get_iovec(struct sps_bam *dev, u32 pipe_index,
 	}
 
 	/* If pipe is polled and queue is enabled, perform polling operation */
-	if (pipe->polled && !pipe->sys.no_queue)
+	if ((pipe->polled || pipe->hybrid) && !pipe->sys.no_queue)
 		pipe_handler_eot(dev, pipe);
 
 	/* Is there a completed descriptor? */

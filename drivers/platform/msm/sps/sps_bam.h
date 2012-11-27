@@ -170,6 +170,7 @@ struct sps_pipe {
 	u32 pipe_index_mask;
 	u32 irq_mask;
 	int polled;
+	int hybrid;
 	u32 irq_gen_addr;
 	enum sps_mode mode;
 	u32 num_descs; /* Size (number of elements) of descriptor FIFO */
