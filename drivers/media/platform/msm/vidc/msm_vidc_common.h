@@ -32,7 +32,7 @@ int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct vb2_buffer *vb);
-int msm_comm_scale_clocks(struct msm_vidc_core *core, enum session_type type);
+void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
