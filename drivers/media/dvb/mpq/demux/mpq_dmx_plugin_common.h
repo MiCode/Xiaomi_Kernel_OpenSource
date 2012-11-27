@@ -30,7 +30,7 @@
 /**
  * TSIF alias name length
  */
-#define TSIF_NAME_LENGTH				10
+#define TSIF_NAME_LENGTH				20
 
 #define MPQ_MAX_FOUND_PATTERNS				5
 
