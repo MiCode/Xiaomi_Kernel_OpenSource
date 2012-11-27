@@ -1075,6 +1075,21 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 		}
 		break;
 	}
+	case VCD_I_H263_PLUSPTYPE:
+	{
+		struct vcd_property_plusptype *plusptype =
+			(struct vcd_property_plusptype *)property_value;
+
+		if ((sizeof(struct vcd_property_plusptype) ==
+			property_hdr->sz) && encoder->codec.codec ==
+			VCD_CODEC_H263) {
+			encoder->plusptype_enable = plusptype->plusptype_enable;
+			DDL_MSG_LOW("\nencoder->plusptype_enable = %u",
+						encoder->plusptype_enable);
+			vcd_status = VCD_S_SUCCESS;
+		}
+		break;
+	}
 	default:
 		DDL_MSG_ERROR("INVALID ID %d\n", (int)property_hdr->prop_id);
 		vcd_status = VCD_ERR_ILLEGAL_OP;
@@ -2169,5 +2184,6 @@ void ddl_set_initial_default_values(struct ddl_client_context *ddl)
 		encoder->frame_rate.fps_denominator = 1;
 		ddl_set_default_enc_property(ddl);
 		encoder->sps_pps.sps_pps_for_idr_enable_flag = false;
+		encoder->plusptype_enable = 0;
 	}
 }
