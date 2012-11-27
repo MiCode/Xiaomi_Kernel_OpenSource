@@ -224,6 +224,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00D)
 #define  HFI_PROPERTY_PARAM_CODEC_MASK_SUPPORTED            \
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00E)
+#define HFI_PROPERTY_PARAM_MVC_BUFFER_LAYOUT \
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x00F)
 
 #define HFI_PROPERTY_CONFIG_COMMON_START				\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x2000)
@@ -632,6 +634,15 @@ struct hfi_aspect_ratio {
 	u32 aspect_width;
 	u32 aspect_height;
 };
+#define HFI_MVC_BUFFER_LAYOUT_TOP_BOTTOM  (0)
+#define HFI_MVC_BUFFER_LAYOUT_SIDEBYSIDE  (1)
+#define HFI_MVC_BUFFER_LAYOUT_SEQ         (2)
+struct hfi_mvc_buffer_lauout_descp_type {
+	u32    layout_type;
+	u32    bright_view_first;
+	u32    ngap;
+};
+
 
 #define HFI_CMD_SYS_COMMON_START			\
 (HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + HFI_CMD_START_OFFSET \

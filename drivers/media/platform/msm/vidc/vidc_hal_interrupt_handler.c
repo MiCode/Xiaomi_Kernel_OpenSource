@@ -533,7 +533,7 @@ static void hal_process_session_etb_done(struct hal_device *device,
 
 	dprintk(VIDC_DBG, "RECEIVED:SESSION_ETB_DONE");
 
-	if (!pkt || pkt->size !=
+	if (!pkt || pkt->size <
 		sizeof(struct hfi_msg_session_empty_buffer_done_packet)) {
 		dprintk(VIDC_ERR, "hal_process_session_etb_done:bad_pkt_size");
 		return;
@@ -579,7 +579,7 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 		msg_hdr;
 		if (sizeof(struct
 			hfi_msg_session_fill_buffer_done_compressed_packet)
-			!= pkt->size) {
+			> pkt->size) {
 			dprintk(VIDC_ERR,
 				"hal_process_session_ftb_done: bad_pkt_size");
 			return;
