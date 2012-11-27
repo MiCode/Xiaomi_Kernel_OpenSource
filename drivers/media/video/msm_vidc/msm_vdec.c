@@ -631,10 +631,7 @@ int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	}
 	inst->prop.fps = (u8) (USEC_PER_SEC / us_per_frame);
 	if (inst->prop.fps) {
-		if (msm_comm_scale_clocks(inst->core, inst->session_type)) {
-			dprintk(VIDC_WARN,
-					"Failed to scale clocks\n");
-		}
+		msm_comm_scale_clocks_and_bus(inst);
 	}
 exit:
 	return rc;
@@ -881,11 +878,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to set persist buffers: %d\n", rc);
 		goto fail_start;
 	}
-	if (msm_comm_scale_clocks(inst->core, inst->session_type)) {
-		dprintk(VIDC_WARN,
-			"Failed to scale clocks. Performance might be impacted\n");
-	}
-
+	msm_comm_scale_clocks_and_bus(inst);
 	rc = msm_comm_try_state(inst, MSM_VIDC_START_DONE);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -976,10 +969,7 @@ static int msm_vdec_stop_streaming(struct vb2_queue *q)
 		rc = -EINVAL;
 		break;
 	}
-	if (msm_comm_scale_clocks(inst->core, inst->session_type)) {
-		dprintk(VIDC_WARN,
-			"Failed to scale clocks. Power might be impacted\n");
-	}
+	msm_comm_scale_clocks_and_bus(inst);
 
 	if (rc)
 		dprintk(VIDC_ERR,

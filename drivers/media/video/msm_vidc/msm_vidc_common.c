@@ -64,7 +64,6 @@ struct tzbsp_resp {
 };
 
 static const u32 bus_table[] = {
-	0,
 	36000,
 	110400,
 	244800,
@@ -77,12 +76,11 @@ static int get_bus_vector(int load)
 {
 	int num_rows = sizeof(bus_table)/(sizeof(u32));
 	int i;
-	if (!load)
-		return 0;
 	for (i = 0; i < num_rows; i++) {
 		if (load <= bus_table[i])
 			break;
 	}
+	i++;
 	dprintk(VIDC_DBG, "Required bus = %d\n", i);
 	return i;
 }
@@ -122,35 +120,58 @@ static unsigned long get_clock_rate(struct core_clock *clock,
 			break;
 		ret = table[i].freq;
 	}
-	dprintk(VIDC_INFO, "Required clock rate = %lu\n", ret);
+	dprintk(VIDC_DBG, "Required clock rate = %lu\n", ret);
 	return ret;
 }
 
-int msm_comm_scale_bus(struct msm_vidc_core *core, enum session_type type)
+static int msm_comm_scale_bus(struct msm_vidc_core *core,
+	enum session_type type, enum mem_type mtype)
 {
 	int load;
 	int rc = 0;
+	u32 handle = 0;
 	if (!core || type >= MSM_VIDC_MAX_DEVICES) {
 		dprintk(VIDC_ERR, "Invalid args: %p, %d\n", core, type);
 		return -EINVAL;
 	}
 	load = msm_comm_get_load(core, type);
-	rc = msm_bus_scale_client_update_request(
-			core->resources.bus_info.ddr_handle[type],
-			get_bus_vector(load));
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
-		goto fail_scale_bus;
+	if (mtype & DDR_MEM)
+		handle = core->resources.bus_info.ddr_handle[type];
+	if (mtype & OCMEM_MEM)
+		handle = core->resources.bus_info.ocmem_handle[type];
+	if (handle) {
+		rc = msm_bus_scale_client_update_request(
+				handle, get_bus_vector(load));
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
+	} else {
+		dprintk(VIDC_ERR, "Failed to scale bus, mtype: %d\n",
+				mtype);
+		rc = -EINVAL;
 	}
-	rc = msm_bus_scale_client_update_request(
-			core->resources.bus_info.ocmem_handle[type],
-			get_bus_vector(load));
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
-		goto fail_scale_bus;
-	}
-fail_scale_bus:
 	return rc;
+}
+
+static void msm_comm_unvote_buses(struct msm_vidc_core *core,
+	enum mem_type mtype)
+{
+	int i;
+	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
+		if ((mtype & DDR_MEM) &&
+			msm_bus_scale_client_update_request(
+				core->resources.bus_info.ddr_handle[i],
+				0)) {
+			dprintk(VIDC_WARN,
+				"Failed to unvote for DDR accesses\n");
+		}
+		if ((mtype & OCMEM_MEM) &&
+			msm_bus_scale_client_update_request(
+				core->resources.bus_info.ocmem_handle[i],
+				0)) {
+			dprintk(VIDC_WARN,
+				"Failed to unvote for OCMEM accesses\n");
+		}
+	}
 }
 
 static int protect_cp_mem(struct msm_vidc_core *core)
@@ -882,7 +903,7 @@ void handle_cmd_response(enum command_response cmd, void *data)
 	}
 }
 
-int msm_comm_scale_clocks(struct msm_vidc_core *core, enum session_type type)
+static int msm_comm_scale_clocks(struct msm_vidc_core *core)
 {
 	int num_mbs_per_sec;
 	int rc = 0;
@@ -896,14 +917,8 @@ int msm_comm_scale_clocks(struct msm_vidc_core *core, enum session_type type)
 	rc = clk_set_rate(core->resources.clock[VCODEC_CLK].clk,
 			get_clock_rate(&core->resources.clock[VCODEC_CLK],
 				num_mbs_per_sec));
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
-		goto fail_clk_set_rate;
-	}
-	rc = msm_comm_scale_bus(core, type);
 	if (rc)
-		dprintk(VIDC_ERR, "Failed to scale bus bandwidth\n");
-fail_clk_set_rate:
+		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
 	return rc;
 }
 
@@ -949,6 +964,28 @@ static inline void msm_comm_disable_clks(struct msm_vidc_core *core)
 	}
 }
 
+void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
+{
+	struct msm_vidc_core *core = inst->core;
+	if (!inst) {
+		dprintk(VIDC_WARN, "Invalid params\n");
+		return;
+	}
+	if (msm_comm_scale_clocks(core)) {
+		dprintk(VIDC_WARN,
+		"Failed to scale clocks. Performance might be impacted\n");
+	}
+	if (msm_comm_scale_bus(core, inst->session_type, DDR_MEM)) {
+		dprintk(VIDC_WARN,
+		"Failed to scale DDR bus. Performance might be impacted\n");
+	}
+	if (core->resources.ocmem.buf) {
+		if (msm_comm_scale_bus(core, inst->session_type, OCMEM_MEM))
+			dprintk(VIDC_WARN,
+			"Failed to scale OCMEM bus. Performance might be impacted\n");
+	}
+}
+
 static int msm_comm_load_fw(struct msm_vidc_core *core)
 {
 	int rc = 0;
@@ -956,25 +993,28 @@ static int msm_comm_load_fw(struct msm_vidc_core *core)
 		dprintk(VIDC_ERR, "Invalid paramter: %p\n", core);
 		return -EINVAL;
 	}
-
 	if (!core->resources.fw.cookie)
 		core->resources.fw.cookie = subsystem_get("venus");
 
 	if (IS_ERR_OR_NULL(core->resources.fw.cookie)) {
 		dprintk(VIDC_ERR, "Failed to download firmware\n");
 		rc = -ENOMEM;
-		goto fail_subsystem_get;
+		goto fail_load_fw;
 	}
+	/*Clocks can be enabled only after pil_get since
+	 * gdsc is turned-on in pil_get*/
 	rc = msm_comm_enable_clks(core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to enable clocks: %d\n", rc);
 		goto fail_enable_clks;
 	}
+
 	rc = protect_cp_mem(core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to protect memory\n");
 		goto fail_iommu_attach;
 	}
+
 	rc = msm_comm_iommu_attach(core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to attach iommu");
@@ -986,7 +1026,7 @@ fail_iommu_attach:
 fail_enable_clks:
 	subsystem_put(core->resources.fw.cookie);
 	core->resources.fw.cookie = NULL;
-fail_subsystem_get:
+fail_load_fw:
 	return rc;
 }
 
@@ -1189,15 +1229,22 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 				core->id, core->state);
 		goto core_already_inited;
 	}
-	rc = msm_comm_scale_clocks(core, inst->session_type);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
-		goto fail_load_fw;
-	}
+
 	rc = msm_comm_load_fw(core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load video firmware\n");
 		goto fail_load_fw;
+	}
+	rc = msm_comm_scale_clocks(core);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to scale clocks: %d\n", rc);
+		goto fail_core_init;
+	}
+
+	rc = msm_comm_scale_bus(core, inst->session_type, DDR_MEM);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to scale DDR bus: %d\n", rc);
+		goto fail_core_init;
 	}
 	init_completion(&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)]);
 	rc = vidc_hal_core_init(core->device,
@@ -1215,6 +1262,7 @@ core_already_inited:
 	return rc;
 fail_core_init:
 	msm_comm_unload_fw(core);
+	msm_comm_unvote_buses(core, DDR_MEM);
 fail_load_fw:
 	mutex_unlock(&core->sync_lock);
 	return rc;
@@ -1231,10 +1279,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 				core->id, core->state);
 		goto core_already_uninited;
 	}
-	if (msm_comm_scale_clocks(core, inst->session_type)) {
-		dprintk(VIDC_WARN, "Failed to scale clocks while closing\n");
-		dprintk(VIDC_INFO, "Power might be impacted\n");
-	}
+	msm_comm_scale_clocks_and_bus(inst);
 	if (list_empty(&core->instances)) {
 		msm_comm_unset_ocmem(core);
 		msm_comm_free_ocmem(core);
@@ -1249,6 +1294,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		core->state = VIDC_CORE_UNINIT;
 		spin_unlock_irqrestore(&core->lock, flags);
 		msm_comm_unload_fw(core);
+		msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
 	}
 core_already_uninited:
 	change_inst_state(inst, MSM_VIDC_CORE_UNINIT);
@@ -1367,11 +1413,18 @@ static int msm_vidc_load_resources(int flipped_state,
 		goto exit;
 	}
 	ocmem_sz = get_ocmem_requirement(inst->prop.height, inst->prop.width);
-	rc = msm_comm_alloc_ocmem(inst->core, ocmem_sz);
-	if (rc)
-		dprintk(VIDC_WARN,
+	rc = msm_comm_scale_bus(inst->core, inst->session_type, OCMEM_MEM);
+	if (!rc) {
+		rc = msm_comm_alloc_ocmem(inst->core, ocmem_sz);
+		if (rc) {
+			dprintk(VIDC_WARN,
 			"Failed to allocate OCMEM. Performance will be impacted\n");
-
+			msm_comm_unvote_buses(inst->core, OCMEM_MEM);
+		}
+	} else {
+		dprintk(VIDC_WARN,
+		"Failed to vote for OCMEM BW. Performance will be impacted\n");
+	}
 	rc = vidc_hal_session_load_res((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
