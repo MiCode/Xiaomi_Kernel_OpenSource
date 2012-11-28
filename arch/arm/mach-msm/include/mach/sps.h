@@ -160,6 +160,8 @@ enum sps_option {
 	SPS_O_AUTO_ENABLE = 0x20000000,
 	/* DISABLE endpoint synchronization for config/enable/disable */
 	SPS_O_NO_EP_SYNC = 0x40000000,
+	/* Allow partial polling duing IRQ mode */
+	SPS_O_HYBRID = 0x80000000,
 };
 
 /**
