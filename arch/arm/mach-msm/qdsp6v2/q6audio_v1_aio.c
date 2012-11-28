@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,9 @@ void q6_audio_cb(uint32_t opcode, uint32_t token,
 	case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
 	case ASM_DATA_EVENT_ENC_SR_CM_NOTIFY:
+		audio_aio_cb(opcode, token, payload, audio);
+		break;
+	case APR_BASIC_RSP_RESULT:
 		audio_aio_cb(opcode, token, payload, audio);
 		break;
 	default:
@@ -106,6 +109,26 @@ void audio_aio_cb(uint32_t opcode, uint32_t token,
 		e_payload.stream_info.sample_rate = audio->pcm_cfg.sample_rate;
 		audio_aio_post_event(audio, AUDIO_EVENT_STREAM_INFO, e_payload);
 		break;
+	case APR_BASIC_RSP_RESULT:
+		switch (payload[0]) {
+		case ASM_STREAM_CMD_FLUSH:
+			if (payload[1] == ADSP_EOK) {
+				pr_debug("%s: FLUSH CMD success\n", __func__);
+				audio_aio_ioport_reset(audio);
+				audio->wflush = 0;
+				audio->rflush = 0;
+			} else {
+				pr_err("%s: FLUSH CMD failed with status:%d\n",
+					__func__, payload[1]);
+				audio_aio_ioport_reset(audio);
+				audio->wflush = 0;
+				audio->rflush = 0;
+			}
+			break;
+		default:
+			pr_debug("%s: cmd%x cmd_status:%d\n",
+				__func__, payload[0], payload[1]);
+		}
 	default:
 		break;
 	}
