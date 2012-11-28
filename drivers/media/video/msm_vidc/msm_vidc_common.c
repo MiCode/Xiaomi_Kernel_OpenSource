@@ -610,33 +610,28 @@ static void handle_sys_error(enum command_response cmd, void *data)
 	struct v4l2_event dqevent;
 	unsigned long flags;
 	if (response) {
-		inst = (struct msm_vidc_inst *)response->session_id;
-		dprintk(VIDC_WARN,
-				"Sys error received for session %p\n", inst);
-		if (inst) {
-			core = inst->core;
-			if (core) {
-				spin_lock_irqsave(&core->lock, flags);
-				core->state = VIDC_CORE_INVALID;
-				spin_unlock_irqrestore(&core->lock, flags);
-				dqevent.type = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
-				dqevent.id = 0;
-				list_for_each_entry(inst, &core->instances,
+		core = get_vidc_core(response->device_id);
+		dprintk(VIDC_WARN, "SYS_ERROR received for core %p\n", core);
+		if (core) {
+			spin_lock_irqsave(&core->lock, flags);
+			core->state = VIDC_CORE_INVALID;
+			spin_unlock_irqrestore(&core->lock, flags);
+			dqevent.type = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
+			dqevent.id = 0;
+			list_for_each_entry(inst, &core->instances,
 					list) {
-					if (inst) {
-						v4l2_event_queue_fh(
-							&inst->event_handler,
-								&dqevent);
-						spin_lock_irqsave(&inst->lock,
-							flags);
-						inst->state =
-							MSM_VIDC_CORE_INVALID;
-						spin_unlock_irqrestore(
-							&inst->lock, flags);
-					}
-				}
-			wake_up(&inst->kernel_event_queue);
+				v4l2_event_queue_fh(&inst->event_handler,
+						&dqevent);
+
+				spin_lock_irqsave(&inst->lock, flags);
+				inst->state = MSM_VIDC_CORE_INVALID;
+				spin_unlock_irqrestore(&inst->lock, flags);
+
+				wake_up(&inst->kernel_event_queue);
 			}
+		} else {
+			dprintk(VIDC_ERR,
+				"Got SYS_ERR but unable to identify core");
 		}
 	} else {
 		dprintk(VIDC_ERR,
