@@ -6536,19 +6536,19 @@ static inline void msmsdcc_ungate_clock(struct msmsdcc_host *host)
 
 #if CONFIG_DEBUG_FS
 static void msmsdcc_print_pm_stats(struct msmsdcc_host *host, ktime_t start,
-		const char *func)
+				   const char *func, int err)
 {
 	ktime_t diff;
 
-	if (host->print_pm_stats) {
+	if (host->print_pm_stats && !err) {
 		diff = ktime_sub(ktime_get(), start);
-		pr_info("%s: %s: Completed in %llu usec\n", func,
-		mmc_hostname(host->mmc), (u64)ktime_to_us(diff));
+		pr_info("%s: %s: Completed in %llu usec\n",
+			mmc_hostname(host->mmc), func, (u64)ktime_to_us(diff));
 	}
 }
 #else
 static void msmsdcc_print_pm_stats(struct msmsdcc_host *host, ktime_t start,
-		const char *func) {}
+				   const char *func, int err) {}
 #endif
 
 static int
@@ -6615,7 +6615,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 out:
 	/* set bus bandwidth to 0 immediately */
 	msmsdcc_msm_bus_cancel_work_and_set_vote(host, NULL);
-	msmsdcc_print_pm_stats(host, start, __func__);
+	msmsdcc_print_pm_stats(host, start, __func__, rc);
 	return rc;
 }
 
@@ -6664,7 +6664,7 @@ msmsdcc_runtime_resume(struct device *dev)
 	host->pending_resume = false;
 	pr_debug("%s: %s: end\n", mmc_hostname(mmc), __func__);
 out:
-	msmsdcc_print_pm_stats(host, start, __func__);
+	msmsdcc_print_pm_stats(host, start, __func__, 0);
 	return 0;
 }
 
@@ -6701,7 +6701,7 @@ static int msmsdcc_pm_suspend(struct device *dev)
 	if (!pm_runtime_suspended(dev))
 		rc = msmsdcc_runtime_suspend(dev);
  out:
-	msmsdcc_print_pm_stats(host, start, __func__);
+	msmsdcc_print_pm_stats(host, start, __func__, rc);
 	return rc;
 }
 
@@ -6757,7 +6757,7 @@ static int msmsdcc_pm_resume(struct device *dev)
 		enable_irq(host->plat->status_irq);
 	}
 out:
-	msmsdcc_print_pm_stats(host, start, __func__);
+	msmsdcc_print_pm_stats(host, start, __func__, rc);
 	return rc;
 }
 
