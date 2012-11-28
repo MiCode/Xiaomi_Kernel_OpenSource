@@ -501,6 +501,18 @@ static struct msm_pm_irq_calls msm8625_pm_irq_calls = {
 	.exit_sleep3 = msm_gic_irq_exit_sleep3,
 };
 
+void msm_clk_dump_debug_info(void)
+{
+	pr_info("%s: GLBL_CLK_ENA: 0x%08X\n", __func__,
+		readl_relaxed(MSM_CLK_CTL_BASE + 0x0));
+	pr_info("%s: GLBL_CLK_STATE: 0x%08X\n", __func__,
+		readl_relaxed(MSM_CLK_CTL_BASE + 0x4));
+	pr_info("%s: GRP_NS_REG: 0x%08X\n", __func__,
+		readl_relaxed(MSM_CLK_CTL_BASE + 0x84));
+	pr_info("%s: CLK_HALT_STATEB: 0x%08X\n", __func__,
+		readl_relaxed(MSM_CLK_CTL_BASE + 0x10C));
+}
+
 void __init msm_pm_register_irqs(void)
 {
 	if (cpu_is_msm8625())
@@ -2135,6 +2147,7 @@ postcore_initcall(msm7627a_init_gpio);
 static int msm7627a_panic_handler(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
+	msm_clk_dump_debug_info();
 	flush_cache_all();
 	outer_flush_all();
 	return NOTIFY_DONE;
