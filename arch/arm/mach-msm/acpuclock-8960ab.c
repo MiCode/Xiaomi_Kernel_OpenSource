@@ -233,12 +233,12 @@ static struct acpu_level freq_tbl_PVS6[] __initdata = {
 
 static struct pvs_table pvs_tables[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 [0][0] = { freq_tbl_PVS0, sizeof(freq_tbl_PVS0),  0 },
-[0][1] = { freq_tbl_PVS1, sizeof(freq_tbl_PVS1),  0 },
-[0][2] = { freq_tbl_PVS2, sizeof(freq_tbl_PVS2),  0 },
-[0][3] = { freq_tbl_PVS3, sizeof(freq_tbl_PVS3),  0 },
-[0][4] = { freq_tbl_PVS4, sizeof(freq_tbl_PVS4),  0 },
-[0][5] = { freq_tbl_PVS5, sizeof(freq_tbl_PVS5),  0 },
-[0][6] = { freq_tbl_PVS6, sizeof(freq_tbl_PVS6),  0 },
+[0][1] = { freq_tbl_PVS1, sizeof(freq_tbl_PVS1),  25000 },
+[0][2] = { freq_tbl_PVS2, sizeof(freq_tbl_PVS2),  25000 },
+[0][3] = { freq_tbl_PVS3, sizeof(freq_tbl_PVS3),  25000 },
+[0][4] = { freq_tbl_PVS4, sizeof(freq_tbl_PVS4),  25000 },
+[0][5] = { freq_tbl_PVS5, sizeof(freq_tbl_PVS5),  25000 },
+[0][6] = { freq_tbl_PVS6, sizeof(freq_tbl_PVS6),  25000 },
 };
 
 static struct acpuclk_krait_params acpuclk_8960ab_params __initdata = {
