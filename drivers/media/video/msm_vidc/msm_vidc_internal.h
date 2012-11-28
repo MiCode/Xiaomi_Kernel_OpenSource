@@ -134,6 +134,11 @@ struct load_freq_table {
 	u32 freq;
 };
 
+enum mem_type {
+	DDR_MEM = 0x1,
+	OCMEM_MEM = 0x2,
+};
+
 struct core_clock {
 	char name[MAX_NAME_LENGTH];
 	struct clk *clk;
