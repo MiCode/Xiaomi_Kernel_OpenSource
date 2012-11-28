@@ -18,6 +18,7 @@
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
 #include <linux/types.h>
+#include <linux/usb/msm_hsusb.h>
 #include <linux/mhl_8334.h>
 
 #include "mdss_fb.h"
@@ -58,6 +59,9 @@ struct mhl_tx_ctrl {
 	uint8_t cur_state;
 	uint8_t chip_rev_id;
 	int mhl_mode;
+	struct completion rgnd_done;
+	void (*notify_usb_online)(int online);
+	struct usb_ext_notification *mhl_info;
 };
 
 
@@ -194,6 +198,52 @@ static int mhl_sii_reset_pin(struct mhl_tx_ctrl *mhl_ctrl, int on)
 	gpio_set_value(mhl_ctrl->pdata->gpios[MHL_TX_RESET_GPIO]->gpio,
 		       on);
 	return 0;
+}
+
+/*  USB_HANDSHAKING FUNCTIONS */
+static int mhl_sii_device_discovery(void *data, int id,
+			     void (*usb_notify_cb)(int online))
+{
+	int timeout, rc;
+	struct mhl_tx_ctrl *mhl_ctrl = data;
+	struct i2c_client *client = mhl_ctrl->i2c_handle;
+
+	if (id) {
+		/* When MHL cable is disconnected we get a sii8334
+		 * mhl_disconnect interrupt which is handled separately.
+		 */
+		pr_debug("%s: USB ID pin high\n", __func__);
+		return id;
+	}
+
+	if (!mhl_ctrl || !usb_notify_cb) {
+		pr_warn("%s: cb || ctrl is NULL\n", __func__);
+		/* return "USB" so caller can proceed */
+		return -EINVAL;
+	}
+
+	if (!mhl_ctrl->notify_usb_online)
+		mhl_ctrl->notify_usb_online = usb_notify_cb;
+
+	MHL_SII_REG_NAME_WR(REG_DISC_CTRL1, 0x27);
+	msleep(50);
+	if (mhl_ctrl->cur_state == POWER_STATE_D3) {
+		/* give MHL driver chance to handle RGND interrupt */
+		INIT_COMPLETION(mhl_ctrl->rgnd_done);
+		timeout = wait_for_completion_interruptible_timeout
+			(&mhl_ctrl->rgnd_done, HZ/2);
+		if (!timeout) {
+			/* most likely nothing plugged in USB */
+			/* USB HOST connected or already in USB mode */
+			pr_debug("Timedout Returning from discovery mode\n");
+			return 0;
+		}
+		rc = mhl_ctrl->mhl_mode ? 0 : 1;
+	} else {
+		/* not in D3. already in MHL mode */
+		rc = 0;
+	}
+	return rc;
 }
 
 static void cbus_reset(struct i2c_client *client)
@@ -545,14 +595,15 @@ static int  mhl_msm_read_rgnd_int(struct mhl_tx_ctrl *mhl_ctrl)
 
 	if (0x02 == rgnd_imp) {
 		pr_debug("%s: mhl sink\n", __func__);
-		MHL_SII_REG_NAME_MOD(REG_DISC_CTRL9, BIT0, BIT0);
 		mhl_ctrl->mhl_mode = 1;
+		if (mhl_ctrl->notify_usb_online)
+			mhl_ctrl->notify_usb_online(1);
 	} else {
 		pr_debug("%s: non-mhl sink\n", __func__);
 		mhl_ctrl->mhl_mode = 0;
-		MHL_SII_REG_NAME_MOD(REG_DISC_CTRL9, BIT3, BIT3);
 		switch_mode(mhl_ctrl, POWER_STATE_D3);
 	}
+	complete(&mhl_ctrl->rgnd_done);
 	return mhl_ctrl->mhl_mode ?
 		MHL_DISCOVERY_RESULT_MHL : MHL_DISCOVERY_RESULT_USB;
 }
@@ -651,6 +702,8 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		reg = MHL_SII_REG_NAME_RD(REG_INTR4);
 		MHL_SII_REG_NAME_WR(REG_INTR4, reg);
 		mhl_msm_disconnection(mhl_ctrl);
+		if (mhl_ctrl->notify_usb_online)
+			mhl_ctrl->notify_usb_online(0);
 	}
 
 	if ((mhl_ctrl->cur_state != POWER_STATE_D0_MHL) &&\
@@ -1048,6 +1101,7 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	int rc = 0;
 	struct mhl_tx_platform_data *pdata = NULL;
 	struct mhl_tx_ctrl *mhl_ctrl;
+	struct usb_ext_notification *mhl_info = NULL;
 
 	mhl_ctrl = devm_kzalloc(&client->dev, sizeof(*mhl_ctrl), GFP_KERNEL);
 	if (!mhl_ctrl) {
@@ -1107,6 +1161,8 @@ static int mhl_i2c_probe(struct i2c_client *client,
 		goto failed_probe;
 	}
 
+	init_completion(&mhl_ctrl->rgnd_done);
+
 	pr_debug("%s: IRQ from GPIO INTR = %d\n",
 		__func__, mhl_ctrl->i2c_handle->irq);
 	pr_debug("%s: Driver name = [%s]\n", __func__,
@@ -1123,8 +1179,25 @@ static int mhl_i2c_probe(struct i2c_client *client,
 		pr_debug("request_threaded_irq succeeded\n");
 	}
 	pr_debug("%s: i2c client addr is [%x]\n", __func__, client->addr);
+
+	mhl_info = devm_kzalloc(&client->dev, sizeof(*mhl_info), GFP_KERNEL);
+	if (!mhl_info) {
+		pr_err("%s: alloc mhl info failed\n", __func__);
+		goto failed_probe;
+	}
+
+	mhl_info->ctxt = mhl_ctrl;
+	mhl_info->notify = mhl_sii_device_discovery;
+	if (msm_register_usb_ext_notification(mhl_info)) {
+		pr_err("%s: register for usb notifcn failed\n", __func__);
+		goto failed_probe;
+	}
+	mhl_ctrl->mhl_info = mhl_info;
 	return 0;
 failed_probe:
+	/* do not deep-free */
+	if (mhl_info)
+		devm_kfree(&client->dev, mhl_info);
 failed_dt_data:
 	if (pdata)
 		devm_kfree(&client->dev, pdata);
@@ -1148,6 +1221,8 @@ static int mhl_i2c_remove(struct i2c_client *client)
 	free_irq(mhl_ctrl->i2c_handle->irq, mhl_ctrl);
 	mhl_gpio_config(mhl_ctrl, 0);
 	mhl_vreg_config(mhl_ctrl, 0);
+	if (mhl_ctrl->mhl_info)
+		devm_kfree(&client->dev, mhl_ctrl->mhl_info);
 	if (mhl_ctrl->pdata)
 		devm_kfree(&client->dev, mhl_ctrl->pdata);
 	devm_kfree(&client->dev, mhl_ctrl);
