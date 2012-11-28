@@ -3353,13 +3353,6 @@ static void __init msm8960ab_update_krait_spm(void)
 {
 	int i;
 
-	/* Reset the AVS registers until we have support for AVS */
-	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
-		struct msm_spm_platform_data *pdata = &msm_spm_data[i];
-		pdata->reg_init_values[MSM_SPM_REG_SAW2_AVS_CTL] = 0;
-		pdata->reg_init_values[MSM_SPM_REG_SAW2_AVS_HYSTERESIS] = 0;
-	}
-
 	/* Update the SPM sequences for SPC and PC */
 	for (i = 0; i < ARRAY_SIZE(msm_spm_data); i++) {
 		int j;
