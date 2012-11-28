@@ -1152,7 +1152,9 @@ int q6asm_enc_cfg_blk_dts(struct audio_client *ac,
 	enc_cfg.enc_blk.cfg_size  = sizeof(struct asm_dts_enc_cfg);
 	enc_cfg.enc_blk.cfg.dts.sample_rate = sample_rate;
 	enc_cfg.enc_blk.cfg.dts.num_channels = channels;
-	if (channels == 2) {
+	if (channels == 1) {
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[0] = PCM_CHANNEL_FC;
+	} else if (channels == 2) {
 		enc_cfg.enc_blk.cfg.dts.channel_mapping[0] = PCM_CHANNEL_FL;
 		enc_cfg.enc_blk.cfg.dts.channel_mapping[1] = PCM_CHANNEL_FR;
 		enc_cfg.enc_blk.cfg.dts.channel_mapping[2] = 0;
@@ -1167,12 +1169,12 @@ int q6asm_enc_cfg_blk_dts(struct audio_client *ac,
 		enc_cfg.enc_blk.cfg.dts.channel_mapping[4] = 0;
 		enc_cfg.enc_blk.cfg.dts.channel_mapping[5] = 0;
 	} else if (channels == 6) {
-		enc_cfg.enc_blk.cfg.dts.channel_mapping[0] = PCM_CHANNEL_FL;
-		enc_cfg.enc_blk.cfg.dts.channel_mapping[1] = PCM_CHANNEL_FR;
-		enc_cfg.enc_blk.cfg.dts.channel_mapping[2] = PCM_CHANNEL_LFE;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[0] = PCM_CHANNEL_FC;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[1] = PCM_CHANNEL_FL;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[2] = PCM_CHANNEL_FR;
 		enc_cfg.enc_blk.cfg.dts.channel_mapping[3] = PCM_CHANNEL_LS;
 		enc_cfg.enc_blk.cfg.dts.channel_mapping[4] = PCM_CHANNEL_RS;
-		enc_cfg.enc_blk.cfg.dts.channel_mapping[5] = PCM_CHANNEL_FC;
+		enc_cfg.enc_blk.cfg.dts.channel_mapping[5] = PCM_CHANNEL_LFE;
 	}
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
 	if (rc < 0) {
