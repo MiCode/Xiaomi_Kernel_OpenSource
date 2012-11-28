@@ -193,21 +193,7 @@ static void create_timer_smp(void *data)
 	unsigned long flags;
 	struct event_timer_info *event =
 		(struct event_timer_info *)data;
-
-	local_irq_save(flags);
-	create_hrtimer(event->node.expires);
-	local_irq_restore(flags);
-}
-
-/**
- *  setup_timer() : Helper function to setup timer on primary
- *                  core during hrtimer callback.
- *  @event: event handle causing the wakeup.
- */
-static void setup_event_hrtimer(struct event_timer_info *event)
-{
 	struct timerqueue_node *next;
-	unsigned long flags;
 
 	spin_lock_irqsave(&event_timer_lock, flags);
 	if (is_event_active(event))
@@ -223,9 +209,18 @@ static void setup_event_hrtimer(struct event_timer_info *event)
 		if (msm_event_debug_mask && MSM_EVENT_TIMER_DEBUG)
 			pr_info("%s: Setting timer for %lu", __func__,
 			(unsigned long)ktime_to_ns(event->node.expires));
+		create_hrtimer(event->node.expires);
+	}
+}
 
-		smp_call_function_single(0, create_timer_smp, event, 1);
-		}
+/**
+ *  setup_timer() : Helper function to setup timer on primary
+ *                  core during hrtimer callback.
+ *  @event: event handle causing the wakeup.
+ */
+static void setup_event_hrtimer(struct event_timer_info *event)
+{
+	smp_call_function_single(0, create_timer_smp, event, 1);
 }
 
 /**
