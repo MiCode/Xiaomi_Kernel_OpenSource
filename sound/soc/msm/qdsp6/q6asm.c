@@ -1765,6 +1765,9 @@ int q6asm_open_read_write(struct audio_client *ac,
 	case FORMAT_AMRWB:
 		open.write_format = AMRWB_FS;
 		break;
+	case FORMAT_AMR_WB_PLUS:
+		open.write_format = AMR_WB_PLUS;
+		break;
 	case FORMAT_V13K:
 		open.write_format = V13K_FS;
 		break;

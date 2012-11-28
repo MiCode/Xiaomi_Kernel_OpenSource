@@ -446,3 +446,4 @@ header-y += genlock.h
 header-y += msm_audio_amrwb.h
 header-y += coresight-stm.h
 header-y += ci-bridge-spi.h
+header-y += msm_audio_amrwbplus.h
