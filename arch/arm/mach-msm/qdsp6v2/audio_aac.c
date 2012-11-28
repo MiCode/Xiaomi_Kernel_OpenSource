@@ -104,6 +104,11 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		audio->eos_rsp = 0;
 		audio->eos_flag = 0;
 		if (!rc) {
+			rc = enable_volume_ramp(audio);
+			if (rc < 0) {
+				pr_err("%s: Failed to enable volume ramp\n",
+					__func__);
+			}
 			audio->enabled = 1;
 		} else {
 			audio->enabled = 0;
