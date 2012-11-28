@@ -1225,6 +1225,12 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		goto core_already_inited;
 	}
 
+	rc = msm_comm_scale_bus(core, inst->session_type, DDR_MEM);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to scale DDR bus: %d\n", rc);
+		goto fail_scale_bus;
+	}
+
 	rc = msm_comm_load_fw(core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load video firmware\n");
@@ -1236,11 +1242,6 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		goto fail_core_init;
 	}
 
-	rc = msm_comm_scale_bus(core, inst->session_type, DDR_MEM);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to scale DDR bus: %d\n", rc);
-		goto fail_core_init;
-	}
 	init_completion(&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)]);
 	rc = vidc_hal_core_init(core->device,
 		core->resources.io_map[NS_MAP].domain);
@@ -1257,8 +1258,9 @@ core_already_inited:
 	return rc;
 fail_core_init:
 	msm_comm_unload_fw(core);
-	msm_comm_unvote_buses(core, DDR_MEM);
 fail_load_fw:
+	msm_comm_unvote_buses(core, DDR_MEM);
+fail_scale_bus:
 	mutex_unlock(&core->sync_lock);
 	return rc;
 }
