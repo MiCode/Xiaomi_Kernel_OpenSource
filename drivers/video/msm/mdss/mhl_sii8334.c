@@ -961,6 +961,8 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 {
 	static struct regulator *reg_8941_l24;
 	static struct regulator *reg_8941_l02;
+	static struct regulator *reg_8941_smps3a;
+	static struct regulator *reg_8941_vdda;
 	int rc;
 
 	pr_debug("Inside %s\n", __func__);
@@ -1004,6 +1006,50 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 			return rc;
 		} else {
 			pr_debug("%s: vreg L02 %s\n",
+				 __func__, (enable ? "enabled" : "disabled"));
+		}
+	}
+
+	if (!reg_8941_smps3a) {
+		reg_8941_smps3a = regulator_get(&client->dev,
+			"smps3a");
+		if (IS_ERR(reg_8941_smps3a)) {
+			pr_err("could not get reg_8038_l20, rc = %ld\n",
+				PTR_ERR(reg_8941_smps3a));
+			return -ENODEV;
+		}
+		if (enable)
+			rc = regulator_enable(reg_8941_smps3a);
+		else
+			rc = regulator_disable(reg_8941_smps3a);
+		if (rc) {
+			pr_err("'%s' regulator config[%u] failed, rc=%d\n",
+			       "SMPS3A", enable, rc);
+			return rc;
+		} else {
+			pr_debug("%s: vreg SMPS3A %s\n",
+				 __func__, (enable ? "enabled" : "disabled"));
+		}
+	}
+
+	if (!reg_8941_vdda) {
+		reg_8941_vdda = regulator_get(&client->dev,
+			"vdda");
+		if (IS_ERR(reg_8941_vdda)) {
+			pr_err("could not get reg_8038_l20, rc = %ld\n",
+				PTR_ERR(reg_8941_vdda));
+			return -ENODEV;
+		}
+		if (enable)
+			rc = regulator_enable(reg_8941_vdda);
+		else
+			rc = regulator_disable(reg_8941_vdda);
+		if (rc) {
+			pr_err("'%s' regulator config[%u] failed, rc=%d\n",
+			       "VDDA", enable, rc);
+			return rc;
+		} else {
+			pr_debug("%s: vreg VDDA %s\n",
 				 __func__, (enable ? "enabled" : "disabled"));
 		}
 	}
