@@ -333,7 +333,6 @@ struct msm_otg {
 	bool sm_work_pending;
 	atomic_t pm_suspended;
 	atomic_t in_lpm;
-	atomic_t suspend_work_pending;
 	int async_int;
 	unsigned cur_power;
 	struct delayed_work chg_work;
