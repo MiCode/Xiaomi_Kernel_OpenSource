@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2013, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1031,7 +1031,7 @@ static int audio_aio_buf_add(struct q6audio_aio *audio, unsigned dir,
 	return 0;
 }
 
-static void audio_aio_ioport_reset(struct q6audio_aio *audio)
+void audio_aio_ioport_reset(struct q6audio_aio *audio)
 {
 	if (audio->drv_status & ADRV_STATUS_AIO_INTF) {
 		/* If fsync is in progress, make sure
@@ -1205,15 +1205,15 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				audio, audio->ac->session);
 		mutex_lock(&audio->lock);
 		audio->stopped = 1;
-		audio_aio_flush(audio);
-		audio->enabled = 0;
-		audio->drv_status &= ~ADRV_STATUS_PAUSE;
+		rc = audio_aio_flush(audio);
 		if (rc < 0) {
 			pr_err("%s[%p]:Audio Stop procedure failed rc=%d\n",
 				__func__, audio, rc);
 			mutex_unlock(&audio->lock);
 			break;
 		}
+		audio->enabled = 0;
+		audio->drv_status &= ~ADRV_STATUS_PAUSE;
 		if (audio->drv_status & ADRV_STATUS_FSYNC) {
 			pr_debug("%s[%p] Waking up the audio_aio_fsync\n",
 					__func__, audio);
@@ -1262,8 +1262,6 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		/* Flush DSP */
 		rc = audio_aio_flush(audio);
-		/* Flush input / Output buffer in software*/
-		audio_aio_ioport_reset(audio);
 		if (rc < 0) {
 			pr_err("%s[%p]:AUDIO_FLUSH interrupted\n",
 				__func__, audio);
