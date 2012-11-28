@@ -72,30 +72,35 @@ static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt)
 	if (pcm->start) {
 		if (pcm->dsp_idx == pcm->buffer_count)
 			pcm->dsp_idx = 0;
-		rc = wait_event_timeout(pcm->wait,
-				(pcm->dma_buf[pcm->dsp_idx].used == 0) ||
-				atomic_read(&pcm->in_stopped), 1 * HZ);
-		if (!rc) {
-			pr_err("%s: wait_event_timeout failed\n", __func__);
-			goto fail;
+		if (pcm->dma_buf[pcm->dsp_idx].used == 0) {
+			if (atomic_read(&pcm->in_stopped)) {
+				pr_err("%s: Driver closed - return\n",
+					__func__);
+				return HRTIMER_NORESTART;
+			}
+			rc = afe_rt_proxy_port_read(
+				pcm->dma_buf[pcm->dsp_idx].addr,
+				pcm->buffer_size);
+			if (rc < 0) {
+				pr_err("%s afe_rt_proxy_port_read fail\n",
+					__func__);
+				goto fail;
+			}
+			pcm->dma_buf[pcm->dsp_idx].used = 1;
+			pcm->dsp_idx++;
+			pr_debug("sending frame rec to DSP: poll_time: %d\n",
+					pcm->poll_time);
+		} else {
+			pr_err("Qcom: Used flag not reset retry after %d msec\n",
+				(pcm->poll_time/10));
+			goto fail_timer;
 		}
-		if (atomic_read(&pcm->in_stopped)) {
-			pr_err("%s: Driver closed - return\n", __func__);
-			return HRTIMER_NORESTART;
-		}
-		rc = afe_rt_proxy_port_read(
-			pcm->dma_buf[pcm->dsp_idx].addr,
-			pcm->buffer_size);
-		if (rc < 0) {
-			pr_err("%s afe_rt_proxy_port_read fail\n", __func__);
-			goto fail;
-		}
-		pcm->dma_buf[pcm->dsp_idx].used = 1;
-		pcm->dsp_idx++;
-		pr_debug("%s: sending frame rec to DSP: poll_time: %d\n",
-				__func__, pcm->poll_time);
 fail:
 		hrtimer_forward_now(hrt, ns_to_ktime(pcm->poll_time
+				* 1000));
+		return HRTIMER_RESTART;
+fail_timer:
+		hrtimer_forward_now(hrt, ns_to_ktime((pcm->poll_time/10)
 				* 1000));
 
 		return HRTIMER_RESTART;
