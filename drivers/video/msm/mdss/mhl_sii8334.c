@@ -359,13 +359,15 @@ static void init_cbus_regs(struct i2c_client *client)
 /*
  * Configure the initial reg settings
  */
-static void mhl_init_reg_settings(struct i2c_client *client, bool mhl_disc_en)
+static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
+	bool mhl_disc_en)
 {
 	/*
 	 * ============================================
 	 * POWER UP
 	 * ============================================
 	 */
+	struct i2c_client *client = mhl_ctrl->i2c_handle;
 
 	/* Power up 1.2V core */
 	MHL_SII_PAGE1_WR(0x003D, 0x3F);
@@ -440,7 +442,7 @@ static void mhl_init_reg_settings(struct i2c_client *client, bool mhl_disc_en)
 		/* Enable MHL Discovery */
 		MHL_SII_REG_NAME_WR(REG_DISC_CTRL1, 0x27);
 		/* Pull-up resistance off for IDLE state */
-		MHL_SII_REG_NAME_WR(REG_DISC_CTRL4, 0xA4);
+		MHL_SII_REG_NAME_WR(REG_DISC_CTRL4, 0x8C);
 	} else {
 		/* Disable MHL Discovery */
 		MHL_SII_REG_NAME_WR(REG_DISC_CTRL1, 0x26);
@@ -451,7 +453,10 @@ static void mhl_init_reg_settings(struct i2c_client *client, bool mhl_disc_en)
 	/* MHL CBUS Discovery - immediate comm.  */
 	MHL_SII_REG_NAME_WR(REG_DISC_CTRL3, 0x86);
 
-	MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT5 | BIT4, BIT4);
+	MHL_SII_PAGE3_WR(0x3C, 0x80);
+
+	if (mhl_ctrl->cur_state != POWER_STATE_D3)
+		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT5 | BIT4, BIT4);
 
 	/* Enable Auto Soft RESET */
 	MHL_SII_REG_NAME_WR(REG_SRST, 0x084);
@@ -491,7 +496,7 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 		 */
 		MHL_SII_REG_NAME_WR(REG_MHLTX_CTL1, 0xD0);
 		msleep(50);
-		MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, 0x00);
+		MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, BIT0);
 		MHL_SII_PAGE3_MOD(0x003D, BIT0,
 				   0x00);
 		mhl_ctrl->cur_state = POWER_STATE_D3;
@@ -580,7 +585,7 @@ static void mhl_msm_disconnection(struct mhl_tx_ctrl *mhl_ctrl)
 	/*
 	 * Only if MHL-USB handshake is not implemented
 	 */
-	mhl_init_reg_settings(client, true);
+	mhl_init_reg_settings(mhl_ctrl, true);
 	return;
 }
 
@@ -942,7 +947,8 @@ static int mhl_tx_chip_init(struct mhl_tx_ctrl *mhl_ctrl)
 	 * Need to disable MHL discovery if
 	 * MHL-USB handshake is implemented
 	 */
-	mhl_init_reg_settings(client, true);
+	mhl_init_reg_settings(mhl_ctrl, true);
+	switch_mode(mhl_ctrl, POWER_STATE_D3);
 	return 0;
 }
 
