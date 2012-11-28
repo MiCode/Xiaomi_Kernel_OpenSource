@@ -1260,10 +1260,10 @@ static int qpnp_get_config_rgb(struct qpnp_led_data *led,
 
 static int qpnp_leds_probe(struct spmi_device *spmi)
 {
-	struct qpnp_led_data *led;
+	struct qpnp_led_data *led, *led_array;
 	struct resource *led_resource;
 	struct device_node *node, *temp;
-	int rc, i, num_leds = 0;
+	int rc, i, num_leds = 0, parsed_leds = 0;
 	const char *led_label;
 
 	node = spmi->dev.of_node;
@@ -1274,34 +1274,34 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 	while ((temp = of_get_next_child(node, temp)))
 		num_leds++;
 
-	led = devm_kzalloc(&spmi->dev,
+	if (!num_leds)
+		return -ECHILD;
+
+	led_array = devm_kzalloc(&spmi->dev,
 		(sizeof(struct qpnp_led_data) * num_leds), GFP_KERNEL);
-	if (!led) {
+	if (!led_array) {
 		dev_err(&spmi->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
 	}
 
-	led->num_leds = num_leds;
-	num_leds = 0;
-
 	for_each_child_of_node(node, temp) {
+		led = &led_array[parsed_leds];
+		led->num_leds = num_leds;
 		led->spmi_dev = spmi;
 
 		led_resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
 		if (!led_resource) {
 			dev_err(&spmi->dev, "Unable to get LED base address\n");
-			return -ENXIO;
+			rc = -ENXIO;
+			goto fail_id_check;
 		}
 		led->base = led_resource->start;
-
-		dev_set_drvdata(&spmi->dev, led);
-
 
 		rc = of_property_read_string(temp, "label", &led_label);
 		if (rc < 0) {
 			dev_err(&led->spmi_dev->dev,
 				"Failure reading label, rc = %d\n", rc);
-			return rc;
+			goto fail_id_check;
 		}
 
 		rc = of_property_read_string(temp, "linux,name",
@@ -1309,7 +1309,7 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 		if (rc < 0) {
 			dev_err(&led->spmi_dev->dev,
 				"Failure reading led name, rc = %d\n", rc);
-			return rc;
+			goto fail_id_check;
 		}
 
 		rc = of_property_read_u32(temp, "qcom,max-current",
@@ -1317,14 +1317,14 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 		if (rc < 0) {
 			dev_err(&led->spmi_dev->dev,
 				"Failure reading max_current, rc =  %d\n", rc);
-			return rc;
+			goto fail_id_check;
 		}
 
 		rc = of_property_read_u32(temp, "qcom,id", &led->id);
 		if (rc < 0) {
 			dev_err(&led->spmi_dev->dev,
 				"Failure reading led id, rc =  %d\n", rc);
-			return rc;
+			goto fail_id_check;
 		}
 
 		rc = qpnp_get_common_configs(led, temp);
@@ -1332,7 +1332,7 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 			dev_err(&led->spmi_dev->dev,
 				"Failure reading common led configuration," \
 				" rc = %d\n", rc);
-			return rc;
+			goto fail_id_check;
 		}
 
 		led->cdev.brightness_set    = qpnp_led_set;
@@ -1343,7 +1343,7 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 			if (rc < 0) {
 				dev_err(&led->spmi_dev->dev,
 					"Unable to read wled config data\n");
-				return rc;
+				goto fail_id_check;
 			}
 		} else if (strncmp(led_label, "flash", sizeof("flash"))
 				== 0) {
@@ -1351,18 +1351,19 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 			if (rc < 0) {
 				dev_err(&led->spmi_dev->dev,
 					"Unable to read flash config data\n");
-				return rc;
+				goto fail_id_check;
 			}
 		} else if (strncmp(led_label, "rgb", sizeof("rgb")) == 0) {
 			rc = qpnp_get_config_rgb(led, temp);
 			if (rc < 0) {
 				dev_err(&led->spmi_dev->dev,
 					"Unable to read rgb config data\n");
-				return rc;
+				goto fail_id_check;
 			}
 		} else {
 			dev_err(&led->spmi_dev->dev, "No LED matching label\n");
-			return -EINVAL;
+			rc = -EINVAL;
+			goto fail_id_check;
 		}
 
 		spin_lock_init(&led->lock);
@@ -1388,24 +1389,25 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 			led->cdev.brightness = LED_OFF;
 
 		qpnp_led_set(&led->cdev, led->cdev.brightness);
-		led++;
-		num_leds++;
+
+		parsed_leds++;
 	}
+	dev_set_drvdata(&spmi->dev, led_array);
 	return 0;
 
 fail_id_check:
-	for (i = 0; i < num_leds; i++)
-		led_classdev_unregister(&led[i].cdev);
+	for (i = 0; i < parsed_leds; i++)
+		led_classdev_unregister(&led_array[i].cdev);
 	return rc;
 }
 
 static int qpnp_leds_remove(struct spmi_device *spmi)
 {
-	struct qpnp_led_data *led  = dev_get_drvdata(&spmi->dev);
-	int i;
+	struct qpnp_led_data *led_array  = dev_get_drvdata(&spmi->dev);
+	int i, parsed_leds = led_array->num_leds;
 
-	for (i = 0; i < led->num_leds; i++)
-		led_classdev_unregister(&led[i].cdev);
+	for (i = 0; i < parsed_leds; i++)
+		led_classdev_unregister(&led_array[i].cdev);
 
 	return 0;
 }
