@@ -123,16 +123,14 @@ only one demux device may process it at a time.
 
 Background Processing
 ---------------------
-When demux receives notifications from underlying HW drivers about new
-data, it schedules work to a single-threaded workqueue to process the
-notification.
+Demux allocates a kernel thread for each live-input to process
+the TS packets notified from the HW for specific input. There
+are two such inputs (TSIF0 and TSIF1), both can be processed in
+parallel by two seperate threads.
 
 The processing is the action of demuxing of the new data; it may sleep
 as it locks against the demux data-structure that may be accessed by
 user-space in the meanwhile.
-
-A single threaded workqueue exists for each live input (TSIF0 or TSIF1)
-to process the inputs in parallel.
 
 Dependencies
 ------------
