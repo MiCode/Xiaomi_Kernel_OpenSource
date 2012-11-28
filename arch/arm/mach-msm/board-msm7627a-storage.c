@@ -369,6 +369,14 @@ void __init msm7627a_init_mmc(void)
 	if (!(machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7())) {
 		if (mmc_regulator_init(3, "emmc", 3000000))
 			return;
+		/*
+		 * On 7x25A FFA data CRC errors are seen, which are
+		 * probably due to the proximity of SIM card and eMMC.
+		 * Hence, reducing the clock to 24.7Mhz from 49Mhz.
+		 */
+		if (machine_is_msm7625a_ffa())
+			sdc3_plat_data.msmsdcc_fmax =
+				sdc3_plat_data.msmsdcc_fmid;
 		msm_add_sdcc(3, &sdc3_plat_data);
 	}
 #endif
