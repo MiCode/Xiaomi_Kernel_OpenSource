@@ -701,8 +701,12 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		mhl_msm_connection(mhl_ctrl);
 	} else if (status & BIT3) {
 		pr_debug("%s: uUSB-a type dev detct\n", __func__);
-		MHL_SII_REG_NAME_WR(REG_DISC_STAT2, 0x80);
-		switch_mode(mhl_ctrl, POWER_STATE_D3);
+		/* Short RGND */
+		MHL_SII_REG_NAME_MOD(REG_DISC_STAT2, BIT0 | BIT1, 0x00);
+		mhl_msm_disconnection(mhl_ctrl);
+		if (mhl_ctrl->notify_usb_online)
+			mhl_ctrl->notify_usb_online(0);
+
 	}
 
 	if (status & BIT5) {
@@ -947,6 +951,7 @@ static int mhl_tx_chip_init(struct mhl_tx_ctrl *mhl_ctrl)
 	/* Read the chip rev ID */
 	chip_rev_id = MHL_SII_PAGE0_RD(0x04);
 	pr_debug("MHL: chip rev ID read=[%x]\n", chip_rev_id);
+	mhl_ctrl->chip_rev_id = chip_rev_id;
 
 	/*
 	 * Need to disable MHL discovery if
