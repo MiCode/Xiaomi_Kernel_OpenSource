@@ -209,6 +209,8 @@ struct etm_drvdata {
 	int				cpu;
 	uint8_t				arch;
 	bool				enable;
+	bool				sticky_enable;
+	bool				boot_enable;
 	bool				os_unlock;
 	uint8_t				nr_addr_cmp;
 	uint8_t				nr_cntr;
@@ -511,6 +513,7 @@ static int etm_enable(struct coresight_device *csdev)
 	if (ret)
 		goto err;
 	drvdata->enable = true;
+	drvdata->sticky_enable = true;
 
 	spin_unlock(&drvdata->spinlock);
 
@@ -1852,6 +1855,10 @@ static int etm_cpu_callback(struct notifier_block *nfb, unsigned long action,
 		break;
 
 	case CPU_ONLINE:
+		if (etmdrvdata[cpu]->boot_enable &&
+		    !etmdrvdata[cpu]->sticky_enable)
+			coresight_enable(etmdrvdata[cpu]->csdev);
+
 		if (etmdrvdata[cpu]->pcsave_boot_enable &&
 		    !etmdrvdata[cpu]->pcsave_sticky_enable)
 			__etm_store_pcsave(etmdrvdata[cpu], 1);
@@ -2149,8 +2156,10 @@ static int __devinit etm_probe(struct platform_device *pdev)
 
 	dev_info(dev, "ETM initialized\n");
 
-	if (boot_enable)
+	if (boot_enable) {
 		coresight_enable(drvdata->csdev);
+		drvdata->boot_enable = true;
+	}
 
 	if (drvdata->pcsave_impl && boot_pcsave_enable) {
 		__etm_store_pcsave(drvdata, 1);
