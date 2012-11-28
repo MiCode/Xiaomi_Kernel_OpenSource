@@ -474,15 +474,17 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 
 	switch (to_mode) {
 	case POWER_STATE_D0_NO_MHL:
-		break;
-	case POWER_STATE_D0_MHL:
-		mhl_init_reg_settings(client, true);
+		mhl_ctrl->cur_state = to_mode;
+		mhl_init_reg_settings(mhl_ctrl, true);
 		/* REG_DISC_CTRL1 */
 		MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, BIT0);
 
 		/* TPI_DEVICE_POWER_STATE_CTRL_REG */
 		mhl_i2c_reg_modify(client, TX_PAGE_TPI, 0x001E, BIT1 | BIT0,
 			0x00);
+		break;
+	case POWER_STATE_D0_MHL:
+		mhl_ctrl->cur_state = to_mode;
 		break;
 	case POWER_STATE_D3:
 		if (mhl_ctrl->cur_state == POWER_STATE_D3)
@@ -555,7 +557,7 @@ static void mhl_msm_connection(struct mhl_tx_ctrl *mhl_ctrl)
 		return;
 	}
 	/* spin_lock_irqsave(&mhl_state_lock, flags); */
-	mhl_ctrl->cur_state = POWER_STATE_D0_MHL;
+	switch_mode(mhl_ctrl, POWER_STATE_D0_MHL);
 	/* spin_unlock_irqrestore(&mhl_state_lock, flags); */
 
 	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL1, 0x10);
@@ -711,11 +713,11 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 			mhl_ctrl->notify_usb_online(0);
 	}
 
-	if ((mhl_ctrl->cur_state != POWER_STATE_D0_MHL) &&\
+	if ((mhl_ctrl->cur_state != POWER_STATE_D0_NO_MHL) &&\
 	    (status & BIT6)) {
 		/* rgnd rdy Intr */
 		pr_debug("%s: rgnd ready intr\n", __func__);
-		switch_mode(mhl_ctrl, POWER_STATE_D0_MHL);
+		switch_mode(mhl_ctrl, POWER_STATE_D0_NO_MHL);
 		mhl_msm_read_rgnd_int(mhl_ctrl);
 	}
 
