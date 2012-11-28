@@ -477,6 +477,57 @@ void unregister_volume_listener(struct q6audio_aio *audio)
 {
 	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, audio->ac->session);
 }
+
+int enable_volume_ramp(struct q6audio_aio *audio)
+{
+	int rc = 0;
+	struct asm_softpause_params softpause;
+	struct asm_softvolume_params softvol;
+
+	if (audio->ac == NULL)
+		return -EINVAL;
+	pr_debug("%s[%p]\n", __func__, audio);
+	softpause.enable = SOFT_PAUSE_ENABLE;
+	softpause.period = SOFT_PAUSE_PERIOD;
+	softpause.step = SOFT_PAUSE_STEP;
+	softpause.rampingcurve = SOFT_PAUSE_CURVE_LINEAR;
+
+	softvol.period = SOFT_VOLUME_PERIOD;
+	softvol.step = SOFT_VOLUME_STEP;
+	softvol.rampingcurve = SOFT_VOLUME_CURVE_LINEAR;
+
+	if (softpause.rampingcurve == SOFT_PAUSE_CURVE_LINEAR)
+		softpause.step = SOFT_PAUSE_STEP_LINEAR;
+	if (softvol.rampingcurve == SOFT_VOLUME_CURVE_LINEAR)
+		softvol.step = SOFT_VOLUME_STEP_LINEAR;
+	rc = q6asm_set_volume(audio->ac, audio->volume);
+	if (rc < 0) {
+		pr_err("%s: Send Volume command failed rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+	rc = q6asm_set_softpause(audio->ac, &softpause);
+	if (rc < 0) {
+		pr_err("%s: Send SoftPause Param failed rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+	rc = q6asm_set_softvolume(audio->ac, &softvol);
+	if (rc < 0) {
+		pr_err("%s: Send SoftVolume Param failed rc=%d\n",
+		__func__, rc);
+		return rc;
+	}
+	/* disable mute by default */
+	rc = q6asm_set_mute(audio->ac, 0);
+	if (rc < 0) {
+		pr_err("%s: Send mute command failed rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+	return rc;
+}
+
 #else /*CONFIG_USE_DEV_CTRL_VOLUME*/
 int register_volume_listener(struct q6audio_aio *audio)
 {
@@ -485,6 +536,10 @@ int register_volume_listener(struct q6audio_aio *audio)
 void unregister_volume_listener(struct q6audio_aio *audio)
 {
 	return;/* do nothing */
+}
+int enable_volume_ramp(struct q6audio_aio *audio)
+{
+	return 0; /* do nothing */
 }
 #endif /*CONFIG_USE_DEV_CTRL_VOLUME*/
 
