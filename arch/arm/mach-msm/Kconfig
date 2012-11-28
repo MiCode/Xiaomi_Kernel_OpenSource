@@ -396,6 +396,7 @@ config ARCH_MSM8910
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
 	select MSM_RESTART_V2
+	select QMI_ENCDEC
 
 config ARCH_MSM8226
 	bool "MSM8226"
