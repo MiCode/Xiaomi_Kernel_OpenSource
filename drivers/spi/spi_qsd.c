@@ -2658,7 +2658,8 @@ err_attrs:
 err_probe_reg_master:
 err_probe_irq:
 err_probe_state:
-	dd->dma_teardown(dd);
+	if (dd->dma_teardown)
+		dd->dma_teardown(dd);
 err_probe_dma:
 err_probe_gsbi:
 	if (pclk_enabled)
@@ -2741,7 +2742,8 @@ static int msm_spi_remove(struct platform_device *pdev)
 	spi_debugfs_exit(dd);
 	sysfs_remove_group(&pdev->dev.kobj, &dev_attr_grp);
 
-	dd->dma_teardown(dd);
+	if (dd->dma_teardown)
+		dd->dma_teardown(dd);
 	clk_put(dd->clk);
 	clk_put(dd->pclk);
 	destroy_workqueue(dd->workqueue);
