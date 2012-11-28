@@ -350,6 +350,9 @@ static int msm_otg_phy_reset(struct msm_otg *motg)
 	ret = msm_otg_phy_clk_reset(motg);
 	if (ret)
 		return ret;
+	/* 10 usec delay is required according to spec */
+	if (IS_ERR(motg->phy_reset_clk))
+		usleep_range(10, 12);
 	ret = msm_otg_link_clk_reset(motg, 0);
 	if (ret)
 		return ret;
