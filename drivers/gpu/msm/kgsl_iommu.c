@@ -1521,11 +1521,16 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	pt_base &= (iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_mask <<
 			iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_shift);
 
+	/* For v1 SMMU GPU needs to be idle for tlb invalidate as well */
+	if (msm_soc_version_supports_iommu_v1())
+		kgsl_idle(mmu->device);
+
 	/* Acquire GPU-CPU sync Lock here */
 	msm_iommu_lock();
 
 	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
-		kgsl_idle(mmu->device);
+		if (!msm_soc_version_supports_iommu_v1())
+			kgsl_idle(mmu->device);
 		for (i = 0; i < iommu->unit_count; i++) {
 			/* get the lsb value which should not change when
 			 * changing ttbr0 */
