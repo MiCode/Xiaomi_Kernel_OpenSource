@@ -82,6 +82,9 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl,
 static void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl,
 			  uint8_t to_state);
 
+static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
+	bool mhl_disc_en);
+
 static int mhl_i2c_reg_read(struct i2c_client *client,
 			    uint8_t slave_addr_index, uint8_t reg_offset)
 {
@@ -206,7 +209,6 @@ static int mhl_sii_device_discovery(void *data, int id,
 {
 	int timeout, rc;
 	struct mhl_tx_ctrl *mhl_ctrl = data;
-	struct i2c_client *client = mhl_ctrl->i2c_handle;
 
 	if (id) {
 		/* When MHL cable is disconnected we get a sii8334
@@ -225,8 +227,14 @@ static int mhl_sii_device_discovery(void *data, int id,
 	if (!mhl_ctrl->notify_usb_online)
 		mhl_ctrl->notify_usb_online = usb_notify_cb;
 
-	MHL_SII_REG_NAME_WR(REG_DISC_CTRL1, 0x27);
+	mhl_sii_reset_pin(mhl_ctrl, 0);
 	msleep(50);
+	mhl_sii_reset_pin(mhl_ctrl, 1);
+	/* TX PR-guide requires a 100 ms wait here */
+
+	msleep(100);
+	mhl_init_reg_settings(mhl_ctrl, true);
+
 	if (mhl_ctrl->cur_state == POWER_STATE_D3) {
 		/* give MHL driver chance to handle RGND interrupt */
 		INIT_COMPLETION(mhl_ctrl->rgnd_done);
@@ -498,9 +506,8 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 		 */
 		MHL_SII_REG_NAME_WR(REG_MHLTX_CTL1, 0xD0);
 		msleep(50);
-		MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, BIT0);
-		MHL_SII_PAGE3_MOD(0x003D, BIT0,
-				   0x00);
+		MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, 0x00);
+		MHL_SII_PAGE3_MOD(0x003D, BIT0, 0x00);
 		mhl_ctrl->cur_state = POWER_STATE_D3;
 		break;
 	default:
@@ -584,10 +591,6 @@ static void mhl_msm_disconnection(struct mhl_tx_ctrl *mhl_ctrl)
 	MHL_SII_PAGE3_WR(0x30, 0xD0);
 
 	switch_mode(mhl_ctrl, POWER_STATE_D3);
-	/*
-	 * Only if MHL-USB handshake is not implemented
-	 */
-	mhl_init_reg_settings(mhl_ctrl, true);
 	return;
 }
 
