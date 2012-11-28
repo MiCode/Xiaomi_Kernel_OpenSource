@@ -151,6 +151,9 @@ struct pm8921_bms_chip {
 	struct power_supply	*batt_psy;
 	bool			low_voltage_wake_lock_held;
 	struct wake_lock	low_voltage_wake_lock;
+	int			soc_calc_period;
+	int			normal_voltage_calc_ms;
+	int			low_voltage_calc_ms;
 };
 
 /*
@@ -1370,6 +1373,7 @@ static void very_low_voltage_check(struct pm8921_bms_chip *chip,
 		pr_debug("voltage = %d low holding wakelock\n", vbat_uv);
 		wake_lock(&chip->low_voltage_wake_lock);
 		chip->low_voltage_wake_lock_held = 1;
+		chip->soc_calc_period = chip->low_voltage_calc_ms;
 	}
 
 	if (vbat_uv > (chip->v_cutoff + 20) * 1000
@@ -1377,6 +1381,7 @@ static void very_low_voltage_check(struct pm8921_bms_chip *chip,
 		pr_debug("voltage = %d releasing wakelock\n", vbat_uv);
 		chip->low_voltage_wake_lock_held = 0;
 		wake_unlock(&chip->low_voltage_wake_lock);
+		chip->soc_calc_period = chip->normal_voltage_calc_ms;
 	}
 }
 
@@ -1811,7 +1816,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	return calculated_soc;
 }
 
-#define CALCULATE_SOC_MS	20000
 static void calculate_soc_work(struct work_struct *work)
 {
 	struct pm8921_bms_chip *chip = container_of(work,
@@ -1841,7 +1845,7 @@ static void calculate_soc_work(struct work_struct *work)
 
 	schedule_delayed_work(&chip->calculate_soc_delayed_work,
 			round_jiffies_relative(msecs_to_jiffies
-			(CALCULATE_SOC_MS)));
+			(chip->soc_calc_period)));
 }
 
 static int report_state_of_charge(struct pm8921_bms_chip *chip)
@@ -2909,6 +2913,12 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->end_percent = -EINVAL;
 	chip->shutdown_soc_valid_limit = pdata->shutdown_soc_valid_limit;
 	chip->adjust_soc_low_threshold = pdata->adjust_soc_low_threshold;
+
+	chip->normal_voltage_calc_ms = pdata->normal_voltage_calc_ms;
+	chip->low_voltage_calc_ms = pdata->low_voltage_calc_ms;
+
+	chip->soc_calc_period = pdata->normal_voltage_calc_ms;
+
 	if (chip->adjust_soc_low_threshold >= 45)
 		chip->adjust_soc_low_threshold = 45;
 
