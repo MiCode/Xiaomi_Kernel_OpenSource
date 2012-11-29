@@ -62,9 +62,9 @@ Required properties:
     - 1 -> yuv format
 
 Optional properties:
-- qcom,flash-type : should contain flash type if flash is supported for this
-    sensor
-    - 0 if flash is not supported, 1 if flash is supported
+- qcom,flash-src-index : should contain phandle to flash source node if flash
+    is supported for this sensor
+    - led_flash0, led_flash1
 - qcom,mount-angle : should contain the physical mount angle of the sensor on
     the target
     - 0, 90, 180, 360
