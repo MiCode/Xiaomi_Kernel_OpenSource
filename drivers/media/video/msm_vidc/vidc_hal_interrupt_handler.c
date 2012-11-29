@@ -732,6 +732,31 @@ static void hal_process_session_rel_res_done(struct hal_device *device,
 	device->callback(SESSION_RELEASE_RESOURCE_DONE, &cmd_done);
 }
 
+static void hal_process_session_rel_buf_done(struct hal_device *device,
+	struct hfi_msg_session_release_buffers_done_packet *pkt)
+{
+	struct msm_vidc_cb_cmd_done cmd_done;
+	if (!pkt || pkt->size !=
+		sizeof(struct
+			   hfi_msg_session_release_buffers_done_packet)) {
+		dprintk(VIDC_ERR, "bad packet/packet size: %d", pkt->size);
+		return;
+	}
+	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
+	cmd_done.device_id = device->device_id;
+	cmd_done.size = sizeof(struct msm_vidc_cb_cmd_done);
+	cmd_done.session_id =
+		((struct hal_session *) pkt->session_id)->session_id;
+	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	if (pkt->rg_buffer_info) {
+		cmd_done.data = (void *) &pkt->rg_buffer_info;
+		cmd_done.size = sizeof(struct hfi_buffer_info);
+	} else {
+		dprintk(VIDC_ERR, "invalid payload in rel_buff_done\n");
+	}
+	device->callback(SESSION_RELEASE_BUFFER_DONE, &cmd_done);
+}
+
 static void hal_process_session_end_done(struct hal_device *device,
 	struct hfi_msg_sys_session_end_done_packet *pkt)
 {
@@ -869,6 +894,11 @@ static void hal_process_msg_packet(struct hal_device *device,
 		hal_process_session_get_seq_hdr_done(device, (struct
 			hfi_msg_session_get_sequence_header_done_packet
 			 *) msg_hdr);
+		break;
+	case HFI_MSG_SESSION_RELEASE_BUFFERS_DONE:
+		hal_process_session_rel_buf_done(device, (struct
+			hfi_msg_session_release_buffers_done_packet
+			*) msg_hdr);
 		break;
 	default:
 		dprintk(VIDC_ERR, "UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);

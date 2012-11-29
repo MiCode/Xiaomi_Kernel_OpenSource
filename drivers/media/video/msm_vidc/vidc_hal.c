@@ -1954,6 +1954,7 @@ int vidc_hal_session_release_buffers(void *sess,
 		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) +
 			((buffer_info->num_buffers - 1) * sizeof(u32));
 	}
+	pkt->response_req = buffer_info->response_required;
 	buffer = get_hfi_buffer(buffer_info->buffer_type);
 	if (buffer)
 		pkt->buffer_type = buffer;

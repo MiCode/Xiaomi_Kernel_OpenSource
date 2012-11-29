@@ -354,6 +354,48 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 	}
 }
 
+static void handle_session_release_buf_done(enum command_response cmd,
+	void *data)
+{
+	struct msm_vidc_cb_cmd_done *response = data;
+	struct msm_vidc_inst *inst;
+	struct internal_buf *buf;
+	struct list_head *ptr, *next;
+	struct hal_buffer_info *buffer;
+	u32 address, buf_found = false;
+
+	if (!response || !response->data) {
+		dprintk(VIDC_ERR, "Invalid release_buf_done response\n");
+		return;
+	}
+
+	inst = (struct msm_vidc_inst *)response->session_id;
+	buffer = (struct hal_buffer_info *) response->data;
+	address = (u32) buffer->buffer_addr;
+
+	list_for_each_safe(ptr, next, &inst->internalbufs) {
+		buf = list_entry(ptr, struct internal_buf, list);
+		if (address == buf->handle->device_addr) {
+			dprintk(VIDC_DBG, "releasing scratch: 0x%x",
+					(u32) buf->handle->device_addr);
+					buf_found = true;
+		}
+	}
+
+	list_for_each_safe(ptr, next, &inst->persistbufs) {
+		buf = list_entry(ptr, struct internal_buf, list);
+		if (address == (u32) buf->handle->device_addr) {
+			dprintk(VIDC_DBG, "releasing persist: 0x%x",
+					(u32) buf->handle->device_addr);
+			buf_found = true;
+		}
+	}
+
+	if (!buf_found)
+		dprintk(VIDC_ERR, "invalid buffer received from firmware");
+	complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
+}
+
 static void handle_sys_release_res_done(
 	enum command_response cmd, void *data)
 {
@@ -891,6 +933,9 @@ void handle_cmd_response(enum command_response cmd, void *data)
 		break;
 	case SESSION_ERROR:
 		handle_session_error(cmd, data);
+		break;
+	case SESSION_RELEASE_BUFFER_DONE:
+		handle_session_release_buf_done(cmd, data);
 		break;
 	default:
 		dprintk(VIDC_ERR, "response unhandled\n");
@@ -1840,6 +1885,10 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			if (inst->state != MSM_VIDC_CORE_INVALID &&
 					core->state != VIDC_CORE_INVALID) {
+				buffer_info.response_required = true;
+				init_completion(
+				   &inst->completions[SESSION_MSG_INDEX
+				   (SESSION_RELEASE_BUFFER_DONE)]);
 				rc = vidc_hal_session_release_buffers(
 						(void *) inst->session,
 							&buffer_info);
@@ -1848,6 +1897,10 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 						"Rel scrtch buf fail:0x%x, %d",
 						buffer_info.align_device_addr,
 						buffer_info.buffer_size);
+				spin_unlock_irqrestore(&inst->lock, flags);
+				rc = wait_for_sess_signal_receipt(inst,
+					SESSION_RELEASE_BUFFER_DONE);
+				spin_lock_irqsave(&inst->lock, flags);
 			}
 			list_del(&buf->list);
 			spin_unlock_irqrestore(&inst->lock, flags);
@@ -1892,6 +1945,10 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			if (inst->state != MSM_VIDC_CORE_INVALID &&
 					core->state != VIDC_CORE_INVALID) {
+				buffer_info.response_required = true;
+				init_completion(
+				   &inst->completions[SESSION_MSG_INDEX
+				   (SESSION_RELEASE_BUFFER_DONE)]);
 				rc = vidc_hal_session_release_buffers(
 						(void *) inst->session,
 							&buffer_info);
@@ -1900,6 +1957,10 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 						"Rel prst buf fail:0x%x, %d",
 						buffer_info.align_device_addr,
 						buffer_info.buffer_size);
+				spin_unlock_irqrestore(&inst->lock, flags);
+				rc = wait_for_sess_signal_receipt(inst,
+					SESSION_RELEASE_BUFFER_DONE);
+				spin_lock_irqsave(&inst->lock, flags);
 			}
 			list_del(&buf->list);
 			spin_unlock_irqrestore(&inst->lock, flags);
@@ -1982,6 +2043,8 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr = handle->device_addr;
+			dprintk(VIDC_DBG, "Scratch buffer address: %x",
+					buffer_info.align_device_addr);
 			rc = vidc_hal_session_set_buffers(
 					(void *) inst->session,	&buffer_info);
 			if (rc) {
@@ -2053,6 +2116,8 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr = handle->device_addr;
+			dprintk(VIDC_DBG, "Persist buffer address: %x",
+					buffer_info.align_device_addr);
 			rc = vidc_hal_session_set_buffers(
 				(void *) inst->session, &buffer_info);
 			if (rc) {

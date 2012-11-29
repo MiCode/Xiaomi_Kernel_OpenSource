@@ -1569,6 +1569,7 @@ int msm_venc_release_buf(struct msm_vidc_inst *inst,
 				 b->m.planes[i].m.userptr;
 			buffer_info.extradata_size = 0;
 			buffer_info.extradata_addr = 0;
+			buffer_info.response_required = false;
 			rc = vidc_hal_session_release_buffers(
 				(void *)inst->session, &buffer_info);
 			if (rc)
