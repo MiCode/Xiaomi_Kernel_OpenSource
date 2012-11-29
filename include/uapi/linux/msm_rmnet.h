@@ -1,18 +1,5 @@
-/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- */
-
-#ifndef _MSM_RMNET_H_
-#define _MSM_RMNET_H_
+#ifndef _UAPI_MSM_RMNET_H_
+#define _UAPI_MSM_RMNET_H_
 
 /* Bitmap macros for RmNET driver operation mode. */
 #define RMNET_MODE_NONE     (0x00)
@@ -53,4 +40,4 @@ struct QMI_QOS_HDR_S {
 	unsigned long    flow_id;
 };
 
-#endif /* _MSM_RMNET_H_ */
+#endif /* _UAPI_MSM_RMNET_H_ */
