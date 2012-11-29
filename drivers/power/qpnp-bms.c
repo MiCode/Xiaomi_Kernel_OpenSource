@@ -1067,11 +1067,8 @@ static int override_mode_batt_v_and_i(
 	return 0;
 }
 
-static int get_simultaneous_batt_v_and_i(
-						struct qpnp_bms_chip *chip,
-						int *ibat_ua, int *vbat_uv)
+static bool is_batfet_open(struct qpnp_bms_chip *chip)
 {
-	int rc;
 	union power_supply_propval ret = {0,};
 
 	if (chip->batt_psy == NULL)
@@ -1080,12 +1077,20 @@ static int get_simultaneous_batt_v_and_i(
 		/* if battery has been registered, use the status property */
 		chip->batt_psy->get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_STATUS, &ret);
-	} else {
-		/* default to using separate vbat/ibat if unregistered */
-		ret.intval = POWER_SUPPLY_STATUS_FULL;
+		return ret.intval == POWER_SUPPLY_STATUS_FULL;
 	}
 
-	if (ret.intval == POWER_SUPPLY_STATUS_FULL) {
+	/* Default to true if the battery power supply is not registered. */
+	pr_debug("battery power supply is not registered\n");
+	return true;
+}
+
+static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
+					int *ibat_ua, int *vbat_uv)
+{
+	int rc;
+
+	if (is_batfet_open(chip)) {
 		pr_debug("batfet is open using separate vbat and ibat meas\n");
 		rc = get_battery_voltage(vbat_uv);
 		if (rc < 0) {
@@ -1197,7 +1202,7 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 				(s64)params->fcc_uah - params->uuc_uah);
 	soc_est = bound_soc(soc_est);
 
-	if (ibat_ua < 0) {
+	if (ibat_ua < 0 && !is_batfet_open(chip)) {
 		soc = charging_adjustments(chip, params, soc, vbat_uv, ibat_ua,
 				batt_temp);
 		goto out;
