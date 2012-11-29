@@ -79,6 +79,7 @@ enum {
 int diag_dci_init(void);
 void diag_dci_exit(void);
 void diag_read_smd_dci_work_fn(struct work_struct *);
+void diag_update_smd_dci_work_fn(struct work_struct *);
 int diag_process_dci_transaction(unsigned char *buf, int len);
 int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 							 int len, int index);
@@ -87,11 +88,11 @@ void extract_dci_pkt_rsp(unsigned char *buf);
 void create_dci_log_mask_tbl(unsigned char *tbl_buf);
 void update_dci_cumulative_log_mask(int offset, int byte_index,
 						uint8_t byte_mask);
-void diag_send_dci_log_mask(smd_channel_t *ch);
+int diag_send_dci_log_mask(smd_channel_t *ch);
 void extract_dci_log(unsigned char *buf);
 /* DCI event streaming functions */
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask);
-void diag_send_dci_event_mask(smd_channel_t *ch);
+int diag_send_dci_event_mask(smd_channel_t *ch);
 void extract_dci_events(unsigned char *buf);
 void create_dci_event_mask_tbl(unsigned char *tbl_buf);
 #endif
