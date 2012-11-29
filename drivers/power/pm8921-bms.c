@@ -1800,7 +1800,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	pr_debug("RUC = %duAh\n", remaining_usable_charge_uah);
 	if (fcc_uah - unusable_charge_uah <= 0) {
-		pr_warn("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
+		pr_debug("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
 						fcc_uah, unusable_charge_uah);
 		soc = 0;
 	} else {
@@ -1843,13 +1843,13 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 		soc = 100;
 
 	if (soc < 0) {
-		pr_err("bad rem_usb_chg = %d rem_chg %d,"
+		pr_debug("bad rem_usb_chg = %d rem_chg %d,"
 				"cc_uah %d, unusb_chg %d\n",
 				remaining_usable_charge_uah,
 				remaining_charge_uah,
 				cc_uah, unusable_charge_uah);
 
-		pr_err("for bad rem_usb_chg last_ocv_uv = %d"
+		pr_debug("for bad rem_usb_chg last_ocv_uv = %d"
 				"chargecycles = %d, batt_temp = %d"
 				"fcc = %d soc =%d\n",
 				chip->last_ocv_uv, chargecycles, batt_temp,
