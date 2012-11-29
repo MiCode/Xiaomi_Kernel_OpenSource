@@ -14,6 +14,7 @@
 /include/ "msm-iommu-v1.dtsi"
 /include/ "msm8610-ion.dtsi"
 /include/ "msm-gdsc.dtsi"
+/include/ "msm8610-pm.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610";
@@ -218,6 +219,13 @@
 			interrupts = <0 168 1>;
 			qcom,irq-no-suspend;
 		};
+	};
+
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		rpm-standalone;
 	};
 
 	qcom,wdt@f9017000 {
