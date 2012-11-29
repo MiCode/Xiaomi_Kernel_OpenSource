@@ -42,8 +42,6 @@
 */
 // #define DVB_DEMUX_SECTION_LOSS_LOG
 
-#define TIMESTAMP_LEN	4
-
 static int dvb_demux_tscheck;
 module_param(dvb_demux_tscheck, int, 0644);
 MODULE_PARM_DESC(dvb_demux_tscheck,
@@ -608,7 +606,7 @@ static inline void dvb_dmx_swfilter_packet_type(struct dvb_demux_feed *feed,
 	((f)->feed.ts.is_filtering) &&					\
 	(((f)->ts_type & (TS_PACKET | TS_DEMUX)) == TS_PACKET))
 
-static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf,
+void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf,
 				const u8 timestamp[TIMESTAMP_LEN])
 {
 	struct dvb_demux_feed *feed;
@@ -688,6 +686,7 @@ static void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf,
 			dvb_dmx_swfilter_output_packet(feed, buf, timestamp);
 	}
 }
+EXPORT_SYMBOL(dvb_dmx_swfilter_packet);
 
 void dvb_dmx_swfilter_section_packets(struct dvb_demux *demux, const u8 *buf,
 			      size_t count)

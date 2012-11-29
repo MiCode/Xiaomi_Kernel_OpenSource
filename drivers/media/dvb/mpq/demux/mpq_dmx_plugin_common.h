@@ -44,9 +44,14 @@
  *                  initialized or not.
  * @ion_client: ION demux client used to allocate memory from ION.
  * @feed_lock: Lock used to protect against private feed data
- * @hw_notification_rate: Notification rate in msec, exposed in debugfs.
+ * @hw_notification_interval: Notification interval in msec,
+ *                            exposed in debugfs.
+ * @hw_notification_min_interval: Minimum notification internal in msec,
+ * exposed in debugfs.
  * @hw_notification_count: Notification count, exposed in debugfs.
  * @hw_notification_size: Notification size in bytes, exposed in debugfs.
+ * @hw_notification_min_size: Minimum notification size in bytes,
+ *                            exposed in debugfs.
  * @decoder_tsp_drop_count: Counter of number of dropped TS packets
  * due to decoder buffer fullness, exposed in debugfs.
  * @last_notification_time: Time of last HW notification.
@@ -61,9 +66,11 @@ struct mpq_demux {
 	spinlock_t feed_lock;
 
 	/* debug-fs */
-	u32 hw_notification_rate;
+	u32 hw_notification_interval;
+	u32 hw_notification_min_interval;
 	u32 hw_notification_count;
 	u32 hw_notification_size;
+	u32 hw_notification_min_size;
 	u32 decoder_tsp_drop_count;
 	struct timespec last_notification_time;
 };

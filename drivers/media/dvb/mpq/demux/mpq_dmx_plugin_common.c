@@ -473,16 +473,23 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 	 * when dvb-demux is terminated.
 	 */
 	mpq_demux->hw_notification_count = 0;
-	mpq_demux->hw_notification_rate = 0;
+	mpq_demux->hw_notification_interval = 0;
 	mpq_demux->hw_notification_size = 0;
 	mpq_demux->decoder_tsp_drop_count = 0;
+	mpq_demux->hw_notification_min_size = 0xFFFFFFFF;
 
 	if (mpq_demux->demux.dmx.debugfs_demux_dir != NULL) {
 		debugfs_create_u32(
-			"hw_notification_rate",
+			"hw_notification_interval",
 			S_IRUGO|S_IWUGO,
 			mpq_demux->demux.dmx.debugfs_demux_dir,
-			&mpq_demux->hw_notification_rate);
+			&mpq_demux->hw_notification_interval);
+
+		debugfs_create_u32(
+			"hw_notification_min_interval",
+			S_IRUGO|S_IWUGO,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
+			&mpq_demux->hw_notification_min_interval);
 
 		debugfs_create_u32(
 			"hw_notification_count",
@@ -495,6 +502,12 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 			S_IRUGO|S_IWUGO,
 			mpq_demux->demux.dmx.debugfs_demux_dir,
 			&mpq_demux->hw_notification_size);
+
+		debugfs_create_u32(
+			"hw_notification_min_size",
+			S_IRUGO|S_IWUGO,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
+			&mpq_demux->hw_notification_min_size);
 
 		debugfs_create_u32(
 			"decoder_tsp_drop_count",
@@ -520,10 +533,17 @@ void mpq_dmx_update_hw_statistics(struct mpq_demux *mpq_demux)
 					curr_time,
 					mpq_demux->last_notification_time);
 
-		delta_time_ms = (u64)timespec_to_ns(&delta_time);
-		delta_time_ms = div64_u64(delta_time_ms, 1000000); /* ns->ms */
+		delta_time_ms = ((u64)delta_time.tv_sec * MSEC_PER_SEC) +
+					delta_time.tv_nsec / NSEC_PER_MSEC;
 
-		mpq_demux->hw_notification_rate = delta_time_ms;
+		mpq_demux->hw_notification_interval = delta_time_ms;
+
+		if ((mpq_demux->hw_notification_count == 1) ||
+			(mpq_demux->hw_notification_interval &&
+			 mpq_demux->hw_notification_interval <
+				mpq_demux->hw_notification_min_interval))
+			mpq_demux->hw_notification_min_interval =
+				mpq_demux->hw_notification_interval;
 	}
 
 	mpq_demux->hw_notification_count++;
