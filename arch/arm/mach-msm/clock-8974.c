@@ -3074,9 +3074,11 @@ static struct clk_freq_tbl ftbl_mdss_extpclk_clk[] = {
 	 */
 	F_HDMI(        0, hdmipll, 1, 0, 0),
 	F_HDMI( 25200000, hdmipll, 1, 0, 0),
+	F_HDMI( 27000000, hdmipll, 1, 0, 0),
 	F_HDMI( 27030000, hdmipll, 1, 0, 0),
 	F_HDMI( 74250000, hdmipll, 1, 0, 0),
 	F_HDMI(148500000, hdmipll, 1, 0, 0),
+	F_HDMI(268500000, hdmipll, 1, 0, 0),
 	F_HDMI(297000000, hdmipll, 1, 0, 0),
 	F_END
 };
