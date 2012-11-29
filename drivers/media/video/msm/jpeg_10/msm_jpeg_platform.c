@@ -108,12 +108,26 @@ static void set_vbif_params(void *jpeg_vbif_base)
 		jpeg_vbif_base + JPEG_VBIF_IN_WR_LIM_CONF2);
 	writel_relaxed(0x00001010,
 		jpeg_vbif_base + JPEG_VBIF_OUT_RD_LIM_CONF0);
-	writel_relaxed(0x00001010,
+	writel_relaxed(0x00000110,
 		jpeg_vbif_base + JPEG_VBIF_OUT_WR_LIM_CONF0);
 	writel_relaxed(0x00000707,
 		jpeg_vbif_base + JPEG_VBIF_DDR_OUT_MAX_BURST);
-	writel_relaxed(0x00000707,
+	writel_relaxed(0x7,
 		jpeg_vbif_base + JPEG_VBIF_OCMEM_OUT_MAX_BURST);
+	writel_relaxed(0x00000030,
+		jpeg_vbif_base + JPEG_VBIF_ARB_CTL);
+	writel_relaxed(0x00000FFF,
+		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AOOO_EN);
+	writel_relaxed(0x0FFF0FFF,
+		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AOOO);
+	/*FE and WE QOS configuration need to be set when
+	QOS RR arbitration is enabled*/
+	writel_relaxed(0x00000001,
+		jpeg_vbif_base + JPEG_VBIF_ROUND_ROBIN_QOS_ARB);
+	writel_relaxed(0x22222222,
+		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF0);
+	writel_relaxed(0x2222,
+		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF1);
 }
 
 
