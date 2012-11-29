@@ -591,7 +591,7 @@ static int msm_v4l2_open(struct file *filp)
 	}
 
 	v4l2_inst->vidc_inst = msm_vidc_open(core->id, vid_dev->type);
-	if (rc) {
+	if (!v4l2_inst->vidc_inst) {
 		dprintk(VIDC_ERR,
 		"Failed to create video instance, core: %d, type = %d\n",
 		core->id, vid_dev->type);
