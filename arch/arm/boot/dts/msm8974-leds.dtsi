@@ -45,7 +45,7 @@
 			status = "disabled";
 		};
 
-		qcom,leds@d2000 {
+		qcom,leds@d200 {
 			status = "disabled";
 		};
 
