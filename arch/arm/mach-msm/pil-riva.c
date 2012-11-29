@@ -412,26 +412,16 @@ static int riva_powerup(const struct subsys_desc *desc)
 	return ret;
 }
 
-/*
- * 7MB RAM segments for Riva SS;
- * Riva 1.1 0x8f000000 - 0x8f700000
- * Riva 1.0 0x8f200000 - 0x8f700000
- */
-static struct ramdump_segment riva_segments[] = {
-	{0x8f000000, 0x8f700000 - 0x8f000000}
-};
-
 static int riva_ramdump(int enable, const struct subsys_desc *desc)
 {
 	struct riva_data *drv;
 
 	drv = container_of(desc, struct riva_data, subsys_desc);
 
-	if (enable)
-		return do_ramdump(drv->ramdump_dev, riva_segments,
-				ARRAY_SIZE(riva_segments));
-	else
+	if (!enable)
 		return 0;
+
+	return pil_do_ramdump(&drv->pil_desc, drv->ramdump_dev);
 }
 
 /* Riva crash handler */

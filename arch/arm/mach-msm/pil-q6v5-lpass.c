@@ -307,15 +307,14 @@ static int adsp_powerup(const struct subsys_desc *subsys)
 	return ret;
 }
 
-static struct ramdump_segment segments = { 0xdc00000, 0x1800000 };
-
 static int adsp_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	struct lpass_data *drv = subsys_to_lpass(subsys);
 
 	if (!enable)
 		return 0;
-	return do_ramdump(drv->ramdump_dev, &segments, 1);
+
+	return pil_do_ramdump(&drv->q6->desc, drv->ramdump_dev);
 }
 
 static void adsp_crash_shutdown(const struct subsys_desc *subsys)

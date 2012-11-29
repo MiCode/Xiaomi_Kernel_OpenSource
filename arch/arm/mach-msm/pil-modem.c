@@ -393,21 +393,15 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	return ret;
 }
 
-/* FIXME: Get address, size from PIL */
-static struct ramdump_segment modem_segments[] = {
-	{ 0x42F00000, 0x46000000 - 0x42F00000 },
-};
-
 static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	struct modem_data *drv;
 
 	drv = container_of(subsys, struct modem_data, subsys_desc);
-	if (enable)
-		return do_ramdump(drv->ramdump_dev, modem_segments,
-				ARRAY_SIZE(modem_segments));
-	else
+	if (!enable)
 		return 0;
+
+	return pil_do_ramdump(&drv->pil_desc, drv->ramdump_dev);
 }
 
 static int pil_modem_driver_probe(struct platform_device *pdev)

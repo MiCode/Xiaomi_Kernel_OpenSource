@@ -279,22 +279,15 @@ static int lpass_q6_powerup(const struct subsys_desc *subsys)
 	return ret;
 }
 
-/* FIXME: Get address, size from PIL */
-static struct ramdump_segment q6_segments[] = {
-	{ 0x46700000, 0x47f00000 - 0x46700000 },
-	{ 0x28400000, 0x12800 }
-};
-
 static int lpass_q6_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	struct q6v3_data *drv;
 
 	drv = container_of(subsys, struct q6v3_data, subsys_desc);
-	if (enable)
-		return do_ramdump(drv->ramdump_dev, q6_segments,
-				ARRAY_SIZE(q6_segments));
-	else
+	if (!enable)
 		return 0;
+
+	return pil_do_ramdump(&drv->pil_desc, drv->ramdump_dev);
 }
 
 static void lpass_q6_crash_shutdown(const struct subsys_desc *subsys)
