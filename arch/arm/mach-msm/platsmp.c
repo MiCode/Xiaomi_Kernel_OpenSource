@@ -175,6 +175,9 @@ static int __cpuinit release_secondary(unsigned int cpu)
 {
 	BUG_ON(cpu >= get_core_count());
 
+	if (machine_is_msm8974_rumi())
+		return 0;
+
 	if (cpu_is_msm8x60())
 		return scorpion_release_secondary();
 
