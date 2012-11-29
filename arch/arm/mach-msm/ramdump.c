@@ -26,6 +26,7 @@
 #include <linux/slab.h>
 #include <linux/poll.h>
 #include <linux/uaccess.h>
+#include <linux/elf.h>
 
 #include <asm-generic/poll.h>
 
@@ -46,6 +47,8 @@ struct ramdump_device {
 	wait_queue_head_t dump_wait_q;
 	int nsegments;
 	struct ramdump_segment *segments;
+	size_t elfcore_size;
+	char *elfcore_buf;
 };
 
 static int ramdump_open(struct inode *inode, struct file *filep)
@@ -113,7 +116,22 @@ static int ramdump_read(struct file *filep, char __user *buf, size_t count,
 		return -EPIPE;
 	}
 
-	addr = offset_translate(*pos, rd_dev, &data_left);
+	if (*pos < rd_dev->elfcore_size) {
+		copy_size = min(rd_dev->elfcore_size, count);
+
+		if (copy_to_user(buf, rd_dev->elfcore_buf, copy_size)) {
+			ret = -EFAULT;
+			goto ramdump_done;
+		}
+		*pos += copy_size;
+		count -= copy_size;
+		buf += copy_size;
+		if (count == 0)
+			return copy_size;
+	}
+
+	addr = offset_translate(*pos - rd_dev->elfcore_size, rd_dev,
+				&data_left);
 
 	/* EOF check */
 	if (data_left == 0) {
@@ -234,11 +252,14 @@ void destroy_ramdump_device(void *dev)
 	kfree(rd_dev);
 }
 
-int do_ramdump(void *handle, struct ramdump_segment *segments,
-		int nsegments)
+static int _do_ramdump(void *handle, struct ramdump_segment *segments,
+		int nsegments, bool use_elf)
 {
 	int ret, i;
 	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+	Elf32_Phdr *phdr;
+	Elf32_Ehdr *ehdr;
+	unsigned long offset;
 
 	if (!rd_dev->consumer_present) {
 		pr_err("Ramdump(%s): No consumers. Aborting..\n", rd_dev->name);
@@ -250,6 +271,38 @@ int do_ramdump(void *handle, struct ramdump_segment *segments,
 
 	rd_dev->segments = segments;
 	rd_dev->nsegments = nsegments;
+
+	if (use_elf) {
+		rd_dev->elfcore_size = sizeof(*ehdr) +
+				       sizeof(*phdr) * nsegments;
+		ehdr = kzalloc(rd_dev->elfcore_size, GFP_KERNEL);
+		rd_dev->elfcore_buf = (char *)ehdr;
+		if (!rd_dev->elfcore_buf)
+			return -ENOMEM;
+
+		memcpy(ehdr->e_ident, ELFMAG, SELFMAG);
+		ehdr->e_ident[EI_CLASS] = ELFCLASS32;
+		ehdr->e_ident[EI_DATA] = ELFDATA2LSB;
+		ehdr->e_ident[EI_VERSION] = EV_CURRENT;
+		ehdr->e_ident[EI_OSABI] = ELFOSABI_NONE;
+		ehdr->e_type = ET_CORE;
+		ehdr->e_version = EV_CURRENT;
+		ehdr->e_phoff = sizeof(*ehdr);
+		ehdr->e_ehsize = sizeof(*ehdr);
+		ehdr->e_phentsize = sizeof(*phdr);
+		ehdr->e_phnum = nsegments;
+
+		offset = rd_dev->elfcore_size;
+		phdr = (Elf32_Phdr *)(ehdr + 1);
+		for (i = 0; i < nsegments; i++, phdr++) {
+			phdr->p_type = PT_LOAD;
+			phdr->p_offset = offset;
+			phdr->p_vaddr = phdr->p_paddr = segments[i].address;
+			phdr->p_filesz = phdr->p_memsz = segments[i].size;
+			phdr->p_flags = PF_R | PF_W | PF_X;
+			offset += phdr->p_filesz;
+		}
+	}
 
 	rd_dev->data_ready = 1;
 	rd_dev->ramdump_status = -1;
@@ -271,5 +324,20 @@ int do_ramdump(void *handle, struct ramdump_segment *segments,
 		ret = (rd_dev->ramdump_status == 0) ? 0 : -EPIPE;
 
 	rd_dev->data_ready = 0;
+	rd_dev->elfcore_size = 0;
+	kfree(rd_dev->elfcore_buf);
+	rd_dev->elfcore_buf = NULL;
 	return ret;
+
+}
+
+int do_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
+{
+	return _do_ramdump(handle, segments, nsegments, false);
+}
+
+int
+do_elf_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
+{
+	return _do_ramdump(handle, segments, nsegments, true);
 }
