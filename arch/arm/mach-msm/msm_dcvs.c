@@ -65,6 +65,7 @@ struct core_attribs {
 	struct kobj_attribute thermal_poll_ms;
 
 	struct kobj_attribute freq_tbl;
+	struct kobj_attribute offset_tbl;
 
 	struct attribute_group attrib_group;
 };
@@ -715,6 +716,77 @@ DCVS_ENERGY_PARAM(leakage_coeff_d)
 
 DCVS_PARAM_STORE(thermal_poll_ms)
 
+static ssize_t msm_dcvs_attr_offset_tbl_show(struct kobject *kobj,
+					     struct kobj_attribute *attr,
+					     char *buf)
+{
+	struct msm_dcvs_freq_entry *freq_tbl;
+	char *buf_idx = buf;
+	int i, len;
+	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, offset_tbl);
+
+	freq_tbl = core->info->freq_tbl;
+	*buf_idx = '\0';
+
+	/* limit the number of frequencies we will print into
+	 * the PAGE_SIZE sysfs show buffer. */
+	if (core->info->power_param.num_freq > 64)
+		return 0;
+
+	for (i = 0; i < core->info->power_param.num_freq; i++) {
+		len = snprintf(buf_idx, 30, "%7d %7d %7d\n",
+			       freq_tbl[i].freq,
+			       freq_tbl[i].active_energy_offset,
+			       freq_tbl[i].leakage_energy_offset);
+		/* buf_idx always points at terminating null */
+		buf_idx += len;
+	}
+	return buf_idx - buf;
+}
+
+static ssize_t msm_dcvs_attr_offset_tbl_store(struct kobject *kobj,
+					      struct kobj_attribute *attr,
+					      const char *buf,
+					      size_t count)
+{
+	struct msm_dcvs_freq_entry *freq_tbl;
+	uint32_t freq, active_energy_offset, leakage_energy_offset;
+	int i, ret;
+	struct dcvs_core *core = CORE_FROM_ATTRIBS(attr, offset_tbl);
+
+	freq_tbl = core->info->freq_tbl;
+
+	ret = sscanf(buf, "%u %u %u",
+		     &freq, &active_energy_offset, &leakage_energy_offset);
+	if (ret != 3) {
+		__err("Invalid input %s for offset_tbl\n", buf);
+		return count;
+	}
+
+	for (i = 0; i < core->info->power_param.num_freq; i++)
+		if (freq_tbl[i].freq == freq) {
+			freq_tbl[i].active_energy_offset =
+				active_energy_offset;
+			freq_tbl[i].leakage_energy_offset =
+				leakage_energy_offset;
+			break;
+		}
+
+	if (i >= core->info->power_param.num_freq) {
+		__err("Invalid frequency for offset_tbl: %d\n", freq);
+		return count;
+	}
+
+	ret = msm_dcvs_scm_set_power_params(core->dcvs_core_id,
+					    &core->info->power_param,
+					    &core->info->freq_tbl[0],
+					    &core->coeffs);
+	if (ret)
+		__err("Error %d in updating active/leakage energy\n", ret);
+
+	return count;
+}
+
 static ssize_t msm_dcvs_attr_freq_tbl_show(struct kobject *kobj,
 					   struct kobj_attribute *attr,
 					   char *buf)
@@ -791,7 +863,7 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 {
 	int ret = 0;
 	struct kobject *core_kobj = NULL;
-	const int attr_count = 25;
+	const int attr_count = 26;
 
 	BUG_ON(!cores_kobj);
 
@@ -830,8 +902,9 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 	DCVS_RW_ATTRIB(22, thermal_poll_ms);
 
 	DCVS_RW_ATTRIB(23, freq_tbl);
+	DCVS_RW_ATTRIB(24, offset_tbl);
 
-	core->attrib.attrib_group.attrs[24] = NULL;
+	core->attrib.attrib_group.attrs[25] = NULL;
 
 	core_kobj = kobject_create_and_add(core->core_name, cores_kobj);
 	if (!core_kobj) {
@@ -919,27 +992,6 @@ void msm_dcvs_register_cpu_freq(uint32_t freq, uint32_t voltage)
 	num_cpu_freqs++;
 }
 
-static void update_cpu_dcvs_params(struct msm_dcvs_core_info *info)
-{
-	int i;
-
-	BUG_ON(num_cpu_freqs == 0);
-
-	info->freq_tbl = cpu_freq_tbl;
-	info->power_param.num_freq = num_cpu_freqs;
-
-	if (!dcvs_pdata || dcvs_pdata->num_sync_rules == 0)
-		return;
-
-	/* the first sync rule shows what the turbo frequencies are -
-	 * these frequencies need energy offsets set */
-	for (i = 0; i < DCVS_MAX_NUM_FREQS && cpu_freq_tbl[i].freq != 0; i++)
-		if (cpu_freq_tbl[i].freq > dcvs_pdata->sync_rules[0].cpu_khz) {
-			cpu_freq_tbl[i].active_energy_offset = 100;
-			cpu_freq_tbl[i].leakage_energy_offset = 100;
-		}
-}
-
 int msm_dcvs_register_core(
 	enum msm_dcvs_core_type type,
 	int type_core_num,
@@ -975,8 +1027,11 @@ int msm_dcvs_register_core(
 	core->set_floor_frequency = set_floor_frequency;
 
 	core->info = info;
-	if (type == MSM_DCVS_CORE_TYPE_CPU)
-		update_cpu_dcvs_params(info);
+	if (type == MSM_DCVS_CORE_TYPE_CPU) {
+		BUG_ON(num_cpu_freqs == 0);
+		info->freq_tbl = cpu_freq_tbl;
+		info->power_param.num_freq = num_cpu_freqs;
+	}
 
 	memcpy(&core->algo_param, &info->algo_param,
 			sizeof(struct msm_dcvs_algo_param));
