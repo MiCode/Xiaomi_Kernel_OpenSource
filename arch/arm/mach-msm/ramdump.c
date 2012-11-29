@@ -110,11 +110,12 @@ static int ramdump_read(struct file *filep, char __user *buf, size_t count,
 	size_t copy_size = 0;
 	int ret = 0;
 
-	if (rd_dev->data_ready == 0) {
-		pr_err("Ramdump(%s): Read when there's no dump available!",
-			rd_dev->name);
-		return -EPIPE;
-	}
+	if ((filep->f_flags & O_NONBLOCK) && !rd_dev->data_ready)
+		return -EAGAIN;
+
+	ret = wait_event_interruptible(rd_dev->dump_wait_q, rd_dev->data_ready);
+	if (ret)
+		return ret;
 
 	if (*pos < rd_dev->elfcore_size) {
 		copy_size = min(rd_dev->elfcore_size, count);
