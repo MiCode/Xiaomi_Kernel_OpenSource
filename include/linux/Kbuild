@@ -439,6 +439,7 @@ header-y += msm_audio_voicememo.h
 header-y += msm_audio_sbc.h
 header-y += msm_ipc.h
 header-y += msm_charm.h
+header-y += msm_rmnet.h
 header-y += qseecom.h
 header-y += qcedev.h
 header-y += idle_stats_device.h
