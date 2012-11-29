@@ -542,7 +542,7 @@ static int pil_riva_probe(struct platform_device *pdev)
 	}
 
 	ret = devm_request_irq(&pdev->dev, drv->irq, riva_wdog_bite_irq_hdlr,
-			IRQF_TRIGGER_HIGH, "riva_wdog", drv);
+			IRQF_TRIGGER_RISING, "riva_wdog", drv);
 	if (ret < 0)
 		goto err;
 
