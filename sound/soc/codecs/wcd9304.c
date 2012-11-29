@@ -1212,6 +1212,42 @@ static int sitar_lineout_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void sitar_enable_classg(struct snd_soc_codec *codec,
+	bool enable)
+{
+
+	if (enable) {
+		snd_soc_update_bits(codec,
+			SITAR_A_CDC_CLK_OTHR_RESET_CTL, 0x10, 0x00);
+		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x07, 0x00);
+		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x08, 0x00);
+		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x10, 0x00);
+
+	} else {
+		snd_soc_update_bits(codec,
+			SITAR_A_CDC_CLK_OTHR_RESET_CTL, 0x10, 0x10);
+		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x07, 0x03);
+		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x08, 0x08);
+		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x10, 0x10);
+	}
+}
+
+static bool sitar_is_hph_pa_on(struct snd_soc_codec *codec)
+{
+	u8 hph_reg_val = 0;
+	hph_reg_val = snd_soc_read(codec, SITAR_A_RX_HPH_CNP_EN);
+
+	return (hph_reg_val & 0x30) ? true : false;
+}
+
+static bool sitar_is_line_pa_on(struct snd_soc_codec *codec)
+{
+	u8 line_reg_val = 0;
+	line_reg_val = snd_soc_read(codec, SITAR_A_RX_LINE_CNP_EN);
+
+	return (line_reg_val & 0x03) ? true : false;
+}
+
 static int sitar_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -1235,6 +1271,15 @@ static int sitar_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		if (sitar_is_hph_pa_on(codec)) {
+			snd_soc_update_bits(codec, SITAR_A_CDC_RX1_B6_CTL,
+				0x20, 0x00);
+			sitar_enable_classg(codec, false);
+		} else {
+			snd_soc_update_bits(codec, SITAR_A_CDC_RX1_B6_CTL,
+				0x20, 0x20);
+			sitar_enable_classg(codec, true);
+		}
 		snd_soc_update_bits(codec, lineout_gain_reg, 0x10, 0x10);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -1243,6 +1288,11 @@ static int sitar_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 		usleep_range(32000, 32000);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		if (sitar_is_hph_pa_on(codec))
+			sitar_enable_classg(codec, true);
+		else
+			sitar_enable_classg(codec, false);
+
 		snd_soc_update_bits(codec, lineout_gain_reg, 0x10, 0x00);
 		break;
 	}
@@ -1583,14 +1633,6 @@ static int sitar_find_k_value(unsigned int ldoh_v, unsigned int cfilt_mv)
 	}
 done:
 	return rc;
-}
-
-static bool sitar_is_hph_pa_on(struct snd_soc_codec *codec)
-{
-	u8 hph_reg_val = 0;
-	hph_reg_val = snd_soc_read(codec, SITAR_A_RX_HPH_CNP_EN);
-
-	return (hph_reg_val & 0x30) ? true : false;
 }
 
 static bool sitar_is_hph_dac_on(struct snd_soc_codec *codec, int left)
@@ -1947,6 +1989,11 @@ static int sitar_hph_pa_event(struct snd_soc_dapm_widget *w,
 			SITAR_RELEASE_LOCK(sitar->codec_resource_lock);
 		}
 
+		if (sitar_is_line_pa_on(codec))
+			sitar_enable_classg(codec, false);
+		else
+			sitar_enable_classg(codec, true);
+
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
@@ -1978,6 +2025,11 @@ static int sitar_hph_pa_event(struct snd_soc_dapm_widget *w,
 		pr_debug("%s: sleep 10 ms after %s PA disable.\n", __func__,
 				w->name);
 		usleep_range(10000, 10000);
+
+		if (sitar_is_line_pa_on(codec))
+			sitar_enable_classg(codec, true);
+		else
+			sitar_enable_classg(codec, false);
 
 		break;
 	}
@@ -2033,24 +2085,21 @@ static int sitar_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 	pr_debug("%s %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_OTHR_RESET_CTL, 0x10,
-			0x00);
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_OTHR_CTL, 0x01,
 			0x01);
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLSG_CTL, 0x08, 0x08);
 		usleep_range(200, 200);
-		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x10, 0x00);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_OTHR_RESET_CTL, 0x10,
-			0x10);
-		usleep_range(20, 20);
-		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x08, 0x08);
-		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x10, 0x10);
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLSG_CTL, 0x08, 0x00);
+		/*
+		 * This delay is for the class G controller to settle down
+		 * after turn OFF. The delay is as per the hardware spec for
+		 * the codec
+		 */
+		usleep_range(20, 20);
 		snd_soc_update_bits(codec, SITAR_A_CDC_CLK_OTHR_CTL, 0x01,
 			0x00);
-		snd_soc_update_bits(codec, SITAR_A_CP_STATIC, 0x08, 0x00);
 		break;
 	}
 	return 0;
