@@ -33,6 +33,7 @@
 #include <asm/setup.h>
 
 #include "peripheral-loader.h"
+#include "ramdump.h"
 
 #define pil_err(desc, fmt, ...)						\
 	dev_err(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
@@ -111,6 +112,42 @@ struct pil_priv {
 	phys_addr_t region_end;
 	struct ion_handle *region;
 };
+
+/**
+ * pil_do_ramdump() - Ramdump an image
+ * @desc: descriptor from pil_desc_init()
+ * @ramdump_dev: ramdump device returned from create_ramdump_device()
+ *
+ * Calls the ramdump API with a list of segments generated from the addresses
+ * that the descriptor corresponds to.
+ */
+int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
+{
+	struct pil_priv *priv = desc->priv;
+	struct pil_seg *seg;
+	int count = 0, ret;
+	struct ramdump_segment *ramdump_segs, *s;
+
+	list_for_each_entry(seg, &priv->segs, list)
+		count++;
+
+	ramdump_segs = kmalloc_array(count, sizeof(*ramdump_segs), GFP_KERNEL);
+	if (!ramdump_segs)
+		return -ENOMEM;
+
+	s = ramdump_segs;
+	list_for_each_entry(seg, &priv->segs, list) {
+		s->address = seg->paddr;
+		s->size = seg->sz;
+		s++;
+	}
+
+	ret = do_elf_ramdump(ramdump_dev, ramdump_segs, count);
+	kfree(ramdump_segs);
+
+	return ret;
+}
+EXPORT_SYMBOL(pil_do_ramdump);
 
 static struct ion_client *ion;
 
