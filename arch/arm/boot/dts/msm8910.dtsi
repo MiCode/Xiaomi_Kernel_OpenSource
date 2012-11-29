@@ -12,6 +12,7 @@
 
 /include/ "skeleton.dtsi"
 /include/ "msm8910-ion.dtsi"
+/include/ "msm-gdsc.dtsi"
 
 / {
 	model = "Qualcomm MSM 8910";
@@ -194,6 +195,14 @@
 			qcom,irq-no-suspend;
 		};
 	};
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
 };
 
 /include/ "msm8910-regulator.dtsi"
