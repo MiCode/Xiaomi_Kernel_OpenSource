@@ -47,6 +47,8 @@
 
 #define MAX_PID 0x1fff
 
+#define TIMESTAMP_LEN	4
+
 #define SPEED_PKTS_INTERVAL 50000
 
 struct dvb_demux_filter {
@@ -189,6 +191,8 @@ void dvb_dmx_swfilter_format(
 			struct dvb_demux *demux, const u8 *buf,
 			size_t count,
 			enum dmx_tsp_format_t tsp_format);
+void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf,
+				const u8 timestamp[TIMESTAMP_LEN]);
 
 
 #endif /* _DVB_DEMUX_H_ */

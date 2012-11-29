@@ -35,6 +35,8 @@
 #include <mach/sps.h>            /* BAM stuff */
 #include <mach/gpio.h>
 #include <linux/wakelock.h>      /* Locking functions */
+#include <linux/timer.h>         /* Timer services */
+#include <linux/jiffies.h>       /* Jiffies counter */
 #include <mach/dma.h>
 #include <mach/msm_tspp.h>
 #include <linux/debugfs.h>
@@ -49,11 +51,24 @@
 #define TSPP_NUM_PRIORITIES            16
 #define TSPP_NUM_KEYS                  8
 #define INVALID_CHANNEL                0xFFFFFFFF
-#define TSPP_SPS_DESCRIPTOR_COUNT      128
+
+/*
+ * BAM descriptor FIFO size (in number of descriptors).
+ * Max number of descriptors allowed by SPS which is 8K-1.
+ * Restrict it to half of this to save DMA memory.
+ */
+#define TSPP_SPS_DESCRIPTOR_COUNT      (4 * 1024 - 1)
 #define TSPP_PACKET_LENGTH             188
 #define TSPP_MIN_BUFFER_SIZE           (TSPP_PACKET_LENGTH)
-#define TSPP_MAX_BUFFER_SIZE           (32 * 1024)
-#define TSPP_NUM_BUFFERS               64
+
+/* Max descriptor buffer size allowed by SPS */
+#define TSPP_MAX_BUFFER_SIZE           (32 * 1024 - 1)
+
+/*
+ * Max allowed TSPP buffers/descriptors.
+ * If SPS desc FIFO holds X descriptors, we can queue up to X-1 descriptors.
+ */
+#define TSPP_NUM_BUFFERS               (TSPP_SPS_DESCRIPTOR_COUNT - 1)
 #define TSPP_TSIF_DEFAULT_TIME_LIMIT   60
 #define SPS_DESCRIPTOR_SIZE            8
 #define MIN_ACCEPTABLE_BUFFER_COUNT    2
@@ -307,6 +322,8 @@ struct tspp_pipe_context_regs {
 #define CONTEXT_UNSPEC_LENGTH					BIT(11)
 #define CONTEXT_GET_CONT_COUNT(_a)			((_a >> 12) & 0xF)
 
+#define MSEC_TO_JIFFIES(msec)			((msec) * HZ / 1000)
+
 struct tspp_pipe_performance_regs {
 	u32 tsp_total;
 	u32 ps_duplicate_tsp;
@@ -379,7 +396,8 @@ struct tspp_channel {
 	enum tspp_mode mode;
 	tspp_notifier *notifier; /* used only with kernel api */
 	void *notify_data;       /* data to be passed with the notifier */
-	u32 notify_timer;        /* notification for partially filled buffers */
+	u32 expiration_period_ms; /* notification on partially filled buffers */
+	struct timer_list expiration_timer;
 	tspp_memfree *memfree;   /* user defined memory free function */
 	void *user_info; /* user cookie passed to memory alloc/free function */
 };
@@ -539,6 +557,14 @@ static void tspp_sps_complete_cb(struct sps_event_notify *notify)
 	tasklet_schedule(&pdev->tlet);
 }
 
+static void tspp_expiration_timer(unsigned long data)
+{
+	struct tspp_device *pdev = (struct tspp_device *)data;
+
+	if (pdev)
+		tasklet_schedule(&pdev->tlet);
+}
+
 /*** tasklet ***/
 static void tspp_sps_complete_tlet(unsigned long data)
 {
@@ -553,8 +579,13 @@ static void tspp_sps_complete_tlet(unsigned long data)
 	for (i = 0; i < TSPP_NUM_CHANNELS; i++) {
 		complete = 0;
 		channel = &device->channels[i];
+
 		if (!channel->used || !channel->waiting)
 			continue;
+
+		/* stop the expiration timer */
+		if (channel->expiration_period_ms)
+			del_timer(&channel->expiration_timer);
 
 		/* get completions */
 		while (channel->waiting->state == TSPP_BUF_STATE_WAITING) {
@@ -593,6 +624,13 @@ static void tspp_sps_complete_tlet(unsigned long data)
 				channel->notifier(channel->id,
 					channel->notify_data);
 		}
+
+		/* restart expiration timer */
+		if (channel->expiration_period_ms)
+			mod_timer(&channel->expiration_timer,
+				jiffies +
+				MSEC_TO_JIFFIES(
+					channel->expiration_period_ms));
 	}
 
 	spin_unlock_irqrestore(&device->spinlock, flags);
@@ -897,7 +935,7 @@ static int tspp_queue_buffer(struct tspp_channel *channel,
 
 	/* generate interrupt according to requested frequency */
 	if (buffer->desc.id % channel->int_freq == channel->int_freq-1)
-		flags = SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOB;
+		flags = SPS_IOVEC_FLAG_INT;
 
 	/* start the transfer */
 	rc = sps_transfer_one(channel->pipe,
@@ -1034,7 +1072,7 @@ static int tspp_channel_init(struct tspp_channel *channel,
 	channel->mode = TSPP_MODE_DISABLED;
 	channel->notifier = NULL;
 	channel->notify_data = NULL;
-	channel->notify_timer = 0;
+	channel->expiration_period_ms = 0;
 	channel->memfree = NULL;
 	channel->user_info = NULL;
 	init_waitqueue_head(&channel->in_queue);
@@ -1394,10 +1432,11 @@ int tspp_open_channel(u32 dev, u32 channel_id)
 		SPS_O_AUTO_ENABLE | /* connection is auto-enabled */
 		SPS_O_STREAMING | /* streaming mode */
 		SPS_O_DESC_DONE | /* interrupt on end of descriptor */
-		SPS_O_ACK_TRANSFERS; /* must use sps_get_iovec() */
+		SPS_O_ACK_TRANSFERS | /* must use sps_get_iovec() */
+		SPS_O_HYBRID; /* Read actual descriptors in sps_get_iovec() */
 	config->src_pipe_index = channel->id;
 	config->desc.size =
-		(TSPP_SPS_DESCRIPTOR_COUNT + 1) * SPS_DESCRIPTOR_SIZE;
+		TSPP_SPS_DESCRIPTOR_COUNT * SPS_DESCRIPTOR_SIZE;
 	config->desc.base = dma_alloc_coherent(NULL,
 						config->desc.size,
 						&config->desc.phys_base,
@@ -1427,6 +1466,11 @@ int tspp_open_channel(u32 dev, u32 channel_id)
 		pr_err("tspp: error registering event");
 		goto err_event;
 	}
+
+	init_timer(&channel->expiration_timer);
+	channel->expiration_timer.function = tspp_expiration_timer;
+	channel->expiration_timer.data = (unsigned long)pdev;
+	channel->expiration_timer.expires = 0xffffffffL;
 
 	rc = pm_runtime_get(&pdev->pdev->dev);
 	if (rc < 0) {
@@ -1482,9 +1526,12 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 	if (!channel->used)
 		return 0;
 
+	if (channel->expiration_period_ms)
+		del_timer(&channel->expiration_timer);
+
 	channel->notifier = NULL;
 	channel->notify_data = NULL;
-	channel->notify_timer = 0;
+	channel->expiration_period_ms = 0;
 
 	config = &channel->config;
 	pdev = channel->pdev;
@@ -1833,7 +1880,8 @@ int tspp_register_notification(u32 dev, u32 channel_id,
 	channel = &pdev->channels[channel_id];
 	channel->notifier = pNotify;
 	channel->notify_data = userdata;
-	channel->notify_timer = timer_ms;
+	channel->expiration_period_ms = timer_ms;
+
 	return 0;
 }
 EXPORT_SYMBOL(tspp_register_notification);
@@ -2112,6 +2160,13 @@ int tspp_allocate_buffers(u32 dev, u32 channel_id, u32 count, u32 size,
 	channel->waiting = channel->data;
 	channel->read = channel->data;
 	channel->locked = channel->data;
+
+	/* Now that buffers are scheduled to HW, kick data expiration timer */
+	if (channel->expiration_period_ms)
+		mod_timer(&channel->expiration_timer,
+			jiffies +
+			MSEC_TO_JIFFIES(
+				channel->expiration_period_ms));
 
 	return 0;
 }
