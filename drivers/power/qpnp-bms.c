@@ -1345,7 +1345,7 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 
 	pr_debug("RUC = %duAh\n", remaining_usable_charge_uah);
 	if (params.fcc_uah - params.uuc_uah <= 0) {
-		pr_warn("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
+		pr_debug("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
 						params.fcc_uah,
 						params.uuc_uah);
 		soc = 0;
@@ -1379,12 +1379,12 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 		soc = 100;
 
 	if (soc < 0) {
-		pr_err("bad rem_usb_chg = %d rem_chg %d, cc_uah %d, unusb_chg %d\n",
+		pr_debug("bad rem_usb_chg = %d rem_chg %d, cc_uah %d, unusb_chg %d\n",
 				remaining_usable_charge_uah,
 				params.ocv_charge_uah,
 				params.cc_uah, params.uuc_uah);
 
-		pr_err("for bad rem_usb_chg last_ocv_uv = %d batt_temp = %d fcc = %d soc =%d\n",
+		pr_debug("for bad rem_usb_chg last_ocv_uv = %d batt_temp = %d fcc = %d soc =%d\n",
 				chip->last_ocv_uv, batt_temp,
 				params.fcc_uah, soc);
 		soc = 0;
