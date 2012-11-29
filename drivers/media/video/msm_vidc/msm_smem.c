@@ -32,8 +32,6 @@ static int get_device_address(struct ion_client *clnt,
 				clnt, hndl, iova, buffer_size);
 		return -EINVAL;
 	}
-	if (align < 4096)
-		align = 4096;
 	dprintk(VIDC_DBG, "domain: %d, partition: %d\n",
 		domain_num, partition_num);
 	if (flags & SMEM_SECURE) {
@@ -74,6 +72,7 @@ static int ion_user_to_kernel(struct smem_client *client,
 	unsigned long iova = 0;
 	unsigned long buffer_size = 0;
 	int rc = 0;
+	int align = SZ_4K;
 	hndl = ion_import_dma_buf(client->clnt, fd);
 	if (IS_ERR_OR_NULL(hndl)) {
 		dprintk(VIDC_ERR, "Failed to get handle: %p, %d, %d, %p\n",
@@ -85,8 +84,12 @@ static int ion_user_to_kernel(struct smem_client *client,
 	mem->domain = domain;
 	mem->partition_num = partition;
 	mem->flags = flags;
+
+	if (flags & SMEM_SECURE)
+		align = ALIGN(align, SZ_1M);
+
 	rc = get_device_address(client->clnt, hndl, mem->domain,
-		mem->partition_num, 4096, &iova, &buffer_size, flags);
+		mem->partition_num, align, &iova, &buffer_size, flags);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n", rc);
 		goto fail_device_address;
@@ -121,15 +124,16 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	else
 		ionflags = ION_SET_UNCACHED(ionflags);
 
+	align = ALIGN(align, SZ_4K);
+	size = ALIGN(size, SZ_4K);
+
 	if (flags & SMEM_SECURE) {
 		ionflags |= ION_SECURE;
-		size = (size + 0xfffff) & (~0xfffff);
+		size = ALIGN(size, SZ_1M);
+		align = ALIGN(align, SZ_1M);
 	}
 
 	heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
-	if (align < 4096)
-		align = 4096;
-	size = (size + 4095) & (~4095);
 	dprintk(VIDC_DBG, "domain: %d, partition: %d\n",
 		domain, partition);
 	hndl = ion_alloc(client->clnt, size, align, heap_mask, ionflags);
