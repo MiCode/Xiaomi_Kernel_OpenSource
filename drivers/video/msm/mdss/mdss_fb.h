@@ -62,6 +62,8 @@ struct msm_fb_data_type {
 
 	int op_enable;
 	u32 fb_imgType;
+	int panel_reconfig;
+
 	u32 dst_format;
 	int vsync_pending;
 	ktime_t vsync_time;
@@ -99,10 +101,6 @@ struct msm_fb_data_type {
 	struct mutex ov_lock;
 
 	struct platform_device *pdev;
-
-	u32 var_xres;
-	u32 var_yres;
-	u32 var_pixclock;
 
 	u32 mdp_fb_page_protection;
 

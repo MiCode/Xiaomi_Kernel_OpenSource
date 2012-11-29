@@ -317,7 +317,8 @@ static int mdss_fb_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static inline int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd, int e)
+static inline int mdss_fb_send_panel_event(
+	struct msm_fb_data_type *mfd, int e, void *arg)
 {
 	struct mdss_panel_data *pdata;
 
@@ -330,7 +331,7 @@ static inline int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd, int e)
 	pr_debug("sending event=%d for fb%d\n", e, mfd->index);
 
 	if (pdata->event_handler)
-		return pdata->event_handler(pdata, e, NULL);
+		return pdata->event_handler(pdata, e, arg);
 
 	return 0;
 }
@@ -344,7 +345,7 @@ static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 
 	pr_debug("mdss_fb suspend index=%d\n", mfd->index);
 
-	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_SUSPEND);
+	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_SUSPEND, NULL);
 	if (ret) {
 		pr_warn("unable to suspend fb%d (%d)\n", mfd->index, ret);
 		return ret;
@@ -375,7 +376,7 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 
 	pr_debug("mdss_fb resume index=%d\n", mfd->index);
 
-	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_RESUME);
+	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_RESUME, NULL);
 	if (ret) {
 		pr_warn("unable to resume fb%d (%d)\n", mfd->index, ret);
 		return ret;
@@ -854,10 +855,6 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->hsync_len = panel_info->lcdc.h_pulse_width;
 	var->pixclock = panel_info->clk_rate / 1000;
 
-	mfd->var_xres = var->xres;
-	mfd->var_yres = var->yres;
-	mfd->var_pixclock = var->pixclock;
-
 	if (panel_info->type == MIPI_VIDEO_PANEL) {
 		var->reserved[4] = panel_info->mipi.frame_rate;
 	} else {
@@ -1004,6 +1001,22 @@ static int mdss_fb_pan_display(struct fb_var_screeninfo *var,
 	return 0;
 }
 
+static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
+	struct mdss_panel_info *pinfo)
+{
+	pinfo->xres = var->xres;
+	pinfo->yres = var->yres;
+	pinfo->lcdc.v_front_porch = var->upper_margin;
+	pinfo->lcdc.v_back_porch = var->lower_margin;
+	pinfo->lcdc.v_pulse_width = var->vsync_len;
+	pinfo->lcdc.h_front_porch = var->left_margin;
+	pinfo->lcdc.h_back_porch = var->right_margin;
+	pinfo->lcdc.h_pulse_width = var->hsync_len;
+	pinfo->clk_rate = var->pixclock;
+	/* todo: find how to pass CEA vic through framebuffer APIs */
+	pinfo->vic = var->reserved[3];
+}
+
 static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 			     struct fb_info *info)
 {
@@ -1096,15 +1109,24 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 	if ((var->xres == 0) || (var->yres == 0))
 		return -EINVAL;
 
-	if ((var->xres > mfd->panel_info->xres) ||
-	    (var->yres > mfd->panel_info->yres))
-		return -EINVAL;
-
 	if (var->xoffset > (var->xres_virtual - var->xres))
 		return -EINVAL;
 
 	if (var->yoffset > (var->yres_virtual - var->yres))
 		return -EINVAL;
+
+	if (mfd->panel_info) {
+		struct mdss_panel_info panel_info;
+		int rc;
+
+		memcpy(&panel_info, mfd->panel_info, sizeof(panel_info));
+		mdss_fb_var_to_panelinfo(var, &panel_info);
+		rc = mdss_fb_send_panel_event(mfd, MDSS_EVENT_CHECK_PARAMS,
+			&panel_info);
+		if (IS_ERR_VALUE(rc))
+			return rc;
+		mfd->panel_reconfig = rc;
+	}
 
 	return 0;
 }
@@ -1114,7 +1136,6 @@ static int mdss_fb_set_par(struct fb_info *info)
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct fb_var_screeninfo *var = &info->var;
 	int old_imgType;
-	int blank = 0;
 
 	old_imgType = mfd->fb_imgType;
 	switch (var->bits_per_pixel) {
@@ -1146,22 +1167,14 @@ static int mdss_fb_set_par(struct fb_info *info)
 		return -EINVAL;
 	}
 
-	if ((mfd->var_pixclock != var->pixclock) ||
-	    (mfd->hw_refresh && ((mfd->fb_imgType != old_imgType) ||
-				 (mfd->var_pixclock != var->pixclock) ||
-				 (mfd->var_xres != var->xres) ||
-				 (mfd->var_yres != var->yres)))) {
-		mfd->var_xres = var->xres;
-		mfd->var_yres = var->yres;
-		mfd->var_pixclock = var->pixclock;
-		blank = 1;
-	}
 	mfd->fbi->fix.line_length = mdss_fb_line_length(mfd->index, var->xres,
 						var->bits_per_pixel / 8);
 
-	if (blank) {
+	if (mfd->panel_reconfig || (mfd->fb_imgType != old_imgType)) {
 		mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
+		mdss_fb_var_to_panelinfo(var, mfd->panel_info);
 		mdss_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable);
+		mfd->panel_reconfig = false;
 	}
 
 	return 0;
