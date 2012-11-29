@@ -83,7 +83,7 @@
 					  "ocv_for_r",
 					  "cc_thr";
 
-			qcom,bms-r-sense-mohm = <10>;
+			qcom,bms-r-sense-mohm = <2>;
 			qcom,bms-v-cutoff-uv = <3400000>;
 			qcom,bms-max-voltage-uv = <4200000>;
 			qcom,bms-r-conn-mohm = <18>;
@@ -95,7 +95,6 @@
 			qcom,bms-calculate-soc-ms = <20000>;
 			qcom,bms-chg-term-ua = <100000>;
 			qcom,bms-batt-type = <0>;
-			qcom,bms-use-voltage-soc;
 		};
 
 		clkdiv@5b00 {
