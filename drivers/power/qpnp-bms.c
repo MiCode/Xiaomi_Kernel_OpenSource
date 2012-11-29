@@ -33,7 +33,7 @@
 #define BMS1_MODE_CTL			0X40
 /* Coulomb counter clear registers */
 #define BMS1_CC_DATA_CTL		0x42
-#define BMS1_CC_CLEAR_CTRL		0x43
+#define BMS1_CC_CLEAR_CTL		0x43
 /* OCV limit registers */
 #define BMS1_OCV_USE_LOW_LIMIT_THR0	0x48
 #define BMS1_OCV_USE_LOW_LIMIT_THR1	0x49
@@ -484,12 +484,49 @@ static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
 	pr_debug("last_good_ocv_uv = %d\n", raw->last_good_ocv_uv);
 }
 
+#define CLEAR_CC			BIT(7)
+#define CLEAR_SW_CC			BIT(6)
+/**
+ * reset both cc and sw-cc.
+ * note: this should only be ever called from one thread
+ * or there may be a race condition where CC is never enabled
+ * again
+ */
+static void reset_cc(struct qpnp_bms_chip *chip)
+{
+	int rc;
+
+	pr_debug("resetting cc manually\n");
+	rc = qpnp_masked_write(chip, BMS1_CC_CLEAR_CTL,
+				CLEAR_CC | CLEAR_SW_CC,
+				CLEAR_CC | CLEAR_SW_CC);
+	if (rc)
+		pr_err("cc reset failed: %d\n", rc);
+
+	/* wait for 100us for cc to reset */
+	udelay(100);
+
+	rc = qpnp_masked_write(chip, BMS1_CC_CLEAR_CTL,
+				CLEAR_CC | CLEAR_SW_CC, 0);
+	if (rc)
+		pr_err("cc reenable failed: %d\n", rc);
+}
+
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw)
 {
 	int rc;
 
 	mutex_lock(&chip->bms_output_lock);
+
+	if (chip->prev_last_good_ocv_raw == 0) {
+		/* software workaround for BMS 1.0
+		 * The coulomb counter does not reset upon PON, so reset it
+		 * manually upon probe. */
+		if (chip->revision1 == 0 && chip->revision2 == 0)
+			reset_cc(chip);
+	}
+
 	lock_output_data(chip);
 
 	rc = qpnp_read_wrapper(chip, (u8 *)&raw->last_good_ocv_raw,
@@ -1980,6 +2017,7 @@ qpnp_bms_probe(struct spmi_device *spmi)
 		pr_err("Error reading version register %d\n", rc);
 		goto error_read;
 	}
+	pr_debug("BMS version: %hhu.%hhu\n", chip->revision2, chip->revision1);
 
 	rc = qpnp_vadc_is_ready();
 	if (rc) {
