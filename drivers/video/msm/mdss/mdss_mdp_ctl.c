@@ -391,8 +391,8 @@ static int mdss_mdp_ctl_init(struct msm_fb_data_type *mfd)
 		return -ENODEV;
 	}
 
-	width = mfd->fbi->var.xres;
-	height = mfd->fbi->var.yres;
+	width = pdata->panel_info.xres;
+	height = pdata->panel_info.yres;
 
 	if (width > (2 * MAX_MIXER_WIDTH)) {
 		pr_err("unsupported resolution\n");
