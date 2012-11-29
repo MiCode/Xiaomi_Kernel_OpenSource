@@ -382,6 +382,7 @@ static void pil_release_mmap(struct pil_desc *desc)
 
 	if (priv->region)
 		ion_free(ion, priv->region);
+	priv->region = NULL;
 	list_for_each_entry_safe(p, tmp, &priv->segs, list) {
 		list_del(&p->list);
 		kfree(p);
