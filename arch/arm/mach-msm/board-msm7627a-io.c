@@ -727,6 +727,15 @@ static const unsigned short keymap_sku3[] = {
 	[KP_INDEX_SKU3(1, 1)] = KEY_CAMERA,
 };
 
+static unsigned int kp_row_gpios_skud[] = {31, 32};
+static unsigned int kp_col_gpios_skud[] = {37};
+
+static const unsigned short keymap_skud[] = {
+	[KP_INDEX_SKU3(0, 0)] = KEY_VOLUMEUP,
+	[KP_INDEX_SKU3(0, 1)] = KEY_VOLUMEDOWN,
+};
+
+
 static struct gpio_event_matrix_info kp_matrix_info_sku3 = {
 	.info.func      = gpio_event_matrix_func,
 	.keymap         = keymap_sku3,
@@ -887,13 +896,23 @@ void __init qrd7627a_add_io_devices(void)
 #endif
 
 	/* keypad */
+
+	if (machine_is_qrd_skud_prime()) {
+		kp_matrix_info_sku3.keymap = keymap_skud;
+		kp_matrix_info_sku3.output_gpios = kp_row_gpios_skud;
+		kp_matrix_info_sku3.input_gpios = kp_col_gpios_skud;
+		kp_matrix_info_sku3.noutputs = ARRAY_SIZE(kp_row_gpios_skud);
+		kp_matrix_info_sku3.ninputs = ARRAY_SIZE(kp_col_gpios_skud);
+	}
+
 	if (machine_is_msm8625_evt())
 		kp_matrix_info_8625.keymap = keymap_8625_evt;
 
 	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb() ||
 			machine_is_msm8625_evt())
 		platform_device_register(&kp_pdev_8625);
-	else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7())
+	else if (machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7()
+		|| machine_is_qrd_skud_prime())
 		platform_device_register(&kp_pdev_sku3);
 
 	/* leds */
