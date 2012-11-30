@@ -554,7 +554,9 @@ static unsigned long acpuclk_8625q_get_rate(int cpu)
 
 #define MHZ 1000000
 
-static void select_freq_plan(unsigned int pvs_voltage)
+static void select_freq_plan(unsigned int pvs_voltage,
+					unsigned int nominal_vol_uv,
+					unsigned int default_vol_uv)
 {
 	unsigned long pll_mhz[ACPU_PLL_END];
 	int i;
@@ -628,6 +630,8 @@ static void select_freq_plan(unsigned int pvs_voltage)
 	*/
 	for (tbl = acpu_freq_tbl; tbl->a11clk_khz; tbl++) {
 		if (tbl->a11clk_khz >= 1008000) {
+			if (tbl->a11clk_khz == 1209600)
+				tbl->vdd = default_vol_uv;
 			/*
 			 * Change voltage as per PVS formula,
 			 * i is initialized above with 2 or 1
@@ -639,11 +643,13 @@ static void select_freq_plan(unsigned int pvs_voltage)
 
 			tbl->vdd = max((int)(pvs_voltage - delta[i]), tbl->vdd);
 			i--;
-		}
+		} else if (tbl->a11clk_khz != 600000
+					&& tbl->a11clk_khz != 19200)
+			tbl->vdd = nominal_vol_uv;
 	}
 
 
-	/* find the backup PLL entry from the table */
+	/* find the backup PLL entry from the table  */
 	for (tbl = acpu_freq_tbl; tbl->a11clk_khz; tbl++) {
 		if (tbl->pll == ACPU_PLL_2 &&
 				tbl->a11clk_src_div == 1) {
@@ -723,6 +729,8 @@ static int acpuclk_8625q_probe(struct platform_device *pdev)
 {
 	const struct acpuclk_pdata_8625q *pdata = pdev->dev.platform_data;
 	unsigned int pvs_voltage = pdata->pvs_voltage_uv;
+	unsigned int nom_vol_uv = pdata->nominal_voltage;
+	unsigned int default_vol_uv = pdata->default_turbo_voltage;
 
 	drv_state.max_speed_delta_khz = pdata->acpu_clk_data->
 						max_speed_delta_khz;
@@ -731,7 +739,7 @@ static int acpuclk_8625q_probe(struct platform_device *pdev)
 	BUG_ON(IS_ERR(drv_state.ebi1_clk));
 
 	mutex_init(&drv_state.lock);
-	select_freq_plan(pvs_voltage);
+	select_freq_plan(pvs_voltage, nom_vol_uv, default_vol_uv);
 	acpuclk_8625q_data.wait_for_irq_khz = find_wait_for_irq_khz();
 
 	if (acpuclk_hw_init() < 0)
