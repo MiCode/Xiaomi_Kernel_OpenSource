@@ -16,6 +16,7 @@
 #include <asm/mach-types.h>
 #include <linux/memblock.h>
 #include <asm/mach/arch.h>
+#include <asm/hardware/gic.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_hsusb.h>
@@ -57,6 +58,7 @@
 #include <mach/socinfo.h>
 #include "pm-boot.h"
 #include "board-msm7627a.h"
+#include "platsmp.h"
 
 #define RESERVE_KERNEL_EBI1_SIZE	0x3A000
 #define MSM_RESERVE_AUDIO_SIZE	0x1F4000
@@ -1171,6 +1173,7 @@ MACHINE_START(MSM8625_RUMI3, "QCT MSM8625 RUMI3")
 	.init_irq       = msm8625_init_irq,
 	.init_machine   = msm8625_rumi3_init,
 	.timer          = &msm_timer,
+	.smp		= &msm8625_smp_ops,
 MACHINE_END
 MACHINE_START(MSM8625_SURF, "QCT MSM8625 SURF")
 	.atag_offset    = 0x100,
@@ -1180,6 +1183,7 @@ MACHINE_START(MSM8625_SURF, "QCT MSM8625 SURF")
 	.init_machine   = msm7x2x_init,
 	.timer          = &msm_timer,
 	.init_early     = msm7x2x_init_early,
+	.smp		= &msm8625_smp_ops,
 MACHINE_END
 MACHINE_START(MSM8625_FFA, "QCT MSM8625 FFA")
 	.atag_offset    = 0x100,
@@ -1189,4 +1193,5 @@ MACHINE_START(MSM8625_FFA, "QCT MSM8625 FFA")
 	.init_machine   = msm7x2x_init,
 	.timer          = &msm_timer,
 	.init_early     = msm7x2x_init_early,
+	.smp		= &msm8625_smp_ops,
 MACHINE_END

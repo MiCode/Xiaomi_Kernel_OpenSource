@@ -42,6 +42,7 @@
 #include <mach/clk-provider.h>
 #include "board-dt.h"
 #include "clock.h"
+#include "platsmp.h"
 
 static struct memtype_reserve msm8226_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -102,7 +103,6 @@ static void __init msm8226_reserve(void)
 	msm_reserve();
 }
 
-
 void __init msm8226_init(void)
 {
 	struct of_dev_auxdata *adata = msm8226_auxdata_lookup;
@@ -130,4 +130,5 @@ DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8226 (Flattened Device Tree)")
 	.reserve = msm8226_reserve,
 	.init_very_early = msm8226_early_memory,
 	.restart = msm_restart,
+	.smp = &arm_smp_ops,
 MACHINE_END
