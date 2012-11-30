@@ -81,5 +81,11 @@ void mmc_remove_host_debugfs(struct mmc_host *host);
 void mmc_add_card_debugfs(struct mmc_card *card);
 void mmc_remove_card_debugfs(struct mmc_card *card);
 
+extern void mmc_disable_clk_scaling(struct mmc_host *host);
+extern bool mmc_can_scale_clk(struct mmc_host *host);
+extern void mmc_init_clk_scaling(struct mmc_host *host);
+extern void mmc_exit_clk_scaling(struct mmc_host *host);
+extern void mmc_reset_clk_scale_stats(struct mmc_host *host);
+extern unsigned long mmc_get_max_frequency(struct mmc_host *host);
 #endif
 

@@ -138,6 +138,8 @@ struct mmc_host_ops {
 	void	(*enable_preset_value)(struct mmc_host *host, bool enable);
 	int	(*select_drive_strength)(unsigned int max_dtr, int host_drv, int card_drv);
 	void	(*hw_reset)(struct mmc_host *host);
+	unsigned long (*get_max_frequency)(struct mmc_host *host);
+	unsigned long (*get_min_frequency)(struct mmc_host *host);
 };
 
 struct mmc_card;
@@ -250,6 +252,7 @@ struct mmc_host {
 
 #define MMC_CAP2_SANITIZE	(1 << 13)		/* Support Sanitize */
 #define MMC_CAP2_INIT_BKOPS	    (1 << 15)	/* Need to set BKOPS_EN */
+#define MMC_CAP2_CLK_SCALE	(1 << 16)	/* Allow dynamic clk scaling */
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 	int			clk_requests;	/* internal reference counter */
@@ -353,6 +356,19 @@ struct mmc_host {
 #endif
 
 	struct mmc_ios saved_ios;
+	struct {
+		unsigned long	busy_time_us;
+		unsigned long	window_time;
+		unsigned long	curr_freq;
+		unsigned long	polling_delay_ms;
+		unsigned int	up_threshold;
+		unsigned int	down_threshold;
+		ktime_t		start_busy;
+		bool		enable;
+		bool		initialized;
+		bool		in_progress;
+		struct delayed_work work;
+	} clk_scaling;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
