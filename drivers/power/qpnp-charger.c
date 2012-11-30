@@ -71,6 +71,7 @@
 #define CHGR_CHG_WDOG_EN			0x65
 #define CHGR_USB_IUSB_MAX			0x44
 #define CHGR_USB_USB_SUSP			0x47
+#define CHGR_USB_USB_OTG_CTL			0x48
 #define CHGR_USB_ENUM_T_STOP			0x4E
 #define CHGR_CHG_TEMP_THRESH			0x66
 #define CHGR_BAT_IF_PRES_STATUS			0x08
@@ -271,6 +272,27 @@ qpnp_chg_masked_write(struct qpnp_chg_chip *chip, u16 base,
 	return 0;
 }
 
+#define USB_OTG_EN_BIT	BIT(0)
+static int
+qpnp_chg_is_otg_en_set(struct qpnp_chg_chip *chip)
+{
+	u8 usb_otg_en;
+	int rc;
+
+	rc = qpnp_chg_read(chip, &usb_otg_en,
+				 chip->usb_chgpth_base + CHGR_USB_USB_OTG_CTL,
+				 1);
+
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				chip->usb_chgpth_base + CHGR_STATUS, rc);
+		return rc;
+	}
+	pr_debug("usb otg en 0x%x\n", usb_otg_en);
+
+	return (usb_otg_en & USB_OTG_EN_BIT) ? 1 : 0;
+}
+
 #define USB_VALID_BIT	BIT(7)
 static int
 qpnp_chg_is_usb_chg_plugged_in(struct qpnp_chg_chip *chip)
@@ -380,10 +402,16 @@ static irqreturn_t
 qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
-	int usb_present;
+	int usb_present, host_mode;
 
 	usb_present = qpnp_chg_is_usb_chg_plugged_in(chip);
-	pr_debug("usbin-valid triggered: %d\n", usb_present);
+	host_mode = qpnp_chg_is_otg_en_set(chip);
+	pr_debug("usbin-valid triggered: %d host_mode: %d\n",
+		usb_present, host_mode);
+
+	/* In host mode notifications cmoe from USB supply */
+	if (host_mode)
+		return IRQ_HANDLED;
 
 	if (chip->usb_present ^ usb_present) {
 		chip->usb_present = usb_present;
@@ -431,6 +459,80 @@ qpnp_batt_property_is_writeable(struct power_supply *psy,
 		return 1;
 	default:
 		break;
+	}
+
+	return 0;
+}
+
+static int
+qpnp_chg_charge_en(struct qpnp_chg_chip *chip, int enable)
+{
+	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
+			CHGR_CHG_EN,
+			enable ? CHGR_CHG_EN : 0, 1);
+}
+
+static int
+qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
+{
+	/* This bit forces the charger to run off of the battery rather
+	 * than a connected charger */
+	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
+			CHGR_ON_BAT_FORCE_BIT,
+			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
+}
+
+static
+int switch_usb_to_charge_mode(struct qpnp_chg_chip *chip)
+{
+	int rc;
+
+	pr_debug("switch to charge mode\n");
+	if (!qpnp_chg_is_otg_en_set(chip))
+		return 0;
+
+	/* enable usb ovp fet */
+	rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + CHGR_USB_USB_OTG_CTL,
+			USB_OTG_EN_BIT,
+			0, 1);
+	if (rc) {
+		pr_err("Failed to turn on usb ovp rc = %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
+	if (rc) {
+		pr_err("Failed re-enable charging rc = %d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static
+int switch_usb_to_host_mode(struct qpnp_chg_chip *chip)
+{
+	int rc;
+
+	pr_debug("switch to host mode\n");
+	if (qpnp_chg_is_otg_en_set(chip))
+		return 0;
+
+	rc = qpnp_chg_force_run_on_batt(chip, 1);
+	if (rc) {
+		pr_err("Failed to disable charging rc = %d\n", rc);
+		return rc;
+	}
+
+	/* force usb ovp fet off */
+	rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + CHGR_USB_USB_OTG_CTL,
+			USB_OTG_EN_BIT,
+			USB_OTG_EN_BIT, 1);
+	if (rc) {
+		pr_err("Failed to turn off usb ovp rc = %d\n", rc);
+		return rc;
 	}
 
 	return 0;
@@ -682,6 +784,21 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		chip->bms_psy = power_supply_get_by_name("bms");
 
 	chip->usb_psy->get_property(chip->usb_psy,
+			  POWER_SUPPLY_PROP_SCOPE, &ret);
+	if (ret.intval) {
+		if ((ret.intval == POWER_SUPPLY_SCOPE_SYSTEM)
+				&& !qpnp_chg_is_otg_en_set(chip)) {
+			switch_usb_to_host_mode(chip);
+			return;
+		}
+		if ((ret.intval == POWER_SUPPLY_SCOPE_DEVICE)
+				&& qpnp_chg_is_otg_en_set(chip)) {
+			switch_usb_to_charge_mode(chip);
+			return;
+		}
+	}
+
+	chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_ONLINE, &ret);
 
 	if (ret.intval && qpnp_chg_is_usb_chg_plugged_in(chip)) {
@@ -699,24 +816,6 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 
 	pr_debug("end of power supply changed\n");
 	power_supply_changed(&chip->batt_psy);
-}
-
-static int
-qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
-{
-	/* This bit forces the charger to run off of the battery rather
-	 * than a connected charger */
-	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
-			CHGR_ON_BAT_FORCE_BIT,
-			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
-}
-
-static int
-qpnp_chg_charge_en(struct qpnp_chg_chip *chip, int enable)
-{
-	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
-			CHGR_CHG_EN,
-			enable ? CHGR_CHG_EN : 0, 1);
 }
 
 static int
