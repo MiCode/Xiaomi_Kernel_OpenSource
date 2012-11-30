@@ -513,7 +513,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (context && context->flags & CTXT_FLAGS_PER_CONTEXT_TS)
 		context_id = context->id;
 
-	if ((context->flags & CTXT_FLAGS_USER_GENERATED_TS) &&
+	if ((context && context->flags & CTXT_FLAGS_USER_GENERATED_TS) &&
 			(!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))) {
 		if (timestamp_cmp(rb->timestamp[context_id],
 						timestamp) >= 0) {
