@@ -419,19 +419,19 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	pp_sts = &mdss_pp_res->pp_dspp_sts[dspp_num];
 	if (flags & PP_FLAGS_DIRTY_PA) {
 		pa_config = &mdss_pp_res->pa_disp_cfg[disp_num];
-		if (pa_config->flags & MDP_PP_OPS_WRITE) {
+		if (pa_config->pa_data.flags & MDP_PP_OPS_WRITE) {
 			offset = base + MDSS_MDP_REG_DSPP_PA_BASE;
-			MDSS_MDP_REG_WRITE(offset, pa_config->hue_adj);
+			MDSS_MDP_REG_WRITE(offset, pa_config->pa_data.hue_adj);
 			offset += 4;
-			MDSS_MDP_REG_WRITE(offset, pa_config->sat_adj);
+			MDSS_MDP_REG_WRITE(offset, pa_config->pa_data.sat_adj);
 			offset += 4;
-			MDSS_MDP_REG_WRITE(offset, pa_config->val_adj);
+			MDSS_MDP_REG_WRITE(offset, pa_config->pa_data.val_adj);
 			offset += 4;
-			MDSS_MDP_REG_WRITE(offset, pa_config->cont_adj);
+			MDSS_MDP_REG_WRITE(offset, pa_config->pa_data.cont_adj);
 		}
-		if (pa_config->flags & MDP_PP_OPS_DISABLE)
+		if (pa_config->pa_data.flags & MDP_PP_OPS_DISABLE)
 			pp_sts->pa_sts &= ~PP_STS_ENABLE;
-		else if (pa_config->flags & MDP_PP_OPS_ENABLE)
+		else if (pa_config->pa_data.flags & MDP_PP_OPS_ENABLE)
 			pp_sts->pa_sts |= PP_STS_ENABLE;
 	}
 	if (pp_sts->pa_sts & PP_STS_ENABLE)
@@ -635,7 +635,7 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback)
 	mutex_lock(&mdss_pp_mutex);
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
 
-	if (config->flags & MDP_PP_OPS_READ) {
+	if (config->pa_data.flags & MDP_PP_OPS_READ) {
 		ret = pp_get_dspp_num(disp_num, &dspp_num);
 		if (ret) {
 			pr_err("%s, no dspp connects to disp %d",
@@ -645,13 +645,13 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback)
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		pa_offset = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
 			  MDSS_MDP_REG_DSPP_PA_BASE;
-		config->hue_adj = MDSS_MDP_REG_READ(pa_offset);
+		config->pa_data.hue_adj = MDSS_MDP_REG_READ(pa_offset);
 		pa_offset += 4;
-		config->sat_adj = MDSS_MDP_REG_READ(pa_offset);
+		config->pa_data.sat_adj = MDSS_MDP_REG_READ(pa_offset);
 		pa_offset += 4;
-		config->val_adj = MDSS_MDP_REG_READ(pa_offset);
+		config->pa_data.val_adj = MDSS_MDP_REG_READ(pa_offset);
 		pa_offset += 4;
-		config->cont_adj = MDSS_MDP_REG_READ(pa_offset);
+		config->pa_data.cont_adj = MDSS_MDP_REG_READ(pa_offset);
 		*copyback = 1;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	} else {
