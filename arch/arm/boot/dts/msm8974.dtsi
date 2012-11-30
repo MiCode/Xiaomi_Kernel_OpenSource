@@ -416,10 +416,6 @@
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
-			"Ext Spk Bottom Pos", "LINEOUT1",
-			"Ext Spk Bottom Neg", "LINEOUT3",
-			"Ext Spk Top Pos", "LINEOUT2",
-			"Ext Spk Top Neg", "LINEOUT4",
 			"AMIC1", "MIC BIAS1 Internal1",
 			"MIC BIAS1 Internal1", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
