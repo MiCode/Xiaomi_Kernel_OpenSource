@@ -37,6 +37,7 @@
 
 #include "ipc_router.h"
 #include "modem_notifier.h"
+#include "msm_ipc_router_security.h"
 
 enum {
 	SMEM_LOG = 1U << 0,
@@ -114,6 +115,7 @@ struct msm_ipc_server {
 	struct msm_ipc_port_name name;
 	char pdev_name[32];
 	int next_pdev_id;
+	int synced_sec_rule;
 	struct list_head server_port_list;
 };
 
@@ -133,6 +135,7 @@ struct msm_ipc_router_remote_port {
 	wait_queue_head_t quota_wait;
 	uint32_t tx_quota_cnt;
 	struct mutex quota_lock;
+	void *sec_rule;
 };
 
 struct msm_ipc_router_xprt_info {
@@ -651,6 +654,7 @@ static struct msm_ipc_router_remote_port *msm_ipc_router_create_remote_port(
 	rport_ptr->port_id = port_id;
 	rport_ptr->node_id = node_id;
 	rport_ptr->restart_state = RESTART_NORMAL;
+	rport_ptr->sec_rule = NULL;
 	rport_ptr->tx_quota_cnt = 0;
 	init_waitqueue_head(&rport_ptr->quota_wait);
 	mutex_init(&rport_ptr->quota_lock);
@@ -770,6 +774,7 @@ static struct msm_ipc_server *msm_ipc_router_create_server(
 	}
 	server->name.service = service;
 	server->name.instance = instance;
+	server->synced_sec_rule = 0;
 	INIT_LIST_HEAD(&server->server_port_list);
 	list_add_tail(&server->list, &server_list[key]);
 	scnprintf(server->pdev_name, sizeof(server->pdev_name),
@@ -1312,6 +1317,95 @@ static void modem_reset_cleanup(struct msm_ipc_router_xprt_info *xprt_info)
 	msm_ipc_cleanup_routing_table(xprt_info);
 }
 
+/**
+ * sync_sec_rule() - Synchrnoize the security rule into the server structure
+ * @server: Server structure where the rule has to be synchronized.
+ * @rule: Security tule to be synchronized.
+ *
+ * This function is used to update the server structure with the security
+ * rule configured for the <service:instance> corresponding to that server.
+ */
+static void sync_sec_rule(struct msm_ipc_server *server, void *rule)
+{
+	struct msm_ipc_server_port *server_port;
+	struct msm_ipc_router_remote_port *rport_ptr = NULL;
+
+	list_for_each_entry(server_port, &server->server_port_list, list) {
+		rport_ptr = msm_ipc_router_lookup_remote_port(
+				server_port->server_addr.node_id,
+				server_port->server_addr.port_id);
+		if (!rport_ptr)
+			continue;
+		rport_ptr->sec_rule = rule;
+	}
+	server->synced_sec_rule = 1;
+}
+
+/**
+ * msm_ipc_sync_sec_rule() - Sync the security rule to the service
+ * @service: Service for which the rule has to be synchronized.
+ * @instance: Instance for which the rule has to be synchronized.
+ * @rule: Security rule to be synchronized.
+ *
+ * This function is used to syncrhonize the security rule with the server
+ * hash table, if the user-space script configures the rule after the service
+ * has come up. This function is used to synchronize the security rule to a
+ * specific service and optionally a specific instance.
+ */
+void msm_ipc_sync_sec_rule(uint32_t service, uint32_t instance, void *rule)
+{
+	int key = (service & (SRV_HASH_SIZE - 1));
+	struct msm_ipc_server *server;
+
+	mutex_lock(&server_list_lock);
+	list_for_each_entry(server, &server_list[key], list) {
+		if (server->name.service != service)
+			continue;
+
+		if (server->name.instance != instance &&
+		    instance != ALL_INSTANCE)
+			continue;
+
+		/*
+		 * If the rule applies to all instances and if the specific
+		 * instance of a service has a rule synchronized already,
+		 * do not apply the rule for that specific instance.
+		 */
+		if (instance == ALL_INSTANCE && server->synced_sec_rule)
+			continue;
+
+		sync_sec_rule(server, rule);
+	}
+	mutex_unlock(&server_list_lock);
+}
+
+/**
+ * msm_ipc_sync_default_sec_rule() - Default security rule to all services
+ * @rule: Security rule to be synchronized.
+ *
+ * This function is used to syncrhonize the security rule with the server
+ * hash table, if the user-space script configures the rule after the service
+ * has come up. This function is used to synchronize the security rule that
+ * applies to all services, if the concerned service do not have any rule
+ * defined.
+ */
+void msm_ipc_sync_default_sec_rule(void *rule)
+{
+	int key;
+	struct msm_ipc_server *server;
+
+	mutex_lock(&server_list_lock);
+	for (key = 0; key < SRV_HASH_SIZE; key++) {
+		list_for_each_entry(server, &server_list[key], list) {
+			if (server->synced_sec_rule)
+				continue;
+
+			sync_sec_rule(server, rule);
+		}
+	}
+	mutex_unlock(&server_list_lock);
+}
+
 static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 			     struct rr_header *hdr)
 {
@@ -1491,6 +1585,9 @@ static int process_control_msg(struct msm_ipc_router_xprt_info *xprt_info,
 				if (!rport_ptr)
 					pr_err("%s: Remote port create "
 					       "failed\n", __func__);
+				rport_ptr->sec_rule =
+					msm_ipc_get_security_rule(
+					msg->srv.service, msg->srv.instance);
 			}
 			wake_up(&newserver_wait);
 		}
@@ -1987,6 +2084,15 @@ int msm_ipc_router_send_to(struct msm_ipc_port *src,
 	if (!rport_ptr) {
 		pr_err("%s: Could not create remote port\n", __func__);
 		return -ENOMEM;
+	}
+
+	if (src->check_send_permissions) {
+		ret = src->check_send_permissions(rport_ptr->sec_rule);
+		if (ret <= 0) {
+			pr_err("%s: permission failure for %s\n",
+				__func__, current->comm);
+			return -EPERM;
+		}
 	}
 
 	pkt = create_pkt(data);
@@ -2780,6 +2886,10 @@ static int __init msm_ipc_router_init(void)
 	ret = msm_ipc_router_init_sockets();
 	if (ret < 0)
 		pr_err("%s: Init sockets failed\n", __func__);
+
+	ret = msm_ipc_router_security_init();
+	if (ret < 0)
+		pr_err("%s: Security Init failed\n", __func__);
 
 	complete_all(&msm_ipc_local_router_up);
 	return ret;
