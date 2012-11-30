@@ -296,9 +296,14 @@ void msm_dcvs_apply_gpu_floor(unsigned long cpu_freq)
 			continue;
 
 		if (gpu->pending_freq != STOP_FREQ_CHANGE &&
-		    gpu->set_floor_frequency)
+		    gpu->set_floor_frequency) {
 			gpu->set_floor_frequency(gpu->type_core_num,
 						 gpu_floor_freq);
+			/* TZ will know about a freq change (if any)
+			 * at next idle exit. */
+			gpu->actual_freq =
+				gpu->get_frequency(gpu->type_core_num);
+		}
 	}
 
 	mutex_unlock(&gpu_floor_mutex);
