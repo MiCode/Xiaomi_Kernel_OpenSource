@@ -73,6 +73,8 @@
 #define IAVG_STORAGE_REG		0xB1
 #define SOC_STORAGE_REG			0xB2
 #define BMS1_BMS_DATA_REG_3		0xB3
+/* IADC Channel Select */
+#define IADC1_BMS_ADC_CH_SEL_CTL	0x48
 
 /* Configuration for saving of shutdown soc/iavg */
 #define IGNORE_SOC_TEMP_DECIDEG		50
@@ -105,6 +107,7 @@ struct qpnp_bms_chip {
 	struct power_supply		*batt_psy;
 	struct spmi_device		*spmi;
 	u16				base;
+	u16				iadc_base;
 
 	u8				revision1;
 	u8				revision2;
@@ -133,6 +136,8 @@ struct qpnp_bms_chip {
 	struct mutex			bms_output_lock;
 	struct mutex			last_ocv_uv_mutex;
 	struct mutex			soc_invalidation_mutex;
+
+	bool				use_external_rsense;
 
 	unsigned int			start_percent;
 	unsigned int			end_percent;
@@ -1982,11 +1987,104 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->first_time_calc_uuc = 1;
 }
 
-static int 
-qpnp_bms_probe(struct spmi_device *spmi)
+#define REG_OFFSET_PERP_TYPE			0x04
+#define REG_OFFSET_PERP_SUBTYPE			0x05
+#define BMS_BMS_TYPE				0xD
+#define BMS_BMS_SUBTYPE				0x1
+#define BMS_IADC_TYPE				0x8
+#define BMS_IADC_SUBTYPE			0x3
+
+static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
+{
+	struct spmi_resource *spmi_resource;
+	struct resource *resource;
+	int rc;
+	u8 type, subtype;
+
+	chip->dev = &(spmi->dev);
+	chip->spmi = spmi;
+
+	spmi_for_each_container_dev(spmi_resource, spmi) {
+		if (!spmi_resource) {
+			pr_err("qpnp_bms: spmi resource absent\n");
+			return -ENXIO;
+		}
+
+		resource = spmi_get_resource(spmi, spmi_resource,
+						IORESOURCE_MEM, 0);
+		if (!(resource && resource->start)) {
+			pr_err("node %s IO resource absent!\n",
+				spmi->dev.of_node->full_name);
+			return -ENXIO;
+		}
+
+		rc = qpnp_read_wrapper(chip, &type,
+				resource->start + REG_OFFSET_PERP_TYPE, 1);
+		if (rc) {
+			pr_err("Peripheral type read failed rc=%d\n", rc);
+			return rc;
+		}
+		rc = qpnp_read_wrapper(chip, &subtype,
+				resource->start + REG_OFFSET_PERP_SUBTYPE, 1);
+		if (rc) {
+			pr_err("Peripheral subtype read failed rc=%d\n", rc);
+			return rc;
+		}
+
+		if (type == BMS_BMS_TYPE && subtype == BMS_BMS_SUBTYPE) {
+			chip->base = resource->start;
+		} else if (type == BMS_IADC_TYPE
+					&& subtype == BMS_IADC_SUBTYPE) {
+			chip->iadc_base = resource->start;
+		} else {
+			pr_err("Invalid peripheral start=0x%x type=0x%x, subtype=0x%x\n",
+					resource->start, type, subtype);
+		}
+	}
+
+	if (chip->base == 0) {
+		dev_err(&spmi->dev, "BMS peripheral was not registered\n");
+		return -EINVAL;
+	}
+	if (chip->iadc_base == 0) {
+		dev_err(&spmi->dev, "BMS_IADC peripheral was not registered\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+#define ADC_CH_SEL_MASK			0x7
+static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
+{
+	u8 iadc_channel_select;
+	int rc;
+
+	rc = qpnp_read_wrapper(chip, &iadc_channel_select,
+			chip->iadc_base + IADC1_BMS_ADC_CH_SEL_CTL, 1);
+	if (rc) {
+		pr_err("Error reading bms_iadc channel register %d\n", rc);
+		return rc;
+	}
+
+	iadc_channel_select &= ADC_CH_SEL_MASK;
+	if (iadc_channel_select == INTERNAL_RSENSE) {
+		pr_debug("Internal rsense used\n");
+		chip->use_external_rsense = false;
+	} else if (iadc_channel_select == EXTERNAL_RSENSE) {
+		pr_debug("External rsense used\n");
+		chip->use_external_rsense = true;
+	} else {
+		pr_err("IADC1_BMS_IADC configured incorrectly. Selected channel = %d\n",
+							iadc_channel_select);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int qpnp_bms_probe(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip;
-	struct resource *bms_resource;
 	int rc, vbatt;
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
@@ -1996,19 +2094,23 @@ qpnp_bms_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 
-	chip->dev = &(spmi->dev);
-	chip->spmi = spmi;
-
-	mutex_init(&chip->bms_output_lock);
-	mutex_init(&chip->last_ocv_uv_mutex);
-	mutex_init(&chip->soc_invalidation_mutex);
-
-	bms_resource = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
-	if (!bms_resource) {
-		dev_err(&spmi->dev, "Unable to get BMS base address\n");
-		return -ENXIO;
+	rc = qpnp_vadc_is_ready();
+	if (rc) {
+		pr_info("vadc not ready: %d, deferring probe\n", rc);
+		goto error_read;
 	}
-	chip->base = bms_resource->start;
+
+	rc = qpnp_iadc_is_ready();
+	if (rc) {
+		pr_info("iadc not ready: %d, deferring probe\n", rc);
+		goto error_read;
+	}
+
+	rc = register_spmi(chip, spmi);
+	if (rc) {
+		pr_err("error registering spmi resource %d\n", rc);
+		goto error_resource;
+	}
 
 	rc = qpnp_read_wrapper(chip, &chip->revision1,
 			chip->base + BMS1_REVISION1, 1);
@@ -2025,21 +2127,9 @@ qpnp_bms_probe(struct spmi_device *spmi)
 	}
 	pr_debug("BMS version: %hhu.%hhu\n", chip->revision2, chip->revision1);
 
-	rc = qpnp_vadc_is_ready();
+	rc = read_iadc_channel_select(chip);
 	if (rc) {
-		pr_info("vadc not ready: %d, deferring probe\n", rc);
-		goto error_read;
-	}
-
-	rc = qpnp_iadc_is_ready();
-	if (rc) {
-		pr_info("iadc not ready: %d, deferring probe\n", rc);
-		goto error_read;
-	}
-
-	rc = set_battery_data(chip);
-	if (rc) {
-		pr_err("Bad battery data %d\n", rc);
+		pr_err("Unable to get iadc selected channel = %d\n", rc);
 		goto error_read;
 	}
 
@@ -2049,7 +2139,17 @@ qpnp_bms_probe(struct spmi_device *spmi)
 		goto error_read;
 	}
 
+	rc = set_battery_data(chip);
+	if (rc) {
+		pr_err("Bad battery data %d\n", rc);
+		goto error_read;
+	}
+
 	bms_initialize_constants(chip);
+
+	mutex_init(&chip->bms_output_lock);
+	mutex_init(&chip->last_ocv_uv_mutex);
+	mutex_init(&chip->soc_invalidation_mutex);
 
 	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
 			calculate_soc_work);
@@ -2092,6 +2192,7 @@ qpnp_bms_probe(struct spmi_device *spmi)
 unregister_dc:
 	power_supply_unregister(&chip->bms_psy);
 	dev_set_drvdata(&spmi->dev, NULL);
+error_resource:
 error_read:
 	kfree(chip);
 	return rc;
