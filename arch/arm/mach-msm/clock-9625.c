@@ -1318,6 +1318,17 @@ static struct branch_clk gcc_ipa_cnoc_clk = {
 	},
 };
 
+static struct branch_clk gcc_ipa_sleep_clk = {
+	.cbcr_reg = IPA_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_ipa_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_ipa_sleep_clk.c),
+	},
+};
+
 static struct branch_clk gcc_pdm2_clk = {
 	.cbcr_reg = PDM2_CBCR,
 	.has_sibling = 0,
@@ -2072,6 +2083,7 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("core_clk", gcc_ipa_clk.c, "fd4c0000.qcom,ipa"),
 	CLK_LOOKUP("bus_clk",  gcc_sys_noc_ipa_axi_clk.c, "fd4c0000.qcom,ipa"),
 	CLK_LOOKUP("iface_clk",  gcc_ipa_cnoc_clk.c, "fd4c0000.qcom,ipa"),
+	CLK_LOOKUP("inactivity_clk",  gcc_ipa_sleep_clk.c, "fd4c0000.qcom,ipa"),
 
 	CLK_LOOKUP("core_clk", gcc_pdm2_clk.c, ""),
 	CLK_LOOKUP("iface_clk", gcc_pdm_ahb_clk.c, ""),
