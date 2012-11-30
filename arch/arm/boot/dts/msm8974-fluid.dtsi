@@ -172,40 +172,7 @@
 	};
 
 	sound {
-		compatible = "qcom,msm8974-audio-taiko";
 		qcom,model = "msm8974-taiko-fluid-snd-card";
-
-		qcom,audio-routing =
-			"RX_BIAS", "MCLK",
-			"LDO_H", "MCLK",
-			"Ext Spk Bottom Pos", "LINEOUT1",
-			"Ext Spk Bottom Neg", "LINEOUT3",
-			"Ext Spk Top Pos", "LINEOUT2",
-			"Ext Spk Top Neg", "LINEOUT4",
-			"AMIC1", "MIC BIAS1 Internal1",
-			"MIC BIAS1 Internal1", "Handset Mic",
-			"AMIC2", "MIC BIAS2 External",
-			"MIC BIAS2 External", "Headset Mic",
-			"AMIC3", "MIC BIAS2 External",
-			"MIC BIAS2 External", "ANCRight Headset Mic",
-			"AMIC4", "MIC BIAS2 External",
-			"MIC BIAS2 External", "ANCLeft Headset Mic",
-			"DMIC1", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Digital Mic1",
-			"DMIC2", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Digital Mic2",
-			"DMIC3", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Digital Mic3",
-			"DMIC4", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Digital Mic4",
-			"DMIC5", "MIC BIAS4 External",
-			"MIC BIAS4 External", "Digital Mic5",
-			"DMIC6", "MIC BIAS4 External",
-			"MIC BIAS4 External", "Digital Mic6";
-
-		qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
-		taiko-mclk-clk = <&pm8941_clkdiv1>;
-		qcom,taiko-mclk-clk-freq = <9600000>;
 	};
 };
 
