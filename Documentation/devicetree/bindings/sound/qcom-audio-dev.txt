@@ -72,6 +72,11 @@ Required properties:
 
  - compatible : "msm-dai-q6"
 
+Optional properties:
+
+ - qcom,ext-spk-amp-supply : External speaker amplifier power supply.
+ - qcom,ext-spk-amp-gpio : External speaker amplifier enable signal.
+
 [Second Level Nodes]
 
 Required properties:
