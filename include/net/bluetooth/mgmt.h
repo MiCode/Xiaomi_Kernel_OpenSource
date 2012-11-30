@@ -247,6 +247,11 @@ struct mgmt_cp_unset_rssi_reporter {
 	bdaddr_t	bdaddr;
 } __packed;
 
+#define MGMT_OP_CANCEL_RESOLVE_NAME	0x0024
+struct mgmt_cp_cancel_resolve_name {
+	bdaddr_t bdaddr;
+} __packed;
+
 #define MGMT_OP_LE_READ_WHITE_LIST_SIZE	0xE000
 
 #define MGMT_OP_LE_CLEAR_WHITE_LIST	0xE001
