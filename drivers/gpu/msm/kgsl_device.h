@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -212,7 +212,6 @@ struct kgsl_device {
 	int pwr_log;
 	struct kgsl_pwrscale pwrscale;
 	struct kobject pwrscale_kobj;
-	struct pm_qos_request pm_qos_req_dma;
 	struct work_struct ts_expired_ws;
 	struct list_head events;
 	s64 on_time;
