@@ -20,22 +20,15 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 
-#include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
-#include <asm/hardware/cache-l2x0.h>
 #include <asm/smp_scu.h>
 #include <asm/unified.h>
 #include <mach/msm_iomap.h>
 #include "pm.h"
+#include "platsmp.h"
 
 #define CORE_RESET_BASE		0xA8600590
 #define MSM_CORE_STATUS_MSK	0x02800000
-
-/*
- * control for which core is the next to come out of the secondary
- * boot "holding pen"
- */
-volatile int pen_release = -1;
 
 static DEFINE_PER_CPU(bool, cold_boot_done);
 
@@ -48,21 +41,7 @@ struct per_cpu_data {
 
 static uint32_t *msm8625_boot_vector;
 
-
 static struct per_cpu_data cpu_data[CONFIG_NR_CPUS];
-
-/*
- * Write pen_release in a way that is guaranteed to be visible to all
- * observers, irrespective of whether they're taking part in coherency
- * or not.  This is necessary for the hotplug code to work reliably.
- */
-static void __cpuinit write_pen_release(int val)
-{
-	pen_release = val;
-	smp_wmb();
-	__cpuc_flush_dcache_area((void *)&pen_release, sizeof(pen_release));
-	outer_clean_range(__pa(&pen_release), __pa(&pen_release + 1));
-}
 
 static void __iomem *scu_base_addr(void)
 {
@@ -101,10 +80,8 @@ static void clear_pending_spi(unsigned int irq)
 	local_irq_enable();
 }
 
-void __cpuinit platform_secondary_init(unsigned int cpu)
+void __cpuinit msm8625_platform_secondary_init(unsigned int cpu)
 {
-	pr_debug("CPU%u: Booted secondary processor\n", cpu);
-
 	WARN_ON(msm_platform_secondary_init(cpu));
 
 	/*
@@ -134,7 +111,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	spin_unlock(&boot_lock);
 }
 
-static int  __cpuinit msm8625_release_secondary(unsigned int cpu)
+static int __cpuinit msm8625_release_secondary(unsigned int cpu)
 {
 	void __iomem *base_ptr;
 	int value = 0;
@@ -178,7 +155,7 @@ void __iomem *core_reset_base(unsigned int cpu)
 	return cpu_data[cpu].reset_core_base;
 }
 
-int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
+int __cpuinit msm8625_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
 
@@ -245,7 +222,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
  * Initialise the CPU possible map early - this describes the CPUs
  * which may be present or become present in the system.
  */
-void __init smp_init_cpus(void)
+void __init msm8625_smp_init_cpus(void)
 {
 	void __iomem *scu_base = scu_base_addr();
 
@@ -298,17 +275,10 @@ static void __init msm8625_boot_vector_init(uint32_t *boot_vector,
 	msm8625_boot_vector[1] = entry;
 }
 
-void __init platform_smp_prepare_cpus(unsigned int max_cpus)
+void __init msm8625_platform_smp_prepare_cpus(unsigned int max_cpus)
 {
-	int i, cpu, value;
+	int cpu, value;
 	void __iomem *cpu_ptr;
-
-	/*
-	 * Initialise the present map, which describes the set of CPUs
-	 * actually populated at the present time.
-	 */
-	for (i = 0; i < max_cpus; i++)
-		set_cpu_present(i, true);
 
 	scu_enable(scu_base_addr());
 
@@ -350,3 +320,13 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 
 	}
 }
+
+struct smp_operations msm8625_smp_ops __initdata = {
+	.smp_init_cpus = msm8625_smp_init_cpus,
+	.smp_prepare_cpus = msm8625_platform_smp_prepare_cpus,
+	.smp_secondary_init = msm8625_platform_secondary_init,
+	.smp_boot_secondary = msm8625_boot_secondary,
+	.cpu_kill = platform_cpu_kill,
+	.cpu_die = platform_cpu_die,
+	.cpu_disable = platform_cpu_disable
+};

@@ -48,6 +48,7 @@
 #include "spm.h"
 #include "modem_notifier.h"
 #include "lpm_resources.h"
+#include "platsmp.h"
 
 
 static struct memtype_reserve msm8974_reserve_table[] __initdata = {
@@ -392,4 +393,5 @@ DT_MACHINE_START(MSM8974_DT, "Qualcomm MSM 8974 (Flattened Device Tree)")
 	.reserve = msm_8974_reserve,
 	.init_very_early = msm8974_init_very_early,
 	.restart = msm_restart,
+	.smp = &msm8974_smp_ops,
 MACHINE_END
