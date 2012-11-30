@@ -1893,6 +1893,11 @@ union afe_port_config {
 	struct afe_param_id_internal_bt_fm_cfg    int_bt_fm;
 } __packed;
 
+struct afe_audioif_config_command_no_payload {
+	struct apr_hdr			hdr;
+	struct afe_port_cmd_set_param_v2 param;
+} __packed;
+
 struct afe_audioif_config_command {
 	struct apr_hdr			hdr;
 	struct afe_port_cmd_set_param_v2 param;

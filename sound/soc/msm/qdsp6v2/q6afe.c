@@ -39,11 +39,13 @@ struct afe_ctl {
 	void *tx_private_data;
 	void *rx_private_data;
 	uint32_t mmap_handle;
+
+	struct acdb_cal_block afe_cal_addr[MAX_AUDPROC_TYPES];
+	atomic_t mem_map_cal_handles[MAX_AUDPROC_TYPES];
+	atomic_t mem_map_cal_index;
 };
 
 static struct afe_ctl this_afe;
-
-static struct acdb_cal_block afe_cal_addr[MAX_AUDPROC_TYPES];
 
 #define TIMEOUT_MS 1000
 #define Q6AFE_MAX_VOLUME 0x3FFF
@@ -113,7 +115,13 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 				AFE_SERVICE_CMDRSP_SHARED_MEM_MAP_REGIONS) {
 			pr_debug("%s: mmap_handle: 0x%x\n",
 						__func__, payload[0]);
-			this_afe.mmap_handle = (uint32_t)payload[0];
+			if (atomic_read(&this_afe.mem_map_cal_index) != -1)
+				atomic_set(&this_afe.mem_map_cal_handles[
+					atomic_read(
+					&this_afe.mem_map_cal_index)],
+					(uint32_t)payload[0]);
+			else
+				this_afe.mmap_handle = (uint32_t)payload[0];
 			atomic_set(&this_afe.state, 0);
 			wake_up(&this_afe.wait[data->token]);
 		} else if (data->opcode == AFE_EVENT_RT_PROXY_PORT_STATUS) {
@@ -248,9 +256,77 @@ int afe_q6_interface_prepare(void)
 	}
 	return ret;
 }
+
 static void afe_send_cal_block(int32_t path, u16 port_id)
 {
-	/* To come back */
+	int						result = 0;
+	int						index = 0;
+	int						size = 4096;
+	struct acdb_cal_block				cal_block;
+	struct afe_audioif_config_command_no_payload	afe_cal;
+	pr_debug("%s: path %d\n", __func__, path);
+
+	get_afe_cal(path, &cal_block);
+	if (cal_block.cal_size <= 0) {
+		pr_debug("%s: No AFE cal to send!\n", __func__);
+		goto done;
+	}
+
+	if ((this_afe.afe_cal_addr[path].cal_paddr != cal_block.cal_paddr) ||
+		(cal_block.cal_size > this_afe.afe_cal_addr[path].cal_size)) {
+		atomic_set(&this_afe.mem_map_cal_index, path);
+		if (this_afe.afe_cal_addr[path].cal_paddr != 0)
+			afe_cmd_memory_unmap(
+				this_afe.afe_cal_addr[path].cal_paddr);
+
+		afe_cmd_memory_map(cal_block.cal_paddr, size);
+		atomic_set(&this_afe.mem_map_cal_index, -1);
+		this_afe.afe_cal_addr[path].cal_paddr = cal_block.cal_paddr;
+		this_afe.afe_cal_addr[path].cal_size = size;
+	}
+
+	index = q6audio_get_port_index(port_id);
+	if (index < 0) {
+		pr_debug("%s: AFE port index invalid!\n", __func__);
+		goto done;
+	}
+
+	afe_cal.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	afe_cal.hdr.pkt_size = sizeof(afe_cal);
+	afe_cal.hdr.src_port = 0;
+	afe_cal.hdr.dest_port = 0;
+	afe_cal.hdr.token = index;
+	afe_cal.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	afe_cal.param.port_id = port_id;
+	afe_cal.param.payload_size = cal_block.cal_size;
+	afe_cal.param.payload_address_lsw = cal_block.cal_paddr;
+	afe_cal.param.payload_address_msw = 0;
+	afe_cal.param.mem_map_handle =
+			atomic_read(&this_afe.mem_map_cal_handles[path]);
+
+	pr_debug("%s: AFE cal sent for device port = %d, path = %d, cal size = %d, cal addr = 0x%x\n",
+		__func__, port_id, path,
+		cal_block.cal_size, cal_block.cal_paddr);
+
+	atomic_set(&this_afe.state, 1);
+	result = apr_send_pkt(this_afe.apr, (uint32_t *) &afe_cal);
+	if (result < 0) {
+		pr_err("%s: AFE cal for port %d failed\n",
+			__func__, port_id);
+	}
+
+	result = wait_event_timeout(this_afe.wait[index],
+				 (atomic_read(&this_afe.state) == 0),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!result) {
+		pr_err("%s: wait_event timeout SET AFE CAL\n", __func__);
+		goto done;
+	}
+
+	pr_debug("%s: AFE cal sent for path %d device!\n", __func__, path);
+done:
+	return;
 }
 
 void afe_send_cal(u16 port_id)
@@ -1933,6 +2009,7 @@ static int __init afe_init(void)
 	int i = 0;
 	atomic_set(&this_afe.state, 0);
 	atomic_set(&this_afe.status, 0);
+	atomic_set(&this_afe.mem_map_cal_index, -1);
 	this_afe.apr = NULL;
 	this_afe.mmap_handle = 0;
 	for (i = 0; i < AFE_MAX_PORTS; i++)
@@ -1948,9 +2025,9 @@ static void __exit afe_exit(void)
 
 	config_debug_fs_exit();
 	for (i = 0; i < MAX_AUDPROC_TYPES; i++) {
-		if (afe_cal_addr[i].cal_paddr != 0)
+		if (this_afe.afe_cal_addr[i].cal_paddr != 0)
 			afe_cmd_memory_unmap_nowait(
-				afe_cal_addr[i].cal_paddr);
+				this_afe.afe_cal_addr[i].cal_paddr);
 	}
 }
 

@@ -37,17 +37,16 @@ struct adm_ctl {
 	atomic_t copp_id[AFE_MAX_PORTS];
 	atomic_t copp_cnt[AFE_MAX_PORTS];
 	atomic_t copp_stat[AFE_MAX_PORTS];
-	u32      mem_map_handle[AFE_MAX_PORTS];
 	wait_queue_head_t wait[AFE_MAX_PORTS];
-};
 
-static struct acdb_cal_block mem_addr_audproc[MAX_AUDPROC_TYPES];
-static struct acdb_cal_block mem_addr_audvol[MAX_AUDPROC_TYPES];
+	struct acdb_cal_block mem_addr_audproc[MAX_AUDPROC_TYPES];
+	struct acdb_cal_block mem_addr_audvol[MAX_AUDPROC_TYPES];
 
 /* 0 - (MAX_AUDPROC_TYPES -1):				audproc handles */
 /* (MAX_AUDPROC_TYPES -1) - (2 * MAX_AUDPROC_TYPES -1):	audvol handles */
-atomic_t mem_map_handles[(2 * MAX_AUDPROC_TYPES)];
-atomic_t mem_map_index;
+	atomic_t mem_map_cal_handles[(2 * MAX_AUDPROC_TYPES)];
+	atomic_t mem_map_cal_index;
+};
 
 static struct adm_ctl			this_adm;
 
@@ -92,14 +91,14 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 		pr_debug("Resetting calibration blocks");
 		for (i = 0; i < MAX_AUDPROC_TYPES; i++) {
 			/* Device calibration */
-			mem_addr_audproc[i].cal_size = 0;
-			mem_addr_audproc[i].cal_kvaddr = 0;
-			mem_addr_audproc[i].cal_paddr = 0;
+			this_adm.mem_addr_audproc[i].cal_size = 0;
+			this_adm.mem_addr_audproc[i].cal_kvaddr = 0;
+			this_adm.mem_addr_audproc[i].cal_paddr = 0;
 
 			/* Volume calibration */
-			mem_addr_audvol[i].cal_size = 0;
-			mem_addr_audvol[i].cal_kvaddr = 0;
-			mem_addr_audvol[i].cal_paddr = 0;
+			this_adm.mem_addr_audvol[i].cal_size = 0;
+			this_adm.mem_addr_audvol[i].cal_kvaddr = 0;
+			this_adm.mem_addr_audvol[i].cal_paddr = 0;
 		}
 		return 0;
 	}
@@ -199,8 +198,9 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 		case ADM_CMDRSP_SHARED_MEM_MAP_REGIONS:
 			pr_debug("%s: ADM_CMDRSP_SHARED_MEM_MAP_REGIONS\n",
 				__func__);
-			atomic_set(&mem_map_handles[
-				atomic_read(&mem_map_index)], *payload);
+			atomic_set(&this_adm.mem_map_cal_handles[
+				atomic_read(&this_adm.mem_map_cal_index)],
+				*payload);
 			atomic_set(&this_adm.copp_stat[0], 1);
 			wake_up(&this_adm.wait[index]);
 			break;
@@ -247,8 +247,8 @@ static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
 	adm_params.hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
 	adm_params.payload_addr_lsw = aud_cal->cal_paddr;
 	adm_params.payload_addr_msw = 0;
-	adm_params.mem_map_handle = atomic_read(&mem_map_handles[
-					atomic_read(&mem_map_index)]);
+	adm_params.mem_map_handle = atomic_read(&this_adm.mem_map_cal_handles[
+				atomic_read(&this_adm.mem_map_cal_index)]);
 	adm_params.payload_size = aud_cal->cal_size;
 
 	atomic_set(&this_adm.copp_stat[index], 0);
@@ -293,15 +293,16 @@ static void send_adm_cal(int port_id, int path)
 	get_audproc_cal(acdb_path, &aud_cal);
 
 	/* map & cache buffers used */
-	atomic_set(&mem_map_index, acdb_path);
-	if (((mem_addr_audproc[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
-		(aud_cal.cal_size > 0)) ||
-		(aud_cal.cal_size > mem_addr_audproc[acdb_path].cal_size)) {
+	atomic_set(&this_adm.mem_map_cal_index, acdb_path);
+	if (((this_adm.mem_addr_audproc[acdb_path].cal_paddr !=
+		aud_cal.cal_paddr)  && (aud_cal.cal_size > 0)) ||
+		(aud_cal.cal_size >
+		this_adm.mem_addr_audproc[acdb_path].cal_size)) {
 
-		if (mem_addr_audproc[acdb_path].cal_paddr != 0)
+		if (this_adm.mem_addr_audproc[acdb_path].cal_paddr != 0)
 			adm_memory_unmap_regions(port_id,
-				&mem_addr_audproc[acdb_path].cal_paddr,
-				&size, 1);
+				&this_adm.mem_addr_audproc[acdb_path].
+				cal_paddr, &size, 1);
 
 		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
 						0, &size, 1);
@@ -310,9 +311,9 @@ static void send_adm_cal(int port_id, int path)
 				acdb_path, aud_cal.cal_paddr,
 				aud_cal.cal_size);
 		} else {
-			mem_addr_audproc[acdb_path].cal_paddr =
+			this_adm.mem_addr_audproc[acdb_path].cal_paddr =
 							aud_cal.cal_paddr;
-			mem_addr_audproc[acdb_path].cal_size = size;
+			this_adm.mem_addr_audproc[acdb_path].cal_size = size;
 		}
 	}
 
@@ -327,14 +328,16 @@ static void send_adm_cal(int port_id, int path)
 	get_audvol_cal(acdb_path, &aud_cal);
 
 	/* map & cache buffers used */
-	atomic_set(&mem_map_index, (acdb_path + MAX_AUDPROC_TYPES));
-	if (((mem_addr_audvol[acdb_path].cal_paddr != aud_cal.cal_paddr)  &&
-		(aud_cal.cal_size > 0))  ||
-		(aud_cal.cal_size > mem_addr_audvol[acdb_path].cal_size)) {
+	atomic_set(&this_adm.mem_map_cal_index,
+		(acdb_path + MAX_AUDPROC_TYPES));
+	if (((this_adm.mem_addr_audvol[acdb_path].cal_paddr !=
+		aud_cal.cal_paddr)  && (aud_cal.cal_size > 0))  ||
+		(aud_cal.cal_size >
+		this_adm.mem_addr_audvol[acdb_path].cal_size)) {
 
-		if (mem_addr_audvol[acdb_path].cal_paddr != 0)
+		if (this_adm.mem_addr_audvol[acdb_path].cal_paddr != 0)
 			adm_memory_unmap_regions(port_id,
-				&mem_addr_audvol[acdb_path].cal_paddr,
+				&this_adm.mem_addr_audvol[acdb_path].cal_paddr,
 				&size, 1);
 
 		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
@@ -344,9 +347,9 @@ static void send_adm_cal(int port_id, int path)
 				acdb_path, aud_cal.cal_paddr,
 				aud_cal.cal_size);
 		} else {
-			mem_addr_audvol[acdb_path].cal_paddr =
+			this_adm.mem_addr_audvol[acdb_path].cal_paddr =
 							aud_cal.cal_paddr;
-			mem_addr_audvol[acdb_path].cal_size = size;
+			this_adm.mem_addr_audvol[acdb_path].cal_size = size;
 		}
 	}
 
@@ -817,8 +820,8 @@ int adm_memory_unmap_regions(int32_t port_id, uint32_t *buf_add,
 	unmap_regions.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
 	unmap_regions.hdr.token = port_id;
 	unmap_regions.hdr.opcode = ADM_CMD_SHARED_MEM_UNMAP_REGIONS;
-	unmap_regions.mem_map_handle = atomic_read(&mem_map_handles[
-						atomic_read(&mem_map_index)]);
+	unmap_regions.mem_map_handle = atomic_read(&this_adm.
+		mem_map_cal_handles[atomic_read(&this_adm.mem_map_cal_index)]);
 	atomic_set(&this_adm.copp_stat[0], 0);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *) &unmap_regions);
 	if (ret < 0) {
