@@ -708,6 +708,12 @@
 		qcom,memory-reservation-type = "EBI1";
 		qcom,memory-reservation-size = <0x1000>; /* 4K EBI1 buffer */
 	};
+
+        qcom,msm-mem-hole {
+                compatible = "qcom,msm-mem-hole";
+                qcom,memblock-remove = <0x1f00000 0x5700000>; /* Address and Size of Hole */
+        };
+
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
