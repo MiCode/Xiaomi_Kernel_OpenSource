@@ -230,8 +230,8 @@ static int process_mem_print(struct seq_file *s, void *unused)
 	char usage[16];
 
 	spin_lock(&private->mem_lock);
-	seq_printf(s, "%8s %8s %5s %10s %16s %5s\n",
-		   "gpuaddr", "size", "flags", "type", "usage", "sglen");
+	seq_printf(s, "%8s %8s %5s %5s %10s %16s %5s\n",
+		   "gpuaddr", "size", "id", "flags", "type", "usage", "sglen");
 	for (node = rb_first(&private->mem_rb); node; node = rb_next(node)) {
 		struct kgsl_memdesc *m;
 
@@ -245,8 +245,8 @@ static int process_mem_print(struct seq_file *s, void *unused)
 
 		kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
 
-		seq_printf(s, "%08x %8d %5s %10s %16s %5d\n",
-			   m->gpuaddr, m->size, flags,
+		seq_printf(s, "%08x %8d %5d %5s %10s %16s %5d\n",
+			   m->gpuaddr, m->size, entry->id, flags,
 			   memtype_str(entry->memtype), usage, m->sglen);
 	}
 	spin_unlock(&private->mem_lock);
