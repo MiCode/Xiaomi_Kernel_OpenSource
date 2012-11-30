@@ -159,7 +159,7 @@ struct mdss_pp_res_type {
 	struct mdp_ar_gc_lut_data
 		gc_lut_b[MDSS_BLOCK_DISP_NUM][GC_LUT_SEGMENTS];
 	u32 enhist_lut[MDSS_BLOCK_DISP_NUM][ENHIST_LUT_ENTRIES];
-	struct mdp_pa_cfg_data pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pa_cfg pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pcc_cfg_data pcc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_igc_lut_data igc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pgc_lut_data argc_disp_cfg[MDSS_BLOCK_DISP_NUM];
@@ -181,19 +181,29 @@ static DEFINE_SPINLOCK(mdss_hist_lock);
 static DEFINE_MUTEX(mdss_mdp_hist_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
 
-
 static void pp_hist_read(u32 v_base, struct pp_hist_col_info *hist_info);
-
 static void pp_update_pcc_regs(u32 offset,
 				struct mdp_pcc_cfg_data *cfg_ptr);
 static void pp_update_igc_lut(struct mdp_igc_lut_data *cfg,
 				u32 offset, u32 blk_idx);
 static void pp_update_gc_one_lut(u32 offset,
-		struct mdp_ar_gc_lut_data *lut_data);
+				struct mdp_ar_gc_lut_data *lut_data);
 static void pp_update_argc_lut(u32 offset,
-		struct mdp_pgc_lut_data *config);
+				struct mdp_pgc_lut_data *config);
 static void pp_update_hist_lut(u32 offset, struct mdp_hist_lut_data *cfg);
-
+static void pp_pa_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_pa_cfg *pa_config);
+static void pp_pcc_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_pcc_cfg_data *pcc_config);
+static void pp_igc_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_igc_lut_data *igc_config,
+				u32 pipe_num);
+static void pp_enhist_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_hist_lut_data *enhist_cfg);
 
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 				   struct mdp_csc_cfg *data)
@@ -283,6 +293,178 @@ int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type)
 	data = &mdp_csc_convert[csc_type];
 	return mdss_mdp_csc_setup_data(block, blk_idx, tbl_idx, data);
 }
+
+static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
+				u32 base, u32 *gamut_sts)
+{
+	u32 offset;
+	int i, j;
+	if (gamut_cfg->flags & MDP_PP_OPS_WRITE) {
+		offset = base + MDSS_MDP_REG_DSPP_GAMUT_BASE;
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
+				MDSS_MDP_REG_WRITE(offset,
+					(u32)gamut_cfg->r_tbl[i][j]);
+			offset += 4;
+		}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
+				MDSS_MDP_REG_WRITE(offset,
+					(u32)gamut_cfg->g_tbl[i][j]);
+			offset += 4;
+		}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
+				MDSS_MDP_REG_WRITE(offset,
+					(u32)gamut_cfg->b_tbl[i][j]);
+			offset += 4;
+		}
+		if (gamut_cfg->gamut_first)
+			*gamut_sts |= PP_STS_GAMUT_FIRST;
+	}
+
+	if (gamut_cfg->flags & MDP_PP_OPS_DISABLE)
+		*gamut_sts &= ~PP_STS_ENABLE;
+	else if (gamut_cfg->flags & MDP_PP_OPS_ENABLE)
+		*gamut_sts |= PP_STS_ENABLE;
+}
+
+static void pp_pa_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_pa_cfg *pa_config)
+{
+	if (flags & PP_FLAGS_DIRTY_PA) {
+		if (pa_config->flags & MDP_PP_OPS_WRITE) {
+			MDSS_MDP_REG_WRITE(base, pa_config->hue_adj);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, pa_config->sat_adj);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, pa_config->val_adj);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, pa_config->cont_adj);
+		}
+		if (pa_config->flags & MDP_PP_OPS_DISABLE)
+			pp_sts->pa_sts &= ~PP_STS_ENABLE;
+		else if (pa_config->flags & MDP_PP_OPS_ENABLE)
+			pp_sts->pa_sts |= PP_STS_ENABLE;
+	}
+}
+
+static void pp_pcc_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_pcc_cfg_data *pcc_config)
+{
+	if (flags & PP_FLAGS_DIRTY_PCC) {
+		if (pcc_config->ops & MDP_PP_OPS_WRITE)
+			pp_update_pcc_regs(base, pcc_config);
+
+		if (pcc_config->ops & MDP_PP_OPS_DISABLE)
+			pp_sts->pcc_sts &= ~PP_STS_ENABLE;
+		else if (pcc_config->ops & MDP_PP_OPS_ENABLE)
+			pp_sts->pcc_sts |= PP_STS_ENABLE;
+	}
+}
+
+static void pp_igc_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_igc_lut_data *igc_config,
+				u32 pipe_num)
+{
+	u32 tbl_idx;
+	if (flags & PP_FLAGS_DIRTY_IGC) {
+		if (igc_config->ops & MDP_PP_OPS_WRITE)
+			pp_update_igc_lut(igc_config, base, pipe_num);
+
+		if (igc_config->ops & MDP_PP_IGC_FLAG_ROM0) {
+			pp_sts->pcc_sts |= PP_STS_ENABLE;
+			tbl_idx = 1;
+		} else if (igc_config->ops & MDP_PP_IGC_FLAG_ROM1) {
+			pp_sts->pcc_sts |= PP_STS_ENABLE;
+			tbl_idx = 2;
+		} else {
+			tbl_idx = 0;
+		}
+		pp_sts->igc_tbl_idx = tbl_idx;
+		if (igc_config->ops & MDP_PP_OPS_DISABLE)
+			pp_sts->igc_sts &= ~PP_STS_ENABLE;
+		else if (igc_config->ops & MDP_PP_OPS_ENABLE)
+			pp_sts->igc_sts |= PP_STS_ENABLE;
+	}
+}
+
+static void pp_enhist_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_hist_lut_data *enhist_cfg)
+{
+	if (flags & PP_FLAGS_DIRTY_ENHIST) {
+		if (enhist_cfg->ops & MDP_PP_OPS_WRITE)
+			pp_update_hist_lut(base, enhist_cfg);
+
+		if (enhist_cfg->ops & MDP_PP_OPS_DISABLE)
+			pp_sts->enhist_sts &= ~PP_STS_ENABLE;
+		else if (enhist_cfg->ops & MDP_PP_OPS_ENABLE)
+			pp_sts->enhist_sts |= PP_STS_ENABLE;
+	}
+}
+
+static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
+{
+	u32 opmode = 0;
+
+	pr_debug("pnum=%x\n", pipe->num);
+
+	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
+		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_CSC_CFG) {
+			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
+						MDP_CSC_FLAG_ENABLE) << 17;
+			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
+						MDP_CSC_FLAG_YUV_IN) << 18;
+			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
+						MDP_CSC_FLAG_YUV_OUT) << 19;
+			/*
+			 * TODO: Allow pipe to be programmed whenever new CSC is
+			 * applied (i.e. dirty bit)
+			 */
+			if (pipe->play_cnt == 0)
+				mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_SSPP,
+				  pipe->num, 1, &pipe->pp_cfg.csc_cfg);
+		}
+	} else {
+		if (pipe->src_fmt->is_yuv)
+			opmode |= (0 << 19) |	/* DST_DATA=RGB */
+				  (1 << 18) |	/* SRC_DATA=YCBCR */
+				  (1 << 17);	/* CSC_1_EN */
+		/*
+		 * TODO: Needs to be part of dirty bit logic: if there is a
+		 * previously configured pipe need to re-configure CSC matrix
+		 */
+		if (pipe->play_cnt == 0) {
+			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1,
+					   MDSS_MDP_CSC_YUV2RGB);
+		}
+	}
+
+	*op = opmode;
+
+	return 0;
+}
+
+int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
+{
+	int ret = 0;
+	if (!pipe)
+		return -ENODEV;
+
+	if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)
+		ret = pp_vig_pipe_setup(pipe, op);
+	else if (pipe->type == MDSS_MDP_PIPE_TYPE_RGB)
+		ret = -EINVAL;
+	else if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
+		ret = -EINVAL;
+
+	return ret;
+}
+
 static int pp_mixer_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_mixer *mixer)
 {
@@ -326,65 +508,16 @@ static int pp_mixer_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	}
 	return 0;
 }
-static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
-							u32 base,
-							u32 *gamut_sts)
-{
-	u32 offset;
-	int i, j;
-	if (gamut_cfg->flags & MDP_PP_OPS_WRITE) {
-		offset = base + MDSS_MDP_REG_DSPP_GAMUT_BASE;
-		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
-				MDSS_MDP_REG_WRITE(offset,
-					(u32)gamut_cfg->r_tbl[i][j]);
-			offset += 4;
-		}
-		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
-				MDSS_MDP_REG_WRITE(offset,
-					(u32)gamut_cfg->g_tbl[i][j]);
-			offset += 4;
-		}
-		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-			for (j = 0; j < gamut_cfg->tbl_size[i]; j++)
-				MDSS_MDP_REG_WRITE(offset,
-					(u32)gamut_cfg->b_tbl[i][j]);
-			offset += 4;
-		}
-		if (gamut_cfg->gamut_first)
-			*gamut_sts |= PP_STS_GAMUT_FIRST;
-	}
-
-	if (gamut_cfg->flags & MDP_PP_OPS_DISABLE)
-		*gamut_sts &= ~PP_STS_ENABLE;
-	else if (gamut_cfg->flags & MDP_PP_OPS_ENABLE)
-		*gamut_sts |= PP_STS_ENABLE;
-}
-
-/* Note: Assumes that its inputs have been checked by calling function */
-static void pp_update_hist_lut(u32 offset, struct mdp_hist_lut_data *cfg)
-{
-	int i;
-	for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
-		MDSS_MDP_REG_WRITE(offset, cfg->data[i]);
-	/* swap */
-	MDSS_MDP_REG_WRITE(offset + 4, 1);
-}
 
 static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
-		struct mdss_mdp_mixer *mixer)
+				struct mdss_mdp_mixer *mixer)
 {
 	u32 flags, base, offset, dspp_num, opmode = 0;
-	struct mdp_pa_cfg_data *pa_config;
-	struct mdp_pcc_cfg_data *pcc_config;
-	struct mdp_igc_lut_data *igc_config;
-	struct mdp_hist_lut_data *enhist_cfg;
 	struct mdp_dither_cfg_data *dither_cfg;
 	struct pp_hist_col_info *hist_info;
 	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
-	u32 data, tbl_idx, col_state;
+	u32 data, col_state;
 	unsigned long flag;
 	int i;
 
@@ -423,76 +556,32 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	/* nothing to update */
 	if ((!flags) && (!(hist_info->col_en)))
 		return 0;
+
 	pp_sts = &mdss_pp_res->pp_dspp_sts[dspp_num];
-	if (flags & PP_FLAGS_DIRTY_PA) {
-		pa_config = &mdss_pp_res->pa_disp_cfg[disp_num];
-		if (pa_config->pa_data.flags & MDP_PP_OPS_WRITE) {
-			offset = base + MDSS_MDP_REG_DSPP_PA_BASE;
-			MDSS_MDP_REG_WRITE(offset, pa_config->pa_data.hue_adj);
-			offset += 4;
-			MDSS_MDP_REG_WRITE(offset, pa_config->pa_data.sat_adj);
-			offset += 4;
-			MDSS_MDP_REG_WRITE(offset, pa_config->pa_data.val_adj);
-			offset += 4;
-			MDSS_MDP_REG_WRITE(offset, pa_config->pa_data.cont_adj);
-		}
-		if (pa_config->pa_data.flags & MDP_PP_OPS_DISABLE)
-			pp_sts->pa_sts &= ~PP_STS_ENABLE;
-		else if (pa_config->pa_data.flags & MDP_PP_OPS_ENABLE)
-			pp_sts->pa_sts |= PP_STS_ENABLE;
-	}
+
+	pp_pa_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
+					&mdss_pp_res->pa_disp_cfg[disp_num]);
+
+	pp_pcc_config(flags, base + MDSS_MDP_REG_DSPP_PCC_BASE, pp_sts,
+					&mdss_pp_res->pcc_disp_cfg[disp_num]);
+
+	pp_igc_config(flags, MDSS_MDP_REG_IGC_DSPP_BASE, pp_sts,
+				&mdss_pp_res->igc_disp_cfg[disp_num], dspp_num);
+
+	pp_enhist_config(flags, base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE,
+			pp_sts, &mdss_pp_res->enhist_disp_cfg[disp_num]);
+
 	if (pp_sts->pa_sts & PP_STS_ENABLE)
 		opmode |= (1 << 20); /* PA_EN */
-	if (flags & PP_FLAGS_DIRTY_PCC) {
-		pcc_config = &mdss_pp_res->pcc_disp_cfg[disp_num];
-		if (pcc_config->ops & MDP_PP_OPS_WRITE) {
-			offset = base + MDSS_MDP_REG_DSPP_PCC_BASE;
-			pp_update_pcc_regs(offset, pcc_config);
-		}
-		if (pcc_config->ops & MDP_PP_OPS_DISABLE)
-			pp_sts->pcc_sts &= ~PP_STS_ENABLE;
-		else if (pcc_config->ops & MDP_PP_OPS_ENABLE)
-			pp_sts->pcc_sts |= PP_STS_ENABLE;
-	}
+
 	if (pp_sts->pcc_sts & PP_STS_ENABLE)
 		opmode |= (1 << 4); /* PCC_EN */
 
-	if (flags & PP_FLAGS_DIRTY_IGC) {
-		igc_config = &mdss_pp_res->igc_disp_cfg[disp_num];
-		if (igc_config->ops & MDP_PP_OPS_WRITE) {
-			offset = MDSS_MDP_REG_IGC_DSPP_BASE;
-			pp_update_igc_lut(igc_config, offset, dspp_num);
-		}
-		if (igc_config->ops & MDP_PP_IGC_FLAG_ROM0) {
-			pp_sts->pcc_sts |= PP_STS_ENABLE;
-			tbl_idx = 1;
-		} else if (igc_config->ops & MDP_PP_IGC_FLAG_ROM1) {
-			pp_sts->pcc_sts |= PP_STS_ENABLE;
-			tbl_idx = 2;
-		} else {
-			tbl_idx = 0;
-		}
-		pp_sts->igc_tbl_idx = tbl_idx;
-		if (igc_config->ops & MDP_PP_OPS_DISABLE)
-			pp_sts->igc_sts &= ~PP_STS_ENABLE;
-		else if (igc_config->ops & MDP_PP_OPS_ENABLE)
-			pp_sts->igc_sts |= PP_STS_ENABLE;
-	}
 	if (pp_sts->igc_sts & PP_STS_ENABLE) {
 		opmode |= (1 << 0) | /* IGC_LUT_EN */
 			      (pp_sts->igc_tbl_idx << 1);
 	}
-	if (flags & PP_FLAGS_DIRTY_ENHIST) {
-		enhist_cfg = &mdss_pp_res->enhist_disp_cfg[disp_num];
-		if (enhist_cfg->ops & MDP_PP_OPS_WRITE) {
-			offset = base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
-			pp_update_hist_lut(offset, enhist_cfg);
-		}
-		if (enhist_cfg->ops & MDP_PP_OPS_DISABLE)
-			pp_sts->enhist_sts &= ~PP_STS_ENABLE;
-		else if (enhist_cfg->ops & MDP_PP_OPS_ENABLE)
-			pp_sts->enhist_sts |= PP_STS_ENABLE;
-	}
+
 	if (pp_sts->enhist_sts & PP_STS_ENABLE) {
 		opmode |= (1 << 19) | /* HIST_LUT_EN */
 				  (1 << 20); /* PA_EN */
@@ -557,6 +646,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	ctl->flush_bits |= BIT(13 + dspp_num); /* DSPP */
 	return 0;
 }
+
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl)
 {
 	u32 disp_num;
@@ -676,7 +766,7 @@ int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback)
 		*copyback = 1;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	} else {
-		mdss_pp_res->pa_disp_cfg[disp_num] = *config;
+		mdss_pp_res->pa_disp_cfg[disp_num] = config->pa_data;
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PA;
 	}
 
@@ -1056,6 +1146,17 @@ static int pp_read_argc_lut(struct mdp_pgc_lut_data *config, u32 offset)
 	pp_read_gc_one_lut(offset, config->b_data);
 	return ret;
 }
+
+/* Note: Assumes that its inputs have been checked by calling function */
+static void pp_update_hist_lut(u32 offset, struct mdp_hist_lut_data *cfg)
+{
+	int i;
+	for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
+		MDSS_MDP_REG_WRITE(offset, cfg->data[i]);
+	/* swap */
+	MDSS_MDP_REG_WRITE(offset + 4, 1);
+}
+
 int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config, u32 *copyback)
 {
 	int ret = 0;
