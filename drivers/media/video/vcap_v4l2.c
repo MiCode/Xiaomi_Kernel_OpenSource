@@ -568,6 +568,17 @@ int free_ion_handle(struct vcap_client_data *c_data, struct vb2_queue *q,
 	return 0;
 }
 
+void free_ion_on_q_bufs(struct vb2_queue *vq)
+{
+	struct vcap_client_data *c_data = vb2_get_drv_priv(vq);
+	struct vb2_buffer *vb;
+
+	if (!vq->streaming) {
+		list_for_each_entry(vb, &vq->queued_list, queued_entry)
+			free_ion_handle_work(c_data, vb);
+	}
+}
+
 /* VC Videobuf operations */
 static void wait_prepare(struct vb2_queue *q)
 {
@@ -1874,6 +1885,10 @@ static int vcap_close(struct file *file)
 	}
 	v4l2_fh_del(&c_data->vfh);
 	v4l2_fh_exit(&c_data->vfh);
+	free_ion_on_q_bufs(&c_data->vp_out_vidq);
+	free_ion_on_q_bufs(&c_data->vp_in_vidq);
+	free_ion_on_q_bufs(&c_data->vc_vidq);
+
 	vb2_queue_release(&c_data->vp_out_vidq);
 	vb2_queue_release(&c_data->vp_in_vidq);
 	vb2_queue_release(&c_data->vc_vidq);
