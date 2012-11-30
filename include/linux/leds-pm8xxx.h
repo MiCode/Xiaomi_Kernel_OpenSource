@@ -102,6 +102,11 @@ struct wled_config_data {
 	bool	cs_out_en;
 	bool	op_fdbck;
 	bool	cabc_en;
+	bool	sstart_en;
+	bool	max_current_ind;
+	u8 max_three;
+	u8 max_two;
+	u8 max_one;
 };
 
 /**
