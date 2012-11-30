@@ -1086,6 +1086,14 @@ struct msm_rpm_map_data {
 		.count = c, \
 	}
 
+#define MSM_RPM_MAP_PMIC(_target, _pmic, _id, _select, _count) \
+	[MSM_RPM_ID_##_id] = \
+	{\
+		.id = MSM_RPM_##_target##_ID_PM##_pmic##_##_id, \
+		.sel = MSM_RPM_##_target##_SEL_##_select, \
+		.count = _count, \
+	}
+
 #define MSM_RPM_STATUS_ID_VALID BIT(31)
 
 #define MSM_RPM_STATUS_ID_MAP(t, i) \
