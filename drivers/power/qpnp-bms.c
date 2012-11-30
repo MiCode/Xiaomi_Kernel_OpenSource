@@ -340,6 +340,10 @@ static s64 cc_adjust_for_gain(s64 uv, uint16_t gain)
 	s64 result_uv;
 
 	pr_debug("adjusting_uv = %lld\n", uv);
+	if (gain == 0) {
+		pr_debug("gain is %d, not adjusting\n", gain);
+		return uv;
+	}
 	pr_debug("adjusting by factor: %lld/%hu = %lld%%\n",
 			QPNP_ADC_GAIN_NV, gain,
 			div_s64(QPNP_ADC_GAIN_NV * 100LL, (s64)gain));
