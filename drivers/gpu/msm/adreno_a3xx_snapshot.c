@@ -366,6 +366,9 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 		list.count++;
 	}
 
+	/* Disable Clock gating temporarily for the debug bus to work */
+	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL, 0x00);
+
 	/* Master set of (non debug) registers */
 	snapshot = kgsl_snapshot_add_section(device,
 		KGSL_SNAPSHOT_SECTION_REGS, snapshot, remain,
@@ -384,9 +387,6 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, REG_CP_ME_CNTL, REG_CP_ME_STATUS,
 			64, 44);
-
-	/* Disable Clock gating temporarily for the debug bus to work */
-	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL, 0x00);
 
 	/* VPC memory */
 	snapshot = kgsl_snapshot_add_section(device,
