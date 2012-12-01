@@ -38,8 +38,8 @@ enum hal_vcap_mode {
 };
 
 enum hal_vcap_polar {
-	HAL_VCAP_POLAR_NEG = 0,
-	HAL_VCAP_POLAR_POS,
+	HAL_VCAP_POLAR_POS = 0,
+	HAL_VCAP_POLAR_NEG,
 };
 
 enum hal_vcap_color {
