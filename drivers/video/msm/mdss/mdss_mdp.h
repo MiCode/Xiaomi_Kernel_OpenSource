@@ -243,7 +243,9 @@ struct mdss_mdp_pipe {
 
 	unsigned long smp[MAX_PLANES];
 
-	struct mdss_mdp_data buffers[2];
+	struct mdss_mdp_data back_buf;
+	struct mdss_mdp_data front_buf;
+
 	struct list_head used_list;
 	struct list_head cleanup_list;
 
