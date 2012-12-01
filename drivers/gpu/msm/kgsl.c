@@ -1906,6 +1906,8 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	/*
 	 * Mask off unknown flags from userspace. This way the caller can
 	 * check if a flag is supported by looking at the returned flags.
+	 * Note: CACHEMODE is ignored for this call. Caching should be
+	 * determined by type of allocation being mapped.
 	 */
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
 			| KGSL_MEMTYPE_MASK
@@ -2023,34 +2025,93 @@ error:
 	return result;
 }
 
-/*This function flushes a graphics memory allocation from CPU cache
- *when caching is enabled with MMU*/
+static int _kgsl_gpumem_sync_cache(struct kgsl_mem_entry *entry, int op)
+{
+	int ret = 0;
+	int cacheop;
+	int mode;
+
+	/*
+	 * Flush is defined as (clean | invalidate).  If both bits are set, then
+	 * do a flush, otherwise check for the individual bits and clean or inv
+	 * as requested
+	 */
+
+	if ((op & KGSL_GPUMEM_CACHE_FLUSH) == KGSL_GPUMEM_CACHE_FLUSH)
+		cacheop = KGSL_CACHE_OP_FLUSH;
+	else if (op & KGSL_GPUMEM_CACHE_CLEAN)
+		cacheop = KGSL_CACHE_OP_CLEAN;
+	else if (op & KGSL_GPUMEM_CACHE_INV)
+		cacheop = KGSL_CACHE_OP_INV;
+	else {
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mode = kgsl_memdesc_get_cachemode(&entry->memdesc);
+	if (mode != KGSL_CACHEMODE_UNCACHED
+		&& mode != KGSL_CACHEMODE_WRITECOMBINE)
+		kgsl_cache_range_op(&entry->memdesc, cacheop);
+
+done:
+	return ret;
+}
+
+/* New cache sync function - supports both directions (clean and invalidate) */
+
+static long
+kgsl_ioctl_gpumem_sync_cache(struct kgsl_device_private *dev_priv,
+	unsigned int cmd, void *data)
+{
+	struct kgsl_gpumem_sync_cache *param = data;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_mem_entry *entry = NULL;
+
+	if (param->id != 0) {
+		entry = kgsl_sharedmem_find_id(private, param->id);
+		if (entry == NULL) {
+			KGSL_MEM_INFO(dev_priv->device, "can't find id %d\n",
+					param->id);
+			return -EINVAL;
+		}
+	} else if (param->gpuaddr != 0) {
+		spin_lock(&private->mem_lock);
+		entry = kgsl_sharedmem_find(private, param->gpuaddr);
+		spin_unlock(&private->mem_lock);
+		if (entry == NULL) {
+			KGSL_MEM_INFO(dev_priv->device,
+					"can't find gpuaddr %x\n",
+					param->gpuaddr);
+			return -EINVAL;
+		}
+	} else {
+		return -EINVAL;
+	}
+
+	return _kgsl_gpumem_sync_cache(entry, param->op);
+}
+
+/* Legacy cache function, does a flush (clean  + inv) */
+
 static long
 kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 				 unsigned int cmd, void *data)
 {
-	int result = 0;
-	struct kgsl_mem_entry *entry;
 	struct kgsl_sharedmem_free *param = data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_mem_entry *entry = NULL;
 
 	spin_lock(&private->mem_lock);
 	entry = kgsl_sharedmem_find(private, param->gpuaddr);
-	if (!entry) {
-		KGSL_CORE_ERR("invalid gpuaddr %08x\n", param->gpuaddr);
-		result = -EINVAL;
-		goto done;
-	}
-	if (!entry->memdesc.hostptr) {
-		KGSL_CORE_ERR("invalid hostptr with gpuaddr %08x\n",
-			param->gpuaddr);
-			goto done;
+	spin_unlock(&private->mem_lock);
+	if (entry == NULL) {
+		KGSL_MEM_INFO(dev_priv->device,
+				"can't find gpuaddr %x\n",
+				param->gpuaddr);
+		return -EINVAL;
 	}
 
-	kgsl_cache_range_op(&entry->memdesc, KGSL_CACHE_OP_CLEAN);
-done:
-	spin_unlock(&private->mem_lock);
-	return result;
+	return _kgsl_gpumem_sync_cache(entry, KGSL_GPUMEM_CACHE_FLUSH);
 }
 
 /*
@@ -2070,6 +2131,7 @@ _gpumem_alloc(struct kgsl_device_private *dev_priv,
 	 * check if a flag is supported by looking at the returned flags.
 	 */
 	flags &= KGSL_MEMFLAGS_GPUREADONLY
+		| KGSL_CACHEMODE_MASK
 		| KGSL_MEMTYPE_MASK
 		| KGSL_MEMALIGN_MASK;
 
@@ -2409,6 +2471,8 @@ static const struct {
 			kgsl_ioctl_gpumem_free_id, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_GET_INFO,
 			kgsl_ioctl_gpumem_get_info, 0),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_SYNC_CACHE,
+			kgsl_ioctl_gpumem_sync_cache, 0),
 };
 
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
@@ -2578,7 +2642,7 @@ static struct vm_operations_struct kgsl_gpumem_vm_ops = {
 
 static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned int ret;
+	unsigned int ret, cache;
 	unsigned long vma_offset = vma->vm_pgoff << PAGE_SHIFT;
 	struct kgsl_device_private *dev_priv = file->private_data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
@@ -2624,7 +2688,27 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	vma->vm_flags |= entry->memdesc.ops->vmflags(&entry->memdesc);
 
 	vma->vm_private_data = entry;
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+	/* Determine user-side caching policy */
+
+	cache = kgsl_memdesc_get_cachemode(&entry->memdesc);
+
+	switch (cache) {
+	case KGSL_CACHEMODE_UNCACHED:
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		break;
+	case KGSL_CACHEMODE_WRITETHROUGH:
+		vma->vm_page_prot = pgprot_writethroughcache(vma->vm_page_prot);
+		break;
+	case KGSL_CACHEMODE_WRITEBACK:
+		vma->vm_page_prot = pgprot_writebackcache(vma->vm_page_prot);
+		break;
+	case KGSL_CACHEMODE_WRITECOMBINE:
+	default:
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+		break;
+	}
+
 	vma->vm_ops = &kgsl_gpumem_vm_ops;
 	vma->vm_file = file;
 
