@@ -4637,6 +4637,8 @@ static const struct taiko_reg_mask_val taiko_codec_reg_init_val[] = {
 	 */
 	{TAIKO_A_RX_HPH_OCP_CTL, 0xE1, 0x61},
 	{TAIKO_A_RX_COM_OCP_COUNT, 0xFF, 0xFF},
+	{TAIKO_A_RX_HPH_L_TEST, 0x01, 0x01},
+	{TAIKO_A_RX_HPH_R_TEST, 0x01, 0x01},
 
 	/* Initialize gain registers to use register gain */
 	{TAIKO_A_RX_HPH_L_GAIN, 0x20, 0x20},
