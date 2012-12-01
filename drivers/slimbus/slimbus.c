@@ -1216,7 +1216,7 @@ int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh)
 	if (flow != SLIM_SRC)
 		return -EINVAL;
 
-	mutex_lock(&ctrl->m_ctrl);
+	mutex_lock(&ctrl->sched.m_reconf);
 
 	if (slc->state == SLIM_CH_FREE) {
 		ret = -ENOTCONN;
@@ -1238,7 +1238,7 @@ int slim_connect_src(struct slim_device *sb, u32 srch, u16 chanh)
 		slc->srch = srch;
 
 connect_src_err:
-	mutex_unlock(&ctrl->m_ctrl);
+	mutex_unlock(&ctrl->sched.m_reconf);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(slim_connect_src);
@@ -1265,7 +1265,7 @@ int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink, u16 chanh)
 	if (!sinkh || !nsink)
 		return -EINVAL;
 
-	mutex_lock(&ctrl->m_ctrl);
+	mutex_lock(&ctrl->sched.m_reconf);
 
 	/*
 	 * Once channel is removed, its ports can be considered disconnected
@@ -1303,7 +1303,7 @@ int slim_connect_sink(struct slim_device *sb, u32 *sinkh, int nsink, u16 chanh)
 	slc->nsink += nsink;
 
 connect_sink_err:
-	mutex_unlock(&ctrl->m_ctrl);
+	mutex_unlock(&ctrl->sched.m_reconf);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(slim_connect_sink);
@@ -1320,11 +1320,11 @@ int slim_disconnect_ports(struct slim_device *sb, u32 *ph, int nph)
 	struct slim_controller *ctrl = sb->ctrl;
 	int i;
 
-	mutex_lock(&ctrl->m_ctrl);
+	mutex_lock(&ctrl->sched.m_reconf);
 
 	for (i = 0; i < nph; i++)
 		disconnect_port_ch(ctrl, ph[i]);
-	mutex_unlock(&ctrl->m_ctrl);
+	mutex_unlock(&ctrl->sched.m_reconf);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(slim_disconnect_ports);
@@ -1660,13 +1660,13 @@ int slim_alloc_ch(struct slim_device *sb, u16 *chanh)
 
 	if (!ctrl)
 		return -EINVAL;
-	mutex_lock(&ctrl->m_ctrl);
+	mutex_lock(&ctrl->sched.m_reconf);
 	for (i = 0; i < ctrl->nchans; i++) {
 		if (ctrl->chans[i].state == SLIM_CH_FREE)
 			break;
 	}
 	if (i >= ctrl->nchans) {
-		mutex_unlock(&ctrl->m_ctrl);
+		mutex_unlock(&ctrl->sched.m_reconf);
 		return -EXFULL;
 	}
 	*chanh = i;
@@ -1674,7 +1674,7 @@ int slim_alloc_ch(struct slim_device *sb, u16 *chanh)
 	ctrl->chans[i].state = SLIM_CH_ALLOCATED;
 	ctrl->chans[i].chan = (u8)(ctrl->reserved + i);
 
-	mutex_unlock(&ctrl->m_ctrl);
+	mutex_unlock(&ctrl->sched.m_reconf);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(slim_alloc_ch);
@@ -1698,7 +1698,7 @@ int slim_query_ch(struct slim_device *sb, u8 ch, u16 *chanh)
 	int ret = 0;
 	if (!ctrl || !chanh)
 		return -EINVAL;
-	mutex_lock(&ctrl->m_ctrl);
+	mutex_lock(&ctrl->sched.m_reconf);
 	/* start with modulo number */
 	i = ch % ctrl->nchans;
 
@@ -1729,7 +1729,7 @@ int slim_query_ch(struct slim_device *sb, u8 ch, u16 *chanh)
 		i = (i + 1) % ctrl->nchans;
 	}
 query_out:
-	mutex_unlock(&ctrl->m_ctrl);
+	mutex_unlock(&ctrl->sched.m_reconf);
 	dev_dbg(&ctrl->dev, "query ch:%d,hdl:%d,ref:%d,ret:%d",
 				ch, i, ctrl->chans[i].ref, ret);
 	return ret;
@@ -1751,26 +1751,26 @@ int slim_dealloc_ch(struct slim_device *sb, u16 chanh)
 	if (!ctrl)
 		return -EINVAL;
 
-	mutex_lock(&ctrl->m_ctrl);
+	mutex_lock(&ctrl->sched.m_reconf);
 	if (slc->state == SLIM_CH_FREE) {
-		mutex_unlock(&ctrl->m_ctrl);
+		mutex_unlock(&ctrl->sched.m_reconf);
 		return -ENOTCONN;
 	}
 	if (slc->ref > 1) {
 		slc->ref--;
-		mutex_unlock(&ctrl->m_ctrl);
+		mutex_unlock(&ctrl->sched.m_reconf);
 		dev_dbg(&ctrl->dev, "remove chan:%d,hdl:%d,ref:%d",
 					slc->chan, chanh, slc->ref);
 		return 0;
 	}
 	if (slc->state >= SLIM_CH_PENDING_ACTIVE) {
 		dev_err(&ctrl->dev, "Channel:%d should be removed first", chan);
-		mutex_unlock(&ctrl->m_ctrl);
+		mutex_unlock(&ctrl->sched.m_reconf);
 		return -EISCONN;
 	}
 	slc->ref--;
 	slc->state = SLIM_CH_FREE;
-	mutex_unlock(&ctrl->m_ctrl);
+	mutex_unlock(&ctrl->sched.m_reconf);
 	dev_dbg(&ctrl->dev, "remove chan:%d,hdl:%d,ref:%d",
 				slc->chan, chanh, slc->ref);
 	return 0;
@@ -1812,7 +1812,7 @@ int slim_define_ch(struct slim_device *sb, struct slim_ch *prop, u16 *chanh,
 
 	if (!ctrl || !chanh || !prop || !nchan)
 		return -EINVAL;
-	mutex_lock(&ctrl->m_ctrl);
+	mutex_lock(&ctrl->sched.m_reconf);
 	for (i = 0; i < nchan; i++) {
 		u8 chan = SLIM_HDL_TO_CHIDX(chanh[i]);
 		struct slim_ich *slc = &ctrl->chans[chan];
@@ -1856,7 +1856,7 @@ int slim_define_ch(struct slim_device *sb, struct slim_ch *prop, u16 *chanh,
 	}
 err_define_ch:
 	dev_dbg(&ctrl->dev, "define_ch: ch:%d, ret:%d", *chanh, ret);
-	mutex_unlock(&ctrl->m_ctrl);
+	mutex_unlock(&ctrl->sched.m_reconf);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(slim_define_ch);
@@ -2607,7 +2607,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 	struct slim_pending_ch *pch;
 
 	mutex_lock(&ctrl->sched.m_reconf);
-	mutex_lock(&ctrl->m_ctrl);
 	/*
 	 * If there are no pending changes from this client, avoid sending
 	 * the reconfiguration sequence
@@ -2631,7 +2630,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 			}
 		}
 		if (list_empty(&sb->mark_removal)) {
-			mutex_unlock(&ctrl->m_ctrl);
 			mutex_unlock(&ctrl->sched.m_reconf);
 			pr_info("SLIM_CL: skip reconfig sequence");
 			return 0;
@@ -2820,7 +2818,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 		ctrl->sched.msgsl = ctrl->sched.pending_msgsl;
 		sb->cur_msgsl = sb->pending_msgsl;
 		slim_chan_changes(sb, false);
-		mutex_unlock(&ctrl->m_ctrl);
 		mutex_unlock(&ctrl->sched.m_reconf);
 		return 0;
 	}
@@ -2828,7 +2825,6 @@ int slim_reconfigure_now(struct slim_device *sb)
 revert_reconfig:
 	/* Revert channel changes */
 	slim_chan_changes(sb, true);
-	mutex_unlock(&ctrl->m_ctrl);
 	mutex_unlock(&ctrl->sched.m_reconf);
 	return ret;
 }
@@ -2876,7 +2872,6 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 		return -EINVAL;
 
 	mutex_lock(&sb->sldev_reconf);
-	mutex_lock(&ctrl->m_ctrl);
 	do {
 		struct slim_pending_ch *pch;
 		u8 add_mark_removal  = true;
@@ -2935,7 +2930,6 @@ int slim_control_ch(struct slim_device *sb, u16 chanh,
 		if (nchan < SLIM_GRP_TO_NCHAN(chanh))
 			chan = SLIM_HDL_TO_CHIDX(slc->nextgrp);
 	} while (nchan < SLIM_GRP_TO_NCHAN(chanh));
-	mutex_unlock(&ctrl->m_ctrl);
 	if (!ret && commit == true)
 		ret = slim_reconfigure_now(sb);
 	mutex_unlock(&sb->sldev_reconf);
