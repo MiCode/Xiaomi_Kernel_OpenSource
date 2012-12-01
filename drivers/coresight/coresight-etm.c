@@ -500,7 +500,6 @@ static int etm_enable(struct coresight_device *csdev)
 	if (ret)
 		goto err_clk;
 
-	get_online_cpus();
 	spin_lock(&drvdata->spinlock);
 
 	/*
@@ -513,7 +512,6 @@ static int etm_enable(struct coresight_device *csdev)
 	drvdata->enable = true;
 
 	spin_unlock(&drvdata->spinlock);
-	put_online_cpus();
 
 	wake_unlock(&drvdata->wake_lock);
 
@@ -521,7 +519,6 @@ static int etm_enable(struct coresight_device *csdev)
 	return 0;
 err:
 	spin_unlock(&drvdata->spinlock);
-	put_online_cpus();
 	clk_disable_unprepare(drvdata->clk);
 err_clk:
 	wake_unlock(&drvdata->wake_lock);
@@ -551,6 +548,12 @@ static void etm_disable(struct coresight_device *csdev)
 
 	wake_lock(&drvdata->wake_lock);
 
+	/*
+	 * Taking hotplug lock here protects from clocks getting disabled
+	 * with tracing being left on (crash scenario) if user disable occurs
+	 * after cpu online mask indicates the cpu is offline but before the
+	 * DYING hotplug callback is serviced by the ETM driver.
+	 */
 	get_online_cpus();
 	spin_lock(&drvdata->spinlock);
 
@@ -1720,7 +1723,7 @@ static ssize_t etm_show_pcsave(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
-static int ____etm_store_pcsave(struct etm_drvdata *drvdata, unsigned long val)
+static int __etm_store_pcsave(struct etm_drvdata *drvdata, unsigned long val)
 {
 	int ret = 0;
 
@@ -1757,17 +1760,6 @@ out:
 	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
-	return ret;
-}
-
-static int __etm_store_pcsave(struct etm_drvdata *drvdata, unsigned long val)
-{
-	int ret;
-
-	get_online_cpus();
-	ret = ____etm_store_pcsave(drvdata, val);
-	put_online_cpus();
-
 	return ret;
 }
 
@@ -1842,37 +1834,36 @@ static int etm_cpu_callback(struct notifier_block *nfb, unsigned long action,
 {
 	unsigned int cpu = (unsigned long)hcpu;
 
+	if (!etmdrvdata[cpu])
+		goto out;
+
 	switch (action & (~CPU_TASKS_FROZEN)) {
 	case CPU_STARTING:
-		if (etmdrvdata[cpu] && !etmdrvdata[cpu]->os_unlock) {
-			spin_lock(&etmdrvdata[cpu]->spinlock);
+		spin_lock(&etmdrvdata[cpu]->spinlock);
+		if (!etmdrvdata[cpu]->os_unlock) {
 			etm_os_unlock(etmdrvdata[cpu]);
 			etmdrvdata[cpu]->os_unlock = true;
-			spin_unlock(&etmdrvdata[cpu]->spinlock);
 		}
 
-		if (etmdrvdata[cpu] && etmdrvdata[cpu]->enable) {
-			spin_lock(&etmdrvdata[cpu]->spinlock);
+		if (etmdrvdata[cpu]->enable)
 			__etm_enable(etmdrvdata[cpu]);
-			spin_unlock(&etmdrvdata[cpu]->spinlock);
-		}
+		spin_unlock(&etmdrvdata[cpu]->spinlock);
 		break;
 
 	case CPU_ONLINE:
-		if (etmdrvdata[cpu] && etmdrvdata[cpu]->pcsave_boot_enable &&
-		    !etmdrvdata[cpu]->pcsave_sticky_enable) {
-			____etm_store_pcsave(etmdrvdata[cpu], 1);
-		}
+		if (etmdrvdata[cpu]->pcsave_boot_enable &&
+		    !etmdrvdata[cpu]->pcsave_sticky_enable)
+			__etm_store_pcsave(etmdrvdata[cpu], 1);
 		break;
 
 	case CPU_DYING:
-		if (etmdrvdata[cpu] && etmdrvdata[cpu]->enable) {
-			spin_lock(&etmdrvdata[cpu]->spinlock);
+		spin_lock(&etmdrvdata[cpu]->spinlock);
+		if (etmdrvdata[cpu]->enable)
 			__etm_disable(etmdrvdata[cpu]);
-			spin_unlock(&etmdrvdata[cpu]->spinlock);
-		}
+		spin_unlock(&etmdrvdata[cpu]->spinlock);
 		break;
 	}
+out:
 	return NOTIFY_OK;
 }
 
