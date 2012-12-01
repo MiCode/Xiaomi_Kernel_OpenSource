@@ -172,13 +172,16 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 				u8 *tid, struct completion *done)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
+	mutex_lock(&ctrl->m_ctrl);
 	if (ctrl->last_tid <= 255) {
 		ctrl->txnt = krealloc(ctrl->txnt,
 				(ctrl->last_tid + 1) *
 				sizeof(struct slim_msg_txn *),
 				GFP_KERNEL);
-		if (!ctrl->txnt)
+		if (!ctrl->txnt) {
+			mutex_unlock(&ctrl->m_ctrl);
 			return -ENOMEM;
+		}
 		dev->msg_cnt = ctrl->last_tid;
 		ctrl->last_tid++;
 	} else {
@@ -190,6 +193,7 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 		}
 		if (i >= 256) {
 			dev_err(&ctrl->dev, "out of TID");
+			mutex_unlock(&ctrl->m_ctrl);
 			return -ENOMEM;
 		}
 	}
@@ -197,6 +201,7 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 	txn->tid = dev->msg_cnt;
 	txn->comp = done;
 	*tid = dev->msg_cnt;
+	mutex_unlock(&ctrl->m_ctrl);
 	return 0;
 }
 static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
@@ -369,6 +374,9 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			pr_err("connect/disc :0x%x, tid:%d timed out", txn->mc,
 					txn->tid);
 			ret = -ETIMEDOUT;
+			mutex_lock(&ctrl->m_ctrl);
+			ctrl->txnt[txn->tid] = NULL;
+			mutex_unlock(&ctrl->m_ctrl);
 		} else {
 			ret = txn->ec;
 		}
@@ -394,6 +402,9 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 			pr_err("master req:0x%x, tid:%d timed out", txn->mc,
 					txn->tid);
 			ret = -ETIMEDOUT;
+			mutex_lock(&ctrl->m_ctrl);
+			ctrl->txnt[txn->tid] = NULL;
+			mutex_unlock(&ctrl->m_ctrl);
 		} else {
 			ret = txn->ec;
 		}
@@ -526,10 +537,8 @@ static int ngd_get_laddr(struct slim_controller *ctrl, const u8 *ea,
 	txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 	txn.la = SLIM_LA_MGR;
 	txn.ec = 0;
-	mutex_lock(&ctrl->m_ctrl);
 	ret = ngd_get_tid(ctrl, &txn, &wbuf[0], &done);
 	if (ret) {
-		mutex_unlock(&ctrl->m_ctrl);
 		return ret;
 	}
 	memcpy(&wbuf[1], ea, elen);
@@ -543,7 +552,6 @@ static int ngd_get_laddr(struct slim_controller *ctrl, const u8 *ea,
 		ret = -ENXIO;
 	else if (!ret)
 		*laddr = txn.la;
-	mutex_unlock(&ctrl->m_ctrl);
 	return ret;
 }
 
@@ -606,20 +614,33 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 	}
 	if (mc == SLIM_USR_MC_ADDR_REPLY &&
 		mt == SLIM_MSG_MT_SRC_REFERRED_USER) {
-		struct slim_msg_txn *txn = dev->ctrl.txnt[buf[3]];
+		struct slim_msg_txn *txn;
 		u8 failed_ea[6] = {0, 0, 0, 0, 0, 0};
-		if (!txn)
+		mutex_lock(&dev->ctrl.m_ctrl);
+		txn = dev->ctrl.txnt[buf[3]];
+		if (!txn) {
+			pr_err("LADDR response after timeout, tid:0x%x",
+				buf[3]);
+			mutex_unlock(&dev->ctrl.m_ctrl);
 			return;
+		}
 		if (memcmp(&buf[4], failed_ea, 6))
 			txn->la = buf[10];
 		dev->ctrl.txnt[buf[3]] = NULL;
+		mutex_unlock(&dev->ctrl.m_ctrl);
 		complete(txn->comp);
 	}
 	if (mc == SLIM_USR_MC_GENERIC_ACK &&
 		mt == SLIM_MSG_MT_SRC_REFERRED_USER) {
-		struct slim_msg_txn *txn = dev->ctrl.txnt[buf[3]];
-		if (!txn)
+		struct slim_msg_txn *txn;
+		mutex_lock(&dev->ctrl.m_ctrl);
+		txn = dev->ctrl.txnt[buf[3]];
+		if (!txn) {
+			pr_err("ACK received after timeout, tid:0x%x",
+				buf[3]);
+			mutex_unlock(&dev->ctrl.m_ctrl);
 			return;
+		}
 		dev_dbg(dev->dev, "got response:tid:%d, response:0x%x",
 				(int)buf[3], buf[4]);
 		if (!(buf[4] & MSM_SAT_SUCCSS)) {
@@ -628,6 +649,7 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 			txn->ec = -EIO;
 		}
 		dev->ctrl.txnt[buf[3]] = NULL;
+		mutex_unlock(&dev->ctrl.m_ctrl);
 		complete(txn->comp);
 	}
 }
