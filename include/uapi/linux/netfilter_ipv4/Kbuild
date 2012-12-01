@@ -9,3 +9,4 @@ header-y += ipt_ULOG.h
 header-y += ipt_ah.h
 header-y += ipt_ecn.h
 header-y += ipt_ttl.h
+header-y += ipt_NATTYPE.h
