@@ -615,6 +615,6 @@ void __init msm8960_init_pmic(void)
 		pm8921_bms_pdata.rconn_mohm = 20;
 
 	if (!machine_is_msm8960_fluid() && !machine_is_msm8960_liquid()
-			&& !machine_is_msm8960_fluid())
+			&& !machine_is_msm8960_mtp())
 		pm8921_chg_pdata.battery_less_hardware = 1;
 }
