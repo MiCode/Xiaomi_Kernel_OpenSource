@@ -188,6 +188,7 @@ struct dmx_ts_feed {
 	struct dmx_demux *parent; /* Back-pointer */
 	struct data_buffer buffer;
 	void *priv; /* Pointer to private data of the API client */
+	struct dmx_decoder_buffers *decoder_buffers;
 	int (*set) (struct dmx_ts_feed *feed,
 		    u16 pid,
 		    int type,

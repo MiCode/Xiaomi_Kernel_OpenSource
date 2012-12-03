@@ -413,7 +413,21 @@ int mpq_streambuffer_register_pkt_dispose(
 	mpq_streambuffer_pkt_dispose_cb cb_func,
 	void *user_data);
 
-
+/**
+ * mpq_streambuffer_data_rw_offset - returns read/write offsets of current data
+ * buffer.
+ * @sbuff: The stream buffer object
+ * @read_offset: returned read offset
+ * @write_offset: returned write offset
+ *
+ * Note: read offset or write offset may be NULL if not required.
+ * Returns error status
+ * -EINVAL if arguments are invalid
+ */
+int mpq_streambuffer_get_data_rw_offset(
+	struct mpq_streambuffer *sbuff,
+	u32 *read_offset,
+	u32 *write_offset);
 
 #endif /* _MPQ_STREAM_BUFFER_H */
 

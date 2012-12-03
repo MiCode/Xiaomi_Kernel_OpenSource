@@ -39,6 +39,9 @@
 /* Min recording chunk upon which event is generated */
 #define DMX_REC_BUFF_CHUNK_MIN_SIZE		(100*188)
 
+/* Decoder buffers are usually large ~1MB, 10 should suffice */
+#define DMX_MAX_DECODER_BUFFER_NUM		(10)
+
 typedef enum
 {
 	DMX_OUT_DECODER, /* Streaming directly to decoder. */
@@ -314,13 +317,27 @@ struct dmx_buffer_requirement {
 
 	/* Maximum buffer size allowed */
 	__u32 max_size;
+
+	/* Maximum number of linear buffers handled by demux */
+	__u32 max_buffer_num;
+
+	/* Feature support bitmap as detailed below */
 	__u32 flags;
 
-/* Buffer allocated as physically contiguous memory */
-#define DMX_BUFFER_CONTIGEOUS_MEM			0x1
+/* Buffer must be allocated as physically contiguous memory */
+#define DMX_BUFFER_CONTIGUOUS_MEM		0x1
 
 /* If the filter's data is decrypted, the buffer should be secured one */
 #define DMX_BUFFER_SECURED_IF_DECRYPTED		0x2
+
+/* Buffer can be allocated externally */
+#define DMX_BUFFER_EXTERNAL_SUPPORT		0x4
+
+/* Buffer can be allocated internally */
+#define DMX_BUFFER_INTERNAL_SUPPORT		0x8
+
+/* Filter output can be output to a linear buffer group */
+#define DMX_BUFFER_LINEAR_GROUP_SUPPORT		0x10
 };
 
 typedef struct dmx_caps {
@@ -385,6 +402,9 @@ typedef struct dmx_caps {
 	/* For PES not sent to decoder */
 	struct dmx_buffer_requirement pes;
 
+	/* For PES sent to decoder */
+	struct dmx_buffer_requirement decoder;
+
 	/* Recording buffer for recording of 188 bytes packets */
 	struct dmx_buffer_requirement recording_188_tsp;
 
@@ -438,9 +458,9 @@ enum dmx_playback_mode_t {
 };
 
 struct dmx_stc {
-	unsigned int num;	/* input : which STC? 0..N */
-	unsigned int base;	/* output: divisor for stc to get 90 kHz clock */
-	__u64 stc;		/* output: stc in 'base'*90 kHz units */
+	unsigned int num; /* input : which STC? 0..N */
+	unsigned int base; /* output: divisor for stc to get 90 kHz clock */
+	__u64 stc; /* output: stc in 'base'*90 kHz units */
 };
 
 enum dmx_buffer_mode {
@@ -466,6 +486,27 @@ struct dmx_buffer {
 	int handle;
 };
 
+
+struct dmx_decoder_buffers {
+	/*
+	 * Specify if linear buffer support is requested. If set, buffers_num
+	 * must be greater than 1
+	 */
+	int is_linear;
+
+	/*
+	 * Specify number of external buffers allocated by user.
+	 * If set to 0 means internal buffer allocation is requested
+	 */
+	__u32 buffers_num;
+
+	/* Specify buffer size, either external or internal */
+	__u32 buffers_size;
+
+	/* Array of externally allocated buffer handles */
+	int handles[DMX_MAX_DECODER_BUFFER_NUM];
+};
+
 #define DMX_START                _IO('o', 41)
 #define DMX_STOP                 _IO('o', 42)
 #define DMX_SET_FILTER           _IOW('o', 43, struct dmx_sct_filter_params)
@@ -487,5 +528,7 @@ struct dmx_buffer {
 #define DMX_GET_EVENT			 _IOR('o', 60, struct dmx_filter_event)
 #define DMX_SET_BUFFER_MODE		 _IOW('o', 61, enum dmx_buffer_mode)
 #define DMX_SET_BUFFER			 _IOW('o', 62, struct dmx_buffer)
+#define DMX_SET_DECODER_BUFFER	 _IOW('o', 63, struct dmx_decoder_buffers)
+
 
 #endif /*_DVBDMX_H_*/

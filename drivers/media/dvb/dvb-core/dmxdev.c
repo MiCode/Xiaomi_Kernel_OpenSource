@@ -31,7 +31,7 @@
 #include <linux/ioctl.h>
 #include <linux/wait.h>
 #include <linux/mm.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include "dmxdev.h"
@@ -40,6 +40,8 @@ static int debug;
 
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Turn on/off debugging (default:off).");
+
+#define DMX_DEFAULT_DECODER_BUFFER_SIZE (32768)
 
 #define dprintk	if (debug) printk
 
@@ -1351,18 +1353,27 @@ static int dvb_dmxdev_set_tsp_out_format(struct dmxdev_filter *dmxdevfilter,
 	return 0;
 }
 
-static int dvb_dmxdev_set_pes_buffer_size(struct dmxdev_filter *dmxdevfilter,
-					unsigned long size)
+static int dvb_dmxdev_set_decoder_buffer_size(
+	struct dmxdev_filter *dmxdevfilter,
+	unsigned long size)
 {
-	if (dmxdevfilter->pes_buffer_size == size)
-		return 0;
-	if (!size)
+	if (0 == size)
 		return -EINVAL;
+
+	if (dmxdevfilter->decoder_buffers.buffers_size == size)
+		return 0;
+
 	if (dmxdevfilter->state >= DMXDEV_STATE_GO)
 		return -EBUSY;
 
-	dmxdevfilter->pes_buffer_size = size;
-
+	/*
+	 * In case decoder buffers were already set before to some external
+	 * buffers, setting the decoder buffer size alone implies transition
+	 * to internal buffer mode.
+	 */
+	dmxdevfilter->decoder_buffers.buffers_size = size;
+	dmxdevfilter->decoder_buffers.buffers_num = 0;
+	dmxdevfilter->decoder_buffers.is_linear = 0;
 	return 0;
 }
 
@@ -1524,8 +1535,6 @@ static int dvb_dmxdev_get_buffer_status(
 {
 	struct dvb_ringbuffer *buf = &dmxdevfilter->buffer;
 
-	if (!buf->data)
-		return -EINVAL;
 
 	spin_lock_irq(&dmxdevfilter->dev->lock);
 
@@ -1548,6 +1557,11 @@ static int dvb_dmxdev_get_buffer_status(
 
 		spin_unlock_irq(&dmxdevfilter->dev->lock);
 		return ret;
+	}
+
+	if (!buf->data) {
+		spin_unlock_irq(&dmxdevfilter->dev->lock);
+		return -EINVAL;
 	}
 
 	dmx_buffer_status->error = buf->error;
@@ -2253,6 +2267,9 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 		if (!dmxdev->dvr_feeds_count)
 			dmxdev->dvr_feed = filter;
 		dmxdev->dvr_feeds_count++;
+	} else if (filter->params.pes.output == DMX_OUT_DECODER) {
+		tsfeed->decoder_buffers = &filter->decoder_buffers;
+		tsfeed->buffer.priv_handle = filter->priv_buff_handle;
 	} else {
 		tsfeed->buffer.ringbuff = &filter->buffer;
 		tsfeed->buffer.priv_handle = filter->priv_buff_handle;
@@ -2269,7 +2286,8 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 
 	ret = tsfeed->set(tsfeed, feed->pid,
 					ts_type, ts_pes,
-					filter->pes_buffer_size, timeout);
+					filter->decoder_buffers.buffers_size,
+					timeout);
 	if (ret < 0) {
 		dmxdev->demux->release_ts_feed(dmxdev->demux, tsfeed);
 		return ret;
@@ -2477,6 +2495,11 @@ static int dvb_demux_open(struct inode *inode, struct file *file)
 	mutex_init(&dmxdevfilter->mutex);
 	file->private_data = dmxdevfilter;
 
+	memset(&dmxdevfilter->decoder_buffers,
+			0,
+			sizeof(dmxdevfilter->decoder_buffers));
+	dmxdevfilter->decoder_buffers.buffers_size =
+		DMX_DEFAULT_DECODER_BUFFER_SIZE;
 	dmxdevfilter->buffer_mode = DMX_BUFFER_MODE_INTERNAL;
 	dmxdevfilter->priv_buff_handle = NULL;
 	dvb_ringbuffer_init(&dmxdevfilter->buffer, NULL, 8192);
@@ -2486,10 +2509,7 @@ static int dvb_demux_open(struct inode *inode, struct file *file)
 	dvb_dmxdev_filter_state_set(dmxdevfilter, DMXDEV_STATE_ALLOCATED);
 	init_timer(&dmxdevfilter->timer);
 
-	dmxdevfilter->pes_buffer_size = 32768;
-
 	dmxdevfilter->dmx_tsp_format = DMX_TSP_FORMAT_188;
-
 	dvbdev->users++;
 
 	mutex_unlock(&dmxdev->mutex);
@@ -2515,7 +2535,10 @@ static int dvb_dmxdev_filter_free(struct dmxdev *dmxdev,
 			vfree(mem);
 	}
 
-	if ((dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) &&
+	/* Decoder filters do not map buffers via priv_buff_handle */
+	if ((DMXDEV_TYPE_PES == dmxdevfilter->type) &&
+		(DMX_OUT_DECODER != dmxdevfilter->params.pes.output) &&
+		(dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) &&
 		(dmxdevfilter->priv_buff_handle)) {
 		dmxdev->demux->unmap_buffer(dmxdev->demux,
 			dmxdevfilter->priv_buff_handle);
@@ -2649,6 +2672,47 @@ static int dvb_dmxdev_pes_filter_set(struct dmxdev *dmxdev,
 
 	if (params->flags & DMX_IMMEDIATE_START)
 		return dvb_dmxdev_filter_start(dmxdevfilter);
+
+	return 0;
+}
+
+static int dvb_dmxdev_set_decoder_buffer(struct dmxdev *dmxdev,
+		struct dmxdev_filter *filter,
+		struct dmx_decoder_buffers *buffs)
+{
+	int i;
+	struct dmx_decoder_buffers *dec_buffs;
+	struct dmx_caps caps;
+
+	if (NULL == dmxdev || NULL == filter || NULL == buffs)
+		return -EINVAL;
+
+	dec_buffs = &filter->decoder_buffers;
+	dmxdev->demux->get_caps(dmxdev->demux, &caps);
+
+	if (0 == buffs->buffers_size ||
+		(buffs->is_linear && buffs->buffers_num <= 1))
+		return -EINVAL;
+
+	if (0 == buffs->buffers_num) {
+		/* Internal mode - linear buffers not supported in this mode */
+		if (!(caps.decoder.flags & DMX_BUFFER_INTERNAL_SUPPORT) ||
+			buffs->is_linear)
+			return -EINVAL;
+	} else {
+		/* External buffer(s) mode */
+		if ((!(caps.decoder.flags & DMX_BUFFER_LINEAR_GROUP_SUPPORT) &&
+			buffs->buffers_num > 1) ||
+			!(caps.decoder.flags & DMX_BUFFER_EXTERNAL_SUPPORT) ||
+			buffs->buffers_num > caps.decoder.max_buffer_num)
+			return -EINVAL;
+
+		dec_buffs->is_linear = buffs->is_linear;
+		dec_buffs->buffers_num = buffs->buffers_num;
+		dec_buffs->buffers_size = buffs->buffers_size;
+		for (i = 0; i < dec_buffs->buffers_num; i++)
+			dec_buffs->handles[i] = buffs->handles[i];
+	}
 
 	return 0;
 }
@@ -2896,7 +2960,7 @@ static int dvb_demux_do_ioctl(struct file *file,
 			return -ERESTARTSYS;
 		}
 
-		ret = dvb_dmxdev_set_pes_buffer_size(dmxdevfilter, arg);
+		ret = dvb_dmxdev_set_decoder_buffer_size(dmxdevfilter, arg);
 		mutex_unlock(&dmxdevfilter->mutex);
 		break;
 
@@ -2941,6 +3005,15 @@ static int dvb_demux_do_ioctl(struct file *file,
 			break;
 		}
 		ret = dvb_dmxdev_remove_pid(dmxdev, dmxdevfilter, *(u16 *)parg);
+		mutex_unlock(&dmxdevfilter->mutex);
+		break;
+
+	case DMX_SET_DECODER_BUFFER:
+		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+			ret = -ERESTARTSYS;
+			break;
+		}
+		ret = dvb_dmxdev_set_decoder_buffer(dmxdev, dmxdevfilter, parg);
 		mutex_unlock(&dmxdevfilter->mutex);
 		break;
 
