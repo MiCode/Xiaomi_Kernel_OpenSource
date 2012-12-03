@@ -1311,20 +1311,6 @@ static int pm_power_get_property_mains(struct power_supply *psy,
 			return 0;
 		}
 
-		if (charging_disabled)
-			return 0;
-
-		/* check external charger first before the dc path */
-		if (is_ext_charging(the_chip)) {
-			val->intval = 1;
-			return 0;
-		}
-
-		if (pm_is_chg_charge_dis(the_chip)) {
-			val->intval = 0;
-			return 0;
-		}
-
 		if (the_chip->dc_present) {
 			val->intval = 1;
 			return 0;
