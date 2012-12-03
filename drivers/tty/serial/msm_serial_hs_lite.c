@@ -64,6 +64,7 @@ struct msm_hsl_port {
 	unsigned int            old_snap_state;
 	unsigned int		ver_id;
 	int			tx_timeout;
+	struct mutex		clk_mutex;
 };
 
 #define UARTDM_VERSION_11_13	0
@@ -564,7 +565,13 @@ static void msm_hsl_break_ctl(struct uart_port *port, int break_ctl)
 		msm_hsl_write(port, STOP_BREAK, regmap[vid][UARTDM_CR]);
 }
 
-static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
+/**
+ * msm_hsl_set_baud_rate: set requested baud rate
+ * @port: uart port
+ * @baud: baud rate to set (in bps)
+ */
+static void msm_hsl_set_baud_rate(struct uart_port *port,
+						unsigned int baud)
 {
 	unsigned int baud_code, rxstale, watermark;
 	unsigned int data;
@@ -628,17 +635,53 @@ static void msm_hsl_set_baud_rate(struct uart_port *port, unsigned int baud)
 		baud_code = UARTDM_CSR_115200;
 		rxstale = 31;
 		break;
-	default: /* 115200 baud rate */
+	case 4000000:
+	case 3686400:
+	case 3200000:
+	case 3500000:
+	case 3000000:
+	case 2500000:
+	case 1500000:
+	case 1152000:
+	case 1000000:
+	case 921600:
+		baud_code = 0xff;
+		rxstale = 31;
+		break;
+	default: /*115200 baud rate */
 		baud_code = UARTDM_CSR_28800;
 		rxstale = 31;
 		break;
 	}
 
-	/* Set timeout to be ~600x the character transmit time */
-	msm_hsl_port->tx_timeout = (1000000000 / baud) * 6;
-
 	vid = msm_hsl_port->ver_id;
 	msm_hsl_write(port, baud_code, regmap[vid][UARTDM_CSR]);
+
+	/*
+	 * uart baud rate depends on CSR and MND Values
+	 * we are updating CSR before and then calling
+	 * clk_set_rate which updates MND Values. Hence
+	 * dsb requires here.
+	 */
+	mb();
+
+	/*
+	 * Check requested baud rate and for higher baud rate than 460800,
+	 * calculate required uart clock frequency and set the same.
+	 */
+	if (baud > 460800) {
+
+		port->uartclk = baud * 16;
+		if (clk_set_rate(msm_hsl_port->clk, port->uartclk)) {
+			pr_err("%s(): Error setting uartclk rate %u\n",
+						__func__, port->uartclk);
+			WARN_ON(1);
+			return;
+		}
+	}
+
+	/* Set timeout to be ~600x the character transmit time */
+	msm_hsl_port->tx_timeout = (1000000000 / baud) * 6;
 
 	/* RX stale watermark */
 	watermark = UARTDM_IPR_STALE_LSB_BMSK & rxstale;
@@ -795,17 +838,28 @@ static void msm_hsl_set_termios(struct uart_port *port,
 				struct ktermios *termios,
 				struct ktermios *old)
 {
-	unsigned long flags;
 	unsigned int baud, mr;
 	unsigned int vid;
+	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 
 	if (!termios->c_cflag)
 		return;
 
-	spin_lock_irqsave(&port->lock, flags);
+	mutex_lock(&msm_hsl_port->clk_mutex);
 
-	/* calculate and set baud rate */
-	baud = uart_get_baud_rate(port, termios, old, 300, 460800);
+	/*
+	 * Calculate and set baud rate
+	 * 300 is the minimum and 4 Mbps is the maximum baud rate
+	 * supported by driver.
+	 */
+	baud = uart_get_baud_rate(port, termios, old, 200, 4000000);
+
+	/*
+	 * Due to non-availability of 3.2 Mbps baud rate as standard baud rate
+	 * with TTY/serial core. Map 200 BAUD to 3.2 Mbps
+	 */
+	if (baud == 200)
+		baud = 3200000;
 
 	msm_hsl_set_baud_rate(port, baud);
 
@@ -868,7 +922,7 @@ static void msm_hsl_set_termios(struct uart_port *port,
 
 	uart_update_timeout(port, termios->c_cflag, baud);
 
-	spin_unlock_irqrestore(&port->lock, flags);
+	mutex_unlock(&msm_hsl_port->clk_mutex);
 }
 
 static const char *msm_hsl_type(struct uart_port *port)
@@ -1440,6 +1494,7 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 		pr_err("Can't create console attribute\n");
 #endif
 	msm_hsl_debugfs_init(msm_hsl_port, get_line(pdev));
+	mutex_init(&msm_hsl_port->clk_mutex);
 
 	/* Temporarily increase the refcount on the GSBI clock to avoid a race
 	 * condition with the earlyprintk handover mechanism.
@@ -1466,6 +1521,7 @@ static int msm_serial_hsl_remove(struct platform_device *pdev)
 
 	device_set_wakeup_capable(&pdev->dev, 0);
 	platform_set_drvdata(pdev, NULL);
+	mutex_destroy(&msm_hsl_port->clk_mutex);
 	uart_remove_one_port(&msm_hsl_uart_driver, port);
 
 	clk_put(msm_hsl_port->pclk);
