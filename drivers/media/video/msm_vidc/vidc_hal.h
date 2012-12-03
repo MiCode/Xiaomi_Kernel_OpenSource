@@ -271,6 +271,8 @@ struct hfi_extradata_header {
 	(HFI_PROPERTY_PARAM_VDEC_OX_START + 0x013)
 #define HFI_PROPERTY_PARAM_VDEC_INTERLACE_VIDEO_EXTRADATA	\
 	(HFI_PROPERTY_PARAM_VDEC_OX_START + 0x014)
+#define HFI_PROPERTY_PARAM_VDEC_AVC_SESSION_SELECT \
+	(HFI_PROPERTY_PARAM_VDEC_OX_START + 0x015)
 
 #define HFI_PROPERTY_CONFIG_VDEC_OX_START				\
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_OX_OFFSET + 0x0000)
@@ -479,6 +481,7 @@ struct hfi_cmd_session_empty_buffer_compressed_packet {
 	u32 input_tag;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
+	u32 rgData[0];
 };
 
 struct hfi_cmd_session_empty_buffer_uncompressed_plane0_packet {
@@ -497,6 +500,7 @@ struct hfi_cmd_session_empty_buffer_uncompressed_plane0_packet {
 	u32 input_tag;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
+	u32 rgData[0];
 };
 
 struct hfi_cmd_session_empty_buffer_uncompressed_plane1_packet {
@@ -505,6 +509,7 @@ struct hfi_cmd_session_empty_buffer_uncompressed_plane1_packet {
 	u32 filled_len;
 	u32 offset;
 	u8 *packet_buffer2;
+	u32 rgData[0];
 };
 
 struct hfi_cmd_session_empty_buffer_uncompressed_plane2_packet {
@@ -513,6 +518,7 @@ struct hfi_cmd_session_empty_buffer_uncompressed_plane2_packet {
 	u32 filled_len;
 	u32 offset;
 	u8 *packet_buffer3;
+	u32 rgData[0];
 };
 
 struct hfi_cmd_session_fill_buffer_packet {
@@ -526,6 +532,7 @@ struct hfi_cmd_session_fill_buffer_packet {
 	u32 output_tag;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
+	u32 rgData[0];
 };
 
 struct hfi_cmd_session_flush_packet {
@@ -659,6 +666,7 @@ struct hfi_msg_session_empty_buffer_done_packet {
 	u32 input_tag;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
+	u32 rgData[0];
 };
 
 struct hfi_msg_session_fill_buffer_done_compressed_packet {
@@ -680,6 +688,7 @@ struct hfi_msg_session_fill_buffer_done_compressed_packet {
 	u32 picture_type;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
+	u32 rgData[0];
 };
 
 struct hfi_msg_session_fbd_uncompressed_plane0_packet {
@@ -708,6 +717,7 @@ struct hfi_msg_session_fbd_uncompressed_plane0_packet {
 	u32 picture_type;
 	u8 *packet_buffer;
 	u8 *extra_data_buffer;
+	u32 rgData[0];
 };
 
 struct hfi_msg_session_fill_buffer_done_uncompressed_plane1_packet {
@@ -716,6 +726,7 @@ struct hfi_msg_session_fill_buffer_done_uncompressed_plane1_packet {
 	u32 filled_len;
 	u32 offset;
 	u8 *packet_buffer2;
+	u32 rgData[0];
 };
 
 struct hfi_msg_session_fill_buffer_done_uncompressed_plane2_packet {
@@ -724,6 +735,7 @@ struct hfi_msg_session_fill_buffer_done_uncompressed_plane2_packet {
 	u32 filled_len;
 	u32 offset;
 	u8 *packet_buffer3;
+	u32 rgData[0];
 };
 
 struct hfi_msg_session_parse_sequence_header_done_packet {
