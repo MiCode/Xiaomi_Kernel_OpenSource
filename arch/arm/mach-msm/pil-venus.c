@@ -401,6 +401,12 @@ static int pil_venus_init_image_trusted(struct pil_desc *pil,
 	return pas_init_image(PAS_VIDC, metadata, size);
 }
 
+static int pil_venus_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
+			       size_t size)
+{
+	return pas_mem_setup(PAS_VIDC, addr, size);
+}
+
 static int pil_venus_reset_trusted(struct pil_desc *pil)
 {
 	int rc;
@@ -442,6 +448,7 @@ static int pil_venus_shutdown_trusted(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_venus_ops_trusted = {
 	.init_image = pil_venus_init_image_trusted,
+	.mem_setup =  pil_venus_mem_setup_trusted,
 	.auth_and_reset = pil_venus_reset_trusted,
 	.shutdown = pil_venus_shutdown_trusted,
 	.proxy_vote = pil_venus_make_proxy_vote,

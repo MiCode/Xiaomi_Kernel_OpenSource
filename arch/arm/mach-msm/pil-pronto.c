@@ -235,6 +235,12 @@ static int pil_pronto_init_image_trusted(struct pil_desc *pil,
 	return pas_init_image(PAS_WCNSS, metadata, size);
 }
 
+static int pil_pronto_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
+			       size_t size)
+{
+	return pas_mem_setup(PAS_WCNSS, addr, size);
+}
+
 static int pil_pronto_reset_trusted(struct pil_desc *pil)
 {
 	return pas_auth_and_reset(PAS_WCNSS);
@@ -247,6 +253,7 @@ static int pil_pronto_shutdown_trusted(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_pronto_ops_trusted = {
 	.init_image = pil_pronto_init_image_trusted,
+	.mem_setup = pil_pronto_mem_setup_trusted,
 	.auth_and_reset = pil_pronto_reset_trusted,
 	.shutdown = pil_pronto_shutdown_trusted,
 	.proxy_vote = pil_pronto_make_proxy_vote,
