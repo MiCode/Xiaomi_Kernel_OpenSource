@@ -1820,6 +1820,7 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 		data->state = INIT;
 		mxt_free_object_table(data);
 		data->cfg_version_idx = 0;
+		data->config_info = NULL;
 		data->update_cfg = false;
 
 		/* T38 object address might have changed, read it from
