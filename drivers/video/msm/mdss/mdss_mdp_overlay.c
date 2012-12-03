@@ -452,7 +452,7 @@ static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
-static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 {
 	struct msm_fb_data_type *mfd = ctl->mfd;
 	int ret;
