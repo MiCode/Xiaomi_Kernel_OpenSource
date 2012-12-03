@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -11,18 +11,19 @@
 *
 */
 #include <linux/msm_mdp.h>
+#include <linux/switch.h>
 #include <mach/iommu_domains.h>
 #include <media/videobuf2-core.h>
 #include "enc-subdev.h"
 #include "mdp-subdev.h"
 #include "wfd-util.h"
 
-
 struct mdp_instance {
 	struct fb_info *mdp;
 	u32 height;
 	u32 width;
 	bool secure;
+	struct switch_dev sdev;
 };
 
 int mdp_init(struct v4l2_subdev *sd, u32 val)
@@ -54,12 +55,13 @@ int mdp_open(struct v4l2_subdev *sd, void *arg)
 		rc = -ENODEV;
 		goto mdp_open_fail;
 	}
-
-	/*Tell HDMI daemon to open fb2*/
-	rc = kobject_uevent(&fbi->dev->kobj, KOBJ_ADD);
-	if (rc)
-		WFD_MSG_ERR("Failed add to kobj");
-
+	inst->sdev.name = "wfd";
+	/* Register wfd node to switch driver */
+	rc = switch_dev_register(&inst->sdev);
+	if (rc) {
+		WFD_MSG_ERR("WFD switch registration failed\n");
+		goto mdp_open_fail;
+	}
 	msm_fb_writeback_init(fbi);
 	inst->mdp = fbi;
 	inst->secure = mops->secure;
@@ -88,9 +90,8 @@ int mdp_start(struct v4l2_subdev *sd, void *arg)
 			rc = -ENODEV;
 			goto exit;
 		}
-		rc = kobject_uevent(&fbi->dev->kobj, KOBJ_ONLINE);
-		if (rc)
-			WFD_MSG_ERR("Failed to send ONLINE event\n");
+		switch_set_state(&inst->sdev, true);
+		WFD_MSG_DBG("wfd state switched to %d\n", inst->sdev.state);
 	}
 exit:
 	return rc;
@@ -108,11 +109,8 @@ int mdp_stop(struct v4l2_subdev *sd, void *arg)
 			return rc;
 		}
 		fbi = (struct fb_info *)inst->mdp;
-		rc = kobject_uevent(&fbi->dev->kobj, KOBJ_OFFLINE);
-		if (rc) {
-			WFD_MSG_ERR("Failed to send offline event\n");
-			return -EIO;
-		}
+		switch_set_state(&inst->sdev, false);
+		WFD_MSG_DBG("wfd state switched to %d\n", inst->sdev.state);
 	}
 	return 0;
 }
@@ -124,6 +122,8 @@ int mdp_close(struct v4l2_subdev *sd, void *arg)
 		fbi = (struct fb_info *)inst->mdp;
 		msm_fb_writeback_terminate(fbi);
 		kfree(inst);
+		/* Unregister wfd node from switch driver */
+		switch_dev_unregister(&inst->sdev);
 	}
 	return 0;
 }
