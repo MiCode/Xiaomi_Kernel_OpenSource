@@ -3493,6 +3493,21 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 	return 0;
 }
 
+static int otg_power_property_is_writeable_usb(struct power_supply *psy,
+						enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+	case POWER_SUPPLY_PROP_ONLINE:
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		return 1;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static char *otg_pm_power_supplied_to[] = {
 	"battery",
 };
@@ -4073,6 +4088,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	motg->usb_psy.num_properties = ARRAY_SIZE(otg_pm_power_props_usb);
 	motg->usb_psy.get_property = otg_power_get_property_usb;
 	motg->usb_psy.set_property = otg_power_set_property_usb;
+	motg->usb_psy.property_is_writeable
+		= otg_power_property_is_writeable_usb;
 
 	if (!pm8921_charger_register_vbus_sn(NULL)) {
 		/* if pm8921 use legacy implementation */
