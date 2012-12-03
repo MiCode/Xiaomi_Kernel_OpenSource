@@ -29,6 +29,8 @@
 #define MSM_FB_ENABLE_DBGFS
 /* 900 ms for fence time out */
 #define WAIT_FENCE_TIMEOUT 900
+/* 950 ms for display operation time out */
+#define WAIT_DISP_OP_TIMEOUT 950
 
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -125,6 +127,16 @@ struct msm_fb_data_type {
 	u32 last_acq_fen_cnt;
 	struct sync_fence *last_acq_fen[MDP_MAX_FENCE_FD];
 	struct mutex sync_mutex;
+	/* for non-blocking */
+	struct completion commit_comp;
+	u32 is_committing;
+	struct work_struct commit_work;
+	void *msm_fb_backup;
+};
+
+struct msm_fb_backup_type {
+	struct fb_info info;
+	struct mdp_display_commit disp_commit;
 };
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
