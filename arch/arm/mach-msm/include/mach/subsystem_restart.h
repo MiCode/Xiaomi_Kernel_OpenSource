@@ -21,9 +21,8 @@
 struct subsys_device;
 
 enum {
-	RESET_SOC = 1,
+	RESET_SOC = 0,
 	RESET_SUBSYS_COUPLED,
-	RESET_SUBSYS_INDEPENDENT,
 	RESET_LEVEL_MAX
 };
 
@@ -60,7 +59,7 @@ struct subsys_desc {
 
 #if defined(CONFIG_MSM_SUBSYSTEM_RESTART)
 
-extern int get_restart_level(void);
+extern int subsys_get_restart_level(struct subsys_device *dev);
 extern int subsystem_restart_dev(struct subsys_device *dev);
 extern int subsystem_restart(const char *name);
 extern int subsystem_crashed(const char *name);
@@ -75,7 +74,7 @@ extern void subsys_default_online(struct subsys_device *dev);
 
 #else
 
-static inline int get_restart_level(void)
+static inline int subsys_get_restart_level(struct subsys_device *dev)
 {
 	return 0;
 }

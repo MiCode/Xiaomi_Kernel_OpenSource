@@ -1577,8 +1577,6 @@ static int ssrestart_check(void)
 {
 	DMUX_LOG_KERR("%s: modem timeout: BAM DMUX disabled\n", __func__);
 	in_global_reset = 1;
-	if (get_restart_level() <= RESET_SOC)
-		DMUX_LOG_KERR("%s: ssrestart not enabled\n", __func__);
 	return 1;
 }
 

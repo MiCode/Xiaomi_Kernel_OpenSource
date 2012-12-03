@@ -16,3 +16,16 @@ Description:
 
 		This file supports poll(3) to detect when a subsystem changes
 		state. Use POLLPRI to detect state changes.
+
+What:		/sys/bus/msm_subsys/devices/.../restart_level
+Date:		December 2012
+Contact:	Stephen Boyd <sboyd@codeaurora.org>
+Description:
+		Shows the restart level of a subsystem. The level is taken into
+		account when the subsystem is restarted via
+		subsystem_restart{_dev}(). Current supported states are:
+
+			SYSTEM	- reset the entire system
+			RELATED	- reset this subsystem and the other subsystems
+				  related to this one. Having no other
+				  subsystems related to this subsystem is valid.
