@@ -1141,6 +1141,15 @@ long venc_munmap(struct v4l2_subdev *sd, void *arg)
 	return 0;
 }
 
+static long venc_set_framerate_mode(struct v4l2_subdev *sd,
+				void *arg)
+{
+	/* TODO: Unsupported for now, but return false success
+	 * to preserve binary compatibility for userspace apps
+	 * across targets */
+	return 0;
+}
+
 long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	long rc = 0;
@@ -1209,6 +1218,9 @@ long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case ENC_MUNMAP:
 		rc = venc_munmap(sd, arg);
+		break;
+	case SET_FRAMERATE_MODE:
+		rc = venc_set_framerate_mode(sd, arg);
 		break;
 	default:
 		WFD_MSG_ERR("Unknown ioctl %d to enc-subdev\n", cmd);
