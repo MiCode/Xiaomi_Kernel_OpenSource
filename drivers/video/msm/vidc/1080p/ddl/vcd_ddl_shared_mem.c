@@ -975,20 +975,12 @@ void vidc_sm_get_aspect_ratio_info(struct ddl_buf_addr *shared_mem,
 		(codec == VCD_CODEC_DIVX_4) ||
 		(codec == VCD_CODEC_DIVX_5) ||
 		(codec == VCD_CODEC_DIVX_6) ||
-		(codec == VCD_CODEC_XVID) ||
-		(codec == VCD_CODEC_MPEG2)) {
+		(codec == VCD_CODEC_XVID)) {
 
-		if (codec == VCD_CODEC_MPEG2) {
-			aspect_ratio_info->aspect_ratio =
-				VIDC_GETFIELD(aspect_ratio,
-				VIDC_SM_MPEG2_ASPECT_RATIO_INFO_BMSK,
-				VIDC_SM_MPEG2_ASPECT_RATIO_INFO_SHFT);
-		} else {
-			aspect_ratio_info->aspect_ratio =
-				VIDC_GETFIELD(aspect_ratio,
-				VIDC_SM_MPEG4_ASPECT_RATIO_INFO_BMSK,
-				VIDC_SM_MPEG4_ASPECT_RATIO_INFO_SHFT);
-		}
+		aspect_ratio_info->aspect_ratio =
+			VIDC_GETFIELD(aspect_ratio,
+			VIDC_SM_MPEG4_ASPECT_RATIO_INFO_BMSK,
+			VIDC_SM_MPEG4_ASPECT_RATIO_INFO_SHFT);
 
 		switch (aspect_ratio_info->aspect_ratio) {
 		case 1:
@@ -1029,7 +1021,38 @@ void vidc_sm_get_aspect_ratio_info(struct ddl_buf_addr *shared_mem,
 			aspect_ratio_info->par_height   = 1;
 			break;
 		}
+	} else if (codec == VCD_CODEC_MPEG2) {
+
+		aspect_ratio_info->aspect_ratio =
+			VIDC_GETFIELD(aspect_ratio,
+			VIDC_SM_MPEG2_ASPECT_RATIO_INFO_BMSK,
+			VIDC_SM_MPEG2_ASPECT_RATIO_INFO_SHFT);
+
+		switch (aspect_ratio_info->aspect_ratio) {
+		case 1:
+			aspect_ratio_info->par_width    = 1;
+			aspect_ratio_info->par_height   = 1;
+			break;
+		case 2:
+			aspect_ratio_info->par_width    = 4;
+			aspect_ratio_info->par_height   = 3;
+			break;
+		case 3:
+			aspect_ratio_info->par_width    = 16;
+			aspect_ratio_info->par_height   = 9;
+			break;
+		case 4:
+			aspect_ratio_info->par_width    = 221;
+			aspect_ratio_info->par_height   = 100;
+			break;
+		default:
+			DDL_MSG_LOW("Incorrect Aspect Ratio.");
+			aspect_ratio_info->par_width    = 1;
+			aspect_ratio_info->par_height   = 1;
+			break;
+		}
 	}
+
 }
 
 void vidc_sm_set_encoder_slice_batch_int_ctrl(struct ddl_buf_addr *shared_mem,
