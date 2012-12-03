@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -565,6 +565,9 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	int *refcnts = NULL;
 	struct coresight_device *csdev;
 	struct coresight_connection *conns;
+
+	if (IS_ERR_OR_NULL(desc))
+		return ERR_PTR(-EINVAL);
 
 	csdev = kzalloc(sizeof(*csdev), GFP_KERNEL);
 	if (!csdev) {
