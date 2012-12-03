@@ -72,6 +72,11 @@ static const char * const subsys_states[] = {
 	[SUBSYS_ONLINE] = "ONLINE",
 };
 
+static const char * const restart_levels[] = {
+	[RESET_SOC] = "SYSTEM",
+	[RESET_SUBSYS_COUPLED] = "RELATED",
+};
+
 /**
  * struct subsys_tracking - track state of a subsystem or restart order
  * @p_state: private state of subsystem/order
@@ -123,6 +128,7 @@ struct restart_log {
  * @owner: module that provides @desc
  * @count: reference count of subsystem_get()/subsystem_put()
  * @id: ida
+ * @restart_level: restart level (0 - panic, 1 - related, 2 - independent, etc.)
  * @restart_order: order of other devices this devices restarts with
  * @dentry: debugfs directory for this device
  * @do_ramdump_on_put: ramdump on subsystem_put() if true
@@ -140,6 +146,7 @@ struct subsys_device {
 	struct module *owner;
 	int count;
 	int id;
+	int restart_level;
 	struct subsys_soc_restart_order *restart_order;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
@@ -166,6 +173,38 @@ static ssize_t state_show(struct device *dev, struct device_attribute *attr,
 	enum subsys_state state = to_subsys(dev)->track.state;
 	return snprintf(buf, PAGE_SIZE, "%s\n", subsys_states[state]);
 }
+
+static ssize_t
+restart_level_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int level = to_subsys(dev)->restart_level;
+	return snprintf(buf, PAGE_SIZE, "%s\n", restart_levels[level]);
+}
+
+static ssize_t restart_level_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct subsys_device *subsys = to_subsys(dev);
+	int i;
+	const char *p;
+
+	p = memchr(buf, '\n', count);
+	if (p)
+		count = p - buf;
+
+	for (i = 0; i < ARRAY_SIZE(restart_levels); i++)
+		if (!strncasecmp(buf, restart_levels[i], count)) {
+			subsys->restart_level = i;
+			return count;
+		}
+	return -EPERM;
+}
+
+int subsys_get_restart_level(struct subsys_device *dev)
+{
+	return dev->restart_level;
+}
+EXPORT_SYMBOL(subsys_get_restart_level);
 
 static void subsys_set_state(struct subsys_device *subsys,
 			     enum subsys_state state)
@@ -199,6 +238,7 @@ EXPORT_SYMBOL(subsys_default_online);
 static struct device_attribute subsys_attrs[] = {
 	__ATTR_RO(name),
 	__ATTR_RO(state),
+	__ATTR(restart_level, 0644, restart_level_show, restart_level_store),
 	__ATTR_NULL,
 };
 
@@ -258,48 +298,6 @@ static struct subsys_soc_restart_order *restart_orders_8960_sglte[] = {
  */
 static struct subsys_soc_restart_order **restart_orders;
 static int n_restart_orders;
-
-static int restart_level = RESET_SOC;
-
-int get_restart_level()
-{
-	return restart_level;
-}
-EXPORT_SYMBOL(get_restart_level);
-
-static int restart_level_set(const char *val, struct kernel_param *kp)
-{
-	int ret;
-	int old_val = restart_level;
-
-	if (cpu_is_msm9615()) {
-		pr_err("Only Phase 1 subsystem restart is supported\n");
-		return -EINVAL;
-	}
-
-	ret = param_set_int(val, kp);
-	if (ret)
-		return ret;
-
-	switch (restart_level) {
-	case RESET_SUBSYS_INDEPENDENT:
-		if (socinfo_get_platform_subtype() == PLATFORM_SUBTYPE_SGLTE) {
-			pr_info("Phase 3 is currently unsupported. Using phase 2 instead.\n");
-			restart_level = RESET_SUBSYS_COUPLED;
-		}
-	case RESET_SUBSYS_COUPLED:
-	case RESET_SOC:
-		pr_info("Phase %d behavior activated.\n", restart_level);
-		break;
-	default:
-		restart_level = old_val;
-		return -EINVAL;
-	}
-	return 0;
-}
-
-module_param_call(restart_level, restart_level_set, param_get_int,
-			&restart_level, 0644);
 
 static struct subsys_soc_restart_order *
 update_restart_order(struct subsys_device *dev)
@@ -484,7 +482,7 @@ static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
 {
 	struct subsys_soc_restart_order *order = subsys->restart_order;
 
-	if (restart_level != RESET_SUBSYS_INDEPENDENT && order)
+	if (order)
 		return &order->track;
 	else
 		return &subsys->track;
@@ -603,7 +601,7 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	 * This is because the subsystem list inside the relevant
 	 * restart order is not being traversed.
 	 */
-	if (restart_level != RESET_SUBSYS_INDEPENDENT && order) {
+	if (order) {
 		list = order->subsys_ptrs;
 		count = order->count;
 		track = &order->track;
@@ -662,7 +660,8 @@ static void __subsystem_restart_dev(struct subsys_device *dev)
 	struct subsys_tracking *track;
 	unsigned long flags;
 
-	pr_debug("Restarting %s [level=%d]!\n", desc->name, restart_level);
+	pr_debug("Restarting %s [level=%s]!\n", desc->name,
+			restart_levels[dev->restart_level]);
 
 	track = subsys_get_track(dev);
 	/*
@@ -708,13 +707,12 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		return -EBUSY;
 	}
 
-	pr_info("Restart sequence requested for %s, restart_level = %d.\n",
-		name, restart_level);
+	pr_info("Restart sequence requested for %s, restart_level = %s.\n",
+		name, restart_levels[dev->restart_level]);
 
-	switch (restart_level) {
+	switch (dev->restart_level) {
 
 	case RESET_SUBSYS_COUPLED:
-	case RESET_SUBSYS_INDEPENDENT:
 		__subsystem_restart_dev(dev);
 		break;
 	case RESET_SOC:

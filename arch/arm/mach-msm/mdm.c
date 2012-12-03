@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,7 +119,7 @@ static int charm_panic_prep(struct notifier_block *this,
 
 	CHARM_DBG("%s: setting AP2MDM_ERRFATAL high for a non graceful reset\n",
 			 __func__);
-	if (get_restart_level() == RESET_SOC)
+	if (subsys_get_restart_level(charm_subsys) == RESET_SOC)
 		pm8xxx_stay_on();
 
 	charm_disable_irqs();
@@ -237,7 +237,7 @@ static DECLARE_WORK(charm_status_work, charm_status_fn);
 static void charm_fatal_fn(struct work_struct *work)
 {
 	pr_info("Reseting the charm due to an errfatal\n");
-	if (get_restart_level() == RESET_SOC)
+	if (subsys_get_restart_level(charm_subsys) == RESET_SOC)
 		pm8xxx_stay_on();
 	subsystem_restart_dev(charm_subsys);
 }
