@@ -85,6 +85,9 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma);
 static void mdss_fb_release_fences(struct msm_fb_data_type *mfd);
 
+static void mdss_fb_commit_wq_handler(struct work_struct *work);
+static void mdss_fb_pan_idle(struct msm_fb_data_type *mfd);
+
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -357,6 +360,7 @@ static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 
 	pr_debug("mdss_fb suspend index=%d\n", mfd->index);
 
+	mdss_fb_pan_idle(mfd);
 	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_SUSPEND, NULL);
 	if (ret) {
 		pr_warn("unable to suspend fb%d (%d)\n", mfd->index, ret);
@@ -391,6 +395,7 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 
 	pr_debug("mdss_fb resume index=%d\n", mfd->index);
 
+	mdss_fb_pan_idle(mfd);
 	ret = mdss_fb_send_panel_event(mfd, MDSS_EVENT_RESUME, NULL);
 	if (ret) {
 		pr_warn("unable to resume fb%d (%d)\n", mfd->index, ret);
@@ -594,6 +599,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	mdss_fb_pan_idle(mfd);
 	return mdss_fb_blank_sub(blank_mode, info, mfd->op_enable);
 }
 
@@ -610,6 +616,7 @@ static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
+	mdss_fb_pan_idle(mfd);
 	if (off >= len) {
 		/* memory mapped io */
 		off -= len;
@@ -913,7 +920,14 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	mfd->no_update.timer.data = (unsigned long)mfd;
 	init_completion(&mfd->update.comp);
 	init_completion(&mfd->no_update.comp);
-
+	init_completion(&mfd->commit_comp);
+	INIT_WORK(&mfd->commit_work, mdss_fb_commit_wq_handler);
+	mfd->msm_fb_backup = kzalloc(sizeof(struct msm_fb_backup_type),
+		GFP_KERNEL);
+	if (mfd->msm_fb_backup == 0) {
+		pr_err("error: not enough memory!\n");
+		return -ENOMEM;
+	}
 	if (mfd->lut_update) {
 		ret = fb_alloc_cmap(&fbi->cmap, 256, 0);
 		if (ret)
@@ -971,6 +985,7 @@ static int mdss_fb_release(struct fb_info *info, int user)
 		return -EINVAL;
 	}
 
+	mdss_fb_pan_idle(mfd);
 	mfd->ref_cnt--;
 
 	if (!mfd->ref_cnt) {
@@ -1025,7 +1040,81 @@ static void mdss_fb_release_fences(struct msm_fb_data_type *mfd)
 	mfd->cur_rel_fence = 0;
 	mutex_unlock(&mfd->sync_mutex);
 }
+
+static void mdss_fb_pan_idle(struct msm_fb_data_type *mfd)
+{
+	int ret;
+
+	if (mfd->is_committing) {
+		ret = wait_for_completion_timeout(
+				&mfd->commit_comp,
+			msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT));
+		if (ret < 0)
+			ret = -ERESTARTSYS;
+		else if (!ret)
+			pr_err("%s wait for commit_comp timeout %d %d",
+				__func__, ret, mfd->is_committing);
+		if (ret <= 0) {
+			mutex_lock(&mfd->sync_mutex);
+			mfd->is_committing = 0;
+			complete_all(&mfd->commit_comp);
+			mutex_unlock(&mfd->sync_mutex);
+		}
+	}
+}
+
+static int mdss_fb_pan_display_ex(struct fb_info *info,
+		struct mdp_display_commit *disp_commit)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct msm_fb_backup_type *fb_backup;
+	struct fb_var_screeninfo *var = &disp_commit->var;
+	u32 wait_for_finish = disp_commit->wait_for_finish;
+	int ret = 0;
+
+	if ((!mfd->op_enable) || (!mfd->panel_power_on))
+		return -EPERM;
+
+	if (var->xoffset > (info->var.xres_virtual - info->var.xres))
+		return -EINVAL;
+
+	if (var->yoffset > (info->var.yres_virtual - info->var.yres))
+		return -EINVAL;
+
+	mdss_fb_pan_idle(mfd);
+
+	mutex_lock(&mfd->sync_mutex);
+	if (info->fix.xpanstep)
+		info->var.xoffset =
+		(var->xoffset / info->fix.xpanstep) * info->fix.xpanstep;
+
+	if (info->fix.ypanstep)
+		info->var.yoffset =
+		(var->yoffset / info->fix.ypanstep) * info->fix.ypanstep;
+
+	fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
+	memcpy(&fb_backup->info, info, sizeof(struct fb_info));
+	memcpy(&fb_backup->disp_commit, disp_commit,
+		sizeof(struct mdp_display_commit));
+	INIT_COMPLETION(mfd->commit_comp);
+	mfd->is_committing = 1;
+	schedule_work(&mfd->commit_work);
+	mutex_unlock(&mfd->sync_mutex);
+	if (wait_for_finish)
+		mdss_fb_pan_idle(mfd);
+	return ret;
+}
+
 static int mdss_fb_pan_display(struct fb_var_screeninfo *var,
+		struct fb_info *info)
+{
+	struct mdp_display_commit disp_commit;
+	memset(&disp_commit, 0, sizeof(disp_commit));
+	disp_commit.wait_for_finish = true;
+	return mdss_fb_pan_display_ex(info, &disp_commit);
+}
+
+static int mdss_fb_pan_display_sub(struct fb_var_screeninfo *var,
 			       struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -1072,6 +1161,34 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 	pinfo->clk_rate = var->pixclock;
 	/* todo: find how to pass CEA vic through framebuffer APIs */
 	pinfo->vic = var->reserved[3];
+}
+
+static void mdss_fb_commit_wq_handler(struct work_struct *work)
+{
+	struct msm_fb_data_type *mfd;
+	struct fb_var_screeninfo *var;
+	struct fb_info *info;
+	struct msm_fb_backup_type *fb_backup;
+	int ret;
+
+	mfd = container_of(work, struct msm_fb_data_type, commit_work);
+	fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
+	info = &fb_backup->info;
+	if (fb_backup->disp_commit.flags &
+		MDP_DISPLAY_COMMIT_OVERLAY) {
+		mdss_fb_wait_for_fence(mfd);
+		mdss_mdp_overlay_kickoff(mfd->ctl);
+		mdss_fb_signal_timeline(mfd);
+	} else {
+		var = &fb_backup->disp_commit.var;
+		ret = mdss_fb_pan_display_sub(var, info);
+		if (ret)
+			pr_err("%s fails: ret = %x", __func__, ret);
+	}
+	mutex_lock(&mfd->sync_mutex);
+	mfd->is_committing = 0;
+	complete_all(&mfd->commit_comp);
+	mutex_unlock(&mfd->sync_mutex);
 }
 
 static int mdss_fb_check_var(struct fb_var_screeninfo *var,
@@ -1194,6 +1311,7 @@ static int mdss_fb_set_par(struct fb_info *info)
 	struct fb_var_screeninfo *var = &info->var;
 	int old_imgType;
 
+	mdss_fb_pan_idle(mfd);
 	old_imgType = mfd->fb_imgType;
 	switch (var->bits_per_pixel) {
 	case 16:
@@ -1424,7 +1542,20 @@ buf_sync_err_1:
 	mutex_unlock(&mfd->sync_mutex);
 	return ret;
 }
-
+static int mdss_fb_display_commit(struct fb_info *info,
+						unsigned long *argp)
+{
+	int ret;
+	struct mdp_display_commit disp_commit;
+	ret = copy_from_user(&disp_commit, argp,
+			sizeof(disp_commit));
+	if (ret) {
+		pr_err("%s:copy_from_user failed", __func__);
+		return ret;
+	}
+	ret = mdss_fb_pan_display_ex(info, &disp_commit);
+	return ret;
+}
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
@@ -1437,6 +1568,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	int ret = -ENOSYS;
 	struct mdp_buf_sync buf_sync;
 
+	mdss_fb_pan_idle(mfd);
 	switch (cmd) {
 	case MSMFB_CURSOR:
 		ret = mdss_fb_cursor(info, argp);
@@ -1509,6 +1641,10 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 
 	case MSMFB_NOTIFY_UPDATE:
 		ret = mdss_fb_notify_update(mfd, argp);
+		break;
+
+	case MSMFB_DISPLAY_COMMIT:
+		ret = mdss_fb_display_commit(info, argp);
 		break;
 
 	default:
