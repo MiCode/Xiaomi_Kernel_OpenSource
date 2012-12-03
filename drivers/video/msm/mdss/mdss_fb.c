@@ -301,11 +301,6 @@ static int mdss_fb_remove(struct platform_device *pdev)
 		pr_err("msm_fb_remove: can't stop the device %d\n",
 			    mfd->index);
 
-	if (mfd->no_update.timer.function)
-		del_timer(&mfd->no_update.timer);
-	complete(&mfd->no_update.comp);
-	complete(&mfd->update.comp);
-
 	/* remove /dev/fb* */
 	unregister_framebuffer(mfd->fbi);
 
@@ -353,6 +348,9 @@ static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 
 	mfd->suspend.op_enable = mfd->op_enable;
 	mfd->suspend.panel_power_on = mfd->panel_power_on;
+
+	del_timer(&mfd->no_update.timer);
+	complete(&mfd->no_update.comp);
 
 	if (mfd->op_enable) {
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, mfd->fbi,
