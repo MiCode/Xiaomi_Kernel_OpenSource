@@ -264,7 +264,8 @@ struct dsi_kickoff_action {
 typedef void (*fxn)(u32 data);
 
 #define CMD_REQ_RX	0x0001
-#define CMD_REQ_COMMIT 0x0002
+#define CMD_REQ_COMMIT	0x0002
+#define CMD_CLK_CTRL	0x0004
 #define CMD_REQ_NO_MAX_PKT_SIZE 0x0008
 
 struct dcs_cmd_req {

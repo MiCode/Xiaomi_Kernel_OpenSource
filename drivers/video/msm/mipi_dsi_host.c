@@ -1580,7 +1580,6 @@ void mipi_dsi_cmdlist_rx(struct dcs_cmd_req *req)
 void mipi_dsi_cmdlist_commit(int from_mdp)
 {
 	struct dcs_cmd_req *req;
-	int video;
 	u32 dsi_ctrl;
 
 	mutex_lock(&cmd_mutex);
@@ -1591,12 +1590,6 @@ void mipi_dsi_cmdlist_commit(int from_mdp)
 
 	if (req == NULL)
 		goto need_lock;
-
-	video = MIPI_INP(MIPI_DSI_BASE + 0x0000);
-	video &= 0x02; /* VIDEO_MODE */
-
-	if (!video)
-		mipi_dsi_clk_cfg(1);
 
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
 
@@ -1618,9 +1611,6 @@ void mipi_dsi_cmdlist_commit(int from_mdp)
 		mipi_dsi_cmdlist_rx(req);
 	else
 		mipi_dsi_cmdlist_tx(req);
-
-	if (!video)
-		mipi_dsi_clk_cfg(0);
 
 need_lock:
 
@@ -1655,8 +1645,14 @@ int mipi_dsi_cmdlist_put(struct dcs_cmd_req *cmdreq)
 	pr_debug("%s: tot=%d put=%d get=%d\n", __func__,
 		cmdlist.tot, cmdlist.put, cmdlist.get);
 
+	if (req->flags & CMD_CLK_CTRL)
+		mipi_dsi_clk_cfg(1);
+
 	if (req->flags & CMD_REQ_COMMIT)
 		mipi_dsi_cmdlist_commit(0);
+
+	if (req->flags & CMD_CLK_CTRL)
+		mipi_dsi_clk_cfg(0);
 
 	return ret;
 }
