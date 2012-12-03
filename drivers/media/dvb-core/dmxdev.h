@@ -120,9 +120,6 @@ struct dmxdev_filter {
 
 	struct mutex mutex;
 
-	/* relevent for decoder PES */
-	unsigned long pes_buffer_size;
-
 	/* for recording output */
 	enum dmx_tsp_format_t dmx_tsp_format;
 	u32 rec_chunk_size;
@@ -131,6 +128,9 @@ struct dmxdev_filter {
 	struct timer_list timer;
 	int todo;
 	u8 secheader[3];
+
+	/* Decoder buffer(s) related */
+	struct dmx_decoder_buffers decoder_buffers;
 };
 
 struct dmxdev {
