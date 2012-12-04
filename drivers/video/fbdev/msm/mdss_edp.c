@@ -303,10 +303,10 @@ int mdss_edp_on(struct mdss_panel_data *pdata)
 	}
 
 	mdss_edp_prepare_clocks(edp_drv);
-	mdss_edp_clk_enable(edp_drv);
 	mdss_edp_phy_sw_reset(edp_drv->edp_base);
 	mdss_edp_hw_powerup(edp_drv->edp_base, 1);
 	mdss_edp_pll_configure(edp_drv->edp_base, edp_drv->edid.timing[0].pclk);
+	mdss_edp_clk_enable(edp_drv);
 
 	for (i = 0; i < edp_drv->dpcd.max_lane_count; ++i)
 		mdss_edp_enable_lane_bist(edp_drv->edp_base, i, 1);
@@ -346,8 +346,8 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 	for (i = 0; i < edp_drv->dpcd.max_lane_count; ++i)
 		mdss_edp_enable_lane_bist(edp_drv->edp_base, i, 0);
 
-	mdss_edp_hw_powerup(edp_drv->edp_base, 0);
 	mdss_edp_clk_disable(edp_drv);
+	mdss_edp_hw_powerup(edp_drv->edp_base, 0);
 	mdss_edp_unprepare_clocks(edp_drv);
 
 	return ret;
