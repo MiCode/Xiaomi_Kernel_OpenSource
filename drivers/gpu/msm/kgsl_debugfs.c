@@ -232,36 +232,59 @@ static char get_cacheflag(const struct kgsl_memdesc *m)
 	return table[kgsl_memdesc_get_cachemode(m)];
 }
 
+static void print_mem_entry(struct seq_file *s, struct kgsl_mem_entry *entry)
+{
+	char flags[6];
+	char usage[16];
+	struct kgsl_memdesc *m = &entry->memdesc;
+
+	flags[0] = kgsl_memdesc_is_global(m) ?  'g' : '-';
+	flags[1] = m->flags & KGSL_MEMFLAGS_GPUREADONLY ? 'r' : '-';
+	flags[2] = get_alignflag(m);
+	flags[3] = get_cacheflag(m);
+	flags[4] = kgsl_memdesc_use_cpu_map(m) ? 'p' : '-';
+	flags[5] = '\0';
+
+	kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
+
+	seq_printf(s, "%08x %8d %5d %5s %10s %16s %5d\n",
+			m->gpuaddr, m->size, entry->id, flags,
+			memtype_str(entry->memtype), usage, m->sglen);
+}
+
 static int process_mem_print(struct seq_file *s, void *unused)
 {
 	struct kgsl_mem_entry *entry;
 	struct rb_node *node;
 	struct kgsl_process_private *private = s->private;
-	char flags[5];
-	char usage[16];
+	int next = 0;
 
-	spin_lock(&private->mem_lock);
 	seq_printf(s, "%8s %8s %5s %5s %10s %16s %5s\n",
 		   "gpuaddr", "size", "id", "flags", "type", "usage", "sglen");
+
+	/* print all entries with a GPU address */
+	spin_lock(&private->mem_lock);
+
 	for (node = rb_first(&private->mem_rb); node; node = rb_next(node)) {
-		struct kgsl_memdesc *m;
-
 		entry = rb_entry(node, struct kgsl_mem_entry, node);
-		m = &entry->memdesc;
-
-		flags[0] = kgsl_memdesc_is_global(m) ?  'g' : '-';
-		flags[1] = m->flags & KGSL_MEMFLAGS_GPUREADONLY ? 'r' : '-';
-		flags[2] = get_alignflag(m);
-		flags[3] = get_cacheflag(m);
-		flags[4] = '\0';
-
-		kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
-
-		seq_printf(s, "%08x %8d %5d %5s %10s %16s %5d\n",
-			   m->gpuaddr, m->size, entry->id, flags,
-			   memtype_str(entry->memtype), usage, m->sglen);
+		print_mem_entry(s, entry);
 	}
+
 	spin_unlock(&private->mem_lock);
+
+	/* now print all the unbound entries */
+	while (1) {
+		rcu_read_lock();
+		entry = idr_get_next(&private->mem_idr, &next);
+		rcu_read_unlock();
+
+		if (entry == NULL)
+			break;
+		if (entry->memdesc.gpuaddr == 0)
+			print_mem_entry(s, entry);
+		next++;
+	}
+
 	return 0;
 }
 

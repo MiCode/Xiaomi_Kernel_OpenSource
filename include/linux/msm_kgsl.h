@@ -27,6 +27,7 @@
 
 /* General allocation hints */
 #define KGSL_MEMFLAGS_GPUREADONLY 0x01000000
+#define KGSL_MEMFLAGS_USE_CPU_MAP 0x10000000
 
 /* Memory caching hints */
 #define KGSL_CACHEMODE_MASK 0x0C000000
@@ -554,6 +555,8 @@ struct kgsl_timestamp_event_fence {
  * KGSL_MEMFLAGS_GPUREADONLY: the GPU will be unable to write to the buffer
  * KGSL_MEMTYPE*: usage hint for debugging aid
  * KGSL_MEMALIGN*: alignment hint, may be ignored or adjusted by the kernel.
+ * KGSL_MEMFLAGS_USE_CPU_MAP: If set on call and return, the returned GPU
+ * address will be 0. Calling mmap() will set the GPU address.
  */
 struct kgsl_gpumem_alloc_id {
 	unsigned int id;
