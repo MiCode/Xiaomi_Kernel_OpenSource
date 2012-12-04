@@ -390,12 +390,17 @@ static int set_powered(struct sock *sk, u16 index, unsigned char *data, u16 len)
 		goto failed;
 	}
 
+	hci_dev_unlock_bh(hdev);
+
 	if (cp->val)
 		queue_work(hdev->workqueue, &hdev->power_on);
 	else
 		queue_work(hdev->workqueue, &hdev->power_off);
 
 	err = 0;
+	hci_dev_put(hdev);
+
+	return err;
 
 failed:
 	hci_dev_unlock_bh(hdev);
