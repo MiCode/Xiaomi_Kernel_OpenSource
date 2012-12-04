@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -5281,6 +5281,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 						"fda64000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", camss_jpeg_jpeg_axi_clk.c,
 						"fda64000.qcom,iommu"),
+	CLK_LOOKUP("alt_core_clk", camss_top_ahb_clk.c, "fda64000.qcom,iommu"),
 	CLK_LOOKUP("bus_clk0", camss_jpeg_jpeg_axi_clk.c, "fda1c000.qcom,jpeg"),
 	CLK_LOOKUP("bus_clk0", camss_jpeg_jpeg_axi_clk.c, "fda20000.qcom,jpeg"),
 	CLK_LOOKUP("bus_clk0", camss_jpeg_jpeg_axi_clk.c, "fda24000.qcom,jpeg"),
@@ -5297,8 +5298,9 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("camss_top_ahb_clk", camss_top_ahb_clk.c,
 						"fda24000.qcom,jpeg"),
 	CLK_LOOKUP("iface_clk", camss_micro_ahb_clk.c, ""),
-	CLK_LOOKUP("iface_clk", camss_vfe_cpp_ahb_clk.c, "fda44000.qcom,iommu"),
-	CLK_LOOKUP("core_clk", camss_vfe_cpp_clk.c, "fda44000.qcom,iommu"),
+	CLK_LOOKUP("iface_clk", camss_vfe_vfe_ahb_clk.c, "fda44000.qcom,iommu"),
+	CLK_LOOKUP("core_clk", camss_vfe_vfe_axi_clk.c, "fda44000.qcom,iommu"),
+	CLK_LOOKUP("alt_core_clk", camss_top_ahb_clk.c, "fda44000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "mdp.0"),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "mdss_dsi_clk_ctrl"),
 	CLK_LOOKUP("iface_clk", mdss_ahb_clk.c, "fd923400.qcom,mdss_edp"),
