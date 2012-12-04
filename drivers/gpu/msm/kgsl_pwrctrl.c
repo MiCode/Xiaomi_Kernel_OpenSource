@@ -113,6 +113,7 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct kgsl_pwrlevel *pwrlevel;
 	int delta;
+	int level;
 
 	/* Adjust the power level to the current constraints */
 	new_level = _adjust_pwrlevel(pwr, new_level);
@@ -123,6 +124,16 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	delta = new_level < pwr->active_pwrlevel ? -1 : 1;
 
 	update_clk_statistics(device, true);
+
+	level = pwr->active_pwrlevel;
+
+	/*
+	 * Set the active powerlevel first in case the clocks are off - if we
+	 * don't do this then the pwrlevel change won't take effect when the
+	 * clocks come back
+	 */
+
+	pwr->active_pwrlevel = new_level;
 
 	if (test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags) ||
 		(device->state == KGSL_STATE_NAP)) {
@@ -141,11 +152,11 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 		 * avoid glitches.
 		 */
 
-		while (pwr->active_pwrlevel != new_level) {
-			pwr->active_pwrlevel += delta;
+		while (level != new_level) {
+			level += delta;
 
 			clk_set_rate(pwr->grp_clks[0],
-				pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq);
+				pwr->pwrlevels[level].gpu_freq);
 		}
 	}
 
