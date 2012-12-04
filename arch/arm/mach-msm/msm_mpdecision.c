@@ -360,6 +360,7 @@ static int __cpuinit msm_mpd_do_hotplug(void *data)
 	int cpu;
 
 	while (1) {
+		msm_dcvs_update_algo_params();
 		wait_event(msm_mpd.wait_hpq, *event || kthread_should_stop());
 		if (kthread_should_stop())
 			break;
@@ -392,7 +393,6 @@ restart:
 				}
 		msm_mpd.hpupdate = HPUPDATE_WAITING;
 		msm_dcvs_apply_gpu_floor(0);
-		msm_dcvs_update_algo_params();
 	}
 
 	return 0;
