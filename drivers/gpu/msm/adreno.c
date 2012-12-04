@@ -29,6 +29,7 @@
 #include "kgsl_cffdump.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_iommu.h"
+#include "kgsl_trace.h"
 
 #include "adreno.h"
 #include "adreno_pm4types.h"
@@ -2066,6 +2067,8 @@ void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
+
+	trace_kgsl_regwrite(device, offsetwords, value);
 
 	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
 	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));

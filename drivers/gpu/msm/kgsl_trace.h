@@ -608,6 +608,31 @@ TRACE_EVENT(kgsl_mmu_pagefault,
 	)
 );
 
+TRACE_EVENT(kgsl_regwrite,
+
+	TP_PROTO(struct kgsl_device *device, unsigned int offset,
+		unsigned int value),
+
+	TP_ARGS(device, offset, value),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, offset)
+		__field(unsigned int, value)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->offset = offset;
+		__entry->value = value;
+	),
+
+	TP_printk(
+		"d_name=%s reg=%x value=%x",
+		__get_str(device_name), __entry->offset, __entry->value
+	)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */
