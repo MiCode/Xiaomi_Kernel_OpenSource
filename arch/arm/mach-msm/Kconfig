@@ -142,6 +142,7 @@ config ARCH_MSM8X60
 	select MSM_PM8X60 if PM
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
+	select USE_DEV_CTRL_VOLUME
 
 config ARCH_MSM8960
 	bool "MSM8960"
@@ -2698,5 +2699,10 @@ config MSM_USE_USER_ACCESSIBLE_TIMERS
 	help
 	  Enables MSM-specific user accessible timers via a shared
 	  memory page containing the cycle counter.
+
+config USE_DEV_CTRL_VOLUME
+	bool "Use Device Control Volume"
+	help
+	  Use Device Control Volume as opposed to ALSA volume control.
 
 endif
