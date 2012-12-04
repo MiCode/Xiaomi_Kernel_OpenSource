@@ -132,8 +132,10 @@
 			qcom,chg-vddmax-mv = <4200>;
 			qcom,chg-vddsafe-mv = <4200>;
 			qcom,chg-vinmin-mv = <4200>;
+			qcom,chg-vbatdet-mv = <4100>;
 			qcom,chg-ibatmax-ma = <1500>;
 			qcom,chg-ibatterm-ma = <200>;
+			qcom,chg-ibatsafe-ma = <1500>;
 
 			qcom,chg-chgr@1000 {
 				status = "disabled";
