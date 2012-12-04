@@ -193,6 +193,7 @@
 			interrupts = <0 168 1>;
 			qcom,irq-no-suspend;
 		};
+	};
 
 	qcom,wdt@f9017000 {
 		compatible = "qcom,msm-watchdog";
