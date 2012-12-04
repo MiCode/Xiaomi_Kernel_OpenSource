@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/of.h>
@@ -78,9 +79,6 @@ static void __init mpq8092_dt_reserve(void)
 static void __init mpq8092_map_io(void)
 {
 	msm_map_mpq8092_io();
-	if (socinfo_init() < 0)
-		pr_err("%s: socinfo_init() failed\n", __func__);
-
 }
 
 static struct of_dev_auxdata mpq8092_auxdata_lookup[] __initdata = {
@@ -98,6 +96,11 @@ static struct of_dev_auxdata mpq8092_auxdata_lookup[] __initdata = {
 static void __init mpq8092_init(void)
 {
 	struct of_dev_auxdata *adata = mpq8092_auxdata_lookup;
+	struct device *parent;
+
+	parent = socinfo_init();
+	if (IS_ERR_OR_NULL(parent))
+		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	mpq8092_init_gpiomux();
 	msm_clock_init(&mpq8092_clock_init_data);

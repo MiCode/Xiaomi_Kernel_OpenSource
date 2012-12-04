@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1002,10 +1002,8 @@ static void __init fsm9xxx_map_io(void)
 {
 	msm_shared_ram_phys = 0x00100000;
 	msm_map_fsm9xxx_io();
-	if (socinfo_init() < 0)
-		pr_err("%s: socinfo_init() failed!\n",
-		       __func__);
-
+	if (IS_ERR_OR_NULL(socinfo_init()))
+		pr_err("socinfo_init() failed!\n");
 }
 
 MACHINE_START(FSM9XXX_SURF, "QCT FSM9XXX")

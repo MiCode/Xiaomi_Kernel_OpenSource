@@ -782,6 +782,7 @@ config ARCH_MSM
 	select HAVE_CLK_PREPARE
 	select NEED_MACH_MEMORY_H
 	select NEED_MACH_IO_H
+	select SOC_BUS
 	help
 	  Support for Qualcomm MSM/QSD based systems.  This runs on the
 	  apps processor of the MSM/QSD and depends on a shared memory

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
@@ -358,18 +359,20 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 static void __init msm8974_map_io(void)
 {
 	msm_map_8974_io();
-	if (socinfo_init() < 0)
-		pr_err("%s: socinfo_init() failed\n", __func__);
 }
 
 void __init msm8974_init(void)
 {
 	struct of_dev_auxdata *adata = msm8974_auxdata_lookup;
+	struct device *parent;
+
+	parent = socinfo_init();
+	if (IS_ERR_OR_NULL(parent))
+		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm_8974_init_gpiomux();
 	regulator_has_full_constraints();
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
-
 	msm8974_add_drivers();
 }
 
