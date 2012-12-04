@@ -45,10 +45,31 @@
 #include <linux/debugfs.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <mach/board.h>
 #include <mach/msm_serial_hs_lite.h>
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
+
+/*
+ * There are 3 different kind of UART Core available on MSM.
+ * High Speed UART (i.e. Legacy HSUART), GSBI based HSUART
+ * and BSLP based HSUART.
+ */
+enum uart_core_type {
+	LEGACY_HSUART,
+	GSBI_HSUART,
+	BLSP_HSUART,
+};
+
+/*
+ * UART can be used in 2-wire or 4-wire mode.
+ * Use uart_func_mode to set 2-wire or 4-wire mode.
+ */
+enum uart_func_mode {
+	UART_TWO_WIRE, /* can't support HW Flow control. */
+	UART_FOUR_WIRE,/* can support HW Flow control. */
+};
 
 struct msm_hsl_port {
 	struct uart_port	uart;
@@ -60,11 +81,12 @@ struct msm_hsl_port {
 	unsigned int		*uart_csr_code;
 	unsigned int            *gsbi_mapbase;
 	unsigned int            *mapped_gsbi;
-	int			is_uartdm;
 	unsigned int            old_snap_state;
 	unsigned int		ver_id;
 	int			tx_timeout;
 	struct mutex		clk_mutex;
+	enum uart_core_type	uart_type;
+	enum uart_func_mode	func_mode;
 };
 
 #define UARTDM_VERSION_11_13	0
@@ -147,13 +169,191 @@ static inline unsigned int msm_hsl_read(struct uart_port *port,
 
 static unsigned int msm_serial_hsl_has_gsbi(struct uart_port *port)
 {
-	return UART_TO_MSM(port)->is_uartdm;
+	return (UART_TO_MSM(port)->uart_type == GSBI_HSUART);
 }
 
+/**
+ * set_gsbi_uart_func_mode: Check the currently used GSBI UART mode
+ * and set the new required GSBI UART Mode if it is different.
+ * @port: uart port
+ */
+static void set_gsbi_uart_func_mode(struct uart_port *port)
+{
+	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+	unsigned int set_gsbi_uart_mode = GSBI_PROTOCOL_I2C_UART;
+	unsigned int cur_gsbi_uart_mode;
+
+	if (msm_hsl_port->func_mode == UART_FOUR_WIRE)
+		set_gsbi_uart_mode = GSBI_PROTOCOL_UART;
+
+	if (msm_hsl_port->pclk)
+		clk_prepare_enable(msm_hsl_port->pclk);
+
+	/* Read current used GSBI UART Mode and set only if it is different. */
+	cur_gsbi_uart_mode = ioread32(msm_hsl_port->mapped_gsbi +
+					GSBI_CONTROL_ADDR);
+	if ((cur_gsbi_uart_mode & set_gsbi_uart_mode) != set_gsbi_uart_mode)
+		/*
+		 * Programmed GSBI based UART protocol mode i.e. I2C/UART
+		 * Shared Mode or UART Mode.
+		 */
+		iowrite32(set_gsbi_uart_mode,
+			msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR);
+
+	if (msm_hsl_port->pclk)
+		clk_disable_unprepare(msm_hsl_port->pclk);
+}
+
+/**
+ * msm_hsl_config_uart_tx_rx_gpios - Configures UART Tx and RX GPIOs
+ * @port: uart port
+ */
+static int msm_hsl_config_uart_tx_rx_gpios(struct uart_port *port)
+{
+	struct platform_device *pdev = to_platform_device(port->dev);
+	const struct msm_serial_hslite_platform_data *pdata =
+					pdev->dev.platform_data;
+	int ret;
+
+	if (pdata) {
+		ret = gpio_request(pdata->uart_tx_gpio,
+				"UART_TX_GPIO");
+		if (unlikely(ret)) {
+			pr_err("gpio request failed for:%d\n",
+					pdata->uart_tx_gpio);
+			goto exit_uart_config;
+		}
+
+		ret = gpio_request(pdata->uart_rx_gpio, "UART_RX_GPIO");
+		if (unlikely(ret)) {
+			pr_err("gpio request failed for:%d\n",
+					pdata->uart_rx_gpio);
+			gpio_free(pdata->uart_tx_gpio);
+			goto exit_uart_config;
+		}
+	} else {
+		pr_err("Pdata is NULL.\n");
+		ret = -EINVAL;
+	}
+
+exit_uart_config:
+	return ret;
+}
+
+/**
+ * msm_hsl_unconfig_uart_tx_rx_gpios: Unconfigures UART Tx and RX GPIOs
+ * @port: uart port
+ */
+static void msm_hsl_unconfig_uart_tx_rx_gpios(struct uart_port *port)
+{
+	struct platform_device *pdev = to_platform_device(port->dev);
+	const struct msm_serial_hslite_platform_data *pdata =
+					pdev->dev.platform_data;
+
+	if (pdata) {
+		gpio_free(pdata->uart_tx_gpio);
+		gpio_free(pdata->uart_rx_gpio);
+	} else {
+		pr_err("Error:Pdata is NULL.\n");
+	}
+}
+
+/**
+ * msm_hsl_config_uart_hwflow_gpios: Configures UART HWFlow GPIOs
+ * @port: uart port
+ */
+static int msm_hsl_config_uart_hwflow_gpios(struct uart_port *port)
+{
+	struct platform_device *pdev = to_platform_device(port->dev);
+	const struct msm_serial_hslite_platform_data *pdata =
+				pdev->dev.platform_data;
+	int ret = -EINVAL;
+
+	if (pdata) {
+		ret = gpio_request(pdata->uart_cts_gpio,
+					"UART_CTS_GPIO");
+		if (unlikely(ret)) {
+			pr_err("gpio request failed for:%d\n",
+					pdata->uart_cts_gpio);
+			goto exit_config_uart;
+		}
+
+		ret = gpio_request(pdata->uart_rfr_gpio,
+					"UART_RFR_GPIO");
+		if (unlikely(ret)) {
+			pr_err("gpio request failed for:%d\n",
+				pdata->uart_rfr_gpio);
+			gpio_free(pdata->uart_cts_gpio);
+			goto exit_config_uart;
+		}
+	} else {
+		pr_err("Error: Pdata is NULL.\n");
+	}
+
+exit_config_uart:
+	return ret;
+}
+
+/**
+ * msm_hsl_unconfig_uart_hwflow_gpios: Unonfigures UART HWFlow GPIOs
+ * @port: uart port
+ */
+static void msm_hsl_unconfig_uart_hwflow_gpios(struct uart_port *port)
+{
+	struct platform_device *pdev = to_platform_device(port->dev);
+	const struct msm_serial_hslite_platform_data *pdata =
+					pdev->dev.platform_data;
+
+	if (pdata) {
+		gpio_free(pdata->uart_cts_gpio);
+		gpio_free(pdata->uart_rfr_gpio);
+	} else {
+		pr_err("Error: Pdata is NULL.\n");
+	}
+
+}
+
+/**
+ * msm_hsl_config_uart_gpios: Configures UART GPIOs and returns success or
+ * Failure
+ * @port: uart port
+ */
+static int msm_hsl_config_uart_gpios(struct uart_port *port)
+{
+	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+	int ret;
+
+	/* Configure UART Tx and Rx GPIOs */
+	ret = msm_hsl_config_uart_tx_rx_gpios(port);
+	if (!ret) {
+		if (msm_hsl_port->func_mode == UART_FOUR_WIRE) {
+			/*if 4-wire uart, configure CTS and RFR GPIOs */
+			ret = msm_hsl_config_uart_hwflow_gpios(port);
+			if (ret)
+				msm_hsl_unconfig_uart_tx_rx_gpios(port);
+		}
+	} else {
+		msm_hsl_unconfig_uart_tx_rx_gpios(port);
+	}
+
+	return ret;
+}
+
+/**
+ * msm_hsl_unconfig_uart_gpios: Unconfigures UART GPIOs
+ * @port: uart port
+ */
+static void msm_hsl_unconfig_uart_gpios(struct uart_port *port)
+{
+	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+
+	msm_hsl_unconfig_uart_tx_rx_gpios(port);
+	if (msm_hsl_port->func_mode == UART_FOUR_WIRE)
+		msm_hsl_unconfig_uart_hwflow_gpios(port);
+}
 static int get_line(struct platform_device *pdev)
 {
 	struct msm_hsl_port *msm_hsl_port = platform_get_drvdata(pdev);
-
 	return msm_hsl_port->uart.line;
 }
 
@@ -745,28 +945,13 @@ static int msm_hsl_startup(struct uart_port *port)
 		(port->cons && (!(port->cons->flags & CON_ENABLED)))) {
 
 		if (msm_serial_hsl_has_gsbi(port))
-			if ((ioread32(msm_hsl_port->mapped_gsbi +
-				GSBI_CONTROL_ADDR) & GSBI_PROTOCOL_I2C_UART)
-					!= GSBI_PROTOCOL_I2C_UART)
-				iowrite32(GSBI_PROTOCOL_I2C_UART,
-					msm_hsl_port->mapped_gsbi +
-						GSBI_CONTROL_ADDR);
+			set_gsbi_uart_func_mode(port);
 
 		if (pdata && pdata->config_gpio) {
-			ret = gpio_request(pdata->uart_tx_gpio,
-						"UART_TX_GPIO");
-			if (unlikely(ret)) {
-				pr_err("gpio request failed for:%d\n",
-							pdata->uart_tx_gpio);
-				return ret;
-			}
-
-			ret = gpio_request(pdata->uart_rx_gpio, "UART_RX_GPIO");
-			if (unlikely(ret)) {
-				pr_err("gpio request failed for:%d\n",
-							pdata->uart_rx_gpio);
-				gpio_free(pdata->uart_tx_gpio);
-				return ret;
+			ret = msm_hsl_config_uart_gpios(port);
+			if (ret) {
+				msm_hsl_unconfig_uart_gpios(port);
+				goto exit_startup;
 			}
 		}
 	}
@@ -800,9 +985,11 @@ static int msm_hsl_startup(struct uart_port *port)
 			  msm_hsl_port->name, port);
 	if (unlikely(ret)) {
 		pr_err("failed to request_irq\n");
-		return ret;
+		msm_hsl_unconfig_uart_gpios(port);
 	}
-	return 0;
+
+exit_startup:
+	return ret;
 }
 
 static void msm_hsl_shutdown(struct uart_port *port)
@@ -824,10 +1011,9 @@ static void msm_hsl_shutdown(struct uart_port *port)
 	pm_runtime_put_sync(port->dev);
 	if (!(is_console(port)) || (!port->cons) ||
 		(port->cons && (!(port->cons->flags & CON_ENABLED)))) {
-		if (pdata && pdata->config_gpio) {
-			gpio_free(pdata->uart_tx_gpio);
-			gpio_free(pdata->uart_rx_gpio);
-		}
+		/* Free UART GPIOs */
+		if (pdata && pdata->config_gpio)
+			msm_hsl_unconfig_uart_gpios(port);
 	}
 }
 
@@ -1009,22 +1195,15 @@ static int msm_hsl_request_port(struct uart_port *port)
 
 static void msm_hsl_config_port(struct uart_port *port, int flags)
 {
-	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
 	if (flags & UART_CONFIG_TYPE) {
 		port->type = PORT_MSM;
 		if (msm_hsl_request_port(port))
 			return;
 	}
-	if (msm_serial_hsl_has_gsbi(port)) {
-		if (msm_hsl_port->pclk)
-			clk_prepare_enable(msm_hsl_port->pclk);
-		if ((ioread32(msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR) &
-			GSBI_PROTOCOL_I2C_UART) != GSBI_PROTOCOL_I2C_UART)
-			iowrite32(GSBI_PROTOCOL_I2C_UART,
-				msm_hsl_port->mapped_gsbi + GSBI_CONTROL_ADDR);
-		if (msm_hsl_port->pclk)
-			clk_disable_unprepare(msm_hsl_port->pclk);
-	}
+
+	/* Configure required GSBI based UART protocol. */
+	if (msm_serial_hsl_has_gsbi(port))
+		set_gsbi_uart_func_mode(port);
 }
 
 static int msm_hsl_verify_port(struct uart_port *port,
@@ -1397,6 +1576,54 @@ static struct uart_driver msm_hsl_uart_driver = {
 	.cons = MSM_HSL_CONSOLE,
 };
 
+static struct msm_serial_hslite_platform_data
+		*msm_hsl_dt_to_pdata(struct platform_device *pdev)
+{
+	int ret;
+	struct device_node *node = pdev->dev.of_node;
+	struct msm_serial_hslite_platform_data *pdata;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		pr_err("unable to allocate memory for platform data\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	ret = of_property_read_u32(node, "qcom,config-gpio",
+				&pdata->config_gpio);
+	if (ret && ret != -EINVAL) {
+		pr_err("Error with config_gpio property.\n");
+		return ERR_PTR(ret);
+	}
+
+	if (pdata->config_gpio) {
+		pdata->uart_tx_gpio = of_get_named_gpio(node,
+					"qcom,tx-gpio", 0);
+		if (pdata->uart_tx_gpio < 0)
+				return ERR_PTR(pdata->uart_tx_gpio);
+
+		pdata->uart_rx_gpio = of_get_named_gpio(node,
+					"qcom,rx-gpio", 0);
+		if (pdata->uart_rx_gpio < 0)
+				return ERR_PTR(pdata->uart_rx_gpio);
+
+		/* check if 4-wire UART, then get cts/rfr GPIOs. */
+		if (pdata->config_gpio == 4) {
+			pdata->uart_cts_gpio = of_get_named_gpio(node,
+						"qcom,cts-gpio", 0);
+			if (pdata->uart_cts_gpio < 0)
+				return ERR_PTR(pdata->uart_cts_gpio);
+
+			pdata->uart_rfr_gpio = of_get_named_gpio(node,
+						"qcom,rfr-gpio", 0);
+			if (pdata->uart_rfr_gpio < 0)
+				return ERR_PTR(pdata->uart_rfr_gpio);
+		}
+	}
+
+	return pdata;
+}
+
 static atomic_t msm_serial_hsl_next_id = ATOMIC_INIT(0);
 
 static int msm_serial_hsl_probe(struct platform_device *pdev)
@@ -1405,7 +1632,7 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	struct resource *uart_resource;
 	struct resource *gsbi_resource;
 	struct uart_port *port;
-	const struct msm_serial_hslite_platform_data *pdata;
+	struct msm_serial_hslite_platform_data *pdata;
 	const struct of_device_id *match;
 	u32 line;
 	int ret;
@@ -1422,9 +1649,16 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 
 	/* Use line number from device tree alias if present */
 	if (pdev->dev.of_node) {
+		dev_dbg(&pdev->dev, "device tree enabled\n");
 		ret = of_alias_get_id(pdev->dev.of_node, "serial");
 		if (ret >= 0)
 			line = ret;
+
+		pdata = msm_hsl_dt_to_pdata(pdev);
+		if (IS_ERR(pdata))
+			return PTR_ERR(pdata);
+
+		pdev->dev.platform_data = pdata;
 	}
 
 	if (unlikely(line < 0 || line >= UART_NR))
@@ -1437,11 +1671,23 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	port->uartclk = 7372800;
 	msm_hsl_port = UART_TO_MSM(port);
 
-	match = of_match_device(msm_hsl_match_table, &pdev->dev);
-	if (!match)
-		msm_hsl_port->ver_id = UARTDM_VERSION_11_13;
+	/* Identify UART functional mode as 2-wire or 4-wire. */
+	if (pdata && pdata->config_gpio == 4)
+		msm_hsl_port->func_mode = UART_FOUR_WIRE;
 	else
+		msm_hsl_port->func_mode = UART_TWO_WIRE;
+
+	match = of_match_device(msm_hsl_match_table, &pdev->dev);
+	if (!match) {
+		msm_hsl_port->ver_id = UARTDM_VERSION_11_13;
+	} else {
 		msm_hsl_port->ver_id = (unsigned int)match->data;
+		/*
+		 * BLSP based UART configuration is available with
+		 * UARTDM v14 Revision. Hence set uart_type as UART_BLSP.
+		 */
+		msm_hsl_port->uart_type = BLSP_HSUART;
+	}
 
 	gsbi_resource =	platform_get_resource_byname(pdev,
 						     IORESOURCE_MEM,
@@ -1452,9 +1698,9 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	msm_hsl_port->pclk = clk_get(&pdev->dev, "iface_clk");
 
 	if (gsbi_resource)
-		msm_hsl_port->is_uartdm = 1;
+		msm_hsl_port->uart_type = GSBI_HSUART;
 	else
-		msm_hsl_port->is_uartdm = 0;
+		msm_hsl_port->uart_type = LEGACY_HSUART;
 
 	if (unlikely(IS_ERR(msm_hsl_port->clk))) {
 		pr_err("Error getting clk\n");

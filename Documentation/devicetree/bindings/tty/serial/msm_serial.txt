@@ -34,6 +34,15 @@ Required properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the uart interrupt.
 
+Optional properties:
+- qcom,config-gpio : Set this value if UART GPIOs need to be configured by driver.
+set 4 if 4-wire UART used (for Tx, Rx, CTS, RFR GPIOs).
+Set 1 if 2-wire UART used (for Tx, Rx GPIOs).
+- qcom,<gpio-name>-gpio : handle to the GPIO node, see "gpios property" in
+Documentation/devicetree/bindings/gpio/gpio.txt.
+"gpio-name" can be "tx", "rx", "cts" and "rfr" based on number of UART GPIOs
+need to configured.
+
 Aliases:
 An alias may optionally be used to bind the serial device to a tty device
 (ttyHSLx) with a given line number. Aliases are of the form serial<n> where <n>
@@ -50,4 +59,10 @@ Example:
 		compatible = "qcom,msm-lsuart-v14"
 		reg = <0x19c40000 0x1000">;
 		interrupts = <195>;
+
+		qcom,config-gpio = <4>;
+		qcom,tx-gpio = <&msmgpio 41 0x00>;
+		qcom,rx-gpio = <&msmgpio 42 0x00>;
+		qcom,cts-gpio = <&msmgpio 43 0x00>;
+		qcom,rfr-gpio = <&msmgpio 44 0x00>;
 	};
