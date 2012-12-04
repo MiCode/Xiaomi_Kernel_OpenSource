@@ -459,6 +459,11 @@ Required properties:
 - qcom,taiko-mclk-clk-freq : Master clock value given to codec. Some WCD9XXX
   codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
   This element represents the value for MCLK provided to codec.
+- prim-i2s-gpio-ws : Specifies gpio assigned for primary WS I2S pin.
+- prim-i2s-gpio-din : Specifies gpio assigned for primary DIN I2S pin.
+- prim-i2s-gpio-dout : Specifies gpio assigned for primary DOUT I2S pin.
+- prim-i2s-gpio-sclk : Specifies gpio assigned for primary SCLK I2S pin.
+- prim-i2s-gpio-mclk : Specifies gpio assigned for MCLK I2S pin.
 
 Example:
 
@@ -494,6 +499,11 @@ sound {
 			"DMIC6", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic6";
 			qcom,taiko-mclk-clk-freq = <12288000>;
+			prim-i2s-gpio-ws   =  <&msmgpio 12 0>;
+			prim-i2s-gpio-din  =  <&msmgpio 13 0>;
+			prim-i2s-gpio-dout =  <&msmgpio 14 0>;
+			prim-i2s-gpio-sclk =  <&msmgpio 15 0>;
+			prim-i2s-gpio-mclk =  <&msmgpio 71 0>;
 };
 
 * msm-adsp-loader
