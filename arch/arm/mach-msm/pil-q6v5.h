@@ -31,6 +31,7 @@ struct q6v5_data {
 	void __iomem *axi_halt_base;
 	void __iomem *restart_reg;
 	struct regulator *vreg;
+	struct regulator *vreg_mx;
 	bool is_booted;
 	struct pil_desc desc;
 };

@@ -56,6 +56,9 @@
 #define RMB_PMI_CODE_START		0x14
 #define RMB_PMI_CODE_LENGTH		0x18
 
+#define VDD_MSS_UV			1050000
+#define MAX_VDD_MX_UV			1050000
+
 #define PROXY_TIMEOUT_MS		10000
 #define POLL_INTERVAL_US		50
 
@@ -99,7 +102,7 @@ static int pil_mss_power_up(struct q6v5_data *drv)
 
 	ret = regulator_enable(drv->vreg);
 	if (ret)
-		dev_err(dev, "Failed to enable regulator.\n");
+		dev_err(dev, "Failed to enable modem regulator.\n");
 
 	return ret;
 }
@@ -264,9 +267,44 @@ err_power:
 	return ret;
 }
 
+static int pil_q6v5_mss_make_proxy_votes(struct pil_desc *pil)
+{
+	int ret;
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+
+	ret = regulator_set_voltage(drv->vreg_mx, VDD_MSS_UV, MAX_VDD_MX_UV);
+	if (ret) {
+		dev_err(pil->dev, "Failed to request vreg_mx voltage\n");
+		return ret;
+	}
+
+	ret = regulator_enable(drv->vreg_mx);
+	if (ret) {
+		dev_err(pil->dev, "Failed to enable vreg_mx\n");
+		regulator_set_voltage(drv->vreg_mx, 0, MAX_VDD_MX_UV);
+		return ret;
+	}
+
+	ret = pil_q6v5_make_proxy_votes(pil);
+	if (ret) {
+		regulator_disable(drv->vreg_mx);
+		regulator_set_voltage(drv->vreg_mx, 0, MAX_VDD_MX_UV);
+	}
+
+	return ret;
+}
+
+static void pil_q6v5_mss_remove_proxy_votes(struct pil_desc *pil)
+{
+	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	pil_q6v5_remove_proxy_votes(pil);
+	regulator_disable(drv->vreg_mx);
+	regulator_set_voltage(drv->vreg_mx, 0, MAX_VDD_MX_UV);
+}
+
 static struct pil_reset_ops pil_mss_ops = {
-	.proxy_vote = pil_q6v5_make_proxy_votes,
-	.proxy_unvote = pil_q6v5_remove_proxy_votes,
+	.proxy_vote = pil_q6v5_mss_make_proxy_votes,
+	.proxy_unvote = pil_q6v5_mss_remove_proxy_votes,
 	.auth_and_reset = pil_mss_reset,
 	.shutdown = pil_mss_shutdown,
 };
@@ -674,7 +712,11 @@ static int pil_mss_loadable_init(struct mba_data *drv,
 	if (IS_ERR(q6->vreg))
 		return PTR_ERR(q6->vreg);
 
-	ret = regulator_set_voltage(q6->vreg, 1050000, 1050000);
+	q6->vreg_mx = devm_regulator_get(&pdev->dev, "vdd_mx");
+	if (IS_ERR(q6->vreg_mx))
+		return PTR_ERR(q6->vreg_mx);
+
+	ret = regulator_set_voltage(q6->vreg, VDD_MSS_UV, VDD_MSS_UV);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to set regulator's voltage.\n");
 
