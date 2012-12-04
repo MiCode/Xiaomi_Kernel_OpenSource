@@ -274,6 +274,32 @@ TRACE_EVENT(kgsl_mpdcvs,
 	)
 );
 
+TRACE_EVENT(kgsl_gpubusy,
+	TP_PROTO(struct kgsl_device *device, unsigned int busy,
+		unsigned int elapsed),
+
+	TP_ARGS(device, busy, elapsed),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, busy)
+		__field(unsigned int, elapsed)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->busy = busy;
+		__entry->elapsed = elapsed;
+	),
+
+	TP_printk(
+		"d_name=%s busy=%d elapsed=%d",
+		__get_str(device_name),
+		__entry->busy,
+		__entry->elapsed
+	)
+);
+
 DECLARE_EVENT_CLASS(kgsl_pwrstate_template,
 	TP_PROTO(struct kgsl_device *device, unsigned int state),
 

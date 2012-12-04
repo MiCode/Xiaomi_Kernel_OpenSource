@@ -688,6 +688,9 @@ static void update_statistics(struct kgsl_device *device)
 	clkstats->on_time_old = on_time;
 	clkstats->elapsed_old = clkstats->elapsed;
 	clkstats->elapsed = 0;
+
+	trace_kgsl_gpubusy(device, clkstats->on_time_old,
+		clkstats->elapsed_old);
 }
 
 /* Track the amount of time the gpu is on vs the total system time. *
