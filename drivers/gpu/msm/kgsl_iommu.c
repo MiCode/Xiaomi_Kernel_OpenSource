@@ -897,8 +897,6 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 
 		kgsl_regwrite(mmu->device, MH_MMU_MPU_END,
 			mh->mpu_base + mh->mpu_range);
-	} else {
-		kgsl_regwrite(mmu->device, MH_MMU_CONFIG, 0x00000000);
 	}
 
 	mmu->hwpagetable = mmu->defaultpagetable;
