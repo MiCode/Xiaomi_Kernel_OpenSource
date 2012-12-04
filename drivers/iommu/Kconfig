@@ -40,6 +40,16 @@ config MSM_IOMMU_GPU_SYNC
 
 	  If unsure, say N here.
 
+config MSM_IOMMU_PMON
+	bool "MSM IOMMU Perfomance Monitoring Support"
+	depends on ARCH_MSM8974 && MSM_IOMMU
+	help
+	  Support for monitoring IOMMUs performance on certain Qualcomm SOCs.
+	  It captures TLB statistics per context bank of the IOMMU as an
+	  indication of its performance metric.
+
+	  If unsure, say N here.
+
 config IOMMU_PGTABLES_L2
 	bool "Allow SMMU page tables in the L2 cache (Experimental)"
 	depends on MSM_IOMMU && MMU && SMP && CPU_DCACHE_DISABLE=n

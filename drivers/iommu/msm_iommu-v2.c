@@ -191,7 +191,6 @@ static void __reset_iommu(void __iomem *base)
 	SET_GFAR(base, 0);
 	SET_GFSRRESTORE(base, 0);
 	SET_TLBIALLNSNH(base, 0);
-	SET_PMCR(base, 0);
 	SET_SCR1(base, 0);
 	SET_SSDR_N(base, 0, 0);
 	smt_size = GET_IDR0_NUMSMRG(base);
