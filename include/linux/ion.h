@@ -115,7 +115,7 @@ struct ion_platform_data {
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
-	struct ion_platform_heap heaps[];
+	struct ion_platform_heap *heaps;
 };
 
 #ifdef CONFIG_ION
