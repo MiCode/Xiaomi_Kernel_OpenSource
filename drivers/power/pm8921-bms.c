@@ -1027,28 +1027,34 @@ static int calculate_termination_uuc(struct pm8921_bms_chip *chip,
 	return uuc;
 }
 
+#define TIME_PER_PERCENT_UUC			60
 static int adjust_uuc(struct pm8921_bms_chip *chip, int fcc_uah,
 			int new_pc_unusable,
 			int new_uuc,
 			int batt_temp,
 			int rbatt,
-			int *iavg_ma)
+			int *iavg_ma,
+			int delta_time_s)
 {
 	int new_unusable_mv;
 	int batt_temp_degc = batt_temp / 10;
+	int max_percent_change;
+
+	max_percent_change = max(delta_time_s / TIME_PER_PERCENT_UUC, 1);
 
 	if (chip->prev_pc_unusable == -EINVAL
-		|| abs(chip->prev_pc_unusable - new_pc_unusable) <= 1) {
+		|| abs(chip->prev_pc_unusable - new_pc_unusable)
+			<= max_percent_change) {
 		chip->prev_pc_unusable = new_pc_unusable;
 		return new_uuc;
 	}
 
 	/* the uuc is trying to change more than 1% restrict it */
 	if (new_pc_unusable > chip->prev_pc_unusable)
-		chip->prev_pc_unusable++;
+		chip->prev_pc_unusable += max_percent_change;
 	else
-		chip->prev_pc_unusable--;
-
+		chip->prev_pc_unusable -= max_percent_change;
+	chip->prev_pc_unusable = clamp(chip->prev_pc_unusable, 0, 100);
 	new_uuc = (fcc_uah * chip->prev_pc_unusable) / 100;
 
 	/* also find update the iavg_ma accordingly */
@@ -1098,53 +1104,54 @@ static int get_current_time(unsigned long *now_tm_sec)
 	return 0;
 }
 
-static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
-				int *iavg_ua, int *delta_time_s)
+static int calculate_delta_time(struct pm8921_bms_chip *chip, int *delta_time_s)
 {
-	int delta_cc_uah;
 	unsigned long now_tm_sec = 0;
-	int rc = 0;
+
+	/* default to delta time = 0 if anything fails */
+	*delta_time_s = 0;
+
+	get_current_time(&now_tm_sec);
+
+	*delta_time_s = (now_tm_sec - chip->tm_sec);
+	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_s = %d\n",
+		chip->tm_sec, now_tm_sec, *delta_time_s);
+
+	/* remember this time */
+	chip->tm_sec = now_tm_sec;
+	return 0;
+}
+
+static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
+				int *iavg_ua, int delta_time_s)
+{
+	int delta_cc_uah = 0;
 
 	/* if anything fails report the previous iavg_ua */
 	*iavg_ua = chip->prev_iavg_ua;
 
-	rc = get_current_time(&now_tm_sec);
-	if (rc) {
-		pr_err("Could not get current time: %d\n", rc);
-		goto out;
-	}
-
-	if (chip->tm_sec == 0) {
-		*delta_time_s = 0;
+	if (chip->last_cc_uah == INT_MIN) {
 		pm8921_bms_get_battery_current(iavg_ua);
 		goto out;
 	}
 
-	*delta_time_s = (now_tm_sec - chip->tm_sec);
-
 	/* use the previous iavg if called within 15 seconds */
-	if (*delta_time_s < 15) {
+	if (delta_time_s < 15) {
 		*iavg_ua = chip->prev_iavg_ua;
 		goto out;
 	}
 
 	delta_cc_uah = cc_uah - chip->last_cc_uah;
 
-	*iavg_ua = div_s64((s64)delta_cc_uah * 3600, *delta_time_s);
-
-	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_s = %d delta_cc = %d iavg_ua = %d\n",
-				chip->tm_sec, now_tm_sec,
-				*delta_time_s, delta_cc_uah, (int)*iavg_ua);
+	*iavg_ua = div_s64((s64)delta_cc_uah * 3600, delta_time_s);
 
 out:
+	pr_debug("delta_cc = %d iavg_ua = %d\n", delta_cc_uah, (int)*iavg_ua);
 	/* remember the iavg */
 	chip->prev_iavg_ua = *iavg_ua;
 
 	/* remember cc_uah */
 	chip->last_cc_uah = cc_uah;
-
-	/* remember this time */
-	chip->tm_sec = now_tm_sec;
 }
 
 #define IAVG_SAMPLES 16
@@ -1207,9 +1214,9 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 					&pc_unusable);
 	pr_debug("iavg = %d uuc_iavg = %d\n", iavg_ma, uuc_uah_iavg);
 
-	/* restrict the uuc such that it can increase only by one percent */
+	/* restrict the uuc change to one percent per 60 seconds */
 	uuc_uah_iavg = adjust_uuc(chip, fcc_uah, pc_unusable, uuc_uah_iavg,
-					batt_temp, rbatt, &iavg_ma);
+				batt_temp, rbatt, &iavg_ma, delta_time_s);
 
 	/* find out what the avg current should be for this uuc */
 	chip->prev_uuc_iavg_ma = iavg_ma;
@@ -1241,11 +1248,17 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 						int *remaining_charge_uah,
 						int *cc_uah,
 						int *rbatt,
-						int *iavg_ua,
-						int *delta_time_s)
+						int *iavg_ua)
 {
 	int soc_rbatt;
+	int delta_time_s;
+	int rc;
 
+	rc = calculate_delta_time(chip, &delta_time_s);
+	if (rc) {
+		pr_err("Failed to get delta time from RTC: %d\n", rc);
+		delta_time_s = 0;
+	}
 	*fcc_uah = calculate_fcc_uah(chip, batt_temp, chargecycles);
 	pr_debug("FCC = %uuAh batt_temp = %d, cycles = %d\n",
 					*fcc_uah, batt_temp, chargecycles);
@@ -1273,7 +1286,7 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 	*unusable_charge_uah = calculate_unusable_charge_uah(chip, *rbatt,
 					*fcc_uah, *cc_uah, soc_rbatt,
 					batt_temp, chargecycles, *iavg_ua,
-					*delta_time_s);
+					delta_time_s);
 	pr_debug("UUC = %uuAh\n", *unusable_charge_uah);
 }
 
@@ -1288,7 +1301,6 @@ static int calculate_real_fcc_uah(struct pm8921_bms_chip *chip,
 	int real_fcc_uah;
 	int rbatt;
 	int iavg_ua;
-	int delta_time_s;
 
 	calculate_soc_params(chip, raw, batt_temp, chargecycles,
 						&fcc_uah,
@@ -1296,8 +1308,7 @@ static int calculate_real_fcc_uah(struct pm8921_bms_chip *chip,
 						&remaining_charge_uah,
 						&cc_uah,
 						&rbatt,
-						&iavg_ua,
-						&delta_time_s);
+						&iavg_ua);
 
 	real_fcc_uah = remaining_charge_uah - cc_uah;
 	*ret_fcc_uah = fcc_uah;
@@ -1913,7 +1924,6 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	int cc_uah;
 	int rbatt;
 	int iavg_ua;
-	int delta_time_s;
 	int new_ocv;
 	int new_rc_uah;
 	int new_ucc_uah;
@@ -1929,8 +1939,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 						&remaining_charge_uah,
 						&cc_uah,
 						&rbatt,
-						&iavg_ua,
-						&delta_time_s);
+						&iavg_ua);
 
 	/* calculate remaining usable charge */
 	remaining_usable_charge_uah = remaining_charge_uah
@@ -3003,6 +3012,7 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 	chip->rconn_mohm = pdata->rconn_mohm;
 	chip->start_percent = -EINVAL;
 	chip->end_percent = -EINVAL;
+	chip->last_cc_uah = INT_MIN;
 	chip->shutdown_soc_valid_limit = pdata->shutdown_soc_valid_limit;
 	chip->adjust_soc_low_threshold = pdata->adjust_soc_low_threshold;
 
