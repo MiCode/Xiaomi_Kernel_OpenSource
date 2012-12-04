@@ -24,6 +24,7 @@
 #define DEVICE_NAME			"hsicctl"
 #define NUM_CTRL_CHANNELS		4
 #define DEFAULT_READ_URB_LENGTH		0x1000
+#define UNLINK_TIMEOUT_MS		500 /*random value*/
 
 /*Output control lines.*/
 #define ACM_CTRL_DTR		BIT(0)
@@ -535,6 +536,7 @@ static int rmnet_ctl_release(struct inode *inode, struct file *file)
 	struct ctrl_pkt_list_elem	*list_elem = NULL;
 	struct rmnet_ctrl_dev		*dev;
 	unsigned long			flag;
+	int				time;
 
 	dev = file->private_data;
 	if (!dev)
@@ -558,7 +560,9 @@ static int rmnet_ctl_release(struct inode *inode, struct file *file)
 	dev->is_opened = 0;
 	mutex_unlock(&dev->dev_lock);
 
-	if (is_dev_connected(dev))
+	time = usb_wait_anchor_empty_timeout(&dev->tx_submitted,
+			UNLINK_TIMEOUT_MS);
+	if (!time)
 		usb_kill_anchored_urbs(&dev->tx_submitted);
 
 	file->private_data = NULL;
