@@ -87,6 +87,7 @@
 #define EOC_CHECK_PERIOD_MS	10000
 /* check for USB unplug every 200 msecs */
 #define UNPLUG_CHECK_WAIT_PERIOD_MS 200
+#define UNPLUG_CHECK_RAMP_MS 25
 #define USB_TRIM_ENTRIES 16
 
 enum chg_fsm_state {
@@ -2206,8 +2207,7 @@ static void handle_usb_insertion_removal(struct pm8921_chg_chip *chip)
 	}
 	if (usb_present) {
 		schedule_delayed_work(&chip->unplug_check_work,
-			round_jiffies_relative(msecs_to_jiffies
-				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+			msecs_to_jiffies(UNPLUG_CHECK_RAMP_MS));
 		pm8921_chg_enable_irq(chip, CHG_GONE_IRQ);
 	} else {
 		/* USB unplugged reset target current */
@@ -2286,8 +2286,7 @@ static void handle_start_ext_chg(struct pm8921_chg_chip *chip)
 	}
 
 	schedule_delayed_work(&chip->unplug_check_work,
-	round_jiffies_relative(msecs_to_jiffies
-		(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+			msecs_to_jiffies(UNPLUG_CHECK_RAMP_MS));
 
 	power_supply_set_online(chip->ext_psy, dc_present);
 	power_supply_set_charge_type(chip->ext_psy,
@@ -2552,8 +2551,8 @@ static void vin_collapse_check_worker(struct work_struct *work)
 				USB_WALL_THRESHOLD_MA, usb_target_ma);
 		if (!delayed_work_pending(&chip->unplug_check_work))
 			schedule_delayed_work(&chip->unplug_check_work,
-				      round_jiffies_relative(msecs_to_jiffies
-						(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+				      msecs_to_jiffies
+						(UNPLUG_CHECK_WAIT_PERIOD_MS));
 	} else {
 		handle_usb_insertion_removal(chip);
 	}
@@ -2752,6 +2751,7 @@ static void unplug_check_worker(struct work_struct *work)
 	u8 reg_loop, active_path;
 	int rc, ibat, active_chg_plugged_in, usb_ma;
 	int chg_gone = 0;
+	bool ramp = false;
 
 	reg_loop = 0;
 
@@ -2849,15 +2849,20 @@ static void unplug_check_worker(struct work_struct *work)
 			__pm8921_charger_vbus_draw(usb_ma);
 			pr_debug("usb_now=%d, usb_target = %d\n",
 					usb_ma, usb_target_ma);
+			ramp = true;
 		} else {
 			usb_target_ma = usb_ma;
 		}
 	}
 check_again_later:
+	pr_debug("ramp: %d\n", ramp);
 	/* schedule to check again later */
-	schedule_delayed_work(&chip->unplug_check_work,
-		      round_jiffies_relative(msecs_to_jiffies
-				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+	if (ramp)
+		schedule_delayed_work(&chip->unplug_check_work,
+			msecs_to_jiffies(UNPLUG_CHECK_RAMP_MS));
+	else
+		schedule_delayed_work(&chip->unplug_check_work,
+			msecs_to_jiffies(UNPLUG_CHECK_WAIT_PERIOD_MS));
 }
 
 static irqreturn_t loop_change_irq_handler(int irq, void *data)
@@ -3071,8 +3076,7 @@ static irqreturn_t dcin_valid_irq_handler(int irq, void *data)
 	} else {
 		if (dc_present)
 			schedule_delayed_work(&chip->unplug_check_work,
-				round_jiffies_relative(msecs_to_jiffies
-					(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+				msecs_to_jiffies(UNPLUG_CHECK_WAIT_PERIOD_MS));
 		power_supply_changed(&chip->dc_psy);
 	}
 
@@ -3620,8 +3624,7 @@ static void __devinit determine_initial_state(struct pm8921_chg_chip *chip)
 	notify_usb_of_the_plugin_event(chip->usb_present);
 	if (chip->usb_present || chip->dc_present) {
 		schedule_delayed_work(&chip->unplug_check_work,
-			round_jiffies_relative(msecs_to_jiffies
-				(UNPLUG_CHECK_WAIT_PERIOD_MS)));
+			msecs_to_jiffies(UNPLUG_CHECK_WAIT_PERIOD_MS));
 		pm8921_chg_enable_irq(chip, CHG_GONE_IRQ);
 	}
 
