@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,7 @@
  *
  */
 
+#include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/irq.h>
@@ -1545,7 +1546,7 @@ void __init msm9615_map_io(void)
 	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_msm9615_io();
 	l2x0_cache_init();
-	if (socinfo_init() < 0)
+	if (IS_ERR_OR_NULL(socinfo_init()))
 		pr_err("socinfo_init() failed!\n");
 }
 

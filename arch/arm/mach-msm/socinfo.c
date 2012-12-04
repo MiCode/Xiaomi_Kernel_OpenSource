@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,9 +15,17 @@
  *
  */
 
-#include <linux/types.h>
+#include <linux/err.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
+#include <linux/sys_soc.h>
+#include <linux/slab.h>
+#include <linux/stat.h>
 #include <linux/sysdev.h>
+#include <linux/types.h>
+
 #include <asm/mach-types.h>
+
 #include <mach/socinfo.h>
 
 #include "smd_private.h"
@@ -399,6 +407,11 @@ uint32_t socinfo_get_pmic_die_revision(void)
 		: 0;
 }
 
+static uint32_t socinfo_get_format(void)
+{
+	return socinfo ? socinfo->v1.format : 0;
+}
+
 enum msm_cpu socinfo_get_msm_cpu(void)
 {
 	return cur_cpu;
@@ -607,6 +620,100 @@ socinfo_show_pmic_die_revision(struct sys_device *dev,
 		socinfo_get_pmic_die_revision());
 }
 
+static ssize_t
+msm_get_vendor(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "Qualcomm\n");
+}
+
+static ssize_t
+msm_get_raw_id(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_raw_id());
+}
+
+static ssize_t
+msm_get_raw_version(struct device *dev,
+		     struct device_attribute *attr,
+		     char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_raw_version());
+}
+
+static ssize_t
+msm_get_build_id(struct device *dev,
+		   struct device_attribute *attr,
+		   char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			socinfo_get_build_id());
+}
+
+static ssize_t
+msm_get_hw_platform(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	uint32_t hw_type;
+	hw_type = socinfo_get_platform_type();
+
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			hw_platform[hw_type]);
+}
+
+static ssize_t
+msm_get_platform_version(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_platform_version());
+}
+
+static ssize_t
+msm_get_accessory_chip(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_accessory_chip());
+}
+
+static ssize_t
+msm_get_platform_subtype(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	uint32_t hw_subtype;
+	hw_subtype = socinfo_get_platform_subtype();
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+		hw_platform_subtype[hw_subtype]);
+}
+
+static ssize_t
+msm_get_pmic_model(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_pmic_model());
+}
+
+static ssize_t
+msm_get_pmic_die_revision(struct device *dev,
+			       struct device_attribute *attr,
+			       char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+			 socinfo_get_pmic_die_revision());
+}
+
 static struct sysdev_attribute socinfo_v1_files[] = {
 	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
 	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
@@ -643,6 +750,42 @@ static struct sysdev_attribute socinfo_v7_files[] = {
 	_SYSDEV_ATTR(pmic_die_revision, 0444,
 			socinfo_show_pmic_die_revision, NULL),
 };
+
+static struct device_attribute msm_soc_attr_raw_version =
+	__ATTR(raw_version, S_IRUGO, msm_get_raw_version,  NULL);
+
+static struct device_attribute msm_soc_attr_raw_id =
+	__ATTR(raw_id, S_IRUGO, msm_get_raw_id,  NULL);
+
+static struct device_attribute msm_soc_attr_vendor =
+	__ATTR(vendor, S_IRUGO, msm_get_vendor,  NULL);
+
+static struct device_attribute msm_soc_attr_build_id =
+	__ATTR(build_id, S_IRUGO, msm_get_build_id, NULL);
+
+static struct device_attribute msm_soc_attr_hw_platform =
+	__ATTR(hw_platform, S_IRUGO, msm_get_hw_platform, NULL);
+
+
+static struct device_attribute msm_soc_attr_platform_version =
+	__ATTR(platform_version, S_IRUGO,
+			msm_get_platform_version, NULL);
+
+static struct device_attribute msm_soc_attr_accessory_chip =
+	__ATTR(accessory_chip, S_IRUGO,
+			msm_get_accessory_chip, NULL);
+
+static struct device_attribute msm_soc_attr_platform_subtype =
+	__ATTR(platform_subtype, S_IRUGO,
+			msm_get_platform_subtype, NULL);
+
+static struct device_attribute msm_soc_attr_pmic_model =
+	__ATTR(pmic_model, S_IRUGO,
+			msm_get_pmic_model, NULL);
+
+static struct device_attribute msm_soc_attr_pmic_die_revision =
+	__ATTR(pmic_die_revision, S_IRUGO,
+			msm_get_pmic_die_revision, NULL);
 
 static struct sysdev_class soc_sysdev_class = {
 	.name = "soc",
@@ -764,47 +907,63 @@ static void * __init setup_dummy_socinfo(void)
 	return (void *) &dummy_socinfo;
 }
 
-int __init socinfo_init(void)
+static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 {
-	socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v7));
+	uint32_t legacy_format = socinfo_get_format();
 
-	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v6));
+	device_create_file(msm_soc_device, &msm_soc_attr_vendor);
 
-	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v5));
-
-	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v4));
-
-	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v3));
-
-	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v2));
-
-	if (!socinfo)
-		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v1));
-
-	if (!socinfo) {
-		pr_warn("%s: Can't find SMEM_HW_SW_BUILD_ID; falling back on "
-			"dummy values.\n", __func__);
-		socinfo = setup_dummy_socinfo();
+	switch (legacy_format) {
+	case 7:
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_pmic_model);
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_pmic_die_revision);
+	case 6:
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_platform_subtype);
+	case 5:
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_accessory_chip);
+	case 4:
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_platform_version);
+	case 3:
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_hw_platform);
+	case 2:
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_raw_id);
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_raw_version);
+	case 1:
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_build_id);
+		break;
+	default:
+		pr_err("%s:Unknown socinfo format:%u\n", __func__,
+				legacy_format);
+		break;
 	}
 
-	WARN(!socinfo_get_id(), "Unknown SOC ID!\n");
-	WARN(socinfo_get_id() >= ARRAY_SIZE(cpu_of_id),
-		"New IDs added! ID => CPU mapping might need an update.\n");
+	return;
+}
 
-	if (socinfo->v1.id < ARRAY_SIZE(cpu_of_id))
-		cur_cpu = cpu_of_id[socinfo->v1.id];
+static void  __init soc_info_populate(struct soc_device_attribute *soc_dev_attr)
+{
+	uint32_t soc_version = socinfo_get_version();
 
+	soc_dev_attr->soc_id   = kasprintf(GFP_KERNEL, "%d", socinfo_get_id());
+	soc_dev_attr->machine  = "Snapdragon";
+	soc_dev_attr->revision = kasprintf(GFP_KERNEL, "%u.%u",
+			SOCINFO_VERSION_MAJOR(soc_version),
+			SOCINFO_VERSION_MINOR(soc_version));
+	return;
+
+}
+
+static void socinfo_print(void)
+{
 	switch (socinfo->v1.format) {
 	case 1:
 		pr_info("%s: v%u, id=%u, ver=%u.%u\n",
@@ -880,8 +1039,69 @@ int __init socinfo_init(void)
 		pr_err("%s: Unknown format found\n", __func__);
 		break;
 	}
+}
 
-	return 0;
+struct device *  __init socinfo_init(void)
+{
+	struct device *msm_soc_device;
+	struct soc_device *soc_dev;
+	struct soc_device_attribute *soc_dev_attr;
+
+	socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v7));
+
+	if (!socinfo)
+		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v6));
+
+	if (!socinfo)
+		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v5));
+
+	if (!socinfo)
+		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v4));
+
+	if (!socinfo)
+		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v3));
+
+	if (!socinfo)
+		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v2));
+
+	if (!socinfo)
+		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v1));
+
+	if (!socinfo) {
+		pr_warn("%s: Can't find SMEM_HW_SW_BUILD_ID; falling back on dummy values.\n",
+				__func__);
+		socinfo = setup_dummy_socinfo();
+	}
+
+	WARN(!socinfo_get_id(), "Unknown SOC ID!\n");
+	WARN(socinfo_get_id() >= ARRAY_SIZE(cpu_of_id),
+		"New IDs added! ID => CPU mapping might need an update.\n");
+
+	if (socinfo->v1.id < ARRAY_SIZE(cpu_of_id))
+		cur_cpu = cpu_of_id[socinfo->v1.id];
+
+	socinfo_print();
+	soc_dev_attr = kzalloc(sizeof(*soc_dev_attr), GFP_KERNEL);
+	if (!soc_dev_attr)
+		return ERR_PTR(-ENOMEM);
+
+	soc_info_populate(soc_dev_attr);
+	soc_dev = soc_device_register(soc_dev_attr);
+	if (IS_ERR_OR_NULL(soc_dev)) {
+		kfree(soc_dev_attr);
+		return ERR_PTR(-EIO);
+	}
+
+	msm_soc_device = soc_device_to_device(soc_dev);
+	populate_soc_sysfs_files(msm_soc_device);
+
+	return msm_soc_device;
 }
 
 const int get_core_count(void)
