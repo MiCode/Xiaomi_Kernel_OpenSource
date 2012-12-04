@@ -979,14 +979,9 @@ int ocmem_core_init(struct platform_device *pdev)
 
 	interleaved = (hw_ver & INTERLEAVING_MASK) >> INTERLEAVING_SHIFT;
 
-	if (interleaved == false) {
-		pr_err("Interleaving is disabled\n");
-		goto hw_not_supported;
-	}
-
 	num_regions = pdata->nr_regions;
 
-	pdata->interleaved = true;
+	pdata->interleaved = interleaved;
 	pdata->nr_macros = num_macros;
 	pdata->nr_ports = num_ports;
 	macro_size = OCMEM_V1_MACRO_SZ * 2;
