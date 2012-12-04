@@ -2969,7 +2969,7 @@ static struct rcg_clk edplink_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_mdss_edppixel_clk[] = {
-	F_MDSS(148500000, edppll_350,   2,   0,   0),
+	F_MDSS(138500000, edppll_350,   2,   0,   0),
 	F_MDSS(350000000, edppll_350,  11,   0,   0),
 	F_END
 };
