@@ -45,7 +45,7 @@
 	};
 
 	timer: msm-qtimer@f9021000 {
-		compatible = "qcom,msm-qtimer", "arm,armv7-timer";
+		compatible = "arm,armv7-timer";
 		reg = <0xF9021000 0x1000>;
 		interrupts = <0 7 0>;
 		irq-is-not-percpu;

@@ -52,7 +52,7 @@
 	};
 
 	timer {
-		compatible = "qcom,msm-qtimer", "arm,armv7-timer";
+		compatible = "arm,armv7-timer";
 		interrupts = <1 2 0 1 3 0>;
 		clock-frequency = <19200000>;
 	};
