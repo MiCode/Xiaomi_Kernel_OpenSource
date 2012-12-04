@@ -12,6 +12,7 @@
 
 /include/ "skeleton.dtsi"
 /include/ "msm8910-ion.dtsi"
+/include/ "msm-gdsc.dtsi"
 
 / {
 	model = "Qualcomm MSM 8910";
@@ -203,6 +204,14 @@
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping = <1>;
 	};
+};
+
+&gdsc_vfe {
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
 };
 
 /include/ "msm8910-regulator.dtsi"
