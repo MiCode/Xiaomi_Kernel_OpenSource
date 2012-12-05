@@ -49,26 +49,26 @@ int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 struct diag_master_table entry;
-smd_channel_t *ch_temp = NULL, *chlpass_temp = NULL, *ch_wcnss_temp = NULL;
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 
 void encode_rsp_and_send(int buf_length)
 {
+	struct diag_smd_info *data = &(driver->smd_data[SMD_MODEM_INDEX]);
 	send.state = DIAG_STATE_START;
 	send.pkt = driver->apps_rsp_buf;
 	send.last = (void *)(driver->apps_rsp_buf + buf_length);
 	send.terminate = 1;
-	if (!driver->in_busy_1) {
-		enc.dest = driver->buf_in_1;
-		enc.dest_last = (void *)(driver->buf_in_1 + APPS_BUF_SIZE - 1);
+	if (!data->in_busy_1) {
+		enc.dest = data->buf_in_1;
+		enc.dest_last = (void *)(data->buf_in_1 + APPS_BUF_SIZE - 1);
 		diag_hdlc_encode(&send, &enc);
-		driver->write_ptr_1->buf = driver->buf_in_1;
-		driver->write_ptr_1->length = (int)(enc.dest -
-						(void *)(driver->buf_in_1));
-		driver->in_busy_1 = 1;
-		diag_device_write(driver->buf_in_1, MODEM_DATA,
-					driver->write_ptr_1);
+		data->write_ptr_1->buf = data->buf_in_1;
+		data->write_ptr_1->length = (int)(enc.dest -
+						(void *)(data->buf_in_1));
+		data->in_busy_1 = 1;
+		diag_device_write(data->buf_in_1, MODEM_DATA,
+					data->write_ptr_1);
 		memset(driver->apps_rsp_buf, '\0', APPS_BUF_SIZE);
 	}
 }
@@ -178,7 +178,8 @@ int chk_polling_response(void)
 		 * has registered to respond for polling
 		 */
 		return 1;
-	else if (!(driver->ch) && !(chk_apps_master()))
+	else if (!(driver->smd_data[SMD_MODEM_INDEX].ch) &&
+					!(chk_apps_master()))
 		/*
 		 * If the apps processor is not the master and the modem
 		 * is not up
@@ -221,39 +222,82 @@ void chk_logging_wakeup(void)
 	}
 }
 
-void __diag_smd_send_req(void)
+/* Process the data read from the smd data channel */
+int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
+								int total_recd)
 {
-	void *buf = NULL, *temp_buf = NULL;
-	int total_recd = 0, r = 0, pkt_len, *in_busy_ptr = NULL;
-	int loop_count = 0;
 	struct diag_request *write_ptr_modem = NULL;
+	int *in_busy_ptr = 0;
 
-	if (!driver->in_busy_1) {
-		buf = driver->buf_in_1;
-		write_ptr_modem = driver->write_ptr_1;
-		in_busy_ptr = &(driver->in_busy_1);
-	} else if (!driver->in_busy_2) {
-		buf = driver->buf_in_2;
-		write_ptr_modem = driver->write_ptr_2;
-		in_busy_ptr = &(driver->in_busy_2);
+	if (smd_info->buf_in_1 == buf) {
+		write_ptr_modem = smd_info->write_ptr_1;
+		in_busy_ptr = &smd_info->in_busy_1;
+	} else if (smd_info->buf_in_2 == buf) {
+		write_ptr_modem = smd_info->write_ptr_2;
+		in_busy_ptr = &smd_info->in_busy_2;
+	} else {
+		pr_err("diag: In %s, no match for in_busy_1\n", __func__);
 	}
 
-	if (driver->ch && buf) {
+	if (write_ptr_modem) {
+		int data_type;
+		switch (smd_info->peripheral) {
+		case MODEM_PROC:
+			data_type = MODEM_DATA;
+			break;
+		case LPASS_PROC:
+			data_type = LPASS_DATA;
+			break;
+		case WCNSS_PROC:
+			data_type = WCNSS_DATA;
+			break;
+		default:
+			pr_err("diag: In %s, unknown peripheral type: %d\n",
+				__func__, smd_info->peripheral);
+			return 0;
+		}
+		write_ptr_modem->length = total_recd;
+		*in_busy_ptr = 1;
+		diag_device_write(buf, data_type, write_ptr_modem);
+	}
+
+	return 0;
+}
+
+void diag_smd_send_req(struct diag_smd_info *smd_info)
+{
+	void *buf = NULL, *temp_buf = NULL;
+	int total_recd = 0, r = 0, pkt_len;
+	int loop_count = 0;
+	int notify = 0;
+
+	if (!smd_info) {
+		pr_err("diag: In %s, no smd info. Not able to read.\n",
+			__func__);
+		return;
+	}
+
+	if (!smd_info->in_busy_1)
+		buf = smd_info->buf_in_1;
+	else if ((smd_info->type == SMD_DATA_TYPE) && !smd_info->in_busy_2)
+		buf = smd_info->buf_in_2;
+
+	if (smd_info->ch && buf) {
 		temp_buf = buf;
-		pkt_len = smd_cur_packet_size(driver->ch);
+		pkt_len = smd_cur_packet_size(smd_info->ch);
 
 		while (pkt_len && (pkt_len != total_recd)) {
 			loop_count++;
-			r = smd_read_avail(driver->ch);
+			r = smd_read_avail(smd_info->ch);
 			pr_debug("diag: In %s, received pkt %d %d\n",
 				__func__, r, total_recd);
 			if (!r) {
 				/* Nothing to read from SMD */
 				wait_event(driver->smd_wait_q,
-					((driver->ch == 0) ||
-					smd_read_avail(driver->ch)));
+					((smd_info->ch == 0) ||
+					smd_read_avail(smd_info->ch)));
 				/* If the smd channel is open */
-				if (driver->ch) {
+				if (smd_info->ch) {
 					pr_debug("diag: In %s, return from wait_event\n",
 						__func__);
 					continue;
@@ -269,7 +313,7 @@ void __diag_smd_send_req(void)
 					pr_err("diag: In %s, SMD sending in packets up to %d bytes\n",
 						__func__, total_recd);
 					buf = krealloc(buf, total_recd,
-							GFP_KERNEL);
+						GFP_KERNEL);
 				} else {
 					pr_err("diag: In %s, SMD sending in packets more than %d bytes\n",
 						__func__, MAX_IN_BUF_SIZE);
@@ -281,30 +325,41 @@ void __diag_smd_send_req(void)
 					__func__);
 				return;
 			}
-			if (pkt_len > r)
-				pr_debug("diag: In %s, SMD sending partial pkt %d %d %d %d\n",
-					__func__, pkt_len, r, total_recd,
-					loop_count);
+			if (pkt_len > r) {
+				pr_err("diag: In %s, SMD sending partial pkt %d %d %d %d %d %d\n",
+				__func__, pkt_len, r, total_recd, loop_count,
+				smd_info->peripheral, smd_info->type);
+			}
+
 			/* keep reading for complete packet */
-			smd_read(driver->ch, temp_buf, r);
+			smd_read(smd_info->ch, temp_buf, r);
 			temp_buf += r;
 		}
 
 		if (total_recd > 0) {
-			if (!buf)
+			if (!buf) {
 				pr_err("diag: Out of diagmem for Modem\n");
-			else {
-				APPEND_DEBUG('j');
-				write_ptr_modem->length = total_recd;
-				*in_busy_ptr = 1;
-				diag_device_write(buf, MODEM_DATA,
-							 write_ptr_modem);
+			} else if (smd_info->process_smd_read_data) {
+				notify = smd_info->process_smd_read_data(
+						smd_info, buf, total_recd);
+				/* Poll SMD channels to check for data */
+				if (notify)
+					diag_smd_notify(smd_info,
+							SMD_EVENT_DATA);
 			}
 		}
-	} else if (driver->ch && !buf &&
+	} else if (smd_info->ch && !buf &&
 		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
-		chk_logging_wakeup();
+			chk_logging_wakeup();
 	}
+}
+
+void diag_read_smd_work_fn(struct work_struct *work)
+{
+	struct diag_smd_info *smd_info = container_of(work,
+							struct diag_smd_info,
+							diag_read_smd_work);
+	diag_smd_send_req(smd_info);
 }
 
 int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
@@ -365,20 +420,23 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
 			return -EINVAL;
 	} else if (driver->logging_mode == NO_LOGGING_MODE) {
 		if (proc_num == MODEM_DATA) {
-			driver->in_busy_1 = 0;
-			driver->in_busy_2 = 0;
-			queue_work(driver->diag_wq, &(driver->
+			driver->smd_data[SMD_MODEM_INDEX].in_busy_1 = 0;
+			driver->smd_data[SMD_MODEM_INDEX].in_busy_2 = 0;
+			queue_work(driver->diag_wq,
+				&(driver->smd_data[SMD_MODEM_INDEX].
 							diag_read_smd_work));
 		} else if (proc_num == LPASS_DATA) {
-			driver->in_busy_lpass_1 = 0;
-			driver->in_busy_lpass_2 = 0;
-			queue_work(driver->diag_wq, &(driver->
-						diag_read_smd_lpass_work));
+			driver->smd_data[SMD_LPASS_INDEX].in_busy_1 = 0;
+			driver->smd_data[SMD_LPASS_INDEX].in_busy_2 = 0;
+			queue_work(driver->diag_wq,
+				&(driver->smd_data[SMD_LPASS_INDEX].
+							diag_read_smd_work));
 		}  else if (proc_num == WCNSS_DATA) {
-			driver->in_busy_wcnss_1 = 0;
-			driver->in_busy_wcnss_2 = 0;
-			queue_work(driver->diag_wq, &(driver->
-				diag_read_smd_wcnss_work));
+			driver->smd_data[SMD_WCNSS_INDEX].in_busy_1 = 0;
+			driver->smd_data[SMD_WCNSS_INDEX].in_busy_2 = 0;
+			queue_work(driver->diag_wq,
+				&(driver->smd_data[SMD_WCNSS_INDEX].
+							diag_read_smd_work));
 		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		else if (proc_num == SDIO_DATA) {
@@ -483,179 +541,6 @@ int diag_device_write(void *buf, int proc_num, struct diag_request *write_ptr)
     return err;
 }
 
-void __diag_smd_wcnss_send_req(void)
-{
-	void *buf = NULL, *temp_buf = NULL;
-	int total_recd = 0, r = 0, pkt_len, *in_busy_wcnss_ptr = NULL;
-	struct diag_request *write_ptr_wcnss = NULL;
-	int loop_count = 0;
-
-	if (!driver->in_busy_wcnss_1) {
-		buf = driver->buf_in_wcnss_1;
-		write_ptr_wcnss = driver->write_ptr_wcnss_1;
-		in_busy_wcnss_ptr = &(driver->in_busy_wcnss_1);
-	} else if (!driver->in_busy_wcnss_2) {
-		buf = driver->buf_in_wcnss_2;
-		write_ptr_wcnss = driver->write_ptr_wcnss_2;
-		in_busy_wcnss_ptr = &(driver->in_busy_wcnss_2);
-	}
-
-	if (driver->ch_wcnss && buf) {
-		temp_buf = buf;
-		pkt_len = smd_cur_packet_size(driver->ch_wcnss);
-
-		while (pkt_len && (pkt_len != total_recd)) {
-			loop_count++;
-			r = smd_read_avail(driver->ch_wcnss);
-			pr_debug("diag: In %s, received pkt %d %d\n",
-				__func__, r, total_recd);
-			if (!r) {
-				/* Nothing to read from SMD */
-				wait_event(driver->smd_wait_q,
-					((driver->ch_wcnss == 0) ||
-					smd_read_avail(driver->ch_wcnss)));
-				/* If the smd channel is open */
-				if (driver->ch_wcnss) {
-					pr_debug("diag: In %s, return from wait_event\n",
-						__func__);
-					continue;
-				} else {
-					pr_debug("diag: In %s, return from wait_event ch_wcnss closed\n",
-						__func__);
-					return;
-				}
-			}
-			total_recd += r;
-			if (total_recd > IN_BUF_SIZE) {
-				if (total_recd < MAX_IN_BUF_SIZE) {
-					pr_err("diag: In %s, SMD sending in packets up to %d bytes\n",
-						__func__, total_recd);
-					buf = krealloc(buf, total_recd,
-								 GFP_KERNEL);
-				} else {
-					pr_err("diag: In %s, SMD sending in packets more than %d bytes\n",
-						__func__, MAX_IN_BUF_SIZE);
-					return;
-				}
-			}
-			if (pkt_len < r) {
-				pr_err("diag: In %s, SMD sending incorrect pkt\n",
-					__func__);
-				return;
-			}
-			if (pkt_len > r) {
-				pr_debug("diag: In %s, SMD sending partial pkt %d %d %d %d\n",
-					__func__, pkt_len, r, total_recd,
-					loop_count);
-			}
-			/* keep reading for complete packet */
-			smd_read(driver->ch_wcnss, temp_buf, r);
-			temp_buf += r;
-		}
-
-		if (total_recd > 0) {
-			if (!buf) {
-				pr_err("diag: Out of diagmem for wcnss\n");
-			} else {
-				APPEND_DEBUG('j');
-				write_ptr_wcnss->length = total_recd;
-				*in_busy_wcnss_ptr = 1;
-				diag_device_write(buf, WCNSS_DATA,
-					 write_ptr_wcnss);
-			}
-		}
-	} else if (driver->ch_wcnss && !buf &&
-		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
-		chk_logging_wakeup();
-	}
-}
-
-void __diag_smd_lpass_send_req(void)
-{
-	void *buf = NULL, *temp_buf = NULL;
-	int total_recd = 0, r = 0, pkt_len, *in_busy_lpass_ptr = NULL;
-	struct diag_request *write_ptr_lpass = NULL;
-	int loop_count = 0;
-
-	if (!driver->in_busy_lpass_1) {
-		buf = driver->buf_in_lpass_1;
-		write_ptr_lpass = driver->write_ptr_lpass_1;
-		in_busy_lpass_ptr = &(driver->in_busy_lpass_1);
-	} else if (!driver->in_busy_lpass_2) {
-		buf = driver->buf_in_lpass_2;
-		write_ptr_lpass = driver->write_ptr_lpass_2;
-		in_busy_lpass_ptr = &(driver->in_busy_lpass_2);
-	}
-
-	if (driver->chlpass && buf) {
-		temp_buf = buf;
-		pkt_len = smd_cur_packet_size(driver->chlpass);
-
-		while (pkt_len && (pkt_len != total_recd)) {
-			loop_count++;
-			r = smd_read_avail(driver->chlpass);
-			pr_debug("diag: In %s, received pkt %d %d\n",
-				__func__, r, total_recd);
-			if (!r) {
-				/* Nothing to read from SMD */
-				wait_event(driver->smd_wait_q,
-					((driver->chlpass == 0) ||
-					smd_read_avail(driver->chlpass)));
-				/* If the smd channel is open */
-				if (driver->chlpass) {
-					pr_debug("diag: In %s, return from wait_event\n",
-						__func__);
-					continue;
-				} else {
-					pr_debug("diag: In %s, return from wait_event chlpass closed\n",
-						__func__);
-					return;
-				}
-			}
-			total_recd += r;
-			if (total_recd > IN_BUF_SIZE) {
-				if (total_recd < MAX_IN_BUF_SIZE) {
-					pr_err("diag: In %s, SMD sending in packets up to %d bytes\n",
-						__func__, total_recd);
-					buf = krealloc(buf, total_recd,
-								 GFP_KERNEL);
-				} else {
-					pr_err("diag: In %s, SMD sending in packets more than %d bytes\n",
-						__func__, MAX_IN_BUF_SIZE);
-					return;
-				}
-			}
-			if (pkt_len < r) {
-				pr_err("diag: In %s, SMD sending incorrect pkt\n",
-					__func__);
-				return;
-			}
-			if (pkt_len > r)
-				pr_debug("diag: In %s, SMD sending partial pkt %d %d %d %d\n",
-					__func__, pkt_len, r, total_recd,
-					loop_count);
-			/* keep reading for complete packet */
-			smd_read(driver->chlpass, temp_buf, r);
-			temp_buf += r;
-		}
-
-		if (total_recd > 0) {
-			if (!buf)
-				pr_err("diag: Out of diagmem for LPASS\n");
-			else {
-				APPEND_DEBUG('j');
-				write_ptr_lpass->length = total_recd;
-				*in_busy_lpass_ptr = 1;
-				diag_device_write(buf, LPASS_DATA,
-							 write_ptr_lpass);
-			}
-		}
-	} else if (driver->chlpass && !buf &&
-		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
-		chk_logging_wakeup();
-	}
-}
-
 static void diag_update_pkt_buffer(unsigned char *buf)
 {
 	unsigned char *ptr = driver->pkt_buf;
@@ -704,19 +589,23 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 		diag_update_sleeping_process(entry.process_id, PKT_TYPE);
 	} else {
 		if (len > 0) {
-			if (entry.client_id == MODEM_PROC && driver->ch) {
+			if (entry.client_id == MODEM_PROC &&
+					driver->smd_data[SMD_MODEM_INDEX].ch) {
 				if (chk_apps_master() &&
 					 (int)(*(char *)buf) == MODE_CMD)
 					if ((int)(*(char *)(buf+1)) ==
 						RESET_ID)
 						return;
-				smd_write(driver->ch, buf, len);
+				smd_write(driver->smd_data[SMD_MODEM_INDEX].ch,
+								buf, len);
 			} else if (entry.client_id == LPASS_PROC &&
-							 driver->chlpass) {
-				smd_write(driver->chlpass, buf, len);
+					driver->smd_data[SMD_LPASS_INDEX].ch) {
+				smd_write(driver->smd_data[SMD_LPASS_INDEX].ch,
+								buf, len);
 			} else if (entry.client_id == WCNSS_PROC &&
-							 driver->ch_wcnss) {
-				smd_write(driver->ch_wcnss, buf, len);
+					driver->smd_data[SMD_WCNSS_INDEX].ch) {
+				smd_write(driver->smd_data[SMD_WCNSS_INDEX].ch,
+								buf, len);
 			} else {
 				pr_alert("diag: incorrect channel");
 			}
@@ -799,7 +688,8 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 	/* Check for Apps Only & get event mask request */
-	else if (!(driver->ch) && chk_apps_only() && *buf == 0x81) {
+	else if (!(driver->smd_data[SMD_MODEM_INDEX].ch) && chk_apps_only() &&
+								*buf == 0x81) {
 		driver->apps_rsp_buf[0] = 0x81;
 		driver->apps_rsp_buf[1] = 0x0;
 		*(uint16_t *)(driver->apps_rsp_buf + 2) = 0x0;
@@ -810,7 +700,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 	/* Get log ID range & Check for Apps Only */
-	else if (!(driver->ch) && chk_apps_only()
+	else if (!(driver->smd_data[SMD_MODEM_INDEX].ch) && chk_apps_only()
 			  && (*buf == 0x73) && *(int *)(buf+4) == 1) {
 		driver->apps_rsp_buf[0] = 0x73;
 		*(int *)(driver->apps_rsp_buf + 4) = 0x1; /* operation ID */
@@ -835,7 +725,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 	/* Respond to Get SSID Range request message */
-	else if (!(driver->ch) && chk_apps_only()
+	else if (!(driver->smd_data[SMD_MODEM_INDEX].ch) && chk_apps_only()
 			 && (*buf == 0x7d) && (*(buf+1) == 0x1)) {
 		driver->apps_rsp_buf[0] = 0x7d;
 		driver->apps_rsp_buf[1] = 0x1;
@@ -893,7 +783,7 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 	/* Check for Apps Only Respond to Get Subsys Build mask */
-	else if (!(driver->ch) && chk_apps_only()
+	else if (!(driver->smd_data[SMD_MODEM_INDEX].ch) && chk_apps_only()
 			 && (*buf == 0x7d) && (*(buf+1) == 0x2)) {
 		ssid_first = *(uint16_t *)(buf + 2);
 		ssid_last = *(uint16_t *)(buf + 4);
@@ -1110,13 +1000,14 @@ void diag_process_hdlc(void *data, unsigned len)
 		type = 0;
 	}
 	/* implies this packet is NOT meant for apps */
-	if (!(driver->ch) && type == 1) {
+	if (!(driver->smd_data[SMD_MODEM_INDEX].ch) && type == 1) {
 		if (chk_apps_only()) {
 			diag_send_error_rsp(hdlc.dest_idx);
 		} else { /* APQ 8060, Let Q6 respond */
-			if (driver->chlpass)
-				smd_write(driver->chlpass, driver->hdlc_buf,
-						  hdlc.dest_idx - 3);
+			if (driver->smd_data[SMD_LPASS_INDEX].ch)
+				smd_write(driver->smd_data[SMD_LPASS_INDEX].ch,
+						driver->hdlc_buf,
+						hdlc.dest_idx - 3);
 		}
 		type = 0;
 	}
@@ -1128,9 +1019,11 @@ void diag_process_hdlc(void *data, unsigned len)
 							driver->hdlc_buf)+i));
 #endif /* DIAG DEBUG */
 	/* ignore 2 bytes for CRC, one for 7E and send */
-	if ((driver->ch) && (ret) && (type) && (hdlc.dest_idx > 3)) {
+	if ((driver->smd_data[SMD_MODEM_INDEX].ch) && (ret) && (type) &&
+						(hdlc.dest_idx > 3)) {
 		APPEND_DEBUG('g');
-		smd_write(driver->ch, driver->hdlc_buf, hdlc.dest_idx - 3);
+		smd_write(driver->smd_data[SMD_MODEM_INDEX].ch,
+					driver->hdlc_buf, hdlc.dest_idx - 3);
 		APPEND_DEBUG('h');
 #ifdef DIAG_DEBUG
 		printk(KERN_INFO "writing data to SMD, pkt length %d\n", len);
@@ -1148,6 +1041,7 @@ void diag_process_hdlc(void *data, unsigned len)
 int diagfwd_connect(void)
 {
 	int err;
+	int i;
 
 	printk(KERN_DEBUG "diag: USB connected\n");
 	err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
@@ -1156,21 +1050,16 @@ int diagfwd_connect(void)
 		printk(KERN_ERR "diag: unable to alloc USB req on legacy ch");
 
 	driver->usb_connected = 1;
-	driver->in_busy_1 = 0;
-	driver->in_busy_2 = 0;
-	driver->in_busy_lpass_1 = 0;
-	driver->in_busy_lpass_2 = 0;
-	driver->in_busy_wcnss_1 = 0;
-	driver->in_busy_wcnss_2 = 0;
+	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+		driver->smd_data[i].in_busy_1 = 0;
+		driver->smd_data[i].in_busy_2 = 0;
+		/* Poll SMD data channels to check for data */
+		queue_work(driver->diag_wq,
+			&(driver->smd_data[i].diag_read_smd_work));
+		/* Poll SMD CNTL channels to check for data */
+		diag_smd_notify(&(driver->smd_cntl[i]), SMD_EVENT_DATA);
+	}
 
-	/* Poll SMD channels to check for data*/
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_lpass_work));
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_work));
-	/* Poll SMD CNTL channels to check for data */
-	diag_smd_cntl_notify(NULL, SMD_EVENT_DATA);
-	diag_smd_lpass_cntl_notify(NULL, SMD_EVENT_DATA);
-	diag_smd_wcnss_cntl_notify(NULL, SMD_EVENT_DATA);
 	/* Poll USB channel to check for data*/
 	queue_work(driver->diag_wq, &(driver->diag_read_work));
 #ifdef CONFIG_DIAG_SDIO_PIPE
@@ -1186,17 +1075,17 @@ int diagfwd_connect(void)
 
 int diagfwd_disconnect(void)
 {
+	int i;
+
 	printk(KERN_DEBUG "diag: USB disconnected\n");
 	driver->usb_connected = 0;
 	driver->debug_flag = 1;
 	usb_diag_free_req(driver->legacy_ch);
 	if (driver->logging_mode == USB_MODE) {
-		driver->in_busy_1 = 1;
-		driver->in_busy_2 = 1;
-		driver->in_busy_lpass_1 = 1;
-		driver->in_busy_lpass_2 = 1;
-		driver->in_busy_wcnss_1 = 1;
-		driver->in_busy_wcnss_2 = 1;
+		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+			driver->smd_data[i].in_busy_1 = 1;
+			driver->smd_data[i].in_busy_2 = 1;
+		}
 	}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
@@ -1210,50 +1099,44 @@ int diagfwd_disconnect(void)
 int diagfwd_write_complete(struct diag_request *diag_write_ptr)
 {
 	unsigned char *buf = diag_write_ptr->buf;
-	/*Determine if the write complete is for data from modem/apps/q6 */
+	int found_it = 0;
+	int i;
+
+	/* Determine if the write complete is for data from modem/apps/q6 */
 	/* Need a context variable here instead */
-	if (buf == (void *)driver->buf_in_1) {
-		driver->in_busy_1 = 0;
-		APPEND_DEBUG('o');
-		queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
-	} else if (buf == (void *)driver->buf_in_2) {
-		driver->in_busy_2 = 0;
-		APPEND_DEBUG('O');
-		queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
-	} else if (buf == (void *)driver->buf_in_lpass_1) {
-		driver->in_busy_lpass_1 = 0;
-		APPEND_DEBUG('p');
-		queue_work(driver->diag_wq,
-				&(driver->diag_read_smd_lpass_work));
-	} else if (buf == (void *)driver->buf_in_lpass_2) {
-		driver->in_busy_lpass_2 = 0;
-		APPEND_DEBUG('P');
-		queue_work(driver->diag_wq,
-				&(driver->diag_read_smd_lpass_work));
-	} else if (buf == driver->buf_in_wcnss_1) {
-		driver->in_busy_wcnss_1 = 0;
-		APPEND_DEBUG('r');
-		queue_work(driver->diag_wq,
-			 &(driver->diag_read_smd_wcnss_work));
-	} else if (buf == driver->buf_in_wcnss_2) {
-		driver->in_busy_wcnss_2 = 0;
-		APPEND_DEBUG('R');
-		queue_work(driver->diag_wq,
-			 &(driver->diag_read_smd_wcnss_work));
+	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+		struct diag_smd_info *data = &(driver->smd_data[i]);
+		if (buf == (void *)data->buf_in_1) {
+			data->in_busy_1 = 0;
+			queue_work(driver->diag_wq,
+				&(data->diag_read_smd_work));
+			found_it = 1;
+			break;
+		} else if (buf == (void *)data->buf_in_2) {
+			data->in_busy_2 = 0;
+			queue_work(driver->diag_wq,
+				&(data->diag_read_smd_work));
+			found_it = 1;
+			break;
+		}
 	}
 #ifdef CONFIG_DIAG_SDIO_PIPE
-	else if (buf == (void *)driver->buf_in_sdio)
-		if (machine_is_msm8x60_fusion() ||
-			 machine_is_msm8x60_fusn_ffa())
-			diagfwd_write_complete_sdio();
-		else
-			pr_err("diag: Incorrect buffer pointer while WRITE");
+	if (!found_it) {
+		if (buf == (void *)driver->buf_in_sdio) {
+			if (machine_is_msm8x60_fusion() ||
+				 machine_is_msm8x60_fusn_ffa())
+				diagfwd_write_complete_sdio();
+			else
+				pr_err("diag: Incorrect buffer pointer while WRITE");
+			found_it = 1;
+		}
+	}
 #endif
-	else {
-		diagmem_free(driver, (unsigned char *)buf, POOL_TYPE_HDLC);
+	if (!found_it) {
+		diagmem_free(driver, (unsigned char *)buf,
+						POOL_TYPE_HDLC);
 		diagmem_free(driver, (unsigned char *)diag_write_ptr,
-						 POOL_TYPE_WRITE_STRUCT);
-		APPEND_DEBUG('q');
+						POOL_TYPE_WRITE_STRUCT);
 	}
 	return 0;
 }
@@ -1340,76 +1223,87 @@ void diag_usb_legacy_notifier(void *priv, unsigned event,
 
 #endif /* DIAG OVER USB */
 
-static void diag_smd_notify(void *ctxt, unsigned event)
+void diag_smd_notify(void *ctxt, unsigned event)
 {
-	if (event == SMD_EVENT_CLOSE) {
-		driver->ch = 0;
-		wake_up(&driver->smd_wait_q);
-		queue_work(driver->diag_cntl_wq,
-			 &(driver->diag_clean_modem_reg_work));
+	struct diag_smd_info *smd_info = (struct diag_smd_info *)ctxt;
+	if (!smd_info)
 		return;
-	} else if (event == SMD_EVENT_OPEN) {
-		if (ch_temp)
-			driver->ch = ch_temp;
-	}
-	wake_up(&driver->smd_wait_q);
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_work));
-}
 
-#if defined(CONFIG_MSM_N_WAY_SMD)
-static void diag_smd_lpass_notify(void *ctxt, unsigned event)
-{
 	if (event == SMD_EVENT_CLOSE) {
-		driver->chlpass = 0;
+		smd_info->ch = 0;
 		wake_up(&driver->smd_wait_q);
-		queue_work(driver->diag_cntl_wq,
-			 &(driver->diag_clean_lpass_reg_work));
+		if (smd_info->type == SMD_DATA_TYPE) {
+			smd_info->notify_context = event;
+			queue_work(driver->diag_cntl_wq,
+				 &(smd_info->diag_notify_update_smd_work));
+		} else if (smd_info->type == SMD_DCI_TYPE) {
+			/* Notify the clients of the close */
+			diag_dci_notify_client(smd_info->peripheral_mask,
+							DIAG_STATUS_CLOSED);
+		}
 		return;
 	} else if (event == SMD_EVENT_OPEN) {
-		if (chlpass_temp)
-			driver->chlpass = chlpass_temp;
-	}
-	wake_up(&driver->smd_wait_q);
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_lpass_work));
-}
-#endif
+		if (smd_info->ch_save)
+			smd_info->ch = smd_info->ch_save;
 
-static void diag_smd_wcnss_notify(void *ctxt, unsigned event)
-{
-	if (event == SMD_EVENT_CLOSE) {
-		driver->ch_wcnss = 0;
-		wake_up(&driver->smd_wait_q);
-		queue_work(driver->diag_cntl_wq,
-			 &(driver->diag_clean_wcnss_reg_work));
-		return;
-	} else if (event == SMD_EVENT_OPEN) {
-		if (ch_wcnss_temp)
-			driver->ch_wcnss = ch_wcnss_temp;
+		if (smd_info->type == SMD_CNTL_TYPE) {
+			smd_info->notify_context = event;
+			queue_work(driver->diag_cntl_wq,
+				&(smd_info->diag_notify_update_smd_work));
+		} else if (smd_info->type == SMD_DCI_TYPE) {
+			smd_info->notify_context = event;
+			queue_work(driver->diag_dci_wq,
+				&(smd_info->diag_notify_update_smd_work));
+			/* Notify the clients of the open */
+			diag_dci_notify_client(smd_info->peripheral_mask,
+							DIAG_STATUS_OPEN);
+		}
 	}
+
 	wake_up(&driver->smd_wait_q);
-	queue_work(driver->diag_wq, &(driver->diag_read_smd_wcnss_work));
+
+	if (smd_info->type == SMD_DCI_TYPE)
+		queue_work(driver->diag_dci_wq,
+				&(smd_info->diag_read_smd_work));
+	else
+		queue_work(driver->diag_wq, &(smd_info->diag_read_smd_work));
 }
 
 static int diag_smd_probe(struct platform_device *pdev)
 {
 	int r = 0;
+	int index = -1;
 
 	if (pdev->id == SMD_APPS_MODEM) {
-		r = smd_open("DIAG", &driver->ch, driver, diag_smd_notify);
-		ch_temp = driver->ch;
+		index = SMD_MODEM_INDEX;
+		r = smd_open("DIAG", &driver->smd_data[index].ch,
+					&driver->smd_data[index],
+					diag_smd_notify);
+		driver->smd_data[index].ch_save =
+					driver->smd_data[index].ch;
 	}
 #if defined(CONFIG_MSM_N_WAY_SMD)
 	if (pdev->id == SMD_APPS_QDSP) {
+		index = SMD_LPASS_INDEX;
 		r = smd_named_open_on_edge("DIAG", SMD_APPS_QDSP,
-			&driver->chlpass, driver, diag_smd_lpass_notify);
-		chlpass_temp = driver->chlpass;
+					&driver->smd_data[index].ch,
+					&driver->smd_data[index],
+					diag_smd_notify);
+		driver->smd_data[index].ch_save =
+					driver->smd_data[index].ch;
 	}
 #endif
 	if (pdev->id == SMD_APPS_WCNSS) {
-		r = smd_named_open_on_edge("APPS_RIVA_DATA", SMD_APPS_WCNSS
-			, &driver->ch_wcnss, driver, diag_smd_wcnss_notify);
-		ch_wcnss_temp = driver->ch_wcnss;
+		index = SMD_WCNSS_INDEX;
+		r = smd_named_open_on_edge("APPS_RIVA_DATA",
+					SMD_APPS_WCNSS,
+					&driver->smd_data[index].ch,
+					&driver->smd_data[index],
+					diag_smd_notify);
+		driver->smd_data[index].ch_save =
+					driver->smd_data[index].ch;
 	}
+
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pr_debug("diag: open SMD port, Id = %d, r = %d\n", pdev->id, r);
@@ -1417,86 +1311,175 @@ static int diag_smd_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int diagfwd_runtime_suspend(struct device *dev)
+static int diag_smd_runtime_suspend(struct device *dev)
 {
 	dev_dbg(dev, "pm_runtime: suspending...\n");
 	return 0;
 }
 
-static int diagfwd_runtime_resume(struct device *dev)
+static int diag_smd_runtime_resume(struct device *dev)
 {
 	dev_dbg(dev, "pm_runtime: resuming...\n");
 	return 0;
 }
 
-static const struct dev_pm_ops diagfwd_dev_pm_ops = {
-	.runtime_suspend = diagfwd_runtime_suspend,
-	.runtime_resume = diagfwd_runtime_resume,
+static const struct dev_pm_ops diag_smd_dev_pm_ops = {
+	.runtime_suspend = diag_smd_runtime_suspend,
+	.runtime_resume = diag_smd_runtime_resume,
 };
 
 static struct platform_driver msm_smd_ch1_driver = {
 
 	.probe = diag_smd_probe,
 	.driver = {
-		   .name = "DIAG",
-		   .owner = THIS_MODULE,
-		   .pm   = &diagfwd_dev_pm_ops,
-		   },
+		.name = "DIAG",
+		.owner = THIS_MODULE,
+		.pm   = &diag_smd_dev_pm_ops,
+	},
 };
 
 static struct platform_driver diag_smd_lite_driver = {
 
 	.probe = diag_smd_probe,
 	.driver = {
-		   .name = "APPS_RIVA_DATA",
-		   .owner = THIS_MODULE,
-		   .pm   = &diagfwd_dev_pm_ops,
-		   },
+		.name = "APPS_RIVA_DATA",
+		.owner = THIS_MODULE,
+		.pm   = &diag_smd_dev_pm_ops,
+	},
 };
+
+void diag_smd_destructor(struct diag_smd_info *smd_info)
+{
+	if (smd_info->ch)
+		smd_close(smd_info->ch);
+
+	smd_info->ch = 0;
+	smd_info->ch_save = 0;
+	kfree(smd_info->buf_in_1);
+	kfree(smd_info->buf_in_2);
+	kfree(smd_info->write_ptr_1);
+	kfree(smd_info->write_ptr_2);
+}
+
+int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
+			  int type, uint16_t peripheral_mask)
+{
+	smd_info->peripheral = peripheral;
+	smd_info->type = type;
+	smd_info->peripheral_mask = peripheral_mask;
+
+	smd_info->ch = 0;
+	smd_info->ch_save = 0;
+
+	if (smd_info->buf_in_1 == NULL) {
+		smd_info->buf_in_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		if (smd_info->buf_in_1 == NULL)
+			goto err;
+		kmemleak_not_leak(smd_info->buf_in_1);
+	}
+
+	if (smd_info->write_ptr_1 == NULL) {
+		smd_info->write_ptr_1 = kzalloc(sizeof(struct diag_request),
+								GFP_KERNEL);
+		if (smd_info->write_ptr_1 == NULL)
+			goto err;
+		kmemleak_not_leak(smd_info->write_ptr_1);
+	}
+
+	/* The smd data type needs two buffers */
+	if (smd_info->type == SMD_DATA_TYPE) {
+		if (smd_info->buf_in_2 == NULL) {
+			smd_info->buf_in_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+			if (smd_info->buf_in_2 == NULL)
+				goto err;
+			kmemleak_not_leak(smd_info->buf_in_2);
+		}
+		if (smd_info->write_ptr_2 == NULL) {
+			smd_info->write_ptr_2 =
+				kzalloc(sizeof(struct diag_request),
+				GFP_KERNEL);
+			if (smd_info->write_ptr_2 == NULL)
+				goto err;
+			kmemleak_not_leak(smd_info->write_ptr_2);
+		}
+	}
+
+	INIT_WORK(&(smd_info->diag_read_smd_work), diag_read_smd_work_fn);
+
+	/*
+	 * The update function assigned to the diag_notify_update_smd_work
+	 * work_struct is meant to be used for updating that is not to
+	 * be done in the context of the smd notify function. The
+	 * notify_context variable can be used for passing additional
+	 * information to the update function.
+	 */
+	smd_info->notify_context = 0;
+	if (type == SMD_DATA_TYPE)
+		INIT_WORK(&(smd_info->diag_notify_update_smd_work),
+							diag_clean_reg_fn);
+	else if (type == SMD_CNTL_TYPE)
+		INIT_WORK(&(smd_info->diag_notify_update_smd_work),
+							diag_mask_update_fn);
+	else if (type == SMD_DCI_TYPE)
+		INIT_WORK(&(smd_info->diag_notify_update_smd_work),
+						diag_update_smd_dci_work_fn);
+	else {
+		pr_err("diag: In %s, unknown type, type: %d\n", __func__, type);
+		goto err;
+	}
+
+	/*
+	 * Set function ptr for function to call to process the data that
+	 * was just read from the smd channel
+	 */
+	if (type == SMD_DATA_TYPE)
+		smd_info->process_smd_read_data = diag_process_smd_read_data;
+	else if (type == SMD_CNTL_TYPE)
+		smd_info->process_smd_read_data =
+						diag_process_smd_cntl_read_data;
+	else if (type == SMD_DCI_TYPE)
+		smd_info->process_smd_read_data =
+						diag_process_smd_dci_read_data;
+	else {
+		pr_err("diag: In %s, unknown type, type: %d\n", __func__, type);
+		goto err;
+	}
+
+	return 1;
+err:
+	kfree(smd_info->buf_in_1);
+	kfree(smd_info->buf_in_2);
+	kfree(smd_info->write_ptr_1);
+	kfree(smd_info->write_ptr_2);
+
+	return 0;
+}
 
 void diagfwd_init(void)
 {
+	int success;
+	int i;
+
 	diag_debug_buf_idx = 0;
 	driver->read_len_legacy = 0;
 	driver->use_device_tree = has_device_tree();
 	mutex_init(&driver->diag_cntl_mutex);
 
-	if (driver->buf_in_1 == NULL) {
-		driver->buf_in_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
-		if (driver->buf_in_1 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->buf_in_1);
-	}
-	if (driver->buf_in_2 == NULL) {
-		driver->buf_in_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
-		if (driver->buf_in_2 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->buf_in_2);
-	}
-	if (driver->buf_in_lpass_1 == NULL) {
-		driver->buf_in_lpass_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
-		if (driver->buf_in_lpass_1 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->buf_in_lpass_1);
-	}
-	if (driver->buf_in_lpass_2 == NULL) {
-		driver->buf_in_lpass_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
-		if (driver->buf_in_lpass_2 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->buf_in_lpass_2);
-	}
-	if (driver->buf_in_wcnss_1 == NULL) {
-		driver->buf_in_wcnss_1 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
-		if (driver->buf_in_wcnss_1 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->buf_in_wcnss_1);
-	}
-	if (driver->buf_in_wcnss_2 == NULL) {
-		driver->buf_in_wcnss_2 = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
-		if (driver->buf_in_wcnss_2 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->buf_in_wcnss_2);
-	}
+	success = diag_smd_constructor(&driver->smd_data[SMD_MODEM_INDEX],
+				MODEM_PROC, SMD_DATA_TYPE, DIAG_CON_MPSS);
+	if (!success)
+		goto err;
+
+	success = diag_smd_constructor(&driver->smd_data[SMD_LPASS_INDEX],
+				LPASS_PROC, SMD_DATA_TYPE, DIAG_CON_LPASS);
+	if (!success)
+		goto err;
+
+	success = diag_smd_constructor(&driver->smd_data[SMD_WCNSS_INDEX],
+				WCNSS_PROC, SMD_DATA_TYPE, DIAG_CON_WCNSS);
+	if (!success)
+		goto err;
+
 	if (driver->usb_buf_out  == NULL &&
 	     (driver->usb_buf_out = kzalloc(USB_MAX_OUT_BUF,
 					 GFP_KERNEL)) == NULL)
@@ -1534,48 +1517,6 @@ void diagfwd_init(void)
 		       GFP_KERNEL)) == NULL)
 		goto err;
 	kmemleak_not_leak(driver->table);
-	if (driver->write_ptr_1 == NULL) {
-		driver->write_ptr_1 = kzalloc(
-			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->write_ptr_1 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->write_ptr_1);
-	}
-	if (driver->write_ptr_2 == NULL) {
-		driver->write_ptr_2 = kzalloc(
-			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->write_ptr_2 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->write_ptr_2);
-	}
-	if (driver->write_ptr_lpass_1 == NULL) {
-		driver->write_ptr_lpass_1 = kzalloc(
-			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->write_ptr_lpass_1 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->write_ptr_lpass_1);
-	}
-	if (driver->write_ptr_lpass_2 == NULL) {
-		driver->write_ptr_lpass_2 = kzalloc(
-			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->write_ptr_lpass_2 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->write_ptr_lpass_2);
-	}
-	if (driver->write_ptr_wcnss_1 == NULL) {
-		driver->write_ptr_wcnss_1 = kzalloc(
-			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->write_ptr_wcnss_1 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->write_ptr_wcnss_1);
-	}
-	if (driver->write_ptr_wcnss_2 == NULL) {
-		driver->write_ptr_wcnss_2 = kzalloc(
-			sizeof(struct diag_request), GFP_KERNEL);
-		if (driver->write_ptr_wcnss_2 == NULL)
-			goto err;
-		kmemleak_not_leak(driver->write_ptr_wcnss_2);
-	}
 
 	if (driver->usb_read_ptr == NULL) {
 		driver->usb_read_ptr = kzalloc(
@@ -1608,16 +1549,13 @@ void diagfwd_init(void)
 #endif
 	platform_driver_register(&msm_smd_ch1_driver);
 	platform_driver_register(&diag_smd_lite_driver);
-
 	return;
 err:
 	pr_err("diag: Could not initialize diag buffers");
-	kfree(driver->buf_in_1);
-	kfree(driver->buf_in_2);
-	kfree(driver->buf_in_lpass_1);
-	kfree(driver->buf_in_lpass_2);
-	kfree(driver->buf_in_wcnss_1);
-	kfree(driver->buf_in_wcnss_2);
+
+	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
+		diag_smd_destructor(&driver->smd_data[i]);
+
 	kfree(driver->buf_msg_mask_update);
 	kfree(driver->buf_log_mask_update);
 	kfree(driver->buf_event_mask_update);
@@ -1628,12 +1566,6 @@ err:
 	kfree(driver->data_ready);
 	kfree(driver->table);
 	kfree(driver->pkt_buf);
-	kfree(driver->write_ptr_1);
-	kfree(driver->write_ptr_2);
-	kfree(driver->write_ptr_lpass_1);
-	kfree(driver->write_ptr_lpass_2);
-	kfree(driver->write_ptr_wcnss_1);
-	kfree(driver->write_ptr_wcnss_2);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
 	kfree(driver->user_space_data);
@@ -1643,12 +1575,11 @@ err:
 
 void diagfwd_exit(void)
 {
-	smd_close(driver->ch);
-	smd_close(driver->chlpass);
-	smd_close(driver->ch_wcnss);
-	driver->ch = 0;		/* SMD can make this NULL */
-	driver->chlpass = 0;
-	driver->ch_wcnss = 0;
+	int i;
+
+	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
+		diag_smd_destructor(&driver->smd_data[i]);
+
 #ifdef CONFIG_DIAG_OVER_USB
 	if (driver->usb_connected)
 		usb_diag_free_req(driver->legacy_ch);
@@ -1657,12 +1588,7 @@ void diagfwd_exit(void)
 	platform_driver_unregister(&msm_smd_ch1_driver);
 	platform_driver_unregister(&msm_diag_dci_driver);
 	platform_driver_unregister(&diag_smd_lite_driver);
-	kfree(driver->buf_in_1);
-	kfree(driver->buf_in_2);
-	kfree(driver->buf_in_lpass_1);
-	kfree(driver->buf_in_lpass_2);
-	kfree(driver->buf_in_wcnss_1);
-	kfree(driver->buf_in_wcnss_2);
+
 	kfree(driver->buf_msg_mask_update);
 	kfree(driver->buf_log_mask_update);
 	kfree(driver->buf_event_mask_update);
@@ -1673,12 +1599,6 @@ void diagfwd_exit(void)
 	kfree(driver->data_ready);
 	kfree(driver->table);
 	kfree(driver->pkt_buf);
-	kfree(driver->write_ptr_1);
-	kfree(driver->write_ptr_2);
-	kfree(driver->write_ptr_lpass_1);
-	kfree(driver->write_ptr_lpass_2);
-	kfree(driver->write_ptr_wcnss_1);
-	kfree(driver->write_ptr_wcnss_2);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
 	kfree(driver->user_space_data);

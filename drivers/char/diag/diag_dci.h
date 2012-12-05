@@ -78,8 +78,10 @@ enum {
 
 int diag_dci_init(void);
 void diag_dci_exit(void);
-void diag_read_smd_dci_work_fn(struct work_struct *);
 void diag_update_smd_dci_work_fn(struct work_struct *);
+void diag_dci_notify_client(int peripheral_mask, int data);
+int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
+								int recd_bytes);
 int diag_process_dci_transaction(unsigned char *buf, int len);
 int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 							 int len, int index);

@@ -294,29 +294,23 @@ static void diag_update_log_mask(int equip_id, uint8_t *buf, int num_items)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
-void diag_modem_mask_update_fn(struct work_struct *work)
+void diag_mask_update_fn(struct work_struct *work)
 {
-	diag_send_msg_mask_update(driver->ch_cntl, ALL_SSID,
-					   ALL_SSID, MODEM_PROC);
-	diag_send_log_mask_update(driver->ch_cntl, ALL_EQUIP_ID);
-	diag_send_event_mask_update(driver->ch_cntl, diag_event_num_bytes);
-}
+	struct diag_smd_info *smd_info = container_of(work,
+						struct diag_smd_info,
+						diag_notify_update_smd_work);
+	if (!smd_info) {
+		pr_err("diag: In %s, smd info is null, cannot update masks for the peripheral\n",
+			__func__);
+		return;
+	}
 
-void diag_lpass_mask_update_fn(struct work_struct *work)
-{
-	diag_send_msg_mask_update(driver->chlpass_cntl, ALL_SSID,
-						   ALL_SSID, LPASS_PROC);
-	diag_send_log_mask_update(driver->chlpass_cntl, ALL_EQUIP_ID);
-	diag_send_event_mask_update(driver->chlpass_cntl, diag_event_num_bytes);
-}
+	diag_send_msg_mask_update(smd_info->ch, ALL_SSID, ALL_SSID,
+						smd_info->peripheral);
+	diag_send_log_mask_update(smd_info->ch, ALL_EQUIP_ID);
+	diag_send_event_mask_update(smd_info->ch, diag_event_num_bytes);
 
-void diag_wcnss_mask_update_fn(struct work_struct *work)
-{
-	diag_send_msg_mask_update(driver->ch_wcnss_cntl, ALL_SSID,
-						   ALL_SSID, WCNSS_PROC);
-	diag_send_log_mask_update(driver->ch_wcnss_cntl, ALL_EQUIP_ID);
-	diag_send_event_mask_update(driver->ch_wcnss_cntl,
-						 diag_event_num_bytes);
+	smd_info->notify_context = 0;
 }
 
 void diag_send_log_mask_update(smd_channel_t *ch, int equip_id)
@@ -493,15 +487,13 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 			payload_length = 8 + ((*(int *)(buf + 4)) + 7)/8;
 			for (i = 0; i < payload_length; i++)
 				*(int *)(driver->apps_rsp_buf+12+i) = *(buf+i);
-			if (driver->ch_cntl)
-				diag_send_log_mask_update(driver->ch_cntl,
-				*(int *)buf);
-			if (driver->chlpass_cntl)
-				diag_send_log_mask_update(driver->chlpass_cntl,
-				*(int *)buf);
-			if (driver->ch_wcnss_cntl)
-				diag_send_log_mask_update(driver->ch_wcnss_cntl,
-				*(int *)buf);
+
+			for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+				if (driver->smd_cntl[i].ch)
+					diag_send_log_mask_update(
+						driver->smd_cntl[i].ch,
+						*(int *)buf);
+			}
 			encode_rsp_and_send(12 + payload_length - 1);
 			return 0;
 		}
@@ -509,7 +501,8 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 	} /* Get log masks */
 	else if (*buf == 0x73 && *(int *)(buf+4) == 4) {
 #if defined(CONFIG_DIAG_OVER_USB)
-		if (!(driver->ch) && chk_apps_only()) {
+		if (!(driver->smd_data[SMD_MODEM_INDEX].ch) &&
+						chk_apps_only()) {
 			equip_id = *(int *)(buf + 8);
 			num_items = *(int *)(buf + 12);
 			driver->apps_rsp_buf[0] = 0x73;
@@ -541,15 +534,13 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 			driver->apps_rsp_buf[3] = 0x0;
 			*(int *)(driver->apps_rsp_buf + 4) = 0x0;
 			*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* status */
-			if (driver->ch_cntl)
-				diag_send_log_mask_update(driver->ch_cntl,
-				ALL_EQUIP_ID);
-			if (driver->chlpass_cntl)
-				diag_send_log_mask_update(driver->chlpass_cntl,
-				ALL_EQUIP_ID);
-			if (driver->ch_wcnss_cntl)
-				diag_send_log_mask_update(driver->ch_wcnss_cntl,
-				ALL_EQUIP_ID);
+			for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+				if (driver->smd_cntl[i].ch)
+					diag_send_log_mask_update(
+						driver->smd_cntl[i].ch,
+						ALL_EQUIP_ID);
+
+			}
 			encode_rsp_and_send(11);
 			return 0;
 		}
@@ -559,7 +550,8 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 		ssid_first = *(uint16_t *)(buf + 2);
 		ssid_last = *(uint16_t *)(buf + 4);
 #if defined(CONFIG_DIAG_OVER_USB)
-		if (!(driver->ch) && chk_apps_only()) {
+		if (!(driver->smd_data[SMD_MODEM_INDEX].ch) &&
+						chk_apps_only()) {
 			driver->apps_rsp_buf[0] = 0x7d;
 			driver->apps_rsp_buf[1] = 0x3;
 			*(uint16_t *)(driver->apps_rsp_buf+2) = ssid_first;
@@ -599,15 +591,14 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 			for (i = 0; i < 8 + ssid_range; i++)
 				*(driver->apps_rsp_buf + i) = *(buf+i);
 			*(driver->apps_rsp_buf + 6) = 0x1;
-			if (driver->ch_cntl)
-				diag_send_msg_mask_update(driver->ch_cntl,
-				ssid_first, ssid_last, MODEM_PROC);
-			if (driver->chlpass_cntl)
-				diag_send_msg_mask_update(driver->chlpass_cntl,
-				ssid_first, ssid_last, LPASS_PROC);
-			if (driver->ch_wcnss_cntl)
-				diag_send_msg_mask_update(driver->ch_wcnss_cntl,
-				ssid_first, ssid_last, WCNSS_PROC);
+			for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+				if (driver->smd_cntl[i].ch)
+					diag_send_msg_mask_update(
+						driver->smd_cntl[i].ch,
+						ssid_first, ssid_last,
+						driver->smd_cntl[i].peripheral);
+
+			}
 			encode_rsp_and_send(8 + ssid_range - 1);
 			return 0;
 		}
@@ -625,15 +616,14 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 			driver->apps_rsp_buf[3] = 0; /* rsvd */
 			*(int *)(driver->apps_rsp_buf + 4) = rt_mask;
 			/* send msg mask update to peripheral */
-			if (driver->ch_cntl)
-				diag_send_msg_mask_update(driver->ch_cntl,
-				ALL_SSID, ALL_SSID, MODEM_PROC);
-			if (driver->chlpass_cntl)
-				diag_send_msg_mask_update(driver->chlpass_cntl,
-				ALL_SSID, ALL_SSID, LPASS_PROC);
-			if (driver->ch_wcnss_cntl)
-				diag_send_msg_mask_update(driver->ch_wcnss_cntl,
-				ALL_SSID, ALL_SSID, WCNSS_PROC);
+			for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+				if (driver->smd_cntl[i].ch)
+					diag_send_msg_mask_update(
+						driver->smd_cntl[i].ch,
+						ALL_SSID, ALL_SSID,
+						driver->smd_cntl[i].peripheral);
+
+			}
 			encode_rsp_and_send(7);
 			return 0;
 		}
@@ -652,16 +642,12 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 				EVENT_LAST_ID + 1;
 			memcpy(driver->apps_rsp_buf+6, driver->event_masks,
 				EVENT_LAST_ID/8+1);
-			if (driver->ch_cntl)
-				diag_send_event_mask_update(driver->ch_cntl,
-				diag_event_num_bytes);
-			if (driver->chlpass_cntl)
-				diag_send_event_mask_update(
-				driver->chlpass_cntl,
-				diag_event_num_bytes);
-			if (driver->ch_wcnss_cntl)
-				diag_send_event_mask_update(
-				driver->ch_wcnss_cntl, diag_event_num_bytes);
+			for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+				if (driver->smd_cntl[i].ch)
+					diag_send_event_mask_update(
+						driver->smd_cntl[i].ch,
+						diag_event_num_bytes);
+			}
 			encode_rsp_and_send(6 + EVENT_LAST_ID/8);
 			return 0;
 		}
@@ -675,16 +661,12 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 			driver->apps_rsp_buf[0] = 0x60;
 			driver->apps_rsp_buf[1] = 0x0;
 			driver->apps_rsp_buf[2] = 0x0;
-			if (driver->ch_cntl)
-				diag_send_event_mask_update(driver->ch_cntl,
-				diag_event_num_bytes);
-			if (driver->chlpass_cntl)
-				diag_send_event_mask_update(
-				driver->chlpass_cntl,
-				diag_event_num_bytes);
-			if (driver->ch_wcnss_cntl)
-				diag_send_event_mask_update(
-				driver->ch_wcnss_cntl, diag_event_num_bytes);
+			for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+				if (driver->smd_cntl[i].ch)
+					diag_send_event_mask_update(
+						driver->smd_cntl[i].ch,
+						diag_event_num_bytes);
+			}
 			encode_rsp_and_send(2);
 			return 0;
 		}
@@ -760,14 +742,6 @@ void diag_masks_init(void)
 			goto err;
 		kmemleak_not_leak(driver->event_masks);
 	}
-#ifdef CONFIG_DIAG_OVER_USB
-	INIT_WORK(&(driver->diag_modem_mask_update_work),
-						 diag_modem_mask_update_fn);
-	INIT_WORK(&(driver->diag_lpass_mask_update_work),
-						 diag_lpass_mask_update_fn);
-	INIT_WORK(&(driver->diag_wcnss_mask_update_work),
-						 diag_wcnss_mask_update_fn);
-#endif
 	return;
 err:
 	pr_err("diag: Could not initialize diag mask buffers");

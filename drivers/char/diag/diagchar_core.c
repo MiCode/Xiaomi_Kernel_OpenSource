@@ -149,21 +149,6 @@ void diag_clear_hsic_tbl(void)
 void diag_clear_hsic_tbl(void) { }
 #endif
 
-void diag_read_smd_work_fn(struct work_struct *work)
-{
-	__diag_smd_send_req();
-}
-
-void diag_read_smd_lpass_work_fn(struct work_struct *work)
-{
-	__diag_smd_lpass_send_req();
-}
-
-void diag_read_smd_wcnss_work_fn(struct work_struct *work)
-{
-	__diag_smd_wcnss_send_req();
-}
-
 void diag_add_client(int i, struct file *file)
 {
 	struct diagchar_priv *diagpriv_data;
@@ -565,9 +550,10 @@ long diagchar_ioctl(struct file *filp,
 			return -EFAULT;
 		mutex_lock(&driver->dci_mutex);
 		if (!(driver->num_dci_client))
-			driver->in_busy_dci = 0;
+			driver->smd_dci[SMD_MODEM_INDEX].in_busy_1 = 0;
 		driver->num_dci_client++;
-		pr_debug("diag: id = %d\n", driver->dci_client_id);
+		pr_debug("diag: In %s, id = %d\n",
+				__func__, driver->dci_client_id);
 		driver->dci_client_id++;
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
 			if (driver->dci_client_tbl[i].client == NULL) {
@@ -616,8 +602,9 @@ long diagchar_ioctl(struct file *filp,
 		mutex_unlock(&driver->dci_mutex);
 		return success;
 	} else if (iocmd == DIAG_IOCTL_DCI_SUPPORT) {
-		if (driver->ch_dci)
-			support_list = support_list | DIAG_CON_MPSS;
+		if (driver->smd_dci[SMD_MODEM_INDEX].ch)
+			support_list |=
+			driver->smd_dci[SMD_MODEM_INDEX].peripheral_mask;
 		if (copy_to_user((void *)ioarg, &support_list,
 							 sizeof(uint16_t)))
 			return -EFAULT;
@@ -700,12 +687,10 @@ long diagchar_ioctl(struct file *filp,
 		mutex_unlock(&driver->diagchar_mutex);
 		if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
 							== NO_LOGGING_MODE) {
-			driver->in_busy_1 = 1;
-			driver->in_busy_2 = 1;
-			driver->in_busy_lpass_1 = 1;
-			driver->in_busy_lpass_2 = 1;
-			driver->in_busy_wcnss_1 = 1;
-			driver->in_busy_wcnss_2 = 1;
+			for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+				driver->smd_data[i].in_busy_1 = 0;
+				driver->smd_data[i].in_busy_2 = 0;
+			}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 			driver->in_busy_sdio = 1;
 #endif
@@ -715,22 +700,15 @@ long diagchar_ioctl(struct file *filp,
 #endif
 		} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
-			driver->in_busy_1 = 0;
-			driver->in_busy_2 = 0;
-			driver->in_busy_lpass_1 = 0;
-			driver->in_busy_lpass_2 = 0;
-			driver->in_busy_wcnss_1 = 0;
-			driver->in_busy_wcnss_2 = 0;
-			/* Poll SMD channels to check for data*/
-			if (driver->ch)
-				queue_work(driver->diag_wq,
-					&(driver->diag_read_smd_work));
-			if (driver->chlpass)
-				queue_work(driver->diag_wq,
-					&(driver->diag_read_smd_lpass_work));
-			if (driver->ch_wcnss)
-				queue_work(driver->diag_wq,
-					&(driver->diag_read_smd_wcnss_work));
+			for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+				driver->smd_data[i].in_busy_1 = 0;
+				driver->smd_data[i].in_busy_2 = 0;
+				/* Poll SMD channels to check for data*/
+				if (driver->smd_data[i].ch)
+					queue_work(driver->diag_wq,
+						&(driver->smd_data[i].
+							diag_read_smd_work));
+			}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 			driver->in_busy_sdio = 0;
 			/* Poll SDIO channel to check for data */
@@ -758,23 +736,15 @@ long diagchar_ioctl(struct file *filp,
 		} else if (temp == USB_MODE && driver->logging_mode
 							== MEMORY_DEVICE_MODE) {
 			diagfwd_disconnect();
-			driver->in_busy_1 = 0;
-			driver->in_busy_2 = 0;
-			driver->in_busy_lpass_1 = 0;
-			driver->in_busy_lpass_2 = 0;
-			driver->in_busy_wcnss_1 = 0;
-			driver->in_busy_wcnss_2 = 0;
-
-			/* Poll SMD channels to check for data*/
-			if (driver->ch)
-				queue_work(driver->diag_wq,
-					 &(driver->diag_read_smd_work));
-			if (driver->chlpass)
-				queue_work(driver->diag_wq,
-					&(driver->diag_read_smd_lpass_work));
-			if (driver->ch_wcnss)
-				queue_work(driver->diag_wq,
-					&(driver->diag_read_smd_wcnss_work));
+			for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+				driver->smd_data[i].in_busy_1 = 0;
+				driver->smd_data[i].in_busy_2 = 0;
+				/* Poll SMD channels to check for data*/
+				if (driver->smd_data[i].ch)
+					queue_work(driver->diag_wq,
+						&(driver->smd_data[i].
+							diag_read_smd_work));
+			}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 			driver->in_busy_sdio = 0;
 			/* Poll SDIO channel to check for data */
@@ -886,73 +856,30 @@ drop:
 		}
 
 		/* copy modem data */
-		if (driver->in_busy_1 == 1) {
-			num_data++;
-			/*Copy the length of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-					 (driver->write_ptr_1->length), 4);
-			/*Copy the actual data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-					*(driver->buf_in_1),
-					 driver->write_ptr_1->length);
-			driver->in_busy_1 = 0;
-		}
-		if (driver->in_busy_2 == 1) {
-			num_data++;
-			/*Copy the length of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-					 (driver->write_ptr_2->length), 4);
-			/*Copy the actual data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-					 *(driver->buf_in_2),
-					 driver->write_ptr_2->length);
-			driver->in_busy_2 = 0;
-		}
-		/* copy lpass data */
-		if (driver->in_busy_lpass_1 == 1) {
-			num_data++;
-			/*Copy the length of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-				 (driver->write_ptr_lpass_1->length), 4);
-			/*Copy the actual data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
-							buf_in_lpass_1),
-					 driver->write_ptr_lpass_1->length);
-			driver->in_busy_lpass_1 = 0;
-		}
-		if (driver->in_busy_lpass_2 == 1) {
-			num_data++;
-			/*Copy the length of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-				 (driver->write_ptr_lpass_2->length), 4);
-			/*Copy the actual data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
-				buf_in_lpass_2), driver->
-					write_ptr_lpass_2->length);
-			driver->in_busy_lpass_2 = 0;
-		}
-		/* copy wncss data */
-		if (driver->in_busy_wcnss_1 == 1) {
-			num_data++;
-			/*Copy the length of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-				 (driver->write_ptr_wcnss_1->length), 4);
-			/*Copy the actual data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
-							buf_in_wcnss_1),
-					 driver->write_ptr_wcnss_1->length);
-			driver->in_busy_wcnss_1 = 0;
-		}
-		if (driver->in_busy_wcnss_2 == 1) {
-			num_data++;
-			/*Copy the length of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-				 (driver->write_ptr_wcnss_2->length), 4);
-			/*Copy the actual data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret, *(driver->
-							buf_in_wcnss_2),
-					 driver->write_ptr_wcnss_2->length);
-			driver->in_busy_wcnss_2 = 0;
+		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+			struct diag_smd_info *data = &driver->smd_data[i];
+			if (data->in_busy_1 == 1) {
+				num_data++;
+				/*Copy the length of data being passed*/
+				COPY_USER_SPACE_OR_EXIT(buf+ret,
+					(data->write_ptr_1->length), 4);
+				/*Copy the actual data being passed*/
+				COPY_USER_SPACE_OR_EXIT(buf+ret,
+					*(data->buf_in_1),
+					data->write_ptr_1->length);
+				data->in_busy_1 = 0;
+			}
+			if (data->in_busy_2 == 1) {
+				num_data++;
+				/*Copy the length of data being passed*/
+				COPY_USER_SPACE_OR_EXIT(buf+ret,
+					(data->write_ptr_2->length), 4);
+				/*Copy the actual data being passed*/
+				COPY_USER_SPACE_OR_EXIT(buf+ret,
+					*(data->buf_in_2),
+					data->write_ptr_2->length);
+				data->in_busy_2 = 0;
+			}
 		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* copy 9K data over SDIO */
@@ -1045,15 +972,11 @@ drop_hsic:
 		COPY_USER_SPACE_OR_EXIT(buf+4, num_data, 4);
 		ret -= 4;
 		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
-		if (driver->ch)
-			queue_work(driver->diag_wq,
-					 &(driver->diag_read_smd_work));
-		if (driver->chlpass)
-			queue_work(driver->diag_wq,
-					 &(driver->diag_read_smd_lpass_work));
-		if (driver->ch_wcnss)
-			queue_work(driver->diag_wq,
-					 &(driver->diag_read_smd_wcnss_work));
+		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+			if (driver->smd_data[i].ch)
+				queue_work(driver->diag_wq,
+				&(driver->smd_data[i].diag_read_smd_work));
+		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		if (driver->sdio_ch)
 			queue_work(driver->diag_sdio_wq,
@@ -1135,10 +1058,11 @@ drop_hsic:
 			}
 		}
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
-		driver->in_busy_dci = 0;
-		if (driver->ch_dci)
+		driver->smd_dci[SMD_MODEM_INDEX].in_busy_1 = 0;
+		if (driver->smd_dci[SMD_MODEM_INDEX].ch)
 			queue_work(driver->diag_dci_wq,
-				&(driver->diag_read_smd_dci_work));
+				&(driver->smd_dci[SMD_MODEM_INDEX].
+						diag_read_smd_work));
 		goto exit;
 	}
 exit:
@@ -1601,27 +1525,6 @@ static int __init diagchar_init(void)
 		init_waitqueue_head(&driver->wait_q);
 		init_waitqueue_head(&driver->smd_wait_q);
 		INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
-		INIT_WORK(&(driver->diag_read_smd_work), diag_read_smd_work_fn);
-		INIT_WORK(&(driver->diag_read_smd_cntl_work),
-						 diag_read_smd_cntl_work_fn);
-		INIT_WORK(&(driver->diag_read_smd_lpass_work),
-			   diag_read_smd_lpass_work_fn);
-		INIT_WORK(&(driver->diag_read_smd_lpass_cntl_work),
-			   diag_read_smd_lpass_cntl_work_fn);
-		INIT_WORK(&(driver->diag_read_smd_wcnss_work),
-			diag_read_smd_wcnss_work_fn);
-		INIT_WORK(&(driver->diag_read_smd_wcnss_cntl_work),
-			diag_read_smd_wcnss_cntl_work_fn);
-		INIT_WORK(&(driver->diag_read_smd_dci_work),
-						diag_read_smd_dci_work_fn);
-		INIT_WORK(&(driver->diag_update_smd_dci_work),
-						diag_update_smd_dci_work_fn);
-		INIT_WORK(&(driver->diag_clean_modem_reg_work),
-						 diag_clean_modem_reg_fn);
-		INIT_WORK(&(driver->diag_clean_lpass_reg_work),
-						 diag_clean_lpass_reg_fn);
-		INIT_WORK(&(driver->diag_clean_wcnss_reg_work),
-						 diag_clean_wcnss_reg_fn);
 		diag_debugfs_init();
 		diag_masks_init();
 		diagfwd_init();
