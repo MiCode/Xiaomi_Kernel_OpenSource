@@ -233,13 +233,13 @@ fail:
 	return ret;
 }
 
-static void __reset_context(void __iomem *base, int ctx)
+static void __reset_context(void __iomem *base, void __iomem *glb_base, int ctx)
 {
-	SET_BPRCOSH(base, ctx, 0);
-	SET_BPRCISH(base, ctx, 0);
-	SET_BPRCNSH(base, ctx, 0);
-	SET_BPSHCFG(base, ctx, 0);
-	SET_BPMTCFG(base, ctx, 0);
+	SET_BPRCOSH(glb_base, ctx, 0);
+	SET_BPRCISH(glb_base, ctx, 0);
+	SET_BPRCNSH(glb_base, ctx, 0);
+	SET_BPSHCFG(glb_base, ctx, 0);
+	SET_BPMTCFG(glb_base, ctx, 0);
 	SET_ACTLR(base, ctx, 0);
 	SET_SCTLR(base, ctx, 0);
 	SET_FSRRESTORE(base, ctx, 0);
@@ -257,16 +257,15 @@ static void __reset_context(void __iomem *base, int ctx)
 	mb();
 }
 
-static void __program_context(void __iomem *base, int ctx, int ncb,
-			      phys_addr_t pgtable, int redirect,
-			      int ttbr_split)
+static void __program_context(void __iomem *base, void __iomem *glb_base,
+			      int ctx, int ncb, phys_addr_t pgtable,
+			      int redirect, int ttbr_split)
 {
 	unsigned int prrr, nmrr;
 	int i, j, found;
-
 	msm_iommu_remote_spin_lock();
 
-	__reset_context(base, ctx);
+	__reset_context(base, glb_base, ctx);
 
 	/* Set up HTW mode */
 	/* TLB miss configuration: perform HTW on miss */
@@ -422,7 +421,6 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	struct msm_priv *priv;
-	struct msm_iommu_ctx_dev *ctx_dev;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
@@ -439,9 +437,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	iommu_drvdata = dev_get_drvdata(dev->parent);
 	ctx_drvdata = dev_get_drvdata(dev);
-	ctx_dev = dev->platform_data;
 
-	if (!iommu_drvdata || !ctx_drvdata || !ctx_dev) {
+	if (!iommu_drvdata || !ctx_drvdata) {
 		ret = -EINVAL;
 		goto fail;
 	}
@@ -461,7 +458,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (ret)
 		goto fail;
 
-	__program_context(iommu_drvdata->base, ctx_dev->num, iommu_drvdata->ncb,
+	__program_context(iommu_drvdata->base, iommu_drvdata->glb_base,
+			  ctx_drvdata->num, iommu_drvdata->ncb,
 			  __pa(priv->pgtable), priv->redirect,
 			  iommu_drvdata->ttbr_split);
 
@@ -505,7 +503,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	SET_TLBIASID(iommu_drvdata->base, ctx_dev->num,
 		     GET_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_dev->num));
 
-	__reset_context(iommu_drvdata->base, ctx_dev->num);
+	__reset_context(iommu_drvdata->base, iommu_drvdata->glb_base,
+			ctx_dev->num);
 
 	msm_iommu_remote_spin_unlock();
 

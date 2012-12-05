@@ -134,6 +134,8 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (!drvdata->base)
 		return -ENOMEM;
 
+	drvdata->glb_base = drvdata->base;
+
 	drvdata->gdsc = devm_regulator_get(&pdev->dev, "vdd");
 	if (IS_ERR(drvdata->gdsc))
 		return -EINVAL;
