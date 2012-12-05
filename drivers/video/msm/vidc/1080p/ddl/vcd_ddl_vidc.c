@@ -599,7 +599,7 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 			encoder->frame_rate.fps_denominator;
 	if ((encoder->codec.codec == VCD_CODEC_H263) &&
 		(DDL_FRAMERATE_SCALE(DDL_INITIAL_FRAME_RATE)
-		 != scaled_frame_rate))
+		 != scaled_frame_rate) && encoder->plusptype_enable)
 		h263_cpfc_enable = true;
 	vidc_sm_set_extended_encoder_control(&ddl->shared_mem
 		[ddl->command_channel], hdr_ext_control,
