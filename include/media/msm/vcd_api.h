@@ -100,6 +100,7 @@ struct vcd_buffer_requirement {
 	size_t sz;
 	u32 align;
 	u32 buf_pool_id;
+	size_t meta_buffer_size;
 };
 
 struct vcd_init_config {

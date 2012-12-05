@@ -205,6 +205,7 @@ struct ddl_dec_buffers{
 	struct ddl_buf_addr h264_nb_ip;
 	struct ddl_buf_addr context;
 	struct ddl_buf_addr extnuserdata;
+	struct ddl_buf_addr meta_hdr[DDL_MAX_BUFFER_COUNT];
 };
 struct ddl_enc_buffer_size{
 	u32  sz_cur_y;

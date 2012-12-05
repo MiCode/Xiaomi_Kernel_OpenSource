@@ -19,6 +19,7 @@
 
 #define VIDC_MAX_NUM_CLIENTS 4
 #define MAX_VIDEO_NUM_OF_BUFF 100
+#define MAX_META_BUFFERS 32
 
 enum buffer_dir {
 	BUFFER_TYPE_INPUT,
@@ -37,6 +38,11 @@ struct buf_addr_table {
 	void *client_data;
 };
 
+struct meta_buffer_addr_table {
+	u8 *kernel_vir_addr;
+	u8 *kernel_vir_addr_iommu;
+};
+
 struct video_client_ctx {
 	void *vcd_handle;
 	u32 num_of_input_buffers;
@@ -49,17 +55,22 @@ struct video_client_ctx {
 	wait_queue_head_t msg_wait;
 	struct completion event;
 	struct vcd_property_h264_mv_buffer vcd_h264_mv_buffer;
+	struct vcd_property_meta_buffer vcd_meta_buffer;
 	struct vcd_property_enc_recon_buffer recon_buffer[4];
 	u32 event_status;
 	u32 seq_header_set;
 	u32 stop_msg;
 	u32 stop_called;
 	u32 stop_sync_cb;
+	size_t meta_buf_size;
 	struct ion_client *user_ion_client;
 	struct ion_handle *seq_hdr_ion_handle;
 	struct ion_handle *h264_mv_ion_handle;
 	struct ion_handle *recon_buffer_ion_handle[4];
+	struct ion_handle *meta_buffer_ion_handle;
+	struct ion_handle *meta_buffer_iommu_ion_handle;
 	u32 dmx_disable;
+	struct meta_buffer_addr_table meta_addr_table[MAX_META_BUFFERS];
 };
 
 void __iomem *vidc_get_ioaddr(void);
