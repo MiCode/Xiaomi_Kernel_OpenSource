@@ -777,19 +777,6 @@ static int msm_ion_probe(struct platform_device *pdev)
 	if (pdata_needs_to_be_freed)
 		free_pdata(pdata);
 
-	/* Check if each heap has been removed from the memblock */
-	for (i = 0; i < num_heaps; i++) {
-		struct ion_platform_heap *heap_data = &pdata->heaps[i];
-		if (!heap_data->base)
-			continue;
-		err = memblock_overlaps_memory(heap_data->base,
-						heap_data->size);
-		if (err) {
-			panic("ION heap %s not removed from memblock\n",
-							heap_data->name);
-		}
-	}
-
 	check_for_heap_overlap(pdata->heaps, num_heaps);
 	platform_set_drvdata(pdev, idev);
 	return 0;
