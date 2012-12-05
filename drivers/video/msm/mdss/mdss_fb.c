@@ -300,6 +300,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		}
 	}
 
+	rc = mdss_mdp_overlay_init(mfd);
+	if (rc)
+		pr_err("unable to init overlay\n");
+
 	return 0;
 }
 
@@ -455,11 +459,18 @@ int mdss_fb_resume_all(void)
 	return result;
 }
 
+static const struct of_device_id mdss_fb_dt_match[] = {
+	{ .compatible = "qcom,mdss-fb",},
+	{}
+};
+EXPORT_COMPAT("qcom,mdss-fb");
+
 static struct platform_driver mdss_fb_driver = {
 	.probe = mdss_fb_probe,
 	.remove = mdss_fb_remove,
 	.driver = {
 		.name = "mdss_fb",
+		.of_match_table = mdss_fb_dt_match,
 	},
 };
 
@@ -1723,41 +1734,45 @@ struct fb_info *msm_fb_get_writeback_fb(void)
 }
 EXPORT_SYMBOL(msm_fb_get_writeback_fb);
 
-int mdss_register_panel(struct mdss_panel_data *pdata)
+int mdss_register_panel(struct platform_device *pdev,
+	struct mdss_panel_data *pdata)
 {
-	struct platform_device *mdss_fb_dev = NULL;
-	struct msm_fb_data_type *mfd;
-	int rc;
+	struct platform_device *fb_pdev, *mdss_pdev;
+	struct device_node *node;
+	int rc = 0;
 
-	if (!mdss_res) {
-		pr_err("mdss mdp resources not initialized yet\n");
+	if (!pdev || !pdev->dev.of_node) {
+		pr_err("Invalid device node\n");
 		return -ENODEV;
 	}
 
-	mdss_fb_dev = platform_device_alloc("mdss_fb", pdata->panel_info.pdest);
-	if (!mdss_fb_dev) {
-		pr_err("unable to allocate mdss_fb device\n");
-		return -ENOMEM;
-	}
-
-	mdss_fb_dev->dev.platform_data = pdata;
-
-	rc = platform_device_add(mdss_fb_dev);
-	if (rc) {
-		platform_device_put(mdss_fb_dev);
-		pr_err("unable to probe mdss_fb device (%d)\n", rc);
-		return rc;
-	}
-
-	mfd = platform_get_drvdata(mdss_fb_dev);
-	if (!mfd)
+	node = of_parse_phandle(pdev->dev.of_node, "qcom,mdss-fb-map", 0);
+	if (!node) {
+		pr_err("Unable to find fb node for device: %s\n",
+				pdev->name);
 		return -ENODEV;
-	if (mfd->key != MFD_KEY)
-		return -EINVAL;
+	}
+	mdss_pdev = of_find_device_by_node(node->parent);
+	if (!mdss_pdev) {
+		pr_err("Unable to find mdss for node: %s\n", node->full_name);
+		rc = -ENODEV;
+		goto mdss_notfound;
+	}
 
-	rc = mdss_mdp_overlay_init(mfd);
-	if (rc)
-		pr_err("unable to init overlay\n");
+	fb_pdev = of_find_device_by_node(node);
+	if (fb_pdev) {
+		pr_warn("frame buffer device already exists for %s\n",
+				node->full_name);
+		rc = -EPERM;
+	} else {
+		pr_info("adding framebuffer device %s\n", dev_name(&pdev->dev));
+		fb_pdev = of_platform_device_create(node, NULL,
+				&mdss_pdev->dev);
+		fb_pdev->dev.platform_data = pdata;
+	}
+
+mdss_notfound:
+	of_node_put(node);
 
 	return rc;
 }
@@ -1799,4 +1814,4 @@ int __init mdss_fb_init(void)
 	return 0;
 }
 
-module_init(mdss_fb_init);
+device_initcall_sync(mdss_fb_init);

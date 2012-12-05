@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -508,7 +508,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	/*
 	 * register in mdp driver
 	 */
-	rc = mdss_register_panel(&(ctrl_pdata->panel_data));
+	rc = mdss_register_panel(pdev, &(ctrl_pdata->panel_data));
 	if (rc) {
 		dev_err(&pdev->dev, "unable to register MIPI DSI panel\n");
 		devm_kfree(&pdev->dev, ctrl_pdata);
