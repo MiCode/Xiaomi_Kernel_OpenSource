@@ -260,6 +260,7 @@ VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("dsi1_vccs_3p3v",      "mipi_dsi.1"),
 	REGULATOR_SUPPLY("hdmi_mux_vdd",        "hdmi_msm.0"),
 	REGULATOR_SUPPLY("pcie_ext_3p3v",       "msm_pcie"),
+	REGULATOR_SUPPLY("sata_ext_3p3v",       "ahci.0"),
 };
 VREG_CONSUMERS(EXT_TS_SW) = {
 	REGULATOR_SUPPLY("ext_ts_sw",		NULL),
