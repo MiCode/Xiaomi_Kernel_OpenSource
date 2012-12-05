@@ -141,6 +141,7 @@ struct qpnp_bms_chip {
 	struct mutex			soc_invalidation_mutex;
 
 	bool				use_external_rsense;
+	bool				use_ocv_thresholds;
 
 	bool				ignore_shutdown_soc;
 	int				shutdown_soc_invalid;
@@ -185,6 +186,9 @@ struct qpnp_bms_chip {
 	int				calculated_soc;
 	int				prev_voltage_based_soc;
 	bool				use_voltage_soc;
+
+	int				ocv_high_threshold_uv;
+	int				ocv_low_threshold_uv;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -299,7 +303,7 @@ static int unlock_output_data(struct qpnp_bms_chip *chip)
 #define V_PER_BIT_DIV_FACTOR	1000
 #define VADC_INTRINSIC_OFFSET	0x6000
 
-static int vadc_reading_to_uv(unsigned int reading)
+static int vadc_reading_to_uv(int reading)
 {
 	if (reading <= VADC_INTRINSIC_OFFSET)
 		return 0;
@@ -311,8 +315,7 @@ static int vadc_reading_to_uv(unsigned int reading)
 #define VADC_CALIB_UV		625000
 #define VBATT_MUL_FACTOR	3
 
-static int adjust_vbatt_reading(struct qpnp_bms_chip *chip,
-						unsigned int reading_uv)
+static int adjust_vbatt_reading(struct qpnp_bms_chip *chip, int reading_uv)
 {
 	s64 numerator, denominator;
 
@@ -332,6 +335,17 @@ static int adjust_vbatt_reading(struct qpnp_bms_chip *chip,
 		return reading_uv * VBATT_MUL_FACTOR;
 	return (VADC_CALIB_UV + div_s64(numerator, denominator))
 						* VBATT_MUL_FACTOR;
+}
+
+static int convert_vbatt_uv_to_raw(struct qpnp_bms_chip *chip,
+					int unadjusted_vbatt)
+{
+	int scaled_vbatt = unadjusted_vbatt / VBATT_MUL_FACTOR;
+
+	if (scaled_vbatt <= 0)
+		return VADC_INTRINSIC_OFFSET;
+	return ((scaled_vbatt * V_PER_BIT_DIV_FACTOR) / V_PER_BIT_MUL_FACTOR)
+						+ VADC_INTRINSIC_OFFSET;
 }
 
 static inline int convert_vbatt_raw_to_uv(struct qpnp_bms_chip *chip,
@@ -1949,6 +1963,43 @@ static int qpnp_bms_power_set_property(struct power_supply *psy,
 	return 0;
 }
 
+#define OCV_USE_LIMIT_EN		BIT(7)
+static int set_ocv_voltage_thresholds(struct qpnp_bms_chip *chip,
+					int low_voltage_threshold,
+					int high_voltage_threshold)
+{
+	uint16_t low_voltage_raw, high_voltage_raw;
+	int rc;
+
+	low_voltage_raw = convert_vbatt_uv_to_raw(chip,
+				low_voltage_threshold);
+	high_voltage_raw = convert_vbatt_uv_to_raw(chip,
+				high_voltage_threshold);
+	rc = qpnp_write_wrapper(chip, (u8 *)&low_voltage_raw,
+			chip->base + BMS1_OCV_USE_LOW_LIMIT_THR0, 2);
+	if (rc) {
+		pr_err("Failed to set ocv low voltage threshold: %d\n", rc);
+		return rc;
+	}
+	rc = qpnp_write_wrapper(chip, (u8 *)&high_voltage_raw,
+			chip->base + BMS1_OCV_USE_HIGH_LIMIT_THR0, 2);
+	if (rc) {
+		pr_err("Failed to set ocv high voltage threshold: %d\n", rc);
+		return rc;
+	}
+	rc = qpnp_masked_write(chip, BMS1_OCV_USE_LIMIT_CTL,
+				OCV_USE_LIMIT_EN, OCV_USE_LIMIT_EN);
+	if (rc) {
+		pr_err("Failed to enabled ocv voltage thresholds: %d\n", rc);
+		return rc;
+	}
+	pr_debug("ocv low threshold set to %d uv or 0x%x raw\n",
+				low_voltage_threshold, low_voltage_raw);
+	pr_debug("ocv high threshold set to %d uv or 0x%x raw\n",
+				high_voltage_threshold, high_voltage_raw);
+	return 0;
+}
+
 static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 {
 	int rc;
@@ -2108,6 +2159,13 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 			"qcom,bms-ignore-shutdown-soc");
 	chip->use_voltage_soc = of_property_read_bool(chip->spmi->dev.of_node,
 			"qcom,bms-use-voltage-soc");
+	chip->use_ocv_thresholds = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,bms-use-ocv-thresholds");
+	SPMI_PROP_READ(ocv_high_threshold_uv,
+			"ocv-voltage-high-threshold-uv", rc);
+	SPMI_PROP_READ(ocv_low_threshold_uv,
+			"ocv-voltage-low-threshold-uv", rc);
 
 	if (chip->adjust_soc_low_threshold >= 45)
 		chip->adjust_soc_low_threshold = 45;
@@ -2329,6 +2387,17 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	if (rc) {
 		pr_err("Unable to get iadc selected channel = %d\n", rc);
 		goto error_read;
+	}
+
+	if (chip->use_ocv_thresholds) {
+		rc = set_ocv_voltage_thresholds(chip,
+				chip->ocv_low_threshold_uv,
+				chip->ocv_high_threshold_uv);
+		if (rc) {
+			pr_err("Could not set ocv voltage thresholds: %d\n",
+					rc);
+			goto error_read;
+		}
 	}
 
 	rc = set_battery_data(chip);
