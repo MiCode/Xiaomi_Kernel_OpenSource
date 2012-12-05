@@ -102,7 +102,7 @@ struct bam_ch_info {
 	u32					dst_pipe_idx;
 	u8					connection_idx;
 	enum transport_type trans;
-	struct usb_bam_connect_ipa_params *ipa_params;
+	struct usb_bam_connect_ipa_params ipa_params;
 
 	/* stats */
 	unsigned int		pending_with_bam;
@@ -649,7 +649,7 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 	int ret;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		ret = usb_bam_disconnect_ipa(d->connection_idx, d->ipa_params);
+		ret = usb_bam_disconnect_ipa(d->connection_idx, &d->ipa_params);
 		if (ret)
 			pr_err("%s: usb_bam_disconnect_ipa failed: err:%d\n",
 				__func__, ret);
@@ -706,29 +706,29 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			return;
 		}
 	} else if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		d->ipa_params->client = IPA_CLIENT_USB_CONS;
-		d->ipa_params->dir = PEER_PERIPHERAL_TO_USB;
-		ret = usb_bam_connect_ipa(d->ipa_params);
+		d->ipa_params.client = IPA_CLIENT_USB_CONS;
+		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
+		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
 			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
 				__func__, ret);
 			return;
 		}
 
-		d->ipa_params->client = IPA_CLIENT_USB_PROD;
-		d->ipa_params->dir = USB_TO_PEER_PERIPHERAL;
+		d->ipa_params.client = IPA_CLIENT_USB_PROD;
+		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
 		/* Currently only DMA mode is supported */
-		d->ipa_params->ipa_ep_cfg.mode.mode = IPA_DMA;
-		d->ipa_params->ipa_ep_cfg.mode.dst =
+		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_DMA;
+		d->ipa_params.ipa_ep_cfg.mode.dst =
 				IPA_CLIENT_A2_TETHERED_CONS;
-		ret = usb_bam_connect_ipa(d->ipa_params);
+		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
 			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
 				__func__, ret);
 			return;
 		}
-		rmnet_bridge_connect(d->ipa_params->prod_clnt_hdl,
-				d->ipa_params->cons_clnt_hdl, 0);
+		rmnet_bridge_connect(d->ipa_params.prod_clnt_hdl,
+				d->ipa_params.cons_clnt_hdl, 0);
 	}
 
 	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_KERNEL);
@@ -1037,8 +1037,7 @@ static void gbam_debugfs_init(void)
 static void gam_debugfs_init(void) { }
 #endif
 
-void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans,
-			struct usb_bam_connect_ipa_params *ipa_params)
+void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 {
 	struct gbam_port	*port;
 	unsigned long		flags;
@@ -1096,8 +1095,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans,
 }
 
 int gbam_connect(struct grmnet *gr, u8 port_num,
-				 enum transport_type trans, u8 connection_idx,
-				 struct usb_bam_connect_ipa_params *ipa_params)
+				 enum transport_type trans, u8 connection_idx)
 {
 	struct gbam_port	*port;
 	struct bam_ch_info	*d;
@@ -1166,11 +1164,10 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		port->gr = gr;
 		d->connection_idx = connection_idx;
 	} else if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		d->ipa_params = ipa_params;
 		port->gr = gr;
-		d->ipa_params->src_pipe = &(d->src_pipe_idx);
-		d->ipa_params->dst_pipe = &(d->dst_pipe_idx);
-		d->ipa_params->idx = connection_idx;
+		d->ipa_params.src_pipe = &(d->src_pipe_idx);
+		d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
+		d->ipa_params.idx = connection_idx;
 	}
 
 	d->trans = trans;
