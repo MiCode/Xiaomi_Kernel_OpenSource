@@ -886,6 +886,7 @@
 
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8841_s3>;
+		vdd_mx-supply = <&pm8841_s1>;
 
 		qcom,is-loadable;
 		qcom,firmware-name = "mba";

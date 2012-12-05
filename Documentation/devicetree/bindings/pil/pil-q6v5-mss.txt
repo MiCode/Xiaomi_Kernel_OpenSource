@@ -14,6 +14,7 @@ Required properties:
 		      "metadata_base" are expected.
 - interrupts:         The modem watchdog interrupt
 - vdd_mss-supply:     Reference to the regulator that supplies the processor.
+- vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
 - qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
 - qcom,pil-self-auth: <0> if the hardware does not require self-authenticating
 		      images and self-authentication is not desired;
@@ -32,6 +33,7 @@ Example:
 			    "restart_reg", metadata_base";
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8841_s3>;
+		vdd_mx-supply = <&pm8841_s1>;
 
 		qcom,is-loadable;
 		qcom,firmware-name = "mba";
