@@ -128,6 +128,11 @@
 		qcom,current-limit = <800>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps";
+		qcom,device-type = <3>;
+	};
+
 	qcom,smem@fa00000 {
 		compatible = "qcom,smem";
 		reg = <0xfa00000 0x200000>,

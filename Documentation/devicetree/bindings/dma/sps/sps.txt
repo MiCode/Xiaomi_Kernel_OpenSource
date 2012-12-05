@@ -1,0 +1,27 @@
+SPS (Smart Peripheral Switch) may be used as a DMA engine to move data
+in either the Peripheral-to-Peripheral (a.k.a. BAM-to-BAM) mode or the
+Peripheral-to-Memory (a.k.a. BAM-System) mode. SPS includes BAM (Bus
+Access Module) hardware block, BAM DMA peripheral, and pipe memory.
+
+Required property:
+  - compatible: should be "qcom,msm_sps"
+
+Optional properties:
+  - reg: offset and size of the register set in the memory map
+  - interrupts: IRQ line
+  - qcom,device-type: specify the device configuration of BAM DMA and
+    pipe memory. Can be one of
+        1 - With BAM DMA and without pipe memory
+        2 - With BAM DMA and with pipe memory
+        3 - Without BAM DMA and without pipe memory
+
+Example:
+
+	qcom,sps@f9980000 {
+		compatible = "qcom,msm_sps";
+		reg = <0xf9984000 0x15000>,
+		      <0xf9999000 0xb000>,
+		      <0xfe803000 0x4800>;
+		interrupts = <0 94 0>;
+		qcom,device-type = <2>;
+	};
