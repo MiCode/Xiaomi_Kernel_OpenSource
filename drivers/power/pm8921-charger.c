@@ -789,15 +789,18 @@ static struct usb_ma_limit_entry usb_ma_table[] = {
 	{1600, 0xF},
 };
 
-#define REG_SBI_CONFIG		0x04F
-#define PAGE3_ENABLE_MASK	0x6
-#define USB_OVP_TRIM_MASK	0x3F
-#define USB_OVP_TRIM_MIN	0x00
+#define REG_SBI_CONFIG			0x04F
+#define PAGE3_ENABLE_MASK		0x6
+#define USB_OVP_TRIM_MASK		0x3F
+#define USB_OVP_TRIM_PM8917_MASK	0x7F
+#define USB_OVP_TRIM_MIN		0x00
 #define REG_USB_OVP_TRIM_ORIG_LSB	0x10A
 #define REG_USB_OVP_TRIM_ORIG_MSB	0x09C
+#define REG_USB_OVP_TRIM_PM8917		0x2B5
+#define REG_USB_OVP_TRIM_PM8917_BIT	BIT(0)
 static int pm_chg_usb_trim(struct pm8921_chg_chip *chip, int index)
 {
-	u8 temp, sbi_config, msb, lsb;
+	u8 temp, sbi_config, msb, lsb, mask;
 	s8 trim;
 	int rc = 0;
 	static u8 usb_trim_reg_orig = 0xFF;
@@ -824,6 +827,19 @@ static int pm_chg_usb_trim(struct pm8921_chg_chip *chip, int index)
 		msb = msb >> 5;
 		lsb = lsb >> 5;
 		usb_trim_reg_orig = msb << 3 | lsb;
+
+		if (pm8xxx_get_version(chip->dev->parent)
+				== PM8XXX_VERSION_8917) {
+			rc = pm8xxx_readb(chip->dev->parent,
+					REG_USB_OVP_TRIM_PM8917, &msb);
+			if (rc) {
+				pr_err("error = %d reading config reg\n", rc);
+				return rc;
+			}
+
+			msb = msb & REG_USB_OVP_TRIM_PM8917_BIT;
+			usb_trim_reg_orig |= msb << 6;
+		}
 	}
 
 	/* use the original trim value */
@@ -849,7 +865,12 @@ static int pm_chg_usb_trim(struct pm8921_chg_chip *chip, int index)
 		return rc;
 	}
 
-	rc = pm_chg_masked_write(chip, USB_OVP_TRIM, USB_OVP_TRIM_MASK, trim);
+	mask = USB_OVP_TRIM_MASK;
+
+	if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8917)
+		mask = USB_OVP_TRIM_PM8917_MASK;
+
+	rc = pm_chg_masked_write(chip, USB_OVP_TRIM, mask, trim);
 	if (rc) {
 		pr_err("error = %d writing USB_OVP_TRIM\n", rc);
 		return rc;
