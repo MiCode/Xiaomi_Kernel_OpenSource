@@ -93,11 +93,8 @@ static void update_clk_statistics(struct kgsl_device *device,
 
 static inline int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level)
 {
-	unsigned int max_pwrlevel = max_t(int, pwr->thermal_pwrlevel,
-		pwr->max_pwrlevel);
-
-	unsigned int min_pwrlevel = max_t(int, pwr->thermal_pwrlevel,
-		pwr->min_pwrlevel);
+	int max_pwrlevel = max_t(int, pwr->thermal_pwrlevel, pwr->max_pwrlevel);
+	int min_pwrlevel = max_t(int, pwr->thermal_pwrlevel, pwr->min_pwrlevel);
 
 	if (level < max_pwrlevel)
 		return max_pwrlevel;
