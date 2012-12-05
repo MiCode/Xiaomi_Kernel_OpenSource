@@ -140,6 +140,7 @@ struct audio_client {
 	atomic_t	       cmd_state;
 	/* Relative or absolute TS */
 	uint32_t	       time_flag;
+	atomic_t	       nowait_cmd_cnt;
 	void		       *priv;
 	uint32_t               io_mode;
 	uint64_t	       time_stamp;
