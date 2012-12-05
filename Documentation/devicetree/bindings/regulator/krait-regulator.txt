@@ -10,10 +10,17 @@ Required properties:
 				"mdd" - string to identify the area where mdd registers reside.
 - qcom,headroom-voltage:	The minimum required voltage drop between the input
 			 	voltage and the output voltage for the LDO to be
-			 	operational, in microvolts
-- qcom,retention-voltage:	The value for retention voltage in microvolts
-- qcom,ldo-default-voltage:	The default value for LDO voltage in microvolts
-- qcom,ldo-threshold-voltage:	The voltage value above which LDO is nonfunctional
+			 	operational, in microvolts. Acceptable values are from
+				50000uV to 250000uV
+- qcom,retention-voltage:	The value for retention voltage in microvolts. Acceptable
+				values are from 465000uV to 750000uV
+- qcom,ldo-default-voltage:	The default value for LDO voltage in microvolts. Acceptable
+				values are from 465000uV to 750000uV
+- qcom,ldo-threshold-voltage:	The voltage value above which LDO is nonfunctional.
+				Acceptable values are from 600000uV to 900000uV
+- qcom,ldo-delta-voltage:	The delta used to reduce the requested voltage in order
+				to derive the LDO output voltage while switching
+				to LDO mode. Acceptable values are from 1000uV to 100000uV
 
 Any property defined as part of the core regulator
 binding, defined in regulator.txt, can also be used.
@@ -31,5 +38,6 @@ Example:
 		qcom,retention-voltage = <745000>;
 		qcom,ldo-default-voltage = <745000>;
 		qcom,ldo-threshold-voltage = <750000>;
+		qcom,ldo-delta-voltage = <50000>;
 	};
 
