@@ -1,0 +1,37 @@
+* Qualcomm MSM IOMMU v1
+
+Required properties:
+- compatible : one of:
+	- "qcom,msm-smmu-v1"
+- reg : offset and length of the register set for the device.
+- qcom,glb-offset : Offset for the global register base.
+
+Optional properties:
+- List of sub nodes, one for each of the translation context banks supported.
+  Each sub node has the following required properties:
+
+  - reg : offset and length of the register set for the context bank.
+  - interrupts : should contain the context bank interrupt.
+  - qcom,iommu-ctx-mids : List of machine identifiers associated with this
+    translation context.
+  - label : Name of the context bank
+
+Optional properties:
+  - none
+
+Example:
+
+	qcom,iommu@fd000000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfd890000 0x10000>;
+		qcom,glb-offset = <0xF000>;
+
+		qcom,iommu-ctx@fd000000 {
+			reg = <0xfd000000 0x1000>;
+			interrupts = <0 250 0>;
+			qcom,iommu-ctx-mids = <0 3>;
+			label = "a_label";
+		};

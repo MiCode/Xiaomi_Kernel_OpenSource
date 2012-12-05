@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -811,24 +811,24 @@ do { \
 
 
 /* Global Registers */
-#define M2VCBR_N	(0xFF000)
-#define CBACR_N		(0xFF800)
-#define TLBRSW		(0xFFE00)
-#define TLBTR0		(0xFFE80)
-#define TLBTR1		(0xFFE84)
-#define TLBTR2		(0xFFE88)
-#define TESTBUSCR	(0xFFE8C)
-#define GLOBAL_TLBIALL	(0xFFF00)
-#define TLBIVMID	(0xFFF04)
-#define CR		(0xFFF80)
-#define EAR		(0xFFF84)
-#define ESR		(0xFFF88)
-#define ESRRESTORE	(0xFFF8C)
-#define ESYNR0		(0xFFF90)
-#define ESYNR1		(0xFFF94)
-#define REV		(0xFFFF4)
-#define IDR		(0xFFFF8)
-#define RPU_ACR		(0xFFFFC)
+#define M2VCBR_N	(0x000)
+#define CBACR_N		(0x800)
+#define TLBRSW		(0xE00)
+#define TLBTR0		(0xE80)
+#define TLBTR1		(0xE84)
+#define TLBTR2		(0xE88)
+#define TESTBUSCR	(0xE8C)
+#define GLOBAL_TLBIALL	(0xF00)
+#define TLBIVMID	(0xF04)
+#define CR		(0xF80)
+#define EAR		(0xF84)
+#define ESR		(0xF88)
+#define ESRRESTORE	(0xF8C)
+#define ESYNR0		(0xF90)
+#define ESYNR1		(0xF94)
+#define REV		(0xFF4)
+#define IDR		(0xFF8)
+#define RPU_ACR		(0xFFC)
 
 
 /* Context Bank Registers */

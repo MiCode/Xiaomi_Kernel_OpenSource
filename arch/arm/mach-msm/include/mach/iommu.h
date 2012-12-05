@@ -83,6 +83,7 @@ struct msm_iommu_bfb_settings {
 /**
  * struct msm_iommu_drvdata - A single IOMMU hardware instance
  * @base:	IOMMU config port base address (VA)
+ * @glb_base:	IOMMU config port base address for global register space (VA)
  * @ncb		The number of contexts on this IOMMU
  * @irq:	Interrupt number
  * @clk:	The bus clock for this IOMMU hardware instance
@@ -99,6 +100,7 @@ struct msm_iommu_bfb_settings {
  */
 struct msm_iommu_drvdata {
 	void __iomem *base;
+	void __iomem *glb_base;
 	int ncb;
 	int ttbr_split;
 	struct clk *clk;
@@ -123,8 +125,8 @@ void msm_iommu_remove_drv(struct msm_iommu_drvdata *drv);
  *			attached to them
  * @attached_domain	Domain currently attached to this context (if any)
  * @name		Human-readable name of this context device
- * @sids		List of Stream IDs mapped to this context (v2 only)
- * @nsid		Number of Stream IDs mapped to this context (v2 only)
+ * @sids		List of Stream IDs mapped to this context
+ * @nsid		Number of Stream IDs mapped to this context
  *
  * A msm_iommu_ctx_drvdata holds the driver data for a single context bank
  * within each IOMMU hardware instance
@@ -230,6 +232,12 @@ static inline int msm_soc_version_supports_iommu_v1(void)
 	if (node) {
 		of_node_put(node);
 		return 0;
+	}
+
+	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v1");
+	if (node) {
+		of_node_put(node);
+		return 1;
 	}
 #endif
 	if (cpu_is_msm8960() &&
