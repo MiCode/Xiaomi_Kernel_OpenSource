@@ -165,7 +165,8 @@ static u32 ddl_supported_metadata_flag(struct ddl_client_context *ddl)
 
 	if (ddl->decoding) {
 		flag |= (VCD_METADATA_CONCEALMB | VCD_METADATA_PASSTHROUGH |
-				VCD_METADATA_QPARRAY);
+				VCD_METADATA_QPARRAY |
+				VCD_METADATA_SEPARATE_BUF);
 		if (codec == VCD_CODEC_H264)
 			flag |= (VCD_METADATA_SEI | VCD_METADATA_VUI);
 		else if (codec == VCD_CODEC_VC1 ||
@@ -260,6 +261,9 @@ void ddl_set_default_decoder_metadata_buffer_size(struct ddl_decoder_data
 	DDL_METADATA_ALIGNSIZE(suffix);
 	decoder->suffix = suffix;
 	output_buf_req->sz += suffix;
+	output_buf_req->meta_buffer_size = suffix;
+	output_buf_req->meta_buffer_size =
+		(output_buf_req->meta_buffer_size + 8191) & (~8191);
 	decoder->meta_data_offset = 0;
 	DDL_MSG_LOW("metadata output buf size : %d", suffix);
 }
@@ -481,13 +485,14 @@ u32 ddl_vidc_encode_set_metadata_output_buf(struct ddl_client_context *ddl)
 void ddl_vidc_decode_set_metadata_output(struct ddl_decoder_data *decoder)
 {
 	struct ddl_context *ddl_context;
-	u32 loopc, yuv_size;
+	u32 loopc, yuv_size, dpb;
 	u32 *buffer;
-
+	struct ddl_dec_buffers *dec_buffers = &decoder->hw_bufs;
 	if (!decoder->meta_data_enable_flag) {
 		decoder->meta_data_offset = 0;
 		return;
 	}
+	dpb = decoder->dp_buf.no_of_dec_pic_buf;
 	ddl_context = ddl_get_context();
 	yuv_size = ddl_get_yuv_buffer_size(&decoder->client_frame_size,
 		&decoder->buf_format, !decoder->progressive_only,
@@ -495,15 +500,22 @@ void ddl_vidc_decode_set_metadata_output(struct ddl_decoder_data *decoder)
 	decoder->meta_data_offset = DDL_ALIGN_SIZE(yuv_size,
 		DDL_LINEAR_BUF_ALIGN_GUARD_BYTES, DDL_LINEAR_BUF_ALIGN_MASK);
 	buffer = (u32 *) decoder->meta_data_input.align_virtual_addr;
-	*buffer++ = decoder->suffix;
 	DDL_MSG_LOW("Metadata offset & size : %d/%d",
 		decoder->meta_data_offset, decoder->suffix);
-	for (loopc = 0; loopc < decoder->dp_buf.no_of_dec_pic_buf;
-		++loopc) {
-		*buffer++ = (u32)(decoder->meta_data_offset + (u8 *)
+	if (!(decoder->meta_data_enable_flag & VCD_METADATA_SEPARATE_BUF)) {
+		*buffer++ = decoder->suffix;
+		for (loopc = 0; loopc < dpb; ++loopc) {
+			*buffer++ = (u32)(decoder->meta_data_offset + (u8 *)
 			DDL_OFFSET(ddl_context->dram_base_a.
 			align_physical_addr, decoder->dp_buf.
 			dec_pic_buffers[loopc].vcd_frm.physical));
+		}
+	} else {
+		*buffer++ = decoder->actual_output_buf_req.meta_buffer_size;
+		for (loopc = 0; loopc < dpb; ++loopc) {
+			*buffer++ = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
+					dec_buffers->meta_hdr[loopc]);
+		}
 	}
 }
 
@@ -627,7 +639,8 @@ void ddl_process_decoder_metadata(struct ddl_client_context *ddl)
 	DDL_MSG_LOW("data_len/metadata_offset : %d/%d",
 		output_frame->data_len, decoder->meta_data_offset);
 	output_frame->flags |= VCD_FRAME_FLAG_EXTRADATA;
-	if (output_frame->data_len != decoder->meta_data_offset) {
+	if (!(decoder->meta_data_enable_flag & VCD_METADATA_SEPARATE_BUF)
+		&& (output_frame->data_len != decoder->meta_data_offset)) {
 		qfiller = (u32 *)((u32)((output_frame->data_len +
 			output_frame->offset  +
 				(u8 *) output_frame->virtual) + 3) & ~3);

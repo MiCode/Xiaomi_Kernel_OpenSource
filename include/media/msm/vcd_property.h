@@ -64,6 +64,8 @@
 #define VCD_I_LTR_USE (VCD_START_BASE + 0x30)
 #define VCD_I_CAPABILITY_LTR_COUNT (VCD_START_BASE + 0x31)
 #define VCD_I_LTR_MARK (VCD_START_BASE + 0x32)
+#define VCD_I_SET_EXT_METABUFFER (VCD_START_BASE + 0x33)
+#define VCD_I_FREE_EXT_METABUFFER (VCD_START_BASE + 0x34)
 
 #define VCD_START_REQ      (VCD_START_BASE + 0x1000)
 #define VCD_I_REQ_IFRAME   (VCD_START_REQ + 0x1)
@@ -122,8 +124,10 @@ enum vcd_perf_level {
 #define VCD_METADATA_PASSTHROUGH    0x080
 #define VCD_METADATA_ENC_SLICE      0x100
 #define VCD_METADATA_LTR_INFO       0x200
+
 #define VCD_METADATA_EXT_DATA       0x0800
 #define VCD_METADATA_USER_DATA      0x1000
+#define VCD_METADATA_SEPARATE_BUF   0x2000
 
 
 struct vcd_property_meta_data_enable {
@@ -425,4 +429,19 @@ struct vcd_property_ltruse_type {
 	u32 ltr_frames;
 };
 
+struct vcd_property_meta_buffer {
+	u8 *kernel_virtual_addr;
+	u8 *physical_addr;
+	u32 size;
+	u32 count;
+	int pmem_fd;
+	u32 offset;
+	u8 *dev_addr;
+	void *client_data;
+	u8 *kernel_virt_addr_iommu;
+	u8 *physical_addr_iommu;
+	int pmem_fd_iommu;
+	u8 *dev_addr_iommu;
+	void *client_data_iommu;
+};
 #endif

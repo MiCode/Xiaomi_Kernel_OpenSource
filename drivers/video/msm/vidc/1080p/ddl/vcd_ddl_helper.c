@@ -781,7 +781,7 @@ u32 ddl_allocate_dec_hw_buffers(struct ddl_client_context *ddl)
 		}
 	}
 	if (buf_size.sz_extnuserdata > 0) {
-		dec_bufs->extnuserdata.mem_type = DDL_FW_MEM;
+		dec_bufs->extnuserdata.mem_type = DDL_CMD_MEM;
 		ptr = ddl_pmem_alloc(&dec_bufs->extnuserdata,
 				buf_size.sz_extnuserdata, DDL_KILO_BYTE(2));
 		if (!ptr)
