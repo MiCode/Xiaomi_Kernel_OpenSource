@@ -2494,7 +2494,7 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return rc;
 	}
 
-	rc = mdss_register_panel(&hdmi_ctrl->panel_data);
+	rc = mdss_register_panel(hdmi_ctrl->pdev, &hdmi_ctrl->panel_data);
 	if (rc) {
 		DEV_ERR("%s: FAILED: to register HDMI panel\n", __func__);
 		return rc;
