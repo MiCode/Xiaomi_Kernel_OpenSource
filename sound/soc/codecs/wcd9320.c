@@ -181,6 +181,11 @@ static const u32 vport_check_table[NUM_CODEC_DAIS] = {
 	(1 << AIF1_CAP) | (1 << AIF2_CAP),	/* AIF2_CAP */
 };
 
+static const u32 vport_i2s_check_table[NUM_CODEC_DAIS] = {
+	0,	/* AIF1_PB */
+	0,	/* AIF1_CAP */
+};
+
 struct taiko_priv {
 	struct snd_soc_codec *codec;
 	u32 adc_count;
@@ -1523,6 +1528,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 	u32 dai_id = widget->shift;
 	u32 port_id = mixer->shift;
 	u32 enable = ucontrol->value.integer.value[0];
+	u32 vtable = vport_check_table[dai_id];
 
 
 	pr_debug("%s: wname %s cname %s value %u shift %d item %ld\n", __func__,
@@ -1539,7 +1545,6 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			return -EINVAL;
 		}
 	}
-	if (taiko_p->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		switch (dai_id) {
 		case AIF1_CAP:
 		case AIF2_CAP:
@@ -1547,8 +1552,16 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			/* only add to the list if value not set
 			 */
 			if (enable && !(widget->value & 1 << port_id)) {
+
+				if (taiko_p->intf_type ==
+					WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+					vtable = vport_check_table[dai_id];
+				if (taiko_p->intf_type ==
+					WCD9XXX_INTERFACE_TYPE_I2C)
+					vtable = vport_i2s_check_table[dai_id];
+
 				if (wcd9xxx_tx_vport_validation(
-						vport_check_table[dai_id],
+						vtable,
 						port_id,
 						taiko_p->dai)) {
 					pr_debug("%s: TX%u is used by other\n"
@@ -1583,7 +1596,6 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			mutex_unlock(&codec->mutex);
 			return -EINVAL;
 		}
-	}
 	pr_debug("%s: name %s sname %s updated value %u shift %d\n", __func__,
 		widget->name, widget->sname, widget->value, widget->shift);
 
