@@ -32,6 +32,13 @@ Parent node required properties:
 - qcom,bms-adjust-soc-high-threshold : The high threshold for the "flat
 			portion" of the charging curve. The BMS will not
 			adjust SoC based on voltage during this time.
+- qcom,bms-ocv-voltage-low-threshold-uv : The low voltage threshold for the
+			"flat portion" of the discharge curve. The bms will not
+			accept new ocvs between these thresholds.
+- qcom,bms-ocv-voltage-high-threshold-uv : The high voltage threshold for
+			the "flat portion" of the discharge curve.
+			The bms will not accept new ocvs between these
+			thresholds.
 - qcom,bms-low-soc-calculate-soc-threshold : The SoC threshold for when
 			the period calculate_soc work speeds up. This ensures
 			SoC is updated in userspace constantly when we are near
@@ -60,6 +67,8 @@ Parent node optional properties:
 - qcom,bms-use-external-rsense : A boolean that controls whether BMS will use
 			an external sensor resistor instead of the default
 			RDS of the batfet.
+- qcom,bms-use-ocv-thresholds : A boolean that controls whether BMS will take
+			new OCVs only between the defined thresholds.
 
 All sub node required properties:
 - reg : offset and length of the PMIC peripheral register map.
@@ -92,6 +101,8 @@ pm8941_bms: qcom,bms {
 	qcom,bms-max-voltage-uv = <4200000>;
 	qcom,bms-r-conn-mohm = <18>;
 	qcom,bms-shutdown-soc-valid-limit = <20>;
+	qcom,bms-ocv-voltage-low-threshold-uv = <3650000>;
+	qcom,bms-ocv-voltage-high-threshold-uv = <3750000>;
 	qcom,bms-adjust-soc-low-threshold = <25>;
 	qcom,bms-adjust-soc-high-threshold = <45>;
 	qcom,bms-low-soc-calculate-soc-threshold = <15>;
