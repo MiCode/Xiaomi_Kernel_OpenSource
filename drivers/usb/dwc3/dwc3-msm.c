@@ -1248,6 +1248,10 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 		/* fall through */
 	case USB_CHG_STATE_DETECTED:
 		dwc3_chg_block_reset(mdwc);
+		/* Enable VDP_SRC */
+		if (mdwc->charger.chg_type == DWC3_DCP_CHARGER)
+			dwc3_msm_write_readback(mdwc->base,
+					CHARGING_DET_CTRL_REG, 0x1F, 0x10);
 		dev_dbg(mdwc->dev, "chg_type = %s\n",
 			chg_to_string(mdwc->charger.chg_type));
 		mdwc->charger.notify_detection_complete(mdwc->otg_xceiv->otg,
@@ -1279,6 +1283,7 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret;
+	bool dcp;
 
 	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
 
@@ -1287,23 +1292,29 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
+	if (mdwc->hs_phy_irq)
+		disable_irq(mdwc->hs_phy_irq);
+
 	if (cancel_delayed_work_sync(&mdwc->chg_work))
 		dev_dbg(mdwc->dev, "%s: chg_work was pending\n", __func__);
 	if (mdwc->chg_state != USB_CHG_STATE_DETECTED) {
 		/* charger detection wasn't complete; re-init flags */
 		mdwc->chg_state = USB_CHG_STATE_UNDEFINED;
 		mdwc->charger.chg_type = DWC3_INVALID_CHARGER;
+		dwc3_msm_write_readback(mdwc->base, CHARGING_DET_CTRL_REG,
+								0x37, 0x0);
 	}
+
+	dcp = mdwc->charger.chg_type == DWC3_DCP_CHARGER;
 
 	/* Sequence to put hardware in low power state:
 	 * 1. Set OTGDISABLE to disable OTG block in HSPHY (saves power)
-	 * 2. Clear charger detection control fields
+	 * 2. Clear charger detection control fields (performed above)
 	 * 3. SUSPEND PHY and turn OFF core clock after some delay
 	 * 4. Clear interrupt latch register and enable BSV, ID HV interrupts
 	 * 5. Enable PHY retention
 	 */
 	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x1000, 0x1000);
-	dwc3_msm_write_readback(mdwc->base, CHARGING_DET_CTRL_REG, 0x37, 0x0);
 	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
 						0xC00000, 0x800000);
 
@@ -1323,7 +1334,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	dwc3_msm_write_reg(mdwc->base, HS_PHY_IRQ_STAT_REG, 0xFFF);
 	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x18000, 0x18000);
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x0);
+	if (!dcp)
+		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x0);
 
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
@@ -1343,7 +1355,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "Failed to reset bus bw vote\n");
 	}
 
-	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability)
+	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp)
 		dwc3_hsusb_ldo_enable(0);
 
 	dwc3_ssusb_ldo_enable(0);
@@ -1354,12 +1366,16 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 
+	if (mdwc->hs_phy_irq)
+		enable_irq(mdwc->hs_phy_irq);
+
 	return 0;
 }
 
 static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 {
 	int ret;
+	bool dcp;
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 
@@ -1383,7 +1399,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dev_err(mdwc->dev, "%s failed to vote for TCXO buffer%d\n",
 						__func__, ret);
 
-	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability)
+	dcp = mdwc->charger.chg_type == DWC3_DCP_CHARGER;
+	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp)
 		dwc3_hsusb_ldo_enable(1);
 
 	dwc3_ssusb_ldo_enable(1);
