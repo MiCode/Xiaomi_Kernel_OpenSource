@@ -33,6 +33,7 @@
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
+#include "ramdump.h"
 
 /* VENUS WRAPPER registers */
 #define VENUS_WRAPPER_CLOCK_CONFIG			0x4
@@ -76,6 +77,7 @@ struct venus_data {
 	struct iommu_domain *iommu_fw_domain;
 	int venus_domain_num;
 	bool is_booted;
+	void *ramdump_dev;
 	u32 fw_sz;
 	u32 fw_min_paddr;
 	u32 fw_max_paddr;
@@ -459,6 +461,29 @@ static void venus_stop(const struct subsys_desc *desc)
 	pil_shutdown(&drv->desc);
 }
 
+static int venus_shutdown(const struct subsys_desc *desc)
+{
+	struct venus_data *drv = subsys_to_drv(desc);
+	pil_shutdown(&drv->desc);
+	return 0;
+}
+
+static int venus_powerup(const struct subsys_desc *desc)
+{
+	struct venus_data *drv = subsys_to_drv(desc);
+	return pil_boot(&drv->desc);
+}
+
+static int venus_ramdump(int enable, const struct subsys_desc *desc)
+{
+	struct venus_data *drv = subsys_to_drv(desc);
+
+	if (!enable)
+		return 0;
+
+	return pil_do_ramdump(&drv->desc, drv->ramdump_dev);
+}
+
 static int pil_venus_probe(struct platform_device *pdev)
 {
 	struct venus_data *drv;
@@ -524,23 +549,34 @@ static int pil_venus_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "using non-secure boot\n");
 	}
 
+	drv->ramdump_dev = create_ramdump_device("venus", &pdev->dev);
+	if (!drv->ramdump_dev)
+		return -ENOMEM;
+
 	rc = pil_desc_init(desc);
 	if (rc)
-		return rc;
+		goto err_ramdump;
 
 	drv->subsys_desc.name = desc->name;
 	drv->subsys_desc.owner = THIS_MODULE;
 	drv->subsys_desc.dev = &pdev->dev;
 	drv->subsys_desc.start = venus_start;
 	drv->subsys_desc.stop = venus_stop;
+	drv->subsys_desc.shutdown = venus_shutdown;
+	drv->subsys_desc.powerup = venus_powerup;
+	drv->subsys_desc.ramdump = venus_ramdump;
 
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
-		pil_desc_release(desc);
-		return PTR_ERR(drv->subsys);
+		rc = PTR_ERR(drv->subsys);
+		goto err_subsys;
 	}
-
-	return 0;
+	return rc;
+err_subsys:
+	pil_desc_release(desc);
+err_ramdump:
+	destroy_ramdump_device(drv->ramdump_dev);
+	return rc;
 }
 
 static int pil_venus_remove(struct platform_device *pdev)
