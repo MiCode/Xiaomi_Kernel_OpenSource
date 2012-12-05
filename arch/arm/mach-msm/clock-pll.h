@@ -160,6 +160,7 @@ struct pll_clk {
 };
 
 extern struct clk_ops clk_ops_local_pll;
+extern struct clk_ops clk_ops_sr2_pll;
 
 static inline struct pll_clk *to_pll_clk(struct clk *c)
 {

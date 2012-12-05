@@ -54,6 +54,7 @@
 static DEFINE_SPINLOCK(pll_reg_lock);
 
 #define ENABLE_WAIT_MAX_LOOPS 200
+#define PLL_LOCKED_BIT BIT(16)
 
 static int pll_vote_clk_enable(struct clk *c)
 {
@@ -146,6 +147,51 @@ static void __pll_config_reg(void __iomem *pll_config, struct pll_freq_tbl *f,
 		regval |= masks->main_output_mask;
 
 	writel_relaxed(regval, pll_config);
+}
+
+static int sr2_pll_clk_enable(struct clk *c)
+{
+	unsigned long flags;
+	struct pll_clk *pll = to_pll_clk(c);
+	int ret = 0, count;
+	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+
+	/* Disable PLL bypass mode. */
+	mode |= PLL_BYPASSNL;
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/*
+	 * H/W requires a 5us delay between disabling the bypass and
+	 * de-asserting the reset. Delay 10us just to be safe.
+	 */
+	mb();
+	udelay(10);
+
+	/* De-assert active-low PLL reset. */
+	mode |= PLL_RESET_N;
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/* Wait for pll to lock. */
+	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
+		if (readl_relaxed(PLL_STATUS_REG(pll)) & PLL_LOCKED_BIT)
+			break;
+		udelay(1);
+	}
+
+	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & PLL_LOCKED_BIT))
+		pr_err("PLL %s didn't lock after enabling it!\n", c->dbg_name);
+
+	/* Enable PLL output. */
+	mode |= PLL_OUTCTRL;
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	/* Ensure that the write above goes through before returning. */
+	mb();
+
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+	return ret;
 }
 
 static void __pll_clk_enable_reg(void __iomem *mode_reg)
@@ -290,8 +336,6 @@ int sr_pll_clk_enable(struct clk *c)
 	return 0;
 }
 
-#define PLL_LOCKED_BIT BIT(16)
-
 int sr_hpm_lp_pll_clk_enable(struct clk *c)
 {
 	unsigned long flags;
@@ -332,6 +376,13 @@ out:
 
 struct clk_ops clk_ops_local_pll = {
 	.enable = local_pll_clk_enable,
+	.disable = local_pll_clk_disable,
+	.set_rate = local_pll_clk_set_rate,
+	.handoff = local_pll_clk_handoff,
+};
+
+struct clk_ops clk_ops_sr2_pll = {
+	.enable = sr2_pll_clk_enable,
 	.disable = local_pll_clk_disable,
 	.set_rate = local_pll_clk_set_rate,
 	.handoff = local_pll_clk_handoff,
