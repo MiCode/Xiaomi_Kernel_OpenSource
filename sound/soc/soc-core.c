@@ -43,6 +43,7 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/soc-dpcm.h>
+#include <sound/soc-fw.h>
 #include <sound/initval.h>
 
 #define CREATE_TRACE_POINTS
@@ -1924,6 +1925,9 @@ static int soc_cleanup_card_resources(struct snd_soc_card *card)
 	/* remove and free each DAI */
 	soc_remove_dai_links(card);
 
+	/* remove any dynamic kcontrols */
+	snd_soc_fw_dcontrols_remove_all(card, SND_SOC_FW_INDEX_ALL);
+
 	soc_cleanup_card_debugfs(card);
 
 	/* remove the card */
@@ -2594,8 +2598,9 @@ int snd_soc_info_enum_double(struct snd_kcontrol *kcontrol,
 	if (uinfo->value.enumerated.item >= e->items)
 		uinfo->value.enumerated.item = e->items - 1;
 	strlcpy(uinfo->value.enumerated.name,
-		e->texts[uinfo->value.enumerated.item],
+		snd_soc_get_enum_text(e, uinfo->value.enumerated.item),
 		sizeof(uinfo->value.enumerated.name));
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_soc_info_enum_double);
@@ -3891,6 +3896,7 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	if (card->rtd == NULL)
 		return -ENOMEM;
 	card->num_rtd = 0;
+
 	card->rtd_aux = &card->rtd[card->num_links];
 
 	for (i = 0; i < card->num_links; i++)
@@ -3898,6 +3904,8 @@ int snd_soc_register_card(struct snd_soc_card *card)
 
 	INIT_LIST_HEAD(&card->list);
 	INIT_LIST_HEAD(&card->dapm_dirty);
+	INIT_LIST_HEAD(&card->denums);
+	INIT_LIST_HEAD(&card->dmixers);
 	card->instantiated = 0;
 	mutex_init(&card->mutex);
 	mutex_init(&card->dapm_mutex);
@@ -4287,6 +4295,8 @@ int snd_soc_add_platform(struct device *dev, struct snd_soc_platform *platform,
 	platform->dapm.platform = platform;
 	platform->dapm.stream_event = platform_drv->stream_event;
 	mutex_init(&platform->mutex);
+	INIT_LIST_HEAD(&platform->denums);
+	INIT_LIST_HEAD(&platform->dmixers);
 
 	mutex_lock(&client_mutex);
 	list_add(&platform->list, &platform_list);
@@ -4444,6 +4454,8 @@ int snd_soc_register_codec(struct device *dev,
 	codec->driver = codec_drv;
 	codec->num_dai = num_dai;
 	mutex_init(&codec->mutex);
+	INIT_LIST_HEAD(&codec->denums);
+	INIT_LIST_HEAD(&codec->dmixers);
 
 	for (i = 0; i < num_dai; i++) {
 		fixup_codec_formats(&dai_drv[i].playback);
