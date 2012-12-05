@@ -2485,6 +2485,17 @@ static struct fs_driver_data gfx3d_fs_data = {
 	.bus_port0 = MSM_BUS_MASTER_GRAPHICS_3D,
 };
 
+static struct fs_driver_data gfx3d_fs_data_8960ab = {
+	.clks = (struct fs_clk_data[]){
+		{ .name = "core_clk", .reset_rate = 27000000 },
+		{ .name = "iface_clk" },
+		{ .name = "bus_clk" },
+		{ 0 }
+	},
+	.bus_port0 = MSM_BUS_MASTER_GRAPHICS_3D,
+	.bus_port1 = MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
+};
+
 static struct fs_driver_data ijpeg_fs_data = {
 	.clks = (struct fs_clk_data[]){
 		{ .name = "core_clk" },
@@ -2583,7 +2594,7 @@ struct platform_device *msm8960ab_footswitch[] __initdata = {
 	FS_8X60(FS_IJPEG,  "vdd",	"msm_gemini.0",	&ijpeg_fs_data),
 	FS_8X60(FS_VFE,    "vdd",	"msm_vfe.0",	&vfe_fs_data),
 	FS_8X60(FS_VPE,    "vdd",	"msm_vpe.0",	&vpe_fs_data),
-	FS_8X60(FS_GFX3D,  "vdd",	"kgsl-3d0.0",	&gfx3d_fs_data),
+	FS_8X60(FS_GFX3D,  "vdd",	"kgsl-3d0.0",	&gfx3d_fs_data_8960ab),
 	FS_8X60(FS_VED,    "vdd",	"msm_vidc.0",	&ved_fs_data_8960ab),
 };
 unsigned msm8960ab_num_footswitch __initdata = ARRAY_SIZE(msm8960ab_footswitch);
