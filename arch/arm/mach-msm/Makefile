@@ -33,9 +33,12 @@ obj-$(CONFIG_ARCH_MSM_SCORPION) += pmu.o
 obj-$(CONFIG_ARCH_MSM_SCORPIONMP) += perf_event_msm_l2.o
 obj-$(CONFIG_ARCH_MSM_KRAIT) += msm-krait-l2-accessors.o pmu.o perf_event_msm_krait_l2.o
 obj-$(CONFIG_ARCH_MSM_KRAIT) += krait-scm.o
+ifdef CONFIG_HW_PERF_EVENTS
 obj-$(CONFIG_ARCH_MSM7X27A) += pmu.o perf_event_msm_pl310.o
 obj-$(CONFIG_ARCH_MSM9625) += pmu.o perf_event_msm_pl310.o
 obj-$(CONFIG_ARCH_MSM8625) += pmu.o perf_event_msm_pl310.o
+obj-$(CONFIG_ARCH_MSM9615) += pmu.o perf_event_msm_pl310.o
+endif
 
 ifndef CONFIG_MSM_SMP
 obj-$(CONFIG_ARCH_MSM_SCORPION) += msm_fault_handlers.o
