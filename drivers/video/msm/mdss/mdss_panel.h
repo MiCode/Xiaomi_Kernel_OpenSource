@@ -198,5 +198,6 @@ struct mdss_panel_data {
 	int (*event_handler) (struct mdss_panel_data *pdata, int e, void *arg);
 };
 
-int mdss_register_panel(struct mdss_panel_data *pdata);
+int mdss_register_panel(struct platform_device *pdev,
+	struct mdss_panel_data *pdata);
 #endif /* MDSS_PANEL_H */

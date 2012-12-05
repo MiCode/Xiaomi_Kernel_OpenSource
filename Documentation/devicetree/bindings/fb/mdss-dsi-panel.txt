@@ -44,6 +44,8 @@ Required properties:
 					--> wait time after the command is transmitter.
 					--> size of payload
 					--> payload.
+- qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
+					interface is mapped.
 
 Required structure:
 - A qcom,mdss-dsi-panel node must be a child of an mdss-dsi controller node that links to

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,7 +111,7 @@ static int mdss_wb_probe(struct platform_device *pdev)
 	pdata->event_handler = mdss_wb_event_handler;
 	pdev->dev.platform_data = pdata;
 
-	rc = mdss_register_panel(pdata);
+	rc = mdss_register_panel(pdev, pdata);
 	if (rc) {
 		dev_err(&pdev->dev, "unable to register writeback panel\n");
 		return rc;
