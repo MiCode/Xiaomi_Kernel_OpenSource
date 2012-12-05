@@ -524,6 +524,7 @@ static int read_cc(struct pm8921_bms_chip *chip, int *result)
 	int rc;
 	uint16_t msw, lsw;
 
+	*result = 0;
 	rc = pm_bms_read_output_data(chip, CC_LSB, &lsw);
 	if (rc) {
 		pr_err("fail to read CC_LSB rc = %d\n", rc);
@@ -2171,7 +2172,9 @@ EXPORT_SYMBOL(pm8921_bms_get_vsense_avg);
 int pm8921_bms_get_battery_current(int *result_ua)
 {
 	int vsense_uv;
+	int rc = 0;
 
+	*result_ua = 0;
 	if (!the_chip) {
 		pr_err("called before initialization\n");
 		return -EINVAL;
@@ -2183,14 +2186,20 @@ int pm8921_bms_get_battery_current(int *result_ua)
 
 	mutex_lock(&the_chip->bms_output_lock);
 	pm_bms_lock_output_data(the_chip);
-	read_vsense_avg(the_chip, &vsense_uv);
+	rc = read_vsense_avg(the_chip, &vsense_uv);
 	pm_bms_unlock_output_data(the_chip);
 	mutex_unlock(&the_chip->bms_output_lock);
+	if (rc) {
+		pr_err("Unable to read vsense average\n");
+		goto error_vsense;
+	}
 	pr_debug("vsense=%duV\n", vsense_uv);
 	/* cast for signed division */
 	*result_ua = div_s64(vsense_uv * 1000000LL, the_chip->r_sense_uohm);
 	pr_debug("ibat=%duA\n", *result_ua);
-	return 0;
+
+error_vsense:
+	return rc;
 }
 EXPORT_SYMBOL(pm8921_bms_get_battery_current);
 
@@ -3093,10 +3102,13 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 
 	calculate_soc_work(&(chip->calculate_soc_delayed_work.work));
 
-	get_battery_uvolts(chip, &vbatt);
-	pr_info("OK battery_capacity_at_boot=%d volt = %d ocv = %d\n",
+	rc = get_battery_uvolts(chip, &vbatt);
+	if (!rc)
+		pr_info("OK battery_capacity_at_boot=%d volt = %d ocv = %d\n",
 				pm8921_bms_get_percent_charge(),
 				vbatt, chip->last_ocv_uv);
+	else
+		pr_info("Unable to read battery voltage at boot\n");
 
 	return 0;
 
