@@ -23,6 +23,7 @@
 #include <mach/msm_smd.h>
 #include <asm/atomic.h>
 #include <asm/mach-types.h>
+
 /* Size of the USB buffers used for read and write*/
 #define USB_MAX_OUT_BUF 4096
 #define APPS_BUF_SIZE	2000
@@ -75,6 +76,18 @@
  */
 #define DIAG_STATUS_OPEN (0x00010000)	/* DCI channel open status mask   */
 #define DIAG_STATUS_CLOSED (0x00020000)	/* DCI channel closed status mask */
+
+#define NUM_SMD_DATA_CHANNELS 3
+#define NUM_SMD_CONTROL_CHANNELS 3
+#define NUM_SMD_DCI_CHANNELS 1
+
+#define SMD_DATA_TYPE 0
+#define SMD_CNTL_TYPE 1
+#define SMD_DCI_TYPE 2
+
+#define SMD_MODEM_INDEX 0
+#define SMD_LPASS_INDEX 1
+#define SMD_WCNSS_INDEX 2
 
 /* Maximum number of pkt reg supported at initialization*/
 extern unsigned int diag_max_reg;
@@ -137,6 +150,35 @@ struct diag_request {
 };
 #endif
 
+struct diag_smd_info {
+	int peripheral;	/* The peripheral this smd channel communicates with */
+	int type;	/* The type of smd channel (data, control, dci) */
+	uint16_t peripheral_mask;
+
+	smd_channel_t *ch;
+	smd_channel_t *ch_save;
+
+	int in_busy_1;
+	int in_busy_2;
+
+	unsigned char *buf_in_1;
+	unsigned char *buf_in_2;
+
+	struct diag_request *write_ptr_1;
+	struct diag_request *write_ptr_2;
+
+	struct work_struct diag_read_smd_work;
+	struct work_struct diag_notify_update_smd_work;
+	int notify_context;
+
+	/*
+	 * Function ptr for function to call to process the data that
+	 * was just read from the smd channel
+	 */
+	int (*process_smd_read_data)(struct diag_smd_info *smd_info,
+						void *buf, int num_bytes);
+};
+
 struct diagchar_dev {
 
 	/* State for the char driver */
@@ -190,16 +232,9 @@ struct diagchar_dev {
 	struct diag_ctrl_log_mask *log_mask;
 	struct diag_ctrl_msg_mask *msg_mask;
 	/* State for diag forwarding */
-	unsigned char *buf_in_1;
-	unsigned char *buf_in_2;
-	unsigned char *buf_in_cntl;
-	unsigned char *buf_in_lpass_1;
-	unsigned char *buf_in_lpass_2;
-	unsigned char *buf_in_lpass_cntl;
-	unsigned char *buf_in_wcnss_1;
-	unsigned char *buf_in_wcnss_2;
-	unsigned char *buf_in_wcnss_cntl;
-	unsigned char *buf_in_dci;
+	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
+	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
+	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
 	unsigned char *usb_buf_out;
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data;
@@ -207,20 +242,6 @@ struct diagchar_dev {
 	unsigned char *buf_msg_mask_update;
 	unsigned char *buf_log_mask_update;
 	unsigned char *buf_event_mask_update;
-	smd_channel_t *ch;
-	smd_channel_t *ch_cntl;
-	smd_channel_t *ch_dci;
-	smd_channel_t *chlpass;
-	smd_channel_t *chlpass_cntl;
-	smd_channel_t *ch_wcnss;
-	smd_channel_t *ch_wcnss_cntl;
-	int in_busy_1;
-	int in_busy_2;
-	int in_busy_lpass_1;
-	int in_busy_lpass_2;
-	int in_busy_wcnss_1;
-	int in_busy_wcnss_2;
-	int in_busy_dci;
 	int read_len_legacy;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
@@ -233,21 +254,7 @@ struct diagchar_dev {
 #endif
 	struct workqueue_struct *diag_wq;
 	struct work_struct diag_drain_work;
-	struct work_struct diag_read_smd_work;
-	struct work_struct diag_read_smd_cntl_work;
-	struct work_struct diag_read_smd_lpass_work;
-	struct work_struct diag_read_smd_lpass_cntl_work;
-	struct work_struct diag_read_smd_wcnss_work;
-	struct work_struct diag_read_smd_wcnss_cntl_work;
 	struct workqueue_struct *diag_cntl_wq;
-	struct work_struct diag_modem_mask_update_work;
-	struct work_struct diag_lpass_mask_update_work;
-	struct work_struct diag_wcnss_mask_update_work;
-	struct work_struct diag_read_smd_dci_work;
-	struct work_struct diag_update_smd_dci_work;
-	struct work_struct diag_clean_modem_reg_work;
-	struct work_struct diag_clean_lpass_reg_work;
-	struct work_struct diag_clean_wcnss_reg_work;
 	uint8_t *msg_masks;
 	uint8_t *log_masks;
 	int log_masks_length;
@@ -255,15 +262,8 @@ struct diagchar_dev {
 	struct diag_master_table *table;
 	uint8_t *pkt_buf;
 	int pkt_length;
-	struct diag_request *write_ptr_1;
-	struct diag_request *write_ptr_2;
 	struct diag_request *usb_read_ptr;
 	struct diag_request *write_ptr_svc;
-	struct diag_request *write_ptr_lpass_1;
-	struct diag_request *write_ptr_lpass_2;
-	struct diag_request *write_ptr_wcnss_1;
-	struct diag_request *write_ptr_wcnss_2;
-	struct diag_write_device *write_ptr_dci;
 	int logging_mode;
 	int mask_check;
 	int logging_process_id;
