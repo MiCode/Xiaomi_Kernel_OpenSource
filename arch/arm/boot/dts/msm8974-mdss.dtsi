@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,8 +18,23 @@
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
-		qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-		qcom,memory-reservation-size = <0x800000>; /* size 8MB */
+
+		mdss_fb0: qcom,mdss_fb_primary {
+			cell-index = <0>;
+			compatible = "qcom,mdss-fb";
+			qcom,memory-reservation-type = "EBI1";
+			qcom,memory-reservation-size = <0x800000>;
+		};
+
+		mdss_fb1: qcom,mdss_fb_external {
+			cell-index = <1>;
+			compatible = "qcom,mdss-fb";
+		};
+
+		mdss_fb2: qcom,mdss_fb_wfd {
+			cell-index = <2>;
+			compatible = "qcom,mdss-fb";
+		};
 	};
 
 	mdss_dsi: qcom,mdss_dsi@fd922800 {
@@ -53,7 +68,7 @@
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
-
+		qcom,mdss-fb-map = <&mdss_fb1>;
 		qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
 		};
@@ -63,6 +78,7 @@
 		compatible = "qcom,mdss_wb";
 		qcom,mdss_pan_res = <1920 1080>;
 		qcom,mdss_pan_bpp = <24>;
+		qcom,mdss-fb-map = <&mdss_fb2>;
 	};
 
 	mdss_edp: qcom,mdss_edp@fd923400 {
@@ -76,5 +92,6 @@
 		qcom,panel-lpg-channel = <7>; /* LPG Channel 8 */
 		qcom,panel-pwm-period = <53>;
 		status = "disable";
+		qcom,mdss-fb-map = <&mdss_fb0>;
 	};
 };

@@ -11,6 +11,16 @@ Required properties
 - interrupts :		Interrupt associated with MDSS.
 - vdd-supply :		Phandle for vdd regulator device node.
 
+
+Optional subnodes:
+Child nodes representing the frame buffer virtual devices.
+
+Subnode properties:
+- compatible :		Must be "qcom,mdss-fb"
+- cell-index :		Index representing frame buffer
+
+
+
 Example:
 	qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
@@ -19,5 +29,10 @@ Example:
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
+
+		mdss_fb0: qcom,mdss_fb_primary {
+			cell-index = <0>;
+			compatible = "qcom,mdss-fb";
+		};
 	};
 
