@@ -114,6 +114,12 @@
 #define ALT_INTERRUPT_EN_REG	(QSCRATCH_REG_OFFSET + 0x20)
 #define HS_PHY_IRQ_STAT_REG	(QSCRATCH_REG_OFFSET + 0x24)
 #define SS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x30)
+#define SS_CR_PROTOCOL_DATA_IN_REG  (QSCRATCH_REG_OFFSET + 0x3C)
+#define SS_CR_PROTOCOL_DATA_OUT_REG (QSCRATCH_REG_OFFSET + 0x40)
+#define SS_CR_PROTOCOL_CAP_ADDR_REG (QSCRATCH_REG_OFFSET + 0x44)
+#define SS_CR_PROTOCOL_CAP_DATA_REG (QSCRATCH_REG_OFFSET + 0x48)
+#define SS_CR_PROTOCOL_READ_REG     (QSCRATCH_REG_OFFSET + 0x4C)
+#define SS_CR_PROTOCOL_WRITE_REG    (QSCRATCH_REG_OFFSET + 0x50)
 
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
@@ -277,6 +283,54 @@ static inline void dwc3_msm_write_readback(void *base, u32 offset,
 	if (tmp != val)
 		dev_err(context->dev, "%s: write: %x to QSCRATCH: %x FAILED\n",
 						__func__, val, offset);
+}
+
+/**
+ *
+ * Write SSPHY register with debug info.
+ *
+ * @base - DWC3 base virtual address.
+ * @addr - SSPHY address to write.
+ * @val - value to write.
+ *
+ */
+static void dwc3_msm_ssusb_write_phycreg(void *base, u32 addr, u32 val)
+{
+	iowrite32(addr, base + SS_CR_PROTOCOL_DATA_IN_REG);
+	iowrite32(0x1, base + SS_CR_PROTOCOL_CAP_ADDR_REG);
+	while (ioread32(base + SS_CR_PROTOCOL_CAP_ADDR_REG))
+		cpu_relax();
+
+	iowrite32(val, base + SS_CR_PROTOCOL_DATA_IN_REG);
+	iowrite32(0x1, base + SS_CR_PROTOCOL_CAP_DATA_REG);
+	while (ioread32(base + SS_CR_PROTOCOL_CAP_DATA_REG))
+		cpu_relax();
+
+	iowrite32(0x1, base + SS_CR_PROTOCOL_WRITE_REG);
+	while (ioread32(base + SS_CR_PROTOCOL_WRITE_REG))
+		cpu_relax();
+}
+
+/**
+ *
+ * Read SSPHY register with debug info.
+ *
+ * @base - DWC3 base virtual address.
+ * @addr - SSPHY address to read.
+ *
+ */
+static u32 dwc3_msm_ssusb_read_phycreg(void *base, u32 addr)
+{
+	iowrite32(addr, base + SS_CR_PROTOCOL_DATA_IN_REG);
+	iowrite32(0x1, base + SS_CR_PROTOCOL_CAP_ADDR_REG);
+	while (ioread32(base + SS_CR_PROTOCOL_CAP_ADDR_REG))
+		cpu_relax();
+
+	iowrite32(0x1, base + SS_CR_PROTOCOL_READ_REG);
+	while (ioread32(base + SS_CR_PROTOCOL_READ_REG))
+		cpu_relax();
+
+	return ioread32(base + SS_CR_PROTOCOL_DATA_OUT_REG);
 }
 
 /**
@@ -1608,6 +1662,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	int ret = 0;
 	int len = 0;
 	u32 tmp[3];
+	u32 data = 0;
 
 	msm = devm_kzalloc(&pdev->dev, sizeof(*msm), GFP_KERNEL);
 	if (!msm) {
@@ -1850,6 +1905,20 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	usleep_range(2000, 2200);
 	/* Disable (bypass) VBUS and ID filters */
 	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
+
+	/*
+	 * WORKAROUND: There is SSPHY suspend bug due to which USB enumerates
+	 * in HS mode instead of SS mode. Workaround it by asserting
+	 * LANE0.TX_ALT_BLOCK.EN_ALT_BUS to enable TX to use alt bus mode
+	 */
+	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x102D);
+	data |= (1 << 7);
+	dwc3_msm_ssusb_write_phycreg(msm->base, 0x102D, data);
+
+	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x1010);
+	data &= ~0xFF0;
+	data |= 0x40;
+	dwc3_msm_ssusb_write_phycreg(msm->base, 0x1010, data);
 
 	pm_runtime_set_active(msm->dev);
 	pm_runtime_enable(msm->dev);
