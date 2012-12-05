@@ -1254,6 +1254,34 @@ out:
 	return soc;
 }
 
+static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
+{
+	int rc, vbat_uv;
+	struct qpnp_vadc_result result;
+
+	rc = qpnp_vadc_read(VBAT_SNS, &result);
+	if (rc) {
+		pr_err("error reading vbat_sns adc channel = %d, rc = %d\n",
+						VBAT_SNS, rc);
+		return rc;
+	}
+
+	vbat_uv = (int)result.physical;
+	if (soc == 0 && vbat_uv > chip->v_cutoff_uv) {
+		pr_debug("clamping soc to 1, vbat (%d) > cutoff (%d)\n",
+						vbat_uv, chip->v_cutoff_uv);
+		return 1;
+	} else if (soc > 0 && vbat_uv < chip->v_cutoff_uv) {
+		pr_debug("forcing soc to 0, vbat (%d) < cutoff (%d)\n",
+						vbat_uv, chip->v_cutoff_uv);
+		return 0;
+	} else {
+		pr_debug("not clamping, using soc = %d, vbat = %d and cutoff = %d\n",
+				soc, vbat_uv, chip->v_cutoff_uv);
+		return soc;
+	}
+}
+
 static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 					struct raw_soc_params *raw,
 					int batt_temp)
@@ -1347,6 +1375,11 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 
 	pr_debug("SOC before adjustment = %d\n", soc);
 	new_calculated_soc = adjust_soc(chip, &params, soc, batt_temp);
+
+	/* clamp soc due to BMS HW inaccuracies in pm8941v2.0 */
+	if (chip->revision1 == 0 && chip->revision2 == 0)
+		new_calculated_soc = clamp_soc_based_on_voltage(chip,
+						new_calculated_soc);
 
 	if (new_calculated_soc != chip->calculated_soc
 			&& chip->bms_psy.name != NULL) {
