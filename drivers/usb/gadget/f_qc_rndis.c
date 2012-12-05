@@ -85,6 +85,7 @@ struct f_rndis_qc {
 	u8				ethaddr[ETH_ALEN];
 	u32				vendorID;
 	u8				max_pkt_per_xfer;
+	u32				max_pkt_size;
 	const char			*manufacturer;
 	int				config;
 	atomic_t		ioctl_excl;
@@ -125,6 +126,7 @@ static unsigned int rndis_qc_bitrate(struct usb_gadget *g)
 
 #define RNDIS_QC_IOCTL_MAGIC		'i'
 #define RNDIS_QC_GET_MAX_PKT_PER_XFER   _IOR(RNDIS_QC_IOCTL_MAGIC, 1, u8)
+#define RNDIS_QC_GET_MAX_PKT_SIZE	_IOR(RNDIS_QC_IOCTL_MAGIC, 2, u32)
 
 
 /* interface descriptor: */
@@ -552,14 +554,22 @@ static void rndis_qc_response_complete(struct usb_ep *ep,
 static void rndis_qc_command_complete(struct usb_ep *ep,
 							struct usb_request *req)
 {
-	struct f_rndis_qc			*rndis = req->context;
+	struct f_rndis_qc		*rndis = req->context;
 	int				status;
+	rndis_init_msg_type		*buf;
 
 	/* received RNDIS command from USB_CDC_SEND_ENCAPSULATED_COMMAND */
 	status = rndis_msg_parser(rndis->config, (u8 *) req->buf);
 	if (status < 0)
 		pr_err("RNDIS command error %d, %d/%d\n",
 			status, req->actual, req->length);
+
+	buf = (rndis_init_msg_type *)req->buf;
+
+	if (buf->MessageType == RNDIS_MSG_INIT) {
+		rndis->max_pkt_size = buf->MaxTransferSize;
+		pr_debug("MaxTransferSize: %d\n", buf->MaxTransferSize);
+	}
 }
 
 static int
@@ -1109,6 +1119,17 @@ static long rndis_qc_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		}
 		pr_info("Sent max packets per xfer %d",
 				rndis->max_pkt_per_xfer);
+		break;
+	case RNDIS_QC_GET_MAX_PKT_SIZE:
+		ret = copy_to_user((void __user *)arg,
+					&rndis->max_pkt_size,
+					sizeof(rndis->max_pkt_size));
+		if (ret) {
+			pr_err("copying to user space failed");
+			ret = -EFAULT;
+		}
+		pr_debug("Sent max packet size %d",
+				rndis->max_pkt_size);
 		break;
 	default:
 		pr_err("Unsupported IOCTL");
