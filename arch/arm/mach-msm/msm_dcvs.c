@@ -151,6 +151,7 @@ static struct msm_dcvs_freq_entry cpu_freq_tbl[DCVS_MAX_NUM_FREQS];
 static unsigned num_cpu_freqs;
 static struct msm_dcvs_platform_data *dcvs_pdata;
 
+static DEFINE_MUTEX(param_update_mutex);
 static DEFINE_MUTEX(gpu_floor_mutex);
 
 static void force_stop_slack_timer(struct dcvs_core *core)
@@ -309,6 +310,20 @@ void msm_dcvs_apply_gpu_floor(unsigned long cpu_freq)
 	mutex_unlock(&gpu_floor_mutex);
 }
 
+static void check_power_collapse_modes(struct dcvs_core *core)
+{
+	struct msm_dcvs_algo_param *params;
+
+	params = &core_list[CPU_OFFSET + num_online_cpus() - 1].algo_param;
+
+	if (core->actual_freq >= params->disable_pc_threshold)
+		core->idle_enable(core->type_core_num,
+				  MSM_DCVS_DISABLE_HIGH_LATENCY_MODES);
+	else
+		core->idle_enable(core->type_core_num,
+				  MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
+}
+
 static int __msm_dcvs_change_freq(struct dcvs_core *core)
 {
 	int ret = 0;
@@ -355,17 +370,9 @@ repeat:
 	core->freq_change_us = (uint32_t)ktime_to_us(
 					ktime_sub(ktime_get(), time_start));
 
-	/**
-	 * Disable low power modes if the actual frequency is >
-	 * disable_pc_threshold.
-	 */
-	if (core->actual_freq > core->algo_param.disable_pc_threshold) {
-		core->idle_enable(core->type_core_num,
-				MSM_DCVS_DISABLE_HIGH_LATENCY_MODES);
-	} else if (core->actual_freq <= core->algo_param.disable_pc_threshold) {
-		core->idle_enable(core->type_core_num,
-				MSM_DCVS_ENABLE_HIGH_LATENCY_MODES);
-	}
+	mutex_lock(&param_update_mutex);
+	check_power_collapse_modes(core);
+	mutex_unlock(&param_update_mutex);
 
 	/**
 	 * Update algorithm with new freq and time taken to change
@@ -556,7 +563,6 @@ static enum hrtimer_restart msm_dcvs_core_slack_timer(struct hrtimer *timer)
 int msm_dcvs_update_algo_params(void)
 {
 	static struct msm_dcvs_algo_param curr_params;
-	static DEFINE_MUTEX(param_update_mutex);
 	struct msm_dcvs_algo_param *new_params;
 	int cpu, ret = 0;
 
@@ -566,6 +572,7 @@ int msm_dcvs_update_algo_params(void)
 	if (memcmp(&curr_params, new_params,
 		   sizeof(struct msm_dcvs_algo_param))) {
 		for_each_possible_cpu(cpu) {
+			struct dcvs_core *core = &core_list[CPU_OFFSET + cpu];
 			ret = msm_dcvs_scm_set_algo_params(CPU_OFFSET + cpu,
 							   new_params);
 			if (ret) {
@@ -574,6 +581,7 @@ int msm_dcvs_update_algo_params(void)
 				mutex_unlock(&param_update_mutex);
 				return ret;
 			}
+			check_power_collapse_modes(core);
 		}
 		memcpy(&curr_params, new_params,
 		       sizeof(struct msm_dcvs_algo_param));
