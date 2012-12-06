@@ -218,9 +218,10 @@ static int audpcm_in_enable(struct audio_in *audio)
 	cfg.snd_method = RPC_SND_METHOD_MIDI;
 
 	rc = audmgr_enable(&audio->audmgr, &cfg);
-	if (rc < 0)
+	if (rc < 0) {
+		msm_adsp_dump(audio->audrec);
 		return rc;
-
+	}
 	if (audpreproc_enable(audio->enc_id, &audpre_dsp_event, audio)) {
 		MM_ERR("msm_adsp_enable(audpreproc) failed\n");
 		audmgr_disable(&audio->audmgr);
@@ -249,6 +250,8 @@ static int audpcm_in_enable(struct audio_in *audio)
 /* must be called with audio->lock held */
 static int audpcm_in_disable(struct audio_in *audio)
 {
+	int rc;
+
 	if (audio->enabled) {
 		audio->enabled = 0;
 
@@ -262,7 +265,9 @@ static int audpcm_in_disable(struct audio_in *audio)
 		/*reset the sampling frequency information at audpreproc layer*/
 		audio->session_info.sampling_freq = 0;
 		audpreproc_update_audrec_info(&audio->session_info);
-		audmgr_disable(&audio->audmgr);
+		rc = audmgr_disable(&audio->audmgr);
+		if (rc < 0)
+			msm_adsp_dump(audio->audrec);
 	}
 	return 0;
 }

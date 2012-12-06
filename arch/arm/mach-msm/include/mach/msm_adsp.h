@@ -39,6 +39,7 @@ int msm_adsp_get(const char *name, struct msm_adsp_module **module,
 void msm_adsp_put(struct msm_adsp_module *module);
 int msm_adsp_enable(struct msm_adsp_module *module);
 int msm_adsp_disable(struct msm_adsp_module *module);
+int msm_adsp_dump(struct msm_adsp_module *module);
 int adsp_set_clkrate(struct msm_adsp_module *module, unsigned long clk_rate);
 int msm_adsp_disable_event_rsp(struct msm_adsp_module *module);
 int32_t get_adsp_resource(unsigned short client_idx,
