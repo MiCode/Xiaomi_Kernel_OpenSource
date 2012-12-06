@@ -1324,6 +1324,10 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 				return -EINVAL;
 			}
 
+			psoc_get_data.reading_value = epm_psoc_scale_result(
+				psoc_get_data.reading_value,
+				psoc_get_data.chan_num);
+
 			if (copy_to_user((void __user *)arg, &psoc_get_data,
 				sizeof(struct epm_psoc_get_data)))
 				return -EFAULT;
