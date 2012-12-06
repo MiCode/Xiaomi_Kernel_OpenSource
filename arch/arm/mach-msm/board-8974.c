@@ -312,11 +312,6 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 			"msm_sdcc.3", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98E4000, \
 			"msm_sdcc.4", NULL),
-	OF_DEV_AUXDATA("qcom,pil-q6v5-lpass",   0xFE200000, \
-			"pil-q6v5-lpass", NULL),
-	OF_DEV_AUXDATA("qcom,pil-q6v5-mss", 0xFC880000, "pil-q6v5-mss", NULL),
-	OF_DEV_AUXDATA("qcom,pil-pronto", 0xFB21B000, \
-			"pil_pronto", NULL),
 	OF_DEV_AUXDATA("arm,coresight-tmc", 0xFC322000, \
 			"coresight-tmc-etr", NULL),
 	OF_DEV_AUXDATA("arm,coresight-tpiu", 0xFC318000, \
