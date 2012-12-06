@@ -1167,6 +1167,7 @@ int sps_bam_pipe_transfer_one(struct sps_bam *dev,
 	struct sps_iovec *desc;
 	struct sps_iovec iovec;
 	u32 next_write;
+	static int show_recom;
 
 	/* Is this a BAM-to-BAM or satellite connection? */
 	if ((pipe->state & (BAM_STATE_BAM2BAM | BAM_STATE_REMOTE))) {
@@ -1199,12 +1200,24 @@ int sps_bam_pipe_transfer_one(struct sps_bam *dev,
 		if (!pipe->sys.ack_xfers && pipe->polled) {
 			pipe_handler_eot(dev, pipe);
 			if (next_write == pipe->sys.acked_offset) {
+				if (!show_recom) {
+					show_recom = true;
+					SPS_ERR("sps:Client of BAM 0x%x pipe %d is recommended to have flow control",
+						BAM_ID(dev), pipe_index);
+				}
+
 				SPS_DBG2("sps:Descriptor FIFO is full for BAM "
 					"0x%x pipe %d after pipe_handler_eot",
 					BAM_ID(dev), pipe_index);
 				return SPS_ERROR;
 			}
 		} else {
+			if (!show_recom) {
+				show_recom = true;
+				SPS_ERR("sps:Client of BAM 0x%x pipe %d is recommended to have flow control.",
+					BAM_ID(dev), pipe_index);
+			}
+
 			SPS_DBG2("sps:Descriptor FIFO is full for "
 				"BAM 0x%x pipe %d", BAM_ID(dev), pipe_index);
 			return SPS_ERROR;
