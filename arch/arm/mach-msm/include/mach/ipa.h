@@ -457,7 +457,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
 
 int ipa_teardown_sys_pipe(u32 clnt_hdl);
 
-#else
+#else /* CONFIG_IPA */
 
 /*
  * Connect / Disconnect

@@ -637,7 +637,7 @@ static void ipa_handle_tx_poll_for_pipe(struct ipa_sys_context *sys)
 
 		switch (tx_pkt->cnt) {
 		case 1:
-			ipa_write_done(&tx_pkt->work);
+			ipa_wq_write_done(&tx_pkt->work);
 			break;
 		case 0xFFFF:
 			/* reached end of set */
@@ -651,7 +651,7 @@ static void ipa_handle_tx_poll_for_pipe(struct ipa_sys_context *sys)
 			   list_first_entry(&sys->head_desc_list,
 					    struct ipa_tx_pkt_wrapper, link);
 			spin_unlock_irqrestore(&sys->spinlock, irq_flags);
-			ipa_write_done(&tx_pkt->work);
+			ipa_wq_write_done(&tx_pkt->work);
 			break;
 		default:
 			/* keep looping till reach the end of the set */
