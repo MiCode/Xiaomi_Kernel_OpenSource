@@ -559,6 +559,8 @@ int msm_vidc_close(void *instance)
 	if (inst->state != MSM_VIDC_CORE_INVALID &&
 		core->state != VIDC_CORE_INVALID)
 		rc = msm_comm_try_state(inst, MSM_VIDC_CORE_UNINIT);
+	else
+		rc = msm_comm_force_cleanup(inst);
 	if (rc)
 		dprintk(VIDC_ERR,
 			"Failed to move video instance to uninit state\n");
