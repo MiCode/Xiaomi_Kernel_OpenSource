@@ -198,7 +198,7 @@ int wfd_stats_update(struct wfd_stats *stats, enum wfd_stats_event event)
 
 int wfd_stats_deinit(struct wfd_stats *stats)
 {
-	WFD_MSG_ERR("Latencies: avg enc. latency %d",
+	WFD_MSG_DBG("Latencies: avg enc. latency %d",
 			stats->enc_avg_latency);
 	/* Delete all debugfs files in one shot :) */
 	if (stats->d_parent)
