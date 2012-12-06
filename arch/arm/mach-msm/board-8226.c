@@ -64,6 +64,8 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "f9a55000.usb", OFF),
 	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "f9a55000.usb", OFF),
+	CLK_DUMMY("dfab_clk",	DFAB_CLK, "msm_sps", OFF),
+	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK, "msm_sps", OFF),
 	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.1", OFF),
 	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.1", OFF),
 	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.1", OFF),
