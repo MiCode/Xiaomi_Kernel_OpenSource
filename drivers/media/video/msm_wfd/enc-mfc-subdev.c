@@ -903,25 +903,13 @@ static long venc_request_frame(struct video_client_ctx *client_ctx, __s32 type)
 	struct vcd_property_req_i_frame vcd_property_req_i_frame;
 	struct vcd_property_hdr vcd_property_hdr;
 
-	int rc = 0;
-	switch (type) {
-	case V4L2_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE_DISABLED:
-		/*So...nothing to do?*/
-		break;
-	case V4L2_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE_I_FRAME:
-		vcd_property_hdr.prop_id = VCD_I_REQ_IFRAME;
-		vcd_property_hdr.sz = sizeof(struct vcd_property_req_i_frame);
-		vcd_property_req_i_frame.req_i_frame = 1;
+	vcd_property_hdr.prop_id = VCD_I_REQ_IFRAME;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_req_i_frame);
+	vcd_property_req_i_frame.req_i_frame = 1;
 
-		rc = vcd_set_property(client_ctx->vcd_handle,
-				&vcd_property_hdr, &vcd_property_req_i_frame);
-		break;
-	case V4L2_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE_NOT_CODED:
-	default:
-		rc = -ENOTSUPP;
-	}
+	return vcd_set_property(client_ctx->vcd_handle,
+			&vcd_property_hdr, &vcd_property_req_i_frame);
 
-	return rc;
 }
 
 static long venc_set_bitrate(struct video_client_ctx *client_ctx,
@@ -1348,10 +1336,10 @@ static long venc_set_max_perf_level(struct video_client_ctx *client_ctx,
 	int level = 0;
 
 	switch (value) {
-	case V4L2_CID_MPEG_QCOM_PERF_LEVEL_PERFORMANCE:
+	case V4L2_CID_MPEG_VIDC_PERF_LEVEL_PERFORMANCE:
 		level = VCD_PERF_LEVEL2;
 		break;
-	case V4L2_CID_MPEG_QCOM_PERF_LEVEL_TURBO:
+	case V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO:
 		level = VCD_PERF_LEVEL_TURBO;
 		break;
 	default:
@@ -2304,7 +2292,7 @@ static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		rc = venc_set_codec_profile(client_ctx, ctrl->id, ctrl->value);
 		break;
-	case V4L2_CID_MPEG_MFC51_VIDEO_FORCE_FRAME_TYPE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_IFRAME:
 		rc = venc_request_frame(client_ctx, ctrl->value);
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP:
@@ -2335,7 +2323,7 @@ static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 		rc = venc_set_multislicing_mode(client_ctx, ctrl->id,
 				ctrl->value);
 		break;
-	case V4L2_CID_MPEG_QCOM_SET_PERF_LEVEL:
+	case V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL:
 		rc = venc_set_max_perf_level(client_ctx, ctrl->value);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER:
