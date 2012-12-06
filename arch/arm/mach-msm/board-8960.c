@@ -3001,6 +3001,9 @@ static void __init msm8960_gfx_init(void)
 		kgsl_3d0_pdata->chipid = ADRENO_CHIPID(3, 2, 1, 0);
 		/* 8960PRO nominal clock rate is 320Mhz */
 		kgsl_3d0_pdata->pwrlevel[1].gpu_freq = 320000000;
+#ifdef CONFIG_MSM_BUS_SCALING
+		kgsl_3d0_pdata->bus_scale_table = &grp3d_bus_scale_pdata_ab;
+#endif
 
 		/*
 		 * If this an A320 GPU device (MSM8960AB), then
