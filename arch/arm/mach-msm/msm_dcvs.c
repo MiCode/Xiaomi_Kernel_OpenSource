@@ -49,7 +49,7 @@ struct core_attribs {
 	struct kobj_attribute slack_time_min_us;
 	struct kobj_attribute slack_time_max_us;
 	struct kobj_attribute slack_weight_thresh_pct;
-	struct kobj_attribute ss_iobusy_conv;
+	struct kobj_attribute ss_no_corr_below_freq;
 	struct kobj_attribute ss_win_size_min_us;
 	struct kobj_attribute ss_win_size_max_us;
 	struct kobj_attribute ss_util_pct;
@@ -706,7 +706,7 @@ DCVS_ALGO_PARAM(slack_mode_dynamic)
 DCVS_ALGO_PARAM(slack_time_min_us)
 DCVS_ALGO_PARAM(slack_time_max_us)
 DCVS_ALGO_PARAM(slack_weight_thresh_pct)
-DCVS_ALGO_PARAM(ss_iobusy_conv)
+DCVS_ALGO_PARAM(ss_no_corr_below_freq)
 DCVS_ALGO_PARAM(ss_win_size_min_us)
 DCVS_ALGO_PARAM(ss_win_size_max_us)
 DCVS_ALGO_PARAM(ss_util_pct)
@@ -892,7 +892,7 @@ static int msm_dcvs_setup_core_sysfs(struct dcvs_core *core)
 	DCVS_RW_ATTRIB(8, slack_weight_thresh_pct);
 	DCVS_RW_ATTRIB(9, slack_time_min_us);
 	DCVS_RW_ATTRIB(10, slack_time_max_us);
-	DCVS_RW_ATTRIB(11, ss_iobusy_conv);
+	DCVS_RW_ATTRIB(11, ss_no_corr_below_freq);
 	DCVS_RW_ATTRIB(12, ss_win_size_min_us);
 	DCVS_RW_ATTRIB(13, ss_win_size_max_us);
 	DCVS_RW_ATTRIB(14, ss_util_pct);

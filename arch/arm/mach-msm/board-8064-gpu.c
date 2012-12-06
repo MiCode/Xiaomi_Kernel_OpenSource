@@ -51,7 +51,7 @@ static struct msm_dcvs_core_info grp3d_core_info = {
 		.ss_win_size_min_us	= 1000000,
 		.ss_win_size_max_us	= 1000000,
 		.ss_util_pct		= 95,
-		.ss_iobusy_conv		= 100,
+		.ss_no_corr_below_freq	= 0,
 	},
 
 	.energy_coeffs		= {
