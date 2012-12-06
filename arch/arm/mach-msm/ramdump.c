@@ -11,14 +11,10 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/interrupt.h>
-#include <linux/reboot.h>
 #include <linux/workqueue.h>
 #include <linux/io.h>
 #include <linux/jiffies.h>
 #include <linux/sched.h>
-#include <linux/stringify.h>
-#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/fs.h>
@@ -27,8 +23,7 @@
 #include <linux/poll.h>
 #include <linux/uaccess.h>
 #include <linux/elf.h>
-
-#include <asm-generic/poll.h>
+#include <linux/wait.h>
 
 #include "ramdump.h"
 
@@ -193,7 +188,7 @@ static unsigned int ramdump_poll(struct file *filep,
 	return mask;
 }
 
-const struct file_operations ramdump_file_ops = {
+static const struct file_operations ramdump_file_ops = {
 	.open = ramdump_open,
 	.release = ramdump_release,
 	.read = ramdump_read,
