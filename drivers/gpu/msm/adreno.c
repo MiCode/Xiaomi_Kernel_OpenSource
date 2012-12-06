@@ -2160,7 +2160,6 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 	int status;
 	unsigned int ref_ts, enableflag;
 	unsigned int context_id;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	mutex_lock(&device->mutex);
 	context_id = _get_context_id(context);
@@ -2207,13 +2206,9 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 			cmds[0] = cp_type3_packet(CP_NOP, 1);
 			cmds[1] = 0;
 
-			if (adreno_dev->drawctxt_active)
+			if (context)
 				adreno_ringbuffer_issuecmds_intr(device,
 						context, &cmds[0], 2);
-			else
-				/* We would never call this function if there
-				 * was no active contexts running */
-				BUG();
 		}
 	}
 unlock:
