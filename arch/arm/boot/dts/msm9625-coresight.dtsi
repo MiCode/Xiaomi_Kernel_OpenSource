@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,11 +107,23 @@
 		coresight-child-ports = <7>;
 	};
 
+	etm: etm@fc332000 {
+		compatible = "arm,coresight-etm";
+		reg = <0xfc332000 0x1000>;
+
+		coresight-id = <8>;
+		coresight-name = "coresight-etm";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <4>;
+	};
+
 	csr: csr@fc302000 {
 		compatible = "qcom,coresight-csr";
 		reg = <0xfc302000 0x1000>;
 
-		coresight-id = <8>;
+		coresight-id = <9>;
 		coresight-name = "coresight-csr";
 		coresight-nr-inports = <0>;
 	};
