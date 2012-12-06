@@ -410,6 +410,7 @@ static int hsic_sysmon_resume(struct usb_interface *ifc)
 static const struct usb_device_id hsic_sysmon_ids[] = {
 	{ USB_DEVICE(0x5c6, 0x9048), .driver_info = 1, },
 	{ USB_DEVICE(0x5c6, 0x904C), .driver_info = 1, },
+	{ USB_DEVICE(0x5c6, 0x9075), .driver_info = 1, },
 	{} /* terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, hsic_sysmon_ids);
