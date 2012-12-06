@@ -430,35 +430,24 @@ static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	LIST_HEAD(destroy_pipes);
-	int i;
 
-	mutex_lock(&mfd->ov_lock);
 	mutex_lock(&mfd->lock);
 	list_for_each_entry_safe(pipe, tmp, &mfd->pipes_cleanup, cleanup_list) {
 		list_move(&pipe->cleanup_list, &destroy_pipes);
-		for (i = 0; i < ARRAY_SIZE(pipe->buffers); i++)
-			mdss_mdp_overlay_free_buf(&pipe->buffers[i]);
+		mdss_mdp_overlay_free_buf(&pipe->back_buf);
+		mdss_mdp_overlay_free_buf(&pipe->front_buf);
 	}
 
-	if (!list_empty(&mfd->pipes_used)) {
-		struct mdss_mdp_data *data;
-		int buf_ndx;
-
-		list_for_each_entry(pipe, &mfd->pipes_used, used_list) {
-			buf_ndx = (pipe->play_cnt - 1) & 1; /* prev buffer */
-			data = &pipe->buffers[buf_ndx];
-
-			if (data->num_planes) {
-				pr_debug("free buffer ndx=%d pnum=%d\n",
-						buf_ndx, pipe->num);
-				mdss_mdp_overlay_free_buf(data);
-			}
+	list_for_each_entry(pipe, &mfd->pipes_used, used_list) {
+		if (pipe->back_buf.num_planes) {
+			/* make back buffer active */
+			mdss_mdp_overlay_free_buf(&pipe->front_buf);
+			swap(pipe->back_buf, pipe->front_buf);
 		}
 	}
 	mutex_unlock(&mfd->lock);
 	list_for_each_entry_safe(pipe, tmp, &destroy_pipes, cleanup_list)
 		mdss_mdp_pipe_destroy(pipe);
-	mutex_unlock(&mfd->ov_lock);
 
 	return 0;
 }
@@ -468,12 +457,16 @@ static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 	struct msm_fb_data_type *mfd = ctl->mfd;
 	int ret;
 
+	mutex_lock(&mfd->ov_lock);
+
 	if (mfd->kickoff_fnc)
 		ret = mfd->kickoff_fnc(ctl);
 	else
 		ret = mdss_mdp_display_commit(ctl, NULL);
-	if (IS_ERR_VALUE(ret))
+	if (IS_ERR_VALUE(ret)) {
+		mutex_unlock(&mfd->ov_lock);
 		return ret;
+	}
 
 	complete(&mfd->update.comp);
 	mutex_lock(&mfd->no_update.lock);
@@ -485,6 +478,8 @@ static int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 	mutex_unlock(&mfd->no_update.lock);
 
 	ret = mdss_mdp_overlay_cleanup(mfd);
+
+	mutex_unlock(&mfd->ov_lock);
 
 	return ret;
 }
@@ -630,7 +625,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_data *src_data;
-	int ret, buf_ndx;
+	int ret;
 	u32 flags;
 
 	pipe = mdss_mdp_pipe_get_locked(req->id);
@@ -643,9 +638,12 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 
 	flags = (pipe->flags & MDP_SECURE_OVERLAY_SESSION);
 
-	buf_ndx = (pipe->play_cnt + 1) & 1; /* next buffer */
-	src_data = &pipe->buffers[buf_ndx];
-	mdss_mdp_overlay_free_buf(src_data);
+	src_data = &pipe->back_buf;
+	if (src_data->num_planes) {
+		pr_warn("dropped buffer pnum=%d play=%d addr=0x%x\n",
+			pipe->num, pipe->play_cnt, src_data->p[0].addr);
+		mdss_mdp_overlay_free_buf(src_data);
+	}
 
 	ret = mdss_mdp_overlay_get_buf(mfd, src_data, &req->data, 1, flags);
 	if (IS_ERR_VALUE(ret)) {
