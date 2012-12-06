@@ -252,6 +252,10 @@
 	cd-gpios = <&msmgpio 62 0x1>;
 };
 
+&usb3 {
+	qcom,otg-capability;
+};
+
 &pm8941_chg {
 	status = "ok";
 
