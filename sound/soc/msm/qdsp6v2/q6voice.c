@@ -2928,23 +2928,25 @@ static int voice_cvs_start_record(struct voice_data *v, uint32_t rec_mode)
 		cvs_start_record.hdr.src_port = v->session_id;
 		cvs_start_record.hdr.dest_port = cvs_handle;
 		cvs_start_record.hdr.token = 0;
-		cvs_start_record.hdr.opcode = VSS_ISTREAM_CMD_START_RECORD;
+		cvs_start_record.hdr.opcode = VSS_IRECORD_CMD_START;
 
+		cvs_start_record.rec_mode.port_id =
+					VSS_IRECORD_PORT_ID_DEFAULT;
 		if (rec_mode == VOC_REC_UPLINK) {
 			cvs_start_record.rec_mode.rx_tap_point =
-						VSS_TAP_POINT_NONE;
+					VSS_IRECORD_TAP_POINT_NONE;
 			cvs_start_record.rec_mode.tx_tap_point =
-						VSS_TAP_POINT_STREAM_END;
+					VSS_IRECORD_TAP_POINT_STREAM_END;
 		} else if (rec_mode == VOC_REC_DOWNLINK) {
 			cvs_start_record.rec_mode.rx_tap_point =
-						VSS_TAP_POINT_STREAM_END;
+					VSS_IRECORD_TAP_POINT_STREAM_END;
 			cvs_start_record.rec_mode.tx_tap_point =
-						VSS_TAP_POINT_NONE;
+					VSS_IRECORD_TAP_POINT_NONE;
 		} else if (rec_mode == VOC_REC_BOTH) {
 			cvs_start_record.rec_mode.rx_tap_point =
-						VSS_TAP_POINT_STREAM_END;
+					VSS_IRECORD_TAP_POINT_STREAM_END;
 			cvs_start_record.rec_mode.tx_tap_point =
-						VSS_TAP_POINT_STREAM_END;
+					VSS_IRECORD_TAP_POINT_STREAM_END;
 		} else {
 			pr_err("%s: Invalid in-call rec_mode %d\n", __func__,
 				rec_mode);
@@ -3011,7 +3013,7 @@ static int voice_cvs_stop_record(struct voice_data *v)
 		cvs_stop_record.src_port = v->session_id;
 		cvs_stop_record.dest_port = cvs_handle;
 		cvs_stop_record.token = 0;
-		cvs_stop_record.opcode = VSS_ISTREAM_CMD_STOP_RECORD;
+		cvs_stop_record.opcode = VSS_IRECORD_CMD_STOP;
 
 		v->cvs_state = CMD_STATUS_FAIL;
 
@@ -4166,8 +4168,8 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			case VSS_ICOMMON_CMD_SET_UI_PROPERTY:
 			case VSS_ISTREAM_CMD_START_PLAYBACK:
 			case VSS_ISTREAM_CMD_STOP_PLAYBACK:
-			case VSS_ISTREAM_CMD_START_RECORD:
-			case VSS_ISTREAM_CMD_STOP_RECORD:
+			case VSS_IRECORD_CMD_START:
+			case VSS_IRECORD_CMD_STOP:
 			case VSS_ISTREAM_CMD_SET_PACKET_EXCHANGE_MODE:
 			case VSS_ISTREAM_CMD_SET_OOB_PACKET_EXCHANGE_CONFIG:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
