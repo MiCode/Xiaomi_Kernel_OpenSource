@@ -191,6 +191,7 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 	int table_end = 0;
 	int br_ctrl = 0;
 	int br_id = 0;
+	int client_id = 0;
 	int dm_ctrl = 0;
 	int i = 0;
 	int j = 0;
@@ -244,6 +245,8 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 	dm_ctrl |= (table_start << DM_TBL_START);
 	dm_ctrl |= (table_end << DM_TBL_END);
 
+	client_id = client_ctrl_id(id);
+	dm_ctrl |= (client_id << DM_CLIENT_SHIFT);
 	dm_ctrl |= (DM_BR_ID_LPASS << DM_BR_ID_SHIFT);
 	dm_ctrl |= (DM_BLOCK_256 << DM_BR_BLK_SHIFT);
 	dm_ctrl |= (direction << DM_DIR_SHIFT);
