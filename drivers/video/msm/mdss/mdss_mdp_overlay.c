@@ -1244,9 +1244,38 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 {
 	int rc;
 
-	rc = mdss_mdp_ctl_on(mfd);
-	if (rc == 0)
+	if (!mfd)
+		return -ENODEV;
+
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	if (!mfd->ctl) {
+		struct mdss_mdp_ctl *ctl;
+		struct mdss_panel_data *pdata;
+
+		pdata = dev_get_platdata(&mfd->pdev->dev);
+		if (!pdata) {
+			pr_err("no panel connected for fb%d\n", mfd->index);
+			return -ENODEV;
+		}
+
+		ctl = mdss_mdp_ctl_init(pdata, mfd);
+		if (IS_ERR_OR_NULL(ctl)) {
+			pr_err("Unable to initialize ctl for fb%d\n",
+				mfd->index);
+			return PTR_ERR(ctl);
+		}
+		mfd->ctl = ctl;
+	}
+
+	rc = mdss_mdp_ctl_start(mfd->ctl);
+	if (rc == 0) {
 		atomic_inc(&ov_active_panels);
+	} else {
+		mdss_mdp_ctl_destroy(mfd->ctl);
+		mfd->ctl = NULL;
+	}
 
 	return rc;
 }
@@ -1255,12 +1284,26 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 {
 	int rc;
 
+	if (!mfd)
+		return -ENODEV;
+
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	if (!mfd->ctl) {
+		pr_err("ctl not initialized\n");
+		return -ENODEV;
+	}
+
 	mdss_mdp_overlay_release_all(mfd);
 
-	rc = mdss_mdp_ctl_off(mfd);
+	rc = mdss_mdp_ctl_stop(mfd->ctl);
 	if (rc == 0) {
-		if (!mfd->ref_cnt)
+		if (!mfd->ref_cnt) {
 			mfd->borderfill_enable = false;
+			mdss_mdp_ctl_destroy(mfd->ctl);
+			mfd->ctl = NULL;
+		}
 
 		if (atomic_dec_return(&ov_active_panels) == 0)
 			mdss_mdp_rotator_release_all();
