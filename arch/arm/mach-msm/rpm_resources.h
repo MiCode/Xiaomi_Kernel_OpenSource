@@ -15,7 +15,9 @@
 #define __ARCH_ARM_MACH_MSM_RPM_RESOURCES_H
 
 #include <mach/rpm.h>
+#include <linux/notifier.h>
 #include "pm.h"
+#include "test-lpm.h"
 
 enum {
 	MSM_RPMRS_ID_PXO_CLK = 0,
@@ -101,6 +103,94 @@ struct msm_rpmrs_platform_data {
 	unsigned int vdd_mask;
 	unsigned int rpmrs_target_id[MSM_RPMRS_ID_LAST];
 };
+
+enum {
+	MSM_LPM_STATE_ENTER = 0,
+	MSM_LPM_STATE_EXIT = 1,
+};
+
+/**
+ * struct msm_lpm_sleep_data - abstraction to get sleep data
+ * @limits:	pointer to the msm_rpmrs_limits structure
+ * @kernel_sleep:	kernel sleep time as decided by the power calculation
+ *			algorithm
+ *
+ * This structure is an abstraction to get the limits and kernel sleep time
+ * during enter sleep.
+ */
+
+struct msm_lpm_sleep_data {
+	struct msm_rpmrs_limits *limits;
+	uint32_t kernel_sleep;
+};
+
+#define MSM_PM(field) MSM_RPMRS_##field
+
+/**
+ * msm_pm_get_pxo() -  get the limits for pxo
+ * @limits:            pointer to the msm_rpmrs_limits structure
+ *
+ * This function gets the limits to the resource pxo on
+ * 8960
+ */
+
+uint32_t msm_pm_get_pxo(struct msm_rpmrs_limits *limits);
+
+/**
+ * msm_pm_get_l2_cache() -  get the limits for l2 cache
+ * @limits:            pointer to the msm_rpmrs_limits structure
+ *
+ * This function gets the limits to the resource l2 cache
+ * on 8960
+ */
+
+uint32_t msm_pm_get_l2_cache(struct msm_rpmrs_limits *limits);
+
+/**
+ * msm_pm_get_vdd_mem() -  get the limits for pxo
+ * @limits:            pointer to the msm_rpmrs_limits structure
+ *
+ * This function gets the limits to the resource vdd mem
+ * on 8960
+ */
+
+uint32_t msm_pm_get_vdd_mem(struct msm_rpmrs_limits *limits);
+
+/**
+ * msm_pm_get_vdd_dig() -  get the limits for vdd dig
+ * @limits:            pointer to the msm_rpmrs_limits structure
+ *
+ * This function gets the limits to the resource vdd dig
+ * on 8960
+ */
+
+uint32_t msm_pm_get_vdd_dig(struct msm_rpmrs_limits *limits);
+
+/**
+ * msm_lpm_register_notifier() - register for notifications
+ * @cpu:               cpu to debug
+ * @level_iter:        low power level index to debug
+ * @nb:       notifier block to callback on notifications
+ * @is_latency_measure: is it latency measure
+ *
+ * This function sets the permitted level to the index of the
+ * level under test and registers notifier for callback.
+ */
+
+int msm_lpm_register_notifier(int cpu, int level_iter,
+		struct notifier_block *nb, bool is_latency_measure);
+
+/**
+ * msm_lpm_unregister_notifier() - unregister from notifications
+ * @cpu:               cpu to debug
+ * @nb:       notifier block to callback on notifications
+ *
+ * This function sets the permitted level to a value one more than
+ * available levels count which indicates that all levels are
+ * permitted and it also unregisters notifier for callback.
+ */
+
+int msm_lpm_unregister_notifier(int cpu, struct notifier_block *nb);
 
 #if defined(CONFIG_MSM_RPM)
 
