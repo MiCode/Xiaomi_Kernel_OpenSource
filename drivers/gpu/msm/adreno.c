@@ -884,8 +884,8 @@ static struct msm_dcvs_core_info *adreno_of_get_dcvs(struct device_node *parent)
 	if (adreno_of_read_property(node, "qcom,algo-ss-util-pct",
 		&info->algo_param.ss_util_pct))
 		goto err;
-	if (adreno_of_read_property(node, "qcom,algo-ss-iobusy-conv",
-		&info->algo_param.ss_iobusy_conv))
+	if (adreno_of_read_property(node, "qcom,algo-ss-no-corr-below-freq",
+		&info->algo_param.ss_no_corr_below_freq))
 		goto err;
 
 	if (adreno_of_read_property(node, "qcom,energy-active-coeff-a",

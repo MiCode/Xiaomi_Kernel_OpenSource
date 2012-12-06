@@ -108,7 +108,7 @@
 			qcom,algo-ss-win-size-min-us = <1000000>;
 			qcom,algo-ss-win-size-max-us = <1000000>;
 			qcom,algo-ss-util-pct = <95>;
-			qcom,algo-ss-iobusy-conv = <100>;
+			qcom,algo-ss-no-corr-below-freq = <0>;
 
 			qcom,energy-active-coeff-a = <2492>;
 			qcom,energy-active-coeff-b = <0>;

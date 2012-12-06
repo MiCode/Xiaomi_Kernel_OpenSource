@@ -132,7 +132,7 @@ Example of A330 GPU in MSM8974:
 			qcom,algo-ss-window-size = <1000000>;
 			qcom,algo-ss-util-pct = <95>;
 			qcom,algo-em-max-util-pct = <97>;
-			qcom,algo-ss-iobusy-conv = <100>;
+			qcom,algo-ss-no-corr-below-freq = <0>;
 
 			qcom,dcvs-freq@0 {
 				reg = <0>;
