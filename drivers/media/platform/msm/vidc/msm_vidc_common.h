@@ -41,6 +41,7 @@ void change_inst_state(struct msm_vidc_inst *inst,
 	enum instance_state state);
 int msm_comm_unset_ocmem(struct msm_vidc_core *core);
 int msm_comm_free_ocmem(struct msm_vidc_core *core);
+int msm_comm_force_cleanup(struct msm_vidc_inst *inst);
 enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	enum v4l2_mpeg_vidc_extradata index);
 #define IS_PRIV_CTRL(idx) (\

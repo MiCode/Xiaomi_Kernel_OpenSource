@@ -149,7 +149,6 @@ static void hal_process_sys_watchdog_timeout(struct hal_device *device)
 static void hal_process_sys_error(struct hal_device *device)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
-	disable_irq_nosync(device->hal_data->irq);
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_ERROR, &cmd_done);
@@ -177,11 +176,12 @@ static void hal_process_event_notify(struct hal_device *device,
 
 	switch (pkt->event_id) {
 	case HFI_EVENT_SYS_ERROR:
-		dprintk(VIDC_INFO, "HFI_EVENT_SYS_ERROR");
+		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d\n",
+			pkt->event_data1);
 		hal_process_sys_error(device);
 		break;
 	case HFI_EVENT_SESSION_ERROR:
-		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_ERROR");
+		dprintk(VIDC_ERR, "HFI_EVENT_SESSION_ERROR");
 		hal_process_session_error(device, pkt);
 		break;
 	case HFI_EVENT_SESSION_SEQUENCE_CHANGED:
@@ -192,7 +192,7 @@ static void hal_process_event_notify(struct hal_device *device,
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_PROPERTY_CHANGED");
 		break;
 	default:
-		dprintk(VIDC_INFO, "hal_process_event_notify:unkown_event_id");
+		dprintk(VIDC_WARN, "hal_process_event_notify:unkown_event_id");
 		break;
 	}
 }
