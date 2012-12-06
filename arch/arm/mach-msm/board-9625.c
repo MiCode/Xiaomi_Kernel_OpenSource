@@ -125,135 +125,6 @@ static void __init msm9625_reserve(void)
 	msm_reserve();
 }
 
-static struct resource smd_resource[] = {
-	{
-		.name   = "modem_smd_in",
-		.start  = 32 + 25,              /* mss_sw_to_kpss_ipc_irq0  */
-		.flags  = IORESOURCE_IRQ,
-	},
-	{
-		.name   = "modem_smsm_in",
-		.start  = 32 + 26,              /* mss_sw_to_kpss_ipc_irq1  */
-		.flags  = IORESOURCE_IRQ,
-	},
-	{
-		.name   = "adsp_smd_in",
-		.start  = 32 + 156,             /* lpass_to_kpss_ipc_irq0  */
-		.flags  = IORESOURCE_IRQ,
-	},
-	{
-		.name   = "adsp_smsm_in",
-		.start  = 32 + 157,             /* lpass_to_kpss_ipc_irq1  */
-		.flags  = IORESOURCE_IRQ,
-	},
-	{
-		.name   = "rpm_smd_in",
-		.start  = 32 + 168,             /* rpm_to_kpss_ipc_irq4  */
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct smd_subsystem_config smd_config_list[] = {
-	{
-		.irq_config_id = SMD_MODEM,
-		.subsys_name = "modem",
-		.edge = SMD_APPS_MODEM,
-
-		.smd_int.irq_name = "modem_smd_in",
-		.smd_int.flags = IRQF_TRIGGER_RISING,
-		.smd_int.irq_id = -1,
-		.smd_int.device_name = "smd_dev",
-		.smd_int.dev_id = 0,
-		.smd_int.out_bit_pos = 1 << 12,
-		.smd_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
-		.smd_int.out_offset = 0x8,
-
-		.smsm_int.irq_name = "modem_smsm_in",
-		.smsm_int.flags = IRQF_TRIGGER_RISING,
-		.smsm_int.irq_id = -1,
-		.smsm_int.device_name = "smsm_dev",
-		.smsm_int.dev_id = 0,
-		.smsm_int.out_bit_pos = 1 << 13,
-		.smsm_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
-		.smsm_int.out_offset = 0x8,
-	},
-	{
-		.irq_config_id = SMD_Q6,
-		.subsys_name = "adsp",
-		.edge = SMD_APPS_QDSP,
-
-		.smd_int.irq_name = "adsp_smd_in",
-		.smd_int.flags = IRQF_TRIGGER_RISING,
-		.smd_int.irq_id = -1,
-		.smd_int.device_name = "smd_dev",
-		.smd_int.dev_id = 0,
-		.smd_int.out_bit_pos = 1 << 8,
-		.smd_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
-		.smd_int.out_offset = 0x8,
-
-		.smsm_int.irq_name = "adsp_smsm_in",
-		.smsm_int.flags = IRQF_TRIGGER_RISING,
-		.smsm_int.irq_id = -1,
-		.smsm_int.device_name = "smsm_dev",
-		.smsm_int.dev_id = 0,
-		.smsm_int.out_bit_pos = 1 << 9,
-		.smsm_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
-		.smsm_int.out_offset = 0x8,
-	},
-	{
-		.irq_config_id = SMD_RPM,
-		.subsys_name = NULL, /* do not use PIL to load RPM */
-		.edge = SMD_APPS_RPM,
-
-		.smd_int.irq_name = "rpm_smd_in",
-		.smd_int.flags = IRQF_TRIGGER_RISING,
-		.smd_int.irq_id = -1,
-		.smd_int.device_name = "smd_dev",
-		.smd_int.dev_id = 0,
-		.smd_int.out_bit_pos = 1 << 0,
-		.smd_int.out_base = (void __iomem *)MSM_APCS_GCC_BASE,
-		.smd_int.out_offset = 0x8,
-
-		.smsm_int.irq_name = NULL, /* RPM does not support SMSM */
-		.smsm_int.flags = 0,
-		.smsm_int.irq_id = 0,
-		.smsm_int.device_name = NULL,
-		.smsm_int.dev_id = 0,
-		.smsm_int.out_bit_pos = 0,
-		.smsm_int.out_base = NULL,
-		.smsm_int.out_offset = 0,
-	},
-};
-
-static struct smd_smem_regions aux_smem_areas[] = {
-	{
-		.phys_addr = (void *)(0xfc428000),
-		.size = 0x4000,
-	},
-};
-
-static struct smd_subsystem_restart_config smd_ssr_cfg = {
-	.disable_smsm_reset_handshake = 1,
-};
-
-static struct smd_platform smd_platform_data = {
-	.num_ss_configs = ARRAY_SIZE(smd_config_list),
-	.smd_ss_configs = smd_config_list,
-	.smd_ssr_config = &smd_ssr_cfg,
-	.num_smem_areas = ARRAY_SIZE(aux_smem_areas),
-	.smd_smem_areas = aux_smem_areas,
-};
-
-struct platform_device msm_device_smd_9625 = {
-	.name   = "msm_smd",
-	.id     = -1,
-	.resource = smd_resource,
-	.num_resources = ARRAY_SIZE(smd_resource),
-	.dev = {
-		.platform_data = &smd_platform_data,
-	}
-};
-
 #define BIMC_BASE	0xfc380000
 #define BIMC_SIZE	0x0006A000
 #define SYS_NOC_BASE	0xfc460000
@@ -345,11 +216,6 @@ static void __init msm9625_init_buses(void)
 				ARRAY_SIZE(msm_bus_9625_devices));
 }
 
-void __init msm9625_add_devices(void)
-{
-	platform_device_register(&msm_device_smd_9625);
-}
-
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -376,7 +242,6 @@ void __init msm9625_init(void)
 	msm9625_init_gpiomux();
 	of_platform_populate(NULL, of_default_bus_match_table,
 			msm9625_auxdata_lookup, NULL);
-	msm9625_add_devices();
 	msm9625_add_drivers();
 }
 
