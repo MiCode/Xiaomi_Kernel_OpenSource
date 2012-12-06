@@ -1948,6 +1948,16 @@ config MSM_RPM_REGULATOR_SMD
 	  be used on systems which contain an RPM which communicates with the
 	  application processor over SMD.
 
+config MSM_SMCMOD
+	tristate "Secure Monitor Call (SMC) Module"
+	default n
+	depends on (ARCH_FSM9XXX && ION && ION_MSM && MSM_SCM)
+	help
+	  Enable support for smcmod driver. This driver provides a mechanism
+	  to execute the Secure Monitor Call (SMC) to switch from non-secure
+	  to secure execution in the fsm9xxx targets. This module utilizes Ion
+	  for buffer management.
+
 config MSM_SUBSYSTEM_RESTART
 	bool "MSM Subsystem Restart"
 	help
