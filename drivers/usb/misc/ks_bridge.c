@@ -402,6 +402,8 @@ static const struct usb_device_id ksb_usb_ids[] = {
 	.driver_info = (unsigned long)&ksb_efs_dev, },
 	{ USB_DEVICE(0x5c6, 0x904C),
 	.driver_info = (unsigned long)&ksb_efs_dev, },
+	{ USB_DEVICE(0x5c6, 0x9075),
+	.driver_info = (unsigned long)&ksb_efs_dev, },
 
 	{} /* terminating entry */
 };

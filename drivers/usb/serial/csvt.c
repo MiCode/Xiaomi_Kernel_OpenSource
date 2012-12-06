@@ -48,6 +48,7 @@ struct csvt_ctrl_dev {
 
 static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x05c6 , 0x904c, 0xff, 0xfe, 0xff)},
+	{ USB_DEVICE_AND_INTERFACE_INFO(0x05c6 , 0x9075, 0xff, 0xfe, 0xff)},
 	{}, /* terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, id_table);
