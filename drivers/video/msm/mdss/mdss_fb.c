@@ -1755,9 +1755,6 @@ int mdss_register_panel(struct mdss_panel_data *pdata)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
-	mfd->on_fnc = mdss_mdp_ctl_on;
-	mfd->off_fnc = mdss_mdp_ctl_off;
-
 	rc = mdss_mdp_overlay_init(mfd);
 	if (rc)
 		pr_err("unable to init overlay\n");
