@@ -2778,11 +2778,14 @@ static int cyttsp_probe(struct i2c_client *client,
 			return -EINVAL;
 		}
 
+		mutex_init(&ts->mutex);
 		i2c_set_clientdata(client, ts);
 
 		error = cyttsp_initialize(client, ts);
 		if (error) {
 			cyttsp_xdebug1("err cyttsp_initialize\n");
+			/* release mutex */
+			mutex_destroy(&ts->mutex);
 			/* deallocate memory */
 			kfree(ts);
 /*
@@ -2801,7 +2804,6 @@ static int cyttsp_probe(struct i2c_client *client,
 	}
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 	device_init_wakeup(&client->dev, ts->platform_data->wakeup);
-	mutex_init(&ts->mutex);
 
 	cyttsp_info("Start Probe %s\n", \
 		(retval < CY_OK) ? "FAIL" : "PASS");
