@@ -133,14 +133,6 @@
 			qcom,init-voltage = <2150000>;
 			status = "okay";
 		};
-		pm8941_s2_ao: regulator-s2-ao {
-			regulator-name = "8941_s2_ao";
-			qcom,set = <1>;
-			regulator-min-microvolt = <2150000>;
-			regulator-max-microvolt = <2150000>;
-			status = "okay";
-			compatible = "qcom,rpm-regulator-smd";
-		};
 	};
 
 	rpm-regulator-smpa3 {
