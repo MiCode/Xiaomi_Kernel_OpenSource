@@ -18,12 +18,21 @@
 
 #define list_next_entry(pos, member) \
 	list_entry(pos->member.next, typeof(*pos), member)
+#define IPA_LAST_DESC_COOKIE 0xFFFF
 /**
- * ipa_write_done - this function will be (enevtually) called when a Tx
+ * ipa_write_done() - this function will be (eventually) called when a Tx
  * operation is complete
- * @work:	work_struct used by the work queue
+ * * @work:	work_struct used by the work queue
+ *
+ * Will be called in deferred context.
+ * - invoke the callback supplied by the client who sent this command
+ * - iterate over all packets and validate that
+ *   the order for sent packet is the same as expected
+ * - delete all the tx packet descriptors from the system
+ *   pipe context (not needed anymore)
+ * - return the tx buffer back to one_kb_no_straddle_pool
  */
-void ipa_write_done(struct work_struct *work)
+void ipa_wq_write_done(struct work_struct *work)
 {
 	struct ipa_tx_pkt_wrapper *tx_pkt;
 	struct ipa_tx_pkt_wrapper *next_pkt;
@@ -40,7 +49,7 @@ void ipa_write_done(struct work_struct *work)
 	if (unlikely(cnt == 0))
 		WARN_ON(1);
 
-	if (cnt > 1 && cnt != 0xFFFF)
+	if (cnt > 1 && cnt != IPA_LAST_DESC_COOKIE)
 		mult = tx_pkt->mult;
 
 	for (i = 0; i < cnt; i++) {
@@ -76,6 +85,14 @@ void ipa_write_done(struct work_struct *work)
  * ipa_send_one() - Send a single descriptor
  * @sys:	system pipe context
  * @desc:	descriptor to send
+ *
+ * - Allocate tx_packet wrapper
+ * - Allocate a bounce buffer due to HW constrains
+ *   (This buffer will be used for the DMA command)
+ * - Copy the data (desc->pyld) to the bounce buffer
+ * - transfer data to the IPA
+ * - after the transfer was done the SPS will
+ *   notify the sending user via ipa_sps_irq_comp_tx()
  *
  * Return codes: 0: success, -EFAULT: failure
  */
@@ -117,7 +134,7 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc)
 	}
 
 	INIT_LIST_HEAD(&tx_pkt->link);
-	INIT_WORK(&tx_pkt->work, ipa_write_done);
+	INIT_WORK(&tx_pkt->work, ipa_wq_write_done);
 	tx_pkt->type = desc->type;
 	tx_pkt->cnt = 1;    /* only 1 desc in this "set" */
 
@@ -175,7 +192,20 @@ fail_mem_alloc:
  * ipa_send() - Send multiple descriptors in one HW transaction
  * @sys: system pipe context
  * @num_desc: number of packets
- * @desc: packets to send
+ * @desc: packets to send (may be immediate command or data)
+ *
+ * This function is used for system-to-bam connection.
+ * - SPS driver expect struct sps_transfer which will contain all the data
+ *   for a transaction
+ * - The sps_transfer struct will be pointing to bounce buffers for
+ *   its DMA command (immediate command and data)
+ * - ipa_tx_pkt_wrapper will be used for each ipa
+ *   descriptor (allocated from wrappers cache)
+ * - The wrapper struct will be configured for each ipa-desc payload and will
+ *   contain information which will be later used by the user callbacks
+ * - each transfer will be made by calling to sps_transfer()
+ * - Each packet (command or data) that will be sent will also be saved in
+ *   ipa_sys_context for later check that all data was sent
  *
  * Return codes: 0: success, -EFAULT: failure
  */
@@ -187,11 +217,19 @@ int ipa_send(struct ipa_sys_context *sys, u16 num_desc, struct ipa_desc *desc)
 	struct sps_iovec *iovec;
 	unsigned long irq_flags;
 	dma_addr_t dma_addr;
-	int i;
+	int i = 0;
 	int j;
 	int result;
-	int fail_dma_wrap;
+	int fail_dma_wrap = 0;
 	uint size = num_desc * sizeof(struct sps_iovec);
+
+	transfer.iovec = dma_alloc_coherent(NULL, size, &dma_addr, 0);
+	transfer.iovec_phys = dma_addr;
+	transfer.iovec_count = num_desc;
+	if (!transfer.iovec) {
+		IPAERR("fail to alloc DMA mem for sps xfr buff\n");
+		goto failure;
+	}
 
 	for (i = 0; i < num_desc; i++) {
 		fail_dma_wrap = 0;
@@ -207,14 +245,6 @@ int ipa_send(struct ipa_sys_context *sys, u16 num_desc, struct ipa_desc *desc)
 		 */
 		if (i == 0) {
 			transfer.user = tx_pkt;
-			transfer.iovec =
-				dma_alloc_coherent(NULL, size, &dma_addr, 0);
-			transfer.iovec_phys = dma_addr;
-			transfer.iovec_count = num_desc;
-			if (!transfer.iovec) {
-				IPAERR("fail alloc DMA mem for sps xfr buff\n");
-				goto failure;
-			}
 
 			tx_pkt->mult.phys_base = dma_addr;
 			tx_pkt->mult.base = transfer.iovec;
@@ -226,7 +256,7 @@ int ipa_send(struct ipa_sys_context *sys, u16 num_desc, struct ipa_desc *desc)
 		iovec->flags = 0;
 
 		INIT_LIST_HEAD(&tx_pkt->link);
-		INIT_WORK(&tx_pkt->work, ipa_write_done);
+		INIT_WORK(&tx_pkt->work, ipa_wq_write_done);
 		tx_pkt->type = desc[i].type;
 
 		tx_pkt->mem.base = desc[i].pyld;
@@ -263,6 +293,10 @@ int ipa_send(struct ipa_sys_context *sys, u16 num_desc, struct ipa_desc *desc)
 		tx_pkt->user1 = desc[i].user1;
 		tx_pkt->user2 = desc[i].user2;
 
+		/*
+		 * Point the iovec to the bounce buffer and
+		 * add this packet to system pipe context.
+		 */
 		iovec->addr = tx_pkt->mem.phys_base;
 		spin_lock_irqsave(&sys->spinlock, irq_flags);
 		list_add_tail(&tx_pkt->link, &sys->head_desc_list);
@@ -284,7 +318,7 @@ int ipa_send(struct ipa_sys_context *sys, u16 num_desc, struct ipa_desc *desc)
 			iovec->flags |= (SPS_IOVEC_FLAG_EOT |
 					SPS_IOVEC_FLAG_INT);
 			/* "mark" the last desc */
-			tx_pkt->cnt = 0xFFFF;
+			tx_pkt->cnt = IPA_LAST_DESC_COOKIE;
 		}
 	}
 
@@ -320,7 +354,7 @@ failure:
 }
 
 /**
- * ipa_cmd_ack - callback function which will be called by SPS driver after an
+ * ipa_sps_irq_cmd_ack - callback function which will be called by SPS driver after an
  * immediate command is complete.
  * @user1:	pointer to the descriptor of the transfer
  * @user2:
@@ -328,7 +362,7 @@ failure:
  * Complete the immediate commands completion object, this will release the
  * thread which waits on this completion object (ipa_send_cmd())
  */
-static void ipa_cmd_ack(void *user1, void *user2)
+static void ipa_sps_irq_cmd_ack(void *user1, void *user2)
 {
 	struct ipa_desc *desc = (struct ipa_desc *)user1;
 
@@ -340,11 +374,13 @@ static void ipa_cmd_ack(void *user1, void *user2)
 
 /**
  * ipa_send_cmd - send immediate commands
- * @num_desc:	number of descriptors within the descr struct
+ * @num_desc:	number of descriptors within the desc struct
  * @descr:	descriptor structure
  *
  * Function will block till command gets ACK from IPA HW, caller needs
  * to free any resources it allocated after function returns
+ * The callback in ipa_desc should not be set by the caller
+ * for this function.
  */
 int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 {
@@ -353,11 +389,10 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 	if (num_desc == 1) {
 		init_completion(&descr->xfer_done);
 
-		/* client should not set these */
 		if (descr->callback || descr->user1)
 			WARN_ON(1);
 
-		descr->callback = ipa_cmd_ack;
+		descr->callback = ipa_sps_irq_cmd_ack;
 		descr->user1 = descr;
 		if (ipa_send_one(&ipa_ctx->sys[IPA_A5_CMD], descr)) {
 			IPAERR("fail to send immediate command\n");
@@ -368,11 +403,10 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 		desc = &descr[num_desc - 1];
 		init_completion(&desc->xfer_done);
 
-		/* client should not set these */
 		if (desc->callback || desc->user1)
 			WARN_ON(1);
 
-		desc->callback = ipa_cmd_ack;
+		desc->callback = ipa_sps_irq_cmd_ack;
 		desc->user1 = desc;
 		if (ipa_send(&ipa_ctx->sys[IPA_A5_CMD], num_desc, descr)) {
 			IPAERR("fail to send multiple immediate command set\n");
@@ -385,11 +419,15 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 }
 
 /**
- * ipa_tx_notify() - Callback function which will be called by the SPS driver
- * after a Tx operation is complete. Called in an interrupt context.
+ * ipa_sps_irq_tx_notify() - Callback function which will be called by
+ * the SPS driver after a Tx operation is complete.
+ * Called in an interrupt context.
  * @notify:	SPS driver supplied notification struct
+ *
+ * This function defer the work for this event to the tx workqueue.
+ * This event will be later handled by ipa_write_done.
  */
-static void ipa_tx_notify(struct sps_event_notify *notify)
+static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 {
 	struct ipa_tx_pkt_wrapper *tx_pkt;
 
@@ -473,19 +511,19 @@ void ipa_handle_rx_core(void)
 		mux_hdr = (struct ipa_a5_mux_hdr *)rx_skb->data;
 
 		IPADBG("RX pkt len=%d IID=0x%x src=%d, flags=0x%x, meta=0x%x\n",
-		       rx_skb->len, ntohs(mux_hdr->interface_id),
-		       mux_hdr->src_pipe_index,
-		       mux_hdr->flags, ntohl(mux_hdr->metadata));
+			rx_skb->len, ntohs(mux_hdr->interface_id),
+			mux_hdr->src_pipe_index,
+			mux_hdr->flags, ntohl(mux_hdr->metadata));
 
 		IPA_DUMP_BUFF(rx_skb->data, 0, rx_skb->len);
 
 		if (mux_hdr->src_pipe_index >= IPA_NUM_PIPES ||
-		    !ipa_ctx->ep[mux_hdr->src_pipe_index].valid ||
-		    !ipa_ctx->ep[mux_hdr->src_pipe_index].notify) {
-			IPAERR("drop pipe=%d ep_valid=%d notify=%p\n",
-			       mux_hdr->src_pipe_index,
-			       ipa_ctx->ep[mux_hdr->src_pipe_index].valid,
-			       ipa_ctx->ep[mux_hdr->src_pipe_index].notify);
+			!ipa_ctx->ep[mux_hdr->src_pipe_index].valid ||
+			!ipa_ctx->ep[mux_hdr->src_pipe_index].client_notify) {
+			IPAERR("drop pipe=%d ep_valid=%d client_notify=%p\n",
+			  mux_hdr->src_pipe_index,
+			  ipa_ctx->ep[mux_hdr->src_pipe_index].valid,
+			  ipa_ctx->ep[mux_hdr->src_pipe_index].client_notify);
 			dev_kfree_skb_any(rx_skb);
 			ipa_replenish_rx_cache();
 			continue;
@@ -505,7 +543,8 @@ void ipa_handle_rx_core(void)
 
 		IPADBG("pulling %d bytes from skb\n", pull_len);
 		skb_pull(rx_skb, pull_len);
-		ep->notify(ep->priv, IPA_RECEIVE, (unsigned long)(rx_skb));
+		ep->client_notify(ep->priv, IPA_RECEIVE,
+				(unsigned long)(rx_skb));
 		ipa_replenish_rx_cache();
 	} while (1);
 }
@@ -587,7 +626,7 @@ static void ipa_rx_switch_to_poll_mode(void)
  * This comes to prevent the CPU from handling too many interrupts when the
  * throughput is high.
  */
-static void ipa_rx_notify(struct sps_event_notify *notify)
+static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 
@@ -609,8 +648,16 @@ static void ipa_rx_notify(struct sps_event_notify *notify)
 /**
  * ipa_setup_sys_pipe() - Setup an IPA end-point in system-BAM mode and perform
  * IPA EP configuration
- * @sys_in:	[in] input needed to setup BAM pipe and config EP
+ * @sys_in:	[in] input needed to setup BAM pipe and configure EP
  * @clnt_hdl:	[out] client handle
+ *
+ *  - configure the end-point registers with the supplied
+ *    parameters from the user.
+ *  - call SPS APIs to create a system-to-bam connection with IPA.
+ *  - allocate descriptor FIFO
+ *  - register callback function(ipa_sps_irq_rx_notify or
+ *    ipa_sps_irq_tx_notify - depends on client type) in case the driver is
+ *    not configured to pulling mode
  *
  * Returns:	0 on success, negative on failure
  */
@@ -729,34 +776,21 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	}
 
 	if (!ipa_ctx->polling_mode) {
-		if (IPA_CLIENT_IS_CONS(sys_in->client)) {
-			ipa_ctx->sys[sys_idx].event.options = SPS_O_EOT;
-			ipa_ctx->sys[sys_idx].event.mode = SPS_TRIGGER_CALLBACK;
-			ipa_ctx->sys[sys_idx].event.xfer_done = NULL;
-			ipa_ctx->sys[sys_idx].event.callback = ipa_rx_notify;
-			ipa_ctx->sys[sys_idx].event.user =
-				&ipa_ctx->sys[sys_idx];
-			result =
-			   sps_register_event(ipa_ctx->ep[ipa_ep_idx].ep_hdl,
-					      &ipa_ctx->sys[sys_idx].event);
-			if (result < 0) {
-				IPAERR("rx register event error %d\n", result);
-				goto fail_register_event;
-			}
-		} else {
-			ipa_ctx->sys[sys_idx].event.options = SPS_O_EOT;
-			ipa_ctx->sys[sys_idx].event.mode = SPS_TRIGGER_CALLBACK;
-			ipa_ctx->sys[sys_idx].event.xfer_done = NULL;
-			ipa_ctx->sys[sys_idx].event.callback = ipa_tx_notify;
-			ipa_ctx->sys[sys_idx].event.user =
-				&ipa_ctx->sys[sys_idx];
-			result =
-			   sps_register_event(ipa_ctx->ep[ipa_ep_idx].ep_hdl,
-					      &ipa_ctx->sys[sys_idx].event);
-			if (result < 0) {
-				IPAERR("tx register event error %d\n", result);
-				goto fail_register_event;
-			}
+
+		ipa_ctx->sys[sys_idx].event.options = SPS_O_EOT;
+		ipa_ctx->sys[sys_idx].event.mode = SPS_TRIGGER_CALLBACK;
+		ipa_ctx->sys[sys_idx].event.xfer_done = NULL;
+		ipa_ctx->sys[sys_idx].event.user =
+			&ipa_ctx->sys[sys_idx];
+		ipa_ctx->sys[sys_idx].event.callback =
+				IPA_CLIENT_IS_CONS(sys_in->client) ?
+					ipa_sps_irq_rx_notify :
+					ipa_sps_irq_tx_notify;
+		result = sps_register_event(ipa_ctx->ep[ipa_ep_idx].ep_hdl,
+					  &ipa_ctx->sys[sys_idx].event);
+		if (result < 0) {
+			IPAERR("register event error %d\n", result);
+			goto fail_register_event;
 		}
 	}
 
@@ -801,21 +835,25 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_teardown_sys_pipe);
 
 /**
- * ipa_tx_comp() - Callback function which will call the user supplied callback
- * function to release the skb, or release it on its own if no callback function
- * was supplied.
+ * ipa_tx_comp_usr_notify_release() - Callback function which will call the
+ * user supplied callback function to release the skb, or release it on
+ * its own if no callback function was supplied.
  * @user1
  * @user2
+ *
+ * This notified callback (client_notify) is for
+ * the destination client.
+ * This function is supplied in ipa_connect.
  */
-static void ipa_tx_comp(void *user1, void *user2)
+static void ipa_tx_comp_usr_notify_release(void *user1, void *user2)
 {
 	struct sk_buff *skb = (struct sk_buff *)user1;
 	u32 ep_idx = (u32)user2;
 
 	IPADBG("skb=%p ep=%d\n", skb, ep_idx);
 
-	if (ipa_ctx->ep[ep_idx].notify)
-		ipa_ctx->ep[ep_idx].notify(ipa_ctx->ep[ep_idx].priv,
+	if (ipa_ctx->ep[ep_idx].client_notify)
+		ipa_ctx->ep[ep_idx].client_notify(ipa_ctx->ep[ep_idx].priv,
 				IPA_WRITE_DONE, (unsigned long)skb);
 	else
 		dev_kfree_skb_any(skb);
@@ -832,9 +870,19 @@ static void ipa_tx_comp(void *user1, void *user2)
  * dst is a "valid" CONS type, then SW data-path is used. If dst is the
  * WLAN_AMPDU PROD type, then HW data-path for WLAN AMPDU is used. Anything else
  * is an error. For errors, client needs to free the skb as needed. For success,
- * IPA driver will later invoke client calback if one was supplied. That
+ * IPA driver will later invoke client callback if one was supplied. That
  * callback should free the skb. If no callback supplied, IPA driver will free
  * the skb internally
+ *
+ * The function will use two descriptors for this send command
+ * (for A5_WLAN_AMPDU_PROD only one desciprtor will be sent),
+ * the first descriptor will be used to inform the IPA hardware that
+ * apps need to push data into the IPA (IP_PACKET_INIT immediate command).
+ * Once this send was done from SPS point-of-view the IPA driver will
+ * get notified by the supplied callback - ipa_sps_irq_tx_comp()
+ *
+ * ipa_sps_irq_tx_comp will call to the user supplied
+ * callback (supplied in ipa_connect())
  *
  * Returns:	0 on success, negative on failure
  */
@@ -864,6 +912,7 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			IPAERR("failed to alloc immediate command object\n");
 			goto fail_mem_alloc;
 		}
+		memset(cmd, 0x00, sizeof(*cmd));
 
 		cmd->destination_pipe_index = ipa_ep_idx;
 		if (meta && meta->mbim_stream_id_valid)
@@ -875,7 +924,7 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		desc[1].pyld = skb->data;
 		desc[1].len = skb->len;
 		desc[1].type = IPA_DATA_DESC_SKB;
-		desc[1].callback = ipa_tx_comp;
+		desc[1].callback = ipa_tx_comp_usr_notify_release;
 		desc[1].user1 = skb;
 		desc[1].user2 = (void *)ipa_ep_idx;
 
@@ -887,7 +936,7 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		desc[0].pyld = skb->data;
 		desc[0].len = skb->len;
 		desc[0].type = IPA_DATA_DESC_SKB;
-		desc[0].callback = ipa_tx_comp;
+		desc[0].callback = ipa_tx_comp_usr_notify_release;
 		desc[0].user1 = skb;
 		desc[0].user2 = (void *)ipa_ep_idx;
 
@@ -919,7 +968,7 @@ EXPORT_SYMBOL(ipa_tx_dp);
  * ipa_handle_rx_core() is run in polling mode. After all packets has been
  * received, the driver switches back to interrupt mode.
  */
-void ipa_handle_rx(struct work_struct *work)
+void ipa_wq_handle_rx(struct work_struct *work)
 {
 	ipa_handle_rx_core();
 	ipa_rx_switch_to_intr_mode();
@@ -962,7 +1011,7 @@ void ipa_replenish_rx_cache(void)
 		}
 
 		INIT_LIST_HEAD(&rx_pkt->link);
-		INIT_WORK(&rx_pkt->work, ipa_handle_rx);
+		INIT_WORK(&rx_pkt->work, ipa_wq_handle_rx);
 
 		rx_pkt->skb = __dev_alloc_skb(IPA_RX_SKB_SIZE, GFP_KERNEL);
 		if (rx_pkt->skb == NULL) {

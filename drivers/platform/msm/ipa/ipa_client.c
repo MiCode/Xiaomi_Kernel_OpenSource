@@ -157,7 +157,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 
 	ep->valid = 1;
 	ep->client = in->client;
-	ep->notify = in->notify;
+	ep->client_notify = in->notify;
 	ep->priv = in->priv;
 
 	if (ipa_cfg_ep(ipa_ep_idx, &in->ipa_ep_cfg)) {

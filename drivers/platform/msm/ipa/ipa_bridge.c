@@ -24,7 +24,7 @@ enum ipa_bridge_id {
 
 static int polling_min_sleep[IPA_DIR_MAX] = { 950, 950 };
 static int polling_max_sleep[IPA_DIR_MAX] = { 1050, 1050 };
-static int polling_inactivity[IPA_DIR_MAX] = { 20, 20 };
+static int polling_inactivity[IPA_DIR_MAX] = { 4, 4 };
 
 struct ipa_pkt_info {
 	void *buffer;
@@ -167,6 +167,34 @@ fail_pkt:
 	return -ENOMEM;
 }
 
+static int ipa_reclaim_tx(struct ipa_bridge_pipe_context *sys_tx, bool all)
+{
+	struct sps_iovec iov;
+	struct ipa_pkt_info *tx_pkt;
+	int cnt = 0;
+	int ret;
+
+	do {
+		iov.addr = 0;
+		ret = sps_get_iovec(sys_tx->pipe, &iov);
+		if (ret || iov.addr == 0) {
+			break;
+		} else {
+			tx_pkt = list_first_entry(&sys_tx->head_desc_list,
+						  struct ipa_pkt_info,
+						  list_node);
+			list_move_tail(&tx_pkt->list_node,
+					&sys_tx->free_desc_list);
+			sys_tx->len--;
+			sys_tx->free_len++;
+			tx_pkt->len = ~0;
+			cnt++;
+		}
+	} while (all);
+
+	return cnt;
+}
+
 static void ipa_do_bridge_work(enum ipa_bridge_dir dir)
 {
 	struct ipa_bridge_pipe_context *sys_rx = &bridge[2 * dir];
@@ -180,22 +208,9 @@ static void ipa_do_bridge_work(enum ipa_bridge_dir dir)
 
 	while (1) {
 		++inactive_cycles;
-		iov.addr = 0;
-		ret = sps_get_iovec(sys_tx->pipe, &iov);
-		if (ret || iov.addr == 0) {
-			/* no-op */
-		} else {
-			inactive_cycles = 0;
 
-			tx_pkt = list_first_entry(&sys_tx->head_desc_list,
-						  struct ipa_pkt_info,
-						  list_node);
-			list_move_tail(&tx_pkt->list_node,
-					&sys_tx->free_desc_list);
-			sys_tx->len--;
-			sys_tx->free_len++;
-			tx_pkt->len = ~0;
-		}
+		if (ipa_reclaim_tx(sys_tx, false))
+			inactive_cycles = 0;
 
 		iov.addr = 0;
 		ret = sps_get_iovec(sys_rx->pipe, &iov);
@@ -216,7 +231,7 @@ retry_alloc_tx:
 				tmp_pkt = kmalloc(sizeof(struct ipa_pkt_info),
 						GFP_KERNEL);
 				if (!tmp_pkt) {
-					pr_err_ratelimited("%s: unable to alloc tx_pkt_info\n",
+					pr_debug_ratelimited("%s: unable to alloc tx_pkt_info\n",
 					       __func__);
 					usleep_range(polling_min_sleep[dir],
 							polling_max_sleep[dir]);
@@ -226,7 +241,7 @@ retry_alloc_tx:
 				tmp_pkt->buffer = kmalloc(IPA_RX_SKB_SIZE,
 						GFP_KERNEL | GFP_DMA);
 				if (!tmp_pkt->buffer) {
-					pr_err_ratelimited("%s: unable to alloc tx_pkt_buffer\n",
+					pr_debug_ratelimited("%s: unable to alloc tx_pkt_buffer\n",
 					       __func__);
 					kfree(tmp_pkt);
 					usleep_range(polling_min_sleep[dir],
@@ -240,7 +255,7 @@ retry_alloc_tx:
 						DMA_BIDIRECTIONAL);
 				if (tmp_pkt->dma_address == 0 ||
 						tmp_pkt->dma_address == ~0) {
-					pr_err_ratelimited("%s: dma_map_single failure %p for %p\n",
+					pr_debug_ratelimited("%s: dma_map_single failure %p for %p\n",
 					       __func__,
 					       (void *)tmp_pkt->dma_address,
 					       tmp_pkt->buffer);
@@ -271,7 +286,7 @@ retry_add_rx:
 					SPS_IOVEC_FLAG_EOT);
 			if (ret) {
 				list_del(&tx_pkt->list_node);
-				pr_err_ratelimited("%s: sps_transfer_one failed %d\n",
+				pr_debug_ratelimited("%s: sps_transfer_one failed %d\n",
 						__func__, ret);
 				usleep_range(polling_min_sleep[dir],
 						polling_max_sleep[dir]);
@@ -289,9 +304,10 @@ retry_add_tx:
 					       SPS_IOVEC_FLAG_INT |
 					       SPS_IOVEC_FLAG_EOT);
 			if (ret) {
-				pr_err_ratelimited("%s: fail to add to TX dir=%d\n",
+				pr_debug_ratelimited("%s: fail to add to TX dir=%d\n",
 						__func__, dir);
 				list_del(&rx_pkt->list_node);
+				ipa_reclaim_tx(sys_tx, true);
 				usleep_range(polling_min_sleep[dir],
 						polling_max_sleep[dir]);
 				goto retry_add_tx;
@@ -306,7 +322,7 @@ retry_add_tx:
 	}
 }
 
-static void ipa_rx_notify(struct sps_event_notify *notify)
+static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 {
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
@@ -457,7 +473,7 @@ tx_alloc_endpoint_failed:
 		sys->register_event.options = SPS_O_EOT;
 		sys->register_event.mode = SPS_TRIGGER_CALLBACK;
 		sys->register_event.xfer_done = NULL;
-		sys->register_event.callback = ipa_rx_notify;
+		sys->register_event.callback = ipa_sps_irq_rx_notify;
 		sys->register_event.user = NULL;
 		ret = sps_register_event(sys->pipe, &sys->register_event);
 		if (ret < 0) {

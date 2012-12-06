@@ -296,8 +296,9 @@ struct ipa_tree_node {
  * @dst_pipe_index: destination pipe index
  * @rt_tbl_idx: routing table index
  * @connect: SPS connect
- * @priv: user provided information
- * @notify: user provided CB for EP events notification
+ * @priv: user provided information which will forwarded once the user is
+ *        notified for new data avail
+ * @client_notify: user provided CB for EP events notification
  * @desc_fifo_in_pipe_mem: flag indicating if descriptors FIFO uses pipe memory
  * @data_fifo_in_pipe_mem: flag indicating if data FIFO uses pipe memory
  * @desc_fifo_pipe_mem_ofst: descriptors FIFO pipe memory offset
@@ -314,7 +315,7 @@ struct ipa_ep_context {
 	u32 rt_tbl_idx;
 	struct sps_connect connect;
 	void *priv;
-	void (*notify)(void *priv, enum ipa_dp_evt_type evt,
+	void (*client_notify)(void *priv, enum ipa_dp_evt_type evt,
 		       unsigned long data);
 	bool desc_fifo_in_pipe_mem;
 	bool data_fifo_in_pipe_mem;
@@ -357,7 +358,8 @@ enum ipa_desc_type {
 
 /**
  * struct ipa_tx_pkt_wrapper - IPA Tx packet wrapper
- * @type: info for the skb or immediate command param
+ * @type: specify if this packet is a data packet (skb) or
+ * an immediate command
  * @mem: memory buffer used by this Tx packet
  * @work: work struct for current Tx packet
  * @link: linked to the wrappers on that pipe
@@ -371,6 +373,8 @@ enum ipa_desc_type {
  * >1 and <0xFFFF for first of a "multiple" tranfer,
  * 0xFFFF for last desc, 0 for rest of "multiple' transfer
  * @bounce: va of bounce buffer
+ *
+ * This struct can wrap both data packet and immediate command packet.
  */
 struct ipa_tx_pkt_wrapper {
 	enum ipa_desc_type type;
@@ -693,8 +697,8 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr);
 void ipa_replenish_rx_cache(void);
 void ipa_cleanup_rx(void);
 int ipa_cfg_filter(u32 disable);
-void ipa_write_done(struct work_struct *work);
-void ipa_handle_rx(struct work_struct *work);
+void ipa_wq_write_done(struct work_struct *work);
+void ipa_wq_handle_rx(struct work_struct *work);
 void ipa_handle_rx_core(void);
 int ipa_pipe_mem_init(u32 start_ofst, u32 size);
 int ipa_pipe_mem_alloc(u32 *ofst, u32 size);
