@@ -21,6 +21,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/wakelock.h>
+#include <linux/workqueue.h>
 #include <linux/mmc/card.h>
 #include <linux/dma-mapping.h>
 #include <mach/dma.h>
@@ -87,6 +88,8 @@ static ssize_t sdio_dld_debug_info_write(struct file *file,
 		const char __user *buf, size_t count, loff_t *ppos);
 #endif
 
+static void sdio_dld_tear_down(struct work_struct *work);
+DECLARE_WORK(cleanup, sdio_dld_tear_down);
 
 /* STRUCTURES AND TYPES */
 enum sdio_dld_op_mode {
@@ -223,6 +226,8 @@ static DEFINE_SPINLOCK(lock1);
 static unsigned long lock_flags1;
 static DEFINE_SPINLOCK(lock2);
 static unsigned long lock_flags2;
+
+static atomic_t sdio_dld_in_use = ATOMIC_INIT(0);
 
 /*
  * sdio_op_mode sets the operation mode of the sdio_dloader -
@@ -1108,6 +1113,10 @@ static int sdio_dld_open(struct tty_struct *tty, struct file *file)
 		REAL_FUNC_TO_FUNC_IN_ARRAY(sdio_dld->sdioc_boot_func);
 	struct sdio_func *str_func = sdio_dld->card->sdio_func[func_in_array];
 
+	if (atomic_read(&sdio_dld_in_use) == 1)
+		return -EBUSY;
+
+	atomic_set(&sdio_dld_in_use, 1);
 	sdio_dld->tty_str = tty;
 	sdio_dld->tty_str->low_latency = 1;
 	sdio_dld->tty_str->icanon = 0;
@@ -1185,7 +1194,6 @@ static int sdio_dld_open(struct tty_struct *tty, struct file *file)
   */
 static void sdio_dld_close(struct tty_struct *tty, struct file *file)
 {
-	int status = 0;
 	struct sdioc_reg_chunk *reg = &sdio_dld->sdio_dloader_data.sdioc_reg;
 
 	/* informing the SDIOC that it can exit boot phase */
@@ -1199,20 +1207,6 @@ static void sdio_dld_close(struct tty_struct *tty, struct file *file)
 	wait_event(sdio_dld->dld_main_thread.exit_wait.wait_event,
 		   sdio_dld->dld_main_thread.exit_wait.wake_up_signal);
 	pr_debug(MODULE_NAME ": %s - CLOSING - WOKE UP...", __func__);
-
-	del_timer_sync(&sdio_dld->timer);
-	del_timer_sync(&sdio_dld->push_timer);
-
-	sdio_dld_dealloc_local_buffers();
-
-	tty_unregister_device(sdio_dld->tty_drv, 0);
-
-	status = tty_unregister_driver(sdio_dld->tty_drv);
-
-	if (status) {
-		pr_err(MODULE_NAME ": %s - tty_unregister_driver() failed\n",
-		       __func__);
-	}
 
 #ifdef CONFIG_DEBUG_FS
 	gd.curr_i = curr_index;
@@ -1263,9 +1257,8 @@ static void sdio_dld_close(struct tty_struct *tty, struct file *file)
 	if (sdio_dld->done_callback)
 		sdio_dld->done_callback();
 
-	pr_info(MODULE_NAME ": %s - Freeing sdio_dld data structure, and "
-		" returning...", __func__);
-	kfree(sdio_dld);
+	schedule_work(&cleanup);
+	pr_info(MODULE_NAME ": %s - Bootloader done, returning...", __func__);
 }
 
 /**
@@ -2392,6 +2385,9 @@ int sdio_downloader_setup(struct mmc_card *card,
 	struct sdio_func *str_func = NULL;
 	struct device *tty_dev;
 
+	if (atomic_read(&sdio_dld_in_use) == 1)
+		return -EBUSY;
+
 	if (num_of_devices == 0 || num_of_devices > MAX_NUM_DEVICES) {
 		pr_err(MODULE_NAME ": %s - invalid number of devices\n",
 		       __func__);
@@ -2532,6 +2528,28 @@ exit_err:
 		       "failed. result=%d\n", __func__, -result);
 	kfree(sdio_dld);
 	return status;
+}
+
+static void sdio_dld_tear_down(struct work_struct *work)
+{
+	int status = 0;
+
+	del_timer_sync(&sdio_dld->timer);
+	del_timer_sync(&sdio_dld->push_timer);
+
+	sdio_dld_dealloc_local_buffers();
+
+	tty_unregister_device(sdio_dld->tty_drv, 0);
+
+	status = tty_unregister_driver(sdio_dld->tty_drv);
+
+	if (status) {
+		pr_err(MODULE_NAME ": %s - tty_unregister_driver() failed\n",
+		       __func__);
+	}
+
+	kfree(sdio_dld);
+	atomic_set(&sdio_dld_in_use, 0);
 }
 
 MODULE_LICENSE("GPL v2");
