@@ -1087,7 +1087,13 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 			sizeof(struct mpq_framing_prefix_size_masks));
 	feed_data->first_pattern_offset = 0;
 	feed_data->first_prefix_size = 0;
-	feed_data->write_pts_dts = 0;
+	feed_data->saved_pts_dts_info.pts_exist = 0;
+	feed_data->saved_pts_dts_info.dts_exist = 0;
+	feed_data->new_pts_dts_info.pts_exist = 0;
+	feed_data->new_pts_dts_info.dts_exist = 0;
+	feed_data->saved_info_used = 1;
+	feed_data->new_info_exists = 0;
+	feed_data->first_pts_dts_copy = 1;
 
 	spin_lock(&mpq_demux->feed_lock);
 	feed->priv = (void *)feed_data;
@@ -1362,6 +1368,83 @@ static inline int mpq_dmx_parse_mandatory_pes_header(
 	return 0;
 }
 
+static inline void mpq_dmx_save_pts_dts(struct mpq_video_feed_info *feed_data)
+{
+	if (feed_data->new_info_exists) {
+		feed_data->saved_pts_dts_info.pts_exist =
+			feed_data->new_pts_dts_info.pts_exist;
+		feed_data->saved_pts_dts_info.pts =
+			feed_data->new_pts_dts_info.pts;
+		feed_data->saved_pts_dts_info.dts_exist =
+			feed_data->new_pts_dts_info.dts_exist;
+		feed_data->saved_pts_dts_info.dts =
+			feed_data->new_pts_dts_info.dts;
+
+		feed_data->new_info_exists = 0;
+		feed_data->saved_info_used = 0;
+	}
+}
+
+static inline void mpq_dmx_write_pts_dts(struct mpq_video_feed_info *feed_data,
+					struct dmx_pts_dts_info *info)
+{
+	if (!feed_data->saved_info_used) {
+		info->pts_exist = feed_data->saved_pts_dts_info.pts_exist;
+		info->pts = feed_data->saved_pts_dts_info.pts;
+		info->dts_exist = feed_data->saved_pts_dts_info.dts_exist;
+		info->dts = feed_data->saved_pts_dts_info.dts;
+
+		feed_data->saved_info_used = 1;
+	} else {
+		info->pts_exist = 0;
+		info->dts_exist = 0;
+	}
+}
+
+static inline void mpq_dmx_get_pts_dts(struct mpq_video_feed_info *feed_data,
+				struct pes_packet_header *pes_header)
+{
+	struct dmx_pts_dts_info *info = &(feed_data->new_pts_dts_info);
+
+	/* Get PTS/DTS information from PES header */
+
+	if ((pes_header->pts_dts_flag == 2) ||
+		(pes_header->pts_dts_flag == 3)) {
+		info->pts_exist = 1;
+
+		info->pts =
+			((u64)pes_header->pts_1 << 30) |
+			((u64)pes_header->pts_2 << 22) |
+			((u64)pes_header->pts_3 << 15) |
+			((u64)pes_header->pts_4 << 7) |
+			(u64)pes_header->pts_5;
+	} else {
+		info->pts_exist = 0;
+		info->pts = 0;
+	}
+
+	if (pes_header->pts_dts_flag == 3) {
+		info->dts_exist = 1;
+
+		info->dts =
+			((u64)pes_header->dts_1 << 30) |
+			((u64)pes_header->dts_2 << 22) |
+			((u64)pes_header->dts_3 << 15) |
+			((u64)pes_header->dts_4 << 7) |
+			(u64)pes_header->dts_5;
+	} else {
+		info->dts_exist = 0;
+		info->dts = 0;
+	}
+
+	feed_data->new_info_exists = 1;
+
+	if (feed_data->first_pts_dts_copy) {
+		mpq_dmx_save_pts_dts(feed_data);
+		feed_data->first_pts_dts_copy = 0;
+	}
+}
+
 static inline int mpq_dmx_parse_remaining_pes_header(
 				struct dvb_demux_feed *feed,
 				struct mpq_video_feed_info *feed_data,
@@ -1405,7 +1488,6 @@ static inline int mpq_dmx_parse_remaining_pes_header(
 		/* else - we have the PTS */
 		*bytes_avail -= copy_len;
 		*ts_payload_offset += copy_len;
-		feed_data->write_pts_dts = 1;
 	}
 
 	/* Did we capture the DTS value (if exist)? */
@@ -1436,7 +1518,6 @@ static inline int mpq_dmx_parse_remaining_pes_header(
 		/* else - we have the DTS */
 		*bytes_avail -= copy_len;
 		*ts_payload_offset += copy_len;
-		feed_data->write_pts_dts = 1;
 	}
 
 	/* Any more header bytes?! */
@@ -1445,59 +1526,15 @@ static inline int mpq_dmx_parse_remaining_pes_header(
 		return -EINVAL;
 	}
 
+	/* get PTS/DTS information from PES header to be written later */
+	mpq_dmx_get_pts_dts(feed_data, pes_header);
+
 	/* Got PES header, process payload */
 	*bytes_avail -= feed_data->pes_header_left_bytes;
 	*ts_payload_offset += feed_data->pes_header_left_bytes;
 	feed_data->pes_header_left_bytes = 0;
 
 	return 0;
-}
-
-static inline void mpq_dmx_get_pts_dts(struct mpq_video_feed_info *feed_data,
-				struct pes_packet_header *pes_header,
-				struct mpq_adapter_video_meta_data *meta_data,
-				enum dmx_packet_type packet_type)
-{
-	struct dmx_pts_dts_info *info;
-
-	if (packet_type == DMX_PES_PACKET)
-		info = &(meta_data->info.pes.pts_dts_info);
-	else
-		info = &(meta_data->info.framing.pts_dts_info);
-
-	if (feed_data->write_pts_dts) {
-		if ((pes_header->pts_dts_flag == 2) ||
-			(pes_header->pts_dts_flag == 3)) {
-			info->pts_exist = 1;
-
-			info->pts =
-				((u64)pes_header->pts_1 << 30) |
-				((u64)pes_header->pts_2 << 22) |
-				((u64)pes_header->pts_3 << 15) |
-				((u64)pes_header->pts_4 << 7) |
-				(u64)pes_header->pts_5;
-		} else {
-			info->pts_exist = 0;
-			info->pts = 0;
-		}
-
-		if (pes_header->pts_dts_flag == 3) {
-			info->dts_exist = 1;
-
-			info->dts =
-				((u64)pes_header->dts_1 << 30) |
-				((u64)pes_header->dts_2 << 22) |
-				((u64)pes_header->dts_3 << 15) |
-				((u64)pes_header->dts_4 << 7) |
-				(u64)pes_header->dts_5;
-		} else {
-			info->dts_exist = 0;
-			info->dts = 0;
-		}
-	} else {
-		info->pts_exist = 0;
-		info->dts_exist = 0;
-	}
 }
 
 static int mpq_dmx_process_video_packet_framing(
@@ -1574,7 +1611,6 @@ static int mpq_dmx_process_video_packet_framing(
 			feed_data->pes_header_offset = 0;
 			feed_data->pes_header_left_bytes =
 				PES_MANDATORY_FIELDS_LEN;
-			feed_data->write_pts_dts = 0;
 		} else {
 			feed->pusi_seen = 1;
 		}
@@ -1727,10 +1763,10 @@ static int mpq_dmx_process_video_packet_framing(
 					feed->indexing_params.standard,
 					feed_data->last_framing_match_type);
 				if (is_video_frame == 1) {
-					mpq_dmx_get_pts_dts(feed_data,
-						pes_header,
-						&meta_data,
-						DMX_FRAMING_INFO_PACKET);
+					mpq_dmx_write_pts_dts(feed_data,
+						&(meta_data.info.framing.
+							pts_dts_info));
+					mpq_dmx_save_pts_dts(feed_data);
 				} else {
 					meta_data.info.framing.
 						pts_dts_info.pts_exist = 0;
@@ -1778,12 +1814,9 @@ static int mpq_dmx_process_video_packet_framing(
 				if (mpq_streambuffer_pkt_write(stream_buffer,
 					&packet,
 					(u8 *)&meta_data) < 0) {
-					MPQ_DVB_ERR_PRINT(
-						"%s: Couldn't write packet. Should never happen\n",
-						__func__);
-				} else {
-					if (is_video_frame == 1)
-						feed_data->write_pts_dts = 0;
+						MPQ_DVB_ERR_PRINT(
+							"%s: Couldn't write packet. Should never happen\n",
+								__func__);
 				}
 			}
 
@@ -1883,9 +1916,9 @@ static int mpq_dmx_process_video_packet_no_framing(
 					sizeof(struct
 						mpq_adapter_video_meta_data);
 
-				mpq_dmx_get_pts_dts(feed_data, pes_header,
-							&meta_data,
-							DMX_PES_PACKET);
+				mpq_dmx_write_pts_dts(feed_data,
+					&(meta_data.info.pes.pts_dts_info));
+				mpq_dmx_save_pts_dts(feed_data);
 
 				meta_data.packet_type = DMX_PES_PACKET;
 
@@ -1898,8 +1931,6 @@ static int mpq_dmx_process_video_packet_no_framing(
 						"Couldn't write packet. "
 						"Should never happen\n",
 						__func__);
-				else
-					feed_data->write_pts_dts = 0;
 			} else {
 				MPQ_DVB_ERR_PRINT(
 					"%s: received PUSI"

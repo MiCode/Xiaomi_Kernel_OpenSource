@@ -309,10 +309,13 @@ struct mpq_framing_prefix_size_masks {
  * to the stream buffer.
  * @first_prefix_size: used to save the prefix size used to find the first
  * pattern written to the stream buffer.
- * @write_pts_dts: Flag used to decide if to write PTS/DTS information
- * (if it is available in the PES header) in the meta-data passed
- * to the video decoder. PTS/DTS information is written in the first
- * packet after it is available.
+ * @saved_pts_dts_info: used to save PTS/DTS information until it is written.
+ * @new_pts_dts_info: used to store PTS/DTS information from current PES header.
+ * @saved_info_used: indicates if saved PTS/DTS information was used.
+ * @new_info_exists: indicates if new PTS/DTS information exists in
+ * new_pts_dts_info that should be saved to saved_pts_dts_info.
+ * @first_pts_dts_copy: a flag used to indicate if PTS/DTS information needs
+ * to be copied from the currently parsed PES header to the saved_pts_dts_info.
  */
 struct mpq_video_feed_info {
 	void *plugin_data;
@@ -333,7 +336,11 @@ struct mpq_video_feed_info {
 	struct mpq_framing_prefix_size_masks prefix_size;
 	u32 first_pattern_offset;
 	u32 first_prefix_size;
-	int write_pts_dts;
+	struct dmx_pts_dts_info saved_pts_dts_info;
+	struct dmx_pts_dts_info new_pts_dts_info;
+	int saved_info_used;
+	int new_info_exists;
+	int first_pts_dts_copy;
 };
 
 /**
