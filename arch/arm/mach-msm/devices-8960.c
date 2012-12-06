@@ -4419,9 +4419,19 @@ static struct resource sglte_resources[] = {
 	},
 };
 
+static struct resource msm_gpio_resources[] = {
+	{
+		.start	= TLMM_MSM_SUMMARY_IRQ,
+		.end	= TLMM_MSM_SUMMARY_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 struct platform_device msm_gpio_device = {
 	.name = "msmgpio",
 	.id = -1,
+	.num_resources	= ARRAY_SIZE(msm_gpio_resources),
+	.resource	= msm_gpio_resources,
 };
 
 struct platform_device mdm_sglte_device = {

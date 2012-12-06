@@ -9,6 +9,7 @@ Required properties:
 - gpio-controller : Marks the device node as a GPIO controller.
 - #interrupt-cells : Should be 2.
 - interrupt-controller: Mark the device node as an interrupt controller
+- interrupts : Specify the TLMM summary interrupt number
 
 Example:
 
@@ -19,6 +20,7 @@ Example:
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		reg = <0xfd510000 0x4000>;
+		interrupts = <0 208 0>;
 	};
 
 To specify gpios for a device:
