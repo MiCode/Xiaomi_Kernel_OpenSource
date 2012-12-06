@@ -1064,7 +1064,6 @@ static long venc_free_recon_buffers(struct v4l2_subdev *sd, void *arg)
 static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 {
 	struct venc_inst *inst = NULL;
-	struct v4l2_control *ctrl = arg;
 
 	if (!sd) {
 		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
@@ -1072,13 +1071,6 @@ static long venc_set_property(struct v4l2_subdev *sd, void *arg)
 	}
 
 	inst = (struct venc_inst *)sd->dev_priv;
-	if (ctrl->id == V4L2_CID_MPEG_VIDEO_HEADER_MODE) {
-		/* XXX: We don't support this yet, but to prevent unncessary
-		 * target specific code for the client, we'll not error out.
-		 * The client ideally shouldn't notice this */
-		return 0;
-	}
-
 	return msm_vidc_s_ctrl(inst->vidc_context, (struct v4l2_control *)arg);
 }
 

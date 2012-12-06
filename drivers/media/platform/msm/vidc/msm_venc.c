@@ -524,6 +524,22 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 		.cluster = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEADER_MODE,
+		.name = "Sequence Header Mode",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE,
+		.maximum = V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_I_FRAME,
+		.default_value =
+			V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_I_FRAME,
+		.step = 1,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE) |
+		(1 << V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_I_FRAME)
+		),
+		.qmenu = NULL,
+		.cluster = 0,
+	}
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1377,6 +1393,24 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id =
 			HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER;
 		enable.enable = ctrl->val;
+		pdata = &enable;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEADER_MODE:
+		property_id =
+			HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER;
+
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE:
+			enable.enable = 0;
+			break;
+		case V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_I_FRAME:
+			enable.enable = 1;
+			break;
+		case V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_1ST_FRAME:
+		default:
+			rc = -ENOTSUPP;
+			break;
+		}
 		pdata = &enable;
 		break;
 	default:
