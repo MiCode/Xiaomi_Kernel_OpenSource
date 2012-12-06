@@ -1125,6 +1125,11 @@ int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 		dprintk(VIDC_ERR, "Invalid params, core:%p\n",	core);
 		return -EINVAL;
 	}
+	if (core->state == VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR,
+				"Core is in bad state. Cannot unset ocmem\n");
+		return -EIO;
+	}
 	rhdr.resource_id = VIDC_RESOURCE_OCMEM;
 	rhdr.resource_handle = (u32) &core->resources.ocmem;
 	init_completion(
@@ -1343,6 +1348,11 @@ core_already_uninited:
 exit:
 	mutex_unlock(&core->sync_lock);
 	return rc;
+}
+
+int msm_comm_force_cleanup(struct msm_vidc_inst *inst)
+{
+	return msm_vidc_deinit_core(inst);
 }
 
 static enum hal_domain get_hal_domain(int session_type)
