@@ -432,12 +432,11 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		switch (dai->id) {
 		case VOICE_PLAYBACK_TX:
-		case VOICE_RECORD_TX:
-		case VOICE_RECORD_RX:
 			rc = afe_start_pseudo_port(dai->id);
+			break;
 		default:
 			rc = afe_port_start(dai->id, &dai_data->port_config,
-					    dai_data->rate);
+					dai_data->rate);
 		}
 
 		if (IS_ERR_VALUE(rc))
@@ -606,6 +605,36 @@ static int msm_dai_q6_afe_rtproxy_hw_params(struct snd_pcm_hw_params *params,
 	return 0;
 }
 
+static int msm_dai_q6_psuedo_port_hw_params(struct snd_pcm_hw_params *params,
+				    struct snd_soc_dai *dai, int stream)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+
+	dai_data->channels = params_channels(params);
+	dai_data->rate = params_rate(params);
+
+	/* Q6 only supports 16 as now */
+	dai_data->port_config.pseudo_port.pseud_port_cfg_minor_version =
+				AFE_API_VERSION_PSEUDO_PORT_CONFIG;
+	dai_data->port_config.pseudo_port.num_channels =
+				params_channels(params);
+	dai_data->port_config.pseudo_port.bit_width = 16;
+	dai_data->port_config.pseudo_port.data_format = 0;
+	dai_data->port_config.pseudo_port.timing_mode =
+				AFE_PSEUDOPORT_TIMING_MODE_TIMER;
+	dai_data->port_config.pseudo_port.sample_rate = params_rate(params);
+
+	dev_dbg(dai->dev, "%s: bit_wd[%hu] num_channels [%hu] format[%hu]\n"
+		"timing Mode %hu sample_rate %d\n", __func__,
+		dai_data->port_config.pseudo_port.bit_width,
+		dai_data->port_config.pseudo_port.num_channels,
+		dai_data->port_config.pseudo_port.data_format,
+		dai_data->port_config.pseudo_port.timing_mode,
+		dai_data->port_config.pseudo_port.sample_rate);
+
+	return 0;
+}
+
 /* Current implementation assumes hw_param is called once
  * This may not be the case but what to do when ADM and AFE
  * port are already opened and parameter changes
@@ -649,9 +678,12 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 		rc = msm_dai_q6_afe_rtproxy_hw_params(params, dai);
 		break;
 	case VOICE_PLAYBACK_TX:
+		rc = 0;
+		break;
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:
-		rc = 0;
+		rc = msm_dai_q6_psuedo_port_hw_params(params,
+						dai, substream->stream);
 		break;
 	default:
 		dev_err(dai->dev, "invalid AFE port ID\n");
@@ -671,8 +703,6 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		switch (dai->id) {
 		case VOICE_PLAYBACK_TX:
-		case VOICE_RECORD_TX:
-		case VOICE_RECORD_RX:
 			pr_debug("%s, stop pseudo port:%d\n",
 						__func__,  dai->id);
 			rc = afe_stop_pseudo_port(dai->id);
@@ -832,8 +862,6 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		switch (dai->id) {
 		case VOICE_PLAYBACK_TX:
-		case VOICE_RECORD_TX:
-		case VOICE_RECORD_RX:
 			pr_debug("%s, stop pseudo port:%d\n",
 				 __func__,  dai->id);
 			rc = afe_stop_pseudo_port(dai->id);
@@ -963,6 +991,21 @@ static struct snd_soc_dai_driver msm_dai_q6_fm_tx_dai = {
 		.channels_max = 2,
 		.rate_max = 48000,
 		.rate_min = 8000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_incall_record_dai = {
+	.capture = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_min =     8000,
+		.rate_max =     48000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -1879,6 +1922,12 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case RT_PROXY_DAI_002_TX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_afe_tx_dai);
 		break;
+	case VOICE_RECORD_RX:
+	case VOICE_RECORD_TX:
+		rc = snd_soc_register_dai(&pdev->dev,
+						&msm_dai_q6_incall_record_dai);
+		break;
+
 	default:
 		rc = -ENODEV;
 		break;

@@ -495,16 +495,25 @@ struct vss_imemory_cmd_unmap_t {
 #define VSS_ISTREAM_CMD_STOP_PLAYBACK                   0x00011239
 /* Stop the in-call music delivery on the Tx voice path. */
 
-#define VSS_ISTREAM_CMD_START_RECORD                    0x00011236
+#define VSS_IRECORD_CMD_START				0x000112BE
 /* Start in-call conversation recording. */
-#define VSS_ISTREAM_CMD_STOP_RECORD                     0x00011237
+#define VSS_IRECORD_CMD_STOP				0x00011237
 /* Stop in-call conversation recording. */
 
-#define VSS_TAP_POINT_NONE                              0x00010F78
+#define VSS_IRECORD_PORT_ID_DEFAULT			0x0000FFFF
+/* Default AFE port ID. */
+
+#define VSS_IRECORD_TAP_POINT_NONE			0x00010F78
 /* Indicates no tapping for specified path. */
 
-#define VSS_TAP_POINT_STREAM_END                        0x00010F79
+#define VSS_IRECORD_TAP_POINT_STREAM_END		0x00010F79
 /* Indicates that specified path should be tapped at the end of the stream. */
+
+#define VSS_IRECORD_MODE_TX_RX_STEREO			0x00010F7A
+/* Select Tx on left channel and Rx on right channel. */
+
+#define VSS_IRECORD_MODE_TX_RX_MIXING			0x00010F7B
+/* Select mixed Tx and Rx paths. */
 
 #define VSS_ISTREAM_EVT_NOT_READY			0x000110FD
 
@@ -529,16 +538,30 @@ struct vss_imemory_cmd_unmap_t {
 
 #define VSS_ISTREAM_CMD_SET_PACKET_EXCHANGE_MODE	0x0001136A
 
-struct vss_istream_cmd_start_record_t {
+struct vss_irecord_cmd_start_t {
 	uint32_t rx_tap_point;
 	/* Tap point to use on the Rx path. Supported values are:
-	 * VSS_TAP_POINT_NONE : Do not record Rx path.
-	 * VSS_TAP_POINT_STREAM_END : Rx tap point is at the end of the stream.
+	 * VSS_IRECORD_TAP_POINT_NONE : Do not record Rx path.
+	 * VSS_IRECORD_TAP_POINT_STREAM_END : Rx tap point is at the end of
+	 * the stream.
 	 */
 	uint32_t tx_tap_point;
 	/* Tap point to use on the Tx path. Supported values are:
-	 * VSS_TAP_POINT_NONE : Do not record tx path.
-	 * VSS_TAP_POINT_STREAM_END : Tx tap point is at the end of the stream.
+	 * VSS_IRECORD_TAP_POINT_NONE : Do not record tx path.
+	 * VSS_IRECORD_TAP_POINT_STREAM_END : Tx tap point is at the end of
+	 * the stream.
+	 */
+	uint16_t port_id;
+	/* AFE Port ID to whcih the conversation recording stream needs to be
+	 * sent. Set this to #VSS_IRECORD_PORT_ID_DEFAULT to use default AFE
+	 * pseudo ports (0x8003 for Rx and 0x8004 for Tx).
+	 */
+	uint32_t mode;
+	/* Recording Mode. The mode parameter value is ignored if the port_id
+	 * is set to #VSS_IRECORD_PORT_ID_DEFAULT.
+	 * The supported values:
+	 * #VSS_IRECORD_MODE_TX_RX_STEREO
+	 * #VSS_IRECORD_MODE_TX_RX_MIXING
 	 */
 } __packed;
 
@@ -782,7 +805,7 @@ struct cvs_set_pp_enable_cmd {
 } __packed;
 struct cvs_start_record_cmd {
 	struct apr_hdr hdr;
-	struct vss_istream_cmd_start_record_t rec_mode;
+	struct vss_irecord_cmd_start_t rec_mode;
 } __packed;
 
 struct cvs_dec_buffer_ready_cmd {
