@@ -12,53 +12,53 @@ struct epm_chan_request {
 };
 
 struct epm_psoc_init_resp {
-	u8	cmd;
-	u8	version;
-	u8	compatible_ver;
-	u8	firm_ver[3];
-	u8	num_dev;
-	u8	num_channel;
+	uint8_t	cmd;
+	uint8_t	version;
+	uint8_t	compatible_ver;
+	uint8_t	firm_ver[3];
+	uint8_t	num_dev;
+	uint8_t	num_channel;
 };
 
 struct epm_psoc_channel_configure {
-	u8		cmd;
-	u8		device_num;
+	uint8_t		cmd;
+	uint8_t		device_num;
 	uint32_t	channel_num;
 };
 
 struct epm_psoc_set_avg {
-	u8	cmd;
-	u8	avg_period;
-	u8	return_code;
+	uint8_t	cmd;
+	uint8_t	avg_period;
+	uint8_t	return_code;
 };
 
 struct epm_psoc_get_data {
-	u8		cmd;
-	u8		dev_num;
-	u8		chan_num;
+	uint8_t		cmd;
+	uint8_t		dev_num;
+	uint8_t		chan_num;
 	uint32_t	timestamp_resp_value;
 	uint32_t	reading_value;
 };
 
 struct epm_psoc_get_buffered_data {
-	u8		cmd;
-	u8		dev_num;
-	u8		status_mask;
-	u8		chan_idx;
+	uint8_t		cmd;
+	uint8_t		dev_num;
+	uint8_t		status_mask;
+	uint8_t		chan_idx;
 	uint32_t	chan_mask;
 	uint32_t	timestamp_start;
 	uint32_t	timestamp_end;
-	u8		buff_data[48];
+	uint8_t		buff_data[48];
 };
 
 struct epm_psoc_system_time_stamp {
-	u8		cmd;
+	uint8_t		cmd;
 	uint32_t	timestamp;
 };
 
 struct epm_psoc_set_channel {
-	u8		cmd;
-	u8		dev_num;
+	uint8_t		cmd;
+	uint8_t		dev_num;
 	uint32_t	channel_mask;
 };
 
@@ -69,24 +69,29 @@ struct result_buffer {
 };
 
 struct epm_psoc_get_avg_buffered_switch_data {
-	u8			cmd;
-	u8			status;
+	uint8_t			cmd;
+	uint8_t			status;
 	uint32_t		timestamp_start;
 	uint32_t		channel_mask;
-	u8			avg_data[54];
+	uint8_t			avg_data[54];
 	struct result_buffer	data[54];
 };
 
 struct epm_psoc_set_channel_switch {
-	u8		cmd;
-	u8		dev;
+	uint8_t		cmd;
+	uint8_t		dev;
 	uint32_t	delay;
 };
 
 struct epm_psoc_set_vadc {
-	u8		cmd;
-	u8		vadc_dev;
+	uint8_t		cmd;
+	uint8_t		vadc_dev;
 	uint32_t	vadc_voltage;
+};
+
+struct epm_chan_properties {
+	uint32_t resistorvalue;
+	uint32_t gain;
 };
 
 #define EPM_ADC_IOCTL_CODE		0x91

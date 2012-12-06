@@ -4,11 +4,6 @@
 #include <linux/i2c.h>
 #include <uapi/linux/epm_adc.h>
 
-struct epm_chan_properties {
-	uint32_t resistorvalue;
-	uint32_t gain;
-};
-
 struct epm_adc_platform_data {
 	struct epm_chan_properties *channel;
 	uint32_t num_channels;
