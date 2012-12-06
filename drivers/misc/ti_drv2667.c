@@ -46,7 +46,7 @@
 #define DRV2667_FIFO_CHUNK_MS	10
 #define DRV2667_BYTES_PER_MS	8
 
-#define DRV2667_WAV_SEQ_ID_IDX		1
+#define DRV2667_WAV_SEQ_ID_IDX		0
 #define DRV2667_WAV_SEQ_REP_IDX		6
 #define DRV2667_WAV_SEQ_FREQ_IDX	8
 #define DRV2667_WAV_SEQ_FREQ_MIN	8
@@ -128,11 +128,19 @@ static void drv2667_worker(struct work_struct *work)
 	data = container_of(work, struct drv2667_data, work);
 
 	if (data->mode == WAV_SEQ_MODE) {
-		if (data->runtime_left)
-			val = data->cntl2_val | DRV2667_GO_MASK;
-		else
-			val = data->cntl2_val & ~DRV2667_GO_MASK;
+		/* clear go bit */
+		val = data->cntl2_val & ~DRV2667_GO_MASK;
 		rc = drv2667_write_reg(data->client, DRV2667_CNTL2_REG, val);
+		if (rc < 0) {
+			dev_err(&data->client->dev, "i2c send msg failed\n");
+			return;
+		}
+		/* restart wave if runtime is left */
+		if (data->runtime_left) {
+			val = data->cntl2_val | DRV2667_GO_MASK;
+			rc = drv2667_write_reg(data->client,
+						DRV2667_CNTL2_REG, val);
+		}
 	} else if (data->mode == FIFO_MODE) {
 		/* data is played at 8khz */
 		if (data->runtime_left < data->time_chunk_ms)
@@ -573,8 +581,9 @@ static int drv2667_probe(struct i2c_client *client,
 			goto vreg_off;
 
 		/* program waveform sequence */
-		for (reg = 0, i = 1; i < DRV2667_WAV_SEQ_LEN - 1; i++, reg++) {
-			rc = drv2667_write_reg(client, reg, pdata->wav_seq[i]);
+		for (reg = 0, i = 0; i < DRV2667_WAV_SEQ_LEN - 1; i++, reg++) {
+			rc = drv2667_write_reg(client, reg,
+						pdata->wav_seq[i+1]);
 			if (rc < 0)
 				goto vreg_off;
 		}
