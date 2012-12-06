@@ -1734,6 +1734,7 @@ static void __exit audio_mvs_exit(void)
 {
 	MM_DBG("\n");
 
+	wake_lock_destroy(&audio_mvs_info.suspend_lock);
 	misc_deregister(&audio_mvs_misc);
 }
 
