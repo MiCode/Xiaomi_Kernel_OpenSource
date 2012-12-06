@@ -46,7 +46,6 @@
 
 #elif defined(CONFIG_ARCH_MSM8910) || defined(CONFIG_ARCH_MSM8226)
 
-#define TLMM_MSM_SUMMARY_IRQ		(GIC_SPI_START + 208)
 #define NR_MSM_IRQS 256
 #define NR_GPIO_IRQS 117
 #define NR_QPNP_IRQS 32768

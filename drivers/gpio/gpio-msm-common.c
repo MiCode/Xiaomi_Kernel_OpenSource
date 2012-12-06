@@ -47,6 +47,8 @@ enum msm_tlmm_register {
 };
 #endif
 
+static int tlmm_msm_summary_irq;
+
 struct tlmm_field_cfg {
 	enum msm_tlmm_register reg;
 	u8                     off;
@@ -380,12 +382,12 @@ static int msm_gpio_irq_set_wake(struct irq_data *d, unsigned int on)
 
 	if (on) {
 		if (bitmap_empty(msm_gpio.wake_irqs, NR_MSM_GPIOS))
-			irq_set_irq_wake(TLMM_MSM_SUMMARY_IRQ, 1);
+			irq_set_irq_wake(tlmm_msm_summary_irq, 1);
 		set_bit(gpio, msm_gpio.wake_irqs);
 	} else {
 		clear_bit(gpio, msm_gpio.wake_irqs);
 		if (bitmap_empty(msm_gpio.wake_irqs, NR_MSM_GPIOS))
-			irq_set_irq_wake(TLMM_MSM_SUMMARY_IRQ, 0);
+			irq_set_irq_wake(tlmm_msm_summary_irq, 0);
 	}
 
 	if (msm_gpio_irq_extn.irq_set_wake)
@@ -539,6 +541,11 @@ static int msm_gpio_probe(struct platform_device *pdev)
 #ifndef CONFIG_OF
 	int irq, i;
 #endif
+	tlmm_msm_summary_irq = platform_get_irq(pdev, 0);
+	if (tlmm_msm_summary_irq < 0) {
+		pr_err("%s: No interrupt defined for msmgpio\n", __func__);
+		return -ENXIO;
+	}
 	msm_gpio.gpio_chip.dev = &pdev->dev;
 	spin_lock_init(&tlmm_lock);
 	bitmap_zero(msm_gpio.enabled_irqs, NR_MSM_GPIOS);
@@ -557,10 +564,10 @@ static int msm_gpio_probe(struct platform_device *pdev)
 		set_irq_flags(irq, IRQF_VALID);
 	}
 #endif
-	ret = request_irq(TLMM_MSM_SUMMARY_IRQ, msm_summary_irq_handler,
+	ret = request_irq(tlmm_msm_summary_irq, msm_summary_irq_handler,
 			IRQF_TRIGGER_HIGH, "msmgpio", NULL);
 	if (ret) {
-		pr_err("Request_irq failed for TLMM_MSM_SUMMARY_IRQ - %d\n",
+		pr_err("Request_irq failed for tlmm_msm_summary_irq - %d\n",
 				ret);
 		return ret;
 	}
@@ -583,7 +590,7 @@ static int msm_gpio_remove(struct platform_device *pdev)
 	ret = gpiochip_remove(&msm_gpio.gpio_chip);
 	if (ret < 0)
 		return ret;
-	irq_set_handler(TLMM_MSM_SUMMARY_IRQ, NULL);
+	irq_set_handler(tlmm_msm_summary_irq, NULL);
 
 	return 0;
 }
