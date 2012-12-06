@@ -121,9 +121,6 @@
 			regulator-min-microvolt = <1300000>;
 			regulator-max-microvolt = <1300000>;
 			qcom,init-voltage = <1300000>;
-			qcom,init-current = <100>;
-			qcom,system-load = <100000>;
-			regulator-always-on;
 			status = "okay";
 		};
 	};
@@ -152,9 +149,6 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
-			qcom,init-current = <100>;
-			qcom,system-load = <100000>;
-			regulator-always-on;
 			status = "okay";
 		};
 	};
@@ -162,13 +156,9 @@
 	rpm-regulator-ldoa1 {
 		status = "okay";
 		pm8941_l1: regulator-l1 {
-			parent-supply = <&pm8941_s1>;
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1225000>;
 			qcom,init-voltage = <1225000>;
-			qcom,init-current = <10>;
-			qcom,system-load = <10000>;
-			regulator-always-on;
 			status = "okay";
 		};
 	};
@@ -176,7 +166,6 @@
 	rpm-regulator-ldoa2 {
 		status = "okay";
 		pm8941_l2: regulator-l2 {
-			parent-supply = <&pm8941_s3>;
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			qcom,init-voltage = <1200000>;
@@ -187,7 +176,6 @@
 	rpm-regulator-ldoa3 {
 		status = "okay";
 		pm8941_l3: regulator-l3 {
-			parent-supply = <&pm8941_s1>;
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1225000>;
 			qcom,init-voltage = <1225000>;
@@ -198,7 +186,6 @@
 	rpm-regulator-ldoa4 {
 		status = "okay";
 		pm8941_l4: regulator-l4 {
-			parent-supply = <&pm8941_s1>;
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1225000>;
 			qcom,init-voltage = <1225000>;
@@ -209,7 +196,6 @@
 	rpm-regulator-ldoa5 {
 		status = "okay";
 		pm8941_l5: regulator-l5 {
-			parent-supply = <&pm8941_s2>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -220,7 +206,6 @@
 	rpm-regulator-ldoa6 {
 		status = "okay";
 		pm8941_l6: regulator-l6 {
-			parent-supply = <&pm8941_s2>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -231,7 +216,6 @@
 	rpm-regulator-ldoa7 {
 		status = "okay";
 		pm8941_l7: regulator-l7 {
-			parent-supply = <&pm8941_s2>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -272,7 +256,6 @@
 	rpm-regulator-ldoa11 {
 		status = "okay";
 		pm8941_l11: regulator-l11 {
-			parent-supply = <&pm8941_s1>;
 			regulator-min-microvolt = <1300000>;
 			regulator-max-microvolt = <1300000>;
 			qcom,init-voltage = <1300000>;
@@ -283,14 +266,12 @@
 	rpm-regulator-ldoa12 {
 		status = "okay";
 		pm8941_l12: regulator-l12 {
-			parent-supply = <&pm8941_s2>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			status = "okay";
 		};
 		pm8941_l12_ao: regulator-l12-ao {
 			regulator-name = "8941_l12_ao";
-			parent-supply = <&pm8941_s2_ao>;
 			qcom,set = <1>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
@@ -312,7 +293,6 @@
 	rpm-regulator-ldoa14 {
 		status = "okay";
 		pm8941_l14: regulator-l14 {
-			parent-supply = <&pm8941_s2>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -323,7 +303,6 @@
 	rpm-regulator-ldoa15 {
 		status = "okay";
 		pm8941_l15: regulator-l15 {
-			parent-supply = <&pm8941_s2>;
 			regulator-min-microvolt = <2050000>;
 			regulator-max-microvolt = <2050000>;
 			qcom,init-voltage = <2050000>;
@@ -424,7 +403,6 @@
 	rpm-regulator-vsa1 {
 		status = "okay";
 		pm8941_lvs1: regulator-lvs1 {
-			parent-supply = <&pm8941_s3>;
 			status = "okay";
 		};
 	};
@@ -432,7 +410,6 @@
 	rpm-regulator-vsa2 {
 		status = "okay";
 		pm8941_lvs2: regulator-lvs2 {
-			parent-supply = <&pm8941_s3>;
 			status = "okay";
 		};
 	};
@@ -440,7 +417,6 @@
 	rpm-regulator-vsa3 {
 		status = "okay";
 		pm8941_lvs3: regulator-lvs3 {
-			parent-supply = <&pm8941_s3>;
 			status = "okay";
 		};
 	};
