@@ -767,6 +767,13 @@ void get_sidetone_cal(struct sidetone_cal *cal_data)
 done:
 	return;
 }
+void get_spk_protection_cfg(struct acdb_spk_prot_cfg *prot_cfg)
+{
+	/*Disable the processing or calibration mode*/
+	if (prot_cfg) {
+		prot_cfg->mode = -1;
+	}
+}
 
 static int acdb_open(struct inode *inode, struct file *f)
 {

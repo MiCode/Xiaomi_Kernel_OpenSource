@@ -6252,6 +6252,93 @@ struct cmd_set_topologies {
 	/* Size in bytes of the variable payload in shared memory */
 } __packed;
 
+/* This module represents the Rx processing of Feedback speaker protection.
+ * It contains the excursion control, thermal protection,
+ * analog clip manager features in it.
+ * This module id will support following param ids.
+ * - AFE_PARAM_ID_FBSP_MODE_RX_CFG
+ */
+
+#define AFE_MODULE_FB_SPKR_PROT_RX 0x0001021C
+
+#define AFE_PARAM_ID_FBSP_MODE_RX_CFG 0x0001021D
+
+struct asm_fbsp_mode_rx_cfg {
+	uint32_t minor_version;
+	uint32_t mode;
+} __packed;
+
+/* This module represents the VI processing of feedback speaker protection.
+ * It will receive Vsens and Isens from codec and generates necessary
+ * parameters needed by Rx processing.
+ * This module id will support following param ids.
+ * - AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG
+ * - AFE_PARAM_ID_CALIB_RES_CFG
+ * - AFE_PARAM_ID_FEEDBACK_PATH_CFG
+ */
+
+#define AFE_MODULE_FB_SPKR_PROT_VI_PROC 0x00010226
+
+#define AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG 0x0001022A
+
+struct asm_spkr_calib_vi_proc_cfg {
+	uint32_t minor_version;
+	int32_t	r0_cali_q24;
+	int16_t	t0_cali_q6;
+	int16_t	reserved;
+} __packed;
+
+#define AFE_PARAM_ID_CALIB_RES_CFG 0x0001022B
+
+struct asm_calib_res_cfg {
+	uint32_t minor_version;
+	int32_t	r0_cali_q24;
+	uint32_t th_vi_ca_state;
+} __packed;
+
+#define AFE_PARAM_ID_FEEDBACK_PATH_CFG 0x0001022C
+
+struct asm_feedback_path_cfg {
+	uint32_t minor_version;
+	int32_t	dst_portid;
+	int32_t	num_channels;
+	int32_t	chan_info[4];
+} __packed;
+
+#define AFE_PARAM_ID_MODE_VI_PROC_CFG 0x00010227
+
+struct asm_mode_vi_proc_cfg {
+	uint32_t minor_version;
+	uint32_t cal_mode;
+} __packed;
+
+union afe_spkr_prot_config {
+	struct asm_fbsp_mode_rx_cfg mode_rx_cfg;
+	struct asm_spkr_calib_vi_proc_cfg vi_proc_cfg;
+	struct asm_feedback_path_cfg feedback_path_cfg;
+	struct asm_mode_vi_proc_cfg mode_vi_proc_cfg;
+} __packed;
+
+struct afe_spkr_prot_config_command {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2 pdata;
+	union afe_spkr_prot_config prot_config;
+} __packed;
+
+struct afe_spkr_prot_get_vi_calib {
+	struct afe_port_cmd_get_param_v2 get_param;
+	struct afe_port_param_data_v2 pdata;
+	struct asm_calib_res_cfg res_cfg;
+} __packed;
+
+struct afe_spkr_prot_calib_get_resp {
+	uint32_t status;
+	struct afe_port_param_data_v2 pdata;
+	struct asm_calib_res_cfg res_cfg;
+} __packed;
+
+
 /* SRS TRUMEDIA start */
 /* topology */
 #define SRS_TRUMEDIA_TOPOLOGY_ID			0x00010D90
@@ -6354,8 +6441,6 @@ struct srs_trumedia_params {
 	struct srs_trumedia_params_HL		hl;
 } __packed;
 /* SRS TruMedia end */
-
-
 
 /* ERROR CODES */
 /* Success. The operation completed with no errors. */
