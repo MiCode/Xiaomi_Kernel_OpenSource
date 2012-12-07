@@ -10,6 +10,8 @@ VADC node
 Required properties:
 - compatible : should be "qcom,qpnp-vadc" for Voltage ADC driver.
 - reg : offset and length of the PMIC Aribter register map.
+- address-cells : Must be one.
+- size-cells : Must be zero.
 - interrupts : The USR bank peripheral VADC interrupt.
 - interrupt-names : Should contain "eoc-int-en-set".
 - qcom,adc-bit-resolution : Bit resolution of the ADC.
@@ -20,7 +22,7 @@ NOTE: Atleast one Channel node is required.
 
 Required properties:
 - label : Channel name used for sysfs entry.
-- qcom,channel-num : Channel number associated to the AMUX input.
+- reg : AMUX channel number.
 - qcom,decimation : Sampling rate to use for the individual channel measurement.
 		    Select from following unsigned int.
 		    0 : 512
@@ -82,6 +84,8 @@ Example:
 	qcom,vadc@3100 {
                         compatible = "qcom,qpnp-vadc";
                         reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
                         interrupts = <0x0 0x31 0x0>;
 			interrupt-names = "eoc-int-en-set";
                         qcom,adc-bit-resolution = <15>;
@@ -90,7 +94,7 @@ Example:
 			/* Channel Node */
                         chan@0 {
                                 label = "usb_in";
-                                qcom,channel-num = <0>;
+                                reg = <0>;
                                 qcom,decimation = <0>;
                                 qcom,pre-div-channel-scaling = <20>;
                                 qcom,calibration-type = "absolute";

@@ -10,6 +10,8 @@ IADC node
 Required properties:
 - compatible : should be "qcom,qpnp-iadc" for Current ADC driver.
 - reg : offset and length of the PMIC Aribter register map.
+- address-cells : Must be one.
+- size-cells : Must be zero.
 - interrupts : The USR bank peripheral IADC interrupt.
 - interrupt-names : Should contain "eoc-int-en-set".
 - qcom,adc-bit-resolution : Bit resolution of the ADC.
@@ -21,6 +23,7 @@ NOTE: Atleast one Channel node is required.
 
 Required properties:
 - label : Channel name used for sysfs entry.
+- reg : AMUX channel number.
 - qcom,channel-num : Channel number associated to the AMUX input.
 - qcom,decimation : Sampling rate to use for the individual channel measurement.
 		    Select from the following unsigned int.
@@ -84,6 +87,8 @@ Example:
 	qcom,iadc@3200 {
                         compatible = "qcom,qpnp-iadc";
                         reg = <0x3200 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
                         interrupts = <0 0x36 0>;
 			interrupt-names = "eoc-int-en-set";
                         qcom,adc-bit-resolution = <16>;
@@ -93,7 +98,7 @@ Example:
 			/* Channel Node */
                         chan@0 = {
                                 label = "rsense";
-                                qcom,channel-num = <0>;
+                                reg = <0>;
                                 qcom,decimation = <0>;
                                 qcom,pre-div-channel-scaling = <20>;
                                 qcom,calibration-type = "fresh";

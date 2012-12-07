@@ -877,8 +877,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 			return -EINVAL;
 		}
 
-		rc = of_property_read_u32(child, "qcom,channel-num",
-								&channel_num);
+		rc = of_property_read_u32(child, "reg", &channel_num);
 		if (rc) {
 			pr_err("Invalid channel num\n");
 			return -EINVAL;
