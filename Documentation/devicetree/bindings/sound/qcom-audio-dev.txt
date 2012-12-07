@@ -87,6 +87,7 @@ Required properties:
                             BT SCO port ID value from 12288 to 12289
                             RT Proxy port ID values from 224 to 225 and 240 to 241
                             FM Rx and TX port ID values from 12292 to 12293
+                            incall record Rx and TX port ID values from 32771 to 32772
 
 * msm-auxpcm
 
@@ -285,6 +286,16 @@ Example:
 		qcom,msm-dai-q6-afe-proxy-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <240>;
+		};
+
+		qcom,msm-dai-q6-incall-record-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32771>;
+		};
+
+		qcom,msm-dai-q6-incall-record-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32772>;
 		};
 	};
 
