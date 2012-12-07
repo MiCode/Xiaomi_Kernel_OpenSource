@@ -729,7 +729,7 @@ static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
 	mutex_unlock(&bufq->lock);
 	if (!found) {
 		dprintk(VIDC_ERR,
-			"Failed to find the buffer in queued list: %d, %d\n",
+			"Failed to find the buffer in queued list: 0x%x, %d\n",
 			dev_addr, q->type);
 		vb = NULL;
 	}
