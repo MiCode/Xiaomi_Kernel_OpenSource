@@ -419,3 +419,4 @@ obj-$(CONFIG_MSM_FIQ) += msm7k_fiq_handler.o
 obj-$(CONFIG_MEMORY_HOLE_CARVEOUT) +=  msm_mem_hole.o
 
 obj-$(CONFIG_MSM_SMCMOD) += smcmod.o
+obj-$(CONFIG_MSM_CPU_PWRCTL) +=  msm_cpu_pwrctl.o
