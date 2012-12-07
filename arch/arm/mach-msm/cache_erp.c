@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <mach/msm-krait-l2-accessors.h>
 #include <mach/msm_iomap.h>
+#include <mach/socinfo.h>
 #include <asm/cputype.h>
 #include "acpuclock.h"
 
@@ -31,6 +32,8 @@
 #define CESR_ICTE		(BIT(6) | BIT(7))
 #define CESR_TLBMH		BIT(16)
 #define CESR_I_MASK		0x000000CC
+
+#define CESR_VALID_MASK		0x000100FF
 
 /* Print a message for everything but TLB MH events */
 #define CESR_PRINT_MASK		0x000000FF
@@ -62,6 +65,12 @@
 #define ERP_L1_ERR(a) panic(a)
 #else
 #define ERP_L1_ERR(a) do { } while (0)
+#endif
+
+#ifdef CONFIG_MSM_L1_RECOV_ERR_PANIC
+#define ERP_L1_RECOV_ERR(a) panic(a)
+#else
+#define ERP_L1_RECOV_ERR(a) do { } while (0)
 #endif
 
 #ifdef CONFIG_MSM_L2_ERP_PORT_PANIC
@@ -319,8 +328,13 @@ static irqreturn_t msm_l1_erp_irq(int irq, void *dev_id)
 	/* Clear the interrupt bits we processed */
 	write_cesr(cesr);
 
-	if (print_regs)
-		ERP_L1_ERR("L1 cache error detected");
+	if (print_regs) {
+		if ((cesr & (~CESR_I_MASK & CESR_VALID_MASK)) ||
+		    cpu_is_krait_v1() || cpu_is_krait_v2())
+			ERP_L1_ERR("L1 nonrecoverable cache error detected");
+		else
+			ERP_L1_RECOV_ERR("L1 recoverable error detected\n");
+	}
 
 	return IRQ_HANDLED;
 }
