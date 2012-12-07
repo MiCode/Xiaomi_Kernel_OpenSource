@@ -292,6 +292,7 @@ static void audpp_dsp_event(void *data, unsigned id, size_t len,
 			MM_INFO("ENABLE\n");
 			if (!audpp->enabled) {
 				audpp->enabled = 1;
+				wake_up(&audpp->event_wait);
 				audpp_broadcast(audpp, id, msg);
 			} else {
 				cid = msg[1];
@@ -344,6 +345,7 @@ int audpp_enable(int id, audpp_event_func func, void *private)
 	struct audpp_state *audpp = &the_audpp_state;
 	uint16_t msg[8];
 	int res = 0;
+	int rc;
 
 	if (id < -1 || id > 4)
 		return -EINVAL;
@@ -374,6 +376,11 @@ int audpp_enable(int id, audpp_event_func func, void *private)
 		LOG(EV_ENABLE, 2);
 		msm_adsp_enable(audpp->mod);
 		audpp_dsp_config(1);
+		rc = wait_event_timeout(audpp->event_wait,
+					(audpp->enabled == 1),
+					3 * HZ);
+		if (rc == 0)
+			msm_adsp_dump(audpp->mod);
 	} else {
 		if (audpp->enabled) {
 			msg[0] = AUDPP_MSG_ENA_ENA;
@@ -424,13 +431,17 @@ void audpp_disable(int id, void *private)
 		MM_DBG("disable\n");
 		LOG(EV_DISABLE, 2);
 		audpp_dsp_config(0);
-		rc = wait_event_interruptible(audpp->event_wait,
-				(audpp->enabled == 0));
+		rc = wait_event_timeout(audpp->event_wait,
+					(audpp->enabled == 0),
+					3 * HZ);
 		if (audpp->enabled == 0)
 			MM_INFO("Received CFG_MSG_DISABLE from ADSP\n");
-		else
+		else {
 			MM_ERR("Didn't receive CFG_MSG DISABLE \
 					message from ADSP\n");
+			if (rc == 0)
+				msm_adsp_dump(audpp->mod);
+		}
 		msm_adsp_disable(audpp->mod);
 		msm_adsp_put(audpp->mod);
 		audpp->mod = NULL;
