@@ -404,11 +404,6 @@ void gss_crash_shutdown(const struct subsys_desc *desc)
 	smsm_reset_modem(SMSM_RESET);
 }
 
-/* FIXME: Get address, size from PIL */
-static struct ramdump_segment gss_segments[] = {
-	{0x89000000, 0x00D00000}
-};
-
 static struct ramdump_segment smem_segments[] = {
 	{0x80000000, 0x00200000},
 };
@@ -418,20 +413,20 @@ static int gss_ramdump(int enable, const struct subsys_desc *desc)
 	int ret;
 	struct gss_data *drv = container_of(desc, struct gss_data, subsys_desc);
 
-	if (enable) {
-		ret = do_ramdump(drv->ramdump_dev, gss_segments,
-				ARRAY_SIZE(gss_segments));
-		if (ret < 0) {
-			pr_err("Unable to dump gss memory\n");
-			return ret;
-		}
+	if (!enable)
+		return 0;
 
-		ret = do_ramdump(drv->smem_ramdump_dev, smem_segments,
-			ARRAY_SIZE(smem_segments));
-		if (ret < 0) {
-			pr_err("Unable to dump smem memory (rc = %d).\n", ret);
-			return ret;
-		}
+	ret = pil_do_ramdump(&drv->pil_desc, drv->ramdump_dev);
+	if (ret < 0) {
+		pr_err("Unable to dump gss memory\n");
+		return ret;
+	}
+
+	ret = do_elf_ramdump(drv->smem_ramdump_dev, smem_segments,
+		ARRAY_SIZE(smem_segments));
+	if (ret < 0) {
+		pr_err("Unable to dump smem memory (rc = %d).\n", ret);
+		return ret;
 	}
 
 	return 0;
