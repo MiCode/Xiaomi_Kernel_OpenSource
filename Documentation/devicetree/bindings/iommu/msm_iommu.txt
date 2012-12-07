@@ -7,6 +7,8 @@ Required properties:
 
 Optional properties:
 - qcom,iommu-secure-id : Secure identifier for the IOMMU block
+- qcom,secure-context : boolean indicating that a context is secure and
+  programmed by the secure environment.
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:

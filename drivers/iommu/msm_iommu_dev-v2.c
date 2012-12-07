@@ -244,6 +244,9 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	}
 	ctx_drvdata->nsid = nsid;
 
+	ctx_drvdata->secure_context = of_property_read_bool(pdev->dev.of_node,
+							"qcom,secure-context");
+	ctx_drvdata->asid = -1;
 	return 0;
 }
 
