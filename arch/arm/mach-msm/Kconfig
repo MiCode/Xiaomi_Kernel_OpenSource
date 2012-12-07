@@ -505,7 +505,7 @@ config MSM_MPM
 
 config MSM_MPM_OF
 	bool "Modem Power Manager"
-	depends on CONFIG_OF
+	depends on OF
 	help
 	  MPM is a dedicated hardware resource responsible for entering and
 	  waking up from a system wide low power mode. The MPM driver tracks
@@ -2265,7 +2265,7 @@ config MSM_SLEEP_STATS_DEVICE
 
 config MSM_RUN_QUEUE_STATS
 	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
-	depends on (MSM_SOC_REV_A || ARCH_MSM8X60 || ARCH_MSM8960)
+	default n
 	help
 	 This option enalbes statistics collection on Run Queue. A daemon
          in user mode, called MPDecision will be using this data to decide
