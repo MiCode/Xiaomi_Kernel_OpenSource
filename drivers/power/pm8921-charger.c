@@ -4131,6 +4131,10 @@ static int pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 						1000 * MIN_CHARGE_CURRENT_MA);
 		/* add 20 minutes of buffer time */
 		safety_time += 20;
+
+		/* make sure we do not exceed the maximum programmable time */
+		if (safety_time > PM8921_CHG_TCHG_MAX)
+			safety_time = PM8921_CHG_TCHG_MAX;
 	}
 
 	rc = pm_chg_tchg_max_set(chip, safety_time);
