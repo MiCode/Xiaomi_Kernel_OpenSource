@@ -403,13 +403,13 @@ static void msm_lpm_aggregate_l2(struct msm_rpmrs_limits *limits)
 	trace_lpm_resources(rs->sleep_value, rs->name);
 }
 
-static void msm_lpm_flush_l2(int notify_rpm)
+static void msm_lpm_set_l2_mode(int sleep_mode, int notify_rpm)
 {
-	struct msm_lpm_resource *rs = &msm_lpm_l2;
-	int lpm;
-	int rc;
+	int lpm, rc;
 
-	switch (rs->sleep_value) {
+	msm_pm_set_l2_flush_flag(0);
+
+	switch (sleep_mode) {
 	case MSM_LPM_L2_CACHE_HSFS_OPEN:
 		lpm = MSM_SPM_L2_MODE_POWER_COLLAPSE;
 		msm_pm_set_l2_flush_flag(1);
@@ -435,6 +435,13 @@ static void msm_lpm_flush_l2(int notify_rpm)
 	if (msm_lpm_debug_mask & MSM_LPMRS_DEBUG_L2)
 		pr_info("%s: Requesting low power mode %d\n",
 				__func__, lpm);
+}
+
+static void msm_lpm_flush_l2(int notify_rpm)
+{
+	struct msm_lpm_resource *rs = &msm_lpm_l2;
+
+	msm_lpm_set_l2_mode(rs->sleep_value, notify_rpm);
 }
 
 /* RPM CTL */
@@ -672,7 +679,8 @@ void msm_lpmrs_exit_sleep(struct msm_rpmrs_limits *limits,
 	if (msm_lpm_use_mpm(limits))
 		msm_mpm_exit_sleep(from_idle);
 
-	msm_spm_l2_set_low_power_mode(MSM_SPM_MODE_DISABLED, notify_rpm);
+	if (msm_lpm_l2.valid)
+		msm_lpm_set_l2_mode(msm_lpm_l2.rs_data.default_value, false);
 }
 
 static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,
