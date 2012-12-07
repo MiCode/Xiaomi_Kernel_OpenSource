@@ -28,9 +28,13 @@
 #include <linux/msm_ion.h>
 #include <linux/list.h>
 #include <linux/list_sort.h>
+#include <linux/idr.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
+#include <asm-generic/io-64-nonatomic-lo-hi.h>
+
+#include <mach/msm_iomap.h>
 
 #include "peripheral-loader.h"
 #include "ramdump.h"
@@ -39,6 +43,8 @@
 	dev_err(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
 #define pil_info(desc, fmt, ...)					\
 	dev_info(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
+
+#define PIL_IMAGE_INFO_BASE	(MSM_IMEM_BASE + 0x94c)
 
 /**
  * proxy_timeout - Override for proxy vote timeouts
@@ -81,6 +87,18 @@ struct pil_seg {
 };
 
 /**
+ * struct pil_image_info - information in IMEM about image and where it is loaded
+ * @name: name of image (may or may not be NULL terminated)
+ * @start: indicates physical address where image starts (little endian)
+ * @size: size of image (little endian)
+ */
+struct pil_image_info {
+	char name[8];
+	__le64 start;
+	__le32 size;
+} __attribute__((__packed__));
+
+/**
  * struct pil_priv - Private state for a pil_desc
  * @proxy: work item used to run the proxy unvoting routine
  * @wlock: wakelock to prevent suspend during pil_boot
@@ -111,6 +129,8 @@ struct pil_priv {
 	phys_addr_t region_start;
 	phys_addr_t region_end;
 	struct ion_handle *region;
+	struct pil_image_info __iomem *info;
+	int id;
 };
 
 /**
@@ -374,6 +394,10 @@ static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 		priv->base_addr = min_addr_n;
 	}
 
+	writeq(priv->region_start, &priv->info->start);
+	writel_relaxed(priv->region_end - priv->region_start,
+			&priv->info->size);
+
 	return ret;
 }
 
@@ -416,6 +440,9 @@ static void pil_release_mmap(struct pil_desc *desc)
 {
 	struct pil_priv *priv = desc->priv;
 	struct pil_seg *p, *tmp;
+
+	writeq(0, &priv->info->start);
+	writel_relaxed(0, &priv->info->size);
 
 	if (priv->region)
 		ion_free(ion, priv->region);
@@ -630,6 +657,8 @@ void pil_shutdown(struct pil_desc *desc)
 }
 EXPORT_SYMBOL(pil_shutdown);
 
+static DEFINE_IDA(pil_ida);
+
 /**
  * pil_desc_init() - Initialize a pil descriptor
  * @desc: descriptor to intialize
@@ -642,6 +671,9 @@ EXPORT_SYMBOL(pil_shutdown);
 int pil_desc_init(struct pil_desc *desc)
 {
 	struct pil_priv *priv;
+	int id;
+	void __iomem *addr;
+	size_t len;
 
 	/* Ignore users who don't make any sense */
 	WARN(desc->ops->proxy_unvote && !desc->proxy_timeout,
@@ -655,6 +687,18 @@ int pil_desc_init(struct pil_desc *desc)
 		return -ENOMEM;
 	desc->priv = priv;
 	priv->desc = desc;
+
+	priv->id = id = ida_simple_get(&pil_ida, 0, 10, GFP_KERNEL);
+	if (id < 0) {
+		kfree(priv);
+		return id;
+	}
+	addr = PIL_IMAGE_INFO_BASE + sizeof(struct pil_image_info) * id;
+	priv->info = (struct pil_image_info __iomem *)addr;
+
+	len = min(strlen(desc->name), sizeof(priv->info->name));
+	memset_io(priv->info->name, 0, sizeof(priv->info->name));
+	memcpy_toio(priv->info->name, desc->name, len);
 
 	snprintf(priv->wname, sizeof(priv->wname), "pil-%s", desc->name);
 	wake_lock_init(&priv->wlock, WAKE_LOCK_SUSPEND, priv->wname);
@@ -674,6 +718,7 @@ void pil_desc_release(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 
 	if (priv) {
+		ida_simple_remove(&pil_ida, priv->id);
 		flush_delayed_work(&priv->proxy);
 		wake_lock_destroy(&priv->wlock);
 	}
