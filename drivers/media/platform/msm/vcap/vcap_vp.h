@@ -90,6 +90,7 @@
 
 #define VP_NR_MAX_WINDOW 120
 #define VP_NR_MAX_RATIO  16
+#define VP_NR_DYNAMIC_THRESHOLD 0x000F0000
 
 #define BITS_MASK(start, num_of_bits) \
 	(((1 << (num_of_bits)) - 1) << (start))

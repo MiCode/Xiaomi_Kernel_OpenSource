@@ -47,6 +47,11 @@ enum hal_vcap_color {
 	HAL_VCAP_RGB,
 };
 
+enum nr_threshold_mode {
+	NR_THRESHOLD_STATIC = 0,
+	NR_THRESHOLD_DYNAMIC,
+};
+
 enum nr_mode {
 	NR_DISABLE = 0,
 	NR_AUTO,
@@ -73,6 +78,7 @@ struct nr_config {
 };
 
 struct nr_param {
+	enum nr_threshold_mode threshold;
 	enum nr_mode mode;
 	enum nr_decay_ratio decay_ratio;
 	uint8_t window;
