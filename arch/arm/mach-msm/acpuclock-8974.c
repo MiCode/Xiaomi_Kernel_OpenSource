@@ -94,10 +94,14 @@ static struct scalable scalable[] __initdata = {
 };
 
 static struct msm_bus_paths bw_level_tbl[] __initdata = {
-	[0] =  BW_MBPS(552), /* At least  69 MHz on bus. */
-	[1] = BW_MBPS(1112), /* At least 139 MHz on bus. */
-	[2] = BW_MBPS(2224), /* At least 278 MHz on bus. */
-	[3] = BW_MBPS(4448), /* At least 556 MHz on bus. */
+	[0] =  BW_MBPS(600), /* At least  75 MHz on bus. */
+	[1] =  BW_MBPS(800), /* At least 100 MHz on bus. */
+	[2] = BW_MBPS(1200), /* At least 150 MHz on bus. */
+	[3] = BW_MBPS(1600), /* At least 200 MHz on bus. */
+	[4] = BW_MBPS(2224), /* At least 278 MHz on bus. */
+	[5] = BW_MBPS(3200), /* At least 400 MHz on bus. */
+	[6] = BW_MBPS(4448), /* At least 556 MHz on bus. */
+	[7] = BW_MBPS(6400), /* At least 800 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_scale_data __initdata = {
@@ -113,27 +117,27 @@ static struct l2_level l2_freq_tbl[] __initdata = {
 	[2]  = { {  422400, HFPLL, 2,  44 }, LVL_NOM,  1050000, 1 },
 	[3]  = { {  499200, HFPLL, 2,  52 }, LVL_NOM,  1050000, 2 },
 	[4]  = { {  576000, HFPLL, 1,  30 }, LVL_NOM,  1050000, 2 },
-	[5]  = { {  652800, HFPLL, 1,  34 }, LVL_NOM,  1050000, 2 },
-	[6]  = { {  729600, HFPLL, 1,  38 }, LVL_NOM,  1050000, 2 },
-	[7]  = { {  806400, HFPLL, 1,  42 }, LVL_NOM,  1050000, 2 },
-	[8]  = { {  883200, HFPLL, 1,  46 }, LVL_HIGH, 1050000, 2 },
-	[9]  = { {  960000, HFPLL, 1,  50 }, LVL_HIGH, 1050000, 2 },
-	[10] = { { 1036800, HFPLL, 1,  54 }, LVL_HIGH, 1050000, 3 },
-	[11] = { { 1113600, HFPLL, 1,  58 }, LVL_HIGH, 1050000, 3 },
-	[12] = { { 1190400, HFPLL, 1,  62 }, LVL_HIGH, 1050000, 3 },
-	[13] = { { 1267200, HFPLL, 1,  66 }, LVL_HIGH, 1050000, 3 },
-	[14] = { { 1344000, HFPLL, 1,  70 }, LVL_HIGH, 1050000, 3 },
-	[15] = { { 1420800, HFPLL, 1,  74 }, LVL_HIGH, 1050000, 3 },
-	[16] = { { 1497600, HFPLL, 1,  78 }, LVL_HIGH, 1050000, 3 },
-	[17] = { { 1574400, HFPLL, 1,  82 }, LVL_HIGH, 1050000, 3 },
-	[18] = { { 1651200, HFPLL, 1,  86 }, LVL_HIGH, 1050000, 3 },
-	[19] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 3 },
-	[20] = { { 1804800, HFPLL, 1,  94 }, LVL_HIGH, 1050000, 3 },
-	[21] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 3 },
-	[22] = { { 1958400, HFPLL, 1, 102 }, LVL_HIGH, 1050000, 3 },
-	[23] = { { 2035200, HFPLL, 1, 106 }, LVL_HIGH, 1050000, 3 },
-	[24] = { { 2112000, HFPLL, 1, 110 }, LVL_HIGH, 1050000, 3 },
-	[25] = { { 2188800, HFPLL, 1, 114 }, LVL_HIGH, 1050000, 3 },
+	[5]  = { {  652800, HFPLL, 1,  34 }, LVL_NOM,  1050000, 3 },
+	[6]  = { {  729600, HFPLL, 1,  38 }, LVL_NOM,  1050000, 3 },
+	[7]  = { {  806400, HFPLL, 1,  42 }, LVL_NOM,  1050000, 3 },
+	[8]  = { {  883200, HFPLL, 1,  46 }, LVL_HIGH, 1050000, 4 },
+	[9]  = { {  960000, HFPLL, 1,  50 }, LVL_HIGH, 1050000, 4 },
+	[10] = { { 1036800, HFPLL, 1,  54 }, LVL_HIGH, 1050000, 4 },
+	[11] = { { 1113600, HFPLL, 1,  58 }, LVL_HIGH, 1050000, 5 },
+	[12] = { { 1190400, HFPLL, 1,  62 }, LVL_HIGH, 1050000, 5 },
+	[13] = { { 1267200, HFPLL, 1,  66 }, LVL_HIGH, 1050000, 6 },
+	[14] = { { 1344000, HFPLL, 1,  70 }, LVL_HIGH, 1050000, 6 },
+	[15] = { { 1420800, HFPLL, 1,  74 }, LVL_HIGH, 1050000, 7 },
+	[16] = { { 1497600, HFPLL, 1,  78 }, LVL_HIGH, 1050000, 7 },
+	[17] = { { 1574400, HFPLL, 1,  82 }, LVL_HIGH, 1050000, 7 },
+	[18] = { { 1651200, HFPLL, 1,  86 }, LVL_HIGH, 1050000, 7 },
+	[19] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 7 },
+	[20] = { { 1804800, HFPLL, 1,  94 }, LVL_HIGH, 1050000, 7 },
+	[21] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 7 },
+	[22] = { { 1958400, HFPLL, 1, 102 }, LVL_HIGH, 1050000, 7 },
+	[23] = { { 2035200, HFPLL, 1, 106 }, LVL_HIGH, 1050000, 7 },
+	[24] = { { 2112000, HFPLL, 1, 110 }, LVL_HIGH, 1050000, 7 },
+	[25] = { { 2188800, HFPLL, 1, 114 }, LVL_HIGH, 1050000, 7 },
 	{ }
 };
 
