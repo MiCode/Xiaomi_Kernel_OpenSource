@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,7 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/clk.h>
+#include <linux/of.h>
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <linux/usb/usb_qdss.h>
@@ -1111,10 +1112,18 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	devid = tmc_readl(drvdata, CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);
 
-	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR)
-		drvdata->size = SZ_1M;
-	else
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		if (pdev->dev.of_node) {
+			ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,memory-reservation-size", &drvdata->size);
+			if (ret) {
+				clk_disable_unprepare(drvdata->clk);
+				return ret;
+			}
+		}
+	} else {
 		drvdata->size = tmc_readl(drvdata, TMC_RSZ) * BYTES_PER_WORD;
+	}
 
 	clk_disable_unprepare(drvdata->clk);
 
