@@ -156,9 +156,7 @@ static void __reset_iommu(void __iomem *base)
 	int i, smt_size;
 
 	SET_ACR(base, 0);
-	SET_NSACR(base, 0);
 	SET_CR2(base, 0);
-	SET_NSCR2(base, 0);
 	SET_GFAR(base, 0);
 	SET_GFSRRESTORE(base, 0);
 	SET_TLBIALLNSNH(base, 0);
