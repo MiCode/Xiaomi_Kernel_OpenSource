@@ -521,8 +521,8 @@ void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	 */
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_SETUP, 0xFF000000);
 
-	/* Enable reference timer to 27 micro-seconds */
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_REF, (1 << 16) | (27 << 0));
+	/* Enable reference timer to 19 micro-seconds */
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_REF, (1 << 16) | (19 << 0));
 } /* hdmi_ddc_config */
 
 int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
