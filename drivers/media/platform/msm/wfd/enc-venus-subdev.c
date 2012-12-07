@@ -240,6 +240,18 @@ abort_dequeue:
 	return 0;
 }
 
+static long set_default_properties(struct venc_inst *inst)
+{
+	struct v4l2_control ctrl = {0};
+
+	/* Set the IDR period as 1.  The venus core doesn't give
+	 * the sps/pps for I-frames, only IDR. */
+	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD;
+	ctrl.value = 1;
+
+	return msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
+}
+
 static long venc_open(struct v4l2_subdev *sd, void *arg)
 {
 	struct venc_inst *inst = NULL;
@@ -488,6 +500,9 @@ static long venc_start(struct v4l2_subdev *sd)
 	}
 
 	inst = (struct venc_inst *)sd->dev_priv;
+
+	if (set_default_properties(inst))
+		WFD_MSG_WARN("Couldn't set default properties\n");
 
 	rc = msm_vidc_streamon(inst->vidc_context, BUF_TYPE_OUTPUT);
 	if (rc) {
