@@ -70,6 +70,7 @@
 #define WLED_CTL_DLY_BIT_SHFT		0x05
 #define WLED_MAX_CURR			25
 #define WLED_MAX_CURR_MASK		0x1F
+#define WLED_BRIGHTNESS_MSB_MASK	0x0F
 #define WLED_OP_FDBCK_MASK		0x1C
 #define WLED_OP_FDBCK_BIT_SHFT		0x02
 
@@ -283,7 +284,8 @@ led_wled_set(struct pm8xxx_led_data *led, enum led_brightness value)
 			return rc;
 		}
 
-		val = (val & ~WLED_MAX_CURR_MASK) | (duty >> WLED_8_BIT_SHFT);
+		val = (val & ~WLED_BRIGHTNESS_MSB_MASK) |
+			(duty >> WLED_8_BIT_SHFT);
 		rc = pm8xxx_writeb(led->dev->parent,
 				WLED_BRIGHTNESS_CNTL_REG1(i), val);
 		if (rc) {
