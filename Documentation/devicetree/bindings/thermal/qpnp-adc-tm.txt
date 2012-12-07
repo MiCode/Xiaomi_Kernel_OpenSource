@@ -24,9 +24,8 @@ Channel nodes
 NOTE: Atleast one Channel node is required.
 
 Required properties:
-- reg : AMUX channel number.
 - label : Channel name used for sysfs entry.
-- qcom,channel-num : Channel number associated to the AMUX input.
+- reg : AMUX channel number.
 - qcom,decimation : Sampling rate to use for the individual channel measurement.
 		    Select from the following unsigned int.
 		    0 : 512
@@ -108,9 +107,8 @@ Example:
 
 			/* Channel Node */
                         chan@b5 {
-				reg = <0xb5>;
                                 label = "pa_therm1";
-                                qcom,channel-num = <181>;
+				reg = <0xb5>;
                                 qcom,decimation = <0>;
                                 qcom,pre-div-channel-scaling = <0>;
                                 qcom,calibration-type = "absolute";

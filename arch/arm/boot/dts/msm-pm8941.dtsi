@@ -492,6 +492,8 @@
 		vadc@3100 {
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <0x0 0x31 0x0>;
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <15>;
@@ -499,7 +501,7 @@
 
 			chan@0 {
 				label = "usb_in";
-				qcom,channel-num = <0>;
+				reg = <0>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <4>;
 				qcom,calibration-type = "absolute";
@@ -510,7 +512,7 @@
 
 			chan@1 {
 				label = "dc_in";
-				qcom,channel-num = <1>;
+				reg = <1>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <4>;
 				qcom,calibration-type = "absolute";
@@ -521,7 +523,7 @@
 
 			chan@2 {
 				label = "vchg_sns";
-				qcom,channel-num = <2>;
+				reg = <2>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <3>;
 				qcom,calibration-type = "absolute";
@@ -532,7 +534,7 @@
 
 			chan@3 {
 				label = "spare1";
-				qcom,channel-num = <3>;
+				reg = <3>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <6>;
 				qcom,calibration-type = "absolute";
@@ -543,7 +545,7 @@
 
 			chan@4 {
 				label = "spare2";
-				qcom,channel-num = <4>;
+				reg = <4>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <6>;
 				qcom,calibration-type = "absolute";
@@ -554,7 +556,7 @@
 
 			chan@5 {
 				label = "vcoin";
-				qcom,channel-num = <5>;
+				reg = <5>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
@@ -565,7 +567,7 @@
 
 			chan@6 {
 				label = "vbat_sns";
-				qcom,channel-num = <6>;
+				reg = <6>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
@@ -576,7 +578,7 @@
 
 			chan@7 {
 				label = "vph_pwr";
-				qcom,channel-num = <7>;
+				reg = <7>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
@@ -587,7 +589,7 @@
 
 			chan@8 {
 				label = "die_temp";
-				qcom,channel-num = <8>;
+				reg = <8>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
@@ -598,7 +600,7 @@
 
 			chan@9 {
 				label = "ref_625mv";
-				qcom,channel-num = <9>;
+				reg = <9>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
@@ -607,9 +609,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@10 {
+			chan@a {
 				label = "ref_1250v";
-				qcom,channel-num = <10>;
+				reg = <0xa>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
@@ -618,9 +620,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@48 {
+			chan@30 {
 				label = "batt_therm";
-				qcom,channel-num = <48>;
+				reg = <0x30>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -629,9 +631,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@49 {
+			chan@31 {
 				label = "batt_id";
-				qcom,channel-num = <49>;
+				reg = <0x31>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -640,9 +642,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@178 {
+			chan@b2 {
 				label = "xo_therm_pu2";
-				qcom,channel-num = <178>;
+				reg = <0xb2>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -651,9 +653,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@179 {
+			chan@b3 {
 				label = "msm_therm";
-				qcom,channel-num = <179>;
+				reg = <0xb3>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -662,9 +664,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@180 {
+			chan@b4 {
 				label = "emmc_therm";
-				qcom,channel-num = <180>;
+				reg = <0xb4>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -673,9 +675,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@181 {
+			chan@b5 {
 				label = "pa_therm1";
-				qcom,channel-num = <181>;
+				reg = <0xb5>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -684,9 +686,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@183 {
+			chan@b7 {
 				label = "pa_therm2";
-				qcom,channel-num = <183>;
+				reg = <0xb7>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -695,9 +697,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@184 {
+			chan@b8 {
 				label = "quiet_therm";
-				qcom,channel-num = <184>;
+				reg = <0xb8>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -706,9 +708,9 @@
 				qcom,fast-avg-setup = <0>;
 			};
 
-			chan@185 {
+			chan@b9 {
 				label = "usb_id";
-				qcom,channel-num = <185>;
+				reg = <0xb9>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "ratiometric";
@@ -721,6 +723,8 @@
 		iadc@3600 {
 			compatible = "qcom,qpnp-iadc";
 			reg = <0x3600 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			interrupts = <0x0 0x36 0x0>;
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <16>;
@@ -729,7 +733,7 @@
 
 			chan@0 {
 				label = "internal_rsense";
-				qcom,channel-num = <0>;
+				reg = <0>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <1>;
 				qcom,calibration-type = "absolute";
