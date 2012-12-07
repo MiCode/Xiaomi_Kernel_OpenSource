@@ -129,7 +129,7 @@ int uninit_data(struct usb_ep *ep)
 	if (gadget_is_dwc3(gadget)) {
 		res = msm_ep_unconfig(ep);
 		if (res)
-			pr_err("msm_ep_config failed\n");
+			pr_err("msm_ep_unconfig failed\n");
 	}
 
 	return res;
