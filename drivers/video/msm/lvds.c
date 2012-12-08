@@ -254,10 +254,6 @@ static int lvds_off(struct platform_device *pdev)
 	if (lvds_pdata && lvds_pdata->lcdc_gpio_config)
 		ret = lvds_pdata->lcdc_gpio_config(0);
 
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(0);
-#endif
-
 	return ret;
 }
 
@@ -273,9 +269,6 @@ static int lvds_on(struct platform_device *pdev)
 
 	if (!panel_pixclock_freq)
 		panel_pixclock_freq = mfd->fbi->var.pixclock;
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(2);
-#endif
 	mfd = platform_get_drvdata(pdev);
 
 	if (lvds_clk) {
