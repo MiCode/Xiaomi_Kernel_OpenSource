@@ -72,10 +72,12 @@
 	sdcc1: qcom,sdcc@f9824000 {
 		cell-index = <1>; /* SDC1 eMMC slot */
 		compatible = "qcom,msm-sdcc";
-		reg = <0xf9824000 0x800>;
-		reg-names = "core_mem";
-		interrupts = <0 123 0>;
-		interrupt-names = "core_irq";
+		reg = <0xf9824000 0x800>,
+		      <0xf9824800 0x100>,
+		      <0xf9804000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		interrupts = <0 123 0>, <0 137 0>;
+		interrupt-names = "core_irq", "bam_irq";
 
 		vdd-supply = <&pm8110_l17>;
 		qcom,vdd-always-on;
@@ -104,10 +106,12 @@
 	sdcc2: qcom,sdcc@f98a4000 {
 		cell-index = <2>; /* SDC2 SD card slot */
 		compatible = "qcom,msm-sdcc";
-		reg = <0xf98a4000 0x800>;
-		reg-names = "core_mem";
-		interrupts = <0 125 0>;
-		interrupt-names = "core_irq";
+		reg = <0xf98a4000 0x800>,
+		      <0xf98a4800 0x100>,
+		      <0xf9884000 0x7000>;
+		reg-names = "core_mem", "dml_mem", "bam_mem";
+		interrupts = <0 125 0>, <0 220 0>;
+		interrupt-names = "core_irq", "bam_irq";
 
 		vdd-supply = <&pm8110_l18>;
 		qcom,vdd-voltage-level = <2950000 2950000>;
