@@ -18,6 +18,9 @@
 #include <linux/iommu.h>
 #include <linux/msm_kgsl.h>
 #include <mach/socinfo.h>
+#include <mach/msm_iomap.h>
+#include <mach/board.h>
+#include <stddef.h>
 
 #include "kgsl.h"
 #include "kgsl_device.h"
@@ -27,6 +30,8 @@
 #include "adreno_pm4types.h"
 #include "adreno.h"
 #include "kgsl_trace.h"
+#include "z180.h"
+
 
 static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0, 0, 0 },				/* GLOBAL_BASE */
@@ -45,6 +50,8 @@ static struct kgsl_iommu_register_list kgsl_iommuv2_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x618, 0, 0 },			/* TLBIALL */
 	{ 0x008, 0, 0 }				/* RESUME */
 };
+
+struct remote_iommu_petersons_spinlock kgsl_iommu_sync_lock_vars;
 
 static int get_iommu_unit(struct device *dev, struct kgsl_mmu **mmu_out,
 			struct kgsl_iommu_unit **iommu_unit_out)
@@ -546,6 +553,195 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu,
 }
 
 /*
+ * kgsl_iommu_start_sync_lock - Initialize some variables during MMU start up
+ * for GPU CPU synchronization
+ * @mmu - Pointer to mmu device
+ *
+ * Return - 0 on success else error code
+ */
+static int kgsl_iommu_start_sync_lock(struct kgsl_mmu *mmu)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
+	uint32_t lock_gpu_addr = 0;
+
+	if (KGSL_DEVICE_3D0 != mmu->device->id ||
+		!msm_soc_version_supports_iommu_v1() ||
+		!kgsl_mmu_is_perprocess() ||
+		iommu->sync_lock_vars)
+		return 0;
+
+	if (!(mmu->flags & KGSL_MMU_FLAGS_IOMMU_SYNC)) {
+		KGSL_DRV_ERR(mmu->device,
+		"The GPU microcode does not support IOMMUv1 sync opcodes\n");
+		return -ENXIO;
+	}
+	/* Store Lock variables GPU address  */
+	lock_gpu_addr = (iommu->sync_lock_desc.gpuaddr +
+			iommu->sync_lock_offset);
+
+	kgsl_iommu_sync_lock_vars.flag[PROC_APPS] = (lock_gpu_addr +
+		(offsetof(struct remote_iommu_petersons_spinlock,
+			flag[PROC_APPS])));
+	kgsl_iommu_sync_lock_vars.flag[PROC_GPU] = (lock_gpu_addr +
+		(offsetof(struct remote_iommu_petersons_spinlock,
+			flag[PROC_GPU])));
+	kgsl_iommu_sync_lock_vars.turn = (lock_gpu_addr +
+		(offsetof(struct remote_iommu_petersons_spinlock, turn)));
+
+	iommu->sync_lock_vars = &kgsl_iommu_sync_lock_vars;
+
+	return 0;
+}
+
+/*
+ * kgsl_get_sync_lock - Init Sync Lock between GPU and CPU
+ * @mmu - Pointer to mmu device
+ *
+ * Return - 0 on success else error code
+ */
+static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
+{
+	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
+	int status = 0;
+	uint32_t lock_phy_addr = 0;
+	uint32_t page_offset = 0;
+
+	if (KGSL_DEVICE_3D0 != mmu->device->id ||
+		!msm_soc_version_supports_iommu_v1() ||
+		!kgsl_mmu_is_perprocess())
+		return status;
+
+	/* Return if already initialized */
+	if (iommu->sync_lock_initialized)
+		return status;
+
+	/* Get the physical address of the Lock variables */
+	lock_phy_addr = (msm_iommu_lock_initialize()
+			- MSM_SHARED_RAM_BASE + msm_shared_ram_phys);
+
+	if (!lock_phy_addr) {
+		KGSL_DRV_ERR(mmu->device,
+				"GPU CPU sync lock is not supported by kernel\n");
+		return -ENXIO;
+	}
+
+	/* Align the physical address to PAGE boundary and store the offset */
+	page_offset = (lock_phy_addr & (PAGE_SIZE - 1));
+	lock_phy_addr = (lock_phy_addr & ~(PAGE_SIZE - 1));
+	iommu->sync_lock_desc.physaddr = (unsigned int)lock_phy_addr;
+	iommu->sync_lock_offset = page_offset;
+
+	iommu->sync_lock_desc.size =
+				PAGE_ALIGN(sizeof(kgsl_iommu_sync_lock_vars));
+	status =  memdesc_sg_phys(&iommu->sync_lock_desc,
+				 iommu->sync_lock_desc.physaddr,
+				 iommu->sync_lock_desc.size);
+
+	if (status)
+		return status;
+
+	/* Flag Sync Lock is Initialized  */
+	iommu->sync_lock_initialized = 1;
+
+	return status;
+}
+
+/*
+ * kgsl_iommu_sync_lock - Acquire Sync Lock between GPU and CPU
+ * @mmu - Pointer to mmu device
+ * @cmds - Pointer to array of commands
+ *
+ * Return - int - number of commands.
+ */
+inline unsigned int kgsl_iommu_sync_lock(struct kgsl_mmu *mmu,
+						unsigned int *cmds)
+{
+	struct kgsl_device *device = mmu->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
+	struct remote_iommu_petersons_spinlock *lock_vars =
+					iommu->sync_lock_vars;
+	unsigned int *start = cmds;
+
+	if (!iommu->sync_lock_initialized)
+		return 0;
+
+	*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
+	*cmds++ = lock_vars->flag[PROC_GPU];
+	*cmds++ = 1;
+
+	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
+
+	*cmds++ = cp_type3_packet(CP_WAIT_REG_MEM, 5);
+	/* MEM SPACE = memory, FUNCTION = equals */
+	*cmds++ = 0x13;
+	*cmds++ = lock_vars->flag[PROC_GPU];
+	*cmds++ = 0x1;
+	*cmds++ = 0x1;
+	*cmds++ = 0x1;
+
+	*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
+	*cmds++ = lock_vars->turn;
+	*cmds++ = 0;
+
+	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
+
+	*cmds++ = cp_type3_packet(CP_WAIT_REG_MEM, 5);
+	/* MEM SPACE = memory, FUNCTION = equals */
+	*cmds++ = 0x13;
+	*cmds++ = lock_vars->flag[PROC_GPU];
+	*cmds++ = 0x1;
+	*cmds++ = 0x1;
+	*cmds++ = 0x1;
+
+	*cmds++ = cp_type3_packet(CP_TEST_TWO_MEMS, 3);
+	*cmds++ = lock_vars->flag[PROC_APPS];
+	*cmds++ = lock_vars->turn;
+	*cmds++ = 0;
+
+	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
+
+	return cmds - start;
+}
+
+/*
+ * kgsl_iommu_sync_lock - Release Sync Lock between GPU and CPU
+ * @mmu - Pointer to mmu device
+ * @cmds - Pointer to array of commands
+ *
+ * Return - int - number of commands.
+ */
+inline unsigned int kgsl_iommu_sync_unlock(struct kgsl_mmu *mmu,
+					unsigned int *cmds)
+{
+	struct kgsl_device *device = mmu->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
+	struct remote_iommu_petersons_spinlock *lock_vars =
+						iommu->sync_lock_vars;
+	unsigned int *start = cmds;
+
+	if (!iommu->sync_lock_initialized)
+		return 0;
+
+	*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
+	*cmds++ = lock_vars->flag[PROC_GPU];
+	*cmds++ = 0;
+
+	*cmds++ = cp_type3_packet(CP_WAIT_REG_MEM, 5);
+	/* MEM SPACE = memory, FUNCTION = equals */
+	*cmds++ = 0x13;
+	*cmds++ = lock_vars->flag[PROC_GPU];
+	*cmds++ = 0x0;
+	*cmds++ = 0x1;
+	*cmds++ = 0x1;
+
+	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
+
+	return cmds - start;
+}
+
+/*
  * kgsl_get_iommu_ctxt - Get device pointer to IOMMU contexts
  * @mmu - Pointer to mmu device
  *
@@ -727,23 +923,27 @@ static int kgsl_iommu_setup_regs(struct kgsl_mmu *mmu,
 		return 0;
 
 	for (i = 0; i < iommu->unit_count; i++) {
-		iommu->iommu_units[i].reg_map.priv |= KGSL_MEMDESC_GLOBAL;
-		status = kgsl_mmu_map(pt,
+		status = kgsl_mmu_map_global(pt,
 				&(iommu->iommu_units[i].reg_map),
 				GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
-		if (status) {
-			iommu->iommu_units[i].reg_map.priv &=
-				~KGSL_MEMDESC_GLOBAL;
+		if (status)
 			goto err;
-		}
 	}
+
+	/* Map Lock variables to GPU pagetable */
+	if (iommu->sync_lock_initialized) {
+		status = kgsl_mmu_map_global(pt, &iommu->sync_lock_desc,
+				GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+		if (status)
+			goto err;
+	}
+
 	return 0;
 err:
-	for (i--; i >= 0; i--) {
+	for (i--; i >= 0; i--)
 		kgsl_mmu_unmap(pt,
 				&(iommu->iommu_units[i].reg_map));
-		iommu->iommu_units[i].reg_map.priv &= ~KGSL_MEMDESC_GLOBAL;
-	}
+
 	return status;
 }
 
@@ -763,6 +963,9 @@ static void kgsl_iommu_cleanup_regs(struct kgsl_mmu *mmu,
 	int i;
 	for (i = 0; i < iommu->unit_count; i++)
 		kgsl_mmu_unmap(pt, &(iommu->iommu_units[i].reg_map));
+
+	if (iommu->sync_lock_desc.gpuaddr)
+		kgsl_mmu_unmap(pt, &iommu->sync_lock_desc);
 }
 
 
@@ -788,6 +991,9 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (status)
 		goto done;
 	status = kgsl_set_register_map(mmu);
+	if (status)
+		goto done;
+	status = kgsl_iommu_init_sync_lock(mmu);
 	if (status)
 		goto done;
 
@@ -887,6 +1093,10 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		if (status)
 			return -ENOMEM;
 	}
+	status = kgsl_iommu_start_sync_lock(mmu);
+	if (status)
+		return status;
+
 	/* We use the GPU MMU to control access to IOMMU registers on 8960 with
 	 * a225, hence we still keep the MMU active on 8960 */
 	if (cpu_is_msm8960()) {
@@ -1068,7 +1278,12 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 		if (reg_map->hostptr)
 			iounmap(reg_map->hostptr);
 		kgsl_sg_free(reg_map->sg, reg_map->sglen);
+		reg_map->priv &= ~KGSL_MEMDESC_GLOBAL;
 	}
+	/* clear IOMMU GPU CPU sync structures */
+	kgsl_sg_free(iommu->sync_lock_desc.sg, iommu->sync_lock_desc.sglen);
+	memset(&iommu->sync_lock_desc, 0, sizeof(iommu->sync_lock_desc));
+	iommu->sync_lock_vars = NULL;
 
 	kfree(iommu);
 
@@ -1125,6 +1340,9 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	pt_base &= (iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_mask <<
 			iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_shift);
 
+	/* Acquire GPU-CPU sync Lock here */
+	msm_iommu_lock();
+
 	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
 		kgsl_idle(mmu->device);
 		for (i = 0; i < iommu->unit_count; i++) {
@@ -1151,6 +1369,10 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 			mb();
 		}
 	}
+
+	/* Release GPU-CPU sync Lock here */
+	msm_iommu_unlock();
+
 	/* Disable smmu clock */
 	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 }
@@ -1203,6 +1425,8 @@ struct kgsl_mmu_ops iommu_ops = {
 	/* These callbacks will be set on some chipsets */
 	.mmu_setup_pt = NULL,
 	.mmu_cleanup_pt = NULL,
+	.mmu_sync_lock = kgsl_iommu_sync_lock,
+	.mmu_sync_unlock = kgsl_iommu_sync_unlock,
 };
 
 struct kgsl_mmu_pt_ops iommu_pt_ops = {
