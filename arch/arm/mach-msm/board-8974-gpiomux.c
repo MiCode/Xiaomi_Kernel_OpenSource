@@ -140,6 +140,26 @@ static struct gpiomux_setting taiko_int = {
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
+static struct gpiomux_setting hap_lvl_shft_suspended_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting hap_lvl_shft_active_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+static struct msm_gpiomux_config hap_lvl_shft_config[] __initdata = {
+	{
+		.gpio = 86,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &hap_lvl_shft_suspended_config,
+			[GPIOMUX_ACTIVE] = &hap_lvl_shft_active_config,
+		},
+	},
+};
 
 static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
 	{
@@ -859,6 +879,8 @@ void __init msm_8974_init_gpiomux(void)
 			ARRAY_SIZE(msm8974_slimbus_config));
 
 	msm_gpiomux_install(msm_touch_configs, ARRAY_SIZE(msm_touch_configs));
+		msm_gpiomux_install(hap_lvl_shft_config,
+				ARRAY_SIZE(hap_lvl_shft_config));
 
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
 
