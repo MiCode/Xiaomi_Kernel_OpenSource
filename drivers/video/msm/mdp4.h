@@ -31,6 +31,12 @@ extern u32 mdp_max_clk;
 extern u32 dbg_force_ov0_blt;
 extern u32 dbg_force_ov1_blt;
 
+extern u64 mdp_max_bw;
+#define MDP4_BW_AB_FACTOR (115)	/* 1.15 */
+#define MDP4_BW_IB_FACTOR (125)	/* 1.25 */
+#define MDP_BUS_SCALE_AB_STEP (0x4000000)
+#define MDP_BUS_SCALE_INIT (0x10000000)
+
 #define MDP4_OVERLAYPROC0_BASE	0x10000
 #define MDP4_OVERLAYPROC1_BASE	0x18000
 #define MDP4_OVERLAYPROC2_BASE	0x88000
@@ -45,13 +51,6 @@ extern u32 dbg_force_ov1_blt;
 /* chip select controller */
 #define CS_CONTROLLER_0 0x0707ffff
 #define CS_CONTROLLER_1 0x03073f3f
-
-enum {
-	OVERLAY_PERF_LEVEL1 = 1,
-	OVERLAY_PERF_LEVEL2,
-	OVERLAY_PERF_LEVEL3,
-	OVERLAY_PERF_LEVEL4
-};
 
 typedef int (*cmd_fxn_t)(struct platform_device *pdev);
 
@@ -234,6 +233,12 @@ enum {
 #define MDP4_MAX_PLANE		4
 #define VSYNC_PERIOD		16
 
+#ifdef BLT_RGB565
+#define BLT_BPP 2
+#else
+#define BLT_BPP 3
+#endif
+
 struct mdp4_hsic_regs {
 	int32_t params[NUM_HSIC_PARAM];
 	int32_t conv_matrix[3][3];
@@ -358,7 +363,8 @@ struct mdp4_overlay_pipe {
 	uint32 blt_dmap_koff;
 	uint32 blt_dmap_done;
 	uint32 req_clk;
-	uint32 req_bw;
+	uint64 bw_ab_quota;
+	uint64 bw_ib_quota;
 	uint32 luma_align_size;
 	struct mdp_overlay_pp_params pp_cfg;
 	struct mdp_overlay req_data;
@@ -968,7 +974,9 @@ int mdp4_v4l2_overlay_play(struct fb_info *info, struct mdp4_overlay_pipe *pipe,
 	unsigned long srcp0_addr, unsigned long srcp1_addr,
 	unsigned long srcp2_addr);
 int mdp4_overlay_mdp_pipe_req(struct mdp4_overlay_pipe *pipe,
-				struct msm_fb_data_type *mfd);
+			      struct msm_fb_data_type *mfd);
+int mdp4_calc_blt_mdp_bw(struct msm_fb_data_type *mfd,
+			 struct mdp4_overlay_pipe *pipe);
 int mdp4_overlay_mdp_perf_req(struct msm_fb_data_type *mfd,
 				struct mdp4_overlay_pipe *plist);
 void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd, int flag);
