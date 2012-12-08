@@ -1640,6 +1640,11 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 
 	spin_lock(&host->lock);
 
+	if (!atomic_read(&host->clks_on)) {
+		spin_unlock(&host->lock);
+		return IRQ_NONE;
+	}
+
 	status = readl_relaxed(base + MMCISTATUS);
 
 	if (((readl_relaxed(host->base + MMCIMASK0) & status) &
