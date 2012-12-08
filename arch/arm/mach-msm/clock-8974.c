@@ -4991,7 +4991,7 @@ static struct clk_lookup msm_clocks_8974_rumi[] = {
 	CLK_LOOKUP("iface_clk", gcc_sdcc4_ahb_clk.c, "msm_sdcc.4"),
 	CLK_LOOKUP("core_clk", gcc_sdcc4_apps_clk.c, "msm_sdcc.4"),
 	CLK_DUMMY("xo",		XO_CLK,		NULL,	OFF),
-	CLK_DUMMY("xo",		XO_CLK,		"pil_pronto",		OFF),
+	CLK_DUMMY("xo",		XO_CLK,		"fb21b000.qcom,pronto", OFF),
 	CLK_DUMMY("core_clk",	BLSP2_UART_CLK,	"f991f000.serial",	OFF),
 	CLK_DUMMY("iface_clk",	BLSP2_UART_CLK,	"f991f000.serial",	OFF),
 	CLK_DUMMY("core_clk",	SDC1_CLK,	NULL,			OFF),
@@ -5020,10 +5020,10 @@ static struct clk_lookup msm_clocks_8974_rumi[] = {
 
 static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"msm_otg"),
-	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-q6v5-lpass"),
-	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil-q6v5-mss"),
+	CLK_LOOKUP("xo",	cxo_clk_src.c,	"fe200000.qcom,lpass"),
+	CLK_LOOKUP("xo",	cxo_clk_src.c,	"fc880000.qcom,mss"),
 	CLK_LOOKUP("xo",	cxo_clk_src.c,	"fb000000.qcom,wcnss-wlan"),
-	CLK_LOOKUP("xo",	cxo_clk_src.c,	"pil_pronto"),
+	CLK_LOOKUP("xo",	cxo_clk_src.c,	"fb21b000.qcom,pronto"),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
 	CLK_LOOKUP("dma_bam_pclk", gcc_bam_dma_ahb_clk.c, "msm_sps"),
@@ -5370,14 +5370,14 @@ static struct clk_lookup msm_clocks_8974[] = {
 						"msm-dai-q6.4106"),
 	CLK_LOOKUP("br_clk", audio_wrapper_br_clk.c, "fdd00000.qcom,ocmem"),
 
-	CLK_LOOKUP("bus_clk", gcc_mss_q6_bimc_axi_clk.c, "pil-q6v5-mss"),
-	CLK_LOOKUP("iface_clk", gcc_mss_cfg_ahb_clk.c, "pil-q6v5-mss"),
-	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c,  "pil-q6v5-mss"),
+	CLK_LOOKUP("bus_clk", gcc_mss_q6_bimc_axi_clk.c, "fc880000.qcom,mss"),
+	CLK_LOOKUP("iface_clk", gcc_mss_cfg_ahb_clk.c, "fc880000.qcom,mss"),
+	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c,  "fc880000.qcom,mss"),
 
-	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c,  "pil-q6v5-lpass"),
-	CLK_LOOKUP("bus_clk", gcc_lpass_q6_axi_clk.c,  "pil-q6v5-lpass"),
-	CLK_LOOKUP("iface_clk", q6ss_ahb_lfabif_clk.c, "pil-q6v5-lpass"),
-	CLK_LOOKUP("reg_clk",        q6ss_ahbm_clk.c,  "pil-q6v5-lpass"),
+	CLK_LOOKUP("core_clk",         q6ss_xo_clk.c,  "fe200000.qcom,lpass"),
+	CLK_LOOKUP("bus_clk", gcc_lpass_q6_axi_clk.c,  "fe200000.qcom,lpass"),
+	CLK_LOOKUP("iface_clk", q6ss_ahb_lfabif_clk.c, "fe200000.qcom,lpass"),
+	CLK_LOOKUP("reg_clk",        q6ss_ahbm_clk.c,  "fe200000.qcom,lpass"),
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
