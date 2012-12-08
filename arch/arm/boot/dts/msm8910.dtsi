@@ -11,6 +11,7 @@
  */
 
 /include/ "skeleton.dtsi"
+/include/ "msm-iommu-v1.dtsi"
 /include/ "msm8910-ion.dtsi"
 /include/ "msm-gdsc.dtsi"
 
@@ -217,6 +218,30 @@
 };
 
 &gdsc_oxili_cx {
+	status = "ok";
+};
+
+&lpass_iommu {
+	status = "ok";
+};
+
+&copss_iommu {
+	status = "ok";
+};
+
+&mdpe_iommu {
+	status = "ok";
+};
+
+&mdps_iommu {
+	status = "ok";
+};
+
+&gfx_iommu {
+	status = "ok";
+};
+
+&vfe_iommu {
 	status = "ok";
 };
 
