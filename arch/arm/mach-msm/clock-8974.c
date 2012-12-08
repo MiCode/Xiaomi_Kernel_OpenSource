@@ -5134,6 +5134,7 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("cal_clk", gcc_usb_hsic_io_cal_clk.c,  "msm_hsic_host"),
 	CLK_LOOKUP("core_clk", gcc_usb_hsic_system_clk.c, "msm_hsic_host"),
 	CLK_LOOKUP("ref_clk", div_clk2.c, "msm_smsc_hub"),
+	CLK_LOOKUP("pwm_clk", div_clk2.c, "0-0048"),
 
 	/* Multimedia clocks */
 	CLK_LOOKUP("bus_clk_src", axi_clk_src.c, ""),
