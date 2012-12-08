@@ -189,6 +189,7 @@ struct dwc3_msm {
 	unsigned int		vdd_low_vol_level;
 	unsigned int		vdd_high_vol_level;
 	bool			vbus_active;
+	bool			ext_inuse;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -205,6 +206,8 @@ struct dwc3_msm {
 
 static struct dwc3_msm *context;
 static u64 dwc3_msm_dma_mask = DMA_BIT_MASK(64);
+
+static struct usb_ext_notification *usb_ext;
 
 /**
  *
@@ -911,6 +914,33 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	return 0;
 }
 EXPORT_SYMBOL(msm_ep_unconfig);
+
+/**
+ * msm_register_usb_ext_notification: register for event notification
+ * @info: pointer to client usb_ext_notification structure. May be NULL.
+ *
+ * @return int - 0 on success, negative on error
+ */
+int msm_register_usb_ext_notification(struct usb_ext_notification *info)
+{
+	pr_debug("%s usb_ext: %p\n", __func__, info);
+
+	if (info) {
+		if (usb_ext) {
+			pr_err("%s: already registered\n", __func__);
+			return -EEXIST;
+		}
+
+		if (!info->notify) {
+			pr_err("%s: notify is NULL\n", __func__);
+			return -EINVAL;
+		}
+	}
+
+	usb_ext = info;
+	return 0;
+}
+EXPORT_SYMBOL(msm_register_usb_ext_notification);
 
 /* HSPHY */
 static int dwc3_hsusb_config_vddcx(int high)
@@ -1775,6 +1805,41 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 };
 
+static void dwc3_init_adc_work(struct work_struct *w);
+
+static void dwc3_ext_notify_online(int on)
+{
+	struct dwc3_msm *mdwc = context;
+
+	if (!mdwc) {
+		pr_err("%s: DWC3 driver already removed\n", __func__);
+		return;
+	}
+
+	dev_dbg(mdwc->dev, "notify %s%s\n", on ? "" : "dis", "connected");
+
+	if (!on) {
+		/* external client offline; revert back to USB */
+		mdwc->ext_inuse = false;
+		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
+	}
+}
+
+static bool dwc3_ext_trigger_handled(struct dwc3_msm *mdwc,
+				     enum dwc3_id_state id)
+{
+	int ret;
+
+	if (!usb_ext)
+		return false;
+
+	ret = usb_ext->notify(usb_ext->ctxt, id, dwc3_ext_notify_online);
+	dev_dbg(mdwc->dev, "%s: external event handler returned %d\n", __func__,
+			ret);
+	mdwc->ext_inuse = ret == 0;
+	return mdwc->ext_inuse;
+}
+
 static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 {
 	struct dwc3_msm *mdwc = ctx;
@@ -1795,10 +1860,12 @@ static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 		mdwc->adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
 	}
 
-	/* notify OTG */
-	queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
+	/* Give external client a chance to handle, otherwise notify OTG */
+	if (!mdwc->ext_inuse &&
+			!dwc3_ext_trigger_handled(mdwc, mdwc->ext_xceiv.id))
+		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
 
-	/* re-arm notification interrupt */
+	/* re-arm ADC interrupt */
 	qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
 }
 
