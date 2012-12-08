@@ -324,6 +324,7 @@ ifdef CONFIG_MSM_RPM
 	obj-$(CONFIG_ARCH_MSM8960) += rpm_resources.o
 	obj-$(CONFIG_ARCH_MSM8X60) += rpm_resources.o
 	obj-$(CONFIG_ARCH_MSM9615) += rpm_resources.o
+	obj-$(CONFIG_MSM_LPM_TEST) += test-lpm.o
 endif
 ifdef CONFIG_MSM_RPM_SMD
 	obj-$(CONFIG_ARCH_MSM8974) += lpm_levels.o lpm_resources.o
