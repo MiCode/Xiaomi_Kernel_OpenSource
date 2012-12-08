@@ -70,6 +70,18 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.2", OFF),
 	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.2", OFF),
 	CLK_DUMMY("dfab_clk",	DFAB_CLK,	"msm_sps", OFF),
+	CLK_DUMMY("iface_clk",  NULL, "fd890000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",   NULL, "fd890000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",  NULL, "fd860000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",   NULL, "fd860000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",  NULL, "fd870000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",   NULL, "fd870000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",  NULL, "fd880000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",   NULL, "fd880000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",  NULL, "fd000000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",   NULL, "fd000000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk",  NULL, "fd010000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",   NULL, "fd010000.qcom,iommu", OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
