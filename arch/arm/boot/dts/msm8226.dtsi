@@ -33,6 +33,7 @@
 		#interrupt-cells = <2>;
 		reg = <0xfd510000 0x4000>;
 		#gpio-cells = <2>;
+		interrupts = <0 208 0>;
 	};
 
 	timer {

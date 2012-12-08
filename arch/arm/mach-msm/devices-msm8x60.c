@@ -100,9 +100,19 @@
 #define MSM_UART9DM_PHYS    (MSM_GSBI9_PHYS + 0x40000)
 #define INT_UART9DM_IRQ     GSBI9_UARTDM_IRQ
 
+static struct resource msm_gpio_resources[] = {
+	{
+		.start	= TLMM_MSM_SUMMARY_IRQ,
+		.end	= TLMM_MSM_SUMMARY_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 struct platform_device msm_gpio_device = {
 	.name = "msmgpio",
 	.id = -1,
+	.num_resources	= ARRAY_SIZE(msm_gpio_resources),
+	.resource	= msm_gpio_resources,
 };
 
 static void charm_ap2mdm_kpdpwr_on(void)
