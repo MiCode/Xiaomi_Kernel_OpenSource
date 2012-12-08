@@ -483,11 +483,34 @@ enum usb_bam {
 	MAX_BAMS,
 };
 
+/**
+ * struct usb_ext_notification: event notification structure
+ * @notify: pointer to client function to call when ID event is detected.
+ *          The last parameter is provided by driver to be called back when
+ *          external client indicates it is done using the USB. This function
+ *          should return 0 if handled successfully, otherise an error code.
+ * @ctxt: client-specific context pointer
+ *
+ * This structure should be used by clients wishing to register (via
+ * msm_register_usb_ext_notification) for event notification whenever a USB
+ * cable is plugged in and ID pin status changes. Clients must provide a
+ * callback function pointer. If this callback returns 0, the USB driver will
+ * assume the client is "taking over" the connection, and will relinquish any
+ * further processing until its callback (passed via the third parameter) is
+ * called with the online parameter set to false.
+ */
+struct usb_ext_notification {
+	int (*notify)(void *, int, void (*)(int online));
+	void *ctxt;
+};
+
 #ifdef CONFIG_USB_DWC3_MSM
 int msm_ep_config(struct usb_ep *ep);
 int msm_ep_unconfig(struct usb_ep *ep);
 int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
 	u8 dst_pipe_idx);
+
+int msm_register_usb_ext_notification(struct usb_ext_notification *info);
 
 #else
 static inline int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size,
@@ -502,6 +525,12 @@ static inline int msm_ep_config(struct usb_ep *ep)
 }
 
 static inline int msm_ep_unconfig(struct usb_ep *ep)
+{
+	return -ENODEV;
+}
+
+static inline int msm_register_usb_ext_notification(
+					struct usb_ext_notification *info)
 {
 	return -ENODEV;
 }
