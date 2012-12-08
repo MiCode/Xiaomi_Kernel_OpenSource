@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2009 Samsung Electronics
  *  Kyungmin Park <kyungmin.park@samsung.com>
- *  Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -164,7 +164,7 @@ static void isa1200_vib_set(struct isa1200_chip *haptic, int enable)
 
 			/* de-vote clock */
 			if (haptic->pdata->need_pwm_clk && haptic->clk_on) {
-				clk_disable(haptic->pwm_clk);
+				clk_disable_unprepare(haptic->pwm_clk);
 				haptic->clk_on = false;
 			}
 			/* check for board specific clk callback */
@@ -181,7 +181,7 @@ static void isa1200_vib_set(struct isa1200_chip *haptic, int enable)
 
 dis_clk:
 	if (haptic->pdata->need_pwm_clk && haptic->clk_on) {
-		clk_disable(haptic->pwm_clk);
+		clk_disable_unprepare(haptic->pwm_clk);
 		haptic->clk_on = false;
 	}
 
