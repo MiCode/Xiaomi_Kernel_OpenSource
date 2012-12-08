@@ -48,34 +48,34 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Check Polling Response: %d\n"
 		"polling_reg_flag: %d\n"
 		"uses device tree: %d\n"
-		"in_busy_1: %d\n"
-		"in_busy_2: %d\n"
-		"in_busy_lpass_1: %d\n"
-		"in_busy_lpass_2: %d\n"
-		"in_busy_wcnss_1: %d\n"
-		"in_busy_wcnss_2: %d\n"
-		"in_busy_dci: %d\n"
+		"Modem in_busy_1: %d\n"
+		"Modem in_busy_2: %d\n"
+		"LPASS in_busy_1: %d\n"
+		"LPASS in_busy_2: %d\n"
+		"RIVA in_busy_1: %d\n"
+		"RIVA in_busy_2: %d\n"
+		"DCI Modem in_busy_1: %d\n"
 		"logging_mode: %d\n",
-		(unsigned int)driver->ch,
-		(unsigned int)driver->chlpass,
-		(unsigned int)driver->ch_wcnss,
-		(unsigned int)driver->ch_dci,
-		(unsigned int)driver->ch_cntl,
-		(unsigned int)driver->chlpass_cntl,
-		(unsigned int)driver->ch_wcnss_cntl,
+		(unsigned int)driver->smd_data[SMD_MODEM_INDEX].ch,
+		(unsigned int)driver->smd_data[SMD_LPASS_INDEX].ch,
+		(unsigned int)driver->smd_data[SMD_WCNSS_INDEX].ch,
+		(unsigned int)driver->smd_dci[SMD_MODEM_INDEX].ch,
+		(unsigned int)driver->smd_cntl[SMD_MODEM_INDEX].ch,
+		(unsigned int)driver->smd_cntl[SMD_LPASS_INDEX].ch,
+		(unsigned int)driver->smd_cntl[SMD_WCNSS_INDEX].ch,
 		chk_config_get_id(),
 		chk_apps_only(),
 		chk_apps_master(),
 		chk_polling_response(),
 		driver->polling_reg_flag,
 		driver->use_device_tree,
-		driver->in_busy_1,
-		driver->in_busy_2,
-		driver->in_busy_lpass_1,
-		driver->in_busy_lpass_2,
-		driver->in_busy_wcnss_1,
-		driver->in_busy_wcnss_2,
-		driver->in_busy_dci,
+		driver->smd_data[SMD_MODEM_INDEX].in_busy_1,
+		driver->smd_data[SMD_MODEM_INDEX].in_busy_2,
+		driver->smd_data[SMD_LPASS_INDEX].in_busy_1,
+		driver->smd_data[SMD_LPASS_INDEX].in_busy_2,
+		driver->smd_data[SMD_WCNSS_INDEX].in_busy_1,
+		driver->smd_data[SMD_WCNSS_INDEX].in_busy_2,
+		driver->smd_dci[SMD_MODEM_INDEX].in_busy_1,
 		driver->logging_mode);
 
 #ifdef CONFIG_DIAG_OVER_USB
@@ -104,29 +104,49 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 	ret = scnprintf(buf, DEBUG_BUF_SIZE,
 		"Pending status for work_stucts:\n"
 		"diag_drain_work: %d\n"
-		"diag_read_smd_work: %d\n"
-		"diag_read_smd_cntl_work: %d\n"
-		"diag_read_smd_lpass_work: %d\n"
-		"diag_read_smd_lpass_cntl_work: %d\n"
-		"diag_read_smd_wcnss_work: %d\n"
-		"diag_read_smd_wcnss_cntl_work: %d\n"
-		"diag_modem_mask_update_work: %d\n"
-		"diag_lpass_mask_update_work: %d\n"
-		"diag_wcnss_mask_update_work: %d\n"
-		"diag_read_smd_dci_work: %d\n"
-		"diag_update_smd_dci_work: %d\n",
+		"Modem data diag_read_smd_work: %d\n"
+		"LPASS data diag_read_smd_work: %d\n"
+		"RIVA data diag_read_smd_work: %d\n"
+		"Modem cntl diag_read_smd_work: %d\n"
+		"LPASS cntl diag_read_smd_work: %d\n"
+		"RIVA cntl diag_read_smd_work: %d\n"
+		"Modem dci diag_read_smd_work: %d\n"
+		"Modem data diag_notify_update_smd_work: %d\n"
+		"LPASS data diag_notify_update_smd_work: %d\n"
+		"RIVA data diag_notify_update_smd_work: %d\n"
+		"Modem cntl diag_notify_update_smd_work: %d\n"
+		"LPASS cntl diag_notify_update_smd_work: %d\n"
+		"RIVA cntl diag_notify_update_smd_work: %d\n"
+		"Modem dci diag_notify_update_smd_work: %d\n",
 		work_pending(&(driver->diag_drain_work)),
-		work_pending(&(driver->diag_read_smd_work)),
-		work_pending(&(driver->diag_read_smd_cntl_work)),
-		work_pending(&(driver->diag_read_smd_lpass_work)),
-		work_pending(&(driver->diag_read_smd_lpass_cntl_work)),
-		work_pending(&(driver->diag_read_smd_wcnss_work)),
-		work_pending(&(driver->diag_read_smd_wcnss_cntl_work)),
-		work_pending(&(driver->diag_modem_mask_update_work)),
-		work_pending(&(driver->diag_lpass_mask_update_work)),
-		work_pending(&(driver->diag_wcnss_mask_update_work)),
-		work_pending(&(driver->diag_read_smd_dci_work)),
-		work_pending(&(driver->diag_update_smd_dci_work)));
+		work_pending(&(driver->smd_data[SMD_MODEM_INDEX].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_data[SMD_LPASS_INDEX].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_data[SMD_WCNSS_INDEX].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_cntl[SMD_MODEM_INDEX].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_cntl[SMD_LPASS_INDEX].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_cntl[SMD_WCNSS_INDEX].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_dci[SMD_MODEM_INDEX].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_data[SMD_MODEM_INDEX].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_data[SMD_LPASS_INDEX].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_data[SMD_WCNSS_INDEX].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_cntl[SMD_MODEM_INDEX].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_cntl[SMD_LPASS_INDEX].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_cntl[SMD_WCNSS_INDEX].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_dci[SMD_MODEM_INDEX].
+						diag_notify_update_smd_work)));
 
 #ifdef CONFIG_DIAG_OVER_USB
 	ret += scnprintf(buf+ret, DEBUG_BUF_SIZE,
@@ -189,7 +209,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 		if (bytes_remaining < bytes_written)
 			break;
 	}
-	diag_dbgfs_table_index = i;
+	diag_dbgfs_table_index = i+1;
 
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
@@ -230,10 +250,10 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 		"diag_read_hsic_work: %d\n"
 		"diag_disconnect_work: %d\n"
 		"diag_usb_read_complete_work: %d\n"
-		"smux ch: %d"
-		"smux enabled %d"
-		"smux in busy %d"
-		"smux connected %d",
+		"smux ch: %d\n"
+		"smux enabled %d\n"
+		"smux in busy %d\n"
+		"smux connected %d\n",
 		driver->hsic_ch,
 		driver->hsic_inited,
 		driver->hsic_device_enabled,
