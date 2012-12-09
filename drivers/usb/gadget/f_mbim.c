@@ -216,7 +216,7 @@ static struct usb_cdc_mbim_desc mbim_desc = {
 	.bcdMBIMVersion =	cpu_to_le16(0x0100),
 
 	.wMaxControlMessage =	cpu_to_le16(0x1000),
-	.bNumberFilters =	0x10,
+	.bNumberFilters =	0x20,
 	.bMaxFilterSize =	0x80,
 	.wMaxSegmentSize =	cpu_to_le16(0xfe0),
 	.bmNetworkCapabilities = 0x20,
