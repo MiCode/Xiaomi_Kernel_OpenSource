@@ -5104,6 +5104,31 @@ static void msmsdcc_print_regs(const char *name, void __iomem *base,
 	}
 }
 
+/*
+ * This function prints the testbus debug output for all the
+ * available SDCC controller test bus.
+ *
+ * Note: This function should only be called if the SDCC is clocked.
+ */
+static void msmsdcc_print_testbus_info(struct msmsdcc_host *host)
+{
+	int testbus_num;
+
+	if (!is_testbus_debug(host))
+		return;
+
+	pr_err("== SDCC Test Bus Debug ==");
+	for (testbus_num = 0; testbus_num < MAX_TESTBUS; testbus_num++) {
+		writel_relaxed(((testbus_num & MCI_TESTBUS_SEL_MASK)
+			       | MCI_TESTBUS_ENA),
+			       host->base + MCI_TESTBUS_CONFIG);
+		pr_err("TestBus(%d) = 0x%.8x\n", testbus_num,
+			(u32)readl_relaxed(host->base + MCI_SDCC_DEBUG_REG));
+	}
+	/* Disable the test bus output */
+	writel_relaxed(~MCI_TESTBUS_ENA, host->base + MCI_TESTBUS_CONFIG);
+}
+
 static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
 {
 	/* Dump current state of SDCC clocks, power and irq */
@@ -5123,6 +5148,7 @@ static void msmsdcc_dump_sdcc_state(struct msmsdcc_host *host)
 		pr_err("%s: MCI_TEST_INPUT = 0x%.8x\n",
 			mmc_hostname(host->mmc),
 			readl_relaxed(host->base + MCI_TEST_INPUT));
+		msmsdcc_print_testbus_info(host);
 	}
 
 	if (host->curr.data) {
