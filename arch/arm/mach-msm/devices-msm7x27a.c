@@ -2047,8 +2047,7 @@ static int __init msm_gpio_config_gps(void)
 	return ret;
 }
 
-static int __init msm_acpuclock_init(int nominal_voltage,
-					int default_turbo_voltage)
+static int __init msm_acpuclock_init(bool flag)
 {
 	struct cpr_info_type *acpu_info = NULL;
 	acpu_info = kzalloc(sizeof(struct cpr_info_type), GFP_KERNEL);
@@ -2060,8 +2059,7 @@ static int __init msm_acpuclock_init(int nominal_voltage,
 	msm8625q_acpuclk_pdata.pvs_voltage_uv =
 			msm_c2_pmic_mv[acpu_info->pvs_fuse & 0x1F];
 	kfree(acpu_info);
-	msm8625q_acpuclk_pdata.nominal_voltage = nominal_voltage;
-	msm8625q_acpuclk_pdata.default_turbo_voltage = default_turbo_voltage;
+	msm8625q_acpuclk_pdata.flag = flag;
 	return 0;
 }
 
@@ -2077,11 +2075,11 @@ int __init msm7x2x_misc_init(void)
 	if (cpu_is_msm7x27aa() || cpu_is_msm7x25ab())
 		platform_device_register(&msm7x27aa_device_acpuclk);
 	else if (cpu_is_msm8625q()) {
-			msm_acpuclock_init(1050000, 0);
-			platform_device_register(&msm8625q_device_acpuclk);
+		msm_acpuclock_init(1);
+		platform_device_register(&msm8625q_device_acpuclk);
 	} else if (cpu_is_msm8625()) {
 		if (machine_is_qrd_skud_prime()) {
-			msm_acpuclock_init(1150000, 1275000);
+			msm_acpuclock_init(0);
 			platform_device_register(&msm8625q_device_acpuclk);
 		} else if (msm8625_cpu_id() == MSM8625)
 			platform_device_register(&msm7x27aa_device_acpuclk);
