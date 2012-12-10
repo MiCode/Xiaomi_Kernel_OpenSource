@@ -4,24 +4,17 @@ QPNP PMIC BMS provides interface to clients to read properties related
 to the battery. It's main function is to calculate the State of Charge (SOC),
 a 0-100 percentage representing the amount of charge left in the battery.
 
-BMS node
+There are two required peripherals in the BMS driver, both implemented as
+subnodes in the example. These peripherals must not be disabled if the BMS
+device is to enabled:
+- qcom,bms-bms : The main BMS device. Supports battery monitoring controls and
+		sensors.
+- qcom,bms-iadc : The BMS IADC peripheral in the IADC device. This is required
+		to determine whether the BMS is using an internal or external
+		rsense to accumulate the Coulomb Counter and read current.
 
-Required properties:
+Parent node required properties:
 - compatible : should be "qcom,qpnp-bms" for the BM driver.
-- reg : offset and length of the PMIC BMS register map.
-- interrupts : the interrupt mappings for bms.
-		The format should be
-		<slave-id peripheral-id interrupt-number>.
-- interrupt-names : names for the mapped bms interrupt
-		The following interrupts are required:
-		0 : vsense_for_r
-		1 : vsense_avg
-		2 : sw_cc_thr
-		3 : ocv_thr
-		4 : charge_begin
-		5 : good_ocv
-		6 : ocv_for_r
-		7 : cc_thr
 - qcom,bms-r-sense-mohm : sensor resistance in in milli-ohms.
 - qcom,bms-v-cutoff-uv : cutoff voltage where the battery is considered dead in
 			micro-volts.
@@ -56,7 +49,7 @@ Required properties:
 			to the enum defined in
 			include/linux/mfd/pm8xxx/batterydata-lib.h
 
-Optional properties:
+Parent node optional properties:
 - qcom,bms-ignore-shutdown-soc: A boolean that controls whether BMS will
 			try to force the startup SoC to be the same as the
 			shutdown SoC. Defining it will make BMS ignore the
@@ -65,14 +58,51 @@ Optional properties:
 			voltage-based SoC instead of a coulomb counter based
 			one. Voltage-based SoC will not guarantee linearity.
 
+All sub node required properties:
+- reg : offset and length of the PMIC peripheral register map.
+
+qcom,bms-bms node required properties:
+- interrupts : the interrupt mappings.
+		The format should be
+		<slave-id peripheral-id interrupt-number>.
+- interrupt-names : names for the mapped bms interrupt
+		The following interrupts are required:
+		0 : vsense_for_r
+		1 : vsense_avg
+		2 : sw_cc_thr
+		3 : ocv_thr
+		4 : charge_begin
+		5 : good_ocv
+		6 : ocv_for_r
+		7 : cc_thr
+
 Example:
-	bms@4000 {
-		#address-cells = <1>;
-		#size-cells = <1>;
+pm8941_bms: qcom,bms {
+	spmi-dev-container;
+	compatible = "qcom,qpnp-bms";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	status = "disabled";
 
-		compatible = "qcom,qpnp-bms";
+	qcom,bms-r-sense-mohm = <2>;
+	qcom,bms-v-cutoff-uv = <3400000>;
+	qcom,bms-max-voltage-uv = <4200000>;
+	qcom,bms-r-conn-mohm = <18>;
+	qcom,bms-shutdown-soc-valid-limit = <20>;
+	qcom,bms-adjust-soc-low-threshold = <25>;
+	qcom,bms-adjust-soc-high-threshold = <45>;
+	qcom,bms-low-soc-calculate-soc-threshold = <15>;
+	qcom,bms-low-soc-calculate-soc-ms = <5000>;
+	qcom,bms-calculate-soc-ms = <20000>;
+	qcom,bms-chg-term-ua = <100000>;
+	qcom,bms-batt-type = <0>;
+
+	qcom,bms-iadc@3800 {
+		reg = <0x3800 0x100>;
+	};
+
+	qcom,bms-bms@4000 {
 		reg = <0x4000 0x100>;
-
 		interrupts =	<0x0 0x40 0x0>,
 				<0x0 0x40 0x1>,
 				<0x0 0x40 0x2>,
@@ -90,18 +120,5 @@ Example:
 				  "good_ocv",
 				  "ocv_for_r",
 				  "cc_thr";
-
-		qcom,bms-r-sense-mohm = <10>;
-		qcom,bms-v-cutoff-uv = <3400000>;
-		qcom,bms-max-voltage-uv = <4200000>;
-		qcom,bms-r-conn-mohm = <18>;
-		qcom,bms-shutdown-soc-valid-limit = <20>;
-		qcom,bms-adjust-soc-low-threshold = <25>;
-		qcom,bms-adjust-soc-high-threshold = <45>;
-		qcom,bms-low-soc-calculate-soc-threshold = <15>;
-		qcom,bms-low-soc-calculate-soc-ms = <5000>;
-		qcom,bms-calculate-soc-ms = <20000>;
-		qcom,bms-chg-term-ua = <100000>;
-		qcom,bms-batt-type = <0>;
-		qcom,bms-ignore-shutdown-soc;
 	};
+};
