@@ -656,8 +656,8 @@ struct smd_shared_v2_word_access {
 };
 
 struct smd_channel {
-	volatile void *send; /* some variant of smd_half_channel */
-	volatile void *recv; /* some variant of smd_half_channel */
+	volatile void __iomem *send; /* some variant of smd_half_channel */
+	volatile void __iomem *recv; /* some variant of smd_half_channel */
 	unsigned char *send_data;
 	unsigned char *recv_data;
 	unsigned fifo_size;

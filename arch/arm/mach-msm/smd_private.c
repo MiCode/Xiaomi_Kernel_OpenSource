@@ -12,227 +12,256 @@
 
 #include "smd_private.h"
 
-void set_state(volatile void *half_channel, unsigned data)
+void set_state(volatile void __iomem *half_channel, unsigned data)
 {
-	((struct smd_half_channel *)(half_channel))->state = data;
+	((struct smd_half_channel __force *)(half_channel))->state = data;
 }
 
-unsigned get_state(volatile void *half_channel)
+unsigned get_state(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->state;
+	return ((struct smd_half_channel __force *)(half_channel))->state;
 }
 
-void set_fDSR(volatile void *half_channel, unsigned char data)
+void set_fDSR(volatile void __iomem *half_channel, unsigned char data)
 {
-	((struct smd_half_channel *)(half_channel))->fDSR = data;
+	((struct smd_half_channel __force *)(half_channel))->fDSR = data;
 }
 
-unsigned get_fDSR(volatile void *half_channel)
+unsigned get_fDSR(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->fDSR;
+	return ((struct smd_half_channel __force *)(half_channel))->fDSR;
 }
 
-void set_fCTS(volatile void *half_channel, unsigned char data)
+void set_fCTS(volatile void __iomem *half_channel, unsigned char data)
 {
-	((struct smd_half_channel *)(half_channel))->fCTS = data;
+	((struct smd_half_channel __force *)(half_channel))->fCTS = data;
 }
 
-unsigned get_fCTS(volatile void *half_channel)
+unsigned get_fCTS(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->fCTS;
+	return ((struct smd_half_channel __force *)(half_channel))->fCTS;
 }
 
-void set_fCD(volatile void *half_channel, unsigned char data)
+void set_fCD(volatile void __iomem *half_channel, unsigned char data)
 {
-	((struct smd_half_channel *)(half_channel))->fCD = data;
+	((struct smd_half_channel __force *)(half_channel))->fCD = data;
 }
 
-unsigned get_fCD(volatile void *half_channel)
+unsigned get_fCD(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->fCD;
+	return ((struct smd_half_channel __force *)(half_channel))->fCD;
 }
 
-void set_fRI(volatile void *half_channel, unsigned char data)
+void set_fRI(volatile void __iomem *half_channel, unsigned char data)
 {
-	((struct smd_half_channel *)(half_channel))->fRI = data;
+	((struct smd_half_channel __force *)(half_channel))->fRI = data;
 }
 
-unsigned get_fRI(volatile void *half_channel)
+unsigned get_fRI(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->fRI;
+	return ((struct smd_half_channel __force *)(half_channel))->fRI;
 }
 
-void set_fHEAD(volatile void *half_channel, unsigned char data)
+void set_fHEAD(volatile void __iomem *half_channel, unsigned char data)
 {
-	((struct smd_half_channel *)(half_channel))->fHEAD = data;
+	((struct smd_half_channel __force *)(half_channel))->fHEAD = data;
 }
 
-unsigned get_fHEAD(volatile void *half_channel)
+unsigned get_fHEAD(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->fHEAD;
+	return ((struct smd_half_channel __force *)(half_channel))->fHEAD;
 }
 
-void set_fTAIL(volatile void *half_channel, unsigned char data)
+void set_fTAIL(volatile void __iomem *half_channel, unsigned char data)
 {
-	((struct smd_half_channel *)(half_channel))->fTAIL = data;
+	((struct smd_half_channel __force *)(half_channel))->fTAIL = data;
 }
 
-unsigned get_fTAIL(volatile void *half_channel)
+unsigned get_fTAIL(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->fTAIL;
+	return ((struct smd_half_channel __force *)(half_channel))->fTAIL;
 }
 
-void set_fSTATE(volatile void *half_channel, unsigned char data)
+void set_fSTATE(volatile void __iomem *half_channel, unsigned char data)
 {
-	((struct smd_half_channel *)(half_channel))->fSTATE = data;
+	((struct smd_half_channel __force *)(half_channel))->fSTATE = data;
 }
 
-unsigned get_fSTATE(volatile void *half_channel)
+unsigned get_fSTATE(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->fSTATE;
+	return ((struct smd_half_channel __force *)(half_channel))->fSTATE;
 }
 
-void set_fBLOCKREADINTR(volatile void *half_channel, unsigned char data)
+void set_fBLOCKREADINTR(volatile void __iomem *half_channel, unsigned char data)
 {
-	((struct smd_half_channel *)(half_channel))->fBLOCKREADINTR = data;
+	((struct smd_half_channel __force *)
+				(half_channel))->fBLOCKREADINTR = data;
 }
 
-unsigned get_fBLOCKREADINTR(volatile void *half_channel)
+unsigned get_fBLOCKREADINTR(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->fBLOCKREADINTR;
+	return ((struct smd_half_channel __force *)
+				(half_channel))->fBLOCKREADINTR;
 }
 
-void set_tail(volatile void *half_channel, unsigned data)
+void set_tail(volatile void __iomem *half_channel, unsigned data)
 {
-	((struct smd_half_channel *)(half_channel))->tail = data;
+	((struct smd_half_channel __force *)(half_channel))->tail = data;
 }
 
-unsigned get_tail(volatile void *half_channel)
+unsigned get_tail(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->tail;
+	return ((struct smd_half_channel __force *)(half_channel))->tail;
 }
 
-void set_head(volatile void *half_channel, unsigned data)
+void set_head(volatile void __iomem *half_channel, unsigned data)
 {
-	((struct smd_half_channel *)(half_channel))->head = data;
+	((struct smd_half_channel __force *)(half_channel))->head = data;
 }
 
-unsigned get_head(volatile void *half_channel)
+unsigned get_head(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel *)(half_channel))->head;
+	return ((struct smd_half_channel __force *)(half_channel))->head;
 }
 
-void set_state_word_access(volatile void *half_channel, unsigned data)
+void set_state_word_access(volatile void __iomem *half_channel, unsigned data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->state = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->state = data;
 }
 
-unsigned get_state_word_access(volatile void *half_channel)
+unsigned get_state_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->state;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->state;
 }
 
-void set_fDSR_word_access(volatile void *half_channel, unsigned char data)
+void set_fDSR_word_access(volatile void __iomem *half_channel,
+						unsigned char data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->fDSR = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->fDSR = data;
 }
 
-unsigned get_fDSR_word_access(volatile void *half_channel)
+unsigned get_fDSR_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->fDSR;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->fDSR;
 }
 
-void set_fCTS_word_access(volatile void *half_channel, unsigned char data)
+void set_fCTS_word_access(volatile void __iomem *half_channel,
+						unsigned char data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->fCTS = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->fCTS = data;
 }
 
-unsigned get_fCTS_word_access(volatile void *half_channel)
+unsigned get_fCTS_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->fCTS;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->fCTS;
 }
 
-void set_fCD_word_access(volatile void *half_channel, unsigned char data)
+void set_fCD_word_access(volatile void __iomem *half_channel,
+						unsigned char data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->fCD = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->fCD = data;
 }
 
-unsigned get_fCD_word_access(volatile void *half_channel)
+unsigned get_fCD_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->fCD;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->fCD;
 }
 
-void set_fRI_word_access(volatile void *half_channel, unsigned char data)
+void set_fRI_word_access(volatile void __iomem *half_channel,
+						unsigned char data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->fRI = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->fRI = data;
 }
 
-unsigned get_fRI_word_access(volatile void *half_channel)
+unsigned get_fRI_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->fRI;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->fRI;
 }
 
-void set_fHEAD_word_access(volatile void *half_channel, unsigned char data)
+void set_fHEAD_word_access(volatile void __iomem *half_channel,
+						unsigned char data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->fHEAD = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->fHEAD = data;
 }
 
-unsigned get_fHEAD_word_access(volatile void *half_channel)
+unsigned get_fHEAD_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->fHEAD;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->fHEAD;
 }
 
-void set_fTAIL_word_access(volatile void *half_channel, unsigned char data)
+void set_fTAIL_word_access(volatile void __iomem *half_channel,
+						unsigned char data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->fTAIL = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->fTAIL = data;
 }
 
-unsigned get_fTAIL_word_access(volatile void *half_channel)
+unsigned get_fTAIL_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->fTAIL;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->fTAIL;
 }
 
-void set_fSTATE_word_access(volatile void *half_channel, unsigned char data)
+void set_fSTATE_word_access(volatile void __iomem *half_channel,
+						unsigned char data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->fSTATE = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->fSTATE = data;
 }
 
-unsigned get_fSTATE_word_access(volatile void *half_channel)
+unsigned get_fSTATE_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->fSTATE;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->fSTATE;
 }
 
-void set_fBLOCKREADINTR_word_access(volatile void *half_channel,
+void set_fBLOCKREADINTR_word_access(volatile void __iomem *half_channel,
 							unsigned char data)
 {
-	((struct smd_half_channel_word_access *)
+	((struct smd_half_channel_word_access __force *)
 					(half_channel))->fBLOCKREADINTR = data;
 }
 
-unsigned get_fBLOCKREADINTR_word_access(volatile void *half_channel)
+unsigned get_fBLOCKREADINTR_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)
-						(half_channel))->fBLOCKREADINTR;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->fBLOCKREADINTR;
 }
 
-void set_tail_word_access(volatile void *half_channel, unsigned data)
+void set_tail_word_access(volatile void __iomem *half_channel, unsigned data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->tail = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->tail = data;
 }
 
-unsigned get_tail_word_access(volatile void *half_channel)
+unsigned get_tail_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->tail;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->tail;
 }
 
-void set_head_word_access(volatile void *half_channel, unsigned data)
+void set_head_word_access(volatile void __iomem *half_channel, unsigned data)
 {
-	((struct smd_half_channel_word_access *)(half_channel))->head = data;
+	((struct smd_half_channel_word_access __force *)
+					(half_channel))->head = data;
 }
 
-unsigned get_head_word_access(volatile void *half_channel)
+unsigned get_head_word_access(volatile void __iomem *half_channel)
 {
-	return ((struct smd_half_channel_word_access *)(half_channel))->head;
+	return ((struct smd_half_channel_word_access __force *)
+					(half_channel))->head;
 }
 
 int is_word_access_ch(unsigned ch_type)
