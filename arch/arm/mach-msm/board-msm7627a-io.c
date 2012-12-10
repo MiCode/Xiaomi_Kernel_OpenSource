@@ -887,7 +887,9 @@ void __init qrd7627a_add_io_devices(void)
 		ft5x06_touchpad_setup();
 	}
 
-	/* headset */
+	/* headset and power key*/
+	/* ignore end key as this target doesn't need it */
+	hs_platform_data.ignore_end_key = true;
 	platform_device_register(&hs_pdev);
 
 	/* vibrator */
