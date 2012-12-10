@@ -1435,6 +1435,7 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 	chg_soc = linear_interpolate(chip->soc_at_cv, chip->ibat_at_cv_ua,
 					100, -1 * chip->chg_term_ua,
 					ibat_ua);
+	chg_soc = bound_soc(chg_soc);
 
 	/* always report a higher soc */
 	if (chg_soc > chip->prev_chg_soc) {
