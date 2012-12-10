@@ -97,7 +97,7 @@ static inline unsigned int VENUS_BUFFER_SIZE(
 	uv_sclines = VENUS_UV_SCANLINES(color_fmt, height);
 	switch (color_fmt) {
 	case COLOR_FMT_NV12:
-		uv_alignment = 0;
+		uv_alignment = 4096;
 		y_plane = y_stride * y_sclines;
 		uv_plane = uv_stride * uv_sclines + uv_alignment;
 		size = y_plane + uv_plane;
