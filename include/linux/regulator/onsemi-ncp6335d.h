@@ -23,6 +23,7 @@ struct ncp6335d_platform_data {
 	int default_vsel;
 	int slew_rate_ns;
 	int discharge_enable;
+	bool sleep_enable;
 };
 
 #endif
