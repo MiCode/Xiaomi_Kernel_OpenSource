@@ -61,6 +61,7 @@ static struct vsycn_ctrl {
 	struct msm_fb_data_type *mfd;
 	struct mdp4_overlay_pipe *base_pipe;
 	struct vsync_update vlist[2];
+	struct work_struct clk_work;
 } vsync_ctrl_db[MAX_CONTROLLER];
 
 static void vsync_irq_enable(int intr, int term)
@@ -375,6 +376,8 @@ int mdp4_wfd_pipe_commit(struct msm_fb_data_type *mfd,
 		}
 	}
 
+	mdp_clk_ctrl(1);
+
 	mdp4_mixer_stage_commit(mixer);
 
 	pipe = vctrl->base_pipe;
@@ -399,6 +402,13 @@ int mdp4_wfd_pipe_commit(struct msm_fb_data_type *mfd,
 	return cnt;
 }
 
+static void clk_ctrl_work(struct work_struct *work)
+{
+	struct vsycn_ctrl *vctrl =
+		container_of(work, typeof(*vctrl), clk_work);
+	mdp_clk_ctrl(0);
+}
+
 void mdp4_wfd_init(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
@@ -417,6 +427,7 @@ void mdp4_wfd_init(int cndx)
 	mutex_init(&vctrl->update_lock);
 	init_completion(&vctrl->ov_comp);
 	spin_lock_init(&vctrl->spin_lock);
+	INIT_WORK(&vctrl->clk_work, clk_ctrl_work);
 }
 
 static void mdp4_wfd_wait4ov(int cndx)
@@ -450,7 +461,7 @@ void mdp4_overlay2_done_wfd(struct mdp_dma_data *dma)
 	vsync_irq_disable(INTR_OVERLAY2_DONE, MDP_OVERLAY2_TERM);
 	vctrl->ov_done++;
 	complete(&vctrl->ov_comp);
-
+	schedule_work(&vctrl->clk_work);
 	pr_debug("%s ovdone interrupt\n", __func__);
 	spin_unlock(&vctrl->spin_lock);
 }
@@ -475,16 +486,11 @@ void mdp4_writeback_overlay(struct msm_fb_data_type *mfd)
 
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
 
-	mdp_clk_ctrl(1);
-
 	mdp4_wfd_pipe_commit(mfd, 0, 1);
 
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 
-	mdp_clk_ctrl(0);
-
 	mutex_unlock(&mfd->dma->ov_mutex);
-
 }
 
 static int mdp4_overlay_writeback_register_buffer(
