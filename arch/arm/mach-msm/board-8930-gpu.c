@@ -173,8 +173,10 @@ void __init msm8930_init_gpu(void)
 
 	if (cpu_is_msm8930aa())
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 450000000;
-	else if (cpu_is_msm8930ab())
+	else if (cpu_is_msm8930ab()) {
 		kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 500000000;
+		grp3d_max_vectors[0].ib = KGSL_CONVERT_TO_MBPS(4800);
+	}
 
 	/* Set up the chip ID based on the SoC version */
 
