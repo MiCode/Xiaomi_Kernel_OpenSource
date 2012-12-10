@@ -37,12 +37,13 @@ struct iommu_domain;
 #define IOMMU_FAULT_WRITE	0x1
 
 typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
-				struct device *, unsigned long, int);
+			struct device *, unsigned long, int, void *);
 
 struct iommu_domain {
 	struct iommu_ops *ops;
 	void *priv;
 	iommu_fault_handler_t handler;
+	void *handler_token;
 };
 
 #define IOMMU_CAP_CACHE_COHERENCY	0x1
@@ -107,7 +108,7 @@ extern int iommu_domain_has_cap(struct iommu_domain *domain,
 				unsigned long cap);
 extern phys_addr_t iommu_get_pt_base_addr(struct iommu_domain *domain);
 extern void iommu_set_fault_handler(struct iommu_domain *domain,
-					iommu_fault_handler_t handler);
+			iommu_fault_handler_t handler, void *token);
 extern int iommu_device_group(struct device *dev, unsigned int *groupid);
 
 /**
@@ -144,7 +145,8 @@ static inline int report_iommu_fault(struct iommu_domain *domain,
 	 * invoke it.
 	 */
 	if (domain->handler)
-		ret = domain->handler(domain, dev, iova, flags);
+		ret = domain->handler(domain, dev, iova, flags,
+						domain->handler_token);
 
 	return ret;
 }
@@ -221,7 +223,7 @@ static inline phys_addr_t iommu_get_pt_base_addr(struct iommu_domain *domain)
 }
 
 static inline void iommu_set_fault_handler(struct iommu_domain *domain,
-					iommu_fault_handler_t handler)
+				iommu_fault_handler_t handler, void *token)
 {
 }
 
