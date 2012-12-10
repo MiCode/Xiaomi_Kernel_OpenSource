@@ -23,8 +23,7 @@
 struct acpuclk_pdata_8625q {
 	struct acpuclk_pdata *acpu_clk_data;
 	unsigned int pvs_voltage_uv;
-	unsigned int nominal_voltage;
-	unsigned int default_turbo_voltage;
+	bool flag;
 };
 
 #endif /* __ARCH_ARM_MACH_MSM_ACPUCLOCK_8625Q_H */
