@@ -1664,7 +1664,8 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 	}
 
 	/* last_soc < soc  ... scale and catch up */
-	if (chip->last_soc != -EINVAL && chip->last_soc < soc && soc != 100)
+	if (chip->last_soc != -EINVAL && chip->last_soc < soc
+			&& soc != 100 && chip->catch_up_time_us != 0)
 		soc = scale_soc_while_chg(chip, delta_time_us,
 						soc, chip->last_soc);
 
