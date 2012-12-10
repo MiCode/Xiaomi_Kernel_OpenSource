@@ -39,6 +39,7 @@
 #define NCP6335D_PWM_MODE1		BIT(6)
 #define NCP6335D_PWM_MODE0		BIT(7)
 #define NCP6335D_PGOOD_DISCHG		BIT(4)
+#define NCP6335D_SLEEP_MODE		BIT(4)
 
 #define NCP6335D_VOUT_SEL_MASK		0x7F
 #define NCP6335D_SLEW_MASK		0x18
@@ -280,6 +281,14 @@ static int ncp6335d_init(struct ncp6335d_info *dd,
 	if (rc)
 		dev_err(dd->dev, "Unable to set slew rate rc(%d)\n", rc);
 
+	/* Set Sleep mode bit */
+	rc = regmap_update_bits(dd->regmap, REG_NCP6335D_COMMAND,
+				NCP6335D_SLEEP_MODE, pdata->sleep_enable ?
+						NCP6335D_SLEEP_MODE : 0);
+	if (rc)
+		dev_err(dd->dev, "Unable to set sleep mode (%d)\n", rc);
+
+	dump_registers(dd, REG_NCP6335D_COMMAND, __func__);
 	dump_registers(dd, REG_NCP6335D_PROGVSEL0, __func__);
 	dump_registers(dd, REG_NCP6335D_TIMING, __func__);
 	dump_registers(dd, REG_NCP6335D_PGOOD, __func__);
