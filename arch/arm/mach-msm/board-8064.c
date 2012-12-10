@@ -2526,6 +2526,13 @@ static struct platform_device *pm8921_common_devices[] __initdata = {
 	&apq8064_device_ssbi_pmic2,
 };
 
+static struct platform_device *pm8921_mpq_hrd_common_devices[] __initdata = {
+	&apq8064_device_ext_5v_vreg,
+	&apq8064_device_ext_mpp8_vreg,
+	&apq8064_device_ssbi_pmic1,
+	&apq8064_device_ssbi_pmic2,
+};
+
 static struct platform_device *pm8917_common_devices[] __initdata = {
 	&apq8064_device_ext_mpp8_vreg,
 	&apq8064_device_ext_3p3v_vreg,
@@ -3555,9 +3562,14 @@ static void __init apq8064_common_init(void)
 
 	platform_add_devices(early_common_devices,
 				ARRAY_SIZE(early_common_devices));
-	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917)
-		platform_add_devices(pm8921_common_devices,
-					ARRAY_SIZE(pm8921_common_devices));
+	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917) {
+		if (!machine_is_mpq8064_hrd())
+			platform_add_devices(pm8921_common_devices,
+				ARRAY_SIZE(pm8921_common_devices));
+		else
+			platform_add_devices(pm8921_mpq_hrd_common_devices,
+				ARRAY_SIZE(pm8921_mpq_hrd_common_devices));
+	}
 	else
 		platform_add_devices(pm8917_common_devices,
 					ARRAY_SIZE(pm8917_common_devices));
