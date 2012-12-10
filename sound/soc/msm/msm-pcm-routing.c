@@ -49,7 +49,8 @@ static struct mutex routing_lock;
 
 static int fm_switch_enable;
 static int fm_pcmrx_switch_enable;
-static int srs_alsa_ctrl_ever_called;
+static short int srs_alsa_ctrl_ever_called_tm;
+static short int srs_alsa_ctrl_ever_called_ss3d;
 
 #define INT_RX_VOL_MAX_STEPS 0x2000
 #define INT_RX_VOL_GAIN 0x2000
@@ -125,19 +126,13 @@ union srs_trumedia_params_u {
 	unsigned short int raw_params[1];
 };
 static union srs_trumedia_params_u msm_srs_trumedia_params[2];
-static int srs_port_id = -1;
 
-static void srs_send_params(int port_id, unsigned int techs,
+static void srs_send_params_trumedia(int port_id, unsigned int techs,
 		int param_block_idx) {
-
-	/* only send commands to dsp if srs alsa ctrl was used
-	   at least one time */
-	if (!srs_alsa_ctrl_ever_called)
-		return;
-
 	pr_debug("SRS %s: called, port_id = %d, techs flags = %u,"
 			" paramblockidx %d", __func__, port_id, techs,
 			param_block_idx);
+
 	/* force all if techs is set to 1 */
 	if (techs == 1)
 		techs = 0xFFFFFFFF;
@@ -162,6 +157,46 @@ static void srs_send_params(int port_id, unsigned int techs,
 	(void *)&msm_srs_trumedia_params[param_block_idx].srs_params.global);
 }
 
+union srs_SS3D_params_u {
+	struct srs_SS3D_params srs_params;
+	unsigned short int raw_params[1];
+};
+static union srs_SS3D_params_u msm_srs_SS3D_params[2];
+
+static void srs_send_params_SS3D(int port_id, unsigned int techs,
+					int param_block_idx) {
+	pr_debug("SRS %s: called, port_id = %d, techs flags = %u,\n"
+		" paramblockidx %d", __func__, port_id, techs,
+		param_block_idx);
+
+	/* force all if techs is set to 1 */
+	if (techs == 1)
+		techs = 0xFFFFFFFF;
+
+	if (techs & (1 << SRS_ID_SS3D_CTRL))
+		srs_ss3d_open(port_id, SRS_ID_SS3D_CTRL,
+		(void *)&msm_srs_SS3D_params[param_block_idx].srs_params.ss3d);
+	if (techs & (1 << SRS_ID_SS3D_FILTER))
+		srs_ss3d_open(port_id, SRS_ID_SS3D_FILTER,
+	    (void *)&msm_srs_SS3D_params[param_block_idx].srs_params.ss3d_f);
+	if (techs & (1 << SRS_ID_SS3D_GLOBAL))
+		srs_ss3d_open(port_id, SRS_ID_SS3D_GLOBAL,
+	(void *)&msm_srs_SS3D_params[param_block_idx].srs_params.global);
+	return;
+}
+
+static int srs_port_id = -1;
+static void srs_send_params(int port_id, unsigned int techs,
+				int param_block_id) {
+	if (srs_alsa_ctrl_ever_called_tm)
+		srs_send_params_trumedia(port_id, techs, param_block_id);
+	if (srs_alsa_ctrl_ever_called_ss3d)
+		srs_send_params_SS3D(port_id, techs, param_block_id);
+}
+
+/* This array is indexed by back-end DAI ID defined in msm-pcm-routing.h
+ * If new back-end is defined, add new back-end DAI ID at the end of enum
+ */
 static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ PRIMARY_I2S_RX, 0, 0, 0, 0, 0},
 	{ PRIMARY_I2S_TX, 0, 0, 0, 0, 0},
@@ -994,7 +1029,7 @@ static int msm_routing_set_srs_trumedia_control_(struct snd_kcontrol *kcontrol,
 	unsigned int techs = 0;
 	unsigned short offset, value, max, index;
 
-	srs_alsa_ctrl_ever_called = 1;
+	srs_alsa_ctrl_ever_called_tm = 1;
 
 	max = sizeof(msm_srs_trumedia_params) >> 1;
 	index = (unsigned short)((ucontrol->value.integer.value[0] &
@@ -1005,7 +1040,7 @@ static int msm_routing_set_srs_trumedia_control_(struct snd_kcontrol *kcontrol,
 		pr_debug("SRS %s: send params request, flags = %u",
 			__func__, techs);
 		if (srs_port_id >= 0 && techs)
-			srs_send_params(srs_port_id, techs, index);
+			srs_send_params_trumedia(srs_port_id, techs, index);
 		return 0;
 	}
 	offset = (unsigned short)((ucontrol->value.integer.value[0] &
@@ -1014,31 +1049,9 @@ static int msm_routing_set_srs_trumedia_control_(struct snd_kcontrol *kcontrol,
 			SRS_PARAM_VALUE_MASK);
 	if (offset < max) {
 		msm_srs_trumedia_params[index].raw_params[offset] = value;
-		pr_debug("SRS %s: index set... (max %d, requested %d,"
-			" val %d, paramblockidx %d)", __func__, max, offset,
-			value, index);
 	} else {
 		pr_err("SRS %s: index out of bounds! (max %d, requested %d)",
 				__func__, max, offset);
-	}
-	if (offset == 4) {
-		int i;
-		for (i = 0; i < max; i++) {
-			if (i == 0) {
-				pr_debug("SRS %s: global block start",
-						__func__);
-			}
-			if (i ==
-			(sizeof(struct srs_trumedia_params_GLOBAL) >> 1)) {
-				break;
-				pr_debug("SRS %s: wowhd block start at"
-					" offset %d word offset %d", __func__,
-					i, i>>1);
-			}
-			pr_debug("SRS %s: param_index %d index %d val %d",
-				__func__, index, i,
-				msm_srs_trumedia_params[index].raw_params[i]);
-		}
 	}
 	return 0;
 }
@@ -1047,7 +1060,6 @@ static int msm_routing_set_srs_trumedia_control(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol) {
 	int ret;
 
-	pr_debug("SRS control normal called");
 	mutex_lock(&routing_lock);
 	srs_port_id = SLIMBUS_0_RX;
 	ret = msm_routing_set_srs_trumedia_control_(kcontrol, ucontrol);
@@ -1060,7 +1072,6 @@ static int msm_routing_set_srs_trumedia_control_I2S(
 		struct snd_ctl_elem_value *ucontrol) {
 	int ret;
 
-	pr_debug("SRS control I2S called");
 	mutex_lock(&routing_lock);
 	srs_port_id = PRIMARY_I2S_RX;
 	ret = msm_routing_set_srs_trumedia_control_(kcontrol, ucontrol);
@@ -1073,10 +1084,86 @@ static int msm_routing_set_srs_trumedia_control_HDMI(
 		struct snd_ctl_elem_value *ucontrol) {
 	int ret;
 
-	pr_debug("SRS control HDMI called");
 	mutex_lock(&routing_lock);
 	srs_port_id = HDMI_RX;
 	ret =  msm_routing_set_srs_trumedia_control_(kcontrol, ucontrol);
+	mutex_unlock(&routing_lock);
+	return ret;
+}
+
+static int msm_routing_get_srs_SS3D_control(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+
+static int msm_routing_set_srs_SS3D_control_(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	unsigned int techs = 0;
+	unsigned short offset, value, max, index;
+
+	srs_alsa_ctrl_ever_called_ss3d = 1;
+
+	max = sizeof(msm_srs_SS3D_params) >> 1;
+	index = (unsigned short)((ucontrol->value.integer.value[0] &
+					 SRS_PARAM_INDEX_MASK) >> 31);
+	if (SRS_CMD_UPLOAD ==
+		 (ucontrol->value.integer.value[0] & SRS_CMD_UPLOAD)) {
+		techs = ucontrol->value.integer.value[0] & 0xFF;
+		pr_debug("SRS %s: send params request, flags = %u", __func__,
+			 techs);
+		if (srs_port_id >= 0 && techs)
+			srs_send_params_SS3D(srs_port_id, techs, index);
+		return 0;
+	}
+
+	offset = (unsigned short)((ucontrol->value.integer.value[0] &
+			SRS_PARAM_OFFSET_MASK) >> 16);
+	value = (unsigned short)(ucontrol->value.integer.value[0] &
+			 SRS_PARAM_VALUE_MASK);
+	if (offset < max) {
+		msm_srs_SS3D_params[index].raw_params[offset] = value;
+	} else {
+		pr_err("SRS %s: index out of bounds! (max %d, requested %d)",
+			 __func__, max, offset);
+	}
+	return 0;
+}
+
+static int msm_routing_set_srs_SS3D_control(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol) {
+	int ret;
+
+	mutex_lock(&routing_lock);
+	srs_port_id = SLIMBUS_0_RX;
+	ret = msm_routing_set_srs_SS3D_control_(kcontrol, ucontrol);
+	mutex_unlock(&routing_lock);
+	return ret;
+}
+
+static int msm_routing_set_srs_SS3D_control_I2S(
+		struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) {
+	int ret;
+
+	mutex_lock(&routing_lock);
+	srs_port_id = PRIMARY_I2S_RX;
+	ret = msm_routing_set_srs_SS3D_control_(kcontrol, ucontrol);
+	mutex_unlock(&routing_lock);
+	return ret;
+}
+
+static int msm_routing_set_srs_SS3D_control_HDMI(
+		struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) {
+	int ret;
+
+	mutex_lock(&routing_lock);
+	srs_port_id = HDMI_RX;
+	ret = msm_routing_set_srs_SS3D_control_(kcontrol, ucontrol);
 	mutex_unlock(&routing_lock);
 	return ret;
 }
@@ -2109,6 +2196,66 @@ static const struct snd_kcontrol_new lpa_SRS_trumedia_controls_I2S[] = {
 	}
 };
 
+static const struct snd_kcontrol_new lpa_SRS_SS3D_controls[] = {
+	{.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "SRS SS3D",
+	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |
+			SNDRV_CTL_ELEM_ACCESS_READWRITE,
+	.info = snd_soc_info_volsw, \
+	.get = msm_routing_get_srs_SS3D_control,
+	.put = msm_routing_set_srs_SS3D_control,
+	.private_value = ((unsigned long)&(struct soc_mixer_control)
+	{.reg = SND_SOC_NOPM,
+	.rreg = SND_SOC_NOPM,
+	.shift = 0,
+	.rshift = 0,
+	.max = 0xFFFFFFFF,
+	.platform_max = 0xFFFFFFFF,
+	.invert = 0
+	})
+	}
+};
+
+static const struct snd_kcontrol_new lpa_SRS_SS3D_controls_HDMI[] = {
+	{.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "SRS SS3D HDMI",
+	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |
+			SNDRV_CTL_ELEM_ACCESS_READWRITE,
+	.info = snd_soc_info_volsw, \
+	.get = msm_routing_get_srs_SS3D_control,
+	.put = msm_routing_set_srs_SS3D_control_HDMI,
+	.private_value = ((unsigned long)&(struct soc_mixer_control)
+	{.reg = SND_SOC_NOPM,
+	.rreg = SND_SOC_NOPM,
+	.shift = 0,
+	.rshift = 0,
+	.max = 0xFFFFFFFF,
+	.platform_max = 0xFFFFFFFF,
+	.invert = 0
+	})
+	}
+};
+
+static const struct snd_kcontrol_new lpa_SRS_SS3D_controls_I2S[] = {
+	{.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+	.name = "SRS SS3D I2S",
+	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |
+		SNDRV_CTL_ELEM_ACCESS_READWRITE,
+	.info = snd_soc_info_volsw, \
+	.get = msm_routing_get_srs_SS3D_control,
+	.put = msm_routing_set_srs_SS3D_control_I2S,
+	.private_value = ((unsigned long)&(struct soc_mixer_control)
+	{.reg = SND_SOC_NOPM,
+	.rreg = SND_SOC_NOPM,
+	.shift = 0,
+	.rshift = 0,
+	.max = 0xFFFFFFFF,
+	.platform_max = 0xFFFFFFFF,
+	.invert = 0
+	})
+	}
+};
+
 static const struct snd_kcontrol_new eq_enable_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1 EQ Enable", SND_SOC_NOPM,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_eq_enable_mixer,
@@ -3058,6 +3205,18 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				lpa_SRS_trumedia_controls_I2S,
 			ARRAY_SIZE(lpa_SRS_trumedia_controls_I2S));
+
+	snd_soc_add_platform_controls(platform,
+				lpa_SRS_SS3D_controls,
+			ARRAY_SIZE(lpa_SRS_SS3D_controls));
+
+	snd_soc_add_platform_controls(platform,
+				lpa_SRS_SS3D_controls_HDMI,
+			ARRAY_SIZE(lpa_SRS_SS3D_controls_HDMI));
+
+	snd_soc_add_platform_controls(platform,
+				lpa_SRS_SS3D_controls_I2S,
+			ARRAY_SIZE(lpa_SRS_SS3D_controls_I2S));
 
 	snd_soc_add_platform_controls(platform,
 				ec_ref_rx_mixer_controls,

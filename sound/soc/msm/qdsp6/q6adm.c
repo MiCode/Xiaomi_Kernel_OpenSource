@@ -230,6 +230,182 @@ fail_cmd:
 	return ret;
 }
 
+struct SS3D {
+	int     _1;  int     _2;  short   _3;  short   _4;
+	short   _5;  short   _6;  int     _7;  int     _X[32];
+	short   _8;  short   _9;  short   _10; short   _11;
+	short   _12; short   _13; short   _14; short   _15;
+	short   _16; short   _17; short   _18; short	_19;
+	short   _20; short   _21; short   _22; short   _23;
+	short   _24; short   _25; short   _26[5];
+	short   _27; short   _28; short	  _29; short   _30;
+	short   _31; short   _32; short   _33; int     _34; int   _35;
+	int     _36; int     _37; int     _38; int     _39; int   _40;
+};
+
+struct SS3D_F {
+	int	_1; int _2; int _3; int _4; int _5; int _6; int _7; int _X[];
+};
+
+int srs_ss3d_open(int port_id, int srs_tech_id, void *srs_params)
+{
+	struct asm_pp_params_command *open = NULL;
+	int ret = 0, sz = 0;
+
+	int index;
+
+	pr_debug("SRS - %s: called.", __func__);
+
+	switch (srs_tech_id) {
+	case SRS_ID_SS3D_GLOBAL: {
+		struct srs_SS3D_params_GLOBAL *glb_params = NULL;
+		sz = sizeof(struct asm_pp_params_command) +
+			 sizeof(struct srs_SS3D_params_GLOBAL);
+		open = kzalloc(sz, GFP_KERNEL);
+
+		open->payload_size = sizeof(struct srs_SS3D_params_GLOBAL) +
+					 sizeof(struct asm_pp_param_data_hdr);
+		open->params.param_id = SRS_SS3D_PARAMS;
+		open->params.param_size =
+				 sizeof(struct srs_SS3D_params_GLOBAL);
+
+		glb_params = (struct srs_SS3D_params_GLOBAL *)((u8 *)open +
+				 sizeof(struct asm_pp_params_command));
+		memcpy(glb_params, srs_params,
+				 sizeof(struct srs_SS3D_params_GLOBAL));
+
+		pr_debug("SRS - ss3d global params - 1 = %x, 2 = %x, 3 = %x\n"
+			" 4 = %x, 5 = %x, 6 = %x, 7 = %x, 8 = %x\n",
+			(int)glb_params->v1, (int)glb_params->v2,
+			(int)glb_params->v3, (int)glb_params->v4,
+			(int)glb_params->v5, (int)glb_params->v6,
+			(int)glb_params->v7, (int)glb_params->v8);
+		break;
+	}
+	case SRS_ID_SS3D_CTRL: {
+		struct srs_SS3D_ctrl_params *whd_params = NULL;
+		sz = sizeof(struct asm_pp_params_command) +
+			 sizeof(struct srs_SS3D_ctrl_params);
+		open = kzalloc(sz, GFP_KERNEL);
+
+		open->payload_size = sizeof(struct srs_SS3D_ctrl_params) +
+			 sizeof(struct asm_pp_param_data_hdr);
+		open->params.param_id = SRS_SS3D_PARAMS_CTRL;
+		open->params.param_size = sizeof(struct srs_SS3D_ctrl_params);
+
+		whd_params = (struct srs_SS3D_ctrl_params *)((u8 *)open +
+				 sizeof(struct asm_pp_params_command));
+		memcpy(whd_params, srs_params,
+			 sizeof(struct srs_SS3D_ctrl_params));
+
+		{
+			struct SS3D *D = (struct SS3D *)whd_params->v;
+			pr_debug("SRS - ss3d ctrl params\n"
+				"1 = 0x%08X, 2 = 0x%08X, 3 = 0x%04X,\n"
+				"4 = 0x%04X, 5 = 0x%04X, 6 = 0x%04X,\n"
+				"7 = 0x%08X, 8 = 0x%04X, 9 = 0x%04X,\n"
+				"10 = 0x%04X, 11 = 0x%04X, 12 = 0x%04X,\n"
+				"13 = 0x%04X, 14 = 0x%04X, 15 = 0x%04X,\n"
+				"16 = 0x%04X, 17 = 0x%04X, 18 = 0x%04X,\n"
+				"19 = 0x%04X, 20 = 0x%04X, 21 = 0x%04X,\n"
+				"22 = 0x%04X, 23 = 0x%04X, 24 = 0x%04X,\n"
+				"25 = 0x%04X, 26.0 = 0x%04X, 26.1 = 0x%04X,\n"
+				"26.2 = 0x%04X, 26.3 = 0x%04X,\n"
+				"26.4 = 0x%04X, 27 = 0x%04X, 28 = 0x%04X,\n"
+				"29 = 0x%04X, 30 = 0x%04X, 31 = 0x%04X,\n"
+				"32 = 0x%04X, 33 = 0x%04X, 34 = 0x%08X,\n"
+				"35 = 0x%08X, 36 = 0x%08X, 37 = 0x%08X,\n"
+				"38 = 0x%08X, 39 = 0x%08X, 40 = 0x%08X",
+				D->_1, D->_2, D->_3, D->_4, D->_5, D->_6, D->_7,
+				D->_8, D->_9, D->_10, D->_11, D->_12, D->_13,
+				D->_14, D->_15, D->_16, D->_17, D->_18, D->_19,
+				D->_20,	D->_21, D->_22,	D->_23, D->_24, D->_25,
+				D->_26[0], D->_26[1], D->_26[2], D->_26[3],
+				D->_26[4], D->_27, D->_28, D->_29, D->_30,
+				D->_31, D->_32, D->_33, D->_34, D->_35, D->_36,
+				D->_37,	D->_38, D->_39, D->_40);
+		}
+		break;
+	}
+	case SRS_ID_SS3D_FILTER: {
+		struct srs_SS3D_filter_params *chp_params = NULL;
+		sz = sizeof(struct asm_pp_params_command) +
+			 sizeof(struct srs_SS3D_filter_params);
+		open = kzalloc(sz, GFP_KERNEL);
+
+		open->payload_size = sizeof(struct srs_SS3D_filter_params) +
+					sizeof(struct asm_pp_param_data_hdr);
+		open->params.param_id = SRS_SS3D_PARAMS_FILTER;
+		open->params.param_size =
+				 sizeof(struct srs_SS3D_filter_params);
+
+		chp_params = (struct srs_SS3D_filter_params *)((u8 *)open +
+				 sizeof(struct asm_pp_params_command));
+		memcpy(chp_params, srs_params,
+			 sizeof(struct srs_SS3D_filter_params));
+
+		{
+			struct SS3D_F *D = (struct SS3D_F *)chp_params->v;
+			pr_debug("SRS - ss3d filter params\n"
+				"1 = 0x%08X, 2 = 0x%08X, 3 = 0x%08X\n"
+				"4 = 0x%08X, 5 = 0x%08X, 6 = 0x%08X\n"
+				"7 = 0x%08X", D->_1, D->_2, D->_3, D->_4, D->_5,
+				D->_6, D->_7);
+		}
+		break;
+	}
+	default:
+		pr_debug("SRS - bad param!\n");
+		goto fail_cmd;
+	}
+
+	open->payload = NULL;
+
+	open->params.module_id = SRS_SS3D_MODULE_ID;
+	open->params.reserved = 0;
+
+	open->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				 APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	open->hdr.pkt_size = sz;
+	open->hdr.src_svc = APR_SVC_ADM;
+	open->hdr.src_domain = APR_DOMAIN_APPS;
+	open->hdr.src_port = port_id;
+	open->hdr.dest_svc = APR_SVC_ADM;
+	open->hdr.dest_domain = APR_DOMAIN_ADSP;
+
+	index = afe_get_port_index(port_id);
+	open->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+		 /* port_id;//atomic_read(&this_adm.copp_id[port_id]); */
+	open->hdr.token = port_id;
+	open->hdr.opcode = ADM_CMD_SET_PARAMS;
+
+	pr_debug("SRS - %s: Command was sent now check Q6 - port id = %d,\n"
+		"size %d, module id %x, param id %x.\n",
+		 __func__, open->hdr.dest_port, open->payload_size,
+		 open->params.module_id, open->params.param_id);
+
+	ret = apr_send_pkt(this_adm.apr, (uint32_t *)open);
+	if (ret < 0) {
+		pr_err("SRS - %s: ADM enable for port %d failed\n",
+			 __func__, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	/* Wait for the callback with copp id */
+	ret = wait_event_timeout(this_adm.wait, 1,
+		 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("SRS - %s: ADM open failed for port %d\n",
+			 __func__, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	kfree(open);
+	return ret;
+}
+
 static int32_t adm_callback(struct apr_client_data *data, void *priv)
 {
 	uint32_t *payload;
