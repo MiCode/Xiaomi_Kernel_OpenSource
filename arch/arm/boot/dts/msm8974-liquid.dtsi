@@ -245,6 +245,32 @@
 		qcom,ext-spk-amp-supply = <&ext_5v>;
 		qcom,ext-spk-amp-gpio = <&pm8841_mpps 1 0>;
 	};
+
+	hsic_hub {
+		compatible = "qcom,hsic-smsc-hub";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
+		smsc,refclk-gpio = <&pm8941_gpios 16 0x00>;
+		smsc,int-gpio = <&msmgpio 50 0x00>;
+		hub_int-supply = <&pm8941_l10>;
+		hub_vbus-supply = <&ext_5v>;
+
+		hsic@f9a00000 {
+			compatible = "qcom,hsic-host";
+			reg = <0xf9a00000 0x400>;
+			interrupts = <0 136 0>;
+			interrupt-names = "core_irq";
+			HSIC_VDDCX-supply = <&pm8841_s2>;
+			HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+			hsic,strobe-gpio = <&msmgpio 144 0x00>;
+			hsic,data-gpio = <&msmgpio 145 0x00>;
+			hsic,ignore-cal-pad-config;
+			hsic,strobe-pad-offset = <0x2050>;
+			hsic,data-pad-offset = <0x2054>;
+		};
+	};
 };
 
 &usb3 {
@@ -294,6 +320,11 @@
 	};
 
 	gpio@c700 { /* GPIO 8 */
+		/* HSIC_HUB-RESET */
+		qcom,mode = <1>;		/* DIG_OUT */
+		qcom,pull = <5>;		/* PULL_NO */
+		qcom,out-strength = <2>;	/* STRENGTH_MED */
+		qcom,master-en = <1>;
 	};
 
 	gpio@c800 { /* GPIO 9 */
@@ -341,6 +372,14 @@
 	};
 
 	gpio@cf00 { /* GPIO 16 */
+		/* HSIC_HUB-INT_N */
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>;
+		qcom,out-strength = <3>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
 	};
 
 	gpio@d000 { /* GPIO 17 */
