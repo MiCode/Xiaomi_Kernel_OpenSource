@@ -82,7 +82,7 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 #define ENHIST_LUT_ENTRIES 256
 #define HIST_V_SIZE	256
 
-#define HIST_WAIT_TIMEOUT	1000
+#define HIST_WAIT_TIMEOUT(frame) ((60 * HZ * (frame)) / 1000)
 /* hist collect state */
 enum {
 	HIST_UNKNOWN,
@@ -1455,8 +1455,7 @@ int mdss_mdp_hist_collect(struct fb_info *info,
 		if (hist_info->col_state != HIST_READY) {
 			hist_info->read_request = true;
 			spin_unlock_irqrestore(&mdss_hist_lock, flag);
-			timeout = HIST_WAIT_TIMEOUT *
-				hist_info->frame_cnt;
+			timeout = HIST_WAIT_TIMEOUT(hist_info->frame_cnt);
 			mutex_unlock(&mdss_mdp_hist_mutex);
 			wait_ret = wait_for_completion_killable_timeout(
 					&(hist_info->comp), timeout);
@@ -1464,9 +1463,21 @@ int mdss_mdp_hist_collect(struct fb_info *info,
 			mutex_lock(&mdss_mdp_hist_mutex);
 			if (wait_ret == 0) {
 				ret = -ETIMEDOUT;
-				pr_debug("%s: bin collection timedout",
-						__func__);
-				goto hist_collect_exit;
+				spin_lock_irqsave(&mdss_hist_lock, flag);
+				pr_debug("bin collection timedout, state %d",
+							hist_info->col_state);
+				/*
+				 * When the histogram has timed out (usually
+				 * underrun) change the SW state back to idle
+				 * since histogram hardware will have done the
+				 * same. Histogram data also needs to be
+				 * cleared in this case, which is done by the
+				 * histogram being read (triggered by READY
+				 * state, which also moves the histogram SW back
+				 * to IDLE).
+				 */
+				hist_info->col_state = HIST_READY;
+				spin_unlock_irqrestore(&mdss_hist_lock, flag);
 			} else if (wait_ret < 0) {
 				ret = -EINTR;
 				pr_debug("%s: bin collection interrupted",
