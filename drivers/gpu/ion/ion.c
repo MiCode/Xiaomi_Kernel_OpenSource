@@ -741,6 +741,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 
 	return client;
 }
+EXPORT_SYMBOL(ion_client_create);
 
 /**
  * ion_mark_dangling_buffers_locked() - Mark dangling buffers
