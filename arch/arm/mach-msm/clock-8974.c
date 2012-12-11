@@ -2550,6 +2550,7 @@ static struct clk_freq_tbl ftbl_mdss_mdp_clk[] = {
 	F_MM(133330000, mmpll0,   6,   0,   0),
 	F_MM(160000000, mmpll0,   5,   0,   0),
 	F_MM(200000000, mmpll0,   4,   0,   0),
+	F_MM(240000000,  gpll0, 2.5,   0,   0),
 	F_MM(266670000, mmpll0,   3,   0,   0),
 	F_MM(320000000, mmpll0, 2.5,   0,   0),
 	F_END
