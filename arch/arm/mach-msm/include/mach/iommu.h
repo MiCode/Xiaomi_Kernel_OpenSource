@@ -130,6 +130,7 @@ void msm_iommu_remove_drv(struct msm_iommu_drvdata *drv);
  * @secure_context	true if this is a secure context programmed by
 			the secure environment, false otherwise
  * @asid		ASID used with this context.
+ * @attach_count	Number of time this context has been attached.
  *
  * A msm_iommu_ctx_drvdata holds the driver data for a single context bank
  * within each IOMMU hardware instance
@@ -144,6 +145,7 @@ struct msm_iommu_ctx_drvdata {
 	unsigned int nsid;
 	unsigned int secure_context;
 	int asid;
+	int attach_count;
 };
 
 /*
