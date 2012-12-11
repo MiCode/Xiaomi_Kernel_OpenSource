@@ -75,7 +75,7 @@
 		interrupts = <0 105 0>;
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
-		qcom,i2c-src-freq = <24000000>;
+		qcom,i2c-src-freq = <19200000>;
 		gpios = <&msmgpio 83 0>, /* DAT  */
 			<&msmgpio 84 0>; /* CLK */
 	};
