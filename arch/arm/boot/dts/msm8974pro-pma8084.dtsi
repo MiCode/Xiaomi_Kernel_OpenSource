@@ -106,6 +106,19 @@
 		hfpll-analog-supply = <&pma8084_l12_ao>;
 	};
 
+	qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-8974pro-ac";
+		vdd_dig-supply = <&pma8084_s2_corner>;
+	};
+
+	qcom,mmsscc@fd8c0000 {
+		vdd_dig-supply = <&pma8084_s2_corner>;
+	};
+
+	qcom,lpasscc@fe000000 {
+		vdd_dig-supply = <&pma8084_s2_corner>;
+	};
+
 	qcom,ssusb@f9200000 {
 		/delete-property/ vbus_dwc3-supply;
 		/delete-property/ qcom,misc-ref;

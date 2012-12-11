@@ -11,6 +11,7 @@
  */
 
 #include "skeleton.dtsi"
+#include <dt-bindings/clock/msm-clocks-8974.h>
 
 / {
 	model = "Qualcomm MSM 8974";
@@ -132,6 +133,43 @@
 		ngpio = <146>;
 		interrupts = <0 208 0>;
 		qcom,direct-connect-irqs = <8>;
+	};
+
+	clock_rpm: qcom,rpmcc@fc4000000 {
+		compatible = "qcom,rpmcc-8974";
+		reg = <0xfc400000 0x4000>;
+		reg-names = "cc_base";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-8974";
+		reg = <0xfc400000 0x4000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pm8841_s2_corner>;
+		#clock-cells = <1>;
+	};
+
+	clock_mmss: qcom,mmsscc@fd8c0000 {
+		compatible = "qcom,mmsscc-8974";
+		reg = <0xfd8c0000 0x40000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pm8841_s2_corner>;
+		#clock-cells = <1>;
+	};
+
+	clock_lpass: qcom,lpasscc@fe000000 {
+		compatible = "qcom,lpasscc-8974";
+		reg = <0xfe000000 0x40000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pm8841_s2_corner>;
+		#clock-cells = <1>;
+	};
+
+	clock_debug: qcom,cc-debug@fc401880 {
+		compatible = "qcom,cc-debug-8974";
+		reg = <0xfc401880 0x4>;
+		#clock-cells = <1>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
