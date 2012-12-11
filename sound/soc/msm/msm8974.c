@@ -876,7 +876,7 @@ static struct snd_soc_ops msm8974_be_ops = {
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
-static struct snd_soc_dai_link msm8974_dai[] = {
+static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 	/* FrontEnd DAI Links */
 	{
 		.name = "MSM8974 Media1",
@@ -1181,19 +1181,6 @@ static struct snd_soc_dai_link msm8974_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-	/* HDMI BACK END DAI Link */
-	{
-		.name = LPASS_BE_HDMI,
-		.stream_name = "HDMI Playback",
-		.cpu_dai_name = "msm-dai-q6-hdmi.8",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_HDMI_RX,
-		.be_hw_params_fixup = msm8974_hdmi_be_hw_params_fixup,
-		.ignore_pmdown_time = 1,
-	},
 	/* AUX PCM Backend DAI Links */
 	{
 		.name = LPASS_BE_AUXPCM_RX,
@@ -1352,10 +1339,28 @@ static struct snd_soc_dai_link msm8974_dai[] = {
 	},
 };
 
+static struct snd_soc_dai_link msm8974_hdmi_dai_link[] = {
+/* HDMI BACK END DAI Link */
+	{
+		.name = LPASS_BE_HDMI,
+		.stream_name = "HDMI Playback",
+		.cpu_dai_name = "msm-dai-q6-hdmi.8",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-hdmi-audio-codec-rx",
+		.codec_dai_name = "msm_hdmi_audio_codec_rx_dai",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_HDMI_RX,
+		.be_hw_params_fixup = msm8974_hdmi_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+	},
+};
+
+static struct snd_soc_dai_link msm8974_dai_links[
+					 ARRAY_SIZE(msm8974_common_dai_links) +
+					 ARRAY_SIZE(msm8974_hdmi_dai_link)];
+
 struct snd_soc_card snd_soc_card_msm8974 = {
 	.name		= "msm8974-taiko-snd-card",
-	.dai_link	= msm8974_dai,
-	.num_links	= ARRAY_SIZE(msm8974_dai),
 };
 
 static int msm8974_prepare_codec_mclk(struct snd_soc_card *card)
@@ -1451,6 +1456,25 @@ static int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	ret = msm8974_prepare_codec_mclk(card);
 	if (ret)
 		goto err;
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,hdmi-audio-rx")) {
+		dev_info(&pdev->dev, "%s(): hdmi audio support present\n",
+				__func__);
+
+		memcpy(msm8974_dai_links, msm8974_common_dai_links,
+			sizeof(msm8974_common_dai_links));
+
+		memcpy(msm8974_dai_links + ARRAY_SIZE(msm8974_common_dai_links),
+			msm8974_hdmi_dai_link, sizeof(msm8974_hdmi_dai_link));
+
+		card->dai_link	= msm8974_dai_links;
+		card->num_links	= ARRAY_SIZE(msm8974_dai_links);
+	} else {
+		dev_info(&pdev->dev, "%s(): No hdmi audio support\n", __func__);
+
+		card->dai_link	= msm8974_common_dai_links;
+		card->num_links	= ARRAY_SIZE(msm8974_common_dai_links);
+	}
 
 	ret = snd_soc_register_card(card);
 	if (ret) {

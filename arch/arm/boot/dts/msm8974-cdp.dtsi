@@ -156,6 +156,7 @@
 
 	sound {
 		qcom,model = "msm8974-taiko-cdp-snd-card";
+		qcom,hdmi-audio-rx;
 	};
 };
 

@@ -358,6 +358,9 @@ Required properties:
 - qcom,taiko-mclk-clk-freq : Taiko mclk Freq in Hz. currently only 9600000Hz
 				is supported.
 
+Optional properties:
+- qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
+
 Example:
 
 sound {
@@ -396,6 +399,8 @@ sound {
 	qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
 	taiko-mclk-clk = <&pm8941_clkdiv1>;
 	qcom,taiko-mclk-clk-freq = <9600000>;
+
+	qcom,hdmi-audio-rx;
 };
 
 * msm-dai-mi2s

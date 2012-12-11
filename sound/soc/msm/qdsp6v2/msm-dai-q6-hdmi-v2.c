@@ -23,8 +23,6 @@
 #include <sound/apr_audio-v2.h>
 #include <sound/q6afe-v2.h>
 #include <sound/msm-dai-q6-v2.h>
-#include <mach/msm_hdmi_audio.h>
-
 
 enum {
 	STATUS_PORT_STARTED, /* track if AFE port has started */
@@ -88,9 +86,6 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_hdmi_dai_data *dai_data = dev_get_drvdata(dai->dev);
-	u32 channel_allocation = 0;
-	u32 level_shift  = 0; /* 0dB */
-	bool down_mix = FALSE;
 
 	dai_data->channels = params_channels(params);
 	dai_data->rate = params_rate(params);
@@ -101,33 +96,21 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 
 	switch (dai_data->channels) {
 	case 2:
-		channel_allocation  = 0;
-		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_2,
-				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch.channel_allocation =
-			channel_allocation;
+		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0;
 		break;
 	case 6:
-		channel_allocation  = 0x0B;
-		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_6,
-				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch.channel_allocation =
-				channel_allocation;
+		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0x0B;
 		break;
 	case 8:
-		channel_allocation  = 0x1F;
-		hdmi_msm_audio_info_setup(1, MSM_HDMI_AUDIO_CHANNEL_8,
-				channel_allocation, level_shift, down_mix);
-		dai_data->port_config.hdmi_multi_ch.channel_allocation =
-				channel_allocation;
+		dai_data->port_config.hdmi_multi_ch.channel_allocation = 0x13;
 		break;
 	default:
 		dev_err(dai->dev, "invalid Channels = %u\n",
 				dai_data->channels);
 		return -EINVAL;
 	}
-	dev_dbg(dai->dev, "%s() minor version: %u samplerate: %u bitwidth: %u num_ch = %u channel_allocation = %u datatype = %d\n",
-		 __func__,
+	dev_dbg(dai->dev, "%s() minor version: %u samplerate: %u bitwidth: %u\n"
+		"num_ch = %u channel_allocation = %u datatype = %d\n", __func__,
 		dai_data->port_config.hdmi_multi_ch.hdmi_cfg_minor_version,
 		dai_data->port_config.hdmi_multi_ch.sample_rate,
 		dai_data->port_config.hdmi_multi_ch.bit_width,
@@ -239,7 +222,7 @@ static struct snd_soc_dai_driver msm_dai_q6_hdmi_hdmi_rx_dai = {
 		.rates = SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.channels_min = 2,
-		.channels_max = 6,
+		.channels_max = 8,
 		.rate_max =     48000,
 		.rate_min =	48000,
 	},
