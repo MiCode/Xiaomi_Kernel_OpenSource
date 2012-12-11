@@ -398,8 +398,8 @@ int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 			pr_err("%s: src pipe connection failure\n", __func__);
 			return ret;
 		}
+		connection->src_enabled = 1;
 	}
-	connection->src_enabled = 1;
 
 	if (dst_pipe_idx) {
 		/* open Peripheral -> USB pipe */
@@ -409,8 +409,8 @@ int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 			pr_err("%s: dst pipe connection failure\n", __func__);
 			return ret;
 		}
+		connection->dst_enabled = 1;
 	}
-	connection->dst_enabled = 1;
 
 	return 0;
 }
