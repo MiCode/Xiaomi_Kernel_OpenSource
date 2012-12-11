@@ -37,6 +37,7 @@
 		#gpio-cells = <2>;
 		ngpio = <102>;
 		interrupts = <0 208 0>;
+		qcom,direct-connect-irqs = <8>;
 	};
 
 	timer {

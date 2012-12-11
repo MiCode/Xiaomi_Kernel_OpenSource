@@ -42,6 +42,7 @@
 		reg = <0xfd510000 0x4000>;
 		ngpio = <146>;
 		interrupts = <0 208 0>;
+		qcom,direct-connect-irqs = <8>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {

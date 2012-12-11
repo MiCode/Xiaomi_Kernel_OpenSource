@@ -11,6 +11,8 @@ Required properties:
 - interrupt-controller: Mark the device node as an interrupt controller
 - interrupts : Specify the TLMM summary interrupt number
 - ngpio : Specify the number of MSM GPIOs
+- qcom,direct-connect-irqs : Specifies the number of GPIOs that can be used as
+  direct connect interrupts
 
 Example:
 
@@ -23,6 +25,7 @@ Example:
 		reg = <0xfd510000 0x4000>;
 		interrupts = <0 208 0>;
 		ngpio = <150>;
+		qcom,direct-connect-irqs = <8>;
 	};
 
 To specify gpios for a device:

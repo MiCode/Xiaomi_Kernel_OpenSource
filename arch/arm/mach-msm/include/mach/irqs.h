@@ -37,12 +37,6 @@
 #include "irqs-8092.h"
 #endif
 
-#define NR_TLMM_MSM_DIR_CONN_IRQ 8
-
-#elif defined(CONFIG_ARCH_MSM8910) || defined(CONFIG_ARCH_MSM8226)
-
-#define NR_TLMM_MSM_DIR_CONN_IRQ 8
-
 #elif defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930)
 
@@ -75,7 +69,6 @@
 #define NR_BOARD_IRQS (NR_PM8921_IRQS + NR_PM8821_IRQS + \
 		NR_WCD9XXX_IRQS + NR_GPIO_EXPANDER_IRQS)
 #endif
-#define NR_TLMM_MSM_DIR_CONN_IRQ 8 /*Need to Verify this Count*/
 #define NR_MSM_GPIOS NR_GPIO_IRQS
 
 #else
@@ -103,8 +96,6 @@
 #elif defined(CONFIG_ARCH_FSM9XXX)
 #include "irqs-fsm9xxx.h"
 #include "sirc.h"
-#else
-#error "Unknown architecture specification"
 #endif
 
 #endif
@@ -127,7 +118,6 @@
 #define NR_MSM_IRQS 288
 #define NR_GPIO_IRQS 76
 #define NR_BOARD_IRQS 0
-#define NR_TLMM_MSM_DIR_CONN_IRQ 8 /*Need to Verify this Count*/
 
 #endif
 
