@@ -818,7 +818,7 @@ venc_set_format_fail:
 static long venc_set_framerate(struct v4l2_subdev *sd, void *arg)
 {
 	struct venc_inst *inst = NULL;
-	struct v4l2_control ctrl = {0};
+	struct v4l2_streamparm p = {0};
 
 	if (!sd) {
 		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
@@ -829,9 +829,9 @@ static long venc_set_framerate(struct v4l2_subdev *sd, void *arg)
 	}
 
 	inst = (struct venc_inst *)sd->dev_priv;
-	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE;
-	ctrl.value = 30;
-	return msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
+	p.type = BUF_TYPE_INPUT;
+	p.parm.output.timeperframe = *(struct v4l2_fract *)arg;
+	return msm_vidc_s_parm(inst->vidc_context, &p);
 }
 
 static long venc_fill_outbuf(struct v4l2_subdev *sd, void *arg)
