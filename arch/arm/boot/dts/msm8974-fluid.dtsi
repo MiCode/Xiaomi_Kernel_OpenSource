@@ -172,6 +172,7 @@
 
 	sound {
 		qcom,model = "msm8974-taiko-fluid-snd-card";
+		qcom,hdmi-audio-rx;
 	};
 };
 
