@@ -44,6 +44,8 @@ enum ion_heap_type {
 #define ION_HEAP_SYSTEM_CONTIG_MASK	(1 << ION_HEAP_TYPE_SYSTEM_CONTIG)
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
 
+#define ION_NUM_HEAP_IDS		sizeof(unsigned int) * 8
+
 /**
  * heap flags - the lower 16 bits are used by core ion, the upper 16
  * bits are reserved for use by the heaps themselves.
@@ -66,12 +68,12 @@ enum ion_heap_type {
 
 /**
  * struct ion_allocation_data - metadata passed from userspace for allocations
- * @len:	size of the allocation
- * @align:	required alignment of the allocation
- * @heap_mask:	mask of heaps to allocate from
- * @flags:	flags passed to heap
- * @handle:	pointer that will be populated with a cookie to use to refer
- *		to this allocation
+ * @len:		size of the allocation
+ * @align:		required alignment of the allocation
+ * @heap_id_mask:	mask of heap ids to allocate from
+ * @flags:		flags passed to heap
+ * @handle:		pointer that will be populated with a cookie to use to 
+ *			refer to this allocation
  *
  * Provided by userspace as an argument to the ioctl
  */
