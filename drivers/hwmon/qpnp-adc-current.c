@@ -294,7 +294,7 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 
 	qpnp_iadc_dig_param_reg |= iadc->adc->amux_prop->decimation <<
 					QPNP_IADC_DEC_RATIO_SEL;
-
+	qpnp_iadc_mode_reg |= QPNP_ADC_TRIM_EN;
 	qpnp_iadc_conv_req = QPNP_IADC_CONV_REQ;
 
 	rc = qpnp_iadc_write_reg(QPNP_IADC_MODE_CTL, qpnp_iadc_mode_reg);
