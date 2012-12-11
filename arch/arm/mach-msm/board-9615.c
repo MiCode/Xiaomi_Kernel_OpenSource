@@ -882,7 +882,9 @@ static struct platform_device *common_devices[] = {
 	&msm_device_hsic_host,
 	&msm_device_usb_bam,
 	&msm_android_usb_device,
+#ifdef CONFIG_USB_CI13XXX_MSM_HSIC
 	&msm_android_usb_hsic_device,
+#endif
 	&msm9615_device_uart_gsbi4,
 	&msm9615_device_ext_2p95v_vreg,
 	&msm9615_device_ssbi_pmic1,
