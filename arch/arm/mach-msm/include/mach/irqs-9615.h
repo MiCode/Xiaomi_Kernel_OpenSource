@@ -181,7 +181,6 @@
 #define NR_WCD9XXX_IRQS 49
 #define NR_TABLA_IRQS NR_WCD9XXX_IRQS
 #define NR_BOARD_IRQS (NR_PM8018_IRQS + NR_WCD9XXX_IRQS)
-#define NR_TLMM_MSM_DIR_CONN_IRQ 8 /*Need to Verify this Count*/
 #define NR_MSM_GPIOS NR_GPIO_IRQS
 
 /* Backwards compatible IRQ macros. */

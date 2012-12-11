@@ -110,6 +110,7 @@ static struct resource msm_gpio_resources[] = {
 
 static struct msm_gpio_pdata msm8660_gpio_pdata = {
 	.ngpio = 173,
+	.direct_connect_irqs = 10,
 };
 
 struct platform_device msm_gpio_device = {
