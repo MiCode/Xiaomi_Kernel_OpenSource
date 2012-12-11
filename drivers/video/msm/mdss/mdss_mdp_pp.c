@@ -188,6 +188,8 @@ static void pp_update_gc_one_lut(u32 offset,
 		struct mdp_ar_gc_lut_data *lut_data);
 static void pp_update_argc_lut(u32 offset,
 		struct mdp_pgc_lut_data *config);
+static void pp_update_hist_lut(u32 offset, struct mdp_hist_lut_data *cfg);
+
 
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 				   struct mdp_csc_cfg *data)
@@ -354,6 +356,17 @@ static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
 	else if (gamut_cfg->flags & MDP_PP_OPS_ENABLE)
 		*gamut_sts |= PP_STS_ENABLE;
 }
+
+/* Note: Assumes that its inputs have been checked by calling function */
+static void pp_update_hist_lut(u32 offset, struct mdp_hist_lut_data *cfg)
+{
+	int i;
+	for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
+		MDSS_MDP_REG_WRITE(offset, cfg->data[i]);
+	/* swap */
+	MDSS_MDP_REG_WRITE(offset + 4, 1);
+}
+
 static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_mixer *mixer)
 {
@@ -466,10 +479,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 		enhist_cfg = &mdss_pp_res->enhist_disp_cfg[disp_num];
 		if (enhist_cfg->ops & MDP_PP_OPS_WRITE) {
 			offset = base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
-			for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
-				MDSS_MDP_REG_WRITE(offset, enhist_cfg->data[i]);
-			/* swap */
-			MDSS_MDP_REG_WRITE(offset + 4, 1);
+			pp_update_hist_lut(offset, enhist_cfg);
 		}
 		if (enhist_cfg->ops & MDP_PP_OPS_DISABLE)
 			pp_sts->enhist_sts &= ~PP_STS_ENABLE;
@@ -555,6 +565,10 @@ int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl)
 int mdss_mdp_pp_init(struct device *dev)
 {
 	int ret = 0;
+	int i;
+	u32 offset;
+	uint32_t data[ENHIST_LUT_ENTRIES];
+
 	mutex_lock(&mdss_pp_mutex);
 	if (!mdss_pp_res) {
 		mdss_pp_res = devm_kzalloc(dev, sizeof(*mdss_pp_res),
@@ -562,6 +576,18 @@ int mdss_mdp_pp_init(struct device *dev)
 		if (mdss_pp_res == NULL) {
 			pr_err("%s mdss_pp_res allocation failed!", __func__);
 			ret = -ENOMEM;
+		}
+
+		for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
+			data[i] = i;
+
+		/* Initialize Histogram LUT for all DSPPs */
+		for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
+			offset = MDSS_MDP_REG_DSPP_OFFSET(i) +
+						MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
+			mdss_pp_res->enhist_disp_cfg[i].data = data;
+			pp_update_hist_lut(offset,
+					&mdss_pp_res->enhist_disp_cfg[i]);
 		}
 	}
 	mutex_unlock(&mdss_pp_mutex);
