@@ -171,6 +171,47 @@ static int32_t qpnp_iadc_write_reg(uint32_t reg, u8 data)
 	return 0;
 }
 
+static int32_t qpnp_iadc_status_debug(void)
+{
+	int rc = 0;
+	u8 mode = 0, status1 = 0, chan = 0, dig = 0, en = 0;
+
+	rc = qpnp_iadc_read_reg(QPNP_IADC_MODE_CTL, &mode);
+	if (rc < 0) {
+		pr_err("mode ctl register read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_iadc_read_reg(QPNP_ADC_DIG_PARAM, &dig);
+	if (rc < 0) {
+		pr_err("digital param read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_iadc_read_reg(QPNP_IADC_ADC_CH_SEL_CTL, &chan);
+	if (rc < 0) {
+		pr_err("channel read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_iadc_read_reg(QPNP_STATUS1, &status1);
+	if (rc < 0) {
+		pr_err("status1 read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_iadc_read_reg(QPNP_IADC_EN_CTL1, &en);
+	if (rc < 0) {
+		pr_err("en read failed with %d\n", rc);
+		return rc;
+	}
+
+	pr_err("EOC not set with status:%x, dig:%x, ch:%x, mode:%x, en:%x\n",
+			status1, dig, chan, mode, en);
+
+	return 0;
+}
+
 static void trigger_iadc_completion(struct work_struct *work)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
@@ -311,11 +352,14 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 		if (status1 == QPNP_STATUS1_EOC)
 			pr_debug("End of conversion status set\n");
 		else {
-			pr_err("EOC interrupt not received\n");
+			rc = qpnp_iadc_status_debug();
+			if (rc < 0) {
+				pr_err("status1 read failed with %d\n", rc);
+				return rc;
+			}
 			return -EINVAL;
 		}
 	}
-
 
 	rc = qpnp_iadc_read_conversion_result(raw_code);
 	if (rc) {
