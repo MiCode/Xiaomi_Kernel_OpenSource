@@ -166,17 +166,22 @@ static void mov_buf_to_vc(struct work_struct *work)
 void update_nr_value(struct vcap_dev *dev)
 {
 	struct nr_param *par;
+	uint32_t val = 0;
 	par = &dev->nr_param;
 	if (par->mode == NR_MANUAL) {
 		writel_relaxed(par->window << 24 | par->decay_ratio << 20,
 			VCAP_VP_NR_CONFIG);
-		writel_relaxed(par->luma.max_blend_ratio << 24 |
+		if (par->threshold)
+			val = VP_NR_DYNAMIC_THRESHOLD;
+		writel_relaxed(val |
+			par->luma.max_blend_ratio << 24 |
 			par->luma.scale_diff_ratio << 12 |
 			par->luma.diff_limit_ratio << 8  |
 			par->luma.scale_motion_ratio << 4 |
 			par->luma.blend_limit_ratio << 0,
 			VCAP_VP_NR_LUMA_CONFIG);
-		writel_relaxed(par->chroma.max_blend_ratio << 24 |
+		writel_relaxed(val |
+			par->chroma.max_blend_ratio << 24 |
 			par->chroma.scale_diff_ratio << 12 |
 			par->chroma.diff_limit_ratio << 8  |
 			par->chroma.scale_motion_ratio << 4 |
@@ -646,6 +651,9 @@ void nr_g_param(struct vcap_client_data *c_data, struct nr_param *param)
 	param->decay_ratio = BITS_VALUE(rc, 20, 3);
 
 	rc = readl_relaxed(VCAP_VP_NR_LUMA_CONFIG);
+	param->threshold = NR_THRESHOLD_STATIC;
+	if (BITS_VALUE(rc, 16, 1))
+		param->threshold = NR_THRESHOLD_DYNAMIC;
 	param->luma.max_blend_ratio = BITS_VALUE(rc, 24, 4);
 	param->luma.scale_diff_ratio = BITS_VALUE(rc, 12, 4);
 	param->luma.diff_limit_ratio = BITS_VALUE(rc, 8, 4);
@@ -662,6 +670,7 @@ void nr_g_param(struct vcap_client_data *c_data, struct nr_param *param)
 
 void s_default_nr_val(struct nr_param *param)
 {
+	param->threshold = NR_THRESHOLD_STATIC;
 	param->window = 10;
 	param->decay_ratio = 0;
 	param->luma.max_blend_ratio = 0;
