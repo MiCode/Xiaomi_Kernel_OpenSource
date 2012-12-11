@@ -501,7 +501,7 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 	} /* Get log masks */
 	else if (*buf == 0x73 && *(int *)(buf+4) == 4) {
 #if defined(CONFIG_DIAG_OVER_USB)
-		if (!(driver->smd_data[SMD_MODEM_INDEX].ch) &&
+		if (!(driver->smd_data[MODEM_DATA].ch) &&
 						chk_apps_only()) {
 			equip_id = *(int *)(buf + 8);
 			num_items = *(int *)(buf + 12);
@@ -550,7 +550,7 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 		ssid_first = *(uint16_t *)(buf + 2);
 		ssid_last = *(uint16_t *)(buf + 4);
 #if defined(CONFIG_DIAG_OVER_USB)
-		if (!(driver->smd_data[SMD_MODEM_INDEX].ch) &&
+		if (!(driver->smd_data[MODEM_DATA].ch) &&
 						chk_apps_only()) {
 			driver->apps_rsp_buf[0] = 0x7d;
 			driver->apps_rsp_buf[1] = 0x3;

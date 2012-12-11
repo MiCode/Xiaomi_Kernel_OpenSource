@@ -321,7 +321,7 @@ int diag_find_polling_reg(int i)
 	return 0;
 }
 
-void diag_clear_reg(int proc_num)
+void diag_clear_reg(int peripheral)
 {
 	int i;
 
@@ -329,9 +329,8 @@ void diag_clear_reg(int proc_num)
 	/* reset polling flag */
 	driver->polling_reg_flag = 0;
 	for (i = 0; i < diag_max_reg; i++) {
-		if (driver->table[i].client_id == proc_num) {
+		if (driver->table[i].client_id == peripheral)
 			driver->table[i].process_id = 0;
-		}
 	}
 	/* re-scan the registration table */
 	for (i = 0; i < diag_max_reg; i++) {
@@ -358,7 +357,7 @@ void diag_add_reg(int j, struct bindpkt_params *params,
 			driver->polling_reg_flag = 1;
 	if (params->proc_id == APPS_PROC) {
 		driver->table[j].process_id = current->tgid;
-		driver->table[j].client_id = APPS_PROC;
+		driver->table[j].client_id = APPS_DATA;
 	} else {
 		driver->table[j].process_id = NON_APPS_PROC;
 		driver->table[j].client_id = params->client_id;
@@ -550,7 +549,8 @@ long diagchar_ioctl(struct file *filp,
 			return -EFAULT;
 		mutex_lock(&driver->dci_mutex);
 		if (!(driver->num_dci_client))
-			driver->smd_dci[SMD_MODEM_INDEX].in_busy_1 = 0;
+			for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
+				driver->smd_dci[i].in_busy_1 = 0;
 		driver->num_dci_client++;
 		pr_debug("diag: In %s, id = %d\n",
 				__func__, driver->dci_client_id);
@@ -602,9 +602,11 @@ long diagchar_ioctl(struct file *filp,
 		mutex_unlock(&driver->dci_mutex);
 		return success;
 	} else if (iocmd == DIAG_IOCTL_DCI_SUPPORT) {
-		if (driver->smd_dci[SMD_MODEM_INDEX].ch)
-			support_list |=
-			driver->smd_dci[SMD_MODEM_INDEX].peripheral_mask;
+		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
+			if (driver->smd_dci[i].ch)
+				support_list |=
+				driver->smd_dci[i].peripheral_mask;
+		}
 		if (copy_to_user((void *)ioarg, &support_list,
 							 sizeof(uint16_t)))
 			return -EFAULT;
@@ -1058,11 +1060,12 @@ drop_hsic:
 			}
 		}
 		driver->data_ready[index] ^= DCI_DATA_TYPE;
-		driver->smd_dci[SMD_MODEM_INDEX].in_busy_1 = 0;
-		if (driver->smd_dci[SMD_MODEM_INDEX].ch)
-			queue_work(driver->diag_dci_wq,
-				&(driver->smd_dci[SMD_MODEM_INDEX].
-						diag_read_smd_work));
+		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
+			driver->smd_dci[i].in_busy_1 = 0;
+			if (driver->smd_dci[i].ch)
+				queue_work(driver->diag_dci_wq,
+				&(driver->smd_dci[i].diag_read_smd_work));
+		}
 		goto exit;
 	}
 exit:

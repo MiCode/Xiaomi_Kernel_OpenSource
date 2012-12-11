@@ -37,7 +37,7 @@ void diag_update_sleeping_process(int process_id, int data_type);
 void encode_rsp_and_send(int buf_length);
 void diag_smd_notify(void *ctxt, unsigned event);
 int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
-			 int type, uint16_t peripheral_mask);
+			 int type);
 void diag_smd_destructor(struct diag_smd_info *smd_info);
 /* State for diag forwarding */
 #ifdef CONFIG_DIAG_OVER_USB

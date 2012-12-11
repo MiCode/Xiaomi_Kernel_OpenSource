@@ -56,26 +56,26 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"RIVA in_busy_2: %d\n"
 		"DCI Modem in_busy_1: %d\n"
 		"logging_mode: %d\n",
-		(unsigned int)driver->smd_data[SMD_MODEM_INDEX].ch,
-		(unsigned int)driver->smd_data[SMD_LPASS_INDEX].ch,
-		(unsigned int)driver->smd_data[SMD_WCNSS_INDEX].ch,
-		(unsigned int)driver->smd_dci[SMD_MODEM_INDEX].ch,
-		(unsigned int)driver->smd_cntl[SMD_MODEM_INDEX].ch,
-		(unsigned int)driver->smd_cntl[SMD_LPASS_INDEX].ch,
-		(unsigned int)driver->smd_cntl[SMD_WCNSS_INDEX].ch,
+		(unsigned int)driver->smd_data[MODEM_DATA].ch,
+		(unsigned int)driver->smd_data[LPASS_DATA].ch,
+		(unsigned int)driver->smd_data[WCNSS_DATA].ch,
+		(unsigned int)driver->smd_dci[MODEM_DATA].ch,
+		(unsigned int)driver->smd_cntl[MODEM_DATA].ch,
+		(unsigned int)driver->smd_cntl[LPASS_DATA].ch,
+		(unsigned int)driver->smd_cntl[WCNSS_DATA].ch,
 		chk_config_get_id(),
 		chk_apps_only(),
 		chk_apps_master(),
 		chk_polling_response(),
 		driver->polling_reg_flag,
 		driver->use_device_tree,
-		driver->smd_data[SMD_MODEM_INDEX].in_busy_1,
-		driver->smd_data[SMD_MODEM_INDEX].in_busy_2,
-		driver->smd_data[SMD_LPASS_INDEX].in_busy_1,
-		driver->smd_data[SMD_LPASS_INDEX].in_busy_2,
-		driver->smd_data[SMD_WCNSS_INDEX].in_busy_1,
-		driver->smd_data[SMD_WCNSS_INDEX].in_busy_2,
-		driver->smd_dci[SMD_MODEM_INDEX].in_busy_1,
+		driver->smd_data[MODEM_DATA].in_busy_1,
+		driver->smd_data[MODEM_DATA].in_busy_2,
+		driver->smd_data[LPASS_DATA].in_busy_1,
+		driver->smd_data[LPASS_DATA].in_busy_2,
+		driver->smd_data[WCNSS_DATA].in_busy_1,
+		driver->smd_data[WCNSS_DATA].in_busy_2,
+		driver->smd_dci[MODEM_DATA].in_busy_1,
 		driver->logging_mode);
 
 #ifdef CONFIG_DIAG_OVER_USB
@@ -119,33 +119,33 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 		"RIVA cntl diag_notify_update_smd_work: %d\n"
 		"Modem dci diag_notify_update_smd_work: %d\n",
 		work_pending(&(driver->diag_drain_work)),
-		work_pending(&(driver->smd_data[SMD_MODEM_INDEX].
+		work_pending(&(driver->smd_data[MODEM_DATA].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[SMD_LPASS_INDEX].
+		work_pending(&(driver->smd_data[LPASS_DATA].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[SMD_WCNSS_INDEX].
+		work_pending(&(driver->smd_data[WCNSS_DATA].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[SMD_MODEM_INDEX].
+		work_pending(&(driver->smd_cntl[MODEM_DATA].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[SMD_LPASS_INDEX].
+		work_pending(&(driver->smd_cntl[LPASS_DATA].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[SMD_WCNSS_INDEX].
+		work_pending(&(driver->smd_cntl[WCNSS_DATA].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[SMD_MODEM_INDEX].
+		work_pending(&(driver->smd_dci[MODEM_DATA].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[SMD_MODEM_INDEX].
+		work_pending(&(driver->smd_data[MODEM_DATA].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_data[SMD_LPASS_INDEX].
+		work_pending(&(driver->smd_data[LPASS_DATA].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_data[SMD_WCNSS_INDEX].
+		work_pending(&(driver->smd_data[WCNSS_DATA].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[SMD_MODEM_INDEX].
+		work_pending(&(driver->smd_cntl[MODEM_DATA].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[SMD_LPASS_INDEX].
+		work_pending(&(driver->smd_cntl[LPASS_DATA].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[SMD_WCNSS_INDEX].
+		work_pending(&(driver->smd_cntl[WCNSS_DATA].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[SMD_MODEM_INDEX].
+		work_pending(&(driver->smd_dci[MODEM_DATA].
 						diag_notify_update_smd_work)));
 
 #ifdef CONFIG_DIAG_OVER_USB
@@ -185,6 +185,15 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	}
 
 	bytes_remaining = buf_size;
+
+	if (diag_dbgfs_table_index == 0) {
+		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
+			"Client ids: Modem: %d, LPASS: %d, "
+			"WCNSS: %d, APPS: %d\n",
+			MODEM_DATA, LPASS_DATA, WCNSS_DATA, APPS_DATA);
+		bytes_in_buffer += bytes_written;
+	}
+
 	for (i = diag_dbgfs_table_index; i < diag_max_reg; i++) {
 		/* Do not process empty entries in the table */
 		if (driver->table[i].process_id == 0)
