@@ -57,6 +57,9 @@ Parent node optional properties:
 - qcom,bms-use-voltage-soc : A boolean that controls whether BMS will use
 			voltage-based SoC instead of a coulomb counter based
 			one. Voltage-based SoC will not guarantee linearity.
+- qcom,bms-use-external-rsense : A boolean that controls whether BMS will use
+			an external sensor resistor instead of the default
+			RDS of the batfet.
 
 All sub node required properties:
 - reg : offset and length of the PMIC peripheral register map.

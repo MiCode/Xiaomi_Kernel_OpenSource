@@ -231,27 +231,38 @@ static int qpnp_write_wrapper(struct qpnp_bms_chip *chip, u8 *val,
 	return 0;
 }
 
-static int qpnp_masked_write(struct qpnp_bms_chip *chip, u16 addr,
+static int qpnp_masked_write_base(struct qpnp_bms_chip *chip, u16 addr,
 							u8 mask, u8 val)
 {
 	int rc;
 	u8 reg;
 
-	rc = qpnp_read_wrapper(chip, &reg, chip->base + addr, 1);
+	rc = qpnp_read_wrapper(chip, &reg, addr, 1);
 	if (rc) {
-		pr_err("read failed addr = %03X, rc = %d\n",
-				chip->base + addr, rc);
+		pr_err("read failed addr = %03X, rc = %d\n", addr, rc);
 		return rc;
 	}
 	reg &= ~mask;
 	reg |= val & mask;
-	rc = qpnp_write_wrapper(chip, &reg, chip->base + addr, 1);
+	rc = qpnp_write_wrapper(chip, &reg, addr, 1);
 	if (rc) {
 		pr_err("write failed addr = %03X, val = %02x, mask = %02x, reg = %02x, rc = %d\n",
-				chip->base + addr, val, mask, reg, rc);
+					addr, val, mask, reg, rc);
 		return rc;
 	}
 	return 0;
+}
+
+static int qpnp_masked_write_iadc(struct qpnp_bms_chip *chip, u16 addr,
+							u8 mask, u8 val)
+{
+	return qpnp_masked_write_base(chip, chip->iadc_base + addr, mask, val);
+}
+
+static int qpnp_masked_write(struct qpnp_bms_chip *chip, u16 addr,
+							u8 mask, u8 val)
+{
+	return qpnp_masked_write_base(chip, chip->base + addr, mask, val);
 }
 
 #define HOLD_OREG_DATA		BIT(0)
@@ -1950,6 +1961,9 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	SPMI_PROP_READ(low_soc_calculate_soc_ms,
 			"low-soc-calculate-soc-ms", rc);
 	SPMI_PROP_READ(calculate_soc_ms, "calculate-soc-ms", rc);
+	chip->use_external_rsense = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,bms-use-external-rsense");
 	chip->ignore_shutdown_soc = of_property_read_bool(
 			chip->spmi->dev.of_node,
 			"qcom,bms-ignore-shutdown-soc");
@@ -1970,7 +1984,7 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 			chip->batt_type);
 	pr_debug("ignore_shutdown_soc:%d, use_voltage_soc:%d\n",
 			chip->ignore_shutdown_soc, chip->use_voltage_soc);
-
+	pr_debug("use external rsense: %d\n", chip->use_external_rsense);
 	return 0;
 }
 
@@ -2070,10 +2084,36 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 	iadc_channel_select &= ADC_CH_SEL_MASK;
 	if (iadc_channel_select == INTERNAL_RSENSE) {
 		pr_debug("Internal rsense used\n");
-		chip->use_external_rsense = false;
+		if (chip->use_external_rsense) {
+			pr_debug("Changing rsense to external\n");
+			rc = qpnp_masked_write_iadc(chip,
+					IADC1_BMS_ADC_CH_SEL_CTL,
+					ADC_CH_SEL_MASK,
+					EXTERNAL_RSENSE);
+			if (rc) {
+				pr_err("Unable to set IADC1_BMS channel %x to %x: %d\n",
+						IADC1_BMS_ADC_CH_SEL_CTL,
+						EXTERNAL_RSENSE, rc);
+				return rc;
+			}
+			reset_cc(chip);
+		}
 	} else if (iadc_channel_select == EXTERNAL_RSENSE) {
 		pr_debug("External rsense used\n");
-		chip->use_external_rsense = true;
+		if (!chip->use_external_rsense) {
+			pr_debug("Changing rsense to internal\n");
+			rc = qpnp_masked_write_iadc(chip,
+					IADC1_BMS_ADC_CH_SEL_CTL,
+					ADC_CH_SEL_MASK,
+					INTERNAL_RSENSE);
+			if (rc) {
+				pr_err("Unable to set IADC1_BMS channel %x to %x: %d\n",
+						IADC1_BMS_ADC_CH_SEL_CTL,
+						INTERNAL_RSENSE, rc);
+				return rc;
+			}
+			reset_cc(chip);
+		}
 	} else {
 		pr_err("IADC1_BMS_IADC configured incorrectly. Selected channel = %d\n",
 							iadc_channel_select);
@@ -2127,15 +2167,15 @@ static int qpnp_bms_probe(struct spmi_device *spmi)
 	}
 	pr_debug("BMS version: %hhu.%hhu\n", chip->revision2, chip->revision1);
 
-	rc = read_iadc_channel_select(chip);
-	if (rc) {
-		pr_err("Unable to get iadc selected channel = %d\n", rc);
-		goto error_read;
-	}
-
 	rc = bms_read_properties(chip);
 	if (rc) {
 		pr_err("Unable to read all bms properties, rc = %d\n", rc);
+		goto error_read;
+	}
+
+	rc = read_iadc_channel_select(chip);
+	if (rc) {
+		pr_err("Unable to get iadc selected channel = %d\n", rc);
 		goto error_read;
 	}
 
