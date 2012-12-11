@@ -967,13 +967,6 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 					struct qpnp_adc_drv *adc_qpnp);
 
 /**
- * qpnp_vadc_configure() - Configure ADC device to start conversion.
- * @chan_prop:	Individual channel properties for the AMUX channel.
- */
-int32_t qpnp_vadc_configure(
-			struct qpnp_adc_amux_properties *chan_prop);
-
-/**
  * qpnp_adc_scale_default() - Scales the pre-calibrated digital output
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset.

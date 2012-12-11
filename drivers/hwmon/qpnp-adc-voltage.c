@@ -170,7 +170,7 @@ static int32_t qpnp_vadc_enable(bool state)
 	return 0;
 }
 
-int32_t qpnp_vadc_configure(
+static int32_t qpnp_vadc_configure(
 			struct qpnp_adc_amux_properties *chan_prop)
 {
 	struct qpnp_vadc_drv *vadc = qpnp_vadc;
@@ -261,7 +261,6 @@ int32_t qpnp_vadc_configure(
 
 	return 0;
 }
-EXPORT_SYMBOL(qpnp_vadc_configure);
 
 static int32_t qpnp_vadc_read_conversion_result(int32_t *data)
 {
