@@ -94,6 +94,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 	u32 quota, rate;
 	u32 v_total, v_active;
 	int i;
+	u32 max_clk_rate = 0, ab_total = 0, ib_total = 0;
 
 	*bus_ab_quota = 0;
 	*bus_ib_quota = 0;
@@ -135,6 +136,11 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		pipe = mixer->stage_pipe[i];
 		if (pipe == NULL)
 			continue;
+		if (pipe->is_fg) {
+			ab_total = 0;
+			ib_total = 0;
+			max_clk_rate = 0;
+		}
 
 		quota = fps * pipe->src.w * pipe->src.h;
 		if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
@@ -161,11 +167,16 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		pr_debug("mixer=%d pnum=%d clk_rate=%u bus ab=%u ib=%u\n",
 			 mixer->num, pipe->num, rate, quota, ib_quota);
 
-		*bus_ab_quota += quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
-		*bus_ib_quota += ib_quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
-		if (rate > *clk_rate)
-			*clk_rate = rate;
+		ab_total += quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
+		ib_total += ib_quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
+		if (rate > max_clk_rate)
+			max_clk_rate = rate;
 	}
+
+	*bus_ab_quota += ab_total;
+	*bus_ib_quota += ib_total;
+	if (max_clk_rate > *clk_rate)
+		*clk_rate = max_clk_rate;
 
 	pr_debug("final mixer=%d clk_rate=%u bus ab=%u ib=%u\n", mixer->num,
 		 *clk_rate, *bus_ab_quota, *bus_ib_quota);
