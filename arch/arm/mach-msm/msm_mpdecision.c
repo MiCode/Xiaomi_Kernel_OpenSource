@@ -41,12 +41,14 @@
 #include <trace/events/mpdcvs_trace.h>
 
 #define DEFAULT_RQ_AVG_POLL_MS    (1)
+#define DEFAULT_RQ_AVG_DIVIDE    (25)
 
 struct mpd_attrib {
 	struct kobj_attribute	enabled;
 	struct kobj_attribute	rq_avg_poll_ms;
-	struct kobj_attribute iowait_threshold_pct;
+	struct kobj_attribute	iowait_threshold_pct;
 
+	struct kobj_attribute	rq_avg_divide;
 	struct kobj_attribute	em_win_size_min_us;
 	struct kobj_attribute	em_win_size_max_us;
 	struct kobj_attribute	em_max_util_pct;
@@ -75,6 +77,7 @@ struct mpdecision {
 	atomic_t			algo_cpu_mask;
 	uint32_t			rq_avg_poll_ms;
 	uint32_t			iowait_threshold_pct;
+	uint32_t			rq_avg_divide;
 	ktime_t				next_update;
 	uint32_t			slack_us;
 	struct msm_mpd_algo_param	mp_param;
@@ -125,20 +128,19 @@ static unsigned long last_nr;
 static int num_present_hundreds;
 static ktime_t last_down_time;
 
-#define RQ_AVG_INSIGNIFICANT_BITS	3
 static bool ok_to_update_tz(int nr, int last_nr)
 {
 	/*
 	 * Exclude unnecessary TZ reports if run queue haven't changed much from
-	 * the last reported value. The left shift by INSIGNIFICANT_BITS is to
+	 * the last reported value. The divison by rq_avg_divide is to
 	 * filter out small changes in the run queue average which won't cause
 	 * a online cpu mask change. Also if the cpu online count does not match
 	 * the count requested by TZ and we are not in the process of bringing
 	 * cpus online as indicated by a HPUPDATE_IN_PROGRESS in msm_mpd.hpdata
 	 */
 	return
-	(((nr >> RQ_AVG_INSIGNIFICANT_BITS)
-				!= (last_nr >> RQ_AVG_INSIGNIFICANT_BITS))
+	(((nr / msm_mpd.rq_avg_divide)
+				!= (last_nr / msm_mpd.rq_avg_divide))
 	|| ((hweight32(atomic_read(&msm_mpd.algo_cpu_mask))
 				!= num_online_cpus())
 		&& (msm_mpd.hpupdate != HPUPDATE_IN_PROGRESS)));
@@ -509,6 +511,20 @@ static int msm_mpd_set_iowait_threshold_pct(uint32_t val)
 	return 0;
 }
 
+static int msm_mpd_set_rq_avg_divide(uint32_t val)
+{
+	/*
+	 * No need to do anything. New value will be used next time
+	 * the decision is made as to whether to update tz.
+	 */
+
+	if (val == 0)
+		return -EINVAL;
+
+	msm_mpd.rq_avg_divide = val;
+	return 0;
+}
+
 #define MPD_ALGO_PARAM(_name, _param) \
 static ssize_t msm_mpd_attr_##_name##_show(struct kobject *kobj, \
 			struct kobj_attribute *attr, char *buf) \
@@ -580,6 +596,7 @@ static ssize_t msm_mpd_attr_##_name##_store(struct kobject *kobj, \
 MPD_PARAM(enabled, msm_mpd.enabled);
 MPD_PARAM(rq_avg_poll_ms, msm_mpd.rq_avg_poll_ms);
 MPD_PARAM(iowait_threshold_pct, msm_mpd.iowait_threshold_pct);
+MPD_PARAM(rq_avg_divide, msm_mpd.rq_avg_divide);
 MPD_ALGO_PARAM(em_win_size_min_us, msm_mpd.mp_param.em_win_size_min_us);
 MPD_ALGO_PARAM(em_win_size_max_us, msm_mpd.mp_param.em_win_size_max_us);
 MPD_ALGO_PARAM(em_max_util_pct, msm_mpd.mp_param.em_max_util_pct);
@@ -602,7 +619,7 @@ static int __devinit msm_mpd_probe(struct platform_device *pdev)
 {
 	struct kobject *module_kobj = NULL;
 	int ret = 0;
-	const int attr_count = 19;
+	const int attr_count = 20;
 	struct msm_mpd_algo_param *param = NULL;
 
 	param = pdev->dev.platform_data;
@@ -624,28 +641,30 @@ static int __devinit msm_mpd_probe(struct platform_device *pdev)
 	MPD_RW_ATTRIB(0, enabled);
 	MPD_RW_ATTRIB(1, rq_avg_poll_ms);
 	MPD_RW_ATTRIB(2, iowait_threshold_pct);
-	MPD_RW_ATTRIB(3, em_win_size_min_us);
-	MPD_RW_ATTRIB(4, em_win_size_max_us);
-	MPD_RW_ATTRIB(5, em_max_util_pct);
-	MPD_RW_ATTRIB(6, mp_em_rounding_point_min);
-	MPD_RW_ATTRIB(7, mp_em_rounding_point_max);
-	MPD_RW_ATTRIB(8, online_util_pct_min);
-	MPD_RW_ATTRIB(9, online_util_pct_max);
-	MPD_RW_ATTRIB(10, slack_time_min_us);
-	MPD_RW_ATTRIB(11, slack_time_max_us);
-	MPD_RW_ATTRIB(12, hp_up_max_ms);
-	MPD_RW_ATTRIB(13, hp_up_ms);
-	MPD_RW_ATTRIB(14, hp_up_count);
-	MPD_RW_ATTRIB(15, hp_dw_max_ms);
-	MPD_RW_ATTRIB(16, hp_dw_ms);
-	MPD_RW_ATTRIB(17, hp_dw_count);
+	MPD_RW_ATTRIB(3, rq_avg_divide);
+	MPD_RW_ATTRIB(4, em_win_size_min_us);
+	MPD_RW_ATTRIB(5, em_win_size_max_us);
+	MPD_RW_ATTRIB(6, em_max_util_pct);
+	MPD_RW_ATTRIB(7, mp_em_rounding_point_min);
+	MPD_RW_ATTRIB(8, mp_em_rounding_point_max);
+	MPD_RW_ATTRIB(9, online_util_pct_min);
+	MPD_RW_ATTRIB(10, online_util_pct_max);
+	MPD_RW_ATTRIB(11, slack_time_min_us);
+	MPD_RW_ATTRIB(12, slack_time_max_us);
+	MPD_RW_ATTRIB(13, hp_up_max_ms);
+	MPD_RW_ATTRIB(14, hp_up_ms);
+	MPD_RW_ATTRIB(15, hp_up_count);
+	MPD_RW_ATTRIB(16, hp_dw_max_ms);
+	MPD_RW_ATTRIB(17, hp_dw_ms);
+	MPD_RW_ATTRIB(18, hp_dw_count);
 
-	msm_mpd.attrib.attrib_group.attrs[18] = NULL;
+	msm_mpd.attrib.attrib_group.attrs[19] = NULL;
 	ret = sysfs_create_group(module_kobj, &msm_mpd.attrib.attrib_group);
 	if (ret)
 		pr_err("Unable to create sysfs objects :%d\n", ret);
 
 	msm_mpd.rq_avg_poll_ms = DEFAULT_RQ_AVG_POLL_MS;
+	msm_mpd.rq_avg_divide = DEFAULT_RQ_AVG_DIVIDE;
 
 	memcpy(&msm_mpd.mp_param, param, sizeof(struct msm_mpd_algo_param));
 
