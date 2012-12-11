@@ -21,28 +21,28 @@
 		label = "lpass_iommu";
 		status = "disabled";
 
-		qcom,iommu-ctx@fd000000 {
+		lpass_q6_fw: qcom,iommu-ctx@fd000000 {
 			reg = <0xfd000000 0x1000>;
 			interrupts = <0 250 0>;
 			qcom,iommu-ctx-mids = <0 15>;
 			label = "q6_fw";
 		};
 
-		qcom,iommu-ctx@fd001000 {
+		lpass_audio_shared: qcom,iommu-ctx@fd001000 {
 			reg = <0xfd001000 0x1000>;
 			interrupts = <0 250 0>;
 			qcom,iommu-ctx-mids = <1>;
 			label = "audio_shared";
 		};
 
-		qcom,iommu-ctx@fd002000 {
+		lpass_video_shared: qcom,iommu-ctx@fd002000 {
 			reg = <0xfd002000 0x1000>;
 			interrupts = <0 250 0>;
 			qcom,iommu-ctx-mids = <2>;
 			label = "video_shared";
 		};
 
-		qcom,iommu-ctx@fd003000 {
+		lpass_q6_spare: qcom,iommu-ctx@fd003000 {
 			reg = <0xfd003000 0x1000>;
 			interrupts = <0 250 0>;
 			qcom,iommu-ctx-mids = <3 4 5 6 7 8 9 10 11 12 13 14>;
