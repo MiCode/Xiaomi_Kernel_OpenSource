@@ -395,7 +395,7 @@ static int bq28400_read_avg_current(struct i2c_client *client)
 
 /*
  * Return the battery Relative-State-Of-Charge 0..100 %
- * Or 0 if something fails.
+ * Or negative value if something fails.
  */
 static int bq28400_read_rsoc(struct i2c_client *client)
 {
@@ -404,8 +404,10 @@ static int bq28400_read_rsoc(struct i2c_client *client)
 	/* This register is only 1 byte */
 	percentage = i2c_smbus_read_byte_data(client, SBS_RSOC);
 
-	if (percentage < 0)
-		return 0;
+	if (percentage < 0) {
+		pr_err("I2C failure when reading rsoc.\n");
+		return percentage;
+	}
 
 	pr_debug("percentage = %d.\n", percentage);
 
@@ -646,6 +648,8 @@ static int bq28400_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = bq28400_read_rsoc(client);
+		if (val->intval < 0)
+			ret = -EINVAL;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		/* Positive current indicates drawing */
