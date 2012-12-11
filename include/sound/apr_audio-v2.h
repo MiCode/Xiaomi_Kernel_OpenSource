@@ -1884,6 +1884,67 @@ struct afe_param_id_rt_proxy_port_cfg {
 	/* For 32 bit alignment. */
 } __packed;
 
+
+/* This param id is used to configure the Pseudoport interface */
+
+#define AFE_PARAM_ID_PSEUDO_PORT_CONFIG	0x00010219
+
+/* Version information used to handle future additions to the configuration
+ * interface (for backward compatibility).
+ */
+#define AFE_API_VERSION_PSEUDO_PORT_CONFIG                          0x1
+
+/* Enumeration for setting the timing_mode parameter to faster than real
+ * time.
+ */
+#define AFE_PSEUDOPORT_TIMING_MODE_FTRT                             0x0
+
+/* Enumeration for setting the timing_mode parameter to real time using
+ * timers.
+ */
+#define AFE_PSEUDOPORT_TIMING_MODE_TIMER                            0x1
+
+/* Payload of the AFE_PARAM_ID_PSEUDO_PORT_CONFIG parameter used by
+    AFE_MODULE_AUDIO_DEV_INTERFACE.
+*/
+struct afe_param_id_pseudo_port_cfg {
+	u32                  pseud_port_cfg_minor_version;
+	/*
+	 * Minor version used for tracking the version of the pseudoport
+	 * configuration interface.
+	 */
+
+	u16                  bit_width;
+	/* Bit width of the sample at values 16, 24 */
+
+	u16                  num_channels;
+	/* Number of channels at values  1 to 8 */
+
+	u16                  data_format;
+	/* Non-linear data format supported by the pseudoport (for future use).
+	 * At values #AFE_LINEAR_PCM_DATA
+	 */
+
+	u16                  timing_mode;
+	/* Indicates whether the pseudoport synchronizes to the clock or
+	 * operates faster than real time.
+	 * at values
+	 * - #AFE_PSEUDOPORT_TIMING_MODE_FTRT
+	 * - #AFE_PSEUDOPORT_TIMING_MODE_TIMER @tablebulletend
+	 */
+
+	u32                  sample_rate;
+	/* Sample rate at which the pseudoport will run.
+	 * at values
+	 * - #AFE_PORT_SAMPLE_RATE_8K
+	 * - #AFE_PORT_SAMPLE_RATE_32K
+	 * - #AFE_PORT_SAMPLE_RATE_48K
+	 * - #AFE_PORT_SAMPLE_RATE_96K
+	 * - #AFE_PORT_SAMPLE_RATE_192K @tablebulletend
+	 */
+} __packed;
+
+
 union afe_port_config {
 	struct afe_param_id_pcm_cfg               pcm;
 	struct afe_param_id_i2s_cfg               i2s;
@@ -1891,6 +1952,7 @@ union afe_port_config {
 	struct afe_param_id_slimbus_cfg           slim_sch;
 	struct afe_param_id_rt_proxy_port_cfg     rtproxy;
 	struct afe_param_id_internal_bt_fm_cfg    int_bt_fm;
+	struct afe_param_id_pseudo_port_cfg       pseudo_port;
 } __packed;
 
 struct afe_audioif_config_command_no_payload {
