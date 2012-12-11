@@ -2326,6 +2326,7 @@ static struct branch_clk gcc_usb_hsic_io_cal_clk = {
 
 static struct branch_clk gcc_usb_hsic_system_clk = {
 	.cbcr_reg = USB_HSIC_SYSTEM_CBCR,
+	.bcr_reg = USB_HS_HSIC_BCR,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &usb_hsic_system_clk_src.c,
