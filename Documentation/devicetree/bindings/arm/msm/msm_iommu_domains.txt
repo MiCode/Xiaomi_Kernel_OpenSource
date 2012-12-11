@@ -1,0 +1,50 @@
+IOMMU Domains
+
+An IOMMU domain is a collection of IOMMU context banks and an optional
+virtual address space that is to be used with the domain. Domains that are
+defined will be created at bootup and associated with an iommu group. Clients
+can then refer to the iommu group and perform operations on the iommu group
+instead of individual devices/contexts.
+
+Required properties
+
+- compatible: "qcom,iommu-domains"
+
+- At least one child that defines a domain is required with the
+  following properties:
+
+	- label: Name of the domain
+	- qcom,iommu-contexts: List of phandles to context that belongs to
+	  this domain.
+
+	Optional properties
+
+		- qcom,virtual-addr-pool: List of <start_address size> pairs
+		  that define the virtual address space for this domain.
+		- qcom,secure-domain: boolean indicating that this is a secure
+		  domain that is to be programmed by Trustzone.
+		- qcom,l2-redirect: boolean indicating that page tables should
+		  be cached in L2 cache.
+Example:
+	qcom,iommu-domains {
+		compatible = "qcom,iommu-domains";
+
+		qcom,iommu-domain1 {
+			label = "lpass_secure";
+			qcom,iommu-contexts = <&lpass_q6_fw>;
+			qcom,virtual-addr-pool = <0x00000000 0x0FFFFFFF
+						  0xF0000000 0x0FFFFFFF>;
+		};
+
+		qcom,iommu-domain2 {
+			label = "lpass_audio";
+			qcom,iommu-contexts = <&lpass_audio_shared>;
+			qcom,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
+		};
+
+		qcom,iommu-domain3 {
+			label = "lpass_video";
+			qcom,iommu-contexts = <&lpass_video_shared>;
+			qcom,virtual-addr-pool = <0x20000000 0x0FFFFFFF>;
+		};
+	};

@@ -476,7 +476,6 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 				 struct device *dev)
 {
 	struct msm_priv *priv;
-	struct msm_iommu_ctx_dev *ctx_dev;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret;
@@ -489,9 +488,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	iommu_drvdata = dev_get_drvdata(dev->parent);
 	ctx_drvdata = dev_get_drvdata(dev);
-	ctx_dev = dev->platform_data;
 
-	if (!iommu_drvdata || !ctx_drvdata || !ctx_dev)
+	if (!iommu_drvdata || !ctx_drvdata)
 		goto fail;
 
 	ret = __enable_clocks(iommu_drvdata);
@@ -500,11 +498,11 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	msm_iommu_remote_spin_lock();
 
-	SET_TLBIASID(iommu_drvdata->base, ctx_dev->num,
-		     GET_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_dev->num));
+	SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num,
+		    GET_CONTEXTIDR_ASID(iommu_drvdata->base, ctx_drvdata->num));
 
 	__reset_context(iommu_drvdata->base, iommu_drvdata->glb_base,
-			ctx_dev->num);
+			ctx_drvdata->num);
 
 	msm_iommu_remote_spin_unlock();
 
