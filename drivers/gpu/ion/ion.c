@@ -1,4 +1,5 @@
 /*
+
  * drivers/gpu/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
@@ -67,7 +68,7 @@ struct ion_device {
  * @dev:		backpointer to ion device
  * @handles:		an rb tree of all the handles in this client
  * @lock:		lock protecting the tree of handles
- * @heap_mask:		mask of all supported heaps
+ * @heap_type_mask:	mask of all supported heap types
  * @name:		used for debugging
  * @task:		used for debugging
  *
@@ -80,7 +81,7 @@ struct ion_client {
 	struct ion_device *dev;
 	struct rb_root handles;
 	struct mutex lock;
-	unsigned int heap_mask;
+	unsigned int heap_type_mask;
 	char *name;
 	struct task_struct *task;
 	pid_t pid;
@@ -368,7 +369,7 @@ static void ion_handle_add(struct ion_client *client, struct ion_handle *handle)
 }
 
 struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
-			     size_t align, unsigned int heap_mask,
+			     size_t align, unsigned int heap_id_mask,
 			     unsigned int flags)
 {
 	struct ion_handle *handle;
@@ -390,8 +391,8 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	 */
 	flags |= ION_FLAG_CACHED_NEEDS_SYNC;
 
-	pr_debug("%s: len %d align %d heap_mask %u flags %x\n", __func__, len,
-		 align, heap_mask, flags);
+	pr_debug("%s: len %d align %d heap_id_mask %u flags %x\n", __func__,
+		 len, align, heap_id_mask, flags);
 	/*
 	 * traverse the list of heaps available in this system in priority
 	 * order.  If the heap type is supported by the client, and matches the
@@ -406,25 +407,26 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
 		/* if the client doesn't support this heap type */
-		if (!((1 << heap->type) & client->heap_mask))
+		if (!((1 << heap->type) & client->heap_type_mask))
 			continue;
-		/* if the caller didn't specify this heap type */
-		if (!((1 << heap->id) & heap_mask))
+		/* if the caller didn't specify this heap id */
+		if (!((1 << heap->id) & heap_id_mask))
 			continue;
 		/* Do not allow un-secure heap if secure is specified */
 		if (secure_allocation &&
 		    !ion_heap_allow_secure_allocation(heap->type))
 			continue;
 		trace_ion_alloc_buffer_start(client->name, heap->name, len,
-					     heap_mask, flags);
+					     heap_id_mask, flags);
 		buffer = ion_buffer_create(heap, dev, len, align, flags);
 		trace_ion_alloc_buffer_end(client->name, heap->name, len,
-					   heap_mask, flags);
+					   heap_id_mask, flags);
 		if (!IS_ERR_OR_NULL(buffer))
 			break;
 
 		trace_ion_alloc_buffer_fallback(client->name, heap->name, len,
-					    heap_mask, flags, PTR_ERR(buffer));
+					    heap_id_mask, flags,
+					    PTR_ERR(buffer));
 		if (dbg_str_idx < MAX_DBG_STR_LEN) {
 			unsigned int len_left = MAX_DBG_STR_LEN-dbg_str_idx-1;
 			int ret_value = snprintf(&dbg_str[dbg_str_idx],
@@ -445,17 +447,17 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 
 	if (buffer == NULL) {
 		trace_ion_alloc_buffer_fail(client->name, dbg_str, len,
-					    heap_mask, flags, -ENODEV);
+					    heap_id_mask, flags, -ENODEV);
 		return ERR_PTR(-ENODEV);
 	}
 
 	if (IS_ERR(buffer)) {
 		trace_ion_alloc_buffer_fail(client->name, dbg_str, len,
-					    heap_mask, flags, PTR_ERR(buffer));
+					    heap_id_mask, flags,
+					    PTR_ERR(buffer));
 		pr_debug("ION is unable to allocate 0x%x bytes (alignment: "
-			 "0x%x) from heap(s) %sfor client %s with heap "
-			 "mask 0x%x\n",
-			len, align, dbg_str, client->name, client->heap_mask);
+			 "0x%x) from heap(s) %sfor client %s\n",
+			len, align, dbg_str, client->name);
 		return ERR_PTR(PTR_ERR(buffer));
 	}
 
@@ -628,6 +630,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
+
 		enum ion_heap_type type = handle->buffer->heap->type;
 
 		seq_printf(s, "%16.16s: %16x : %16d : %12p",
@@ -646,7 +649,6 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 		seq_printf(s, "\n");
 	}
 	mutex_unlock(&client->lock);
-
 	return 0;
 }
 
@@ -663,7 +665,7 @@ static const struct file_operations debug_client_fops = {
 };
 
 struct ion_client *ion_client_create(struct ion_device *dev,
-				     unsigned int heap_mask,
+				     unsigned int heap_type_mask,
 				     const char *name)
 {
 	struct ion_client *client;
@@ -713,7 +715,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 		strlcpy(client->name, name, name_len+1);
 	}
 
-	client->heap_mask = heap_mask;
+	client->heap_type_mask = heap_type_mask;
 	client->task = task;
 	client->pid = pid;
 
