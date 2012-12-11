@@ -489,6 +489,7 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 	ctx_drvdata->pdev = pdev;
 	INIT_LIST_HEAD(&ctx_drvdata->attached_elm);
 	platform_set_drvdata(pdev, ctx_drvdata);
+	ctx_drvdata->attach_count = 0;
 
 	if (pdev->dev.of_node) {
 		ret = msm_iommu_ctx_parse_dt(pdev, ctx_drvdata);
