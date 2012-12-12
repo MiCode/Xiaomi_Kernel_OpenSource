@@ -184,6 +184,7 @@ static int mpu3050_config_regulator(struct i2c_client *client, bool on)
 				rc = PTR_ERR(mpu_vreg[i].vreg);
 				pr_err("%s:regulator get failed rc=%d\n",
 						__func__, rc);
+				mpu_vreg[i].vreg = NULL;
 				goto error_vdd;
 			}
 
@@ -194,6 +195,7 @@ static int mpu3050_config_regulator(struct i2c_client *client, bool on)
 					pr_err("%s:set_voltage failed rc=%d\n",
 						__func__, rc);
 					regulator_put(mpu_vreg[i].vreg);
+					mpu_vreg[i].vreg = NULL;
 					goto error_vdd;
 				}
 			}
@@ -210,6 +212,7 @@ static int mpu3050_config_regulator(struct i2c_client *client, bool on)
 						0, mpu_vreg[i].max_uV);
 				}
 				regulator_put(mpu_vreg[i].vreg);
+				mpu_vreg[i].vreg = NULL;
 				goto error_vdd;
 			}
 		}
@@ -219,12 +222,16 @@ static int mpu3050_config_regulator(struct i2c_client *client, bool on)
 	}
 error_vdd:
 	while (--i >= 0) {
-		if (regulator_count_voltages(mpu_vreg[i].vreg) > 0) {
-			regulator_set_voltage(mpu_vreg[i].vreg, 0,
+		if (!IS_ERR_OR_NULL(mpu_vreg[i].vreg)) {
+			if (regulator_count_voltages(
+				mpu_vreg[i].vreg) > 0) {
+				regulator_set_voltage(mpu_vreg[i].vreg, 0,
 						mpu_vreg[i].max_uV);
+			}
+			regulator_disable(mpu_vreg[i].vreg);
+			regulator_put(mpu_vreg[i].vreg);
+			mpu_vreg[i].vreg = NULL;
 		}
-		regulator_disable(mpu_vreg[i].vreg);
-		regulator_put(mpu_vreg[i].vreg);
 	}
 	return rc;
 }

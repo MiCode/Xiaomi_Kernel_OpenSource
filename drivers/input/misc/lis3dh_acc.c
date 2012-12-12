@@ -274,6 +274,7 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 				rc = PTR_ERR(lis3dh_acc_vreg[i].vreg);
 				pr_err("%s:regulator get failed rc=%d\n",
 								__func__, rc);
+				lis3dh_acc_vreg[i].vreg = NULL;
 				goto error_vdd;
 			}
 
@@ -287,6 +288,7 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 					pr_err("%s: set voltage failed rc=%d\n",
 					__func__, rc);
 					regulator_put(lis3dh_acc_vreg[i].vreg);
+					lis3dh_acc_vreg[i].vreg = NULL;
 					goto error_vdd;
 				}
 			}
@@ -302,6 +304,7 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 						lis3dh_acc_vreg[i].max_uV);
 				}
 				regulator_put(lis3dh_acc_vreg[i].vreg);
+				lis3dh_acc_vreg[i].vreg = NULL;
 				goto error_vdd;
 			}
 		}
@@ -312,12 +315,16 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 
 error_vdd:
 	while (--i >= 0) {
-		if (regulator_count_voltages(lis3dh_acc_vreg[i].vreg) > 0) {
-			regulator_set_voltage(lis3dh_acc_vreg[i].vreg, 0,
-						lis3dh_acc_vreg[i].max_uV);
+		if (!IS_ERR_OR_NULL(lis3dh_acc_vreg[i].vreg)) {
+			if (regulator_count_voltages(
+			lis3dh_acc_vreg[i].vreg) > 0) {
+				regulator_set_voltage(lis3dh_acc_vreg[i].vreg,
+						0, lis3dh_acc_vreg[i].max_uV);
+			}
+			regulator_disable(lis3dh_acc_vreg[i].vreg);
+			regulator_put(lis3dh_acc_vreg[i].vreg);
+			lis3dh_acc_vreg[i].vreg = NULL;
 		}
-		regulator_disable(lis3dh_acc_vreg[i].vreg);
-		regulator_put(lis3dh_acc_vreg[i].vreg);
 	}
 	return rc;
 }
