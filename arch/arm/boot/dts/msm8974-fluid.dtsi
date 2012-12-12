@@ -212,6 +212,13 @@
 		qcom,cdc-micbias2-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
 		qcom,cdc-micbias4-ext-cap;
+
+		/* If boot isn't available, vph_pwr_vreg can be used instead */
+		cdc-vdd-spkdrv-supply = <&pm8941_boost>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <1250000>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
 	};
 };
 
