@@ -22,10 +22,6 @@
 #define WCD9XXX_NUM_IRQ_REGS 4
 
 #define WCD9XXX_SLIM_NUM_PORT_REG 3
-
-#define WCD9XXX_INTERFACE_TYPE_SLIMBUS	0x00
-#define WCD9XXX_INTERFACE_TYPE_I2C	0x01
-
 #define TABLA_VERSION_1_0	0
 #define TABLA_VERSION_1_1	1
 #define TABLA_VERSION_2_0	2
@@ -135,6 +131,12 @@ struct wcd9xxx_codec_dai_data {
 	wait_queue_head_t dai_wait;
 };
 
+enum wcd9xxx_intf_status {
+	WCD9XXX_INTERFACE_TYPE_PROBING,
+	WCD9XXX_INTERFACE_TYPE_SLIMBUS,
+	WCD9XXX_INTERFACE_TYPE_I2C,
+};
+
 #define WCD9XXX_CH(xport, xshift) \
 	{.port = xport, .shift = xshift}
 
@@ -177,6 +179,7 @@ struct wcd9xxx {
 	u32 num_tx_port;
 	struct wcd9xxx_ch *rx_chs;
 	struct wcd9xxx_ch *tx_chs;
+	u32 mclk_rate;
 };
 
 int wcd9xxx_reg_read(struct wcd9xxx *wcd9xxx, unsigned short reg);
@@ -192,7 +195,7 @@ int wcd9xxx_bulk_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx);
 void wcd9xxx_irq_exit(struct wcd9xxx *wcd9xxx);
 int wcd9xxx_get_logical_addresses(u8 *pgd_la, u8 *inf_la);
-int wcd9xxx_get_intf_type(void);
+enum wcd9xxx_intf_status wcd9xxx_get_intf_type(void);
 
 bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx);
 void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx);

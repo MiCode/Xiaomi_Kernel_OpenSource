@@ -34,7 +34,7 @@ Required properties:
  - qcom,cdc-micbias2-ext-cap: Boolean. Enable micbias 2 external capacitor mode.
  - qcom,cdc-micbias3-ext-cap: Boolean. Enable micbias 3 external capacitor mode.
  - qcom,cdc-micbias4-ext-cap: Boolean. Enable micbias 4 external capacitor mode.
-
+ - qcom,cdc-mclk-clk-rate - Specifies the master clock rate in Hz required for codec.
  - qcom,cdc-slim-ifd-dev - namme of the codec slim interface device.
  - qcom,cdc-slim-ifd-elemental-addr - codec slimbus slave interface device
 				     enumeration address.
@@ -86,7 +86,7 @@ taiko_codec {
 	qcom,cdc-micbias2-ext-cap;
 	qcom,cdc-micbias3-ext-cap;
 	qcom,cdc-micbias4-ext-cap;
-
+	qcom,cdc-mclk-clk-rate = <9600000>;
 	qcom,cdc-slim-ifd = "taiko-slim-ifd";
 	qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 00 17 02];
 };
@@ -123,6 +123,7 @@ Wcd9xxx audio CODEC in I2C mode
  - qcom,cdc-micbias2-ext-cap: Boolean. Enable micbias 2 external capacitor mode.
  - qcom,cdc-micbias3-ext-cap: Boolean. Enable micbias 3 external capacitor mode.
  - qcom,cdc-micbias4-ext-cap: Boolean. Enable micbias 4 external capacitor mode.
+ - qcom,cdc-mclk-clk-rate - Specifies the master clock rate in Hz required for codec.
 
 Example:
 i2c@f9925000 {
@@ -180,6 +181,7 @@ i2c@f9925000 {
 		qcom,cdc-micbias2-cfilt-sel = <0x1>;
 		qcom,cdc-micbias3-cfilt-sel = <0x2>;
 		qcom,cdc-micbias4-cfilt-sel = <0x2>;
+		qcom,cdc-mclk-clk-rate = <12288000>;
 	};
 
 	wcd9xxx_codec@77{
