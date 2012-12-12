@@ -95,7 +95,8 @@
 
 #define EPM_PSOC_GLOBAL_ENABLE				81
 #define EPM_PSOC_VREF_VOLTAGE				2048
-#define EPM_PSOC_MAX_ADC_CODE_16_BIT			32767
+#define EPM_PSOC_MAX_ADC_CODE_15_BIT			32767
+#define EPM_PSOC_MAX_ADC_CODE_12_BIT			4096
 #define EPM_GLOBAL_ENABLE_MIN_DELAY			5000
 #define EPM_GLOBAL_ENABLE_MAX_DELAY			5100
 
@@ -590,13 +591,23 @@ static int epm_psoc_scale_result(uint32_t result, uint32_t index)
 	struct epm_adc_drv *epm_adc = epm_adc_drv;
 	int32_t result_cur;
 
-	/* result = 2.048V/(32767 * gain * rsense) */
-	result_cur = (((EPM_PSOC_VREF_VOLTAGE * result)/
-				EPM_PSOC_MAX_ADC_CODE_16_BIT) * 1000);
+	if ((1 << index) & epm_adc->channel_mask) {
+		/* result = (2.048V * code)/(4096 * gain * rsense) */
+		result_cur = ((EPM_PSOC_VREF_VOLTAGE * result)/
+				EPM_PSOC_MAX_ADC_CODE_12_BIT);
 
-	result_cur = (result_cur/
+		result_cur = (result_cur/
+			(epm_adc->epm_psoc_ch_prop[index].gain *
+			epm_adc->epm_psoc_ch_prop[index].resistorvalue));
+	} else {
+		/* result = (2.048V * code)/(32767 * gain * rsense) */
+		result_cur = (((EPM_PSOC_VREF_VOLTAGE * result)/
+				EPM_PSOC_MAX_ADC_CODE_15_BIT) * 1000);
+
+		result_cur = (result_cur/
 		(epm_adc->epm_psoc_ch_prop[index].gain *
 			epm_adc->epm_psoc_ch_prop[index].resistorvalue));
+	}
 
 	return result_cur;
 }
