@@ -3020,34 +3020,17 @@ static struct rcg_clk esc1_clk_src = {
 
 static int hdmi_pll_clk_enable(struct clk *c)
 {
-	int ret;
-	unsigned long flags;
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	ret = hdmi_pll_enable();
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-	return ret;
+	return hdmi_pll_enable();
 }
 
 static void hdmi_pll_clk_disable(struct clk *c)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	hdmi_pll_disable();
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
 static int hdmi_pll_clk_set_rate(struct clk *c, unsigned long rate)
 {
-	unsigned long flags;
-	int rc;
-
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	rc = hdmi_pll_set_rate(rate);
-	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
-
-	return rc;
+	return hdmi_pll_set_rate(rate);
 }
 
 static struct clk_ops clk_ops_hdmi_pll = {
@@ -3084,21 +3067,39 @@ static struct clk_freq_tbl ftbl_mdss_extpclk_clk[] = {
  * Unlike other clocks, the HDMI rate is adjusted through PLL
  * re-programming. It is also routed through an HID divider.
  */
-static void set_rate_hdmi(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
+static int rcg_clk_set_rate_hdmi(struct clk *c, unsigned long rate)
 {
-	clk_set_rate(nf->src_clk, nf->freq_hz);
+	struct clk_freq_tbl *nf;
+	struct rcg_clk *rcg = to_rcg_clk(c);
+	int rc;
+
+	for (nf = rcg->freq_tbl; nf->freq_hz != rate; nf++)
+		if (nf->freq_hz == FREQ_END) {
+			rc = -EINVAL;
+			goto out;
+		}
+
+	rc = clk_set_rate(nf->src_clk, rate);
+	if (rc < 0)
+		goto out;
 	set_rate_hid(rcg, nf);
+
+	rcg->current_freq = nf;
+	c->parent = nf->src_clk;
+out:
+	return rc;
 }
+
+static struct clk_ops clk_ops_rcg_hdmi;
 
 static struct rcg_clk extpclk_clk_src = {
 	.cmd_rcgr_reg = EXTPCLK_CMD_RCGR,
-	.set_rate = set_rate_hdmi,
 	.freq_tbl = ftbl_mdss_extpclk_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.dbg_name = "extpclk_clk_src",
-		.ops = &clk_ops_rcg,
+		.ops = &clk_ops_rcg_hdmi,
 		VDD_DIG_FMAX_MAP2(LOW, 148500000, NOMINAL, 297000000),
 		CLK_INIT(extpclk_clk_src.c),
 	},
@@ -5686,6 +5687,9 @@ static void __init mdss_clock_setup(void)
 
 	clk_ops_pixel = clk_ops_rcg;
 	clk_ops_pixel.set_rate = set_rate_pixel;
+
+	clk_ops_rcg_hdmi = clk_ops_rcg;
+	clk_ops_rcg_hdmi.set_rate = rcg_clk_set_rate_hdmi;
 
 	mdss_clk_ctrl_init();
 }
