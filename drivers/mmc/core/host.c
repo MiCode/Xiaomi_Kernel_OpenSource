@@ -382,7 +382,11 @@ static ssize_t store_enable(struct device *dev,
 	unsigned long value, freq;
 	int retval = -EINVAL;
 
-	if (!host || !host->card || kstrtoul(buf, 0, &value))
+	if (!host)
+		goto out;
+
+	mmc_claim_host(host);
+	if (!host->card || kstrtoul(buf, 0, &value))
 		goto err;
 
 	if (value && !mmc_can_scale_clk(host)) {
@@ -409,8 +413,10 @@ static ssize_t store_enable(struct device *dev,
 		}
 		host->clk_scaling.initialized = false;
 	}
-	return count;
+	retval = count;
 err:
+	mmc_release_host(host);
+out:
 	return retval;
 }
 
