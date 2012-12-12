@@ -350,9 +350,11 @@ out:
 
 void hdmi_pll_disable(void)
 {
+	clk_enable(mdss_dsi_ahb_clk);
 	REG_W(0x0, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
 	udelay(5);
 	REG_W(0x0, hdmi_phy_base + HDMI_PHY_GLB_CFG);
+	clk_disable(mdss_dsi_ahb_clk);
 
 	hdmi_pll_on = 0;
 } /* hdmi_pll_disable */
@@ -362,6 +364,7 @@ int hdmi_pll_enable(void)
 	u32 status;
 	u32 max_reads, timeout_us;
 
+	clk_enable(mdss_dsi_ahb_clk);
 	/* Global Enable */
 	REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
 	/* Power up power gen */
@@ -387,6 +390,7 @@ int hdmi_pll_enable(void)
 		pr_err("%s: hdmi phy pll status=%x failed to Lock\n",
 		       __func__, status);
 		hdmi_pll_disable();
+		clk_disable(mdss_dsi_ahb_clk);
 		return -EINVAL;
 	}
 	pr_debug("%s: hdmi phy pll is locked\n", __func__);
@@ -400,9 +404,11 @@ int hdmi_pll_enable(void)
 		pr_err("%s: hdmi phy status=%x failed to Lock\n",
 		       __func__, status);
 		hdmi_pll_disable();
+		clk_disable(mdss_dsi_ahb_clk);
 		return -EINVAL;
 	}
 	pr_debug("%s: hdmi phy is locked\n", __func__);
+	clk_disable(mdss_dsi_ahb_clk);
 
 	hdmi_pll_on = 1;
 
@@ -418,6 +424,7 @@ int hdmi_pll_set_rate(unsigned long rate)
 		set_power_dwn = 1;
 	}
 
+	clk_enable(mdss_dsi_ahb_clk);
 	pr_debug("%s: rate=%ld\n", __func__, rate);
 	switch (rate) {
 	case 0:
@@ -745,6 +752,8 @@ int hdmi_pll_set_rate(unsigned long rate)
 
 	/* Make sure writes complete before disabling iface clock */
 	mb();
+
+	clk_disable(mdss_dsi_ahb_clk);
 
 	if (set_power_dwn)
 		hdmi_pll_enable();
