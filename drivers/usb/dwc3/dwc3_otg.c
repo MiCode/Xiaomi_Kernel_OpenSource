@@ -38,12 +38,21 @@ static void dwc3_otg_reset(struct dwc3_otg *dotg);
  */
 static void dwc3_otg_set_host_regs(struct dwc3_otg *dotg)
 {
-	u32 octl;
+	u32 reg;
+	struct dwc3 *dwc = dotg->dwc;
+	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 
-	/* Set OCTL[6](PeriMode) to 0 (host) */
-	octl = dwc3_readl(dotg->regs, DWC3_OCTL);
-	octl &= ~DWC3_OTG_OCTL_PERIMODE;
-	dwc3_writel(dotg->regs, DWC3_OCTL, octl);
+	if (ext_xceiv && !ext_xceiv->otg_capability) {
+		/* Set OCTL[6](PeriMode) to 0 (host) */
+		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
+		reg &= ~DWC3_OTG_OCTL_PERIMODE;
+		dwc3_writel(dotg->regs, DWC3_OCTL, reg);
+	} else {
+		reg = dwc3_readl(dwc->regs, DWC3_GCTL);
+		reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
+		reg |= DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_HOST);
+		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+	}
 }
 
 /**
@@ -76,17 +85,25 @@ void dwc3_otg_set_host_power(struct dwc3_otg *dotg)
  */
 static void dwc3_otg_set_peripheral_regs(struct dwc3_otg *dotg)
 {
-	u32 octl;
+	u32 reg;
+	struct dwc3 *dwc = dotg->dwc;
+	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 
-	/* Set OCTL[6](PeriMode) to 1 (peripheral) */
-	octl = dwc3_readl(dotg->regs, DWC3_OCTL);
-	octl |= DWC3_OTG_OCTL_PERIMODE;
-	dwc3_writel(dotg->regs, DWC3_OCTL, octl);
-
-	/*
-	 * TODO: add more OTG registers writes for PERIPHERAL mode here,
-	 * see figure 12-19 B-device flow in dwc3 Synopsis spec
-	 */
+	if (ext_xceiv && !ext_xceiv->otg_capability) {
+		/* Set OCTL[6](PeriMode) to 1 (peripheral) */
+		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
+		reg |= DWC3_OTG_OCTL_PERIMODE;
+		dwc3_writel(dotg->regs, DWC3_OCTL, reg);
+		/*
+		 * TODO: add more OTG registers writes for PERIPHERAL mode here,
+		 * see figure 12-19 B-device flow in dwc3 Synopsis spec
+		 */
+	} else {
+		reg = dwc3_readl(dwc->regs, DWC3_GCTL);
+		reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
+		reg |= DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_DEVICE);
+		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+	}
 }
 
 /**
@@ -100,6 +117,7 @@ static void dwc3_otg_set_peripheral_regs(struct dwc3_otg *dotg)
 static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 {
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 	struct dwc3 *dwc = dotg->dwc;
 	int ret = 0;
 
@@ -148,7 +166,8 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		}
 
 		/* re-init OTG EVTEN register as XHCI reset clears it */
-		dwc3_otg_reset(dotg);
+		if (ext_xceiv && !ext_xceiv->otg_capability)
+			dwc3_otg_reset(dotg);
 	} else {
 		dev_dbg(otg->phy->dev, "%s: turn off host\n", __func__);
 
@@ -161,9 +180,15 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		}
 		dwc3_otg_notify_host_mode(otg, on);
 
+		/* Do block reset for Host <-> peripheral switching to work */
+		if (ext_xceiv && ext_xceiv->otg_capability &&
+						ext_xceiv->ext_block_reset)
+			ext_xceiv->ext_block_reset();
+
 		/* re-init core and OTG register as XHCI reset clears it */
 		dwc3_post_host_reset_core_init(dwc);
-		dwc3_otg_reset(dotg);
+		if (ext_xceiv && !ext_xceiv->otg_capability)
+			dwc3_otg_reset(dotg);
 	}
 
 	return 0;
@@ -312,6 +337,7 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 	struct usb_phy *phy = dotg->otg.phy;
 	int ret = 0;
+	int work = 0;
 
 	if (event == DWC3_EVENT_PHY_RESUME) {
 		if (!pm_runtime_status_suspended(phy->dev)) {
@@ -332,19 +358,27 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
 		if (ext_xceiv->id == DWC3_ID_FLOAT) {
-			dev_dbg(phy->dev, "XCVR: ID set\n");
-			set_bit(ID, &dotg->inputs);
+			if (!test_and_set_bit(ID, &dotg->inputs)) {
+				dev_dbg(phy->dev, "XCVR: ID set\n");
+				work = 1;
+			}
 		} else {
-			dev_dbg(phy->dev, "XCVR: ID clear\n");
-			clear_bit(ID, &dotg->inputs);
+			if (test_and_clear_bit(ID, &dotg->inputs)) {
+				dev_dbg(phy->dev, "XCVR: ID clear\n");
+				work = 1;
+			}
 		}
 
 		if (ext_xceiv->bsv) {
-			dev_dbg(phy->dev, "XCVR: BSV set\n");
-			set_bit(B_SESS_VLD, &dotg->inputs);
+			if (!test_and_set_bit(B_SESS_VLD, &dotg->inputs)) {
+				dev_dbg(phy->dev, "XCVR: BSV set\n");
+				work = 1;
+			}
 		} else {
-			dev_dbg(phy->dev, "XCVR: BSV clear\n");
-			clear_bit(B_SESS_VLD, &dotg->inputs);
+			if (test_and_clear_bit(B_SESS_VLD, &dotg->inputs)) {
+				dev_dbg(phy->dev, "XCVR: BSV clear\n");
+				work = 1;
+			}
 		}
 
 		if (!init) {
@@ -353,7 +387,8 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			dev_dbg(phy->dev, "XCVR: BSV init complete\n");
 			return;
 		}
-		schedule_work(&dotg->sm_work);
+		if (work)
+			schedule_work(&dotg->sm_work);
 	}
 }
 
@@ -460,6 +495,7 @@ static irqreturn_t dwc3_otg_interrupt(int irq, void *_dotg)
 	u32 osts, oevt_reg;
 	int ret = IRQ_NONE;
 	int handled_irqs = 0;
+	struct usb_phy *phy = dotg->otg.phy;
 
 	oevt_reg = dwc3_readl(dotg->regs, DWC3_OEVT);
 
@@ -475,22 +511,29 @@ static irqreturn_t dwc3_otg_interrupt(int irq, void *_dotg)
 		 * function, switch from A to B or from B to A.
 		 */
 
-		if (osts & DWC3_OTG_OSTS_CONIDSTS)
-			set_bit(ID, &dotg->inputs);
-		else
-			clear_bit(ID, &dotg->inputs);
+		if (oevt_reg & DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT) {
+			if (osts & DWC3_OTG_OSTS_CONIDSTS) {
+				dev_dbg(phy->dev, "ID set\n");
+				set_bit(ID, &dotg->inputs);
+			} else {
+				dev_dbg(phy->dev, "ID clear\n");
+				clear_bit(ID, &dotg->inputs);
+			}
+			handled_irqs |= DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT;
+		}
 
-		if (osts & DWC3_OTG_OSTS_BSESVALID)
-			set_bit(B_SESS_VLD, &dotg->inputs);
-		else
-			clear_bit(B_SESS_VLD, &dotg->inputs);
+		if (oevt_reg & DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT) {
+			if (osts & DWC3_OTG_OSTS_BSESVALID) {
+				dev_dbg(phy->dev, "BSV set\n");
+				set_bit(B_SESS_VLD, &dotg->inputs);
+			} else {
+				dev_dbg(phy->dev, "BSV clear\n");
+				clear_bit(B_SESS_VLD, &dotg->inputs);
+			}
+			handled_irqs |= DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT;
+		}
 
 		schedule_work(&dotg->sm_work);
-
-		handled_irqs |= (oevt_reg & DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT) ?
-				DWC3_OEVTEN_OTGCONIDSTSCHNGEVNT : 0;
-		handled_irqs |= (oevt_reg & DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT) ?
-				DWC3_OEVTEN_OTGBDEVVBUSCHNGEVNT : 0;
 
 		ret = IRQ_HANDLED;
 

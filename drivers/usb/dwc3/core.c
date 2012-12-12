@@ -277,18 +277,6 @@ static void dwc3_core_num_eps(struct dwc3 *dwc)
 			dwc->num_in_eps, dwc->num_out_eps);
 }
 
-/* XHCI reset, resets other CORE registers as well, re-init those */
-void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
-{
-	/*
-	 * XHCI reset clears EVENT buffer register as well, re-init
-	 * EVENT buffers and also do device specific re-initialization
-	 */
-	dwc3_event_buffers_setup(dwc);
-
-	dwc3_gadget_restart(dwc);
-}
-
 static void dwc3_cache_hwparams(struct dwc3 *dwc)
 {
 	struct dwc3_hwparams	*parms = &dwc->hwparams;
@@ -421,6 +409,13 @@ static void dwc3_core_exit(struct dwc3 *dwc)
 {
 	usb_phy_shutdown(dwc->usb2_phy);
 	usb_phy_shutdown(dwc->usb3_phy);
+}
+
+/* XHCI reset, resets other CORE registers as well, re-init those */
+void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
+{
+	dwc3_core_init(dwc);
+	dwc3_gadget_restart(dwc);
 }
 
 #define DWC3_ALIGN_MASK		(16 - 1)
@@ -557,11 +552,13 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	dwc3_cache_hwparams(dwc);
 
-	ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
-	if (ret) {
-		dev_err(dwc->dev, "failed to allocate event buffers\n");
-		ret = -ENOMEM;
-		goto err0;
+	if (!dwc->ev_buffs) {
+		ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
+		if (ret) {
+			dev_err(dwc->dev, "failed to allocate event buffers\n");
+			ret = -ENOMEM;
+			goto err0;
+		}
 	}
 
 	ret = dwc3_core_init(dwc);

@@ -40,6 +40,7 @@
 #include <mach/rpm-regulator-smd.h>
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
+#include <mach/clk.h>
 
 #include "dwc3_otg.h"
 #include "core.h"
@@ -1116,6 +1117,95 @@ put_1p8_lpm:
 	return rc < 0 ? rc : 0;
 }
 
+static int dwc3_msm_link_clk_reset(bool assert)
+{
+	int ret = 0;
+	struct dwc3_msm *mdwc = context;
+
+	if (assert) {
+		/* Using asynchronous block reset to the hardware */
+		dev_dbg(mdwc->dev, "block_reset ASSERT\n");
+		clk_disable_unprepare(mdwc->ref_clk);
+		clk_disable_unprepare(mdwc->iface_clk);
+		clk_disable_unprepare(mdwc->core_clk);
+		ret = clk_reset(mdwc->core_clk, CLK_RESET_ASSERT);
+		if (ret)
+			dev_err(mdwc->dev, "dwc3 core_clk assert failed\n");
+	} else {
+		dev_dbg(mdwc->dev, "block_reset DEASSERT\n");
+		ret = clk_reset(mdwc->core_clk, CLK_RESET_DEASSERT);
+		ndelay(200);
+		clk_prepare_enable(mdwc->core_clk);
+		clk_prepare_enable(mdwc->ref_clk);
+		clk_prepare_enable(mdwc->iface_clk);
+		if (ret)
+			dev_err(mdwc->dev, "dwc3 core_clk deassert failed\n");
+	}
+
+	return ret;
+}
+
+/* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
+static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
+{
+	u32 data = 0;
+
+	/* SSPHY Initialization: Use ref_clk from pads and set its parameters */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
+	msleep(30);
+	/* Assert SSPHY reset */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210082);
+	usleep_range(2000, 2200);
+	/* De-assert SSPHY reset - power and ref_clock must be ON */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
+	usleep_range(2000, 2200);
+	/* Ref clock must be stable now, enable ref clock for HS mode */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210102);
+	usleep_range(2000, 2200);
+	/*
+	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
+	 * and disable RETENTION (power-on default is ENABLED)
+	 */
+	dwc3_msm_write_reg(msm->base, HS_PHY_CTRL_REG, 0x5220bb2);
+	usleep_range(2000, 2200);
+	/* Disable (bypass) VBUS and ID filters */
+	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
+
+	/*
+	 * WORKAROUND: There is SSPHY suspend bug due to which USB enumerates
+	 * in HS mode instead of SS mode. Workaround it by asserting
+	 * LANE0.TX_ALT_BLOCK.EN_ALT_BUS to enable TX to use alt bus mode
+	 */
+	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x102D);
+	data |= (1 << 7);
+	dwc3_msm_ssusb_write_phycreg(msm->base, 0x102D, data);
+
+	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x1010);
+	data &= ~0xFF0;
+	data |= 0x40;
+	dwc3_msm_ssusb_write_phycreg(msm->base, 0x1010, data);
+}
+
+static void dwc3_msm_block_reset(void)
+{
+	struct dwc3_msm *mdwc = context;
+	int ret  = 0;
+
+	ret = dwc3_msm_link_clk_reset(1);
+	if (ret)
+		return;
+
+	usleep_range(1000, 1200);
+	ret = dwc3_msm_link_clk_reset(0);
+	if (ret)
+		return;
+
+	usleep_range(10000, 12000);
+
+	/* Reinitialize QSCRATCH registers after block reset */
+	dwc3_msm_qscratch_reg_init(mdwc);
+}
+
 static void dwc3_chg_enable_secondary_det(struct dwc3_msm *mdwc)
 {
 	u32 chg_ctrl;
@@ -1777,7 +1867,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	int ret = 0;
 	int len = 0;
 	u32 tmp[3];
-	u32 data = 0;
 
 	msm = devm_kzalloc(&pdev->dev, sizeof(*msm), GFP_KERNEL);
 	if (!msm) {
@@ -2006,40 +2095,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	msm->resource_size = resource_size(res);
 	msm->dwc3 = dwc3;
 
-	/* SSPHY Initialization: Use ref_clk from pads and set its parameters */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
-	msleep(30);
-	/* Assert SSPHY reset */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210082);
-	usleep_range(2000, 2200);
-	/* De-assert SSPHY reset - power and ref_clock must be ON */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
-	usleep_range(2000, 2200);
-	/* Ref clock must be stable now, enable ref clock for HS mode */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210102);
-	usleep_range(2000, 2200);
-	/*
-	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
-	 * and disable RETENTION (power-on default is ENABLED)
-	 */
-	dwc3_msm_write_reg(msm->base, HS_PHY_CTRL_REG, 0x5220bb2);
-	usleep_range(2000, 2200);
-	/* Disable (bypass) VBUS and ID filters */
-	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
-
-	/*
-	 * WORKAROUND: There is SSPHY suspend bug due to which USB enumerates
-	 * in HS mode instead of SS mode. Workaround it by asserting
-	 * LANE0.TX_ALT_BLOCK.EN_ALT_BUS to enable TX to use alt bus mode
-	 */
-	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x102D);
-	data |= (1 << 7);
-	dwc3_msm_ssusb_write_phycreg(msm->base, 0x102D, data);
-
-	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x1010);
-	data &= ~0xFF0;
-	data |= 0x40;
-	dwc3_msm_ssusb_write_phycreg(msm->base, 0x1010, data);
+	dwc3_msm_qscratch_reg_init(msm);
 
 	pm_runtime_set_active(msm->dev);
 	pm_runtime_enable(msm->dev);
@@ -2122,6 +2178,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			goto put_xcvr;
 		}
 
+		if (msm->ext_xceiv.otg_capability)
+			msm->ext_xceiv.ext_block_reset = dwc3_msm_block_reset;
 		ret = dwc3_set_ext_xceiv(msm->otg_xceiv->otg, &msm->ext_xceiv);
 		if (ret || !msm->ext_xceiv.notify_ext_events) {
 			dev_err(&pdev->dev, "failed to register xceiver: %d\n",
