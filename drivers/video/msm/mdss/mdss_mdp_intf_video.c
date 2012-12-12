@@ -41,7 +41,6 @@ struct mdss_mdp_video_ctx {
 	u8 ref_cnt;
 
 	u8 timegen_en;
-	struct completion pp_comp;
 	struct completion vsync_comp;
 
 	atomic_t vsync_ref;
@@ -236,21 +235,6 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
-static void mdss_mdp_video_pp_intr_done(void *arg)
-{
-	struct mdss_mdp_ctl *ctl = arg;
-	struct mdss_mdp_video_ctx *ctx = ctl->priv_data;
-
-	if (!ctx) {
-		pr_err("invalid ctx\n");
-		return;
-	}
-
-	pr_debug("intr mixer=%d\n", ctx->pp_num);
-
-	complete(&ctx->pp_comp);
-}
-
 static void mdss_mdp_video_vsync_intr_done(void *arg)
 {
 	struct mdss_mdp_ctl *ctl = arg;
@@ -271,27 +255,6 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 	if (ctx->vsync_handler)
 		ctx->vsync_handler(ctl, vsync_time);
 	spin_unlock(&ctx->vsync_lock);
-}
-
-static int mdss_mdp_video_prepare(struct mdss_mdp_ctl *ctl, void *arg)
-{
-	struct mdss_mdp_video_ctx *ctx;
-
-	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
-	if (!ctx) {
-		pr_err("invalid ctx\n");
-		return -ENODEV;
-	}
-
-	if (ctx->timegen_en) {
-		INIT_COMPLETION(ctx->pp_comp);
-		pr_debug("waiting for ping pong %d done\n", ctx->pp_num);
-		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
-		wait_for_completion_interruptible(&ctx->pp_comp);
-		mdss_mdp_irq_disable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
-	}
-
-	return 0;
 }
 
 static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
@@ -366,15 +329,12 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	}
 	ctl->priv_data = ctx;
 	ctx->pp_num = mixer->num;
-	init_completion(&ctx->pp_comp);
 	init_completion(&ctx->vsync_comp);
 	spin_lock_init(&ctx->vsync_lock);
 	atomic_set(&ctx->vsync_ref, 0);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num,
 				   mdss_mdp_video_vsync_intr_done, ctl);
-	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
-				   mdss_mdp_video_pp_intr_done, ctl);
 
 	itp.width = pinfo->xres + pinfo->lcdc.xres_pad;
 	itp.height = pinfo->yres + pinfo->lcdc.yres_pad;
@@ -397,7 +357,6 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	}
 
 	ctl->stop_fnc = mdss_mdp_video_stop;
-	ctl->prepare_fnc = mdss_mdp_video_prepare;
 	ctl->display_fnc = mdss_mdp_video_display;
 	ctl->set_vsync_handler = mdss_mdp_video_set_vsync_handler;
 
