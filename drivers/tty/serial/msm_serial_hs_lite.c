@@ -669,15 +669,15 @@ static void msm_hsl_set_baud_rate(struct uart_port *port,
 	 * Check requested baud rate and for higher baud rate than 460800,
 	 * calculate required uart clock frequency and set the same.
 	 */
-	if (baud > 460800) {
-
+	if (baud > 460800)
 		port->uartclk = baud * 16;
-		if (clk_set_rate(msm_hsl_port->clk, port->uartclk)) {
-			pr_err("%s(): Error setting uartclk rate %u\n",
-						__func__, port->uartclk);
-			WARN_ON(1);
-			return;
-		}
+	else
+		port->uartclk = 7372800;
+
+	if (clk_set_rate(msm_hsl_port->clk, port->uartclk)) {
+		pr_err("Error: setting uartclk rate %u\n", port->uartclk);
+		WARN_ON(1);
+		return;
 	}
 
 	/* Set timeout to be ~600x the character transmit time */
