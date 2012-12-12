@@ -14,7 +14,7 @@
 #define _AUDIO_ACDB_H
 
 #include <linux/msm_audio_acdb.h>
-#include <sound/q6adm.h>
+#include <sound/q6adm-v2.h>
 
 enum {
 	RX_CAL,
@@ -41,30 +41,23 @@ struct acdb_atomic_cal_block {
 	atomic_t		cal_paddr;
 };
 
-struct acdb_cal_data {
-	uint32_t			num_cal_blocks;
-	struct acdb_atomic_cal_block	*cal_blocks;
-};
-
 uint32_t get_voice_rx_topology(void);
 uint32_t get_voice_tx_topology(void);
 uint32_t get_adm_rx_topology(void);
 uint32_t get_adm_tx_topology(void);
 uint32_t get_asm_topology(void);
 void get_voice_cal_allocation(struct acdb_cal_block *cal_block);
-void get_all_voice_cal(struct acdb_cal_block *cal_block);
-void get_all_cvp_cal(struct acdb_cal_block *cal_block);
-void get_all_vocproc_cal(struct acdb_cal_block *cal_block);
-void get_all_vocstrm_cal(struct acdb_cal_block *cal_block);
-void get_all_vocvol_cal(struct acdb_cal_block *cal_block);
 void get_anc_cal(struct acdb_cal_block *cal_block);
 void get_afe_cal(int32_t path, struct acdb_cal_block *cal_block);
 void get_audproc_cal(int32_t path, struct acdb_cal_block *cal_block);
 void get_audstrm_cal(int32_t path, struct acdb_cal_block *cal_block);
 void get_audvol_cal(int32_t path, struct acdb_cal_block *cal_block);
-void get_vocproc_cal(struct acdb_cal_data *cal_data);
-void get_vocstrm_cal(struct acdb_cal_data *cal_data);
-void get_vocvol_cal(struct acdb_cal_data *cal_data);
+void get_voice_col_data(uint32_t vocproc_type,
+	struct acdb_cal_block *cal_block);
+void get_vocproc_dev_cfg_cal(struct acdb_cal_block *cal_block);
+void get_vocproc_cal(struct acdb_cal_block *cal_block);
+void get_vocstrm_cal(struct acdb_cal_block *cal_block);
+void get_vocvol_cal(struct acdb_cal_block *cal_block);
 void get_sidetone_cal(struct sidetone_cal *cal_data);
 
 #endif

@@ -1,4 +1,4 @@
-/*  Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/*  Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,6 @@
 #include <linux/mutex.h>
 
 #include <asm/mach-types.h>
-#include <mach/qdsp6v2/audio_acdb.h>
 #include <mach/qdsp6v2/rtac.h>
 #include <mach/socinfo.h>
 #include <mach/qdsp6v2/apr_tal.h>
@@ -26,7 +25,9 @@
 #include "sound/apr_audio-v2.h"
 #include "sound/q6afe-v2.h"
 
+#include "audio_acdb.h"
 #include "q6voice.h"
+
 
 #define TIMEOUT_MS 200
 
@@ -1456,7 +1457,7 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 		goto fail;
 	}
 
-	get_all_vocstrm_cal(&cal_block);
+	get_vocstrm_cal(&cal_block);
 	if (cal_block.cal_size == 0) {
 		pr_err("%s: CVS cal size is 0\n", __func__);
 
@@ -1524,7 +1525,7 @@ static int voice_send_cvs_deregister_cal_cmd(struct voice_data *v)
 		goto fail;
 	}
 
-	get_all_vocstrm_cal(&cal_block);
+	get_vocstrm_cal(&cal_block);
 	if (cal_block.cal_size == 0)
 		return 0;
 
@@ -1714,7 +1715,7 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 		goto fail;
 	}
 
-	get_all_vocproc_cal(&cal_block);
+	get_vocproc_cal(&cal_block);
 	if (cal_block.cal_size == 0) {
 		pr_err("%s: CVP cal size is 0\n", __func__);
 
@@ -1782,7 +1783,7 @@ static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v)
 		goto fail;
 	}
 
-	get_all_vocproc_cal(&cal_block);
+	get_vocproc_cal(&cal_block);
 	if (cal_block.cal_size == 0)
 		return 0;
 
@@ -1843,7 +1844,7 @@ static int voice_send_cvp_register_vol_cal_cmd(struct voice_data *v)
 		goto fail;
 	}
 
-	get_all_vocvol_cal(&cal_block);
+	get_vocvol_cal(&cal_block);
 	if (cal_block.cal_size == 0) {
 		pr_err("%s: CVP vol cal size is 0\n", __func__);
 
@@ -1914,7 +1915,7 @@ static int voice_send_cvp_deregister_vol_cal_cmd(struct voice_data *v)
 		goto fail;
 	}
 
-	get_all_vocvol_cal(&cal_block);
+	get_vocvol_cal(&cal_block);
 	if (cal_block.cal_size == 0)
 		return 0;
 

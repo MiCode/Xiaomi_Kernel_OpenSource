@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,12 +19,14 @@
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/msm_audio_acdb.h>
-#include <asm/atomic.h>
-#include <mach/qdsp6v2/audio_acdb.h>
+#include <linux/atomic.h>
 #include <mach/qdsp6v2/rtac.h>
-#include "q6audio_common.h"
+#include <sound/q6asm-v2.h>
 #include <sound/q6afe-v2.h>
 #include <sound/apr_audio-v2.h>
+
+#include "audio_acdb.h"
+
 
 #ifndef CONFIG_RTAC
 
@@ -1041,7 +1043,7 @@ nomem:
 
 module_init(rtac_init);
 
-MODULE_DESCRIPTION("MSM 8x60 Real-Time Audio Calibration driver");
+MODULE_DESCRIPTION("SoC QDSP6v2 Real-Time Audio Calibration driver");
 MODULE_LICENSE("GPL v2");
 
 #endif
