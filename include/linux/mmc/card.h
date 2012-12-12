@@ -201,6 +201,18 @@ enum mmc_packed_stop_reasons {
 	MAX_REASONS,
 };
 
+enum mmc_blk_status {
+	MMC_BLK_SUCCESS = 0,
+	MMC_BLK_PARTIAL,
+	MMC_BLK_CMD_ERR,
+	MMC_BLK_RETRY,
+	MMC_BLK_ABORT,
+	MMC_BLK_DATA_ERR,
+	MMC_BLK_ECC_ERR,
+	MMC_BLK_NOMEDIUM,
+	MMC_BLK_NEW_REQUEST,
+};
+
 struct mmc_wr_pack_stats {
 	u32 *packing_events;
 	u32 pack_stop_reason[MAX_REASONS];
