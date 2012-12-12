@@ -494,6 +494,40 @@ TRACE_EVENT(kgsl_mem_free,
 	)
 );
 
+TRACE_EVENT(kgsl_mem_sync_cache,
+
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, unsigned int op),
+
+	TP_ARGS(mem_entry, op),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, gpuaddr)
+		__field(unsigned int, size)
+		__array(char, usage, 16)
+		__field(unsigned int, tgid)
+		__field(unsigned int, id)
+		__field(unsigned int, op)
+	),
+
+	TP_fast_assign(
+		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
+		__entry->size = mem_entry->memdesc.size;
+		__entry->tgid = mem_entry->priv->pid;
+		__entry->id = mem_entry->id;
+		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
+				     mem_entry->memdesc.flags);
+		__entry->op = op;
+	),
+
+	TP_printk(
+		"gpuaddr=0x%08x size=%d tgid=%d usage=%s id=%d op=%c%c",
+		__entry->gpuaddr, __entry->size, __entry->tgid, __entry->usage,
+		__entry->id,
+		(__entry->op & KGSL_GPUMEM_CACHE_CLEAN) ? 'c' : '.',
+		(__entry->op & KGSL_GPUMEM_CACHE_INV) ? 'i' : '.'
+	)
+);
+
 DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 
 	TP_PROTO(struct kgsl_device *device, struct kgsl_mem_entry *mem_entry,
