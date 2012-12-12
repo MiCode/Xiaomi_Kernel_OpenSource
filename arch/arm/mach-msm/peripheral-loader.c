@@ -313,7 +313,7 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	struct ion_handle *region;
 	int ret;
 	unsigned int mask;
-	size_t size = round_up(max_addr - min_addr, align);
+	size_t size = max_addr - min_addr;
 
 	if (!ion) {
 		WARN_ON_ONCE("No ION client, can't support relocation\n");
@@ -385,6 +385,13 @@ static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 		}
 
 	}
+
+	/*
+	 * Align the max address to the next 4K boundary to satisfy iommus and
+	 * XPUs that operate on 4K chunks.
+	 */
+	max_addr_n = ALIGN(max_addr_n, SZ_4K);
+	max_addr_r = ALIGN(max_addr_r, SZ_4K);
 
 	if (relocatable) {
 		ret = pil_alloc_region(priv, min_addr_r, max_addr_r, align);
