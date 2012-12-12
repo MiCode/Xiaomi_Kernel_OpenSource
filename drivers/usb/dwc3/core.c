@@ -300,19 +300,7 @@ static void dwc3_event_buffers_cleanup(struct dwc3 *dwc)
 	}
 }
 
-/* XHCI reset, resets other CORE registers as well, re-init those */
-void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
-{
-	/*
-	 * XHCI reset clears EVENT buffer register as well, re-init
-	 * EVENT buffers and also do device specific re-initialization
-	 */
-	dwc3_event_buffers_setup(dwc);
-
-	dwc3_gadget_restart(dwc);
-}
-
-static void __devinit dwc3_cache_hwparams(struct dwc3 *dwc)
+static void dwc3_cache_hwparams(struct dwc3 *dwc)
 {
 	struct dwc3_hwparams	*parms = &dwc->hwparams;
 
@@ -333,7 +321,7 @@ static void __devinit dwc3_cache_hwparams(struct dwc3 *dwc)
  *
  * Returns 0 on success otherwise negative errno.
  */
-static int __devinit dwc3_core_init(struct dwc3 *dwc)
+static int dwc3_core_init(struct dwc3 *dwc)
 {
 	unsigned long		timeout;
 	u32			reg;
@@ -434,11 +422,13 @@ static int __devinit dwc3_core_init(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 	}
 
-	ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
-	if (ret) {
-		dev_err(dwc->dev, "failed to allocate event buffers\n");
-		ret = -ENOMEM;
-		goto err1;
+	if (!dwc->ev_buffs) {
+		ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
+		if (ret) {
+			dev_err(dwc->dev, "failed to allocate event buffers\n");
+			ret = -ENOMEM;
+			goto err1;
+		}
 	}
 
 	ret = dwc3_event_buffers_setup(dwc);
@@ -460,6 +450,13 @@ static void dwc3_core_exit(struct dwc3 *dwc)
 {
 	dwc3_event_buffers_cleanup(dwc);
 	dwc3_free_event_buffers(dwc);
+}
+
+/* XHCI reset, resets other CORE registers as well, re-init those */
+void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
+{
+	dwc3_core_init(dwc);
+	dwc3_gadget_restart(dwc);
 }
 
 #define DWC3_ALIGN_MASK		(16 - 1)

@@ -103,6 +103,8 @@ struct dwc3_ext_xceiv {
 	/* to notify OTG about LPM exit event, provided by OTG */
 	void	(*notify_ext_events)(struct usb_otg *otg,
 					enum dwc3_ext_events ext_event);
+	/* for block reset USB core */
+	void	(*ext_block_reset)(void);
 };
 
 /* for external transceiver driver */
