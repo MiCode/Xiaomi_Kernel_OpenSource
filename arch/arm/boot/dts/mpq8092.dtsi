@@ -271,6 +271,12 @@
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 		qcom,current-limit = <800>;
 	};
+
+	sata: sata@fc580000 {
+		compatible = "qcom,msm-ahci";
+		reg = <0xfc580000 0x17c>;
+		interrupts = <0 243 0>;
+	};
 };
 
 &gdsc_venus {
