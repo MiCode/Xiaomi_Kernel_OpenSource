@@ -42,7 +42,7 @@ struct isa1200_chip {
 	struct hrtimer timer;
 	struct timed_output_dev dev;
 	struct work_struct work;
-	spinlock_t lock;
+	struct mutex lock;
 	unsigned int enable;
 	unsigned int period_ns;
 	bool is_len_gpio_valid;
@@ -216,9 +216,8 @@ static void isa1200_chip_enable(struct timed_output_dev *dev, int value)
 {
 	struct isa1200_chip *haptic = container_of(dev, struct isa1200_chip,
 					dev);
-	unsigned long flags;
 
-	spin_lock_irqsave(&haptic->lock, flags);
+	mutex_lock(&haptic->lock);
 	hrtimer_cancel(&haptic->timer);
 	if (value == 0)
 		haptic->enable = 0;
@@ -230,7 +229,7 @@ static void isa1200_chip_enable(struct timed_output_dev *dev, int value)
 			ktime_set(value / 1000, (value % 1000) * 1000000),
 			HRTIMER_MODE_REL);
 	}
-	spin_unlock_irqrestore(&haptic->lock, flags);
+	mutex_unlock(&haptic->lock);
 	schedule_work(&haptic->work);
 }
 
@@ -501,7 +500,7 @@ static int __devinit isa1200_probe(struct i2c_client *client,
 		}
 	}
 
-	spin_lock_init(&haptic->lock);
+	mutex_init(&haptic->lock);
 	INIT_WORK(&haptic->work, isa1200_chip_work);
 	haptic->clk_on = false;
 
@@ -591,6 +590,7 @@ len_gpio_fail:
 hen_gpio_fail:
 	timed_output_dev_unregister(&haptic->dev);
 timed_reg_fail:
+	mutex_destroy(&haptic->lock);
 	if (pdata->power_on)
 		pdata->power_on(0);
 pwr_up_fail:
@@ -636,6 +636,9 @@ static int __devexit isa1200_remove(struct i2c_client *client)
 	i2c_smbus_write_byte_data(client, ISA1200_HCTRL1,
 				ISA1200_HCTRL1_RESET);
 
+
+	/* destroy mutex */
+	mutex_destroy(&haptic->lock);
 
 	/* power-off the chip */
 	if (haptic->pdata->regulator_info) {
