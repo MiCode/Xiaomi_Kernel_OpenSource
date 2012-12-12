@@ -768,6 +768,11 @@ static void msm_comm_update_clocks(struct msm_vidc_inst *inst,
 
 	if (inst->session_type == MSM_VIDC_ENCODER)
 		goto exit;
+	if (cur_time_stamp >= LLONG_MAX) {
+		dprintk(VIDC_WARN,
+			"Clock scaling failed : Timestamp invalid\n");
+		goto exit;
+	}
 	ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
 		V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER);
 	if (!ctrl) {
