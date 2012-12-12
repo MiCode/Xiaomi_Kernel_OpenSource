@@ -121,26 +121,24 @@ static int __cpuinit krait_release_secondary(unsigned long base, int cpu)
 
 	msm_spm_turn_on_cpu_rail(cpu);
 
-	if (cpu_is_krait_v1() || cpu_is_krait_v2()) {
-		writel_relaxed(0x109, base_ptr+0x04);
-		writel_relaxed(0x101, base_ptr+0x04);
-		mb();
-		ndelay(300);
-		writel_relaxed(0x121, base_ptr+0x04);
-	} else
-		writel_relaxed(0x021, base_ptr+0x04);
+	writel_relaxed(0x109, base_ptr+0x04);
+	writel_relaxed(0x101, base_ptr+0x04);
+	mb();
+	ndelay(300);
+
+	writel_relaxed(0x121, base_ptr+0x04);
 	mb();
 	udelay(2);
 
-	writel_relaxed(0x020, base_ptr+0x04);
+	writel_relaxed(0x120, base_ptr+0x04);
 	mb();
 	udelay(2);
 
-	writel_relaxed(0x000, base_ptr+0x04);
+	writel_relaxed(0x100, base_ptr+0x04);
 	mb();
 	udelay(100);
 
-	writel_relaxed(0x080, base_ptr+0x04);
+	writel_relaxed(0x180, base_ptr+0x04);
 	mb();
 	iounmap(base_ptr);
 	return 0;
