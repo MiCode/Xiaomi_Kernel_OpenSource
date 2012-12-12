@@ -184,6 +184,7 @@ config ARCH_MSM8960
 	select USE_USER_ACCESSIBLE_TIMERS
 	select ARM_USE_USER_ACCESSIBLE_TIMERS
 	select MSM_USE_USER_ACCESSIBLE_TIMERS
+	select MSM_CPU_PWRCTL
 
 config ARCH_MSM8930
 	bool "MSM8930"
@@ -221,6 +222,7 @@ config ARCH_MSM8930
 	select USE_USER_ACCESSIBLE_TIMERS
 	select ARM_USE_USER_ACCESSIBLE_TIMERS
 	select MSM_USE_USER_ACCESSIBLE_TIMERS
+	select MSM_CPU_PWRCTL
 
 config ARCH_APQ8064
 	bool "APQ8064"
@@ -254,6 +256,7 @@ config ARCH_APQ8064
 	select USE_USER_ACCESSIBLE_TIMERS
 	select ARM_USE_USER_ACCESSIBLE_TIMERS
 	select MSM_USE_USER_ACCESSIBLE_TIMERS
+	select MSM_CPU_PWRCTL
 
 config ARCH_MSM8974
 	bool "MSM8974"
@@ -2714,5 +2717,12 @@ config USE_DEV_CTRL_VOLUME
 	bool "Use Device Control Volume"
 	help
 	  Use Device Control Volume as opposed to ALSA volume control.
+
+config MSM_CPU_PWRCTL
+	bool "Ensures that krait droop detectors are always off"
+	help
+	  Droop detector mechanism can adversely affect krait plls during
+	  stand alone power collapse operation. Selecting this option
+	  ensures that they are always off.
 
 endif
