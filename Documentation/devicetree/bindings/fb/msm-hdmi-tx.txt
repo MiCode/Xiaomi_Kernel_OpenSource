@@ -6,6 +6,7 @@ Required properties:
 - reg: offset and length of the register regions(s) for the device.
 - reg-names: a list of strings that map in order to the list of regs.
 
+- hpd-gdsc-supply: phandle to the mdss gdsc regulator device tree node.
 - hpd-5v-supply: phandle to the 5V regulator device tree node.
 - core-vdda-supply: phandle to the HDMI vdda regulator device tree node.
 - core-vcc-supply: phandle to the HDMI vcc regulator device tree node.
@@ -42,14 +43,15 @@ Example:
 			<0xfc4b8000 0x60F0>;
 		reg-names = "core_physical", "phy_physical", "qfprom_physical";
 
+		hpd-gdsc-supply = <&gdsc_mdss>;
 		hpd-5v-supply = <&pm8941_mvs2>;
 		core-vdda-supply = <&pm8941_l12>;
 		core-vcc-supply = <&pm8941_s3>;
-		qcom,hdmi-tx-supply-names = "hpd-5v", "core-vdda", "core-vcc";
-		qcom,hdmi-tx-supply-type = <0 1 1>;
-		qcom,hdmi-tx-min-voltage-level = <0 1800000 1800000>;
-		qcom,hdmi-tx-max-voltage-level = <0 1800000 1800000>;
-		qcom,hdmi-tx-op-mode = <0 1800000 0>;
+		qcom,hdmi-tx-supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
+		qcom,hdmi-tx-supply-type = <1 1 0 0>;
+		qcom,hdmi-tx-min-voltage-level = <0 0 1800000 1800000>;
+		qcom,hdmi-tx-max-voltage-level = <0 0 1800000 1800000>;
+		qcom,hdmi-tx-op-mode = <0 0 1800000 0>;
 
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
