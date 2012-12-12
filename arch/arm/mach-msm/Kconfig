@@ -290,6 +290,7 @@ config ARCH_MSM8974
 	select SENSORS_ADSP
 	select MSM_ULTRASOUND_B
 	select MSM_LPM_TEST
+	select MSM_RPM_LOG
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
