@@ -972,8 +972,8 @@ int ocmem_core_init(struct platform_device *pdev)
 	num_macros = (hw_ver & NUM_MACROS_MASK) >> NUM_MACROS_SHIFT;
 	num_ports = (hw_ver & NUM_PORTS_MASK) >> NUM_PORTS_SHIFT;
 
-	if (num_macros != OCMEM_V1_MACROS) {
-		pr_err("Invalid number of macros (%d)\n", num_macros);
+	if (num_macros != pdata->nr_macros) {
+		pr_err("Invalid number of macros (%d)\n", pdata->nr_macros);
 		goto hw_not_supported;
 	}
 
@@ -981,8 +981,7 @@ int ocmem_core_init(struct platform_device *pdev)
 
 	num_regions = pdata->nr_regions;
 
-	pdata->interleaved = interleaved;
-	pdata->nr_macros = num_macros;
+	pdata->interleaved = true;
 	pdata->nr_ports = num_ports;
 	macro_size = OCMEM_V1_MACRO_SZ * 2;
 	num_banks = num_ports / 2;

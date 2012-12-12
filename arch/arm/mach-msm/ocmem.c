@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -411,6 +411,7 @@ static struct ocmem_plat_data * __devinit parse_dt_config
 	struct resource *ocmem_mem_io;
 	unsigned nr_parts = 0;
 	unsigned nr_regions = 0;
+	unsigned nr_macros = 0;
 
 	pdata = devm_kzalloc(dev, sizeof(struct ocmem_plat_data),
 			GFP_KERNEL);
@@ -512,6 +513,16 @@ static struct ocmem_plat_data * __devinit parse_dt_config
 		return NULL;
 	}
 
+	if (of_property_read_u32(node, "qcom,ocmem-num-macros",
+							 &nr_macros)) {
+		dev_err(dev, "No OCMEM macros specified\n");
+	}
+
+	if (nr_macros == 0) {
+		dev_err(dev, "No hardware macros found\n");
+		return NULL;
+	}
+
 	/* Figure out the number of partititons */
 	nr_parts = of_ocmem_parse_regions(dev, &parts);
 	if (nr_parts <= 0) {
@@ -528,6 +539,7 @@ static struct ocmem_plat_data * __devinit parse_dt_config
 	pdata->nr_parts = nr_parts;
 	pdata->parts = parts;
 	pdata->nr_regions = nr_regions;
+	pdata->nr_macros = nr_macros;
 	pdata->ocmem_irq = ocmem_irq->start;
 	pdata->dm_irq = dm_irq->start;
 	return pdata;
