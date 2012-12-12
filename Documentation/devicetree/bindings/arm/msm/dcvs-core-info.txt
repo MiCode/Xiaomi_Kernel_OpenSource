@@ -37,9 +37,9 @@ Required properties:
 - qcom,algo-ss-win-size-max-us:		sets maximum steady state window size.
 - qcom,algo-ss-util-pct:		sets target CPU utilization during
 					steady-state.
-- qcom,algo-ss-iobusy-conv:		specifies how wait time (i/o busy time)
-					is incorporated into the steady-state
-					algorithm.
+- qcom,algo-ss-no-corr-below-freq:	specifies frequency below which DCVS
+					will not attempt to correlate busy or
+					idle information from different CPUs
 
 - qcom,energy-active-coeff-a:	sets active power equation coefficient a.
 - qcom,energy-active-coeff-b:	sets active power equation coefficient b.
@@ -89,7 +89,7 @@ qcom,kgsl-3d0@fdb00000 {
 			qcom,algo-ss-win-size-min-us = <1000000>;
 			qcom,algo-ss-win-size-max-us = <1000000>;
 			qcom,algo-ss-util-pct = <95>;
-			qcom,algo-ss-iobusy-conv = <100>;
+			qcom,algo-ss-no-corr-below-freq = <0>;
 
 			qcom,energy-active-coeff-a = <2492>;
 			qcom,energy-active-coeff-b = <0>;

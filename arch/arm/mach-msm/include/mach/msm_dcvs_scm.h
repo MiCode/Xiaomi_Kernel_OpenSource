@@ -48,7 +48,7 @@ struct msm_dcvs_algo_param {
 	uint32_t slack_time_min_us;
 	uint32_t slack_time_max_us;
 	uint32_t slack_weight_thresh_pct;
-	uint32_t ss_iobusy_conv;
+	uint32_t ss_no_corr_below_freq;
 	uint32_t ss_win_size_min_us;
 	uint32_t ss_win_size_max_us;
 	uint32_t ss_util_pct;
