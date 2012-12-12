@@ -423,14 +423,6 @@ static int acpuclk_8x50_set_rate(int cpu, unsigned long rate,
 	}
 
 	if (reason == SETRATE_CPUFREQ) {
-#ifdef CONFIG_MSM_CPU_AVS
-		/* Notify avs before changing frequency */
-		rc = avs_adjust_freq(freq_index, 1);
-		if (rc) {
-			pr_err("Unable to increase ACPU vdd (%d)\n", rc);
-			goto out;
-		}
-#endif
 		/* Increase VDD if needed. */
 		if (tgt_s->vdd > strt_s->vdd) {
 			rc = acpuclk_set_vdd_level(tgt_s->vdd);
@@ -484,13 +476,6 @@ static int acpuclk_8x50_set_rate(int cpu, unsigned long rate,
 	/* Nothing else to do for power collapse */
 	if (reason == SETRATE_PC)
 		goto out;
-
-#ifdef CONFIG_MSM_CPU_AVS
-	/* notify avs after changing frequency */
-	res = avs_adjust_freq(freq_index, 0);
-	if (res)
-		pr_warning("Unable to drop ACPU vdd (%d)\n", res);
-#endif
 
 	/* Drop VDD level if we can. */
 	if (tgt_s->vdd < strt_s->vdd) {
@@ -658,22 +643,6 @@ static void __devinit lpj_init(void)
 	}
 }
 
-#ifdef CONFIG_MSM_CPU_AVS
-static int __devinit acpu_avs_init(int (*set_vdd) (int), int khz)
-{
-	int i;
-	int freq_count = 0;
-	int freq_index = -1;
-
-	for (i = 0; acpu_freq_tbl[i].acpuclk_khz; i++) {
-		freq_count++;
-		if (acpu_freq_tbl[i].acpuclk_khz == khz)
-			freq_index = i;
-	}
-
-	return avs_init(set_vdd, freq_count, freq_index);
-}
-#endif
 
 static int qsd8x50_tps65023_set_dcdc1(int mVolts)
 {
@@ -727,13 +696,6 @@ static int __devinit acpuclk_8x50_probe(struct platform_device *pdev)
 #ifdef CONFIG_CPU_FREQ_MSM
 	cpufreq_table_init();
 	cpufreq_frequency_table_get_attr(freq_table, smp_processor_id());
-#endif
-#ifdef CONFIG_MSM_CPU_AVS
-	if (!acpu_avs_init(drv_state.acpu_set_vdd,
-		drv_state.current_speed->acpuclk_khz)) {
-		/* avs init successful. avs will handle voltage changes */
-		drv_state.acpu_set_vdd = NULL;
-	}
 #endif
 	return 0;
 }
