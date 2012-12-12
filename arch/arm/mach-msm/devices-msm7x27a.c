@@ -36,6 +36,7 @@
 #include "devices-msm7x2xa.h"
 #include "footswitch.h"
 #include "acpuclock.h"
+#include "acpuclock-8625q.h"
 #include "spm.h"
 #include "mpm-8625.h"
 #include "irq.h"
@@ -238,6 +239,21 @@ struct platform_device msm7x27aa_device_acpuclk = {
 	.name		= "acpuclk-7627",
 	.id		= -1,
 	.dev.platform_data = &msm7x27aa_acpuclk_pdata,
+};
+
+static struct acpuclk_pdata msm8625q_pdata = {
+	.max_speed_delta_khz = 801600,
+};
+
+static struct acpuclk_pdata_8625q msm8625q_acpuclk_pdata = {
+	.acpu_clk_data = &msm8625q_pdata,
+	.pvs_voltage_uv = 1350000,
+};
+
+struct platform_device msm8625q_device_acpuclk = {
+	.name		= "acpuclock-8625q",
+	.id		= -1,
+	.dev.platform_data = &msm8625q_acpuclk_pdata,
 };
 
 static struct acpuclk_pdata msm8625_acpuclk_pdata = {
@@ -2029,6 +2045,21 @@ static int __init msm_gpio_config_gps(void)
 	return ret;
 }
 
+static int __init msm_acpuclock_init(void)
+{
+	struct cpr_info_type *acpu_info = NULL;
+	acpu_info = kzalloc(sizeof(struct cpr_info_type), GFP_KERNEL);
+	if (!acpu_info) {
+		pr_err("%s: Out of memory %d\n", __func__, -ENOMEM);
+		return -ENOMEM;
+	}
+	msm_smem_get_cpr_info(acpu_info);
+	msm8625q_acpuclk_pdata.pvs_voltage_uv =
+			msm_c2_pmic_mv[acpu_info->pvs_fuse & 0x1F];
+	kfree(acpu_info);
+	return 0;
+}
+
 int __init msm7x2x_misc_init(void)
 {
 	if (machine_is_msm8625_rumi3()) {
@@ -2041,7 +2072,10 @@ int __init msm7x2x_misc_init(void)
 	if (cpu_is_msm7x27aa() || cpu_is_msm7x25ab())
 		platform_device_register(&msm7x27aa_device_acpuclk);
 	else if (cpu_is_msm8625() || cpu_is_msm8625q()) {
-		if (msm8625_cpu_id() == MSM8625)
+		if (machine_is_qrd_skud_prime() || cpu_is_msm8625q()) {
+			msm_acpuclock_init();
+			platform_device_register(&msm8625q_device_acpuclk);
+		} else if (msm8625_cpu_id() == MSM8625)
 			platform_device_register(&msm7x27aa_device_acpuclk);
 		else if (msm8625_cpu_id() == MSM8625A)
 			platform_device_register(&msm8625_device_acpuclk);
