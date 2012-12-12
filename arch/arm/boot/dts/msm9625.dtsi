@@ -583,9 +583,9 @@
 /include/ "msm9625-regulator.dtsi"
 
 &pm8019_vadc {
-	chan@49 {
+	chan@31 {
 		label = "batt_id_therm";
-		qcom,channel-num = <49>;
+		reg = <0x31>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
@@ -594,9 +594,9 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
-	chan@51 {
+	chan@33 {
 		label = "pa_therm1";
-		qcom,channel-num = <51>;
+		reg = <0x33>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
@@ -605,9 +605,9 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
-	chan@52 {
+	chan@34 {
 		label = "pa_therm2";
-		qcom,channel-num = <52>;
+		reg = <0x34>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
@@ -616,9 +616,9 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
-	chan@50 {
+	chan@32 {
 		label = "xo_therm";
-		qcom,channel-num = <50>;
+		reg = <0x32>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
@@ -627,9 +627,9 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
-	chan@60 {
+	chan@3c {
 		label = "xo_therm_amux";
-		qcom,channel-num = <60>;
+		reg = <0x3c>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
