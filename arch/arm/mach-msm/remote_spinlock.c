@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2009, 2011-2012 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,10 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/delay.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 
 #include <asm/system.h>
 
@@ -22,7 +26,6 @@
 #include <mach/remote_spinlock.h>
 #include <mach/dal.h>
 #include "smd_private.h"
-#include <linux/module.h>
 
 static void remote_spin_release_all_locks(uint32_t pid, int count);
 
@@ -30,31 +33,85 @@ static void remote_spin_release_all_locks(uint32_t pid, int count);
 #define SFPB_SPINLOCK_COUNT 8
 #define MSM_SFPB_MUTEX_REG_BASE 0x01200600
 #define MSM_SFPB_MUTEX_REG_SIZE	(33 * 4)
+#define SFPB_SPINLOCK_OFFSET 4
+#define SFPB_SPINLOCK_SIZE 4
+
+static uint32_t lock_count;
+static phys_addr_t reg_base;
+static uint32_t reg_size;
+static uint32_t lock_offset; /* offset into the hardware block before lock 0 */
+static uint32_t lock_size;
 
 static void *hw_mutex_reg_base;
 static DEFINE_MUTEX(hw_map_init_lock);
 
+static char *compatible_string = "qcom,ipc-spinlock";
+
+static int init_hw_mutex(struct device_node *node)
+{
+	struct resource r;
+	int rc;
+
+	rc = of_address_to_resource(node, 0, &r);
+	if (rc)
+		BUG();
+
+	rc = of_property_read_u32(node, "qcom,num-locks", &lock_count);
+	if (rc)
+		BUG();
+
+	reg_base = r.start;
+	reg_size = (uint32_t)(resource_size(&r));
+	lock_offset = 0;
+	lock_size = reg_size / lock_count;
+
+	return 0;
+}
+
+static void find_and_init_hw_mutex(void)
+{
+	struct device_node *node;
+
+	node = of_find_compatible_node(NULL, NULL, compatible_string);
+	if (node) {
+		init_hw_mutex(node);
+	} else {
+		lock_count = SFPB_SPINLOCK_COUNT;
+		reg_base = MSM_SFPB_MUTEX_REG_BASE;
+		reg_size = MSM_SFPB_MUTEX_REG_SIZE;
+		lock_offset = SFPB_SPINLOCK_OFFSET;
+		lock_size = SFPB_SPINLOCK_SIZE;
+	}
+	hw_mutex_reg_base = ioremap(reg_base, reg_size);
+	BUG_ON(hw_mutex_reg_base == NULL);
+}
+
 static int remote_spinlock_init_address(int id, _remote_spinlock_t *lock)
 {
-	if (id >= SFPB_SPINLOCK_COUNT)
-		return -EINVAL;
-
+	/*
+	 * Optimistic locking.  Init only needs to be done once by the first
+	 * caller.  After that, serializing inits between different callers
+	 * is unnecessary.  The second check after the lock ensures init
+	 * wasn't previously completed by someone else before the lock could
+	 * be grabbed.
+	 */
 	if (!hw_mutex_reg_base) {
 		mutex_lock(&hw_map_init_lock);
 		if (!hw_mutex_reg_base)
-			hw_mutex_reg_base = ioremap(MSM_SFPB_MUTEX_REG_BASE,
-				   MSM_SFPB_MUTEX_REG_SIZE);
+			find_and_init_hw_mutex();
 		mutex_unlock(&hw_map_init_lock);
-		BUG_ON(hw_mutex_reg_base == NULL);
 	}
 
-	*lock = hw_mutex_reg_base + 0x4 + id * 4;
+	if (id >= lock_count)
+		return -EINVAL;
+
+	*lock = hw_mutex_reg_base + lock_offset + id * lock_size;
 	return 0;
 }
 
 void _remote_spin_release_all(uint32_t pid)
 {
-	remote_spin_release_all_locks(pid, SFPB_SPINLOCK_COUNT);
+	remote_spin_release_all_locks(pid, lock_count);
 }
 
 #else
