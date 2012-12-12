@@ -1753,7 +1753,7 @@ static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	u32 i, status, max_reads, timeout_us, timeout_sec = 15;
+	u32 i, status, sleep_us, timeout_us, timeout_sec = 15;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
@@ -1770,12 +1770,12 @@ static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* Check if audio engine is turned off by QDSP or not */
 	/* send off notification after every 1 sec for 15 seconds */
 	for (i = 0; i < timeout_sec; i++) {
-		max_reads = 500;
-		timeout_us = 1000 * 2;
+		sleep_us = 5000; /* Maximum time to sleep between two reads */
+		timeout_us = 1000 * 1000; /* Total time for condition to meet */
 
-		if (readl_poll_timeout_noirq((io->base + HDMI_AUDIO_CFG),
+		if (readl_poll_timeout((io->base + HDMI_AUDIO_CFG),
 			status, ((status & BIT(0)) == 0),
-			max_reads, timeout_us)) {
+			sleep_us, timeout_us)) {
 
 			DEV_ERR("%s: audio still on after %d sec. try again\n",
 				__func__, i+1);
@@ -2383,9 +2383,6 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_TIMEGEN_OFF:
-		/* If a power off is already underway, wait for it to finish */
-		if (hdmi_ctrl->panel_suspend)
-			flush_work_sync(&hdmi_ctrl->power_off_work);
 		break;
 
 	case MDSS_EVENT_CLOSE:
