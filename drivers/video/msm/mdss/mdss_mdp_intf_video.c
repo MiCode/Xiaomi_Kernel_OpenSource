@@ -16,6 +16,9 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 
+/* wait for at most 2 vsync for lowest refresh rate (24hz) */
+#define VSYNC_TIMEOUT msecs_to_jiffies(84)
+
 /* intf timing settings */
 struct intf_timing_params {
 	u32 width;
@@ -285,7 +288,9 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		wmb();
 	}
 
-	wait_for_completion(&ctx->vsync_comp);
+	rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
+			VSYNC_TIMEOUT);
+	WARN(rc <= 0, "vsync timed out (%d) ctl=%d\n", rc, ctl->num);
 
 	if (!ctx->timegen_en) {
 		ctx->timegen_en = true;
