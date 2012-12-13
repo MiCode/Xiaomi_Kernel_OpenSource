@@ -161,6 +161,7 @@
  * @chg_done:			indicates that charging is completed
  * @usb_present:		present status of usb
  * @dc_present:			present status of dc
+ * @use_default_batt_values:	flag to report default battery properties
  * @max_voltage_mv:		the max volts the batt should be charged up to
  * @min_voltage_mv:		the min battery voltage before turning the FETon
  * @term_current:		the charging based term current
@@ -191,6 +192,7 @@ struct qpnp_chg_chip {
 	bool				usb_present;
 	bool				dc_present;
 	bool				charging_disabled;
+	bool				use_default_batt_values;
 	unsigned int			max_bat_chg_current;
 	unsigned int			safe_voltage_mv;
 	unsigned int			max_voltage_mv;
@@ -734,6 +736,9 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 {
 	union power_supply_propval ret = {0,};
 
+	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
+		return DEFAULT_CAPACITY;
+
 	if (chip->bms_psy) {
 		chip->bms_psy->get_property(chip->bms_psy,
 			  POWER_SUPPLY_PROP_CAPACITY, &ret);
@@ -747,13 +752,16 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 	return DEFAULT_CAPACITY;
 }
 
-#define DEFAULT_TEMP		25
+#define DEFAULT_TEMP		250
 #define MAX_TOLERABLE_BATT_TEMP_DDC	680
 static int
 get_prop_batt_temp(struct qpnp_chg_chip *chip)
 {
 	int rc = 0;
 	struct qpnp_vadc_result results;
+
+	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
+		return DEFAULT_TEMP;
 
 	if (chip->revision > 0) {
 		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &results);
@@ -1238,6 +1246,14 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(spmi->dev.of_node,
 					"qcom,chg-charging-disabled");
+
+	/* Get the fake-batt-values property */
+	chip->use_default_batt_values = of_property_read_bool(spmi->dev.of_node,
+					"qcom,chg-use-default-batt-values");
+
+	/* Disable charging when faking battery values */
+	if (chip->use_default_batt_values)
+		chip->charging_disabled = true;
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
