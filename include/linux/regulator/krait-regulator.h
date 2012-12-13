@@ -22,7 +22,17 @@
  * should be called from appropriate initialization code. Returns 0 on
  * success and error on failure.
  */
+
+#ifdef CONFIG_ARCH_MSM8974
 int __init krait_power_init(void);
 void secondary_cpu_hs_init(void *base_ptr);
+#else
+static inline int __init krait_power_init(void)
+{
+	return -ENOSYS;
+}
+
+static inline void secondary_cpu_hs_init(void *base_ptr) {}
+#endif
 
 #endif
