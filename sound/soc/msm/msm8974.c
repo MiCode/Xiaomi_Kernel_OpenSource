@@ -137,6 +137,7 @@ static int msm_slim_0_tx_ch = 1;
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
+static int msm_hdmi_rx_ch = 2;
 
 static struct mutex cdc_mclk_mutex;
 static struct q_clkdiv *codec_clk;
@@ -413,6 +414,8 @@ static const struct snd_soc_dapm_widget msm8974_dapm_widgets[] = {
 static const char *const spk_function[] = {"Off", "On"};
 static const char *const slim0_rx_ch_text[] = {"One", "Two"};
 static const char *const slim0_tx_ch_text[] = {"One", "Two", "Three", "Four"};
+static char const *hdmi_rx_ch_text[] = {"Two", "Three", "Four", "Five",
+					"Six", "Seven", "Eight"};
 
 static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
@@ -486,6 +489,30 @@ static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
 	}
 	pr_debug("%s: msm_btsco_rate = %d\n", __func__, msm_btsco_rate);
 	return 0;
+}
+
+static int msm_hdmi_rx_ch_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_hdmi_rx_ch  = %d\n", __func__,
+			msm_hdmi_rx_ch);
+	ucontrol->value.integer.value[0] = msm_hdmi_rx_ch - 2;
+
+	return 0;
+}
+
+static int msm_hdmi_rx_ch_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	msm_hdmi_rx_ch = ucontrol->value.integer.value[0] + 2;
+	if (msm_hdmi_rx_ch > 8) {
+		pr_err("%s: channels exceeded 8.Limiting to max channels-8\n",
+			__func__);
+		msm_hdmi_rx_ch = 8;
+	}
+	pr_debug("%s: msm_hdmi_rx_ch = %d\n", __func__, msm_hdmi_rx_ch);
+
+	return 1;
 }
 
 static const struct snd_kcontrol_new int_btsco_rate_mixer_controls[] = {
@@ -571,7 +598,10 @@ static int msm8974_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s channels->min %u channels->max %u ()\n", __func__,
 			channels->min, channels->max);
 
+	if (channels->max < 2)
+		channels->min = channels->max = 2;
 	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_hdmi_rx_ch;
 
 	return 0;
 }
@@ -742,6 +772,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
 	SOC_ENUM_SINGLE_EXT(2, slim0_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
+	SOC_ENUM_SINGLE_EXT(7, hdmi_rx_ch_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -753,6 +784,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
 	SOC_ENUM_EXT("AUX PCM SampleRate", msm8974_auxpcm_enum[0],
 			msm8974_auxpcm_rate_get, msm8974_auxpcm_rate_put),
+	SOC_ENUM_EXT("HDMI_RX Channels", msm_snd_enum[3],
+			msm_hdmi_rx_ch_get, msm_hdmi_rx_ch_put),
 };
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
