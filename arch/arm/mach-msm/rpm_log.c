@@ -15,6 +15,7 @@
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/of.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -42,6 +43,10 @@ enum {
 
 /* number of ms to wait between checking for new messages in the RPM log */
 #define RECHECK_TIME (50)
+
+#define VERSION_8974 0x1000
+#define RPM_ULOG_LENGTH_SHIFT 16
+#define RPM_ULOG_LENGTH_MASK  0xFFFF0000
 
 struct msm_rpm_log_buffer {
 	char *data;
@@ -116,6 +121,7 @@ static u32 msm_rpm_log_copy(const struct msm_rpm_log_platform_data *pdata,
 			*read_idx = head_idx;
 			continue;
 		}
+
 		/*
 		 * Ensure that all indices are 4 byte aligned.
 		 * This conditions is required to interact with a ULog buffer
@@ -127,6 +133,14 @@ static u32 msm_rpm_log_copy(const struct msm_rpm_log_platform_data *pdata,
 		msg_len = msm_rpm_log_read(pdata, MSM_RPM_LOG_PAGE_BUFFER,
 				((*read_idx) & pdata->log_len_mask) >> 2);
 
+		/* Message length for 8974 is first 2 bytes.
+		 * Exclude message length and format from message length.
+		 */
+		if (pdata->version == VERSION_8974) {
+			msg_len = (msg_len & RPM_ULOG_LENGTH_MASK) >>
+					RPM_ULOG_LENGTH_SHIFT;
+			msg_len -= 4;
+		}
 
 		/* handle messages that claim to be longer than the log */
 		if (PADDED_LENGTH(msg_len) > tail_idx - *read_idx - 4)
@@ -231,7 +245,7 @@ static ssize_t msm_rpm_log_file_read(struct file *file, char __user *bufu,
 
 /*
  * msm_rpm_log_file_open() - Allows a new reader to open the RPM log virtual
- *                           file
+ *			      file
  *
  * One local buffer is kmalloc'ed for each reader, so no resource sharing has
  * to take place (besides the read only access to the RPM log buffer).
@@ -295,23 +309,158 @@ static int __devinit msm_rpm_log_probe(struct platform_device *pdev)
 {
 	struct dentry *dent;
 	struct msm_rpm_log_platform_data *pdata;
+	struct resource *res = NULL;
+	struct device_node *node = NULL;
+	phys_addr_t page_buffer_address, rpm_addr_phys;
+	int ret = 0;
+	char *key = NULL;
+	uint32_t val = 0;
 
-	pdata = pdev->dev.platform_data;
-	if (!pdata)
-		return -EINVAL;
+	node = pdev->dev.of_node;
 
-	pdata->reg_base = ioremap(pdata->phys_addr_base, pdata->phys_size);
-	if (!pdata->reg_base) {
-		pr_err("%s: ERROR could not ioremap: start=%p, len=%u\n",
-			__func__, (void *) pdata->phys_addr_base,
-			pdata->phys_size);
-		return -EBUSY;
+	if (node) {
+		pdata = kzalloc(sizeof(struct msm_rpm_log_platform_data),
+				GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res) {
+			kfree(pdata);
+			return -EINVAL;
+		}
+
+		pdata->phys_addr_base = res->start;
+		pdata->phys_size = resource_size(res);
+
+		pdata->reg_base = ioremap_nocache(pdata->phys_addr_base,
+					pdata->phys_size);
+		if (!pdata->reg_base) {
+			pr_err("%s: ERROR could not ioremap: start=%p, len=%u\n",
+				__func__, (void *) pdata->phys_addr_base,
+				pdata->phys_size);
+			kfree(pdata);
+			return -EBUSY;
+		}
+		/* Read various parameters from the header if the
+		 * version of the RPM Ulog is 0x1000. This version
+		 * corresponds to the node in the rpm header which
+		 * holds RPM log on 8974.
+		 *
+		 * offset-page-buffer-addr: At this offset header
+		 * contains address of the location where raw log
+		 * starts
+		 * offset-log-len: At this offset header contains
+		 * the length of the log buffer.
+		 * offset-log-len-mask: At this offset header contains
+		 * the log length mask for the buffer.
+		 * offset-page-indices: At this offset header contains
+		 * the index for writer. */
+
+		key = "qcom,offset-version";
+		ret = of_property_read_u32(node, key, &val);
+		if (ret) {
+			pr_err("%s: Error in name %s key %s\n",
+				__func__, node->full_name, key);
+			ret = -EFAULT;
+			goto fail;
+		}
+
+		pdata->version = readl_relaxed(pdata->reg_base + val);
+		if (pdata->version == VERSION_8974) {
+			key = "qcom,rpm-addr-phys";
+			ret = of_property_read_u32(node, key, &val);
+			if (ret) {
+				pr_err("%s: Error in name %s key %s\n",
+					__func__, node->full_name, key);
+				ret = -EFAULT;
+				goto fail;
+			}
+
+			rpm_addr_phys = val;
+
+			key = "qcom,offset-page-buffer-addr";
+			ret = of_property_read_u32(node, key, &val);
+			if (ret) {
+				pr_err("%s: Error in name %s key %s\n",
+					__func__, node->full_name, key);
+				ret = -EFAULT;
+				goto fail;
+			}
+
+			page_buffer_address = rpm_addr_phys +
+				readl_relaxed(pdata->reg_base + val);
+			pdata->reg_offsets[MSM_RPM_LOG_PAGE_BUFFER] =
+				page_buffer_address - pdata->phys_addr_base;
+
+			key = "qcom,offset-log-len";
+			ret = of_property_read_u32(node, key, &val);
+			if (ret) {
+				pr_err("%s: Error in name %s key %s\n",
+					__func__, node->full_name, key);
+				ret = -EFAULT;
+				goto fail;
+			}
+			pdata->log_len = readl_relaxed(pdata->reg_base + val);
+
+			if (pdata->log_len > pdata->phys_size) {
+				pr_err("%s: Error phy size: %d should be atleast log length: %d\n",
+					__func__, pdata->phys_size,
+					pdata->log_len);
+
+				ret = -EINVAL;
+				goto fail;
+			}
+
+			key = "qcom,offset-log-len-mask";
+			ret = of_property_read_u32(node, key, &val);
+			if (ret) {
+				pr_err("%s: Error in name %s key %s\n",
+					__func__, node->full_name, key);
+				ret = -EFAULT;
+				goto fail;
+			}
+			pdata->log_len_mask = readl_relaxed(pdata->reg_base
+					+ val);
+
+			key = "qcom,offset-page-indices";
+			ret = of_property_read_u32(node, key, &val);
+			if (ret) {
+				pr_err("%s: Error in name %s key %s\n",
+					__func__, node->full_name, key);
+				ret = -EFAULT;
+				goto fail;
+			}
+			pdata->reg_offsets[MSM_RPM_LOG_PAGE_INDICES] =
+						val;
+		} else{
+			ret = -EINVAL;
+			goto fail;
+		}
+
+	} else{
+		pdata = pdev->dev.platform_data;
+		if (!pdata)
+			return -EINVAL;
+
+		pdata->reg_base = ioremap(pdata->phys_addr_base,
+				pdata->phys_size);
+		if (!pdata->reg_base) {
+			pr_err("%s: ERROR could not ioremap: start=%p, len=%u\n",
+				__func__, (void *) pdata->phys_addr_base,
+				pdata->phys_size);
+			return -EBUSY;
+		}
 	}
 
 	dent = debugfs_create_file("rpm_log", S_IRUGO, NULL,
-			pdev->dev.platform_data, &msm_rpm_log_file_fops);
+			pdata, &msm_rpm_log_file_fops);
 	if (!dent) {
 		pr_err("%s: ERROR debugfs_create_file failed\n", __func__);
+		if (pdata->version == VERSION_8974) {
+			ret = -ENOMEM;
+			goto fail;
+		}
 		return -ENOMEM;
 	}
 
@@ -319,6 +468,11 @@ static int __devinit msm_rpm_log_probe(struct platform_device *pdev)
 
 	pr_notice("%s: OK\n", __func__);
 	return 0;
+
+fail:
+	iounmap(pdata->reg_base);
+	kfree(pdata);
+	return ret;
 }
 
 static int __devexit msm_rpm_log_remove(struct platform_device *pdev)
@@ -338,12 +492,18 @@ static int __devexit msm_rpm_log_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id rpm_log_table[] = {
+	       {.compatible = "qcom,rpm-log"},
+	       {},
+};
+
 static struct platform_driver msm_rpm_log_driver = {
 	.probe		= msm_rpm_log_probe,
 	.remove		= __devexit_p(msm_rpm_log_remove),
 	.driver		= {
 		.name = "msm_rpm_log",
 		.owner = THIS_MODULE,
+		.of_match_table = rpm_log_table,
 	},
 };
 

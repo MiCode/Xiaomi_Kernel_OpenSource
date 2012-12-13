@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010, 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@ struct msm_rpm_log_platform_data {
 	u32 log_len_mask;
 	phys_addr_t phys_addr_base;
 	u32 phys_size;
+	u32 version;
 	void __iomem *reg_base;
 };
 

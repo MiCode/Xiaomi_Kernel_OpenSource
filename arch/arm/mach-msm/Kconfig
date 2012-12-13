@@ -2196,7 +2196,7 @@ config MSM_TZ_LOG
 config MSM_RPM_LOG
 	tristate "MSM Resource Power Manager Log Driver"
 	depends on DEBUG_FS
-	depends on MSM_RPM
+	depends on MSM_RPM || MSM_RPM_SMD
 	default n
 	help
 	  This option enables a driver which can read from a circular buffer
