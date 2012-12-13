@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011, 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -109,6 +109,8 @@ static u32 msm_rpm_log_copy(const struct msm_rpm_log_platform_data *pdata,
 	while (tail_idx - head_idx > 0 && tail_idx - *read_idx > 0) {
 		head_idx = msm_rpm_log_read(pdata, MSM_RPM_LOG_PAGE_INDICES,
 					    MSM_RPM_LOG_HEAD);
+		tail_idx = msm_rpm_log_read(pdata, MSM_RPM_LOG_PAGE_INDICES,
+				    MSM_RPM_LOG_TAIL);
 		/* check if the message to be read is valid */
 		if (tail_idx - *read_idx > tail_idx - head_idx) {
 			*read_idx = head_idx;
@@ -123,7 +125,8 @@ static u32 msm_rpm_log_copy(const struct msm_rpm_log_platform_data *pdata,
 			break;
 
 		msg_len = msm_rpm_log_read(pdata, MSM_RPM_LOG_PAGE_BUFFER,
-					(*read_idx >> 2) & pdata->log_len_mask);
+				((*read_idx) & pdata->log_len_mask) >> 2);
+
 
 		/* handle messages that claim to be longer than the log */
 		if (PADDED_LENGTH(msg_len) > tail_idx - *read_idx - 4)
@@ -142,8 +145,8 @@ static u32 msm_rpm_log_copy(const struct msm_rpm_log_platform_data *pdata,
 			if (IS_ALIGNED(i, 4))
 				*((u32 *)temp) = msm_rpm_log_read(pdata,
 						MSM_RPM_LOG_PAGE_BUFFER,
-						((*read_idx + 4 + i) >> 2) &
-							pdata->log_len_mask);
+						((*read_idx + 4 + i) &
+						pdata->log_len_mask) >> 2);
 
 			pos += scnprintf(msg_buffer + pos, buf_len - pos,
 					 "0x%02X, ", temp[i & 0x03]);
@@ -153,6 +156,8 @@ static u32 msm_rpm_log_copy(const struct msm_rpm_log_platform_data *pdata,
 
 		head_idx = msm_rpm_log_read(pdata, MSM_RPM_LOG_PAGE_INDICES,
 					    MSM_RPM_LOG_HEAD);
+		tail_idx = msm_rpm_log_read(pdata, MSM_RPM_LOG_PAGE_INDICES,
+				    MSM_RPM_LOG_TAIL);
 
 		/* roll back if message that was read is not still valid */
 		if (tail_idx - *read_idx > tail_idx - head_idx)
