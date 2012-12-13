@@ -184,6 +184,17 @@ config IP_NF_TARGET_MASQUERADE
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config IP_NF_TARGET_NATTYPE_MODULE
+	tristate "NATTYPE target support"
+	depends on NF_NAT
+	default m if NETFILTER_ADVANCED=n
+	help
+	  NATTYPE is a special case of NAT: used to support FULL Cone NAT
+	  and ADDRESS Restricted Cone NAT. All incoming connections are
+	  allowed if there is an outgoing connection using that port.
+
+	  To compile it as a module, choose M here.  If unsure, say N.
+
 config IP_NF_TARGET_NETMAP
 	tristate "NETMAP target support"
 	depends on NF_NAT
