@@ -43,6 +43,8 @@
 
 struct smsc_hub_platform_data {
 	unsigned hub_reset;
+	unsigned refclk_gpio;
+	unsigned int_gpio;
 };
 
 #endif
