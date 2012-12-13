@@ -83,6 +83,7 @@ enum {
 	TABLA_NUM_IRQS = WCD9XXX_NUM_IRQS,
 	SITAR_NUM_IRQS = WCD9XXX_NUM_IRQS,
 	TAIKO_NUM_IRQS = WCD9XXX_NUM_IRQS,
+	TAPAN_NUM_IRQS = WCD9XXX_NUM_IRQS,
 };
 
 
@@ -212,7 +213,8 @@ void wcd9xxx_disable_irq(struct wcd9xxx *wcd9xxx, int irq);
 void wcd9xxx_disable_irq_sync(struct wcd9xxx *wcd9xxx, int irq);
 #if defined(CONFIG_WCD9310_CODEC) || \
 	defined(CONFIG_WCD9304_CODEC) || \
-	defined(CONFIG_WCD9320_CODEC)
+	defined(CONFIG_WCD9320_CODEC) || \
+	defined(CONFIG_WCD9306_CODEC)
 int __init wcd9xxx_irq_of_init(struct device_node *node,
 			       struct device_node *parent);
 #else
@@ -221,5 +223,5 @@ static inline int __init wcd9xxx_irq_of_init(struct device_node *node,
 {
 	return 0;
 }
-#endif
+#endif	/* CONFIG_OF */
 #endif
