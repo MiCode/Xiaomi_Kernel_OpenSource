@@ -2101,8 +2101,7 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("phy_clk", gcc_usb_hsic_clk.c,	  "f9a15000.hsic"),
 	CLK_LOOKUP("cal_clk", gcc_usb_hsic_io_cal_clk.c,  "f9a15000.hsic"),
 	CLK_LOOKUP("core_clk", gcc_usb_hsic_system_clk.c, "f9a15000.hsic"),
-	CLK_LOOKUP("alt_core_clk", gcc_usb_hsic_xcvr_fs_clk.c,
-							  "f9a15000.hsic"),
+	CLK_LOOKUP("alt_core_clk", gcc_usb_hsic_xcvr_fs_clk.c, ""),
 
 	/* LPASS clocks */
 	CLK_LOOKUP("core_clk", audio_core_slimbus_core_clk.c, "fe12f000.slim"),
