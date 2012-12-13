@@ -847,11 +847,11 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->xres_virtual = panel_info->xres;
 	var->yres_virtual = panel_info->yres * mfd->fb_page;
 	var->bits_per_pixel = bpp * 8;	/* FrameBuffer color depth */
-	var->upper_margin = panel_info->lcdc.v_front_porch;
-	var->lower_margin = panel_info->lcdc.v_back_porch;
+	var->upper_margin = panel_info->lcdc.v_back_porch;
+	var->lower_margin = panel_info->lcdc.v_front_porch;
 	var->vsync_len = panel_info->lcdc.v_pulse_width;
-	var->left_margin = panel_info->lcdc.h_front_porch;
-	var->right_margin = panel_info->lcdc.h_back_porch;
+	var->left_margin = panel_info->lcdc.h_back_porch;
+	var->right_margin = panel_info->lcdc.h_front_porch;
 	var->hsync_len = panel_info->lcdc.h_pulse_width;
 	var->pixclock = panel_info->clk_rate / 1000;
 
@@ -1006,11 +1006,11 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 {
 	pinfo->xres = var->xres;
 	pinfo->yres = var->yres;
-	pinfo->lcdc.v_front_porch = var->upper_margin;
-	pinfo->lcdc.v_back_porch = var->lower_margin;
+	pinfo->lcdc.v_front_porch = var->lower_margin;
+	pinfo->lcdc.v_back_porch = var->upper_margin;
 	pinfo->lcdc.v_pulse_width = var->vsync_len;
-	pinfo->lcdc.h_front_porch = var->left_margin;
-	pinfo->lcdc.h_back_porch = var->right_margin;
+	pinfo->lcdc.h_front_porch = var->right_margin;
+	pinfo->lcdc.h_back_porch = var->left_margin;
 	pinfo->lcdc.h_pulse_width = var->hsync_len;
 	pinfo->clk_rate = var->pixclock;
 	/* todo: find how to pass CEA vic through framebuffer APIs */
