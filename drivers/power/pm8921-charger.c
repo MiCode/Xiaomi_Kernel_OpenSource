@@ -297,6 +297,7 @@ struct pm8921_chg_chip {
 	int				btc_override_hot_decidegc;
 	int				btc_delay_ms;
 	bool				btc_panic_if_cant_stop_chg;
+	int				stop_chg_upon_expiry;
 };
 
 /* user space parameter to limit usb current */
@@ -2695,9 +2696,11 @@ static irqreturn_t chgfail_irq_handler(int irq, void *data)
 	struct pm8921_chg_chip *chip = data;
 	int ret;
 
-	ret = pm_chg_failed_clear(chip, 1);
-	if (ret)
-		pr_err("Failed to write CHG_FAILED_CLEAR bit\n");
+	if (!chip->stop_chg_upon_expiry) {
+		ret = pm_chg_failed_clear(chip, 1);
+		if (ret)
+			pr_err("Failed to write CHG_FAILED_CLEAR bit\n");
+	}
 
 	pr_err("batt_present = %d, batt_temp_ok = %d, state_changed_to=%d\n",
 			get_prop_batt_present(chip),
@@ -3179,7 +3182,6 @@ static void update_heartbeat(struct work_struct *work)
 	struct pm8921_chg_chip *chip = container_of(dwork,
 				struct pm8921_chg_chip, update_heartbeat_work);
 
-	pm_chg_failed_clear(chip, 1);
 	power_supply_changed(&chip->batt_psy);
 	if (chip->recent_reported_soc <= 20)
 		schedule_delayed_work(&chip->update_heartbeat_work,
@@ -3611,8 +3613,6 @@ static void eoc_worker(struct work_struct *work)
 	int vbat_meas_uv, vbat_meas_mv;
 	int ichg_meas_ua, ichg_meas_ma;
 	int vbat_batt_terminal_uv;
-
-	pm_chg_failed_clear(chip, 1);
 
 	pm8921_bms_get_simultaneous_battery_voltage_and_current(
 					&ichg_meas_ua,	&vbat_meas_uv);
@@ -4707,6 +4707,8 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 
 	if (chip->btc_override)
 		pm8921_chg_btc_override_init(chip);
+
+	chip->stop_chg_upon_expiry = pdata->stop_chg_upon_expiry;
 
 	chip->usb_psy.name = "usb",
 	chip->usb_psy.type = POWER_SUPPLY_TYPE_USB,
