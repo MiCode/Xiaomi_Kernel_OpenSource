@@ -1,7 +1,7 @@
-/**
+/*
  * MobiCore KernelApi module
  *
- * <!-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
+ * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,10 +25,8 @@
 /* device list */
 LIST_HEAD(devices);
 
-/*----------------------------------------------------------------------------*/
-static struct mcore_device_t *resolve_device_id(
-	uint32_t device_id
-) {
+static struct mcore_device_t *resolve_device_id(uint32_t device_id)
+{
 	struct mcore_device_t *tmp;
 	struct list_head *pos;
 
@@ -41,19 +39,13 @@ static struct mcore_device_t *resolve_device_id(
 	return NULL;
 }
 
-
-/*----------------------------------------------------------------------------*/
-static void add_device(
-	struct mcore_device_t *device
-) {
+static void add_device(struct mcore_device_t *device)
+{
 	list_add_tail(&(device->list), &devices);
 }
 
-
-/*----------------------------------------------------------------------------*/
-static bool remove_device(
-	uint32_t device_id
-) {
+static bool remove_device(uint32_t device_id)
+{
 	struct mcore_device_t *tmp;
 	struct list_head *pos, *q;
 
@@ -68,22 +60,18 @@ static bool remove_device(
 	return false;
 }
 
-
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_open_device(
-	uint32_t device_id
-) {
+enum mc_result mc_open_device(uint32_t device_id)
+{
 	enum mc_result mc_result = MC_DRV_OK;
 	struct connection *dev_con = NULL;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
-
-	/* Enter critical section */
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		struct mcore_device_t *device = resolve_device_id(device_id);
 		if (device != NULL) {
-			MCDRV_DBG_ERROR("Device %d already opened", device_id);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"Device %d already opened", device_id);
 			mc_result = MC_DRV_ERR_INVALID_OPERATION;
 			break;
 		}
@@ -92,6 +80,7 @@ enum mc_result mc_open_device(
 		dev_con = connection_new();
 		if (!connection_connect(dev_con, MC_DAEMON_PID)) {
 			MCDRV_DBG_ERROR(
+				mc_kapi,
 				"Could not setup netlink connection to PID %u",
 				MC_DAEMON_PID);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
@@ -100,12 +89,11 @@ enum mc_result mc_open_device(
 
 		/* Forward device open to the daemon and read result */
 		struct mc_drv_cmd_open_device_t mc_drv_cmd_open_device = {
-			/* C++ does not support C99 designated initializers */
-			/* .header = */ {
-			/* .command_id = */ MC_DRV_CMD_OPEN_DEVICE
+			{
+				MC_DRV_CMD_OPEN_DEVICE
 			},
-		/* .payload = */ {
-		/* .device_id = */ device_id
+			{
+				device_id
 			}
 		};
 
@@ -114,8 +102,9 @@ enum mc_result mc_open_device(
 				&mc_drv_cmd_open_device,
 				sizeof(struct mc_drv_cmd_open_device_t));
 		if (len < 0) {
-			MCDRV_DBG_ERROR("CMD_OPEN_DEVICE writeCmd failed "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_OPEN_DEVICE writeCmd failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
@@ -126,14 +115,16 @@ enum mc_result mc_open_device(
 					&rsp_header,
 					sizeof(rsp_header));
 		if (len != sizeof(rsp_header)) {
-			MCDRV_DBG_ERROR("CMD_OPEN_DEVICE readRsp failed "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_OPEN_DEVICE readRsp failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
 		if (rsp_header.response_id != MC_DRV_RSP_OK) {
-			MCDRV_DBG_ERROR("CMD_OPEN_DEVICE failed, respId=%d",
-							rsp_header.response_id);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_OPEN_DEVICE failed, respId=%d",
+					rsp_header.response_id);
 			switch (rsp_header.response_id) {
 			case MC_DRV_RSP_PAYLOAD_LENGTH_ERROR:
 				mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
@@ -154,8 +145,9 @@ enum mc_result mc_open_device(
 		device = mcore_device_create(device_id, dev_con);
 		if (!mcore_device_open(device, MC_DRV_MOD_DEVNODE_FULLPATH)) {
 			mcore_device_cleanup(device);
-			MCDRV_DBG_ERROR("could not open device file: %s",
-				MC_DRV_MOD_DEVNODE_FULLPATH);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"could not open device file: %s",
+					MC_DRV_MOD_DEVNODE_FULLPATH);
 			mc_result = MC_DRV_ERR_INVALID_DEVICE_FILE;
 			break;
 		}
@@ -167,25 +159,20 @@ enum mc_result mc_open_device(
 	if (mc_result != MC_DRV_OK)
 		connection_cleanup(dev_con);
 
-	/* Exit critical section */
-
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_open_device);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_close_device(
-	uint32_t device_id
-) {
+enum mc_result mc_close_device(uint32_t device_id)
+{
 	enum mc_result mc_result = MC_DRV_OK;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
-	/* Enter critical section */
 	do {
 		struct mcore_device_t *device = resolve_device_id(device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
@@ -193,15 +180,15 @@ enum mc_result mc_close_device(
 
 		/* Return if not all sessions have been closed */
 		if (mcore_device_has_sessions(device)) {
-			MCDRV_DBG_ERROR("cannot close with sessions pending");
+			MCDRV_DBG_ERROR(mc_kapi,
+					"cannot close with sessions pending");
 			mc_result = MC_DRV_ERR_SESSION_PENDING;
 			break;
 		}
 
 		struct mc_drv_cmd_close_device_t mc_drv_cmd_close_device = {
-			/* C++ does not support C99 designated initializers */
-			/* .header = */ {
-				/* .command_id = */ MC_DRV_CMD_CLOSE_DEVICE
+			{
+				MC_DRV_CMD_CLOSE_DEVICE
 			}
 		};
 		int len = connection_write_data(
@@ -210,8 +197,9 @@ enum mc_result mc_close_device(
 				sizeof(struct mc_drv_cmd_close_device_t));
 		/* ignore error, but log details */
 		if (len < 0) {
-			MCDRV_DBG_ERROR("CMD_CLOSE_DEVICE writeCmd failed "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_CLOSE_DEVICE writeCmd failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 		}
 
@@ -221,15 +209,17 @@ enum mc_result mc_close_device(
 					&rsp_header,
 					sizeof(rsp_header));
 		if (len != sizeof(rsp_header)) {
-			MCDRV_DBG_ERROR("CMD_CLOSE_DEVICE readResp failed "
-				" ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_CLOSE_DEVICE readResp failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
 
 		if (rsp_header.response_id != MC_DRV_RSP_OK) {
-			MCDRV_DBG_ERROR("CMD_CLOSE_DEVICE failed, respId=%d",
-							rsp_header.response_id);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_CLOSE_DEVICE failed, respId=%d",
+					rsp_header.response_id);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
@@ -238,44 +228,37 @@ enum mc_result mc_close_device(
 
 	} while (false);
 
-	/* Exit critical section */
-
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_close_device);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_open_session(
-	struct mc_session_handle *session,
-	const struct mc_uuid_t	*uuid,
-	uint8_t			*tci,
-	uint32_t		len
-) {
+enum mc_result mc_open_session(struct mc_session_handle *session,
+			       const struct mc_uuid_t *uuid,
+			       uint8_t *tci, uint32_t len)
+{
 	enum mc_result mc_result = MC_DRV_OK;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
-
-	/* Enter critical section */
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		if (session == NULL) {
-			MCDRV_DBG_ERROR("Session is null");
+			MCDRV_DBG_ERROR(mc_kapi, "Session is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 		if (uuid == NULL) {
-			MCDRV_DBG_ERROR("UUID is null");
+			MCDRV_DBG_ERROR(mc_kapi, "UUID is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 		if (tci == NULL) {
-			MCDRV_DBG_ERROR("TCI is null");
+			MCDRV_DBG_ERROR(mc_kapi, "TCI is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 		if (len > MC_MAX_TCI_LEN) {
-			MCDRV_DBG_ERROR("TCI length is longer than %d",
-				MC_MAX_TCI_LEN);
+			MCDRV_DBG_ERROR(mc_kapi, "TCI length is longer than %d",
+					MC_MAX_TCI_LEN);
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
@@ -284,7 +267,7 @@ enum mc_result mc_open_session(
 		struct mcore_device_t *device =
 				resolve_device_id(session->device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
@@ -294,40 +277,40 @@ enum mc_result mc_open_session(
 		struct wsm *wsm =
 			mcore_device_find_contiguous_wsm(device, tci);
 		if (wsm == NULL) {
-			MCDRV_DBG_ERROR("Could not resolve TCI phy address ");
+			MCDRV_DBG_ERROR(mc_kapi,
+					"Could not resolve TCI phy address ");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 
 		if (wsm->len < len) {
-			MCDRV_DBG_ERROR("length is more than allocated TCI");
+			MCDRV_DBG_ERROR(mc_kapi,
+					"length is more than allocated TCI");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 
 		/* Prepare open session command */
 		struct mc_drv_cmd_open_session_t cmdOpenSession = {
-			/* C++ does not support C99 designated initializers */
-			/* .header = */ {
-				/* .command_id = */ MC_DRV_CMD_OPEN_SESSION
+			{
+				MC_DRV_CMD_OPEN_SESSION
 			},
-			/* .payload = */ {
-				/* .device_id = */ session->device_id,
-				/* .uuid = */ *uuid,
-				/* .tci = */ (uint32_t)wsm->phys_addr,
-				/* .len = */ len
+			{
+				session->device_id,
+				*uuid,
+				(uint32_t)wsm->phys_addr,
+				len
 			}
 		};
 
 		/* Transmit command data */
-
-		int len = connection_write_data(
-						dev_con,
+		int len = connection_write_data(dev_con,
 						&cmdOpenSession,
 						sizeof(cmdOpenSession));
 		if (len != sizeof(cmdOpenSession)) {
-			MCDRV_DBG_ERROR("CMD_OPEN_SESSION writeData failed "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_OPEN_SESSION writeData failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
@@ -336,20 +319,21 @@ enum mc_result mc_open_session(
 
 		/* read header first */
 		struct mc_drv_response_header_t rsp_header;
-		len = connection_read_datablock(
-					dev_con,
-					&rsp_header,
-					sizeof(rsp_header));
+		len = connection_read_datablock(dev_con,
+						&rsp_header,
+						sizeof(rsp_header));
 		if (len != sizeof(rsp_header)) {
-			MCDRV_DBG_ERROR("CMD_OPEN_SESSION readResp failed "
-				" ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_OPEN_SESSION readResp failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
 
 		if (rsp_header.response_id != MC_DRV_RSP_OK) {
-			MCDRV_DBG_ERROR("CMD_OPEN_SESSION failed, respId=%d",
-							rsp_header.response_id);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_OPEN_SESSION failed, respId=%d",
+					rsp_header.response_id);
 			switch (rsp_header.response_id) {
 			case MC_DRV_RSP_TRUSTLET_NOT_FOUND:
 				mc_result = MC_DRV_ERR_INVALID_DEVICE_FILE;
@@ -366,14 +350,15 @@ enum mc_result mc_open_session(
 
 		/* read payload */
 		struct mc_drv_rsp_open_session_payload_t
-						rsp_open_session_payload;
+					rsp_open_session_payload;
 		len = connection_read_datablock(
 					dev_con,
 					&rsp_open_session_payload,
 					sizeof(rsp_open_session_payload));
 		if (len != sizeof(rsp_open_session_payload)) {
-			MCDRV_DBG_ERROR("CMD_OPEN_SESSION readPayload failed "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_OPEN_SESSION readPayload fail %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
@@ -383,9 +368,10 @@ enum mc_result mc_open_session(
 
 		/* Set up second channel for notifications */
 		struct connection *session_connection = connection_new();
-		/*TODO: no real need to connect here? */
+
 		if (!connection_connect(session_connection, MC_DAEMON_PID)) {
 			MCDRV_DBG_ERROR(
+				mc_kapi,
 				"Could not setup netlink connection to PID %u",
 				MC_DAEMON_PID);
 			connection_cleanup(session_connection);
@@ -393,42 +379,38 @@ enum mc_result mc_open_session(
 			break;
 		}
 
-		/*TODO CONTINOUE HERE !!!! FIX RW RETURN HANDLING!!!! */
-
 		/* Write command to use channel for notifications */
 		struct mc_drv_cmd_nqconnect_t cmd_nqconnect = {
-			/* C++ does not support C99 designated initializers */
-			/* .header = */ {
-				/* .command_id = */ MC_DRV_CMD_NQ_CONNECT
+			{
+				MC_DRV_CMD_NQ_CONNECT
 			},
-			/* .payload = */ {
-				/* .device_id =  */ session->device_id,
-				/* .session_id = */ session->session_id,
-				/* .device_session_id = */
+			{
+				session->device_id,
+				session->session_id,
 				rsp_open_session_payload.device_session_id,
-				/* .session_magic = */
-					rsp_open_session_payload.session_magic
+				rsp_open_session_payload.session_magic
 			}
 		};
 		connection_write_data(session_connection,
-			&cmd_nqconnect,
-			sizeof(cmd_nqconnect));
+				      &cmd_nqconnect,
+				      sizeof(cmd_nqconnect));
 
 		/* Read command response, header first */
-		len = connection_read_datablock(
-					session_connection,
-					&rsp_header,
-					sizeof(rsp_header));
+		len = connection_read_datablock(session_connection,
+						&rsp_header,
+						sizeof(rsp_header));
 		if (len != sizeof(rsp_header)) {
-			MCDRV_DBG_ERROR("CMD_NQ_CONNECT readRsp failed "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_NQ_CONNECT readRsp failed %d",
+					len);
 			connection_cleanup(session_connection);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
 
 		if (rsp_header.response_id != MC_DRV_RSP_OK) {
-			MCDRV_DBG_ERROR("CMD_NQ_CONNECT failed, respId=%d",
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_NQ_CONNECT failed, respId=%d",
 					rsp_header.response_id);
 			connection_cleanup(session_connection);
 			mc_result = MC_DRV_ERR_NQ_FAILED;
@@ -438,84 +420,78 @@ enum mc_result mc_open_session(
 		/* there is no payload. */
 
 		/* Session established, new session object must be created */
-		mcore_device_create_new_session(
-			device,
-			session->session_id,
-			session_connection);
+		mcore_device_create_new_session(device,
+						session->session_id,
+						session_connection);
 
 	} while (false);
-
-	/* Exit critical section */
 
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_open_session);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_close_session(
-	struct mc_session_handle *session
-) {
+enum mc_result mc_close_session(struct mc_session_handle *session)
+{
 	enum mc_result mc_result = MC_DRV_OK;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
-
-	/* Enter critical section */
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		if (session == NULL) {
-			MCDRV_DBG_ERROR("Session is null");
+			MCDRV_DBG_ERROR(mc_kapi, "Session is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 
-		struct mcore_device_t  *device =
+		struct mcore_device_t *device =
 					resolve_device_id(session->device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
-		struct connection  *dev_con = device->connection;
+		struct connection *dev_con = device->connection;
 
-		struct session  *nq_session =
-		 mcore_device_resolve_session_id(device, session->session_id);
+		struct session *nq_session =
+			mcore_device_resolve_session_id(device,
+							session->session_id);
+
 		if (nq_session == NULL) {
-			MCDRV_DBG_ERROR("Session not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Session not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_SESSION;
 			break;
 		}
 
 		/* Write close session command */
 		struct mc_drv_cmd_close_session_t cmd_close_session = {
-			/* C++ does not support C99 designated initializers */
-			/* .header = */ {
-				/* .command_id = */ MC_DRV_CMD_CLOSE_SESSION
+			{
+				MC_DRV_CMD_CLOSE_SESSION
 			},
-			/* .payload = */ {
-				/* .session_id = */ session->session_id,
+			{
+				session->session_id,
 			}
 		};
-		connection_write_data(
-			dev_con,
-			&cmd_close_session,
-			sizeof(cmd_close_session));
+		connection_write_data(dev_con,
+				      &cmd_close_session,
+				      sizeof(cmd_close_session));
 
 		/* Read command response */
 		struct mc_drv_response_header_t rsp_header;
-		int len = connection_read_datablock(
-						dev_con,
-						&rsp_header,
-						sizeof(rsp_header));
+		int len = connection_read_datablock(dev_con,
+						    &rsp_header,
+						    sizeof(rsp_header));
 		if (len != sizeof(rsp_header)) {
-			MCDRV_DBG_ERROR("CMD_CLOSE_SESSION readRsp failed "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_CLOSE_SESSION readRsp failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
 
 		if (rsp_header.response_id != MC_DRV_RSP_OK) {
-			MCDRV_DBG_ERROR("CMD_CLOSE_SESSION failed, respId=%d",
-							rsp_header.response_id);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_CLOSE_SESSION failed, respId=%d",
+					rsp_header.response_id);
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
@@ -525,23 +501,19 @@ enum mc_result mc_close_session(
 
 	} while (false);
 
-	/* Exit critical section */
-
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_close_session);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_notify(
-	struct mc_session_handle   *session
-) {
+enum mc_result mc_notify(struct mc_session_handle *session)
+{
 	enum mc_result mc_result = MC_DRV_OK;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		if (session == NULL) {
-			MCDRV_DBG_ERROR("Session is null");
+			MCDRV_DBG_ERROR(mc_kapi, "Session is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
@@ -549,7 +521,7 @@ enum mc_result mc_notify(
 		struct mcore_device_t *device =
 					resolve_device_id(session->device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
@@ -558,25 +530,23 @@ enum mc_result mc_notify(
 		struct session  *nqsession =
 		 mcore_device_resolve_session_id(device, session->session_id);
 		if (nqsession == NULL) {
-			MCDRV_DBG_ERROR("Session not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Session not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_SESSION;
 			break;
 		}
 
 		struct mc_drv_cmd_notify_t cmd_notify = {
-			/* C++ does not support C99 designated initializers */
-			/* .header = */ {
-				/* .command_id = */ MC_DRV_CMD_NOTIFY
+			{
+				MC_DRV_CMD_NOTIFY
 			},
-			/* .payload = */ {
-				/* .session_id = */ session->session_id,
+			{
+				session->session_id
 			}
 		};
 
-		connection_write_data(
-			dev_con,
-			&cmd_notify,
-			sizeof(cmd_notify));
+		connection_write_data(dev_con,
+				      &cmd_notify,
+				      sizeof(cmd_notify));
 
 		/* Daemon will not return a response */
 
@@ -586,14 +556,12 @@ enum mc_result mc_notify(
 }
 EXPORT_SYMBOL(mc_notify);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_wait_notification(
-	struct mc_session_handle  *session,
-	int32_t			timeout
-) {
+enum mc_result mc_wait_notification(struct mc_session_handle *session,
+				    int32_t timeout)
+{
 	enum mc_result mc_result = MC_DRV_OK;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		if (session == NULL) {
@@ -601,18 +569,19 @@ enum mc_result mc_wait_notification(
 			break;
 		}
 
-		struct mcore_device_t  *device =
+		struct mcore_device_t *device =
 					resolve_device_id(session->device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
 
-		struct session  *nq_session =
-		 mcore_device_resolve_session_id(device, session->session_id);
+		struct session *nq_session =
+			mcore_device_resolve_session_id(device,
+							session->session_id);
 		if (nq_session == NULL) {
-			MCDRV_DBG_ERROR("Session not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Session not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_SESSION;
 			break;
 		}
@@ -624,22 +593,26 @@ enum mc_result mc_wait_notification(
 		/* Read notification queue till it's empty */
 		for (;;) {
 			struct notification notification;
-			ssize_t num_read = connection_read_data(
-				nqconnection,
-				&notification,
-				sizeof(notification),
-				timeout);
-			/* Exit on timeout in first run. Later runs have
+			ssize_t num_read =
+				connection_read_data(nqconnection,
+						     &notification,
+						     sizeof(notification),
+						     timeout);
+			/*
+			 * Exit on timeout in first run. Later runs have
 			 * timeout set to 0.
-			 * -2 means, there is no more data. */
+			 * -2 means, there is no more data.
+			 */
 			if (count == 0 && num_read == -2) {
-				MCDRV_DBG_ERROR("read timeout");
+				MCDRV_DBG_ERROR(mc_kapi, "read timeout");
 				mc_result = MC_DRV_ERR_TIMEOUT;
 				break;
 			}
-			/* After first notification the queue will be
+			/*
+			 * After first notification the queue will be
 			 * drained, Thus we set no timeout for the
-			 * following reads */
+			 * following reads
+			 */
 			timeout = 0;
 
 			if (num_read != sizeof(struct notification)) {
@@ -647,28 +620,33 @@ enum mc_result mc_wait_notification(
 					/* failure in first read, notify it */
 					mc_result = MC_DRV_ERR_NOTIFICATION;
 					MCDRV_DBG_ERROR(
+					mc_kapi,
 					"read notification failed, "
 					"%i bytes received", (int)num_read);
 					break;
 				} else {
-					/* Read of the n-th notification
-					   failed/timeout. We don't tell the
-					   caller, as we got valid notifications
-					   before. */
+					/*
+					 * Read of the n-th notification
+					 * failed/timeout. We don't tell the
+					 * caller, as we got valid notifications
+					 * before.
+					 */
 					mc_result = MC_DRV_OK;
 					break;
 				}
 			}
 
 			count++;
-			MCDRV_DBG_VERBOSE("readNq count=%d, SessionID=%d, "
-				"Payload=%d", count,
-				notification.session_id, notification.payload);
+			MCDRV_DBG_VERBOSE(mc_kapi,
+					  "count=%d, SessionID=%d, Payload=%d",
+					  count,
+					  notification.session_id,
+					  notification.payload);
 
 			if (notification.payload != 0) {
 				/* Session end point died -> store exit code */
 				session_set_error_info(nq_session,
-					notification.payload);
+						       notification.payload);
 
 				mc_result = MC_DRV_INFO_NOTIFICATION;
 				break;
@@ -681,24 +659,17 @@ enum mc_result mc_wait_notification(
 }
 EXPORT_SYMBOL(mc_wait_notification);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_malloc_wsm(
-	uint32_t	device_id,
-	uint32_t	align,
-	uint32_t	len,
-	uint8_t		**wsm,
-	uint32_t	wsm_flags
-) {
+enum mc_result mc_malloc_wsm(uint32_t device_id, uint32_t align, uint32_t len,
+			     uint8_t **wsm, uint32_t wsm_flags)
+{
 	enum mc_result mc_result = MC_DRV_ERR_UNKNOWN;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
-
-	/* Enter critical section */
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		struct mcore_device_t *device = resolve_device_id(device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
@@ -710,7 +681,7 @@ enum mc_result mc_malloc_wsm(
 		struct wsm *wsm_stack =
 			mcore_device_allocate_contiguous_wsm(device, len);
 		if (wsm_stack == NULL) {
-			MCDRV_DBG_ERROR("Allocation of WSM failed");
+			MCDRV_DBG_ERROR(mc_kapi, "Allocation of WSM failed");
 			mc_result = MC_DRV_ERR_NO_FREE_MEMORY;
 			break;
 		}
@@ -720,31 +691,24 @@ enum mc_result mc_malloc_wsm(
 
 	} while (false);
 
-	/* Exit critical section */
-
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_malloc_wsm);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_free_wsm(
-	uint32_t	device_id,
-	uint8_t		*wsm
-) {
+enum mc_result mc_free_wsm(uint32_t device_id, uint8_t *wsm)
+{
 	enum mc_result mc_result = MC_DRV_ERR_UNKNOWN;
 	struct mcore_device_t *device;
 
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
-
-	/* Enter critical section */
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 
 		/* Get the device associated wit the given session */
 		device = resolve_device_id(device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
@@ -753,14 +717,15 @@ enum mc_result mc_free_wsm(
 		struct wsm *wsm_stack =
 			mcore_device_find_contiguous_wsm(device, wsm);
 		if (wsm_stack == NULL) {
-			MCDRV_DBG_ERROR("unknown address");
+			MCDRV_DBG_ERROR(mc_kapi, "unknown address");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 
 		/* Free the given virtual address */
 		if (!mcore_device_free_contiguous_wsm(device, wsm_stack)) {
-			MCDRV_DBG_ERROR("Free of virtual address failed");
+			MCDRV_DBG_ERROR(mc_kapi,
+					"Free of virtual address failed");
 			mc_result = MC_DRV_ERR_FREE_MEMORY_FAILED;
 			break;
 		}
@@ -768,130 +733,123 @@ enum mc_result mc_free_wsm(
 
 	} while (false);
 
-	/* Exit critical section */
-
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_free_wsm);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_map(
-	struct mc_session_handle	*session_handle,
-	void				*buf,
-	uint32_t			buf_len,
-	struct mc_bulk_map		*map_info
-) {
+enum mc_result mc_map(struct mc_session_handle *session_handle, void *buf,
+		      uint32_t buf_len, struct mc_bulk_map *map_info)
+{
 	enum mc_result mc_result = MC_DRV_ERR_UNKNOWN;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
-
-	/* Enter critical section */
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		if (session_handle == NULL) {
-			MCDRV_DBG_ERROR("session_handle is null");
+			MCDRV_DBG_ERROR(mc_kapi, "session_handle is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 		if (map_info == NULL) {
-			MCDRV_DBG_ERROR("map_info is null");
+			MCDRV_DBG_ERROR(mc_kapi, "map_info is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 		if (buf == NULL) {
-			MCDRV_DBG_ERROR("buf is null");
+			MCDRV_DBG_ERROR(mc_kapi, "buf is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 
 		/* Determine device the session belongs to */
-		struct mcore_device_t  *device = resolve_device_id(
-						session_handle->device_id);
+		struct mcore_device_t *device =
+				resolve_device_id(session_handle->device_id);
+
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
 		struct connection *dev_con = device->connection;
 
 		/* Get session */
-		struct session  *session =
-		mcore_device_resolve_session_id(device,
-						session_handle->session_id);
+		uint32_t session_id = session_handle->session_id;
+		struct session *session =
+				mcore_device_resolve_session_id(device,
+								session_id);
 		if (session == NULL) {
-			MCDRV_DBG_ERROR("Session not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Session not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_SESSION;
 			break;
 		}
 
-		/* Register mapped bulk buffer to Kernel Module and keep mapped
-		   bulk buffer in mind */
-		struct bulk_buffer_descriptor *bulk_buf = session_add_bulk_buf(
-			session, buf, buf_len);
+		/*
+		 * Register mapped bulk buffer to Kernel Module and keep mapped
+		 * bulk buffer in mind
+		 */
+		struct bulk_buffer_descriptor *bulk_buf =
+				session_add_bulk_buf(session, buf, buf_len);
 		if (bulk_buf == NULL) {
-			MCDRV_DBG_ERROR("Error mapping bulk buffer");
+			MCDRV_DBG_ERROR(mc_kapi, "Error mapping bulk buffer");
 			mc_result = MC_DRV_ERR_BULK_MAPPING;
 			break;
 		}
 
 		/* Prepare map command */
 		struct mc_drv_cmd_map_bulk_mem_t mc_drv_cmd_map_bulk_mem = {
-			/* C++ does not support C99 designated initializers */
-			/* .header = */ {
-				/* .command_id = */ MC_DRV_CMD_MAP_BULK_BUF
+			{
+				MC_DRV_CMD_MAP_BULK_BUF
 			},
-			/* .payload = */ {
-				/* .session_id = */ session->session_id,
-				/* .phys_addr_l2; = */
-					(uint32_t)bulk_buf->phys_addr_wsm_l2,
-				/* .offset_payload = */
-					(uint32_t)(bulk_buf->virt_addr) & 0xFFF,
-				/* .len_bulk_mem = */ bulk_buf->len
+			{
+				session->session_id,
+				(uint32_t)bulk_buf->phys_addr_wsm_l2,
+				(uint32_t)(bulk_buf->virt_addr) & 0xFFF,
+				bulk_buf->len
 			}
 		};
 
 		/* Transmit map command to MobiCore device */
-		connection_write_data(
-			dev_con,
-			&mc_drv_cmd_map_bulk_mem,
-			sizeof(mc_drv_cmd_map_bulk_mem));
+		connection_write_data(dev_con,
+				      &mc_drv_cmd_map_bulk_mem,
+				      sizeof(mc_drv_cmd_map_bulk_mem));
 
 		/* Read command response */
 		struct mc_drv_response_header_t rsp_header;
-		int len = connection_read_datablock(
-						dev_con,
-						&rsp_header,
-						sizeof(rsp_header));
+		int len = connection_read_datablock(dev_con,
+						    &rsp_header,
+						    sizeof(rsp_header));
 		if (len != sizeof(rsp_header)) {
-			MCDRV_DBG_ERROR("CMD_MAP_BULK_BUF readRsp failed, "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_MAP_BULK_BUF readRsp failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
 
 		if (rsp_header.response_id != MC_DRV_RSP_OK) {
-			MCDRV_DBG_ERROR("CMD_MAP_BULK_BUF failed, respId=%d",
-							rsp_header.response_id);
-			/* REV We ignore Daemon Error code because client cannot
-			   handle it anyhow. */
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_MAP_BULK_BUF failed, respId=%d",
+					rsp_header.response_id);
+
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 
-			/* Unregister mapped bulk buffer from Kernel Module and
-			   remove mapped bulk buffer from session maintenance */
+			/*
+			 * Unregister mapped bulk buffer from Kernel Module and
+			 * remove mapped bulk buffer from session maintenance
+			 */
 			if (!session_remove_bulk_buf(session, buf)) {
 				/* Removing of bulk buffer not possible */
-				MCDRV_DBG_ERROR("Unregistering of bulk memory"
-					"from Kernel Module failed");
+				MCDRV_DBG_ERROR(mc_kapi,
+						"Unreg of bulk memory failed");
 			}
 			break;
 		}
 
 		struct mc_drv_rsp_map_bulk_mem_payload_t
 						rsp_map_bulk_mem_payload;
-		connection_read_datablock(
-			dev_con,
-			&rsp_map_bulk_mem_payload,
-			sizeof(rsp_map_bulk_mem_payload));
+		connection_read_datablock(dev_con,
+					  &rsp_map_bulk_mem_payload,
+					  sizeof(rsp_map_bulk_mem_payload));
 
 		/* Set mapping info for Trustlet */
 		map_info->secure_virt_addr =
@@ -901,37 +859,30 @@ enum mc_result mc_map(
 
 	} while (false);
 
-	/* Exit critical section */
-
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_map);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_unmap(
-	struct mc_session_handle	*session_handle,
-	void				*buf,
-	struct mc_bulk_map		*map_info
-) {
+enum mc_result mc_unmap(struct mc_session_handle *session_handle, void *buf,
+			struct mc_bulk_map *map_info)
+{
 	enum mc_result mc_result = MC_DRV_ERR_UNKNOWN;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
-
-	/* Enter critical section */
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		if (session_handle == NULL) {
-			MCDRV_DBG_ERROR("session_handle is null");
+			MCDRV_DBG_ERROR(mc_kapi, "session_handle is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 		if (map_info == NULL) {
-			MCDRV_DBG_ERROR("map_info is null");
+			MCDRV_DBG_ERROR(mc_kapi, "map_info is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
 		if (buf == NULL) {
-			MCDRV_DBG_ERROR("buf is null");
+			MCDRV_DBG_ERROR(mc_kapi, "buf is null");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
@@ -940,79 +891,74 @@ enum mc_result mc_unmap(
 		struct mcore_device_t  *device =
 			resolve_device_id(session_handle->device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
-		struct connection  *dev_con = device->connection;
+		struct connection *dev_con = device->connection;
 
 		/* Get session */
+		uint32_t session_id = session_handle->session_id;
 		struct session  *session =
 			mcore_device_resolve_session_id(device,
-						session_handle->session_id);
+							session_id);
 		if (session == NULL) {
-			MCDRV_DBG_ERROR("Session not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Session not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_SESSION;
 			break;
 		}
 
 		/* Prepare unmap command */
 		struct mc_drv_cmd_unmap_bulk_mem_t cmd_unmap_bulk_mem = {
-				/* .header = */ {
-					/* .command_id = */
-						MC_DRV_CMD_UNMAP_BULK_BUF
+				{
+					MC_DRV_CMD_UNMAP_BULK_BUF
 				},
-				/* .payload = */ {
-					/* .session_id = */ session->session_id,
-					/* .secure_virtual_adr = */
-					(uint32_t)(map_info->secure_virt_addr),
-					/* .len_bulk_mem =
-						map_info->secure_virt_len*/
+				{
+					session->session_id,
+					(uint32_t)(map_info->secure_virt_addr)
 				}
 			};
 
-		connection_write_data(
-			dev_con,
-			&cmd_unmap_bulk_mem,
-			sizeof(cmd_unmap_bulk_mem));
+		connection_write_data(dev_con,
+				      &cmd_unmap_bulk_mem,
+				      sizeof(cmd_unmap_bulk_mem));
 
 		/* Read command response */
 		struct mc_drv_response_header_t rsp_header;
-		int len = connection_read_datablock(
-						dev_con,
-						&rsp_header,
-						sizeof(rsp_header));
+		int len = connection_read_datablock(dev_con,
+						    &rsp_header,
+						    sizeof(rsp_header));
 		if (len != sizeof(rsp_header)) {
-			MCDRV_DBG_ERROR("CMD_UNMAP_BULK_BUF readRsp failed, "
-				"ret=%d", len);
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_UNMAP_BULK_BUF readRsp failed %d",
+					len);
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
 
 		if (rsp_header.response_id != MC_DRV_RSP_OK) {
-			MCDRV_DBG_ERROR("CMD_UNMAP_BULK_BUF failed, respId=%d",
-							rsp_header.response_id);
-			/* REV We ignore Daemon Error code because client
-			   cannot handle it anyhow. */
+			MCDRV_DBG_ERROR(mc_kapi,
+					"CMD_UNMAP_BULK_BUF failed, respId=%d",
+					rsp_header.response_id);
+
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 			break;
 		}
 
 		struct mc_drv_rsp_unmap_bulk_mem_payload_t
 						rsp_unmap_bulk_mem_payload;
-		connection_read_datablock(
-			dev_con,
-			&rsp_unmap_bulk_mem_payload,
-			sizeof(rsp_unmap_bulk_mem_payload));
+		connection_read_datablock(dev_con,
+					  &rsp_unmap_bulk_mem_payload,
+					  sizeof(rsp_unmap_bulk_mem_payload));
 
-		/* REV axh: what about check the payload? */
-
-		/* Unregister mapped bulk buffer from Kernel Module and
-		 * remove mapped bulk buffer from session maintenance */
+		/*
+		 * Unregister mapped bulk buffer from Kernel Module and
+		 * remove mapped bulk buffer from session maintenance
+		 */
 		if (!session_remove_bulk_buf(session, buf)) {
 			/* Removing of bulk buffer not possible */
-			MCDRV_DBG_ERROR("Unregistering of bulk memory from "
-							"Kernel Module failed");
+			MCDRV_DBG_ERROR(mc_kapi,
+					"Unregistering of bulk memory failed");
 			mc_result = MC_DRV_ERR_BULK_UNMAPPING;
 			break;
 		}
@@ -1021,20 +967,16 @@ enum mc_result mc_unmap(
 
 	} while (false);
 
-	/* Exit critical section */
-
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_unmap);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_get_session_error_code(
-	struct mc_session_handle   *session,
-	int32_t			 *last_error
-) {
+enum mc_result mc_get_session_error_code(struct mc_session_handle *session,
+					 int32_t *last_error)
+{
 	enum mc_result mc_result = MC_DRV_OK;
 
-	MCDRV_DBG_VERBOSE("===%s()===", __func__);
+	MCDRV_DBG_VERBOSE(mc_kapi, "===%s()===", __func__);
 
 	do {
 		if (session == NULL || last_error == NULL) {
@@ -1044,23 +986,24 @@ enum mc_result mc_get_session_error_code(
 
 		/* Get device */
 		struct mcore_device_t *device =
-					resolve_device_id(session->device_id);
+				resolve_device_id(session->device_id);
 		if (device == NULL) {
-			MCDRV_DBG_ERROR("Device not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Device not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_DEVICE;
 			break;
 		}
 
 		/* Get session */
+		uint32_t session_id = session->session_id;
 		struct session *nqsession =
-		 mcore_device_resolve_session_id(device, session->session_id);
+				mcore_device_resolve_session_id(device,
+								session_id);
 		if (nqsession == NULL) {
-			MCDRV_DBG_ERROR("Session not found");
+			MCDRV_DBG_ERROR(mc_kapi, "Session not found");
 			mc_result = MC_DRV_ERR_UNKNOWN_SESSION;
 			break;
 		}
 
-		/* get session error code from session */
 		*last_error = session_get_last_err(nqsession);
 
 	} while (false);
@@ -1069,24 +1012,17 @@ enum mc_result mc_get_session_error_code(
 }
 EXPORT_SYMBOL(mc_get_session_error_code);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_driver_ctrl(
-	enum mc_driver_ctrl  param,
-	uint8_t		 *data,
-	uint32_t		len
-) {
-	MCDRV_DBG_WARN("not implemented");
+enum mc_result mc_driver_ctrl(enum mc_driver_ctrl param, uint8_t *data,
+			      uint32_t len)
+{
+	MCDRV_DBG_WARN(mc_kapi, "not implemented");
 	return MC_DRV_ERR_NOT_IMPLEMENTED;
 }
 EXPORT_SYMBOL(mc_driver_ctrl);
 
-/*----------------------------------------------------------------------------*/
-enum mc_result mc_manage(
-	uint32_t  device_id,
-	uint8_t   *data,
-	uint32_t  len
-) {
-	MCDRV_DBG_WARN("not implemented");
+enum mc_result mc_manage(uint32_t device_id, uint8_t *data, uint32_t len)
+{
+	MCDRV_DBG_WARN(mc_kapi, "not implemented");
 	return MC_DRV_ERR_NOT_IMPLEMENTED;
 }
 EXPORT_SYMBOL(mc_manage);
