@@ -281,6 +281,26 @@ struct adm_param_data_v5 {
 	 */
 } __packed;
 
+/* Defined specifically for in-band use, includes params */
+struct adm_cmd_set_pp_params_inband_v5 {
+	struct apr_hdr hdr;
+	/* LSW of parameter data payload address.*/
+	u32		payload_addr_lsw;
+	/* MSW of parameter data payload address.*/
+	u32		payload_addr_msw;
+	/* Memory map handle returned by ADM_CMD_SHARED_MEM_MAP_REGIONS */
+	/* command. If mem_map_handle is zero implies the message is in */
+	/* the payload */
+	u32		mem_map_handle;
+	/* Size in bytes of the variable payload accompanying this */
+	/* message or in shared memory. This is used for parsing the */
+	/* parameter payload. */
+	u32		payload_size;
+	/* Parameters passed for in band payload */
+	struct adm_param_data_v5	params;
+} __packed;
+
+
 /* Returns the status and COPP ID to an #ADM_CMD_DEVICE_OPEN_V5 command.
  */
 #define ADM_CMDRSP_DEVICE_OPEN_V5                      0x00010329
@@ -6194,6 +6214,111 @@ struct asm_eq_params {
 #define VOICE_CMD_SET_PARAM				0x0001133D
 #define VOICE_CMD_GET_PARAM				0x0001133E
 #define VOICE_EVT_GET_PARAM_ACK				0x00011008
+
+
+/* SRS TRUMEDIA start */
+/* topology */
+#define SRS_TRUMEDIA_TOPOLOGY_ID			0x00010D90
+/* module */
+#define SRS_TRUMEDIA_MODULE_ID				0x10005010
+/* parameters */
+#define SRS_TRUMEDIA_PARAMS				0x10005011
+#define SRS_TRUMEDIA_PARAMS_WOWHD			0x10005012
+#define SRS_TRUMEDIA_PARAMS_CSHP			0x10005013
+#define SRS_TRUMEDIA_PARAMS_HPF				0x10005014
+#define SRS_TRUMEDIA_PARAMS_PEQ				0x10005015
+#define SRS_TRUMEDIA_PARAMS_HL				0x10005016
+
+#define SRS_ID_GLOBAL	0x00000001
+#define SRS_ID_WOWHD	0x00000002
+#define SRS_ID_CSHP	0x00000003
+#define SRS_ID_HPF	0x00000004
+#define SRS_ID_PEQ	0x00000005
+#define SRS_ID_HL	0x00000006
+
+#define SRS_CMD_UPLOAD		0x7FFF0000
+#define SRS_PARAM_INDEX_MASK	0x80000000
+#define SRS_PARAM_OFFSET_MASK	0x3FFF0000
+#define SRS_PARAM_VALUE_MASK	0x0000FFFF
+
+struct srs_trumedia_params_GLOBAL {
+	uint8_t                  v1;
+	uint8_t                  v2;
+	uint8_t                  v3;
+	uint8_t                  v4;
+	uint8_t                  v5;
+	uint8_t                  v6;
+	uint8_t                  v7;
+	uint8_t                  v8;
+} __packed;
+
+struct srs_trumedia_params_WOWHD {
+	uint32_t				v1;
+	uint16_t				v2;
+	uint16_t				v3;
+	uint16_t				v4;
+	uint16_t				v5;
+	uint16_t				v6;
+	uint16_t				v7;
+	uint16_t				v8;
+	uint16_t				v____A1;
+	uint32_t				v9;
+	uint16_t				v10;
+	uint16_t				v11;
+	uint32_t				v12[16];
+} __packed;
+
+struct srs_trumedia_params_CSHP {
+	uint32_t				v1;
+	uint16_t				v2;
+	uint16_t				v3;
+	uint16_t				v4;
+	uint16_t				v5;
+	uint16_t				v6;
+	uint16_t				v____A1;
+	uint32_t				v7;
+	uint16_t				v8;
+	uint16_t				v9;
+	uint32_t				v10[16];
+} __packed;
+
+struct srs_trumedia_params_HPF {
+	uint32_t				v1;
+	uint32_t				v2[26];
+} __packed;
+
+struct srs_trumedia_params_PEQ {
+	uint32_t				v1;
+	uint16_t				v2;
+	uint16_t				v3;
+	uint16_t				v4;
+	uint16_t				v____A1;
+	uint32_t				v5[26];
+	uint32_t				v6[26];
+} __packed;
+
+struct srs_trumedia_params_HL {
+	uint16_t				v1;
+	uint16_t				v2;
+	uint16_t				v3;
+	uint16_t				v____A1;
+	int32_t					v4;
+	uint32_t				v5;
+	uint16_t				v6;
+	uint16_t				v____A2;
+	uint32_t				v7;
+} __packed;
+
+struct srs_trumedia_params {
+	struct srs_trumedia_params_GLOBAL	global;
+	struct srs_trumedia_params_WOWHD	wowhd;
+	struct srs_trumedia_params_CSHP		cshp;
+	struct srs_trumedia_params_HPF		hpf;
+	struct srs_trumedia_params_PEQ		peq;
+	struct srs_trumedia_params_HL		hl;
+} __packed;
+/* SRS TruMedia end */
+
 
 
 /* ERROR CODES */

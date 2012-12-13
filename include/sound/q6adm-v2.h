@@ -27,6 +27,8 @@ struct route_payload {
 	unsigned int session_id;
 };
 
+int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params);
+
 int adm_open(int port, int path, int rate, int mode, int topology);
 
 int adm_multi_ch_copp_open(int port, int path, int rate, int mode,

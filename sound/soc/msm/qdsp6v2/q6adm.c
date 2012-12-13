@@ -50,6 +50,202 @@ struct adm_ctl {
 
 static struct adm_ctl			this_adm;
 
+int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
+{
+	struct adm_cmd_set_pp_params_inband_v5 *adm_params = NULL;
+	int ret = 0, sz = 0;
+	int index;
+
+	pr_debug("SRS - %s", __func__);
+	switch (srs_tech_id) {
+	case SRS_ID_GLOBAL: {
+		struct srs_trumedia_params_GLOBAL *glb_params = NULL;
+		sz = sizeof(struct adm_cmd_set_pp_params_inband_v5) +
+			sizeof(struct srs_trumedia_params_GLOBAL);
+		adm_params = kzalloc(sz, GFP_KERNEL);
+		adm_params->payload_size =
+			sizeof(struct srs_trumedia_params_GLOBAL) +
+			sizeof(struct adm_param_data_v5);
+		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS;
+		adm_params->params.param_size =
+				sizeof(struct srs_trumedia_params_GLOBAL);
+		glb_params = (struct srs_trumedia_params_GLOBAL *)
+			((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pp_params_inband_v5));
+		memcpy(glb_params, srs_params,
+			sizeof(struct srs_trumedia_params_GLOBAL));
+		pr_debug("SRS - %s: Global params - 1 = %x, 2 = %x, 3 = %x, 4 = %x, 5 = %x, 6 = %x, 7 = %x, 8 = %x\n",
+				__func__, (int)glb_params->v1,
+				(int)glb_params->v2, (int)glb_params->v3,
+				(int)glb_params->v4, (int)glb_params->v5,
+				(int)glb_params->v6, (int)glb_params->v7,
+				(int)glb_params->v8);
+		break;
+	}
+	case SRS_ID_WOWHD: {
+		struct srs_trumedia_params_WOWHD *whd_params = NULL;
+		sz = sizeof(struct adm_cmd_set_pp_params_inband_v5) +
+			sizeof(struct srs_trumedia_params_WOWHD);
+		adm_params = kzalloc(sz, GFP_KERNEL);
+		adm_params->payload_size =
+			sizeof(struct srs_trumedia_params_WOWHD) +
+			sizeof(struct adm_param_data_v5);
+		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_WOWHD;
+		adm_params->params.param_size =
+				sizeof(struct srs_trumedia_params_WOWHD);
+		whd_params = (struct srs_trumedia_params_WOWHD *)
+			((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pp_params_inband_v5));
+		memcpy(whd_params, srs_params,
+				sizeof(struct srs_trumedia_params_WOWHD));
+		pr_debug("SRS - %s: WOWHD params - 1 = %x, 2 = %x, 3 = %x, 4 = %x, 5 = %x, 6 = %x, 7 = %x, 8 = %x, 9 = %x, 10 = %x, 11 = %x\n",
+			 __func__, (int)whd_params->v1,
+			(int)whd_params->v2, (int)whd_params->v3,
+			(int)whd_params->v4, (int)whd_params->v5,
+			(int)whd_params->v6, (int)whd_params->v7,
+			(int)whd_params->v8, (int)whd_params->v9,
+			(int)whd_params->v10, (int)whd_params->v11);
+		break;
+	}
+	case SRS_ID_CSHP: {
+		struct srs_trumedia_params_CSHP *chp_params = NULL;
+		sz = sizeof(struct adm_cmd_set_pp_params_inband_v5) +
+			sizeof(struct srs_trumedia_params_CSHP);
+		adm_params = kzalloc(sz, GFP_KERNEL);
+		adm_params->payload_size =
+			sizeof(struct srs_trumedia_params_CSHP) +
+			sizeof(struct adm_param_data_v5);
+		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_CSHP;
+		adm_params->params.param_size =
+				sizeof(struct srs_trumedia_params_CSHP);
+		chp_params = (struct srs_trumedia_params_CSHP *)
+			((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pp_params_inband_v5));
+		memcpy(chp_params, srs_params,
+				sizeof(struct srs_trumedia_params_CSHP));
+		pr_debug("SRS - %s: CSHP params - 1 = %x, 2 = %x, 3 = %x, 4 = %x, 5 = %x, 6 = %x, 7 = %x, 8 = %x, 9 = %x\n",
+				__func__, (int)chp_params->v1,
+				(int)chp_params->v2, (int)chp_params->v3,
+				(int)chp_params->v4, (int)chp_params->v5,
+				(int)chp_params->v6, (int)chp_params->v7,
+				(int)chp_params->v8, (int)chp_params->v9);
+		break;
+	}
+	case SRS_ID_HPF: {
+		struct srs_trumedia_params_HPF *hpf_params = NULL;
+		sz = sizeof(struct adm_cmd_set_pp_params_inband_v5) +
+			sizeof(struct srs_trumedia_params_HPF);
+		adm_params = kzalloc(sz, GFP_KERNEL);
+		adm_params->payload_size =
+			sizeof(struct srs_trumedia_params_HPF) +
+			sizeof(struct adm_param_data_v5);
+		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_HPF;
+		adm_params->params.param_size =
+				sizeof(struct srs_trumedia_params_HPF);
+		hpf_params = (struct srs_trumedia_params_HPF *)
+			((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pp_params_inband_v5));
+		memcpy(hpf_params, srs_params,
+			sizeof(struct srs_trumedia_params_HPF));
+		pr_debug("SRS - %s: HPF params - 1 = %x\n", __func__,
+				(int)hpf_params->v1);
+		break;
+	}
+	case SRS_ID_PEQ: {
+		struct srs_trumedia_params_PEQ *peq_params = NULL;
+		sz = sizeof(struct adm_cmd_set_pp_params_inband_v5) +
+			sizeof(struct srs_trumedia_params_PEQ);
+		adm_params = kzalloc(sz, GFP_KERNEL);
+		adm_params->payload_size =
+				sizeof(struct srs_trumedia_params_PEQ) +
+				sizeof(struct adm_param_data_v5);
+		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_PEQ;
+		adm_params->params.param_size =
+				sizeof(struct srs_trumedia_params_PEQ);
+		peq_params = (struct srs_trumedia_params_PEQ *)
+			((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pp_params_inband_v5));
+		memcpy(peq_params, srs_params,
+				sizeof(struct srs_trumedia_params_PEQ));
+		pr_debug("SRS - %s: PEQ params - 1 = %x 2 = %x, 3 = %x, 4 = %x\n",
+			__func__, (int)peq_params->v1,
+			(int)peq_params->v2, (int)peq_params->v3,
+			(int)peq_params->v4);
+		break;
+	}
+	case SRS_ID_HL: {
+		struct srs_trumedia_params_HL *hl_params = NULL;
+		sz = sizeof(struct adm_cmd_set_pp_params_inband_v5) +
+			sizeof(struct srs_trumedia_params_HL);
+		adm_params = kzalloc(sz, GFP_KERNEL);
+		adm_params->payload_size =
+			sizeof(struct srs_trumedia_params_HL) +
+			sizeof(struct adm_param_data_v5);
+		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_HL;
+		adm_params->params.param_size =
+			sizeof(struct srs_trumedia_params_HL);
+		hl_params = (struct srs_trumedia_params_HL *)
+			((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pp_params_inband_v5));
+		memcpy(hl_params, srs_params,
+				sizeof(struct srs_trumedia_params_HL));
+		pr_debug("SRS - %s: HL params - 1 = %x, 2 = %x, 3 = %x, 4 = %x, 5 = %x, 6 = %x, 7 = %x\n",
+				__func__, (int)hl_params->v1,
+				(int)hl_params->v2, (int)hl_params->v3,
+				(int)hl_params->v4, (int)hl_params->v5,
+				(int)hl_params->v6, (int)hl_params->v7);
+		break;
+	}
+	default:
+		goto fail_cmd;
+	}
+
+	adm_params->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	adm_params->hdr.pkt_size = sz;
+	adm_params->hdr.src_svc = APR_SVC_ADM;
+	adm_params->hdr.src_domain = APR_DOMAIN_APPS;
+	adm_params->hdr.src_port = port_id;
+	adm_params->hdr.dest_svc = APR_SVC_ADM;
+	adm_params->hdr.dest_domain = APR_DOMAIN_ADSP;
+	index = afe_get_port_index(port_id);
+	adm_params->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	adm_params->hdr.token = port_id;
+	adm_params->hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+	adm_params->payload_addr_lsw = 0;
+	adm_params->payload_addr_msw = 0;
+	adm_params->mem_map_handle = 0;
+
+	adm_params->params.module_id = SRS_TRUMEDIA_MODULE_ID;
+	adm_params->params.reserved = 0;
+
+	pr_debug("SRS - %s: Command was sent now check Q6 - port id = %d, size %d, module id %x, param id %x.\n",
+			__func__, adm_params->hdr.dest_port,
+			adm_params->payload_size, adm_params->params.module_id,
+			adm_params->params.param_id);
+
+	ret = apr_send_pkt(this_adm.apr, (uint32_t *)adm_params);
+	if (ret < 0) {
+		pr_err("SRS - %s: ADM enable for port %d failed\n", __func__,
+			port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	/* Wait for the callback with copp id */
+	ret = wait_event_timeout(this_adm.wait[index], 1,
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: SRS set params timed out port = %d\n",
+			__func__, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	kfree(adm_params);
+	return ret;
+}
+
 static void adm_callback_debug_print(struct apr_client_data *data)
 {
 	uint32_t *payload;
