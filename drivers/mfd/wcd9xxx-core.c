@@ -46,6 +46,11 @@
 #define WCD9XXX_I2C_DIGITAL_1	2
 #define WCD9XXX_I2C_DIGITAL_2	3
 
+/* Number of return values needs to be checked for each
+ * registration of Slimbus of I2C bus for each codec
+ */
+#define NUM_WCD9XXX_REG_RET	8
+
 struct wcd9xxx_i2c {
 	struct i2c_client *client;
 	struct i2c_msg xfer_msg[2];
@@ -56,6 +61,11 @@ struct wcd9xxx_i2c {
 static char *taiko_supplies[] = {
 	"cdc-vdd-buck", "cdc-vdd-tx-h", "cdc-vdd-rx-h", "cdc-vddpx-1",
 	"cdc-vdd-a-1p2v", "cdc-vddcx-1", "cdc-vddcx-2",
+};
+
+static char *tapan_supplies[] = {
+	"cdc-vdd-buck", "cdc-vdd-h", "cdc-vdd-px",
+	"cdc-vdd-a-1p2v", "cdc-vdd-cx"
 };
 
 static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
@@ -275,6 +285,12 @@ static struct mfd_cell taiko_devs[] = {
 	},
 };
 
+static struct mfd_cell tapan_devs[] = {
+	{
+		.name = "tapan_codec",
+	},
+};
+
 static struct wcd9xx_codec_type {
 	u8 byte[4];
 	struct mfd_cell *dev;
@@ -287,6 +303,8 @@ static struct wcd9xx_codec_type {
 	 TABLA_NUM_IRQS},
 	{{0x0, 0x0, 0x2, 0x1}, taiko_devs, ARRAY_SIZE(taiko_devs),
 	 TAIKO_NUM_IRQS},
+	{{0x0, 0x0, 0x3, 0x1}, tapan_devs, ARRAY_SIZE(tapan_devs),
+	 TAPAN_NUM_IRQS},
 	{{0x0, 0x0, 0x0, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
 	 SITAR_NUM_IRQS},
 	{{0x1, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
@@ -987,92 +1005,54 @@ static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
 	return 0;
 }
 
+static int wcd9xxx_read_of_property_u32(struct device *dev,
+	const char *name, u32 *val)
+{
+	int ret = 0;
+	ret = of_property_read_u32(dev->of_node, name, val);
+	if (ret)
+		dev_err(dev, "Looking up %s property in node %s failed",
+				name, dev->of_node->full_name);
+	return ret;
+}
+
 static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
 	struct wcd9xxx_micbias_setting *micbias)
 {
-	int ret = 0;
-	char prop_name[CODEC_DT_MAX_PROP_SIZE];
 	u32 prop_val;
 
-	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias-ldoh-v");
-	ret = of_property_read_u32(dev->of_node, prop_name, &prop_val);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			prop_name, dev->of_node->full_name);
-		return -ENODEV;
-	}
-	micbias->ldoh_v  =  (u8)prop_val;
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-ldoh-v",
+				&prop_val)))
+		micbias->ldoh_v  =  (u8)prop_val;
 
-	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias-cfilt1-mv");
-	ret = of_property_read_u32(dev->of_node, prop_name,
-				   &micbias->cfilt1_mv);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			prop_name, dev->of_node->full_name);
-		return -ENODEV;
-	}
+	wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt1-mv",
+				&micbias->cfilt1_mv);
 
-	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias-cfilt2-mv");
-	ret = of_property_read_u32(dev->of_node, prop_name,
-				   &micbias->cfilt2_mv);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			prop_name, dev->of_node->full_name);
-		return -ENODEV;
-	}
+	wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt2-mv",
+				&micbias->cfilt2_mv);
 
-	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias-cfilt3-mv");
-	ret = of_property_read_u32(dev->of_node, prop_name,
-				   &micbias->cfilt3_mv);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			prop_name, dev->of_node->full_name);
-		return -ENODEV;
-	}
+	wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt3-mv",
+				&micbias->cfilt3_mv);
 
-	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias1-cfilt-sel");
-	ret = of_property_read_u32(dev->of_node, prop_name, &prop_val);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			prop_name, dev->of_node->full_name);
-		return -ENODEV;
-	}
-	micbias->bias1_cfilt_sel = (u8)prop_val;
+	/* Read micbias values for codec. Does not matter even if a few
+	 * micbias values are not defined in the Device Tree. Codec will
+	 * anyway not use those values
+	 */
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias1-cfilt-sel",
+				&prop_val)))
+		micbias->bias1_cfilt_sel = (u8)prop_val;
 
-	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias2-cfilt-sel");
-	ret = of_property_read_u32(dev->of_node, prop_name, &prop_val);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			prop_name, dev->of_node->full_name);
-		return -ENODEV;
-	}
-	micbias->bias2_cfilt_sel = (u8)prop_val;
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias2-cfilt-sel",
+				&prop_val)))
+		micbias->bias2_cfilt_sel = (u8)prop_val;
 
-	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias3-cfilt-sel");
-	ret = of_property_read_u32(dev->of_node, prop_name, &prop_val);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			prop_name, dev->of_node->full_name);
-		return -ENODEV;
-	}
-	micbias->bias3_cfilt_sel = (u8)prop_val;
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias3-cfilt-sel",
+				&prop_val)))
+		micbias->bias3_cfilt_sel = (u8)prop_val;
 
-	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias4-cfilt-sel");
-	ret = of_property_read_u32(dev->of_node, prop_name, &prop_val);
-	if (ret) {
-		dev_err(dev, "Looking up %s property in node %s failed",
-			prop_name, dev->of_node->full_name);
-		return -ENODEV;
-	}
-	micbias->bias4_cfilt_sel = (u8)prop_val;
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias4-cfilt-sel",
+				&prop_val)))
+		micbias->bias4_cfilt_sel = (u8)prop_val;
 
 	/* micbias external cap */
 	micbias->bias1_cap_mode =
@@ -1153,6 +1133,9 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 		(!strcmp(dev_name(dev), WCD9XXX_I2C_GSBI_SLAVE_ID))) {
 		codec_supplies = taiko_supplies;
 		num_of_supplies = ARRAY_SIZE(taiko_supplies);
+	} else if (!strcmp(dev_name(dev), "tapan-slim-pgd")) {
+		codec_supplies = tapan_supplies;
+		num_of_supplies = ARRAY_SIZE(tapan_supplies);
 	} else {
 		dev_err(dev, "%s unsupported device %s\n",
 				__func__, dev_name(dev));
@@ -1552,6 +1535,23 @@ static struct slim_driver taiko_slim_driver = {
 	.suspend = wcd9xxx_slim_suspend,
 };
 
+static const struct slim_device_id tapan_slimtest_id[] = {
+	{"tapan-slim-pgd", 0},
+	{}
+};
+
+static struct slim_driver tapan_slim_driver = {
+	.driver = {
+		.name = "tapan-slim",
+		.owner = THIS_MODULE,
+	},
+	.probe = wcd9xxx_slim_probe,
+	.remove = wcd9xxx_slim_remove,
+	.id_table = tapan_slimtest_id,
+	.resume = wcd9xxx_slim_resume,
+	.suspend = wcd9xxx_slim_suspend,
+};
+
 static struct i2c_device_id wcd9xxx_id_table[] = {
 	{"wcd9xxx-i2c", WCD9XXX_I2C_TOP_LEVEL},
 	{"wcd9xxx-i2c", WCD9XXX_I2C_ANALOG},
@@ -1596,39 +1596,48 @@ static struct i2c_driver wcd9xxx_i2c_driver = {
 
 static int __init wcd9xxx_init(void)
 {
-	int ret1, ret2, ret3, ret4, ret5, ret6, ret7;
+	int ret[NUM_WCD9XXX_REG_RET];
+	int i = 0;
 
 	wcd9xxx_intf = WCD9XXX_INTERFACE_TYPE_PROBING;
 
-	ret1 = slim_driver_register(&tabla_slim_driver);
-	if (ret1 != 0)
-		pr_err("Failed to register tabla SB driver: %d\n", ret1);
+	ret[0] = slim_driver_register(&tabla_slim_driver);
+	if (ret[0])
+		pr_err("Failed to register tabla SB driver: %d\n", ret[0]);
 
-	ret2 = slim_driver_register(&tabla2x_slim_driver);
-	if (ret2 != 0)
-		pr_err("Failed to register tabla2x SB driver: %d\n", ret2);
+	ret[1] = slim_driver_register(&tabla2x_slim_driver);
+	if (ret[1])
+		pr_err("Failed to register tabla2x SB driver: %d\n", ret[1]);
 
-	ret3 = i2c_add_driver(&tabla_i2c_driver);
-	if (ret3 != 0)
-		pr_err("failed to add the tabla2x I2C driver\n");
+	ret[2] = i2c_add_driver(&tabla_i2c_driver);
+	if (ret[2])
+		pr_err("failed to add the tabla2x I2C driver: %d\n", ret[2]);
 
-	ret4 = slim_driver_register(&sitar_slim_driver);
-	if (ret4 != 0)
-		pr_err("Failed to register sitar SB driver: %d\n", ret4);
+	ret[3] = slim_driver_register(&sitar_slim_driver);
+	if (ret[3])
+		pr_err("Failed to register sitar SB driver: %d\n", ret[3]);
 
-	ret5 = slim_driver_register(&sitar1p1_slim_driver);
-	if (ret5 != 0)
-		pr_err("Failed to register sitar SB driver: %d\n", ret5);
+	ret[4] = slim_driver_register(&sitar1p1_slim_driver);
+	if (ret[4])
+		pr_err("Failed to register sitar SB driver: %d\n", ret[4]);
 
-	ret6 = slim_driver_register(&taiko_slim_driver);
-	if (ret6 != 0)
-		pr_err("Failed to register taiko SB driver: %d\n", ret6);
+	ret[5] = slim_driver_register(&taiko_slim_driver);
+	if (ret[5])
+		pr_err("Failed to register taiko SB driver: %d\n", ret[5]);
 
-	ret7 = i2c_add_driver(&wcd9xxx_i2c_driver);
-	if (ret7 != 0)
-		pr_err("failed to add the wcd9xxx I2C driver\n");
+	ret[6] = i2c_add_driver(&wcd9xxx_i2c_driver);
+	if (ret[6])
+		pr_err("failed to add the wcd9xxx I2C driver: %d\n", ret[6]);
 
-	return (ret1 && ret2 && ret3 && ret4 && ret5 && ret6 && ret7) ? -1 : 0;
+	ret[7] = slim_driver_register(&tapan_slim_driver);
+	if (ret[7])
+		pr_err("Failed to register tapan SB driver: %d\n", ret[7]);
+
+	for (i = 0; i < NUM_WCD9XXX_REG_RET; i++) {
+		if (ret[i])
+			return ret[i];
+	}
+	return 0;
 }
 module_init(wcd9xxx_init);
 
