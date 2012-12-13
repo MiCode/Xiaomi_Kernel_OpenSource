@@ -23,6 +23,7 @@
  * @uart_rx_gpio: GPIO number for UART Rx Line.
  * @uart_cts_gpio: GPIO number for UART CTS Line.
  * @uart_rfr_gpio: GPIO number for UART RFR Line.
+ * @use_pm: use this to enable power management
  * @line: Used to set UART Port number.
  */
 struct msm_serial_hslite_platform_data {
@@ -31,6 +32,7 @@ struct msm_serial_hslite_platform_data {
 	unsigned uart_rx_gpio;
 	unsigned uart_cts_gpio;
 	unsigned uart_rfr_gpio;
+	bool use_pm;
 	int line;
 };
 

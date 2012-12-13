@@ -46,6 +46,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
+#include <linux/wakelock.h>
 #include <mach/board.h>
 #include <mach/msm_serial_hs_lite.h>
 #include <asm/mach-types.h>
@@ -87,6 +88,7 @@ struct msm_hsl_port {
 	struct mutex		clk_mutex;
 	enum uart_core_type	uart_type;
 	enum uart_func_mode	func_mode;
+	struct wake_lock	port_open_wake_lock;
 };
 
 #define UARTDM_VERSION_11_13	0
@@ -947,11 +949,14 @@ static int msm_hsl_startup(struct uart_port *port)
 		if (msm_serial_hsl_has_gsbi(port))
 			set_gsbi_uart_func_mode(port);
 
+		if (pdata && pdata->use_pm)
+			wake_lock(&msm_hsl_port->port_open_wake_lock);
+
 		if (pdata && pdata->config_gpio) {
 			ret = msm_hsl_config_uart_gpios(port);
 			if (ret) {
 				msm_hsl_unconfig_uart_gpios(port);
-				goto exit_startup;
+				goto release_wakelock;
 			}
 		}
 	}
@@ -986,9 +991,15 @@ static int msm_hsl_startup(struct uart_port *port)
 	if (unlikely(ret)) {
 		pr_err("failed to request_irq\n");
 		msm_hsl_unconfig_uart_gpios(port);
+		goto release_wakelock;
 	}
 
-exit_startup:
+	return ret;
+
+release_wakelock:
+	if (pdata && pdata->use_pm)
+		wake_unlock(&msm_hsl_port->port_open_wake_lock);
+
 	return ret;
 }
 
@@ -1014,6 +1025,9 @@ static void msm_hsl_shutdown(struct uart_port *port)
 		/* Free UART GPIOs */
 		if (pdata && pdata->config_gpio)
 			msm_hsl_unconfig_uart_gpios(port);
+
+		if (pdata && pdata->use_pm)
+			wake_unlock(&msm_hsl_port->port_open_wake_lock);
 	}
 }
 
@@ -1621,6 +1635,8 @@ static struct msm_serial_hslite_platform_data
 		}
 	}
 
+	pdata->use_pm = of_property_read_bool(node, "qcom,use-pm");
+
 	return pdata;
 }
 
@@ -1738,6 +1754,10 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 #endif
 	msm_hsl_debugfs_init(msm_hsl_port, get_line(pdev));
 	mutex_init(&msm_hsl_port->clk_mutex);
+	if (pdata && pdata->use_pm)
+		wake_lock_init(&msm_hsl_port->port_open_wake_lock,
+				WAKE_LOCK_SUSPEND,
+				"msm_serial_hslite_port_open");
 
 	/* Temporarily increase the refcount on the GSBI clock to avoid a race
 	 * condition with the earlyprintk handover mechanism.
@@ -1753,6 +1773,8 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 static int msm_serial_hsl_remove(struct platform_device *pdev)
 {
 	struct msm_hsl_port *msm_hsl_port = platform_get_drvdata(pdev);
+	const struct msm_serial_hslite_platform_data *pdata =
+					pdev->dev.platform_data;
 	struct uart_port *port;
 
 	port = get_port_from_line(get_line(pdev));
@@ -1761,6 +1783,9 @@ static int msm_serial_hsl_remove(struct platform_device *pdev)
 #endif
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+
+	if (pdata && pdata->use_pm)
+		wake_lock_destroy(&msm_hsl_port->port_open_wake_lock);
 
 	device_set_wakeup_capable(&pdev->dev, 0);
 	platform_set_drvdata(pdev, NULL);
