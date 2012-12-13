@@ -5682,7 +5682,7 @@ static int __alloc_contig_migrate_range(unsigned long start, unsigned long end)
 	};
 	INIT_LIST_HEAD(&cc.migratepages);
 
-	migrate_prep_local();
+	migrate_prep();
 
 	while (pfn < end || !list_empty(&cc.migratepages)) {
 		if (fatal_signal_pending(current)) {
