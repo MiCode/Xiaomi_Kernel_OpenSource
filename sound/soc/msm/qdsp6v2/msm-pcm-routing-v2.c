@@ -2004,6 +2004,60 @@ static const struct snd_kcontrol_new eq_coeff_mixer_controls[] = {
 	msm_routing_put_eq_band_audio_mixer),
 };
 
+static int spkr_prot_put_vi_lch_port(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	int item;
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	pr_debug("%s item is %d\n", __func__,
+		   ucontrol->value.enumerated.item[0]);
+	mutex_lock(&routing_lock);
+	item = ucontrol->value.enumerated.item[0];
+	if (item < e->max) {
+		pr_debug("%s RX DAI ID %d TX DAI id %d\n",
+			__func__, e->shift_l , e->values[item]);
+		if (e->shift_l < MSM_BACKEND_DAI_MAX &&
+			e->values[item] < MSM_BACKEND_DAI_MAX)
+			ret = afe_spk_prot_feed_back_cfg(
+			   msm_bedais[e->values[item]].port_id,
+			   msm_bedais[e->shift_l].port_id, 1, 0);
+		else {
+			pr_err("%s values are out of range\n", __func__);
+			ret = -EINVAL;
+		}
+	} else {
+		pr_err("%s item value is out of range\n", __func__);
+		ret = -EINVAL;
+	}
+	mutex_unlock(&routing_lock);
+	return ret;
+}
+
+static int spkr_prot_get_vi_lch_port(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s\n", __func__);
+	return 0;
+}
+
+static const char * const slim0_rx_vi_fb_tx_lch_mux_text[] = {
+	"SLIM4_TX",
+};
+
+static const int const slim0_rx_vi_fb_tx_lch_value[] = {
+	MSM_BACKEND_DAI_SLIMBUS_4_TX,
+};
+static const struct soc_enum slim0_rx_vi_fb_lch_mux_enum =
+	SOC_VALUE_ENUM_DOUBLE(0, MSM_BACKEND_DAI_SLIMBUS_0_RX, 0, 0,
+	ARRAY_SIZE(slim0_rx_vi_fb_tx_lch_mux_text),
+	slim0_rx_vi_fb_tx_lch_mux_text, slim0_rx_vi_fb_tx_lch_value);
+
+static const struct snd_kcontrol_new slim0_rx_vi_fb_lch_mux =
+	SOC_DAPM_ENUM_EXT("SLIM0_RX_VI_FB_LCH_MUX",
+	slim0_rx_vi_fb_lch_mux_enum, spkr_prot_get_vi_lch_port,
+	spkr_prot_put_vi_lch_port);
+
 static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	/* Frontend AIF */
 	/* Widget name equals to Front-End DAI name<Need confirmation>,
@@ -2248,6 +2302,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	/* Virtual Pins to force backends ON atm */
 	SND_SOC_DAPM_OUTPUT("BE_OUT"),
 	SND_SOC_DAPM_INPUT("BE_IN"),
+
+	SND_SOC_DAPM_MUX("SLIM0_RX_VI_FB_LCH_MUX", SND_SOC_NOPM, 0, 0,
+				&slim0_rx_vi_fb_lch_mux),
 
 };
 
@@ -2554,7 +2611,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"AUX_PCM_TX", NULL, "BE_IN"},
 	{"INCALL_RECORD_TX", NULL, "BE_IN"},
 	{"INCALL_RECORD_RX", NULL, "BE_IN"},
-	{"BE_OUT", NULL, "VOICE_PLAYBACK_TX"}
+	{"BE_OUT", NULL, "VOICE_PLAYBACK_TX"},
+	{"SLIM0_RX_VI_FB_LCH_MUX", "SLIM4_TX", "SLIMBUS_4_TX"},
+	{"SLIMBUS_0_RX", NULL, "SLIM0_RX_VI_FB_LCH_MUX"},
 };
 
 static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
