@@ -999,10 +999,14 @@ static void dbs_refresh_callback(struct work_struct *work)
 	}
 
 	if (policy->cur < policy->max) {
-		policy->cur = policy->max;
+		/*
+		 * Arch specific cpufreq driver may fail.
+		 * Don't update governor frequency upon failure.
+		 */
+		if (__cpufreq_driver_target(policy, policy->max,
+					CPUFREQ_RELATION_L) >= 0)
+			policy->cur = policy->max;
 
-		__cpufreq_driver_target(policy, policy->max,
-					CPUFREQ_RELATION_L);
 		this_dbs_info->prev_cpu_idle = get_cpu_idle_time(cpu,
 				&this_dbs_info->prev_cpu_wall);
 	}
