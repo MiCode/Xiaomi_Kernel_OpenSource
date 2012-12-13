@@ -2482,6 +2482,14 @@ config MSM_OCMEM_POWER_DISABLE
 	  never allowing them to be turned OFF. Both local power
 	  management and RPM assisted power modes are supported.
 
+config SENSORS_ADSP
+	bool "Enable Sensors Driver Support for ADSP"
+	help
+	  Add support for sensors ADSP driver.
+	  This driver is used for exercising different sensors use cases,
+	  such as for lower-power OCMEM use cases, and for time syncing
+	  with ADSP clock.
+
 config MSM_RTB
 	bool "Register tracing"
 	help
