@@ -74,9 +74,9 @@ static int msm_iommu_sec_ptbl_init(void)
 		unsigned int spare;
 	} pinit;
 	unsigned int *buf;
-	int psize[2] = {0};
+	int psize[2] = {0, 0};
 	unsigned int spare;
-	int ret, ptbl_ret;
+	int ret, ptbl_ret = 0;
 
 	for_each_compatible_node(np, NULL, "qcom,msm-smmu-v2")
 		if (of_find_property(np, "qcom,iommu-secure-id", NULL))
@@ -134,7 +134,7 @@ int msm_iommu_sec_program_iommu(int sec_id)
 		unsigned int id;
 		unsigned int spare;
 	} cfg;
-	int ret, scm_ret;
+	int ret, scm_ret = 0;
 
 	cfg.id = sec_id;
 
