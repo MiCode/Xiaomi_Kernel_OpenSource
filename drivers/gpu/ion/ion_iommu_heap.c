@@ -138,7 +138,7 @@ void *ion_iommu_heap_map_kernel(struct ion_heap *heap,
 		return NULL;
 
 	if (!ION_IS_CACHED(buffer->flags))
-		page_prot = pgprot_noncached(page_prot);
+		page_prot = pgprot_writecombine(page_prot);
 
 	buffer->vaddr = vmap(data->pages, data->nrpages, VM_IOREMAP, page_prot);
 
