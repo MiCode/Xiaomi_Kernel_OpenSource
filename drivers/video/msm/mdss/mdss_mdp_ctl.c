@@ -599,6 +599,9 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 	mutex_lock(&ctl->lock);
 
 	ctl->power_on = true;
+	ctl->bus_ab_quota = 0;
+	ctl->bus_ib_quota = 0;
+	ctl->clk_rate = 0;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_RESET, NULL);
