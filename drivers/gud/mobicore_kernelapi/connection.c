@@ -189,7 +189,7 @@ int connection_process(struct connection *conn, struct sk_buff *skb)
 
 		kfree_skb(conn->skb);
 
-		/* Get a reference to the incomming skb */
+		/* Get a reference to the incoming skb */
 		conn->skb = skb_get(skb);
 		if (conn->skb) {
 			conn->data_msg = nlmsg_hdr(conn->skb);

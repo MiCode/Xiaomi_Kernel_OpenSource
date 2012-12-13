@@ -1,7 +1,7 @@
 /*
  * MobiCore client library device management.
  *
- * Device and Trustlet Session management Funtions.
+ * Device and Trustlet Session management Functions.
  *
  * <-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
  *
@@ -191,7 +191,7 @@ bool mcore_device_free_contiguous_wsm(struct mcore_device_t *dev,
 				  wsm->virt_addr, wsm->handle);
 
 		/* ignore return code */
-		mobicore_free(dev->instance, wsm->handle);
+		mobicore_free_wsm(dev->instance, wsm->handle);
 
 		list_del(pos);
 		kfree(wsm);

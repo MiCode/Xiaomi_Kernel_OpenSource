@@ -6,7 +6,11 @@ GUD_ROOT_FOLDER := drivers/gud
 obj-$(CONFIG_MOBICORE_API) += mckernelapi.o
 obj-$(CONFIG_MOBICORE_SUPPORT) += mcdrvmodule.o
 
-mcdrvmodule-objs := mobicore_driver/logging.o mobicore_driver/main.o
+mcdrvmodule-objs := mobicore_driver/logging.o \
+		mobicore_driver/ops.o \
+		mobicore_driver/mem.o \
+		mobicore_driver/api.o \
+		mobicore_driver/main.o
 
 mckernelapi-objs := mobicore_kernelapi/main.o \
 		mobicore_kernelapi/clientlib.o \
@@ -15,7 +19,7 @@ mckernelapi-objs := mobicore_kernelapi/main.o \
 		mobicore_kernelapi/connection.o
 
 # Release mode by default
-ccflags-y := -DNDEBUG
+ccflags-y := -DNDEBUG -include $(PWD)/$(GUD_ROOT_FOLDER)/mobicore_driver/build_tag.h
 ccflags-y += -Wno-declaration-after-statement
 
 ccflags-$(CONFIG_MOBICORE_DEBUG) += -DDEBUG
