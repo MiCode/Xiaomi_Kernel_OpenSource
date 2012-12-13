@@ -932,6 +932,8 @@ int mdp_ppp_v4l2_overlay_play(struct fb_info *info,
 	unsigned long srcp1_addr, unsigned long srcp1_size);
 void mdp_update_pm(struct msm_fb_data_type *mfd, ktime_t pre_vsync);
 
+u32 mdp_get_panel_framerate(struct msm_fb_data_type *mfd);
+
 #ifdef CONFIG_FB_MSM_DTV
 void mdp_vid_quant_set(void);
 #else
