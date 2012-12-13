@@ -137,6 +137,7 @@ enum cp_mem_usage {
  *			goes from 1 -> 0
  * @setup_region:	function to be called upon ion registration
  * @memory_type:Memory type used for the heap
+ * @no_nonsecure_alloc: don't allow non-secure allocations from this heap
  *
  */
 struct ion_cp_heap_pdata {
@@ -155,6 +156,7 @@ struct ion_cp_heap_pdata {
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
 	enum ion_memory_types memory_type;
+	int no_nonsecure_alloc;
 };
 
 /**
