@@ -63,6 +63,7 @@ struct subsys_desc {
 extern int get_restart_level(void);
 extern int subsystem_restart_dev(struct subsys_device *dev);
 extern int subsystem_restart(const char *name);
+extern int subsystem_crashed(const char *name);
 
 extern void *subsystem_get(const char *name);
 extern void subsystem_put(void *subsystem);
@@ -85,6 +86,11 @@ static inline int subsystem_restart_dev(struct subsys_device *dev)
 }
 
 static inline int subsystem_restart(const char *name)
+{
+	return 0;
+}
+
+static inline int subsystem_crashed(const char *name)
 {
 	return 0;
 }
