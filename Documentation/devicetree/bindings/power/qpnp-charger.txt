@@ -30,10 +30,14 @@ Parent node required properties:
 - qcom,chg-ibatterm-ma:	Current at which charging is terminated in mA.
 
 Parent node optional properties:
-- qcom,chg-charging-disabled:	Set this property to disable charging
-				by default. This can then be overriden
-				writing the the module parameter
-				"charging_disabled".
+- qcom,chg-charging-disabled:		Set this property to disable charging
+					by default. This can then be overriden
+					writing the the module parameter
+					"charging_disabled".
+- qcom,chg-use-default-batt-values:	Set this flag to force reporting of
+					battery temperature of 250 decidegree
+					Celsius, state of charge to be 50%
+					and disable charging.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
