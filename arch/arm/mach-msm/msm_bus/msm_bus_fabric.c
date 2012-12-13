@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -694,7 +694,6 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&fabric->gateways);
 	INIT_RADIX_TREE(&fabric->fab_tree, GFP_ATOMIC);
 	fabric->num_nodes = 0;
-	fabric->fabdev.id = pdev->id;
 	fabric->fabdev.visited = false;
 
 	fabric->info.node_info = kzalloc(sizeof(struct msm_bus_node_info),
@@ -704,18 +703,31 @@ static int msm_bus_fabric_probe(struct platform_device *pdev)
 		kfree(fabric);
 		return -ENOMEM;
 	}
-	fabric->info.node_info->priv_id = fabric->fabdev.id;
-	fabric->info.node_info->id = fabric->fabdev.id;
+
 	fabric->info.num_pnodes = -1;
 	fabric->info.link_info.clk[DUAL_CTX] = 0;
 	fabric->info.link_info.bw[DUAL_CTX] = 0;
 	fabric->info.link_info.clk[ACTIVE_CTX] = 0;
 	fabric->info.link_info.bw[ACTIVE_CTX] = 0;
 
-	fabric->fabdev.id = pdev->id;
-	pdata = (struct msm_bus_fabric_registration *)pdev->dev.platform_data;
+	/* If possible, get pdata from device-tree */
+	if (pdev->dev.of_node) {
+		pdata = pdev->dev.platform_data;
+		if (IS_ERR(pdata) || ZERO_OR_NULL_PTR(pdata)) {
+			pr_err("Null platform data\n");
+			return PTR_ERR(pdata);
+		}
+		fabric->fabdev.id = pdata->id;
+	} else {
+		pdata = (struct msm_bus_fabric_registration *)pdev->
+			dev.platform_data;
+		fabric->fabdev.id = pdev->id;
+	}
+
 	fabric->fabdev.name = pdata->name;
 	fabric->fabdev.algo = &msm_bus_algo;
+	fabric->info.node_info->priv_id = fabric->fabdev.id;
+	fabric->info.node_info->id = fabric->fabdev.id;
 	ret = msm_bus_fabric_hw_init(pdata, &fabric->fabdev.hw_algo);
 	if (ret) {
 		MSM_BUS_ERR("Error initializing hardware for fabric: %d\n",
@@ -811,12 +823,18 @@ static int msm_bus_fabric_remove(struct platform_device *pdev)
 	return ret;
 }
 
+static struct of_device_id fabric_match[] = {
+	{.compatible = "msm_bus_fabric"},
+	{}
+};
+
 static struct platform_driver msm_bus_fabric_driver = {
 	.probe = msm_bus_fabric_probe,
 	.remove = msm_bus_fabric_remove,
 	.driver = {
 		.name = "msm_bus_fabric",
 		.owner = THIS_MODULE,
+		.of_match_table = fabric_match,
 	},
 };
 

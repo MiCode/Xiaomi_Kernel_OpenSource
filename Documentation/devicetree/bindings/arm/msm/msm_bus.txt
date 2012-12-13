@@ -1,6 +1,11 @@
 MSM Bus Scaling Driver
 
-The msm bus scaling driver provides the ability to configure
+The bus scaling driver builds the topology of chipsets by adding
+bus devices (fabrics/NoCs) to the kernel tree. The device-tree
+data for bus devices contains the register addresses for QoS
+related registers on each NoC/Fabric.
+
+The bus scaling driver also provides the ability to configure
 bus performance parameters across the entire chip-set.
 Various clients use MSM scaling APIs to request bandwidth
 between multiple master-slave pairs. The bus driver then finds
