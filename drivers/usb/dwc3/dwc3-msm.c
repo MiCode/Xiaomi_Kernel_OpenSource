@@ -128,6 +128,7 @@ MODULE_PARM_DESC(adc_meas_interval, "ADC ID polling period");
 #define CHARGING_DET_OUTPUT_REG	(QSCRATCH_REG_OFFSET + 0x1C)
 #define ALT_INTERRUPT_EN_REG	(QSCRATCH_REG_OFFSET + 0x20)
 #define HS_PHY_IRQ_STAT_REG	(QSCRATCH_REG_OFFSET + 0x24)
+#define CGCTL_REG		(QSCRATCH_REG_OFFSET + 0x28)
 #define SS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x30)
 #define SS_CR_PROTOCOL_DATA_IN_REG  (QSCRATCH_REG_OFFSET + 0x3C)
 #define SS_CR_PROTOCOL_DATA_OUT_REG (QSCRATCH_REG_OFFSET + 0x40)
@@ -1203,6 +1204,13 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 	usleep_range(2000, 2200);
 	/* Disable (bypass) VBUS and ID filters */
 	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
+
+	/* Enable master clock for RAMs to allow BAM to access RAMs when
+	 * RAM clock gating is enabled via DWC3's GCTL. Otherwise, issues
+	 * are seen where RAM clocks get turned OFF in SS mode
+	 */
+	dwc3_msm_write_reg(msm->base, CGCTL_REG,
+		dwc3_msm_read_reg(msm->base, CGCTL_REG) | 0x18);
 
 	/*
 	 * WORKAROUND: There is SSPHY suspend bug due to which USB enumerates
