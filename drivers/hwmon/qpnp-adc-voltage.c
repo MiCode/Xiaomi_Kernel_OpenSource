@@ -580,11 +580,11 @@ int32_t qpnp_vadc_conv_seq_request(enum qpnp_vadc_trigger trigger_channel,
 
 	vadc->adc->amux_prop->amux_channel = channel;
 
-	while (vadc->adc->adc_channels[dt_index].channel_num
-			!= channel || dt_index > vadc->max_channels_available)
+	while ((vadc->adc->adc_channels[dt_index].channel_num
+		!= channel) && (dt_index < vadc->max_channels_available))
 		dt_index++;
 
-	if (dt_index > vadc->max_channels_available) {
+	if (dt_index >= vadc->max_channels_available) {
 		pr_err("not a valid VADC channel\n");
 		rc = -EINVAL;
 		goto fail_unlock;
