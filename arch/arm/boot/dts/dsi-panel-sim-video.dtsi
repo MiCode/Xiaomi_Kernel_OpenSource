@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,14 +10,16 @@
  * GNU General Public License for more details.
  */
 
-&mdss_dsi {
+/ {
 
 	qcom,mdss_dsi_sim_video {
 		compatible = "qcom,mdss-dsi-panel";
 		label = "simulator video mode dsi panel";
 		status = "disable";
+		qcom,dsi-ctrl-phandle = <&mdss_dsi>;
 		qcom,mdss-pan-res = <640 480>;
 		qcom,mdss-pan-bpp = <24>;
+		qcom,mdss-pan-dest = "display_1";
 		qcom,mdss-pan-porch-values = <6 2 6 6 2 6>;
 		qcom,mdss-pan-underflow-clr = <0xff>;
 		qcom,mdss-pan-bl-levels = <1 15>;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -251,7 +251,7 @@ struct mdss_panel_common_pdata {
 	void (*bl_fnc) (struct mdss_panel_data *pdata, u32 bl_level);
 };
 
-struct mdss_dsi_drv_pdata {
+struct dsi_drv_cm_data {
 	struct regulator *vdd_vreg;
 	struct regulator *vdd_io_vreg;
 	struct regulator *dsi_vreg;
@@ -263,6 +263,13 @@ struct mdss_dsi_ctrl_pdata {
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
 	char bl_ctrl;
+	struct clk *byte_clk;
+	struct clk *esc_clk;
+	struct clk *pixel_clk;
+	int mdss_dsi_clk_on;
+	int rst_gpio;
+	int disp_en_gpio;
+	struct dsi_drv_cm_data shared_pdata;
 };
 
 int dsi_panel_device_register(struct platform_device *pdev,
@@ -307,11 +314,12 @@ void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mipi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);
 int mdss_dsi_clk_div_config(u8 bpp, u8 lanes,
 			    u32 *expected_dsi_pclk);
-int mdss_dsi_clk_init(struct platform_device *pdev);
-void mdss_dsi_clk_deinit(struct device *dev);
-void mdss_dsi_prepare_clocks(void);
-void mdss_dsi_unprepare_clocks(void);
-void mdss_dsi_panel_reset(int enable);
+int mdss_dsi_clk_init(struct platform_device *pdev,
+		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_prepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_unprepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
 void mdss_dsi_phy_enable(unsigned char *ctrl_base, int on);
 void mdss_dsi_phy_init(struct mdss_panel_data *pdata);
 void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base);
