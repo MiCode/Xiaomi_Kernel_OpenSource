@@ -329,6 +329,7 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 
 	disable_irq_nosync(drv->irq);
 	drv->restart_inprogress = true;
+	wcnss_pronto_log_debug_regs();
 	restart_wcnss(drv);
 
 	return IRQ_HANDLED;
