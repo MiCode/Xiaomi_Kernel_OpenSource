@@ -30,9 +30,55 @@
 #include "../codecs/wcd9310.h"
 
 /* 8064 machine driver */
-
+#define PM8921_MPP_BASE			(PM8921_GPIO_BASE + PM8921_NR_GPIOS)
+#define PM8821_NR_MPPS		(4)
+#define PM8821_MPP_BASE			(PM8921_MPP_BASE + PM8921_NR_MPPS)
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
+
+#define GPIO_EXPANDER_IRQ_BASE	(TABLA_INTERRUPT_BASE + \
+					NR_TABLA_IRQS)
+#define GPIO_EXPANDER_GPIO_BASE	(PM8821_MPP_BASE + PM8821_NR_MPPS)
+
+#define GPIO_EPM_EXPANDER_BASE	GPIO_EXPANDER_GPIO_BASE
+#define SX150X_EPM_NR_GPIOS	16
+#define SX150X_EPM_NR_IRQS	8
+
+#define SX150X_EXP1_GPIO_BASE	(GPIO_EPM_EXPANDER_BASE + \
+					SX150X_EPM_NR_GPIOS)
+#define SX150X_EXP1_IRQ_BASE	(GPIO_EXPANDER_IRQ_BASE + \
+				SX150X_EPM_NR_IRQS)
+#define SX150X_EXP1_NR_IRQS	16
+#define SX150X_EXP1_NR_GPIOS	16
+
+#define SX150X_EXP2_GPIO_BASE	(SX150X_EXP1_GPIO_BASE + \
+					SX150X_EXP1_NR_GPIOS)
+#define SX150X_EXP2_IRQ_BASE	(SX150X_EXP1_IRQ_BASE + SX150X_EXP1_NR_IRQS)
+#define SX150X_EXP2_NR_IRQS	8
+#define SX150X_EXP2_NR_GPIOS	8
+
+#define SX150X_EXP3_GPIO_BASE	(SX150X_EXP2_GPIO_BASE + \
+					SX150X_EXP2_NR_GPIOS)
+#define SX150X_EXP3_IRQ_BASE	(SX150X_EXP2_IRQ_BASE + SX150X_EXP2_NR_IRQS)
+#define SX150X_EXP3_NR_IRQS	8
+#define SX150X_EXP3_NR_GPIOS	8
+
+#define SX150X_EXP4_GPIO_BASE	(SX150X_EXP3_GPIO_BASE + \
+					SX150X_EXP3_NR_GPIOS)
+#define SX150X_EXP4_IRQ_BASE	(SX150X_EXP3_IRQ_BASE + SX150X_EXP3_NR_IRQS)
+#define SX150X_EXP4_NR_IRQS	16
+#define SX150X_EXP4_NR_GPIOS	16
+
+#define SX150X_GPIO(_expander, _pin) (SX150X_EXP##_expander##_GPIO_BASE + _pin)
+
+enum {
+	SX150X_EPM,
+	SX150X_EXP1,
+	SX150X_EXP2,
+	SX150X_EXP3,
+	SX150X_EXP4,
+};
+
 
 #define MPQ8064_SPK_ON 1
 #define MPQ8064_SPK_OFF 0
@@ -146,6 +192,8 @@ static int clk_users;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
+
+static int detect_dtv_platform;
 
 static int msm_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 				    bool dapm);
@@ -763,6 +811,60 @@ end:
 	return ret;
 }
 
+
+static int mpq_dtv_amp_power_up(void)
+{
+	int ret;
+	pr_debug("%s()\n", __func__);
+	ret = gpio_request(SX150X_GPIO(1, 14),
+				"DTV AMP Sleep");
+	if (ret) {
+		pr_err("%s: DTV AMP Sleep GPIO request returns %d\n",
+			   __func__, ret);
+		return ret;
+	}
+	ret = gpio_direction_output(SX150X_GPIO(1, 14), 0);
+	if (ret) {
+		pr_err("%s: DTV AMP Sleep GPIO set output returns %d\n",
+			   __func__, ret);
+		return ret;
+	}
+	ret = gpio_request(SX150X_GPIO(1, 13),
+				"DTV AMP Mute");
+	if (ret) {
+		pr_err("%s: DTV AMP Mute GPIO request returns %d\n",
+			   __func__, ret);
+		return ret;
+	}
+	ret = gpio_direction_output(SX150X_GPIO(1, 13), 0);
+	if (ret) {
+		pr_err("%s: DTV AMP Mute GPIO set output returns %d\n",
+			   __func__, ret);
+		return ret;
+	}
+	return ret;
+}
+
+static int mpq_dtv_amp_power_down(void)
+{
+	int ret;
+	pr_debug("%s()\n", __func__);
+	ret = gpio_direction_output(SX150X_GPIO(1, 14), 1);
+	if (ret) {
+		pr_err("%s: DTV AMP Sleep GPIO set output failed\n", __func__);
+		return ret;
+	}
+	gpio_free(SX150X_GPIO(1, 14));
+
+	ret = gpio_direction_output(SX150X_GPIO(1, 13), 1);
+	if (ret) {
+		pr_err("%s: DTV AMP Mute GPIO set output failed\n", __func__);
+		return ret;
+	}
+	gpio_free(SX150X_GPIO(1, 13));
+	return ret;
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -810,6 +912,57 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
+	if (detect_dtv_platform) {
+		err = gpio_request(SX150X_GPIO(1, 11),
+				"DTV AMP Gain0");
+		if (err) {
+			pr_err("%s: DTV AMP Gain0 request returns %d\n",
+				   __func__, err);
+			return err;
+		}
+		err = gpio_direction_output(SX150X_GPIO(1, 11), 0);
+		if (err) {
+			pr_err("%s: DTV AMP Gain0 set output returns %d\n",
+				   __func__, err);
+			return err;
+		}
+		gpio_free(SX150X_GPIO(1, 11));
+
+		err = gpio_request(SX150X_GPIO(1, 12),
+				"DTV AMP Gain1");
+		if (err) {
+			pr_err("%s: DTV AMP Gain0 request returns %d\n",
+				   __func__, err);
+			return err;
+		}
+		err = gpio_direction_output(SX150X_GPIO(1, 12), 0);
+		if (err) {
+			pr_err("%s: DTV AMP Gain1 set output returns %d\n",
+				   __func__, err);
+			return err;
+		}
+		gpio_free(SX150X_GPIO(1, 12));
+
+		err = gpio_request(SX150X_GPIO(1, 15),
+				"DTV AMP Status");
+		if (err) {
+			pr_err("%s: DTV AMP Status request returns %d\n",
+				   __func__, err);
+			return err;
+		}
+		err = gpio_direction_input(SX150X_GPIO(1, 15));
+		if (err) {
+			pr_err("%s: DTV AMP Status set output returns %d\n",
+				   __func__, err);
+			return err;
+		}
+		err = mpq_dtv_amp_power_down();
+		if (err) {
+			pr_err("%s: DTV AMP Status set output returns %d\n",
+				   __func__, err);
+			return err;
+		}
+	}
 	return err;
 }
 
@@ -1049,6 +1202,8 @@ static int msm_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
+	if (detect_dtv_platform)
+		mpq_dtv_amp_power_up();
 	return 0;
 }
 
@@ -1056,6 +1211,9 @@ static void msm_shutdown(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
+
+	if (detect_dtv_platform)
+		mpq_dtv_amp_power_down();
 }
 
 static int mpq8064_auxpcm_startup(struct snd_pcm_substream *substream)
@@ -1670,7 +1828,9 @@ static int __init msm_audio_init(void)
 
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(16);
-
+	if (machine_is_mpq8064_dtv())
+		detect_dtv_platform = 1;
+	pr_info("MPQ8064: detect_dtv_platform is %d\n", detect_dtv_platform);
 	mbhc_cfg.calibration = def_tabla_mbhc_cal();
 	if (!mbhc_cfg.calibration) {
 		pr_err("Calibration data allocation failed\n");
