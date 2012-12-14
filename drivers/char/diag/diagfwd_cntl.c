@@ -96,7 +96,7 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 				temp->cmd_code = msg->cmd_code;
 				temp->subsys_id = msg->subsysid;
 				temp->client_id = smd_info->peripheral;
-				temp->proc_id = smd_info->peripheral;
+				temp->proc_id = NON_APPS_PROC;
 				temp->cmd_code_lo = range->cmd_code_lo;
 				temp->cmd_code_hi = range->cmd_code_hi;
 				range++;
@@ -133,7 +133,7 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 	/* open control ports only on 8960 & newer targets */
 	if (chk_apps_only()) {
 		if (pdev->id == SMD_APPS_MODEM) {
-			index = SMD_MODEM_INDEX;
+			index = MODEM_DATA;
 			r = smd_open("DIAG_CNTL",
 					&driver->smd_cntl[index].ch,
 					&driver->smd_cntl[index],
@@ -141,7 +141,7 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 			driver->smd_cntl[index].ch_save =
 					driver->smd_cntl[index].ch;
 		} else if (pdev->id == SMD_APPS_QDSP) {
-			index = SMD_LPASS_INDEX;
+			index = LPASS_DATA;
 			r = smd_named_open_on_edge("DIAG_CNTL",
 					SMD_APPS_QDSP,
 					&driver->smd_cntl[index].ch,
@@ -150,7 +150,7 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 			driver->smd_cntl[index].ch_save =
 					driver->smd_cntl[index].ch;
 		} else if (pdev->id == SMD_APPS_WCNSS) {
-			index = SMD_WCNSS_INDEX;
+			index = WCNSS_DATA;
 			r = smd_named_open_on_edge("APPS_RIVA_CTRL",
 					SMD_APPS_WCNSS,
 					&driver->smd_cntl[index].ch,
@@ -211,18 +211,18 @@ void diagfwd_cntl_init(void)
 	driver->polling_reg_flag = 0;
 	driver->diag_cntl_wq = create_singlethread_workqueue("diag_cntl_wq");
 
-	success = diag_smd_constructor(&driver->smd_cntl[SMD_MODEM_INDEX],
-				MODEM_PROC, SMD_CNTL_TYPE, DIAG_CON_MPSS);
+	success = diag_smd_constructor(&driver->smd_cntl[MODEM_DATA],
+					MODEM_DATA, SMD_CNTL_TYPE);
 	if (!success)
 		goto err;
 
-	success = diag_smd_constructor(&driver->smd_cntl[SMD_LPASS_INDEX],
-				LPASS_PROC, SMD_CNTL_TYPE, DIAG_CON_LPASS);
+	success = diag_smd_constructor(&driver->smd_cntl[LPASS_DATA],
+					LPASS_DATA, SMD_CNTL_TYPE);
 	if (!success)
 		goto err;
 
-	success = diag_smd_constructor(&driver->smd_cntl[SMD_WCNSS_INDEX],
-				WCNSS_PROC, SMD_CNTL_TYPE, DIAG_CON_WCNSS);
+	success = diag_smd_constructor(&driver->smd_cntl[WCNSS_DATA],
+					WCNSS_DATA, SMD_CNTL_TYPE);
 	if (!success)
 		goto err;
 

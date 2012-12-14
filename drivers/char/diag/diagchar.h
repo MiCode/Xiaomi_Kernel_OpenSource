@@ -41,17 +41,14 @@
 #define POOL_TYPE_HSIC		8
 #define POOL_TYPE_HSIC_WRITE	16
 #define POOL_TYPE_ALL		7
-#define MODEM_DATA		1
-#define LPASS_DATA		2
+#define MODEM_DATA		0
+#define LPASS_DATA		1
+#define WCNSS_DATA		2
 #define APPS_DATA		3
 #define SDIO_DATA		4
-#define WCNSS_DATA		5
-#define HSIC_DATA		6
-#define SMUX_DATA		7
-#define MODEM_PROC		0
+#define HSIC_DATA		5
+#define SMUX_DATA		6
 #define APPS_PROC		1
-#define LPASS_PROC		2
-#define WCNSS_PROC		3
 #define MSG_MASK_SIZE 10000
 #define LOG_MASK_SIZE 8000
 #define EVENT_MASK_SIZE 1000
@@ -84,10 +81,6 @@
 #define SMD_DATA_TYPE 0
 #define SMD_CNTL_TYPE 1
 #define SMD_DCI_TYPE 2
-
-#define SMD_MODEM_INDEX 0
-#define SMD_LPASS_INDEX 1
-#define SMD_WCNSS_INDEX 2
 
 /* Maximum number of pkt reg supported at initialization*/
 extern unsigned int diag_max_reg;

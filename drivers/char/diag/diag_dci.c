@@ -138,7 +138,7 @@ void extract_dci_pkt_rsp(unsigned char *buf)
 					buf+4+cmd_code_len, write_len);
 				entry->data_len += write_len;
 				/* delete immediate response entry */
-				if (driver->smd_dci[SMD_MODEM_INDEX].
+				if (driver->smd_dci[MODEM_DATA].
 					buf_in_1[8+cmd_code_len] != 0x80)
 					driver->req_tracking_tbl[index].pid = 0;
 				break;
@@ -289,23 +289,7 @@ void diag_update_smd_dci_work_fn(struct work_struct *work)
 	uint8_t *client_log_mask_ptr;
 	uint8_t *log_mask_ptr;
 	int ret;
-	int index;
-
-	switch (smd_info->peripheral) {
-	case MODEM_PROC:
-		index = SMD_MODEM_INDEX;
-		break;
-	case LPASS_PROC:
-		index = SMD_LPASS_INDEX;
-		break;
-	case WCNSS_PROC:
-		index = SMD_WCNSS_INDEX;
-		break;
-	default:
-		pr_err("diag: In %s, unknown peripheral: %d\n",
-			__func__, smd_info->peripheral);
-		return;
-	}
+	int index = smd_info->peripheral;
 
 	/* Update the peripheral(s) with the dci log and event masks */
 
@@ -379,7 +363,7 @@ static int diag_dci_probe(struct platform_device *pdev)
 	int index;
 
 	if (pdev->id == SMD_APPS_MODEM) {
-		index = SMD_MODEM_INDEX;
+		index = MODEM_DATA;
 		err = smd_open("DIAG_2", &driver->smd_dci[index].ch,
 					&driver->smd_dci[index],
 					diag_smd_notify);
@@ -397,6 +381,7 @@ int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 					 int len, int index)
 {
 	int i;
+	int status = 0;
 
 	/* remove UID from user space pkt before sending to peripheral */
 	buf = buf + 4;
@@ -414,17 +399,23 @@ int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 
 	driver->apps_dci_buf[9+len] = CONTROL_CHAR; /* end */
 
-	if (entry.client_id == MODEM_PROC &&
-					driver->smd_dci[SMD_MODEM_INDEX].ch) {
-		smd_write(driver->smd_dci[SMD_MODEM_INDEX].ch,
+	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
+		if (entry.client_id == driver->smd_dci[i].peripheral) {
+			if (driver->smd_dci[i].ch) {
+				smd_write(driver->smd_dci[i].ch,
 					driver->apps_dci_buf, len + 10);
-		i = DIAG_DCI_NO_ERROR;
-	} else {
+				status = DIAG_DCI_NO_ERROR;
+			}
+			break;
+		}
+	}
+
+	if (status != DIAG_DCI_NO_ERROR) {
 		pr_alert("diag: check DCI channel\n");
-		i = DIAG_DCI_SEND_DATA_FAIL;
+		status = DIAG_DCI_SEND_DATA_FAIL;
 	}
 	mutex_unlock(&driver->dci_mutex);
-	return i;
+	return status;
 }
 
 int diag_register_dci_transaction(int uid)
@@ -464,9 +455,9 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 	uint8_t *event_mask_ptr;
 	int offset = 0;
 
-	if (!driver->smd_dci[SMD_MODEM_INDEX].ch) {
+	if (!driver->smd_dci[MODEM_DATA].ch) {
 		pr_err("diag: DCI smd channel for peripheral %d not valid for dci updates\n",
-			driver->smd_dci[SMD_MODEM_INDEX].peripheral);
+			driver->smd_dci[MODEM_DATA].peripheral);
 		return DIAG_DCI_SEND_DATA_FAIL;
 	}
 
@@ -591,8 +582,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			ret = DIAG_DCI_NO_ERROR;
 		}
 		/* send updated mask to peripherals */
-		ret = diag_send_dci_log_mask(driver->
-						smd_cntl[SMD_MODEM_INDEX].ch);
+		ret = diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
 	} else if (*(int *)temp == DCI_EVENT_TYPE) {
 		/* find client id and table */
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
@@ -638,8 +628,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			ret = DIAG_DCI_NO_ERROR;
 		}
 		/* send updated mask to peripherals */
-		ret = diag_send_dci_event_mask(driver->
-						smd_cntl[SMD_MODEM_INDEX].ch);
+		ret = diag_send_dci_event_mask(driver->smd_cntl[MODEM_DATA].ch);
 	} else {
 		pr_alert("diag: Incorrect DCI transaction\n");
 	}
@@ -860,8 +849,8 @@ int diag_dci_init(void)
 	mutex_init(&driver->dci_mutex);
 	mutex_init(&dci_log_mask_mutex);
 	mutex_init(&dci_event_mask_mutex);
-	success = diag_smd_constructor(&driver->smd_dci[SMD_MODEM_INDEX],
-				MODEM_PROC, SMD_DCI_TYPE, DIAG_CON_MPSS);
+	success = diag_smd_constructor(&driver->smd_dci[MODEM_DATA],
+					MODEM_DATA, SMD_DCI_TYPE);
 	if (!success)
 		goto err;
 
