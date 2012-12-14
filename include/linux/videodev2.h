@@ -2139,6 +2139,7 @@ struct v4l2_encoder_cmd {
 };
 
 #define V4L2_QCOM_BUF_FLAG_CODECCONFIG	0x4000
+#define V4L2_QCOM_BUF_FLAG_EOSEQ  0x8000
 
 /* Decoder commands */
 #define V4L2_DEC_CMD_START       (0)
