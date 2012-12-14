@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <mach/board.h>
 #include <linux/mhl_devcap.h>
+#include <linux/power_supply.h>
 #include <linux/mhl_defs.h>
 
 #define MHL_DEVICE_NAME "sii8334"
@@ -95,6 +96,65 @@ struct mhl_msm_state_t {
 	void (*msc_command_put_work) (struct msc_command_struct *);
 	struct msc_command_struct* (*msc_command_get_work) (void);
 };
+
+#ifdef CONFIG_FB_MSM_MDSS_HDMI_MHL_SII8334
+enum mhl_gpio_type {
+	MHL_TX_RESET_GPIO,
+	MHL_TX_INTR_GPIO,
+	MHL_TX_PMIC_PWR_GPIO,
+	MHL_TX_MAX_GPIO,
+};
+
+enum mhl_vreg_type {
+	MHL_TX_3V_VREG,
+	MHL_TX_MAX_VREG,
+};
+
+
+struct mhl_tx_platform_data {
+	/* Data filled from device tree nodes */
+	struct dss_gpio *gpios[MHL_TX_MAX_GPIO];
+	struct dss_vreg *vregs[MHL_TX_MAX_VREG];
+	int irq;
+};
+
+struct mhl_tx_ctrl {
+	struct platform_device *pdev;
+	struct mhl_tx_platform_data *pdata;
+	struct i2c_client *i2c_handle;
+	uint8_t cur_state;
+	uint8_t chip_rev_id;
+	int mhl_mode;
+	struct completion rgnd_done;
+	void (*notify_usb_online)(int online);
+	struct usb_ext_notification *mhl_info;
+	bool disc_enabled;
+	struct power_supply mhl_psy;
+	bool vbus_active;
+	int current_val;
+	struct completion msc_cmd_done;
+	uint8_t devcap[16];
+	uint8_t devcap_state;
+	uint8_t path_en_state;
+	uint8_t (*tmds_enabled)(void);
+	struct work_struct mhl_msc_send_work;
+	struct list_head list_cmd;
+	struct input_dev *input;
+	struct workqueue_struct *msc_send_workqueue;
+	u16 *rcp_key_code_tbl;
+	size_t rcp_key_code_tbl_len;
+};
+
+int mhl_i2c_reg_read(struct i2c_client *client,
+		     uint8_t slave_addr_index, uint8_t reg_offset);
+int mhl_i2c_reg_write(struct i2c_client *client,
+		      uint8_t slave_addr_index, uint8_t reg_offset,
+		      uint8_t value);
+void mhl_i2c_reg_modify(struct i2c_client *client,
+			uint8_t slave_addr_index, uint8_t reg_offset,
+			uint8_t mask, uint8_t val);
+
+#endif /* CONFIG_FB_MSM_MDSS_HDMI_MHL_SII8334 */
 
 enum {
 	TX_PAGE_TPI          = 0x00,
@@ -204,6 +264,7 @@ enum {
 
 #define REG_TMDS_CSTAT	((TX_PAGE_3 << 16) | 0x0040)
 
+#define REG_CBUS_INTR_STATUS            ((TX_PAGE_CBUS << 16) | 0x0008)
 #define REG_CBUS_INTR_ENABLE            ((TX_PAGE_CBUS << 16) | 0x0009)
 
 #define REG_DDC_ABORT_REASON            ((TX_PAGE_CBUS << 16) | 0x000B)
