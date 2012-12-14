@@ -163,8 +163,10 @@
  * @dc_present:			present status of dc
  * @use_default_batt_values:	flag to report default battery properties
  * @max_voltage_mv:		the max volts the batt should be charged up to
- * @min_voltage_mv:		the min battery voltage before turning the FETon
+ * @min_voltage_mv:		min battery voltage before turning the FET on
+ * @resume_voltage_mv:		voltage at which the battery resumes charging
  * @term_current:		the charging based term current
+ * @safe_current:		battery safety current setting
  * @revision:			PMIC revision
  * @dc_psy			power supply to export information to userspace
  * @usb_psy			power supply to export information to userspace
@@ -197,7 +199,9 @@ struct qpnp_chg_chip {
 	unsigned int			safe_voltage_mv;
 	unsigned int			max_voltage_mv;
 	unsigned int			min_voltage_mv;
+	unsigned int			resume_voltage_mv;
 	unsigned int			term_current;
+	unsigned int			safe_current;
 	unsigned int			revision;
 	struct power_supply		dc_psy;
 	struct power_supply		*usb_psy;
@@ -935,6 +939,28 @@ qpnp_chg_vinmin_set(struct qpnp_chg_chip *chip, int voltage)
 			QPNP_CHG_VINMIN_MASK, temp, 1);
 }
 
+#define QPNP_CHG_IBATSAFE_MIN_MA		100
+#define QPNP_CHG_IBATSAFE_MAX_MA		3250
+#define QPNP_CHG_I_STEP_MA		50
+#define QPNP_CHG_I_MIN_MA		100
+#define QPNP_CHG_I_MASK			0x3F
+static int
+qpnp_chg_ibatsafe_set(struct qpnp_chg_chip *chip, int safe_current)
+{
+	u8 temp;
+
+	if (safe_current < QPNP_CHG_IBATSAFE_MIN_MA
+			|| safe_current > QPNP_CHG_IBATSAFE_MAX_MA) {
+		pr_err("bad mA=%d asked to set\n", safe_current);
+		return -EINVAL;
+	}
+
+	temp = (safe_current - QPNP_CHG_IBATSAFE_MIN_MA)
+				/ QPNP_CHG_I_STEP_MA;
+	return qpnp_chg_masked_write(chip,
+			chip->chgr_base + CHGR_IBAT_SAFE,
+			QPNP_CHG_I_MASK, temp, 1);
+}
 
 #define QPNP_CHG_ITERM_MIN_MA		100
 #define QPNP_CHG_ITERM_MAX_MA		250
@@ -960,9 +986,6 @@ qpnp_chg_ibatterm_set(struct qpnp_chg_chip *chip, int term_current)
 
 #define QPNP_CHG_IBATMAX_MIN	100
 #define QPNP_CHG_IBATMAX_MAX	3250
-#define QPNP_CHG_I_STEP_MA		50
-#define QPNP_CHG_I_MIN_MA		100
-#define QPNP_CHG_I_MASK			0x3F
 static int
 qpnp_chg_ibatmax_set(struct qpnp_chg_chip *chip, int chg_current)
 {
@@ -978,6 +1001,26 @@ qpnp_chg_ibatmax_set(struct qpnp_chg_chip *chip, int chg_current)
 			QPNP_CHG_I_MASK, temp, 1);
 }
 
+#define QPNP_CHG_VBATDET_MIN_MV	3240
+#define QPNP_CHG_VBATDET_MAX_MV	5780
+#define QPNP_CHG_VBATDET_STEP_MV	20
+static int
+qpnp_chg_vbatdet_set(struct qpnp_chg_chip *chip, int vbatdet_mv)
+{
+	u8 temp;
+
+	if (vbatdet_mv < QPNP_CHG_VBATDET_MIN_MV
+			|| vbatdet_mv > QPNP_CHG_VBATDET_MAX_MV) {
+		pr_err("bad mV=%d asked to set\n", vbatdet_mv);
+		return -EINVAL;
+	}
+	temp = (vbatdet_mv - QPNP_CHG_VBATDET_MIN_MV)
+			/ QPNP_CHG_VBATDET_STEP_MV;
+
+	pr_debug("voltage=%d setting %02x\n", vbatdet_mv, temp);
+	return qpnp_chg_write(chip, &temp,
+		chip->chgr_base + CHGR_VBAT_DET, 1);
+}
 
 #define QPNP_CHG_V_MIN_MV	3240
 #define QPNP_CHG_V_MAX_MV	4500
@@ -1080,6 +1123,11 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			pr_debug("failed setting safe_voltage rc=%d\n", rc);
 			return rc;
 		}
+		rc = qpnp_chg_vbatdet_set(chip, chip->resume_voltage_mv);
+		if (rc) {
+			pr_debug("failed setting resume_voltage rc=%d\n", rc);
+			return rc;
+		}
 		rc = qpnp_chg_ibatmax_set(chip, chip->max_bat_chg_current);
 		if (rc) {
 			pr_debug("failed setting ibatmax rc=%d\n", rc);
@@ -1088,6 +1136,11 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		rc = qpnp_chg_ibatterm_set(chip, chip->term_current);
 		if (rc) {
 			pr_debug("failed setting ibatterm rc=%d\n", rc);
+			return rc;
+		}
+		rc = qpnp_chg_ibatsafe_set(chip, chip->safe_current);
+		if (rc) {
+			pr_debug("failed setting ibat_Safe rc=%d\n", rc);
 			return rc;
 		}
 		/* HACK: Disable wdog */
@@ -1223,6 +1276,24 @@ qpnp_charger_probe(struct spmi_device *spmi)
 						&chip->safe_voltage_mv);
 	if (rc && rc != -EINVAL) {
 		pr_err("Error reading vddsave property %d\n", rc);
+		goto fail_chg_enable;
+	}
+
+	/* Get the ibatsafe property */
+	rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,chg-vbatdet-mv",
+				&chip->resume_voltage_mv);
+	if (rc) {
+		pr_err("Error reading vbatdet property %d\n", rc);
+		goto fail_chg_enable;
+	}
+
+	/* Get the ibatsafe property */
+	rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,chg-ibatsafe-ma",
+				&chip->safe_current);
+	if (rc) {
+		pr_err("Error reading ibatsafe property %d\n", rc);
 		goto fail_chg_enable;
 	}
 
