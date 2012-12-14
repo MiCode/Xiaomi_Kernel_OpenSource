@@ -695,6 +695,7 @@ static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Wrong device_id received\n");
 		return;
 	}
+	subsystem_crashed("venus");
 	spin_lock_irqsave(&core->lock, flags);
 	core->state = VIDC_CORE_INVALID;
 	spin_unlock_irqrestore(&core->lock, flags);
