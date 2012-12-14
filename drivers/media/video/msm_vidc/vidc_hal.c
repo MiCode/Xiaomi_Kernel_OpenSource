@@ -729,6 +729,7 @@ int vidc_hal_core_init(void *device, int domain)
 		dprintk(VIDC_ERR, "Invalid device");
 		return -ENODEV;
 	}
+	dev->intr_status = 0;
 	enable_irq(dev->hal_data->irq);
 	INIT_LIST_HEAD(&dev->sess_head);
 	spin_lock_init(&dev->read_lock);
@@ -791,10 +792,12 @@ int vidc_hal_core_release(void *device)
 		dprintk(VIDC_ERR, "invalid device");
 		return -ENODEV;
 	}
-	write_register(dev->hal_data->register_base_addr,
-		VIDC_CPU_CS_SCIACMDARG3, 0, 0);
-	disable_irq_nosync(dev->hal_data->irq);
-	vidc_hal_interface_queues_release(dev);
+	if (dev->hal_client) {
+		write_register(dev->hal_data->register_base_addr,
+				VIDC_CPU_CS_SCIACMDARG3, 0, 0);
+		disable_irq_nosync(dev->hal_data->irq);
+		vidc_hal_interface_queues_release(dev);
+	}
 	dprintk(VIDC_INFO, "HAL exited\n");
 	return 0;
 }
