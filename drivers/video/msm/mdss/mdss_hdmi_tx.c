@@ -1185,8 +1185,9 @@ static void hdmi_tx_set_spd_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 {
-	u32 reg_val = 0;
 	struct dss_io_data *io = NULL;
+	/* Defaults: Disable block, HDMI mode */
+	u32 reg_val = BIT(1);
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1199,25 +1200,17 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 	}
 
 	if (power_on) {
-		/* ENABLE */
-		reg_val |= BIT(0); /* Enable the block */
+		/* Enable the block */
+		reg_val |= BIT(0);
+
+		/* HDMI Encryption, if HDCP is enabled */
+		if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp)
+			reg_val |= BIT(2);
+
+		/* Set transmission mode to DVI based in EDID info */
 		if (hdmi_edid_get_sink_mode(
-			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) == 0) {
-			if (hdmi_ctrl->hdcp_feature_on &&
-				hdmi_ctrl->present_hdcp)
-				/* HDMI Encryption */
-				reg_val |= BIT(2);
-			reg_val |= BIT(1);
-		} else {
-			if (hdmi_ctrl->hdcp_feature_on &&
-				hdmi_ctrl->present_hdcp)
-				/* HDMI_Encryption_ON */
-				reg_val |= BIT(1) | BIT(2);
-			else
-				reg_val |= BIT(1);
-		}
-	} else {
-		reg_val = BIT(1);
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) == 0)
+			reg_val &= ~BIT(1); /* DVI mode */
 	}
 
 	DSS_REG_W(io, HDMI_CTRL, reg_val);
