@@ -243,20 +243,25 @@ static u32 mipi_d2l_read_reg(struct msm_fb_data_type *mfd, u16 reg)
 {
 	u32 data;
 	int len = 4;
+	struct dcs_cmd_req cmdreq;
 	struct dsi_cmd_desc cmd_read_reg = {
 		DTYPE_GEN_READ2, 1, 0, 1, 0, /* cmd 0x24 */
 			sizeof(reg), (char *) &reg};
 
-	mipi_dsi_buf_init(&d2l_tx_buf);
 	mipi_dsi_buf_init(&d2l_rx_buf);
 
-	/* mutex had been acquired at mipi_dsi_on */
-	len = mipi_dsi_cmds_rx(mfd, &d2l_tx_buf, &d2l_rx_buf,
-			       &cmd_read_reg, len);
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &cmd_read_reg;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT | CMD_REQ_NO_MAX_PKT_SIZE;
+	cmdreq.rbuf = &d2l_rx_buf;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+	mipi_dsi_cmdlist_put(&cmdreq);
 
 	data = *(u32 *)d2l_rx_buf.data;
 
-	if (len != 4)
+	if (d2l_rx_buf.len != 4)
 		pr_err("%s: invalid rlen=%d, expecting 4.\n", __func__, len);
 
 	pr_debug("%s: reg=0x%x.data=0x%08x.\n", __func__, reg, data);
@@ -274,6 +279,7 @@ static u32 mipi_d2l_read_reg(struct msm_fb_data_type *mfd, u16 reg)
 static int mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
 {
 	struct wr_cmd_payload payload;
+	struct dcs_cmd_req cmdreq;
 	struct dsi_cmd_desc cmd_write_reg = {
 		DTYPE_GEN_LWRITE, 1, 0, 0, 0,
 			sizeof(payload), (char *)&payload};
@@ -281,8 +287,13 @@ static int mipi_d2l_write_reg(struct msm_fb_data_type *mfd, u16 reg, u32 data)
 	payload.addr = reg;
 	payload.data = data;
 
-	/* mutex had been acquried at dsi_on */
-	mipi_dsi_cmds_tx(&d2l_tx_buf, &cmd_write_reg, 1);
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &cmd_write_reg;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_COMMIT;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+	mipi_dsi_cmdlist_put(&cmdreq);
 
 	pr_debug("%s: reg=0x%x. data=0x%x.\n", __func__, reg, data);
 

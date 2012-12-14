@@ -314,10 +314,12 @@ static uint32 mipi_novatek_manufacture_id(struct msm_fb_data_type *mfd)
 {
 	struct dcs_cmd_req cmdreq;
 
+	memset(&cmdreq, 0, sizeof(cmdreq));
 	cmdreq.cmds = &novatek_manufacture_id_cmd;
 	cmdreq.cmds_cnt = 1;
 	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
 	cmdreq.rlen = 3;
+	cmdreq.rbuf = NULL;
 	cmdreq.cb = mipi_novatek_manufacture_cb; /* call back */
 	mipi_dsi_cmdlist_put(&cmdreq);
 	/*
