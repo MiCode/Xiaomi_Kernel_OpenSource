@@ -179,7 +179,8 @@ int32_t qpnp_vadc_configure(
 	int rc = 0;
 
 	/* Mode selection */
-	mode_ctrl = chan_prop->mode_sel << QPNP_VADC_OP_MODE_SHIFT;
+	mode_ctrl |= ((chan_prop->mode_sel << QPNP_VADC_OP_MODE_SHIFT) |
+			(QPNP_VADC_ADC_TRIM_EN | QPNP_VADC_AMUX_TRIM_EN));
 	rc = qpnp_vadc_write_reg(QPNP_VADC_MODE_CTL, mode_ctrl);
 	if (rc < 0) {
 		pr_err("Mode configure write error\n");
