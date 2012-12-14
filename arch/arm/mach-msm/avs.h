@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009,2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,42 +15,24 @@
 #define AVS_H
 
 #ifdef CONFIG_MSM_AVS_HW
-u32 avs_reset_delays(u32 avsdscr);
 u32 avs_get_avscsr(void);
+void avs_set_avscsr(u32 avscsr);
 u32 avs_get_avsdscr(void);
-u32 avs_get_tscsr(void);
-void avs_set_tscsr(u32 to_tscsr);
-u32 avs_disable(void);
-void avs_enable(u32 avscsr);
+void avs_set_avsdscr(u32 avsdscr);
+void avs_disable(int cpu);
+void avs_enable(int cpu, u32 avsdscr);
 #else
-static inline u32 avs_reset_delays(u32 avsdscr)
-{ return 0; }
 static inline u32 avs_get_avscsr(void)
 { return 0; }
+static inline void avs_set_avscsr(u32 avscsr) {}
 static inline u32 avs_get_avsdscr(void)
 { return 0; }
-static inline u32 avs_get_tscsr(void)
-{ return 0; }
-static inline void avs_set_tscsr(u32 to_tscsr) {}
-static inline u32 avs_disable(void)
-{return 0; }
-static inline void avs_enable(u32 avscsr) {}
+static inline void avs_set_avsdscr(u32 avsdscr) {}
+static inline void avs_disable(int cpu) {}
+static inline void avs_enable(int cpu, u32 avsdscr) {}
 #endif
 
-#define AVS_DISABLE(cpu) do {			\
-		if (get_cpu() == (cpu))		\
-			avs_disable();		\
-		put_cpu();			\
-	} while (0);
+#define AVS_DISABLE(cpu) avs_disable(cpu)
+#define AVS_ENABLE(cpu, x) avs_enable(cpu, x)
 
-/* AVSCSR(0x61) to enable CPU, V and L2 AVS module */
-
-#define AVS_ENABLE(cpu, x) do {			\
-		if (get_cpu() == (cpu)) {       \
-			avs_reset_delays((x));	\
-			avs_enable(0x61);	\
-		}				\
-		put_cpu();			\
-	} while (0);
-
-#endif /* AVS_H */
+#endif
