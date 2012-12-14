@@ -349,6 +349,7 @@ static irqreturn_t riva_wdog_bite_irq_hdlr(int irq, void *dev_id)
 		panic("Watchdog bite received from Riva");
 
 	drv->rst_in_progress = 1;
+	wcnss_riva_log_debug_regs();
 	subsystem_restart_dev(drv->subsys);
 
 	return IRQ_HANDLED;

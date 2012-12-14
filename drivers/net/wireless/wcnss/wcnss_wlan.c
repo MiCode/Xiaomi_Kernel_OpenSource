@@ -26,6 +26,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/clk.h>
+#include <linux/ratelimit.h>
 
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
@@ -60,6 +61,11 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define CCU_LAST_ADDR0_OFFSET		0x104
 #define CCU_LAST_ADDR1_OFFSET		0x108
 #define CCU_LAST_ADDR2_OFFSET		0x10c
+
+#define MSM_PRONTO_A2XB_BASE		0xfb100400
+#define A2XB_CFG_OFFSET		        0x00
+#define A2XB_INT_SRC_OFFSET		0x0c
+#define A2XB_ERR_INFO_OFFSET		0x1c
 
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
 #define WCNSS_MAX_FRAME_SIZE		500
@@ -182,7 +188,7 @@ static DEVICE_ATTR(wcnss_version, S_IRUSR,
 /* wcnss_reset_intr() is invoked when host drivers fails to
  * communicate with WCNSS over SMD; so logging these registers
  * helps to know WCNSS failure reason */
-static void wcnss_log_ccpu_regs(void)
+void wcnss_riva_log_debug_regs(void)
 {
 	void __iomem *ccu_base;
 	void __iomem *ccu_reg;
@@ -196,31 +202,62 @@ static void wcnss_log_ccpu_regs(void)
 
 	ccu_reg = ccu_base + CCU_INVALID_ADDR_OFFSET;
 	reg = readl_relaxed(ccu_reg);
-	pr_info("%s: CCU_CCPU_INVALID_ADDR %08x\n", __func__, reg);
+	pr_info_ratelimited("%s: CCU_CCPU_INVALID_ADDR %08x\n", __func__, reg);
 
 	ccu_reg = ccu_base + CCU_LAST_ADDR0_OFFSET;
 	reg = readl_relaxed(ccu_reg);
-	pr_info("%s: CCU_CCPU_LAST_ADDR0 %08x\n", __func__, reg);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR0 %08x\n", __func__, reg);
 
 	ccu_reg = ccu_base + CCU_LAST_ADDR1_OFFSET;
 	reg = readl_relaxed(ccu_reg);
-	pr_info("%s: CCU_CCPU_LAST_ADDR1 %08x\n", __func__, reg);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR1 %08x\n", __func__, reg);
 
 	ccu_reg = ccu_base + CCU_LAST_ADDR2_OFFSET;
 	reg = readl_relaxed(ccu_reg);
-	pr_info("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
 
 	iounmap(ccu_base);
 }
+EXPORT_SYMBOL(wcnss_riva_log_debug_regs);
 
-/* interface to reset Riva by sending the reset interrupt */
+/* Log pronto debug registers before sending reset interrupt */
+void wcnss_pronto_log_debug_regs(void)
+{
+	void __iomem *a2xb_base;
+	void __iomem *reg_addr;
+	u32 reg = 0;
+
+	a2xb_base = ioremap(MSM_PRONTO_A2XB_BASE, SZ_512);
+	if (!a2xb_base) {
+		pr_err("%s: ioremap WCNSS A2XB reg failed\n", __func__);
+		return;
+	}
+
+	reg_addr = a2xb_base + A2XB_CFG_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: A2XB_CFG_OFFSET %08x\n", __func__, reg);
+
+	reg_addr = a2xb_base + A2XB_INT_SRC_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: A2XB_INT_SRC_OFFSET %08x\n", __func__, reg);
+
+	reg_addr = a2xb_base + A2XB_ERR_INFO_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: A2XB_ERR_INFO_OFFSET %08x\n", __func__, reg);
+
+	iounmap(a2xb_base);
+}
+EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
+
+/* interface to reset wcnss by sending the reset interrupt */
 void wcnss_reset_intr(void)
 {
-	if (wcnss_hardware_type() != WCNSS_RIVA_HW) {
+	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
+		wcnss_pronto_log_debug_regs();
 		pr_err("%s: reset interrupt not supported\n", __func__);
 		return;
 	}
-	wcnss_log_ccpu_regs();
+	wcnss_riva_log_debug_regs();
 	wmb();
 	__raw_writel(1 << 24, MSM_APCS_GCC_BASE + 0x8);
 }
