@@ -24,7 +24,6 @@
 #include "vidc_hal_api.h"
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
-#include "msm_vidc_ssr.h"
 
 #define HW_RESPONSE_TIMEOUT (5 * 60 * 1000)
 
@@ -414,7 +413,7 @@ static void handle_sys_release_res_done(
 	complete(&core->completions[SYS_MSG_INDEX(cmd)]);
 }
 
-void change_inst_state(struct msm_vidc_inst *inst,
+static void change_inst_state(struct msm_vidc_inst *inst,
 	enum instance_state state)
 {
 	unsigned long flags;
@@ -1070,7 +1069,7 @@ fail_load_fw:
 	return rc;
 }
 
-void msm_comm_unload_fw(struct msm_vidc_core *core)
+static void msm_comm_unload_fw(struct msm_vidc_core *core)
 {
 	if (!core) {
 		dprintk(VIDC_ERR, "Invalid paramter: %p\n", core);
@@ -1117,7 +1116,7 @@ ocmem_set_failed:
 	return rc;
 }
 
-int msm_comm_unset_ocmem(struct msm_vidc_core *core)
+static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 {
 	struct vidc_resource_hdr rhdr;
 	int rc = 0;
@@ -1188,7 +1187,7 @@ ocmem_set_failed:
 	return rc;
 }
 
-int msm_comm_free_ocmem(struct msm_vidc_core *core)
+static int msm_comm_free_ocmem(struct msm_vidc_core *core)
 {
 	int rc = 0;
 	if (core->resources.ocmem.buf) {
