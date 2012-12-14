@@ -1810,7 +1810,8 @@ static void dwc3_init_adc_work(struct work_struct *w)
 
 	ret = qpnp_adc_tm_is_ready();
 	if (ret == -EPROBE_DEFER) {
-		queue_delayed_work(system_nrt_wq, to_delayed_work(w), 100);
+		queue_delayed_work(system_nrt_wq, to_delayed_work(w),
+					msecs_to_jiffies(100));
 		return;
 	}
 
