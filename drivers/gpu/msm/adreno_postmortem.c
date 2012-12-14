@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -912,7 +912,8 @@ int adreno_dump(struct kgsl_device *device, int manual)
 			adreno_dump_regs(device, a3xx_registers,
 					a3xx_registers_count);
 
-			if (adreno_is_a330(adreno_dev))
+			if (adreno_is_a330(adreno_dev) ||
+				adreno_is_a305b(adreno_dev))
 				adreno_dump_regs(device, a330_registers,
 					a330_registers_count);
 		}

@@ -456,6 +456,8 @@ unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 		return A330v2_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a330(adreno_dev))
 		return A330_RBBM_CLOCK_CTL_DEFAULT;
+	else if (adreno_is_a305b(adreno_dev))
+		return A305B_RBBM_CLOCK_CTL_DEFAULT;
 
 	BUG_ON(1);
 }
@@ -2901,7 +2903,8 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 			A330_RBBM_GPR0_CTL_DEFAULT);
 
 	/* Set the OCMEM base address for A330 */
-	if (adreno_is_a330(adreno_dev)) {
+	if (adreno_is_a330(adreno_dev) ||
+		adreno_is_a305b(adreno_dev)) {
 		adreno_regwrite(device, A3XX_RB_GMEM_BASE_ADDR,
 			(unsigned int)(adreno_dev->ocmem_base >> 14));
 	}

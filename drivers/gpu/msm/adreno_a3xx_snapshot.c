@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,7 +214,8 @@ static int a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
 	int i, size;
 
 	/* The size of the ROQ buffer is core dependent */
-	size = adreno_is_a330(adreno_dev) ?
+	size = (adreno_is_a330(adreno_dev) ||
+		adreno_is_a305b(adreno_dev)) ?
 		A330_CP_ROQ_SIZE : A320_CP_ROQ_SIZE;
 
 	if (remain < DEBUG_SECTION_SZ(size)) {
@@ -287,7 +288,8 @@ static int a3xx_snapshot_debugbus_block(struct kgsl_device *device,
 	 * like CP are larger
 	 */
 
-	dwords = adreno_is_a330(adreno_dev) ?
+	dwords = (adreno_is_a330(adreno_dev) ||
+		adreno_is_a305b(adreno_dev)) ?
 		block->dwords : 0x40;
 
 	size = (dwords * sizeof(unsigned int)) + sizeof(*header);
@@ -447,7 +449,7 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	/* Store relevant registers in list to snapshot */
 	_snapshot_a3xx_regs(regs, &list);
 	_snapshot_hlsq_regs(regs, &list, adreno_dev);
-	if (adreno_is_a330(adreno_dev))
+	if (adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))
 		_snapshot_a330_regs(regs, &list);
 
 	/* Master set of (non debug) registers */
@@ -458,7 +460,8 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	/*
 	 * CP_STATE_DEBUG indexed registers - 20 on 305 and 320 and 46 on A330
 	 */
-	size = adreno_is_a330(adreno_dev) ? 0x2E : 0x14;
+	size = (adreno_is_a330(adreno_dev) ||
+		adreno_is_a305b(adreno_dev)) ? 0x2E : 0x14;
 
 	snapshot = kgsl_snapshot_indexed_registers(device, snapshot,
 			remain, REG_CP_STATE_DEBUG_INDEX,
@@ -503,7 +506,8 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a3xx_snapshot_cp_roq, NULL);
 
-	if (adreno_is_a330(adreno_dev)) {
+	if (adreno_is_a330(adreno_dev) ||
+		adreno_is_a305b(adreno_dev)) {
 		snapshot = kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a330_snapshot_cp_merciu, NULL);
