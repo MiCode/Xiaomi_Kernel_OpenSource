@@ -77,6 +77,7 @@
 			qcom,bms-calculate-soc-ms = <20000>;
 			qcom,bms-chg-term-ua = <100000>;
 			qcom,bms-batt-type = <0>;
+			qcom,bms-use-external-rsense;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
