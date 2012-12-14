@@ -209,13 +209,6 @@ struct msm_vidc_debug {
 	int samples;
 };
 
-struct msm_vidc_ssr_info {
-	struct subsys_device *msm_vidc_dev;
-	struct subsys_desc *msm_vidc_subsys_desc;
-	void *msm_vidc_ramdump_dev;
-	bool ssr_in_progress;
-};
-
 enum msm_vidc_mode {
 	VIDC_NON_SECURE,
 	VIDC_SECURE,
@@ -238,7 +231,6 @@ struct msm_vidc_core {
 	enum vidc_core_state state;
 	struct msm_vidc_resources resources;
 	struct completion completions[SYS_MSG_END - SYS_MSG_START + 1];
-	struct msm_vidc_ssr_info ssr_info;
 };
 
 struct msm_vidc_inst {
