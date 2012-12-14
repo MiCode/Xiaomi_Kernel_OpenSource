@@ -141,7 +141,7 @@ void hal_process_sess_evt_seq_changed(struct hal_device *device,
 static void hal_process_sys_watchdog_timeout(struct hal_device *device)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
-	disable_irq_nosync(device->hal_data->irq);
+	device->intr_status &= ~VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK;
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_WATCHDOG_TIMEOUT, &cmd_done);
@@ -825,6 +825,7 @@ static void hal_process_msg_packet(struct hal_device *device,
 	if ((device->intr_status & VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK)) {
 		dprintk(VIDC_ERR, "Received: Watchdog timeout %s", __func__);
 		hal_process_sys_watchdog_timeout(device);
+		return;
 	}
 
 	switch (msg_hdr->packet) {

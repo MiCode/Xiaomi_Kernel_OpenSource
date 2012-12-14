@@ -684,10 +684,32 @@ static void handle_sys_error(enum command_response cmd, void *data)
 
 static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
 {
-	dprintk(VIDC_ERR,
-		"msm_vidc: Sub System Restart initiated\n");
+	struct msm_vidc_cb_cmd_done *response = data;
+	struct msm_vidc_inst *inst;
+	struct msm_vidc_core *core = NULL;
+	struct v4l2_event dqevent;
+	unsigned long flags;
+	dprintk(VIDC_ERR, "Venus Subsystem crashed\n");
+	core = get_vidc_core(response->device_id);
+	if (!core) {
+		dprintk(VIDC_ERR, "Wrong device_id received\n");
+		return;
+	}
+	spin_lock_irqsave(&core->lock, flags);
+	core->state = VIDC_CORE_INVALID;
+	spin_unlock_irqrestore(&core->lock, flags);
+	dqevent.type = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
+	dqevent.id = 0;
+	list_for_each_entry(inst, &core->instances, list) {
+		if (inst) {
+			v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+			spin_lock_irqsave(&inst->lock, flags);
+			inst->state = MSM_VIDC_CORE_INVALID;
+			inst->session = NULL;
+			spin_unlock_irqrestore(&inst->lock, flags);
+		}
+	}
 }
-
 
 static void handle_session_close(enum command_response cmd, void *data)
 {
