@@ -19,11 +19,8 @@
 		status = "ok";
 	};
 
-	qcom,mdss_dsi@fd922800 {
-		qcom,mdss_dsi_toshiba_720p_video {
-			qcom,mdss-fb-map = <&mdss_fb0>;
-			status = "ok";
-		};
+	qcom,mdss_dsi_toshiba_720p_video {
+		status = "ok";
 	};
 
 	qcom,hdmi_tx@fd922100 {

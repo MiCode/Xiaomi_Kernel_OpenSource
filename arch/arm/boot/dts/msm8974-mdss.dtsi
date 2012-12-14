@@ -38,12 +38,13 @@
 	};
 
 	mdss_dsi: qcom,mdss_dsi@fd922800 {
-		compatible = "qcom,msm-mdss-dsi";
-		reg = <0xfd922800 0x600>,
-			<0xfd8c2000 0x01000>;
+		compatible = "qcom,mdss-dsi-ctrl";
+		cell-index = <0>;
+		reg = <0xfd922800 0x600>;
 		vdd-supply = <&pm8941_l22>;
 		vdd_io-supply = <&pm8941_l12>;
 		vreg-supply = <&pm8941_l2>;
+		qcom,mdss-fb-map = <&mdss_fb0>;
 	};
 
 	qcom,hdmi_tx@fd922100 {

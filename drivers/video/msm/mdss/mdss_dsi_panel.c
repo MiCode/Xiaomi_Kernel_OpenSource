@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,9 +13,8 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
-#include <linux/gpio.h>
 #include <linux/qpnp/pin.h>
+#include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/leds.h>
@@ -37,36 +36,47 @@ DEFINE_LED_TRIGGER(bl_led_trigger);
 
 static struct mdss_dsi_phy_ctrl phy_params;
 
-static int rst_gpio;
-static int disp_en;
-
-void mdss_dsi_panel_reset(int enable)
+void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 {
-	if (!disp_en)
-		pr_debug("%s:%d, reset line not configured\n",
-			   __func__, __LINE__);
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	if (!rst_gpio)
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
+		return;
+	}
+
+	if (!gpio_is_valid(ctrl_pdata->rst_gpio)) {
+		pr_debug("%s:%d, reset line not configured\n",
+			   __func__, __LINE__);
+		return;
+	}
 
 	pr_debug("%s: enable = %d\n", __func__, enable);
 
 	if (enable) {
-		gpio_set_value(rst_gpio, 1);
+		gpio_set_value((ctrl_pdata->rst_gpio), 1);
 		msleep(20);
 		wmb();
-		gpio_set_value(rst_gpio, 0);
+		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 		udelay(200);
 		wmb();
-		gpio_set_value(rst_gpio, 1);
+		gpio_set_value((ctrl_pdata->rst_gpio), 1);
 		msleep(20);
 		wmb();
-		gpio_set_value(disp_en, 1);
+		gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
 		wmb();
 	} else {
-		gpio_set_value(rst_gpio, 0);
-		gpio_set_value(disp_en, 0);
+		gpio_set_value((ctrl_pdata->rst_gpio), 0);
+		gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 	}
 }
 
@@ -75,12 +85,13 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	if (ctrl_pdata->bl_ctrl) {
 		switch (ctrl_pdata->bl_ctrl) {
@@ -145,7 +156,7 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	int rc, i, len;
 	int cmd_plen, data_offset;
 	const char *data;
-	static const char *bl_ctrl_type;
+	static const char *bl_ctrl_type, *pdest;
 
 	rc = of_property_read_u32_array(np, "qcom,mdss-pan-res", res, 2);
 	if (rc) {
@@ -164,43 +175,6 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 			panel_data->panel_info.yres - res[1];
 	}
 
-	disp_en = of_get_named_gpio(np, "qcom,enable-gpio", 0);
-	if (!gpio_is_valid(disp_en)) {
-		pr_err("%s:%d, Disp_en gpio not specified\n",
-						__func__, __LINE__);
-		return -ENODEV;
-	}
-
-	rc = gpio_request(disp_en, "disp_enable");
-	if (rc) {
-		pr_err("request reset gpio failed, rc=%d\n",
-			rc);
-		gpio_free(disp_en);
-		return -ENODEV;
-	}
-	rc = gpio_direction_output(disp_en, 1);
-	if (rc) {
-		pr_err("set_direction for disp_en gpio failed, rc=%d\n",
-			rc);
-		gpio_free(disp_en);
-		return -ENODEV;
-	}
-
-	rst_gpio = of_get_named_gpio(np, "qcom,rst-gpio", 0);
-	if (!gpio_is_valid(rst_gpio)) {
-		pr_err("%s:%d, reset gpio not specified\n",
-						__func__, __LINE__);
-	} else {
-		rc = gpio_request(rst_gpio, "disp_rst_n");
-		if (rc) {
-			pr_err("request reset gpio failed, rc=%d\n",
-				rc);
-			gpio_free(rst_gpio);
-			gpio_free(disp_en);
-			return -ENODEV;
-		}
-	}
-
 	rc = of_property_read_u32(np, "qcom,mdss-pan-bpp", &tmp);
 	if (rc) {
 		pr_err("%s:%d, panel bpp not specified\n",
@@ -208,6 +182,22 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 		return -EINVAL;
 	}
 	panel_data->panel_info.bpp = (!rc ? tmp : 24);
+
+	pdest = of_get_property(pdev->dev.of_node,
+				"qcom,mdss-pan-dest", NULL);
+	if (strlen(pdest) != 9) {
+		pr_err("%s: Unknown pdest specified\n", __func__);
+		return -EINVAL;
+	}
+	if (!strncmp(pdest, "display_1", 9))
+		panel_data->panel_info.pdest = DISPLAY_1;
+	else if (!strncmp(pdest, "display_2", 9))
+		panel_data->panel_info.pdest = DISPLAY_2;
+	else {
+		pr_debug("%s: pdest not specified. Set Default\n",
+							__func__);
+		panel_data->panel_info.pdest = DISPLAY_1;
+	}
 
 	rc = of_property_read_u32_array(np,
 		"qcom,mdss-pan-porch-values", res, 6);
@@ -459,10 +449,6 @@ error:
 	kfree(dsi_panel_off_cmds);
 	kfree(on_cmds);
 	kfree(off_cmds);
-	if (rst_gpio)
-		gpio_free(rst_gpio);
-	if (disp_en)
-		gpio_free(disp_en);
 
 	return -EINVAL;
 }
@@ -473,11 +459,6 @@ static int __devinit mdss_dsi_panel_probe(struct platform_device *pdev)
 	static struct mdss_panel_common_pdata vendor_pdata;
 	static const char *panel_name;
 	char bl_ctrl = UNKNOWN_CTRL;
-
-	if (pdev->dev.parent == NULL) {
-		pr_err("%s: parent device missing\n", __func__);
-		return -ENODEV;
-	}
 
 	pr_debug("%s:%d, debug info id=%d", __func__, __LINE__, pdev->id);
 	if (!pdev->dev.of_node)

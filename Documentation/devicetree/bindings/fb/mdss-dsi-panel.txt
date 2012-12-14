@@ -1,6 +1,6 @@
 Qualcomm mdss-dsi-panel
 
-mdss-dsi-panel is a dsi panel driver which supports panels that
+mdss-dsi-panel is a dsi panel device which supports panels that
 are compatable with MIPI display serial interface specification.
 
 Required properties:
@@ -9,11 +9,17 @@ Required properties:
 					the panel driver. By default this property will be
 					set to "disable". Will be set to "ok/okay" status
 					for specific platforms.
+- qcom,dsi-ctrl-phandle:		Specifies the phandle for the DSI controller that
+					this panel will be mapped to.
 - qcom,mdss-pan-res:			A two dimensional array that specifies the panel
 					resolution.
 - qcom,mdss-pan-bpp:			Specifies the panel bits per pixel. Default value is 24(rgb888).
 					18 = for rgb666
 					16 = for rgb565
+- qcom,mdss-pan-dest:			A string that specifies the destination display for the panel.
+					Default is "display_1".
+					"display_1" = DISPLAY_1
+					"display_2" = DISPLAY_2
 - qcom,panel-phy-regulatorSettings:	An array of length 7 that specifies the PHY
 					regulator settings for the panel.
 - qcom,panel-phy-timingSettings:	An array of length 12 that specifies the PHY
@@ -44,13 +50,6 @@ Required properties:
 					--> wait time after the command is transmitter.
 					--> size of payload
 					--> payload.
-- qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
-					interface is mapped.
-
-Required structure:
-- A qcom,mdss-dsi-panel node must be a child of an mdss-dsi controller node that links to
-    one of the two DSI controllers.
-
 
 Optional properties:
 - label:		        	A string used as a descriptive name of the panel
@@ -127,33 +126,33 @@ Note, if a given optional qcom,* binding is not present, then the driver will co
 the default values specified.
 
 Example:
-	qcom,mdss_dsi@fd922800 {
-
-		qcom,mdss_dsi_sim_video {
-			compatible = "qcom,mdss-dsi-panel";
-			label = "simulator video mode dsi panel";
-			status = "disable";
-			qcom,mdss-pan-res = <640 480>;
-			qcom,mdss-pan-bpp = <24>;
-			qcom,mdss-pan-porch-values = <6 2 6 6 2 6>;
-			qcom,mdss-pan-underflow-clr = <0xff>;
-			qcom,mdss-pan-bl-levels = <1 15>;
-			qcom,mdss-pan-dsi-mode = <0>;
-			qcom,mdss-pan-dsi-h-pulse-mode = <1>;
-			qcom,mdss-pan-dsi-h-power-stop = <1 1 1>;
-			qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
-			qcom,mdss-pan-dsi-traffic-mode = <0>;
-			qcom,mdss-pan-dsi-dst-format = <3>;
-			qcom,mdss-pan-dsi-vc = <0>;
-			qcom,mdss-pan-dsi-rgb-swap = <0>;
-			qcom,mdss-pan-dsi-data-lanes = <1 1 0 0>;
-			qcom,mdss-pan-dsi-t-clk = <0x24 0x03>;
-			qcom,mdss-pan-dsi-stream = <0>;
-			qcom,mdss-pan-dsi-mdp-tr = <0x04>;
-			qcom,mdss-pan-dsi-dma-tr = <0x04>;
-			qcom,mdss-pan-frame-rate = <60>;
-			qcom,panel-on-cmds = [32 01 00 00 00 02 00 00];
-			qcom,panel-off-cmds = [22 01 00 00 00 00 00];
-		};
-
+/ {
+	qcom,mdss_dsi_sim_video {
+		compatible = "qcom,mdss-dsi-panel";
+		label = "simulator video mode dsi panel";
+		status = "disable";
+		qcom,dsi-ctrl-phandle = <&mdss_dsi>;
+		qcom,mdss-pan-res = <640 480>;
+		qcom,mdss-pan-bpp = <24>;
+		qcom,mdss-pan-dest = "display_1";
+		qcom,mdss-pan-porch-values = <6 2 6 6 2 6>;
+		qcom,mdss-pan-underflow-clr = <0xff>;
+		qcom,mdss-pan-bl-levels = <1 15>;
+		qcom,mdss-pan-dsi-mode = <0>;
+		qcom,mdss-pan-dsi-h-pulse-mode = <1>;
+		qcom,mdss-pan-dsi-h-power-stop = <1 1 1>;
+		qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
+		qcom,mdss-pan-dsi-traffic-mode = <0>;
+		qcom,mdss-pan-dsi-dst-format = <3>;
+		qcom,mdss-pan-dsi-vc = <0>;
+		qcom,mdss-pan-dsi-rgb-swap = <0>;
+		qcom,mdss-pan-dsi-data-lanes = <1 1 0 0>;
+		qcom,mdss-pan-dsi-t-clk = <0x24 0x03>;
+		qcom,mdss-pan-dsi-stream = <0>;
+		qcom,mdss-pan-dsi-mdp-tr = <0x04>;
+		qcom,mdss-pan-dsi-dma-tr = <0x04>;
+		qcom,mdss-pan-frame-rate = <60>;
+		qcom,panel-on-cmds = [32 01 00 00 00 02 00 00];
+		qcom,panel-off-cmds = [22 01 00 00 00 00 00];
 	};
+};

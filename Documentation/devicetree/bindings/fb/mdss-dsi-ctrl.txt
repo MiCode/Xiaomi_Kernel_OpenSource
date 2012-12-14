@@ -1,0 +1,24 @@
+Qualcomm mdss-dsi-ctrl
+
+mdss-dsi-ctrl is a dsi controller device which supports host controllers that
+are compatable with MIPI display serial interface specification.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-dsi-ctrl"
+- cell-index:				Specifies the controller used among the two controllers.
+- reg:					offset and length of the register set for the device.
+- vdd-supply:				Phandle for vdd regulator device node.
+- vdd-io-supply:			Phandle for vdd-io regulator device node.
+- vreg-supply:				Phandle for vreg regulator device node.
+- qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
+					interface is mapped.
+Example:
+        mdss_dsi: qcom,mdss_dsi@fd922800 {
+                compatible = "qcom,mdss-dsi-ctrl";
+                cell-index = <0>;
+                reg = <0xfd922800 0x600>;
+                vdd-supply = <&pm8941_l22>;
+                vdd_io-supply = <&pm8941_l12>;
+                vreg-supply = <&pm8941_l2>;
+		qcom,mdss-fb-map = <&mdss_fb0>;
+        };
