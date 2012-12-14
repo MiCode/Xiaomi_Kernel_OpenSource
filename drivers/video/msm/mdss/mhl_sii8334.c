@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,8 @@
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
 #include <linux/types.h>
+#include <linux/vmalloc.h>
+#include <linux/input.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/mhl_8334.h>
 
@@ -27,6 +29,7 @@
 #include "mdss.h"
 #include "mdss_panel.h"
 #include "mdss_io_util.h"
+#include "mhl_msc.h"
 
 #define MHL_DRIVER_NAME "sii8334"
 #define COMPATIBLE_NAME "qcom,mhl-sii8334"
@@ -34,39 +37,142 @@
 
 #define pr_debug_intr(...) pr_debug("\n")
 
-enum mhl_gpio_type {
-	MHL_TX_RESET_GPIO,
-	MHL_TX_INTR_GPIO,
-	MHL_TX_PMIC_PWR_GPIO,
-	MHL_TX_MAX_GPIO,
-};
+#define MSC_START_BIT_MSC_CMD        (0x01 << 0)
+#define MSC_START_BIT_VS_CMD        (0x01 << 1)
+#define MSC_START_BIT_READ_REG        (0x01 << 2)
+#define MSC_START_BIT_WRITE_REG        (0x01 << 3)
+#define MSC_START_BIT_WRITE_BURST        (0x01 << 4)
 
-enum mhl_vreg_type {
-	MHL_TX_3V_VREG,
-	MHL_TX_MAX_VREG,
-};
-
-struct mhl_tx_platform_data {
-	/* Data filled from device tree nodes */
-	struct dss_gpio *gpios[MHL_TX_MAX_GPIO];
-	struct dss_vreg *vregs[MHL_TX_MAX_VREG];
-	int irq;
-};
-
-struct mhl_tx_ctrl {
-	struct platform_device *pdev;
-	struct mhl_tx_platform_data *pdata;
-	struct i2c_client *i2c_handle;
-	uint8_t cur_state;
-	uint8_t chip_rev_id;
-	int mhl_mode;
-	struct completion rgnd_done;
-	void (*notify_usb_online)(int online);
-	struct usb_ext_notification *mhl_info;
-	bool disc_enabled;
-	struct power_supply mhl_psy;
-	bool vbus_active;
-	int current_val;
+/* supported RCP key code */
+u16 support_rcp_key_code_tbl[] = {
+	KEY_ENTER,		/* 0x00 Select */
+	KEY_UP,			/* 0x01 Up */
+	KEY_DOWN,		/* 0x02 Down */
+	KEY_LEFT,		/* 0x03 Left */
+	KEY_RIGHT,		/* 0x04 Right */
+	KEY_UNKNOWN,		/* 0x05 Right-up */
+	KEY_UNKNOWN,		/* 0x06 Right-down */
+	KEY_UNKNOWN,		/* 0x07 Left-up */
+	KEY_UNKNOWN,		/* 0x08 Left-down */
+	KEY_MENU,		/* 0x09 Root Menu */
+	KEY_OPTION,		/* 0x0A Setup Menu */
+	KEY_UNKNOWN,		/* 0x0B Contents Menu */
+	KEY_UNKNOWN,		/* 0x0C Favorite Menu */
+	KEY_EXIT,		/* 0x0D Exit */
+	KEY_RESERVED,		/* 0x0E */
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,		/* 0x1F */
+	KEY_NUMERIC_0,		/* 0x20 NUMERIC_0 */
+	KEY_NUMERIC_1,		/* 0x21 NUMERIC_1 */
+	KEY_NUMERIC_2,		/* 0x22 NUMERIC_2 */
+	KEY_NUMERIC_3,		/* 0x23 NUMERIC_3 */
+	KEY_NUMERIC_4,		/* 0x24 NUMERIC_4 */
+	KEY_NUMERIC_5,		/* 0x25 NUMERIC_5 */
+	KEY_NUMERIC_6,		/* 0x26 NUMERIC_6 */
+	KEY_NUMERIC_7,		/* 0x27 NUMERIC_7 */
+	KEY_NUMERIC_8,		/* 0x28 NUMERIC_8 */
+	KEY_NUMERIC_9,		/* 0x29 NUMERIC_9 */
+	KEY_DOT,		/* 0x2A Dot */
+	KEY_ENTER,		/* 0x2B Enter */
+	KEY_ESC,		/* 0x2C Clear */
+	KEY_RESERVED,		/* 0x2D */
+	KEY_RESERVED,		/* 0x2E */
+	KEY_RESERVED,		/* 0x2F */
+	KEY_UNKNOWN,		/* 0x30 Channel Up */
+	KEY_UNKNOWN,		/* 0x31 Channel Down */
+	KEY_UNKNOWN,		/* 0x32 Previous Channel */
+	KEY_UNKNOWN,		/* 0x33 Sound Select */
+	KEY_UNKNOWN,		/* 0x34 Input Select */
+	KEY_UNKNOWN,		/* 0x35 Show Information */
+	KEY_UNKNOWN,		/* 0x36 Help */
+	KEY_UNKNOWN,		/* 0x37 Page Up */
+	KEY_UNKNOWN,		/* 0x38 Page Down */
+	KEY_RESERVED,		/* 0x39 */
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,		/* 0x3F */
+	KEY_RESERVED,		/* 0x40 */
+	KEY_VOLUMEUP,		/* 0x41 Volume Up */
+	KEY_VOLUMEDOWN,		/* 0x42 Volume Down */
+	KEY_MUTE,		/* 0x43 Mute */
+	KEY_PLAY,		/* 0x44 Play */
+	KEY_STOP,		/* 0x45 Stop */
+	KEY_PAUSE,		/* 0x46 Pause */
+	KEY_UNKNOWN,		/* 0x47 Record */
+	KEY_REWIND,		/* 0x48 Rewind */
+	KEY_FASTFORWARD,	/* 0x49 Fast Forward */
+	KEY_UNKNOWN,		/* 0x4A Eject */
+	KEY_FORWARD,		/* 0x4B Forward */
+	KEY_BACK,		/* 0x4C Backward */
+	KEY_RESERVED,		/* 0x4D */
+	KEY_RESERVED,
+	KEY_RESERVED,		/* 0x4F */
+	KEY_UNKNOWN,		/* 0x50 Angle */
+	KEY_UNKNOWN,		/* 0x51 Subtitle */
+	KEY_RESERVED,		/* 0x52 */
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,		/* 0x5F */
+	KEY_PLAYPAUSE,		/* 0x60 Play Function */
+	KEY_PLAYPAUSE,		/* 0x61 Pause_Play Function */
+	KEY_UNKNOWN,		/* 0x62 Record Function */
+	KEY_PAUSE,		/* 0x63 Pause Record Function */
+	KEY_STOP,		/* 0x64 Stop Function  */
+	KEY_MUTE,		/* 0x65 Mute Function */
+	KEY_UNKNOWN,		/* 0x66 Restore Volume Function */
+	KEY_UNKNOWN,		/* 0x67 Tune Function */
+	KEY_UNKNOWN,		/* 0x68 Select Media Function */
+	KEY_RESERVED,		/* 0x69 */
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,		/* 0x70 */
+	KEY_BLUE,			/* 0x71 F1 */
+	KEY_RED,			/* 0x72 F2 */
+	KEY_GREEN,			/* 0x73 F3 */
+	KEY_YELLOW,			/* 0x74 F4 */
+	KEY_UNKNOWN,		/* 0x75 F5 */
+	KEY_RESERVED,		/* 0x76 */
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,
+	KEY_RESERVED,		/* 0x7D */
+	KEY_VENDOR,		/* Vendor Specific */
+	KEY_RESERVED,		/* 0x7F */
 };
 
 
@@ -84,13 +190,12 @@ uint8_t slave_addrs[MAX_PAGES] = {
 static irqreturn_t mhl_tx_isr(int irq, void *dev_id);
 static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl,
 			enum mhl_st_type to_mode);
-static void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl,
-			  uint8_t to_state);
-
 static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
-	bool mhl_disc_en);
+				  bool mhl_disc_en);
 
-static int mhl_i2c_reg_read(struct i2c_client *client,
+static uint8_t store_tmds_state;
+
+int mhl_i2c_reg_read(struct i2c_client *client,
 			    uint8_t slave_addr_index, uint8_t reg_offset)
 {
 	int rc = -1;
@@ -107,7 +212,7 @@ static int mhl_i2c_reg_read(struct i2c_client *client,
 }
 
 
-static int mhl_i2c_reg_write(struct i2c_client *client,
+int mhl_i2c_reg_write(struct i2c_client *client,
 			     uint8_t slave_addr_index, uint8_t reg_offset,
 			     uint8_t value)
 {
@@ -115,7 +220,7 @@ static int mhl_i2c_reg_write(struct i2c_client *client,
 				 reg_offset, &value);
 }
 
-static void mhl_i2c_reg_modify(struct i2c_client *client,
+void mhl_i2c_reg_modify(struct i2c_client *client,
 			       uint8_t slave_addr_index, uint8_t reg_offset,
 			       uint8_t mask, uint8_t val)
 {
@@ -350,11 +455,11 @@ static void cbus_reset(struct i2c_client *client)
 	MHL_SII_REG_NAME_WR(REG_INTR5_MASK, 0x00);
 
 	/* Unmask CBUS1 Intrs */
-	MHL_SII_CBUS_WR(0x0009,
+	MHL_SII_REG_NAME_WR(REG_CBUS_INTR_ENABLE,
 		BIT2 | BIT3 | BIT4 | BIT5 | BIT6);
 
 	/* Unmask CBUS2 Intrs */
-	MHL_SII_CBUS_WR(0x001F, BIT2 | BIT3);
+	MHL_SII_REG_NAME_WR(REG_CBUS_MSC_INT2_ENABLE, BIT2 | BIT3);
 
 	for (i = 0; i < 4; i++) {
 		/*
@@ -369,7 +474,6 @@ static void cbus_reset(struct i2c_client *client)
 		 */
 		MHL_SII_CBUS_WR((0xF0 + i), 0xFF);
 	}
-	return;
 }
 
 static void init_cbus_regs(struct i2c_client *client)
@@ -576,6 +680,7 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 
 		/* Force HPD to 0 when not in MHL mode.  */
 		mhl_drive_hpd(mhl_ctrl, HPD_DOWN);
+		mhl_tmds_ctrl(mhl_ctrl, TMDS_DISABLE);
 		/*
 		 * Change TMDS termination to high impedance
 		 * on disconnection.
@@ -592,7 +697,31 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 	}
 }
 
-static void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl, uint8_t to_state)
+uint8_t check_tmds_enabled(void)
+{
+	return store_tmds_state;
+}
+
+void mhl_tmds_ctrl(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on)
+{
+	struct i2c_client *client = mhl_ctrl->i2c_handle;
+	if (on) {
+		MHL_SII_REG_NAME_MOD(REG_TMDS_CCTRL, BIT4, BIT4);
+		mhl_drive_hpd(mhl_ctrl, HPD_UP);
+		/*
+		 * store the state to be used
+		 * before responding to RAP msgs
+		 * this needs to be obtained from
+		 * hdmi driver
+		 */
+		store_tmds_state = 1;
+	} else {
+		MHL_SII_REG_NAME_MOD(REG_TMDS_CCTRL, BIT4, 0x00);
+		store_tmds_state = 0;
+	}
+}
+
+void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl, uint8_t to_state)
 {
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
 
@@ -600,15 +729,6 @@ static void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl, uint8_t to_state)
 	if (to_state == HPD_UP) {
 		/*
 		 * Drive HPD to UP state
-		 *
-		 * The below two reg configs combined
-		 * enable TMDS output.
-		 */
-
-		/* Enable TMDS on TMDS_CCTRL */
-		MHL_SII_REG_NAME_MOD(REG_TMDS_CCTRL, BIT4, BIT4);
-
-		/*
 		 * Set HPD_OUT_OVR_EN = HPD State
 		 * EDID read and Un-force HPD (from low)
 		 * propogate to src let HPD float by clearing
@@ -616,15 +736,9 @@ static void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl, uint8_t to_state)
 		 */
 		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT4, 0x00);
 	} else {
-		/*
-		 * Drive HPD to DOWN state
-		 * Disable TMDS Output on REG_TMDS_CCTRL
-		 * Enable/Disable TMDS output (MHL TMDS output only)
-		 */
+		/* Drive HPD to DOWN state */
 		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT4, BIT4);
-		MHL_SII_REG_NAME_MOD(REG_TMDS_CCTRL, BIT4, 0x00);
 	}
-	return;
 }
 
 static void mhl_msm_connection(struct mhl_tx_ctrl *mhl_ctrl)
@@ -655,7 +769,19 @@ static void mhl_msm_connection(struct mhl_tx_ctrl *mhl_ctrl)
 	val = MHL_SII_PAGE3_RD(0x10);
 	MHL_SII_PAGE3_WR(0x10, val | BIT0);
 
-	return;
+	/*
+	 * indicate DCAP_RDY and DCAP_CHG
+	 * to the peer only after
+	 * msm conn has been established
+	 */
+	mhl_msc_send_write_stat(mhl_ctrl,
+				MHL_STATUS_REG_CONNECTED_RDY,
+				MHL_STATUS_DCAP_RDY);
+
+	mhl_msc_send_set_int(mhl_ctrl,
+			     MHL_RCHANGE_INT,
+			     MHL_INT_DCAP_CHG);
+
 }
 
 static void mhl_msm_disconnection(struct mhl_tx_ctrl *mhl_ctrl)
@@ -668,7 +794,6 @@ static void mhl_msm_disconnection(struct mhl_tx_ctrl *mhl_ctrl)
 	MHL_SII_PAGE3_WR(0x30, 0xD0);
 
 	switch_mode(mhl_ctrl, POWER_STATE_D3);
-	return;
 }
 
 static int  mhl_msm_read_rgnd_int(struct mhl_tx_ctrl *mhl_ctrl)
@@ -676,8 +801,8 @@ static int  mhl_msm_read_rgnd_int(struct mhl_tx_ctrl *mhl_ctrl)
 	uint8_t rgnd_imp;
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
 	/* DISC STATUS REG 2 */
-	rgnd_imp = (mhl_i2c_reg_read(client,
-				     TX_PAGE_3, 0x001C) & (BIT1 | BIT0));
+	rgnd_imp = (mhl_i2c_reg_read(client, TX_PAGE_3, 0x001C) &
+		    (BIT1 | BIT0));
 	pr_debug("imp range read=%02X\n", (int)rgnd_imp);
 
 	if (0x02 == rgnd_imp) {
@@ -820,8 +945,6 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		release_usb_switch_open(mhl_ctrl);
 	}
 	MHL_SII_REG_NAME_WR(REG_INTR4, status);
-
-	return;
 }
 
 static void mhl_misc_isr(struct mhl_tx_ctrl *mhl_ctrl)
@@ -861,9 +984,225 @@ static void mhl_hpd_stat_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		 */
 		cbus_stat = MHL_SII_CBUS_RD(0x0D);
 		if (BIT6 & cbus_stat)
-			mhl_drive_hpd(mhl_ctrl, HPD_UP);
+			mhl_tmds_ctrl(mhl_ctrl, TMDS_ENABLE);
 	}
-	return;
+}
+
+static void mhl_sii_cbus_process_errors(struct i2c_client *client,
+					u8 int_status)
+{
+	u8 abort_reason = 0;
+
+	if (int_status & BIT2) {
+		abort_reason = MHL_SII_REG_NAME_RD(REG_DDC_ABORT_REASON);
+		pr_debug("%s: CBUS DDC Abort Reason(0x%02x)\n",
+			 __func__, abort_reason);
+	}
+	if (int_status & BIT5) {
+		abort_reason = MHL_SII_REG_NAME_RD(REG_PRI_XFR_ABORT_REASON);
+		pr_debug("%s: CBUS MSC Requestor Abort Reason(0x%02x)\n",
+			 __func__, abort_reason);
+		MHL_SII_REG_NAME_WR(REG_PRI_XFR_ABORT_REASON, 0xFF);
+	}
+	if (int_status & BIT6) {
+		abort_reason = MHL_SII_REG_NAME_RD(
+			REG_CBUS_PRI_FWR_ABORT_REASON);
+		pr_debug("%s: CBUS MSC Responder Abort Reason(0x%02x)\n",
+			 __func__, abort_reason);
+		MHL_SII_REG_NAME_WR(REG_CBUS_PRI_FWR_ABORT_REASON, 0xFF);
+	}
+}
+
+int mhl_send_msc_command(struct mhl_tx_ctrl *mhl_ctrl,
+			 struct msc_command_struct *req)
+{
+	int timeout;
+	u8 start_bit = 0x00;
+	u8 *burst_data;
+	int i;
+	struct i2c_client *client = mhl_ctrl->i2c_handle;
+
+	if (mhl_ctrl->cur_state != POWER_STATE_D0_MHL) {
+		pr_debug("%s: power_state:%02x CBUS(0x0A):%02x\n",
+			 __func__,
+			 mhl_ctrl->cur_state,
+			 MHL_SII_REG_NAME_RD(REG_CBUS_BUS_STATUS));
+		return -EFAULT;
+	}
+
+	if (!req)
+		return -EFAULT;
+
+	pr_debug("%s: command=0x%02x offset=0x%02x %02x %02x",
+		 __func__,
+		 req->command,
+		 req->offset,
+		 req->payload.data[0],
+		 req->payload.data[1]);
+
+	/* REG_CBUS_PRI_ADDR_CMD = REQ CBUS CMD or OFFSET */
+	MHL_SII_REG_NAME_WR(REG_CBUS_PRI_ADDR_CMD, req->offset);
+	MHL_SII_REG_NAME_WR(REG_CBUS_PRI_WR_DATA_1ST,
+			    req->payload.data[0]);
+
+	switch (req->command) {
+	case MHL_SET_INT:
+	case MHL_WRITE_STAT:
+		start_bit = MSC_START_BIT_WRITE_REG;
+		break;
+	case MHL_READ_DEVCAP:
+		start_bit = MSC_START_BIT_READ_REG;
+		break;
+	case MHL_GET_STATE:
+	case MHL_GET_VENDOR_ID:
+	case MHL_SET_HPD:
+	case MHL_CLR_HPD:
+	case MHL_GET_SC1_ERRORCODE:
+	case MHL_GET_DDC_ERRORCODE:
+	case MHL_GET_MSC_ERRORCODE:
+	case MHL_GET_SC3_ERRORCODE:
+		start_bit = MSC_START_BIT_MSC_CMD;
+		MHL_SII_REG_NAME_WR(REG_CBUS_PRI_ADDR_CMD, req->command);
+		break;
+	case MHL_MSC_MSG:
+		start_bit = MSC_START_BIT_VS_CMD;
+		MHL_SII_REG_NAME_WR(REG_CBUS_PRI_WR_DATA_2ND,
+				    req->payload.data[1]);
+		MHL_SII_REG_NAME_WR(REG_CBUS_PRI_ADDR_CMD, req->command);
+		break;
+	case MHL_WRITE_BURST:
+		start_bit = MSC_START_BIT_WRITE_BURST;
+		MHL_SII_REG_NAME_WR(REG_MSC_WRITE_BURST_LEN, req->length - 1);
+		if (!(req->payload.burst_data)) {
+			pr_err("%s: burst data is null!\n", __func__);
+			goto cbus_send_fail;
+		}
+		burst_data = req->payload.burst_data;
+		for (i = 0; i < req->length; i++, burst_data++)
+			MHL_SII_CBUS_WR(0xC0 + i, *burst_data);
+		break;
+	default:
+		pr_err("%s: unknown command! (%02x)\n",
+		       __func__, req->command);
+		goto cbus_send_fail;
+	}
+
+	INIT_COMPLETION(mhl_ctrl->msc_cmd_done);
+	MHL_SII_REG_NAME_WR(REG_CBUS_PRI_START, start_bit);
+	timeout = wait_for_completion_interruptible_timeout
+		(&mhl_ctrl->msc_cmd_done, msecs_to_jiffies(T_ABORT_NEXT));
+	if (!timeout) {
+		pr_err("%s: cbus_command_send timed out!\n", __func__);
+		goto cbus_send_fail;
+	}
+
+	switch (req->command) {
+	case MHL_READ_DEVCAP:
+		req->retval = MHL_SII_REG_NAME_RD(REG_CBUS_PRI_RD_DATA_1ST);
+		break;
+	case MHL_MSC_MSG:
+		/* check if MSC_MSG NACKed */
+		if (MHL_SII_REG_NAME_RD(REG_MSC_WRITE_BURST_LEN) & BIT6)
+			return -EAGAIN;
+	default:
+		req->retval = 0;
+		break;
+	}
+	mhl_msc_command_done(mhl_ctrl, req);
+	pr_debug("%s: msc cmd done\n", __func__);
+	return 0;
+
+cbus_send_fail:
+	return -EFAULT;
+}
+
+static void mhl_cbus_isr(struct mhl_tx_ctrl *mhl_ctrl)
+{
+	uint8_t regval;
+	int req_done = 0;
+	uint8_t sub_cmd = 0x0;
+	uint8_t cmd_data = 0x0;
+	int msc_msg_recved = 0;
+	int rc = -1;
+	struct i2c_client *client = mhl_ctrl->i2c_handle;
+
+	regval = MHL_SII_REG_NAME_RD(REG_CBUS_INTR_STATUS);
+	if (regval == 0xff)
+		return;
+
+	if (regval)
+		MHL_SII_REG_NAME_WR(REG_CBUS_INTR_STATUS, regval);
+
+	pr_debug("%s: CBUS_INT = %02x\n", __func__, regval);
+
+	/* MSC_MSG (RCP/RAP) */
+	if (regval & BIT3) {
+		sub_cmd = MHL_SII_REG_NAME_RD(REG_CBUS_PRI_VS_CMD);
+		cmd_data = MHL_SII_REG_NAME_RD(REG_CBUS_PRI_VS_DATA);
+		msc_msg_recved = 1;
+	}
+	/* MSC_MT_ABRT/MSC_MR_ABRT/DDC_ABORT */
+	if (regval & (BIT6 | BIT5 | BIT2))
+		mhl_sii_cbus_process_errors(client, regval);
+
+	/* MSC_REQ_DONE */
+	if (regval & BIT4)
+		req_done = 1;
+
+	/* look for interrupts on CBUS_MSC_INT2 */
+	regval  = MHL_SII_REG_NAME_RD(REG_CBUS_MSC_INT2_STATUS);
+
+	/* clear all interrupts */
+	if (regval)
+		MHL_SII_REG_NAME_WR(REG_CBUS_MSC_INT2_STATUS, regval);
+
+	pr_debug("%s: CBUS_MSC_INT2 = %02x\n", __func__, regval);
+
+	/* received SET_INT */
+	if (regval & BIT2) {
+		uint8_t intr;
+		intr = MHL_SII_REG_NAME_RD(REG_CBUS_SET_INT_0);
+		MHL_SII_REG_NAME_WR(REG_CBUS_SET_INT_0, intr);
+		mhl_msc_recv_set_int(mhl_ctrl, 0, intr);
+
+		pr_debug("%s: MHL_INT_0 = %02x\n", __func__, intr);
+		intr = MHL_SII_REG_NAME_RD(REG_CBUS_SET_INT_1);
+		MHL_SII_REG_NAME_WR(REG_CBUS_SET_INT_1, intr);
+		mhl_msc_recv_set_int(mhl_ctrl, 1, intr);
+
+		pr_debug("%s: MHL_INT_1 = %02x\n", __func__, intr);
+		MHL_SII_REG_NAME_WR(REG_CBUS_SET_INT_2, 0xFF);
+		MHL_SII_REG_NAME_WR(REG_CBUS_SET_INT_3, 0xFF);
+	}
+
+	/* received WRITE_STAT */
+	if (regval & BIT3) {
+		uint8_t stat;
+		stat = MHL_SII_REG_NAME_RD(REG_CBUS_WRITE_STAT_0);
+		mhl_msc_recv_write_stat(mhl_ctrl, 0, stat);
+
+		pr_debug("%s: MHL_STATUS_0 = %02x\n", __func__, stat);
+		stat = MHL_SII_REG_NAME_RD(REG_CBUS_WRITE_STAT_1);
+		mhl_msc_recv_write_stat(mhl_ctrl, 1, stat);
+		pr_debug("%s: MHL_STATUS_1 = %02x\n", __func__, stat);
+
+		MHL_SII_REG_NAME_WR(REG_CBUS_WRITE_STAT_0, 0xFF);
+		MHL_SII_REG_NAME_WR(REG_CBUS_WRITE_STAT_1, 0xFF);
+		MHL_SII_REG_NAME_WR(REG_CBUS_WRITE_STAT_2, 0xFF);
+		MHL_SII_REG_NAME_WR(REG_CBUS_WRITE_STAT_3, 0xFF);
+	}
+
+	/* received MSC_MSG */
+	if (msc_msg_recved) {
+		/*mhl msc recv msc msg*/
+		rc = mhl_msc_recv_msc_msg(mhl_ctrl, sub_cmd, cmd_data);
+		if (rc)
+			pr_err("MHL: mhl msc recv msc msg failed(%d)!\n", rc);
+	}
+	/* complete last command */
+	if (req_done)
+		complete_all(&mhl_ctrl->msc_cmd_done);
+
 }
 
 static void clear_all_intrs(struct i2c_client *client)
@@ -1002,11 +1341,11 @@ static irqreturn_t mhl_tx_isr(int irq, void *data)
 		mhl_misc_isr(mhl_ctrl);
 
 		/*
-		 * Check for any peer messages for DCAP_CHG etc
+		 * Check for any peer messages for DCAP_CHG, MSC etc
 		 * Dispatch to have the CBUS module working only
 		 * once connected.
-		mhl_cbus_isr(mhl_ctrl);
 		 */
+		mhl_cbus_isr(mhl_ctrl);
 		mhl_hpd_stat_isr(mhl_ctrl);
 	}
 
@@ -1296,6 +1635,59 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	 * such tx specific
 	 */
 	mhl_ctrl->disc_enabled = false;
+	INIT_WORK(&mhl_ctrl->mhl_msc_send_work, mhl_msc_send_work);
+	mhl_ctrl->cur_state = POWER_STATE_D0_MHL;
+	INIT_LIST_HEAD(&mhl_ctrl->list_cmd);
+	init_completion(&mhl_ctrl->msc_cmd_done);
+	mhl_ctrl->msc_send_workqueue = create_singlethread_workqueue
+		("mhl_msc_cmd_queue");
+
+	mhl_ctrl->input = input_allocate_device();
+	if (mhl_ctrl->input) {
+		int i;
+		struct input_dev *input = mhl_ctrl->input;
+
+		mhl_ctrl->rcp_key_code_tbl = vmalloc(
+			ARRAY_SIZE(support_rcp_key_code_tbl));
+		if (!mhl_ctrl->rcp_key_code_tbl) {
+			pr_err("%s: no alloc mem for rcp keycode tbl\n",
+			       __func__);
+			return -ENOMEM;
+		}
+
+		memcpy(mhl_ctrl->rcp_key_code_tbl,
+		       &support_rcp_key_code_tbl[0],
+		       ARRAY_SIZE(support_rcp_key_code_tbl));
+		mhl_ctrl->rcp_key_code_tbl_len = ARRAY_SIZE(
+			support_rcp_key_code_tbl);
+
+		input->phys = "cbus/input0";
+		input->id.bustype = BUS_VIRTUAL;
+		input->id.vendor  = 0x1095;
+		input->id.product = 0x8334;
+		input->id.version = 0xA;
+
+		input->name = "mhl-rcp";
+
+		input->keycode = support_rcp_key_code_tbl;
+		input->keycodesize = sizeof(u16);
+		input->keycodemax = ARRAY_SIZE(support_rcp_key_code_tbl);
+
+		input->evbit[0] = EV_KEY;
+		for (i = 0; i < ARRAY_SIZE(support_rcp_key_code_tbl); i++) {
+			if (support_rcp_key_code_tbl[i] > 1)
+				input_set_capability(input, EV_KEY,
+					support_rcp_key_code_tbl[i]);
+		}
+
+		if (input_register_device(input) < 0) {
+			pr_warn("%s: failed to register input device\n",
+				__func__);
+			input_free_device(input);
+			mhl_ctrl->input = NULL;
+		}
+	}
+
 	rc = mhl_tx_chip_init(mhl_ctrl);
 	if (rc) {
 		pr_err("%s: tx chip init failed [%d]\n",
@@ -1315,7 +1707,7 @@ static int mhl_i2c_probe(struct i2c_client *client,
 				 client->dev.driver->name, mhl_ctrl);
 	if (rc) {
 		pr_err("request_threaded_irq failed, status: %d\n",
-			rc);
+		       rc);
 		goto failed_probe;
 	} else {
 		pr_debug("request_threaded_irq succeeded\n");
@@ -1353,6 +1745,8 @@ static int mhl_i2c_probe(struct i2c_client *client,
 		goto failed_probe;
 	}
 	mhl_ctrl->mhl_info = mhl_info;
+	mhl_register_msc(mhl_ctrl);
+	mhl_ctrl->tmds_enabled = check_tmds_enabled;
 	return 0;
 failed_probe:
 	mhl_gpio_config(mhl_ctrl, 0);

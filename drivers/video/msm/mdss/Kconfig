@@ -12,7 +12,7 @@ config FB_MSM_MDSS_HDMI_PANEL
 	The MDSS HDMI Panel provides support for transmitting TMDS signals of
 	MDSS frame buffer data to connected hdmi compliant TVs, monitors etc.
 
-config FB_MSM_MDSS_HDMI_MHL_8334
+config FB_MSM_MDSS_HDMI_MHL_SII8334
 	depends on FB_MSM_MDSS_HDMI_PANEL
 	bool 'MHL SII8334 support '
 	default n
