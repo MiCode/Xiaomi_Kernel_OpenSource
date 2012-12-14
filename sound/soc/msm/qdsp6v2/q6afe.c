@@ -21,7 +21,6 @@
 #include <linux/msm_ion.h>
 #include <sound/apr_audio-v2.h>
 #include <sound/q6afe-v2.h>
-
 #include <sound/q6audio-v2.h>
 
 #include "audio_acdb.h"
@@ -2017,6 +2016,175 @@ int afe_close(int port_id)
 		goto fail_cmd;
 	}
 fail_cmd:
+	return ret;
+}
+
+int afe_set_lpass_clock(u16 port_id, struct afe_clk_cfg *cfg)
+{
+	struct afe_lpass_clk_config_command clk_cfg;
+	int index = 0;
+	int ret = 0;
+
+	if (!cfg) {
+		pr_err("%s: clock cfg is NULL\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+	index = q6audio_get_port_index(port_id);
+	if (q6audio_is_digital_pcm_interface(port_id) < 0)
+		return -EINVAL;
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
+
+	clk_cfg.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	clk_cfg.hdr.pkt_size = sizeof(clk_cfg);
+	clk_cfg.hdr.src_port = 0;
+	clk_cfg.hdr.dest_port = 0;
+	clk_cfg.hdr.token = index;
+
+	clk_cfg.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	clk_cfg.param.port_id = q6audio_get_port_id(port_id);
+	clk_cfg.param.payload_size = sizeof(clk_cfg) - sizeof(struct apr_hdr)
+						- sizeof(clk_cfg.param);
+	clk_cfg.param.payload_address_lsw = 0x00;
+	clk_cfg.param.payload_address_msw = 0x00;
+	clk_cfg.param.mem_map_handle = 0x00;
+	clk_cfg.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	clk_cfg.pdata.param_id = AFE_PARAM_ID_LPAIF_CLK_CONFIG;
+	clk_cfg.pdata.param_size =  sizeof(clk_cfg.clk_cfg);
+	clk_cfg.clk_cfg = *cfg;
+
+	pr_debug("%s: Minor version =%x clk val1 = %d\n"
+		 "clk val2 = %d, clk src = %x\n"
+		 "clk root = %x clk mode = %x resrv = %x\n"
+		 "port id = %x\n",
+		 __func__, cfg->i2s_cfg_minor_version,
+		 cfg->clk_val1, cfg->clk_val2, cfg->clk_src,
+		 cfg->clk_root, cfg->clk_set_mode,
+		 cfg->reserved, q6audio_get_port_id(port_id));
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &clk_cfg);
+	if (ret < 0) {
+		pr_err("%s: AFE enable for port %d\n",
+		       __func__, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+			(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	return ret;
+}
+
+int afe_set_lpass_internal_digital_codec_clock(u16 port_id,
+			struct afe_digital_clk_cfg *cfg)
+{
+	struct afe_lpass_digital_clk_config_command clk_cfg;
+	int index = 0;
+	int ret = 0;
+
+	if (!cfg) {
+		pr_err("%s: clock cfg is NULL\n", __func__);
+		ret = -EINVAL;
+		return ret;
+	}
+	index = q6audio_get_port_index(port_id);
+	if (q6audio_is_digital_pcm_interface(port_id) < 0)
+		return -EINVAL;
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return ret;
+
+	clk_cfg.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	clk_cfg.hdr.pkt_size = sizeof(clk_cfg);
+	clk_cfg.hdr.src_port = 0;
+	clk_cfg.hdr.dest_port = 0;
+	clk_cfg.hdr.token = index;
+
+	clk_cfg.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	clk_cfg.param.port_id = q6audio_get_port_id(port_id);
+	clk_cfg.param.payload_size = sizeof(clk_cfg) - sizeof(struct apr_hdr)
+						- sizeof(clk_cfg.param);
+	clk_cfg.param.payload_address_lsw = 0x00;
+	clk_cfg.param.payload_address_msw = 0x00;
+	clk_cfg.param.mem_map_handle = 0x00;
+	clk_cfg.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	clk_cfg.pdata.param_id = AFE_PARAM_ID_INTERNAL_DIGIATL_CDC_CLK_CONFIG;
+	clk_cfg.pdata.param_size =  sizeof(clk_cfg.clk_cfg);
+	clk_cfg.clk_cfg = *cfg;
+
+	pr_debug("%s: Minor version =%x clk val = %d\n"
+		 "clk root = %x resrv = %x port id = %x\n",
+		 __func__, cfg->i2s_cfg_minor_version,
+		 cfg->clk_val, cfg->clk_root, cfg->reserved,
+		 q6audio_get_port_id(port_id));
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &clk_cfg);
+	if (ret < 0) {
+		pr_err("%s: AFE enable for port %d\n",
+		       __func__, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+			(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	return ret;
+}
+
+int q6afe_check_osr_clk_freq(u32 freq)
+{
+	int ret = 0;
+	switch (freq) {
+	case Q6AFE_LPASS_OSR_CLK_12_P288_MHZ:
+	case Q6AFE_LPASS_OSR_CLK_8_P192_MHZ:
+	case Q6AFE_LPASS_OSR_CLK_6_P144_MHZ:
+	case Q6AFE_LPASS_OSR_CLK_4_P096_MHZ:
+	case Q6AFE_LPASS_OSR_CLK_3_P072_MHZ:
+	case Q6AFE_LPASS_OSR_CLK_2_P048_MHZ:
+	case Q6AFE_LPASS_OSR_CLK_1_P536_MHZ:
+	case Q6AFE_LPASS_OSR_CLK_1_P024_MHZ:
+	case Q6AFE_LPASS_OSR_CLK_768_kHZ:
+	case Q6AFE_LPASS_OSR_CLK_512_kHZ:
+		break;
+	default:
+		ret = -EINVAL;
+	}
 	return ret;
 }
 
