@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,4 +155,9 @@ int afe_convert_virtual_to_portid(u16 port_id);
 
 int afe_pseudo_port_start_nowait(u16 port_id);
 int afe_pseudo_port_stop_nowait(u16 port_id);
+int afe_set_lpass_clock(u16 port_id, struct afe_clk_cfg *cfg);
+int afe_set_lpass_internal_digital_codec_clock(u16 port_id,
+				struct afe_digital_clk_cfg *cfg);
+int q6afe_check_osr_clk_freq(u32 freq);
+
 #endif /* __Q6AFE_V2_H__ */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -6368,5 +6368,136 @@ struct srs_trumedia_params {
 #define ADSP_ETERMINATED    0x00011174
 
 /*bharath, adsp_error_codes.h */
+
+/* LPASS clock for I2S Interface */
+
+/* Supported OSR clock values */
+#define Q6AFE_LPASS_OSR_CLK_12_P288_MHZ		0xBB8000
+#define Q6AFE_LPASS_OSR_CLK_8_P192_MHZ		0x7D0000
+#define Q6AFE_LPASS_OSR_CLK_6_P144_MHZ		0x5DC000
+#define Q6AFE_LPASS_OSR_CLK_4_P096_MHZ		0x3E8000
+#define Q6AFE_LPASS_OSR_CLK_3_P072_MHZ		0x2EE000
+#define Q6AFE_LPASS_OSR_CLK_2_P048_MHZ		0x1F4000
+#define Q6AFE_LPASS_OSR_CLK_1_P536_MHZ		0x177000
+#define Q6AFE_LPASS_OSR_CLK_1_P024_MHZ		 0xFA000
+#define Q6AFE_LPASS_OSR_CLK_768_kHZ		 0xBB800
+#define Q6AFE_LPASS_OSR_CLK_512_kHZ		 0x7D000
+#define Q6AFE_LPASS_OSR_CLK_DISABLE		     0x0
+
+/* Supported Bit clock values */
+#define Q6AFE_LPASS_IBIT_CLK_8_P192_MHZ		0x7D0000
+#define Q6AFE_LPASS_IBIT_CLK_6_P144_MHZ		0x5DC000
+#define Q6AFE_LPASS_IBIT_CLK_4_P096_MHZ		0x3E8000
+#define Q6AFE_LPASS_IBIT_CLK_3_P072_MHZ		0x2EE000
+#define Q6AFE_LPASS_IBIT_CLK_2_P048_MHZ		0x1F4000
+#define Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ		0x177000
+#define Q6AFE_LPASS_IBIT_CLK_1_P024_MHZ		 0xFA000
+#define Q6AFE_LPASS_IBIT_CLK_768_KHZ		 0xBB800
+#define Q6AFE_LPASS_IBIT_CLK_512_KHZ		 0x7D000
+#define Q6AFE_LPASS_IBIT_CLK_DISABLE		     0x0
+
+/* Supported LPASS CLK sources */
+#define Q6AFE_LPASS_CLK_SRC_EXTERNAL 0
+#define Q6AFE_LPASS_CLK_SRC_INTERNAL 1
+
+/* Supported LPASS CLK root*/
+#define Q6AFE_LPASS_CLK_ROOT_DEFAULT 0
+
+enum afe_lpass_clk_mode {
+	Q6AFE_LPASS_MODE_BOTH_INVALID,
+	Q6AFE_LPASS_MODE_CLK1_VALID,
+	Q6AFE_LPASS_MODE_CLK2_VALID,
+	Q6AFE_LPASS_MODE_BOTH_VALID,
+} __packed;
+
+struct afe_clk_cfg {
+/* Minor version used for tracking the version of the I2S
+ * configuration interface.
+ * Supported values: #AFE_API_VERSION_I2S_CONFIG
+ */
+	u32                  i2s_cfg_minor_version;
+
+/* clk value 1 in MHz. */
+	u32                  clk_val1;
+
+/* clk value 2 in MHz. */
+	u32                  clk_val2;
+
+/* clk_src
+ * #Q6AFE_LPASS_CLK_SRC_EXTERNAL
+ * #Q6AFE_LPASS_CLK_SRC_INTERNAL
+ */
+
+	u16                  clk_src;
+
+/* clk_root -0 for default */
+	u16                  clk_root;
+
+/* clk_set_mode
+ * #Q6AFE_LPASS_MODE_BOTH_INVALID
+ * #Q6AFE_LPASS_MODE_CLK1_VALID
+ * #Q6AFE_LPASS_MODE_CLK2_VALID
+ * #Q6AFE_LPASS_MODE_BOTH_VALID
+ */
+	u16                  clk_set_mode;
+
+/* This param id is used to configure I2S clk */
+	u16                  reserved;
+} __packed;
+
+/* This param id is used to configure I2S clk */
+#define AFE_PARAM_ID_LPAIF_CLK_CONFIG	0x00010238
+
+
+struct afe_lpass_clk_config_command {
+	struct apr_hdr			 hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2    pdata;
+	struct afe_clk_cfg clk_cfg;
+} __packed;
+
+enum afe_lpass_digital_clk_src {
+	Q6AFE_LPASS_DIGITAL_ROOT_INVALID,
+	Q6AFE_LPASS_DIGITAL_ROOT_PRI_MI2S_OSR,
+	Q6AFE_LPASS_DIGITAL_ROOT_SEC_MI2S_OSR,
+	Q6AFE_LPASS_DIGITAL_ROOT_TER_MI2S_OSR,
+	Q6AFE_LPASS_DIGITAL_ROOT_QUAD_MI2S_OSR,
+	Q6AFE_LPASS_DIGITAL_ROOT_CDC_ROOT_CLK,
+} __packed;
+
+/* This param id is used to configure internal clk */
+#define AFE_PARAM_ID_INTERNAL_DIGIATL_CDC_CLK_CONFIG	0x00010239
+
+struct afe_digital_clk_cfg {
+/* Minor version used for tracking the version of the I2S
+ * configuration interface.
+ * Supported values: #AFE_API_VERSION_I2S_CONFIG
+ */
+	u32                  i2s_cfg_minor_version;
+
+/* clk value in MHz. */
+	u32                  clk_val;
+
+/*	INVALID
+ *	PRI_MI2S_OSR
+ *	SEC_MI2S_OSR
+ *	TER_MI2S_OSR
+ *	QUAD_MI2S_OSR
+ *	DIGT_CDC_ROOT
+ */
+	u16                  clk_root;
+
+/* This field must be set to zero. */
+	u16                  reserved;
+} __packed;
+
+
+struct afe_lpass_digital_clk_config_command {
+	struct apr_hdr			 hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2    pdata;
+	struct afe_digital_clk_cfg clk_cfg;
+} __packed;
+
 
 #endif /*_APR_AUDIO_V2_H_ */

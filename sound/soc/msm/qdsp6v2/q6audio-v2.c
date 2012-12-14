@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,31 @@ int q6audio_convert_virtual_to_portid(u16 port_id)
 			ret = -EINVAL;
 	} else
 		ret = port_id;
+
+	return ret;
+}
+
+int q6audio_is_digital_pcm_interface(u16 port_id)
+{
+	int ret = 0;
+
+	switch (port_id) {
+	case PRIMARY_I2S_RX:
+	case PRIMARY_I2S_TX:
+	case PCM_RX:
+	case PCM_TX:
+	case SECONDARY_I2S_RX:
+	case SECONDARY_I2S_TX:
+	case MI2S_RX:
+	case MI2S_TX:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+		break;
+	default:
+		ret = -EINVAL;
+	}
 
 	return ret;
 }
