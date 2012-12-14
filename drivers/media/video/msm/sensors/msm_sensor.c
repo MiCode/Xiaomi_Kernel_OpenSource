@@ -164,7 +164,7 @@ void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 		s_ctrl->msm_sensor_reg->start_stream_conf,
 		s_ctrl->msm_sensor_reg->start_stream_conf_size,
 		s_ctrl->msm_sensor_reg->default_data_type);
-	msm_sensor_delay_frames(s_ctrl);
+	msleep(20);
 }
 
 void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
