@@ -668,6 +668,176 @@ static struct msm_gpiomux_config msm_taiko_config[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
+static struct gpiomux_setting sdc3_clk_actv_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting sdc3_cmd_data_0_3_actv_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting sdc3_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting sdc3_data_1_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config msm8974_sdc3_configs[] __initdata = {
+	{
+		/* DAT3 */
+		.gpio      = 35,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+	{
+		/* DAT2 */
+		.gpio      = 36,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+	{
+		/* DAT1 */
+		.gpio      = 37,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_data_1_suspend_cfg,
+		},
+	},
+	{
+		/* DAT0 */
+		.gpio      = 38,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+	{
+		/* CMD */
+		.gpio      = 39,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+	{
+		/* CLK */
+		.gpio      = 40,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc3_clk_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc3_suspend_cfg,
+		},
+	},
+};
+
+static void msm_gpiomux_sdc3_install(void)
+{
+	msm_gpiomux_install(msm8974_sdc3_configs,
+			    ARRAY_SIZE(msm8974_sdc3_configs));
+}
+#else
+static void msm_gpiomux_sdc3_install(void) {}
+#endif /* CONFIG_MMC_MSM_SDC3_SUPPORT */
+
+#ifdef CONFIG_MMC_MSM_SDC4_SUPPORT
+static struct gpiomux_setting sdc4_clk_actv_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting sdc4_cmd_data_0_3_actv_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting sdc4_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting sdc4_data_1_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config msm8974_sdc4_configs[] __initdata = {
+	{
+		/* DAT3 */
+		.gpio      = 92,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
+		},
+	},
+	{
+		/* DAT2 */
+		.gpio      = 94,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
+		},
+	},
+	{
+		/* DAT1 */
+		.gpio      = 95,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_data_1_suspend_cfg,
+		},
+	},
+	{
+		/* DAT0 */
+		.gpio      = 96,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
+		},
+	},
+	{
+		/* CMD */
+		.gpio      = 91,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc4_cmd_data_0_3_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
+		},
+	},
+	{
+		/* CLK */
+		.gpio      = 93,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &sdc4_clk_actv_cfg,
+			[GPIOMUX_SUSPENDED] = &sdc4_suspend_cfg,
+		},
+	},
+};
+
+static void msm_gpiomux_sdc4_install(void)
+{
+	msm_gpiomux_install(msm8974_sdc4_configs,
+			    ARRAY_SIZE(msm8974_sdc4_configs));
+}
+#else
+static void msm_gpiomux_sdc4_install(void) {}
+#endif /* CONFIG_MMC_MSM_SDC4_SUPPORT */
+
 void __init msm_8974_init_gpiomux(void)
 {
 	int rc;
@@ -693,6 +863,8 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
 
 	msm_gpiomux_install(&sd_card_det, 1);
+	msm_gpiomux_sdc3_install();
+	msm_gpiomux_sdc4_install();
 
 	msm_gpiomux_install(msm_taiko_config, ARRAY_SIZE(msm_taiko_config));
 
