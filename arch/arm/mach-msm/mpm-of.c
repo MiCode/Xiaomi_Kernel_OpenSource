@@ -179,6 +179,9 @@ static void msm_mpm_set(cycle_t wakeup, bool wakeset)
 
 		reg = MSM_MPM_REG_POLARITY;
 		msm_mpm_write(reg, i, msm_mpm_polarity[i]);
+
+		reg = MSM_MPM_REG_STATUS;
+		msm_mpm_write(reg, i, 0);
 	}
 
 	/*
