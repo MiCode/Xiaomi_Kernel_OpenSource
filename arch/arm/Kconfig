@@ -1808,7 +1808,7 @@ config AEABI
 config OABI_COMPAT
 	bool "Allow old ABI binaries to run with this kernel (EXPERIMENTAL)"
 	depends on AEABI && EXPERIMENTAL && !THUMB2_KERNEL
-	default y
+	default y if !SMP
 	help
 	  This option preserves the old syscall interface along with the
 	  new (ARM EABI) one. It also provides a compatibility layer to
