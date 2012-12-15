@@ -31,6 +31,7 @@
 
 #include "board-dt.h"
 #include "clock.h"
+#include "platsmp.h"
 
 static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "msm_serial_hsl.0", OFF),
@@ -117,4 +118,5 @@ DT_MACHINE_START(MSM8092_DT, "Qualcomm MSM 8092 (Flattened Device Tree)")
 	.dt_compat = mpq8092_dt_match,
 	.reserve = mpq8092_dt_reserve,
 	.init_very_early = mpq8092_early_memory,
+	.smp = &msm8974_smp_ops,
 MACHINE_END

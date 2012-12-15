@@ -41,6 +41,7 @@
 #include <mach/clk-provider.h>
 #include "board-dt.h"
 #include "clock.h"
+#include "platsmp.h"
 
 static struct memtype_reserve msm8910_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -113,5 +114,6 @@ DT_MACHINE_START(MSM8910_DT, "Qualcomm MSM 8910 (Flattened Device Tree)")
 	.dt_compat = msm8910_dt_match,
 	.restart = msm_restart,
 	.reserve = msm8910_reserve,
-	.init_very_early = msm8910_early_memory
+	.init_very_early = msm8910_early_memory,
+	.smp = &arm_smp_ops,
 MACHINE_END

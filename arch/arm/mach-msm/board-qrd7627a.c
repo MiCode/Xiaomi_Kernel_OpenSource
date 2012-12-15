@@ -62,6 +62,7 @@
 #include "pm-boot.h"
 #include "board-msm7x27a-regulator.h"
 #include "board-msm7627a.h"
+#include "platsmp.h"
 
 #define RESERVE_KERNEL_EBI1_SIZE	0x3A000
 #define MSM_RESERVE_AUDIO_SIZE	0x1F4000
@@ -1180,6 +1181,7 @@ MACHINE_START(MSM8625_EVB, "QRD MSM8625 EVB")
 	.timer		= &msm_timer,
 	.init_early	= qrd7627a_init_early,
 	.handle_irq	= gic_handle_irq,
+	.smp		= &msm8625_smp_ops,
 MACHINE_END
 MACHINE_START(MSM8625_QRD7, "QRD MSM8625 QRD7")
 	.atag_offset	= 0x100,
@@ -1190,6 +1192,7 @@ MACHINE_START(MSM8625_QRD7, "QRD MSM8625 QRD7")
 	.timer		= &msm_timer,
 	.init_early	= qrd7627a_init_early,
 	.handle_irq	= gic_handle_irq,
+	.smp		= &msm8625_smp_ops,
 MACHINE_END
 MACHINE_START(MSM8625_EVT, "QRD MSM8625 EVT")
 	.atag_offset	= 0x100,
@@ -1200,6 +1203,7 @@ MACHINE_START(MSM8625_EVT, "QRD MSM8625 EVT")
 	.timer		= &msm_timer,
 	.init_early	= qrd7627a_init_early,
 	.handle_irq	= gic_handle_irq,
+	.smp		= &msm8625_smp_ops,
 MACHINE_END
 MACHINE_START(QRD_SKUD_PRIME, "QRD MSM8625 SKUD PRIME")
 	.atag_offset	= 0x100,
@@ -1210,4 +1214,5 @@ MACHINE_START(QRD_SKUD_PRIME, "QRD MSM8625 SKUD PRIME")
 	.timer		= &msm_timer,
 	.init_early	= qrd7627a_init_early,
 	.handle_irq	= gic_handle_irq,
+	.smp		= &msm8625_smp_ops,
 MACHINE_END
