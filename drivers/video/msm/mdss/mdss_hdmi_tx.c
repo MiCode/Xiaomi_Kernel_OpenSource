@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -406,24 +406,23 @@ static struct attribute_group hdmi_tx_fs_attrs_group = {
 	.attrs = hdmi_tx_fs_attrs,
 };
 
-static int hdmi_tx_sysfs_create(struct hdmi_tx_ctrl *hdmi_ctrl)
+static int hdmi_tx_sysfs_create(struct hdmi_tx_ctrl *hdmi_ctrl,
+	struct fb_info *fbi)
 {
 	int rc;
-	struct mdss_panel_info *pinfo = NULL;
 
-	if (!hdmi_ctrl) {
+	if (!hdmi_ctrl || !fbi) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -ENODEV;
 	}
-	pinfo = &hdmi_ctrl->panel_data.panel_info;
 
-	rc = sysfs_create_group(&pinfo->fbi->dev->kobj,
+	rc = sysfs_create_group(&fbi->dev->kobj,
 		&hdmi_tx_fs_attrs_group);
 	if (rc) {
 		DEV_ERR("%s: failed, rc=%d\n", __func__, rc);
 		return rc;
 	}
-	hdmi_ctrl->kobj = &pinfo->fbi->dev->kobj;
+	hdmi_ctrl->kobj = &fbi->dev->kobj;
 	DEV_DBG("%s: sysfs group %p\n", __func__, hdmi_ctrl->kobj);
 
 	kobject_uevent(hdmi_ctrl->kobj, KOBJ_ADD);
@@ -2349,6 +2348,22 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		event, hdmi_ctrl->panel_suspend, hdmi_ctrl->hpd_feature_on);
 
 	switch (event) {
+	case MDSS_EVENT_FB_REGISTERED:
+		rc = hdmi_tx_sysfs_create(hdmi_ctrl, arg);
+		if (rc) {
+			DEV_ERR("%s: hdmi_tx_sysfs_create failed.rc=%d\n",
+					__func__, rc);
+			return rc;
+		}
+		rc = hdmi_tx_init_features(hdmi_ctrl);
+		if (rc) {
+			DEV_ERR("%s: init_features failed.rc=%d\n",
+					__func__, rc);
+			hdmi_tx_sysfs_remove(hdmi_ctrl);
+			return rc;
+		}
+		break;
+
 	case MDSS_EVENT_CHECK_PARAMS:
 		new_vic = hdmi_tx_get_vic_from_panel_info(hdmi_ctrl,
 			(struct mdss_panel_info *)arg);
@@ -3078,26 +3093,13 @@ static int __devinit hdmi_tx_probe(struct platform_device *pdev)
 		goto failed_reg_panel;
 	}
 
-	rc = hdmi_tx_sysfs_create(hdmi_ctrl);
-	if (rc) {
-		DEV_ERR("%s: hdmi_tx_sysfs_create failed.rc=%d\n",
-			__func__, rc);
-		goto failed_reg_panel;
-	}
-
-	rc = hdmi_tx_init_features(hdmi_ctrl);
-	if (rc) {
-		DEV_ERR("%s: init_features failed.rc=%d\n", __func__, rc);
-		goto failed_init_features;
-	}
-
 	rc = of_platform_populate(of_node, NULL, NULL, &pdev->dev);
 	if (rc) {
-		DEV_ERR("%s: failed to add child devices, rc=%d\n",
+		DEV_ERR("%s: Failed to add child devices. rc=%d\n",
 			__func__, rc);
 		goto failed_init_features;
 	} else {
-		DEV_DBG("%s: added child devices.\n", __func__);
+		DEV_DBG("%s: Add child devices.\n", __func__);
 	}
 
 	return rc;

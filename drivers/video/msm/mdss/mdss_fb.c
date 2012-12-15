@@ -87,7 +87,8 @@ static void mdss_fb_release_fences(struct msm_fb_data_type *mfd);
 
 static void mdss_fb_commit_wq_handler(struct work_struct *work);
 static void mdss_fb_pan_idle(struct msm_fb_data_type *mfd);
-
+static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
+					int event, void *arg);
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -284,6 +285,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	}
 
 	mdss_fb_create_sysfs(mfd);
+	mdss_fb_send_panel_event(mfd, MDSS_EVENT_FB_REGISTERED, fbi);
 
 	if (mfd->timeline == NULL) {
 		char timeline_name[16];
@@ -332,8 +334,8 @@ static int mdss_fb_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static inline int mdss_fb_send_panel_event(
-	struct msm_fb_data_type *mfd, int e, void *arg)
+static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
+					int event, void *arg)
 {
 	struct mdss_panel_data *pdata;
 
@@ -343,10 +345,10 @@ static inline int mdss_fb_send_panel_event(
 		return -ENODEV;
 	}
 
-	pr_debug("sending event=%d for fb%d\n", e, mfd->index);
+	pr_debug("sending event=%d for fb%d\n", event, mfd->index);
 
 	if (pdata->event_handler)
-		return pdata->event_handler(pdata, e, arg);
+		return pdata->event_handler(pdata, event, arg);
 
 	return 0;
 }
@@ -899,7 +901,6 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	fbi->flags = FBINFO_FLAG_DEFAULT;
 	fbi->pseudo_palette = mdss_fb_pseudo_palette;
 
-	panel_info->fbi = fbi;
 	mfd->ref_cnt = 0;
 	mfd->panel_power_on = false;
 
