@@ -212,9 +212,7 @@ static int mddi_off(struct platform_device *pdev)
 
 	if (mddi_pdata && mddi_pdata->mddi_power_save)
 		mddi_pdata->mddi_power_save(0);
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(0);
-#else
+#ifndef CONFIG_MSM_BUS_SCALING
 	if (mfd->ebi1_clk)
 		clk_disable_unprepare(mfd->ebi1_clk);
 #endif
@@ -275,9 +273,7 @@ static int mddi_on(struct platform_device *pdev)
 		printk(KERN_ERR "%s: clk_set_rate failed\n",
 			__func__);
 
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(2);
-#else
+#ifndef CONFIG_MSM_BUS_SCALING
 	if (mfd->ebi1_clk)
 		clk_prepare_enable(mfd->ebi1_clk);
 #endif
