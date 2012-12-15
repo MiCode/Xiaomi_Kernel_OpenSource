@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/err.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -23,6 +24,60 @@
 struct msm_hdmi_audio_codec_rx_data {
 	struct platform_device *hdmi_core_pdev;
 	struct msm_hdmi_audio_codec_ops hdmi_ops;
+};
+
+static int msm_hdmi_edid_ctl_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm_hdmi_audio_codec_rx_data *codec_data;
+	struct msm_hdmi_audio_edid_blk edid_blk;
+	int rc;
+
+	codec_data = snd_soc_codec_get_drvdata(codec);
+	rc = codec_data->hdmi_ops.get_audio_edid_blk(codec_data->hdmi_core_pdev,
+						     &edid_blk);
+	if (!IS_ERR_VALUE(rc)) {
+		uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+		uinfo->count = edid_blk.audio_data_blk_size +
+			       edid_blk.spk_alloc_data_blk_size;
+	}
+
+	return rc;
+}
+
+static int msm_hdmi_edid_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol) {
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm_hdmi_audio_codec_rx_data *codec_data;
+	struct msm_hdmi_audio_edid_blk edid_blk;
+	int rc;
+
+	codec_data = snd_soc_codec_get_drvdata(codec);
+	rc = codec_data->hdmi_ops.get_audio_edid_blk(codec_data->hdmi_core_pdev,
+						     &edid_blk);
+
+	if (!IS_ERR_VALUE(rc)) {
+		memcpy(ucontrol->value.bytes.data, edid_blk.audio_data_blk,
+		       edid_blk.audio_data_blk_size);
+		memcpy((ucontrol->value.bytes.data +
+		       edid_blk.audio_data_blk_size),
+		       edid_blk.spk_alloc_data_blk,
+		       edid_blk.spk_alloc_data_blk_size);
+	}
+
+	return rc;
+}
+
+static const struct snd_kcontrol_new msm_hdmi_codec_rx_controls[] = {
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ |
+			  SNDRV_CTL_ELEM_ACCESS_VOLATILE,
+		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
+		.name	= "HDMI EDID",
+		.info	= msm_hdmi_edid_ctl_info,
+		.get	= msm_hdmi_edid_get,
+	},
 };
 
 static int msm_hdmi_audio_codec_rx_dai_hw_params(
@@ -142,6 +197,8 @@ static struct snd_soc_dai_driver msm_hdmi_audio_codec_rx_dais[] = {
 static struct snd_soc_codec_driver msm_hdmi_audio_codec_rx_soc_driver = {
 	.probe = msm_hdmi_audio_codec_rx_probe,
 	.remove =  msm_hdmi_audio_codec_rx_remove,
+	.controls = msm_hdmi_codec_rx_controls,
+	.num_controls = ARRAY_SIZE(msm_hdmi_codec_rx_controls),
 };
 
 static int __devinit msm_hdmi_audio_codec_rx_plat_probe(
