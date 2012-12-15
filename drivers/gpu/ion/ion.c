@@ -1024,10 +1024,91 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	return client;
 }
 
+/**
+ * ion_mark_dangling_buffers_locked() - Mark dangling buffers
+ * @dev:	the ion device whose buffers will be searched
+ *
+ * Sets marked=1 for all known buffers associated with `dev' that no
+ * longer have a handle pointing to them. dev->lock should be held
+ * across a call to this function (and should only be unlocked after
+ * checking for marked buffers).
+ */
+static void ion_mark_dangling_buffers_locked(struct ion_device *dev)
+{
+	struct rb_node *n, *n2;
+	/* mark all buffers as 1 */
+	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
+		struct ion_buffer *buf = rb_entry(n, struct ion_buffer,
+						node);
+
+		buf->marked = 1;
+	}
+
+	/* now see which buffers we can access */
+	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
+		struct ion_client *client = rb_entry(n, struct ion_client,
+						node);
+
+		mutex_lock(&client->lock);
+		for (n2 = rb_first(&client->handles); n2; n2 = rb_next(n2)) {
+			struct ion_handle *handle
+				= rb_entry(n2, struct ion_handle, node);
+
+			handle->buffer->marked = 0;
+
+		}
+		mutex_unlock(&client->lock);
+
+	}
+}
+
+#ifdef CONFIG_ION_LEAK_CHECK
+static u32 ion_debug_check_leaks_on_destroy;
+
+static int ion_check_for_and_print_leaks(struct ion_device *dev)
+{
+	struct rb_node *n;
+	int num_leaks = 0;
+
+	if (!ion_debug_check_leaks_on_destroy)
+		return 0;
+
+	/* check for leaked buffers (those that no longer have a
+	 * handle pointing to them) */
+	ion_mark_dangling_buffers_locked(dev);
+
+	/* Anyone still marked as a 1 means a leaked handle somewhere */
+	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
+		struct ion_buffer *buf = rb_entry(n, struct ion_buffer,
+						node);
+
+		if (buf->marked == 1) {
+			pr_info("Leaked ion buffer at %p\n", buf);
+			num_leaks++;
+		}
+	}
+	return num_leaks;
+}
+static void setup_ion_leak_check(struct dentry *debug_root)
+{
+	debugfs_create_bool("check_leaks_on_destroy", 0664, debug_root,
+			&ion_debug_check_leaks_on_destroy);
+}
+#else
+static int ion_check_for_and_print_leaks(struct ion_device *dev)
+{
+	return 0;
+}
+static void setup_ion_leak_check(struct dentry *debug_root)
+{
+}
+#endif
+
 void ion_client_destroy(struct ion_client *client)
 {
 	struct ion_device *dev = client->dev;
 	struct rb_node *n;
+	int num_leaks;
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
 	while ((n = rb_first(&client->handles))) {
@@ -1040,7 +1121,20 @@ void ion_client_destroy(struct ion_client *client)
 		put_task_struct(client->task);
 	rb_erase(&client->node, &dev->clients);
 	debugfs_remove_recursive(client->debug_root);
+
+	num_leaks = ion_check_for_and_print_leaks(dev);
+
 	mutex_unlock(&dev->lock);
+
+	if (num_leaks) {
+		struct task_struct *current_task = current;
+		char current_task_name[TASK_COMM_LEN];
+		get_task_comm(current_task_name, current_task);
+		WARN(1, "%s: Detected %d leaked ion buffer%s.\n",
+			__func__, num_leaks, num_leaks == 1 ? "" : "s");
+		pr_info("task name at time of leak: %s, pid: %d\n",
+			current_task_name, current_task->pid);
+	}
 
 	kfree(client->name);
 	kfree(client);
@@ -1824,37 +1918,14 @@ static int ion_debug_leak_show(struct seq_file *s, void *unused)
 {
 	struct ion_device *dev = s->private;
 	struct rb_node *n;
-	struct rb_node *n2;
 
-	/* mark all buffers as 1 */
 	seq_printf(s, "%16.s %16.s %16.s %16.s\n", "buffer", "heap", "size",
 		"ref cnt");
+
 	mutex_lock(&dev->lock);
-	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
-		struct ion_buffer *buf = rb_entry(n, struct ion_buffer,
-						     node);
+	ion_mark_dangling_buffers_locked(dev);
 
-		buf->marked = 1;
-	}
-
-	/* now see which buffers we can access */
-	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
-		struct ion_client *client = rb_entry(n, struct ion_client,
-						     node);
-
-		mutex_lock(&client->lock);
-		for (n2 = rb_first(&client->handles); n2; n2 = rb_next(n2)) {
-			struct ion_handle *handle = rb_entry(n2,
-						struct ion_handle, node);
-
-			handle->buffer->marked = 0;
-
-		}
-		mutex_unlock(&client->lock);
-
-	}
-
-	/* And anyone still marked as a 1 means a leaked handle somewhere */
+	/* Anyone still marked as a 1 means a leaked handle somewhere */
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer *buf = rb_entry(n, struct ion_buffer,
 						     node);
@@ -1915,6 +1986,8 @@ struct ion_device *ion_device_create(long (*custom_ioctl)
 	idev->clients = RB_ROOT;
 	debugfs_create_file("check_leaked_fds", 0664, idev->debug_root, idev,
 			    &debug_leak_fops);
+
+	setup_ion_leak_check(idev->debug_root);
 	return idev;
 }
 

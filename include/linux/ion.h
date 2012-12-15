@@ -2,7 +2,7 @@
  * include/linux/ion.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -480,6 +480,10 @@ static inline int ion_unsecure_heap(struct ion_device *dev, int heap_id,
 					int version, void *data)
 {
 	return -ENODEV;
+}
+
+static inline void ion_mark_dangling_buffers_locked(struct ion_device *dev)
+{
 }
 
 static inline int msm_ion_do_cache_op(struct ion_client *client,
