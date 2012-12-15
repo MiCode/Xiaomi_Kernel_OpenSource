@@ -244,6 +244,8 @@
 
 		qcom,ext-spk-amp-supply = <&ext_5v>;
 		qcom,ext-spk-amp-gpio = <&pm8841_mpps 1 0>;
+
+		qcom,hdmi-audio-rx;
 	};
 
 	hsic_hub {

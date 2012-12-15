@@ -448,3 +448,6 @@ config SND_SOC_TPA6130A2
 
 config SND_SOC_MSM_STUB
 	tristate
+
+config SND_SOC_MSM_HDMI_CODEC_RX
+	tristate
