@@ -1363,6 +1363,19 @@ static int rmt_storage_reboot_call(
 {
 	int ret, count = 0;
 
+	/*
+	 * In recovery mode RMT daemon is not available,
+	 * so return from reboot notifier without initiating
+	 * force sync.
+	 */
+	spin_lock(&rmc->lock);
+	if (!rmc->open_excl) {
+		spin_unlock(&rmc->lock);
+		msm_rpc_unregister_client(rmt_srv->rpc_client);
+		return NOTIFY_DONE;
+	}
+
+	spin_unlock(&rmc->lock);
 	switch (code) {
 	case SYS_RESTART:
 	case SYS_HALT:
