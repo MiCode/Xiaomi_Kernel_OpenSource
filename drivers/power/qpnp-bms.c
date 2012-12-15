@@ -2023,53 +2023,48 @@ static int32_t read_battery_id(struct qpnp_bms_chip *chip)
 static int set_battery_data(struct qpnp_bms_chip *chip)
 {
 	int64_t battery_id;
+	struct bms_battery_data *batt_data;
 
-	if (chip->batt_type == BATT_DESAY)
-		goto desay;
-	else if (chip->batt_type == BATT_PALLADIUM)
-		goto palladium;
-
-	battery_id = read_battery_id(chip);
-	if (battery_id < 0) {
-		pr_err("cannot read battery id err = %lld\n", battery_id);
-		return battery_id;
-	}
-
-	if (is_between(PALLADIUM_ID_MIN, PALLADIUM_ID_MAX, battery_id)) {
-		goto palladium;
-	} else if (is_between(DESAY_5200_ID_MIN, DESAY_5200_ID_MAX,
-				battery_id)) {
-		goto desay;
+	if (chip->batt_type == BATT_DESAY) {
+		batt_data = &desay_5200_data;
+	} else if (chip->batt_type == BATT_PALLADIUM) {
+		batt_data = &palladium_1500_data;
+	} else if (chip->batt_type == BATT_OEM) {
+		batt_data = &oem_batt_data;
 	} else {
-		pr_warn("invalid battid, palladium 1500 assumed batt_id %llx\n",
-				battery_id);
-		goto palladium;
+		battery_id = read_battery_id(chip);
+		if (battery_id < 0) {
+			pr_err("cannot read battery id err = %lld\n",
+							battery_id);
+			return battery_id;
+		}
+
+		if (is_between(PALLADIUM_ID_MIN, PALLADIUM_ID_MAX,
+							battery_id)) {
+			batt_data = &palladium_1500_data;
+		} else if (is_between(DESAY_5200_ID_MIN, DESAY_5200_ID_MAX,
+					battery_id)) {
+			batt_data = &desay_5200_data;
+		} else {
+			pr_warn("invalid battid, palladium 1500 assumed batt_id %llx\n",
+					battery_id);
+			batt_data = &palladium_1500_data;
+		}
 	}
 
-palladium:
-		chip->fcc = palladium_1500_data.fcc;
-		chip->fcc_temp_lut = palladium_1500_data.fcc_temp_lut;
-		chip->fcc_sf_lut = palladium_1500_data.fcc_sf_lut;
-		chip->pc_temp_ocv_lut = palladium_1500_data.pc_temp_ocv_lut;
-		chip->pc_sf_lut = palladium_1500_data.pc_sf_lut;
-		chip->rbatt_sf_lut = palladium_1500_data.rbatt_sf_lut;
-		chip->default_rbatt_mohm
-				= palladium_1500_data.default_rbatt_mohm;
-		goto check_lut;
-desay:
-		chip->fcc = desay_5200_data.fcc;
-		chip->fcc_temp_lut = desay_5200_data.fcc_temp_lut;
-		chip->pc_temp_ocv_lut = desay_5200_data.pc_temp_ocv_lut;
-		chip->pc_sf_lut = desay_5200_data.pc_sf_lut;
-		chip->rbatt_sf_lut = desay_5200_data.rbatt_sf_lut;
-		chip->default_rbatt_mohm = desay_5200_data.default_rbatt_mohm;
-		goto check_lut;
-check_lut:
-		if (chip->pc_temp_ocv_lut == NULL) {
-			pr_err("temp ocv lut table is NULL\n");
-			return -EINVAL;
-		}
-		return 0;
+	chip->fcc = batt_data->fcc;
+	chip->fcc_temp_lut = batt_data->fcc_temp_lut;
+	chip->fcc_sf_lut = batt_data->fcc_sf_lut;
+	chip->pc_temp_ocv_lut = batt_data->pc_temp_ocv_lut;
+	chip->pc_sf_lut = batt_data->pc_sf_lut;
+	chip->rbatt_sf_lut = batt_data->rbatt_sf_lut;
+	chip->default_rbatt_mohm = batt_data->default_rbatt_mohm;
+
+	if (chip->pc_temp_ocv_lut == NULL) {
+		pr_err("temp ocv lut table is NULL\n");
+		return -EINVAL;
+	}
+	return 0;
 }
 
 #define SPMI_PROP_READ(chip_prop, qpnp_spmi_property, retval)		\
