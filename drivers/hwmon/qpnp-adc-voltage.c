@@ -170,6 +170,58 @@ static int32_t qpnp_vadc_enable(bool state)
 	return 0;
 }
 
+static int32_t qpnp_vadc_status_debug(void)
+{
+	int rc = 0;
+	u8 mode = 0, status1 = 0, chan = 0, dig = 0, en = 0, status2 = 0;
+
+	rc = qpnp_vadc_read_reg(QPNP_VADC_MODE_CTL, &mode);
+	if (rc < 0) {
+		pr_err("mode ctl register read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_vadc_read_reg(QPNP_VADC_ADC_DIG_PARAM, &dig);
+	if (rc < 0) {
+		pr_err("digital param read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_vadc_read_reg(QPNP_VADC_ADC_CH_SEL_CTL, &chan);
+	if (rc < 0) {
+		pr_err("channel read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_vadc_read_reg(QPNP_VADC_STATUS1, &status1);
+	if (rc < 0) {
+		pr_err("status1 read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_vadc_read_reg(QPNP_VADC_STATUS2, &status2);
+	if (rc < 0) {
+		pr_err("status2 read failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_vadc_read_reg(QPNP_VADC_EN_CTL1, &en);
+	if (rc < 0) {
+		pr_err("en read failed with %d\n", rc);
+		return rc;
+	}
+
+	pr_err("EOC not set - status1/2:%x/%x, dig:%x, ch:%x, mode:%x, en:%x\n",
+			status1, status2, dig, chan, mode, en);
+
+	rc = qpnp_vadc_enable(false);
+	if (rc < 0) {
+		pr_err("VADC disable failed with %d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
 static int32_t qpnp_vadc_configure(
 			struct qpnp_adc_amux_properties *chan_prop)
 {
@@ -626,7 +678,9 @@ int32_t qpnp_vadc_conv_seq_request(enum qpnp_vadc_trigger trigger_channel,
 		if (status1 == QPNP_VADC_STATUS1_EOC)
 			pr_debug("End of conversion status set\n");
 		else {
-			pr_err("EOC interrupt not received\n");
+			rc = qpnp_vadc_status_debug();
+			if (rc < 0)
+				pr_err("VADC disable failed\n");
 			rc = -EINVAL;
 			goto fail_unlock;
 		}
