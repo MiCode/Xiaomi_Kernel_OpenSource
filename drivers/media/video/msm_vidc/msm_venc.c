@@ -1574,12 +1574,10 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	if (a->parm.output.timeperframe.denominator) {
 		switch (a->type) {
 		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-			us_per_frame = a->parm.output.timeperframe.numerator/
-				a->parm.output.timeperframe.denominator;
-			break;
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-			us_per_frame = a->parm.capture.timeperframe.numerator/
-				a->parm.capture.timeperframe.denominator;
+			us_per_frame = a->parm.output.timeperframe.numerator *
+				USEC_PER_SEC / a->parm.output.\
+				timeperframe.denominator;
 			break;
 		default:
 			dprintk(VIDC_ERR,
