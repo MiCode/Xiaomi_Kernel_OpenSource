@@ -59,7 +59,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq);
  * Background operations can take a long time, depending on the housekeeping
  * operations the card has to perform.
  */
-#define MMC_BKOPS_MAX_TIMEOUT	(4 * 60 * 1000) /* max time to wait in ms */
+#define MMC_BKOPS_MAX_TIMEOUT	(30 * 1000) /* max time to wait in ms */
 
 static struct workqueue_struct *workqueue;
 static struct wake_lock mmc_delayed_work_wake_lock;
