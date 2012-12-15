@@ -171,6 +171,48 @@ static int32_t qpnp_iadc_write_reg(uint32_t reg, u8 data)
 	return 0;
 }
 
+static void trigger_iadc_completion(struct work_struct *work)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+
+	complete(&iadc->adc->adc_rslt_completion);
+
+	return;
+}
+DECLARE_WORK(trigger_iadc_completion_work, trigger_iadc_completion);
+
+static irqreturn_t qpnp_iadc_isr(int irq, void *dev_id)
+{
+	schedule_work(&trigger_iadc_completion_work);
+
+	return IRQ_HANDLED;
+}
+
+static int32_t qpnp_iadc_enable(bool state)
+{
+	int rc = 0;
+	u8 data = 0;
+
+	data = QPNP_IADC_ADC_EN;
+	if (state) {
+		rc = qpnp_iadc_write_reg(QPNP_IADC_EN_CTL1,
+					data);
+		if (rc < 0) {
+			pr_err("IADC enable failed\n");
+			return rc;
+		}
+	} else {
+		rc = qpnp_iadc_write_reg(QPNP_IADC_EN_CTL1,
+					(~data & QPNP_IADC_ADC_EN));
+		if (rc < 0) {
+			pr_err("IADC disable failed\n");
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 static int32_t qpnp_iadc_status_debug(void)
 {
 	int rc = 0;
@@ -209,46 +251,10 @@ static int32_t qpnp_iadc_status_debug(void)
 	pr_err("EOC not set with status:%x, dig:%x, ch:%x, mode:%x, en:%x\n",
 			status1, dig, chan, mode, en);
 
-	return 0;
-}
-
-static void trigger_iadc_completion(struct work_struct *work)
-{
-	struct qpnp_iadc_drv *iadc = qpnp_iadc;
-
-	complete(&iadc->adc->adc_rslt_completion);
-
-	return;
-}
-DECLARE_WORK(trigger_iadc_completion_work, trigger_iadc_completion);
-
-static irqreturn_t qpnp_iadc_isr(int irq, void *dev_id)
-{
-	schedule_work(&trigger_iadc_completion_work);
-
-	return IRQ_HANDLED;
-}
-
-static int32_t qpnp_iadc_enable(bool state)
-{
-	int rc = 0;
-	u8 data = 0;
-
-	data = QPNP_IADC_ADC_EN;
-	if (state) {
-		rc = qpnp_iadc_write_reg(QPNP_IADC_EN_CTL1,
-					data);
-		if (rc < 0) {
-			pr_err("IADC enable failed\n");
-			return rc;
-		}
-	} else {
-		rc = qpnp_iadc_write_reg(QPNP_IADC_EN_CTL1,
-					(~data & QPNP_IADC_ADC_EN));
-		if (rc < 0) {
-			pr_err("IADC disable failed\n");
-			return rc;
-		}
+	rc = qpnp_iadc_enable(false);
+	if (rc < 0) {
+		pr_err("IADC disable failed with %d\n", rc);
+		return rc;
 	}
 
 	return 0;
