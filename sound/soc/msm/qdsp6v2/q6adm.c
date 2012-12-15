@@ -734,8 +734,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 			open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
 			open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
 			open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
-			open.dev_channel_mapping[6] = PCM_CHANNEL_FLC;
-			open.dev_channel_mapping[7] = PCM_CHANNEL_FRC;
+			open.dev_channel_mapping[6] = PCM_CHANNEL_RLC;
+			open.dev_channel_mapping[7] = PCM_CHANNEL_RRC;
 		} else {
 			pr_err("%s invalid num_chan %d\n", __func__,
 					channel_mode);
