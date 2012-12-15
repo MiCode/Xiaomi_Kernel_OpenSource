@@ -124,6 +124,7 @@ struct restart_log {
  * @id: ida
  * @restart_order: order of other devices this devices restarts with
  * @dentry: debugfs directory for this device
+ * @do_ramdump_on_put: ramdump on subsystem_put() if true
  */
 struct subsys_device {
 	struct subsys_desc *desc;
@@ -142,6 +143,7 @@ struct subsys_device {
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
 #endif
+	bool do_ramdump_on_put;
 };
 
 static struct subsys_device *to_subsys(struct device *d)
@@ -427,6 +429,7 @@ static void subsystem_ramdump(struct subsys_device *dev, void *data)
 	if (dev->desc->ramdump)
 		if (dev->desc->ramdump(enable_ramdumps, dev->desc) < 0)
 			pr_warn("%s[%p]: Ramdump failed.\n", name, current);
+	dev->do_ramdump_on_put = false;
 }
 
 static void subsystem_powerup(struct subsys_device *dev, void *data)
@@ -561,8 +564,11 @@ void subsystem_put(void *subsystem)
 	if (WARN(!subsys->count, "%s: %s: Reference count mismatch\n",
 			subsys->desc->name, __func__))
 		goto err_out;
-	if (!--subsys->count)
+	if (!--subsys->count) {
 		subsys_stop(subsys);
+		if (subsys->do_ramdump_on_put)
+			subsystem_ramdump(subsys, NULL);
+	}
 	mutex_unlock(&track->lock);
 
 	subsys_d = find_subsys(subsys->desc->depends_on);
@@ -732,6 +738,33 @@ int subsystem_restart(const char *name)
 	return ret;
 }
 EXPORT_SYMBOL(subsystem_restart);
+
+int subsystem_crashed(const char *name)
+{
+	struct subsys_device *dev = find_subsys(name);
+	struct subsys_tracking *track;
+
+	if (!dev)
+		return -ENODEV;
+
+	if (!get_device(&dev->dev))
+		return -ENODEV;
+
+	track = subsys_get_track(dev);
+
+	mutex_lock(&track->lock);
+	dev->do_ramdump_on_put = true;
+	/*
+	 * TODO: Make this work with multiple consumers where one is calling
+	 * subsystem_restart() and another is calling this function. To do
+	 * so would require updating private state, etc.
+	 */
+	mutex_unlock(&track->lock);
+
+	put_device(&dev->dev);
+	return 0;
+}
+EXPORT_SYMBOL(subsystem_crashed);
 
 #ifdef CONFIG_DEBUG_FS
 static ssize_t subsys_debugfs_read(struct file *filp, char __user *ubuf,
