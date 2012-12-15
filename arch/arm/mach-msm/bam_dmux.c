@@ -269,6 +269,8 @@ static DEFINE_MUTEX(smsm_cb_lock);
 static DEFINE_MUTEX(delayed_ul_vote_lock);
 static int need_delayed_ul_vote;
 static int power_management_only_mode;
+static int in_ssr;
+static int ssr_skipped_disconnect;
 
 struct outside_notify_func {
 	void (*notify)(void *, int, unsigned long);
@@ -1819,12 +1821,17 @@ static void reconnect_to_bam(void)
 	int i;
 
 	in_global_reset = 0;
+	in_ssr = 0;
 	vote_dfab();
 	if (!power_management_only_mode) {
-		sps_disconnect(bam_tx_pipe);
-		sps_disconnect(bam_rx_pipe);
-		__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
-		__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+		if (ssr_skipped_disconnect) {
+			/* delayed to here to prevent bus stall */
+			sps_disconnect(bam_tx_pipe);
+			sps_disconnect(bam_rx_pipe);
+			__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
+			__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+		}
+		ssr_skipped_disconnect = 0;
 		i = sps_device_reset(a2_device_handle);
 		if (i)
 			pr_err("%s: device reset failed rc = %d\n", __func__,
@@ -1877,6 +1884,19 @@ static void disconnect_to_bam(void)
 
 	/* tear down BAM connection */
 	INIT_COMPLETION(bam_connection_completion);
+
+	/* in_ssr documentation/assumptions found in restart_notifier_cb */
+	if (!power_management_only_mode) {
+		if (likely(!in_ssr)) {
+			sps_disconnect(bam_tx_pipe);
+			sps_disconnect(bam_rx_pipe);
+			__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
+			__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+			sps_device_reset(a2_device_handle);
+		} else {
+			ssr_skipped_disconnect = 1;
+		}
+	}
 	unvote_dfab();
 
 	mutex_lock(&bam_rx_pool_mutexlock);
@@ -1986,6 +2006,21 @@ static int restart_notifier_cb(struct notifier_block *this,
 	int temp_remote_status;
 	unsigned long flags;
 
+	/*
+	 * Bam_dmux counts on the fact that the BEFORE_SHUTDOWN level of
+	 * notifications are guarenteed to execute before the AFTER_SHUTDOWN
+	 * level of notifications, and that BEFORE_SHUTDOWN always occurs in
+	 * all SSR events, no matter what triggered the SSR.  Also, bam_dmux
+	 * assumes that SMD does its SSR processing in the AFTER_SHUTDOWN level
+	 * thus bam_dmux is guarenteed to detect SSR before SMD, since the
+	 * callbacks for all the drivers within the AFTER_SHUTDOWN level could
+	 * occur in any order.  Bam_dmux uses this knowledge to skip accessing
+	 * the bam hardware when disconnect_to_bam() is triggered by SMD's SSR
+	 * processing.  We do not wat to access the bam hardware during SSR
+	 * because a watchdog crash from a bus stall would likely occur.
+	 */
+	if (code == SUBSYS_BEFORE_SHUTDOWN)
+		in_ssr = 1;
 	if (code != SUBSYS_AFTER_SHUTDOWN)
 		return NOTIFY_DONE;
 
