@@ -31,11 +31,10 @@
 
 struct hdmi_hdcp_ctrl {
 	enum hdmi_hdcp_state hdcp_state;
-	struct work_struct hdcp_auth_work;
+	struct delayed_work hdcp_auth_work;
 	struct work_struct hdcp_int_work;
 	struct completion r0_checked;
 	struct hdmi_hdcp_init_data init_data;
-	struct timer_list hdcp_timer;
 };
 
 const char *hdcp_state_name(enum hdmi_hdcp_state hdcp_state)
@@ -827,25 +826,6 @@ error:
 	return rc;
 } /* hdmi_hdcp_authentication_part2 */
 
-static void hdmi_hdcp_timer(unsigned long data)
-{
-	struct hdmi_hdcp_ctrl *hdcp_ctrl = (struct hdmi_hdcp_ctrl *)data;
-
-	if (!hdcp_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return;
-	}
-
-	if (HDCP_STATE_AUTHENTICATING == hdcp_ctrl->hdcp_state) {
-		DEV_DBG("%s: %s: Queuing work to start HDCP authentication",
-			__func__, HDCP_STATE_NAME);
-		queue_work(hdcp_ctrl->init_data.workq,
-			&hdcp_ctrl->hdcp_auth_work);
-	} else {
-		DEV_DBG("%s: %s: Invalid state\n", __func__, HDCP_STATE_NAME);
-	}
-} /* hdmi_hdcp_timer */
-
 static void hdmi_hdcp_int_work(struct work_struct *work)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = container_of(work,
@@ -870,7 +850,8 @@ static void hdmi_hdcp_int_work(struct work_struct *work)
 static void hdmi_hdcp_auth_work(struct work_struct *work)
 {
 	int rc;
-	struct hdmi_hdcp_ctrl *hdcp_ctrl = container_of(work,
+	struct delayed_work *dw = to_delayed_work(work);
+	struct hdmi_hdcp_ctrl *hdcp_ctrl = container_of(dw,
 		struct hdmi_hdcp_ctrl, hdcp_auth_work);
 
 	if (!hdcp_ctrl) {
@@ -949,7 +930,8 @@ int hdmi_hdcp_authenticate(void *input)
 	mutex_lock(hdcp_ctrl->init_data.mutex);
 	hdcp_ctrl->hdcp_state = HDCP_STATE_AUTHENTICATING;
 	mutex_unlock(hdcp_ctrl->init_data.mutex);
-	queue_work(hdcp_ctrl->init_data.workq, &hdcp_ctrl->hdcp_auth_work);
+	queue_delayed_work(hdcp_ctrl->init_data.workq,
+		&hdcp_ctrl->hdcp_auth_work, 0);
 
 	return 0;
 } /* hdmi_hdcp_authenticate */
@@ -996,12 +978,13 @@ int hdmi_hdcp_reauthenticate(void *input)
 		HDMI_HPD_CTRL) | BIT(28));
 
 	/* Restart authentication attempt */
-	DEV_DBG("%s: %s: Scheduling timer to start HDCP authentication",
+	DEV_DBG("%s: %s: Scheduling work to start HDCP authentication",
 		__func__, HDCP_STATE_NAME);
 	mutex_lock(hdcp_ctrl->init_data.mutex);
 	hdcp_ctrl->hdcp_state = HDCP_STATE_AUTHENTICATING;
 	mutex_unlock(hdcp_ctrl->init_data.mutex);
-	mod_timer(&hdcp_ctrl->hdcp_timer, jiffies + HZ/2);
+	queue_delayed_work(hdcp_ctrl->init_data.workq,
+		&hdcp_ctrl->hdcp_auth_work, HZ/2);
 
 	return 0;
 } /* hdmi_hdcp_reauthenticate */
@@ -1042,11 +1025,7 @@ void hdmi_hdcp_off(void *input)
 	 * No more reauthentiaction attempts will be scheduled since we
 	 * set the currect state to inactive.
 	 */
-	rc = del_timer_sync(&hdcp_ctrl->hdcp_timer);
-	if (rc)
-		DEV_DBG("%s: %s: Deleted hdcp reauth timer\n", __func__,
-			HDCP_STATE_NAME);
-	rc = cancel_work_sync(&hdcp_ctrl->hdcp_auth_work);
+	rc = cancel_delayed_work_sync(&hdcp_ctrl->hdcp_auth_work);
 	if (rc)
 		DEV_DBG("%s: %s: Deleted hdcp auth work\n", __func__,
 			HDCP_STATE_NAME);
@@ -1138,7 +1117,6 @@ void hdmi_hdcp_deinit(void *input)
 		return;
 	}
 
-	del_timer_sync(&hdcp_ctrl->hdcp_timer);
 	kfree(hdcp_ctrl);
 } /* hdmi_hdcp_deinit */
 
@@ -1162,13 +1140,8 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 
 	hdcp_ctrl->init_data = *init_data;
 
-	INIT_WORK(&hdcp_ctrl->hdcp_auth_work, hdmi_hdcp_auth_work);
+	INIT_DELAYED_WORK(&hdcp_ctrl->hdcp_auth_work, hdmi_hdcp_auth_work);
 	INIT_WORK(&hdcp_ctrl->hdcp_int_work, hdmi_hdcp_int_work);
-
-	init_timer(&hdcp_ctrl->hdcp_timer);
-	hdcp_ctrl->hdcp_timer.function = hdmi_hdcp_timer;
-	hdcp_ctrl->hdcp_timer.data = (u32)hdcp_ctrl;
-	hdcp_ctrl->hdcp_timer.expires = 0xffffffffL;
 
 	hdcp_ctrl->hdcp_state = HDCP_STATE_INACTIVE;
 	init_completion(&hdcp_ctrl->r0_checked);
