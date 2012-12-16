@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,7 +95,7 @@ void msm_gemini_hw_write(struct msm_gemini_hw_cmd *hw_cmd_p);
 int msm_gemini_hw_wait(struct msm_gemini_hw_cmd *hw_cmd_p, int m_us);
 void msm_gemini_hw_delay(struct msm_gemini_hw_cmd *hw_cmd_p, int m_us);
 int msm_gemini_hw_exec_cmds(struct msm_gemini_hw_cmd *hw_cmd_p, int m_cmds);
-void msm_gemini_hw_region_dump(int size);
+void msm_gemini_io_dump(int size);
 
 #define MSM_GEMINI_PIPELINE_CLK_128MHZ 128 /* 8MP  128MHz */
 #define MSM_GEMINI_PIPELINE_CLK_140MHZ 140 /* 9MP  140MHz */

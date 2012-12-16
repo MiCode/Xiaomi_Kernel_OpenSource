@@ -51,10 +51,19 @@
 #define MSM_GMN_IOCTL_TEST_DUMP_REGION \
 	_IOW(MSM_GMN_IOCTL_MAGIC, 15, unsigned long)
 
+#define MSM_GMN_IOCTL_SET_MODE \
+	_IOW(MSM_GMN_IOCTL_MAGIC, 16, enum msm_gmn_out_mode)
+
 #define MSM_GEMINI_MODE_REALTIME_ENCODE 0
 #define MSM_GEMINI_MODE_OFFLINE_ENCODE 1
 #define MSM_GEMINI_MODE_REALTIME_ROTATION 2
 #define MSM_GEMINI_MODE_OFFLINE_ROTATION 3
+
+enum msm_gmn_out_mode {
+	MSM_GMN_OUTMODE_FRAGMENTED,
+	MSM_GMN_OUTMODE_SINGLE
+};
+
 struct msm_gemini_ctrl_cmd {
 	uint32_t type;
 	uint32_t len;

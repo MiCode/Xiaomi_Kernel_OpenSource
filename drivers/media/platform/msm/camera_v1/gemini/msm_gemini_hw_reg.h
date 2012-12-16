@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010, 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,6 +171,6 @@
 #define HWIO_JPEG_IRQ_STATUS_RMSK 0xffffffff
 
 #define HWIO_JPEG_STATUS_ENCODE_OUTPUT_SIZE_ADDR (GEMINI_REG_BASE + 0x00000034)
-#define HWIO_JPEG_STATUS_ENCODE_OUTPUT_SIZE_RMSK 0xffffff
+#define HWIO_JPEG_STATUS_ENCODE_OUTPUT_SIZE_RMSK 0xffffffff
 
 #endif /* MSM_GEMINI_HW_REG_H */
