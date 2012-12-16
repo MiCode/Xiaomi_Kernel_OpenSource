@@ -480,7 +480,7 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 	mpq_demux->hw_notification_count = 0;
 	mpq_demux->hw_notification_interval = 0;
 	mpq_demux->hw_notification_size = 0;
-	mpq_demux->decoder_tsp_drop_count = 0;
+	mpq_demux->decoder_drop_count = 0;
 	mpq_demux->hw_notification_min_size = 0xFFFFFFFF;
 
 	if (mpq_demux->demux.dmx.debugfs_demux_dir != NULL) {
@@ -515,10 +515,10 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 			&mpq_demux->hw_notification_min_size);
 
 		debugfs_create_u32(
-			"decoder_tsp_drop_count",
+			"decoder_drop_count",
 			S_IRUGO|S_IWUGO,
 			mpq_demux->demux.dmx.debugfs_demux_dir,
-			&mpq_demux->decoder_tsp_drop_count);
+			&mpq_demux->decoder_drop_count);
 	}
 }
 EXPORT_SYMBOL(mpq_dmx_init_hw_statistics);
@@ -1274,7 +1274,10 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 	feed->pusi_seen = 0;
 	feed->peslen = 0;
 	feed_data->fullness_wait_cancel = 0;
-	feed_data->last_framing_match_address = 0;
+	mpq_streambuffer_get_data_rw_offset(feed_data->video_buffer, NULL,
+		&feed_data->frame_offset);
+	feed_data->last_pattern_offset = 0;
+	feed_data->pending_pattern_len = 0;
 	feed_data->last_framing_match_type = DMX_FRM_UNKNOWN;
 	feed_data->found_sequence_header_pattern = 0;
 	memset(&feed_data->prefix_size, 0,
@@ -1780,11 +1783,16 @@ static int mpq_dmx_process_video_packet_framing(
 	struct mpq_demux *mpq_demux;
 
 	struct mpq_framing_pattern_lookup_results framing_res;
+	struct mpq_streambuffer_packet_header packet;
+	struct mpq_adapter_video_meta_data meta_data;
+	int bytes_written = 0;
+	int bytes_to_write = 0;
 	int found_patterns = 0;
 	int first_pattern = 0;
 	int i;
-	u32 pattern_addr = 0;
 	int is_video_frame = 0;
+	int pending_data_len = 0;
+	int ret = 0;
 
 	mpq_demux = feed->demux->priv;
 
@@ -1901,8 +1909,7 @@ static int mpq_dmx_process_video_packet_framing(
 				DMX_FRM_VC1_SEQUENCE_HEADER)) {
 
 				MPQ_DVB_DBG_PRINT(
-					"%s: Found Sequence Pattern, buf %p, "
-					"i = %d, offset = %d, type = %d\n",
+					"%s: Found Sequence Pattern, buf %p, i = %d, offset = %d, type = %d\n",
 					__func__, buf, i,
 					framing_res.info[i].offset,
 					framing_res.info[i].type);
@@ -1918,17 +1925,6 @@ static int mpq_dmx_process_video_packet_framing(
 						framing_res.info[i].
 							used_prefix_size;
 				}
-				/*
-				 * if this is the first pattern we write,
-				 * no need to take offset into account since we
-				 * dropped all data before it (so effectively
-				 * offset is 0).
-				 * we save the first pattern offset and take
-				 * it into consideration for the rest of the
-				 * patterns found in this buffer.
-				 */
-				feed_data->first_pattern_offset =
-					framing_res.info[i].offset;
 				break;
 			}
 		}
@@ -1953,118 +1949,130 @@ static int mpq_dmx_process_video_packet_framing(
 		if (mpq_streambuffer_data_write(stream_buffer,
 					(feed_data->patterns[0].pattern),
 					feed_data->first_prefix_size) < 0) {
-			mpq_demux->decoder_tsp_drop_count++;
-			spin_unlock(&mpq_demux->feed_lock);
-			return 0;
+			mpq_demux->decoder_drop_count +=
+				feed_data->first_prefix_size;
+			MPQ_DVB_DBG_PRINT("%s: could not write prefix\n",
+				__func__);
+		} else {
+			MPQ_DVB_DBG_PRINT("%s: Prefix = %d\n",
+				__func__, feed_data->first_prefix_size);
+			pending_data_len += feed_data->first_prefix_size;
 		}
 		feed_data->first_prefix_size = 0;
 	}
-	/* write data to payload buffer */
-	if (mpq_streambuffer_data_write(stream_buffer,
-					(buf + ts_payload_offset),
-					bytes_avail) < 0) {
-		mpq_demux->decoder_tsp_drop_count++;
-	} else {
-		struct mpq_streambuffer_packet_header packet;
-		struct mpq_adapter_video_meta_data meta_data;
 
-		feed->peslen += bytes_avail;
+	feed->peslen += bytes_avail;
+	pending_data_len += bytes_avail;
 
-		meta_data.packet_type = DMX_FRAMING_INFO_PACKET;
-		packet.raw_data_handle = feed_data->buffer_desc.desc[0].handle;
-		mpq_streambuffer_get_data_rw_offset(
-			stream_buffer,
-			&packet.raw_data_offset,
-			NULL);
-		packet.user_data_len =
-				sizeof(struct mpq_adapter_video_meta_data);
+	meta_data.packet_type = DMX_FRAMING_INFO_PACKET;
+	packet.user_data_len = sizeof(struct mpq_adapter_video_meta_data);
 
-		for (i = first_pattern; i < found_patterns; i++) {
-			if (feed_data->last_framing_match_address) {
-				is_video_frame = mpq_dmx_is_video_frame(
-					feed->indexing_params.standard,
-					feed_data->last_framing_match_type);
-				if (is_video_frame == 1) {
-					mpq_dmx_write_pts_dts(feed_data,
-						&(meta_data.info.framing.
-							pts_dts_info));
-					mpq_dmx_save_pts_dts(feed_data);
-				} else {
-					meta_data.info.framing.
-						pts_dts_info.pts_exist = 0;
-					meta_data.info.framing.
-						pts_dts_info.dts_exist = 0;
-				}
+	for (i = first_pattern; i < found_patterns; i++) {
+		if (i == first_pattern) {
+			if (0 == feed_data->pending_pattern_len) {
 				/*
-				 * writing meta-data that includes
-				 * framing information
+				 * This is the very first pattern, so no
+				 * previous pending frame data exists.
+				 * Update frame info and skip to the
+				 * next frame.
 				 */
-				meta_data.info.framing.pattern_type =
-					feed_data->last_framing_match_type;
-
-				pattern_addr = feed_data->pes_payload_address +
-					framing_res.info[i].offset -
-					framing_res.info[i].used_prefix_size;
-
-				if ((pattern_addr -
-					feed_data->first_pattern_offset) <
-					feed_data->last_framing_match_address) {
-					/* wraparound case */
-					packet.raw_data_len =
-						(pattern_addr -
-						feed_data->
-						   last_framing_match_address +
-						stream_buffer->raw_data.size) -
-						feed_data->first_pattern_offset;
-				} else {
-					packet.raw_data_len =
-					  pattern_addr -
-					  feed_data->
-						last_framing_match_address -
-					  feed_data->first_pattern_offset;
-				}
-
-				MPQ_DVB_DBG_PRINT(
-					"Writing Packet: len = %d, type = %d, isPts = %d, isDts = %d\n",
-					packet.raw_data_len,
-					meta_data.info.framing.pattern_type,
-					meta_data.info.framing.
-						pts_dts_info.pts_exist,
-					meta_data.info.framing.
-						pts_dts_info.dts_exist);
-
-				if (mpq_streambuffer_pkt_write(stream_buffer,
-					&packet,
-					(u8 *)&meta_data) < 0) {
-						MPQ_DVB_ERR_PRINT(
-							"%s: Couldn't write packet. Should never happen\n",
-								__func__);
-				}
-			}
-
-			/* save the last match for next time */
-			feed_data->last_framing_match_type =
+				feed_data->last_framing_match_type =
 					framing_res.info[i].type;
-
-			feed_data->last_framing_match_address =
-				(feed_data->pes_payload_address +
+				feed_data->last_pattern_offset =
+					framing_res.info[i].offset;
+				continue;
+			}
+			/*
+			 * This is the first pattern in this
+			 * packet and previous frame from
+			 * previous packet is pending for report
+			 */
+			bytes_to_write = framing_res.info[i].offset;
+		} else {
+			/*
+			 * Previous pending frame is in
+			 * the same packet
+			 */
+			bytes_to_write =
 				framing_res.info[i].offset -
-				framing_res.info[i].used_prefix_size -
-				feed_data->first_pattern_offset);
+				feed_data->last_pattern_offset;
 		}
-		/*
-		 * the first pattern offset is needed only for the group of
-		 * patterns that are found and written with the first pattern.
-		 */
-		feed_data->first_pattern_offset = 0;
 
-		feed_data->pes_payload_address =
-			(u32)stream_buffer->raw_data.data +
-			stream_buffer->raw_data.pwrite;
+		if (mpq_streambuffer_data_write(
+			stream_buffer,
+			(buf + ts_payload_offset + bytes_written),
+			bytes_to_write) < 0) {
+			mpq_demux->decoder_drop_count += bytes_to_write;
+			MPQ_DVB_DBG_PRINT(
+				"%s: Couldn't write %d bytes to data buffer\n",
+				__func__, bytes_to_write);
+		} else {
+			bytes_written += bytes_to_write;
+			pending_data_len -= bytes_to_write;
+			feed_data->pending_pattern_len += bytes_to_write;
+		}
+
+		is_video_frame = mpq_dmx_is_video_frame(
+				feed->indexing_params.standard,
+				feed_data->last_framing_match_type);
+		if (is_video_frame == 1) {
+			mpq_dmx_write_pts_dts(feed_data,
+				&(meta_data.info.framing.pts_dts_info));
+			mpq_dmx_save_pts_dts(feed_data);
+
+			packet.raw_data_len = feed_data->pending_pattern_len;
+			packet.raw_data_offset = feed_data->frame_offset;
+			meta_data.info.framing.pattern_type =
+				feed_data->last_framing_match_type;
+
+			mpq_streambuffer_get_buffer_handle(
+				stream_buffer,
+				0,	/* current write buffer handle */
+				&packet.raw_data_handle);
+
+			/*
+			 * writing meta-data that includes
+			 * the framing information
+			 */
+			if (mpq_streambuffer_pkt_write(stream_buffer,
+				&packet,
+				(u8 *)&meta_data) < 0) {
+				MPQ_DVB_ERR_PRINT(
+					"%s: "
+					"Couldn't write packet. "
+					"Should never happen\n",
+					__func__);
+			}
+			feed_data->pending_pattern_len = 0;
+			mpq_streambuffer_get_data_rw_offset(
+				feed_data->video_buffer,
+				NULL,
+				&feed_data->frame_offset);
+		}
+
+		/* save the last match for next time */
+		feed_data->last_framing_match_type =
+			framing_res.info[i].type;
+		feed_data->last_pattern_offset =
+			framing_res.info[i].offset;
+	}
+
+	if (pending_data_len) {
+		ret = mpq_streambuffer_data_write(
+			stream_buffer,
+			(buf + ts_payload_offset + bytes_written),
+			pending_data_len);
+		if (ret < 0) {
+			mpq_demux->decoder_drop_count += pending_data_len;
+			MPQ_DVB_DBG_PRINT(
+				"%s: Couldn't write %d bytes to data buffer\n",
+				__func__, pending_data_len);
+		} else {
+			feed_data->pending_pattern_len += pending_data_len;
+		}
 	}
 
 	spin_unlock(&mpq_demux->feed_lock);
-
 	return 0;
 }
 
@@ -2120,12 +2128,12 @@ static int mpq_dmx_process_video_packet_no_framing(
 
 			if (0 == feed_data->pes_header_left_bytes) {
 				packet.raw_data_len = feed->peslen;
-				packet.raw_data_handle =
-					feed_data->buffer_desc.desc[0].handle;
-				mpq_streambuffer_get_data_rw_offset(
+				mpq_streambuffer_get_buffer_handle(
 					stream_buffer,
-					&packet.raw_data_offset,
-					NULL);
+					0, /* current write buffer handle */
+					&packet.raw_data_handle);
+				packet.raw_data_offset =
+					feed_data->frame_offset;
 				packet.user_data_len =
 					sizeof(struct
 						mpq_adapter_video_meta_data);
@@ -2145,6 +2153,11 @@ static int mpq_dmx_process_video_packet_no_framing(
 						"Couldn't write packet. "
 						"Should never happen\n",
 						__func__);
+				/* Save write offset where new PES will begin */
+				mpq_streambuffer_get_data_rw_offset(
+					stream_buffer,
+					NULL,
+					&feed_data->frame_offset);
 			} else {
 				MPQ_DVB_ERR_PRINT(
 					"%s: received PUSI"
@@ -2215,7 +2228,7 @@ static int mpq_dmx_process_video_packet_no_framing(
 				stream_buffer,
 				buf+ts_payload_offset,
 				bytes_avail) < 0)
-		mpq_demux->decoder_tsp_drop_count++;
+		mpq_demux->decoder_drop_count += bytes_avail;
 	else
 		feed->peslen += bytes_avail;
 
@@ -2252,6 +2265,7 @@ int mpq_dmx_decoder_buffer_status(struct dvb_demux_feed *feed,
 	video_buff = feed_data->video_buffer;
 
 	dmx_buffer_status->error = video_buff->raw_data.error;
+
 	if (MPQ_STREAMBUFFER_BUFFER_MODE_LINEAR == video_buff->mode) {
 		dmx_buffer_status->fullness =
 			video_buff->buffers[0].size *
@@ -2360,4 +2374,3 @@ int mpq_dmx_process_pcr_packet(
 	return 0;
 }
 EXPORT_SYMBOL(mpq_dmx_process_pcr_packet);
-
