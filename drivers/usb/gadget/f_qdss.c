@@ -460,12 +460,17 @@ static void qdss_disable(struct usb_function *f)
 {
 	struct f_qdss	*qdss = func_to_qdss(f);
 	unsigned long flags;
+	int status;
 
 	pr_debug("qdss_disable\n");
 
 	spin_lock_irqsave(&qdss->lock, flags);
 	qdss->usb_connected = 0;
 	spin_unlock_irqrestore(&qdss->lock, flags);
+
+	status = uninit_data(qdss->data);
+	if (status)
+		pr_err("%s: uninit_data error\n", __func__);
 
 	/*cancell all active xfers*/
 	qdss_eps_disable(f);

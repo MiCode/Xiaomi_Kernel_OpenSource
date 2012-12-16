@@ -697,6 +697,7 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		list_del(&req->list);
 		return ret;
 	}
+	dep->flags |= DWC3_EP_BUSY;
 
 	return ret;
 }
@@ -763,14 +764,16 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		return -EPERM;
 	}
 
-	if (dep->free_slot > 0 || dep->busy_slot > 0 ||
-		!list_empty(&dep->request_list) ||
-		!list_empty(&dep->req_queued)) {
 
+	if (dep->busy_slot != dep->free_slot || !list_empty(&dep->request_list)
+					 || !list_empty(&dep->req_queued)) {
 		dev_err(dwc->dev,
 			"%s: trying to queue dbm request %p tp ep %s\n",
 			__func__, request, ep->name);
 		return -EPERM;
+	} else {
+		dep->busy_slot = 0;
+		dep->free_slot = 0;
 	}
 
 	/*
