@@ -2,7 +2,7 @@
  * Idle processing for ARMv7-based Qualcomm SoCs.
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2009, 2011-2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2009, 2011-2013 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -97,7 +97,7 @@ ENTRY(msm_pm_collapse)
 	mrc     p15, 0, ip, c13, c0, 1 /* context ID */
 	stmia   r0!, {r1-r9, ip}
 
-#ifdef CONFIG_MSM_JTAG
+#if defined(CONFIG_MSM_JTAG) || defined(CONFIG_MSM_JTAG_MM)
 	bl      msm_jtag_save_state
 #endif
 
@@ -185,7 +185,7 @@ skip_pc_debug2:
 	blxne	r1
 	dmb
 
-#ifdef CONFIG_MSM_JTAG
+#if defined(CONFIG_MSM_JTAG) || defined(CONFIG_MSM_JTAG_MM)
 	bl	msm_jtag_restore_state
 #endif
 	ldr     r0, =msm_saved_state	/* address of msm_saved_state ptr */
@@ -286,7 +286,7 @@ msm_pm_pa_to_va:
 	stmfd   sp!, {lr}
 	blxne	r1
 	dmb
-#ifdef CONFIG_MSM_JTAG
+#if defined(CONFIG_MSM_JTAG) || defined(CONFIG_MSM_JTAG_MM)
 	bl      msm_jtag_restore_state
 #endif
 	ldmfd   sp!, {lr}
