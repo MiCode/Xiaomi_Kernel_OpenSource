@@ -44,9 +44,6 @@
 #include "bnep.h"
 
 #define BNEP_TX_QUEUE_LEN 20
-/* As this feature is dummy for BNEP net device
-** disabling support */
-#undef CONFIG_BT_BNEP_MC_FILTER
 
 static int bnep_net_open(struct net_device *dev)
 {
