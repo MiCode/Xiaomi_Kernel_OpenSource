@@ -526,3 +526,34 @@ ssize_t mpq_streambuffer_data_avail(
 }
 EXPORT_SYMBOL(mpq_streambuffer_data_avail);
 
+int mpq_streambuffer_get_data_rw_offset(
+	struct mpq_streambuffer *sbuff,
+	u32 *read_offset,
+	u32 *write_offset)
+{
+	if (NULL == sbuff)
+		return -EINVAL;
+
+	if (MPQ_STREAMBUFFER_BUFFER_MODE_RING == sbuff->mode) {
+		if (read_offset)
+			*read_offset = sbuff->raw_data.pread;
+		if (write_offset)
+			*write_offset = sbuff->raw_data.pwrite;
+	} else {
+		struct mpq_streambuffer_buffer_desc *desc;
+
+		if (read_offset) {
+			desc = (struct mpq_streambuffer_buffer_desc *)
+				&sbuff->raw_data.data[sbuff->raw_data.pread];
+			*read_offset = desc->read_ptr;
+		}
+		if (write_offset) {
+			desc = (struct mpq_streambuffer_buffer_desc *)
+				&sbuff->raw_data.data[sbuff->raw_data.pwrite];
+			*write_offset = desc->write_ptr;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mpq_streambuffer_get_data_rw_offset);

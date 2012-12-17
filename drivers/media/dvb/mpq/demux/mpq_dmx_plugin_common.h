@@ -269,6 +269,24 @@ struct mpq_framing_prefix_size_masks {
 	u32 size_mask[MPQ_MAX_FOUND_PATTERNS];
 };
 
+/**
+ * mpq_decoder_buffers_desc - decoder buffer(s) management information.
+ *
+ * @desc: Array of buffer descriptors as they are passed to mpq_streambuffer
+ * upon its initialization. These descriptors must remain valid as long as
+ * the mpq_streambuffer object is used.
+ * @ion_handle: Array of ION handles, one for each decoder buffer, used for
+ * kernel memory mapping or allocation. Handles are saved in order to release
+ * resources properly later on.
+ * @decoder_buffers_num: number of buffers that are managed, either externally
+ * or internally by the mpq_streambuffer object
+ */
+struct mpq_decoder_buffers_desc {
+	struct mpq_streambuffer_buffer_desc desc[DMX_MAX_DECODER_BUFFER_NUM];
+	struct ion_handle *ion_handle[DMX_MAX_DECODER_BUFFER_NUM];
+	u32 decoder_buffers_num;
+};
+
 /*
  * mpq_video_feed_info - private data used for video feed.
  *
@@ -286,8 +304,7 @@ struct mpq_framing_prefix_size_masks {
  * decoder's fullness.
  * @pes_payload_address: Used for feeds that output data to decoder,
  * holds current PES payload start address.
- * @payload_buff_handle: ION handle for the allocated payload buffer
- * @stream_interface: The ID of the video stream interface registered
+  * @stream_interface: The ID of the video stream interface registered
  * with this stream buffer.
  * @patterns: pointer to the framing patterns to look for.
  * @patterns_num: number of framing patterns.
@@ -320,13 +337,12 @@ struct mpq_framing_prefix_size_masks {
 struct mpq_video_feed_info {
 	void *plugin_data;
 	struct mpq_streambuffer *video_buffer;
-	struct mpq_streambuffer_buffer_desc buffer_desc;
+	struct mpq_decoder_buffers_desc buffer_desc;
 	struct pes_packet_header pes_header;
 	u32 pes_header_left_bytes;
 	u32 pes_header_offset;
 	u32 pes_payload_address;
 	int fullness_wait_cancel;
-	struct ion_handle *payload_buff_handle;
 	enum mpq_adapter_stream_if stream_interface;
 	const struct mpq_framing_pattern_lookup_params *patterns;
 	int patterns_num;

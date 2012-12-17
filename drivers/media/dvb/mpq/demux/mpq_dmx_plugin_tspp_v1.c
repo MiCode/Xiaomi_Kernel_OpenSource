@@ -868,24 +868,53 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 	caps->max_bitrate = 144;
 	caps->demod_input_max_bitrate = 72;
 	caps->memory_input_max_bitrate = 72;
-	caps->section.flags = 0;
+
+	/* Buffer requirements */
+	caps->section.flags =
+		DMX_BUFFER_EXTERNAL_SUPPORT	|
+		DMX_BUFFER_INTERNAL_SUPPORT;
+	caps->section.max_buffer_num = 1;
 	caps->section.max_size = 0xFFFFFFFF;
 	caps->section.size_alignment = 0;
-	caps->pes.flags = 0;
+	caps->pes.flags =
+		DMX_BUFFER_EXTERNAL_SUPPORT	|
+		DMX_BUFFER_INTERNAL_SUPPORT;
+	caps->pes.max_buffer_num = 1;
 	caps->pes.max_size = 0xFFFFFFFF;
 	caps->pes.size_alignment = 0;
-	caps->recording_188_tsp.flags = 0;
+	caps->recording_188_tsp.flags =
+		DMX_BUFFER_EXTERNAL_SUPPORT	|
+		DMX_BUFFER_INTERNAL_SUPPORT;
+	caps->recording_188_tsp.max_buffer_num = 1;
 	caps->recording_188_tsp.max_size = 0xFFFFFFFF;
 	caps->recording_188_tsp.size_alignment = 0;
-	caps->recording_192_tsp.flags = 0;
+	caps->recording_192_tsp.flags =
+		DMX_BUFFER_EXTERNAL_SUPPORT	|
+		DMX_BUFFER_INTERNAL_SUPPORT;
+	caps->recording_192_tsp.max_buffer_num = 1;
 	caps->recording_192_tsp.max_size = 0xFFFFFFFF;
 	caps->recording_192_tsp.size_alignment = 0;
-	caps->playback_188_tsp.flags = 0;
+	caps->playback_188_tsp.flags =
+		DMX_BUFFER_EXTERNAL_SUPPORT	|
+		DMX_BUFFER_INTERNAL_SUPPORT;
+	caps->playback_188_tsp.max_buffer_num = 1;
 	caps->playback_188_tsp.max_size = 0xFFFFFFFF;
 	caps->playback_188_tsp.size_alignment = 0;
-	caps->playback_192_tsp.flags = 0;
+	caps->playback_192_tsp.flags =
+		DMX_BUFFER_EXTERNAL_SUPPORT	|
+		DMX_BUFFER_INTERNAL_SUPPORT;
+	caps->playback_192_tsp.max_buffer_num = 1;
 	caps->playback_192_tsp.max_size = 0xFFFFFFFF;
 	caps->playback_192_tsp.size_alignment = 0;
+	caps->decoder.flags =
+		DMX_BUFFER_CONTIGUOUS_MEM	|
+		DMX_BUFFER_SECURED_IF_DECRYPTED	|
+		DMX_BUFFER_EXTERNAL_SUPPORT	|
+		DMX_BUFFER_INTERNAL_SUPPORT	|
+		DMX_BUFFER_LINEAR_GROUP_SUPPORT;
+	caps->decoder.max_buffer_num = DMX_MAX_DECODER_BUFFER_NUM;
+	caps->decoder.max_size = 0xFFFFFFFF;
+	caps->decoder.size_alignment = SZ_4K;
 
 	return 0;
 }
