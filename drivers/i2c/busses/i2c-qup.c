@@ -163,7 +163,7 @@ struct qup_i2c_dev {
 	int                          wr_sz;
 	struct msm_i2c_platform_data *pdata;
 	int                          suspended;
-	int                          clk_state;
+	int                          pwr_state;
 	struct mutex                 mlock;
 	void                         *complete;
 	int                          i2c_gpios[ARRAY_SIZE(i2c_rsrcs)];
@@ -327,7 +327,7 @@ qup_config_core_on_en(struct qup_i2c_dev *dev)
 static void
 qup_i2c_pwr_mgmt(struct qup_i2c_dev *dev, unsigned int state)
 {
-	dev->clk_state = state;
+	dev->pwr_state = state;
 	if (state != 0) {
 		clk_prepare_enable(dev->clk);
 		if (!dev->pdata->keep_ahb_clk_on)
@@ -1228,10 +1228,6 @@ blsp_core_init:
 		dev->i2c_gpios[i] = res ? res->start : -1;
 	}
 
-	ret = qup_i2c_request_gpios(dev);
-	if (ret)
-		goto err_request_gpio_failed;
-
 	platform_set_drvdata(pdev, dev);
 
 	dev->one_bit_t = (USEC_PER_SEC/pdata->clk_freq) + 1;
@@ -1313,7 +1309,7 @@ blsp_core_init:
 		pdata->msm_i2c_config_gpio(dev->adapter.nr, 1);
 
 	mutex_init(&dev->mlock);
-	dev->clk_state = 0;
+	dev->pwr_state = 0;
 	/* If the same AHB clock is used on Modem side
 	 * switch it on here itself and don't switch it
 	 * on and off during suspend and resume.
@@ -1343,13 +1339,11 @@ blsp_core_init:
 
 
 err_request_irq_failed:
-	qup_i2c_free_gpios(dev);
 	if (dev->gsbi)
 		iounmap(dev->gsbi);
 err_reset_failed:
 	clk_disable_unprepare(dev->clk);
 	clk_disable_unprepare(dev->pclk);
-err_request_gpio_failed:
 err_gsbi_failed:
 	iounmap(dev->base);
 err_ioremap_failed:
@@ -1380,8 +1374,10 @@ qup_i2c_remove(struct platform_device *pdev)
 	dev->suspended = 1;
 	mutex_unlock(&dev->mlock);
 	mutex_destroy(&dev->mlock);
-	if (dev->clk_state != 0)
+	if (dev->pwr_state != 0) {
 		qup_i2c_pwr_mgmt(dev, 0);
+		qup_i2c_free_gpios(dev);
+	}
 	platform_set_drvdata(pdev, NULL);
 	if (dev->num_irqs == 3) {
 		free_irq(dev->out_irq, dev);
@@ -1393,7 +1389,6 @@ qup_i2c_remove(struct platform_device *pdev)
 		clk_put(dev->pclk);
 	}
 	clk_put(dev->clk);
-	qup_i2c_free_gpios(dev);
 	if (dev->gsbi)
 		iounmap(dev->gsbi);
 	iounmap(dev->base);
@@ -1425,9 +1420,10 @@ static int i2c_qup_pm_suspend_runtime(struct device *device)
 	mutex_lock(&dev->mlock);
 	dev->suspended = 1;
 	mutex_unlock(&dev->mlock);
-	if (dev->clk_state != 0)
+	if (dev->pwr_state != 0) {
 		qup_i2c_pwr_mgmt(dev, 0);
-	qup_i2c_free_gpios(dev);
+		qup_i2c_free_gpios(dev);
+	}
 	return 0;
 }
 
@@ -1435,10 +1431,14 @@ static int i2c_qup_pm_resume_runtime(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
 	struct qup_i2c_dev *dev = platform_get_drvdata(pdev);
+	int ret = 0;
 	dev_dbg(device, "pm_runtime: resuming...\n");
-	BUG_ON(qup_i2c_request_gpios(dev) != 0);
-	if (dev->clk_state == 0)
+	if (dev->pwr_state == 0) {
+		ret = qup_i2c_request_gpios(dev);
+		if (ret != 0)
+			return ret;
 		qup_i2c_pwr_mgmt(dev, 1);
+	}
 	dev->suspended = 0;
 	return 0;
 }
@@ -1454,11 +1454,15 @@ static int qup_i2c_suspend(struct device *device)
 
 static int qup_i2c_resume(struct device *device)
 {
+	int ret = 0;
 	if (!pm_runtime_enabled(device) || !pm_runtime_suspended(device)) {
 		dev_dbg(device, "system resume");
-		i2c_qup_pm_resume_runtime(device);
-		pm_runtime_mark_last_busy(device);
-		pm_request_autosuspend(device);
+		ret = i2c_qup_pm_resume_runtime(device);
+		if (!ret) {
+			pm_runtime_mark_last_busy(device);
+			pm_request_autosuspend(device);
+		}
+		return ret;
 	}
 	return 0;
 }
