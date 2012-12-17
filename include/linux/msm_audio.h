@@ -245,6 +245,7 @@ struct msm_cad_device_config {
 #define CAD_SET_DEVICE _IOW(SND_IOCTL_MAGIC, 2, struct msm_cad_device_config *)
 
 #define SND_METHOD_VOICE 0
+#define SND_METHOD_MIDI 4
 
 struct msm_snd_volume_config {
 	uint32_t device;
