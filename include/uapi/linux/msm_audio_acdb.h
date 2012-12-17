@@ -53,6 +53,10 @@
 			(AUDIO_MAX_COMMON_IOCTL_NUM+23), unsigned)
 #define AUDIO_SET_ASM_CUSTOM_TOPOLOGY	_IOW(AUDIO_IOCTL_MAGIC, \
 			(AUDIO_MAX_COMMON_IOCTL_NUM+24), unsigned)
+#define AUDIO_SET_SPEAKER_PROT _IOW(AUDIO_IOCTL_MAGIC, 25, \
+		struct msm_spk_prot_cfg)
+#define AUDIO_GET_SPEAKER_PROT _IOR(AUDIO_IOCTL_MAGIC, 26, \
+		struct msm_spk_prot_status)
 
 #define	AUDIO_MAX_ACDB_IOCTL	(AUDIO_MAX_COMMON_IOCTL_NUM+30)
 
@@ -65,6 +69,19 @@ struct cal_block {
 struct sidetone_cal {
 	uint16_t	enable;
 	uint16_t	gain;
+};
+
+struct msm_spk_prot_cfg {
+	int r0;
+	int t0;
+	uint32_t mode; /*0 - Start spk prot
+	1 - Start calib
+	2 - Disable spk prot*/
+};
+
+struct msm_spk_prot_status {
+	int r0;
+	int status;
 };
 
 /* For Real-Time Audio Calibration */

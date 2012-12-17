@@ -85,6 +85,9 @@ struct acdb_data {
 	atomic64_t			paddr;
 	atomic64_t			kvaddr;
 	atomic64_t			mem_len;
+
+	/* Speaker protection */
+	struct acdb_spk_prot_cfg spk_prot_cfg;
 };
 
 static struct acdb_data		acdb_data;
@@ -769,10 +772,31 @@ done:
 }
 void get_spk_protection_cfg(struct acdb_spk_prot_cfg *prot_cfg)
 {
-	/*Disable the processing or calibration mode*/
+	mutex_lock(&acdb_data.acdb_mutex);
 	if (prot_cfg) {
-		prot_cfg->mode = -1;
-	}
+		prot_cfg->mode = acdb_data.spk_prot_cfg.mode;
+		prot_cfg->r0 = acdb_data.spk_prot_cfg.r0;
+		prot_cfg->t0 = acdb_data.spk_prot_cfg.t0;
+	} else
+		pr_err("%s prot_cfg is NULL\n", __func__);
+	mutex_unlock(&acdb_data.acdb_mutex);
+}
+static void get_spk_protection_status(struct acdb_spk_prot_status *status)
+{
+	/*Call AFE function here to query the status*/
+	struct afe_spkr_prot_get_vi_calib calib_resp;
+	if (status) {
+		status->status = -EINVAL;
+		if (!afe_spk_prot_get_calib_data(&calib_resp)) {
+			if (calib_resp.res_cfg.th_vi_ca_state == 1)
+				status->status = -EAGAIN;
+			else if (calib_resp.res_cfg.th_vi_ca_state == 2) {
+				status->status = 0;
+				status->r0 = calib_resp.res_cfg.r0_cali_q24;
+			}
+		 }
+	} else
+		pr_err("%s invalid params\n", __func__);
 }
 
 static int acdb_open(struct inode *inode, struct file *f)
@@ -887,6 +911,8 @@ static long acdb_ioctl(struct file *f,
 	int32_t			map_fd;
 	uint32_t		topology;
 	uint32_t		data[MAX_IOCTL_DATA];
+	struct msm_spk_prot_status prot_status;
+	struct acdb_spk_prot_status acdb_spk_status;
 	pr_debug("%s\n", __func__);
 
 	switch (cmd) {
@@ -949,6 +975,43 @@ static long acdb_ioctl(struct file *f,
 			result = -EFAULT;
 		}
 		store_asm_topology(topology);
+		goto done;
+	case AUDIO_SET_SPEAKER_PROT:
+		mutex_lock(&acdb_data.acdb_mutex);
+		if (copy_from_user(&acdb_data.spk_prot_cfg, (void *)arg,
+				sizeof(acdb_data.spk_prot_cfg))) {
+			pr_err("%s fail to copy spk_prot_cfg\n", __func__);
+			result = -EFAULT;
+		}
+		mutex_unlock(&acdb_data.acdb_mutex);
+		goto done;
+	case AUDIO_GET_SPEAKER_PROT:
+		mutex_lock(&acdb_data.acdb_mutex);
+		/*Indicates calibration was succesfull*/
+		if (!acdb_data.spk_prot_cfg.mode) {
+			prot_status.r0 = acdb_data.spk_prot_cfg.r0;
+			prot_status.status = 0;
+		} else if (acdb_data.spk_prot_cfg.mode == 1) {
+			/*Call AFE to query the status*/
+			acdb_spk_status.status = -EINVAL;
+			acdb_spk_status.r0 = -1;
+			get_spk_protection_status(&acdb_spk_status);
+			prot_status.r0 = acdb_spk_status.r0;
+			prot_status.status = acdb_spk_status.status;
+			if (!acdb_spk_status.status) {
+				acdb_data.spk_prot_cfg.mode = 0;
+				acdb_data.spk_prot_cfg.r0 = prot_status.r0;
+			}
+		} else {
+			/*Indicates calibration data is invalid*/
+			prot_status.status = -EINVAL;
+			prot_status.r0 = -1;
+		}
+		if (copy_to_user((void *)arg, &prot_status,
+			sizeof(prot_status))) {
+			pr_err("%s Failed to update prot_status\n", __func__);
+		}
+		mutex_unlock(&acdb_data.acdb_mutex);
 		goto done;
 	}
 
@@ -1117,6 +1180,8 @@ struct miscdevice acdb_misc = {
 static int __init acdb_init(void)
 {
 	memset(&acdb_data, 0, sizeof(acdb_data));
+	/*Speaker protection disabled*/
+	acdb_data.spk_prot_cfg.mode = -1;
 	mutex_init(&acdb_data.acdb_mutex);
 	atomic_set(&usage_count, 0);
 	atomic_set(&acdb_data.valid_adm_custom_top, 1);
