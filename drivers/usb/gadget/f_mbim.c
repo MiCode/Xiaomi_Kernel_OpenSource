@@ -1659,7 +1659,7 @@ mbim_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 			atomic_read(&dev->error)));
 		if (ret < 0) {
 			mbim_unlock(&dev->read_excl);
-			return 0;
+			return -ERESTARTSYS;
 		}
 	}
 
@@ -1675,7 +1675,7 @@ mbim_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 		if (ret < 0) {
 			pr_err("Waiting failed\n");
 			mbim_unlock(&dev->read_excl);
-			return 0;
+			return -ERESTARTSYS;
 		}
 		pr_debug("Received request packet\n");
 	}
@@ -1697,7 +1697,7 @@ mbim_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	ret = copy_to_user(buf, cpkt->buf, cpkt->len);
 	if (ret) {
 		pr_err("copy_to_user failed: err %d\n", ret);
-		ret = 0;
+		ret = -ENOMEM;
 	} else {
 		pr_debug("copied %d bytes to user\n", cpkt->len);
 		ret = cpkt->len;
