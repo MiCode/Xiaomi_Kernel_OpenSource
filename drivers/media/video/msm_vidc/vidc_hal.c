@@ -712,6 +712,7 @@ static int vidc_hal_sys_set_debug(struct hal_device *device, int debug)
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_DEBUG_CONFIG;
 	hfi = (struct hfi_debug_config *) &pkt->rg_property_data[1];
 	hfi->debug_config = debug;
+	hfi->debug_mode = HFI_DEBUG_MODE_QUEUE;
 	if (vidc_hal_iface_cmdq_write(device, pkt))
 		return -ENOTEMPTY;
 	return 0;
