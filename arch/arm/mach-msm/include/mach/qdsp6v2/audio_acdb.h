@@ -14,7 +14,9 @@
 #define _AUDIO_ACDB_H
 
 #include <linux/msm_audio_acdb.h>
-#if defined CONFIG_ARCH_MSM8974 || defined CONFIG_ARCH_MSM9625
+#if defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_MSM9625) \
+	|| defined(CONFIG_ARCH_MSM8226)
+
 #include <sound/q6adm-v2.h>
 #else
 #include <sound/q6adm.h>
