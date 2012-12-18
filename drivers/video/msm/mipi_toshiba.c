@@ -224,6 +224,11 @@ static int mipi_toshiba_lcd_off(struct platform_device *pdev)
 	return 0;
 }
 
+static int mipi_toshiba_lcd_late_init(struct platform_device *pdev)
+{
+	return 0;
+}
+
 void mipi_bklight_pwm_cfg(void)
 {
 	if (mipi_toshiba_pdata && mipi_toshiba_pdata->dsi_pwm_cfg)
@@ -296,6 +301,7 @@ static struct platform_driver this_driver = {
 static struct msm_fb_panel_data toshiba_panel_data = {
 	.on		= mipi_toshiba_lcd_on,
 	.off		= mipi_toshiba_lcd_off,
+	.late_init	= mipi_toshiba_lcd_late_init,
 	.set_backlight  = mipi_toshiba_set_backlight,
 };
 
