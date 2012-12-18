@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -805,6 +805,31 @@ static int msm_routing_set_compressed_vol_mixer(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_routing_get_channel_map_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL];
+	int i;
+
+	adm_get_multi_ch_map(channel_map);
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+		ucontrol->value.integer.value[i] = (unsigned) channel_map[i];
+	return 0;
+}
+
+static int msm_routing_put_channel_map_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL];
+	int i;
+
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+		channel_map[i] = (char)(ucontrol->value.integer.value[i]);
+	adm_set_multi_ch_map(channel_map);
+
+	return 0;
+}
+
 static int msm_routing_get_srs_trumedia_control(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1575,6 +1600,12 @@ static const struct snd_kcontrol_new compressed_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("COMPRESSED RX Volume", SND_SOC_NOPM, 0,
 	INT_RX_VOL_GAIN, 0, msm_routing_get_compressed_vol_mixer,
 	msm_routing_set_compressed_vol_mixer, compressed_rx_vol_gain),
+};
+
+static const struct snd_kcontrol_new multi_ch_channel_map_mixer_controls[] = {
+	SOC_SINGLE_MULTI_EXT("Playback Channel Map", SND_SOC_NOPM, 0, 16,
+	0, 8, msm_routing_get_channel_map_mixer,
+	msm_routing_put_channel_map_mixer),
 };
 
 static const struct snd_kcontrol_new lpa_SRS_trumedia_controls[] = {
@@ -2491,6 +2522,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				lpa_SRS_trumedia_controls_I2S,
 			ARRAY_SIZE(lpa_SRS_trumedia_controls_I2S));
+
+	snd_soc_add_platform_controls(platform,
+				multi_ch_channel_map_mixer_controls,
+			ARRAY_SIZE(multi_ch_channel_map_mixer_controls));
 	return 0;
 }
 
