@@ -237,4 +237,6 @@ struct msm_vidc_ctrl {
 };
 
 void handle_cmd_response(enum command_response cmd, void *data);
+int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
+	enum hal_ssr_trigger_type type);
 #endif

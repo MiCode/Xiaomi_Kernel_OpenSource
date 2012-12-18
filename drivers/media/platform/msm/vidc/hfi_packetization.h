@@ -79,5 +79,6 @@ int create_pkt_cmd_session_set_property(
 		struct hfi_cmd_session_set_property_packet *pkt,
 		u32 session_id, enum hal_property ptype, void *pdata);
 
+int create_pkt_ssr_cmd(enum hal_ssr_trigger_type type,
+		struct hfi_cmd_sys_test_ssr_packet *pkt);
 #endif
-
