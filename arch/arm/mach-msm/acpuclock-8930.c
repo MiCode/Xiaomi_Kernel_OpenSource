@@ -132,9 +132,8 @@ static struct msm_bus_scale_pdata bus_scale_data __initdata = {
 	.name = "acpuclk-8930",
 };
 
-/* TODO: Update vdd_dig, vdd_mem and bw when data is available. */
 static struct l2_level l2_freq_tbl[] __initdata = {
-	[0]  = { {  384000, PLL_8, 0, 0x00 },  LVL_NOM, 1050000, 1 },
+	[0]  = { {  384000, PLL_8, 0, 0x00 },  LVL_LOW, 1050000, 1 },
 	[1]  = { {  432000, HFPLL, 2, 0x20 },  LVL_NOM, 1050000, 2 },
 	[2]  = { {  486000, HFPLL, 2, 0x24 },  LVL_NOM, 1050000, 2 },
 	[3]  = { {  540000, HFPLL, 2, 0x28 },  LVL_NOM, 1050000, 2 },
