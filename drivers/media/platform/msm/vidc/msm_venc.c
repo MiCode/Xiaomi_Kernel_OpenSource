@@ -1119,6 +1119,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id =
 			HAL_CONFIG_VENC_TARGET_BITRATE;
 		bitrate.bit_rate = ctrl->val;
+		bitrate.layer_id = 0;
 		pdata = &bitrate;
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
@@ -1233,6 +1234,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		quantization.qpi = ctrl->val;
 		quantization.qpp = qpp->val;
 		quantization.qpb = qpb->val;
+		quantization.layer_id = 0;
 
 		pdata = &quantization;
 		break;
@@ -1248,6 +1250,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		quantization.qpp = ctrl->val;
 		quantization.qpi = qpi->val;
 		quantization.qpb = qpb->val;
+		quantization.layer_id = 0;
 
 		pdata = &quantization;
 		break;
@@ -1263,6 +1266,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		quantization.qpb = ctrl->val;
 		quantization.qpi = qpi->val;
 		quantization.qpp = qpp->val;
+		quantization.layer_id = 0;
 
 		pdata = &quantization;
 		break;

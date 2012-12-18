@@ -794,6 +794,7 @@ int create_pkt_cmd_session_set_property(
 			HFI_PROPERTY_CONFIG_VENC_TARGET_BITRATE;
 		hfi = (struct hfi_bitrate *) &pkt->rg_property_data[1];
 		hfi->bit_rate = ((struct hal_bitrate *)pdata)->bit_rate;
+		hfi->layer_id = ((struct hal_bitrate *)pdata)->layer_id;
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
@@ -951,6 +952,7 @@ int create_pkt_cmd_session_set_property(
 		hfi->qp_i = hal_quant->qpi;
 		hfi->qp_p = hal_quant->qpp;
 		hfi->qp_b = hal_quant->qpb;
+		hfi->layer_id = hal_quant->layer_id;
 		pkt->size += sizeof(u32) + sizeof(struct hfi_quantization);
 		break;
 	}
