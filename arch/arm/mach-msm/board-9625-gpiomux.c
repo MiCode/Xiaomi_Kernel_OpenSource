@@ -142,6 +142,34 @@ static struct msm_gpiomux_config mdm9625_mi2s_configs[] __initdata = {
 		},
 	},
 	{
+		.gpio	= 16,		/* Sec mi2s ws */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio	= 17,		/* Sec mi2s din */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio	= 18,		/* Sec mi2s dout */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
+		.gpio	= 19,		/* Sec mi2s clk */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
+			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
+		},
+	},
+	{
 		.gpio	= 71,		/* mi2s mclk */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,

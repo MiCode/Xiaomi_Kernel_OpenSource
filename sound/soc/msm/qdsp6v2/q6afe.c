@@ -174,6 +174,7 @@ int afe_get_port_type(u16 port_id)
 	case VOICE_PLAYBACK_TX:
 	case RT_PROXY_PORT_001_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -193,6 +194,7 @@ int afe_get_port_type(u16 port_id)
 	case INT_BT_SCO_TX:
 	case RT_PROXY_PORT_001_TX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 		ret = MSM_AFE_PORT_TYPE_TX;
 		break;
 
@@ -564,6 +566,11 @@ int afe_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_TX;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_SECONDARY_MI2S_RX;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_SECONDARY_MI2S_TX;
+
 	default: return -EINVAL;
 	}
 }

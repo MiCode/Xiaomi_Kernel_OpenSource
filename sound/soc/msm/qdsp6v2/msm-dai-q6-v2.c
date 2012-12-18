@@ -1259,6 +1259,12 @@ static const struct snd_kcontrol_new mi2s_config_controls[] = {
 	SOC_ENUM_EXT("PRI MI2S TX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("SEC MI2S RX Format", mi2s_config_enum[0],
+		     msm_dai_q6_mi2s_format_get,
+		     msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("SEC MI2S TX Format", mi2s_config_enum[0],
+		     msm_dai_q6_mi2s_format_get,
+		     msm_dai_q6_mi2s_format_put),
 };
 
 static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
@@ -1267,26 +1273,37 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 			dev_get_drvdata(dai->dev);
 	struct snd_kcontrol *kcontrol = NULL;
 	int rc = 0;
+	const struct snd_kcontrol_new *ctrl = NULL;
 
 	if (mi2s_dai_data->rx_dai.mi2s_dai_data.port_config.i2s.channel_mode) {
-		kcontrol = snd_ctl_new1(&mi2s_config_controls[0],
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.0", 17))
+			ctrl = &mi2s_config_controls[0];
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.1", 17))
+			ctrl = &mi2s_config_controls[3];
+		kcontrol = snd_ctl_new1(ctrl,
 					&mi2s_dai_data->rx_dai.mi2s_dai_data);
 		rc = snd_ctl_add(dai->card->snd_card, kcontrol);
 
 		if (IS_ERR_VALUE(rc)) {
-			dev_err(dai->dev, "%s: err add RX fmt ctl\n", __func__);
+			dev_err(dai->dev, "%s: err add RX fmt ctl DAI = %s\n",
+				__func__, dai->name);
 			goto rtn;
 		}
 	}
 	if (mi2s_dai_data->tx_dai.mi2s_dai_data.port_config.i2s.channel_mode) {
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.0", 17))
+			ctrl = &mi2s_config_controls[2];
+		if (!strncmp(dai->name, "msm-dai-q6-mi2s.1", 17))
+			ctrl = &mi2s_config_controls[4];
 		rc = snd_ctl_add(dai->card->snd_card,
-				snd_ctl_new1(&mi2s_config_controls[2],
+				snd_ctl_new1(ctrl,
 				&mi2s_dai_data->tx_dai.mi2s_dai_data));
 
 		if (IS_ERR_VALUE(rc)) {
 			if (kcontrol)
 				snd_ctl_remove(dai->card->snd_card, kcontrol);
-			dev_err(dai->dev, "%s: err add TX fmt ctl\n", __func__);
+			dev_err(dai->dev, "%s: err add TX fmt ctl DAI = %s\n",
+				__func__, dai->name);
 		}
 	}
 rtn:
