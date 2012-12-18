@@ -141,6 +141,7 @@ struct pm8921_bms_chip {
 	int			shutdown_iavg_ua;
 	struct delayed_work	calculate_soc_delayed_work;
 	struct timespec		t_soc_queried;
+	unsigned long		last_recalc_time;
 	int			shutdown_soc_valid_limit;
 	int			ignore_shutdown_soc;
 	int			prev_iavg_ua;
@@ -1057,39 +1058,52 @@ static int adjust_uuc(struct pm8921_bms_chip *chip, int fcc_uah,
 	return new_uuc;
 }
 
-static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
-				int *iavg_ua, int *delta_time_s)
+static int get_current_time(unsigned long *now_tm_sec)
 {
-	int delta_cc_uah;
 	struct rtc_time tm;
 	struct rtc_device *rtc;
-	unsigned long now_tm_sec = 0;
-	int rc = 0;
-
-	/* if anything fails report the previous iavg_ua */
-	*iavg_ua = chip->prev_iavg_ua;
+	int rc;
 
 	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
 	if (rtc == NULL) {
 		pr_err("%s: unable to open rtc device (%s)\n",
 			__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
-		goto out;
+		return -EINVAL;
 	}
 
 	rc = rtc_read_time(rtc, &tm);
 	if (rc) {
 		pr_err("Error reading rtc device (%s) : %d\n",
 			CONFIG_RTC_HCTOSYS_DEVICE, rc);
-		goto out;
+		return rc;
 	}
 
 	rc = rtc_valid_tm(&tm);
 	if (rc) {
 		pr_err("Invalid RTC time (%s): %d\n",
 			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		return rc;
+	}
+	rtc_tm_to_time(&tm, now_tm_sec);
+
+	return 0;
+}
+
+static void calculate_iavg_ua(struct pm8921_bms_chip *chip, int cc_uah,
+				int *iavg_ua, int *delta_time_s)
+{
+	int delta_cc_uah;
+	unsigned long now_tm_sec = 0;
+	int rc = 0;
+
+	/* if anything fails report the previous iavg_ua */
+	*iavg_ua = chip->prev_iavg_ua;
+
+	rc = get_current_time(&now_tm_sec);
+	if (rc) {
+		pr_err("Could not get current time: %d\n", rc);
 		goto out;
 	}
-	rtc_tm_to_time(&tm, &now_tm_sec);
 
 	if (chip->tm_sec == 0) {
 		*delta_time_s = 0;
@@ -1912,14 +1926,12 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 	calculated_soc = new_calculated_soc;
 	firsttime = 0;
+	get_current_time(&chip->last_recalc_time);
 	return calculated_soc;
 }
 
-static void calculate_soc_work(struct work_struct *work)
+static int recalculate_soc(struct pm8921_bms_chip *chip)
 {
-	struct pm8921_bms_chip *chip = container_of(work,
-				struct pm8921_bms_chip,
-				calculate_soc_delayed_work.work);
 	int batt_temp, rc;
 	struct pm8xxx_adc_chan_result result;
 	struct pm8921_soc_params raw;
@@ -1929,7 +1941,7 @@ static void calculate_soc_work(struct work_struct *work)
 	if (rc) {
 		pr_err("error reading adc channel = %d, rc = %d\n",
 					chip->batt_temp_channel, rc);
-		return;
+		return rc;
 	}
 	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
 						result.measurement);
@@ -1941,7 +1953,16 @@ static void calculate_soc_work(struct work_struct *work)
 	soc = calculate_state_of_charge(chip, &raw,
 					batt_temp, last_chargecycles);
 	mutex_unlock(&chip->last_ocv_uv_mutex);
+	return soc;
+}
 
+static void calculate_soc_work(struct work_struct *work)
+{
+	struct pm8921_bms_chip *chip = container_of(work,
+				struct pm8921_bms_chip,
+				calculate_soc_delayed_work.work);
+
+	recalculate_soc(chip);
 	schedule_delayed_work(&chip->calculate_soc_delayed_work,
 			round_jiffies_relative(msecs_to_jiffies
 			(chip->soc_calc_period)));
@@ -2029,10 +2050,6 @@ void pm8921_bms_invalidate_shutdown_soc(void)
 {
 	int calculate_soc = 0;
 	struct pm8921_bms_chip *chip = the_chip;
-	int batt_temp, rc;
-	struct pm8xxx_adc_chan_result result;
-	struct pm8921_soc_params raw;
-	int soc;
 
 	pr_debug("Invalidating shutdown soc - the battery was removed\n");
 	if (shutdown_soc_invalid)
@@ -2053,23 +2070,7 @@ void pm8921_bms_invalidate_shutdown_soc(void)
 	mutex_unlock(&soc_invalidation_mutex);
 	if (!calculate_soc)
 		return;
-
-	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-					chip->batt_temp_channel, rc);
-		return;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	batt_temp = (int)result.physical;
-
-	mutex_lock(&chip->last_ocv_uv_mutex);
-	read_soc_params_raw(chip, &raw);
-
-	soc = calculate_state_of_charge(chip, &raw,
-					batt_temp, last_chargecycles);
-	mutex_unlock(&chip->last_ocv_uv_mutex);
+	recalculate_soc(chip);
 }
 EXPORT_SYMBOL(pm8921_bms_invalidate_shutdown_soc);
 
@@ -3135,17 +3136,26 @@ static int pm8921_bms_remove(struct platform_device *pdev)
 
 static int pm8921_bms_resume(struct device *dev)
 {
-	int rc, ibat_ua, vbat_uv;
+	int rc;
+	unsigned long time_since_last_recalc;
+	unsigned long tm_now_sec;
 
-	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
-							&ibat_ua,
-							&vbat_uv);
-	if (rc < 0) {
-		pr_err("simultaneous vbat ibat failed err = %d\n", rc);
+	rc = get_current_time(&tm_now_sec);
+	if (rc) {
+		pr_err("Could not read current time: %d\n", rc);
 		return 0;
 	}
+	if (tm_now_sec > the_chip->last_recalc_time) {
+		time_since_last_recalc = tm_now_sec -
+				the_chip->last_recalc_time;
+		pr_debug("Time since last recalc: %lu\n",
+				time_since_last_recalc);
+		if (time_since_last_recalc >= the_chip->soc_calc_period) {
+			the_chip->last_recalc_time = tm_now_sec;
+			recalculate_soc(the_chip);
+		}
+	}
 
-	very_low_voltage_check(the_chip, ibat_ua, vbat_uv);
 	return 0;
 }
 
