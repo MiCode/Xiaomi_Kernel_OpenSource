@@ -322,8 +322,8 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 				(app_cb)q6asm_event_handler, prtd);
 	if (!prtd->audio_client) {
 		pr_debug("%s: Could not allocate memory\n", __func__);
-		kfree(prtd);
 		mutex_unlock(&prtd->lock);
+		kfree(prtd);
 		return -ENOMEM;
 	}
 	hrtimer_init(&prtd->hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
