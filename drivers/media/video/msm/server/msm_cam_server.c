@@ -1081,8 +1081,34 @@ int msm_server_v4l2_unsubscribe_event(struct v4l2_fh *fh,
 			struct v4l2_event_subscription *sub)
 {
 	int rc = 0;
+	struct v4l2_event ev;
 
 	D("%s: fh = 0x%x\n", __func__, (u32)fh);
+
+	/* Undequeue all pending events and free associated
+	 * msm_isp_event_ctrl  */
+	while (v4l2_event_pending(fh)) {
+		struct msm_isp_event_ctrl *isp_event;
+		rc = v4l2_event_dequeue(fh, &ev, O_NONBLOCK);
+		if (rc) {
+			pr_err("%s: v4l2_event_dequeue failed %d",
+						__func__, rc);
+			break;
+		}
+		isp_event = (struct msm_isp_event_ctrl *)
+			(*((uint32_t *)ev.u.data));
+		if (isp_event) {
+			if (isp_event->isp_data.isp_msg.len != 0 &&
+				isp_event->isp_data.isp_msg.data != NULL) {
+				kfree(isp_event->isp_data.isp_msg.data);
+				isp_event->isp_data.isp_msg.len = 0;
+				isp_event->isp_data.isp_msg.data = NULL;
+			}
+			kfree(isp_event);
+			*((uint32_t *)ev.u.data) = 0;
+		}
+	}
+
 	rc = v4l2_event_unsubscribe(fh, sub);
 	D("%s: rc = %d\n", __func__, rc);
 	return rc;
@@ -1452,7 +1478,7 @@ static int msm_close_server(struct file *fp)
 			}
 		}
 		sub.type = V4L2_EVENT_ALL;
-		msm_server_v4l2_unsubscribe_event(
+		v4l2_event_unsubscribe(
 			&g_server_dev.server_command_queue.eventHandle, &sub);
 		mutex_unlock(&g_server_dev.server_lock);
 	}
@@ -1645,7 +1671,7 @@ static const struct v4l2_file_operations msm_fops_server = {
 
 static const struct v4l2_ioctl_ops msm_ioctl_ops_server = {
 	.vidioc_subscribe_event = msm_server_v4l2_subscribe_event,
-	.vidioc_unsubscribe_event = msm_server_v4l2_unsubscribe_event,
+	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
 	.vidioc_default = msm_ioctl_server,
 };
 
@@ -3103,9 +3129,7 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 
 static int msm_close_config(struct inode *node, struct file *f)
 {
-	struct v4l2_event ev;
 	struct v4l2_event_subscription sub;
-	struct msm_isp_event_ctrl *isp_event;
 	struct msm_cam_config_dev *config_cam = f->private_data;
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -3116,20 +3140,6 @@ static int msm_close_config(struct inode *node, struct file *f)
 	msm_server_v4l2_unsubscribe_event(
 		&config_cam->config_stat_event_queue.eventHandle,
 		&sub);
-	while (v4l2_event_pending(
-		&config_cam->config_stat_event_queue.eventHandle)) {
-		v4l2_event_dequeue(
-			&config_cam->config_stat_event_queue.eventHandle,
-			&ev, O_NONBLOCK);
-		isp_event = (struct msm_isp_event_ctrl *)
-			(*((uint32_t *)ev.u.data));
-		if (isp_event) {
-			if (isp_event->isp_data.isp_msg.len != 0 &&
-				isp_event->isp_data.isp_msg.data != NULL)
-				kfree(isp_event->isp_data.isp_msg.data);
-			kfree(isp_event);
-		}
-	}
 	return 0;
 }
 
