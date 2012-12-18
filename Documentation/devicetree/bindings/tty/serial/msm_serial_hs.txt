@@ -5,9 +5,13 @@ Required properties:
 	- "qcom,msm-hsuart-v14" to be used for UARTDM Core v1.4
 - reg : offset and length of the register set for both the device,
 	uart core and bam core
-- reg-names : names of the uart core and bam core.
-- interrupts : should contain the uart interrupt.
-- interrupt-names : names of interrupts to be used.
+- reg-names :
+	- "core_mem" to be used as name of the uart core
+	- "bam_mem" to be used as name of the bam core
+- interrupts : interrupts for both the device,uart core and bam core
+- interrupt-names :
+	- "core_irq" to be used as uart irq
+	- "bam irq" to be used as bam irq
 - bam-tx-ep-pipe-index : BAM TX Endpoint Pipe Index for HSUART
 - bam-rx-ep-pipe-index : BAM RX Endpoint Pipe Index for HSUART
 
