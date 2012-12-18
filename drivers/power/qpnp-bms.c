@@ -189,6 +189,7 @@ struct qpnp_bms_chip {
 
 	int				ocv_high_threshold_uv;
 	int				ocv_low_threshold_uv;
+	unsigned long			last_recalc_time;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -1597,6 +1598,7 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 	chip->calculated_soc = new_calculated_soc;
 	pr_debug("CC based calculated SOC = %d\n", chip->calculated_soc);
 	chip->first_time_calc_soc = 0;
+	get_current_time(&chip->last_recalc_time);
 	return chip->calculated_soc;
 }
 
@@ -1640,11 +1642,8 @@ static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
 	return voltage_based_soc;
 }
 
-static void calculate_soc_work(struct work_struct *work)
+static int recalculate_soc(struct qpnp_bms_chip *chip)
 {
-	struct qpnp_bms_chip *chip = container_of(work,
-				struct qpnp_bms_chip,
-				calculate_soc_delayed_work.work);
 	int batt_temp, rc, soc;
 	struct qpnp_vadc_result result;
 	struct raw_soc_params raw;
@@ -1656,7 +1655,7 @@ static void calculate_soc_work(struct work_struct *work)
 		if (rc) {
 			pr_err("error reading vadc LR_MUX1_BATT_THERM = %d, rc = %d\n",
 						LR_MUX1_BATT_THERM, rc);
-			return;
+			return chip->calculated_soc;
 		}
 		pr_debug("batt_temp phy = %lld meas = 0x%llx\n",
 						result.physical,
@@ -1668,6 +1667,15 @@ static void calculate_soc_work(struct work_struct *work)
 		soc = calculate_state_of_charge(chip, &raw, batt_temp);
 		mutex_unlock(&chip->last_ocv_uv_mutex);
 	}
+	return soc;
+}
+
+static void calculate_soc_work(struct work_struct *work)
+{
+	struct qpnp_bms_chip *chip = container_of(work,
+				struct qpnp_bms_chip,
+				calculate_soc_delayed_work.work);
+	int soc = recalculate_soc(chip);
 
 	if (soc < chip->low_soc_calc_threshold)
 		schedule_delayed_work(&chip->calculate_soc_delayed_work,
@@ -2468,6 +2476,38 @@ qpnp_bms_remove(struct spmi_device *spmi)
 	return 0;
 }
 
+static int bms_resume(struct device *dev)
+{
+	int rc;
+	unsigned long soc_calc_period;
+	unsigned long time_since_last_recalc;
+	unsigned long tm_now_sec;
+	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
+
+	rc = get_current_time(&tm_now_sec);
+	if (rc) {
+		pr_err("Could not read current time: %d\n", rc);
+	} else if (tm_now_sec > chip->last_recalc_time) {
+		time_since_last_recalc = tm_now_sec - chip->last_recalc_time;
+		pr_debug("Time since last recalc: %lu\n",
+				time_since_last_recalc);
+		if (chip->calculated_soc < chip->low_soc_calc_threshold)
+			soc_calc_period = chip->low_soc_calculate_soc_ms;
+		else
+			soc_calc_period = chip->calculate_soc_ms;
+
+		if (time_since_last_recalc >= soc_calc_period) {
+			chip->last_recalc_time = tm_now_sec;
+			recalculate_soc(chip);
+		}
+	}
+	return 0;
+}
+
+static const struct dev_pm_ops qpnp_bms_pm_ops = {
+	.resume		= bms_resume,
+};
+
 static struct spmi_driver qpnp_bms_driver = {
 	.probe		= qpnp_bms_probe,
 	.remove		= __devexit_p(qpnp_bms_remove),
@@ -2475,6 +2515,7 @@ static struct spmi_driver qpnp_bms_driver = {
 		.name		= QPNP_BMS_DEV_NAME,
 		.owner		= THIS_MODULE,
 		.of_match_table	= qpnp_bms_match_table,
+		.pm		= &qpnp_bms_pm_ops,
 	},
 };
 
