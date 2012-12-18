@@ -331,48 +331,6 @@ exit:
 	return ret;
 }
 
-static ssize_t
-min_sectors_to_check_bkops_status_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
-{
-	struct mmc_blk_data *md = mmc_blk_get(dev_to_disk(dev));
-	unsigned int min_sectors_to_check_bkops_status;
-	struct mmc_card *card = md->queue.card;
-	int ret;
-
-	if (!card)
-		ret = -EINVAL;
-	else {
-	    min_sectors_to_check_bkops_status =
-		    card->bkops_info.min_sectors_to_queue_delayed_work;
-	    ret = snprintf(buf, PAGE_SIZE, "%d\n",
-			   min_sectors_to_check_bkops_status);
-	}
-
-	mmc_blk_put(md);
-	return ret;
-}
-
-static ssize_t
-min_sectors_to_check_bkops_status_store(struct device *dev,
-				 struct device_attribute *attr,
-				 const char *buf, size_t count)
-{
-	int value;
-	struct mmc_blk_data *md = mmc_blk_get(dev_to_disk(dev));
-	struct mmc_card *card = md->queue.card;
-
-	if (!card)
-		return -EINVAL;
-
-	sscanf(buf, "%d", &value);
-	if (value >= 0)
-		card->bkops_info.min_sectors_to_queue_delayed_work = value;
-
-	mmc_blk_put(md);
-	return count;
-}
-
 static int mmc_blk_open(struct block_device *bdev, fmode_t mode)
 {
 	struct mmc_blk_data *md = mmc_blk_get(bdev->bd_disk);
@@ -999,9 +957,6 @@ static int mmc_blk_issue_discard_rq(struct mmc_queue *mq, struct request *req)
 
 	from = blk_rq_pos(req);
 	nr = blk_rq_sectors(req);
-
-	if (card->ext_csd.bkops_en)
-		card->bkops_info.sectors_changed += blk_rq_sectors(req);
 
 	if (mmc_can_discard(card))
 		arg = MMC_DISCARD_ARG;
@@ -1664,12 +1619,8 @@ static u8 mmc_blk_prep_packed_list(struct mmc_queue *mq, struct request *req)
 			break;
 		}
 
-		if (rq_data_dir(next) == WRITE) {
+		if (rq_data_dir(next) == WRITE)
 			mq->num_of_potential_packed_wr_reqs++;
-			if (card->ext_csd.bkops_en)
-				card->bkops_info.sectors_changed +=
-					blk_rq_sectors(next);
-		}
 		list_add_tail(&next->queuelist, &mq->mqrq_cur->packed_list);
 		cur = next;
 		reqs++;
@@ -1901,8 +1852,6 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		return 0;
 
 	if (rqc) {
-		if ((card->ext_csd.bkops_en) && (rq_data_dir(rqc) == WRITE))
-			card->bkops_info.sectors_changed += blk_rq_sectors(rqc);
 		reqs = mmc_blk_prep_packed_list(mq, rqc);
 	}
 
@@ -2067,9 +2016,15 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	}
 #endif
 
-	if (req && !mq->mqrq_prev->req)
+	if (req && !mq->mqrq_prev->req) {
 		/* claim host only for the first request */
 		mmc_claim_host(card->host);
+		if (card->ext_csd.bkops_en &&
+		    card->bkops_info.started_delayed_bkops) {
+			card->bkops_info.started_delayed_bkops = false;
+			mmc_stop_bkops(card);
+		}
+	}
 
 	ret = mmc_blk_part_switch(card, md);
 	if (ret) {
@@ -2399,24 +2354,8 @@ static int mmc_add_disk(struct mmc_blk_data *md)
 	if (ret)
 		goto num_wr_reqs_to_start_packing_fail;
 
-	md->min_sectors_to_check_bkops_status.show =
-		min_sectors_to_check_bkops_status_show;
-	md->min_sectors_to_check_bkops_status.store =
-		min_sectors_to_check_bkops_status_store;
-	sysfs_attr_init(&md->min_sectors_to_check_bkops_status.attr);
-	md->min_sectors_to_check_bkops_status.attr.name =
-		"min_sectors_to_check_bkops_status";
-	md->min_sectors_to_check_bkops_status.attr.mode = S_IRUGO | S_IWUSR;
-	ret = device_create_file(disk_to_dev(md->disk),
-				 &md->min_sectors_to_check_bkops_status);
-	if (ret)
-		goto min_sectors_to_check_bkops_status_fails;
-
 	return ret;
 
-min_sectors_to_check_bkops_status_fails:
-	device_remove_file(disk_to_dev(md->disk),
-			   &md->num_wr_reqs_to_start_packing);
 num_wr_reqs_to_start_packing_fail:
 	device_remove_file(disk_to_dev(md->disk), &md->power_ro_lock);
 power_ro_lock_fail:

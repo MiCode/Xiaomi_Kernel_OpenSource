@@ -270,14 +270,11 @@ struct mmc_bkops_stats {
  *        should be cancelled
  * @started_delayed_bkops:  A flag to indicate if the delayed
  *        work was scheduled
- * @sectors_changed:  number of  sectors written or
- *       discard since the last idle BKOPS were scheduled
  */
 struct mmc_bkops_info {
 	struct delayed_work	dw;
 	unsigned int		host_suspend_tout_ms;
 	unsigned int		delay_ms;
-	unsigned int		min_sectors_to_queue_delayed_work;
 	struct mmc_bkops_stats  bkops_stats;    /* BKOPS statistics */
 /*
  * A default time for checking the need for non urgent BKOPS once mmcqd
@@ -290,16 +287,6 @@ struct mmc_bkops_info {
 #define BKOPS_COMPLETION_POLLING_INTERVAL_MS 1000 /* in ms */
 	bool			cancel_delayed_work;
 	bool			started_delayed_bkops;
-	unsigned int		sectors_changed;
-/*
- * Since canceling the delayed work might have significant effect on the
- * performance of small requests we won't queue the delayed work every time
- * mmcqd thread is idle.
- * The delayed work for idle BKOPS will be scheduled only after a significant
- * amount of write or discard data.
- * 100MB is chosen based on benchmark tests.
- */
-#define BKOPS_MIN_SECTORS_TO_QUEUE_DELAYED_WORK 204800 /* 100MB */
 };
 
 /*

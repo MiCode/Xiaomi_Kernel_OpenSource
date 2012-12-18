@@ -357,14 +357,8 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 	if (!card || !card->ext_csd.bkops_en || mmc_card_doing_bkops(card))
 		return;
 
-	if (card->bkops_info.sectors_changed <
-	    card->bkops_info.min_sectors_to_queue_delayed_work)
-		return;
-
 	pr_debug("%s: %s: queueing delayed_bkops_work\n",
 		 mmc_hostname(card->host), __func__);
-
-	card->bkops_info.sectors_changed = 0;
 
 	/*
 	 * cancel_delayed_bkops_work will prevent a race condition between
@@ -923,8 +917,6 @@ int mmc_stop_bkops(struct mmc_card *card)
 
 	BUG_ON(!card);
 
-	mmc_claim_host(card->host);
-
 	/*
 	 * Notify the delayed work to be cancelled, in case it was already
 	 * removed from the queue, but was not started yet
@@ -949,7 +941,6 @@ int mmc_stop_bkops(struct mmc_card *card)
 	MMC_UPDATE_BKOPS_STATS_HPI(card->bkops_info.bkops_stats);
 
 out:
-	mmc_release_host(card->host);
 	return err;
 }
 EXPORT_SYMBOL(mmc_stop_bkops);
@@ -3230,7 +3221,9 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
 		if (host->card && mmc_card_mmc(host->card)) {
+			mmc_claim_host(host);
 			err = mmc_stop_bkops(host->card);
+			mmc_release_host(host);
 			if (err) {
 				pr_err("%s: didn't stop bkops\n",
 					mmc_hostname(host));
