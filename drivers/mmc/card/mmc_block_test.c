@@ -1134,9 +1134,9 @@ static int prepare_packed_control_tests_requests(struct test_data *td,
 		break;
 	case TEST_PACKING_NOT_EXP_LESS_THAN_TRIGGER_REQUESTS:
 	case TEST_PACKING_NOT_EXP_TRIGGER_REQUESTS:
-		mbtd->exp_packed_stats.packing_events[num_packed_reqs] = 1;
 		break;
 	default:
+		BUG_ON(num_packed_reqs < 0);
 		mbtd->exp_packed_stats.pack_stop_reason[EMPTY_QUEUE] = 1;
 		mbtd->exp_packed_stats.packing_events[num_packed_reqs] = 1;
 	}
