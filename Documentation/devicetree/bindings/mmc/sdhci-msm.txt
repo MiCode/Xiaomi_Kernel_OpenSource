@@ -1,0 +1,81 @@
+Qualcomm Standard Secure Digital Host Controller (SDHC)
+
+Secure Digital Host Controller provides standard host interface to SD/MMC/SDIO cards.
+
+Required properties:
+  - compatible : should be "qcom,sdhci-msm"
+  - reg : should contain SDHC, SD Core register map.
+  - reg-names : indicates various resources passed to driver (via reg proptery) by name.
+		Required "reg-names" are "hc_mem" and "core_mem"
+  - interrupts : should contain SDHC interrupts.
+  - interrupt-names : indicates interrupts passed to driver (via interrupts property) by name.
+		      Required "interrupt-names" are "hc_irq" and "pwr_irq".
+  - <supply-name>-supply: phandle to the regulator device tree node
+			  Required "supply-name" are "vdd" and "vdd-io".
+
+Required alias:
+- The slot number is specified via an alias with the following format
+	'sdhc{n}' where n is the slot number.
+
+Optional Properties:
+	- interrupt-names - "status_irq". This status_irq will be used for card
+			     detection.
+	- qcom,bus-width - defines the bus I/O width that controller supports.
+			   Units - number of bits. The valid bus-width values are
+			   1, 4 and 8.
+	- qcom,nonremovable - specifies whether the card in slot is
+			      hot pluggable or hard wired.
+	- qcom,bus-speed-mode - specifies supported bus speed modes by host.
+				The supported bus speed modes are :
+				"HS200_1p8v" - indicates that host can support HS200 at 1.8v.
+				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
+				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
+				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
+
+In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
+	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
+	- qcom,<supply>-lpm_sup - specifies whether supply can be kept in low power mode (lpm).
+	- qcom,<supply>-voltage_level - specifies voltage levels for supply. Should be
+					specified in pairs (min, max), units uV.
+	- qcom,<supply>-current_level - specifies load levels for supply in lpm or
+					high power mode (hpm). Should be specified in
+					pairs (lpm, hpm), units uA.
+
+	- gpios - specifies gpios assigned for sdhc slot.
+	- qcom,gpio-names -  a list of strings that map in order to the list of gpios
+
+Example:
+
+	aliases {
+		sdhc1 = &sdhc_1;
+	};
+
+	sdhc_1: qcom,sdhc@f9824900 {
+		compatible = "qcom,sdhci-msm";
+                reg = <0xf9824900 0x11c>, <0xf9824000 0x800>;
+                reg-names = "hc_mem", "core_mem";
+                interrupts = <0 123 0>, <0 138 0>;
+                interrupt-names = "hc_irq", "pwr_irq";
+
+		vdd-supply = <&pm8941_l21>;
+		vdd-io-supply = <&pm8941_l13>;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 800000>;
+
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-lpm-sup;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <6 22000>;
+
+                qcom,bus-width = <4>;
+		qcom,nonremovable;
+		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+		gpios = <&msmgpio 40 0>, /* CLK */
+			<&msmgpio 39 0>, /* CMD */
+			<&msmgpio 38 0>, /* DATA0 */
+			<&msmgpio 37 0>, /* DATA1 */
+			<&msmgpio 36 0>, /* DATA2 */
+			<&msmgpio 35 0>; /* DATA3 */
+		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+	};
