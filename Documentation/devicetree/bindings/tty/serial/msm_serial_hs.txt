@@ -1,0 +1,70 @@
+* Qualcomm MSM HSUART
+
+Required properties:
+- compatible :
+	- "qcom,msm-hsuart-v14" to be used for UARTDM Core v1.4
+- reg : offset and length of the register set for both the device,
+	uart core and bam core
+- reg-names : names of the uart core and bam core.
+- interrupts : should contain the uart interrupt.
+- interrupt-names : names of interrupts to be used.
+- bam-tx-ep-pipe-index : BAM TX Endpoint Pipe Index for HSUART
+- bam-rx-ep-pipe-index : BAM RX Endpoint Pipe Index for HSUART
+
+BLSP has a static pipe allocation and assumes a pair-pipe for each uart core.
+Pipes [2*i : 2*i+1] are allocated for UART cores where i = [0 : 5].
+Hence, Minimum and Maximum permitted value of endpoint pipe index to be used
+with uart core is 0 and 11 respectively.
+
+There is one HSUART block used in MSM devices,
+"qcom,msm-hsuart-v14". The msm-serial-hs driver is
+able to handle this, and matches against the "qcom,msm-hsuart-v14"
+as the compatibility.
+
+The registers for the "qcom,msm-hsuart-v14" device need to specify both
+register blocks - uart core and bam core.
+
+Example:
+
+	uart7@f995d000 {
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0xf995d000 0x1000>,
+		      <0xf9944000 0x5000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupts = <0 113 0>, <0 239 0>;
+		interrupt-names = "core_irq", "bam_irq";
+	};
+
+Optional properties:
+- qcom,<gpio-name>-gpio : handle to the GPIO node, see "gpios property" in
+Documentation/devicetree/bindings/gpio/gpio.txt.
+"gpio-name" can be "tx", "rx", "cts" and "rfr" based on number of UART GPIOs
+need to configured.
+Gpio's are optional if it is required to be not configured by UART driver or
+case where there is nothing connected and we want to use internal loopback mode
+for uart.
+- qcom, wakeup_irq : UART RX GPIO IRQ line to be configured as wakeup source.
+- qcom,inject_rx_on_wakeup : inject_rx_on_wakeup enables feature where on
+receiving interrupt with UART RX GPIO IRQ line (i.e. above wakeup_irq property),
+HSUART driver injects provided character with property rx_to_inject.
+- qcom, rx_to_inject : The character to be inserted on wakeup.
+
+
+Example:
+
+	uart7: uart@f995d000 {
+		compatible = "qcom,msm-hsuart-v14"
+		reg = <0x19c40000 0x1000">,
+		      <0xf9944000 0x5000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupts = <0 113 0>, <0 239 0>;
+		interrupt-names = "core_irq", "bam_irq";
+
+		qcom,tx-gpio = <&msmgpio 41 0x00>;
+		qcom,rx-gpio = <&msmgpio 42 0x00>;
+		qcom,cts-gpio = <&msmgpio 43 0x00>;
+		qcom,rfr-gpio = <&msmgpio 44 0x00>;
+
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
+	};
