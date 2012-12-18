@@ -59,6 +59,10 @@ static int adc_meas_interval = ADC_MEAS1_INTERVAL_1S;
 module_param(adc_meas_interval, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(adc_meas_interval, "ADC ID polling period");
 
+static int override_phy_init;
+module_param(override_phy_init, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
+
 /**
  *  USB DBM Hardware registers.
  *
@@ -124,6 +128,7 @@ MODULE_PARM_DESC(adc_meas_interval, "ADC ID polling period");
 #define QSCRATCH_REG_OFFSET	(0x000F8800)
 #define QSCRATCH_GENERAL_CFG	(QSCRATCH_REG_OFFSET + 0x08)
 #define HS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x10)
+#define PARAMETER_OVERRIDE_X_REG (QSCRATCH_REG_OFFSET + 0x14)
 #define CHARGING_DET_CTRL_REG	(QSCRATCH_REG_OFFSET + 0x18)
 #define CHARGING_DET_OUTPUT_REG	(QSCRATCH_REG_OFFSET + 0x1C)
 #define ALT_INTERRUPT_EN_REG	(QSCRATCH_REG_OFFSET + 0x20)
@@ -169,6 +174,7 @@ struct dwc3_msm {
 	atomic_t                pm_suspended;
 	atomic_t		in_lpm;
 	int			hs_phy_irq;
+	int			hsphy_init_seq;
 	bool			lpm_irq_seen;
 	struct delayed_work	resume_work;
 	struct wake_lock	wlock;
@@ -1204,6 +1210,17 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 	usleep_range(2000, 2200);
 	/* Disable (bypass) VBUS and ID filters */
 	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
+	/*
+	 * write HSPHY init value to QSCRATCH reg to set HSPHY parameters like
+	 * VBUS valid threshold, disconnect valid threshold, DC voltage level,
+	 * preempasis and rise/fall time.
+	 */
+	if (override_phy_init)
+		msm->hsphy_init_seq = override_phy_init;
+	if (msm->hsphy_init_seq)
+		dwc3_msm_write_readback(msm->base,
+					PARAMETER_OVERRIDE_X_REG, 0x03FFFFFF,
+					msm->hsphy_init_seq & 0x03FFFFFF);
 
 	/* Enable master clock for RAMs to allow BAM to access RAMs when
 	 * RAM clock gating is enabled via DWC3's GCTL. Otherwise, issues
@@ -2173,6 +2190,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	dwc3->dev.dma_parms = pdev->dev.dma_parms;
 	msm->resource_size = resource_size(res);
 	msm->dwc3 = dwc3;
+
+	if (of_property_read_u32(node, "qcom,dwc-hsphy-init",
+						&msm->hsphy_init_seq))
+		dev_dbg(&pdev->dev, "unable to read hsphy init seq\n");
+	else if (!msm->hsphy_init_seq)
+		dev_warn(&pdev->dev, "incorrect hsphyinitseq.Using PORvalue\n");
 
 	dwc3_msm_qscratch_reg_init(msm);
 
