@@ -664,7 +664,7 @@ static int fuse_readpages_fill(void *_data, struct page *page)
 		}
 	}
 
-#ifdef CONFIG_DMA_CMA
+#ifdef CONFIG_CMA
 	if (is_cma_pageblock(page)) {
 		struct page *oldpage = page, *newpage;
 		int err;

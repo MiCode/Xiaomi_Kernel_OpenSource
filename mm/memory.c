@@ -2913,7 +2913,7 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	entry = pte_to_swp_entry(orig_pte);
 	if (unlikely(non_swap_entry(entry))) {
 		if (is_migration_entry(entry)) {
-#ifdef CONFIG_DMA_CMA
+#ifdef CONFIG_CMA
 			/*
 			 * FIXME: mszyprow: cruel, brute-force method for
 			 * letting cma/migration to finish it's job without
