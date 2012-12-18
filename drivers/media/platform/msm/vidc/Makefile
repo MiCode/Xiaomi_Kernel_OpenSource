@@ -7,3 +7,4 @@ obj-$(CONFIG_MSM_VIDC_V4L2) := 	msm_v4l2_vidc.o \
 				msm_vidc_debug.o \
 				venus_hfi.o \
 				hfi_response_handler.o \
+				hfi_packetization.o \
