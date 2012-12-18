@@ -62,6 +62,7 @@ struct mhl_tx_ctrl {
 	struct completion rgnd_done;
 	void (*notify_usb_online)(int online);
 	struct usb_ext_notification *mhl_info;
+	bool disc_enabled;
 };
 
 
@@ -203,11 +204,29 @@ static int mhl_sii_reset_pin(struct mhl_tx_ctrl *mhl_ctrl, int on)
 	return 0;
 }
 
+
+static int mhl_sii_wait_for_rgnd(struct mhl_tx_ctrl *mhl_ctrl)
+{
+	int timeout;
+	/* let isr handle RGND interrupt */
+	pr_debug("%s:%u\n", __func__, __LINE__);
+	INIT_COMPLETION(mhl_ctrl->rgnd_done);
+	timeout = wait_for_completion_interruptible_timeout
+		(&mhl_ctrl->rgnd_done, HZ/2);
+	if (!timeout) {
+		/* most likely nothing plugged in USB */
+		/* USB HOST connected or already in USB mode */
+		pr_warn("%s:%u timedout\n", __func__, __LINE__);
+		return -ENODEV;
+	}
+	return mhl_ctrl->mhl_mode ? 0 : 1;
+}
+
 /*  USB_HANDSHAKING FUNCTIONS */
 static int mhl_sii_device_discovery(void *data, int id,
 			     void (*usb_notify_cb)(int online))
 {
-	int timeout, rc;
+	int rc;
 	struct mhl_tx_ctrl *mhl_ctrl = data;
 
 	if (id) {
@@ -227,30 +246,24 @@ static int mhl_sii_device_discovery(void *data, int id,
 	if (!mhl_ctrl->notify_usb_online)
 		mhl_ctrl->notify_usb_online = usb_notify_cb;
 
-	mhl_sii_reset_pin(mhl_ctrl, 0);
-	msleep(50);
-	mhl_sii_reset_pin(mhl_ctrl, 1);
-	/* TX PR-guide requires a 100 ms wait here */
-
-	msleep(100);
-	mhl_init_reg_settings(mhl_ctrl, true);
-
-	if (mhl_ctrl->cur_state == POWER_STATE_D3) {
-		/* give MHL driver chance to handle RGND interrupt */
-		INIT_COMPLETION(mhl_ctrl->rgnd_done);
-		timeout = wait_for_completion_interruptible_timeout
-			(&mhl_ctrl->rgnd_done, HZ/2);
-		if (!timeout) {
-			/* most likely nothing plugged in USB */
-			/* USB HOST connected or already in USB mode */
-			pr_debug("Timedout Returning from discovery mode\n");
-			return 0;
-		}
-		rc = mhl_ctrl->mhl_mode ? 0 : 1;
+	if (!mhl_ctrl->disc_enabled) {
+		mhl_sii_reset_pin(mhl_ctrl, 0);
+		msleep(50);
+		mhl_sii_reset_pin(mhl_ctrl, 1);
+		/* TX PR-guide requires a 100 ms wait here */
+		msleep(100);
+		mhl_init_reg_settings(mhl_ctrl, true);
+		rc = mhl_sii_wait_for_rgnd(mhl_ctrl);
 	} else {
-		/* not in D3. already in MHL mode */
-		rc = 0;
+		if (mhl_ctrl->cur_state == POWER_STATE_D3) {
+			rc = mhl_sii_wait_for_rgnd(mhl_ctrl);
+		} else {
+			/* in MHL mode */
+			pr_debug("%s:%u\n", __func__, __LINE__);
+			rc = 0;
+		}
 	}
+	pr_debug("%s: ret result: %s\n", __func__, rc ? "usb" : " mhl");
 	return rc;
 }
 
@@ -506,7 +519,8 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 		 */
 		MHL_SII_REG_NAME_WR(REG_MHLTX_CTL1, 0xD0);
 		msleep(50);
-		MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, 0x00);
+		if (!mhl_ctrl->disc_enabled)
+			MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, 0x00);
 		MHL_SII_PAGE3_MOD(0x003D, BIT0, 0x00);
 		mhl_ctrl->cur_state = POWER_STATE_D3;
 		break;
@@ -1216,6 +1230,7 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	 * Other initializations
 	 * such tx specific
 	 */
+	mhl_ctrl->disc_enabled = false;
 	rc = mhl_tx_chip_init(mhl_ctrl);
 	if (rc) {
 		pr_err("%s: tx chip init failed [%d]\n",
@@ -1257,6 +1272,8 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	mhl_ctrl->mhl_info = mhl_info;
 	return 0;
 failed_probe:
+	mhl_gpio_config(mhl_ctrl, 0);
+	mhl_vreg_config(mhl_ctrl, 0);
 	/* do not deep-free */
 	if (mhl_info)
 		devm_kfree(&client->dev, mhl_info);
