@@ -78,6 +78,28 @@ int panel_next_off(struct platform_device *pdev)
 	return ret;
 }
 
+int panel_next_late_init(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct msm_fb_panel_data *pdata;
+	struct msm_fb_panel_data *next_pdata;
+	struct platform_device *next_pdev;
+
+	pdata = (struct msm_fb_panel_data *)pdev->dev.platform_data;
+
+	if (pdata) {
+		next_pdev = pdata->next;
+		if (next_pdev) {
+			next_pdata = (struct msm_fb_panel_data *)
+					next_pdev->dev.platform_data;
+			if ((next_pdata) && (next_pdata->late_init))
+				ret = next_pdata->late_init(next_pdev);
+		}
+	}
+
+	return ret;
+}
+
 struct platform_device *msm_fb_device_alloc(struct msm_fb_panel_data *pdata,
 						u32 type, u32 id)
 {
