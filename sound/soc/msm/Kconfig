@@ -180,6 +180,21 @@ config SND_SOC_MSM8974
 	 the machine drivers and the corresponding
 	 DAI-links.
 
+config SND_SOC_MSM8226
+	tristate "SoC Machine driver for MSM8226 boards"
+	depends on ARCH_MSM8226
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_SOC_WCD9306
+	select SND_DYNAMIC_MINORS
+	help
+	 To add support for SoC audio on MSM8226.
+	 This will enable sound soc drivers which
+	 interfaces with DSP, also it will enable
+	 the machine drivers and the corresponding
+	 DAI-links.
+
 config SND_SOC_MDM9615
 	tristate "SoC Machine driver for MDM9615 boards"
 	depends on ARCH_MSM9615
