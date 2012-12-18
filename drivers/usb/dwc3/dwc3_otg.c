@@ -337,7 +337,6 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 	struct usb_phy *phy = dotg->otg.phy;
 	int ret = 0;
-	int work = 0;
 
 	if (event == DWC3_EVENT_PHY_RESUME) {
 		if (!pm_runtime_status_suspended(phy->dev)) {
@@ -358,27 +357,19 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
 		if (ext_xceiv->id == DWC3_ID_FLOAT) {
-			if (!test_and_set_bit(ID, &dotg->inputs)) {
-				dev_dbg(phy->dev, "XCVR: ID set\n");
-				work = 1;
-			}
+			dev_dbg(phy->dev, "XCVR: ID set\n");
+			set_bit(ID, &dotg->inputs);
 		} else {
-			if (test_and_clear_bit(ID, &dotg->inputs)) {
-				dev_dbg(phy->dev, "XCVR: ID clear\n");
-				work = 1;
-			}
+			dev_dbg(phy->dev, "XCVR: ID clear\n");
+			clear_bit(ID, &dotg->inputs);
 		}
 
 		if (ext_xceiv->bsv) {
-			if (!test_and_set_bit(B_SESS_VLD, &dotg->inputs)) {
-				dev_dbg(phy->dev, "XCVR: BSV set\n");
-				work = 1;
-			}
+			dev_dbg(phy->dev, "XCVR: BSV set\n");
+			set_bit(B_SESS_VLD, &dotg->inputs);
 		} else {
-			if (test_and_clear_bit(B_SESS_VLD, &dotg->inputs)) {
-				dev_dbg(phy->dev, "XCVR: BSV clear\n");
-				work = 1;
-			}
+			dev_dbg(phy->dev, "XCVR: BSV clear\n");
+			clear_bit(B_SESS_VLD, &dotg->inputs);
 		}
 
 		if (!init) {
@@ -387,8 +378,8 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			dev_dbg(phy->dev, "XCVR: BSV init complete\n");
 			return;
 		}
-		if (work)
-			schedule_work(&dotg->sm_work);
+
+		schedule_work(&dotg->sm_work);
 	}
 }
 
@@ -714,7 +705,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			phy->state = OTG_STATE_B_IDLE;
 			work = 1;
 		} else {
-			 if (dwc3_otg_start_host(&dotg->otg, 1)) {
+			phy->state = OTG_STATE_A_HOST;
+			if (dwc3_otg_start_host(&dotg->otg, 1)) {
 				/*
 				 * Probably set_host was not called yet.
 				 * We will re-try as soon as it will be called
@@ -725,7 +717,6 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				pm_runtime_put_sync(phy->dev);
 				return;
 			}
-			phy->state = OTG_STATE_A_HOST;
 		}
 		break;
 
