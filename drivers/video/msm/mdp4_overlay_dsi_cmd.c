@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -869,6 +869,9 @@ static void mdp4_overlay_update_dsi_cmd(struct msm_fb_data_type *mfd)
 	} else {
 		pipe = vctrl->base_pipe;
 	}
+
+	/* TE enabled */
+	mdp4_mipi_vsync_enable(mfd, pipe, 0);
 
 	MDP_OUTP(MDP_BASE + 0x021c, 10); /* read pointer */
 
