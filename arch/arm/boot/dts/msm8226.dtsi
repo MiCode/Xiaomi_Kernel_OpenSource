@@ -434,131 +434,16 @@
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
-		reg-names = "core", "intr";
+		reg-names = "core", "intr", "cnfg";
 		reg = <0xfc4cf000 0x1000>,
-		      <0Xfc4cb000 0x1000>;
+		      <0Xfc4cb000 0x1000>,
+		      <0Xfc4ca000 0x1000>;
 		/* 190,ee0_krait_hlos_spmi_periph_irq */
 		/* 187,channel_0_krait_hlos_trans_done_irq */
 		interrupts = <0 190 0>, <0 187 0>;
 		qcom,not-wakeup;
 		qcom,pmic-arb-ee = <0>;
 		qcom,pmic-arb-channel = <0>;
-		qcom,pmic-arb-ppid-map = <0x001000a0>, /* PM8026_0 */
-					 <0x005000a2>, /* INTERRUPT */
-					 <0x006000a3>, /* SPMI_0 */
-					 <0x00800000>, /* PON0 */
-					 <0x00a000a5>, /* VREF_LPDDR3 */
-					 <0x01000001>, /* SMBB_CHG */
-					 <0x01100002>, /* SMBB_BUCK */
-					 <0x01200003>, /* SMBB_BIF */
-					 <0x01300004>, /* SMBB_USB */
-					 <0x01500005>, /* SMBB_BOOST */
-					 <0x01600006>, /* SMBB_MISC */
-					 <0x02800009>, /* COINCELL */
-					 <0x02c000a6>, /* MBG */
-					 <0x0310000a>, /* VADC1_USR */
-					 <0x03200041>, /* VADC1_MDM */
-					 <0x0330000b>, /* VADC1_BMS */
-					 <0x0340000c>, /* VADC2_BTM */
-					 <0x0360000d>, /* IADC1_USR */
-					 <0x03700042>, /* IADC1_MDM */
-					 <0x0380000e>, /* IADC1_BMS */
-					 <0x0400000f>, /* BMS_1 */
-					 <0x050000a7>, /* SHARED_XO */
-					 <0x051000a8>, /* BB_CLK1 */
-					 <0x05200010>, /* BB_CLK2 */
-					 <0x05a000ac>, /* SLEEP_CLK */
-					 <0x06000045>, /* RTC_RW */
-					 <0x06100012>, /* RTC_ALARM */
-					 <0x070000ae>, /* PBS_CORE */
-					 <0x071000af>, /* PBS_CLIENT_1 */
-					 <0x072000b0>, /* PBS_CLIENT_2 */
-					 <0x073000b1>, /* PBS_CLIENT_3 */
-					 <0x074000b2>, /* PBS_CLIENT_4 */
-					 <0x075000b3>, /* PBS_CLIENT_5 */
-					 <0x076000b4>, /* PBS_CLIENT_6 */
-					 <0x07700046>, /* PBS_CLIENT_7 */
-					 <0x07800047>, /* PBS_CLIENT_8 */
-					 <0x079000b5>, /* PBS_CLIENT_9 */
-					 <0x07a000b6>, /* PBS_CLIENT_10 */
-					 <0x07b000b7>, /* PBS_CLIENT_11 */
-					 <0x07c000b8>, /* PBS_CLIENT_12 */
-					 <0x07d000b9>, /* PBS_CLIENT_13 */
-					 <0x07e000ba>, /* PBS_CLIENT_14 */
-					 <0x07f000bb>, /* PBS_CLIENT_15 */
-					 <0x0a0000bd>, /* MPP_1 */
-					 <0x0a100014>, /* MPP_2 */
-					 <0x0a200015>, /* MPP_3 */
-					 <0x0a300016>, /* MPP_4 */
-					 <0x0a400048>, /* MPP_5 */
-					 <0x0a500017>, /* MPP_6 */
-					 <0x0a600018>, /* MPP_7 */
-					 <0x0a700049>, /* MPP_8 */
-					 <0x0c000019>, /* GPIO_1 */
-					 <0x0c10001a>, /* GPIO_2 */
-					 <0x0c20004a>, /* GPIO_3 */
-					 <0x0c30004b>, /* GPIO_4 */
-					 <0x0c40001b>, /* GPIO_5 */
-					 <0x0c50001c>, /* GPIO_6 */
-					 <0x0c60001d>, /* GPIO_7 */
-					 <0x0c70004c>, /* GPIO_8 */
-					 <0x0fe000be>, /* TRIM_0 */
-					 <0x110000bf>, /* BUCK_CMN_1 */
-					 <0x114000c0>, /* SMPS1 */
-					 <0x115000c1>, /* FTPS1_1 */
-					 <0x116000c2>, /* BUCK_FREQ_1 */
-					 <0x1170001e>, /* SMPS2 */
-					 <0x1180001f>, /* FTPS1_2 */
-					 <0x11900020>, /* BUCK_FREQ_2 */
-					 <0x11a000c3>, /* SMPS3 */
-					 <0x11b000c4>, /* SMPS_3_PS1 */
-					 <0x11c000c5>, /* BUCK_FREQ_3 */
-					 <0x11d000c6>, /* SMPS4 */
-					 <0x11e000c7>, /* SMPS_4_PS1 */
-					 <0x11f000c8>, /* BUCK_FREQ_4 */
-					 <0x120000c9>, /* SMPS5 */
-					 <0x121000ca>, /* SMPS_5_PS1 */
-					 <0x122000cb>, /* BUCK_FREQ_5 */
-					 <0x140000cc>, /* LDO_1 */
-					 <0x141000cd>, /* LDO_2 */
-					 <0x142000ce>, /* LDO_3 */
-					 <0x143000cf>, /* LDO_4 */
-					 <0x144000d0>, /* LDO_5 */
-					 <0x145000d1>, /* LDO_6 */
-					 <0x146000d2>, /* LDO_7 */
-					 <0x147000d3>, /* LDO_8 */
-					 <0x148000d4>, /* LDO_9 */
-					 <0x149000d5>, /* LDO_10 */
-					 <0x14a000d6>, /* LDO_11 */
-					 <0x14b000d7>, /* LDO_12 */
-					 <0x14c000d8>, /* LDO_13 */
-					 <0x14d000d9>, /* LDO_14 */
-					 <0x14e000da>, /* LDO_15 */
-					 <0x14f000db>, /* LDO_16 */
-					 <0x150000dc>, /* LDO_17 */
-					 <0x151000dd>, /* LDO_18 */
-					 <0x152000de>, /* LDO_19 */
-					 <0x153000df>, /* LDO_20 */
-					 <0x154000e0>, /* LDO_21 */
-					 <0x155000e1>, /* LDO_22 */
-					 <0x156000e2>, /* LDO_23 */
-					 <0x157000e3>, /* LDO_24 */
-					 <0x158000e4>, /* LDO_25 */
-					 <0x159000e5>, /* LDO_26 */
-					 <0x15a000e6>, /* LDO_27 */
-					 <0x15b000e7>, /* LDO_28 */
-					 <0x180000e8>, /* LVS_1 */
-					 <0x1b0000e9>, /* LPG_LUT */
-					 <0x1b1000ea>, /* LPG_CHAN_1 */
-					 <0x1b200023>, /* LPG_CHAN_2 */
-					 <0x1b300024>, /* LPG_CHAN_3 */
-					 <0x1b400025>, /* LPG_CHAN_4 */
-					 <0x1b500026>, /* LPG_CHAN_5 */
-					 <0x1b600027>, /* LPG_CHAN_6 */
-					 <0x1bc00028>, /* PWM_3D */
-					 <0x1c000029>, /* VIB1 */
-					 <0x1d30002a>, /* FLASH_DRV */
-					 <0x1d80002b>; /* WLED */
 	};
 
 	i2c@f9926000 { /* BLSP-1 QUP-4 */

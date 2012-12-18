@@ -481,150 +481,15 @@
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
-		reg-names = "core", "intr";
+		reg-names = "core", "intr", "cnfg";
 		reg = <0xfc4cf000 0x1000>,
-		      <0Xfc4cb000 0x1000>;
+		      <0Xfc4cb000 0x1000>,
+		      <0Xfc4ca000 0x1000>;
 		/* 190,ee0_krait_hlos_spmi_periph_irq */
 		/* 187,channel_0_krait_hlos_trans_done_irq */
 		interrupts = <0 190 0 0 187 0>;
 		qcom,pmic-arb-ee = <0>;
 		qcom,pmic-arb-channel = <0>;
-		qcom,pmic-arb-ppid-map = <0x40400000>, /* BUS */
-					 <0x40500001>, /* INT */
-					 <0x40600002>, /* SPMI */
-					 <0x40800003>, /* PON */
-					 <0x42400004>, /* TEMP_ALARM */
-					 <0x47000005>, /* PBS_CORE */
-					 <0x47100006>, /* PBS_CLIENT0 */
-					 <0x47200007>, /* PBS_CLIENT1 */
-					 <0x47300008>, /* PBS_CLIENT2 */
-					 <0x47400009>, /* PBS_CLIENT3 */
-					 <0x4750000a>, /* PBS_CLIENT4 */
-					 <0x4760000b>, /* PBS_CLIENT5 */
-					 <0x4770000c>, /* PBS_CLIENT6 */
-					 <0x4780000d>, /* PBS_CLIENT7 */
-					 <0x4a00000e>, /* MPP1 */
-					 <0x4a100021>, /* MPP2 */
-					 <0x4a20000f>, /* MPP3 */
-					 <0x4a300010>, /* MPP4 */
-					 <0x51000011>, /* BCLK_GEN_MAIN */
-					 <0x51d00012>, /* S4_CTRL */
-					 <0x51e00013>, /* S4_PS */
-					 <0x51f00014>, /* S4_FREQ */
-					 <0x52000015>, /* S5_CTRL */
-					 <0x52100016>, /* S5_PS */
-					 <0x52200017>, /* S5_FREQ */
-					 <0x52300018>, /* S6_CTRL */
-					 <0x52400019>, /* S6_PS */
-					 <0x5250001a>, /* S6_FREQ */
-					 <0x5260001b>, /* S7_CTRL */
-					 <0x5270001c>, /* S7_PS */
-					 <0x5280001d>, /* S7_FREQ */
-					 <0x5290001e>, /* S8_CTRL */
-					 <0x52a0001f>, /* S8_PS */
-					 <0x52b00020>, /* S8_FREQ */
-					 <0x00400022>, /* BUS */
-					 <0x00500023>, /* INT */
-					 <0x00600024>, /* SPMI */
-					 <0x00800025>, /* PON */
-					 <0x00b00027>, /* VREG_TFT */
-					 <0x01000028>, /* SMBB_CHGR */
-					 <0x01100029>, /* SMBB_BUCK */
-					 <0x0120002a>, /* SMBB_BAT_IF */
-					 <0x0130002b>, /* SMBB_USB_CHGPTH */
-					 <0x0140002c>, /* SMBB_DC_CHGPTH */
-					 <0x0150002d>, /* SMBB_BOOST */
-					 <0x0160002e>, /* SMBB_MISC */
-					 <0x0170002f>, /* SMBB_FREQ */
-					 <0x02400030>, /* TEMP_ALARM */
-					 <0x02800031>, /* COIN */
-					 <0x03100032>, /* VADC1_USR */
-					 <0x03300033>, /* VADC1_BMS */
-					 <0x03400034>, /* VADC2_BTM */
-					 <0x03600035>, /* IADC1_USR */
-					 <0x03800036>, /* IADC1_BMS */
-					 <0x04000037>, /* BMS1 */
-					 <0x05700039>, /* DIFF_CLK1 */
-					 <0x05c0003b>, /* DIV_CLK2 */
-					 <0x0610003d>, /* RTC_ALARM */
-					 <0x0620003e>, /* RTC_TIMER */
-					 <0x07100040>, /* PBS_CLIENT0 */
-					 <0x07200041>, /* PBS_CLIENT1 */
-					 <0x07300042>, /* PBS_CLIENT2 */
-					 <0x07400043>, /* PBS_CLIENT3 */
-					 <0x07500044>, /* PBS_CLIENT4 */
-					 <0x07600045>, /* PBS_CLIENT5 */
-					 <0x07700046>, /* PBS_CLIENT6 */
-					 <0x07800047>, /* PBS_CLIENT7 */
-					 <0x07900048>, /* PBS_CLIENT8 */
-					 <0x07a00049>, /* PBS_CLIENT9 */
-					 <0x07b0004a>, /* PBS_CLIENT10 */
-					 <0x07c0004b>, /* PBS_CLIENT11 */
-					 <0x07d0004c>, /* PBS_CLIENT12 */
-					 <0x07e0004d>, /* PBS_CLIENT13 */
-					 <0x07f0004e>, /* PBS_CLIENT14 */
-					 <0x0800004f>, /* PBS_CLIENT15 */
-					 <0x0a100050>, /* MPP2 */
-					 <0x0a300051>, /* MPP4 */
-					 <0x0a400052>, /* MPP5 */
-					 <0x0a500053>, /* MPP6 */
-					 <0x0a600054>, /* MPP7 */
-					 <0x0a700055>, /* MPP8 */
-					 <0x0c000056>, /* GPIO1 */
-					 <0x0c100057>, /* GPIO2 */
-					 <0x0c200058>, /* GPIO3 */
-					 <0x0c300059>, /* GPIO4 */
-					 <0x0c40005a>, /* GPIO5 */
-					 <0x0c50005b>, /* GPIO6 */
-					 <0x0c60005c>, /* GPIO7 */
-					 <0x0c70005d>, /* GPIO8 */
-					 <0x0c80005e>, /* GPIO9 */
-					 <0x0c90005f>, /* GPIO10 */
-					 <0x0ca00060>, /* GPIO11 */
-					 <0x0cb00061>, /* GPIO12 */
-					 <0x0cc00062>, /* GPIO13 */
-					 <0x0cd00063>, /* GPIO14 */
-					 <0x0ce00064>, /* GPIO15 */
-					 <0x0cf00065>, /* GPIO16 */
-					 <0x0d200066>, /* GPIO19 */
-					 <0x0d300067>, /* GPIO20 */
-					 <0x0d500068>, /* GPIO22 */
-					 <0x0d600069>, /* GPIO23 */
-					 <0x0d70006a>, /* GPIO24 */
-					 <0x0d80006b>, /* GPIO25 */
-					 <0x0d90006c>, /* GPIO26 */
-					 <0x0da0006d>, /* GPIO27 */
-					 <0x0dc0006e>, /* GPIO29 */
-					 <0x0dd0006f>, /* GPIO30 */
-					 <0x0df00070>, /* GPIO32 */
-					 <0x0e000071>, /* GPIO33 */
-					 <0x0e100072>, /* GPIO34 */
-					 <0x0e200073>, /* GPIO35 */
-					 <0x0e300074>, /* GPIO36 */
-					 <0x11000075>, /* BUCK_CMN */
-					 <0x1a000076>, /* BOOST */
-					 <0x1a100077>, /* BOOST_FREQ */
-					 <0x1a800078>, /* KEYPAD1 */
-					 <0x1b000079>, /* LPG_LUT */
-					 <0x1b10007a>, /* LPG_CHAN1 */
-					 <0x1b20007b>, /* LPG_CHAN2 */
-					 <0x1b30007c>, /* LPG_CHAN3 */
-					 <0x1b40007d>, /* LPG_CHAN4 */
-					 <0x1b50007e>, /* LPG_CHAN5 */
-					 <0x1b60007f>, /* LPG_CHAN6 */
-					 <0x1b700080>, /* LPG_CHAN7 */
-					 <0x1b800081>, /* LPG_CHAN8 */
-					 <0x1bc00082>, /* PWM_3D */
-					 <0x1c000083>, /* VIB1 */
-					 <0x1d000084>, /* TRI_LED */
-					 <0x1d300085>, /* FLASH1 */
-					 <0x1d800086>, /* WLED1 */
-					 <0x1e200087>, /* KPDBL_MAIN */
-					 <0x1e300088>, /* KPDBL_LUT */
-					 <0x1e400089>, /* LPG_CHAN9 */
-					 <0x1e50008a>, /* LPG_CHAN10 */
-					 <0x1e60008b>, /* LPG_CHAN11 */
-					 <0x1e70008c>; /* LPG_CHAN12 */
 	};
 
 	i2c@f9967000 { /* BLSP#11 */

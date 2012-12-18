@@ -46,6 +46,21 @@
 #define SPMI_PIC_IRQ_STATUS(N)		(0x0600 + (4 * (N)))
 #define SPMI_PIC_IRQ_CLEAR(N)		(0x0A00 + (4 * (N)))
 
+/* Mapping Table */
+#define SPMI_MAPPING_TABLE_REG(N)	(0x0B00 + (4 * (N)))
+#define SPMI_MAPPING_BIT_INDEX(X)	(((X) >> 18) & 0xF)
+#define SPMI_MAPPING_BIT_IS_0_FLAG(X)	(((X) >> 17) & 0x1)
+#define SPMI_MAPPING_BIT_IS_0_RESULT(X)	(((X) >> 9) & 0xFF)
+#define SPMI_MAPPING_BIT_IS_1_FLAG(X)	(((X) >> 8) & 0x1)
+#define SPMI_MAPPING_BIT_IS_1_RESULT(X)	(((X) >> 0) & 0xFF)
+
+#define SPMI_MAPPING_TABLE_LEN		255
+#define SPMI_MAPPING_TABLE_TREE_DEPTH	16	/* Maximum of 16-bits */
+
+/* Ownership Table */
+#define SPMI_OWNERSHIP_TABLE_REG(N)	(0x0700 + (4 * (N)))
+#define SPMI_OWNERSHIP_PERIPH2OWNER(X)	((X) & 0x7)
+
 /* Channel Status fields */
 enum pmic_arb_chnl_status {
 	PMIC_ARB_STATUS_DONE	= (1 << 0),
@@ -81,13 +96,8 @@ enum pmic_arb_cmd_op_code {
 #define PMIC_ARB_TIMEOUT_US		100
 #define PMIC_ARB_MAX_TRANS_BYTES	(8)
 
-#define PMIC_ARB_APID_MASK				0xFF
-#define PMIC_ARB_PPID_MASK				0xFFF
-/* extract PPID and APID from interrupt map in .dts config file format */
-#define PMIC_ARB_DEV_TRE_2_PPID(MAP_COMPRS_VAL)		\
-			((MAP_COMPRS_VAL) >> (20))
-#define PMIC_ARB_DEV_TRE_2_APID(MAP_COMPRS_VAL)		\
-			((MAP_COMPRS_VAL) &  PMIC_ARB_APID_MASK)
+#define PMIC_ARB_APID_MASK		0xFF
+#define PMIC_ARB_PPID_MASK		0xFFF
 
 /**
  * base - base address of the PMIC Arbiter core registers.
@@ -99,6 +109,7 @@ struct spmi_pmic_arb_dev {
 	struct device		*slave;
 	void __iomem		*base;
 	void __iomem		*intr;
+	void __iomem		*cnfg;
 	int			pic_irq;
 	bool			allow_wakeup;
 	spinlock_t		lock;
@@ -107,6 +118,7 @@ struct spmi_pmic_arb_dev {
 	u8			min_apid;
 	u8			max_apid;
 	u16			periph_id_map[PMIC_ARB_MAX_PERIPHS];
+	u32			mapping_table[SPMI_MAPPING_TABLE_LEN];
 };
 
 static u32 pmic_arb_read(struct spmi_pmic_arb_dev *dev, u32 offset)
@@ -317,17 +329,79 @@ static int is_apid_valid(struct spmi_pmic_arb_dev *pmic_arb, u8 apid)
 	return pmic_arb->periph_id_map[apid] & PMIC_ARB_PERIPH_ID_VALID;
 }
 
+static u32 search_mapping_table(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
+{
+	u32 *mapping_table = pmic_arb->mapping_table;
+	u32 apid = PMIC_ARB_MAX_PERIPHS;
+	int index = 0;
+	u32 data;
+	int i;
+
+	for (i = 0; i < SPMI_MAPPING_TABLE_TREE_DEPTH; ++i) {
+		data = mapping_table[index];
+
+		if (ppid & (1 << SPMI_MAPPING_BIT_INDEX(data))) {
+			if (SPMI_MAPPING_BIT_IS_1_FLAG(data)) {
+				index = SPMI_MAPPING_BIT_IS_1_RESULT(data);
+			} else {
+				apid = SPMI_MAPPING_BIT_IS_1_RESULT(data);
+				break;
+			}
+		} else {
+			if (SPMI_MAPPING_BIT_IS_0_FLAG(data)) {
+				index = SPMI_MAPPING_BIT_IS_0_RESULT(data);
+			} else {
+				apid = SPMI_MAPPING_BIT_IS_0_RESULT(data);
+				break;
+			}
+		}
+	}
+
+	return apid;
+}
+
 /* PPID to APID */
 static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 {
-	int first = pmic_arb->min_apid;
-	int last = pmic_arb->max_apid;
-	int i;
+	u32 apid = search_mapping_table(pmic_arb, ppid);
+	u32 old_ppid;
+	u32 owner;
 
-	/* Search table for a matching PPID */
-	for (i = first; i <= last; ++i) {
-		if ((pmic_arb->periph_id_map[i] & PMIC_ARB_PPID_MASK) == ppid)
-			return i;
+	/* If the apid was found, add it to the lookup table */
+	if (apid < PMIC_ARB_MAX_PERIPHS) {
+		old_ppid = get_peripheral_id(pmic_arb, apid);
+
+		owner = SPMI_OWNERSHIP_PERIPH2OWNER(
+				readl_relaxed(pmic_arb->cnfg +
+					SPMI_OWNERSHIP_TABLE_REG(apid)));
+
+		/* Check ownership */
+		if (owner != pmic_arb->owner) {
+			dev_err(pmic_arb->dev, "PPID 0x%x incorrect owner %d\n",
+				ppid, owner);
+			return PMIC_ARB_MAX_PERIPHS;
+		}
+
+		/* Check if already mapped */
+		if (pmic_arb->periph_id_map[apid] & PMIC_ARB_PERIPH_ID_VALID) {
+			if (ppid != old_ppid) {
+				dev_err(pmic_arb->dev,
+					"PPID 0x%x: APID 0x%x already mapped\n",
+					ppid, apid);
+				return PMIC_ARB_MAX_PERIPHS;
+			}
+			return apid;
+		}
+
+		pmic_arb->periph_id_map[apid] = ppid | PMIC_ARB_PERIPH_ID_VALID;
+
+		if (apid > pmic_arb->max_apid)
+			pmic_arb->max_apid = apid;
+
+		if (apid < pmic_arb->min_apid)
+			pmic_arb->min_apid = apid;
+
+		return apid;
 	}
 
 	dev_err(pmic_arb->dev, "Unknown ppid 0x%x\n", ppid);
@@ -494,70 +568,6 @@ spmi_pmic_arb_get_property(struct platform_device *pdev, char *pname, u32 *prop)
 	return ret;
 }
 
-static int __devinit spmi_pmic_arb_get_map_data(struct platform_device *pdev,
-					struct spmi_pmic_arb_dev *pmic_arb)
-{
-	int i;
-	int ret;
-	int map_size;
-	u32 *map_data;
-	const int map_width = sizeof(*map_data);
-	const struct device_node *of_node = pdev->dev.of_node;
-
-	/* Get size of the mapping table (in bytes) */
-	if (!of_get_property(of_node, "qcom,pmic-arb-ppid-map", &map_size)) {
-		dev_err(&pdev->dev, "missing ppid mapping table\n");
-		return -ENODEV;
-	}
-
-	/* Map size can't exceed the maximum number of peripherals */
-	if (map_size == 0 || map_size > map_width * PMIC_ARB_MAX_PERIPHS) {
-		dev_err(&pdev->dev, "map size of %d is not valid\n", map_size);
-		return -ENODEV;
-	}
-
-	map_data = kzalloc(map_size, GFP_KERNEL);
-	if (!map_data) {
-		dev_err(&pdev->dev, "can not allocate map data\n");
-		return -ENOMEM;
-	}
-
-	ret = of_property_read_u32_array(of_node,
-		"qcom,pmic-arb-ppid-map", map_data, map_size/sizeof(u32));
-	if (ret) {
-		dev_err(&pdev->dev, "invalid or missing property: ppid-map\n");
-		goto err;
-	};
-
-	pmic_arb->max_apid = 0;
-	pmic_arb->min_apid = PMIC_ARB_MAX_PERIPHS - 1;
-
-	/* Build the mapping table from the data */
-	for (i = 0; i < map_size/sizeof(u32);) {
-		u32 map_compressed_val = map_data[i++];
-		u32 ppid = PMIC_ARB_DEV_TRE_2_PPID(map_compressed_val) ;
-		u32 apid = PMIC_ARB_DEV_TRE_2_APID(map_compressed_val) ;
-
-		if (pmic_arb->periph_id_map[apid] & PMIC_ARB_PERIPH_ID_VALID)
-			dev_warn(&pdev->dev, "duplicate APID 0x%x\n", apid);
-
-		pmic_arb->periph_id_map[apid] = ppid | PMIC_ARB_PERIPH_ID_VALID;
-
-		if (apid > pmic_arb->max_apid)
-			pmic_arb->max_apid = apid;
-
-		if (apid < pmic_arb->min_apid)
-			pmic_arb->min_apid = apid;
-	}
-
-	pr_debug("%d value(s) mapped, min:%d, max:%d\n",
-		map_size/map_width, pmic_arb->min_apid, pmic_arb->max_apid);
-
-err:
-	kfree(map_data);
-	return ret;
-}
-
 static struct qpnp_local_int spmi_pmic_arb_intr_cb = {
 	.mask = pmic_arb_pic_disable,
 	.unmask = pmic_arb_pic_enable,
@@ -571,6 +581,7 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 	u32 cell_index;
 	u32 prop;
 	int ret = 0;
+	int i;
 
 	pr_debug("SPMI PMIC Arbiter\n");
 
@@ -607,6 +618,23 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	mem_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cnfg");
+	if (!mem_res) {
+		dev_err(&pdev->dev, "missing mem resource (configuration)\n");
+		return -ENODEV;
+	}
+
+	pmic_arb->cnfg = devm_ioremap(&pdev->dev,
+					mem_res->start, resource_size(mem_res));
+	if (!pmic_arb->cnfg) {
+		dev_err(&pdev->dev, "ioremap of 'cnfg' failed\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(pmic_arb->mapping_table); ++i)
+		pmic_arb->mapping_table[i] = readl_relaxed(
+				pmic_arb->cnfg + SPMI_MAPPING_TABLE_REG(i));
+
 	pmic_arb->pic_irq = platform_get_irq(pdev, 0);
 	if (!pmic_arb->pic_irq) {
 		dev_err(&pdev->dev, "missing IRQ resource\n");
@@ -624,10 +652,6 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 	ret = spmi_pmic_arb_get_property(pdev, "cell-index", &cell_index);
 	if (ret)
 		return -ENODEV;
-
-	ret = spmi_pmic_arb_get_map_data(pdev, pmic_arb);
-	if (ret)
-		return ret;
 
 	ret = spmi_pmic_arb_get_property(pdev, "qcom,pmic-arb-ee", &prop);
 	if (ret)
@@ -648,6 +672,9 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 			return -ENODEV;
 		}
 	}
+
+	pmic_arb->max_apid = 0;
+	pmic_arb->min_apid = PMIC_ARB_MAX_PERIPHS - 1;
 
 	pmic_arb->dev = &pdev->dev;
 	platform_set_drvdata(pdev, pmic_arb);

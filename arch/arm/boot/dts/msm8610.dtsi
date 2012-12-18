@@ -250,91 +250,16 @@
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
-		reg-names = "core", "intr";
+		reg-names = "core", "intr", "cnfg";
 		reg = <0xfc4cf000 0x1000>,
-		      <0Xfc4cb000 0x1000>;
+		      <0Xfc4cb000 0x1000>,
+		      <0Xfc4ca000 0x1000>;
 		/* 190,ee0_krait_hlos_spmi_periph_irq */
 		/* 187,channel_0_krait_hlos_trans_done_irq */
 		interrupts = <0 190 0>, <0 187 0>;
 		qcom,not-wakeup;
 		qcom,pmic-arb-ee = <0>;
 		qcom,pmic-arb-channel = <0>;
-		qcom,pmic-arb-ppid-map = <0x001000a0>, /* PM8110 */
-					 <0x005000a2>, /* INTERRUPT */
-					 <0x006000a3>, /* SPMI_0 */
-					 <0x00800000>, /* PON0 */
-					 <0x01000002>, /* SMBB_CHG */
-					 <0x01100003>, /* SMBB_BUCK */
-					 <0x01200004>, /* SMBB_BIF */
-					 <0x01300005>, /* SMBB_USB */
-					 <0x01500006>, /* SMBB_BOOST */
-					 <0x01600007>, /* SMBB_MISC */
-					 <0x0280000a>, /* COINCELL */
-					 <0x02c000a5>, /* MBG */
-					 <0x0310000b>, /* VADC1_LC_USR */
-					 <0x03200041>, /* VADC3_LC_MDM */
-					 <0x0330000c>, /* VADC3_LC_BMS */
-					 <0x0340000d>, /* VADC2_LC_BTM */
-					 <0x0360000e>, /* IADC1_USR */
-					 <0x03700042>, /* IADC2_MDM */
-					 <0x0380000f>, /* IADC2_BMS */
-					 <0x04000010>, /* BMS_1 */
-					 <0x050000a6>, /* SHARED_XO */
-					 <0x051000a7>, /* BB_CLK1 */
-					 <0x054000a8>, /* RF_CLK1 */
-					 <0x055000a9>, /* RF_CLK1 */
-					 <0x05a000ab>, /* SLEEP_CLK */
-					 <0x06000043>, /* RTC_RW */
-					 <0x06100011>, /* RTC_ALARM */
-					 <0x070000ac>, /* PBS_CORE */
-					 <0x071000ad>, /* PBS_CLIENT_1 */
-					 <0x072000ae>, /* PBS_CLIENT_2 */
-					 <0x07300013>, /* PBS_CLIENT_3 */
-					 <0x07400044>, /* PBS_CLIENT_4 */
-					 <0x0a000014>, /* MPP_1 */
-					 <0x0a100015>, /* MPP_2 */
-					 <0x0a200016>, /* MPP_3 */
-					 <0x0a300045>, /* MPP_4 */
-					 <0x0c000046>, /* GPIO_1 */
-					 <0x0c1000f0>, /* GPIO_2 */
-					 <0x0c2000af>, /* GPIO_3 */
-					 <0x0c300047>, /* GPIO_4 */
-					 <0x0fe000b0>, /* TRIM_0 */
-					 <0x110000b1>, /* BUCK_CMN_1 */
-					 <0x11400048>, /* SMPS1 */
-					 <0x115000b2>, /* SMPS_1_PS1 */
-					 <0x116000b3>, /* BUCK_FREQ_1 */
-					 <0x11700017>, /* SMPS2 */
-					 <0x11800018>, /* FTPS1_2 */
-					 <0x11900019>, /* BUCK_FREQ_2 */
-					 <0x11a000b4>, /* SMPS3 */
-					 <0x11b000b5>, /* SMPS_3_PS1 */
-					 <0x11c000b6>, /* BUCK_FREQ_3 */
-					 <0x11d000b7>, /* SMPS4 */
-					 <0x11e000b8>, /* SMPS_4_PS1 */
-					 <0x11f000b9>, /* BUCK_FREQ_4 */
-					 <0x140000ba>, /* LDO_1 */
-					 <0x141000bb>, /* LDO_2 */
-					 <0x142000bc>, /* LDO_3 */
-					 <0x143000bd>, /* LDO_4 */
-					 <0x144000be>, /* LDO_5 */
-					 <0x145000bf>, /* LDO_6 */
-					 <0x146000c0>, /* LDO_7 */
-					 <0x147000c1>, /* LDO_8 */
-					 <0x148000c2>, /* LDO_9 */
-					 <0x149000c3>, /* LDO_10 */
-					 <0x14a000c4>, /* LDO_11 */
-					 <0x14b000c5>, /* LDO_12 */
-					 <0x14c000c6>, /* LDO_13 */
-					 <0x14d000c7>, /* LDO_14 */
-					 <0x14e000c8>, /* LDO_15 */
-					 <0x14f000c9>, /* LDO_16 */
-					 <0x150000ca>, /* LDO_17 */
-					 <0x151000cb>, /* LDO_18 */
-					 <0x152000cc>, /* LDO_19 */
-					 <0x153000cd>, /* LDO_20 */
-					 <0x154000ce>, /* LDO_21 */
-					 <0x155000cf>; /* LDO_22 */
 	};
 
 	qcom,pronto@fb21b000 {
