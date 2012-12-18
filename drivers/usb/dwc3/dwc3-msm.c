@@ -860,6 +860,10 @@ int msm_ep_config(struct usb_ep *ep)
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct usb_ep_ops *new_ep_ops;
 
+	dwc3_msm_event_buffer_config(dwc3_msm_read_reg(context->base,
+			DWC3_GEVNTADRLO(0)),
+			dwc3_msm_read_reg(context->base, DWC3_GEVNTSIZ(0)));
+
 	/* Save original ep ops for future restore*/
 	if (context->original_ep_ops[dep->number]) {
 		dev_err(context->dev,
@@ -1262,6 +1266,11 @@ static void dwc3_msm_block_reset(void)
 
 	/* Reinitialize QSCRATCH registers after block reset */
 	dwc3_msm_qscratch_reg_init(mdwc);
+
+	/* Reset the DBM */
+	dwc3_msm_dbm_soft_reset(1);
+	usleep_range(1000, 1200);
+	dwc3_msm_dbm_soft_reset(0);
 }
 
 static void dwc3_chg_enable_secondary_det(struct dwc3_msm *mdwc)
@@ -2260,15 +2269,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret)
 			dev_err(&pdev->dev, "Failed to vote for bus scaling\n");
 	}
-
-	/* Reset the DBM */
-	dwc3_msm_dbm_soft_reset(1);
-	usleep_range(1000, 1200);
-	dwc3_msm_dbm_soft_reset(0);
-
-	dwc3_msm_event_buffer_config(dwc3_msm_read_reg(msm->base,
-							DWC3_GEVNTADRLO(0)),
-				dwc3_msm_read_reg(msm->base, DWC3_GEVNTSIZ(0)));
 
 	msm->otg_xceiv = usb_get_transceiver();
 	if (msm->otg_xceiv) {
