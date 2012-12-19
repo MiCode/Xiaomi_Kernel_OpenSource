@@ -25,6 +25,7 @@
 #include <linux/export.h>
 
 #include <asm/cputype.h>
+#include <asm/delay.h>
 #include <asm/localtimer.h>
 #include <asm/arch_timer.h>
 #include <asm/sched_clock.h>
@@ -71,6 +72,8 @@ static struct arch_timer_operations arch_timer_ops_mem = {
 };
 
 static struct arch_timer_operations *arch_specific_timer = &arch_timer_ops_cp15;
+
+static struct delay_timer arch_delay_timer;
 
 /*
  * Architected system timer support.
@@ -331,13 +334,10 @@ static cycle_t arch_counter_read(struct clocksource *cs)
 	return arch_counter_get_cntpct();
 }
 
-#ifdef ARCH_HAS_READ_CURRENT_TIMER
-int read_current_timer(unsigned long *timer_val)
+static unsigned long arch_timer_read_current_timer(void)
 {
-	*timer_val = (unsigned long)arch_specific_timer->get_cntpct();
-	return 0;
+	return arch_counter_get_cntpct();
 }
-#endif
 
 static struct clocksource clocksource_counter = {
 	.name	= "arch_sys_counter",
@@ -402,10 +402,6 @@ static int __init arch_timer_common_register(void)
 
 	setup_sched_clock(arch_timer_update_sched_clock, 32, arch_timer_rate);
 
-#ifdef ARCH_HAS_READ_CURRENT_TIMER
-	set_delay_fn(read_current_timer_delay_loop);
-#endif
-
 	if (is_irq_percpu)
 		err = request_percpu_irq(arch_timer_ppi, arch_timer_handler,
 				 "arch_timer", arch_timer_evt);
@@ -439,6 +435,10 @@ static int __init arch_timer_common_register(void)
 		goto out_free_irq;
 	percpu_timer_setup();
 
+	/* Use the architected timer for the delay loop. */
+	arch_delay_timer.read_current_timer = &arch_timer_read_current_timer;
+	arch_delay_timer.freq = arch_timer_rate;
+	register_current_timer_delay(&arch_delay_timer);
 	return 0;
 
 out_free_irq:
