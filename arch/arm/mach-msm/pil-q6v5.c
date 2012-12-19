@@ -118,7 +118,7 @@ void pil_q6v5_shutdown(struct pil_desc *pil)
 	val &= ~(Q6SS_L2DATA_SLP_NRET_N | Q6SS_SLP_RET_N |
 		 Q6SS_L2TAG_SLP_NRET_N | Q6SS_ETB_SLP_NRET_N |
 		 Q6SS_L2DATA_STBY_N);
-	writel_relaxed(Q6SS_CLAMP_IO, drv->reg_base + QDSP6SS_PWR_CTL);
+	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
 
 	/* Assert Q6 resets */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_RESET);
