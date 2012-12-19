@@ -443,7 +443,8 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	}
 
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-			EXT_CSD_BKOPS_START, 1, timeout, use_busy_signal);
+			   EXT_CSD_BKOPS_START, 1, timeout,
+			   use_busy_signal, use_busy_signal);
 	if (err) {
 		pr_warn("%s: %s: Error %d when starting bkops\n",
 			mmc_hostname(card->host), __func__, err);
@@ -679,6 +680,24 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 		wait_for_completion_io(&mrq->completion);
 
 		cmd = mrq->cmd;
+
+		/*
+		 * If host has timed out waiting for the blocking BKOPs
+		 * to complete, card might be still in programming state
+		 * so let's try to bring the card out of programming state.
+		 */
+		if (cmd->bkops_busy && cmd->error == -ETIMEDOUT) {
+			if (!mmc_interrupt_hpi(host->card)) {
+				pr_warning("%s: %s: Interrupted blocking bkops\n",
+					   mmc_hostname(host), __func__);
+				cmd->error = 0;
+				break;
+			} else {
+				pr_err("%s: %s: Failed to interrupt blocking bkops\n",
+				       mmc_hostname(host), __func__);
+			}
+		}
+
 		if (!cmd->error || !cmd->retries ||
 		    mmc_card_removed(host->card))
 			break;

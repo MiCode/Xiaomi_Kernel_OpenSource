@@ -376,11 +376,13 @@ int mmc_spi_set_crc(struct mmc_host *host, int use_crc)
  *	@timeout_ms: timeout (ms) for operation performed by register write,
  *                   timeout of zero implies maximum possible timeout
  *	@use_busy_signal: use the busy signal as response type
+ *	@bkops_busy: set this to indicate that we are starting blocking bkops
  *
  *	Modifies the EXT_CSD register for selected card.
  */
 int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
-	       unsigned int timeout_ms, bool use_busy_signal)
+		 unsigned int timeout_ms, bool use_busy_signal,
+		 bool bkops_busy)
 {
 	int err;
 	struct mmc_command cmd = {0};
@@ -402,6 +404,7 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 
 
 	cmd.cmd_timeout_ms = timeout_ms;
+	cmd.bkops_busy = bkops_busy;
 
 	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
 	if (err)
@@ -440,7 +443,7 @@ EXPORT_SYMBOL_GPL(__mmc_switch);
 int mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		unsigned int timeout_ms)
 {
-	return __mmc_switch(card, set, index, value, timeout_ms, true);
+	return __mmc_switch(card, set, index, value, timeout_ms, true, false);
 }
 EXPORT_SYMBOL_GPL(mmc_switch);
 
