@@ -43,9 +43,9 @@
 
 #define SNS_OCMEM_SMD_CHANNEL	"SENSOR"
 #define SNS_OCMEM_CLIENT_ID     OCMEM_SENSORS
-#define SNS_OCMEM_SIZE          SZ_256K
-#define SMD_BUF_SIZE		2048
-#define SNS_TIMEOUT_MS    1000
+#define SNS_OCMEM_SIZE		SZ_256K
+#define SMD_BUF_SIZE		1024
+#define SNS_TIMEOUT_MS		1000
 
 #define SNS_OCMEM_ALLOC_GROW    0x00000001
 #define SNS_OCMEM_ALLOC_SHRINK  0x00000002
@@ -60,7 +60,7 @@
 #define DSPS_BW_VOTE_OFF        0x00000800
 #define DSPS_PHYS_ADDR_SET      0x00001000
 
-/**
+/*
  *  Structure contains all state used by the sensors driver
  */
 struct sns_adsp_control_s {
@@ -68,6 +68,8 @@ struct sns_adsp_control_s {
 	spinlock_t sns_lock;
 	struct workqueue_struct *sns_workqueue;
 	struct work_struct sns_work;
+	struct workqueue_struct *smd_wq;
+	struct work_struct smd_read_work;
 	smd_channel_t *smd_ch;
 	uint32_t sns_ocmem_status;
 	uint32_t mem_segments_size;
@@ -88,14 +90,15 @@ struct sns_adsp_control_s {
 
 static struct sns_adsp_control_s sns_ctl;
 
-/* All asynchronous responses from the OCMEM driver are received
-by this function */
+/*
+ * All asynchronous responses from the OCMEM driver are received
+ * by this function
+ */
 int sns_ocmem_drv_cb(struct notifier_block *self,
 			unsigned long action,
 			void *dev)
 {
 	unsigned long flags;
-	pr_debug("%s\n", __func__);
 
 	spin_lock_irqsave(&sns_ctl.sns_lock, flags);
 
@@ -141,26 +144,22 @@ int sns_ocmem_drv_cb(struct notifier_block *self,
 		break;
 	}
 
-	pr_debug("%s: sns_ocmem_status: 0x%x\n", __func__,
-					sns_ctl.sns_ocmem_status);
 	spin_unlock_irqrestore(&sns_ctl.sns_lock, flags);
-
 	wake_up(&sns_ctl.sns_wait);
 
 	return 0;
 }
 
-/**
+/*
  * Processes messages received through SMD from the ADSP
  *
  * @param hdr The message header
  * @param msg Message pointer
  *
- * */
+ */
 void sns_ocmem_smd_process(struct sns_ocmem_hdr_s *hdr, void *msg)
 {
 	unsigned long flags;
-	pr_debug("%s\n", __func__);
 
 	spin_lock_irqsave(&sns_ctl.sns_lock, flags);
 
@@ -228,50 +227,58 @@ void sns_ocmem_smd_process(struct sns_ocmem_hdr_s *hdr, void *msg)
 					__func__, hdr->msg_id, hdr->msg_type);
 	}
 
-	pr_debug("%s: sns_ocmem_status: 0x%x\n",
-		__func__, sns_ctl.sns_ocmem_status);
-
 	spin_unlock_irqrestore(&sns_ctl.sns_lock, flags);
 
 	wake_up(&sns_ctl.sns_wait);
 }
 
-/**
+static void sns_ocmem_smd_read(struct work_struct *ws)
+{
+	struct smd_channel *ch = sns_ctl.smd_ch;
+	unsigned char *buf = NULL;
+	int sz, len;
+
+	for (;;) {
+		sz = smd_cur_packet_size(ch);
+		BUG_ON(sz > SMD_BUF_SIZE);
+		len = smd_read_avail(ch);
+		pr_debug("%s: sz=%d, len=%d\n", __func__, sz, len);
+		if (len == 0 || len < sz)
+			break;
+		buf = kzalloc(SMD_BUF_SIZE, GFP_KERNEL);
+		if (buf == NULL) {
+			pr_err("%s: malloc failed", __func__);
+			break;
+		}
+
+		if (smd_read(ch, buf, sz) != sz) {
+			pr_err("%s: not enough data?!\n", __func__);
+			kfree(buf);
+			continue;
+		}
+
+		sns_ocmem_smd_process((struct sns_ocmem_hdr_s *)buf,
+			(void *)((char *)buf +
+			sizeof(struct sns_ocmem_hdr_s)));
+
+		kfree(buf);
+
+	}
+}
+
+/*
  * All SMD notifications and messages from Sensors on ADSP are
  * received by this function
  *
- * */
-
+ */
 void sns_ocmem_smd_notify_data(void *data, unsigned int event)
 {
-	pr_debug("%s:\n", __func__);
-
 	if (event == SMD_EVENT_DATA) {
-		int len;
+		int sz;
 		pr_debug("%s: Received SMD event Data\n", __func__);
-		len = smd_read_avail(sns_ctl.smd_ch);
-		pr_debug("%s: len=%d\n", __func__, len);
-		if (len > 0) {
-			data = kzalloc(SMD_BUF_SIZE, GFP_ATOMIC);
-			if (data == NULL) {
-				pr_err("%s: malloc failed", __func__);
-				return;
-			}
-
-			len = smd_read_from_cb(sns_ctl.smd_ch,
-						data, SMD_BUF_SIZE);
-			if (len > 0) {
-				sns_ocmem_smd_process(
-					(struct sns_ocmem_hdr_s *) data,
-					(void *)((char *)data +
-					sizeof(struct sns_ocmem_hdr_s)));
-			} else {
-				pr_err("Failed to read event from smd %i", len);
-			}
-			kfree(data);
-		} else if (len < 0) {
-			pr_err("Failed to read event from smd %i", len);
-		}
+		sz = smd_cur_packet_size(sns_ctl.smd_ch);
+		if ((sz > 0) && (sz <= smd_read_avail(sns_ctl.smd_ch)))
+			queue_work(sns_ctl.smd_wq, &sns_ctl.smd_read_work);
 	} else if (event == SMD_EVENT_OPEN) {
 		pr_debug("%s: Received SMD event Open\n", __func__);
 	} else if (event == SMD_EVENT_CLOSE) {
@@ -283,16 +290,14 @@ static bool sns_ocmem_is_status_set(uint32_t sns_ocmem_status)
 {
 	unsigned long flags;
 	bool is_set;
-	pr_debug("%s: status=0x%x\n", __func__, sns_ocmem_status);
 
 	spin_lock_irqsave(&sns_ctl.sns_lock, flags);
 	is_set = sns_ctl.sns_ocmem_status & sns_ocmem_status;
 	spin_unlock_irqrestore(&sns_ctl.sns_lock, flags);
-	pr_debug("%s: is_set=%d\n", __func__, is_set);
 	return is_set;
 }
 
-/**
+/*
  * Wait for a response from ADSP or OCMEM Driver, timeout if necessary
  *
  * @param sns_ocmem_status Status flags to wait for.
@@ -301,14 +306,11 @@ static bool sns_ocmem_is_status_set(uint32_t sns_ocmem_status)
  *
  * @return 0 If any status flag is set at any time prior to a timeout.
  *	0 if success or timedout ; <0 for failures
- *
  */
 static int sns_ocmem_wait(uint32_t sns_ocmem_status,
 			  uint32_t timeout_ms)
 {
 	int err;
-	pr_debug("%s: status=0x%x, timeout_ms=%d\n", __func__,
-						sns_ocmem_status, timeout_ms);
 	if (timeout_ms) {
 		err = wait_event_interruptible_timeout(sns_ctl.sns_wait,
 			sns_ocmem_is_status_set(sns_ocmem_status),
@@ -331,7 +333,7 @@ static int sns_ocmem_wait(uint32_t sns_ocmem_status,
 	return err;
 }
 
-/**
+/*
  * Sends a message to the ADSP via SMD.
  *
  * @param hdr Specifies message type and other meta data
@@ -350,8 +352,6 @@ sns_ocmem_send_msg(struct sns_ocmem_hdr_s *hdr, void const *msg_ptr)
 
 	temp = kzalloc(sizeof(struct sns_ocmem_hdr_s) + hdr->msg_size,
 			GFP_KERNEL);
-	pr_debug("%s size=%d\n", __func__, size);
-
 	if (temp == NULL) {
 		pr_err("%s: allocation failure\n", __func__);
 		rv = -ENOMEM;
@@ -390,14 +390,12 @@ sns_ocmem_send_msg(struct sns_ocmem_hdr_s *hdr, void const *msg_ptr)
 	return rv;
 }
 
-/**
- *  Load ADSP Firmware.
+/*
+ * Load ADSP Firmware.
  */
 
 static int sns_load_adsp(void)
 {
-	pr_debug("%s.\n", __func__);
-
 	sns_ctl.pil = subsystem_get("adsp");
 	if (IS_ERR(sns_ctl.pil)) {
 		pr_err("%s: fail to load ADSP firmware\n", __func__);
@@ -493,7 +491,7 @@ fail1:
 }
 
 
-/**
+/*
  * Initialize all sensors ocmem driver data fields and register with the
  * ocmem driver.
  *
@@ -504,8 +502,6 @@ static int sns_ocmem_init(void)
 	int i, err, ret;
 	struct sns_ocmem_hdr_s addr_req_hdr;
 	struct msm_bus_scale_pdata *sns_ocmem_bus_scale_pdata = NULL;
-
-	pr_debug("%s\n", __func__);
 
 	/* register from OCMEM callack */
 	sns_ctl.ocmem_handle =
@@ -541,9 +537,10 @@ static int sns_ocmem_init(void)
 		return -EFAULT;
 	}
 
-	/* wait before open SMD channel from kernel to ensure
-	channel has been openned already from ADSP side */
-	pr_debug("%s: sleep for 1000 ms\n", __func__);
+	/*
+	 * wait before open SMD channel from kernel to ensure
+	 * channel has been openned already from ADSP side
+	 */
 	msleep(1000);
 
 	err = smd_named_open_on_edge(SNS_OCMEM_SMD_CHANNEL,
@@ -558,9 +555,7 @@ static int sns_ocmem_init(void)
 
 	pr_debug("%s: SMD channel openned successfuly!\n", __func__);
 	/* wait for the channel ready before writing data */
-	pr_debug("%s: sleep for 1000 ms\n", __func__);
 	msleep(1000);
-	pr_debug("%s sending PHYS_ADDR_REQ\n", __func__);
 	addr_req_hdr.msg_id = SNS_OCMEM_PHYS_ADDR_REQ_V01;
 	addr_req_hdr.msg_type = SNS_OCMEM_MSG_TYPE_REQ;
 	addr_req_hdr.msg_size = 0;
@@ -596,16 +591,14 @@ static int sns_ocmem_init(void)
 	return 0;
 }
 
-/**
- *  Unmaps memory in ocmem back to DDR, indicates to the ADSP its completion,
- *  and waits for it to finish removing its bandwidth vote.
- *
+/*
+ * Unmaps memory in ocmem back to DDR, indicates to the ADSP its completion,
+ * and waits for it to finish removing its bandwidth vote.
  */
 static void sns_ocmem_unmap(void)
 {
 	unsigned long flags;
 	int err = 0;
-	pr_debug("%s\n", __func__);
 
 	ocmem_set_power_state(SNS_OCMEM_CLIENT_ID,
 				sns_ctl.buf, OCMEM_ON);
@@ -644,7 +637,7 @@ static void sns_ocmem_unmap(void)
 				sns_ctl.buf, OCMEM_OFF);
 }
 
-/**
+/*
  * Waits for allocation to succeed.  This may take considerable time if the device
  * is presently in a high-power use case.
  *
@@ -653,7 +646,6 @@ static void sns_ocmem_unmap(void)
 static int sns_ocmem_wait_for_alloc(void)
 {
 	int err = 0;
-	pr_debug("%s\n", __func__);
 
 	err = sns_ocmem_wait(SNS_OCMEM_ALLOC_GROW |
 				DSPS_HAS_NO_CLIENT, 0);
@@ -674,7 +666,7 @@ static int sns_ocmem_wait_for_alloc(void)
 	return 0;
 }
 
-/**
+/*
  * Kicks-off the mapping of memory from DDR to ocmem.  Waits for the process
  * to complete, then indicates so to the ADSP.
  *
@@ -684,7 +676,6 @@ static int sns_ocmem_map(void)
 {
 	int err = 0;
 	unsigned long flags;
-	pr_debug("%s\n", __func__);
 
 	spin_lock_irqsave(&sns_ctl.sns_lock, flags);
 	sns_ctl.sns_ocmem_status &=
@@ -753,7 +744,7 @@ static int sns_ocmem_map(void)
 	return err;
 }
 
-/**
+/*
  * Allocates memory in ocmem and maps to it from DDR.
  *
  * @return 0 upon success; <0 upon failure;
@@ -762,7 +753,6 @@ static int sns_ocmem_alloc(void)
 {
 	int err = 0;
 	unsigned long flags;
-	pr_debug("%s\n", __func__);
 
 	if (sns_ctl.buf == NULL) {
 		spin_lock_irqsave(&sns_ctl.sns_lock, flags);
@@ -827,7 +817,7 @@ static int sns_ocmem_alloc(void)
 	return err;
 }
 
-/**
+/*
  * Indicate to the ADSP that unmapping has completed, and wait for the response
  * that its bandwidth vote has been removed.
  *
@@ -838,7 +828,6 @@ static int sns_ocmem_unmap_send(void)
 	int err;
 	struct sns_ocmem_hdr_s msg_hdr;
 	struct sns_ocmem_bw_vote_req_msg_v01 msg;
-	pr_debug("%s\n", __func__);
 
 	memset(&msg, 0, sizeof(struct sns_ocmem_bw_vote_req_msg_v01));
 
@@ -863,7 +852,7 @@ static int sns_ocmem_unmap_send(void)
 	return err;
 }
 
-/**
+/*
  * Indicate to the ADSP that mapping has completed, and wait for the response
  * that its bandwidth vote has been made.
  *
@@ -875,7 +864,6 @@ static int sns_ocmem_map_send(void)
 	struct sns_ocmem_hdr_s msg_hdr;
 	struct sns_ocmem_bw_vote_req_msg_v01 msg;
 	struct ocmem_vectors *vectors;
-	pr_debug("%s\n", __func__);
 
 	memset(&msg, 0, sizeof(struct sns_ocmem_bw_vote_req_msg_v01));
 
@@ -906,7 +894,7 @@ static int sns_ocmem_map_send(void)
 	return err;
 }
 
-/**
+/*
  * Perform the encessary operations to clean-up OCMEM after being notified that
  * there is no longer a client; if sensors was evicted; or if some error
  * has occurred.
@@ -917,7 +905,6 @@ static int sns_ocmem_map_send(void)
 static void sns_ocmem_evicted(bool do_free)
 {
 	int err = 0;
-	pr_debug("%s\n", __func__);
 
 	sns_ocmem_unmap();
 	if (do_free) {
@@ -933,7 +920,7 @@ static void sns_ocmem_evicted(bool do_free)
 		pr_err("sns_ocmem_unmap_send failed %i\n", err);
 }
 
-/**
+/*
  * After mapping has completed and the ADSP has reacted appropriately, wait
  * for a shrink command or word from the ADSP that it no longer has a client.
  *
@@ -943,8 +930,6 @@ static int sns_ocmem_map_done(void)
 {
 	int err = 0;
 	unsigned long flags;
-
-	pr_debug("%s\n", __func__);
 
 	err = sns_ocmem_map_send();
 	if (err != 0) {
@@ -983,10 +968,9 @@ static int sns_ocmem_map_done(void)
 	return err;
 }
 
-/**
+/*
  * Main function.
  * Initializes sensors ocmem feature, and waits for an ADSP client.
- *
  */
 static void sns_ocmem_main(struct work_struct *work)
 {
@@ -1027,17 +1011,15 @@ static void sns_ocmem_main(struct work_struct *work)
 static int sensors_adsp_open(struct inode *ip, struct file *fp)
 {
 	int ret = 0;
-	pr_debug("%s\n", __func__);
 	return ret;
 }
 
 static int sensors_adsp_release(struct inode *inode, struct file *file)
 {
-	pr_debug("%s\n", __func__);
 	return 0;
 }
 
-/**
+/*
  * Read QTimer clock ticks and scale down to 32KHz clock as used
  * in DSPS
  */
@@ -1056,20 +1038,17 @@ static u32 sns_read_qtimer(void)
 	val <<= 4;
 	do_div(val, 9375);
 
-	pr_debug("%s.count=%llu\n", __func__, val);
 	return (u32)val;
 }
 
-/**
+/*
  * IO Control - handle commands from client.
- *
  */
 static long sensors_adsp_ioctl(struct file *file,
 			unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
 	u32 val = 0;
-	pr_debug("%s\n", __func__);
 
 	switch (cmd) {
 	case DSPS_IOCTL_READ_SLOW_TIMER:
@@ -1085,9 +1064,8 @@ static long sensors_adsp_ioctl(struct file *file,
 	return ret;
 }
 
-/**
+/*
  * platform driver
- *
  */
 const struct file_operations sensors_adsp_fops = {
 	.owner = THIS_MODULE,
@@ -1099,7 +1077,6 @@ const struct file_operations sensors_adsp_fops = {
 static int sensors_adsp_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	pr_debug("%s.\n", __func__);
 	sns_ctl.dev_class = class_create(THIS_MODULE, DRV_NAME);
 	if (sns_ctl.dev_class == NULL) {
 		pr_err("%s: class_create fail.\n", __func__);
@@ -1142,6 +1119,14 @@ static int sensors_adsp_probe(struct platform_device *pdev)
 		goto cdev_add_err;
 	}
 
+	sns_ctl.smd_wq =
+			alloc_workqueue("smd_wq", WQ_NON_REENTRANT, 0);
+	if (!sns_ctl.smd_wq) {
+		pr_err("%s: Failed to create work queue\n",
+			__func__);
+		goto cdev_add_err;
+	}
+
 	init_waitqueue_head(&sns_ctl.sns_wait);
 	spin_lock_init(&sns_ctl.sns_lock);
 
@@ -1154,6 +1139,8 @@ static int sensors_adsp_probe(struct platform_device *pdev)
 	sns_ctl.pdev = pdev;
 
 	INIT_WORK(&sns_ctl.sns_work, sns_ocmem_main);
+	INIT_WORK(&sns_ctl.smd_read_work, sns_ocmem_smd_read);
+
 	queue_work(sns_ctl.sns_workqueue, &sns_ctl.sns_work);
 
 	return 0;
@@ -1173,7 +1160,6 @@ res_err:
 static int sensors_adsp_remove(struct platform_device *pdev)
 {
 	struct msm_bus_scale_pdata *sns_ocmem_bus_scale_pdata = NULL;
-	pr_debug("%s.\n", __func__);
 
 	sns_ocmem_bus_scale_pdata = (struct msm_bus_scale_pdata *)
 					dev_get_drvdata(&pdev->dev);
@@ -1185,6 +1171,7 @@ static int sensors_adsp_remove(struct platform_device *pdev)
 	ocmem_notifier_unregister(sns_ctl.ocmem_handle,
 					&sns_ctl.ocmem_nb);
 	destroy_workqueue(sns_ctl.sns_workqueue);
+	destroy_workqueue(sns_ctl.smd_wq);
 
 	cdev_del(sns_ctl.cdev);
 	kfree(sns_ctl.cdev);
@@ -1213,13 +1200,12 @@ static struct platform_driver sensors_adsp_driver = {
 	.remove = sensors_adsp_remove,
 };
 
-/**
+/*
  * Module Init.
  */
 static int sensors_adsp_init(void)
 {
 	int rc;
-	pr_debug("%s.\n", __func__);
 	pr_debug("%s driver version %s.\n", DRV_NAME, DRV_VERSION);
 
 	rc = platform_driver_register(&sensors_adsp_driver);
@@ -1233,12 +1219,11 @@ static int sensors_adsp_init(void)
 	return 0;
 }
 
-/**
+/*
  * Module Exit.
  */
 static void sensors_adsp_exit(void)
 {
-	pr_debug("%s.\n", __func__);
 	platform_driver_unregister(&sensors_adsp_driver);
 }
 
