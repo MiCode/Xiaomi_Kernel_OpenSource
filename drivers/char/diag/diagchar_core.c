@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1273,6 +1273,13 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		ret = -ENOMEM;
 		goto fail_free_hdlc;
 	}
+	if (HDLC_OUT_BUF_SIZE < (2*payload_size) + 3) {
+		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
+				((2*payload_size) + 3));
+		driver->dropped_count++;
+		ret = -EBADMSG;
+		goto fail_free_hdlc;
+	}
 	if (HDLC_OUT_BUF_SIZE - driver->used <= (2*payload_size) + 3) {
 		err = diag_device_write(buf_hdlc, APPS_DATA, NULL);
 		if (err) {
@@ -1343,8 +1350,8 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		driver->used = 0;
 	}
 
-	mutex_unlock(&driver->diagchar_mutex);
 	diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
+	mutex_unlock(&driver->diagchar_mutex);
 	if (!timer_in_progress)	{
 		timer_in_progress = 1;
 		ret = mod_timer(&drain_timer, jiffies + msecs_to_jiffies(500));
