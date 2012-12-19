@@ -59,12 +59,19 @@ static int mmc_queue_thread(void *d)
 	struct request_queue *q = mq->queue;
 	struct request *req;
 	struct mmc_card *card = mq->card;
+	struct mmc_async_event_stats *stats;
+	struct mmc_queue_req *tmp;
+
+	if (!card)
+		return 0;
+
+	stats = &mq->card->async_event_stats;
 
 	current->flags |= PF_MEMALLOC;
 
 	down(&mq->thread_sem);
 	do {
-		struct mmc_queue_req *tmp;
+
 		req = NULL;	/* Must be set to NULL at each iteration */
 
 		spin_lock_irq(q->queue_lock);
@@ -74,9 +81,11 @@ static int mmc_queue_thread(void *d)
 		if (!req && mq->mqrq_prev->req &&
 			!(mq->mqrq_prev->req->cmd_flags & REQ_SANITIZE) &&
 			!(mq->mqrq_prev->req->cmd_flags & REQ_FLUSH) &&
-			!(mq->mqrq_prev->req->cmd_flags & REQ_DISCARD))
+			!(mq->mqrq_prev->req->cmd_flags & REQ_DISCARD)) {
 			card->host->context_info.is_waiting_last_req = true;
-
+			if (stats && stats->enabled)
+				stats->null_fetched++;
+		}
 		spin_unlock_irq(q->queue_lock);
 
 		if (req || mq->mqrq_prev->req) {
@@ -95,6 +104,8 @@ static int mmc_queue_thread(void *d)
 			mq->issue_fn(mq, req);
 			if (mq->flags & MMC_QUEUE_NEW_REQUEST) {
 				mq->flags &= ~MMC_QUEUE_NEW_REQUEST;
+				if (stats && stats->enabled)
+					stats->fetch_due_to_new_req++;
 				continue; /* fetch again */
 			}
 		} else {
@@ -129,6 +140,7 @@ static int mmc_queue_thread(void *d)
 static void mmc_request(struct request_queue *q)
 {
 	struct mmc_queue *mq = q->queuedata;
+	struct mmc_async_event_stats *stats;
 	struct request *req;
 	unsigned long flags;
 	struct mmc_context_info *cntx;
@@ -140,22 +152,39 @@ static void mmc_request(struct request_queue *q)
 		}
 		return;
 	}
+	if (mq->card) {
+		cntx = &mq->card->host->context_info;
+		stats = &mq->card->async_event_stats;
+	} else
+		return;
 
 	cntx = &mq->card->host->context_info;
+	stats = &mq->card->async_event_stats;
 	if (!mq->mqrq_cur->req && mq->mqrq_prev->req) {
 		/*
 		 * New MMC request arrived when MMC thread may be
 		 * blocked on the previous request to be complete
 		 * with no current request fetched
 		 */
+
 		spin_lock_irqsave(&cntx->lock, flags);
 		if (cntx->is_waiting_last_req) {
+			if (stats && stats->enabled)
+				stats->wakeup_new++;
+			if (cntx->is_new_req)
+				if (stats->enabled)
+					stats->new_req_when_new_marked++;
 			cntx->is_new_req = true;
 			wake_up_interruptible(&cntx->wait);
-		}
+		} else if (stats->enabled)
+			stats->q_no_waiting++;
 		spin_unlock_irqrestore(&cntx->lock, flags);
-	} else if (!mq->mqrq_cur->req && !mq->mqrq_prev->req)
+	} else if (!mq->mqrq_cur->req && !mq->mqrq_prev->req) {
 		wake_up_process(mq->thread);
+		if (stats->enabled)
+			stats->wakeup_mq_thread++;
+	} else if (stats->enabled)
+			stats->no_mmc_request_action++;
 }
 
 static struct scatterlist *mmc_alloc_sg(int sg_len, int *err)
