@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -943,11 +943,14 @@ int create_pkt_cmd_session_set_property(
 	case HAL_PARAM_VENC_SESSION_QP:
 	{
 		struct hfi_quantization *hfi;
+		struct hal_quantization *hal_quant =
+			(struct hal_quantization *) pdata;
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VENC_SESSION_QP;
 		hfi = (struct hfi_quantization *) &pkt->rg_property_data[1];
-		memcpy(hfi, (struct hfi_quantization *) pdata,
-				sizeof(struct hfi_quantization));
+		hfi->qp_i = hal_quant->qpi;
+		hfi->qp_p = hal_quant->qpp;
+		hfi->qp_b = hal_quant->qpb;
 		pkt->size += sizeof(u32) + sizeof(struct hfi_quantization);
 		break;
 	}
