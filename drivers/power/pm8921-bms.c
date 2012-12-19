@@ -100,7 +100,8 @@ struct pm8921_bms_chip {
 	struct sf_lut		*rbatt_sf_lut;
 	int			delta_rbatt_mohm;
 	struct work_struct	calib_hkadc_work;
-	struct delayed_work	calib_hkadc_delayed_work;
+	unsigned long		last_calib_time;
+	int			last_calib_temp;
 	struct mutex		calib_mutex;
 	unsigned int		revision;
 	unsigned int		xoadc_v0625_usb_present;
@@ -1778,6 +1779,106 @@ static void update_power_supply(struct pm8921_bms_chip *chip)
 		power_supply_changed(chip->batt_psy);
 }
 
+static int get_batt_temp(struct pm8921_bms_chip *chip, int *batt_temp)
+{
+	int rc;
+	struct pm8xxx_adc_chan_result result;
+
+	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading batt_temp_channel = %d, rc = %d\n",
+					chip->batt_temp_channel, rc);
+		return rc;
+	}
+	*batt_temp = result.physical;
+	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	return 0;
+}
+
+#define MIN_DELTA_625_UV	1000
+static void calib_hkadc(struct pm8921_bms_chip *chip)
+{
+	int voltage, rc;
+	struct pm8xxx_adc_chan_result result;
+	int usb_chg;
+	int this_delta;
+
+	mutex_lock(&chip->calib_mutex);
+	rc = pm8xxx_adc_read(the_chip->ref1p25v_channel, &result);
+	if (rc) {
+		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
+		goto out;
+	}
+	voltage = xoadc_reading_to_microvolt(result.adc_code);
+
+	pr_debug("result 1.25v = 0x%x, voltage = %duV adc_meas = %lld\n",
+				result.adc_code, voltage, result.measurement);
+
+	chip->xoadc_v125 = voltage;
+
+	rc = pm8xxx_adc_read(the_chip->ref625mv_channel, &result);
+	if (rc) {
+		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
+		goto out;
+	}
+	voltage = xoadc_reading_to_microvolt(result.adc_code);
+
+	usb_chg = usb_chg_plugged_in(chip);
+	pr_debug("result 0.625V = 0x%x, voltage = %duV adc_meas = %lld usb_chg = %d\n",
+				result.adc_code, voltage, result.measurement,
+				usb_chg);
+
+	if (usb_chg)
+		chip->xoadc_v0625_usb_present = voltage;
+	else
+		chip->xoadc_v0625_usb_absent = voltage;
+
+	chip->xoadc_v0625 = voltage;
+	if (chip->xoadc_v0625_usb_present && chip->xoadc_v0625_usb_absent) {
+		this_delta = chip->xoadc_v0625_usb_present
+						- chip->xoadc_v0625_usb_absent;
+		pr_debug("this_delta= %duV\n", this_delta);
+		if (this_delta > MIN_DELTA_625_UV)
+			last_usb_cal_delta_uv = this_delta;
+		pr_debug("625V_present= %d, 625V_absent= %d, delta = %duV\n",
+			chip->xoadc_v0625_usb_present,
+			chip->xoadc_v0625_usb_absent,
+			last_usb_cal_delta_uv);
+	}
+	pr_debug("calibration batt_temp = %d\n", chip->last_calib_temp);
+out:
+	mutex_unlock(&chip->calib_mutex);
+}
+
+#define HKADC_CALIB_DELAY_S	600
+#define HKADC_CALIB_DELTA_TEMP	20
+static void calib_hkadc_check(struct pm8921_bms_chip *chip, int batt_temp)
+{
+	unsigned long time_since_last_calib;
+	unsigned long tm_now_sec;
+	int delta_temp;
+	int rc;
+
+	rc = get_current_time(&tm_now_sec);
+	if (rc) {
+		pr_err("Could not read current time: %d\n", rc);
+		return;
+	}
+	if (tm_now_sec > chip->last_calib_time) {
+		time_since_last_calib = tm_now_sec - chip->last_calib_time;
+		delta_temp = abs(chip->last_calib_temp - batt_temp);
+		pr_debug("time since last calib: %lu, temp diff = %d\n",
+				time_since_last_calib, delta_temp);
+		if (time_since_last_calib >= HKADC_CALIB_DELAY_S
+			|| delta_temp > HKADC_CALIB_DELTA_TEMP) {
+			chip->last_calib_temp = batt_temp;
+			chip->last_calib_time = tm_now_sec;
+			calib_hkadc(chip);
+		}
+	}
+}
+
 /*
  * Remaining Usable Charge = remaining_charge (charge at ocv instance)
  *				- coloumb counter charge
@@ -1802,6 +1903,7 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	int new_calculated_soc;
 	static int firsttime = 1;
 
+	calib_hkadc_check(chip, batt_temp);
 	calculate_soc_params(chip, raw, batt_temp, chargecycles,
 						&fcc_uah,
 						&unusable_charge_uah,
@@ -1932,20 +2034,11 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 
 static int recalculate_soc(struct pm8921_bms_chip *chip)
 {
-	int batt_temp, rc;
-	struct pm8xxx_adc_chan_result result;
+	int batt_temp;
 	struct pm8921_soc_params raw;
 	int soc;
 
-	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-					chip->batt_temp_channel, rc);
-		return rc;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	batt_temp = (int)result.physical;
+	get_batt_temp(chip, &batt_temp);
 
 	mutex_lock(&chip->last_ocv_uv_mutex);
 	read_soc_params_raw(chip, &raw);
@@ -1973,24 +2066,14 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 	int soc = calculated_soc;
 	int delta_time_us;
 	struct timespec now;
-	struct pm8xxx_adc_chan_result result;
 	int batt_temp;
-	int rc;
 
 	if (bms_fake_battery != -EINVAL) {
 		pr_debug("Returning Fake SOC = %d%%\n", bms_fake_battery);
 		return bms_fake_battery;
 	}
 
-	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-					the_chip->batt_temp_channel, rc);
-		return rc;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	batt_temp = (int)result.physical;
+	get_batt_temp(chip, &batt_temp);
 
 	do_posix_clock_monotonic_gettime(&now);
 	if (chip->t_soc_queried.tv_sec != 0) {
@@ -2074,61 +2157,6 @@ void pm8921_bms_invalidate_shutdown_soc(void)
 }
 EXPORT_SYMBOL(pm8921_bms_invalidate_shutdown_soc);
 
-#define MIN_DELTA_625_UV	1000
-static void calib_hkadc(struct pm8921_bms_chip *chip)
-{
-	int voltage, rc;
-	struct pm8xxx_adc_chan_result result;
-	int usb_chg;
-	int this_delta;
-
-	mutex_lock(&chip->calib_mutex);
-	rc = pm8xxx_adc_read(the_chip->ref1p25v_channel, &result);
-	if (rc) {
-		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
-		goto out;
-	}
-	voltage = xoadc_reading_to_microvolt(result.adc_code);
-
-	pr_debug("result 1.25v = 0x%x, voltage = %duV adc_meas = %lld\n",
-				result.adc_code, voltage, result.measurement);
-
-	chip->xoadc_v125 = voltage;
-
-	rc = pm8xxx_adc_read(the_chip->ref625mv_channel, &result);
-	if (rc) {
-		pr_err("ADC failed for 1.25volts rc = %d\n", rc);
-		goto out;
-	}
-	voltage = xoadc_reading_to_microvolt(result.adc_code);
-
-	usb_chg = usb_chg_plugged_in(chip);
-	pr_debug("result 0.625V = 0x%x, voltage = %duV adc_meas = %lld "
-				"usb_chg = %d\n",
-				result.adc_code, voltage, result.measurement,
-				usb_chg);
-
-	if (usb_chg)
-		chip->xoadc_v0625_usb_present = voltage;
-	else
-		chip->xoadc_v0625_usb_absent = voltage;
-
-	chip->xoadc_v0625 = voltage;
-	if (chip->xoadc_v0625_usb_present && chip->xoadc_v0625_usb_absent) {
-		this_delta = chip->xoadc_v0625_usb_present
-						- chip->xoadc_v0625_usb_absent;
-		pr_debug("this_delta= %duV\n", this_delta);
-		if (this_delta > MIN_DELTA_625_UV)
-			last_usb_cal_delta_uv = this_delta;
-		pr_debug("625V_present= %d, 625V_absent= %d, delta = %duV\n",
-			chip->xoadc_v0625_usb_present,
-			chip->xoadc_v0625_usb_absent,
-			last_usb_cal_delta_uv);
-	}
-out:
-	mutex_unlock(&chip->calib_mutex);
-}
-
 static void calibrate_hkadc_work(struct work_struct *work)
 {
 	struct pm8921_bms_chip *chip = container_of(work,
@@ -2140,19 +2168,6 @@ static void calibrate_hkadc_work(struct work_struct *work)
 void pm8921_bms_calibrate_hkadc(void)
 {
 	schedule_work(&the_chip->calib_hkadc_work);
-}
-
-#define HKADC_CALIB_DELAY_MS	600000
-static void calibrate_hkadc_delayed_work(struct work_struct *work)
-{
-	struct pm8921_bms_chip *chip = container_of(work,
-				struct pm8921_bms_chip,
-				calib_hkadc_delayed_work.work);
-
-	calib_hkadc(chip);
-	schedule_delayed_work(&chip->calib_hkadc_delayed_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(HKADC_CALIB_DELAY_MS)));
 }
 
 int pm8921_bms_get_vsense_avg(int *result)
@@ -2219,8 +2234,7 @@ EXPORT_SYMBOL_GPL(pm8921_bms_get_percent_charge);
 
 int pm8921_bms_get_rbatt(void)
 {
-	int batt_temp, rc;
-	struct pm8xxx_adc_chan_result result;
+	int batt_temp;
 	struct pm8921_soc_params raw;
 	int fcc_uah;
 	int unusable_charge_uah;
@@ -2235,15 +2249,7 @@ int pm8921_bms_get_rbatt(void)
 		return -EINVAL;
 	}
 
-	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-					the_chip->batt_temp_channel, rc);
-		return rc;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	batt_temp = (int)result.physical;
+	get_batt_temp(the_chip, &batt_temp);
 
 	mutex_lock(&the_chip->last_ocv_uv_mutex);
 
@@ -2265,23 +2271,14 @@ EXPORT_SYMBOL_GPL(pm8921_bms_get_rbatt);
 
 int pm8921_bms_get_fcc(void)
 {
-	int batt_temp, rc;
-	struct pm8xxx_adc_chan_result result;
+	int batt_temp;
 
 	if (!the_chip) {
 		pr_err("called before initialization\n");
 		return -EINVAL;
 	}
 
-	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-					the_chip->batt_temp_channel, rc);
-		return rc;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx", result.physical,
-						result.measurement);
-	batt_temp = (int)result.physical;
+	get_batt_temp(the_chip, &batt_temp);
 	return calculate_fcc_uah(the_chip, batt_temp, last_chargecycles);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
@@ -2320,22 +2317,13 @@ EXPORT_SYMBOL_GPL(pm8921_bms_charging_began);
 #define MIN_START_PERCENT_FOR_LEARNING	30
 void pm8921_bms_charging_end(int is_battery_full)
 {
-	int batt_temp, rc;
-	struct pm8xxx_adc_chan_result result;
+	int batt_temp;
 	struct pm8921_soc_params raw;
 
 	if (the_chip == NULL)
 		return;
 
-	rc = pm8xxx_adc_read(the_chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading adc channel = %d, rc = %d\n",
-				the_chip->batt_temp_channel, rc);
-		return;
-	}
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	batt_temp = (int)result.physical;
+	get_batt_temp(the_chip, &batt_temp);
 
 	mutex_lock(&the_chip->last_ocv_uv_mutex);
 
@@ -3059,8 +3047,6 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 
 	mutex_init(&chip->calib_mutex);
 	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
-	INIT_DELAYED_WORK(&chip->calib_hkadc_delayed_work,
-				calibrate_hkadc_delayed_work);
 
 	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
 			calculate_soc_work);
@@ -3092,12 +3078,6 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 		goto free_irqs;
 	}
 	check_initial_ocv(chip);
-
-	/* start periodic hkadc calibration */
-	calib_hkadc(chip);
-	schedule_delayed_work(&chip->calib_hkadc_delayed_work,
-			round_jiffies_relative(msecs_to_jiffies
-			(HKADC_CALIB_DELAY_MS)));
 
 	/* enable the vbatt reading interrupts for scheduling hkadc calib */
 	pm8921_bms_enable_irq(chip, PM8921_BMS_GOOD_OCV);
