@@ -42,6 +42,8 @@ Set 1 if 2-wire UART used (for Tx, Rx GPIOs).
 Documentation/devicetree/bindings/gpio/gpio.txt.
 "gpio-name" can be "tx", "rx", "cts" and "rfr" based on number of UART GPIOs
 need to configured.
+qcom,use-pm : If present, this property will cause the device to prevent system
+suspend as long as the port remains open.
 
 Aliases:
 An alias may optionally be used to bind the serial device to a tty device
@@ -65,4 +67,5 @@ Example:
 		qcom,rx-gpio = <&msmgpio 42 0x00>;
 		qcom,cts-gpio = <&msmgpio 43 0x00>;
 		qcom,rfr-gpio = <&msmgpio 44 0x00>;
+		qcom,use-pm;
 	};
