@@ -1248,9 +1248,7 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 				MCI_DLL_CONFIG) & ~MCI_CDR_EN),
 				host->base + MCI_DLL_CONFIG);
 
-	if (((cmd->flags & MMC_RSP_R1B) == MMC_RSP_R1B) ||
-			(cmd->opcode == MMC_SEND_STATUS &&
-			 !(cmd->flags & MMC_CMD_ADTC))) {
+	if ((cmd->flags & MMC_RSP_R1B) == MMC_RSP_R1B) {
 		*c |= MCI_CPSM_PROGENA;
 		host->prog_enable = 1;
 	}
