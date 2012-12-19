@@ -489,11 +489,14 @@ struct vss_imemory_cmd_unmap_t {
 #define VOICE_PARAM_MOD_ENABLE				0x00010E00
 #define MOD_ENABLE_PARAM_LEN				4
 
-#define VSS_ISTREAM_CMD_START_PLAYBACK                  0x00011238
+#define VSS_IPLAYBACK_CMD_START				0x000112BD
 /* Start in-call music delivery on the Tx voice path. */
 
-#define VSS_ISTREAM_CMD_STOP_PLAYBACK                   0x00011239
+#define VSS_IPLAYBACK_CMD_STOP				0x00011239
 /* Stop the in-call music delivery on the Tx voice path. */
+
+#define VSS_IPLAYBACK_PORT_ID_DEFAULT			0x0000FFFF
+/* Default AFE port ID. */
 
 #define VSS_IRECORD_CMD_START				0x000112BE
 /* Start in-call conversation recording. */
@@ -537,6 +540,15 @@ struct vss_imemory_cmd_unmap_t {
 /* Out-of-band packet exchange mode. */
 
 #define VSS_ISTREAM_CMD_SET_PACKET_EXCHANGE_MODE	0x0001136A
+
+struct vss_iplayback_cmd_start_t {
+	uint16_t port_id;
+	/*
+	 * AFE Port ID from which the audio samples are available.
+	 * To use the default AFE pseudo port (0x8005), set this value to
+	 * #VSS_IPLAYBACK_PORT_ID_DEFAULT.
+	 */
+}  __packed;
 
 struct vss_irecord_cmd_start_t {
 	uint32_t rx_tap_point;
@@ -856,6 +868,11 @@ struct cvs_set_pp_enable_cmd {
 struct cvs_start_record_cmd {
 	struct apr_hdr hdr;
 	struct vss_irecord_cmd_start_t rec_mode;
+} __packed;
+
+struct cvs_start_playback_cmd {
+	struct apr_hdr hdr;
+	struct vss_iplayback_cmd_start_t playback_mode;
 } __packed;
 
 struct cvs_dec_buffer_ready_cmd {

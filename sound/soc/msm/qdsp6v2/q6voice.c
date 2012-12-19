@@ -3280,7 +3280,7 @@ int voc_start_record(uint32_t port_id, uint32_t set)
 static int voice_cvs_start_playback(struct voice_data *v)
 {
 	int ret = 0;
-	struct apr_hdr cvs_start_playback;
+	struct cvs_start_playback_cmd cvs_start_playback;
 	void *apr_cvs;
 	u16 cvs_handle;
 
@@ -3298,17 +3298,18 @@ static int voice_cvs_start_playback(struct voice_data *v)
 	cvs_handle = voice_get_cvs_handle(v);
 
 	if (!v->music_info.playing && v->music_info.count) {
-		cvs_start_playback.hdr_field = APR_HDR_FIELD(
+		cvs_start_playback.hdr.hdr_field = APR_HDR_FIELD(
 					APR_MSG_TYPE_SEQ_CMD,
 					APR_HDR_LEN(APR_HDR_SIZE),
 					APR_PKT_VER);
-		cvs_start_playback.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		cvs_start_playback.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
 				sizeof(cvs_start_playback) - APR_HDR_SIZE);
-		cvs_start_playback.src_port = v->session_id;
-		cvs_start_playback.dest_port = cvs_handle;
-		cvs_start_playback.token = 0;
-		cvs_start_playback.opcode = VSS_ISTREAM_CMD_START_PLAYBACK;
-
+		cvs_start_playback.hdr.src_port = v->session_id;
+		cvs_start_playback.hdr.dest_port = cvs_handle;
+		cvs_start_playback.hdr.token = 0;
+		cvs_start_playback.hdr.opcode = VSS_IPLAYBACK_CMD_START;
+		cvs_start_playback.playback_mode.port_id =
+						VSS_IPLAYBACK_PORT_ID_DEFAULT;
 		v->cvs_state = CMD_STATUS_FAIL;
 
 		ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_start_playback);
@@ -3371,7 +3372,7 @@ static int voice_cvs_stop_playback(struct voice_data *v)
 		cvs_stop_playback.dest_port = cvs_handle;
 		cvs_stop_playback.token = 0;
 
-		cvs_stop_playback.opcode = VSS_ISTREAM_CMD_STOP_PLAYBACK;
+		cvs_stop_playback.opcode = VSS_IPLAYBACK_CMD_STOP;
 
 		v->cvs_state = CMD_STATUS_FAIL;
 
@@ -4296,8 +4297,8 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			case VSS_ICOMMON_CMD_MAP_MEMORY:
 			case VSS_ICOMMON_CMD_UNMAP_MEMORY:
 			case VSS_ICOMMON_CMD_SET_UI_PROPERTY:
-			case VSS_ISTREAM_CMD_START_PLAYBACK:
-			case VSS_ISTREAM_CMD_STOP_PLAYBACK:
+			case VSS_IPLAYBACK_CMD_START:
+			case VSS_IPLAYBACK_CMD_STOP:
 			case VSS_IRECORD_CMD_START:
 			case VSS_IRECORD_CMD_STOP:
 			case VSS_ISTREAM_CMD_SET_PACKET_EXCHANGE_MODE:

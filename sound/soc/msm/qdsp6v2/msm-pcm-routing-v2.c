@@ -425,7 +425,6 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		if (!test_bit(val, &msm_bedais[reg].fe_sessions) &&
 			(msm_bedais[reg].port_id == VOICE_PLAYBACK_TX))
 			voc_start_playback(set);
-
 		set_bit(val, &msm_bedais[reg].fe_sessions);
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
@@ -2436,6 +2435,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"AUX_PCM_TX", NULL, "BE_IN"},
 	{"INCALL_RECORD_TX", NULL, "BE_IN"},
 	{"INCALL_RECORD_RX", NULL, "BE_IN"},
+	{"BE_OUT", NULL, "VOICE_PLAYBACK_TX"}
 };
 
 static int msm_pcm_routing_hw_params(struct snd_pcm_substream *substream,
