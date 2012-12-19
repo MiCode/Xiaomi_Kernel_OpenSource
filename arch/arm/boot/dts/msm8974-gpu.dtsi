@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,7 @@
 
 		qcom,initial-pwrlevel = <1>;
 
-		qcom,idle-timeout = <83>; //<HZ/12>
+		qcom,idle-timeout = <8>; //<HZ/12>
 		qcom,nap-allowed = <1>;
 		qcom,strtstp-sleepwake;
 		qcom,clk-map = <0x0000006>; //KGSL_CLK_CORE | KGSL_CLK_IFACE

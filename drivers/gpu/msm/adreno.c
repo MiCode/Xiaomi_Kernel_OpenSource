@@ -1046,10 +1046,9 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	/* Default value is 83, if not found in DT */
 	if (adreno_of_read_property(pdev->dev.of_node, "qcom,idle-timeout",
 		&pdata->idle_timeout))
-		pdata->idle_timeout = 83;
+		pdata->idle_timeout = HZ/12;
 
 	if (adreno_of_read_property(pdev->dev.of_node, "qcom,nap-allowed",
 		&pdata->nap_allowed))
