@@ -44,7 +44,7 @@ struct msc_command_struct {
 
 /* USB driver interface  */
 
-#ifdef CONFIG_FB_MSM_HDMI_MHL_8334
+#if defined(CONFIG_FB_MSM_HDMI_MHL_8334)
  /*  mhl_device_discovery */
 extern int mhl_device_discovery(const char *name, int *result);
 
@@ -69,7 +69,6 @@ static inline int mhl_unregister_callback(const char *name)
 	return -ENODEV;
 }
 #endif
-
 
 struct msc_cmd_envelope {
 	/*
