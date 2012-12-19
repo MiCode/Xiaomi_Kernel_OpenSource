@@ -580,6 +580,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		break;
 	case 0x9048:
 	case 0x904C:
+	case 0x9075:
 		if (ifc_num != 2)
 			return -ENODEV;
 		ksb = __ksb[EFS_BRIDGE_INDEX];
