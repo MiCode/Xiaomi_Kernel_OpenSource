@@ -716,6 +716,10 @@ static void handle_fbd(enum command_response cmd, void *data)
 		(u32)fill_buf_done->packet_buffer1);
 	if (vb) {
 		vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
+		vb->v4l2_planes[0].reserved[2] = fill_buf_done->start_x_coord;
+		vb->v4l2_planes[0].reserved[3] = fill_buf_done->start_y_coord;
+		vb->v4l2_planes[0].reserved[4] = fill_buf_done->frame_width;
+		vb->v4l2_planes[0].reserved[5] = fill_buf_done->frame_height;
 		if (!(fill_buf_done->flags1 &
 			HAL_BUFFERFLAG_TIMESTAMPINVALID) &&
 			fill_buf_done->filled_len1) {

@@ -924,8 +924,8 @@ struct vidc_hal_fbd {
 	u32 offset1;
 	u32 frame_width;
 	u32 frame_height;
-	u32 start_xCoord;
-	u32 start_yCoord;
+	u32 start_x_coord;
+	u32 start_y_coord;
 	u32 input_tag;
 	u32 input_tag1;
 	enum hal_picture picture_type;

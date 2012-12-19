@@ -650,8 +650,8 @@ static void hfi_process_session_ftb_done(
 		data_done.output_done.offset1 = pkt->offset;
 		data_done.output_done.frame_width = pkt->frame_width;
 		data_done.output_done.frame_height = pkt->frame_height;
-		data_done.output_done.start_xCoord = pkt->start_x_coord;
-		data_done.output_done.start_yCoord = pkt->start_y_coord;
+		data_done.output_done.start_x_coord = pkt->start_x_coord;
+		data_done.output_done.start_y_coord = pkt->start_y_coord;
 		data_done.output_done.input_tag1 = pkt->input_tag;
 		data_done.output_done.picture_type = pkt->picture_type;
 		data_done.output_done.packet_buffer1 = pkt->packet_buffer;
