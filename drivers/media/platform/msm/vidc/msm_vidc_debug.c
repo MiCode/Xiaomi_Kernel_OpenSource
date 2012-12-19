@@ -87,6 +87,33 @@ static const struct file_operations core_info_fops = {
 	.read = core_info_read,
 };
 
+static int trigger_ssr_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t trigger_ssr_write(struct file *filp, const char __user *buf,
+		size_t count, loff_t *ppos) {
+	u32 ssr_trigger_val;
+	int rc;
+	struct msm_vidc_core *core = filp->private_data;
+	rc = sscanf(buf, "%d", &ssr_trigger_val);
+	if (rc < 0) {
+		dprintk(VIDC_WARN, "returning error err %d\n", rc);
+		rc = -EINVAL;
+	} else {
+		msm_vidc_trigger_ssr(core, ssr_trigger_val);
+		rc = count;
+	}
+	return rc;
+}
+
+static const struct file_operations ssr_fops = {
+	.open = trigger_ssr_open,
+	.write = trigger_ssr_write,
+};
+
 struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		struct dentry *parent)
 {
@@ -114,6 +141,11 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 	}
 	if (!debugfs_create_u32("fw_level", S_IRUGO | S_IWUSR,
 			parent, &msm_fw_debug)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_file("trigger_ssr", S_IWUSR,
+			dir, core, &ssr_fops)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
