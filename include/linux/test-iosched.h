@@ -224,7 +224,6 @@ struct test_data {
 	struct test_info test_info;
 	bool fs_wr_reqs_during_test;
 	bool ignore_round;
-	bool notified_urgent;
 };
 
 extern int test_iosched_start_test(struct test_info *t_info);
