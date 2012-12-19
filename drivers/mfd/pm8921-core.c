@@ -804,6 +804,8 @@ pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	}
 
 	if (pdata->ccadc_pdata) {
+		pdata->ccadc_pdata->ccadc_cdata.batt_temp_channel
+						= CHANNEL_BATT_THERM;
 		ccadc_cell.platform_data = pdata->ccadc_pdata;
 		ccadc_cell.pdata_size =
 				sizeof(struct pm8xxx_ccadc_platform_data);
