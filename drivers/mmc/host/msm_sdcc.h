@@ -422,7 +422,6 @@ struct msmsdcc_host {
 	struct mutex clk_mutex;
 	bool pending_resume;
 	unsigned int idle_tout;			/* Timeout in msecs */
-	bool pending_dpsm_reset;
 	bool enforce_pio_mode;
 	bool print_pm_stats;
 	struct msmsdcc_msm_bus_vote msm_bus_vote;

@@ -163,6 +163,10 @@ static int msmsdcc_runtime_resume(struct device *dev);
 static int msmsdcc_dt_get_array(struct device *dev, const char *prop_name,
 		u32 **out_array, int *len, int size);
 static int msmsdcc_execute_tuning(struct mmc_host *mmc, u32 opcode);
+static bool msmsdcc_is_wait_for_auto_prog_done(struct msmsdcc_host *host,
+					       struct mmc_request *mrq);
+static bool msmsdcc_is_wait_for_prog_done(struct msmsdcc_host *host,
+					  struct mmc_request *mrq);
 
 static inline unsigned short msmsdcc_get_nr_sg(struct msmsdcc_host *host)
 {
@@ -440,18 +444,23 @@ static void msmsdcc_reset_dpsm(struct msmsdcc_host *host)
 {
 	struct mmc_request *mrq = host->curr.mrq;
 
-	if (!mrq || !mrq->cmd || (!mrq->data && !host->pending_dpsm_reset))
-			goto out;
+	if (!mrq || !mrq->cmd || !mrq->data)
+		goto out;
 
 	/*
-	 * For CMD24, if auto prog done is not supported defer
-	 * dpsm reset until prog done is received. Otherwise,
-	 * we poll here unnecessarily as TXACTIVE will not be
-	 * deasserted until DAT0 goes high.
+	 * If we have not waited for the prog done for write transfer then
+	 * perform the DPSM reset without polling for TXACTIVE.
+	 * Otherwise, we poll here unnecessarily as TXACTIVE will not be
+	 * deasserted until DAT0 (Busy line) goes high.
 	 */
-	if ((mrq->cmd->opcode == MMC_WRITE_BLOCK) && !is_auto_prog_done(host)) {
-		host->pending_dpsm_reset = true;
-		goto out;
+	if (mrq->data->flags & MMC_DATA_WRITE) {
+		if (!msmsdcc_is_wait_for_prog_done(host, mrq)) {
+			if (is_wait_for_tx_rx_active(host) &&
+			    !is_auto_prog_done(host))
+				pr_warning("%s: %s: AUTO_PROG_DONE capability is must\n",
+					   mmc_hostname(host->mmc), __func__);
+			goto no_polling;
+		}
 	}
 
 	/* Make sure h/w (TX/RX) is inactive before resetting DPSM */
@@ -473,15 +482,14 @@ static void msmsdcc_reset_dpsm(struct msmsdcc_host *host)
 					& MCI_TXACTIVE ? "TX" : "RX");
 				msmsdcc_dump_sdcc_state(host);
 				msmsdcc_reset_and_restore(host);
-				host->pending_dpsm_reset = false;
 				goto out;
 			}
 		}
 	}
 
+no_polling:
 	writel_relaxed(0, host->base + MMCIDATACTRL);
 	msmsdcc_sync_reg_wr(host); /* Allow the DPSM to be reset */
-	host->pending_dpsm_reset = false;
 out:
 	return;
 }
@@ -1246,7 +1254,6 @@ msmsdcc_start_command_deferred(struct msmsdcc_host *host,
 		*c |= MCI_CPSM_PROGENA;
 		host->prog_enable = 1;
 	}
-
 	if (cmd == cmd->mrq->stop)
 		*c |= MCI_CSPM_MCIABORT;
 
@@ -2139,6 +2146,43 @@ msmsdcc_request_start(struct msmsdcc_host *host, struct mmc_request *mrq)
 	}
 }
 
+/*
+ * This function returns true if AUTO_PROG_DONE feature of host is
+ * applicable for current request, returns "false" otherwise.
+ *
+ * NOTE: Caller should call this function only for data write operations.
+ */
+static bool msmsdcc_is_wait_for_auto_prog_done(struct msmsdcc_host *host,
+					       struct mmc_request *mrq)
+{
+	/*
+	 * Auto-prog done will be enabled for following cases:
+	 * mrq->sbc	|	mrq->stop
+	 * _____________|________________
+	 *	True	|	Don't care
+	 *	False	|	False (CMD24, ACMD25 use case)
+	 */
+	if (is_auto_prog_done(host) && (mrq->sbc || !mrq->stop))
+		return true;
+
+	return false;
+}
+
+/*
+ * This function returns true if controller can wait for prog done
+ * for current request, returns "false" otherwise.
+ *
+ * NOTE: Caller should call this function only for data write operations.
+ */
+static bool msmsdcc_is_wait_for_prog_done(struct msmsdcc_host *host,
+					  struct mmc_request *mrq)
+{
+	if (msmsdcc_is_wait_for_auto_prog_done(host, mrq) || mrq->stop)
+		return true;
+
+	return false;
+}
+
 static void
 msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
@@ -2235,16 +2279,8 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	if (mrq->data && (mrq->data->flags & MMC_DATA_WRITE)) {
-		if (is_auto_prog_done(host)) {
-			/*
-			 * Auto-prog done will be enabled for following cases:
-			 * mrq->sbc	|	mrq->stop
-			 * _____________|________________
-			 *	True	|	Don't care
-			 *	False	|	False (CMD24, ACMD25 use case)
-			 */
-			if (mrq->sbc || !mrq->stop)
-				host->curr.wait_for_auto_prog_done = true;
+		if (msmsdcc_is_wait_for_auto_prog_done(host, mrq)) {
+			host->curr.wait_for_auto_prog_done = true;
 		} else {
 			if ((mrq->cmd->opcode == SD_IO_RW_EXTENDED) ||
 			    (mrq->cmd->opcode == 54))
