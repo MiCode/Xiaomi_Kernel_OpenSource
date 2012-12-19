@@ -1811,8 +1811,6 @@ static int run_bkops(struct test_data *td)
 			break;
 		}
 
-		td->next_req = list_entry(td->test_queue.prev,
-				struct test_request, queuelist);
 		__blk_run_queue(q);
 		wait_event(mbtd->bkops_wait_q,
 			   mbtd->bkops_stage == BKOPS_STAGE_4);
@@ -1842,8 +1840,6 @@ static int run_bkops(struct test_data *td)
 			break;
 		}
 
-		td->next_req = list_entry(td->test_queue.prev,
-				struct test_request, queuelist);
 		__blk_run_queue(q);
 		wait_event(mbtd->bkops_wait_q,
 			   mbtd->bkops_stage == BKOPS_STAGE_4);
@@ -1873,8 +1869,6 @@ static int run_bkops(struct test_data *td)
 			break;
 		}
 
-		td->next_req = list_entry(td->test_queue.prev,
-				struct test_request, queuelist);
 		__blk_run_queue(q);
 		wait_event(mbtd->bkops_wait_q,
 			   mbtd->bkops_stage == BKOPS_STAGE_2);
@@ -1892,8 +1886,6 @@ static int run_bkops(struct test_data *td)
 			break;
 		}
 
-		td->next_req = list_entry(td->test_queue.prev,
-				struct test_request, queuelist);
 		__blk_run_queue(q);
 
 		wait_event(mbtd->bkops_wait_q,
@@ -1933,8 +1925,6 @@ static int run_bkops(struct test_data *td)
 			break;
 		}
 
-		td->next_req = list_entry(td->test_queue.next,
-				struct test_request, queuelist);
 		__blk_run_queue(q);
 		wait_event(mbtd->bkops_wait_q,
 			   mbtd->bkops_stage == BKOPS_STAGE_2);
@@ -1952,8 +1942,6 @@ static int run_bkops(struct test_data *td)
 			break;
 		}
 
-		td->next_req = list_entry(td->test_queue.prev,
-				struct test_request, queuelist);
 		__blk_run_queue(q);
 
 		wait_event(mbtd->bkops_wait_q,
