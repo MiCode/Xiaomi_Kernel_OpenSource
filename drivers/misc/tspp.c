@@ -1005,7 +1005,7 @@ static int tspp_global_reset(struct tspp_device *pdev)
 			TSPP_CONFIG_PS_CONT_ERR_MASK);
 	TSPP_CONFIG_SET_PACKET_LENGTH(val, TSPP_PACKET_LENGTH);
 	writel_relaxed(val, pdev->base + TSPP_CONFIG);
-	writel_relaxed(0x000fffff, pdev->base + TSPP_IRQ_MASK);
+	writel_relaxed(0x0007ffff, pdev->base + TSPP_IRQ_MASK);
 	writel_relaxed(0x000fffff, pdev->base + TSPP_IRQ_CLEAR);
 	writel_relaxed(0, pdev->base + TSPP_RST);
 	wmb();
