@@ -54,7 +54,7 @@ static struct scalable scalable[] __initdata = {
 		.l2cpmr_iaddr = 0x4501,
 		.vreg[VREG_CORE] = { "krait0", 1300000 },
 		.vreg[VREG_MEM]  = { "krait0_mem", 1150000 },
-		.vreg[VREG_DIG]  = { "krait0_dig", 1150000 },
+		.vreg[VREG_DIG]  = { "krait0_dig", LVL_HIGH},
 		.vreg[VREG_HFPLL_A] = { "krait0_hfpll", 1800000 },
 	},
 	[CPU1] = {
@@ -65,7 +65,7 @@ static struct scalable scalable[] __initdata = {
 		.l2cpmr_iaddr = 0x5501,
 		.vreg[VREG_CORE] = { "krait1", 1300000 },
 		.vreg[VREG_MEM]  = { "krait1_mem", 1150000 },
-		.vreg[VREG_DIG]  = { "krait1_dig", 1150000 },
+		.vreg[VREG_DIG]  = { "krait1_dig", LVL_HIGH},
 		.vreg[VREG_HFPLL_A] = { "krait1_hfpll", 1800000 },
 	},
 	[L2] = {
