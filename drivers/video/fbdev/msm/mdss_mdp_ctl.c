@@ -883,7 +883,7 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_pipe *pipe;
 	u32 off, blend_op, blend_stage;
 	u32 mixercfg = 0, blend_color_out = 0, bgalpha = 0;
-	int stage;
+	int stage, secure = 0;
 
 	if (!mixer)
 		return -ENODEV;
@@ -897,6 +897,7 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 		mixercfg = 1 << (3 * pipe->num);
 		if (pipe->src_fmt->alpha_enable)
 			bgalpha = 1;
+		secure = pipe->flags & MDP_SECURE_OVERLAY_SESSION;
 	}
 
 	for (stage = MDSS_MDP_STAGE_0; stage < MDSS_MDP_MAX_STAGE; stage++) {
@@ -914,7 +915,8 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 
 		if (pipe->is_fg) {
 			bgalpha = 0;
-			mixercfg = MDSS_MDP_LM_BORDER_COLOR;
+			if (!secure)
+				mixercfg = MDSS_MDP_LM_BORDER_COLOR;
 
 			blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
 				    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);

@@ -26,7 +26,6 @@
 #include "mdss_mdp.h"
 #include "mdss_fb.h"
 
-#define DEBUG_WRITEBACK
 
 enum mdss_mdp_wb_state {
 	WB_OPEN,
@@ -43,6 +42,8 @@ struct mdss_mdp_wb {
 	struct list_head register_queue;
 	wait_queue_head_t wait_q;
 	u32 state;
+	int is_secure;
+	struct mdss_mdp_pipe *secure_pipe;
 };
 
 enum mdss_mdp_wb_node_state {
@@ -121,6 +122,72 @@ struct mdss_mdp_data *mdss_mdp_wb_debug_buffer(struct msm_fb_data_type *mfd)
 }
 #endif
 
+int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
+{
+	struct mdss_mdp_wb *wb;
+	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_mixer *mixer;
+
+	pr_debug("setting secure=%d\n", enable);
+
+	wb = mfd->wb;
+	if (wb == NULL) {
+		pr_err("Invalid writeback session\n");
+		return -ENODEV;
+	}
+
+	wb->is_secure = enable;
+	pipe = wb->secure_pipe;
+
+	if (!enable) {
+		if (pipe) {
+			/* unset pipe */
+			mdss_mdp_mixer_pipe_unstage(pipe);
+			mdss_mdp_pipe_destroy(pipe);
+			wb->secure_pipe = NULL;
+		}
+		return 0;
+	}
+
+	mixer = mdss_mdp_mixer_get(mfd->ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
+	if (!mixer) {
+		pr_err("Unable to find mixer for wb\n");
+		return -ENOENT;
+	}
+
+	if (!pipe) {
+		pipe = mdss_mdp_pipe_alloc(mixer, MDSS_MDP_PIPE_TYPE_RGB);
+		if (!pipe)
+			pipe = mdss_mdp_pipe_alloc(mixer,
+					MDSS_MDP_PIPE_TYPE_VIG);
+		if (!pipe) {
+			pr_err("Unable to get pipe to set secure session\n");
+			return -ENOMEM;
+		}
+
+		pipe->src_fmt = mdss_mdp_get_format_params(MDP_RGBA_8888);
+
+		pipe->mfd = mfd;
+		pipe->mixer_stage = MDSS_MDP_STAGE_BASE;
+		wb->secure_pipe = pipe;
+	}
+
+	pipe->img_height = mixer->height;
+	pipe->img_width = mixer->width;
+	pipe->src.x = 0;
+	pipe->src.y = 0;
+	pipe->src.w = pipe->img_width;
+	pipe->src.h = pipe->img_height;
+	pipe->dst = pipe->src;
+
+	pipe->flags = (enable ? MDP_SECURE_OVERLAY_SESSION : 0);
+	pipe->params_changed++;
+
+	pr_debug("setting secure pipe=%d flags=%x\n", pipe->num, pipe->flags);
+
+	return mdss_mdp_pipe_queue_data(pipe, NULL);
+}
+
 static int mdss_mdp_wb_init(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_wb *wb;
@@ -173,6 +240,10 @@ static int mdss_mdp_wb_terminate(struct msm_fb_data_type *mfd)
 			kfree(node);
 		}
 	}
+
+	wb->is_secure = false;
+	if (wb->secure_pipe)
+		mdss_mdp_pipe_destroy(wb->secure_pipe);
 	mutex_unlock(&wb->lock);
 
 	mfd->wb = NULL;
@@ -257,6 +328,8 @@ static struct mdss_mdp_wb_data *get_local_node(struct mdss_mdp_wb *wb,
 	buf = &node->buf_data.p[0];
 	buf->addr = (u32) (data->iova + data->offset);
 	buf->len = UINT_MAX; /* trusted source */
+	if (wb->is_secure)
+		buf->flags |= MDP_SECURE_OVERLAY_SESSION;
 	ret = mdss_mdp_wb_register_node(wb, node);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("error registering wb node\n");
@@ -284,6 +357,8 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 
 	node->buf_data.num_planes = 1;
 	buf = &node->buf_data.p[0];
+	if (wb->is_secure)
+		buf->flags |= MDP_SECURE_OVERLAY_SESSION;
 	ret = mdss_mdp_get_img(data, buf);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("error getting buffer info\n");
@@ -419,6 +494,9 @@ int mdss_mdp_wb_kickoff(struct mdss_mdp_ctl *ctl)
 	wb = ctl->mfd->wb;
 	if (wb) {
 		mutex_lock(&wb->lock);
+		/* in case of reinit of control path need to reset secure */
+		if (ctl->play_cnt == 0)
+			mdss_mdp_wb_set_secure(ctl->mfd, wb->is_secure);
 		if (!list_empty(&wb->free_queue) && wb->state != WB_STOPING &&
 		    wb->state != WB_STOP) {
 			node = list_first_entry(&wb->free_queue,
@@ -568,8 +646,31 @@ int msm_fb_writeback_terminate(struct fb_info *info)
 }
 EXPORT_SYMBOL(msm_fb_writeback_terminate);
 
-int msm_fb_get_iommu_domain(void)
+int msm_fb_get_iommu_domain(struct fb_info *info, int domain)
 {
-	return mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE);
+	int mdss_domain;
+	switch (domain) {
+	case MDP_IOMMU_DOMAIN_CP:
+		mdss_domain = MDSS_IOMMU_DOMAIN_SECURE;
+		break;
+	case MDP_IOMMU_DOMAIN_NS:
+		mdss_domain = MDSS_IOMMU_DOMAIN_UNSECURE;
+		break;
+	default:
+		pr_err("Invalid mdp iommu domain (%d)\n", domain);
+		return -EINVAL;
+	}
+	return mdss_get_iommu_domain(mdss_domain);
 }
 EXPORT_SYMBOL(msm_fb_get_iommu_domain);
+
+int msm_fb_writeback_set_secure(struct fb_info *info, int enable)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *) info->par;
+
+	if (!mfd)
+		return -ENODEV;
+
+	return mdss_mdp_wb_set_secure(mfd, enable);
+}
+EXPORT_SYMBOL(msm_fb_writeback_set_secure);
