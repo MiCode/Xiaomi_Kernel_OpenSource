@@ -81,6 +81,7 @@
 #define SMD_DATA_TYPE 0
 #define SMD_CNTL_TYPE 1
 #define SMD_DCI_TYPE 2
+#define MAX_PROC	10
 
 /* Maximum number of pkt reg supported at initialization*/
 extern unsigned int diag_max_reg;
@@ -92,6 +93,12 @@ do {							\
 	(diag_debug_buf_idx < 1023) ? \
 	(diag_debug_buf_idx++) : (diag_debug_buf_idx = 0); \
 } while (0)
+
+/* List of remote processor supported */
+enum remote_procs {
+	MDM = 1,
+	QSC = 2,
+};
 
 struct diag_master_table {
 	uint16_t cmd_code;
