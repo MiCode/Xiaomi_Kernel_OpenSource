@@ -21,6 +21,7 @@ void diag_send_msg_mask_update(smd_channel_t *, int ssid_first,
 					 int ssid_last, int proc);
 void diag_send_log_mask_update(smd_channel_t *, int);
 void diag_mask_update_fn(struct work_struct *work);
+void diag_send_feature_mask_update(smd_channel_t *ch, int proc);
 int diag_process_apps_masks(unsigned char *buf, int len);
 void diag_masks_init(void);
 void diag_masks_exit(void);

@@ -44,6 +44,7 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd)
 {
 	int data_len = 0, type = -1, count_bytes = 0, j, flag = 0;
+	int feature_mask_len;
 	struct bindpkt_params_per_process *pkt_params =
 		kzalloc(sizeof(struct bindpkt_params_per_process), GFP_KERNEL);
 	struct diag_ctrl_msg *msg;
@@ -115,6 +116,11 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 				pr_err("diag: drop reg proc %d\n",
 						smd_info->peripheral);
 			kfree(temp);
+		} else if ((type == DIAG_CTRL_MSG_FEATURE) &&
+				(smd_info->peripheral == MODEM_DATA)) {
+			feature_mask_len = *(int *)(buf + 8);
+			driver->log_on_demand_support = (*(uint8_t *)
+							 (buf + 12)) & 0x04;
 		} else if (type != DIAG_CTRL_MSG_REG) {
 			flag = 1;
 		}
@@ -209,6 +215,7 @@ void diagfwd_cntl_init(void)
 
 	reg_dirty = 0;
 	driver->polling_reg_flag = 0;
+	driver->log_on_demand_support = 1;
 	driver->diag_cntl_wq = create_singlethread_workqueue("diag_cntl_wq");
 
 	success = diag_smd_constructor(&driver->smd_cntl[MODEM_DATA],

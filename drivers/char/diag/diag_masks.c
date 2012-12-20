@@ -26,6 +26,9 @@ int diag_event_num_bytes;
 #define ALL_SSID		-1
 #define MAX_SSID_PER_RANGE	100
 
+#define FEATURE_MASK_LEN_BYTES		1
+#define APPS_RESPOND_LOG_ON_DEMAND	0x04
+
 struct mask_info {
 	int equip_id;
 	int num_items;
@@ -309,6 +312,7 @@ void diag_mask_update_fn(struct work_struct *work)
 						smd_info->peripheral);
 	diag_send_log_mask_update(smd_info->ch, ALL_EQUIP_ID);
 	diag_send_event_mask_update(smd_info->ch, diag_event_num_bytes);
+	diag_send_feature_mask_update(smd_info->ch, smd_info->peripheral);
 
 	smd_info->notify_context = 0;
 }
@@ -459,6 +463,42 @@ void diag_send_msg_mask_update(smd_channel_t *ch, int updated_ssid_first,
 		ptr += MAX_SSID_PER_RANGE*4;
 	}
 	mutex_unlock(&driver->diag_cntl_mutex);
+}
+
+void diag_send_feature_mask_update(smd_channel_t *ch, int proc)
+{
+	void *buf = driver->buf_feature_mask_update;
+	int header_size = sizeof(struct diag_ctrl_feature_mask);
+	int wr_size = -ENOMEM, retry_count = 0, timer;
+	uint8_t feature_byte = 0;
+
+	mutex_lock(&driver->diag_cntl_mutex);
+	/* send feature mask update */
+	driver->feature_mask->ctrl_pkt_id = DIAG_CTRL_MSG_FEATURE;
+	driver->feature_mask->ctrl_pkt_data_len = 4 + FEATURE_MASK_LEN_BYTES;
+	driver->feature_mask->feature_mask_len = FEATURE_MASK_LEN_BYTES;
+	memcpy(buf, driver->feature_mask, header_size);
+	feature_byte |= APPS_RESPOND_LOG_ON_DEMAND;
+	memcpy(buf+header_size, &feature_byte, FEATURE_MASK_LEN_BYTES);
+
+	if (ch) {
+		while (retry_count < 3) {
+			wr_size = smd_write(ch, buf, header_size +
+						FEATURE_MASK_LEN_BYTES);
+			if (wr_size == -ENOMEM) {
+				retry_count++;
+				for (timer = 0; timer < 5; timer++)
+					udelay(2000);
+			} else
+				break;
+		}
+		if (wr_size != header_size + FEATURE_MASK_LEN_BYTES)
+			pr_err("diag: proc %d fail feature update %d, tried %d",
+			   proc, wr_size, header_size + FEATURE_MASK_LEN_BYTES);
+	} else
+		pr_err("diag: ch invalid, feature update on proc %d\n", proc);
+	mutex_unlock(&driver->diag_cntl_mutex);
+
 }
 
 int diag_process_apps_masks(unsigned char *buf, int len)
@@ -671,6 +711,16 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 			return 0;
 		}
 #endif
+	} else if (*buf == 0x78) {
+		if (!(driver->smd_cntl[MODEM_DATA].ch) ||
+					(driver->log_on_demand_support)) {
+			driver->apps_rsp_buf[0] = 0x78;
+			/* Copy log code received */
+			*(uint16_t *)(driver->apps_rsp_buf+1) =
+							 *(uint16_t *)buf;
+			driver->apps_rsp_buf[3] = 0x1;/* Unknown */
+			encode_rsp_and_send(3);
+		}
 	}
 
 	return  packet_type;
@@ -727,6 +777,21 @@ void diag_masks_init(void)
 			goto err;
 		kmemleak_not_leak(driver->msg_masks);
 	}
+	if (driver->buf_feature_mask_update == NULL) {
+		driver->buf_feature_mask_update = kzalloc(sizeof(
+					struct diag_ctrl_feature_mask) +
+					FEATURE_MASK_LEN_BYTES, GFP_KERNEL);
+		if (driver->buf_feature_mask_update == NULL)
+			goto err;
+		kmemleak_not_leak(driver->buf_feature_mask_update);
+	}
+	if (driver->feature_mask == NULL) {
+		driver->feature_mask = kzalloc(sizeof(
+			struct diag_ctrl_feature_mask), GFP_KERNEL);
+		if (driver->feature_mask == NULL)
+			goto err;
+		kmemleak_not_leak(driver->feature_mask);
+	}
 	diag_create_msg_mask_table();
 	diag_event_num_bytes = 0;
 	if (driver->log_masks == NULL) {
@@ -751,6 +816,8 @@ err:
 	kfree(driver->msg_masks);
 	kfree(driver->log_masks);
 	kfree(driver->event_masks);
+	kfree(driver->feature_mask);
+	kfree(driver->buf_feature_mask_update);
 }
 
 void diag_masks_exit(void)
@@ -761,4 +828,6 @@ void diag_masks_exit(void)
 	kfree(driver->msg_masks);
 	kfree(driver->log_masks);
 	kfree(driver->event_masks);
+	kfree(driver->feature_mask);
+	kfree(driver->buf_feature_mask_update);
 }

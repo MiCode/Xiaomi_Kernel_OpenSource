@@ -77,6 +77,13 @@ struct diag_ctrl_msg_mask {
 	/* Copy msg mask here */
 } __packed;
 
+struct diag_ctrl_feature_mask {
+	uint32_t ctrl_pkt_id;
+	uint32_t ctrl_pkt_data_len;
+	uint32_t feature_mask_len;
+	/* Copy feature mask here */
+} __packed;
+
 void diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
 void diag_read_smd_cntl_work_fn(struct work_struct *);
