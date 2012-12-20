@@ -618,19 +618,20 @@ int32_t qpnp_vadc_conv_seq_request(enum qpnp_vadc_trigger trigger_channel,
 	if (!vadc || !vadc->vadc_initialized)
 		return -EPROBE_DEFER;
 
+	mutex_lock(&vadc->adc->adc_lock);
+
 	if (!vadc->vadc_init_calib) {
 		rc = qpnp_vadc_version_check();
 		if (rc)
-			return rc;
+			goto fail_unlock;
+
 		rc = qpnp_vadc_calib_device();
 		if (rc) {
 			pr_err("Calibration failed\n");
-			return rc;
+			goto fail_unlock;
 		} else
 			vadc->vadc_init_calib = true;
 	}
-
-	mutex_lock(&vadc->adc->adc_lock);
 
 	vadc->adc->amux_prop->amux_channel = channel;
 
