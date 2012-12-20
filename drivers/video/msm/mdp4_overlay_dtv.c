@@ -701,10 +701,10 @@ int mdp4_dtv_off(struct platform_device *pdev)
 	atomic_set(&vctrl->suspend, 1);
 	atomic_set(&vctrl->vsync_resume, 0);
 
-	if (vctrl->vsync_irq_enabled) {
-		while (vctrl->wait_vsync_cnt)
-			msleep(20);     /* >= 17 ms */
-	}
+	/* wait for one vsycn time to make sure
+	 * previous stage_commit had been kicked in
+	 */
+	msleep(20);     /* >= 17 ms */
 
 	complete_all(&vctrl->vsync_comp);
 
