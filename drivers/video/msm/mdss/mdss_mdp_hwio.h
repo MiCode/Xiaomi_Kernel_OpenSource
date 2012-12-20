@@ -221,6 +221,7 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_SCALE_FILTER_CA		0x3
 #define MDSS_MDP_SCALEY_EN			BIT(1)
 #define MDSS_MDP_SCALEX_EN			BIT(0)
+#define MDSS_MDP_FMT_SOLID_FILL			0x4037FF
 
 #define MDSS_MDP_NUM_REG_MIXERS 3
 #define MDSS_MDP_NUM_WB_MIXERS 2
