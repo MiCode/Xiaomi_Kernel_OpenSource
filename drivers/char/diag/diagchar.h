@@ -231,6 +231,7 @@ struct diagchar_dev {
 	struct diag_ctrl_event_mask *event_mask;
 	struct diag_ctrl_log_mask *log_mask;
 	struct diag_ctrl_msg_mask *msg_mask;
+	struct diag_ctrl_feature_mask *feature_mask;
 	/* State for diag forwarding */
 	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
 	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
@@ -242,6 +243,7 @@ struct diagchar_dev {
 	unsigned char *buf_msg_mask_update;
 	unsigned char *buf_log_mask_update;
 	unsigned char *buf_event_mask_update;
+	unsigned char *buf_feature_mask_update;
 	int read_len_legacy;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
@@ -259,6 +261,7 @@ struct diagchar_dev {
 	uint8_t *log_masks;
 	int log_masks_length;
 	uint8_t *event_masks;
+	uint8_t log_on_demand_support;
 	struct diag_master_table *table;
 	uint8_t *pkt_buf;
 	int pkt_length;
