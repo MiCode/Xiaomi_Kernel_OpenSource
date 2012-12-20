@@ -180,6 +180,15 @@
 		qcom,model = "msm8974-taiko-cdp-snd-card";
 		qcom,hdmi-audio-rx;
 	};
+
+	usb2_otg_sw: regulator-tpd4s214 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb2_otg_sw";
+		gpio = <&pm8941_gpios 18 0>;
+		vin-supply = <&pm8941_boost>;
+		startup-delay-us = <17000>;
+		enable-active-high;
+	};
 };
 
 &spmi_bus {
@@ -374,6 +383,14 @@
 	};
 
 	gpio@d100 { /* GPIO 18 */
+		/* usb2_otg_sw regulator enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>; 		/* Output low initially */
+		qcom,vin-sel = <2>; 		/* PM8941 S3 = 1.8 V */
+		qcom,src-sel = <0>; 		/* Constant */
+		qcom,out-strength = <2>;	/* Medium drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
 	};
 
 	gpio@d200 { /* GPIO 19 */
