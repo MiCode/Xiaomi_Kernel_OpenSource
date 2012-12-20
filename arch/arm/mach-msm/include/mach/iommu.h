@@ -127,6 +127,9 @@ void msm_iommu_remove_drv(struct msm_iommu_drvdata *drv);
  * @name		Human-readable name of this context device
  * @sids		List of Stream IDs mapped to this context
  * @nsid		Number of Stream IDs mapped to this context
+ * @secure_context	true if this is a secure context programmed by
+			the secure environment, false otherwise
+ * @asid		ASID used with this context.
  *
  * A msm_iommu_ctx_drvdata holds the driver data for a single context bank
  * within each IOMMU hardware instance
@@ -139,6 +142,8 @@ struct msm_iommu_ctx_drvdata {
 	const char *name;
 	u32 sids[MAX_NUM_SMR];
 	unsigned int nsid;
+	unsigned int secure_context;
+	int asid;
 };
 
 /*
