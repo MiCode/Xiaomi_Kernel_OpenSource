@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,7 @@ struct msm_bus_node_info {
 	unsigned int prio_wr;
 	unsigned int prio1;
 	unsigned int prio0;
+	const char *name;
 };
 
 struct path_node {
@@ -213,6 +214,7 @@ int msm_bus_get_num_fab(void);
 
 int msm_bus_hw_fab_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo);
+void msm_bus_board_init(struct msm_bus_fabric_registration *pdata);
 #if defined(CONFIG_MSM_RPM) || defined(CONFIG_MSM_RPM_SMD)
 int msm_bus_rpm_hw_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo);
@@ -256,6 +258,17 @@ static inline void msm_bus_dbg_commit_data(const char *fabname,
 	void *cdata, int nmasters, int nslaves, int ntslaves,
 	int op)
 {
+}
+#endif
+
+#ifdef CONFIG_OF
+struct msm_bus_fabric_registration
+	*msm_bus_of_get_fab_data(struct platform_device *pdev);
+#else
+static inline struct msm_bus_fabric_registration
+	*msm_bus_of_get_fab_data(struct platform_device *pdev)
+{
+	return NULL;
 }
 #endif
 

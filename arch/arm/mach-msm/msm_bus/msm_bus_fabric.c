@@ -712,11 +712,12 @@ static int __devinit msm_bus_fabric_probe(struct platform_device *pdev)
 
 	/* If possible, get pdata from device-tree */
 	if (pdev->dev.of_node) {
-		pdata = pdev->dev.platform_data;
+		pdata = msm_bus_of_get_fab_data(pdev);
 		if (IS_ERR(pdata) || ZERO_OR_NULL_PTR(pdata)) {
 			pr_err("Null platform data\n");
 			return PTR_ERR(pdata);
 		}
+		msm_bus_board_init(pdata);
 		fabric->fabdev.id = pdata->id;
 	} else {
 		pdata = (struct msm_bus_fabric_registration *)pdev->
@@ -824,7 +825,7 @@ static int msm_bus_fabric_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id fabric_match[] = {
-	{.compatible = "msm_bus_fabric"},
+	{.compatible = "msm-bus-fabric"},
 	{}
 };
 
@@ -832,7 +833,7 @@ static struct platform_driver msm_bus_fabric_driver = {
 	.probe = msm_bus_fabric_probe,
 	.remove = msm_bus_fabric_remove,
 	.driver = {
-		.name = "msm_bus_fabric",
+		.name = "msm-bus-fabric",
 		.owner = THIS_MODULE,
 		.of_match_table = fabric_match,
 	},
