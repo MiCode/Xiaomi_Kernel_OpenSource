@@ -431,9 +431,11 @@ static int msm_iommu_ctx_attached(struct device *dev)
 
 		ctx = dev_get_drvdata(&pdev->dev);
 		if (ctx->attached_domain) {
+			of_dev_put(pdev);
 			of_node_put(child);
 			return 1;
 		}
+		of_dev_put(pdev);
 	}
 
 	return 0;
