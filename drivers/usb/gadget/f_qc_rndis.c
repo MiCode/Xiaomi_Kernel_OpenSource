@@ -94,6 +94,7 @@ struct f_rndis_qc {
 	struct usb_ep			*notify;
 	struct usb_request		*notify_req;
 	atomic_t			notify_count;
+	struct data_port		bam_port;
 };
 
 static inline struct f_rndis_qc *func_to_rndis_qc(struct usb_function *f)
@@ -117,8 +118,11 @@ static unsigned int rndis_qc_bitrate(struct usb_gadget *g)
 #define RNDIS_QC_LOG2_STATUS_INTERVAL_MSEC	5	/* 1 << 5 == 32 msec */
 #define RNDIS_QC_STATUS_BYTECOUNT		8	/* 8 bytes data */
 
-/* currently only one rndis instance is supported */
-#define RNDIS_QC_NO_PORTS					1
+/* currently only one rndis instance is supported - port
+ * index 0.
+ */
+#define RNDIS_QC_NO_PORTS				1
+#define RNDIS_QC_ACTIVE_PORT				0
 
 /* default max packets per tarnsfer value */
 #define DEFAULT_MAX_PKT_PER_XFER			15
@@ -400,7 +404,6 @@ static inline void rndis_qc_unlock(atomic_t *excl)
 }
 
 /* MSM bam support */
-static struct data_port rndis_qc_bam_port;
 
 static int rndis_qc_bam_setup(void)
 {
@@ -419,12 +422,12 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 {
 	int ret;
 
-	rndis_qc_bam_port.cdev = dev->port.func.config->cdev;
-	rndis_qc_bam_port.in = dev->port.in_ep;
-	rndis_qc_bam_port.out = dev->port.out_ep;
+	dev->bam_port.cdev = dev->port.func.config->cdev;
+	dev->bam_port.in = dev->port.in_ep;
+	dev->bam_port.out = dev->port.out_ep;
 
 	/* currently we use the first connection */
-	ret = bam_data_connect(&rndis_qc_bam_port, 0, 0);
+	ret = bam_data_connect(&dev->bam_port, 0, 0);
 	if (ret) {
 		pr_err("bam_data_connect failed: err:%d\n",
 				ret);
@@ -737,6 +740,20 @@ static void rndis_qc_disable(struct usb_function *f)
 
 	usb_ep_disable(rndis->notify);
 	rndis->notify->driver_data = NULL;
+}
+
+static void rndis_qc_suspend(struct usb_function *f)
+{
+	pr_debug("%s: rndis suspended\n", __func__);
+
+	bam_data_suspend(RNDIS_QC_ACTIVE_PORT);
+}
+
+static void rndis_qc_resume(struct usb_function *f)
+{
+	pr_debug("%s: rndis resumed\n", __func__);
+
+	bam_data_resume(RNDIS_QC_ACTIVE_PORT);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1056,6 +1073,8 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	rndis->port.func.set_alt = rndis_qc_set_alt;
 	rndis->port.func.setup = rndis_qc_setup;
 	rndis->port.func.disable = rndis_qc_disable;
+	rndis->port.func.suspend = rndis_qc_suspend;
+	rndis->port.func.resume = rndis_qc_resume;
 
 	_rndis_qc = rndis;
 
