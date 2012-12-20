@@ -543,6 +543,7 @@ static struct msm_camera_sensor_info msm_camera_sensor_imx135_data = {
 	.csi_if = 1,
 	.camera_type = BACK_CAMERA_2D,
 	.sensor_type = BAYER_SENSOR,
+	.actuator_info = &msm_act_main_cam_1_info,
 };
 
 static struct i2c_board_info sc628a_flash_i2c_info = {
