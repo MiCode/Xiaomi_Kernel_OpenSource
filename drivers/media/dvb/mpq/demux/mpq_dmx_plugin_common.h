@@ -52,8 +52,8 @@
  * @hw_notification_size: Notification size in bytes, exposed in debugfs.
  * @hw_notification_min_size: Minimum notification size in bytes,
  *                            exposed in debugfs.
- * @decoder_tsp_drop_count: Counter of number of dropped TS packets
- * due to decoder buffer fullness, exposed in debugfs.
+ * @decoder_drop_count: Accumulated number of bytes dropped due to decoder
+ * buffer fullness, exposed in debugfs.
  * @last_notification_time: Time of last HW notification.
  */
 struct mpq_demux {
@@ -71,7 +71,7 @@ struct mpq_demux {
 	u32 hw_notification_count;
 	u32 hw_notification_size;
 	u32 hw_notification_min_size;
-	u32 decoder_tsp_drop_count;
+	u32 decoder_drop_count;
 	struct timespec last_notification_time;
 };
 
@@ -304,12 +304,14 @@ struct mpq_decoder_buffers_desc {
  * decoder's fullness.
  * @pes_payload_address: Used for feeds that output data to decoder,
  * holds current PES payload start address.
-  * @stream_interface: The ID of the video stream interface registered
+ * @stream_interface: The ID of the video stream interface registered
  * with this stream buffer.
  * @patterns: pointer to the framing patterns to look for.
  * @patterns_num: number of framing patterns.
- * @last_framing_match_address: Used for saving the raw data address of
- * the previous pattern match found in this video feed.
+ * @frame_offset: Saves data buffer offset to which a new frame will be written
+ * @last_pattern_offset: Holds the previous pattern offset
+ * @pending_pattern_len: Accumulated number of data bytes that will be
+ * reported for this frame.
  * @last_framing_match_type: Used for saving the type of
  * the previous pattern match found in this video feed.
  * @found_sequence_header_pattern: Flag used to note that an MPEG-2
@@ -322,8 +324,6 @@ struct mpq_decoder_buffers_desc {
  * found, etc. This supports a prefix size of up to 32, which is more
  * than we need. The search function updates prefix_size as needed
  * for the next buffer search.
- * @first_pattern_offset: used to save the offset of the first pattern written
- * to the stream buffer.
  * @first_prefix_size: used to save the prefix size used to find the first
  * pattern written to the stream buffer.
  * @saved_pts_dts_info: used to save PTS/DTS information until it is written.
@@ -346,11 +346,12 @@ struct mpq_video_feed_info {
 	enum mpq_adapter_stream_if stream_interface;
 	const struct mpq_framing_pattern_lookup_params *patterns;
 	int patterns_num;
-	u32 last_framing_match_address;
+	u32 frame_offset;
+	u32 last_pattern_offset;
+	u32 pending_pattern_len;
 	enum dmx_framing_pattern_type last_framing_match_type;
 	int found_sequence_header_pattern;
 	struct mpq_framing_prefix_size_masks prefix_size;
-	u32 first_pattern_offset;
 	u32 first_prefix_size;
 	struct dmx_pts_dts_info saved_pts_dts_info;
 	struct dmx_pts_dts_info new_pts_dts_info;
