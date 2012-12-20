@@ -19,6 +19,7 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/ccadc.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/ioport.h>
 #include <linux/debugfs.h>
 #include <linux/slab.h>
@@ -682,6 +683,7 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 	calib_ccadc_read_offset_and_gain(chip,
 					&chip->ccadc_gain_uv,
 					&chip->ccadc_offset);
+	irq_set_status_flags(chip->eoc_irq, IRQ_NOAUTOEN);
 	rc = request_irq(chip->eoc_irq,
 			pm8921_bms_ccadc_eoc_handler, IRQF_TRIGGER_RISING,
 			"bms_eoc_ccadc", chip);
@@ -689,8 +691,6 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 		pr_err("failed to request %d irq rc= %d\n", chip->eoc_irq, rc);
 		goto free_chip;
 	}
-
-	disable_irq_nosync(chip->eoc_irq);
 
 	platform_set_drvdata(pdev, chip);
 	the_chip = chip;
