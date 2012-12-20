@@ -1,0 +1,65 @@
+Imagis ISA1200 Haptics Vibrator
+
+Required properties:
+ - reg:	slave address of bus
+ - compatible: should be "imagis,isa1200"
+ - label: name for vibrator directory
+ - imagis,hap-en-gpio: haptic enable gpio
+ - imagis,mode-ctrl: mode of the controller, 0 = POWER_DOWN_MODE,
+	1 = PWM_INPUT_MODE, 2 = PWM_GEN_MODE, 3 = WAVE_GEN_MODE
+ - imagis,max-timeout: maximum timeout for vibration
+ - imagis,chip-en: chip enable
+ - vcc_i2c-supply: regulator supplying i2c bus
+
+Regulator described as a child of the main device:
+ - regulator-name: A string used as a descriptive name for regulator outputs,
+	should match vcc_i2c above
+ - regulator-min-microvolt: smallest voltage consumers may set
+ - regulator-max-microvolt: largest voltage consumers may set
+ - regulator-max-microamp: largest current consumers may set
+
+Optional properties:
+ - imagis,smart-en: automatically control haptic power based on pwm/clk signal
+ - imagis,is-erm: controlled by dc motor, use ERM driving method
+ - imagis,overdrive-high: overdrive high
+ - imagis,overdrive-en: enable overdrive
+ - imagis,pwm-freq: pwm frequency (hZ)
+ - imagis,pwm-ch-id: pwm channel id
+ - imagis,pwm-div: pwm division to be used for vibration
+ - imagis,need-pwm-clk: use "pwm_clk"
+ - imagis,hap-len-gpio: haptic ldo enable gpio
+ - imagis,etc-clk-en: use external clock
+ - xyz-supply: to be used if additional regulators are require beyond
+		"imagis,regulator" above
+
+Any additional regulators are described as child nodes of main device:
+ - regulator-name: A string used as a descriptive name for regulator outputs,
+	should match supply "xyz"
+ - regulator-min-microvolt: smallest voltage consumers may set
+ - regulator-max-microvolt: largest voltage consumers may set
+ - regulator-max-microamp: largest current consumers may set
+
+Example:
+	i2c@f9967000 {
+		isa1200@48 {
+			status = "okay";
+			reg = <0x48>;
+			vcc_i2c-supply = <&pm8941_s3>;
+			compatible = "imagis,isa1200";
+			label = "vibrator";
+			imagis,chip-en;
+			imagis,smart-en;
+			imagis,need-pwm-clk;
+			imagis,ext-clk-en;
+			imagis,hap-en-gpio = <&msmgpio 86 0x00>;
+			imagis,max-timeout = <15000>;
+			imagis,pwm-div = <256>;
+			imagis,mode-ctrl = <2>;
+			imagis,regulator {
+				regulator-name = "vcc_i2c";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-max-microamp = <9360>;
+			};
+		};
+	};
