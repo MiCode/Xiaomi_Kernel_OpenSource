@@ -211,7 +211,7 @@ int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 		return -EINVAL;
 	}
 
-	domain = msm_fb_get_iommu_domain();
+	domain = msm_fb_get_iommu_domain(inst->mdp, MDP_IOMMU_DOMAIN_NS);
 	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
 			domain, 0, SZ_4K, 0,
 			(unsigned long *)&mregion->paddr,
@@ -235,7 +235,7 @@ int mdp_munmap(struct v4l2_subdev *sd, void *arg)
 	inst = mmap->cookie;
 	mregion = mmap->mregion;
 
-	domain = msm_fb_get_iommu_domain();
+	domain = msm_fb_get_iommu_domain(inst->mdp, MDP_IOMMU_DOMAIN_NS);
 	ion_unmap_iommu(mmap->ion_client,
 			mregion->ion_handle,
 			domain, 0);

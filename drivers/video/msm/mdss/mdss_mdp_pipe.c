@@ -709,6 +709,28 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 	return 0;
 }
 
+static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
+{
+	int ret;
+	u32 secure, format;
+
+	pr_debug("solid fill setup on pnum=%d\n", pipe->num);
+
+	ret = mdss_mdp_image_setup(pipe);
+	if (ret) {
+		pr_err("image setup error for pnum=%d\n", pipe->num);
+		return ret;
+	}
+
+	format = MDSS_MDP_FMT_SOLID_FILL;
+	secure = (pipe->flags & MDP_SECURE_OVERLAY_SESSION ? 0xF : 0x0);
+
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, format);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_ADDR_SW_STATUS, secure);
+
+	return 0;
+}
+
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			     struct mdss_mdp_data *src_data)
 {
@@ -731,6 +753,11 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
 	params_changed = pipe->params_changed;
+	if (src_data == NULL) {
+		mdss_mdp_pipe_solidfill_setup(pipe);
+		goto update_nobuf;
+	}
+
 	if (params_changed) {
 		pipe->params_changed = 0;
 
@@ -768,6 +795,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		goto done;
 	}
 
+update_nobuf:
 	mdss_mdp_mixer_pipe_update(pipe, params_changed);
 
 	pipe->play_cnt++;
