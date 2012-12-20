@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,7 @@ enum context {
 
 struct msm_bus_fabric_registration {
 	unsigned int id;
-	char *name;
+	const char *name;
 	struct msm_bus_node_info *info;
 	unsigned int len;
 	int ahb;
@@ -33,9 +33,9 @@ struct msm_bus_fabric_registration {
 	unsigned int offset;
 	unsigned int haltid;
 	unsigned int rpm_enabled;
-	const unsigned int nmasters;
-	const unsigned int nslaves;
-	const unsigned int ntieredslaves;
+	unsigned int nmasters;
+	unsigned int nslaves;
+	unsigned int ntieredslaves;
 	bool il_flag;
 	const struct msm_bus_board_algorithm *board_algo;
 	int hw_sel;

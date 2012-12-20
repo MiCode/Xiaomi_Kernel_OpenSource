@@ -1,9 +1,126 @@
-MSM Bus Scaling Driver
+MSM Bus Devices
 
-The bus scaling driver builds the topology of chipsets by adding
-bus devices (fabrics/NoCs) to the kernel tree. The device-tree
-data for bus devices contains the register addresses for QoS
-related registers on each NoC/Fabric.
+The bus devices (fabrics/NoCs) are the interconnects between various
+components on chipsets. These devices form the backbone of the chip
+topology. Entire topology of the chipset is built using the
+device-tree data of these bus devices.
+
+To add the bus devices following properties are required:
+
+compatible:		The bus devices need to be compatible with
+			msm-bus-fabric
+cell-id:		A 32 bit integer unique per bus per chipset. The IDs
+			for buses are in multiples of 1024.
+label:			Bus name
+qcom,fabclk-dual:	Dual set (active/sleep) bus clock name
+qcom,fabclk-active:	Active set bus clock name
+
+
+The following properties are optional as a bus might not support
+these features:
+
+qcom,ntieredslaves:	Number of tiered slaves on the bus.
+qcom,qos-freq:		QoS frequency (In Hz)
+qcom,hw-sel:		A string which decides whether QoS data
+			should be sent to RPM, set using BIMC or NoCs.
+			It can be set to "RPM", "NoC" or "BIMC".
+qcom,rpm-en:		A boolean flag indicating whether RPM transactions are
+			supported for nodes of the bus.
+qcom,ahb:		A boolean flag indicating whether the bus is ahb type.
+qcom,virt:		A boolean property indicating this is a virtual bus.
+reg:			Register space of the bus device. Not required in case
+			the bus is virtual.
+
+
+Any interconnect on the bus is represented as a child node.
+A child node can be of type: master, slave or a gateway.
+A gateway is an interconnect between buses and can be of both
+master and slave type.
+
+The following properties are available to characterize a child node.
+The properties can be chosen depending on the type of child node.
+
+cell-id:		For a master the ID is between 0 - 512
+			For a slave the ID is between 512 - 1024
+label:			Name of the master/slave/gateway
+qcom,masterp:		Hardware master port number(s)
+qcom,tier:		The tier to which a master/slave belongs.
+			Note that tiering might not be supported on
+			all architectures.
+qcom,hw-sel:		A string which decides whether QoS data should be sent
+			to RPM, set using BIMC or NoCs.
+			It can be set to "RPM", "NoC" or "BIMC".
+qcom,mode:		Used for masters on NoC/BIMC. Indicates which of the
+			four modes (Fixed/Limiter/Bypass/Regulator) the master
+			belongs to.
+qcom,perm-mode:		Permissible mode switches. Indicates which of the four
+			modes are supported of the master node. Generally,
+			modes are set at boot-up and not switched at run-time.
+qcom,qport:		QoS port number. This can be different from the
+			master-port number.
+qcom,ws:		Window size (in Hz), used for NoC/BIMC masters to
+			calculate saturation values.
+qcom,mas-hw-id:		A unique hardware ID agreed upon by processors across
+			the system. This ID is assigned to every master. It can
+			be used to send master specific data from
+			Apps/Modem/LPASS to RPM.
+qcom,slv-hw-id:		A unique hardware ID agreed upon by processors across
+			the system. This ID is assigned to every slave. It can
+			be used to send slave specific data from
+			Apps/Modem/LPASS to RPM.
+qcom,gateway:		Flag indicating whether a particular node is a gateway.
+qcom,slavep:		Hardware slave port number(s).
+qcom,buswidth:		Width of the interconnect between a node and the bus.
+			(In Bytes).
+qcom,prio-rd:		Read priority for a BIMC bus master (Can be 0/1/2)
+qcom,prio-wr:		Write priority for a BIMC bus master (Can be 0/1/2)
+
+
+Example:
+
+
+	msm-mmss-noc@fc478000 {
+		compatible = "msm-bus-fabric";
+		reg = <0xfc478000 0x00004000>;
+		cell-id = <2048>;
+		label = "msm_mmss_noc";
+		qcom,fabclk-dual = "bus_clk";
+		qcom,fabclk-active = "bus_a_clk";
+		qcom,ntieredslaves = <0>;
+		qcom,qos-freq = <4800>;
+		qcom,hw-sel = "NoC";
+		qcom,rpm-en;
+
+		mas-gfx3d {
+			cell-id = <26>;
+			label = "mas-gfx3d";
+			qcom,masterp = <2 3>;
+			qcom,tier = <2>;
+			qcom,hw-sel = "NoC";
+			qcom,perm-mode = "Bypass";
+			qcom,mode = "Bypass";
+			qcom,ws = <10000>;
+			qcom,qport = <2 3>;
+			qcom,mas-hw-id = <6>;
+		};
+
+		mas-jpeg {
+			cell-id = <62>;
+			label = "mas-jpeg";
+			qcom,masterp = <4>;
+			qcom,tier = <2>;
+			qcom,hw-sel = "NoC";
+			qcom,perm-mode = "Bypass";
+			qcom,mode = "Bypass";
+			qcom,qport = <0>;
+			qcom,ws = <10000>;
+			qcom,mas-hw-id = <7>;
+		};
+	};
+
+
+
+
 
 The bus scaling driver also provides the ability to configure
 bus performance parameters across the entire chip-set.
