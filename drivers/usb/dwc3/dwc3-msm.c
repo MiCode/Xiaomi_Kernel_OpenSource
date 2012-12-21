@@ -189,6 +189,7 @@ struct dwc3_msm {
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct power_supply	usb_psy;
+	struct power_supply	*ext_vbus_psy;
 	unsigned int		online;
 	unsigned int		host_mode;
 	unsigned int		current_max;
@@ -1441,6 +1442,7 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 	struct dwc3_msm *mdwc = context;
 
 	if (start == false) {
+		dev_dbg(mdwc->dev, "canceling charging detection work\n");
 		cancel_delayed_work_sync(&mdwc->chg_work);
 		mdwc->chg_state = USB_CHG_STATE_UNDEFINED;
 		charger->chg_type = DWC3_INVALID_CHARGER;
@@ -1797,8 +1799,8 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:
 		dev_dbg(mdwc->dev, "%s: notify xceiv event\n", __func__);
-		if (mdwc->otg_xceiv && (mdwc->ext_xceiv.otg_capability ||
-							!init)) {
+		if (mdwc->otg_xceiv && !mdwc->ext_inuse &&
+		    (mdwc->ext_xceiv.otg_capability || !init)) {
 			mdwc->ext_xceiv.bsv = val->intval;
 			if (atomic_read(&mdwc->in_lpm)) {
 				dev_dbg(mdwc->dev,
@@ -1810,9 +1812,10 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 							mdwc->otg_xceiv->otg,
 							DWC3_EVENT_XCEIV_STATE);
 			}
+
+			if (!init)
+				init = true;
 		}
-		if (!init)
-			init = true;
 		mdwc->vbus_active = val->intval;
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -1828,6 +1831,33 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	power_supply_changed(&mdwc->usb_psy);
 	return 0;
 }
+
+static void dwc3_msm_external_power_changed(struct power_supply *psy)
+{
+	struct dwc3_msm *mdwc = container_of(psy, struct dwc3_msm, usb_psy);
+	union power_supply_propval ret = {0,};
+
+	if (!mdwc->ext_vbus_psy)
+		mdwc->ext_vbus_psy = power_supply_get_by_name("ext-vbus");
+
+	if (!mdwc->ext_vbus_psy) {
+		pr_err("%s: Unable to get ext_vbus power_supply\n", __func__);
+		return;
+	}
+
+	mdwc->ext_vbus_psy->get_property(mdwc->ext_vbus_psy,
+					POWER_SUPPLY_PROP_ONLINE, &ret);
+	if (ret.intval) {
+		dwc3_start_chg_det(&mdwc->charger, false);
+		mdwc->ext_vbus_psy->get_property(mdwc->ext_vbus_psy,
+					POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
+		power_supply_set_current_limit(&mdwc->usb_psy, ret.intval);
+	}
+
+	power_supply_set_online(&mdwc->usb_psy, ret.intval);
+	power_supply_changed(&mdwc->usb_psy);
+}
+
 
 static char *dwc3_msm_pm_power_supplied_to[] = {
 	"battery",
@@ -1853,11 +1883,18 @@ static void dwc3_ext_notify_online(int on)
 
 	dev_dbg(mdwc->dev, "notify %s%s\n", on ? "" : "dis", "connected");
 
-	if (!on) {
+	if (!mdwc->ext_vbus_psy)
+		mdwc->ext_vbus_psy = power_supply_get_by_name("ext-vbus");
+
+	mdwc->ext_inuse = on;
+	if (on)
+		dwc3_start_chg_det(&mdwc->charger, false);
+	else
 		/* external client offline; revert back to USB */
-		mdwc->ext_inuse = false;
 		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
-	}
+
+	if (mdwc->ext_vbus_psy)
+		power_supply_set_present(mdwc->ext_vbus_psy, on);
 }
 
 static bool dwc3_ext_trigger_handled(struct dwc3_msm *mdwc,
@@ -1887,6 +1924,10 @@ static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 	dev_dbg(mdwc->dev, "%s: state = %s\n", __func__,
 			state == ADC_TM_HIGH_STATE ? "high" : "low");
 
+	/* Give external client a chance to handle */
+	if (!mdwc->ext_inuse)
+		dwc3_ext_trigger_handled(mdwc, (state == ADC_TM_HIGH_STATE));
+
 	if (state == ADC_TM_HIGH_STATE) {
 		mdwc->ext_xceiv.id = DWC3_ID_FLOAT;
 		mdwc->adc_param.state_request = ADC_TM_LOW_THR_ENABLE;
@@ -1895,13 +1936,11 @@ static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 		mdwc->adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
 	}
 
-	/* Give external client a chance to handle, otherwise notify OTG */
-	if (!mdwc->ext_inuse &&
-			!dwc3_ext_trigger_handled(mdwc, mdwc->ext_xceiv.id))
-		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
-
 	/* re-arm ADC interrupt */
 	qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
+
+	if (!mdwc->ext_inuse) /* notify OTG */
+		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
 }
 
 static void dwc3_init_adc_work(struct work_struct *w)
@@ -2234,6 +2273,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	msm->usb_psy.num_properties = ARRAY_SIZE(dwc3_msm_pm_power_props_usb);
 	msm->usb_psy.get_property = dwc3_msm_power_get_property_usb;
 	msm->usb_psy.set_property = dwc3_msm_power_set_property_usb;
+	msm->usb_psy.external_power_changed =
+				dwc3_msm_external_power_changed;
 
 	ret = power_supply_register(&pdev->dev, &msm->usb_psy);
 	if (ret < 0) {
