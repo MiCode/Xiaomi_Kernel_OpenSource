@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -456,6 +456,13 @@ struct usb_bam_pipe_connect {
 	u32 desc_fifo_size;
 };
 
+enum usb_bam {
+	SSUSB_BAM = 0,
+	HSUSB_BAM,
+	HSIC_BAM,
+	MAX_BAMS,
+};
+
 /**
  * struct msm_usb_bam_platform_data: pipe connection information
  * between USB/HSIC BAM and another BAM. USB/HSIC BAM can be
@@ -474,13 +481,7 @@ struct msm_usb_bam_platform_data {
 	u32 total_bam_num;
 	u32 usb_base_address;
 	bool ignore_core_reset_ack;
-};
-
-enum usb_bam {
-	SSUSB_BAM = 0,
-	HSUSB_BAM,
-	HSIC_BAM,
-	MAX_BAMS,
+	bool reset_on_connect[MAX_BAMS];
 };
 
 /**

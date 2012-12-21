@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -387,6 +387,9 @@ static int disconnect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir)
 int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 {
 	struct usb_bam_connect_info *connection = &usb_bam_connections[idx];
+	struct msm_usb_bam_platform_data *pdata =
+				usb_bam_pdev->dev.platform_data;
+	int usb_active_bam = pdata->usb_active_bam;
 	int ret;
 
 	if (!usb_bam_pdev) {
@@ -408,6 +411,10 @@ int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 	connection->src_pipe = src_pipe_idx;
 	connection->dst_pipe = dst_pipe_idx;
 	connection->idx = idx;
+
+	/* Check if BAM requires RESET before connect */
+	if (pdata->reset_on_connect[usb_active_bam] == true)
+		sps_device_reset(h_bam);
 
 	if (src_pipe_idx) {
 		/* open USB -> Peripheral pipe */
@@ -899,6 +906,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	u32 pipe_entry = 0;
 	char *key = NULL;
 	enum usb_pipe_mem_type mem_type;
+	bool reset_bam;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -985,6 +993,10 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 			pr_err("Cannot read string\n");
 			goto err;
 		}
+		reset_bam = of_property_read_bool(node,
+					"qcom,reset-bam-on-connect");
+		if (reset_bam)
+			pdata->reset_on_connect[bam] = true;
 
 		if (strnstr(str, "usb-to", 30))
 			dir = USB_TO_PEER_PERIPHERAL;
