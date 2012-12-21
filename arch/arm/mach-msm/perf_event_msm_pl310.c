@@ -22,6 +22,9 @@
 
 #include <asm/pmu.h>
 #include <asm/hardware/cache-l2x0.h>
+#include <mach/socinfo.h>
+
+static u32 rev1;
 
 /*
  * Store dynamic PMU type after registration,
@@ -110,6 +113,30 @@ static struct pmu_hw_events l2x0pmu_hw_events = {
 
 #define COUNTER_ADDR(idx)	(l2x0_base + L2X0_EVENT_CNT0_VAL - 4*idx)
 
+static u32 l2x0_read_intr_mask(void)
+{
+	return readl_relaxed(l2x0_base + L2X0_INTR_MASK);
+}
+
+static void l2x0_write_intr_mask(u32 val)
+{
+	writel_relaxed(val, l2x0_base + L2X0_INTR_MASK);
+}
+
+static void l2x0_enable_counter_interrupt(void)
+{
+	u32 intr_mask = l2x0_read_intr_mask();
+	intr_mask |= L2X0_INTR_MASK_ECNTR;
+	l2x0_write_intr_mask(intr_mask);
+}
+
+static void l2x0_disable_counter_interrupt(void)
+{
+	u32 intr_mask = l2x0_read_intr_mask();
+	intr_mask &= ~L2X0_INTR_MASK_ECNTR;
+	l2x0_write_intr_mask(intr_mask);
+}
+
 static void l2x0_clear_interrupts(u32 flags)
 {
 	writel_relaxed(flags, l2x0_base + L2X0_INTR_CLEAR);
@@ -190,10 +217,8 @@ static void l2x0pmu_start(void)
 
 	raw_spin_lock_irqsave(&l2x0pmu_hw_events.pmu_lock, flags);
 
-	/*
-	 * TODO: Enable counter interrupt,
-	 * once we know it works on this chip.
-	 */
+	if (!rev1)
+		l2x0_enable_counter_interrupt();
 
 	val = l2x0pmu_read_ctrl();
 
@@ -214,10 +239,8 @@ static void l2x0pmu_stop(void)
 	val &= ~L2X0_EVENT_CNT_ENABLE_MASK;
 	l2x0pmu_write_ctrl(val);
 
-	/*
-	 * TODO: Disable counter interrupt,
-	 * once we know it works on this chip.
-	 */
+	if (!rev1)
+		l2x0_disable_counter_interrupt();
 
 	raw_spin_unlock_irqrestore(&l2x0pmu_hw_events.pmu_lock, flags);
 }
@@ -401,6 +424,9 @@ static struct platform_driver l2x0pmu_driver = {
 
 static int __init register_pmu_driver(void)
 {
+	if (machine_is_msm9625())
+		rev1 = 1;
+
 	return platform_driver_register(&l2x0pmu_driver);
 }
 device_initcall(register_pmu_driver);

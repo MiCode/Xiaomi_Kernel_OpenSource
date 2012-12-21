@@ -1667,7 +1667,7 @@ static struct resource pl310_resources[] = {
 	},
 	{
 		.name   = "l2_irq",
-		.start  = MSM8625_INT_L2CC_INTR,
+		.start  = MSM8625_INT_SC_SICL2PERFMONIRPTREQ,
 		.flags  = IORESOURCE_IRQ,
 	},
 };
@@ -2096,7 +2096,7 @@ int __init msm7x2x_misc_init(void)
 		msm_cpr_init();
 
 	if (!cpu_is_msm8625() && !cpu_is_msm8625q())
-		pl310_resources[1].start = INT_L2CC_INTR;
+		pl310_resources[1].start = SC_SICL2PERFMONIRPTREQ;
 
 	platform_device_register(&pl310_erp_device);
 

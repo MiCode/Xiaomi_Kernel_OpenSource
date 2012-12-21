@@ -137,6 +137,21 @@ static struct platform_device msm8625_cpu_pmu_device = {
 	.resource	= msm8625_cpu_pmu_resource,
 	.num_resources	= ARRAY_SIZE(msm8625_cpu_pmu_resource),
 };
+
+static struct resource msm8625_l2_pmu_resource[] = {
+	{
+		.start = MSM8625_INT_SC_SICL2PERFMONIRPTREQ,
+		.end = MSM8625_INT_SC_SICL2PERFMONIRPTREQ,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device msm8625_l2_pmu_device = {
+	.name		= "l2-arm-pmu",
+	.id		= ARM_PMU_DEVICE_L2CC,
+	.resource	= msm8625_l2_pmu_resource,
+	.num_resources	= ARRAY_SIZE(msm8625_l2_pmu_resource),
+};
 #endif
 
 static struct platform_device *pmu_devices[] = {
@@ -168,6 +183,7 @@ static int __init msm_pmu_init(void)
 #ifdef CONFIG_ARCH_MSM8625
 	if (cpu_is_msm8625()) {
 		pmu_devices[0] = &msm8625_cpu_pmu_device;
+		pmu_devices[1] = &msm8625_l2_pmu_device;
 		msm8625_cpu_pmu_device.dev.platform_data = &multicore_data;
 	}
 #endif
