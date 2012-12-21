@@ -2538,7 +2538,11 @@ static void unplug_ovp_fet_open(struct pm8921_chg_chip *chip)
 			break;
 		}
 	}
-	pm_chg_masked_write(chip, ovpreg, OVP_DEBOUNCE_TIME, 0x2);
+	if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8917)
+		pm_chg_masked_write(chip, ovpreg, OVP_DEBOUNCE_TIME, 0x6);
+	else
+		pm_chg_masked_write(chip, ovpreg, OVP_DEBOUNCE_TIME, 0x2);
+
 	pr_debug("Exit count=%d chg_gone=%d, active_valid=%d\n",
 		count, chg_gone, active_chg_plugged_in);
 	return;
@@ -4235,8 +4239,16 @@ static int pm8921_chg_hw_init(struct pm8921_chg_chip *chip)
 			pm_chg_write(chip, CHG_BUCK_CTRL_TEST3, 0xAC);
 	}
 
-	/* Enable isub_fine resolution AICL for PM8917 */
 	if (pm8xxx_get_version(chip->dev->parent) == PM8XXX_VERSION_8917) {
+		/* Set PM8917 USB_OVP debounce time to 15 ms */
+		rc = pm_chg_masked_write(chip, USB_OVP_CONTROL,
+			OVP_DEBOUNCE_TIME, 0x6);
+		if (rc) {
+			pr_err("Failed to set USB OVP db rc=%d\n", rc);
+			return rc;
+		}
+
+		/* Enable isub_fine resolution AICL for PM8917 */
 		chip->iusb_fine_res = true;
 		if (chip->uvd_voltage_mv) {
 			rc = pm_chg_uvd_threshold_set(chip,
