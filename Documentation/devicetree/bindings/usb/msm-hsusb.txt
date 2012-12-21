@@ -147,6 +147,10 @@ Subnode Required:
 - qcom,descriptor-fifo-offset: descriptor fifo offset address
 - qcom,descriptor-fifo-size: descriptor fifo size
 
+Optional Properties for Subnode:
+- qcom,reset-bam-on-connect: If present then BAM is RESET before connecting
+  pipe. This may be required if BAM peripheral is also reset before connect.
+
 Optional properties :
 - qcom,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
 	    while performing PIPE RESET
@@ -193,6 +197,7 @@ Example USB BAM controller device node:
 			qcom,data-fifo-size = <0x4000>;
 			qcom,descriptor-fifo-offset = <0xf4000>;
 			qcom,descriptor-fifo-size = <0x1400>;
+			qcom,reset-bam-on-connect;
 		};
 
 		qcom,pipe3 {
