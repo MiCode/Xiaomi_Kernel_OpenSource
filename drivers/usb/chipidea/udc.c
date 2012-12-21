@@ -31,6 +31,10 @@
 
 #define ATDTW_SET_DELAY		100 /* 100msec delay */
 
+/* Turns on streaming. overrides CI13XXX_DISABLE_STREAMING */
+static unsigned int streaming;
+module_param(streaming, uint, S_IRUGO | S_IWUSR);
+
 /* control endpoint description */
 static const struct usb_endpoint_descriptor
 ctrl_endpt_out_desc = {
@@ -83,6 +87,13 @@ static inline int ep_to_bit(struct ci13xxx *ci, int n)
 static int hw_device_state(struct ci13xxx *ci, u32 dma)
 {
 	if (dma) {
+		if (streaming ||
+		    !(ci->platdata->flags & CI13XXX_DISABLE_STREAMING))
+			hw_write(ci, OP_USBMODE, USBMODE_CI_SDIS, 0);
+		else
+			hw_write(ci, OP_USBMODE, USBMODE_CI_SDIS,
+					USBMODE_CI_SDIS);
+
 		hw_write(ci, OP_ENDPTLISTADDR, ~0, dma);
 		/* interrupt, error, port change, reset, sleep/suspend */
 		hw_write(ci, OP_USBINTR, ~0,

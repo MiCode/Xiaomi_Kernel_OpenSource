@@ -229,9 +229,6 @@ int hw_device_reset(struct ci13xxx *ci, u32 mode)
 		ci->platdata->notify_event(ci,
 			CI13XXX_CONTROLLER_RESET_EVENT);
 
-	if (ci->platdata->flags & CI13XXX_DISABLE_STREAMING)
-		hw_write(ci, OP_USBMODE, USBMODE_CI_SDIS, USBMODE_CI_SDIS);
-
 	/* USBMODE should be configured step by step */
 	hw_write(ci, OP_USBMODE, USBMODE_CM, USBMODE_CM_IDLE);
 	hw_write(ci, OP_USBMODE, USBMODE_CM, mode);
