@@ -644,7 +644,7 @@ static inline void bam_write_reg_field(void *base, u32 offset,
 int bam_init(void *base, u32 ee,
 		u16 summing_threshold,
 		u32 irq_mask, u32 *version,
-		u32 *num_pipes, u32 p_rst)
+		u32 *num_pipes, u32 options)
 {
 	u32 cfg_bits;
 	u32 ver = 0;
@@ -667,7 +667,7 @@ int bam_init(void *base, u32 ee,
 				"use default 4.\n", (u32) base);
 	}
 
-	if (p_rst)
+	if (options & SPS_BAM_NO_EXT_P_RST)
 		cfg_bits = 0xffffffff & ~(3 << 11);
 	else
 		cfg_bits = 0xffffffff & ~(1 << 11);
@@ -681,7 +681,10 @@ int bam_init(void *base, u32 ee,
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 	bam_write_reg_field(base, CTRL, CACHE_MISS_ERR_RESP_EN, 0);
 
-	bam_write_reg_field(base, CTRL, LOCAL_CLK_GATING, 1);
+	if (options & SPS_BAM_NO_LOCAL_CLK_GATING)
+		bam_write_reg_field(base, CTRL, LOCAL_CLK_GATING, 0);
+	else
+		bam_write_reg_field(base, CTRL, LOCAL_CLK_GATING, 1);
 #endif
 
 	bam_write_reg(base, DESC_CNT_TRSHLD, summing_threshold);
