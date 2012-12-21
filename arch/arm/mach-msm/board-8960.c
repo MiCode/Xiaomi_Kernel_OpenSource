@@ -366,7 +366,6 @@ static struct ion_cp_heap_pdata cp_mm_msm8960_ion_pdata = {
 	.fixed_position = FIXED_MIDDLE,
 	.iommu_map_all = 1,
 	.iommu_2x_map_domain = VIDEO_DOMAIN,
-	.is_cma = 1,
 	.no_nonsecure_alloc = 1,
 };
 
