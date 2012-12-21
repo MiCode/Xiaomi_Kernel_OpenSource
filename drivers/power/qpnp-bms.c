@@ -862,7 +862,7 @@ static int adjust_uuc(struct qpnp_bms_chip *chip,
 	return new_uuc_uah;
 }
 
-#define CHARGING_IAVG_MA 250
+#define MIN_IAVG_MA 250
 #define MIN_SECONDS_FOR_VALID_SAMPLE	20
 static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 					struct soc_params *params,
@@ -891,8 +891,8 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 	 * if charging use a nominal avg current to keep
 	 * a reasonable UUC while charging
 	 */
-	if (uuc_iavg_ma < 0)
-		uuc_iavg_ma = CHARGING_IAVG_MA;
+	if (uuc_iavg_ma < MIN_IAVG_MA)
+		uuc_iavg_ma = MIN_IAVG_MA;
 	chip->iavg_samples_ma[chip->iavg_index] = uuc_iavg_ma;
 	chip->iavg_index = (chip->iavg_index + 1) % IAVG_SAMPLES;
 	chip->iavg_num_samples++;
