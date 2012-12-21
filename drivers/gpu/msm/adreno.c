@@ -981,9 +981,17 @@ static int adreno_of_get_iommu(struct device_node *parent,
 			goto err;
 		}
 
-		if (adreno_of_read_property(child, "qcom,iommu-ctx-sids",
-			&ctxs[ctx_index].ctx_id))
+		ret = of_property_read_u32_array(child, "reg", reg_val, 2);
+		if (ret) {
+			KGSL_CORE_ERR("Unable to read KGSL IOMMU 'reg'\n");
 			goto err;
+		}
+		if (msm_soc_version_supports_iommu_v1())
+			ctxs[ctx_index].ctx_id = (reg_val[0] -
+				data->physstart) >> KGSL_IOMMU_CTX_SHIFT;
+		else
+			ctxs[ctx_index].ctx_id = ((reg_val[0] -
+				data->physstart) >> KGSL_IOMMU_CTX_SHIFT) - 8;
 
 		ctx_index++;
 	}
