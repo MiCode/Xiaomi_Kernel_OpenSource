@@ -30,6 +30,7 @@
 
 #define MHL_DRIVER_NAME "sii8334"
 #define COMPATIBLE_NAME "qcom,mhl-sii8334"
+#define MAX_CURRENT 700000
 
 #define pr_debug_intr(...) pr_debug("\n")
 
@@ -63,6 +64,9 @@ struct mhl_tx_ctrl {
 	void (*notify_usb_online)(int online);
 	struct usb_ext_notification *mhl_info;
 	bool disc_enabled;
+	struct power_supply mhl_psy;
+	bool vbus_active;
+	int current_val;
 };
 
 
@@ -266,6 +270,65 @@ static int mhl_sii_device_discovery(void *data, int id,
 	pr_debug("%s: ret result: %s\n", __func__, rc ? "usb" : " mhl");
 	return rc;
 }
+
+static int mhl_power_get_property(struct power_supply *psy,
+				  enum power_supply_property psp,
+				  union power_supply_propval *val)
+{
+	struct mhl_tx_ctrl *mhl_ctrl =
+		container_of(psy, struct mhl_tx_ctrl, mhl_psy);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = mhl_ctrl->current_val;
+		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = mhl_ctrl->vbus_active;
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = mhl_ctrl->vbus_active && mhl_ctrl->mhl_mode;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int mhl_power_set_property(struct power_supply *psy,
+				  enum power_supply_property psp,
+				  const union power_supply_propval *val)
+{
+	struct mhl_tx_ctrl *mhl_ctrl =
+		container_of(psy, struct mhl_tx_ctrl, mhl_psy);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+		mhl_ctrl->vbus_active = val->intval;
+		if (mhl_ctrl->vbus_active)
+			mhl_ctrl->current_val = MAX_CURRENT;
+		else
+			mhl_ctrl->current_val = 0;
+		power_supply_changed(psy);
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static char *mhl_pm_power_supplied_to[] = {
+	"usb",
+};
+
+static enum power_supply_property mhl_pm_power_props[] = {
+	POWER_SUPPLY_PROP_PRESENT,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+};
 
 static void cbus_reset(struct i2c_client *client)
 {
@@ -620,6 +683,7 @@ static int  mhl_msm_read_rgnd_int(struct mhl_tx_ctrl *mhl_ctrl)
 	if (0x02 == rgnd_imp) {
 		pr_debug("%s: mhl sink\n", __func__);
 		mhl_ctrl->mhl_mode = 1;
+		power_supply_changed(&mhl_ctrl->mhl_psy);
 		if (mhl_ctrl->notify_usb_online)
 			mhl_ctrl->notify_usb_online(1);
 	} else {
@@ -718,9 +782,9 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		/* Short RGND */
 		MHL_SII_REG_NAME_MOD(REG_DISC_STAT2, BIT0 | BIT1, 0x00);
 		mhl_msm_disconnection(mhl_ctrl);
+		power_supply_changed(&mhl_ctrl->mhl_psy);
 		if (mhl_ctrl->notify_usb_online)
 			mhl_ctrl->notify_usb_online(0);
-
 	}
 
 	if (status & BIT5) {
@@ -730,6 +794,7 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		reg = MHL_SII_REG_NAME_RD(REG_INTR4);
 		MHL_SII_REG_NAME_WR(REG_INTR4, reg);
 		mhl_msm_disconnection(mhl_ctrl);
+		power_supply_changed(&mhl_ctrl->mhl_psy);
 		if (mhl_ctrl->notify_usb_online)
 			mhl_ctrl->notify_usb_online(0);
 	}
@@ -1255,6 +1320,24 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	} else {
 		pr_debug("request_threaded_irq succeeded\n");
 	}
+
+	mhl_ctrl->mhl_psy.name = "ext-vbus";
+	mhl_ctrl->mhl_psy.type = POWER_SUPPLY_TYPE_USB_DCP;
+	mhl_ctrl->mhl_psy.supplied_to = mhl_pm_power_supplied_to;
+	mhl_ctrl->mhl_psy.num_supplicants = ARRAY_SIZE(
+					mhl_pm_power_supplied_to);
+	mhl_ctrl->mhl_psy.properties = mhl_pm_power_props;
+	mhl_ctrl->mhl_psy.num_properties = ARRAY_SIZE(mhl_pm_power_props);
+	mhl_ctrl->mhl_psy.get_property = mhl_power_get_property;
+	mhl_ctrl->mhl_psy.set_property = mhl_power_set_property;
+
+	rc = power_supply_register(&client->dev, &mhl_ctrl->mhl_psy);
+	if (rc < 0) {
+		dev_err(&client->dev, "%s:power_supply_register ext_vbus_psy failed\n",
+			__func__);
+		goto failed_probe;
+	}
+
 	pr_debug("%s: i2c client addr is [%x]\n", __func__, client->addr);
 
 	mhl_info = devm_kzalloc(&client->dev, sizeof(*mhl_info), GFP_KERNEL);
