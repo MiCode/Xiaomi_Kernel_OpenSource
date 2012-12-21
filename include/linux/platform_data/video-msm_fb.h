@@ -77,7 +77,7 @@ struct msm_mddi_client_data {
 			     uint32_t reg);
 	uint32_t (*remote_read)(struct msm_mddi_client_data *, uint32_t reg);
 	void (*auto_hibernate)(struct msm_mddi_client_data *, int);
-	/* custom data that needs to be passed from the board file to a 
+	/* custom data that needs to be passed from the board file to a
 	 * particular client */
 	void *private_client_data;
 	struct resource *fb_resource;
@@ -190,7 +190,7 @@ struct msm_mddi_bridge_platform_data {
 
 struct mdp_v4l2_req;
 int msm_fb_v4l2_enable(struct mdp_overlay *req, bool enable, void **par);
-int msm_fb_v4l2_update(void *par,
+int msm_fb_v4l2_update(void *par, bool bUserPtr,
 	unsigned long srcp0_addr, unsigned long srcp0_size,
 	unsigned long srcp1_addr, unsigned long srcp1_size,
 	unsigned long srcp2_addr, unsigned long srcp2_size);
