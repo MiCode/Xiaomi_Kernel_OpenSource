@@ -330,6 +330,9 @@ extern struct platform_device msm_kgsl_2d1;
 
 extern struct resource kgsl_3d0_resources_8960ab[];
 extern int kgsl_num_resources_8960ab;
+#ifdef CONFIG_MSM_BUS_SCALING
+extern struct msm_bus_scale_pdata grp3d_bus_scale_pdata_ab;
+#endif
 
 extern struct platform_device msm_mipi_dsi1_device;
 extern struct platform_device mipi_dsi_device;

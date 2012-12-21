@@ -3131,6 +3131,81 @@ static struct msm_bus_vectors grp3d_max_vectors[] = {
 	},
 };
 
+struct msm_bus_vectors grp3d_init_vectors_1[] = {
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+struct msm_bus_vectors grp3d_low_vectors_1[] = {
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = KGSL_CONVERT_TO_MBPS(1000),
+	},
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = KGSL_CONVERT_TO_MBPS(1000),
+	},
+};
+
+struct msm_bus_vectors grp3d_nominal_low_vectors_1[] = {
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = KGSL_CONVERT_TO_MBPS(2048),
+	},
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = KGSL_CONVERT_TO_MBPS(2048),
+	},
+};
+
+struct msm_bus_vectors grp3d_nominal_high_vectors_1[] = {
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = KGSL_CONVERT_TO_MBPS(2656),
+	},
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = KGSL_CONVERT_TO_MBPS(2656),
+	},
+};
+
+struct msm_bus_vectors grp3d_max_vectors_1[] = {
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = KGSL_CONVERT_TO_MBPS(3968),
+	},
+	{
+		.src = MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = KGSL_CONVERT_TO_MBPS(3968),
+	},
+};
+
 static struct msm_bus_paths grp3d_bus_scale_usecases[] = {
 	{
 		ARRAY_SIZE(grp3d_init_vectors),
@@ -3154,9 +3229,38 @@ static struct msm_bus_paths grp3d_bus_scale_usecases[] = {
 	},
 };
 
+struct msm_bus_paths grp3d_bus_scale_usecases_1[] = {
+	{
+		ARRAY_SIZE(grp3d_init_vectors_1),
+		grp3d_init_vectors_1,
+	},
+	{
+		ARRAY_SIZE(grp3d_low_vectors_1),
+		grp3d_low_vectors_1,
+	},
+	{
+		ARRAY_SIZE(grp3d_nominal_low_vectors_1),
+		grp3d_nominal_low_vectors_1,
+	},
+	{
+		ARRAY_SIZE(grp3d_nominal_high_vectors_1),
+		grp3d_nominal_high_vectors_1,
+	},
+	{
+		ARRAY_SIZE(grp3d_max_vectors_1),
+		grp3d_max_vectors_1,
+	},
+};
+
 static struct msm_bus_scale_pdata grp3d_bus_scale_pdata = {
 	grp3d_bus_scale_usecases,
 	ARRAY_SIZE(grp3d_bus_scale_usecases),
+	.name = "grp3d",
+};
+
+struct msm_bus_scale_pdata grp3d_bus_scale_pdata_ab = {
+	grp3d_bus_scale_usecases_1,
+	ARRAY_SIZE(grp3d_bus_scale_usecases_1),
 	.name = "grp3d",
 };
 
