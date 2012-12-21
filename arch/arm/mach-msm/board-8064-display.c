@@ -818,12 +818,13 @@ static int hdmi_core_power(int on, int show)
 		return 0;
 
 	/* TBD: PM8921 regulator instead of 8901 */
-	if (!reg_ext_3p3v) {
+	if (!reg_ext_3p3v &&
+		(!(machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv()))) {
 		reg_ext_3p3v = regulator_get(&hdmi_msm_device.dev,
-					     "hdmi_mux_vdd");
+						"hdmi_mux_vdd");
 		if (IS_ERR_OR_NULL(reg_ext_3p3v)) {
 			pr_err("could not get reg_ext_3p3v, rc = %ld\n",
-			       PTR_ERR(reg_ext_3p3v));
+				PTR_ERR(reg_ext_3p3v));
 			reg_ext_3p3v = NULL;
 			return -ENODEV;
 		}
@@ -831,7 +832,7 @@ static int hdmi_core_power(int on, int show)
 
 	if (!reg_8921_lvs7) {
 		reg_8921_lvs7 = regulator_get(&hdmi_msm_device.dev,
-					      "hdmi_vdda");
+						"hdmi_vdda");
 		if (IS_ERR(reg_8921_lvs7)) {
 			pr_err("could not get reg_8921_lvs7, rc = %ld\n",
 				PTR_ERR(reg_8921_lvs7));
@@ -841,7 +842,7 @@ static int hdmi_core_power(int on, int show)
 	}
 	if (!reg_8921_s4) {
 		reg_8921_s4 = regulator_get(&hdmi_msm_device.dev,
-					    "hdmi_lvl_tsl");
+						"hdmi_lvl_tsl");
 		if (IS_ERR(reg_8921_s4)) {
 			pr_err("could not get reg_8921_s4, rc = %ld\n",
 				PTR_ERR(reg_8921_s4));
@@ -860,17 +861,22 @@ static int hdmi_core_power(int on, int show)
 		 * Configure 3P3V_BOOST_EN as GPIO, 8mA drive strength,
 		 * pull none, out-high
 		 */
-		rc = regulator_set_optimum_mode(reg_ext_3p3v, 290000);
-		if (rc < 0) {
-			pr_err("set_optimum_mode ext_3p3v failed, rc=%d\n", rc);
-			return -EINVAL;
+		if (!(machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv())) {
+			rc = regulator_set_optimum_mode(reg_ext_3p3v, 290000);
+			if (rc < 0) {
+				pr_err("set_optimum_mode ext_3p3v failed," \
+					"rc=%d\n", rc);
+				return -EINVAL;
+			}
+
+			rc = regulator_enable(reg_ext_3p3v);
+			if (rc) {
+				pr_err("enable reg_ext_3p3v failed, rc=%d\n",
+					rc);
+				return rc;
+			}
 		}
 
-		rc = regulator_enable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("enable reg_ext_3p3v failed, rc=%d\n", rc);
-			return rc;
-		}
 		rc = regulator_enable(reg_8921_lvs7);
 		if (rc) {
 			pr_err("'%s' regulator enable failed, rc=%d\n",
@@ -885,11 +891,15 @@ static int hdmi_core_power(int on, int show)
 		}
 		pr_debug("%s(on): success\n", __func__);
 	} else {
-		rc = regulator_disable(reg_ext_3p3v);
-		if (rc) {
-			pr_err("disable reg_ext_3p3v failed, rc=%d\n", rc);
-			return -ENODEV;
+		if (!(machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv())) {
+			rc = regulator_disable(reg_ext_3p3v);
+			if (rc) {
+				pr_err("disable reg_ext_3p3v failed, rc=%d\n",
+					rc);
+				return -ENODEV;
+			}
 		}
+
 		rc = regulator_disable(reg_8921_lvs7);
 		if (rc) {
 			pr_err("disable reg_8921_l23 failed, rc=%d\n", rc);
@@ -910,7 +920,8 @@ static int hdmi_core_power(int on, int show)
 error2:
 	regulator_disable(reg_8921_lvs7);
 error1:
-	regulator_disable(reg_ext_3p3v);
+	if (!(machine_is_mpq8064_hrd() || machine_is_mpq8064_dtv()))
+		regulator_disable(reg_ext_3p3v);
 	return rc;
 }
 
