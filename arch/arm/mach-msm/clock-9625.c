@@ -2171,6 +2171,7 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc319000.funnel"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc31a000.funnel"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc321000.stm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc332000.etm"),
 
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc322000.tmc"),
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc318000.tpiu"),
@@ -2180,6 +2181,7 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc319000.funnel"),
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc31a000.funnel"),
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc321000.stm"),
+	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc332000.etm"),
 
 };
 
