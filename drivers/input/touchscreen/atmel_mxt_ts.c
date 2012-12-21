@@ -230,13 +230,25 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_BOOT_VALUE		0xa5
 #define MXT_BACKUP_VALUE	0x55
 #define MXT_BACKUP_TIME		50	/* msec */
+
+/* Software reset delay */
 #define MXT_RESET_TIME		250	/* msec */
-#define MXT224_RESET_TIME	65	/* msec */
-#define MXT224E_RESET_TIME	150	/* msec */
+#define MXT224_RESET_TIME	64	/* msec */
+#define MXT224E_RESET_TIME	21	/* msec */
 #define MXT1386_RESET_TIME	250	/* msec */
+#define MXT1386E_RESET_TIME	229	/* msec */
 #define MXT336S_RESET_TIME	25	/* msec */
-#define MXT1664S_RESET_TIME	65	/* msec */
+#define MXT1664S_RESET_TIME	280	/* msec */
 #define MXT_RESET_NOCHGREAD	400	/* msec */
+
+/* Power on delay */
+#define MXT224_POWER_ON_TIME	40	/* msec */
+#define MXT224E_POWER_ON_TIME	21	/* msec */
+#define MXT336S_POWER_ON_TIME	25	/* msec */
+#define MXT1386_POWER_ON_TIME	90	/* msec */
+#define MXT1386E_POWER_ON_TIME	81	/* msec */
+#define MXT1664S_POWER_ON_TIME	65	/* msec */
+#define MXT_POWER_ON_TIME	100	/* msec */
 
 #define MXT_FWRESET_TIME	1000	/* msec */
 
@@ -1257,6 +1269,42 @@ static int mxt_get_config(struct mxt_data *data)
 	return 0;
 }
 
+static void mxt_power_on_delay(struct mxt_data *data)
+{
+	const struct mxt_platform_data *pdata = data->pdata;
+	const struct mxt_config_info *cfg_info;
+	u32 delay = 0;
+	int i;
+
+	for (i = 0; i < pdata->config_array_size; i++) {
+		cfg_info = &pdata->config_array[i];
+
+		switch (cfg_info->family_id) {
+		case MXT224_ID:
+			delay = max_t(u32, delay, MXT224_POWER_ON_TIME);
+			break;
+		case MXT224E_ID:
+			delay = max_t(u32, delay, MXT224E_POWER_ON_TIME);
+			break;
+		case MXT336S_ID:
+			delay = max_t(u32, delay, MXT336S_POWER_ON_TIME);
+			break;
+		case MXT1386_ID:
+			delay = max_t(u32, delay,
+					max_t(u32, MXT1386_POWER_ON_TIME,
+						MXT1386E_POWER_ON_TIME));
+			break;
+		case MXT1664S_ID:
+			delay = max_t(u32, delay, MXT1664S_POWER_ON_TIME);
+			break;
+		default:
+			delay = max_t(u32, delay, MXT_POWER_ON_TIME);
+		}
+	}
+
+	msleep(delay);
+}
+
 static void mxt_reset_delay(struct mxt_data *data)
 {
 	struct mxt_info *info = &data->info;
@@ -1270,8 +1318,10 @@ static void mxt_reset_delay(struct mxt_data *data)
 		break;
 	case MXT336S_ID:
 		msleep(MXT336S_RESET_TIME);
+		break;
 	case MXT1386_ID:
-		msleep(MXT1386_RESET_TIME);
+		msleep(max_t(u32, MXT1386_RESET_TIME, MXT1386E_RESET_TIME));
+		break;
 	case MXT1664S_ID:
 		msleep(MXT1664S_RESET_TIME);
 		break;
@@ -2507,7 +2557,8 @@ static int mxt_probe(struct i2c_client *client,
 		}
 	}
 
-	mxt_reset_delay(data);
+	mxt_power_on_delay(data);
+
 	error = mxt_initialize(data);
 	if (error)
 		goto err_reset_gpio_req;
