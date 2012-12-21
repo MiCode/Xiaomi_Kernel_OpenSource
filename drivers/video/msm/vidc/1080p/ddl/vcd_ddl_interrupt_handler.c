@@ -822,13 +822,13 @@ static u32 ddl_frame_run_callback(struct ddl_context *ddl_context)
 			pixel_cache_stats;
 			vidc_pix_cache_get_statistics(&pixel_cache_stats);
 
-			DDL_MSG_HIGH(" pixel cache hits = %d,"
+			DDL_MSG_LOW(" pixel cache hits = %d,"
 				"miss = %d", pixel_cache_stats.access_hit,
 				pixel_cache_stats.access_miss);
-			DDL_MSG_HIGH(" pixel cache core reqs = %d,"
+			DDL_MSG_LOW(" pixel cache core reqs = %d,"
 				"axi reqs = %d", pixel_cache_stats.core_req,
 				pixel_cache_stats.axi_req);
-			DDL_MSG_HIGH(" pixel cache core bus stats = %d,"
+			DDL_MSG_LOW(" pixel cache core bus stats = %d,"
 			"axi bus stats = %d", pixel_cache_stats.core_bus,
 				pixel_cache_stats.axi_bus);
 		}
@@ -1313,7 +1313,7 @@ static u32 ddl_decoder_output_done_callback(
 			DDL_MSG_LOW("%s y_cb_cr_size = %u "
 				"actual_output_buf_req.sz = %u"
 				"min_output_buf_req.sz = %u\n",
-				decoder->y_cb_cr_size,
+				__func__, decoder->y_cb_cr_size,
 				decoder->actual_output_buf_req.sz,
 				decoder->min_output_buf_req.sz);
 			vidc_sm_set_chroma_addr_change(
@@ -1474,7 +1474,7 @@ static u32 ddl_get_encoded_frame(struct vcd_frame_data *frame,
 		}
 	} else
 		status = false;
-	DDL_MSG_HIGH("Enc Frame Type %u", (u32)frame->frame);
+	DDL_MSG_LOW("Enc Frame Type %u", (u32)frame->frame);
 	return status;
 }
 
@@ -1764,7 +1764,17 @@ static void ddl_handle_enc_frame_done(struct ddl_client_context *ddl,
 			(unsigned long) output_frame->alloc_len,
 			ION_IOC_INV_CACHES);
 	}
-	ddl_process_encoder_metadata(ddl);
+
+	if ((VIDC_1080P_ENCODE_FRAMETYPE_SKIPPED !=
+		encoder->enc_frame_info.enc_frame) &&
+		(VIDC_1080P_ENCODE_FRAMETYPE_NOT_CODED !=
+		encoder->enc_frame_info.enc_frame)) {
+		if (DDL_IS_LTR_ENABLED(encoder))
+			ddl_handle_ltr_in_framedone(ddl);
+		ddl_process_encoder_metadata(ddl);
+		encoder->ltr_control.meta_data_reqd = false;
+	}
+	encoder->ltr_control.using = false;
 	ddl_vidc_encode_dynamic_property(ddl, false);
 	ddl->input_frame.frm_trans_end = false;
 	input_buffer_address = ddl_context->dram_base_a.align_physical_addr +
@@ -1828,9 +1838,9 @@ static void ddl_handle_slice_done_slice_batch(struct ddl_client_context *ddl)
 			encoder->batch_frame.output_frame[actual_idx].vcd_frm);
 		DDL_MSG_LOW("OutBfr: vcd_frm 0x%x frmbfr(virtual) 0x%x"
 			"frmbfr(physical) 0x%x\n",
-			&output_frame,
-			output_frame.virtual_base_addr,
-			output_frame.physical_base_addr);
+			(u32)output_frame,
+			(u32)output_frame->virtual,
+			(u32)output_frame->physical);
 		vidc_1080p_get_encode_frame_info(&encoder->enc_frame_info);
 		vidc_sm_get_frame_tags(&ddl->shared_mem
 			[ddl->command_channel],
@@ -1908,17 +1918,17 @@ static u32 ddl_handle_enc_frame_done_slice_mode(
 		actual_idx =
 			slice_output->slice_info[start_bfr_idx+index]. \
 			stream_buffer_idx;
-		DDL_MSG_LOW("Slice Info: OutBfrIndex %d SliceSize %d",
+		DDL_MSG_LOW("Slice Info: OutBfrIndex %u SliceSize %u",
 			actual_idx,
 			slice_output->slice_info[start_bfr_idx+index]. \
-			stream_buffer_size, 0);
+			stream_buffer_size);
 		output_frame =
 		&(encoder->batch_frame.output_frame[actual_idx].vcd_frm);
 		DDL_MSG_LOW("OutBfr: vcd_frm 0x%x frmbfr(virtual) 0x%x"
 				"frmbfr(physical) 0x%x",
-				&output_frame,
-				output_frame.virtual_base_addr,
-				output_frame.physical_base_addr);
+				(u32)output_frame,
+				(u32)output_frame->virtual,
+				(u32)output_frame->physical);
 		vidc_1080p_get_encode_frame_info(
 			&encoder->enc_frame_info);
 		vidc_sm_get_frame_tags(&ddl->shared_mem
@@ -1936,8 +1946,8 @@ static u32 ddl_handle_enc_frame_done_slice_mode(
 			slice_output->slice_info[actual_idx].stream_buffer_size;
 		ddl->output_frame =
 			encoder->batch_frame.output_frame[actual_idx];
-		DDL_MSG_LOW(" %s actual_idx = %d"
-		"encoder->batch_frame.num_output_frames = %d\n", __func__,
+		DDL_MSG_LOW("%s: actual_idx = %u "\
+		"encoder->batch_frame.num_output_frames = %u\n", __func__,
 		actual_idx, encoder->batch_frame.num_output_frames);
 		if (encoder->batch_frame.num_output_frames == (actual_idx+1)) {
 			output_frame->flags |= VCD_FRAME_FLAG_ENDOFFRAME;

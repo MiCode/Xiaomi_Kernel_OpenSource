@@ -400,6 +400,10 @@ struct vidc_1080p_enc_frame_start_param{
 	u32 intra_frame;
 	u32 input_flush;
 	u32 slice_enable;
+	u32 store_ltr0;
+	u32 store_ltr1;
+	u32 use_ltr0;
+	u32 use_ltr1;
 	enum vidc_1080p_encode encode;
 };
 struct vidc_1080p_enc_frame_info{

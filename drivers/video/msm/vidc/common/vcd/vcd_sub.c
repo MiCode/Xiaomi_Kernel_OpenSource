@@ -3516,3 +3516,14 @@ u32 vcd_set_num_slices(struct vcd_clnt_ctxt *cctxt)
 	}
 	return rc;
 }
+
+u32 vcd_handle_ltr_use_failed(struct vcd_clnt_ctxt *cctxt,
+	void *payload, size_t sz, u32 status)
+{
+	u32 rc = VCD_S_SUCCESS;
+	if (payload && cctxt) {
+		cctxt->callback(VCD_EVT_IND_INFO_LTRUSE_FAILED,
+			status, payload, sz, cctxt, cctxt->client_data);
+	}
+	return rc;
+}
