@@ -2,7 +2,7 @@
  * Driver for HighSpeed USB Client Controller in MSM7K
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Brian Swetland <swetland@google.com>
  *
@@ -1649,6 +1649,20 @@ static void usb_do_work(struct work_struct *w)
 				usb_phy_set_power(ui->xceiv, 0);
 
 				if (ui->irq) {
+					/* Disable and acknowledge all
+					 * USB interrupts before freeing
+					 * irq, so that no USB spurious
+					 * interrupt occurs during USB cable
+					 * disconnect which may lead to
+					 * IRQ nobody cared error.
+					 */
+					writel_relaxed(0, USB_USBINTR);
+					writel_relaxed(readl_relaxed(USB_USBSTS)
+								, USB_USBSTS);
+					/* Ensure that above STOREs are
+					 * completed before enabling
+					 * interrupts */
+					wmb();
 					free_irq(ui->irq, ui);
 					ui->irq = 0;
 				}
