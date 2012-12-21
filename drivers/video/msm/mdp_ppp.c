@@ -1698,12 +1698,19 @@ int mdp_ppp_v4l2_overlay_clear(void)
 	return 0;
 }
 
-int mdp_ppp_v4l2_overlay_play(struct fb_info *info,
+int mdp_ppp_v4l2_overlay_play(struct fb_info *info, bool bUserPtr,
 	unsigned long srcp0_addr, unsigned long srcp0_size,
 	unsigned long srcp1_addr, unsigned long srcp1_size)
 {
 	int ret;
+	unsigned long srcp0_start = 0, srcp1_start = 0;
+	unsigned long srcp0_len = 0, srcp1_len = 0;
 
+	struct ion_handle *srcp0_ihdl = NULL;
+	struct ion_handle *srcp1_ihdl = NULL;
+	struct msm_fb_data_type *mfd = info->par;
+
+	ppp_display_iclient = mfd->iclient;
 	if (!mdp_overlay_req_set) {
 		pr_err("mdp_ppp:v4l2:No overlay set, ignore play req\n");
 		return -EINVAL;
@@ -1712,6 +1719,31 @@ int mdp_ppp_v4l2_overlay_play(struct fb_info *info,
 	overlay_req.dst.width = info->var.xres;
 	overlay_req.dst.height = info->var.yres;
 
+	if (bUserPtr) {
+		overlay_req.src.memory_id = srcp0_addr;
+		get_img(&overlay_req.src, &overlay_req, info, &srcp0_start,
+					&srcp0_len, NULL, &srcp0_ihdl);
+		if (srcp0_len == 0) {
+			pr_err("%s: could not retrieve source image0"
+						, __func__);
+			return -EINVAL;
+		}
+		srcp0_addr = srcp0_start + srcp0_size;
+		srcp0_size = srcp0_len;
+
+		if (srcp1_addr) {
+			overlay_req.src.memory_id = srcp1_addr;
+			get_img(&overlay_req.src, &overlay_req, info,
+				&srcp1_start, &srcp1_len, NULL, &srcp1_ihdl);
+			if (srcp1_len == 0) {
+				pr_err("%s: could not retrieve source image1"
+					, __func__);
+				return -EINVAL;
+			}
+			srcp1_addr = srcp1_start + srcp1_size;
+			srcp1_size = srcp1_len;
+		}
+	}
 	ret = mdp_ppp_blit_addr(info, &overlay_req,
 		srcp0_addr, srcp0_size, srcp1_addr, srcp1_size,
 		info->fix.smem_start, info->fix.smem_len, NULL, NULL,
