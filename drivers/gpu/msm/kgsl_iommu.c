@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,7 @@
  *
  */
 #include <linux/types.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/spinlock.h>
 #include <linux/genalloc.h>
@@ -40,6 +41,8 @@ static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x20, 0, 0 },				/* FSR */
 	{ 0x800, 0, 0 },			/* TLBIALL */
 	{ 0x820, 0, 0 },			/* RESUME */
+	{ 0x03C, 0, 0 },			/* TLBLKCR */
+	{ 0x818, 0, 0 },			/* V2PUR */
 };
 
 static struct kgsl_iommu_register_list kgsl_iommuv2_reg[KGSL_IOMMU_REG_MAX] = {
@@ -782,15 +785,25 @@ static int kgsl_iommu_start_sync_lock(struct kgsl_mmu *mmu)
  */
 static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 {
-	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
+	struct kgsl_iommu *iommu = mmu->priv;
 	int status = 0;
 	uint32_t lock_phy_addr = 0;
 	uint32_t page_offset = 0;
 
-	if (KGSL_DEVICE_3D0 != mmu->device->id ||
-		!msm_soc_version_supports_iommu_v1() ||
+	if (!msm_soc_version_supports_iommu_v1() ||
 		!kgsl_mmu_is_perprocess())
 		return status;
+
+	/*
+	 * For 2D devices cpu side sync lock is required. For 3D device,
+	 * since we only have a single 3D core and we always ensure that
+	 * 3D core is idle while writing to IOMMU register using CPU this
+	 * lock is not required
+	 */
+	if (KGSL_DEVICE_2D0 == mmu->device->id ||
+		KGSL_DEVICE_2D1 == mmu->device->id) {
+		return status;
+	}
 
 	/* Return if already initialized */
 	if (iommu->sync_lock_initialized)
@@ -1260,6 +1273,111 @@ err:
 	return status;
 }
 
+/*
+ * kgsl_iommu_lock_rb_in_tlb - Allocates tlb entries and locks the
+ * virtual to physical address translation of ringbuffer for 3D
+ * device into tlb.
+ * @mmu - Pointer to mmu structure
+ *
+ * Return - void
+ */
+static void kgsl_iommu_lock_rb_in_tlb(struct kgsl_mmu *mmu)
+{
+	struct kgsl_device *device = mmu->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_ringbuffer *rb;
+	struct kgsl_iommu *iommu = mmu->priv;
+	unsigned int num_tlb_entries;
+	unsigned int tlblkcr = 0;
+	unsigned int v2pxx = 0;
+	unsigned int vaddr = 0;
+	int i, j, k, l;
+
+	if (!iommu->sync_lock_initialized)
+		return;
+
+	rb = &adreno_dev->ringbuffer;
+	num_tlb_entries = rb->buffer_desc.size / PAGE_SIZE;
+
+	for (i = 0; i < iommu->unit_count; i++) {
+		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
+		for (j = 0; j < iommu_unit->dev_count; j++) {
+			tlblkcr = 0;
+			if (cpu_is_msm8960())
+				tlblkcr |= ((num_tlb_entries &
+					KGSL_IOMMU_TLBLKCR_FLOOR_MASK) <<
+					KGSL_IOMMU_TLBLKCR_FLOOR_SHIFT);
+			else
+				tlblkcr |= (((num_tlb_entries *
+					iommu_unit->dev_count) &
+					KGSL_IOMMU_TLBLKCR_FLOOR_MASK) <<
+					KGSL_IOMMU_TLBLKCR_FLOOR_SHIFT);
+			/* Do not invalidate locked entries on tlbiall flush */
+			tlblkcr	|= ((1 & KGSL_IOMMU_TLBLKCR_TLBIALLCFG_MASK)
+				<< KGSL_IOMMU_TLBLKCR_TLBIALLCFG_SHIFT);
+			tlblkcr	|= ((1 & KGSL_IOMMU_TLBLKCR_TLBIASIDCFG_MASK)
+				<< KGSL_IOMMU_TLBLKCR_TLBIASIDCFG_SHIFT);
+			tlblkcr	|= ((1 & KGSL_IOMMU_TLBLKCR_TLBIVAACFG_MASK)
+				<< KGSL_IOMMU_TLBLKCR_TLBIVAACFG_SHIFT);
+			/* Enable tlb locking */
+			tlblkcr |= ((1 & KGSL_IOMMU_TLBLKCR_LKE_MASK)
+				<< KGSL_IOMMU_TLBLKCR_LKE_SHIFT);
+			KGSL_IOMMU_SET_CTX_REG(iommu, iommu_unit,
+					iommu_unit->dev[j].ctx_id,
+					TLBLKCR, tlblkcr);
+		}
+		for (j = 0; j < iommu_unit->dev_count; j++) {
+			/* skip locking entries for private bank on 8960 */
+			if (cpu_is_msm8960() &&  KGSL_IOMMU_CONTEXT_PRIV == j)
+				continue;
+			/* Lock the ringbuffer virtual address into tlb */
+			vaddr = rb->buffer_desc.gpuaddr;
+			for (k = 0; k < num_tlb_entries; k++) {
+				v2pxx = 0;
+				v2pxx |= (((k + j * num_tlb_entries) &
+					KGSL_IOMMU_V2PXX_INDEX_MASK)
+					<< KGSL_IOMMU_V2PXX_INDEX_SHIFT);
+				v2pxx |= vaddr & (KGSL_IOMMU_V2PXX_VA_MASK <<
+						KGSL_IOMMU_V2PXX_VA_SHIFT);
+
+				KGSL_IOMMU_SET_CTX_REG(iommu, iommu_unit,
+						iommu_unit->dev[j].ctx_id,
+						V2PUR, v2pxx);
+				vaddr += PAGE_SIZE;
+				for (l = 0; l < iommu_unit->dev_count; l++) {
+					tlblkcr = KGSL_IOMMU_GET_CTX_REG(iommu,
+						iommu_unit,
+						iommu_unit->dev[l].ctx_id,
+						TLBLKCR);
+					mb();
+					tlblkcr &=
+					~(KGSL_IOMMU_TLBLKCR_VICTIM_MASK
+					<< KGSL_IOMMU_TLBLKCR_VICTIM_SHIFT);
+					tlblkcr |= (((k + 1 +
+					(j * num_tlb_entries)) &
+					KGSL_IOMMU_TLBLKCR_VICTIM_MASK) <<
+					KGSL_IOMMU_TLBLKCR_VICTIM_SHIFT);
+					KGSL_IOMMU_SET_CTX_REG(iommu,
+						iommu_unit,
+						iommu_unit->dev[l].ctx_id,
+						TLBLKCR, tlblkcr);
+				}
+			}
+		}
+		for (j = 0; j < iommu_unit->dev_count; j++) {
+			tlblkcr = KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit,
+						iommu_unit->dev[j].ctx_id,
+						TLBLKCR);
+			mb();
+			/* Disable tlb locking */
+			tlblkcr &= ~(KGSL_IOMMU_TLBLKCR_LKE_MASK
+				<< KGSL_IOMMU_TLBLKCR_LKE_SHIFT);
+			KGSL_IOMMU_SET_CTX_REG(iommu, iommu_unit,
+				iommu_unit->dev[j].ctx_id, TLBLKCR, tlblkcr);
+		}
+	}
+}
+
 static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 {
 	int status;
@@ -1280,7 +1398,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 
 	/* We use the GPU MMU to control access to IOMMU registers on 8960 with
 	 * a225, hence we still keep the MMU active on 8960 */
-	if (cpu_is_msm8960()) {
+	if (cpu_is_msm8960() && KGSL_DEVICE_3D0 == mmu->device->id) {
 		struct kgsl_mh *mh = &(mmu->device->mh);
 		BUG_ON(iommu->iommu_units[0].reg_map.gpuaddr != 0 &&
 			mh->mpu_base > iommu->iommu_units[0].reg_map.gpuaddr);
@@ -1312,6 +1430,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	 * changing pagetables we can use this lsb value of the pagetable w/o
 	 * having to read it again
 	 */
+	msm_iommu_lock();
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
@@ -1322,6 +1441,9 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 						TTBR0));
 		}
 	}
+	kgsl_iommu_lock_rb_in_tlb(mmu);
+	msm_iommu_unlock();
+
 
 	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
 	mmu->flags |= KGSL_FLAGS_STARTED;
@@ -1408,7 +1530,6 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 	 *
 	 *  call this with the global lock held
 	 */
-
 	if (mmu->flags & KGSL_FLAGS_STARTED) {
 		/* detach iommu attachment */
 		kgsl_detach_pagetable_iommu_domain(mmu);
@@ -1423,10 +1544,12 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 				for (j = 0; j < iommu_unit->dev_count; j++) {
 					if (iommu_unit->dev[j].fault) {
 						kgsl_iommu_enable_clk(mmu, j);
+						msm_iommu_lock();
 						KGSL_IOMMU_SET_CTX_REG(iommu,
 						iommu_unit,
 						iommu_unit->dev[j].ctx_id,
 						RESUME, 1);
+						msm_iommu_unlock();
 						iommu_unit->dev[j].fault = 0;
 					}
 				}
