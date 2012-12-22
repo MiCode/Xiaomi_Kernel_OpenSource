@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,14 +11,14 @@
  *
  */
 
-#ifndef __H_VIDC_HAL_H__
-#define __H_VIDC_HAL_H__
+#ifndef __H_VENUS_HFI_H__
+#define __H_VENUS_HFI_H__
 
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
-#include "vidc_hal_api.h"
+#include "vidc_hfi_api.h"
 #include "msm_smem.h"
-#include "vidc_hal_helper.h"
+#include "vidc_hfi_helper.h"
 
 #define HFI_MASK_QHDR_TX_TYPE			0xFF000000
 #define HFI_MASK_QHDR_RX_TYPE			0x00FF0000
