@@ -34,6 +34,7 @@
 #include <mach/dma.h>
 #include "pm.h"
 #include "devices.h"
+#include <mach/gpio.h>
 #include <mach/mpm.h>
 #include "spm.h"
 #include "rpm_resources.h"
@@ -1514,11 +1515,16 @@ static struct resource msm_gpio_resources[] = {
 	},
 };
 
+static struct msm_gpio_pdata msm9615_gpio_pdata = {
+	.ngpio = 88,
+};
+
 struct platform_device msm_gpio_device = {
-	.name = "msmgpio",
-	.id = -1,
-	.num_resources	= ARRAY_SIZE(msm_gpio_resources),
-	.resource	= msm_gpio_resources,
+	.name			= "msmgpio",
+	.id			= -1,
+	.num_resources		= ARRAY_SIZE(msm_gpio_resources),
+	.resource		= msm_gpio_resources,
+	.dev.platform_data	= &msm9615_gpio_pdata,
 };
 
 void __init msm9615_device_init(void)

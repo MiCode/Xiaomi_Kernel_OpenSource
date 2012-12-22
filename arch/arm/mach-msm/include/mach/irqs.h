@@ -37,21 +37,11 @@
 #include "irqs-8092.h"
 #endif
 
-#define NR_MSM_IRQS 1020 /* Should be 256 - but higher due to bug in sim */
-#define NR_GPIO_IRQS 146
-#define NR_QPNP_IRQS 32768
-#define NR_BOARD_IRQS NR_QPNP_IRQS
 #define NR_TLMM_MSM_DIR_CONN_IRQ 8
-#define NR_MSM_GPIOS NR_GPIO_IRQS
 
 #elif defined(CONFIG_ARCH_MSM8910) || defined(CONFIG_ARCH_MSM8226)
 
-#define NR_MSM_IRQS 256
-#define NR_GPIO_IRQS 117
-#define NR_QPNP_IRQS 32768
-#define NR_BOARD_IRQS NR_QPNP_IRQS
 #define NR_TLMM_MSM_DIR_CONN_IRQ 8
-#define NR_MSM_GPIOS NR_GPIO_IRQS
 
 #elif defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_APQ8064) || \
 	defined(CONFIG_ARCH_MSM8930)
@@ -120,10 +110,32 @@
 #endif
 
 #if !defined(CONFIG_SPARSE_IRQ)
+
+#if defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_MPQ8092)
+#define NR_MSM_IRQS 1020 /* Should be 256 - but higher due to bug in sim */
+#define NR_GPIO_IRQS 146
+#define NR_QPNP_IRQS 32768
+#define NR_BOARD_IRQS NR_QPNP_IRQS
+
+#elif defined(CONFIG_ARCH_MSM8910) || defined(CONFIG_ARCH_MSM8226)
+#define NR_MSM_IRQS 256
+#define NR_GPIO_IRQS 117
+#define NR_QPNP_IRQS 32768
+#define NR_BOARD_IRQS NR_QPNP_IRQS
+
+#elif defined(CONFIG_ARCH_MSM9625)
+#define NR_MSM_IRQS 288
+#define NR_GPIO_IRQS 76
+#define NR_BOARD_IRQS 0
+#define NR_TLMM_MSM_DIR_CONN_IRQ 8 /*Need to Verify this Count*/
+
+#endif
+
 #define NR_IRQS (NR_MSM_IRQS + NR_GPIO_IRQS + NR_BOARD_IRQS)
 #define MSM_GPIO_TO_INT(n) (NR_MSM_IRQS + (n))
 #define FIRST_GPIO_IRQ MSM_GPIO_TO_INT(0)
 #define MSM_INT_TO_REG(base, irq) (base + irq / 32)
+
 #endif
 
 #if defined(CONFIG_PCI_MSI) && defined(CONFIG_MSM_PCIE)
