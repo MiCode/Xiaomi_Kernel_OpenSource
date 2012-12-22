@@ -113,11 +113,24 @@ static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd)
 		(u32 *)fb_offset, size);
 }
 
-int mdss_mdp_alloc_fb_mem(struct msm_fb_data_type *mfd,
-			u32 size, u32 *phys, void **virt)
+int mdss_qpic_alloc_fb_mem(struct msm_fb_data_type *mfd)
 {
+	size_t size;
+	u32 yres = mfd->fbi->var.yres_virtual;
+
+	size = PAGE_ALIGN(mfd->fbi->fix.line_length * yres);
+
 	if (!qpic_res->res_init)
 		return -EINVAL;
+
+	if (mfd->index != 0) {
+		mfd->fbi->fix.smem_start = 0;
+		mfd->fbi->screen_base = NULL;
+		mfd->fbi->fix.smem_len = 0;
+		mfd->iova = 0;
+		return 0;
+	}
+
 	if (!qpic_res->fb_virt) {
 		qpic_res->fb_virt = (void *)dmam_alloc_coherent(
 						&qpic_res->pdev->dev,
@@ -132,27 +145,29 @@ int mdss_mdp_alloc_fb_mem(struct msm_fb_data_type *mfd,
 		qpic_res->cmd_buf_virt = qpic_res->fb_virt + size;
 		qpic_res->cmd_buf_phys = qpic_res->fb_phys + size;
 	}
-	*phys = qpic_res->fb_phys;
-	*virt = qpic_res->fb_virt;
+	mfd->fbi->fix.smem_start = qpic_res->fb_phys;
+	mfd->fbi->screen_base = qpic_res->fb_virt;
+	mfd->fbi->fix.smem_len = size;
+	mfd->iova = 0;
 	return 0;
 }
 
-u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
+u32 mdss_qpic_fb_stride(u32 fb_index, u32 xres, int bpp)
 {
 	return xres * bpp;
 }
 
-int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
+int mdss_qpic_overlay_init(struct msm_fb_data_type *mfd)
 {
-	mfd->on_fnc = qpic_on;
-	mfd->off_fnc = qpic_off;
-	mfd->dma_fnc = mdss_qpic_pan_display;
+	struct msm_mdp_interface *qpic_interface = &mfd->mdp;
+	qpic_interface->on_fnc = qpic_on;
+	qpic_interface->off_fnc = qpic_off;
+	qpic_interface->do_histogram = NULL;
+	qpic_interface->cursor_update = NULL;
+	qpic_interface->dma_fnc = mdss_qpic_pan_display;
+	qpic_interface->ioctl_handler = NULL;
+	qpic_interface->kickoff_fnc = NULL;
 	return 0;
-}
-
-u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd)
-{
-	return qpic_panel_get_framerate();
 }
 
 int qpic_register_panel(struct mdss_panel_data *pdata)
@@ -511,6 +526,12 @@ static int mdss_qpic_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int rc = 0;
+	static struct msm_mdp_interface qpic_interface = {
+		.init_fnc = mdss_qpic_overlay_init,
+		.fb_mem_alloc_fnc = mdss_qpic_alloc_fb_mem,
+		.fb_stride = mdss_qpic_fb_stride,
+	};
+
 
 	if (!pdev->dev.of_node) {
 		pr_err("qpic driver only supports device tree probe\n");
@@ -564,6 +585,11 @@ static int mdss_qpic_probe(struct platform_device *pdev)
 
 	qpic_res->irq = res->start;
 	qpic_res->res_init = true;
+
+	rc = mdss_fb_register_mdp_instance(&qpic_interface);
+	if (rc)
+		pr_err("unable to register QPIC instance\n");
+
 probe_done:
 	return rc;
 }
@@ -585,124 +611,4 @@ static int __init mdss_qpic_driver_init(void)
 
 module_init(mdss_qpic_driver_init);
 
-int mdss_mdp_pa_config(struct mdss_mdp_ctl *ctl,
-	struct mdp_pa_cfg_data *config, u32 *copyback)
-{
-	return 0;
-}
 
-int mdss_mdp_pcc_config(struct mdss_mdp_ctl *ctl,
-	struct mdp_pcc_cfg_data *cfg_ptr, u32 *copyback)
-{
-	return 0;
-}
-
-int mdss_mdp_igc_lut_config(struct mdss_mdp_ctl *ctl,
-	struct mdp_igc_lut_data *config, u32 *copyback)
-{
-	return 0;
-}
-
-int mdss_mdp_argc_config(struct mdss_mdp_ctl *ctl,
-	struct mdp_pgc_lut_data *config, u32 *copyback)
-{
-	return 0;
-}
-
-int mdss_mdp_hist_lut_config(struct mdss_mdp_ctl *ctl,
-	struct mdp_hist_lut_data *config, u32 *copyback)
-{
-	return 0;
-}
-
-int mdss_mdp_dither_config(struct mdss_mdp_ctl *ctl,
-	struct mdp_dither_cfg_data *config, u32 *copyback)
-{
-	return 0;
-}
-
-int mdss_mdp_gamut_config(struct mdss_mdp_ctl *ctl,
-	struct mdp_gamut_cfg_data *config, u32 *copyback)
-{
-	return 0;
-}
-
-int mdss_mdp_histogram_start(struct mdss_mdp_ctl *ctl,
-	struct mdp_histogram_start_req *req)
-{
-	return 0;
-}
-
-int mdss_mdp_histogram_stop(struct mdss_mdp_ctl *ctl, u32 block)
-{
-	return 0;
-}
-
-int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
-				struct mdp_histogram_data *hist,
-				u32 *hist_data_addr)
-{
-	return 0;
-}
-
-int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
-{
-	return 0;
-}
-
-void mdss_mdp_clk_ctrl(int enable, int isr)
-{
-}
-
-int mdss_mdp_copy_splash_screen(struct mdss_panel_data *pdata)
-{
-	return 0;
-}
-
-void mdss_mdp_footswitch_ctrl_splash(int on)
-{
-}
-
-int msm_fb_writeback_init(struct fb_info *info)
-{
-	return 0;
-}
-EXPORT_SYMBOL(msm_fb_writeback_init);
-
-int msm_fb_writeback_start(struct fb_info *info)
-{
-	return 0;
-}
-EXPORT_SYMBOL(msm_fb_writeback_start);
-
-int msm_fb_writeback_queue_buffer(struct fb_info *info,
-		struct msmfb_data *data)
-{
-	return 0;
-}
-EXPORT_SYMBOL(msm_fb_writeback_queue_buffer);
-
-int msm_fb_writeback_dequeue_buffer(struct fb_info *info,
-		struct msmfb_data *data)
-{
-	return 0;
-}
-EXPORT_SYMBOL(msm_fb_writeback_dequeue_buffer);
-
-int msm_fb_writeback_stop(struct fb_info *info)
-{
-	return 0;
-}
-EXPORT_SYMBOL(msm_fb_writeback_stop);
-
-int msm_fb_writeback_terminate(struct fb_info *info)
-{
-	return 0;
-}
-EXPORT_SYMBOL(msm_fb_writeback_terminate);
-
-int msm_fb_get_iommu_domain(struct fb_info *info, int domain)
-{
-	return 0;
-}
-EXPORT_SYMBOL(msm_fb_get_iommu_domain);
