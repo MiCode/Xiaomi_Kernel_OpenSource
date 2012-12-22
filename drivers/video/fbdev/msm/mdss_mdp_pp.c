@@ -409,12 +409,14 @@ static void pp_enhist_config(unsigned long flags, u32 base,
 
 static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
-	u32 opmode = 0;
+	struct pp_sts_type pp_sts;
+	u32 opmode = 0, base = 0;
+	unsigned long flags = 0;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
-	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
-		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_CSC_CFG) {
+	if ((pipe->flags & MDP_OVERLAY_PP_CFG_EN) &&
+		(pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_CSC_CFG)) {
 			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
 						MDP_CSC_FLAG_ENABLE) << 17;
 			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
@@ -428,7 +430,6 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			if (pipe->play_cnt == 0)
 				mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_SSPP,
 				  pipe->num, 1, &pipe->pp_cfg.csc_cfg);
-		}
 	} else {
 		if (pipe->src_fmt->is_yuv)
 			opmode |= (0 << 19) |	/* DST_DATA=RGB */
@@ -441,6 +442,19 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		if (pipe->play_cnt == 0) {
 			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1,
 					   MDSS_MDP_CSC_YUV2RGB);
+		}
+	}
+
+	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
+		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_CFG) {
+			flags = PP_FLAGS_DIRTY_PA;
+			base = MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
+				MDSS_MDP_REG_VIG_PA_BASE;
+			pp_sts.pa_sts = 0;
+			pp_pa_config(flags, base, &pp_sts,
+					&pipe->pp_cfg.pa_cfg);
+			if (pp_sts.pa_sts & PP_STS_ENABLE)
+				opmode |= (1 << 4); /* PA_EN */
 		}
 	}
 
