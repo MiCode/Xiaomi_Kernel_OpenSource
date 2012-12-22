@@ -77,12 +77,10 @@
 #define CHGR_BAT_IF_PRES_STATUS			0x08
 #define CHGR_STATUS				0x09
 #define CHGR_BAT_IF_VCP				0x42
-#define CHGR_BAT_IF_BATFET_STS			0x0B
 #define CHGR_BAT_IF_BATFET_CTRL1		0x90
 #define CHGR_MISC_BOOT_DONE			0x42
 #define CHGR_BUCK_COMPARATOR_OVRIDE_3		0xED
-#define CHGR_BUCK_MIN_PON			0x71
-#define REVISION4				0x3
+#define MISC_REVISION2				0x01
 #define SEC_ACCESS				0xD0
 
 /* SMBB peripheral subtype values */
@@ -101,7 +99,6 @@
 #define CHGR_BOOT_DONE			BIT(7)
 #define CHGR_CHG_EN			BIT(7)
 #define CHGR_ON_BAT_FORCE_BIT		BIT(0)
-#define BAT_IF_BATFET_STS_BIT		BIT(7)
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -146,17 +143,8 @@
 /* smbb_misc_interrupts */
 #define TFTWDOG_IRQ			BIT(0)
 
-/* smbb revision */
-#define SMBB_REVISION_1			0x0
-#define SMBB_REVISION_2			0x1
-#define SMBB_REVISION_3			0x3
-
 /* Workaround flags */
 #define CHG_FLAGS_VCP_WA		BIT(0)
-#define CHG_FLAGS_ARB_WA		BIT(1)
-
-/* ARB workaround */
-#define ARB_CHECK_WAIT_PERIOD_MS 200
 
 /**
  * struct qpnp_chg_chip - device information
@@ -186,8 +174,6 @@
  * @batt_psy:			power supply to export information to userspace
  * @flags:			flags to activate specific workarounds
  *				throughout the driver
- * @arb_check_work:		checks for accidental reverse booting (ARB)
- * @arb_wake_lock:		wake_lock for arb workaround
  *
  */
 struct qpnp_chg_chip {
@@ -222,8 +208,6 @@ struct qpnp_chg_chip {
 	struct power_supply		*bms_psy;
 	struct power_supply		batt_psy;
 	uint32_t			flags;
-	struct delayed_work		arb_check_work;
-	struct wake_lock		arb_wake_lock;
 };
 
 static struct of_device_id qpnp_charger_match_table[] = {
@@ -437,14 +421,8 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 
 	if (chip->usb_present ^ usb_present) {
 		chip->usb_present = usb_present;
-		power_supply_set_present(chip->usb_psy, chip->usb_present);
-	}
-
-	if (usb_present && (chip->flags & CHG_FLAGS_ARB_WA)) {
-		wake_lock(&chip->arb_wake_lock);
-		schedule_delayed_work(&chip->arb_check_work,
-			round_jiffies_relative(msecs_to_jiffies
-				(ARB_CHECK_WAIT_PERIOD_MS)));
+		power_supply_set_present(chip->usb_psy,
+			chip->usb_present);
 	}
 
 	return IRQ_HANDLED;
@@ -1078,108 +1056,16 @@ qpnp_chg_vddmax_set(struct qpnp_chg_chip *chip, int voltage)
 	temp = (voltage - QPNP_CHG_V_MIN_MV) / QPNP_CHG_V_STEP_MV;
 
 	pr_debug("voltage=%d setting %02x\n", voltage, temp);
-	return qpnp_chg_write(chip, &temp, chip->chgr_base + CHGR_VDD_MAX, 1);
+	return qpnp_chg_write(chip, &temp,
+		chip->chgr_base + CHGR_VDD_MAX, 1);
 }
 
-#define ARB_RETRY_COUNT		5
-#define ARB_SLEEP_MS		5
-#define ARB_VIN_MIN_MV		5500
-static void qpnp_chg_arb_check_worker(struct work_struct *work)
+
+static void
+qpnp_chg_setup_flags(struct qpnp_chg_chip *chip)
 {
-	struct delayed_work *dwork = to_delayed_work(work);
-	struct qpnp_chg_chip *chip = container_of(dwork,
-				struct qpnp_chg_chip, arb_check_work);
-	int rc = 0, i;
-	union power_supply_propval ret = {0,};
-	u8 batfet_sts;
-
-	if (!qpnp_chg_is_usb_chg_plugged_in(chip)) {
-		pr_debug("stopping worker usb disconnected\n");
-		wake_unlock(&chip->arb_wake_lock);
-		return;
-	}
-
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-			  POWER_SUPPLY_PROP_CURRENT_NOW, &ret);
-
-		/* Charging so check later */
-		if (ret.intval < 0) {
-			pr_debug("charging - check again later\n");
-			goto check_again_later;
-		}
-	} else {
-		pr_err("no bms supply available - check again later\n");
-		goto check_again_later;
-	}
-
-	rc = qpnp_chg_read(chip, &batfet_sts,
-		chip->bat_if_base + CHGR_BAT_IF_BATFET_STS, 1);
-	if (rc)
-		pr_err("failed to batfet sts register rc=%d\n", rc);
-
-	if (!(batfet_sts & BAT_IF_BATFET_STS_BIT)) {
-		pr_debug("batfet off - check again later\n");
-		goto check_again_later;
-	}
-
-	pr_debug("Force to run charger on battery\n");
-
-	rc = qpnp_chg_force_run_on_batt(chip, 1);
-	if (rc)
-		pr_err("Failed to disable charging rc = %d\n", rc);
-
-	for (i = 0; i < ARB_RETRY_COUNT; i++) {
-		msleep(ARB_SLEEP_MS);
-		if (!qpnp_chg_is_usb_chg_plugged_in(chip))
-			break;
-	}
-
-	rc = qpnp_chg_force_run_on_batt(chip, 0);
-	if (rc)
-		pr_err("Failed to disable charging rc = %d\n", rc);
-
-	if (!qpnp_chg_is_usb_chg_plugged_in(chip)) {
-		pr_debug("Charger removal detected - stopping worker.\n");
-		wake_unlock(&chip->arb_wake_lock);
-		return;
-	}
-
-check_again_later:
-	schedule_delayed_work(&chip->arb_check_work,
-		round_jiffies_relative(msecs_to_jiffies
-			(ARB_CHECK_WAIT_PERIOD_MS)));
-}
-
-static int
-qpnp_chg_setup_flags_and_wa_init(struct qpnp_chg_chip *chip)
-{
-	int rc;
-	u8 reg;
-
-	rc = qpnp_chg_read(chip, &reg, chip->misc_base + REVISION4, 1);
-	if (rc) {
-		pr_err("failed to read revision register rc=%d\n", rc);
-		return rc;
-	}
-	chip->revision = reg;
-
-	/* Initialize first to avoid scheduling uninitialized work */
-	if (chip->revision <= SMBB_REVISION_2) {
-		wake_lock_init(&chip->arb_wake_lock, WAKE_LOCK_SUSPEND,
-			"qpnp-charger-arb-lock");
-		INIT_DELAYED_WORK(&chip->arb_check_work,
-			qpnp_chg_arb_check_worker);
-	}
-
-	/* Assign flags to enable them in various places of the driver */
-	if (chip->revision > SMBB_REVISION_1)
+	if (chip->revision > 0)
 		chip->flags |= CHG_FLAGS_VCP_WA;
-	if (chip->revision <= SMBB_REVISION_2)
-		chip->flags |= CHG_FLAGS_ARB_WA;
-	pr_debug("revision 0x%x flags 0x%x\n", chip->revision, chip->flags);
-
-	return rc;
 }
 
 #define WDOG_EN_BIT	BIT(7)
@@ -1188,6 +1074,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 				struct spmi_resource *spmi_resource)
 {
 	int rc = 0;
+	u8 reg;
 
 	switch (subtype) {
 	case SMBB_CHGR_SUBTYPE:
@@ -1324,7 +1211,14 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		rc = qpnp_chg_masked_write(chip,
 			chip->misc_base + CHGR_MISC_BOOT_DONE,
 			CHGR_BOOT_DONE, CHGR_BOOT_DONE, 1);
+		rc = qpnp_chg_read(chip, &reg,
+				 chip->misc_base + MISC_REVISION2, 1);
+		if (rc) {
+			pr_err("failed to read revision register rc=%d\n", rc);
+			return rc;
+		}
 
+		chip->revision = reg;
 		break;
 	default:
 		pr_err("Invalid peripheral subtype\n");
@@ -1546,13 +1440,6 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	chip->batt_psy.external_power_changed =
 				qpnp_batt_external_power_changed;
 
-	/* Turn on appropriate workaround flags */
-	rc = qpnp_chg_setup_flags_and_wa_init(chip);
-	if (rc) {
-		pr_err("failed to setup workaround flags rc=%d\n", rc);
-		goto fail_chg_enable;
-	}
-
 	rc = power_supply_register(chip->dev, &chip->dc_psy);
 	if (rc < 0) {
 		pr_err("power_supply_register usb failed rc = %d\n", rc);
@@ -1565,26 +1452,19 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		goto unregister_dc;
 	}
 
+	/* Turn on appropriate workaround flags */
+	qpnp_chg_setup_flags(chip);
+
 	power_supply_set_present(chip->usb_psy,
 			qpnp_chg_is_usb_chg_plugged_in(chip));
 
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
 	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
 
-	if (qpnp_chg_is_usb_chg_plugged_in(chip)
-			&& (chip->flags & CHG_FLAGS_ARB_WA)) {
-		wake_lock(&chip->arb_wake_lock);
-		schedule_delayed_work(&chip->arb_check_work,
-			round_jiffies_relative(msecs_to_jiffies
-				(ARB_CHECK_WAIT_PERIOD_MS)));
-	}
-
 	pr_info("Probe success !\n");
 	return 0;
 
 unregister_dc:
-	if (chip->flags & CHG_FLAGS_ARB_WA)
-		wake_lock_destroy(&chip->arb_wake_lock);
 	power_supply_unregister(&chip->dc_psy);
 fail_chg_enable:
 	kfree(chip);
