@@ -49,7 +49,7 @@ enum msm_tlmm_register {
 };
 #endif
 
-static int tlmm_msm_summary_irq;
+static int tlmm_msm_summary_irq, nr_direct_connect_irqs;
 
 struct tlmm_field_cfg {
 	enum msm_tlmm_register reg;
@@ -525,7 +525,7 @@ int msm_gpio_install_direct_irq(unsigned gpio, unsigned irq,
 	unsigned long irq_flags;
 	int ngpio = msm_gpio.gpio_chip.ngpio;
 
-	if (gpio >= ngpio || irq >= NR_TLMM_MSM_DIR_CONN_IRQ)
+	if (gpio >= ngpio || irq >= nr_direct_connect_irqs)
 		return -EINVAL;
 
 	spin_lock_irqsave(&tlmm_lock, irq_flags);
@@ -569,8 +569,17 @@ static int __devinit msm_gpio_probe(struct platform_device *pdev)
 			pr_err("%s: Failed to find ngpio property\n", __func__);
 			return ret;
 		}
+		ret = of_property_read_u32(pdev->dev.of_node,
+					"qcom,direct-connect-irqs",
+					&nr_direct_connect_irqs);
+		if (ret) {
+			pr_err("%s: Failed to find qcom,direct-connect-irqs property\n"
+				, __func__);
+			return ret;
+		}
 	} else {
 		ngpio = pdata->ngpio;
+		nr_direct_connect_irqs = pdata->direct_connect_irqs;
 	}
 
 	tlmm_msm_summary_irq = platform_get_irq(pdev, 0);

@@ -42,6 +42,7 @@ struct msm_gpio {
 
 struct msm_gpio_pdata {
 	int ngpio;
+	int direct_connect_irqs;
 };
 
 /**
