@@ -82,12 +82,16 @@
 #define MODE_NONREALTIME 0
 
 #define NUM_SMD_DATA_CHANNELS 3
-#define NUM_SMD_CONTROL_CHANNELS 3
+#define NUM_SMD_CONTROL_CHANNELS NUM_SMD_DATA_CHANNELS
 #define NUM_SMD_DCI_CHANNELS 1
+#define NUM_SMD_CMD_CHANNELS 1
+#define NUM_SMD_DCI_CMD_CHANNELS 1
 
 #define SMD_DATA_TYPE 0
 #define SMD_CNTL_TYPE 1
 #define SMD_DCI_TYPE 2
+#define SMD_CMD_TYPE 3
+#define SMD_DCI_CMD_TYPE 4
 
 /* Maximum number of pkt reg supported at initialization*/
 extern int diag_max_reg;
@@ -221,6 +225,7 @@ struct diagchar_dev {
 	struct diag_write_device *buf_tbl;
 	unsigned int buf_tbl_size;
 	int use_device_tree;
+	int supports_separate_cmdrsp;
 	/* DCI related variables */
 	struct dci_pkt_req_tracking_tbl *req_tracking_tbl;
 	struct diag_dci_client_tbl *dci_client_tbl;
@@ -263,6 +268,9 @@ struct diagchar_dev {
 	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
 	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
 	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
+	struct diag_smd_info smd_cmd[NUM_SMD_CMD_CHANNELS];
+	struct diag_smd_info smd_dci_cmd[NUM_SMD_DCI_CMD_CHANNELS];
+	int separate_cmdrsp[NUM_SMD_CONTROL_CHANNELS];
 	unsigned char *usb_buf_out;
 	unsigned char *apps_rsp_buf;
 	/* buffer for updating mask to peripherals */

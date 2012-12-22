@@ -58,14 +58,14 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 		pr_debug("diag: bytes read = %d, single dci pkt len = %d\n",
 			read_bytes, dci_pkt_len);
 		/* print_hex_dump(KERN_DEBUG, "Single DCI packet :",
-		 DUMP_PREFIX_ADDRESS, 16, 1, buf, 5 + dci_pkt_len, 1);*/
+		 DUMP_PREFIX_ADDRESS, 16, 1, buf, 5 + dci_pkt_len, 1); */
 		recv_pkt_cmd_code = *(uint8_t *)(buf+4);
 		if (recv_pkt_cmd_code == LOG_CMD_CODE)
 			extract_dci_log(buf+4);
 		else if (recv_pkt_cmd_code == EVENT_CMD_CODE)
 			extract_dci_events(buf+4);
 		else
-			extract_dci_pkt_rsp(buf); /* pkt response */
+			extract_dci_pkt_rsp(smd_info, buf); /* pkt response */
 		read_bytes += 5 + dci_pkt_len;
 		buf += 5 + dci_pkt_len; /* advance to next DCI pkt */
 	}
@@ -83,7 +83,7 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 	return 0;
 }
 
-void extract_dci_pkt_rsp(unsigned char *buf)
+void extract_dci_pkt_rsp(struct diag_smd_info *smd_info, unsigned char *buf)
 {
 	int i = 0, index = -1, cmd_code_len = 1;
 	int curr_client_pid = 0, write_len;
@@ -95,6 +95,7 @@ void extract_dci_pkt_rsp(unsigned char *buf)
 	if (recv_pkt_cmd_code != DCI_PKT_RSP_CODE)
 		cmd_code_len = 4; /* delayed response */
 	write_len = (int)(*(uint16_t *)(buf+2)) - cmd_code_len;
+
 	pr_debug("diag: len = %d\n", write_len);
 	/* look up DCI client with tag */
 	for (i = 0; i < dci_max_reg; i++) {
@@ -139,8 +140,7 @@ void extract_dci_pkt_rsp(unsigned char *buf)
 			buf+4+cmd_code_len, write_len);
 		entry->data_len += write_len;
 		/* delete immediate response entry */
-		if (driver->smd_dci[MODEM_DATA].
-			buf_in_1[8+cmd_code_len] != 0x80)
+		if (smd_info->buf_in_1[8+cmd_code_len] != 0x80)
 			driver->req_tracking_tbl[index].pid = 0;
 	}
 }
@@ -372,26 +372,6 @@ void diag_dci_notify_client(int peripheral_mask, int data)
 	} /* end of loop for all DCI clients */
 }
 
-static int diag_dci_probe(struct platform_device *pdev)
-{
-	int err = 0;
-	int index;
-
-	if (pdev->id == SMD_APPS_MODEM) {
-		index = MODEM_DATA;
-		err = smd_open("DIAG_2", &driver->smd_dci[index].ch,
-					&driver->smd_dci[index],
-					diag_smd_notify);
-		driver->smd_dci[index].ch_save =
-					driver->smd_dci[index].ch;
-		if (err)
-			pr_err("diag: In %s, cannot open DCI port, Id = %d, err: %d\n",
-				__func__, pdev->id, err);
-	}
-
-	return err;
-}
-
 int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 					 int len, int index)
 {
@@ -418,9 +398,12 @@ int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 	driver->apps_dci_buf[9+len] = CONTROL_CHAR; /* end */
 
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
-		if (entry.client_id == driver->smd_dci[i].peripheral) {
-			if (driver->smd_dci[i].ch) {
-				smd_write(driver->smd_dci[i].ch,
+		struct diag_smd_info *smd_info = driver->separate_cmdrsp[i] ?
+					&driver->smd_dci_cmd[i] :
+					&driver->smd_dci[i];
+		if (entry.client_id == smd_info->peripheral) {
+			if (smd_info->ch) {
+				smd_write(smd_info->ch,
 					driver->apps_dci_buf, len + 10);
 				status = DIAG_DCI_NO_ERROR;
 			}
@@ -1000,6 +983,49 @@ void create_dci_event_mask_tbl(unsigned char *tbl_buf)
 	memset(tbl_buf, 0, 512);
 }
 
+static int diag_dci_probe(struct platform_device *pdev)
+{
+	int err = 0;
+	int index;
+
+	if (pdev->id == SMD_APPS_MODEM) {
+		index = MODEM_DATA;
+		err = smd_open("DIAG_2",
+			&driver->smd_dci[index].ch,
+			&driver->smd_dci[index],
+			diag_smd_notify);
+		driver->smd_dci[index].ch_save =
+			driver->smd_dci[index].ch;
+		if (err)
+			pr_err("diag: In %s, cannot open DCI port, Id = %d, err: %d\n",
+				__func__, pdev->id, err);
+	}
+
+	return err;
+}
+
+static int diag_dci_cmd_probe(struct platform_device *pdev)
+{
+	int err = 0;
+	int index;
+
+	if (pdev->id == SMD_APPS_MODEM) {
+		index = MODEM_DATA;
+		err = smd_named_open_on_edge("DIAG_2_CMD",
+			pdev->id,
+			&driver->smd_dci_cmd[index].ch,
+			&driver->smd_dci_cmd[index],
+			diag_smd_notify);
+		driver->smd_dci_cmd[index].ch_save =
+			driver->smd_dci_cmd[index].ch;
+		if (err)
+			pr_err("diag: In %s, cannot open DCI port, Id = %d, err: %d\n",
+				__func__, pdev->id, err);
+	}
+
+	return err;
+}
+
 static int diag_dci_runtime_suspend(struct device *dev)
 {
 	dev_dbg(dev, "pm_runtime: suspending...\n");
@@ -1020,9 +1046,18 @@ static const struct dev_pm_ops diag_dci_dev_pm_ops = {
 struct platform_driver msm_diag_dci_driver = {
 	.probe = diag_dci_probe,
 	.driver = {
-			.name = "DIAG_2",
-			.owner = THIS_MODULE,
-			.pm   = &diag_dci_dev_pm_ops,
+		.name = "DIAG_2",
+		.owner = THIS_MODULE,
+		.pm   = &diag_dci_dev_pm_ops,
+	},
+};
+
+struct platform_driver msm_diag_dci_cmd_driver = {
+	.probe = diag_dci_cmd_probe,
+	.driver = {
+		.name = "DIAG_2_CMD",
+		.owner = THIS_MODULE,
+		.pm   = &diag_dci_dev_pm_ops,
 	},
 };
 
@@ -1040,10 +1075,19 @@ int diag_dci_init(void)
 	mutex_init(&dci_health_mutex);
 
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
-		success = diag_smd_constructor(&driver->smd_dci[i],
-					i, SMD_DCI_TYPE);
+		success = diag_smd_constructor(&driver->smd_dci[i], i,
+							SMD_DCI_TYPE);
 		if (!success)
 			goto err;
+	}
+
+	if (driver->supports_separate_cmdrsp) {
+		for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++) {
+			success = diag_smd_constructor(&driver->smd_dci_cmd[i],
+							i, SMD_DCI_CMD_TYPE);
+			if (!success)
+				goto err;
+		}
 	}
 
 	if (driver->req_tracking_tbl == NULL) {
@@ -1069,6 +1113,13 @@ int diag_dci_init(void)
 		pr_err("diag: Could not register DCI driver\n");
 		goto err;
 	}
+	if (driver->supports_separate_cmdrsp) {
+		success = platform_driver_register(&msm_diag_dci_cmd_driver);
+		if (success) {
+			pr_err("diag: Could not register DCI cmd driver\n");
+			goto err;
+		}
+	}
 	return DIAG_DCI_NO_ERROR;
 err:
 	pr_err("diag: Could not initialize diag DCI buffers");
@@ -1077,6 +1128,11 @@ err:
 	kfree(driver->apps_dci_buf);
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
 		diag_smd_destructor(&driver->smd_dci[i]);
+
+	if (driver->supports_separate_cmdrsp)
+		for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++)
+			diag_smd_destructor(&driver->smd_dci_cmd[i]);
+
 	if (driver->diag_dci_wq)
 		destroy_workqueue(driver->diag_dci_wq);
 	return DIAG_DCI_NO_REG;
@@ -1096,6 +1152,12 @@ void diag_dci_exit(void)
 			kfree(driver->dci_client_tbl[i].dci_data);
 	}
 
+	if (driver->supports_separate_cmdrsp) {
+		for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++)
+			diag_smd_destructor(&driver->smd_dci_cmd[i]);
+
+		platform_driver_unregister(&msm_diag_dci_cmd_driver);
+	}
 	kfree(driver->req_tracking_tbl);
 	kfree(driver->dci_client_tbl);
 	kfree(driver->apps_dci_buf);
