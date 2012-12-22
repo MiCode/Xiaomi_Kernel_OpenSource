@@ -16,6 +16,9 @@
 #define NO_PROCESS	0
 #define NON_APPS_PROC	-1
 
+#define RESET_AND_NO_QUEUE 0
+#define RESET_AND_QUEUE 1
+
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 	((((bufStart) <= (start)) && ((end) - (start) >= (length))) ? 1 : 0)
 
@@ -49,6 +52,7 @@ int diag_command_reg(unsigned long);
 void diag_cmp_logging_modes_sdio_pipe(int old_mode, int new_mode);
 void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode);
 int diag_process_apps_pkt(unsigned char *buf, int len);
+void diag_reset_smd_data(int queue);
 /* State for diag forwarding */
 #ifdef CONFIG_DIAG_OVER_USB
 int diagfwd_connect(void);

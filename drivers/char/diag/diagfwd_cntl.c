@@ -45,7 +45,6 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd)
 {
 	int data_len = 0, type = -1, count_bytes = 0, j, flag = 0;
-	int feature_mask_len;
 	struct bindpkt_params_per_process *pkt_params =
 		kzalloc(sizeof(struct bindpkt_params_per_process), GFP_KERNEL);
 	struct diag_ctrl_msg *msg;
@@ -116,11 +115,32 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 				pr_err("diag: drop reg proc %d\n",
 						smd_info->peripheral);
 			kfree(pkt_params->params);
-		} else if ((type == DIAG_CTRL_MSG_FEATURE) &&
-				(smd_info->peripheral == MODEM_DATA)) {
-			feature_mask_len = *(int *)(buf + 8);
-			driver->log_on_demand_support = (*(uint8_t *)
-							 (buf + 12)) & 0x04;
+		} else if (type == DIAG_CTRL_MSG_FEATURE &&
+				total_recd >= count_bytes) {
+			uint8_t feature_mask = 0;
+			int feature_mask_len = *(int *)(buf+8);
+			if (feature_mask_len > 0) {
+				feature_mask = *(uint8_t *)(buf+12);
+				if (smd_info->peripheral == MODEM_DATA)
+					driver->log_on_demand_support =
+						feature_mask &
+					F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER;
+				/*
+				 * If apps supports separate cmd/rsp channels
+				 * and the peripheral supports separate cmd/rsp
+				 * channels
+				 */
+				if (driver->supports_separate_cmdrsp &&
+					(feature_mask & F_DIAG_REQ_RSP_CHANNEL))
+					driver->separate_cmdrsp
+						[smd_info->peripheral] =
+							ENABLE_SEPARATE_CMDRSP;
+				else
+					driver->separate_cmdrsp
+						[smd_info->peripheral] =
+							DISABLE_SEPARATE_CMDRSP;
+			}
+			flag = 1;
 		} else if (type != DIAG_CTRL_MSG_REG) {
 			flag = 1;
 		}
@@ -212,39 +232,38 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 {
 	int r = 0;
 	int index = -1;
+	const char *channel_name = NULL;
 
 	/* open control ports only on 8960 & newer targets */
 	if (chk_apps_only()) {
 		if (pdev->id == SMD_APPS_MODEM) {
 			index = MODEM_DATA;
-			r = smd_open("DIAG_CNTL",
-					&driver->smd_cntl[index].ch,
-					&driver->smd_cntl[index],
-					diag_smd_notify);
-			driver->smd_cntl[index].ch_save =
-					driver->smd_cntl[index].ch;
-		} else if (pdev->id == SMD_APPS_QDSP) {
+			channel_name = "DIAG_CNTL";
+		}
+#if defined(CONFIG_MSM_N_WAY_SMD)
+		else if (pdev->id == SMD_APPS_QDSP) {
 			index = LPASS_DATA;
-			r = smd_named_open_on_edge("DIAG_CNTL",
-					SMD_APPS_QDSP,
-					&driver->smd_cntl[index].ch,
-					&driver->smd_cntl[index],
-					diag_smd_notify);
-			driver->smd_cntl[index].ch_save =
-					driver->smd_cntl[index].ch;
-		} else if (pdev->id == SMD_APPS_WCNSS) {
+			channel_name = "DIAG_CNTL";
+		}
+#endif
+		else if (pdev->id == SMD_APPS_WCNSS) {
 			index = WCNSS_DATA;
-			r = smd_named_open_on_edge("APPS_RIVA_CTRL",
-					SMD_APPS_WCNSS,
-					&driver->smd_cntl[index].ch,
-					&driver->smd_cntl[index],
-					diag_smd_notify);
-			driver->smd_cntl[index].ch_save =
-					driver->smd_cntl[index].ch;
+			channel_name = "APPS_RIVA_CTRL";
 		}
 
-		pr_debug("diag: open CNTL port, ID = %d,r = %d\n", pdev->id, r);
+		if (index != -1) {
+			r = smd_named_open_on_edge(channel_name,
+				pdev->id,
+				&driver->smd_cntl[index].ch,
+				&driver->smd_cntl[index],
+				diag_smd_notify);
+			driver->smd_cntl[index].ch_save =
+				driver->smd_cntl[index].ch;
+		}
+		pr_debug("diag: In %s, open SMD CNTL port, Id = %d, r = %d\n",
+			__func__, pdev->id, r);
 	}
+
 	return 0;
 }
 
@@ -269,20 +288,20 @@ static struct platform_driver msm_smd_ch1_cntl_driver = {
 
 	.probe = diag_smd_cntl_probe,
 	.driver = {
-			.name = "DIAG_CNTL",
-			.owner = THIS_MODULE,
-			.pm   = &diagfwd_cntl_dev_pm_ops,
-		   },
+		.name = "DIAG_CNTL",
+		.owner = THIS_MODULE,
+		.pm   = &diagfwd_cntl_dev_pm_ops,
+	},
 };
 
 static struct platform_driver diag_smd_lite_cntl_driver = {
 
 	.probe = diag_smd_cntl_probe,
 	.driver = {
-			.name = "APPS_RIVA_CTRL",
-			.owner = THIS_MODULE,
-			.pm   = &diagfwd_cntl_dev_pm_ops,
-		   },
+		.name = "APPS_RIVA_CTRL",
+		.owner = THIS_MODULE,
+		.pm   = &diagfwd_cntl_dev_pm_ops,
+	},
 };
 
 void diagfwd_cntl_init(void)
@@ -295,20 +314,12 @@ void diagfwd_cntl_init(void)
 	driver->log_on_demand_support = 1;
 	driver->diag_cntl_wq = create_singlethread_workqueue("diag_cntl_wq");
 
-	success = diag_smd_constructor(&driver->smd_cntl[MODEM_DATA],
-					MODEM_DATA, SMD_CNTL_TYPE);
-	if (!success)
-		goto err;
-
-	success = diag_smd_constructor(&driver->smd_cntl[LPASS_DATA],
-					LPASS_DATA, SMD_CNTL_TYPE);
-	if (!success)
-		goto err;
-
-	success = diag_smd_constructor(&driver->smd_cntl[WCNSS_DATA],
-					WCNSS_DATA, SMD_CNTL_TYPE);
-	if (!success)
-		goto err;
+	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+		success = diag_smd_constructor(&driver->smd_cntl[i], i,
+							SMD_CNTL_TYPE);
+		if (!success)
+			goto err;
+	}
 
 	platform_driver_register(&msm_smd_ch1_cntl_driver);
 	platform_driver_register(&diag_smd_lite_cntl_driver);

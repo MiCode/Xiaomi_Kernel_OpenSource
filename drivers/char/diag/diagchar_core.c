@@ -782,7 +782,7 @@ void diag_cmp_logging_modes_sdio_pipe(int old_mode, int new_mode)
 
 int diag_switch_logging(unsigned long ioarg)
 {
-	int i, temp, success = -EINVAL, status;
+	int temp = 0, success = -EINVAL, status = 0;
 	int temp_realtime_mode = driver->real_time_mode;
 	int requested_mode = (int)ioarg;
 
@@ -857,24 +857,13 @@ int diag_switch_logging(unsigned long ioarg)
 
 	if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
 						== NO_LOGGING_MODE) {
-		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
-			driver->smd_data[i].in_busy_1 = 0;
-			driver->smd_data[i].in_busy_2 = 0;
-		}
+		diag_reset_smd_data(RESET_AND_NO_QUEUE);
 		diag_cmp_logging_modes_sdio_pipe(temp, driver->logging_mode);
 		diag_cmp_logging_modes_diagfwd_bridge(temp,
 							driver->logging_mode);
 	} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 						== MEMORY_DEVICE_MODE) {
-		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
-			driver->smd_data[i].in_busy_1 = 0;
-			driver->smd_data[i].in_busy_2 = 0;
-			/* Poll SMD channels to check for data*/
-			if (driver->smd_data[i].ch)
-				queue_work(driver->diag_wq,
-					&(driver->smd_data[i].
-						diag_read_smd_work));
-		}
+		diag_reset_smd_data(RESET_AND_QUEUE);
 		diag_cmp_logging_modes_sdio_pipe(temp,
 						driver->logging_mode);
 		diag_cmp_logging_modes_diagfwd_bridge(temp,
@@ -892,15 +881,7 @@ int diag_switch_logging(unsigned long ioarg)
 	} else if (temp == USB_MODE && driver->logging_mode
 						== MEMORY_DEVICE_MODE) {
 		diagfwd_disconnect();
-		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
-			driver->smd_data[i].in_busy_1 = 0;
-			driver->smd_data[i].in_busy_2 = 0;
-			/* Poll SMD channels to check for data*/
-			if (driver->smd_data[i].ch)
-				queue_work(driver->diag_wq,
-					&(driver->smd_data[i].
-						diag_read_smd_work));
-		}
+		diag_reset_smd_data(RESET_AND_QUEUE);
 		diag_cmp_logging_modes_sdio_pipe(temp, driver->logging_mode);
 		diag_cmp_logging_modes_diagfwd_bridge(temp,
 						driver->logging_mode);
@@ -964,9 +945,13 @@ long diagchar_ioctl(struct file *filp,
 			return -EFAULT;
 		}
 		mutex_lock(&driver->dci_mutex);
-		if (!(driver->num_dci_client))
+		if (!(driver->num_dci_client)) {
 			for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
 				driver->smd_dci[i].in_busy_1 = 0;
+			if (driver->supports_separate_cmdrsp)
+				for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++)
+					driver->smd_dci_cmd[i].in_busy_1 = 0;
+		}
 		driver->num_dci_client++;
 		pr_debug("diag: In %s, id = %d\n",
 				__func__, driver->dci_client_id);
@@ -1206,7 +1191,7 @@ drop:
 			}
 		}
 
-		/* copy modem data */
+		/* Copy peripheral data */
 		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
 			struct diag_smd_info *data = &driver->smd_data[i];
 			if (data->in_busy_1 == 1) {
@@ -1238,6 +1223,37 @@ drop:
 					clear_read_wakelock++;
 				}
 				data->in_busy_2 = 0;
+			}
+		}
+		if (driver->supports_separate_cmdrsp) {
+			for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++) {
+				struct diag_smd_info *data =
+						&driver->smd_cmd[i];
+				if (!driver->separate_cmdrsp[i])
+					continue;
+
+				if (data->in_busy_1 == 1) {
+					num_data++;
+					/*Copy the length of data being passed*/
+					COPY_USER_SPACE_OR_EXIT(buf+ret,
+						(data->write_ptr_1->length), 4);
+					/*Copy the actual data being passed*/
+					COPY_USER_SPACE_OR_EXIT(buf+ret,
+						*(data->buf_in_1),
+						data->write_ptr_1->length);
+					data->in_busy_1 = 0;
+				}
+				if (data->in_busy_2 == 1) {
+					num_data++;
+					/*Copy the length of data being passed*/
+					COPY_USER_SPACE_OR_EXIT(buf+ret,
+						(data->write_ptr_2->length), 4);
+					/*Copy the actual data being passed*/
+					COPY_USER_SPACE_OR_EXIT(buf+ret,
+						*(data->buf_in_2),
+						data->write_ptr_2->length);
+					data->in_busy_2 = 0;
+				}
 			}
 		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
@@ -1359,6 +1375,17 @@ drop:
 			if (driver->smd_dci[i].ch)
 				queue_work(driver->diag_dci_wq,
 				&(driver->smd_dci[i].diag_read_smd_work));
+		}
+		if (driver->supports_separate_cmdrsp) {
+			for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++) {
+				if (!driver->separate_cmdrsp[i])
+					continue;
+				driver->smd_dci_cmd[i].in_busy_1 = 0;
+				if (driver->smd_dci_cmd[i].ch)
+					queue_work(driver->diag_dci_wq,
+						&(driver->smd_dci_cmd[i].
+							diag_read_smd_work));
+			}
 		}
 		goto exit;
 	}

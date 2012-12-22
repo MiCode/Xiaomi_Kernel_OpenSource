@@ -27,7 +27,6 @@ int diag_event_num_bytes;
 #define MAX_SSID_PER_RANGE	100
 
 #define FEATURE_MASK_LEN_BYTES		1
-#define APPS_RESPOND_LOG_ON_DEMAND	0x04
 
 struct mask_info {
 	int equip_id;
@@ -46,13 +45,6 @@ do {									\
 	msg_mask_tbl_ptr += 4;						\
 	/* increment by MAX_SSID_PER_RANGE cells */			\
 	msg_mask_tbl_ptr += MAX_SSID_PER_RANGE * sizeof(int);		\
-} while (0)
-
-#define WAIT_FOR_SMD(num_delays, delay_time)		\
-do {							\
-	int count;					\
-	for (count = 0; count < (num_delays); count++)	\
-		udelay((delay_time));			\
 } while (0)
 
 static void diag_print_mask_table(void)
@@ -312,7 +304,7 @@ void diag_mask_update_fn(struct work_struct *work)
 						smd_info->peripheral);
 	diag_send_log_mask_update(smd_info->ch, ALL_EQUIP_ID);
 	diag_send_event_mask_update(smd_info->ch, diag_event_num_bytes);
-	diag_send_feature_mask_update(smd_info->ch, smd_info->peripheral);
+	diag_send_feature_mask_update(smd_info);
 
 	if (smd_info->notify_context == SMD_EVENT_OPEN)
 		diag_send_diag_mode_update_by_smd(smd_info, MODE_REALTIME);
@@ -352,7 +344,7 @@ void diag_send_log_mask_update(smd_channel_t *ch, int equip_id)
 							 header_size + size);
 					if (wr_size == -ENOMEM) {
 						retry_count++;
-						WAIT_FOR_SMD(5, 2000);
+						usleep_range(10000, 10100);
 					} else
 						break;
 				}
@@ -397,7 +389,7 @@ void diag_send_event_mask_update(smd_channel_t *ch, int num_bytes)
 			wr_size = smd_write(ch, buf, header_size + num_bytes);
 			if (wr_size == -ENOMEM) {
 				retry_count++;
-				WAIT_FOR_SMD(5, 2000);
+				usleep_range(10000, 10100);
 			} else
 				break;
 		}
@@ -447,7 +439,7 @@ void diag_send_msg_mask_update(smd_channel_t *ch, int updated_ssid_first,
 					 4*(driver->msg_mask->msg_mask_size));
 					if (size == -ENOMEM) {
 						retry_count++;
-						WAIT_FOR_SMD(5, 2000);
+						usleep_range(10000, 10100);
 					} else
 						break;
 				}
@@ -468,12 +460,25 @@ void diag_send_msg_mask_update(smd_channel_t *ch, int updated_ssid_first,
 	mutex_unlock(&driver->diag_cntl_mutex);
 }
 
-void diag_send_feature_mask_update(smd_channel_t *ch, int proc)
+void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 {
 	void *buf = driver->buf_feature_mask_update;
 	int header_size = sizeof(struct diag_ctrl_feature_mask);
-	int wr_size = -ENOMEM, retry_count = 0, timer;
+	int wr_size = -ENOMEM, retry_count = 0;
 	uint8_t feature_byte = 0;
+	int total_len = 0;
+
+	if (!smd_info) {
+		pr_err("diag: In %s, null smd info pointer\n",
+			__func__);
+		return;
+	}
+
+	if (!smd_info->ch) {
+		pr_err("diag: In %s, smd channel not open for peripheral: %d, type: %d\n",
+				__func__, smd_info->peripheral, smd_info->type);
+		return;
+	}
 
 	mutex_lock(&driver->diag_cntl_mutex);
 	/* send feature mask update */
@@ -482,27 +487,32 @@ void diag_send_feature_mask_update(smd_channel_t *ch, int proc)
 	driver->feature_mask->feature_mask_len = FEATURE_MASK_LEN_BYTES;
 	memcpy(buf, driver->feature_mask, header_size);
 	feature_byte |= F_DIAG_INT_FEATURE_MASK;
-	feature_byte |= APPS_RESPOND_LOG_ON_DEMAND;
+	feature_byte |= F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER;
+	feature_byte |= driver->supports_separate_cmdrsp ?
+				F_DIAG_REQ_RSP_CHANNEL : 0;
 	memcpy(buf+header_size, &feature_byte, FEATURE_MASK_LEN_BYTES);
+	total_len = header_size + FEATURE_MASK_LEN_BYTES;
 
-	if (ch) {
-		while (retry_count < 3) {
-			wr_size = smd_write(ch, buf, header_size +
-						FEATURE_MASK_LEN_BYTES);
-			if (wr_size == -ENOMEM) {
-				retry_count++;
-				for (timer = 0; timer < 5; timer++)
-					udelay(2000);
-			} else
-				break;
-		}
-		if (wr_size != header_size + FEATURE_MASK_LEN_BYTES)
-			pr_err("diag: proc %d fail feature update %d, tried %d",
-			   proc, wr_size, header_size + FEATURE_MASK_LEN_BYTES);
-	} else
-		pr_err("diag: ch invalid, feature update on proc %d\n", proc);
+	while (retry_count < 3) {
+		wr_size = smd_write(smd_info->ch, buf, total_len);
+		if (wr_size == -ENOMEM) {
+			retry_count++;
+			/*
+			 * The smd channel is full. Delay while
+			 * smd processes existing data and smd
+			 * has memory become available. The delay
+			 * of 10000 was determined empirically as
+			 * best value to use.
+			 */
+			usleep_range(10000, 10100);
+		} else
+			break;
+	}
+	if (wr_size != total_len)
+		pr_err("diag: In %s, peripheral %d fail feature update, size: %d, tried: %d",
+			__func__, smd_info->peripheral, wr_size, total_len);
+
 	mutex_unlock(&driver->diag_cntl_mutex);
-
 }
 
 int diag_process_apps_masks(unsigned char *buf, int len)
