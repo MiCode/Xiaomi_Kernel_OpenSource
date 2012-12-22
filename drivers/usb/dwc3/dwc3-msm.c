@@ -590,7 +590,6 @@ int msm_data_fifo_config(struct usb_ep *ep, u32 addr, u32 size, u8 dst_pipe_idx)
 static void dwc3_msm_req_complete_func(struct usb_ep *ep,
 				       struct usb_request *request)
 {
-	struct dwc3_request *req = to_dwc3_request(request);
 	struct dwc3_ep *dep = to_dwc3_ep(ep);
 	struct dwc3_msm_req_complete *req_complete = NULL;
 
@@ -613,8 +612,7 @@ static void dwc3_msm_req_complete_func(struct usb_ep *ep,
 	 * (normal and link), and the dwc3/gadget.c :: dwc3_gadget_giveback
 	 * released only one.
 	 */
-	if (req->queued)
-		dep->busy_slot++;
+	dep->busy_slot++;
 
 	/* Unconfigure dbm ep */
 	dwc3_msm_dbm_ep_unconfig(dep->number);
