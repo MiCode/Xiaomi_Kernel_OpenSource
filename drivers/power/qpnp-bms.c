@@ -89,7 +89,7 @@
 struct soc_params {
 	int		fcc_uah;
 	int		cc_uah;
-	int		rbatt;
+	int		rbatt_mohm;
 	int		iavg_ua;
 	int		uuc_uah;
 	int		ocv_charge_uah;
@@ -174,6 +174,7 @@ struct qpnp_bms_chip {
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
 
+	int				ibat_max_ua;
 	int				prev_iavg_ua;
 	int				prev_uuc_iavg_ma;
 	int				prev_pc_unusable;
@@ -199,6 +200,7 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 };
 
@@ -855,7 +857,7 @@ static int adjust_uuc(struct qpnp_bms_chip *chip,
 		new_unusable_mv = chip->v_cutoff_uv/1000;
 
 	new_iavg_ma = (new_unusable_mv * 1000 - chip->v_cutoff_uv)
-						/ params->rbatt;
+						/ params->rbatt_mohm;
 	if (new_iavg_ma == 0)
 		new_iavg_ma = 1;
 	chip->prev_uuc_iavg_ma = new_iavg_ma;
@@ -1002,7 +1004,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 							/ params->fcc_uah;
 	if (soc_rbatt < 0)
 		soc_rbatt = 0;
-	params->rbatt = get_rbatt(chip, soc_rbatt, batt_temp);
+	params->rbatt_mohm = get_rbatt(chip, soc_rbatt, batt_temp);
 
 	calculate_iavg(chip, params->cc_uah, &params->iavg_ua);
 
@@ -1213,7 +1215,11 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 
 	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
 
-	ocv_est_uv = vbat_uv + (ibat_ua * params->rbatt)/1000;
+	ocv_est_uv = vbat_uv + (ibat_ua * params->rbatt_mohm)/1000;
+
+	chip->ibat_max_ua = (ocv_est_uv - chip->v_cutoff_uv) * 1000
+					/ (params->rbatt_mohm);
+
 	pc_est = calculate_pc(chip, ocv_est_uv, batt_temp);
 	soc_est = div_s64((s64)params->fcc_uah * pc_est - params->uuc_uah*100,
 				(s64)params->fcc_uah - params->uuc_uah);
@@ -1308,7 +1314,7 @@ out:
 	pr_debug("ibat_ua = %d, vbat_uv = %d, ocv_est_uv = %d, pc_est = %d, soc_est = %d, n = %d, delta_ocv_uv = %d, last_ocv_uv = %d, pc_new = %d, soc_new = %d, rbatt = %d, slope = %d\n",
 		ibat_ua, vbat_uv, ocv_est_uv, pc_est,
 		soc_est, n, delta_ocv_uv, chip->last_ocv_uv,
-		pc_new, soc_new, params->rbatt, slope);
+		pc_new, soc_new, params->rbatt_mohm, slope);
 
 	return soc;
 }
@@ -1713,10 +1719,15 @@ static int get_prop_bms_capacity(struct qpnp_bms_chip *chip)
 	return report_state_of_charge(chip);
 }
 
+/* Returns estimated max current that the battery can supply in uA */
+static int get_prop_bms_current_max(struct qpnp_bms_chip *chip)
+{
+	return chip->ibat_max_ua;
+}
+
 /* Returns instantaneous current in uA */
 static int get_prop_bms_current_now(struct qpnp_bms_chip *chip)
 {
-	/* temporarily return 0 until a real algorithm is put in */
 	int rc, result_ua;
 
 	rc = get_battery_current(chip, &result_ua);
@@ -1770,6 +1781,9 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_prop_bms_current_now(chip);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = get_prop_bms_current_max(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_bms_charge_full_design(chip);
