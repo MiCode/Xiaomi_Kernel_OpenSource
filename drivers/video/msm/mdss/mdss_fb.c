@@ -393,6 +393,8 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
 
+	INIT_COMPLETION(mfd->power_set_comp);
+	mfd->is_power_setting = true;
 	pr_debug("mdss_fb resume index=%d\n", mfd->index);
 
 	mdss_fb_pan_idle(mfd);
@@ -414,6 +416,8 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 		if (mfd->vsync_pending)
 			mdss_mdp_overlay_vsync_ctrl(mfd, mfd->vsync_pending);
 	}
+	mfd->is_power_setting = false;
+	complete_all(&mfd->power_set_comp);
 
 	return ret;
 }
@@ -921,6 +925,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	init_completion(&mfd->update.comp);
 	init_completion(&mfd->no_update.comp);
 	init_completion(&mfd->commit_comp);
+	init_completion(&mfd->power_set_comp);
 	INIT_WORK(&mfd->commit_work, mdss_fb_commit_wq_handler);
 	mfd->msm_fb_backup = kzalloc(sizeof(struct msm_fb_backup_type),
 		GFP_KERNEL);
@@ -999,6 +1004,26 @@ static int mdss_fb_release(struct fb_info *info, int user)
 
 	pm_runtime_put(info->dev);
 	return ret;
+}
+
+static void mdss_fb_power_setting_idle(struct msm_fb_data_type *mfd)
+{
+	int ret;
+
+	if (mfd->is_power_setting) {
+		ret = wait_for_completion_timeout(
+				&mfd->power_set_comp,
+			msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT));
+		if (ret < 0)
+			ret = -ERESTARTSYS;
+		else if (!ret)
+			pr_err("%s wait for power_set_comp timeout %d %d",
+				__func__, ret, mfd->is_power_setting);
+		if (ret <= 0) {
+			mfd->is_power_setting = false;
+			complete_all(&mfd->power_set_comp);
+		}
+	}
 }
 
 void mdss_fb_wait_for_fence(struct msm_fb_data_type *mfd)
@@ -1556,6 +1581,7 @@ static int mdss_fb_display_commit(struct fb_info *info,
 	ret = mdss_fb_pan_display_ex(info, &disp_commit);
 	return ret;
 }
+
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
@@ -1568,7 +1594,10 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	int ret = -ENOSYS;
 	struct mdp_buf_sync buf_sync;
 
+	mdss_fb_power_setting_idle(mfd);
+
 	mdss_fb_pan_idle(mfd);
+
 	switch (cmd) {
 	case MSMFB_CURSOR:
 		ret = mdss_fb_cursor(info, argp);
