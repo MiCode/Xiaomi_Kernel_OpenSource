@@ -132,6 +132,8 @@ struct msm_fb_data_type {
 	u32 is_committing;
 	struct work_struct commit_work;
 	void *msm_fb_backup;
+	struct completion power_set_comp;
+	u32 is_power_setting;
 };
 
 struct msm_fb_backup_type {
