@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -855,6 +855,12 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 				r = PTR_ERR(smd_pkt_devp->pil);
 				pr_err("%s failed on smd_pkt_dev id:%d - subsystem_get failed for %s\n",
 					__func__, smd_pkt_devp->i, peripheral);
+				/*
+				 * Sleep inorder to reduce the frequency of
+				 * retry by user-space modules and to avoid
+				 * possible watchdog bite.
+				 */
+				msleep((smd_pkt_devp->open_modem_wait * 1000));
 				goto release_pd;
 			}
 
