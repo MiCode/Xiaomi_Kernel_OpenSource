@@ -340,5 +340,7 @@
 	status = "ok";
 };
 
+/include/ "msm8910-iommu-domains.dtsi"
+
 /include/ "msm8910-regulator.dtsi"
 /include/ "msm-pm8110.dtsi"
