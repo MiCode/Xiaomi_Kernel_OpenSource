@@ -91,6 +91,7 @@ struct f_mbim {
 	struct mbim_ep_descs		hs;
 
 	u8				ctrl_id, data_id;
+	u8				data_alt_int;
 
 	struct ndp_parser_opts		*parser_opts;
 
@@ -1319,6 +1320,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			}
 		}
 
+		mbim->data_alt_int = alt;
 		spin_lock(&mbim->lock);
 		mbim_notify(mbim);
 		spin_unlock(&mbim->lock);
@@ -1351,7 +1353,10 @@ static int mbim_get_alt(struct usb_function *f, unsigned intf)
 
 	if (intf == mbim->ctrl_id)
 		return 0;
-	return mbim->bam_port.in->driver_data ? 1 : 0;
+	else if (intf == mbim->data_id)
+		return mbim->data_alt_int;
+
+	return -EINVAL;
 }
 
 static void mbim_disable(struct usb_function *f)
@@ -1418,6 +1423,7 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	if (status < 0)
 		goto fail;
 	mbim->data_id = status;
+	mbim->data_alt_int = 0;
 
 	mbim_data_nop_intf.bInterfaceNumber = status;
 	mbim_data_intf.bInterfaceNumber = status;
