@@ -73,6 +73,7 @@ static struct clk *ipa_clk_src;
 static struct clk *ipa_clk;
 static struct clk *sys_noc_ipa_axi_clk;
 static struct clk *ipa_cnoc_clk;
+static struct clk *ipa_inactivity_clk;
 static struct device *ipa_dev;
 
 struct ipa_context *ipa_ctx;
@@ -1158,6 +1159,13 @@ static int ipa_get_clks(struct device *dev)
 		return -ENODEV;
 	}
 
+	ipa_inactivity_clk = clk_get(dev, "inactivity_clk");
+	if (IS_ERR(ipa_inactivity_clk)) {
+		ipa_inactivity_clk = NULL;
+		IPAERR("fail to get inactivity clk\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
@@ -1192,6 +1200,11 @@ void ipa_enable_clks(void)
 	else
 		WARN_ON(1);
 
+	if (ipa_inactivity_clk)
+		clk_prepare(ipa_inactivity_clk);
+	else
+		WARN_ON(1);
+
 	if (ipa_clk)
 		clk_enable(ipa_clk);
 	else
@@ -1199,6 +1212,11 @@ void ipa_enable_clks(void)
 
 	if (sys_noc_ipa_axi_clk)
 		clk_enable(sys_noc_ipa_axi_clk);
+	else
+		WARN_ON(1);
+
+	if (ipa_inactivity_clk)
+		clk_enable(ipa_inactivity_clk);
 	else
 		WARN_ON(1);
 }
@@ -1211,6 +1229,11 @@ void ipa_enable_clks(void)
 */
 void ipa_disable_clks(void)
 {
+	if (ipa_inactivity_clk)
+		clk_disable_unprepare(ipa_inactivity_clk);
+	else
+		WARN_ON(1);
+
 	if (sys_noc_ipa_axi_clk)
 		clk_disable_unprepare(sys_noc_ipa_axi_clk);
 	else
