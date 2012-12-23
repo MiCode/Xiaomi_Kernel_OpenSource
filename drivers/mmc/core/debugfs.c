@@ -812,7 +812,7 @@ void mmc_add_card_debugfs(struct mmc_card *card)
 				&mmc_dbg_new_req_stats_fops))
 		goto err;
 
-	if (mmc_card_mmc(card) && (card->ext_csd.rev >= 6) &&
+	if (mmc_card_mmc(card) && (card->ext_csd.rev >= 5) &&
 	    card->ext_csd.bkops_en)
 		if (!debugfs_create_file("bkops_stats", S_IRUSR, root, card,
 					 &mmc_dbg_bkops_stats_fops))
