@@ -1534,10 +1534,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 
 	ipa_replenish_rx_cache();
 
-	/* init the filtering block */
-	ipa_commit_flt(IPA_IP_v4);
-	ipa_commit_flt(IPA_IP_v6);
-
 	/*
 	 * setup an empty routing table in system memory, this will be used
 	 * to delete a routing table cleanly and safely
