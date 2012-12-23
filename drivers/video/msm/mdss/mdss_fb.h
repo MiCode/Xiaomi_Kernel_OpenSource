@@ -27,6 +27,8 @@
 #define MSM_FB_MAX_DEV_LIST 32
 
 #define MSM_FB_ENABLE_DBGFS
+/* 900 ms for fence time out */
+#define WAIT_FENCE_TIMEOUT 900
 
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -111,6 +113,18 @@ struct msm_fb_data_type {
 	struct list_head pipes_cleanup;
 	struct disp_info_notify update;
 	struct disp_info_notify no_update;
+
+	u32 acq_fen_cnt;
+	struct sync_fence *acq_fen[MDP_MAX_FENCE_FD];
+	int cur_rel_fen_fd;
+	struct sync_pt *cur_rel_sync_pt;
+	struct sync_fence *cur_rel_fence;
+	struct sync_fence *last_rel_fence;
+	struct sw_sync_timeline *timeline;
+	int timeline_value;
+	u32 last_acq_fen_cnt;
+	struct sync_fence *last_acq_fen[MDP_MAX_FENCE_FD];
+	struct mutex sync_mutex;
 };
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
@@ -118,4 +132,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl);
 void mdss_fb_update_backlight(struct msm_fb_data_type *mfd);
 int mdss_fb_suspend_all(void);
 int mdss_fb_resume_all(void);
+void mdss_fb_wait_for_fence(struct msm_fb_data_type *mfd);
+void mdss_fb_signal_timeline(struct msm_fb_data_type *mfd);
+
 #endif /* MDSS_FB_H */
