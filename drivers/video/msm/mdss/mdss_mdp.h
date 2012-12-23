@@ -129,7 +129,6 @@ struct mdss_mdp_ctl {
 
 	u32 bus_ab_quota;
 	u32 bus_ib_quota;
-	u32 bus_quota;
 	u32 clk_rate;
 
 	struct msm_fb_data_type *mfd;
