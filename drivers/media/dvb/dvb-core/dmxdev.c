@@ -2332,6 +2332,7 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 			dmxdev->dvr_feed = filter;
 		dmxdev->dvr_feeds_count++;
 	} else if (filter->params.pes.output == DMX_OUT_DECODER) {
+		tsfeed->buffer.ringbuff = &filter->buffer;
 		tsfeed->decoder_buffers = &filter->decoder_buffers;
 		tsfeed->buffer.priv_handle = filter->priv_buff_handle;
 	} else {
@@ -2599,11 +2600,8 @@ static int dvb_dmxdev_filter_free(struct dmxdev *dmxdev,
 			vfree(mem);
 	}
 
-	/* Decoder filters do not map buffers via priv_buff_handle */
-	if ((DMXDEV_TYPE_PES == dmxdevfilter->type) &&
-		(DMX_OUT_DECODER != dmxdevfilter->params.pes.output) &&
-		(dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) &&
-		(dmxdevfilter->priv_buff_handle)) {
+	if ((dmxdevfilter->buffer_mode == DMX_BUFFER_MODE_EXTERNAL) &&
+		dmxdevfilter->priv_buff_handle) {
 		dmxdev->demux->unmap_buffer(dmxdev->demux,
 			dmxdevfilter->priv_buff_handle);
 		dmxdevfilter->priv_buff_handle = NULL;
