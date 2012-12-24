@@ -1,0 +1,22 @@
+Firmware Update Function
+========================
+
+Call export function "synaptics_fw_updater" in rmi_fw_update.c to start
+firmware updating process in the driver.
+
+The RMI4 driver uses the kernel's request_firmware() feature to obtain
+firmware for the touch sensor.  The firmware is expected to live in
+the file firmware/<firmware_name>.img.ihex.
+
+To prepare Synaptics provided .img file for reflashing, convert it to .ihex
+format using the following command:
+
+    objcopy -I binary -O ihex <firmware_name>.img firmware/<firmware_name>.img.ihex
+
+Then make sure to add the image file name to the
+CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_RMI4_FW_UPDATE entry in firmware/Makefile.
+If you don't do this, the image file won't be included, and
+the firmware loader class will delay for 60 seconds waiting for a non-existent
+userspace response to the firmware load request.
+
+Firmware updates for multichip solutions (aka LTS) are not supported.
