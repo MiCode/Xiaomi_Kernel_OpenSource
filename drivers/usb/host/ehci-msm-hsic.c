@@ -575,20 +575,53 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 {
 	int ret;
 
-	ret = clk_reset(mehci->core_clk, CLK_RESET_ASSERT);
-	if (ret) {
-		dev_err(mehci->dev, "hsic clk assert failed:%d\n", ret);
-		return;
+	/* alt_core_clk exists in targets that do not use asynchronous reset */
+	if (!IS_ERR(mehci->alt_core_clk)) {
+		ret = clk_reset(mehci->core_clk, CLK_RESET_ASSERT);
+		if (ret) {
+			dev_err(mehci->dev, "hsic clk assert failed:%d\n", ret);
+			return;
+		}
+
+		/* Since a hw bug, turn off the clock before complete reset */
+		clk_disable(mehci->core_clk);
+
+		ret = clk_reset(mehci->core_clk, CLK_RESET_DEASSERT);
+		if (ret)
+			dev_err(mehci->dev, "hsic clk deassert failed:%d\n",
+					ret);
+
+		usleep_range(10000, 12000);
+
+		clk_enable(mehci->core_clk);
+	} else {
+		/* Using asynchronous block reset to the hardware */
+		clk_disable_unprepare(mehci->core_clk);
+		clk_disable_unprepare(mehci->phy_clk);
+		clk_disable_unprepare(mehci->cal_clk);
+		clk_disable_unprepare(mehci->ahb_clk);
+
+		ret = clk_reset(mehci->core_clk, CLK_RESET_ASSERT);
+		if (ret) {
+			dev_err(mehci->dev, "hsic clk assert failed:%d\n", ret);
+			return;
+		}
+		usleep_range(10000, 12000);
+
+		ret = clk_reset(mehci->core_clk, CLK_RESET_DEASSERT);
+		if (ret)
+			dev_err(mehci->dev, "hsic clk deassert failed:%d\n",
+					ret);
+		/*
+		 * Required delay between the deassertion and
+		 *  clock enablement.
+		*/
+		ndelay(200);
+		clk_prepare_enable(mehci->core_clk);
+		clk_prepare_enable(mehci->phy_clk);
+		clk_prepare_enable(mehci->cal_clk);
+		clk_prepare_enable(mehci->ahb_clk);
 	}
-	clk_disable(mehci->core_clk);
-
-	ret = clk_reset(mehci->core_clk, CLK_RESET_DEASSERT);
-	if (ret)
-		dev_err(mehci->dev, "hsic clk deassert failed:%d\n", ret);
-
-	usleep_range(10000, 12000);
-
-	clk_enable(mehci->core_clk);
 }
 
 #define HSIC_STROBE_GPIO_PAD_CTL	(MSM_TLMM_BASE+0x20C0)
@@ -1286,7 +1319,8 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 		return ret;
 	}
 
-	/* alt_core_clk is for LINK to be used during PHY RESET
+	/* alt_core_clk is for LINK to be used during PHY RESET in
+	 * targets on which link does NOT use asynchronous reset methodology.
 	 * clock rate appropriately set by target specific clock driver */
 	mehci->alt_core_clk = clk_get(mehci->dev, "alt_core_clk");
 	if (IS_ERR(mehci->alt_core_clk))
