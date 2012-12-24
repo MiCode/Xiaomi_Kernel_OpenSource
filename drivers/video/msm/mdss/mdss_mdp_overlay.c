@@ -27,10 +27,12 @@
 #include "mdss_mdp_rotator.h"
 
 #define VSYNC_PERIOD 16
+#define BORDERFILL_NDX	0x0BF000BF
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
 
 static atomic_t ov_active_panels = ATOMIC_INIT(0);
+static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 
 static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
 				struct mdp_overlay *req)
@@ -359,7 +361,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 				struct mdp_overlay *req)
 {
-	int ret;
+	int ret = 0;
 
 	ret = mutex_lock_interruptible(&mfd->ov_lock);
 	if (ret)
@@ -372,6 +374,8 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 
 	if (req->flags & MDSS_MDP_ROT_ONLY) {
 		ret = mdss_mdp_overlay_rotator_setup(mfd, req);
+	} else if (req->src.format == MDP_RGB_BORDERFILL) {
+		req->id = BORDERFILL_NDX;
 	} else {
 		struct mdss_mdp_pipe *pipe;
 
@@ -519,6 +523,12 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 	ret = mutex_lock_interruptible(&mfd->ov_lock);
 	if (ret)
 		return ret;
+
+	if (ndx == BORDERFILL_NDX) {
+		pr_debug("borderfill disable\n");
+		mfd->borderfill_enable = false;
+		return 0;
+	}
 
 	if (!mfd->panel_power_on) {
 		mutex_unlock(&mfd->ov_lock);
@@ -677,6 +687,10 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 
 	if (req->id & MDSS_MDP_ROT_SESSION_MASK) {
 		ret = mdss_mdp_overlay_rotate(mfd, req);
+	} else if (req->id == BORDERFILL_NDX) {
+		pr_debug("borderfill enable\n");
+		mfd->borderfill_enable = true;
+		ret = mdss_mdp_overlay_free_fb_pipe(mfd);
 	} else {
 		ret = mdss_mdp_overlay_queue(mfd, req);
 
@@ -690,6 +704,29 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 	mutex_unlock(&mfd->ov_lock);
 
 	return ret;
+}
+
+static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd)
+{
+	struct mdss_mdp_pipe *pipe;
+	u32 fb_ndx = 0;
+
+	pipe = mdss_mdp_mixer_stage_pipe(mfd->ctl, MDSS_MDP_MIXER_MUX_LEFT,
+					 MDSS_MDP_STAGE_BASE);
+	if (pipe)
+		fb_ndx |= pipe->ndx;
+
+	pipe = mdss_mdp_mixer_stage_pipe(mfd->ctl, MDSS_MDP_MIXER_MUX_RIGHT,
+					 MDSS_MDP_STAGE_BASE);
+	if (pipe)
+		fb_ndx |= pipe->ndx;
+
+	if (fb_ndx) {
+		pr_debug("unstaging framebuffer pipes %x\n", fb_ndx);
+		mdss_mdp_overlay_unset(mfd, fb_ndx);
+		mdss_mdp_overlay_kickoff(mfd->ctl);
+	}
+	return 0;
 }
 
 static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
@@ -767,7 +804,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 
 	fbi = mfd->fbi;
 
-	if (fbi->fix.smem_len == 0) {
+	if (fbi->fix.smem_len == 0 || mfd->borderfill_enable) {
 		mdss_mdp_overlay_kickoff(mfd->ctl);
 		return;
 	}
@@ -1194,6 +1231,9 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 
 	rc = mdss_mdp_ctl_off(mfd);
 	if (rc == 0) {
+		if (!mfd->ref_cnt)
+			mfd->borderfill_enable = false;
+
 		if (atomic_dec_return(&ov_active_panels) == 0)
 			mdss_mdp_rotator_release_all();
 	}
