@@ -789,7 +789,7 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 
 	return 0;
 fail:
-	adc_qpnp = NULL;
+	qpnp_iadc = NULL;
 	return rc;
 }
 

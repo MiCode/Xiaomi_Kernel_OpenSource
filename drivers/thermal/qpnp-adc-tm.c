@@ -1488,7 +1488,7 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 
 	return 0;
 fail:
-	adc_qpnp = NULL;
+	qpnp_adc_tm = NULL;
 	return rc;
 }
 
