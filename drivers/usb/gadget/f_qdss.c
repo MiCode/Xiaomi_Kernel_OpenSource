@@ -420,19 +420,16 @@ static void qdss_eps_disable(struct usb_function *f)
 	if (qdss->ctrl_in_enabled) {
 		usb_ep_disable(qdss->ctrl_in);
 		qdss->ctrl_in_enabled = 0;
-		qdss->ctrl_in->driver_data = NULL;
 	}
 
 	if (qdss->ctrl_out_enabled) {
 		usb_ep_disable(qdss->ctrl_out);
 		qdss->ctrl_out_enabled = 0;
-		qdss->ctrl_out->driver_data = NULL;
 	}
 
 	if (qdss->data_enabled) {
 		usb_ep_disable(qdss->data);
 		qdss->data_enabled = 0;
-		qdss->data->driver_data = NULL;
 	}
 }
 
