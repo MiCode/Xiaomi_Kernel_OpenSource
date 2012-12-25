@@ -441,8 +441,9 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 
 static int rndis_qc_bam_disconnect(struct f_rndis_qc *dev)
 {
-	pr_info("dev:%p. %s Do nothing.\n",
-			dev, __func__);
+	pr_debug("dev:%p. %s Disconnect BAM.\n", dev, __func__);
+
+	bam_data_disconnect(&dev->bam_port, 0);
 
 	return 0;
 }
@@ -674,8 +675,12 @@ static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		if (rndis->port.in_ep->driver_data) {
 			DBG(cdev, "reset rndis\n");
-			gether_qc_disconnect_name(&rndis->port, "rndis0");
+			/* rndis->port is needed for disconnecting the BAM data
+			 * path. Only after the BAM data path is disconnected,
+			 * we can disconnect the port from the network layer.
+			 */
 			rndis_qc_bam_disconnect(rndis);
+			gether_qc_disconnect_name(&rndis->port, "rndis0");
 		}
 
 		if (!rndis->port.in_ep->desc || !rndis->port.out_ep->desc) {
@@ -735,8 +740,8 @@ static void rndis_qc_disable(struct usb_function *f)
 	pr_info("rndis deactivated\n");
 
 	rndis_uninit(rndis->config);
-	gether_qc_disconnect_name(&rndis->port, "rndis0");
 	rndis_qc_bam_disconnect(rndis);
+	gether_qc_disconnect_name(&rndis->port, "rndis0");
 
 	usb_ep_disable(rndis->notify);
 	rndis->notify->driver_data = NULL;

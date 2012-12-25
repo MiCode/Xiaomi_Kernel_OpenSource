@@ -324,8 +324,9 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 
 static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
 {
-	pr_debug("dev:%p. %s Do nothing.\n",
-			 dev, __func__);
+	pr_debug("dev:%p. %s Disconnect BAM.\n", dev, __func__);
+
+	bam_data_disconnect(&ecm_qc_bam_port, 0);
 
 	return 0;
 }
@@ -518,8 +519,12 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		if (ecm->port.in_ep->driver_data) {
 			DBG(cdev, "reset ecm\n");
-			gether_qc_disconnect_name(&ecm->port, "ecm0");
+			/* ecm->port is needed for disconnecting the BAM data
+			 * path. Only after the BAM data path is disconnected,
+			 * we can disconnect the port from the network layer.
+			 */
 			ecm_qc_bam_disconnect(ecm);
+			gether_qc_disconnect_name(&ecm->port, "ecm0");
 		}
 
 		if (!ecm->port.in_ep->desc ||
@@ -591,8 +596,8 @@ static void ecm_qc_disable(struct usb_function *f)
 	DBG(cdev, "ecm deactivated\n");
 
 	if (ecm->port.in_ep->driver_data) {
-		gether_qc_disconnect_name(&ecm->port, "ecm0");
 		ecm_qc_bam_disconnect(ecm);
+		gether_qc_disconnect_name(&ecm->port, "ecm0");
 	}
 
 	if (ecm->notify->driver_data) {
