@@ -3354,33 +3354,33 @@ static int dvb_dmxdev_dbgfs_print(struct seq_file *s, void *p)
 
 			seq_printf(s, "filter_%02d - ", i);
 
-		    if (filter->type == DMXDEV_TYPE_SEC) {
+			if (filter->type == DMXDEV_TYPE_SEC) {
 				seq_printf(s, "type: SEC, ");
 				seq_printf(s, "PID %04d ",
 						filter->params.sec.pid);
-		    } else {
+			} else {
 				seq_printf(s, "type: %s, ",
 					pes_feeds[filter->params.pes.output]);
 				seq_printf(s, "PID: %04d ",
 						filter->params.pes.pid);
-		    }
+			}
 
 			if (0 == dvb_dmxdev_get_buffer_status(
 						filter, &buffer_status)) {
-				seq_printf(s, "buffer size: %08d, ",
+				seq_printf(s, "size: %08d, ",
 					buffer_status.size);
-				seq_printf(s, "buffer fullness: %08d\n",
+				seq_printf(s, "fullness: %08d, ",
 					buffer_status.fullness);
-				seq_printf(s, "buffer error: %08d\n",
+				seq_printf(s, "error: %d\n",
 					buffer_status.error);
+			} else {
+				seq_printf(s, "\n");
 			}
 		}
 	}
 
 	if (!active_count)
 		seq_printf(s, "No active filters\n");
-
-	seq_printf(s, "\n");
 
 	return 0;
 }

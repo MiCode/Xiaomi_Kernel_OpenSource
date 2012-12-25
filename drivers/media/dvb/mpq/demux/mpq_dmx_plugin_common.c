@@ -523,6 +523,30 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 			S_IRUGO|S_IWUGO,
 			mpq_demux->demux.dmx.debugfs_demux_dir,
 			&mpq_demux->decoder_drop_count);
+
+		debugfs_create_u32(
+			"decoder_out_count",
+			S_IRUGO|S_IWUGO,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
+			&mpq_demux->decoder_out_count);
+
+		debugfs_create_u32(
+			"decoder_out_interval_sum",
+			S_IRUGO|S_IWUGO,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
+			&mpq_demux->decoder_out_interval_sum);
+
+		debugfs_create_u32(
+			"decoder_out_interval_average",
+			S_IRUGO|S_IWUGO,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
+			&mpq_demux->decoder_out_interval_average);
+
+		debugfs_create_u32(
+			"decoder_out_interval_max",
+			S_IRUGO|S_IWUGO,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
+			&mpq_demux->decoder_out_interval_max);
 	}
 }
 EXPORT_SYMBOL(mpq_dmx_init_hw_statistics);
@@ -2161,6 +2185,9 @@ static int mpq_dmx_process_video_packet_framing(
 				feed->indexing_params.standard,
 				feed_data->last_framing_match_type);
 		if (is_video_frame == 1) {
+			struct timespec curr_time, delta_time;
+			u64 delta_time_ms;
+
 			mpq_dmx_write_pts_dts(feed_data,
 				&(meta_data.info.framing.pts_dts_info));
 			mpq_dmx_save_pts_dts(feed_data);
@@ -2174,6 +2201,34 @@ static int mpq_dmx_process_video_packet_framing(
 				stream_buffer,
 				0,	/* current write buffer handle */
 				&packet.raw_data_handle);
+
+			curr_time = current_kernel_time();
+			if (likely(mpq_demux->decoder_out_count)) {
+				/* calculate time-delta between frame */
+				delta_time = timespec_sub(curr_time,
+				mpq_demux->decoder_out_last_time);
+
+				delta_time_ms =
+				  ((u64)delta_time.tv_sec * MSEC_PER_SEC)
+				  + delta_time.tv_nsec / NSEC_PER_MSEC;
+
+				mpq_demux->decoder_out_interval_sum +=
+				  (u32)delta_time_ms;
+
+				mpq_demux->
+				  decoder_out_interval_average =
+				  mpq_demux->decoder_out_interval_sum /
+				  mpq_demux->decoder_out_count;
+
+				if (delta_time_ms >
+				    mpq_demux->decoder_out_interval_max)
+					mpq_demux->
+						decoder_out_interval_max =
+						delta_time_ms;
+			}
+
+			mpq_demux->decoder_out_last_time = curr_time;
+			mpq_demux->decoder_out_count++;
 
 			/*
 			 * writing meta-data that includes
