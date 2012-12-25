@@ -24,14 +24,11 @@
 /* Max number of section filters */
 #define TSPP_MAX_SECTION_FILTER_NUM	64
 
-/* For each TSIF we allocate two pipes, one for PES and one for sections */
-#define TSPP_PES_CHANNEL			0
-#define TSPP_SECTION_CHANNEL			1
-#define TSPP_CHANNEL_COUNT			2
+/* For each TSIF we use a single pipe holding the data after PID filtering */
+#define TSPP_CHANNEL			0
 
 /* the channel_id set to TSPP driver based on TSIF number and channel type */
 #define TSPP_CHANNEL_ID(tsif, ch)		((tsif << 1) + ch)
-#define TSPP_IS_PES_CHANNEL(ch_id)		((ch_id & 0x1) == 0)
 #define TSPP_GET_TSIF_NUM(ch_id)		(ch_id >> 1)
 
 /* mask that set to care for all bits in pid filter */
@@ -47,9 +44,7 @@
 
 #define TSPP_BUFFER_SIZE		(500 * 1024) /* 500KB */
 
-#define TSPP_PES_BUFFER_SIZE		(TSPP_RAW_TTS_SIZE)
-
-#define TSPP_SECTION_BUFFER_SIZE	(TSPP_RAW_TTS_SIZE)
+#define TSPP_DESCRIPTOR_SIZE	(TSPP_RAW_TTS_SIZE)
 
 #define TSPP_BUFFER_COUNT(buffer_size)	\
 	((buffer_size) / TSPP_RAW_TTS_SIZE)
@@ -76,7 +71,8 @@ static int clock_inv;
 static int tsif_mode = 2;
 static int allocation_mode = MPQ_DMX_TSPP_INTERNAL_ALLOC;
 static int tspp_out_buffer_size = TSPP_BUFFER_SIZE;
-static int tspp_notification_size = TSPP_NOTIFICATION_SIZE(TSPP_RAW_TTS_SIZE);
+static int tspp_notification_size =
+	TSPP_NOTIFICATION_SIZE(TSPP_DESCRIPTOR_SIZE);
 static int tspp_channel_timeout = TSPP_CHANNEL_TIMEOUT;
 
 module_param(tsif_mode, int, S_IRUGO | S_IWUSR);
@@ -95,42 +91,26 @@ static struct
 	/* Information for each TSIF input processing */
 	struct {
 		/*
-		 * TSPP pipe holding all TS packets with PES data.
+		 * TSPP pipe holding all TS packets after PID filtering.
 		 * The following is reference count for number of feeds
 		 * allocated on that pipe.
 		 */
-		int pes_channel_ref;
+		int channel_ref;
 
-		/* Counter for data notifications on PES pipe */
-		atomic_t pes_data_cnt;
-
-		/* ION handle used for TSPP data buffer allocation */
-		struct ion_handle *pes_mem_heap_handle;
-		/* TSPP data buffer heap virtual base address */
-		void *pes_mem_heap_virt_base;
-		/* TSPP data buffer heap physical base address */
-		ion_phys_addr_t pes_mem_heap_phys_base;
-		/* buffer allocation index */
-		int pes_index;
-
-		/*
-		 * TSPP pipe holding all TS packets with section data.
-		 * The following is reference count for number of feeds
-		 * allocated on that pipe.
-		 */
-		int section_channel_ref;
-
-		/* Counter for data notifications on section pipe */
-		atomic_t section_data_cnt;
+		/* Counter for data notifications on the pipe */
+		atomic_t data_cnt;
 
 		/* ION handle used for TSPP data buffer allocation */
-		struct ion_handle *section_mem_heap_handle;
+		struct ion_handle *ch_mem_heap_handle;
+
 		/* TSPP data buffer heap virtual base address */
-		void *section_mem_heap_virt_base;
+		void *ch_mem_heap_virt_base;
+
 		/* TSPP data buffer heap physical base address */
-		ion_phys_addr_t section_mem_heap_phys_base;
+		ion_phys_addr_t ch_mem_heap_phys_base;
+
 		/* buffer allocation index */
-		int section_index;
+		int buff_index;
 
 		u32 buffer_count;
 
@@ -167,29 +147,19 @@ static void *tspp_mem_allocator(int channel_id, u32 size,
 	void *virt_addr = NULL;
 	int i = TSPP_GET_TSIF_NUM(channel_id);
 
-	if (TSPP_IS_PES_CHANNEL(channel_id)) {
-		if (mpq_dmx_tspp_info.tsif[i].pes_index ==
-			mpq_dmx_tspp_info.tsif[i].buffer_count)
-			return NULL;
-		virt_addr =
-			(mpq_dmx_tspp_info.tsif[i].pes_mem_heap_virt_base +
-			(mpq_dmx_tspp_info.tsif[i].pes_index * size));
-		*phys_base =
-			(mpq_dmx_tspp_info.tsif[i].pes_mem_heap_phys_base +
-			(mpq_dmx_tspp_info.tsif[i].pes_index * size));
-		mpq_dmx_tspp_info.tsif[i].pes_index++;
-	} else {
-		if (mpq_dmx_tspp_info.tsif[i].section_index ==
-			mpq_dmx_tspp_info.tsif[i].buffer_count)
-			return NULL;
-		virt_addr =
-			(mpq_dmx_tspp_info.tsif[i].section_mem_heap_virt_base +
-			(mpq_dmx_tspp_info.tsif[i].section_index * size));
-		*phys_base =
-			(mpq_dmx_tspp_info.tsif[i].section_mem_heap_phys_base +
-			(mpq_dmx_tspp_info.tsif[i].section_index * size));
-		mpq_dmx_tspp_info.tsif[i].section_index++;
-	}
+	if (mpq_dmx_tspp_info.tsif[i].buff_index ==
+		mpq_dmx_tspp_info.tsif[i].buffer_count)
+		return NULL;
+
+	virt_addr =
+		(mpq_dmx_tspp_info.tsif[i].ch_mem_heap_virt_base +
+		(mpq_dmx_tspp_info.tsif[i].buff_index * size));
+
+	*phys_base =
+		(mpq_dmx_tspp_info.tsif[i].ch_mem_heap_phys_base +
+		(mpq_dmx_tspp_info.tsif[i].buff_index * size));
+
+	mpq_dmx_tspp_info.tsif[i].buff_index++;
 
 	return virt_addr;
 }
@@ -208,13 +178,8 @@ static void tspp_mem_free(int channel_id, u32 size,
 	 * a few times, then call tspp_mem_free(), then call
 	 * tspp_mem_allocator() again.
 	 */
-	if (TSPP_IS_PES_CHANNEL(channel_id)) {
-		if (mpq_dmx_tspp_info.tsif[i].pes_index > 0)
-			mpq_dmx_tspp_info.tsif[i].pes_index--;
-	} else {
-		if (mpq_dmx_tspp_info.tsif[i].section_index > 0)
-			mpq_dmx_tspp_info.tsif[i].section_index--;
-	}
+	if (mpq_dmx_tspp_info.tsif[i].buff_index > 0)
+		mpq_dmx_tspp_info.tsif[i].buff_index--;
 }
 
 /**
@@ -224,26 +189,14 @@ static void tspp_mem_free(int channel_id, u32 size,
  * @channel_id: The channel allocating filter to
  *
  * Return  filter index or -1 if no filters available
- *
- * To give priority to PES data, for pes filters
- * the table is scanned from high to low priority,
- * and sections from low to high priority. This way TSPP
- * would get a match on PES data filters faster as they
- * are scanned first.
  */
 static int mpq_tspp_get_free_filter_slot(int tsif, int channel_id)
 {
 	int i;
 
-	if (TSPP_IS_PES_CHANNEL(channel_id)) {
-		for (i = 0; i < TSPP_MAX_PID_FILTER_NUM; i++)
-			if (mpq_dmx_tspp_info.tsif[tsif].filters[i].pid == -1)
-				return i;
-	} else {
-		for (i = TSPP_MAX_PID_FILTER_NUM-1; i >= 0; i--)
-			if (mpq_dmx_tspp_info.tsif[tsif].filters[i].pid == -1)
-				return i;
-	}
+	for (i = 0; i < TSPP_MAX_PID_FILTER_NUM; i++)
+		if (mpq_dmx_tspp_info.tsif[tsif].filters[i].pid == -1)
+			return i;
 
 	return -ENOMEM;
 }
@@ -279,18 +232,15 @@ static int mpq_dmx_tspp_thread(void *arg)
 	const struct tspp_data_descriptor *tspp_data_desc;
 	atomic_t *data_cnt;
 	u32 notif_size;
+	int channel_id;
 	int ref_count;
 	int ret;
-	int i;
 	int j;
 
 	do {
 		ret = wait_event_interruptible(
 			mpq_dmx_tspp_info.tsif[tsif].wait_queue,
-			(atomic_read(
-			 &mpq_dmx_tspp_info.tsif[tsif].pes_data_cnt)) ||
-			(atomic_read(
-			 &mpq_dmx_tspp_info.tsif[tsif].section_data_cnt)) ||
+			atomic_read(&mpq_dmx_tspp_info.tsif[tsif].data_cnt) ||
 			kthread_should_stop());
 
 		if ((ret < 0) || kthread_should_stop()) {
@@ -303,65 +253,50 @@ static int mpq_dmx_tspp_thread(void *arg)
 			&mpq_dmx_tspp_info.tsif[tsif].mutex))
 			return -ERESTARTSYS;
 
-		for (i = 0; i < TSPP_CHANNEL_COUNT; i++) {
-			int channel_id = TSPP_CHANNEL_ID(tsif, i);
+		channel_id = TSPP_CHANNEL_ID(tsif, TSPP_CHANNEL);
 
-			if (TSPP_IS_PES_CHANNEL(channel_id)) {
-				ref_count =
-				 mpq_dmx_tspp_info.tsif[tsif].pes_channel_ref;
-				data_cnt =
-				 &mpq_dmx_tspp_info.tsif[tsif].pes_data_cnt;
-			} else {
-				ref_count =
-				 mpq_dmx_tspp_info.tsif[tsif].
-					section_channel_ref;
-				data_cnt =
-				 &mpq_dmx_tspp_info.tsif[tsif].section_data_cnt;
-			}
+		ref_count = mpq_dmx_tspp_info.tsif[tsif].channel_ref;
+		data_cnt = &mpq_dmx_tspp_info.tsif[tsif].data_cnt;
 
-			/* Make sure channel is still active */
-			if (ref_count == 0)
-				continue;
-
-			atomic_dec(data_cnt);
-
-			mpq_demux = mpq_dmx_tspp_info.tsif[tsif].mpq_demux;
-			mpq_demux->hw_notification_size = 0;
-
-			/*
-			 * Go through all filled descriptors
-			 * and perform demuxing on them
-			 */
-			while ((tspp_data_desc =
-				tspp_get_buffer(0, channel_id)) != NULL) {
-				notif_size =
-					tspp_data_desc->size /
-					TSPP_RAW_TTS_SIZE;
-
-				mpq_demux->hw_notification_size +=
-					notif_size;
-
-				for (j = 0; j < notif_size; j++)
-					dvb_dmx_swfilter_packet(
-					 &mpq_demux->demux,
-					 ((u8 *)tspp_data_desc->virt_base) +
-					 j * TSPP_RAW_TTS_SIZE,
-					 ((u8 *)tspp_data_desc->virt_base) +
-					 j * TSPP_RAW_TTS_SIZE + TSPP_RAW_SIZE);
-				/*
-				 * Notify TSPP that the buffer
-				 * is no longer needed
-				 */
-				tspp_release_buffer(0,
-					channel_id, tspp_data_desc->id);
-			}
-
-			if (mpq_demux->hw_notification_size &&
-				(mpq_demux->hw_notification_size <
-				mpq_demux->hw_notification_min_size))
-				mpq_demux->hw_notification_min_size =
-					mpq_demux->hw_notification_size;
+		/* Make sure channel is still active */
+		if (ref_count == 0) {
+			mutex_unlock(&mpq_dmx_tspp_info.tsif[tsif].mutex);
+			continue;
 		}
+
+		atomic_dec(data_cnt);
+
+		mpq_demux = mpq_dmx_tspp_info.tsif[tsif].mpq_demux;
+		mpq_demux->hw_notification_size = 0;
+
+		/*
+		 * Go through all filled descriptors
+		 * and perform demuxing on them
+		 */
+		while ((tspp_data_desc = tspp_get_buffer(0, channel_id))
+				!= NULL) {
+			notif_size = tspp_data_desc->size / TSPP_RAW_TTS_SIZE;
+			mpq_demux->hw_notification_size += notif_size;
+
+			for (j = 0; j < notif_size; j++)
+				dvb_dmx_swfilter_packet(
+				 &mpq_demux->demux,
+				 ((u8 *)tspp_data_desc->virt_base) +
+				 j * TSPP_RAW_TTS_SIZE,
+				 ((u8 *)tspp_data_desc->virt_base) +
+				 j * TSPP_RAW_TTS_SIZE + TSPP_RAW_SIZE);
+			/*
+			 * Notify TSPP that the buffer
+			 * is no longer needed
+			 */
+			tspp_release_buffer(0, channel_id, tspp_data_desc->id);
+		}
+
+		if (mpq_demux->hw_notification_size &&
+			(mpq_demux->hw_notification_size <
+			mpq_demux->hw_notification_min_size))
+			mpq_demux->hw_notification_min_size =
+				mpq_demux->hw_notification_size;
 
 		mutex_unlock(&mpq_dmx_tspp_info.tsif[tsif].mutex);
 	} while (1);
@@ -384,11 +319,7 @@ static void mpq_tspp_callback(int channel_id, void *user)
 	mpq_demux = mpq_dmx_tspp_info.tsif[tsif].mpq_demux;
 	mpq_dmx_update_hw_statistics(mpq_demux);
 
-	if (TSPP_IS_PES_CHANNEL(channel_id))
-		atomic_inc(&mpq_dmx_tspp_info.tsif[tsif].pes_data_cnt);
-	else
-		atomic_inc(&mpq_dmx_tspp_info.tsif[tsif].section_data_cnt);
-
+	atomic_inc(&mpq_dmx_tspp_info.tsif[tsif].data_cnt);
 	wake_up(&mpq_dmx_tspp_info.tsif[tsif].wait_queue);
 }
 
@@ -463,18 +394,9 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 		return 0;
 	}
 
-	/* determine to which pipe the feed should be routed: section or pes */
-	if ((feed->type == DMX_TYPE_PES) || (feed->type == DMX_TYPE_TS)) {
-		channel_id = TSPP_CHANNEL_ID(tsif, TSPP_PES_CHANNEL);
-		channel_ref_count =
-			&mpq_dmx_tspp_info.tsif[tsif].pes_channel_ref;
-		buffer_size = TSPP_PES_BUFFER_SIZE;
-	} else {
-		channel_id = TSPP_CHANNEL_ID(tsif, TSPP_SECTION_CHANNEL);
-		channel_ref_count =
-			&mpq_dmx_tspp_info.tsif[tsif].section_channel_ref;
-		buffer_size = TSPP_SECTION_BUFFER_SIZE;
-	}
+	channel_id = TSPP_CHANNEL_ID(tsif, TSPP_CHANNEL);
+	channel_ref_count = &mpq_dmx_tspp_info.tsif[tsif].channel_ref;
+	buffer_size = TSPP_DESCRIPTOR_SIZE;
 
 	/* check if required TSPP pipe is already allocated or not */
 	if (*channel_ref_count == 0) {
@@ -641,18 +563,9 @@ static int mpq_tspp_dmx_remove_channel(struct dvb_demux_feed *feed)
 	if (mutex_lock_interruptible(&mpq_dmx_tspp_info.tsif[tsif].mutex))
 		return -ERESTARTSYS;
 
-	/* determine to which pipe the feed should be routed: section or pes */
-	if ((feed->type == DMX_TYPE_PES) || (feed->type == DMX_TYPE_TS)) {
-		channel_id = TSPP_CHANNEL_ID(tsif, TSPP_PES_CHANNEL);
-		channel_ref_count =
-			&mpq_dmx_tspp_info.tsif[tsif].pes_channel_ref;
-		data_cnt = &mpq_dmx_tspp_info.tsif[tsif].pes_data_cnt;
-	} else {
-		channel_id = TSPP_CHANNEL_ID(tsif, TSPP_SECTION_CHANNEL);
-		channel_ref_count =
-			&mpq_dmx_tspp_info.tsif[tsif].section_channel_ref;
-		data_cnt = &mpq_dmx_tspp_info.tsif[tsif].section_data_cnt;
-	}
+	channel_id = TSPP_CHANNEL_ID(tsif, TSPP_CHANNEL);
+	channel_ref_count = &mpq_dmx_tspp_info.tsif[tsif].channel_ref;
+	data_cnt = &mpq_dmx_tspp_info.tsif[tsif].data_cnt;
 
 	/* check if required TSPP pipe is already allocated or not */
 	if (*channel_ref_count == 0) {
@@ -921,35 +834,20 @@ static int mpq_tspp_dmx_get_caps(struct dmx_demux *demux,
 
 static void mpq_dmx_tsif_ion_cleanup(int i)
 {
-	mpq_dmx_tspp_info.tsif[i].pes_mem_heap_phys_base = 0;
-	mpq_dmx_tspp_info.tsif[i].section_mem_heap_phys_base = 0;
+	mpq_dmx_tspp_info.tsif[i].ch_mem_heap_phys_base = 0;
 
-	if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle)) {
+	if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].ch_mem_heap_handle)) {
 		if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
-				pes_mem_heap_virt_base))
+				ch_mem_heap_virt_base))
 			ion_unmap_kernel(mpq_dmx_tspp_info.ion_client,
-				mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle);
+				mpq_dmx_tspp_info.tsif[i].ch_mem_heap_handle);
 
 		ion_free(mpq_dmx_tspp_info.ion_client,
-			mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle);
+			mpq_dmx_tspp_info.tsif[i].ch_mem_heap_handle);
 	}
 
-	if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
-			section_mem_heap_handle)) {
-		if (!IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
-					section_mem_heap_virt_base))
-			ion_unmap_kernel(mpq_dmx_tspp_info.ion_client,
-					mpq_dmx_tspp_info.tsif[i].
-						section_mem_heap_handle);
-
-		ion_free(mpq_dmx_tspp_info.ion_client,
-			mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle);
-	}
-
-	mpq_dmx_tspp_info.tsif[i].pes_mem_heap_virt_base = NULL;
-	mpq_dmx_tspp_info.tsif[i].section_mem_heap_virt_base = NULL;
-	mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle = NULL;
-	mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle = NULL;
+	mpq_dmx_tspp_info.tsif[i].ch_mem_heap_virt_base = NULL;
+	mpq_dmx_tspp_info.tsif[i].ch_mem_heap_handle = NULL;
 }
 
 static void mpq_dmx_tspp_ion_cleanup(void)
@@ -980,78 +878,40 @@ static int mpq_tspp_dmx_init(
 			return -EINVAL;
 
 		for (i = 0; i < TSIF_COUNT; i++) {
-			mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle =
+			mpq_dmx_tspp_info.tsif[i].ch_mem_heap_handle =
 				ion_alloc(mpq_dmx_tspp_info.ion_client,
 				 (mpq_dmx_tspp_info.tsif[i].buffer_count *
-				  TSPP_PES_BUFFER_SIZE),
+				  TSPP_DESCRIPTOR_SIZE),
 				 TSPP_RAW_TTS_SIZE,
 				 ION_HEAP(ION_CP_MM_HEAP_ID),
 				 0); /* non-cached */
 			if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
-						pes_mem_heap_handle)) {
+						ch_mem_heap_handle)) {
 				MPQ_DVB_ERR_PRINT("%s: ion_alloc() failed\n",
-						__func__);
-				mpq_dmx_tspp_ion_cleanup();
-				return -ENOMEM;
-			}
-			/* save virtual base address of heap */
-			mpq_dmx_tspp_info.tsif[i].pes_mem_heap_virt_base =
-				ion_map_kernel(mpq_dmx_tspp_info.ion_client,
-					mpq_dmx_tspp_info.tsif[i].
-						pes_mem_heap_handle);
-			if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
-						pes_mem_heap_virt_base)) {
-				MPQ_DVB_ERR_PRINT(
-					"%s: ion_map_kernel() failed\n",
-					__func__);
-				mpq_dmx_tspp_ion_cleanup();
-				return -ENOMEM;
-			}
-			/* save physical base address of heap */
-			result = ion_phys(mpq_dmx_tspp_info.ion_client,
-				mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle,
-				&(mpq_dmx_tspp_info.tsif[i].
-					pes_mem_heap_phys_base), &len);
-			if (result < 0) {
-				MPQ_DVB_ERR_PRINT("%s: ion_phys() failed\n",
 						__func__);
 				mpq_dmx_tspp_ion_cleanup();
 				return -ENOMEM;
 			}
 
-			mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle =
-				ion_alloc(mpq_dmx_tspp_info.ion_client,
-				 (mpq_dmx_tspp_info.tsif[i].buffer_count *
-				  TSPP_SECTION_BUFFER_SIZE),
-				 TSPP_RAW_TTS_SIZE,
-				 ION_HEAP(ION_CP_MM_HEAP_ID),
-				 0); /* non-cached */
-			if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
-						section_mem_heap_handle)) {
-				MPQ_DVB_ERR_PRINT("%s: ion_alloc() failed\n",
-						__func__);
-				mpq_dmx_tspp_ion_cleanup();
-				return -ENOMEM;
-			}
 			/* save virtual base address of heap */
-			mpq_dmx_tspp_info.tsif[i].section_mem_heap_virt_base =
+			mpq_dmx_tspp_info.tsif[i].ch_mem_heap_virt_base =
 				ion_map_kernel(mpq_dmx_tspp_info.ion_client,
-				mpq_dmx_tspp_info.tsif[i].
-					section_mem_heap_handle);
+					mpq_dmx_tspp_info.tsif[i].
+						ch_mem_heap_handle);
 			if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[i].
-					section_mem_heap_virt_base)) {
+						ch_mem_heap_virt_base)) {
 				MPQ_DVB_ERR_PRINT(
 					"%s: ion_map_kernel() failed\n",
 					__func__);
 				mpq_dmx_tspp_ion_cleanup();
 				return -ENOMEM;
 			}
+
 			/* save physical base address of heap */
 			result = ion_phys(mpq_dmx_tspp_info.ion_client,
-				mpq_dmx_tspp_info.tsif[i].
-					section_mem_heap_handle,
+				mpq_dmx_tspp_info.tsif[i].ch_mem_heap_handle,
 				&(mpq_dmx_tspp_info.tsif[i].
-					section_mem_heap_phys_base), &len);
+					ch_mem_heap_phys_base), &len);
 			if (result < 0) {
 				MPQ_DVB_ERR_PRINT("%s: ion_phys() failed\n",
 						__func__);
@@ -1145,19 +1005,12 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 		mpq_dmx_tspp_info.tsif[i].buffer_count =
 				TSPP_BUFFER_COUNT(tspp_out_buffer_size);
 
-		mpq_dmx_tspp_info.tsif[i].pes_channel_ref = 0;
-		mpq_dmx_tspp_info.tsif[i].pes_index = 0;
-		mpq_dmx_tspp_info.tsif[i].pes_mem_heap_handle = NULL;
-		mpq_dmx_tspp_info.tsif[i].pes_mem_heap_virt_base = NULL;
-		mpq_dmx_tspp_info.tsif[i].pes_mem_heap_phys_base = 0;
-		atomic_set(&mpq_dmx_tspp_info.tsif[i].pes_data_cnt, 0);
-
-		mpq_dmx_tspp_info.tsif[i].section_channel_ref = 0;
-		mpq_dmx_tspp_info.tsif[i].section_index = 0;
-		mpq_dmx_tspp_info.tsif[i].section_mem_heap_handle = NULL;
-		mpq_dmx_tspp_info.tsif[i].section_mem_heap_virt_base = NULL;
-		mpq_dmx_tspp_info.tsif[i].section_mem_heap_phys_base = 0;
-		atomic_set(&mpq_dmx_tspp_info.tsif[i].section_data_cnt, 0);
+		mpq_dmx_tspp_info.tsif[i].channel_ref = 0;
+		mpq_dmx_tspp_info.tsif[i].buff_index = 0;
+		mpq_dmx_tspp_info.tsif[i].ch_mem_heap_handle = NULL;
+		mpq_dmx_tspp_info.tsif[i].ch_mem_heap_virt_base = NULL;
+		mpq_dmx_tspp_info.tsif[i].ch_mem_heap_phys_base = 0;
+		atomic_set(&mpq_dmx_tspp_info.tsif[i].data_cnt, 0);
 
 		for (j = 0; j < TSPP_MAX_PID_FILTER_NUM; j++) {
 			mpq_dmx_tspp_info.tsif[i].filters[j].pid = -1;
@@ -1222,16 +1075,11 @@ static void __exit mpq_dmx_tspp_plugin_exit(void)
 		 * even if we allocated them ourselves,
 		 * using our free function.
 		 */
-		if (mpq_dmx_tspp_info.tsif[i].pes_channel_ref) {
-			tspp_unregister_notification(0, TSPP_PES_CHANNEL);
+		if (mpq_dmx_tspp_info.tsif[i].channel_ref) {
+			tspp_unregister_notification(0,
+				TSPP_CHANNEL_ID(i, TSPP_CHANNEL));
 			tspp_close_channel(0,
-				TSPP_CHANNEL_ID(i, TSPP_PES_CHANNEL));
-		}
-
-		if (mpq_dmx_tspp_info.tsif[i].section_channel_ref) {
-			tspp_unregister_notification(0, TSPP_SECTION_CHANNEL);
-			tspp_close_channel(0,
-				TSPP_CHANNEL_ID(i, TSPP_SECTION_CHANNEL));
+				TSPP_CHANNEL_ID(i, TSPP_CHANNEL));
 		}
 
 		/* if we allocated buffer pools
