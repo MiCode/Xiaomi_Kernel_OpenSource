@@ -1236,6 +1236,35 @@ end:
 	return ret;
 }
 
+static void mpq_dmx_release_streambuffer(
+	struct dvb_demux_feed *feed,
+	struct mpq_video_feed_info *feed_data,
+	struct ion_client *client)
+{
+	int buf_num = 0;
+	int i;
+
+	mpq_adapter_unregister_stream_if(feed_data->stream_interface);
+
+	vfree(feed_data->video_buffer->packet_data.data);
+
+	buf_num = feed_data->buffer_desc.decoder_buffers_num;
+
+	for (i = 0; i < buf_num; i++) {
+		if (feed_data->buffer_desc.ion_handle[i]) {
+			if (feed_data->buffer_desc.desc[i].base) {
+				ion_unmap_kernel(client,
+					feed_data->buffer_desc.ion_handle[i]);
+				feed_data->buffer_desc.desc[i].base = NULL;
+			}
+			/* TODO: un-share kernel buffer handle */
+			ion_free(client, feed_data->buffer_desc.ion_handle[i]);
+			feed_data->buffer_desc.ion_handle[i] = NULL;
+			feed_data->buffer_desc.desc[i].size = 0;
+		}
+	}
+}
+
 int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 {
 	int ret;
@@ -1317,25 +1346,25 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 	feed_data->video_buffer =
 		&mpq_dmx_info.decoder_buffers[feed_data->stream_interface];
 
-	ret = mpq_adapter_register_stream_if(
-		feed_data->stream_interface,
-		feed_data->video_buffer);
-
-	if (ret < 0) {
-		MPQ_DVB_ERR_PRINT(
-			"%s: mpq_adapter_register_stream_if failed, "
-			"err = %d\n",
-			__func__, ret);
-		goto init_failed_free_priv_data;
-	}
-
 	ret = mpq_dmx_init_streambuffer(
 		feed, feed_data, feed_data->video_buffer);
 	if (ret) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: mpq_dmx_init_streambuffer failed, err = %d\n",
 			__func__, ret);
-		goto init_failed_unregister_stream_if;
+		goto init_failed_free_priv_data;
+	}
+
+	ret = mpq_adapter_register_stream_if(
+			feed_data->stream_interface,
+			feed_data->video_buffer);
+
+	if (ret < 0) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_adapter_register_stream_if failed, "
+			"err = %d\n",
+			__func__, ret);
+		goto init_failed_free_stream_buffer;
 	}
 
 	feed_data->pes_payload_address =
@@ -1375,7 +1404,8 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 
 	return 0;
 
-init_failed_unregister_stream_if:
+init_failed_free_stream_buffer:
+	mpq_dmx_release_streambuffer(feed, feed_data, mpq_demux->ion_client);
 	mpq_adapter_unregister_stream_if(feed_data->stream_interface);
 init_failed_free_priv_data:
 	vfree(feed_data);
@@ -1385,35 +1415,6 @@ init_failed:
 	return ret;
 }
 EXPORT_SYMBOL(mpq_dmx_init_video_feed);
-
-void mpq_dmx_release_streambuffer(
-	struct dvb_demux_feed *feed,
-	struct mpq_video_feed_info *feed_data,
-	struct ion_client *client)
-{
-	int buf_num = 0;
-	int i;
-
-	mpq_adapter_unregister_stream_if(feed_data->stream_interface);
-
-	vfree(feed_data->video_buffer->packet_data.data);
-
-	buf_num = feed_data->buffer_desc.decoder_buffers_num;
-
-	for (i = 0; i < buf_num; i++) {
-		if (feed_data->buffer_desc.ion_handle[i]) {
-			if (feed_data->buffer_desc.desc[i].base) {
-				ion_unmap_kernel(client,
-					feed_data->buffer_desc.ion_handle[i]);
-				feed_data->buffer_desc.desc[i].base = NULL;
-			}
-			/* TODO: un-share kernel buffer handle */
-			ion_free(client, feed_data->buffer_desc.ion_handle[i]);
-			feed_data->buffer_desc.ion_handle[i] = NULL;
-			feed_data->buffer_desc.desc[i].size = 0;
-		}
-	}
-}
 
 int mpq_dmx_terminate_video_feed(struct dvb_demux_feed *feed)
 {
