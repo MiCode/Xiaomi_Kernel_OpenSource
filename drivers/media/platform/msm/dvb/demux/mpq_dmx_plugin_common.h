@@ -54,6 +54,15 @@
  *                            exposed in debugfs.
  * @decoder_drop_count: Accumulated number of bytes dropped due to decoder
  * buffer fullness, exposed in debugfs.
+ * @decoder_out_count: Counter incremeneted for each video frame output by
+ * demux, exposed in debugfs.
+ * @decoder_out_interval_sum: Sum of intervals (msec) holding the time between
+ * two successive video frames output, exposed in debugfs.
+ * @decoder_out_interval_average: Average interval (msec) between two
+ * successive video frames output, exposed in debugfs.
+ * @decoder_out_interval_max: Max interval (msec) between two
+ * successive video frames output, exposed in debugfs.
+ * @decoder_out_last_time: Time of last video frame output.
  * @last_notification_time: Time of last HW notification.
  */
 struct mpq_demux {
@@ -72,6 +81,11 @@ struct mpq_demux {
 	u32 hw_notification_size;
 	u32 hw_notification_min_size;
 	u32 decoder_drop_count;
+	u32 decoder_out_count;
+	u32 decoder_out_interval_sum;
+	u32 decoder_out_interval_average;
+	u32 decoder_out_interval_max;
+	struct timespec decoder_out_last_time;
 	struct timespec last_notification_time;
 };
 
