@@ -1718,11 +1718,6 @@ static inline void mpq_dmx_get_pts_dts(struct mpq_video_feed_info *feed_data,
 	}
 
 	feed_data->new_info_exists = 1;
-
-	if (feed_data->first_pts_dts_copy) {
-		mpq_dmx_save_pts_dts(feed_data);
-		feed_data->first_pts_dts_copy = 0;
-	}
 }
 
 static inline int mpq_dmx_parse_remaining_pes_header(
@@ -2072,6 +2067,21 @@ static int mpq_dmx_process_video_packet_framing(
 				ts_header->continuity_counter,
 				discontinuity_indicator);
 
+	/* Need to back-up the PTS information of the very first frame */
+	if (feed_data->first_pts_dts_copy) {
+		for (i = first_pattern; i < found_patterns; i++) {
+			is_video_frame = mpq_dmx_is_video_frame(
+					feed->indexing_params.standard,
+					framing_res.info[i].type);
+
+			if (is_video_frame) {
+				mpq_dmx_save_pts_dts(feed_data);
+				feed_data->first_pts_dts_copy = 0;
+				break;
+			}
+		}
+	}
+
 	/*
 	 * write prefix used to find first Sequence pattern, if needed.
 	 * feed_data->patterns[0].pattern always contains the Sequence
@@ -2389,6 +2399,15 @@ static int mpq_dmx_process_video_packet_no_framing(
 	if (bytes_avail == 0) {
 		spin_unlock(&mpq_demux->feed_lock);
 		return 0;
+	}
+
+	/*
+	 * Need to back-up the PTS information
+	 * of the very first PES
+	 */
+	if (feed_data->first_pts_dts_copy) {
+		mpq_dmx_save_pts_dts(feed_data);
+		feed_data->first_pts_dts_copy = 0;
 	}
 
 	/* Update error counters based on TS header */
