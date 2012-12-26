@@ -894,11 +894,22 @@ static int msm_pm_power_collapse
 
 	msm_pm_irq_extns->enter_sleep1(true, from_idle,
 						&msm_pm_smem_data->irq_mask);
-	msm_sirc_enter_sleep();
-	msm_gpio_enter_sleep(from_idle);
 
 	msm_pm_smem_data->sleep_time = sleep_delay;
 	msm_pm_smem_data->resources_used = sleep_limit;
+
+	saved_acpuclk_rate = acpuclk_power_collapse();
+	MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
+		"%s(): change clock rate (old rate = %lu)\n", __func__,
+		saved_acpuclk_rate);
+
+	if (saved_acpuclk_rate == 0) {
+		ret = -EAGAIN;
+		goto acpu_set_clock_fail;
+	}
+
+	msm_sirc_enter_sleep();
+	msm_gpio_enter_sleep(from_idle);
 
 	/* Enter PWRC/PWRC_SUSPEND */
 
@@ -951,16 +962,6 @@ static int msm_pm_power_collapse
 
 	msm_pm_config_hw_before_power_down();
 	MSM_PM_DEBUG_PRINT_STATE("msm_pm_power_collapse(): pre power down");
-
-	saved_acpuclk_rate = acpuclk_power_collapse();
-	MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
-		"%s(): change clock rate (old rate = %lu)\n", __func__,
-		saved_acpuclk_rate);
-
-	if (saved_acpuclk_rate == 0) {
-		msm_pm_config_hw_after_power_up();
-		goto power_collapse_early_exit;
-	}
 
 	msm_pm_boot_config_before_pc(smp_processor_id(),
 			virt_to_phys(msm_pm_collapse_exit));
@@ -1052,14 +1053,6 @@ static int msm_pm_power_collapse
 		KERN_INFO,
 		"%s(): msm_pm_collapse returned %d\n", __func__, collapsed);
 
-	MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
-		"%s(): restore clock rate to %lu\n", __func__,
-		saved_acpuclk_rate);
-	if (acpuclk_set_rate(smp_processor_id(), saved_acpuclk_rate,
-			SETRATE_PC) < 0)
-		printk(KERN_ERR "%s(): failed to restore clock rate(%lu)\n",
-			__func__, saved_acpuclk_rate);
-
 	msm_pm_irq_extns->exit_sleep1(msm_pm_smem_data->irq_mask,
 		msm_pm_smem_data->wakeup_reason,
 		msm_pm_smem_data->pending_irqs);
@@ -1131,6 +1124,14 @@ static int msm_pm_power_collapse
 		ret = -EAGAIN;
 		goto power_collapse_restore_gpio_bail;
 	}
+
+	MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
+		"%s(): restore clock rate to %lu\n", __func__,
+		saved_acpuclk_rate);
+	if (acpuclk_set_rate(smp_processor_id(), saved_acpuclk_rate,
+			SETRATE_PC) < 0)
+		pr_err("%s(): failed to restore clock rate(%lu)\n",
+			__func__, saved_acpuclk_rate);
 
 	/* DEM Master == RUN */
 
@@ -1212,10 +1213,18 @@ power_collapse_restore_gpio_bail:
 
 	MSM_PM_DEBUG_PRINT_STATE("msm_pm_power_collapse(): RUN");
 
+	MSM_PM_DPRINTK(MSM_PM_DEBUG_CLOCK, KERN_INFO,
+		"%s(): restore clock rate to %lu\n", __func__,
+		saved_acpuclk_rate);
+	if (acpuclk_set_rate(smp_processor_id(), saved_acpuclk_rate,
+			SETRATE_PC) < 0)
+		pr_err("%s(): failed to restore clock rate(%lu)\n",
+			__func__, saved_acpuclk_rate);
+
 	if (collapsed)
 		smd_sleep_exit();
 
-	/* Call CPR resume only for "idlePC" case */
+acpu_set_clock_fail:
 	if (msm_cpr_ops && from_idle)
 		msm_cpr_ops->cpr_resume();
 
