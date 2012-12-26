@@ -29,411 +29,9 @@
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
 #include "msm_smem.h"
+#include "venus_hfi.h"
 
 #define BASE_DEVICE_NUMBER 32
-#define SHARED_QSIZE 0x1000000
-
-static struct msm_bus_vectors enc_ocmem_init_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-static struct msm_bus_vectors enc_ocmem_perf1_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 138200000,
-		.ib = 1222000000,
-	},
-};
-
-static struct msm_bus_vectors enc_ocmem_perf2_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 414700000,
-		.ib = 1222000000,
-	},
-};
-
-static struct msm_bus_vectors enc_ocmem_perf3_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 940000000,
-		.ib = 2444000000U,
-	},
-};
-
-static struct msm_bus_vectors enc_ocmem_perf4_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 1880000000,
-		.ib = 2444000000U,
-	},
-};
-
-static struct msm_bus_vectors enc_ocmem_perf5_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 3008000000U,
-		.ib = 3910400000U,
-	},
-};
-
-static struct msm_bus_vectors enc_ocmem_perf6_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 3760000000U,
-		.ib = 4888000000ULL,
-	},
-};
-
-static struct msm_bus_vectors dec_ocmem_init_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-static struct msm_bus_vectors dec_ocmem_perf1_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 176900000,
-		.ib = 1556640000,
-	},
-};
-
-static struct msm_bus_vectors dec_ocmem_perf2_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 456200000,
-		.ib = 1556640000,
-	},
-};
-
-static struct msm_bus_vectors dec_ocmem_perf3_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 864800000,
-		.ib = 1556640000,
-	},
-};
-
-static struct msm_bus_vectors dec_ocmem_perf4_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 1729600000,
-		.ib = 3113280000U,
-	},
-};
-
-static struct msm_bus_vectors dec_ocmem_perf5_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 2767360000U,
-		.ib = 4981248000ULL,
-	},
-};
-
-static struct msm_bus_vectors dec_ocmem_perf6_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
-		.dst = MSM_BUS_SLAVE_OCMEM,
-		.ab = 3459200000U,
-		.ib = 6226560000ULL,
-	},
-};
-
-static struct msm_bus_paths enc_ocmem_perf_vectors[]  = {
-	{
-		ARRAY_SIZE(enc_ocmem_init_vectors),
-		enc_ocmem_init_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ocmem_perf1_vectors),
-		enc_ocmem_perf1_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ocmem_perf2_vectors),
-		enc_ocmem_perf2_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ocmem_perf3_vectors),
-		enc_ocmem_perf3_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ocmem_perf4_vectors),
-		enc_ocmem_perf4_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ocmem_perf5_vectors),
-		enc_ocmem_perf5_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ocmem_perf6_vectors),
-		enc_ocmem_perf6_vectors,
-	},
-};
-
-static struct msm_bus_paths dec_ocmem_perf_vectors[]  = {
-	{
-		ARRAY_SIZE(dec_ocmem_init_vectors),
-		dec_ocmem_init_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ocmem_perf1_vectors),
-		dec_ocmem_perf1_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ocmem_perf2_vectors),
-		dec_ocmem_perf2_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ocmem_perf3_vectors),
-		dec_ocmem_perf3_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ocmem_perf4_vectors),
-		dec_ocmem_perf4_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ocmem_perf5_vectors),
-		dec_ocmem_perf5_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ocmem_perf6_vectors),
-		dec_ocmem_perf6_vectors,
-	},
-};
-
-
-static struct msm_bus_scale_pdata enc_ocmem_bus_data = {
-	.usecase = enc_ocmem_perf_vectors,
-	.num_usecases = ARRAY_SIZE(enc_ocmem_perf_vectors),
-	.name = "msm_vidc_enc_ocmem",
-};
-
-static struct msm_bus_scale_pdata dec_ocmem_bus_data = {
-	.usecase = dec_ocmem_perf_vectors,
-	.num_usecases = ARRAY_SIZE(dec_ocmem_perf_vectors),
-	.name = "msm_vidc_dec_ocmem",
-};
-
-static struct msm_bus_vectors enc_ddr_init_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-
-static struct msm_bus_vectors enc_ddr_perf1_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 60000000,
-		.ib = 664950000,
-	},
-};
-
-static struct msm_bus_vectors enc_ddr_perf2_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 181000000,
-		.ib = 664950000,
-	},
-};
-
-static struct msm_bus_vectors enc_ddr_perf3_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 403000000,
-		.ib = 664950000,
-	},
-};
-
-static struct msm_bus_vectors enc_ddr_perf4_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 806000000,
-		.ib = 1329900000,
-	},
-};
-
-static struct msm_bus_vectors enc_ddr_perf5_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 1289600000,
-		.ib = 2127840000U,
-	},
-};
-
-static struct msm_bus_vectors enc_ddr_perf6_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 161200000,
-		.ib = 6400000000ULL,
-	},
-};
-
-static struct msm_bus_vectors dec_ddr_init_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 0,
-		.ib = 0,
-	},
-};
-
-static struct msm_bus_vectors dec_ddr_perf1_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 110000000,
-		.ib = 909000000,
-	},
-};
-
-static struct msm_bus_vectors dec_ddr_perf2_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 268000000,
-		.ib = 909000000,
-	},
-};
-
-static struct msm_bus_vectors dec_ddr_perf3_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 505000000,
-		.ib = 909000000,
-	},
-};
-
-static struct msm_bus_vectors dec_ddr_perf4_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 1010000000,
-		.ib = 1818000000,
-	},
-};
-
-static struct msm_bus_vectors dec_ddr_perf5_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 1616000000,
-		.ib = 2908800000U,
-	},
-};
-
-static struct msm_bus_vectors dec_ddr_perf6_vectors[]  = {
-	{
-		.src = MSM_BUS_MASTER_VIDEO_P0,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab = 2020000000U,
-		.ib = 6400000000ULL,
-	},
-};
-
-static struct msm_bus_paths enc_ddr_perf_vectors[]  = {
-	{
-		ARRAY_SIZE(enc_ddr_init_vectors),
-		enc_ddr_init_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ddr_perf1_vectors),
-		enc_ddr_perf1_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ddr_perf2_vectors),
-		enc_ddr_perf2_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ddr_perf3_vectors),
-		enc_ddr_perf3_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ddr_perf4_vectors),
-		enc_ddr_perf4_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ddr_perf5_vectors),
-		enc_ddr_perf5_vectors,
-	},
-	{
-		ARRAY_SIZE(enc_ddr_perf6_vectors),
-		enc_ddr_perf6_vectors,
-	},
-};
-
-static struct msm_bus_paths dec_ddr_perf_vectors[]  = {
-	{
-		ARRAY_SIZE(dec_ddr_init_vectors),
-		dec_ddr_init_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ddr_perf1_vectors),
-		dec_ddr_perf1_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ddr_perf2_vectors),
-		dec_ddr_perf2_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ddr_perf3_vectors),
-		dec_ddr_perf3_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ddr_perf4_vectors),
-		dec_ddr_perf4_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ddr_perf5_vectors),
-		dec_ddr_perf5_vectors,
-	},
-	{
-		ARRAY_SIZE(dec_ddr_perf6_vectors),
-		dec_ddr_perf6_vectors,
-	},
-};
-
-static struct msm_bus_scale_pdata enc_ddr_bus_data = {
-	.usecase = enc_ddr_perf_vectors,
-	.num_usecases = ARRAY_SIZE(enc_ddr_perf_vectors),
-	.name = "msm_vidc_enc_ddr",
-};
-
-static struct msm_bus_scale_pdata dec_ddr_bus_data = {
-	.usecase = dec_ddr_perf_vectors,
-	.num_usecases = ARRAY_SIZE(dec_ddr_perf_vectors),
-	.name = "msm_vidc_dec_ddr",
-};
 
 struct msm_vidc_drv *vidc_driver;
 
@@ -757,8 +355,16 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 	int i, rc = 0;
 	int smem_flags = 0;
 	int domain;
+	struct venus_hfi_device *device;
 	vidc_inst = get_vidc_inst(file, fh);
 	v4l2_inst = get_v4l2_inst(file, fh);
+	if (!v4l2_inst || !vidc_inst || !vidc_inst->core
+		|| !vidc_inst->core->device) {
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	device = vidc_inst->core->device;
 	if (!v4l2_inst->mem_client) {
 		dprintk(VIDC_ERR, "Failed to get memory client\n");
 		rc = -ENOMEM;
@@ -798,11 +404,9 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 				&& (!EXTRADATA_IDX(b->length)
 					|| (i != EXTRADATA_IDX(b->length)))) {
 			smem_flags |= SMEM_SECURE;
-			domain =
-			vidc_inst->core->resources.io_map[CP_MAP].domain;
+			domain = venus_hfi_get_domain(device, CP_MAP);
 		} else
-			domain =
-			vidc_inst->core->resources.io_map[NS_MAP].domain;
+			domain = venus_hfi_get_domain(device, NS_MAP);
 
 		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			smem_flags |= SMEM_INPUT;
@@ -1063,270 +667,24 @@ void msm_vidc_release_video_device(struct video_device *pvdev)
 {
 }
 
-static size_t read_u32_array(struct platform_device *pdev,
-		char *name, u32 *arr, size_t size)
-{
-	int len;
-	size_t sz = 0;
-	struct device_node *np = pdev->dev.of_node;
-	if (!of_get_property(np, name, &len)) {
-		dprintk(VIDC_ERR, "Failed to read %s from device tree\n",
-			name);
-		goto fail_read;
-	}
-	sz = len / sizeof(u32);
-	if (sz <= 0) {
-		dprintk(VIDC_ERR, "%s not specified in device tree\n",
-			name);
-		goto fail_read;
-	}
-	if (sz > size) {
-		dprintk(VIDC_ERR, "Not enough memory to store %s values\n",
-			name);
-		goto fail_read;
-	}
-	if (of_property_read_u32_array(np, name, arr, sz)) {
-		dprintk(VIDC_ERR,
-			"error while reading %s from device tree\n",
-			name);
-		goto fail_read;
-	}
-	return sz;
-fail_read:
-	sz = 0;
-	return sz;
-}
-
-static int register_iommu_domains(struct platform_device *pdev,
-	struct msm_vidc_core *core)
-{
-	size_t len;
-	struct msm_iova_partition partition[2];
-	struct msm_iova_layout layout;
-	int rc = 0;
-	int i;
-	struct msm_vidc_iommu_info *io_map = core->resources.io_map;
-	strlcpy(io_map[CP_MAP].name, "vidc-cp-map",
-			sizeof(io_map[CP_MAP].name));
-	strlcpy(io_map[CP_MAP].ctx, "venus_cp",
-			sizeof(io_map[CP_MAP].ctx));
-	strlcpy(io_map[NS_MAP].name, "vidc-ns-map",
-			sizeof(io_map[NS_MAP].name));
-	strlcpy(io_map[NS_MAP].ctx, "venus_ns",
-			sizeof(io_map[NS_MAP].ctx));
-
-	for (i = 0; i < MAX_MAP; i++) {
-		len = read_u32_array(pdev, io_map[i].name,
-				io_map[i].addr_range,
-				(sizeof(io_map[i].addr_range)/sizeof(u32)));
-		if (!len) {
-			dprintk(VIDC_ERR,
-				"Error in reading cp address range\n");
-			rc = -EINVAL;
-			break;
-		}
-		partition[0].start = io_map[i].addr_range[0];
-		if (i == NS_MAP) {
-			partition[0].size =
-				io_map[i].addr_range[1] - SHARED_QSIZE;
-			partition[1].start =
-				partition[0].start + io_map[i].addr_range[1]
-					- SHARED_QSIZE;
-			partition[1].size = SHARED_QSIZE;
-			layout.npartitions = 2;
-			layout.is_secure = 0;
-		} else {
-			partition[0].size = io_map[i].addr_range[1];
-			layout.npartitions = 1;
-			layout.is_secure = 1;
-		}
-		layout.partitions = &partition[0];
-		layout.client_name = io_map[i].name;
-		layout.domain_flags = 0;
-		dprintk(VIDC_DBG, "Registering domain 1 with: %lx, %lx, %s\n",
-			partition[0].start, partition[0].size,
-			layout.client_name);
-		dprintk(VIDC_DBG, "Registering domain 2 with: %lx, %lx, %s\n",
-			partition[1].start, partition[1].size,
-			layout.client_name);
-		io_map[i].domain = msm_register_domain(&layout);
-		if (io_map[i].domain < 0) {
-			dprintk(VIDC_ERR, "Failed to register cp domain\n");
-			rc = -EINVAL;
-			break;
-		}
-	}
-	/* There is no api provided as msm_unregister_domain, so
-	 * we are not able to unregister the previously
-	 * registered domains if any domain registration fails.*/
-	BUG_ON(i < MAX_MAP);
-	return rc;
-}
-
-static inline int msm_vidc_init_clocks(struct platform_device *pdev,
-		struct msm_vidc_core *core)
-{
-	struct core_clock *cl;
-	int i;
-	int rc = 0;
-	struct core_clock *clock;
-	if (!core) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", core);
-		return -EINVAL;
-	}
-	clock = core->resources.clock;
-	strlcpy(clock[VCODEC_CLK].name, "core_clk",
-		sizeof(clock[VCODEC_CLK].name));
-	strlcpy(clock[VCODEC_AHB_CLK].name, "iface_clk",
-		sizeof(clock[VCODEC_AHB_CLK].name));
-	strlcpy(clock[VCODEC_AXI_CLK].name, "bus_clk",
-		sizeof(clock[VCODEC_AXI_CLK].name));
-	strlcpy(clock[VCODEC_OCMEM_CLK].name, "mem_clk",
-		sizeof(clock[VCODEC_OCMEM_CLK].name));
-
-	clock[VCODEC_CLK].count = read_u32_array(pdev,
-		"load-freq-tbl", (u32 *)clock[VCODEC_CLK].load_freq_tbl,
-		(sizeof(clock[VCODEC_CLK].load_freq_tbl)/sizeof(u32)));
-	clock[VCODEC_CLK].count /= 2;
-	dprintk(VIDC_DBG, "count = %d\n", clock[VCODEC_CLK].count);
-	if (!clock[VCODEC_CLK].count) {
-		dprintk(VIDC_ERR, "Failed to read clock frequency\n");
-		goto fail_init_clocks;
-	}
-	for (i = 0; i <	clock[VCODEC_CLK].count; i++) {
-		dprintk(VIDC_DBG,
-				"load = %d, freq = %d\n",
-				clock[VCODEC_CLK].load_freq_tbl[i].load,
-				clock[VCODEC_CLK].load_freq_tbl[i].freq
-			  );
-	}
-
-	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
-		cl = &core->resources.clock[i];
-		if (!cl->clk) {
-			cl->clk = devm_clk_get(&pdev->dev, cl->name);
-			if (IS_ERR_OR_NULL(cl->clk)) {
-				dprintk(VIDC_ERR,
-					"Failed to get clock: %s\n", cl->name);
-				rc = PTR_ERR(cl->clk);
-				break;
-			}
-		}
-	}
-
-	if (i < VCODEC_MAX_CLKS) {
-		for (--i; i >= 0; i--) {
-			cl = &core->resources.clock[i];
-			clk_put(cl->clk);
-		}
-	}
-fail_init_clocks:
-	return rc;
-}
-
-static inline void msm_vidc_deinit_clocks(struct msm_vidc_core *core)
-{
-	int i;
-	if (!core) {
-		dprintk(VIDC_ERR, "Invalid args\n");
-		return;
-	}
-	for (i = 0; i < VCODEC_MAX_CLKS; i++)
-		clk_put(core->resources.clock[i].clk);
-}
-
 static int msm_vidc_initialize_core(struct platform_device *pdev,
 				struct msm_vidc_core *core)
 {
-	struct resource *res;
 	int i = 0;
 	int rc = 0;
-	struct on_chip_mem *ocmem;
 	if (!core)
 		return -EINVAL;
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dprintk(VIDC_ERR, "Failed to get IORESOURCE_MEM\n");
-		rc = -ENODEV;
-		goto core_init_failed;
-	}
-	core->register_base = res->start;
-	core->register_size = resource_size(res);
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
-		dprintk(VIDC_ERR, "Failed to get IORESOURCE_IRQ\n");
-		rc = -ENODEV;
-		goto core_init_failed;
-	}
-	core->irq = res->start;
+
 	INIT_LIST_HEAD(&core->instances);
 	mutex_init(&core->sync_lock);
 	spin_lock_init(&core->lock);
-	core->base_addr = 0x0;
+
 	core->state = VIDC_CORE_UNINIT;
 	for (i = SYS_MSG_INDEX(SYS_MSG_START);
 		i <= SYS_MSG_INDEX(SYS_MSG_END); i++) {
 		init_completion(&core->completions[i]);
 	}
-	rc = msm_vidc_init_clocks(pdev, core);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to init clocks\n");
-		rc = -ENODEV;
-		goto core_init_failed;
-	}
-	core->resources.bus_info.ddr_handle[MSM_VIDC_ENCODER] =
-		msm_bus_scale_register_client(&enc_ddr_bus_data);
-	if (!core->resources.bus_info.ddr_handle[MSM_VIDC_ENCODER]) {
-		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
-		goto fail_register_enc_ddr_bus;
-	}
-	core->resources.bus_info.ddr_handle[MSM_VIDC_DECODER] =
-		msm_bus_scale_register_client(&dec_ddr_bus_data);
-	if (!core->resources.bus_info.ddr_handle[MSM_VIDC_DECODER]) {
-		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
-		goto fail_register_dec_ddr_bus;
-	}
-	core->resources.bus_info.ocmem_handle[MSM_VIDC_ENCODER] =
-		msm_bus_scale_register_client(&enc_ocmem_bus_data);
-	if (!core->resources.bus_info.ocmem_handle[MSM_VIDC_ENCODER]) {
-		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
-		goto fail_register_enc_ocmem;
-	}
-	core->resources.bus_info.ocmem_handle[MSM_VIDC_DECODER] =
-		msm_bus_scale_register_client(&dec_ocmem_bus_data);
-	if (!core->resources.bus_info.ocmem_handle[MSM_VIDC_DECODER]) {
-		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
-		goto fail_register_dec_ocmem;
-	}
-	rc = register_iommu_domains(pdev, core);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to register iommu domains: %d\n", rc);
-		goto fail_register_domains;
-	}
-	ocmem = &core->resources.ocmem;
-	ocmem->vidc_ocmem_nb.notifier_call = msm_vidc_ocmem_notify_handler;
-	ocmem->handle =
-		ocmem_notifier_register(OCMEM_VIDEO, &ocmem->vidc_ocmem_nb);
-	if (!ocmem->handle) {
-		dprintk(VIDC_WARN, "Failed to register OCMEM notifier.");
-		dprintk(VIDC_INFO, " Performance will be impacted\n");
-	}
-	return rc;
-fail_register_domains:
-	msm_bus_scale_unregister_client(
-		core->resources.bus_info.ocmem_handle[MSM_VIDC_DECODER]);
-fail_register_dec_ocmem:
-	msm_bus_scale_unregister_client(
-		core->resources.bus_info.ocmem_handle[MSM_VIDC_ENCODER]);
-fail_register_enc_ocmem:
-	msm_bus_scale_unregister_client(
-		core->resources.bus_info.ddr_handle[MSM_VIDC_DECODER]);
-fail_register_dec_ddr_bus:
-	msm_bus_scale_unregister_client(
-		core->resources.bus_info.ddr_handle[MSM_VIDC_ENCODER]);
-fail_register_enc_ddr_bus:
-	msm_vidc_deinit_clocks(core);
-core_init_failed:
+
 	return rc;
 }
 
@@ -1377,11 +735,11 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		goto err_enc_register;
 	}
 	video_set_drvdata(&core->vdev[MSM_VIDC_ENCODER].vdev, core);
-	core->device = vidc_hal_add_device(core->id, core->base_addr,
-			core->register_base, core->register_size, core->irq,
-			&handle_cmd_response);
+
+	core->device =
+		venus_hfi_get_device(core->id, pdev, &handle_cmd_response);
 	if (!core->device) {
-		dprintk(VIDC_ERR, "Failed to create interrupt handler");
+		dprintk(VIDC_ERR, "Failed to create HFI device\n");
 		goto err_cores_exceeded;
 	}
 
@@ -1417,20 +775,12 @@ static int msm_vidc_remove(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_vidc_core *core = pdev->dev.platform_data;
-	int i;
-	for (i = 0; i < MSM_VIDC_MAX_DEVICES; ++i) {
-		msm_bus_scale_unregister_client(
-			core->resources.bus_info.ddr_handle[i]);
-		msm_bus_scale_unregister_client(
-			core->resources.bus_info.ocmem_handle[i]);
-	}
+
 	vidc_hal_delete_device(core->device);
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 	v4l2_device_unregister(&core->v4l2_dev);
-	if (core->resources.ocmem.handle)
-		ocmem_notifier_unregister(core->resources.ocmem.handle,
-				&core->resources.ocmem.vidc_ocmem_nb);
+
 	kfree(core);
 	return rc;
 }

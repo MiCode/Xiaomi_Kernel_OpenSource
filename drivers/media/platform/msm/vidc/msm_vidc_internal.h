@@ -18,7 +18,6 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/completion.h>
-#include <linux/clk.h>
 #include <linux/wait.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
@@ -117,54 +116,6 @@ struct msm_video_device {
 	struct video_device vdev;
 };
 
-struct msm_vidc_fw {
-	void *cookie;
-};
-
-enum vidc_clocks {
-	VCODEC_CLK,
-	VCODEC_AHB_CLK,
-	VCODEC_AXI_CLK,
-	VCODEC_OCMEM_CLK,
-	VCODEC_MAX_CLKS
-};
-
-struct load_freq_table {
-	u32 load;
-	u32 freq;
-};
-
-enum mem_type {
-	DDR_MEM = 0x1,
-	OCMEM_MEM = 0x2,
-};
-
-struct core_clock {
-	char name[MAX_NAME_LENGTH];
-	struct clk *clk;
-	u32 count;
-	struct load_freq_table load_freq_tbl[8];
-};
-
-struct vidc_bus_info {
-	u32 ddr_handle[MSM_VIDC_MAX_DEVICES];
-	u32 ocmem_handle[MSM_VIDC_MAX_DEVICES];
-};
-
-struct on_chip_mem {
-	struct ocmem_buf *buf;
-	struct notifier_block vidc_ocmem_nb;
-	void *handle;
-};
-
-struct msm_vidc_resources {
-	struct msm_vidc_fw fw;
-	struct msm_vidc_iommu_info io_map[MAX_MAP];
-	struct core_clock clock[VCODEC_MAX_CLKS];
-	struct vidc_bus_info bus_info;
-	struct on_chip_mem ocmem;
-};
-
 struct session_prop {
 	u32 width;
 	u32 height;
@@ -224,12 +175,7 @@ struct msm_vidc_core {
 	spinlock_t lock;
 	struct list_head instances;
 	struct dentry *debugfs_root;
-	u32 base_addr;
-	u32 register_base;
-	u32 register_size;
-	u32 irq;
 	enum vidc_core_state state;
-	struct msm_vidc_resources resources;
 	struct completion completions[SYS_MSG_END - SYS_MSG_START + 1];
 };
 

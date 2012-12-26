@@ -13,17 +13,14 @@
 
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/iommu.h>
 #include <asm/div64.h>
-#include <mach/iommu.h>
-#include <mach/iommu_domains.h>
 #include <mach/subsystem_restart.h>
-#include <mach/scm.h>
 
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
+#include "venus_hfi.h"
 
 #define HW_RESPONSE_TIMEOUT (5 * 60 * 1000)
 
@@ -50,41 +47,7 @@
 	__mbs;\
 })
 
-#define TZBSP_MEM_PROTECT_VIDEO_VAR 0x8
-struct tzbsp_memprot {
-	u32 cp_start;
-	u32 cp_size;
-	u32 cp_nonpixel_start;
-	u32 cp_nonpixel_size;
-};
-
-struct tzbsp_resp {
-	int ret;
-};
-
 #define TIME_DIFF_THRESHOLD 200
-
-static const u32 bus_table[] = {
-	36000,
-	110400,
-	244800,
-	489000,
-	783360,
-	979200,
-};
-
-static int get_bus_vector(int load)
-{
-	int num_rows = sizeof(bus_table)/(sizeof(u32));
-	int i;
-	for (i = 0; i < num_rows; i++) {
-		if (load <= bus_table[i])
-			break;
-	}
-	i++;
-	dprintk(VIDC_DBG, "Required bus = %d\n", i);
-	return i;
-}
 
 static int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type)
@@ -109,47 +72,22 @@ static int msm_comm_get_load(struct msm_vidc_core *core,
 	return num_mbs_per_sec;
 }
 
-static unsigned long get_clock_rate(struct core_clock *clock,
-	int num_mbs_per_sec)
-{
-	int num_rows = clock->count;
-	struct load_freq_table *table = clock->load_freq_tbl;
-	unsigned long ret = table[num_rows-1].freq;
-	int i;
-	for (i = 0; i < num_rows; i++) {
-		if (num_mbs_per_sec > table[i].load)
-			break;
-		ret = table[i].freq;
-	}
-	dprintk(VIDC_DBG, "Required clock rate = %lu\n", ret);
-	return ret;
-}
-
 static int msm_comm_scale_bus(struct msm_vidc_core *core,
 	enum session_type type, enum mem_type mtype)
 {
 	int load;
 	int rc = 0;
-	u32 handle = 0;
+
 	if (!core || type >= MSM_VIDC_MAX_DEVICES) {
 		dprintk(VIDC_ERR, "Invalid args: %p, %d\n", core, type);
 		return -EINVAL;
 	}
 	load = msm_comm_get_load(core, type);
-	if (mtype & DDR_MEM)
-		handle = core->resources.bus_info.ddr_handle[type];
-	if (mtype & OCMEM_MEM)
-		handle = core->resources.bus_info.ocmem_handle[type];
-	if (handle) {
-		rc = msm_bus_scale_client_update_request(
-				handle, get_bus_vector(load));
-		if (rc)
-			dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
-	} else {
-		dprintk(VIDC_ERR, "Failed to scale bus, mtype: %d\n",
-				mtype);
-		rc = -EINVAL;
-	}
+
+	rc = venus_hfi_scale_bus(core->device, load, type, mtype);
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
+
 	return rc;
 }
 
@@ -159,45 +97,16 @@ static void msm_comm_unvote_buses(struct msm_vidc_core *core,
 	int i;
 	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
 		if ((mtype & DDR_MEM) &&
-			msm_bus_scale_client_update_request(
-				core->resources.bus_info.ddr_handle[i],
-				0)) {
+			venus_hfi_scale_bus(core->device, 0, i, DDR_MEM)) {
 			dprintk(VIDC_WARN,
 				"Failed to unvote for DDR accesses\n");
 		}
 		if ((mtype & OCMEM_MEM) &&
-			msm_bus_scale_client_update_request(
-				core->resources.bus_info.ocmem_handle[i],
-				0)) {
+			venus_hfi_scale_bus(core->device, 0, i, OCMEM_MEM)) {
 			dprintk(VIDC_WARN,
 				"Failed to unvote for OCMEM accesses\n");
 		}
 	}
-}
-
-static int protect_cp_mem(struct msm_vidc_core *core)
-{
-	struct tzbsp_memprot memprot;
-	unsigned int resp = 0;
-	int rc = 0;
-	struct msm_vidc_iommu_info *io_map = core->resources.io_map;
-	if (!io_map) {
-		dprintk(VIDC_ERR, "invalid params: %p\n", io_map);
-		return -EINVAL;
-	}
-	memprot.cp_start = 0x0;
-	memprot.cp_size = io_map[CP_MAP].addr_range[0] +
-			io_map[CP_MAP].addr_range[1];
-	memprot.cp_nonpixel_start = 0;
-	memprot.cp_nonpixel_size = 0;
-
-	rc = scm_call(SCM_SVC_CP, TZBSP_MEM_PROTECT_VIDEO_VAR, &memprot,
-			sizeof(memprot), &resp, sizeof(resp));
-	if (rc)
-		dprintk(VIDC_ERR,
-		"Failed to protect memory , rc is :%d, response : %d\n",
-		rc, resp);
-	return rc;
 }
 
 struct msm_vidc_core *get_vidc_core(int core_id)
@@ -220,62 +129,6 @@ struct msm_vidc_core *get_vidc_core(int core_id)
 	if (found)
 		return core;
 	return NULL;
-}
-
-static int msm_comm_iommu_attach(struct msm_vidc_core *core)
-{
-	int rc;
-	struct iommu_domain *domain;
-	int i;
-	struct msm_vidc_iommu_info *io_map;
-	struct device *dev;
-	for (i = 0; i < MAX_MAP; i++) {
-		io_map = &core->resources.io_map[i];
-		dev = msm_iommu_get_ctx(io_map->ctx);
-		domain = msm_get_iommu_domain(io_map->domain);
-		if (IS_ERR_OR_NULL(domain)) {
-			dprintk(VIDC_ERR,
-				"Failed to get domain: %s\n", io_map->name);
-			rc = PTR_ERR(domain);
-			break;
-		}
-		rc = iommu_attach_device(domain, dev);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"IOMMU attach failed: %s\n", io_map->name);
-			break;
-		}
-	}
-	if (i < MAX_MAP) {
-		i--;
-		for (; i >= 0; i--) {
-			io_map = &core->resources.io_map[i];
-			dev = msm_iommu_get_ctx(io_map->ctx);
-			domain = msm_get_iommu_domain(io_map->domain);
-			if (dev && domain)
-				iommu_detach_device(domain, dev);
-		}
-	}
-	return rc;
-}
-
-static void msm_comm_iommu_detach(struct msm_vidc_core *core)
-{
-	struct device *dev;
-	struct iommu_domain *domain;
-	struct msm_vidc_iommu_info *io_map;
-	int i;
-	if (!core) {
-		dprintk(VIDC_ERR, "Invalid paramter: %p\n", core);
-		return;
-	}
-	for (i = 0; i < MAX_MAP; i++) {
-		io_map = &core->resources.io_map[i];
-		dev = msm_iommu_get_ctx(io_map->ctx);
-		domain = msm_get_iommu_domain(io_map->domain);
-		if (dev && domain)
-			iommu_detach_device(domain, dev);
-	}
 }
 
 const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
@@ -1029,60 +882,18 @@ static int msm_comm_scale_clocks(struct msm_vidc_core *core)
 	}
 	num_mbs_per_sec = msm_comm_get_load(core, MSM_VIDC_ENCODER);
 	num_mbs_per_sec += msm_comm_get_load(core, MSM_VIDC_DECODER);
+
 	dprintk(VIDC_INFO, "num_mbs_per_sec = %d\n", num_mbs_per_sec);
-	rc = clk_set_rate(core->resources.clock[VCODEC_CLK].clk,
-			get_clock_rate(&core->resources.clock[VCODEC_CLK],
-				num_mbs_per_sec));
+	rc = venus_hfi_scale_clocks(core->device, num_mbs_per_sec);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
 	return rc;
 }
 
-static inline int msm_comm_enable_clks(struct msm_vidc_core *core)
-{
-	int i;
-	struct core_clock *cl;
-	int rc = 0;
-	if (!core) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", core);
-		return -EINVAL;
-	}
-	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
-		cl = &core->resources.clock[i];
-		rc = clk_prepare_enable(cl->clk);
-		if (rc) {
-			dprintk(VIDC_ERR, "Failed to enable clocks\n");
-			goto fail_clk_enable;
-		} else {
-			dprintk(VIDC_DBG, "Clock: %s enabled\n", cl->name);
-		}
-	}
-	return rc;
-fail_clk_enable:
-	for (; i >= 0; i--) {
-		cl = &core->resources.clock[i];
-		clk_disable_unprepare(cl->clk);
-	}
-	return rc;
-}
-
-static inline void msm_comm_disable_clks(struct msm_vidc_core *core)
-{
-	int i;
-	struct core_clock *cl;
-	if (!core) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", core);
-		return;
-	}
-	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
-		cl = &core->resources.clock[i];
-		clk_disable_unprepare(cl->clk);
-	}
-}
-
 void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core = inst->core;
+
 	if (!inst) {
 		dprintk(VIDC_WARN, "Invalid params\n");
 		return;
@@ -1095,69 +906,11 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 		dprintk(VIDC_WARN,
 				"Failed to scale DDR bus. Performance might be impacted\n");
 	}
-	if (core->resources.ocmem.buf) {
+	if (venus_hfi_is_ocmem_present(core->device)) {
 		if (msm_comm_scale_bus(core, inst->session_type,
 					OCMEM_MEM))
 			dprintk(VIDC_WARN,
 					"Failed to scale OCMEM bus. Performance might be impacted\n");
-	}
-}
-
-static int msm_comm_load_fw(struct msm_vidc_core *core)
-{
-	int rc = 0;
-	if (!core) {
-		dprintk(VIDC_ERR, "Invalid paramter: %p\n", core);
-		return -EINVAL;
-	}
-	if (!core->resources.fw.cookie)
-		core->resources.fw.cookie = subsystem_get("venus");
-
-	if (IS_ERR_OR_NULL(core->resources.fw.cookie)) {
-		dprintk(VIDC_ERR, "Failed to download firmware\n");
-		rc = -ENOMEM;
-		goto fail_load_fw;
-	}
-	/*Clocks can be enabled only after pil_get since
-	 * gdsc is turned-on in pil_get*/
-	rc = msm_comm_enable_clks(core);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable clocks: %d\n", rc);
-		goto fail_enable_clks;
-	}
-
-	rc = protect_cp_mem(core);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to protect memory\n");
-		goto fail_iommu_attach;
-	}
-
-	rc = msm_comm_iommu_attach(core);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to attach iommu");
-		goto fail_iommu_attach;
-	}
-	return rc;
-fail_iommu_attach:
-	msm_comm_disable_clks(core);
-fail_enable_clks:
-	subsystem_put(core->resources.fw.cookie);
-	core->resources.fw.cookie = NULL;
-fail_load_fw:
-	return rc;
-}
-
-static void msm_comm_unload_fw(struct msm_vidc_core *core)
-{
-	if (!core) {
-		dprintk(VIDC_ERR, "Invalid paramter: %p\n", core);
-		return;
-	}
-	if (core->resources.fw.cookie) {
-		msm_comm_iommu_detach(core);
-		msm_comm_disable_clks(core);
-		subsystem_put(core->resources.fw.cookie);
-		core->resources.fw.cookie = NULL;
 	}
 }
 
@@ -1170,48 +923,19 @@ static inline unsigned long get_ocmem_requirement(u32 height, u32 width)
 	return 512 * 1024;
 }
 
-static int msm_comm_set_ocmem(struct msm_vidc_core *core,
-	struct ocmem_buf *ocmem)
-{
-	struct vidc_resource_hdr rhdr;
-	int rc = 0;
-	if (!core || !ocmem) {
-		dprintk(VIDC_ERR, "Invalid params, core:%p, ocmem: %p\n",
-			core, ocmem);
-		return -EINVAL;
-	}
-	rhdr.resource_id = VIDC_RESOURCE_OCMEM;
-	rhdr.resource_handle = (u32) &core->resources.ocmem;
-	rhdr.size =	ocmem->len;
-	rc = vidc_hal_core_set_resource(core->device, &rhdr, ocmem);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to set OCMEM on driver\n");
-		goto ocmem_set_failed;
-	}
-	dprintk(VIDC_DBG, "OCMEM set, addr = %lx, size: %ld\n",
-		ocmem->addr, ocmem->len);
-ocmem_set_failed:
-	return rc;
-}
-
 static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 {
-	struct vidc_resource_hdr rhdr;
 	int rc = 0;
-	if (!core || !core->resources.ocmem.buf) {
-		dprintk(VIDC_ERR, "Invalid params, core:%p\n",	core);
-		return -EINVAL;
-	}
 	if (core->state == VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR,
 				"Core is in bad state. Cannot unset ocmem\n");
 		return -EIO;
 	}
-	rhdr.resource_id = VIDC_RESOURCE_OCMEM;
-	rhdr.resource_handle = (u32) &core->resources.ocmem;
+
 	init_completion(
 		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)]);
-	rc = vidc_hal_core_release_resource(core->device, &rhdr);
+
+	rc = venus_hfi_unset_ocmem(core->device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to set OCMEM on driver\n");
 		goto release_ocmem_failed;
@@ -1222,58 +946,8 @@ static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 	if (!rc) {
 		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
 		rc = -EIO;
-		goto release_ocmem_failed;
 	}
 release_ocmem_failed:
-	return rc;
-}
-
-static int msm_comm_alloc_ocmem(struct msm_vidc_core *core,
-		unsigned long size)
-{
-	int rc = 0;
-	struct ocmem_buf *ocmem_buffer;
-	mutex_lock(&core->sync_lock);
-	if (!core || !size) {
-		dprintk(VIDC_ERR,
-			"Invalid param, core: %p, size: %lu\n", core, size);
-		return -EINVAL;
-	}
-	ocmem_buffer = core->resources.ocmem.buf;
-	if (!ocmem_buffer ||
-		ocmem_buffer->len < size) {
-		ocmem_buffer = ocmem_allocate_nb(OCMEM_VIDEO, size);
-		if (IS_ERR_OR_NULL(ocmem_buffer)) {
-			dprintk(VIDC_ERR,
-				"ocmem_allocate_nb failed: %d\n",
-				(u32) ocmem_buffer);
-			rc = -ENOMEM;
-		}
-		core->resources.ocmem.buf = ocmem_buffer;
-		rc = msm_comm_set_ocmem(core, ocmem_buffer);
-		if (rc) {
-			dprintk(VIDC_ERR, "Failed to set ocmem: %d\n", rc);
-			goto ocmem_set_failed;
-		}
-	} else
-		dprintk(VIDC_DBG,
-			"OCMEM is enough. reqd: %lu, available: %lu\n",
-			size, ocmem_buffer->len);
-
-ocmem_set_failed:
-	mutex_unlock(&core->sync_lock);
-	return rc;
-}
-
-static int msm_comm_free_ocmem(struct msm_vidc_core *core)
-{
-	int rc = 0;
-	if (core->resources.ocmem.buf) {
-		rc = ocmem_free(OCMEM_VIDEO, core->resources.ocmem.buf);
-		if (rc)
-			dprintk(VIDC_ERR, "Failed to free ocmem\n");
-	}
-	core->resources.ocmem.buf = NULL;
 	return rc;
 }
 
@@ -1282,7 +956,8 @@ int msm_vidc_ocmem_notify_handler(struct notifier_block *this,
 {
 	struct ocmem_buf *buff = data;
 	struct msm_vidc_core *core;
-	struct msm_vidc_resources *resources;
+	struct venus_hfi_device *device;
+	struct venus_resources *resources;
 	struct on_chip_mem *ocmem;
 	int rc = NOTIFY_DONE;
 	if (event == OCMEM_ALLOC_GROW) {
@@ -1293,10 +968,12 @@ int msm_vidc_ocmem_notify_handler(struct notifier_block *this,
 			goto bad_notfier;
 		}
 		resources = container_of(ocmem,
-			struct msm_vidc_resources, ocmem);
-		core = container_of(resources,
-			struct msm_vidc_core, resources);
-		if (msm_comm_set_ocmem(core, buff)) {
+			struct venus_resources, ocmem);
+		device = container_of(resources,
+			struct venus_hfi_device, resources);
+		core = container_of((void *)device,
+			struct msm_vidc_core, device);
+		if (venus_hfi_set_ocmem(core->device, buff)) {
 			dprintk(VIDC_ERR, "Failed to set ocmem: %d\n", rc);
 			goto ocmem_set_failed;
 		}
@@ -1345,6 +1022,12 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct msm_vidc_core *core = inst->core;
 	unsigned long flags;
+	struct venus_hfi_device *device;
+
+	if (!core || !core->device)
+		return -EINVAL;
+	device = core->device;
+
 	mutex_lock(&core->sync_lock);
 	if (core->state >= VIDC_CORE_INIT) {
 		dprintk(VIDC_INFO, "Video core: %d is already in state: %d\n",
@@ -1358,7 +1041,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		goto fail_scale_bus;
 	}
 
-	rc = msm_comm_load_fw(core);
+	rc = venus_hfi_load_fw(core->device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load video firmware\n");
 		goto fail_load_fw;
@@ -1370,8 +1053,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	}
 
 	init_completion(&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)]);
-	rc = vidc_hal_core_init(core->device,
-		core->resources.io_map[NS_MAP].domain);
+	rc = vidc_hal_core_init(core->device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init core, id = %d\n", core->id);
 		goto fail_core_init;
@@ -1384,7 +1066,7 @@ core_already_inited:
 	mutex_unlock(&core->sync_lock);
 	return rc;
 fail_core_init:
-	msm_comm_unload_fw(core);
+	venus_hfi_unload_fw(core->device);
 fail_load_fw:
 	msm_comm_unvote_buses(core, DDR_MEM);
 fail_scale_bus:
@@ -1406,7 +1088,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	msm_comm_scale_clocks_and_bus(inst);
 	if (list_empty(&core->instances)) {
 		msm_comm_unset_ocmem(core);
-		msm_comm_free_ocmem(core);
+		venus_hfi_free_ocmem(core->device);
 		dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
 		rc = vidc_hal_core_release(core->device);
 		if (rc) {
@@ -1417,7 +1099,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		spin_lock_irqsave(&core->lock, flags);
 		core->state = VIDC_CORE_UNINIT;
 		spin_unlock_irqrestore(&core->lock, flags);
-		msm_comm_unload_fw(core);
+		venus_hfi_unload_fw(core->device);
 		msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
 	}
 core_already_uninited:
@@ -1544,7 +1226,9 @@ static int msm_vidc_load_resources(int flipped_state,
 	ocmem_sz = get_ocmem_requirement(inst->prop.height, inst->prop.width);
 	rc = msm_comm_scale_bus(inst->core, inst->session_type, OCMEM_MEM);
 	if (!rc) {
-		rc = msm_comm_alloc_ocmem(inst->core, ocmem_sz);
+		mutex_lock(&inst->core->sync_lock);
+		rc = venus_hfi_alloc_ocmem(inst->core->device, ocmem_sz);
+		mutex_unlock(&inst->core->sync_lock);
 		if (rc) {
 			dprintk(VIDC_WARN,
 			"Failed to allocate OCMEM. Performance will be impacted\n");
@@ -2091,9 +1775,16 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	unsigned long flags;
 	int domain;
 	unsigned long smem_flags = 0;
-	struct hal_buffer_requirements *scratch_buf =
-		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_SCRATCH];
+	struct hal_buffer_requirements *scratch_buf;
 	int i;
+	struct venus_hfi_device *device;
+
+	if (!inst || !inst->core || !inst->core->device)
+		return -EINVAL;
+
+	device = inst->core->device;
+	scratch_buf =
+		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_SCRATCH];
 	dprintk(VIDC_DBG,
 		"scratch: num = %d, size = %d\n",
 		scratch_buf->buffer_count_actual,
@@ -2101,10 +1792,10 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	if (msm_comm_release_scratch_buffers(inst))
 		dprintk(VIDC_WARN, "Failed to release scratch buffers\n");
 	if (inst->mode == VIDC_SECURE) {
-		domain = inst->core->resources.io_map[CP_MAP].domain;
+		domain = venus_hfi_get_domain(device, CP_MAP);
 		smem_flags |= SMEM_SECURE;
 	} else
-		domain = inst->core->resources.io_map[NS_MAP].domain;
+		domain = venus_hfi_get_domain(device, NS_MAP);
 
 	if (scratch_buf->buffer_size) {
 		for (i = 0; i < scratch_buf->buffer_count_actual;
@@ -2161,9 +1852,17 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 	unsigned long flags;
 	unsigned long smem_flags = 0;
 	int domain;
-	struct hal_buffer_requirements *persist_buf =
-		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_PERSIST];
+	struct hal_buffer_requirements *persist_buf;
 	int i;
+	struct venus_hfi_device *device;
+
+	if (!inst || !inst->core || !inst->core->device)
+		return -EINVAL;
+
+	device = inst->core->device;
+
+	persist_buf =
+		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_PERSIST];
 	dprintk(VIDC_DBG,
 		"persist: num = %d, size = %d\n",
 		persist_buf->buffer_count_actual,
@@ -2175,10 +1874,10 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 	}
 
 	if (inst->mode == VIDC_SECURE) {
-		domain = inst->core->resources.io_map[CP_MAP].domain;
+		domain = venus_hfi_get_domain(device, CP_MAP);
 		flags |= SMEM_SECURE;
 	} else
-		domain = inst->core->resources.io_map[NS_MAP].domain;
+		domain = venus_hfi_get_domain(device, NS_MAP);
 
 	if (persist_buf->buffer_size) {
 		for (i = 0;	i <	persist_buf->buffer_count_actual; i++) {

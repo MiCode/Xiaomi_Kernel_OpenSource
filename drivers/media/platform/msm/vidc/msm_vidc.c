@@ -21,6 +21,7 @@
 #include "msm_vidc_common.h"
 #include "msm_smem.h"
 #include <linux/delay.h>
+#include "venus_hfi.h"
 
 #define MAX_EVENTS 30
 
@@ -85,15 +86,11 @@ int msm_vidc_get_iommu_maps(void *instance,
 		struct msm_vidc_iommu_info maps[MAX_MAP])
 {
 	struct msm_vidc_inst *inst = instance;
-	int c = 0;
 
-	if (!inst || !maps)
+	if (!inst || !maps || !inst->core)
 		return -EINVAL;
 
-	for (c = 0; c < MAX_MAP; ++c)
-		maps[c] = inst->core->resources.io_map[c];
-
-	return 0;
+	return venus_hfi_iommu_get_map(inst->core->device, maps);
 }
 
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)

@@ -14,8 +14,12 @@
 #ifndef __H_VENUS_HFI_H__
 #define __H_VENUS_HFI_H__
 
-#include <linux/spinlock.h>
+#include <linux/clk.h>
 #include <linux/mutex.h>
+#include <linux/platform_device.h>
+#include <linux/spinlock.h>
+#include <mach/ocmem.h>
+#include <media/msm_vidc.h>
 #include "vidc_hfi_api.h"
 #include "msm_smem.h"
 #include "vidc_hfi_helper.h"
@@ -44,6 +48,8 @@
 #define VIDC_IFACEQ_MAX_BUF_COUNT			50
 #define VIDC_IFACE_MAX_PARALLEL_CLNTS		16
 #define VIDC_IFACEQ_DFLT_QHDR				0x01010000
+
+#define VIDC_MAX_NAME_LENGTH 64
 
 struct hfi_queue_table_header {
 	u32 qtbl_version;
@@ -907,7 +913,55 @@ struct hal_data {
 	u8 *register_base_addr;
 };
 
-struct hal_device {
+enum vidc_clocks {
+	VCODEC_CLK,
+	VCODEC_AHB_CLK,
+	VCODEC_AXI_CLK,
+	VCODEC_OCMEM_CLK,
+	VCODEC_MAX_CLKS
+};
+
+enum mem_type {
+	DDR_MEM = 0x1,
+	OCMEM_MEM = 0x2,
+};
+
+struct load_freq_table {
+	u32 load;
+	u32 freq;
+};
+
+struct msm_vidc_fw {
+	void *cookie;
+};
+
+struct venus_core_clock {
+	char name[VIDC_MAX_NAME_LENGTH];
+	struct clk *clk;
+	u32 count;
+	struct load_freq_table load_freq_tbl[8];
+};
+
+struct venus_bus_info {
+	u32 ddr_handle[MSM_VIDC_MAX_DEVICES];
+	u32 ocmem_handle[MSM_VIDC_MAX_DEVICES];
+};
+
+struct on_chip_mem {
+	struct ocmem_buf *buf;
+	struct notifier_block vidc_ocmem_nb;
+	void *handle;
+};
+
+struct venus_resources {
+	struct msm_vidc_fw fw;
+	struct msm_vidc_iommu_info io_map[MAX_MAP];
+	struct venus_core_clock clock[VCODEC_MAX_CLKS];
+	struct venus_bus_info bus_info;
+	struct on_chip_mem ocmem;
+};
+
+struct venus_hfi_device {
 	struct list_head list;
 	struct list_head sess_head;
 	u32 intr_status;
@@ -925,13 +979,18 @@ struct hal_device {
 	struct workqueue_struct *vidc_workq;
 	int spur_count;
 	int reg_count;
+	u32 base_addr;
+	u32 register_base;
+	u32 register_size;
+	u32 irq;
+	struct venus_resources resources;
 };
 
 struct hal_session {
 	struct list_head list;
 	u32 session_id;
 	u32 is_decoder;
-	struct hal_device *device;
+	struct venus_hfi_device *device;
 };
 
 struct hal_device_data {
@@ -941,10 +1000,35 @@ struct hal_device_data {
 
 extern struct hal_device_data hal_ctxt;
 
-int vidc_hal_iface_msgq_read(struct hal_device *device, void *pkt);
-int vidc_hal_iface_dbgq_read(struct hal_device *device, void *pkt);
+int vidc_hal_iface_msgq_read(struct venus_hfi_device *device, void *pkt);
+int vidc_hal_iface_dbgq_read(struct venus_hfi_device *device, void *pkt);
 
 /* Interrupt Processing:*/
-void vidc_hal_response_handler(struct hal_device *device);
+void vidc_hal_response_handler(struct venus_hfi_device *device);
+
+void vidc_hal_delete_device(void *device);
+
+int venus_hfi_scale_clocks(struct venus_hfi_device *device, int load);
+
+void *venus_hfi_get_device(u32 device_id,
+	struct platform_device *pdev,
+	void (*callback) (enum command_response cmd, void *data));
+
+int venus_hfi_scale_bus(struct venus_hfi_device *device, int load,
+				enum session_type type, enum mem_type mtype);
+int venus_hfi_set_ocmem(struct venus_hfi_device *device,
+	struct ocmem_buf *ocmem);
+int venus_hfi_unset_ocmem(struct venus_hfi_device *device);
+int venus_hfi_alloc_ocmem(struct venus_hfi_device *device,
+		unsigned long size);
+int venus_hfi_free_ocmem(struct venus_hfi_device *device);
+int venus_hfi_is_ocmem_present(struct venus_hfi_device *device);
+
+int venus_hfi_get_domain(struct venus_hfi_device *device,
+						 enum msm_vidc_io_maps iomap);
+int venus_hfi_iommu_get_map(struct venus_hfi_device *device,
+			struct msm_vidc_iommu_info maps[MAX_MAP]);
+int venus_hfi_load_fw(struct venus_hfi_device *device);
+void venus_hfi_unload_fw(struct venus_hfi_device *device);
 
 #endif
