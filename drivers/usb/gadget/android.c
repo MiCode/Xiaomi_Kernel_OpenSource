@@ -141,6 +141,46 @@ struct android_usb_function_holder {
 	struct list_head enabled_list;
 };
 
+/**
+* struct android_dev - represents android USB gadget device
+* @name: device name.
+* @functions: an array of all the supported USB function
+*    drivers that this gadget support but not necessarily
+*    added to one of the gadget configurations.
+* @cdev: The internal composite device. Android gadget device
+*    is a composite device, such that it can support configurations
+*    with more than one function driver.
+* @dev: The kernel device that represents this android device.
+* @enabled: True if the android gadget is enabled, means all
+*    the configurations were set and all function drivers were
+*    bind and ready for USB enumeration.
+* @disable_depth: Number of times the device was disabled, after
+*    symmetrical number of enables the device willl be enabled.
+*    Used for controlling ADB userspace disable/enable requests.
+* @mutex: Internal mutex for protecting device member fields.
+* @pdata: Platform data fetched from the kernel device platfrom data.
+* @connected: True if got connect notification from the gadget UDC.
+*    False if got disconnect notification from the gadget UDC.
+* @sw_connected: Equal to 'connected' only after the connect
+*    notification was handled by the android gadget work function.
+* @suspended: True if got suspend notification from the gadget UDC.
+*    False if got resume notification from the gadget UDC.
+* @sw_suspended: Equal to 'suspended' only after the susped
+*    notification was handled by the android gadget work function.
+* @pm_qos: An attribute string that can be set by user space in order to
+*    determine pm_qos policy. Set to 'high' for always demand pm_qos
+*    when USB bus is connected and resumed. Set to 'low' for disable
+*    any setting of pm_qos by this driver. Default = 'high'.
+* @work: workqueue used for handling notifications from the gadget UDC.
+* @configs: List of configurations currently configured into the device.
+*    The android gadget supports more than one configuration. The host
+*    may choose one configuration from the suggested.
+* @configs_num: Number of configurations currently configured and existing
+*    in the configs list.
+* @list_item: This driver supports more than one android gadget device (for
+*    example in order to support multiple USB cores), therefore this is
+*    a item in a linked list of android devices.
+*/
 struct android_dev {
 	const char *name;
 	struct android_usb_function **functions;
@@ -154,6 +194,8 @@ struct android_dev {
 
 	bool connected;
 	bool sw_connected;
+	bool suspended;
+	bool sw_suspended;
 	char pm_qos[5];
 	struct pm_qos_request pm_qos_req_dma;
 	struct work_struct work;
@@ -164,7 +206,6 @@ struct android_dev {
 
 	/* A list node inside the android_dev_list */
 	struct list_head list_item;
-
 };
 
 struct android_configuration {
@@ -244,6 +285,8 @@ enum android_device_state {
 	USB_DISCONNECTED,
 	USB_CONNECTED,
 	USB_CONFIGURED,
+	USB_SUSPENDED,
+	USB_RESUMED
 };
 
 static void android_pm_qos_update_latency(struct android_dev *dev, int vote)
@@ -273,13 +316,20 @@ static void android_work(struct work_struct *data)
 	char *disconnected[2] = { "USB_STATE=DISCONNECTED", NULL };
 	char *connected[2]    = { "USB_STATE=CONNECTED", NULL };
 	char *configured[2]   = { "USB_STATE=CONFIGURED", NULL };
+	char *suspended[2]   = { "USB_STATE=SUSPENDED", NULL };
+	char *resumed[2]   = { "USB_STATE=RESUMED", NULL };
 	char **uevent_envp = NULL;
 	static enum android_device_state last_uevent, next_state;
 	unsigned long flags;
 	int pm_qos_vote = -1;
 
 	spin_lock_irqsave(&cdev->lock, flags);
-	if (cdev->config) {
+	if (dev->suspended != dev->sw_suspended && cdev->config) {
+		if (strncmp(dev->pm_qos, "low", 3))
+			pm_qos_vote = dev->suspended ? 0 : 1;
+		next_state = dev->suspended ? USB_SUSPENDED : USB_RESUMED;
+		uevent_envp = dev->suspended ? suspended : resumed;
+	} else if (cdev->config) {
 		uevent_envp = configured;
 		next_state = USB_CONFIGURED;
 	} else if (dev->connected != dev->sw_connected) {
@@ -291,6 +341,7 @@ static void android_work(struct work_struct *data)
 			pm_qos_vote = 0;
 	}
 	dev->sw_connected = dev->connected;
+	dev->sw_suspended = dev->suspended;
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	if (pm_qos_vote != -1)
@@ -319,8 +370,12 @@ static void android_work(struct work_struct *data)
 		if (uevent_envp == configured)
 			msleep(50);
 
-		kobject_uevent_env(&dev->dev->kobj, KOBJ_CHANGE, uevent_envp);
-		last_uevent = next_state;
+		/* Do not notify on suspend / resume */
+		if (next_state != USB_SUSPENDED && next_state != USB_RESUMED) {
+			kobject_uevent_env(&dev->dev->kobj, KOBJ_CHANGE,
+					   uevent_envp);
+			last_uevent = next_state;
+		}
 		pr_info("%s: sent uevent %s\n", __func__, uevent_envp[0]);
 	} else {
 		pr_info("%s: did not send uevent (%d %d %p)\n", __func__,
@@ -2331,6 +2386,35 @@ static void android_disconnect(struct usb_gadget *gadget)
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }
 
+static void android_suspend(struct usb_gadget *gadget)
+{
+	struct usb_composite_dev *cdev = get_gadget_data(gadget);
+	struct android_dev *dev = cdev_to_android_dev(cdev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&cdev->lock, flags);
+	dev->suspended = 1;
+	schedule_work(&dev->work);
+	spin_unlock_irqrestore(&cdev->lock, flags);
+
+	composite_suspend(gadget);
+}
+
+static void android_resume(struct usb_gadget *gadget)
+{
+	struct usb_composite_dev *cdev = get_gadget_data(gadget);
+	struct android_dev *dev = cdev_to_android_dev(cdev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&cdev->lock, flags);
+	dev->suspended = 0;
+	schedule_work(&dev->work);
+	spin_unlock_irqrestore(&cdev->lock, flags);
+
+	composite_resume(gadget);
+}
+
+
 static int android_create_device(struct android_dev *dev, u8 usb_core_id)
 {
 	struct device_attribute **attrs = android_usb_attributes;
@@ -2622,6 +2706,8 @@ static int __init init(void)
 	/* Override composite driver functions */
 	composite_driver.setup = android_setup;
 	composite_driver.disconnect = android_disconnect;
+	composite_driver.suspend = android_suspend;
+	composite_driver.resume = android_resume;
 
 	INIT_LIST_HEAD(&android_dev_list);
 	android_dev_count = 0;
