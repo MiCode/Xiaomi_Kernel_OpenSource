@@ -16,8 +16,13 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/iommu.h>
+#include <mach/iommu.h>
+#include <mach/iommu_domains.h>
 #include <mach/ocmem.h>
-
+#include <mach/scm.h>
+#include <mach/subsystem_restart.h>
 #include <asm/memory.h>
 #include "hfi_packetization.h"
 #include "venus_hfi.h"
@@ -30,7 +35,423 @@
 /*Workaround for virtio */
 #define HFI_VIRTIO_FW_BIAS		0x0
 
+#define SHARED_QSIZE 0x1000000
+
 struct hal_device_data hal_ctxt;
+
+static struct msm_bus_vectors enc_ocmem_init_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors enc_ocmem_perf1_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 138200000,
+		.ib = 1222000000,
+	},
+};
+
+static struct msm_bus_vectors enc_ocmem_perf2_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 414700000,
+		.ib = 1222000000,
+	},
+};
+
+static struct msm_bus_vectors enc_ocmem_perf3_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 940000000,
+		.ib = 2444000000U,
+	},
+};
+
+static struct msm_bus_vectors enc_ocmem_perf4_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 1880000000,
+		.ib = 2444000000U,
+	},
+};
+
+static struct msm_bus_vectors enc_ocmem_perf5_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 3008000000U,
+		.ib = 3910400000U,
+	},
+};
+
+static struct msm_bus_vectors enc_ocmem_perf6_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 3760000000U,
+		.ib = 4888000000ULL,
+	},
+};
+
+static struct msm_bus_vectors dec_ocmem_init_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors dec_ocmem_perf1_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 176900000,
+		.ib = 1556640000,
+	},
+};
+
+static struct msm_bus_vectors dec_ocmem_perf2_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 456200000,
+		.ib = 1556640000,
+	},
+};
+
+static struct msm_bus_vectors dec_ocmem_perf3_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 864800000,
+		.ib = 1556640000,
+	},
+};
+
+static struct msm_bus_vectors dec_ocmem_perf4_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 1729600000,
+		.ib = 3113280000U,
+	},
+};
+
+static struct msm_bus_vectors dec_ocmem_perf5_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 2767360000U,
+		.ib = 4981248000ULL,
+	},
+};
+
+static struct msm_bus_vectors dec_ocmem_perf6_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
+		.dst = MSM_BUS_SLAVE_OCMEM,
+		.ab = 3459200000U,
+		.ib = 6226560000ULL,
+	},
+};
+
+static struct msm_bus_paths enc_ocmem_perf_vectors[]  = {
+	{
+		ARRAY_SIZE(enc_ocmem_init_vectors),
+		enc_ocmem_init_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ocmem_perf1_vectors),
+		enc_ocmem_perf1_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ocmem_perf2_vectors),
+		enc_ocmem_perf2_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ocmem_perf3_vectors),
+		enc_ocmem_perf3_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ocmem_perf4_vectors),
+		enc_ocmem_perf4_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ocmem_perf5_vectors),
+		enc_ocmem_perf5_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ocmem_perf6_vectors),
+		enc_ocmem_perf6_vectors,
+	},
+};
+
+static struct msm_bus_paths dec_ocmem_perf_vectors[]  = {
+	{
+		ARRAY_SIZE(dec_ocmem_init_vectors),
+		dec_ocmem_init_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ocmem_perf1_vectors),
+		dec_ocmem_perf1_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ocmem_perf2_vectors),
+		dec_ocmem_perf2_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ocmem_perf3_vectors),
+		dec_ocmem_perf3_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ocmem_perf4_vectors),
+		dec_ocmem_perf4_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ocmem_perf5_vectors),
+		dec_ocmem_perf5_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ocmem_perf6_vectors),
+		dec_ocmem_perf6_vectors,
+	},
+};
+
+
+static struct msm_bus_scale_pdata enc_ocmem_bus_data = {
+	.usecase = enc_ocmem_perf_vectors,
+	.num_usecases = ARRAY_SIZE(enc_ocmem_perf_vectors),
+	.name = "msm_vidc_enc_ocmem",
+};
+
+static struct msm_bus_scale_pdata dec_ocmem_bus_data = {
+	.usecase = dec_ocmem_perf_vectors,
+	.num_usecases = ARRAY_SIZE(dec_ocmem_perf_vectors),
+	.name = "msm_vidc_dec_ocmem",
+};
+
+static struct msm_bus_vectors enc_ddr_init_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+
+static struct msm_bus_vectors enc_ddr_perf1_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 60000000,
+		.ib = 664950000,
+	},
+};
+
+static struct msm_bus_vectors enc_ddr_perf2_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 181000000,
+		.ib = 664950000,
+	},
+};
+
+static struct msm_bus_vectors enc_ddr_perf3_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 403000000,
+		.ib = 664950000,
+	},
+};
+
+static struct msm_bus_vectors enc_ddr_perf4_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 806000000,
+		.ib = 1329900000,
+	},
+};
+
+static struct msm_bus_vectors enc_ddr_perf5_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1289600000,
+		.ib = 2127840000U,
+	},
+};
+
+static struct msm_bus_vectors enc_ddr_perf6_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 161200000,
+		.ib = 6400000000ULL,
+	},
+};
+
+static struct msm_bus_vectors dec_ddr_init_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+};
+
+static struct msm_bus_vectors dec_ddr_perf1_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 110000000,
+		.ib = 909000000,
+	},
+};
+
+static struct msm_bus_vectors dec_ddr_perf2_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 268000000,
+		.ib = 909000000,
+	},
+};
+
+static struct msm_bus_vectors dec_ddr_perf3_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 505000000,
+		.ib = 909000000,
+	},
+};
+
+static struct msm_bus_vectors dec_ddr_perf4_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1010000000,
+		.ib = 1818000000,
+	},
+};
+
+static struct msm_bus_vectors dec_ddr_perf5_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 1616000000,
+		.ib = 2908800000U,
+	},
+};
+
+static struct msm_bus_vectors dec_ddr_perf6_vectors[]  = {
+	{
+		.src = MSM_BUS_MASTER_VIDEO_P0,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 2020000000U,
+		.ib = 6400000000ULL,
+	},
+};
+
+static struct msm_bus_paths enc_ddr_perf_vectors[]  = {
+	{
+		ARRAY_SIZE(enc_ddr_init_vectors),
+		enc_ddr_init_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ddr_perf1_vectors),
+		enc_ddr_perf1_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ddr_perf2_vectors),
+		enc_ddr_perf2_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ddr_perf3_vectors),
+		enc_ddr_perf3_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ddr_perf4_vectors),
+		enc_ddr_perf4_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ddr_perf5_vectors),
+		enc_ddr_perf5_vectors,
+	},
+	{
+		ARRAY_SIZE(enc_ddr_perf6_vectors),
+		enc_ddr_perf6_vectors,
+	},
+};
+
+static struct msm_bus_paths dec_ddr_perf_vectors[]  = {
+	{
+		ARRAY_SIZE(dec_ddr_init_vectors),
+		dec_ddr_init_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ddr_perf1_vectors),
+		dec_ddr_perf1_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ddr_perf2_vectors),
+		dec_ddr_perf2_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ddr_perf3_vectors),
+		dec_ddr_perf3_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ddr_perf4_vectors),
+		dec_ddr_perf4_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ddr_perf5_vectors),
+		dec_ddr_perf5_vectors,
+	},
+	{
+		ARRAY_SIZE(dec_ddr_perf6_vectors),
+		dec_ddr_perf6_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata enc_ddr_bus_data = {
+	.usecase = enc_ddr_perf_vectors,
+	.num_usecases = ARRAY_SIZE(enc_ddr_perf_vectors),
+	.name = "msm_vidc_enc_ddr",
+};
+
+static struct msm_bus_scale_pdata dec_ddr_bus_data = {
+	.usecase = dec_ddr_perf_vectors,
+	.num_usecases = ARRAY_SIZE(dec_ddr_perf_vectors),
+	.name = "msm_vidc_dec_ddr",
+};
+
+#define TZBSP_MEM_PROTECT_VIDEO_VAR 0x8
+struct tzbsp_memprot {
+	u32 cp_start;
+	u32 cp_size;
+	u32 cp_nonpixel_start;
+	u32 cp_nonpixel_size;
+};
+
+struct tzbsp_resp {
+	int ret;
+};
 
 static void hal_virtio_modify_cmd_packet(u8 *packet)
 {
@@ -384,7 +805,7 @@ static int read_register(u8 *base_addr, u32 reg)
 	return rc;
 }
 
-static int vidc_hal_iface_cmdq_write(struct hal_device *device, void *pkt)
+static int vidc_hal_iface_cmdq_write(struct venus_hfi_device *device, void *pkt)
 {
 	u32 rx_req_is_set = 0;
 	struct vidc_iface_q_info *q_info;
@@ -416,7 +837,7 @@ err_q_write:
 	return result;
 }
 
-int vidc_hal_iface_msgq_read(struct hal_device *device, void *pkt)
+int vidc_hal_iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 {
 	u32 tx_req_is_set = 0;
 	int rc = 0;
@@ -450,7 +871,7 @@ read_error:
 	return rc;
 }
 
-int vidc_hal_iface_dbgq_read(struct hal_device *device, void *pkt)
+int vidc_hal_iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 {
 	u32 tx_req_is_set = 0;
 	int rc = 0;
@@ -499,7 +920,7 @@ static void vidc_hal_set_queue_hdr_defaults(struct hfi_queue_header *q_hdr)
 	q_hdr->qhdr_write_idx = 0x0;
 }
 
-static void vidc_hal_interface_queues_release(struct hal_device *device)
+static void vidc_hal_interface_queues_release(struct venus_hfi_device *device)
 {
 	int i;
 
@@ -527,7 +948,8 @@ static void vidc_hal_interface_queues_release(struct hal_device *device)
 	device->hal_client = NULL;
 }
 
-static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
+static int vidc_hal_interface_queues_init(struct venus_hfi_device *dev,
+					int domain)
 {
 	struct hfi_queue_table_header *q_tbl_hdr;
 	struct hfi_queue_header *q_hdr;
@@ -632,7 +1054,7 @@ static int vidc_hal_interface_queues_init(struct hal_device *dev, int domain)
 	return 0;
 }
 
-static int vidc_hal_core_start_cpu(struct hal_device *device)
+static int vidc_hal_core_start_cpu(struct venus_hfi_device *device)
 {
 	u32 ctrl_status = 0, count = 0, rc = 0;
 	int max_tries = 100;
@@ -657,7 +1079,7 @@ static int vidc_hal_core_start_cpu(struct hal_device *device)
 	return rc;
 }
 
-static void set_vbif_registers(struct hal_device *device)
+static void set_vbif_registers(struct venus_hfi_device *device)
 {
 	/*Disable Dynamic clock gating for Venus VBIF*/
 	write_register(device->hal_data->register_base_addr,
@@ -700,7 +1122,7 @@ static void set_vbif_registers(struct hal_device *device)
 			VIDC_VENUS0_WRAPPER_VBIF_PRIORITY_LEVEL, 0, 0);
 }
 
-static int vidc_hal_sys_set_debug(struct hal_device *device, int debug)
+static int vidc_hal_sys_set_debug(struct venus_hfi_device *device, int debug)
 {
 	struct hfi_debug_config *hfi;
 	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
@@ -719,11 +1141,11 @@ static int vidc_hal_sys_set_debug(struct hal_device *device, int debug)
 	return 0;
 }
 
-int vidc_hal_core_init(void *device, int domain)
+int vidc_hal_core_init(void *device)
 {
 	struct hfi_cmd_sys_init_packet pkt;
 	int rc = 0;
-	struct hal_device *dev;
+	struct venus_hfi_device *dev;
 
 	if (device) {
 		dev = device;
@@ -731,6 +1153,7 @@ int vidc_hal_core_init(void *device, int domain)
 		dprintk(VIDC_ERR, "Invalid device");
 		return -ENODEV;
 	}
+
 	dev->intr_status = 0;
 	enable_irq(dev->hal_data->irq);
 	INIT_LIST_HEAD(&dev->sess_head);
@@ -750,7 +1173,8 @@ int vidc_hal_core_init(void *device, int domain)
 		dev->hal_data->device_base_addr,
 		(u32) dev->hal_data->register_base_addr);
 
-		rc = vidc_hal_interface_queues_init(dev, domain);
+		rc = vidc_hal_interface_queues_init(dev,
+				dev->resources.io_map[NS_MAP].domain);
 		if (rc) {
 			dprintk(VIDC_ERR, "failed to init queues");
 			rc = -ENOMEM;
@@ -787,7 +1211,7 @@ err_core_init:
 
 int vidc_hal_core_release(void *device)
 {
-	struct hal_device *dev;
+	struct venus_hfi_device *dev;
 	if (device) {
 		dev = device;
 	} else {
@@ -808,7 +1232,7 @@ int vidc_hal_core_pc_prep(void *device)
 {
 	struct hfi_cmd_sys_pc_prep_packet pkt;
 	int rc = 0;
-	struct hal_device *dev;
+	struct venus_hfi_device *dev;
 
 	if (device) {
 		dev = device;
@@ -830,7 +1254,7 @@ err_create_pkt:
 	return rc;
 }
 
-static void vidc_hal_core_clear_interrupt(struct hal_device *device)
+static void vidc_hal_core_clear_interrupt(struct venus_hfi_device *device)
 {
 	u32 intr_status = 0;
 
@@ -865,7 +1289,7 @@ int vidc_hal_core_set_resource(void *device,
 	struct hfi_cmd_sys_set_resource_packet *pkt;
 	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
 	int rc = 0;
-	struct hal_device *dev;
+	struct venus_hfi_device *dev;
 
 	if (!device || !resource_hdr || !resource_value) {
 		dprintk(VIDC_ERR, "set_res: Invalid Params");
@@ -894,7 +1318,7 @@ int vidc_hal_core_release_resource(void *device,
 {
 	struct hfi_cmd_sys_release_resource_packet pkt;
 	int rc = 0;
-	struct hal_device *dev;
+	struct venus_hfi_device *dev;
 
 	if (!device || !resource_hdr) {
 		dprintk(VIDC_ERR, "Inv-Params in rel_res");
@@ -920,7 +1344,7 @@ int vidc_hal_core_ping(void *device)
 {
 	struct hfi_cmd_sys_ping_packet pkt;
 	int rc = 0;
-	struct hal_device *dev;
+	struct venus_hfi_device *dev;
 
 	if (device) {
 		dev = device;
@@ -1100,7 +1524,7 @@ void *vidc_hal_session_init(void *device, u32 session_id,
 {
 	struct hfi_cmd_sys_session_init_packet pkt;
 	struct hal_session *new_session;
-	struct hal_device *dev;
+	struct venus_hfi_device *dev;
 
 	if (device) {
 		dev = device;
@@ -1462,12 +1886,13 @@ static int vidc_hal_check_core_registered(
 	struct hal_device_data core, u32 fw_addr,
 	u32 reg_addr, u32 reg_size, u32 irq)
 {
-	struct hal_device *device;
+	struct venus_hfi_device *device;
 	struct list_head *curr, *next;
 
 	if (core.dev_count) {
 		list_for_each_safe(curr, next, &core.dev_head) {
-			device = list_entry(curr, struct hal_device, list);
+			device = list_entry(curr,
+				struct venus_hfi_device, list);
 			if (device && device->hal_data->irq == irq &&
 				(CONTAINS(device->hal_data->
 						device_base_addr,
@@ -1509,8 +1934,8 @@ static int vidc_hal_check_core_registered(
 
 static void vidc_hal_core_work_handler(struct work_struct *work)
 {
-	struct hal_device *device = list_first_entry(
-		&hal_ctxt.dev_head, struct hal_device, list);
+	struct venus_hfi_device *device = list_first_entry(
+		&hal_ctxt.dev_head, struct venus_hfi_device, list);
 
 	dprintk(VIDC_INFO, " GOT INTERRUPT () ");
 	if (!device->callback) {
@@ -1526,7 +1951,7 @@ static DECLARE_WORK(vidc_hal_work, vidc_hal_core_work_handler);
 
 static irqreturn_t vidc_hal_isr(int irq, void *dev)
 {
-	struct hal_device *device = dev;
+	struct venus_hfi_device *device = dev;
 	dprintk(VIDC_INFO, "vidc_hal_isr() %d ", irq);
 	disable_irq_nosync(irq);
 	queue_work(device->vidc_workq, &vidc_hal_work);
@@ -1534,59 +1959,809 @@ static irqreturn_t vidc_hal_isr(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-void *vidc_hal_add_device(u32 device_id, u32 fw_base_addr, u32 reg_base,
-		u32 reg_size, u32 irq,
-		void (*callback) (enum command_response cmd, void *data))
+static int venus_hfi_init_regs_and_interrupts(
+		struct venus_hfi_device *device, struct platform_device *pdev)
 {
-	struct hal_device *hdevice = NULL;
 	struct hal_data *hal = NULL;
 	int rc = 0;
+	struct resource *res;
 
-	if (device_id || !reg_base || !reg_size ||
-			!irq || !callback) {
+	device->base_addr = 0x0;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dprintk(VIDC_ERR, "Failed to get IORESOURCE_MEM\n");
+		rc = -ENODEV;
+		goto err_core_init;
+	}
+	device->register_base = res->start;
+	device->register_size = resource_size(res);
+
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (!res) {
+		dprintk(VIDC_ERR, "Failed to get IORESOURCE_IRQ\n");
+		rc = -ENODEV;
+		goto err_core_init;
+	}
+	device->irq = res->start;
+
+	rc = vidc_hal_check_core_registered(hal_ctxt, device->base_addr,
+			device->register_base, device->register_size,
+			device->irq);
+	if (!rc) {
+		dprintk(VIDC_ERR, "Core present/Already added");
+		rc = -EEXIST;
+		goto err_core_init;
+	}
+
+	dprintk(VIDC_DBG, "HAL_DATA will be assigned now");
+	hal = (struct hal_data *)
+		kzalloc(sizeof(struct hal_data), GFP_KERNEL);
+	if (!hal) {
+		dprintk(VIDC_ERR, "Failed to alloc");
+		rc = -ENOMEM;
+		goto err_core_init;
+	}
+	hal->irq = device->irq;
+	hal->device_base_addr = device->base_addr;
+	hal->register_base_addr =
+		ioremap_nocache(device->register_base, device->register_size);
+	if (!hal->register_base_addr) {
+		dprintk(VIDC_ERR,
+			"could not map reg addr %d of size %d",
+			device->register_base, device->register_size);
+		goto error_irq_fail;
+	}
+
+	device->hal_data = hal;
+	rc = request_irq(device->irq, vidc_hal_isr, IRQF_TRIGGER_HIGH,
+			"msm_vidc", device);
+	if (unlikely(rc)) {
+		dprintk(VIDC_ERR, "() :request_irq failed\n");
+		goto error_irq_fail;
+	}
+	disable_irq_nosync(device->irq);
+	return rc;
+
+error_irq_fail:
+	kfree(hal);
+err_core_init:
+	return rc;
+
+}
+
+static size_t read_u32_array(struct platform_device *pdev,
+		char *name, u32 *arr, size_t size)
+{
+	int len;
+	size_t sz = 0;
+	struct device_node *np = pdev->dev.of_node;
+	if (!of_get_property(np, name, &len)) {
+		dprintk(VIDC_ERR, "Failed to read %s from device tree\n",
+			name);
+		goto fail_read;
+	}
+	sz = len / sizeof(u32);
+	if (sz <= 0) {
+		dprintk(VIDC_ERR, "%s not specified in device tree\n",
+			name);
+		goto fail_read;
+	}
+	if (sz > size) {
+		dprintk(VIDC_ERR, "Not enough memory to store %s values\n",
+			name);
+		goto fail_read;
+	}
+	if (of_property_read_u32_array(np, name, arr, sz)) {
+		dprintk(VIDC_ERR,
+			"error while reading %s from device tree\n",
+			name);
+		goto fail_read;
+	}
+	return sz;
+fail_read:
+	sz = 0;
+	return sz;
+}
+
+static inline int venus_hfi_init_clocks(struct platform_device *pdev,
+		struct venus_hfi_device *device)
+{
+	struct venus_core_clock *cl;
+	int i;
+	int rc = 0;
+	struct venus_core_clock *clock;
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
+		return -EINVAL;
+	}
+	clock = device->resources.clock;
+	strlcpy(clock[VCODEC_CLK].name, "core_clk",
+		sizeof(clock[VCODEC_CLK].name));
+	strlcpy(clock[VCODEC_AHB_CLK].name, "iface_clk",
+		sizeof(clock[VCODEC_AHB_CLK].name));
+	strlcpy(clock[VCODEC_AXI_CLK].name, "bus_clk",
+		sizeof(clock[VCODEC_AXI_CLK].name));
+	strlcpy(clock[VCODEC_OCMEM_CLK].name, "mem_clk",
+		sizeof(clock[VCODEC_OCMEM_CLK].name));
+
+	clock[VCODEC_CLK].count = read_u32_array(pdev,
+		"load-freq-tbl", (u32 *)clock[VCODEC_CLK].load_freq_tbl,
+		(sizeof(clock[VCODEC_CLK].load_freq_tbl)/sizeof(u32)));
+	clock[VCODEC_CLK].count /= 2;
+	dprintk(VIDC_DBG, "count = %d\n", clock[VCODEC_CLK].count);
+	if (!clock[VCODEC_CLK].count) {
+		dprintk(VIDC_ERR, "Failed to read clock frequency\n");
+		goto fail_init_clocks;
+	}
+	for (i = 0; i <	clock[VCODEC_CLK].count; i++) {
+		dprintk(VIDC_DBG,
+				"load = %d, freq = %d\n",
+				clock[VCODEC_CLK].load_freq_tbl[i].load,
+				clock[VCODEC_CLK].load_freq_tbl[i].freq
+			  );
+	}
+
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+		cl = &device->resources.clock[i];
+		if (!cl->clk) {
+			cl->clk = devm_clk_get(&pdev->dev, cl->name);
+			if (IS_ERR_OR_NULL(cl->clk)) {
+				dprintk(VIDC_ERR,
+					"Failed to get clock: %s\n", cl->name);
+				rc = PTR_ERR(cl->clk);
+				break;
+			}
+		}
+	}
+
+	if (i < VCODEC_MAX_CLKS) {
+		for (--i; i >= 0; i--) {
+			cl = &device->resources.clock[i];
+			clk_put(cl->clk);
+		}
+	}
+fail_init_clocks:
+	return rc;
+}
+
+static inline void venus_hfi_deinit_clocks(struct venus_hfi_device *device)
+{
+	int i;
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid args\n");
+		return;
+	}
+	for (i = 0; i < VCODEC_MAX_CLKS; i++)
+		clk_put(device->resources.clock[i].clk);
+}
+
+static unsigned long venus_hfi_get_clock_rate(struct venus_core_clock *clock,
+	int num_mbs_per_sec)
+{
+	int num_rows = clock->count;
+	struct load_freq_table *table = clock->load_freq_tbl;
+	unsigned long ret = table[num_rows-1].freq;
+	int i;
+	for (i = 0; i < num_rows; i++) {
+		if (num_mbs_per_sec > table[i].load)
+			break;
+		ret = table[i].freq;
+	}
+	dprintk(VIDC_DBG, "Required clock rate = %lu\n", ret);
+	return ret;
+}
+
+int venus_hfi_scale_clocks(struct venus_hfi_device *device, int load)
+{
+	int rc = 0;
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid args: %p\n", device);
+		return -EINVAL;
+	}
+
+	rc = clk_set_rate(device->resources.clock[VCODEC_CLK].clk,
+		venus_hfi_get_clock_rate(&device->resources.clock[VCODEC_CLK],
+		load));
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
+	return rc;
+}
+
+static inline int venus_hfi_enable_clks(struct venus_hfi_device *device)
+{
+	int i;
+	struct venus_core_clock *cl;
+	int rc = 0;
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
+		return -EINVAL;
+	}
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+		cl = &device->resources.clock[i];
+		rc = clk_prepare_enable(cl->clk);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to enable clocks\n");
+			goto fail_clk_enable;
+		} else {
+			dprintk(VIDC_DBG, "Clock: %s enabled\n", cl->name);
+		}
+	}
+	return rc;
+fail_clk_enable:
+	for (; i >= 0; i--) {
+		cl = &device->resources.clock[i];
+		clk_disable_unprepare(cl->clk);
+	}
+	return rc;
+}
+
+static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
+{
+	int i;
+	struct venus_core_clock *cl;
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
+		return;
+	}
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+		cl = &device->resources.clock[i];
+		clk_disable_unprepare(cl->clk);
+	}
+}
+
+static int venus_hfi_register_iommu_domains(struct venus_hfi_device *device,
+						struct platform_device *pdev)
+{
+	size_t len;
+	struct msm_iova_partition partition[2];
+	struct msm_iova_layout layout;
+	int rc = 0;
+	int i;
+	struct msm_vidc_iommu_info *io_map;
+
+	if (!device)
+		return -EINVAL;
+
+	io_map = device->resources.io_map;
+
+	strlcpy(io_map[CP_MAP].name, "vidc-cp-map",
+			sizeof(io_map[CP_MAP].name));
+	strlcpy(io_map[CP_MAP].ctx, "venus_cp",
+			sizeof(io_map[CP_MAP].ctx));
+	strlcpy(io_map[NS_MAP].name, "vidc-ns-map",
+			sizeof(io_map[NS_MAP].name));
+	strlcpy(io_map[NS_MAP].ctx, "venus_ns",
+			sizeof(io_map[NS_MAP].ctx));
+
+	for (i = 0; i < MAX_MAP; i++) {
+		len = read_u32_array(pdev, io_map[i].name,
+				io_map[i].addr_range,
+				(sizeof(io_map[i].addr_range)/sizeof(u32)));
+		if (!len) {
+			dprintk(VIDC_ERR,
+				"Error in reading cp address range\n");
+			rc = -EINVAL;
+			break;
+		}
+		partition[0].start = io_map[i].addr_range[0];
+		if (i == NS_MAP) {
+			partition[0].size =
+				io_map[i].addr_range[1] - SHARED_QSIZE;
+			partition[1].start =
+				partition[0].start + io_map[i].addr_range[1]
+					- SHARED_QSIZE;
+			partition[1].size = SHARED_QSIZE;
+			layout.npartitions = 2;
+			layout.is_secure = 0;
+		} else {
+			partition[0].size = io_map[i].addr_range[1];
+			layout.npartitions = 1;
+			layout.is_secure = 1;
+		}
+		layout.partitions = &partition[0];
+		layout.client_name = io_map[i].name;
+		layout.domain_flags = 0;
+		dprintk(VIDC_DBG, "Registering domain 1 with: %lx, %lx, %s\n",
+			partition[0].start, partition[0].size,
+			layout.client_name);
+		dprintk(VIDC_DBG, "Registering domain 2 with: %lx, %lx, %s\n",
+			partition[1].start, partition[1].size,
+			layout.client_name);
+		io_map[i].domain = msm_register_domain(&layout);
+		if (io_map[i].domain < 0) {
+			dprintk(VIDC_ERR, "Failed to register cp domain\n");
+			rc = -EINVAL;
+			break;
+		}
+	}
+	/* There is no api provided as msm_unregister_domain, so
+	 * we are not able to unregister the previously
+	 * registered domains if any domain registration fails.*/
+	BUG_ON(i < MAX_MAP);
+	return rc;
+}
+
+static void venus_hfi_deinit_bus(struct venus_hfi_device *device)
+{
+	struct venus_bus_info *bus_info;
+	int i = 0;
+
+	if (!device)
+		return;
+
+	bus_info = &device->resources.bus_info;
+
+	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
+		if (bus_info->ddr_handle[i]) {
+			msm_bus_scale_unregister_client(
+			   bus_info->ddr_handle[i]);
+			bus_info->ddr_handle[i] = 0;
+		}
+
+		if (bus_info->ocmem_handle[i]) {
+			msm_bus_scale_unregister_client(
+			   bus_info->ocmem_handle[i]);
+			bus_info->ocmem_handle[i] = 0;
+		}
+	}
+}
+
+static int venus_hfi_init_bus(struct venus_hfi_device *device)
+{
+	struct venus_bus_info *bus_info;
+	int rc = 0;
+	if (!device)
+		return -EINVAL;
+
+	bus_info = &device->resources.bus_info;
+
+	bus_info->ddr_handle[MSM_VIDC_ENCODER] =
+		msm_bus_scale_register_client(&enc_ddr_bus_data);
+	if (!bus_info->ddr_handle[MSM_VIDC_ENCODER]) {
+		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
+		goto err_init_bus;
+	}
+	bus_info->ddr_handle[MSM_VIDC_DECODER] =
+		msm_bus_scale_register_client(&dec_ddr_bus_data);
+	if (!bus_info->ddr_handle[MSM_VIDC_DECODER]) {
+		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
+		goto err_init_bus;
+	}
+	bus_info->ocmem_handle[MSM_VIDC_ENCODER] =
+		msm_bus_scale_register_client(&enc_ocmem_bus_data);
+	if (!bus_info->ocmem_handle[MSM_VIDC_ENCODER]) {
+		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
+		goto err_init_bus;
+	}
+	bus_info->ocmem_handle[MSM_VIDC_DECODER] =
+		msm_bus_scale_register_client(&dec_ocmem_bus_data);
+	if (!bus_info->ocmem_handle[MSM_VIDC_DECODER]) {
+		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
+		goto err_init_bus;
+	}
+	return rc;
+err_init_bus:
+	venus_hfi_deinit_bus(device);
+	return -EINVAL;
+}
+
+
+static const u32 bus_table[] = {
+	36000,
+	110400,
+	244800,
+	489000,
+	783360,
+	979200,
+};
+
+static int get_bus_vector(int load)
+{
+	int num_rows = sizeof(bus_table)/(sizeof(u32));
+	int i;
+	for (i = 0; i < num_rows; i++) {
+		if (load <= bus_table[i])
+			break;
+	}
+	i++;
+	dprintk(VIDC_DBG, "Required bus = %d\n", i);
+	return i;
+}
+
+int venus_hfi_scale_bus(struct venus_hfi_device *device, int load,
+				enum session_type type, enum mem_type mtype)
+{
+	int rc = 0;
+	u32 handle = 0;
+
+	if (mtype & DDR_MEM)
+		handle = device->resources.bus_info.ddr_handle[type];
+	if (mtype & OCMEM_MEM)
+		handle = device->resources.bus_info.ocmem_handle[type];
+
+	if (handle) {
+		rc = msm_bus_scale_client_update_request(
+				handle, get_bus_vector(load));
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
+	} else {
+		dprintk(VIDC_ERR, "Failed to scale bus, mtype: %d\n",
+				mtype);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+static void venus_hfi_ocmem_init(struct venus_hfi_device *device)
+{
+	struct on_chip_mem *ocmem;
+
+	ocmem = &device->resources.ocmem;
+	ocmem->vidc_ocmem_nb.notifier_call = msm_vidc_ocmem_notify_handler;
+	ocmem->handle =
+		ocmem_notifier_register(OCMEM_VIDEO, &ocmem->vidc_ocmem_nb);
+	if (!ocmem->handle) {
+		dprintk(VIDC_WARN, "Failed to register OCMEM notifier.");
+		dprintk(VIDC_INFO, " Performance will be impacted\n");
+	}
+}
+
+int venus_hfi_set_ocmem(struct venus_hfi_device *device,
+	struct ocmem_buf *ocmem)
+{
+	struct vidc_resource_hdr rhdr;
+	int rc = 0;
+	if (!device || !ocmem) {
+		dprintk(VIDC_ERR, "Invalid params, core:%p, ocmem: %p\n",
+			device, ocmem);
+		return -EINVAL;
+	}
+	rhdr.resource_id = VIDC_RESOURCE_OCMEM;
+	rhdr.resource_handle = (u32) &device->resources.ocmem;
+	rhdr.size =	ocmem->len;
+	rc = vidc_hal_core_set_resource(device, &rhdr, ocmem);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to set OCMEM on driver\n");
+		goto ocmem_set_failed;
+	}
+	dprintk(VIDC_DBG, "OCMEM set, addr = %lx, size: %ld\n",
+		ocmem->addr, ocmem->len);
+ocmem_set_failed:
+	return rc;
+}
+
+int venus_hfi_unset_ocmem(struct venus_hfi_device *device)
+{
+	struct vidc_resource_hdr rhdr;
+	int rc = 0;
+	if (!device || !device->resources.ocmem.buf) {
+		dprintk(VIDC_ERR, "Invalid params, device:%p\n",	device);
+		return -EINVAL;
+	}
+	rhdr.resource_id = VIDC_RESOURCE_OCMEM;
+	rhdr.resource_handle = (u32) &device->resources.ocmem;
+	rc = vidc_hal_core_release_resource(device, &rhdr);
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to set OCMEM on driver\n");
+
+	return rc;
+}
+
+int venus_hfi_alloc_ocmem(struct venus_hfi_device *device,
+		unsigned long size)
+{
+	int rc = 0;
+	struct ocmem_buf *ocmem_buffer;
+
+	if (!device || !size) {
+		dprintk(VIDC_ERR,
+			"Invalid param, core: %p, size: %lu\n", device, size);
+		return -EINVAL;
+	}
+	ocmem_buffer = device->resources.ocmem.buf;
+	if (!ocmem_buffer ||
+		ocmem_buffer->len < size) {
+		ocmem_buffer = ocmem_allocate_nb(OCMEM_VIDEO, size);
+		if (IS_ERR_OR_NULL(ocmem_buffer)) {
+			dprintk(VIDC_ERR,
+				"ocmem_allocate_nb failed: %d\n",
+				(u32) ocmem_buffer);
+			rc = -ENOMEM;
+		}
+		device->resources.ocmem.buf = ocmem_buffer;
+		rc = venus_hfi_set_ocmem(device, ocmem_buffer);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to set ocmem: %d\n", rc);
+			goto ocmem_set_failed;
+		}
+	} else
+		dprintk(VIDC_DBG,
+			"OCMEM is enough. reqd: %lu, available: %lu\n",
+			size, ocmem_buffer->len);
+
+ocmem_set_failed:
+	return rc;
+}
+
+int venus_hfi_free_ocmem(struct venus_hfi_device *device)
+{
+	int rc = 0;
+
+	if (device->resources.ocmem.buf) {
+		rc = ocmem_free(OCMEM_VIDEO, device->resources.ocmem.buf);
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to free ocmem\n");
+	}
+	device->resources.ocmem.buf = NULL;
+	return rc;
+}
+
+int venus_hfi_is_ocmem_present(struct venus_hfi_device *device)
+{
+	return device->resources.ocmem.buf ? 1 : 0;
+}
+
+static void venus_hfi_deinit_ocmem(struct venus_hfi_device *device)
+{
+	if (device->resources.ocmem.handle)
+		ocmem_notifier_unregister(device->resources.ocmem.handle,
+				&device->resources.ocmem.vidc_ocmem_nb);
+}
+
+static int venus_hfi_init_resources(struct venus_hfi_device *device,
+				struct platform_device *pdev)
+{
+	int rc = 0;
+
+	rc = venus_hfi_init_clocks(pdev, device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to init clocks\n");
+		rc = -ENODEV;
+		goto err_init_clocks;
+	}
+
+	rc = venus_hfi_init_bus(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to init bus: %d\n", rc);
+		goto err_init_bus;
+	}
+
+	rc = venus_hfi_register_iommu_domains(device, pdev);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to register iommu domains: %d\n", rc);
+		goto err_register_iommu_domain;
+	}
+
+	venus_hfi_ocmem_init(device);
+	return rc;
+
+err_register_iommu_domain:
+	venus_hfi_deinit_bus(device);
+err_init_bus:
+	venus_hfi_deinit_clocks(device);
+err_init_clocks:
+	return rc;
+}
+
+static void venus_hfi_deinit_resources(struct venus_hfi_device *device)
+{
+	venus_hfi_deinit_ocmem(device);
+	venus_hfi_deinit_bus(device);
+	venus_hfi_deinit_clocks(device);
+}
+
+static int venus_hfi_iommu_attach(struct venus_hfi_device *device)
+{
+	int rc;
+	struct iommu_domain *domain;
+	int i;
+	struct msm_vidc_iommu_info *io_map;
+	struct device *dev;
+
+	if (!device)
+		return -EINVAL;
+
+	for (i = 0; i < MAX_MAP; i++) {
+		io_map = &device->resources.io_map[i];
+		dev = msm_iommu_get_ctx(io_map->ctx);
+		domain = msm_get_iommu_domain(io_map->domain);
+		if (IS_ERR_OR_NULL(domain)) {
+			dprintk(VIDC_ERR,
+				"Failed to get domain: %s\n", io_map->name);
+			rc = PTR_ERR(domain);
+			break;
+		}
+		rc = iommu_attach_device(domain, dev);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"IOMMU attach failed: %s\n", io_map->name);
+			break;
+		}
+	}
+	if (i < MAX_MAP) {
+		i--;
+		for (; i >= 0; i--) {
+			io_map = &device->resources.io_map[i];
+			dev = msm_iommu_get_ctx(io_map->ctx);
+			domain = msm_get_iommu_domain(io_map->domain);
+			if (dev && domain)
+				iommu_detach_device(domain, dev);
+		}
+	}
+	return rc;
+}
+
+static void venus_hfi_iommu_detach(struct venus_hfi_device *device)
+{
+	struct device *dev;
+	struct iommu_domain *domain;
+	struct msm_vidc_iommu_info *io_map;
+	int i;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid paramter: %p\n", device);
+		return;
+	}
+
+	for (i = 0; i < MAX_MAP; i++) {
+		io_map = &device->resources.io_map[i];
+		dev = msm_iommu_get_ctx(io_map->ctx);
+		domain = msm_get_iommu_domain(io_map->domain);
+		if (dev && domain)
+			iommu_detach_device(domain, dev);
+	}
+}
+
+int venus_hfi_get_domain(struct venus_hfi_device *device,
+						 enum msm_vidc_io_maps iomap)
+{
+	if (!device || iomap < CP_MAP || iomap >= MAX_MAP) {
+		dprintk(VIDC_ERR, "%s: Invalid parameter: %p iomap: %d\n",
+				__func__, device, iomap);
+		return -EINVAL;
+	}
+	return device->resources.io_map[iomap].domain;
+}
+
+int venus_hfi_iommu_get_map(struct venus_hfi_device *device,
+			struct msm_vidc_iommu_info maps[MAX_MAP])
+{
+	int i = 0;
+
+	if (!device || !maps) {
+		dprintk(VIDC_ERR, "%s: Invalid param device: %p maps: %p\n",
+		 __func__, device, maps);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < MAX_MAP; i++)
+		maps[i] = device->resources.io_map[i];
+
+	return 0;
+}
+
+static int protect_cp_mem(struct venus_hfi_device *device)
+{
+	struct tzbsp_memprot memprot;
+	unsigned int resp = 0;
+	int rc = 0;
+	struct msm_vidc_iommu_info *io_map;
+
+	if (!device)
+		return -EINVAL;
+
+	io_map = device->resources.io_map;
+	if (!io_map) {
+		dprintk(VIDC_ERR, "invalid params: %p\n", io_map);
+		return -EINVAL;
+	}
+	memprot.cp_start = 0x0;
+	memprot.cp_size = io_map[CP_MAP].addr_range[0] +
+			io_map[CP_MAP].addr_range[1];
+	memprot.cp_nonpixel_start = 0;
+	memprot.cp_nonpixel_size = 0;
+
+	rc = scm_call(SCM_SVC_CP, TZBSP_MEM_PROTECT_VIDEO_VAR, &memprot,
+			sizeof(memprot), &resp, sizeof(resp));
+	if (rc)
+		dprintk(VIDC_ERR,
+		"Failed to protect memory , rc is :%d, response : %d\n",
+		rc, resp);
+	return rc;
+}
+
+int venus_hfi_load_fw(struct venus_hfi_device *device)
+{
+	int rc = 0;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid paramter: %p\n", device);
+		return -EINVAL;
+	}
+
+	if (!device->resources.fw.cookie)
+		device->resources.fw.cookie = subsystem_get("venus");
+
+	if (IS_ERR_OR_NULL(device->resources.fw.cookie)) {
+		dprintk(VIDC_ERR, "Failed to download firmware\n");
+		rc = -ENOMEM;
+		goto fail_load_fw;
+	}
+	/*Clocks can be enabled only after pil_get since
+	 * gdsc is turned-on in pil_get*/
+	rc = venus_hfi_enable_clks(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to enable clocks: %d\n", rc);
+		goto fail_enable_clks;
+	}
+
+	rc = protect_cp_mem(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to protect memory\n");
+		goto fail_iommu_attach;
+	}
+
+	rc = venus_hfi_iommu_attach(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to attach iommu");
+		goto fail_iommu_attach;
+	}
+	return rc;
+fail_iommu_attach:
+	venus_hfi_disable_clks(device);
+fail_enable_clks:
+	subsystem_put(device->resources.fw.cookie);
+	device->resources.fw.cookie = NULL;
+fail_load_fw:
+	return rc;
+}
+
+void venus_hfi_unload_fw(struct venus_hfi_device *device)
+{
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid paramter: %p\n", device);
+		return;
+	}
+	if (device->resources.fw.cookie) {
+		venus_hfi_iommu_detach(device);
+		venus_hfi_disable_clks(device);
+		subsystem_put(device->resources.fw.cookie);
+		device->resources.fw.cookie = NULL;
+	}
+}
+
+static void *vidc_hal_add_device(u32 device_id, struct platform_device *pdev,
+		void (*callback) (enum command_response cmd, void *data))
+{
+	struct venus_hfi_device *hdevice = NULL;
+	int rc = 0;
+
+	if (device_id || !pdev || !callback) {
 		dprintk(VIDC_ERR, "Invalid Paramters");
 		return NULL;
-	} else {
-		dprintk(VIDC_INFO, "entered , device_id: %d", device_id);
 	}
 
-	if (vidc_hal_check_core_registered(hal_ctxt, fw_base_addr,
-						reg_base, reg_size, irq)) {
-		dprintk(VIDC_DBG, "HAL_DATA will be assigned now");
-		hal = (struct hal_data *)
-			kzalloc(sizeof(struct hal_data), GFP_KERNEL);
-		if (!hal) {
-			dprintk(VIDC_ERR, "Failed to alloc");
-			return NULL;
-		}
-		hal->irq = irq;
-		hal->device_base_addr = fw_base_addr;
-		hal->register_base_addr =
-			ioremap_nocache(reg_base, reg_size);
-		if (!hal->register_base_addr) {
-			dprintk(VIDC_ERR,
-				"could not map reg addr %d of size %d",
-				reg_base, reg_size);
-			goto err_map;
-		}
-		INIT_LIST_HEAD(&hal_ctxt.dev_head);
-	} else {
-		dprintk(VIDC_ERR, "Core present/Already added");
-		return NULL;
-	}
+	dprintk(VIDC_INFO, "entered , device_id: %d", device_id);
 
-	hdevice = (struct hal_device *)
-			kzalloc(sizeof(struct hal_device), GFP_KERNEL);
+	hdevice = (struct venus_hfi_device *)
+			kzalloc(sizeof(struct venus_hfi_device), GFP_KERNEL);
 	if (!hdevice) {
 		dprintk(VIDC_ERR, "failed to allocate new device");
-		goto err_map;
+		goto err_alloc;
 	}
 
+	rc = venus_hfi_init_regs_and_interrupts(hdevice, pdev);
+	if (rc)
+		goto err_init_regs;
+
+	INIT_LIST_HEAD(&hal_ctxt.dev_head);
 	INIT_LIST_HEAD(&hdevice->list);
 	list_add_tail(&hdevice->list, &hal_ctxt.dev_head);
 	hal_ctxt.dev_count++;
 	hdevice->device_id = device_id;
-	hdevice->hal_data = hal;
+
 	hdevice->callback = callback;
 
 	hdevice->vidc_workq = create_singlethread_workqueue(
@@ -1596,30 +2771,53 @@ void *vidc_hal_add_device(u32 device_id, u32 fw_base_addr, u32 reg_base,
 		goto error_createq;
 	}
 
-	rc = request_irq(irq, vidc_hal_isr, IRQF_TRIGGER_HIGH,
-			"msm_vidc", hdevice);
-	if (unlikely(rc)) {
-		dprintk(VIDC_ERR, "() :request_irq failed\n");
-		goto error_irq_fail;
-	}
-	disable_irq_nosync(irq);
 	return (void *) hdevice;
-error_irq_fail:
-	destroy_workqueue(hdevice->vidc_workq);
 error_createq:
 	hal_ctxt.dev_count--;
 	list_del(&hal_ctxt.dev_head);
-err_map:
-	kfree(hal);
+err_init_regs:
+	kfree(hdevice);
+err_alloc:
+	return NULL;
+}
+
+void *venus_hfi_get_device(u32 device_id,
+	struct platform_device *pdev,
+	void (*callback) (enum command_response cmd, void *data))
+{
+	struct venus_hfi_device *device;
+	int rc = 0;
+
+	if (!pdev || !callback) {
+		dprintk(VIDC_ERR, "Invalid params: %p %p\n", pdev, callback);
+		return NULL;
+	}
+
+	device = vidc_hal_add_device(device_id, pdev, &handle_cmd_response);
+	if (!device) {
+		dprintk(VIDC_ERR, "Failed to create HFI device\n");
+		return NULL;
+	}
+
+	rc = venus_hfi_init_resources(device, pdev);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to init resources: %d\n", rc);
+		goto err_fail_init_res;
+	}
+	return device;
+
+err_fail_init_res:
+	vidc_hal_delete_device(device);
 	return NULL;
 }
 
 void vidc_hal_delete_device(void *device)
 {
-	struct hal_device *close, *dev;
+	struct venus_hfi_device *close, *dev;
 
 	if (device) {
-		dev = (struct hal_device *) device;
+		venus_hfi_deinit_resources(device);
+		dev = (struct venus_hfi_device *) device;
 		list_for_each_entry(close, &hal_ctxt.dev_head, list) {
 			if (close->hal_data->irq == dev->hal_data->irq) {
 				hal_ctxt.dev_count--;

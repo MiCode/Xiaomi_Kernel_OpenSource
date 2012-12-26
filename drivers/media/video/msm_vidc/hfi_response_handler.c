@@ -75,7 +75,7 @@ static enum vidc_status vidc_map_hal_err_status(int hfi_err)
 	return vidc_err;
 }
 
-void hal_process_sess_evt_seq_changed(struct hal_device *device,
+void hal_process_sess_evt_seq_changed(struct venus_hfi_device *device,
 	struct hfi_msg_event_notify_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -138,7 +138,7 @@ void hal_process_sess_evt_seq_changed(struct hal_device *device,
 	cmd_done.data = &event_notify;
 	device->callback(VIDC_EVENT_CHANGE, &cmd_done);
 }
-static void hal_process_sys_watchdog_timeout(struct hal_device *device)
+static void hal_process_sys_watchdog_timeout(struct venus_hfi_device *device)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 	device->intr_status &= ~VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK;
@@ -146,14 +146,14 @@ static void hal_process_sys_watchdog_timeout(struct hal_device *device)
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_WATCHDOG_TIMEOUT, &cmd_done);
 }
-static void hal_process_sys_error(struct hal_device *device)
+static void hal_process_sys_error(struct venus_hfi_device *device)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_ERROR, &cmd_done);
 }
-static void hal_process_session_error(struct hal_device *device,
+static void hal_process_session_error(struct venus_hfi_device *device,
 		struct hfi_msg_event_notify_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -163,7 +163,7 @@ static void hal_process_session_error(struct hal_device *device,
 		session_id;
 	device->callback(SESSION_ERROR, &cmd_done);
 }
-static void hal_process_event_notify(struct hal_device *device,
+static void hal_process_event_notify(struct venus_hfi_device *device,
 	struct hfi_msg_event_notify_packet *pkt)
 {
 	dprintk(VIDC_DBG, "RECVD:EVENT_NOTIFY");
@@ -196,7 +196,7 @@ static void hal_process_event_notify(struct hal_device *device,
 		break;
 	}
 }
-static void hal_process_sys_init_done(struct hal_device *device,
+static void hal_process_sys_init_done(struct venus_hfi_device *device,
 		struct hfi_msg_sys_init_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -281,7 +281,7 @@ err_no_prop:
 	device->callback(SYS_INIT_DONE, &cmd_done);
 }
 
-static void hal_process_sys_rel_resource_done(struct hal_device *device,
+static void hal_process_sys_rel_resource_done(struct venus_hfi_device *device,
 	struct hfi_msg_sys_release_resource_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -408,7 +408,7 @@ static void hal_process_sess_get_prop_buf_req(
 	}
 }
 
-static void hal_process_session_prop_info(struct hal_device *device,
+static void hal_process_session_prop_info(struct venus_hfi_device *device,
 	struct hfi_msg_session_property_info_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -449,7 +449,7 @@ static void hal_process_session_prop_info(struct hal_device *device,
 	}
 }
 
-static void hal_process_session_init_done(struct hal_device *device,
+static void hal_process_session_init_done(struct venus_hfi_device *device,
 	struct hfi_msg_sys_session_init_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -479,7 +479,7 @@ static void hal_process_session_init_done(struct hal_device *device,
 	device->callback(SESSION_INIT_DONE, &cmd_done);
 }
 
-static void hal_process_session_load_res_done(struct hal_device *device,
+static void hal_process_session_load_res_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_load_resources_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -503,7 +503,7 @@ static void hal_process_session_load_res_done(struct hal_device *device,
 	device->callback(SESSION_LOAD_RESOURCE_DONE, &cmd_done);
 }
 
-static void hal_process_session_flush_done(struct hal_device *device,
+static void hal_process_session_flush_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_flush_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -526,7 +526,7 @@ static void hal_process_session_flush_done(struct hal_device *device,
 	device->callback(SESSION_FLUSH_DONE, &cmd_done);
 }
 
-static void hal_process_session_etb_done(struct hal_device *device,
+static void hal_process_session_etb_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_empty_buffer_done_packet *pkt)
 {
 	struct msm_vidc_cb_data_done data_done;
@@ -553,7 +553,7 @@ static void hal_process_session_etb_done(struct hal_device *device,
 	device->callback(SESSION_ETB_DONE, &data_done);
 }
 
-static void hal_process_session_ftb_done(struct hal_device *device,
+static void hal_process_session_ftb_done(struct venus_hfi_device *device,
 			void *msg_hdr)
 {
 	struct msm_vidc_cb_data_done data_done;
@@ -660,7 +660,7 @@ static void hal_process_session_ftb_done(struct hal_device *device,
 	device->callback(SESSION_FTB_DONE, &data_done);
 }
 
-static void hal_process_session_start_done(struct hal_device *device,
+static void hal_process_session_start_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_start_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -684,7 +684,7 @@ static void hal_process_session_start_done(struct hal_device *device,
 	device->callback(SESSION_START_DONE, &cmd_done);
 }
 
-static void hal_process_session_stop_done(struct hal_device *device,
+static void hal_process_session_stop_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_stop_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -708,7 +708,7 @@ static void hal_process_session_stop_done(struct hal_device *device,
 	device->callback(SESSION_STOP_DONE, &cmd_done);
 }
 
-static void hal_process_session_rel_res_done(struct hal_device *device,
+static void hal_process_session_rel_res_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_release_resources_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -732,7 +732,7 @@ static void hal_process_session_rel_res_done(struct hal_device *device,
 	device->callback(SESSION_RELEASE_RESOURCE_DONE, &cmd_done);
 }
 
-static void hal_process_session_rel_buf_done(struct hal_device *device,
+static void hal_process_session_rel_buf_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_release_buffers_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -757,7 +757,7 @@ static void hal_process_session_rel_buf_done(struct hal_device *device,
 	device->callback(SESSION_RELEASE_BUFFER_DONE, &cmd_done);
 }
 
-static void hal_process_session_end_done(struct hal_device *device,
+static void hal_process_session_end_done(struct venus_hfi_device *device,
 	struct hfi_msg_sys_session_end_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -788,7 +788,8 @@ static void hal_process_session_end_done(struct hal_device *device,
 	device->callback(SESSION_END_DONE, &cmd_done);
 }
 
-static void hal_process_session_get_seq_hdr_done(struct hal_device *device,
+static void hal_process_session_get_seq_hdr_done(
+	struct venus_hfi_device *device,
 	struct hfi_msg_session_get_sequence_header_done_packet *pkt)
 {
 	struct msm_vidc_cb_data_done data_done;
@@ -811,7 +812,7 @@ static void hal_process_session_get_seq_hdr_done(struct hal_device *device,
 	device->callback(SESSION_GET_SEQ_HDR_DONE, &data_done);
 }
 
-static void hal_process_msg_packet(struct hal_device *device,
+static void hal_process_msg_packet(struct venus_hfi_device *device,
 	struct vidc_hal_msg_pkt_hdr *msg_hdr)
 {
 	if (!device || !msg_hdr || msg_hdr->size <
@@ -907,7 +908,7 @@ static void hal_process_msg_packet(struct hal_device *device,
 	}
 }
 
-void vidc_hal_response_handler(struct hal_device *device)
+void vidc_hal_response_handler(struct venus_hfi_device *device)
 {
 	u8 packet[VIDC_IFACEQ_MED_PKT_SIZE];
 

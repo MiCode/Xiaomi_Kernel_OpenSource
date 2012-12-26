@@ -980,7 +980,7 @@ struct buffer_requirements {
 };
 
 /* VIDC_HAL CORE API's */
-int vidc_hal_core_init(void *device, int domain);
+int vidc_hal_core_init(void *device);
 int vidc_hal_core_release(void *device);
 int vidc_hal_core_pc_prep(void *device);
 int vidc_hal_core_set_resource(void *device,
@@ -1018,9 +1018,5 @@ int vidc_hal_session_set_property(void *sess, enum hal_property ptype,
 								  void *pdata);
 int vidc_hal_session_get_property(void *sess, enum hal_property ptype,
 								  void *pdata);
-void *vidc_hal_add_device(u32 device_id, u32 base_addr,
-	u32 reg_base, u32 reg_size, u32 irq,
-	void (*callback) (enum command_response cmd, void *data));
-void vidc_hal_delete_device(void *device);
 
 #endif /*__VIDC_HFI_API_H__ */
