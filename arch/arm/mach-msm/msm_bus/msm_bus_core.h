@@ -205,20 +205,39 @@ struct msm_bus_client {
 };
 
 uint64_t msm_bus_div64(unsigned int width, uint64_t bw);
-int msm_bus_remote_hw_commit(struct msm_bus_fabric_registration
-	*fab_pdata, void *hw_data, void **cdata);
 int msm_bus_fabric_device_register(struct msm_bus_fabric_device *fabric);
 void msm_bus_fabric_device_unregister(struct msm_bus_fabric_device *fabric);
 struct msm_bus_fabric_device *msm_bus_get_fabric_device(int fabid);
 int msm_bus_get_num_fab(void);
 
-void msm_bus_rpm_fill_cdata_buffer(int *curr, char *buf, const int max_size,
-	void *cdata, int nmasters, int nslaves, int ntslaves);
 
 int msm_bus_hw_fab_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo);
+#if defined(CONFIG_MSM_RPM) || defined(CONFIG_MSM_RPM_SMD)
 int msm_bus_rpm_hw_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo);
+int msm_bus_remote_hw_commit(struct msm_bus_fabric_registration
+	*fab_pdata, void *hw_data, void **cdata);
+void msm_bus_rpm_fill_cdata_buffer(int *curr, char *buf, const int max_size,
+	void *cdata, int nmasters, int nslaves, int ntslaves);
+#else
+static inline int msm_bus_rpm_hw_init(struct msm_bus_fabric_registration *pdata,
+	struct msm_bus_hw_algorithm *hw_algo)
+{
+	return 0;
+}
+static inline int msm_bus_remote_hw_commit(struct msm_bus_fabric_registration
+	*fab_pdata, void *hw_data, void **cdata)
+{
+	return 0;
+}
+static inline void msm_bus_rpm_fill_cdata_buffer(int *curr, char *buf,
+	const int max_size, void *cdata, int nmasters, int nslaves,
+	int ntslaves)
+{
+}
+#endif
+
 int msm_bus_noc_hw_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo);
 int msm_bus_bimc_hw_init(struct msm_bus_fabric_registration *pdata,
