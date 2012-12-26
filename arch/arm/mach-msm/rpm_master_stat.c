@@ -130,7 +130,7 @@ static int msm_rpm_master_stats_file_read(struct file *file, char __user *bufu,
 	if (!pdata)
 		return -EINVAL;
 
-	if (!bufu || count < 0)
+	if (!bufu || count == 0)
 		return -EINVAL;
 
 	if ((*ppos <= pdata->phys_size)) {
