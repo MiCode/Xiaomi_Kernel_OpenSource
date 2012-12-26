@@ -208,7 +208,10 @@ enum dmx_event {
 	DMX_EVENT_SECTION_CRC_ERROR,
 
 	/* End-of-stream, no more data from this filter */
-	DMX_EVENT_EOS
+	DMX_EVENT_EOS,
+
+	/* New Elementary Stream data is ready */
+	DMX_EVENT_NEW_ES_DATA
 };
 
 /* Flags passed in filter events */
@@ -217,7 +220,7 @@ enum dmx_event {
 #define DMX_FILTER_CC_ERROR			0x01
 
 /* Discontinuity indicator was set */
-#define DMX_FILTER_DISCONTINUITY_INDEICATOR	0x02
+#define DMX_FILTER_DISCONTINUITY_INDICATOR	0x02
 
 /* PES legnth in PES header is not correct */
 #define DMX_FILTER_PES_LENGTH_ERROR		0x04
@@ -296,6 +299,57 @@ struct dmx_pcr_event_info {
 };
 
 /*
+ * Elementary stream data information associated
+ * with DMX_EVENT_NEW_ES_DATA event
+ */
+struct dmx_es_data_event_info {
+	/* Buffer user-space handle */
+	int buf_handle;
+
+	/*
+	 * Cookie to provide when releasing the buffer
+	 * using the DMX_RELEASE_DECODER_BUFFER ioctl command
+	 */
+	int cookie;
+
+	/* Offset of data from the beginning of the buffer */
+	__u32 offset;
+
+	/* Length of data in buffer (in bytes) */
+	__u32 data_len;
+
+	/* Indication whether PTS value is valid */
+	int pts_valid;
+
+	/* PTS value associated with the buffer */
+	__u64 pts;
+
+	/* Indication whether DTS value is valid */
+	int dts_valid;
+
+	/* DTS value associated with the buffer */
+	__u64 dts;
+
+	/*
+	 * Number of TS packets with Transport Error Indicator (TEI) set
+	 * in the TS packet header since last reported event
+	 */
+	__u32 transport_error_indicator_counter;
+
+	/* Number of continuity errors since last reported event */
+	__u32 continuity_error_counter;
+
+	/* Total number of TS packets processed since last reported event */
+	__u32 ts_packets_num;
+
+	/*
+	 * Number of dropped bytes due to insufficient buffer space,
+	 * since last reported event
+	 */
+	__u32 ts_dropped_bytes;
+};
+
+/*
  * Filter's event returned through DMX_GET_EVENT.
  * poll with POLLPRI would block until events are available.
  */
@@ -307,6 +361,7 @@ struct dmx_filter_event {
 		struct dmx_section_event_info section;
 		struct dmx_rec_chunk_event_info recording_chunk;
 		struct dmx_pcr_event_info pcr;
+		struct dmx_es_data_event_info es_data;
 	} params;
 };
 
@@ -525,10 +580,10 @@ struct dmx_decoder_buffers {
 #define DMX_RELEASE_DATA		 _IO('o', 57)
 #define DMX_FEED_DATA			 _IO('o', 58)
 #define DMX_SET_PLAYBACK_MODE	 _IOW('o', 59, enum dmx_playback_mode_t)
-#define DMX_GET_EVENT			 _IOR('o', 60, struct dmx_filter_event)
-#define DMX_SET_BUFFER_MODE		 _IOW('o', 61, enum dmx_buffer_mode)
-#define DMX_SET_BUFFER			 _IOW('o', 62, struct dmx_buffer)
+#define DMX_GET_EVENT		 _IOR('o', 60, struct dmx_filter_event)
+#define DMX_SET_BUFFER_MODE	 _IOW('o', 61, enum dmx_buffer_mode)
+#define DMX_SET_BUFFER		 _IOW('o', 62, struct dmx_buffer)
 #define DMX_SET_DECODER_BUFFER	 _IOW('o', 63, struct dmx_decoder_buffers)
-
+#define DMX_REUSE_DECODER_BUFFER _IO('o', 64)
 
 #endif /*_DVBDMX_H_*/

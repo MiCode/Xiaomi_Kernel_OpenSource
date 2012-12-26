@@ -1395,6 +1395,29 @@ static int dvb_dmxdev_set_source(struct dmxdev_filter *dmxdevfilter,
 	return 0;
 }
 
+static int dvb_dmxdev_reuse_decoder_buf(struct dmxdev_filter *dmxdevfilter,
+						int cookie)
+{
+	if ((dmxdevfilter->type == DMXDEV_TYPE_PES) &&
+		(dmxdevfilter->params.pes.output == DMX_OUT_DECODER)) {
+		struct dmxdev_feed *feed;
+		int ret = -ENODEV;
+
+		/* Only one feed should be in the list in case of decoder */
+		feed = list_first_entry(&dmxdevfilter->feed.ts,
+					struct dmxdev_feed, next);
+
+		if (feed->ts->reuse_decoder_buffer)
+			ret = feed->ts->reuse_decoder_buffer(
+							feed->ts,
+							cookie);
+
+		return ret;
+	}
+
+	return -EPERM;
+}
+
 static int dvb_dmxdev_ts_fullness_callback(
 				struct dmx_ts_feed *filter,
 				int required_space)
@@ -1535,9 +1558,12 @@ static int dvb_dmxdev_get_buffer_status(
 {
 	struct dvb_ringbuffer *buf = &dmxdevfilter->buffer;
 
-
-	spin_lock_irq(&dmxdevfilter->dev->lock);
-
+	/*
+	 * Note: Taking the dmxdevfilter->dev->lock spinlock is required only
+	 * when getting the status of the Demux-userspace data ringbuffer .
+	 * In case we are getting the status of a decoder buffer, taking this
+	 * spinlock is not required and in fact might lead to a deadlock.
+	 */
 	if ((dmxdevfilter->type == DMXDEV_TYPE_PES) &&
 		(dmxdevfilter->params.pes.output == DMX_OUT_DECODER)) {
 		struct dmxdev_feed *feed;
@@ -1555,9 +1581,10 @@ static int dvb_dmxdev_get_buffer_status(
 		else
 			ret = -ENODEV;
 
-		spin_unlock_irq(&dmxdevfilter->dev->lock);
 		return ret;
 	}
+
+	spin_lock_irq(&dmxdevfilter->dev->lock);
 
 	if (!buf->data) {
 		spin_unlock_irq(&dmxdevfilter->dev->lock);
@@ -1629,6 +1656,10 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 	spin_lock_irq(&dmxdevfilter->dev->lock);
 
 	res = dvb_dmxdev_remove_event(&dmxdevfilter->events, event);
+	if (res) {
+		spin_unlock_irq(&dmxdevfilter->dev->lock);
+		return res;
+	}
 
 	if (event->type == DMX_EVENT_BUFFER_OVERFLOW) {
 		/*
@@ -1644,6 +1675,15 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 		dmxdevfilter->flush_data_len = 0;
 		dmxdevfilter->buffer.error = 0;
 	}
+
+	/*
+	 * Decoder filters have no data in the data buffer and their
+	 * events can be removed now from the queue.
+	 */
+	if (dmxdevfilter->params.pes.output == DMX_OUT_DECODER)
+		dmxdevfilter->events.read_index =
+			dvb_dmxdev_advance_event_idx(
+				dmxdevfilter->events.read_index);
 
 	spin_unlock_irq(&dmxdevfilter->dev->lock);
 
@@ -1980,10 +2020,34 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 		event.params.pcr.stc = dmx_data_ready->pcr.stc;
 		if (dmx_data_ready->pcr.disc_indicator_set)
 			event.params.pcr.flags =
-				DMX_FILTER_DISCONTINUITY_INDEICATOR;
+				DMX_FILTER_DISCONTINUITY_INDICATOR;
 		else
 			event.params.pcr.flags = 0;
 
+		dvb_dmxdev_add_event(events, &event);
+		spin_unlock(&dmxdevfilter->dev->lock);
+		wake_up_all(&buffer->queue);
+		return 0;
+	}
+
+	if (dmx_data_ready->status == DMX_OK_DECODER_BUF) {
+		event.type = DMX_EVENT_NEW_ES_DATA;
+		event.params.es_data.buf_handle = dmx_data_ready->buf.handle;
+		event.params.es_data.cookie = dmx_data_ready->buf.cookie;
+		event.params.es_data.offset = dmx_data_ready->buf.offset;
+		event.params.es_data.data_len = dmx_data_ready->buf.len;
+		event.params.es_data.pts_valid = dmx_data_ready->buf.pts_exists;
+		event.params.es_data.pts = dmx_data_ready->buf.pts;
+		event.params.es_data.dts_valid = dmx_data_ready->buf.dts_exists;
+		event.params.es_data.dts = dmx_data_ready->buf.dts;
+		event.params.es_data.transport_error_indicator_counter =
+				dmx_data_ready->buf.tei_counter;
+		event.params.es_data.continuity_error_counter =
+				dmx_data_ready->buf.cont_err_counter;
+		event.params.es_data.ts_packets_num =
+				dmx_data_ready->buf.ts_packets_num;
+		event.params.es_data.ts_dropped_bytes =
+				dmx_data_ready->buf.ts_dropped_bytes;
 		dvb_dmxdev_add_event(events, &event);
 		spin_unlock(&dmxdevfilter->dev->lock);
 		wake_up_all(&buffer->queue);
@@ -2038,7 +2102,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 			event.params.pes.flags = 0;
 			if (dmx_data_ready->pes_end.disc_indicator_set)
 				event.params.pes.flags |=
-					DMX_FILTER_DISCONTINUITY_INDEICATOR;
+					DMX_FILTER_DISCONTINUITY_INDICATOR;
 			if (dmx_data_ready->pes_end.pes_length_mismatch)
 				event.params.pes.flags |=
 					DMX_FILTER_PES_LENGTH_ERROR;
@@ -3014,6 +3078,15 @@ static int dvb_demux_do_ioctl(struct file *file,
 			break;
 		}
 		ret = dvb_dmxdev_set_decoder_buffer(dmxdev, dmxdevfilter, parg);
+		mutex_unlock(&dmxdevfilter->mutex);
+		break;
+
+	case DMX_REUSE_DECODER_BUFFER:
+		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+			mutex_unlock(&dmxdev->mutex);
+			return -ERESTARTSYS;
+		}
+		ret = dvb_dmxdev_reuse_decoder_buf(dmxdevfilter, arg);
 		mutex_unlock(&dmxdevfilter->mutex);
 		break;
 

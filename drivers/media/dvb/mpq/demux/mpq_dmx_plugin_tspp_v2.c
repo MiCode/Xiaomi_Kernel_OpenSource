@@ -125,6 +125,7 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->demux.decoder_fullness_wait = NULL;
 	mpq_demux->demux.decoder_fullness_abort = NULL;
 	mpq_demux->demux.decoder_buffer_status = NULL;
+	mpq_demux->demux.reuse_decoder_buffer = NULL;
 
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);
