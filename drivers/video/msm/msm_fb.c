@@ -3877,7 +3877,7 @@ int msm_fb_v4l2_enable(struct mdp_overlay *req, bool enable, void **par)
 EXPORT_SYMBOL(msm_fb_v4l2_enable);
 
 /* Called by v4l2 driver to provide a frame for display */
-int msm_fb_v4l2_update(void *par,
+int msm_fb_v4l2_update(void *par, bool bUserPtr,
 	unsigned long srcp0_addr, unsigned long srcp0_size,
 	unsigned long srcp1_addr, unsigned long srcp1_size,
 	unsigned long srcp2_addr, unsigned long srcp2_size)
@@ -3889,9 +3889,14 @@ int msm_fb_v4l2_update(void *par,
 		srcp2_addr);
 #else
 #ifdef CONFIG_FB_MSM_MDP30
-	return mdp_ppp_v4l2_overlay_play(fbi_list[0],
-		srcp0_addr, srcp0_size,
-		srcp1_addr, srcp1_size);
+	if (bUserPtr)
+		return mdp_ppp_v4l2_overlay_play(fbi_list[0], true,
+				srcp0_addr, srcp0_size,
+				srcp1_addr, srcp1_size);
+	else
+		return mdp_ppp_v4l2_overlay_play(fbi_list[0], false,
+			srcp0_addr, srcp0_size,
+			srcp1_addr, srcp1_size);
 #else
 	return -EINVAL;
 #endif

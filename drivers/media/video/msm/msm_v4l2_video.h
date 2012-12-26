@@ -52,8 +52,8 @@ struct msm_v4l2_overlay_fh {
 };
 
 struct msm_v4l2_overlay_userptr_buffer {
-	uint base[3];
-	size_t length[3];
+	uint fd[3]; /* ION fd of frame or plane */
+	size_t offset[3]; /* offset of frame or plane in multi buffer case */
 };
 
 #endif
