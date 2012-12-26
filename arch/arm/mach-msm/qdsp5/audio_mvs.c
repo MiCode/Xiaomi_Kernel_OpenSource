@@ -1613,6 +1613,19 @@ static int audio_mvs_open(struct inode *inode, struct file *file)
 
 	MM_DBG("\n");
 
+	mutex_lock(&audio_mvs_info.lock);
+
+	if (audio_mvs_info.state != AUDIO_MVS_CLOSED) {
+		MM_ERR("MVS driver exists, state %d\n",
+				audio_mvs_info.state);
+
+		rc = -EBUSY;
+		mutex_unlock(&audio_mvs_info.lock);
+		goto done;
+	}
+
+	mutex_unlock(&audio_mvs_info.lock);
+
 	audio_mvs_info.rpc_endpt = msm_rpc_connect_compatible(MVS_PROG,
 					MVS_VERS_COMP_VER2,
 					MSM_RPC_UNINTERRUPTIBLE);
@@ -1652,26 +1665,18 @@ static int audio_mvs_open(struct inode *inode, struct file *file)
 
 	mutex_lock(&audio_mvs_info.lock);
 
-	if (audio_mvs_info.state == AUDIO_MVS_CLOSED) {
-
-		if (audio_mvs_info.task != NULL ||
+	if (audio_mvs_info.task != NULL ||
 			audio_mvs_info.rpc_endpt != NULL) {
-			rc = audio_mvs_alloc_buf(&audio_mvs_info);
+		rc = audio_mvs_alloc_buf(&audio_mvs_info);
 
-			if (rc == 0) {
-				audio_mvs_info.state = AUDIO_MVS_OPENED;
-				file->private_data = &audio_mvs_info;
-			}
-		}  else {
-			MM_ERR("MVS thread and RPC end point do not exist\n");
-
-			rc = -ENODEV;
+		if (rc == 0) {
+			audio_mvs_info.state = AUDIO_MVS_OPENED;
+			file->private_data = &audio_mvs_info;
 		}
-	} else {
-		MM_ERR("MVS driver exists, state %d\n",
-		       audio_mvs_info.state);
+	}  else {
+		MM_ERR("MVS thread and RPC end point do not exist\n");
 
-		rc = -EBUSY;
+		rc = -ENODEV;
 	}
 
 	mutex_unlock(&audio_mvs_info.lock);
