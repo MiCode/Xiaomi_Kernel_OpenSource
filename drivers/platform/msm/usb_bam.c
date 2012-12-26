@@ -26,6 +26,7 @@
 #include <mach/ipa.h>
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
+#include <mach/msm_smsm.h>
 
 #define USB_SUMMING_THRESHOLD 512
 #define CONNECTIONS_NUM	8
@@ -37,21 +38,38 @@ static struct sps_mem_buffer data_mem_buf[CONNECTIONS_NUM][2];
 static struct sps_mem_buffer desc_mem_buf[CONNECTIONS_NUM][2];
 static struct platform_device *usb_bam_pdev;
 static struct workqueue_struct *usb_bam_wq;
+static u32 h_bam;
+static spinlock_t usb_bam_lock;
 
-struct usb_bam_wake_event_info {
+struct usb_bam_event_info {
 	struct sps_register_event event;
 	int (*callback)(void *);
 	void *param;
-	struct work_struct wake_w;
+	struct work_struct event_w;
 };
 
 struct usb_bam_connect_info {
 	u8 idx;
 	u32 *src_pipe;
 	u32 *dst_pipe;
-	struct usb_bam_wake_event_info peer_event;
+	struct usb_bam_event_info wake_event;
 	bool src_enabled;
 	bool dst_enabled;
+};
+
+enum usb_bam_sm {
+	USB_BAM_SM_INIT = 0,
+	USB_BAM_SM_PLUG_NOTIFIED,
+	USB_BAM_SM_PLUG_ACKED,
+	USB_BAM_SM_UNPLUG_NOTIFIED,
+};
+
+struct usb_bam_peer_handhskae_info {
+	enum usb_bam_sm state;
+	bool client_ready;
+	bool ack_received;
+	int pending_work;
+	struct usb_bam_event_info reset_event;
 };
 
 static struct usb_bam_connect_info usb_bam_connections[CONNECTIONS_NUM];
@@ -60,6 +78,7 @@ static struct usb_bam_pipe_connect *bam_connection_arr;
 void __iomem *qscratch_ram1_reg;
 struct clk *mem_clk;
 struct clk *mem_iface_clk;
+struct usb_bam_peer_handhskae_info peer_handhskae_info;
 
 static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 						u32 *usb_pipe_idx)
@@ -457,20 +476,122 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	return 0;
 }
 
-static void usb_bam_wake_work(struct work_struct *w)
+int usb_bam_client_ready(bool ready)
 {
-	struct usb_bam_wake_event_info *wake_event_info =
-		container_of(w, struct usb_bam_wake_event_info, wake_w);
+	spin_lock(&usb_bam_lock);
+	if (peer_handhskae_info.client_ready == ready) {
+		pr_debug("%s: client state is already %d\n",
+			__func__, ready);
+		spin_unlock(&usb_bam_lock);
+		return 0;
+	}
 
-	wake_event_info->callback(wake_event_info->param);
+	peer_handhskae_info.client_ready = ready;
+
+	spin_unlock(&usb_bam_lock);
+	if (!queue_work(usb_bam_wq, &peer_handhskae_info.reset_event.event_w)) {
+		spin_lock(&usb_bam_lock);
+		peer_handhskae_info.pending_work++;
+		spin_unlock(&usb_bam_lock);
+	}
+
+	return 0;
+}
+
+static void usb_bam_work(struct work_struct *w)
+{
+	struct usb_bam_event_info *event_info =
+		container_of(w, struct usb_bam_event_info, event_w);
+
+	event_info->callback(event_info->param);
 }
 
 static void usb_bam_wake_cb(struct sps_event_notify *notify)
 {
-	struct usb_bam_wake_event_info *wake_event_info =
-		(struct usb_bam_wake_event_info *)notify->user;
+	struct usb_bam_event_info *wake_event_info =
+		(struct usb_bam_event_info *)notify->user;
 
-	queue_work(usb_bam_wq, &wake_event_info->wake_w);
+	queue_work(usb_bam_wq, &wake_event_info->event_w);
+}
+
+static void usb_bam_sm_work(struct work_struct *w)
+{
+	pr_debug("%s: current state: %d\n", __func__,
+		peer_handhskae_info.state);
+
+	spin_lock(&usb_bam_lock);
+
+	switch (peer_handhskae_info.state) {
+	case USB_BAM_SM_INIT:
+		if (peer_handhskae_info.client_ready) {
+			spin_unlock(&usb_bam_lock);
+			smsm_change_state(SMSM_APPS_STATE, 0,
+				SMSM_USB_PLUG_UNPLUG);
+			spin_lock(&usb_bam_lock);
+			peer_handhskae_info.state = USB_BAM_SM_PLUG_NOTIFIED;
+		}
+		break;
+	case USB_BAM_SM_PLUG_NOTIFIED:
+		if (peer_handhskae_info.ack_received) {
+			peer_handhskae_info.state = USB_BAM_SM_PLUG_ACKED;
+			peer_handhskae_info.ack_received = 0;
+		}
+		break;
+	case USB_BAM_SM_PLUG_ACKED:
+		if (!peer_handhskae_info.client_ready) {
+			spin_unlock(&usb_bam_lock);
+			smsm_change_state(SMSM_APPS_STATE,
+				SMSM_USB_PLUG_UNPLUG, 0);
+			spin_lock(&usb_bam_lock);
+			peer_handhskae_info.state = USB_BAM_SM_UNPLUG_NOTIFIED;
+		}
+		break;
+	case USB_BAM_SM_UNPLUG_NOTIFIED:
+		if (peer_handhskae_info.ack_received) {
+			spin_unlock(&usb_bam_lock);
+			peer_handhskae_info.reset_event.
+				callback(peer_handhskae_info.reset_event.param);
+			spin_lock(&usb_bam_lock);
+			peer_handhskae_info.state = USB_BAM_SM_INIT;
+			peer_handhskae_info.ack_received = 0;
+		}
+		break;
+	}
+
+	if (peer_handhskae_info.pending_work) {
+		peer_handhskae_info.pending_work--;
+		spin_unlock(&usb_bam_lock);
+		queue_work(usb_bam_wq,
+			&peer_handhskae_info.reset_event.event_w);
+		spin_lock(&usb_bam_lock);
+	}
+	spin_unlock(&usb_bam_lock);
+}
+
+static void usb_bam_ack_toggle_cb(void *priv, uint32_t old_state,
+	uint32_t new_state)
+{
+	static int last_processed_state;
+	int current_state;
+
+	spin_lock(&usb_bam_lock);
+
+	current_state = new_state & SMSM_USB_PLUG_UNPLUG;
+
+	if (current_state == last_processed_state) {
+		spin_unlock(&usb_bam_lock);
+		return;
+	}
+
+	last_processed_state = current_state;
+	peer_handhskae_info.ack_received = true;
+
+	spin_unlock(&usb_bam_lock);
+	if (!queue_work(usb_bam_wq, &peer_handhskae_info.reset_event.event_w)) {
+		spin_lock(&usb_bam_lock);
+		peer_handhskae_info.pending_work++;
+		spin_unlock(&usb_bam_lock);
+	}
 }
 
 int usb_bam_register_wake_cb(u8 idx,
@@ -480,8 +601,8 @@ int usb_bam_register_wake_cb(u8 idx,
 	struct sps_connect *sps_connection =
 		&sps_connections[idx][PEER_PERIPHERAL_TO_USB];
 	struct usb_bam_connect_info *connection = &usb_bam_connections[idx];
-	struct usb_bam_wake_event_info *wake_event_info =
-		&connection->peer_event;
+	struct usb_bam_event_info *wake_event_info =
+		&connection->wake_event;
 	int ret;
 
 	wake_event_info->param = param;
@@ -507,6 +628,36 @@ int usb_bam_register_wake_cb(u8 idx,
 	}
 
 	return 0;
+}
+
+int usb_bam_register_peer_reset_cb(u8 idx,
+	 int (*callback)(void *), void *param)
+{
+	u32 ret = 0;
+
+	if (callback) {
+		peer_handhskae_info.reset_event.param = param;
+		peer_handhskae_info.reset_event.callback = callback;
+
+		ret = smsm_state_cb_register(SMSM_MODEM_STATE,
+			SMSM_USB_PLUG_UNPLUG, usb_bam_ack_toggle_cb, NULL);
+		if (ret) {
+			pr_err("%s: failed to register SMSM callback\n",
+				__func__);
+		} else {
+			if (smsm_get_state(SMSM_MODEM_STATE) &
+				SMSM_USB_PLUG_UNPLUG)
+				usb_bam_ack_toggle_cb(NULL, 0,
+					SMSM_USB_PLUG_UNPLUG);
+		}
+	} else {
+		peer_handhskae_info.reset_event.param = NULL;
+		peer_handhskae_info.reset_event.callback = NULL;
+		smsm_state_cb_deregister(SMSM_MODEM_STATE,
+			SMSM_USB_PLUG_UNPLUG, usb_bam_ack_toggle_cb, NULL);
+	}
+
+	return ret;
 }
 
 int usb_bam_disconnect_pipe(u8 idx)
@@ -550,6 +701,7 @@ int usb_bam_disconnect_pipe(u8 idx)
 
 	return 0;
 }
+
 int usb_bam_disconnect_ipa(u8 idx,
 		struct usb_bam_connect_ipa_params *ipa_params)
 {
@@ -592,6 +744,55 @@ int usb_bam_disconnect_ipa(u8 idx,
 	return 0;
 
 }
+
+int usb_bam_reset(void)
+{
+	struct usb_bam_connect_info *connection;
+	int i;
+	int ret = 0, ret_int;
+	bool reconnect[CONNECTIONS_NUM];
+	u32 *reconnect_src_pipe[CONNECTIONS_NUM];
+	u32 *reconnect_dst_pipe[CONNECTIONS_NUM];
+
+	/* Disconnect all pipes */
+	for (i = 0; i < CONNECTIONS_NUM; i++) {
+		connection = &usb_bam_connections[i];
+		reconnect[i] = connection->src_enabled ||
+			connection->dst_enabled;
+		reconnect_src_pipe[i] = connection->src_pipe;
+		reconnect_dst_pipe[i] = connection->dst_pipe;
+
+		ret_int = usb_bam_disconnect_pipe(i);
+		if (ret_int) {
+			pr_err("%s: failure to connect pipe %d\n",
+				__func__, i);
+			ret = ret_int;
+			continue;
+		}
+	}
+
+	/* Reset USB/HSIC BAM */
+	if (sps_device_reset(h_bam))
+		pr_err("%s: BAM reset failed\n", __func__);
+
+	/* Reconnect all pipes */
+	for (i = 0; i < CONNECTIONS_NUM; i++) {
+		connection = &usb_bam_connections[i];
+		if (reconnect[i]) {
+			ret_int = usb_bam_connect(i, reconnect_src_pipe[i],
+				reconnect_dst_pipe[i]);
+			if (ret_int) {
+				pr_err("%s: failure to reconnect pipe %d\n",
+					__func__, i);
+				ret = ret_int;
+				continue;
+			}
+		}
+	}
+
+	return ret;
+}
+
 static int update_connections_info(struct device_node *node, int bam,
 	int conn_num, int dir, enum usb_pipe_mem_type mem_type)
 {
@@ -825,7 +1026,6 @@ static char *bam_enable_strings[3] = {
 
 static int usb_bam_init(void)
 {
-	u32 h_usb;
 	int ret;
 	void *usb_virt_addr;
 	struct msm_usb_bam_platform_data *pdata =
@@ -892,7 +1092,7 @@ static int usb_bam_init(void)
 	if (pdata->ignore_core_reset_ack && pdata->usb_active_bam != SSUSB_BAM)
 		usb_props.options = SPS_BAM_NO_EXT_P_RST;
 
-	ret = sps_register_bam_device(&usb_props, &h_usb);
+	ret = sps_register_bam_device(&usb_props, &h_bam);
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
 		ret = -EFAULT;
@@ -967,9 +1167,12 @@ static int usb_bam_probe(struct platform_device *pdev)
 	for (i = 0; i < CONNECTIONS_NUM; i++) {
 		usb_bam_connections[i].src_enabled = 0;
 		usb_bam_connections[i].dst_enabled = 0;
-		INIT_WORK(&usb_bam_connections[i].peer_event.wake_w,
-			usb_bam_wake_work);
+		INIT_WORK(&usb_bam_connections[i].wake_event.event_w,
+			usb_bam_work);
 	}
+
+	spin_lock_init(&usb_bam_lock);
+	INIT_WORK(&peer_handhskae_info.reset_event.event_w, usb_bam_sm_work);
 
 	mem_clk = devm_clk_get(&pdev->dev, "mem_clk");
 	if (IS_ERR(mem_clk))
