@@ -319,6 +319,11 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	return ret;
 }
 
+static int mipi_dsi_late_init(struct platform_device *pdev)
+{
+	return panel_next_late_init(pdev);
+}
+
 
 static int mipi_dsi_resource_initialized;
 
@@ -463,6 +468,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	pdata = mdp_dev->dev.platform_data;
 	pdata->on = mipi_dsi_on;
 	pdata->off = mipi_dsi_off;
+	pdata->late_init = mipi_dsi_late_init;
 	pdata->next = pdev;
 
 	/*
