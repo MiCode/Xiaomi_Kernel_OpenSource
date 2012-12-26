@@ -981,9 +981,6 @@ static int __init ssr_init_soc_restart_orders(void)
 		spin_lock_init(&restart_orders[i]->track.s_lock);
 	}
 
-	if (restart_orders == NULL || n_restart_orders < 1)
-		WARN_ON(1);
-
 	return 0;
 }
 
