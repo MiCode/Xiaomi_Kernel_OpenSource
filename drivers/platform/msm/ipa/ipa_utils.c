@@ -1323,6 +1323,24 @@ int ipa_set_single_ndp_per_mbim(bool enable)
 EXPORT_SYMBOL(ipa_set_single_ndp_per_mbim);
 
 /**
+ * ipa_set_hw_timer_fix_for_mbim_aggr() - Enable/disable HW timer fix
+ * for MBIM aggregation.
+ * @enable:	[in] true for enable HW fix; false otherwise
+ *
+ * Returns:	0 on success
+ */
+int ipa_set_hw_timer_fix_for_mbim_aggr(bool enable)
+{
+	u32 reg_val;
+	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST);
+	ipa_write_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST,
+		(enable << IPA_AGGREGATION_HW_TIMER_FIX_MBIM_AGGR_SHFT) |
+		(reg_val & ~IPA_AGGREGATION_HW_TIMER_FIX_MBIM_AGGR_BMSK));
+	return 0;
+}
+EXPORT_SYMBOL(ipa_set_hw_timer_fix_for_mbim_aggr);
+
+/**
  * ipa_straddle_boundary() - Checks whether a memory buffer straddles a boundary
  * @start: start address of the memory buffer
  * @end: end address of the memory buffer
