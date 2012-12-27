@@ -37,6 +37,7 @@ struct dwc3_charger;
  */
 struct dwc3_otg {
 	struct usb_otg		otg;
+	struct usb_phy		usb3_phy;
 	int			irq;
 	struct dwc3		*dwc;
 	void __iomem		*regs;
@@ -122,4 +123,8 @@ struct dwc3_ext_xceiv {
 extern int dwc3_set_ext_xceiv(struct usb_otg *otg,
 				struct dwc3_ext_xceiv *ext_xceiv);
 
+/* for registering USB3, USB2 PHYs */
+int dwc3_otg_register_phys(struct platform_device *pdev);
+
+void dwc3_otg_deregister_phys(struct platform_device *pdev);
 #endif /* __LINUX_USB_DWC3_OTG_H */

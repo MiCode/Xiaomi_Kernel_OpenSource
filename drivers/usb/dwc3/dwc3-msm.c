@@ -2992,6 +2992,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	if (node) {
+
+		/* Register USB2/3 PHYs before DWC3 init */
+		ret = dwc3_otg_register_phys(pdev);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to register dwc3 phys\n");
+			goto put_psupply;
+		}
+
 		ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
 		if (ret) {
 			dev_err(&pdev->dev,
@@ -3012,7 +3020,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Failed to vote for bus scaling\n");
 	}
 
-	mdwc->otg_xceiv = usb_get_transceiver();
+	mdwc->otg_xceiv = devm_usb_get_phy(&pdev->dev, USB_PHY_TYPE_USB2);
 	/* Register with OTG if present, ignore USB2 OTG using other PHY */
 	if (mdwc->otg_xceiv &&
 			!(mdwc->otg_xceiv->flags & ENABLE_SECONDARY_PHY)) {
@@ -3025,7 +3033,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev,
 					"failed to register charger: %d\n",
 					ret);
-				goto put_xcvr;
+				goto put_dwc3;
 			}
 		}
 
@@ -3036,7 +3044,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret || !mdwc->ext_xceiv.notify_ext_events) {
 			dev_err(&pdev->dev, "failed to register xceiver: %d\n",
 									ret);
-			goto put_xcvr;
+			goto put_dwc3;
 		}
 	} else {
 		dev_dbg(&pdev->dev, "No OTG, DWC3 running in host only mode\n");
@@ -3066,8 +3074,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	return 0;
 
-put_xcvr:
-	usb_put_transceiver(mdwc->otg_xceiv);
+put_dwc3:
+	dwc3_otg_deregister_phys(pdev);
 put_psupply:
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
@@ -3126,7 +3134,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		debugfs_remove_recursive(dwc3_debugfs_root);
 	if (mdwc->otg_xceiv) {
 		dwc3_start_chg_det(&mdwc->charger, false);
-		usb_put_transceiver(mdwc->otg_xceiv);
+		dwc3_otg_deregister_phys(pdev);
 	}
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
