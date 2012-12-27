@@ -12,10 +12,11 @@
  */
 
 #include "msm_vidc_debug.h"
+#include "venus_hfi.h"
 
 #define MAX_DBG_BUF_SIZE 4096
-int msm_vidc_debug;
-int msm_fw_debug;
+int msm_vidc_debug = 0x3;
+int msm_fw_debug = 0x18;
 
 struct debug_buffer {
 	char ptr[MAX_DBG_BUF_SIZE];
@@ -52,20 +53,22 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 		size_t count, loff_t *ppos)
 {
 	struct msm_vidc_core *core = file->private_data;
+	struct venus_hfi_device *device;
 	int i = 0;
-	if (!core) {
+	if (!core || !core->device) {
 		dprintk(VIDC_ERR, "Invalid params, core: %p\n", core);
 		return 0;
 	}
+	device = core->device;
 	INIT_DBG_BUF(dbg_buf);
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "CORE %d: 0x%p\n", core->id, core);
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "state: %d\n", core->state);
-	write_str(&dbg_buf, "base addr: 0x%x\n", core->base_addr);
-	write_str(&dbg_buf, "register_base: 0x%x\n", core->register_base);
-	write_str(&dbg_buf, "register_size: %u\n", core->register_size);
-	write_str(&dbg_buf, "irq: %u\n", core->irq);
+	write_str(&dbg_buf, "base addr: 0x%x\n", device->base_addr);
+	write_str(&dbg_buf, "register_base: 0x%x\n", device->register_base);
+	write_str(&dbg_buf, "register_size: %u\n", device->register_size);
+	write_str(&dbg_buf, "irq: %u\n", device->irq);
 	for (i = SYS_MSG_START; i < SYS_MSG_END; i++) {
 		write_str(&dbg_buf, "completions[%d]: %s\n", i,
 			completion_done(&core->completions[SYS_MSG_INDEX(i)]) ?
@@ -89,8 +92,7 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		dprintk(VIDC_ERR, "Invalid params, core: %p\n", core);
 		goto failed_create_dir;
 	}
-	msm_vidc_debug = 0;
-	msm_fw_debug = 0;
+
 	snprintf(debugfs_name, MAX_DEBUGFS_NAME, "core%d", core->id);
 	dir = debugfs_create_dir(debugfs_name, parent);
 	if (!dir) {
@@ -106,13 +108,11 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
-	msm_vidc_debug = 0x3;
 	if (!debugfs_create_u32("fw_level", S_IRUGO | S_IWUSR,
 			parent, &msm_fw_debug)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
-	msm_fw_debug = 0x18;
 failed_create_dir:
 	return dir;
 }
