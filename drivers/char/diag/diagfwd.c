@@ -51,6 +51,8 @@ static unsigned int buf_tbl_size = 8; /*Number of entries in table of buffers */
 struct diag_master_table entry;
 struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+int wrap_enabled;
+uint16_t wrap_count;
 
 void encode_rsp_and_send(int buf_length)
 {
@@ -896,6 +898,23 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 			return 0;
 		}
 	}
+	/* Return the Delayed Response Wrap Status */
+	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
+		(*(buf+2) == 0x04) && (*(buf+3) == 0x0)) {
+		memcpy(driver->apps_rsp_buf, buf, 4);
+		driver->apps_rsp_buf[4] = wrap_enabled;
+		encode_rsp_and_send(4);
+		return 0;
+	}
+	/* Wrap the Delayed Rsp ID */
+	else if ((*buf == 0x4b) && (*(buf+1) == 0x32) &&
+		(*(buf+2) == 0x05) && (*(buf+3) == 0x0)) {
+		wrap_enabled = true;
+		memcpy(driver->apps_rsp_buf, buf, 4);
+		driver->apps_rsp_buf[4] = wrap_count;
+		encode_rsp_and_send(5);
+		return 0;
+	}
 	 /* Check for ID for NO MODEM present */
 	else if (chk_polling_response()) {
 		/* respond to 0x0 command */
@@ -1449,6 +1468,8 @@ void diagfwd_init(void)
 	int success;
 	int i;
 
+	wrap_enabled = 0;
+	wrap_count = 0;
 	diag_debug_buf_idx = 0;
 	driver->read_len_legacy = 0;
 	driver->use_device_tree = has_device_tree();
