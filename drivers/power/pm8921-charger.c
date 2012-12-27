@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1663,32 +1663,7 @@ static int get_prop_batt_capacity(struct pm8921_chg_chip *chip)
 
 static int get_prop_batt_current_max(struct pm8921_chg_chip *chip)
 {
-	int rbatt, ibatt_ua, vbatt_uv, ocv_uv;
-	int imax_ma;
-	int rc;
-
-	rbatt = pm8921_bms_get_rbatt();
-
-	if (rbatt < 0) {
-		rc = -ENXIO;
-		return rc;
-	}
-
-	rc =  pm8921_bms_get_simultaneous_battery_voltage_and_current
-			(&ibatt_ua, &vbatt_uv);
-
-	if (rc)
-		return rc;
-
-	ocv_uv = vbatt_uv + ibatt_ua*rbatt/1000;
-
-	imax_ma = (ocv_uv - chip->min_voltage_mv*1000)/rbatt;
-
-	if (imax_ma < 0)
-		imax_ma = 0;
-
-	return imax_ma*1000;
-
+	return pm8921_bms_get_current_max();
 }
 
 static int get_prop_batt_current(struct pm8921_chg_chip *chip)

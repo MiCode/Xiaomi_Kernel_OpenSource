@@ -160,6 +160,7 @@ struct pm8921_bms_chip {
 	int			soc_calc_period;
 	int			normal_voltage_calc_ms;
 	int			low_voltage_calc_ms;
+	int			imax_ua;
 	struct wake_lock	soc_wake_lock;
 };
 
@@ -1407,6 +1408,13 @@ static void adjust_rc_and_uuc_for_specific_soc(
 	*ret_rc = rc_uah;
 	*ret_uuc = uuc_uah;
 }
+
+static void calc_current_max(struct pm8921_bms_chip *chip, int ocv_uv,
+		int rbatt_mohm)
+{
+	chip->imax_ua = 1000 * (ocv_uv - chip->v_cutoff * 1000) / rbatt_mohm;
+}
+
 static int bound_soc(int soc)
 {
 	soc = max(0, soc);
@@ -1534,6 +1542,7 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
 
 	ocv_est_uv = vbat_uv + (ibat_ua * rbatt)/1000;
+	calc_current_max(chip, ocv_est_uv, rbatt);
 	pc_est = calculate_pc(chip, ocv_est_uv, batt_temp, last_chargecycles);
 	soc_est = div_s64((s64)fcc_uah * pc_est - uuc_uah*100,
 						(s64)fcc_uah - uuc_uah);
@@ -2244,42 +2253,15 @@ int pm8921_bms_get_percent_charge(void)
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_get_percent_charge);
 
-int pm8921_bms_get_rbatt(void)
+int pm8921_bms_get_current_max(void)
 {
-	int batt_temp;
-	struct pm8921_soc_params raw;
-	int fcc_uah;
-	int unusable_charge_uah;
-	int remaining_charge_uah;
-	int cc_uah;
-	int rbatt;
-	int iavg_ua;
-	int delta_time_s;
-
 	if (!the_chip) {
 		pr_err("called before initialization\n");
 		return -EINVAL;
 	}
-
-	get_batt_temp(the_chip, &batt_temp);
-
-	mutex_lock(&the_chip->last_ocv_uv_mutex);
-
-	read_soc_params_raw(the_chip, &raw, batt_temp);
-
-	calculate_soc_params(the_chip, &raw, batt_temp, last_chargecycles,
-						&fcc_uah,
-						&unusable_charge_uah,
-						&remaining_charge_uah,
-						&cc_uah,
-						&rbatt,
-						&iavg_ua,
-						&delta_time_s);
-	mutex_unlock(&the_chip->last_ocv_uv_mutex);
-
-	return rbatt;
+	return the_chip->imax_ua;
 }
-EXPORT_SYMBOL_GPL(pm8921_bms_get_rbatt);
+EXPORT_SYMBOL_GPL(pm8921_bms_get_current_max);
 
 int pm8921_bms_get_fcc(void)
 {
@@ -3034,6 +3016,7 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 
 	chip->prev_pc_unusable = -EINVAL;
 	chip->soc_at_cv = -EINVAL;
+	chip->imax_ua = -EINVAL;
 
 	chip->ignore_shutdown_soc = pdata->ignore_shutdown_soc;
 	rc = set_battery_data(chip);

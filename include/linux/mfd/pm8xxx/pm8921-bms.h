@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,9 +123,11 @@ void pm8921_bms_calibrate_hkadc(void);
 int pm8921_bms_get_simultaneous_battery_voltage_and_current(int *ibat_ua,
 								int *vbat_uv);
 /**
- * pm8921_bms_get_rbatt - function to get the battery resistance in mOhm.
+ * pm8921_bms_get_current_max
+ *	- function to get the max current that can be drawn from
+ *	  the battery before it dips below the min allowed voltage
  */
-int pm8921_bms_get_rbatt(void);
+int pm8921_bms_get_current_max(void);
 /**
  * pm8921_bms_invalidate_shutdown_soc - function to notify the bms driver that
  *					the battery was replaced between reboot
@@ -181,6 +183,10 @@ static inline void pm8921_bms_invalidate_shutdown_soc(void)
 {
 }
 static inline int pm8921_bms_cc_uah(int *cc_uah)
+{
+	return -ENXIO;
+}
+static inline int pm8921_bms_get_current_max(void)
 {
 	return -ENXIO;
 }
