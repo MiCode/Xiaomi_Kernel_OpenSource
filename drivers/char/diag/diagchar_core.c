@@ -84,11 +84,23 @@ static uint16_t delayed_rsp_id = 1;
 static int token_list[MAX_PROC] = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9};
 
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
-/* This macro gets the next delayed respose id. Once it reaches
- DIAGPKT_MAX_DELAYED_RSP, it stays at DIAGPKT_MAX_DELAYED_RSP */
 
-#define DIAGPKT_NEXT_DELAYED_RSP_ID(x) 				\
-((x < DIAGPKT_MAX_DELAYED_RSP) ? x++ : DIAGPKT_MAX_DELAYED_RSP)
+/* returns the next delayed rsp id - rollsover the id if wrapping is
+   enabled. */
+uint16_t diagpkt_next_delayed_rsp_id(uint16_t rspid)
+{
+	if (rspid < DIAGPKT_MAX_DELAYED_RSP)
+		rspid++;
+	else {
+		if (wrap_enabled) {
+			rspid = 1;
+			wrap_count++;
+		} else
+			rspid = DIAGPKT_MAX_DELAYED_RSP;
+	}
+	delayed_rsp_id = rspid;
+	return delayed_rsp_id;
+}
 
 #define COPY_USER_SPACE_OR_EXIT(buf, data, length)		\
 do {								\
@@ -534,7 +546,7 @@ long diagchar_ioctl(struct file *filp,
 		if ((delay_params.rsp_ptr) &&
 		 (delay_params.size == sizeof(delayed_rsp_id)) &&
 				 (delay_params.num_bytes_ptr)) {
-			interim_rsp_id = DIAGPKT_NEXT_DELAYED_RSP_ID(
+			interim_rsp_id = diagpkt_next_delayed_rsp_id(
 							delayed_rsp_id);
 			if (copy_to_user((void *)delay_params.rsp_ptr,
 					 &interim_rsp_id, sizeof(uint16_t)))

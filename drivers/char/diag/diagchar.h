@@ -321,4 +321,8 @@ struct diagchar_dev {
 
 extern struct diag_bridge_dev *diag_bridge;
 extern struct diagchar_dev *driver;
+
+extern int wrap_enabled;
+extern uint16_t wrap_count;
+
 #endif
