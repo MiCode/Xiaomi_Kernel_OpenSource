@@ -929,23 +929,30 @@ int ipa_get_a2_mux_pipe_info(enum a2_mux_pipe_direction  pipe_dir,
 static void ipa_set_aggregation_params(void)
 {
 	struct ipa_ep_cfg_aggr agg_params;
+	struct ipa_ep_cfg_hdr hdr_params;
 	u32 producer_hdl = 0;
 	u32 consumer_hdl = 0;
 
 	rmnet_bridge_get_client_handles(&producer_hdl, &consumer_hdl);
 
+	/* configure aggregation on producer */
+	memset(&agg_params, 0, sizeof(struct ipa_ep_cfg_aggr));
+	agg_params.aggr_en = IPA_ENABLE_AGGR;
 	agg_params.aggr = ipa_ctx->aggregation_type;
 	agg_params.aggr_byte_limit = ipa_ctx->aggregation_byte_limit;
 	agg_params.aggr_time_limit = ipa_ctx->aggregation_time_limit;
-
-	/* configure aggregation on producer */
-	agg_params.aggr_en = IPA_ENABLE_AGGR;
 	ipa_cfg_ep_aggr(producer_hdl, &agg_params);
 
-	/* configure deaggregation on consumer */
-	agg_params.aggr_en = IPA_ENABLE_DEAGGR;
-	ipa_cfg_ep_aggr(consumer_hdl, &agg_params);
+	/* configure header on producer */
+	memset(&hdr_params, 0, sizeof(struct ipa_ep_cfg_hdr));
+	hdr_params.hdr_len = 1;
+	ipa_cfg_ep_hdr(producer_hdl, &hdr_params);
 
+	/* configure deaggregation on consumer */
+	memset(&agg_params, 0, sizeof(struct ipa_ep_cfg_aggr));
+	agg_params.aggr_en = IPA_ENABLE_DEAGGR;
+	agg_params.aggr = ipa_ctx->aggregation_type;
+	ipa_cfg_ep_aggr(consumer_hdl, &agg_params);
 }
 
 /*
@@ -1340,6 +1347,22 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		result = -ENODEV;
 		goto fail_init_hw;
 	}
+
+	/* setup chicken bits */
+	result = ipa_set_single_ndp_per_mbim(true);
+	if (result) {
+		IPAERR(":failed to set single ndp per mbim.\n");
+		result = -EFAULT;
+		goto fail_init_hw;
+	}
+
+	result = ipa_set_hw_timer_fix_for_mbim_aggr(true);
+	if (result) {
+		IPAERR(":failed to set HW timer fix for MBIM aggregation.\n");
+		result = -EFAULT;
+		goto fail_init_hw;
+	}
+
 	/* read how much SRAM is available for SW use */
 	ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
 			IPA_SHARED_MEM_SIZE_OFST);
