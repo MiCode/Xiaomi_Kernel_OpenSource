@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,6 +160,7 @@ struct pm8921_bms_chip {
 	int			soc_calc_period;
 	int			normal_voltage_calc_ms;
 	int			low_voltage_calc_ms;
+	struct wake_lock	soc_wake_lock;
 };
 
 /*
@@ -2047,6 +2048,7 @@ static int recalculate_soc(struct pm8921_bms_chip *chip)
 	struct pm8921_soc_params raw;
 	int soc;
 
+	wake_lock(&the_chip->soc_wake_lock);
 	get_batt_temp(chip, &batt_temp);
 
 	mutex_lock(&chip->last_ocv_uv_mutex);
@@ -2055,6 +2057,7 @@ static int recalculate_soc(struct pm8921_bms_chip *chip)
 	soc = calculate_state_of_charge(chip, &raw,
 					batt_temp, last_chargecycles);
 	mutex_unlock(&chip->last_ocv_uv_mutex);
+	wake_unlock(&the_chip->soc_wake_lock);
 	return soc;
 }
 
@@ -3063,10 +3066,12 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
 			calculate_soc_work);
 
+	wake_lock_init(&chip->soc_wake_lock,
+			WAKE_LOCK_SUSPEND, "pm8921_soc_lock");
 	rc = request_irqs(chip, pdev);
 	if (rc) {
 		pr_err("couldn't register interrupts rc = %d\n", rc);
-		goto free_chip;
+		goto destroy_soc_wl;
 	}
 
 	wake_lock_init(&chip->low_voltage_wake_lock,
@@ -3108,7 +3113,10 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 	return 0;
 
 free_irqs:
+	wake_lock_destroy(&chip->low_voltage_wake_lock);
 	free_irqs(chip);
+destroy_soc_wl:
+	wake_lock_destroy(&chip->soc_wake_lock);
 free_chip:
 	kfree(chip);
 	return rc;
