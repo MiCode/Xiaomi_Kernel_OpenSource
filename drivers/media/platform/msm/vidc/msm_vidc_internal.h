@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,6 +165,11 @@ enum msm_vidc_mode {
 	VIDC_SECURE,
 };
 
+enum msm_vidc_hfi_type {
+	VIDC_HFI_VENUS,
+	VIDC_HFI_Q6,
+};
+
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex sync_lock;
@@ -177,6 +182,7 @@ struct msm_vidc_core {
 	struct dentry *debugfs_root;
 	enum vidc_core_state state;
 	struct completion completions[SYS_MSG_END - SYS_MSG_START + 1];
+	enum msm_vidc_hfi_type hfi_type;
 };
 
 struct msm_vidc_inst {

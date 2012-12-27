@@ -13,6 +13,9 @@ Required properties:
   or non-secure.
 - load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec clock
   required for optimal performance in descending order.
+- hfi : supported Host-Firmware Interface, one of:
+	- "venus"
+	- "q6"
 
 Example:
 
@@ -29,4 +32,5 @@ Example:
 				<243000 133330000>,
 				<108000 100000000>,
 				<36000 50000000>;
+		hfi = "venus";
 	};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -667,6 +667,30 @@ void msm_vidc_release_video_device(struct video_device *pvdev)
 {
 }
 
+static int msm_vidc_get_hfi(struct platform_device *pdev,
+			struct msm_vidc_core *core)
+{
+	struct device_node *np = pdev->dev.of_node;
+	int rc = 0;
+	const char *hfi_name = NULL;
+
+	rc = of_property_read_string(np, "hfi", &hfi_name);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to read hfi from device tree\n");
+		goto err_hfi_read;
+	}
+
+	if (!strcmp(hfi_name, "venus"))
+		core->hfi_type = VIDC_HFI_VENUS;
+	else if (!strcmp(hfi_name, "q6"))
+		core->hfi_type = VIDC_HFI_Q6;
+
+	dprintk(VIDC_INFO, "hfi_type = %d\n", core->hfi_type);
+
+err_hfi_read:
+	return rc;
+}
+
 static int msm_vidc_initialize_core(struct platform_device *pdev,
 				struct msm_vidc_core *core)
 {
@@ -684,6 +708,11 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 		i <= SYS_MSG_INDEX(SYS_MSG_END); i++) {
 		init_completion(&core->completions[i]);
 	}
+
+	rc = msm_vidc_get_hfi(pdev, core);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to read Host-Firmware Interface rc: %d\n", rc);
 
 	return rc;
 }
