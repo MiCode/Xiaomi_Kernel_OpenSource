@@ -634,6 +634,7 @@ irqreturn_t mdp4_isr(int irq, void *ptr)
 #if defined(CONFIG_FB_MSM_WRITEBACK_MSM_PANEL)
 	if (isr & INTR_OVERLAY2_DONE) {
 		mdp4_stat.intr_overlay2++;
+		mdp_pipe_ctrl(MDP_OVERLAY2_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 		/* disable DTV interrupt */
 		if (panel & MDP4_PANEL_WRITEBACK)
 			mdp4_overlay2_done_wfd(&dma_wb_data);
