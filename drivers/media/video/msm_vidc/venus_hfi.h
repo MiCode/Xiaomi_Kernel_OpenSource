@@ -1000,13 +1000,13 @@ struct hal_device_data {
 
 extern struct hal_device_data hal_ctxt;
 
-int vidc_hal_iface_msgq_read(struct venus_hfi_device *device, void *pkt);
-int vidc_hal_iface_dbgq_read(struct venus_hfi_device *device, void *pkt);
+int venus_hfi_iface_msgq_read(struct venus_hfi_device *device, void *pkt);
+int venus_hfi_iface_dbgq_read(struct venus_hfi_device *device, void *pkt);
 
 /* Interrupt Processing:*/
-void vidc_hal_response_handler(struct venus_hfi_device *device);
+void hfi_response_handler(struct venus_hfi_device *device);
 
-void vidc_hal_delete_device(void *device);
+void venus_hfi_delete_device(void *device);
 
 int venus_hfi_scale_clocks(struct venus_hfi_device *device, int load);
 

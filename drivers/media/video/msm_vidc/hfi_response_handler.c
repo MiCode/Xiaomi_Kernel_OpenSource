@@ -18,7 +18,7 @@
 #include "vidc_hfi_io.h"
 #include "msm_vidc_debug.h"
 
-static enum vidc_status vidc_map_hal_err_status(int hfi_err)
+static enum vidc_status hfi_map_err_status(int hfi_err)
 {
 	enum vidc_status vidc_err;
 	switch (hfi_err) {
@@ -75,7 +75,7 @@ static enum vidc_status vidc_map_hal_err_status(int hfi_err)
 	return vidc_err;
 }
 
-void hal_process_sess_evt_seq_changed(struct venus_hfi_device *device,
+static void hfi_process_sess_evt_seq_changed(struct venus_hfi_device *device,
 	struct hfi_msg_event_notify_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -138,7 +138,7 @@ void hal_process_sess_evt_seq_changed(struct venus_hfi_device *device,
 	cmd_done.data = &event_notify;
 	device->callback(VIDC_EVENT_CHANGE, &cmd_done);
 }
-static void hal_process_sys_watchdog_timeout(struct venus_hfi_device *device)
+static void hfi_process_sys_watchdog_timeout(struct venus_hfi_device *device)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 	device->intr_status &= ~VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK;
@@ -146,14 +146,14 @@ static void hal_process_sys_watchdog_timeout(struct venus_hfi_device *device)
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_WATCHDOG_TIMEOUT, &cmd_done);
 }
-static void hal_process_sys_error(struct venus_hfi_device *device)
+static void hfi_process_sys_error(struct venus_hfi_device *device)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_ERROR, &cmd_done);
 }
-static void hal_process_session_error(struct venus_hfi_device *device,
+static void hfi_process_session_error(struct venus_hfi_device *device,
 		struct hfi_msg_event_notify_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -163,7 +163,7 @@ static void hal_process_session_error(struct venus_hfi_device *device,
 		session_id;
 	device->callback(SESSION_ERROR, &cmd_done);
 }
-static void hal_process_event_notify(struct venus_hfi_device *device,
+static void hfi_process_event_notify(struct venus_hfi_device *device,
 	struct hfi_msg_event_notify_packet *pkt)
 {
 	dprintk(VIDC_DBG, "RECVD:EVENT_NOTIFY");
@@ -178,15 +178,15 @@ static void hal_process_event_notify(struct venus_hfi_device *device,
 	case HFI_EVENT_SYS_ERROR:
 		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d\n",
 			pkt->event_data1);
-		hal_process_sys_error(device);
+		hfi_process_sys_error(device);
 		break;
 	case HFI_EVENT_SESSION_ERROR:
 		dprintk(VIDC_ERR, "HFI_EVENT_SESSION_ERROR");
-		hal_process_session_error(device, pkt);
+		hfi_process_session_error(device, pkt);
 		break;
 	case HFI_EVENT_SESSION_SEQUENCE_CHANGED:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_SEQUENCE_CHANGED");
-		hal_process_sess_evt_seq_changed(device, pkt);
+		hfi_process_sess_evt_seq_changed(device, pkt);
 		break;
 	case HFI_EVENT_SESSION_PROPERTY_CHANGED:
 		dprintk(VIDC_INFO, "HFI_EVENT_SESSION_PROPERTY_CHANGED");
@@ -196,7 +196,7 @@ static void hal_process_event_notify(struct venus_hfi_device *device,
 		break;
 	}
 }
-static void hal_process_sys_init_done(struct venus_hfi_device *device,
+static void hfi_process_sys_init_done(struct venus_hfi_device *device,
 		struct hfi_msg_sys_init_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -213,7 +213,7 @@ static void hal_process_sys_init_done(struct venus_hfi_device *device,
 		return;
 	}
 
-	status = vidc_map_hal_err_status((u32)pkt->error_type);
+	status = hfi_map_err_status((u32)pkt->error_type);
 
 	if (!status) {
 		if (pkt->num_properties == 0) {
@@ -281,7 +281,7 @@ err_no_prop:
 	device->callback(SYS_INIT_DONE, &cmd_done);
 }
 
-static void hal_process_sys_rel_resource_done(struct venus_hfi_device *device,
+static void hfi_process_sys_rel_resource_done(struct venus_hfi_device *device,
 	struct hfi_msg_sys_release_resource_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -296,7 +296,7 @@ static void hal_process_sys_rel_resource_done(struct venus_hfi_device *device,
 			pkt->size);
 		return;
 	}
-	status = vidc_map_hal_err_status((u32)pkt->error_type);
+	status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.device_id = device->device_id;
 	cmd_done.session_id = 0;
 	cmd_done.status = (u32) status;
@@ -305,14 +305,14 @@ static void hal_process_sys_rel_resource_done(struct venus_hfi_device *device,
 	device->callback(RELEASE_RESOURCE_DONE, &cmd_done);
 }
 
-enum vidc_status vidc_hal_process_sess_init_done_prop_read(
+enum vidc_status hfi_process_sess_init_done_prop_read(
 	struct hfi_msg_sys_session_init_done_packet *pkt,
 	struct msm_vidc_cb_cmd_done *cmddone)
 {
 	return VIDC_ERR_NONE;
 }
 
-static void hal_process_sess_get_prop_buf_req(
+static void hfi_process_sess_get_prop_buf_req(
 	struct hfi_msg_session_property_info_packet *prop,
 	struct buffer_requirements *buffreq)
 {
@@ -408,7 +408,7 @@ static void hal_process_sess_get_prop_buf_req(
 	}
 }
 
-static void hal_process_session_prop_info(struct venus_hfi_device *device,
+static void hfi_process_session_prop_info(struct venus_hfi_device *device,
 	struct hfi_msg_session_property_info_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -432,7 +432,7 @@ static void hal_process_session_prop_info(struct venus_hfi_device *device,
 
 	switch (pkt->rg_property_data[0]) {
 	case HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS:
-		hal_process_sess_get_prop_buf_req(pkt, &buff_req);
+		hfi_process_sess_get_prop_buf_req(pkt, &buff_req);
 		cmd_done.device_id = device->device_id;
 		cmd_done.session_id =
 			((struct hal_session *) pkt->session_id)->session_id;
@@ -449,7 +449,7 @@ static void hal_process_session_prop_info(struct venus_hfi_device *device,
 	}
 }
 
-static void hal_process_session_init_done(struct venus_hfi_device *device,
+static void hfi_process_session_init_done(struct venus_hfi_device *device,
 	struct hfi_msg_sys_session_init_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -469,17 +469,17 @@ static void hal_process_session_init_done(struct venus_hfi_device *device,
 	cmd_done.device_id = device->device_id;
 	cmd_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.data = &session_init_done;
 	if (!cmd_done.status) {
-		cmd_done.status = vidc_hal_process_sess_init_done_prop_read(
+		cmd_done.status = hfi_process_sess_init_done_prop_read(
 			pkt, &cmd_done);
 	}
 	cmd_done.size = sizeof(struct vidc_hal_session_init_done);
 	device->callback(SESSION_INIT_DONE, &cmd_done);
 }
 
-static void hal_process_session_load_res_done(struct venus_hfi_device *device,
+static void hfi_process_session_load_res_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_load_resources_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -497,13 +497,13 @@ static void hal_process_session_load_res_done(struct venus_hfi_device *device,
 	cmd_done.device_id = device->device_id;
 	cmd_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.data = NULL;
 	cmd_done.size = 0;
 	device->callback(SESSION_LOAD_RESOURCE_DONE, &cmd_done);
 }
 
-static void hal_process_session_flush_done(struct venus_hfi_device *device,
+static void hfi_process_session_flush_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_flush_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -520,13 +520,13 @@ static void hal_process_session_flush_done(struct venus_hfi_device *device,
 	cmd_done.device_id = device->device_id;
 	cmd_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.data = (void *) pkt->flush_type;
 	cmd_done.size = sizeof(u32);
 	device->callback(SESSION_FLUSH_DONE, &cmd_done);
 }
 
-static void hal_process_session_etb_done(struct venus_hfi_device *device,
+static void hfi_process_session_etb_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_empty_buffer_done_packet *pkt)
 {
 	struct msm_vidc_cb_data_done data_done;
@@ -544,7 +544,7 @@ static void hal_process_session_etb_done(struct venus_hfi_device *device,
 	data_done.device_id = device->device_id;
 	data_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	data_done.status = vidc_map_hal_err_status((u32) pkt->error_type);
+	data_done.status = hfi_map_err_status((u32) pkt->error_type);
 	data_done.size = sizeof(struct msm_vidc_cb_data_done);
 	data_done.clnt_data = (void *)pkt->input_tag;
 	data_done.input_done.offset = pkt->offset;
@@ -553,7 +553,7 @@ static void hal_process_session_etb_done(struct venus_hfi_device *device,
 	device->callback(SESSION_ETB_DONE, &data_done);
 }
 
-static void hal_process_session_ftb_done(struct venus_hfi_device *device,
+static void hfi_process_session_ftb_done(struct venus_hfi_device *device,
 			void *msg_hdr)
 {
 	struct msm_vidc_cb_data_done data_done;
@@ -592,7 +592,7 @@ static void hal_process_session_ftb_done(struct venus_hfi_device *device,
 
 		data_done.device_id = device->device_id;
 		data_done.session_id = (u32) session;
-		data_done.status = vidc_map_hal_err_status((u32)
+		data_done.status = hfi_map_err_status((u32)
 							pkt->error_type);
 		data_done.size = sizeof(struct msm_vidc_cb_data_done);
 		data_done.clnt_data = (void *) pkt->input_tag;
@@ -626,7 +626,7 @@ static void hal_process_session_ftb_done(struct venus_hfi_device *device,
 
 		data_done.device_id = device->device_id;
 		data_done.session_id = (u32) session;
-		data_done.status = vidc_map_hal_err_status((u32)
+		data_done.status = hfi_map_err_status((u32)
 			pkt->error_type);
 		data_done.size = sizeof(struct msm_vidc_cb_data_done);
 		data_done.clnt_data = (void *)pkt->input_tag;
@@ -660,7 +660,7 @@ static void hal_process_session_ftb_done(struct venus_hfi_device *device,
 	device->callback(SESSION_FTB_DONE, &data_done);
 }
 
-static void hal_process_session_start_done(struct venus_hfi_device *device,
+static void hfi_process_session_start_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_start_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -678,13 +678,13 @@ static void hal_process_session_start_done(struct venus_hfi_device *device,
 	cmd_done.device_id = device->device_id;
 	cmd_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.data = NULL;
 	cmd_done.size = 0;
 	device->callback(SESSION_START_DONE, &cmd_done);
 }
 
-static void hal_process_session_stop_done(struct venus_hfi_device *device,
+static void hfi_process_session_stop_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_stop_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -702,13 +702,13 @@ static void hal_process_session_stop_done(struct venus_hfi_device *device,
 	cmd_done.device_id = device->device_id;
 	cmd_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.data = NULL;
 	cmd_done.size = 0;
 	device->callback(SESSION_STOP_DONE, &cmd_done);
 }
 
-static void hal_process_session_rel_res_done(struct venus_hfi_device *device,
+static void hfi_process_session_rel_res_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_release_resources_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -726,13 +726,13 @@ static void hal_process_session_rel_res_done(struct venus_hfi_device *device,
 	cmd_done.device_id = device->device_id;
 	cmd_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.data = NULL;
 	cmd_done.size = 0;
 	device->callback(SESSION_RELEASE_RESOURCE_DONE, &cmd_done);
 }
 
-static void hal_process_session_rel_buf_done(struct venus_hfi_device *device,
+static void hfi_process_session_rel_buf_done(struct venus_hfi_device *device,
 	struct hfi_msg_session_release_buffers_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -747,7 +747,7 @@ static void hal_process_session_rel_buf_done(struct venus_hfi_device *device,
 	cmd_done.size = sizeof(struct msm_vidc_cb_cmd_done);
 	cmd_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	if (pkt->rg_buffer_info) {
 		cmd_done.data = (void *) &pkt->rg_buffer_info;
 		cmd_done.size = sizeof(struct hfi_buffer_info);
@@ -757,7 +757,7 @@ static void hal_process_session_rel_buf_done(struct venus_hfi_device *device,
 	device->callback(SESSION_RELEASE_BUFFER_DONE, &cmd_done);
 }
 
-static void hal_process_session_end_done(struct venus_hfi_device *device,
+static void hfi_process_session_end_done(struct venus_hfi_device *device,
 	struct hfi_msg_sys_session_end_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
@@ -782,13 +782,13 @@ static void hal_process_session_end_done(struct venus_hfi_device *device,
 	cmd_done.device_id = device->device_id;
 	cmd_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	cmd_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.data = NULL;
 	cmd_done.size = 0;
 	device->callback(SESSION_END_DONE, &cmd_done);
 }
 
-static void hal_process_session_get_seq_hdr_done(
+static void hfi_process_session_get_seq_hdr_done(
 	struct venus_hfi_device *device,
 	struct hfi_msg_session_get_sequence_header_done_packet *pkt)
 {
@@ -804,7 +804,7 @@ static void hal_process_session_get_seq_hdr_done(
 	data_done.size = sizeof(struct msm_vidc_cb_data_done);
 	data_done.session_id =
 		((struct hal_session *) pkt->session_id)->session_id;
-	data_done.status = vidc_map_hal_err_status((u32)pkt->error_type);
+	data_done.status = hfi_map_err_status((u32)pkt->error_type);
 	data_done.output_done.packet_buffer1 = pkt->sequence_header;
 	data_done.output_done.filled_len1 = pkt->header_len;
 	dprintk(VIDC_INFO, "seq_hdr: %p, Length: %d",
@@ -812,7 +812,7 @@ static void hal_process_session_get_seq_hdr_done(
 	device->callback(SESSION_GET_SEQ_HDR_DONE, &data_done);
 }
 
-static void hal_process_msg_packet(struct venus_hfi_device *device,
+static void hfi_process_msg_packet(struct venus_hfi_device *device,
 	struct vidc_hal_msg_pkt_hdr *msg_hdr)
 {
 	if (!device || !msg_hdr || msg_hdr->size <
@@ -825,80 +825,80 @@ static void hal_process_msg_packet(struct venus_hfi_device *device,
 	dprintk(VIDC_INFO, "Received: 0x%x in ", msg_hdr->packet);
 	if ((device->intr_status & VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK)) {
 		dprintk(VIDC_ERR, "Received: Watchdog timeout %s", __func__);
-		hal_process_sys_watchdog_timeout(device);
+		hfi_process_sys_watchdog_timeout(device);
 		return;
 	}
 
 	switch (msg_hdr->packet) {
 	case HFI_MSG_EVENT_NOTIFY:
-		hal_process_event_notify(device,
+		hfi_process_event_notify(device,
 			(struct hfi_msg_event_notify_packet *) msg_hdr);
 		break;
 	case  HFI_MSG_SYS_INIT_DONE:
-		hal_process_sys_init_done(device,
+		hfi_process_sys_init_done(device,
 			(struct hfi_msg_sys_init_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SYS_SESSION_INIT_DONE:
-		hal_process_session_init_done(device,
+		hfi_process_session_init_done(device,
 			(struct hfi_msg_sys_session_init_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SYS_SESSION_END_DONE:
-		hal_process_session_end_done(device,
+		hfi_process_session_end_done(device,
 			(struct hfi_msg_sys_session_end_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SESSION_LOAD_RESOURCES_DONE:
-		hal_process_session_load_res_done(device,
+		hfi_process_session_load_res_done(device,
 			(struct hfi_msg_session_load_resources_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SESSION_START_DONE:
-		hal_process_session_start_done(device,
+		hfi_process_session_start_done(device,
 			(struct hfi_msg_session_start_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SESSION_STOP_DONE:
-		hal_process_session_stop_done(device,
+		hfi_process_session_stop_done(device,
 			(struct hfi_msg_session_stop_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SESSION_EMPTY_BUFFER_DONE:
-		hal_process_session_etb_done(device,
+		hfi_process_session_etb_done(device,
 			(struct hfi_msg_session_empty_buffer_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SESSION_FILL_BUFFER_DONE:
-		hal_process_session_ftb_done(device, msg_hdr);
+		hfi_process_session_ftb_done(device, msg_hdr);
 		break;
 	case HFI_MSG_SESSION_FLUSH_DONE:
-		hal_process_session_flush_done(device,
+		hfi_process_session_flush_done(device,
 			(struct hfi_msg_session_flush_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SESSION_PROPERTY_INFO:
-		hal_process_session_prop_info(device,
+		hfi_process_session_prop_info(device,
 			(struct hfi_msg_session_property_info_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SESSION_RELEASE_RESOURCES_DONE:
-		hal_process_session_rel_res_done(device,
+		hfi_process_session_rel_res_done(device,
 			(struct hfi_msg_session_release_resources_done_packet *)
 					msg_hdr);
 		break;
 	case HFI_MSG_SYS_RELEASE_RESOURCE:
-		hal_process_sys_rel_resource_done(device,
+		hfi_process_sys_rel_resource_done(device,
 			(struct hfi_msg_sys_release_resource_done_packet *)
 			msg_hdr);
 		break;
 	case HFI_MSG_SESSION_GET_SEQUENCE_HEADER_DONE:
-		hal_process_session_get_seq_hdr_done(device, (struct
+		hfi_process_session_get_seq_hdr_done(device, (struct
 			hfi_msg_session_get_sequence_header_done_packet
 			 *) msg_hdr);
 		break;
 	case HFI_MSG_SESSION_RELEASE_BUFFERS_DONE:
-		hal_process_session_rel_buf_done(device, (struct
+		hfi_process_session_rel_buf_done(device, (struct
 			hfi_msg_session_release_buffers_done_packet
 			*) msg_hdr);
 		break;
@@ -908,17 +908,17 @@ static void hal_process_msg_packet(struct venus_hfi_device *device,
 	}
 }
 
-void vidc_hal_response_handler(struct venus_hfi_device *device)
+void hfi_response_handler(struct venus_hfi_device *device)
 {
 	u8 packet[VIDC_IFACEQ_MED_PKT_SIZE];
 
 	dprintk(VIDC_INFO, "#####vidc_hal_response_handler#####\n");
 	if (device) {
-		while (!vidc_hal_iface_msgq_read(device, packet)) {
-			hal_process_msg_packet(device,
+		while (!venus_hfi_iface_msgq_read(device, packet)) {
+			hfi_process_msg_packet(device,
 				(struct vidc_hal_msg_pkt_hdr *) packet);
 		}
-		while (!vidc_hal_iface_dbgq_read(device, packet)) {
+		while (!venus_hfi_iface_dbgq_read(device, packet)) {
 			struct hfi_msg_sys_debug_packet *pkt =
 				(struct hfi_msg_sys_debug_packet *) packet;
 			dprintk(VIDC_FW, "FW-SAYS: %s", pkt->rg_msg_data);
