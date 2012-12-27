@@ -2607,27 +2607,18 @@ int mpq_dmx_process_pcr_packet(
 	const struct ts_packet_header *ts_header;
 	const struct ts_adaptation_field *adaptation_field;
 
-	/*
-	 * When we play from front-end, we configure HW
-	 * to output the extra timestamp, if we are playing
-	 * from DVR, make sure the format is 192 packet.
-	 */
-	if ((mpq_demux->source >= DMX_SOURCE_DVR0) &&
-		(mpq_demux->demux.tsp_format != DMX_TSP_FORMAT_192_TAIL)) {
-		MPQ_DVB_ERR_PRINT(
-			"%s: invalid packet format %d for PCR extraction\n",
-			__func__,
-			mpq_demux->demux.tsp_format);
-
-		 return -EINVAL;
-	}
-
 	ts_header = (const struct ts_packet_header *)buf;
 
 	/* Make sure this TS packet has a adaptation field */
 	if ((ts_header->sync_byte != 0x47) ||
 		(ts_header->adaptation_field_control == 0) ||
-		(ts_header->adaptation_field_control == 1)) {
+		(ts_header->adaptation_field_control == 1) ||
+		ts_header->transport_error_indicator) {
+		MPQ_DVB_DBG_PRINT(
+			"%s: PCR packet dropped, AFC %d, TEI %d\n",
+			__func__,
+			ts_header->adaptation_field_control,
+			ts_header->transport_error_indicator);
 		return 0;
 	}
 
@@ -2648,10 +2639,21 @@ int mpq_dmx_process_pcr_packet(
 		(((u64)adaptation_field->program_clock_reference_ext_1) << 8) +
 		adaptation_field->program_clock_reference_ext_2;
 
-	stc = buf[190] << 16;
-	stc += buf[189] << 8;
-	stc += buf[188];
-	stc *= 256; /* convert from 105.47 KHZ to 27MHz */
+	/*
+	 * When we play from front-end, we configure HW
+	 * to output the extra timestamp, if we are playing
+	 * from DVR, we don't have a timestamp if the packet
+	 * format is not 192-tail.
+	 */
+	if ((mpq_demux->source >= DMX_SOURCE_DVR0) &&
+		(mpq_demux->demux.tsp_format != DMX_TSP_FORMAT_192_TAIL)) {
+		stc = 0;
+	} else {
+		stc = buf[190] << 16;
+		stc += buf[189] << 8;
+		stc += buf[188];
+		stc *= 256; /* convert from 105.47 KHZ to 27MHz */
+	}
 
 	data.data_length = 0;
 	data.pcr.pcr = pcr;
