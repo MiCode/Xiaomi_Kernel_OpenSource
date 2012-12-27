@@ -776,7 +776,7 @@ static int msm_vidc_remove(struct platform_device *pdev)
 	int rc = 0;
 	struct msm_vidc_core *core = pdev->dev.platform_data;
 
-	vidc_hal_delete_device(core->device);
+	venus_hfi_delete_device(core->device);
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 	v4l2_device_unregister(&core->v4l2_dev);

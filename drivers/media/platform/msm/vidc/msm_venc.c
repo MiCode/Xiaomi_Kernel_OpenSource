@@ -648,7 +648,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
-		rc = vidc_hal_session_set_property(inst->session,
+		rc = venus_hfi_session_set_property(inst->session,
 					property_id, &new_buf_count);
 		dprintk(VIDC_DBG, "size = %d, alignment = %d, count = %d\n",
 				inst->buff_req.buffer[0].buffer_size,
@@ -1405,7 +1405,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		dprintk(VIDC_DBG, "Control: HAL property=%d,ctrl_value=%d\n",
 				property_id,
 				ctrl->val);
-		rc = vidc_hal_session_set_property((void *)inst->session,
+		rc = venus_hfi_session_set_property((void *)inst->session,
 				property_id, pdata);
 	}
 
@@ -1597,7 +1597,7 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		frame_rate.frame_rate = inst->prop.fps * (0x1<<16);
 		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
 		pdata = &frame_rate;
-		rc = vidc_hal_session_set_property((void *)inst->session,
+		rc = venus_hfi_session_set_property((void *)inst->session,
 				property_id, pdata);
 		if (rc) {
 			dprintk(VIDC_WARN,
@@ -1638,7 +1638,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		frame_sz.height = inst->prop.height;
 		dprintk(VIDC_DBG, "width = %d, height = %d\n",
 				frame_sz.width, frame_sz.height);
-		rc = vidc_hal_session_set_property((void *)inst->session,
+		rc = venus_hfi_session_set_property((void *)inst->session,
 				HAL_PARAM_FRAME_SIZE, &frame_sz);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -1646,7 +1646,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		rc = vidc_hal_session_set_property((void *)inst->session,
+		rc = venus_hfi_session_set_property((void *)inst->session,
 				HAL_PARAM_FRAME_SIZE, &frame_sz);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -1769,8 +1769,8 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 				b->m.planes[i].m.userptr;
 			buffer_info.extradata_size = 0;
 			buffer_info.extradata_addr = 0;
-			rc = vidc_hal_session_set_buffers((void *)inst->session,
-					&buffer_info);
+			rc = venus_hfi_session_set_buffers(
+				(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
 					"vidc_hal_session_set_buffers failed");
@@ -1814,7 +1814,7 @@ int msm_venc_release_buf(struct msm_vidc_inst *inst,
 			buffer_info.extradata_size = 0;
 			buffer_info.extradata_addr = 0;
 			buffer_info.response_required = false;
-			rc = vidc_hal_session_release_buffers(
+			rc = venus_hfi_session_release_buffers(
 				(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,

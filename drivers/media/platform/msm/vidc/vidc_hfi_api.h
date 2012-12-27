@@ -980,43 +980,43 @@ struct buffer_requirements {
 };
 
 /* VIDC_HAL CORE API's */
-int vidc_hal_core_init(void *device);
-int vidc_hal_core_release(void *device);
-int vidc_hal_core_pc_prep(void *device);
-int vidc_hal_core_set_resource(void *device,
+int venus_hfi_core_init(void *device);
+int venus_hfi_core_release(void *device);
+int venus_hfi_core_pc_prep(void *device);
+int venus_hfi_core_set_resource(void *device,
 	struct vidc_resource_hdr *resource_hdr, void *resource_value);
-int vidc_hal_core_release_resource(void *device,
+int venus_hfi_core_release_resource(void *device,
 	struct vidc_resource_hdr *resource_hdr);
-int vidc_hal_core_ping(void *device);
+int venus_hfi_core_ping(void *device);
 
 /* VIDC_HAL SESSION API's */
-void *vidc_hal_session_init(void *device, u32 session_id,
+void *venus_hfi_session_init(void *device, u32 session_id,
 	enum hal_domain session_type, enum hal_video_codec codec_type);
-int vidc_hal_session_end(void *session);
-int vidc_hal_session_abort(void *session);
-int vidc_hal_session_set_buffers(void *sess,
+int venus_hfi_session_end(void *session);
+int venus_hfi_session_abort(void *session);
+int venus_hfi_session_set_buffers(void *sess,
 	struct vidc_buffer_addr_info *buffer_info);
-int vidc_hal_session_release_buffers(void *sess,
+int venus_hfi_session_release_buffers(void *sess,
 	struct vidc_buffer_addr_info *buffer_info);
-int vidc_hal_session_load_res(void *sess);
-int vidc_hal_session_release_res(void *sess);
-int vidc_hal_session_start(void *sess);
-int vidc_hal_session_stop(void *sess);
-int vidc_hal_session_suspend(void *sess);
-int vidc_hal_session_resume(void *sess);
-int vidc_hal_session_etb(void *sess,
+int venus_hfi_session_load_res(void *sess);
+int venus_hfi_session_release_res(void *sess);
+int venus_hfi_session_start(void *sess);
+int venus_hfi_session_stop(void *sess);
+int venus_hfi_session_suspend(void *sess);
+int venus_hfi_session_resume(void *sess);
+int venus_hfi_session_etb(void *sess,
 	struct vidc_frame_data *input_frame);
-int vidc_hal_session_ftb(void *sess,
+int venus_hfi_session_ftb(void *sess,
 	struct vidc_frame_data *output_frame);
-int vidc_hal_session_parse_seq_hdr(void *sess,
+int venus_hfi_session_parse_seq_hdr(void *sess,
 	struct vidc_seq_hdr *seq_hdr);
-int vidc_hal_session_get_seq_hdr(void *sess,
+int venus_hfi_session_get_seq_hdr(void *sess,
 	struct vidc_seq_hdr *seq_hdr);
-int vidc_hal_session_get_buf_req(void *sess);
-int vidc_hal_session_flush(void *sess, enum hal_flush flush_mode);
-int vidc_hal_session_set_property(void *sess, enum hal_property ptype,
+int venus_hfi_session_get_buf_req(void *sess);
+int venus_hfi_session_flush(void *sess, enum hal_flush flush_mode);
+int venus_hfi_session_set_property(void *sess, enum hal_property ptype,
 								  void *pdata);
-int vidc_hal_session_get_property(void *sess, enum hal_property ptype,
+int venus_hfi_session_get_property(void *sess, enum hal_property ptype,
 								  void *pdata);
 
 #endif /*__VIDC_HFI_API_H__ */
