@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,10 +39,14 @@
 static int mpq_demux_device_num = CONFIG_DVB_MPQ_NUM_DMX_DEVICES;
 module_param(mpq_demux_device_num, int, S_IRUGO);
 
-/* ION heap ID to be used when calling ion_alloc for video decoder buffer */
-static int video_ion_alloc_heap = ION_CP_MM_HEAP_ID;
-module_param(video_ion_alloc_heap, int, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(video_ion_alloc_heap, "ION heap ID for allocation");
+/* ION heap IDs used for allocating video output buffer */
+static int video_secure_ion_heap = ION_CP_MM_HEAP_ID;
+module_param(video_secure_ion_heap , int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(video_secure_ion_heap, "ION heap for secure video buffer allocation");
+
+static int video_nonsecure_ion_heap = ION_IOMMU_HEAP_ID;
+module_param(video_nonsecure_ion_heap, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(video_nonsecure_ion_heap, "ION heap for non-secure video buffer allocation");
 
 static int generate_es_events;
 module_param(generate_es_events, int, S_IRUGO | S_IWUSR);
@@ -1033,7 +1037,9 @@ static int mpq_dmx_init_internal_buffers(
 	actual_buffer_size &= ~(SZ_4K - 1);
 
 	temp_handle = ion_alloc(client, actual_buffer_size, SZ_4K,
-		ION_HEAP(video_ion_alloc_heap), ION_FLAG_CACHED);
+		ION_HEAP(video_secure_ion_heap) |
+		ION_HEAP(video_nonsecure_ion_heap),
+		ION_FLAG_CACHED);
 
 	if (IS_ERR_OR_NULL(temp_handle)) {
 		ret = PTR_ERR(temp_handle);
