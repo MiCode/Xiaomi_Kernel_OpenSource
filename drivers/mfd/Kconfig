@@ -1054,6 +1054,16 @@ config WCD9320_CODEC
 	  The WCD9320 codec support either I2C/I2S or Slimbus for
 	  control and data exchnage with master processor.
 
+config WCD9306_CODEC
+	tristate "WCD9306 Codec"
+	select SLIMBUS
+	select MFD_CORE
+	help
+	  Enables the WCD9xxx codec core driver. The core driver provides
+	  read/write capability to registers which are part of the
+	  WCD9306 core and gives the ability to use the WCD9306 codec.
+	  The WCD9306 codec supports either I2C/I2S or Slimbus for
+	  control and data exchnage with master processor.
 
 config MFD_RC5T583
 	bool "Ricoh RC5T583 Power Management system device"
