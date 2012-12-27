@@ -156,6 +156,7 @@ struct qpnp_bms_chip {
 	int64_t				cc_reading_at_100;
 	uint16_t			prev_last_good_ocv_raw;
 	int				last_ocv_uv;
+	int				last_ocv_temp;
 	int				last_cc_uah;
 	unsigned long			tm_sec;
 	bool				first_time_calc_soc;
@@ -502,7 +503,8 @@ static int calib_vadc(struct qpnp_bms_chip *chip)
 }
 
 static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
-				struct raw_soc_params *raw)
+				struct raw_soc_params *raw,
+				int batt_temp)
 {
 	int rc;
 
@@ -516,6 +518,7 @@ static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
 	raw->last_good_ocv_uv = convert_vbatt_raw_to_uv(chip,
 					raw->last_good_ocv_raw);
 	chip->last_ocv_uv = raw->last_good_ocv_uv;
+	chip->last_ocv_temp = batt_temp;
 	pr_debug("last_good_ocv_uv = %d\n", raw->last_good_ocv_uv);
 }
 
@@ -548,7 +551,8 @@ static void reset_cc(struct qpnp_bms_chip *chip)
 }
 
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
-				struct raw_soc_params *raw)
+				struct raw_soc_params *raw,
+				int batt_temp)
 {
 	int rc;
 
@@ -581,10 +585,10 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 	mutex_unlock(&chip->bms_output_lock);
 
 	if (chip->prev_last_good_ocv_raw == 0) {
-		convert_and_store_ocv(chip, raw);
+		convert_and_store_ocv(chip, raw, batt_temp);
 		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
-		convert_and_store_ocv(chip, raw);
+		convert_and_store_ocv(chip, raw, batt_temp);
 		/* forget the old cc value upon ocv */
 		chip->last_cc_uah = INT_MIN;
 	} else {
@@ -602,6 +606,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		 */
 		raw->last_good_ocv_uv = chip->max_voltage_uv;
 		chip->last_ocv_uv = chip->max_voltage_uv;
+		chip->last_ocv_temp = batt_temp;
 	}
 	pr_debug("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
 			raw->last_good_ocv_raw, raw->last_good_ocv_uv);
@@ -641,13 +646,12 @@ static int calculate_fcc(struct qpnp_bms_chip *chip, int batt_temp)
 /* calculate remaining charge at the time of ocv */
 static int calculate_ocv_charge(struct qpnp_bms_chip *chip,
 						struct raw_soc_params *raw,
-						int fcc_uah,
-						int batt_temp)
+						int fcc_uah)
 {
 	int  ocv_uv, pc;
 
 	ocv_uv = raw->last_good_ocv_uv;
-	pc = calculate_pc(chip, ocv_uv, batt_temp);
+	pc = calculate_pc(chip, ocv_uv, chip->last_ocv_temp);
 	pr_debug("ocv_uv = %d pc = %d\n", ocv_uv, pc);
 	return (fcc_uah * pc) / 100;
 }
@@ -1037,8 +1041,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 	/* calculate remainging charge */
 	params->ocv_charge_uah = calculate_ocv_charge(
 						chip, raw,
-						params->fcc_uah,
-						batt_temp);
+						params->fcc_uah);
 	pr_debug("ocv_charge_uah = %uuAh\n", params->ocv_charge_uah);
 
 	/* calculate cc micro_volt_hour */
@@ -1396,17 +1399,17 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 	n = min(200, max(1 , soc + soc_est + chip->last_soc_est));
 	chip->last_soc_est = soc_est;
 
-	pc = calculate_pc(chip, chip->last_ocv_uv, batt_temp);
+	pc = calculate_pc(chip, chip->last_ocv_uv, chip->last_ocv_temp);
 	if (pc > 0) {
 		pc_new = calculate_pc(chip,
 				chip->last_ocv_uv - (++slope * 1000),
-				batt_temp);
+				chip->last_ocv_temp);
 		while (pc_new == pc) {
 			/* start taking 10mV steps */
 			slope = slope + 10;
 			pc_new = calculate_pc(chip,
 				chip->last_ocv_uv - (slope * 1000),
-				batt_temp);
+				chip->last_ocv_temp);
 		}
 	} else {
 		/*
@@ -1438,7 +1441,7 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 		chip->last_ocv_uv = chip->max_voltage_uv;
 
 	/* calculate the soc based on this new ocv */
-	pc_new = calculate_pc(chip, chip->last_ocv_uv, batt_temp);
+	pc_new = calculate_pc(chip, chip->last_ocv_uv, chip->last_ocv_temp);
 	rc_new_uah = (params->fcc_uah * pc_new) / 100;
 	soc_new = (rc_new_uah - params->cc_uah - params->uuc_uah)*100
 					/ (params->fcc_uah - params->uuc_uah);
@@ -1663,7 +1666,7 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 		batt_temp = (int)result.physical;
 
 		mutex_lock(&chip->last_ocv_uv_mutex);
-		read_soc_params_raw(chip, &raw);
+		read_soc_params_raw(chip, &raw, batt_temp);
 		soc = calculate_state_of_charge(chip, &raw, batt_temp);
 		mutex_unlock(&chip->last_ocv_uv_mutex);
 	}
