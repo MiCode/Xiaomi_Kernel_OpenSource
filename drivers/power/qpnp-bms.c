@@ -151,6 +151,7 @@ struct qpnp_bms_chip {
 	int				low_soc_calc_threshold;
 	int				low_soc_calculate_soc_ms;
 	int				calculate_soc_ms;
+	struct wake_lock		soc_wake_lock;
 
 	uint16_t			ocv_reading_at_100;
 	int64_t				cc_reading_at_100;
@@ -1653,6 +1654,7 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	struct qpnp_vadc_result result;
 	struct raw_soc_params raw;
 
+	wake_lock(&chip->soc_wake_lock);
 	if (chip->use_voltage_soc) {
 		soc = calculate_soc_from_voltage(chip);
 	} else {
@@ -1660,18 +1662,20 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 		if (rc) {
 			pr_err("error reading vadc LR_MUX1_BATT_THERM = %d, rc = %d\n",
 						LR_MUX1_BATT_THERM, rc);
-			return chip->calculated_soc;
-		}
-		pr_debug("batt_temp phy = %lld meas = 0x%llx\n",
-						result.physical,
-						result.measurement);
-		batt_temp = (int)result.physical;
+			soc = chip->calculated_soc;
+		} else {
+			pr_debug("batt_temp phy = %lld meas = 0x%llx\n",
+							result.physical,
+							result.measurement);
+			batt_temp = (int)result.physical;
 
-		mutex_lock(&chip->last_ocv_uv_mutex);
-		read_soc_params_raw(chip, &raw, batt_temp);
-		soc = calculate_state_of_charge(chip, &raw, batt_temp);
-		mutex_unlock(&chip->last_ocv_uv_mutex);
+			mutex_lock(&chip->last_ocv_uv_mutex);
+			read_soc_params_raw(chip, &raw, batt_temp);
+			soc = calculate_state_of_charge(chip, &raw, batt_temp);
+			mutex_unlock(&chip->last_ocv_uv_mutex);
+		}
 	}
+	wake_unlock(&chip->soc_wake_lock);
 	return soc;
 }
 
@@ -2425,6 +2429,8 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	mutex_init(&chip->last_ocv_uv_mutex);
 	mutex_init(&chip->soc_invalidation_mutex);
 
+	wake_lock_init(&chip->soc_wake_lock, WAKE_LOCK_SUSPEND,
+			"qpnp_soc_lock");
 	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
 			calculate_soc_work);
 
@@ -2463,6 +2469,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	return 0;
 
 unregister_dc:
+	wake_lock_destroy(&chip->soc_wake_lock);
 	power_supply_unregister(&chip->bms_psy);
 	dev_set_drvdata(&spmi->dev, NULL);
 error_resource:
