@@ -724,6 +724,90 @@ static bool is_warm_restart(struct pm8921_bms_chip *chip)
 	}
 	return reg & WD_BIT;
 }
+
+#define IBAT_TOL_MASK		0x0F
+#define OCV_TOL_MASK			0xF0
+#define IBAT_TOL_DEFAULT	0x03
+#define IBAT_TOL_NOCHG		0x0F
+#define OCV_TOL_DEFAULT		0x20
+#define OCV_TOL_NO_OCV		0x00
+static int pm8921_bms_stop_ocv_updates(void)
+{
+	if (!the_chip) {
+		pr_err("BMS driver has not been initialized yet!\n");
+		return -EINVAL;
+	}
+	pr_debug("stopping ocv updates\n");
+	return pm_bms_masked_write(the_chip, BMS_TOLERANCES,
+			OCV_TOL_MASK, OCV_TOL_NO_OCV);
+}
+
+static int pm8921_bms_start_ocv_updates(void)
+{
+	if (!the_chip) {
+		pr_err("BMS driver has not been initialized yet!\n");
+		return -EINVAL;
+	}
+	pr_debug("stopping ocv updates\n");
+	return pm_bms_masked_write(the_chip, BMS_TOLERANCES,
+			OCV_TOL_MASK, OCV_TOL_DEFAULT);
+}
+
+static int reset_bms_for_test(void)
+{
+	int ibat_ua, vbat_uv, rc;
+	int ocv_est_uv;
+
+	if (!the_chip) {
+		pr_err("BMS driver has not been initialized yet!\n");
+		return -EINVAL;
+	}
+
+	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
+							&ibat_ua,
+							&vbat_uv);
+
+	ocv_est_uv = vbat_uv + (ibat_ua * the_chip->rconn_mohm) / 1000;
+	pr_debug("forcing ocv to be %d due to bms reset mode\n", ocv_est_uv);
+	the_chip->last_ocv_uv = ocv_est_uv;
+	last_soc = -EINVAL;
+	reset_cc(the_chip);
+	the_chip->last_cc_uah = 0;
+	pm8921_bms_stop_ocv_updates();
+
+	pr_debug("bms reset to ocv = %duv vbat_ua = %d ibat_ua = %d\n",
+			the_chip->last_ocv_uv, vbat_uv, ibat_ua);
+
+	return rc;
+}
+
+static int bms_reset_set(const char *val, const struct kernel_param *kp)
+{
+	int rc;
+
+	rc = param_set_bool(val, kp);
+	if (rc) {
+		pr_err("Unable to set bms_reset: %d\n", rc);
+		return rc;
+	}
+
+	if (*val == 'Y') {
+		rc = reset_bms_for_test();
+		if (rc) {
+			pr_err("Unable to modify bms_reset: %d\n", rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
+static struct kernel_param_ops bms_reset_ops = {
+	.set = bms_reset_set,
+	.get = param_get_bool,
+};
+
+static bool bms_reset;
+module_param_cb(bms_reset, &bms_reset_ops, &bms_reset, 0644);
 /*
  * This reflects what should the CC readings should be for
  * a 5mAh discharge. This value is dependent on
@@ -1209,6 +1293,12 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 		iavg_ma = DIV_ROUND_CLOSEST(iavg_ma, iavg_num_samples);
 	}
 
+	/*
+	 * if we're in bms reset mode, force uuc to be 3% of fcc
+	 */
+	if (bms_reset)
+		return (fcc_uah * 3) / 100;
+
 	uuc_uah_iavg = calculate_termination_uuc(chip,
 					batt_temp, chargecycles,
 					fcc_uah, iavg_ma,
@@ -1559,6 +1649,12 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 	soc_est = div_s64((s64)fcc_uah * pc_est - uuc_uah*100,
 						(s64)fcc_uah - uuc_uah);
 	soc_est = bound_soc(soc_est);
+
+	/* never adjust during bms reset mode */
+	if (bms_reset) {
+		pr_debug("bms reset mode, SOC adjustment skipped\n");
+		goto out;
+	}
 
 	if (ibat_ua < 0 && pm8921_is_batfet_closed()) {
 		soc = charging_adjustments(chip, soc, vbat_uv, ibat_ua,
@@ -2286,13 +2382,6 @@ int pm8921_bms_get_fcc(void)
 	return calculate_fcc_uah(the_chip, batt_temp, last_chargecycles);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
-
-#define IBAT_TOL_MASK		0x0F
-#define OCV_TOL_MASK			0xF0
-#define IBAT_TOL_DEFAULT	0x03
-#define IBAT_TOL_NOCHG		0x0F
-#define OCV_TOL_DEFAULT		0x20
-#define OCV_TOL_NO_OCV		0x00
 void pm8921_bms_charging_began(void)
 {
 	struct pm8921_soc_params raw;
@@ -2418,22 +2507,6 @@ void pm8921_bms_charging_end(int is_battery_full)
 				IBAT_TOL_MASK, IBAT_TOL_NOCHG);
 }
 EXPORT_SYMBOL_GPL(pm8921_bms_charging_end);
-
-int pm8921_bms_stop_ocv_updates(struct pm8921_bms_chip *chip)
-{
-	pr_debug("stopping ocv updates\n");
-	return pm_bms_masked_write(chip, BMS_TOLERANCES,
-			OCV_TOL_MASK, OCV_TOL_NO_OCV);
-}
-EXPORT_SYMBOL_GPL(pm8921_bms_stop_ocv_updates);
-
-int pm8921_bms_start_ocv_updates(struct pm8921_bms_chip *chip)
-{
-	pr_debug("stopping ocv updates\n");
-	return pm_bms_masked_write(chip, BMS_TOLERANCES,
-			OCV_TOL_MASK, OCV_TOL_DEFAULT);
-}
-EXPORT_SYMBOL_GPL(pm8921_bms_start_ocv_updates);
 
 static irqreturn_t pm8921_bms_sbi_write_ok_handler(int irq, void *data)
 {
@@ -2774,10 +2847,10 @@ static int set_calc(void *data, u64 val)
 
 	switch (param) {
 	case STOP_OCV:
-		pm8921_bms_stop_ocv_updates(the_chip);
+		pm8921_bms_stop_ocv_updates();
 		break;
 	case START_OCV:
-		pm8921_bms_start_ocv_updates(the_chip);
+		pm8921_bms_start_ocv_updates();
 		break;
 	default:
 		ret = -EINVAL;
