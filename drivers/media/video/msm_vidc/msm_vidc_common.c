@@ -1053,7 +1053,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	}
 
 	init_completion(&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)]);
-	rc = vidc_hal_core_init(core->device);
+	rc = venus_hfi_core_init(core->device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init core, id = %d\n", core->id);
 		goto fail_core_init;
@@ -1090,7 +1090,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		msm_comm_unset_ocmem(core);
 		venus_hfi_free_ocmem(core->device);
 		dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
-		rc = vidc_hal_core_release(core->device);
+		rc = venus_hfi_core_release(core->device);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to release core, id = %d\n",
 							core->id);
@@ -1197,7 +1197,7 @@ static int msm_comm_session_init(int flipped_state,
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_INIT_DONE)]);
-	inst->session = vidc_hal_session_init(inst->core->device, (u32) inst,
+	inst->session = venus_hfi_session_init(inst->core->device, (u32) inst,
 					get_hal_domain(inst->session_type),
 					get_hal_codec_type(fourcc));
 	if (!inst->session) {
@@ -1238,7 +1238,7 @@ static int msm_vidc_load_resources(int flipped_state,
 		dprintk(VIDC_WARN,
 		"Failed to vote for OCMEM BW. Performance will be impacted\n");
 	}
-	rc = vidc_hal_session_load_res((void *) inst->session);
+	rc = venus_hfi_session_load_res((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send load resources\n");
@@ -1260,7 +1260,7 @@ static int msm_vidc_start(int flipped_state, struct msm_vidc_inst *inst)
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_START_DONE)]);
-	rc = vidc_hal_session_start((void *) inst->session);
+	rc = venus_hfi_session_start((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send start\n");
@@ -1283,7 +1283,7 @@ static int msm_vidc_stop(int flipped_state, struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "Send Stop to hal\n");
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_STOP_DONE)]);
-	rc = vidc_hal_session_stop((void *) inst->session);
+	rc = venus_hfi_session_stop((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to send stop\n");
 		goto exit;
@@ -1306,7 +1306,7 @@ static int msm_vidc_release_res(int flipped_state, struct msm_vidc_inst *inst)
 		"Send release res to hal\n");
 	init_completion(
 	&inst->completions[SESSION_MSG_INDEX(SESSION_RELEASE_RESOURCE_DONE)]);
-	rc = vidc_hal_session_release_res((void *) inst->session);
+	rc = venus_hfi_session_release_res((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send release resources\n");
@@ -1330,7 +1330,7 @@ static int msm_comm_session_close(int flipped_state, struct msm_vidc_inst *inst)
 		"Send session close to hal\n");
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_END_DONE)]);
-	rc = vidc_hal_session_end((void *) inst->session);
+	rc = venus_hfi_session_end((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send close\n");
@@ -1534,7 +1534,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			dprintk(VIDC_DBG,
 				"Sending etb to hal: Alloc: %d :filled: %d\n",
 				frame_data.alloc_len, frame_data.filled_len);
-			rc = vidc_hal_session_etb((void *) inst->session,
+			rc = venus_hfi_session_etb((void *) inst->session,
 					&frame_data);
 			if (!rc)
 				msm_vidc_debugfs_update(inst,
@@ -1564,7 +1564,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				seq_hdr.seq_hdr = (u8 *) vb->v4l2_planes[0].
 					m.userptr;
 				seq_hdr.seq_hdr_len = vb->v4l2_planes[0].length;
-				rc = vidc_hal_session_get_seq_hdr((void *)
+				rc = venus_hfi_session_get_seq_hdr((void *)
 						inst->session, &seq_hdr);
 				if (!rc) {
 					inst->vb2_seq_hdr = vb;
@@ -1572,7 +1572,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 						inst->vb2_seq_hdr);
 				}
 			} else {
-				rc = vidc_hal_session_ftb((void *)
+				rc = venus_hfi_session_ftb((void *)
 					inst->session, &frame_data);
 			if (!rc)
 				msm_vidc_debugfs_update(inst,
@@ -1604,7 +1604,7 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)]);
-	rc = vidc_hal_session_get_buf_req((void *) inst->session);
+	rc = venus_hfi_session_get_buf_req((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get property\n");
 		goto exit;
@@ -1659,7 +1659,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 				init_completion(
 				   &inst->completions[SESSION_MSG_INDEX
 				   (SESSION_RELEASE_BUFFER_DONE)]);
-				rc = vidc_hal_session_release_buffers(
+				rc = venus_hfi_session_release_buffers(
 						(void *) inst->session,
 							&buffer_info);
 				if (rc)
@@ -1719,7 +1719,7 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 				init_completion(
 				   &inst->completions[SESSION_MSG_INDEX
 				   (SESSION_RELEASE_BUFFER_DONE)]);
-				rc = vidc_hal_session_release_buffers(
+				rc = venus_hfi_session_release_buffers(
 						(void *) inst->session,
 							&buffer_info);
 				if (rc)
@@ -1757,7 +1757,7 @@ int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
 		rc = -EAGAIN;
 		goto exit;
 	}
-	rc = vidc_hal_session_set_property((void *)inst->session,
+	rc = venus_hfi_session_set_property((void *)inst->session,
 			ptype, pdata);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set hal property for framesize\n");
@@ -1822,7 +1822,7 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			dprintk(VIDC_DBG, "Scratch buffer address: %x",
 					buffer_info.align_device_addr);
-			rc = vidc_hal_session_set_buffers(
+			rc = venus_hfi_session_set_buffers(
 					(void *) inst->session,	&buffer_info);
 			if (rc) {
 				dprintk(VIDC_ERR,
@@ -1903,7 +1903,7 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			dprintk(VIDC_DBG, "Persist buffer address: %x",
 					buffer_info.align_device_addr);
-			rc = vidc_hal_session_set_buffers(
+			rc = venus_hfi_session_set_buffers(
 				(void *) inst->session, &buffer_info);
 			if (rc) {
 				dprintk(VIDC_ERR,
@@ -2014,7 +2014,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 			dprintk(VIDC_WARN,
 			"FLUSH BUG: Pending q not empty! It should be empty\n");
 		}
-		rc = vidc_hal_session_flush(inst->session,
+		rc = venus_hfi_session_flush(inst->session,
 				HAL_FLUSH_OUTPUT);
 	} else {
 		if (!list_empty(&inst->pendingq)) {
@@ -2035,7 +2035,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				kfree(temp);
 			}
 		}
-		rc = vidc_hal_session_flush(inst->session,
+		rc = venus_hfi_session_flush(inst->session,
 				HAL_FLUSH_ALL);
 	}
 	mutex_unlock(&inst->sync_lock);
