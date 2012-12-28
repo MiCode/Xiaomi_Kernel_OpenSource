@@ -654,6 +654,8 @@ void ipa_dump(void);
 int ipa_generate_hdr_hw_tbl(struct ipa_mem_buffer *mem);
 int ipa_generate_rt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem);
 int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem);
+int ipa_set_single_ndp_per_mbim(bool);
+int ipa_set_hw_timer_fix_for_mbim_aggr(bool);
 void ipa_debugfs_init(void);
 void ipa_debugfs_remove(void);
 
