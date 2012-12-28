@@ -14,3 +14,4 @@ obj-$(CONFIG_MSMB_CAMERA) += sensor/
 obj-$(CONFIG_MSMB_CAMERA) += isp/
 obj-$(CONFIG_MSMB_CAMERA) += ispif/
 obj-$(CONFIG_MSMB_JPEG) += jpeg_10/
+obj-$(CONFIG_MSMB_CAMERA) += msm_buf_mgr/

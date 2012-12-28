@@ -13,3 +13,4 @@ header-y += msmb_camera.h
 header-y += msm_cam_sensor.h
 header-y += msmb_isp.h
 header-y += msmb_ispif.h
+header-y += msmb_generic_buf_mgr.h
