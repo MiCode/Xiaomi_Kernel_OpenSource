@@ -551,6 +551,7 @@ static void reset_cc(struct qpnp_bms_chip *chip)
 		pr_err("cc reenable failed: %d\n", rc);
 }
 
+#define OCV_RAW_UNINITIALIZED	0xFFFF
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw,
 				int batt_temp)
@@ -559,7 +560,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 
 	mutex_lock(&chip->bms_output_lock);
 
-	if (chip->prev_last_good_ocv_raw == 0) {
+	if (chip->prev_last_good_ocv_raw == OCV_RAW_UNINITIALIZED) {
 		/* software workaround for BMS 1.0
 		 * The coulomb counter does not reset upon PON, so reset it
 		 * manually upon probe. */
@@ -585,7 +586,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 	unlock_output_data(chip);
 	mutex_unlock(&chip->bms_output_lock);
 
-	if (chip->prev_last_good_ocv_raw == 0) {
+	if (chip->prev_last_good_ocv_raw == OCV_RAW_UNINITIALIZED) {
 		convert_and_store_ocv(chip, raw, batt_temp);
 		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
@@ -598,7 +599,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 
 	/* fake a high OCV if done charging */
 	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw) {
-		chip->ocv_reading_at_100 = 0;
+		chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
 		chip->cc_reading_at_100 = 0;
 	} else {
 		/*
@@ -2210,6 +2211,8 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->last_soc = -EINVAL;
 	chip->last_soc_est = -EINVAL;
 	chip->last_cc_uah = INT_MIN;
+	chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
+	chip->prev_last_good_ocv_raw = OCV_RAW_UNINITIALIZED;
 	chip->first_time_calc_soc = 1;
 	chip->first_time_calc_uuc = 1;
 }
