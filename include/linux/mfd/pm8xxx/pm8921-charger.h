@@ -138,6 +138,10 @@ enum pm8921_chg_led_src_config {
  *				driver couldn't stop charging when battery
  *				temperature is out of bounds. Used only if
  *				btc_override = 1
+ * stop_chg_upon_expiry:	flag to indicate that the charger driver should
+ *				stop charging the battery when the safety timer
+ *				expires. If not set the charger driver will
+ *				restart charging upon expiry.
  */
 struct pm8921_charger_platform_data {
 	struct pm8xxx_charger_core_data	charger_cdata;
@@ -183,6 +187,7 @@ struct pm8921_charger_platform_data {
 	int				btc_override_hot_degc;
 	int				btc_delay_ms;
 	int				btc_panic_if_cant_stop_chg;
+	int				stop_chg_upon_expiry;
 };
 
 enum pm8921_charger_source {
