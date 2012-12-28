@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -743,15 +743,14 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 {
 	int rc = 0;
 
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	mutex_lock(&aux_pcm_mutex);
-
-	if (aux_pcm_count == 0) {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. Just"
-				" return\n", __func__, dai->id);
+	dev_dbg(dai->dev, "%s dai->id = %d", __func__, dai->id);
+	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		mutex_unlock(&aux_pcm_mutex);
 		return;
 	}
-
+	clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	aux_pcm_count--;
 
 	if (aux_pcm_count > 0) {
@@ -866,24 +865,13 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	unsigned long pcm_clk_rate;
 
 	mutex_lock(&aux_pcm_mutex);
-
-	if (aux_pcm_count == 2) {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 2. Just"
-			" return.\n", __func__, dai->id);
-		mutex_unlock(&aux_pcm_mutex);
-		return 0;
-	} else if (aux_pcm_count > 2) {
-		dev_err(dai->dev, "%s(): ERROR: dai->id %d"
-			" aux_pcm_count = %d > 2\n",
-			__func__, dai->id, aux_pcm_count);
-		mutex_unlock(&aux_pcm_mutex);
-		return 0;
-	}
-
+	set_bit(STATUS_PORT_STARTED,
+			dai_data->status_mask);
+	dev_dbg(dai->dev, "%s dai->id = %d", __func__, dai->id);
 	aux_pcm_count++;
-	if (aux_pcm_count == 2)  {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d after "
-			" increment\n", __func__, dai->id, aux_pcm_count);
+	if (aux_pcm_count >= 2) {
+		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d >= 2\n",
+			__func__, dai->id, aux_pcm_count);
 		mutex_unlock(&aux_pcm_mutex);
 		return 0;
 	}
