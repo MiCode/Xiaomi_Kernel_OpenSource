@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -296,6 +296,9 @@ static ssize_t ksb_fs_write(struct file *fp, const char __user *buf,
 
 	if (!test_bit(USB_DEV_CONNECTED, &ksb->flags))
 		return -ENODEV;
+
+	if (count > MAX_DATA_PKT_SIZE)
+		count = MAX_DATA_PKT_SIZE;
 
 	pkt = ksb_alloc_data_pkt(count, GFP_KERNEL, ksb);
 	if (IS_ERR(pkt)) {
