@@ -730,8 +730,9 @@ static bool is_warm_restart(struct pm8921_bms_chip *chip)
  * CC_RESOLUTION_N, CC_RESOLUTION_D, CC_READING_TICKS
  * and rsense
  */
-#define CC_RAW_5MAH	0x00110000
-#define MIN_OCV_UV	2000000
+#define CC_RAW_5MAH		0x00110000
+#define MIN_OCV_UV		2000000
+#define OCV_RAW_UNINITIALIZED	0xFFFF
 static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 				struct pm8921_soc_params *raw,
 				int batt_temp_decidegc)
@@ -751,7 +752,7 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 
 	usb_chg =  usb_chg_plugged_in(chip);
 
-	if (chip->prev_last_good_ocv_raw == 0) {
+	if (chip->prev_last_good_ocv_raw == OCV_RAW_UNINITIALIZED) {
 		chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
 
 		convert_vbatt_raw_to_uv(chip, usb_chg,
@@ -803,7 +804,7 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 
 	/* fake a high OCV if we are just done charging */
 	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw) {
-		chip->ocv_reading_at_100 = 0;
+		chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
 		chip->cc_reading_at_100 = 0;
 	} else {
 		/*
@@ -3013,6 +3014,8 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 	chip->start_percent = -EINVAL;
 	chip->end_percent = -EINVAL;
 	chip->last_cc_uah = INT_MIN;
+	chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
+	chip->prev_last_good_ocv_raw = OCV_RAW_UNINITIALIZED;
 	chip->shutdown_soc_valid_limit = pdata->shutdown_soc_valid_limit;
 	chip->adjust_soc_low_threshold = pdata->adjust_soc_low_threshold;
 
