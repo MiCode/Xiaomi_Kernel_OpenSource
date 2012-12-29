@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -122,6 +122,11 @@ static int msm_vb2_ops_buf_init(struct vb2_buffer *vb)
 	}
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
+		if (mem == NULL) {
+			pr_err("%s Inst %p Buffer %d Plane %d cookie is null",
+				__func__, pcam_inst, buf_idx, i);
+			return -EINVAL;
+		}
 		if (buf_type == VIDEOBUF2_MULTIPLE_PLANES)
 			offset.data_offset =
 				pcam_inst->plane_info.plane[i].offset;
@@ -266,8 +271,14 @@ static void msm_vb2_ops_buf_cleanup(struct vb2_buffer *vb)
 	}
 	for (i = 0; i < vb->num_planes; i++) {
 		mem = vb2_plane_cookie(vb, i);
-		videobuf2_pmem_contig_user_put(mem, pmctl->client,
-			pmctl->domain_num);
+		if (mem) {
+			videobuf2_pmem_contig_user_put(mem, pmctl->client,
+				pmctl->domain_num);
+		} else {
+			pr_err("%s Inst %p buffer plane cookie is null",
+				__func__, pcam_inst);
+			return;
+		}
 	}
 	buf->state = MSM_BUFFER_STATE_UNUSED;
 }
@@ -385,7 +396,13 @@ struct msm_frame_buffer *msm_mctl_buf_find(
 			&pcam_inst->free_vq, list) {
 		buf_idx = buf->vidbuf.v4l2_buf.index;
 		mem = vb2_plane_cookie(&buf->vidbuf, 0);
-		if (mem->buffer_type ==	VIDEOBUF2_MULTIPLE_PLANES)
+		if (mem == NULL) {
+			pr_err("%s Inst %p plane cookie is null",
+				__func__, pcam_inst);
+			spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+			return NULL;
+		}
+		if (mem->buffer_type == VIDEOBUF2_MULTIPLE_PLANES)
 			offset = mem->offset.data_offset +
 				pcam_inst->buf_offset[buf_idx][0].data_offset;
 		else
@@ -690,7 +707,19 @@ int msm_mctl_reserve_free_buf(
 		return rc;
 	}
 	spin_lock_irqsave(&pcam_inst->vq_irqlock, flags);
+	if (pcam_inst->free_vq.next == NULL) {
+		pr_err("%s Inst %p Free queue head is null",
+			__func__, pcam_inst);
+		spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+		return rc;
+	}
 	list_for_each_entry(buf, &pcam_inst->free_vq, list) {
+		if (buf == NULL) {
+			pr_err("%s Inst %p Invalid buffer ptr",
+				__func__, pcam_inst);
+			spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+			return rc;
+		}
 		if (buf->state != MSM_BUFFER_STATE_QUEUED)
 			continue;
 
@@ -701,6 +730,13 @@ int msm_mctl_reserve_free_buf(
 				pcam_inst->plane_info.num_planes;
 			for (i = 0; i < free_buf->num_planes; i++) {
 				mem = vb2_plane_cookie(&buf->vidbuf, i);
+				if (mem == NULL) {
+					pr_err("%s Inst %p %d invalid cookie",
+						__func__, pcam_inst, buf_idx);
+					spin_unlock_irqrestore(
+						&pcam_inst->vq_irqlock, flags);
+					return rc;
+				}
 				if (mem->buffer_type ==
 						VIDEOBUF2_MULTIPLE_PLANES)
 					plane_offset =
@@ -721,6 +757,13 @@ int msm_mctl_reserve_free_buf(
 			}
 		} else {
 			mem = vb2_plane_cookie(&buf->vidbuf, 0);
+			if (mem == NULL) {
+				pr_err("%s Inst %p %d invalid cookie",
+					__func__, pcam_inst, buf_idx);
+				spin_unlock_irqrestore(
+					&pcam_inst->vq_irqlock, flags);
+				return rc;
+			}
 			free_buf->ch_paddr[0] = (uint32_t)
 				videobuf2_to_pmem_contig(&buf->vidbuf, 0) +
 				mem->offset.sp_off.y_off;

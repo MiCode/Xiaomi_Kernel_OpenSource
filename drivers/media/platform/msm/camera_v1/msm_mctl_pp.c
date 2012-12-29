@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,6 +138,12 @@ static int is_buf_in_queue(struct msm_cam_v4l2_device *pcam,
 	&pcam_inst->free_vq, list) {
 		buf_idx = buf->vidbuf.v4l2_buf.index;
 		mem = vb2_plane_cookie(&buf->vidbuf, 0);
+		if (mem == NULL) {
+			pr_err("%s Inst %p Buffer %d invalid plane cookie",
+				__func__, pcam_inst, buf_idx);
+			spin_unlock_irqrestore(&pcam_inst->vq_irqlock, flags);
+			return 0;
+		}
 		if (mem->buffer_type ==	VIDEOBUF2_MULTIPLE_PLANES)
 			offset = mem->offset.data_offset +
 				pcam_inst->buf_offset[buf_idx][0].data_offset;
@@ -272,6 +278,11 @@ int msm_mctl_do_pp_divert(
 	 * Also use this to check the number of planes in
 	 * this buffer.*/
 	mem = vb2_plane_cookie(&vb->vidbuf, 0);
+	if (mem == NULL) {
+		pr_err("%s Inst %p Buffer %d, invalid plane cookie ", __func__,
+			pcam_inst, buf_idx);
+		return -EINVAL;
+	}
 	div.frame.path = mem->path;
 	div.frame.node_type = node;
 	if (mem->buffer_type == VIDEOBUF2_SINGLE_PLANE) {
@@ -296,6 +307,11 @@ int msm_mctl_do_pp_divert(
 		 * fill out the plane info. */
 		for (i = 0; i < div.frame.num_planes; i++) {
 			mem = vb2_plane_cookie(&vb->vidbuf, i);
+			if (mem == NULL) {
+				pr_err("%s Inst %p %d invalid plane cookie ",
+					__func__, pcam_inst, buf_idx);
+				return -EINVAL;
+			}
 			div.frame.mp[i].phy_addr =
 				videobuf2_to_pmem_contig(&vb->vidbuf, i);
 			if (!pcam_inst->buf_offset)
@@ -338,6 +354,11 @@ static int msm_mctl_pp_get_phy_addr(
 	 * Also use this to check the number of planes in
 	 * this buffer.*/
 	mem = vb2_plane_cookie(&vb->vidbuf, 0);
+	if (mem == NULL) {
+		pr_err("%s Inst %p Buffer %d, invalid plane cookie ", __func__,
+			pcam_inst, buf_idx);
+		return -EINVAL;
+	}
 	pp_frame->image_type = (unsigned short)mem->path;
 	if (mem->buffer_type == VIDEOBUF2_SINGLE_PLANE) {
 		pp_frame->num_planes = 1;
