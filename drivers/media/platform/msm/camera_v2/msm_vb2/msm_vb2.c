@@ -119,8 +119,7 @@ static struct vb2_buffer *msm_vb2_get_buf(int session_id,
 
 	list_for_each_entry(vb2_buf, &(q->queued_list),
 		queued_entry) {
-
-		if (vb2_buf->v4l2_buf.flags != V4L2_BUF_FLAG_QUEUED)
+		if (vb2_buf->state != VB2_BUF_STATE_ACTIVE)
 			continue;
 
 		msm_vb2 = container_of(vb2_buf, struct msm_vb2_buffer, vb2_buf);
@@ -130,6 +129,7 @@ static struct vb2_buffer *msm_vb2_get_buf(int session_id,
 		msm_vb2->in_freeq = 1;
 		goto end;
 	}
+	vb2_buf = NULL;
 end:
 	spin_unlock_irqrestore(&vb2_buf_lock, flags);
 	return vb2_buf;
@@ -140,7 +140,7 @@ static int msm_vb2_put_buf(struct vb2_buffer *vb)
 	struct msm_vb2_buffer *msm_vb2;
 	int rc = 0;
 
-	if (!vb) {
+	if (vb) {
 		msm_vb2 =
 			container_of(vb, struct msm_vb2_buffer, vb2_buf);
 		if (msm_vb2->in_freeq) {
@@ -162,11 +162,11 @@ static int msm_vb2_buf_done(struct vb2_buffer *vb)
 	int rc = 0;
 
 	spin_lock_irqsave(&vb2_buf_lock, flags);
-	if (!vb) {
+	if (vb) {
 		msm_vb2 =
 			container_of(vb, struct msm_vb2_buffer, vb2_buf);
 		/* put buf before buf done */
-		if (!msm_vb2->in_freeq) {
+		if (msm_vb2->in_freeq) {
 			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 			rc = 0;
 		} else
