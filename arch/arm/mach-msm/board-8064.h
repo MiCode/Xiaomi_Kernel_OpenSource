@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,6 @@
 #include <linux/regulator/msm-gpio-regulator.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8821.h>
-#include <linux/ahci_platform.h>
 #include <mach/msm_memtypes.h>
 #include <mach/irqs.h>
 #include <mach/rpm-regulator.h>
@@ -50,6 +49,7 @@ extern int msm8064_pm8917_regulator_pdata_len ;
 #define GPIO_VREG_ID_EXT_3P3V		1
 #define GPIO_VREG_ID_EXT_TS_SW		2
 #define GPIO_VREG_ID_EXT_MPP8		3
+#define GPIO_VREG_ID_EXT_SATA_PWR	4
 
 #define GPIO_VREG_ID_AVC_1P2V		0
 #define GPIO_VREG_ID_AVC_1P8V		1
@@ -81,7 +81,6 @@ int __init apq8064_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
 
 void apq8064_init_mmc(void);
-int __init apq8064_add_ahci(struct ahci_platform_data *platd);
 void apq8064_init_gpiomux(void);
 void apq8064_init_pmic(void);
 

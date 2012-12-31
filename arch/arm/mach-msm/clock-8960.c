@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,6 +114,7 @@
 #define SATA_RXOOB_CLK_CTL_REG			REG(0x2C0C)
 #define SATA_PMALIVE_CLK_CTL_REG		REG(0x2C10)
 #define SATA_PHY_REF_CLK_CTL_REG		REG(0x2C14)
+#define SATA_RESET				REG(0x2C1C)
 #define SATA_ACLK_CTL_REG			REG(0x2C20)
 #define SATA_PHY_CFG_CLK_CTL_REG		REG(0x2C40)
 #define USB_FSn_HCLK_CTL_REG(n)			REG(0x2960+(0x20*((n)-1)))
@@ -2085,6 +2086,8 @@ static struct branch_clk sata_p_clk = {
 		.en_mask = BIT(4),
 		.halt_reg = CLK_HALT_MSS_SMPSS_MISC_STATE_REG,
 		.halt_bit = 27,
+		.reset_reg = SATA_RESET,
+		.reset_mask = BIT(0),
 	},
 	.c = {
 		.dbg_name = "sata_p_clk",
@@ -5311,14 +5314,14 @@ static struct clk_lookup msm_clocks_8064[] = {
 	CLK_LOOKUP("src_clk",		usb_fs1_src_clk.c,	""),
 	CLK_LOOKUP("alt_core_clk",	usb_fs1_xcvr_clk.c,	""),
 	CLK_LOOKUP("sys_clk",		usb_fs1_sys_clk.c,	""),
-	CLK_LOOKUP("ref_clk",		sata_phy_ref_clk.c,	""),
-	CLK_LOOKUP("cfg_clk",		sata_phy_cfg_clk.c,	""),
-	CLK_LOOKUP("src_clk",		sata_src_clk.c,		""),
-	CLK_LOOKUP("core_rxoob_clk",	sata_rxoob_clk.c,	""),
-	CLK_LOOKUP("core_pmalive_clk",	sata_pmalive_clk.c,	""),
-	CLK_LOOKUP("bus_clk",		sata_a_clk.c,		""),
-	CLK_LOOKUP("iface_clk",		sata_p_clk.c,		""),
-	CLK_LOOKUP("slave_iface_clk",	sfab_sata_s_p_clk.c,	""),
+	CLK_LOOKUP("ref_clk",		sata_phy_ref_clk.c,	"msm_sata.0"),
+	CLK_LOOKUP("cfg_clk",		sata_phy_cfg_clk.c,	"msm_sata.0"),
+	CLK_LOOKUP("src_clk",		sata_src_clk.c,		"msm_sata.0"),
+	CLK_LOOKUP("core_rxoob_clk",	sata_rxoob_clk.c,	"msm_sata.0"),
+	CLK_LOOKUP("core_pmalive_clk",	sata_pmalive_clk.c,	"msm_sata.0"),
+	CLK_LOOKUP("bus_clk",		sata_a_clk.c,		"msm_sata.0"),
+	CLK_LOOKUP("iface_clk",		sata_p_clk.c,		"msm_sata.0"),
+	CLK_LOOKUP("slave_iface_clk",	sfab_sata_s_p_clk.c,	"msm_sata.0"),
 	CLK_LOOKUP("iface_clk",		ce3_p_clk.c,		"qce.0"),
 	CLK_LOOKUP("iface_clk",		ce3_p_clk.c,		"qcrypto.0"),
 	CLK_LOOKUP("core_clk",		ce3_core_clk.c,		"qce.0"),

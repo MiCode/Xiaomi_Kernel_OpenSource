@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,6 +190,7 @@ VREG_CONSUMERS(S4) = {
 	REGULATOR_SUPPLY("vddp",		"0-0048"),
 	REGULATOR_SUPPLY("hdmi_lvl_tsl",	"hdmi_msm.0"),
 	REGULATOR_SUPPLY("vdd-io",		"spi0.2"),
+	REGULATOR_SUPPLY("sata_pmp_pwr",	"msm_sata.0"),
 };
 VREG_CONSUMERS(S5) = {
 	REGULATOR_SUPPLY("8921_s5",		NULL),
@@ -260,11 +261,14 @@ VREG_CONSUMERS(EXT_3P3V) = {
 	REGULATOR_SUPPLY("dsi1_vccs_3p3v",      "mipi_dsi.1"),
 	REGULATOR_SUPPLY("hdmi_mux_vdd",        "hdmi_msm.0"),
 	REGULATOR_SUPPLY("pcie_ext_3p3v",       "msm_pcie"),
-	REGULATOR_SUPPLY("sata_ext_3p3v",       "ahci.0"),
 };
 VREG_CONSUMERS(EXT_TS_SW) = {
 	REGULATOR_SUPPLY("ext_ts_sw",		NULL),
 	REGULATOR_SUPPLY("vdd_ana",		"3-005b"),
+};
+VREG_CONSUMERS(EXT_SATA_PWR) = {
+	REGULATOR_SUPPLY("ext_sata_pwr",	NULL),
+	REGULATOR_SUPPLY("sata_ext_3p3v",       "msm_sata.0"),
 };
 VREG_CONSUMERS(AVC_1P2V) = {
 	REGULATOR_SUPPLY("avc_1p2v",	NULL),
@@ -436,7 +440,8 @@ VREG_CONSUMERS(BOOST) = {
 		.pin_ctrl	= _pin_ctrl, \
 	}
 
-#define GPIO_VREG(_id, _reg_name, _gpio_label, _gpio, _supply_regulator) \
+#define GPIO_VREG(_id, _reg_name, _gpio_label, _gpio, _supply_regulator, \
+		_active_low) \
 	[GPIO_VREG_ID_##_id] = { \
 		.init_data = { \
 			.constraints = { \
@@ -450,6 +455,7 @@ VREG_CONSUMERS(BOOST) = {
 		.regulator_name = _reg_name, \
 		.gpio_label	= _gpio_label, \
 		.gpio		= _gpio, \
+		.active_low	= _active_low, \
 	}
 
 #define SAW_VREG_INIT(_id, _name, _min_uV, _max_uV) \
@@ -565,25 +571,30 @@ VREG_CONSUMERS(BOOST) = {
 /* GPIO regulator constraints */
 struct gpio_regulator_platform_data
 apq8064_gpio_regulator_pdata[] = {
-	/*        ID      vreg_name gpio_label   gpio                  supply */
-	GPIO_VREG(EXT_5V, "ext_5v", "ext_5v_en", PM8921_MPP_PM_TO_SYS(7), NULL),
+	/*        ID      vreg_name gpio_label   gpio   supply   active_low */
+	GPIO_VREG(EXT_5V, "ext_5v", "ext_5v_en",
+			PM8921_MPP_PM_TO_SYS(7), NULL, 0),
 	GPIO_VREG(EXT_3P3V, "ext_3p3v", "ext_3p3v_en",
-		  APQ8064_EXT_3P3V_REG_EN_GPIO, NULL),
+		  APQ8064_EXT_3P3V_REG_EN_GPIO, NULL, 0),
 	GPIO_VREG(EXT_TS_SW, "ext_ts_sw", "ext_ts_sw_en",
-		  PM8921_GPIO_PM_TO_SYS(23), "ext_3p3v"),
+		  PM8921_GPIO_PM_TO_SYS(23), "ext_3p3v", 0),
 	GPIO_VREG(EXT_MPP8, "ext_mpp8", "ext_mpp8_en",
-			PM8921_MPP_PM_TO_SYS(8), NULL),
+			PM8921_MPP_PM_TO_SYS(8), NULL, 0),
+	GPIO_VREG(EXT_SATA_PWR, "ext_sata_pwr", "ext_sata_pwr_en",
+			PM8921_MPP_PM_TO_SYS(4), "ext_3p3v", 1),
 };
 
 struct gpio_regulator_platform_data
 mpq8064_gpio_regulator_pdata[] = {
-	GPIO_VREG(AVC_1P2V, "avc_1p2v", "avc_1p2v_en", SX150X_GPIO(4, 2), NULL),
-	GPIO_VREG(AVC_1P8V, "avc_1p8v", "avc_1p8v_en", SX150X_GPIO(4, 4), NULL),
+	GPIO_VREG(AVC_1P2V, "avc_1p2v", "avc_1p2v_en",
+			SX150X_GPIO(4, 2), NULL, 0),
+	GPIO_VREG(AVC_1P8V, "avc_1p8v", "avc_1p8v_en",
+			SX150X_GPIO(4, 4), NULL, 0),
 	GPIO_VREG(AVC_2P2V, "avc_2p2v", "avc_2p2v_en",
-						 SX150X_GPIO(4, 14), NULL),
-	GPIO_VREG(AVC_5V, "avc_5v", "avc_5v_en", SX150X_GPIO(4, 3), NULL),
+						 SX150X_GPIO(4, 14), NULL, 0),
+	GPIO_VREG(AVC_5V, "avc_5v", "avc_5v_en", SX150X_GPIO(4, 3), NULL, 0),
 	GPIO_VREG(AVC_3P3V, "avc_3p3v", "avc_3p3v_en",
-					SX150X_GPIO(4, 15), "avc_5v"),
+					SX150X_GPIO(4, 15), "avc_5v", 0),
 };
 
 /* SAW regulator constraints */
