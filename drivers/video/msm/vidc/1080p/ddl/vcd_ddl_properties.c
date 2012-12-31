@@ -341,6 +341,61 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 		}
 	}
 	break;
+	case VCD_I_SET_EXT_METABUFFER:
+	{
+		int index, buffer_size;
+		u8 *phys_addr;
+		u8 *virt_addr;
+		struct vcd_property_meta_buffer *meta_buffer =
+			(struct vcd_property_meta_buffer *) property_value;
+		DDL_MSG_LOW("Entered VCD_I_SET_EXT_METABUFFER Virt: %p,"\
+					"Phys %p, fd: %d size: %d count: %d",
+					meta_buffer->kernel_virtual_addr,
+					meta_buffer->physical_addr,
+					meta_buffer->pmem_fd,
+					meta_buffer->size, meta_buffer->count);
+		if ((property_hdr->sz == sizeof(struct
+			vcd_property_meta_buffer)) &&
+			(DDLCLIENT_STATE_IS(ddl,
+			DDL_CLIENT_WAIT_FOR_INITCODEC) ||
+			DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_DPB) ||
+			DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_OPEN))) {
+			phys_addr = meta_buffer->dev_addr;
+			virt_addr = meta_buffer->kernel_virtual_addr;
+			buffer_size = meta_buffer->size/meta_buffer->count;
+
+			for (index = 0; index < meta_buffer->count; index++) {
+				ddl->codec_data.decoder.hw_bufs.
+					meta_hdr[index].align_physical_addr
+					= phys_addr;
+				ddl->codec_data.decoder.hw_bufs.
+					meta_hdr[index].align_virtual_addr
+					= virt_addr;
+				ddl->codec_data.decoder.hw_bufs.
+					meta_hdr[index].buffer_size
+					= buffer_size;
+				ddl->codec_data.decoder.hw_bufs.
+					meta_hdr[index].physical_base_addr
+					= phys_addr;
+				ddl->codec_data.decoder.hw_bufs.
+					meta_hdr[index].virtual_base_addr
+					= virt_addr;
+
+				DDL_MSG_LOW("Meta Buffer: "\
+							"Assigned %d buffer for "
+							"virt: %p, phys %p for "
+							"meta_buffers "
+							"of size: %d\n",
+							index, virt_addr,
+							phys_addr, buffer_size);
+
+				phys_addr += buffer_size;
+				virt_addr += buffer_size;
+			}
+			vcd_status = VCD_S_SUCCESS;
+		}
+	}
+	break;
 	case VCD_I_H264_MV_BUFFER:
 	{
 		int index, buffer_size;
@@ -397,6 +452,13 @@ static u32 ddl_set_dec_property(struct ddl_client_context *ddl,
 	case VCD_I_FREE_H264_MV_BUFFER:
 		{
 			memset(&decoder->hw_bufs.h264_mv, 0, sizeof(struct
+					ddl_buf_addr) * DDL_MAX_BUFFER_COUNT);
+			vcd_status = VCD_S_SUCCESS;
+		}
+		break;
+	case VCD_I_FREE_EXT_METABUFFER:
+		{
+			memset(&decoder->hw_bufs.meta_hdr, 0, sizeof(struct
 					ddl_buf_addr) * DDL_MAX_BUFFER_COUNT);
 			vcd_status = VCD_S_SUCCESS;
 		}
