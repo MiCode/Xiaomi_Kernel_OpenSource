@@ -134,6 +134,7 @@ struct pm8921_bms_chip {
 	int			rconn_mohm;
 	struct mutex		last_ocv_uv_mutex;
 	int			last_ocv_uv;
+	int			last_ocv_temp_decidegc;
 	int			pon_ocv_uv;
 	int			last_cc_uah;
 	unsigned long		tm_sec;
@@ -730,7 +731,8 @@ static bool is_warm_restart(struct pm8921_bms_chip *chip)
 #define CC_RAW_5MAH	0x00110000
 #define MIN_OCV_UV	2000000
 static int read_soc_params_raw(struct pm8921_bms_chip *chip,
-				struct pm8921_soc_params *raw)
+				struct pm8921_soc_params *raw,
+				int batt_temp_decidegc)
 {
 	int usb_chg;
 	int est_ocv_uv;
@@ -783,12 +785,14 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 				raw->cc = 0;
 			}
 		}
+		chip->last_ocv_temp_decidegc = batt_temp_decidegc;
 		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
 		chip->prev_last_good_ocv_raw = raw->last_good_ocv_raw;
 		convert_vbatt_raw_to_uv(chip, usb_chg,
 			raw->last_good_ocv_raw, &raw->last_good_ocv_uv);
 		chip->last_ocv_uv = raw->last_good_ocv_uv;
+		chip->last_ocv_temp_decidegc = batt_temp_decidegc;
 		/* forget the old cc value upon ocv */
 		chip->last_cc_uah = 0;
 	} else {
@@ -806,6 +810,7 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 		 */
 		raw->last_good_ocv_uv = chip->max_voltage_uv;
 		chip->last_ocv_uv = chip->max_voltage_uv;
+		chip->last_ocv_temp_decidegc = batt_temp_decidegc;
 	}
 	pr_debug("0p625 = %duV\n", chip->xoadc_v0625);
 	pr_debug("1p25 = %duV\n", chip->xoadc_v125);
@@ -908,18 +913,19 @@ static int adc_based_ocv(struct pm8921_bms_chip *chip, int *ocv)
 }
 
 static int calculate_pc(struct pm8921_bms_chip *chip, int ocv_uv,
-					int batt_temp, int chargecycles)
+				int batt_temp_decidegc, int chargecycles)
 {
 	int pc, scalefactor;
 
 	pc = interpolate_pc(chip->pc_temp_ocv_lut,
-			batt_temp / 10, ocv_uv / 1000);
+			batt_temp_decidegc / 10, ocv_uv / 1000);
 	pr_debug("pc = %u for ocv = %dmicroVolts batt_temp = %d\n",
-					pc, ocv_uv, batt_temp);
+					pc, ocv_uv, batt_temp_decidegc);
 
 	scalefactor = interpolate_scalingfactor(chip->pc_sf_lut,
 			chargecycles, pc);
-	pr_debug("scalefactor = %u batt_temp = %d\n", scalefactor, batt_temp);
+	pr_debug("scalefactor = %u batt_temp = %d\n",
+					scalefactor, batt_temp_decidegc);
 
 	/* Multiply the initial FCC value by the scale factor. */
 	pc = (pc * scalefactor) / 100;
@@ -1216,10 +1222,11 @@ static int calculate_remaining_charge_uah(struct pm8921_bms_chip *chip,
 						int fcc_uah, int batt_temp,
 						int chargecycles)
 {
-	int  ocv, pc;
+	int  ocv, pc, batt_temp_decidegc;
 
 	ocv = raw->last_good_ocv_uv;
-	pc = calculate_pc(chip, ocv, batt_temp, chargecycles);
+	batt_temp_decidegc = chip->last_ocv_temp_decidegc;
+	pc = calculate_pc(chip, ocv, batt_temp_decidegc, chargecycles);
 	pr_debug("ocv = %d pc = %d\n", ocv, pc);
 	return (fcc_uah * pc) / 100;
 }
@@ -1562,16 +1569,18 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 	last_soc_est = soc_est;
 
 	pc = calculate_pc(chip, chip->last_ocv_uv,
-				batt_temp, last_chargecycles);
+			chip->last_ocv_temp_decidegc, last_chargecycles);
 	if (pc > 0) {
 		pc_new = calculate_pc(chip, chip->last_ocv_uv - (++m * 1000),
-						batt_temp, last_chargecycles);
+					chip->last_ocv_temp_decidegc,
+					last_chargecycles);
 		while (pc_new == pc) {
 			/* start taking 10mV steps */
 			m = m + 10;
 			pc_new = calculate_pc(chip,
 						chip->last_ocv_uv - (m * 1000),
-						batt_temp, last_chargecycles);
+						chip->last_ocv_temp_decidegc,
+						last_chargecycles);
 		}
 	} else {
 		/*
@@ -1604,7 +1613,7 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 
 	/* calculate the soc based on this new ocv */
 	pc_new = calculate_pc(chip, chip->last_ocv_uv,
-						batt_temp, last_chargecycles);
+			chip->last_ocv_temp_decidegc, last_chargecycles);
 	rc_new_uah = (fcc_uah * pc_new) / 100;
 	soc_new = (rc_new_uah - cc_uah - uuc_uah)*100 / (fcc_uah - uuc_uah);
 	soc_new = bound_soc(soc_new);
@@ -2041,7 +2050,7 @@ static int recalculate_soc(struct pm8921_bms_chip *chip)
 	get_batt_temp(chip, &batt_temp);
 
 	mutex_lock(&chip->last_ocv_uv_mutex);
-	read_soc_params_raw(chip, &raw);
+	read_soc_params_raw(chip, &raw, batt_temp);
 
 	soc = calculate_state_of_charge(chip, &raw,
 					batt_temp, last_chargecycles);
@@ -2253,7 +2262,7 @@ int pm8921_bms_get_rbatt(void)
 
 	mutex_lock(&the_chip->last_ocv_uv_mutex);
 
-	read_soc_params_raw(the_chip, &raw);
+	read_soc_params_raw(the_chip, &raw, batt_temp);
 
 	calculate_soc_params(the_chip, &raw, batt_temp, last_chargecycles,
 						&fcc_uah,
@@ -2292,9 +2301,12 @@ EXPORT_SYMBOL_GPL(pm8921_bms_get_fcc);
 void pm8921_bms_charging_began(void)
 {
 	struct pm8921_soc_params raw;
+	int batt_temp;
+
+	get_batt_temp(the_chip, &batt_temp);
 
 	mutex_lock(&the_chip->last_ocv_uv_mutex);
-	read_soc_params_raw(the_chip, &raw);
+	read_soc_params_raw(the_chip, &raw, batt_temp);
 	mutex_unlock(&the_chip->last_ocv_uv_mutex);
 
 	the_chip->start_percent = report_state_of_charge(the_chip);
@@ -2327,7 +2339,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 	mutex_lock(&the_chip->last_ocv_uv_mutex);
 
-	read_soc_params_raw(the_chip, &raw);
+	read_soc_params_raw(the_chip, &raw, batt_temp);
 
 	calculate_cc_uah(the_chip, raw.cc, &bms_end_cc_uah);
 
@@ -2720,7 +2732,7 @@ static int get_calc(void *data, u64 * val)
 	int ibat_ua, vbat_uv;
 	struct pm8921_soc_params raw;
 
-	read_soc_params_raw(the_chip, &raw);
+	read_soc_params_raw(the_chip, &raw, 300);
 
 	*val = 0;
 
@@ -2786,7 +2798,7 @@ static int get_reading(void *data, u64 * val)
 	struct pm8921_soc_params raw;
 
 	mutex_lock(&the_chip->bms_output_lock);
-	read_soc_params_raw(the_chip, &raw);
+	read_soc_params_raw(the_chip, &raw, 300);
 	mutex_unlock(&the_chip->bms_output_lock);
 
 	*val = 0;
