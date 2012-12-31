@@ -6216,7 +6216,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (plat->status_irq) {
 		ret = request_threaded_irq(plat->status_irq, NULL,
 				  msmsdcc_platform_status_irq,
-				  plat->irq_flags,
+				  plat->irq_flags | IRQF_ONESHOT,
 				  DRIVER_NAME " (slot)",
 				  host);
 		if (ret) {
