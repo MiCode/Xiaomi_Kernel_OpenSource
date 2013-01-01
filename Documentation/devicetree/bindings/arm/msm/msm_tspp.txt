@@ -1,0 +1,73 @@
+TSPP Driver
+
+For information on the TSPP driver, please refer to the TSPP driver
+documentation: Documentation/arm/msm/tspp.txt.
+
+The devicetree representation of the TSPP block should be:
+
+Required properties:
+
+- compatible: "qcom,msm_tspp"
+- cell-index: <0> - represents device ID.
+- reg: physical memory base addresses and sizes for the following:
+	TSIF0, TSIF1, TSPP and TSPP_BAM.
+- reg-names: names of the memory regions.
+- interrupts: represents IRQ numbers for the following:
+	TSIF_TSPP_IRQ, TSIF0_IRQ, TSIF1_IRQ, TSIF_BAM_IRQ.
+- interrupt-names: TSPP, TSIF and BAM interrupt names.
+- qcom,tsif-pclk: interface clock name.
+- qcom,tsif-ref-clk: reference clock name.
+	The driver uses clk_get to get the clocks by name. The clocks
+	should be defined in the relevant clock file (e.g. clock-8974.c).
+- gpios: GPIO numbers for TSIF0 (CLK, EN, DATA and SYNC) and TSIF1 (same).
+- qcom,gpio-names: GPIO names - strings describing the GPIO functionality.
+- qcom,gpios-func: GPIO functionality according to the GPIO functionality table.
+	GPIO pins can have more than a single functionality, and the TSPP driver
+	is responsible for configuring the GPIOs to work in TSIF functionality
+	based on this parameter.
+	Note: it is assumed that the functionality value (e.g. 1 in 8974 case)
+	is applicable to all TSIF GPIOs.
+
+Example (for 8974 platform, avaialble at msm8974.dtsi):
+
+	tspp: msm_tspp@f99d8000 {
+		compatible = "qcom,msm_tspp";
+		cell-index = <0>;
+		reg = <0xf99d8000 0x1000>, /* MSM_TSIF0_PHYS */
+		      <0xf99d9000 0x1000>, /* MSM_TSIF1_PHYS */
+		      <0xf99da000 0x1000>, /* MSM_TSPP_PHYS  */
+		      <0xf99c4000 0x14000>; /* MSM_TSPP_BAM_PHYS */
+		reg-names = "MSM_TSIF0_PHYS",
+			"MSM_TSIF1_PHYS",
+			"MSM_TSPP_PHYS",
+			"MSM_TSPP_BAM_PHYS";
+		interrupts = <0 153 0>, /* TSIF_TSPP_IRQ */
+			<0 151 0>, /* TSIF0_IRQ */
+			<0 152 0>, /* TSIF1_IRQ */
+			<0 154 0>; /* TSIF_BAM_IRQ */
+		interrupt-names = "TSIF_TSPP_IRQ",
+			"TSIF0_IRQ",
+			"TSIF1_IRQ",
+			"TSIF_BAM_IRQ";
+		qcom,tsif-pclk = "iface_clk";
+		qcom,tsif-ref-clk = "ref_clk";
+		gpios = <&msmgpio 89 0>, /* TSIF0 CLK  */
+			<&msmgpio 90 0>, /* TSIF0 EN   */
+			<&msmgpio 91 0>, /* TSIF0 DATA */
+			<&msmgpio 92 0>, /* TSIF0 SYNC */
+			<&msmgpio 93 0>, /* TSIF1 CLK  */
+			<&msmgpio 94 0>, /* TSIF1 EN   */
+			<&msmgpio 95 0>, /* TSIF1 DATA */
+			<&msmgpio 96 0>; /* TSIF1 SYNC */
+		qcom,gpio-names = "tsif_clk",
+				"tsif_en",
+				"tsif_data",
+				"tsif_sync",
+				"tsif_clk",
+				"tsif_en",
+				"tsif_data",
+				"tsif_sync";
+		qcom,gpios-func = <1>;
+	};
+
+
