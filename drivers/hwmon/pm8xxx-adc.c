@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1075,7 +1075,7 @@ static int get_adc(void *data, u64 *val)
 
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_adc, NULL, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(reg_fops, get_adc, NULL, "%lld\n");
 
 #ifdef CONFIG_DEBUG_FS
 static void create_debugfs_entries(void)
