@@ -62,6 +62,8 @@
  * successive video frames output, exposed in debugfs.
  * @decoder_out_interval_max: Max interval (msec) between two
  * successive video frames output, exposed in debugfs.
+ * @decoder_ts_errors: Counter for number of decoder packets with TEI bit
+ * set, exposed in debugfs.
  * @decoder_out_last_time: Time of last video frame output.
  * @last_notification_time: Time of last HW notification.
  */
@@ -85,6 +87,7 @@ struct mpq_demux {
 	u32 decoder_out_interval_sum;
 	u32 decoder_out_interval_average;
 	u32 decoder_out_interval_max;
+	u32 decoder_ts_errors;
 	struct timespec decoder_out_last_time;
 	struct timespec last_notification_time;
 };

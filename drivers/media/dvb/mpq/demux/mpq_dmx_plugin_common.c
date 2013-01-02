@@ -488,7 +488,6 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 	mpq_demux->hw_notification_count = 0;
 	mpq_demux->hw_notification_interval = 0;
 	mpq_demux->hw_notification_size = 0;
-	mpq_demux->decoder_drop_count = 0;
 	mpq_demux->hw_notification_min_size = 0xFFFFFFFF;
 
 	if (mpq_demux->demux.dmx.debugfs_demux_dir != NULL) {
@@ -551,6 +550,12 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 			S_IRUGO|S_IWUGO,
 			mpq_demux->demux.dmx.debugfs_demux_dir,
 			&mpq_demux->decoder_out_interval_max);
+
+		debugfs_create_u32(
+			"decoder_ts_errors",
+			S_IRUGO|S_IWUGO,
+			mpq_demux->demux.dmx.debugfs_demux_dir,
+			&mpq_demux->decoder_ts_errors);
 	}
 }
 EXPORT_SYMBOL(mpq_dmx_init_hw_statistics);
@@ -1431,6 +1436,12 @@ int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed)
 	feed_data->ts_dropped_bytes = 0;
 	feed_data->last_pkt_index = -1;
 
+	mpq_demux->decoder_drop_count = 0;
+	mpq_demux->decoder_out_count = 0;
+	mpq_demux->decoder_out_interval_sum = 0;
+	mpq_demux->decoder_out_interval_max = 0;
+	mpq_demux->decoder_ts_errors = 0;
+
 	spin_lock(&mpq_demux->feed_lock);
 	feed->priv = (void *)feed_data;
 	spin_unlock(&mpq_demux->feed_lock);
@@ -2121,6 +2132,7 @@ static int mpq_dmx_process_video_packet_framing(
 	/* Update error counters based on TS header */
 	feed_data->ts_packets_num++;
 	feed_data->tei_errs += ts_header->transport_error_indicator;
+	mpq_demux->decoder_ts_errors += ts_header->transport_error_indicator;
 	mpq_dmx_check_continuity(feed_data,
 				ts_header->continuity_counter,
 				discontinuity_indicator);
@@ -2502,6 +2514,7 @@ static int mpq_dmx_process_video_packet_no_framing(
 	/* Update error counters based on TS header */
 	feed_data->ts_packets_num++;
 	feed_data->tei_errs += ts_header->transport_error_indicator;
+	mpq_demux->decoder_ts_errors += ts_header->transport_error_indicator;
 	mpq_dmx_check_continuity(feed_data,
 				ts_header->continuity_counter,
 				discontinuity_indicator);
@@ -2613,14 +2626,8 @@ int mpq_dmx_process_pcr_packet(
 	if ((ts_header->sync_byte != 0x47) ||
 		(ts_header->adaptation_field_control == 0) ||
 		(ts_header->adaptation_field_control == 1) ||
-		ts_header->transport_error_indicator) {
-		MPQ_DVB_DBG_PRINT(
-			"%s: PCR packet dropped, AFC %d, TEI %d\n",
-			__func__,
-			ts_header->adaptation_field_control,
-			ts_header->transport_error_indicator);
+		ts_header->transport_error_indicator)
 		return 0;
-	}
 
 	adaptation_field = (const struct ts_adaptation_field *)
 			(buf + sizeof(struct ts_packet_header));
