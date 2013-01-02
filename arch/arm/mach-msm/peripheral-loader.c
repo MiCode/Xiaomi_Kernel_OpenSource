@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -680,7 +680,7 @@ int pil_desc_init(struct pil_desc *desc)
 	struct pil_priv *priv;
 	int id;
 	void __iomem *addr;
-	size_t len;
+	char buf[sizeof(priv->info->name)];
 
 	/* Ignore users who don't make any sense */
 	WARN(desc->ops->proxy_unvote && !desc->proxy_timeout,
@@ -703,9 +703,8 @@ int pil_desc_init(struct pil_desc *desc)
 	addr = PIL_IMAGE_INFO_BASE + sizeof(struct pil_image_info) * id;
 	priv->info = (struct pil_image_info __iomem *)addr;
 
-	len = min(strlen(desc->name), sizeof(priv->info->name));
-	memset_io(priv->info->name, 0, sizeof(priv->info->name));
-	memcpy_toio(priv->info->name, desc->name, len);
+	strncpy(buf, desc->name, sizeof(buf));
+	__iowrite32_copy(priv->info->name, buf, sizeof(buf) / 4);
 
 	snprintf(priv->wname, sizeof(priv->wname), "pil-%s", desc->name);
 	wake_lock_init(&priv->wlock, WAKE_LOCK_SUSPEND, priv->wname);
