@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,7 @@ struct sdio_cmux_ch {
 	struct list_head tx_list;
 
 	void *priv;
+	struct mutex rx_cb_lock;
 	void (*receive_cb)(void *, int, void *);
 	void (*write_done)(void *, int, void *);
 	void (*status_callback)(int, void *);
@@ -171,6 +172,7 @@ static int sdio_cmux_ch_alloc(int id)
 	mutex_init(&logical_ch[id].tx_lock);
 
 	logical_ch[id].priv = NULL;
+	mutex_init(&logical_ch[id].rx_cb_lock);
 	logical_ch[id].receive_cb = NULL;
 	logical_ch[id].write_done = NULL;
 	return 0;
@@ -197,8 +199,10 @@ static int sdio_cmux_ch_clear_and_signal(int id)
 		kfree(list_elem);
 	}
 	mutex_unlock(&logical_ch[id].tx_lock);
+	mutex_lock(&logical_ch[id].rx_cb_lock);
 	if (logical_ch[id].receive_cb)
 		logical_ch[id].receive_cb(NULL, 0, logical_ch[id].priv);
+	mutex_unlock(&logical_ch[id].rx_cb_lock);
 	if (logical_ch[id].write_done)
 		logical_ch[id].write_done(NULL, 0, logical_ch[id].priv);
 	mutex_unlock(&logical_ch[id].lc_lock);
@@ -300,9 +304,10 @@ int sdio_cmux_open(const int id,
 	}
 	logical_ch[id].is_local_open = 1;
 	logical_ch[id].priv = priv;
-	logical_ch[id].receive_cb = receive_cb;
 	logical_ch[id].write_done = write_done;
 	logical_ch[id].status_callback = status_callback;
+	mutex_lock(&logical_ch[id].rx_cb_lock);
+	logical_ch[id].receive_cb = receive_cb;
 	if (logical_ch[id].receive_cb) {
 		mutex_lock(&temp_rx_lock);
 		list_for_each_entry_safe(list_elem, list_elem_tmp,
@@ -319,6 +324,7 @@ int sdio_cmux_open(const int id,
 		}
 		mutex_unlock(&temp_rx_lock);
 	}
+	mutex_unlock(&logical_ch[id].rx_cb_lock);
 	mutex_unlock(&logical_ch[id].lc_lock);
 	sdio_cmux_write_cmd(id, OPEN);
 	return 0;
@@ -338,7 +344,9 @@ int sdio_cmux_close(int id)
 
 	ch = &logical_ch[id];
 	mutex_lock(&ch->lc_lock);
+	mutex_lock(&logical_ch[id].rx_cb_lock);
 	ch->receive_cb = NULL;
+	mutex_unlock(&logical_ch[id].rx_cb_lock);
 	mutex_lock(&ch->tx_lock);
 	ch->write_done = NULL;
 	mutex_unlock(&ch->tx_lock);
@@ -564,12 +572,20 @@ static int process_cmux_pkt(void *pkt, int size)
 
 		data = (void *)((char *)pkt + sizeof(struct sdio_cmux_hdr));
 		data_size = (int)(((struct sdio_cmux_hdr *)pkt)->pkt_len);
+		mutex_unlock(&logical_ch[id].lc_lock);
+		/*
+		 * The lc_lock is released before the call to receive_cb
+		 * to avoid a dead lock where in the receive_cb would call a
+		 * function that tries to acquire a rx_lock which is already
+		 * acquired by a Thread that is waiting on lc_lock.
+		 */
+		mutex_lock(&logical_ch[id].rx_cb_lock);
 		if (logical_ch[id].receive_cb)
 			logical_ch[id].receive_cb(data, data_size,
 						logical_ch[id].priv);
 		else
 			copy_packet(pkt, size);
-		mutex_unlock(&logical_ch[id].lc_lock);
+		mutex_unlock(&logical_ch[id].rx_cb_lock);
 		break;
 
 	case STATUS:
