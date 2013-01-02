@@ -2,7 +2,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2013, Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -334,22 +334,10 @@ void usb_diag_close(struct usb_diag_ch *ch)
 }
 EXPORT_SYMBOL(usb_diag_close);
 
-/**
- * usb_diag_free_req() - Free USB requests
- * @ch: Channel handler
- *
- * This function free read and write USB requests for the interface
- * associated with this channel.
- *
- */
-void usb_diag_free_req(struct usb_diag_ch *ch)
+static void free_reqs(struct diag_context *ctxt)
 {
-	struct diag_context *ctxt = ch->priv_usb;
-	struct usb_request *req;
 	struct list_head *act, *tmp;
-
-	if (!ctxt)
-		return;
+	struct usb_request *req;
 
 	list_for_each_safe(act, tmp, &ctxt->write_pool) {
 		req = list_entry(act, struct usb_request, list);
@@ -362,6 +350,27 @@ void usb_diag_free_req(struct usb_diag_ch *ch)
 		list_del(&req->list);
 		usb_ep_free_request(ctxt->out, req);
 	}
+}
+
+/**
+ * usb_diag_free_req() - Free USB requests
+ * @ch: Channel handler
+ *
+ * This function free read and write USB requests for the interface
+ * associated with this channel.
+ *
+ */
+void usb_diag_free_req(struct usb_diag_ch *ch)
+{
+	struct diag_context *ctxt = ch->priv_usb;
+	unsigned long flags;
+
+	if (ctxt) {
+		spin_lock_irqsave(&ctxt->lock, flags);
+		free_reqs(ctxt);
+		spin_unlock_irqrestore(&ctxt->lock, flags);
+	}
+
 }
 EXPORT_SYMBOL(usb_diag_free_req);
 
@@ -381,10 +390,14 @@ int usb_diag_alloc_req(struct usb_diag_ch *ch, int n_write, int n_read)
 	struct diag_context *ctxt = ch->priv_usb;
 	struct usb_request *req;
 	int i;
+	unsigned long flags;
 
 	if (!ctxt)
 		return -ENODEV;
 
+	spin_lock_irqsave(&ctxt->lock, flags);
+	/* Free previous session's stale requests */
+	free_reqs(ctxt);
 	for (i = 0; i < n_write; i++) {
 		req = usb_ep_alloc_request(ctxt->in, GFP_ATOMIC);
 		if (!req)
@@ -400,11 +413,11 @@ int usb_diag_alloc_req(struct usb_diag_ch *ch, int n_write, int n_read)
 		req->complete = diag_read_complete;
 		list_add_tail(&req->list, &ctxt->read_pool);
 	}
-
+	spin_unlock_irqrestore(&ctxt->lock, flags);
 	return 0;
-
 fail:
-	usb_diag_free_req(ch);
+	free_reqs(ctxt);
+	spin_unlock_irqrestore(&ctxt->lock, flags);
 	return -ENOMEM;
 
 }
