@@ -2,7 +2,7 @@
  *
  * pcm audio input device
  *
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5v2/audio_pcm_in.c,
  * Copyright (C) 2008 Google, Inc.
@@ -42,6 +42,7 @@
 
 #include "audmgr.h"
 
+#include <mach/qdsp5/audio_acdb_def.h>
 #include <mach/qdsp5/qdsp5audpreproc.h>
 #include <mach/qdsp5/qdsp5audpreproccmdi.h>
 #include <mach/qdsp5/qdsp5audpreprocmsg.h>
@@ -346,6 +347,8 @@ static void audrec_dsp_event(void *data, unsigned id, size_t len,
 	case AUDREC_MSG_CMD_AREC_PARAM_CFG_DONE_MSG: {
 		MM_INFO("PARAM CFG DONE\n");
 		audio->running = 1;
+		if (is_acdb_enabled())
+			break;
 		audio_dsp_set_tx_agc(audio);
 		audio_dsp_set_ns(audio);
 		audio_dsp_set_iir(audio);
@@ -914,6 +917,12 @@ static long audpre_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	mutex_lock(&audio->lock);
 	switch (cmd) {
 	case AUDIO_ENABLE_AUDPRE:
+
+		if (is_acdb_enabled()) {
+			MM_INFO("Audpp is supported via acdb\n");
+			rc = -EFAULT;
+			break;
+		}
 		if (copy_from_user(&enable_mask, (void *) arg,
 						sizeof(enable_mask))) {
 			rc = -EFAULT;

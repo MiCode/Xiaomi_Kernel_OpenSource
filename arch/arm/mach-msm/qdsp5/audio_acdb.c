@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1300,6 +1300,15 @@ err_state:
 	return result;
 }
 EXPORT_SYMBOL(acdb_get_calibration_data);
+
+int is_acdb_enabled()
+{
+	if (acdb_data.handle != NULL)
+		return 1;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(is_acdb_enabled);
 
 static u8 check_device_info_already_present(
 		struct dev_evt_msg device_info,
