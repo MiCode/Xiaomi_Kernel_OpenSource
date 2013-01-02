@@ -75,7 +75,7 @@
 /* 22-31 are reserved except 7x27a*/
 #if defined(CONFIG_ARCH_MSM7X27A)
 #define INT_L2CC_EM          (32 + 22)
-#define INT_L2CC_INTR        (32 + 23)
+#define SC_SICL2PERFMONIRPTREQ (32 + 23)
 #define INT_CE_IRQ           (32 + 24)
 #endif
 
