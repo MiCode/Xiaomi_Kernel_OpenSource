@@ -1,4 +1,5 @@
-/* Copyright (c) 2008-2009, 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2009, 2011, 2013 The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,6 +89,9 @@ typedef struct {
 
 #define remote_spin_release_all(pid) \
 	_remote_spin_release_all(pid)
+
+#define remote_spin_owner(lock) \
+	_remote_spin_owner(&((lock)->remote))
 
 typedef struct {
 	struct mutex local;
