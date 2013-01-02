@@ -672,6 +672,19 @@
 				<61 512 240000 960000>;
 	};
 
+	ehci: qcom,ehci-host@f9a55000 {
+		compatible = "qcom,ehci-host";
+		status = "disabled";
+		reg = <0xf9a55000 0x400>;
+		interrupts = <0 134 0>, <0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+		HSUSB_VDDCX-supply = <&pm8841_s2>;
+		HSUSB_1p8-supply = <&pm8941_l6>;
+		HSUSB_3p3-supply = <&pm8941_l24>;
+		qcom,usb2-enable-hsphy2;
+		qcom,usb2-power-budget = <500>;
+	};
+
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
 		parent-supply = <&pm8841_s4_corner>;
 	};
