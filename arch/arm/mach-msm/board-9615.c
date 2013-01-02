@@ -254,6 +254,8 @@ static struct pm8xxx_adc_amux pm8018_adc_channels_data[] = {
 		ADC_DECIMATION_TYPE2, ADC_SCALE_DEFAULT},
 	{"pa_therm0", ADC_MPP_1_AMUX3, CHAN_PATH_SCALING1, AMUX_RSV1,
 		ADC_DECIMATION_TYPE2, ADC_SCALE_PA_THERM},
+	{"xo_therm", CHANNEL_MUXOFF, CHAN_PATH_SCALING1, AMUX_RSV0,
+		ADC_DECIMATION_TYPE2, ADC_SCALE_XOTHERM},
 };
 
 static struct pm8xxx_adc_properties pm8018_adc_data = {
