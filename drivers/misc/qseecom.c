@@ -58,7 +58,7 @@
 #define QSEE_CE_CLK_100MHZ		100000000
 #define QSEE_CE_CLK_50MHZ		50000000
 
-#define QSEECOM_MAX_SG_ENTRY	10
+#define QSEECOM_MAX_SG_ENTRY	512
 
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
