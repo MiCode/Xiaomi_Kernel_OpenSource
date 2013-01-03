@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -611,11 +611,19 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	struct hal_buffer_count_actual new_buf_count;
 	enum hal_property property_id;
 	unsigned long flags;
+	struct hfi_device *hdev;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
 		return -EINVAL;
 	}
 	inst = q->drv_priv;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		*num_planes = 1;
@@ -648,7 +656,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
-		rc = venus_hfi_session_set_property(inst->session,
+		rc = hdev->session_set_property(inst->session,
 					property_id, &new_buf_count);
 		dprintk(VIDC_DBG, "size = %d, alignment = %d, count = %d\n",
 				inst->buff_req.buffer[0].buffer_size,
@@ -966,6 +974,13 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	u32 property_id = 0, property_val = 0;
 	void *pdata;
 	struct v4l2_ctrl *temp_ctrl = NULL;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
 
 	/* Small helper macro for quickly getting a control and err checking */
 #define TRY_GET_CTRL(__ctrl_id) ({ \
@@ -1405,7 +1420,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		dprintk(VIDC_DBG, "Control: HAL property=%d,ctrl_value=%d\n",
 				property_id,
 				ctrl->val);
-		rc = venus_hfi_session_set_property((void *)inst->session,
+		rc = hdev->session_set_property((void *)inst->session,
 				property_id, pdata);
 	}
 
@@ -1570,6 +1585,14 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	void *pdata;
 	int rc = 0;
 	struct hal_frame_rate frame_rate;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	property_id = HAL_CONFIG_FRAME_RATE;
 	if (a->parm.output.timeperframe.denominator) {
 		switch (a->type) {
@@ -1597,7 +1620,7 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		frame_rate.frame_rate = inst->prop.fps * (0x1<<16);
 		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
 		pdata = &frame_rate;
-		rc = venus_hfi_session_set_property((void *)inst->session,
+		rc = hdev->session_set_property((void *)inst->session,
 				property_id, pdata);
 		if (rc) {
 			dprintk(VIDC_WARN,
@@ -1614,11 +1637,19 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	struct hal_frame_size frame_sz;
 	int rc = 0;
 	int i;
+	struct hfi_device *hdev;
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
 			"Invalid input, inst = %p, format = %p\n", inst, f);
 		return -EINVAL;
 	}
+
+	if (!inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
 			ARRAY_SIZE(venc_formats), f->fmt.pix_mp.pixelformat,
@@ -1638,7 +1669,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		frame_sz.height = inst->prop.height;
 		dprintk(VIDC_DBG, "width = %d, height = %d\n",
 				frame_sz.width, frame_sz.height);
-		rc = venus_hfi_session_set_property((void *)inst->session,
+		rc = hdev->session_set_property((void *)inst->session,
 				HAL_PARAM_FRAME_SIZE, &frame_sz);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -1646,7 +1677,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		rc = venus_hfi_session_set_property((void *)inst->session,
+		rc = hdev->session_set_property((void *)inst->session,
 				HAL_PARAM_FRAME_SIZE, &frame_sz);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -1752,6 +1783,14 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 	int rc = 0;
 	int i;
 	struct vidc_buffer_addr_info buffer_info;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
 
 	switch (b->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
@@ -1769,7 +1808,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 				b->m.planes[i].m.userptr;
 			buffer_info.extradata_size = 0;
 			buffer_info.extradata_addr = 0;
-			rc = venus_hfi_session_set_buffers(
+			rc = hdev->session_set_buffers(
 				(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
@@ -1790,6 +1829,15 @@ int msm_venc_release_buf(struct msm_vidc_inst *inst,
 	int rc = 0;
 	int i;
 	struct vidc_buffer_addr_info buffer_info;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
 	rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1814,7 +1862,7 @@ int msm_venc_release_buf(struct msm_vidc_inst *inst,
 			buffer_info.extradata_size = 0;
 			buffer_info.extradata_addr = 0;
 			buffer_info.response_required = false;
-			rc = venus_hfi_session_release_buffers(
+			rc = hdev->session_release_buffers(
 				(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,

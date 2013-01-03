@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #include "msm_vidc_common.h"
 #include "msm_smem.h"
 #include <linux/delay.h>
-#include "venus_hfi.h"
+#include "vidc_hfi_api.h"
 
 #define MAX_EVENTS 30
 
@@ -86,11 +86,14 @@ int msm_vidc_get_iommu_maps(void *instance,
 		struct msm_vidc_iommu_info maps[MAX_MAP])
 {
 	struct msm_vidc_inst *inst = instance;
+	struct hfi_device *hdev;
 
-	if (!inst || !maps || !inst->core)
+	if (!inst || !maps || !inst->core || !inst->core->device)
 		return -EINVAL;
 
-	return venus_hfi_iommu_get_map(inst->core->device, maps);
+	hdev = inst->core->device;
+
+	return hdev->iommu_get_map(hdev->hfi_device_data, maps);
 }
 
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)

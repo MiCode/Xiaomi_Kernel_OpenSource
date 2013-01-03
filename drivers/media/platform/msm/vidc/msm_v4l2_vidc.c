@@ -29,7 +29,7 @@
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
 #include "msm_smem.h"
-#include "venus_hfi.h"
+#include "vidc_hfi_api.h"
 
 #define BASE_DEVICE_NUMBER 32
 
@@ -355,7 +355,8 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 	int i, rc = 0;
 	int smem_flags = 0;
 	int domain;
-	struct venus_hfi_device *device;
+	struct hfi_device *hdev;
+
 	vidc_inst = get_vidc_inst(file, fh);
 	v4l2_inst = get_v4l2_inst(file, fh);
 	if (!v4l2_inst || !vidc_inst || !vidc_inst->core
@@ -364,7 +365,8 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 		goto exit;
 	}
 
-	device = vidc_inst->core->device;
+	hdev = vidc_inst->core->device;
+
 	if (!v4l2_inst->mem_client) {
 		dprintk(VIDC_ERR, "Failed to get memory client\n");
 		rc = -ENOMEM;
@@ -404,9 +406,11 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 				&& (!EXTRADATA_IDX(b->length)
 					|| (i != EXTRADATA_IDX(b->length)))) {
 			smem_flags |= SMEM_SECURE;
-			domain = venus_hfi_get_domain(device, CP_MAP);
+			domain = hdev->get_domain(hdev->hfi_device_data,
+						CP_MAP);
 		} else
-			domain = venus_hfi_get_domain(device, NS_MAP);
+			domain = hdev->get_domain(hdev->hfi_device_data,
+						NS_MAP);
 
 		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			smem_flags |= SMEM_INPUT;
@@ -765,8 +769,8 @@ static int msm_vidc_probe(struct platform_device *pdev)
 	}
 	video_set_drvdata(&core->vdev[MSM_VIDC_ENCODER].vdev, core);
 
-	core->device =
-		venus_hfi_get_device(core->id, pdev, &handle_cmd_response);
+	core->device = vidc_hfi_initialize(core->hfi_type, core->id,
+				pdev, &handle_cmd_response);
 	if (!core->device) {
 		dprintk(VIDC_ERR, "Failed to create HFI device\n");
 		goto err_cores_exceeded;
@@ -803,9 +807,20 @@ err_no_mem:
 static int msm_vidc_remove(struct platform_device *pdev)
 {
 	int rc = 0;
-	struct msm_vidc_core *core = pdev->dev.platform_data;
+	struct msm_vidc_core *core;
 
-	venus_hfi_delete_device(core->device);
+	if (!pdev) {
+		dprintk(VIDC_ERR, "%s invalid input %p", __func__, pdev);
+		return -EINVAL;
+	}
+	core = pdev->dev.platform_data;
+
+	if (!core) {
+		dprintk(VIDC_ERR, "%s invalid core", __func__);
+		return -EINVAL;
+	}
+
+	vidc_hfi_deinitialize(core->hfi_type, core->device);
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 	v4l2_device_unregister(&core->v4l2_dev);

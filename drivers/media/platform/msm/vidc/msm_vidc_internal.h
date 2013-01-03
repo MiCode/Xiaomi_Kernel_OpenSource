@@ -32,6 +32,7 @@
 #include <media/msm_media_info.h>
 
 #include "vidc_hfi_api.h"
+#include "vidc_hfi_api.h"
 
 #define MSM_VIDC_DRV_NAME "msm_vidc_driver"
 #define MSM_VIDC_VERSION KERNEL_VERSION(0, 0, 1);
@@ -165,11 +166,6 @@ enum msm_vidc_mode {
 	VIDC_SECURE,
 };
 
-enum msm_vidc_hfi_type {
-	VIDC_HFI_VENUS,
-	VIDC_HFI_Q6,
-};
-
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex sync_lock;
@@ -241,6 +237,4 @@ struct msm_vidc_ctrl {
 };
 
 void handle_cmd_response(enum command_response cmd, void *data);
-int msm_vidc_ocmem_notify_handler(struct notifier_block *this,
-		unsigned long event, void *data);
 #endif
