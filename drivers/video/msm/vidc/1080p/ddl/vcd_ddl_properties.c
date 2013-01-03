@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1115,14 +1115,21 @@ static u32 ddl_set_enc_property(struct ddl_client_context *ddl,
 				encoder->client_output_buf_req.sz/num_slices;
 				encoder->client_output_buf_req.sz =
 				DDL_ALIGN(output_buf_size, DDL_KILO_BYTE(4));
+				if (encoder->client_output_buf_req. \
+					actual_count < encoder-> \
+					client_output_buf_req.min_count) {
+					encoder->client_output_buf_req. \
+					actual_count = encoder-> \
+					client_output_buf_req.min_count;
+				}
 				encoder->output_buf_req =
 				encoder->client_output_buf_req;
-				DDL_MSG_HIGH("%s num_mb = %u num_slices = %u "
-				"output_buf_count = %u "
-				"output_buf_size = %u aligned size = %u\n",
+				DDL_MSG_HIGH("%s num_mb = %u num_slices = %u" \
+				" min_count = %u act_count = %u" \
+				" aligned size = %u\n",
 				__func__, num_mb, num_slices,
 				encoder->client_output_buf_req.min_count,
-				output_buf_size,
+				encoder->client_output_buf_req.actual_count,
 				encoder->client_output_buf_req.sz);
 				vcd_status = VCD_S_SUCCESS;
 			}
