@@ -770,6 +770,8 @@ static struct pll_vote_clk mmpll1_clk_src = {
 		.dbg_name = "mmpll1_clk_src",
 		.rate = 846000000,
 		.ops = &clk_ops_pll_vote,
+		/* May be reassigned at runtime; alloc memory at compile time */
+		VDD_DIG_FMAX_MAP1(LOW, 846000000),
 		CLK_INIT(mmpll1_clk_src.c),
 	},
 };
@@ -781,7 +783,7 @@ static struct pll_clk mmpll3_clk_src = {
 	.c = {
 		.parent = &cxo_clk_src.c,
 		.dbg_name = "mmpll3_clk_src",
-		.rate = 1000000000,
+		.rate = 820000000,
 		.ops = &clk_ops_local_pll,
 		CLK_INIT(mmpll3_clk_src.c),
 	},
@@ -2393,6 +2395,19 @@ static struct clk_freq_tbl ftbl_mmss_axi_clk[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_mmss_axi_v2_clk[] = {
+	F_MM( 19200000,    cxo,     1,   0,   0),
+	F_MM( 37500000,  gpll0,    16,   0,   0),
+	F_MM( 50000000,  gpll0,    12,   0,   0),
+	F_MM( 75000000,  gpll0,     8,   0,   0),
+	F_MM(100000000,  gpll0,     6,   0,   0),
+	F_MM(150000000,  gpll0,     4,   0,   0),
+	F_MM(333430000, mmpll1,   3.5,   0,   0),
+	F_MM(400000000, mmpll0,     2,   0,   0),
+	F_MM(466800000, mmpll1,   2.5,   0,   0),
+	F_END
+};
+
 static struct rcg_clk axi_clk_src = {
 	.cmd_rcgr_reg = 0x5040,
 	.set_rate = set_rate_hid,
@@ -2416,6 +2431,18 @@ static struct clk_freq_tbl ftbl_ocmemnoc_clk[] = {
 	F_MM(100000000,  gpll0,   6,   0,   0),
 	F_MM(150000000,  gpll0,   4,   0,   0),
 	F_MM(282000000, mmpll1,   3,   0,   0),
+	F_MM(400000000, mmpll0,   2,   0,   0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_ocmemnoc_v2_clk[] = {
+	F_MM( 19200000,    cxo,   1,   0,   0),
+	F_MM( 37500000,  gpll0,  16,   0,   0),
+	F_MM( 50000000,  gpll0,  12,   0,   0),
+	F_MM( 75000000,  gpll0,   8,   0,   0),
+	F_MM(100000000,  gpll0,   6,   0,   0),
+	F_MM(150000000,  gpll0,   4,   0,   0),
+	F_MM(333430000, mmpll1, 3.5,   0,   0),
 	F_MM(400000000, mmpll0,   2,   0,   0),
 	F_END
 };
@@ -3180,6 +3207,16 @@ static struct clk_freq_tbl ftbl_venus0_vcodec0_clk[] = {
 	F_MM(200000000, mmpll0,   4,   0,   0),
 	F_MM(266670000, mmpll0,   3,   0,   0),
 	F_MM(410000000, mmpll3,   2,   0,   0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_venus0_vcodec0_v2_clk[] = {
+	F_MM( 50000000,  gpll0,  12,   0,   0),
+	F_MM(100000000,  gpll0,   6,   0,   0),
+	F_MM(133330000, mmpll0,   6,   0,   0),
+	F_MM(200000000, mmpll0,   4,   0,   0),
+	F_MM(266670000, mmpll0,   3,   0,   0),
+	F_MM(465000000, mmpll3,   2,   0,   0),
 	F_END
 };
 
@@ -5531,11 +5568,28 @@ static struct pll_config_regs mmpll1_regs __initdata = {
 	.base = &virt_bases[MMSS_BASE],
 };
 
-/* MMPLL1 at 1000 MHz, main output enabled. */
+/* MMPLL1 at 846 MHz, main output enabled. */
 static struct pll_config mmpll1_config __initdata = {
 	.l = 0x2C,
 	.m = 0x1,
 	.n = 0x10,
+	.vco_val = 0x0,
+	.vco_mask = BM(21, 20),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BM(14, 12),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(9, 8),
+	.mn_ena_val = BIT(24),
+	.mn_ena_mask = BIT(24),
+	.main_output_val = BIT(0),
+	.main_output_mask = BIT(0),
+};
+
+/* MMPLL1 at 1167 MHz, main output enabled. */
+static struct pll_config mmpll1_v2_config __initdata = {
+	.l = 60,
+	.m = 25,
+	.n = 32,
 	.vco_val = 0x0,
 	.vco_mask = BM(21, 20),
 	.pre_div_val = 0x0,
@@ -5562,6 +5616,23 @@ static struct pll_config mmpll3_config __initdata = {
 	.l = 0x2A,
 	.m = 0x11,
 	.n = 0x18,
+	.vco_val = 0x0,
+	.vco_mask = BM(21, 20),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BM(14, 12),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(9, 8),
+	.mn_ena_val = BIT(24),
+	.mn_ena_mask = BIT(24),
+	.main_output_val = BIT(0),
+	.main_output_mask = BIT(0),
+};
+
+/* MMPLL3 at 930 MHz, main output enabled. */
+static struct pll_config mmpll3_v2_config __initdata = {
+	.l = 48,
+	.m = 7,
+	.n = 16,
 	.vco_val = 0x0,
 	.vco_mask = BM(21, 20),
 	.pre_div_val = 0x0,
@@ -5620,8 +5691,14 @@ static void __init reg_init(void)
 	int ret;
 
 	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
-	configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
-	configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
+
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+		configure_sr_hpm_lp_pll(&mmpll1_v2_config, &mmpll1_regs, 1);
+		configure_sr_hpm_lp_pll(&mmpll3_v2_config, &mmpll3_regs, 0);
+	} else {
+		configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
+		configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
+	}
 	configure_sr_hpm_lp_pll(&lpapll0_config, &lpapll0_regs, 1);
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
@@ -5677,8 +5754,13 @@ static void __init mdss_clock_setup(void)
 
 static void __init msm8974_clock_post_init(void)
 {
-	clk_set_rate(&axi_clk_src.c, 282000000);
-	clk_set_rate(&ocmemnoc_clk_src.c, 282000000);
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+		clk_set_rate(&axi_clk_src.c, 333430000);
+		clk_set_rate(&ocmemnoc_clk_src.c, 333430000);
+	} else {
+		clk_set_rate(&axi_clk_src.c, 282000000);
+		clk_set_rate(&ocmemnoc_clk_src.c, 282000000);
+	}
 
 	/*
 	 * Hold an active set vote at a rate of 40MHz for the MMSS NOC AHB
@@ -5784,6 +5866,25 @@ static void __init msm8974_clock_pre_init(void)
 	enable_rpm_scaling();
 
 	reg_init();
+
+	/* v2 specific changes */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+		mmpll3_clk_src.c.rate =  930000000;
+		mmpll1_clk_src.c.rate = 1167000000;
+		mmpll1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 1167000000;
+
+		ocmemnoc_clk_src.freq_tbl = ftbl_ocmemnoc_v2_clk;
+		ocmemnoc_clk_src.c.fmax[VDD_DIG_NOMINAL] = 333430000;
+
+		axi_clk_src.freq_tbl = ftbl_mmss_axi_v2_clk;
+		axi_clk_src.c.fmax[VDD_DIG_NOMINAL] = 333430000;
+		axi_clk_src.c.fmax[VDD_DIG_HIGH] = 466800000;
+
+		vcodec0_clk_src.freq_tbl = ftbl_venus0_vcodec0_v2_clk;
+		vcodec0_clk_src.c.fmax[VDD_DIG_HIGH] = 465000000;
+
+		mdp_clk_src.c.fmax[VDD_DIG_NOMINAL] = 240000000;
+	}
 }
 
 static int __init msm8974_clock_late_init(void)
