@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/libata.h>
 #include <linux/ahci_platform.h>
+#include <linux/pm_runtime.h>
 #include "ahci.h"
 
 enum ahci_type {
@@ -192,6 +193,14 @@ static int __devinit ahci_probe(struct platform_device *pdev)
 	if (rc)
 		goto err0;
 
+	rc = pm_runtime_set_active(dev);
+	if (rc) {
+		dev_warn(dev, "Unable to set runtime pm active err=%d\n", rc);
+	} else {
+		pm_runtime_enable(dev);
+		pm_runtime_forbid(dev);
+	}
+
 	return 0;
 err0:
 	if (pdata && pdata->exit)
@@ -275,6 +284,8 @@ static int ahci_resume(struct device *dev)
 static struct dev_pm_ops ahci_pm_ops = {
 	.suspend		= &ahci_suspend,
 	.resume			= &ahci_resume,
+	.runtime_suspend	= &ahci_suspend,
+	.runtime_resume		= &ahci_resume,
 };
 #endif
 
