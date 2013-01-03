@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 {
 	struct device_node *child;
 	int ret = 0;
+	struct resource *r;
 
 	drvdata->dev = &pdev->dev;
 	msm_iommu_add_drv(drvdata);
@@ -111,6 +112,19 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	drvdata->sec_id = -1;
 	of_property_read_u32(pdev->dev.of_node, "qcom,iommu-secure-id",
 				&drvdata->sec_id);
+
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "clk_base");
+	if (r) {
+		drvdata->clk_reg_virt = devm_ioremap(&pdev->dev, r->start,
+						     resource_size(r));
+		if (!drvdata->clk_reg_virt) {
+			pr_err("Failed to map 0x%x for iommu clk\n",
+				r->start);
+			ret = -ENOMEM;
+			goto fail;
+		}
+	}
+
 	return 0;
 fail:
 	return ret;
@@ -126,7 +140,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (!drvdata)
 		return -ENOMEM;
 
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "iommu_base");
 	if (!r)
 		return -EINVAL;
 

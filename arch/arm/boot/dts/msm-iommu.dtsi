@@ -17,6 +17,7 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfda64000 0x10000>;
+		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_jpeg>;
 		qcom,needs-alt-core-clk;
 		status = "disabled";
@@ -81,6 +82,7 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfd928000 0x10000>;
+		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_mdss>;
 		qcom,iommu-secure-id = <1>;
 		status = "disabled";
@@ -144,7 +146,9 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		reg = <0xfdc84000 0x10000>;
+		reg = <0xfdc84000 0x10000
+		       0xfdce0004 0x4>;
+		reg-names = "iommu_base", "clk_base";
 		vdd-supply = <&gdsc_venus>;
 		qcom,iommu-secure-id = <0>;
 		qcom,needs-alt-core-clk;
@@ -230,6 +234,7 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfdb10000 0x10000>;
+		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_oxili_cx>;
 		qcom,needs-alt-core-clk;
 		status = "disabled";
@@ -281,6 +286,7 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfda44000 0x10000>;
+		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_vfe>;
 		qcom,needs-alt-core-clk;
 		status = "disabled";

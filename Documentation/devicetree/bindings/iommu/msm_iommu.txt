@@ -3,7 +3,10 @@
 Required properties:
 - compatible : one of:
 	- "qcom,msm-smmu-v2"
-- reg : offset and length of the register set for the device.
+- reg : offset and length of the register set for the device. Optional
+	offset and length for clock register for additional clock that
+	needs to be turned on for access to this IOMMU.
+- reg-names: "iommu_base", "clk_base" (optional)
 
 Optional properties:
 - qcom,iommu-secure-id : Secure identifier for the IOMMU block
@@ -39,23 +42,24 @@ Optional properties:
 
 Example:
 
-        qcom,iommu@fda64000 {
-                compatible = "qcom,msm-smmu-v2";
-                reg = <0xfda64000 0x10000>;
+	qcom,iommu@fda64000 {
+		compatible = "qcom,msm-smmu-v2";
+		reg = <0xfda64000 0x10000>;
+		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_iommu>;
 		qcom,iommu-bfb-regs = <0x204c 0x2050>;
 		qcom,iommu-bfb-data = <0xffff 0xffce>;
 
-                qcom,iommu-ctx@fda6c000 {
-                        reg = <0xfda6c000 0x1000>;
-                        interrupts = <0 70 0>;
-                        qcom,iommu-ctx-sids = <0 2>;
+		qcom,iommu-ctx@fda6c000 {
+			reg = <0xfda6c000 0x1000>;
+			interrupts = <0 70 0>;
+			qcom,iommu-ctx-sids = <0 2>;
 			label = "ctx_0";
-                };
-                qcom,iommu-ctx@fda6d000 {
-                        reg = <0xfda6d000 0x1000>;
-                        interrupts = <0 71 0>;
-                        qcom,iommu-ctx-sids = <1>;
+		};
+		qcom,iommu-ctx@fda6d000 {
+			reg = <0xfda6d000 0x1000>;
+			interrupts = <0 71 0>;
+			qcom,iommu-ctx-sids = <1>;
 			label = "ctx_1";
-                };
-        };
+		};
+	};

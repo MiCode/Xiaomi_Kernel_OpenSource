@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,6 +94,7 @@ struct msm_iommu_bfb_settings {
  * @bfb_settings: Optional BFB performance tuning parameters
  * @dev:	Struct device this hardware instance is tied to
  * @list:	List head to link all iommus together
+ * @clk_reg_virt: Optional clock register virtual address.
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
@@ -112,6 +113,7 @@ struct msm_iommu_drvdata {
 	int sec_id;
 	struct device *dev;
 	struct list_head list;
+	void __iomem *clk_reg_virt;
 };
 
 void msm_iommu_add_drv(struct msm_iommu_drvdata *drv);
