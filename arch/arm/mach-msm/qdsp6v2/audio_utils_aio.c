@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -861,10 +861,9 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 	}
 	param.msw_ts = buf_node->meta_info.meta_in.ntimestamp.highpart;
 	param.lsw_ts = buf_node->meta_info.meta_in.ntimestamp.lowpart;
+	param.flags  = buf_node->meta_info.meta_in.nflags;
 	/* If no meta_info enaled, indicate no time stamp valid */
-	if (audio->buf_cfg.meta_info_enable)
-		param.flags = 0;
-	else
+	if (!audio->buf_cfg.meta_info_enable)
 		param.flags = 0xFF00;
 
 	if ((buf_node != NULL) &&
