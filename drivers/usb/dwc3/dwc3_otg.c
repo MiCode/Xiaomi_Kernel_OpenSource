@@ -1,7 +1,7 @@
 /**
  * dwc3_otg.c - DesignWare USB3 DRD Controller OTG
  *
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,25 @@ static void dwc3_otg_set_host_regs(struct dwc3_otg *dotg)
 		reg |= DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_HOST);
 		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 	}
+}
+
+static int dwc3_otg_set_suspend(struct usb_phy *phy, int suspend)
+{
+	struct usb_otg *otg = phy->otg;
+	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+
+	if (dotg->host_bus_suspend == suspend)
+		return 0;
+
+	dotg->host_bus_suspend = suspend;
+	if (suspend) {
+		pm_runtime_put_sync(phy->dev);
+	} else {
+		pm_runtime_get_noresume(phy->dev);
+		pm_runtime_resume(phy->dev);
+	}
+
+	return 0;
 }
 
 /**
@@ -149,6 +168,14 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		 * anymore.
 		 */
 		dwc3_otg_set_host_regs(dotg);
+		/*
+		 * FIXME If micro A cable is disconnected during system suspend,
+		 * xhci platform device will be removed before runtime pm is
+		 * enabled for xhci device. Due to this, disable_depth becomes
+		 * greater than one and runtimepm is not enabled for next microA
+		 * connect. Fix this by calling pm_runtime_init for xhci device.
+		 */
+		pm_runtime_init(&dwc->xhci->dev);
 		ret = platform_device_add(dwc->xhci);
 		if (ret) {
 			dev_err(otg->phy->dev,
@@ -353,6 +380,9 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
 			/* ext_xceiver would have taken h/w out of LPM by now */
 			ret = pm_runtime_get(phy->dev);
+			if ((phy->state == OTG_STATE_A_HOST) &&
+							dotg->host_bus_suspend)
+				dotg->host_bus_suspend = 0;
 			if (ret == -EACCES) {
 				/* pm_runtime_get may fail during system
 				   resume with -EACCES error */
@@ -852,6 +882,7 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->otg.phy->otg = &dotg->otg;
 	dotg->otg.phy->dev = dwc->dev;
 	dotg->otg.phy->set_power = dwc3_otg_set_power;
+	dotg->otg.phy->set_suspend = dwc3_otg_set_suspend;
 
 	ret = usb_set_transceiver(dotg->otg.phy);
 	if (ret) {
