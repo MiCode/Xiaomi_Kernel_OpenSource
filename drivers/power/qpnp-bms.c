@@ -34,6 +34,8 @@
 /* Coulomb counter clear registers */
 #define BMS1_CC_DATA_CTL		0x42
 #define BMS1_CC_CLEAR_CTL		0x43
+/* BMS Tolerances */
+#define BMS1_TOL_CTL			0X44
 /* OCV limit registers */
 #define BMS1_OCV_USE_LOW_LIMIT_THR0	0x48
 #define BMS1_OCV_USE_LOW_LIMIT_THR1	0x49
@@ -203,6 +205,7 @@ static enum power_supply_property msm_bms_power_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 };
 
+static bool bms_reset;
 
 static int qpnp_read_wrapper(struct qpnp_bms_chip *chip, u8 *val,
 			u16 base, int count)
@@ -889,6 +892,12 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 						chip->iavg_num_samples);
 	}
 
+	/*
+	 * if we're in bms reset mode, force uuc to be 3% of fcc
+	 */
+	if (bms_reset)
+		return (params->fcc_uah * 3) / 100;
+
 	uuc_uah_iavg = calculate_termination_uuc(chip, params, uuc_iavg_ma,
 						batt_temp, &pc_unusable);
 	pr_debug("uuc_iavg_ma = %d uuc with iavg = %d\n",
@@ -1177,6 +1186,76 @@ static int bound_soc(int soc)
 	return soc;
 }
 
+#define IBAT_TOL_MASK		0x0F
+#define OCV_TOL_MASK		0xF0
+#define IBAT_TOL_DEFAULT	0x03
+#define IBAT_TOL_NOCHG		0x0F
+#define OCV_TOL_DEFAULT		0x20
+#define OCV_TOL_NO_OCV		0x00
+static int stop_ocv_updates(struct qpnp_bms_chip *chip)
+{
+	pr_debug("stopping ocv updates\n");
+	return qpnp_masked_write(chip, BMS1_TOL_CTL,
+			OCV_TOL_MASK, OCV_TOL_NO_OCV);
+}
+
+static int reset_bms_for_test(struct qpnp_bms_chip *chip)
+{
+	int ibat_ua, vbat_uv, rc;
+	int ocv_est_uv;
+
+	if (!chip) {
+		pr_err("BMS driver has not been initialized yet!\n");
+		return -EINVAL;
+	}
+
+	rc = get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
+
+	ocv_est_uv = vbat_uv + (ibat_ua * chip->r_conn_mohm) / 1000;
+	pr_debug("forcing ocv to be %d due to bms reset mode\n", ocv_est_uv);
+	chip->last_ocv_uv = ocv_est_uv;
+	chip->last_soc = -EINVAL;
+	reset_cc(chip);
+	chip->last_cc_uah = INT_MIN;
+	stop_ocv_updates(chip);
+
+	pr_debug("bms reset to ocv = %duv vbat_ua = %d ibat_ua = %d\n",
+			chip->last_ocv_uv, vbat_uv, ibat_ua);
+
+	return rc;
+}
+
+static int bms_reset_set(const char *val, const struct kernel_param *kp)
+{
+	int rc;
+
+	rc = param_set_bool(val, kp);
+	if (rc) {
+		pr_err("Unable to set bms_reset: %d\n", rc);
+		return rc;
+	}
+
+	if (*(bool *)kp->arg) {
+		struct power_supply *bms_psy = power_supply_get_by_name("bms");
+		struct qpnp_bms_chip *chip = container_of(bms_psy,
+					struct qpnp_bms_chip, bms_psy);
+
+		rc = reset_bms_for_test(chip);
+		if (rc) {
+			pr_err("Unable to modify bms_reset: %d\n", rc);
+			return rc;
+		}
+	}
+	return 0;
+}
+
+static struct kernel_param_ops bms_reset_ops = {
+	.set = bms_reset_set,
+	.get = param_get_bool,
+};
+
+module_param_cb(bms_reset, &bms_reset_ops, &bms_reset, 0644);
+
 static int charging_adjustments(struct qpnp_bms_chip *chip,
 				struct soc_params *params, int soc,
 				int vbat_uv, int ibat_ua, int batt_temp)
@@ -1267,6 +1346,12 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 	soc_est = div_s64((s64)params->fcc_uah * pc_est - params->uuc_uah*100,
 				(s64)params->fcc_uah - params->uuc_uah);
 	soc_est = bound_soc(soc_est);
+
+	/* never adjust during bms reset mode */
+	if (bms_reset) {
+		pr_debug("bms reset mode, SOC adjustment skipped\n");
+		goto out;
+	}
 
 	if (ibat_ua < 0 && !is_batfet_open(chip)) {
 		soc = charging_adjustments(chip, params, soc, vbat_uv, ibat_ua,
