@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_cp_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -469,6 +469,7 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 {
 	unsigned long offset;
 	unsigned long secure_allocation = flags & ION_SECURE;
+	unsigned long force_contig = flags & ION_FORCE_CONTIGUOUS;
 
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
@@ -481,7 +482,8 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 		return ION_CP_ALLOCATE_FAIL;
 	}
 
-	if (!secure_allocation && cp_heap->disallow_non_secure_allocation) {
+	if (!force_contig && !secure_allocation &&
+	     cp_heap->disallow_non_secure_allocation) {
 		mutex_unlock(&cp_heap->lock);
 		pr_debug("%s: non-secure allocation disallowed from this heap\n",
 			__func__);

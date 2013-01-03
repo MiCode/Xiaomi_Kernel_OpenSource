@@ -76,6 +76,13 @@ enum cp_mem_usage {
 #define ION_SECURE (1 << ION_HEAP_ID_RESERVED)
 
 /**
+ * Flag for clients to force contiguous memort allocation
+ *
+ * Use of this flag is carefully monitored!
+ */
+#define ION_FORCE_CONTIGUOUS (1 << 30)
+
+/**
  * Macro should be used with ion_heap_ids defined above.
  */
 #define ION_HEAP(bit) (1 << (bit))
