@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -743,30 +743,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	adreno_ringbuffer_submit(rb);
 
 	return timestamp;
-}
-
-void
-adreno_ringbuffer_issuecmds_intr(struct kgsl_device *device,
-						struct kgsl_context *k_ctxt,
-						unsigned int *cmds,
-						int sizedwords)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
-	struct adreno_context *a_ctxt = NULL;
-
-	if (!k_ctxt)
-		return;
-
-	a_ctxt = k_ctxt->devctxt;
-
-	if (k_ctxt->id == KGSL_CONTEXT_INVALID ||
-		a_ctxt == NULL ||
-		device->state & KGSL_STATE_HUNG)
-		return;
-
-	adreno_ringbuffer_addcmds(rb, a_ctxt, KGSL_CMD_FLAGS_INTERNAL_ISSUE,
-					cmds, sizedwords, 0);
 }
 
 unsigned int
