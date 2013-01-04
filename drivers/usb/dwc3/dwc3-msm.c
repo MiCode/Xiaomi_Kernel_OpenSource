@@ -198,6 +198,7 @@ struct dwc3_msm {
 	unsigned int		vdd_high_vol_level;
 	bool			vbus_active;
 	bool			ext_inuse;
+	enum dwc3_id_state	id_state;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1875,6 +1876,7 @@ static void dwc3_init_adc_work(struct work_struct *w);
 static void dwc3_ext_notify_online(int on)
 {
 	struct dwc3_msm *mdwc = context;
+	bool notify_otg = false;
 
 	if (!mdwc) {
 		pr_err("%s: DWC3 driver already removed\n", __func__);
@@ -1887,14 +1889,27 @@ static void dwc3_ext_notify_online(int on)
 		mdwc->ext_vbus_psy = power_supply_get_by_name("ext-vbus");
 
 	mdwc->ext_inuse = on;
-	if (on)
+	if (on) {
+		/* force OTG to exit B-peripheral state */
+		mdwc->ext_xceiv.bsv = false;
+		notify_otg = true;
 		dwc3_start_chg_det(&mdwc->charger, false);
-	else
-		/* external client offline; revert back to USB */
-		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
+	} else {
+		/* external client offline; tell OTG about cached ID/BSV */
+		if (mdwc->ext_xceiv.id != mdwc->id_state) {
+			mdwc->ext_xceiv.id = mdwc->id_state;
+			notify_otg = true;
+		}
+
+		mdwc->ext_xceiv.bsv = mdwc->vbus_active;
+		notify_otg |= mdwc->vbus_active;
+	}
 
 	if (mdwc->ext_vbus_psy)
 		power_supply_set_present(mdwc->ext_vbus_psy, on);
+
+	if (notify_otg)
+		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
 }
 
 static bool dwc3_ext_trigger_handled(struct dwc3_msm *mdwc,
@@ -1928,19 +1943,22 @@ static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 	if (!mdwc->ext_inuse)
 		dwc3_ext_trigger_handled(mdwc, (state == ADC_TM_HIGH_STATE));
 
+	/* save ID state, but don't necessarily notify OTG */
 	if (state == ADC_TM_HIGH_STATE) {
-		mdwc->ext_xceiv.id = DWC3_ID_FLOAT;
+		mdwc->id_state = DWC3_ID_FLOAT;
 		mdwc->adc_param.state_request = ADC_TM_LOW_THR_ENABLE;
 	} else {
-		mdwc->ext_xceiv.id = DWC3_ID_GROUND;
+		mdwc->id_state = DWC3_ID_GROUND;
 		mdwc->adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
 	}
 
 	/* re-arm ADC interrupt */
 	qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
 
-	if (!mdwc->ext_inuse) /* notify OTG */
+	if (!mdwc->ext_inuse) { /* notify OTG */
+		mdwc->ext_xceiv.id = mdwc->id_state;
 		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
+	}
 }
 
 static void dwc3_init_adc_work(struct work_struct *w)
