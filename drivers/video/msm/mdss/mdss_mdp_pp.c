@@ -887,7 +887,7 @@ static int pp_get_dspp_num(u32 disp_num, u32 *dspp_num)
 {
 	int i;
 	u32 mixer_cnt;
-	u32 mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 
 	if (!mixer_cnt)
@@ -1599,7 +1599,7 @@ int mdss_mdp_histogram_start(struct mdp_histogram_start_req *req)
 	struct pp_hist_col_info *hist_info;
 	int i, ret = 0;
 	u32 disp_num, dspp_num = 0;
-	u32 mixer_cnt, mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+	u32 mixer_cnt, mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	unsigned long flag;
 
 	if ((req->block < MDP_LOGICAL_BLOCK_DISP_0) ||
@@ -1667,7 +1667,7 @@ int mdss_mdp_histogram_stop(u32 block)
 	int i, ret = 0;
 	u32 dspp_num, disp_num, ctl_base, done_bit;
 	struct pp_hist_col_info *hist_info;
-	u32 mixer_cnt, mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+	u32 mixer_cnt, mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	unsigned long flag;
 
 	if ((block < MDP_LOGICAL_BLOCK_DISP_0) ||
@@ -1726,7 +1726,7 @@ int mdss_mdp_hist_collect(struct fb_info *info,
 	u32 timeout, v_base;
 	struct pp_hist_col_info *hist_info;
 	u32 dspp_num, disp_num, ctl_base;
-	u32 mixer_cnt, mixer_id[MDSS_MDP_MAX_LAYERMIXER];
+	u32 mixer_cnt, mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	unsigned long flag;
 
 	if ((hist->block < MDP_LOGICAL_BLOCK_DISP_0) ||

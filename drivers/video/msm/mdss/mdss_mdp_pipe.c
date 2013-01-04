@@ -25,8 +25,8 @@ static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
 static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
-static struct mdss_mdp_pipe mdss_mdp_pipe_list[MDSS_MDP_MAX_SSPP];
-
+static struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
+						  u32 ndx);
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
 
 static u32 mdss_mdp_smp_mmb_reserve(unsigned long *smp, size_t n)
@@ -119,42 +119,10 @@ static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 {
-	u32 client_id;
 	int i;
-
-	switch (pipe->num) {
-	case MDSS_MDP_SSPP_VIG0:
-		client_id = MDSS_MDP_SMP_CLIENT_VIG0_FETCH_Y;
-		break;
-	case MDSS_MDP_SSPP_VIG1:
-		client_id = MDSS_MDP_SMP_CLIENT_VIG1_FETCH_Y;
-		break;
-	case MDSS_MDP_SSPP_VIG2:
-		client_id = MDSS_MDP_SMP_CLIENT_VIG2_FETCH_Y;
-		break;
-	case MDSS_MDP_SSPP_RGB0:
-		client_id = MDSS_MDP_SMP_CLIENT_RGB0_FETCH;
-		break;
-	case MDSS_MDP_SSPP_RGB1:
-		client_id = MDSS_MDP_SMP_CLIENT_RGB1_FETCH;
-		break;
-	case MDSS_MDP_SSPP_RGB2:
-		client_id = MDSS_MDP_SMP_CLIENT_RGB2_FETCH;
-		break;
-	case MDSS_MDP_SSPP_DMA0:
-		client_id = MDSS_MDP_SMP_CLIENT_DMA0_FETCH_Y;
-		break;
-	case MDSS_MDP_SSPP_DMA1:
-		client_id = MDSS_MDP_SMP_CLIENT_DMA1_FETCH_Y;
-		break;
-	default:
-		pr_err("no valid smp client for pnum=%d\n", pipe->num);
-		return -EINVAL;
-	}
-
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < pipe->src_planes.num_planes; i++)
-		mdss_mdp_smp_mmb_set(client_id + i, &pipe->smp[i]);
+		mdss_mdp_smp_mmb_set(pipe->ftch_id + i, &pipe->smp[i]);
 	mutex_unlock(&mdss_mdp_smp_lock);
 	return 0;
 }
@@ -179,86 +147,132 @@ int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
-static struct mdss_mdp_pipe *mdss_mdp_pipe_init(
-		struct mdss_mdp_mixer *mixer, u32 pnum)
+static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
+						u32 type)
 {
-	struct mdss_mdp_pipe *pipe = NULL;
+	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata;
+	struct mdss_mdp_pipe *pipe_pool = NULL;
+	u32 npipes;
+	u32 i;
 
 	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
 		return NULL;
 
 	mdata = mixer->ctl->mdata;
-	pipe = &mdss_mdp_pipe_list[pnum];
 
-	if (atomic_cmpxchg(&pipe->ref_cnt, 0, 1) == 0) {
-		pipe->num = pnum;
-		pipe->type = mdss_res->pipe_type_map[pnum];
-		pipe->ndx = BIT(pnum);
-		pipe->base = mdata->mdp_base + MDSS_MDP_REG_SSPP_OFFSET(pnum);
+	switch (type) {
+	case MDSS_MDP_PIPE_TYPE_VIG:
+		pipe_pool = mdata->vig_pipes;
+		npipes = mdata->nvig_pipes;
+		break;
+
+	case MDSS_MDP_PIPE_TYPE_RGB:
+		pipe_pool = mdata->rgb_pipes;
+		npipes = mdata->nrgb_pipes;
+		break;
+
+	case MDSS_MDP_PIPE_TYPE_DMA:
+		pipe_pool = mdata->dma_pipes;
+		npipes = mdata->ndma_pipes;
+		break;
+
+	default:
+		npipes = 0;
+		pr_err("invalid pipe type %d\n", type);
+		break;
+	}
+
+	for (i = 0; i < npipes; i++) {
+		pipe = pipe_pool + i;
+		if (atomic_cmpxchg(&pipe->ref_cnt, 0, 1) == 0) {
+			pipe->mixer = mixer;
+			break;
+		}
+		pipe = NULL;
+	}
+
+	if (pipe)
+		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
+	else
+		pr_err("no %d type pipes available\n", type);
+
+	return pipe;
+}
+
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_pipe *pipe = NULL;
+	struct mdss_data_type *mdata;
+	u32 pnum;
+
+	mutex_lock(&mdss_mdp_sspp_lock);
+	mdata = mixer->ctl->mdata;
+	pnum = mixer->num;
+
+	if (atomic_cmpxchg(&((mdata->dma_pipes[pnum]).ref_cnt), 0, 1) == 0) {
+		pipe = &mdata->dma_pipes[pnum];
 		pipe->mixer = mixer;
 
-		pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
-
-		return pipe;
+	} else {
+		pr_err("DMA pnum%d\t not available\n", pnum);
 	}
 
-	return NULL;
-}
-
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(
-		struct mdss_mdp_mixer *mixer, u32 pnum)
-{
-	struct mdss_mdp_pipe *pipe = NULL;
-	mutex_lock(&mdss_mdp_sspp_lock);
-	if (mdss_res->pipe_type_map[pnum] != MDSS_MDP_PIPE_TYPE_UNUSED)
-		pipe = mdss_mdp_pipe_init(mixer, pnum);
 	mutex_unlock(&mdss_mdp_sspp_lock);
 	return pipe;
 }
 
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(
-		struct mdss_mdp_mixer *mixer, u32 type)
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
+						 u32 type)
 {
-	struct mdss_mdp_pipe *pipe = NULL;
-	int pnum;
-
+	struct mdss_mdp_pipe *pipe;
 	mutex_lock(&mdss_mdp_sspp_lock);
-	for (pnum = 0; pnum < MDSS_MDP_MAX_SSPP; pnum++) {
-		if (type == mdss_res->pipe_type_map[pnum]) {
-			pipe = mdss_mdp_pipe_init(mixer, pnum);
-			if (pipe)
-				break;
-		}
-	}
+	pipe = mdss_mdp_pipe_init(mixer, type);
 	mutex_unlock(&mdss_mdp_sspp_lock);
-
 	return pipe;
 }
 
-struct mdss_mdp_pipe *mdss_mdp_pipe_get(u32 ndx)
+struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx)
 {
 	struct mdss_mdp_pipe *pipe = NULL;
-	int i;
 
 	if (!ndx)
 		return ERR_PTR(-EINVAL);
 
 	mutex_lock(&mdss_mdp_sspp_lock);
-	for (i = 0; i < MDSS_MDP_MAX_SSPP; i++) {
-		pipe = &mdss_mdp_pipe_list[i];
-		if (ndx == pipe->ndx) {
-			if (mdss_mdp_pipe_map(pipe))
-				pipe = ERR_PTR(-EACCES);
-			break;
-		}
-	}
+
+	pipe = mdss_mdp_pipe_search(mdata, ndx);
+	if (!pipe)
+		return ERR_PTR(-EINVAL);
+
+	if (mdss_mdp_pipe_map(pipe))
+		return ERR_PTR(-EACCES);
+
 	mutex_unlock(&mdss_mdp_sspp_lock);
 
-	if (i == MDSS_MDP_MAX_SSPP)
-		return ERR_PTR(-ENODEV);
-
 	return pipe;
+}
+
+static struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
+						  u32 ndx)
+{
+	u32 i;
+	for (i = 0; i < mdata->nvig_pipes; i++) {
+		if (mdata->vig_pipes[i].ndx == ndx)
+			return &mdata->vig_pipes[i];
+	}
+
+	for (i = 0; i < mdata->nrgb_pipes; i++) {
+		if (mdata->rgb_pipes[i].ndx == ndx)
+			return &mdata->rgb_pipes[i];
+	}
+
+	for (i = 0; i < mdata->ndma_pipes; i++) {
+		if (mdata->dma_pipes[i].ndx == ndx)
+			return &mdata->dma_pipes[i];
+	}
+
+	return NULL;
 }
 
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
@@ -615,6 +629,53 @@ static void mdss_mdp_addr_add_offset(struct mdss_mdp_pipe *pipe,
 				(yoff * pipe->src_planes.ystride[2]);
 		}
 	}
+}
+
+int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata, u32 *offsets,
+				u32 *ftch_id, u32 type, u32 num_base, u32 len)
+{
+	struct mdss_mdp_pipe *head;
+	u32 i;
+	int rc = 0;
+
+	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_pipe) *
+			len, GFP_KERNEL);
+
+	if (!head) {
+		pr_err("unable to setup pipe type=%d :devm_kzalloc fail\n",
+			type);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < len; i++) {
+		head[i].type = type;
+		head[i].ftch_id  = ftch_id[i];
+		head[i].num = i + num_base;
+		head[i].ndx = BIT(i + num_base);
+		head[i].base = mdata->mdp_base + offsets[i];
+	}
+
+	switch (type) {
+
+	case MDSS_MDP_PIPE_TYPE_VIG:
+		mdata->vig_pipes = head;
+		break;
+
+	case MDSS_MDP_PIPE_TYPE_RGB:
+		mdata->rgb_pipes = head;
+		break;
+
+	case MDSS_MDP_PIPE_TYPE_DMA:
+		mdata->dma_pipes = head;
+		break;
+
+	default:
+		pr_err("Invalid pipe type=%d\n", type);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
 }
 
 static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,

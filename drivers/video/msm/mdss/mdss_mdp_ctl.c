@@ -38,8 +38,6 @@ enum {
 #define MDSS_MDP_PERF_UPDATE_ALL -1
 
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
-static struct mdss_mdp_ctl mdss_mdp_ctl_list[MDSS_MDP_MAX_CTL];
-static struct mdss_mdp_mixer mdss_mdp_mixer_list[MDSS_MDP_MAX_LAYERMIXER];
 
 static inline void mdp_mixer_write(struct mdss_mdp_mixer *mixer,
 				   u32 reg, u32 val)
@@ -47,7 +45,7 @@ static inline void mdp_mixer_write(struct mdss_mdp_mixer *mixer,
 	writel_relaxed(val, mixer->base + reg);
 }
 
-static int mdss_mdp_ctl_perf_commit(u32 flags)
+static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 {
 	struct mdss_mdp_ctl *ctl;
 	int cnum;
@@ -60,8 +58,8 @@ static int mdss_mdp_ctl_perf_commit(u32 flags)
 	}
 
 	mutex_lock(&mdss_mdp_ctl_lock);
-	for (cnum = 0; cnum < MDSS_MDP_MAX_CTL; cnum++) {
-		ctl = &mdss_mdp_ctl_list[cnum];
+	for (cnum = 0; cnum < mdata->nctl; cnum++) {
+		ctl = mdata->ctl_off + cnum;
 		if (ctl->power_on) {
 			bus_ab_quota += ctl->bus_ab_quota;
 			bus_ib_quota += ctl->bus_ib_quota;
@@ -239,19 +237,16 @@ static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata)
 	int cnum;
 
 	mutex_lock(&mdss_mdp_ctl_lock);
-	for (cnum = 0; cnum < MDSS_MDP_MAX_CTL; cnum++) {
-		if (mdss_mdp_ctl_list[cnum].ref_cnt == 0) {
-			ctl = &mdss_mdp_ctl_list[cnum];
-			ctl->num = cnum;
+	for (cnum = 0; cnum < mdata->nctl; cnum++) {
+		ctl = mdata->ctl_off + cnum;
+		if (ctl->ref_cnt == 0) {
 			ctl->ref_cnt++;
 			ctl->mdata = mdata;
-			ctl->base = mdata->mdp_base +
-					MDSS_MDP_REG_CTL_OFFSET(cnum);
 			mutex_init(&ctl->lock);
-
 			pr_debug("alloc ctl_num=%d\n", ctl->num);
 			break;
 		}
+		ctl = NULL;
 	}
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
@@ -271,8 +266,7 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	}
 
 	mutex_lock(&mdss_mdp_ctl_lock);
-	if (--ctl->ref_cnt == 0)
-		memset(ctl, 0, sizeof(*ctl));
+	ctl->ref_cnt--;
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return 0;
@@ -282,27 +276,47 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		struct mdss_mdp_ctl *ctl, u32 type)
 {
 	struct mdss_mdp_mixer *mixer = NULL;
-	int mnum;
+	u32 nmixers_intf;
+	u32 nmixers_wb;
+	u32 i;
+	u32 nmixers;
+	struct mdss_mdp_mixer *mixer_pool = NULL;
 
 	if (!ctl || !ctl->mdata)
 		return NULL;
 
 	mutex_lock(&mdss_mdp_ctl_lock);
-	for (mnum = 0; mnum < MDSS_MDP_MAX_LAYERMIXER; mnum++) {
-		if (type == ctl->mdata->mixer_type_map[mnum] &&
-		    mdss_mdp_mixer_list[mnum].ref_cnt == 0) {
-			mixer = &mdss_mdp_mixer_list[mnum];
-			mixer->num = mnum;
+	nmixers_intf = ctl->mdata->nmixers_intf;
+	nmixers_wb = ctl->mdata->nmixers_wb;
+
+	switch (type) {
+
+	case MDSS_MDP_MIXER_TYPE_INTF:
+		mixer_pool = ctl->mdata->mixer_intf;
+		nmixers = nmixers_intf;
+		break;
+
+	case MDSS_MDP_MIXER_TYPE_WRITEBACK:
+		mixer_pool = ctl->mdata->mixer_wb;
+		nmixers = nmixers_wb;
+		break;
+
+	default:
+		nmixers = 0;
+		pr_err("invalid pipe type %d\n", type);
+		break;
+	}
+
+	for (i = 0; i < nmixers; i++) {
+		mixer = mixer_pool + i;
+		if (mixer->ref_cnt == 0) {
 			mixer->ref_cnt++;
 			mixer->params_changed++;
-			mixer->type = type;
-			mixer->base = ctl->mdata->mdp_base +
-				MDSS_MDP_REG_LM_OFFSET(mnum);
 			mixer->ctl = ctl;
-
-			pr_debug("mixer_num=%d\n", mixer->num);
+			pr_debug("alloc mixer num%d\n", mixer->num);
 			break;
 		}
+		mixer = NULL;
 	}
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
@@ -322,8 +336,7 @@ static int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer)
 	}
 
 	mutex_lock(&mdss_mdp_ctl_lock);
-	if (--mixer->ref_cnt == 0)
-		memset(mixer, 0, sizeof(*mixer));
+	mixer->ref_cnt--;
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return 0;
@@ -345,11 +358,11 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	mixer->rotator_mode = rotator;
 
 	switch (mixer->num) {
-	case MDSS_MDP_LAYERMIXER3:
+	case MDSS_MDP_WB_LAYERMIXER0:
 		ctl->opmode = (rotator ? MDSS_MDP_CTL_OP_ROT0_MODE :
 			       MDSS_MDP_CTL_OP_WB0_MODE);
 		break;
-	case MDSS_MDP_LAYERMIXER4:
+	case MDSS_MDP_WB_LAYERMIXER1:
 		ctl->opmode = (rotator ? MDSS_MDP_CTL_OP_ROT1_MODE :
 			       MDSS_MDP_CTL_OP_WB1_MODE);
 		break;
@@ -390,7 +403,7 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 	mdss_mdp_mixer_free(mixer);
 	mdss_mdp_ctl_free(ctl);
 
-	mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
+	mdss_mdp_ctl_perf_commit(ctl->mdata, MDSS_MDP_PERF_UPDATE_ALL);
 
 	return 0;
 }
@@ -476,6 +489,7 @@ static int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 		ctl->mixer_right->height = height;
 	} else if (ctl->mixer_right) {
 		mdss_mdp_mixer_free(ctl->mixer_right);
+		ctl->mixer_right = NULL;
 	}
 
 	if (ctl->mixer_right) {
@@ -666,10 +680,13 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
 		mdss_mdp_ctl_free(sctl);
 	} else if (ctl->mixer_right) {
 		mdss_mdp_mixer_free(ctl->mixer_right);
+		ctl->mixer_right = NULL;
 	}
 
-	if (ctl->mixer_left)
+	if (ctl->mixer_left) {
 		mdss_mdp_mixer_free(ctl->mixer_left);
+		ctl->mixer_left = NULL;
+	}
 	mdss_mdp_ctl_free(ctl);
 
 	return 0;
@@ -828,7 +845,7 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(
 					ctl->mixer_right->num), 0);
 		}
-		mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
+		mdss_mdp_ctl_perf_commit(ctl->mdata, MDSS_MDP_PERF_UPDATE_ALL);
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
@@ -934,6 +951,76 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 	off = MDSS_MDP_REG_LM_OFFSET(mixer->num);
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OP_MODE, blend_color_out);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(mixer->num), mixercfg);
+
+	return 0;
+}
+
+int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
+	 u32 *mixer_offsets, u32 *dspp_offsets, u32 type, u32 len)
+{
+	struct mdss_mdp_mixer *head;
+	u32 i;
+	int rc = 0;
+
+	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_mixer) *
+			len, GFP_KERNEL);
+
+	if (!head) {
+		pr_err("unable to setup mixer type=%d :kzalloc fail\n",
+			type);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < len; i++) {
+		head[i].type = type;
+		head[i].base = mdata->mdp_base + mixer_offsets[i];
+		head[i].ref_cnt = 0;
+		head[i].num = i;
+		if (type == MDSS_MDP_MIXER_TYPE_INTF)
+			head[i].dspp_base = mdata->mdp_base + dspp_offsets[i];
+	}
+
+	switch (type) {
+
+	case MDSS_MDP_MIXER_TYPE_INTF:
+		mdata->mixer_intf = head;
+		break;
+
+	case MDSS_MDP_MIXER_TYPE_WRITEBACK:
+		mdata->mixer_wb = head;
+		break;
+
+	default:
+		pr_err("Invalid mixer type=%d\n", type);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
+	u32 *ctl_offsets, u32 *wb_offsets, u32 len)
+{
+	struct mdss_mdp_ctl *head;
+	u32 i;
+
+	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_ctl) *
+			len, GFP_KERNEL);
+
+	if (!head) {
+		pr_err("unable to setup ctl and wb: kzalloc fail\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < len; i++) {
+		head[i].num = i;
+		head[i].base = (mdata->mdp_base) + ctl_offsets[i];
+		head[i].wb_base = (mdata->mdp_base) + wb_offsets[i];
+		head[i].ref_cnt = 0;
+	}
+
+	mdata->ctl_off = head;
 
 	return 0;
 }
@@ -1096,7 +1183,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 		}
 
 		if (perf_update == MDSS_MDP_PERF_UPDATE_EARLY)
-			mdss_mdp_ctl_perf_commit(update_flags);
+			mdss_mdp_ctl_perf_commit(ctl->mdata, update_flags);
 
 		if (mixer1_changed)
 			mdss_mdp_mixer_update(ctl->mixer_left);
@@ -1132,7 +1219,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 	ctl->play_cnt++;
 
 	if (perf_update == MDSS_MDP_PERF_UPDATE_LATE)
-		mdss_mdp_ctl_perf_commit(update_flags);
+		mdss_mdp_ctl_perf_commit(ctl->mdata, update_flags);
 
 done:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
@@ -1146,10 +1233,12 @@ int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id)
 {
 	int i;
 	struct mdss_mdp_ctl *ctl;
+	struct mdss_data_type *mdata;
 	u32 mixer_cnt = 0;
 	mutex_lock(&mdss_mdp_ctl_lock);
-	for (i = 0; i < MDSS_MDP_MAX_CTL; i++) {
-		ctl = &mdss_mdp_ctl_list[i];
+	mdata = mdss_mdp_get_mdata();
+	for (i = 0; i < mdata->nctl; i++) {
+		ctl = mdata->ctl_off + i;
 		if ((ctl->power_on) && (ctl->mfd) &&
 			(ctl->mfd->index == fb_num)) {
 			if (ctl->mixer_left) {

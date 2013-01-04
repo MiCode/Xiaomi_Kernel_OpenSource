@@ -356,7 +356,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	}
 	ctl->priv_data = ctx;
 	ctx->wb_num = ctl->num;	/* wb num should match ctl num */
-	ctx->base = ctl->mdata->mdp_base + MDSS_MDP_REG_WB_OFFSET(ctx->wb_num);
+	ctx->base = ctl->wb_base;
 	ctx->initialized = false;
 
 	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,

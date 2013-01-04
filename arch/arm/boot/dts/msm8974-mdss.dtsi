@@ -19,6 +19,24 @@
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 
+		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600
+					       0x00001A00>;
+		qcom,mdss-pipe-rgb-off = <0x00001E00 0x00002200
+					       0x00002600>;
+		qcom,mdss-pipe-dma-off = <0x00002A00 0x00002E00>;
+		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
+		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
+		qcom,mdss-pipe-dma-fetch-id = <10 13>;
+
+		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
+				     0x00000900 0x0000A00>;
+		qcom,mdss-mixer-intf-off = <0x00003200 0x00003600
+					    0x00003A00>;
+		qcom,mdss-mixer-wb-off = <0x00003E00 0x00004200>;
+		qcom,mdss-dspp-off = <0x00004600 0x00004A00 0x00004E00>;
+		qcom,mdss-wb-off = <0x00011100 0x00013100 0x00015100
+				    0x00017100 0x00019100>;
+
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
