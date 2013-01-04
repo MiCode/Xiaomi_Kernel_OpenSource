@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -559,6 +559,12 @@
 		qcom,vin-sel = <0>; /* PM8841_VPH 3.4V */
 		qcom,src-sel = <0>; /* CONSTANT */
 		qcom,master-en = <1>; /* ENABLE MPP */
+	};
+};
+
+&slim_msm {
+	taiko_codec {
+		qcom,cdc-micbias2-ext-cap;
 	};
 };
 
