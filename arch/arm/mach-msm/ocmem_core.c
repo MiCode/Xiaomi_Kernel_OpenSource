@@ -488,7 +488,7 @@ static int ocmem_gfx_mpu_set(unsigned long offset, unsigned long len)
 	if (mpu_start < 0)
 		/* Avoid underflow */
 		mpu_start = 0;
-	mpu_end = ((offset+len) >> GFX_MPU_SHIFT) - 1;
+	mpu_end = ((offset+len) >> GFX_MPU_SHIFT);
 	BUG_ON(mpu_end < 0);
 
 	pr_debug("ocmem: mpu: start %x end %x\n", mpu_start, mpu_end);
