@@ -232,6 +232,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 
 	prtd->enabled = 1;
 	prtd->cmd_ack = 0;
+	prtd->cmd_interrupt = 0;
 
 	return 0;
 }
