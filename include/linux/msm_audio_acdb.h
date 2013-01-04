@@ -1,5 +1,5 @@
-#ifndef __MSM_AUDIO_ACDB_H
-#define __MSM_AUDIO_ACDB_H
+#ifndef _LINUX_MSM_AUDIO_ACDB_H
+#define _LINUX_MSM_AUDIO_ACDB_H
 
 #include <linux/msm_audio.h>
 
@@ -47,6 +47,8 @@
 			(AUDIO_MAX_COMMON_IOCTL_NUM+20), unsigned)
 #define AUDIO_SET_VOCPROC_DEV_CFG_CAL	_IOW(AUDIO_IOCTL_MAGIC, \
 			(AUDIO_MAX_COMMON_IOCTL_NUM+21), unsigned)
+#define AUDIO_SET_LSM_CAL		_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+22), unsigned)
 
 #define	AUDIO_MAX_ACDB_IOCTL	(AUDIO_MAX_COMMON_IOCTL_NUM+30)
 
@@ -85,4 +87,4 @@ struct sidetone_cal {
 
 #define	AUDIO_MAX_RTAC_IOCTL	(AUDIO_MAX_ACDB_IOCTL+20)
 
-#endif /* __MSM_AUDIO_ACDB_H */
+#endif /* _LINUX_MSM_AUDIO_ACDB_H */
