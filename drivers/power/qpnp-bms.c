@@ -93,6 +93,7 @@ struct soc_params {
 	int		iavg_ua;
 	int		uuc_uah;
 	int		ocv_charge_uah;
+	int		delta_time_s;
 };
 
 struct raw_soc_params {
@@ -567,7 +568,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
 		convert_and_store_ocv(chip, raw);
 		/* forget the old cc value upon ocv */
-		chip->last_cc_uah = 0;
+		chip->last_cc_uah = INT_MIN;
 	} else {
 		raw->last_good_ocv_uv = chip->last_ocv_uv;
 	}
@@ -711,45 +712,17 @@ static int get_rbatt(struct qpnp_bms_chip *chip,
 }
 
 static void calculate_iavg(struct qpnp_bms_chip *chip, int cc_uah,
-				int *iavg_ua)
+				int *iavg_ua, int delta_time_s)
 {
-	int delta_cc_uah, delta_time_s, rc;
-	struct rtc_time tm;
-	struct rtc_device *rtc;
-	unsigned long now_tm_sec = 0;
+	int delta_cc_uah = 0;
 
-	rc = 0;
 	/* if anything fails report the previous iavg_ua */
 	*iavg_ua = chip->prev_iavg_ua;
 
-	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
-	if (rtc == NULL) {
-		pr_err("%s: unable to open rtc device (%s)\n",
-			__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
-		goto out;
-	}
-
-	rc = rtc_read_time(rtc, &tm);
-	if (rc) {
-		pr_err("Error reading rtc device (%s) : %d\n",
-			CONFIG_RTC_HCTOSYS_DEVICE, rc);
-		goto out;
-	}
-
-	rc = rtc_valid_tm(&tm);
-	if (rc) {
-		pr_err("Invalid RTC time (%s): %d\n",
-			CONFIG_RTC_HCTOSYS_DEVICE, rc);
-		goto out;
-	}
-	rtc_tm_to_time(&tm, &now_tm_sec);
-
-	if (chip->tm_sec == 0) {
+	if (chip->last_cc_uah == INT_MIN) {
 		get_battery_current(chip, iavg_ua);
 		goto out;
 	}
-
-	delta_time_s = (now_tm_sec - chip->tm_sec);
 
 	/* use the previous iavg if called within 15 seconds */
 	if (delta_time_s < 15) {
@@ -761,19 +734,13 @@ static void calculate_iavg(struct qpnp_bms_chip *chip, int cc_uah,
 
 	*iavg_ua = div_s64((s64)delta_cc_uah * 3600, delta_time_s);
 
-	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_s = %d delta_cc = %d iavg_ua = %d\n",
-				chip->tm_sec, now_tm_sec,
-				delta_time_s, delta_cc_uah, (int)*iavg_ua);
-
 out:
+	pr_debug("delta_cc = %d iavg_ua = %d\n", delta_cc_uah, (int)*iavg_ua);
 	/* remember the iavg */
 	chip->prev_iavg_ua = *iavg_ua;
 
 	/* remember cc_uah */
 	chip->last_cc_uah = cc_uah;
-
-	/* remember this time */
-	chip->tm_sec = now_tm_sec;
 }
 
 static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
@@ -825,6 +792,7 @@ static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
 	return uuc_uah;
 }
 
+#define TIME_PER_PERCENT_UUC			60
 static int adjust_uuc(struct qpnp_bms_chip *chip,
 			struct soc_params *params,
 			int new_pc_unusable,
@@ -833,18 +801,23 @@ static int adjust_uuc(struct qpnp_bms_chip *chip,
 {
 	int new_unusable_mv, new_iavg_ma;
 	int batt_temp_degc = batt_temp / 10;
+	int max_percent_change;
+
+	max_percent_change = max(params->delta_time_s
+				/ TIME_PER_PERCENT_UUC, 1);
 
 	if (chip->prev_pc_unusable == -EINVAL
-		|| abs(chip->prev_pc_unusable - new_pc_unusable) <= 1) {
+		|| abs(chip->prev_pc_unusable - new_pc_unusable)
+			<= max_percent_change) {
 		chip->prev_pc_unusable = new_pc_unusable;
 		return new_uuc_uah;
 	}
 
 	/* the uuc is trying to change more than 1% restrict it */
 	if (new_pc_unusable > chip->prev_pc_unusable)
-		chip->prev_pc_unusable++;
+		chip->prev_pc_unusable += max_percent_change;
 	else
-		chip->prev_pc_unusable--;
+		chip->prev_pc_unusable -= max_percent_change;
 
 	new_uuc_uah = (params->fcc_uah * chip->prev_pc_unusable) / 100;
 
@@ -974,6 +947,58 @@ static void find_ocv_for_soc(struct qpnp_bms_chip *chip,
 	params->ocv_charge_uah = (int)ocv_charge_uah;
 }
 
+static int get_current_time(unsigned long *now_tm_sec)
+{
+	struct rtc_time tm;
+	struct rtc_device *rtc;
+	int rc;
+
+	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+	if (rtc == NULL) {
+		pr_err("%s: unable to open rtc device (%s)\n",
+			__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
+		rc = -EINVAL;
+		goto close_time;
+	}
+
+	rc = rtc_read_time(rtc, &tm);
+	if (rc) {
+		pr_err("Error reading rtc device (%s) : %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto close_time;
+	}
+
+	rc = rtc_valid_tm(&tm);
+	if (rc) {
+		pr_err("Invalid RTC time (%s): %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto close_time;
+	}
+	rtc_tm_to_time(&tm, now_tm_sec);
+
+close_time:
+	rtc_class_close(rtc);
+	return rc;
+}
+
+static int calculate_delta_time(struct qpnp_bms_chip *chip, int *delta_time_s)
+{
+	unsigned long now_tm_sec = 0;
+
+	/* default to delta time = 0 if anything fails */
+	*delta_time_s = 0;
+
+	get_current_time(&now_tm_sec);
+
+	*delta_time_s = (now_tm_sec - chip->tm_sec);
+	pr_debug("tm_sec = %ld, now_tm_sec = %ld delta_s = %d\n",
+		chip->tm_sec, now_tm_sec, *delta_time_s);
+
+	/* remember this time */
+	chip->tm_sec = now_tm_sec;
+	return 0;
+}
+
 static void calculate_soc_params(struct qpnp_bms_chip *chip,
 						struct raw_soc_params *raw,
 						struct soc_params *params,
@@ -981,6 +1006,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 {
 	int soc_rbatt;
 
+	calculate_delta_time(chip, &params->delta_time_s);
 	params->fcc_uah = calculate_fcc(chip, batt_temp);
 	pr_debug("FCC = %uuAh batt_temp = %d\n", params->fcc_uah, batt_temp);
 
@@ -1004,7 +1030,8 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 		soc_rbatt = 0;
 	params->rbatt_mohm = get_rbatt(chip, soc_rbatt, batt_temp);
 
-	calculate_iavg(chip, params->cc_uah, &params->iavg_ua);
+	calculate_iavg(chip, params->cc_uah, &params->iavg_ua,
+						params->delta_time_s);
 
 	params->uuc_uah = calculate_unusable_charge_uah(chip, params,
 							batt_temp);
@@ -2026,6 +2053,7 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->calculated_soc = -EINVAL;
 	chip->last_soc = -EINVAL;
 	chip->last_soc_est = -EINVAL;
+	chip->last_cc_uah = INT_MIN;
 	chip->first_time_calc_soc = 1;
 	chip->first_time_calc_uuc = 1;
 }
