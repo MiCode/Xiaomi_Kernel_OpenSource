@@ -1,6 +1,6 @@
 /* Qualcomm Crypto driver
  *
- * Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1043,7 +1043,7 @@ static int qcrypto_aead_ccm_format_adata(struct qce_req *qreq, uint32_t alen,
 	}
 	adata += len;
 	qreq->assoclen = ALIGN((alen + len), 16);
-	for (l = alen; l > 0; sg = sg_next(sg)) {
+	for (l = alen; l > 0; sg = scatterwalk_sg_next(sg)) {
 		memcpy(adata, sg_virt(sg), sg->length);
 		l -= sg->length;
 		adata += sg->length;
@@ -2118,7 +2118,7 @@ static int qcrypto_count_sg(struct scatterlist *sg, int nbytes)
 {
 	int i;
 
-	for (i = 0; nbytes > 0; i++, sg = sg_next(sg))
+	for (i = 0; nbytes > 0; i++, sg = scatterwalk_sg_next(sg))
 		nbytes -= sg->length;
 
 	return i;
