@@ -39,14 +39,14 @@ static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
 {
 	struct mdss_mdp_pipe *pipe;
 
-	pipe = mdss_mdp_pipe_get_locked(req->id);
-	if (pipe == NULL) {
+	pipe = mdss_mdp_pipe_get(req->id);
+	if (IS_ERR_OR_NULL(pipe)) {
 		pr_err("invalid pipe ndx=%x\n", req->id);
-		return -ENODEV;
+		return pipe ? PTR_ERR(pipe) : -ENODEV;
 	}
 
 	*req = pipe->req_data;
-	mdss_mdp_pipe_unlock(pipe);
+	mdss_mdp_pipe_unmap(pipe);
 
 	return 0;
 }
@@ -280,12 +280,12 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		else
 			pipe_type = MDSS_MDP_PIPE_TYPE_RGB;
 
-		pipe = mdss_mdp_pipe_alloc_locked(pipe_type);
+		pipe = mdss_mdp_pipe_alloc(pipe_type);
 
 		/* VIG pipes can also support RGB format */
 		if (!pipe && pipe_type == MDSS_MDP_PIPE_TYPE_RGB) {
 			pipe_type = MDSS_MDP_PIPE_TYPE_VIG;
-			pipe = mdss_mdp_pipe_alloc_locked(pipe_type);
+			pipe = mdss_mdp_pipe_alloc(pipe_type);
 		}
 
 		if (pipe == NULL) {
@@ -293,16 +293,23 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 			return -ENOMEM;
 		}
 
+		ret = mdss_mdp_pipe_map(pipe);
+		if (ret) {
+			pr_err("unable to map pipe=%d\n", pipe->num);
+			return ret;
+		}
+
 		mutex_lock(&mfd->lock);
 		list_add(&pipe->used_list, &mfd->pipes_used);
 		mutex_unlock(&mfd->lock);
 		pipe->mixer = mixer;
 		pipe->mfd = mfd;
+		pipe->play_cnt = 0;
 	} else {
-		pipe = mdss_mdp_pipe_get_locked(req->id);
-		if (pipe == NULL) {
+		pipe = mdss_mdp_pipe_get(req->id);
+		if (IS_ERR_OR_NULL(pipe)) {
 			pr_err("invalid pipe ndx=%x\n", req->id);
-			return -ENODEV;
+			return pipe ? PTR_ERR(pipe) : -ENODEV;
 		}
 	}
 
@@ -353,7 +360,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 
 	*ppipe = pipe;
 
-	mdss_mdp_pipe_unlock(pipe);
+	mdss_mdp_pipe_unmap(pipe);
 
 	return ret;
 }
@@ -498,8 +505,8 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 		pipe_ndx = BIT(i);
 		if (pipe_ndx & ndx) {
 			unset_ndx |= pipe_ndx;
-			pipe = mdss_mdp_pipe_get_locked(pipe_ndx);
-			if (!pipe) {
+			pipe = mdss_mdp_pipe_get(pipe_ndx);
+			if (IS_ERR_OR_NULL(pipe)) {
 				pr_warn("unknown pipe ndx=%x\n", pipe_ndx);
 				continue;
 			}
@@ -508,6 +515,7 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 			list_add(&pipe->cleanup_list, &mfd->pipes_cleanup);
 			mutex_unlock(&mfd->lock);
 			mdss_mdp_mixer_pipe_unstage(pipe);
+			mdss_mdp_pipe_unmap(pipe);
 		}
 	}
 	return 0;
@@ -638,10 +646,10 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	int ret;
 	u32 flags;
 
-	pipe = mdss_mdp_pipe_get_locked(req->id);
-	if (pipe == NULL) {
+	pipe = mdss_mdp_pipe_get(req->id);
+	if (IS_ERR_OR_NULL(pipe)) {
 		pr_err("pipe ndx=%x doesn't exist\n", req->id);
-		return -ENODEV;
+		return pipe ? PTR_ERR(pipe) : -ENODEV;
 	}
 
 	pr_debug("ov queue pnum=%d\n", pipe->num);
@@ -664,7 +672,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 			mdss_mdp_overlay_free_buf(src_data);
 	}
 	ctl = pipe->mixer->ctl;
-	mdss_mdp_pipe_unlock(pipe);
+	mdss_mdp_pipe_unmap(pipe);
 
 	return ret;
 }
@@ -844,9 +852,12 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		return;
 	}
 
-	mdss_mdp_pipe_lock(pipe);
+	if (mdss_mdp_pipe_map(pipe)) {
+		pr_err("unable to map base pipe\n");
+		return;
+	}
 	ret = mdss_mdp_pipe_queue_data(pipe, &data);
-	mdss_mdp_pipe_unlock(pipe);
+	mdss_mdp_pipe_unmap(pipe);
 	if (ret) {
 		pr_err("unable to queue data\n");
 		return;
@@ -859,9 +870,12 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 			pr_err("unable to allocate right base pipe\n");
 			return;
 		}
-		mdss_mdp_pipe_lock(pipe);
+		if (mdss_mdp_pipe_map(pipe)) {
+			pr_err("unable to map right base pipe\n");
+			return;
+		}
 		ret = mdss_mdp_pipe_queue_data(pipe, &data);
-		mdss_mdp_pipe_unlock(pipe);
+		mdss_mdp_pipe_unmap(pipe);
 		if (ret) {
 			pr_err("unable to queue right data\n");
 			return;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,8 @@ static DEFINE_MUTEX(mdss_mdp_smp_lock);
 static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
 static struct mdss_mdp_pipe mdss_mdp_pipe_list[MDSS_MDP_MAX_SSPP];
+
+static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
 
 static u32 mdss_mdp_smp_mmb_reserve(unsigned long *smp, size_t n)
 {
@@ -157,47 +159,43 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
-void mdss_mdp_pipe_unlock(struct mdss_mdp_pipe *pipe)
+void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe)
 {
-	atomic_dec(&pipe->ref_cnt);
-	mutex_unlock(&pipe->lock);
+	int tmp;
+
+	tmp = atomic_dec_return(&pipe->ref_cnt);
+
+	WARN(tmp < 0, "Invalid unmap with ref_cnt=%d", tmp);
+	if (tmp == 0)
+		mdss_mdp_pipe_free(pipe);
 }
 
-int mdss_mdp_pipe_lock(struct mdss_mdp_pipe *pipe)
+int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe)
 {
-	if (atomic_inc_not_zero(&pipe->ref_cnt)) {
-		if (mutex_lock_interruptible(&pipe->lock)) {
-			atomic_dec(&pipe->ref_cnt);
-			return -EINTR;
-		}
-		return 0;
+	if (!atomic_inc_not_zero(&pipe->ref_cnt)) {
+		pr_err("attempting to map unallocated pipe (%d)", pipe->num);
+		return -EINVAL;
 	}
-	return -EINVAL;
+	return 0;
 }
 
 static struct mdss_mdp_pipe *mdss_mdp_pipe_init(u32 pnum)
 {
-	struct mdss_mdp_pipe *pipe = NULL;
+	struct mdss_mdp_pipe *pipe;
 
-	if (atomic_read(&mdss_mdp_pipe_list[pnum].ref_cnt) == 0) {
-		pipe = &mdss_mdp_pipe_list[pnum];
-		memset(pipe, 0, sizeof(*pipe));
+	pipe = &mdss_mdp_pipe_list[pnum];
 
-		mutex_init(&pipe->lock);
-		atomic_set(&pipe->ref_cnt, 1);
+	if (atomic_cmpxchg(&pipe->ref_cnt, 0, 1) == 0) {
+		pipe->num = pnum;
+		pipe->type = mdss_res->pipe_type_map[pnum];
+		pipe->ndx = BIT(pnum);
 
-		if (mdss_mdp_pipe_lock(pipe) == 0) {
-			pipe->num = pnum;
-			pipe->type = mdss_res->pipe_type_map[pnum];
-			pipe->ndx = BIT(pnum);
+		pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
 
-			pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
-		} else {
-			atomic_set(&pipe->ref_cnt, 0);
-			pipe = NULL;
-		}
+		return pipe;
 	}
-	return pipe;
+
+	return NULL;
 }
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum)
@@ -210,7 +208,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum)
 	return pipe;
 }
 
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_locked(u32 type)
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(u32 type)
 {
 	struct mdss_mdp_pipe *pipe = NULL;
 	int pnum;
@@ -228,55 +226,58 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_locked(u32 type)
 	return pipe;
 }
 
-struct mdss_mdp_pipe *mdss_mdp_pipe_get_locked(u32 ndx)
+struct mdss_mdp_pipe *mdss_mdp_pipe_get(u32 ndx)
 {
 	struct mdss_mdp_pipe *pipe = NULL;
 	int i;
 
 	if (!ndx)
-		return NULL;
+		return ERR_PTR(-EINVAL);
 
 	mutex_lock(&mdss_mdp_sspp_lock);
 	for (i = 0; i < MDSS_MDP_MAX_SSPP; i++) {
 		pipe = &mdss_mdp_pipe_list[i];
-		if (ndx == pipe->ndx)
+		if (ndx == pipe->ndx) {
+			if (mdss_mdp_pipe_map(pipe))
+				pipe = ERR_PTR(-EACCES);
 			break;
+		}
 	}
 	mutex_unlock(&mdss_mdp_sspp_lock);
 
 	if (i == MDSS_MDP_MAX_SSPP)
-		return NULL;
-
-	if (mdss_mdp_pipe_lock(pipe))
-		return NULL;
-
-	if (pipe->ndx != ndx) {
-		mdss_mdp_pipe_unlock(pipe);
-		pipe = NULL;
-	}
+		return ERR_PTR(-ENODEV);
 
 	return pipe;
 }
 
-
-static void mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
-{
-	mdss_mdp_smp_free(pipe);
-	pipe->ndx = 0;
-	atomic_dec(&pipe->ref_cnt);
-	mdss_mdp_pipe_unlock(pipe);
-}
-
-int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
+static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
 {
 	pr_debug("ndx=%x pnum=%d ref_cnt=%d\n", pipe->ndx, pipe->num,
 			atomic_read(&pipe->ref_cnt));
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mdss_mdp_pipe_free(pipe);
+	mdss_mdp_smp_free(pipe);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	return 0;
+}
+
+int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
+{
+	int tmp;
+
+	tmp = atomic_dec_return(&pipe->ref_cnt);
+
+	if (tmp != 0) {
+		pr_err("unable to free pipe %d while still in use (%d)\n",
+				pipe->num, tmp);
+		return -EBUSY;
+	}
+	mdss_mdp_pipe_free(pipe);
+
+	return 0;
+
 }
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
