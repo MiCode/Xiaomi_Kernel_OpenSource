@@ -24,24 +24,11 @@
 #define SYNAPTICS_RMI4_DS5 0x0002
 #define SYNAPTICS_RMI4_DRIVER_PRODUCT SYNAPTICS_RMI4_DS4
 #define SYNAPTICS_RMI4_DRIVER_VERSION 0x1001
+#define SYNAPTICS_RMI4_DRIVER_VERSION_STRING "0x1001"
 
 #include <linux/version.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
-#endif
-
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38))
-#define KERNEL_ABOVE_2_6_38
-#endif
-
-#ifdef KERNEL_ABOVE_2_6_38
-#define sstrtoul(...) kstrtoul(__VA_ARGS__)
-#else
-#define sstrtoul(...) strict_strtoul(__VA_ARGS__)
-#endif
-
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 7, 0))
-#define KERNEL_ABOVE_3_7
 #endif
 
 #define PDT_PROPS (0x00EF)
