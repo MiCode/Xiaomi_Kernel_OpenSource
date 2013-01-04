@@ -1155,7 +1155,7 @@ out:
 }
 
 #define IAVG_SAMPLES 16
-#define CHARGING_IAVG_MA 250
+#define MIN_IAVG_MA 250
 #define MIN_SECONDS_FOR_VALID_SAMPLE	20
 static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 				int rbatt, int fcc_uah, int cc_uah,
@@ -1189,8 +1189,8 @@ static int calculate_unusable_charge_uah(struct pm8921_bms_chip *chip,
 	 * if we are charging use a nominal avg current so that we keep
 	 * a reasonable UUC while charging
 	 */
-	if (iavg_ma < 0)
-		iavg_ma = CHARGING_IAVG_MA;
+	if (iavg_ma < MIN_IAVG_MA)
+		iavg_ma = MIN_IAVG_MA;
 	iavg_samples[iavg_index] = iavg_ma;
 	iavg_index = (iavg_index + 1) % IAVG_SAMPLES;
 	iavg_num_samples++;
