@@ -261,8 +261,7 @@ struct mmc_bkops_stats {
 /**
  * struct mmc_bkops_info - BKOPS data
  * @dw:	Idle time bkops delayed work
- * @host_suspend_tout_ms:	The host controller idle time,
- * before getting into suspend
+ * @host_delay_ms:	The host controller time to start bkops
  * @delay_ms:	The time to start the BKOPS
  *        delayed work once MMC thread is idle
  * @poll_for_completion:	Poll on BKOPS completion
@@ -273,14 +272,14 @@ struct mmc_bkops_stats {
  */
 struct mmc_bkops_info {
 	struct delayed_work	dw;
-	unsigned int		host_suspend_tout_ms;
+	unsigned int		host_delay_ms;
 	unsigned int		delay_ms;
 	struct mmc_bkops_stats  bkops_stats;    /* BKOPS statistics */
 /*
  * A default time for checking the need for non urgent BKOPS once mmcqd
  * is idle.
  */
-#define MMC_IDLE_BKOPS_TIME_MS 2000
+#define MMC_IDLE_BKOPS_TIME_MS 200
 	struct work_struct	poll_for_completion;
 /* Polling timeout and interval for waiting on non-blocking BKOPs completion */
 #define BKOPS_COMPLETION_POLLING_TIMEOUT_MS 10000 /* in ms */
