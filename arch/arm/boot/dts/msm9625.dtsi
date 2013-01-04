@@ -470,6 +470,11 @@
 			"DMIC6", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic6";
 			qcom,taiko-mclk-clk-freq = <12288000>;
+			prim-i2s-gpio-ws   = <&msmgpio 12 0>;
+			prim-i2s-gpio-din  = <&msmgpio 13 0>;
+			prim-i2s-gpio-dout = <&msmgpio 14 0>;
+			prim-i2s-gpio-sclk = <&msmgpio 15 0>;
+			prim-i2s-gpio-mclk = <&msmgpio 71 0>;
 	};
 
 	qcom,msm-adsp-loader {
