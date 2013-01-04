@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1464,7 +1464,12 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
 	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
 
-	pr_info("Probe success !\n");
+	pr_info("success chg_dis = %d, usb = %d, dc = %d b_health = %d batt_present = %d\n",
+			chip->charging_disabled,
+			qpnp_chg_is_usb_chg_plugged_in(chip),
+			qpnp_chg_is_dc_chg_plugged_in(chip),
+			get_prop_batt_present(chip),
+			get_prop_batt_health(chip));
 	return 0;
 
 unregister_dc:
