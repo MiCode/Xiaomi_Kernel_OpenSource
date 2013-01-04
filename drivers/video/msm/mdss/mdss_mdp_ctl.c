@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -782,6 +782,14 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 				    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
 			pr_debug("pnum=%d stg=%d alpha=CONST\n", pipe->num,
 					stage);
+		}
+
+		if (mixercfg == MDSS_MDP_LM_BORDER_COLOR &&
+				pipe->src_fmt->alpha_enable &&
+				pipe->dst.w == mixer->width &&
+				pipe->dst.h == mixer->height) {
+			pr_debug("setting pipe=%d as BG_PIPE\n", pipe->num);
+			bgalpha = 1;
 		}
 
 		mixercfg |= stage << (3 * pipe->num);
