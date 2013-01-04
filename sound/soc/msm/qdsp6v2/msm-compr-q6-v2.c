@@ -347,6 +347,7 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 
 	prtd->enabled = 1;
 	prtd->cmd_ack = 0;
+	prtd->cmd_interrupt = 0;
 
 	return 0;
 }
@@ -894,7 +895,7 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			  (substream->stream == SNDRV_PCM_STREAM_CAPTURE &&
 						atomic_read(&prtd->start))) {
 			if (atomic_read(&prtd->eos)) {
-				prtd->cmd_ack = 1;
+				prtd->cmd_interrupt = 1;
 				wake_up(&the_locks.eos_wait);
 				atomic_set(&prtd->eos, 0);
 			}
@@ -923,11 +924,17 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		q6asm_cmd_nowait(prtd->audio_client, CMD_EOS);
 		/* Wait indefinitely for  DRAIN. Flush can also signal this*/
 		rc = wait_event_interruptible(the_locks.eos_wait,
-			prtd->cmd_ack);
+			(prtd->cmd_ack || prtd->cmd_interrupt));
+
 		if (rc < 0)
 			pr_err("EOS cmd interrupted\n");
 		pr_debug("%s: SNDRV_COMPRESS_DRAIN  out of wait\n", __func__);
-		return 0;
+
+		if (prtd->cmd_interrupt)
+			rc = -EINTR;
+
+		prtd->cmd_interrupt = 0;
+		return rc;
 	default:
 		break;
 	}
