@@ -340,7 +340,7 @@ struct msm_otg {
 	struct delayed_work suspend_work;
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
-	u8 dcd_retries;
+	unsigned dcd_time;
 	struct wake_lock wlock;
 	struct notifier_block usbdev_nb;
 	unsigned mA_port;
