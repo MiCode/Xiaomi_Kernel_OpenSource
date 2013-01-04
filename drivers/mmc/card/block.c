@@ -2140,9 +2140,12 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		mmc_resume_bus(card->host);
 #endif
 
-	if (req && !mq->mqrq_prev->req)
+	if (req && !mq->mqrq_prev->req) {
 		/* claim host only for the first request */
 		mmc_claim_host(card->host);
+		if (card->ext_csd.bkops_en)
+			mmc_stop_bkops(card);
+	}
 
 	ret = mmc_blk_part_switch(card, md);
 	if (ret) {
@@ -2181,7 +2184,9 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 
 out:
 	if ((!req && !(mq->flags & MMC_QUEUE_NEW_REQUEST)) ||
-	     (req && (req->cmd_flags & MMC_REQ_SPECIAL_MASK)))
+	     (req && (req->cmd_flags & MMC_REQ_SPECIAL_MASK))) {
+		if (mmc_card_need_bkops(card))
+			mmc_start_bkops(card, false);
 		/*
 		 * Release host when there are no more requests
 		 * and after special request(discard, flush) is done.
@@ -2189,6 +2194,7 @@ out:
 		 * the 'mmc_blk_issue_rq' with 'mqrq_prev->req'.
 		 */
 		mmc_release_host(card->host);
+	}
 	return ret;
 }
 

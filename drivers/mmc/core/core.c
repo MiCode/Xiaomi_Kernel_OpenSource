@@ -379,7 +379,6 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 	 * it was removed from the queue work but not started yet
 	 */
 	card->bkops_info.cancel_delayed_work = false;
-	card->bkops_info.started_delayed_bkops = true;
 	queue_delayed_work(system_nrt_wq, &card->bkops_info.dw,
 			   msecs_to_jiffies(
 				   card->bkops_info.delay_ms));
@@ -399,8 +398,6 @@ EXPORT_SYMBOL(mmc_start_delayed_bkops);
 void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 {
 	int err;
-	int timeout;
-	bool use_busy_signal;
 
 	BUG_ON(!card);
 	if (!card->ext_csd.bkops_en)
@@ -421,43 +418,45 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 		goto out;
 	}
 
-	err = mmc_read_bkops_status(card);
-	if (err) {
-		pr_err("%s: %s: Failed to read bkops status: %d\n",
-		       mmc_hostname(card->host), __func__, err);
+	if (from_exception && mmc_card_need_bkops(card))
 		goto out;
-	}
-
-	if (!card->ext_csd.raw_bkops_status)
-		goto out;
-
-	pr_info("%s: %s: card->ext_csd.raw_bkops_status = 0x%x\n",
-		mmc_hostname(card->host), __func__,
-		card->ext_csd.raw_bkops_status);
 
 	/*
-	 * If the function was called due to exception but there is no need
-	 * for urgent BKOPS, BKOPs will be performed by the delayed BKOPs
-	 * work, before going to suspend
+	 * If the need BKOPS flag is set, there is no need to check if BKOPS
+	 * is needed since we already know that it does
 	 */
-	if (card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2 &&
-	    from_exception) {
-		pr_debug("%s: %s: Level 1 from exception, exit",
-			 mmc_hostname(card->host), __func__);
+	if (!mmc_card_need_bkops(card)) {
+		err = mmc_read_bkops_status(card);
+		if (err) {
+			pr_err("%s: %s: Failed to read bkops status: %d\n",
+			       mmc_hostname(card->host), __func__, err);
+			goto out;
+		}
+
+		if (!card->ext_csd.raw_bkops_status)
+			goto out;
+
+		pr_info("%s: %s: raw_bkops_status=0x%x, from_exception=%d\n",
+			mmc_hostname(card->host), __func__,
+			card->ext_csd.raw_bkops_status,
+			from_exception);
+	}
+
+	/*
+	 * If the function was called due to exception, BKOPS will be performed
+	 * after handling the last pending request
+	 */
+	if (from_exception) {
+		pr_debug("%s: %s: Level %d from exception, exit",
+			 mmc_hostname(card->host), __func__,
+			 card->ext_csd.raw_bkops_status);
+		mmc_card_set_need_bkops(card);
 		goto out;
 	}
-
-	if (card->ext_csd.raw_bkops_status >= EXT_CSD_BKOPS_LEVEL_2) {
-		timeout = MMC_BKOPS_MAX_TIMEOUT;
-		use_busy_signal = true;
-	} else {
-		timeout = 0;
-		use_busy_signal = false;
-	}
+	pr_info("%s: %s: Starting bkops\n", mmc_hostname(card->host), __func__);
 
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-			   EXT_CSD_BKOPS_START, 1, timeout,
-			   use_busy_signal, use_busy_signal);
+			EXT_CSD_BKOPS_START, 1, 0, false, false);
 	if (err) {
 		pr_warn("%s: %s: Error %d when starting bkops\n",
 			mmc_hostname(card->host), __func__, err);
@@ -465,19 +464,13 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	}
 	MMC_UPDATE_STATS_BKOPS_SEVERITY_LEVEL(card->bkops_info.bkops_stats,
 					card->ext_csd.raw_bkops_status);
+	mmc_card_clr_need_bkops(card);
 
-	/*
-	 * For urgent bkops status (LEVEL_2 and more)
-	 * bkops executed synchronously, otherwise
-	 * the operation is in progress
-	 */
-	if (!use_busy_signal) {
-		mmc_card_set_doing_bkops(card);
-		pr_debug("%s: %s: starting the polling thread\n",
-			 mmc_hostname(card->host), __func__);
-		queue_work(system_nrt_wq,
-			   &card->bkops_info.poll_for_completion);
-	}
+	mmc_card_set_doing_bkops(card);
+	pr_debug("%s: %s: starting the polling thread\n",
+		 mmc_hostname(card->host), __func__);
+	queue_work(system_nrt_wq,
+		   &card->bkops_info.poll_for_completion);
 
 out:
 	mmc_release_host(card->host);
@@ -543,7 +536,6 @@ void mmc_bkops_completion_polling(struct work_struct *work)
 			pr_debug("%s: %s: completed BKOPs, exit polling\n",
 				 mmc_hostname(card->host), __func__);
 			mmc_card_clr_doing_bkops(card);
-			card->bkops_info.started_delayed_bkops = false;
 			goto out;
 		}
 
@@ -962,15 +954,15 @@ EXPORT_SYMBOL(mmc_wait_for_cmd);
  *	Send HPI command to stop ongoing background operations to
  *	allow rapid servicing of foreground operations, e.g. read/
  *	writes. Wait until the card comes out of the programming state
- *	to avoid errors in servicing read/write requests.
+ *      to avoid errors in servicing read/write requests.
+ *
+ *      The function should be called with host claimed.
  */
 int mmc_stop_bkops(struct mmc_card *card)
 {
 	int err = 0;
 
 	BUG_ON(!card);
-
-	mmc_claim_host(card->host);
 
 	/*
 	 * Notify the delayed work to be cancelled, in case it was already
@@ -996,7 +988,6 @@ int mmc_stop_bkops(struct mmc_card *card)
 	MMC_UPDATE_BKOPS_STATS_HPI(card->bkops_info.bkops_stats);
 
 out:
-	mmc_release_host(card->host);
 	return err;
 }
 EXPORT_SYMBOL(mmc_stop_bkops);
@@ -3424,7 +3415,9 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 	case PM_HIBERNATION_PREPARE:
 	case PM_SUSPEND_PREPARE:
 		if (host->card && mmc_card_mmc(host->card)) {
+			mmc_claim_host(host);
 			err = mmc_stop_bkops(host->card);
+			mmc_release_host(host);
 			if (err) {
 				pr_err("%s: didn't stop bkops\n",
 					mmc_hostname(host));
