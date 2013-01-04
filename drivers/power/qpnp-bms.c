@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,8 +139,6 @@ struct qpnp_bms_chip {
 
 	bool				use_external_rsense;
 
-	unsigned int			start_percent;
-	unsigned int			end_percent;
 	bool				ignore_shutdown_soc;
 	int				shutdown_soc_invalid;
 	int				shutdown_soc;
@@ -1085,6 +1083,24 @@ static int override_mode_batt_v_and_i(
 	return 0;
 }
 
+static bool is_battery_charging(struct qpnp_bms_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the status property */
+		chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_STATUS, &ret);
+		return ret.intval == POWER_SUPPLY_STATUS_CHARGING;
+	}
+
+	/* Default to false if the battery power supply is not registered. */
+	pr_debug("battery power supply is not registered\n");
+	return false;
+}
+
 static bool is_batfet_open(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
@@ -1583,7 +1599,7 @@ static int scale_soc_while_chg(struct qpnp_bms_chip *chip,
 	 */
 
 	/* if not charging, return last soc */
-	if (chip->start_percent == -EINVAL)
+	if (!is_battery_charging(chip))
 		return prev_soc;
 
 	chg_time_sec = DIV_ROUND_UP(chip->charge_time_us, USEC_PER_SEC);
@@ -1658,7 +1674,7 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 	 * account for charge time - limit it to SOC_CATCHUP_SEC to
 	 * avoid overflows when charging continues for extended periods
 	 */
-	if (chip->start_percent != -EINVAL) {
+	if (is_battery_charging(chip)) {
 		if (chip->charge_time_us == 0) {
 			/*
 			 * calculating soc for the first time
@@ -2005,8 +2021,6 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 
 static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 {
-	chip->start_percent = -EINVAL;
-	chip->end_percent = -EINVAL;
 	chip->prev_pc_unusable = -EINVAL;
 	chip->soc_at_cv = -EINVAL;
 	chip->calculated_soc = -EINVAL;
