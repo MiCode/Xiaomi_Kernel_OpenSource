@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,7 +220,7 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 		ret = usb_ep_queue(ep, req, GFP_ATOMIC);
 		spin_lock(&port->port_lock_dl);
 		if (ret) {
-			pr_err("%s: usb epIn failed\n", __func__);
+			pr_err("%s: usb epIn failed with %d\n", __func__, ret);
 			list_add(&req->list, &d->tx_idle);
 			dev_kfree_skb_any(skb);
 			break;
@@ -517,7 +517,8 @@ static void gbam_start_rx(struct gbam_port *port)
 			dev_kfree_skb_any(skb);
 
 			if (printk_ratelimit())
-				pr_err("%s: rx queue failed\n", __func__);
+				pr_err("%s: rx queue failed %d\n",
+							__func__, ret);
 
 			if (port->port_usb)
 				list_add(&req->list, &d->rx_idle);
