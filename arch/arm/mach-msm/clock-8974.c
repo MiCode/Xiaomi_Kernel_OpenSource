@@ -5453,56 +5453,6 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("krait3_m_clk",	krait3_m_clk, ""),
 };
 
-static struct pll_config_regs gpll0_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL0_L_REG,
-	.m_reg = (void __iomem *)GPLL0_M_REG,
-	.n_reg = (void __iomem *)GPLL0_N_REG,
-	.config_reg = (void __iomem *)GPLL0_USER_CTL_REG,
-	.mode_reg = (void __iomem *)GPLL0_MODE_REG,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* GPLL0 at 600 MHz, main output enabled. */
-static struct pll_config gpll0_config __initdata = {
-	.l = 0x1f,
-	.m = 0x1,
-	.n = 0x4,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-static struct pll_config_regs gpll1_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL1_L_REG,
-	.m_reg = (void __iomem *)GPLL1_M_REG,
-	.n_reg = (void __iomem *)GPLL1_N_REG,
-	.config_reg = (void __iomem *)GPLL1_USER_CTL_REG,
-	.mode_reg = (void __iomem *)GPLL1_MODE_REG,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* GPLL1 at 480 MHz, main output enabled. */
-static struct pll_config gpll1_config __initdata = {
-	.l = 0x19,
-	.m = 0x0,
-	.n = 0x1,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
 static struct pll_config_regs mmpll0_regs __initdata = {
 	.l_reg = (void __iomem *)MMPLL0_L_REG,
 	.m_reg = (void __iomem *)MMPLL0_M_REG,
@@ -5607,9 +5557,6 @@ static struct pll_config lpapll0_config __initdata = {
 	.main_output_mask = BIT(0),
 };
 
-#define PLL_AUX_OUTPUT_BIT 1
-#define PLL_AUX2_OUTPUT_BIT 2
-
 #define PWR_ON_MASK		BIT(31)
 #define EN_REST_WAIT_MASK	(0xF << 20)
 #define EN_FEW_WAIT_MASK	(0xF << 16)
@@ -5629,23 +5576,10 @@ static void __init reg_init(void)
 	u32 regval, status;
 	int ret;
 
-	if (!(readl_relaxed(GCC_REG_BASE(GPLL0_STATUS_REG))
-			& gpll0_clk_src.status_mask))
-		configure_sr_hpm_lp_pll(&gpll0_config, &gpll0_regs, 1);
-
-	if (!(readl_relaxed(GCC_REG_BASE(GPLL1_STATUS_REG))
-			& gpll1_clk_src.status_mask))
-		configure_sr_hpm_lp_pll(&gpll1_config, &gpll1_regs, 1);
-
 	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
 	configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
 	configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
 	configure_sr_hpm_lp_pll(&lpapll0_config, &lpapll0_regs, 1);
-
-	/* Enable GPLL0's aux outputs. */
-	regval = readl_relaxed(GCC_REG_BASE(GPLL0_USER_CTL_REG));
-	regval |= BIT(PLL_AUX_OUTPUT_BIT) | BIT(PLL_AUX2_OUTPUT_BIT);
-	writel_relaxed(regval, GCC_REG_BASE(GPLL0_USER_CTL_REG));
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE_REG));
