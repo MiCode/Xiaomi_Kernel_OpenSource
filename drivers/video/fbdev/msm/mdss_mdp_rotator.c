@@ -70,25 +70,13 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 {
 	struct mdss_mdp_mixer *mixer;
 	struct mdss_mdp_pipe *pipe = NULL;
-	int pnum;
 
 	mixer = mdss_mdp_wb_mixer_alloc(1);
 	if (!mixer)
 		return NULL;
 
-	switch (mixer->num) {
-	case MDSS_MDP_LAYERMIXER3:
-		pnum = MDSS_MDP_SSPP_DMA0;
-		break;
-	case MDSS_MDP_LAYERMIXER4:
-		pnum = MDSS_MDP_SSPP_DMA1;
-		break;
-	default:
-		goto done;
-	}
+	pipe = mdss_mdp_pipe_alloc_dma(mixer);
 
-	pipe = mdss_mdp_pipe_alloc_pnum(mixer, pnum);
-done:
 	if (!pipe)
 		mdss_mdp_wb_mixer_destroy(mixer);
 
