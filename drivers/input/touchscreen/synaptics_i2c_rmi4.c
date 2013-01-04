@@ -1773,17 +1773,6 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 			&rmi4_data->det_work,
 			msecs_to_jiffies(EXP_FN_DET_INTERVAL));
 
-	if (platform_data->gpio_config) {
-		retval = platform_data->gpio_config(platform_data->irq_gpio,
-							true);
-		if (retval < 0) {
-			dev_err(&client->dev,
-					"%s: Failed to configure GPIO\n",
-					__func__);
-			goto err_gpio;
-		}
-	}
-
 	rmi4_data->irq = gpio_to_irq(platform_data->irq_gpio);
 
 	retval = synaptics_rmi4_irq_enable(rmi4_data, true);
@@ -1814,7 +1803,6 @@ err_sysfs:
 	}
 
 err_enable_irq:
-err_gpio:
 	input_unregister_device(rmi4_data->input_dev);
 
 err_register_input:
@@ -2159,4 +2147,4 @@ module_exit(synaptics_rmi4_exit);
 MODULE_AUTHOR("Synaptics, Inc.");
 MODULE_DESCRIPTION("Synaptics RMI4 I2C Touch Driver");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION(SYNAPTICS_RMI4_DRIVER_VERSION);
+MODULE_VERSION(SYNAPTICS_RMI4_DRIVER_VERSION_STRING);
