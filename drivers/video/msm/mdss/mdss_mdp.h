@@ -112,6 +112,8 @@ typedef void (*mdp_vsync_handler_t)(struct mdss_mdp_ctl *, ktime_t);
 
 struct mdss_mdp_ctl {
 	u32 num;
+	char __iomem *base;
+	char __iomem *wb_base;
 	u32 ref_cnt;
 	int power_on;
 
@@ -131,7 +133,6 @@ struct mdss_mdp_ctl {
 	u32 bus_ib_quota;
 	u32 clk_rate;
 
-	char __iomem *base;
 	struct mdss_data_type *mdata;
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_mixer *mixer_left;
@@ -153,9 +154,9 @@ struct mdss_mdp_mixer {
 	u32 num;
 	u32 ref_cnt;
 	char __iomem *base;
+	char __iomem *dspp_base;
 	u8 type;
 	u8 params_changed;
-
 	u16 width;
 	u16 height;
 	u8 cursor_enabled;
@@ -236,6 +237,7 @@ struct mdss_mdp_pipe {
 	u32 type;
 	u32 ndx;
 	char __iomem *base;
+	u32 ftch_id;
 	atomic_t ref_cnt;
 	u32 play_cnt;
 
@@ -306,6 +308,7 @@ void mdss_mdp_set_clk_rate(unsigned long min_clk_rate);
 unsigned long mdss_mdp_get_clk_rate(u32 clk_idx);
 int mdss_mdp_vsync_clk_enable(int enable);
 void mdss_mdp_clk_ctrl(int enable, int isr);
+struct mdss_data_type *mdss_mdp_get_mdata(void);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en);
@@ -358,13 +361,19 @@ int mdss_mdp_hist_collect(struct fb_info *info,
 		   struct mdp_histogram_data *hist, u32 *hist_data_addr);
 void mdss_mdp_hist_intr_done(u32 isr);
 
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(
-		struct mdss_mdp_mixer *mixer, u32 pnum);
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(
-		struct mdss_mdp_mixer *mixer, u32 type);
-struct mdss_mdp_pipe *mdss_mdp_pipe_get(u32 ndx);
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
+					  u32 type);
+struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx);
 int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe);
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer);
+
+int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata, u32 *offsets,
+		u32 *ftch_y_id, u32 type, u32 num_base, u32 len);
+int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata, u32 *mixer_offsets,
+		u32 *dspp_offsets, u32 type, u32 len);
+int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
+		u32 *wb_offsets, u32 len);
 
 int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,

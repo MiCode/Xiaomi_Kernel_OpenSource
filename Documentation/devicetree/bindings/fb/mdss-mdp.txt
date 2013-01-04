@@ -10,7 +10,71 @@ Required properties
 - reg-names :		names to refer to register sets related to this device
 - interrupts :		Interrupt associated with MDSS.
 - vdd-supply :		Phandle for vdd regulator device node.
-
+- qcom,mdss-pipe-vig-off:	Array of offset for MDP source surface pipes of
+				type VIG, the offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined here should
+				reflect the amount of VIG pipes that can be
+				active in MDP for this configuration.
+- qcom,mdss-pipe-vig-fetch-id:	Array of shared memory pool fetch ids
+				corresponding to the VIG pipe offsets defined in
+				previous property, the amount of fetch ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-rgb-off:	Array of offsets for MDP source surface pipes of
+				type RGB, the offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined here should
+				reflect the amount of RGB pipes that can be
+				active in MDP for this configuration.
+- qcom,mdss-pipe-rgb-fetch-id:	Array of shared memory pool fetch ids
+				corresponding to the RGB pipe offsets defined in
+				previous property, the amount of fetch ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-dma-off:	Array of offsets for MDP source surface pipes of
+				type DMA, the offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined here should
+				reflect the amount of DMA pipes that can be
+				active in MDP for this configuration.
+- qcom,mdss-pipe-dma-fetch-id:	Array of shared memory pool fetch ids
+				corresponding to the DMA pipe offsets defined in
+				previous property, the amount of fetch ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-ctl-off:		Array of offset addresses for the available ctl
+				hw blocks within MDP, these offsets are
+				calculated from register "mdp_phys" defined in
+				reg property.  The number of ctl offsets defined
+				here should reflect the number of control paths
+				that can be configured concurrently on MDP for
+				this configuration.
+- qcom,mdss-wb-off:		Array of offset addresses for the progammable
+				writeback blocks within MDP. The number of
+				offsets defined should match the number of ctl
+				blocks defined in property: qcom,mdss-ctl-off
+- qcom,mdss-mixer-intf-off: 	Array of offset addresses for the available
+				mixer blocks that can drive data to panel
+				interfaces.
+				These offsets are be calculated from register
+				"mdp_phys" defined in reg property.
+				The number of offsets defined should reflect the
+				amount of mixers that can drive data to a panel
+				interface.
+- qcom,mdss-dspp-off: 		Array of offset addresses for the available dspp
+				blocks. These offsets are calculated from
+				regsiter "mdp_phys" defined in reg property.
+				The number of dspp blocks should match the
+				number of mixers driving data to interface
+				defined in property: qcom,mdss-mixer-intf-off
+- qcom,mdss-mixer-wb-off: 	Array of offset addresses for the available
+				mixer blocks that can be drive data to writeback
+				block.  These offsets will be calculated from
+				register "mdp_phys" defined in reg property.
+				The number of writeback mixer offsets defined
+				should reflect the number of mixers that can
+				drive data to a writeback block.
 
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
@@ -29,6 +93,24 @@ Example:
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
+
+		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600
+					  0x00001A00>;
+		qcom,mdss-pipe-rgb-off = <0x00001E00 0x00002200
+					  0x00002600>;
+		qcom,mdss-pipe-dma-off = <0x00002A00 0x00002E00>;
+		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
+		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
+		qcom,mdss-pipe-dma-fetch-id = <10 13>;
+
+		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
+				     0x00000900 0x0000A00>;
+		qcom,mdss-mixer-intf-off = <0x00003200 0x00003600
+					    0x00003A00>;
+		qcom,mdss-mixer-wb-off = <0x00003E00 0x00004200>;
+		qcom,mdss-dspp-off = <0x00004600 0x00004A00 0x00004E00>;
+		qcom,mdss-wb-off = <0x00011100 0x00013100 0x00015100
+				    0x00017100 0x00019100>;
 
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
