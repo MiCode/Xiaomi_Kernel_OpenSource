@@ -1101,7 +1101,8 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	}
 	msm_comm_scale_clocks_and_bus(inst);
 	if (list_empty(&core->instances)) {
-		msm_comm_unset_ocmem(core);
+		if (inst->state != MSM_VIDC_CORE_INVALID)
+			msm_comm_unset_ocmem(core);
 		hdev->free_ocmem(hdev->hfi_device_data);
 		dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
 		rc = hdev->core_release(hdev->hfi_device_data);
