@@ -531,8 +531,12 @@ void mmc_bkops_completion_polling(struct work_struct *work)
 		msleep(BKOPS_COMPLETION_POLLING_INTERVAL_MS);
 	} while (time_before(jiffies, timeout_jiffies));
 
-	pr_err("%s: %s: exit polling due to timeout\n",
+	pr_err("%s: %s: exit polling due to timeout, stop bkops\n",
 	       mmc_hostname(card->host), __func__);
+	err = mmc_stop_bkops(card);
+	if (err)
+		pr_err("%s: %s: mmc_stop_bkops failed, err=%d\n",
+			       mmc_hostname(card->host), __func__, err);
 
 	return;
 out:
