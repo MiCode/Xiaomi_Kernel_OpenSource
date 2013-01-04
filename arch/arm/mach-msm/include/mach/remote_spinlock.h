@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, 2011 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009, 2011, 2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,7 +39,7 @@ typedef union {
 typedef raw_remote_spinlock_t *_remote_spinlock_t;
 
 #define remote_spinlock_id_t const char *
-#define SMEM_SPINLOCK_PID_APPS 1
+#define SPINLOCK_PID_APPS 1
 
 static inline void __raw_remote_ex_spin_lock(raw_remote_spinlock_t *lock)
 {
@@ -52,7 +52,7 @@ static inline void __raw_remote_ex_spin_lock(raw_remote_spinlock_t *lock)
 "	teqeq	%0, #0\n"
 "	bne	1b"
 	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (1)
+	: "r" (&lock->lock), "r" (SPINLOCK_PID_APPS)
 	: "cc");
 
 	smp_mb();
@@ -67,7 +67,7 @@ static inline int __raw_remote_ex_spin_trylock(raw_remote_spinlock_t *lock)
 "	teq	%0, #0\n"
 "	strexeq	%0, %2, [%1]\n"
 	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (1)
+	: "r" (&lock->lock), "r" (SPINLOCK_PID_APPS)
 	: "cc");
 
 	if (tmp == 0) {
@@ -79,7 +79,14 @@ static inline int __raw_remote_ex_spin_trylock(raw_remote_spinlock_t *lock)
 
 static inline void __raw_remote_ex_spin_unlock(raw_remote_spinlock_t *lock)
 {
+	int lock_owner;
+
 	smp_mb();
+	lock_owner = readl_relaxed(&lock->lock);
+	if (lock_owner != SPINLOCK_PID_APPS) {
+		pr_err("%s: spinlock not owned by Apps (actual owner is %d)\n",
+				__func__, lock_owner);
+	}
 
 	__asm__ __volatile__(
 "	str	%1, [%0]\n"
@@ -122,7 +129,14 @@ static inline int __raw_remote_swp_spin_trylock(raw_remote_spinlock_t *lock)
 
 static inline void __raw_remote_swp_spin_unlock(raw_remote_spinlock_t *lock)
 {
+	int lock_owner;
+
 	smp_mb();
+	lock_owner = readl_relaxed(&lock->lock);
+	if (lock_owner != SPINLOCK_PID_APPS) {
+		pr_err("%s: spinlock not owned by Apps (actual owner is %d)\n",
+				__func__, lock_owner);
+	}
 
 	__asm__ __volatile__(
 "	str	%1, [%0]"
@@ -184,9 +198,9 @@ static inline int __raw_remote_dek_spin_release(raw_remote_spinlock_t *lock,
 static inline void __raw_remote_sfpb_spin_lock(raw_remote_spinlock_t *lock)
 {
 	do {
-		writel_relaxed(SMEM_SPINLOCK_PID_APPS, lock);
+		writel_relaxed(SPINLOCK_PID_APPS, lock);
 		smp_mb();
-	} while (readl_relaxed(lock) != SMEM_SPINLOCK_PID_APPS);
+	} while (readl_relaxed(lock) != SPINLOCK_PID_APPS);
 }
 
 static inline int __raw_remote_sfpb_spin_trylock(raw_remote_spinlock_t *lock)
@@ -196,6 +210,14 @@ static inline int __raw_remote_sfpb_spin_trylock(raw_remote_spinlock_t *lock)
 
 static inline void __raw_remote_sfpb_spin_unlock(raw_remote_spinlock_t *lock)
 {
+	int lock_owner;
+
+	lock_owner = readl_relaxed(lock);
+	if (lock_owner != SPINLOCK_PID_APPS) {
+		pr_err("%s: spinlock not owned by Apps (actual owner is %d)\n",
+				__func__, lock_owner);
+	}
+
 	writel_relaxed(0, lock);
 	smp_mb();
 }
