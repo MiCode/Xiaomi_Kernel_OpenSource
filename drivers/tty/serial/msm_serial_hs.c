@@ -3,7 +3,7 @@
  * MSM 7k High speed uart driver
  *
  * Copyright (c) 2008 Google Inc.
- * Copyright (c) 2007-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
  * Modified: Nick Pelly <npelly@google.com>
  *
  * All source code in this file is licensed under the following license
@@ -754,7 +754,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 	uport->ignore_status_mask = termios->c_iflag & INPCK;
 	uport->ignore_status_mask |= termios->c_iflag & IGNPAR;
-	uport->ignore_status_mask = termios->c_iflag & IGNBRK;
+	uport->ignore_status_mask |= termios->c_iflag & IGNBRK;
 
 	uport->read_status_mask = (termios->c_cflag & CREAD);
 
