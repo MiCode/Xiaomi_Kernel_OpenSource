@@ -1282,14 +1282,22 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	device->ftbl->irqctrl(device, 1);
 
 	status = adreno_ringbuffer_start(&adreno_dev->ringbuffer, init_ram);
-	if (status == 0) {
-		/* While recovery is on we do not want timer to
-		 * fire and attempt to change any device state */
-		if (KGSL_STATE_DUMP_AND_RECOVER != device->state)
-			mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
-		return 0;
-	}
+	if (status)
+		goto error_irq_off;
 
+	/*
+	 * While recovery is on we do not want timer to
+	 * fire and attempt to change any device state
+	 */
+
+	if (KGSL_STATE_DUMP_AND_RECOVER != device->state)
+		mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
+
+	device->reset_counter++;
+
+	return 0;
+
+error_irq_off:
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
 error_mmu_off:
