@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,7 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 
 	pipe = mdss_mdp_pipe_alloc_pnum(pnum);
 
-	if (pipe)
+	if (!IS_ERR_OR_NULL(pipe))
 		pipe->mixer = mixer;
 done:
 	if (!pipe)

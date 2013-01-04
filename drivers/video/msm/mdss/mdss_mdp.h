@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -235,7 +235,6 @@ struct mdss_mdp_pipe {
 
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_mixer *mixer;
-	struct mutex lock;
 
 	struct mdp_overlay req_data;
 	u32 params_changed;
@@ -326,10 +325,10 @@ void mdss_mdp_hist_intr_done(u32 isr);
 
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_pnum(u32 pnum);
-struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_locked(u32 type);
-struct mdss_mdp_pipe *mdss_mdp_pipe_get_locked(u32 ndx);
-int mdss_mdp_pipe_lock(struct mdss_mdp_pipe *pipe);
-void mdss_mdp_pipe_unlock(struct mdss_mdp_pipe *pipe);
+struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(u32 type);
+struct mdss_mdp_pipe *mdss_mdp_pipe_get(u32 ndx);
+int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe);
+void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe);
 
 int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
