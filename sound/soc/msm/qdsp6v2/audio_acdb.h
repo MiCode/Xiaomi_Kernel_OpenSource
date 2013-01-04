@@ -47,6 +47,7 @@ uint32_t get_adm_rx_topology(void);
 uint32_t get_adm_tx_topology(void);
 uint32_t get_asm_topology(void);
 void get_voice_cal_allocation(struct acdb_cal_block *cal_block);
+void get_lsm_cal(struct acdb_cal_block *cal_block);
 void get_anc_cal(struct acdb_cal_block *cal_block);
 void get_afe_cal(int32_t path, struct acdb_cal_block *cal_block);
 void get_audproc_cal(int32_t path, struct acdb_cal_block *cal_block);
