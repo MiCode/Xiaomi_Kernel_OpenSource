@@ -30,20 +30,6 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38))
-#define KERNEL_ABOVE_2_6_38
-#endif
-
-#ifdef KERNEL_ABOVE_2_6_38
-#define sstrtoul(...) kstrtoul(__VA_ARGS__)
-#else
-#define sstrtoul(...) strict_strtoul(__VA_ARGS__)
-#endif
-
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 7, 0))
-#define KERNEL_ABOVE_3_7
-#endif
-
 #define PDT_PROPS (0x00EF)
 #define PDT_START (0x00E9)
 #define PDT_END (0x000A)
@@ -176,7 +162,7 @@ struct synaptics_rmi4_device_info {
  * @det_work: work thread instance for expansion function detection
  * @det_workqueue: pointer to work queue for work thread instance
  * @early_suspend: instance to support early suspend power management
- * @current_page: current page in sensor to acess
+ * @current_page: current page in sensor to access
  * @button_0d_enabled: flag for 0d button support
  * @full_pm_cycle: flag for full power management cycle in early suspend stage
  * @num_of_intr_regs: number of interrupt registers
@@ -205,7 +191,9 @@ struct synaptics_rmi4_data {
 	struct mutex rmi4_io_ctrl_mutex;
 	struct delayed_work det_work;
 	struct workqueue_struct *det_workqueue;
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
+#endif
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
 	unsigned char full_pm_cycle;
