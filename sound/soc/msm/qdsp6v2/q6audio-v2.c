@@ -52,6 +52,11 @@ int q6audio_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_TX;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_SECONDARY_MI2S_RX;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_SECONDARY_MI2S_TX;
+
 	default: return -EINVAL;
 	}
 }
@@ -89,6 +94,10 @@ int q6audio_get_port_id(u16 port_id)
 			     return AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 			     return AFE_PORT_ID_QUATERNARY_MI2S_TX;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+			     return AFE_PORT_ID_SECONDARY_MI2S_RX;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+			     return AFE_PORT_ID_SECONDARY_MI2S_TX;
 
 	default: return -EINVAL;
 	}
@@ -147,6 +156,8 @@ int q6audio_validate_port(u16 port_id)
 	case RT_PROXY_PORT_001_TX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 	{
 		ret = 0;
 		break;

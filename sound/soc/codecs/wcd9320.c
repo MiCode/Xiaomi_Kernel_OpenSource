@@ -198,6 +198,8 @@ static const u32 vport_check_table[NUM_CODEC_DAIS] = {
 static const u32 vport_i2s_check_table[NUM_CODEC_DAIS] = {
 	0,	/* AIF1_PB */
 	0,	/* AIF1_CAP */
+	0,	/* AIF2_PB */
+	0,	/* AIF2_CAP */
 };
 
 struct taiko_priv {
@@ -1694,7 +1696,7 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	mutex_lock(&codec->mutex);
 
 	if (taiko_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
-		if (widget->value > 1) {
+		if (widget->value > 2) {
 			dev_err(codec->dev, "%s: invalid AIF for I2C mode\n",
 				__func__);
 			goto err;
@@ -3734,6 +3736,34 @@ static struct snd_soc_dai_driver taiko_i2s_dai[] = {
 		.id = AIF1_CAP,
 		.capture = {
 			.stream_name = "AIF1 Capture",
+			.rates = WCD9320_RATES,
+			.formats = TAIKO_FORMATS,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.channels_min = 1,
+			.channels_max = 4,
+		},
+		.ops = &taiko_dai_ops,
+	},
+	{
+		.name = "taiko_i2s_rx2",
+		.id = AIF1_PB,
+		.playback = {
+			.stream_name = "AIF2 Playback",
+			.rates = WCD9320_RATES,
+			.formats = TAIKO_FORMATS,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.channels_min = 1,
+			.channels_max = 4,
+		},
+		.ops = &taiko_dai_ops,
+	},
+	{
+		.name = "taiko_i2s_tx2",
+		.id = AIF1_CAP,
+		.capture = {
+			.stream_name = "AIF2 Capture",
 			.rates = WCD9320_RATES,
 			.formats = TAIKO_FORMATS,
 			.rate_max = 192000,
