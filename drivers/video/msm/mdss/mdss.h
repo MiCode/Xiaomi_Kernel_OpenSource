@@ -84,9 +84,21 @@ struct mdss_data_type {
 
 	u32 smp_mb_cnt;
 	u32 smp_mb_size;
-	u32 *pipe_type_map;
-	u32 *mixer_type_map;
 
+	struct mdss_mdp_pipe *vig_pipes;
+	struct mdss_mdp_pipe *rgb_pipes;
+	struct mdss_mdp_pipe *dma_pipes;
+	u32 nvig_pipes;
+	u32 nrgb_pipes;
+	u32 ndma_pipes;
+	struct mdss_mdp_mixer *mixer_intf;
+	struct mdss_mdp_mixer *mixer_wb;
+	u32 nmixers_intf;
+	u32 nmixers_wb;
+	struct mdss_mdp_ctl *ctl_off;
+	u32 nctl;
+	struct mdss_mdp_dp_intf *dp_off;
+	u32 ndp;
 	struct ion_client *iclient;
 	int iommu_attached;
 	struct mdss_iommu_map_type *iommu_map;
