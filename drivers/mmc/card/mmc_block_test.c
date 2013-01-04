@@ -1893,6 +1893,8 @@ static int run_bkops(struct test_data *td)
 	case BKOPS_DELAYED_WORK_LEVEL_1:
 		bkops_stat->ignore_card_bkops_status = true;
 		card->ext_csd.raw_bkops_status = 1;
+		card->bkops_info.sectors_changed =
+			card->bkops_info.min_sectors_to_queue_delayed_work + 1;
 		mbtd->bkops_stage = BKOPS_STAGE_1;
 
 		__blk_run_queue(q);
@@ -1909,6 +1911,8 @@ static int run_bkops(struct test_data *td)
 	case BKOPS_DELAYED_WORK_LEVEL_1_HPI:
 		bkops_stat->ignore_card_bkops_status = true;
 		card->ext_csd.raw_bkops_status = 1;
+		card->bkops_info.sectors_changed =
+			card->bkops_info.min_sectors_to_queue_delayed_work + 1;
 		mbtd->bkops_stage = BKOPS_STAGE_1;
 
 		__blk_run_queue(q);
@@ -1937,6 +1941,8 @@ static int run_bkops(struct test_data *td)
 	case BKOPS_CANCEL_DELAYED_WORK:
 		bkops_stat->ignore_card_bkops_status = true;
 		card->ext_csd.raw_bkops_status = 1;
+		card->bkops_info.sectors_changed =
+			card->bkops_info.min_sectors_to_queue_delayed_work + 1;
 		mbtd->bkops_stage = BKOPS_STAGE_1;
 
 		__blk_run_queue(q);
