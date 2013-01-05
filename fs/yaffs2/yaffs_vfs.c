@@ -288,7 +288,7 @@ static int yaffs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 }
 
 static int yaffs_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-			struct nameidata *n)
+			bool want_excl)
 {
 	return yaffs_mknod(dir, dentry, mode | S_IFREG, 0);
 }
@@ -366,7 +366,7 @@ static int yaffs_symlink(struct inode *dir, struct dentry *dentry,
 }
 
 static struct dentry *yaffs_lookup(struct inode *dir, struct dentry *dentry,
-				   struct nameidata *n)
+				   unsigned int flags)
 {
 	struct yaffs_obj *obj;
 	struct inode *inode = NULL;
@@ -1107,7 +1107,7 @@ static void yaffs_evict_inode(struct inode *inode)
 	if (!inode->i_nlink && !is_bad_inode(inode))
 		deleteme = 1;
 	truncate_inode_pages(&inode->i_data, 0);
-	end_writeback(inode);
+	clear_inode(inode);
 
 	if (deleteme && obj) {
 		dev = obj->my_dev;
