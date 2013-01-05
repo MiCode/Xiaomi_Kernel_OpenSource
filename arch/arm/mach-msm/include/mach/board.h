@@ -545,6 +545,30 @@ struct msm_vidc_platform_data {
 	unsigned long fw_addr;
 };
 
+enum msm_vidc_v4l2_iommu_map {
+	MSM_VIDC_V4L2_IOMMU_MAP_NS = 0,
+	MSM_VIDC_V4L2_IOMMU_MAP_CP,
+	MSM_VIDC_V4L2_IOMMU_MAP_MAX,
+};
+
+struct msm_vidc_v4l2_platform_data {
+	/*
+	 * Should be a <num_iommu_table x 2> array where
+	 * iommu_table[n][0] is the start address and
+	 * iommu_table[n][1] is the size.
+	 */
+	int64_t **iommu_table;
+	int num_iommu_table;
+
+	/*
+	 * Should be a <num_load_table x 2> array where
+	 * load_table[n][0] is the load and load_table[n][1]
+	 * is the desired clock rate.
+	 */
+	int64_t **load_table;
+	int num_load_table;
+};
+
 struct vcap_platform_data {
 	unsigned *gpios;
 	int num_gpios;

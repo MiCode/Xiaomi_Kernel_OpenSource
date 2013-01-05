@@ -149,11 +149,6 @@ enum vidc_clocks {
 	VCODEC_MAX_CLKS
 };
 
-struct load_freq_table {
-	u32 load;
-	u32 freq;
-};
-
 struct msm_vidc_fw {
 	void *cookie;
 };
@@ -211,5 +206,6 @@ struct venus_hfi_device {
 
 void venus_hfi_delete_device(void *device);
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
-	struct platform_device *pdev, hfi_cmd_response_callback callback);
+		struct msm_vidc_platform_resources *res,
+		hfi_cmd_response_callback callback);
 #endif
