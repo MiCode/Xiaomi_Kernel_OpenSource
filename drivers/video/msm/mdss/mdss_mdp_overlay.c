@@ -942,13 +942,20 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 	unsigned long flags;
 	u64 vsync_ticks;
+	unsigned long timeout;
 	int ret;
 
 	if (!mfd->ctl || !mfd->ctl->power_on)
 		return 0;
 
+	timeout = msecs_to_jiffies(VSYNC_PERIOD * 5);
+	if (mfd->ctl->play_cnt == 0) {
+		pr_debug("timegen enable still pending on fb%d\n", mfd->index);
+		timeout <<= 5;
+	}
+
 	ret = wait_for_completion_interruptible_timeout(&mfd->vsync_comp,
-			msecs_to_jiffies(VSYNC_PERIOD * 5));
+			timeout);
 	if (ret <= 0) {
 		pr_warn("vsync wait on fb%d interrupted (%d)\n",
 			mfd->index, ret);
