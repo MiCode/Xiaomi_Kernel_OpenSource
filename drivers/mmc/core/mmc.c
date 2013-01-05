@@ -1413,6 +1413,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				card->bkops_info.delay_ms =
 					card->bkops_info.host_delay_ms;
 
+			card->bkops_info.min_sectors_to_queue_delayed_work =
+				BKOPS_MIN_SECTORS_TO_QUEUE_DELAYED_WORK;
 		}
 	}
 
