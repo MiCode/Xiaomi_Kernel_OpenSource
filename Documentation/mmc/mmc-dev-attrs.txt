@@ -25,14 +25,14 @@ The following attributes are read/write.
 	running parallel lmdd write and lmdd read operations and calculating
 	the max number of packed writes requests.
 
-	min_sectors_to_check_bkops_status	This attribute is used to
-	determine whether the status bit that indicates the need for BKOPS
-	should be checked. The value is stored in this attribute represents
-	the minimum number of sectors that needs to be changed in the device
-	(written or discarded) in order to require the status-bit of BKOPS
-	to be checked. The value can modified via sysfs by writing the
-	required value to:
-	/sys/block/<block_dev_name>/min_sectors_to_check_bkops_status
+	bkops_check_threshold	This attribute is used to determine whether
+	the status bit that indicates the need for BKOPS should be checked.
+	The value should be given in percentages of the card size.
+	This value is used to calculate the minimum number of sectors that
+	needs to be changed in the device (written or discarded) in order to
+	require the status-bit of BKOPS to be checked.
+	The value can modified via sysfs by writing the required value to:
+	/sys/block/<block_dev_name>/bkops_check_threshold
 
 SD and MMC Device Attributes
 ============================

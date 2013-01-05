@@ -364,8 +364,6 @@ void mmc_start_delayed_bkops(struct mmc_card *card)
 	pr_debug("%s: %s: queueing delayed_bkops_work\n",
 		 mmc_hostname(card->host), __func__);
 
-	card->bkops_info.sectors_changed = 0;
-
 	/*
 	 * cancel_delayed_bkops_work will prevent a race condition between
 	 * fetching a request by the mmcqd and the delayed work, in case
@@ -517,6 +515,7 @@ void mmc_bkops_completion_polling(struct work_struct *work)
 			pr_debug("%s: %s: completed BKOPs, exit polling\n",
 				 mmc_hostname(card->host), __func__);
 			mmc_card_clr_doing_bkops(card);
+			card->bkops_info.sectors_changed = 0;
 			goto out;
 		}
 
