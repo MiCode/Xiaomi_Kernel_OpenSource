@@ -989,6 +989,24 @@ struct buffer_requirements {
 	struct hal_buffer_requirements buffer[HAL_BUFFER_MAX];
 };
 
+struct load_freq_table {
+	u32 load;
+	u32 freq;
+};
+
+struct msm_vidc_platform_resources {
+	u32 fw_base_addr;
+	u32 register_base;
+	u32 register_size;
+	u32 irq;
+	struct load_freq_table *load_freq_tbl;
+	u32 load_freq_tbl_size;
+	struct msm_vidc_iommu_info *iommu_maps;
+	u32 iommu_maps_size;
+	struct platform_device *pdev;
+};
+
+
 enum msm_vidc_hfi_type {
 	VIDC_HFI_VENUS,
 	VIDC_HFI_Q6,
@@ -1066,7 +1084,7 @@ typedef void (*hfi_cmd_response_callback) (enum command_response cmd,
 typedef void (*msm_vidc_callback) (u32 response, void *callback);
 
 void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
-			struct platform_device *pdev,
+			struct msm_vidc_platform_resources *res,
 			hfi_cmd_response_callback callback);
 void vidc_hfi_deinitialize(enum msm_vidc_hfi_type hfi_type,
 			struct hfi_device *hdev);

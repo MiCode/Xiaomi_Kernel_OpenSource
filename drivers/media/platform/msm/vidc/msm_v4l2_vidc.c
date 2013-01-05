@@ -22,6 +22,7 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <mach/board.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
 #include <media/msm_vidc.h>
@@ -671,30 +672,249 @@ void msm_vidc_release_video_device(struct video_device *pvdev)
 {
 }
 
-static int msm_vidc_get_hfi(struct platform_device *pdev,
-			struct msm_vidc_core *core)
+static size_t get_u32_array_num_elements(struct platform_device *pdev,
+					char *name)
+{
+	struct device_node *np = pdev->dev.of_node;
+	int len;
+	size_t num_elements = 0;
+	if (!of_get_property(np, name, &len)) {
+		dprintk(VIDC_ERR, "Failed to read %s from device tree\n",
+			name);
+		goto fail_read;
+	}
+
+	num_elements = len / sizeof(u32);
+	if (num_elements <= 0) {
+		dprintk(VIDC_ERR, "%s not specified in device tree\n",
+			name);
+		goto fail_read;
+	}
+	return num_elements / 2;
+
+fail_read:
+	return 0;
+}
+
+static int read_hfi_type(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
 	int rc = 0;
 	const char *hfi_name = NULL;
 
-	rc = of_property_read_string(np, "hfi", &hfi_name);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to read hfi from device tree\n");
-		goto err_hfi_read;
-	}
-
-	if (!strcmp(hfi_name, "venus"))
-		core->hfi_type = VIDC_HFI_VENUS;
-	else if (!strcmp(hfi_name, "q6"))
-		core->hfi_type = VIDC_HFI_Q6;
-
-	dprintk(VIDC_INFO, "hfi_type = %d\n", core->hfi_type);
+	if (np) {
+		rc = of_property_read_string(np, "hfi", &hfi_name);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to read hfi from device tree\n");
+			goto err_hfi_read;
+		}
+		if (!strcmp(hfi_name, "venus"))
+			rc = VIDC_HFI_VENUS;
+		else if (!strcmp(hfi_name, "q6"))
+			rc = VIDC_HFI_Q6;
+		else
+			rc = -EINVAL;
+	} else
+		rc = VIDC_HFI_Q6;
 
 err_hfi_read:
 	return rc;
 }
 
+static int read_platform_resources_from_dt(
+		struct msm_vidc_platform_resources *res)
+{
+	struct platform_device *pdev = res->pdev;
+	struct resource *kres = NULL;
+	u32 *temp = NULL;
+	int c = 0, rc = 0;
+	int num_elements = 0;
+
+	if (!pdev->dev.of_node) {
+		dprintk(VIDC_ERR, "DT node not found\n");
+		return -ENOENT;
+	}
+
+	res->fw_base_addr = 0x0;
+
+	kres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res->register_base = kres ? kres->start : -1;
+	res->register_size = kres ? (kres->end + 1 - kres->start) : -1;
+
+	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	res->irq = kres ? kres->start : -1;
+
+	num_elements = get_u32_array_num_elements(pdev, "load-freq-tbl");
+	if (num_elements) {
+		temp = kzalloc(num_elements*2, GFP_KERNEL);
+		if (!temp) {
+			dprintk(VIDC_ERR, "%s Failed to alloc temp\n",
+				__func__);
+			return -ENOMEM;
+		}
+		if (!of_property_read_u32_array(pdev->dev.of_node,
+				"load-freq-tbl", temp, num_elements * 2)) {
+			res->load_freq_tbl = kzalloc(num_elements *
+				sizeof(*res->load_freq_tbl), GFP_KERNEL);
+			if (!res->load_freq_tbl) {
+				dprintk(VIDC_ERR,
+					"%s Failed to alloc load_freq_tbl\n",
+					__func__);
+				kfree(temp);
+				return -ENOMEM;
+			}
+
+			res->load_freq_tbl_size = num_elements;
+
+			for (c = 0; c < num_elements; ++c) {
+				res->load_freq_tbl[c].load = temp[2*c];
+				res->load_freq_tbl[c].freq = temp[2*c+1];
+			}
+		}
+		kfree(temp);
+		temp = NULL;
+	}
+
+	res->iommu_maps = kzalloc(MAX_MAP *
+			sizeof(*res->iommu_maps), GFP_KERNEL);
+	if (!res->iommu_maps) {
+		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n", __func__);
+		kfree(res->load_freq_tbl);
+		return -ENOMEM;
+	}
+	res->iommu_maps_size = MAX_MAP;
+
+	for (c = 0; c < MAX_MAP; ++c) {
+		char *names[MAX_MAP] = {
+			[CP_MAP] = "vidc-cp-map",
+			[NS_MAP] = "vidc-ns-map",
+		};
+		char *contexts[MAX_MAP] = {
+			[CP_MAP] = "venus_cp",
+			[NS_MAP] = "venus_ns",
+		};
+
+		num_elements = get_u32_array_num_elements(pdev, names[c]);
+		if (num_elements) {
+			temp = kzalloc(num_elements * 2, GFP_KERNEL);
+			if (!temp) {
+				dprintk(VIDC_ERR, "%s Failed to alloc temp\n",
+					__func__);
+				kfree(res->load_freq_tbl);
+				kfree(res->iommu_maps);
+				return -ENOMEM;
+			}
+			if (!of_property_read_u32_array(pdev->dev.of_node,
+					names[c], temp, num_elements * 2)) {
+				res->iommu_maps[c] =
+					(struct msm_vidc_iommu_info) {
+					.addr_range = {(u32)temp[0],
+							(u32)temp[1]},
+				};
+				memcpy(&res->iommu_maps[c].name, names[c],
+						strlen(names[c]));
+				memcpy(&res->iommu_maps[c].ctx, contexts[c],
+						strlen(contexts[c]));
+			}
+			kfree(temp);
+			temp = NULL;
+		}
+	}
+	return rc;
+}
+
+static int read_platform_resources_from_board(
+		struct msm_vidc_platform_resources *res)
+{
+	struct resource *kres = NULL;
+	struct platform_device *pdev = res->pdev;
+	struct msm_vidc_v4l2_platform_data *pdata = pdev->dev.platform_data;
+	int64_t start, size;
+	int c = 0, rc = 0;
+
+	if (!pdata) {
+		dprintk(VIDC_ERR, "Platform data not found\n");
+		return -ENOENT;
+	}
+
+	res->fw_base_addr = 0x0;
+
+	kres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res->register_base = kres ? kres->start : -1;
+	res->register_size = kres ? (kres->end + 1 - kres->start) : -1;
+
+	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	res->irq = kres ? kres->start : -1;
+
+	res->load_freq_tbl = kzalloc(pdata->num_load_table *
+			sizeof(*res->load_freq_tbl), GFP_KERNEL);
+
+	if (!res->load_freq_tbl) {
+		dprintk(VIDC_ERR, "%s Failed to alloc load_freq_tbl\n",
+				__func__);
+		return -ENOMEM;
+	}
+
+	res->load_freq_tbl_size = pdata->num_load_table;
+	for (c = 0; c > pdata->num_load_table; ++c) {
+		res->load_freq_tbl[c].load = pdata->load_table[c][0];
+		res->load_freq_tbl[c].freq = pdata->load_table[c][1];
+	}
+
+	res->iommu_maps = kzalloc(MAX_MAP *
+			sizeof(*res->iommu_maps), GFP_KERNEL);
+	if (!res->iommu_maps) {
+		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n",
+				__func__);
+		kfree(res->load_freq_tbl);
+		return -ENOMEM;
+	}
+
+	res->iommu_maps_size = MAX_MAP;
+
+	start = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_CP][0];
+	size = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_CP][1];
+	res->iommu_maps[CP_MAP] = (struct msm_vidc_iommu_info) {
+		.addr_range = {(u32) start, (u32) size},
+			.name = "vidc-cp-map",
+			.ctx = "venus_cp",
+	};
+
+	start = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_NS][0];
+	size = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_NS][1];
+	res->iommu_maps[NS_MAP] = (struct msm_vidc_iommu_info) {
+		.addr_range = {(u32) start, (u32) size},
+			.name = "vidc-ns-map",
+			.ctx = "venus_ns",
+	};
+	return rc;
+}
+
+static int read_platform_resources(struct msm_vidc_core *core,
+		struct platform_device *pdev)
+{
+	if (!core || !pdev) {
+		dprintk(VIDC_ERR, "%s: Invalid params %p %p\n",
+			__func__, core, pdev);
+		return -EINVAL;
+	}
+	core->hfi_type = read_hfi_type(pdev);
+	if (core->hfi_type < 0) {
+		dprintk(VIDC_ERR, "Failed to identify core type\n");
+		return core->hfi_type;
+	}
+
+	core->resources.pdev = pdev;
+	if (pdev->dev.of_node) {
+		/* Target supports DT, parse from it */
+		return read_platform_resources_from_dt(&core->resources);
+	} else {
+		/* Legacy board file usage */
+		return read_platform_resources_from_board(
+				&core->resources);
+	}
+}
 static int msm_vidc_initialize_core(struct platform_device *pdev,
 				struct msm_vidc_core *core)
 {
@@ -702,6 +922,11 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	int rc = 0;
 	if (!core)
 		return -EINVAL;
+	rc = read_platform_resources(core, pdev);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to get platform resources\n");
+		return rc;
+	}
 
 	INIT_LIST_HEAD(&core->instances);
 	mutex_init(&core->sync_lock);
@@ -712,11 +937,6 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 		i <= SYS_MSG_INDEX(SYS_MSG_END); i++) {
 		init_completion(&core->completions[i]);
 	}
-
-	rc = msm_vidc_get_hfi(pdev, core);
-	if (rc)
-		dprintk(VIDC_ERR,
-			"Failed to read Host-Firmware Interface rc: %d\n", rc);
 
 	return rc;
 }
@@ -770,7 +990,7 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	video_set_drvdata(&core->vdev[MSM_VIDC_ENCODER].vdev, core);
 
 	core->device = vidc_hfi_initialize(core->hfi_type, core->id,
-				pdev, &handle_cmd_response);
+				&core->resources, &handle_cmd_response);
 	if (!core->device) {
 		dprintk(VIDC_ERR, "Failed to create HFI device\n");
 		goto err_cores_exceeded;
@@ -825,6 +1045,8 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 	v4l2_device_unregister(&core->v4l2_dev);
 
+	kfree(core->resources.load_freq_tbl);
+	kfree(core->resources.iommu_maps);
 	kfree(core);
 	return rc;
 }
@@ -838,7 +1060,7 @@ static struct platform_driver msm_vidc_driver = {
 	.probe = msm_vidc_probe,
 	.remove = msm_vidc_remove,
 	.driver = {
-		.name = "msm_vidc",
+		.name = "msm_vidc_v4l2",
 		.owner = THIS_MODULE,
 		.of_match_table = msm_vidc_dt_match,
 	},

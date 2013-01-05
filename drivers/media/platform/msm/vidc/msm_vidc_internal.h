@@ -179,6 +179,7 @@ struct msm_vidc_core {
 	enum vidc_core_state state;
 	struct completion completions[SYS_MSG_END - SYS_MSG_START + 1];
 	enum msm_vidc_hfi_type hfi_type;
+	struct msm_vidc_platform_resources resources;
 };
 
 struct msm_vidc_inst {

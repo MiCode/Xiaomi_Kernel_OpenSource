@@ -2130,30 +2130,16 @@ static irqreturn_t venus_hfi_isr(int irq, void *dev)
 }
 
 static int venus_hfi_init_regs_and_interrupts(
-		struct venus_hfi_device *device, struct platform_device *pdev)
+		struct venus_hfi_device *device,
+		struct msm_vidc_platform_resources *res)
 {
 	struct hal_data *hal = NULL;
 	int rc = 0;
-	struct resource *res;
 
-	device->base_addr = 0x0;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dprintk(VIDC_ERR, "Failed to get IORESOURCE_MEM\n");
-		rc = -ENODEV;
-		goto err_core_init;
-	}
-	device->register_base = res->start;
-	device->register_size = resource_size(res);
-
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
-		dprintk(VIDC_ERR, "Failed to get IORESOURCE_IRQ\n");
-		rc = -ENODEV;
-		goto err_core_init;
-	}
-	device->irq = res->start;
+	device->base_addr = res->fw_base_addr;
+	device->register_base = res->register_base;
+	device->register_size = res->register_size;
+	device->irq = res->irq;
 
 	rc = venus_hfi_check_core_registered(hal_ctxt, device->base_addr,
 			device->register_base, device->register_size,
@@ -2200,48 +2186,14 @@ err_core_init:
 
 }
 
-static size_t read_u32_array(struct platform_device *pdev,
-		char *name, u32 *arr, size_t size)
-{
-	int len;
-	size_t sz = 0;
-	struct device_node *np = pdev->dev.of_node;
-	if (!of_get_property(np, name, &len)) {
-		dprintk(VIDC_ERR, "Failed to read %s from device tree\n",
-			name);
-		goto fail_read;
-	}
-	sz = len / sizeof(u32);
-	if (sz <= 0) {
-		dprintk(VIDC_ERR, "%s not specified in device tree\n",
-			name);
-		goto fail_read;
-	}
-	if (sz > size) {
-		dprintk(VIDC_ERR, "Not enough memory to store %s values\n",
-			name);
-		goto fail_read;
-	}
-	if (of_property_read_u32_array(np, name, arr, sz)) {
-		dprintk(VIDC_ERR,
-			"error while reading %s from device tree\n",
-			name);
-		goto fail_read;
-	}
-	return sz;
-fail_read:
-	sz = 0;
-	return sz;
-}
-
-static inline int venus_hfi_init_clocks(struct platform_device *pdev,
+static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 		struct venus_hfi_device *device)
 {
 	struct venus_core_clock *cl;
 	int i;
 	int rc = 0;
 	struct venus_core_clock *clock;
-	if (!device) {
+	if (!res || !device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
 	}
@@ -2255,10 +2207,10 @@ static inline int venus_hfi_init_clocks(struct platform_device *pdev,
 	strlcpy(clock[VCODEC_OCMEM_CLK].name, "mem_clk",
 		sizeof(clock[VCODEC_OCMEM_CLK].name));
 
-	clock[VCODEC_CLK].count = read_u32_array(pdev,
-		"load-freq-tbl", (u32 *)clock[VCODEC_CLK].load_freq_tbl,
-		(sizeof(clock[VCODEC_CLK].load_freq_tbl)/sizeof(u32)));
-	clock[VCODEC_CLK].count /= 2;
+	clock[VCODEC_CLK].count = res->load_freq_tbl_size;
+	memcpy((void *)clock[VCODEC_CLK].load_freq_tbl, res->load_freq_tbl,
+		clock[VCODEC_CLK].count * sizeof(*res->load_freq_tbl));
+
 	dprintk(VIDC_DBG, "count = %d\n", clock[VCODEC_CLK].count);
 	if (!clock[VCODEC_CLK].count) {
 		dprintk(VIDC_ERR, "Failed to read clock frequency\n");
@@ -2275,7 +2227,7 @@ static inline int venus_hfi_init_clocks(struct platform_device *pdev,
 	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
 		cl = &device->resources.clock[i];
 		if (!cl->clk) {
-			cl->clk = devm_clk_get(&pdev->dev, cl->name);
+			cl->clk = devm_clk_get(&res->pdev->dev, cl->name);
 			if (IS_ERR_OR_NULL(cl->clk)) {
 				dprintk(VIDC_ERR,
 					"Failed to get clock: %s\n", cl->name);
@@ -2382,9 +2334,8 @@ static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 }
 
 static int venus_hfi_register_iommu_domains(struct venus_hfi_device *device,
-					struct platform_device *pdev)
+					struct msm_vidc_platform_resources *res)
 {
-	size_t len;
 	struct msm_iova_partition partition[2];
 	struct msm_iova_layout layout;
 	int rc = 0;
@@ -2406,15 +2357,9 @@ static int venus_hfi_register_iommu_domains(struct venus_hfi_device *device,
 			sizeof(io_map[NS_MAP].ctx));
 
 	for (i = 0; i < MAX_MAP; i++) {
-		len = read_u32_array(pdev, io_map[i].name,
-				io_map[i].addr_range,
-				(sizeof(io_map[i].addr_range)/sizeof(u32)));
-		if (!len) {
-			dprintk(VIDC_ERR,
-				"Error in reading cp address range\n");
-			rc = -EINVAL;
-			break;
-		}
+		memcpy(io_map[i].addr_range, &res->iommu_maps[i].addr_range,
+				sizeof(u32) * 2);
+
 		partition[0].start = io_map[i].addr_range[0];
 		if (i == NS_MAP) {
 			partition[0].size =
@@ -2736,11 +2681,11 @@ static void venus_hfi_deinit_ocmem(struct venus_hfi_device *device)
 
 
 static int venus_hfi_init_resources(struct venus_hfi_device *device,
-				struct platform_device *pdev)
+				struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
 
-	rc = venus_hfi_init_clocks(pdev, device);
+	rc = venus_hfi_init_clocks(res, device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init clocks\n");
 		rc = -ENODEV;
@@ -2753,7 +2698,7 @@ static int venus_hfi_init_resources(struct venus_hfi_device *device,
 		goto err_init_bus;
 	}
 
-	rc = venus_hfi_register_iommu_domains(device, pdev);
+	rc = venus_hfi_register_iommu_domains(device, res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to register iommu domains: %d\n", rc);
 		goto err_register_iommu_domain;
@@ -3003,13 +2948,14 @@ int venus_hfi_get_stride_scanline(int color_fmt,
 	return 0;
 }
 
-static void *venus_hfi_add_device(u32 device_id, struct platform_device *pdev,
-		void (*callback) (enum command_response cmd, void *data))
+static void *venus_hfi_add_device(u32 device_id,
+			struct msm_vidc_platform_resources *res,
+			hfi_cmd_response_callback callback)
 {
 	struct venus_hfi_device *hdevice = NULL;
 	int rc = 0;
 
-	if (device_id || !pdev || !callback) {
+	if (device_id || !res || !callback) {
 		dprintk(VIDC_ERR, "Invalid Paramters");
 		return NULL;
 	}
@@ -3023,7 +2969,7 @@ static void *venus_hfi_add_device(u32 device_id, struct platform_device *pdev,
 		goto err_alloc;
 	}
 
-	rc = venus_hfi_init_regs_and_interrupts(hdevice, pdev);
+	rc = venus_hfi_init_regs_and_interrupts(hdevice, res);
 	if (rc)
 		goto err_init_regs;
 
@@ -3053,24 +2999,24 @@ err_alloc:
 }
 
 static void *venus_hfi_get_device(u32 device_id,
-				struct platform_device *pdev,
+				struct msm_vidc_platform_resources *res,
 				hfi_cmd_response_callback callback)
 {
 	struct venus_hfi_device *device;
 	int rc = 0;
 
-	if (!pdev || !callback) {
-		dprintk(VIDC_ERR, "Invalid params: %p %p\n", pdev, callback);
+	if (!res || !callback) {
+		dprintk(VIDC_ERR, "Invalid params: %p %p\n", res, callback);
 		return NULL;
 	}
 
-	device = venus_hfi_add_device(device_id, pdev, &handle_cmd_response);
+	device = venus_hfi_add_device(device_id, res, &handle_cmd_response);
 	if (!device) {
 		dprintk(VIDC_ERR, "Failed to create HFI device\n");
 		return NULL;
 	}
 
-	rc = venus_hfi_init_resources(device, pdev);
+	rc = venus_hfi_init_resources(device, res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init resources: %d\n", rc);
 		goto err_fail_init_res;
@@ -3145,16 +3091,18 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 }
 
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
-	struct platform_device *pdev, hfi_cmd_response_callback callback)
+		struct msm_vidc_platform_resources *res,
+		hfi_cmd_response_callback callback)
 {
 	int rc = 0;
 
-	if (!hdev || !callback) {
-		dprintk(VIDC_ERR, "Invalid params: %p %p\n", pdev, callback);
+	if (!hdev || !res || !callback) {
+		dprintk(VIDC_ERR, "Invalid params: %p %p %p\n",
+			hdev, res, callback);
 		rc = -EINVAL;
 		goto err_venus_hfi_init;
 	}
-	hdev->hfi_device_data = venus_hfi_get_device(device_id, pdev, callback);
+	hdev->hfi_device_data = venus_hfi_get_device(device_id, res, callback);
 
 	venus_init_hfi_callbacks(hdev);
 

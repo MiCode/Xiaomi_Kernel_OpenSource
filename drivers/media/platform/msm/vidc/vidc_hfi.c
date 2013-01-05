@@ -18,7 +18,7 @@
 struct hal_device_data hal_ctxt;
 
 void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
-			struct platform_device *pdev,
+			struct msm_vidc_platform_resources *res,
 			hfi_cmd_response_callback callback)
 {
 	struct hfi_device *hdev = NULL;
@@ -31,7 +31,7 @@ void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
 
 	switch (hfi_type) {
 	case VIDC_HFI_VENUS:
-		venus_hfi_initialize(hdev, device_id, pdev, callback);
+		venus_hfi_initialize(hdev, device_id, res, callback);
 		break;
 
 	case VIDC_HFI_Q6:

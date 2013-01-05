@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1064,6 +1064,36 @@ static struct resource msm_device_vidc_resources[] = {
 		.start	= VCODEC_IRQ,
 		.end	= VCODEC_IRQ,
 		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+int64_t vidc_v4l2_ns_iommu_mapping[] = {-1, -1};
+int64_t vidc_v4l2_cp_iommu_mapping[] = {-1, -1};
+int64_t *vidc_v4l2_iommu_mappings[] = {
+	[MSM_VIDC_V4L2_IOMMU_MAP_NS] = vidc_v4l2_ns_iommu_mapping,
+	[MSM_VIDC_V4L2_IOMMU_MAP_CP] = vidc_v4l2_cp_iommu_mapping,
+};
+
+int64_t vidc_v4l2_load_1[] = {-1, -1};
+int64_t vidc_v4l2_load_2[] = {-1, -1};
+int64_t *vidc_v4l2_load_table[] = {
+	vidc_v4l2_load_1,
+	vidc_v4l2_load_2,
+};
+
+static struct msm_vidc_v4l2_platform_data vidc_v4l2_plaform_data = {
+	.iommu_table = vidc_v4l2_iommu_mappings,
+	.num_iommu_table = 2,
+	.load_table = vidc_v4l2_load_table,
+	.num_load_table = 2,
+};
+
+struct platform_device msm_device_vidc_v4l2 = {
+	.name = "msm_vidc_v4l2",
+	.id = 0,
+	.num_resources = 0,
+	.dev = {
+		.platform_data = &vidc_v4l2_plaform_data,
 	},
 };
 
@@ -4564,7 +4594,8 @@ struct platform_device mdm_sglte_device = {
 };
 
 struct platform_device *msm8960_vidc_device[] __initdata = {
-	&msm_device_vidc
+	&msm_device_vidc,
+	&msm_device_vidc_v4l2,
 };
 
 void __init msm8960_add_vidc_device(void)
