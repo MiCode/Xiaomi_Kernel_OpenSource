@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -160,9 +160,13 @@ ion_bail_out:
 static void res_trk_pmem_free(struct ddl_buf_addr *addr)
 {
 	struct ddl_context *ddl_context;
+
+	if (!addr)
+		return;
+
 	ddl_context = ddl_get_context();
 	if (ddl_context->video_ion_client) {
-		if (addr && addr->alloc_handle) {
+		if (addr->alloc_handle) {
 			ion_free(ddl_context->video_ion_client,
 			 addr->alloc_handle);
 			addr->alloc_handle = NULL;
