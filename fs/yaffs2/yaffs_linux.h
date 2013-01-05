@@ -33,6 +33,10 @@ struct yaffs_linux_context {
 
 	struct task_struct *readdir_process;
 	unsigned mount_id;
+
+	bool sb_dirty; /* non-zero if super block is marked dirty */
+	struct delayed_work sync_work; /* FS sync delayed work */
+	spinlock_t work_lock; /* protects sync_work and sb_dirty */
 };
 
 #define yaffs_dev_to_lc(dev) ((struct yaffs_linux_context *)((dev)->os_context))

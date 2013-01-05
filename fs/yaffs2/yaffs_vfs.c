@@ -54,6 +54,8 @@
 #include <linux/delay.h>
 #include <linux/freezer.h>
 #include <linux/cleancache.h>
+#include <linux/workqueue.h>
+#include <linux/writeback.h>
 
 #include <asm/div64.h>
 
@@ -1124,13 +1126,46 @@ static void yaffs_evict_inode(struct inode *inode)
 
 }
 
+static bool yaffs_is_sb_dirty(struct super_block *sb)
+{
+	struct yaffs_dev *dev = yaffs_super_to_dev(sb);
+	struct yaffs_linux_context *lc = yaffs_dev_to_lc(dev);
+
+	return lc->sb_dirty;
+}
+
+static void yaffs_mark_sb_dirty(struct super_block *sb)
+{
+	unsigned long delay;
+	struct yaffs_dev *dev = yaffs_super_to_dev(sb);
+	struct yaffs_linux_context *lc = yaffs_dev_to_lc(dev);
+
+	spin_lock(&lc->work_lock);
+	if (!lc->sb_dirty) {
+		delay = msecs_to_jiffies(dirty_writeback_interval * 10);
+		queue_delayed_work(system_long_wq, &lc->sync_work, delay);
+		lc->sb_dirty = true;
+	}
+	spin_unlock(&lc->work_lock);
+}
+
+static void yaffs_clear_sb_dirty(struct super_block *sb)
+{
+	struct yaffs_dev *dev = yaffs_super_to_dev(sb);
+	struct yaffs_linux_context *lc = yaffs_dev_to_lc(dev);
+
+	spin_lock(&lc->work_lock);
+	lc->sb_dirty = false;
+	spin_unlock(&lc->work_lock);
+}
+
 static void yaffs_touch_super(struct yaffs_dev *dev)
 {
 	struct super_block *sb = yaffs_dev_to_lc(dev)->super;
 
 	yaffs_trace(YAFFS_TRACE_OS, "yaffs_touch_super() sb = %p", sb);
 	if (sb)
-		sb->s_dirt = 1;
+		yaffs_mark_sb_dirty(sb);
 }
 
 static int yaffs_readpage_nolock(struct file *f, struct page *pg)
@@ -1593,7 +1628,7 @@ static int yaffs_do_sync_fs(struct super_block *sb, int request_checkpoint)
 	yaffs_trace(YAFFS_TRACE_OS | YAFFS_TRACE_SYNC | YAFFS_TRACE_BACKGROUND,
 		"yaffs_do_sync_fs: gc-urgency %d %s %s%s",
 		gc_urgent,
-		sb->s_dirt ? "dirty" : "clean",
+		yaffs_is_sb_dirty(sb) ? "dirty" : "clean",
 		request_checkpoint ? "checkpoint requested" : "no checkpoint",
 		oneshot_checkpoint ? " one-shot" : "");
 
@@ -1601,9 +1636,9 @@ static int yaffs_do_sync_fs(struct super_block *sb, int request_checkpoint)
 	do_checkpoint = ((request_checkpoint && !gc_urgent) ||
 			 oneshot_checkpoint) && !dev->is_checkpointed;
 
-	if (sb->s_dirt || do_checkpoint) {
+	if (yaffs_is_sb_dirty(sb) || do_checkpoint) {
 		yaffs_flush_super(sb, !dev->is_checkpointed && do_checkpoint);
-		sb->s_dirt = 0;
+		yaffs_clear_sb_dirty(sb);
 		if (oneshot_checkpoint)
 			yaffs_auto_checkpoint &= ~4;
 	}
@@ -1736,15 +1771,18 @@ static void yaffs_bg_stop(struct yaffs_dev *dev)
 	}
 }
 
-static void yaffs_write_super(struct super_block *sb)
+static void yaffs_delayed_sync_fs(struct work_struct *work)
 {
+	struct yaffs_linux_context *lc;
 	unsigned request_checkpoint = (yaffs_auto_checkpoint >= 2);
 
+	lc = container_of(work, struct yaffs_linux_context, sync_work.work);
+
 	yaffs_trace(YAFFS_TRACE_OS | YAFFS_TRACE_SYNC | YAFFS_TRACE_BACKGROUND,
-		"yaffs_write_super%s",
+		"yaffs_delayed_sync_fs%s",
 		request_checkpoint ? " checkpt" : "");
 
-	yaffs_do_sync_fs(sb, request_checkpoint);
+	yaffs_do_sync_fs(lc->super, request_checkpoint);
 
 }
 
@@ -1979,6 +2017,8 @@ static void yaffs_put_super(struct super_block *sb)
 	yaffs_trace(YAFFS_TRACE_OS | YAFFS_TRACE_BACKGROUND,
 		"yaffs background thread shut down");
 
+	cancel_delayed_work_sync(&yaffs_dev_to_lc(dev)->sync_work);
+
 	yaffs_gross_lock(dev);
 
 	yaffs_flush_super(sb, 1);
@@ -2015,7 +2055,6 @@ static const struct super_operations yaffs_super_ops = {
 	.put_super = yaffs_put_super,
 	.evict_inode = yaffs_evict_inode,
 	.sync_fs = yaffs_sync_fs,
-	.write_super = yaffs_write_super,
 };
 
 static struct super_block *yaffs_internal_read_super(int yaffs_version,
@@ -2372,7 +2411,11 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 		return NULL;
 	}
 	sb->s_root = root;
-	sb->s_dirt = !dev->is_checkpointed;
+	spin_lock_init(&yaffs_dev_to_lc(dev)->work_lock);
+	INIT_DELAYED_WORK(&yaffs_dev_to_lc(dev)->sync_work,
+				yaffs_delayed_sync_fs);
+	if (!dev->is_checkpointed)
+		yaffs_mark_sb_dirty(sb);
 	yaffs_trace(YAFFS_TRACE_ALWAYS,
 		"yaffs_read_super: is_checkpointed %d",
 		dev->is_checkpointed);
