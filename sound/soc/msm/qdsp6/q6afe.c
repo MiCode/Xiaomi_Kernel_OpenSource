@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, .qualcomm.com. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1587,7 +1587,7 @@ static ssize_t afe_debug_write(struct file *filp,
 				goto afe_error;
 			}
 
-			if (param[1] < 0 || param[1] > 100) {
+			if (param[1] > 100) {
 				pr_err("%s: Error, volume shoud be 0 to 100"
 					" percentage param = %lu\n",
 					__func__, param[1]);
