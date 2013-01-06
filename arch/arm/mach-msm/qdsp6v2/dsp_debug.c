@@ -38,12 +38,14 @@ dsp_state_cb cb_ptr;
 
 void q6audio_dsp_not_responding(void)
 {
+	int i;
+
 	if (cb_ptr)
 		cb_ptr(DSP_STATE_CRASHED);
 	if (atomic_add_return(1, &dsp_crash_count) != 1) {
 		pr_err("q6audio_dsp_not_responding() \
 			- parking additional crasher...\n");
-		for (;;)
+		for (i = 0; i < 600; i++)
 			msleep(1000);
 	}
 	if (dsp_wait_count) {
