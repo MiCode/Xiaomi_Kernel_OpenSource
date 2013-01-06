@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -135,10 +135,9 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		} else {
 			uint16_t sce_left = 1, sce_right = 2;
 			aac_config = audio->codec_cfg;
-			if ((aac_config->dual_mono_mode <
-				AUDIO_AAC_DUAL_MONO_PL_PR) ||
-				(aac_config->dual_mono_mode >
-				AUDIO_AAC_DUAL_MONO_PL_SR)) {
+			/* PL_PR is 0 only need to check PL_SR */
+			if (aac_config->dual_mono_mode >
+			    AUDIO_AAC_DUAL_MONO_PL_SR) {
 				pr_err("%s:AUDIO_SET_AAC_CONFIG: Invalid"
 					"dual_mono mode =%d\n", __func__,
 					aac_config->dual_mono_mode);
