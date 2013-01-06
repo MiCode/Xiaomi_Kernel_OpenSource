@@ -121,7 +121,7 @@ struct mmc_blk_data {
 	struct device_attribute force_ro;
 	struct device_attribute power_ro_lock;
 	struct device_attribute num_wr_reqs_to_start_packing;
-	struct device_attribute min_sectors_to_check_bkops_status;
+	struct device_attribute bkops_check_threshold;
 	int	area_type;
 };
 
@@ -332,43 +332,60 @@ exit:
 }
 
 static ssize_t
-min_sectors_to_check_bkops_status_show(struct device *dev,
+bkops_check_threshold_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
 	struct mmc_blk_data *md = mmc_blk_get(dev_to_disk(dev));
-	unsigned int min_sectors_to_check_bkops_status;
 	struct mmc_card *card = md->queue.card;
 	int ret;
 
 	if (!card)
 		ret = -EINVAL;
-	else {
-	    min_sectors_to_check_bkops_status =
-		    card->bkops_info.min_sectors_to_queue_delayed_work;
+	else
 	    ret = snprintf(buf, PAGE_SIZE, "%d\n",
-			   min_sectors_to_check_bkops_status);
-	}
+		card->bkops_info.size_percentage_to_queue_delayed_work);
 
 	mmc_blk_put(md);
 	return ret;
 }
 
 static ssize_t
-min_sectors_to_check_bkops_status_store(struct device *dev,
+bkops_check_threshold_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t count)
 {
 	int value;
 	struct mmc_blk_data *md = mmc_blk_get(dev_to_disk(dev));
 	struct mmc_card *card = md->queue.card;
+	unsigned int card_size;
+	int ret = count;
 
-	if (!card)
-		return -EINVAL;
+	if (!card) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	sscanf(buf, "%d", &value);
-	if (value >= 0)
-		card->bkops_info.min_sectors_to_queue_delayed_work = value;
+	if ((value <= 0) || (value >= 100)) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
+	card_size = (unsigned int)get_capacity(md->disk);
+	if (card_size <= 0) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	card->bkops_info.size_percentage_to_queue_delayed_work = value;
+	card->bkops_info.min_sectors_to_queue_delayed_work =
+		(card_size * value) / 100;
+
+	pr_debug("%s: size_percentage = %d, min_sectors = %d",
+			mmc_hostname(card->host),
+			card->bkops_info.size_percentage_to_queue_delayed_work,
+			card->bkops_info.min_sectors_to_queue_delayed_work);
+
+exit:
 	mmc_blk_put(md);
 	return count;
 }
@@ -2177,6 +2194,8 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 {
 	struct mmc_blk_data *md;
 	int devidx, ret;
+	unsigned int percentage =
+		BKOPS_SIZE_PERCENTAGE_TO_QUEUE_DELAYED_WORK;
 
 	devidx = find_first_zero_bit(dev_use, max_devices);
 	if (devidx >= max_devices)
@@ -2255,6 +2274,10 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 
 	blk_queue_logical_block_size(md->queue.queue, 512);
 	set_capacity(md->disk, size);
+
+	card->bkops_info.size_percentage_to_queue_delayed_work = percentage;
+	card->bkops_info.min_sectors_to_queue_delayed_work =
+		((unsigned int)size * percentage) / 100;
 
 	if (mmc_host_cmd23(card->host)) {
 		if (mmc_card_mmc(card) ||
@@ -2448,22 +2471,19 @@ static int mmc_add_disk(struct mmc_blk_data *md)
 	if (ret)
 		goto num_wr_reqs_to_start_packing_fail;
 
-	md->min_sectors_to_check_bkops_status.show =
-		min_sectors_to_check_bkops_status_show;
-	md->min_sectors_to_check_bkops_status.store =
-		min_sectors_to_check_bkops_status_store;
-	sysfs_attr_init(&md->min_sectors_to_check_bkops_status.attr);
-	md->min_sectors_to_check_bkops_status.attr.name =
-		"min_sectors_to_check_bkops_status";
-	md->min_sectors_to_check_bkops_status.attr.mode = S_IRUGO | S_IWUSR;
+	md->bkops_check_threshold.show = bkops_check_threshold_show;
+	md->bkops_check_threshold.store = bkops_check_threshold_store;
+	sysfs_attr_init(&md->bkops_check_threshold.attr);
+	md->bkops_check_threshold.attr.name = "bkops_check_threshold";
+	md->bkops_check_threshold.attr.mode = S_IRUGO | S_IWUSR;
 	ret = device_create_file(disk_to_dev(md->disk),
-				 &md->min_sectors_to_check_bkops_status);
+				 &md->bkops_check_threshold);
 	if (ret)
-		goto min_sectors_to_check_bkops_status_fails;
+		goto bkops_check_threshold_fails;
 
 	return ret;
 
-min_sectors_to_check_bkops_status_fails:
+bkops_check_threshold_fails:
 	device_remove_file(disk_to_dev(md->disk),
 			   &md->num_wr_reqs_to_start_packing);
 num_wr_reqs_to_start_packing_fail:
