@@ -4,7 +4,7 @@
  * Copyright (C) 2000 Ralph Metzler & Marcus Metzler
  *		      for convergence integrated media GmbH
  *
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -2253,6 +2253,7 @@ static int dvb_dmxdev_filter_stop(struct dmxdev_filter *dmxdevfilter)
 
 	spin_lock_irq(&dmxdevfilter->dev->lock);
 	dvb_dmxdev_flush_output(&dmxdevfilter->buffer, &dmxdevfilter->events);
+	dvb_ringbuffer_reset(&dmxdevfilter->buffer);
 	spin_unlock_irq(&dmxdevfilter->dev->lock);
 
 	wake_up_all(&dmxdevfilter->buffer.queue);
