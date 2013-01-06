@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -744,8 +744,8 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		pr_debug("%s: AUDIO_GET_STATS cmd\n", __func__);
 		memset(&stats, 0, sizeof(stats));
-		timestamp = q6asm_get_session_time(audio->ac);
-		if (timestamp < 0) {
+		rc = q6asm_get_session_time(audio->ac, &timestamp);
+		if (rc < 0) {
 			pr_err("%s: Get Session Time return value =%lld\n",
 				__func__, timestamp);
 			return -EAGAIN;
