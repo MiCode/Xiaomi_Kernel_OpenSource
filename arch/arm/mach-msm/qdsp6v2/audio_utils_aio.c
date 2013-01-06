@@ -1139,8 +1139,8 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		uint64_t timestamp;
 		stats.byte_count = atomic_read(&audio->in_bytes);
 		stats.sample_count = atomic_read(&audio->in_samples);
-		timestamp = q6asm_get_session_time(audio->ac);
-		if (timestamp >= 0)
+		rc = q6asm_get_session_time(audio->ac, &timestamp);
+		if (rc >= 0)
 			memcpy(&stats.unused[0], &timestamp, sizeof(timestamp));
 		else
 			pr_debug("Error while getting timestamp\n");
