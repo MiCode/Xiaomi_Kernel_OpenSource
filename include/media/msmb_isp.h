@@ -8,7 +8,8 @@
 
 #define ISP_VERSION_40        40
 #define ISP_VERSION_32        32
-
+#define ISP_NATIVE_BUF_BIT    0x10000
+#define ISP_STATS_STREAM_BIT  0x80000000
 
 enum ISP_START_PIXEL_PATTERN {
 	ISP_BAYER_RGRGRG,
@@ -160,6 +161,8 @@ struct msm_vfe_stats_stream_request_cmd {
 	uint32_t session_id;
 	uint32_t stream_id;
 	enum msm_isp_stats_type stats_type;
+	uint8_t comp_flag;
+	uint32_t framedrop_pattern;
 	uint32_t stream_handle;
 };
 struct msm_vfe_stats_stream_release_cmd {

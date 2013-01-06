@@ -937,7 +937,7 @@ static void msm_vfe40_stats_clear_wm_irq_mask(
 
 static void msm_vfe40_stats_cfg_wm_reg(
 	struct vfe_device *vfe_dev,
-	struct msm_vfe_stats_stream_request_cmd *stream_cfg_cmd)
+	struct msm_vfe_stats_stream *stream_info)
 {
 
 }
@@ -984,6 +984,56 @@ static uint32_t msm_vfe40_stats_get_frame_id(
 {
 	return vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 }
+
+static uint32_t msm_vfe40_stats_get_active_pingpong_idx(
+	uint32_t pingpong_status,
+	enum msm_isp_stats_type stats_type)
+{
+	int pingpong_bit = 0;
+	switch (stats_type) {
+	case MSM_ISP_STATS_AWB:
+		if (pingpong_status & (1 << 11))
+			pingpong_bit = 1; /* pong is active */
+			break;
+	case MSM_ISP_STATS_RS:
+		if (pingpong_status & (1 << 12))
+			pingpong_bit = 1; /* pong is active */
+			break;
+	case MSM_ISP_STATS_CS:
+		if (pingpong_status & (1 << 13))
+			pingpong_bit = 1; /* pong is active */
+			break;
+	case MSM_ISP_STATS_IHIST:
+		if (pingpong_status & (1 << 14))
+			pingpong_bit = 1; /* pong is active */
+			break;
+	case MSM_ISP_STATS_BG:
+		if (pingpong_status & (1 << 9))
+			pingpong_bit = 1; /* pong is active */
+			break;
+	case MSM_ISP_STATS_BF:
+		if (pingpong_status & (1 << 10))
+			pingpong_bit = 1; /* pong is active */
+			break;
+	case MSM_ISP_STATS_BE:
+		if (pingpong_status & (1 << 8))
+			pingpong_bit = 1; /* pong is active */
+			break;
+	case MSM_ISP_STATS_BHIST:
+		if (pingpong_status & (1 << 15))
+			pingpong_bit = 1; /* pong is active */
+			break;
+	case MSM_ISP_STATS_SKIN:
+	case MSM_ISP_STATS_AEC:
+	case MSM_ISP_STATS_AF:
+	default:
+		pr_err("%s: not supported stats type = %d\n",
+			__func__, stats_type);
+		return -EINVAL;
+	}
+	return pingpong_bit;
+}
+
 static int msm_vfe40_get_platform_data(struct vfe_device *vfe_dev)
 {
 	int rc = 0;
@@ -1041,6 +1091,7 @@ struct msm_vfe_axi_hardware_info msm_vfe40_axi_hw_info = {
 	.num_rdi = 3,
 	.num_rdi_master = 3,
 	.min_wm_ub = 64,
+	.num_stats_comp_mask = 2,
 };
 
 static struct v4l2_subdev_core_ops msm_vfe40_subdev_core_ops = {
@@ -1118,6 +1169,9 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.get_comp_mask = msm_vfe40_stats_get_comp_mask,
 			.get_wm_mask = msm_vfe40_stats_get_wm_mask,
 			.get_frame_id = msm_vfe40_stats_get_frame_id,
+			.get_pingpong_status = msm_vfe40_get_pingpong_status,
+			.get_active_pingpong_idx =
+				msm_vfe40_stats_get_active_pingpong_idx,
 		},
 	},
 	.axi_hw_info = &msm_vfe40_axi_hw_info,

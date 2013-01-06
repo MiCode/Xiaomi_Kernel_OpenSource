@@ -17,9 +17,8 @@
 #include <mach/iommu_domains.h>
 #include "msm_sd.h"
 
-#define BUF_SRC_SHIFT 16
 /*Buffer source can be from userspace / HAL*/
-#define BUF_SRC(id) (id >> BUF_SRC_SHIFT)
+#define BUF_SRC(id) (id & ISP_NATIVE_BUF_BIT)
 
 struct msm_isp_buf_mgr;
 
