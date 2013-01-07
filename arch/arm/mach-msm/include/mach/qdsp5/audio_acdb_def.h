@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,4 +48,5 @@
 /* ID used for virtual devices */
 #define PSEUDO_ACDB_ID					0xFFFF
 
+int is_acdb_enabled(void);
 #endif /* _MACH_QDSP5_V2_AUDIO_ACDB_DEF_H */
