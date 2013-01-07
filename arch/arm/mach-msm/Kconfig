@@ -2742,4 +2742,9 @@ config MSM_CPU_PWRCTL
 	  stand alone power collapse operation. Selecting this option
 	  ensures that they are always off.
 
+config MSM_UARTDM_Core_v14
+	bool "Use MSM BLSP based HSUART Core v1.4"
+	depends on SERIAL_MSM_HS
+	help
+		Select if BLSP based UART Core v.14 or higher is present.
 endif
