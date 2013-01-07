@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -589,6 +589,11 @@ void msm_slim_sps_exit(struct msm_slim_ctrl *dev)
 #define SLIMBUS_QMI_POWER_REQ_V01 0x0021
 #define SLIMBUS_QMI_POWER_RESP_V01 0x0021
 
+#define SLIMBUS_QMI_POWER_REQ_MAX_MSG_LEN 7
+#define SLIMBUS_QMI_POWER_RESP_MAX_MSG_LEN 7
+#define SLIMBUS_QMI_SELECT_INSTANCE_REQ_MAX_MSG_LEN 14
+#define SLIMBUS_QMI_SELECT_INSTANCE_RESP_MAX_MSG_LEN 7
+
 enum slimbus_mode_enum_type_v01 {
 	/* To force a 32 bit signed enum. Do not change or use*/
 	SLIMBUS_MODE_ENUM_TYPE_MIN_ENUM_VAL_V01 = INT_MIN,
@@ -791,11 +796,11 @@ static int msm_slim_qmi_send_select_inst_req(struct msm_slim_ctrl *dev,
 	int rc;
 
 	req_desc.msg_id = SLIMBUS_QMI_SELECT_INSTANCE_REQ_V01;
-	req_desc.max_msg_len = sizeof(*req);
+	req_desc.max_msg_len = SLIMBUS_QMI_SELECT_INSTANCE_REQ_MAX_MSG_LEN;
 	req_desc.ei_array = slimbus_select_inst_req_msg_v01_ei;
 
 	resp_desc.msg_id = SLIMBUS_QMI_SELECT_INSTANCE_RESP_V01;
-	resp_desc.max_msg_len = sizeof(resp);
+	resp_desc.max_msg_len = SLIMBUS_QMI_SELECT_INSTANCE_RESP_MAX_MSG_LEN;
 	resp_desc.ei_array = slimbus_select_inst_resp_msg_v01_ei;
 
 	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, req, sizeof(*req),
@@ -823,11 +828,11 @@ static int msm_slim_qmi_send_power_request(struct msm_slim_ctrl *dev,
 	int rc;
 
 	req_desc.msg_id = SLIMBUS_QMI_POWER_REQ_V01;
-	req_desc.max_msg_len = sizeof(*req);
+	req_desc.max_msg_len = SLIMBUS_QMI_POWER_REQ_MAX_MSG_LEN;
 	req_desc.ei_array = slimbus_power_req_msg_v01_ei;
 
 	resp_desc.msg_id = SLIMBUS_QMI_POWER_RESP_V01;
-	resp_desc.max_msg_len = sizeof(resp);
+	resp_desc.max_msg_len = SLIMBUS_QMI_POWER_RESP_MAX_MSG_LEN;
 	resp_desc.ei_array = slimbus_power_resp_msg_v01_ei;
 
 	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, req, sizeof(*req),
