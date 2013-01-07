@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -590,7 +590,7 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	pr_debug("%s\n", __func__);
 	audio_ocmem_lcl.audio_ocmem_workqueue =
 		alloc_workqueue("ocmem_audio_client_driver_audio",
-					WQ_NON_REENTRANT, 0);
+					WQ_NON_REENTRANT | WQ_UNBOUND, 0);
 	if (!audio_ocmem_lcl.audio_ocmem_workqueue) {
 		pr_err("%s: Failed to create ocmem audio work queue\n",
 			__func__);
