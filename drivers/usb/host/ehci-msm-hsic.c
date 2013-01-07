@@ -1388,7 +1388,6 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 {
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	struct ehci_hcd		*ehci = hcd_to_ehci(hcd);
-	u32			temp;
 	struct task_struct	*resume_thread = NULL;
 	struct msm_hsic_host_platform_data *pdata =  mehci->dev->platform_data;
 
@@ -1414,17 +1413,6 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 
 		dbg_log_event(NULL, "FPR: Wokeup", 0);
 		spin_lock_irq(&ehci->lock);
-		(void) ehci_readl(ehci, &ehci->regs->command);
-
-		temp = 0;
-		if (ehci->async->qh_next.qh)
-			temp |= CMD_ASE;
-		if (ehci->periodic_sched)
-			temp |= CMD_PSE;
-		if (temp) {
-			ehci->command |= temp;
-			ehci_writel(ehci, ehci->command, &ehci->regs->command);
-		}
 
 		ehci->next_statechange = jiffies + msecs_to_jiffies(5);
 		hcd->state = HC_STATE_RUNNING;
@@ -1433,6 +1421,7 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 
 		/* Now we can safely re-enable irqs */
 		ehci_writel(ehci, INTR_MASK, &ehci->regs->intr_enable);
+		(void) ehci_readl(ehci, &ehci->regs->intr_enable);
 
 		spin_unlock_irq(&ehci->lock);
 	}
