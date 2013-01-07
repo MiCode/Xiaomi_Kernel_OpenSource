@@ -490,39 +490,31 @@ static void ion_cp_heap_free(struct ion_buffer *buffer)
 
 struct sg_table *ion_cp_heap_create_sg_table(struct ion_buffer *buffer)
 {
+	size_t chunk_size = buffer->size;
 	struct sg_table *table;
-	int ret;
+	int ret, i, n_chunks;
+	struct scatterlist *sg;
 	struct ion_cp_buffer *buf = buffer->priv_virt;
+
+	if (ION_IS_CACHED(buffer->flags))
+		chunk_size = PAGE_SIZE;
+	else if (buf->is_secure && IS_ALIGNED(buffer->size, SZ_1M))
+		chunk_size = SZ_1M;
 
 	table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
 	if (!table)
 		return ERR_PTR(-ENOMEM);
 
-	if (buf->is_secure && IS_ALIGNED(buffer->size, SZ_1M)) {
-		int n_chunks;
-		int i;
-		struct scatterlist *sg;
+	n_chunks = DIV_ROUND_UP(buffer->size, chunk_size);
 
-		/* Count number of 1MB chunks. Alignment is already checked. */
-		n_chunks = buffer->size >> 20;
+	ret = sg_alloc_table(table, n_chunks, GFP_KERNEL);
+	if (ret)
+		goto err0;
 
-		ret = sg_alloc_table(table, n_chunks, GFP_KERNEL);
-		if (ret)
-			goto err0;
-
-		for_each_sg(table->sgl, sg, table->nents, i) {
-			sg_dma_address(sg) = buf->buffer + i * SZ_1M;
-			sg->length = SZ_1M;
-			sg->offset = 0;
-		}
-	} else {
-		ret = sg_alloc_table(table, 1, GFP_KERNEL);
-		if (ret)
-			goto err0;
-
-		table->sgl->length = buffer->size;
-		table->sgl->offset = 0;
-		table->sgl->dma_address = buf->buffer;
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		sg_dma_address(sg) = buf->buffer + i * chunk_size;
+		sg->length = chunk_size;
+		sg->offset = 0;
 	}
 
 	return table;
