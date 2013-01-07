@@ -623,7 +623,8 @@ static int __mmc_start_req(struct mmc_host *host, struct mmc_request *mrq)
  * Returns enum mmc_blk_status after checking errors.
  */
 static int mmc_wait_for_data_req_done(struct mmc_host *host,
-				      struct mmc_request *mrq)
+				      struct mmc_request *mrq,
+				      struct mmc_async_req *next_req)
 {
 	struct mmc_command *cmd;
 	struct mmc_context_info *context_info = &host->context_info;
@@ -665,8 +666,10 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 			context_info->is_new_req = false;
 			if (stats->enabled)
 				stats->new_request_flag++;
-			err = MMC_BLK_NEW_REQUEST;
-			break; /* return err */
+			if (!next_req) {
+				err = MMC_BLK_NEW_REQUEST;
+				break; /* return err */
+			}
 		}
 	} /* while */
 	return err;
@@ -779,13 +782,9 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 		mmc_pre_req(host, areq->mrq, !host->areq);
 
 	if (host->areq) {
-		err = mmc_wait_for_data_req_done(host, host->areq->mrq);
+		err = mmc_wait_for_data_req_done(host, host->areq->mrq,
+				areq);
 		if (err == MMC_BLK_NEW_REQUEST) {
-			if (areq) {
-				pr_err("%s: new request while areq = %p",
-						mmc_hostname(host), areq);
-				BUG_ON(1);
-			}
 			if (error)
 				*error = err;
 			/*
