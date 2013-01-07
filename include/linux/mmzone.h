@@ -366,6 +366,9 @@ struct zone {
 	 * considered dirtyable memory.
 	 */
 	unsigned long		dirty_balance_reserve;
+#ifdef CONFIG_CMA
+	bool			cma_alloc;
+#endif
 
 #ifndef CONFIG_SPARSEMEM
 	/*
