@@ -125,6 +125,9 @@ static const u32 tuning_block_128[] = {
 	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
 
+static int disable_slots;
+module_param(disable_slots, int, 0);
+
 #if IRQ_DEBUG == 1
 static char *irq_status_bits[] = { "cmdcrcfail", "datcrcfail", "cmdtimeout",
 				   "dattimeout", "txunderrun", "rxoverrun",
@@ -5770,6 +5773,11 @@ msmsdcc_probe(struct platform_device *pdev)
 		pr_err("%s: Platform data not available\n", __func__);
 		ret = -EINVAL;
 		goto out;
+	}
+
+	if (disable_slots & (1 << (pdev->id - 1))) {
+		pr_info("%s: Slot %d disabled\n", __func__, pdev->id);
+		return -ENODEV;
 	}
 
 	if (pdev->id < 1 || pdev->id > 5)
