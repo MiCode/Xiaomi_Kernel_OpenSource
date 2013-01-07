@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,12 @@
 enum {
 	STATUS_PORT_STARTED, /* track if AFE port has started */
 	STATUS_MAX
+};
+
+enum {
+	RATE_8KHZ,
+	RATE_16KHZ,
+	RATE_MAX_NUM_OF_AUX_PCM_RATES,
 };
 
 struct msm_dai_q6_dai_data {
@@ -92,25 +98,49 @@ static int msm_dai_q6_auxpcm_hw_params(
 		return -EINVAL;
 	}
 	dai_data->channels = params_channels(params);
-
-	if (params_rate(params) != 8000) {
-		dev_err(dai->dev, "AUX PCM supports only 8KHz sampling rate\n");
-		return -EINVAL;
-	}
 	dai_data->rate = params_rate(params);
 
-	dai_data->port_config.pcm.pcm_cfg_minor_version =
+	switch (dai_data->rate) {
+	case 8000:
+		dai_data->port_config.pcm.pcm_cfg_minor_version =
 				AFE_API_VERSION_PCM_CONFIG;
-	dai_data->port_config.pcm.aux_mode = auxpcm_pdata->mode;
-	dai_data->port_config.pcm.sync_src = auxpcm_pdata->sync;
-	dai_data->port_config.pcm.frame_setting = auxpcm_pdata->frame;
-	dai_data->port_config.pcm.quantype = auxpcm_pdata->quant;
-	dai_data->port_config.pcm.ctrl_data_out_enable = auxpcm_pdata->data;
-	dai_data->port_config.pcm.sample_rate = dai_data->rate;
-	dai_data->port_config.pcm.num_channels = dai_data->channels;
-	dai_data->port_config.pcm.bit_width = 16;
-	dai_data->port_config.pcm.slot_number_mapping[0] = auxpcm_pdata->slot;
-
+		dai_data->port_config.pcm.aux_mode = auxpcm_pdata->mode_8k.mode;
+		dai_data->port_config.pcm.sync_src = auxpcm_pdata->mode_8k.sync;
+		dai_data->port_config.pcm.frame_setting =
+					auxpcm_pdata->mode_8k.frame;
+		dai_data->port_config.pcm.quantype =
+					 auxpcm_pdata->mode_8k.quant;
+		dai_data->port_config.pcm.ctrl_data_out_enable =
+					 auxpcm_pdata->mode_8k.data;
+		dai_data->port_config.pcm.sample_rate = dai_data->rate;
+		dai_data->port_config.pcm.num_channels = dai_data->channels;
+		dai_data->port_config.pcm.bit_width = 16;
+		dai_data->port_config.pcm.slot_number_mapping[0] =
+					 auxpcm_pdata->mode_8k.slot;
+		break;
+	case 16000:
+		dai_data->port_config.pcm.pcm_cfg_minor_version =
+				AFE_API_VERSION_PCM_CONFIG;
+		dai_data->port_config.pcm.aux_mode =
+					auxpcm_pdata->mode_16k.mode;
+		dai_data->port_config.pcm.sync_src =
+					auxpcm_pdata->mode_16k.sync;
+		dai_data->port_config.pcm.frame_setting =
+					auxpcm_pdata->mode_16k.frame;
+		dai_data->port_config.pcm.quantype =
+					auxpcm_pdata->mode_16k.quant;
+		dai_data->port_config.pcm.ctrl_data_out_enable =
+					auxpcm_pdata->mode_16k.data;
+		dai_data->port_config.pcm.sample_rate = dai_data->rate;
+		dai_data->port_config.pcm.num_channels = dai_data->channels;
+		dai_data->port_config.pcm.bit_width = 16;
+		dai_data->port_config.pcm.slot_number_mapping[0] =
+					auxpcm_pdata->mode_16k.slot;
+		break;
+	default:
+		dev_err(dai->dev, "AUX PCM supports only 8kHz and 16kHz sampling rate\n");
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -166,6 +196,7 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata = NULL;
 	int rc = 0;
+	unsigned long pcm_clk_rate;
 
 	auxpcm_pdata = dai->dev->platform_data;
 
@@ -210,27 +241,43 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	 * assert/deasset and afe_open sequence is not followed.
 	 */
 
-	rc = clk_set_rate(pcm_src_clk, auxpcm_pdata->pcm_clk_rate);
+	if (dai_data->rate == 8000) {
+		pcm_clk_rate = auxpcm_pdata->mode_8k.pcm_clk_rate;
+	} else if (dai_data->rate == 16000) {
+		pcm_clk_rate = (auxpcm_pdata->mode_16k.pcm_clk_rate);
+	} else {
+		dev_err(dai->dev, "%s: Invalid AUX PCM rate %d\n", __func__,
+			dai_data->rate);
+		mutex_unlock(&aux_pcm_mutex);
+		return -EINVAL;
+	}
+
+	rc = clk_set_rate(pcm_src_clk, pcm_clk_rate);
+
 	if (rc < 0) {
 		pr_err("%s: clk_set_rate failed\n", __func__);
+		mutex_unlock(&aux_pcm_mutex);
 		goto fail;
 	}
 
 	rc = clk_prepare_enable(pcm_branch_clk);
 	if (rc) {
 		pr_err("%s: clk enable failed\n", __func__);
+		mutex_unlock(&aux_pcm_mutex);
 		goto fail;
 	}
 
 	rc = clk_set_rate(pcm_oe_src_clk, 24576000>>1);
 	if (rc < 0) {
 		pr_err("%s: clk_set_rate on pcm oe failed\n", __func__);
+		mutex_unlock(&aux_pcm_mutex);
 		goto fail;
 	}
 
 	rc = clk_prepare_enable(pcm_oe_branch_clk);
 	if (rc) {
 		pr_err("%s: clk enable pcm_oe_branch_clk failed\n", __func__);
+		mutex_unlock(&aux_pcm_mutex);
 		goto fail;
 	}
 
@@ -1060,7 +1107,7 @@ static int msm_auxpcm_resource_probe(
 {
 	int rc = 0;
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata = NULL;
-	u32 property_val;
+	uint32_t val_array[RATE_MAX_NUM_OF_AUX_PCM_RATES];
 
 	auxpcm_pdata = kzalloc(sizeof(struct msm_dai_auxpcm_pdata),
 				GFP_KERNEL);
@@ -1078,62 +1125,81 @@ static int msm_auxpcm_resource_probe(
 			__func__);
 		goto fail_free_plat;
 	}
-	rc = of_property_read_u32(pdev->dev.of_node,
-			"qcom,msm-cpudai-auxpcm-mode", &property_val);
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,msm-cpudai-auxpcm-mode",
+			val_array, RATE_MAX_NUM_OF_AUX_PCM_RATES);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-mode missing in DT node\n",
 			__func__);
 		goto fail_free_plat;
 	}
-	auxpcm_pdata->mode = (u16)property_val;
-	rc = of_property_read_u32(pdev->dev.of_node,
-			"qcom,msm-cpudai-auxpcm-sync", &property_val);
+	auxpcm_pdata->mode_8k.mode = (u16)val_array[RATE_8KHZ];
+	auxpcm_pdata->mode_16k.mode = (u16)val_array[RATE_16KHZ];
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,msm-cpudai-auxpcm-sync",
+			val_array, RATE_MAX_NUM_OF_AUX_PCM_RATES);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-sync missing in DT node\n",
 			__func__);
 		goto fail_free_plat;
 	}
-	auxpcm_pdata->sync = (u16)property_val;
-	rc = of_property_read_u32(pdev->dev.of_node,
-			"qcom,msm-cpudai-auxpcm-frame", &property_val);
+	auxpcm_pdata->mode_8k.sync = (u16)val_array[RATE_8KHZ];
+	auxpcm_pdata->mode_16k.sync = (u16)val_array[RATE_16KHZ];
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,msm-cpudai-auxpcm-frame",
+			val_array, RATE_MAX_NUM_OF_AUX_PCM_RATES);
+
 	if (rc) {
 		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-frame missing in DT node\n",
 			__func__);
 		goto fail_free_plat;
 	}
-	auxpcm_pdata->frame = (u16)property_val;
-	rc = of_property_read_u32(pdev->dev.of_node,
-			"qcom,msm-cpudai-auxpcm-quant", &property_val);
+	auxpcm_pdata->mode_8k.frame = (u16)val_array[RATE_8KHZ];
+	auxpcm_pdata->mode_16k.frame = (u16)val_array[RATE_16KHZ];
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,msm-cpudai-auxpcm-quant",
+			val_array, RATE_MAX_NUM_OF_AUX_PCM_RATES);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-quant missing in DT node\n",
 			__func__);
 		goto fail_free_plat;
 	}
-	auxpcm_pdata->quant = (u16)property_val;
-	rc = of_property_read_u32(pdev->dev.of_node,
-			"qcom,msm-cpudai-auxpcm-slot", &property_val);
+	auxpcm_pdata->mode_8k.quant = (u16)val_array[RATE_8KHZ];
+	auxpcm_pdata->mode_16k.quant = (u16)val_array[RATE_16KHZ];
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,msm-cpudai-auxpcm-slot",
+			val_array, RATE_MAX_NUM_OF_AUX_PCM_RATES);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-slot missing in DT node\n",
 			__func__);
 		goto fail_free_plat;
 	}
-	auxpcm_pdata->slot = (u16)property_val;
-	rc = of_property_read_u32(pdev->dev.of_node,
-			"qcom,msm-cpudai-auxpcm-data", &property_val);
+	auxpcm_pdata->mode_8k.slot = (u16)val_array[RATE_8KHZ];
+	auxpcm_pdata->mode_16k.slot = (u16)val_array[RATE_16KHZ];
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,msm-cpudai-auxpcm-data",
+			val_array, RATE_MAX_NUM_OF_AUX_PCM_RATES);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-data missing in DT node\n",
 			__func__);
 		goto fail_free_plat;
 	}
-	auxpcm_pdata->data = (u16)property_val;
-	rc = of_property_read_u32(pdev->dev.of_node,
+	auxpcm_pdata->mode_8k.data = (u16)val_array[RATE_8KHZ];
+	auxpcm_pdata->mode_16k.data = (u16)val_array[RATE_16KHZ];
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
 			"qcom,msm-cpudai-auxpcm-pcm-clk-rate",
-			&auxpcm_pdata->pcm_clk_rate);
-	if (rc) {
-		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-pcm-clk-rate missing in DT node\n",
-			__func__);
-		goto fail_free_plat;
-	}
+			val_array, RATE_MAX_NUM_OF_AUX_PCM_RATES);
+
+	auxpcm_pdata->mode_8k.pcm_clk_rate = (int)val_array[RATE_8KHZ];
+	auxpcm_pdata->mode_16k.pcm_clk_rate = (int)val_array[RATE_16KHZ];
+
 	platform_set_drvdata(pdev, auxpcm_pdata);
 
 	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
