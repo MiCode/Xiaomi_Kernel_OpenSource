@@ -207,6 +207,8 @@ int q6asm_open_read_write(struct audio_client *ac,
 			uint32_t rd_format,
 			uint32_t wr_format);
 
+int q6asm_open_loopack(struct audio_client *ac);
+
 int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 				uint32_t lsw_ts, uint32_t flags);
 int q6asm_write_nolock(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
