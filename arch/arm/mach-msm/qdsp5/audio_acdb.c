@@ -1531,7 +1531,7 @@ static s32 acdb_calibrate_audpp(void)
 			result = -EINVAL;
 			goto done;
 		} else
-			MM_DBG("AUDPP is calibrated with IIR parameters");
+			MM_DBG("AUDPP is calibrated with IIR parameters\n");
 	}
 	result = acdb_fill_audpp_mbadrc();
 	if (!IS_ERR_VALUE(result)) {
@@ -2279,13 +2279,9 @@ update_cache:
 		if (ret == 1) {
 			MM_DBG("got device ready call back for another "\
 					"audplay task sessions on same COPP\n");
-			/*stream_id is used to keep track of number of active*/
-			/*sessions active on this device*/
-			acdb_cache_free_node->stream_id++;
 			mutex_unlock(&acdb_data.acdb_mutex);
 			goto done;
 		}
-		acdb_cache_free_node->stream_id++;
 	}
 	update_acdb_data_struct(acdb_cache_free_node);
 	acdb_data.device_cb_compl = 1;
@@ -2326,6 +2322,9 @@ static void audpp_cb(void *private, u32 id, u16 *msg)
 		}
 		goto done;
 	}
+	/*stream_id is used to keep track of number of active*/
+	/*sessions active on this device*/
+	acdb_cache_rx.stream_id++;
 
 	acdb_data.acdb_state |= AUDPP_READY;
 	acdb_data.audpp_cb_compl = 1;
