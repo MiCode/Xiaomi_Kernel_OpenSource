@@ -182,23 +182,37 @@ void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx)
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_unlock_sleep);
 
+void wcd9xxx_nested_irq_lock(struct wcd9xxx *wcd9xxx)
+{
+	mutex_lock(&wcd9xxx->nested_irq_lock);
+}
+
+void wcd9xxx_nested_irq_unlock(struct wcd9xxx *wcd9xxx)
+{
+	mutex_unlock(&wcd9xxx->nested_irq_lock);
+}
+
 static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
 {
 	if ((irqbit <= WCD9XXX_IRQ_MBHC_INSERTION) &&
 	    (irqbit >= WCD9XXX_IRQ_MBHC_REMOVAL)) {
+		wcd9xxx_nested_irq_lock(wcd9xxx);
 		wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_CLEAR0 +
 					   BIT_BYTE(irqbit),
 				  BYTE_BIT_MASK(irqbit));
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
 			wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_MODE, 0x02);
 		handle_nested_irq(phyirq_to_virq(wcd9xxx, irqbit));
+		wcd9xxx_nested_irq_unlock(wcd9xxx);
 	} else {
+		wcd9xxx_nested_irq_lock(wcd9xxx);
 		handle_nested_irq(phyirq_to_virq(wcd9xxx, irqbit));
 		wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_CLEAR0 +
 					   BIT_BYTE(irqbit),
 				  BYTE_BIT_MASK(irqbit));
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
 			wcd9xxx_reg_write(wcd9xxx, WCD9XXX_A_INTR_MODE, 0x02);
+		wcd9xxx_nested_irq_unlock(wcd9xxx);
 	}
 }
 
@@ -325,11 +339,13 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 	u8 irq_level[wcd9xxx_num_irq_regs(wcd9xxx)];
 
 	mutex_init(&wcd9xxx->irq_lock);
+	mutex_init(&wcd9xxx->nested_irq_lock);
 
 	wcd9xxx->irq = wcd9xxx_irq_get_upstream_irq(wcd9xxx);
 	if (!wcd9xxx->irq) {
 		pr_warn("%s: irq driver is not yet initialized\n", __func__);
 		mutex_destroy(&wcd9xxx->irq_lock);
+		mutex_destroy(&wcd9xxx->nested_irq_lock);
 		return -EPROBE_DEFER;
 	}
 	pr_debug("%s: probed irq %d\n", __func__, wcd9xxx->irq);
@@ -339,6 +355,8 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 	if (ret) {
 		pr_err("%s: Failed to setup downstream IRQ\n", __func__);
 		wcd9xxx_irq_put_upstream_irq(wcd9xxx);
+		mutex_destroy(&wcd9xxx->irq_lock);
+		mutex_destroy(&wcd9xxx->nested_irq_lock);
 		return ret;
 	}
 
@@ -388,6 +406,7 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 		pr_err("%s: Failed to init wcd9xxx irq\n", __func__);
 		wcd9xxx_irq_put_upstream_irq(wcd9xxx);
 		mutex_destroy(&wcd9xxx->irq_lock);
+		mutex_destroy(&wcd9xxx->nested_irq_lock);
 	}
 
 	return ret;
@@ -424,6 +443,7 @@ void wcd9xxx_irq_exit(struct wcd9xxx *wcd9xxx)
 		device_init_wakeup(wcd9xxx->dev, 0);
 	}
 	mutex_destroy(&wcd9xxx->irq_lock);
+	mutex_destroy(&wcd9xxx->nested_irq_lock);
 }
 
 #ifndef CONFIG_OF
