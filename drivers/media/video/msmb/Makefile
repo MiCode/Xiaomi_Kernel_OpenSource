@@ -6,6 +6,7 @@ ccflags-y += -Idrivers/media/video/msmb/pps
 ccflags-y += -Idrivers/media/video/msmb/msm_vb2
 ccflags-y += -Idrivers/media/video/msmb/camera
 
-obj-$(CONFIG_ARCH_MSM8974) += msm.o
-obj-$(CONFIG_ARCH_MSM8974) += camera/
-obj-$(CONFIG_ARCH_MSM8974) += msm_vb2/
+obj-$(CONFIG_MSMB_CAMERA) += msm.o
+obj-$(CONFIG_MSMB_CAMERA) += camera/
+obj-$(CONFIG_MSMB_CAMERA) += msm_vb2/
+obj-$(CONFIG_MSMB_CAMERA) += sensor/
