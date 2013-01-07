@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -39,6 +39,7 @@
 
 #include "audmgr.h"
 
+#include <mach/qdsp5/audio_acdb_def.h>
 #include <mach/qdsp5/qdsp5audppcmdi.h>
 #include <mach/qdsp5/qdsp5audppmsg.h>
 #include <mach/qdsp5/qdsp5audpp.h>
@@ -298,19 +299,20 @@ void audio_commit_pending_pp_params(void *priv, unsigned id, uint16_t *msg)
 	if (!audio_copp->status)
 		return;
 
-	audpp_dsp_set_mbadrc(COMMON_OBJ_ID, audio_copp->mbadrc_enable,
+	if (!is_acdb_enabled()) {
+		audpp_dsp_set_mbadrc(COMMON_OBJ_ID, audio_copp->mbadrc_enable,
 						&audio_copp->mbadrc);
 
-	audpp_dsp_set_eq(COMMON_OBJ_ID, audio_copp->eq_enable,
+		audpp_dsp_set_eq(COMMON_OBJ_ID, audio_copp->eq_enable,
 						&audio_copp->eq);
-
-	audpp_dsp_set_rx_iir(COMMON_OBJ_ID, audio_copp->rx_iir_enable,
+		audpp_dsp_set_rx_iir(COMMON_OBJ_ID, audio_copp->rx_iir_enable,
 							&audio_copp->iir);
-	audpp_dsp_set_vol_pan(COMMON_OBJ_ID, &audio_copp->vol_pan);
+		audpp_dsp_set_vol_pan(COMMON_OBJ_ID, &audio_copp->vol_pan);
 
-	audpp_dsp_set_qconcert_plus(COMMON_OBJ_ID,
+		audpp_dsp_set_qconcert_plus(COMMON_OBJ_ID,
 				audio_copp->qconcert_plus_enable,
 				&audio_copp->qconcert_plus);
+	}
 	audio_enable_srs_trumedia(audio_copp, true);
 }
 EXPORT_SYMBOL(audio_commit_pending_pp_params);
