@@ -2049,8 +2049,6 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		mmc_queue_bounce_post(mq_rq);
 
 		switch (status) {
-		case MMC_BLK_NEW_REQUEST:
-			BUG(); /* should never get here */
 		case MMC_BLK_SUCCESS:
 		case MMC_BLK_PARTIAL:
 			/*
@@ -2122,6 +2120,11 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 				goto start_new_req;
 			break;
 		case MMC_BLK_NOMEDIUM:
+			goto cmd_abort;
+		default:
+			pr_err("%s:%s: Unhandled return value (%d)",
+					req->rq_disk->disk_name,
+					__func__, status);
 			goto cmd_abort;
 		}
 
