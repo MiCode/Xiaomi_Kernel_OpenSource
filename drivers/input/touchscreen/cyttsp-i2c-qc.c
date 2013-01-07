@@ -2881,14 +2881,14 @@ static int cyttsp_resume(struct device *dev)
 
 	cyttsp_debug("Wake Up\n");
 
-	if (ts->is_suspended == false) {
-		pr_err("%s: in wakeup state\n", __func__);
-		return 0;
-	}
-
 	if (device_may_wakeup(dev)) {
 		if (ts->client->irq)
 			disable_irq_wake(ts->client->irq);
+		return 0;
+	}
+
+	if (ts->is_suspended == false) {
+		pr_err("%s: in wakeup state\n", __func__);
 		return 0;
 	}
 
@@ -2952,6 +2952,12 @@ static int cyttsp_suspend(struct device *dev)
 
 	cyttsp_debug("Enter Sleep\n");
 
+	if (device_may_wakeup(dev)) {
+		if (ts->client->irq)
+			enable_irq_wake(ts->client->irq);
+		return 0;
+	}
+
 	if (ts->is_suspended == true) {
 		pr_err("%s: in sleep state\n", __func__);
 		return 0;
@@ -2966,11 +2972,6 @@ static int cyttsp_suspend(struct device *dev)
 	}
 	mutex_unlock(&ts->mutex);
 
-	if (device_may_wakeup(dev)) {
-		if (ts->client->irq)
-			enable_irq_wake(ts->client->irq);
-		return 0;
-	}
 
 	if (ts->client->irq == 0)
 		del_timer(&ts->timer);
