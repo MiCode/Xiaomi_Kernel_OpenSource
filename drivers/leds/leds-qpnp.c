@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -703,7 +703,8 @@ static int qpnp_wled_init(struct qpnp_led_data *led)
 	if (led->wled_cfg->cs_out_en) {
 		rc = qpnp_led_masked_write(led, WLED_CURR_SINK_REG(led->base),
 			WLED_CURR_SINK_MASK,
-			(led->wled_cfg->num_strings << WLED_CURR_SINK_SHFT));
+			(((1 << led->wled_cfg->num_strings) - 1)
+			<< WLED_CURR_SINK_SHFT));
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
 				"WLED curr sink reg write failed(%d)\n", rc);
