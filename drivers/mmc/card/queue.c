@@ -78,14 +78,6 @@ static int mmc_queue_thread(void *d)
 		set_current_state(TASK_INTERRUPTIBLE);
 		req = blk_fetch_request(q);
 		mq->mqrq_cur->req = req;
-		if (!req && mq->mqrq_prev->req &&
-			!(mq->mqrq_prev->req->cmd_flags & REQ_SANITIZE) &&
-			!(mq->mqrq_prev->req->cmd_flags & REQ_FLUSH) &&
-			!(mq->mqrq_prev->req->cmd_flags & REQ_DISCARD)) {
-			card->host->context_info.is_waiting_last_req = true;
-			if (stats && stats->enabled)
-				stats->null_fetched++;
-		}
 		spin_unlock_irq(q->queue_lock);
 
 		if (req || mq->mqrq_prev->req) {
