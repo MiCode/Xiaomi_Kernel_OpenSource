@@ -61,6 +61,25 @@ static const struct snd_pcm_hardware dummy_pcm_hardware = {
 	.periods_max            = 128,
 };
 
+static void msm_pcm_route_event_handler(enum msm_pcm_routing_event event,
+					void *priv_data)
+{
+	struct msm_pcm_loopback *pcm = priv_data;
+
+	BUG_ON(!pcm);
+
+	pr_debug("%s: event %x\n", __func__, event);
+
+	switch (event) {
+	case MSM_PCM_RT_EVT_DEVSWITCH:
+		q6asm_cmd(pcm->audio_client, CMD_PAUSE);
+		q6asm_cmd(pcm->audio_client, CMD_FLUSH);
+		q6asm_run(pcm->audio_client, 0, 0, 0);
+	default:
+		break;
+	}
+}
+
 static void msm_pcm_loopback_event_handler(uint32_t opcode,
 		uint32_t token, uint32_t *payload, void *priv)
 {
@@ -86,6 +105,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(substream);
 	struct msm_pcm_loopback *pcm;
 	int ret = 0;
+	struct msm_pcm_routing_evt event;
 
 	pcm = dev_get_drvdata(rtd->platform->dev);
 	mutex_lock(&pcm->lock);
@@ -126,12 +146,15 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 			mutex_unlock(&pcm->lock);
 			return -ENOMEM;
 		}
+		event.event_func = msm_pcm_route_event_handler;
+		event.priv_data = (void *) pcm;
 		msm_pcm_routing_reg_phy_stream(soc_pcm_tx->dai_link->be_id,
 			pcm->audio_client->perf_mode,
 			pcm->session_id, pcm->capture_substream->stream);
-		msm_pcm_routing_reg_phy_stream(soc_pcm_rx->dai_link->be_id,
+		msm_pcm_routing_reg_phy_stream_v2(soc_pcm_rx->dai_link->be_id,
 			pcm->audio_client->perf_mode,
-			pcm->session_id, pcm->playback_substream->stream);
+			pcm->session_id, pcm->playback_substream->stream,
+			event);
 	}
 	dev_info(rtd->platform->dev, "%s: Instance = %d, Stream ID = %s\n",
 			__func__ , pcm->instance, substream->pcm->id);
