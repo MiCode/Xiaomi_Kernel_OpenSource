@@ -441,6 +441,10 @@ struct zone {
 	struct pglist_data	*zone_pgdat;
 	struct per_cpu_pageset __percpu *pageset;
 
+#ifdef CONFIG_CMA_DIRECT_UTILIZATION
+	bool			cma_alloc;
+#endif
+
 #ifndef CONFIG_SPARSEMEM
 	/*
 	 * Flags for a pageblock_nr_pages block. See pageblock-flags.h.

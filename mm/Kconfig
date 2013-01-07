@@ -539,6 +539,23 @@ config CMA_AREAS
 
 	  If unsure, leave the default value "7".
 
+config CMA_DIRECT_UTILIZATION
+	bool "Allow clients to directly use CMA for page allocations"
+	depends on CMA && QGKI
+	help
+	  CMA pages are currently used as a fallback for moveable page
+	  allocations only when all regular moveable pages have been
+	  allocated. This can cause stalls for non-movable allocations,
+	  as non-movable allocations will not consider CMA memory as free
+	  memory, and thus, will cause the system to reclaim movable pages
+	  to satisfy non-movable allocations, ignoring the CMA pages. Since
+	  the system now has movable memory, CMA pages will also be ignored,
+	  since they are used only when there is not enough movable memory
+	  to satisfy a movable request. Enable this option to specify to the
+	  page allocator that movable allocations should be satisfied with
+	  CMA pages, so that CMA pages can be used directly for allocations,
+	  instead of as a fallback, thus, improving CMA utilization.
+
 config MEM_SOFT_DIRTY
 	bool "Track memory changes"
 	depends on CHECKPOINT_RESTORE && HAVE_ARCH_SOFT_DIRTY && PROC_FS
