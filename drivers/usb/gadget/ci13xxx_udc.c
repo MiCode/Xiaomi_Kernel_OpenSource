@@ -2115,7 +2115,6 @@ __acquires(mEp->lock)
  */
 static int _gadget_stop_activity(struct usb_gadget *gadget)
 {
-	struct usb_ep *ep;
 	struct ci13xxx    *udc = container_of(gadget, struct ci13xxx, gadget);
 	unsigned long flags;
 
@@ -2136,19 +2135,9 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	gadget->host_request = 0;
 	gadget->otg_srp_reqd = 0;
 
-	/* flush all endpoints */
-	gadget_for_each_ep(ep, gadget) {
-		usb_ep_fifo_flush(ep);
-	}
+	udc->driver->disconnect(gadget);
 	usb_ep_fifo_flush(&udc->ep0out.ep);
 	usb_ep_fifo_flush(&udc->ep0in.ep);
-
-	udc->driver->disconnect(gadget);
-
-	/* make sure to disable all endpoints */
-	gadget_for_each_ep(ep, gadget) {
-		usb_ep_disable(ep);
-	}
 
 	if (udc->status != NULL) {
 		usb_ep_free_request(&udc->ep0in.ep, udc->status);
