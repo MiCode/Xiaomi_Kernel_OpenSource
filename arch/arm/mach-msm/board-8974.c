@@ -300,6 +300,8 @@ void __init msm8974_add_drivers(void)
 static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,hsusb-otg", 0xF9A55000, \
 			"msm_otg", NULL),
+	OF_DEV_AUXDATA("qcom,ehci-host", 0xF9A55000, \
+			"msm_ehci_host", NULL),
 	OF_DEV_AUXDATA("qcom,dwc-usb3-msm", 0xF9200000, \
 			"msm_dwc3", NULL),
 	OF_DEV_AUXDATA("qcom,usb-bam-msm", 0xF9304000, \
