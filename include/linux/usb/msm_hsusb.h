@@ -412,6 +412,7 @@ struct msm_usb_host_platform_data {
 	unsigned int power_budget;
 	int pmic_gpio_dp_irq;
 	unsigned int dock_connect_irq;
+	bool use_sec_phy;
 };
 
 /**
