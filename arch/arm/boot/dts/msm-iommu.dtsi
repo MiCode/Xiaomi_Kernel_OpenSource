@@ -20,6 +20,7 @@
 		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_jpeg>;
 		qcom,needs-alt-core-clk;
+		label = "jpeg_iommu";
 		status = "disabled";
 
 		qcom,iommu-bfb-regs =  <0x204c
@@ -85,6 +86,7 @@
 		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_mdss>;
 		qcom,iommu-secure-id = <1>;
+		label = "mdp_iommu";
 		status = "disabled";
 
 		qcom,iommu-bfb-regs =  <0x204c
@@ -152,6 +154,7 @@
 		vdd-supply = <&gdsc_venus>;
 		qcom,iommu-secure-id = <0>;
 		qcom,needs-alt-core-clk;
+		label = "venus_iommu";
 		status = "disabled";
 
 		qcom,iommu-bfb-regs =  <0x204c
@@ -238,6 +241,7 @@
 		vdd-supply = <&gdsc_oxili_cx>;
 		qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
 		qcom,needs-alt-core-clk;
+		label = "kgsl_iommu";
 		status = "disabled";
 
 		qcom,iommu-bfb-regs =  <0x204c
@@ -290,6 +294,7 @@
 		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_vfe>;
 		qcom,needs-alt-core-clk;
+		label = "vfe_iommu";
 		status = "disabled";
 
 		qcom,iommu-bfb-regs =  <0x204c

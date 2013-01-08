@@ -108,7 +108,11 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 			pr_err("Failed to create %s device\n", child->name);
 	}
 
-	drvdata->name = dev_name(&pdev->dev);
+	ret = of_property_read_string(pdev->dev.of_node, "label",
+				      &drvdata->name);
+	if (ret)
+		goto fail;
+
 	drvdata->sec_id = -1;
 	of_property_read_u32(pdev->dev.of_node, "qcom,iommu-secure-id",
 				&drvdata->sec_id);
