@@ -1141,6 +1141,7 @@ const int read_msm_cpu_type(void)
 		return MSM_CPU_8064;
 
 	case 0x511F06F1:
+	case 0x511F06F2:
 	case 0x512F06F0:
 		return MSM_CPU_8974;
 
@@ -1192,6 +1193,7 @@ const int cpu_is_krait_v3(void)
 	case 0x512F04D0:
 	case 0x511F06F0:
 	case 0x511F06F1:
+	case 0x511F06F2:
 	case 0x510F05D0:
 		return 1;
 
