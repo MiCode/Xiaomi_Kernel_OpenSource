@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/platform_device.h>
@@ -86,6 +87,11 @@ static void __init msm8910_reserve(void)
 void __init msm8910_init(void)
 {
 	struct of_dev_auxdata *adata = msm8910_auxdata_lookup;
+	struct device *parent;
+
+	parent = socinfo_init();
+	if (IS_ERR_OR_NULL(parent))
+		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm8910_init_gpiomux();
 
@@ -93,10 +99,6 @@ void __init msm8910_init(void)
 		msm_clock_init(&msm8910_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8910_clock_init_data);
-
-	if (socinfo_init() < 0)
-		pr_err("%s: socinfo_init() failed\n", __func__);
-
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
 }
 
