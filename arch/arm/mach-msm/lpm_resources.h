@@ -8,7 +8,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
 #ifndef __ARCH_ARM_MACH_MSM_LPM_RESOURCES_H
@@ -36,6 +35,8 @@ struct msm_rpmrs_limits {
 	uint32_t vdd_mem_lower_bound;
 	uint32_t vdd_dig_upper_bound;
 	uint32_t vdd_dig_lower_bound;
+	bool irqs_detectable;
+	bool gpio_detectable;
 
 	uint32_t latency_us[NR_CPUS];
 	uint32_t power[NR_CPUS];
