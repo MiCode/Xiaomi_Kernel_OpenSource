@@ -662,9 +662,9 @@ static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig, VDD_DIG_NUM);
 
 #define D0_ID		 1
 #define D1_ID		 2
-#define A0_ID		 3
-#define A1_ID		 4
-#define A2_ID		 5
+#define A0_ID		 4
+#define A1_ID		 5
+#define A2_ID		 6
 #define DIFF_CLK_ID	 7
 #define DIV_CLK1_ID	11
 #define DIV_CLK2_ID	12
