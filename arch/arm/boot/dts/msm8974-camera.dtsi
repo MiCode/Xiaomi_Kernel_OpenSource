@@ -182,6 +182,26 @@
 		reg-names = "cci";
 		interrupts = <0 50 0>;
 		interrupt-names = "cci";
+		gpios = <&msmgpio 19 0>,
+			<&msmgpio 20 0>,
+			<&msmgpio 21 0>,
+			<&msmgpio 22 0>;
+		qcom,gpio-tbl-num = <0 1 2 3>;
+		qcom,gpio-tbl-flags = <1 1 1 1>;
+		qcom,gpio-tbl-label = "CCI_I2C_DATA0",
+				      "CCI_I2C_CLK0",
+				      "CCI_I2C_DATA1",
+				      "CCI_I2C_CLK1";
+		qcom,hw-thigh = <78>;
+		qcom,hw-tlow = <114>;
+		qcom,hw-tsu-sto = <28>;
+		qcom,hw-tsu-sta = <28>;
+		qcom,hw-thd-dat = <10>;
+		qcom,hw-thd-sta = <77>;
+		qcom,hw-tbuf = <118>;
+		qcom,hw-scl-stretch-en = <0>;
+		qcom,hw-trdhld = <6>;
+		qcom,hw-tsp = <1>;
 
 		qcom,camera@6e {
 			status = "disable";
@@ -194,8 +214,9 @@
 		qcom,camera@90 {
 			compatible = "qcom,mt9m114";
 			reg = <0x90 0x0>;
-			qcom,csi-if = <1>;
-			qcom,csid-core = <0>;
+			qcom,slave-id = <0x90 0x0 0x2481>;
+			qcom,csiphy-sd-index = <1>;
+			qcom,csid-sd-index = <0>;
 			qcom,mount-angle = <0>;
 			qcom,sensor-name = "mt9m114";
 			cam_vdig-supply = <&pm8941_l3>;
@@ -209,20 +230,18 @@
 			qcom,gpio-no-mux = <0>;
 			gpios = <&msmgpio 16 0>,
 				<&msmgpio 92 0>;
-			qcom,gpio-common-tbl-num = <0>;
-			qcom,gpio-common-tbl-flags = <1>;
-			qcom,gpio-common-tbl-label = "CAMIF_MCLK";
-			qcom,gpio-req-tbl-num = <1>;
-			qcom,gpio-req-tbl-flags = <0>;
-			qcom,gpio-req-tbl-label = "CAM_RESET1";
+			qcom,gpio-reset = <1>;
+			qcom,gpio-req-tbl-num = <0 1>;
+			qcom,gpio-req-tbl-flags = <1 0>;
+			qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+						  "CAM_RESET1";
 			qcom,gpio-set-tbl-num = <1 1>;
 			qcom,gpio-set-tbl-flags = <0 2>;
 			qcom,gpio-set-tbl-delay = <1000 4000>;
 			qcom,csi-lane-assign = <0x4320>;
 			qcom,csi-lane-mask = <0x3>;
-			qcom,csi-phy-sel = <1>;
-			qcom,camera-type = <1>;
-			qcom,sensor-type = <1>;
+			qcom,sensor-position = <1>;
+			qcom,sensor-mode = <1>;
 		};
 	};
 };
