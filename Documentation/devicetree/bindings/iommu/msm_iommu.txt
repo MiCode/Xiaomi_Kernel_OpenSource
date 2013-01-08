@@ -12,6 +12,8 @@ Optional properties:
 - qcom,iommu-secure-id : Secure identifier for the IOMMU block
 - qcom,secure-context : boolean indicating that a context is secure and
   programmed by the secure environment.
+- qcom,alt-vdd-supply : Alternative regulator needed to access IOMMU
+  configuration registers.
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:

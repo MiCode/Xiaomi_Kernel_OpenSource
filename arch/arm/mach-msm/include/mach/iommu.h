@@ -109,6 +109,7 @@ struct msm_iommu_drvdata {
 	struct clk *aclk;
 	const char *name;
 	struct regulator *gdsc;
+	struct regulator *alt_gdsc;
 	struct msm_iommu_bfb_settings *bfb_settings;
 	int sec_id;
 	struct device *dev;

@@ -43,6 +43,29 @@ struct msm_priv {
 	struct list_head list_attached;
 };
 
+static int __enable_regulators(struct msm_iommu_drvdata *drvdata)
+{
+	int ret = regulator_enable(drvdata->gdsc);
+	if (ret)
+		goto fail;
+
+	if (drvdata->alt_gdsc)
+		ret = regulator_enable(drvdata->alt_gdsc);
+
+	if (ret)
+		regulator_disable(drvdata->gdsc);
+fail:
+	return ret;
+}
+
+static void __disable_regulators(struct msm_iommu_drvdata *drvdata)
+{
+	if (drvdata->alt_gdsc)
+		regulator_disable(drvdata->alt_gdsc);
+
+	regulator_disable(drvdata->gdsc);
+}
+
 static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 {
 	int ret;
@@ -486,13 +509,13 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	is_secure = iommu_drvdata->sec_id != -1;
 
-	ret = regulator_enable(iommu_drvdata->gdsc);
+	ret = __enable_regulators(iommu_drvdata);
 	if (ret)
 		goto fail;
 
 	ret = __enable_clocks(iommu_drvdata);
 	if (ret) {
-		regulator_disable(iommu_drvdata->gdsc);
+		__disable_regulators(iommu_drvdata);
 		goto fail;
 	}
 
@@ -504,7 +527,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			ret = msm_iommu_sec_program_iommu(
 				iommu_drvdata->sec_id);
 			if (ret) {
-				regulator_disable(iommu_drvdata->gdsc);
+				__disable_regulators(iommu_drvdata);
 				__disable_clocks(iommu_drvdata);
 				goto fail;
 			}
@@ -558,7 +581,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	__disable_clocks(iommu_drvdata);
 
-	regulator_disable(iommu_drvdata->gdsc);
+	__disable_regulators(iommu_drvdata);
 
 	list_del_init(&ctx_drvdata->attached_elm);
 	ctx_drvdata->attached_domain = NULL;
