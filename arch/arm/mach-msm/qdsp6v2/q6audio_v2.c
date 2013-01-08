@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include <linux/wait.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <asm/ioctls.h>
 #include "audio_utils.h"
 
@@ -50,6 +50,14 @@ void q6asm_in_cb(uint32_t opcode, uint32_t token,
 	case ASM_SESSION_EVENTX_OVERFLOW:
 		pr_err("%s:session id %d: ASM_SESSION_EVENT_TX_OVERFLOW\n",
 			__func__, audio->ac->session);
+		break;
+	case RESET_EVENTS:
+		pr_debug("%s:received RESET EVENTS\n", __func__);
+		audio->enabled = 0;
+		audio->stopped = 1;
+		audio->event_abort = 1;
+		wake_up(&audio->read_wait);
+		wake_up(&audio->write_wait);
 		break;
 	default:
 		pr_debug("%s:session id %d: Ignore opcode[0x%x]\n", __func__,
