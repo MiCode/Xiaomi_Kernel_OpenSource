@@ -843,4 +843,4 @@ static int __init msm_bus_fabric_init_driver(void)
 	MSM_BUS_ERR("msm_bus_fabric_init_driver\n");
 	return platform_driver_register(&msm_bus_fabric_driver);
 }
-postcore_initcall(msm_bus_fabric_init_driver);
+subsys_initcall(msm_bus_fabric_init_driver);
