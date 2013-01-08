@@ -350,6 +350,14 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 			goto fail;
 		level->rs_limits.vdd_mem_lower_bound = val;
 
+		key = "qcom,gpio-detectable";
+		level->rs_limits.gpio_detectable =
+				of_property_read_bool(node, key);
+
+		key = "qcom,irqs-detectable";
+		level->rs_limits.irqs_detectable =
+				of_property_read_bool(node, key);
+
 		key = "qcom,latency-us";
 		ret = of_property_read_u32(node, key, &val);
 		if (ret)

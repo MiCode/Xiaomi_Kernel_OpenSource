@@ -35,6 +35,13 @@ The required nodes for lpm-levels are:
 	in mWatts.uSec
 - qcom,time-overhead: The time spent in entering and exiting this level in uS
 
+Optional properties
+- qcom,irqs-detectable: The field indicates whether the IRQs are detectable by
+			the GIC controller when entering a low power mode.
+- qcom,gpio-detectable: The field indicates whether the GPIOs can be detected
+			by the GPIO interrupt controller during a given low
+			power mode.
+
 Example:
 
 qcom,lpm-levels {
@@ -48,6 +55,8 @@ qcom,lpm-levels {
 		qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
 		qcom,vdd-dig-upper-bound = <5>; /* MAX */
 		qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+		qcom,irqs-detectable;
+		qcom,gpio-detectable;
 		qcom,latency-us = <100>;
 		qcom,ss-power = <650>;
 		qcom,energy-overhead = <801>;
