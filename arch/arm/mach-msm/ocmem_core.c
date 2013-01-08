@@ -49,7 +49,6 @@ static struct ocmem_hw_region *region_ctrl;
 static struct mutex region_ctrl_lock;
 static void *ocmem_base;
 
-#define OCMEM_V1_REGIONS 3
 #define OCMEM_V1_MACROS 8
 #define OCMEM_V1_MACRO_SZ (SZ_64K)
 
@@ -963,11 +962,6 @@ int ocmem_core_init(struct platform_device *pdev)
 		return rc;
 
 	hw_ver = ocmem_read(ocmem_base + OC_HW_PROFILE);
-
-	if (pdata->nr_regions != OCMEM_V1_REGIONS) {
-		pr_err("Invalid number of regions (%d)\n", pdata->nr_regions);
-		goto hw_not_supported;
-	}
 
 	num_macros = (hw_ver & NUM_MACROS_MASK) >> NUM_MACROS_SHIFT;
 	num_ports = (hw_ver & NUM_PORTS_MASK) >> NUM_PORTS_SHIFT;
