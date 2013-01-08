@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,7 +40,7 @@ struct msm_dai_auxpcm_config {
 };
 
 struct msm_dai_auxpcm_pdata {
-	const char *clk;
+	void *clk_cfg;
 	struct msm_dai_auxpcm_config mode_8k;
 	struct msm_dai_auxpcm_config mode_16k;
 };
