@@ -957,6 +957,7 @@ static void armv7pmu_enable_event(struct perf_event *event, int cpu)
 	struct arm_pmu *cpu_pmu = to_arm_pmu(event->pmu);
 	struct pmu_hw_events *events = cpu_pmu->get_hw_events();
 	int idx = hwc->idx;
+	unsigned long long prev_count = local64_read(&hwc->prev_count);
 
 	if (!armv7_pmnc_counter_valid(cpu_pmu, idx)) {
 		pr_err("CPU%u enabling wrong PMNC counter IRQ enable %d\n",
@@ -987,6 +988,9 @@ static void armv7pmu_enable_event(struct perf_event *event, int cpu)
 	 * Enable interrupt for this counter
 	 */
 	armv7_pmnc_enable_intens(idx);
+
+	/* Restore prev val */
+	armv7pmu_write_counter(idx, prev_count & 0xffffffff);
 
 	/*
 	 * Enable counter
