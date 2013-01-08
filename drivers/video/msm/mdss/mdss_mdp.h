@@ -341,6 +341,7 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 int mdss_mdp_put_img(struct mdss_mdp_img_data *data);
 int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data);
+u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd);
 
 int mdss_mdp_wb_kickoff(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
