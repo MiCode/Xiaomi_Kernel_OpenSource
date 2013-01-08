@@ -2,7 +2,7 @@
  * Core MDSS framebuffer driver.
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1589,6 +1589,23 @@ static int mdss_fb_display_commit(struct fb_info *info,
 	return ret;
 }
 
+static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
+				struct msmfb_metadata *metadata)
+{
+	int ret = 0;
+	switch (metadata->op) {
+	case metadata_op_frame_rate:
+		metadata->data.panel_frame_rate =
+			mdss_get_panel_framerate(mfd);
+		break;
+	default:
+		pr_warn("Unsupported request to MDP META IOCTL.\n");
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
@@ -1600,6 +1617,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_page_protection fb_page_protection;
 	int ret = -ENOSYS;
 	struct mdp_buf_sync buf_sync;
+	struct msmfb_metadata metadata;
 
 	mdss_fb_power_setting_idle(mfd);
 
@@ -1681,6 +1699,15 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 
 	case MSMFB_DISPLAY_COMMIT:
 		ret = mdss_fb_display_commit(info, argp);
+		break;
+
+	case MSMFB_METADATA_GET:
+		ret = copy_from_user(&metadata, argp, sizeof(metadata));
+		if (ret)
+			return ret;
+		ret = mdss_fb_get_metadata(mfd, &metadata);
+		if (!ret)
+			ret = copy_to_user(argp, &metadata, sizeof(metadata));
 		break;
 
 	default:
