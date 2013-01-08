@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1560,6 +1560,7 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
+	.pmic_id_irq		= PM8038_USB_ID_IN_IRQ(PM8038_IRQ_BASE),
 	.power_budget		= 750,
 #ifdef CONFIG_MSM_BUS_SCALING
 	.bus_scale_table	= &usb_bus_scale_pdata,
@@ -2871,16 +2872,6 @@ static void __init msm8930_cdp_init(void)
 		msm_clock_init(&msm8930_pm8917_clock_init_data);
 	else
 		msm_clock_init(&msm8930_clock_init_data);
-
-	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917) {
-		/* MPP01 IRQ number */
-		msm_otg_pdata.pmic_id_irq =
-				PM8921_MPP_IRQ(PM8917_IRQ_BASE, 1);
-	} else {
-		msm_otg_pdata.pmic_id_irq =
-				PM8038_USB_ID_IN_IRQ(PM8038_IRQ_BASE);
-	}
-
 	msm_otg_pdata.phy_init_seq = hsusb_phy_init_seq;
 	if (msm8930_mhl_display_enabled()) {
 		mhl_platform_data.mhl_enabled = true;
