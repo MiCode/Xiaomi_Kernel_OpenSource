@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,7 +116,8 @@ static void wcd9xxx_disable_bg(struct wcd9xxx_resmgr *resmgr)
 	/* Notify bg mode change */
 	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_PRE_BG_OFF);
 	/* Disable bg */
-	snd_soc_write(resmgr->codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL, 0x00);
+	snd_soc_update_bits(resmgr->codec, WCD9XXX_A_BIAS_CENTRAL_BG_CTL,
+			    0x03, 0x00);
 	usleep_range(100, 100);
 	/* Notify bg mode change */
 	wcd9xxx_resmgr_notifier_call(resmgr, WCD9XXX_EVENT_POST_BG_OFF);
