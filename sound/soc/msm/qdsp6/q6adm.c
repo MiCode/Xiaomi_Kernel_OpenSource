@@ -1267,6 +1267,8 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	int ret = 0, i = 0;
 	/* Assumes port_ids have already been validated during adm_open */
 	int index = afe_get_port_index(copp_id);
+	int copp_cnt;
+
 	if (index < 0 || index >= AFE_MAX_PORTS) {
 		pr_err("%s: invalid port idx %d token %d\n",
 					__func__, index, copp_id);
@@ -1289,9 +1291,19 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	route.hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS;
 	route.num_sessions = 1;
 	route.session[0].id = session_id;
-	route.session[0].num_copps = num_copps;
 
-	for (i = 0; i < num_copps; i++) {
+	if (num_copps < ADM_MAX_COPPS) {
+		copp_cnt = num_copps;
+	} else {
+		copp_cnt = ADM_MAX_COPPS;
+		/* print out warning for now as playback/capture to/from
+		 * COPPs more than maximum allowed is extremely unlikely
+		 */
+		pr_warn("%s: max out routable COPPs\n", __func__);
+	}
+
+	route.session[0].num_copps = copp_cnt;
+	for (i = 0; i < copp_cnt; i++) {
 		int tmp;
 		port_id[i] = afe_convert_virtual_to_portid(port_id[i]);
 
@@ -1304,7 +1316,8 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 			route.session[0].copp_id[i] =
 					atomic_read(&this_adm.copp_id[tmp]);
 	}
-	if (num_copps % 2)
+
+	if (copp_cnt % 2)
 		route.session[0].copp_id[i] = 0;
 
 	switch (path) {
