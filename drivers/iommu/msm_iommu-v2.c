@@ -30,7 +30,7 @@
 
 #include <mach/iommu_hw-v2.h>
 #include <mach/iommu.h>
-
+#include <mach/iommu_perfmon.h>
 #include "msm_iommu_pagetable.h"
 
 /* bitmap of the page sizes currently supported */
@@ -104,6 +104,53 @@ static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 	clk_disable_unprepare(drvdata->clk);
 	clk_disable_unprepare(drvdata->pclk);
 }
+
+static int _iommu_power_off(void *data)
+{
+	struct msm_iommu_drvdata *drvdata;
+
+	drvdata = (struct msm_iommu_drvdata *)data;
+	__disable_clocks(drvdata);
+	__disable_regulators(drvdata);
+	return 0;
+}
+
+static int _iommu_power_on(void *data)
+{
+	int ret;
+	struct msm_iommu_drvdata *drvdata;
+
+	drvdata = (struct msm_iommu_drvdata *)data;
+	ret = __enable_regulators(drvdata);
+	if (ret)
+		goto fail;
+
+	ret = __enable_clocks(drvdata);
+	if (ret) {
+		__disable_regulators(drvdata);
+		goto fail;
+	}
+	return 0;
+fail:
+	return -EIO;
+}
+
+static void _iommu_lock_acquire(void)
+{
+	mutex_lock(&msm_iommu_lock);
+}
+
+static void _iommu_lock_release(void)
+{
+	mutex_unlock(&msm_iommu_lock);
+}
+
+struct iommu_access_ops iommu_access_ops = {
+	.iommu_power_on = _iommu_power_on,
+	.iommu_power_off = _iommu_power_off,
+	.iommu_lock_acquire = _iommu_lock_acquire,
+	.iommu_lock_release = _iommu_lock_release,
+};
 
 static void __sync_tlb(void __iomem *base, int ctx)
 {
@@ -541,6 +588,10 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 	ctx_drvdata->attached_domain = domain;
 
+	mutex_unlock(&msm_iommu_lock);
+
+	msm_iommu_attached(dev->parent);
+	return ret;
 fail:
 	mutex_unlock(&msm_iommu_lock);
 	return ret;
@@ -554,6 +605,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret;
 	int is_secure;
+
+	msm_iommu_detached(dev->parent);
 
 	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
