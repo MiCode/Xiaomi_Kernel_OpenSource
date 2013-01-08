@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,11 +51,14 @@ struct mpm_irqs_a2m {
 	unsigned long pin;
 	struct hlist_node node;
 };
+#define MAX_DOMAIN_NAME 5
 
 struct mpm_irqs {
 	struct irq_domain *domain;
 	unsigned long *enabled_irqs;
 	unsigned long *wakeup_irqs;
+	unsigned long size;
+	char domain_name[MAX_DOMAIN_NAME];
 };
 
 static struct mpm_irqs unlisted_irqs[MSM_MPM_NR_IRQ_DOMAINS];
@@ -437,28 +440,53 @@ int msm_mpm_set_pin_type(unsigned int pin, unsigned int flow_type)
 	return 0;
 }
 
-bool msm_mpm_irqs_detectable(bool from_idle)
+static bool msm_mpm_interrupts_detectable(int d, bool from_idle)
 {
-	/* TODO:
-	 * Return true if unlisted irqs is empty
-	 */
+	unsigned long *irq_bitmap;
+	bool debug_mask, ret = false;
+	struct mpm_irqs *unlisted = &unlisted_irqs[d];
 
 	if (!msm_mpm_is_initialized())
 		return false;
 
-	return true;
+	if (from_idle) {
+		irq_bitmap = unlisted->enabled_irqs;
+		debug_mask = msm_mpm_debug_mask &
+				MSM_MPM_DEBUG_NON_DETECTABLE_IRQ_IDLE;
+	} else {
+		irq_bitmap = unlisted->wakeup_irqs;
+		debug_mask = msm_mpm_debug_mask &
+				MSM_MPM_DEBUG_NON_DETECTABLE_IRQ;
+	}
+
+	ret = (bool) __bitmap_empty(irq_bitmap, unlisted->size);
+
+	if (debug_mask && !ret) {
+		int i = 0;
+		i = find_first_bit(irq_bitmap, unlisted->size);
+		pr_info("%s(): %s preventing system sleep modes during %s\n",
+				__func__, unlisted->domain_name,
+				from_idle ? "idle" : "suspend");
+
+		while (i < unlisted->size) {
+			pr_info("\thwirq: %d\n", i);
+			i = find_next_bit(irq_bitmap, unlisted->size, i + 1);
+		}
+	}
+
+	return ret;
 }
 
 bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 {
-	/* TODO:
-	 * Return true if unlisted irqs is empty
-	 */
-	if (!msm_mpm_is_initialized())
-		return false;
-	return true;
+	return msm_mpm_interrupts_detectable(MSM_MPM_GPIO_IRQ_DOMAIN,
+			from_idle);
 }
-
+bool msm_mpm_irqs_detectable(bool from_idle)
+{
+	return msm_mpm_interrupts_detectable(MSM_MPM_GIC_IRQ_DOMAIN,
+			from_idle);
+}
 void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle)
 {
 	cycle_t wakeup = (u64)sclk_count * ARCH_TIMER_HZ;
@@ -614,6 +642,7 @@ void __init of_mpm_init(struct device_node *node)
 	struct mpm_of {
 		char *pkey;
 		char *map;
+		char name[MAX_DOMAIN_NAME];
 		struct irq_chip *chip;
 		int (*get_max_irqs)(struct irq_domain *d);
 	};
@@ -623,12 +652,14 @@ void __init of_mpm_init(struct device_node *node)
 		{
 			"qcom,gic-parent",
 			"qcom,gic-map",
+			"gic",
 			&gic_arch_extn,
 			mpm_irq_domain_linear_size,
 		},
 		{
 			"qcom,gpio-parent",
 			"qcom,gpio-map",
+			"gpio",
 			&msm_gpio_irq_extn,
 			mpm_irq_domain_legacy_size,
 		},
@@ -665,6 +696,9 @@ void __init of_mpm_init(struct device_node *node)
 		}
 
 		size = mpm_of_map[i].get_max_irqs(domain);
+		unlisted_irqs[i].size = size;
+		memcpy(unlisted_irqs[i].domain_name, mpm_of_map[i].name,
+				MAX_DOMAIN_NAME);
 
 		unlisted_irqs[i].enabled_irqs =
 			kzalloc(BITS_TO_LONGS(size) * sizeof(unsigned long),
