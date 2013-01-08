@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@ void q6_audio_cb(uint32_t opcode, uint32_t token,
 	case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
 	case ASM_DATA_EVENT_ENC_SR_CM_CHANGE_NOTIFY:
+	case RESET_EVENTS:
 		audio_aio_cb(opcode, token, payload, audio);
 		break;
 	default:
@@ -104,6 +105,13 @@ void audio_aio_cb(uint32_t opcode, uint32_t token,
 		e_payload.stream_info.chan_info = audio->pcm_cfg.channel_count;
 		e_payload.stream_info.sample_rate = audio->pcm_cfg.sample_rate;
 		audio_aio_post_event(audio, AUDIO_EVENT_STREAM_INFO, e_payload);
+		break;
+	case RESET_EVENTS:
+		pr_debug("%s: Received opcode:0x%x\n", __func__, opcode);
+		audio->event_abort = 1;
+		audio->stopped = 1;
+		audio->enabled = 0;
+		wake_up(&audio->event_wait);
 		break;
 	default:
 		break;
