@@ -7,6 +7,7 @@ Required properties:
 	offset and length for clock register for additional clock that
 	needs to be turned on for access to this IOMMU.
 - reg-names: "iommu_base", "clk_base" (optional)
+- label: name of this IOMMU instance.
 
 Optional properties:
 - qcom,iommu-secure-id : Secure identifier for the IOMMU block
@@ -51,6 +52,7 @@ Example:
 		vdd-supply = <&gdsc_iommu>;
 		qcom,iommu-bfb-regs = <0x204c 0x2050>;
 		qcom,iommu-bfb-data = <0xffff 0xffce>;
+		label = "iommu_0";
 
 		qcom,iommu-ctx@fda6c000 {
 			reg = <0xfda6c000 0x1000>;
