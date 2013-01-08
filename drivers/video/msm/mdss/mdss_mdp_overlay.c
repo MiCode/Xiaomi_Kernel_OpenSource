@@ -475,9 +475,22 @@ static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 {
 	struct msm_fb_data_type *mfd = ctl->mfd;
+	struct mdss_mdp_pipe *pipe;
 	int ret;
 
 	mutex_lock(&mfd->ov_lock);
+	mutex_lock(&mfd->lock);
+	list_for_each_entry(pipe, &mfd->pipes_used, used_list) {
+		if (pipe->params_changed || pipe->back_buf.num_planes) {
+			ret = mdss_mdp_pipe_queue_data(pipe, &pipe->back_buf);
+			if (IS_ERR_VALUE(ret)) {
+				pr_warn("Unable to queue data for pnum=%d\n",
+						pipe->num);
+				mdss_mdp_overlay_free_buf(&pipe->back_buf);
+			}
+		}
+	}
+	mutex_unlock(&mfd->lock);
 
 	if (mfd->kickoff_fnc)
 		ret = mfd->kickoff_fnc(ctl);
@@ -656,7 +669,6 @@ rotate_done:
 static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 				  struct msmfb_overlay_data *req)
 {
-	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_data *src_data;
 	int ret;
@@ -682,12 +694,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	ret = mdss_mdp_overlay_get_buf(mfd, src_data, &req->data, 1, flags);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("src_data pmem error\n");
-	} else {
-		ret = mdss_mdp_pipe_queue_data(pipe, src_data);
-		if (IS_ERR_VALUE(ret))
-			mdss_mdp_overlay_free_buf(src_data);
 	}
-	ctl = pipe->mixer->ctl;
 	mdss_mdp_pipe_unmap(pipe);
 
 	return ret;
