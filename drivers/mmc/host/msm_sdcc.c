@@ -6764,9 +6764,21 @@ static int msmsdcc_pm_suspend(struct device *dev)
 		msmsdcc_disable_status_gpio(host);
 	}
 
-	if (!pm_runtime_suspended(dev))
+	/*
+	 * If system comes out of suspend, msmsdcc_pm_resume() sets the
+	 * host->pending_resume flag if the SDCC wasn't runtime suspended.
+	 * Now if the system again goes to suspend without any SDCC activity
+	 * then host->pending_resume flag will remain set which may cause
+	 * the SDCC resume to happen first and then suspend.
+	 * To avoid this unnecessary resume/suspend, make sure that
+	 * pending_resume flag is cleared before calling the
+	 * msmsdcc_runtime_suspend().
+	 */
+	if (!pm_runtime_suspended(dev) && !host->pending_resume)
 		rc = msmsdcc_runtime_suspend(dev);
  out:
+	/* This flag must not be set if system is entering into suspend */
+	host->pending_resume = false;
 	msmsdcc_print_pm_stats(host, start, __func__, rc);
 	return rc;
 }
