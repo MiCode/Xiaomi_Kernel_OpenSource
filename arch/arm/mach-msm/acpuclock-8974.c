@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,14 +112,14 @@ static struct msm_bus_scale_pdata bus_scale_data __initdata = {
 };
 
 static struct l2_level l2_freq_tbl[] __initdata = {
-	[0]  = { {  300000, PLL_0, 0,   0 }, LVL_LOW,  1050000, 0 },
-	[1]  = { {  345600, HFPLL, 2,  36 }, LVL_NOM,  1050000, 1 },
-	[2]  = { {  422400, HFPLL, 2,  44 }, LVL_NOM,  1050000, 1 },
-	[3]  = { {  499200, HFPLL, 2,  52 }, LVL_NOM,  1050000, 2 },
-	[4]  = { {  576000, HFPLL, 1,  30 }, LVL_NOM,  1050000, 2 },
-	[5]  = { {  652800, HFPLL, 1,  34 }, LVL_NOM,  1050000, 3 },
-	[6]  = { {  729600, HFPLL, 1,  38 }, LVL_NOM,  1050000, 3 },
-	[7]  = { {  806400, HFPLL, 1,  42 }, LVL_NOM,  1050000, 3 },
+	[0]  = { {  300000, PLL_0, 0,   0 }, LVL_LOW,   950000, 0 },
+	[1]  = { {  345600, HFPLL, 2,  36 }, LVL_NOM,   950000, 1 },
+	[2]  = { {  422400, HFPLL, 2,  44 }, LVL_NOM,   950000, 1 },
+	[3]  = { {  499200, HFPLL, 2,  52 }, LVL_NOM,   950000, 2 },
+	[4]  = { {  576000, HFPLL, 1,  30 }, LVL_NOM,   950000, 2 },
+	[5]  = { {  652800, HFPLL, 1,  34 }, LVL_NOM,   950000, 3 },
+	[6]  = { {  729600, HFPLL, 1,  38 }, LVL_NOM,   950000, 3 },
+	[7]  = { {  806400, HFPLL, 1,  42 }, LVL_HIGH, 1050000, 3 },
 	[8]  = { {  883200, HFPLL, 1,  46 }, LVL_HIGH, 1050000, 4 },
 	[9]  = { {  960000, HFPLL, 1,  50 }, LVL_HIGH, 1050000, 4 },
 	[10] = { { 1036800, HFPLL, 1,  54 }, LVL_HIGH, 1050000, 4 },
@@ -129,50 +129,35 @@ static struct l2_level l2_freq_tbl[] __initdata = {
 	[14] = { { 1344000, HFPLL, 1,  70 }, LVL_HIGH, 1050000, 6 },
 	[15] = { { 1420800, HFPLL, 1,  74 }, LVL_HIGH, 1050000, 7 },
 	[16] = { { 1497600, HFPLL, 1,  78 }, LVL_HIGH, 1050000, 7 },
-	[17] = { { 1574400, HFPLL, 1,  82 }, LVL_HIGH, 1050000, 7 },
-	[18] = { { 1651200, HFPLL, 1,  86 }, LVL_HIGH, 1050000, 7 },
-	[19] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 7 },
-	[20] = { { 1804800, HFPLL, 1,  94 }, LVL_HIGH, 1050000, 7 },
-	[21] = { { 1881600, HFPLL, 1,  98 }, LVL_HIGH, 1050000, 7 },
-	[22] = { { 1958400, HFPLL, 1, 102 }, LVL_HIGH, 1050000, 7 },
-	[23] = { { 2035200, HFPLL, 1, 106 }, LVL_HIGH, 1050000, 7 },
-	[24] = { { 2112000, HFPLL, 1, 110 }, LVL_HIGH, 1050000, 7 },
-	[25] = { { 2188800, HFPLL, 1, 114 }, LVL_HIGH, 1050000, 7 },
 	{ }
 };
 
 static struct acpu_level acpu_freq_tbl[] __initdata = {
 	{ 1, {  300000, PLL_0, 0,   0 }, L2(0),   850000,  400000 },
-	{ 0, {  345600, HFPLL, 2,  36 }, L2(0),   850000, 3200000 },
-	{ 1, {  422400, HFPLL, 2,  44 }, L2(0),   850000, 3200000 },
-	{ 0, {  499200, HFPLL, 2,  52 }, L2(0),   850000, 3200000 },
-	{ 1, {  576000, HFPLL, 1,  30 }, L2(0),   850000, 3200000 },
-	{ 1, {  652800, HFPLL, 1,  34 }, L2(16),  850000, 3200000 },
-	{ 0, {  729600, HFPLL, 1,  38 }, L2(16),  850000, 3200000 },
-	{ 1, {  806400, HFPLL, 1,  42 }, L2(16),  850000, 3200000 },
-	{ 1, {  883200, HFPLL, 1,  46 }, L2(16),  870000, 3200000 },
-	{ 1, {  960000, HFPLL, 1,  50 }, L2(16),  880000, 3200000 },
-	{ 1, { 1036800, HFPLL, 1,  54 }, L2(16),  900000, 3200000 },
-	{ 1, { 1113600, HFPLL, 1,  58 }, L2(16),  915000, 3200000 },
-	{ 1, { 1190400, HFPLL, 1,  62 }, L2(16),  935000, 3200000 },
-	{ 1, { 1267200, HFPLL, 1,  66 }, L2(16),  950000, 3200000 },
-	{ 1, { 1344000, HFPLL, 1,  70 }, L2(16),  970000, 3200000 },
+	{ 0, {  345600, HFPLL, 2,  36 }, L2(3),   850000, 3200000 },
+	{ 1, {  422400, HFPLL, 2,  44 }, L2(3),   850000, 3200000 },
+	{ 0, {  499200, HFPLL, 2,  52 }, L2(6),   850000, 3200000 },
+	{ 1, {  576000, HFPLL, 1,  30 }, L2(6),   850000, 3200000 },
+	{ 1, {  652800, HFPLL, 1,  34 }, L2(6),   850000, 3200000 },
+	{ 0, {  729600, HFPLL, 1,  38 }, L2(6),   850000, 3200000 },
+	{ 1, {  806400, HFPLL, 1,  42 }, L2(8),   850000, 3200000 },
+	{ 1, {  883200, HFPLL, 1,  46 }, L2(8),   870000, 3200000 },
+	{ 1, {  960000, HFPLL, 1,  50 }, L2(8),   880000, 3200000 },
+	{ 1, { 1036800, HFPLL, 1,  54 }, L2(8),   900000, 3200000 },
+	{ 1, { 1113600, HFPLL, 1,  58 }, L2(12),  915000, 3200000 },
+	{ 1, { 1190400, HFPLL, 1,  62 }, L2(12),  935000, 3200000 },
+	{ 1, { 1267200, HFPLL, 1,  66 }, L2(12),  950000, 3200000 },
+	{ 1, { 1344000, HFPLL, 1,  70 }, L2(12),  970000, 3200000 },
 	{ 1, { 1420800, HFPLL, 1,  74 }, L2(16),  985000, 3200000 },
 	{ 1, { 1497600, HFPLL, 1,  78 }, L2(16), 1000000, 3200000 },
 	{ 1, { 1574400, HFPLL, 1,  82 }, L2(16), 1015000, 3200000 },
 	{ 1, { 1651200, HFPLL, 1,  86 }, L2(16), 1030000, 3200000 },
 	{ 1, { 1728000, HFPLL, 1,  90 }, L2(16), 1050000, 3200000 },
-	{ 0, { 1804800, HFPLL, 1,  94 }, L2(16), 1050000, 3200000 },
-	{ 0, { 1881600, HFPLL, 1,  98 }, L2(16), 1050000, 3200000 },
-	{ 0, { 1958400, HFPLL, 1, 102 }, L2(16), 1050000, 3200000 },
-	{ 0, { 1996800, HFPLL, 1, 104 }, L2(16), 1050000, 3200000 },
 	{ 0, { 0 } }
 };
 
 static struct pvs_table pvs_tables[NUM_SPEED_BINS][NUM_PVS]  __initdata = {
 	[0][PVS_SLOW]    = { acpu_freq_tbl, sizeof(acpu_freq_tbl) },
-	[0][PVS_NOMINAL] = { acpu_freq_tbl, sizeof(acpu_freq_tbl) },
-	[0][PVS_FAST]    = { acpu_freq_tbl, sizeof(acpu_freq_tbl) },
 };
 
 static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
@@ -187,8 +172,37 @@ static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
 	.stby_khz = 300000,
 };
 
+static void __init apply_l2_workaround(void)
+{
+	static struct l2_level resticted_l2_tbl[] __initdata = {
+		[0] = { {  300000, PLL_0, 0,   0 }, LVL_LOW,  1050000, 0 },
+		[1] = { { 1497600, HFPLL, 1,  78 }, LVL_HIGH, 1050000, 7 },
+		{ }
+	};
+	struct acpu_level *l;
+	int s, p;
+
+	for (s = 0; s < NUM_SPEED_BINS; s++)
+		for (p = 0; p < NUM_PVS; p++)
+			for (l = pvs_tables[s][p].table; l && l->speed.khz; l++)
+				l->l2_level = l->l2_level > 5 ? 1 : 0;
+
+	acpuclk_8974_params.l2_freq_tbl = resticted_l2_tbl;
+	acpuclk_8974_params.l2_freq_tbl_size = sizeof(resticted_l2_tbl);
+}
+
 static int __init acpuclk_8974_probe(struct platform_device *pdev)
 {
+	/*
+	 * 8974 hardware revisions older than v1.2 may experience L2 parity
+	 * errors when running at some performance points between 300MHz
+	 * and 1497.6MHz (non-inclusive), or when vdd_mx is less than 1.05V.
+	 * Restrict L2 operation to safe performance points on these devices.
+	 */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 2 &&
+	    SOCINFO_VERSION_MINOR(socinfo_get_version()) < 2)
+		apply_l2_workaround();
+
 	return acpuclk_krait_init(&pdev->dev, &acpuclk_8974_params);
 }
 
