@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
  */
 
 #include "msm_vidc_debug.h"
-#include "venus_hfi.h"
+#include "vidc_hfi_api.h"
 
 #define MAX_DBG_BUF_SIZE 4096
 int msm_vidc_debug = 0x3;
@@ -53,22 +53,26 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 		size_t count, loff_t *ppos)
 {
 	struct msm_vidc_core *core = file->private_data;
-	struct venus_hfi_device *device;
+	struct hfi_device *hdev;
 	int i = 0;
 	if (!core || !core->device) {
 		dprintk(VIDC_ERR, "Invalid params, core: %p\n", core);
 		return 0;
 	}
-	device = core->device;
+	hdev = core->device;
 	INIT_DBG_BUF(dbg_buf);
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "CORE %d: 0x%p\n", core->id, core);
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "state: %d\n", core->state);
-	write_str(&dbg_buf, "base addr: 0x%x\n", device->base_addr);
-	write_str(&dbg_buf, "register_base: 0x%x\n", device->register_base);
-	write_str(&dbg_buf, "register_size: %u\n", device->register_size);
-	write_str(&dbg_buf, "irq: %u\n", device->irq);
+	write_str(&dbg_buf, "base addr: 0x%x\n",
+		hdev->get_fw_info(hdev->hfi_device_data, FW_BASE_ADDRESS));
+	write_str(&dbg_buf, "register_base: 0x%x\n",
+		hdev->get_fw_info(hdev->hfi_device_data, FW_REGISTER_BASE));
+	write_str(&dbg_buf, "register_size: %u\n",
+		hdev->get_fw_info(hdev->hfi_device_data, FW_REGISTER_SIZE));
+	write_str(&dbg_buf, "irq: %u\n",
+		hdev->get_fw_info(hdev->hfi_device_data, FW_IRQ));
 	for (i = SYS_MSG_START; i < SYS_MSG_END; i++) {
 		write_str(&dbg_buf, "completions[%d]: %s\n", i,
 			completion_done(&core->completions[SYS_MSG_INDEX(i)]) ?

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,9 @@
 #ifndef __VIDC_HFI_API_H__
 #define __VIDC_HFI_API_H__
 
+#include <linux/platform_device.h>
 #include <linux/types.h>
+#include <media/msm_vidc.h>
 
 #define CONTAINS(__a, __sz, __t) ({\
 	int __rc = __t >= __a && \
@@ -979,44 +981,84 @@ struct buffer_requirements {
 	struct hal_buffer_requirements buffer[HAL_BUFFER_MAX];
 };
 
-/* VIDC_HAL CORE API's */
-int venus_hfi_core_init(void *device);
-int venus_hfi_core_release(void *device);
-int venus_hfi_core_pc_prep(void *device);
-int venus_hfi_core_set_resource(void *device,
-	struct vidc_resource_hdr *resource_hdr, void *resource_value);
-int venus_hfi_core_release_resource(void *device,
-	struct vidc_resource_hdr *resource_hdr);
-int venus_hfi_core_ping(void *device);
+enum msm_vidc_hfi_type {
+	VIDC_HFI_VENUS,
+	VIDC_HFI_Q6,
+};
 
-/* VIDC_HAL SESSION API's */
-void *venus_hfi_session_init(void *device, u32 session_id,
-	enum hal_domain session_type, enum hal_video_codec codec_type);
-int venus_hfi_session_end(void *session);
-int venus_hfi_session_abort(void *session);
-int venus_hfi_session_set_buffers(void *sess,
-	struct vidc_buffer_addr_info *buffer_info);
-int venus_hfi_session_release_buffers(void *sess,
-	struct vidc_buffer_addr_info *buffer_info);
-int venus_hfi_session_load_res(void *sess);
-int venus_hfi_session_release_res(void *sess);
-int venus_hfi_session_start(void *sess);
-int venus_hfi_session_stop(void *sess);
-int venus_hfi_session_suspend(void *sess);
-int venus_hfi_session_resume(void *sess);
-int venus_hfi_session_etb(void *sess,
-	struct vidc_frame_data *input_frame);
-int venus_hfi_session_ftb(void *sess,
-	struct vidc_frame_data *output_frame);
-int venus_hfi_session_parse_seq_hdr(void *sess,
-	struct vidc_seq_hdr *seq_hdr);
-int venus_hfi_session_get_seq_hdr(void *sess,
-	struct vidc_seq_hdr *seq_hdr);
-int venus_hfi_session_get_buf_req(void *sess);
-int venus_hfi_session_flush(void *sess, enum hal_flush flush_mode);
-int venus_hfi_session_set_property(void *sess, enum hal_property ptype,
-								  void *pdata);
-int venus_hfi_session_get_property(void *sess, enum hal_property ptype,
-								  void *pdata);
+enum mem_type {
+	DDR_MEM = 0x1,
+	OCMEM_MEM = 0x2,
+};
+
+enum fw_info {
+	FW_BASE_ADDRESS,
+	FW_REGISTER_BASE,
+	FW_REGISTER_SIZE,
+	FW_IRQ,
+	FW_INFO_MAX,
+};
+
+struct hfi_device {
+	void *hfi_device_data;
+
+	/*Add function pointers for all the hfi functions below*/
+	int (*core_init)(void *device);
+	int (*core_release)(void *device);
+	int (*core_pc_prep)(void *device);
+	int (*core_ping)(void *device);
+	void *(*session_init)(void *device, u32 session_id,
+		enum hal_domain session_type, enum hal_video_codec codec_type);
+	int (*session_end)(void *session);
+	int (*session_abort)(void *session);
+	int (*session_set_buffers)(void *sess,
+				struct vidc_buffer_addr_info *buffer_info);
+	int (*session_release_buffers)(void *sess,
+				struct vidc_buffer_addr_info *buffer_info);
+	int (*session_load_res)(void *sess);
+	int (*session_release_res)(void *sess);
+	int (*session_start)(void *sess);
+	int (*session_stop)(void *sess);
+	int (*session_suspend)(void *sess);
+	int (*session_resume)(void *sess);
+	int (*session_etb)(void *sess,
+			struct vidc_frame_data *input_frame);
+	int (*session_ftb)(void *sess,
+			struct vidc_frame_data *output_frame);
+	int (*session_parse_seq_hdr)(void *sess,
+			struct vidc_seq_hdr *seq_hdr);
+	int (*session_get_seq_hdr)(void *sess,
+			struct vidc_seq_hdr *seq_hdr);
+	int (*session_get_buf_req)(void *sess);
+	int (*session_flush)(void *sess, enum hal_flush flush_mode);
+	int (*session_set_property)(void *sess, enum hal_property ptype,
+			void *pdata);
+	int (*session_get_property)(void *sess, enum hal_property ptype,
+			void *pdata);
+	int (*scale_clocks)(void *dev, int load);
+	int (*scale_bus)(void *dev, int load,
+			enum session_type type, enum mem_type mtype);
+	int (*unset_ocmem)(void *dev);
+	int (*alloc_ocmem)(void *dev, unsigned long size);
+	int (*free_ocmem)(void *dev);
+	int (*is_ocmem_present)(void *dev);
+	int (*get_domain)(void *dev, enum msm_vidc_io_maps iomap);
+	int (*iommu_get_map)(void *dev,
+			struct msm_vidc_iommu_info maps[MAX_MAP]);
+	int (*load_fw)(void *dev);
+	void (*unload_fw)(void *dev);
+	int (*get_fw_info)(void *dev, enum fw_info info);
+};
+
+typedef void (*hfi_cmd_response_callback) (enum command_response cmd,
+			void *data);
+typedef void (*msm_vidc_callback) (u32 response, void *callback);
+
+void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
+			struct platform_device *pdev,
+			hfi_cmd_response_callback callback);
+void vidc_hfi_deinitialize(enum msm_vidc_hfi_type hfi_type,
+			struct hfi_device *hdev);
+
 
 #endif /*__VIDC_HFI_API_H__ */

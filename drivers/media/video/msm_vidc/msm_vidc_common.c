@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,6 @@
 #include "vidc_hfi_api.h"
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
-#include "venus_hfi.h"
 
 #define HW_RESPONSE_TIMEOUT (5 * 60 * 1000)
 
@@ -77,14 +76,22 @@ static int msm_comm_scale_bus(struct msm_vidc_core *core,
 {
 	int load;
 	int rc = 0;
+	struct hfi_device *hdev;
 
 	if (!core || type >= MSM_VIDC_MAX_DEVICES) {
 		dprintk(VIDC_ERR, "Invalid args: %p, %d\n", core, type);
 		return -EINVAL;
 	}
+
+	hdev = core->device;
+	if (!hdev) {
+		dprintk(VIDC_ERR, "Invalid device handle %p\n", hdev);
+		return -EINVAL;
+	}
+
 	load = msm_comm_get_load(core, type);
 
-	rc = venus_hfi_scale_bus(core->device, load, type, mtype);
+	rc = hdev->scale_bus(hdev->hfi_device_data, load, type, mtype);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
 
@@ -95,14 +102,23 @@ static void msm_comm_unvote_buses(struct msm_vidc_core *core,
 	enum mem_type mtype)
 {
 	int i;
+	struct hfi_device *hdev;
+
+	if (!core || !core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return;
+	}
+	hdev = core->device;
+
 	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
 		if ((mtype & DDR_MEM) &&
-			venus_hfi_scale_bus(core->device, 0, i, DDR_MEM)) {
+			hdev->scale_bus(hdev->hfi_device_data, 0, i, DDR_MEM)) {
 			dprintk(VIDC_WARN,
 				"Failed to unvote for DDR accesses\n");
 		}
 		if ((mtype & OCMEM_MEM) &&
-			venus_hfi_scale_bus(core->device, 0, i, OCMEM_MEM)) {
+			hdev->scale_bus(hdev->hfi_device_data, 0, i,
+					OCMEM_MEM)) {
 			dprintk(VIDC_WARN,
 				"Failed to unvote for OCMEM accesses\n");
 		}
@@ -876,15 +892,23 @@ static int msm_comm_scale_clocks(struct msm_vidc_core *core)
 {
 	int num_mbs_per_sec;
 	int rc = 0;
+	struct hfi_device *hdev;
 	if (!core) {
-		dprintk(VIDC_ERR, "Invalid args: %p\n", core);
+		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, core);
+		return -EINVAL;
+	}
+
+	hdev = core->device;
+	if (!hdev) {
+		dprintk(VIDC_ERR, "%s Invalid device handle: %p\n",
+			__func__, hdev);
 		return -EINVAL;
 	}
 	num_mbs_per_sec = msm_comm_get_load(core, MSM_VIDC_ENCODER);
 	num_mbs_per_sec += msm_comm_get_load(core, MSM_VIDC_DECODER);
 
 	dprintk(VIDC_INFO, "num_mbs_per_sec = %d\n", num_mbs_per_sec);
-	rc = venus_hfi_scale_clocks(core->device, num_mbs_per_sec);
+	rc = hdev->scale_clocks(hdev->hfi_device_data, num_mbs_per_sec);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
 	return rc;
@@ -892,12 +916,16 @@ static int msm_comm_scale_clocks(struct msm_vidc_core *core)
 
 void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 {
-	struct msm_vidc_core *core = inst->core;
+	struct msm_vidc_core *core;
+	struct hfi_device *hdev;
 
-	if (!inst) {
-		dprintk(VIDC_WARN, "Invalid params\n");
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
 		return;
 	}
+	core = inst->core;
+	hdev = core->device;
+
 	if (msm_comm_scale_clocks(core)) {
 		dprintk(VIDC_WARN,
 				"Failed to scale clocks. Performance might be impacted\n");
@@ -906,7 +934,7 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 		dprintk(VIDC_WARN,
 				"Failed to scale DDR bus. Performance might be impacted\n");
 	}
-	if (venus_hfi_is_ocmem_present(core->device)) {
+	if (hdev->is_ocmem_present(hdev->hfi_device_data)) {
 		if (msm_comm_scale_bus(core, inst->session_type,
 					OCMEM_MEM))
 			dprintk(VIDC_WARN,
@@ -926,6 +954,14 @@ static inline unsigned long get_ocmem_requirement(u32 height, u32 width)
 static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!core || !core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = core->device;
+
 	if (core->state == VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR,
 				"Core is in bad state. Cannot unset ocmem\n");
@@ -935,7 +971,7 @@ static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 	init_completion(
 		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)]);
 
-	rc = venus_hfi_unset_ocmem(core->device);
+	rc = hdev->unset_ocmem(hdev->hfi_device_data);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to set OCMEM on driver\n");
 		goto release_ocmem_failed;
@@ -948,39 +984,6 @@ static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 		rc = -EIO;
 	}
 release_ocmem_failed:
-	return rc;
-}
-
-int msm_vidc_ocmem_notify_handler(struct notifier_block *this,
-		unsigned long event, void *data)
-{
-	struct ocmem_buf *buff = data;
-	struct msm_vidc_core *core;
-	struct venus_hfi_device *device;
-	struct venus_resources *resources;
-	struct on_chip_mem *ocmem;
-	int rc = NOTIFY_DONE;
-	if (event == OCMEM_ALLOC_GROW) {
-		ocmem = container_of(this, struct on_chip_mem, vidc_ocmem_nb);
-		if (!ocmem) {
-			dprintk(VIDC_ERR, "Wrong handler passed\n");
-			rc = NOTIFY_BAD;
-			goto bad_notfier;
-		}
-		resources = container_of(ocmem,
-			struct venus_resources, ocmem);
-		device = container_of(resources,
-			struct venus_hfi_device, resources);
-		core = container_of((void *)device,
-			struct msm_vidc_core, device);
-		if (venus_hfi_set_ocmem(core->device, buff)) {
-			dprintk(VIDC_ERR, "Failed to set ocmem: %d\n", rc);
-			goto ocmem_set_failed;
-		}
-		rc = NOTIFY_OK;
-	}
-ocmem_set_failed:
-bad_notfier:
 	return rc;
 }
 
@@ -1022,11 +1025,11 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct msm_vidc_core *core = inst->core;
 	unsigned long flags;
-	struct venus_hfi_device *device;
+	struct hfi_device *hdev;
 
 	if (!core || !core->device)
 		return -EINVAL;
-	device = core->device;
+	hdev = core->device;
 
 	mutex_lock(&core->sync_lock);
 	if (core->state >= VIDC_CORE_INIT) {
@@ -1041,7 +1044,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		goto fail_scale_bus;
 	}
 
-	rc = venus_hfi_load_fw(core->device);
+	rc = hdev->load_fw(hdev->hfi_device_data);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load video firmware\n");
 		goto fail_load_fw;
@@ -1053,7 +1056,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	}
 
 	init_completion(&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)]);
-	rc = venus_hfi_core_init(core->device);
+	rc = hdev->core_init(hdev->hfi_device_data);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init core, id = %d\n", core->id);
 		goto fail_core_init;
@@ -1066,7 +1069,7 @@ core_already_inited:
 	mutex_unlock(&core->sync_lock);
 	return rc;
 fail_core_init:
-	venus_hfi_unload_fw(core->device);
+	hdev->unload_fw(hdev->hfi_device_data);
 fail_load_fw:
 	msm_comm_unvote_buses(core, DDR_MEM);
 fail_scale_bus:
@@ -1077,8 +1080,18 @@ fail_scale_bus:
 static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct msm_vidc_core *core = inst->core;
+	struct msm_vidc_core *core;
+	struct hfi_device *hdev;
 	unsigned long flags;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+
+	core = inst->core;
+	hdev = core->device;
+
 	mutex_lock(&core->sync_lock);
 	if (core->state == VIDC_CORE_UNINIT) {
 		dprintk(VIDC_INFO, "Video core: %d is already in state: %d\n",
@@ -1088,9 +1101,9 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	msm_comm_scale_clocks_and_bus(inst);
 	if (list_empty(&core->instances)) {
 		msm_comm_unset_ocmem(core);
-		venus_hfi_free_ocmem(core->device);
+		hdev->free_ocmem(hdev->hfi_device_data);
 		dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
-		rc = venus_hfi_core_release(core->device);
+		rc = hdev->core_release(hdev->hfi_device_data);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to release core, id = %d\n",
 							core->id);
@@ -1099,7 +1112,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		spin_lock_irqsave(&core->lock, flags);
 		core->state = VIDC_CORE_UNINIT;
 		spin_unlock_irqrestore(&core->lock, flags);
-		venus_hfi_unload_fw(core->device);
+		hdev->unload_fw(hdev->hfi_device_data);
 		msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
 	}
 core_already_uninited:
@@ -1182,6 +1195,14 @@ static int msm_comm_session_init(int flipped_state,
 {
 	int rc = 0;
 	int fourcc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	if (IS_ALREADY_IN_STATE(flipped_state, MSM_VIDC_OPEN)) {
 		dprintk(VIDC_INFO, "inst: %p is already in state: %d\n",
 						inst, inst->state);
@@ -1197,7 +1218,7 @@ static int msm_comm_session_init(int flipped_state,
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_INIT_DONE)]);
-	inst->session = venus_hfi_session_init(inst->core->device, (u32) inst,
+	inst->session = hdev->session_init(hdev->hfi_device_data, (u32) inst,
 					get_hal_domain(inst->session_type),
 					get_hal_codec_type(fourcc));
 	if (!inst->session) {
@@ -1218,6 +1239,14 @@ static int msm_vidc_load_resources(int flipped_state,
 {
 	int rc = 0;
 	u32 ocmem_sz = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	if (IS_ALREADY_IN_STATE(flipped_state, MSM_VIDC_LOAD_RESOURCES)) {
 		dprintk(VIDC_INFO, "inst: %p is already in state: %d\n",
 						inst, inst->state);
@@ -1227,7 +1256,7 @@ static int msm_vidc_load_resources(int flipped_state,
 	rc = msm_comm_scale_bus(inst->core, inst->session_type, OCMEM_MEM);
 	if (!rc) {
 		mutex_lock(&inst->core->sync_lock);
-		rc = venus_hfi_alloc_ocmem(inst->core->device, ocmem_sz);
+		rc = hdev->alloc_ocmem(hdev->hfi_device_data, ocmem_sz);
 		mutex_unlock(&inst->core->sync_lock);
 		if (rc) {
 			dprintk(VIDC_WARN,
@@ -1238,7 +1267,7 @@ static int msm_vidc_load_resources(int flipped_state,
 		dprintk(VIDC_WARN,
 		"Failed to vote for OCMEM BW. Performance will be impacted\n");
 	}
-	rc = venus_hfi_session_load_res((void *) inst->session);
+	rc = hdev->session_load_res((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send load resources\n");
@@ -1252,6 +1281,15 @@ exit:
 static int msm_vidc_start(int flipped_state, struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
 	if (IS_ALREADY_IN_STATE(flipped_state, MSM_VIDC_START)) {
 		dprintk(VIDC_INFO,
 			"inst: %p is already in state: %d\n",
@@ -1260,7 +1298,7 @@ static int msm_vidc_start(int flipped_state, struct msm_vidc_inst *inst)
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_START_DONE)]);
-	rc = venus_hfi_session_start((void *) inst->session);
+	rc = hdev->session_start((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send start\n");
@@ -1274,6 +1312,14 @@ exit:
 static int msm_vidc_stop(int flipped_state, struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	if (IS_ALREADY_IN_STATE(flipped_state, MSM_VIDC_STOP)) {
 		dprintk(VIDC_INFO,
 			"inst: %p is already in state: %d\n",
@@ -1283,7 +1329,7 @@ static int msm_vidc_stop(int flipped_state, struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "Send Stop to hal\n");
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_STOP_DONE)]);
-	rc = venus_hfi_session_stop((void *) inst->session);
+	rc = hdev->session_stop((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to send stop\n");
 		goto exit;
@@ -1296,6 +1342,14 @@ exit:
 static int msm_vidc_release_res(int flipped_state, struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	if (IS_ALREADY_IN_STATE(flipped_state, MSM_VIDC_RELEASE_RESOURCES)) {
 		dprintk(VIDC_INFO,
 			"inst: %p is already in state: %d\n",
@@ -1306,7 +1360,7 @@ static int msm_vidc_release_res(int flipped_state, struct msm_vidc_inst *inst)
 		"Send release res to hal\n");
 	init_completion(
 	&inst->completions[SESSION_MSG_INDEX(SESSION_RELEASE_RESOURCE_DONE)]);
-	rc = venus_hfi_session_release_res((void *) inst->session);
+	rc = hdev->session_release_res((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send release resources\n");
@@ -1317,9 +1371,17 @@ exit:
 	return rc;
 }
 
-static int msm_comm_session_close(int flipped_state, struct msm_vidc_inst *inst)
+static int msm_comm_session_close(int flipped_state,
+			struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid params", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
 	if (IS_ALREADY_IN_STATE(flipped_state, MSM_VIDC_CLOSE)) {
 		dprintk(VIDC_INFO,
 			"inst: %p is already in state: %d\n",
@@ -1330,7 +1392,7 @@ static int msm_comm_session_close(int flipped_state, struct msm_vidc_inst *inst)
 		"Send session close to hal\n");
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_END_DONE)]);
-	rc = venus_hfi_session_end((void *) inst->session);
+	rc = hdev->session_end((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send close\n");
@@ -1479,6 +1541,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 	struct vb2_buf_entry *entry;
 	struct vidc_frame_data frame_data;
 	struct msm_vidc_core *core;
+	struct hfi_device *hdev;
 	q = vb->vb2_queue;
 	inst = q->drv_priv;
 	if (!inst || !vb) {
@@ -1489,6 +1552,11 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 	if (!core) {
 		dprintk(VIDC_ERR,
 			"Invalid input: %p, %p, %p\n", inst, core, vb);
+		return -EINVAL;
+	}
+	hdev = core->device;
+	if (!hdev) {
+		dprintk(VIDC_ERR, "Invalid input: %p", hdev);
 		return -EINVAL;
 	}
 
@@ -1534,7 +1602,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			dprintk(VIDC_DBG,
 				"Sending etb to hal: Alloc: %d :filled: %d\n",
 				frame_data.alloc_len, frame_data.filled_len);
-			rc = venus_hfi_session_etb((void *) inst->session,
+			rc = hdev->session_etb((void *) inst->session,
 					&frame_data);
 			if (!rc)
 				msm_vidc_debugfs_update(inst,
@@ -1564,7 +1632,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				seq_hdr.seq_hdr = (u8 *) vb->v4l2_planes[0].
 					m.userptr;
 				seq_hdr.seq_hdr_len = vb->v4l2_planes[0].length;
-				rc = venus_hfi_session_get_seq_hdr((void *)
+				rc = hdev->session_get_seq_hdr((void *)
 						inst->session, &seq_hdr);
 				if (!rc) {
 					inst->vb2_seq_hdr = vb;
@@ -1572,7 +1640,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 						inst->vb2_seq_hdr);
 				}
 			} else {
-				rc = venus_hfi_session_ftb((void *)
+				rc = hdev->session_ftb((void *)
 					inst->session, &frame_data);
 			if (!rc)
 				msm_vidc_debugfs_update(inst,
@@ -1595,6 +1663,14 @@ err_no_mem:
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	mutex_lock(&inst->sync_lock);
 	if (inst->state < MSM_VIDC_OPEN_DONE || inst->state >= MSM_VIDC_CLOSE) {
 		dprintk(VIDC_ERR,
@@ -1604,7 +1680,7 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)]);
-	rc = venus_hfi_session_get_buf_req((void *) inst->session);
+	rc = hdev->session_get_buf_req((void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get property\n");
 		goto exit;
@@ -1632,6 +1708,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 	int rc = 0;
 	unsigned long flags;
 	struct msm_vidc_core *core;
+	struct hfi_device *hdev;
 	if (!inst) {
 		dprintk(VIDC_ERR,
 				"Invalid instance pointer = %p\n", inst);
@@ -1641,6 +1718,11 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 	if (!core) {
 		dprintk(VIDC_ERR,
 				"Invalid core pointer = %p\n", core);
+		return -EINVAL;
+	}
+	hdev = core->device;
+	if (!hdev) {
+		dprintk(VIDC_ERR, "Invalid device pointer = %p\n", hdev);
 		return -EINVAL;
 	}
 	spin_lock_irqsave(&inst->lock, flags);
@@ -1659,7 +1741,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 				init_completion(
 				   &inst->completions[SESSION_MSG_INDEX
 				   (SESSION_RELEASE_BUFFER_DONE)]);
-				rc = venus_hfi_session_release_buffers(
+				rc = hdev->session_release_buffers(
 						(void *) inst->session,
 							&buffer_info);
 				if (rc)
@@ -1692,6 +1774,7 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 	int rc = 0;
 	unsigned long flags;
 	struct msm_vidc_core *core;
+	struct hfi_device *hdev;
 	if (!inst) {
 		dprintk(VIDC_ERR,
 				"Invalid instance pointer = %p\n", inst);
@@ -1701,6 +1784,11 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 	if (!core) {
 		dprintk(VIDC_ERR,
 				"Invalid core pointer = %p\n", core);
+		return -EINVAL;
+	}
+	hdev = core->device;
+	if (!hdev) {
+		dprintk(VIDC_ERR, "Invalid device pointer = %p\n", hdev);
 		return -EINVAL;
 	}
 	spin_lock_irqsave(&inst->lock, flags);
@@ -1719,7 +1807,7 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 				init_completion(
 				   &inst->completions[SESSION_MSG_INDEX
 				   (SESSION_RELEASE_BUFFER_DONE)]);
-				rc = venus_hfi_session_release_buffers(
+				rc = hdev->session_release_buffers(
 						(void *) inst->session,
 							&buffer_info);
 				if (rc)
@@ -1747,17 +1835,25 @@ int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
 	enum hal_property ptype, void *pdata)
 {
 	int rc = 0;
+	struct hfi_device *hdev;
 	if (!inst) {
 		dprintk(VIDC_ERR, "Invalid input: %p\n", inst);
 		return -EINVAL;
 	}
+
+	if (!inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
 	mutex_lock(&inst->sync_lock);
 	if (inst->state < MSM_VIDC_OPEN_DONE || inst->state >= MSM_VIDC_CLOSE) {
 		dprintk(VIDC_ERR, "Not in proper state to set property\n");
 		rc = -EAGAIN;
 		goto exit;
 	}
-	rc = venus_hfi_session_set_property((void *)inst->session,
+	rc = hdev->session_set_property((void *)inst->session,
 			ptype, pdata);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set hal property for framesize\n");
@@ -1777,12 +1873,15 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	unsigned long smem_flags = 0;
 	struct hal_buffer_requirements *scratch_buf;
 	int i;
-	struct venus_hfi_device *device;
+	struct hfi_device *hdev;
 
-	if (!inst || !inst->core || !inst->core->device)
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;
+	}
 
-	device = inst->core->device;
+	hdev = inst->core->device;
+
 	scratch_buf =
 		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_SCRATCH];
 	dprintk(VIDC_DBG,
@@ -1792,10 +1891,10 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	if (msm_comm_release_scratch_buffers(inst))
 		dprintk(VIDC_WARN, "Failed to release scratch buffers\n");
 	if (inst->mode == VIDC_SECURE) {
-		domain = venus_hfi_get_domain(device, CP_MAP);
+		domain = hdev->get_domain(hdev->hfi_device_data, CP_MAP);
 		smem_flags |= SMEM_SECURE;
 	} else
-		domain = venus_hfi_get_domain(device, NS_MAP);
+		domain = hdev->get_domain(hdev->hfi_device_data, NS_MAP);
 
 	if (scratch_buf->buffer_size) {
 		for (i = 0; i < scratch_buf->buffer_count_actual;
@@ -1822,7 +1921,7 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			dprintk(VIDC_DBG, "Scratch buffer address: %x",
 					buffer_info.align_device_addr);
-			rc = venus_hfi_session_set_buffers(
+			rc = hdev->session_set_buffers(
 					(void *) inst->session,	&buffer_info);
 			if (rc) {
 				dprintk(VIDC_ERR,
@@ -1854,12 +1953,14 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 	int domain;
 	struct hal_buffer_requirements *persist_buf;
 	int i;
-	struct venus_hfi_device *device;
+	struct hfi_device *hdev;
 
-	if (!inst || !inst->core || !inst->core->device)
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;
+	}
 
-	device = inst->core->device;
+	hdev = inst->core->device;
 
 	persist_buf =
 		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_PERSIST];
@@ -1874,10 +1975,10 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 	}
 
 	if (inst->mode == VIDC_SECURE) {
-		domain = venus_hfi_get_domain(device, CP_MAP);
+		domain = hdev->get_domain(hdev->hfi_device_data, CP_MAP);
 		flags |= SMEM_SECURE;
 	} else
-		domain = venus_hfi_get_domain(device, NS_MAP);
+		domain = hdev->get_domain(hdev->hfi_device_data, NS_MAP);
 
 	if (persist_buf->buffer_size) {
 		for (i = 0;	i <	persist_buf->buffer_count_actual; i++) {
@@ -1903,7 +2004,7 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			dprintk(VIDC_DBG, "Persist buffer address: %x",
 					buffer_info.align_device_addr);
-			rc = venus_hfi_session_set_buffers(
+			rc = hdev->session_set_buffers(
 				(void *) inst->session, &buffer_info);
 			if (rc) {
 				dprintk(VIDC_ERR,
@@ -1977,6 +2078,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	struct vb2_buf_entry *temp;
 	struct mutex *lock;
 	struct msm_vidc_core *core;
+	struct hfi_device *hdev;
 	if (!inst) {
 		dprintk(VIDC_ERR,
 				"Invalid instance pointer = %p\n", inst);
@@ -1986,6 +2088,11 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	if (!core) {
 		dprintk(VIDC_ERR,
 				"Invalid core pointer = %p\n", core);
+		return -EINVAL;
+	}
+	hdev = core->device;
+	if (!hdev) {
+		dprintk(VIDC_ERR, "Invalid device pointer = %p", hdev);
 		return -EINVAL;
 	}
 
@@ -2014,7 +2121,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 			dprintk(VIDC_WARN,
 			"FLUSH BUG: Pending q not empty! It should be empty\n");
 		}
-		rc = venus_hfi_session_flush(inst->session,
+		rc = hdev->session_flush(inst->session,
 				HAL_FLUSH_OUTPUT);
 	} else {
 		if (!list_empty(&inst->pendingq)) {
@@ -2035,7 +2142,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				kfree(temp);
 			}
 		}
-		rc = venus_hfi_session_flush(inst->session,
+		rc = hdev->session_flush(inst->session,
 				HAL_FLUSH_ALL);
 	}
 	mutex_unlock(&inst->sync_lock);

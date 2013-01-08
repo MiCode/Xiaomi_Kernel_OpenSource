@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,8 +15,8 @@
 
 #include <linux/types.h>
 #include "vidc_hfi_helper.h"
+#include "vidc_hfi.h"
 #include "vidc_hfi_api.h"
-#include "venus_hfi.h"
 
 int create_pkt_cmd_sys_init(struct hfi_cmd_sys_init_packet *pkt,
 							   u32 arch_type);
