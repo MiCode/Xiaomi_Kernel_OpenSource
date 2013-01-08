@@ -27,6 +27,7 @@
 
 #include <mach/iommu_hw-v2.h>
 #include <mach/iommu.h>
+#include <mach/iommu_perfmon.h>
 
 static int msm_iommu_parse_bfb_settings(struct platform_device *pdev,
 				    struct msm_iommu_drvdata *drvdata)
@@ -134,8 +135,24 @@ fail:
 	return ret;
 }
 
+static int msm_iommu_pmon_parse_dt(struct platform_device *pdev,
+					struct iommu_info *pmon_info)
+{
+	int ret = 0;
+	int irq = platform_get_irq(pdev, 0);
+
+	if (irq > 0) {
+		pmon_info->evt_irq = platform_get_irq(pdev, 0);
+	} else {
+		pmon_info->evt_irq = -1;
+		ret = irq;
+	}
+	return ret;
+}
+
 static int msm_iommu_probe(struct platform_device *pdev)
 {
+	struct iommu_info *pmon_info;
 	struct msm_iommu_drvdata *drvdata;
 	struct resource *r;
 	int ret, needs_alt_core_clk;
@@ -192,17 +209,41 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	pr_info("device %s mapped at %p, with %d ctx banks\n",
+	dev_info(&pdev->dev, "device %s mapped at %p, with %d ctx banks\n",
 		drvdata->name, drvdata->base, drvdata->ncb);
 
 	platform_set_drvdata(pdev, drvdata);
 
+	pmon_info = msm_iommu_pm_alloc(&pdev->dev);
+	if (pmon_info != NULL) {
+		ret = msm_iommu_pmon_parse_dt(pdev, pmon_info);
+		if (ret) {
+			msm_iommu_pm_free(&pdev->dev);
+			pr_info("%s: pmon not available.\n", drvdata->name);
+		} else {
+			pmon_info->base = drvdata->base;
+			pmon_info->ops = &iommu_access_ops;
+			pmon_info->iommu_name = drvdata->name;
+			ret = msm_iommu_pm_iommu_register(pmon_info);
+			if (ret) {
+				pr_err("%s iommu register fail\n",
+								drvdata->name);
+				msm_iommu_pm_free(&pdev->dev);
+			} else {
+				pr_debug("%s iommu registered for pmon\n",
+						pmon_info->iommu_name);
+			}
+		}
+	}
 	return 0;
 }
 
 static int msm_iommu_remove(struct platform_device *pdev)
 {
 	struct msm_iommu_drvdata *drv = NULL;
+
+	msm_iommu_pm_iommu_unregister(&pdev->dev);
+	msm_iommu_pm_free(&pdev->dev);
 
 	drv = platform_get_drvdata(pdev);
 	if (drv) {
