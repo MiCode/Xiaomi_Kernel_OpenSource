@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -136,34 +136,6 @@ static struct msm_gpiomux_config mdm9625_mi2s_configs[] __initdata = {
 	},
 	{
 		.gpio	= 13,		/* mi2s din */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
-			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
-		},
-	},
-	{
-		.gpio	= 16,		/* Sec mi2s ws */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
-			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
-		},
-	},
-	{
-		.gpio	= 17,		/* Sec mi2s din */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
-			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
-		},
-	},
-	{
-		.gpio	= 18,		/* Sec mi2s dout */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
-			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
-		},
-	},
-	{
-		.gpio	= 19,		/* Sec mi2s clk */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &mi2s_suspend_cfg,
 			[GPIOMUX_ACTIVE] = &mi2s_active_cfg,
