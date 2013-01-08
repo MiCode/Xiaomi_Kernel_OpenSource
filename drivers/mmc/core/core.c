@@ -560,6 +560,7 @@ void mmc_start_idle_time_bkops(struct work_struct *work)
 	mmc_start_bkops(card, false);
 }
 EXPORT_SYMBOL(mmc_start_idle_time_bkops);
+
 /*
  * mmc_wait_data_done() - done callback for data request
  * @mrq: done data request
@@ -3312,6 +3313,14 @@ void mmc_set_embedded_sdio_data(struct mmc_host *host,
 EXPORT_SYMBOL(mmc_set_embedded_sdio_data);
 #endif
 
+/**
+ * mmc_init_context_info() - init synchronization context
+ * @host: mmc host
+ *
+ * Init struct context_info needed to implement asynchronous
+ * request mechanism, used by mmc core, host driver and mmc requests
+ * supplier.
+ */
 void mmc_init_context_info(struct mmc_host *host)
 {
 	spin_lock_init(&host->context_info.lock);
