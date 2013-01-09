@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/coresight.h>
 #include <linux/avtimer.h>
-#include <linux/ahci_platform.h>
 #include <mach/irqs-8064.h>
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
@@ -1779,9 +1778,11 @@ int __init apq8064_add_sdcc(unsigned int controller,
 }
 
 #define MSM_SATA_AHCI_BASE	0x29000000
-#define MSM_SATA_AHCI_REGS_SZ	0x17C
+#define MSM_SATA_AHCI_REGS_SZ	0x180
+#define MSM_SATA_PHY_BASE	0x1B400000
+#define MSM_SATA_PHY_REGS_SZ	0x200
 
-static struct resource resources_ahci[] = {
+static struct resource resources_sata[] = {
 	{
 		.name	= "ahci_mem",
 		.flags	= IORESOURCE_MEM,
@@ -1794,31 +1795,25 @@ static struct resource resources_ahci[] = {
 		.start	= SATA_CONTROLLER_IRQ,
 		.end	= SATA_CONTROLLER_IRQ,
 	},
-};
-
-static u64 ahci_dma_mask = DMA_BIT_MASK(32);
-static struct platform_device apq8064_device_ahci = {
-	.name		= "ahci",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(resources_ahci),
-	.resource	= resources_ahci,
-	.dev		= {
-		.dma_mask		= &ahci_dma_mask,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	{
+		.name	= "phy_mem",
+		.flags	= IORESOURCE_MEM,
+		.start	= MSM_SATA_PHY_BASE,
+		.end	= MSM_SATA_PHY_BASE + MSM_SATA_PHY_REGS_SZ - 1,
 	},
 };
 
-int __init apq8064_add_ahci(struct ahci_platform_data *platd)
-{
-	struct platform_device	*pdev;
-
-	if (!platd)
-		return -EINVAL;
-
-	pdev = &apq8064_device_ahci;
-	pdev->dev.platform_data = platd;
-	return platform_device_register(pdev);
-}
+static u64 sata_dma_mask = DMA_BIT_MASK(32);
+struct platform_device apq8064_device_sata = {
+	.name		= "msm_sata",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(resources_sata),
+	.resource	= resources_sata,
+	.dev		= {
+		.dma_mask		= &sata_dma_mask,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+	},
+};
 
 static struct resource resources_sps[] = {
 	{
