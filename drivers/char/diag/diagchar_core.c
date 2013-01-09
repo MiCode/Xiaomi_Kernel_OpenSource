@@ -250,6 +250,10 @@ static int diagchar_close(struct inode *inode, struct file *file)
 		pr_alert("diag: Invalid file pointer");
 		return -ENOMEM;
 	}
+
+	if (!driver)
+		return -ENOMEM;
+
 	/* clean up any DCI registrations, if this is a DCI client
 	* This will specially help in case of ungraceful exit of any DCI client
 	* This call will remove any pending registrations of such client
@@ -289,26 +293,23 @@ static int diagchar_close(struct inode *inode, struct file *file)
 			if (driver->table[i].process_id == current->tgid)
 					driver->table[i].process_id = 0;
 
-	if (driver) {
-		mutex_lock(&driver->diagchar_mutex);
-		driver->ref_count--;
-		/* On Client exit, try to destroy all 3 pools */
-		diagmem_exit(driver, POOL_TYPE_COPY);
-		diagmem_exit(driver, POOL_TYPE_HDLC);
-		diagmem_exit(driver, POOL_TYPE_WRITE_STRUCT);
-		for (i = 0; i < driver->num_clients; i++) {
-			if (NULL != diagpriv_data && diagpriv_data->pid ==
-				 driver->client_map[i].pid) {
-				driver->client_map[i].pid = 0;
-				kfree(diagpriv_data);
-				diagpriv_data = NULL;
-				break;
-			}
+	mutex_lock(&driver->diagchar_mutex);
+	driver->ref_count--;
+	/* On Client exit, try to destroy all 3 pools */
+	diagmem_exit(driver, POOL_TYPE_COPY);
+	diagmem_exit(driver, POOL_TYPE_HDLC);
+	diagmem_exit(driver, POOL_TYPE_WRITE_STRUCT);
+	for (i = 0; i < driver->num_clients; i++) {
+		if (NULL != diagpriv_data && diagpriv_data->pid ==
+			 driver->client_map[i].pid) {
+			driver->client_map[i].pid = 0;
+			kfree(diagpriv_data);
+			diagpriv_data = NULL;
+			break;
 		}
-		mutex_unlock(&driver->diagchar_mutex);
-		return 0;
 	}
-	return -ENOMEM;
+	mutex_unlock(&driver->diagchar_mutex);
+	return 0;
 }
 
 int diag_find_polling_reg(int i)
@@ -1067,10 +1068,9 @@ drop_hsic:
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		/* check the current client and copy its data */
 		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-			if (driver->dci_client_tbl[i].client != NULL) {
-				entry = &(driver->dci_client_tbl[i]);
-				if (entry && (current->tgid ==
-						entry->client->tgid)) {
+			entry = &(driver->dci_client_tbl[i]);
+			if (entry && entry->client) {
+				if (current->tgid == entry->client->tgid) {
 					COPY_USER_SPACE_OR_EXIT(buf+4,
 							entry->data_len, 4);
 					COPY_USER_SPACE_OR_EXIT(buf+8,
