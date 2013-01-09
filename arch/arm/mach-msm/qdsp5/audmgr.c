@@ -158,8 +158,10 @@ static void process_audmgr_callback(struct audmgr_global *amg,
 			return;
 		if (am->state != STATE_ENABLED)
 			am->state = STATE_ENABLED;
-		if (!amg->cad)
+		if (!amg->cad) {
+			wake_up(&am->wait);
 			break;
+		}
 
 		if (am->evt.session_info == SESSION_PLAYBACK &&
 			am->evt.dev_type.rx_device != amg->rx_device) {
