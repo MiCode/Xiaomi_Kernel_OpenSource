@@ -341,6 +341,46 @@
 		cs-gpios = <&msmgpio 55 0>;
 	};
 
+	tspp: msm_tspp@f99d8000 {
+		compatible = "qcom,msm_tspp";
+		cell-index = <0>;
+		reg = <0xf99d8000 0x1000>, /* MSM_TSIF0_PHYS */
+		      <0xf99d9000 0x1000>, /* MSM_TSIF1_PHYS */
+		      <0xf99da000 0x1000>, /* MSM_TSPP_PHYS  */
+		      <0xf99c4000 0x14000>; /* MSM_TSPP_BAM_PHYS */
+		reg-names = "MSM_TSIF0_PHYS",
+			"MSM_TSIF1_PHYS",
+			"MSM_TSPP_PHYS",
+			"MSM_TSPP_BAM_PHYS";
+		interrupts = <0 153 0>, /* TSIF_TSPP_IRQ */
+			<0 151 0>, /* TSIF0_IRQ */
+			<0 152 0>, /* TSIF1_IRQ */
+			<0 154 0>; /* TSIF_BAM_IRQ */
+		interrupt-names = "TSIF_TSPP_IRQ",
+			"TSIF0_IRQ",
+			"TSIF1_IRQ",
+			"TSIF_BAM_IRQ";
+		qcom,tsif-pclk = "iface_clk";
+		qcom,tsif-ref-clk = "ref_clk";
+		gpios = <&msmgpio 89 0>, /* TSIF0 CLK  */
+			<&msmgpio 90 0>, /* TSIF0 EN   */
+			<&msmgpio 91 0>, /* TSIF0 DATA */
+			<&msmgpio 92 0>, /* TSIF0 SYNC */
+			<&msmgpio 93 0>, /* TSIF1 CLK  */
+			<&msmgpio 94 0>, /* TSIF1 EN   */
+			<&msmgpio 95 0>, /* TSIF1 DATA */
+			<&msmgpio 96 0>; /* TSIF1 SYNC */
+		qcom,gpio-names = "tsif_clk",
+				"tsif_en",
+				"tsif_data",
+				"tsif_sync",
+				"tsif_clk",
+				"tsif_en",
+				"tsif_data",
+				"tsif_sync";
+		qcom,gpios-func = <1>;
+	};
+
 	slim_msm: slim@fe12f000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
