@@ -38,6 +38,7 @@ typedef int (post_test_fn) (struct test_data *);
 typedef char* (get_test_case_str_fn) (struct test_data *);
 typedef void (blk_dev_test_init_fn) (void);
 typedef void (blk_dev_test_exit_fn) (void);
+typedef struct gendisk* (get_rq_disk_fn) (void);
 
 /**
  * enum test_state - defines the state of the test
@@ -141,6 +142,7 @@ struct test_info {
 	post_test_fn *post_test_fn;
 	get_test_case_str_fn *get_test_case_str_fn;
 	unsigned long test_duration;
+	get_rq_disk_fn *get_rq_disk_fn;
 	void *data;
 };
 

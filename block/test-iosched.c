@@ -361,6 +361,8 @@ struct test_request *test_iosched_create_test_req(int is_err_expcted,
 	test_rq->req_completed = false;
 	test_rq->req_result = -EINVAL;
 	test_rq->rq = rq;
+	if (ptd->test_info.get_rq_disk_fn)
+		test_rq->rq->rq_disk = ptd->test_info.get_rq_disk_fn();
 	test_rq->is_err_expected = is_err_expcted;
 	rq->elv.priv[0] = (void *)test_rq;
 
