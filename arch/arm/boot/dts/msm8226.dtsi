@@ -500,6 +500,18 @@
 
 		qcom,firmware-name = "venus";
 	};
+
+	qcom,pronto@fb21b000 {
+		compatible = "qcom,pil-pronto";
+		reg = <0xfb21b000 0x3000>,
+		      <0xfc401700 0x4>,
+		      <0xfd485300 0xc>;
+		reg-names = "pmu_base", "clk_base", "halt_base";
+		interrupts = <0 149 1>;
+		vdd_pronto_pll-supply = <&pm8026_l8>;
+
+		qcom,firmware-name = "wcnss";
+	};
 };
 
 &gdsc_venus {
