@@ -513,6 +513,16 @@
 		qcom,firmware-name = "wcnss";
 	};
 
+	qcom,lpass@fe200000 {
+		compatible = "qcom,pil-q6v5-lpass";
+		reg = <0xfe200000 0x00100>,
+		      <0xfd485100 0x00010>;
+		reg-names = "qdsp6_base", "halt_base";
+		interrupts = <0 162 1>;
+
+		qcom,firmware-name = "adsp";
+	};
+
 	qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
 		qcom,memblock-remove = <0x8100000 0x7e00000>; /* Address and Size of Hole */
