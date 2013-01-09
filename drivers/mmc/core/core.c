@@ -634,7 +634,6 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 	struct mmc_context_info *context_info = &host->context_info;
 	int err;
 	unsigned long flags;
-	struct mmc_async_event_stats *stats = &host->card->async_event_stats;
 
 	while (1) {
 		wait_io_event_interruptible(context_info->wait,
@@ -647,18 +646,13 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 			context_info->is_done_rcv = false;
 			context_info->is_new_req = false;
 			cmd = mrq->cmd;
-			if (stats->enabled) {
-				stats->done_flag++;
-				if (context_info->is_new_req)
-					stats->done_when_new_req_event_on++;
-			}
 			if (!cmd->error || !cmd->retries ||
 					mmc_card_removed(host->card)) {
 				err = host->areq->err_check(host->card,
 						host->areq);
 				break; /* return err */
 			} else {
-				pr_info("%s: req failed (CMD%u):%d, retrying\n",
+				pr_info("%s: req failed (CMD%u): %d, retrying...\n",
 						mmc_hostname(host),
 						cmd->opcode, cmd->error);
 				cmd->retries--;
@@ -668,12 +662,8 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 			}
 		} else if (context_info->is_new_req) {
 			context_info->is_new_req = false;
-			if (stats->enabled)
-				stats->new_request_flag++;
-			if (!next_req) {
-				err = MMC_BLK_NEW_REQUEST;
-				break; /* return err */
-			}
+			err = MMC_BLK_NEW_REQUEST;
+			break; /* return err */
 		}
 	} /* while */
 	return err;

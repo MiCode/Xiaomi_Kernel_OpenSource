@@ -285,50 +285,6 @@ void print_mmc_packing_stats(struct mmc_card *card)
 	spin_unlock(&card->wr_pack_stats.lock);
 }
 
-/**
- * mmc_print_async_event_stats() - Print async event statistics
- * @card:	The mmc_card in which the async_event_stats
- *		struct is a member
- */
-void mmc_print_async_event_stats(struct mmc_card *card)
-{
-	struct mmc_async_event_stats *s;
-
-	if (!card)
-		return;
-
-	s = &card->async_event_stats;
-	if (!s)
-		return;
-
-	pr_info("%s: new notification & req statistics:\n",
-		mmc_hostname(card->host));
-	pr_info("%s: done_flag:%d", mmc_hostname(card->host),
-		s->done_flag);
-	pr_info("%s: cmd_retry:%d", mmc_hostname(card->host),
-		s->cmd_retry);
-	pr_info("%s: NULL fetched:%d", mmc_hostname(card->host),
-		s->null_fetched);
-	pr_info("%s: wake up new:%d", mmc_hostname(card->host),
-		s->wakeup_new);
-	pr_info("%s: new_request_flag:%d", mmc_hostname(card->host),
-		s->new_request_flag);
-	pr_info("%s: no waiting:%d\n", mmc_hostname(card->host),
-		s->q_no_waiting);
-	pr_info("%s: no_mmc_request_action:%d", mmc_hostname(card->host),
-		s->no_mmc_request_action);
-	pr_info("%s: wakeup_mq_thread:%d", mmc_hostname(card->host),
-		s->wakeup_mq_thread);
-	pr_info("%s: fetch_due_to_new_req:%d", mmc_hostname(card->host),
-		s->fetch_due_to_new_req);
-	pr_info("%s: returned_new_req:%d", mmc_hostname(card->host),
-		s->returned_new_req);
-	pr_info("%s: done_when_new_req_event_on:%d", mmc_hostname(card->host),
-		s->done_when_new_req_event_on);
-	pr_info("%s: new_req_when_new_marked:%d", mmc_hostname(card->host),
-		s->new_req_when_new_marked);
-}
-
 /*
  * A callback assigned to the packed_test_fn field.
  * Called from block layer in mmc_blk_packed_hdr_wrq_prep.
@@ -2097,9 +2053,6 @@ static int new_req_post_test(struct test_data *td)
 	if (!mq || !mq->card)
 		goto exit;
 
-	/* disable async_event test stats */
-	mq->card->async_event_stats.enabled = false;
-	mmc_print_async_event_stats(mq->card);
 	test_pr_info("Completed %d requests",
 			mbtd->completed_req_count);
 
@@ -2153,14 +2106,12 @@ static int prepare_new_req(struct test_data *td)
 	struct mmc_queue *mq = (struct mmc_queue *)q->queuedata;
 
 	mmc_blk_init_packed_statistics(mq->card);
-	mmc_blk_init_async_event_statistics(mq->card);
-
 	mbtd->completed_req_count = 0;
 
 	return 0;
 }
 
-static int test_new_req_notification(struct test_data *ptd)
+static int run_new_req(struct test_data *ptd)
 {
 	int ret = 0;
 	int i;
@@ -2226,18 +2177,6 @@ static int test_new_req_notification(struct test_data *ptd)
 
 	test_iosched_mark_test_completion();
 	test_pr_info("%s: EXIT: %d code", __func__, ret);
-
-	return ret;
-}
-
-static int run_new_req(struct test_data *td)
-{
-	int ret = 0;
-	struct request_queue *q = td->req_q;
-	struct mmc_queue *mq = (struct mmc_queue *)q->queuedata;
-
-	mmc_blk_init_async_event_statistics(mq->card);
-	ret = test_new_req_notification(td);
 
 	return ret;
 }
