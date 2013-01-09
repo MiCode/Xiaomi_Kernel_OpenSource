@@ -81,6 +81,7 @@
 #define CHGR_MISC_BOOT_DONE			0x42
 #define CHGR_BUCK_COMPARATOR_OVRIDE_3		0xED
 #define MISC_REVISION2				0x01
+#define USB_OVP_CTL				0x42
 #define SEC_ACCESS				0xD0
 
 /* SMBB peripheral subtype values */
@@ -99,6 +100,7 @@
 #define CHGR_BOOT_DONE			BIT(7)
 #define CHGR_CHG_EN			BIT(7)
 #define CHGR_ON_BAT_FORCE_BIT		BIT(0)
+#define USB_VALID_DEB_20MS		0x03
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -1191,6 +1193,11 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 				return -ENXIO;
 			}
 		}
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + USB_OVP_CTL,
+			USB_VALID_DEB_20MS,
+			USB_VALID_DEB_20MS, 1);
 
 		rc = qpnp_chg_masked_write(chip,
 			chip->usb_chgpth_base + CHGR_USB_ENUM_T_STOP,
