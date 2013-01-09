@@ -153,6 +153,12 @@ static int pil_lpass_init_image_trusted(struct pil_desc *pil,
 	return pas_init_image(PAS_Q6, metadata, size);
 }
 
+static int pil_lpass_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
+			       size_t size)
+{
+	return pas_mem_setup(PAS_Q6, addr, size);
+}
+
 static int pil_lpass_reset_trusted(struct pil_desc *pil)
 {
 	return pas_auth_and_reset(PAS_Q6);
@@ -165,6 +171,7 @@ static int pil_lpass_shutdown_trusted(struct pil_desc *pil)
 
 static struct pil_reset_ops pil_lpass_ops_trusted = {
 	.init_image = pil_lpass_init_image_trusted,
+	.mem_setup = pil_lpass_mem_setup_trusted,
 	.proxy_vote = pil_q6v5_make_proxy_votes,
 	.proxy_unvote = pil_q6v5_remove_proxy_votes,
 	.auth_and_reset = pil_lpass_reset_trusted,
