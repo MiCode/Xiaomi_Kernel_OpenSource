@@ -206,14 +206,7 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
 
-ifdef CONFIG_CPU_IDLE
-	obj-$(CONFIG_ARCH_APQ8064) += cpuidle.o
-	obj-$(CONFIG_ARCH_MSM8960) += cpuidle.o
-	obj-$(CONFIG_ARCH_MSM8X60) += cpuidle.o
-	obj-$(CONFIG_ARCH_MSM9615) += cpuidle.o
-	obj-$(CONFIG_ARCH_MSM9625) += cpuidle.o
-	obj-$(CONFIG_ARCH_MSM8974) += cpuidle.o
-endif
+obj-$(CONFIG_CPU_IDLE) += cpuidle.o
 
 ifdef CONFIG_MSM_CAMERA_V4L2
 	obj-$(CONFIG_ARCH_MSM8X60) += board-msm8x60-camera.o
@@ -319,18 +312,9 @@ obj-$(CONFIG_HTC_PWRSINK) += htc_pwrsink.o
 obj-$(CONFIG_HTC_HEADSET) += htc_headset.o
 obj-$(CONFIG_MSM_RMT_STORAGE_CLIENT) += rmt_storage_client.o
 obj-$(CONFIG_MSM_SDIO_SMEM) += sdio_smem.o
-obj-$(CONFIG_MSM_RPM) += rpm.o
-ifdef CONFIG_MSM_RPM
-	obj-$(CONFIG_ARCH_APQ8064) += rpm_resources.o
-	obj-$(CONFIG_ARCH_MSM8960) += rpm_resources.o
-	obj-$(CONFIG_ARCH_MSM8X60) += rpm_resources.o
-	obj-$(CONFIG_ARCH_MSM9615) += rpm_resources.o
-	obj-$(CONFIG_MSM_LPM_TEST) += test-lpm.o
-endif
-ifdef CONFIG_MSM_RPM_SMD
-	obj-$(CONFIG_ARCH_MSM8974) += lpm_levels.o lpm_resources.o
-	obj-$(CONFIG_ARCH_MSM9625) += lpm_levels.o lpm_resources.o
-endif
+obj-$(CONFIG_MSM_RPM) += rpm.o rpm_resources.o
+obj-$(CONFIG_MSM_LPM_TEST) += test-lpm.o
+obj-$(CONFIG_MSM_RPM_SMD) += rpm-smd.o lpm_levels.o lpm_resources.o
 obj-$(CONFIG_MSM_MPM_OF) += mpm-of.o
 obj-$(CONFIG_MSM_MPM) += mpm.o
 obj-$(CONFIG_MSM_RPM_STATS_LOG) += rpm_stats.o rpm_master_stat.o
