@@ -90,6 +90,71 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 			      int dec_level);
 
 /**
+ * qmi_calc_max_msg_len() - Calculate the maximum length of a QMI message
+ * @ei_array: Struct info array describing the structure.
+ * @level: Level to identify the depth of the nested structures.
+ *
+ * @return: expected maximum length of the QMI message or 0 on failure.
+ */
+static int qmi_calc_max_msg_len(struct elem_info *ei_array,
+				int level)
+{
+	int max_msg_len = 0;
+	struct elem_info *temp_ei;
+
+	if (!ei_array)
+		return max_msg_len;
+
+	for (temp_ei = ei_array; temp_ei->data_type != QMI_EOTI; temp_ei++) {
+		/* Flag to identify the optional element is not encoded */
+		if (temp_ei->data_type == QMI_OPT_FLAG)
+			continue;
+
+		if (temp_ei->data_type == QMI_DATA_LEN) {
+			max_msg_len += (temp_ei->elem_size == sizeof(uint8_t) ?
+					sizeof(uint8_t) : sizeof(uint16_t));
+			continue;
+		} else if (temp_ei->data_type == QMI_STRUCT) {
+			max_msg_len += qmi_calc_max_msg_len(temp_ei->ei_array,
+							    (level + 1));
+		} else {
+			max_msg_len += (temp_ei->elem_len * temp_ei->elem_size);
+		}
+
+		/*
+		 * Type & Length info. not prepended for elements in the
+		 * nested structure.
+		 */
+		if (level == 1)
+			max_msg_len += (TLV_TYPE_SIZE + TLV_LEN_SIZE);
+	}
+	return max_msg_len;
+}
+
+/**
+ * qmi_verify_max_msg_len() - Verify the maximum length of a QMI message
+ * @desc: Pointer to structure descriptor.
+ *
+ * @return: true if the maximum message length embedded in structure
+ *          descriptor matches the calculated value, else false.
+ */
+bool qmi_verify_max_msg_len(struct msg_desc *desc)
+{
+	int calc_max_msg_len;
+
+	if (!desc)
+		return false;
+
+	calc_max_msg_len = qmi_calc_max_msg_len(desc->ei_array, 1);
+	if (calc_max_msg_len != desc->max_msg_len) {
+		pr_err("%s: Calc. len %d != Passed len %d\n",
+			__func__, calc_max_msg_len, desc->max_msg_len);
+		return false;
+	}
+	return true;
+}
+
+/**
  * qmi_kernel_encode() - Encode to QMI message wire format
  * @desc: Pointer to structure descriptor.
  * @out_buf: Buffer to hold the encoded QMI message.
@@ -103,6 +168,7 @@ int qmi_kernel_encode(struct msg_desc *desc,
 		      void *in_c_struct)
 {
 	int enc_level = 1;
+	int ret, calc_max_msg_len;
 
 	if (!desc || !desc->ei_array)
 		return -EINVAL;
@@ -113,8 +179,14 @@ int qmi_kernel_encode(struct msg_desc *desc,
 	if (desc->max_msg_len < out_buf_len)
 		return -ETOOSMALL;
 
-	return _qmi_kernel_encode(desc->ei_array, out_buf,
-				  in_c_struct, out_buf_len, enc_level);
+	ret = _qmi_kernel_encode(desc->ei_array, out_buf,
+				 in_c_struct, out_buf_len, enc_level);
+	if (ret == -ETOOSMALL) {
+		calc_max_msg_len = qmi_calc_max_msg_len(desc->ei_array, 1);
+		pr_err("%s: Calc. len %d != Out buf len %d\n",
+			__func__, calc_max_msg_len, out_buf_len);
+	}
+	return ret;
 }
 EXPORT_SYMBOL(qmi_kernel_encode);
 
