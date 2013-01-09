@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -960,6 +960,9 @@ EXPORT_SYMBOL(msm_rpm_send_message_noirq);
  */
 int msm_rpm_enter_sleep(void)
 {
+	if (standalone)
+		return 0;
+
 	return smd_mask_receive_interrupt(msm_rpm_data.ch_info, true);
 }
 EXPORT_SYMBOL(msm_rpm_enter_sleep);
@@ -970,19 +973,12 @@ EXPORT_SYMBOL(msm_rpm_enter_sleep);
  */
 void msm_rpm_exit_sleep(void)
 {
+	if (standalone)
+		return;
+
 	smd_mask_receive_interrupt(msm_rpm_data.ch_info, false);
 }
 EXPORT_SYMBOL(msm_rpm_exit_sleep);
-
-static bool msm_rpm_set_standalone(void)
-{
-	if (machine_is_msm9625() || machine_is_msm8974_rumi()) {
-		pr_warn("%s(): Running in standalone mode, requests "
-				"will not be sent to RPM\n", __func__);
-		standalone = true;
-	}
-	return standalone;
-}
 
 static int msm_rpm_dev_probe(struct platform_device *pdev)
 {
@@ -1001,6 +997,9 @@ static int msm_rpm_dev_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
+	key = "rpm-standalone";
+	standalone = of_property_read_bool(pdev->dev.of_node, key);
+
 	init_completion(&msm_rpm_data.smd_open);
 	spin_lock_init(&msm_rpm_data.smd_lock_write);
 	spin_lock_init(&msm_rpm_data.smd_lock_read);
@@ -1012,9 +1011,14 @@ static int msm_rpm_dev_probe(struct platform_device *pdev)
 		pr_info("Cannot open RPM channel %s %d\n", msm_rpm_data.ch_name,
 				msm_rpm_data.ch_type);
 
-		msm_rpm_set_standalone();
 		BUG_ON(!standalone);
 		complete(&msm_rpm_data.smd_open);
+	} else {
+		/*
+		 * Override DT's suggestion to try standalone; since we have an
+		 * SMD channel.
+		 */
+		standalone = false;
 	}
 
 	wait_for_completion(&msm_rpm_data.smd_open);
@@ -1029,6 +1033,10 @@ static int msm_rpm_dev_probe(struct platform_device *pdev)
 	}
 
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
+	if (standalone)
+		pr_info("%s(): RPM running in standalone mode\n", __func__);
+
 	return 0;
 fail:
 	pr_err("%s(): Failed to read node: %s, key=%s\n", __func__,
