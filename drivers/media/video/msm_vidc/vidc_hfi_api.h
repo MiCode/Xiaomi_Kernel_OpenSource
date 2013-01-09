@@ -515,6 +515,7 @@ struct hal_request_iframe {
 
 struct hal_bitrate {
 	u32 bit_rate;
+	u32 layer_id;
 };
 
 struct hal_profile_level {
@@ -589,6 +590,7 @@ struct hal_quantization {
 	u32 qpi;
 	u32 qpp;
 	u32 qpb;
+	u32 layer_id;
 };
 
 struct hal_intra_period {
