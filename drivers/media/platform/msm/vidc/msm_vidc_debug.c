@@ -165,6 +165,10 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		completion_done(&inst->completions[SESSION_MSG_INDEX(i)]) ?
 		"pending" : "done");
 	}
+	write_str(&dbg_buf, "ETB Count: %d\n", inst->count.etb);
+	write_str(&dbg_buf, "EBD Count: %d\n", inst->count.ebd);
+	write_str(&dbg_buf, "FTB Count: %d\n", inst->count.ftb);
+	write_str(&dbg_buf, "FBD Count: %d\n", inst->count.fbd);
 	return simple_read_from_buffer(buf, count, ppos,
 		dbg_buf.ptr, dbg_buf.filled_size);
 }
