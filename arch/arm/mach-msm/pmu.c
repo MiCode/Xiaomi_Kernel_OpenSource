@@ -181,7 +181,7 @@ static int __init msm_pmu_init(void)
 	 * and point to the appropriate 'struct resource'.
 	 */
 #ifdef CONFIG_ARCH_MSM8625
-	if (cpu_is_msm8625()) {
+	if (cpu_is_msm8625() || cpu_is_msm8625q()) {
 		pmu_devices[0] = &msm8625_cpu_pmu_device;
 		pmu_devices[1] = &msm8625_l2_pmu_device;
 		msm8625_cpu_pmu_device.dev.platform_data = &multicore_data;
