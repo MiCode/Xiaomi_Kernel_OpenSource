@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2175,6 +2175,7 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc31a000.funnel"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc321000.stm"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc332000.etm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc332000.jtagmm"),
 
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc322000.tmc"),
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc318000.tpiu"),
@@ -2185,6 +2186,7 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc31a000.funnel"),
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc321000.stm"),
 	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc332000.etm"),
+	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc332000.jtagmm"),
 
 };
 
