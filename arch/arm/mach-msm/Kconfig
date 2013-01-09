@@ -955,6 +955,15 @@ config MACH_APQ8064_CDP
 	help
 	  Support for the Qualcomm APQ8064 CDP device.
 
+config MACH_FSM8064_EP
+	depends on ARCH_APQ8064
+	bool "FSM8064 EP"
+	help
+	  Support for the Qualcomm FSM8064 EP device.
+	  This board also known as Femto development platform (FDP)
+	  is based on APQ8064 chipset. This board does not support
+	  keyboard, display or multimedia.
+
 config MACH_APQ8064_MTP
 	depends on ARCH_APQ8064
 	bool "APQ8064 MTP"
