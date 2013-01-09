@@ -1625,19 +1625,23 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct msm_hsic_host_platform_data *pdata;
+	int res_gpio;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
 		dev_err(&pdev->dev, "unable to allocate platform data\n");
 		return NULL;
 	}
-	pdata->strobe = of_get_named_gpio(node, "hsic,strobe-gpio", 0);
-	if (pdata->strobe < 0)
-		pdata->strobe = 0;
 
-	pdata->data = of_get_named_gpio(node, "hsic,data-gpio", 0);
-	if (pdata->data < 0)
-		pdata->data = 0;
+	res_gpio = of_get_named_gpio(node, "hsic,strobe-gpio", 0);
+	if (res_gpio < 0)
+		res_gpio = 0;
+	pdata->strobe = res_gpio;
+
+	res_gpio = of_get_named_gpio(node, "hsic,data-gpio", 0);
+	if (res_gpio < 0)
+		res_gpio = 0;
+	pdata->data = res_gpio;
 
 	pdata->ignore_cal_pad_config = of_property_read_bool(node,
 					"hsic,ignore-cal-pad-config");
