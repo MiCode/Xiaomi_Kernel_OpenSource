@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,6 +131,7 @@ struct pp_sts_type {
 	u32 enhist_sts;
 	u32 dither_sts;
 	u32 gamut_sts;
+	u32 pgc_sts;
 };
 
 #define PP_FLAGS_DIRTY_PA	0x1
@@ -141,6 +142,7 @@ struct pp_sts_type {
 #define PP_FLAGS_DIRTY_DITHER	0x20
 #define PP_FLAGS_DIRTY_GAMUT	0x40
 #define PP_FLAGS_DIRTY_HIST_COL	0x80
+#define PP_FLAGS_DIRTY_PGC	0x100
 
 #define PP_STS_ENABLE	0x1
 #define PP_STS_GAMUT_FIRST	0x2
@@ -160,6 +162,7 @@ struct mdss_pp_res_type {
 	struct mdp_pa_cfg_data pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pcc_cfg_data pcc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_igc_lut_data igc_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pgc_lut_data argc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pgc_lut_data pgc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_hist_lut_data enhist_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_dither_cfg_data dither_disp_cfg[MDSS_BLOCK_DISP_NUM];
@@ -287,6 +290,7 @@ static int pp_mixer_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
 	dspp_num = mixer->num;
+
 	/* no corresponding dspp */
 	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
 		(dspp_num >= MDSS_MDP_MAX_DSPP))
@@ -299,7 +303,7 @@ static int pp_mixer_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	pp_sts = &mdss_pp_res->pp_dspp_sts[dspp_num];
 	/* GC_LUT is in layer mixer */
 	if (flags & PP_FLAGS_DIRTY_ARGC) {
-		pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
+		pgc_config = &mdss_pp_res->argc_disp_cfg[disp_num];
 		if (pgc_config->flags & MDP_PP_OPS_WRITE) {
 			offset = MDSS_MDP_REG_LM_OFFSET(disp_num) +
 				MDSS_MDP_REG_LM_GC_LUT_BASE;
@@ -378,10 +382,12 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	struct mdp_hist_lut_data *enhist_cfg;
 	struct mdp_dither_cfg_data *dither_cfg;
 	struct pp_hist_col_info *hist_info;
+	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
 	u32 data, tbl_idx, col_state;
 	unsigned long flag;
 	int i;
+
 	dspp_num = mixer->num;
 	/* no corresponding dspp */
 	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
@@ -532,6 +538,20 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 		if (pp_sts->gamut_sts & PP_STS_GAMUT_FIRST)
 			opmode |= (1 << 24); /* GAMUT_ORDER */
 	}
+
+	if (flags & PP_FLAGS_DIRTY_PGC) {
+		pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
+		if (pgc_config->flags & MDP_PP_OPS_WRITE) {
+			offset = base + MDSS_MDP_REG_DSPP_GC_BASE;
+			pp_update_argc_lut(offset, pgc_config);
+		}
+		if (pgc_config->flags & MDP_PP_OPS_DISABLE)
+			pp_sts->pgc_sts &= ~PP_STS_ENABLE;
+		else if (pgc_config->flags & MDP_PP_OPS_ENABLE)
+			pp_sts->pgc_sts |= PP_STS_ENABLE;
+	}
+	if (pp_sts->pgc_sts & PP_STS_ENABLE)
+		opmode |= (1 << 22);
 
 	MDSS_MDP_REG_WRITE(base + MDSS_MDP_REG_DSPP_OP_MODE, opmode);
 	ctl->flush_bits |= BIT(13 + dspp_num); /* DSPP */
@@ -1039,18 +1059,40 @@ static int pp_read_argc_lut(struct mdp_pgc_lut_data *config, u32 offset)
 int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config, u32 *copyback)
 {
 	int ret = 0;
-	u32 argc_offset, disp_num, dspp_num = 0;
+	u32 argc_offset = 0, disp_num, dspp_num = 0;
 	struct mdp_pgc_lut_data local_cfg;
+	struct mdp_pgc_lut_data *pgc_ptr;
 	u32 tbl_size;
 
-	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
-		(config->block >= MDP_BLOCK_MAX))
+	if ((PP_BLOCK(config->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX))
 		return -EINVAL;
 
 	mutex_lock(&mdss_pp_mutex);
-	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+
+	disp_num = PP_BLOCK(config->block) - MDP_LOGICAL_BLOCK_DISP_0;
+	switch (config->block & MDSS_PP_LOCATION_MASK) {
+	case MDSS_PP_LM_CFG:
+		argc_offset = MDSS_MDP_REG_LM_OFFSET(dspp_num) +
+			MDSS_MDP_REG_LM_GC_LUT_BASE;
+		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
+		mdss_pp_res->pp_disp_flags[disp_num] |=
+			PP_FLAGS_DIRTY_ARGC;
+		break;
+	case MDSS_PP_DSPP_CFG:
+		argc_offset = MDSS_MDP_REG_DSPP_OFFSET(dspp_num) +
+					MDSS_MDP_REG_DSPP_GC_BASE;
+		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
+		mdss_pp_res->pp_disp_flags[disp_num] |=
+			PP_FLAGS_DIRTY_PGC;
+		break;
+	default:
+		goto argc_config_exit;
+		break;
+	}
 
 	tbl_size = GC_LUT_SEGMENTS * sizeof(struct mdp_ar_gc_lut_data);
+
 	if (config->flags & MDP_PP_OPS_READ) {
 		ret = pp_get_dspp_num(disp_num, &dspp_num);
 		if (ret) {
@@ -1058,10 +1100,6 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config, u32 *copyback)
 				__func__, disp_num);
 			goto argc_config_exit;
 		}
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-
-		argc_offset = MDSS_MDP_REG_LM_OFFSET(dspp_num) +
-				MDSS_MDP_REG_LM_GC_LUT_BASE;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		local_cfg = *config;
 		local_cfg.r_data =
@@ -1104,14 +1142,14 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config, u32 *copyback)
 			ret = -EFAULT;
 			goto argc_config_exit;
 		}
-		mdss_pp_res->pgc_disp_cfg[disp_num] = *config;
-		mdss_pp_res->pgc_disp_cfg[disp_num].r_data =
+
+		*pgc_ptr = *config;
+		pgc_ptr->r_data =
 			&mdss_pp_res->gc_lut_r[disp_num][0];
-		mdss_pp_res->pgc_disp_cfg[disp_num].g_data =
+		pgc_ptr->g_data =
 			&mdss_pp_res->gc_lut_g[disp_num][0];
-		mdss_pp_res->pgc_disp_cfg[disp_num].b_data =
+		pgc_ptr->b_data =
 			&mdss_pp_res->gc_lut_b[disp_num][0];
-		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_ARGC;
 	}
 argc_config_exit:
 	mutex_unlock(&mdss_pp_mutex);

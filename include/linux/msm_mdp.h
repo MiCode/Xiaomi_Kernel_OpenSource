@@ -286,6 +286,18 @@ struct msmfb_writeback_data {
 #define MDP_PP_IGC_FLAG_ROM0	0x10
 #define MDP_PP_IGC_FLAG_ROM1	0x20
 
+#define MDSS_PP_DSPP_CFG	0x0000
+#define MDSS_PP_SSPP_CFG	0x4000
+#define MDSS_PP_LM_CFG	0x8000
+#define MDSS_PP_WB_CFG	0xC000
+
+#define MDSS_PP_LOCATION_MASK	0xC000
+#define MDSS_PP_LOGICAL_MASK	0x3FFF
+
+#define PP_LOCAT(var) ((var) & MDSS_PP_LOCATION_MASK)
+#define PP_BLOCK(var) ((var) & MDSS_PP_LOGICAL_MASK)
+
+
 struct mdp_qseed_cfg {
 	uint32_t table_num;
 	uint32_t ops;
