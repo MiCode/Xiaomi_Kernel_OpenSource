@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,14 @@ static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 			clk_disable_unprepare(drvdata->clk);
 			clk_disable_unprepare(drvdata->pclk);
 		}
+	}
+
+	if (drvdata->clk_reg_virt) {
+		unsigned int value;
+
+		value = readl_relaxed(drvdata->clk_reg_virt);
+		value &= ~0x1;
+		writel_relaxed(value, drvdata->clk_reg_virt);
 	}
 fail:
 	return ret;
