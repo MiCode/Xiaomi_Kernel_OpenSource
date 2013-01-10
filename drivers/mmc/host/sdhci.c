@@ -583,7 +583,9 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 		direction = DMA_TO_DEVICE;
 
 	host->align_addr = dma_map_single(mmc_dev(host->mmc),
-		host->align_buffer, 128 * 4, direction);
+					  host->align_buffer,
+					  host->align_buf_sz,
+					  direction);
 	if (dma_mapping_error(mmc_dev(host->mmc), host->align_addr))
 		goto fail;
 	BUG_ON(host->align_addr & 0x3);
@@ -641,7 +643,7 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 		 * If this triggers then we have a calculation bug
 		 * somewhere. :/
 		 */
-		WARN_ON((desc - host->adma_desc) > ADMA_SIZE);
+		WARN_ON((desc - host->adma_desc) > host->adma_desc_sz);
 	}
 
 	if (host->quirks & SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC) {
@@ -673,7 +675,7 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 
 unmap_align:
 	dma_unmap_single(mmc_dev(host->mmc), host->align_addr,
-		128 * 4, direction);
+			 host->align_buf_sz, direction);
 fail:
 	return -EINVAL;
 }
@@ -849,7 +851,7 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 		return;
 
 	/* Sanity checks */
-	BUG_ON(data->blksz * data->blocks > 524288);
+	BUG_ON(data->blksz * data->blocks > host->mmc->max_req_size);
 	BUG_ON(data->blksz > host->mmc->max_blk_size);
 	BUG_ON(data->blocks > 65535);
 
@@ -3233,16 +3235,31 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (host->flags & SDHCI_USE_ADMA) {
 		/*
 		 * We need to allocate descriptors for all sg entries
-		 * (128) and potentially one alignment transfer for
+		 * (128/max_segments) and potentially one alignment transfer for
 		 * each of those entries.
 		 */
-		host->adma_desc = dma_alloc_coherent(mmc_dev(mmc),
-						     ADMA_SIZE, &host->adma_addr,
-						     GFP_KERNEL);
-		host->align_buffer = kmalloc(128 * 4, GFP_KERNEL);
+		if (host->ops->get_max_segments) {
+			host->adma_max_desc = host->ops->get_max_segments();
+			host->adma_desc_sz = (host->adma_max_desc * 2 + 1) * 4;
+		} else {
+			host->adma_max_desc = 128;
+			host->adma_desc_sz = ADMA_SIZE;
+		}
+
+		host->align_buf_sz = host->adma_max_desc * 4;
+
+		pr_debug("%s: %s: dma_desc_size: %d\n",
+			mmc_hostname(host->mmc), __func__, host->adma_desc_sz);
+		host->adma_desc = dma_alloc_coherent(mmc_dev(host->mmc),
+						host->adma_desc_sz,
+						&host->adma_addr,
+						GFP_KERNEL);
+		
+		host->align_buffer = kmalloc(host->align_buf_sz, GFP_KERNEL);
 		if (!host->adma_desc || !host->align_buffer) {
-			dma_free_coherent(mmc_dev(mmc), ADMA_SIZE,
-					  host->adma_desc, host->adma_addr);
+			dma_free_coherent(mmc_dev(host->mmc),
+					host->adma_desc_sz,
+					host->adma_desc, host->adma_addr);
 			kfree(host->align_buffer);
 			pr_warn("%s: Unable to allocate ADMA buffers - falling back to standard DMA\n",
 				mmc_hostname(mmc));
@@ -3253,8 +3270,10 @@ int sdhci_add_host(struct sdhci_host *host)
 			pr_warn("%s: unable to allocate aligned ADMA descriptor\n",
 				mmc_hostname(mmc));
 			host->flags &= ~SDHCI_USE_ADMA;
-			dma_free_coherent(mmc_dev(mmc), ADMA_SIZE,
-					  host->adma_desc, host->adma_addr);
+			dma_free_coherent(mmc_dev(host->mmc),
+					host->adma_desc_sz,
+					host->adma_desc,
+					host->adma_addr);
 			kfree(host->align_buffer);
 			host->adma_desc = NULL;
 			host->align_buffer = NULL;
@@ -3551,17 +3570,21 @@ int sdhci_add_host(struct sdhci_host *host)
 	 * can do scatter/gather or not.
 	 */
 	if (host->flags & SDHCI_USE_ADMA)
-		mmc->max_segs = 128;
+		mmc->max_segs = host->adma_max_desc;
 	else if (host->flags & SDHCI_USE_SDMA)
 		mmc->max_segs = 1;
-	else /* PIO */
-		mmc->max_segs = 128;
+	else/* PIO */
+		mmc->max_segs = host->adma_max_desc;
 
 	/*
 	 * Maximum number of sectors in one transfer. Limited by DMA boundary
-	 * size (512KiB).
+	 * size (512KiB), unless specified by platform specific driver. Each
+	 * descriptor can transfer a maximum of 64KB.
 	 */
-	mmc->max_req_size = 524288;
+	if (host->ops->get_max_segments)
+		mmc->max_req_size = (host->adma_max_desc * 65536);
+	else
+		mmc->max_req_size = 524288;
 
 	/*
 	 * Maximum segment size. Could be one segment with the maximum number
@@ -3746,7 +3769,7 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 		regulator_disable(mmc->supply.vqmmc);
 
 	if (host->adma_desc)
-		dma_free_coherent(mmc_dev(mmc), ADMA_SIZE,
+		dma_free_coherent(mmc_dev(host->mmc), host->adma_desc_sz,
 				  host->adma_desc, host->adma_addr);
 	kfree(host->align_buffer);
 
