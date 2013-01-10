@@ -871,8 +871,6 @@ static int prepare_packed_requests(struct test_data *td, int is_err_expected,
 			     __func__, mbtd->random_test_seed);
 	}
 
-	mmc_blk_init_packed_statistics(mq->card);
-
 	ret = prepare_request_add_write_reqs(td, num_requests, is_err_expected,
 					     is_random);
 	if (ret)
@@ -967,8 +965,6 @@ static int prepare_packed_control_tests_requests(struct test_data *td,
 		test_pr_info("%s: got seed from jiffies %d",
 			     __func__, mbtd->random_test_seed);
 	}
-
-	mmc_blk_init_packed_statistics(mq->card);
 
 	if (td->test_info.testcase ==
 			TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED) {
@@ -1123,8 +1119,6 @@ static int prepare_partial_followed_by_abort(struct test_data *td,
 	}
 
 	max_packed_reqs = mq->card->ext_csd.max_packed_writes;
-
-	mmc_blk_init_packed_statistics(mq->card);
 
 	for (i = 1; i <= num_requests; i++) {
 		if (i > (num_requests / 2))
@@ -1350,6 +1344,44 @@ static int prepare_test(struct test_data *td)
 	return ret;
 }
 
+static int run_packed_test(struct test_data *td)
+{
+	struct mmc_queue *mq;
+	struct request_queue *req_q;
+
+	if (!td) {
+		pr_err("%s: NULL td", __func__);
+		return -EINVAL;
+	}
+
+	req_q = td->req_q;
+
+	if (!req_q) {
+		pr_err("%s: NULL request queue", __func__);
+		return -EINVAL;
+	}
+
+	mq = req_q->queuedata;
+	if (!mq) {
+		test_pr_err("%s: NULL mq", __func__);
+		return -EINVAL;
+	}
+	mmc_blk_init_packed_statistics(mq->card);
+
+	if (td->test_info.testcase != TEST_PACK_MIX_PACKED_NO_PACKED_PACKED) {
+		/*
+		 * Verify that the packing is disabled before starting the
+		 * test
+		 */
+		mq->wr_packing_enabled = false;
+		mq->num_of_potential_packed_wr_reqs = 0;
+	}
+
+	__blk_run_queue(td->req_q);
+
+	return 0;
+}
+
 /*
  * An implementation for the post_test_fn in the test_info data structure.
  * In our case we just reset the function pointers in the mmc_queue in order for
@@ -1479,6 +1511,7 @@ static ssize_t send_write_packing_test_write(struct file *file,
 
 	mbtd->test_info.data = mbtd;
 	mbtd->test_info.prepare_test_fn = prepare_test;
+	mbtd->test_info.run_test_fn = run_packed_test;
 	mbtd->test_info.check_test_result_fn = check_wr_packing_statistics;
 	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
 	mbtd->test_info.post_test_fn = post_test;
@@ -1577,6 +1610,7 @@ static ssize_t err_check_test_write(struct file *file,
 
 	mbtd->test_info.data = mbtd;
 	mbtd->test_info.prepare_test_fn = prepare_test;
+	mbtd->test_info.run_test_fn = run_packed_test;
 	mbtd->test_info.check_test_result_fn = check_wr_packing_statistics;
 	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
 	mbtd->test_info.post_test_fn = post_test;
@@ -1676,6 +1710,7 @@ static ssize_t send_invalid_packed_test_write(struct file *file,
 
 	mbtd->test_info.data = mbtd;
 	mbtd->test_info.prepare_test_fn = prepare_test;
+	mbtd->test_info.run_test_fn = run_packed_test;
 	mbtd->test_info.check_test_result_fn = check_wr_packing_statistics;
 	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
 	mbtd->test_info.post_test_fn = post_test;
@@ -1788,6 +1823,7 @@ static ssize_t write_packing_control_test_write(struct file *file,
 
 	mbtd->test_info.data = mbtd;
 	mbtd->test_info.prepare_test_fn = prepare_test;
+	mbtd->test_info.run_test_fn = run_packed_test;
 	mbtd->test_info.check_test_result_fn = check_wr_packing_statistics;
 	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
 
