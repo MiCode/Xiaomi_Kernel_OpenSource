@@ -927,7 +927,9 @@ static void venus_hfi_interface_queues_release(struct venus_hfi_device *device)
 {
 	int i;
 
-	venus_hfi_free(device->hal_client, device->mem_addr.mem_data);
+	venus_hfi_free(device->hal_client, device->iface_q_table.mem_data);
+	venus_hfi_free(device->hal_client, device->qdss.mem_data);
+	venus_hfi_free(device->hal_client, device->sfr.mem_data);
 
 	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
 		device->iface_queues[i].q_hdr = NULL;
@@ -962,20 +964,18 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev,
 	struct hfi_sfr_struct *vsfr;
 	struct vidc_mem_addr *mem_addr;
 	int offset = 0;
-	int size_1m = 1024 * 1024;
-	int uc_size = (UC_SIZE + size_1m - 1) & (~(size_1m - 1));
 	mem_addr = &dev->mem_addr;
 	rc = venus_hfi_alloc((void *) mem_addr,
-			dev->hal_client, uc_size, 1,
+			dev->hal_client, QUEUE_SIZE, 1,
 			0, domain);
 	if (rc) {
 		dprintk(VIDC_ERR, "iface_q_table_alloc_fail");
-		return -ENOMEM;
+		goto fail_alloc_queue;
 	}
 	dev->iface_q_table.align_virtual_addr = mem_addr->align_virtual_addr;
 	dev->iface_q_table.align_device_addr = mem_addr->align_device_addr;
 	dev->iface_q_table.mem_size = VIDC_IFACEQ_TABLE_SIZE;
-	dev->iface_q_table.mem_data = NULL;
+	dev->iface_q_table.mem_data = mem_addr->mem_data;
 	offset += dev->iface_q_table.mem_size;
 
 	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
@@ -992,18 +992,31 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev,
 		venus_hfi_set_queue_hdr_defaults(iface_q->q_hdr);
 	}
 
-	dev->qdss.align_device_addr = mem_addr->align_device_addr + offset;
-	dev->qdss.align_virtual_addr = mem_addr->align_virtual_addr + offset;
-	dev->qdss.mem_size = QDSS_SIZE;
-	dev->qdss.mem_data = NULL;
-	offset += dev->qdss.mem_size;
-
-	dev->sfr.align_device_addr = mem_addr->align_device_addr + offset;
-	dev->sfr.align_virtual_addr = mem_addr->align_virtual_addr + offset;
-	dev->sfr.mem_size = SFR_SIZE;
-	dev->sfr.mem_data = NULL;
-	offset += dev->sfr.mem_size;
-
+	rc = venus_hfi_alloc((void *) mem_addr,
+			dev->hal_client, QDSS_SIZE, 1,
+			0, domain);
+	if (rc) {
+		dprintk(VIDC_WARN,
+			"qdss_alloc_fail: QDSS messages logging will not work");
+		dev->qdss.align_device_addr = NULL;
+	} else {
+		dev->qdss.align_device_addr = mem_addr->align_device_addr;
+		dev->qdss.align_virtual_addr = mem_addr->align_virtual_addr;
+		dev->qdss.mem_size = QDSS_SIZE;
+		dev->qdss.mem_data = mem_addr->mem_data;
+	}
+	rc = venus_hfi_alloc((void *) mem_addr,
+			dev->hal_client, SFR_SIZE, 1,
+			0, domain);
+	if (rc) {
+		dprintk(VIDC_WARN, "sfr_alloc_fail: SFR not will work");
+		dev->sfr.align_device_addr = NULL;
+	} else {
+		dev->sfr.align_device_addr = mem_addr->align_device_addr;
+		dev->sfr.align_virtual_addr = mem_addr->align_virtual_addr;
+		dev->sfr.mem_size = SFR_SIZE;
+		dev->sfr.mem_data = mem_addr->mem_data;
+	}
 	q_tbl_hdr = (struct hfi_queue_table_header *)
 			dev->iface_q_table.align_virtual_addr;
 	q_tbl_hdr->qtbl_version = 0;
@@ -1035,9 +1048,9 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev,
 
 	venus_hfi_write_register(dev->hal_data->register_base_addr,
 			VIDC_UC_REGION_ADDR,
-			(u32) mem_addr->align_device_addr, 0);
+			(u32) dev->iface_q_table.align_device_addr, 0);
 	venus_hfi_write_register(dev->hal_data->register_base_addr,
-			VIDC_UC_REGION_SIZE, mem_addr->mem_size, 0);
+			VIDC_UC_REGION_SIZE, SHARED_QSIZE, 0);
 	venus_hfi_write_register(dev->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG2,
 		(u32) dev->iface_q_table.align_device_addr,
@@ -1045,16 +1058,19 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev,
 	venus_hfi_write_register(dev->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG1, 0x01,
 		dev->iface_q_table.align_virtual_addr);
-	venus_hfi_write_register(dev->hal_data->register_base_addr,
+	if (!IS_ERR_OR_NULL(dev->qdss.align_device_addr))
+		venus_hfi_write_register(dev->hal_data->register_base_addr,
 			VIDC_MMAP_ADDR,
 			(u32) dev->qdss.align_device_addr, 0);
 
 	vsfr = (struct hfi_sfr_struct *) dev->sfr.align_virtual_addr;
 	vsfr->bufSize = SFR_SIZE;
-
-	venus_hfi_write_register(dev->hal_data->register_base_addr,
+	if (!IS_ERR_OR_NULL(dev->sfr.align_device_addr))
+		venus_hfi_write_register(dev->hal_data->register_base_addr,
 			VIDC_SFR_ADDR, (u32)dev->sfr.align_device_addr , 0);
 	return 0;
+fail_alloc_queue:
+	return -ENOMEM;
 }
 
 static int venus_hfi_core_start_cpu(struct venus_hfi_device *device)
