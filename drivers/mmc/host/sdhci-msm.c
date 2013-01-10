@@ -75,6 +75,9 @@
 #define CORE_CLK_PWRSAVE	(1 << 1)
 #define CORE_IO_PAD_PWR_SWITCH	(1 << 16)
 
+/* 8KB descriptors */
+#define SDHCI_MSM_MAX_SEGMENTS  (1 << 13)
+
 static const u32 tuning_block_64[] = {
 	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
 	0xDDFFDFFF, 0xFBFFFBFF, 0xFF7FFFBF, 0xEFBDF777,
@@ -1222,10 +1225,16 @@ static void sdhci_msm_toggle_cdr(struct sdhci_host *host, bool enable)
 			       host->ioaddr + CORE_DLL_CONFIG);
 }
 
+static unsigned int sdhci_msm_max_segs(void)
+{
+	return SDHCI_MSM_MAX_SEGMENTS;
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.check_power_status = sdhci_msm_check_power_status,
 	.platform_execute_tuning = sdhci_msm_execute_tuning,
 	.toggle_cdr = sdhci_msm_toggle_cdr,
+	.get_max_segments = sdhci_msm_max_segs,
 };
 
 static int sdhci_msm_probe(struct platform_device *pdev)

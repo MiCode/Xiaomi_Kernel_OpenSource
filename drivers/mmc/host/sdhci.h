@@ -569,6 +569,7 @@ struct sdhci_ops {
 	void	(*set_uhs_signaling)(struct sdhci_host *host, unsigned int uhs);
 	void	(*hw_reset)(struct sdhci_host *host);
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);
+	unsigned int	(*get_max_segments)(void);
 	void    (*card_event)(struct sdhci_host *host);
 	void	(*toggle_cdr)(struct sdhci_host *host, bool enable);
 	void	(*check_power_status)(struct sdhci_host *host);
