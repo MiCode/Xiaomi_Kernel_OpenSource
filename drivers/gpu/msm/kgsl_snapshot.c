@@ -376,8 +376,8 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	/* If the buffer is already on the list, skip it */
 	list_for_each_entry(obj, &device->snapshot_obj_list, node) {
 		if (obj->gpuaddr == gpuaddr && obj->ptbase == ptbase) {
-			/* If the size is different, use the new size */
-			if (obj->size != size)
+			/* If the size is different, use the bigger size */
+			if (obj->size < size)
 				obj->size = size;
 
 			return 0;
