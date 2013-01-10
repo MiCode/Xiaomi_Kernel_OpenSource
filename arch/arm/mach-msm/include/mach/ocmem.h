@@ -136,6 +136,9 @@ int ocmem_map(int client_id, struct ocmem_buf *buffer,
 int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 			struct ocmem_map_list *list);
 
+int ocmem_drop(int client_id, struct ocmem_buf *buffer,
+			struct ocmem_map_list *list);
+
 int ocmem_dump(int client_id, struct ocmem_buf *buffer,
 				unsigned long dst_phys_addr);
 
