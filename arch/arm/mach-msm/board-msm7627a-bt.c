@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -602,10 +602,10 @@ static int bahama_bt(int on)
 				__func__, (p+i)->reg,
 				value, (p+i)->mask);
 		value = 0;
-		rc = marimba_read_bit_mask(&config,
+		/* Ignoring the read failure as it is only for check */
+		if (marimba_read_bit_mask(&config,
 				(p+i)->reg, &value,
-				sizeof((p+i)->value), (p+i)->mask);
-		if (rc < 0)
+				sizeof((p+i)->value), (p+i)->mask) < 0)
 			dev_err(&msm_bt_power_device.dev,
 				"%s marimba_read_bit_mask- error",
 				__func__);
@@ -678,7 +678,6 @@ static int bluetooth_switch_regulators(int on)
 			dev_err(&msm_bt_power_device.dev,
 				"%s: could not %sable regulator %s: %d\n",
 					__func__, "dis", bt_vregs[i].name, rc);
-			goto reg_disable;
 		}
 	}
 
@@ -687,8 +686,8 @@ pin_cnt_fail:
 	if (on)
 		regulator_disable(bt_vregs[i].reg);
 reg_disable:
-	while (i) {
-		if (on) {
+	if (on) {
+		while (i) {
 			i--;
 			regulator_disable(bt_vregs[i].reg);
 			regulator_put(bt_vregs[i].reg);
@@ -835,7 +834,10 @@ static int bluetooth_power(int on)
 	int pin, rc = 0;
 	const char *id = "BTPW";
 	int cid = 0;
+	int bt_state = 0;
+	struct marimba config = { .mod_id =  SLAVE_ID_BAHAMA};
 
+	pr_debug("%s: on = %d\n", __func__, on);
 	cid = adie_get_detected_connectivity_type();
 	if (cid != BAHAMA_ID) {
 		pr_err("%s: unexpected adie connectivity type: %d\n",
@@ -854,7 +856,7 @@ static int bluetooth_power(int on)
 		if (rc < 0) {
 			pr_err("%s: bluetooth_switch_regulators rc = %d",
 					__func__, rc);
-			goto exit;
+			goto fail_gpio;
 		}
 		/*setup BT GPIO lines*/
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_on);
@@ -874,7 +876,7 @@ static int bluetooth_power(int on)
 			PMAPP_CLOCK_VOTE_ON);
 		if (rc < 0) {
 			pr_err("Failed to vote for TCXO_D1 ON\n");
-			goto fail_clock;
+			goto fail_gpio_cfg;
 		}
 		msleep(20);
 
@@ -882,7 +884,7 @@ static int bluetooth_power(int on)
 		rc = bahama_bt(1);
 		if (rc < 0) {
 			pr_err("%s: bahama_bt rc = %d", __func__, rc);
-			goto fail_i2c;
+			goto fail_clock;
 		}
 		msleep(20);
 
@@ -891,7 +893,7 @@ static int bluetooth_power(int on)
 		if (rc < 0) {
 			pr_err("%s: msm_bahama_setup_pcm_i2s , rc =%d\n",
 				__func__, rc);
-				goto fail_power;
+			goto fail_i2c;
 			}
 		rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_D1,
 				  PMAPP_CLOCK_VOTE_PIN_CTRL);
@@ -900,26 +902,28 @@ static int bluetooth_power(int on)
 					__func__, rc);
 
 	} else {
-		rc = bahama_bt(0);
-		if (rc < 0)
-			pr_err("%s: bahama_bt rc = %d", __func__, rc);
+		bt_state = marimba_get_bt_status(&config);
+		if (!bt_state) {
+			pr_err("%s: BT is already turned OFF.\n", __func__);
+			return 0;
+		}
 
 		rc = msm_bahama_setup_pcm_i2s(BT_PCM_OFF);
 		if (rc < 0) {
 			pr_err("%s: msm_bahama_setup_pcm_i2s, rc =%d\n",
 				__func__, rc);
 		}
-		rc = bt_set_gpio(on);
-		if (rc) {
-			pr_err("%s: bt_set_gpio = %d\n",
-					__func__, rc);
-		}
 fail_i2c:
+		rc = bahama_bt(0);
+		if (rc < 0)
+			pr_err("%s: bahama_bt rc = %d", __func__, rc);
+
+fail_clock:
 		rc = pmapp_clock_vote(id, PMAPP_CLOCK_ID_D1,
 				  PMAPP_CLOCK_VOTE_OFF);
 		if (rc < 0)
 			pr_err("%s: Failed to vote Off D1\n", __func__);
-fail_clock:
+fail_gpio_cfg:
 		for (pin = 0; pin < ARRAY_SIZE(bt_config_power_off);
 			pin++) {
 			rc = gpio_tlmm_config(bt_config_power_off[pin],
@@ -936,6 +940,12 @@ fail_power:
 		if (rc < 0) {
 			pr_err("%s: switch_regulators : rc = %d",\
 				__func__, rc);
+		}
+fail_gpio:
+		rc = bt_set_gpio(0);
+		if (rc) {
+			pr_err("%s: bt_set_gpio = %d\n",
+					__func__, rc);
 			goto exit;
 		}
 	}
