@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <mach/ocmem.h>
+#include <mach/iommu_domains.h>
 
 #include "vidc_hfi_api.h"
 #include "msm_smem.h"
@@ -77,6 +78,18 @@ struct hfi_queue_header {
 	u32 qhdr_tx_irq_status;
 	u32 qhdr_read_idx;
 	u32 qhdr_write_idx;
+};
+
+struct hfi_mem_map_table {
+	u32 mem_map_num_entries;
+	u32 *mem_map_table_base_addr;
+};
+
+struct hfi_mem_map {
+	u32 virtual_addr;
+	u32 physical_addr;
+	u32 size;
+	u32 attr;
 };
 
 #define VIDC_IFACEQ_TABLE_SIZE (sizeof(struct hfi_queue_table_header) \
