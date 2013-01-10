@@ -578,15 +578,18 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	const struct msm_vidc_format *fmt = NULL;
 	struct hal_frame_size frame_sz;
+	struct hfi_device *hdev;
+	int stride, scanlines;
 	int extra_idx = 0;
 	int rc = 0;
 	int ret;
 	int i;
-	if (!inst || !f) {
+	if (!inst || !f || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
 			"Invalid input, inst = %p, format = %p\n", inst, f);
 		return -EINVAL;
 	}
+	hdev = inst->core->device;
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		fmt = inst->fmts[CAPTURE_PORT];
 	else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
@@ -601,6 +604,8 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 		f->fmt.pix_mp.height = inst->prop.height;
 		f->fmt.pix_mp.width = inst->prop.width;
+		stride = inst->prop.width;
+		scanlines = inst->prop.height;
 		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
 		frame_sz.width = inst->prop.width;
 		frame_sz.height = inst->prop.height;
@@ -620,6 +625,16 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 					f->fmt.pix_mp.plane_fmt[i].sizeimage;
 			}
 		} else {
+			switch (fmt->fourcc) {
+			case V4L2_PIX_FMT_NV12:
+				hdev->get_stride_scanline(COLOR_FMT_NV12,
+					inst->prop.width, inst->prop.height,
+					&stride, &scanlines);
+				break;
+			default:
+				dprintk(VIDC_WARN,
+					"Color format not recognized\n");
+			}
 			f->fmt.pix_mp.plane_fmt[0].sizeimage =
 			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].buffer_size;
 			extra_idx = EXTRADATA_IDX(fmt->num_planes);
@@ -631,7 +646,17 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				inst->bufq[CAPTURE_PORT].
 					vb2_bufq.plane_sizes[i] =
 					f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
+		}
+		if (stride && scanlines) {
+			f->fmt.pix_mp.plane_fmt[0].bytesperline =
+				(__u16)stride;
+			f->fmt.pix_mp.plane_fmt[0].reserved[0] =
+				(__u16)scanlines;
+		} else {
+			f->fmt.pix_mp.plane_fmt[0].bytesperline =
+				(__u16)inst->prop.width;
+			f->fmt.pix_mp.plane_fmt[0].reserved[0] =
+				(__u16)inst->prop.height;
 		}
 	} else {
 		dprintk(VIDC_ERR,
