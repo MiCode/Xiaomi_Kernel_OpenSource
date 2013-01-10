@@ -17,6 +17,7 @@
 #define MAX_DBG_BUF_SIZE 4096
 int msm_vidc_debug = 0x3;
 int msm_fw_debug = 0x18;
+int msm_fw_debug_mode = 0x1;
 
 struct debug_buffer {
 	char ptr[MAX_DBG_BUF_SIZE];
@@ -146,6 +147,11 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 	}
 	if (!debugfs_create_file("trigger_ssr", S_IWUSR,
 			dir, core, &ssr_fops)) {
+		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("fw_debug_mode", S_IRUGO | S_IWUSR,
+			parent, &msm_fw_debug_mode)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}

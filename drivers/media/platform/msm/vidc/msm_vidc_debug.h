@@ -43,6 +43,7 @@ enum msm_vidc_debugfs_event {
 
 extern int msm_vidc_debug;
 extern int msm_fw_debug;
+extern int msm_fw_debug_mode;
 
 #define dprintk(__level, __fmt, arg...)	\
 	do { \

@@ -37,6 +37,17 @@
 
 #define SHARED_QSIZE 0x1000000
 
+static const u32 venus_qdss_entries[][2] = {
+	{0xFC307000, 0x1000},
+	{0xFC322000, 0x1000},
+	{0xFC319000, 0x1000},
+	{0xFC31A000, 0x1000},
+	{0xFC31B000, 0x1000},
+	{0xFC321000, 0x1000},
+	{0xFA180000, 0x1000},
+	{0xFA181000, 0x1000},
+};
+
 static struct msm_bus_vectors enc_ocmem_init_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_P0_OCMEM,
@@ -926,9 +937,27 @@ static void venus_hfi_set_queue_hdr_defaults(struct hfi_queue_header *q_hdr)
 static void venus_hfi_interface_queues_release(struct venus_hfi_device *device)
 {
 	int i;
+	struct hfi_mem_map_table *qdss;
+	struct hfi_mem_map *mem_map;
+	int num_entries = sizeof(venus_qdss_entries)/(2 * sizeof(u32));
 
+	if (device->qdss.mem_data) {
+		qdss = (struct hfi_mem_map_table *)
+			device->qdss.align_virtual_addr;
+		qdss->mem_map_num_entries = num_entries;
+		qdss->mem_map_table_base_addr =
+			(u32 *)((u32)device->qdss.align_device_addr +
+				sizeof(struct hfi_mem_map_table));
+		mem_map = (struct hfi_mem_map *)(qdss + 1);
+		for (i = 0; i < num_entries; i++) {
+			msm_iommu_unmap_contig_buffer(
+				(unsigned long)(mem_map[i].virtual_addr),
+				device->resources.io_map[NS_MAP].domain,
+				1, SZ_4K);
+		}
+		venus_hfi_free(device->hal_client, device->qdss.mem_data);
+	}
 	venus_hfi_free(device->hal_client, device->iface_q_table.mem_data);
-	venus_hfi_free(device->hal_client, device->qdss.mem_data);
 	venus_hfi_free(device->hal_client, device->sfr.mem_data);
 
 	for (i = 0; i < VIDC_IFACEQ_NUMQ; i++) {
@@ -952,6 +981,41 @@ static void venus_hfi_interface_queues_release(struct venus_hfi_device *device)
 	msm_smem_delete_client(device->hal_client);
 	device->hal_client = NULL;
 }
+static int venus_hfi_get_qdss_iommu_virtual_addr(struct hfi_mem_map *mem_map,
+	int domain)
+{
+	int i;
+	int rc = 0;
+	unsigned long iova = 0;
+	int num_entries = sizeof(venus_qdss_entries)/(2 * sizeof(u32));
+
+	for (i = 0; i < num_entries; i++) {
+		rc = msm_iommu_map_contig_buffer(venus_qdss_entries[i][0],
+			domain, 1 , venus_qdss_entries[i][1],
+			SZ_4K, 0, &iova);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"IOMMU QDSS mapping failed for addr 0x%x",
+				venus_qdss_entries[i][0]);
+			rc = -ENOMEM;
+			break;
+		}
+		mem_map[i].virtual_addr = (u32) iova;
+		mem_map[i].physical_addr = venus_qdss_entries[i][0];
+		mem_map[i].size = venus_qdss_entries[i][1];
+		mem_map[i].attr = 0x0;
+	}
+	if (i < num_entries) {
+		dprintk(VIDC_ERR,
+			"IOMMU QDSS mapping failed, Freeing entries %d", i);
+		for (--i; i >= 0; i--) {
+			msm_iommu_unmap_contig_buffer(
+				(unsigned long)(mem_map[i].virtual_addr),
+				domain, 1, SZ_4K);
+		}
+	}
+	return rc;
+}
 
 static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev,
 					int domain)
@@ -960,10 +1024,13 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev,
 	struct hfi_queue_header *q_hdr;
 	u8 i;
 	int rc = 0;
+	struct hfi_mem_map_table *qdss;
+	struct hfi_mem_map *mem_map;
 	struct vidc_iface_q_info *iface_q;
 	struct hfi_sfr_struct *vsfr;
 	struct vidc_mem_addr *mem_addr;
 	int offset = 0;
+	int num_entries = sizeof(venus_qdss_entries)/(2 * sizeof(u32));
 	mem_addr = &dev->mem_addr;
 	rc = venus_hfi_alloc((void *) mem_addr,
 			dev->hal_client, QUEUE_SIZE, 1,
@@ -1058,6 +1125,20 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev,
 	venus_hfi_write_register(dev->hal_data->register_base_addr,
 		VIDC_CPU_CS_SCIACMDARG1, 0x01,
 		dev->iface_q_table.align_virtual_addr);
+
+	qdss = (struct hfi_mem_map_table *) dev->qdss.align_virtual_addr;
+	qdss->mem_map_num_entries = num_entries;
+	qdss->mem_map_table_base_addr =
+		(u32 *)	((u32)dev->qdss.align_device_addr +
+		sizeof(struct hfi_mem_map_table));
+	mem_map = (struct hfi_mem_map *)(qdss + 1);
+	rc = venus_hfi_get_qdss_iommu_virtual_addr(mem_map, domain);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"IOMMU mapping failed, Freeing qdss memdata");
+		venus_hfi_free(dev->hal_client, dev->qdss.mem_data);
+		dev->qdss.mem_data = NULL;
+	}
 	if (!IS_ERR_OR_NULL(dev->qdss.align_device_addr))
 		venus_hfi_write_register(dev->hal_data->register_base_addr,
 			VIDC_MMAP_ADDR,
@@ -1155,6 +1236,8 @@ static int venus_hfi_sys_set_debug(struct venus_hfi_device *device, int debug)
 	hfi = (struct hfi_debug_config *) &pkt->rg_property_data[1];
 	hfi->debug_config = debug;
 	hfi->debug_mode = HFI_DEBUG_MODE_QUEUE;
+	if (msm_fw_debug_mode <= HFI_DEBUG_MODE_QDSS)
+		hfi->debug_mode = msm_fw_debug_mode;
 	if (venus_hfi_iface_cmdq_write(device, pkt))
 		return -ENOTEMPTY;
 	return 0;
