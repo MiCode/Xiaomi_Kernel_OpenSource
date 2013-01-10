@@ -1680,7 +1680,8 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 	 * Decoder filters have no data in the data buffer and their
 	 * events can be removed now from the queue.
 	 */
-	if (dmxdevfilter->params.pes.output == DMX_OUT_DECODER)
+	if ((dmxdevfilter->type == DMXDEV_TYPE_PES) &&
+		(dmxdevfilter->params.pes.output == DMX_OUT_DECODER))
 		dmxdevfilter->events.read_index =
 			dvb_dmxdev_advance_event_idx(
 				dmxdevfilter->events.read_index);
