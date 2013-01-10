@@ -236,6 +236,7 @@
 		reg = <0xfdb10000 0x10000>;
 		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_oxili_cx>;
+		qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
 		qcom,needs-alt-core-clk;
 		status = "disabled";
 
