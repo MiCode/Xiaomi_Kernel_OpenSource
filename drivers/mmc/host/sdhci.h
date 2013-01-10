@@ -550,6 +550,10 @@ struct sdhci_host {
 	size_t adma_table_sz;	/* ADMA descriptor table size */
 	size_t align_buffer_sz;	/* Bounce buffer size */
 
+	unsigned int adma_desc_sz; /* ADMA descriptor table size */
+	unsigned int align_buf_sz; /* Bounce buffer size */
+	unsigned int adma_max_desc; /* Max ADMA descriptos (max sg segments) */
+
 	dma_addr_t adma_addr;	/* Mapped ADMA descr. table */
 	dma_addr_t align_addr;	/* Mapped bounce buffer */
 
@@ -624,6 +628,7 @@ struct sdhci_ops {
 	void	(*set_uhs_signaling)(struct sdhci_host *host, unsigned int uhs);
 	void	(*hw_reset)(struct sdhci_host *host);
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);
+	unsigned int	(*get_max_segments)(void);
 	void	(*platform_init)(struct sdhci_host *host);
 #define REQ_BUS_OFF	(1 << 0)
 #define REQ_BUS_ON	(1 << 1)
