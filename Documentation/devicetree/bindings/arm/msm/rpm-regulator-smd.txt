@@ -113,8 +113,14 @@ RPM in regulator requests.
 					14 = 1.37
 					15 = 1.28
 					16 = 1.20
-- qcom,init-head-room:         Voltage head room in uV required for the
-				regulator
+- qcom,init-head-room:         Voltage head room in mV required for the
+				regulator.  This head room value should be used
+				in situations where the device connected to the
+				output of the regulator has low noise tolerance.
+				Note that the RPM independently enforces a
+				safety head room value for subregulated LDOs
+				which is sufficient to account for LDO drop-out
+				voltage.
 - qcom,init-quiet-mode:        Specify that quiet mode is needed for an SMPS
 				regulator in order to have lower output noise.
 				Supported values are:
