@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -108,7 +108,7 @@
 #define NR_QPNP_IRQS 32768
 #define NR_BOARD_IRQS NR_QPNP_IRQS
 
-#elif defined(CONFIG_ARCH_MSM8910) || defined(CONFIG_ARCH_MSM8226)
+#elif defined(CONFIG_ARCH_MSM8610) || defined(CONFIG_ARCH_MSM8226)
 #define NR_MSM_IRQS 256
 #define NR_GPIO_IRQS 117
 #define NR_QPNP_IRQS 32768

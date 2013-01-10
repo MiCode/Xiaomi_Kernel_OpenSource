@@ -3,7 +3,7 @@
  * MSM7K, QSD io support
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -538,12 +538,12 @@ void __init msm_map_msm8226_io(void)
 }
 #endif /* CONFIG_ARCH_MSM8226 */
 
-#ifdef CONFIG_ARCH_MSM8910
-static struct map_desc msm8910_io_desc[] __initdata = {
-	MSM_CHIP_DEVICE(APCS_GCC, MSM8910),
-	MSM_CHIP_DEVICE(TLMM, MSM8910),
-	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8910),
-	MSM_CHIP_DEVICE(IMEM, MSM8910),
+#ifdef CONFIG_ARCH_MSM8610
+static struct map_desc msm8610_io_desc[] __initdata = {
+	MSM_CHIP_DEVICE(APCS_GCC, MSM8610),
+	MSM_CHIP_DEVICE(TLMM, MSM8610),
+	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8610),
+	MSM_CHIP_DEVICE(IMEM, MSM8610),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
@@ -551,9 +551,9 @@ static struct map_desc msm8910_io_desc[] __initdata = {
 	},
 };
 
-void __init msm_map_msm8910_io(void)
+void __init msm_map_msm8610_io(void)
 {
-	msm_shared_ram_phys = MSM8910_MSM_SHARED_RAM_PHYS;
-	msm_map_io(msm8910_io_desc, ARRAY_SIZE(msm8910_io_desc));
+	msm_shared_ram_phys = MSM8610_MSM_SHARED_RAM_PHYS;
+	msm_map_io(msm8610_io_desc, ARRAY_SIZE(msm8610_io_desc));
 }
-#endif /* CONFIG_ARCH_MSM8910 */
+#endif /* CONFIG_ARCH_MSM8610 */

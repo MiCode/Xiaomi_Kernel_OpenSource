@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -49,8 +49,8 @@ extern struct clock_init_data msm8930_clock_init_data;
 extern struct clock_init_data msm8930_pm8917_clock_init_data;
 extern struct clock_init_data msm8974_clock_init_data;
 extern struct clock_init_data msm8974_rumi_clock_init_data;
-extern struct clock_init_data msm8910_clock_init_data;
-extern struct clock_init_data msm8910_rumi_clock_init_data;
+extern struct clock_init_data msm8610_clock_init_data;
+extern struct clock_init_data msm8610_rumi_clock_init_data;
 
 int msm_clock_init(struct clock_init_data *data);
 int find_vdd_level(struct clk *clk, unsigned long rate);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8,22 +8,18 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
-#include <linux/init.h>
-#include <linux/ioport.h>
-#include <mach/board.h>
-#include <mach/gpio.h>
-#include <mach/gpiomux.h>
+/dts-v1/;
 
-void __init msm8910_init_gpiomux(void)
-{
-	int rc;
+/include/ "msm8610.dtsi"
 
-	rc = msm_gpiomux_init_dt();
-	if (rc) {
-		pr_err("%s failed %d\n", __func__, rc);
-		return;
-	}
-}
+/ {
+	model = "Qualcomm MSM 8610 Simulator";
+	compatible = "qcom,msm8610-sim", "qcom,msm8610";
+	qcom,msm-id = <147 1 0>;
+
+	serial@f991f000 {
+		status = "ok";
+	};
+};

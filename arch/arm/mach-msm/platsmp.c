@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2002 ARM Ltd.
  *  All Rights Reserved
- *  Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -263,7 +263,7 @@ int __cpuinit arm_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	pr_debug("Starting secondary CPU %d\n", cpu);
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
-		if (machine_is_msm8226_sim() || machine_is_msm8910_sim())
+		if (machine_is_msm8226_sim() || machine_is_msm8610_sim())
 			release_secondary_sim(0xf9088000, cpu);
 
 		per_cpu(cold_boot_done, cpu) = true;

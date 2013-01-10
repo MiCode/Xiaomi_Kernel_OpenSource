@@ -75,7 +75,7 @@ initrd_phys-$(CONFIG_ARCH_FSM9XXX)	:= 0x12000000
 # MPQ8092
    zreladdr-$(CONFIG_ARCH_MPQ8092)	:= 0x00008000
 
-# MSM8910
-   zreladdr-$(CONFIG_ARCH_MSM8910)	:= 0x00008000
-        dtb-$(CONFIG_ARCH_MSM8910)	+= msm8910-rumi.dtb
-        dtb-$(CONFIG_ARCH_MSM8910)	+= msm8910-sim.dtb
+# MSM8610
+   zreladdr-$(CONFIG_ARCH_MSM8610)	:= 0x00008000
+        dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-rumi.dtb
+        dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-sim.dtb
