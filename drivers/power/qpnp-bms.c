@@ -2252,10 +2252,9 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	vbatt = 0;
 	get_battery_voltage(&vbatt);
 
-	pr_debug("OK battery_capacity_at_boot=%d vbatt = %d\n",
+	pr_info("probe success: soc =%d vbatt = %d ocv = %d\n",
 				get_prop_bms_capacity(chip),
-				vbatt);
-	pr_info("probe success\n");
+				vbatt, chip->last_ocv_uv);
 	return 0;
 
 unregister_dc:
