@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2921,7 +2921,7 @@ static struct measure_clk measure_clk = {
 	.multiplier = 1,
 };
 
-static struct clk_lookup msm_clocks_8910[] = {
+static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("xo",	gcc_xo_clk_src.c, "msm_otg"),
 	CLK_LOOKUP("xo",	gcc_xo_clk_src.c, "fe200000.qcom,lpass"),
 	CLK_LOOKUP("xo",	gcc_xo_clk_src.c, "pil-q6v5-mss"),
@@ -3157,7 +3157,7 @@ static struct clk_lookup msm_clocks_8910[] = {
 	CLK_LOOKUP("reg_clk",        q6ss_ahbm_clk.c,  "fe200000.qcom,lpass"),
 };
 
-static struct clk_lookup msm_clocks_8910_rumi[] = {
+static struct clk_lookup msm_clocks_8610_rumi[] = {
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "f9a55000.usb", OFF),
@@ -3183,9 +3183,9 @@ static struct clk_lookup msm_clocks_8910_rumi[] = {
 	CLK_DUMMY("core_clk",   NULL, "fd010000.qcom,iommu", OFF),
 };
 
-struct clock_init_data msm8910_rumi_clock_init_data __initdata = {
-	.table = msm_clocks_8910_rumi,
-	.size = ARRAY_SIZE(msm_clocks_8910_rumi),
+struct clock_init_data msm8610_rumi_clock_init_data __initdata = {
+	.table = msm_clocks_8610_rumi,
+	.size = ARRAY_SIZE(msm_clocks_8610_rumi),
 };
 
 static struct pll_config_regs gpll0_regs __initdata = {
@@ -3346,7 +3346,7 @@ static void __init reg_init(void)
 	WARN(ret, "LPASS Audio Core GDSC did not power on.\n");
 }
 
-static void __init msm8910_clock_post_init(void)
+static void __init msm8610_clock_post_init(void)
 {
 	/*
 	 * Hold an active set vote for CXO; this is because CXO is expected
@@ -3377,29 +3377,29 @@ static void __init msm8910_clock_post_init(void)
 #define APCS_GCC_CC_PHYS	0xF9011000
 #define APCS_GCC_CC_SIZE	SZ_4K
 
-static void __init msm8910_clock_pre_init(void)
+static void __init msm8610_clock_pre_init(void)
 {
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
 	if (!virt_bases[GCC_BASE])
-		panic("clock-8910: Unable to ioremap GCC memory!");
+		panic("clock-8610: Unable to ioremap GCC memory!");
 
 	virt_bases[MMSS_BASE] = ioremap(MMSS_CC_PHYS, MMSS_CC_SIZE);
 	if (!virt_bases[MMSS_BASE])
-		panic("clock-8910: Unable to ioremap MMSS_CC memory!");
+		panic("clock-8610: Unable to ioremap MMSS_CC memory!");
 
 	virt_bases[LPASS_BASE] = ioremap(LPASS_CC_PHYS, LPASS_CC_SIZE);
 	if (!virt_bases[LPASS_BASE])
-		panic("clock-8910: Unable to ioremap LPASS_CC memory!");
+		panic("clock-8610: Unable to ioremap LPASS_CC memory!");
 
 	virt_bases[APCS_BASE] = ioremap(APCS_GCC_CC_PHYS, APCS_GCC_CC_SIZE);
 	if (!virt_bases[APCS_BASE])
-		panic("clock-8910: Unable to ioremap APCS_GCC_CC memory!");
+		panic("clock-8610: Unable to ioremap APCS_GCC_CC memory!");
 
 	clk_ops_local_pll.enable = sr_hpm_lp_pll_clk_enable;
 
 	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig_reg))
-		panic("clock-8910: Unable to get the vdd_dig regulator!");
+		panic("clock-8610: Unable to get the vdd_dig regulator!");
 
 	/*
 	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
@@ -3429,15 +3429,15 @@ static void __init msm8910_clock_pre_init(void)
 	clk_prepare_enable(&audio_core_ixfabric_clk.c);
 }
 
-static int __init msm8910_clock_late_init(void)
+static int __init msm8610_clock_late_init(void)
 {
 	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 }
 
-struct clock_init_data msm8910_clock_init_data __initdata = {
-	.table = msm_clocks_8910,
-	.size = ARRAY_SIZE(msm_clocks_8910),
-	.pre_init = msm8910_clock_pre_init,
-	.post_init = msm8910_clock_post_init,
-	.late_init = msm8910_clock_late_init,
+struct clock_init_data msm8610_clock_init_data __initdata = {
+	.table = msm_clocks_8610,
+	.size = ARRAY_SIZE(msm_clocks_8610),
+	.pre_init = msm8610_clock_pre_init,
+	.post_init = msm8610_clock_post_init,
+	.late_init = msm8610_clock_late_init,
 };

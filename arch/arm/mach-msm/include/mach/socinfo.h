@@ -56,14 +56,14 @@
 	of_machine_is_compatible("qcom,msm8226-sim")
 #define machine_is_msm8226_rumi()		\
 	of_machine_is_compatible("qcom,msm8226-rumi")
-#define early_machine_is_msm8910()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8910")
-#define machine_is_msm8910()		\
-	of_machine_is_compatible("qcom,msm8910")
-#define machine_is_msm8910_sim()		\
-	of_machine_is_compatible("qcom,msm8910-sim")
-#define machine_is_msm8910_rumi()		\
-	of_machine_is_compatible("qcom,msm8910-rumi")
+#define early_machine_is_msm8610()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8610")
+#define machine_is_msm8610()		\
+	of_machine_is_compatible("qcom,msm8610")
+#define machine_is_msm8610_sim()		\
+	of_machine_is_compatible("qcom,msm8610-sim")
+#define machine_is_msm8610_rumi()		\
+	of_machine_is_compatible("qcom,msm8610-rumi")
 #else
 #define early_machine_is_msm8974()	0
 #define machine_is_msm8974()		0
@@ -77,10 +77,10 @@
 #define machine_is_msm8226()		0
 #define machine_is_msm8226_sim()	0
 #define machine_is_msm8226_rumi()	0
-#define early_machine_is_msm8910()	0
-#define machine_is_msm8910()		0
-#define machine_is_msm8910_sim()	0
-#define machine_is_msm8910_rumi()	0
+#define early_machine_is_msm8610()	0
+#define machine_is_msm8610()		0
+#define machine_is_msm8610_sim()	0
+#define machine_is_msm8610_rumi()	0
 
 #endif
 
@@ -116,7 +116,7 @@ enum msm_cpu {
 	MSM_CPU_9625,
 	MSM_CPU_8092,
 	MSM_CPU_8226,
-	MSM_CPU_8910,
+	MSM_CPU_8610,
 	MSM_CPU_8625Q,
 };
 
@@ -442,13 +442,13 @@ static inline int cpu_is_msm8226(void)
 #endif
 }
 
-static inline int cpu_is_msm8910(void)
+static inline int cpu_is_msm8610(void)
 {
-#ifdef CONFIG_ARCH_MSM8910
+#ifdef CONFIG_ARCH_MSM8610
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
-	return cpu == MSM_CPU_8910;
+	return cpu == MSM_CPU_8610;
 #else
 	return 0;
 #endif

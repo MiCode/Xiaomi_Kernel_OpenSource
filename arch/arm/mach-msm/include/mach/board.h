@@ -588,9 +588,9 @@ void mpq8092_init_gpiomux(void);
 void msm_map_msm8226_io(void);
 void msm8226_init_irq(void);
 void msm8226_init_gpiomux(void);
-void msm8910_init_gpiomux(void);
-void msm_map_msm8910_io(void);
-void msm8910_init_irq(void);
+void msm8610_init_gpiomux(void);
+void msm_map_msm8610_io(void);
+void msm8610_init_irq(void);
 
 /* Dump debug info (states, rate, etc) of clocks */
 #if defined(CONFIG_ARCH_MSM7X27)

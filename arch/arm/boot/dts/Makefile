@@ -99,8 +99,8 @@ dtb-$(CONFIG_ARCH_MSM9625) += msm9625-cdp.dtb \
 	msm9625-mtp.dtb \
 	msm9625-rumi.dtb
 dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb
-dtb-$(CONFIG_ARCH_MSM8610) += msm8910-rumi.dtb \
-	msm8910-sim.dtb
+dtb-$(CONFIG_ARCH_MSM8610) += msm8610-rumi.dtb \
+	msm8610-sim.dtb
 dtb-$(CONFIG_ARCH_MVEBU) += armada-370-db.dtb \
 	armada-370-mirabox.dtb \
 	armada-370-rd.dtb \
