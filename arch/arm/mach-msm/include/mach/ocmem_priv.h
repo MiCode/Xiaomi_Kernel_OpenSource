@@ -213,6 +213,7 @@ int process_allocate(int, struct ocmem_handle *, unsigned long, unsigned long,
 			unsigned long, bool, bool);
 int process_free(int, struct ocmem_handle *);
 int process_xfer(int, struct ocmem_handle *, struct ocmem_map_list *, int);
+int process_drop(int, struct ocmem_handle *, struct ocmem_map_list *);
 int process_evict(int);
 int process_restore(int);
 int process_shrink(int, struct ocmem_handle *, unsigned long);

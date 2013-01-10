@@ -401,6 +401,40 @@ int ocmem_unmap(int client_id, struct ocmem_buf *buffer,
 }
 EXPORT_SYMBOL(ocmem_unmap);
 
+int ocmem_drop(int client_id, struct ocmem_buf *buffer,
+			   struct ocmem_map_list *list)
+{
+	int ret = 0;
+	struct ocmem_handle *handle = NULL;
+
+	if (!check_id(client_id)) {
+		pr_err("ocmem: Invalid client id: %d\n", client_id);
+		return -EINVAL;
+	}
+
+	if (!zone_active(client_id)) {
+		pr_err("ocmem: Client id: %s (id: %d) not allowed to use OCMEM\n",
+					get_name(client_id), client_id);
+		return -EINVAL;
+	}
+
+	if (!buffer) {
+		pr_err("ocmem: Invalid buffer\n");
+		return -EINVAL;
+	}
+
+	if (pre_validate_chunk_list(list) != 0)
+		return -EINVAL;
+
+	handle = buffer_to_handle(buffer);
+	mutex_lock(&handle->handle_mutex);
+	ret = process_drop(client_id, handle, list);
+	mutex_unlock(&handle->handle_mutex);
+	return ret;
+}
+EXPORT_SYMBOL(ocmem_drop);
+
+
 int ocmem_dump(int client_id, struct ocmem_buf *buffer,
 			unsigned long dst_phys_addr)
 {
