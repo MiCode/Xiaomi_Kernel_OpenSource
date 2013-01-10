@@ -1248,6 +1248,9 @@ struct xhci_td {
 	union xhci_trb		*last_trb;
 };
 
+/* xHCI command default timeout value */
+#define XHCI_CMD_DEFAULT_TIMEOUT	(5 * HZ)
+
 struct xhci_dequeue_state {
 	struct xhci_segment *new_deq_seg;
 	union xhci_trb *new_deq_ptr;
