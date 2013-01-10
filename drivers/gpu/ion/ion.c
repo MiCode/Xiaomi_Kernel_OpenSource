@@ -1410,6 +1410,7 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	if (buffer->flags & ION_FLAG_CACHED) {
 		vma->vm_private_data = buffer;
 		vma->vm_ops = &ion_vma_ops;
+		vma->vm_flags |= VM_MIXEDMAP;
 		ion_vm_open(vma);
 	} else {
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
