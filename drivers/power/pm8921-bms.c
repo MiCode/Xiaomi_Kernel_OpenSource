@@ -162,6 +162,9 @@ struct pm8921_bms_chip {
 	int			low_voltage_calc_ms;
 	int			imax_ua;
 	struct wake_lock	soc_wake_lock;
+	int			disable_flat_portion_ocv;
+	int			ocv_dis_high_soc;
+	int			ocv_dis_low_soc;
 };
 
 /*
@@ -748,7 +751,7 @@ static int pm8921_bms_start_ocv_updates(void)
 		pr_err("BMS driver has not been initialized yet!\n");
 		return -EINVAL;
 	}
-	pr_debug("stopping ocv updates\n");
+	pr_debug("starting ocv updates\n");
 	return pm_bms_masked_write(the_chip, BMS_TOLERANCES,
 			OCV_TOL_MASK, OCV_TOL_DEFAULT);
 }
@@ -2154,6 +2157,15 @@ static int calculate_state_of_charge(struct pm8921_bms_chip *chip,
 	calculated_soc = new_calculated_soc;
 	firsttime = 0;
 	get_current_time(&chip->last_recalc_time);
+
+	if (chip->disable_flat_portion_ocv) {
+		if (is_between(chip->ocv_dis_high_soc, chip->ocv_dis_low_soc,
+					calculated_soc)) {
+			pm8921_bms_stop_ocv_updates();
+		} else {
+			pm8921_bms_start_ocv_updates();
+		}
+	}
 	return calculated_soc;
 }
 
@@ -3128,6 +3140,10 @@ static int pm8921_bms_probe(struct platform_device *pdev)
 	chip->batt_id_channel = pdata->bms_cdata.batt_id_channel;
 	chip->revision = pm8xxx_get_revision(chip->dev->parent);
 	chip->enable_fcc_learning = pdata->enable_fcc_learning;
+
+	chip->disable_flat_portion_ocv = pdata->disable_flat_portion_ocv;
+	chip->ocv_dis_high_soc = pdata->ocv_dis_high_soc;
+	chip->ocv_dis_low_soc = pdata->ocv_dis_low_soc;
 
 	mutex_init(&chip->calib_mutex);
 	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
