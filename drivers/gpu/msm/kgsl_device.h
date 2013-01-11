@@ -219,6 +219,8 @@ struct kgsl_device {
 	/* Postmortem Control switches */
 	int pm_regs_enabled;
 	int pm_ib_enabled;
+
+	int reset_counter; /* Track how many GPU core resets have occured */
 };
 
 void kgsl_timestamp_expired(struct work_struct *work);
