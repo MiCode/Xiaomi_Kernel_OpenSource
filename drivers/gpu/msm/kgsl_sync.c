@@ -12,8 +12,11 @@
  */
 
 #include <linux/file.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+
+#include <asm/current.h>
 
 #include "kgsl_sync.h"
 
@@ -221,8 +224,18 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 {
 	struct kgsl_sync_timeline *ktimeline;
 
+	/* Generate a name which includes the thread name, thread id, process
+	 * name, process id, and context id. This makes it possible to
+	 * identify the context of a timeline in the sync dump. */
+	char ktimeline_name[sizeof(context->timeline->name)] = {};
+	snprintf(ktimeline_name, sizeof(ktimeline_name),
+		"%s_%.15s(%d)-%.15s(%d)-%d",
+		context->dev_priv->device->name,
+		current->group_leader->comm, current->group_leader->pid,
+		current->comm, current->pid, context->id);
+
 	context->timeline = sync_timeline_create(&kgsl_sync_timeline_ops,
-		(int) sizeof(struct kgsl_sync_timeline), "kgsl-timeline");
+		(int) sizeof(struct kgsl_sync_timeline), ktimeline_name);
 	if (context->timeline == NULL)
 		return -EINVAL;
 
