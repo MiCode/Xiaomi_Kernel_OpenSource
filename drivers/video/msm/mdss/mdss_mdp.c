@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1087,7 +1087,7 @@ static int mdss_mdp_register_early_suspend(struct mdss_data_type *mdata)
 {
 	mdata->early_suspend.suspend = mdss_mdp_early_suspend;
 	mdata->early_suspend.resume = mdss_mdp_late_resume;
-	mdata->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	mdata->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	register_early_suspend(&mdata->early_suspend);
 
 	return 0;
