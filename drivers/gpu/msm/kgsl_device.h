@@ -214,6 +214,7 @@ struct kgsl_device {
 	struct kobject pwrscale_kobj;
 	struct work_struct ts_expired_ws;
 	struct list_head events;
+	struct list_head events_pending_list;
 	s64 on_time;
 
 	/* Postmortem Control switches */
@@ -223,7 +224,7 @@ struct kgsl_device {
 	int reset_counter; /* Track how many GPU core resets have occured */
 };
 
-void kgsl_timestamp_expired(struct work_struct *work);
+void kgsl_process_events(struct work_struct *work);
 
 #define KGSL_DEVICE_COMMON_INIT(_dev) \
 	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
@@ -232,36 +233,42 @@ void kgsl_timestamp_expired(struct work_struct *work);
 	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
 			kgsl_idle_check),\
 	.ts_expired_ws  = __WORK_INITIALIZER((_dev).ts_expired_ws,\
-			kgsl_timestamp_expired),\
+			kgsl_process_events),\
 	.context_idr = IDR_INIT((_dev).context_idr),\
 	.events = LIST_HEAD_INIT((_dev).events),\
+	.events_pending_list = LIST_HEAD_INIT((_dev).events_pending_list), \
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
 	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
 	.state = KGSL_STATE_INIT,\
 	.ver_major = DRIVER_VERSION_MAJOR,\
 	.ver_minor = DRIVER_VERSION_MINOR
 
+
+/**
+ * struct kgsl_context - Master structure for a KGSL context object
+ * @refcount - kref object for reference counting the context
+ * @id - integer identifier for the context
+ * @dev_priv - pointer to the owning device instance
+ * @devctxt - pointer to the device specific context information
+ * @reset_status - status indication whether a gpu reset occured and whether
+ * this context was responsible for causing it
+ * @wait_on_invalid_ts - flag indicating if this context has tried to wait on a
+ * bad timestamp
+ * @timeline - sync timeline used to create fences that can be signaled when a
+ * sync_pt timestamp expires
+ * @events - list head of pending events for this context
+ * @events_list - list node for the list of all contexts that have pending events
+ */
 struct kgsl_context {
 	struct kref refcount;
 	uint32_t id;
-
-	/* Pointer to the owning device instance */
 	struct kgsl_device_private *dev_priv;
-
-	/* Pointer to the device specific context information */
 	void *devctxt;
-	/*
-	 * Status indicating whether a gpu reset occurred and whether this
-	 * context was responsible for causing it
-	 */
 	unsigned int reset_status;
-	/* Flag indicating if we tried to wait for bad timestamp for this ctx */
 	bool wait_on_invalid_ts;
-	/*
-	 * Timeline used to create fences that can be signaled when a
-	 * sync_pt timestamp expires.
-	 */
 	struct sync_timeline *timeline;
+	struct list_head events;
+	struct list_head events_list;
 };
 
 struct kgsl_process_private {
