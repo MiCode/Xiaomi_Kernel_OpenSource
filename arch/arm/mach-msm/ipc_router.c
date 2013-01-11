@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2288,13 +2288,19 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 			RR("x REMOVE_SERVER Name=%d:%08x Id=%d:%08x\n",
 			   msg.srv.service, msg.srv.instance,
 			   msg.srv.node_id, msg.srv.port_id);
-		} else if (port_ptr->type == CLIENT_PORT) {
-			msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT;
-			msg.cli.node_id = port_ptr->this_port.node_id;
-			msg.cli.port_id = port_ptr->this_port.port_id;
-			RR("x REMOVE_CLIENT id=%d:%08x\n",
-			   msg.cli.node_id, msg.cli.port_id);
+			broadcast_ctl_msg(&msg);
+			broadcast_ctl_msg_locally(&msg);
 		}
+
+		/*
+		 * Server port could have been a client port earlier.
+		 * Send REMOVE_CLIENT message in either case.
+		 */
+		msg.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT;
+		msg.cli.node_id = port_ptr->this_port.node_id;
+		msg.cli.port_id = port_ptr->this_port.port_id;
+		RR("x REMOVE_CLIENT id=%d:%08x\n",
+		   msg.cli.node_id, msg.cli.port_id);
 		broadcast_ctl_msg(&msg);
 		broadcast_ctl_msg_locally(&msg);
 	} else if (port_ptr->type == CONTROL_PORT) {
