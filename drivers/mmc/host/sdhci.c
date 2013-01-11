@@ -1088,19 +1088,24 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	int real_div = div, clk_mul = 1;
 	u16 clk = 0;
 	unsigned long timeout;
+	unsigned long flags;
 
+	spin_lock_irqsave(&host->lock, flags);
 	if (clock && clock == host->clock)
-		return;
+		goto ret;
 
 	host->mmc->actual_clock = 0;
 
 	if (host->ops->set_clock) {
+		spin_unlock_irqrestore(&host->lock, flags);
 		host->ops->set_clock(host, clock);
+		spin_lock_irqsave(&host->lock, flags);
 		if (host->quirks & SDHCI_QUIRK_NONSTANDARD_CLOCK)
-			return;
+			goto ret;
 	}
 
-	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
+	if (host->clock)
+		sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 
 	if (clock == 0)
 		goto out;
@@ -1176,7 +1181,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			pr_err("%s: Internal clock never "
 				"stabilised.\n", mmc_hostname(host->mmc));
 			sdhci_dumpregs(host);
-			return;
+			goto ret;
 		}
 		timeout--;
 		mdelay(1);
@@ -1187,6 +1192,8 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 
 out:
 	host->clock = clock;
+ret:
+	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
@@ -1347,20 +1354,17 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		return;
 	}
 
-	/*
-	 * Reset the chip on each power off.
-	 * Should clear out any weird states.
-	 */
-	if (ios->power_mode == MMC_POWER_OFF) {
-		sdhci_writel(host, 0, SDHCI_SIGNAL_ENABLE);
-		sdhci_reinit(host);
+	if (ios->clock)
+		sdhci_set_clock(host, ios->clock);
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (!host->clock) {
+		spin_unlock_irqrestore(&host->lock, flags);
+		return;
 	}
+	spin_unlock_irqrestore(&host->lock, flags);
 
-	sdhci_set_clock(host, ios->clock);
-
-	if (ios->power_mode == MMC_POWER_OFF)
-		vdd_bit = sdhci_set_power(host, -1);
-	else
+	if (ios->power_mode & (MMC_POWER_UP | MMC_POWER_ON))
 		vdd_bit = sdhci_set_power(host, ios->vdd);
 
 	if (host->vmmc && vdd_bit != -1)
@@ -1448,9 +1452,10 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			/* Re-enable SD Clock */
 			clock = host->clock;
 			host->clock = 0;
+			spin_unlock_irqrestore(&host->lock, flags);
 			sdhci_set_clock(host, clock);
+			spin_lock_irqsave(&host->lock, flags);
 		}
-
 
 		/* Reset SD Clock Enable */
 		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
@@ -1481,10 +1486,13 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		/* Re-enable SD Clock */
 		clock = host->clock;
 		host->clock = 0;
+		spin_unlock_irqrestore(&host->lock, flags);
 		sdhci_set_clock(host, clock);
+		spin_lock_irqsave(&host->lock, flags);
 	} else
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
+	spin_unlock_irqrestore(&host->lock, flags);
 	/*
 	 * Some (ENE) controllers go apeshit on some ios operation,
 	 * signalling timeout and CRC errors even on CMD0. Resetting
@@ -1493,8 +1501,21 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	if(host->quirks & SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS)
 		sdhci_reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
 
+	/*
+	 * Reset the chip on each power off.
+	 * Should clear out any weird states.
+	 */
+	if (ios->power_mode == MMC_POWER_OFF) {
+		sdhci_writel(host, 0, SDHCI_SIGNAL_ENABLE);
+		sdhci_reinit(host);
+		vdd_bit = sdhci_set_power(host, -1);
+		if (host->vmmc && vdd_bit != -1)
+			mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
+	}
+	if (!ios->clock)
+		sdhci_set_clock(host, ios->clock);
+
 	mmiowb();
-	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
@@ -2048,7 +2069,9 @@ static void sdhci_tasklet_finish(unsigned long param)
 			/* This is to force an update */
 			clock = host->clock;
 			host->clock = 0;
+			spin_unlock_irqrestore(&host->lock, flags);
 			sdhci_set_clock(host, clock);
+			spin_lock_irqsave(&host->lock, flags);
 		}
 
 		/* Spec says we should do both at the same time, but Ricoh
