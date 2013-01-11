@@ -4,6 +4,7 @@ Required properties:
 - cell-index: vfe hardware core index
 - compatible :
     - "qcom,vfe"
+    - "qcom,vfe40"
 - reg : offset and length of the register set for the device
     for the vfe operating in compatible mode.
 - reg-names : should specify relevant names to each reg property defined.
