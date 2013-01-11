@@ -30,6 +30,7 @@
 #include <linux/device.h>
 #include <linux/idr.h>
 #include <linux/debugfs.h>
+#include <linux/miscdevice.h>
 
 #include <asm/current.h>
 
@@ -144,6 +145,8 @@ struct subsys_device {
 	struct dentry *dentry;
 #endif
 	bool do_ramdump_on_put;
+	struct miscdevice misc_dev;
+	char miscdevice_name[32];
 };
 
 static struct subsys_device *to_subsys(struct device *d)
@@ -850,6 +853,41 @@ static int subsys_debugfs_add(struct subsys_device *subsys) { return 0; }
 static void subsys_debugfs_remove(struct subsys_device *subsys) { }
 #endif
 
+static int subsys_device_open(struct inode *inode, struct file *file)
+{
+	void *retval;
+	struct subsys_device *subsys_dev = container_of(file->private_data,
+		struct subsys_device, misc_dev);
+
+	if (!file->private_data)
+		return -EINVAL;
+
+	retval = subsystem_get(subsys_dev->desc->name);
+	if (IS_ERR(retval))
+		return PTR_ERR(retval);
+
+	return 0;
+}
+
+static int subsys_device_close(struct inode *inode, struct file *file)
+{
+	struct subsys_device *subsys_dev = container_of(file->private_data,
+		struct subsys_device, misc_dev);
+
+	if (!file->private_data)
+		return -EINVAL;
+
+	subsystem_put(subsys_dev);
+
+	return 0;
+}
+
+static const struct file_operations subsys_device_fops = {
+		.owner = THIS_MODULE,
+		.open = subsys_device_open,
+		.release = subsys_device_close,
+};
+
 static void subsys_device_release(struct device *dev)
 {
 	struct subsys_device *subsys = to_subsys(dev);
@@ -858,6 +896,33 @@ static void subsys_device_release(struct device *dev)
 	mutex_destroy(&subsys->track.lock);
 	ida_simple_remove(&subsys_ida, subsys->id);
 	kfree(subsys);
+}
+
+static int subsys_misc_device_add(struct subsys_device *subsys_dev)
+{
+	int ret;
+	memset(subsys_dev->miscdevice_name, 0,
+			ARRAY_SIZE(subsys_dev->miscdevice_name));
+	snprintf(subsys_dev->miscdevice_name,
+			 ARRAY_SIZE(subsys_dev->miscdevice_name), "subsys_%s",
+			 subsys_dev->desc->name);
+
+	subsys_dev->misc_dev.minor = MISC_DYNAMIC_MINOR;
+	subsys_dev->misc_dev.name = subsys_dev->miscdevice_name;
+	subsys_dev->misc_dev.fops = &subsys_device_fops;
+	subsys_dev->misc_dev.parent = &subsys_dev->dev;
+
+	ret = misc_register(&subsys_dev->misc_dev);
+	if (ret) {
+		pr_err("%s: misc_register() failed for %s (%d)", __func__,
+				subsys_dev->miscdevice_name, ret);
+	}
+	return ret;
+}
+
+static void subsys_misc_device_remove(struct subsys_device *subsys_dev)
+{
+	misc_deregister(&subsys_dev->misc_dev);
 }
 
 struct subsys_device *subsys_register(struct subsys_desc *desc)
@@ -898,6 +963,12 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 
 	ret = device_register(&subsys->dev);
 	if (ret) {
+		device_unregister(&subsys->dev);
+		goto err_register;
+	}
+
+	ret = subsys_misc_device_add(subsys);
+	if (ret) {
 		put_device(&subsys->dev);
 		goto err_register;
 	}
@@ -927,6 +998,7 @@ void subsys_unregister(struct subsys_device *subsys)
 		device_unregister(&subsys->dev);
 		mutex_unlock(&subsys->track.lock);
 		subsys_debugfs_remove(subsys);
+		subsys_misc_device_remove(subsys);
 		put_device(&subsys->dev);
 	}
 }
