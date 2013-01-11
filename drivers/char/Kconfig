@@ -622,5 +622,28 @@ config TILE_SROM
 	  device appear much like a simple EEPROM, and knows
 	  how to partition a single ROM for multiple purposes.
 
+config MMC_GENERIC_CSDIO
+	tristate "Generic sdio driver"
+	default n
+	help
+	  SDIO function driver that extends SDIO card as character device
+	  in user space.
+
+config CSDIO_VENDOR_ID
+	hex "Card VendorId"
+	depends on MMC_GENERIC_CSDIO
+	default "0"
+	help
+	  Enter vendor id for targeted sdio device, this may be overwritten by
+	  module parameters.
+
+config CSDIO_DEVICE_ID
+	hex "CardDeviceId"
+	depends on MMC_GENERIC_CSDIO
+	default "0"
+	help
+	  Enter device id for targeted sdio device, this may be overwritten by
+	  module parameters.
+.
 endmenu
 
