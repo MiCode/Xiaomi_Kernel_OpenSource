@@ -721,6 +721,13 @@ config GPIO_PM8XXX_MPP
 	  This is the multi-purpose pin (MPP) driver for Qualcomm PM 8xxx PMIC
 	  chips.
 
+config GPIO_PM8XXX_RPC
+	tristate "Qualcomm PM8xxx RPC based GPIO support"
+	depends on MSM_SMD
+	help
+	  This option enables support for on-chip GPIO found on Qualcomm PM8xxx
+	  PMICs through RPC.
+
 config GPIO_MSIC
 	bool "Intel MSIC mixed signal gpio support"
 	depends on MFD_INTEL_MSIC
