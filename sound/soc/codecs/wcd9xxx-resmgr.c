@@ -195,6 +195,24 @@ static void wcd9xxx_disable_clock_block(struct wcd9xxx_resmgr *resmgr)
 	pr_debug("%s: leave\n", __func__);
 }
 
+void wcd9xxx_resmgr_post_ssr(struct wcd9xxx_resmgr *resmgr)
+{
+	int old_bg_audio_users, old_bg_mbhc_users;
+
+	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
+
+	old_bg_audio_users = resmgr->bg_audio_users;
+	resmgr->bg_audio_users = 0;
+	old_bg_mbhc_users = resmgr->bg_mbhc_users;
+	resmgr->bg_mbhc_users = 0;
+
+	while (old_bg_audio_users && --old_bg_audio_users)
+		wcd9xxx_resmgr_get_bandgap(resmgr, WCD9XXX_BANDGAP_AUDIO_MODE);
+
+	while (old_bg_mbhc_users && --old_bg_mbhc_users)
+		wcd9xxx_resmgr_get_bandgap(resmgr, WCD9XXX_BANDGAP_MBHC_MODE);
+}
+
 /*
  * wcd9xxx_resmgr_get_bandgap : Vote for bandgap ref
  * choice : WCD9XXX_BANDGAP_AUDIO_MODE, WCD9XXX_BANDGAP_MBHC_MODE
