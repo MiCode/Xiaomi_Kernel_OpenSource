@@ -533,7 +533,7 @@ config MSM_MPM_OF
 
 config MSM_LPM_TEST
 	bool "Low Power Mode test framework"
-	depends on MSM_RPM
+	depends on MSM_RPM || MSM_RPM_SMD
 	depends on MSM_PM8X60
 	help
 	  LPM_TEST is a test framework that assists in exercising the low
