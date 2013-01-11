@@ -53,6 +53,11 @@
 		status = "disabled";
 	};
 
+	qcom,vidc@fdc00000 {
+		compatible = "qcom,msm-vidc";
+		hfi = "q6";
+	};
+
 	usb@f9a55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9a55000 0x400>;
