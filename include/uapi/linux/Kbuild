@@ -253,6 +253,7 @@ header-y += mroute6.h
 header-y += msdos_fs.h
 header-y += msg.h
 header-y += msm_mdp.h
+header-y += msm_rotator.h
 header-y += mtio.h
 header-y += n_r3964.h
 header-y += nbd.h
