@@ -3,6 +3,11 @@
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
+- hfi : supported Host-Firmware Interface, one of:
+        - "venus"
+        - "q6"
+
+Optional properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the vidc interrupt.
 - vidc-cp-map : start and size of device virtual address range for secure buffers.
@@ -13,9 +18,6 @@ Required properties:
   or non-secure.
 - load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec clock
   required for optimal performance in descending order.
-- hfi : supported Host-Firmware Interface, one of:
-	- "venus"
-	- "q6"
 
 Example:
 
