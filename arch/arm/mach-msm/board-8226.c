@@ -62,6 +62,8 @@ static int msm8226_paddr_to_memtype(unsigned int paddr)
 	return MEMTYPE_EBI1;
 }
 static struct clk_lookup msm_clocks_dummy[] = {
+	CLK_DUMMY("core_clk",   NULL,           "f9926000.i2c", OFF),
+	CLK_DUMMY("iface_clk",  NULL,           "f9926000.i2c", OFF),
 	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
 	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "f9a55000.usb", OFF),

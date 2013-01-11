@@ -547,6 +547,17 @@
 					 <0x1d80002b>; /* WLED */
 	};
 
+	i2c@f9926000 { /* BLSP-1 QUP-4 */
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9926000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 98 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+	};
 };
 
 &gdsc_venus {
