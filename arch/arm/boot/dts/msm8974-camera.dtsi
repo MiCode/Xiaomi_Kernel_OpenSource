@@ -90,7 +90,7 @@
 	qcom,ispif@fda0A000 {
 		cell-index = <0>;
 		compatible = "qcom,ispif";
-		reg = <0xfda0A000 0x300>;
+		reg = <0xfda0A000 0x500>;
 		reg-names = "ispif";
 		interrupts = <0 55 0>;
 		interrupt-names = "ispif";
