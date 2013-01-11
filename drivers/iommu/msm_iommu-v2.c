@@ -251,10 +251,8 @@ static void __reset_iommu(void __iomem *base)
 /*
  * May only be called for non-secure iommus
  */
-static void __program_iommu(void __iomem *base,
-			    struct msm_iommu_bfb_settings *bfb_settings)
+static void __program_iommu(void __iomem *base)
 {
-	int i;
 	__reset_iommu(base);
 
 	SET_CR0_SMCFCFG(base, 1);
@@ -266,12 +264,19 @@ static void __program_iommu(void __iomem *base,
 	SET_CR0_GFRE(base, 1);
 	SET_CR0_CLIENTPD(base, 0);
 
+	mb(); /* Make sure writes complete before returning */
+}
+
+void program_iommu_bfb_settings(void __iomem *base,
+			const struct msm_iommu_bfb_settings *bfb_settings)
+{
+	unsigned int i;
 	if (bfb_settings)
 		for (i = 0; i < bfb_settings->length; i++)
 			SET_GLOBAL_REG(base, bfb_settings->regs[i],
 					     bfb_settings->data[i]);
 
-	mb();	/* Make sure writes complete before returning */
+	mb(); /* Make sure writes complete before returning */
 }
 
 static void __reset_context(void __iomem *base, int ctx)
@@ -567,8 +572,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	if (!msm_iommu_ctx_attached(dev->parent)) {
 		if (!is_secure) {
-			__program_iommu(iommu_drvdata->base,
-				iommu_drvdata->bfb_settings);
+			__program_iommu(iommu_drvdata->base);
 		} else {
 			ret = msm_iommu_sec_program_iommu(
 				iommu_drvdata->sec_id);
@@ -578,6 +582,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 				goto fail;
 			}
 		}
+		program_iommu_bfb_settings(iommu_drvdata->base,
+					   iommu_drvdata->bfb_settings);
 	}
 
 	__program_context(iommu_drvdata, ctx_drvdata, __pa(priv->pt.fl_table),
