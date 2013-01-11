@@ -80,6 +80,22 @@ static struct pm8xxx_drvdata pm8921_drvdata = {
 	.pmic_read_irq_stat	= pm8921_read_irq_stat,
 };
 
+static const struct resource gpio_cell_resources[] = {
+	[0] = {
+		.start = PM8921_IRQ_BLOCK_BIT(PM8921_GPIO_BLOCK_START, 0),
+		.end   = PM8921_IRQ_BLOCK_BIT(PM8921_GPIO_BLOCK_START, 0)
+			+ PM8921_NR_GPIOS - 1,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct mfd_cell gpio_cell = {
+	.name		= PM8XXX_GPIO_DEV_NAME,
+	.id		= -1,
+	.resources	= gpio_cell_resources,
+	.num_resources	= ARRAY_SIZE(gpio_cell_resources),
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data
 					   *pdata,
 					   struct pm8921 *pmic,
@@ -100,6 +116,26 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 			return PTR_ERR(irq_chip);
 		}
 		pmic->irq_chip = irq_chip;
+	}
+
+	if (pdata->gpio_pdata) {
+		pdata->gpio_pdata->gpio_cdata.ngpios = PM8921_NR_GPIOS;
+		pdata->gpio_pdata->gpio_cdata.rev = rev;
+		gpio_cell.platform_data = pdata->gpio_pdata;
+		gpio_cell.pdata_size = sizeof(struct pm8xxx_gpio_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &gpio_cell, 1,
+					NULL, irq_base);
+		if (ret) {
+			pr_err("Failed to add  gpio subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	return 0;
+bail:
+	if (pmic->irq_chip) {
+		pm8xxx_irq_exit(pmic->irq_chip);
+		pmic->irq_chip = NULL;
 	}
 	return ret;
 }
