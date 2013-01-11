@@ -68,10 +68,10 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 
 	if (from_idle)
 		debug_mask = msm_lpm_lvl_dbg_msk &
-				MSM_LPM_LVL_DBG_IDLE_LIMITS;
+			MSM_LPM_LVL_DBG_IDLE_LIMITS;
 	else
 		debug_mask = msm_lpm_lvl_dbg_msk &
-				MSM_LPM_LVL_DBG_SUSPEND_LIMITS;
+			MSM_LPM_LVL_DBG_SUSPEND_LIMITS;
 
 	if (debug_mask)
 		pr_info("%s(): pxo:%d l2:%d mem:0x%x(0x%x) dig:0x%x(0x%x)\n",
@@ -87,10 +87,14 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 				__func__);
 		goto bail;
 	}
-	ret = msm_rpm_enter_sleep(debug_mask);
-	if (ret)
-		pr_warn("%s(): RPM failed to enter sleep err:%d\n",
-				__func__, ret);
+	if (notify_rpm) {
+		ret = msm_rpm_enter_sleep(debug_mask);
+		if (ret) {
+			pr_warn("%s(): RPM failed to enter sleep err:%d\n",
+					__func__, ret);
+			goto bail;
+		}
+	}
 bail:
 	return ret;
 }
@@ -101,7 +105,8 @@ static void msm_lpm_exit_sleep(void *limits, bool from_idle,
 
 	msm_lpmrs_exit_sleep((struct msm_rpmrs_limits *)limits,
 				from_idle, notify_rpm, collapsed);
-	msm_rpm_exit_sleep();
+	if (notify_rpm)
+		msm_rpm_exit_sleep();
 	atomic_notifier_call_chain(&__get_cpu_var(lpm_notify_head),
 			MSM_LPM_STATE_EXIT, NULL);
 }
