@@ -8,6 +8,7 @@ Optional properties:
 - startup-delay-us: startup time in microseconds
 - enable-active-high: Polarity of GPIO is Active high
 If this property is missing, the default assumed is Active low.
+- parent-supply: phandle to the parent supply/regulator node if one exists.
 
 Any property defined as part of the core regulator
 binding, defined in regulator.txt, can also be used.
