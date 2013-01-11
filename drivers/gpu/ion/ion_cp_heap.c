@@ -104,7 +104,7 @@ struct ion_cp_heap {
 	size_t heap_size;
 	dma_addr_t handle;
 	int cma;
-	int disallow_non_secure_allocation;
+	int allow_non_secure_allocation;
 };
 
 enum {
@@ -483,7 +483,7 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 	}
 
 	if (!force_contig && !secure_allocation &&
-	     cp_heap->disallow_non_secure_allocation) {
+	     !cp_heap->allow_non_secure_allocation) {
 		mutex_unlock(&cp_heap->lock);
 		pr_debug("%s: non-secure allocation disallowed from this heap\n",
 			__func__);
@@ -1296,8 +1296,8 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 		cp_heap->iommu_2x_map_domain =
 				extra_data->iommu_2x_map_domain;
 		cp_heap->cma = extra_data->is_cma;
-		cp_heap->disallow_non_secure_allocation =
-			extra_data->no_nonsecure_alloc;
+		cp_heap->allow_non_secure_allocation =
+			extra_data->allow_nonsecure_alloc;
 
 	}
 
