@@ -77,6 +77,7 @@
 
 /* 8KB descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 13)
+#define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
 
 static const u32 tuning_block_64[] = {
 	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
@@ -168,6 +169,7 @@ struct sdhci_msm_host {
 	struct clk	 *clk;     /* main SD/MMC bus clock */
 	struct clk	 *pclk;    /* SDHC peripheral bus clock */
 	struct clk	 *bus_clk; /* SDHC bus voter clock */
+	atomic_t clks_on; /* Set if clocks are enabled */
 	struct sdhci_msm_pltfm_data *pdata;
 	struct mmc_host  *mmc;
 	struct sdhci_pltfm_data sdhci_msm_pdata;
@@ -1230,11 +1232,73 @@ static unsigned int sdhci_msm_max_segs(void)
 	return SDHCI_MSM_MAX_SEGMENTS;
 }
 
+void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
+{
+	int rc;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	unsigned long flags;
+
+	if (clock && !atomic_read(&msm_host->clks_on)) {
+		pr_debug("%s: request to enable clock at rate %u\n",
+				mmc_hostname(host->mmc), clock);
+		if (!IS_ERR_OR_NULL(msm_host->bus_clk)) {
+			rc = clk_prepare_enable(msm_host->bus_clk);
+			if (rc) {
+				pr_err("%s: %s: failed to enable the bus-clock with error %d\n",
+					mmc_hostname(host->mmc), __func__, rc);
+				goto out;
+			}
+		}
+		if (!IS_ERR(msm_host->pclk)) {
+			rc = clk_prepare_enable(msm_host->pclk);
+			if (rc) {
+				pr_err("%s: %s: failed to enable the pclk with error %d\n",
+					mmc_hostname(host->mmc), __func__, rc);
+				goto disable_bus_clk;
+			}
+		}
+		rc = clk_prepare_enable(msm_host->clk);
+		if (rc) {
+			pr_err("%s: %s: failed to enable the host-clk with error %d\n",
+				mmc_hostname(host->mmc), __func__, rc);
+			goto disable_pclk;
+		}
+		mb();
+		atomic_set(&msm_host->clks_on, 1);
+
+	} else if (!clock && atomic_read(&msm_host->clks_on)) {
+		pr_debug("%s: request to disable clocks\n",
+				mmc_hostname(host->mmc));
+		sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
+		mb();
+		clk_disable_unprepare(msm_host->clk);
+		if (!IS_ERR(msm_host->pclk))
+			clk_disable_unprepare(msm_host->pclk);
+		if (!IS_ERR_OR_NULL(msm_host->bus_clk))
+			clk_disable_unprepare(msm_host->bus_clk);
+		atomic_set(&msm_host->clks_on, 0);
+	}
+	spin_lock_irqsave(&host->lock, flags);
+	host->clock = clock;
+	spin_unlock_irqrestore(&host->lock, flags);
+	goto out;
+disable_pclk:
+	if (!IS_ERR_OR_NULL(msm_host->pclk))
+		clk_disable_unprepare(msm_host->pclk);
+disable_bus_clk:
+	if (!IS_ERR_OR_NULL(msm_host->bus_clk))
+		clk_disable_unprepare(msm_host->bus_clk);
+out:
+	return;
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.check_power_status = sdhci_msm_check_power_status,
 	.platform_execute_tuning = sdhci_msm_execute_tuning,
 	.toggle_cdr = sdhci_msm_toggle_cdr,
 	.get_max_segments = sdhci_msm_max_segs,
+	.set_clock = sdhci_msm_set_clock,
 };
 
 static int sdhci_msm_probe(struct platform_device *pdev)
@@ -1311,6 +1375,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto pclk_disable;
 
+	atomic_set(&msm_host->clks_on, 1);
 	/* Setup regulators */
 	ret = sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, true);
 	if (ret) {
@@ -1380,6 +1445,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	/* Enable pwr irq interrupts */
 	writel_relaxed(INT_MASK, (msm_host->core_mem + CORE_PWRCTL_MASK));
 
+#ifdef CONFIG_MMC_CLKGATE
+	/* Set clock gating delay to be used when CONFIG_MMC_CLKGATE is set */
+	msm_host->mmc->clkgate_delay = SDHCI_MSM_MMC_CLK_GATE_DELAY;
+#endif
+
 	/* Set host capabilities */
 	msm_host->mmc->caps |= msm_host->pdata->mmc_bus_width;
 	msm_host->mmc->caps |= msm_host->pdata->caps;
@@ -1443,12 +1513,7 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 	sdhci_remove_host(host, dead);
 	sdhci_pltfm_free(pdev);
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
-	if (!IS_ERR(msm_host->clk))
-		clk_disable_unprepare(msm_host->clk);
-	if (!IS_ERR(msm_host->pclk))
-		clk_disable_unprepare(msm_host->pclk);
-	if (!IS_ERR_OR_NULL(msm_host->bus_clk))
-		clk_disable_unprepare(msm_host->bus_clk);
+
 	if (pdata->pin_data)
 		sdhci_msm_setup_gpio(pdata, false);
 	return 0;
