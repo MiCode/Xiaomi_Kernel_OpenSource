@@ -69,6 +69,7 @@
 #define CHGR_CHG_WDOG_DLY			0x63
 #define CHGR_CHG_WDOG_PET			0x64
 #define CHGR_CHG_WDOG_EN			0x65
+#define CHGR_IR_DROP_COMPEN			0x67
 #define CHGR_USB_IUSB_MAX			0x44
 #define CHGR_USB_USB_SUSP			0x47
 #define CHGR_USB_USB_OTG_CTL			0x48
@@ -80,6 +81,7 @@
 #define CHGR_BAT_IF_BATFET_CTRL1		0x90
 #define CHGR_MISC_BOOT_DONE			0x42
 #define CHGR_BUCK_COMPARATOR_OVRIDE_3		0xED
+#define CHGR_BUCK_BCK_VBAT_REG_MODE		0x74
 #define MISC_REVISION2				0x01
 #define USB_OVP_CTL				0x42
 #define SEC_ACCESS				0xD0
@@ -101,6 +103,7 @@
 #define CHGR_CHG_EN			BIT(7)
 #define CHGR_ON_BAT_FORCE_BIT		BIT(0)
 #define USB_VALID_DEB_20MS		0x03
+#define BUCK_VBAT_REG_NODE_SEL_BIT	BIT(0)
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -1227,6 +1230,14 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		enable_irq_wake(chip->chg_done_irq);
 		break;
 	case SMBB_BUCK_SUBTYPE:
+		rc = qpnp_chg_masked_write(chip,
+			chip->chgr_base + CHGR_BUCK_BCK_VBAT_REG_MODE,
+			BUCK_VBAT_REG_NODE_SEL_BIT,
+			BUCK_VBAT_REG_NODE_SEL_BIT, 1);
+		if (rc) {
+			pr_debug("failed to enable IR drop comp rc=%d\n", rc);
+			return rc;
+		}
 		break;
 	case SMBB_BAT_IF_SUBTYPE:
 		break;
