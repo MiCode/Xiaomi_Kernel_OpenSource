@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -155,7 +155,8 @@ struct voip_drv_info {
 };
 
 static int voip_get_media_type(uint32_t mode, uint32_t rate_type,
-				unsigned int samp_rate);
+				unsigned int samp_rate,
+				uint32_t *media_type);
 static int voip_get_rate_type(uint32_t mode,
 				uint32_t rate,
 				uint32_t *rate_type);
@@ -934,12 +935,12 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 			goto done;
 		}
 		prtd->rate_type = rate_type;
-		media_type = voip_get_media_type(prtd->mode,
-						prtd->rate_type,
-						prtd->play_samp_rate);
-		if (media_type < 0) {
+		ret = voip_get_media_type(prtd->mode,
+					  prtd->rate_type,
+					  prtd->play_samp_rate,
+					  &media_type);
+		if (ret < 0) {
 			pr_err("fail at getting media_type\n");
-			ret = -EINVAL;
 			goto done;
 		}
 		pr_debug(" media_type=%d, rate_type=%d\n", media_type,
@@ -1210,49 +1211,50 @@ static int voip_get_rate_type(uint32_t mode, uint32_t rate,
 }
 
 static int voip_get_media_type(uint32_t mode, uint32_t rate_type,
-				unsigned int samp_rate)
+				unsigned int samp_rate,
+				uint32_t *media_type)
 {
-	uint32_t media_type;
+	int ret = 0;
 
 	pr_debug("%s: mode=%d, samp_rate=%d\n", __func__,
 		mode, samp_rate);
 	switch (mode) {
 	case MODE_AMR:
-		media_type = VSS_MEDIA_ID_AMR_NB_MODEM;
+		*media_type = VSS_MEDIA_ID_AMR_NB_MODEM;
 		break;
 	case MODE_AMR_WB:
-		media_type = VSS_MEDIA_ID_AMR_WB_MODEM;
+		*media_type = VSS_MEDIA_ID_AMR_WB_MODEM;
 		break;
 	case MODE_PCM:
 		if (samp_rate == 8000)
-			media_type = VSS_MEDIA_ID_PCM_NB;
+			*media_type = VSS_MEDIA_ID_PCM_NB;
 		else
-			media_type = VSS_MEDIA_ID_PCM_WB;
+			*media_type = VSS_MEDIA_ID_PCM_WB;
 		break;
 	case MODE_IS127: /* EVRC-A */
-		media_type = VSS_MEDIA_ID_EVRC_MODEM;
+		*media_type = VSS_MEDIA_ID_EVRC_MODEM;
 		break;
 	case MODE_4GV_NB: /* EVRC-B */
-		media_type = VSS_MEDIA_ID_4GV_NB_MODEM;
+		*media_type = VSS_MEDIA_ID_4GV_NB_MODEM;
 		break;
 	case MODE_4GV_WB: /* EVRC-WB */
-		media_type = VSS_MEDIA_ID_4GV_WB_MODEM;
+		*media_type = VSS_MEDIA_ID_4GV_WB_MODEM;
 		break;
 	case MODE_G711:
 	case MODE_G711A:
 		if (rate_type == MVS_G711A_MODE_MULAW)
-			media_type = VSS_MEDIA_ID_G711_MULAW;
+			*media_type = VSS_MEDIA_ID_G711_MULAW;
 		else
-			media_type = VSS_MEDIA_ID_G711_ALAW;
+			*media_type = VSS_MEDIA_ID_G711_ALAW;
 		break;
 	default:
 		pr_debug(" input mode is not supported\n");
-		media_type = -EINVAL;
+		ret = -EINVAL;
 	}
 
-	pr_debug("%s: media_type is 0x%x\n", __func__, media_type);
+	pr_debug("%s: media_type is 0x%x\n", __func__, *media_type);
 
-	return media_type;
+	return ret;
 }
 
 
