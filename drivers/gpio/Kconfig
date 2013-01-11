@@ -171,6 +171,14 @@ config GPIO_MSM_V2
 	  Qualcomm MSM chips.  Most of the pins on the MSM can be
 	  selected for GPIO, and are controlled by this driver.
 
+config GPIO_FSM9XXX
+	tristate "Qualcomm FSM GPIO"
+	depends on GPIOLIB && ARCH_MSM
+	help
+	  Say yes here to support the GPIO interface on Qualcomm FSM chips.
+	  Most of the pins on the MSM can be selected for GPIO, and are
+	  controlled by this driver.
+
 config GPIO_MVEBU
 	def_bool y
 	depends on PLAT_ORION
