@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -539,7 +539,6 @@ static int qports_venus_p0[] = {4};
 static int qports_venus_p1[] = {5};
 static int qports_vfe[] = {6};
 static int qports_gemini_ocmem[] = {0};
-static int qports_mdp_ocmem[] = {1};
 static int qports_venus_p0_ocmem[] = {2};
 static int qports_venus_p1_ocmem[] = {3};
 static int qports_vfe_ocmem[] = {4};
@@ -1154,7 +1153,6 @@ static struct msm_bus_node_info ocmem_noc_info[]  = {
 		.num_tiers = ARRAY_SIZE(tier2),
 		.perm_mode = NOC_QOS_PERM_MODE_FIXED,
 		.mode = NOC_QOS_MODE_FIXED,
-		.qport = qports_mdp_ocmem,
 		.mas_hw_id = MAS_MDP_OCMEM,
 		.hw_sel = MSM_BUS_NOC,
 	},
