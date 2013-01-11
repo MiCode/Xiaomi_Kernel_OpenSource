@@ -2349,13 +2349,6 @@ config FB_PRE_INIT_FB
 	  Select this option if display contents should be inherited as set by
 	  the bootloader.
 
-config FB_MSM
-	tristate "MSM Framebuffer support"
-	depends on FB && ARCH_MSM
-	select FB_CFB_FILLRECT
-	select FB_CFB_COPYAREA
-	select FB_CFB_IMAGEBLIT
-
 config FB_MX3
 	tristate "MX3 Framebuffer support"
 	depends on FB && MX3_IPU
@@ -2472,6 +2465,7 @@ config FB_SIMPLE
 	  through device tree, or potentially plain old platform data in the
 	  future.
 
+source "drivers/video/msm/Kconfig"
 source "drivers/video/omap/Kconfig"
 source "drivers/video/omap2/Kconfig"
 source "drivers/video/exynos/Kconfig"
