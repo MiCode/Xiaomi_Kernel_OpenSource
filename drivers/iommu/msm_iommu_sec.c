@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,6 +362,11 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	}
 
 	ret = msm_iommu_sec_program_iommu(iommu_drvdata->sec_id);
+
+	/* bfb settings are always programmed by HLOS */
+	program_iommu_bfb_settings(iommu_drvdata->base,
+				   iommu_drvdata->bfb_settings);
+
 	__disable_clocks(iommu_drvdata);
 	if (ret) {
 		regulator_disable(iommu_drvdata->gdsc);

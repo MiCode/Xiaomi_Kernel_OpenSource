@@ -119,6 +119,8 @@ struct msm_iommu_drvdata {
 
 void msm_iommu_add_drv(struct msm_iommu_drvdata *drv);
 void msm_iommu_remove_drv(struct msm_iommu_drvdata *drv);
+void program_iommu_bfb_settings(void __iomem *base,
+			const struct msm_iommu_bfb_settings *bfb_settings);
 
 /**
  * struct msm_iommu_ctx_drvdata - an IOMMU context bank instance
