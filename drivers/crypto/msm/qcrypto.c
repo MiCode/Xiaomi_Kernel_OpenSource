@@ -555,6 +555,10 @@ static int _disp_stats(int id)
 	struct crypto_stat *pstat;
 	int len = 0;
 
+	if (id < 0) {
+		pr_err("Crypto id is %d, cannot be negative\n", id);
+		return len;
+	}
 	pstat = &_qcrypto_stat[id];
 	len = snprintf(_debug_read_buf, DEBUG_MAX_RW_BUF - 1,
 			"\nQualcomm crypto accelerator %d Statistics:\n",
