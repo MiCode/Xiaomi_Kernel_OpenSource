@@ -1,0 +1,5 @@
+#
+# MSM camera configuration
+#
+
+source "drivers/media/platform/msm/dvb/Kconfig"
