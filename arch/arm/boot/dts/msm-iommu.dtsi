@@ -40,8 +40,8 @@
 					0x2010
 					0x2014>;
 
-		qcom,iommu-bfb-data =  <0xffffffff
-					0xffffffff
+		qcom,iommu-bfb-data =  <0x0000ffff
+					0x0
 					0x4
 					0x4
 					0x0
@@ -111,7 +111,7 @@
 					0x2020>;
 
 		qcom,iommu-bfb-data =  <0xffffffff
-					0xffffffff
+					0x0
 					0x00000004
 					0x00000010
 					0x00000000
@@ -261,8 +261,8 @@
 					0x2414
 					0x2008>;
 
-		qcom,iommu-bfb-data =  <0xffffffff
-					0xffffffff
+		qcom,iommu-bfb-data =  <0x00000003
+					0x0
 					0x00000004
 					0x00000010
 					0x00000000
@@ -322,7 +322,7 @@
 					0x2020>;
 
 		qcom,iommu-bfb-data =  <0xffffffff
-					0xffffffff
+					0x00000000
 					0x4
 					0x8
 					0x0
