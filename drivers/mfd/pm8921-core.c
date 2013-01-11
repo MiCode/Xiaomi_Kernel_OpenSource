@@ -25,6 +25,8 @@
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
 
+#define REG_MPP_BASE		0x050
+
 struct pm8921 {
 	struct device			*dev;
 	struct pm_irq_chip		*irq_chip;
@@ -96,6 +98,22 @@ static struct mfd_cell gpio_cell = {
 	.num_resources	= ARRAY_SIZE(gpio_cell_resources),
 };
 
+static const struct resource mpp_cell_resources[] = {
+	{
+		.start	= PM8921_IRQ_BLOCK_BIT(PM8921_MPP_BLOCK_START, 0),
+		.end	= PM8921_IRQ_BLOCK_BIT(PM8921_MPP_BLOCK_START, 0)
+			  + PM8921_NR_MPPS - 1,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct mfd_cell mpp_cell = {
+	.name		= PM8XXX_MPP_DEV_NAME,
+	.id		= -1,
+	.resources	= mpp_cell_resources,
+	.num_resources	= ARRAY_SIZE(mpp_cell_resources),
+};
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data
 					   *pdata,
 					   struct pm8921 *pmic,
@@ -127,6 +145,19 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data
 					NULL, irq_base);
 		if (ret) {
 			pr_err("Failed to add  gpio subdevice ret=%d\n", ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->mpp_pdata) {
+		pdata->mpp_pdata->core_data.nmpps = PM8921_NR_MPPS;
+		pdata->mpp_pdata->core_data.base_addr = REG_MPP_BASE;
+		mpp_cell.platform_data = pdata->mpp_pdata;
+		mpp_cell.pdata_size = sizeof(struct pm8xxx_mpp_platform_data);
+		ret = mfd_add_devices(pmic->dev, 0, &mpp_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add mpp subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
