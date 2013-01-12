@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,6 +150,15 @@ int qmi_kernel_encode(struct msg_desc *desc,
 int qmi_kernel_decode(struct msg_desc *desc, void *out_c_struct,
 		      void *in_buf, uint32_t in_buf_len);
 
+/**
+ * qmi_verify_max_msg_len() - Verify the maximum length of a QMI message
+ * @desc: Pointer to structure descriptor.
+ *
+ * @return: true if the maximum message length embedded in structure
+ *          descriptor matches the calculated value, else false.
+ */
+bool qmi_verify_max_msg_len(struct msg_desc *desc);
+
 #else
 static inline int qmi_kernel_encode(struct msg_desc *desc,
 				    void *out_buf, uint32_t out_buf_len,
@@ -163,6 +172,11 @@ static inline int qmi_kernel_decode(struct msg_desc *desc,
 				    void *in_buf, uint32_t in_buf_len)
 {
 	return -EOPNOTSUPP;
+}
+
+static inline bool qmi_verify_max_msg_len(struct msg_desc *desc)
+{
+	return false;
 }
 #endif
 
