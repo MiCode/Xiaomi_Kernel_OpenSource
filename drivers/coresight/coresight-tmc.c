@@ -50,41 +50,45 @@ do {									\
 	mb();								\
 } while (0)
 
-#define TMC_RSZ			(0x004)
-#define TMC_STS			(0x00C)
-#define TMC_RRD			(0x010)
-#define TMC_RRP			(0x014)
-#define TMC_RWP			(0x018)
-#define TMC_TRG			(0x01C)
-#define TMC_CTL			(0x020)
-#define TMC_RWD			(0x024)
-#define TMC_MODE		(0x028)
-#define TMC_LBUFLEVEL		(0x02C)
-#define TMC_CBUFLEVEL		(0x030)
-#define TMC_BUFWM		(0x034)
-#define TMC_RRPHI		(0x038)
-#define TMC_RWPHI		(0x03C)
-#define TMC_AXICTL		(0x110)
-#define TMC_DBALO		(0x118)
-#define TMC_DBAHI		(0x11C)
-#define TMC_FFSR		(0x300)
-#define TMC_FFCR		(0x304)
-#define TMC_PSCR		(0x308)
-#define TMC_ITMISCOP0		(0xEE0)
-#define TMC_ITTRFLIN		(0xEE8)
-#define TMC_ITATBDATA0		(0xEEC)
-#define TMC_ITATBCTR2		(0xEF0)
-#define TMC_ITATBCTR1		(0xEF4)
-#define TMC_ITATBCTR0		(0xEF8)
+#define TMC_RSZ				(0x004)
+#define TMC_STS				(0x00C)
+#define TMC_RRD				(0x010)
+#define TMC_RRP				(0x014)
+#define TMC_RWP				(0x018)
+#define TMC_TRG				(0x01C)
+#define TMC_CTL				(0x020)
+#define TMC_RWD				(0x024)
+#define TMC_MODE			(0x028)
+#define TMC_LBUFLEVEL			(0x02C)
+#define TMC_CBUFLEVEL			(0x030)
+#define TMC_BUFWM			(0x034)
+#define TMC_RRPHI			(0x038)
+#define TMC_RWPHI			(0x03C)
+#define TMC_AXICTL			(0x110)
+#define TMC_DBALO			(0x118)
+#define TMC_DBAHI			(0x11C)
+#define TMC_FFSR			(0x300)
+#define TMC_FFCR			(0x304)
+#define TMC_PSCR			(0x308)
+#define TMC_ITMISCOP0			(0xEE0)
+#define TMC_ITTRFLIN			(0xEE8)
+#define TMC_ITATBDATA0			(0xEEC)
+#define TMC_ITATBCTR2			(0xEF0)
+#define TMC_ITATBCTR1			(0xEF4)
+#define TMC_ITATBCTR0			(0xEF8)
 
-#define BYTES_PER_WORD		4
-#define TMC_ETR_BAM_PIPE_INDEX	0
-#define TMC_ETR_BAM_NR_PIPES	2
+#define BYTES_PER_WORD			4
+#define TMC_ETR_BAM_PIPE_INDEX		0
+#define TMC_ETR_BAM_NR_PIPES		2
 
-#define TMC_ETFETB_DUMP_VER_OFF	(4)
-#define TMC_ETFETB_DUMP_VER	(1)
-#define TMC_REG_DUMP_VER_OFF	(4)
-#define TMC_REG_DUMP_VER	(1)
+#define TMC_ETFETB_DUMP_MAGIC_OFF	(0)
+#define TMC_ETFETB_DUMP_MAGIC		(0x5D1DB1BF)
+#define TMC_ETFETB_DUMP_VER_OFF		(4)
+#define TMC_ETFETB_DUMP_VER		(1)
+#define TMC_REG_DUMP_MAGIC_OFF		(0)
+#define TMC_REG_DUMP_MAGIC		(0x5D1DB1BF)
+#define TMC_REG_DUMP_VER_OFF		(4)
+#define TMC_REG_DUMP_VER		(1)
 
 enum tmc_config_type {
 	TMC_CONFIG_TYPE_ETB,
@@ -134,6 +138,8 @@ struct tmc_drvdata {
 	struct mutex		read_lock;
 	int			read_count;
 	bool			reading;
+	bool			aborting;
+	char			*reg_buf;
 	char			*buf;
 	unsigned long		paddr;
 	void __iomem		*vaddr;
@@ -462,10 +468,64 @@ static int tmc_enable_link(struct coresight_device *csdev, int inport,
 	return tmc_enable(drvdata, TMC_MODE_HARDWARE_FIFO);
 }
 
+static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
+{
+	char *reg_hdr;
+	uint32_t *reg_buf;
+
+	if (!drvdata->reg_buf || !drvdata->aborting)
+		return;
+
+	reg_hdr = drvdata->reg_buf - PAGE_SIZE;
+	reg_buf = (uint32_t *)drvdata->reg_buf;
+
+	reg_buf[1] = tmc_readl(drvdata, TMC_RSZ);
+	reg_buf[3] = tmc_readl(drvdata, TMC_STS);
+	reg_buf[5] = tmc_readl(drvdata, TMC_RRP);
+	reg_buf[6] = tmc_readl(drvdata, TMC_RWP);
+	reg_buf[7] = tmc_readl(drvdata, TMC_TRG);
+	reg_buf[8] = tmc_readl(drvdata, TMC_CTL);
+	reg_buf[10] = tmc_readl(drvdata, TMC_MODE);
+	reg_buf[11] = tmc_readl(drvdata, TMC_LBUFLEVEL);
+	reg_buf[12] = tmc_readl(drvdata, TMC_CBUFLEVEL);
+	reg_buf[13] = tmc_readl(drvdata, TMC_BUFWM);
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		reg_buf[14] = tmc_readl(drvdata, TMC_RRPHI);
+		reg_buf[15] = tmc_readl(drvdata, TMC_RWPHI);
+		reg_buf[68] = tmc_readl(drvdata, TMC_AXICTL);
+		reg_buf[70] = tmc_readl(drvdata, TMC_DBALO);
+		reg_buf[71] = tmc_readl(drvdata, TMC_DBAHI);
+	}
+	reg_buf[192] = tmc_readl(drvdata, TMC_FFSR);
+	reg_buf[193] = tmc_readl(drvdata, TMC_FFCR);
+	reg_buf[194] = tmc_readl(drvdata, TMC_PSCR);
+	reg_buf[1000] = tmc_readl(drvdata, CORESIGHT_CLAIMSET);
+	reg_buf[1001] = tmc_readl(drvdata, CORESIGHT_CLAIMCLR);
+	reg_buf[1005] = tmc_readl(drvdata, CORESIGHT_LSR);
+	reg_buf[1006] = tmc_readl(drvdata, CORESIGHT_AUTHSTATUS);
+	reg_buf[1010] = tmc_readl(drvdata, CORESIGHT_DEVID);
+	reg_buf[1011] = tmc_readl(drvdata, CORESIGHT_DEVTYPE);
+	reg_buf[1012] = tmc_readl(drvdata, CORESIGHT_PERIPHIDR4);
+	reg_buf[1013] = tmc_readl(drvdata, CORESIGHT_PERIPHIDR5);
+	reg_buf[1014] = tmc_readl(drvdata, CORESIGHT_PERIPHIDR6);
+	reg_buf[1015] = tmc_readl(drvdata, CORESIGHT_PERIPHIDR7);
+	reg_buf[1016] = tmc_readl(drvdata, CORESIGHT_PERIPHIDR0);
+	reg_buf[1017] = tmc_readl(drvdata, CORESIGHT_PERIPHIDR1);
+	reg_buf[1018] = tmc_readl(drvdata, CORESIGHT_PERIPHIDR2);
+	reg_buf[1019] = tmc_readl(drvdata, CORESIGHT_PERIPHIDR3);
+	reg_buf[1020] = tmc_readl(drvdata, CORESIGHT_COMPIDR0);
+	reg_buf[1021] = tmc_readl(drvdata, CORESIGHT_COMPIDR1);
+	reg_buf[1022] = tmc_readl(drvdata, CORESIGHT_COMPIDR2);
+	reg_buf[1023] = tmc_readl(drvdata, CORESIGHT_COMPIDR3);
+
+	*(uint32_t *)(reg_hdr + TMC_REG_DUMP_MAGIC_OFF) = TMC_REG_DUMP_MAGIC;
+}
+
 static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 {
 	enum tmc_mem_intf_width memwidth;
 	uint8_t memwords;
+	char *hdr;
 	char *bufp;
 	uint32_t read_data;
 	int i;
@@ -485,10 +545,17 @@ static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 		for (i = 0; i < memwords; i++) {
 			read_data = tmc_readl(drvdata, TMC_RRD);
 			if (read_data == 0xFFFFFFFF)
-				return;
+				goto out;
 			memcpy(bufp, &read_data, BYTES_PER_WORD);
 			bufp += BYTES_PER_WORD;
 		}
+	}
+
+out:
+	if (drvdata->aborting) {
+		hdr = drvdata->buf - PAGE_SIZE;
+		*(uint32_t *)(hdr + TMC_ETFETB_DUMP_MAGIC_OFF) =
+							TMC_ETFETB_DUMP_MAGIC;
 	}
 }
 
@@ -498,6 +565,7 @@ static void __tmc_etb_disable(struct tmc_drvdata *drvdata)
 
 	tmc_flush_and_stop(drvdata);
 	__tmc_etb_dump(drvdata);
+	__tmc_reg_dump(drvdata);
 	__tmc_disable(drvdata);
 
 	TMC_LOCK(drvdata);
@@ -522,6 +590,7 @@ static void __tmc_etr_disable_to_mem(struct tmc_drvdata *drvdata)
 
 	tmc_flush_and_stop(drvdata);
 	__tmc_etr_dump(drvdata);
+	__tmc_reg_dump(drvdata);
 	__tmc_disable(drvdata);
 
 	TMC_LOCK(drvdata);
@@ -603,6 +672,8 @@ static void tmc_abort(struct coresight_device *csdev)
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	unsigned long flags;
 	enum tmc_mode mode;
+
+	drvdata->aborting = true;
 
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading)
@@ -1077,8 +1148,10 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 		dump.start_addr = virt_to_phys(baddr);
 		dump.end_addr = dump.start_addr + PAGE_SIZE + drvdata->size;
 		ret = msm_dump_table_register(&dump);
-		/* Don't free the buffer in case of error since it can still
-		 * be used to provide dump collection via the device node
+		/*
+		 * Don't free the buffer in case of error since it can still
+		 * be used to provide dump collection via the device node or
+		 * as part of abort.
 		 */
 		if (ret)
 			dev_info(dev, "TMC ETF-ETB dump setup failed\n");
@@ -1087,15 +1160,19 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 
 	baddr = devm_kzalloc(dev, PAGE_SIZE + reg_size, GFP_KERNEL);
 	if (baddr) {
+		drvdata->reg_buf = baddr + PAGE_SIZE;
 		*(uint32_t *)(baddr + TMC_REG_DUMP_VER_OFF) = TMC_REG_DUMP_VER;
 		dump.id = MSM_TMC0_REG + count;
 		dump.start_addr = virt_to_phys(baddr);
 		dump.end_addr = dump.start_addr + PAGE_SIZE + reg_size;
 		ret = msm_dump_table_register(&dump);
-		if (ret) {
-			devm_kfree(dev, baddr);
+		/*
+		 * Don't free the buffer in case of error since it can still
+		 * be used to dump registers as part of abort to aid post crash
+		 * parsing.
+		 */
+		if (ret)
 			dev_info(dev, "TMC REG dump setup failed\n");
-		}
 	} else {
 		dev_info(dev, "TMC REG dump space allocation failed\n");
 	}
