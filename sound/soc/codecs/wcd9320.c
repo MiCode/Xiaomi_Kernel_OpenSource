@@ -4902,11 +4902,6 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	taiko = snd_soc_codec_get_drvdata(codec);
 	mutex_lock(&codec->mutex);
 	WCD9XXX_BCL_LOCK(&taiko->resmgr);
-	if (spkr_drv_wrnd == 1) {
-		wcd9xxx_resmgr_post_ssr(&taiko->resmgr);
-		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80, 0x80);
-	}
-	WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
 
 	if (codec->reg_def_copy) {
 		pr_debug("%s: Update ASOC cache", __func__);
@@ -4915,11 +4910,23 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 						codec->reg_size, GFP_KERNEL);
 	}
 
+	wcd9xxx_resmgr_post_ssr(&taiko->resmgr);
+	if (spkr_drv_wrnd == 1)
+		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80, 0x80);
+	WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+
 	taiko_update_reg_defaults(codec);
 	taiko_codec_init_reg(codec);
 	ret = taiko_handle_pdata(taiko);
 	if (IS_ERR_VALUE(ret))
 		pr_err("%s: bad pdata\n", __func__);
+
+	wcd9xxx_mbhc_deinit(&taiko->mbhc);
+	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec);
+	if (ret)
+		pr_err("%s: mbhc init failed %d\n", __func__, ret);
+	else
+		wcd9xxx_mbhc_start(&taiko->mbhc, taiko->mbhc.mbhc_cfg);
 	mutex_unlock(&codec->mutex);
 	return ret;
 }

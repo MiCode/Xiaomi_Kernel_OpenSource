@@ -198,19 +198,44 @@ static void wcd9xxx_disable_clock_block(struct wcd9xxx_resmgr *resmgr)
 void wcd9xxx_resmgr_post_ssr(struct wcd9xxx_resmgr *resmgr)
 {
 	int old_bg_audio_users, old_bg_mbhc_users;
+	int old_clk_rco_users, old_clk_mclk_users;
 
+	pr_debug("%s: enter\n", __func__);
 	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
 
 	old_bg_audio_users = resmgr->bg_audio_users;
-	resmgr->bg_audio_users = 0;
 	old_bg_mbhc_users = resmgr->bg_mbhc_users;
+	old_clk_rco_users = resmgr->clk_rco_users;
+	old_clk_mclk_users = resmgr->clk_mclk_users;
+	resmgr->bg_audio_users = 0;
 	resmgr->bg_mbhc_users = 0;
+	resmgr->bandgap_type = WCD9XXX_BANDGAP_OFF;
+	resmgr->clk_rco_users = 0;
+	resmgr->clk_mclk_users = 0;
+	resmgr->clk_type = WCD9XXX_CLK_OFF;
 
-	while (old_bg_audio_users && --old_bg_audio_users)
-		wcd9xxx_resmgr_get_bandgap(resmgr, WCD9XXX_BANDGAP_AUDIO_MODE);
+	if (old_bg_audio_users) {
+		while (old_bg_audio_users--)
+			wcd9xxx_resmgr_get_bandgap(resmgr,
+						  WCD9XXX_BANDGAP_AUDIO_MODE);
+	}
 
-	while (old_bg_mbhc_users && --old_bg_mbhc_users)
-		wcd9xxx_resmgr_get_bandgap(resmgr, WCD9XXX_BANDGAP_MBHC_MODE);
+	if (old_bg_mbhc_users) {
+		while (old_bg_mbhc_users--)
+			wcd9xxx_resmgr_get_bandgap(resmgr,
+						  WCD9XXX_BANDGAP_MBHC_MODE);
+	}
+
+	if (old_clk_mclk_users) {
+		while (old_clk_mclk_users--)
+			wcd9xxx_resmgr_get_clk_block(resmgr, WCD9XXX_CLK_MCLK);
+	}
+
+	if (old_clk_rco_users) {
+		while (old_clk_rco_users--)
+			wcd9xxx_resmgr_get_clk_block(resmgr, WCD9XXX_CLK_RCO);
+	}
+	pr_debug("%s: leave\n", __func__);
 }
 
 /*
