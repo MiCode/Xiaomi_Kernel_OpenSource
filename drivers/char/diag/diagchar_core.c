@@ -80,9 +80,6 @@ module_param(max_clients, uint, 0);
     means that the diag packet has a delayed response. */
 static uint16_t delayed_rsp_id = 1;
 
-/* Array of valid token ids */
-static int token_list[MAX_PROC] = {0, -1, -2, -3, -4, -5, -6, -7, -8, -9};
-
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
 
 /* returns the next delayed rsp id - rollsover the id if wrapping is
@@ -384,10 +381,13 @@ uint16_t diag_get_remote_device_mask(void)
 {
 	uint16_t remote_dev = 0;
 
+	/* Check for MDM processor */
 	if (driver->hsic_inited)
-		remote_dev |= (1 << 0);
+		remote_dev |= 1 << 0;
+
+	/* Check for QSC processor */
 	if (driver->diag_smux_enabled)
-		remote_dev |= (1 << 1);
+		remote_dev |= 1 << 1;
 
 	return remote_dev;
 }
@@ -395,15 +395,22 @@ uint16_t diag_get_remote_device_mask(void)
 inline uint16_t diag_get_remote_device_mask(void) { return 0; }
 #endif
 
-static int diag_get_token(int token)
+static int diag_get_remote(int remote_info)
 {
-	int i;
+	int val = (remote_info < 0) ? -remote_info : remote_info;
+	int remote_val;
 
-	for (i = 0; i < MAX_PROC; i++)
-		if (token_list[i] == token)
-			return 1 << i;
+	switch (val) {
+	case MDM:
+	case QSC:
+		remote_val = -remote_info;
+		break;
+	default:
+		remote_val = 0;
+		break;
+	}
 
-	return 0;
+	return remote_val;
 }
 
 long diagchar_ioctl(struct file *filp,
@@ -811,6 +818,7 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 	struct diag_dci_client_tbl *entry;
 	int index = -1, i = 0, ret = 0;
 	int num_data = 0, data_type;
+	int remote_token;
 
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == current->tgid)
@@ -831,7 +839,7 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 		unsigned long spin_lock_flags;
 		struct diag_write_device hsic_buf_tbl[NUM_HSIC_BUF_TBL_ENTRIES];
 #endif
-
+		remote_token = 0;
 		pr_debug("diag: process woken up\n");
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & USER_SPACE_DATA_TYPE;
@@ -907,9 +915,12 @@ drop:
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* copy 9K data over SDIO */
 		if (driver->in_busy_sdio == 1) {
+			remote_token = diag_get_remote(MDM);
 			num_data++;
-			/*Copy the negative  token of data being passed*/
-			COPY_USER_SPACE_OR_EXIT(buf+ret, token_list[MDM], 4);
+
+			/*Copy the negative token of data being passed*/
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+						remote_token, 4);
 			/*Copy the length of data being passed*/
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
 				 (driver->write_ptr_mdm->length), 4);
@@ -933,6 +944,7 @@ drop:
 		spin_unlock_irqrestore(&driver->hsic_spinlock,
 					spin_lock_flags);
 
+		remote_token = diag_get_remote(MDM);
 		for (i = 0; i < driver->poolsize_hsic_write; i++) {
 			if (hsic_buf_tbl[i].length > 0) {
 				pr_debug("diag: HSIC copy to user, i: %d, buf: %x, len: %d\n",
@@ -941,8 +953,8 @@ drop:
 				num_data++;
 
 				/* Copy the negative token */
-				if (copy_to_user(buf+ret, &token_list[MDM],
-									4)) {
+				if (copy_to_user(buf+ret,
+						&remote_token, 4)) {
 					num_data--;
 					goto drop_hsic;
 				}
@@ -977,10 +989,12 @@ drop_hsic:
 			}
 		}
 		if (driver->in_busy_smux == 1) {
+			remote_token = diag_get_remote(QSC);
 			num_data++;
 
 			/* Copy the negative  token of data being passed */
-			COPY_USER_SPACE_OR_EXIT(buf+ret, token_list[QSC], 4);
+			COPY_USER_SPACE_OR_EXIT(buf+ret,
+						remote_token, 4);
 			/* Copy the length of data being passed */
 			COPY_USER_SPACE_OR_EXIT(buf+ret,
 					(driver->write_ptr_mdm->length), 4);
@@ -1142,7 +1156,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		err = copy_from_user(driver->user_space_data, buf + 4,
 							 payload_size);
 		/* Check for proc_type */
-		remote_proc = diag_get_token(*(int *)driver->user_space_data);
+		remote_proc = diag_get_remote(*(int *)driver->user_space_data);
 
 		if (remote_proc) {
 			token_offset = 4;
@@ -1167,7 +1181,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 #endif
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* send masks to 9k too */
-		if (driver->sdio_ch && (remote_proc & MDM)) {
+		if (driver->sdio_ch && (remote_proc == MDM)) {
 			wait_event_interruptible(driver->wait_q,
 				 (sdio_write_avail(driver->sdio_ch) >=
 					 payload_size));
@@ -1181,7 +1195,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		/* send masks to 9k too */
 		if (driver->hsic_ch && (payload_size > 0) &&
-						(remote_proc & MDM)) {
+						(remote_proc == MDM)) {
 			/* wait sending mask updates if HSIC ch not ready */
 			if (driver->in_busy_hsic_write)
 				wait_event_interruptible(driver->wait_q,
@@ -1204,7 +1218,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 					driver->in_busy_hsic_write = 0;
 			}
 		}
-		if (driver->diag_smux_enabled && (remote_proc & QSC)
+		if (driver->diag_smux_enabled && (remote_proc == QSC)
 						&& driver->lcid) {
 			if (payload_size > 0) {
 				err = msm_smux_write(driver->lcid, NULL,
