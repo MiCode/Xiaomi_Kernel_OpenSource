@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3177,23 +3177,28 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->resmgr = resmgr;
 	mbhc->resmgr->mbhc = mbhc;
 
-	ret = snd_soc_jack_new(codec, "Headset Jack", WCD9XXX_JACK_MASK,
-			       &mbhc->headset_jack);
-	if (ret) {
-		pr_err("%s: Failed to create new jack\n", __func__);
-		return ret;
-	}
+	if (mbhc->headset_jack.jack == NULL) {
+		ret = snd_soc_jack_new(codec, "Headset Jack", WCD9XXX_JACK_MASK,
+				       &mbhc->headset_jack);
+		if (ret) {
+			pr_err("%s: Failed to create new jack\n", __func__);
+			return ret;
+		}
 
-	ret = snd_soc_jack_new(codec, "Button Jack", WCD9XXX_JACK_BUTTON_MASK,
-			       &mbhc->button_jack);
-	if (ret) {
-		pr_err("Failed to create new jack\n");
-		return ret;
-	}
+		ret = snd_soc_jack_new(codec, "Button Jack",
+				       WCD9XXX_JACK_BUTTON_MASK,
+				       &mbhc->button_jack);
+		if (ret) {
+			pr_err("Failed to create new jack\n");
+			return ret;
+		}
 
-	INIT_DELAYED_WORK(&mbhc->mbhc_firmware_dwork, wcd9xxx_mbhc_fw_read);
-	INIT_DELAYED_WORK(&mbhc->mbhc_btn_dwork, wcd9xxx_btn_lpress_fn);
-	INIT_DELAYED_WORK(&mbhc->mbhc_insert_dwork, wcd9xxx_mbhc_insert_work);
+		INIT_DELAYED_WORK(&mbhc->mbhc_firmware_dwork,
+				  wcd9xxx_mbhc_fw_read);
+		INIT_DELAYED_WORK(&mbhc->mbhc_btn_dwork, wcd9xxx_btn_lpress_fn);
+		INIT_DELAYED_WORK(&mbhc->mbhc_insert_dwork,
+				  wcd9xxx_mbhc_insert_work);
+	}
 
 	/* Register event notifier */
 	mbhc->nblock.notifier_call = wcd9xxx_event_notify;
@@ -3293,6 +3298,11 @@ void wcd9xxx_mbhc_deinit(struct wcd9xxx_mbhc *mbhc)
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_POTENTIAL, mbhc);
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_REMOVAL, mbhc);
 	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_INSERTION, mbhc);
+
+	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_JACK_SWITCH, mbhc);
+	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT, mbhc);
+	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT, mbhc);
+	wcd9xxx_free_irq(cdata, WCD9XXX_IRQ_MBHC_RELEASE, mbhc);
 
 	if (mbhc->mbhc_fw)
 		release_firmware(mbhc->mbhc_fw);

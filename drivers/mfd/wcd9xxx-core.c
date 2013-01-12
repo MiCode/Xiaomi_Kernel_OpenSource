@@ -881,6 +881,7 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 		dev_set_drvdata(&client->dev, wcd9xxx);
 		wcd9xxx->dev = &client->dev;
 		wcd9xxx->reset_gpio = pdata->reset_gpio;
+		wcd9xxx->slim_device_bootup = true;
 		if (client->dev.of_node)
 			wcd9xxx->mclk_rate = pdata->mclk_rate;
 		ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
