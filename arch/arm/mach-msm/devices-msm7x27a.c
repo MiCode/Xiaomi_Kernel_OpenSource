@@ -2147,7 +2147,7 @@ static int __init msm7x27x_cache_init(void){ return 0; }
 void __init msm_common_io_init(void)
 {
 	msm_map_common_io();
-	if (IS_ERR_OR_NULL(socinfo_init()))
+	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 	msm7x27x_cache_init();
 }
@@ -2163,7 +2163,7 @@ void __init msm8625_map_io(void)
 {
 	msm_map_msm8625_io();
 
-	if (IS_ERR_OR_NULL(socinfo_init()))
+	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 	msm7x27x_cache_init();
 }

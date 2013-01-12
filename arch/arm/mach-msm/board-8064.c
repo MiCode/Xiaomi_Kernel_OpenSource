@@ -2073,9 +2073,8 @@ static void __init apq8064_map_io(void)
 {
 	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_apq8064_io();
-
-	if (IS_ERR_OR_NULL(socinfo_init()))
-		pr_err("socinfo_init() failed!\n");
+	if (socinfo_init() < 0)
+		pr_err("%s: socinfo_init() failed\n", __func__);
 }
 
 static void __init apq8064_init_irq(void)
@@ -3580,7 +3579,7 @@ static void __init apq8064_common_init(void)
 	platform_device_register(&msm_gpio_device);
 	msm_tsens_early_init(&apq_tsens_pdata);
 	msm_thermal_init(&msm_thermal_pdata);
-	if (IS_ERR_OR_NULL(socinfo_init()))
+	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 	BUG_ON(msm_rpm_init(&apq8064_rpm_data));
 	BUG_ON(msm_rpmrs_levels_init(&msm_rpmrs_data));
