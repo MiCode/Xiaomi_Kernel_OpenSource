@@ -1771,16 +1771,25 @@ EXPORT_SYMBOL(qseecom_send_command);
 
 int qseecom_set_bandwidth(struct qseecom_handle *handle, bool high)
 {
+	int ret = 0;
 	if ((handle == NULL) || (handle->dev == NULL)) {
 		pr_err("No valid kernel client\n");
 		return -EINVAL;
 	}
-	if (high)
-		return qsee_vote_for_clock(handle->dev, CLK_DFAB);
-	else {
+	if (high) {
+		ret = qsee_vote_for_clock(handle->dev, CLK_DFAB);
+		if (ret)
+			pr_err("Failed to vote for DFAB clock%d\n", ret);
+		ret = qsee_vote_for_clock(handle->dev, CLK_SFPB);
+		if (ret) {
+			pr_err("Failed to vote for SFPB clock%d\n", ret);
+			qsee_disable_clock_vote(handle->dev, CLK_DFAB);
+		}
+	} else {
 		qsee_disable_clock_vote(handle->dev, CLK_DFAB);
-		return 0;
+		qsee_disable_clock_vote(handle->dev, CLK_SFPB);
 	}
+	return ret;
 }
 EXPORT_SYMBOL(qseecom_set_bandwidth);
 
