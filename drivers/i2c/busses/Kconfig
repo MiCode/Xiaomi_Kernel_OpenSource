@@ -505,6 +505,14 @@ config I2C_MPC
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-mpc.
 
+config I2C_MSM
+	tristate "MSM"
+	depends on I2C && (ARCH_MSM || ARCH_QSD)
+	default y
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in I2C interface on the MSM or QSD family processors.
+
 config I2C_MV64XXX
 	tristate "Marvell mv64xxx I2C Controller"
 	depends on (MV64X60 || PLAT_ORION)
