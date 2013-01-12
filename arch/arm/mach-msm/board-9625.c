@@ -237,10 +237,7 @@ void __init msm9625_add_drivers(void)
 
 void __init msm9625_init(void)
 {
-	struct device *parent;
-
-	parent = socinfo_init();
-	if (IS_ERR_OR_NULL(parent))
+	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm9625_init_gpiomux();

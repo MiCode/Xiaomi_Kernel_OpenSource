@@ -147,7 +147,7 @@ uint32_t socinfo_get_platform_subtype(void);
 uint32_t socinfo_get_platform_version(void);
 enum pmic_model socinfo_get_pmic_model(void);
 uint32_t socinfo_get_pmic_die_revision(void);
-struct device * __init socinfo_init(void) __must_check;
+int __init socinfo_init(void) __must_check;
 const int read_msm_cpu_type(void);
 const int get_core_count(void);
 const int cpu_is_krait(void);

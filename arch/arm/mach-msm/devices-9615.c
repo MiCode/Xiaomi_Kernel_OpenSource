@@ -1546,7 +1546,7 @@ void __init msm9615_map_io(void)
 	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_msm9615_io();
 	l2x0_cache_init();
-	if (IS_ERR_OR_NULL(socinfo_init()))
+	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 }
 

@@ -96,10 +96,8 @@ static struct of_dev_auxdata mpq8092_auxdata_lookup[] __initdata = {
 static void __init mpq8092_init(void)
 {
 	struct of_dev_auxdata *adata = mpq8092_auxdata_lookup;
-	struct device *parent;
 
-	parent = socinfo_init();
-	if (IS_ERR_OR_NULL(parent))
+	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	mpq8092_init_gpiomux();

@@ -87,10 +87,8 @@ static void __init msm8610_reserve(void)
 void __init msm8610_init(void)
 {
 	struct of_dev_auxdata *adata = msm8610_auxdata_lookup;
-	struct device *parent;
 
-	parent = socinfo_init();
-	if (IS_ERR_OR_NULL(parent))
+	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm8610_init_gpiomux();

@@ -364,10 +364,8 @@ static void __init msm8974_map_io(void)
 void __init msm8974_init(void)
 {
 	struct of_dev_auxdata *adata = msm8974_auxdata_lookup;
-	struct device *parent;
 
-	parent = socinfo_init();
-	if (IS_ERR_OR_NULL(parent))
+	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm_8974_init_gpiomux();
