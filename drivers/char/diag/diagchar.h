@@ -81,7 +81,6 @@
 #define SMD_DATA_TYPE 0
 #define SMD_CNTL_TYPE 1
 #define SMD_DCI_TYPE 2
-#define MAX_PROC	10
 
 /* Maximum number of pkt reg supported at initialization*/
 extern unsigned int diag_max_reg;
