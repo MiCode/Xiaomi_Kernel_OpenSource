@@ -517,6 +517,8 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 		},
 	};
 
+	if (dev->bam.hdl)
+		goto init_rx_msgq;
 	bam_props.ee = dev->ee;
 	bam_props.virt_addr = dev->bam.base;
 	bam_props.phys_addr = bam_mem->start;
@@ -565,7 +567,7 @@ init_rx_msgq:
 	return ret;
 }
 
-void msm_slim_sps_exit(struct msm_slim_ctrl *dev)
+void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 {
 	if (dev->use_rx_msgqs) {
 		struct msm_slim_endp *endpoint = &dev->rx_msgq;
@@ -579,7 +581,10 @@ void msm_slim_sps_exit(struct msm_slim_ctrl *dev)
 		sps_disconnect(endpoint->sps);
 		msm_slim_sps_mem_free(dev, descr);
 		msm_slim_free_endpoint(endpoint);
+	}
+	if (dereg) {
 		sps_deregister_bam_device(dev->bam.hdl);
+		dev->bam.hdl = 0L;
 	}
 }
 
