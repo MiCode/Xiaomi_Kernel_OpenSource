@@ -485,7 +485,7 @@ static int bahama_bt(int on)
 
 	const struct bahama_config_register *p;
 
-	u8 version;
+	int version;
 
 	const struct bahama_config_register v10_bt_on[] = {
 		{ 0xE9, 0x00, 0xFF },
@@ -567,7 +567,7 @@ static int bahama_bt(int on)
 	u8 offset = 0; /* index into bahama configs */
 	on = on ? 1 : 0;
 	version = marimba_read_bahama_ver(&config);
-	if ((int)version < 0 || version == BAHAMA_VER_UNSUPPORTED) {
+	if (version < 0 || version == BAHAMA_VER_UNSUPPORTED) {
 		dev_err(&msm_bt_power_device.dev, "%s : Bahama "
 			"version read Error, version = %d\n",
 			__func__, version);
