@@ -662,8 +662,10 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 			}
 		} else if (context_info->is_new_req) {
 			context_info->is_new_req = false;
-			err = MMC_BLK_NEW_REQUEST;
-			break; /* return err */
+			if (!next_req) {
+				err = MMC_BLK_NEW_REQUEST;
+				break; /* return err */
+			}
 		}
 	} /* while */
 	return err;
