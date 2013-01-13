@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-
 #include <linux/init.h>
 #include <linux/err.h>
 #include <linux/module.h>
@@ -34,6 +33,7 @@
 #include <mach/qdsp6v2/q6core.h>
 
 #include "msm-pcm-routing-v2.h"
+#include "msm-dolby-dap-config.h"
 #include "q6voice.h"
 
 struct msm_pcm_routing_bdai_data {
@@ -186,6 +186,20 @@ static void srs_send_params(int port_id, unsigned int techs,
 	(void *)&msm_srs_trumedia_params[param_block_idx].srs_params.global);
 }
 
+int get_topology(int path_type)
+{
+	int topology_id = 0;
+	if (path_type == ADM_PATH_PLAYBACK)
+		topology_id = get_adm_rx_topology();
+	else
+		topology_id = get_adm_tx_topology();
+
+	if (topology_id  == 0)
+		topology_id = DEFAULT_COPP_TOPOLOGY;
+
+	return topology_id;
+}
+
 #define SLIMBUS_EXTPROC_RX AFE_PORT_INVALID
 static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ PRIMARY_I2S_RX, 0, 0, 0, 0, 0},
@@ -319,7 +333,7 @@ void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 					int dspst_id, int stream_type)
 {
-	int i, session_type, path_type, port_type;
+	int i, session_type, path_type, port_type, port_id, topology;
 	struct route_payload payload;
 	u32 channels;
 	uint16_t bits_per_sample = 16;
@@ -347,6 +361,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 	/* re-enable EQ if active */
 	if (eq_data[fedai_id].enable)
 		msm_send_eq_values(fedai_id);
+	topology = get_topology(path_type);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions))
 			msm_bedais[i].perf_mode = perf_mode;
@@ -362,27 +377,31 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 			else if (msm_bedais[i].format ==
 						SNDRV_PCM_FORMAT_S24_LE)
 				bits_per_sample = 24;
-
 			if ((stream_type == SNDRV_PCM_STREAM_PLAYBACK) &&
 				(channels > 0))
 				adm_multi_ch_copp_open(msm_bedais[i].port_id,
 				path_type,
 				msm_bedais[i].sample_rate,
 				msm_bedais[i].channel,
-				DEFAULT_COPP_TOPOLOGY, msm_bedais[i].perf_mode,
+				topology, msm_bedais[i].perf_mode,
 				bits_per_sample);
 			else
 				adm_open(msm_bedais[i].port_id,
 				path_type,
 				msm_bedais[i].sample_rate,
 				msm_bedais[i].channel,
-				DEFAULT_COPP_TOPOLOGY, false,
+				topology, false,
 				bits_per_sample);
 
 			payload.copp_ids[payload.num_copps++] =
 				msm_bedais[i].port_id;
-			srs_port_id = msm_bedais[i].port_id;
+			port_id = srs_port_id = msm_bedais[i].port_id;
 			srs_send_params(srs_port_id, 1, 0);
+			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+				if (dolby_dap_init(port_id,
+						msm_bedais[i].channel) < 0)
+					pr_err("%s: Err init dolby dap\n",
+						__func__);
 		}
 	}
 	if (payload.num_copps)
@@ -394,7 +413,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 
 void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 {
-	int i, port_type, session_type;
+	int i, port_type, session_type, path_type, topology;
 
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
@@ -405,19 +424,24 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 	if (stream_type == SNDRV_PCM_STREAM_PLAYBACK) {
 		port_type = MSM_AFE_PORT_TYPE_RX;
 		session_type = SESSION_TYPE_RX;
+		path_type = ADM_PATH_PLAYBACK;
 	} else {
 		port_type = MSM_AFE_PORT_TYPE_TX;
 		session_type = SESSION_TYPE_TX;
+		path_type = ADM_PATH_LIVE_REC;
 	}
 
 	mutex_lock(&routing_lock);
-
+	topology = get_topology(path_type);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
-		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions)))
+		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
 			adm_close(msm_bedais[i].port_id);
+			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+				dolby_dap_deinit(msm_bedais[i].port_id);
+		}
 	}
 
 	fe_dai_map[fedai_id][session_type] = INVALID_SESSION;
@@ -444,7 +468,7 @@ static bool msm_pcm_routing_route_is_set(u16 be_id, u16 fe_id)
 
 static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 {
-	int session_type, path_type;
+	int session_type, path_type, port_id, topology;
 	u32 channels;
 	uint16_t bits_per_sample = 16;
 
@@ -466,7 +490,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	}
 
 	mutex_lock(&routing_lock);
-
+	topology = get_topology(path_type);
 	if (set) {
 		if (!test_bit(val, &msm_bedais[reg].fe_sessions) &&
 			(msm_bedais[reg].port_id == VOICE_PLAYBACK_TX))
@@ -485,19 +509,23 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				path_type,
 				msm_bedais[reg].sample_rate,
 				channels,
-				DEFAULT_COPP_TOPOLOGY,
+				topology,
 				msm_bedais[reg].perf_mode,
 				bits_per_sample);
 			} else
 				adm_open(msm_bedais[reg].port_id,
 				path_type,
 				msm_bedais[reg].sample_rate, channels,
-				DEFAULT_COPP_TOPOLOGY, false, bits_per_sample);
+				topology, false, bits_per_sample);
 
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type);
-			srs_port_id = msm_bedais[reg].port_id;
+			port_id = srs_port_id = msm_bedais[reg].port_id;
 			srs_send_params(srs_port_id, 1, 0);
+			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+				if (dolby_dap_init(port_id, channels) < 0)
+					pr_err("%s: Err init dolby dap\n",
+						__func__);
 		}
 	} else {
 		if (test_bit(val, &msm_bedais[reg].fe_sessions) &&
@@ -507,6 +535,8 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
 			adm_close(msm_bedais[reg].port_id);
+			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+				dolby_dap_deinit(msm_bedais[reg].port_id);
 			msm_pcm_routing_build_matrix(val,
 				fe_dai_map[val][session_type], path_type);
 		}
@@ -2112,6 +2142,30 @@ static const struct snd_kcontrol_new dolby_security_controls[] = {
 	msm_routing_put_dolby_security_control),
 };
 
+static const struct snd_kcontrol_new dolby_dap_param_to_set_controls[] = {
+	SOC_SINGLE_MULTI_EXT("DS1 DAP Set Param", SND_SOC_NOPM, 0, 0xFFFFFFFF,
+	0, 128, msm_routing_get_dolby_dap_param_to_set_control,
+	msm_routing_put_dolby_dap_param_to_set_control),
+};
+
+static const struct snd_kcontrol_new dolby_dap_param_to_get_controls[] = {
+	SOC_SINGLE_MULTI_EXT("DS1 DAP Get Param", SND_SOC_NOPM, 0, 0xFFFFFFFF,
+	0, 128, msm_routing_get_dolby_dap_param_to_get_control,
+	msm_routing_put_dolby_dap_param_to_get_control),
+};
+
+static const struct snd_kcontrol_new dolby_dap_param_visualizer_controls[] = {
+	SOC_SINGLE_MULTI_EXT("DS1 DAP Get Visualizer", SND_SOC_NOPM, 0,
+	0xFFFFFFFF, 0, 41, msm_routing_get_dolby_dap_param_visualizer_control,
+	msm_routing_put_dolby_dap_param_visualizer_control),
+};
+
+static const struct snd_kcontrol_new dolby_dap_param_end_point_controls[] = {
+	SOC_SINGLE_MULTI_EXT("DS1 DAP Endpoint", SND_SOC_NOPM, 0,
+	0xFFFFFFFF, 0, 1, msm_routing_get_dolby_dap_endpoint_control,
+	msm_routing_put_dolby_dap_endpoint_control),
+};
+
 static const struct snd_kcontrol_new eq_enable_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1 EQ Enable", SND_SOC_NOPM,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_eq_enable_mixer,
@@ -2963,7 +3017,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	unsigned int be_id = rtd->dai_link->be_id;
-	int i, session_type;
+	int i, session_type, path_type, topology;
 	struct msm_pcm_routing_bdai_data *bedai;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
@@ -2974,13 +3028,20 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	bedai = &msm_bedais[be_id];
 	session_type = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
 		0 : 1);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		path_type = ADM_PATH_PLAYBACK;
+	else
+		path_type = ADM_PATH_LIVE_REC;
 
 	mutex_lock(&routing_lock);
-
+	topology = get_topology(path_type);
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
-		if (fe_dai_map[i][session_type] != INVALID_SESSION)
+		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
 			adm_close(bedai->port_id);
 			srs_port_id = -1;
+			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+				dolby_dap_deinit(bedai->port_id);
+		}
 	}
 
 	bedai->active = 0;
@@ -2996,7 +3057,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	unsigned int be_id = rtd->dai_link->be_id;
-	int i, path_type, session_type;
+	int i, path_type, session_type, port_id, topology;
 	struct msm_pcm_routing_bdai_data *bedai;
 	u32 channels;
 	bool playback, capture;
@@ -3018,7 +3079,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	}
 
 	mutex_lock(&routing_lock);
-
+	topology = get_topology(path_type);
 	if (bedai->active == 1)
 		goto done; /* Ignore prepare if back-end already active */
 
@@ -3043,21 +3104,25 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 					path_type,
 					bedai->sample_rate,
 					channels,
-					DEFAULT_COPP_TOPOLOGY, bedai->perf_mode,
+					topology, bedai->perf_mode,
 					bits_per_sample);
 			} else if (capture) {
 				adm_open(bedai->port_id,
 				path_type,
 				bedai->sample_rate,
 				channels,
-				DEFAULT_COPP_TOPOLOGY, false,
+				topology, false,
 				bits_per_sample);
 			}
 
 			msm_pcm_routing_build_matrix(i,
 				fe_dai_map[i][session_type], path_type);
-			srs_port_id = bedai->port_id;
+			port_id = srs_port_id = bedai->port_id;
 			srs_send_params(srs_port_id, 1, 0);
+			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
+				if (dolby_dap_init(port_id, channels) < 0)
+					pr_err("%s: Err init dolby dap\n",
+						__func__);
 		}
 	}
 
@@ -3156,6 +3221,22 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				dolby_security_controls,
 			ARRAY_SIZE(dolby_security_controls));
+
+	snd_soc_add_platform_controls(platform,
+				dolby_dap_param_to_set_controls,
+			ARRAY_SIZE(dolby_dap_param_to_set_controls));
+
+	snd_soc_add_platform_controls(platform,
+				dolby_dap_param_to_get_controls,
+			ARRAY_SIZE(dolby_dap_param_to_get_controls));
+
+	snd_soc_add_platform_controls(platform,
+				dolby_dap_param_visualizer_controls,
+			ARRAY_SIZE(dolby_dap_param_visualizer_controls));
+
+	snd_soc_add_platform_controls(platform,
+				dolby_dap_param_end_point_controls,
+			ARRAY_SIZE(dolby_dap_param_end_point_controls));
 
 	return 0;
 }

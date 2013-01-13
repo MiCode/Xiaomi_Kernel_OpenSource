@@ -163,6 +163,16 @@ config AUDIO_OCMEM
 	 OCMEM gets exercised for low-power
 	 audio and voice use cases.
 
+config DOLBY_DAP
+	bool "Enable Dolby DAP"
+	depends on SND_SOC_MSM8974
+	help
+	 To add support for dolby DAP post processing.
+	 This support is to configure the post processing parameters
+	 to DSP. The configuration includes sending the end point
+	 device, end point dependent post processing parameters and
+	 the various posrt processing parameters
+
 config SND_SOC_MSM8974
 	tristate "SoC Machine driver for MSM8974 boards"
 	depends on ARCH_MSM8974
@@ -173,6 +183,7 @@ config SND_SOC_MSM8974
 	select SND_SOC_MSM_HDMI_CODEC_RX
 	select SND_DYNAMIC_MINORS
 	select AUDIO_OCMEM
+	select DOLBY_DAP
 	help
 	 To add support for SoC audio on MSM8974.
 	 This will enable sound soc drivers which
