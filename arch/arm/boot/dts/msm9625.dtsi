@@ -86,6 +86,7 @@
 		qcom,hsusb-otg-otg-control = <1>;
 		qcom,hsusb-otg-disable-reset;
 		qcom,hsusb-otg-lpm-on-dev-suspend;
+		qcom,hsusb-otg-clk-always-on-workaround;
 	};
 
 	android_usb@fc42b0c8 {
