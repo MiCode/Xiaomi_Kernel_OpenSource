@@ -141,4 +141,7 @@ int multi_ch_pcm_set_volume(unsigned volume);
 
 int compressed_set_volume(unsigned volume);
 
+uint32_t get_adm_rx_topology(void);
+
+uint32_t get_adm_tx_topology(void);
 #endif /*_MSM_PCM_H*/
