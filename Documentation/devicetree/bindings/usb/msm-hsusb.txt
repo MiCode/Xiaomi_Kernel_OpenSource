@@ -47,6 +47,8 @@ Optional properties :
     - qcom,msm_bus,active_only
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
+- qcom,hsusb-otg-lpm-on-dev-suspend: If present then USB enter to
+	    low power mode upon receiving bus suspend.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -65,6 +67,7 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-power-budget = <500>;
 		qcom,hsusb-otg-pclk-src-name = "dfab_usb_clk";
 		qcom,hsusb-otg-pmic-id-irq = <47>
+		qcom,hsusb-otg-lpm-on-dev-suspend;
 
 		qcom,msm_bus,name = "usb2";
 		qcom,msm_bus,num_cases = <2>;
