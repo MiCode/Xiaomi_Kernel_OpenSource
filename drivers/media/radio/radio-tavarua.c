@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1872,6 +1872,7 @@ FUNCTION:  tavarua_fops_open
 static int tavarua_fops_open(struct file *file)
 {
 	struct tavarua_device *radio = video_get_drvdata(video_devdata(file));
+	struct marimba config = { .mod_id =  SLAVE_ID_BAHAMA};
 	int retval = -ENODEV;
 	unsigned char value;
 	/* FM core bring up */
@@ -1923,7 +1924,7 @@ static int tavarua_fops_open(struct file *file)
 		radio->marimba->mod_id = MARIMBA_SLAVE_ID_MARIMBA;
 
 	value = FM_ENABLE;
-	retval = marimba_write_bit_mask(radio->marimba,
+	retval = marimba_write_bit_mask(&config,
 			MARIMBA_XO_BUFF_CNTRL, &value, 1, value);
 	if (retval < 0) {
 		printk(KERN_ERR "%s:XO_BUFF_CNTRL write failed\n",
@@ -1937,7 +1938,7 @@ static int tavarua_fops_open(struct file *file)
 
 		radio->marimba->mod_id = SLAVE_ID_BAHAMA;
 		/* Read the Bahama version*/
-		retval = marimba_read_bit_mask(radio->marimba,
+		retval = marimba_read_bit_mask(&config,
 				0x00,  &bahama_version, 1, 0x1F);
 		if (retval < 0) {
 			printk(KERN_ERR "%s: version read failed",
@@ -1953,7 +1954,7 @@ static int tavarua_fops_open(struct file *file)
 			 */
 			value = 0x06;
 			/* value itself used as mask in these writes*/
-			retval = marimba_write_bit_mask(radio->marimba,
+			retval = marimba_write_bit_mask(&config,
 			BAHAMA_LDO_DREG_CTL0, &value, 1, value);
 			if (retval < 0) {
 				printk(KERN_ERR "%s:0xF0 write failed\n",
@@ -1961,7 +1962,7 @@ static int tavarua_fops_open(struct file *file)
 				goto open_err_all;
 			}
 			value = 0x86;
-			retval = marimba_write_bit_mask(radio->marimba,
+			retval = marimba_write_bit_mask(&config,
 				BAHAMA_LDO_AREG_CTL0, &value, 1, value);
 			if (retval < 0) {
 				printk(KERN_ERR "%s:0xF4 write failed\n",
@@ -2058,7 +2059,7 @@ static int tavarua_fops_open(struct file *file)
 open_err_all:
     /*Disable FM in case of error*/
 	value = 0x00;
-	marimba_write_bit_mask(radio->marimba, MARIMBA_XO_BUFF_CNTRL,
+	marimba_write_bit_mask(&config, MARIMBA_XO_BUFF_CNTRL,
 							&value, 1, value);
 	tavarua_disable_irq(radio);
 open_err_req_irq:
@@ -2087,6 +2088,7 @@ static int tavarua_fops_release(struct file *file)
 {
 	int retval;
 	struct tavarua_device *radio = video_get_drvdata(video_devdata(file));
+	struct marimba config = { .mod_id =  SLAVE_ID_BAHAMA};
 	unsigned char value;
 	int i = 0;
 	/*FM Core shutdown sequence for Bahama*/
@@ -2189,7 +2191,7 @@ static int tavarua_fops_release(struct file *file)
 		&& (bahama_version == 0x09 || bahama_version == 0x0a))   {
 		radio->marimba->mod_id = SLAVE_ID_BAHAMA;
 		/* actual value itself used as mask*/
-		retval = marimba_write_bit_mask(radio->marimba,
+		retval = marimba_write_bit_mask(&config,
 			BAHAMA_LDO_DREG_CTL0, &internal_vreg_ctl[bt_status][0],
 			 1, internal_vreg_ctl[index][0]);
 		if (retval < 0) {
@@ -2197,7 +2199,7 @@ static int tavarua_fops_release(struct file *file)
 			goto exit;
 		}
 		/* actual value itself used as mask*/
-		retval = marimba_write_bit_mask(radio->marimba,
+		retval = marimba_write_bit_mask(&config,
 			BAHAMA_LDO_AREG_CTL0, &internal_vreg_ctl[bt_status][1],
 			1, internal_vreg_ctl[index][1]);
 		if (retval < 0) {
@@ -2210,7 +2212,7 @@ static int tavarua_fops_release(struct file *file)
 	}
 
 	value = 0x00;
-	retval = marimba_write_bit_mask(radio->marimba, MARIMBA_XO_BUFF_CNTRL,
+	retval = marimba_write_bit_mask(&config, MARIMBA_XO_BUFF_CNTRL,
 							&value, 1, FM_ENABLE);
 	if (retval < 0) {
 		printk(KERN_ERR "%s:XO_BUFF_CNTRL write failed\n", __func__);
