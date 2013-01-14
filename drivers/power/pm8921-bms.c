@@ -2082,9 +2082,10 @@ static int recalculate_soc(struct pm8921_bms_chip *chip)
 
 static void calculate_soc_work(struct work_struct *work)
 {
-	struct pm8921_bms_chip *chip = container_of(work,
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct pm8921_bms_chip *chip = container_of(dwork,
 				struct pm8921_bms_chip,
-				calculate_soc_delayed_work.work);
+				calculate_soc_delayed_work);
 
 	recalculate_soc(chip);
 	schedule_delayed_work(&chip->calculate_soc_delayed_work,
