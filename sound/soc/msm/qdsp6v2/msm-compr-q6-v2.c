@@ -918,6 +918,12 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		break;
 	case SNDRV_COMPRESS_DRAIN:
 		pr_debug("%s: SNDRV_COMPRESS_DRAIN\n", __func__);
+		if (atomic_read(&prtd->pending_buffer)) {
+			pr_debug("%s: no pending writes, drain would block\n",
+			 __func__);
+			return -EWOULDBLOCK;
+		}
+
 		atomic_set(&prtd->eos, 1);
 		atomic_set(&prtd->pending_buffer, 0);
 		prtd->cmd_ack = 0;
