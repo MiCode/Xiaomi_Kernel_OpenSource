@@ -506,4 +506,27 @@ config RADIO_TAVARUA
 	  To compile this driver as a module, choose M here: the
 	  module will be called radio-tavarua.
 
+config RADIO_IRIS
+        tristate "Qualcomm IRIS FM support"
+        depends on VIDEO_V4L2
+        default n
+        ---help---
+          Say Y here if you want to use the Qualcomm FM chip (IRIS).
+          This FM chip uses SMD interface
+
+          To compile this driver as a module, choose M here: the
+          module will be called radio-iris.
+
+
+config RADIO_IRIS_TRANSPORT
+        tristate "Qualcomm IRIS Transport"
+        depends on RADIO_IRIS
+        default n
+        ---help---
+          Say Y here if you want to use the Qualcomm FM chip (IRIS).
+          with SMD as transport.
+
+          To compile this driver as a module, choose M here: the
+          module will be called radio-iris-transport.
+
 endif # RADIO_ADAPTERS
