@@ -868,6 +868,27 @@ config TOUCHSCREEN_TSC2007
 	  To compile this driver as a module, choose M here: the
 	  module will be called tsc2007.
 
+config TOUCHSCREEN_MSM_LEGACY
+	default n
+	tristate "MSM Touchscreen"
+	depends on ARCH_MSM && !ARCH_MSM7X30
+	help
+	  Say Y here if you have a touchscreen interface using MSM
+	  touchscreen controller.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called msm_touch.
+
+config ANDROID_TOUCHSCREEN_MSM_HACKS
+	default y
+	depends on TOUCHSCREEN_MSM_LEGACY
+	bool "Android MSM Touchscreen hacks"
+	help
+	  Say Y here if you are running Android framework on Qualcomm
+	  MSM/QSD based Surf or FFAs. These hacks are required inorder
+	  to Android framework to receive adjusted x, y co-ordinates
+	  until proper calibration framework is in place.
+
 config TOUCHSCREEN_W90X900
 	tristate "W90P910 touchscreen driver"
 	depends on HAVE_CLK
