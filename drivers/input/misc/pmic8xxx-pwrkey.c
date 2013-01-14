@@ -30,10 +30,12 @@
 /**
  * struct pmic8xxx_pwrkey - pmic8xxx pwrkey information
  * @key_press_irq: key press irq number
+ * @pdata: platform data
  */
 struct pmic8xxx_pwrkey {
 	struct input_dev *pwr;
 	int key_press_irq;
+	const struct pm8xxx_pwrkey_platform_data *pdata;
 };
 
 static irqreturn_t pwrkey_press_irq(int irq, void *_pwrkey)
@@ -108,6 +110,8 @@ static int pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	pwrkey = kzalloc(sizeof(*pwrkey), GFP_KERNEL);
 	if (!pwrkey)
 		return -ENOMEM;
+
+	pwrkey->pdata = pdata;
 
 	pwr = input_allocate_device();
 	if (!pwr) {
