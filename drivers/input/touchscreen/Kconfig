@@ -485,6 +485,15 @@ config TOUCHSCREEN_EDT_FT5X06
 	  To compile this driver as a module, choose M here: the
 	  module will be called edt-ft5x06.
 
+config TOUCHSCREEN_MSM
+	bool "Qualcomm MSM touchscreen controller"
+	depends on ARCH_MSM7X30 && MARIMBA_TSADC
+	default n
+	help
+	  Say Y here if you have a 4-wire resistive touchscreen panel
+	  connected to the TSSC touchscreen controller on a
+	  Qualcomm MSM/QSD based SoC.
+
 config TOUCHSCREEN_MIGOR
 	tristate "Renesas MIGO-R touchscreen"
 	depends on SH_MIGOR && I2C
