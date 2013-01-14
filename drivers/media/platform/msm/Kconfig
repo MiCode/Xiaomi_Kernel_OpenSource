@@ -25,3 +25,4 @@ endif # MSM_CAMERA
 
 source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/dvb/Kconfig"
+source "drivers/media/platform/msm/vcap/Kconfig"
