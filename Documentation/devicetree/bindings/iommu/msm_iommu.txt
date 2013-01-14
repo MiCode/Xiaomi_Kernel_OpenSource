@@ -15,6 +15,7 @@ Optional properties:
   programmed by the secure environment.
 - qcom,alt-vdd-supply : Alternative regulator needed to access IOMMU
   configuration registers.
+- interrupts : should contain the performance monitor overflow interrupt number.
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:
