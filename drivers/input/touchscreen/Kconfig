@@ -912,4 +912,18 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+config TOUCHSCREEN_CYTTSP_I2C_QC
+       tristate "Cypress TTSP based touchscreens"
+       depends on I2C
+       default n
+       help
+         Say Y here if you have a Cypress TTSP based touchscreen.
+         TMA300 is a multi-touch screen which can report upto 10
+         touches at a time.
+
+         If unsure, say N.
+
+         To compile this driver as a module, choose M here: the
+         module will be called cyttsp-i2c.
+
 endif
