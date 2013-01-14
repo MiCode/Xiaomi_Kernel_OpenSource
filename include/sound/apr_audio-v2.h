@@ -6499,5 +6499,53 @@ struct afe_lpass_digital_clk_config_command {
 	struct afe_digital_clk_cfg clk_cfg;
 } __packed;
 
+/*
+ * Opcode for AFE to start DTMF.
+ */
+#define AFE_PORTS_CMD_DTMF_CTL	0x00010102
+
+/** DTMF payload.*/
+struct afe_dtmf_generation_command {
+	struct apr_hdr hdr;
+
+	/*
+	 * Duration of the DTMF tone in ms.
+	 * -1      -> continuous,
+	 *  0      -> disable
+	 */
+	int64_t                   duration_in_ms;
+
+	/*
+	 * The DTMF high tone frequency.
+	 */
+	uint16_t                  high_freq;
+
+	/*
+	 * The DTMF low tone frequency.
+	 */
+	uint16_t                  low_freq;
+
+	/*
+	 * The DTMF volume setting
+	 */
+	uint16_t                  gain;
+
+	/*
+	 * The number of ports to enable/disable on.
+	 */
+	uint16_t                  num_ports;
+
+	/*
+	 * The Destination ports - array  .
+	 * For DTMF on multiple ports, portIds needs to
+	 * be populated numPorts times.
+	 */
+	uint16_t                  port_ids;
+
+	/*
+	 * variable for 32 bit alignment of APR packet.
+	 */
+	uint16_t                  reserved;
+} __packed;
 
 #endif /*_APR_AUDIO_V2_H_ */

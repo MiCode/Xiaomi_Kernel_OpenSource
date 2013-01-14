@@ -158,6 +158,21 @@ static void voice_set_cvp_handle(struct voice_data *v, u16 cvp_handle)
 	v->cvp_handle = cvp_handle;
 }
 
+char *voc_get_session_name(u16 session_id)
+{
+	char *session_name = NULL;
+
+	if (session_id == common.voice[VOC_PATH_PASSIVE].session_id) {
+		session_name = VOICE_SESSION_NAME;
+	} else if (session_id ==
+			common.voice[VOC_PATH_VOLTE_PASSIVE].session_id) {
+		session_name = VOLTE_SESSION_NAME;
+	} else if (session_id == common.voice[VOC_PATH_FULL].session_id) {
+		session_name = VOIP_SESSION_NAME;
+	}
+	return session_name;
+}
+
 uint16_t voc_get_session_id(char *name)
 {
 	u16 session_id = 0;
@@ -1023,6 +1038,106 @@ static int voice_send_mvm_media_type_cmd(struct voice_data *v)
 fail:
 	return -EINVAL;
 }
+
+static int voice_send_dtmf_rx_detection_cmd(struct voice_data *v,
+					    uint32_t enable)
+{
+	int ret = 0;
+	void *apr_cvs;
+	u16 cvs_handle;
+	struct cvs_set_rx_dtmf_detection_cmd cvs_dtmf_rx_detection;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
+	apr_cvs = common.apr_q6_cvs;
+
+	if (!apr_cvs) {
+		pr_err("%s: apr_cvs is NULL.\n", __func__);
+		return -EINVAL;
+	}
+
+	cvs_handle = voice_get_cvs_handle(v);
+
+	/* Set SET_DTMF_RX_DETECTION */
+	cvs_dtmf_rx_detection.hdr.hdr_field =
+				APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					      APR_HDR_LEN(APR_HDR_SIZE),
+					      APR_PKT_VER);
+	cvs_dtmf_rx_detection.hdr.pkt_size =
+				APR_PKT_SIZE(APR_HDR_SIZE,
+				sizeof(cvs_dtmf_rx_detection) - APR_HDR_SIZE);
+	cvs_dtmf_rx_detection.hdr.src_port = v->session_id;
+	cvs_dtmf_rx_detection.hdr.dest_port = cvs_handle;
+	cvs_dtmf_rx_detection.hdr.token = 0;
+	cvs_dtmf_rx_detection.hdr.opcode =
+					VSS_ISTREAM_CMD_SET_RX_DTMF_DETECTION;
+	cvs_dtmf_rx_detection.cvs_dtmf_det.enable = enable;
+
+	v->cvs_state = CMD_STATUS_FAIL;
+
+	ret = apr_send_pkt(apr_cvs, (uint32_t *) &cvs_dtmf_rx_detection);
+	if (ret < 0) {
+		pr_err("%s: Error %d sending SET_DTMF_RX_DETECTION\n",
+		       __func__,
+		       ret);
+		return -EINVAL;
+	}
+
+	ret = wait_event_timeout(v->cvs_wait,
+				 (v->cvs_state == CMD_STATUS_SUCCESS),
+				 msecs_to_jiffies(TIMEOUT_MS));
+
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+void voc_disable_dtmf_det_on_active_sessions(void)
+{
+	struct voice_data *v = NULL;
+	int i;
+	for (i = 0; i < MAX_VOC_SESSIONS; i++) {
+		v = &common.voice[i];
+		if ((v->dtmf_rx_detect_en) &&
+			((v->voc_state == VOC_RUN) ||
+			 (v->voc_state == VOC_CHANGE) ||
+			 (v->voc_state == VOC_STANDBY))) {
+			pr_debug("disable dtmf det on ses_id=%d\n",
+				 v->session_id);
+			voice_send_dtmf_rx_detection_cmd(v, 0);
+		}
+	}
+}
+
+int voc_enable_dtmf_rx_detection(uint16_t session_id, uint32_t enable)
+{
+	struct voice_data *v = voice_get_session(session_id);
+	int ret = 0;
+
+	if (v == NULL) {
+		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+		return -EINVAL;
+	}
+
+	mutex_lock(&v->lock);
+	v->dtmf_rx_detect_en = enable;
+
+	if ((v->voc_state == VOC_RUN) ||
+	    (v->voc_state == VOC_CHANGE) ||
+	    (v->voc_state == VOC_STANDBY))
+		ret = voice_send_dtmf_rx_detection_cmd(v,
+						       v->dtmf_rx_detect_en);
+
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
 static int voice_config_cvs_vocoder(struct voice_data *v)
 {
 	int ret = 0;
@@ -2218,6 +2333,9 @@ static int voice_setup_vocproc(struct voice_data *v)
 	if (v->rec_info.rec_enable)
 		voice_cvs_start_record(v, v->rec_info.rec_mode);
 
+	if (v->dtmf_rx_detect_en)
+		voice_send_dtmf_rx_detection_cmd(v, v->dtmf_rx_detect_en);
+
 	rtac_add_voice(voice_get_cvs_handle(v),
 		voice_get_cvp_handle(v),
 		v->dev_rx.port_id, v->dev_tx.port_id,
@@ -2510,6 +2628,10 @@ static int voice_destroy_vocproc(struct voice_data *v)
 	voice_cvs_stop_record(v);
 	/* send stop voice cmd */
 	voice_send_stop_voice_cmd(v);
+
+	/* send stop dtmf detecton cmd */
+	if (v->dtmf_rx_detect_en)
+		voice_send_dtmf_rx_detection_cmd(v, 0);
 
 	/* detach VOCPROC and wait for response from mvm */
 	mvm_d_vocproc_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -3936,6 +4058,13 @@ void voc_register_mvs_cb(ul_cb_fn ul_cb,
 	common.mvs_info.private_data = private_data;
 }
 
+void voc_register_dtmf_rx_detection_cb(dtmf_rx_det_cb_fn dtmf_rx_ul_cb,
+				       void *private_data)
+{
+	common.dtmf_info.dtmf_rx_ul_cb = dtmf_rx_ul_cb;
+	common.dtmf_info.private_data = private_data;
+}
+
 void voc_config_vocoder(uint32_t media_type,
 			  uint32_t rate,
 			  uint32_t network_type,
@@ -4173,6 +4302,7 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			case VSS_IRECORD_CMD_STOP:
 			case VSS_ISTREAM_CMD_SET_PACKET_EXCHANGE_MODE:
 			case VSS_ISTREAM_CMD_SET_OOB_PACKET_EXCHANGE_CONFIG:
+			case VSS_ISTREAM_CMD_SET_RX_DTMF_DETECTION:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->cvs_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvs_wait);
@@ -4320,8 +4450,29 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 		}
 		rtac_make_voice_callback(RTAC_CVS, data->payload,
 					data->payload_size);
+	}  else if (data->opcode == VSS_ISTREAM_EVT_RX_DTMF_DETECTED) {
+		struct vss_istream_evt_rx_dtmf_detected *dtmf_rx_detected;
+		uint32_t *voc_pkt = data->payload;
+		uint32_t pkt_len = data->payload_size;
+
+		if ((voc_pkt != NULL) &&
+		    (pkt_len ==
+			sizeof(struct vss_istream_evt_rx_dtmf_detected))) {
+
+			dtmf_rx_detected =
+			(struct vss_istream_evt_rx_dtmf_detected *) voc_pkt;
+			pr_debug("RX_DTMF_DETECTED low_freq=%d high_freq=%d\n",
+				 dtmf_rx_detected->low_freq,
+				 dtmf_rx_detected->high_freq);
+			if (c->dtmf_info.dtmf_rx_ul_cb)
+				c->dtmf_info.dtmf_rx_ul_cb((uint8_t *)voc_pkt,
+					voc_get_session_name(v->session_id),
+					c->dtmf_info.private_data);
+		} else {
+			pr_err("Invalid packet\n");
+		}
 	}  else
-		pr_err("Unknown opcode 0x%x\n", data->opcode);
+		pr_debug("Unknown opcode 0x%x\n", data->opcode);
 
 fail:
 	return 0;
@@ -4681,6 +4832,7 @@ static int __init voice_init(void)
 		common.voice[i].dev_tx.port_id = 0x100B;
 		common.voice[i].dev_rx.port_id = 0x100A;
 		common.voice[i].sidetone_gain = 0x512;
+		common.voice[i].dtmf_rx_detect_en = 0;
 
 		common.voice[i].voc_state = VOC_INIT;
 
