@@ -411,13 +411,6 @@ config KEYBOARD_OPENCORES
 	  To compile this driver as a module, choose M here; the
 	  module will be called opencores-kbd.
 
-config KEYBOARD_PM8058
-	bool "Qualcomm PM8058 Matrix Keypad support"
-	depends on PM8058
-	help
-	  Say Y here to enable the driver for the keypad matrix interface
-	  on the Qualcomm PM8058 power management I/C device.
-
 config KEYBOARD_PXA27x
 	tristate "PXA27x/PXA3xx keypad support"
 	depends on PXA27x || PXA3xx || ARCH_MMP
@@ -623,5 +616,3 @@ config KEYBOARD_W90P910
 	  module will be called w90p910_keypad.
 
 endif
-
-

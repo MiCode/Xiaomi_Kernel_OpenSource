@@ -1,6 +1,7 @@
 #
 # Makefile for the kernel tpm device drivers.
 #
+
 obj-$(CONFIG_TCG_TPM) += tpm.o
 ifdef CONFIG_ACPI
 	obj-$(CONFIG_TCG_TPM) += tpm_bios.o

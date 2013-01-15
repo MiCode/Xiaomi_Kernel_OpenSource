@@ -294,6 +294,13 @@ config BATTERY_MSM
 	help
 	  Say Y to enable support for the battery in Qualcomm MSM.
 
+config BATTERY_MSM_FAKE
+	tristate "Fake MSM battery"
+	depends on ARCH_MSM && BATTERY_MSM
+	default n
+	help
+	  Say Y to bypass actual battery queries.
+
 config BATTERY_MSM8X60
 	tristate "MSM8X60 battery"
 	select PMIC8XXX_BATTALARM
@@ -365,13 +372,6 @@ config SMB350_CHARGER
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
 
-config BATTERY_MSM_FAKE
-	tristate "Fake MSM battery"
-	depends on ARCH_MSM && BATTERY_MSM
-	default n
-	help
-	  Say Y to bypass actual battery queries.
-
 config PM8058_FIX_USB
 	tristate "pmic8058 software workaround for usb removal"
 	depends on PMIC8058
@@ -396,19 +396,19 @@ config BATTERY_BQ27520
 	help
 	  Say Y here to enable support for batteries with BQ27520 (I2C) chips.
 
-config BATTERY_BQ27541
-	tristate "BQ27541 battery driver"
-	depends on I2C
-	default n
-	help
-	  Say Y here to enable support for batteries with BQ27541 (I2C) chips.
-
 config BQ27520_TEST_ENABLE
 	bool "Enable BQ27520 Fuel Gauge Chip Test"
 	depends on BATTERY_BQ27520
 	default n
 	help
 	  Say Y here to enable Test sysfs Interface for BQ27520 Drivers.
+
+config BATTERY_BQ27541
+	tristate "BQ27541 battery driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable support for batteries with BQ27541 (I2C) chips.
 
 config BATTERY_BQ28400
 	tristate "BQ28400 battery driver"
