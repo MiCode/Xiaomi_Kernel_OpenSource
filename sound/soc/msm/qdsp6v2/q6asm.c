@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -34,12 +34,14 @@
 
 #include <mach/memory.h>
 #include <mach/debug_mm.h>
-#include <mach/qdsp6v2/audio_acdb.h>
 #include <mach/qdsp6v2/rtac.h>
 #include <mach/msm_subsystem_map.h>
 
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>
+
+#include "audio_acdb.h"
+
 
 #define TRUE        0x01
 #define FALSE       0x00
