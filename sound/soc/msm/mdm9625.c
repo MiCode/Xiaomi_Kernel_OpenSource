@@ -711,6 +711,25 @@ static struct snd_soc_dai_link mdm9625_dai[] = {
 		.codec_name = "snd-soc-dummy",
 		.be_id = MSM_FRONTEND_DAI_VOLTE,
 	},
+	{	.name = "MSM AFE-PCM RX",
+		.stream_name = "AFE-PROXY RX",
+		.cpu_dai_name = "msm-dai-q6-dev.241",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.platform_name  = "msm-pcm-afe",
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+	},
+	{
+		.name = "MSM AFE-PCM TX",
+		.stream_name = "AFE-PROXY TX",
+		.cpu_dai_name = "msm-dai-q6-dev.240",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.platform_name  = "msm-pcm-afe",
+		.ignore_suspend = 1,
+	},
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_MI2S_RX,
@@ -736,6 +755,26 @@ static struct snd_soc_dai_link mdm9625_dai[] = {
 		.be_id = MSM_BACKEND_DAI_MI2S_TX,
 		.be_hw_params_fixup = &mdm9625_mi2s_tx_be_hw_params_fixup,
 		.ops = &mdm9625_mi2s_be_ops,
+	},
+	{
+		.name = LPASS_BE_AFE_PCM_RX,
+		.stream_name = "AFE Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.224",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AFE_PCM_RX,
+	},
+	{
+		.name = LPASS_BE_AFE_PCM_TX,
+		.stream_name = "AFE Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.225",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
 	},
 };
 
