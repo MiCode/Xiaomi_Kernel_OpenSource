@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@
 #define Q6SS_SLP_RET_N			BIT(19)
 #define Q6SS_CLAMP_IO			BIT(20)
 #define QDSS_BHS_ON			BIT(21)
+#define QDSS_LDO_BYP			BIT(22)
 
 /* QDSP6SS_CGC_OVERRIDE */
 #define Q6SS_CORE_CLK_EN		BIT(0)
@@ -125,7 +126,7 @@ void pil_q6v5_shutdown(struct pil_desc *pil)
 	val = (Q6SS_CORE_ARES | Q6SS_BUS_ARES_ENA);
 	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
 
-	/* Kill power at block headswitch (affects LPASS only) */
+	/* Kill power at block headswitch */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
 	val &= ~QDSS_BHS_ON;
 	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
@@ -142,10 +143,12 @@ int pil_q6v5_reset(struct pil_desc *pil)
 	val |= (Q6SS_CORE_ARES | Q6SS_BUS_ARES_ENA | Q6SS_STOP_CORE);
 	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
 
-	/* Enable power block headswitch (only affects LPASS) */
+	/* Enable power block headswitch, and wait for it to stabilize */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
-	val |= QDSS_BHS_ON;
+	val |= QDSS_BHS_ON | QDSS_LDO_BYP;
 	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+	mb();
+	udelay(1);
 
 	/* Turn on memories */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
