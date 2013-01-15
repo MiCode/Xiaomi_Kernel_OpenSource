@@ -155,6 +155,12 @@ enum msm_ctrl_state {
 	MSM_CTRL_DOWN,
 };
 
+enum msm_slim_msgq {
+	MSM_MSGQ_DISABLED,
+	MSM_MSGQ_RESET,
+	MSM_MSGQ_ENABLED,
+};
+
 struct msm_slim_sps_bam {
 	u32			hdl;
 	void __iomem		*base;
@@ -209,7 +215,7 @@ struct msm_slim_ctrl {
 	struct clk		*hclk;
 	struct mutex		tx_lock;
 	u8			pgdla;
-	bool			use_rx_msgqs;
+	enum msm_slim_msgq	use_rx_msgqs;
 	int			pipe_b;
 	struct completion	reconf;
 	bool			reconf_busy;
@@ -273,6 +279,9 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 			u32 pipe_reg, bool remote);
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg);
 
+int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
+				struct msm_slim_endp *endpoint,
+				struct completion *notify);
 void msm_slim_qmi_exit(struct msm_slim_ctrl *dev);
 int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master);
 int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active);

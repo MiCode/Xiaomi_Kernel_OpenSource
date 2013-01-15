@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/pm_runtime.h>
 #include <linux/dma-mapping.h>
 #include <linux/slimbus/slimbus.h>
@@ -378,53 +377,19 @@ err_exit:
 	return ret;
 }
 
-static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
+int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
+				struct msm_slim_endp *endpoint,
+				struct completion *notify)
 {
 	int i, ret;
-	u32 pipe_offset;
-	struct msm_slim_endp *endpoint = &dev->rx_msgq;
-	struct sps_connect *config = &endpoint->config;
-	struct sps_mem_buffer *descr = &config->desc;
-	struct sps_mem_buffer *mem = &endpoint->buf;
-	struct completion *notify = &dev->rx_msgq_notify;
-
 	struct sps_register_event sps_error_event; /* SPS_ERROR */
 	struct sps_register_event sps_descr_event; /* DESCR_DONE */
-
-	init_completion(notify);
-	if (!dev->use_rx_msgqs)
-		return 0;
-
-	/* Allocate the endpoint */
-	ret = msm_slim_init_endpoint(dev, endpoint);
-	if (ret) {
-		dev_err(dev->dev, "init_endpoint failed 0x%x\n", ret);
-		goto sps_init_endpoint_failed;
-	}
-
-	/* Get the pipe indices for the message queues */
-	pipe_offset = (readl_relaxed(dev->base + pipe_reg) & 0xfc) >> 2;
-	dev_dbg(dev->dev, "Message queue pipe offset %d\n", pipe_offset);
-
-	config->mode = SPS_MODE_SRC;
-	config->source = dev->bam.hdl;
-	config->destination = SPS_DEV_HANDLE_MEM;
-	config->src_pipe_index = pipe_offset;
-	config->options = SPS_O_DESC_DONE | SPS_O_ERROR |
-				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
-
-	/* Allocate memory for the FIFO descriptors */
-	ret = msm_slim_sps_mem_alloc(dev, descr,
-				MSM_SLIM_DESC_NUM * sizeof(struct sps_iovec));
-	if (ret) {
-		dev_err(dev->dev, "unable to allocate SPS descriptors\n");
-		goto alloc_descr_failed;
-	}
+	struct sps_connect *config = &endpoint->config;
 
 	ret = sps_connect(endpoint->sps, config);
 	if (ret) {
 		dev_err(dev->dev, "sps_connect failed 0x%x\n", ret);
-		goto sps_connect_failed;
+		return ret;
 	}
 
 	memset(&sps_descr_event, 0x00, sizeof(sps_descr_event));
@@ -453,13 +418,6 @@ static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
 		goto sps_reg_event_failed;
 	}
 
-	/* Allocate memory for the message buffer(s), N descrs, 4-byte mesg */
-	ret = msm_slim_sps_mem_alloc(dev, mem, MSM_SLIM_DESC_NUM * 4);
-	if (ret) {
-		dev_err(dev->dev, "dma_alloc_coherent failed\n");
-		goto alloc_buffer_failed;
-	}
-
 	/*
 	 * Call transfer_one for each 4-byte buffer
 	 * Use (buf->size/4) - 1 for the number of buffer to post
@@ -475,20 +433,74 @@ static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
 	}
 
 	return 0;
-
 sps_transfer_failed:
-	msm_slim_sps_mem_free(dev, mem);
-alloc_buffer_failed:
 	memset(&sps_error_event, 0x00, sizeof(sps_error_event));
 	sps_register_event(endpoint->sps, &sps_error_event);
 sps_reg_event_failed:
 	sps_disconnect(endpoint->sps);
-sps_connect_failed:
+	return ret;
+}
+static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
+{
+	int ret;
+	u32 pipe_offset;
+	struct msm_slim_endp *endpoint = &dev->rx_msgq;
+	struct sps_connect *config = &endpoint->config;
+	struct sps_mem_buffer *descr = &config->desc;
+	struct sps_mem_buffer *mem = &endpoint->buf;
+	struct completion *notify = &dev->rx_msgq_notify;
+
+	init_completion(notify);
+	if (dev->use_rx_msgqs == MSM_MSGQ_DISABLED)
+		return 0;
+
+	/* Allocate the endpoint */
+	ret = msm_slim_init_endpoint(dev, endpoint);
+	if (ret) {
+		dev_err(dev->dev, "init_endpoint failed 0x%x\n", ret);
+		goto sps_init_endpoint_failed;
+	}
+
+	/* Get the pipe indices for the message queues */
+	pipe_offset = (readl_relaxed(dev->base + pipe_reg) & 0xfc) >> 2;
+	dev_dbg(dev->dev, "Message queue pipe offset %d\n", pipe_offset);
+
+	config->mode = SPS_MODE_SRC;
+	config->source = dev->bam.hdl;
+	config->destination = SPS_DEV_HANDLE_MEM;
+	config->src_pipe_index = pipe_offset;
+	config->options = SPS_O_DESC_DONE | SPS_O_ERROR |
+				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
+
+	/* Allocate memory for the FIFO descriptors */
+	ret = msm_slim_sps_mem_alloc(dev, descr,
+				MSM_SLIM_DESC_NUM * sizeof(struct sps_iovec));
+	if (ret) {
+		dev_err(dev->dev, "unable to allocate SPS descriptors\n");
+		goto alloc_descr_failed;
+	}
+
+	/* Allocate memory for the message buffer(s), N descrs, 4-byte mesg */
+	ret = msm_slim_sps_mem_alloc(dev, mem, MSM_SLIM_DESC_NUM * 4);
+	if (ret) {
+		dev_err(dev->dev, "dma_alloc_coherent failed\n");
+		goto alloc_buffer_failed;
+	}
+
+	ret = msm_slim_connect_endp(dev, endpoint, notify);
+
+	if (!ret) {
+		dev->use_rx_msgqs = MSM_MSGQ_ENABLED;
+		return 0;
+	}
+
+	msm_slim_sps_mem_free(dev, mem);
+alloc_buffer_failed:
 	msm_slim_sps_mem_free(dev, descr);
 alloc_descr_failed:
 	msm_slim_free_endpoint(endpoint);
 sps_init_endpoint_failed:
-	dev->use_rx_msgqs = 0;
+	dev->use_rx_msgqs = MSM_MSGQ_DISABLED;
 	return ret;
 }
 
@@ -550,7 +562,7 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 	ret = sps_register_bam_device(&bam_props, &bam_handle);
 	if (ret) {
 		dev_err(dev->dev, "disabling BAM: reg-bam failed 0x%x\n", ret);
-		dev->use_rx_msgqs = 0;
+		dev->use_rx_msgqs = MSM_MSGQ_DISABLED;
 		goto init_rx_msgq;
 	}
 	dev->bam.hdl = bam_handle;
@@ -569,7 +581,7 @@ init_rx_msgq:
 
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 {
-	if (dev->use_rx_msgqs) {
+	if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED) {
 		struct msm_slim_endp *endpoint = &dev->rx_msgq;
 		struct sps_connect *config = &endpoint->config;
 		struct sps_mem_buffer *descr = &config->desc;
@@ -581,6 +593,7 @@ void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 		sps_disconnect(endpoint->sps);
 		msm_slim_sps_mem_free(dev, descr);
 		msm_slim_free_endpoint(endpoint);
+		dev->use_rx_msgqs = MSM_MSGQ_RESET;
 	}
 	if (dereg) {
 		sps_deregister_bam_device(dev->bam.hdl);
