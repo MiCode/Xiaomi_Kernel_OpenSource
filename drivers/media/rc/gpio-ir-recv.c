@@ -41,7 +41,7 @@ struct gpio_rc_dev {
 	struct rc_dev *rcdev;
 	struct pm_qos_request pm_qos_req;
 	struct timer_list gpio_ir_timer;
-	unsigned int gpio_nr;
+	int gpio_nr;
 	bool active_low;
 	int can_sleep;
 	bool can_wakeup;
@@ -52,7 +52,7 @@ struct gpio_rc_dev {
 static irqreturn_t gpio_ir_recv_irq(int irq, void *dev_id)
 {
 	struct gpio_rc_dev *gpio_dev = dev_id;
-	unsigned int gval;
+	int gval;
 	int rc = 0;
 	enum raw_event_type type = IR_SPACE;
 
