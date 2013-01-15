@@ -2192,7 +2192,7 @@ static unsigned long venus_hfi_get_clock_rate(struct venus_core_clock *clock,
 			break;
 		ret = table[i].freq;
 	}
-	dprintk(VIDC_DBG, "Required clock rate = %lu\n", ret);
+	dprintk(VIDC_PROF, "Required clock rate = %lu\n", ret);
 	return ret;
 }
 
