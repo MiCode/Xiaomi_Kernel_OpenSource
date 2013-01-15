@@ -85,9 +85,11 @@ Required properties:
  - qcom,msm-dai-q6-dev-id : The slimbus multi channel port ID
                             Value is from 16384 to 16393
                             BT SCO port ID value from 12288 to 12289
-                            RT Proxy port ID values from 224 to 225 and 240 to 241
+                            RT Proxy port ID values from 224 to 225 and 240 to
+			    241
                             FM Rx and TX port ID values from 12292 to 12293
-                            incall record Rx and TX port ID values from 32771 to 32772
+                            incall record Rx and TX port ID values from 32771 to
+			    32772
 
 * msm-auxpcm
 
@@ -161,22 +163,24 @@ Required properties:
 
  - qcom,msm_bus,num_cases:                 Total number of use cases
 
- - qcom,msm_bus,active_only:               Context flag for requests in active or
-                                           dual (active & sleep) contex
+ - qcom,msm_bus,active_only:               Context flag for requests in active
+					   or dual (active & sleep) contex
 
  - qcom,msm_bus,num_paths:                 Total number of master-slave pairs
 
- - qcom,msm_bus,vectors:                   Arrays of unsigned integers representing:
-                                           master-id, slave-id, arbitrated bandwidth,
-                                           instantaneous bandwidth
+ - qcom,msm_bus,vectors:                   Arrays of unsigned integers
+					   representing:
+					       master-id, slave-id, arbitrated
+					       bandwidth,
+					       instantaneous bandwidth
 * wcd9xxx_intc
 
 Required properties:
 
  - compatible :                            "qcom,wcd9xxx-irq"
 
- - interrupt-controller :                  Mark this device node as an interrupt
-                                           controller
+ - interrupt-controller :                  Mark this device node as an
+					   interrupt controller
 
  - #interrupt-cells :                      Should be 1
 
@@ -442,25 +446,34 @@ Required properties:
 Required properties:
 
  - compatible : "qcom,msm-dai-q6-mi2s"
- - qcom,msm-dai-q6-mi2s-dev-id: MSM or MDM can use Slimbus or I2S interface to transfer data
-								to (WCD9XXX) codec. If slimbus interface is used then
-								"msm-dai-q6" needs to be filled with correct data for slimbus
-								interface. The sections "msm-dai-mi2s" is used by MDM or MSM
-								to use I2S interface with codec. This section is used by CPU
-								driver in ASOC MSM to configure MI2S interface. MSM internally
-								has multiple MI2S namely Primary, Secondary, Tertiary and
-								Quaternary MI2S. They are represented with id 0, 1, 2, 3
-								respectively. The field "qcom,msm-dai-q6-mi2s-dev-id" represents
-								which of the MI2S block is used. These MI2S are connected to I2S
-								interface.
+ - qcom,msm-dai-q6-mi2s-dev-id: MSM or MDM can use Slimbus or I2S interface to
+				transfer data to (WCD9XXX) codec.
+				If slimbus interface is used then "msm-dai-q6"
+				needs to be filled with correct data for
+				slimbus interface.
+				The sections "msm-dai-mi2s" is used by MDM or
+				MSM to use I2S interface with codec.
+				This section is used by CPU driver in ASOC MSM
+				to configure MI2S interface. MSM internally
+				has multiple MI2S namely Primary, Secondary,
+				Tertiary and Quaternary MI2S.
+				They are represented with id 0, 1, 2, 3
+				respectively.
+				The field "qcom,msm-dai-q6-mi2s-dev-id"
+				represents which of the MI2S block is used.
+				These MI2S are connected to I2S interface.
 
- - qcom,msm-mi2s-rx-lines:		Each MI2S interface in MSM has one or more SD lines. These lines
-								are used for data transfer between codec and MSM. This element in
-								indicates which output RX lines are used in the MI2S interface.
+ - qcom,msm-mi2s-rx-lines:	Each MI2S interface in MSM has one or more SD
+				lines. These lines are used for data transfer
+				between codec and MSM.
+				This element in indicates which output RX lines
+				are used in the MI2S interface.
 
- - qcom,msm-mi2s-tx-lines:  	Each MI2S interface in MSM has one or more SD lines. These lines
-								are used for data transfer between codec and MSM. This element in
-								indicates which input TX lines are used in the MI2S interface.
+ - qcom,msm-mi2s-tx-lines:  	Each MI2S interface in MSM has one or more SD
+				lines. These lines are used for data transfer
+				between codec and MSM.
+				This element in indicates which input TX lines
+				are used in the MI2S interface.
 
 Example:
 
@@ -540,9 +553,9 @@ Required properties:
 	It is possible that some MSM use PIL to load the ADSP image. While
 	other MSM may use SBL to load the ADSP image at boot. Audio APR needs
 	state of ADSP to register and enable APR to be used for sending commands
-	to ADSP. so adsp-state represents the state of ADSP to ADSP loader. Value
-	of 0 indicates ADSP loader needs to use PIL and value of 2 means ADSP
-	image is already loaded by SBL.
+	to ADSP. so adsp-state represents the state of ADSP to ADSP loader.
+	Value of 0 indicates ADSP loader needs to use PIL and value of 2 means
+	ADSP image is already loaded by SBL.
 
 Example:
 
