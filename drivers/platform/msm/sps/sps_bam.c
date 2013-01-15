@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1049,6 +1049,13 @@ int sps_bam_pipe_set_params(struct sps_bam *dev, u32 pipe_index, u32 options)
 		else {
 			pipe->sys.desc_cache =
 				vmalloc(pipe->desc_size + size);
+
+			if (pipe->sys.desc_cache == NULL) {
+				SPS_ERR("sps:No memory for pipe %d of BAM 0x%x",
+					pipe_index, BAM_ID(dev));
+				return -ENOMEM;
+			}
+
 			memset(pipe->sys.desc_cache, 0, pipe->desc_size + size);
 		}
 
