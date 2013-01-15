@@ -126,5 +126,7 @@
 		coresight-id = <9>;
 		coresight-name = "coresight-csr";
 		coresight-nr-inports = <0>;
+
+		qcom,blk-size = <1>;
 	};
 };
