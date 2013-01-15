@@ -390,10 +390,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Slice Mode",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE,
-		.maximum = V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES,
+		.maximum = V4L2_MPEG_VIDEO_MULTI_SLICE_GOB,
 		.default_value = V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE,
 		.step = 1,
-		.menu_skip_mask = 0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE) |
+		(1 << V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) |
+		(1 << V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) |
+		(1 << V4L2_MPEG_VIDEO_MULTI_SLICE_GOB)
+		),
+		.qmenu = NULL,
 		.cluster = MSM_VENC_CTRL_CLUSTER_SLICING,
 	},
 	{
@@ -415,6 +421,18 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.minimum = 1,
 		.maximum = MAX_SLICE_MB_SIZE,
 		.default_value = 0,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_SLICING,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_GOB,
+		.name = "Slice GOB",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = MAX_SLICE_MB_SIZE,
+		.default_value = 1,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -1281,6 +1299,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES:
 			temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES;
 			break;
+		case V4L2_MPEG_VIDEO_MULTI_SLICE_GOB:
+			temp = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_GOB;
+			break;
 		case V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_SINGLE:
 		default:
 			temp = 0;
@@ -1300,6 +1321,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_GOB:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
 
 		property_id =
