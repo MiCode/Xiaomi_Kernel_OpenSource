@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
+#include <linux/err.h>
 
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/qdsp6v2/audio_acdb.h>
@@ -54,6 +55,14 @@ int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
 	int index;
 
 	pr_debug("SRS - %s", __func__);
+
+	index = afe_get_port_index(port_id);
+
+	if (IS_ERR_VALUE(index)) {
+		pr_err("%s: invald port id\n", __func__);
+		return index;
+	}
+
 	switch (srs_tech_id) {
 	case SRS_ID_GLOBAL: {
 		struct srs_trumedia_params_GLOBAL *glb_params = NULL;
@@ -199,7 +208,6 @@ int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
 	open->hdr.src_port = port_id;
 	open->hdr.dest_svc = APR_SVC_ADM;
 	open->hdr.dest_domain = APR_DOMAIN_ADSP;
-	index = afe_get_port_index(port_id);
 	open->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
 	open->hdr.token = port_id;
 	open->hdr.opcode = ADM_CMD_SET_PARAMS;
