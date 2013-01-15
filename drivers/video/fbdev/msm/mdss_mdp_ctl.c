@@ -88,7 +88,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 	struct mdss_mdp_pipe *pipe;
 	const int fps = 60;
 	u32 quota, rate;
-	u32 v_total, v_active;
+	u32 v_total;
 	int i;
 	u32 max_clk_rate = 0, ab_total = 0, ib_total = 0;
 
@@ -99,7 +99,6 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 	if (mixer->rotator_mode) {
 		pipe = mixer->stage_pipe[0]; /* rotator pipe */
 		v_total = pipe->flags & MDP_ROT_90 ? pipe->dst.w : pipe->dst.h;
-		v_active = v_total;
 	} else {
 		int is_writeback = false;
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
@@ -108,13 +107,11 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 			v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
 				   pinfo->lcdc.v_front_porch +
 				   pinfo->lcdc.v_pulse_width);
-			v_active = pinfo->yres;
 
 			if (pinfo->type == WRITEBACK_PANEL)
 				is_writeback = true;
 		} else {
 			v_total = mixer->height;
-			v_active = v_total;
 
 			is_writeback = true;
 		}
@@ -144,21 +141,19 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		else
 			quota *= pipe->src_fmt->bpp;
 
-		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
-			quota = (quota / v_active) * v_total;
-		else if (mixer->rotator_mode)
-			quota *= 2; /* bus read + write */
-
 		rate = pipe->dst.w;
-		if (pipe->src.h > pipe->dst.h) {
+		if (pipe->src.h > pipe->dst.h)
 			rate = (rate * pipe->src.h) / pipe->dst.h;
-			ib_quota = (quota / pipe->dst.h) * pipe->src.h;
-		} else {
-			ib_quota = quota;
-		}
+
 		rate *= v_total * fps;
-		if (mixer->rotator_mode)
+		if (mixer->rotator_mode) {
 			rate /= 4; /* block mode fetch at 4 pix/clk */
+			quota *= 2; /* bus read + write */
+			ib_quota = quota;
+		} else {
+			ib_quota = (quota / pipe->dst.h) * v_total;
+		}
+
 
 		pr_debug("mixer=%d pnum=%d clk_rate=%u bus ab=%u ib=%u\n",
 			 mixer->num, pipe->num, rate, quota, ib_quota);
