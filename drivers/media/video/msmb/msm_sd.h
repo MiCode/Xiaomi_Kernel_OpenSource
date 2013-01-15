@@ -14,6 +14,7 @@
 #define _MSM_SD_H
 
 #include <media/v4l2-subdev.h>
+#include <media/msmb_camera.h>
 
 /* NOTE: this header file should ONLY be included by subdev drivers */
 
