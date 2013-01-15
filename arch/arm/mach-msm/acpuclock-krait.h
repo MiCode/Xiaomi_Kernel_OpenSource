@@ -227,6 +227,20 @@ struct scalable {
 };
 
 /**
+ * struct bin_info - Hardware speed and voltage binning info.
+ * @speed_valid: @speed field is valid
+ * @pvs_valid: @pvs field is valid
+ * @speed: Speed bin ID
+ * @pvs: PVS bin ID
+ */
+struct bin_info {
+	bool speed_valid;
+	bool pvs_valid;
+	int speed;
+	int pvs;
+};
+
+/**
  * struct pvs_table - CPU performance level table and size.
  * @table: CPU performance level table
  * @size: sizeof(@table)
@@ -247,6 +261,7 @@ struct pvs_table {
  * @l2_freq_tbl: L2 frequency table.
  * @l2_freq_tbl_size: Size of @l2_freq_tbl.
  * @pte_efuse_phys: Physical address of PTE EFUSE.
+ * @get_bin_info: Function to populate bin_info from pte_efuse.
  * @bus_scale: MSM bus driver parameters.
  * @stby_khz: KHz value corresponding to an always-on clock source.
  */
@@ -258,6 +273,7 @@ struct acpuclk_krait_params {
 	struct l2_level *l2_freq_tbl;
 	size_t l2_freq_tbl_size;
 	phys_addr_t pte_efuse_phys;
+	void (*get_bin_info)(void __iomem *base, struct bin_info *bin);
 	struct msm_bus_scale_pdata *bus_scale;
 	unsigned long stby_khz;
 };
@@ -295,6 +311,16 @@ struct drv_data {
 struct acpuclk_platform_data {
 	bool uses_pm8917;
 };
+
+/**
+ * get_krait_bin_format_a - Populate bin_info from a 'Format A' pte_efuse
+ */
+void __init get_krait_bin_format_a(void __iomem *base, struct bin_info *bin);
+
+/**
+ * get_krait_bin_format_b - Populate bin_info from a 'Format B' pte_efuse
+ */
+void __init get_krait_bin_format_b(void __iomem *base, struct bin_info *bin);
 
 /**
  * acpuclk_krait_init - Initialize the Krait CPU clock driver give SoC params.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1040,62 +1040,78 @@ static void krait_apply_vmin(struct acpu_level *tbl)
 	}
 }
 
-static int __init get_speed_bin(u32 pte_efuse)
+void __init get_krait_bin_format_a(void __iomem *base, struct bin_info *bin)
 {
-	uint32_t speed_bin;
+	u32 pte_efuse = readl_relaxed(base);
 
-	speed_bin = pte_efuse & 0xF;
-	if (speed_bin == 0xF)
-		speed_bin = (pte_efuse >> 4) & 0xF;
+	bin->speed = pte_efuse & 0xF;
+	if (bin->speed == 0xF)
+		bin->speed = (pte_efuse >> 4) & 0xF;
+	bin->speed_valid = bin->speed != 0xF;
 
-	if (speed_bin == 0xF) {
-		speed_bin = 0;
-		dev_warn(drv.dev, "SPEED BIN: Defaulting to %d\n", speed_bin);
-	} else {
-		dev_info(drv.dev, "SPEED BIN: %d\n", speed_bin);
-	}
-
-	return speed_bin;
+	bin->pvs = (pte_efuse >> 10) & 0x7;
+	if (bin->pvs == 0x7)
+		bin->pvs = (pte_efuse >> 13) & 0x7;
+	bin->pvs_valid = bin->pvs != 0x7;
 }
 
-static int __init get_pvs_bin(u32 pte_efuse)
+void __init get_krait_bin_format_b(void __iomem *base, struct bin_info *bin)
 {
-	uint32_t pvs_bin;
+	u32 pte_efuse, redundant_sel;
 
-	pvs_bin = (pte_efuse >> 10) & 0x7;
-	if (pvs_bin == 0x7)
-		pvs_bin = (pte_efuse >> 13) & 0x7;
+	pte_efuse = readl_relaxed(base);
+	redundant_sel = (pte_efuse >> 24) & 0x7;
+	bin->speed = pte_efuse & 0x7;
+	bin->pvs = (pte_efuse >> 6) & 0x7;
 
-	if (pvs_bin == 0x7) {
-		pvs_bin = 0;
-		dev_warn(drv.dev, "ACPU PVS: Defaulting to %d\n", pvs_bin);
-	} else {
-		dev_info(drv.dev, "ACPU PVS: %d\n", pvs_bin);
+	switch (redundant_sel) {
+	case 1:
+		bin->speed = (pte_efuse >> 27) & 0x7;
+		break;
+	case 2:
+		bin->pvs = (pte_efuse >> 27) & 0x7;
+		break;
 	}
+	bin->speed_valid = true;
 
-	return pvs_bin;
+	/* Check PVS_BLOW_STATUS */
+	pte_efuse = readl_relaxed(base + 0x4);
+	bin->pvs_valid = !!(pte_efuse & BIT(21));
 }
 
-static struct pvs_table * __init select_freq_plan(u32 pte_efuse_phys,
-			struct pvs_table (*pvs_tables)[NUM_PVS])
+static struct pvs_table * __init select_freq_plan(
+		const struct acpuclk_krait_params *params)
 {
-	void __iomem *pte_efuse;
-	u32 pte_efuse_val;
+	void __iomem *pte_efuse_base;
+	struct bin_info bin;
 
-	pte_efuse = ioremap(pte_efuse_phys, 4);
-	if (!pte_efuse) {
-		dev_err(drv.dev, "Unable to map QFPROM base\n");
+	pte_efuse_base = ioremap(params->pte_efuse_phys, 8);
+	if (!pte_efuse_base) {
+		dev_err(drv.dev, "Unable to map PTE eFuse base\n");
 		return NULL;
 	}
+	params->get_bin_info(pte_efuse_base, &bin);
+	iounmap(pte_efuse_base);
 
-	pte_efuse_val = readl_relaxed(pte_efuse);
-	iounmap(pte_efuse);
+	if (bin.speed_valid) {
+		drv.speed_bin = bin.speed;
+		dev_info(drv.dev, "SPEED BIN: %d\n", drv.speed_bin);
+	} else {
+		drv.speed_bin = 0;
+		dev_warn(drv.dev, "SPEED BIN: Defaulting to %d\n",
+			 drv.speed_bin);
+	}
 
-	/* Select frequency tables. */
-	drv.speed_bin = get_speed_bin(pte_efuse_val);
-	drv.pvs_bin = get_pvs_bin(pte_efuse_val);
+	if (bin.pvs_valid) {
+		drv.pvs_bin = bin.pvs;
+		dev_info(drv.dev, "ACPU PVS: %d\n", drv.pvs_bin);
+	} else {
+		drv.pvs_bin = 0;
+		dev_warn(drv.dev, "ACPU PVS: Defaulting to %d\n",
+			 drv.pvs_bin);
+	}
 
-	return &pvs_tables[drv.speed_bin][drv.pvs_bin];
+	return &params->pvs_tables[drv.speed_bin][drv.pvs_bin];
 }
 
 static void __init drv_data_init(struct device *dev,
@@ -1124,7 +1140,7 @@ static void __init drv_data_init(struct device *dev,
 		GFP_KERNEL);
 	BUG_ON(!drv.bus_scale->usecase);
 
-	pvs = select_freq_plan(params->pte_efuse_phys, params->pvs_tables);
+	pvs = select_freq_plan(params);
 	BUG_ON(!pvs->table);
 
 	drv.acpu_freq_tbl = kmemdup(pvs->table, pvs->size, GFP_KERNEL);
