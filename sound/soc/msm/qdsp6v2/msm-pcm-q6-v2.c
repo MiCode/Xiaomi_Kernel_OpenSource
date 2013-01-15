@@ -50,7 +50,8 @@ static struct snd_msm_volume pcm_audio = {NULL, 0x2000};
 #define PLAYBACK_MAX_PERIOD_SIZE    12288
 #define PLAYBACK_MIN_PERIOD_SIZE    2048
 #define CAPTURE_NUM_PERIODS	16
-#define CAPTURE_PERIOD_SIZE	512
+#define CAPTURE_MAX_PERIOD_SIZE 4096
+#define CAPTURE_MIN_PERIOD_SIZE 512
 
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
@@ -64,9 +65,9 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         4,
-	.buffer_bytes_max =     CAPTURE_NUM_PERIODS * CAPTURE_PERIOD_SIZE,
-	.period_bytes_min =	CAPTURE_PERIOD_SIZE,
-	.period_bytes_max =     CAPTURE_PERIOD_SIZE,
+	.buffer_bytes_max =     CAPTURE_NUM_PERIODS * CAPTURE_MAX_PERIOD_SIZE,
+	.period_bytes_min =	CAPTURE_MIN_PERIOD_SIZE,
+	.period_bytes_max =     CAPTURE_MAX_PERIOD_SIZE,
 	.periods_min =          CAPTURE_NUM_PERIODS,
 	.periods_max =          CAPTURE_NUM_PERIODS,
 	.fifo_size =            0,
@@ -367,6 +368,17 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 			SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
 			PLAYBACK_NUM_PERIODS * PLAYBACK_MIN_PERIOD_SIZE,
 			PLAYBACK_NUM_PERIODS * PLAYBACK_MAX_PERIOD_SIZE);
+		if (ret < 0) {
+			pr_err("constraint for buffer bytes min max ret = %d\n",
+									ret);
+		}
+	}
+
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		ret = snd_pcm_hw_constraint_minmax(runtime,
+			SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
+			CAPTURE_NUM_PERIODS * CAPTURE_MIN_PERIOD_SIZE,
+			CAPTURE_NUM_PERIODS * CAPTURE_MAX_PERIOD_SIZE);
 		if (ret < 0) {
 			pr_err("constraint for buffer bytes min max ret = %d\n",
 									ret);
