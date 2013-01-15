@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -537,6 +537,7 @@ int32_t qpnp_iadc_get_rsense(int32_t *rsense)
 
 	return rc;
 }
+EXPORT_SYMBOL(qpnp_iadc_get_rsense);
 
 int32_t qpnp_check_pmic_temp(void)
 {

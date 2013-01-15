@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1228,6 +1228,12 @@ static inline int32_t qpnp_adc_tm_scale_voltage_therm_pu2(
 int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 				struct qpnp_iadc_result *result);
 /**
+ * qpnp_iadc_get_rsense() - Reads the RDS resistance value from the
+			trim registers.
+ * @rsense:	RDS resistance in nOhms.
+ */
+int32_t qpnp_iadc_get_rsense(int32_t *rsense);
+/**
  * qpnp_iadc_get_gain_and_offset() - Performs gain calibration
  *				over 17.8571mV and offset over selected
  *				channel. Channel can be internal rsense,
@@ -1313,6 +1319,8 @@ static inline int32_t qpnp_adc_tm_btm_configure(
 static inline int32_t qpnp_adc_tm_btm_end(void)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_is_ready(void)
+{ return -ENXIO; }
+static inline int32_t qpnp_iadc_get_rsense(int32_t *rsense)
 { return -ENXIO; }
 #endif
 

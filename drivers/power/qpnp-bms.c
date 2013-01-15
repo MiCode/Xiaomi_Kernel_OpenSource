@@ -2101,6 +2101,7 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 {
 	u8 iadc_channel_select;
+	int32_t rds_rsense_nohm;
 	int rc;
 
 	rc = qpnp_read_wrapper(chip, &iadc_channel_select,
@@ -2111,10 +2112,17 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 	}
 
 	iadc_channel_select &= ADC_CH_SEL_MASK;
-	if (iadc_channel_select == INTERNAL_RSENSE) {
-		pr_debug("Internal rsense used\n");
-		if (chip->use_external_rsense) {
-			pr_debug("Changing rsense to external\n");
+	if (iadc_channel_select != EXTERNAL_RSENSE
+			&& iadc_channel_select != INTERNAL_RSENSE) {
+		pr_err("IADC1_BMS_IADC configured incorrectly. Selected channel = %d\n",
+						iadc_channel_select);
+		return -EINVAL;
+	}
+
+	if (chip->use_external_rsense) {
+		pr_debug("External rsense selected\n");
+		if (iadc_channel_select == INTERNAL_RSENSE) {
+			pr_debug("Internal rsense detected; Changing rsense to external\n");
 			rc = qpnp_masked_write_iadc(chip,
 					IADC1_BMS_ADC_CH_SEL_CTL,
 					ADC_CH_SEL_MASK,
@@ -2127,10 +2135,10 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 			}
 			reset_cc(chip);
 		}
-	} else if (iadc_channel_select == EXTERNAL_RSENSE) {
-		pr_debug("External rsense used\n");
-		if (!chip->use_external_rsense) {
-			pr_debug("Changing rsense to internal\n");
+	} else {
+		pr_debug("Internal rsense selected\n");
+		if (iadc_channel_select == EXTERNAL_RSENSE) {
+			pr_debug("External rsense detected; Changing rsense to internal\n");
 			rc = qpnp_masked_write_iadc(chip,
 					IADC1_BMS_ADC_CH_SEL_CTL,
 					ADC_CH_SEL_MASK,
@@ -2143,10 +2151,16 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 			}
 			reset_cc(chip);
 		}
-	} else {
-		pr_err("IADC1_BMS_IADC configured incorrectly. Selected channel = %d\n",
-							iadc_channel_select);
-		return -EINVAL;
+
+		rc = qpnp_iadc_get_rsense(&rds_rsense_nohm);
+		if (rc) {
+			pr_err("Unable to read RDS resistance value from IADC; rc = %d\n",
+								rc);
+			return rc;
+		}
+		chip->r_sense_mohm = rds_rsense_nohm/1000000;
+		pr_debug("rds_rsense = %d nOhm, saved as %d mOhm\n",
+					rds_rsense_nohm, chip->r_sense_mohm);
 	}
 	return 0;
 }
@@ -2252,9 +2266,9 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	vbatt = 0;
 	get_battery_voltage(&vbatt);
 
-	pr_info("probe success: soc =%d vbatt = %d ocv = %d\n",
+	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_mohm = %u\n",
 				get_prop_bms_capacity(chip),
-				vbatt, chip->last_ocv_uv);
+				vbatt, chip->last_ocv_uv, chip->r_sense_mohm);
 	return 0;
 
 unregister_dc:
