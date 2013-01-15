@@ -588,10 +588,10 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 
 			msleep(20);
 			ret = mfd->off_fnc(mfd);
-			if (ret) {
+			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
+			else
 				mdss_fb_release_fences(mfd);
-			}
 			mfd->op_enable = true;
 		}
 		break;
