@@ -2636,6 +2636,7 @@ static int __init msm_audio_init(void)
 		pr_info("%s: Not APQ8064 in I2S mode\n", __func__);
 		return -ENODEV;
 	}
+	mutex_init(&cdc_mclk_mutex);
 	pr_debug("%s: APQ8064 is in I2S mode\n", __func__);
 	mbhc_cfg.calibration = def_tabla_mbhc_cal();
 	if (!mbhc_cfg.calibration) {
@@ -2680,7 +2681,6 @@ static int __init msm_audio_init(void)
 		return ret;
 	}
 
-	mutex_init(&cdc_mclk_mutex);
 	atomic_set(&mi2s_rsc_ref, 0);
 	atomic_set(&auxpcm_rsc_ref, 0);
 	return ret;
