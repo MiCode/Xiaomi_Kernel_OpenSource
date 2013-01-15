@@ -599,6 +599,23 @@ static int read_vsense_avg(struct pm8921_bms_chip *chip, int *result)
 	return 0;
 }
 
+static int get_batt_temp(struct pm8921_bms_chip *chip, int *batt_temp)
+{
+	int rc;
+	struct pm8xxx_adc_chan_result result;
+
+	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
+	if (rc) {
+		pr_err("error reading batt_temp_channel = %d, rc = %d\n",
+					chip->batt_temp_channel, rc);
+		return rc;
+	}
+	*batt_temp = result.physical;
+	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	return 0;
+}
+
 #define BMS_MODE_BIT	BIT(6)
 #define EN_VBAT_BIT	BIT(5)
 #define OVERRIDE_MODE_DELAY_MS	20
@@ -609,6 +626,7 @@ int override_mode_simultaneous_battery_voltage_and_current(int *ibat_ua,
 	int16_t vbat_raw;
 	int vsense_uv;
 	int usb_chg;
+	int batt_temp;
 
 	mutex_lock(&the_chip->bms_output_lock);
 
@@ -623,12 +641,13 @@ int override_mode_simultaneous_battery_voltage_and_current(int *ibat_ua,
 	pm_bms_read_output_data(the_chip, VBATT_AVG, &vbat_raw);
 	pm_bms_unlock_output_data(the_chip);
 	pm_bms_masked_write(the_chip, BMS_CONTROL,
-			BMS_MODE_BIT | EN_VBAT_BIT, 0);
+		BMS_MODE_BIT | EN_VBAT_BIT, 0);
 
 	pm8xxx_writeb(the_chip->dev->parent, BMS_S1_DELAY, 0x0B);
 
 	mutex_unlock(&the_chip->bms_output_lock);
 
+	get_batt_temp(the_chip, &batt_temp);
 	usb_chg = usb_chg_plugged_in(the_chip);
 
 	convert_vbatt_raw_to_uv(the_chip, usb_chg, vbat_raw, vbat_uv);
@@ -1907,23 +1926,6 @@ static void update_power_supply(struct pm8921_bms_chip *chip)
 
 	if (chip->batt_psy > 0)
 		power_supply_changed(chip->batt_psy);
-}
-
-static int get_batt_temp(struct pm8921_bms_chip *chip, int *batt_temp)
-{
-	int rc;
-	struct pm8xxx_adc_chan_result result;
-
-	rc = pm8xxx_adc_read(chip->batt_temp_channel, &result);
-	if (rc) {
-		pr_err("error reading batt_temp_channel = %d, rc = %d\n",
-					chip->batt_temp_channel, rc);
-		return rc;
-	}
-	*batt_temp = result.physical;
-	pr_debug("batt_temp phy = %lld meas = 0x%llx\n", result.physical,
-						result.measurement);
-	return 0;
 }
 
 #define MIN_DELTA_625_UV	1000
