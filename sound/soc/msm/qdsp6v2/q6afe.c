@@ -1036,9 +1036,9 @@ int afe_stop_pseudo_port(u16 port_id)
 	return 0;
 }
 
-uint32_t afe_req_mmap_handle(void)
+uint32_t afe_req_mmap_handle(struct afe_audio_client *ac)
 {
-	return this_afe.mmap_handle;
+	return ac->mem_map_handle;
 }
 
 struct afe_audio_client *q6afe_audio_client_alloc(void *priv)
@@ -1163,6 +1163,21 @@ fail:
 	q6afe_audio_client_buf_free_contiguous(dir, ac);
 	return -EINVAL;
 }
+
+int afe_memory_map(u32 dma_addr_p, u32 dma_buf_sz, struct afe_audio_client *ac)
+{
+	int ret = 0;
+
+	ac->mem_map_handle = 0;
+	ret = afe_cmd_memory_map(dma_addr_p, dma_buf_sz);
+	if (ret < 0) {
+		pr_err("%s: afe_cmd_memory_map failed\n", __func__);
+		return ret;
+	}
+	ac->mem_map_handle = this_afe.mmap_handle;
+	return ret;
+}
+
 int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 {
 	int ret = 0;
@@ -1222,6 +1237,7 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 	pr_debug("%s: dma_addr_p 0x%x , size %d\n", __func__,
 					dma_addr_p, dma_buf_sz);
 	atomic_set(&this_afe.state, 1);
+	this_afe.mmap_handle = 0;
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) mmap_region_cmd);
 	if (ret < 0) {
 		pr_err("%s: AFE memory map cmd failed %d\n",

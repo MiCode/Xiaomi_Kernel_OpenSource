@@ -110,6 +110,7 @@ struct afe_audio_client {
 	/* idx:1 out port, 0: in port*/
 	struct afe_audio_port_data port[2];
 	wait_queue_head_t      cmd_wait;
+	uint32_t               mem_map_handle;
 };
 
 int afe_open(u16 port_id, union afe_port_config *afe_config, int rate);
@@ -121,7 +122,8 @@ int afe_validate_port(u16 port_id);
 int afe_get_port_index(u16 port_id);
 int afe_start_pseudo_port(u16 port_id);
 int afe_stop_pseudo_port(u16 port_id);
-uint32_t afe_req_mmap_handle(void);
+uint32_t afe_req_mmap_handle(struct afe_audio_client *ac);
+int afe_memory_map(u32 dma_addr_p, u32 dma_buf_sz, struct afe_audio_client *ac);
 int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz);
 int afe_cmd_memory_map_nowait(int port_id, u32 dma_addr_p, u32 dma_buf_sz);
 int afe_cmd_memory_unmap(u32 dma_addr_p);
