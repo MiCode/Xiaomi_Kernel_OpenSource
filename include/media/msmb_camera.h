@@ -19,6 +19,22 @@
 #define MSM_CAMERA_NAME					"msm_camera"
 #define MSM_CONFIGURATION_NAME	"msm_config"
 
+#define MSM_CAMERA_SUBDEV_CSIPHY       0
+#define MSM_CAMERA_SUBDEV_CSID         1
+#define MSM_CAMERA_SUBDEV_ISPIF        2
+#define MSM_CAMERA_SUBDEV_VFE          3
+#define MSM_CAMERA_SUBDEV_AXI          4
+#define MSM_CAMERA_SUBDEV_VPE          5
+#define MSM_CAMERA_SUBDEV_SENSOR       6
+#define MSM_CAMERA_SUBDEV_ACTUATOR     7
+#define MSM_CAMERA_SUBDEV_EEPROM       8
+#define MSM_CAMERA_SUBDEV_CPP          9
+#define MSM_CAMERA_SUBDEV_CCI          10
+#define MSM_CAMERA_SUBDEV_LED_FLASH    11
+#define MSM_CAMERA_SUBDEV_STROBE_FLASH 12
+
+#define MSM_MAX_CAMERA_SENSORS  5
+
 /* featur base */
 #define MSM_CAMERA_FEATURE_BASE     0x00010000
 #define MSM_CAMERA_FEATURE_SHUTDOWN (MSM_CAMERA_FEATURE_BASE + 1)
