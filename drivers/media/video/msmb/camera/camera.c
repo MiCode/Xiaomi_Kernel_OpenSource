@@ -173,7 +173,6 @@ static int camera_v4l2_s_ctrl(struct file *filep, void *fh,
 {
 	int rc = 0;
 	struct v4l2_event event;
-
 	if (ctrl->id >= V4L2_CID_PRIVATE_BASE) {
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM, ctrl->id, &event);
 
@@ -222,7 +221,9 @@ static int camera_v4l2_streamon(struct file *filep, void *fh,
 {
 	struct v4l2_event event;
 	int rc;
+	struct camera_v4l2_private *sp = fh_to_private(fh);
 
+	rc = vb2_streamon(&sp->vb2_q, buf_type);
 	camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 		MSM_CAMERA_PRIV_STREAM_ON, &event);
 
@@ -231,7 +232,6 @@ static int camera_v4l2_streamon(struct file *filep, void *fh,
 		return rc;
 
 	rc = camera_check_event_status(&event);
-
 	return rc;
 }
 
@@ -240,6 +240,7 @@ static int camera_v4l2_streamoff(struct file *filep, void *fh,
 {
 	struct v4l2_event event;
 	int rc;
+	struct camera_v4l2_private *sp = fh_to_private(fh);
 
 	camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 		MSM_CAMERA_PRIV_STREAM_OFF, &event);
@@ -249,7 +250,7 @@ static int camera_v4l2_streamoff(struct file *filep, void *fh,
 		return rc;
 
 	rc = camera_check_event_status(&event);
-
+	vb2_streamoff(&sp->vb2_q, buf_type);
 	return rc;
 }
 
@@ -278,8 +279,10 @@ static int camera_v4l2_s_fmt_cap_private(struct file *filep, void *fh,
 	struct v4l2_format *pfmt)
 {
 	int rc = 0;
+	int i = 0;
 	struct v4l2_event event;
 	struct camera_v4l2_private *sp = fh_to_private(fh);
+	struct msm_v4l2_format_data *user_fmt;
 
 	if (pfmt->type == V4L2_BUF_TYPE_PRIVATE) {
 
@@ -288,6 +291,13 @@ static int camera_v4l2_s_fmt_cap_private(struct file *filep, void *fh,
 
 		memcpy(sp->vb2_q.drv_priv, pfmt->fmt.raw_data,
 			sizeof(struct msm_v4l2_format_data));
+		user_fmt = (struct msm_v4l2_format_data *)sp->vb2_q.drv_priv;
+
+		pr_debug("%s: num planes :%c\n", __func__,
+					user_fmt->num_planes);
+		for (i = 0; i < user_fmt->num_planes; i++)
+			pr_debug("%s: plane size[%d]\n", __func__,
+					user_fmt->plane_sizes[i]);
 
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 			MSM_CAMERA_PRIV_S_FMT, &event);
@@ -574,12 +584,11 @@ static int camera_v4l2_close(struct file *filep)
 		msm_destroy_session(pvdev->vdev->num);
 
 	} else {
-
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 			MSM_CAMERA_PRIV_DEL_STREAM, &event);
 
 		/* Donot wait, imaging server may have crashed */
-		msm_post_event(&event, -1);
+		msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 
 		msm_delete_command_ack_q(pvdev->vdev->num,
 			sp->stream_id);
