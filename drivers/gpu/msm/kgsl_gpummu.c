@@ -759,7 +759,9 @@ struct kgsl_mmu_ops gpummu_ops = {
 	.mmu_disable_clk_on_ts = NULL,
 	.mmu_get_pt_lsb = NULL,
 	.mmu_get_reg_gpuaddr = NULL,
+	.mmu_get_reg_ahbaddr = NULL,
 	.mmu_get_num_iommu_units = kgsl_gpummu_get_num_iommu_units,
+	.mmu_hw_halt_supported = NULL,
 };
 
 struct kgsl_mmu_pt_ops gpummu_pt_ops = {

@@ -46,6 +46,16 @@
 #define KGSL_IOMMU_V1_FSYNR0_WNR_MASK		0x00000001
 #define KGSL_IOMMU_V1_FSYNR0_WNR_SHIFT		4
 
+/* TTBR0 register fields */
+#define KGSL_IOMMU_CTX_TTBR0_ADDR_MASK		0xFFFFC000
+
+/* TLBSTATUS register fields */
+#define KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE BIT(0)
+
+/* IMPLDEF_MICRO_MMU_CTRL register fields */
+#define KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT BIT(2)
+#define KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE BIT(3)
+
 enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_GLOBAL_BASE = 0,
 	KGSL_IOMMU_CTX_TTBR0,
@@ -57,13 +67,15 @@ enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_CTX_V2PUR,
 	KGSL_IOMMU_CTX_FSYNR0,
 	KGSL_IOMMU_CTX_FSYNR1,
+	KGSL_IOMMU_CTX_TLBSYNC,
+	KGSL_IOMMU_CTX_TLBSTATUS,
+	KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL,
 	KGSL_IOMMU_REG_MAX
 };
 
 struct kgsl_iommu_register_list {
 	unsigned int reg_offset;
-	unsigned int reg_mask;
-	unsigned int reg_shift;
+	int ctx_reg;
 };
 
 /*
@@ -91,10 +103,8 @@ struct kgsl_iommu_register_list {
 		iommu->ctx_offset)
 
 /* Gets the lsb value of pagetable */
-#define KGSL_IOMMMU_PT_LSB(iommu, pt_val) \
-	(pt_val &							\
-	~(iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_mask <<	\
-	iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_shift))
+#define KGSL_IOMMMU_PT_LSB(iommu, pt_val)				\
+	(pt_val & ~(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK))
 
 /* offset at which a nop command is placed in setstate_memory */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
@@ -130,11 +140,18 @@ struct kgsl_iommu_device {
  * @dev_count: Number of IOMMU contexts that are valid in the previous feild
  * @reg_map: Memory descriptor which holds the mapped address of this IOMMU
  * units register range
+ * @ahb_base - The base address from where IOMMU registers can be accesed from
+ * ahb bus
+ * @iommu_halt_enable: Valid only on IOMMU-v1, when set indicates that the iommu
+ * unit supports halting of the IOMMU, which can be enabled while programming
+ * the IOMMU registers for synchronization
  */
 struct kgsl_iommu_unit {
 	struct kgsl_iommu_device dev[KGSL_IOMMU_MAX_DEVS_PER_UNIT];
 	unsigned int dev_count;
 	struct kgsl_memdesc reg_map;
+	unsigned int ahb_base;
+	int iommu_halt_enable;
 };
 
 /*
