@@ -1965,7 +1965,7 @@ msmsdcc_irq(int irq, void *dev_id)
 			msmsdcc_do_cmdirq(host, status);
 		}
 
-		if (host->curr.data) {
+		if (data) {
 			/* Check for data errors */
 			if (status & (MCI_DATACRCFAIL|MCI_DATATIMEOUT|
 				      MCI_TXUNDERRUN|MCI_RXOVERRUN)) {
