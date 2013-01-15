@@ -69,6 +69,8 @@ static const struct pm_id_name pm3_types[] = {
 	{CP_SET_PROTECTED_MODE,	"ST_PRT_M"},
 	{CP_SET_SHADER_BASES,		"ST_SHD_B"},
 	{CP_WAIT_FOR_IDLE,		"WAIT4IDL"},
+	{CP_WAIT_FOR_ME,		"WAIT4ME"},
+	{CP_WAIT_REG_EQ,		"WAITRGEQ"},
 };
 
 static const struct pm_id_name pm3_nop_values[] = {
@@ -854,7 +856,12 @@ int adreno_dump(struct kgsl_device *device, int manual)
 			(num_iommu_units && this_cmd ==
 			kgsl_mmu_get_reg_gpuaddr(&device->mmu, 0,
 						KGSL_IOMMU_CONTEXT_USER,
-						KGSL_IOMMU_CTX_TTBR0))) {
+						KGSL_IOMMU_CTX_TTBR0)) ||
+			(num_iommu_units && this_cmd == cp_type0_packet(
+						kgsl_mmu_get_reg_ahbaddr(
+						&device->mmu, 0,
+						KGSL_IOMMU_CONTEXT_USER,
+						KGSL_IOMMU_CTX_TTBR0), 1))) {
 			KGSL_LOG_DUMP(device, "Current pagetable: %x\t"
 				"pagetable base: %x\n",
 				kgsl_mmu_get_ptname_from_ptbase(&device->mmu,

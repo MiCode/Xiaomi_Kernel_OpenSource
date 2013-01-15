@@ -14,7 +14,7 @@
 #define __KGSL_MMU_H
 
 #include <mach/iommu.h>
-
+#include "kgsl_iommu.h"
 /*
  * These defines control the address range for allocations that
  * are mapped into all pagetables.
@@ -150,6 +150,9 @@ struct kgsl_mmu_ops {
 				enum kgsl_iommu_context_id ctx_id);
 	unsigned int (*mmu_get_reg_gpuaddr)(struct kgsl_mmu *mmu,
 			int iommu_unit_num, int ctx_id, int reg);
+	unsigned int (*mmu_get_reg_ahbaddr)(struct kgsl_mmu *mmu,
+			int iommu_unit_num, int ctx_id,
+			enum kgsl_iommu_reg_map reg);
 	int (*mmu_get_num_iommu_units)(struct kgsl_mmu *mmu);
 	int (*mmu_pt_equal) (struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt,
@@ -165,6 +168,7 @@ struct kgsl_mmu_ops {
 			(struct kgsl_mmu *mmu, unsigned int *cmds);
 	unsigned int (*mmu_sync_unlock)
 			(struct kgsl_mmu *mmu, unsigned int *cmds);
+	int (*mmu_hw_halt_supported)(struct kgsl_mmu *mmu, int iommu_unit_num);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -337,10 +341,49 @@ static inline unsigned int kgsl_mmu_get_reg_gpuaddr(struct kgsl_mmu *mmu,
 		return 0;
 }
 
+/*
+ * kgsl_mmu_get_reg_ahbaddr() - Calls the mmu specific function pointer to
+ * return the address that GPU can use to access register
+ * @mmu:		Pointer to the device mmu
+ * @iommu_unit_num:	There can be multiple iommu units used for graphics.
+ *			This parameter is an index to the iommu unit being used
+ * @ctx_id:		The context id within the iommu unit
+ * @reg:		Register whose address is to be returned
+ *
+ * Returns the ahb address of reg else 0
+ */
+static inline unsigned int kgsl_mmu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
+						int iommu_unit_num,
+						int ctx_id,
+						enum kgsl_iommu_reg_map reg)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_reg_ahbaddr)
+		return mmu->mmu_ops->mmu_get_reg_ahbaddr(mmu, iommu_unit_num,
+							ctx_id, reg);
+	else
+		return 0;
+}
+
 static inline int kgsl_mmu_get_num_iommu_units(struct kgsl_mmu *mmu)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_num_iommu_units)
 		return mmu->mmu_ops->mmu_get_num_iommu_units(mmu);
+	else
+		return 0;
+}
+
+/*
+ * kgsl_mmu_hw_halt_supported() - Runtime check for iommu hw halt
+ * @mmu: the mmu
+ *
+ * Returns non-zero if the iommu supports hw halt,
+ * 0 if not.
+ */
+static inline int kgsl_mmu_hw_halt_supported(struct kgsl_mmu *mmu,
+						int iommu_unit_num)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_hw_halt_supported)
+		return mmu->mmu_ops->mmu_hw_halt_supported(mmu, iommu_unit_num);
 	else
 		return 0;
 }
