@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
 
@@ -74,6 +75,7 @@ struct csr_drvdata {
 	void __iomem		*base;
 	struct device		*dev;
 	struct coresight_device	*csdev;
+	uint32_t		blksize;
 };
 
 static struct csr_drvdata *csrdrvdata;
@@ -86,7 +88,7 @@ void msm_qdss_csr_enable_bam_to_usb(void)
 	CSR_UNLOCK(drvdata);
 
 	usbbamctrl = csr_readl(drvdata, CSR_USBBAMCTRL);
-	usbbamctrl = (usbbamctrl & ~0x3) | BLKSIZE_2048;
+	usbbamctrl = (usbbamctrl & ~0x3) | drvdata->blksize;
 	csr_writel(drvdata, usbbamctrl, CSR_USBBAMCTRL);
 
 	usbflshctrl = csr_readl(drvdata, CSR_USBFLSHCTRL);
@@ -119,6 +121,7 @@ EXPORT_SYMBOL_GPL(msm_qdss_csr_disable_bam_to_usb);
 
 static int __devinit csr_probe(struct platform_device *pdev)
 {
+	int ret;
 	struct device *dev = &pdev->dev;
 	struct coresight_platform_data *pdata;
 	struct csr_drvdata *drvdata;
@@ -147,6 +150,13 @@ static int __devinit csr_probe(struct platform_device *pdev)
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
+
+	if (pdev->dev.of_node) {
+		ret = of_property_read_u32(pdev->dev.of_node, "qcom,blk-size",
+					   &drvdata->blksize);
+		if (ret)
+			drvdata->blksize = BLKSIZE_256;
+	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
