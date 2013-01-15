@@ -164,7 +164,8 @@ void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
  * This is our default idle handler.
  */
 
-void (*arm_pm_idle)(void);
+extern void arch_idle(void);
+void (*arm_pm_idle)(void) = arch_idle;
 
 /*
  * Called from the core idle loop.
