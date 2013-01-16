@@ -828,7 +828,7 @@ void hfi_process_msg_packet(
 		struct vidc_hal_msg_pkt_hdr *msg_hdr)
 {
 	if (!callback || !msg_hdr || msg_hdr->size <
-		HFI_MIN_PKT_SIZE) {
+		VIDC_IFACEQ_MIN_PKT_SIZE) {
 		dprintk(VIDC_ERR, "hal_process_msg_packet:bad"
 			"packet/packet size: %d", msg_hdr->size);
 		return;

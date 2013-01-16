@@ -354,7 +354,12 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 #define  HFI_MSG_SESSION_RELEASE_BUFFERS_DONE			\
 	(HFI_MSG_SESSION_OX_START + 0xC)
 
-#define HFI_MIN_PKT_SIZE			8
+#define VIDC_IFACEQ_MAX_PKT_SIZE                        1024
+#define VIDC_IFACEQ_MED_PKT_SIZE                        768
+#define VIDC_IFACEQ_MIN_PKT_SIZE                        8
+#define VIDC_IFACEQ_VAR_SMALL_PKT_SIZE          100
+#define VIDC_IFACEQ_VAR_LARGE_PKT_SIZE          512
+
 
 struct hfi_cmd_sys_session_abort_packet {
 	u32 size;
@@ -817,6 +822,10 @@ struct hal_session {
 struct hal_device_data {
 	struct list_head dev_head;
 	int dev_count;
+};
+
+struct msm_vidc_fw {
+	void *cookie;
 };
 
 extern struct hal_device_data hal_ctxt;
