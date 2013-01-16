@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,7 @@ int wfd_stats_init(struct wfd_stats *stats, int device)
 
 	memset(stats, 0, sizeof(*stats));
 	INIT_LIST_HEAD(&stats->enc_queue);
+	mutex_init(&stats->mutex);
 
 	snprintf(device_str, sizeof(device_str), "%d", device);
 	stats->d_parent = debugfs_create_dir(device_str, wfd_debugfs_root);
@@ -128,6 +129,8 @@ wfd_stats_init_fail:
 int wfd_stats_update(struct wfd_stats *stats, enum wfd_stats_event event)
 {
 	int rc = 0;
+
+	mutex_lock(&stats->mutex);
 	switch (event) {
 	case WFD_STAT_EVENT_CLIENT_QUEUE:
 		stats->v4l2_buf_count++;
@@ -192,6 +195,7 @@ int wfd_stats_update(struct wfd_stats *stats, enum wfd_stats_event event)
 	default:
 		rc = -ENOTSUPP;
 	}
+	mutex_unlock(&stats->mutex);
 
 	return rc;
 }
