@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include "ipc_router.h"
 #include "msm_ipc_router_security.h"
 
+#define IRSC_COMPLETION_TIMEOUT_MS 30000
 #define SEC_RULES_HASH_SZ 32
 struct security_rule {
 	struct list_head list;
@@ -41,6 +42,31 @@ struct security_rule {
 
 static DEFINE_MUTEX(security_rules_lock);
 static struct list_head security_rules[SEC_RULES_HASH_SZ];
+static DECLARE_COMPLETION(irsc_completion);
+
+/**
+ * wait_for_irsc_completion() - Wait for IPC Router Security Configuration
+ *                              (IRSC) to complete
+ */
+void wait_for_irsc_completion(void)
+{
+	unsigned long rem_jiffies;
+	do {
+		rem_jiffies = wait_for_completion_timeout(&irsc_completion,
+				msecs_to_jiffies(IRSC_COMPLETION_TIMEOUT_MS));
+		if (rem_jiffies)
+			return;
+		pr_err("%s: waiting for IPC Security Conf.\n", __func__);
+	} while (1);
+}
+
+/**
+ * signal_irsc_completion() - Signal the completion of IRSC
+ */
+void signal_irsc_completion(void)
+{
+	complete_all(&irsc_completion);
+}
 
 /**
  * check_permisions() - Check whether the process has permissions to
