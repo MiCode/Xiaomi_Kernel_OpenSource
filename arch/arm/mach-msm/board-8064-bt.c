@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,7 +121,7 @@ static int bahama_bt(int on)
 
 	const struct bahama_config_register *p;
 
-	u8 version;
+	int version;
 
 	const struct bahama_config_register v10_bt_on[] = {
 		{ 0xE9, 0x00, 0xFF },
@@ -203,7 +203,7 @@ static int bahama_bt(int on)
 	u8 offset = 0; /* index into bahama configs */
 	on = on ? 1 : 0;
 	version = marimba_read_bahama_ver(&config);
-	if ((int)version < 0 || version == BAHAMA_VER_UNSUPPORTED) {
+	if (version < 0 || version == BAHAMA_VER_UNSUPPORTED) {
 		dev_err(&msm_bt_power_device.dev,
 			"%s : Bahama version read Error, version = %d\n",
 			__func__, version);
@@ -237,10 +237,9 @@ static int bahama_bt(int on)
 				__func__, (p+i)->reg,
 				value, (p+i)->mask);
 		value = 0;
-		rc = marimba_read_bit_mask(&config,
+		if (marimba_read_bit_mask(&config,
 				(p+i)->reg, &value,
-				sizeof((p+i)->value), (p+i)->mask);
-		if (rc < 0)
+				sizeof((p+i)->value), (p+i)->mask) < 0)
 			dev_err(&msm_bt_power_device.dev,
 				"%s marimba_read_bit_mask- error",
 				__func__);
@@ -298,15 +297,14 @@ static int bluetooth_switch_regulators(int on)
 			dev_err(&msm_bt_power_device.dev,
 				"%s: could not %sable regulator %s: %d\n",
 					__func__, "dis", bt_vregs[i].name, rc);
-			goto reg_disable;
 		}
 	}
 
 	return rc;
 reg_disable:
 	pr_err("bluetooth_switch_regulators - FAIL!!!!\n");
-	while (i) {
-		if (on) {
+	if (on) {
+		while (i) {
 			i--;
 			regulator_disable(bt_vregs[i].reg);
 			regulator_put(bt_vregs[i].reg);
@@ -419,8 +417,9 @@ static int bluetooth_power(int on)
 	int rc = 0;
 	const char *id = "BTPW";
 	int cid = 0;
+	int bt_state = 0;
+	struct marimba config = { .mod_id =  SLAVE_ID_BAHAMA};
 
-	pr_debug("bluetooth_power entered....\n");
 	cid = adie_get_detected_connectivity_type();
 	if (cid != BAHAMA_ID) {
 		pr_err("%s: unexpected adie connectivity type: %d\n",
@@ -429,6 +428,7 @@ static int bluetooth_power(int on)
 	}
 
 	if (on) {
+		pr_debug("%s: Powering up the BT module.\n", __func__);
 		rc = bluetooth_switch_regulators(on);
 		if (rc < 0) {
 			pr_err("%s: bluetooth_switch_regulators rc = %d",
@@ -437,11 +437,13 @@ static int bluetooth_power(int on)
 		}
 		/* UART GPIO configuration to be done by by UART module*/
 		/*Setup BT clocks*/
+		pr_debug("%s: Voting for the 19.2MHz clock\n", __func__);
 		bt_clock = msm_xo_get(MSM_XO_TCXO_A2, id);
 		if (IS_ERR(bt_clock)) {
 			rc = PTR_ERR(bt_clock);
 			pr_err("%s: failed to get the handle for A2(%d)\n",
 					__func__, rc);
+			goto fail_power;
 		}
 		rc = msm_xo_mode_vote(bt_clock, MSM_XO_MODE_ON);
 		if (rc < 0) {
@@ -451,20 +453,23 @@ static int bluetooth_power(int on)
 		msleep(20);
 
 		/*I2C config for Bahama*/
+		pr_debug("%s: BT Turn On sequence in-progress.\n", __func__);
 		rc = bahama_bt(1);
 		if (rc < 0) {
 			pr_err("%s: bahama_bt rc = %d", __func__, rc);
-			goto fail_i2c;
+			goto fail_xo_vote;
 		}
 		msleep(20);
 
 		/*setup BT PCM lines*/
+		pr_debug("%s: Configuring PCM lines.\n", __func__);
 		rc = config_pcm(BT_PCM_ON);
 		if (rc < 0) {
-			pr_err("%s: config_pcm , rc =%d\n",
+			pr_err("%s: config_pcm , rc = %d\n",
 				__func__, rc);
-				goto fail_power;
+			goto fail_i2c;
 		}
+		pr_debug("%s: BT Turn On complete.\n", __func__);
 		/* TO DO - Enable PIN CTRL */
 		/*
 		rc = msm_xo_mode_vote(bt_clock, MSM_XO_MODE_PIN_CTRL);
@@ -474,9 +479,12 @@ static int bluetooth_power(int on)
 			goto fail_xo_vote;
 		} */
 	} else {
-		rc = bahama_bt(0);
-		if (rc < 0)
-			pr_err("%s: bahama_bt rc = %d", __func__, rc);
+		pr_debug("%s: Turning BT Off.\n", __func__);
+		bt_state = marimba_get_bt_status(&config);
+		if (!bt_state) {
+			pr_err("%s: BT is already turned OFF.\n", __func__);
+			return 0;
+		}
 
 		rc = config_pcm(BT_PCM_OFF);
 		if (rc < 0) {
@@ -484,19 +492,21 @@ static int bluetooth_power(int on)
 				__func__, rc);
 		}
 fail_i2c:
-		pr_err("bluetooth_power...FAIL_I2C\n");
-
+		rc = bahama_bt(0);
+		if (rc < 0)
+			pr_err("%s: bahama_bt rc = %d", __func__, rc);
 fail_xo_vote:
-		pr_err("bluetooth_power...FAIL_XO_VOTE\n");
+		pr_debug("%s: Voting off the 19.2MHz clk\n", __func__);
 		msm_xo_put(bt_clock);
 fail_power:
-		pr_err("bluetooth_power...FAIL POWER\n");
+		pr_debug("%s: Switching off voltage regulators.\n", __func__);
 		rc = bluetooth_switch_regulators(0);
 		if (rc < 0) {
 			pr_err("%s: switch_regulators : rc = %d",\
 				__func__, rc);
 			goto exit;
 		}
+		pr_debug("%s: BT Power Off complete.\n", __func__);
 	}
 	return rc;
 exit:
