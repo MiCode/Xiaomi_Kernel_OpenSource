@@ -2101,7 +2101,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	op_flush = flags & V4L2_QCOM_CMD_FLUSH_CAPTURE;
 
 	if (ip_flush && !op_flush) {
-		dprintk(VIDC_WARN, "Input only flush not supported\n");
+		dprintk(VIDC_INFO, "Input only flush not supported\n");
 		return 0;
 	}
 	if (inst->state == MSM_VIDC_CORE_INVALID ||
