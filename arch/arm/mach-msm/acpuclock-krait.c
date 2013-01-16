@@ -1019,7 +1019,7 @@ static struct notifier_block __cpuinitdata acpuclk_cpu_notifier = {
 	.notifier_call = acpuclk_cpu_callback,
 };
 
-static const int krait_needs_vmin(void)
+static const int __init krait_needs_vmin(void)
 {
 	switch (read_cpuid_id()) {
 	case 0x511F04D0: /* KR28M2A20 */
@@ -1031,7 +1031,7 @@ static const int krait_needs_vmin(void)
 	};
 }
 
-static void krait_apply_vmin(struct acpu_level *tbl)
+static void __init krait_apply_vmin(struct acpu_level *tbl)
 {
 	for (; tbl->speed.khz != 0; tbl++) {
 		if (tbl->vdd_core < 1150000)
