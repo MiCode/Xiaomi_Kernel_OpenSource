@@ -46,6 +46,7 @@
 				  SND_JACK_BTN_6 | SND_JACK_BTN_7)
 
 #define NUM_DCE_PLUG_DETECT 3
+#define NUM_DCE_PLUG_INS_DETECT 4
 #define NUM_ATTEMPTS_INSERT_DETECT 25
 #define NUM_ATTEMPTS_TO_REPORT 5
 
@@ -80,6 +81,29 @@
 #define DEFAULT_STA_WAIT 5000
 
 #define VDDIO_MICBIAS_MV 1800
+
+#define WCD9XXX_HPHL_STATUS_READY_WAIT_US 1000
+#define WCD9XXX_MEAS_DELTA_MAX_MV 50
+#define WCD9XXX_GM_SWAP_THRES_MIN_MV 150
+#define WCD9XXX_GM_SWAP_THRES_MAX_MV 500
+
+#define WCD9XXX_USLEEP_RANGE_MARGIN_US 1000
+
+static bool detect_use_vddio_switch;
+
+struct wcd9xxx_mbhc_detect {
+	u16 dce;
+	u16 sta;
+	u16 hphl_status;
+	bool swap_gnd;
+	bool vddio;
+	bool hwvalue;
+	/* internal purpose from here */
+	bool _above_no_mic;
+	bool _below_v_hs_max;
+	s16 _vdces;
+	enum wcd9xxx_mbhc_plug_type _type;
+};
 
 enum meas_type {
 	STA = 0,
@@ -610,7 +634,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 	} else {
 		if (mbhc->mbhc_cfg->detect_extn_cable) {
 			/* Report removal of current jack type */
-			if (mbhc->hph_status != jack_type) {
+			if (mbhc->hph_status && mbhc->hph_status != jack_type) {
 				pr_debug("%s: Reporting removal (%x)\n",
 					 __func__, mbhc->hph_status);
 				wcd9xxx_jack_report(&mbhc->headset_jack,
@@ -683,26 +707,6 @@ static s16 wcd9xxx_get_current_v_hs_max(struct wcd9xxx_mbhc *mbhc)
 	else
 		v_hs_max = plug_type->v_hs_max;
 	return v_hs_max;
-}
-
-static bool wcd9xxx_is_inval_ins_range(struct wcd9xxx_mbhc *mbhc,
-				     s32 mic_volt, bool highhph, bool *highv)
-{
-	s16 v_hs_max;
-	bool invalid = false;
-
-	/* Perform this check only when the high voltage headphone
-	 * needs to be considered as invalid
-	 */
-	v_hs_max = wcd9xxx_get_current_v_hs_max(mbhc);
-	*highv = mic_volt > v_hs_max;
-	if (!highhph && *highv)
-		invalid = true;
-	else if (mic_volt < mbhc->mbhc_data.v_inval_ins_high &&
-		 (mic_volt > mbhc->mbhc_data.v_inval_ins_low))
-		invalid = true;
-
-	return invalid;
 }
 
 static short wcd9xxx_read_sta_result(struct snd_soc_codec *codec)
@@ -923,13 +927,6 @@ static void wcd9xxx_codec_hphr_gnd_switch(struct snd_soc_codec *codec, bool on)
 		usleep_range(5000, 5000);
 }
 
-static bool wcd9xxx_is_inval_ins_delta(struct snd_soc_codec *codec,
-				       int mic_volt, int mic_volt_prev,
-				       int threshold)
-{
-	return abs(mic_volt - mic_volt_prev) > threshold;
-}
-
 static void wcd9xxx_onoff_vddio_switch(struct wcd9xxx_mbhc *mbhc, bool on)
 {
 	if (on) {
@@ -947,23 +944,117 @@ static void wcd9xxx_onoff_vddio_switch(struct wcd9xxx_mbhc *mbhc, bool on)
 		usleep_range(10000, 10000);
 }
 
-/* called under codec_resource_lock acquisition and mbhc override = 1 */
+static int wcd9xxx_hphl_status(struct wcd9xxx_mbhc *mbhc)
+{
+	u16 hph, status;
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
+	hph = snd_soc_read(codec, WCD9XXX_A_MBHC_HPH);
+	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_HPH, 0x12, 0x02);
+	usleep_range(WCD9XXX_HPHL_STATUS_READY_WAIT_US,
+		     WCD9XXX_HPHL_STATUS_READY_WAIT_US +
+		     WCD9XXX_USLEEP_RANGE_MARGIN_US);
+	status = snd_soc_read(codec, WCD9XXX_A_RX_HPH_L_STATUS);
+	snd_soc_write(codec, WCD9XXX_A_MBHC_HPH, hph);
+	return status;
+}
+
+/*
+ * wcd9xxx_find_plug_type : Find out and return the best plug type with given
+ *			    list of wcd9xxx_mbhc_detect structure.
+ */
+static enum wcd9xxx_mbhc_plug_type
+wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
+		       struct wcd9xxx_mbhc_detect *dt, const int size)
+{
+	int i;
+	int ch;
+	enum wcd9xxx_mbhc_plug_type type;
+	int vdce;
+	struct wcd9xxx_mbhc_detect *d, *dprev, *dgnd = NULL;
+	int maxv = 0, minv = 0;
+	const struct wcd9xxx_mbhc_plug_type_cfg *plug_type =
+	    WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
+	const s16 hs_max = plug_type->v_hs_max;
+	const s16 no_mic = plug_type->v_no_mic;
+
+	for (i = 0, d = dt, ch = 0; i < size; i++, d++) {
+		vdce = wcd9xxx_codec_sta_dce_v(mbhc, true, d->dce);
+		if (d->vddio)
+			d->_vdces = scale_v_micb_vddio(mbhc, vdce, false);
+		else
+			d->_vdces = vdce;
+
+		if (d->_vdces >= no_mic && d->_vdces < hs_max)
+			d->_type = PLUG_TYPE_HEADSET;
+		else if (d->_vdces < no_mic)
+			d->_type = PLUG_TYPE_HEADPHONE;
+		else
+			d->_type = PLUG_TYPE_HIGH_HPH;
+
+		ch += d->hphl_status & 0x01;
+		if (!d->swap_gnd && !d->hwvalue) {
+			if (maxv < d->_vdces)
+				maxv = d->_vdces;
+			if (!minv || minv > d->_vdces)
+				minv = d->_vdces;
+		}
+
+		pr_debug("%s: DCE #%d, %04x, V %04d(%04d), GND %d, VDDIO %d, HPHL %d TYPE %d\n",
+			 __func__, i, d->dce, vdce, d->_vdces,
+			 d->swap_gnd, d->vddio, d->hphl_status & 0x01,
+			 d->_type);
+	}
+	if (ch != size && ch > 0) {
+		pr_debug("%s: Invalid, inconsistent HPHL\n", __func__);
+		type = PLUG_TYPE_INVALID;
+		goto exit;
+	}
+
+	for (i = 0, d = dt, ch = 0; i < size; i++, d++) {
+		if ((i > 0) && (d->_type != dprev->_type)) {
+			pr_debug("%s: Invalid, inconsistent types\n", __func__);
+			type = PLUG_TYPE_INVALID;
+			goto exit;
+		}
+
+		if (!d->swap_gnd && !d->hwvalue &&
+		    (abs(minv - d->_vdces) > WCD9XXX_MEAS_DELTA_MAX_MV ||
+		     abs(maxv - d->_vdces) > WCD9XXX_MEAS_DELTA_MAX_MV)) {
+			pr_debug("%s: Invalid, delta %dmv, %dmv and %dmv\n",
+				 __func__, d->_vdces, minv, maxv);
+			type = PLUG_TYPE_INVALID;
+			goto exit;
+		} else if (d->swap_gnd) {
+			dgnd = d;
+		}
+		dprev = d;
+	}
+
+	WARN_ON(i != size);
+	type = dt->_type;
+	if (type == PLUG_TYPE_HEADSET && dgnd) {
+		if ((dgnd->_vdces + WCD9XXX_GM_SWAP_THRES_MIN_MV <
+		     minv) &&
+		    (dgnd->_vdces + WCD9XXX_GM_SWAP_THRES_MAX_MV >
+		     maxv))
+			type = PLUG_TYPE_GND_MIC_SWAP;
+	}
+
+exit:
+	pr_debug("%s: Plug type %d detected\n", __func__, type);
+	return type;
+}
+
 static enum wcd9xxx_mbhc_plug_type
 wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 {
 	int i;
-	bool gndswitch, vddioswitch;
-	int scaled;
 	struct wcd9xxx_mbhc_plug_type_cfg *plug_type_ptr;
+	struct wcd9xxx_mbhc_detect rt[NUM_DCE_PLUG_INS_DETECT];
+	enum wcd9xxx_mbhc_plug_type type = PLUG_TYPE_INVALID;
 	struct snd_soc_codec *codec = mbhc->codec;
-	const bool vddio = (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV);
-	int num_det = (NUM_DCE_PLUG_DETECT + vddio);
-	enum wcd9xxx_mbhc_plug_type plug_type[num_det];
-	s16 mb_v[num_det];
-	s32 mic_mv[num_det];
-	bool inval;
-	bool highdelta;
-	bool ahighv = false, highv;
 
 	pr_debug("%s: enter\n", __func__);
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
@@ -972,106 +1063,39 @@ wcd9xxx_codec_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 	WARN_ON(!(snd_soc_read(codec, WCD9XXX_A_CDC_MBHC_B1_CTL) & 0x04));
 
 	/* GND and MIC swap detection requires at least 2 rounds of DCE */
-	BUG_ON(num_det < 2);
+	BUG_ON(NUM_DCE_PLUG_INS_DETECT < 2);
 
 	plug_type_ptr =
-		WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
+	    WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
 
-	plug_type[0] = PLUG_TYPE_INVALID;
-
-	/* performs DCEs for N times
-	 * 1st: check if voltage is in invalid range
-	 * 2nd - N-2nd: check voltage range and delta
-	 * N-1st: check voltage range, delta with HPHR GND switch
-	 * Nth: check voltage range with VDDIO switch if micbias V != vddio V*/
-	for (i = 0; i < num_det; i++) {
-		gndswitch = (i == (num_det - 1 - vddio));
-		vddioswitch = (vddio && ((i == num_det - 1) ||
-					(i == num_det - 2)));
-		if (i == 0) {
-			mb_v[i] = wcd9xxx_mbhc_setup_hs_polling(mbhc);
-			mic_mv[i] = wcd9xxx_codec_sta_dce_v(mbhc, 1 , mb_v[i]);
-			inval = wcd9xxx_is_inval_ins_range(mbhc, mic_mv[i],
-					highhph, &highv);
-			ahighv |= highv;
-			scaled = mic_mv[i];
-		} else {
-			if (vddioswitch)
-				wcd9xxx_onoff_vddio_switch(mbhc, true);
-			if (gndswitch)
-				wcd9xxx_codec_hphr_gnd_switch(codec, true);
-			mb_v[i] = __wcd9xxx_codec_sta_dce(mbhc, 1, true, true);
-			mic_mv[i] = wcd9xxx_codec_sta_dce_v(mbhc, 1 , mb_v[i]);
-			if (vddioswitch)
-				scaled = scale_v_micb_vddio(mbhc, mic_mv[i],
-							    false);
-			else
-				scaled = mic_mv[i];
-			/* !gndswitch & vddioswitch means the previous DCE
-			 * was done with gndswitch, don't compare with DCE
-			 * with gndswitch */
-			highdelta = wcd9xxx_is_inval_ins_delta(codec, scaled,
-					mic_mv[i - !gndswitch - vddioswitch],
-					FAKE_INS_DELTA_SCALED_MV);
-			inval = (wcd9xxx_is_inval_ins_range(mbhc, mic_mv[i],
-						highhph, &highv) ||
-					highdelta);
-			ahighv |= highv;
-			if (gndswitch)
-				wcd9xxx_codec_hphr_gnd_switch(codec, false);
-			if (vddioswitch)
-				wcd9xxx_onoff_vddio_switch(mbhc, false);
-			/* claim UNSUPPORTED plug insertion when
-			 * good headset is detected but HPHR GND switch makes
-			 * delta difference */
-			if (i == (num_det - 2) && highdelta && !ahighv)
-				plug_type[0] = PLUG_TYPE_GND_MIC_SWAP;
-			else if (i == (num_det - 1) && inval)
-				plug_type[0] = PLUG_TYPE_INVALID;
-		}
-		pr_debug("%s: DCE #%d, %04x, V %d, scaled V %d, GND %d, VDDIO %d, inval %d\n",
-			 __func__, i + 1, mb_v[i] & 0xffff, mic_mv[i], scaled,
-			 gndswitch, vddioswitch, inval);
-		/* don't need to run further DCEs */
-		if (ahighv && inval)
-			break;
-		mic_mv[i] = scaled;
+	rt[0].hphl_status = wcd9xxx_hphl_status(mbhc);
+	rt[0].dce = wcd9xxx_mbhc_setup_hs_polling(mbhc);
+	rt[0].swap_gnd = false;
+	rt[0].vddio = false;
+	rt[0].hwvalue = true;
+	for (i = 1; i < NUM_DCE_PLUG_INS_DETECT; i++) {
+		rt[i].swap_gnd = (i == NUM_DCE_PLUG_INS_DETECT - 2);
+		if (detect_use_vddio_switch)
+			rt[i].vddio = (i == NUM_DCE_PLUG_INS_DETECT - 1);
+		else
+			rt[i].vddio = false;
+		rt[i].hphl_status = wcd9xxx_hphl_status(mbhc);
+		rt[i].hwvalue = false;
+		if (rt[i].swap_gnd)
+			wcd9xxx_codec_hphr_gnd_switch(codec, true);
+		if (rt[i].vddio)
+			wcd9xxx_onoff_vddio_switch(mbhc, true);
+		rt[i].dce = __wcd9xxx_codec_sta_dce(mbhc, 1, true, true);
+		if (rt[i].vddio)
+			wcd9xxx_onoff_vddio_switch(mbhc, false);
+		if (rt[i].swap_gnd)
+			wcd9xxx_codec_hphr_gnd_switch(codec, false);
 	}
 
-	for (i = 0; (plug_type[0] != PLUG_TYPE_GND_MIC_SWAP && !inval) &&
-		    (i < num_det); i++) {
-		/*
-		 * If we are here, means none of the all
-		 * measurements are fake, continue plug type detection.
-		 * If all three measurements do not produce same
-		 * plug type, restart insertion detection
-		 */
-		if (mic_mv[i] < plug_type_ptr->v_no_mic) {
-			plug_type[i] = PLUG_TYPE_HEADPHONE;
-			pr_debug("%s: Detect attempt %d, detected Headphone\n",
-				 __func__, i);
-		} else if (highhph && (mic_mv[i] > plug_type_ptr->v_hs_max)) {
-			plug_type[i] = PLUG_TYPE_HIGH_HPH;
-			pr_debug("%s: Detect attempt %d, detected High Headphone\n",
-				 __func__, i);
-		} else {
-			plug_type[i] = PLUG_TYPE_HEADSET;
-			pr_debug("%s: Detect attempt %d, detected Headset\n",
-					__func__, i);
-		}
+	type = wcd9xxx_find_plug_type(mbhc, rt, ARRAY_SIZE(rt));
 
-		if (i > 0 && (plug_type[i - 1] != plug_type[i])) {
-			pr_err("%s: Detect attempt %d and %d are not same",
-			       __func__, i - 1, i);
-			plug_type[0] = PLUG_TYPE_INVALID;
-			inval = true;
-			break;
-		}
-	}
-
-	pr_debug("%s: Detected plug type %d\n", __func__, plug_type[0]);
 	pr_debug("%s: leave\n", __func__);
-	return plug_type[0];
+	return type;
 }
 
 static bool wcd9xxx_swch_level_remove(struct wcd9xxx_mbhc *mbhc)
