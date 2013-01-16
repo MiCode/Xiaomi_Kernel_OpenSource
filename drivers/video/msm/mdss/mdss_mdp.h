@@ -212,6 +212,24 @@ struct mdss_mdp_data {
 	struct mdss_mdp_img_data p[MAX_PLANES];
 };
 
+struct pp_sts_type {
+	u32 pa_sts;
+	u32 pcc_sts;
+	u32 igc_sts;
+	u32 igc_tbl_idx;
+	u32 argc_sts;
+	u32 enhist_sts;
+	u32 dither_sts;
+	u32 gamut_sts;
+	u32 pgc_sts;
+};
+
+struct mdss_pipe_pp_res {
+	u32 igc_c0_c1[IGC_LUT_ENTRIES];
+	u32 igc_c2[IGC_LUT_ENTRIES];
+	struct pp_sts_type pp_sts;
+};
+
 struct mdss_mdp_pipe {
 	u32 num;
 	u32 type;
@@ -252,6 +270,7 @@ struct mdss_mdp_pipe {
 	struct list_head cleanup_list;
 
 	struct mdp_overlay_pp_params pp_cfg;
+	struct mdss_pipe_pp_res pp_res;
 };
 
 struct mdss_mdp_writeback_arg {
@@ -318,8 +337,10 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 int mdss_mdp_pp_init(struct device *dev);
 void mdss_mdp_pp_term(struct device *dev);
 int mdss_mdp_pp_resume(u32 mixer_num);
+
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op);
+int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op);
 
 int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback);
 int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *cfg_ptr, u32 *copyback);

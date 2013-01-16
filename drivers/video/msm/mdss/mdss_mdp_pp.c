@@ -78,11 +78,6 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 
 #define MDSS_BLOCK_DISP_NUM	(MDP_BLOCK_MAX - MDP_LOGICAL_BLOCK_DISP_0)
 
-#define IGC_LUT_ENTRIES	256
-#define GC_LUT_SEGMENTS	16
-#define ENHIST_LUT_ENTRIES 256
-#define HIST_V_SIZE	256
-
 #define HIST_WAIT_TIMEOUT(frame) ((60 * HZ * (frame)) / 1000)
 /* hist collect state */
 enum {
@@ -121,18 +116,6 @@ static u32 dither_depth_map[9] = {
 #define GAMUT_TOTAL_TABLE_SIZE (GAMUT_T0_SIZE + GAMUT_T1_SIZE + \
 	GAMUT_T2_SIZE + GAMUT_T3_SIZE + GAMUT_T4_SIZE + \
 	GAMUT_T5_SIZE + GAMUT_T6_SIZE + GAMUT_T7_SIZE)
-
-struct pp_sts_type {
-	u32 pa_sts;
-	u32 pcc_sts;
-	u32 igc_sts;
-	u32 igc_tbl_idx;
-	u32 argc_sts;
-	u32 enhist_sts;
-	u32 dither_sts;
-	u32 gamut_sts;
-	u32 pgc_sts;
-};
 
 #define PP_FLAGS_DIRTY_PA	0x1
 #define PP_FLAGS_DIRTY_PCC	0x2
@@ -409,7 +392,6 @@ static void pp_enhist_config(unsigned long flags, u32 base,
 
 static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
-	struct pp_sts_type pp_sts;
 	u32 opmode = 0, base = 0;
 	unsigned long flags = 0;
 
@@ -450,10 +432,10 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			flags = PP_FLAGS_DIRTY_PA;
 			base = MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
 				MDSS_MDP_REG_VIG_PA_BASE;
-			pp_sts.pa_sts = 0;
-			pp_pa_config(flags, base, &pp_sts,
+			pp_pa_config(flags, base, &pipe->pp_res.pp_sts,
 					&pipe->pp_cfg.pa_cfg);
-			if (pp_sts.pa_sts & PP_STS_ENABLE)
+
+			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
 				opmode |= (1 << 4); /* PA_EN */
 		}
 	}
@@ -475,6 +457,50 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		ret = -EINVAL;
 	else if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
 		ret = -EINVAL;
+
+	return ret;
+}
+
+int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
+{
+	int ret = 0;
+	unsigned long flags = 0;
+	u32 pipe_base;
+	u32 pipe_num;
+
+	if (pipe == NULL)
+		return -EINVAL;
+
+	/*
+	 * TODO: should this function be responsible for masking multiple
+	 * pipes to be written in dual pipe case?
+	 * if so, requires rework of update_igc_lut
+	 */
+	switch (pipe->type) {
+	case MDSS_MDP_PIPE_TYPE_VIG:
+		pipe_base = MDSS_MDP_REG_IGC_VIG_BASE;
+		pipe_num = pipe->num - MDSS_MDP_SSPP_VIG0;
+		break;
+	case MDSS_MDP_PIPE_TYPE_RGB:
+		pipe_base = MDSS_MDP_REG_IGC_RGB_BASE;
+		pipe_num = pipe->num - MDSS_MDP_SSPP_RGB0;
+		break;
+	case MDSS_MDP_PIPE_TYPE_DMA:
+		pipe_base = MDSS_MDP_REG_IGC_DMA_BASE;
+		pipe_num = pipe->num - MDSS_MDP_SSPP_DMA0;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG) {
+		flags |= PP_FLAGS_DIRTY_IGC;
+		pp_igc_config(flags, pipe_base, &pipe->pp_res.pp_sts,
+					&pipe->pp_cfg.igc_cfg, pipe_num);
+	}
+
+	if (pipe->pp_res.pp_sts.igc_sts & PP_STS_ENABLE)
+		*op |= (1 << 16); /* IGC_LUT_EN */
 
 	return ret;
 }
