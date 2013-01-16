@@ -151,6 +151,9 @@ int armpmu_event_set_period(struct perf_event *event,
 			    struct hw_perf_event *hwc,
 			    int idx);
 
+extern void enable_irq_callback(void *);
+extern void disable_irq_callback(void *);
+
 #endif /* CONFIG_HW_PERF_EVENTS */
 
 #endif /* __ARM_PMU_H__ */

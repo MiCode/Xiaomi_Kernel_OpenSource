@@ -739,6 +739,36 @@ static void __init cpu_pmu_init(struct arm_pmu *armpmu)
 	armpmu->type = ARM_PMU_DEVICE_CPU;
 }
 
+static int cpu_has_active_perf(void)
+{
+	struct pmu_hw_events *hw_events;
+	int enabled;
+
+	if (!cpu_pmu)
+		return 0;
+
+	hw_events = cpu_pmu->get_hw_events();
+	enabled = bitmap_weight(hw_events->used_mask, cpu_pmu->num_events);
+
+	if (enabled)
+		/*Even one event's existence is good enough.*/
+		return 1;
+
+	return 0;
+}
+
+void enable_irq_callback(void *info)
+{
+	int irq = *(unsigned int *)info;
+	enable_percpu_irq(irq, IRQ_TYPE_EDGE_RISING);
+}
+
+void disable_irq_callback(void *info)
+{
+	int irq = *(unsigned int *)info;
+	disable_percpu_irq(irq);
+}
+
 /*
  * PMU hardware loses all context when a CPU goes offline.
  * When a CPU is hotplugged back in, since some hardware registers are
@@ -748,11 +778,49 @@ static void __init cpu_pmu_init(struct arm_pmu *armpmu)
 static int __cpuinit pmu_cpu_notify(struct notifier_block *b,
 					unsigned long action, void *hcpu)
 {
+	int irq;
+
+	if (cpu_has_active_perf()) {
+		switch ((action & ~CPU_TASKS_FROZEN)) {
+
+		case CPU_DOWN_PREPARE:
+			/*
+			 * If this is on a multicore CPU, we need
+			 * to disarm the PMU IRQ before disappearing.
+			 */
+			if (cpu_pmu &&
+				cpu_pmu->plat_device->dev.platform_data) {
+				irq = platform_get_irq(cpu_pmu->plat_device, 1);
+				smp_call_function_single((int)hcpu,
+						disable_irq_callback, &irq, 1);
+			}
+			return NOTIFY_DONE;
+
+		case CPU_UP_PREPARE:
+			/*
+			 * If this is on a multicore CPU, we need
+			 * to arm the PMU IRQ before appearing.
+			 */
+			if (cpu_pmu &&
+				cpu_pmu->plat_device->dev.platform_data) {
+				irq = platform_get_irq(cpu_pmu->plat_device, 1);
+				smp_call_function_single((int)hcpu,
+						enable_irq_callback, &irq, 1);
+			}
+			return NOTIFY_DONE;
+
+		case CPU_STARTING:
+			if (cpu_pmu && cpu_pmu->reset) {
+				cpu_pmu->reset(NULL);
+				return NOTIFY_OK;
+			}
+		default:
+			return NOTIFY_DONE;
+		}
+	}
+
 	if ((action & ~CPU_TASKS_FROZEN) != CPU_STARTING)
 		return NOTIFY_DONE;
-
-	if (cpu_pmu && cpu_pmu->reset)
-		cpu_pmu->reset(NULL);
 
 	return NOTIFY_OK;
 }
@@ -775,24 +843,6 @@ static void armpmu_update_counters(void)
 
 		armpmu_read(event);
 	}
-}
-
-static int cpu_has_active_perf(void)
-{
-	struct pmu_hw_events *hw_events;
-	int enabled;
-
-	if (!cpu_pmu)
-		return 0;
-
-	hw_events = cpu_pmu->get_hw_events();
-	enabled = bitmap_weight(hw_events->used_mask, cpu_pmu->num_events);
-
-	if (enabled)
-		/*Even one event's existence is good enough.*/
-		return 1;
-
-	return 0;
 }
 
 static struct notifier_block __cpuinitdata pmu_cpu_notifier = {
