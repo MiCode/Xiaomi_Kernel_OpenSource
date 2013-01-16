@@ -1443,6 +1443,27 @@ config MSM_N_WAY_SMSM
 	  Supports APPS-QDSP SMSM communication along with
 	  normal APPS-MODEM SMSM communication.
 
+config MSM_SMP2P
+	bool "SMSM Point-to-Point (SMP2P)"
+	depends on MSM_SMD
+	help
+	  Provide point-to-point remote signaling support.
+	  SMP2P enables transferring 32-bit values between
+	  the local and a remote system using shared
+	  memory and interrupts.  A client can open multiple
+	  32-bit values by specifying a unique string and
+	  remote processor ID.
+
+config MSM_SMP2P_TEST
+	bool "SMSM Point-to-Point Test"
+	depends on MSM_SMP2P
+	help
+	  Enables loopback and unit testing support for
+	  SMP2P.  Loopback support is used by other
+	  processors to do unit testing.  Unit tests
+	  are used to verify the local and remote
+	  implementations.
+
 config MSM_RESET_MODEM
 	tristate "Reset Modem Driver"
 	depends on MSM_SMD

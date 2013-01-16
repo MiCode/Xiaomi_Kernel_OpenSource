@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd_private.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,6 +18,8 @@
 
 #include <linux/types.h>
 #include <linux/spinlock.h>
+#include <linux/errno.h>
+#include <linux/remote_spinlock.h>
 #include <mach/msm_smsm.h>
 #include <mach/msm_smd.h>
 
@@ -271,4 +273,6 @@ struct interrupt_stat {
 };
 extern struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
 
+/* used for unit testing spinlocks */
+remote_spinlock_t *smem_get_remote_spinlock(void);
 #endif
