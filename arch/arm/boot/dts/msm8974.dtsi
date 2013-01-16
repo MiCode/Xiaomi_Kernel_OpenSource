@@ -672,7 +672,7 @@
 	};
 
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
-		parent-supply = <&pm8841_s4>;
+		parent-supply = <&pm8841_s4_corner>;
 	};
 
 	qcom,lpass@fe200000 {
