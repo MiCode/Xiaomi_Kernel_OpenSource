@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -340,6 +340,7 @@ enum mdss_mdp_dspp_index {
 #define MDSS_MDP_REG_DSPP_HIST_LUT_BASE			0x230
 #define MDSS_MDP_REG_DSPP_PA_BASE			0x238
 #define MDSS_MDP_REG_DSPP_GAMUT_BASE			0x2DC
+#define MDSS_MDP_REG_DSPP_GC_BASE			0x2B0
 
 enum mdss_mpd_intf_index {
 	MDSS_MDP_NO_INTF,
