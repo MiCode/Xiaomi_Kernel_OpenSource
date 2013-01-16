@@ -233,6 +233,14 @@ config MFD_JANZ_CMODIO
 	  host many different types of MODULbus daughterboards, including
 	  CAN and GPIO controllers.
 
+config TPS65023
+        tristate "TPS65023 Power Management chip"
+        depends on I2C && ARCH_MSM_SCORPION && !MSM_SMP
+        default y if I2C && ARCH_MSM_SCORPION && !MSM_SMP
+        help
+          Say yes here for Qualcomm QSD chips. The TI PMIC is used by the
+          QSD8x50 series of chips for power management.
+
 config PMIC8058
 	tristate "PMIC8058 Power Management chip"
 	depends on MSM_SSBI
