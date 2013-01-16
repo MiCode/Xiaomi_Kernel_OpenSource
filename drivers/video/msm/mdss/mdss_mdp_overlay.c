@@ -232,7 +232,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_format_params *fmt;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_mixer *mixer = NULL;
-	u32 pipe_type, mixer_mux;
+	u32 pipe_type, mixer_mux, len;
 	int ret;
 
 	if (mfd == NULL || mfd->ctl == NULL)
@@ -337,12 +337,25 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->req_data = *req;
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
-		if (pipe->num <= MDSS_MDP_SSPP_VIG2)
-			memcpy(&pipe->pp_cfg, &req->overlay_pp_cfg,
+		memcpy(&pipe->pp_cfg, &req->overlay_pp_cfg,
 					sizeof(struct mdp_overlay_pp_params));
-		else
-			pr_debug("%s: RGB Pipes don't support CSC/QSEED\n",
-								__func__);
+		len = pipe->pp_cfg.igc_cfg.len;
+		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG) &&
+						(len == IGC_LUT_ENTRIES)) {
+			ret = copy_from_user(pipe->pp_res.igc_c0_c1,
+					pipe->pp_cfg.igc_cfg.c0_c1_data,
+					sizeof(uint32_t) * len);
+			if (ret)
+				return -ENOMEM;
+			ret = copy_from_user(pipe->pp_res.igc_c2,
+					pipe->pp_cfg.igc_cfg.c2_data,
+					sizeof(uint32_t) * len);
+			if (ret)
+				return -ENOMEM;
+			pipe->pp_cfg.igc_cfg.c0_c1_data =
+							pipe->pp_res.igc_c0_c1;
+			pipe->pp_cfg.igc_cfg.c2_data = pipe->pp_res.igc_c2;
+		}
 	}
 
 	if (pipe->flags & MDP_DEINTERLACE) {
