@@ -370,9 +370,6 @@ static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 	mfd->suspend.op_enable = mfd->op_enable;
 	mfd->suspend.panel_power_on = mfd->panel_power_on;
 
-	del_timer(&mfd->no_update.timer);
-	complete(&mfd->no_update.comp);
-
 	if (mfd->op_enable) {
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, mfd->fbi,
 				mfd->suspend.op_enable);
@@ -580,6 +577,9 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	default:
 		if (mfd->panel_power_on) {
 			int curr_pwr_state;
+
+			del_timer(&mfd->no_update.timer);
+			complete(&mfd->no_update.comp);
 
 			mfd->op_enable = false;
 			curr_pwr_state = mfd->panel_power_on;
