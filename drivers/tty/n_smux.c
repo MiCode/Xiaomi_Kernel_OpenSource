@@ -1719,7 +1719,7 @@ static int smux_handle_rx_status_cmd(struct smux_pkt_t *pkt)
  */
 static int smux_handle_rx_power_cmd(struct smux_pkt_t *pkt)
 {
-	struct smux_pkt_t *ack_pkt = NULL;
+	struct smux_pkt_t *ack_pkt;
 	int power_down = 0;
 	unsigned long flags;
 
