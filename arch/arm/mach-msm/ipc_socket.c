@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -282,6 +282,9 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 		goto out_sendmsg;
 	}
 
+	if (port_ptr->type == CLIENT_PORT)
+		wait_for_irsc_completion();
+
 	ret = msm_ipc_router_send_to(port_ptr, msg, &dest->address);
 	if (ret == (IPC_ROUTER_HDR_SIZE + total_len))
 		ret = total_len;
@@ -431,6 +434,8 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 
 	case IPC_ROUTER_IOCTL_CONFIG_SEC_RULES:
 		ret = msm_ipc_config_sec_rules((void *)arg);
+		if (ret != -EPERM)
+			port_ptr->type = IRSC_PORT;
 		break;
 
 	default:

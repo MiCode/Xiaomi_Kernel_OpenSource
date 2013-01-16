@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,17 @@ int msm_ipc_check_send_permissions(void *data);
  */
 int msm_ipc_router_security_init(void);
 
+/**
+ * wait_for_irsc_completion() - Wait for IPC Router Security Configuration
+ *                              (IRSC) to complete
+ */
+void wait_for_irsc_completion(void);
+
+/**
+ * signal_irsc_completion() - Signal the completion of IRSC
+ */
+void signal_irsc_completion(void);
+
 #else
 
 static inline int check_permissions(void)
@@ -100,5 +111,10 @@ static inline int msm_ipc_router_security_init(void)
 {
 	return 0;
 }
+
+static inline void wait_for_irsc_completion(void) { }
+
+static inline void signal_irsc_completion(void) { }
+
 #endif
 #endif
