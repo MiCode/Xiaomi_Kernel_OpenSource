@@ -943,6 +943,9 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	pdata->ignore_core_reset_ack = of_property_read_bool(node,
 					"qcom,ignore-core-reset-ack");
 
+	pdata->disable_clk_gating = of_property_read_bool(node,
+					"qcom,disable-clk-gating");
+
 	for_each_child_of_node(pdev->dev.of_node, node)
 		pipe_entry++;
 
@@ -1103,6 +1106,8 @@ static int usb_bam_init(void)
 	 */
 	if (pdata->ignore_core_reset_ack && pdata->usb_active_bam != SSUSB_BAM)
 		usb_props.options = SPS_BAM_NO_EXT_P_RST;
+	if (pdata->disable_clk_gating)
+		usb_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
 
 	ret = sps_register_bam_device(&usb_props, &h_bam);
 	if (ret < 0) {

@@ -182,6 +182,8 @@ Optional Properties for Subnode:
 Optional properties :
 - qcom,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
 	    while performing PIPE RESET
+- qcom,disable-clk-gating: If present then disable BAM clock gating.
+
 
 Example USB BAM controller device node:
 
