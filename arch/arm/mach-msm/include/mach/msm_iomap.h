@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -54,7 +54,7 @@
 	defined(CONFIG_ARCH_MSM7X25) || defined(CONFIG_ARCH_MSM7X01A) || \
 	defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_MSM7X30) || \
 	defined(CONFIG_ARCH_MSM9625) || defined(CONFIG_ARCH_MPQ8092) || \
-	defined(CONFIG_ARCH_MSM8226) || defined(CONFIG_ARCH_MSM8910)
+	defined(CONFIG_ARCH_MSM8226) || defined(CONFIG_ARCH_MSM8610)
 
 /* Unified iomap */
 
@@ -122,7 +122,7 @@
 #include "msm_iomap-9625.h"
 #include "msm_iomap-8092.h"
 #include "msm_iomap-8226.h"
-#include "msm_iomap-8910.h"
+#include "msm_iomap-8610.h"
 
 #else
 /* Legacy single-target iomap */

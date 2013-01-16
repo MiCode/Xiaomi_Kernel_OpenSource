@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8,18 +8,22 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
 
-/dts-v1/;
+#include <linux/init.h>
+#include <linux/ioport.h>
+#include <mach/board.h>
+#include <mach/gpio.h>
+#include <mach/gpiomux.h>
 
-/include/ "msm8910.dtsi"
+void __init msm8610_init_gpiomux(void)
+{
+	int rc;
 
-/ {
-	model = "Qualcomm MSM 8910 Rumi";
-	compatible = "qcom,msm8910-rumi", "qcom,msm8910";
-	qcom,msm-id = <147 1 0>;
-
-	serial@f991f000 {
-		status = "ok";
-	};
-};
+	rc = msm_gpiomux_init_dt();
+	if (rc) {
+		pr_err("%s failed %d\n", __func__, rc);
+		return;
+	}
+}

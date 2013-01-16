@@ -378,8 +378,8 @@ config ARCH_MSM9625
 	select CPU_HAS_L2_PMU
 	select MSM_JTAG_MM if MSM_QDSS
 
-config ARCH_MSM8910
-	bool "MSM8910"
+config ARCH_MSM8610
+	bool "MSM8610"
 	select ARM_GIC
 	select GIC_SECURE
 	select ARCH_MSM_CORTEXMP
@@ -1002,7 +1002,7 @@ config PHYS_OFFSET
 	default "0x00000000" if ARCH_MSM8974
 	default "0x00000000" if ARCH_MPQ8092
 	default "0x00000000" if ARCH_MSM8226
-	default "0x00000000" if ARCH_MSM8910
+	default "0x00000000" if ARCH_MSM8610
 	default "0x10000000" if ARCH_FSM9XXX
 	default "0x00200000" if ARCH_MSM9625
 	default "0x00200000" if !MSM_STACKED_MEMORY

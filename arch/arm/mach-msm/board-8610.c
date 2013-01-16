@@ -44,7 +44,7 @@
 #include "clock.h"
 #include "platsmp.h"
 
-static struct memtype_reserve msm8910_reserve_table[] __initdata = {
+static struct memtype_reserve msm8610_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
 	[MEMTYPE_EBI0] = {
@@ -55,12 +55,12 @@ static struct memtype_reserve msm8910_reserve_table[] __initdata = {
 	},
 };
 
-static int msm8910_paddr_to_memtype(unsigned int paddr)
+static int msm8610_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
 }
 
-static struct of_dev_auxdata msm8910_auxdata_lookup[] __initdata = {
+static struct of_dev_auxdata msm8610_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
 			"msm_sdcc.1", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
@@ -68,54 +68,54 @@ static struct of_dev_auxdata msm8910_auxdata_lookup[] __initdata = {
 	{}
 };
 
-static struct reserve_info msm8910_reserve_info __initdata = {
-	.memtype_reserve_table = msm8910_reserve_table,
-	.paddr_to_memtype = msm8910_paddr_to_memtype,
+static struct reserve_info msm8610_reserve_info __initdata = {
+	.memtype_reserve_table = msm8610_reserve_table,
+	.paddr_to_memtype = msm8610_paddr_to_memtype,
 };
 
-static void __init msm8910_early_memory(void)
+static void __init msm8610_early_memory(void)
 {
-	reserve_info = &msm8910_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8910_reserve_table);
+	reserve_info = &msm8610_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8610_reserve_table);
 }
 
-static void __init msm8910_reserve(void)
+static void __init msm8610_reserve(void)
 {
 	msm_reserve();
 }
 
-void __init msm8910_init(void)
+void __init msm8610_init(void)
 {
-	struct of_dev_auxdata *adata = msm8910_auxdata_lookup;
+	struct of_dev_auxdata *adata = msm8610_auxdata_lookup;
 	struct device *parent;
 
 	parent = socinfo_init();
 	if (IS_ERR_OR_NULL(parent))
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
-	msm8910_init_gpiomux();
+	msm8610_init_gpiomux();
 
-	if (machine_is_msm8910_rumi())
-		msm_clock_init(&msm8910_rumi_clock_init_data);
+	if (machine_is_msm8610_rumi())
+		msm_clock_init(&msm8610_rumi_clock_init_data);
 	else
-		msm_clock_init(&msm8910_clock_init_data);
+		msm_clock_init(&msm8610_clock_init_data);
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
 }
 
-static const char *msm8910_dt_match[] __initconst = {
-	"qcom,msm8910",
+static const char *msm8610_dt_match[] __initconst = {
+	"qcom,msm8610",
 	NULL
 };
 
-DT_MACHINE_START(MSM8910_DT, "Qualcomm MSM 8910 (Flattened Device Tree)")
-	.map_io = msm_map_msm8910_io,
+DT_MACHINE_START(MSM8610_DT, "Qualcomm MSM 8610 (Flattened Device Tree)")
+	.map_io = msm_map_msm8610_io,
 	.init_irq = msm_dt_init_irq_nompm,
-	.init_machine = msm8910_init,
+	.init_machine = msm8610_init,
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
-	.dt_compat = msm8910_dt_match,
+	.dt_compat = msm8610_dt_match,
 	.restart = msm_restart,
-	.reserve = msm8910_reserve,
-	.init_very_early = msm8910_early_memory,
+	.reserve = msm8610_reserve,
+	.init_very_early = msm8610_early_memory,
 	.smp = &arm_smp_ops,
 MACHINE_END
