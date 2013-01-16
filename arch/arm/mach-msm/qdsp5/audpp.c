@@ -4,7 +4,7 @@
  * common code to deal with the AUDPP dsp task (audio postproc)
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2010, 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2010, 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -176,12 +176,15 @@ int audpp_register_event_callback(struct audpp_event_callback *ecb)
 	struct audpp_state *audpp = &the_audpp_state;
 	int i;
 
+	mutex_lock(audpp->lock);
 	for (i = 0; i < MAX_EVENT_CALLBACK_CLIENTS; ++i) {
 		if (NULL == audpp->cb_tbl[i]) {
 			audpp->cb_tbl[i] = ecb;
+			mutex_unlock(audpp->lock);
 			return 0;
 		}
 	}
+	mutex_unlock(audpp->lock);
 	return -1;
 }
 EXPORT_SYMBOL(audpp_register_event_callback);
@@ -191,12 +194,15 @@ int audpp_unregister_event_callback(struct audpp_event_callback *ecb)
 	struct audpp_state *audpp = &the_audpp_state;
 	int i;
 
+	mutex_lock(audpp->lock);
 	for (i = 0; i < MAX_EVENT_CALLBACK_CLIENTS; ++i) {
 		if (ecb == audpp->cb_tbl[i]) {
 			audpp->cb_tbl[i] = NULL;
+			mutex_unlock(audpp->lock);
 			return 0;
 		}
 	}
+	mutex_unlock(audpp->lock);
 	return -1;
 }
 EXPORT_SYMBOL(audpp_unregister_event_callback);
