@@ -42,12 +42,6 @@
 #define VIDC_IFACEQ_CMDQ_IDX				0
 #define VIDC_IFACEQ_MSGQ_IDX				1
 #define VIDC_IFACEQ_DBGQ_IDX				2
-
-#define VIDC_IFACEQ_MAX_PKT_SIZE			1024
-#define VIDC_IFACEQ_MED_PKT_SIZE			768
-#define VIDC_IFACEQ_MIN_PKT_SIZE			8
-#define VIDC_IFACEQ_VAR_SMALL_PKT_SIZE		100
-#define VIDC_IFACEQ_VAR_LARGE_PKT_SIZE		512
 #define VIDC_IFACEQ_MAX_BUF_COUNT			50
 #define VIDC_IFACE_MAX_PARALLEL_CLNTS		16
 #define VIDC_IFACEQ_DFLT_QHDR				0x01010000
@@ -147,10 +141,6 @@ enum vidc_clocks {
 	VCODEC_AXI_CLK,
 	VCODEC_OCMEM_CLK,
 	VCODEC_MAX_CLKS
-};
-
-struct msm_vidc_fw {
-	void *cookie;
 };
 
 struct venus_core_clock {
