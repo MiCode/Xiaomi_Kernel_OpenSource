@@ -652,7 +652,8 @@ static void gbam_disconnect_work(struct work_struct *w)
 
 static void gbam2bam_disconnect_work(struct work_struct *w)
 {
-	struct gbam_port *port = container_of(w, struct gbam_port, connect_w);
+	struct gbam_port *port =
+			container_of(w, struct gbam_port, disconnect_w);
 	struct bam_ch_info *d = &port->data_ch;
 	int ret;
 
