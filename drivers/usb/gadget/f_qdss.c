@@ -408,6 +408,7 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	pr_debug("qdss_unbind\n");
 
+	clear_eps(f);
 	clear_desc(c->cdev->gadget, f);
 }
 
