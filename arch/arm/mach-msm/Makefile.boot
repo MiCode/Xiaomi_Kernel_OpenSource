@@ -47,12 +47,12 @@ endif
 
 # MSM8974
    zreladdr-$(CONFIG_ARCH_MSM8974)	:= 0x00008000
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-cdp.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-fluid.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-liquid.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-mtp.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-rumi.dtb
-        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-sim.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-fluid.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-liquid.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-mtp.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-rumi.dtb
+        dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v1-sim.dtb
 
 # MSM9615
    zreladdr-$(CONFIG_ARCH_MSM9615)	:= 0x40808000
