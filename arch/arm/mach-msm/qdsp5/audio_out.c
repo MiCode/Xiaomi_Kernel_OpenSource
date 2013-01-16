@@ -293,6 +293,11 @@ void audio_commit_pending_pp_params(void *priv, unsigned id, uint16_t *msg)
 {
 	struct audio_copp *audio_copp = priv;
 
+	if (audio_copp == NULL) {
+		MM_ERR("NULL audio copp pointer\n");
+		return;
+	}
+
 	if (AUDPP_MSG_CFG_MSG == id && msg[0] == AUDPP_MSG_ENA_DIS)
 		return;
 
