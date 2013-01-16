@@ -455,7 +455,7 @@ static struct pm8xxx_misc_platform_data pm8xxx_misc_pdata = {
 
 static struct pm8xxx_spk_platform_data pm8xxx_spk_pdata = {
 	.spk_add_enable		= false,
-	.cd_ng_threshold	= 0x6,
+	.cd_ng_threshold	= 0x0,
 	.cd_nf_preamp_bias	= 0x1,
 	.cd_ng_hold		= 0x6,
 	.cd_ng_max_atten	= 0x0,
