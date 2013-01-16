@@ -310,9 +310,10 @@ struct mdp_qseed_cfg_data {
 	struct mdp_qseed_cfg qseed_data;
 };
 
-#define MDP_OVERLAY_PP_CSC_CFG      0x1
-#define MDP_OVERLAY_PP_QSEED_CFG    0x2
-#define MDP_OVERLAY_PP_PA_CFG      0x4
+#define MDP_OVERLAY_PP_CSC_CFG         0x1
+#define MDP_OVERLAY_PP_QSEED_CFG       0x2
+#define MDP_OVERLAY_PP_PA_CFG          0x4
+#define MDP_OVERLAY_PP_IGC_CFG         0x8
 
 #define MDP_CSC_FLAG_ENABLE	0x1
 #define MDP_CSC_FLAG_YUV_IN	0x2
@@ -341,11 +342,19 @@ struct mdp_pa_cfg {
 	uint32_t cont_adj;
 };
 
+struct mdp_igc_lut_data {
+	uint32_t block;
+	uint32_t len, ops;
+	uint32_t *c0_c1_data;
+	uint32_t *c2_data;
+};
+
 struct mdp_overlay_pp_params {
 	uint32_t config_ops;
 	struct mdp_csc_cfg csc_cfg;
 	struct mdp_qseed_cfg qseed_cfg[2];
 	struct mdp_pa_cfg pa_cfg;
+	struct mdp_igc_lut_data igc_cfg;
 };
 
 struct mdp_overlay {
@@ -460,13 +469,6 @@ enum {
 	mdp_lut_pgc,
 	mdp_lut_hist,
 	mdp_lut_max,
-};
-
-struct mdp_igc_lut_data {
-	uint32_t block;
-	uint32_t len, ops;
-	uint32_t *c0_c1_data;
-	uint32_t *c2_data;
 };
 
 struct mdp_ar_gc_lut_data {
