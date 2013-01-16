@@ -2751,7 +2751,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		ret = msm_hs_sps_init(msm_uport);
 		if (unlikely(ret)) {
 			pr_err("SPS Initialization failed ! err=%d", ret);
-			goto unmap_memory;
+			goto workqueue_destroy;
 		}
 	}
 
@@ -2761,18 +2761,12 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 
 	ret = uartdm_init_port(uport);
 	if (unlikely(ret)) {
-		clk_disable_unprepare(msm_uport->clk);
-		if (msm_uport->pclk)
-			clk_disable_unprepare(msm_uport->pclk);
-		goto unmap_memory;
+		goto err_clock;
 	}
 
 	/* configure the CR Protection to Enable */
 	msm_hs_write(uport, UARTDM_CR_ADDR, CR_PROTECTION_EN);
 
-	clk_disable_unprepare(msm_uport->clk);
-	if (msm_uport->pclk)
-		clk_disable_unprepare(msm_uport->pclk);
 
 	/*
 	 * Enable Command register protection before going ahead as this hw
@@ -2789,7 +2783,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_clock.attr);
 	if (unlikely(ret))
-		goto unmap_memory;
+		goto err_clock;
 
 	msm_serial_debugfs_init(msm_uport, pdev->id);
 
@@ -2797,9 +2791,19 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	if (pdata != NULL && pdata->userid && pdata->userid <= UARTDM_NR)
 		uport->line = pdata->userid;
 	ret = uart_add_one_port(&msm_hs_driver, uport);
-	if (!ret)
+	if (!ret) {
+		clk_disable_unprepare(msm_uport->clk);
+		if (msm_uport->pclk)
+			clk_disable_unprepare(msm_uport->pclk);
 		return ret;
+	}
 
+err_clock:
+	clk_disable_unprepare(msm_uport->clk);
+	if (msm_uport->pclk)
+		clk_disable_unprepare(msm_uport->pclk);
+workqueue_destroy:
+	destroy_workqueue(msm_uport->hsuart_wq);
 unmap_memory:
 	iounmap(uport->membase);
 	if (is_blsp_uart(msm_uport))
