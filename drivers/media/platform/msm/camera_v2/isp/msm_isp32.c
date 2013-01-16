@@ -530,7 +530,7 @@ static void msm_vfe32_axi_cfg_wm_reg(
 	/*WR_BUFFER_CFG*/
 	val =
 		msm_isp_cal_word_per_line(stream_cfg_cmd->output_format,
-		  stream_cfg_cmd->plane_cfg[plane_idx].output_width) << 16 |
+		  stream_cfg_cmd->plane_cfg[plane_idx].output_stride) << 16 |
 		(stream_cfg_cmd->plane_cfg[
 			plane_idx].output_scan_lines - 1) << 4 |
 		VFE32_BURST_LEN >> 2;
@@ -599,8 +599,8 @@ static void msm_vfe32_axi_cfg_wm_xbar_reg(
 	switch (stream_cfg_cmd->stream_src) {
 	case PIX_ENCODER:
 	case PIX_VIEWFINDER: {
-		if (plane_cfg->output_plane_format
-			!= CRCB_PLANE) {
+		if (plane_cfg->output_plane_format != CRCB_PLANE &&
+			plane_cfg->output_plane_format != CBCR_PLANE) {
 			/*SINGLE_STREAM_SEL*/
 			xbar_cfg |= plane_cfg->output_plane_format << 5;
 		} else {
