@@ -717,7 +717,8 @@ static void handle_fbd(enum command_response cmd, void *data)
 	if (vb) {
 		vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
 		if (!(fill_buf_done->flags1 &
-			HAL_BUFFERFLAG_TIMESTAMPINVALID)) {
+			HAL_BUFFERFLAG_TIMESTAMPINVALID) &&
+			fill_buf_done->filled_len1) {
 			int64_t time_usec = fill_buf_done->timestamp_hi;
 			time_usec = (time_usec << 32) |
 				fill_buf_done->timestamp_lo;
