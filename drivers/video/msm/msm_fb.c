@@ -1747,8 +1747,6 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 
 static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-
 	if (var->rotate != FB_ROTATE_UR)
 		return -EINVAL;
 	if (var->grayscale != info->var.grayscale)
@@ -1837,12 +1835,6 @@ static int msm_fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if ((var->xres == 0) || (var->yres == 0))
 		return -EINVAL;
 
-	if ((var->xres > MAX(mfd->panel_info.xres,
-			     mfd->panel_info.mode2_xres)) ||
-		(var->yres > MAX(mfd->panel_info.yres,
-				 mfd->panel_info.mode2_yres)))
-		return -EINVAL;
-
 	if (var->xoffset > (var->xres_virtual - var->xres))
 		return -EINVAL;
 
@@ -1926,6 +1918,10 @@ static int msm_fb_set_par(struct fb_info *info)
 
 	if (blank) {
 		msm_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
+
+		if (mfd->update_panel_info)
+			mfd->update_panel_info(mfd);
+
 		msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable);
 	}
 
