@@ -1847,7 +1847,7 @@ static struct branch_clk csi1pix_clk = {
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
-		.parent = &csi0_clk_src.c,
+		.parent = &csi1_clk_src.c,
 		.dbg_name = "csi1pix_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi1pix_clk.c),
@@ -1859,7 +1859,7 @@ static struct branch_clk csi1rdi_clk = {
 	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
-		.parent = &csi0_clk_src.c,
+		.parent = &csi1_clk_src.c,
 		.dbg_name = "csi1rdi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(csi1rdi_clk.c),
