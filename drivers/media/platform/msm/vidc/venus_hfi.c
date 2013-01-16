@@ -1224,7 +1224,9 @@ static int venus_hfi_core_release(void *device)
 	if (dev->hal_client) {
 		venus_hfi_write_register(dev->hal_data->register_base_addr,
 				VIDC_CPU_CS_SCIACMDARG3, 0, 0);
-		disable_irq_nosync(dev->hal_data->irq);
+		if (!(dev->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
+			disable_irq_nosync(dev->hal_data->irq);
+		dev->intr_status = 0;
 		venus_hfi_interface_queues_release(dev);
 	}
 	dprintk(VIDC_INFO, "HAL exited\n");
@@ -1940,7 +1942,6 @@ static void venus_hfi_process_sys_watchdog_timeout(
 				struct venus_hfi_device *device)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
-	device->intr_status &= ~VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK;
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device->device_id;
 	device->callback(SYS_WATCHDOG_TIMEOUT, &cmd_done);
@@ -1987,7 +1988,8 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 	}
 	venus_hfi_core_clear_interrupt(device);
 	venus_hfi_response_handler(device);
-	enable_irq(device->hal_data->irq);
+	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
+		enable_irq(device->hal_data->irq);
 }
 static DECLARE_WORK(venus_hfi_work, venus_hfi_core_work_handler);
 
