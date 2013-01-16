@@ -16,6 +16,11 @@
 
 #include <linux/bitops.h>
 
+#define IGC_LUT_ENTRIES	256
+#define GC_LUT_SEGMENTS	16
+#define ENHIST_LUT_ENTRIES 256
+#define HIST_V_SIZE	256
+
 #define MDSS_REG_HW_VERSION				0x0
 #define MDSS_REG_HW_INTR_STATUS				0x10
 
@@ -160,6 +165,9 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_SSPP_SRC_OP_MODE			0x038
 #define MDSS_MDP_OP_DEINTERLACE			BIT(22)
 #define MDSS_MDP_OP_DEINTERLACE_ODD		BIT(23)
+#define MDSS_MDP_OP_IGC_ROM_1			BIT(18)
+#define MDSS_MDP_OP_IGC_ROM_0			BIT(17)
+#define MDSS_MDP_OP_IGC_EN			BIT(16)
 #define MDSS_MDP_OP_FLIP_UD			BIT(14)
 #define MDSS_MDP_OP_FLIP_LR			BIT(13)
 #define MDSS_MDP_OP_BWC_EN			BIT(0)

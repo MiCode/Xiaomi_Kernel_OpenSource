@@ -584,6 +584,8 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 		unpack = 0;
 	}
 
+	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
+
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, src_format);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_OP_MODE, opmode);
