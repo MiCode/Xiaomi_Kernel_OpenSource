@@ -215,7 +215,7 @@ enum msm_hsl_regs {
 #ifdef CONFIG_MSM_UARTDM_Core_v14
 
 /* write only register */
-#define UARTDM_CSR_ADDR    0x0a
+#define UARTDM_CSR_ADDR    0xa0
 
 /* write only register */
 #define UARTDM_TF_ADDR   0x100
