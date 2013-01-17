@@ -604,6 +604,15 @@ config PMIC8XXX_NFC
 	  Qualcomm PM8XXX chips have a module to support NFC (Near Field
 	  Communication). This option enables the driver to support it.
 
+config PMIC8XXX_UPL
+	tristate "Qualcomm PM8XXX support for User Programmable Logic"
+	depends on MFD_PM8XXX
+	help
+	  This option enables device driver support for User Programmable Logic
+	  on Qualcomm PM8XXX chips. The UPL module provides a means to implement
+	  simple truth table based logic via a set of control registers. I/O may
+	  be routed in and out of the UPL module via GPIO or DTEST pins.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
