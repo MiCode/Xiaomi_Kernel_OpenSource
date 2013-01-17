@@ -17,11 +17,15 @@ Required properties:
  - atmel,family-id	: family identification of the controller
  - atmel,variant-id	: variant identification of the controller
  - atmel,version	: firmware version of the controller
- - atmel,build	i	: firmware build number of the controller
- - atmel,bootldr-id	: bootloader identification of the controller
- - atmel,fw-name	: firmware name to used for flashing firmware
+ - atmel,build		: firmware build number of the controller
+
+Required for firmware update only:
+ - atmel,fw-name		: firmware name to use for flashing firmware
+ - atmel,bootldr-id		: bootloader identification of the controller
 
 Optional property:
+ - atmel,bl-addr		: bootloader address, by default is looked up
+					in mxt_slave_addresses structure
  - atmel,config			: configuration parameter for the controller
  - atmel,i2c-pull-up		: specify to indicate pull up is needed
  - vcc_i2c-supply		: Power source required to pull up i2c bus
