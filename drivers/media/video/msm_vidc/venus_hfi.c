@@ -2402,14 +2402,14 @@ static const u32 venus_hfi_bus_table[] = {
 static int venus_hfi_get_bus_vector(int load)
 {
 	int num_rows = sizeof(venus_hfi_bus_table)/(sizeof(u32));
-	int i;
+	int i, j;
 	for (i = 0; i < num_rows; i++) {
 		if (load <= venus_hfi_bus_table[i])
 			break;
 	}
-	i++;
-	dprintk(VIDC_DBG, "Required bus = %d\n", i);
-	return i;
+	j = clamp(i, 0, num_rows-1) + 1;
+	dprintk(VIDC_DBG, "Required bus = %d\n", j);
+	return j;
 }
 
 static int venus_hfi_scale_bus(void *dev, int load,
