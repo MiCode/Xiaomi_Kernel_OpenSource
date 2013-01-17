@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,10 @@ module_param_named(
 static struct msm_rpmrs_level *msm_lpm_levels;
 static int msm_lpm_level_count;
 
+static DEFINE_PER_CPU(uint32_t , msm_lpm_sleep_time);
+static DEFINE_PER_CPU(int , lpm_permitted_level);
+static DEFINE_PER_CPU(struct atomic_notifier_head, lpm_notify_head);
+
 static void msm_lpm_level_update(void)
 {
 	unsigned int lpm_level;
@@ -55,6 +59,12 @@ int msm_lpm_enter_sleep(uint32_t sclk_count, void *limits,
 	int ret = 0;
 	int debug_mask;
 	struct msm_rpmrs_limits *l = (struct msm_rpmrs_limits *)limits;
+	struct msm_lpm_sleep_data sleep_data;
+
+	sleep_data.limits = limits;
+	sleep_data.kernel_sleep = __get_cpu_var(msm_lpm_sleep_time);
+	atomic_notifier_call_chain(&__get_cpu_var(lpm_notify_head),
+		MSM_LPM_STATE_ENTER, &sleep_data);
 
 	ret = msm_rpm_enter_sleep();
 	if (ret) {
@@ -88,12 +98,56 @@ static void msm_lpm_exit_sleep(void *limits, bool from_idle,
 	msm_rpm_exit_sleep();
 	msm_lpmrs_exit_sleep((struct msm_rpmrs_limits *)limits,
 				from_idle, notify_rpm, collapsed);
+	atomic_notifier_call_chain(&__get_cpu_var(lpm_notify_head),
+			MSM_LPM_STATE_EXIT, NULL);
 }
 
 void msm_lpm_show_resources(void)
 {
 	/* TODO */
 	return;
+}
+
+uint32_t msm_pm_get_pxo(struct msm_rpmrs_limits *limits)
+{
+	return limits->pxo;
+}
+
+uint32_t msm_pm_get_l2_cache(struct msm_rpmrs_limits *limits)
+{
+	return limits->l2_cache;
+}
+
+uint32_t msm_pm_get_vdd_mem(struct msm_rpmrs_limits *limits)
+{
+	return limits->vdd_mem_upper_bound;
+}
+
+uint32_t msm_pm_get_vdd_dig(struct msm_rpmrs_limits *limits)
+{
+	return limits->vdd_dig_upper_bound;
+}
+
+static bool lpm_level_permitted(int cur_level_count)
+{
+	if (__get_cpu_var(lpm_permitted_level) == msm_lpm_level_count + 1)
+		return true;
+	return (__get_cpu_var(lpm_permitted_level) == cur_level_count);
+}
+
+int msm_lpm_register_notifier(int cpu, int level_iter,
+			struct notifier_block *nb, bool is_latency_measure)
+{
+	per_cpu(lpm_permitted_level, cpu) = level_iter;
+	return atomic_notifier_chain_register(&per_cpu(lpm_notify_head,
+			cpu), nb);
+}
+
+int msm_lpm_unregister_notifier(int cpu, struct notifier_block *nb)
+{
+	per_cpu(lpm_permitted_level, cpu) = msm_lpm_level_count + 1;
+	return atomic_notifier_chain_unregister(&per_cpu(lpm_notify_head, cpu),
+				nb);
 }
 
 s32 msm_cpuidle_get_deep_idle_latency(void)
@@ -127,7 +181,7 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 	struct msm_rpmrs_level *best_level = NULL;
 	uint32_t pwr;
 	int i;
-
+	int best_level_iter = msm_lpm_level_count + 1;
 	if (!msm_lpm_levels)
 		return NULL;
 
@@ -170,14 +224,31 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 			level->rs_limits.latency_us[cpu] = level->latency_us;
 			level->rs_limits.power[cpu] = pwr;
 			best_level = level;
-
+			best_level_iter = i;
 			if (power)
 				*power = pwr;
 		}
 	}
+	if (best_level && !lpm_level_permitted(best_level_iter))
+		best_level = NULL;
+	else
+		per_cpu(msm_lpm_sleep_time, cpu) =
+			time_param->modified_time_us ?
+			time_param->modified_time_us : time_param->sleep_us;
 
 	return best_level ? &best_level->rs_limits : NULL;
 }
+
+static struct lpm_test_platform_data lpm_test_pdata;
+
+static struct platform_device msm_lpm_test_device = {
+	.name		= "lpm_test",
+	.id		= -1,
+	.dev		= {
+		.platform_data = &lpm_test_pdata,
+	},
+};
+
 static struct msm_pm_sleep_ops msm_lpm_ops = {
 	.lowest_limits = msm_lpm_lowest_limits,
 	.enter_sleep = msm_lpm_enter_sleep,
@@ -194,6 +265,7 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 	int ret = 0;
 	uint32_t num_levels = 0;
 	int idx = 0;
+	unsigned int m_cpu = 0;
 
 	for_each_child_of_node(pdev->dev.of_node, node)
 		num_levels++;
@@ -279,6 +351,14 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 	msm_lpm_levels = levels;
 	msm_lpm_level_count = idx;
 
+	lpm_test_pdata.msm_lpm_test_levels = msm_lpm_levels;
+	lpm_test_pdata.msm_lpm_test_level_count = msm_lpm_level_count;
+
+	for_each_possible_cpu(m_cpu)
+		per_cpu(lpm_permitted_level, m_cpu) =
+					msm_lpm_level_count + 1;
+
+	platform_device_register(&msm_lpm_test_device);
 	msm_pm_set_sleep_ops(&msm_lpm_ops);
 
 	return 0;
