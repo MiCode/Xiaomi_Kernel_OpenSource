@@ -4,7 +4,7 @@
  * Copyright (C) 2000-2001 Marcus Metzler & Ralph Metzler
  *                         for convergence integrated media GmbH
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -105,6 +105,9 @@ struct dvb_demux_feed {
 	int pusi_seen;		/* prevents feeding of garbage from previous section */
 
 	u32 peslen;
+	u32 pes_tei_counter;
+	u32 pes_cont_err_counter;
+	u32 pes_ts_packets_num;
 
 	struct list_head list_head;
 	unsigned int index;	/* a unique index for each feed (can be used as hardware pid filter index) */

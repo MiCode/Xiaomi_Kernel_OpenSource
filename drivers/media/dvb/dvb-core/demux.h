@@ -7,7 +7,7 @@
  * Copyright (c) 2000 Nokia Research Center
  *                    Tampere, FINLAND
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -100,6 +100,9 @@ struct dmx_data_ready {
 			int disc_indicator_set;
 			int pes_length_mismatch;
 			u64 stc;
+			u32 tei_counter;
+			u32 cont_err_counter;
+			u32 ts_packets_num;
 		} pes_end;
 
 		struct {
