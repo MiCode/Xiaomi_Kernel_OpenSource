@@ -25,7 +25,7 @@
 #include <linux/init.h>
 #include <linux/compiler.h>
 #include <linux/blktrace_api.h>
-#include <linux/jiffies.h>
+#include <linux/hrtimer.h>
 
 /*
  * enum row_queue_prio - Priorities of the ROW queues
@@ -140,20 +140,20 @@ struct row_queue {
 
 /**
  * struct idling_data - data for idling on empty rqueue
- * @idle_time:		idling duration (jiffies)
- * @freq:		min time between two requests that
+ * @idle_time_ms:		idling duration (msec)
+ * @freq_ms:		min time between two requests that
  *			triger idling (msec)
- * @idle_wq:	work queue to add the idling task to
- * @idle_work:		pointer to struct delayed_work
+ * @hr_timer:	idling timer
+ * @idle_work:	the work to be scheduled when idling timer expires
  * @idling_queue_idx:	index of the queues we're idling on
  *
  */
 struct idling_data {
-	unsigned long			idle_time;
-	s64				freq;
+	s64				idle_time_ms;
+	s64				freq_ms;
 
-	struct workqueue_struct		*idle_wq;
-	struct delayed_work		idle_work;
+	struct hrtimer			hr_timer;
+	struct work_struct		idle_work;
 	enum row_queue_prio		idling_queue_idx;
 };
 
@@ -218,19 +218,21 @@ static inline void __maybe_unused row_dump_queues_stat(struct row_data *rd)
 }
 
 /******************** Static helper functions ***********************/
-/*
- * kick_queue() - Wake up device driver queue thread
- * @work:	pointer to struct work_struct
- *
- * This is a idling delayed work function. It's purpose is to wake up the
- * device driver in order for it to start fetching requests.
- *
- */
 static void kick_queue(struct work_struct *work)
 {
-	struct delayed_work *idle_work = to_delayed_work(work);
 	struct idling_data *read_data =
-		container_of(idle_work, struct idling_data, idle_work);
+		container_of(work, struct idling_data, idle_work);
+	struct row_data *rd =
+		container_of(read_data, struct row_data, rd_idle_data);
+
+	blk_run_queue(rd->dispatch_queue);
+}
+
+
+static enum hrtimer_restart row_idle_hrtimer_fn(struct hrtimer *hr_timer)
+{
+	struct idling_data *read_data =
+		container_of(hr_timer, struct idling_data, hr_timer);
 	struct row_data *rd =
 		container_of(read_data, struct row_data, rd_idle_data);
 
@@ -243,11 +245,10 @@ static void kick_queue(struct work_struct *work)
 
 	if (!rd->nr_reqs[READ] && !rd->nr_reqs[WRITE])
 		row_log(rd->dispatch_queue, "No requests in scheduler");
-	else {
-		spin_lock_irq(rd->dispatch_queue->queue_lock);
-		__blk_run_queue(rd->dispatch_queue);
-		spin_unlock_irq(rd->dispatch_queue->queue_lock);
-	}
+	else
+		kblockd_schedule_work(rd->dispatch_queue,
+			&read_data->idle_work);
+	return HRTIMER_NORESTART;
 }
 
 /******************* Elevator callback functions *********************/
@@ -272,9 +273,8 @@ static void row_add_request(struct request_queue *q,
 
 	if (row_queues_def[rqueue->prio].idling_enabled) {
 		if (rd->rd_idle_data.idling_queue_idx == rqueue->prio &&
-		    delayed_work_pending(&rd->rd_idle_data.idle_work)) {
-			(void)cancel_delayed_work(
-				&rd->rd_idle_data.idle_work);
+		    hrtimer_active(&rd->rd_idle_data.hr_timer)) {
+			(void)hrtimer_cancel(&rd->rd_idle_data.hr_timer);
 			row_log_rowq(rd, rqueue->prio,
 				"Canceled delayed work on %d",
 				rd->rd_idle_data.idling_queue_idx);
@@ -287,7 +287,7 @@ static void row_add_request(struct request_queue *q,
 			rqueue->idle_data.begin_idling = false;
 			return;
 		}
-		if (diff_ms < rd->rd_idle_data.freq) {
+		if (diff_ms < rd->rd_idle_data.freq_ms) {
 			rqueue->idle_data.begin_idling = true;
 			row_log_rowq(rd, rqueue->prio, "Enable idling");
 		} else {
@@ -427,9 +427,9 @@ static int row_get_ioprio_class_to_serve(struct row_data *rd, int force)
 	/* First, go over the high priority queues */
 	for (i = 0; i < ROWQ_REG_PRIO_IDX; i++) {
 		if (!list_empty(&rd->row_queues[i].fifo)) {
-			if (delayed_work_pending(&rd->rd_idle_data.idle_work)) {
-				(void)cancel_delayed_work(
-					&rd->rd_idle_data.idle_work);
+			if (hrtimer_active(&rd->rd_idle_data.hr_timer)) {
+				(void)hrtimer_cancel(
+					&rd->rd_idle_data.hr_timer);
 				row_log_rowq(rd,
 					rd->rd_idle_data.idling_queue_idx,
 					"Canceling delayed work on %d. RT pending",
@@ -446,7 +446,7 @@ static int row_get_ioprio_class_to_serve(struct row_data *rd, int force)
 	 * At the moment idling is implemented only for READ queues.
 	 * If enabled on WRITE, this needs updating
 	 */
-	if (delayed_work_pending(&rd->rd_idle_data.idle_work)) {
+	if (hrtimer_active(&rd->rd_idle_data.hr_timer)) {
 		row_log(rd->dispatch_queue, "Delayed work pending. Exiting");
 		goto done;
 	}
@@ -476,14 +476,13 @@ check_idling:
 	goto done;
 
 initiate_idling:
-	if (!queue_delayed_work(rd->rd_idle_data.idle_wq,
-	    &rd->rd_idle_data.idle_work, rd->rd_idle_data.idle_time)) {
-		row_log(rd->dispatch_queue, "Work already on queue!");
-		pr_err("ROW_BUG: Work already on queue!");
-	} else {
-		rd->rd_idle_data.idling_queue_idx = i;
-		row_log_rowq(rd, i, "Scheduled delayed work on %d. exiting", i);
-	}
+	hrtimer_start(&rd->rd_idle_data.hr_timer,
+		ktime_set(0, rd->rd_idle_data.idle_time_ms * NSEC_PER_MSEC),
+		HRTIMER_MODE_REL);
+
+	rd->rd_idle_data.idling_queue_idx = i;
+	row_log_rowq(rd, i, "Scheduled delayed work on %d. exiting", i);
+
 done:
 	return ret;
 }
@@ -555,8 +554,8 @@ static int row_dispatch_requests(struct request_queue *q, int force)
 	struct row_data *rd = (struct row_data *)q->elevator->elevator_data;
 	int ret = 0, currq, ioprio_class_to_serve, start_idx, end_idx;
 
-	if (force && delayed_work_pending(&rd->rd_idle_data.idle_work)) {
-		(void)cancel_delayed_work(&rd->rd_idle_data.idle_work);
+	if (force && hrtimer_active(&rd->rd_idle_data.hr_timer)) {
+		(void)hrtimer_cancel(&rd->rd_idle_data.hr_timer);
 		row_log_rowq(rd, rd->rd_idle_data.idling_queue_idx,
 			"Canceled delayed work on %d - forced dispatch",
 			rd->rd_idle_data.idling_queue_idx);
@@ -632,16 +631,13 @@ static void *row_init_queue(struct request_queue *q)
 	 * enable it for write queues also, note that idling frequency will
 	 * be the same in both cases
 	 */
-	rdata->rd_idle_data.idle_time = msecs_to_jiffies(ROW_IDLE_TIME_MSEC);
-	/* Maybe 0 on some platforms */
-	if (!rdata->rd_idle_data.idle_time)
-		rdata->rd_idle_data.idle_time = 1;
-	rdata->rd_idle_data.freq = ROW_READ_FREQ_MSEC;
-	rdata->rd_idle_data.idle_wq = alloc_workqueue("row_idle_work",
-					    WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
-	if (!rdata->rd_idle_data.idle_wq)
-		panic("Failed to create idle workqueue\n");
-	INIT_DELAYED_WORK(&rdata->rd_idle_data.idle_work, kick_queue);
+	rdata->rd_idle_data.idle_time_ms = ROW_IDLE_TIME_MSEC;
+	rdata->rd_idle_data.freq_ms = ROW_READ_FREQ_MSEC;
+	hrtimer_init(&rdata->rd_idle_data.hr_timer,
+		CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	rdata->rd_idle_data.hr_timer.function = &row_idle_hrtimer_fn;
+
+	INIT_WORK(&rdata->rd_idle_data.idle_work, kick_queue);
 
 	rdata->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
 	rdata->dispatch_queue = q;
@@ -663,10 +659,9 @@ static void row_exit_queue(struct elevator_queue *e)
 
 	for (i = 0; i < ROWQ_MAX_PRIO; i++)
 		BUG_ON(!list_empty(&rd->row_queues[i].fifo));
-	(void)cancel_delayed_work_sync(&rd->rd_idle_data.idle_work);
+	if (hrtimer_cancel(&rd->rd_idle_data.hr_timer))
+		pr_err("ROW BUG: idle timer was active!");
 	rd->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
-	BUG_ON(delayed_work_pending(&rd->rd_idle_data.idle_work));
-	destroy_workqueue(rd->rd_idle_data.idle_wq);
 	kfree(rd);
 }
 
@@ -798,8 +793,8 @@ SHOW_FUNCTION(row_lp_read_quantum_show,
 	rowd->row_queues[ROWQ_PRIO_LOW_READ].disp_quantum, 0);
 SHOW_FUNCTION(row_lp_swrite_quantum_show,
 	rowd->row_queues[ROWQ_PRIO_LOW_SWRITE].disp_quantum, 0);
-SHOW_FUNCTION(row_rd_idle_data_show, rowd->rd_idle_data.idle_time, 0);
-SHOW_FUNCTION(row_rd_idle_data_freq_show, rowd->rd_idle_data.freq, 0);
+SHOW_FUNCTION(row_rd_idle_data_show, rowd->rd_idle_data.idle_time_ms, 0);
+SHOW_FUNCTION(row_rd_idle_data_freq_show, rowd->rd_idle_data.freq_ms, 0);
 #undef SHOW_FUNCTION
 
 #define STORE_FUNCTION(__FUNC, __PTR, MIN, MAX, __CONV)			\
@@ -837,10 +832,10 @@ STORE_FUNCTION(row_lp_read_quantum_store,
 			1, INT_MAX, 0);
 STORE_FUNCTION(row_lp_swrite_quantum_store,
 			&rowd->row_queues[ROWQ_PRIO_LOW_SWRITE].disp_quantum,
-			1, INT_MAX, 1);
-STORE_FUNCTION(row_rd_idle_data_store, &rowd->rd_idle_data.idle_time,
 			1, INT_MAX, 0);
-STORE_FUNCTION(row_rd_idle_data_freq_store, &rowd->rd_idle_data.freq,
+STORE_FUNCTION(row_rd_idle_data_store, &rowd->rd_idle_data.idle_time_ms,
+			1, INT_MAX, 0);
+STORE_FUNCTION(row_rd_idle_data_freq_store, &rowd->rd_idle_data.freq_ms,
 			1, INT_MAX, 0);
 
 #undef STORE_FUNCTION
