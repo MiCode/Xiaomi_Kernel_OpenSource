@@ -72,8 +72,8 @@
 	usb@f9a55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9a55000 0x400>;
-		interrupts = <0 134 0>;
-		interrupt-names = "core_irq";
+		interrupts = <0 134 0>, <0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
 		HSUSB_VDDCX-supply = <&pm8110_s1>;
 		HSUSB_1p8-supply = <&pm8110_l10>;
 		HSUSB_3p3-supply = <&pm8110_l20>;
