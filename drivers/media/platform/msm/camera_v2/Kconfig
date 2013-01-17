@@ -82,6 +82,15 @@ config S5K3L1YX
 		snapshot config = 4000 * 3000 at 20 fps,
 		hfr video at 60, 90 and 120 fps.
 
+config OV2720
+	bool "Sensor OV2720 (BAYER 2M)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 2 MP Bayer Sensor, supports 2 mipi lanes,
+		preview and snapshot config at 1932 * 1092 at 30 fps,
+		hfr video at 60, 90 and 120 fps. This sensor driver does
+		not support auto focus.
+
 config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	tristate "Qualcomm MSM V4l2 video overlay device"
 	---help---
