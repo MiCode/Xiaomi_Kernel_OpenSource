@@ -1303,8 +1303,12 @@ static void flush_endpoint(struct msm_endpoint *ept)
 static irqreturn_t usb_interrupt(int irq, void *data)
 {
 	struct usb_info *ui = data;
+	struct msm_otg *dev = to_msm_otg(ui->xceiv);
 	unsigned n;
 	unsigned long flags;
+
+	if (atomic_read(&dev->in_lpm))
+		return IRQ_NONE;
 
 	n = readl(USB_USBSTS);
 	writel(n, USB_USBSTS);
