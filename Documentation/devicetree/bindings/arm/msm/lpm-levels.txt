@@ -8,6 +8,10 @@ L2, XO, Vdd Dig and Vdd Mem. The combination is captured in the device tree as
 lpm-level. The units for voltage are dependent on the PMIC used on the target
 and are in uV.
 
+The optional properties are:
+
+- qcom,use-qtimer: Indicates whether the target uses the synchronized QTimer.
+
 The required nodes for lpm-levels are:
 
 - compatible: "qcom,lpm-levels"
@@ -34,6 +38,7 @@ The required nodes for lpm-levels are:
 Example:
 
 qcom,lpm-levels {
+	qcom,use-qtimer;
 	qcom,lpm-level@0 {
 		reg = <0>;
 		qcom,mode = <0>;        /* MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT */
