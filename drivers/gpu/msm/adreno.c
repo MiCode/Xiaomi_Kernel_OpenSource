@@ -130,6 +130,10 @@ unsigned int hang_detect_regs[] = {
 	REG_CP_IB2_BASE,
 	REG_CP_IB2_BUFSZ,
 	0,
+	0,
+	0,
+	0,
+	0,
 	0
 };
 
@@ -1267,6 +1271,10 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	if (adreno_is_a3xx(adreno_dev)) {
 		hang_detect_regs[6] = A3XX_RBBM_PERFCTR_SP_7_LO;
 		hang_detect_regs[7] = A3XX_RBBM_PERFCTR_SP_7_HI;
+		hang_detect_regs[8] = A3XX_RBBM_PERFCTR_SP_6_LO;
+		hang_detect_regs[9] = A3XX_RBBM_PERFCTR_SP_6_HI;
+		hang_detect_regs[10] = A3XX_RBBM_PERFCTR_SP_5_LO;
+		hang_detect_regs[11] = A3XX_RBBM_PERFCTR_SP_5_HI;
 	}
 
 	status = kgsl_mmu_start(device);
@@ -1801,6 +1809,7 @@ static int adreno_setproperty(struct kgsl_device *device,
 				unsigned int sizebytes)
 {
 	int status = -EINVAL;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	switch (type) {
 	case KGSL_PROP_PWRCTRL: {
@@ -1820,10 +1829,11 @@ static int adreno_setproperty(struct kgsl_device *device,
 			if (enable) {
 				if (pdata->nap_allowed)
 					device->pwrctrl.nap_allowed = true;
-
+				adreno_dev->fast_hang_detect = 1;
 				kgsl_pwrscale_enable(device);
 			} else {
 				device->pwrctrl.nap_allowed = false;
+				adreno_dev->fast_hang_detect = 0;
 				kgsl_pwrscale_disable(device);
 			}
 
