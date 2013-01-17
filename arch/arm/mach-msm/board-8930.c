@@ -1465,7 +1465,7 @@ static void __init msm8930_map_io(void)
 	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_msm8930_io();
 
-	if (IS_ERR_OR_NULL(socinfo_init()))
+	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 
 }

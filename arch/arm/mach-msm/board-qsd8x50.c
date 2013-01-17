@@ -2521,7 +2521,7 @@ static void __init qsd8x50_map_io(void)
 	msm_shared_ram_phys = MSM_SHARED_RAM_PHYS;
 	msm_map_qsd8x50_io();
 	qsd8x50_allocate_memory_regions();
-	if (IS_ERR_OR_NULL(socinfo_init()))
+	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 }
 

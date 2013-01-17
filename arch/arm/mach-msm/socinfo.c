@@ -814,67 +814,6 @@ static int __init socinfo_create_files(struct sys_device *dev,
 	return 0;
 }
 
-static int __init socinfo_init_sysdev(void)
-{
-	int err;
-
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return -ENODEV;
-	}
-
-	err = sysdev_class_register(&soc_sysdev_class);
-	if (err) {
-		pr_err("%s: sysdev_class_register fail (%d)\n",
-		       __func__, err);
-		return err;
-	}
-	err = sysdev_register(&soc_sys_device);
-	if (err) {
-		pr_err("%s: sysdev_register fail (%d)\n",
-		       __func__, err);
-		return err;
-	}
-	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
-				ARRAY_SIZE(socinfo_v1_files));
-	if (socinfo->v1.format < 2)
-		return err;
-	socinfo_create_files(&soc_sys_device, socinfo_v2_files,
-				ARRAY_SIZE(socinfo_v2_files));
-
-	if (socinfo->v1.format < 3)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v3_files,
-				ARRAY_SIZE(socinfo_v3_files));
-
-	if (socinfo->v1.format < 4)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v4_files,
-				ARRAY_SIZE(socinfo_v4_files));
-
-	if (socinfo->v1.format < 5)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v5_files,
-				ARRAY_SIZE(socinfo_v5_files));
-
-	if (socinfo->v1.format < 6)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v6_files,
-				ARRAY_SIZE(socinfo_v6_files));
-
-	if (socinfo->v1.format < 7)
-		return err;
-
-	return socinfo_create_files(&soc_sys_device, socinfo_v7_files,
-				ARRAY_SIZE(socinfo_v7_files));
-}
-
-arch_initcall(socinfo_init_sysdev);
-
 static void * __init setup_dummy_socinfo(void)
 {
 	if (machine_is_msm8960_cdp())
@@ -964,6 +903,88 @@ static void  __init soc_info_populate(struct soc_device_attribute *soc_dev_attr)
 
 }
 
+static int __init socinfo_init_sysdev(void)
+{
+	int err;
+	struct device *msm_soc_device;
+	struct soc_device *soc_dev;
+	struct soc_device_attribute *soc_dev_attr;
+
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return -ENODEV;
+	}
+
+	soc_dev_attr = kzalloc(sizeof(*soc_dev_attr), GFP_KERNEL);
+	if (!soc_dev_attr) {
+		pr_err("%s: Soc Device alloc failed!\n", __func__);
+		return -ENOMEM;
+	}
+
+	soc_info_populate(soc_dev_attr);
+	soc_dev = soc_device_register(soc_dev_attr);
+	if (IS_ERR_OR_NULL(soc_dev)) {
+		kfree(soc_dev_attr);
+		 pr_err("%s: Soc device register failed\n", __func__);
+		 return -EIO;
+	}
+
+	msm_soc_device = soc_device_to_device(soc_dev);
+	populate_soc_sysfs_files(msm_soc_device);
+	err = sysdev_class_register(&soc_sysdev_class);
+	if (err) {
+		pr_err("%s: sysdev_class_register fail (%d)\n",
+		       __func__, err);
+		return err;
+	}
+	err = sysdev_register(&soc_sys_device);
+	if (err) {
+		pr_err("%s: sysdev_register fail (%d)\n",
+		       __func__, err);
+		return err;
+	}
+	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
+				ARRAY_SIZE(socinfo_v1_files));
+	if (socinfo->v1.format < 2)
+		return err;
+	socinfo_create_files(&soc_sys_device, socinfo_v2_files,
+				ARRAY_SIZE(socinfo_v2_files));
+
+	if (socinfo->v1.format < 3)
+		return err;
+
+	socinfo_create_files(&soc_sys_device, socinfo_v3_files,
+				ARRAY_SIZE(socinfo_v3_files));
+
+	if (socinfo->v1.format < 4)
+		return err;
+
+	socinfo_create_files(&soc_sys_device, socinfo_v4_files,
+				ARRAY_SIZE(socinfo_v4_files));
+
+	if (socinfo->v1.format < 5)
+		return err;
+
+	socinfo_create_files(&soc_sys_device, socinfo_v5_files,
+				ARRAY_SIZE(socinfo_v5_files));
+
+	if (socinfo->v1.format < 6)
+		return err;
+
+	socinfo_create_files(&soc_sys_device, socinfo_v6_files,
+				ARRAY_SIZE(socinfo_v6_files));
+
+	if (socinfo->v1.format < 7)
+		return err;
+
+	socinfo_create_files(&soc_sys_device, socinfo_v7_files,
+				ARRAY_SIZE(socinfo_v7_files));
+
+	return 0;
+}
+
+arch_initcall(socinfo_init_sysdev);
+
 static void socinfo_print(void)
 {
 	switch (socinfo->v1.format) {
@@ -1043,12 +1064,8 @@ static void socinfo_print(void)
 	}
 }
 
-struct device *  __init socinfo_init(void)
+int __init socinfo_init(void)
 {
-	struct device *msm_soc_device;
-	struct soc_device *soc_dev;
-	struct soc_device_attribute *soc_dev_attr;
-
 	socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v7));
 
 	if (!socinfo)
@@ -1089,21 +1106,8 @@ struct device *  __init socinfo_init(void)
 		cur_cpu = cpu_of_id[socinfo->v1.id];
 
 	socinfo_print();
-	soc_dev_attr = kzalloc(sizeof(*soc_dev_attr), GFP_KERNEL);
-	if (!soc_dev_attr)
-		return ERR_PTR(-ENOMEM);
 
-	soc_info_populate(soc_dev_attr);
-	soc_dev = soc_device_register(soc_dev_attr);
-	if (IS_ERR_OR_NULL(soc_dev)) {
-		kfree(soc_dev_attr);
-		return ERR_PTR(-EIO);
-	}
-
-	msm_soc_device = soc_device_to_device(soc_dev);
-	populate_soc_sysfs_files(msm_soc_device);
-
-	return msm_soc_device;
+	return 0;
 }
 
 const int get_core_count(void)

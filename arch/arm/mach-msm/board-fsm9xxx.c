@@ -1002,7 +1002,7 @@ static void __init fsm9xxx_map_io(void)
 {
 	msm_shared_ram_phys = 0x00100000;
 	msm_map_fsm9xxx_io();
-	if (IS_ERR_OR_NULL(socinfo_init()))
+	if (socinfo_init() < 0)
 		pr_err("socinfo_init() failed!\n");
 }
 

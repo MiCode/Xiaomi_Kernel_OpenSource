@@ -124,14 +124,11 @@ static void __init msm8226_reserve(void)
 void __init msm8226_init(void)
 {
 	struct of_dev_auxdata *adata = msm8226_auxdata_lookup;
-	struct device *parent;
 
-	parent = socinfo_init();
-	if (IS_ERR_OR_NULL(parent))
+	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm8226_init_gpiomux();
-
 	msm_clock_init(&msm_dummy_clock_init_data);
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
 }
