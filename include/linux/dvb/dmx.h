@@ -5,7 +5,7 @@
  *                  & Ralph  Metzler <ralph@convergence.de>
  *                    for convergence integrated media GmbH
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -250,6 +250,18 @@ struct dmx_pes_event_info {
 
 	/* Flags passed in filter events */
 	__u32 flags;
+
+	/*
+	 * Number of TS packets with Transport Error Indicator (TEI)
+	 * found while constructing the PES.
+	 */
+	__u32 transport_error_indicator_counter;
+
+	/* Number of continuity errors found while constructing the PES */
+	__u32 continuity_error_counter;
+
+	/* Total number of TS packets holding the PES */
+	__u32 ts_packets_num;
 };
 
 /* Section info associated with DMX_EVENT_NEW_SECTION event */

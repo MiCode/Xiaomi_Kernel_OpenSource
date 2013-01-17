@@ -1861,6 +1861,9 @@ static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 
 			event.params.pes.flags = 0;
 			event.params.pes.stc = 0;
+			event.params.pes.transport_error_indicator_counter = 0;
+			event.params.pes.continuity_error_counter = 0;
+			event.params.pes.ts_packets_num = 0;
 
 			dvb_dmxdev_add_event(events, &event);
 			events->current_event_data_size = 0;
@@ -2109,6 +2112,13 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 					DMX_FILTER_PES_LENGTH_ERROR;
 
 			event.params.pes.stc = dmx_data_ready->pes_end.stc;
+			event.params.pes.transport_error_indicator_counter =
+				dmx_data_ready->pes_end.tei_counter;
+			event.params.pes.continuity_error_counter =
+				dmx_data_ready->pes_end.cont_err_counter;
+			event.params.pes.ts_packets_num =
+				dmx_data_ready->pes_end.ts_packets_num;
+
 			dvb_dmxdev_add_event(events, &event);
 
 			events->current_event_data_size = 0;

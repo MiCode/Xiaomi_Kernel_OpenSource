@@ -5,7 +5,7 @@
  *		       & Marcus Metzler <marcus@convergence.de>
  *			 for convergence integrated media GmbH
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -127,15 +127,15 @@ static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 {
 	int count = payload(buf);
 	int p;
-	//int ccok;
-	//u8 cc;
+	int ccok;
+	u8 cc;
+	struct dmx_data_ready data;
 
 	if (count == 0)
 		return -1;
 
 	p = 188 - count;
 
-	/*
 	cc = buf[3] & 0x0f;
 	if (feed->first_cc)
 		ccok = 1;
@@ -144,25 +144,40 @@ static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 
 	feed->first_cc = 0;
 	feed->cc = cc;
-	if (!ccok)
-		printk("missed packet!\n");
-	*/
 
 	/* PUSI ? */
 	if (buf[1] & 0x40) {
-		if (feed->pusi_seen)
+		if (feed->pusi_seen) {
 			/* We had seen PUSI before, this means
 			 * that previous PES can be closed now.
 			 */
-			feed->cb.ts(NULL, 0, NULL, 0,
-						&feed->feed.ts, DMX_OK_PES_END);
+			data.status = DMX_OK_PES_END;
+			data.data_length = 0;
+			data.pes_end.start_gap = 0;
+			data.pes_end.actual_length = feed->peslen;
+			data.pes_end.disc_indicator_set = 0;
+			data.pes_end.pes_length_mismatch = 0;
+			data.pes_end.stc = 0;
+			data.pes_end.tei_counter = feed->pes_tei_counter;
+			data.pes_end.cont_err_counter =
+				feed->pes_cont_err_counter;
+			data.pes_end.ts_packets_num = feed->pes_ts_packets_num;
+			feed->data_ready_cb.ts(&feed->feed.ts, &data);
+		}
 
 		feed->pusi_seen = 1;
 		feed->peslen = 0;
+		feed->pes_tei_counter = 0;
+		feed->pes_ts_packets_num = 0;
+		feed->pes_cont_err_counter = 0;
 	}
 
 	if (feed->pusi_seen == 0)
 		return 0;
+
+	feed->pes_ts_packets_num++;
+	feed->pes_cont_err_counter += !ccok;
+	feed->pes_tei_counter += (buf[1] & 0x80) ? 1 : 0;
 
 	feed->peslen += count;
 
@@ -1243,6 +1258,9 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	feed->demux = demux;
 	feed->pid = 0xffff;
 	feed->peslen = 0;
+	feed->pes_tei_counter = 0;
+	feed->pes_ts_packets_num = 0;
+	feed->pes_cont_err_counter = 0;
 	feed->buffer = NULL;
 	feed->tsp_out_format = DMX_TSP_FORMAT_188;
 	memset(&feed->indexing_params, 0,
