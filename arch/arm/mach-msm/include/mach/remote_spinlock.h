@@ -39,233 +39,15 @@ typedef union {
 typedef raw_remote_spinlock_t *_remote_spinlock_t;
 
 #define remote_spinlock_id_t const char *
-#define SPINLOCK_PID_APPS 1
-
-static inline void __raw_remote_ex_spin_lock(raw_remote_spinlock_t *lock)
-{
-	unsigned long tmp;
-
-	__asm__ __volatile__(
-"1:	ldrex	%0, [%1]\n"
-"	teq	%0, #0\n"
-"	strexeq	%0, %2, [%1]\n"
-"	teqeq	%0, #0\n"
-"	bne	1b"
-	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (SPINLOCK_PID_APPS)
-	: "cc");
-
-	smp_mb();
-}
-
-static inline int __raw_remote_ex_spin_trylock(raw_remote_spinlock_t *lock)
-{
-	unsigned long tmp;
-
-	__asm__ __volatile__(
-"	ldrex	%0, [%1]\n"
-"	teq	%0, #0\n"
-"	strexeq	%0, %2, [%1]\n"
-	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (SPINLOCK_PID_APPS)
-	: "cc");
-
-	if (tmp == 0) {
-		smp_mb();
-		return 1;
-	}
-	return 0;
-}
-
-static inline void __raw_remote_ex_spin_unlock(raw_remote_spinlock_t *lock)
-{
-	int lock_owner;
-
-	smp_mb();
-	lock_owner = readl_relaxed(&lock->lock);
-	if (lock_owner != SPINLOCK_PID_APPS) {
-		pr_err("%s: spinlock not owned by Apps (actual owner is %d)\n",
-				__func__, lock_owner);
-	}
-
-	__asm__ __volatile__(
-"	str	%1, [%0]\n"
-	:
-	: "r" (&lock->lock), "r" (0)
-	: "cc");
-}
-
-static inline void __raw_remote_swp_spin_lock(raw_remote_spinlock_t *lock)
-{
-	unsigned long tmp;
-
-	__asm__ __volatile__(
-"1:	swp	%0, %2, [%1]\n"
-"	teq	%0, #0\n"
-"	bne	1b"
-	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (1)
-	: "cc");
-
-	smp_mb();
-}
-
-static inline int __raw_remote_swp_spin_trylock(raw_remote_spinlock_t *lock)
-{
-	unsigned long tmp;
-
-	__asm__ __volatile__(
-"	swp	%0, %2, [%1]\n"
-	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (1)
-	: "cc");
-
-	if (tmp == 0) {
-		smp_mb();
-		return 1;
-	}
-	return 0;
-}
-
-static inline void __raw_remote_swp_spin_unlock(raw_remote_spinlock_t *lock)
-{
-	int lock_owner;
-
-	smp_mb();
-	lock_owner = readl_relaxed(&lock->lock);
-	if (lock_owner != SPINLOCK_PID_APPS) {
-		pr_err("%s: spinlock not owned by Apps (actual owner is %d)\n",
-				__func__, lock_owner);
-	}
-
-	__asm__ __volatile__(
-"	str	%1, [%0]"
-	:
-	: "r" (&lock->lock), "r" (0)
-	: "cc");
-}
-
-#define DEK_LOCK_REQUEST		1
-#define DEK_LOCK_YIELD			(!DEK_LOCK_REQUEST)
-#define DEK_YIELD_TURN_SELF		0
-static inline void __raw_remote_dek_spin_lock(raw_remote_spinlock_t *lock)
-{
-	lock->dek.self_lock = DEK_LOCK_REQUEST;
-
-	while (lock->dek.other_lock) {
-
-		if (lock->dek.next_yield == DEK_YIELD_TURN_SELF)
-			lock->dek.self_lock = DEK_LOCK_YIELD;
-
-		while (lock->dek.other_lock)
-			;
-
-		lock->dek.self_lock = DEK_LOCK_REQUEST;
-	}
-	lock->dek.next_yield = DEK_YIELD_TURN_SELF;
-
-	smp_mb();
-}
-
-static inline int __raw_remote_dek_spin_trylock(raw_remote_spinlock_t *lock)
-{
-	lock->dek.self_lock = DEK_LOCK_REQUEST;
-
-	if (lock->dek.other_lock) {
-		lock->dek.self_lock = DEK_LOCK_YIELD;
-		return 0;
-	}
-
-	lock->dek.next_yield = DEK_YIELD_TURN_SELF;
-
-	smp_mb();
-	return 1;
-}
-
-static inline void __raw_remote_dek_spin_unlock(raw_remote_spinlock_t *lock)
-{
-	smp_mb();
-
-	lock->dek.self_lock = DEK_LOCK_YIELD;
-}
-
-static inline int __raw_remote_dek_spin_release(raw_remote_spinlock_t *lock,
-		uint32_t pid)
-{
-	return -EPERM;
-}
-
-static inline int __raw_remote_dek_spin_owner(raw_remote_spinlock_t *lock)
-{
-	return -EPERM;
-}
-
-static inline void __raw_remote_sfpb_spin_lock(raw_remote_spinlock_t *lock)
-{
-	do {
-		writel_relaxed(SPINLOCK_PID_APPS, lock);
-		smp_mb();
-	} while (readl_relaxed(lock) != SPINLOCK_PID_APPS);
-}
-
-static inline int __raw_remote_sfpb_spin_trylock(raw_remote_spinlock_t *lock)
-{
-	return 1;
-}
-
-static inline void __raw_remote_sfpb_spin_unlock(raw_remote_spinlock_t *lock)
-{
-	int lock_owner;
-
-	lock_owner = readl_relaxed(lock);
-	if (lock_owner != SPINLOCK_PID_APPS) {
-		pr_err("%s: spinlock not owned by Apps (actual owner is %d)\n",
-				__func__, lock_owner);
-	}
-
-	writel_relaxed(0, lock);
-	smp_mb();
-}
-
-/**
- * Release spinlock if it is owned by @pid.
- *
- * This is only to be used for situations where the processor owning
- * the spinlock has crashed and the spinlock must be released.
- *
- * @lock: lock structure
- * @pid: processor ID of processor to release
- */
-static inline int __raw_remote_gen_spin_release(raw_remote_spinlock_t *lock,
-		uint32_t pid)
-{
-	int ret = 1;
-
-	if (readl_relaxed(&lock->lock) == pid) {
-		writel_relaxed(0, &lock->lock);
-		wmb();
-		ret = 0;
-	}
-	return ret;
-}
-
-/**
- * Return owner of the spinlock.
- *
- * @lock: pointer to lock structure
- * @returns: >= 0 owned PID; < 0 for error case
- *
- * Used for testing.  PID's are assumed to be 31 bits or less.
- */
-static inline int __raw_remote_gen_spin_owner(raw_remote_spinlock_t *lock)
-{
-	rmb();
-	return readl_relaxed(&lock->lock);
-}
 
 #if defined(CONFIG_MSM_SMD) || defined(CONFIG_MSM_REMOTE_SPINLOCK_SFPB)
 int _remote_spin_lock_init(remote_spinlock_id_t, _remote_spinlock_t *lock);
 void _remote_spin_release_all(uint32_t pid);
+void _remote_spin_lock(_remote_spinlock_t *lock);
+void _remote_spin_unlock(_remote_spinlock_t *lock);
+int _remote_spin_trylock(_remote_spinlock_t *lock);
+int _remote_spin_release(_remote_spinlock_t *lock, uint32_t pid);
+int _remote_spin_owner(_remote_spinlock_t *lock);
 #else
 static inline
 int _remote_spin_lock_init(remote_spinlock_id_t id, _remote_spinlock_t *lock)
@@ -273,42 +55,22 @@ int _remote_spin_lock_init(remote_spinlock_id_t id, _remote_spinlock_t *lock)
 	return -EINVAL;
 }
 static inline void _remote_spin_release_all(uint32_t pid) {}
+static inline void _remote_spin_lock(_remote_spinlock_t *lock) {}
+static inline void _remote_spin_unlock(_remote_spinlock_t *lock) {}
+static inline int _remote_spin_trylock(_remote_spinlock_t *lock)
+{
+	return -ENODEV;
+}
+static inline int _remote_spin_release(_remote_spinlock_t *lock, uint32_t pid)
+{
+	return -ENODEV;
+}
+static inline int _remote_spin_owner(_remote_spinlock_t *lock)
+{
+	return -ENODEV;
+}
 #endif
 
-#if defined(CONFIG_MSM_REMOTE_SPINLOCK_DEKKERS)
-/* Use Dekker's algorithm when LDREX/STREX and SWP are unavailable for
- * shared memory */
-#define _remote_spin_lock(lock)		__raw_remote_dek_spin_lock(*lock)
-#define _remote_spin_unlock(lock)	__raw_remote_dek_spin_unlock(*lock)
-#define _remote_spin_trylock(lock)	__raw_remote_dek_spin_trylock(*lock)
-#define _remote_spin_release(lock, pid)	__raw_remote_dek_spin_release(*lock,\
-		pid)
-#define _remote_spin_owner(lock) __raw_remote_dek_spin_owner(*lock)
-#elif defined(CONFIG_MSM_REMOTE_SPINLOCK_SWP)
-/* Use SWP-based locks when LDREX/STREX are unavailable for shared memory. */
-#define _remote_spin_lock(lock)		__raw_remote_swp_spin_lock(*lock)
-#define _remote_spin_unlock(lock)	__raw_remote_swp_spin_unlock(*lock)
-#define _remote_spin_trylock(lock)	__raw_remote_swp_spin_trylock(*lock)
-#define _remote_spin_release(lock, pid)	__raw_remote_gen_spin_release(*lock,\
-		pid)
-#define _remote_spin_owner(lock) __raw_remote_gen_spin_owner(*lock)
-#elif defined(CONFIG_MSM_REMOTE_SPINLOCK_SFPB)
-/* Use SFPB Hardware Mutex Registers */
-#define _remote_spin_lock(lock)		__raw_remote_sfpb_spin_lock(*lock)
-#define _remote_spin_unlock(lock)	__raw_remote_sfpb_spin_unlock(*lock)
-#define _remote_spin_trylock(lock)	__raw_remote_sfpb_spin_trylock(*lock)
-#define _remote_spin_release(lock, pid)	__raw_remote_gen_spin_release(*lock,\
-		pid)
-#define _remote_spin_owner(lock) __raw_remote_gen_spin_owner(*lock)
-#else
-/* Use LDREX/STREX for shared memory locking, when available */
-#define _remote_spin_lock(lock)		__raw_remote_ex_spin_lock(*lock)
-#define _remote_spin_unlock(lock)	__raw_remote_ex_spin_unlock(*lock)
-#define _remote_spin_trylock(lock)	__raw_remote_ex_spin_trylock(*lock)
-#define _remote_spin_release(lock, pid)	__raw_remote_gen_spin_release(*lock, \
-		pid)
-#define _remote_spin_owner(lock) __raw_remote_gen_spin_owner(*lock)
-#endif
 
 /* Remote mutex definitions. */
 
