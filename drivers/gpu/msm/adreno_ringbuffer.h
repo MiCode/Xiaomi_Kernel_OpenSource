@@ -114,7 +114,7 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb);
 
 void kgsl_cp_intrcallback(struct kgsl_device *device);
 
-int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
+void adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
 				struct adreno_recovery_data *rec_data);
 
 void
