@@ -567,6 +567,17 @@
 			qcom,msm-dai-q6-dev-id = <240>;
 		};
 	};
+	qcom,msm-pcm-dtmf {
+		compatible = "qcom,msm-pcm-dtmf";
+	};
+
+	qcom,msm-dai-stub {
+		compatible = "qcom,msm-dai-stub";
+	};
+
+	qcom,msm-stub-codec {
+		compatible = "qcom,msm-stub-codec";
+	};
 
 	qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
