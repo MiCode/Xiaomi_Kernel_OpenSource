@@ -1054,6 +1054,28 @@ config SERIAL_MSM_RX_WAKEUP
 	 Requires SERIAL_MSM_CLOCK_CONTROL. Wake up the uart while the uart
 	 clock is off, using a wakeup GPIO.
 
+config SERIAL_MSM_HSL
+	tristate "MSM UART High Speed : Legacy mode Serial Driver"
+	depends on ARM && ARCH_MSM
+	select SERIAL_CORE
+	default n
+	help
+	  Select this module to enable MSM high speed UART driver.
+
+config SERIAL_MSM_HSL_CONSOLE
+	bool "MSM High speed serial legacy mode console support"
+	depends on SERIAL_MSM_HSL=y
+	select SERIAL_CORE_CONSOLE
+	default n
+
+config SERIAL_BCM_BT_LPM
+	tristate "Broadcom Bluetooth Low Power Mode"
+	depends on ARM && ARCH_MSM
+	select SERIAL_CORE
+	default n
+	help
+	  Select this module for Broadcom Bluetooth low power management.
+
 config SERIAL_VT8500
 	bool "VIA VT8500 on-chip serial port support"
 	depends on ARCH_VT8500
