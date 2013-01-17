@@ -267,7 +267,6 @@ static const struct resource bms_cell_resources[] = {
 	SINGLE_IRQ_RESOURCE("PM8921_BMS_OCV_FOR_R", PM8921_BMS_OCV_FOR_R),
 	SINGLE_IRQ_RESOURCE("PM8921_BMS_GOOD_OCV", PM8921_BMS_GOOD_OCV),
 	SINGLE_IRQ_RESOURCE("PM8921_BMS_VSENSE_AVG", PM8921_BMS_VSENSE_AVG),
-	SINGLE_IRQ_RESOURCE("PM8921_BMS_CCADC_EOC", PM8921_BMS_CCADC_EOC),
 };
 
 static struct mfd_cell charger_cell = {
@@ -337,6 +336,17 @@ static struct mfd_cell batt_alarm_cell = {
 	.num_resources	= ARRAY_SIZE(batt_alarm_cell_resources),
 	.platform_data	= &batt_alarm_cdata,
 	.pdata_size	= sizeof(struct pm8xxx_batt_alarm_core_data),
+};
+
+static const struct resource ccadc_cell_resources[] = {
+	SINGLE_IRQ_RESOURCE("PM8921_BMS_CCADC_EOC", PM8921_BMS_CCADC_EOC),
+};
+
+static struct mfd_cell ccadc_cell = {
+	.name		= PM8XXX_CCADC_DEV_NAME,
+	.id		= -1,
+	.resources	= ccadc_cell_resources,
+	.num_resources	= ARRAY_SIZE(ccadc_cell_resources),
 };
 
 static struct mfd_cell vibrator_cell = {
@@ -558,6 +568,19 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		if (ret) {
 			pr_err("Failed to add vibrator subdevice ret=%d\n",
 									ret);
+			goto bail;
+		}
+	}
+
+	if (pdata->ccadc_pdata) {
+		ccadc_cell.platform_data = pdata->ccadc_pdata;
+		ccadc_cell.pdata_size =
+				sizeof(struct pm8xxx_ccadc_platform_data);
+
+		ret = mfd_add_devices(pmic->dev, 0, &ccadc_cell, 1, NULL,
+					irq_base);
+		if (ret) {
+			pr_err("Failed to add ccadc subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
