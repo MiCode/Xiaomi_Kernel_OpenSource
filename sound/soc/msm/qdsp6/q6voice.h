@@ -576,7 +576,7 @@ struct vss_icommon_cmd_set_ui_property_enable_t {
  * structure.
  */
 
-#define VSS_ISTREAM_EVT_RX_DTMF_DETECTED (0x0001101A)
+#define VSS_ISTREAM_EVT_RX_DTMF_DETECTED 0x0001101A
 
 struct vss_istream_cmd_set_rx_dtmf_detection {
 	/*
@@ -590,7 +590,7 @@ struct vss_istream_cmd_set_rx_dtmf_detection {
 	uint32_t enable;
 };
 
-#define VSS_ISTREAM_CMD_SET_RX_DTMF_DETECTION (0x00011027)
+#define VSS_ISTREAM_CMD_SET_RX_DTMF_DETECTION 0x00011027
 
 struct vss_istream_evt_rx_dtmf_detected {
 	uint16_t low_freq;
@@ -614,6 +614,217 @@ struct vss_istream_evt_rx_dtmf_detected {
 struct cvs_set_rx_dtmf_detection_cmd {
 	struct apr_hdr hdr;
 	struct vss_istream_cmd_set_rx_dtmf_detection cvs_dtmf_det;
+} __packed;
+
+
+/* VOCODER PCM APIS */
+#define VSS_IVPCM_CMD_STOP 0x0001100B
+
+#define VSS_IVPCM_CMD_START 0x00011009
+
+/* Default tap point location on the TX path. */
+#define VSS_IVPCM_TAP_POINT_TX_DEFAULT 0x00011289
+
+/* Default tap point location on the RX path. */
+#define VSS_IVPCM_TAP_POINT_RX_DEFAULT 0x0001128A
+
+/*
+ * Vocoder PCM sampling rate IDs.
+ * Sampling rate matches the operating sampling rate
+ * of the post-proc chain on the VDSP at the location
+ * of the tap point.
+ */
+#define VSS_IVPCM_SAMPLING_RATE_AUTO     0
+#define VSS_IVPCM_SAMPLING_RATE_8K       8000
+#define VSS_IVPCM_SAMPLING_RATE_16K      16000
+
+/* Output tap point */
+#define VSS_IVPCM_TAP_POINT_DIR_OUT      0
+/* Input tap point */
+#define VSS_IVPCM_TAP_POINT_DIR_IN       1
+/* Output-input tap point */
+#define VSS_IVPCM_TAP_POINT_DIR_OUT_IN   2
+
+/* RX & TX*/
+#define MAX_TAP_POINTS_SUPPORTED         2
+
+struct vss_ivpcm_tap_point {
+	uint32_t tap_point;
+	/*
+	 * Tap point location GUID. Supported values:
+	 * VSS_IVPCM_TAP_POINT_TX_DEFAULT
+	 * VSS_IVPCM_TAP_POINT_RX_DEFAULT
+	 */
+	uint16_t direction;
+	/*
+	 * Data flow direction of the tap point. Supported values:
+	 * VSS_IVPCM_TAP_POINT_DIR_OUT -- output
+	 * VSS_IVPCM_TAP_POINT_DIR_IN -- input
+	 * VSS_IVPCM_TAP_POINT_DIR_OUT_IN -- Output-input
+	 */
+	uint16_t sampling_rate;
+	/*
+	 * Sampling rate of the tap point. If the tap point is output-input,
+	 * then output sampling rate and the input sampling rate are the same.
+	 * Supported values:
+	 * VSS_IVPCM_SAMPLING_RATE_AUTO
+	 * VSS_IVPCM_SAMPLING_RATE_8K
+	 * VSS_IVPCM_SAMPLING_RATE_16K
+	 */
+	uint16_t duration;
+	/*
+	 * Duration of buffer in milliseconds.
+	 * Unsupported, set to 0.
+	 */
+} __packed;
+
+struct vss_ivpcm_start_cmd {
+	uint32_t num_tap_points;
+	struct vss_ivpcm_tap_point tap_points[MAX_TAP_POINTS_SUPPORTED];
+} __packed;
+
+
+#define VSS_IVPCM_EVT_NOTIFY                0x0001128B
+
+/* Notify event masks. */
+/* output buffer filled. */
+#define VSS_IVPCM_NOTIFY_MASK_OUTPUT_BUFFER  1
+ /* input buffer consumed. */
+#define VSS_IVPCM_NOTIFY_MASK_INPUT_BUFFER   2
+ /* event is a timetick. */
+#define VSS_IVPCM_NOTIFY_MASK_TIMETICK       4
+
+/* error in output buffer operation. */
+#define VSS_IVPCM_NOTIFY_MASK_OUTPUT_ERROR   8
+
+/* error in input buffer operation. */
+#define VSS_IVPCM_NOTIFY_MASK_INPUT_ERROR   16
+
+/*
+ *Payload structure for the #VSS_IVPCM_EVT_NOTIFY command.
+ */
+struct vss_ivpcm_evt_notify {
+	uint32_t tap_point;
+	/*
+	 * GUID indicating tap point location for which this notification is
+	 * being issued.
+	 */
+	uint32_t notify_mask;
+	/*
+	 * Bitmask indicating the notification mode.
+	 * Bitmask description:
+	 * bit 0 -- output buffer filled, VSS_IVPCM_NOTIFY_MASK_OUTPUT_BUFFER
+	 * bit 1 -- input buffer consumed, VSS_IVPCM_NOTIFY_MASK_INPUT_BUFFER
+	 * bit 2 -- notify event is a timetick, VSS_IVPCM_NOTIFY_MASK_TIMETICK
+	 * bit 3 -- error in output buffer, VSS_IVPCM_NOTIFY_MASK_OUTPUT_ERROR
+	 *          This bit will be set if there is an error in output buffer
+	 *          operation.This bit will be set along with "output buffer
+	 *          filled" bit to return the output buffer with error
+	 *          indication
+	 * bit 4 -- error in input buffer operation, use
+	 *          VSS_IVPCM_NOTIFY_MASK_INPUT_ERROR. This bit will be set if
+	 *          there is an error in input buffer operation. This bit will
+	 *          be set along with "input buffer consumed" bit to return the
+	 *          input buffer with error indication.
+	 */
+	uint32_t out_buff_addr;
+	/*
+	 * If bit 0 of the notify_mask is set, this field indicates the
+	 * physical address of the output buffer. Otherwise ignore.
+	 */
+	uint32_t in_buff_addr;
+	/*
+	 * If bit 1 of the notify_mask is set, this field indicates the
+	 * physicaladdress of the input buffer. Otherwise ignore.
+	 */
+	uint16_t filled_out_size;
+	/*
+	 * If bit 0 of the notify_mask is set, this field indicates
+	 * the filled size
+	 * of the output buffer located at the out_buff_addr. Otherwise ignore.
+	 */
+	uint16_t request_buff_size;
+	/* Request size of the input buffer. */
+	uint16_t sampling_rate;
+	/*
+	 * Sampling rate of the input/output buffer. Supported values:
+	 * VSS_IVPCM_SAMPLING_RATE_8K
+	 * VSS_IVPCM_SAMPLING_RATE_16K
+	 */
+	uint16_t num_out_channels;
+	/* Number of output channels contained in the filled output buffer.*/
+} __packed;
+
+#define VSS_IVPCM_EVT_PUSH_BUFFER                0x0001100A
+
+/* Push buffer event masks. */
+/* output buffer filled. */
+#define VSS_IVPCM_PUSH_BUFFER_MASK_OUTPUT_BUFFER  1
+/* input buffer consumed. */
+#define VSS_IVPCM_PUSH_BUFFER_MASK_INPUT_BUFFER   2
+
+struct vss_ivpcm_evt_push_buffer {
+	uint32_t tap_point;
+	/* tap point for which the buffer(s) is(are) provided. */
+	uint32_t push_buf_mask;
+	/*
+	 * Bitmask inticating whether an output buffer is being provided or an
+	 * input buffer or both. Bitmask description:
+	 * bit 0 -- output buffer, use VSS_IVPCM_PUSH_BUFFER_MASK_OUTPUT_BUFFER
+	 * bit 1 -- input buffer, use VSS_IVPCM_PUSH_BUFFER_MASK_INPUT_BUFFER.
+	 */
+	uint32_t out_buf_addr;
+	/*
+	 * If bit 0 of the push_buf_mask is set, this field indicates the
+	 * physical address of the output buffer. Otherwise it is ingored.
+	 */
+	uint32_t in_buf_addr;
+	/*
+	 * If bit 1 of the push_buf_mask is set, this field indicates the
+	 * physical address of the input buffer. Otherwise it is ignored.
+	 */
+	uint16_t out_buf_size;
+	/*
+	 * If bit 0 of the push_buf_mask is set, this field indicates the size
+	 * of the buffer at out_buf_addr. Otherwise it is ignored.
+	 * The client should allocate the output buffer to accommodate the
+	 * maximum expected sampling rate.
+	 */
+	uint16_t in_buf_size;
+	/*
+	 * If bit 1 of the push_buf_mask is set, this field indicates the size
+	 * of the input buffer at in_buff_addr. Otherwise it is ignored.
+	 */
+
+	uint16_t sampling_rate;
+	/*
+	 * If bit 1 of the push_buf_mask is set, this field indicates the
+	 * sampling rate of the input buffer. Otherwise it is ignored.
+	 * Supported values:
+	 * VSS_IVPCM_SAMPLING_RATE_8K
+	 * VSS_IVPCM_SAMPLING_RATE_16K
+	 */
+	uint16_t num_in_channels;
+	/*
+	 * If bit 1 of the push_buf_mask is set, this field indicates the
+	 * number of channels contained in the input buffer. Otherwise it
+	 * is ignored.
+	 * Supported values:1
+	 */
+} __packed;
+
+struct cvp_push_buf_cmd {
+	struct apr_hdr hdr;
+	struct vss_ivpcm_evt_push_buffer vpcm_evt_push_buffer;
+} __packed;
+
+struct cvp_start_cmd {
+	struct apr_hdr hdr;
+	struct vss_ivpcm_start_cmd vpcm_start_cmd;
+} __packed;
+
+struct cvp_stop_cmd {
+	struct apr_hdr hdr;
 } __packed;
 
 struct cvs_create_passive_ctl_session_cmd {
@@ -912,6 +1123,10 @@ typedef void (*dtmf_rx_det_cb_fn)(uint8_t *pkt,
 				  char *session,
 				  void *private_data);
 
+typedef void (*hostpcm_cb_fn)(uint8_t *data,
+				  char *session,
+				  void *private_data);
+
 struct mvs_driver_info {
 	uint32_t media_type;
 	uint32_t rate;
@@ -924,6 +1139,11 @@ struct mvs_driver_info {
 
 struct dtmf_driver_info {
 	dtmf_rx_det_cb_fn dtmf_rx_ul_cb;
+	void *private_data;
+};
+
+struct hostpcm_driver_info {
+	hostpcm_cb_fn hostpcm_evt_cb;
 	void *private_data;
 };
 
@@ -1023,6 +1243,8 @@ struct common_data {
 
 	struct dtmf_driver_info dtmf_info;
 
+	struct hostpcm_driver_info hostpcm_info;
+
 	struct voice_data voice[MAX_VOC_SESSIONS];
 };
 
@@ -1031,6 +1253,9 @@ void voc_register_mvs_cb(ul_cb_fn ul_cb,
 			void *private_data);
 
 void voc_register_dtmf_rx_detection_cb(dtmf_rx_det_cb_fn dtmf_rx_ul_cb,
+				       void *private_data);
+
+void voc_register_hpcm_evt_cb(dtmf_rx_det_cb_fn dtmf_rx_ul_cb,
 				       void *private_data);
 
 void voc_config_vocoder(uint32_t media_type,
@@ -1072,6 +1297,15 @@ int voc_set_route_flag(uint16_t session_id, uint8_t path_dir, uint8_t set);
 uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
 int voc_enable_dtmf_rx_detection(uint16_t session_id, uint32_t enable);
 void voc_disable_dtmf_det_on_active_sessions(void);
+int voc_send_cvp_map_vocpcm_memory(u16 session_id, uint32_t paddr,
+				   uint32_t bufsize);
+int voc_send_cvp_unmap_vocpcm_memory(u16 session_id, uint32_t paddr);
+int voc_send_cvp_start_vocpcm(u16 session_id,
+	struct vss_ivpcm_tap_point *vpcm_tp, uint32_t no_of_tp);
+int voc_send_cvp_stop_vocpcm(u16 session_id);
+int voc_send_cvp_vocpcm_push_buf_evt(u16 session_id,
+		struct vss_ivpcm_evt_push_buffer *push_buff_evt);
+
 
 #define MAX_SESSION_NAME_LEN 32
 #define VOICE_SESSION_NAME "Voice session"
