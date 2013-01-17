@@ -783,7 +783,7 @@ static struct msm_cam_clk_info cam_8974_clk_info[] = {
 
 int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	int32_t rc = 0, index = 0, clk_index = 0;
+	int32_t rc = 0, index = 0;
 	struct msm_sensor_power_setting_array *power_setting_array = NULL;
 	struct msm_sensor_power_setting *power_setting = NULL;
 	struct msm_camera_sensor_board_info *data = s_ctrl->sensordata;
@@ -900,17 +900,22 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	return 0;
 power_up_failed:
 	pr_err("%s:%d failed\n", __func__, __LINE__);
+	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE) {
+		s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_util(
+			s_ctrl->sensor_i2c_client, MSM_CCI_RELEASE);
+	}
+
 	for (index--; index >= 0; index--) {
 		CDBG("%s index %d\n", __func__, index);
 		power_setting = &power_setting_array->power_setting[index];
 		CDBG("%s type %d\n", __func__, power_setting->seq_type);
 		switch (power_setting->seq_type) {
 		case SENSOR_CLK:
-			for (clk_index--; clk_index >= 0; clk_index--)
-				msm_cam_clk_enable(s_ctrl->dev,
-					&s_ctrl->clk_info[clk_index],
-					(struct clk **)&power_setting->data[0],
-					1, 0);
+			msm_cam_clk_enable(s_ctrl->dev,
+				&s_ctrl->clk_info[0],
+				(struct clk **)&power_setting->data[0],
+				s_ctrl->clk_info_size,
+				0);
 			break;
 		case SENSOR_GPIO:
 			gpio_set_value_cansleep(
