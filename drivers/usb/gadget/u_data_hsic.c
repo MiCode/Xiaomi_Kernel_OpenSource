@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -634,10 +634,10 @@ static int ghsic_data_remove(struct platform_device *pdev)
 
 	ghsic_data_free_buffers(port);
 
-	data_bridge_close(port->brdg.ch_id);
-
+	cancel_work_sync(&port->connect_w);
+	if (test_and_clear_bit(CH_OPENED, &port->bridge_sts))
+		data_bridge_close(port->brdg.ch_id);
 	clear_bit(CH_READY, &port->bridge_sts);
-	clear_bit(CH_OPENED, &port->bridge_sts);
 
 	return 0;
 }
