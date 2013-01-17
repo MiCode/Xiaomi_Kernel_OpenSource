@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +36,7 @@
 
 /* QCE max number of descriptor in a descriptor list */
 #define QCE_MAX_NUM_DESC    128
-#define SPS_MAX_PKT_SIZE  (16 * 1024)
+#define SPS_MAX_PKT_SIZE  (32 * 1024  - 64)
 
 /* State of consumer/producer Pipe */
 enum qce_pipe_st_enum {
