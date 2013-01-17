@@ -339,7 +339,7 @@ struct tabla_priv {
 
 	struct wcd9xxx_pdata *pdata;
 	u32 anc_slot;
-
+	bool anc_func;
 	bool no_mic_headset_override;
 	/* Delayed work to report long button press */
 	struct delayed_work mbhc_btn_dwork;
@@ -536,6 +536,48 @@ static int tabla_put_anc_slot(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
 	tabla->anc_slot = ucontrol->value.integer.value[0];
+	return 0;
+}
+
+static int tabla_get_anc_func(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	ucontrol->value.integer.value[0] = (tabla->anc_func == true ? 1 : 0);
+	return 0;
+}
+
+static int tabla_put_anc_func(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+
+	mutex_lock(&dapm->codec->mutex);
+
+	tabla->anc_func = (!ucontrol->value.integer.value[0] ? false : true);
+
+	dev_dbg(codec->dev, "%s: anc_func %x", __func__, tabla->anc_func);
+
+	if (tabla->anc_func == true) {
+		snd_soc_dapm_enable_pin(dapm, "ANC HPHR");
+		snd_soc_dapm_enable_pin(dapm, "ANC HPHL");
+		snd_soc_dapm_enable_pin(dapm, "ANC HEADPHONE");
+		snd_soc_dapm_disable_pin(dapm, "HPHR");
+		snd_soc_dapm_disable_pin(dapm, "HPHL");
+		snd_soc_dapm_disable_pin(dapm, "HEADPHONE");
+	} else {
+		snd_soc_dapm_disable_pin(dapm, "ANC HPHR");
+		snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
+		snd_soc_dapm_disable_pin(dapm, "ANC HEADPHONE");
+		snd_soc_dapm_enable_pin(dapm, "HPHR");
+		snd_soc_dapm_enable_pin(dapm, "HPHL");
+		snd_soc_dapm_enable_pin(dapm, "HEADPHONE");
+	}
+	snd_soc_dapm_sync(dapm);
+	mutex_unlock(&dapm->codec->mutex);
 	return 0;
 }
 
@@ -987,6 +1029,10 @@ static int tabla_config_compander(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static const char *const tabla_anc_func_text[] = {"OFF", "ON"};
+static const struct soc_enum tabla_anc_func_enum =
+	SOC_ENUM_SINGLE_EXT(2, tabla_anc_func_text);
+
 static const char *tabla_ear_pa_gain_text[] = {"POS_6_DB", "POS_2_DB"};
 static const struct soc_enum tabla_ear_pa_gain_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, tabla_ear_pa_gain_text),
@@ -1130,6 +1176,8 @@ static const struct snd_kcontrol_new tabla_snd_controls[] = {
 
 	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 0, 100, tabla_get_anc_slot,
 		tabla_put_anc_slot),
+	SOC_ENUM_EXT("ANC Function", tabla_anc_func_enum, tabla_get_anc_func,
+		tabla_put_anc_func),
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
 	SOC_ENUM("TX2 HPF cut off", cf_dec2_enum),
 	SOC_ENUM("TX3 HPF cut off", cf_dec3_enum),
@@ -2476,111 +2524,6 @@ static int tabla_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int tabla_codec_enable_anc(struct snd_soc_dapm_widget *w,
-	struct snd_kcontrol *kcontrol, int event)
-{
-	struct snd_soc_codec *codec = w->codec;
-	const char *filename;
-	const struct firmware *fw;
-	int i;
-	int ret;
-	int num_anc_slots;
-	struct anc_header *anc_head;
-	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-	u32 anc_writes_size = 0;
-	int anc_size_remaining;
-	u32 *anc_ptr;
-	u16 reg;
-	u8 mask, val, old_val;
-
-	pr_debug("%s %d\n", __func__, event);
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-
-		filename = "wcd9310/wcd9310_anc.bin";
-
-		ret = request_firmware(&fw, filename, codec->dev);
-		if (ret != 0) {
-			dev_err(codec->dev, "Failed to acquire ANC data: %d\n",
-				ret);
-			return -ENODEV;
-		}
-
-		if (fw->size < sizeof(struct anc_header)) {
-			dev_err(codec->dev, "Not enough data\n");
-			release_firmware(fw);
-			return -ENOMEM;
-		}
-
-		/* First number is the number of register writes */
-		anc_head = (struct anc_header *)(fw->data);
-		anc_ptr = (u32 *)((u32)fw->data + sizeof(struct anc_header));
-		anc_size_remaining = fw->size - sizeof(struct anc_header);
-		num_anc_slots = anc_head->num_anc_slots;
-
-		if (tabla->anc_slot >= num_anc_slots) {
-			dev_err(codec->dev, "Invalid ANC slot selected\n");
-			release_firmware(fw);
-			return -EINVAL;
-		}
-
-		for (i = 0; i < num_anc_slots; i++) {
-
-			if (anc_size_remaining < TABLA_PACKED_REG_SIZE) {
-				dev_err(codec->dev, "Invalid register format\n");
-				release_firmware(fw);
-				return -EINVAL;
-			}
-			anc_writes_size = (u32)(*anc_ptr);
-			anc_size_remaining -= sizeof(u32);
-			anc_ptr += 1;
-
-			if (anc_writes_size * TABLA_PACKED_REG_SIZE
-				> anc_size_remaining) {
-				dev_err(codec->dev, "Invalid register format\n");
-				release_firmware(fw);
-				return -ENOMEM;
-			}
-
-			if (tabla->anc_slot == i)
-				break;
-
-			anc_size_remaining -= (anc_writes_size *
-				TABLA_PACKED_REG_SIZE);
-			anc_ptr += anc_writes_size;
-		}
-		if (i == num_anc_slots) {
-			dev_err(codec->dev, "Selected ANC slot not present\n");
-			release_firmware(fw);
-			return -ENOMEM;
-		}
-
-		for (i = 0; i < anc_writes_size; i++) {
-			TABLA_CODEC_UNPACK_ENTRY(anc_ptr[i], reg,
-				mask, val);
-			old_val = snd_soc_read(codec, reg);
-			snd_soc_write(codec, reg, (old_val & ~mask) |
-				(val & mask));
-		}
-		release_firmware(fw);
-
-		TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
-		/* if MBHC polling is active, set TX7_MBHC_EN bit 7 */
-		if (tabla->mbhc_polling_active)
-			snd_soc_update_bits(codec, TABLA_A_TX_7_MBHC_EN, 0x80,
-					    0x80);
-		TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		/* unset TX7_MBHC_EN bit 7 */
-		snd_soc_update_bits(codec, TABLA_A_TX_7_MBHC_EN, 0x80, 0x00);
-
-		snd_soc_write(codec, TABLA_A_CDC_CLK_ANC_RESET_CTL, 0xFF);
-		snd_soc_write(codec, TABLA_A_CDC_CLK_ANC_CLK_EN_CTL, 0);
-		break;
-	}
-	return 0;
-}
 
 /* called under codec_resource_lock acquisition */
 static void tabla_codec_start_hs_polling(struct snd_soc_codec *codec)
@@ -3283,6 +3226,160 @@ static void hphrocp_off_report(struct work_struct *work)
 			  WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 }
 
+static int tabla_codec_enable_anc(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	const char *filename;
+	const struct firmware *fw;
+	int i;
+	int ret;
+	int num_anc_slots;
+	struct anc_header *anc_head;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+	u32 anc_writes_size = 0;
+	int anc_size_remaining;
+	u32 *anc_ptr;
+	u16 reg;
+	u8 mask, val, old_val;
+	u8 mbhc_micb_ctl_val;
+
+	pr_debug("%s: DAPM Event %d ANC func is %d\n",
+		 __func__, event, tabla->anc_func);
+
+	if (tabla->anc_func == 0)
+		return 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mbhc_micb_ctl_val = snd_soc_read(codec,
+			tabla->mbhc_bias_regs.ctl_reg);
+
+		if (!(mbhc_micb_ctl_val & 0x80)) {
+			TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
+			tabla_codec_switch_micbias(codec, 1);
+			TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
+		}
+
+		filename = "wcd9310/wcd9310_anc.bin";
+
+		ret = request_firmware(&fw, filename, codec->dev);
+		if (ret != 0) {
+			dev_err(codec->dev, "Failed to acquire ANC data: %d\n",
+				ret);
+			return -ENODEV;
+		}
+
+		if (fw->size < sizeof(struct anc_header)) {
+			dev_err(codec->dev, "Not enough data\n");
+			release_firmware(fw);
+			return -ENOMEM;
+		}
+
+		/* First number is the number of register writes */
+		anc_head = (struct anc_header *)(fw->data);
+		anc_ptr = (u32 *)((u32)fw->data + sizeof(struct anc_header));
+		anc_size_remaining = fw->size - sizeof(struct anc_header);
+		num_anc_slots = anc_head->num_anc_slots;
+
+		if (tabla->anc_slot >= num_anc_slots) {
+			dev_err(codec->dev, "Invalid ANC slot selected\n");
+			release_firmware(fw);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < num_anc_slots; i++) {
+
+			if (anc_size_remaining < TABLA_PACKED_REG_SIZE) {
+				dev_err(codec->dev, "Invalid register format\n");
+				release_firmware(fw);
+				return -EINVAL;
+			}
+			anc_writes_size = (u32)(*anc_ptr);
+			anc_size_remaining -= sizeof(u32);
+			anc_ptr += 1;
+
+			if (anc_writes_size * TABLA_PACKED_REG_SIZE
+				> anc_size_remaining) {
+				dev_err(codec->dev, "Invalid register format\n");
+				release_firmware(fw);
+				return -ENOMEM;
+			}
+
+			if (tabla->anc_slot == i)
+				break;
+
+			anc_size_remaining -= (anc_writes_size *
+				TABLA_PACKED_REG_SIZE);
+			anc_ptr += anc_writes_size;
+		}
+		if (i == num_anc_slots) {
+			dev_err(codec->dev, "Selected ANC slot not present\n");
+			release_firmware(fw);
+			return -ENOMEM;
+		}
+
+		for (i = 0; i < anc_writes_size; i++) {
+			TABLA_CODEC_UNPACK_ENTRY(anc_ptr[i], reg,
+				mask, val);
+			old_val = snd_soc_read(codec, reg);
+			snd_soc_write(codec, reg, (old_val & ~mask) |
+				(val & mask));
+		}
+		usleep_range(10000, 10000);
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x30);
+		msleep(30);
+		release_firmware(fw);
+		TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
+		/* if MBHC polling is active, set TX7_MBHC_EN bit 7 */
+		if (tabla->mbhc_polling_active)
+			snd_soc_update_bits(codec, TABLA_A_TX_7_MBHC_EN, 0x80,
+						0x80);
+		TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* schedule work is required because at the time HPH PA DAPM
+		 * event callback is called by DAPM framework, CODEC dapm mutex
+		 * would have been locked while snd_soc_jack_report also
+		 * attempts to acquire same lock.
+		*/
+		if (w->shift == 5) {
+			clear_bit(TABLA_HPHL_PA_OFF_ACK,
+				&tabla->hph_pa_dac_state);
+			clear_bit(TABLA_HPHL_DAC_OFF_ACK,
+				&tabla->hph_pa_dac_state);
+			if (tabla->hph_status & SND_JACK_OC_HPHL)
+				schedule_work(&tabla->hphlocp_work);
+		} else if (w->shift == 4) {
+			clear_bit(TABLA_HPHR_PA_OFF_ACK,
+				&tabla->hph_pa_dac_state);
+			clear_bit(TABLA_HPHR_DAC_OFF_ACK,
+				&tabla->hph_pa_dac_state);
+			if (tabla->hph_status & SND_JACK_OC_HPHR)
+				schedule_work(&tabla->hphrocp_work);
+		}
+
+		TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
+		tabla_codec_switch_micbias(codec, 0);
+		TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
+
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x00);
+		msleep(40);
+		/* unset TX7_MBHC_EN bit 7 */
+		snd_soc_update_bits(codec, TABLA_A_TX_7_MBHC_EN, 0x80, 0x00);
+		snd_soc_update_bits(codec, TABLA_A_CDC_ANC1_CTL, 0x01, 0x00);
+		snd_soc_update_bits(codec, TABLA_A_CDC_ANC2_CTL, 0x01, 0x00);
+		msleep(20);
+		snd_soc_write(codec, TABLA_A_CDC_CLK_ANC_RESET_CTL, 0x0F);
+		snd_soc_write(codec, TABLA_A_CDC_CLK_ANC_CLK_EN_CTL, 0);
+		snd_soc_write(codec, TABLA_A_CDC_CLK_ANC_RESET_CTL, 0xFF);
+		break;
+	}
+	return 0;
+}
+
 static int tabla_hph_pa_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -3592,7 +3689,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"ANC1 FB MUX", "EAR_HPH_L", "RX1 MIX2"},
 	{"ANC1 FB MUX", "EAR_LINE_1", "RX2 MIX2"},
-	{"ANC", NULL, "ANC1 FB MUX"},
 
 	/* Headset (RX MIX1 and RX MIX2) */
 	{"HEADPHONE", NULL, "HPHL"},
@@ -3607,19 +3703,26 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HPHL DAC", NULL, "CP"},
 	{"HPHR DAC", NULL, "CP"},
 
-	{"ANC", NULL, "ANC1 MUX"},
-	{"ANC", NULL, "ANC2 MUX"},
+	{"ANC HEADPHONE", NULL, "ANC HPHL"},
+	{"ANC HEADPHONE", NULL, "ANC HPHR"},
+
+	{"ANC HPHL", NULL, "HPHL_PA_MIXER"},
+	{"ANC HPHR", NULL, "HPHR_PA_MIXER"},
+
 	{"ANC1 MUX", "ADC1", "ADC1"},
 	{"ANC1 MUX", "ADC2", "ADC2"},
 	{"ANC1 MUX", "ADC3", "ADC3"},
 	{"ANC1 MUX", "ADC4", "ADC4"},
+	{"ANC1 MUX", "DMIC1", "DMIC1"},
+	{"ANC1 MUX", "DMIC2", "DMIC2"},
+	{"ANC1 MUX", "DMIC3", "DMIC3"},
+	{"ANC1 MUX", "DMIC4", "DMIC4"},
 	{"ANC2 MUX", "ADC1", "ADC1"},
 	{"ANC2 MUX", "ADC2", "ADC2"},
 	{"ANC2 MUX", "ADC3", "ADC3"},
 	{"ANC2 MUX", "ADC4", "ADC4"},
 
-	{"ANC", NULL, "CDC_CONN"},
-
+	{"ANC HPHR", NULL, "CDC_CONN"},
 	{"DAC1", "Switch", "RX1 CHAIN"},
 	{"HPHL DAC", "Switch", "RX1 CHAIN"},
 	{"HPHR DAC", NULL, "RX2 CHAIN"},
@@ -3646,8 +3749,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"RX1 CHAIN", NULL, "RX1 MIX2"},
 	{"RX2 CHAIN", NULL, "RX2 MIX2"},
-	{"RX1 CHAIN", NULL, "ANC"},
-	{"RX2 CHAIN", NULL, "ANC"},
+	{"RX1 MIX2", NULL, "ANC1 MUX"},
+	{"RX2 MIX2", NULL, "ANC2 MUX"},
 
 	{"CP", NULL, "RX_BIAS"},
 	{"LINEOUT1 DAC", NULL, "RX_BIAS"},
@@ -4050,6 +4153,14 @@ static int tabla_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	/* IIR Coeff registers are not cacheable */
 	if ((reg >= TABLA_A_CDC_IIR1_COEF_B1_CTL) &&
 		(reg <= TABLA_A_CDC_IIR2_COEF_B5_CTL))
+		return 1;
+
+	/* ANC filter registers are not cacheable */
+	if ((reg >= TABLA_A_CDC_ANC1_FILT1_B1_CTL) &&
+		(reg <= TABLA_A_CDC_ANC1_FILT2_B3_CTL))
+		return 1;
+	if ((reg >= TABLA_A_CDC_ANC2_FILT1_B1_CTL) &&
+		(reg <= TABLA_A_CDC_ANC2_FILT2_B3_CTL))
 		return 1;
 
 	/* Digital gain register is not cacheable so we have to write
@@ -5284,9 +5395,13 @@ static const struct snd_soc_dapm_widget tabla_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("ANC1 MUX", SND_SOC_NOPM, 0, 0, &anc1_mux),
 	SND_SOC_DAPM_MUX("ANC2 MUX", SND_SOC_NOPM, 0, 0, &anc2_mux),
 
-	SND_SOC_DAPM_MIXER_E("ANC", SND_SOC_NOPM, 0, 0, NULL, 0,
-		tabla_codec_enable_anc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_OUTPUT("ANC HEADPHONE"),
+	SND_SOC_DAPM_PGA_E("ANC HPHL", SND_SOC_NOPM, 0, 0, NULL, 0,
+		tabla_codec_enable_anc,
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("ANC HPHR", SND_SOC_NOPM, 0, 0, NULL, 0,
+		tabla_codec_enable_anc, SND_SOC_DAPM_PRE_PMU),
+
 
 	SND_SOC_DAPM_MUX("ANC1 FB MUX", SND_SOC_NOPM, 0, 0, &anc1_fb_mux),
 
@@ -8650,6 +8765,12 @@ static int tabla_codec_probe(struct snd_soc_codec *codec)
 		       "tabla_gpio_irq_resend");
 	tabla->gpio_irq_resend = false;
 
+	mutex_lock(&dapm->codec->mutex);
+	snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
+	snd_soc_dapm_disable_pin(dapm, "ANC HPHR");
+	snd_soc_dapm_disable_pin(dapm, "ANC HEADPHONE");
+	snd_soc_dapm_sync(dapm);
+	mutex_unlock(&dapm->codec->mutex);
 
 #ifdef CONFIG_DEBUG_FS
 	if (ret == 0) {
