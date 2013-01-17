@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2456,11 +2456,6 @@ struct platform_device msm_cpudai_afe_02_tx = {
 
 struct platform_device msm_pcm_afe = {
 	.name	= "msm-pcm-afe",
-	.id	= -1,
-};
-
-struct platform_device msm_fm_loopback = {
-	.name	= "msm-pcm-loopback",
 	.id	= -1,
 };
 
