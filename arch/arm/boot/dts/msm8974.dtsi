@@ -1267,6 +1267,13 @@
 
 		qcom,bam-tx-ep-pipe-index = <0>;
 		qcom,bam-rx-ep-pipe-index = <1>;
+		qcom,msm-bus,name = "uart7";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<84 512 0 0>,
+				<84 512 500 800>;
 	};
 
 	qcom,smem@fa00000 {
