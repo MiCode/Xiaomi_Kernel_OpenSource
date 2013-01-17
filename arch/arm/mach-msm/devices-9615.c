@@ -609,7 +609,10 @@ struct platform_device msm_dtmf = {
 	.name	= "msm-pcm-dtmf",
 	.id	= -1,
 };
-
+struct platform_device msm_host_pcm_voice = {
+	.name	= "msm-host-pcm-voice",
+	.id	= -1,
+};
 struct platform_device msm_compr_dsp = {
 	.name	= "msm-compr-dsp",
 	.id	= -1,
