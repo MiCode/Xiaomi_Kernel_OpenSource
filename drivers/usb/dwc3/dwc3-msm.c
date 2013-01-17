@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1459,6 +1459,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret;
 	bool dcp;
+	bool host_bus_suspend;
 
 	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
 
@@ -1481,17 +1482,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	}
 
 	dcp = mdwc->charger.chg_type == DWC3_DCP_CHARGER;
-
-	/* Sequence to put hardware in low power state:
-	 * 1. Set OTGDISABLE to disable OTG block in HSPHY (saves power)
-	 * 2. Clear charger detection control fields (performed above)
-	 * 3. SUSPEND PHY and turn OFF core clock after some delay
-	 * 4. Clear interrupt latch register and enable BSV, ID HV interrupts
-	 * 5. Enable PHY retention
-	 */
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x1000, 0x1000);
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
-						0xC00000, 0x800000);
+	host_bus_suspend = mdwc->host_mode == 1;
 
 	/* Sequence to put SSPHY in low power state:
 	 * 1. Clear REF_SS_PHY_EN in SS_PHY_CTRL_REG
@@ -1507,10 +1498,43 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	usleep_range(1000, 1200);
 	clk_disable_unprepare(mdwc->ref_clk);
 
-	dwc3_msm_write_reg(mdwc->base, HS_PHY_IRQ_STAT_REG, 0xFFF);
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x18000, 0x18000);
-	if (!dcp)
+	if (host_bus_suspend) {
+		/* Sequence for host bus suspend case:
+		 * 1. Set suspend and sleep bits in GUSB2PHYCONFIG reg
+		 * 2. Clear interrupt latch register and enable BSV, ID HV intr
+		 * 3. Enable DP and DM HV interrupts in ALT_INTERRUPT_EN_REG
+		 * 4. Enable PHY retention
+		 */
+		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
+								0x00000140);
+		dwc3_msm_write_reg(mdwc->base, HS_PHY_IRQ_STAT_REG, 0xFFF);
+		if (mdwc->otg_xceiv && (!mdwc->ext_xceiv.otg_capability))
+			dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
+							 0x18000, 0x18000);
+		dwc3_msm_write_reg(mdwc->base, ALT_INTERRUPT_EN_REG, 0x00A);
 		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x0);
+		udelay(5);
+	} else {
+		/* Sequence to put hardware in low power state:
+		 * 1. Set OTGDISABLE to disable OTG block in HSPHY (saves power)
+		 * 2. Clear charger detection control fields (performed above)
+		 * 3. SUSPEND PHY and turn OFF core clock after some delay
+		 * 4. Clear interrupt latch register and enable BSV, ID HV intr
+		 * 5. Enable PHY retention
+		 */
+		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x1000,
+									0x1000);
+		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
+							0xC00000, 0x800000);
+		dwc3_msm_write_reg(mdwc->base, HS_PHY_IRQ_STAT_REG, 0xFFF);
+		if (mdwc->otg_xceiv && (!mdwc->ext_xceiv.otg_capability))
+			dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
+							0x18000, 0x18000);
+		if (!dcp)
+			dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
+								0x2, 0x0);
+	}
 
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
@@ -1530,7 +1554,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "Failed to reset bus bw vote\n");
 	}
 
-	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp)
+	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp &&
+							!host_bus_suspend)
 		dwc3_hsusb_ldo_enable(0);
 
 	dwc3_ssusb_ldo_enable(0);
@@ -1551,6 +1576,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 {
 	int ret;
 	bool dcp;
+	bool host_bus_suspend;
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 
@@ -1575,7 +1601,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 						__func__, ret);
 
 	dcp = mdwc->charger.chg_type == DWC3_DCP_CHARGER;
-	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp)
+	host_bus_suspend = mdwc->host_mode == 1;
+	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp &&
+							!host_bus_suspend)
 		dwc3_hsusb_ldo_enable(1);
 
 	dwc3_ssusb_ldo_enable(1);
@@ -1587,20 +1615,41 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	clk_prepare_enable(mdwc->iface_clk);
 	clk_prepare_enable(mdwc->core_clk);
 
-	/* Disable HV interrupt */
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x18000, 0x0);
-	/* Disable Retention */
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x2);
+	if (host_bus_suspend) {
+		/* Disable HV interrupt */
+		if (mdwc->otg_xceiv && (!mdwc->ext_xceiv.otg_capability))
+			dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
+							0x18000, 0x0);
+		/* Clear interrupt latch register */
+		dwc3_msm_write_reg(mdwc->base, HS_PHY_IRQ_STAT_REG, 0x000);
 
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
-	      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) | 0xF0000000);
-	/* 10usec delay required before de-asserting PHY RESET */
-	udelay(10);
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
-	      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) & 0x7FFFFFFF);
+		/* Disable DP and DM HV interrupt */
+		dwc3_msm_write_reg(mdwc->base, ALT_INTERRUPT_EN_REG, 0x000);
 
-	/* Bring PHY out of suspend */
-	dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0xC00000, 0x0);
+		/* Disable Retention */
+		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x2);
+	} else {
+		/* Disable HV interrupt */
+		if (mdwc->otg_xceiv && (!mdwc->ext_xceiv.otg_capability))
+			dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
+								0x18000, 0x0);
+		/* Disable Retention */
+		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x2);
+
+		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
+								 0xF0000000);
+		/* 10usec delay required before de-asserting PHY RESET */
+		udelay(10);
+		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+		      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
+								0x7FFFFFFF);
+
+		/* Bring PHY out of suspend */
+		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0xC00000,
+									0x0);
+
+	}
 
 	/* Assert SS PHY RESET */
 	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 7),
@@ -2186,22 +2235,24 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	msm->charger.charging_disabled = of_property_read_bool(node,
 				"qcom,charging-disabled");
 
-	if (!msm->ext_xceiv.otg_capability) {
-		/* DWC3 has separate IRQ line for OTG events (ID/BSV etc.) */
-		msm->hs_phy_irq = platform_get_irq_byname(pdev, "hs_phy_irq");
-		if (msm->hs_phy_irq < 0) {
-			dev_dbg(&pdev->dev, "pget_irq for hs_phy_irq failed\n");
-			msm->hs_phy_irq = 0;
-		} else {
-			ret = request_irq(msm->hs_phy_irq, msm_dwc3_irq,
-					IRQF_TRIGGER_RISING, "msm_dwc3", msm);
-			if (ret) {
-				dev_err(&pdev->dev, "irqreq HSPHYINT failed\n");
-				goto disable_hs_ldo;
-			}
-			enable_irq_wake(msm->hs_phy_irq);
-		}
+	/*
+	 * DWC3 has separate IRQ line for OTG events (ID/BSV) and for
+	 * DP and DM linestate transitions during low power mode.
+	 */
+	msm->hs_phy_irq = platform_get_irq_byname(pdev, "hs_phy_irq");
+	if (msm->hs_phy_irq < 0) {
+		dev_dbg(&pdev->dev, "pget_irq for hs_phy_irq failed\n");
+		msm->hs_phy_irq = 0;
 	} else {
+		ret = request_irq(msm->hs_phy_irq, msm_dwc3_irq,
+				IRQF_TRIGGER_RISING, "msm_dwc3", msm);
+		if (ret) {
+			dev_err(&pdev->dev, "irqreq HSPHYINT failed\n");
+			goto disable_hs_ldo;
+		}
+		enable_irq_wake(msm->hs_phy_irq);
+	}
+	if (msm->ext_xceiv.otg_capability) {
 		/* Use ADC for ID pin detection */
 		queue_delayed_work(system_nrt_wq, &msm->init_adc_work, 0);
 		device_create_file(&pdev->dev, &dev_attr_adc_enable);
