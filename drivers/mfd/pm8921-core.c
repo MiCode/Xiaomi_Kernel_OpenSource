@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,31 +14,40 @@
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/err.h>
 #include <linux/ssbi.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/core.h>
+#include <linux/mfd/pm8xxx/regulator.h>
 #include <linux/leds-pm8xxx.h>
 
 #define REG_HWREV		0x002  /* PMIC4 revision */
 #define REG_HWREV_2		0x0E8  /* PMIC4 revision 2 */
 
 #define REG_MPP_BASE		0x050
+#define REG_IRQ_BASE		0x1BB
 
 #define REG_TEMP_ALARM_CTRL	0x1B
 #define REG_TEMP_ALARM_PWM	0x9B
 
 #define REG_BATT_ALARM_THRESH	0x023
 #define REG_BATT_ALARM_CTRL1	0x024
-#define REG_BATT_ALARM_CTRL2	0x0AA
-#define REG_BATT_ALARM_PWM_CTRL	0x0A3
+#define REG_BATT_ALARM_CTRL2	0x021
+#define REG_BATT_ALARM_PWM_CTRL	0x020
 
 #define PM8921_VERSION_MASK	0xFFF0
 #define PM8921_VERSION_VALUE	0x06F0
+#define PM8922_VERSION_VALUE	0x0AF0
+#define PM8917_VERSION_VALUE	0x0CF0
 #define PM8921_REVISION_MASK	0x000F
+
+#define REG_PM8921_PON_CNTRL_3	0x01D
+#define PM8921_RESTART_REASON_MASK	0x07
 
 #define SINGLE_IRQ_RESOURCE(_name, _irq) \
 { \
@@ -49,10 +58,11 @@
 }
 
 struct pm8921 {
-	struct device			*dev;
-	struct pm_irq_chip		*irq_chip;
-	struct mfd_cell                 *mfd_regulators;
-	u32				rev_registers;
+	struct device					*dev;
+	struct pm_irq_chip				*irq_chip;
+	struct mfd_cell					*mfd_regulators;
+	struct pm8xxx_regulator_core_platform_data	*regulator_cdata;
+	u32						rev_registers;
 };
 
 static int pm8921_readb(const struct device *dev, u16 addr, u8 *val)
@@ -105,6 +115,12 @@ static enum pm8xxx_version pm8921_get_version(const struct device *dev)
 
 	if ((pmic->rev_registers & PM8921_VERSION_MASK) == PM8921_VERSION_VALUE)
 		version = PM8XXX_VERSION_8921;
+	else if ((pmic->rev_registers & PM8921_VERSION_MASK)
+			== PM8922_VERSION_VALUE)
+		version = PM8XXX_VERSION_8922;
+	else if ((pmic->rev_registers & PM8921_VERSION_MASK)
+			== PM8917_VERSION_VALUE)
+		version = PM8XXX_VERSION_8917;
 
 	return version;
 }
@@ -127,7 +143,7 @@ static struct pm8xxx_drvdata pm8921_drvdata = {
 	.pmic_get_revision	= pm8921_get_revision,
 };
 
-static const struct resource gpio_cell_resources[] = {
+static struct resource gpio_cell_resources[] = {
 	[0] = {
 		.start = PM8921_IRQ_BLOCK_BIT(PM8921_GPIO_BLOCK_START, 0),
 		.end   = PM8921_IRQ_BLOCK_BIT(PM8921_GPIO_BLOCK_START, 0)
@@ -150,13 +166,13 @@ static const struct resource adc_cell_resources[] = {
 };
 
 static struct mfd_cell adc_cell = {
-	.name		= PM8921_ADC_DEV_NAME,
+	.name		= PM8XXX_ADC_DEV_NAME,
 	.id		= -1,
 	.resources	= adc_cell_resources,
 	.num_resources	= ARRAY_SIZE(adc_cell_resources),
 };
 
-static const struct resource mpp_cell_resources[] = {
+static struct resource mpp_cell_resources[] = {
 	{
 		.start	= PM8921_IRQ_BLOCK_BIT(PM8921_MPP_BLOCK_START, 0),
 		.end	= PM8921_IRQ_BLOCK_BIT(PM8921_MPP_BLOCK_START, 0)
@@ -300,7 +316,7 @@ static const struct resource thermal_alarm_cell_resources[] = {
 
 static struct pm8xxx_tm_core_data thermal_alarm_cdata = {
 	.adc_channel =			CHANNEL_DIE_TEMP,
-	.adc_type =			PM8XXX_TM_ADC_PM8921_ADC,
+	.adc_type =			PM8XXX_TM_ADC_PM8XXX_ADC,
 	.reg_addr_temp_alarm_ctrl =	REG_TEMP_ALARM_CTRL,
 	.reg_addr_temp_alarm_pwm =	REG_TEMP_ALARM_PWM,
 	.tm_name =			"pm8921_tz",
@@ -354,16 +370,216 @@ static struct mfd_cell vibrator_cell = {
 	.id             = -1,
 };
 
+static struct pm8xxx_vreg regulator_data[] = {
+	/*   name	     pc_name	    ctrl   test   hpm_min */
+	NLDO("8921_l1",      "8921_l1_pc",  0x0AE, 0x0AF, LDO_150),
+	NLDO("8921_l2",      "8921_l2_pc",  0x0B0, 0x0B1, LDO_150),
+	PLDO("8921_l3",      "8921_l3_pc",  0x0B2, 0x0B3, LDO_150),
+	PLDO("8921_l4",      "8921_l4_pc",  0x0B4, 0x0B5, LDO_50),
+	PLDO("8921_l5",      "8921_l5_pc",  0x0B6, 0x0B7, LDO_300),
+	PLDO("8921_l6",      "8921_l6_pc",  0x0B8, 0x0B9, LDO_600),
+	PLDO("8921_l7",      "8921_l7_pc",  0x0BA, 0x0BB, LDO_150),
+	PLDO("8921_l8",      "8921_l8_pc",  0x0BC, 0x0BD, LDO_300),
+	PLDO("8921_l9",      "8921_l9_pc",  0x0BE, 0x0BF, LDO_300),
+	PLDO("8921_l10",     "8921_l10_pc", 0x0C0, 0x0C1, LDO_600),
+	PLDO("8921_l11",     "8921_l11_pc", 0x0C2, 0x0C3, LDO_150),
+	NLDO("8921_l12",     "8921_l12_pc", 0x0C4, 0x0C5, LDO_150),
+	PLDO("8921_l14",     "8921_l14_pc", 0x0C8, 0x0C9, LDO_50),
+	PLDO("8921_l15",     "8921_l15_pc", 0x0CA, 0x0CB, LDO_150),
+	PLDO("8921_l16",     "8921_l16_pc", 0x0CC, 0x0CD, LDO_300),
+	PLDO("8921_l17",     "8921_l17_pc", 0x0CE, 0x0CF, LDO_150),
+	NLDO("8921_l18",     "8921_l18_pc", 0x0D0, 0x0D1, LDO_150),
+	PLDO("8921_l21",     "8921_l21_pc", 0x0D6, 0x0D7, LDO_150),
+	PLDO("8921_l22",     "8921_l22_pc", 0x0D8, 0x0D9, LDO_150),
+	PLDO("8921_l23",     "8921_l23_pc", 0x0DA, 0x0DB, LDO_150),
+	NLDO1200("8921_l24",		    0x0DC, 0x0DD, LDO_1200),
+	NLDO1200("8921_l25",		    0x0DE, 0x0DF, LDO_1200),
+	NLDO1200("8921_l26",		    0x0E0, 0x0E1, LDO_1200),
+	NLDO1200("8921_l27",		    0x0E2, 0x0E3, LDO_1200),
+	NLDO1200("8921_l28",		    0x0E4, 0x0E5, LDO_1200),
+	PLDO("8921_l29",     "8921_l29_pc", 0x0E6, 0x0E7, LDO_150),
+
+	/*   name	pc_name       ctrl   test2  clk    sleep  hpm_min */
+	SMPS("8921_s1", "8921_s1_pc", 0x1D0, 0x1D5, 0x009, 0x1D2, SMPS_1500),
+	SMPS("8921_s2", "8921_s2_pc", 0x1D8, 0x1DD, 0x00A, 0x1DA, SMPS_1500),
+	SMPS("8921_s3", "8921_s3_pc", 0x1E0, 0x1E5, 0x00B, 0x1E2, SMPS_1500),
+	SMPS("8921_s4", "8921_s4_pc", 0x1E8, 0x1ED, 0x011, 0x1EA, SMPS_1500),
+
+	/*     name	  ctrl fts_cnfg1 pfm  pwr_cnfg  hpm_min */
+	FTSMPS("8921_s5", 0x025, 0x02E, 0x026, 0x032, SMPS_2000),
+	FTSMPS("8921_s6", 0x036, 0x03F, 0x037, 0x043, SMPS_2000),
+
+	/*   name	pc_name       ctrl   test2  clk    sleep  hpm_min */
+	SMPS("8921_s7", "8921_s7_pc", 0x1F0, 0x1F5, 0x012, 0x1F2, SMPS_1500),
+	SMPS("8921_s8", "8921_s8_pc", 0x1F8, 0x1FD, 0x013, 0x1FA, SMPS_1500),
+
+	/* name		       pc_name	       ctrl   test */
+	VS("8921_lvs1",        "8921_lvs1_pc", 0x060, 0x061),
+	VS300("8921_lvs2",		       0x062, 0x063),
+	VS("8921_lvs3",        "8921_lvs3_pc", 0x064, 0x065),
+	VS("8921_lvs4",        "8921_lvs4_pc", 0x066, 0x067),
+	VS("8921_lvs5",        "8921_lvs5_pc", 0x068, 0x069),
+	VS("8921_lvs6",        "8921_lvs6_pc", 0x06A, 0x06B),
+	VS("8921_lvs7",        "8921_lvs7_pc", 0x06C, 0x06D),
+	VS300("8921_usb_otg",		       0x06E, 0x06F),
+	VS300("8921_hdmi_mvs",		       0x070, 0x071),
+
+	/*  name	ctrl */
+	NCP("8921_ncp", 0x090),
+};
+
+/*
+ * PM8917 adds 6 LDOs and a boost regulator beyond those available on PM8921.
+ * It also replaces SMPS 3 with FTSMPS 3.  PM8917 does not have an NCP.
+ */
+static struct pm8xxx_vreg pm8917_regulator_data[] = {
+	/*   name	     pc_name	    ctrl   test   hpm_min */
+	PLDO("8917_l30",     "8917_l30_pc", 0x0A3, 0x0A4, LDO_150),
+	PLDO("8917_l31",     "8917_l31_pc", 0x0A5, 0x0A6, LDO_150),
+	PLDO("8917_l32",     "8917_l32_pc", 0x0A7, 0x0A8, LDO_150),
+	PLDO("8917_l33",     "8917_l33_pc", 0x0C6, 0x0C7, LDO_150),
+	PLDO("8917_l34",     "8917_l34_pc", 0x0D2, 0x0D3, LDO_150),
+	PLDO("8917_l35",     "8917_l35_pc", 0x0D4, 0x0D5, LDO_300),
+	PLDO("8917_l36",     "8917_l36_pc", 0x0A9, 0x0AA, LDO_50),
+
+	/*    name          ctrl */
+	BOOST("8917_boost", 0x04B),
+};
+
+#define MAX_NAME_COMPARISON_LEN 32
+
+static int match_regulator(enum pm8xxx_version version,
+	struct pm8xxx_regulator_core_platform_data *core_data, const char *name)
+{
+	int found = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(regulator_data); i++) {
+		if (regulator_data[i].rdesc.name
+		    && strncmp(regulator_data[i].rdesc.name, name,
+				MAX_NAME_COMPARISON_LEN) == 0) {
+			core_data->is_pin_controlled = false;
+			core_data->vreg = &regulator_data[i];
+			found = 1;
+			break;
+		} else if (regulator_data[i].rdesc_pc.name
+			   && strncmp(regulator_data[i].rdesc_pc.name, name,
+				MAX_NAME_COMPARISON_LEN) == 0) {
+			core_data->is_pin_controlled = true;
+			core_data->vreg = &regulator_data[i];
+			found = 1;
+			break;
+		}
+	}
+	if (version == PM8XXX_VERSION_8917) {
+		for (i = 0; i < ARRAY_SIZE(pm8917_regulator_data); i++) {
+			if (pm8917_regulator_data[i].rdesc.name
+			    && strncmp(pm8917_regulator_data[i].rdesc.name,
+					name, MAX_NAME_COMPARISON_LEN) == 0) {
+				core_data->is_pin_controlled = false;
+				core_data->vreg = &pm8917_regulator_data[i];
+				found = 1;
+				break;
+			} else if (pm8917_regulator_data[i].rdesc_pc.name
+			      && strncmp(pm8917_regulator_data[i].rdesc_pc.name,
+					name, MAX_NAME_COMPARISON_LEN) == 0) {
+				core_data->is_pin_controlled = true;
+				core_data->vreg = &pm8917_regulator_data[i];
+				found = 1;
+				break;
+			}
+		}
+	}
+
+	if (!found)
+		pr_err("could not find a match for regulator: %s\n", name);
+
+	return found;
+}
+
+static int pm8921_add_regulators(const struct pm8921_platform_data *pdata,
+		      struct pm8921 *pmic, int irq_base)
+{
+	int ret = 0;
+	struct mfd_cell *mfd_regulators;
+	struct pm8xxx_regulator_core_platform_data *cdata;
+	enum pm8xxx_version version;
+	int i;
+
+	version = pm8xxx_get_version(pmic->dev);
+
+	/* Add one device for each regulator used by the board. */
+	mfd_regulators = kzalloc(sizeof(struct mfd_cell)
+				 * (pdata->num_regulators), GFP_KERNEL);
+	if (!mfd_regulators) {
+		pr_err("Cannot allocate %d bytes for pm8921 regulator "
+			"mfd cells\n", sizeof(struct mfd_cell)
+					* (pdata->num_regulators));
+		return -ENOMEM;
+	}
+	cdata = kzalloc(sizeof(struct pm8xxx_regulator_core_platform_data)
+			* pdata->num_regulators, GFP_KERNEL);
+	if (!cdata) {
+		pr_err("Cannot allocate %d bytes for pm8921 regulator "
+			"core data\n", pdata->num_regulators
+			  * sizeof(struct pm8xxx_regulator_core_platform_data));
+		kfree(mfd_regulators);
+		return -ENOMEM;
+	}
+	for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
+		mutex_init(&regulator_data[i].pc_lock);
+	for (i = 0; i < ARRAY_SIZE(pm8917_regulator_data); i++)
+		mutex_init(&pm8917_regulator_data[i].pc_lock);
+
+	for (i = 0; i < pdata->num_regulators; i++) {
+		if (!pdata->regulator_pdatas[i].init_data.constraints.name) {
+			pr_err("name missing for regulator %d\n", i);
+			ret = -EINVAL;
+			goto bail;
+		}
+		if (!match_regulator(version, &cdata[i],
+		      pdata->regulator_pdatas[i].init_data.constraints.name)) {
+			ret = -ENODEV;
+			goto bail;
+		}
+		cdata[i].pdata = &(pdata->regulator_pdatas[i]);
+		mfd_regulators[i].name = PM8XXX_REGULATOR_DEV_NAME;
+		mfd_regulators[i].id = cdata[i].pdata->id;
+		mfd_regulators[i].platform_data = &cdata[i];
+		mfd_regulators[i].pdata_size =
+			sizeof(struct pm8xxx_regulator_core_platform_data);
+	}
+	ret = mfd_add_devices(pmic->dev, 0, mfd_regulators,
+			pdata->num_regulators, NULL, irq_base);
+	if (ret)
+		goto bail;
+
+	pmic->mfd_regulators = mfd_regulators;
+	pmic->regulator_cdata = cdata;
+	return ret;
+
+bail:
+	for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
+		mutex_destroy(&regulator_data[i].pc_lock);
+	for (i = 0; i < ARRAY_SIZE(pm8917_regulator_data); i++)
+		mutex_destroy(&pm8917_regulator_data[i].pc_lock);
+	kfree(mfd_regulators);
+	kfree(cdata);
+	return ret;
+}
+
 static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		      struct pm8921 *pmic)
 {
 	int ret = 0, irq_base = 0;
 	struct pm_irq_chip *irq_chip;
-	static struct mfd_cell *mfd_regulators;
-	int i;
+	enum pm8xxx_version version;
+
+	version = pm8xxx_get_version(pmic->dev);
 
 	if (pdata->irq_pdata) {
 		pdata->irq_pdata->irq_cdata.nirqs = PM8921_NR_IRQS;
+		pdata->irq_pdata->irq_cdata.base_addr = REG_IRQ_BASE;
 		irq_base = pdata->irq_pdata->irq_base;
 		irq_chip = pm8xxx_irq_init(pmic->dev, pdata->irq_pdata);
 
@@ -376,7 +592,14 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	}
 
 	if (pdata->gpio_pdata) {
-		pdata->gpio_pdata->gpio_cdata.ngpios = PM8921_NR_GPIOS;
+		if (version == PM8XXX_VERSION_8917) {
+			gpio_cell_resources[0].end = gpio_cell_resources[0].end
+							+ PM8917_NR_GPIOS
+							- PM8921_NR_GPIOS;
+			pdata->gpio_pdata->gpio_cdata.ngpios = PM8917_NR_GPIOS;
+		} else {
+			pdata->gpio_pdata->gpio_cdata.ngpios = PM8921_NR_GPIOS;
+		}
 		gpio_cell.platform_data = pdata->gpio_pdata;
 		gpio_cell.pdata_size = sizeof(struct pm8xxx_gpio_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &gpio_cell, 1,
@@ -388,7 +611,14 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	}
 
 	if (pdata->mpp_pdata) {
-		pdata->mpp_pdata->core_data.nmpps = PM8921_NR_MPPS;
+		if (version == PM8XXX_VERSION_8917) {
+			mpp_cell_resources[0].end = mpp_cell_resources[0].end
+							+ PM8917_NR_MPPS
+							- PM8921_NR_MPPS;
+			pdata->mpp_pdata->core_data.nmpps = PM8917_NR_MPPS;
+		} else {
+			pdata->mpp_pdata->core_data.nmpps = PM8921_NR_MPPS;
+		}
 		pdata->mpp_pdata->core_data.base_addr = REG_MPP_BASE;
 		mpp_cell.platform_data = pdata->mpp_pdata;
 		mpp_cell.pdata_size = sizeof(struct pm8xxx_mpp_platform_data);
@@ -436,7 +666,11 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	}
 
 	if (pdata->charger_pdata) {
-		pdata->charger_pdata->charger_cdata.rev = pmic->rev_registers;
+		pdata->charger_pdata->charger_cdata.vbat_channel = CHANNEL_VBAT;
+		pdata->charger_pdata->charger_cdata.batt_temp_channel
+						= CHANNEL_BATT_THERM;
+		pdata->charger_pdata->charger_cdata.batt_id_channel
+						= CHANNEL_BATT_ID;
 		charger_cell.platform_data = pdata->charger_pdata;
 		charger_cell.pdata_size =
 				sizeof(struct pm8921_charger_platform_data);
@@ -451,7 +685,7 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	if (pdata->adc_pdata) {
 		adc_cell.platform_data = pdata->adc_pdata;
 		adc_cell.pdata_size =
-			sizeof(struct pm8921_adc_platform_data);
+			sizeof(struct pm8xxx_adc_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &adc_cell, 1, NULL,
 					irq_base);
 		if (ret) {
@@ -461,9 +695,14 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 	}
 
 	if (pdata->bms_pdata) {
+		pdata->bms_pdata->bms_cdata.batt_temp_channel
+						= CHANNEL_BATT_THERM;
+		pdata->bms_pdata->bms_cdata.vbat_channel = CHANNEL_VBAT;
+		pdata->bms_pdata->bms_cdata.ref625mv_channel = CHANNEL_625MV;
+		pdata->bms_pdata->bms_cdata.ref1p25v_channel = CHANNEL_125V;
+		pdata->bms_pdata->bms_cdata.batt_id_channel = CHANNEL_BATT_ID;
 		bms_cell.platform_data = pdata->bms_pdata;
-		bms_cell.pdata_size =
-				sizeof(struct pm8921_bms_platform_data);
+		bms_cell.pdata_size = sizeof(struct pm8921_bms_platform_data);
 		ret = mfd_add_devices(pmic->dev, 0, &bms_cell, 1, NULL,
 					irq_base);
 		if (ret) {
@@ -472,45 +711,18 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		}
 	}
 
-	/* Add one device for each regulator used by the board. */
 	if (pdata->num_regulators > 0 && pdata->regulator_pdatas) {
-		mfd_regulators = kzalloc(sizeof(struct mfd_cell)
-					 * (pdata->num_regulators), GFP_KERNEL);
-		if (!mfd_regulators) {
-			pr_err("Cannot allocate %d bytes for pm8921 regulator "
-				"mfd cells\n", sizeof(struct mfd_cell)
-						* (pdata->num_regulators));
-			ret = -ENOMEM;
-			goto bail;
-		}
-		for (i = 0; i < pdata->num_regulators; i++) {
-			mfd_regulators[i].name = PM8921_REGULATOR_DEV_NAME;
-			mfd_regulators[i].id = pdata->regulator_pdatas[i].id;
-			mfd_regulators[i].platform_data =
-				&(pdata->regulator_pdatas[i]);
-			mfd_regulators[i].pdata_size =
-				sizeof(struct pm8921_regulator_platform_data);
-		}
-		ret = mfd_add_devices(pmic->dev, 0, mfd_regulators,
-				pdata->num_regulators, NULL, irq_base);
+		ret = pm8921_add_regulators(pdata, pmic, irq_base);
 		if (ret) {
 			pr_err("Failed to add regulator subdevices ret=%d\n",
 				ret);
-			kfree(mfd_regulators);
 			goto bail;
 		}
-		pmic->mfd_regulators = mfd_regulators;
 	}
 
 	ret = mfd_add_devices(pmic->dev, 0, &debugfs_cell, 1, NULL, irq_base);
 	if (ret) {
 		pr_err("Failed to add debugfs subdevice ret=%d\n", ret);
-		goto bail;
-	}
-
-	ret = mfd_add_devices(pmic->dev, 0, &pwm_cell, 1, NULL, 0);
-	if (ret) {
-		pr_err("Failed to add pwm subdevice ret=%d\n", ret);
 		goto bail;
 	}
 
@@ -521,25 +733,6 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 				      irq_base);
 		if (ret) {
 			pr_err("Failed to add  misc subdevice ret=%d\n", ret);
-			goto bail;
-		}
-	}
-
-	if (pdata->leds_pdata) {
-		/* PM8921 supports only 4 LED DRVs */
-		for (i = 0; i < pdata->leds_pdata->num_leds; i++) {
-			if (pdata->leds_pdata->leds[i].flags >
-						PM8XXX_ID_LED_2) {
-				pr_err("%s: LED %d not supported\n", __func__,
-					pdata->leds_pdata->leds[i].flags);
-				goto bail;
-			}
-		}
-		leds_cell.platform_data = pdata->leds_pdata;
-		leds_cell.pdata_size = sizeof(struct pm8xxx_led_platform_data);
-		ret = mfd_add_devices(pmic->dev, 0, &leds_cell, 1, NULL, 0);
-		if (ret) {
-			pr_err("Failed to add leds subdevice ret=%d\n", ret);
 			goto bail;
 		}
 	}
@@ -560,15 +753,41 @@ static int pm8921_add_subdevices(const struct pm8921_platform_data *pdata,
 		goto bail;
 	}
 
-	if (pdata->vibrator_pdata) {
-		vibrator_cell.platform_data = pdata->vibrator_pdata;
-		vibrator_cell.pdata_size =
-				sizeof(struct pm8xxx_vibrator_platform_data);
-		ret = mfd_add_devices(pmic->dev, 0, &vibrator_cell, 1, NULL, 0);
+	if (version != PM8XXX_VERSION_8917) {
+		if (pdata->pwm_pdata) {
+			pwm_cell.platform_data = pdata->pwm_pdata;
+			pwm_cell.pdata_size =
+				sizeof(struct pm8xxx_pwm_platform_data);
+		}
+		ret = mfd_add_devices(pmic->dev, 0, &pwm_cell, 1, NULL, 0);
 		if (ret) {
-			pr_err("Failed to add vibrator subdevice ret=%d\n",
-									ret);
+			pr_err("Failed to add pwm subdevice ret=%d\n", ret);
 			goto bail;
+		}
+
+		if (pdata->leds_pdata) {
+			leds_cell.platform_data = pdata->leds_pdata;
+			leds_cell.pdata_size =
+				sizeof(struct pm8xxx_led_platform_data);
+			ret = mfd_add_devices(pmic->dev, 0, &leds_cell,
+					      1, NULL, 0);
+			if (ret) {
+				pr_err("Failed to add leds subdevice ret=%d\n",
+						ret);
+				goto bail;
+			}
+		}
+
+		if (pdata->vibrator_pdata) {
+			vibrator_cell.platform_data = pdata->vibrator_pdata;
+			vibrator_cell.pdata_size =
+				sizeof(struct pm8xxx_vibrator_platform_data);
+			ret = mfd_add_devices(pmic->dev, 0, &vibrator_cell,
+					      1, NULL, 0);
+			if (ret) {
+				pr_err("Failed to add vibrator ret=%d\n", ret);
+				goto bail;
+			}
 		}
 	}
 
@@ -594,11 +813,36 @@ bail:
 	return ret;
 }
 
+static const char * const pm8921_restart_reason[] = {
+	[0] = "Unknown",
+	[1] = "Triggered from CBL (external charger)",
+	[2] = "Triggered from KPD (power key press)",
+	[3] = "Triggered from CHG (usb charger insertion)",
+	[4] = "Triggered from SMPL (sudden momentary power loss)",
+	[5] = "Triggered from RTC (real time clock)",
+	[6] = "Triggered by Hard Reset",
+	[7] = "Triggered by General Purpose Trigger",
+};
+
 static const char * const pm8921_rev_names[] = {
 	[PM8XXX_REVISION_8921_TEST]	= "test",
 	[PM8XXX_REVISION_8921_1p0]	= "1.0",
 	[PM8XXX_REVISION_8921_1p1]	= "1.1",
 	[PM8XXX_REVISION_8921_2p0]	= "2.0",
+	[PM8XXX_REVISION_8921_3p0]	= "3.0",
+	[PM8XXX_REVISION_8921_3p1]	= "3.1",
+};
+
+static const char * const pm8922_rev_names[] = {
+	[PM8XXX_REVISION_8922_TEST]	= "test",
+	[PM8XXX_REVISION_8922_1p0]	= "1.0",
+	[PM8XXX_REVISION_8922_1p1]	= "1.1",
+	[PM8XXX_REVISION_8922_2p0]	= "2.0",
+};
+
+static const char * const pm8917_rev_names[] = {
+	[PM8XXX_REVISION_8917_TEST]	= "test",
+	[PM8XXX_REVISION_8917_1p0]	= "1.0",
 };
 
 static int pm8921_probe(struct platform_device *pdev)
@@ -647,14 +891,33 @@ static int pm8921_probe(struct platform_device *pdev)
 
 	/* Print out human readable version and revision names. */
 	version = pm8xxx_get_version(pmic->dev);
+	revision = pm8xxx_get_revision(pmic->dev);
 	if (version == PM8XXX_VERSION_8921) {
-		revision = pm8xxx_get_revision(pmic->dev);
 		if (revision >= 0 && revision < ARRAY_SIZE(pm8921_rev_names))
 			revision_name = pm8921_rev_names[revision];
 		pr_info("PMIC version: PM8921 rev %s\n", revision_name);
+	} else if (version == PM8XXX_VERSION_8922) {
+		if (revision >= 0 && revision < ARRAY_SIZE(pm8922_rev_names))
+			revision_name = pm8922_rev_names[revision];
+		pr_info("PMIC version: PM8922 rev %s\n", revision_name);
+	} else if (version == PM8XXX_VERSION_8917) {
+		if (revision >= 0 && revision < ARRAY_SIZE(pm8917_rev_names))
+			revision_name = pm8917_rev_names[revision];
+		pr_info("PMIC version: PM8917 rev %s\n", revision_name);
 	} else {
-		WARN_ON(version != PM8XXX_VERSION_8921);
+		WARN_ON(version != PM8XXX_VERSION_8921
+			&& version != PM8XXX_VERSION_8922
+			&& version != PM8XXX_VERSION_8917);
 	}
+
+	/* Log human readable restart reason */
+	rc = msm_ssbi_read(pdev->dev.parent, REG_PM8921_PON_CNTRL_3, &val, 1);
+	if (rc) {
+		pr_err("Cannot read restart reason rc=%d\n", rc);
+		goto err_read_rev;
+	}
+	val &= PM8921_RESTART_REASON_MASK;
+	pr_info("PMIC Restart Reason: %s\n", pm8921_restart_reason[val]);
 
 	rc = pm8921_add_subdevices(pdata, pmic);
 	if (rc) {
@@ -670,6 +933,8 @@ static int pm8921_probe(struct platform_device *pdev)
 err:
 	mfd_remove_devices(pmic->dev);
 	platform_set_drvdata(pdev, NULL);
+	kfree(pmic->mfd_regulators);
+	kfree(pmic->regulator_cdata);
 err_read_rev:
 	kfree(pmic);
 	return rc;
@@ -679,6 +944,7 @@ static int pm8921_remove(struct platform_device *pdev)
 {
 	struct pm8xxx_drvdata *drvdata;
 	struct pm8921 *pmic = NULL;
+	int i;
 
 	drvdata = platform_get_drvdata(pdev);
 	if (drvdata)
@@ -688,7 +954,15 @@ static int pm8921_remove(struct platform_device *pdev)
 			mfd_remove_devices(pmic->dev);
 		if (pmic->irq_chip)
 			pm8xxx_irq_exit(pmic->irq_chip);
+		if (pmic->mfd_regulators) {
+			for (i = 0; i < ARRAY_SIZE(regulator_data); i++)
+				mutex_destroy(&regulator_data[i].pc_lock);
+			for (i = 0; i < ARRAY_SIZE(pm8917_regulator_data); i++)
+				mutex_destroy(
+					&pm8917_regulator_data[i].pc_lock);
+		}
 		kfree(pmic->mfd_regulators);
+		kfree(pmic->regulator_cdata);
 		kfree(pmic);
 	}
 	platform_set_drvdata(pdev, NULL);
