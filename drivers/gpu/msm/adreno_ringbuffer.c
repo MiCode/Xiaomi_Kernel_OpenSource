@@ -1083,162 +1083,6 @@ done:
 	return ret;
 }
 
-static int _find_start_of_cmd_seq(struct adreno_ringbuffer *rb,
-					unsigned int *ptr,
-					bool inc)
-{
-	int status = -EINVAL;
-	unsigned int val1;
-	unsigned int size = rb->buffer_desc.size;
-	unsigned int start_ptr = *ptr;
-
-	while ((start_ptr / sizeof(unsigned int)) != rb->wptr) {
-		if (inc)
-			start_ptr = adreno_ringbuffer_inc_wrapped(start_ptr,
-									size);
-		else
-			start_ptr = adreno_ringbuffer_dec_wrapped(start_ptr,
-									size);
-		kgsl_sharedmem_readl(&rb->buffer_desc, &val1, start_ptr);
-		if (KGSL_CMD_IDENTIFIER == val1) {
-			if ((start_ptr / sizeof(unsigned int)) != rb->wptr)
-				start_ptr = adreno_ringbuffer_dec_wrapped(
-							start_ptr, size);
-				*ptr = start_ptr;
-				status = 0;
-				break;
-		}
-	}
-	return status;
-}
-
-static int _find_cmd_seq_after_eop_ts(struct adreno_ringbuffer *rb,
-					unsigned int *rb_rptr,
-					unsigned int global_eop,
-					bool inc)
-{
-	int status = -EINVAL;
-	unsigned int temp_rb_rptr = *rb_rptr;
-	unsigned int size = rb->buffer_desc.size;
-	unsigned int val[3];
-	int i = 0;
-	bool check = false;
-
-	if (inc && temp_rb_rptr / sizeof(unsigned int) != rb->wptr)
-		return status;
-
-	do {
-		/* when decrementing we need to decrement first and
-		 * then read make sure we cover all the data */
-		if (!inc)
-			temp_rb_rptr = adreno_ringbuffer_dec_wrapped(
-					temp_rb_rptr, size);
-		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i],
-					temp_rb_rptr);
-
-		if (check && ((inc && val[i] == global_eop) ||
-			(!inc && (val[i] ==
-			cp_type3_packet(CP_MEM_WRITE, 2) ||
-			val[i] == CACHE_FLUSH_TS)))) {
-			/* decrement i, i.e i = (i - 1 + 3) % 3 if
-			 * we are going forward, else increment i */
-			i = (i + 2) % 3;
-			if (val[i] == rb->device->memstore.gpuaddr +
-				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-						eoptimestamp)) {
-				int j = ((i + 2) % 3);
-				if ((inc && (val[j] == CACHE_FLUSH_TS ||
-						val[j] == cp_type3_packet(
-							CP_MEM_WRITE, 2))) ||
-					(!inc && val[j] == global_eop)) {
-						/* Found the global eop */
-						status = 0;
-						break;
-				}
-			}
-			/* if no match found then increment i again
-			 * since we decremented before matching */
-			i = (i + 1) % 3;
-		}
-		if (inc)
-			temp_rb_rptr = adreno_ringbuffer_inc_wrapped(
-						temp_rb_rptr, size);
-
-		i = (i + 1) % 3;
-		if (2 == i)
-			check = true;
-	} while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr);
-	/* temp_rb_rptr points to the command stream after global eop,
-	 * move backward till the start of command sequence */
-	if (!status) {
-		status = _find_start_of_cmd_seq(rb, &temp_rb_rptr, false);
-		if (!status) {
-			*rb_rptr = temp_rb_rptr;
-			KGSL_DRV_ERR(rb->device,
-			"Offset of cmd sequence after eop timestamp: 0x%x\n",
-			temp_rb_rptr / sizeof(unsigned int));
-		}
-	}
-	if (status)
-		KGSL_DRV_ERR(rb->device,
-		"Failed to find the command sequence after eop timestamp\n");
-	return status;
-}
-
-static int _find_hanging_ib_sequence(struct adreno_ringbuffer *rb,
-				unsigned int *rb_rptr,
-				unsigned int ib1)
-{
-	int status = -EINVAL;
-	unsigned int temp_rb_rptr = *rb_rptr;
-	unsigned int size = rb->buffer_desc.size;
-	unsigned int val[2];
-	int i = 0;
-	bool check = false;
-	bool ctx_switch = false;
-
-	while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr) {
-		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i], temp_rb_rptr);
-
-		if (check && val[i] == ib1) {
-			/* decrement i, i.e i = (i - 1 + 2) % 2 */
-			i = (i + 1) % 2;
-			if (adreno_cmd_is_ib(val[i])) {
-				/* go till start of command sequence */
-				status = _find_start_of_cmd_seq(rb,
-						&temp_rb_rptr, false);
-				KGSL_DRV_ERR(rb->device,
-				"Found the hanging IB at offset 0x%x\n",
-				temp_rb_rptr / sizeof(unsigned int));
-				break;
-			}
-			/* if no match the increment i since we decremented
-			 * before checking */
-			i = (i + 1) % 2;
-		}
-		/* Make sure you do not encounter a context switch twice, we can
-		 * encounter it once for the bad context as the start of search
-		 * can point to the context switch */
-		if (val[i] == KGSL_CONTEXT_TO_MEM_IDENTIFIER) {
-			if (ctx_switch) {
-				KGSL_DRV_ERR(rb->device,
-				"Context switch encountered before bad "
-				"IB found\n");
-				break;
-			}
-			ctx_switch = true;
-		}
-		i = (i + 1) % 2;
-		if (1 == i)
-			check = true;
-		temp_rb_rptr = adreno_ringbuffer_inc_wrapped(temp_rb_rptr,
-								size);
-	}
-	if  (!status)
-		*rb_rptr = temp_rb_rptr;
-	return status;
-}
-
 static void _turn_preamble_on_for_ib_seq(struct adreno_ringbuffer *rb,
 				unsigned int rb_rptr)
 {
@@ -1283,12 +1127,16 @@ static void _turn_preamble_on_for_ib_seq(struct adreno_ringbuffer *rb,
 	}
 }
 
-static void _copy_valid_rb_content(struct adreno_ringbuffer *rb,
-		unsigned int rb_rptr, unsigned int *temp_rb_buffer,
-		int *rb_size, unsigned int *bad_rb_buffer,
-		int *bad_rb_size,
-		int *last_valid_ctx_id)
+void adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
+				struct adreno_recovery_data *rec_data)
 {
+	struct kgsl_device *device = rb->device;
+	unsigned int rb_rptr = rec_data->start_of_replay_cmds;
+	unsigned int *temp_rb_buffer = rec_data->rb_buffer;
+	int *rb_size = &rec_data->rb_size;
+	unsigned int *bad_rb_buffer = rec_data->bad_rb_buffer;
+	int *bad_rb_size = &rec_data->bad_rb_size;
+
 	unsigned int good_rb_idx = 0, cmd_start_idx = 0;
 	unsigned int val1 = 0;
 	struct kgsl_context *k_ctxt;
@@ -1298,6 +1146,21 @@ static void _copy_valid_rb_content(struct adreno_ringbuffer *rb,
 	unsigned int temp_rb_rptr;
 	unsigned int size = rb->buffer_desc.size;
 	unsigned int good_cmd_start_idx = 0;
+
+	/*
+	 * If the start index from where commands need to be copied is invalid
+	 * then no need to save off any commands
+	 */
+	if (0xFFFFFFFF == rec_data->start_of_replay_cmds)
+		return;
+
+	k_ctxt = idr_find(&device->context_idr, rec_data->context_id);
+	if (k_ctxt) {
+		a_ctxt = k_ctxt->devctxt;
+		if (a_ctxt->flags & CTXT_FLAGS_PREAMBLE)
+			_turn_preamble_on_for_ib_seq(rb, rb_rptr);
+	}
+	k_ctxt = NULL;
 
 	/* Walk the rb from the context switch. Omit any commands
 	 * for an invalid context. */
@@ -1339,7 +1202,7 @@ static void _copy_valid_rb_content(struct adreno_ringbuffer *rb,
 					temp_idx++)
 					temp_rb_buffer[good_rb_idx++] =
 						bad_rb_buffer[temp_idx];
-				*last_valid_ctx_id = val2;
+				rec_data->last_valid_ctx_id = val2;
 				copy_rb_contents = 1;
 			} else if (copy_rb_contents && k_ctxt &&
 				(a_ctxt->flags & CTXT_FLAGS_GPU_HANG)) {
@@ -1362,59 +1225,6 @@ static void _copy_valid_rb_content(struct adreno_ringbuffer *rb,
 	}
 	*rb_size = good_rb_idx;
 	*bad_rb_size = bad_rb_idx;
-}
-
-int adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
-				struct adreno_recovery_data *rec_data)
-{
-	int status;
-	struct kgsl_device *device = rb->device;
-	unsigned int rb_rptr = rb->wptr * sizeof(unsigned int);
-	struct kgsl_context *context;
-	struct adreno_context *adreno_context;
-
-	context = idr_find(&device->context_idr, rec_data->context_id);
-
-	/* Look for the command stream that is right after the global eop */
-	status = _find_cmd_seq_after_eop_ts(rb, &rb_rptr,
-				rec_data->global_eop + 1, false);
-	if (status)
-		goto done;
-
-	if (context) {
-		adreno_context = context->devctxt;
-
-		if (adreno_context->flags & CTXT_FLAGS_PREAMBLE) {
-			if (rec_data->ib1) {
-				status = _find_hanging_ib_sequence(rb, &rb_rptr,
-								rec_data->ib1);
-				if (status)
-					goto copy_rb_contents;
-			}
-			_turn_preamble_on_for_ib_seq(rb, rb_rptr);
-		} else {
-			status = -EINVAL;
-		}
-	}
-
-copy_rb_contents:
-	_copy_valid_rb_content(rb, rb_rptr, rec_data->rb_buffer,
-				&rec_data->rb_size,
-				rec_data->bad_rb_buffer,
-				&rec_data->bad_rb_size,
-				&rec_data->last_valid_ctx_id);
-	/* If we failed to get the hanging IB sequence then we cannot execute
-	 * commands from the bad context or preambles not supported */
-	if (status) {
-		rec_data->bad_rb_size = 0;
-		status = 0;
-	}
-	/* If there is no context then that means there are no commands for
-	 * good case */
-	if (!context)
-		rec_data->rb_size = 0;
-done:
-	return status;
 }
 
 void
