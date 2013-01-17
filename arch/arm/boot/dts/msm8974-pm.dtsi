@@ -179,6 +179,8 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
+		qcom,use-qtimer;
+
 		qcom,lpm-level@0 {
 			reg = <0x0>;
 			qcom,mode = <0>;        /* MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT */
