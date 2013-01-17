@@ -333,10 +333,10 @@ __dma_alloc_remap(struct page *page, size_t size, gfp_t gfp, pgprot_t prot,
 			prot, caller);
 }
 
-static void __dma_free_remap(void *cpu_addr, size_t size)
+static void __dma_free_remap(void *cpu_addr, size_t size, bool no_warn)
 {
 	dma_common_free_remap(cpu_addr, size,
-			VM_ARM_DMA_CONSISTENT | VM_USERMAP);
+			VM_ARM_DMA_CONSISTENT | VM_USERMAP, no_warn);
 }
 
 #define DEFAULT_DMA_COHERENT_POOL_SIZE	SZ_256K
@@ -578,6 +578,7 @@ static int __free_from_pool(void *start, size_t size)
 	return 1;
 }
 
+#define NO_KERNEL_MAPPING_DUMMY	0x2222
 static void *__alloc_from_contiguous(struct device *dev, size_t size,
 				     pgprot_t prot, struct page **ret_page,
 				     const void *caller,
@@ -602,10 +603,20 @@ static void *__alloc_from_contiguous(struct device *dev, size_t size,
 		__dma_clear_buffer(page, size, attrs);
 
 	if (PageHighMem(page)) {
-		ptr = __dma_alloc_remap(page, size, GFP_KERNEL, prot, caller);
-		if (!ptr) {
-			dma_release_from_contiguous(dev, page, count);
-			return NULL;
+		if (!want_vaddr) {
+			/*
+			 * Something non-NULL needs to be returned here. Give
+			 * back a dummy address that is unmapped to catch
+			 * clients trying to use the address incorrectly
+			 */
+			ptr = (void *)NO_KERNEL_MAPPING_DUMMY;
+		} else {
+			ptr = __dma_alloc_remap(page, size, GFP_KERNEL, prot,
+						caller);
+			if (!ptr) {
+				dma_release_from_contiguous(dev, page, count);
+				return NULL;
+			}
 		}
 	} else {
 		__dma_remap(page, size, prot, want_vaddr);
@@ -620,7 +631,7 @@ static void __free_from_contiguous(struct device *dev, struct page *page,
 				   void *cpu_addr, size_t size, bool want_vaddr)
 {
 	if (PageHighMem(page))
-		__dma_free_remap(cpu_addr, size);
+		__dma_free_remap(cpu_addr, size, true);
 	else
 		__dma_remap(page, size, PAGE_KERNEL, false);
 	dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
@@ -651,7 +662,7 @@ static inline pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot)
 #define __alloc_from_contiguous(dev, size, prot, ret, c, wv)	NULL
 #define __free_from_pool(cpu_addr, size)			0
 #define __free_from_contiguous(dev, page, cpu_addr, size, wv)	do { } while (0)
-#define __dma_free_remap(cpu_addr, size)			do { } while (0)
+#define __dma_free_remap(cpu_addr, size, w)			do { } while (0)
 
 #endif	/* CONFIG_MMU */
 
@@ -838,7 +849,7 @@ static void __arm_dma_free(struct device *dev, size_t size, void *cpu_addr,
 		return;
 	} else if (!dev_get_cma_area(dev)) {
 		if (want_vaddr && !is_coherent)
-			__dma_free_remap(cpu_addr, size);
+			__dma_free_remap(cpu_addr, size, false);
 		__dma_free_buffer(page, size);
 	} else {
 		/*
