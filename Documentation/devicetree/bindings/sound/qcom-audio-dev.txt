@@ -54,6 +54,23 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-afe"
 
+* msm-pcm-dtmf
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-dtmf"
+ - qcom,msm-pcm-dtmf : Enable DTMF driver in Audio. DTMF driver is
+   used for generation and detection of DTMF tones, when user is in
+   active voice call. APR commands are sent from DTMF driver to ADSP.
+
+* msm-dai-stub
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-stub"
+ - qcom,msm-dai-stub : This enables stub CPU dai in Audio.
+   The stub dai is used when there is no real backend in Audio.
+
 * msm-dai-q6-hdmi
 
 Required properties:
@@ -221,6 +238,14 @@ Example:
         qcom,msm-dai-fe {
                 compatible = "qcom,msm-dai-fe";
         };
+
+	qcom,msm-pcm-dtmf {
+		compatible = "qcom,msm-pcm-dtmf";
+	};
+
+	qcom,msm-dai-stub {
+		compatible = "qcom,msm-dai-stub";
+	};
 
 	qcom,msm-dai-q6-hdmi {
 		compatible = "qcom,msm-dai-q6-hdmi";
