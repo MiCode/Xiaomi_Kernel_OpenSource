@@ -135,6 +135,8 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define HS_PHY_IRQ_STAT_REG	(QSCRATCH_REG_OFFSET + 0x24)
 #define CGCTL_REG		(QSCRATCH_REG_OFFSET + 0x28)
 #define SS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x30)
+#define SS_PHY_PARAM_CTRL_1	(QSCRATCH_REG_OFFSET + 0x34)
+#define SS_PHY_PARAM_CTRL_2	(QSCRATCH_REG_OFFSET + 0x38)
 #define SS_CR_PROTOCOL_DATA_IN_REG  (QSCRATCH_REG_OFFSET + 0x3C)
 #define SS_CR_PROTOCOL_DATA_OUT_REG (QSCRATCH_REG_OFFSET + 0x40)
 #define SS_CR_PROTOCOL_CAP_ADDR_REG (QSCRATCH_REG_OFFSET + 0x44)
@@ -1244,8 +1246,39 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 
 	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x1010);
 	data &= ~0xFF0;
-	data |= 0x40;
+	data |= 0x20;
 	dwc3_msm_ssusb_write_phycreg(msm->base, 0x1010, data);
+
+	/*
+	 * Fix RX Equalization setting as follows
+	 * LANE0.RX_OVRD_IN_HI. RX_EQ_EN set to 0
+	 * LANE0.RX_OVRD_IN_HI.RX_EQ_EN_OVRD set to 1
+	 * LANE0.RX_OVRD_IN_HI.RX_EQ set to 3
+	 * LANE0.RX_OVRD_IN_HI.RX_EQ_OVRD set to 1
+	 */
+	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x1006);
+	data &= ~(1 << 6);
+	data |= (1 << 7);
+	data &= ~(0x7 << 8);
+	data |= (0x3 << 8);
+	data |= (0x1 << 11);
+	dwc3_msm_ssusb_write_phycreg(msm->base, 0x1006, data);
+
+	/*
+	 * Set EQ and TX launch amplitudes as follows
+	 * LANE0.TX_OVRD_DRV_LO.PREEMPH set to 22
+	 * LANE0.TX_OVRD_DRV_LO.AMPLITUDE set to 127
+	 * LANE0.TX_OVRD_DRV_LO.EN set to 1.
+	 */
+	data = dwc3_msm_ssusb_read_phycreg(msm->base, 0x1002);
+	data &= ~0x3F80;
+	data |= (0x16 << 7);
+	data &= ~0x7F;
+	data |= (0x7F | (1 << 14));
+	dwc3_msm_ssusb_write_phycreg(msm->base, 0x1002, data);
+
+	/* Set LOS_BIAS to 0x5 */
+	dwc3_msm_write_readback(msm->base, SS_PHY_PARAM_CTRL_1, 0x07, 0x5);
 }
 
 static void dwc3_msm_block_reset(void)
