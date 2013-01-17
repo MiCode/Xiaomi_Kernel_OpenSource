@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,8 +144,6 @@ void msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
 void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
 
 int lpa_set_volume(unsigned volume);
-
-int msm_set_lb_volume(unsigned volume);
 
 int msm_routing_check_backend_enabled(int fedai_id);
 
