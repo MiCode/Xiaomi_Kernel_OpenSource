@@ -18,6 +18,7 @@
 
 /include/ "msm8974.dtsi"
 /include/ "msm8974-v1-iommu.dtsi"
+/include/ "msm8974-v1-pm.dtsi"
 
 / {
 	android_usb@fc42b0c8 {
