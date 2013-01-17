@@ -624,6 +624,7 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 	pr_debug("ctl_num=%d\n", ctl->num);
 
 	mixer = ctl->mixer_left;
+	mdss_mdp_pp_resume(mixer->num);
 	mixer->params_changed++;
 
 	temp = MDSS_MDP_REG_READ(MDSS_MDP_REG_DISP_INTF_SEL);
@@ -642,6 +643,7 @@ int mdss_mdp_ctl_on(struct msm_fb_data_type *mfd)
 
 	if (ctl->mixer_right) {
 		mixer = ctl->mixer_right;
+		mdss_mdp_pp_resume(mixer->num);
 		mixer->params_changed++;
 		outsize = (mixer->height << 16) | mixer->width;
 		off = MDSS_MDP_REG_LM_OFFSET(mixer->num);
