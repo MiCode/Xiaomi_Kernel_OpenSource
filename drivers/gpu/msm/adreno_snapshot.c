@@ -786,6 +786,64 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 	return size + sizeof(*header);
 }
 
+static int snapshot_capture_mem_list(struct kgsl_device *device, void *snapshot,
+			int remain, void *priv)
+{
+	struct kgsl_snapshot_replay_mem_list *header = snapshot;
+	struct kgsl_process_private *private;
+	unsigned int ptbase;
+	struct rb_node *node;
+	struct kgsl_mem_entry *entry = NULL;
+	int num_mem;
+	unsigned int *data = snapshot + sizeof(*header);
+
+	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+	mutex_lock(&kgsl_driver.process_mutex);
+	list_for_each_entry(private, &kgsl_driver.process_list, list) {
+		if (kgsl_mmu_pt_equal(&device->mmu, private->pagetable,
+			ptbase))
+			break;
+	}
+	mutex_unlock(&kgsl_driver.process_mutex);
+	if (!private) {
+		KGSL_DRV_ERR(device,
+		"Failed to get pointer to process private structure\n");
+		return 0;
+	}
+	/* We need to know the number of memory objects that the process has */
+	spin_lock(&private->mem_lock);
+	for (node = rb_first(&private->mem_rb), num_mem = 0; node; ) {
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+		node = rb_next(&entry->node);
+		num_mem++;
+	}
+
+	if (remain < ((num_mem * 3 * sizeof(unsigned int)) +
+			sizeof(*header))) {
+		KGSL_DRV_ERR(device,
+			"snapshot: Not enough memory for the mem list section");
+		spin_unlock(&private->mem_lock);
+		return 0;
+	}
+	header->num_entries = num_mem;
+	header->ptbase = ptbase;
+	/*
+	 * Walk throught the memory list and store the
+	 * tuples(gpuaddr, size, memtype) in snapshot
+	 */
+	for (node = rb_first(&private->mem_rb); node; ) {
+		entry = rb_entry(node, struct kgsl_mem_entry, node);
+		node = rb_next(&entry->node);
+
+		*data++ = entry->memdesc.gpuaddr;
+		*data++ = entry->memdesc.size;
+		*data++ = (entry->memdesc.priv & KGSL_MEMTYPE_MASK) >>
+							KGSL_MEMTYPE_SHIFT;
+	}
+	spin_unlock(&private->mem_lock);
+	return sizeof(*header) + (num_mem * 3 * sizeof(unsigned int));
+}
+
 /* Snapshot the memory for an indirect buffer */
 static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 	int remain, void *priv)
@@ -888,6 +946,13 @@ void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 	snapshot = kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB,
 		snapshot, remain, snapshot_rb, NULL);
 
+	/*
+	 * Add a section that lists (gpuaddr, size, memtype) tuples of the
+	 * hanging process
+	 */
+	snapshot = kgsl_snapshot_add_section(device,
+			KGSL_SNAPSHOT_SECTION_MEMLIST, snapshot, remain,
+			snapshot_capture_mem_list, NULL);
 	/*
 	 * Make sure that the last IB1 that was being executed is dumped.
 	 * Since this was the last IB1 that was processed, we should have
