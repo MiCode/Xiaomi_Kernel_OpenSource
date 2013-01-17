@@ -295,7 +295,7 @@ int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type)
 }
 
 static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
-				u32 base, u32 *gamut_sts)
+				u32 base, struct pp_sts_type *pp_sts)
 {
 	u32 offset;
 	int i, j;
@@ -320,13 +320,13 @@ static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
 			offset += 4;
 		}
 		if (gamut_cfg->gamut_first)
-			*gamut_sts |= PP_STS_GAMUT_FIRST;
+			pp_sts->gamut_sts |= PP_STS_GAMUT_FIRST;
 	}
 
 	if (gamut_cfg->flags & MDP_PP_OPS_DISABLE)
-		*gamut_sts &= ~PP_STS_ENABLE;
+		pp_sts->gamut_sts &= ~PP_STS_ENABLE;
 	else if (gamut_cfg->flags & MDP_PP_OPS_ENABLE)
-		*gamut_sts |= PP_STS_ENABLE;
+		pp_sts->gamut_sts |= PP_STS_ENABLE;
 }
 
 static void pp_pa_config(unsigned long flags, u32 base,
@@ -634,8 +634,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	if (pp_sts->dither_sts & PP_STS_ENABLE)
 		opmode |= (1 << 8); /* DITHER_EN */
 	if (flags & PP_FLAGS_DIRTY_GAMUT)
-		pp_gamut_config(&mdss_pp_res->gamut_disp_cfg[disp_num],
-					base, &pp_sts->gamut_sts);
+		pp_gamut_config(&mdss_pp_res->gamut_disp_cfg[disp_num], base,
+				pp_sts);
 	if (pp_sts->gamut_sts & PP_STS_ENABLE) {
 		opmode |= (1 << 23); /* GAMUT_EN */
 		if (pp_sts->gamut_sts & PP_STS_GAMUT_FIRST)
@@ -684,6 +684,83 @@ int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl)
 		mdss_pp_res->pp_disp_flags[disp_num] = 0;
 	mutex_unlock(&mdss_pp_mutex);
 
+	return 0;
+}
+
+/*
+ * Set dirty and write bits on features that were enabled so they will be
+ * reconfigured
+ */
+int mdss_mdp_pp_resume(u32 mixer_num)
+{
+	u32 flags = 0;
+	struct pp_sts_type pp_sts;
+
+	if (mixer_num >= MDSS_MDP_MAX_DSPP) {
+		pr_warn("invalid mixer_num");
+		return -EINVAL;
+	}
+
+	pp_sts = mdss_pp_res->pp_dspp_sts[mixer_num];
+
+	if (pp_sts.pa_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_PA;
+		if (!(mdss_pp_res->pa_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->pa_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.pcc_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_PCC;
+		if (!(mdss_pp_res->pcc_disp_cfg[mixer_num].ops
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->pcc_disp_cfg[mixer_num].ops |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.igc_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_IGC;
+		if (!(mdss_pp_res->igc_disp_cfg[mixer_num].ops
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->igc_disp_cfg[mixer_num].ops |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.argc_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_ARGC;
+		if (!(mdss_pp_res->argc_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->argc_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.enhist_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_ENHIST;
+		if (!(mdss_pp_res->enhist_disp_cfg[mixer_num].ops
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->enhist_disp_cfg[mixer_num].ops |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.dither_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_DITHER;
+		if (!(mdss_pp_res->dither_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->dither_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.gamut_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_GAMUT;
+		if (!(mdss_pp_res->gamut_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->gamut_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.pgc_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_PGC;
+		if (!(mdss_pp_res->pgc_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->pgc_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+
+	mdss_pp_res->pp_disp_flags[mixer_num] = flags;
 	return 0;
 }
 
