@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -39,15 +39,6 @@
 
 #define MSM9625_TLMM_PHYS	0xFD510000
 #define MSM9625_TLMM_SIZE	SZ_16K
-
-/*
- * TODO: Revert IMEM_PHYS back to actual
- * address 0xfe807800
- * after IMEM issues resolved.
- *
- */
-#define MSM9625_IMEM_PHYS	0xFC42B000
-#define MSM9625_IMEM_SIZE	SZ_2K
 
 #define MSM9625_MPM2_PSHOLD_PHYS	0xFC4AB000
 #define MSM9625_MPM2_PSHOLD_SIZE	SZ_4K

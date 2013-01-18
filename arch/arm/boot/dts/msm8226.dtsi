@@ -61,6 +61,11 @@
 		status = "disabled";
 	};
 
+	qcom,msm-imem@fe805000 {
+		compatible = "qcom,msm-imem";
+		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
+	};
+
 	qcom,sps@f9984000 {
 		compatible = "qcom,msm_sps";
 		reg = <0xf9984000 0x15000>,
