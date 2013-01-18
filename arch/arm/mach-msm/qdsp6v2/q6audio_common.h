@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #define __Q6_AUDIO_COMMON_H__
 
 #if defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_MSM9625) \
-	|| defined(CONFIG_ARCH_MSM8226)
+	|| defined(CONFIG_ARCH_MSM8226) || defined(CONFIG_ARCH_MSM8610)
 
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>
