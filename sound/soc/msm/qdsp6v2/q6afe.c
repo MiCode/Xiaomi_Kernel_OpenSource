@@ -235,6 +235,8 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_RX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_RX:
+	case SLIMBUS_2_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_slimbus_cfg);
 		break;
 	case VOICE_PLAYBACK_TX:
