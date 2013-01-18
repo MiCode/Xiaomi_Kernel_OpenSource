@@ -1,0 +1,98 @@
+config MSM_KGSL
+	tristate "MSM 3D Graphics driver"
+	default n
+	depends on ARCH_MSM && !ARCH_MSM7X00A && !ARCH_MSM7X25
+	select GENERIC_ALLOCATOR
+	select FW_LOADER
+	---help---
+	  3D graphics driver. Required to use hardware accelerated
+	  OpenGL ES 2.0 and 1.1.
+
+config MSM_KGSL_CFF_DUMP
+	bool "Enable KGSL Common File Format (CFF) Dump Feature [Use with caution]"
+	default n
+	depends on MSM_KGSL
+	select RELAY
+	---help---
+	  This is an analysis and diagnostic feature only, and should only be
+	  turned on during KGSL GPU diagnostics and will slow down the KGSL
+	  performance sigificantly, hence *do not use in production builds*.
+	  When enabled, CFF Dump is on at boot. It can be turned off at runtime
+	  via 'echo 0 > /d/kgsl/cff_dump'.  The log can be captured via
+	  /d/kgsl-cff/cpu[0|1].
+
+config MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
+	bool "When selected will disable KGSL CFF Dump for context switches"
+	default n
+	depends on MSM_KGSL_CFF_DUMP
+	---help---
+	  Dumping all the memory for every context switch can produce quite
+	  huge log files, to reduce this, turn this feature on.
+
+config MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
+	bool "Disable human readable CP_STAT fields in post-mortem dump"
+	default n
+	depends on MSM_KGSL
+	---help---
+	  For a more compact kernel log the human readable output of
+	  CP_STAT can be turned off with this option.
+
+config MSM_KGSL_PSTMRTMDMP_NO_IB_DUMP
+	bool "Disable dumping current IB1 and IB2 in post-mortem dump"
+	default n
+	depends on MSM_KGSL
+	---help---
+	  For a more compact kernel log the IB1 and IB2 embedded dump
+	  can be turned off with this option.  Some IB dumps take up
+	  so much space that vital other information gets cut from the
+	  post-mortem dump.
+
+config MSM_KGSL_PSTMRTMDMP_RB_HEX
+	bool "Use hex version for ring-buffer in post-mortem dump"
+	default n
+	depends on MSM_KGSL
+	---help---
+	  Use hex version for the ring-buffer in the post-mortem dump, instead
+	  of the human readable version.
+
+config MSM_KGSL_2D
+	tristate "MSM 2D graphics driver. Required for OpenVG"
+	default y
+	depends on MSM_KGSL && !ARCH_MSM7X27 && !ARCH_MSM7X27A && !(ARCH_QSD8X50 && !MSM_SOC_REV_A)
+
+config MSM_KGSL_DRM
+	bool "Build a DRM interface for the MSM_KGSL driver"
+	depends on MSM_KGSL && DRM
+
+config KGSL_PER_PROCESS_PAGE_TABLE
+	bool "Enable Per Process page tables for the KGSL driver"
+	default n
+	depends on !MSM_KGSL_DRM
+	---help---
+	  The MMU will use per process pagetables when enabled.
+
+config MSM_KGSL_PAGE_TABLE_SIZE
+	hex "Size of pagetables"
+	default 0xFFF0000
+	---help---
+	  Sets the pagetable size used by the MMU.  The max value
+	  is 0xFFF0000 or (256M - 64K).
+
+config MSM_KGSL_PAGE_TABLE_COUNT
+	int "Minimum of concurrent pagetables to support"
+	default 8
+	depends on KGSL_PER_PROCESS_PAGE_TABLE
+	---help---
+	  Specify the number of pagetables to allocate at init time
+	  This is the number of concurrent processes that are guaranteed to
+	  to run at any time.  Additional processes can be created dynamically
+	  assuming there is enough contiguous memory to allocate the pagetable.
+
+config MSM_KGSL_MMU_PAGE_FAULT
+	bool "Force the GPU MMU to page fault for unmapped regions"
+	default y
+
+config MSM_KGSL_DISABLE_SHADOW_WRITES
+	bool "Disable register shadow writes for context switches"
+	default n
+	depends on MSM_KGSL
