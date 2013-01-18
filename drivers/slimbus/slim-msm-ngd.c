@@ -129,7 +129,7 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 		 * queuing work
 		 */
 		mb();
-		if (dev->use_rx_msgqs)
+		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
 			dev_err(dev->dev,
 				"direct message received even with RX MSGQs");
 		else
@@ -225,8 +225,17 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	u8 wbuf[SLIM_RX_MSGQ_BUF_LEN];
 
 	if (txn->mc == (SLIM_MSG_CLK_PAUSE_SEQ_FLG |
-			SLIM_MSG_MC_RECONFIGURE_NOW))
-		return msm_slim_qmi_power_request(dev, false);
+			SLIM_MSG_MC_RECONFIGURE_NOW)) {
+		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED) {
+			ret = sps_disconnect(dev->rx_msgq.sps);
+			dev->use_rx_msgqs = MSM_MSGQ_RESET;
+		}
+		if (!ret)
+			ret = msm_slim_qmi_power_request(dev, false);
+		else
+			pr_err("SPS pipe disconnect error:%d", ret);
+		return ret;
+	}
 	else if (txn->mc & SLIM_MSG_CLK_PAUSE_SEQ_FLG)
 		return 0;
 
@@ -543,7 +552,7 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 			return ret;
 		txn.len = 0;
 	}
-	return ret;
+	return 0;
 }
 
 static int ngd_set_laddr(struct slim_controller *ctrl, const u8 *ea,
@@ -581,6 +590,24 @@ static int ngd_get_laddr(struct slim_controller *ctrl, const u8 *ea,
 	return ret;
 }
 
+static void ngd_slim_setup_rx_path(struct msm_slim_ctrl *dev)
+{
+	int ret;
+	if (dev->state == MSM_CTRL_DOWN) {
+		msm_slim_sps_init(dev, dev->bam_mem,
+			NGD_BASE(dev->ctrl.nr,
+			dev->ver) + NGD_STATUS, true);
+	} else {
+		if (dev->use_rx_msgqs == MSM_MSGQ_DISABLED)
+			return;
+		ret = msm_slim_connect_endp(dev, &dev->rx_msgq,
+				&dev->rx_msgq_notify);
+		if (!ret)
+			dev->use_rx_msgqs = MSM_MSGQ_ENABLED;
+		else
+			pr_err("RX msgq not being used:%d", ret);
+	}
+}
 static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 {
 	u8 mc, mt, len;
@@ -608,12 +635,9 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 		txn.wbuf = wbuf;
 		txn.len = 4;
 		pr_info("SLIM SAT: Received master capability");
-		if (dev->state == MSM_CTRL_DOWN) {
-			dev->use_rx_msgqs = 1;
-			msm_slim_sps_init(dev, dev->bam_mem,
-				NGD_BASE(dev->ctrl.nr, dev->ver) + NGD_STATUS,
-				true);
-			if (dev->use_rx_msgqs)
+		if (dev->state >= MSM_CTRL_ASLEEP) {
+			ngd_slim_setup_rx_path(dev);
+			if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
 				msgq_en |= NGD_CFG_RX_MSGQ_EN;
 			writel_relaxed(msgq_en, dev->base +
 					NGD_BASE(dev->ctrl.nr, dev->ver));
@@ -691,8 +715,7 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 	int timeout, ret;
 	enum msm_ctrl_state cur_state = dev->state;
 	u32 laddr;
-	u32 msgq_en = 1;
-	u32 ngd_int = (NGD_INT_RECFG_DONE | NGD_INT_TX_NACKED_2 |
+	u32 ngd_int = (NGD_INT_TX_NACKED_2 |
 			NGD_INT_MSG_BUF_CONTE | NGD_INT_MSG_TX_INVAL |
 			NGD_INT_IE_VE_CHG | NGD_INT_DEV_ERR |
 			NGD_INT_TX_MSG_SENT | NGD_INT_RX_MSG_RCVD);
@@ -721,12 +744,11 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 		 * ADSP power collapse case, where HW wasn't reset.
 		 * Reconnect BAM pipes if disconnected
 		 */
+		ngd_slim_setup_rx_path(dev);
 		return 0;
 	} else if (cur_state != MSM_CTRL_DOWN) {
 		pr_info("ADSP P.C. CTRL state:%d NGD not enumerated:0x%x",
 					dev->state, laddr);
-		if (dev->use_rx_msgqs)
-			msgq_en |= NGD_CFG_RX_MSGQ_EN;
 	}
 
 	/*
@@ -739,7 +761,7 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 	 * Enable NGD. Configure NGD in register acc. mode until master
 	 * announcement is received
 	 */
-	writel_relaxed(msgq_en, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
+	writel_relaxed(1, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
 	/* make sure NGD enabling goes through */
 	mb();
 
@@ -815,7 +837,7 @@ static int ngd_slim_rx_msgq_thread(void *data)
 			continue;
 		}
 		/* 1 irq notification per message */
-		if (!dev->use_rx_msgqs) {
+		if (dev->use_rx_msgqs != MSM_MSGQ_ENABLED) {
 			msm_slim_rx_dequeue(dev, (u8 *)buffer);
 			ngd_slim_rx(dev, (u8 *)buffer);
 			continue;
@@ -879,7 +901,6 @@ static void ngd_adsp_down(struct work_struct *work)
 	ngd_slim_enable(dev, false);
 	/* disconnect BAM pipes */
 	msm_slim_sps_exit(dev, false);
-	dev->use_rx_msgqs = 0;
 	mutex_lock(&ctrl->m_ctrl);
 	/* device up should be called again after SSR */
 	list_for_each_entry(sbdev, &ctrl->devs, dev_list)
@@ -908,6 +929,7 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	struct resource		*slim_mem;
 	struct resource		*irq, *bam_irq;
 	enum apr_subsys_state q6_state;
+	bool			rxreg_access = false;
 
 	q6_state = apr_get_q6_state();
 	if (q6_state == APR_SUBSYS_DOWN) {
@@ -970,6 +992,8 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Cell index not specified:%d", ret);
 			goto err_ctrl_failed;
 		}
+		rxreg_access = of_property_read_bool(pdev->dev.of_node,
+					"qcom,rxreg-access");
 	} else {
 		dev->ctrl.nr = pdev->id;
 	}
@@ -1000,6 +1024,10 @@ static int __devinit ngd_slim_probe(struct platform_device *pdev)
 	dev->irq = irq->start;
 	dev->bam.irq = bam_irq->start;
 
+	if (rxreg_access)
+		dev->use_rx_msgqs = MSM_MSGQ_DISABLED;
+	else
+		dev->use_rx_msgqs = MSM_MSGQ_RESET;
 	init_completion(&dev->rx_msgq_notify);
 
 	/* Register with framework */

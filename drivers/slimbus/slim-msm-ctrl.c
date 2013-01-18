@@ -1061,7 +1061,7 @@ static int msm_slim_rx_msgq_thread(void *data)
 			dev_err(dev->dev, "rx thread wait error:%d", ret);
 
 		/* 1 irq notification per message */
-		if (!dev->use_rx_msgqs) {
+		if (dev->use_rx_msgqs != MSM_MSGQ_ENABLED) {
 			msm_slim_rxwq(dev);
 			continue;
 		}
@@ -1255,9 +1255,9 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	spin_lock_init(&dev->rx_lock);
 	dev->ee = 1;
 	if (rxreg_access)
-		dev->use_rx_msgqs = 0;
+		dev->use_rx_msgqs = MSM_MSGQ_DISABLED;
 	else
-		dev->use_rx_msgqs = 1;
+		dev->use_rx_msgqs = MSM_MSGQ_RESET;
 
 	dev->irq = irq->start;
 	dev->bam.irq = bam_irq->start;
@@ -1328,7 +1328,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	 * Manager register initialization
 	 * If RX msg Q is used, disable RX_MSG_RCVD interrupt
 	 */
-	if (dev->use_rx_msgqs)
+	if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
 		writel_relaxed((MGR_INT_RECFG_DONE | MGR_INT_TX_NACKED_2 |
 			MGR_INT_MSG_BUF_CONTE | /* MGR_INT_RX_MSG_RCVD | */
 			MGR_INT_TX_MSG_SENT), dev->base + MGR_INT_EN);
@@ -1357,7 +1357,7 @@ static int __devinit msm_slim_probe(struct platform_device *pdev)
 	mb();
 
 	/* Enable RX msg Q */
-	if (dev->use_rx_msgqs)
+	if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
 		writel_relaxed(MGR_CFG_ENABLE | MGR_CFG_RX_MSGQ_EN,
 					dev->base + MGR_CFG);
 	else
