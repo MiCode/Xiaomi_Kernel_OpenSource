@@ -4005,7 +4005,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 		if (data->payload_size) {
 			ptr = data->payload;
 
-			pr_info("%x %x\n", ptr[0], ptr[1]);
+			pr_debug("%x %x\n", ptr[0], ptr[1]);
 			/* ping mvm service ACK */
 			switch (ptr[0]) {
 			case VSS_IMVM_CMD_CREATE_PASSIVE_CONTROL_SESSION:
@@ -4137,7 +4137,7 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 		if (data->payload_size) {
 			ptr = data->payload;
 
-			pr_info("%x %x\n", ptr[0], ptr[1]);
+			pr_debug("%x %x\n", ptr[0], ptr[1]);
 			if (ptr[1] != 0) {
 				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
 					__func__, ptr[0], ptr[1]);
@@ -4380,7 +4380,7 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 		if (data->payload_size) {
 			ptr = data->payload;
 
-			pr_info("%x %x\n", ptr[0], ptr[1]);
+			pr_debug("%x %x\n", ptr[0], ptr[1]);
 			if (ptr[1] != 0) {
 				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
 					__func__, ptr[0], ptr[1]);
