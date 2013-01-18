@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_bridge.h"
+#include "diagfwd_hsic.h"
 
 #define DEBUG_BUF_SIZE	4096
 static struct dentry *diag_dbgfs_dent;
@@ -263,22 +264,22 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 		"smux enabled %d\n"
 		"smux in busy %d\n"
 		"smux connected %d\n",
-		driver->hsic_ch,
-		driver->hsic_inited,
-		driver->hsic_device_enabled,
-		driver->hsic_device_opened,
-		driver->hsic_suspend,
-		driver->in_busy_hsic_read_on_device,
-		driver->in_busy_hsic_write,
-		driver->count_hsic_pool,
-		driver->count_hsic_write_pool,
-		(unsigned int)driver->diag_hsic_pool,
-		(unsigned int)driver->diag_hsic_write_pool,
+		diag_hsic[HSIC].hsic_ch,
+		diag_hsic[HSIC].hsic_inited,
+		diag_hsic[HSIC].hsic_device_enabled,
+		diag_hsic[HSIC].hsic_device_opened,
+		diag_hsic[HSIC].hsic_suspend,
+		diag_hsic[HSIC].in_busy_hsic_read_on_device,
+		diag_hsic[HSIC].in_busy_hsic_write,
+		diag_hsic[HSIC].count_hsic_pool,
+		diag_hsic[HSIC].count_hsic_write_pool,
+		(unsigned int)diag_hsic[HSIC].diag_hsic_pool,
+		(unsigned int)diag_hsic[HSIC].diag_hsic_write_pool,
 			diag_bridge[HSIC].write_len,
-		driver->num_hsic_buf_tbl_entries,
+		diag_hsic[HSIC].num_hsic_buf_tbl_entries,
 			diag_bridge[HSIC].usb_connected,
 			work_pending(&(diag_bridge[HSIC].diag_read_work)),
-		work_pending(&(driver->diag_read_hsic_work)),
+		work_pending(&(diag_hsic[HSIC].diag_read_hsic_work)),
 		work_pending(&(driver->diag_disconnect_work)),
 		work_pending(&(diag_bridge[HSIC].usb_read_complete_work)),
 		driver->lcid,

@@ -18,6 +18,7 @@
 #include <linux/device.h>
 #include <linux/uaccess.h>
 #include <linux/diagchar.h>
+#include <linux/platform_device.h>
 #include <linux/sched.h>
 #ifdef CONFIG_DIAG_OVER_USB
 #include <mach/usbdiag.h>
@@ -141,18 +142,23 @@ void diag_drain_work_fn(struct work_struct *work)
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diag_clear_hsic_tbl(void)
 {
-	int i;
+	int i, j;
 
-	driver->num_hsic_buf_tbl_entries = 0;
-	for (i = 0; i < driver->poolsize_hsic_write; i++) {
-		if (driver->hsic_buf_tbl[i].buf) {
-			/* Return the buffer to the pool */
-			diagmem_free(driver, (unsigned char *)
-				(driver->hsic_buf_tbl[i].buf),
-				POOL_TYPE_HSIC);
-			driver->hsic_buf_tbl[i].buf = 0;
+	/* Clear for all active HSIC bridges */
+	for (j = 0; j < MAX_HSIC_CH; j++) {
+		if (diag_hsic[j].hsic_ch) {
+			diag_hsic[j].num_hsic_buf_tbl_entries = 0;
+			for (i = 0; i < diag_hsic[j].poolsize_hsic_write; i++) {
+				if (diag_hsic[j].hsic_buf_tbl[i].buf) {
+					/* Return the buffer to the pool */
+					diagmem_free(driver, (unsigned char *)
+						(diag_hsic[j].hsic_buf_tbl[i].
+						 buf), POOL_TYPE_HSIC);
+					diag_hsic[j].hsic_buf_tbl[i].buf = 0;
+				}
+				diag_hsic[j].hsic_buf_tbl[i].length = 0;
+			}
 		}
-		driver->hsic_buf_tbl[i].length = 0;
 	}
 }
 #else
@@ -298,7 +304,7 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	diagmem_exit(driver, POOL_TYPE_WRITE_STRUCT);
 	for (i = 0; i < driver->num_clients; i++) {
 		if (NULL != diagpriv_data && diagpriv_data->pid ==
-			 driver->client_map[i].pid) {
+						driver->client_map[i].pid) {
 			driver->client_map[i].pid = 0;
 			kfree(diagpriv_data);
 			diagpriv_data = NULL;
@@ -382,7 +388,7 @@ uint16_t diag_get_remote_device_mask(void)
 	uint16_t remote_dev = 0;
 
 	/* Check for MDM processor */
-	if (driver->hsic_inited)
+	if (diag_hsic[HSIC].hsic_inited)
 		remote_dev |= 1 << 0;
 
 	/* Check for QSC processor */
@@ -932,20 +938,22 @@ drop:
 		}
 #endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		spin_lock_irqsave(&driver->hsic_spinlock, spin_lock_flags);
-		for (i = 0; i < driver->poolsize_hsic_write; i++) {
-			hsic_buf_tbl[i].buf = driver->hsic_buf_tbl[i].buf;
-			driver->hsic_buf_tbl[i].buf = 0;
+		spin_lock_irqsave(&diag_hsic[HSIC].hsic_spinlock,
+							spin_lock_flags);
+		for (i = 0; i < diag_hsic[HSIC].poolsize_hsic_write; i++) {
+			hsic_buf_tbl[i].buf =
+					diag_hsic[HSIC].hsic_buf_tbl[i].buf;
+			diag_hsic[HSIC].hsic_buf_tbl[i].buf = 0;
 			hsic_buf_tbl[i].length =
-					driver->hsic_buf_tbl[i].length;
-			driver->hsic_buf_tbl[i].length = 0;
+					diag_hsic[HSIC].hsic_buf_tbl[i].length;
+			diag_hsic[HSIC].hsic_buf_tbl[i].length = 0;
 		}
-		driver->num_hsic_buf_tbl_entries = 0;
-		spin_unlock_irqrestore(&driver->hsic_spinlock,
+		diag_hsic[HSIC].num_hsic_buf_tbl_entries = 0;
+		spin_unlock_irqrestore(&diag_hsic[HSIC].hsic_spinlock,
 					spin_lock_flags);
 
 		remote_token = diag_get_remote(MDM);
-		for (i = 0; i < driver->poolsize_hsic_write; i++) {
+		for (i = 0; i < diag_hsic[HSIC].poolsize_hsic_write; i++) {
 			if (hsic_buf_tbl[i].length > 0) {
 				pr_debug("diag: HSIC copy to user, i: %d, buf: %x, len: %d\n",
 					 i, (unsigned int)hsic_buf_tbl[i].buf,
@@ -1112,7 +1120,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
 	int err, ret = 0, pkt_type, token_offset = 0;
-	int remote_proc = 0;
+	int remote_proc = 0, index;
 #ifdef DIAG_DEBUG
 	int length = 0, i;
 #endif
@@ -1127,6 +1135,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		return -EIO;
 	}
 #endif /* DIAG over USB */
+	index = 0;
 	/* Get the packet type F3/log/event/Pkt response */
 	err = copy_from_user((&pkt_type), buf, 4);
 	/* First 4 bytes indicate the type of payload - ignore these */
@@ -1193,30 +1202,37 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		}
 #endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		/* send masks to 9k too */
-		if (driver->hsic_ch && (payload_size > 0) &&
-						(remote_proc == MDM)) {
-			/* wait sending mask updates if HSIC ch not ready */
-			if (driver->in_busy_hsic_write)
-				wait_event_interruptible(driver->wait_q,
-					(driver->in_busy_hsic_write != 1));
-			driver->in_busy_hsic_write = 1;
-			driver->in_busy_hsic_read_on_device = 0;
-			err = diag_bridge_write(
-					driver->user_space_data + token_offset,
-					payload_size);
-			if (err) {
-				pr_err("diag: err sending mask to MDM: %d\n",
-									 err);
-				/*
-				* If the error is recoverable, then clear
-				* the write flag, so we will resubmit a
-				* write on the next frame.  Otherwise, don't
-				* resubmit a write on the next frame.
-				*/
-				if ((-ESHUTDOWN) != err)
-					driver->in_busy_hsic_write = 0;
-			}
+		/* send masks to All 9k */
+		for (index = 0; index < MAX_HSIC_CH; index++) {
+			if (diag_hsic[index].hsic_ch && (payload_size > 0) &&
+							 (remote_proc == MDM)) {
+				/* wait sending mask updates
+				 * if HSIC ch not ready */
+				if (diag_hsic[index].in_busy_hsic_write)
+					wait_event_interruptible(driver->wait_q,
+						(diag_hsic[index].
+						 in_busy_hsic_write != 1));
+				diag_hsic[index].in_busy_hsic_write = 1;
+				diag_hsic[index].in_busy_hsic_read_on_device =
+									0;
+				err = diag_bridge_write(index,
+						driver->user_space_data +
+						token_offset, payload_size);
+				if (err) {
+					pr_err("diag: err sending mask to MDM: %d\n",
+					       err);
+					/*
+					* If the error is recoverable, then
+					* clear the write flag, so we will
+					* resubmit a write on the next frame.
+					* Otherwise, don't resubmit a write
+					* on the next frame.
+					*/
+					if ((-ESHUTDOWN) != err)
+						diag_hsic[index].
+							in_busy_hsic_write = 0;
+				 }
+			 }
 		}
 		if (driver->diag_smux_enabled && (remote_proc == QSC)
 						&& driver->lcid) {
@@ -1540,15 +1556,20 @@ inline void diagfwd_bridge_fn(int type) { }
 static int __init diagchar_init(void)
 {
 	dev_t dev;
-	int error;
+	int error, ret;
 
 	pr_debug("diagfwd initializing ..\n");
+	ret = 0;
 	driver = kzalloc(sizeof(struct diagchar_dev) + 5, GFP_KERNEL);
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	diag_bridge = kzalloc(MAX_BRIDGES * sizeof(struct diag_bridge_dev),
-								 GFP_KERNEL);
+								GFP_KERNEL);
 	if (!diag_bridge)
-		pr_warning("diag: could not allocate memory for bridge\n");
+		pr_warn("diag: could not allocate memory for bridges\n");
+	diag_hsic = kzalloc(MAX_HSIC_CH * sizeof(struct diag_hsic_dev),
+								GFP_KERNEL);
+	if (!diag_hsic)
+		pr_warn("diag: could not allocate memory for hsic ch\n");
 #endif
 
 	if (driver) {
@@ -1577,6 +1598,12 @@ static int __init diagchar_init(void)
 		diagfwd_init();
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		diagfwd_bridge_init(HSIC);
+		diagfwd_bridge_init(HSIC_2);
+		/* register HSIC device */
+		ret = platform_driver_register(&msm_hsic_ch_driver);
+		if (ret)
+			pr_err("diag: could not register HSIC device, ret: %d\n",
+				ret);
 		diagfwd_bridge_init(SMUX);
 		INIT_WORK(&(driver->diag_disconnect_work),
 						 diag_disconnect_work_fn);
