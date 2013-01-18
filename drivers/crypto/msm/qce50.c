@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1248,8 +1248,27 @@ static void _aead_sps_producer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags);
-	/* done */
-	_aead_complete(pce_dev);
+
+	if (pce_dev->ce_sps.producer_state == QCE_PIPE_STATE_COMP) {
+		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
+		/* done */
+		_aead_complete(pce_dev);
+	} else {
+		int rc = 0;
+		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
+		pce_dev->ce_sps.out_transfer.iovec_count = 0;
+		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
+					CRYPTO_RESULT_DUMP_SIZE,
+					  &pce_dev->ce_sps.out_transfer);
+		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
+				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_INT);
+		rc = sps_transfer(pce_dev->ce_sps.producer.pipe,
+					  &pce_dev->ce_sps.out_transfer);
+		if (rc) {
+			pr_err("sps_xfr() fail (producer pipe=0x%x) rc = %d,",
+				(u32)pce_dev->ce_sps.producer.pipe, rc);
+		}
+	}
 };
 
 static void _aead_sps_consumer_callback(struct sps_event_notify *notify)
@@ -1304,8 +1323,27 @@ static void _ablk_cipher_sps_producer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags);
-	/* done */
-	_ablk_cipher_complete(pce_dev);
+
+	if (pce_dev->ce_sps.producer_state == QCE_PIPE_STATE_COMP) {
+		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
+		/* done */
+		_ablk_cipher_complete(pce_dev);
+	} else {
+		int rc = 0;
+		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
+		pce_dev->ce_sps.out_transfer.iovec_count = 0;
+		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
+					CRYPTO_RESULT_DUMP_SIZE,
+					  &pce_dev->ce_sps.out_transfer);
+		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
+				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_INT);
+		rc = sps_transfer(pce_dev->ce_sps.producer.pipe,
+					  &pce_dev->ce_sps.out_transfer);
+		if (rc) {
+			pr_err("sps_xfr() fail (producer pipe=0x%x) rc = %d,",
+				(u32)pce_dev->ce_sps.producer.pipe, rc);
+		}
+	}
 };
 
 static void _ablk_cipher_sps_consumer_callback(struct sps_event_notify *notify)
@@ -2255,7 +2293,6 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		pr_err("Producer callback registration failed rc = %d\n", rc);
 		goto bad;
 	}
-
 	/* Register callback event for EOT (End of transfer) event. */
 	pce_dev->ce_sps.consumer.event.callback = _aead_sps_consumer_callback;
 	rc = sps_register_event(pce_dev->ce_sps.consumer.pipe,
@@ -2280,11 +2317,21 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		_qce_sps_add_sg_data(pce_dev, areq->dst, out_len +
 					areq->assoclen + hw_pad_out,
 				&pce_dev->ce_sps.out_transfer);
-		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
+		if (totallen_in > SPS_MAX_PKT_SIZE) {
+			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
+							SPS_IOVEC_FLAG_INT);
+			pce_dev->ce_sps.producer.event.options =
+							SPS_O_DESC_DONE;
+			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
+		} else {
+			_qce_sps_add_data(GET_PHYS_ADDR(
+					pce_dev->ce_sps.result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
-					&pce_dev->ce_sps.out_transfer);
-		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
-					SPS_IOVEC_FLAG_INT);
+					  &pce_dev->ce_sps.out_transfer);
+			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
+							SPS_IOVEC_FLAG_INT);
+			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
+		}
 	} else {
 		_qce_sps_add_sg_data(pce_dev, areq->assoc, areq->assoclen,
 					 &pce_dev->ce_sps.in_transfer);
@@ -2304,11 +2351,21 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		/* Pass through to ignore hw_pad (padding of the MAC data) */
 		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.ignore_buffer),
 				hw_pad_out, &pce_dev->ce_sps.out_transfer);
-
-		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
-			CRYPTO_RESULT_DUMP_SIZE, &pce_dev->ce_sps.out_transfer);
-		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
-					SPS_IOVEC_FLAG_INT);
+		if (totallen_in > SPS_MAX_PKT_SIZE) {
+			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
+							SPS_IOVEC_FLAG_INT);
+			pce_dev->ce_sps.producer.event.options =
+							SPS_O_DESC_DONE;
+			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
+		} else {
+			_qce_sps_add_data(
+				GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
+					CRYPTO_RESULT_DUMP_SIZE,
+					  &pce_dev->ce_sps.out_transfer);
+			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
+							SPS_IOVEC_FLAG_INT);
+			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
+		}
 	}
 	rc = _qce_sps_transfer(pce_dev);
 	if (rc)
@@ -2392,7 +2449,6 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 		pr_err("Producer callback registration failed rc = %d\n", rc);
 		goto bad;
 	}
-
 	/* Register callback event for EOT (End of transfer) event. */
 	pce_dev->ce_sps.consumer.event.callback =
 			_ablk_cipher_sps_consumer_callback;
@@ -2414,10 +2470,19 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 
 	_qce_sps_add_sg_data(pce_dev, areq->dst, areq->nbytes,
 					&pce_dev->ce_sps.out_transfer);
-	_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
+	if (areq->nbytes > SPS_MAX_PKT_SIZE) {
+		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
+							SPS_IOVEC_FLAG_INT);
+		pce_dev->ce_sps.producer.event.options = SPS_O_DESC_DONE;
+		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
+	} else {
+		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
+		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
 					  &pce_dev->ce_sps.out_transfer);
-	_qce_set_flag(&pce_dev->ce_sps.out_transfer, SPS_IOVEC_FLAG_INT);
+		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
+							SPS_IOVEC_FLAG_INT);
+	}
 	rc = _qce_sps_transfer(pce_dev);
 	if (rc)
 		goto bad;
