@@ -1371,6 +1371,33 @@ err_create_pkt:
 	return rc;
 }
 
+static int venus_hfi_core_trigger_ssr(void *device,
+	enum hal_ssr_trigger_type type)
+{
+	struct hfi_cmd_sys_test_ssr_packet pkt;
+	int rc = 0;
+	struct venus_hfi_device *dev;
+
+	if (device) {
+		dev = device;
+	} else {
+		dprintk(VIDC_ERR, "invalid device");
+		return -ENODEV;
+	}
+
+	rc = create_pkt_ssr_cmd(type, &pkt);
+	if (rc) {
+		dprintk(VIDC_ERR, "core_ping: failed to create packet");
+		goto err_create_pkt;
+	}
+
+	if (venus_hfi_iface_cmdq_write(dev, &pkt))
+		rc = -ENOTEMPTY;
+
+err_create_pkt:
+	return rc;
+}
+
 static int venus_hfi_session_set_property(void *sess,
 					enum hal_property ptype, void *pdata)
 {
@@ -2977,6 +3004,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->core_release = venus_hfi_core_release;
 	hdev->core_pc_prep = venus_hfi_core_pc_prep;
 	hdev->core_ping = venus_hfi_core_ping;
+	hdev->core_trigger_ssr = venus_hfi_core_trigger_ssr;
 	hdev->session_init = venus_hfi_session_init;
 	hdev->session_end = venus_hfi_session_end;
 	hdev->session_abort = venus_hfi_session_abort;

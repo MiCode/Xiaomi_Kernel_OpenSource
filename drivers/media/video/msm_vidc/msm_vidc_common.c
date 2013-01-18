@@ -2215,3 +2215,18 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	}
 	return ret;
 };
+
+int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
+	enum hal_ssr_trigger_type type)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	if (!core && !core->device) {
+		dprintk(VIDC_WARN, "Invalid parameters: %p\n", core);
+		return -EINVAL;
+	}
+	hdev = core->device;
+	if (core->state == VIDC_CORE_INIT_DONE)
+		rc = hdev->core_trigger_ssr(hdev->hfi_device_data, type);
+	return rc;
+}

@@ -407,6 +407,12 @@ enum hal_uncompressed_format {
 	HAL_UNUSED_COLOR = 0x10000000,
 };
 
+enum hal_ssr_trigger_type {
+	SSR_ERR_FATAL = 1,
+	SSR_SW_DIV_BY_ZERO,
+	SSR_HW_WDOG_IRQ,
+};
+
 struct hal_uncompressed_format_select {
 	enum hal_buffer buffer_type;
 	enum hal_uncompressed_format format;
@@ -1009,6 +1015,7 @@ struct hfi_device {
 	int (*core_release)(void *device);
 	int (*core_pc_prep)(void *device);
 	int (*core_ping)(void *device);
+	int (*core_trigger_ssr)(void *device, enum hal_ssr_trigger_type);
 	void *(*session_init)(void *device, u32 session_id,
 		enum hal_domain session_type, enum hal_video_codec codec_type);
 	int (*session_end)(void *session);

@@ -1104,3 +1104,36 @@ int create_pkt_cmd_session_set_property(
 	}
 	return rc;
 }
+
+static int get_hfi_ssr_type(enum hal_ssr_trigger_type type)
+{
+	int rc = HFI_TEST_SSR_HW_WDOG_IRQ;
+	switch (type) {
+	case SSR_ERR_FATAL:
+		rc = HFI_TEST_SSR_SW_ERR_FATAL;
+		break;
+	case SSR_SW_DIV_BY_ZERO:
+		rc = HFI_TEST_SSR_SW_DIV_BY_ZERO;
+		break;
+	case SSR_HW_WDOG_IRQ:
+		rc = HFI_TEST_SSR_HW_WDOG_IRQ;
+		break;
+	default:
+		dprintk(VIDC_WARN,
+			"SSR trigger type not recognized, using WDOG.\n");
+	}
+	return rc;
+}
+
+int create_pkt_ssr_cmd(enum hal_ssr_trigger_type type,
+		struct hfi_cmd_sys_test_ssr_packet *pkt)
+{
+	if (!pkt) {
+		dprintk(VIDC_ERR, "Invalid params, device: %p\n", pkt);
+		return -EINVAL;
+	}
+	pkt->size = sizeof(struct hfi_cmd_sys_test_ssr_packet);
+	pkt->packet_type = HFI_CMD_SYS_TEST_SSR;
+	pkt->trigger_type = get_hfi_ssr_type(type);
+	return 0;
+}

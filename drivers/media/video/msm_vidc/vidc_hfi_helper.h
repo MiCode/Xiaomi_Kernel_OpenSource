@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -685,6 +685,11 @@ struct hfi_mvc_buffer_lauout_descp_type {
 #define HFI_MSG_SESSION_GET_SEQUENCE_HEADER_DONE	\
 	(HFI_MSG_SESSION_COMMON_START + 0x2)
 
+#define  HFI_CMD_SYS_TEST_SSR	(HFI_CMD_SYS_TEST_START + 0x1)
+#define HFI_TEST_SSR_SW_ERR_FATAL	0x1
+#define HFI_TEST_SSR_SW_DIV_BY_ZERO	0x2
+#define HFI_TEST_SSR_HW_WDOG_IRQ	0x3
+
 struct vidc_hal_msg_pkt_hdr {
 	u32 size;
 	u32 packet;
@@ -869,6 +874,12 @@ enum HFI_VENUS_CTRL_INIT_STATUS {
 struct hfi_sfr_struct {
 	u32 bufSize;
 	u8 rg_data[1];
+};
+
+struct hfi_cmd_sys_test_ssr_packet {
+	u32 size;
+	u32 packet_type;
+	u32 trigger_type;
 };
 
 #endif
