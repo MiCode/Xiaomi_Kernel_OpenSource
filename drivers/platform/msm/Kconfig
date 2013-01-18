@@ -1,0 +1,4 @@
+menu "Qualcomm MSM specific device drivers"
+	depends on ARCH_MSM
+
+endmenu
