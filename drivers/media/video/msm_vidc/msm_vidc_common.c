@@ -422,6 +422,9 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 			inst->buff_req.buffer[i].buffer_count_actual,
 			inst->buff_req.buffer[i].buffer_size);
 	}
+	dprintk(VIDC_PROF, "Input buffers: %d, Output buffers: %d\n",
+			inst->buff_req.buffer[0].buffer_count_actual,
+			inst->buff_req.buffer[1].buffer_count_actual);
 	signal_session_msg_receipt(cmd, inst);
 }
 

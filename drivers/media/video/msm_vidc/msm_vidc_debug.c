@@ -217,8 +217,12 @@ void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 	break;
 	case MSM_VIDC_DEBUGFS_EVENT_EBD:
 		inst->count.ebd++;
-		if (inst->count.ebd && inst->count.ebd == inst->count.etb)
+		if (inst->count.ebd && inst->count.ebd == inst->count.etb) {
 			toc(inst, FRAME_PROCESSING);
+			dprintk(VIDC_PROF, "EBD: FW needs input buffers\n");
+		}
+		if (inst->count.ftb == inst->count.fbd)
+			dprintk(VIDC_PROF, "EBD: FW needs output buffers\n");
 	break;
 	case MSM_VIDC_DEBUGFS_EVENT_FTB: {
 		inst->count.ftb++;
@@ -230,8 +234,12 @@ void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 	break;
 	case MSM_VIDC_DEBUGFS_EVENT_FBD:
 		inst->debug.samples++;
-		if (inst->count.ebd && inst->count.fbd == inst->count.ftb)
+		if (inst->count.ebd && inst->count.fbd == inst->count.ftb) {
 			toc(inst, FRAME_PROCESSING);
+			dprintk(VIDC_PROF, "FBD: FW needs output buffers\n");
+		}
+		if (inst->count.etb == inst->count.ebd)
+			dprintk(VIDC_PROF, "FBD: FW needs input buffers\n");
 		break;
 	default:
 		dprintk(VIDC_ERR, "Invalid state in debugfs: %d\n", e);
