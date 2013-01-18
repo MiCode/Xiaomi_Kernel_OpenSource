@@ -644,8 +644,6 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev)
 		complete(&vfe_dev->stream_config_complete);
 	}
 }
-#define VFE_PING_FLAG 0xFFFFFFFF
-#define VFE_PONG_FLAG 0x0
 
 int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint32_t pingpong_status,

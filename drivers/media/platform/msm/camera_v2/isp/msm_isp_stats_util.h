@@ -13,6 +13,7 @@
 #define __MSM_ISP_STATS_UTIL_H__
 
 #include "msm_isp.h"
+#define STATS_IDX(idx) (idx & 0xFF)
 
 void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
@@ -20,4 +21,5 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 int msm_isp_cfg_stats_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_request_stats_stream(struct vfe_device *vfe_dev, void *arg);
+int msm_isp_cfg_stats_comp_policy(struct vfe_device *vfe_dev, void *arg);
 #endif /* __MSM_ISP_STATS_UTIL_H__ */

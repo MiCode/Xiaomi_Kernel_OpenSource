@@ -30,6 +30,7 @@
 #endif
 
 #define VFE40_BURST_LEN 4
+#define VFE40_UB_SIZE 1024
 #define VFE40_EQUAL_SLICE_UB 117
 #define VFE40_WM_BASE(idx) (0x6C + 0x24 * idx)
 #define VFE40_RDI_BASE(idx) (0x2E8 + 0x4 * idx)
@@ -40,6 +41,13 @@
 #define VFE40_XBAR_SHIFT(idx) ((idx%2) ? 16 : 0)
 #define VFE40_PING_PONG_BASE(wm, ping_pong) \
 	(VFE40_WM_BASE(wm) + 0x4 * (1 + (~(ping_pong >> wm) & 0x1)))
+
+#define VFE40_NUM_STATS_TYPE 8
+#define VFE40_STATS_PING_PONG_OFFSET 8
+#define VFE40_STATS_BASE(idx) (0x168 + 0x18 * idx)
+#define VFE40_STATS_PING_PONG_BASE(idx, ping_pong) \
+	(VFE40_STATS_BASE(idx) + 0x4 * \
+	(~(ping_pong >> (idx + VFE40_STATS_PING_PONG_OFFSET)) & 0x1))
 
 #define VFE40_VBIF_CLKON        0x4
 #define VFE40_VBIF_IN_RD_LIM_CONF0    0xB0
@@ -907,64 +915,160 @@ static uint32_t msm_vfe40_get_pingpong_status(
 	return msm_camera_io_r(vfe_dev->vfe_base + 0x268);
 }
 
-static void msm_vfe40_stats_cfg_comp_mask(
-	struct vfe_device *vfe_dev,
-	struct msm_vfe_stats_stream *stream_info)
+static int msm_vfe40_get_stats_idx(enum msm_isp_stats_type stats_type)
 {
-
+	switch (stats_type) {
+	case MSM_ISP_STATS_BE:
+		return 0;
+	case MSM_ISP_STATS_BG:
+		return 1;
+	case MSM_ISP_STATS_BF:
+		return 2;
+	case MSM_ISP_STATS_AWB:
+		return 3;
+	case MSM_ISP_STATS_RS:
+		return 4;
+	case MSM_ISP_STATS_CS:
+		return 5;
+	case MSM_ISP_STATS_IHIST:
+		return 6;
+	case MSM_ISP_STATS_BHIST:
+		return 7;
+	default:
+		pr_err("%s: Invalid stats type\n", __func__);
+		return -EINVAL;
+	}
 }
 
-static void msm_vfe40_stats_clear_comp_mask(
-	struct vfe_device *vfe_dev,
-	struct msm_vfe_stats_stream *stream_info)
+static void msm_vfe40_stats_cfg_comp_mask(struct vfe_device *vfe_dev)
 {
-
+	if (vfe_dev->stats_data.stats_pipeline_policy == STATS_COMP_ALL)
+		msm_camera_io_w(0x00FF0000, vfe_dev->vfe_base + 0x44);
+	else
+		msm_camera_io_w(0x00000000, vfe_dev->vfe_base + 0x44);
 }
 
 static void msm_vfe40_stats_cfg_wm_irq_mask(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info)
 {
-
+	uint32_t irq_mask;
+	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
+	irq_mask |= 1 << (STATS_IDX(stream_info->stream_handle) + 16);
+	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
 }
 
 static void msm_vfe40_stats_clear_wm_irq_mask(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info)
 {
-
+	uint32_t irq_mask;
+	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
+	irq_mask &= ~(1 << (STATS_IDX(stream_info->stream_handle) + 16));
+	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
 }
 
 static void msm_vfe40_stats_cfg_wm_reg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info)
 {
+	int stats_idx = STATS_IDX(stream_info->stream_handle);
+	uint32_t stats_base = VFE40_STATS_BASE(stats_idx);
 
+	/*WR_ADDR_CFG*/
+	msm_camera_io_w(0x7C, vfe_dev->vfe_base + stats_base + 0x8);
+	/*WR_IRQ_FRAMEDROP_PATTERN*/
+	msm_camera_io_w(0xFFFFFFFF,
+		vfe_dev->vfe_base + stats_base + 0x10);
+	/*WR_IRQ_SUBSAMPLE_PATTERN*/
+	msm_camera_io_w(0xFFFFFFFF,
+		vfe_dev->vfe_base + stats_base + 0x14);
 }
 
 static void msm_vfe40_stats_clear_wm_reg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info)
 {
+	uint32_t val = 0;
+	int stats_idx = STATS_IDX(stream_info->stream_handle);
+	uint32_t stats_base = VFE40_STATS_BASE(stats_idx);
 
+	/*WR_ADDR_CFG*/
+	msm_camera_io_w(val, vfe_dev->vfe_base + stats_base + 0x8);
+	/*WR_IRQ_FRAMEDROP_PATTERN*/
+	msm_camera_io_w(val, vfe_dev->vfe_base + stats_base + 0x10);
+	/*WR_IRQ_SUBSAMPLE_PATTERN*/
+	msm_camera_io_w(val, vfe_dev->vfe_base + stats_base + 0x14);
 }
 
 static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 {
+	int i;
+	uint32_t ub_offset = VFE40_UB_SIZE;
+	uint32_t ub_size[VFE40_NUM_STATS_TYPE] = {
+		64, /*MSM_ISP_STATS_BE*/
+		64, /*MSM_ISP_STATS_BG*/
+		64, /*MSM_ISP_STATS_BF*/
+		16, /*MSM_ISP_STATS_AWB*/
+		8,  /*MSM_ISP_STATS_RS*/
+		16, /*MSM_ISP_STATS_CS*/
+		16, /*MSM_ISP_STATS_IHIST*/
+		16, /*MSM_ISP_STATS_BHIST*/
+	};
+
+	for (i = 0; i < VFE40_NUM_STATS_TYPE; i++) {
+		ub_offset -= ub_size[i];
+		msm_camera_io_w(VFE40_BURST_LEN << 30 |
+			ub_offset << 16 | (ub_size[i] - 1),
+			vfe_dev->vfe_base + VFE40_STATS_BASE(i) + 0xC);
+	}
 }
 
-static void msm_vfe40_stats_enable(struct vfe_device *vfe_dev,
+static void msm_vfe40_stats_enable_module(struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable)
 {
+	int i;
+	uint32_t module_cfg, module_cfg_mask = 0;
 
+	for (i = 0; i < VFE40_NUM_STATS_TYPE; i++) {
+		if ((stats_mask >> i) & 0x1) {
+			switch (i) {
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+				module_cfg_mask |= 1 << (5 + i);
+				break;
+			case 6:
+				module_cfg_mask |= 1 << 15;
+				break;
+			case 7:
+				module_cfg_mask |= 1 << 18;
+				break;
+			default:
+				pr_err("%s: Invalid stats mask\n", __func__);
+				return;
+			}
+		}
+	}
+
+	module_cfg = msm_camera_io_r(vfe_dev->vfe_base + 0x18);
+	if (enable)
+		module_cfg |= module_cfg_mask;
+	else
+		module_cfg &= ~module_cfg_mask;
+	msm_camera_io_w(module_cfg, vfe_dev->vfe_base + 0x18);
 }
 
 static void msm_vfe40_stats_update_ping_pong_addr(
-	struct vfe_device *vfe_dev,
-	enum msm_isp_stats_type stats_type,
-	uint32_t pingpong_status,
-	unsigned long paddr)
+	struct vfe_device *vfe_dev, struct msm_vfe_stats_stream *stream_info,
+	uint32_t pingpong_status, unsigned long paddr)
 {
+	int stats_idx = STATS_IDX(stream_info->stream_handle);
+	msm_camera_io_w(paddr, vfe_dev->vfe_base +
+		VFE40_STATS_PING_PONG_BASE(stats_idx, pingpong_status));
 }
 
 static uint32_t msm_vfe40_stats_get_wm_mask(
@@ -976,62 +1080,13 @@ static uint32_t msm_vfe40_stats_get_wm_mask(
 static uint32_t msm_vfe40_stats_get_comp_mask(
 	uint32_t irq_status0, uint32_t irq_status1)
 {
-	return (irq_status0 >> 29) & 0x2;
+	return (irq_status0 >> 29) & 0x3;
 }
 
 static uint32_t msm_vfe40_stats_get_frame_id(
 	struct vfe_device *vfe_dev)
 {
 	return vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-}
-
-static uint32_t msm_vfe40_stats_get_active_pingpong_idx(
-	uint32_t pingpong_status,
-	enum msm_isp_stats_type stats_type)
-{
-	int pingpong_bit = 0;
-	switch (stats_type) {
-	case MSM_ISP_STATS_AWB:
-		if (pingpong_status & (1 << 11))
-			pingpong_bit = 1; /* pong is active */
-			break;
-	case MSM_ISP_STATS_RS:
-		if (pingpong_status & (1 << 12))
-			pingpong_bit = 1; /* pong is active */
-			break;
-	case MSM_ISP_STATS_CS:
-		if (pingpong_status & (1 << 13))
-			pingpong_bit = 1; /* pong is active */
-			break;
-	case MSM_ISP_STATS_IHIST:
-		if (pingpong_status & (1 << 14))
-			pingpong_bit = 1; /* pong is active */
-			break;
-	case MSM_ISP_STATS_BG:
-		if (pingpong_status & (1 << 9))
-			pingpong_bit = 1; /* pong is active */
-			break;
-	case MSM_ISP_STATS_BF:
-		if (pingpong_status & (1 << 10))
-			pingpong_bit = 1; /* pong is active */
-			break;
-	case MSM_ISP_STATS_BE:
-		if (pingpong_status & (1 << 8))
-			pingpong_bit = 1; /* pong is active */
-			break;
-	case MSM_ISP_STATS_BHIST:
-		if (pingpong_status & (1 << 15))
-			pingpong_bit = 1; /* pong is active */
-			break;
-	case MSM_ISP_STATS_SKIN:
-	case MSM_ISP_STATS_AEC:
-	case MSM_ISP_STATS_AF:
-	default:
-		pr_err("%s: not supported stats type = %d\n",
-			__func__, stats_type);
-		return -EINVAL;
-	}
-	return pingpong_bit;
 }
 
 static int msm_vfe40_get_platform_data(struct vfe_device *vfe_dev)
@@ -1085,12 +1140,22 @@ vfe_no_resource:
 	return rc;
 }
 
-struct msm_vfe_axi_hardware_info msm_vfe40_axi_hw_info = {
+static struct msm_vfe_axi_hardware_info msm_vfe40_axi_hw_info = {
 	.num_wm = 7,
 	.num_comp_mask = 4,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
 	.min_wm_ub = 64,
+};
+
+static struct msm_vfe_stats_hardware_info msm_vfe40_stats_hw_info = {
+	.stats_capability_mask =
+		1 << MSM_ISP_STATS_BE | 1 << MSM_ISP_STATS_BF |
+		1 << MSM_ISP_STATS_BG | 1 << MSM_ISP_STATS_BHIST |
+		1 << MSM_ISP_STATS_AWB | 1 << MSM_ISP_STATS_IHIST |
+		1 << MSM_ISP_STATS_RS | 1 << MSM_ISP_STATS_CS,
+	.stats_ping_pong_offset = VFE40_STATS_PING_PONG_OFFSET,
+	.num_stats_type = VFE40_NUM_STATS_TYPE,
 	.num_stats_comp_mask = 2,
 };
 
@@ -1156,25 +1221,24 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.get_platform_data = msm_vfe40_get_platform_data,
 		},
 		.stats_ops = {
+			.get_stats_idx = msm_vfe40_get_stats_idx,
 			.cfg_comp_mask = msm_vfe40_stats_cfg_comp_mask,
-			.clear_comp_mask = msm_vfe40_stats_clear_comp_mask,
 			.cfg_wm_irq_mask = msm_vfe40_stats_cfg_wm_irq_mask,
 			.clear_wm_irq_mask = msm_vfe40_stats_clear_wm_irq_mask,
 			.cfg_wm_reg = msm_vfe40_stats_cfg_wm_reg,
 			.clear_wm_reg = msm_vfe40_stats_clear_wm_reg,
 			.cfg_ub = msm_vfe40_stats_cfg_ub,
-			.stats_enable = msm_vfe40_stats_enable,
+			.enable_module = msm_vfe40_stats_enable_module,
 			.update_ping_pong_addr =
 				msm_vfe40_stats_update_ping_pong_addr,
 			.get_comp_mask = msm_vfe40_stats_get_comp_mask,
 			.get_wm_mask = msm_vfe40_stats_get_wm_mask,
 			.get_frame_id = msm_vfe40_stats_get_frame_id,
 			.get_pingpong_status = msm_vfe40_get_pingpong_status,
-			.get_active_pingpong_idx =
-				msm_vfe40_stats_get_active_pingpong_idx,
 		},
 	},
 	.axi_hw_info = &msm_vfe40_axi_hw_info,
+	.stats_hw_info = &msm_vfe40_stats_hw_info,
 	.subdev_ops = &msm_vfe40_subdev_ops,
 	.subdev_internal_ops = &msm_vfe40_internal_ops,
 };

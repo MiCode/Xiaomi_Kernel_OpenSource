@@ -142,6 +142,12 @@ struct msm_vfe_axi_stream_cfg_cmd {
 	enum msm_vfe_axi_stream_cmd cmd;
 };
 
+enum msm_vfe_stats_pipeline_policy {
+	STATS_COMP_ALL,
+	STATS_COMP_NONE,
+	MAX_STATS_POLICY,
+};
+
 enum msm_isp_stats_type {
 	MSM_ISP_STATS_AEC,   /* legacy based AEC */
 	MSM_ISP_STATS_AF,    /* legacy based AF */
@@ -161,10 +167,12 @@ struct msm_vfe_stats_stream_request_cmd {
 	uint32_t session_id;
 	uint32_t stream_id;
 	enum msm_isp_stats_type stats_type;
-	uint8_t comp_flag;
 	uint32_t framedrop_pattern;
+	uint32_t irq_subsample_pattern;
 	uint32_t stream_handle;
+	uint8_t comp_flag;
 };
+
 struct msm_vfe_stats_stream_release_cmd {
 	uint32_t stream_handle;
 };
@@ -173,6 +181,13 @@ struct msm_vfe_stats_stream_cfg_cmd {
 	uint32_t stream_handle[MSM_ISP_STATS_MAX];
 	uint8_t enable;
 };
+
+struct msm_vfe_stats_comp_policy_cfg {
+	enum msm_vfe_stats_pipeline_policy stats_pipeline_policy;
+	uint32_t comp_framedrop_pattern;
+	uint32_t comp_irq_subsample_pattern;
+};
+
 enum msm_vfe_reg_cfg_type {
 	VFE_WRITE,
 	VFE_WRITE_MB,
@@ -319,5 +334,9 @@ struct msm_isp_event_data {
 #define VIDIOC_MSM_ISP_RELEASE_STATS_STREAM \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+11, \
 	struct msm_vfe_stats_stream_release_cmd)
+
+#define VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+12,   \
+	      struct msm_vfe_stats_comp_policy_cfg)
 
 #endif /* __MSMB_ISP__ */

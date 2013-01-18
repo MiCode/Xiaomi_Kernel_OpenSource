@@ -34,6 +34,9 @@
 #define MAX_INIT_FRAME_DROP 31
 #define ISP_SUB(a) ((a > 0) ? a-1 : 0)
 
+#define VFE_PING_FLAG 0xFFFFFFFF
+#define VFE_PONG_FLAG 0x0
+
 struct vfe_device;
 struct msm_vfe_axi_stream;
 struct msm_vfe_stats_stream;
@@ -133,14 +136,12 @@ struct msm_vfe_core_ops {
 	int (*get_platform_data) (struct vfe_device *vfe_dev);
 };
 struct msm_vfe_stats_ops {
+	int (*get_stats_idx) (enum msm_isp_stats_type stats_type);
 	void (*cfg_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
-	void (*cfg_comp_mask) (struct vfe_device *vfe_dev,
-		struct msm_vfe_stats_stream *stream_info);
-	void (*clear_comp_mask) (struct vfe_device *vfe_dev,
-		struct msm_vfe_stats_stream *stream_info);
+	void (*cfg_comp_mask) (struct vfe_device *vfe_dev);
 	void (*cfg_wm_irq_mask) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
 	void (*clear_wm_irq_mask) (struct vfe_device *vfe_dev,
@@ -153,20 +154,17 @@ struct msm_vfe_stats_ops {
 
 	void (*cfg_ub) (struct vfe_device *vfe_dev);
 
-	void (*stats_enable) (struct vfe_device *vfe_dev,
+	void (*enable_module) (struct vfe_device *vfe_dev,
 		uint32_t stats_mask, uint8_t enable);
 
 	void (*update_ping_pong_addr) (struct vfe_device *vfe_dev,
-		enum msm_isp_stats_type stats_type, uint32_t pingpong_status,
-		unsigned long paddr);
+		struct msm_vfe_stats_stream *stream_info,
+		uint32_t pingpong_status, unsigned long paddr);
 
 	uint32_t (*get_frame_id) (struct vfe_device *vfe_dev);
 	uint32_t (*get_wm_mask) (uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_comp_mask) (uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_pingpong_status) (struct vfe_device *vfe_dev);
-	uint32_t (*get_active_pingpong_idx) (uint32_t pingpong_status,
-				enum msm_isp_stats_type stats_type);
-
 };
 
 struct msm_vfe_ops {
@@ -179,6 +177,7 @@ struct msm_vfe_ops {
 struct msm_vfe_hardware_info {
 	struct msm_vfe_ops vfe_ops;
 	struct msm_vfe_axi_hardware_info *axi_hw_info;
+	struct msm_vfe_stats_hardware_info *stats_hw_info;
 	struct v4l2_subdev_internal_ops *subdev_internal_ops;
 	struct v4l2_subdev_ops *subdev_ops;
 };
@@ -189,7 +188,6 @@ struct msm_vfe_axi_hardware_info {
 	uint8_t num_rdi_master;
 	uint8_t num_comp_mask;
 	uint32_t min_wm_ub;
-	uint8_t num_stats_comp_mask;
 };
 
 enum msm_vfe_axi_state {
@@ -243,6 +241,7 @@ struct msm_vfe_axi_composite_info {
 	uint32_t stream_handle;
 	uint32_t stream_composite_mask;
 };
+
 struct msm_vfe_src_info {
 	unsigned long frame_id;
 	uint8_t active;
@@ -251,40 +250,12 @@ struct msm_vfe_src_info {
 	enum msm_vfe_inputmux input_mux;
 };
 
-enum msm_vfe_stats_state {
-	STATE_AVALIABLE,
-	STATE_INACTIVE,
-	STATE_ACTIVE,
-	STATE_START_PENDING,
-	STATE_STOP_PENDING,
-	STATE_STOPPING,
-};
-struct msm_vfe_stats_stream {
-	uint32_t frame_id;
-	uint8_t enable;
-	enum msm_isp_stats_type stats_type;
-	int8_t comp_mask_index;
-	struct msm_isp_buffer *buf[2];
-	uint32_t session_id;
-	uint32_t stream_id;
-	uint32_t bufq_handle;
-	uint32_t stream_handle;
-	uint32_t framedrop_pattern;
-	uint8_t comp_flag;
-	uint8_t comp_idx;
-	enum msm_vfe_stats_state state;
-};
-
-struct msm_vfe_stats_composite_info {
-	uint32_t stats_mask;
-	uint8_t comp_flag;
-};
-
 enum msm_wm_ub_cfg_type {
 	MSM_WM_UB_CFG_DEFAULT,
 	MSM_WM_UB_EQUAL_SLICING,
 	MSM_WM_UB_CFG_MAX_NUM
 };
+
 struct msm_vfe_axi_shared_data {
 	struct msm_vfe_axi_hardware_info *hw_info;
 	struct msm_vfe_axi_stream stream_info[MAX_NUM_STREAM];
@@ -305,14 +276,44 @@ struct msm_vfe_axi_shared_data {
 	unsigned long event_mask;
 };
 
+struct msm_vfe_stats_hardware_info {
+	uint32_t stats_capability_mask;
+	uint32_t stats_ping_pong_offset;
+	uint8_t num_stats_type;
+	uint8_t num_stats_comp_mask;
+};
+
+enum msm_vfe_stats_state {
+	STATS_AVALIABLE,
+	STATS_INACTIVE,
+	STATS_ACTIVE,
+	STATS_START_PENDING,
+	STATS_STOP_PENDING,
+	STATS_STOPPING,
+};
+
+struct msm_vfe_stats_stream {
+	uint32_t session_id;
+	uint32_t stream_id;
+	uint32_t stream_handle;
+	enum msm_isp_stats_type stats_type;
+	enum msm_vfe_stats_state state;
+	uint32_t framedrop_pattern;
+	uint32_t irq_subsample_pattern;
+
+	struct msm_isp_buffer *buf[2];
+	uint32_t bufq_handle;
+};
+
 struct msm_vfe_stats_shared_data {
 	struct msm_vfe_stats_stream stream_info[MSM_ISP_STATS_MAX];
-	struct msm_vfe_stats_composite_info
-		composite_info[MAX_NUM_STATS_COMP_MASK];
+	enum msm_vfe_stats_pipeline_policy stats_pipeline_policy;
+	uint32_t comp_framedrop_pattern;
+	uint32_t comp_irq_subsample_pattern;
 	uint8_t num_active_stream;
-	uint8_t num_used_composite_mask;
 	uint16_t stream_handle_cnt;
 };
+
 struct msm_vfe_tasklet_queue_cmd {
 	struct list_head list;
 	uint32_t vfeInterruptStatus0;

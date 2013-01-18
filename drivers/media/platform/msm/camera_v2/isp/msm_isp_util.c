@@ -142,6 +142,9 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STATS_STREAM:
 		msm_isp_cfg_stats_stream(vfe_dev, arg);
 		break;
+	case VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY:
+		msm_isp_cfg_stats_comp_policy(vfe_dev, arg);
+		break;
 	}
 
 	mutex_unlock(&vfe_dev->mutex);
@@ -425,6 +428,8 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->buf_mgr->ops->buf_mgr_init(vfe_dev->buf_mgr, "msm_isp", 14);
 
 	memset(&vfe_dev->axi_data, 0, sizeof(struct msm_vfe_axi_shared_data));
+	memset(&vfe_dev->stats_data, 0,
+		sizeof(struct msm_vfe_stats_shared_data));
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 
 	ISP_DBG("%s: HW Version: 0x%x\n",
