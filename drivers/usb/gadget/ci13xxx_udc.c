@@ -69,6 +69,9 @@
 
 #include "ci13xxx_udc.h"
 
+/* Turns on streaming. overrides CI13XXX_DISABLE_STREAMING */
+static unsigned int streaming;
+module_param(streaming, uint, S_IRUGO | S_IWUSR);
 
 /******************************************************************************
  * DEFINE
@@ -332,9 +335,6 @@ static int hw_device_reset(struct ci13xxx *udc)
 		udc->udc_driver->notify_event(udc,
 			CI13XXX_CONTROLLER_RESET_EVENT);
 
-	if (udc->udc_driver->flags & CI13XXX_DISABLE_STREAMING)
-		hw_cwrite(CAP_USBMODE, USBMODE_SDIS, USBMODE_SDIS);
-
 	/* USBMODE should be configured step by step */
 	hw_cwrite(CAP_USBMODE, USBMODE_CM, USBMODE_CM_IDLE);
 	hw_cwrite(CAP_USBMODE, USBMODE_CM, USBMODE_CM_DEVICE);
@@ -369,7 +369,15 @@ static int hw_device_reset(struct ci13xxx *udc)
  */
 static int hw_device_state(u32 dma)
 {
+	struct ci13xxx *udc = _udc;
+
 	if (dma) {
+		if (streaming || !(udc->udc_driver->flags &
+				CI13XXX_DISABLE_STREAMING))
+			hw_cwrite(CAP_USBMODE, USBMODE_SDIS, 0);
+		else
+			hw_cwrite(CAP_USBMODE, USBMODE_SDIS, USBMODE_SDIS);
+
 		hw_cwrite(CAP_ENDPTLISTADDR, ~0, dma);
 		/* interrupt, error, port change, reset, sleep/suspend */
 		hw_cwrite(CAP_USBINTR, ~0,
