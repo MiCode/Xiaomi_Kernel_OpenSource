@@ -42,9 +42,14 @@
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/clk-provider.h>
+#include <mach/msm_smd.h>
+#include <mach/rpm-smd.h>
+#include <linux/msm_thermal.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
+#include "spm.h"
+#include "lpm_resources.h"
 
 static struct memtype_reserve msm8226_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -121,6 +126,15 @@ static void __init msm8226_reserve(void)
 	msm_reserve();
 }
 
+
+void __init msm8226_add_drivers(void)
+{
+	msm_rpm_driver_init();
+	msm_lpmrs_module_init();
+	msm_spm_device_init();
+	msm_thermal_device_init();
+}
+
 void __init msm8226_init(void)
 {
 	struct of_dev_auxdata *adata = msm8226_auxdata_lookup;
@@ -129,8 +143,10 @@ void __init msm8226_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm8226_init_gpiomux();
+	msm8226_add_drivers();
 	msm_clock_init(&msm_dummy_clock_init_data);
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
+
 }
 
 static const char *msm8226_dt_match[] __initconst = {
@@ -140,7 +156,7 @@ static const char *msm8226_dt_match[] __initconst = {
 
 DT_MACHINE_START(MSM8226_DT, "Qualcomm MSM 8226 (Flattened Device Tree)")
 	.map_io = msm_map_msm8226_io,
-	.init_irq = msm_dt_init_irq_nompm,
+	.init_irq = msm_dt_init_irq,
 	.init_machine = msm8226_init,
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
