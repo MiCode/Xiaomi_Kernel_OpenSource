@@ -2673,7 +2673,7 @@ static int venus_hfi_alloc_ocmem(void *dev, unsigned long size)
 	ocmem_buffer = device->resources.ocmem.buf;
 	if (!ocmem_buffer ||
 		ocmem_buffer->len < size) {
-		ocmem_buffer = ocmem_allocate_nb(OCMEM_VIDEO, size);
+		ocmem_buffer = ocmem_allocate(OCMEM_VIDEO, size);
 		if (IS_ERR_OR_NULL(ocmem_buffer)) {
 			dprintk(VIDC_ERR,
 				"ocmem_allocate_nb failed: %d\n",
