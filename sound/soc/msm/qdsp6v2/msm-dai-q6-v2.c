@@ -28,6 +28,15 @@
 #include <sound/pcm_params.h>
 #include <mach/clk.h>
 
+static const struct afe_clk_cfg lpass_clk_cfg_default = {
+	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_OSR_CLK_2_P048_MHZ,
+	0,
+	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	Q6AFE_LPASS_MODE_CLK1_VALID,
+	0,
+};
 enum {
 	STATUS_PORT_STARTED, /* track if AFE port has started */
 	STATUS_MAX
@@ -75,11 +84,6 @@ static const char *const mi2s_format[] = {
 static const struct soc_enum mi2s_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, mi2s_format),
 };
-
-static struct clk *pcm_src_clk;
-static struct clk *pcm_branch_clk;
-static struct clk *pcm_oe_src_clk;
-static struct clk *pcm_oe_branch_clk;
 
 static DEFINE_MUTEX(aux_pcm_mutex);
 static int aux_pcm_count;
@@ -148,6 +152,9 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *dai)
 {
 	int rc = 0;
+	struct afe_clk_cfg *lpass_pcm_src_clk = NULL;
+	struct afe_clk_cfg lpass_pcm_oe_clk;
+	struct msm_dai_auxpcm_pdata *auxpcm_pdata = NULL;
 
 	mutex_lock(&aux_pcm_mutex);
 
@@ -176,6 +183,9 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	pr_debug("%s: dai->id = %d aux_pcm_count = %d\n", __func__,
 			dai->id, aux_pcm_count);
 
+	auxpcm_pdata = (struct msm_dai_auxpcm_pdata *)dai->dev->platform_data;
+	lpass_pcm_src_clk = (struct afe_clk_cfg *)auxpcm_pdata->clk_cfg;
+
 	rc = afe_close(PCM_RX); /* can block */
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close PCM_RX  AFE port\n");
@@ -184,8 +194,14 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close AUX PCM TX port\n");
 
-	clk_disable_unprepare(pcm_branch_clk);
-	clk_disable_unprepare(pcm_oe_branch_clk);
+	lpass_pcm_src_clk->clk_val1 = 0;
+	afe_set_lpass_clock(PCM_TX, lpass_pcm_src_clk);
+	afe_set_lpass_clock(PCM_RX, lpass_pcm_src_clk);
+
+	memcpy(&lpass_pcm_oe_clk, &lpass_clk_cfg_default,
+			 sizeof(struct afe_clk_cfg));
+	lpass_pcm_oe_clk.clk_val1 = 0;
+	afe_set_lpass_clock(PCM_RX, &lpass_pcm_oe_clk);
 
 	mutex_unlock(&aux_pcm_mutex);
 }
@@ -197,8 +213,11 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata = NULL;
 	int rc = 0;
 	unsigned long pcm_clk_rate;
+	struct afe_clk_cfg lpass_pcm_oe_clk;
+	struct afe_clk_cfg *lpass_pcm_src_clk = NULL;
 
 	auxpcm_pdata = dai->dev->platform_data;
+	lpass_pcm_src_clk = (struct afe_clk_cfg *)auxpcm_pdata->clk_cfg;
 
 	mutex_lock(&aux_pcm_mutex);
 
@@ -252,32 +271,32 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	rc = clk_set_rate(pcm_src_clk, pcm_clk_rate);
+	memcpy(lpass_pcm_src_clk, &lpass_clk_cfg_default,
+			sizeof(struct afe_clk_cfg));
+	lpass_pcm_src_clk->clk_val1 = pcm_clk_rate;
 
+	memcpy(&lpass_pcm_oe_clk, &lpass_clk_cfg_default,
+			sizeof(struct afe_clk_cfg));
+	lpass_pcm_oe_clk.clk_val1 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
+
+	rc = afe_set_lpass_clock(PCM_RX, lpass_pcm_src_clk);
 	if (rc < 0) {
-		pr_err("%s: clk_set_rate failed\n", __func__);
-		mutex_unlock(&aux_pcm_mutex);
+		pr_err("%s:afe_set_lpass_clock on RX pcm_src_clk failed\n",
+							__func__);
 		goto fail;
 	}
 
-	rc = clk_prepare_enable(pcm_branch_clk);
-	if (rc) {
-		pr_err("%s: clk enable failed\n", __func__);
-		mutex_unlock(&aux_pcm_mutex);
-		goto fail;
-	}
-
-	rc = clk_set_rate(pcm_oe_src_clk, 24576000>>1);
+	rc = afe_set_lpass_clock(PCM_TX, lpass_pcm_src_clk);
 	if (rc < 0) {
-		pr_err("%s: clk_set_rate on pcm oe failed\n", __func__);
-		mutex_unlock(&aux_pcm_mutex);
+		pr_err("%s:afe_set_lpass_clock on TX pcm_src_clk failed\n",
+							__func__);
 		goto fail;
 	}
 
-	rc = clk_prepare_enable(pcm_oe_branch_clk);
-	if (rc) {
-		pr_err("%s: clk enable pcm_oe_branch_clk failed\n", __func__);
-		mutex_unlock(&aux_pcm_mutex);
+	rc = afe_set_lpass_clock(PCM_RX, &lpass_pcm_oe_clk);
+	if (rc < 0) {
+		pr_err("%s:afe_set_lpass_clock on pcm_oe_clk failed\n",
+							__func__);
 		goto fail;
 	}
 
@@ -285,9 +304,8 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 
 	afe_open(PCM_TX, &dai_data->port_config, dai_data->rate);
 
-	mutex_unlock(&aux_pcm_mutex);
-
 fail:
+	mutex_unlock(&aux_pcm_mutex);
 	return rc;
 }
 
@@ -331,49 +349,6 @@ static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
 	dai->dev->platform_data = auxpcm_pdata;
 	dai->id = dai->dev->id;
 
-	mutex_lock(&aux_pcm_mutex);
-
-	/*
-	 * The clk name for AUX PCM operation is passed as platform
-	 * data to the cpu driver, since cpu drive is unaware of any
-	 * boarc specific configuration.
-	 */
-	if ((!pcm_src_clk) || (!pcm_branch_clk)) {
-		pcm_src_clk = clk_get(dai->dev, auxpcm_pdata->clk);
-
-		if (IS_ERR(pcm_src_clk)) {
-			pr_err("%s: could not get pcm_src_clk\n", __func__);
-			pcm_src_clk = NULL;
-			return -ENODEV;
-		}
-
-		pcm_branch_clk = clk_get(dai->dev, "ibit_clk");
-
-		if (IS_ERR(pcm_branch_clk)) {
-			pr_err("%s: could not get pcm_branch_clk\n", __func__);
-			pcm_branch_clk = NULL;
-			return -ENODEV;
-		}
-	}
-
-	if ((!pcm_oe_src_clk) || (!pcm_oe_branch_clk)) {
-
-		pcm_oe_src_clk = clk_get(dai->dev, "core_oe_src_clk");
-
-		if (IS_ERR(pcm_oe_src_clk)) {
-			pr_err("%s: could not get pcm_oe_src_clk\n", __func__);
-			pcm_oe_src_clk = NULL;
-			return -ENODEV;
-		}
-
-		pcm_oe_branch_clk = clk_get(dai->dev, "core_oe_clk");
-		if (IS_ERR(pcm_oe_branch_clk)) {
-			pr_err("%s: could not get pcm_oe_clk\n", __func__);
-			pcm_oe_branch_clk = NULL;
-			return -ENODEV;
-		}
-	}
-	mutex_unlock(&aux_pcm_mutex);
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_dai_data), GFP_KERNEL);
 
@@ -1107,6 +1082,7 @@ static int __devinit msm_auxpcm_resource_probe(
 {
 	int rc = 0;
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata = NULL;
+	struct afe_clk_cfg *clk_cfg = NULL;
 	uint32_t val_array[RATE_MAX_NUM_OF_AUX_PCM_RATES];
 
 	auxpcm_pdata = kzalloc(sizeof(struct msm_dai_auxpcm_pdata),
@@ -1115,15 +1091,6 @@ static int __devinit msm_auxpcm_resource_probe(
 	if (!auxpcm_pdata) {
 		dev_err(&pdev->dev, "Failed to allocate memory for platform data\n");
 		return -ENOMEM;
-	}
-
-	rc = of_property_read_string(pdev->dev.of_node,
-			"qcom,msm-cpudai-auxpcm-clk",
-			&auxpcm_pdata->clk);
-	if (rc) {
-		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-clk missing in DT node\n",
-			__func__);
-		goto fail_free_plat;
 	}
 
 	rc = of_property_read_u32_array(pdev->dev.of_node,
@@ -1200,17 +1167,26 @@ static int __devinit msm_auxpcm_resource_probe(
 	auxpcm_pdata->mode_8k.pcm_clk_rate = (int)val_array[RATE_8KHZ];
 	auxpcm_pdata->mode_16k.pcm_clk_rate = (int)val_array[RATE_16KHZ];
 
+	clk_cfg = kzalloc(sizeof(struct afe_clk_cfg), GFP_KERNEL);
+	if (clk_cfg == NULL) {
+		pr_err("%s: Failed to allocate memory for clk cfg\n", __func__);
+		goto fail_free_plat;
+	}
+	auxpcm_pdata->clk_cfg = clk_cfg;
+
 	platform_set_drvdata(pdev, auxpcm_pdata);
 
 	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (rc) {
 		dev_err(&pdev->dev, "%s: failed to add child nodes, rc=%d\n",
 				__func__, rc);
-		goto fail_free_plat;
+		goto fail_free_plat1;
 	}
 
 	return rc;
 
+fail_free_plat1:
+	kfree(clk_cfg);
 fail_free_plat:
 	kfree(auxpcm_pdata);
 	return rc;
@@ -1225,9 +1201,12 @@ static int __devexit msm_auxpcm_dev_remove(struct platform_device *pdev)
 static int __devexit msm_auxpcm_resource_remove(
 				struct platform_device *pdev)
 {
-	void *auxpcm_pdata;
+	struct msm_dai_auxpcm_pdata *auxpcm_pdata;
+	struct afe_clk_cfg *clk_cfg;
 
 	auxpcm_pdata = dev_get_drvdata(&pdev->dev);
+	clk_cfg = (struct afe_clk_cfg *)auxpcm_pdata->clk_cfg;
+	kfree(clk_cfg);
 	kfree(auxpcm_pdata);
 
 	return 0;

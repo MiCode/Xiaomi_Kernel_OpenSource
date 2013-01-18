@@ -40,7 +40,7 @@ struct msm_dai_auxpcm_config {
 };
 
 struct msm_dai_auxpcm_pdata {
-	const char *clk;
+	void *clk_cfg;
 	struct msm_dai_auxpcm_config mode_8k;
 	struct msm_dai_auxpcm_config mode_16k;
 };
