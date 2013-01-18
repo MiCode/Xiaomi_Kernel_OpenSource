@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -187,7 +188,8 @@ struct synaptics_rmi4_data {
 	struct input_dev *input_dev;
 	const struct synaptics_rmi4_platform_data *board;
 	struct synaptics_rmi4_device_info rmi4_mod_info;
-	struct regulator *regulator;
+	struct regulator *vdd;
+	struct regulator *vcc_i2c;
 	struct mutex rmi4_io_ctrl_mutex;
 	struct delayed_work det_work;
 	struct workqueue_struct *det_workqueue;
