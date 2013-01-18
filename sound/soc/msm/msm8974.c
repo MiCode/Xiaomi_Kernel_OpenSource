@@ -982,7 +982,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	return err;
 }
 
-static int msm_snd_startup(struct snd_pcm_substream *substream)
+static int msm8974_snd_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -1127,7 +1127,7 @@ end:
 	return ret;
 }
 
-static void msm_snd_shutdown(struct snd_pcm_substream *substream)
+static void msm8974_snd_shudown(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -1135,9 +1135,75 @@ static void msm_snd_shutdown(struct snd_pcm_substream *substream)
 }
 
 static struct snd_soc_ops msm8974_be_ops = {
-	.startup = msm_snd_startup,
+	.startup = msm8974_snd_startup,
 	.hw_params = msm_snd_hw_params,
-	.shutdown = msm_snd_shutdown,
+	.shutdown = msm8974_snd_shudown,
+};
+
+
+
+static int msm8974_slimbus_2_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch[SLIM_MAX_RX_PORTS], tx_ch[SLIM_MAX_TX_PORTS];
+	unsigned int rx_ch_cnt = 0, tx_ch_cnt = 0;
+	unsigned int num_tx_ch = 0;
+	unsigned int num_rx_ch = 0;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+
+		num_rx_ch =  params_channels(params);
+
+		pr_debug("%s: %s rx_dai_id = %d  num_ch = %d\n", __func__,
+			codec_dai->name, codec_dai->id, num_rx_ch);
+
+		ret = snd_soc_dai_get_channel_map(codec_dai,
+				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to get codec chan map\n", __func__);
+			goto end;
+		}
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0,
+				num_rx_ch, rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to set cpu chan map\n", __func__);
+			goto end;
+		}
+	} else {
+
+		num_tx_ch =  params_channels(params);
+
+		pr_debug("%s: %s  tx_dai_id = %d  num_ch = %d\n", __func__,
+			codec_dai->name, codec_dai->id, num_tx_ch);
+
+		ret = snd_soc_dai_get_channel_map(codec_dai,
+				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to get codec chan map\n", __func__);
+			goto end;
+		}
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai,
+				num_tx_ch, tx_ch, 0 , 0);
+		if (ret < 0) {
+			pr_err("%s: failed to set cpu chan map\n", __func__);
+			goto end;
+		}
+	}
+end:
+	return ret;
+}
+
+
+static struct snd_soc_ops msm8974_slimbus_2_be_ops = {
+	.startup = msm8974_snd_startup,
+	.hw_params = msm8974_slimbus_2_hw_params,
+	.shutdown = msm8974_snd_shudown,
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -1632,6 +1698,30 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
+	},
+	/* Ultrasound RX Back End DAI Link */
+	{
+		.name = "SLIMBUS_2 Hostless Playback",
+		.stream_name = "SLIMBUS_2 Hostless Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16388",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_rx2",
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8974_slimbus_2_be_ops,
+	},
+	/* Ultrasound TX Back End DAI Link */
+	{
+		.name = "SLIMBUS_2 Hostless Capture",
+		.stream_name = "SLIMBUS_2 Hostless Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16389",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_tx2",
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8974_slimbus_2_be_ops,
 	},
 };
 
