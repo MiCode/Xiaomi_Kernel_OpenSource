@@ -50,16 +50,16 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 			pr_err("%s: adsp not up\n", __func__);
 			return NULL;
 		}
-		pr_info("%s: adsp Up\n", __func__);
+		pr_debug("%s: adsp Up\n", __func__);
 	} else if ((dest_id == APR_DEST_MODEM) &&
 		   (apr_get_modem_state() == APR_SUBSYS_DOWN)) {
-		pr_info("%s: Wait for modem to bootup\n", __func__);
+		pr_debug("%s: Wait for modem to bootup\n", __func__);
 		rc = apr_wait_for_device_up(dest_id);
 		if (rc == 0) {
 			pr_err("%s: Modem is not Up\n", __func__);
 			return NULL;
 		}
-		pr_info("%s: modem Up\n", __func__);
+		pr_debug("%s: modem Up\n", __func__);
 	}
 
 	if (apr_get_svc(svc_name, dest_id, &client_id, &svc_idx, &svc_id)) {
