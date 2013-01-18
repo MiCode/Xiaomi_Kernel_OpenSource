@@ -22,6 +22,9 @@ The optional properties are:
 	0  (Power collapse terminates in TZ; integrated L2 cache controller)
 	1, (Power collapse doesn't terminate in TZ; external L2 cache controller)
 	2  (Power collapse terminates in TZ; external L2 cache controller)
+- qcom,saw-turns-off-pll: Version of SAW2.1 or can turn off the HFPLL, when
+	doing power collapse and so the core need to switch to Global PLL before
+	PC.
 
 Example:
 

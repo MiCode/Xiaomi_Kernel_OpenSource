@@ -122,6 +122,7 @@ static bool msm_pm_use_sync_timer;
 static struct msm_pm_cp15_save_data cp15_data;
 static bool msm_pm_retention_calls_tz;
 static uint32_t msm_pm_max_sleep_time;
+static bool msm_no_ramp_down_pc;
 
 /*
  * Write out the attribute.
@@ -527,7 +528,7 @@ static bool msm_pm_power_collapse_standalone(bool from_idle)
 static bool msm_pm_power_collapse(bool from_idle)
 {
 	unsigned int cpu = smp_processor_id();
-	unsigned long saved_acpuclk_rate;
+	unsigned long saved_acpuclk_rate = 0;
 	unsigned int avsdscr;
 	unsigned int avscsr;
 	bool collapsed;
@@ -544,10 +545,8 @@ static bool msm_pm_power_collapse(bool from_idle)
 	avscsr = avs_get_avscsr();
 	avs_set_avscsr(0); /* Disable AVS */
 
-	if (cpu_online(cpu))
+	if (cpu_online(cpu) && !msm_no_ramp_down_pc)
 		saved_acpuclk_rate = acpuclk_power_collapse();
-	else
-		saved_acpuclk_rate = 0;
 
 	if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: change clock rate (old rate = %lu)\n",
@@ -565,7 +564,9 @@ static bool msm_pm_power_collapse(bool from_idle)
 		if (MSM_PM_DEBUG_CLOCK & msm_pm_debug_mask)
 			pr_info("CPU%u: %s: restore clock rate to %lu\n",
 				cpu, __func__, saved_acpuclk_rate);
-		if (acpuclk_set_rate(cpu, saved_acpuclk_rate, SETRATE_PC) < 0)
+		if (!msm_no_ramp_down_pc &&
+			acpuclk_set_rate(cpu, saved_acpuclk_rate, SETRATE_PC)
+				< 0)
 			pr_err("CPU%u: %s: failed to restore clock rate(%lu)\n",
 				cpu, __func__, saved_acpuclk_rate);
 	} else {
@@ -1199,6 +1200,10 @@ static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
 		key = "qcom,use-sync-timer";
 		pdata_local.use_sync_timer =
 			of_property_read_bool(pdev->dev.of_node, key);
+
+		key = "qcom,saw-turns-off-pll";
+		msm_no_ramp_down_pc = of_property_read_bool(pdev->dev.of_node,
+					key);
 	}
 
 	if (pdata_local.cp15_data.reg_data &&
