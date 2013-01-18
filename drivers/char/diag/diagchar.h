@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,16 +38,19 @@
 #define POOL_TYPE_COPY		1
 #define POOL_TYPE_HDLC		2
 #define POOL_TYPE_WRITE_STRUCT	4
-#define POOL_TYPE_HSIC		8
-#define POOL_TYPE_HSIC_WRITE	16
-#define POOL_TYPE_ALL		7
+#define POOL_TYPE_HSIC		5
+#define POOL_TYPE_HSIC_2	6
+#define POOL_TYPE_HSIC_WRITE	11
+#define POOL_TYPE_HSIC_2_WRITE	12
+#define POOL_TYPE_ALL		10
 #define MODEM_DATA		0
 #define LPASS_DATA		1
 #define WCNSS_DATA		2
 #define APPS_DATA		3
 #define SDIO_DATA		4
 #define HSIC_DATA		5
-#define SMUX_DATA		6
+#define HSIC_2_DATA		6
+#define SMUX_DATA		10
 #define APPS_PROC		1
 #define MSG_MASK_SIZE 10000
 #define LOG_MASK_SIZE 8000
@@ -295,30 +298,11 @@ struct diagchar_dev {
 	int diag_smux_enabled;
 	int smux_connected;
 	struct diag_request *write_ptr_mdm;
-	/* HSIC variables */
-	int hsic_ch;
-	int hsic_inited;
-	int hsic_device_enabled;
-	int hsic_device_opened;
-	int hsic_suspend;
-	int in_busy_hsic_read_on_device;
-	int in_busy_hsic_write;
-	struct work_struct diag_read_hsic_work;
-	int count_hsic_pool;
-	int count_hsic_write_pool;
-	unsigned int poolsize_hsic;
-	unsigned int poolsize_hsic_write;
-	unsigned int itemsize_hsic;
-	unsigned int itemsize_hsic_write;
-	mempool_t *diag_hsic_pool;
-	mempool_t *diag_hsic_write_pool;
-	int num_hsic_buf_tbl_entries;
-	struct diag_write_device *hsic_buf_tbl;
-	spinlock_t hsic_spinlock;
 #endif
 };
 
 extern struct diag_bridge_dev *diag_bridge;
+extern struct diag_hsic_dev *diag_hsic;
 extern struct diagchar_dev *driver;
 
 extern int wrap_enabled;
