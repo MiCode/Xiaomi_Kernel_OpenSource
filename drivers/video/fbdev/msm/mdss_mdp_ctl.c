@@ -698,6 +698,14 @@ int mdss_mdp_ctl_off(struct msm_fb_data_type *mfd)
 		ctl->power_on = false;
 		ctl->play_cnt = 0;
 		ctl->clk_rate = 0;
+		if (ctl->mixer_left) {
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(
+					ctl->mixer_left->num), 0);
+		}
+		if (ctl->mixer_right) {
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(
+					ctl->mixer_right->num), 0);
+		}
 		mdss_mdp_ctl_perf_commit(MDSS_MDP_PERF_UPDATE_ALL);
 	}
 
