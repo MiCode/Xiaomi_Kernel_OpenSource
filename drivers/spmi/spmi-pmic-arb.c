@@ -22,6 +22,7 @@
 #include <linux/of.h>
 #include <linux/interrupt.h>
 #include <linux/of_spmi.h>
+#include <linux/module.h>
 #include <mach/qpnp-int.h>
 
 #define SPMI_PMIC_ARB_NAME		"spmi_pmic_arb"

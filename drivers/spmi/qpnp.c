@@ -14,6 +14,7 @@
  * Resource handling based on platform.c.
  */
 
+#include <linux/export.h>
 #include <mach/qpnp.h>
 
 /**
