@@ -259,6 +259,7 @@ const char * const *v4l2_ctrl_get_menu(u32 id)
 		"Single",
 		"Max Macroblocks",
 		"Max Bytes",
+		"GOB",
 		NULL,
 	};
 	static const char * const entropy_mode[] = {
