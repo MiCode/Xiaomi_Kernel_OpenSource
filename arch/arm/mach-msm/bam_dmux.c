@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -891,6 +891,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 write_fail3:
 	kfree(pkt);
 write_fail2:
+	skb_pull(skb, sizeof(struct bam_mux_hdr));
 	if (new_skb)
 		dev_kfree_skb_any(new_skb);
 write_fail:
