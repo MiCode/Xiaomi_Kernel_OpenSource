@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,5 +48,9 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 int adm_connect_afe_port(int mode, int session_id, int port_id);
 
 int adm_get_copp_id(int port_id);
+
+void adm_set_multi_ch_map(char *channel_map);
+
+void adm_get_multi_ch_map(char *channel_map);
 
 #endif /* __Q6_ADM_V2_H__ */

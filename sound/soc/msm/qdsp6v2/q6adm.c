@@ -52,6 +52,15 @@ struct adm_ctl {
 
 static struct adm_ctl			this_adm;
 
+struct adm_multi_ch_map {
+	bool set_channel_map;
+	char channel_mapping[PCM_FORMAT_MAX_NUM_CHANNEL];
+};
+
+static struct adm_multi_ch_map multi_ch_map = { false,
+						{0, 0, 0, 0, 0, 0, 0, 0}
+					      };
+
 int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
 {
 	struct adm_cmd_set_pp_params_inband_v5 *adm_params = NULL;
@@ -264,6 +273,21 @@ static void adm_callback_debug_print(struct apr_client_data *data)
 	else
 		pr_debug("%s: code = 0x%x, size = %d\n",
 			__func__, data->opcode, data->payload_size);
+}
+
+void adm_set_multi_ch_map(char *channel_map)
+{
+	memcpy(multi_ch_map.channel_mapping, channel_map,
+		PCM_FORMAT_MAX_NUM_CHANNEL);
+	multi_ch_map.set_channel_map = true;
+}
+
+void adm_get_multi_ch_map(char *channel_map)
+{
+	if (multi_ch_map.set_channel_map) {
+		memcpy(channel_map, multi_ch_map.channel_mapping,
+			PCM_FORMAT_MAX_NUM_CHANNEL);
+	}
 }
 
 static int32_t adm_callback(struct apr_client_data *data, void *priv)
@@ -743,6 +767,11 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 					channel_mode);
 			return -EINVAL;
 		}
+		if ((open.dev_num_channel > 2) &&
+			multi_ch_map.set_channel_map)
+			memcpy(open.dev_channel_mapping,
+				multi_ch_map.channel_mapping,
+				PCM_FORMAT_MAX_NUM_CHANNEL);
 
 		pr_debug("%s: port_id=%#x rate=%d topology_id=0x%X\n",
 			__func__, open.endpoint_id_1, open.sample_rate,
