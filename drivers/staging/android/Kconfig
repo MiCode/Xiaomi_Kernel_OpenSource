@@ -117,6 +117,17 @@ config SW_SYNC_USER
 	  *WARNING* improper use of this can result in deadlocking kernel
 	  drivers from userspace.
 
+config EFI_BOOTLOADER_CONTROL
+	tristate "EFI Bootloader Control module"
+	depends on EFI_VARS
+	default n
+	help
+	  This driver installs a reboot hook, such that if reboot() is
+	  invoked with a string argument NNN, "bootonce-NNN" is copied to
+	  the EFI variable, to be read by the bootloader. If the string
+	  matches one of the boot labels defined in its configuration,
+	  the bootloader will boot once to that label.
+
 source "drivers/staging/android/ion/Kconfig"
 
 source "drivers/staging/android/fiq_debugger/Kconfig"
