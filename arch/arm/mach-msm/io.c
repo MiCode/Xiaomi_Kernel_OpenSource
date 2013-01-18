@@ -28,8 +28,10 @@
 #include <mach/memory.h>
 #include <asm/mach/map.h>
 #include <linux/dma-mapping.h>
+#include <linux/of_fdt.h>
 
 #include <mach/board.h>
+#include "board-dt.h"
 
 #include "common.h"
 
@@ -309,7 +311,6 @@ static struct map_desc msm_8974_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8974),
 	MSM_CHIP_DEVICE(TLMM, MSM8974),
 	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8974),
-	MSM_CHIP_DEVICE(IMEM, MSM8974),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
@@ -325,6 +326,7 @@ void __init msm_map_8974_io(void)
 {
 	msm_shared_ram_phys = MSM8974_MSM_SHARED_RAM_PHYS;
 	msm_map_io(msm_8974_io_desc, ARRAY_SIZE(msm_8974_io_desc));
+	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSM8974 */
 
@@ -476,7 +478,6 @@ static struct map_desc msm9625_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(TLMM, MSM9625),
 	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM9625),
 	MSM_CHIP_DEVICE(TMR, MSM9625),
-	MSM_CHIP_DEVICE(IMEM, MSM9625),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
@@ -492,6 +493,7 @@ void __init msm_map_msm9625_io(void)
 {
 	msm_shared_ram_phys = MSM9625_SHARED_RAM_PHYS;
 	msm_map_io(msm9625_io_desc, ARRAY_SIZE(msm9625_io_desc));
+	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSM9625 */
 
@@ -524,7 +526,6 @@ static struct map_desc msm_8226_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(QGIC_CPU, MSM8226),
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8226),
 	MSM_CHIP_DEVICE(TLMM, MSM8226),
-	MSM_CHIP_DEVICE(IMEM, MSM8226),
 	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8226),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
@@ -541,6 +542,7 @@ void __init msm_map_msm8226_io(void)
 {
 	msm_shared_ram_phys = MSM8226_MSM_SHARED_RAM_PHYS;
 	msm_map_io(msm_8226_io_desc, ARRAY_SIZE(msm_8226_io_desc));
+	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSM8226 */
 
@@ -549,7 +551,6 @@ static struct map_desc msm8610_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8610),
 	MSM_CHIP_DEVICE(TLMM, MSM8610),
 	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8610),
-	MSM_CHIP_DEVICE(IMEM, MSM8610),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
@@ -561,5 +562,6 @@ void __init msm_map_msm8610_io(void)
 {
 	msm_shared_ram_phys = MSM8610_MSM_SHARED_RAM_PHYS;
 	msm_map_io(msm8610_io_desc, ARRAY_SIZE(msm8610_io_desc));
+	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSM8610 */
