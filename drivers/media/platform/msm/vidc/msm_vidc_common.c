@@ -48,6 +48,11 @@
 
 #define TIME_DIFF_THRESHOLD 200
 
+/*Load is in Macroblocks (MBs) per sec. This value is calculated
+ * based on one 4k video instance @ 24 fps plus one 1080p video
+ * instance @ 30fps. 1 MB = 16 X 16 pixels*/
+#define MAX_LOAD 1074240
+
 static int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type)
 {
@@ -1249,10 +1254,18 @@ static int msm_vidc_load_resources(int flipped_state,
 	int rc = 0;
 	u32 ocmem_sz = 0;
 	struct hfi_device *hdev;
+	int num_mbs_per_sec = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;
+	}
+	num_mbs_per_sec = msm_comm_get_load(inst->core, MSM_VIDC_DECODER);
+	num_mbs_per_sec += msm_comm_get_load(inst->core, MSM_VIDC_ENCODER);
+	if (num_mbs_per_sec > MAX_LOAD) {
+		dprintk(VIDC_ERR, "HW is overloaded, needed:%d max: %d\n",
+			num_mbs_per_sec, MAX_LOAD);
+		return -ENOMEM;
 	}
 	hdev = inst->core->device;
 
