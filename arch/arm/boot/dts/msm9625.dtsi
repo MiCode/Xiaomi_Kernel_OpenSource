@@ -87,6 +87,14 @@
 		qcom,hsusb-otg-disable-reset;
 		qcom,hsusb-otg-lpm-on-dev-suspend;
 		qcom,hsusb-otg-clk-always-on-workaround;
+
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 40000 640000>;
 	};
 
 	android_usb@fc42b0c8 {
@@ -102,6 +110,14 @@
 		interrupt-names = "core_irq";
 		HSIC_VDDCX-supply = <&pm8019_l12>;
 		HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+
+		qcom,msm-bus,name = "hsic";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<85 512 0 0>,
+				<85 512 40000 640000>;
 	};
 
 	qcom,usbbam@f9a44000 {
