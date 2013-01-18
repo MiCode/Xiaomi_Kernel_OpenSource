@@ -2238,7 +2238,7 @@ static unsigned int adreno_check_hw_ts(struct kgsl_device *device,
 		 * get an interrupt
 		 */
 
-		if (context) {
+		if (context && device->state != KGSL_STATE_SLUMBER) {
 			adreno_ringbuffer_issuecmds(device, context->devctxt,
 					KGSL_CMD_FLAGS_NONE, NULL, 0);
 		}
