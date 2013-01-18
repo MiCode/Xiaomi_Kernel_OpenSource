@@ -458,6 +458,16 @@ VREG_CONSUMERS(BOOST) = {
 		.active_low	= _active_low, \
 	}
 
+#define FIXED_VREG_INIT(_id, _supply_regulator) \
+	{ \
+		.constraints = { \
+			.valid_ops_mask	= REGULATOR_CHANGE_STATUS, \
+		}, \
+		.num_consumer_supplies	= ARRAY_SIZE(vreg_consumers_##_id), \
+		.consumer_supplies	= vreg_consumers_##_id, \
+		.supply_regulator	= _supply_regulator, \
+	}
+
 #define SAW_VREG_INIT(_id, _name, _min_uV, _max_uV) \
 	{ \
 		.constraints = { \
@@ -595,6 +605,17 @@ mpq8064_gpio_regulator_pdata[] __devinitdata = {
 	GPIO_VREG(AVC_5V, "avc_5v", "avc_5v_en", SX150X_GPIO(4, 3), NULL, 0),
 	GPIO_VREG(AVC_3P3V, "avc_3p3v", "avc_3p3v_en",
 					SX150X_GPIO(4, 15), "avc_5v", 0),
+};
+
+/* Fixed regulator constraints */
+static struct regulator_init_data mpq8064_3p3_regulator_init =
+	/*              ID        supply */
+	FIXED_VREG_INIT(EXT_3P3V, NULL);
+
+struct fixed_voltage_config mpq8064_3p3_regulator_pdata = {
+	.supply_name = "ext_3p3v",
+	.gpio = -EINVAL,
+	.init_data = &mpq8064_3p3_regulator_init,
 };
 
 /* SAW regulator constraints */

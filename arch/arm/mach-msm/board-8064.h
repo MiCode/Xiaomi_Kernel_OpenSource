@@ -14,6 +14,7 @@
 #define __ARCH_ARM_MACH_MSM_BOARD_APQ8064_H
 
 #include <linux/regulator/msm-gpio-regulator.h>
+#include <linux/regulator/fixed.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
 #include <linux/mfd/pm8xxx/pm8821.h>
 #include <mach/msm_memtypes.h>
@@ -64,6 +65,8 @@ extern struct gpio_regulator_platform_data
 
 extern struct gpio_regulator_platform_data
 	mpq8064_gpio_regulator_pdata[] __devinitdata;
+
+extern struct fixed_voltage_config mpq8064_3p3_regulator_pdata;
 
 extern struct rpm_regulator_platform_data
 	apq8064_rpm_regulator_pdata __devinitdata;

@@ -2493,6 +2493,13 @@ static void __init mpq8064_pcie_init(void)
 	}
 }
 
+static struct platform_device mpq8064_device_ext_3p3v_vreg = {
+	.name			= "reg-fixed-voltage",
+	.dev			= {
+		.platform_data	= &mpq8064_3p3_regulator_pdata,
+	},
+};
+
 static struct platform_device apq8064_device_ext_5v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,
 	.id	= PM8921_MPP_PM_TO_SYS(7),
@@ -2604,6 +2611,7 @@ static struct platform_device *pm8921_common_devices[] __initdata = {
 static struct platform_device *pm8921_mpq_hrd_common_devices[] __initdata = {
 	&apq8064_device_ext_5v_vreg,
 	&apq8064_device_ext_mpp8_vreg,
+	&mpq8064_device_ext_3p3v_vreg,
 	&apq8064_device_ssbi_pmic1,
 	&apq8064_device_ssbi_pmic2,
 };
