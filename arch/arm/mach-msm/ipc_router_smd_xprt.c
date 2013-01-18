@@ -40,7 +40,7 @@ if (msm_ipc_router_smd_xprt_debug_mask) \
 
 #define MIN_FRAG_SZ (IPC_ROUTER_HDR_SIZE + sizeof(union rr_control_msg))
 
-#define NUM_SMD_XPRTS 3
+#define NUM_SMD_XPRTS 4
 #define XPRT_NAME_LEN (SMD_MAX_CH_NAME_LEN + 12)
 
 struct msm_ipc_router_smd_xprt {
@@ -76,6 +76,7 @@ struct msm_ipc_router_smd_xprt_config smd_xprt_cfg[] = {
 	{"RPCRPY_CNTL", "ipc_rtr_smd_rpcrpy_cntl", SMD_APPS_MODEM, 1},
 	{"IPCRTR", "ipc_rtr_smd_ipcrtr", SMD_APPS_MODEM, 1},
 	{"IPCRTR", "ipc_rtr_q6_ipcrtr", SMD_APPS_QDSP, 1},
+	{"IPCRTR", "ipc_rtr_wcnss_ipcrtr", SMD_APPS_WCNSS, 1},
 };
 
 static struct msm_ipc_router_smd_xprt smd_remote_xprt[NUM_SMD_XPRTS];
