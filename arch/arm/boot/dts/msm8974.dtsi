@@ -808,6 +808,16 @@
 			qcom,msm-dai-q6-dev-id = <16387>;
 		};
 
+		qcom,msm-dai-q6-sb-2-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16388>;
+		};
+
+		qcom,msm-dai-q6-sb-2-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16389>;
+		};
+
 		qcom,msm-dai-q6-sb-3-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16390>;
