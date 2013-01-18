@@ -20,6 +20,7 @@
  * DEFINE
  *****************************************************************************/
 #define CI13XXX_PAGE_SIZE  4096ul /* page size for TD's */
+#define CI13XXX_MAX_REQ_SIZE  (4 * CI13XXX_PAGE_SIZE)
 #define ENDPT_MAX          (32)
 #define CTRL_PAYLOAD_MAX   (64)
 #define RX        (0)  /* similar to USB_DIR_OUT but can be used as an index */
@@ -77,15 +78,18 @@ struct ci13xxx_qh {
 	struct usb_ctrlrequest   setup;
 } __attribute__ ((packed));
 
+struct ci13xxx_td_wrapper {
+	struct ci13xxx_td *ptr;
+	dma_addr_t dma;
+	struct list_head list;
+};
+
 /* Extension of usb_request */
 struct ci13xxx_req {
 	struct usb_request   req;
 	unsigned             map;
 	struct list_head     queue;
-	struct ci13xxx_td   *ptr;
-	dma_addr_t           dma;
-	struct ci13xxx_td   *zptr;
-	dma_addr_t           zdma;
+	struct list_head     td_list;
 };
 
 /* Extension of usb_ep */
