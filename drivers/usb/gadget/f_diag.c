@@ -2,7 +2,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2013, Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -158,13 +158,18 @@ struct diag_context {
 	unsigned configured;
 	struct usb_composite_dev *cdev;
 	int (*update_pid_and_serial_num)(uint32_t, const char *);
-	struct usb_diag_ch ch;
+	struct usb_diag_ch *ch;
 
 	/* pkt counters */
 	unsigned long dpkts_tolaptop;
 	unsigned long dpkts_tomodem;
 	unsigned dpkts_tolaptop_pending;
+
+	/* A list node inside the diag_dev_list */
+	struct list_head list_item;
 };
+
+static struct list_head diag_dev_list;
 
 static inline struct diag_context *func_to_diag(struct usb_function *f)
 {
@@ -179,8 +184,11 @@ static void usb_config_work_func(struct work_struct *work)
 	struct usb_gadget_strings *table;
 	struct usb_string *s;
 
-	if (ctxt->ch.notify)
-		ctxt->ch.notify(ctxt->ch.priv, USB_DIAG_CONNECT, NULL);
+	if (!ctxt->ch)
+		return;
+
+	if (ctxt->ch->notify)
+		ctxt->ch->notify(ctxt->ch->priv, USB_DIAG_CONNECT, NULL);
 
 	if (!ctxt->update_pid_and_serial_num)
 		return;
@@ -236,8 +244,8 @@ static void diag_write_complete(struct usb_ep *ep,
 	}
 	spin_unlock_irqrestore(&ctxt->lock, flags);
 
-	if (ctxt->ch.notify)
-		ctxt->ch.notify(ctxt->ch.priv, USB_DIAG_WRITE_DONE, d_req);
+	if (ctxt->ch && ctxt->ch->notify)
+		ctxt->ch->notify(ctxt->ch->priv, USB_DIAG_WRITE_DONE, d_req);
 }
 
 static void diag_read_complete(struct usb_ep *ep,
@@ -256,8 +264,8 @@ static void diag_read_complete(struct usb_ep *ep,
 
 	ctxt->dpkts_tomodem++;
 
-	if (ctxt->ch.notify)
-		ctxt->ch.notify(ctxt->ch.priv, USB_DIAG_READ_DONE, d_req);
+	if (ctxt->ch && ctxt->ch->notify)
+		ctxt->ch->notify(ctxt->ch->priv, USB_DIAG_READ_DONE, d_req);
 }
 
 /**
@@ -275,7 +283,6 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 		void (*notify)(void *, unsigned, struct diag_request *))
 {
 	struct usb_diag_ch *ch;
-	struct diag_context *ctxt;
 	unsigned long flags;
 	int found = 0;
 
@@ -290,11 +297,9 @@ struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 	spin_unlock_irqrestore(&ch_lock, flags);
 
 	if (!found) {
-		ctxt = kzalloc(sizeof(*ctxt), GFP_KERNEL);
-		if (!ctxt)
+		ch = kzalloc(sizeof(*ch), GFP_KERNEL);
+		if (!ch)
 			return ERR_PTR(-ENOMEM);
-
-		ch = &ctxt->ch;
 	}
 
 	ch->name = name;
@@ -318,17 +323,18 @@ EXPORT_SYMBOL(usb_diag_open);
  */
 void usb_diag_close(struct usb_diag_ch *ch)
 {
-	struct diag_context *dev = container_of(ch, struct diag_context, ch);
+	struct diag_context *dev = NULL;
 	unsigned long flags;
 
 	spin_lock_irqsave(&ch_lock, flags);
 	ch->priv = NULL;
 	ch->notify = NULL;
 	/* Free-up the resources if channel is no more active */
-	if (!ch->priv_usb) {
-		list_del(&ch->list);
-		kfree(dev);
-	}
+	list_del(&ch->list);
+	list_for_each_entry(dev, &diag_dev_list, list_item)
+		if (dev->ch == ch)
+			dev->ch = NULL;
+	kfree(ch);
 
 	spin_unlock_irqrestore(&ch_lock, flags);
 }
@@ -555,15 +561,16 @@ static void diag_function_disable(struct usb_function *f)
 	dev->configured = 0;
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	if (dev->ch.notify)
-		dev->ch.notify(dev->ch.priv, USB_DIAG_DISCONNECT, NULL);
+	if (dev->ch && dev->ch->notify)
+		dev->ch->notify(dev->ch->priv, USB_DIAG_DISCONNECT, NULL);
 
 	usb_ep_disable(dev->in);
 	dev->in->driver_data = NULL;
 
 	usb_ep_disable(dev->out);
 	dev->out->driver_data = NULL;
-
+	if (dev->ch)
+		dev->ch->priv_usb = NULL;
 }
 
 static int diag_function_set_alt(struct usb_function *f,
@@ -580,6 +587,15 @@ static int diag_function_set_alt(struct usb_function *f,
 		dev->out->desc = NULL;
 		return -EINVAL;
 	}
+
+	if (!dev->ch)
+		return -ENODEV;
+
+	/*
+	 * Indicate to the diag channel that the active diag device is dev.
+	 * Since a few diag devices can point to the same channel.
+	 */
+	dev->ch->priv_usb = dev;
 
 	dev->in->driver_data = dev;
 	rc = usb_ep_enable(dev->in);
@@ -620,7 +636,16 @@ static void diag_function_unbind(struct usb_configuration *c,
 		usb_free_descriptors(f->hs_descriptors);
 
 	usb_free_descriptors(f->descriptors);
-	ctxt->ch.priv_usb = NULL;
+
+	/*
+	 * Channel priv_usb may point to other diag function.
+	 * Clear the priv_usb only if the channel is used by the
+	 * diag dev we unbind here.
+	 */
+	if (ctxt->ch && ctxt->ch->priv_usb == ctxt)
+		ctxt->ch->priv_usb = NULL;
+	list_del(&ctxt->list_item);
+	kfree(ctxt);
 }
 
 static int diag_function_bind(struct usb_configuration *c,
@@ -710,9 +735,19 @@ int diag_function_add(struct usb_configuration *c, const char *name,
 		return -ENODEV;
 	}
 
-	dev = container_of(_ch, struct diag_context, ch);
-	/* claim the channel for this USB interface */
-	_ch->priv_usb = dev;
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	list_add_tail(&dev->list_item, &diag_dev_list);
+
+	/*
+	 * A few diag devices can point to the same channel, in case that
+	 * the diag devices belong to different configurations, however
+	 * only the active diag device will claim the channel by setting
+	 * the ch->priv_usb (see diag_function_set_alt).
+	 */
+	dev->ch = _ch;
 
 	dev->update_pid_and_serial_num = update_pid;
 	dev->cdev = c->cdev;
@@ -731,12 +766,12 @@ int diag_function_add(struct usb_configuration *c, const char *name,
 	ret = usb_add_function(c, &dev->function);
 	if (ret) {
 		INFO(c->cdev, "usb_add_function failed\n");
-		_ch->priv_usb = NULL;
+		list_del(&dev->list_item);
+		kfree(dev);
 	}
 
 	return ret;
 }
-
 
 #if defined(CONFIG_DEBUG_FS)
 static char debug_buffer[PAGE_SIZE];
@@ -815,7 +850,6 @@ static void fdiag_debugfs_init(void)
 
 static void diag_cleanup(void)
 {
-	struct diag_context *dev;
 	struct list_head *act, *tmp;
 	struct usb_diag_ch *_ch;
 	unsigned long flags;
@@ -824,13 +858,12 @@ static void diag_cleanup(void)
 
 	list_for_each_safe(act, tmp, &usb_diag_ch_list) {
 		_ch = list_entry(act, struct usb_diag_ch, list);
-		dev = container_of(_ch, struct diag_context, ch);
 
 		spin_lock_irqsave(&ch_lock, flags);
 		/* Free if diagchar is not using the channel anymore */
 		if (!_ch->priv) {
 			list_del(&_ch->list);
-			kfree(dev);
+			kfree(_ch);
 		}
 		spin_unlock_irqrestore(&ch_lock, flags);
 	}
@@ -838,6 +871,8 @@ static void diag_cleanup(void)
 
 static int diag_setup(void)
 {
+	INIT_LIST_HEAD(&diag_dev_list);
+
 	fdiag_debugfs_init();
 
 	return 0;
