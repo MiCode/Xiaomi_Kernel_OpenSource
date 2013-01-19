@@ -195,6 +195,12 @@
 	};
 };
 
+&slim_msm {
+	taiko_codec {
+		qcom,cdc-micbias2-ext-cap;
+	};
+};
+
 &spmi_bus {
 	qcom,pm8941@1 {
 		qcom,leds@d800 {
