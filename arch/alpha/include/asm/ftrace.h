@@ -16,7 +16,7 @@
 #ifndef __ASM_ARCH_MSM_GPIO_H
 #define __ASM_ARCH_MSM_GPIO_H
 
-#define ARCH_NR_GPIOS 512
+#define ARCH_NR_GPIOS 1024
 
 #include <linux/interrupt.h>
 #include <asm-generic/gpio.h>
