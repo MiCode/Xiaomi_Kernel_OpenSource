@@ -62,6 +62,7 @@ struct kgsl_clk_stats {
  * @clk_stats - structure of clock statistics
  * @pm_qos_req_dma - the power management quality of service structure
  * @pm_qos_latency - allowed CPU latency in microseconds
+ * @step_mul - multiplier for moving between power levels
  */
 
 struct kgsl_pwrctrl {
@@ -89,6 +90,7 @@ struct kgsl_pwrctrl {
 	struct kgsl_clk_stats clk_stats;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_latency;
+	unsigned int step_mul;
 };
 
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);

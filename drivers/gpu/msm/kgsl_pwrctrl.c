@@ -357,13 +357,13 @@ static int kgsl_pwrctrl_num_pwrlevels_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", pwr->num_pwrlevels - 1);
 }
 
-/* Given a GPU clock value, return the nearest powerlevel */
+/* Given a GPU clock value, return the lowest matching powerlevel */
 
 static int _get_nearest_pwrlevel(struct kgsl_pwrctrl *pwr, unsigned int clock)
 {
 	int i;
 
-	for (i = 0; i < pwr->num_pwrlevels - 1; i++) {
+	for (i = pwr->num_pwrlevels - 1; i >= 0; i--) {
 		if (abs(pwr->pwrlevels[i].gpu_freq - clock) < 5000000)
 			return i;
 	}
@@ -999,6 +999,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 			goto done;
 		}
 	}
+
+	/* Set the power level step multiplier with 1 as the default */
+	pwr->step_mul = pdata->step_mul ? pdata->step_mul : 1;
 
 	/* Set the CPU latency to 501usec to allow low latency PC modes */
 	pwr->pm_qos_latency = 501;

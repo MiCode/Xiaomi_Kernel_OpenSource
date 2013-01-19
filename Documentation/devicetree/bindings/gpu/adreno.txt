@@ -62,6 +62,7 @@ DCVS Core info
 Optional Properties:
 - qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
 			   and when coming back out of resume
+- qcom,step-pwrlevel:	   How many qcom,gpu-pwrlevel should be decremented at once
 - qcom,idle-timeout:	   This property represents the time in microseconds for idle timeout.
 - qcom,nap-allowed:	   Boolean. <0> or <1> to disable/enable nap.
 - qcom,chipid:		   If it exists this property is used to replace
