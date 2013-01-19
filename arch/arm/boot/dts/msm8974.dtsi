@@ -1102,6 +1102,7 @@
 		qcom,usb-bam-num-pipes = <16>;
 		qcom,usb-base-address = <0xf9200000>;
 		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
 
 		qcom,pipe1 {
 			label = "usb-to-peri-qdss-dwc3";
