@@ -474,6 +474,7 @@ enum usb_bam {
  * @active_conn_num: number of active pipe connections.
  * @usb_base_address: BAM physical address.
  * @ignore_core_reset_ack: BAM can ignore ACK from USB core during PIPE RESET
+ * @disable_clk_gating: Disable clock gating
  */
 struct msm_usb_bam_platform_data {
 	struct usb_bam_pipe_connect *connections;
@@ -483,6 +484,7 @@ struct msm_usb_bam_platform_data {
 	u32 usb_base_address;
 	bool ignore_core_reset_ack;
 	bool reset_on_connect[MAX_BAMS];
+	bool disable_clk_gating;
 };
 
 /**
