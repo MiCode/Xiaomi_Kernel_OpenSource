@@ -68,7 +68,7 @@ void __cpuinit msm_secondary_init(unsigned int cpu)
 	spin_unlock(&boot_lock);
 }
 
-static int __cpuinit release_secondary_sim(unsigned long base, int cpu)
+static int __cpuinit release_secondary_sim(unsigned long base, unsigned int cpu)
 {
 	void *base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
 	if (!base_ptr)
@@ -98,7 +98,8 @@ static int __cpuinit scorpion_release_secondary(void)
 	return 0;
 }
 
-static int __cpuinit msm8960_release_secondary(unsigned long base, int cpu)
+static int __cpuinit msm8960_release_secondary(unsigned long base,
+						unsigned int cpu)
 {
 	void *base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
 	if (!base_ptr)
@@ -129,7 +130,8 @@ static int __cpuinit msm8960_release_secondary(unsigned long base, int cpu)
 	return 0;
 }
 
-static int __cpuinit msm8974_release_secondary(unsigned long base, int cpu)
+static int __cpuinit msm8974_release_secondary(unsigned long base,
+						unsigned int cpu)
 {
 	void *base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
 	if (!base_ptr)
