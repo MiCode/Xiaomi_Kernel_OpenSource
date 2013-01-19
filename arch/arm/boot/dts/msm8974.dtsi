@@ -1186,6 +1186,20 @@
                 qcom,memblock-remove = <0x7f00000 0x8000000>; /* Address and Size of Hole */
         };
 
+	uart7: uart@f995d000 { /*BLSP #2, UART #7 */
+		cell-index = <0>;
+		compatible = "qcom,msm-hsuart-v14";
+		status = "disabled";
+		reg = <0xf995d000 0x1000>,
+			<0xf9944000 0x5000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupts = <0 113 0>, <0 239 0>;
+		interrupt-names = "core_irq", "bam_irq";
+
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
+	};
+
 	qcom,smem@fa00000 {
 		compatible = "qcom,smem";
 		reg = <0xfa00000 0x200000>,

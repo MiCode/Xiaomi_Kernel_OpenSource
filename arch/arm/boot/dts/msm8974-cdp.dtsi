@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,6 +263,10 @@
 	interrupt-names = "core_irq", "bam_irq", "status_irq";
 	cd-gpios = <&msmgpio 62 0x1>;
 	wp-gpios = <&pm8941_gpios 29 0x1>;
+};
+
+&uart7 {
+	status = "ok";
 };
 
 &usb3 {
