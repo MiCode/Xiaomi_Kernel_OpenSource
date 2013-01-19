@@ -3087,14 +3087,11 @@ static int is_valid_calib_addr(void *addr)
 	int ret = 0;
 	unsigned int ptr;
 
-	if (addr == NULL)
-		goto end;
-
 	ptr = (unsigned int) addr;
 
 	if (mdp_rev >= MDP_REV_30 && mdp_rev < MDP_REV_40) {
 		/* if request is outside the MDP reg-map or is not aligned 4 */
-		if (ptr > 0xF0600 || ptr % 0x4)
+		if (ptr == 0x0 || ptr > 0xF0600 || ptr % 0x4)
 			goto end;
 
 		if (ptr >= 0x90000 && ptr < 0x94000) {
@@ -3119,7 +3116,8 @@ static int is_valid_calib_addr(void *addr)
 			goto end;
 
 		if (ptr < 0x90000) {
-			if (ptr == 0x4 || ptr == 0x28200 || ptr == 0x28204)
+			if (ptr == 0x0 || ptr == 0x4 || ptr == 0x28200 ||
+								ptr == 0x28204)
 				ret = 1;
 		} else if (ptr < 0x95000) {
 			if (ptr == 0x90000 || ptr == 0x90070)
