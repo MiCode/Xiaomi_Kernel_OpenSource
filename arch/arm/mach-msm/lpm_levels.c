@@ -353,6 +353,9 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 
 	lpm_test_pdata.msm_lpm_test_levels = msm_lpm_levels;
 	lpm_test_pdata.msm_lpm_test_level_count = msm_lpm_level_count;
+	key = "qcom,use-qtimer";
+	lpm_test_pdata.use_qtimer =
+			of_property_read_bool(pdev->dev.of_node, key);
 
 	for_each_possible_cpu(m_cpu)
 		per_cpu(lpm_permitted_level, m_cpu) =
