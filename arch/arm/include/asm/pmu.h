@@ -16,6 +16,16 @@
 #include <linux/perf_event.h>
 
 /*
+ * Types of PMUs that can be accessed directly and require mutual
+ * exclusion between profiling tools.
+ */
+enum arm_pmu_type {
+	ARM_PMU_DEVICE_CPU	= 0,
+	ARM_PMU_DEVICE_L2	= 1,
+	ARM_NUM_PMU_DEVICES,
+};
+
+/*
  * struct arm_pmu_platdata - ARM PMU platform data
  *
  * @handle_irq: an optional handler which will be called from the
