@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -152,7 +152,7 @@ struct l2_level {
 struct acpu_level {
 	const int use_for_scaling;
 	const struct core_speed speed;
-	const unsigned int l2_level;
+	unsigned int l2_level;
 	int vdd_core;
 	int ua_core;
 	unsigned int avsdscr_setting;
