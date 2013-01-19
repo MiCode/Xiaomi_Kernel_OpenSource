@@ -945,21 +945,6 @@ config ARCH_HAS_BARRIERS
 	  This option allows the use of custom mandatory barriers
 	  included via the mach/barriers.h file.
 
-config VCM_MM
-	bool
-
-config VCM
-	bool "Virtual Contiguous Memory (VCM) Layer"
-	depends on MMU
-	select GENERIC_ALLOCATOR
-	select VCM_MM
-	default n
-	help
-	  Virtual Contiguous Memory layer. This is the layer that is intended to
-	  replace PMEM.
-
-	  If you don't know what this is, say N here.
-
 config STRICT_MEMORY_RWX
 	bool "restrict kernel memory permissions as much as possible"
 	default n
