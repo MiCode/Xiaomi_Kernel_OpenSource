@@ -25,6 +25,7 @@
 #include <linux/scatterlist.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/kmemleak.h>
 
 #include <asm/sizes.h>
 
@@ -119,6 +120,8 @@ static int msm_iommu_sec_ptbl_init(void)
 		pr_err("scm call IOMMU_SECURE_PTBL_INIT extended ret fail\n");
 		goto fail_mem;
 	}
+
+	kmemleak_not_leak(buf);
 
 	return 0;
 
