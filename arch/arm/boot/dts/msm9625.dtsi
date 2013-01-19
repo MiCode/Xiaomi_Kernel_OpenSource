@@ -111,6 +111,7 @@
 		qcom,usb-total-bam-num = <3>;
 		qcom,usb-bam-num-pipes = <16>;
 		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
 
 		qcom,pipe0 {
 			label = "usb-to-ipa";
