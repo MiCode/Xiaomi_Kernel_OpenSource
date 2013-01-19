@@ -170,6 +170,41 @@ static int __cpuinit msm8974_release_secondary(unsigned long base,
 	return 0;
 }
 
+static int __cpuinit arm_release_secondary(unsigned long base, unsigned int cpu)
+{
+	void *base_ptr = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
+	if (!base_ptr)
+		return -ENODEV;
+
+	writel_relaxed(0x00000033, base_ptr+0x04);
+	mb();
+
+	writel_relaxed(0x10000001, base_ptr+0x14);
+	mb();
+	udelay(2);
+
+	writel_relaxed(0x00000031, base_ptr+0x04);
+	mb();
+
+	writel_relaxed(0x00000039, base_ptr+0x04);
+	mb();
+	udelay(2);
+
+	writel_relaxed(0x00020038, base_ptr+0x04);
+	mb();
+	udelay(2);
+
+
+	writel_relaxed(0x00020008, base_ptr+0x04);
+	mb();
+
+	writel_relaxed(0x00020088, base_ptr+0x04);
+	mb();
+
+	iounmap(base_ptr);
+	return 0;
+}
+
 static int __cpuinit release_from_pen(unsigned int cpu)
 {
 	unsigned long timeout;
@@ -265,6 +300,8 @@ int __cpuinit arm_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	if (per_cpu(cold_boot_done, cpu) == false) {
 		if (machine_is_msm8226_sim() || machine_is_msm8610_sim())
 			release_secondary_sim(0xf9088000, cpu);
+		else if (!machine_is_msm8610_rumi())
+			arm_release_secondary(0xf9088000, cpu);
 
 		per_cpu(cold_boot_done, cpu) = true;
 	}
