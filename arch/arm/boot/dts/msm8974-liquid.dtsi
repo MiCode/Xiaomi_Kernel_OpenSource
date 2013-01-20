@@ -247,7 +247,7 @@
 
 		qcom,ext-spk-amp-supply = <&ext_5v>;
 		qcom,ext-spk-amp-gpio = <&pm8841_mpps 1 0>;
-
+		qcom,dock-plug-det-irq = <&pm8841_mpps 2 0>;
 		qcom,hdmi-audio-rx;
 	};
 
@@ -544,6 +544,11 @@
 	};
 
 	mpp@a100 { /* MPP 2 */
+		/* DOCK_PLUG_DET speakers+docking detect irq*/
+		qcom,mode = <0>; /* DIG_IN */
+		qcom,vin-sel = <2>; /* S3A 1.8v */
+		qcom,src-sel = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
 	};
 
 	mpp@a200 { /* HDMI_MUX_SEL MPP 3*/
