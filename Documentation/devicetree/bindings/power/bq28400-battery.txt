@@ -4,15 +4,20 @@ The bq28400 monitors the battery temperature, capacity, voltage, current etc.
 The device interface is I2C, its I2C slave 7-bit address is 0xb.
 The device is usually embedded inside the "smart battery" pack.
 
-node required properties:
-- compatible:	Must be "ti,bq28400-battery" or "ti,bq30z55-battery"
-- reg:		I2C Address must be 0xb.
+Required properties:
+
+ - compatible : Must be "ti,bq28400-battery" or "ti,bq30z55-battery"
+ - reg : I2C Address must be 0xb.
+ - ti,temp-cold : Cold temperature limit in celsius degree
+ - ti,temp-hot : Hot temperature limit in celsius degree
 
 Example:
 	i2c@f9967000 {
 		battery@b {
 			compatible = "ti,bq28400-battery", "ti,bq30z55-battery";
 			reg = <0xb>;
+			ti,temp-cold = <2>;
+			ti,temp-hot = <43>;
 		};
 	};
 

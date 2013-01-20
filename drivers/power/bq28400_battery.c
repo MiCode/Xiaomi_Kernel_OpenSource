@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -136,6 +136,8 @@ struct bq28400_device {
 	struct power_supply	batt_psy;
 	struct power_supply	*dc_psy;
 	bool			is_charging_enabled;
+	u32			temp_cold;	/* in degree celsius */
+	u32			temp_hot;	/* in degree celsius */
 };
 
 static struct bq28400_device *bq28400_dev;
@@ -486,10 +488,14 @@ static int bq28400_get_prop_status(struct i2c_client *client)
 	int rsoc;
 	s16 current_ma = 0;
 	u16 battery_status;
+	int temperature;
+	struct bq28400_device *dev = i2c_get_clientdata(client);
 
 	battery_status = bq28400_read_reg(client, SBS_BATTERY_STATUS);
 	rsoc = bq28400_read_rsoc(client);
 	current_ma = bq28400_read_current(client);
+	temperature = bq28400_read_temperature(client);
+	temperature = temperature / 10; /* in degree celsius */
 
 	if (battery_status & BAT_STATUS_EMPTY)
 		pr_debug("Battery report Empty.\n");
@@ -513,8 +519,11 @@ static int bq28400_get_prop_status(struct i2c_client *client)
 		return POWER_SUPPLY_STATUS_FULL;
 	}
 
-	/* Enable charging when battery is not full */
-	bq28400_enable_charging(bq28400_dev, true);
+	/* Enable charging when battery is not full and temperature is ok */
+	if ((temperature > dev->temp_cold) && (temperature < dev->temp_hot))
+		bq28400_enable_charging(bq28400_dev, true);
+	else
+		bq28400_enable_charging(bq28400_dev, false);
 
 	/*
 	* Positive current indicates charging
@@ -825,6 +834,12 @@ static int __devinit bq28400_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
 	int ret = 0;
+	struct device_node *dev_node = client->dev.of_node;
+
+	if (dev_node == NULL) {
+		pr_err("Device Tree node doesn't exist.\n");
+		return -ENODEV;
+	}
 
 	if (!i2c_check_functionality(client->adapter,
 				I2C_FUNC_SMBUS_BYTE_DATA)) {
@@ -842,6 +857,23 @@ static int __devinit bq28400_probe(struct i2c_client *client,
 		pr_err(" alloc fail.\n");
 		return -ENOMEM;
 	}
+
+	/* Note: Lithium-ion battery normal temperature range 0..40 C */
+	ret = of_property_read_u32(dev_node, "ti,temp-cold",
+				   &(bq28400_dev->temp_cold));
+	if (ret) {
+		pr_err("Unable to read cold temperature. ret=%d.\n", ret);
+		goto err_dev_node;
+	}
+	pr_debug("cold temperature limit = %d C.\n", bq28400_dev->temp_cold);
+
+	ret = of_property_read_u32(dev_node, "ti,temp-hot",
+				   &(bq28400_dev->temp_hot));
+	if (ret) {
+		pr_err("Unable to read hot temperature. ret=%d.\n", ret);
+		goto err_dev_node;
+	}
+	pr_debug("hot temperature limit = %d C.\n", bq28400_dev->temp_hot);
 
 	bq28400_dev->client = client;
 	i2c_set_clientdata(client, bq28400_dev);
@@ -864,7 +896,7 @@ static int __devinit bq28400_probe(struct i2c_client *client,
 	schedule_delayed_work(&bq28400_dev->periodic_user_space_update_work,
 			      msecs_to_jiffies(1000));
 
-	pr_info("Device is ready.\n");
+	pr_debug("Device is ready.\n");
 
 	return 0;
 
@@ -873,6 +905,7 @@ err_debugfs:
 		debugfs_remove_recursive(bq28400_dev->dent);
 	power_supply_unregister(&bq28400_dev->batt_psy);
 err_register_psy:
+err_dev_node:
 	kfree(bq28400_dev);
 	bq28400_dev = NULL;
 
