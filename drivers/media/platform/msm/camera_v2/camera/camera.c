@@ -93,7 +93,7 @@ static int camera_v4l2_s_crop(struct file *filep, void *fh,
 	int rc = 0;
 	struct v4l2_event event;
 
-	if (crop->type == V4L2_BUF_TYPE_PRIVATE) {
+	if (crop->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 			MSM_CAMERA_PRIV_S_CROP, &event);
@@ -254,7 +254,7 @@ static int camera_v4l2_streamoff(struct file *filep, void *fh,
 	return rc;
 }
 
-static int camera_v4l2_g_fmt_cap_private(struct file *filep, void *fh,
+static int camera_v4l2_g_fmt_vid_cap_mplane(struct file *filep, void *fh,
 	struct v4l2_format *pfmt)
 {
 	int rc = -EINVAL;
@@ -275,7 +275,7 @@ static int camera_v4l2_g_fmt_cap_private(struct file *filep, void *fh,
 	return rc;
 }
 
-static int camera_v4l2_s_fmt_cap_private(struct file *filep, void *fh,
+static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 	struct v4l2_format *pfmt)
 {
 	int rc = 0;
@@ -284,7 +284,7 @@ static int camera_v4l2_s_fmt_cap_private(struct file *filep, void *fh,
 	struct camera_v4l2_private *sp = fh_to_private(fh);
 	struct msm_v4l2_format_data *user_fmt;
 
-	if (pfmt->type == V4L2_BUF_TYPE_PRIVATE) {
+	if (pfmt->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 
 		if (WARN_ON(!sp->vb2_q.drv_priv))
 			return -ENOMEM;
@@ -318,17 +318,12 @@ set_fmt_fail:
 	return rc;
 }
 
-static int camera_v4l2_try_fmt_cap_private(struct file *filep, void *fh,
+static int camera_v4l2_try_fmt_vid_cap_mplane(struct file *filep, void *fh,
 	struct v4l2_format *pfmt)
 {
 	return 0;
 }
 
-int camera_v4l2_g_fmt_vid_cap_mplane(struct file *file, void *fh,
-	struct v4l2_format *f)
-{
-	return 0;
-}
 
 static int camera_v4l2_g_parm(struct file *filep, void *fh,
 	struct v4l2_streamparm *a)
@@ -408,10 +403,9 @@ static const struct v4l2_ioctl_ops camera_v4l2_ioctl_ops = {
 	.vidioc_dqbuf = camera_v4l2_dqbuf,
 	.vidioc_streamon =  camera_v4l2_streamon,
 	.vidioc_streamoff = camera_v4l2_streamoff,
-	.vidioc_g_fmt_type_private = camera_v4l2_g_fmt_cap_private,
-	.vidioc_s_fmt_type_private = camera_v4l2_s_fmt_cap_private,
-	.vidioc_try_fmt_type_private = camera_v4l2_try_fmt_cap_private,
 	.vidioc_g_fmt_vid_cap_mplane = camera_v4l2_g_fmt_vid_cap_mplane,
+	.vidioc_s_fmt_vid_cap_mplane = camera_v4l2_s_fmt_vid_cap_mplane,
+	.vidioc_try_fmt_vid_cap_mplane = camera_v4l2_try_fmt_vid_cap_mplane,
 
 	/* Stream type-dependent parameter ioctls */
 	.vidioc_g_parm = camera_v4l2_g_parm,
