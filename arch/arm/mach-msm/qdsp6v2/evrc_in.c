@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/msm_audio_qcp.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <asm/ioctls.h>
 #include "audio_utils.h"
 
@@ -64,8 +64,8 @@ static long evrc_in_ioctl(struct file *file,
 			enc_cfg->max_bit_rate, 0);
 
 		if (rc < 0) {
-			pr_err("%s:session id %d: cmd evrc media format block"
-				"failed\n", __func__, audio->ac->session);
+			pr_err("%s:session id %d: cmd evrc media format block failed\n",
+					__func__, audio->ac->session);
 			break;
 		}
 		if (audio->feedback == NON_TUNNEL_MODE) {
@@ -74,8 +74,8 @@ static long evrc_in_ioctl(struct file *file,
 				audio->pcm_cfg.channel_count);
 
 			if (rc < 0) {
-				pr_err("%s:session id %d: media format block"
-				"failed\n", __func__, audio->ac->session);
+				pr_err("%s:session id %d: media format block failed\n",
+					__func__, audio->ac->session);
 				break;
 			}
 		}
@@ -86,8 +86,8 @@ static long evrc_in_ioctl(struct file *file,
 			audio->enabled = 1;
 		} else {
 			audio->enabled = 0;
-			pr_err("%s:session id %d: Audio Start procedure failed"
-				"rc=%d\n", __func__, audio->ac->session, rc);
+			pr_err("%s:session id %d: Audio Start procedure failed rc=%d\n",
+					__func__, audio->ac->session, rc);
 			break;
 		}
 		while (cnt++ < audio->str_cfg.buffer_count)
@@ -102,8 +102,8 @@ static long evrc_in_ioctl(struct file *file,
 				audio->ac->session);
 		rc = audio_in_disable(audio);
 		if (rc  < 0) {
-			pr_err("%s:session id %d: Audio Stop procedure failed"
-				"rc=%d\n", __func__, audio->ac->session, rc);
+			pr_err("%s:session id %d: Audio Stop procedure failed rc=%d\n",
+				__func__, audio->ac->session, rc);
 			break;
 		}
 		break;
@@ -143,8 +143,8 @@ static long evrc_in_ioctl(struct file *file,
 		}
 		enc_cfg->min_bit_rate = cfg.min_bit_rate;
 		enc_cfg->max_bit_rate = cfg.max_bit_rate;
-		pr_debug("%s:session id %d: min_bit_rate= 0x%x"
-			"max_bit_rate=0x%x\n", __func__,
+		pr_debug("%s:session id %d: min_bit_rate= 0x%x max_bit_rate=0x%x\n",
+			__func__,
 			audio->ac->session, enc_cfg->min_bit_rate,
 			enc_cfg->max_bit_rate);
 		break;
@@ -164,16 +164,16 @@ static int evrc_in_open(struct inode *inode, struct file *file)
 	audio = kzalloc(sizeof(struct q6audio_in), GFP_KERNEL);
 
 	if (audio == NULL) {
-		pr_err("%s: Could not allocate memory for evrc"
-				"driver\n", __func__);
+		pr_err("%s: Could not allocate memory for evrc driver\n",
+				__func__);
 		return -ENOMEM;
 	}
 	/* Allocate memory for encoder config param */
 	audio->enc_cfg = kzalloc(sizeof(struct msm_audio_evrc_enc_config),
 				GFP_KERNEL);
 	if (audio->enc_cfg == NULL) {
-		pr_err("%s:session id %d: Could not allocate memory for aac"
-				"config param\n", __func__, audio->ac->session);
+		pr_err("%s:session id %d: Could not allocate memory for aac config param\n",
+				__func__, audio->ac->session);
 		kfree(audio);
 		return -ENOMEM;
 	}
@@ -200,13 +200,14 @@ static int evrc_in_open(struct inode *inode, struct file *file)
 	audio->pcm_cfg.sample_rate = 8000;
 	audio->buf_cfg.meta_info_enable = 0x01;
 	audio->buf_cfg.frames_per_buf = 0x01;
+	audio->event_abort = 0;
 
 	audio->ac = q6asm_audio_client_alloc((app_cb)q6asm_in_cb,
 				(void *)audio);
 
 	if (!audio->ac) {
-		pr_err("%s: Could not allocate memory for audio"
-				"client\n", __func__);
+		pr_err("%s: Could not allocate memory for audio client\n",
+				__func__);
 		kfree(audio->enc_cfg);
 		kfree(audio);
 		return -ENOMEM;
@@ -239,8 +240,8 @@ static int evrc_in_open(struct inode *inode, struct file *file)
 		/* register for tx overflow (valid for tunnel mode only) */
 		rc = q6asm_reg_tx_overflow(audio->ac, 0x01);
 		if (rc < 0) {
-			pr_err("%s:session id %d: TX Overflow registration"
-				"failed rc=%d\n", __func__,
+			pr_err("%s:session id %d: TX Overflow registration failed rc=%d\n",
+				__func__,
 				audio->ac->session, rc);
 			rc = -ENODEV;
 			goto fail;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,13 +30,13 @@
 struct timestamp {
 	unsigned long lowpart;
 	unsigned long highpart;
-} __attribute__ ((packed));
+} __packed;
 
 struct meta_in {
 	unsigned short offset;
 	struct timestamp ntimestamp;
 	unsigned int nflags;
-} __attribute__ ((packed));
+} __packed;
 
 struct meta_out_dsp {
 	u32 offset_to_frame;
@@ -45,12 +45,12 @@ struct meta_out_dsp {
 	u32 msw_ts;
 	u32 lsw_ts;
 	u32 nflags;
-} __attribute__ ((packed));
+} __packed;
 
 struct meta_out {
 	unsigned char num_of_frames;
 	struct meta_out_dsp meta_out_dsp[];
-} __attribute__ ((packed));
+} __packed;
 
 struct q6audio_in {
 	spinlock_t			dsp_lock;
@@ -80,6 +80,7 @@ struct q6audio_in {
 	int				opened;
 	int				enabled;
 	int				stopped;
+	int				event_abort;
 	int				feedback; /* Flag indicates whether used
 							in Non Tunnel mode */
 	int				rflush;
