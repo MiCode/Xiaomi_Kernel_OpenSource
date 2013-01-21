@@ -1887,7 +1887,7 @@ static struct mdm_vddmin_resource mdm_vddmin_rscs = {
 
 static struct gpiomux_setting mdm2ap_status_gpio_run_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_8MA,
+	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
