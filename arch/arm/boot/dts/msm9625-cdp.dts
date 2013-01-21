@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-/include/ "msm9625.dtsi"
+/include/ "msm9625-v1.dtsi"
 
 / {
 	model = "Qualcomm MSM 9625 CDP";

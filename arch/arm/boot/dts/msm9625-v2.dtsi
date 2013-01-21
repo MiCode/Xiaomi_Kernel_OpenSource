@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,17 +10,10 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm9625.dtsi file.
+ */
 
-/include/ "msm9625-v1.dtsi"
-
-/ {
-	model = "Qualcomm MSM 9625V1 RUMI";
-	compatible = "qcom,msm9625-rumi", "qcom,msm9625";
-	qcom,msm-id = <134 15 0>;
-
-	chosen{
-		bootargs = "root=/dev/ram rw init=/init console=ttyHSL0,115200n8 initrd=0x00000000,0x00000000 mem=29M@0x00200000 mem=10M@0x07600000";
-
-	};
-};
+/include/ "msm9625.dtsi"
