@@ -1228,6 +1228,8 @@ void ehci_init_driver(struct hc_driver *drv,
 			drv->bus_suspend = over->bus_suspend;
 		if (over->bus_resume)
 			drv->bus_resume = over->bus_resume;
+		if (over->start)
+			drv->start = over->start;
 		if (over->log_urb_complete)
 			drv->log_urb_complete = over->log_urb_complete;
 	}

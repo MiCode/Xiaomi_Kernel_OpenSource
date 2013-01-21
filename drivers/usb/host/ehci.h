@@ -803,6 +803,7 @@ struct ehci_driver_overrides {
 				struct urb *urb, gfp_t mem_flags);
 	int	(*bus_suspend)(struct usb_hcd *);
 	int	(*bus_resume)(struct usb_hcd *);
+	int	(*start) (struct usb_hcd *hcd);
 	.log_urb_complete	= dbg_log_event,
 };
 
