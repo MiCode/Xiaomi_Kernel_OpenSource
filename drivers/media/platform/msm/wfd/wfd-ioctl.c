@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +52,7 @@ struct wfd_device {
 	struct v4l2_subdev enc_sdev;
 	struct v4l2_subdev vsg_sdev;
 	struct ion_client *ion_client;
-	bool secure_device;
+	bool secure;
 	bool in_use;
 	bool mdp_iommu_split_domain;
 };
@@ -154,16 +154,16 @@ static int wfd_allocate_ion_buffer(struct ion_client *client,
 {
 	struct ion_handle *handle = NULL;
 	void *kvaddr = NULL;
-	unsigned int alloc_regions = 0;
-	unsigned int ion_flags = 0;
+	unsigned int alloc_regions = 0, ion_flags = 0, align = 0;
 	int rc = 0;
 
 	alloc_regions = ION_HEAP(ION_CP_MM_HEAP_ID);
 	alloc_regions |= secure ? 0 :
 				ION_HEAP(ION_IOMMU_HEAP_ID);
 	ion_flags |= secure ? ION_SECURE : 0;
-	handle = ion_alloc(client,
-			mregion->size, SZ_4K, alloc_regions, ion_flags);
+	align = secure ? SZ_1M : SZ_4K;
+	handle = ion_alloc(client, mregion->size, align,
+			alloc_regions, ion_flags);
 
 	if (IS_ERR_OR_NULL(handle)) {
 		WFD_MSG_ERR("Failed to allocate input buffer\n");
@@ -171,12 +171,16 @@ static int wfd_allocate_ion_buffer(struct ion_client *client,
 		goto alloc_fail;
 	}
 
-	kvaddr = ion_map_kernel(client, handle);
+	if (!secure) {
+		kvaddr = ion_map_kernel(client, handle);
 
-	if (IS_ERR_OR_NULL(kvaddr)) {
-		WFD_MSG_ERR("Failed to get virtual addr\n");
-		rc = PTR_ERR(kvaddr);
-		goto alloc_fail;
+		if (IS_ERR_OR_NULL(kvaddr)) {
+			WFD_MSG_ERR("Failed to get virtual addr\n");
+			rc = PTR_ERR(kvaddr);
+			goto alloc_fail;
+		}
+	} else {
+		kvaddr = NULL;
 	}
 
 	mregion->kvaddr = kvaddr;
@@ -206,7 +210,8 @@ static int wfd_free_ion_buffer(struct ion_client *client,
 				"Invalid client or region");
 		return -EINVAL;
 	}
-	ion_unmap_kernel(client, mregion->ion_handle);
+	if (mregion->kvaddr)
+		ion_unmap_kernel(client, mregion->ion_handle);
 	ion_free(client, mregion->ion_handle);
 	return 0;
 }
@@ -256,7 +261,7 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		enc_mregion->size = ALIGN(inst->input_buf_size, SZ_4K);
 
 		rc = wfd_allocate_ion_buffer(wfd_dev->ion_client,
-				wfd_dev->secure_device, enc_mregion);
+				wfd_dev->secure, enc_mregion);
 		if (rc) {
 			WFD_MSG_ERR("Failed to allocate input memory\n");
 			goto alloc_fail;
@@ -391,6 +396,7 @@ void wfd_free_input_buffers(struct wfd_device *wfd_dev,
 				&inst->input_mem_list) {
 			mpair = list_entry(ptr, struct mem_region_pair,
 						list);
+
 			rc = v4l2_subdev_call(&wfd_dev->enc_sdev,
 					core, ioctl, FREE_INPUT_BUFFER,
 					(void *)mpair->enc);
@@ -1004,8 +1010,31 @@ static int wfdioc_s_ctrl(struct file *filp, void *fh,
 {
 	int rc = 0;
 	struct wfd_device *wfd_dev = video_drvdata(filp);
-	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core,
-			ioctl, SET_PROP, a);
+	struct wfd_inst *inst = filp->private_data;
+
+	switch (a->id) {
+	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
+		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core,
+				ioctl, ENC_SECURE, NULL);
+		if (rc) {
+			WFD_MSG_ERR("Couldn't secure encoder");
+			break;
+		}
+
+		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core,
+				ioctl, MDP_SECURE, (void *)inst->mdp_inst);
+		if (rc) {
+			WFD_MSG_ERR("Couldn't secure MDP");
+			break;
+		}
+
+		wfd_dev->secure = true;
+		break;
+	default:
+		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core,
+				ioctl, SET_PROP, a);
+	}
+
 	if (rc)
 		WFD_MSG_ERR("Failed to set encoder property\n");
 	return rc;
@@ -1355,7 +1384,7 @@ static int wfd_open(struct file *filp)
 
 	wfd_stats_init(&inst->stats, MINOR(filp->f_dentry->d_inode->i_rdev));
 
-	mdp_mops.secure = wfd_dev->secure_device;
+	mdp_mops.secure = wfd_dev->secure;
 	mdp_mops.iommu_split_domain = wfd_dev->mdp_iommu_split_domain;
 	rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl, MDP_OPEN,
 				(void *)&mdp_mops);
@@ -1373,7 +1402,7 @@ static int wfd_open(struct file *filp)
 	enc_mops.op_buffer_done = venc_op_buffer_done;
 	enc_mops.ip_buffer_done = venc_ip_buffer_done;
 	enc_mops.cbdata = filp;
-	enc_mops.secure = wfd_dev->secure_device;
+	enc_mops.secure = wfd_dev->secure;
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl, OPEN,
 				(void *)&enc_mops);
 	if (rc || !enc_mops.cookie) {
@@ -1421,22 +1450,21 @@ static int wfd_close(struct file *filp)
 	inst = filp->private_data;
 	if (inst) {
 		wfdioc_streamoff(filp, NULL, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+		vb2_queue_release(&inst->vid_bufq);
+		wfd_free_input_buffers(wfd_dev, inst);
+
 		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 				MDP_CLOSE, (void *)inst->mdp_inst);
 		if (rc)
 			WFD_MSG_ERR("Failed to CLOSE mdp subdevice: %d\n", rc);
 
-		vb2_queue_release(&inst->vid_bufq);
-		wfd_free_input_buffers(wfd_dev, inst);
 		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 				CLOSE, (void *)inst->venc_inst);
-
 		if (rc)
 			WFD_MSG_ERR("Failed to CLOSE enc subdev: %d\n", rc);
 
 		rc = v4l2_subdev_call(&wfd_dev->vsg_sdev, core, ioctl,
 				VSG_CLOSE, NULL);
-
 		if (rc)
 			WFD_MSG_ERR("Failed to CLOSE vsg subdev: %d\n", rc);
 
@@ -1604,7 +1632,7 @@ static int __devinit __wfd_probe(struct platform_device *pdev)
 
 		switch (WFD_DEVICE_NUMBER_BASE + c) {
 		case WFD_DEVICE_SECURE:
-			wfd_dev[c].secure_device = true;
+			wfd_dev[c].secure = true;
 			break;
 		default:
 			break;

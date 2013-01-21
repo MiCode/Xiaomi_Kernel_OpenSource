@@ -47,6 +47,10 @@ int mdp_open(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Invalid arguments\n");
 		rc = -EINVAL;
 		goto mdp_open_fail;
+	} else if (mops->secure) {
+		/* Deprecated API; use MDP_SECURE ioctl */
+		WFD_MSG_ERR("Deprecated API for securing subdevice\n");
+		return -ENOTSUPP;
 	}
 
 	fbi = msm_fb_get_writeback_fb();
@@ -120,6 +124,8 @@ int mdp_close(struct v4l2_subdev *sd, void *arg)
 	struct fb_info *fbi = NULL;
 	if (inst) {
 		fbi = (struct fb_info *)inst->mdp;
+		if (inst->secure)
+			msm_fb_writeback_set_secure(inst->mdp, false);
 		msm_fb_writeback_terminate(fbi);
 		kfree(inst);
 		/* Unregister wfd node from switch driver */
@@ -193,7 +199,7 @@ int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
 
 int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 {
-	int rc = 0;
+	int rc = 0, align = 0;
 	struct mem_region_map *mmap = arg;
 	struct mem_region *mregion;
 	bool domain = -1;
@@ -206,17 +212,39 @@ int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 
 	inst = mmap->cookie;
 	mregion = mmap->mregion;
-	if (mregion->size % SZ_4K != 0) {
-		WFD_MSG_ERR("Memregion not aligned to %d\n", SZ_4K);
+	align = inst->secure ? SZ_1M : SZ_4K;
+	if (mregion->size % align != 0) {
+		WFD_MSG_ERR("Memregion not aligned to %d\n", align);
 		return -EINVAL;
 	}
 
-	domain = msm_fb_get_iommu_domain(inst->mdp, MDP_IOMMU_DOMAIN_NS);
+	if (inst->secure) {
+		rc = msm_ion_secure_buffer(mmap->ion_client,
+			mregion->ion_handle, VIDEO_PIXEL, 0);
+		if (rc) {
+			WFD_MSG_ERR("Failed to secure input buffer\n");
+			goto secure_fail;
+		}
+	}
+
+	domain = msm_fb_get_iommu_domain(inst->mdp,
+			inst->secure ? MDP_IOMMU_DOMAIN_CP :
+					MDP_IOMMU_DOMAIN_NS);
+
 	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
-			domain, 0, SZ_4K, 0,
+			domain, 0, align, 0,
 			(unsigned long *)&mregion->paddr,
 			(unsigned long *)&mregion->size,
 			0, 0);
+	if (rc) {
+		WFD_MSG_ERR("Failed to map into %ssecure domain: %d\n",
+				!inst->secure ? "non" : "", rc);
+		goto iommu_fail;
+	}
+iommu_fail:
+	if (inst->secure)
+		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
+secure_fail:
 	return rc;
 }
 
@@ -235,11 +263,35 @@ int mdp_munmap(struct v4l2_subdev *sd, void *arg)
 	inst = mmap->cookie;
 	mregion = mmap->mregion;
 
-	domain = msm_fb_get_iommu_domain(inst->mdp, MDP_IOMMU_DOMAIN_NS);
+	domain = msm_fb_get_iommu_domain(inst->mdp,
+			inst->secure ? MDP_IOMMU_DOMAIN_CP :
+					MDP_IOMMU_DOMAIN_NS);
 	ion_unmap_iommu(mmap->ion_client,
 			mregion->ion_handle,
 			domain, 0);
+
+	if (inst->secure)
+		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
+
 	return 0;
+}
+
+int mdp_secure(struct v4l2_subdev *sd, void *arg)
+{
+	struct mdp_instance *inst = NULL;
+	int rc = 0;
+
+	if (!arg) {
+		WFD_MSG_ERR("Invalid argument\n");
+		return -EINVAL;
+	}
+
+	inst = arg;
+	rc = msm_fb_writeback_set_secure(inst->mdp, true);
+	if (!rc)
+		inst->secure = true;
+
+	return rc;
 }
 
 long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
@@ -276,6 +328,9 @@ long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case MDP_MUNMAP:
 		rc = mdp_munmap(sd, arg);
+		break;
+	case MDP_SECURE:
+		rc = mdp_secure(sd, arg);
 		break;
 	default:
 		WFD_MSG_ERR("IOCTL: %u not supported\n", cmd);

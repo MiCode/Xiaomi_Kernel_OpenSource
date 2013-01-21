@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -252,12 +252,23 @@ static long set_default_properties(struct venc_inst *inst)
 	return msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
 }
 
+static long get_iommu_domain(struct venc_inst *inst)
+{
+	struct msm_vidc_iommu_info maps[MAX_MAP];
+	int rc = msm_vidc_get_iommu_maps(inst->vidc_context, maps);
+	if (rc) {
+		WFD_MSG_ERR("Failed to retreive domain mappings\n");
+		return rc;
+	}
+
+	return maps[inst->secure ? CP_MAP : NS_MAP].domain;
+}
+
 static long venc_open(struct v4l2_subdev *sd, void *arg)
 {
 	struct venc_inst *inst = NULL;
 	struct venc_msg_ops *vmops = arg;
 	struct v4l2_event_subscription event = {0};
-	struct msm_vidc_iommu_info maps[MAX_MAP];
 	int rc = 0;
 
 	if (!vmops) {
@@ -305,14 +316,11 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 		goto vidc_subscribe_fail;
 	}
 
-	rc = msm_vidc_get_iommu_maps(inst->vidc_context, maps);
-	if (rc) {
-		WFD_MSG_ERR("Failed to retreive domain mappings\n");
-		rc = -ENODATA;
+	inst->domain = get_iommu_domain(inst);
+	if (inst->domain < 0) {
+		WFD_MSG_ERR("Failed to get domain\n");
 		goto vidc_subscribe_fail;
 	}
-
-	inst->domain = maps[inst->secure ? CP_MAP : NS_MAP].domain;
 
 	inst->callback_thread = kthread_run(venc_vidc_callback_thread, inst,
 					"venc_vidc_callback_thread");
@@ -477,7 +485,8 @@ static long venc_set_buffer_req(struct v4l2_subdev *sd, void *arg)
 	}
 
 	bufreq->count = v4l2_bufreq.count;
-	bufreq->size = v4l2_format.fmt.pix_mp.plane_fmt[0].sizeimage;
+	bufreq->size = ALIGN(v4l2_format.fmt.pix_mp.plane_fmt[0].sizeimage,
+			inst->secure ? SZ_1M : SZ_4K);
 
 	inst->free_input_indices.size_bits = bufreq->count;
 	inst->free_input_indices.size = roundup(bufreq->count,
@@ -632,8 +641,15 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 		struct mem_region *mregion)
 {
 	int rc = 0;
-	unsigned long flags = 0, size = 0;
+	unsigned long flags = 0, size = 0, align_req = 0;
 	if (!mregion) {
+		rc = -EINVAL;
+		goto venc_map_fail;
+	}
+
+	align_req = inst->secure ? SZ_1M : SZ_4K;
+	if (mregion->size % align_req != 0) {
+		WFD_MSG_ERR("Memregion not aligned to %ld\n", align_req);
 		rc = -EINVAL;
 		goto venc_map_fail;
 	}
@@ -653,20 +669,31 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 		goto venc_map_fail;
 	}
 
-	mregion->kvaddr = ion_map_kernel(venc_ion_client,
+	if (!inst->secure) {
+		mregion->kvaddr = ion_map_kernel(venc_ion_client,
 				mregion->ion_handle);
-
-	if (IS_ERR_OR_NULL(mregion->kvaddr)) {
-		WFD_MSG_ERR("Failed to map buffer into kernel\n");
-		rc = PTR_ERR(mregion->kvaddr);
+		if (IS_ERR_OR_NULL(mregion->kvaddr)) {
+			WFD_MSG_ERR("Failed to map buffer into kernel\n");
+			rc = PTR_ERR(mregion->kvaddr);
+			mregion->kvaddr = NULL;
+			goto venc_map_fail;
+		}
+	} else {
 		mregion->kvaddr = NULL;
-		goto venc_map_fail;
+	}
+
+	if (inst->secure) {
+		rc = msm_ion_secure_buffer(venc_ion_client,
+			mregion->ion_handle, VIDEO_BITSTREAM, 0);
+		if (rc) {
+			WFD_MSG_ERR("Failed to secure output buffer\n");
+			goto venc_map_iommu_map_fail;
+		}
 	}
 
 	rc = ion_map_iommu(venc_ion_client, mregion->ion_handle,
-			inst->domain, 0, SZ_4K, 0,
+			inst->domain, 0, align_req, 0,
 			(unsigned long *)&mregion->paddr, &size, flags, 0);
-
 	if (rc) {
 		WFD_MSG_ERR("Failed to map into iommu\n");
 		goto venc_map_iommu_map_fail;
@@ -679,8 +706,12 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 venc_map_iommu_size_fail:
 	ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
 			inst->domain, 0);
+
+	if (inst->secure)
+		msm_ion_unsecure_buffer(venc_ion_client, mregion->ion_handle);
 venc_map_iommu_map_fail:
-	ion_unmap_kernel(venc_ion_client, mregion->ion_handle);
+	if (!inst->secure)
+		ion_unmap_kernel(venc_ion_client, mregion->ion_handle);
 venc_map_fail:
 	return rc;
 }
@@ -702,6 +733,8 @@ static int venc_unmap_user_to_kernel(struct venc_inst *inst,
 		mregion->kvaddr = NULL;
 	}
 
+	if (inst->secure)
+		msm_ion_unsecure_buffer(venc_ion_client, mregion->ion_handle);
 
 	return 0;
 }
@@ -787,7 +820,7 @@ static long venc_set_format(struct v4l2_subdev *sd, void *arg)
 {
 	struct venc_inst *inst = NULL;
 	struct v4l2_format *fmt = arg, temp;
-	int rc = 0;
+	int rc = 0, align_req = 0;
 
 	if (!sd) {
 		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
@@ -823,7 +856,10 @@ static long venc_set_format(struct v4l2_subdev *sd, void *arg)
 		rc = -EINVAL;
 		goto venc_set_format_fail;
 	}
-	fmt->fmt.pix.sizeimage = temp.fmt.pix_mp.plane_fmt[0].sizeimage;
+
+	align_req = inst->secure ? SZ_1M : SZ_4K;
+	fmt->fmt.pix.sizeimage = ALIGN(temp.fmt.pix_mp.plane_fmt[0].sizeimage,
+					align_req);
 	inst->num_output_planes = temp.fmt.pix_mp.num_planes;
 
 	temp.type = BUF_TYPE_INPUT;
@@ -995,7 +1031,6 @@ static long venc_free_buffer(struct venc_inst *inst, int type,
 		WFD_MSG_ERR("Trying to free a buffer of unknown type\n");
 		return -EINVAL;
 	}
-
 	mregion = get_registered_mregion(buf_list, to_free);
 
 	if (!mregion) {
@@ -1115,7 +1150,7 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 {
 	struct mem_region_map *mmap = arg;
 	struct mem_region *mregion = NULL;
-	unsigned long rc = 0, size = 0;
+	unsigned long rc = 0, size = 0, align_req = 0;
 	void *paddr = NULL;
 	struct venc_inst *inst = NULL;
 
@@ -1129,24 +1164,47 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 
 	inst = (struct venc_inst *)sd->dev_priv;
 	mregion = mmap->mregion;
-	if (mregion->size % SZ_4K != 0) {
-		WFD_MSG_ERR("Memregion not aligned to %d\n", SZ_4K);
-		return -EINVAL;
+
+	align_req = inst->secure ? SZ_1M : SZ_4K;
+	if (mregion->size % align_req != 0) {
+		WFD_MSG_ERR("Memregion not aligned to %ld\n", align_req);
+		rc = -EINVAL;
+		goto venc_map_bad_align;
+	}
+
+	if (inst->secure) {
+		rc = msm_ion_secure_buffer(mmap->ion_client,
+			mregion->ion_handle, VIDEO_PIXEL, 0);
+		if (rc) {
+			WFD_MSG_ERR("Failed to secure input buffer\n");
+			goto venc_map_bad_align;
+		}
 	}
 
 	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
-			inst->domain, 0, SZ_4K, 0, (unsigned long *)&paddr,
+			inst->domain, 0, align_req, 0, (unsigned long *)&paddr,
 			&size, 0, 0);
 
 	if (rc) {
-		WFD_MSG_ERR("Failed to get physical addr\n");
+		WFD_MSG_ERR("Failed to get physical addr %ld\n", rc);
 		paddr = NULL;
+		goto venc_map_bad_align;
 	} else if (size < mregion->size) {
 		WFD_MSG_ERR("Failed to map enough memory\n");
 		rc = -ENOMEM;
+		goto venc_map_iommu_size_fail;
 	}
 
 	mregion->paddr = paddr;
+	return 0;
+
+venc_map_iommu_size_fail:
+	ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
+			inst->domain, 0);
+
+	if (inst->secure)
+		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
+venc_map_bad_align:
 	return rc;
 }
 
@@ -1167,8 +1225,13 @@ long venc_munmap(struct v4l2_subdev *sd, void *arg)
 	inst = (struct venc_inst *)sd->dev_priv;
 	mregion = mmap->mregion;
 
-	ion_unmap_iommu(mmap->ion_client, mregion->ion_handle,
+	if (mregion->paddr)
+		ion_unmap_iommu(mmap->ion_client, mregion->ion_handle,
 			inst->domain, 0);
+
+	if (inst->secure)
+		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
+
 	return 0;
 }
 
@@ -1179,6 +1242,55 @@ static long venc_set_framerate_mode(struct v4l2_subdev *sd,
 	 * to preserve binary compatibility for userspace apps
 	 * across targets */
 	return 0;
+}
+
+static long secure_toggle(struct venc_inst *inst, bool secure)
+{
+	if (inst->secure == secure)
+		return 0;
+
+	if (!list_empty(&inst->registered_input_bufs.list) ||
+		!list_empty(&inst->registered_output_bufs.list)) {
+		WFD_MSG_ERR(
+			"Attempt to (un)secure encoder not allowed after registering buffers"
+			);
+		return -EEXIST;
+	}
+
+	inst->secure = secure;
+	inst->domain = get_iommu_domain(inst);
+	return 0;
+}
+
+static long venc_secure(struct v4l2_subdev *sd)
+{
+	struct venc_inst *inst = NULL;
+	struct v4l2_control ctrl;
+	int rc = 0;
+
+	if (!sd) {
+		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
+		return -EINVAL;
+	}
+
+	inst = sd->dev_priv;
+	rc = secure_toggle(inst, true);
+	if (rc) {
+		WFD_MSG_ERR("Failed to toggle into secure mode\n");
+		goto secure_fail;
+	}
+
+	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_SECURE;
+	rc = msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
+	if (rc) {
+		WFD_MSG_ERR("Failed to move vidc into secure mode\n");
+		goto secure_fail;
+	}
+
+	return 0;
+secure_fail:
+	secure_toggle(sd->dev_priv, false);
+	return rc;
 }
 
 long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
@@ -1252,6 +1364,9 @@ long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case SET_FRAMERATE_MODE:
 		rc = venc_set_framerate_mode(sd, arg);
+		break;
+	case ENC_SECURE:
+		rc = venc_secure(sd);
 		break;
 	default:
 		WFD_MSG_ERR("Unknown ioctl %d to enc-subdev\n", cmd);
