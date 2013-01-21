@@ -119,6 +119,7 @@ static const struct usb_device_id id_table[] = {
 	{USB_DEVICE(0x12D1, 0x14F0)},	/* Sony Gobi 3000 QDL */
 	{USB_DEVICE(0x12D1, 0x14F1)},	/* Sony Gobi 3000 Composite */
 	{USB_DEVICE(0x0AF0, 0x8120)},	/* Option GTM681W */
+	{USB_DEVICE(0x05c6, 0x9048)},	/* MDM9x15 device */
 
 	/* non Gobi Qualcomm serial devices */
 	{USB_DEVICE_INTERFACE_NUMBER(0x0f3d, 0x68a2, 0)},	/* Sierra Wireless MC7700 Device Management */
@@ -133,7 +134,6 @@ static const struct usb_device_id id_table[] = {
 	{USB_DEVICE_INTERFACE_NUMBER(0x1199, 0x901c, 0)},	/* Sierra Wireless EM7700 Device Management */
 	{USB_DEVICE_INTERFACE_NUMBER(0x1199, 0x901c, 2)},	/* Sierra Wireless EM7700 NMEA */
 	{USB_DEVICE_INTERFACE_NUMBER(0x1199, 0x901c, 3)},	/* Sierra Wireless EM7700 Modem */
-
 	{ }				/* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, id_table);
@@ -184,7 +184,7 @@ static int qcprobe(struct usb_serial *serial, const struct usb_device_id *id)
 		goto done;
 	}
 
-	if (nintf < 3 || nintf > 4) {
+	if (nintf < 3 || (nintf > 4 && nintf != 9)) {
 		dev_err(dev, "unknown number of interfaces: %d\n", nintf);
 		goto done;
 	}
