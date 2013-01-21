@@ -22,6 +22,7 @@
 #include <linux/of_device.h>
 #include <linux/spmi.h>
 #include <linux/qpnp/pwm.h>
+#include <linux/workqueue.h>
 
 #define WLED_MOD_EN_REG(base, n)	(base + 0x60 + n*0x10)
 #define WLED_IDAC_DLY_REG(base, n)	(WLED_MOD_EN_REG(base, n) + 0x01)
@@ -294,6 +295,7 @@ struct rgb_config_data {
 /**
  * struct qpnp_led_data - internal led data structure
  * @led_classdev - led class device
+ * @delayed_work - delayed work for turning off the LED
  * @id - led index
  * @base_reg - base register given in device tree
  * @lock - to protect the transactions
@@ -301,10 +303,12 @@ struct rgb_config_data {
  * @num_leds - number of leds in the module
  * @max_current - maximum current supported by LED
  * @default_on - true: default state max, false, default state 0
+ * @turn_off_delay_ms - number of msec before turning off the LED
  */
 struct qpnp_led_data {
 	struct led_classdev	cdev;
 	struct spmi_device	*spmi_dev;
+	struct delayed_work	dwork;
 	int			id;
 	u16			base;
 	u8			reg;
@@ -315,6 +319,7 @@ struct qpnp_led_data {
 	struct rgb_config_data	*rgb_cfg;
 	int			max_current;
 	bool			default_on;
+	int			turn_off_delay_ms;
 };
 
 static int
@@ -625,6 +630,23 @@ static enum led_brightness qpnp_led_get(struct led_classdev *led_cdev)
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
 
 	return led->cdev.brightness;
+}
+
+static void qpnp_led_turn_off_delayed(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct qpnp_led_data *led
+		= container_of(dwork, struct qpnp_led_data, dwork);
+
+	led->cdev.brightness = LED_OFF;
+	qpnp_led_set(&led->cdev, led->cdev.brightness);
+}
+
+static void qpnp_led_turn_off(struct qpnp_led_data *led)
+{
+	INIT_DELAYED_WORK(&led->dwork, qpnp_led_turn_off_delayed);
+	schedule_delayed_work(&led->dwork,
+		msecs_to_jiffies(led->turn_off_delay_ms));
 }
 
 static int __devinit qpnp_wled_init(struct qpnp_led_data *led)
@@ -979,6 +1001,7 @@ static int __devinit qpnp_get_common_configs(struct qpnp_led_data *led,
 				struct device_node *node)
 {
 	int rc;
+	u32 val;
 	const char *temp_string;
 
 	led->cdev.default_trigger = LED_TRIGGER_DEFAULT;
@@ -996,6 +1019,13 @@ static int __devinit qpnp_get_common_configs(struct qpnp_led_data *led,
 		if (strncmp(temp_string, "on", sizeof("on")) == 0)
 			led->default_on = true;
 	} else if (rc != -EINVAL)
+		return rc;
+
+	led->turn_off_delay_ms = 0;
+	rc = of_property_read_u32(node, "qcom,turn-off-delay-ms", &val);
+	if (!rc)
+		led->turn_off_delay_ms = val;
+	else if (rc != -EINVAL)
 		return rc;
 
 	return 0;
@@ -1384,9 +1414,11 @@ static int __devinit qpnp_leds_probe(struct spmi_device *spmi)
 			goto fail_id_check;
 		}
 		/* configure default state */
-		if (led->default_on)
+		if (led->default_on) {
 			led->cdev.brightness = led->cdev.max_brightness;
-		else
+			if (led->turn_off_delay_ms > 0)
+				qpnp_led_turn_off(led);
+		} else
 			led->cdev.brightness = LED_OFF;
 
 		qpnp_led_set(&led->cdev, led->cdev.brightness);
