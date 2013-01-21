@@ -273,8 +273,8 @@ static int connect_pipe_ipa(
 	ret = sps_phy2h(usb_phy_addr, &usb_handle);
 	if (ret) {
 		pr_err("%s: sps_phy2h failed (HSUSB/HSIC BAM) %d\n",
-			   __func__, ret);
-		goto get_config_failed;
+			__func__, ret);
+		return ret;
 	}
 
 	/* IPA input parameters */
@@ -284,8 +284,39 @@ static int connect_pipe_ipa(
 	ipa_in_params.notify = connection_params->notify;
 	ipa_in_params.priv = connection_params->priv;
 	ipa_in_params.client = connection_params->client;
-	if (pipe_connection->mem_type != SYSTEM_MEM)
-		ipa_in_params.pipe_mem_preferred = true;
+
+	/* If BAM is using dedicated SPS pipe memory, get it */
+
+	if (pipe_connection->mem_type == SPS_PIPE_MEM) {
+		pr_debug("%s: USB BAM using SPS pipe memory\n", __func__);
+		ret = sps_setup_bam2bam_fifo(
+			&data_mem_buf[conn_idx][pipe_dir],
+			pipe_connection->data_fifo_base_offset,
+			pipe_connection->data_fifo_size, 1);
+		if (ret) {
+			pr_err("%s: data fifo setup failure %d\n", __func__,
+				ret);
+			return ret;
+		}
+
+		ret = sps_setup_bam2bam_fifo(
+			&desc_mem_buf[conn_idx][pipe_dir],
+			pipe_connection->desc_fifo_base_offset,
+			pipe_connection->desc_fifo_size, 1);
+		if (ret) {
+			pr_err("%s: desc. fifo setup failure %d\n", __func__,
+				ret);
+			return ret;
+		}
+
+	} else {
+		pr_err("%s: unsupported memory type(%d)\n",
+			__func__, pipe_connection->mem_type);
+		return -EINVAL;
+	}
+
+	ipa_in_params.desc = desc_mem_buf[conn_idx][pipe_dir];
+	ipa_in_params.data = data_mem_buf[conn_idx][pipe_dir];
 
 	memcpy(&ipa_in_params.ipa_ep_cfg, &connection_params->ipa_ep_cfg,
 		   sizeof(struct ipa_ep_cfg));
@@ -306,7 +337,7 @@ static int connect_pipe_ipa(
 	ret = sps_get_config(*pipe, connection);
 	if (ret) {
 		pr_err("%s: tx get config failed %d\n", __func__, ret);
-		goto get_config_failed;
+		goto free_sps_endpoints;
 	}
 
 	if (pipe_dir == USB_TO_PEER_PERIPHERAL) {
@@ -344,7 +375,7 @@ static int connect_pipe_ipa(
 
 error:
 	sps_disconnect(*pipe);
-get_config_failed:
+free_sps_endpoints:
 	sps_free_endpoint(*pipe);
 disconnect_ipa:
 	ipa_disconnect(clnt_hdl);
