@@ -61,6 +61,7 @@ Required properties for LPG mode only:
 Optional properties for RGB led:
 - linux,default-trigger: trigger the led from external modules such as display
 - qcom,default-state:  default state of the led, should be "on" or "off"
+- qcom,turn-off-delay-ms: delay in millisecond for turning off the led when its default-state is "on". Value is being ignored in case default-state is "off".
 
 Example:
 
@@ -96,7 +97,8 @@ Example:
 			qcom,duty-pcts = [00 19 32 4B 64
 					 64 4B 32 19 00];
 			qcom,max-current = <12>;
-			qcom,default-state = "off";
+			qcom,default-state = "on";
+			qcom,turn-off-delay-ms = <500>;
 			qcom,id = <5>;
 			linux,default-trigger = "none";
 		};
