@@ -49,6 +49,9 @@ Optional properties :
     - qcom,msm_bus,vectors
 - qcom,hsusb-otg-lpm-on-dev-suspend: If present then USB enter to
 	    low power mode upon receiving bus suspend.
+- qcom,hsusb-otg-clk-always-on-workaround: If present then USB core clocks
+	    remain active upon receiving bus suspend and USB cable is connected.
+	    Used for allowing USB to respond for remote wakup.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -68,6 +71,7 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-pclk-src-name = "dfab_usb_clk";
 		qcom,hsusb-otg-pmic-id-irq = <47>
 		qcom,hsusb-otg-lpm-on-dev-suspend;
+		qcom,hsusb-otg-clk-always-on-workaround;
 
 		qcom,msm_bus,name = "usb2";
 		qcom,msm_bus,num_cases = <2>;
