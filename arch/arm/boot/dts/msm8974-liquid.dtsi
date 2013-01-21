@@ -598,3 +598,15 @@
 		qcom,channel-type = <0xf0000000>;
 	};
 };
+
+&spmi_bus {
+	qcom,pm8941@1 {
+		qcom,leds@d000 {
+			qcom,rgb_2 {
+				status = "ok";
+				qcom,default-state = "on";
+				qcom,turn-off-delay-ms = <1000>;
+			};
+		};
+	};
+};
