@@ -510,31 +510,32 @@ static void ksb_start_rx_work(struct work_struct *w)
 	struct urb *urb;
 	int i = 0;
 	int ret;
+	bool put = true;
 
+	ret = usb_autopm_get_interface(ksb->ifc);
+	if (ret < 0) {
+		if (ret != -EAGAIN && ret != -EACCES) {
+			pr_err_ratelimited("autopm_get failed:%d", ret);
+			return;
+		}
+		put = false;
+	}
 	for (i = 0; i < NO_RX_REQS; i++) {
 
 		if (!test_bit(USB_DEV_CONNECTED, &ksb->flags))
-			return;
+			break;
 
 		pkt = ksb_alloc_data_pkt(MAX_DATA_PKT_SIZE, GFP_KERNEL, ksb);
 		if (IS_ERR(pkt)) {
 			pr_err("unable to allocate data pkt");
-			return;
+			break;
 		}
 
 		urb = usb_alloc_urb(0, GFP_KERNEL);
 		if (!urb) {
 			pr_err("unable to allocate urb");
 			ksb_free_data_pkt(pkt);
-			return;
-		}
-
-		ret = usb_autopm_get_interface(ksb->ifc);
-		if (ret < 0 && ret != -EAGAIN && ret != -EACCES) {
-			pr_err_ratelimited("autopm_get failed:%d", ret);
-			usb_free_urb(urb);
-			ksb_free_data_pkt(pkt);
-			return;
+			break;
 		}
 
 		usb_fill_bulk_urb(urb, ksb->udev, ksb->in_pipe,
@@ -551,15 +552,15 @@ static void ksb_start_rx_work(struct work_struct *w)
 			usb_unanchor_urb(urb);
 			usb_free_urb(urb);
 			ksb_free_data_pkt(pkt);
-			usb_autopm_put_interface(ksb->ifc);
 			atomic_dec(&ksb->rx_pending_cnt);
 			wake_up(&ksb->pending_urb_wait);
-			return;
+			break;
 		}
 
-		usb_autopm_put_interface_async(ksb->ifc);
 		usb_free_urb(urb);
 	}
+	if (put)
+		usb_autopm_put_interface_async(ksb->ifc);
 }
 
 static int
