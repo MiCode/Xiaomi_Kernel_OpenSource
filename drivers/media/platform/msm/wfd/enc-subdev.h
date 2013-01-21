@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -76,6 +76,8 @@ static inline bool mem_region_equals(struct mem_region *a,
 			(a->offset == b->offset);
 	else if (a->kvaddr || b->kvaddr)
 		return a->kvaddr == b->kvaddr;
+	else if (a->paddr || b->paddr)
+		return a->paddr == b->paddr;
 	else
 		return false;
 }
@@ -107,6 +109,7 @@ static inline bool mem_region_equals(struct mem_region *a,
 #define ENC_MMAP _IOWR('V', 25, struct mem_region_map *)
 #define ENC_MUNMAP _IOWR('V', 26, struct mem_region_map *)
 #define SET_FRAMERATE_MODE _IO('V', 27)
+#define ENC_SECURE _IO('V', 28)
 
 extern int venc_init(struct v4l2_subdev *sd, u32 val);
 extern int venc_load_fw(struct v4l2_subdev *sd);

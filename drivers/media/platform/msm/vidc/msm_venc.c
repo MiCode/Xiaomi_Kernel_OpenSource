@@ -544,7 +544,19 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_I_FRAME)
 		),
 		.cluster = 0,
-	}
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_SECURE,
+		.name = "Secure mode",
+		.type = V4L2_CTRL_TYPE_BUTTON,
+		.minimum = 0,
+		.maximum = 0,
+		.default_value = 0,
+		.step = 0,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1433,6 +1445,10 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 		pdata = &enable;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
+		inst->mode = VIDC_SECURE;
+		dprintk(VIDC_INFO, "Setting secure mode to :%d\n", inst->mode);
 		break;
 	default:
 		rc = -ENOTSUPP;

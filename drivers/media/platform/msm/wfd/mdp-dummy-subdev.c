@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -28,11 +28,12 @@ struct mdp_instance {
 	struct mutex mutex;
 };
 
-int mdp_init(struct v4l2_subdev *sd, u32 val)
+static int mdp_init(struct v4l2_subdev *sd, u32 val)
 {
 	return 0;
 }
-int mdp_open(struct v4l2_subdev *sd, void *arg)
+
+static int mdp_open(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_instance *inst = kzalloc(sizeof(struct mdp_instance),
 					GFP_KERNEL);
@@ -50,49 +51,54 @@ int mdp_open(struct v4l2_subdev *sd, void *arg)
 	return rc;
 }
 
-int mdp_start(struct v4l2_subdev *sd, void *arg)
+static int mdp_start(struct v4l2_subdev *sd, void *arg)
 {
 	return 0;
 }
-int mdp_stop(struct v4l2_subdev *sd, void *arg)
+
+static int mdp_stop(struct v4l2_subdev *sd, void *arg)
 {
 	return 0;
 }
-int mdp_close(struct v4l2_subdev *sd, void *arg)
+
+static int mdp_close(struct v4l2_subdev *sd, void *arg)
 {
 	return 0;
 }
-int mdp_q_buffer(struct v4l2_subdev *sd, void *arg)
+
+static int mdp_q_buffer(struct v4l2_subdev *sd, void *arg)
 {
 	static int foo;
 	int rc = 0;
 	struct mdp_buf_info *binfo = arg;
 	struct mdp_instance *inst = NULL;
+	struct mdp_buf_queue *new_entry = NULL;
 
 	if (!binfo || !binfo->inst || !binfo->cookie) {
 		WFD_MSG_ERR("Invalid argument\n");
 		return -EINVAL;
 	}
 
-
 	inst = binfo->inst;
-	if (binfo->kvaddr) {
-		struct mdp_buf_queue *new_entry = kzalloc(sizeof(*new_entry),
-				GFP_KERNEL);
-		memset((void *)binfo->kvaddr, foo++, 1024);
-		new_entry->mdp_buf_info = *binfo;
-		mutex_lock(&inst->mutex);
-		list_add_tail(&new_entry->node, &inst->mdp_bufs.node);
-		mutex_unlock(&inst->mutex);
-		WFD_MSG_DBG("Queue %p with cookie %p\n",
-			(void *)binfo->paddr, (void *)binfo->cookie);
-	} else {
-		rc = -EINVAL;
-	}
+	new_entry = kzalloc(sizeof(*new_entry), GFP_KERNEL);
+	if (!new_entry)
+		return -ENOMEM;
 
+	new_entry->mdp_buf_info = *binfo;
+	if (binfo->kvaddr)
+		memset((void *)binfo->kvaddr, foo++, 1024);
+
+
+	mutex_lock(&inst->mutex);
+	list_add_tail(&new_entry->node, &inst->mdp_bufs.node);
+	mutex_unlock(&inst->mutex);
+
+	WFD_MSG_DBG("Queue %p with cookie %p\n",
+			(void *)binfo->paddr, (void *)binfo->cookie);
 	return rc;
 }
-int mdp_dq_buffer(struct v4l2_subdev *sd, void *arg)
+
+static int mdp_dq_buffer(struct v4l2_subdev *sd, void *arg)
 {
 	struct mdp_buf_info *binfo = arg;
 	struct mdp_buf_queue *head = NULL;
@@ -121,12 +127,13 @@ int mdp_dq_buffer(struct v4l2_subdev *sd, void *arg)
 	return 0;
 
 }
-int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
+
+static int mdp_set_prop(struct v4l2_subdev *sd, void *arg)
 {
 	return 0;
 }
 
-int mdp_mmap(struct v4l2_subdev *sd, void *arg)
+static int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 {
 	int rc = 0;
 	struct mem_region_map *mmap = arg;
@@ -137,9 +144,14 @@ int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 	return rc;
 }
 
-int mdp_munmap(struct v4l2_subdev *sd, void *arg)
+static int mdp_munmap(struct v4l2_subdev *sd, void *arg)
 {
 	/* Whatever */
+	return 0;
+}
+
+static int mdp_secure(struct v4l2_subdev *sd)
+{
 	return 0;
 }
 
@@ -177,6 +189,9 @@ long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case MDP_MUNMAP:
 		rc = mdp_munmap(sd, arg);
+		break;
+	case MDP_SECURE:
+		rc = mdp_secure(sd);
 		break;
 	default:
 		WFD_MSG_ERR("IOCTL: %u not supported\n", cmd);

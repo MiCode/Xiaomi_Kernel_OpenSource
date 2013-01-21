@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -59,6 +59,7 @@ static inline bool mdp_buf_info_equals(struct mdp_buf_info *a,
 #define MDP_STOP  _IOR(MDP_MAGIC_IOCTL, 7, void *)
 #define MDP_MMAP  _IOR(MDP_MAGIC_IOCTL, 8, struct mem_region_map *)
 #define MDP_MUNMAP  _IOR(MDP_MAGIC_IOCTL, 9, struct mem_region_map *)
+#define MDP_SECURE  _IO(MDP_MAGIC_IOCTL, 9)
 
 
 extern int mdp_init(struct v4l2_subdev *sd, u32 val);
