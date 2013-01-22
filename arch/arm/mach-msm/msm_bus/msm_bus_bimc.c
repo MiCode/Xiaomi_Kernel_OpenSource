@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1932,17 +1932,18 @@ static int msm_bus_bimc_mas_init(struct msm_bus_bimc_info *binfo,
 	}
 
 	for (i = 0; i < info->node_info->num_mports; i++) {
-		/* If in bypass mode, update priority */
-		if (info->node_info->mode != BIMC_QOS_MODE_BYPASS)
+		/* If not in bypass mode, update priority */
+		if (info->node_info->mode != BIMC_QOS_MODE_BYPASS) {
 			msm_bus_bimc_set_qos_prio(binfo, info->node_info->
 				qport[i], info->node_info->mode, qmode);
 
-		/* If in fixed mode, update bandwidth */
-		if (info->node_info->mode != BIMC_QOS_MODE_FIXED) {
-			struct msm_bus_bimc_qos_bw qbw;
-			qbw.ws = info->node_info->ws;
-			msm_bus_bimc_set_qos_bw(binfo,
-				info->node_info->qport[i], &qbw);
+			/* If not in fixed mode, update bandwidth */
+			if (info->node_info->mode != BIMC_QOS_MODE_FIXED) {
+				struct msm_bus_bimc_qos_bw qbw;
+				qbw.ws = info->node_info->ws;
+				msm_bus_bimc_set_qos_bw(binfo,
+					info->node_info->qport[i], &qbw);
+			}
 		}
 
 		/* set mode */
