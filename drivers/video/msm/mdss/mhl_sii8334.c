@@ -802,7 +802,8 @@ static void mhl_msm_connection(struct mhl_tx_ctrl *mhl_ctrl)
 
 	mhl_msc_send_set_int(mhl_ctrl,
 			     MHL_RCHANGE_INT,
-			     MHL_INT_DCAP_CHG);
+			     MHL_INT_DCAP_CHG,
+			     MSC_PRIORITY_SEND);
 
 }
 
@@ -1101,7 +1102,8 @@ int mhl_send_msc_command(struct mhl_tx_ctrl *mhl_ctrl,
 		}
 		burst_data = req->payload.burst_data;
 		for (i = 0; i < req->length; i++, burst_data++)
-			MHL_SII_CBUS_WR(0xC0 + i, *burst_data);
+			MHL_SII_REG_NAME_WR(REG_CBUS_SCRATCHPAD_0 + i,
+				*burst_data);
 		break;
 	default:
 		pr_err("%s: unknown command! (%02x)\n",
@@ -1136,6 +1138,18 @@ int mhl_send_msc_command(struct mhl_tx_ctrl *mhl_ctrl,
 
 cbus_send_fail:
 	return -EFAULT;
+}
+
+/* read scratchpad */
+void mhl_read_scratchpad(struct mhl_tx_ctrl *mhl_ctrl)
+{
+	struct i2c_client *client = mhl_ctrl->i2c_handle;
+	int i;
+
+	for (i = 0; i < MHL_SCRATCHPAD_SIZE; i++) {
+		mhl_ctrl->scrpd.data[i] = MHL_SII_REG_NAME_RD(
+			REG_CBUS_SCRATCHPAD_0 + i);
+	}
 }
 
 static void mhl_cbus_isr(struct mhl_tx_ctrl *mhl_ctrl)

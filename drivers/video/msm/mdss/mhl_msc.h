@@ -29,14 +29,15 @@ int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 			 struct msc_command_struct *req);
 
 int mhl_msc_send_set_int(struct mhl_tx_ctrl *mhl_ctrl,
-			 u8 offset, u8 mask);
+			 u8 offset, u8 mask, u8 priority);
 
 int mhl_msc_send_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 			    u8 offset, u8 value);
 int mhl_msc_send_msc_msg(struct mhl_tx_ctrl *mhl_ctrl,
 			 u8 sub_cmd, u8 cmd_data);
 
-int mhl_msc_recv_set_int(struct mhl_tx_ctrl *mhl_ctrl, u8 offset, u8 set_int);
+int mhl_msc_recv_set_int(struct mhl_tx_ctrl *mhl_ctrl,
+			 u8 offset, u8 set_int);
 
 int mhl_msc_recv_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 			    u8 offset, u8 value);
@@ -48,6 +49,7 @@ void mhl_msc_send_work(struct work_struct *work);
 /* Tx should implement these APIs */
 int mhl_send_msc_command(struct mhl_tx_ctrl *mhl_ctrl,
 			 struct msc_command_struct *req);
+void mhl_read_scratchpad(struct mhl_tx_ctrl *mhl_ctrl);
 void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl, uint8_t to_state);
 void mhl_tmds_ctrl(struct mhl_tx_ctrl *ctrl, uint8_t on);
 /******************************************************************/
