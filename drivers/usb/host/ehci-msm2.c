@@ -1230,7 +1230,6 @@ static int __devexit ehci_msm2_remove(struct platform_device *pdev)
 		free_irq(mhcd->async_irq, mhcd);
 	}
 	device_init_wakeup(&pdev->dev, 0);
-	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
 	usb_remove_hcd(hcd);
