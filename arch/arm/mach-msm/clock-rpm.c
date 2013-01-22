@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -282,6 +282,18 @@ static enum handoff rpm_clk_handoff(struct clk *clk)
 	 * child clocks of these RPM clocks can still be handed off.
 	 */
 	rc  = r->rpmrs_data->handoff_fn(r);
+	if (rc < 0)
+		return HANDOFF_DISABLED_CLK;
+
+	/*
+	 * Since RPM handoff code may update the software rate of the clock by
+	 * querying the RPM, we need to make sure our request to RPM now
+	 * matches the software rate of the clock. When we send the request
+	 * to RPM, we also need to update any other state info we would
+	 * normally update. So, call the appropriate clock function instead
+	 * of directly using the RPM driver APIs.
+	 */
+	rc = rpm_clk_prepare(clk);
 	if (rc < 0)
 		return HANDOFF_DISABLED_CLK;
 
