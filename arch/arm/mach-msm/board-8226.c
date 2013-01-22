@@ -133,12 +133,18 @@ static void __init msm8226_reserve(void)
 	msm_reserve();
 }
 
-
+/*
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
+ */
 void __init msm8226_add_drivers(void)
 {
 	msm_rpm_driver_init();
 	msm_lpmrs_module_init();
 	msm_spm_device_init();
+	msm_clock_init(&msm_dummy_clock_init_data);
 	msm_thermal_device_init();
 }
 
@@ -150,10 +156,8 @@ void __init msm8226_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm8226_init_gpiomux();
-	msm8226_add_drivers();
-	msm_clock_init(&msm_dummy_clock_init_data);
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
-
+	msm8226_add_drivers();
 }
 
 static const char *msm8226_dt_match[] __initconst = {
