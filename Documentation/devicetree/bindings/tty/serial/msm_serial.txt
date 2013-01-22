@@ -44,6 +44,12 @@ Documentation/devicetree/bindings/gpio/gpio.txt.
 need to configured.
 qcom,use-pm : If present, this property will cause the device to prevent system
 suspend as long as the port remains open.
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for below properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,active_only
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
 
 Aliases:
 An alias may optionally be used to bind the serial device to a tty device
@@ -68,4 +74,12 @@ Example:
 		qcom,cts-gpio = <&msmgpio 43 0x00>;
 		qcom,rfr-gpio = <&msmgpio 44 0x00>;
 		qcom,use-pm;
+
+		qcom,msm-bus,name = "serial_uart0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<84 512 0 0>,
+				<84 512 500 800>;
 	};
