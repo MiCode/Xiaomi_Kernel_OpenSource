@@ -204,9 +204,13 @@ enum msm_vfe_reg_cfg_type {
 	VFE_WRITE,
 	VFE_WRITE_MB,
 	VFE_READ,
-	VFE_WRITE_MASK,
-	VFE_CLEAR_MASK,
-	VFE_WRITE_AUTO_INCREMENT,
+	VFE_CFG_MASK,
+	VFE_WRITE_DMI_16BIT,
+	VFE_WRITE_DMI_32BIT,
+	VFE_WRITE_DMI_64BIT,
+	VFE_READ_DMI_16BIT,
+	VFE_READ_DMI_32BIT,
+	VFE_READ_DMI_64BIT,
 };
 
 struct msm_vfe_cfg_cmd2 {
@@ -216,10 +220,31 @@ struct msm_vfe_cfg_cmd2 {
 	void __user *cfg_cmd;
 };
 
-struct msm_vfe_reg_cfg_cmd {
+struct msm_vfe_reg_rw_info {
 	uint32_t reg_offset;
-	uint32_t cmd_data;
+	uint32_t cmd_data_offset;
 	uint32_t len;
+};
+
+struct msm_vfe_reg_mask_info {
+	uint32_t reg_offset;
+	uint32_t mask;
+	uint32_t val;
+};
+
+struct msm_vfe_reg_dmi_info {
+	uint32_t hi_tbl_offset; /*Optional*/
+	uint32_t lo_tbl_offset; /*Required*/
+	uint32_t len;
+};
+
+struct msm_vfe_reg_cfg_cmd {
+	union {
+		struct msm_vfe_reg_rw_info rw_info;
+		struct msm_vfe_reg_mask_info mask_info;
+		struct msm_vfe_reg_dmi_info dmi_info;
+	} u;
+
 	enum msm_vfe_reg_cfg_type cmd_type;
 };
 

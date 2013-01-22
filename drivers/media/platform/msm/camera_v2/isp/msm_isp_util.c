@@ -155,58 +155,132 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 }
 
 static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
-	struct msm_vfe_reg_cfg_cmd *reg_cfg_cmd, uint32_t *cfg_data)
+	struct msm_vfe_reg_cfg_cmd *reg_cfg_cmd,
+	uint32_t *cfg_data, uint32_t cmd_len)
 {
 	switch (reg_cfg_cmd->cmd_type) {
 	case VFE_WRITE: {
 		if (resource_size(vfe_dev->vfe_mem) <
-				(reg_cfg_cmd->reg_offset + reg_cfg_cmd->len)) {
+			(reg_cfg_cmd->u.rw_info.reg_offset +
+			reg_cfg_cmd->u.rw_info.len)) {
 			pr_err("%s: Invalid length\n", __func__);
 			return -EINVAL;
 		}
 		msm_camera_io_memcpy(vfe_dev->vfe_base +
-			reg_cfg_cmd->reg_offset,
-		cfg_data + reg_cfg_cmd->cmd_data/4, reg_cfg_cmd->len);
+			reg_cfg_cmd->u.rw_info.reg_offset,
+			cfg_data + reg_cfg_cmd->u.rw_info.cmd_data_offset/4,
+			reg_cfg_cmd->u.rw_info.len);
 		break;
 	}
 	case VFE_WRITE_MB: {
-		uint32_t *data_ptr = cfg_data + reg_cfg_cmd->cmd_data/4;
+		uint32_t *data_ptr = cfg_data +
+			reg_cfg_cmd->u.rw_info.cmd_data_offset/4;
 		msm_camera_io_w_mb(*data_ptr, vfe_dev->vfe_base +
-			reg_cfg_cmd->reg_offset);
+			reg_cfg_cmd->u.rw_info.reg_offset);
 		break;
 	}
-	case VFE_WRITE_MASK: {
+	case VFE_CFG_MASK: {
 		uint32_t temp;
 		temp = msm_camera_io_r(vfe_dev->vfe_base +
-			reg_cfg_cmd->reg_offset);
-		temp |= reg_cfg_cmd->cmd_data;
+			reg_cfg_cmd->u.mask_info.reg_offset);
+		temp &= ~reg_cfg_cmd->u.mask_info.mask;
+		temp |= reg_cfg_cmd->u.mask_info.val;
 		msm_camera_io_w(temp, vfe_dev->vfe_base +
-			reg_cfg_cmd->reg_offset);
+			reg_cfg_cmd->u.mask_info.reg_offset);
 		break;
 	}
-	case VFE_CLEAR_MASK: {
-		uint32_t temp;
-		temp = msm_camera_io_r(vfe_dev->vfe_base +
-			reg_cfg_cmd->reg_offset);
-		temp &= ~reg_cfg_cmd->cmd_data;
-		msm_camera_io_w(temp, vfe_dev->vfe_base +
-			reg_cfg_cmd->reg_offset);
-		break;
-	}
-	case VFE_WRITE_AUTO_INCREMENT: {
+	case VFE_WRITE_DMI_16BIT:
+	case VFE_WRITE_DMI_32BIT:
+	case VFE_WRITE_DMI_64BIT: {
 		int i;
-		uint32_t *data_ptr = cfg_data + reg_cfg_cmd->cmd_data/4;
-		for (i = 0; i < reg_cfg_cmd->len/4; i++)
-			msm_camera_io_w(*data_ptr++,
-				vfe_dev->vfe_base + reg_cfg_cmd->reg_offset);
+		uint32_t *hi_tbl_ptr = NULL, *lo_tbl_ptr = NULL;
+		uint32_t hi_val, lo_val, lo_val1;
+		if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_64BIT) {
+			if (reg_cfg_cmd->u.dmi_info.hi_tbl_offset +
+				reg_cfg_cmd->u.dmi_info.len > cmd_len) {
+				pr_err("Invalid Hi Table out of bounds\n");
+				return -EINVAL;
+			}
+			hi_tbl_ptr = cfg_data +
+				reg_cfg_cmd->u.dmi_info.hi_tbl_offset/4;
+		}
+
+		if (reg_cfg_cmd->u.dmi_info.lo_tbl_offset +
+			reg_cfg_cmd->u.dmi_info.len > cmd_len) {
+			pr_err("Invalid Lo Table out of bounds\n");
+			return -EINVAL;
+		}
+		lo_tbl_ptr = cfg_data +
+			reg_cfg_cmd->u.dmi_info.lo_tbl_offset/4;
+
+		for (i = 0; i < reg_cfg_cmd->u.dmi_info.len/4; i++) {
+			lo_val = *lo_tbl_ptr++;
+			if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_16BIT) {
+				lo_val1 = lo_val & 0x0000FFFF;
+				lo_val = (lo_val & 0xFFFF0000)>>16;
+				msm_camera_io_w(lo_val1, vfe_dev->vfe_base +
+								0x091C);
+			} else if (reg_cfg_cmd->cmd_type ==
+					VFE_WRITE_DMI_64BIT) {
+				hi_val = *hi_tbl_ptr++;
+				msm_camera_io_w(hi_val, vfe_dev->vfe_base +
+					   0x0918);
+			}
+			msm_camera_io_w(lo_val, vfe_dev->vfe_base +
+							0x091C);
+		}
+		break;
+	}
+	case VFE_READ_DMI_16BIT:
+	case VFE_READ_DMI_32BIT:
+	case VFE_READ_DMI_64BIT: {
+		int i;
+		uint32_t *hi_tbl_ptr = NULL, *lo_tbl_ptr = NULL;
+		uint32_t hi_val, lo_val, lo_val1;
+		if (reg_cfg_cmd->cmd_type == VFE_READ_DMI_64BIT) {
+			if (reg_cfg_cmd->u.dmi_info.hi_tbl_offset +
+				reg_cfg_cmd->u.dmi_info.len > cmd_len) {
+				pr_err("Invalid Hi Table out of bounds\n");
+				return -EINVAL;
+			}
+			hi_tbl_ptr = cfg_data +
+				reg_cfg_cmd->u.dmi_info.hi_tbl_offset/4;
+		}
+
+		if (reg_cfg_cmd->u.dmi_info.lo_tbl_offset +
+			reg_cfg_cmd->u.dmi_info.len > cmd_len) {
+			pr_err("Invalid Lo Table out of bounds\n");
+			return -EINVAL;
+		}
+		lo_tbl_ptr = cfg_data +
+			reg_cfg_cmd->u.dmi_info.lo_tbl_offset/4;
+
+		for (i = 0; i < reg_cfg_cmd->u.dmi_info.len/4; i++) {
+			if (reg_cfg_cmd->cmd_type == VFE_READ_DMI_64BIT) {
+				hi_val = msm_camera_io_r(vfe_dev->vfe_base +
+								0x0918);
+				*hi_tbl_ptr++ = hi_val;
+			}
+
+			lo_val = msm_camera_io_r(vfe_dev->vfe_base +
+							0x091C);
+
+			if (reg_cfg_cmd->cmd_type == VFE_READ_DMI_16BIT) {
+				lo_val1 = msm_camera_io_r(vfe_dev->vfe_base +
+								0x091C);
+				lo_val |= lo_val1 << 16;
+			}
+			*lo_tbl_ptr++ = lo_val;
+		}
 		break;
 	}
 	case VFE_READ: {
 		int i;
-		uint32_t *data_ptr = cfg_data + reg_cfg_cmd->cmd_data/4;
-		for (i = 0; i < reg_cfg_cmd->len/4; i++)
-			*data_ptr++ = msm_camera_io_r(
-				vfe_dev->vfe_base + reg_cfg_cmd->reg_offset++);
+		uint32_t *data_ptr = cfg_data +
+			reg_cfg_cmd->u.rw_info.cmd_data_offset/4;
+		for (i = 0; i < reg_cfg_cmd->u.rw_info.len/4; i++)
+			*data_ptr++ = msm_camera_io_r(vfe_dev->vfe_base +
+				reg_cfg_cmd->u.rw_info.reg_offset++);
 		break;
 	}
 	}
@@ -250,7 +324,8 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	for (i = 0; i < proc_cmd->num_cfg; i++)
-		msm_isp_send_hw_cmd(vfe_dev, &reg_cfg_cmd[i], cfg_data);
+		msm_isp_send_hw_cmd(vfe_dev, &reg_cfg_cmd[i],
+			cfg_data, proc_cmd->cmd_len);
 
 	if (copy_to_user(proc_cmd->cfg_data,
 			cfg_data, proc_cmd->cmd_len)) {
