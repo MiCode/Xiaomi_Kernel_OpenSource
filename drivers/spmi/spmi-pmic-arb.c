@@ -23,7 +23,9 @@
 #include <linux/interrupt.h>
 #include <linux/of_spmi.h>
 #include <linux/module.h>
+#include <linux/seq_file.h>
 #include <mach/qpnp-int.h>
+#include "spmi-dbgfs.h"
 
 #define SPMI_PMIC_ARB_NAME		"spmi_pmic_arb"
 
@@ -555,6 +557,37 @@ static int pmic_arb_intr_priv_data(struct spmi_controller *ctrl,
 	return 0;
 }
 
+static int pmic_arb_mapping_data_show(struct seq_file *file, void *unused)
+{
+	struct spmi_pmic_arb_dev *pmic_arb = file->private;
+	int first = pmic_arb->min_apid;
+	int last = pmic_arb->max_apid;
+	int i;
+
+	for (i = first; i <= last; ++i) {
+		if (!is_apid_valid(pmic_arb, i))
+			continue;
+
+		seq_printf(file, "APID 0x%.2x = PPID 0x%.3x. Enabled:%d\n",
+			i, get_peripheral_id(pmic_arb, i),
+			readl_relaxed(pmic_arb->intr + SPMI_PIC_ACC_ENABLE(i)));
+	}
+
+	return 0;
+}
+
+static int pmic_arb_mapping_data_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, pmic_arb_mapping_data_show, inode->i_private);
+}
+
+static const struct file_operations pmic_arb_dfs_fops = {
+	.open		= pmic_arb_mapping_data_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 static int __devinit
 spmi_pmic_arb_get_property(struct platform_device *pdev, char *pname, u32 *prop)
 {
@@ -707,6 +740,11 @@ static int __devinit spmi_pmic_arb_probe(struct platform_device *pdev)
 
 	/* Register device(s) from the device tree */
 	of_spmi_register_devices(&pmic_arb->controller);
+
+	/* Add debugfs file for mapping data */
+	if (spmi_dfs_create_file(&pmic_arb->controller, "mapping",
+					pmic_arb, &pmic_arb_dfs_fops) == NULL)
+		dev_err(&pdev->dev, "error creating 'mapping' debugfs file\n");
 
 	pr_debug("PMIC Arb Version 0x%x\n",
 			pmic_arb_read(pmic_arb, PMIC_ARB_VERSION));
