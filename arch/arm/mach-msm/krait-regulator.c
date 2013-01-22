@@ -30,6 +30,7 @@
 #include <mach/msm_iomap.h>
 
 #include "spm.h"
+#include "pm.h"
 
 /*
  *                   supply
@@ -138,6 +139,8 @@ struct pmic_gang_vreg {
 	struct list_head	krait_power_vregs;
 	struct mutex		krait_power_vregs_lock;
 	bool			pfm_mode;
+	int			pmic_min_uV_for_retention;
+	bool			retention_enabled;
 };
 
 static struct pmic_gang_vreg *the_gang;
@@ -330,6 +333,22 @@ static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
 		uV = PMIC_VOLTAGE_MAX;
 	}
 
+	if (uV < pvreg->pmic_min_uV_for_retention) {
+		if (pvreg->retention_enabled) {
+			pr_debug("Disabling Retention pmic = %duV, pmic_min_uV_for_retention = %duV",
+					uV, pvreg->pmic_min_uV_for_retention);
+			msm_pm_enable_retention(false);
+			pvreg->retention_enabled = false;
+		}
+	} else {
+		if (!pvreg->retention_enabled) {
+			pr_debug("Enabling Retention pmic = %duV, pmic_min_uV_for_retention = %duV",
+					uV, pvreg->pmic_min_uV_for_retention);
+			msm_pm_enable_retention(true);
+			pvreg->retention_enabled = true;
+		}
+	}
+
 	setpoint = DIV_ROUND_UP(uV, LV_RANGE_STEP);
 
 	rc = msm_spm_apcs_set_vdd(setpoint);
@@ -485,6 +504,8 @@ static int __devinit pvreg_init(struct platform_device *pdev)
 	pvreg->name = "pmic_gang";
 	pvreg->pmic_vmax_uV = PMIC_VOLTAGE_MIN;
 	pvreg->pmic_phase_count = 1;
+	pvreg->retention_enabled = true;
+	pvreg->pmic_min_uV_for_retention = INT_MAX;
 
 	mutex_init(&pvreg->krait_power_vregs_lock);
 	INIT_LIST_HEAD(&pvreg->krait_power_vregs);
@@ -941,6 +962,9 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, kvreg);
 
 	mutex_lock(&the_gang->krait_power_vregs_lock);
+	the_gang->pmic_min_uV_for_retention
+		= min(the_gang->pmic_min_uV_for_retention,
+			kvreg->retention_uV + kvreg->headroom_uV);
 	list_add_tail(&kvreg->link, &the_gang->krait_power_vregs);
 	mutex_unlock(&the_gang->krait_power_vregs_lock);
 
