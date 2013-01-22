@@ -2490,6 +2490,12 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 
 	dev_dbg(dev, "dwc3-msm PM suspend\n");
 
+	flush_delayed_work_sync(&mdwc->resume_work);
+	if (!atomic_read(&mdwc->in_lpm)) {
+		dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
+		return -EBUSY;
+	}
+
 	ret = dwc3_msm_suspend(mdwc);
 	if (!ret)
 		atomic_set(&mdwc->pm_suspended, 1);
