@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,7 +101,7 @@ static int msm_bus_rpm_req(int ctx, uint32_t rsc_type, uint32_t key,
 		if (ret) {
 			MSM_BUS_WARN("RPM: Add KVP failed for RPM Req:%u\n",
 				rsc_type);
-			return ret;
+			goto free_rpm_request;
 		}
 
 		MSM_BUS_DBG("Added Key: %d, Val: %llu, size: %d\n", key,
@@ -112,21 +112,25 @@ static int msm_bus_rpm_req(int ctx, uint32_t rsc_type, uint32_t key,
 		if (ret) {
 			MSM_BUS_WARN("RPM: Add KVP failed for RPM Req:%u\n",
 				rsc_type);
-			return ret;
+			goto free_rpm_request;
 		}
 	}
 
 	msg_id = msm_rpm_send_request(rpm_req);
 	if (!msg_id) {
 		MSM_BUS_WARN("RPM: No message ID for req\n");
-		return -ENXIO;
+		ret = -ENXIO;
+		goto free_rpm_request;
 	}
 
 	ret = msm_rpm_wait_for_ack(msg_id);
 	if (ret) {
 		MSM_BUS_WARN("RPM: Ack failed\n");
-		return ret;
+		goto free_rpm_request;
 	}
+
+free_rpm_request:
+	msm_rpm_free_request(rpm_req);
 
 	return ret;
 }
