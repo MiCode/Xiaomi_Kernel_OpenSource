@@ -67,12 +67,37 @@ void mhl_register_msc(struct mhl_tx_ctrl *ctrl)
 		mhl_ctrl = ctrl;
 }
 
+static int mhl_flag_scrpd_burst_req(struct mhl_tx_ctrl *mhl_ctrl,
+		struct msc_command_struct *req)
+{
+	int postpone_send = 0;
+
+	if ((req->command == MHL_SET_INT) &&
+	    (req->offset == MHL_RCHANGE_INT)) {
+		if (mhl_ctrl->scrpd_busy) {
+			/* reduce priority */
+			if (req->payload.data[0] == MHL_INT_REQ_WRT)
+				postpone_send = 1;
+		} else {
+			if (req->payload.data[0] == MHL_INT_REQ_WRT) {
+				mhl_ctrl->scrpd_busy = true;
+				mhl_ctrl->wr_burst_pending = true;
+			} else if (req->payload.data[0] == MHL_INT_GRT_WRT) {
+					mhl_ctrl->scrpd_busy = true;
+			}
+		}
+	}
+	return postpone_send;
+}
+
+
+
 void mhl_msc_send_work(struct work_struct *work)
 {
 	struct mhl_tx_ctrl *mhl_ctrl =
 		container_of(work, struct mhl_tx_ctrl, mhl_msc_send_work);
 	struct msc_cmd_envelope *cmd_env;
-	int ret;
+	int ret, postpone_send;
 	/*
 	 * Remove item from the queue
 	 * and schedule it
@@ -85,21 +110,39 @@ void mhl_msc_send_work(struct work_struct *work)
 		list_del(&cmd_env->msc_queue_envelope);
 		mutex_unlock(&msc_send_workqueue_mutex);
 
-		ret = mhl_send_msc_command(mhl_ctrl, &cmd_env->msc_cmd_msg);
-		if (ret == -EAGAIN) {
-			int retry = 2;
-			while (retry--) {
-				ret = mhl_send_msc_command(
-					mhl_ctrl,
-					&cmd_env->msc_cmd_msg);
-				if (ret != -EAGAIN)
-					break;
+		postpone_send = mhl_flag_scrpd_burst_req(
+			mhl_ctrl,
+			&cmd_env->msc_cmd_msg);
+		if (postpone_send) {
+			if (cmd_env->msc_cmd_msg.retry-- > 0) {
+				mutex_lock(&msc_send_workqueue_mutex);
+				list_add_tail(
+					&cmd_env->msc_queue_envelope,
+					&mhl_ctrl->list_cmd);
+				mutex_unlock(&msc_send_workqueue_mutex);
+			} else {
+				pr_err("%s: max scrpd retry out\n",
+				       __func__);
 			}
+		} else {
+			ret = mhl_send_msc_command(mhl_ctrl,
+						   &cmd_env->msc_cmd_msg);
+			if (ret == -EAGAIN) {
+				int retry = 2;
+				while (retry--) {
+					ret = mhl_send_msc_command(
+						mhl_ctrl,
+						&cmd_env->msc_cmd_msg);
+					if (ret != -EAGAIN)
+						break;
+				}
+			}
+			if (ret == -EAGAIN)
+				pr_err("%s: send_msc_command retry out!\n",
+				       __func__);
+			vfree(cmd_env);
 		}
-		if (ret == -EAGAIN)
-			pr_err("%s: send_msc_command retry out!\n", __func__);
 
-		vfree(cmd_env);
 		mutex_lock(&msc_send_workqueue_mutex);
 	}
 	mutex_unlock(&msc_send_workqueue_mutex);
@@ -179,20 +222,26 @@ int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 		case DEVCAP_OFFSET_INT_STAT_SIZE:
 			break;
 		}
-
+		break;
+	case MHL_WRITE_BURST:
+		mhl_msc_send_set_int(
+			mhl_ctrl,
+			MHL_RCHANGE_INT,
+			MHL_INT_DSCR_CHG,
+			MSC_PRIORITY_SEND);
 		break;
 	}
 	return 0;
 }
 
 int mhl_msc_send_set_int(struct mhl_tx_ctrl *mhl_ctrl,
-			 u8 offset, u8 mask)
+			 u8 offset, u8 mask, u8 prior)
 {
 	struct msc_command_struct req;
 	req.command = MHL_SET_INT;
 	req.offset = offset;
 	req.payload.data[0] = mask;
-	return mhl_queue_msc_command(mhl_ctrl, &req, MSC_NORMAL_SEND);
+	return mhl_queue_msc_command(mhl_ctrl, &req, prior);
 }
 
 int mhl_msc_send_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
@@ -204,6 +253,27 @@ int mhl_msc_send_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 	req.payload.data[0] = value;
 	return mhl_queue_msc_command(mhl_ctrl, &req, MSC_NORMAL_SEND);
 }
+
+static int mhl_msc_write_burst(struct mhl_tx_ctrl *mhl_ctrl,
+	u8 offset, u8 *data, u8 length)
+{
+	struct msc_command_struct req;
+	if (!mhl_ctrl)
+		return -EFAULT;
+
+	if (!mhl_ctrl->wr_burst_pending)
+		return -EFAULT;
+
+	req.command = MHL_WRITE_BURST;
+	req.offset = offset;
+	req.length = length;
+	req.payload.burst_data = data;
+	mhl_queue_msc_command(mhl_ctrl, &req, MSC_PRIORITY_SEND);
+	mhl_ctrl->wr_burst_pending = false;
+	return 0;
+}
+
+
 
 int mhl_msc_send_msc_msg(struct mhl_tx_ctrl *mhl_ctrl,
 			 u8 sub_cmd, u8 cmd_data)
@@ -384,6 +454,7 @@ int mhl_msc_recv_msc_msg(struct mhl_tx_ctrl *mhl_ctrl,
 int mhl_msc_recv_set_int(struct mhl_tx_ctrl *mhl_ctrl,
 			 u8 offset, u8 set_int)
 {
+	int prior;
 	if (offset >= 2)
 		return -EFAULT;
 
@@ -394,18 +465,36 @@ int mhl_msc_recv_set_int(struct mhl_tx_ctrl *mhl_ctrl,
 			mhl_ctrl->devcap_state = 0;
 			mhl_msc_read_devcap_all(mhl_ctrl);
 		}
-		if (set_int & MHL_INT_DSCR_CHG)
+		if (set_int & MHL_INT_DSCR_CHG) {
+			/* peer's scratchpad reg changed */
 			pr_debug("%s: dscr chg\n", __func__);
+			mhl_read_scratchpad(mhl_ctrl);
+			mhl_ctrl->scrpd_busy = false;
+		}
 		if (set_int & MHL_INT_REQ_WRT) {
-			/* SET_INT: GRT_WRT */
+			/* SET_INT: REQ_WRT */
+			if (mhl_ctrl->scrpd_busy) {
+				prior = MSC_NORMAL_SEND;
+			} else {
+				prior = MSC_PRIORITY_SEND;
+				mhl_ctrl->scrpd_busy = true;
+			}
 			mhl_msc_send_set_int(
 				mhl_ctrl,
 				MHL_RCHANGE_INT,
-				MHL_INT_GRT_WRT);
+				MHL_INT_GRT_WRT,
+				prior);
 		}
-		if (set_int & MHL_INT_GRT_WRT)
+		if (set_int & MHL_INT_GRT_WRT) {
+			/* SET_INT: GRT_WRT */
 			pr_debug("%s: recvd req to permit/grant write",
 				 __func__);
+			mhl_msc_write_burst(
+				mhl_ctrl,
+				MHL_SCRATCHPAD_OFFSET,
+				mhl_ctrl->scrpd.data,
+				mhl_ctrl->scrpd.length);
+		}
 		break;
 	case 1:
 		if (set_int & MHL_INT_EDID_CHG) {
@@ -486,4 +575,54 @@ int mhl_msc_recv_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 	}
 	mhl_ctrl->path_en_state = value;
 	return 0;
+}
+
+static int mhl_request_write_burst(struct mhl_tx_ctrl *mhl_ctrl,
+				   u8 start_reg,
+				   u8 length, u8 *data)
+{
+	int rc = 0;
+
+	if (!(mhl_ctrl->devcap[DEVCAP_OFFSET_FEATURE_FLAG] &
+	      MHL_FEATURE_SP_SUPPORT)) {
+		pr_debug("MHL: SCRATCHPAD_NOT_SUPPORTED\n");
+		rc = -EFAULT;
+	} else {
+		if (mhl_ctrl->scrpd_busy) {
+			pr_debug("MHL: scratchpad_busy\n");
+			rc = -EBUSY;
+		} else {
+			int i, reg;
+			for (i = 0, reg = start_reg; (i < length) &&
+				     (reg < MHL_SCRATCHPAD_SIZE); i++, reg++)
+				mhl_ctrl->scrpd.data[reg] = data[i];
+			mhl_ctrl->scrpd.length = length;
+			mhl_ctrl->scrpd.offset = start_reg;
+			mhl_msc_send_set_int(
+				mhl_ctrl,
+				MHL_RCHANGE_INT,
+				MHL_INT_REQ_WRT,
+				MSC_PRIORITY_SEND);
+		}
+	}
+	return rc;
+}
+
+/* write scratchpad entry */
+int mhl_write_scratchpad(struct mhl_tx_ctrl *mhl_ctrl,
+			  u8 offset, u8 length, u8 *data)
+{
+	int rc;
+
+	if ((length < ADOPTER_ID_SIZE) ||
+	    (length > MAX_SCRATCHPAD_TRANSFER_SIZE) ||
+	    (offset > (MAX_SCRATCHPAD_TRANSFER_SIZE - ADOPTER_ID_SIZE)) ||
+	    ((offset + length) > MAX_SCRATCHPAD_TRANSFER_SIZE)) {
+		pr_debug("MHL: write_burst (0x%02x)\n", -EINVAL);
+		return  -EINVAL;
+	}
+
+	rc = mhl_request_write_burst(mhl_ctrl, offset, length, data);
+
+	return rc;
 }
