@@ -78,7 +78,7 @@ int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg)
 {
 	unsigned long flags;
-	int index, ret;
+	int index;
 
 	index = mdss_mdp_intr2index(intr_type, intf_num);
 	if (index < 0) {
@@ -88,16 +88,13 @@ int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 	}
 
 	spin_lock_irqsave(&mdss_mdp_intr_lock, flags);
-	if (!mdp_intr_cb[index].func) {
-		mdp_intr_cb[index].func = fnc_ptr;
-		mdp_intr_cb[index].arg = arg;
-		ret = 0;
-	} else {
-		ret = -EBUSY;
-	}
+	WARN(mdp_intr_cb[index].func && fnc_ptr,
+		"replacing current intr callback for ndx=%d\n", index);
+	mdp_intr_cb[index].func = fnc_ptr;
+	mdp_intr_cb[index].arg = arg;
 	spin_unlock_irqrestore(&mdss_mdp_intr_lock, flags);
 
-	return ret;
+	return 0;
 }
 
 static inline void mdss_mdp_intr_done(int index)

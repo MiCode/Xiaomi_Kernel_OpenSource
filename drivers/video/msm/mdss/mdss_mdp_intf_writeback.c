@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -265,6 +265,9 @@ static int mdss_mdp_writeback_stop(struct mdss_mdp_ctl *ctl)
 
 	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
 	if (ctx) {
+		mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
+				   NULL, NULL);
+
 		ctl->priv_data = NULL;
 		ctx->ref_cnt--;
 	}
@@ -318,8 +321,6 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	flush_bits = BIT(16); /* WB */
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
 
-	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
-				   mdss_mdp_writeback_intr_done, ctx);
 	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
@@ -352,6 +353,9 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	ctl->priv_data = ctx;
 	ctx->wb_num = ctl->num;	/* wb num should match ctl num */
 	ctx->initialized = false;
+
+	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
+				   mdss_mdp_writeback_intr_done, ctx);
 
 	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR)
 		ctl->prepare_fnc = mdss_mdp_writeback_prepare_rot;
