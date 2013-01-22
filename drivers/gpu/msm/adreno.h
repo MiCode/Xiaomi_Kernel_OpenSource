@@ -34,6 +34,7 @@
 #define KGSL_CMD_FLAGS_NONE             0x00000000
 #define KGSL_CMD_FLAGS_PMODE		0x00000001
 #define KGSL_CMD_FLAGS_INTERNAL_ISSUE	0x00000002
+#define KGSL_CMD_FLAGS_EOF	        0x00000100
 
 /* Command identifiers */
 #define KGSL_CONTEXT_TO_MEM_IDENTIFIER	0x2EADBEEF
@@ -41,6 +42,8 @@
 #define KGSL_CMD_INTERNAL_IDENTIFIER	0x2EEDD00D
 #define KGSL_START_OF_IB_IDENTIFIER	0x2EADEABE
 #define KGSL_END_OF_IB_IDENTIFIER	0x2ABEDEAD
+#define KGSL_END_OF_FRAME_IDENTIFIER	0x2E0F2E0F
+#define KGSL_NOP_IB_IDENTIFIER	        0x20F20F20
 
 #ifdef CONFIG_MSM_SCM
 #define ADRENO_DEFAULT_PWRSCALE_POLICY  (&kgsl_pwrscale_policy_tz)
@@ -101,6 +104,7 @@ struct adreno_device {
 	unsigned int instruction_size;
 	unsigned int ib_check_level;
 	unsigned int fast_hang_detect;
+	unsigned int ft_policy;
 	unsigned int gpulist_index;
 	struct ocmem_buf *ocmem_hdl;
 	unsigned int ocmem_base;
@@ -142,8 +146,12 @@ struct adreno_gpudev {
  * @rb_size - Number of valid dwords in rb_buffer
  * @bad_rb_buffer - Buffer that holds commands from the hanging context
  * bad_rb_size - Number of valid dwords in bad_rb_buffer
+ * @good_rb_buffer - Buffer that holds commands from good contexts
+ * good_rb_size - Number of valid dwords in good_rb_buffer
  * @last_valid_ctx_id - The last context from which commands were placed in
  * ringbuffer before the GPU hung
+ * @step - Current recovery step being executed
+ * @err_code - Recovery error code
  * @fault - Indicates whether the hang was caused due to a pagefault
  * @start_of_replay_cmds - Offset in ringbuffer from where commands can be
  * replayed during recovery
@@ -158,11 +166,22 @@ struct adreno_recovery_data {
 	unsigned int rb_size;
 	unsigned int *bad_rb_buffer;
 	unsigned int bad_rb_size;
+	unsigned int *good_rb_buffer;
+	unsigned int good_rb_size;
 	unsigned int last_valid_ctx_id;
-	int fault;
+	unsigned int status;
+	unsigned int ft_policy;
+	unsigned int err_code;
 	unsigned int start_of_replay_cmds;
 	unsigned int replay_for_snapshot;
 };
+
+/* Fault Tolerance policy flags */
+#define  KGSL_FT_DISABLE                  0x00000001
+#define  KGSL_FT_REPLAY                   0x00000002
+#define  KGSL_FT_SKIPIB                   0x00000004
+#define  KGSL_FT_SKIPFRAME                0x00000008
+#define  KGSL_FT_DEFAULT_POLICY           (KGSL_FT_REPLAY + KGSL_FT_SKIPIB)
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
 extern struct adreno_gpudev adreno_a3xx_gpudev;
