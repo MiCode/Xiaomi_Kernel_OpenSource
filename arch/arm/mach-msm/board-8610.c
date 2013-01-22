@@ -40,9 +40,14 @@
 #include <mach/socinfo.h>
 #include <mach/board.h>
 #include <mach/clk-provider.h>
+#include <mach/msm_smd.h>
+#include <mach/rpm-smd.h>
+#include <linux/msm_thermal.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "platsmp.h"
+#include "spm.h"
+#include "lpm_resources.h"
 
 static struct memtype_reserve msm8610_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
@@ -84,6 +89,14 @@ static void __init msm8610_reserve(void)
 	msm_reserve();
 }
 
+void __init msm8610_add_drivers(void)
+{
+	msm_rpm_driver_init();
+	msm_lpmrs_module_init();
+	msm_spm_device_init();
+	msm_thermal_device_init();
+}
+
 void __init msm8610_init(void)
 {
 	struct of_dev_auxdata *adata = msm8610_auxdata_lookup;
@@ -92,11 +105,13 @@ void __init msm8610_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm8610_init_gpiomux();
+	msm8610_add_drivers();
 
 	if (machine_is_msm8610_rumi())
 		msm_clock_init(&msm8610_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8610_clock_init_data);
+
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
 }
 
@@ -107,7 +122,7 @@ static const char *msm8610_dt_match[] __initconst = {
 
 DT_MACHINE_START(MSM8610_DT, "Qualcomm MSM 8610 (Flattened Device Tree)")
 	.map_io = msm_map_msm8610_io,
-	.init_irq = msm_dt_init_irq_nompm,
+	.init_irq = msm_dt_init_irq,
 	.init_machine = msm8610_init,
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
