@@ -3049,9 +3049,21 @@ static int pix_rdi_clk_list_rate(struct clk *c, unsigned n)
 	return -ENXIO;
 }
 
-static enum handoff pix_rdi_clk_handoff(struct clk *c)
+static struct clk *pix_rdi_clk_get_parent(struct clk *c)
 {
 	u32 reg;
+	struct pix_rdi_clk *rdi = to_pix_rdi_clk(c);
+
+	reg = readl_relaxed(rdi->s_reg);
+	rdi->cur_rate = reg & rdi->s_mask ? 1 : 0;
+	reg = readl_relaxed(rdi->s2_reg);
+	rdi->cur_rate = reg & rdi->s2_mask ? 2 : rdi->cur_rate;
+
+	return pix_rdi_mux_map[rdi->cur_rate];
+}
+
+static enum handoff pix_rdi_clk_handoff(struct clk *c)
+{
 	struct pix_rdi_clk *rdi = to_pix_rdi_clk(c);
 	enum handoff ret;
 
@@ -3059,12 +3071,8 @@ static enum handoff pix_rdi_clk_handoff(struct clk *c)
 	if (ret == HANDOFF_DISABLED_CLK)
 		return ret;
 
-	reg = readl_relaxed(rdi->s_reg);
-	rdi->cur_rate = reg & rdi->s_mask ? 1 : 0;
-	reg = readl_relaxed(rdi->s2_reg);
-	rdi->cur_rate = reg & rdi->s2_mask ? 2 : rdi->cur_rate;
-	c->parent = pix_rdi_mux_map[rdi->cur_rate];
-
+	rdi->prepared = true;
+	rdi->enabled = true;
 	return HANDOFF_ENABLED_CLK;
 }
 
@@ -3078,6 +3086,7 @@ static struct clk_ops clk_ops_pix_rdi_8960 = {
 	.get_rate = pix_rdi_clk_get_rate,
 	.list_rate = pix_rdi_clk_list_rate,
 	.reset = pix_rdi_clk_reset,
+	.get_parent = pix_rdi_clk_get_parent,
 };
 
 static struct pix_rdi_clk csi_pix_clk = {
