@@ -224,6 +224,17 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	u8 la = txn->la;
 	u8 wbuf[SLIM_RX_MSGQ_BUF_LEN];
 
+	if (!pm_runtime_enabled(dev->dev) && dev->state == MSM_CTRL_ASLEEP &&
+			txn->mc != SLIM_USR_MC_REPORT_SATELLITE) {
+		/*
+		 * Counter-part of system-suspend when runtime-pm is not enabled
+		 * This way, resume can be left empty and device will be put in
+		 * active mode only if client requests anything on the bus
+		 * If the state was DOWN, SSR UP notification will take
+		 * care of putting the device in active state.
+		 */
+		ngd_slim_runtime_resume(dev->dev);
+	}
 	if (txn->mc == (SLIM_MSG_CLK_PAUSE_SEQ_FLG |
 			SLIM_MSG_MC_RECONFIGURE_NOW)) {
 		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED) {
@@ -1172,6 +1183,19 @@ static int ngd_slim_suspend(struct device *dev)
 	if (!pm_runtime_enabled(dev) || !pm_runtime_suspended(dev)) {
 		dev_dbg(dev, "system suspend");
 		ret = ngd_slim_runtime_suspend(dev);
+		/*
+		 * If runtime-PM still thinks it's active, then make sure its
+		 * status is in sync with HW status.
+		 * Since this suspend calls QMI api, it results in holding a
+		 * wakelock. That results in failure of first suspend.
+		 * Subsequent suspend should not call low-power transition
+		 * again since the HW is already in suspended state.
+		 */
+		if (!ret) {
+			pm_runtime_disable(dev);
+			pm_runtime_set_suspended(dev);
+			pm_runtime_enable(dev);
+		}
 	}
 	if (ret == -EBUSY) {
 		/*
@@ -1189,18 +1213,11 @@ static int ngd_slim_suspend(struct device *dev)
 
 static int ngd_slim_resume(struct device *dev)
 {
-	/* If runtime_pm is enabled, this resume shouldn't do anything */
-	if (!pm_runtime_enabled(dev) || !pm_runtime_suspended(dev)) {
-		int ret;
-		dev_dbg(dev, "system resume");
-		ret = ngd_slim_runtime_resume(dev);
-		if (!ret) {
-			pm_runtime_mark_last_busy(dev);
-			pm_request_autosuspend(dev);
-		}
-		return ret;
-
-	}
+	/*
+	 * Rely on runtime-PM to call resume in case it is enabled.
+	 * Even if it's not enabled, rely on 1st client transaction to do
+	 * clock/power on
+	 */
 	return 0;
 }
 #endif /* CONFIG_PM_SLEEP */
