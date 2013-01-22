@@ -134,12 +134,6 @@
 				<87 512 60000 960000>;
 	};
 
-	android_usb@fc42b0c8 {
-		compatible = "qcom,android-usb";
-		reg = <0xfc42b0c8 0xc8>;
-		qcom,android-usb-swfi-latency = <1>;
-	};
-
 	sdcc1: qcom,sdcc@f9824000 {
 		cell-index = <1>; /* SDC1 eMMC slot */
 		compatible = "qcom,msm-sdcc";
