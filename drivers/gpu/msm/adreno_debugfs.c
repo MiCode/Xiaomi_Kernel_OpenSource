@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,5 +64,16 @@ void adreno_debugfs_init(struct kgsl_device *device)
 	adreno_dev->fast_hang_detect = 1;
 	debugfs_create_u32("fast_hang_detect", 0644, device->d_debugfs,
 			   &adreno_dev->fast_hang_detect);
+	/*
+	 * FT policy can be set to any of the options below.
+	 * KGSL_FT_DISABLE -> BIT(0) Set to disable FT
+	 * KGSL_FT_REPLAY  -> BIT(1) Set to enable replay
+	 * KGSL_FT_SKIPIB  -> BIT(2) Set to skip IB
+	 * KGSL_FT_SKIPFRAME -> BIT(3) Set to skip frame
+	 * by default set FT policy to KGSL_FT_DEFAULT_POLICY
+	 */
+	adreno_dev->ft_policy = KGSL_FT_DEFAULT_POLICY;
+	debugfs_create_u32("ft_policy", 0644, device->d_debugfs,
+			   &adreno_dev->ft_policy);
 
 }
