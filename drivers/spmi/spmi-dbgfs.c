@@ -36,6 +36,7 @@
 #include <linux/debugfs.h>
 #include <linux/spmi.h>
 #include <linux/ctype.h>
+#include "spmi-dbgfs.h"
 
 #define ADDR_LEN	 6	/* 5 byte address + 1 space character */
 #define CHARS_PER_ITEM   3	/* Format is 'XX ' */
@@ -58,6 +59,7 @@ struct spmi_log_buffer {
 struct spmi_ctrl_data {
 	u32 cnt;
 	u32 addr;
+	struct dentry *dir;
 	struct list_head node;
 	struct spmi_controller *ctrl;
 };
@@ -655,6 +657,7 @@ int spmi_dfs_add_controller(struct spmi_controller *ctrl)
 	}
 
 	ctrl_data->cnt  = 1;
+	ctrl_data->dir  = dir;
 	ctrl_data->ctrl = ctrl;
 
 	file = debugfs_create_u32("count", DFS_MODE, dir, &ctrl_data->cnt);
@@ -691,6 +694,25 @@ err_remove_fs:
 err_create_dir_failed:
 	kfree(ctrl_data);
 	return -ENOMEM;
+}
+
+/*
+ * spmi_dfs_create_file: creates a new file in the SPMI debugfs
+ * @returns valid dentry pointer on success or NULL
+ */
+struct dentry *spmi_dfs_create_file(struct spmi_controller *ctrl,
+					const char *name, void *data,
+					const struct file_operations *fops)
+{
+	struct spmi_ctrl_data *ctrl_data;
+
+	list_for_each_entry(ctrl_data, &dbgfs_data.ctrl, node) {
+		if (ctrl_data->ctrl == ctrl)
+			return debugfs_create_file(name,
+					DFS_MODE, ctrl_data->dir, data, fops);
+	}
+
+	return NULL;
 }
 
 static void __exit spmi_dfs_delete_all_ctrl(struct list_head *head)
