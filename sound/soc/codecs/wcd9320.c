@@ -2687,13 +2687,15 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX10 MUX", "DEC9", "DEC9 MUX"},
 	{"SLIM TX10 MUX", "DEC10", "DEC10 MUX"},
 
+	/* Change Pump */
+	{"CP", NULL, "CLASS_H_CLK"},
+
 	/* Earpiece (RX MIX1) */
 	{"EAR", NULL, "EAR PA"},
 	{"EAR PA", NULL, "EAR_PA_MIXER"},
 	{"EAR_PA_MIXER", NULL, "DAC1"},
-	{"DAC1", NULL, "CP"},
-	{"CP", NULL, "CLASS_H_EAR"},
-	{"CLASS_H_EAR", NULL, "CLASS_H_CLK"},
+	{"DAC1", NULL, "CLASS_H_EAR"},
+	{"CLASS_H_EAR", NULL, "CP"},
 
 	{"ANC1 FB MUX", "EAR_HPH_L", "RX1 MIX2"},
 	{"ANC1 FB MUX", "EAR_LINE_1", "RX2 MIX2"},
@@ -2709,13 +2711,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HPHR", NULL, "HPHR_PA_MIXER"},
 	{"HPHR_PA_MIXER", NULL, "HPHR DAC"},
 
-	{"HPHL DAC", NULL, "CP"},
-	{"CP", NULL, "CLASS_H_HPH_L"},
-	{"CLASS_H_HPH_L", NULL, "CLASS_H_CLK"},
+	{"HPHL DAC", NULL, "CLASS_H_HPH_L"},
+	{"CLASS_H_HPH_L", NULL, "CP"},
 
-	{"HPHR DAC", NULL, "CP"},
-	{"CP", NULL, "CLASS_H_HPH_R"},
-	{"CLASS_H_HPH_R", NULL, "CLASS_H_CLK"},
+	{"HPHR DAC", NULL, "CLASS_H_HPH_R"},
+	{"CLASS_H_HPH_R", NULL, "CP"},
 
 	{"ANC", NULL, "ANC1 MUX"},
 	{"ANC", NULL, "ANC2 MUX"},
