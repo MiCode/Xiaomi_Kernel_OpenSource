@@ -333,7 +333,14 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 		wdog_dd->last_pet, nanosec_rem / 1000);
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
-	panic("Apps watchdog bark received!");
+	printk(KERN_INFO "Causing a watchdog bite!");
+	__raw_writel(1, wdog_dd->base + WDT0_BITE_TIME);
+	mb();
+	__raw_writel(1, wdog_dd->base + WDT0_RST);
+	mb();
+	/* Delay to make sure bite occurs */
+	mdelay(1);
+	panic("Failed to cause a watchdog bite! - Falling back to kernel panic!");
 	return IRQ_HANDLED;
 }
 
