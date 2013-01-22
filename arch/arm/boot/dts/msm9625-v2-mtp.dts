@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,12 +12,13 @@
 
 /dts-v1/;
 
-/include/ "msm9625-v1.dtsi"
+/include/ "msm9625-v2.dtsi"
 
 / {
-	model = "Qualcomm MSM 9625V1 MTP";
+	model = "Qualcomm MSM 9625V2 MTP";
 	compatible = "qcom,msm9625-mtp", "qcom,msm9625";
-	qcom,msm-id = <134 7 0>, <152 7 0>, <149 7 0>, <150 7 0>;
+	qcom,msm-id = <134 7 0x20000>, <152 7 0x20000>, <149 7 0x20000>,
+		<150 7 0x20000>;
 
 	i2c@f9925000 {
 		charger@57 {
