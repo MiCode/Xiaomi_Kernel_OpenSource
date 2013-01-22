@@ -1584,7 +1584,7 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 	vddio = (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV &&
 		 mbhc->mbhc_micbias_switched);
 	if (vddio)
-		wcd9xxx_onoff_vddio_switch(mbhc, true);
+		__wcd9xxx_switch_micbias(mbhc, 0, false, true);
 
 	if (mbhc->mbhc_cfg->detect_extn_cable &&
 	    !wcd9xxx_swch_level_remove(mbhc))
@@ -1597,8 +1597,8 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 	 * turn on the vddio switch back, if headset is removed then vddio
 	 * switch is off by time now and shouldn't be turn on again from here
 	 */
-	if (vddio && mbhc->current_plug == PLUG_TYPE_HEADSET)
-		wcd9xxx_onoff_vddio_switch(mbhc, true);
+	if (vddio && (mbhc->current_plug == PLUG_TYPE_HEADSET))
+		__wcd9xxx_switch_micbias(mbhc, 1, true, true);
 	WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 
 	return IRQ_HANDLED;
