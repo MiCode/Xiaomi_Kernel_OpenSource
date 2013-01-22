@@ -225,6 +225,8 @@ struct msm_hs_port {
 #define UARTDM_NR 256
 #define BAM_PIPE_MIN 0
 #define BAM_PIPE_MAX 11
+#define BUS_SCALING 1
+#define BUS_RESET 0
 
 static struct dentry *debug_base;
 static struct msm_hs_port q_uart_port[UARTDM_NR];
@@ -300,6 +302,21 @@ static unsigned int is_blsp_uart(struct msm_hs_port *msm_uport)
 {
 	return (msm_uport->uart_type == BLSP_HSUART);
 }
+
+static void msm_hs_bus_voting(struct msm_hs_port *msm_uport, unsigned int vote)
+{
+	int ret;
+
+	if (is_blsp_uart(msm_uport) && msm_uport->bus_perf_client) {
+		pr_debug("Bus voting:%d\n", vote);
+		ret = msm_bus_scale_client_update_request(
+				msm_uport->bus_perf_client, vote);
+		if (ret)
+			pr_err("%s(): Failed for Bus voting: %d\n",
+							__func__, vote);
+	}
+}
+
 static inline unsigned int msm_hs_read(struct uart_port *uport,
 				       unsigned int offset)
 {
@@ -368,6 +385,8 @@ static int msm_serial_loopback_enable_set(void *data, u64 val)
 	unsigned long flags;
 	int ret = 0;
 
+	msm_hs_bus_voting(msm_uport, BUS_SCALING);
+
 	clk_prepare_enable(msm_uport->clk);
 	if (msm_uport->pclk)
 		clk_prepare_enable(msm_uport->pclk);
@@ -399,6 +418,7 @@ static int msm_serial_loopback_enable_set(void *data, u64 val)
 	if (msm_uport->pclk)
 		clk_disable_unprepare(msm_uport->pclk);
 
+	msm_hs_bus_voting(msm_uport, BUS_RESET);
 	return 0;
 }
 
@@ -408,6 +428,8 @@ static int msm_serial_loopback_enable_get(void *data, u64 *val)
 	struct uart_port *uport = &(msm_uport->uport);
 	unsigned long flags;
 	int ret = 0;
+
+	msm_hs_bus_voting(msm_uport, BUS_SCALING);
 
 	clk_prepare_enable(msm_uport->clk);
 	if (msm_uport->pclk)
@@ -422,6 +444,8 @@ static int msm_serial_loopback_enable_get(void *data, u64 *val)
 		clk_disable_unprepare(msm_uport->pclk);
 
 	*val = (ret & UARTDM_MR2_LOOP_MODE_BMSK) ? 1 : 0;
+
+	msm_hs_bus_voting(msm_uport, BUS_RESET);
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(loopback_enable_fops, msm_serial_loopback_enable_get,
@@ -1627,7 +1651,6 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 {
 	unsigned long sr_status;
 	unsigned long flags;
-	int ret;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct circ_buf *tx_buf = &uport->state->xmit;
 
@@ -1710,14 +1733,9 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 	spin_unlock_irqrestore(&uport->lock, flags);
 
 	/* Reset PNOC Bus Scaling */
-	if (is_blsp_uart(msm_uport)) {
-		ret = msm_bus_scale_client_update_request(
-				msm_uport->bus_perf_client, 0);
-		if (ret)
-			pr_err("%s(): Failed to reset bus bw vote\n", __func__);
-	}
-
+	msm_hs_bus_voting(msm_uport, BUS_RESET);
 	mutex_unlock(&msm_uport->clk_mutex);
+
 	return 1;
 }
 
@@ -1889,13 +1907,7 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 		spin_unlock_irqrestore(&uport->lock, flags);
 
 		/* Vote for PNOC BUS Scaling */
-		if (is_blsp_uart(msm_uport)) {
-			ret = msm_bus_scale_client_update_request(
-					msm_uport->bus_perf_client, 1);
-			if (ret)
-				pr_err("%s():Failed to vote for bus scaling.\n",
-								__func__);
-		}
+		msm_hs_bus_voting(msm_uport, BUS_SCALING);
 
 		ret = clk_prepare_enable(msm_uport->clk);
 		if (ret) {
@@ -2142,13 +2154,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	}
 
 	/* Vote for PNOC BUS Scaling */
-	if (is_blsp_uart(msm_uport)) {
-		ret = msm_bus_scale_client_update_request(
-				msm_uport->bus_perf_client, 1);
-		if (ret)
-			pr_err("%s(): Failed to vote for bus scaling\n",
-								__func__);
-	}
+	msm_hs_bus_voting(msm_uport, BUS_SCALING);
 
 	spin_lock_irqsave(&uport->lock, flags);
 
@@ -2673,8 +2679,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 
 		msm_uport->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 		if (!msm_uport->bus_scale_table) {
-			pr_err("BLSP UART: Bus scaling is disabled\n");
-			goto unmap_memory;
+			pr_err("BLSP UART: Bus scaling is disabled.\n");
 		} else {
 			msm_uport->bus_perf_client =
 				msm_bus_scale_register_client
@@ -2682,6 +2687,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 			if (IS_ERR(&msm_uport->bus_perf_client)) {
 				pr_err("%s(): Bus client register failed.\n",
 								__func__);
+				ret = -EINVAL;
 				goto unmap_memory;
 			}
 		}
@@ -2803,6 +2809,8 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		}
 	}
 
+	msm_hs_bus_voting(msm_uport, BUS_SCALING);
+
 	clk_prepare_enable(msm_uport->clk);
 	if (msm_uport->pclk)
 		clk_prepare_enable(msm_uport->pclk);
@@ -2840,6 +2848,8 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		uport->line = pdata->userid;
 	ret = uart_add_one_port(&msm_hs_driver, uport);
 	if (!ret) {
+
+		msm_hs_bus_voting(msm_uport, BUS_RESET);
 		clk_disable_unprepare(msm_uport->clk);
 		if (msm_uport->pclk)
 			clk_disable_unprepare(msm_uport->pclk);
@@ -2847,6 +2857,8 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	}
 
 err_clock:
+
+	msm_hs_bus_voting(msm_uport, BUS_RESET);
 	clk_disable_unprepare(msm_uport->clk);
 	if (msm_uport->pclk)
 		clk_disable_unprepare(msm_uport->pclk);
@@ -2957,12 +2969,7 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	mb();
 
 	/* Reset PNOC Bus Scaling */
-	if (is_blsp_uart(msm_uport)) {
-		ret = msm_bus_scale_client_update_request(
-				msm_uport->bus_perf_client, 0);
-		if (ret)
-			pr_err("%s(): Failed to reset bus bw vote\n", __func__);
-	}
+	msm_hs_bus_voting(msm_uport, BUS_RESET);
 
 	if (msm_uport->clk_state != MSM_HS_CLK_OFF) {
 		/* to balance clk_state */
