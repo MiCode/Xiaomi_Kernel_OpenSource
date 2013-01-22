@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -69,7 +69,6 @@ struct clk_vdd_class {
 enum handoff {
 	HANDOFF_ENABLED_CLK,
 	HANDOFF_DISABLED_CLK,
-	HANDOFF_UNKNOWN_RATE,
 };
 
 struct clk_ops {

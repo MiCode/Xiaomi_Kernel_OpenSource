@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/clock.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -467,56 +467,83 @@ int msm_clock_register(struct clk_lookup *table, size_t size)
 }
 EXPORT_SYMBOL(msm_clock_register);
 
-static enum handoff __init __handoff_clk(struct clk *clk)
+static int __init __handoff_clk(struct clk *clk)
 {
-	enum handoff ret;
-	struct handoff_clk *h;
-	unsigned long rate;
-	int err = 0;
+	enum handoff state = HANDOFF_DISABLED_CLK;
+	struct handoff_clk *h = NULL;
+	int rc;
+
+	if (clk == NULL || clk->flags & CLKFLAG_INIT_DONE ||
+	    clk->flags & CLKFLAG_SKIP_HANDOFF)
+		return 0;
+
+	if (clk->flags & CLKFLAG_INIT_ERR)
+		return -ENXIO;
+
+	/* Handoff any 'depends' clock first. */
+	rc = __handoff_clk(clk->depends);
+	if (rc)
+		goto err;
 
 	/*
-	 * Tree roots don't have parents, but need to be handed off. So,
-	 * terminate recursion by returning "enabled". Also return "enabled"
-	 * for clocks with non-zero enable counts since they must have already
-	 * been handed off.
+	 * Handoff functions for the parent must be called before the
+	 * children can be handed off. Without handing off the parents and
+	 * knowing their rate and state (on/off), it's impossible to figure
+	 * out the rate and state of the children.
 	 */
-	if (clk == NULL || clk->count)
-		return HANDOFF_ENABLED_CLK;
+	if (clk->ops->get_parent)
+		clk->parent = clk->ops->get_parent(clk);
 
-	/* Clocks without handoff functions are assumed to be disabled. */
-	if (!clk->ops->handoff || (clk->flags & CLKFLAG_SKIP_HANDOFF))
-		return HANDOFF_DISABLED_CLK;
+	if (IS_ERR(clk->parent)) {
+		rc = PTR_ERR(clk->parent);
+		goto err;
+	}
 
-	/*
-	 * Handoff functions for children must be called before their parents'
-	 * so that the correct parent is available below.
-	 */
-	ret = clk->ops->handoff(clk);
-	if (ret == HANDOFF_ENABLED_CLK) {
-		ret = __handoff_clk(clk->parent);
-		if (ret == HANDOFF_ENABLED_CLK) {
-			h = kmalloc(sizeof(*h), GFP_KERNEL);
-			if (!h) {
-				err = -ENOMEM;
-				goto out;
-			}
-			err = clk_prepare_enable(clk);
-			if (err)
-				goto out;
-			rate = clk_get_rate(clk);
-			if (rate)
-				pr_debug("%s rate=%lu\n", clk->dbg_name, rate);
-			h->clk = clk;
-			list_add_tail(&h->list, &handoff_list);
+	rc = __handoff_clk(clk->parent);
+	if (rc)
+		goto err;
+
+	if (clk->ops->handoff)
+		state = clk->ops->handoff(clk);
+
+	if (state == HANDOFF_ENABLED_CLK) {
+
+		h = kmalloc(sizeof(*h), GFP_KERNEL);
+		if (!h) {
+			rc = -ENOMEM;
+			goto err;
 		}
+
+		rc = clk_prepare_enable(clk->parent);
+		if (rc)
+			goto err;
+
+		rc = clk_prepare_enable(clk->depends);
+		if (rc)
+			goto err_depends;
+
+		rc = vote_rate_vdd(clk, clk->rate);
+		WARN(rc, "%s unable to vote for voltage!\n", clk->dbg_name);
+
+		clk->count = 1;
+		clk->prepare_count = 1;
+		h->clk = clk;
+		list_add_tail(&h->list, &handoff_list);
+
+		pr_debug("Handed off %s rate=%lu\n", clk->dbg_name, clk->rate);
 	}
-out:
-	if (err) {
-		pr_err("%s handoff failed (%d)\n", clk->dbg_name, err);
-		kfree(h);
-		ret = HANDOFF_DISABLED_CLK;
-	}
-	return ret;
+
+	clk->flags |= CLKFLAG_INIT_DONE;
+
+	return 0;
+
+err_depends:
+	clk_disable_unprepare(clk->parent);
+err:
+	kfree(h);
+	clk->flags |= CLKFLAG_INIT_ERR;
+	pr_err("%s handoff failed (%d)\n", clk->dbg_name, rc);
+	return rc;
 }
 
 /**

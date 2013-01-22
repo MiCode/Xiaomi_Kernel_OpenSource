@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, 2012 Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009, 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,8 @@
 #define CLKFLAG_SKIP_HANDOFF		0x00000100
 #define CLKFLAG_MIN			0x00000400
 #define CLKFLAG_MAX			0x00000800
+#define CLKFLAG_INIT_DONE		0x00001000
+#define CLKFLAG_INIT_ERR		0x00002000
 
 struct clk_lookup;
 struct clk;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,8 +69,8 @@ struct clk_freq_tbl rcg_dummy_freq = F_END;
 #define MND_MODE_MASK			BM(13, 12)
 #define MND_DUAL_EDGE_MODE_BVAL		BVAL(13, 12, 0x2)
 #define CMD_RCGR_CONFIG_DIRTY_MASK	BM(7, 4)
-#define CBCR_BRANCH_CDIV_MASK		BM(24, 16)
-#define CBCR_BRANCH_CDIV_MASKED(val)	BVAL(24, 16, (val));
+#define CBCR_CDIV_LSB			16
+#define CBCR_CDIV_MSB			24
 
 enum branch_state {
 	BRANCH_ON,
@@ -235,21 +235,17 @@ static int rcg_clk_list_rate(struct clk *c, unsigned n)
 	return (rcg->freq_tbl + n)->freq_hz;
 }
 
-static enum handoff _rcg_clk_handoff(struct rcg_clk *rcg, int has_mnd)
+static struct clk *_rcg_clk_get_parent(struct rcg_clk *rcg, int has_mnd)
 {
 	u32 n_regval = 0, m_regval = 0, d_regval = 0;
 	u32 cfg_regval;
 	struct clk_freq_tbl *freq;
 	u32 cmd_rcgr_regval;
 
-	/* Is the root enabled? */
-	cmd_rcgr_regval = readl_relaxed(CMD_RCGR_REG(rcg));
-	if ((cmd_rcgr_regval & CMD_RCGR_ROOT_STATUS_BIT))
-		return HANDOFF_DISABLED_CLK;
-
 	/* Is there a pending configuration? */
+	cmd_rcgr_regval = readl_relaxed(CMD_RCGR_REG(rcg));
 	if (cmd_rcgr_regval & CMD_RCGR_CONFIG_DIRTY_MASK)
-		return HANDOFF_UNKNOWN_RATE;
+		return NULL;
 
 	/* Get values of m, n, d, div and src_sel registers. */
 	if (has_mnd) {
@@ -299,23 +295,45 @@ static enum handoff _rcg_clk_handoff(struct rcg_clk *rcg, int has_mnd)
 
 	/* No known frequency found */
 	if (freq->freq_hz == FREQ_END)
-		return HANDOFF_UNKNOWN_RATE;
+		return NULL;
 
 	rcg->current_freq = freq;
-	rcg->c.parent = freq->src_clk;
-	rcg->c.rate = freq->freq_hz;
+	return freq->src_clk;
+}
+
+static enum handoff _rcg_clk_handoff(struct rcg_clk *rcg)
+{
+	u32 cmd_rcgr_regval;
+
+	if (rcg->current_freq && rcg->current_freq->freq_hz != FREQ_END)
+		rcg->c.rate = rcg->current_freq->freq_hz;
+
+	/* Is the root enabled? */
+	cmd_rcgr_regval = readl_relaxed(CMD_RCGR_REG(rcg));
+	if ((cmd_rcgr_regval & CMD_RCGR_ROOT_STATUS_BIT))
+		return HANDOFF_DISABLED_CLK;
 
 	return HANDOFF_ENABLED_CLK;
 }
 
+static struct clk *rcg_mnd_clk_get_parent(struct clk *c)
+{
+	return _rcg_clk_get_parent(to_rcg_clk(c), 1);
+}
+
+static struct clk *rcg_clk_get_parent(struct clk *c)
+{
+	return _rcg_clk_get_parent(to_rcg_clk(c), 0);
+}
+
 static enum handoff rcg_mnd_clk_handoff(struct clk *c)
 {
-	return _rcg_clk_handoff(to_rcg_clk(c), 1);
+	return _rcg_clk_handoff(to_rcg_clk(c));
 }
 
 static enum handoff rcg_clk_handoff(struct clk *c)
 {
-	return _rcg_clk_handoff(to_rcg_clk(c), 0);
+	return _rcg_clk_handoff(to_rcg_clk(c));
 }
 
 #define BRANCH_CHECK_MASK	BM(31, 28)
@@ -412,8 +430,8 @@ static int branch_cdiv_set_rate(struct branch_clk *branch, unsigned long rate)
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	regval = readl_relaxed(CBCR_REG(branch));
-	regval &= ~CBCR_BRANCH_CDIV_MASK;
-	regval |= CBCR_BRANCH_CDIV_MASKED(rate);
+	regval &= ~BM(CBCR_CDIV_MSB, CBCR_CDIV_LSB);
+	regval |= BVAL(CBCR_CDIV_MSB, CBCR_CDIV_LSB, rate);
 	writel_relaxed(regval, CBCR_REG(branch));
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
@@ -496,9 +514,12 @@ static enum handoff branch_clk_handoff(struct clk *c)
 	if ((cbcr_regval & CBCR_BRANCH_OFF_BIT))
 		return HANDOFF_DISABLED_CLK;
 
-	if (c->parent) {
-		if (c->parent->ops->handoff)
-			return c->parent->ops->handoff(c->parent);
+	if (branch->max_div) {
+		cbcr_regval &= BM(CBCR_CDIV_MSB, CBCR_CDIV_LSB);
+		cbcr_regval >>= CBCR_CDIV_LSB;
+		c->rate = cbcr_regval;
+	} else if (!branch->has_sibling) {
+		c->rate = clk_get_rate(c->parent);
 	}
 
 	return HANDOFF_ENABLED_CLK;
@@ -611,6 +632,7 @@ struct clk_ops clk_ops_rcg = {
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
+	.get_parent = rcg_clk_get_parent,
 };
 
 struct clk_ops clk_ops_rcg_mnd = {
@@ -619,6 +641,7 @@ struct clk_ops clk_ops_rcg_mnd = {
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_mnd_clk_handoff,
+	.get_parent = rcg_mnd_clk_get_parent,
 };
 
 struct clk_ops clk_ops_branch = {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -598,20 +598,21 @@ enum handoff branch_handoff(struct branch *b, struct clk *c)
 static enum handoff branch_clk_handoff(struct clk *c)
 {
 	struct branch_clk *br = to_branch_clk(c);
-	return branch_handoff(&br->b, &br->c);
+	if (branch_handoff(&br->b, &br->c) == HANDOFF_ENABLED_CLK) {
+		br->enabled = true;
+		return HANDOFF_ENABLED_CLK;
+	}
+
+	return HANDOFF_DISABLED_CLK;
 }
 
-static enum handoff rcg_clk_handoff(struct clk *c)
+static struct clk *rcg_clk_get_parent(struct clk *c)
 {
 	struct rcg_clk *rcg = to_rcg_clk(c);
 	uint32_t ctl_val, ns_val, md_val, ns_mask;
 	struct clk_freq_tbl *freq;
-	enum handoff ret;
 
 	ctl_val = readl_relaxed(rcg->b.ctl_reg);
-	ret = branch_handoff(&rcg->b, &rcg->c);
-	if (ret == HANDOFF_DISABLED_CLK)
-		return HANDOFF_DISABLED_CLK;
 
 	if (rcg->bank_info) {
 		const struct bank_masks *bank_masks = rcg->bank_info;
@@ -628,21 +629,40 @@ static enum handoff rcg_clk_handoff(struct clk *c)
 		ns_mask = rcg->ns_mask;
 		md_val = rcg->md_reg ? readl_relaxed(rcg->md_reg) : 0;
 	}
+
 	if (!ns_mask)
-		return HANDOFF_UNKNOWN_RATE;
+		return NULL;
+
 	ns_val = readl_relaxed(rcg->ns_reg) & ns_mask;
 	for (freq = rcg->freq_tbl; freq->freq_hz != FREQ_END; freq++) {
 		if ((freq->ns_val & ns_mask) == ns_val &&
 		    (!freq->md_val || freq->md_val == md_val))
 			break;
 	}
+
 	if (freq->freq_hz == FREQ_END)
-		return HANDOFF_UNKNOWN_RATE;
+		return NULL;
 
+	/* Cache the results for the handoff code. */
 	rcg->current_freq = freq;
-	c->parent = freq->src_clk;
-	c->rate = freq->freq_hz;
 
+	return freq->src_clk;
+}
+
+static enum handoff rcg_clk_handoff(struct clk *c)
+{
+	struct rcg_clk *rcg = to_rcg_clk(c);
+	enum handoff ret;
+
+	if (rcg->current_freq && rcg->current_freq->freq_hz != FREQ_END)
+		c->rate = rcg->current_freq->freq_hz;
+
+	ret = branch_handoff(&rcg->b, &rcg->c);
+	if (ret == HANDOFF_DISABLED_CLK)
+		return HANDOFF_DISABLED_CLK;
+
+	rcg->prepared = true;
+	rcg->enabled = true;
 	return HANDOFF_ENABLED_CLK;
 }
 
@@ -861,6 +881,7 @@ struct clk_ops clk_ops_rcg = {
 	.round_rate = rcg_clk_round_rate,
 	.reset = rcg_clk_reset,
 	.set_flags = rcg_clk_set_flags,
+	.get_parent = rcg_clk_get_parent,
 };
 
 static int cdiv_clk_enable(struct clk *c)
@@ -940,6 +961,7 @@ static enum handoff cdiv_clk_handoff(struct clk *c)
 		reg_val >>= cdiv->div_offset;
 		cdiv->cur_div = (reg_val & (cdiv->max_div - 1)) + 1;
 	}
+	c->rate = cdiv->cur_div;
 
 	return HANDOFF_ENABLED_CLK;
 }
