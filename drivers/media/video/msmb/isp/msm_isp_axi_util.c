@@ -116,6 +116,7 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 		return rc;
 	}
 
+	stream_info->stream_src = stream_cfg_cmd->stream_src;
 	return 0;
 }
 
