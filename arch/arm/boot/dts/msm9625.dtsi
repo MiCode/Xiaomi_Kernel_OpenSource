@@ -609,6 +609,12 @@
 			<0xfc330000 0x1000>;
 		reg-names = "etm-base","debug-base";
 	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x1000>; /* 4K EBI1 buffer */
+	};
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
