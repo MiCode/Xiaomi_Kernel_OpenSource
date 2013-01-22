@@ -32,6 +32,7 @@ Optional properties:
 - coresight-child-ports : list of input port numbers of the children
 - coresight-default-sink : represents the default compile time CoreSight sink
 - qcom,pc-save : program counter save implemented
+- qcom,blk-size : block size for tmc-etr to usb transfers
 
 Examples:
 
