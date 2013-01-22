@@ -967,6 +967,18 @@ pinmux core.
 Pinmux requests from drivers
 ============================
 
+When a device driver is about to probe the device core will automatically
+attempt to issue pinctrl_get_select_default() on these devices.
+This way driver writers do not need to add any of the boilerplate code
+of the type found below. However when doing fine-grained state selection
+and not using the "default" state, you may have to do some device driver
+handling of the pinctrl handles and states.
+
+So if you just want to put the pins for a certain device into the default
+state and be done with it, there is nothing you need to do besides
+providing the proper mapping table. The device core will take care of
+the rest.
+
 Generally it is discouraged to let individual drivers get and enable pin
 control. So if possible, handle the pin control in platform code or some other
 place where you have access to all the affected struct device * pointers. In
@@ -1060,6 +1072,51 @@ NOTE: the pinctrl system will return -EPROBE_DEFER if it cannot find the
 requested pinctrl handles, for example if the pinctrl driver has not yet
 registered. Thus make sure that the error path in your driver gracefully
 cleans up and is ready to retry the probing later in the startup process.
+
+
+Drivers needing both pin control and GPIOs
+==========================================
+
+Again, it is discouraged to let drivers lookup and select pin control states
+themselves, but again sometimes this is unavoidable.
+
+So say that your driver is fetching its resources like this:
+
+#include <linux/pinctrl/consumer.h>
+#include <linux/gpio.h>
+
+struct pinctrl *pinctrl;
+int gpio;
+
+pinctrl = devm_pinctrl_get_select_default(&dev);
+gpio = devm_gpio_request(&dev, 14, "foo");
+
+Here we first request a certain pin state and then request GPIO 14 to be
+used. If you're using the subsystems orthogonally like this, you should
+nominally always get your pinctrl handle and select the desired pinctrl
+state BEFORE requesting the GPIO. This is a semantic convention to avoid
+situations that can be electrically unpleasant, you will certainly want to
+mux in and bias pins in a certain way before the GPIO subsystems starts to
+deal with them.
+
+The above can be hidden: using the device core, the pinctrl core may be
+setting up the config and muxing for the pins right before the device is
+probing, nevertheless orthogonal to the GPIO subsystem.
+
+But there are also situations where it makes sense for the GPIO subsystem
+to communicate directly with with the pinctrl subsystem, using the latter
+as a back-end. This is when the GPIO driver may call out to the functions
+described in the section "Pin control interaction with the GPIO subsystem"
+above. This only involves per-pin multiplexing, and will be completely
+hidden behind the gpio_*() function namespace. In this case, the driver
+need not interact with the pin control subsystem at all.
+
+If a pin control driver and a GPIO driver is dealing with the same pins
+and the use cases involve multiplexing, you MUST implement the pin controller
+as a back-end for the GPIO driver like this, unless your hardware design
+is such that the GPIO controller can override the pin controller's
+multiplexing state through hardware without the need to interact with the
+pin control system.
 
 
 System pin control hogging
