@@ -5057,6 +5057,20 @@ static struct clk_lookup msm_clocks_8974_rumi[] = {
 	CLK_DUMMY("vsync_clk", "mdp.0", NULL, 0),
 	CLK_DUMMY("iface_clk", "mdp.0", NULL, 0),
 	CLK_DUMMY("bus_clk", "mdp.0", NULL, 0),
+	CLK_DUMMY("iface_clk", NULL, "fda64000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk", NULL, "fda64000.qcom,iommu", OFF),
+	CLK_DUMMY("alt_core_clk", NULL, "fda64000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk", NULL, "fda44000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk", NULL, "fda44000.qcom,iommu", OFF),
+	CLK_DUMMY("alt_core_clk", NULL, "fda44000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk", NULL, "fd928000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk", NULL, "fd928000.qcom,iommu", oFF),
+	CLK_DUMMY("core_clk", NULL, "fdb10000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk", NULL, "fdb10000.qcom,iommu", OFF),
+	CLK_DUMMY("alt_core_clk", NULL, "fdb10000.qcom,iommu", OFF),
+	CLK_DUMMY("iface_clk", NULL, "fdc84000.qcom,iommu", OFF),
+	CLK_DUMMY("alt_core_clk", NULL, "fdc84000.qcom,iommu", oFF),
+	CLK_DUMMY("core_clk", NULL, "fdc84000.qcom,iommu", oFF),
 };
 
 static struct clk_lookup msm_clocks_8974[] = {
