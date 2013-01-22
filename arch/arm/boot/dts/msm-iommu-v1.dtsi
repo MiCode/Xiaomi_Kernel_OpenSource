@@ -143,6 +143,14 @@
 			label = "mdp_1";
 			qcom,secure-context;
 		};
+
+		qcom,iommu-ctx@fd932000 {
+			reg = <0xfd932000 0x1000>;
+			interrupts = <0 47 0>;
+			qcom,iommu-ctx-sids = <>;
+			label = "mdp_2";
+			qcom,secure-context;
+		};
 	};
 
 	venus_iommu: qcom,iommu@fdc84000 {
