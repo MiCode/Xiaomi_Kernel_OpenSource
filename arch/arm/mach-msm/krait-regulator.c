@@ -162,6 +162,7 @@ struct krait_power_vreg {
 	int				retention_uV;
 	int				headroom_uV;
 	int				ldo_threshold_uV;
+	int				ldo_delta_uV;
 	bool				online;
 };
 
@@ -260,7 +261,8 @@ static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 
 static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 {
-	if (kvreg->mode == LDO_MODE && get_krait_ldo_uv(kvreg) == kvreg->uV)
+	if (kvreg->mode == LDO_MODE
+		&& get_krait_ldo_uv(kvreg) == kvreg->uV - kvreg->ldo_delta_uV)
 		return 0;
 
 	/*
@@ -270,7 +272,7 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 	if (kvreg->mode == LDO_MODE)
 		switch_to_using_hs(kvreg);
 
-	set_krait_ldo_uv(kvreg, kvreg->uV);
+	set_krait_ldo_uv(kvreg, kvreg->uV - kvreg->ldo_delta_uV);
 
 	/*
 	 * enable ldo - note that both LDO and BHS are are supplying voltage to
@@ -349,18 +351,19 @@ static int configure_ldo_or_hs_all(struct krait_power_vreg *from, int vmax)
 	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
 		if (!kvreg->online)
 			continue;
-		if (kvreg->uV > kvreg->ldo_threshold_uV
-			 || kvreg->uV > vmax - kvreg->headroom_uV) {
-			rc = switch_to_using_hs(kvreg);
+		if (kvreg->uV <= kvreg->ldo_threshold_uV
+			&& kvreg->uV - kvreg->ldo_delta_uV + kvreg->headroom_uV
+				<= vmax) {
+			rc = switch_to_using_ldo(kvreg);
 			if (rc < 0) {
-				pr_err("could not switch %s to hs rc = %d\n",
+				pr_err("could not switch %s to ldo rc = %d\n",
 							kvreg->name, rc);
 				return rc;
 			}
 		} else {
-			rc = switch_to_using_ldo(kvreg);
+			rc = switch_to_using_hs(kvreg);
 			if (rc < 0) {
-				pr_err("could not switch %s to ldo rc = %d\n",
+				pr_err("could not switch %s to hs rc = %d\n",
 							kvreg->name, rc);
 				return rc;
 			}
@@ -781,7 +784,10 @@ static int is_between(int left, int right, int value)
 #define LDO_UV_MAX		750000
 
 #define LDO_TH_MIN		600000
-#define LDO_TH_MAX		800000
+#define LDO_TH_MAX		900000
+
+#define LDO_DELTA_MIN		10000
+#define LDO_DELTA_MAX		100000
 
 static int __devinit krait_power_probe(struct platform_device *pdev)
 {
@@ -790,6 +796,7 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	struct regulator_init_data *init_data = pdev->dev.platform_data;
 	int rc = 0;
 	int headroom_uV, retention_uV, ldo_default_uV, ldo_threshold_uV;
+	int ldo_delta_uV;
 
 	/* Initialize the pmic gang if it hasn't been initialized already */
 	if (the_gang == NULL) {
@@ -865,6 +872,19 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 					ldo_threshold_uV);
 			return -EINVAL;
 		}
+
+		rc = of_property_read_u32(pdev->dev.of_node,
+					"qcom,ldo-delta-voltage",
+					&ldo_delta_uV);
+		if (rc < 0) {
+			pr_err("ldo-delta-voltage missing rc=%d\n", rc);
+			return rc;
+		}
+		if (!is_between(LDO_DELTA_MIN, LDO_DELTA_MAX, ldo_delta_uV)) {
+			pr_err("bad ldo-delta-voltage = %d specified\n",
+					ldo_delta_uV);
+			return -EINVAL;
+		}
 	}
 
 	if (!init_data) {
@@ -916,6 +936,7 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	kvreg->retention_uV	= retention_uV;
 	kvreg->ldo_default_uV	= ldo_default_uV;
 	kvreg->ldo_threshold_uV = ldo_threshold_uV;
+	kvreg->ldo_delta_uV	= ldo_delta_uV;
 
 	platform_set_drvdata(pdev, kvreg);
 
