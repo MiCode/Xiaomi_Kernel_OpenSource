@@ -27,6 +27,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/krait-regulator.h>
+#include <linux/debugfs.h>
 #include <mach/msm_iomap.h>
 
 #include "spm.h"
@@ -120,6 +121,18 @@
 #define VREF_LDO_BIT_POS	0
 #define VREF_LDO_MASK		KRAIT_MASK(6, 0)
 
+#define LDO_HDROOM_MIN		50000
+#define LDO_HDROOM_MAX		250000
+
+#define LDO_UV_MIN		465000
+#define LDO_UV_MAX		750000
+
+#define LDO_TH_MIN		600000
+#define LDO_TH_MAX		900000
+
+#define LDO_DELTA_MIN		10000
+#define LDO_DELTA_MAX		100000
+
 /**
  * struct pmic_gang_vreg -
  * @name:			the string used to represent the gang
@@ -171,6 +184,15 @@ struct krait_power_vreg {
 
 static u32 version;
 
+static int is_between(int left, int right, int value)
+{
+	if (left >= right && left >= value && value >= right)
+		return 1;
+	if (left <= right && left <= value && value <= right)
+		return 1;
+	return 0;
+}
+
 static void krait_masked_write(struct krait_power_vreg *kvreg,
 					int reg, uint32_t mask, uint32_t val)
 {
@@ -187,6 +209,23 @@ static void krait_masked_write(struct krait_power_vreg *kvreg,
 	 * order to the above write.
 	 */
 	mb();
+}
+
+static int get_krait_retention_ldo_uv(struct krait_power_vreg *kvreg)
+{
+	uint32_t reg_val;
+	int uV;
+
+	reg_val = readl_relaxed(kvreg->reg_base + APC_LDO_VREF_SET);
+	reg_val &= VREF_RET_MASK;
+	reg_val >>= VREF_RET_POS;
+
+	if (reg_val == 0)
+		uV = 0;
+	else
+		uV = KRAIT_LDO_VOLTAGE_OFFSET + reg_val * KRAIT_LDO_STEP;
+
+	return uV;
 }
 
 static int get_krait_ldo_uv(struct krait_power_vreg *kvreg)
@@ -764,6 +803,43 @@ static struct regulator_ops krait_power_ops = {
 	.is_enabled		= krait_power_is_enabled,
 };
 
+static struct dentry *dent;
+static int get_retention_dbg_uV(void *data, u64 *val)
+{
+	struct pmic_gang_vreg *pvreg = data;
+	struct krait_power_vreg *kvreg;
+
+	mutex_lock(&pvreg->krait_power_vregs_lock);
+	if (!list_empty(&pvreg->krait_power_vregs)) {
+		/* return the retention voltage on just the first cpu */
+		kvreg = list_entry((&pvreg->krait_power_vregs)->next,
+			typeof(*kvreg), link);
+		*val = get_krait_retention_ldo_uv(kvreg);
+	}
+	mutex_unlock(&pvreg->krait_power_vregs_lock);
+	return 0;
+}
+
+static int set_retention_dbg_uV(void *data, u64 val)
+{
+	struct pmic_gang_vreg *pvreg = data;
+	struct krait_power_vreg *kvreg;
+	int retention_uV = val;
+
+	if (!is_between(LDO_UV_MIN, LDO_UV_MAX, retention_uV))
+		return -EINVAL;
+
+	mutex_lock(&pvreg->krait_power_vregs_lock);
+	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
+		kvreg->retention_uV = retention_uV;
+		set_krait_retention_uv(kvreg, retention_uV);
+	}
+	mutex_unlock(&pvreg->krait_power_vregs_lock);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(retention_fops,
+			get_retention_dbg_uV, set_retention_dbg_uV, "%llu\n");
+
 static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 {
 	/*
@@ -789,27 +865,6 @@ static void glb_init(struct platform_device *pdev)
 	pr_debug("version= 0x%x\n", version);
 }
 
-static int is_between(int left, int right, int value)
-{
-	if (left >= right && left >= value && value >= right)
-		return 1;
-	if (left <= right && left <= value && value <= right)
-		return 1;
-	return 0;
-}
-
-#define LDO_HDROOM_MIN		50000
-#define LDO_HDROOM_MAX		250000
-
-#define LDO_UV_MIN		465000
-#define LDO_UV_MAX		750000
-
-#define LDO_TH_MIN		600000
-#define LDO_TH_MAX		900000
-
-#define LDO_DELTA_MIN		10000
-#define LDO_DELTA_MAX		100000
-
 static int __devinit krait_power_probe(struct platform_device *pdev)
 {
 	struct krait_power_vreg *kvreg;
@@ -829,6 +884,12 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 		}
 		/* global initializtion */
 		glb_init(pdev);
+	}
+
+	if (dent == NULL) {
+		dent = debugfs_create_dir(KRAIT_REGULATOR_DRIVER_NAME, NULL);
+		debugfs_create_file("retention_uV",
+				0644, dent, the_gang, &retention_fops);
 	}
 
 	if (pdev->dev.of_node) {
