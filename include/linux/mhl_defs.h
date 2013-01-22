@@ -128,7 +128,11 @@ enum DevCapOffset_e {
 
 /* This contains one nibble each - max offset */
 #define		MHL_INT_AND_STATUS_SIZE			0x33
+#define         MHL_SCRATCHPAD_OFFSET                   0x40
 #define		MHL_SCRATCHPAD_SIZE			16
+#define		MAX_SCRATCHPAD_TRANSFER_SIZE		64
+#define		ADOPTER_ID_SIZE				2
+
 /* manually define highest number */
 #define		MHL_MAX_BUFFER_SIZE			MHL_SCRATCHPAD_SIZE
 

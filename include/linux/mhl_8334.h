@@ -36,12 +36,20 @@ struct msc_command_struct {
 	u8 command;
 	u8 offset;
 	u8 length;
+	u8 retry;
 	union {
 		u8 data[16];
 		u8 *burst_data;
 	} payload;
 	u8 retval;
 };
+
+struct scrpd_struct {
+	u8 offset;
+	u8 length;
+	u8 data[MHL_SCRATCHPAD_SIZE];
+};
+
 
 /* USB driver interface  */
 
@@ -143,6 +151,9 @@ struct mhl_tx_ctrl {
 	struct workqueue_struct *msc_send_workqueue;
 	u16 *rcp_key_code_tbl;
 	size_t rcp_key_code_tbl_len;
+	struct scrpd_struct scrpd;
+	int scrpd_busy;
+	int wr_burst_pending;
 };
 
 int mhl_i2c_reg_read(struct i2c_client *client,
@@ -337,8 +348,8 @@ enum {
 #define REG_CBUS_WRITE_STAT_2           ((TX_PAGE_CBUS << 16) | 0x00B2)
 #define REG_CBUS_WRITE_STAT_3           ((TX_PAGE_CBUS << 16) | 0x00B3)
 
-#define GET_PAGE(x) (x >> 16)
-#define GET_OFF(x) (x & 0xffff)
+#define GET_PAGE(x) ((x) >> 16)
+#define GET_OFF(x) ((x) & 0xffff)
 
 
 #define MHL_SII_REG_NAME_RD(arg)\
