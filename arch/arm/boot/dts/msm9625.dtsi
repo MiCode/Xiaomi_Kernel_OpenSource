@@ -81,7 +81,7 @@
 		vbus_otg-supply = <&usb_vbus>;
 
 		qcom,hsusb-otg-phy-type = <2>;
-		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-mode = <3>;
 		qcom,hsusb-otg-otg-control = <1>;
 		qcom,hsusb-otg-disable-reset;
 	};
