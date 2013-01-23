@@ -36,6 +36,11 @@ enum msm_bus_perf_setting {
 	S_EXIT
 };
 
+enum cci_i2c_master_t {
+	MASTER_0,
+	MASTER_1,
+};
+
 struct msm_camera_slave_info {
 	uint16_t sensor_slave_addr;
 	uint16_t sensor_id_reg_addr;
