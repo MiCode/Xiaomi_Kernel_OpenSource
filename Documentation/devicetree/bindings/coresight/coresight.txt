@@ -33,6 +33,8 @@ Optional properties:
 - coresight-default-sink : represents the default compile time CoreSight sink
 - qcom,pc-save : program counter save implemented
 - qcom,blk-size : block size for tmc-etr to usb transfers
+- qcom,round-robin : indicates if per core etms are allowed round-robin access
+		     by the funnel
 
 Examples:
 
@@ -106,4 +108,5 @@ Examples:
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <0>;
 		qcom,pc-save;
+		qcom,round-robin;
 	};
