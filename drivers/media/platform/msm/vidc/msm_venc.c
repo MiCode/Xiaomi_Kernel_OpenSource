@@ -124,6 +124,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
+		.cluster = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
@@ -399,7 +400,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_BYTES) |
 		(1 << V4L2_MPEG_VIDEO_MULTI_SLICE_GOB)
 		),
-		.qmenu = NULL,
 		.cluster = MSM_VENC_CTRL_CLUSTER_SLICING,
 	},
 	{
@@ -408,7 +408,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = MIN_SLICE_BYTE_SIZE,
 		.maximum = MAX_SLICE_BYTE_SIZE,
-		.default_value = 0,
+		.default_value = MIN_SLICE_BYTE_SIZE,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -420,7 +420,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 1,
 		.maximum = MAX_SLICE_MB_SIZE,
-		.default_value = 0,
+		.default_value = 1,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -543,7 +543,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE) |
 		(1 << V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_I_FRAME)
 		),
-		.qmenu = NULL,
 		.cluster = 0,
 	}
 };
@@ -2047,7 +2046,11 @@ int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
 					msm_venc_ctrls[idx].default_value);
 			}
 		}
-
+		if (!ctrl) {
+			dprintk(VIDC_ERR,
+			"Failed to get ctrl for: idx: %d, %d\n",
+			idx, msm_venc_ctrls[idx].id);
+		}
 		msm_venc_ctrls[idx].priv = ctrl;
 	}
 	ret_val = inst->ctrl_handler.error;
@@ -2068,7 +2071,6 @@ int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
 					idx);
 			continue;
 		}
-
 		v4l2_ctrl_cluster(cluster_size, cluster);
 
 		temp = kzalloc(sizeof(*temp), GFP_KERNEL);
