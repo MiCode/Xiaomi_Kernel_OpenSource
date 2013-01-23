@@ -58,6 +58,28 @@
 			};
 		};
 
+		bif_ctrl: qcom,bsi@1b00 {
+			compatible = "qcom,qpnp-bsi";
+			reg = <0x1b00 0x100>,
+			      <0x1208 0x1>;
+			reg-names = "bsi-base", "batt-id-status";
+			label = "pm8941-bsi";
+			interrupts = <0x0 0x1b 0x0>,
+				     <0x0 0x1b 0x1>,
+				     <0x0 0x1b 0x2>,
+				     <0x0 0x12 0x0>;
+			interrupt-names = "err",
+					  "rx",
+					  "tx",
+					  "batt-present";
+			qcom,channel-num = <0x31>;
+			qcom,pullup-ohms = <100000>;
+			qcom,vref-microvolts = <1800000>;
+			qcom,min-clock-period = <1000>;
+			qcom,max-clock-period = <160000>;
+			qcom,sample-rate = <4>;
+		};
+
 		pm8941_bms: qcom,bms {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-bms";
