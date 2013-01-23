@@ -117,6 +117,8 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <4>;
+
+		qcom,round-robin;
 	};
 
 	csr: csr@fc302000 {
