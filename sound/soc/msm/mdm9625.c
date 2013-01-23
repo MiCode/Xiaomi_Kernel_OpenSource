@@ -22,11 +22,11 @@
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
+#include <sound/q6afe-v2.h>
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
 #include <qdsp6v2/msm-pcm-routing-v2.h>
 #include "../codecs/wcd9320.h"
-
 
 /* Spk control */
 #define MDM9625_SPK_ON 1
@@ -56,20 +56,23 @@ struct msm_i2s_ctrl {
 	struct clk *cdc_bit_clk;
 	u32 cnt;
 };
-
-/* MI2S clock */
-struct mdm_mi2s_clk {
-	struct clk *cdc_cr_clk;
-	struct clk *cdc_osr_clk;
-	u32 clk_usrs;
-};
-
 struct mdm9625_machine_data {
 	u32 mclk_freq;
 	struct msm_i2s_gpio *mclk_pin;
 	struct msm_i2s_ctrl *pri_ctrl;
-
+	u32 prim_clk_usrs;
 };
+
+static const struct afe_clk_cfg lpass_default = {
+	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
+	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
+	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	Q6AFE_LPASS_MODE_BOTH_VALID,
+	0,
+};
+
 
 #define GPIO_NAME_INDEX 0
 #define DT_PARSE_INDEX  1
@@ -86,7 +89,6 @@ static char *mdm_mclk_gpio[][2] = {
 	 {"MI2S_MCLK",      "prim-i2s-gpio-mclk"},
 };
 
-static struct mdm_mi2s_clk clk_ctl;
 static struct mutex cdc_mclk_mutex;
 static int mdm9625_mi2s_rx_ch = 1;
 static int mdm9625_mi2s_tx_ch = 1;
@@ -209,63 +211,51 @@ err:
 }
 static int mdm9625_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
 {
-	struct mdm_mi2s_clk *clk = &clk_ctl;
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_card *card = rtd->card;
-	struct clk *bclk = NULL;
 	struct mdm9625_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct afe_clk_cfg *lpass_clk = NULL;
 	int ret = 0;
 
 	if (pdata == NULL) {
 		pr_err("%s:platform data is null\n", __func__);
-		return -ENODEV;
+		return -ENOMEM;
 	}
-	bclk = pdata->pri_ctrl->cdc_bit_clk;
-
+	lpass_clk = kzalloc(sizeof(struct afe_clk_cfg), GFP_KERNEL);
+	if (lpass_clk == NULL) {
+		pr_err("%s:Failed to allocate memory\n", __func__);
+			return -ENOMEM;
+	}
+	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
+	pr_debug("%s:enable = %x\n", __func__, enable);
 	if (enable) {
-		if (clk->clk_usrs == 0) {
-			/* Set rate core and ibit clock */
-			clk_set_rate(clk->cdc_cr_clk, pdata->mclk_freq);
-			/* Enable clocks. core clock need not be enabled.
-			 * Enabling branch clocks indirectly enables
-			 * core clock.
-			 */
-			ret = clk_prepare_enable(clk->cdc_osr_clk);
-			if (ret != 0) {
-				pr_err("Fail to enable cdc_osr_clk\n");
-				goto exit_osrclk_err;
-			}
-		}
-		clk->clk_usrs++;
-		/* ibit clock */
-		bclk = clk_get(cpu_dai->dev, "ibit_clk");
-		if (IS_ERR(bclk)) {
-			pr_err("%s: Failed to request Bit %ld\n"
-			       "CPU dai name %s\n", __func__,
-			       PTR_ERR(bclk),
-			       cpu_dai->dev->driver->name);
-			return -ENODEV ;
-		}
-		clk_set_rate(bclk, MDM_IBIT_CLK_DIV_1P56MHZ);
-		ret = clk_prepare_enable(bclk);
-		if (ret != 0) {
-			pr_err("Fail to enable cdc_bit_clk\n");
-			goto exit_bclk_err;
-		}
-		return ret;
+		if (pdata->prim_clk_usrs == 0) {
+			lpass_clk->clk_val2 = pdata->mclk_freq;
+			lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_BOTH_VALID;
+		} else
+			lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
+		ret = afe_set_lpass_clock(MI2S_RX, lpass_clk);
+		if (ret < 0)
+			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
+		else
+			pdata->prim_clk_usrs++;
 	} else {
-		if (clk->clk_usrs > 0)
-			clk->clk_usrs--;
-		ret = 0;
-		goto exit_bclk_err;
+		if (pdata->prim_clk_usrs > 0)
+			pdata->prim_clk_usrs--;
+		if (pdata->prim_clk_usrs == 0) {
+			lpass_clk->clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
+			lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_BOTH_VALID;
+		} else
+			lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
+		lpass_clk->clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
+		ret = afe_set_lpass_clock(MI2S_RX, lpass_clk);
+		if (ret < 0)
+			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
 	}
-exit_bclk_err:
-	clk_disable_unprepare(bclk);
-	clk_put(bclk);
-exit_osrclk_err:
-	if (clk->clk_usrs == 0)
-		clk_disable_unprepare(clk->cdc_osr_clk);
-	bclk = NULL;
+	pr_debug("%s: clk 1 = %x clk2 = %x mode = %x\n",
+			__func__, lpass_clk->clk_val1,
+			lpass_clk->clk_val2,
+			lpass_clk->clk_set_mode);
+	kfree(lpass_clk);
 	return ret;
 }
 
@@ -419,35 +409,51 @@ static int mdm9625_enable_codec_ext_clk(struct snd_soc_codec *codec,
 	int ret = 0;
 	struct mdm9625_machine_data *pdata =
 			snd_soc_card_get_drvdata(codec->card);
-	struct mdm_mi2s_clk *clk = &clk_ctl;
+	struct afe_clk_cfg *lpass_clk = NULL;
 
-	pr_debug("%s: enable = %d  codec name %s\n", __func__,
-		 enable, codec->name);
+	pr_debug("%s: enable = %d  codec name %s enable %x\n",
+		   __func__, enable, codec->name, enable);
+	lpass_clk = kzalloc(sizeof(struct afe_clk_cfg), GFP_KERNEL);
+	if (lpass_clk == NULL) {
+		pr_err("%s:Failed to allocate memory\n", __func__);
+		return -ENOMEM;
+	}
 	mutex_lock(&cdc_mclk_mutex);
-
+	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
 	if (enable) {
-		if (clk->clk_usrs == 0) {
-			/* Set rate core and ibit clock */
-			clk_set_rate(clk->cdc_cr_clk, pdata->mclk_freq);
-			/* Enable clocks. core clock need not be enabled.
-			 * Enabling branch clocks indirectly enables
-			 * core clock.
-			 */
-			ret = clk_prepare_enable(clk->cdc_osr_clk);
-			if (ret != 0)
-				pr_err("Fail to enable cdc_osr_clk\n");
+		if (pdata->prim_clk_usrs == 0) {
+			lpass_clk->clk_val2 = pdata->mclk_freq;
+			lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK2_VALID;
+			ret = afe_set_lpass_clock(MI2S_RX, lpass_clk);
+			if (ret < 0) {
+				pr_err("%s:afe_set_lpass_clock failed\n",
+				       __func__);
+				goto err;
+			}
 		}
-		clk->clk_usrs++;
+		pdata->prim_clk_usrs++;
 		taiko_mclk_enable(codec, 1, dapm);
-
 	} else {
-		if (clk->clk_usrs > 0)
-			clk->clk_usrs--;
-		if (clk->clk_usrs == 0)
-			clk_disable_unprepare(clk->cdc_osr_clk);
+		if (pdata->prim_clk_usrs > 0)
+			pdata->prim_clk_usrs--;
+		if (pdata->prim_clk_usrs == 0) {
+			lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK2_VALID;
+			lpass_clk->clk_val2 = Q6AFE_LPASS_OSR_CLK_DISABLE;
+			ret = afe_set_lpass_clock(MI2S_RX, lpass_clk);
+			if (ret < 0) {
+				pr_err("%s:afe_set_lpass_clock failed\n",
+				       __func__);
+				goto err;
+			}
+		}
 		taiko_mclk_enable(codec, 0, dapm);
 	}
+	pr_debug("%s: clk2 = %x mode = %x\n",
+			 __func__, lpass_clk->clk_val2,
+			 lpass_clk->clk_set_mode);
+err:
 	mutex_unlock(&cdc_mclk_mutex);
+	kfree(lpass_clk);
 	return ret;
 }
 
@@ -507,38 +513,6 @@ static const struct snd_kcontrol_new mdm_snd_controls[] = {
 				 mdm9625_mi2s_tx_ch_put),
 };
 
-static int msm9625_set_codec_mclk(struct snd_soc_pcm_runtime *rtd, bool enable)
-{
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct mdm_mi2s_clk *clk = &clk_ctl;
-	int ret = 0;
-
-	if (clk->clk_usrs == 0) {
-		clk->cdc_cr_clk = clk_get(cpu_dai->dev, "core_clk");
-		if (IS_ERR(clk->cdc_cr_clk)) {
-			pr_err("%s: Failed to Core clk %ld\n"
-			       "CPU dai name %s\n", __func__,
-			       PTR_ERR(clk->cdc_cr_clk),
-			       cpu_dai->dev->driver->name);
-			return -ENODEV ;
-		}
-		/* osr clock */
-		clk->cdc_osr_clk = clk_get(cpu_dai->dev, "osr_clk");
-		if (IS_ERR(clk->cdc_osr_clk)) {
-			pr_err("%s: Failed to request OSR %ld\n"
-			       "CPU dai name %s\n", __func__,
-			       PTR_ERR(clk->cdc_osr_clk),
-			       cpu_dai->dev->driver->name);
-			clk_put(clk->cdc_cr_clk);
-			return -ENODEV ;
-		}
-	} else {
-		pr_err("%s: Failed to get MCLK\n", __func__);
-		ret = -ENODEV ;
-	}
-	return ret;
-}
-
 static int mdm9625_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -565,10 +539,6 @@ static int mdm9625_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
 	snd_soc_dapm_sync(dapm);
 
-	/* start mbhc */
-	err = msm9625_set_codec_mclk(rtd, true);
-	if (err < 0)
-		return err;
 	mbhc_cfg.calibration = def_taiko_mbhc_cal();
 	if (mbhc_cfg.calibration)
 		err = taiko_hs_detect(codec, &mbhc_cfg);
@@ -851,11 +821,16 @@ static __devinit int mdm9625_asoc_machine_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct snd_soc_card *card = &snd_soc_card_mdm9625;
-	struct mdm_mi2s_clk *clk = &clk_ctl;
 	struct mdm9625_machine_data *pdata;
+	enum apr_subsys_state q6_state;
 
+	q6_state = apr_get_q6_state();
+	if (q6_state != APR_SUBSYS_LOADED) {
+		dev_dbg(&pdev->dev, "defering %s, adsp_state %d\n",
+				__func__, q6_state);
+		return -EPROBE_DEFER;
+	}
 	mutex_init(&cdc_mclk_mutex);
-	clk->clk_usrs = 0;
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
 		return -EINVAL;
@@ -885,12 +860,13 @@ static __devinit int mdm9625_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 	/* At present only 12.288MHz is supported on MDM. */
-	if (pdata->mclk_freq != MDM_MCLK_CLK_12P288MHZ) {
+	if (q6afe_check_osr_clk_freq(pdata->mclk_freq)) {
 		dev_err(&pdev->dev, "unsupported taiko mclk freq %u\n",
 			pdata->mclk_freq);
 		ret = -EINVAL;
 		goto err;
 	}
+	pdata->prim_clk_usrs = 0;
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
