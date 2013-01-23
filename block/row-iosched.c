@@ -31,21 +31,30 @@
  * enum row_queue_prio - Priorities of the ROW queues
  *
  * This enum defines the priorities (and the number of queues)
- * the requests will be disptributed to. The higher priority -
- * the bigger is the dispatch quantum given to that queue.
+ * the requests will be distributed to. The higher priority -
+ * the bigger is the "bus time" (or the dispatch quantum) given
+ * to that queue.
  * ROWQ_PRIO_HIGH_READ - is the higher priority queue.
  *
  */
 enum row_queue_prio {
 	ROWQ_PRIO_HIGH_READ = 0,
-	ROWQ_PRIO_REG_READ,
 	ROWQ_PRIO_HIGH_SWRITE,
+	ROWQ_PRIO_REG_READ,
 	ROWQ_PRIO_REG_SWRITE,
 	ROWQ_PRIO_REG_WRITE,
 	ROWQ_PRIO_LOW_READ,
 	ROWQ_PRIO_LOW_SWRITE,
 	ROWQ_MAX_PRIO,
 };
+
+/*
+ * The following indexes define the distribution of ROW queues according to
+ * priorities. Each index defines the first queue in that priority group.
+ */
+#define ROWQ_HIGH_PRIO_IDX	ROWQ_PRIO_HIGH_READ
+#define ROWQ_REG_PRIO_IDX	ROWQ_PRIO_REG_READ
+#define ROWQ_LOW_PRIO_IDX	ROWQ_PRIO_LOW_READ
 
 /**
  * struct row_queue_params - ROW queue parameters
@@ -69,12 +78,17 @@ struct row_queue_params {
  * {idling_enabled, quantum, is_urgent}
  * Each row corresponds to a queue with the same index (according to
  * enum row_queue_prio)
+ * Note: The quantums are valid inside their priority type. For example:
+ *       For every 10 high priority read requests, 1 high priority sync
+ *       write will be dispatched.
+ *       For every 100 regular read requests 1 regular write request will
+ *       be dispatched.
  */
 static const struct row_queue_params row_queues_def[] = {
 /* idling_enabled, quantum, is_urgent */
-	{true, 100, true},	/* ROWQ_PRIO_HIGH_READ */
+	{true, 10, true},	/* ROWQ_PRIO_HIGH_READ */
+	{false, 1, true},	/* ROWQ_PRIO_HIGH_SWRITE */
 	{true, 100, true},	/* ROWQ_PRIO_REG_READ */
-	{false, 2, false},	/* ROWQ_PRIO_HIGH_SWRITE */
 	{false, 1, false},	/* ROWQ_PRIO_REG_SWRITE */
 	{false, 1, false},	/* ROWQ_PRIO_REG_WRITE */
 	{false, 1, false},	/* ROWQ_PRIO_LOW_READ */
@@ -104,7 +118,6 @@ struct rowq_idling_data {
  * @prio:		queue priority (enum row_queue_prio)
  * @nr_dispatched:	number of requests already dispatched in
  *			the current dispatch cycle
- * @slice:		number of requests to dispatch in a cycle
  * @nr_req:		number of requests in queue
  * @dispatch quantum:	number of requests this queue may
  *			dispatch in a dispatch cycle
@@ -117,7 +130,6 @@ struct row_queue {
 	enum row_queue_prio	prio;
 
 	unsigned int		nr_dispatched;
-	unsigned int		slice;
 
 	unsigned int		nr_req;
 	int			disp_quantum;
@@ -131,24 +143,25 @@ struct row_queue {
  * @idle_time:		idling duration (jiffies)
  * @freq:		min time between two requests that
  *			triger idling (msec)
+ * @idle_wq:	work queue to add the idling task to
  * @idle_work:		pointer to struct delayed_work
+ * @idling_queue_idx:	index of the queues we're idling on
  *
  */
 struct idling_data {
 	unsigned long			idle_time;
-	u32				freq;
+	s64				freq;
 
-	struct workqueue_struct	*idle_workqueue;
+	struct workqueue_struct		*idle_wq;
 	struct delayed_work		idle_work;
+	enum row_queue_prio		idling_queue_idx;
 };
 
 /**
  * struct row_queue - Per block device rqueue structure
  * @dispatch_queue:	dispatch rqueue
  * @row_queues:		array of priority request queues
- * @curr_queue:		index in the row_queues array of the
- *			currently serviced rqueue
- * @read_idle:		data for idling after READ request
+ * @rd_idle_data:		data for idling after READ request
  * @nr_reqs: nr_reqs[0] holds the number of all READ requests in
  *			scheduler, nr_reqs[1] holds the number of all WRITE
  *			requests in scheduler
@@ -160,9 +173,7 @@ struct row_data {
 
 	struct row_queue row_queues[ROWQ_MAX_PRIO];
 
-	enum row_queue_prio		curr_queue;
-
-	struct idling_data		read_idle;
+	struct idling_data		rd_idle_data;
 	unsigned int			nr_reqs[2];
 
 	unsigned int			cycle_flags;
@@ -221,46 +232,22 @@ static void kick_queue(struct work_struct *work)
 	struct idling_data *read_data =
 		container_of(idle_work, struct idling_data, idle_work);
 	struct row_data *rd =
-		container_of(read_data, struct row_data, read_idle);
+		container_of(read_data, struct row_data, rd_idle_data);
 
-	row_log_rowq(rd, rd->curr_queue, "Performing delayed work");
+	row_log_rowq(rd, rd->rd_idle_data.idling_queue_idx,
+			 "Performing delayed work");
 	/* Mark idling process as done */
-	rd->row_queues[rd->curr_queue].idle_data.begin_idling = false;
+	rd->row_queues[rd->rd_idle_data.idling_queue_idx].
+			idle_data.begin_idling = false;
+	rd->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
 
-	if (!(rd->nr_reqs[0] + rd->nr_reqs[1]))
+	if (!rd->nr_reqs[READ] && !rd->nr_reqs[WRITE])
 		row_log(rd->dispatch_queue, "No requests in scheduler");
 	else {
 		spin_lock_irq(rd->dispatch_queue->queue_lock);
 		__blk_run_queue(rd->dispatch_queue);
 		spin_unlock_irq(rd->dispatch_queue->queue_lock);
 	}
-}
-
-/*
- * row_restart_disp_cycle() - Restart the dispatch cycle
- * @rd:	pointer to struct row_data
- *
- * This function restarts the dispatch cycle by:
- * - Setting current queue to ROWQ_PRIO_HIGH_READ
- * - For each queue: reset the number of requests dispatched in
- *   the cycle
- */
-static inline void row_restart_disp_cycle(struct row_data *rd)
-{
-	int i;
-
-	for (i = 0; i < ROWQ_MAX_PRIO; i++)
-		rd->row_queues[i].nr_dispatched = 0;
-
-	rd->curr_queue = ROWQ_PRIO_HIGH_READ;
-	row_log(rd->dispatch_queue, "Restarting cycle");
-}
-
-static inline void row_get_next_queue(struct row_data *rd)
-{
-	rd->curr_queue++;
-	if (rd->curr_queue == ROWQ_MAX_PRIO)
-		row_restart_disp_cycle(rd);
 }
 
 /******************* Elevator callback functions *********************/
@@ -276,6 +263,7 @@ static void row_add_request(struct request_queue *q,
 {
 	struct row_data *rd = (struct row_data *)q->elevator->elevator_data;
 	struct row_queue *rqueue = RQ_ROWQ(rq);
+	s64 diff_ms;
 
 	list_add_tail(&rq->queuelist, &rqueue->fifo);
 	rd->nr_reqs[rq_data_dir(rq)]++;
@@ -283,17 +271,29 @@ static void row_add_request(struct request_queue *q,
 	rq_set_fifo_time(rq, jiffies); /* for statistics*/
 
 	if (row_queues_def[rqueue->prio].idling_enabled) {
-		if (delayed_work_pending(&rd->read_idle.idle_work))
+		if (rd->rd_idle_data.idling_queue_idx == rqueue->prio &&
+		    delayed_work_pending(&rd->rd_idle_data.idle_work)) {
 			(void)cancel_delayed_work(
-				&rd->read_idle.idle_work);
-		if (ktime_to_ms(ktime_sub(ktime_get(),
-				rqueue->idle_data.last_insert_time)) <
-				rd->read_idle.freq) {
+				&rd->rd_idle_data.idle_work);
+			row_log_rowq(rd, rqueue->prio,
+				"Canceled delayed work on %d",
+				rd->rd_idle_data.idling_queue_idx);
+			rd->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
+		}
+		diff_ms = ktime_to_ms(ktime_sub(ktime_get(),
+				rqueue->idle_data.last_insert_time));
+		if (unlikely(diff_ms < 0)) {
+			pr_err("ROW BUG: %s diff_ms < 0", __func__);
+			rqueue->idle_data.begin_idling = false;
+			return;
+		}
+		if (diff_ms < rd->rd_idle_data.freq) {
 			rqueue->idle_data.begin_idling = true;
 			row_log_rowq(rd, rqueue->prio, "Enable idling");
 		} else {
 			rqueue->idle_data.begin_idling = false;
-			row_log_rowq(rd, rqueue->prio, "Disable idling");
+			row_log_rowq(rd, rqueue->prio, "Disable idling (%ldms)",
+				(long)diff_ms);
 		}
 
 		rqueue->idle_data.last_insert_time = ktime_get();
@@ -324,10 +324,9 @@ static int row_reinsert_req(struct request_queue *q,
 	struct row_data    *rd = q->elevator->elevator_data;
 	struct row_queue   *rqueue = RQ_ROWQ(rq);
 
-	/* Verify rqueue is legitimate */
 	if (rqueue->prio >= ROWQ_MAX_PRIO) {
-		pr_err("\n\nROW BUG: row_reinsert_req() rqueue->prio = %d\n",
-			   rqueue->prio);
+		pr_err("\n\n%s:ROW BUG: row_reinsert_req() rqueue->prio = %d\n",
+			   rq->rq_disk->disk_name, rqueue->prio);
 		blk_dump_rq_flags(rq, "");
 		return -EIO;
 	}
@@ -355,9 +354,7 @@ static bool row_urgent_pending(struct request_queue *q)
 	for (i = 0; i < ROWQ_MAX_PRIO; i++)
 		if (row_queues_def[i].is_urgent && row_rowq_unserved(rd, i) &&
 		    !list_empty(&rd->row_queues[i].fifo)) {
-			row_log_rowq(rd, i,
-				     "Urgent request pending (curr=%i)",
-				     rd->curr_queue);
+			row_log_rowq(rd, i, "Urgent request pending");
 			return true;
 		}
 
@@ -383,62 +380,171 @@ static void row_remove_request(struct request_queue *q,
 
 /*
  * row_dispatch_insert() - move request to dispatch queue
- * @rd:	pointer to struct row_data
+ * @rd:		pointer to struct row_data
+ * @queue_idx:	index of the row_queue to dispatch from
  *
  * This function moves the next request to dispatch from
- * rd->curr_queue to the dispatch queue
+ * the given queue (row_queues[queue_idx]) to the dispatch queue
  *
  */
-static void row_dispatch_insert(struct row_data *rd)
+static void row_dispatch_insert(struct row_data *rd, int queue_idx)
 {
 	struct request *rq;
 
-	rq = rq_entry_fifo(rd->row_queues[rd->curr_queue].fifo.next);
+	rq = rq_entry_fifo(rd->row_queues[queue_idx].fifo.next);
 	row_remove_request(rd->dispatch_queue, rq);
 	elv_dispatch_add_tail(rd->dispatch_queue, rq);
-	rd->row_queues[rd->curr_queue].nr_dispatched++;
-	row_clear_rowq_unserved(rd, rd->curr_queue);
-	row_log_rowq(rd, rd->curr_queue, " Dispatched request nr_disp = %d",
-		     rd->row_queues[rd->curr_queue].nr_dispatched);
+	rd->row_queues[queue_idx].nr_dispatched++;
+	row_clear_rowq_unserved(rd, queue_idx);
+	row_log_rowq(rd, queue_idx, " Dispatched request nr_disp = %d",
+		     rd->row_queues[queue_idx].nr_dispatched);
 }
 
 /*
- * row_choose_queue() -  choose the next queue to dispatch from
+ * row_get_ioprio_class_to_serve() - Return the next I/O priority
+ *				      class to dispatch requests from
  * @rd:	pointer to struct row_data
+ * @force:	flag indicating if forced dispatch
  *
- * Updates rd->curr_queue. Returns 1 if there are requests to
- * dispatch, 0 if there are no requests in scheduler
+ * This function returns the next I/O priority class to serve
+ * {IOPRIO_CLASS_NONE, IOPRIO_CLASS_RT, IOPRIO_CLASS_BE, IOPRIO_CLASS_IDLE}.
+ * If there are no more requests in scheduler or if we're idling on some queue
+ * IOPRIO_CLASS_NONE will be returned.
+ * If idling is scheduled on a lower priority queue than the one that needs
+ * to be served, it will be canceled.
  *
  */
-static int row_choose_queue(struct row_data *rd)
+static int row_get_ioprio_class_to_serve(struct row_data *rd, int force)
 {
-	int prev_curr_queue = rd->curr_queue;
+	int i;
+	int ret = IOPRIO_CLASS_NONE;
 
-	if (!(rd->nr_reqs[0] + rd->nr_reqs[1])) {
+	if (!rd->nr_reqs[READ] && !rd->nr_reqs[WRITE]) {
 		row_log(rd->dispatch_queue, "No more requests in scheduler");
-		return 0;
+		goto check_idling;
 	}
 
-	row_get_next_queue(rd);
+	/* First, go over the high priority queues */
+	for (i = 0; i < ROWQ_REG_PRIO_IDX; i++) {
+		if (!list_empty(&rd->row_queues[i].fifo)) {
+			if (delayed_work_pending(&rd->rd_idle_data.idle_work)) {
+				(void)cancel_delayed_work(
+					&rd->rd_idle_data.idle_work);
+				row_log_rowq(rd,
+					rd->rd_idle_data.idling_queue_idx,
+					"Canceling delayed work on %d. RT pending",
+					rd->rd_idle_data.idling_queue_idx);
+				rd->rd_idle_data.idling_queue_idx =
+					ROWQ_MAX_PRIO;
+			}
+			ret = IOPRIO_CLASS_RT;
+			goto done;
+		}
+	}
 
 	/*
-	 * Loop over all queues to find the next queue that is not empty.
-	 * Stop when you get back to curr_queue
+	 * At the moment idling is implemented only for READ queues.
+	 * If enabled on WRITE, this needs updating
 	 */
-	while (list_empty(&rd->row_queues[rd->curr_queue].fifo)
-	       && rd->curr_queue != prev_curr_queue) {
-		/* Mark rqueue as unserved */
-		row_mark_rowq_unserved(rd, rd->curr_queue);
-		row_get_next_queue(rd);
+	if (delayed_work_pending(&rd->rd_idle_data.idle_work)) {
+		row_log(rd->dispatch_queue, "Delayed work pending. Exiting");
+		goto done;
+	}
+check_idling:
+	/* Check for (high priority) idling and enable if needed */
+	for (i = 0; i < ROWQ_REG_PRIO_IDX && !force; i++) {
+		if (rd->row_queues[i].idle_data.begin_idling &&
+		    row_queues_def[i].idling_enabled)
+			goto initiate_idling;
 	}
 
-	return 1;
+	/* Regular priority queues */
+	for (i = ROWQ_REG_PRIO_IDX; i < ROWQ_LOW_PRIO_IDX; i++) {
+		if (list_empty(&rd->row_queues[i].fifo)) {
+			/* We can idle only if this is not a forced dispatch */
+			if (rd->row_queues[i].idle_data.begin_idling &&
+			    !force && row_queues_def[i].idling_enabled)
+				goto initiate_idling;
+		} else {
+			ret = IOPRIO_CLASS_BE;
+			goto done;
+		}
+	}
+
+	if (rd->nr_reqs[READ] || rd->nr_reqs[WRITE])
+		ret = IOPRIO_CLASS_IDLE;
+	goto done;
+
+initiate_idling:
+	if (!queue_delayed_work(rd->rd_idle_data.idle_wq,
+	    &rd->rd_idle_data.idle_work, rd->rd_idle_data.idle_time)) {
+		row_log(rd->dispatch_queue, "Work already on queue!");
+		pr_err("ROW_BUG: Work already on queue!");
+	} else {
+		rd->rd_idle_data.idling_queue_idx = i;
+		row_log_rowq(rd, i, "Scheduled delayed work on %d. exiting", i);
+	}
+done:
+	return ret;
+}
+
+static void row_restart_cycle(struct row_data *rd,
+				int start_idx, int end_idx)
+{
+	int i;
+
+	row_dump_queues_stat(rd);
+	for (i = start_idx; i < end_idx; i++) {
+		if (rd->row_queues[i].nr_dispatched <
+		    rd->row_queues[i].disp_quantum)
+			row_mark_rowq_unserved(rd, i);
+		rd->row_queues[i].nr_dispatched = 0;
+	}
+	row_log(rd->dispatch_queue, "Restarting cycle for class @ %d-%d",
+		start_idx, end_idx);
+}
+
+/*
+ * row_get_next_queue() - selects the next queue to dispatch from
+ * @q:		requests queue
+ * @rd:		pointer to struct row_data
+ * @start_idx/end_idx: indexes in the row_queues array to select a queue
+ *                 from.
+ *
+ * Return index of the queues to dispatch from. Error code if fails.
+ *
+ */
+static int row_get_next_queue(struct request_queue *q, struct row_data *rd,
+				int start_idx, int end_idx)
+{
+	int i = start_idx;
+	bool restart = true;
+	int ret = -EIO;
+
+	do {
+		if (list_empty(&rd->row_queues[i].fifo) ||
+		    rd->row_queues[i].nr_dispatched >=
+		    rd->row_queues[i].disp_quantum) {
+			i++;
+			if (i == end_idx && restart) {
+				/* Restart cycle for this priority class */
+				row_restart_cycle(rd, start_idx, end_idx);
+				i = start_idx;
+				restart = false;
+			}
+		} else {
+			ret = i;
+			break;
+		}
+	} while (i < end_idx);
+
+	return ret;
 }
 
 /*
  * row_dispatch_requests() - selects the next request to dispatch
  * @q:		requests queue
- * @force:	ignored
+ * @force:		flag indicating if forced dispatch
  *
  * Return 0 if no requests were moved to the dispatch queue.
  *	  1 otherwise
@@ -447,77 +553,47 @@ static int row_choose_queue(struct row_data *rd)
 static int row_dispatch_requests(struct request_queue *q, int force)
 {
 	struct row_data *rd = (struct row_data *)q->elevator->elevator_data;
-	int ret = 0, currq, i;
+	int ret = 0, currq, ioprio_class_to_serve, start_idx, end_idx;
 
-	currq = rd->curr_queue;
-
-	/*
-	 * Find the first unserved queue (with higher priority then currq)
-	 * that is not empty
-	 */
-	for (i = 0; i < currq; i++) {
-		if (row_rowq_unserved(rd, i) &&
-		    !list_empty(&rd->row_queues[i].fifo)) {
-			row_log_rowq(rd, currq,
-				" Preemting for unserved rowq%d. (nr_req=%u)",
-				i, rd->row_queues[currq].nr_req);
-			rd->curr_queue = i;
-			row_dispatch_insert(rd);
-			ret = 1;
-			goto done;
-		}
+	if (force && delayed_work_pending(&rd->rd_idle_data.idle_work)) {
+		(void)cancel_delayed_work(&rd->rd_idle_data.idle_work);
+		row_log_rowq(rd, rd->rd_idle_data.idling_queue_idx,
+			"Canceled delayed work on %d - forced dispatch",
+			rd->rd_idle_data.idling_queue_idx);
+		rd->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
 	}
 
-	if (rd->row_queues[currq].nr_dispatched >=
-	    rd->row_queues[currq].disp_quantum) {
-		rd->row_queues[currq].nr_dispatched = 0;
-		row_log_rowq(rd, currq, "Expiring rqueue");
-		ret = row_choose_queue(rd);
-		if (ret)
-			row_dispatch_insert(rd);
+	ioprio_class_to_serve = row_get_ioprio_class_to_serve(rd, force);
+	row_log(rd->dispatch_queue, "Dispatching from %d priority class",
+		ioprio_class_to_serve);
+
+	switch (ioprio_class_to_serve) {
+	case IOPRIO_CLASS_NONE:
+		goto done;
+	case IOPRIO_CLASS_RT:
+		start_idx = ROWQ_HIGH_PRIO_IDX;
+		end_idx = ROWQ_REG_PRIO_IDX;
+		break;
+	case IOPRIO_CLASS_BE:
+		start_idx = ROWQ_REG_PRIO_IDX;
+		end_idx = ROWQ_LOW_PRIO_IDX;
+		break;
+	case IOPRIO_CLASS_IDLE:
+		start_idx = ROWQ_LOW_PRIO_IDX;
+		end_idx = ROWQ_MAX_PRIO;
+		break;
+	default:
+		pr_err("%s(): Invalid I/O priority class", __func__);
 		goto done;
 	}
 
-	/* Dispatch from curr_queue */
-	if (list_empty(&rd->row_queues[currq].fifo)) {
-		/* check idling */
-		if (delayed_work_pending(&rd->read_idle.idle_work)) {
-			if (force) {
-				(void)cancel_delayed_work(
-				&rd->read_idle.idle_work);
-				row_log_rowq(rd, currq,
-					"Canceled delayed work - forced dispatch");
-			} else {
-				row_log_rowq(rd, currq,
-						 "Delayed work pending. Exiting");
-				goto done;
-			}
-		}
+	currq = row_get_next_queue(q, rd, start_idx, end_idx);
 
-		if (!force && row_queues_def[currq].idling_enabled &&
-		    rd->row_queues[currq].idle_data.begin_idling) {
-			if (!queue_delayed_work(rd->read_idle.idle_workqueue,
-						&rd->read_idle.idle_work,
-						rd->read_idle.idle_time)) {
-				row_log_rowq(rd, currq,
-					     "Work already on queue!");
-				pr_err("ROW_BUG: Work already on queue!");
-			} else
-				row_log_rowq(rd, currq,
-				     "Scheduled delayed work. exiting");
-			goto done;
-		} else {
-			row_log_rowq(rd, currq,
-				     "Currq empty. Choose next queue");
-			ret = row_choose_queue(rd);
-			if (!ret)
-				goto done;
-		}
+	/* Dispatch */
+	if (currq >= 0) {
+		row_dispatch_insert(rd, currq);
+		ret = 1;
 	}
-
-	ret = 1;
-	row_dispatch_insert(rd);
-
 done:
 	return ret;
 }
@@ -556,18 +632,18 @@ static void *row_init_queue(struct request_queue *q)
 	 * enable it for write queues also, note that idling frequency will
 	 * be the same in both cases
 	 */
-	rdata->read_idle.idle_time = msecs_to_jiffies(ROW_IDLE_TIME_MSEC);
+	rdata->rd_idle_data.idle_time = msecs_to_jiffies(ROW_IDLE_TIME_MSEC);
 	/* Maybe 0 on some platforms */
-	if (!rdata->read_idle.idle_time)
-		rdata->read_idle.idle_time = 1;
-	rdata->read_idle.freq = ROW_READ_FREQ_MSEC;
-	rdata->read_idle.idle_workqueue = alloc_workqueue("row_idle_work",
+	if (!rdata->rd_idle_data.idle_time)
+		rdata->rd_idle_data.idle_time = 1;
+	rdata->rd_idle_data.freq = ROW_READ_FREQ_MSEC;
+	rdata->rd_idle_data.idle_wq = alloc_workqueue("row_idle_work",
 					    WQ_MEM_RECLAIM | WQ_HIGHPRI, 0);
-	if (!rdata->read_idle.idle_workqueue)
+	if (!rdata->rd_idle_data.idle_wq)
 		panic("Failed to create idle workqueue\n");
-	INIT_DELAYED_WORK(&rdata->read_idle.idle_work, kick_queue);
+	INIT_DELAYED_WORK(&rdata->rd_idle_data.idle_work, kick_queue);
 
-	rdata->curr_queue = ROWQ_PRIO_HIGH_READ;
+	rdata->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
 	rdata->dispatch_queue = q;
 
 	rdata->nr_reqs[READ] = rdata->nr_reqs[WRITE] = 0;
@@ -587,9 +663,10 @@ static void row_exit_queue(struct elevator_queue *e)
 
 	for (i = 0; i < ROWQ_MAX_PRIO; i++)
 		BUG_ON(!list_empty(&rd->row_queues[i].fifo));
-	(void)cancel_delayed_work_sync(&rd->read_idle.idle_work);
-	BUG_ON(delayed_work_pending(&rd->read_idle.idle_work));
-	destroy_workqueue(rd->read_idle.idle_workqueue);
+	(void)cancel_delayed_work_sync(&rd->rd_idle_data.idle_work);
+	rd->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
+	BUG_ON(delayed_work_pending(&rd->rd_idle_data.idle_work));
+	destroy_workqueue(rd->rd_idle_data.idle_wq);
 	kfree(rd);
 }
 
@@ -611,26 +688,56 @@ static void row_merged_requests(struct request_queue *q, struct request *rq,
 }
 
 /*
- * get_queue_type() - Get queue type for a given request
+ * row_get_queue_prio() - Get queue priority for a given request
  *
  * This is a helping function which purpose is to determine what
  * ROW queue the given request should be added to (and
- * dispatched from leter on)
+ * dispatched from later on)
  *
- * TODO: Right now only 3 queues are used REG_READ, REG_WRITE
- * and REG_SWRITE
  */
-static enum row_queue_prio get_queue_type(struct request *rq)
+static enum row_queue_prio row_get_queue_prio(struct request *rq)
 {
 	const int data_dir = rq_data_dir(rq);
 	const bool is_sync = rq_is_sync(rq);
+	enum row_queue_prio q_type = ROWQ_MAX_PRIO;
+	int ioprio_class = IOPRIO_PRIO_CLASS(rq->elv.icq->ioc->ioprio);
 
-	if (data_dir == READ)
-		return ROWQ_PRIO_REG_READ;
-	else if (is_sync)
-		return ROWQ_PRIO_REG_SWRITE;
-	else
-		return ROWQ_PRIO_REG_WRITE;
+	switch (ioprio_class) {
+	case IOPRIO_CLASS_RT:
+		if (data_dir == READ)
+			q_type = ROWQ_PRIO_HIGH_READ;
+		else if (is_sync)
+			q_type = ROWQ_PRIO_HIGH_SWRITE;
+		else {
+			pr_err("%s:%s(): got a simple write from RT_CLASS. How???",
+				rq->rq_disk->disk_name, __func__);
+			q_type = ROWQ_PRIO_REG_WRITE;
+		}
+		break;
+	case IOPRIO_CLASS_IDLE:
+		if (data_dir == READ)
+			q_type = ROWQ_PRIO_LOW_READ;
+		else if (is_sync)
+			q_type = ROWQ_PRIO_LOW_SWRITE;
+		else {
+			pr_err("%s:%s(): got a simple write from IDLE_CLASS. How???",
+				rq->rq_disk->disk_name, __func__);
+			q_type = ROWQ_PRIO_REG_WRITE;
+		}
+		break;
+	case IOPRIO_CLASS_NONE:
+	case IOPRIO_CLASS_BE:
+	default:
+		if (data_dir == READ)
+			q_type = ROWQ_PRIO_REG_READ;
+		else if (is_sync)
+			q_type = ROWQ_PRIO_REG_SWRITE;
+		else
+			q_type = ROWQ_PRIO_REG_WRITE;
+		break;
+	}
+
+	return q_type;
 }
 
 /*
@@ -648,7 +755,7 @@ row_set_request(struct request_queue *q, struct request *rq, gfp_t gfp_mask)
 
 	spin_lock_irqsave(q->queue_lock, flags);
 	rq->elv.priv[0] =
-		(void *)(&rd->row_queues[get_queue_type(rq)]);
+		(void *)(&rd->row_queues[row_get_queue_prio(rq)]);
 	spin_unlock_irqrestore(q->queue_lock, flags);
 
 	return 0;
@@ -691,8 +798,8 @@ SHOW_FUNCTION(row_lp_read_quantum_show,
 	rowd->row_queues[ROWQ_PRIO_LOW_READ].disp_quantum, 0);
 SHOW_FUNCTION(row_lp_swrite_quantum_show,
 	rowd->row_queues[ROWQ_PRIO_LOW_SWRITE].disp_quantum, 0);
-SHOW_FUNCTION(row_read_idle_show, rowd->read_idle.idle_time, 0);
-SHOW_FUNCTION(row_read_idle_freq_show, rowd->read_idle.freq, 0);
+SHOW_FUNCTION(row_rd_idle_data_show, rowd->rd_idle_data.idle_time, 0);
+SHOW_FUNCTION(row_rd_idle_data_freq_show, rowd->rd_idle_data.freq, 0);
 #undef SHOW_FUNCTION
 
 #define STORE_FUNCTION(__FUNC, __PTR, MIN, MAX, __CONV)			\
@@ -731,8 +838,10 @@ STORE_FUNCTION(row_lp_read_quantum_store,
 STORE_FUNCTION(row_lp_swrite_quantum_store,
 			&rowd->row_queues[ROWQ_PRIO_LOW_SWRITE].disp_quantum,
 			1, INT_MAX, 1);
-STORE_FUNCTION(row_read_idle_store, &rowd->read_idle.idle_time, 1, INT_MAX, 0);
-STORE_FUNCTION(row_read_idle_freq_store, &rowd->read_idle.freq, 1, INT_MAX, 0);
+STORE_FUNCTION(row_rd_idle_data_store, &rowd->rd_idle_data.idle_time,
+			1, INT_MAX, 0);
+STORE_FUNCTION(row_rd_idle_data_freq_store, &rowd->rd_idle_data.freq,
+			1, INT_MAX, 0);
 
 #undef STORE_FUNCTION
 
@@ -748,8 +857,8 @@ static struct elv_fs_entry row_attrs[] = {
 	ROW_ATTR(rp_write_quantum),
 	ROW_ATTR(lp_read_quantum),
 	ROW_ATTR(lp_swrite_quantum),
-	ROW_ATTR(read_idle),
-	ROW_ATTR(read_idle_freq),
+	ROW_ATTR(rd_idle_data),
+	ROW_ATTR(rd_idle_data_freq),
 	__ATTR_NULL
 };
 
@@ -766,7 +875,8 @@ static struct elevator_type iosched_row = {
 		.elevator_init_fn		= row_init_queue,
 		.elevator_exit_fn		= row_exit_queue,
 	},
-
+	.icq_size = sizeof(struct io_cq),
+	.icq_align = __alignof__(struct io_cq),
 	.elevator_attrs = row_attrs,
 	.elevator_name = "row",
 	.elevator_owner = THIS_MODULE,
