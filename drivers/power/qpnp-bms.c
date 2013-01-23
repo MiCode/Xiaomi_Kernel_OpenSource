@@ -2141,7 +2141,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 #define SPMI_PROP_READ(chip_prop, qpnp_spmi_property, retval)		\
 do {									\
 	retval = of_property_read_u32(chip->spmi->dev.of_node,		\
-				"qcom,bms-" qpnp_spmi_property,		\
+				"qcom," qpnp_spmi_property,		\
 					&chip->chip_prop);		\
 	if (retval) {							\
 		pr_err("Error reading " #qpnp_spmi_property		\
@@ -2173,15 +2173,15 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	SPMI_PROP_READ(calculate_soc_ms, "calculate-soc-ms", rc);
 	chip->use_external_rsense = of_property_read_bool(
 			chip->spmi->dev.of_node,
-			"qcom,bms-use-external-rsense");
+			"qcom,use-external-rsense");
 	chip->ignore_shutdown_soc = of_property_read_bool(
 			chip->spmi->dev.of_node,
-			"qcom,bms-ignore-shutdown-soc");
+			"qcom,ignore-shutdown-soc");
 	chip->use_voltage_soc = of_property_read_bool(chip->spmi->dev.of_node,
-			"qcom,bms-use-voltage-soc");
+			"qcom,use-voltage-soc");
 	chip->use_ocv_thresholds = of_property_read_bool(
 			chip->spmi->dev.of_node,
-			"qcom,bms-use-ocv-thresholds");
+			"qcom,use-ocv-thresholds");
 	SPMI_PROP_READ(ocv_high_threshold_uv,
 			"ocv-voltage-high-threshold-uv", rc);
 	SPMI_PROP_READ(ocv_low_threshold_uv,
