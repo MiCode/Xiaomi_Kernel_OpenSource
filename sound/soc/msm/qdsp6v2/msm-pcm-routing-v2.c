@@ -188,8 +188,13 @@ static struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ SLIMBUS_EXTPROC_RX, 0, 0, 0, 0, 0},
 	{ AFE_PORT_ID_QUATERNARY_MI2S_RX, 0, 0, 0, 0, 0},
 	{ AFE_PORT_ID_QUATERNARY_MI2S_TX, 0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_SECONDARY_MI2S_RX, 0, 0, 0, 0, 0},
-	{ AFE_PORT_ID_SECONDARY_MI2S_TX, 0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_SECONDARY_MI2S_RX,  0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_SECONDARY_MI2S_TX,  0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_PRIMARY_MI2S_RX,    0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_PRIMARY_MI2S_TX,    0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_TERTIARY_MI2S_RX,   0, 0, 0, 0, 0},
+	{ AFE_PORT_ID_TERTIARY_MI2S_TX,   0, 0, 0, 0, 0},
+	{ AUDIO_PORT_ID_I2S_RX,           0, 0, 0, 0, 0},
 };
 
 
@@ -1155,6 +1160,21 @@ static const struct snd_kcontrol_new secondary_mi2s_rx_mixer_controls[] = {
 	msm_routing_put_audio_mixer),
 };
 
+static const struct snd_kcontrol_new primary_mi2s_rx_mixer_controls[] = {
+	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_PRI_MI2S_RX ,
+	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia2", MSM_BACKEND_DAI_PRI_MI2S_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia3", MSM_BACKEND_DAI_PRI_MI2S_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA3, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("MultiMedia4", MSM_BACKEND_DAI_PRI_MI2S_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA4, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+};
+
 static const struct snd_kcontrol_new hdmi_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1", MSM_BACKEND_DAI_HDMI_RX,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
@@ -1605,6 +1625,12 @@ static const struct snd_kcontrol_new mi2s_rx_port_mixer_controls[] = {
 	msm_routing_put_port_mixer),
 };
 
+static const struct snd_kcontrol_new primary_mi2s_rx_port_mixer_controls[] = {
+	SOC_SINGLE_EXT("SEC_MI2S_TX", MSM_BACKEND_DAI_PRI_MI2S_RX,
+	MSM_BACKEND_DAI_SECONDARY_MI2S_TX, 1, 0, msm_routing_get_port_mixer,
+	msm_routing_put_port_mixer),
+};
+
 static const struct snd_kcontrol_new fm_switch_mixer_controls =
 	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
 	0, 1, 0, msm_routing_get_switch_mixer,
@@ -1943,6 +1969,8 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 						0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("SEC_MI2S_RX", "Secondary MI2S Playback",
 			     0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("PRI_MI2S_RX", "Primary MI2S Playback",
+			     0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("PRI_I2S_TX", "Primary I2S Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("MI2S_TX", "MI2S Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("QUAT_MI2S_TX", "Quaternary MI2S Capture",
@@ -2014,6 +2042,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_MIXER("SEC_MI2S_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
 			   secondary_mi2s_rx_mixer_controls,
 			   ARRAY_SIZE(secondary_mi2s_rx_mixer_controls)),
+	SND_SOC_DAPM_MIXER("PRI_MI2S_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
+			   primary_mi2s_rx_mixer_controls,
+			   ARRAY_SIZE(primary_mi2s_rx_mixer_controls)),
 	SND_SOC_DAPM_MIXER("MultiMedia1 Mixer", SND_SOC_NOPM, 0, 0,
 	mmul1_mixer_controls, ARRAY_SIZE(mmul1_mixer_controls)),
 	SND_SOC_DAPM_MIXER("MultiMedia2 Mixer", SND_SOC_NOPM, 0, 0,
@@ -2108,7 +2139,9 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	ARRAY_SIZE(sbus_3_rx_port_mixer_controls)),
 	SND_SOC_DAPM_MIXER("MI2S_RX Port Mixer", SND_SOC_NOPM, 0, 0,
 	mi2s_rx_port_mixer_controls, ARRAY_SIZE(mi2s_rx_port_mixer_controls)),
-
+	SND_SOC_DAPM_MIXER("PRI_MI2S_RX Port Mixer", SND_SOC_NOPM, 0, 0,
+	primary_mi2s_rx_port_mixer_controls,
+	ARRAY_SIZE(primary_mi2s_rx_port_mixer_controls)),
 	/* Virtual Pins to force backends ON atm */
 	SND_SOC_DAPM_OUTPUT("BE_OUT"),
 	SND_SOC_DAPM_INPUT("BE_IN"),
@@ -2169,6 +2202,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SEC_MI2S_RX Audio Mixer", "MultiMedia3", "MM_DL3"},
 	{"SEC_MI2S_RX Audio Mixer", "MultiMedia4", "MM_DL4"},
 	{"SEC_MI2S_RX", NULL, "SEC_MI2S_RX Audio Mixer"},
+
+	{"PRI_MI2S_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
+	{"PRI_MI2S_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
+	{"PRI_MI2S_RX Audio Mixer", "MultiMedia3", "MM_DL3"},
+	{"PRI_MI2S_RX Audio Mixer", "MultiMedia4", "MM_DL4"},
+	{"PRI_MI2S_RX", NULL, "PRI_MI2S_RX Audio Mixer"},
 
 	{"MultiMedia1 Mixer", "PRI_TX", "PRI_I2S_TX"},
 	{"MultiMedia1 Mixer", "MI2S_TX", "MI2S_TX"},
@@ -2355,6 +2394,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MI2S_RX Port Mixer", "SLIM_1_TX", "SLIMBUS_1_TX"},
 	{"MI2S_RX Port Mixer", "MI2S_TX", "MI2S_TX"},
 	{"MI2S_RX", NULL, "MI2S_RX Port Mixer"},
+
+	{"PRI_MI2S_RX Port Mixer", "SEC_MI2S_TX", "SEC_MI2S_TX"},
+	{"PRI_MI2S_RX", NULL, "PRI_MI2S_RX Port Mixer"},
+
 	/* Backend Enablement */
 
 	{"BE_OUT", NULL, "PRI_I2S_RX"},
@@ -2367,6 +2410,13 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"BE_OUT", NULL, "MI2S_RX"},
 	{"BE_OUT", NULL, "QUAT_MI2S_RX"},
 	{"BE_OUT", NULL, "SEC_MI2S_RX"},
+	{"BE_OUT", NULL, "PRI_MI2S_RX"},
+	{"BE_OUT", NULL, "INT_BT_SCO_RX"},
+	{"BE_OUT", NULL, "INT_FM_RX"},
+	{"BE_OUT", NULL, "PCM_RX"},
+	{"BE_OUT", NULL, "SLIMBUS_3_RX"},
+	{"BE_OUT", NULL, "AUX_PCM_RX"},
+
 	{"PRI_I2S_TX", NULL, "BE_IN"},
 	{"MI2S_TX", NULL, "BE_IN"},
 	{"QUAT_MI2S_TX", NULL, "BE_IN"},

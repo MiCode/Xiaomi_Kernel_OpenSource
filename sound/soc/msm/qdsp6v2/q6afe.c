@@ -175,6 +175,7 @@ int afe_get_port_type(u16 port_id)
 	case INT_FM_RX:
 	case VOICE_PLAYBACK_TX:
 	case RT_PROXY_PORT_001_RX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 		ret = MSM_AFE_PORT_TYPE_RX;
@@ -219,6 +220,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
 	case MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_i2s_cfg);
 		break;
 	case HDMI_RX:
@@ -407,6 +409,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
 	case MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
@@ -564,6 +567,8 @@ int afe_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_PRIMARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
@@ -633,6 +638,7 @@ int afe_open(u16 port_id,
 		break;
 	case SECONDARY_I2S_RX:
 	case SECONDARY_I2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case MI2S_RX:
 	case MI2S_TX:
 		cfg_type = AFE_PARAM_ID_I2S_CONFIG;
@@ -1996,6 +2002,7 @@ int afe_validate_port(u16 port_id)
 	case RT_PROXY_PORT_001_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	{
 		ret = 0;
 		break;
