@@ -80,7 +80,8 @@ static void q6asm_add_hdr(struct audio_client *ac, struct apr_hdr *hdr,
 static void q6asm_add_hdr_async(struct audio_client *ac, struct apr_hdr *hdr,
 			uint32_t pkt_size, uint32_t cmd_flg);
 static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
-				uint32_t bufsz, uint32_t bufcnt);
+				uint32_t bufsz, uint32_t bufcnt,
+				bool is_contiguous);
 static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
 				uint32_t bufsz, uint32_t bufcnt);
 static void q6asm_reset_buf_state(struct audio_client *ac);
@@ -681,7 +682,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 		ac->port[dir].max_buf_cnt = cnt;
 
 		mutex_unlock(&ac->cmd_lock);
-		rc = q6asm_memory_map_regions(ac, dir, bufsz, cnt);
+		rc = q6asm_memory_map_regions(ac, dir, bufsz, cnt, 0);
 		if (rc < 0) {
 			pr_err("%s:CMD Memory_map_regions failed\n", __func__);
 			goto fail;
@@ -787,7 +788,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 	}
 	ac->port[dir].max_buf_cnt = cnt;
 	mutex_unlock(&ac->cmd_lock);
-	rc = q6asm_memory_map_regions(ac, dir, bufsz, cnt);
+	rc = q6asm_memory_map_regions(ac, dir, bufsz, cnt, 1);
 	if (rc < 0) {
 		pr_err("%s:CMD Memory_map_regions failed\n", __func__);
 		goto fail;
@@ -839,6 +840,11 @@ static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv)
 		switch (payload[0]) {
 		case ASM_CMD_SHARED_MEM_MAP_REGIONS:
 		case ASM_CMD_SHARED_MEM_UNMAP_REGIONS:
+			if (payload[1] != 0) {
+				pr_err("%s: cmd = 0x%x returned error = 0x%x sid:%d\n",
+				__func__, payload[0], payload[1], sid);
+			}
+
 			if (atomic_read(&ac->cmd_state)) {
 				atomic_set(&ac->cmd_state, 0);
 				wake_up(&ac->cmd_wait);
@@ -2492,7 +2498,8 @@ fail_cmd:
 
 
 static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
-				uint32_t bufsz, uint32_t bufcnt)
+				uint32_t bufsz, uint32_t bufcnt,
+				bool is_contiguous)
 {
 	struct avs_cmd_shared_mem_map_regions *mmap_regions = NULL;
 	struct avs_shared_map_region_payload  *mregions = NULL;
@@ -2504,6 +2511,8 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 	int	rc = 0;
 	int    i = 0;
 	int	cmd_size = 0;
+	uint32_t bufcnt_t;
+	uint32_t bufsz_t;
 
 	if (!ac || ac->apr == NULL || ac->mmap_apr == NULL) {
 		pr_err("APR handle NULL\n");
@@ -2511,8 +2520,12 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 	}
 	pr_debug("%s: Session[%d]\n", __func__, ac->session);
 
+	bufcnt_t = (is_contiguous) ? 1 : bufcnt;
+	bufsz_t = (is_contiguous) ? (bufsz * bufcnt) : bufsz;
+
 	cmd_size = sizeof(struct avs_cmd_shared_mem_map_regions)
-			+ (sizeof(struct avs_shared_map_region_payload));
+			+ (sizeof(struct avs_shared_map_region_payload)
+							* bufcnt_t);
 
 	buffer_node = kzalloc(sizeof(struct asm_buffer_node) * bufcnt,
 				GFP_KERNEL);
@@ -2532,7 +2545,7 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 
 	mmap_regions->hdr.opcode = ASM_CMD_SHARED_MEM_MAP_REGIONS;
 	mmap_regions->mem_pool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
-	mmap_regions->num_regions = 1; /*bufcnt & 0x00ff; */
+	mmap_regions->num_regions = bufcnt_t; /*bufcnt & 0x00ff; */
 	mmap_regions->property_flag = 0x00;
 	pr_debug("map_regions->nregions = %d\n", mmap_regions->num_regions);
 	payload = ((u8 *) mmap_region_cmd +
@@ -2541,11 +2554,14 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 
 	ac->port[dir].tmp_hdl = 0;
 	port = &ac->port[dir];
-	ab = &port->buf[0];
-	mregions->shm_addr_lsw = ab->phys;
+	for (i = 0; i < bufcnt_t; i++) {
+		ab = &port->buf[i];
+		mregions->shm_addr_lsw = ab->phys;
 	/* Using only 32 bit address */
-	mregions->shm_addr_msw = 0;
-	mregions->mem_size_bytes = (bufsz * bufcnt);
+		mregions->shm_addr_msw = 0;
+		mregions->mem_size_bytes = bufsz_t;
+		++mregions;
+	}
 
 	rc = apr_send_pkt(ac->mmap_apr, (uint32_t *) mmap_region_cmd);
 	if (rc < 0) {
