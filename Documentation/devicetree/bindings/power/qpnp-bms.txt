@@ -15,59 +15,60 @@ device is to enabled:
 
 Parent node required properties:
 - compatible : should be "qcom,qpnp-bms" for the BM driver.
-- qcom,bms-r-sense-uohm : sensor resistance in in micro-ohms.
-- qcom,bms-v-cutoff-uv : cutoff voltage where the battery is considered dead in
+- qcom,r-sense-uohm : sensor resistance in in micro-ohms.
+- qcom,v-cutoff-uv : cutoff voltage where the battery is considered dead in
 			micro-volts.
-- qcom,bms-max-voltage-uv : maximum voltage for the battery in micro-volts.
-- qcom,bms-r-conn-mohm : connector resistance in milli-ohms.
-- qcom,bms-shutdown-soc-valid-limit : If the ocv upon restart is within this
+- qcom,max-voltage-uv : maximum voltage for the battery in micro-volts.
+- qcom,r-conn-mohm : connector resistance in milli-ohms.
+- qcom,shutdown-soc-valid-limit : If the ocv upon restart is within this
 			distance of the shutdown ocv, the BMS will try to force
 			the new SoC to the old one to provide charge continuity.
 			That is to say,
 				if (abs(shutdown-soc - current-soc) < limit)
 				then use old SoC.
-- qcom,bms-adjust-soc-low-threshold : The low threshold for the "flat portion"
+- qcom,adjust-soc-low-threshold : The low threshold for the "flat portion"
 			of the charging curve. The BMS will not adjust SoC
 			based on voltage during this time.
-- qcom,bms-adjust-soc-high-threshold : The high threshold for the "flat
+- qcom,adjust-soc-high-threshold : The high threshold for the "flat
 			portion" of the charging curve. The BMS will not
 			adjust SoC based on voltage during this time.
-- qcom,bms-ocv-voltage-low-threshold-uv : The low voltage threshold for the
+- qcom,ocv-voltage-low-threshold-uv : The low voltage threshold for the
 			"flat portion" of the discharge curve. The bms will not
 			accept new ocvs between these thresholds.
-- qcom,bms-ocv-voltage-high-threshold-uv : The high voltage threshold for
+- qcom,ocv-voltage-high-threshold-uv : The high voltage threshold for
 			the "flat portion" of the discharge curve.
 			The bms will not accept new ocvs between these
 			thresholds.
-- qcom,bms-low-soc-calculate-soc-threshold : The SoC threshold for when
+- qcom,low-soc-calculate-soc-threshold : The SoC threshold for when
 			the period calculate_soc work speeds up. This ensures
 			SoC is updated in userspace constantly when we are near
 			shutdown.
-- qcom,bms-low-soc-calculate-soc-ms : The time period between subsequent
+- qcom,low-soc-calculate-soc-ms : The time period between subsequent
+
 			SoC recalculations when the current SoC is below
-			qcom,bms-low-soc-calculate-soc-threshold.
-- qcom,bms-soc-calculate-soc-ms : The time period between subsequent SoC
+			qcom,low-soc-calculate-soc-threshold.
+- qcom,soc-calculate-soc-ms : The time period between subsequent SoC
 			recalculations when the current SoC is above or equal
-			qcom,bms-low-soc-calculate-soc-threshold.
-- qcom,bms-chg-term-ua : current in micro-amps when charging is considered done.
+			qcom,low-soc-calculate-soc-threshold.
+- qcom,chg-term-ua : current in micro-amps when charging is considered done.
 			As soon as current passes this point, charging is
 			stopped.
-- qcom,bms-batt-type: Type of battery used. This is an integer that corresponds
+- qcom,batt-type: Type of battery used. This is an integer that corresponds
 			to the enum defined in
 			include/linux/mfd/pm8xxx/batterydata-lib.h
 
 Parent node optional properties:
-- qcom,bms-ignore-shutdown-soc: A boolean that controls whether BMS will
+- qcom,ignore-shutdown-soc: A boolean that controls whether BMS will
 			try to force the startup SoC to be the same as the
 			shutdown SoC. Defining it will make BMS ignore the
 			shutdown SoC.
-- qcom,bms-use-voltage-soc : A boolean that controls whether BMS will use
+- qcom,use-voltage-soc : A boolean that controls whether BMS will use
 			voltage-based SoC instead of a coulomb counter based
 			one. Voltage-based SoC will not guarantee linearity.
-- qcom,bms-use-external-rsense : A boolean that controls whether BMS will use
+- qcom,use-external-rsense : A boolean that controls whether BMS will use
 			an external sensor resistor instead of the default
 			RDS of the batfet.
-- qcom,bms-use-ocv-thresholds : A boolean that controls whether BMS will take
+- qcom,use-ocv-thresholds : A boolean that controls whether BMS will take
 			new OCVs only between the defined thresholds.
 
 All sub node required properties:
@@ -96,20 +97,20 @@ pm8941_bms: qcom,bms {
 	#size-cells = <1>;
 	status = "disabled";
 
-	qcom,bms-r-sense-uohm = <10000>;
-	qcom,bms-v-cutoff-uv = <3400000>;
-	qcom,bms-max-voltage-uv = <4200000>;
-	qcom,bms-r-conn-mohm = <18>;
-	qcom,bms-shutdown-soc-valid-limit = <20>;
-	qcom,bms-ocv-voltage-low-threshold-uv = <3650000>;
-	qcom,bms-ocv-voltage-high-threshold-uv = <3750000>;
-	qcom,bms-adjust-soc-low-threshold = <25>;
-	qcom,bms-adjust-soc-high-threshold = <45>;
-	qcom,bms-low-soc-calculate-soc-threshold = <15>;
-	qcom,bms-low-soc-calculate-soc-ms = <5000>;
-	qcom,bms-calculate-soc-ms = <20000>;
-	qcom,bms-chg-term-ua = <100000>;
-	qcom,bms-batt-type = <0>;
+	qcom,r-sense-uohm = <10000>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,max-voltage-uv = <4200000>;
+	qcom,r-conn-mohm = <18>;
+	qcom,shutdown-soc-valid-limit = <20>;
+	qcom,ocv-voltage-low-threshold-uv = <3650000>;
+	qcom,ocv-voltage-high-threshold-uv = <3750000>;
+	qcom,adjust-soc-low-threshold = <25>;
+	qcom,adjust-soc-high-threshold = <45>;
+	qcom,low-soc-calculate-soc-threshold = <15>;
+	qcom,low-soc-calculate-soc-ms = <5000>;
+	qcom,calculate-soc-ms = <20000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,batt-type = <0>;
 
 	qcom,bms-iadc@3800 {
 		reg = <0x3800 0x100>;
