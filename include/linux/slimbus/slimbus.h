@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -960,6 +960,12 @@ extern int slim_ctrl_clk_pause(struct slim_controller *ctrl, bool wakeup,
  * It is called from the driver's module-init function.
  */
 extern int slim_driver_register(struct slim_driver *drv);
+
+/*
+ * slim_driver_unregister: Undo effects of slim_driver_register
+ * @drv: Client driver to be unregistered
+ */
+extern void slim_driver_unregister(struct slim_driver *drv);
 
 /*
  * slim_add_numbered_controller: Controller bring-up.
