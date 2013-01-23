@@ -1,0 +1,91 @@
+Qualcomm QPNP BSI - battery serial interface devices
+
+qpnp-bsi is a BIF driver which supports the BSI peripheral inside of PMICs
+that utilize the MSM SPMI implementation.
+
+Required properties:
+- compatible:      Must be "qcom,qpnp-bsi".
+- reg:             Specifies the SPMI address and size for this BSI device as
+                    well as the address of the BATT_ID status register.
+- reg-names:       A list of strings identifying the reg property entries.  The
+                    list must contain both "bsi-base" and "batt-id-status".
+- label:           A string used as a descriptive name for this BIF controller.
+- interrupts:      Specifies a list of four interrupts corresponding to
+                    IRQ ERR, IRQ RX, IRQ TX, and IRQ BATT_PRESENT in any order.
+- interrupt-names: Must be a list of strings containing all three of these
+                    strings: "err", "rx", "tx", "batt-present".  The ordering of
+                    these strings must match the ordering of the interrupts in
+                    the "interrupts" property.
+
+Required structure:
+- A qcom,qpnp-bsi node must be a child of an SPMI node that has specified the
+	spmi-slave-container property.
+
+Optional properties:
+- qcom,min-clock-period:  This property specifies a minimum clock period for the
+                           Tau BIF reference in nanoseconds.  It can be used to
+                           impose a minimum period which is higher (i.e. more
+                           restrictive) than that supported by the hardware.
+                           The BSI module supports 8 possible periods between
+                           2080 ns and 150420 ns.
+- qcom,max-clock-period:  This property specifies a maximum clock period for the
+                           Tau BIF reference in nanoseconds.  It can be used to
+                           impose a maximum period which is lower (i.e. more
+                           restrictive) than that supported by the hardware.
+                           The BSI module supports 8 possible periods between
+                           2080 ns and 150420 ns.
+- qcom,sample-rate:       Specifies the rate at which the BIF BCL should be
+                           sampled during communication with respect to the Tau
+                           BIF reference rate.  Supported values are 4 and 8
+                           which represent 4x and 8x sampling rates
+                           respectively.  If this property is not specified,
+                           then 4x sampling is assumed.
+- qcom,channel-num:       VADC channel number associated PMIC BATT_ID pin.  If
+                           no channel is specified, then it will not be
+                           possible to measure the slave Rid.
+- qcom,pullup-ohms:       Host side pull-up resistance present on BCL in ohms.
+                           If no value is specified, then 100000 ohms is
+                           assumed.
+- qcom,vref-microvolts:   Reference voltage used for BCL divider circuit in
+                           microvolts.  If no value is specified, then
+                           1800000 uV is assumed.
+
+All properties specified within for the BIF framework can also be used. These
+properties can be found in bif.txt.
+
+Example:
+	qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+
+		qcom,pm8941@1 {
+			spmi-slave-container;
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,bsi@1b00 {
+				compatible = "qcom,qpnp-bsi";
+				reg = <0x1b00 0x100>,
+				      <0x1208 0x1>;
+				reg-names = "bsi-base", "batt-id-status";
+				label = "pm8941-bsi";
+				interrupts = <0x0 0x1b 0x0>,
+					     <0x0 0x1b 0x1>,
+					     <0x0 0x1b 0x2>,
+					     <0x0 0x12 0x0>;
+				interrupt-names = "err",
+						  "rx",
+						  "tx",
+						  "batt-present";
+				qcom,sample-rate = <8>;
+				qcom,min-clock-period = <15830>;
+				qcom,max-clock-period = <122080>;
+				qcom,channel-num = <0x31>;
+				qcom,pullup-ohms = <100000>;
+				qcom,vref-microvolts = <1800000>;
+			};
+		};
+	};
