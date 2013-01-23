@@ -191,40 +191,32 @@ static unsigned int pt_t[NUM_LPG_PRE_DIVIDE][NUM_CLOCKS] = {
 	},
 };
 
-/* Private data */
-struct pm8xxx_pwm_chip;
-
-struct pwm_device {
-	int			pwm_id;		/* = bank/channel id */
-	int			in_use;
-	const char		*label;
+struct pm8xxx_pwm_channel_data {
 	struct pm8xxx_pwm_period	period;
-	int			pwm_value;
-	int			pwm_period;
-	int			pwm_duty;
-	u8			pwm_lpg_ctl[PM8XXX_LPG_CTL_REGS];
-	u8			pwm_ctl1;
-	u8			pwm_ctl2;
-	int			irq;
-	struct pm8xxx_pwm_chip	*chip;
-	int			bypass_lut;
-	int			dtest_mode_supported;
-	int			banks;
+	u8				pwm_lpg_ctl[PM8XXX_LPG_CTL_REGS];
+	u8				pwm_ctl1;
+	u8				pwm_ctl2;
+	int				pwm_value;
+	int				pwm_duty;
+	int				bypass_lut;
+	int				dtest_mode_supported;
+	int				banks;
 };
 
 struct pm8xxx_pwm_chip {
-	struct pwm_device		*pwm_dev;
+	struct pm8xxx_pwm_channel_data	*channels;
+	struct mutex			pwm_mutex;
+	struct device			*dev;
+	struct pwm_chip			chip;
 	u8				pwm_channels;
 	u8				pwm_total_pre_divs;
 	u8				lo_bank_mask;
 	u8				hi_bank_mask;
-	struct mutex			pwm_mutex;
-	struct device			*dev;
-	bool				is_lpg_supported;
-	bool				is_pwm_enable_sync_workaround_needed;
+#define	PM8XXX_FEATURE_LPG_SUPPORTED	(1 << 0)
+#define PM8XXX_FEATURE_PWM_ENABLE_SYNC	(1 << 1)
+	u32				feature_flags;
+	int				current_channel;
 };
-
-static struct pm8xxx_pwm_chip	*pwm_chip;
 
 struct pm8xxx_pwm_lut {
 	/* LUT parameters */
@@ -250,28 +242,41 @@ static const u16 pause_count[PM8XXX_PWM_PAUSE_COUNT_MAX + 1] = {
 };
 
 /* Internal functions */
+static inline struct pm8xxx_pwm_chip *pm8xxx_pwm_from_pwm_dev(
+					struct pwm_device *pwm)
+{
+	return container_of(pwm->chip, struct pm8xxx_pwm_chip, chip);
+}
+
+static inline struct pm8xxx_pwm_chip *pm8xxx_pwm_from_pwm_chip(
+					struct pwm_chip *chip)
+{
+	return container_of(chip, struct pm8xxx_pwm_chip, chip);
+}
+
 static void pm8xxx_pwm_save(u8 *u8p, u8 mask, u8 val)
 {
 	*u8p &= ~mask;
 	*u8p |= val & mask;
 }
 
-static int pm8xxx_pwm_bank_enable(struct pwm_device *pwm, int enable)
+static int pm8xxx_pwm_bank_enable(struct pm8xxx_pwm_chip *chip, int enable)
 {
+	struct pm8xxx_pwm_channel_data *cdata =
+			&chip->channels[chip->current_channel];
 	int	rc;
 	u8	reg;
-	struct pm8xxx_pwm_chip	*chip;
 
-	chip = pwm->chip;
+	if (!cdata->banks)
+		cdata->banks = (PM_PWM_BANK_LO | PM_PWM_BANK_HI);
 
-	if (!pwm->banks)
-		pwm->banks = (PM_PWM_BANK_LO | PM_PWM_BANK_HI);
-
-	if (pwm->banks & PM_PWM_BANK_LO) {
+	if (cdata->banks & PM_PWM_BANK_LO) {
 		if (enable)
-			reg = chip->lo_bank_mask | (1 << pwm->pwm_id);
+			reg = chip->lo_bank_mask |
+				(1 << chip->current_channel);
 		else
-			reg = chip->lo_bank_mask & ~(1 << pwm->pwm_id);
+			reg = chip->lo_bank_mask &
+				~(1 << chip->current_channel);
 
 		rc = pm8xxx_writeb(chip->dev->parent,
 				SSBI_REG_ADDR_LPG_BANK_LOW_EN, reg);
@@ -283,11 +288,13 @@ static int pm8xxx_pwm_bank_enable(struct pwm_device *pwm, int enable)
 		chip->lo_bank_mask = reg;
 	}
 
-	if (pwm->banks & PM_PWM_BANK_HI) {
+	if (cdata->banks & PM_PWM_BANK_HI) {
 		if (enable)
-			reg = chip->hi_bank_mask | (1 << pwm->pwm_id);
+			reg = chip->lo_bank_mask |
+				(1 << chip->current_channel);
 		else
-			reg = chip->hi_bank_mask & ~(1 << pwm->pwm_id);
+			reg = chip->lo_bank_mask &
+				~(1 << chip->current_channel);
 
 		rc = pm8xxx_writeb(chip->dev->parent,
 				SSBI_REG_ADDR_LPG_BANK_HIGH_EN, reg);
@@ -301,59 +308,62 @@ static int pm8xxx_pwm_bank_enable(struct pwm_device *pwm, int enable)
 	return 0;
 }
 
-static int pm8xxx_pwm_bank_sel(struct pwm_device *pwm)
+static int pm8xxx_pwm_bank_sel(struct pm8xxx_pwm_chip *chip)
 {
 	int	rc;
 
-	rc = pm8xxx_writeb(pwm->chip->dev->parent, SSBI_REG_ADDR_LPG_BANK_SEL,
-			   pwm->pwm_id);
+	rc = pm8xxx_writeb(chip->dev->parent, SSBI_REG_ADDR_LPG_BANK_SEL,
+			   chip->current_channel);
 	if (rc)
 		pr_err("pm8xxx_writeb(): rc=%d (Select PWM Bank)\n", rc);
 	return rc;
 }
 
-static int pm8xxx_pwm_start(struct pwm_device *pwm, int start, int ramp_start)
+static int pm8xxx_pwm_start(struct pm8xxx_pwm_chip *chip,
+				int start, int ramp_start)
 {
 	int	rc;
 	u8	reg;
 
 	if (start) {
-		reg = pwm->pwm_lpg_ctl[0] | PM8XXX_PWM_PWM_START;
+		reg = chip->channels[chip->current_channel].pwm_lpg_ctl[0] |
+						PM8XXX_PWM_PWM_START;
 		if (ramp_start)
 			reg |= PM8XXX_PWM_RAMP_GEN_START;
 		else
 			reg &= ~PM8XXX_PWM_RAMP_GEN_START;
 	} else {
-		reg = pwm->pwm_lpg_ctl[0] & ~PM8XXX_PWM_PWM_START;
+		reg = chip->channels[chip->current_channel].pwm_lpg_ctl[0] &
+						~PM8XXX_PWM_PWM_START;
 		reg &= ~PM8XXX_PWM_RAMP_GEN_START;
 	}
 
-	rc = pm8xxx_writeb(pwm->chip->dev->parent, SSBI_REG_ADDR_LPG_CTL(0),
-			   reg);
+	rc = pm8xxx_writeb(chip->dev->parent, SSBI_REG_ADDR_LPG_CTL(0), reg);
 	if (rc)
 		pr_err("pm8xxx_writeb(): rc=%d (Enable PWM Ctl 0)\n", rc);
 	else
-		pwm->pwm_lpg_ctl[0] = reg;
+		chip->channels[chip->current_channel].pwm_lpg_ctl[0] = reg;
 	return rc;
 }
 
-static int pm8xxx_pwm_disable(struct pwm_device *pwm)
+static int _pm8xxx_pwm_disable(struct pm8xxx_pwm_chip *chip)
 {
 	int	rc;
 	u8	reg;
 
-	reg = pwm->pwm_ctl1 & PM8XXX_PWM_DISABLE;
+	reg = chip->channels[chip->current_channel].pwm_ctl1 &
+					PM8XXX_PWM_DISABLE;
 
-	rc = pm8xxx_writeb(pwm->chip->dev->parent,
-			SSBI_REG_ADDR_PWM_CTL1(pwm->pwm_id), reg);
+	rc = pm8xxx_writeb(chip->dev->parent,
+		SSBI_REG_ADDR_PWM_CTL1(chip->current_channel), reg);
 
 	if (rc)
 		pr_err("pm8xxx_writeb(): rc=%d (Disable PWM Ctl %d)\n", rc,
-								pwm->pwm_id);
+						chip->current_channel);
 	return rc;
 }
 
-static int pm8xxx_pwm_enable(struct pwm_device *pwm)
+static int _pm8xxx_pwm_enable(struct pm8xxx_pwm_chip *chip)
 {
 	/**
 	 * A kind of best Effort: Just write the clock information that
@@ -361,25 +371,28 @@ static int pm8xxx_pwm_enable(struct pwm_device *pwm)
 	 */
 	int	rc;
 
-	rc = pm8xxx_writeb(pwm->chip->dev->parent,
-			SSBI_REG_ADDR_PWM_CTL1(pwm->pwm_id), pwm->pwm_ctl1);
+	rc = pm8xxx_writeb(chip->dev->parent,
+			SSBI_REG_ADDR_PWM_CTL1(chip->current_channel),
+			chip->channels[chip->current_channel].pwm_ctl1);
 
 	if (rc)
 		pr_err("pm8xxx_writeb(): rc=%d (Enable PWM Ctl %d)\n", rc,
-								pwm->pwm_id);
+						chip->current_channel);
 	return rc;
 }
 
-static void pm8xxx_pwm_calc_period(unsigned int period_us,
-				   struct pwm_device *pwm)
+static void pm8xxx_pwm_calc_period(struct pm8xxx_pwm_chip *chip,
+		unsigned int period_us, struct pm8xxx_pwm_period *period)
 {
 	int	n, m, clk, div;
 	int	best_m, best_div, best_clk;
 	unsigned int	last_err, cur_err, min_err;
 	unsigned int	tmp_p, period_n;
 	struct	pm8xxx_pwm_period *period = &pwm->period;
+	struct pm8xxx_pwm_channel_data *cdata =
+			&chip->channels[chip->current_channel]
 
-	if (pwm->banks == PM_PWM_BANK_LO)
+	if (cdata->banks == PM_PWM_BANK_LO)
 		n = 7;
 	else
 		n = 6;
@@ -397,7 +410,7 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 	best_clk = 0;
 	best_div = 0;
 	for (clk = 0; clk < NUM_CLOCKS; clk++) {
-		for (div = 0; div < pwm_chip->pwm_total_pre_divs; div++) {
+		for (div = 0; div < chip->pwm_total_pre_divs; div++) {
 			/* period_n = (PWM Period / N) */
 			/* tmp_p = (Pre-divide * Clock Period) * 2^m */
 			tmp_p = pt_t[div][clk];
@@ -436,36 +449,40 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 	period->pre_div_exp = best_m;
 }
 
-static void pm8xxx_pwm_calc_pwm_value(struct pwm_device *pwm,
+static void pm8xxx_pwm_calc_pwm_value(struct pm8xxx_pwm_chip *chip,
 				      unsigned int period_us,
 				      unsigned int duty_us)
 {
 	unsigned int max_pwm_value, tmp;
+	struct pm8xxx_pwm_channel_data *cdata =
+			&chip->channels[chip->current_channel];
 
 	/* Figure out pwm_value with overflow handling */
-	tmp = 1 << (sizeof(tmp) * 8 - pwm->period.pwm_size);
+	tmp = 1 << (sizeof(tmp) * 8 - cdata->period.pwm_size);
 	if (duty_us < tmp) {
-		tmp = duty_us << pwm->period.pwm_size;
-		pwm->pwm_value = tmp / period_us;
+		tmp = duty_us << cdata->period.pwm_size;
+		cdata->pwm_value = tmp / period_us;
 	} else {
-		tmp = period_us >> pwm->period.pwm_size;
-		pwm->pwm_value = duty_us / tmp;
+		tmp = period_us >> cdata->period.pwm_size;
+		cdata->pwm_value = duty_us / tmp;
 	}
-	max_pwm_value = (1 << pwm->period.pwm_size) - 1;
-	if (pwm->pwm_value > max_pwm_value)
-		pwm->pwm_value = max_pwm_value;
+	max_pwm_value = (1 << cdata->period.pwm_size) - 1;
+	if (cdata->pwm_value > max_pwm_value)
+		cdata->pwm_value = max_pwm_value;
 }
 
-static int pm8xxx_pwm_change_table(struct pwm_device *pwm, int duty_pct[],
+static int pm8xxx_pwm_change_table(struct pm8xxx_pwm_chip *chip, int duty_pct[],
 				   int start_idx, int len, int raw_value)
 {
 	unsigned int pwm_value, max_pwm_value;
+	struct pm8xxx_pwm_channel_data *cdata =
+			&chip->channels[chip->current_channel];
 	u8	cfg0, cfg1;
 	int	i, pwm_size;
 	int	rc = 0;
 
-	pwm_size = (pwm->pwm_lpg_ctl[5] & PM8XXX_PWM_SIZE_9_BIT) ? 9 : 6;
-	if (pwm->period.pwm_size == 7)
+	pwm_size = (cdata->pwm_lpg_ctl[5] & PM8XXX_PWM_SIZE_9_BIT) ? 9 : 6;
+	if (cdata->period.pwm_size == 7)
 		pwm_size = 7;
 
 	max_pwm_value = (1 << pwm_size) - 1;
@@ -481,12 +498,12 @@ static int pm8xxx_pwm_change_table(struct pwm_device *pwm, int duty_pct[],
 		cfg1 = (pwm_value >> 1) & 0x80;
 		cfg1 |= start_idx + i;
 
-		rc = pm8xxx_writeb(pwm->chip->dev->parent,
+		rc = pm8xxx_writeb(chip->dev->parent,
 				   SSBI_REG_ADDR_LPG_LUT_CFG0, cfg0);
 		if (rc)
 			break;
 
-		rc = pm8xxx_writeb(pwm->chip->dev->parent,
+		rc = pm8xxx_writeb(chip->dev->parent,
 				   SSBI_REG_ADDR_LPG_LUT_CFG1, cfg1);
 		if (rc)
 			break;
@@ -494,78 +511,88 @@ static int pm8xxx_pwm_change_table(struct pwm_device *pwm, int duty_pct[],
 	return rc;
 }
 
-static void pm8xxx_pwm_save_index(struct pwm_device *pwm,
+static void pm8xxx_pwm_save_index(struct pm8xxx_pwm_channel_data *cdata,
 				   int low_idx, int high_idx, int flags)
 {
-	pwm->pwm_lpg_ctl[1] = high_idx & PM8XXX_PWM_HIGH_INDEX_MASK;
-	pwm->pwm_lpg_ctl[2] = low_idx & PM8XXX_PWM_LOW_INDEX_MASK;
+	cdata->pwm_lpg_ctl[1] = high_idx & PM8XXX_PWM_HIGH_INDEX_MASK;
+	cdata->pwm_lpg_ctl[2] = low_idx & PM8XXX_PWM_LOW_INDEX_MASK;
 
 	if (flags & PM_PWM_LUT_REVERSE)
-		pwm->pwm_lpg_ctl[1] |= PM8XXX_PWM_REVERSE_EN;
+		cdata->pwm_lpg_ctl[1] |= PM8XXX_PWM_REVERSE_EN;
 	if (flags & PM_PWM_LUT_RAMP_UP)
-		pwm->pwm_lpg_ctl[2] |= PM8XXX_PWM_RAMP_UP;
+		cdata->pwm_lpg_ctl[2] |= PM8XXX_PWM_RAMP_UP;
 	if (flags & PM_PWM_LUT_LOOP)
-		pwm->pwm_lpg_ctl[2] |= PM8XXX_PWM_LOOP_EN;
+		cdata->pwm_lpg_ctl[2] |= PM8XXX_PWM_LOOP_EN;
 }
 
-static void pm8xxx_pwm_save_period(struct pwm_device *pwm)
+static void pm8xxx_pwm_save_period(struct pm8xxx_pwm_chip *chip)
 {
 	u8	mask, val;
+	struct pm8xxx_pwm_channel_data *cdata =
+		&chip->channels[chip->current_channel];
+	struct pm8xxx_pwm_period *period = &cdata->period;
 
-	if (pwm_chip->is_lpg_supported) {
-		val = ((pwm->period.clk + 1) << PM8XXX_LPG_PWM_CLK_SEL_SHIFT)
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
+		val = ((period->clk + 1) << PM8XXX_LPG_PWM_CLK_SEL_SHIFT)
 			& PM8XXX_LPG_PWM_CLK_SEL_MASK;
-		val |= (pwm->period.pre_div << PM8XXX_LPG_PWM_PREDIVIDE_SHIFT)
+		val |= (period->pre_div << PM8XXX_LPG_PWM_PREDIVIDE_SHIFT)
 			& PM8XXX_LPG_PWM_PREDIVIDE_MASK;
-		val |= pwm->period.pre_div_exp & PM8XXX_LPG_PWM_M_MASK;
+		val |= period->pre_div_exp & PM8XXX_LPG_PWM_M_MASK;
 		mask = PM8XXX_LPG_PWM_CLK_SEL_MASK |
 			PM8XXX_LPG_PWM_PREDIVIDE_MASK | PM8XXX_LPG_PWM_M_MASK;
-		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[4], mask, val);
+		pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[4], mask, val);
 
-		if (pwm->period.pwm_size == 7) {
+		if (cdata->period.pwm_size == 7) {
 			val = PM8XXX_PWM_SIZE_7_BIT;
 			mask = PM8XXX_PWM_SIZE_7_BIT;
-			pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[7], mask, val);
+			pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[7], mask, val);
 		} else {
-			val = (pwm->period.pwm_size > 6) ?
+			val = (cdata->period.pwm_size > 6) ?
 					PM8XXX_PWM_SIZE_9_BIT : 0;
 			mask = PM8XXX_PWM_SIZE_9_BIT;
-			pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[5], mask, val);
+			pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[5], mask, val);
 		}
+
+		mask = PM8XXX_PWM_SIZE_9_BIT;
+		pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[5], mask, val);
 	} else {
-		val = ((pwm->period.clk + 1) << PM8XXX_PWM_CLK_SEL_SHIFT)
+		val = ((period->clk + 1) << PM8XXX_PWM_CLK_SEL_SHIFT)
 			& PM8XXX_PWM_CLK_SEL_MASK;
-		val |= (pwm->period.pre_div << PM8XXX_PWM_PREDIVIDE_SHIFT)
+		val |= (period->pre_div << PM8XXX_PWM_PREDIVIDE_SHIFT)
 			& PM8XXX_PWM_PREDIVIDE_MASK;
-		val |= (pwm->period.pre_div_exp << PM8XXX_PWM_M_SHIFT)
+		val |= (period->pre_div_exp << PM8XXX_PWM_M_SHIFT)
 				& PM8XXX_PWM_M_MASK;
-		val |= (((pwm->period.pwm_size > 6) ? PM8XXX_PWM_SIZE_9_BIT : 0)
+		val |= (((period->pwm_size > 6) ? PM8XXX_PWM_SIZE_9_BIT : 0)
 			<< PM8XXX_PWM_SIZE_SHIFT) & PM8XXX_PWM_SIZE_MASK;
 
 		mask = PM8XXX_PWM_CLK_SEL_MASK | PM8XXX_PWM_PREDIVIDE_MASK |
 			PM8XXX_PWM_M_MASK | PM8XXX_PWM_SIZE_MASK;
-		pm8xxx_pwm_save(&pwm->pwm_ctl1, mask, val);
+		pm8xxx_pwm_save(&cdata->pwm_ctl1, mask, val);
 	}
 }
 
-static void pm8xxx_pwm_save_pwm_value(struct pwm_device *pwm)
+static void pm8xxx_pwm_save_pwm_value(struct pm8xxx_pwm_chip *chip)
 {
 	u8	mask, val;
+	struct pm8xxx_pwm_channel_data *cdata =
+			&chip->channels[chip->current_channel];
 
-	if (pwm_chip->is_lpg_supported) {
-		val = (pwm->period.pwm_size > 6) ? (pwm->pwm_value >> 1) : 0;
-		pwm->pwm_lpg_ctl[3] = pwm->pwm_value;
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
+		val = (cdata->period.pwm_size > 6) ?
+				(cdata->pwm_value >> 1) : 0;
+		cdata->pwm_lpg_ctl[3] = cdata->pwm_value;
 		mask = PM8XXX_PWM_VALUE_BIT8;
-		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[4], mask, val);
+		pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[4], mask, val);
 	} else {
-		val = (pwm->period.pwm_size > 6) ? (pwm->pwm_value >> 8) : 0;
-		pwm->pwm_ctl2 = pwm->pwm_value;
+		val = (cdata->period.pwm_size > 6) ?
+				(cdata->pwm_value >> 8) : 0;
+		cdata->pwm_ctl2 = cdata->pwm_value;
 		mask = PM8XXX_PWM_VALUE_BIT0;
-		pm8xxx_pwm_save(&pwm->pwm_ctl1, mask, val);
+		pm8xxx_pwm_save(&cdata->pwm_ctl1, mask, val);
 	}
 }
 
-static void pm8xxx_pwm_save_duty_time(struct pwm_device *pwm,
+static void pm8xxx_pwm_save_duty_time(struct pm8xxx_pwm_channel_data *cdata,
 				      struct pm8xxx_pwm_lut *lut)
 {
 	int	i;
@@ -579,16 +606,16 @@ static void pm8xxx_pwm_save_duty_time(struct pwm_device *pwm,
 	val = i << PM8XXX_PWM_1KHZ_COUNT_SHIFT;
 
 	mask = PM8XXX_PWM_1KHZ_COUNT_MASK;
-	pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[0], mask, val);
+	pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[0], mask, val);
 }
 
-static void pm8xxx_pwm_save_pause(struct pwm_device *pwm,
+static void pm8xxx_pwm_save_pause(struct pm8xxx_pwm_channel_data *cdata,
 				  struct pm8xxx_pwm_lut *lut)
 {
 	int	i, pause_cnt, time_cnt;
 	u8	mask, val;
 
-	time_cnt = (pwm->pwm_lpg_ctl[0] & PM8XXX_PWM_1KHZ_COUNT_MASK)
+	time_cnt = (cdata->pwm_lpg_ctl[0] & PM8XXX_PWM_1KHZ_COUNT_MASK)
 				>> PM8XXX_PWM_1KHZ_COUNT_SHIFT;
 	if (lut->flags & PM_PWM_LUT_PAUSE_HI_EN) {
 		pause_cnt = (lut->lut_pause_hi + duty_msec[time_cnt] / 2)
@@ -606,7 +633,7 @@ static void pm8xxx_pwm_save_pause(struct pwm_device *pwm,
 	}
 
 	mask = PM8XXX_PWM_PAUSE_COUNT_HI_MASK | PM8XXX_PWM_PAUSE_ENABLE_HIGH;
-	pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[5], mask, val);
+	pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[5], mask, val);
 
 	if (lut->flags & PM_PWM_LUT_PAUSE_LO_EN) {
 		/* Linear search for pause time */
@@ -624,42 +651,45 @@ static void pm8xxx_pwm_save_pause(struct pwm_device *pwm,
 	}
 
 	mask = PM8XXX_PWM_PAUSE_COUNT_LO_MASK | PM8XXX_PWM_PAUSE_ENABLE_LOW;
-	pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[6], mask, val);
+	pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[6], mask, val);
 }
 
-static int pm8xxx_pwm_write(struct pwm_device *pwm)
+static int pm8xxx_pwm_write(struct pm8xxx_pwm_chip *chip)
 {
 	int rc = 0;
+	struct pm8xxx_pwm_channel_data *cdata =
+			&chip->channels[chip->current_channel];
 
-	rc = pm8xxx_writeb(pwm->chip->dev->parent,
-			   SSBI_REG_ADDR_PWM_CTL1(pwm->pwm_id),
-			   pwm->pwm_ctl1);
+	rc = pm8xxx_writeb(chip->dev->parent,
+			   SSBI_REG_ADDR_PWM_CTL1(chip->current_channel),
+			   cdata->pwm_ctl1);
 	if (rc) {
 		pr_err("pm8xxx_writeb() failed: rc=%d (PWM Ctl1[%d])\n",
-							rc, pwm->pwm_id);
+						rc, chip->current_channel);
 		return rc;
 	}
 
-	rc = pm8xxx_writeb(pwm->chip->dev->parent,
-			   SSBI_REG_ADDR_PWM_CTL2(pwm->pwm_id),
-			   pwm->pwm_ctl2);
+	rc = pm8xxx_writeb(chip->dev->parent,
+			   SSBI_REG_ADDR_PWM_CTL2(chip->current_channel),
+			   cdata->pwm_ctl2);
 	if (rc) {
 		pr_err("pm8xxx_writeb() failed: rc=%d (PWM Ctl2[%d])\n",
-							rc, pwm->pwm_id);
+						rc, chip->current_channel);
 		return rc;
 	}
 
 	return rc;
 }
 
-static int pm8xxx_lpg_pwm_write(struct pwm_device *pwm, int start, int end)
+static int pm8xxx_lpg_pwm_write(struct pm8xxx_pwm_chip *chip,
+					int start, int end)
 {
 	int	i, rc;
 
 	if (end == 7) {
-		rc = pm8xxx_writeb(pwm->chip->dev->parent,
-				SSBI_REG_ADDR_LPG_CTL_7,
-				pwm->pwm_lpg_ctl[end]);
+		rc = pm8xxx_writeb(chip->dev->parent,
+			SSBI_REG_ADDR_LPG_CTL_7,
+			chip->channels[chip->current_channel].pwm_lpg_ctl[end]);
 		if (rc) {
 			pr_err("pm8xxx_writeb(): rc=%d (PWM Ctl[7])\n", rc);
 			return rc;
@@ -668,9 +698,9 @@ static int pm8xxx_lpg_pwm_write(struct pwm_device *pwm, int start, int end)
 
 	/* Write in reverse way so 0 would be the last */
 	for (i = end - 2; i >= start; i--) {
-		rc = pm8xxx_writeb(pwm->chip->dev->parent,
-				   SSBI_REG_ADDR_LPG_CTL(i),
-				   pwm->pwm_lpg_ctl[i]);
+		rc = pm8xxx_writeb(chip->dev->parent,
+		   SSBI_REG_ADDR_LPG_CTL(i),
+		   chip->channels[chip->current_channel].pwm_lpg_ctl[i]);
 		if (rc) {
 			pr_err("pm8xxx_writeb(): rc=%d (PWM Ctl[%d])\n", rc, i);
 			return rc;
@@ -680,29 +710,31 @@ static int pm8xxx_lpg_pwm_write(struct pwm_device *pwm, int start, int end)
 	return 0;
 }
 
-static int pm8xxx_pwm_change_lut(struct pwm_device *pwm,
+static int pm8xxx_pwm_change_lut(struct pm8xxx_pwm_chip *chip,
 				 struct pm8xxx_pwm_lut *lut)
 {
 	int	rc;
+	struct pm8xxx_pwm_channel_data *cdata =
+			&chip->channels[chip->current_channel];
 
-	pm8xxx_pwm_save_index(pwm, lut->lut_lo_index,
+	pm8xxx_pwm_save_index(cdata, lut->lut_lo_index,
 			     lut->lut_hi_index, lut->flags);
-	pm8xxx_pwm_save_duty_time(pwm, lut);
-	pm8xxx_pwm_save_pause(pwm, lut);
-	pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[1], PM8XXX_PWM_BYPASS_LUT, 0);
+	pm8xxx_pwm_save_duty_time(cdata, lut);
+	pm8xxx_pwm_save_pause(cdata, lut);
+	pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[1], PM8XXX_PWM_BYPASS_LUT, 0);
 
-	pm8xxx_pwm_bank_sel(pwm);
-	rc = pm8xxx_lpg_pwm_write(pwm, 0, 7);
+	pm8xxx_pwm_bank_sel(chip);
+	rc = pm8xxx_lpg_pwm_write(chip, 0, 7);
 
 	return rc;
 }
 
-static int pm8xxx_pwm_set_dtest(struct pwm_device *pwm, int enable)
+static int pm8xxx_pwm_set_dtest(struct pm8xxx_pwm_chip *chip, int enable)
 {
 	int	rc;
 	u8	reg;
 
-	reg = pwm->pwm_id & PM8XXX_PWM_DTEST_BANK_MASK;
+	reg = chip->current_channel & PM8XXX_PWM_DTEST_BANK_MASK;
 
 	if (enable) {
 		/* Observe LPG_OUT on DTEST1*/
@@ -710,7 +742,7 @@ static int pm8xxx_pwm_set_dtest(struct pwm_device *pwm, int enable)
 				PM8XXX_PWM_DTEST_MASK;
 	}
 
-	rc = pm8xxx_writeb(pwm->chip->dev->parent,
+	rc = pm8xxx_writeb(chip->dev->parent,
 			SSBI_REG_ADDR_LPG_TEST, reg);
 	if (rc)
 		pr_err("pm8xxx_write(DTEST=0x%x) failed: rc=%d\n",
@@ -721,200 +753,146 @@ static int pm8xxx_pwm_set_dtest(struct pwm_device *pwm, int enable)
 
 /* APIs */
 /**
- * pwm_request - request a PWM device
- * @pwm_id: PWM id or channel
- * @label: the label to identify the user
- */
-struct pwm_device *pwm_request(int pwm_id, const char *label)
-{
-	struct pwm_device	*pwm;
-
-	if (pwm_chip == NULL) {
-		pr_err("No pwm_chip\n");
-		return ERR_PTR(-ENODEV);
-	}
-
-	if (pwm_id >= pwm_chip->pwm_channels || pwm_id < 0) {
-		pr_err("Invalid pwm_id: %d with %s\n",
-		       pwm_id, label ? label : ".");
-		return ERR_PTR(-EINVAL);
-	}
-
-	mutex_lock(&pwm_chip->pwm_mutex);
-	pwm = &pwm_chip->pwm_dev[pwm_id];
-	if (!pwm->in_use) {
-		pwm->in_use = 1;
-		pwm->label = label;
-	} else {
-		pwm = ERR_PTR(-EBUSY);
-	}
-	mutex_unlock(&pwm_chip->pwm_mutex);
-
-	return pwm;
-}
-EXPORT_SYMBOL_GPL(pwm_request);
-
-/**
- * pwm_free - free a PWM device
+ * pm8xxx_pwm_free - free a PWM device
+ * @pwm_chip: the PWM chip
  * @pwm: the PWM device
  */
-void pwm_free(struct pwm_device *pwm)
+void pm8xxx_pwm_free(struct pwm_chip *pwm_chip, struct pwm_device *pwm)
 {
-	if (pwm == NULL || IS_ERR(pwm) || pwm->chip == NULL) {
-		pr_err("Invalid pwm handle\n");
-		return;
+	struct pm8xxx_pwm_chip	*chip = pm8xxx_pwm_from_pwm_chip(pwm_chip);
+
+	chip->current_channel = pwm->hwpwm;
+
+	mutex_lock(&chip->pwm_mutex);
+
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
+		pm8xxx_pwm_bank_sel(chip);
+		pm8xxx_pwm_start(chip, 0, 0);
+	} else {
+		_pm8xxx_pwm_disable(chip);
 	}
 
-	mutex_lock(&pwm->chip->pwm_mutex);
-	if (pwm->in_use) {
-		if (pwm_chip->is_lpg_supported) {
-			pm8xxx_pwm_bank_sel(pwm);
-			pm8xxx_pwm_start(pwm, 0, 0);
-		} else {
-			pm8xxx_pwm_disable(pwm);
-		}
-		pwm->in_use = 0;
-		pwm->label = NULL;
-	}
-	if (pwm_chip->is_lpg_supported)
-		pm8xxx_pwm_bank_enable(pwm, 0);
-	mutex_unlock(&pwm->chip->pwm_mutex);
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED)
+		pm8xxx_pwm_bank_enable(chip, 0);
+
+	mutex_unlock(&chip->pwm_mutex);
 }
-EXPORT_SYMBOL_GPL(pwm_free);
 
 /**
- * pwm_config - change a PWM device configuration
+ * pm8xxx_pwm_config - change a PWM device configuration
+ * @pwm_chip: the PWM chip
  * @pwm: the PWM device
  * @period_us: period in microseconds
  * @duty_us: duty cycle in microseconds
  */
-int pwm_config(struct pwm_device *pwm, int duty_us, int period_us)
+int pm8xxx_pwm_config(struct pwm_chip *pwm_chip, struct pwm_device *pwm,
+				int duty_us, int period_us)
 {
+	struct pm8xxx_pwm_chip *chip = pm8xxx_pwm_from_pwm_chip(pwm_chip);
 	struct pm8xxx_pwm_period *period;
 	int	rc = 0;
 
-	if (pwm == NULL || IS_ERR(pwm) ||
-		duty_us > period_us ||
-		(unsigned)period_us > PM8XXX_PWM_PERIOD_MAX ||
+	if ((unsigned)period_us > PM8XXX_PWM_PERIOD_MAX ||
 		(unsigned)period_us < PM8XXX_PWM_PERIOD_MIN) {
-		pr_err("Invalid pwm handle or parameters\n");
+		pr_err("Invalid parameters\n");
 		return -EINVAL;
 	}
-	if (pwm->chip == NULL) {
-		pr_err("No pwm_chip\n");
-		return -ENODEV;
+
+	chip->current_channel = pwm->hwpwm;
+	period = &chip->channels[pwm->hwpwm].period;
+
+	mutex_lock(&chip->pwm_mutex);
+
+	if (pwm->period != period_us) {
+		pm8xxx_pwm_calc_period(chip, period_us, period);
+		pm8xxx_pwm_save_period(chip);
+		pwm->period = period_us;
 	}
 
-	period = &pwm->period;
+	pm8xxx_pwm_calc_pwm_value(chip, period_us, duty_us);
+	pm8xxx_pwm_save_pwm_value(chip);
 
-	mutex_lock(&pwm->chip->pwm_mutex);
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
+		pm8xxx_pwm_save(
+			&chip->channels[chip->current_channel].pwm_lpg_ctl[1],
+			PM8XXX_PWM_BYPASS_LUT, PM8XXX_PWM_BYPASS_LUT);
 
-	if (!pwm->in_use) {
-		rc = -EINVAL;
-		goto out_unlock;
-	}
-
-	if (pwm->pwm_period != period_us) {
-		pm8xxx_pwm_calc_period(period_us, pwm);
-		pm8xxx_pwm_save_period(pwm);
-		pwm->pwm_period = period_us;
-	}
-
-	pm8xxx_pwm_calc_pwm_value(pwm, period_us, duty_us);
-	pm8xxx_pwm_save_pwm_value(pwm);
-
-	if (pwm_chip->is_lpg_supported) {
-		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[1],
-				PM8XXX_PWM_BYPASS_LUT, PM8XXX_PWM_BYPASS_LUT);
-
-		pm8xxx_pwm_bank_sel(pwm);
-		rc = pm8xxx_lpg_pwm_write(pwm, 1, 7);
+		pm8xxx_pwm_bank_sel(chip);
+		rc = pm8xxx_lpg_pwm_write(chip, 1, 7);
 	} else {
-		rc = pm8xxx_pwm_write(pwm);
+		rc = pm8xxx_pwm_write(chip);
 	}
 
 	pr_debug("duty/period=%u/%u usec: pwm_value=%d (of %d)\n",
 		 (unsigned)duty_us, (unsigned)period_us,
-		 pwm->pwm_value, 1 << period->pwm_size);
+		 chip->channels[chip->current_channel].pwm_value,
+		 1 << period->pwm_size);
 
-out_unlock:
-	mutex_unlock(&pwm->chip->pwm_mutex);
+	mutex_unlock(&chip->pwm_mutex);
 	return rc;
 }
-EXPORT_SYMBOL_GPL(pwm_config);
 
 /**
- * pwm_enable - start a PWM output toggling
+ * pm8xxx_pwm_enable - start a PWM output toggling
+ * @pwm_chip: the PWM chip
  * @pwm: the PWM device
  */
-int pwm_enable(struct pwm_device *pwm)
+int pm8xxx_pwm_enable(struct pwm_chip *pwm_chip, struct pwm_device *pwm)
 {
 	int	rc = 0;
+	struct pm8xxx_pwm_chip *chip = pm8xxx_pwm_from_pwm_chip(pwm_chip);
+	chip->current_channel = pwm->hwpwm;
 
-	if (pwm == NULL || IS_ERR(pwm)) {
-		pr_err("Invalid pwm handle\n");
-		return -EINVAL;
-	}
-	if (pwm->chip == NULL) {
-		pr_err("No pwm_chip\n");
-		return -ENODEV;
-	}
+	mutex_lock(&chip->pwm_mutex);
 
-	mutex_lock(&pwm->chip->pwm_mutex);
-	if (!pwm->in_use) {
-		pr_err("pwm_id: %d: stale handle?\n", pwm->pwm_id);
-		rc = -EINVAL;
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
+		if (chip->channels[pwm->hwpwm].dtest_mode_supported)
+			pm8xxx_pwm_set_dtest(chip, 1);
+
+		pm8xxx_pwm_bank_sel(chip);
+		rc = pm8xxx_pwm_bank_enable(chip, 1);
+		pm8xxx_pwm_start(chip, 1, 0);
+
+		/* In PM8038, due to hardware bug, PWM_VALUE register
+		 * needs to be written one more time after enabling
+		 * PWM mode.
+		 */
+		if (chip->feature_flags & PM8XXX_FEATURE_PWM_ENABLE_SYNC)
+			rc = pm8xxx_lpg_pwm_write(pwm, 3, 5);
+
 	} else {
-		if (pwm_chip->is_lpg_supported) {
-			if (pwm->dtest_mode_supported)
-				pm8xxx_pwm_set_dtest(pwm, 1);
-
-			pm8xxx_pwm_bank_sel(pwm);
-			rc = pm8xxx_pwm_bank_enable(pwm, 1);
-			pm8xxx_pwm_start(pwm, 1, 0);
-
-			/* In PM8038, due to hardware bug, PWM_VALUE register
-			 * needs to be written one more time after enabling
-			 * PWM mode.
-			 */
-			if (pwm->chip->is_pwm_enable_sync_workaround_needed)
-				rc = pm8xxx_lpg_pwm_write(pwm, 3, 5);
-
-		} else {
-			pm8xxx_pwm_enable(pwm);
-		}
+		_pm8xxx_pwm_enable(chip);
 	}
-	mutex_unlock(&pwm->chip->pwm_mutex);
+
+	mutex_unlock(&chip->pwm_mutex);
+
 	return rc;
 }
-EXPORT_SYMBOL_GPL(pwm_enable);
 
 /**
- * pwm_disable - stop a PWM output toggling
+ * pm8xxx_pwm_disable - stop a PWM output toggling
+ * @pwm_chip: the PWM chip
  * @pwm: the PWM device
  */
-void pwm_disable(struct pwm_device *pwm)
+void pm8xxx_pwm_disable(struct pwm_chip *pwm_chip, struct pwm_device *pwm)
 {
-	if (pwm == NULL || IS_ERR(pwm) || pwm->chip == NULL) {
-		pr_err("Invalid pwm handle or no pwm_chip\n");
-		return;
+	struct pm8xxx_pwm_chip *chip = pm8xxx_pwm_from_pwm_chip(pwm_chip);
+	chip->current_channel = pwm->hwpwm;
+
+	mutex_lock(&chip->pwm_mutex);
+
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
+		if (chip->channels[pwm->hwpwm].dtest_mode_supported)
+			pm8xxx_pwm_set_dtest(chip, 0);
+		pm8xxx_pwm_bank_sel(chip);
+		pm8xxx_pwm_start(chip, 0, 0);
+		pm8xxx_pwm_bank_enable(chip, 0);
+	} else {
+		_pm8xxx_pwm_disable(chip);
 	}
 
-	mutex_lock(&pwm->chip->pwm_mutex);
-	if (pwm->in_use) {
-		if (pwm_chip->is_lpg_supported) {
-			if (pwm->dtest_mode_supported)
-				pm8xxx_pwm_set_dtest(pwm, 0);
-			pm8xxx_pwm_bank_sel(pwm);
-			pm8xxx_pwm_start(pwm, 0, 0);
-			pm8xxx_pwm_bank_enable(pwm, 0);
-		} else {
-			pm8xxx_pwm_disable(pwm);
-		}
-	}
-	mutex_unlock(&pwm->chip->pwm_mutex);
+	mutex_unlock(&chip->pwm_mutex);
 }
-EXPORT_SYMBOL_GPL(pwm_disable);
 
 /**
  * pm8xxx_pwm_config_period - change PWM period
@@ -926,39 +904,36 @@ int pm8xxx_pwm_config_period(struct pwm_device *pwm,
 			     struct pm8xxx_pwm_period *period)
 {
 	int			rc;
+	struct pm8xxx_pwm_chip *chip;
+	struct pm8xxx_pwm_channel_data *cdata;
 
 	if (pwm == NULL || IS_ERR(pwm) || period == NULL)
 		return -EINVAL;
-	if (pwm->chip == NULL)
-		return -ENODEV;
 
-	mutex_lock(&pwm->chip->pwm_mutex);
+	chip = pm8xxx_pwm_from_pwm_dev(pwm);
+	chip->current_channel = pwm->hwpwm;
+	cdata = &chip->channels[pwm->hwpwm];
 
-	if (!pwm->in_use) {
-		rc = -EINVAL;
-		goto out_unlock;
-	}
+	mutex_lock(&chip->pwm_mutex);
 
-	pwm->period.pwm_size = period->pwm_size;
-	pwm->period.clk = period->clk;
-	pwm->period.pre_div = period->pre_div;
-	pwm->period.pre_div_exp = period->pre_div_exp;
+	cdata->period.pwm_size = period->pwm_size;
+	cdata->period.clk = period->clk;
+	cdata->period.pre_div = period->pre_div;
+	cdata->period.pre_div_exp = period->pre_div_exp;
 
-	pm8xxx_pwm_save_period(pwm);
+	pm8xxx_pwm_save_period(chip);
 
-	if (pwm_chip->is_lpg_supported) {
-		pm8xxx_pwm_bank_sel(pwm);
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
+		pm8xxx_pwm_bank_sel(chip);
 		rc = pm8xxx_lpg_pwm_write(pwm, 4, 7);
 	} else {
-		rc = pm8xxx_pwm_write(pwm);
+		rc = pm8xxx_pwm_write(chip);
 	}
 
-
-out_unlock:
-	mutex_unlock(&pwm->chip->pwm_mutex);
+	mutex_unlock(&chip->pwm_mutex);
 	return rc;
 }
-EXPORT_SYMBOL(pm8xxx_pwm_config_period);
+EXPORT_SYMBOL_GPL(pm8xxx_pwm_config_period);
 
 /**
  * pm8xxx_pwm_config_pwm_value - change a PWM device configuration
@@ -968,40 +943,45 @@ EXPORT_SYMBOL(pm8xxx_pwm_config_period);
 int pm8xxx_pwm_config_pwm_value(struct pwm_device *pwm, int pwm_value)
 {
 	int	rc = 0;
+	struct pm8xxx_pwm_chip *chip;
+	struct pm8xxx_pwm_channel_data *cdata;
 
 	if (pwm == NULL || IS_ERR(pwm))
 		return -EINVAL;
-	if (pwm->chip == NULL)
-		return -ENODEV;
 
-	mutex_lock(&pwm->chip->pwm_mutex);
+	chip = pm8xxx_pwm_from_pwm_dev(pwm);
+	chip->current_channel = pwm->hwpwm;
+	cdata = &chip->channels[pwm->hwpwm];
 
-	if (!pwm->in_use || !pwm->pwm_period) {
+	mutex_lock(&chip->pwm_mutex);
+
+	if (!pwm->period) {
 		rc = -EINVAL;
 		goto out_unlock;
 	}
 
-	if (pwm->pwm_value == pwm_value)
+	if (cdata->pwm_value == pwm_value)
 		goto out_unlock;
 
-	pwm->pwm_value = pwm_value;
+	cdata->pwm_value = pwm_value;
 
-	pm8xxx_pwm_save_pwm_value(pwm);
+	pm8xxx_pwm_save_pwm_value(chip);
 
-	if (pwm_chip->is_lpg_supported) {
-		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[1],
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
+		pm8xxx_pwm_save(&cdata->pwm_lpg_ctl[1],
 				PM8XXX_PWM_BYPASS_LUT, PM8XXX_PWM_BYPASS_LUT);
-		pm8xxx_pwm_bank_sel(pwm);
-		rc = pm8xxx_lpg_pwm_write(pwm, 1, 7);
+
+		pm8xxx_pwm_bank_sel(chip);
+		rc = pm8xxx_lpg_pwm_write(chip, 1, 7);
 	} else {
-		rc = pm8xxx_pwm_write(pwm);
+		rc = pm8xxx_pwm_write(chip);
 	}
 
 	if (rc)
-		pr_err("[%d]: pm8xxx_pwm_write: rc=%d\n", pwm->pwm_id, rc);
+		pr_err("[%d]: pm8xxx_pwm_write: rc=%d\n", pwm->hwpwm, rc);
 
 out_unlock:
-	mutex_unlock(&pwm->chip->pwm_mutex);
+	mutex_unlock(&chip->pwm_mutex);
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_pwm_config_pwm_value);
@@ -1023,6 +1003,9 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 			  int idx_len, int pause_lo, int pause_hi, int flags)
 {
 	struct pm8xxx_pwm_lut	lut;
+	struct pm8xxx_pwm_period *period;
+	struct pm8xxx_pwm_chip *chip;
+	struct pm8xxx_pwm_channel_data *cdata;
 	int	len;
 	int	rc;
 
@@ -1034,12 +1017,10 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 		pr_err("Invalid duty_pct with flag\n");
 		return -EINVAL;
 	}
-	if (pwm->chip == NULL) {
-		pr_err("No pwm_chip\n");
-		return -ENODEV;
-	}
 
-	if (pwm->chip->is_lpg_supported == 0) {
+	chip = pm8xxx_pwm_from_pwm_dev(pwm);
+
+	if (!(chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED)) {
 		pr_err("LPG module isn't supported\n");
 		return -EINVAL;
 	}
@@ -1058,28 +1039,25 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 		return -EINVAL;
 	}
 
-	mutex_lock(&pwm->chip->pwm_mutex);
+	chip->current_channel = pwm->hwpwm;
+	cdata = &chip->channels[pwm->hwpwm];
+	period = &cdata->period;
+	mutex_lock(&chip->pwm_mutex);
 
 	if (flags & PM_PWM_BANK_HI)
-		pwm->banks = PM_PWM_BANK_HI;
+		cdata->banks = PM_PWM_BANK_HI;
 
 	if (flags & PM_PWM_BANK_LO)
-		pwm->banks |= PM_PWM_BANK_LO;
+		cdata->banks |= PM_PWM_BANK_LO;
 
 	/*Enable both banks if banks information is not shared.*/
-	if (!pwm->banks)
-		pwm->banks |= (PM_PWM_BANK_LO | PM_PWM_BANK_HI);
+	if (!cdata->banks)
+		cdata->banks |= (PM_PWM_BANK_LO | PM_PWM_BANK_HI);
 
-	if (!pwm->in_use) {
-		pr_err("pwm_id: %d: stale handle?\n", pwm->pwm_id);
-		rc = -EINVAL;
-		goto out_unlock;
-	}
-
-	if (pwm->pwm_period != period_us) {
-		pm8xxx_pwm_calc_period(period_us, pwm);
-		pm8xxx_pwm_save_period(pwm);
-		pwm->pwm_period = period_us;
+	if (pwm->period != period_us) {
+		pm8xxx_pwm_calc_period(chip, period_us, period);
+		pm8xxx_pwm_save_period(chip);
+		pwm->period = period_us;
 	}
 
 	len = (idx_len > PM_PWM_LUT_SIZE) ? PM_PWM_LUT_SIZE : idx_len;
@@ -1087,7 +1065,7 @@ int pm8xxx_pwm_lut_config(struct pwm_device *pwm, int period_us,
 	if (flags & PM_PWM_LUT_NO_TABLE)
 		goto after_table_write;
 
-	rc = pm8xxx_pwm_change_table(pwm, duty_pct, start_idx, len, 0);
+	rc = pm8xxx_pwm_change_table(chip, duty_pct, start_idx, len, 0);
 	if (rc) {
 		pr_err("pm8xxx_pwm_change_table: rc=%d\n", rc);
 		goto out_unlock;
@@ -1100,12 +1078,12 @@ after_table_write:
 	lut.lut_pause_lo = pause_lo;
 	lut.lut_pause_hi = pause_hi;
 	lut.flags = flags;
-	pwm->bypass_lut = 0;
+	cdata->bypass_lut = 0;
 
-	rc = pm8xxx_pwm_change_lut(pwm, &lut);
+	rc = pm8xxx_pwm_change_lut(chip, &lut);
 
 out_unlock:
-	mutex_unlock(&pwm->chip->pwm_mutex);
+	mutex_unlock(&chip->pwm_mutex);
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_pwm_lut_config);
@@ -1117,38 +1095,40 @@ EXPORT_SYMBOL_GPL(pm8xxx_pwm_lut_config);
  */
 int pm8xxx_pwm_lut_enable(struct pwm_device *pwm, int start)
 {
+	struct pm8xxx_pwm_chip *chip;
+
 	if (pwm == NULL || IS_ERR(pwm)) {
 		pr_err("Invalid pwm handle\n");
 		return -EINVAL;
 	}
-	if (pwm->chip == NULL) {
-		pr_err("No pwm_chip\n");
-		return -ENODEV;
-	}
-	if (pwm->chip->is_lpg_supported == 0) {
+
+	chip = pm8xxx_pwm_from_pwm_dev(pwm);
+	chip->current_channel = pwm->hwpwm;
+
+	if (!(chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED)) {
 		pr_err("LPG module isn't supported\n");
 		return -EINVAL;
 	}
 
-	mutex_lock(&pwm->chip->pwm_mutex);
+	mutex_lock(&chip->pwm_mutex);
 	if (start) {
-		if (pwm->dtest_mode_supported)
-			pm8xxx_pwm_set_dtest(pwm, 1);
+		if (chip->channels[pwm->hwpwm].dtest_mode_supported)
+			pm8xxx_pwm_set_dtest(chip, 1);
 
-		pm8xxx_pwm_bank_sel(pwm);
-		pm8xxx_pwm_bank_enable(pwm, 1);
+		pm8xxx_pwm_bank_sel(chip);
+		pm8xxx_pwm_bank_enable(chip, 1);
 
-		pm8xxx_pwm_start(pwm, 1, 1);
+		pm8xxx_pwm_start(chip, 1, 1);
 	} else {
-		if (pwm->dtest_mode_supported)
-			pm8xxx_pwm_set_dtest(pwm, 0);
+		if (chip->channels[pwm->hwpwm].dtest_mode_supported)
+			pm8xxx_pwm_set_dtest(chip, 0);
 
-		pm8xxx_pwm_bank_sel(pwm);
-		pm8xxx_pwm_start(pwm, 0, 0);
+		pm8xxx_pwm_bank_sel(chip);
+		pm8xxx_pwm_start(chip, 0, 0);
 
-		pm8xxx_pwm_bank_enable(pwm, 0);
+		pm8xxx_pwm_bank_enable(chip, 0);
 	}
-	mutex_unlock(&pwm->chip->pwm_mutex);
+	mutex_unlock(&chip->pwm_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_pwm_lut_enable);
@@ -1313,7 +1293,7 @@ static int dbg_pwm_period_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(dbg_pwm_period_fops,
 			dbg_pwm_period_get, dbg_pwm_period_set, "%lld\n");
 
-static int pm8xxx_pwm_dbg_probe(struct device *dev)
+static int pm8xxx_pwm_dbg_probe(struct pm8xxx_pwm_chip *chip)
 {
 	struct pm8xxx_pwm_dbg_device    *dbgdev;
 	struct dentry		   *dent;
@@ -1322,7 +1302,7 @@ static int pm8xxx_pwm_dbg_probe(struct device *dev)
 	int			     i;
 	int rc = 0;
 
-	if (dev == NULL) {
+	if (chip->dev == NULL) {
 		pr_err("no parent data passed in.\n");
 		return -EINVAL;
 	}
@@ -1333,8 +1313,8 @@ static int pm8xxx_pwm_dbg_probe(struct device *dev)
 		return -ENOMEM;
 	}
 
-	dbgdev->user = kcalloc(pwm_chip->pwm_channels,
-				sizeof(struct pm8xxx_pwm_user), GFP_KERNEL);
+	dbgdev->user = kcalloc(chip->pwm_channels,
+		sizeof(struct pm8xxx_pwm_user), GFP_KERNEL);
 	if (dbgdev->user == NULL) {
 		pr_err("kcalloc() failed.\n");
 		rc = -ENOMEM;
@@ -1343,7 +1323,7 @@ static int pm8xxx_pwm_dbg_probe(struct device *dev)
 
 	mutex_init(&dbgdev->dbg_mutex);
 
-	dbgdev->dev = dev;
+	dbgdev->dev = chip->dev;
 
 	dent = debugfs_create_dir("pm8xxx-pwm-dbg", NULL);
 	if (dent == NULL || IS_ERR(dent)) {
@@ -1354,7 +1334,7 @@ static int pm8xxx_pwm_dbg_probe(struct device *dev)
 
 	dbgdev->dent = dent;
 
-	for (i = 0; i < pwm_chip->pwm_channels; i++) {
+	for (i = 0; i < chip->pwm_channels; i++) {
 		char pwm_ch[] = "0";
 
 		pwm_ch[0] = '0' + i;
@@ -1430,11 +1410,19 @@ static int pm8xxx_pwm_dbg_remove(void)
 
 #endif
 
+static struct pwm_ops pm8xxx_pwm_ops = {
+	.enable = pm8xxx_pwm_enable,
+	.disable = pm8xxx_pwm_disable,
+	.config = pm8xxx_pwm_config,
+	.free = pm8xxx_pwm_free,
+	.owner = THIS_MODULE,
+};
+
 static int pm8xxx_pwm_probe(struct platform_device *pdev)
 {
 	const struct pm8xxx_pwm_platform_data *pdata = pdev->dev.platform_data;
 	struct pm8xxx_pwm_chip	*chip;
-	int	i, dtest_channel;
+	int	i, dtest_channel, rc;
 	enum pm8xxx_version version;
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
@@ -1451,7 +1439,6 @@ static int pm8xxx_pwm_probe(struct platform_device *pdev)
 	mutex_init(&chip->pwm_mutex);
 
 	chip->dev = &pdev->dev;
-	pwm_chip = chip;
 
 	version = pm8xxx_get_version(chip->dev->parent);
 
@@ -1459,15 +1446,13 @@ static int pm8xxx_pwm_probe(struct platform_device *pdev)
 			version == PM8XXX_VERSION_8058 ||
 			version == PM8XXX_VERSION_8922 ||
 			version == PM8XXX_VERSION_8038) {
-		chip->is_lpg_supported = 1;
+		chip->feature_flags |= PM8XXX_FEATURE_LPG_SUPPORTED;
 	}
 
 	if (version == PM8XXX_VERSION_8038)
-		chip->is_pwm_enable_sync_workaround_needed = 1;
-	else
-		chip->is_pwm_enable_sync_workaround_needed = 0;
+		chip->feature_flags |= PM8XXX_FEATURE_PWM_ENABLE_SYNC;
 
-	if (chip->is_lpg_supported) {
+	if (chip->feature_flags & PM8XXX_FEATURE_LPG_SUPPORTED) {
 		if (version == PM8XXX_VERSION_8922 ||
 				version == PM8XXX_VERSION_8038) {
 			for (i = 0; i < NUM_CLOCKS; i++)
@@ -1482,9 +1467,9 @@ static int pm8xxx_pwm_probe(struct platform_device *pdev)
 		chip->pwm_total_pre_divs = NUM_PWM_PRE_DIVIDE;
 	}
 
-	chip->pwm_dev = kcalloc(chip->pwm_channels, sizeof(struct pwm_device),
-								GFP_KERNEL);
-	if (chip->pwm_dev == NULL) {
+	chip->channels = kcalloc(chip->pwm_channels,
+			sizeof(struct pm8xxx_pwm_channel_data), GFP_KERNEL);
+	if (chip->channels == NULL) {
 		pr_err("kcalloc() failed.\n");
 		mutex_destroy(&chip->pwm_mutex);
 		kfree(chip);
@@ -1492,19 +1477,34 @@ static int pm8xxx_pwm_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < chip->pwm_channels; i++) {
-		chip->pwm_dev[i].pwm_id = i;
-		chip->pwm_dev[i].chip = chip;
 		if (i == dtest_channel)
-			chip->pwm_dev[i].dtest_mode_supported = 1;
+			chip->channels[i].dtest_mode_supported = 1;
 	}
 
 	platform_set_drvdata(pdev, chip);
 
-	if (pm8xxx_pwm_dbg_probe(&pdev->dev) < 0)
+	chip->chip.dev = &pdev->dev;
+	chip->chip.ops = &pm8xxx_pwm_ops;
+	chip->chip.base = -1;
+	chip->chip.npwm = chip->pwm_channels;
+
+	rc = pwmchip_add(&chip->chip);
+	if (rc < 0) {
+		pr_err("pwmchip_add() failed: %d\n", rc);
+		goto failed_add;
+	}
+
+	if (pm8xxx_pwm_dbg_probe(chip) < 0)
 		pr_err("could not set up debugfs\n");
 
-	pr_notice("OK\n");
 	return 0;
+
+failed_add:
+	kfree(chip->channels);
+	mutex_destroy(&chip->pwm_mutex);
+	platform_set_drvdata(pdev, NULL);
+	kfree(chip);
+	return rc;
 }
 
 static int pm8xxx_pwm_remove(struct platform_device *pdev)
@@ -1512,7 +1512,8 @@ static int pm8xxx_pwm_remove(struct platform_device *pdev)
 	struct pm8xxx_pwm_chip	*chip = dev_get_drvdata(pdev->dev.parent);
 
 	pm8xxx_pwm_dbg_remove();
-	kfree(chip->pwm_dev);
+	pwmchip_remove(&chip->chip);
+	kfree(chip->channels);
 	mutex_destroy(&chip->pwm_mutex);
 	platform_set_drvdata(pdev, NULL);
 	kfree(chip);
