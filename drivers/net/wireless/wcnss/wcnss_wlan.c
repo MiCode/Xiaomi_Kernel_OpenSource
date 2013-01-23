@@ -114,6 +114,8 @@ static struct {
 	struct work_struct wcnssctrl_rx_work;
 	struct wake_lock wcnss_wake_lock;
 	void __iomem *msm_wcnss_base;
+	void __iomem *riva_ccu_base;
+	void __iomem *pronto_a2xb_base;
 } *penv = NULL;
 
 static ssize_t wcnss_serial_number_show(struct device *dev,
@@ -187,65 +189,50 @@ static DEVICE_ATTR(wcnss_version, S_IRUSR,
 
 /* wcnss_reset_intr() is invoked when host drivers fails to
  * communicate with WCNSS over SMD; so logging these registers
- * helps to know WCNSS failure reason */
+ * helps to know WCNSS failure reason
+ */
 void wcnss_riva_log_debug_regs(void)
 {
-	void __iomem *ccu_base;
 	void __iomem *ccu_reg;
 	u32 reg = 0;
 
-	ccu_base = ioremap(MSM_RIVA_CCU_BASE, SZ_512);
-	if (!ccu_base) {
-		pr_err("%s: ioremap WCNSS CCU reg failed\n", __func__);
-		return;
-	}
-
-	ccu_reg = ccu_base + CCU_INVALID_ADDR_OFFSET;
+	ccu_reg = penv->riva_ccu_base + CCU_INVALID_ADDR_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_INVALID_ADDR %08x\n", __func__, reg);
 
-	ccu_reg = ccu_base + CCU_LAST_ADDR0_OFFSET;
+	ccu_reg = penv->riva_ccu_base + CCU_LAST_ADDR0_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR0 %08x\n", __func__, reg);
 
-	ccu_reg = ccu_base + CCU_LAST_ADDR1_OFFSET;
+	ccu_reg = penv->riva_ccu_base + CCU_LAST_ADDR1_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR1 %08x\n", __func__, reg);
 
-	ccu_reg = ccu_base + CCU_LAST_ADDR2_OFFSET;
+	ccu_reg = penv->riva_ccu_base + CCU_LAST_ADDR2_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
 
-	iounmap(ccu_base);
 }
 EXPORT_SYMBOL(wcnss_riva_log_debug_regs);
 
 /* Log pronto debug registers before sending reset interrupt */
 void wcnss_pronto_log_debug_regs(void)
 {
-	void __iomem *a2xb_base;
 	void __iomem *reg_addr;
 	u32 reg = 0;
 
-	a2xb_base = ioremap(MSM_PRONTO_A2XB_BASE, SZ_512);
-	if (!a2xb_base) {
-		pr_err("%s: ioremap WCNSS A2XB reg failed\n", __func__);
-		return;
-	}
-
-	reg_addr = a2xb_base + A2XB_CFG_OFFSET;
+	reg_addr = penv->pronto_a2xb_base + A2XB_CFG_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_info_ratelimited("%s: A2XB_CFG_OFFSET %08x\n", __func__, reg);
 
-	reg_addr = a2xb_base + A2XB_INT_SRC_OFFSET;
+	reg_addr = penv->pronto_a2xb_base + A2XB_INT_SRC_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_info_ratelimited("%s: A2XB_INT_SRC_OFFSET %08x\n", __func__, reg);
 
-	reg_addr = a2xb_base + A2XB_ERR_INFO_OFFSET;
+	reg_addr = penv->pronto_a2xb_base + A2XB_ERR_INFO_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_info_ratelimited("%s: A2XB_ERR_INFO_OFFSET %08x\n", __func__, reg);
 
-	iounmap(a2xb_base);
 }
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
@@ -863,8 +850,26 @@ wcnss_trigger_config(struct platform_device *pdev)
 		goto fail_wake;
 	}
 
+	if (wcnss_hardware_type() == WCNSS_RIVA_HW) {
+		penv->riva_ccu_base =  ioremap(MSM_RIVA_CCU_BASE, SZ_512);
+		if (!penv->riva_ccu_base) {
+			ret = -ENOMEM;
+			pr_err("%s: ioremap wcnss physical failed\n", __func__);
+			goto fail_ioremap;
+		}
+	} else {
+		penv->pronto_a2xb_base =  ioremap(MSM_PRONTO_A2XB_BASE, SZ_512);
+		if (!penv->pronto_a2xb_base) {
+			ret = -ENOMEM;
+			pr_err("%s: ioremap wcnss physical failed\n", __func__);
+			goto fail_ioremap;
+		}
+	}
+
 	return 0;
 
+fail_ioremap:
+	iounmap(penv->msm_wcnss_base);
 fail_wake:
 	wake_lock_destroy(&penv->wcnss_wake_lock);
 fail_res:
@@ -936,8 +941,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 
 #ifdef MODULE
 
-	/*
-	 * Since we were built as a module, we are running because
+	/* Since we were built as a module, we are running because
 	 * the module was loaded, therefore we assume userspace
 	 * applications are available to service PIL, so we can
 	 * trigger the WCNSS configuration now
@@ -947,8 +951,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 
 #else
 
-	/*
-	 * Since we were built into the kernel we'll be called as part
+	/* Since we were built into the kernel we'll be called as part
 	 * of kernel initialization.  We don't know if userspace
 	 * applications are available to service PIL at this time
 	 * (they probably are not), so we simply create a device node
