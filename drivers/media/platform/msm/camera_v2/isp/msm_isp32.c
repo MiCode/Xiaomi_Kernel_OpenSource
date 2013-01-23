@@ -167,16 +167,15 @@ static void msm_vfe32_process_halt_irq(struct vfe_device *vfe_dev,
 }
 
 static void msm_vfe32_process_camif_irq(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1)
+	uint32_t irq_status0, uint32_t irq_status1, struct timeval *tv)
 {
 	if (!(irq_status0 & 0x1F))
 		return;
 
 	if (irq_status0 & (1 << 0)) {
 		ISP_DBG("%s: PIX0 frame id: %lu\n", __func__,
-			   vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-		msm_isp_update_framedrop_count(vfe_dev);
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id++;
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+		msm_isp_sof_notify(vfe_dev, VFE_PIX_0, tv);
 	}
 }
 

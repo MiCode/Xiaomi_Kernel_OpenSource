@@ -389,8 +389,9 @@ void msm_isp_update_framedrop_count(
 	}
 }
 
-void msm_isp_new_frame_notify(struct vfe_device *vfe_dev,
-	enum msm_vfe_input_src frame_src) {
+void msm_isp_sof_notify(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src, struct timeval *tv) {
+	struct msm_isp_event_data buf_event;
 	switch (frame_src) {
 	case VFE_PIX_0:
 		ISP_DBG("%s: PIX0 frame id: %lu\n", __func__,
@@ -409,7 +410,12 @@ void msm_isp_new_frame_notify(struct vfe_device *vfe_dev,
 			__func__, frame_src);
 		break;
 	}
+
+	buf_event.frame_id = vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	buf_event.timestamp = *tv;
+	msm_isp_send_event(vfe_dev, ISP_EVENT_SOF, &buf_event);
 }
+
 void msm_isp_calculate_framedrop(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
