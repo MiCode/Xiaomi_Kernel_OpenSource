@@ -1,9 +1,10 @@
-/*
- * Platform data for Android USB
+/* drivers/usb/gadget/f_diag.h
  *
- * Copyright (C) 2008 Google, Inc.
- * Author: Mike Lockwood <lockwood@android.com>
+ * Diag Function Device - Route DIAG frames between SMD and USB
  *
+ * Copyright (C) 2008-2009 Google, Inc.
+ * Copyright (c) 2009, The Linux Foundation. All rights reserved.
+ * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -14,12 +15,10 @@
  * GNU General Public License for more details.
  *
  */
-#ifndef	__LINUX_USB_ANDROID_H
-#define	__LINUX_USB_ANDROID_H
+#ifndef __F_DIAG_H
+#define __F_DIAG_H
 
-struct android_usb_platform_data {
-	int (*update_pid_and_serial_num)(uint32_t, const char *);
-	u32 swfi_latency;
-};
+int diag_function_add(struct usb_configuration *c, const char *);
 
-#endif	/* __LINUX_USB_ANDROID_H */
+#endif /* __F_DIAG_H */
+

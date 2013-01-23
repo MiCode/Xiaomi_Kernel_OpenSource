@@ -35,6 +35,7 @@
 #include "f_fs.c"
 #include "f_audio_source.c"
 #include "f_mass_storage.c"
+#include "f_diag.c"
 #include "f_rmnet_smd.c"
 #include "f_rmnet_sdio.c"
 #include "f_rmnet_smd_sdio.c"
@@ -718,6 +719,68 @@ static struct android_usb_function rmnet_function = {
 	.attributes	= rmnet_function_attributes,
 };
 
+/* DIAG */
+static char diag_clients[32];	    /*enabled DIAG clients- "diag[,diag_mdm]" */
+static ssize_t clients_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(diag_clients, buff, sizeof(diag_clients));
+
+	return size;
+}
+
+static DEVICE_ATTR(clients, S_IWUSR, NULL, clients_store);
+static struct device_attribute *diag_function_attributes[] =
+					 { &dev_attr_clients, NULL };
+
+static int diag_function_init(struct android_usb_function *f,
+				 struct usb_composite_dev *cdev)
+{
+	return diag_setup();
+}
+
+static void diag_function_cleanup(struct android_usb_function *f)
+{
+	diag_cleanup();
+}
+
+static int diag_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	char *name;
+	char buf[32], *b;
+	int once = 0, err = -1;
+	int (*notify)(uint32_t, const char *);
+
+	strlcpy(buf, diag_clients, sizeof(buf));
+	b = strim(buf);
+
+	while (b) {
+		notify = NULL;
+		name = strsep(&b, ",");
+		/* Allow only first diag channel to update pid and serial no */
+		if (_android_dev->pdata && !once++)
+			notify = _android_dev->pdata->update_pid_and_serial_num;
+
+		if (name) {
+			err = diag_function_add(c, name, notify);
+			if (err)
+				pr_err("diag: Cannot open channel '%s'", name);
+		}
+	}
+
+	return err;
+}
+
+static struct android_usb_function diag_function = {
+	.name		= "diag",
+	.init		= diag_function_init,
+	.cleanup	= diag_function_cleanup,
+	.bind_config	= diag_function_bind_config,
+	.attributes	= diag_function_attributes,
+};
+
 static int
 mtp_function_init(struct android_usb_function *f,
 		struct usb_composite_dev *cdev)
@@ -1163,6 +1226,7 @@ static struct android_usb_function *supported_functions[] = {
 	&rmnet_sdio_function,
 	&rmnet_smd_sdio_function,
 	&rmnet_function,
+	&diag_function,
 	&acm_function,
 	&mtp_function,
 	&ptp_function,
