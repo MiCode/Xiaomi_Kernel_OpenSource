@@ -57,8 +57,8 @@ int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 
 void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev);
 void msm_isp_update_framedrop_count(struct vfe_device *vfe_dev);
-void msm_isp_new_frame_notify(struct vfe_device *vfe_dev,
-	enum msm_vfe_input_src frame_src);
+void msm_isp_sof_notify(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src, struct timeval *tv);
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct timeval *tv);

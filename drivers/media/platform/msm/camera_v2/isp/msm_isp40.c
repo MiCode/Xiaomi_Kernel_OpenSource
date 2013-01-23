@@ -250,7 +250,7 @@ static void msm_vfe40_process_halt_irq(struct vfe_device *vfe_dev,
 }
 
 static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1)
+	uint32_t irq_status0, uint32_t irq_status1, struct timeval *tv)
 {
 	if (!(irq_status0 & 0xF))
 		return;
@@ -260,13 +260,13 @@ static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
 			ISP_DBG("%s: EPOCH0 IRQ, PIX0_frameid = 0x%lu\n",
 				__func__,
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-			msm_isp_new_frame_notify(vfe_dev, VFE_PIX_0);
+			msm_isp_sof_notify(vfe_dev, VFE_PIX_0, tv);
 		}
 	} else {
 		if (irq_status0 & (1 << 0)) {
 			ISP_DBG("%s: SOF: PIX0 frame id: %lu\n", __func__,
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-			msm_isp_new_frame_notify(vfe_dev, VFE_PIX_0);
+				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+			msm_isp_sof_notify(vfe_dev, VFE_PIX_0, tv);
 		}
 	}
 }

@@ -60,7 +60,8 @@ struct msm_vfe_irq_ops {
 	void (*process_halt_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1);
 	void (*process_camif_irq) (struct vfe_device *vfe_dev,
-		uint32_t irq_status0, uint32_t irq_status1);
+		uint32_t irq_status0, uint32_t irq_status1,
+		struct timeval *tv);
 	void (*process_axi_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		struct timeval *tv);
