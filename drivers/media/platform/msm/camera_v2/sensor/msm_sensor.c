@@ -640,6 +640,16 @@ static int32_t msm_sensor_get_dt_data(struct platform_device *pdev,
 		rc = 0;
 	}
 
+	rc = of_property_read_u32(of_node, "qcom,cci-master",
+		&s_ctrl->cci_i2c_master);
+	CDBG("%s qcom,cci-master %d, rc %d\n", __func__, s_ctrl->cci_i2c_master,
+		rc);
+	if (rc < 0) {
+		/* Set default master 0 */
+		s_ctrl->cci_i2c_master = MASTER_0;
+		rc = 0;
+	}
+
 	rc = msm_sensor_get_sub_module_index(of_node, sensordata);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -1410,7 +1420,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	/* TODO: get CCI subdev */
 	cci_client = s_ctrl->sensor_i2c_client->cci_client;
 	cci_client->cci_subdev = msm_cci_get_subdev();
-	cci_client->cci_i2c_master = MASTER_0;
+	cci_client->cci_i2c_master = s_ctrl->cci_i2c_master;
 	cci_client->sid =
 		s_ctrl->sensordata->slave_info->sensor_slave_addr >> 1;
 	cci_client->retries = 3;

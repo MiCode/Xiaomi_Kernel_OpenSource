@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <media/v4l2-subdev.h>
 #include <media/msm_cam_sensor.h>
+#include <mach/camera2.h>
 #include "msm_sd.h"
 
 #define NUM_MASTERS 2
@@ -25,11 +26,6 @@
 
 #define TRUE  1
 #define FALSE 0
-
-enum cci_i2c_master_t {
-	MASTER_0,
-	MASTER_1,
-};
 
 enum cci_i2c_queue_t {
 	QUEUE_0,
