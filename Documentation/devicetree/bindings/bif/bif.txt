@@ -1,0 +1,22 @@
+BIF (Battery Interface) Controllers
+
+Optional properties:
+- qcom,known-device-addresses:  Specifies a list of integers which correspond to
+                                the 8-bit BIF bus device addresses of BIF slaves
+                                found on the target.
+
+BIF Consumers
+
+Optional properties:
+- qcom,bif-ctrl:                phandle of parent BIF controller device node
+
+Example:
+	foo_ctrl: foo-controller {
+		...
+		qcom,known-device-addresses = <0x80, 0x81>;
+	};
+
+	bar-consumer {
+		...
+		qcom,bif-ctrl = <&foo_ctrl>;
+	};

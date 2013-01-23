@@ -176,4 +176,6 @@ source "drivers/reset/Kconfig"
 
 source "drivers/coresight/Kconfig"
 
+source "drivers/bif/Kconfig"
+
 endmenu
