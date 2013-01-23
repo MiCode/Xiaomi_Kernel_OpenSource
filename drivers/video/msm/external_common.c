@@ -244,6 +244,7 @@ struct hdmi_disp_mode_timing_type
 	VFRMT_NOT_SUPPORTED(HDMI_VFRMT_720x480p240_16_9),
 	VFRMT_NOT_SUPPORTED(HDMI_VFRMT_1440x480i240_4_3),
 	VFRMT_NOT_SUPPORTED(HDMI_VFRMT_1440x480i240_16_9),
+	VFRMT_NOT_SUPPORTED(HDMI_VFRMT_1280x1024p60_5_4)
 };
 EXPORT_SYMBOL(hdmi_common_supported_video_mode_lut);
 
@@ -308,6 +309,7 @@ struct hdmi_disp_mode_timing_type
 	VFRMT_NOT_SUPPORTED(HDMI_VFRMT_720x480p240_16_9),
 	VFRMT_NOT_SUPPORTED(HDMI_VFRMT_1440x480i240_4_3),
 	VFRMT_NOT_SUPPORTED(HDMI_VFRMT_1440x480i240_16_9),
+	HDMI_SETTINGS_1280x1024p60_5_4
 };
 EXPORT_SYMBOL(hdmi_mhl_supported_video_mode_lut);
 
@@ -1075,6 +1077,8 @@ static struct hdmi_edid_video_mode_property_type
 	 89909, 119880, 148352, 119880, FALSE},
 	{HDMI_VFRMT_1280x720p120_16_9, 1280, 720, FALSE, 1650, 370, 750, 30,
 	 90000, 120000, 148500, 120000, FALSE},
+	{HDMI_VFRMT_1280x1024p60_5_4, 1280, 1024, FALSE, 1688, 408, 1066, 42,
+	 63981, 60020, 108000, 60000, FALSE},
 
 	/* All 1440 H Active */
 	{HDMI_VFRMT_1440x576i50_4_3, 1440, 576, TRUE,  1728, 288, 625, 24,
@@ -1693,7 +1697,7 @@ static void hdmi_edid_get_display_mode(const uint8 *data_buf,
 	struct hdmi_disp_mode_list_type *disp_mode_list,
 	uint32 num_og_cea_blocks)
 {
-	uint8 i			= 0;
+	uint8 i			= 0, offset = 0, std_blk = 0;
 	uint32 video_format	= HDMI_VFRMT_640x480p60_4_3;
 	boolean has480p		= FALSE;
 	uint8 len;
@@ -1821,6 +1825,66 @@ static void hdmi_edid_get_display_mode(const uint8 *data_buf,
 			}
 			desc_offset += 0x12;
 			++i;
+		}
+	}
+
+
+	/*
+	 * Check SD Timings if it contains 1280x1024@60Hz.
+	 * SD Timing can be max 8 with 2 byte in size.
+	 */
+	std_blk = 0;
+	offset  = 0;
+	while (std_blk < 8) {
+		if ((edid_blk0[0x26 + offset] == 0x81) &&
+			(edid_blk0[0x26 + offset + 1] == 0x80)) {
+			add_supported_video_format(disp_mode_list,
+					HDMI_VFRMT_1280x1024p60_5_4);
+			break;
+		} else {
+			offset += 2;
+		}
+		std_blk++;
+	}
+
+	/* check if the EDID revision is 4 (version 1.4) */
+	if (edid_blk0[0x13] == 4) {
+		uint8  start = 0x36;
+
+		i = 0;
+
+		/* Check each of 4 - 18 bytes descriptors */
+		while (i < 4) {
+			uint8  itrate   = start;
+			uint32 header_1 = 0;
+			uint8  header_2 = 0;
+
+			/*
+			 * First 5 bytes are header.
+			 * If they match 0x000000F700, it means its an
+			 * established Timing III descriptor.
+			 */
+			header_1 = edid_blk0[itrate++];
+			header_1 = header_1 << 8 | edid_blk0[itrate++];
+			header_1 = header_1 << 8 | edid_blk0[itrate++];
+			header_1 = header_1 << 8 | edid_blk0[itrate++];
+			header_2 = edid_blk0[itrate];
+
+			if (header_1 == 0x000000F7 &&
+			    header_2 == 0x00) {
+				itrate++; /* VESA DMT Standard Version (0x0A)*/
+				itrate++; /* First set of supported formats */
+				itrate++; /* Second set of supported formats */
+				/* BIT(1) indicates 1280x1024@60Hz */
+				if (edid_blk0[itrate] & 0x02) {
+					add_supported_video_format(
+						disp_mode_list,
+						HDMI_VFRMT_1280x1024p60_5_4);
+					break;
+				}
+			}
+			i++;
+			start += 0x12;
 		}
 	}
 
@@ -2076,7 +2140,9 @@ bool hdmi_common_get_video_format_from_drv_data(struct msm_fb_data_type *mfd)
 				: HDMI_VFRMT_720x576p50_16_9;
 			break;
 		case 1280:
-			if (mfd->var_frame_rate == 50000)
+			if (mfd->var_yres == 1024)
+				format = HDMI_VFRMT_1280x1024p60_5_4;
+			else if (mfd->var_frame_rate == 50000)
 				format = HDMI_VFRMT_1280x720p50_16_9;
 			else
 				format = HDMI_VFRMT_1280x720p60_16_9;

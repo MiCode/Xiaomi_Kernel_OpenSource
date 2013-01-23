@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -332,6 +332,22 @@ int hdmi_pll_set_rate(unsigned rate)
 		writel_relaxed(0xE6, HDMI_PHY_PLL_VCOCAL_CFG0);
 		writel_relaxed(0x02, HDMI_PHY_PLL_VCOCAL_CFG1);
 		writel_relaxed(0x3B, HDMI_PHY_PLL_VCOCAL_CFG2);
+	break;
+
+	case 108000000:
+		writel_relaxed(0x08, HDMI_PHY_PLL_REFCLK_CFG);
+		writel_relaxed(0x21, HDMI_PHY_PLL_LOOP_FLT_CFG0);
+		writel_relaxed(0xF9, HDMI_PHY_PLL_LOOP_FLT_CFG1);
+		writel_relaxed(0x1C, HDMI_PHY_PLL_VCOCAL_CFG0);
+		writel_relaxed(0x02, HDMI_PHY_PLL_VCOCAL_CFG1);
+		writel_relaxed(0x3B, HDMI_PHY_PLL_VCOCAL_CFG2);
+		writel_relaxed(0x86, HDMI_PHY_PLL_VCOCAL_CFG4);
+		writel_relaxed(0x00, HDMI_PHY_PLL_VCOCAL_CFG5);
+		writel_relaxed(0x49, HDMI_PHY_PLL_SDM_CFG0);
+		writel_relaxed(0x49, HDMI_PHY_PLL_SDM_CFG1);
+		writel_relaxed(0x00, HDMI_PHY_PLL_SDM_CFG2);
+		writel_relaxed(0x00, HDMI_PHY_PLL_SDM_CFG3);
+		writel_relaxed(0x00, HDMI_PHY_PLL_SDM_CFG4);
 	break;
 
 	case 148500000:

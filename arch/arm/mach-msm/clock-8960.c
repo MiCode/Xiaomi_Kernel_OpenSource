@@ -4137,6 +4137,7 @@ static struct clk_freq_tbl clk_tbl_tv[] = {
 	F_TV( 27000000, hdmi_pll,  27000000, 1, 0, 0),
 	F_TV( 27030000, hdmi_pll,  27030000, 1, 0, 0),
 	F_TV( 74250000, hdmi_pll,  74250000, 1, 0, 0),
+	F_TV(108000000, hdmi_pll, 108000000, 1, 0, 0),
 	F_TV(148500000, hdmi_pll, 148500000, 1, 0, 0),
 	F_END
 };
