@@ -14,6 +14,7 @@
 /include/ "msm9625-ion.dtsi"
 /include/ "msm9625-pm.dtsi"
 /include/ "msm9625-coresight.dtsi"
+/include/ "msm9625-smp2p.dtsi"
 
 / {
 	model = "Qualcomm MSM 9625";
@@ -532,6 +533,12 @@
 	qcom,mss {
 		compatible = "qcom,pil-q6v5-mss";
 		interrupts = <0 24 1>;
+
+		/* GPIO input from mss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+
+		/* GPIO output to mss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
 
 	qcom,smem@fa00000 {
