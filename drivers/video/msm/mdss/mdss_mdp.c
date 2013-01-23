@@ -812,6 +812,18 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 {
 	u32 rc = 0;
 
+	if (mdata->res_init) {
+		pr_err("mdss resources already initialized\n");
+		return -EPERM;
+	}
+
+	mdata->res_init = true;
+	mdata->timeout = HZ/20;
+	mdata->clk_ena = false;
+	mdata->irq_mask = MDSS_MDP_DEFAULT_INTR_MASK;
+	mdata->irq_ena = false;
+	mdata->suspend = false;
+
 	rc = mdss_mdp_irq_clk_setup(mdata);
 	if (rc)
 		return rc;
@@ -832,14 +844,6 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 
 	pr_info("mdss_revision=%x\n", mdata->rev);
 	pr_info("mdp_hw_revision=%x\n", mdata->mdp_rev);
-
-	mdata->res_init = true;
-	mdata->timeout = HZ/20;
-	mdata->clk_ena = false;
-	mdata->irq_mask = MDSS_MDP_DEFAULT_INTR_MASK;
-	mdata->suspend = false;
-	mdata->prim_ptype = NO_PANEL;
-	mdata->irq_ena = false;
 
 	mdata->iclient = msm_ion_client_create(-1, mdata->pdev->name);
 	if (IS_ERR_OR_NULL(mdata->iclient)) {
@@ -965,7 +969,7 @@ probe_done:
 static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 {
 	mutex_lock(&mdp_suspend_mutex);
-	if (!mdata->suspend || mdata->eintf_ena || !mdata->fs) {
+	if (!mdata->suspend || !mdata->fs) {
 		mutex_unlock(&mdp_suspend_mutex);
 		return;
 	}
