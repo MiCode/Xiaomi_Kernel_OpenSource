@@ -735,7 +735,7 @@ config CPU_DCACHE_SIZE
 
 config CPU_CACHE_ERR_REPORT
 	bool "Report errors in the L1 and L2 caches"
-	depends on ARCH_MSM_SCORPION || ARCH_MSM_SCORPIONMP
+	depends on ARCH_MSM_SCORPION
 	default n
 	help
 	  The Scorpion processor supports reporting L2 errors, L1 icache parity
