@@ -68,6 +68,20 @@ static struct msm_gpiomux_config msm_eth_configs[] = {
 };
 #endif
 
+static struct gpiomux_setting gpio_suspend_config[] = {
+	{
+		.func = GPIOMUX_FUNC_GPIO,  /* IN-NP */
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+	},
+	{
+		.func = GPIOMUX_FUNC_GPIO,  /* O-LOW */
+		.drv = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_NONE,
+		.dir = GPIOMUX_OUT_LOW,
+	},
+};
+
 static struct gpiomux_setting gpio_epm_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_2MA,
@@ -421,25 +435,29 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 53,		/* BLSP2 QUP4 SPI_DATA_MOSI */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+			[GPIOMUX_ACTIVE] = &gpio_spi_config,
+			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
 	{
 		.gpio      = 54,		/* BLSP2 QUP4 SPI_DATA_MISO */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+			[GPIOMUX_ACTIVE] = &gpio_spi_config,
+			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[1],
 		},
 	},
 	{
 		.gpio      = 56,		/* BLSP2 QUP4 SPI_CLK */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+			[GPIOMUX_ACTIVE] = &gpio_spi_config,
+			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
 		},
 	},
 	{
 		.gpio      = 55,		/* BLSP2 QUP4 SPI_CS0_N */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+			[GPIOMUX_ACTIVE] = &gpio_spi_config,
+			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
 		},
 	},
 	{
