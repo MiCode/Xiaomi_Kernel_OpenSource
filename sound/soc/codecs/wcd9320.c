@@ -1717,14 +1717,14 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	break;
 	case 2:
 		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&taiko_p->dai[AIF1_PB].wcd9xxx_ch_list))
+			&taiko_p->dai[AIF2_PB].wcd9xxx_ch_list))
 			goto pr_err;
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &taiko_p->dai[AIF2_PB].wcd9xxx_ch_list);
 	break;
 	case 3:
 		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&taiko_p->dai[AIF1_PB].wcd9xxx_ch_list))
+			&taiko_p->dai[AIF3_PB].wcd9xxx_ch_list))
 			goto pr_err;
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &taiko_p->dai[AIF3_PB].wcd9xxx_ch_list);
@@ -3313,8 +3313,8 @@ static int taiko_get_channel_map(struct snd_soc_dai *dai,
 		}
 		list_for_each_entry(ch, &taiko_p->dai[dai->id].wcd9xxx_ch_list,
 				    list) {
-			pr_debug("%s: rx_slot[%d] %d, ch->ch_num %d\n",
-				 __func__, i, rx_slot[i], ch->ch_num);
+			pr_debug("%s: slot_num %u ch->ch_num %d\n",
+				 __func__, i, ch->ch_num);
 			rx_slot[i++] = ch->ch_num;
 		}
 		pr_debug("%s: rx_num %d\n", __func__, i);
@@ -3330,8 +3330,8 @@ static int taiko_get_channel_map(struct snd_soc_dai *dai,
 		}
 		list_for_each_entry(ch, &taiko_p->dai[dai->id].wcd9xxx_ch_list,
 				    list) {
-			pr_debug("%s: tx_slot[%d] %d, ch->ch_num %d\n",
-				 __func__, i, tx_slot[i], ch->ch_num);
+			pr_debug("%s: slot_num %u ch->ch_num %d\n",
+				 __func__, i,  ch->ch_num);
 			tx_slot[i++] = ch->ch_num;
 		}
 		pr_debug("%s: tx_num %d\n", __func__, i);
@@ -4670,7 +4670,7 @@ done:
 static const struct taiko_reg_mask_val taiko_reg_defaults[] = {
 
 	/* set MCLk to 9.6 */
-	TAIKO_REG_VAL(TAIKO_A_CHIP_CTL, 0x0A),
+	TAIKO_REG_VAL(TAIKO_A_CHIP_CTL, 0x02),
 	TAIKO_REG_VAL(TAIKO_A_CDC_CLK_POWER_CTL, 0x03),
 
 	/* EAR PA deafults  */
