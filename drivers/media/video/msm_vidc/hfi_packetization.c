@@ -795,7 +795,7 @@ int create_pkt_cmd_session_set_property(
 		hfi = (struct hfi_bitrate *) &pkt->rg_property_data[1];
 		hfi->bit_rate = ((struct hal_bitrate *)pdata)->bit_rate;
 		hfi->layer_id = ((struct hal_bitrate *)pdata)->layer_id;
-		pkt->size += sizeof(u32) * 2;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_bitrate);
 		break;
 	}
 	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
