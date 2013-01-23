@@ -421,8 +421,7 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 
 	val = 1 << ((master * 2) + queue);
 	CDBG("%s:%d CCI_QUEUE_START_ADDR\n", __func__, __LINE__);
-	msm_camera_io_w(val, cci_dev->base + CCI_QUEUE_START_ADDR +
-		master*0x200 + queue * 0x100);
+	msm_camera_io_w(val, cci_dev->base + CCI_QUEUE_START_ADDR);
 
 	CDBG("%s:%d E wait_for_completion_interruptible\n",
 		__func__, __LINE__);
