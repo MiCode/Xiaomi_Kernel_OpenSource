@@ -1,0 +1,222 @@
+Introduction
+============
+
+QUALCOMM MSM Interface (QMI) defines the interface between MSM and
+attached Terminal Equipment (TE). RmNet interface is a new logical
+device in QMI framework for data services. RmNet in accordance with
+QMI architecture defines channels for control and data transfers and
+for example it uses Data I/O channel for IP data transfer and control
+I/O channel for QMI messaging (functionality similar to AT commands).
+RmNet may be used in place of legacy USB modem interface.
+
+Tethered networking is one of the function from MSM which can also be
+supported using QMI protocol. There are other standard protocols exists
+such as CDC-ECM and Windows proprietary RNDIS. On the host-side system,
+the gadget rmnet device looks like a ethernet adapter.
+
+Hardware description
+====================
+
+QMI is a messaging protocol to expose various functionalities of MSM
+and one of the functionality to be tethered networking which is being
+exposed over QMI using RmNet protocol. This usb gadget has one bulk-in,
+one bulk-out and one interrupt-in endpoint.
+
+Design:
+=======
+RmNet function driver design follows two approaches:
+
+Approach 1:
+-----------
+Single function driver is used to communicate with
+Modem(both for data and control). Most of the initial
+MSM targets are following this approach.
+
+The main disadvantage with this approach is there are
+multiple RmNet drivers for any change in DATA and Control
+Layer. There is no re-use in the code.
+
+Approach 2:
+-----------
+RmNet driver is divided into 3 components
+
+1. USB:
+This component has the functionality to deal with composite layer.
+Allocates Interfaces, Endpoints, listens to connect/disconnect
+interrupts and gives connect/disconnect notifications to DATA and
+CONTROL modules.
+
+2. Data:
+This component talks to modem to transfer IP data. Usually DATA
+and CONTROL go over same channel. However, to achieve higher
+data rates new transport channel for DATA may be used.
+
+3. Control:
+This component talks to modem to transfer rmnet control data.
+
+Software description
+====================
+The RmNet suports following data and control transports:
+as follows:
+	1. SMD Interface
+	2. SDIO Interface
+	3. BAM Interface
+	4. SMD Control Interface
+
+SMD interface uses the Shared memory for the RmNet driver to communicate
+with the MSM modem processor.
+SDIO interface acts as a link for communication of RmNet driver with the
+MDM modem processor.
+
+USB INTERACTION:
+----------------
+
+The RmNet function driver binds with the USB using the struct usb_function.
+The function is added using the usb_function_add().
+Control Transfers: The RmNet handles two Class-specific control
+transfers: SEND_ENCAPSULATED_COMMAND and GET_ENCAPSULATED_RESPONSE.
+The asynchronous protocol QMI which consists of the QMI requests/responses
+is used for handling the transfers between the RmNet and the Host where the
+host sends a new QMI request before receiving the response for the current
+QMI request.
+
+Control & Data flow:
+1. Host issues a SEND_ENCAPSULATED command to send a QMI request.
+SMD: If the SMD control channel has enough room to accomodate a QMI request,
+it is written into the SMD buffer. Otherwise, append/add that request to
+qmi_request queue. A tasklet is scheduled to drain all QMI requests in
+qmi_request queue.
+SDIO: Add each request in the qmi_request queue and is processed until
+the queue is empty.
+
+2. Append/Add QMI response from modem to qmi_response queue.
+A notification on an interrupt end point is used to communicate the QMI
+response to host.
+
+3. Host issues a GET_ENCAPSULATED command to retrieve the QMI response.
+The response from qmi_response queue will be sent to the host.
+
+4. After the connection is fully established data can be sent to
+bulk-out endpoint and data can be received from bulk-in endpoint.
+
+5. Host can send QMI requests even after the connection is established.
+
+RmNet gadget driver is completely unaware of QMI/IP protocol. It just
+acts as a bridge between the modem and the PC.
+
+All the request/response queues in the driver can be accessed either
+from tasklet/workqueue or from interrupt context (either usb or smd/sdio
+interrupt handler). Hence a spinlock is used to protect all data/control req
+lists.
+
+
+SMD Interface:
+--------------
+
+1. Each QMI request/response can at most be 2048 bytes. Eight 2KB buffers
+are allocated using kmalloc for storing maximum of 8 requests/responses.
+
+2. Four 2KB buffers are allocated using kmalloc for data transfers on
+each bulk endpoint.
+
+Data structures:
+struct qmi_buf		-	Buffer to handle QMI requests & responses
+struct rmnet_smd_info	-	Control & Data SMD channel private data
+struct rmnet_dev	-	Endpoint and driver specific data
+
+Workqueues:
+rmnet_connect_work	-	Called on device connection.
+				Opens SMD channels; enables endpoints
+rmnet_disconnect_work	-	Called on device disconnection.
+				Closes SMD channels.
+
+Tasklets:
+rmnet_control_rx_tlet
+rmnet_control_tx_tlet	-	Control transfer data reception and transmission
+				handler
+
+rmnet_data_rx_tlet
+rmnet_data_tx_tlet	-	Data transfer data reception and transmission handler
+
+
+SMD control interface
+----------------------
+This function driver implements exchnage of control informtion with
+modem over SMD. Uses smd_read/write commands to read or write rmnet
+ctrl packets. Exposes a call back function to usb component to write
+control packet and at the same time call a call back usb component
+callback to send data to usb host.
+
+Data structures and Interfaces are very similar to control interfaces
+explained in "SMD Interface"
+
+BAM MUX interface
+------------------
+BAM Mux interface is very similar to SDIO MUX interface. However there
+are differences in the way BAM and SDIO operate but all of the details
+are masked by MUX Driver.
+
+Refer to the SDIO interfaces for more information on data structures
+
+SDIO Interface:
+---------------
+
+1. Each QMI request/response buffer is allocated depending on the size
+of data to be transmitted for the request/response.
+
+2. A 2KB network buffer is allocated for data transfer on bulk-out
+endpoint. The SDIO allocates the required buffer for data transfers
+on an bulk-in endpoint.
+
+Data structures:
+struct rmnet_sdio_qmi_buf      -       Buffer to handle QMI requests/responses.
+struct rmnet_dev               -       Endpoint and driver specific data
+
+Workqueues:
+rmnet_connect_work             -       Device connection handler. Opens SDIO
+                                       channels; enables and allocate buffer for
+                                       endpoints
+rmnet_disconnect_work          -       Device disconnection handler. Closes
+                                       SDIO channels; Frees allocated buffers.
+rmnet_control_rx_work          -       Control data reception handler.
+rmnet_data_rx_work             -       Network data reception handler.
+
+
+Two SMD/SDIO channels (control and data) are used as communication channels
+between Modem and Apps processor. The driver opens the SMD/SDIO channels
+on USB device connection. Data is either read from/written to the channels
+as one complete packet.
+
+SMD/SDIO provides a notification whenever the Modem processor completes
+read/write of a packet.  Based on these SMD/SDIO notifications all the
+pending read/write requests will be handled. Tasklets(SMD)/Workqueues(SDIO)
+are used to get the requests done.
+
+There is another variant of rmnet driver called rmnet_smd_sdio which is used
+on some boards.  This driver allows the transport (SMD/SDIO) to be chosen
+at runtime. This is required because either MDM processor or MODEM processor
+is only active at a time for data transfers. As SMD and SDIO interfaces
+are different, different endpoint completion handlers are used. This driver
+leverage the existing rmnet over smd and rmnet over sdio drivers. The control
+messages (QMI) always routed over SDIO. After the control messages exchange,
+user space will come to know about the available data transport (SMD/SDIO).
+User space notify the same to driver and the corresponding transport is
+activated. It is assumed that transport will not change while a USB cable
+is connected.
+
+Rmnet over SMD and rmnet over SDIO doesn't expose any of its interfaces to
+either kernelspace or userspace. But rmnet over smd/sdio expose a sysfs
+interface for userspace to notify the available transport to driver.
+
+The sysfs file can be found at
+/sys/class/usb_composite/rmnet_smd_sdio/transport
+
+The below command activates the SMD transport
+echo 0 > /sys/class/usb_composite/rmnet_smd_sdio/transport
+
+The below command activates the SDIO transport
+echo 1 > /sys/class/usb_composite/rmnet_smd_sdio/transport
+
+-EINVAL is returned if a write is attempted to transport when a USB cable
+is not connected.
+

@@ -35,6 +35,18 @@
 #include "f_fs.c"
 #include "f_audio_source.c"
 #include "f_mass_storage.c"
+#include "f_rmnet_smd.c"
+#include "f_rmnet_sdio.c"
+#include "f_rmnet_smd_sdio.c"
+#include "f_rmnet.c"
+#include "u_sdio.c"
+#include "u_smd.c"
+#include "u_bam.c"
+#include "u_rmnet_ctrl_smd.c"
+#include "u_ctrl_hsic.c"
+#include "u_data_hsic.c"
+#include "u_ctrl_hsuart.c"
+#include "u_data_hsuart.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
 #define USB_ETH_RNDIS y
@@ -567,6 +579,144 @@ static struct android_usb_function acm_function = {
 	.attributes	= acm_function_attributes,
 };
 
+/* RMNET_SMD */
+static int rmnet_smd_function_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	return rmnet_smd_bind_config(c);
+}
+
+static struct android_usb_function rmnet_smd_function = {
+	.name		= "rmnet_smd",
+	.bind_config	= rmnet_smd_function_bind_config,
+};
+
+/* RMNET_SDIO */
+static int rmnet_sdio_function_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	return rmnet_sdio_function_add(c);
+}
+
+static struct android_usb_function rmnet_sdio_function = {
+	.name		= "rmnet_sdio",
+	.bind_config	= rmnet_sdio_function_bind_config,
+};
+
+/* RMNET_SMD_SDIO */
+static int rmnet_smd_sdio_function_init(struct android_usb_function *f,
+				 struct usb_composite_dev *cdev)
+{
+	return rmnet_smd_sdio_init();
+}
+
+static void rmnet_smd_sdio_function_cleanup(struct android_usb_function *f)
+{
+	rmnet_smd_sdio_cleanup();
+}
+
+static int rmnet_smd_sdio_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	return rmnet_smd_sdio_function_add(c);
+}
+
+static struct device_attribute *rmnet_smd_sdio_attributes[] = {
+					&dev_attr_transport, NULL };
+
+static struct android_usb_function rmnet_smd_sdio_function = {
+	.name		= "rmnet_smd_sdio",
+	.init		= rmnet_smd_sdio_function_init,
+	.cleanup	= rmnet_smd_sdio_function_cleanup,
+	.bind_config	= rmnet_smd_sdio_bind_config,
+	.attributes	= rmnet_smd_sdio_attributes,
+};
+
+/*rmnet transport string format(per port):"ctrl0,data0,ctrl1,data1..." */
+#define MAX_XPORT_STR_LEN 50
+static char rmnet_transports[MAX_XPORT_STR_LEN];
+
+static void rmnet_function_cleanup(struct android_usb_function *f)
+{
+	frmnet_cleanup();
+}
+
+static int rmnet_function_bind_config(struct android_usb_function *f,
+					 struct usb_configuration *c)
+{
+	int i;
+	int err = 0;
+	char *ctrl_name;
+	char *data_name;
+	char buf[MAX_XPORT_STR_LEN], *b;
+	static int rmnet_initialized, ports;
+
+	if (!rmnet_initialized) {
+		rmnet_initialized = 1;
+		strlcpy(buf, rmnet_transports, sizeof(buf));
+		b = strim(buf);
+		while (b) {
+			ctrl_name = strsep(&b, ",");
+			data_name = strsep(&b, ",");
+			if (ctrl_name && data_name) {
+				err = frmnet_init_port(ctrl_name, data_name);
+				if (err) {
+					pr_err("rmnet: Cannot open ctrl port:"
+						"'%s' data port:'%s'\n",
+						ctrl_name, data_name);
+					goto out;
+				}
+				ports++;
+			}
+		}
+
+		err = rmnet_gport_setup();
+		if (err) {
+			pr_err("rmnet: Cannot setup transports");
+			goto out;
+		}
+	}
+
+	for (i = 0; i < ports; i++) {
+		err = frmnet_bind_config(c, i);
+		if (err) {
+			pr_err("Could not bind rmnet%u config\n", i);
+			break;
+		}
+	}
+out:
+	return err;
+}
+
+static ssize_t rmnet_transports_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", rmnet_transports);
+}
+
+static ssize_t rmnet_transports_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(rmnet_transports, buff, sizeof(rmnet_transports));
+
+	return size;
+}
+
+static struct device_attribute dev_attr_rmnet_transports =
+					__ATTR(transports, S_IRUGO | S_IWUSR,
+						rmnet_transports_show,
+						rmnet_transports_store);
+static struct device_attribute *rmnet_function_attributes[] = {
+					&dev_attr_rmnet_transports,
+					NULL };
+
+static struct android_usb_function rmnet_function = {
+	.name		= "rmnet",
+	.cleanup	= rmnet_function_cleanup,
+	.bind_config	= rmnet_function_bind_config,
+	.attributes	= rmnet_function_attributes,
+};
 
 static int
 mtp_function_init(struct android_usb_function *f,
@@ -1009,6 +1159,10 @@ static struct android_usb_function audio_source_function = {
 
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
+	&rmnet_smd_function,
+	&rmnet_sdio_function,
+	&rmnet_smd_sdio_function,
+	&rmnet_function,
 	&acm_function,
 	&mtp_function,
 	&ptp_function,
