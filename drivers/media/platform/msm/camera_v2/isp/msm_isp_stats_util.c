@@ -99,8 +99,10 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 		}
 	}
 
-	buf_event.timestamp = *tv;
-	msm_isp_send_event(vfe_dev, ISP_EVENT_STATS_NOTIFY, &buf_event);
+	if (stats_event->stats_mask) {
+		buf_event.timestamp = *tv;
+		msm_isp_send_event(vfe_dev, ISP_EVENT_STATS_NOTIFY, &buf_event);
+	}
 }
 
 int msm_isp_stats_create_stream(struct vfe_device *vfe_dev,
