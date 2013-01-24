@@ -607,6 +607,7 @@ void vic_handle_irq(struct pt_regs *regs);
 void msm_8974_reserve(void);
 void msm_8974_very_early(void);
 void msm_8974_init_gpiomux(void);
+void msmzinc_init_gpiomux(void);
 void msm9625_init_gpiomux(void);
 void msm_map_mpq8092_io(void);
 void mpq8092_init_gpiomux(void);
