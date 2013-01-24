@@ -420,4 +420,7 @@ int mdss_mdp_wb_kickoff(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 
 int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id);
+int mdss_mdp_alloc_fb_mem(struct msm_fb_data_type *mfd,
+				  u32 size, u32 *phys, void **virt);
+u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp);
 #endif /* MDSS_MDP_H */
