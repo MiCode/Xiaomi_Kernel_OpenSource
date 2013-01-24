@@ -35,6 +35,7 @@ enum {
 	MMSS_BASE,
 	LPASS_BASE,
 	APCS_BASE,
+	APCS_PLL_BASE,
 	N_BASES,
 };
 
@@ -359,6 +360,17 @@ static void __iomem *virt_bases[N_BASES];
 			| BVAL(10, 8, s##_source_val), \
 	}
 
+#define F_APCS_PLL(f, l, m, n, pre_div, post_div, vco) \
+	{ \
+		.freq_hz = (f), \
+		.l_val = (l), \
+		.m_val = (m), \
+		.n_val = (n), \
+		.pre_div_val = BVAL(12, 12, (pre_div)), \
+		.post_div_val = BVAL(9, 8, (post_div)), \
+		.vco_val = BVAL(29, 28, (vco)), \
+	}
+
 #define F_MM(f, s, div, m, n) \
 	{ \
 		.freq_hz = (f), \
@@ -517,18 +529,114 @@ static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_iommu_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_qseecom_clk, &pnoc_clk.c, LONG_MAX);
 
+static DEFINE_CLK_MEASURE(apc0_m_clk);
+static DEFINE_CLK_MEASURE(apc1_m_clk);
+static DEFINE_CLK_MEASURE(apc2_m_clk);
+static DEFINE_CLK_MEASURE(apc3_m_clk);
+static DEFINE_CLK_MEASURE(l2_m_clk);
+
+#define APCS_SH_PLL_MODE        0x000
+#define APCS_SH_PLL_L_VAL       0x004
+#define APCS_SH_PLL_M_VAL       0x008
+#define APCS_SH_PLL_N_VAL       0x00C
+#define APCS_SH_PLL_USER_CTL    0x010
+#define APCS_SH_PLL_CONFIG_CTL  0x014
+#define APCS_SH_PLL_STATUS      0x01C
+
+enum vdd_sr2_pll_levels {
+	VDD_SR2_PLL_OFF,
+	VDD_SR2_PLL_ON,
+	VDD_SR2_PLL_NUM
+};
+
+static struct rpm_regulator *vdd_sr2_reg;
+
+static int set_vdd_sr2_pll(struct clk_vdd_class *vdd_class, int level)
+{
+	if (level == VDD_SR2_PLL_ON) {
+		return rpm_regulator_set_voltage(vdd_sr2_reg, 1800000,
+		1800000);
+	} else {
+		return rpm_regulator_set_voltage(vdd_sr2_reg, 0, 1800000);
+	}
+}
+
+static DEFINE_VDD_CLASS(vdd_sr2_pll, set_vdd_sr2_pll,
+			VDD_SR2_PLL_NUM);
+
+static struct pll_freq_tbl apcs_pll_freq[] = {
+	F_APCS_PLL( 384000000, 20, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 787200000, 41, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 998400000, 52, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1190400000, 62, 0x0, 0x1, 0x0, 0x0, 0x0),
+	PLL_F_END
+};
+
+static struct pll_clk a7sspll = {
+	.mode_reg = (void __iomem *)APCS_SH_PLL_MODE,
+	.l_reg = (void __iomem *)APCS_SH_PLL_L_VAL,
+	.m_reg = (void __iomem *)APCS_SH_PLL_M_VAL,
+	.n_reg = (void __iomem *)APCS_SH_PLL_N_VAL,
+	.config_reg = (void __iomem *)APCS_SH_PLL_USER_CTL,
+	.status_reg = (void __iomem *)APCS_SH_PLL_STATUS,
+	.freq_tbl = apcs_pll_freq,
+	.masks = {
+		.vco_mask = BM(29, 28),
+		.pre_div_mask = BIT(12),
+		.post_div_mask = BM(9, 8),
+		.mn_en_mask = BIT(24),
+		.main_output_mask = BIT(0),
+	},
+	.base = &virt_bases[APCS_PLL_BASE],
+	.c = {
+		.dbg_name = "a7sspll",
+		.ops = &clk_ops_sr2_pll,
+		.vdd_class = &vdd_sr2_pll,
+		.fmax = (unsigned long [VDD_SR2_PLL_NUM]) {
+			[VDD_SR2_PLL_ON] = ULONG_MAX,
+		},
+		.num_fmax = VDD_SR2_PLL_NUM,
+		CLK_INIT(a7sspll.c),
+		/*
+		 * Need to skip handoff of the acpu pll to avoid
+		 * turning off the pll when the cpu is using it
+		 */
+		.flags = CLKFLAG_SKIP_HANDOFF,
+	},
+};
+
+static unsigned int soft_vote_gpll0;
+
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
 	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS,
 	.status_mask = BIT(17),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &gcc_xo_clk_src.c,
 		.rate = 600000000,
 		.dbg_name = "gpll0_clk_src",
-		.ops = &clk_ops_pll_vote,
+		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(gpll0_clk_src.c),
+	},
+};
+
+static struct pll_vote_clk gpll0_ao_clk_src = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
+	.en_mask = BIT(0),
+	.status_reg = (void __iomem *)GPLL0_STATUS,
+	.status_mask = BIT(17),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.rate = 600000000,
+		.dbg_name = "gpll0_ao_clk_src",
+		.ops = &clk_ops_pll_acpu_vote,
+		CLK_INIT(gpll0_ao_clk_src.c),
 	},
 };
 
@@ -2733,6 +2841,12 @@ static struct measure_mux_entry measure_mux[] = {
 	{&audio_core_lpaif_pcm_data_oe_clk.c, LPASS_BASE, 0x0030},
 	{         &audio_core_ixfabric_clk.c, LPASS_BASE, 0x0059},
 
+	{&apc0_m_clk,                    APCS_BASE, 0x10},
+	{&apc1_m_clk,                    APCS_BASE, 0x11},
+	{&apc2_m_clk,                    APCS_BASE, 0x12},
+	{&apc3_m_clk,                    APCS_BASE, 0x13},
+	{&l2_m_clk,                      APCS_BASE, 0x15},
+
 	{&dummy_clk, N_BASES, 0x0000},
 };
 
@@ -3163,6 +3277,16 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("bus_clk", gcc_lpass_q6_axi_clk.c,  "fe200000.qcom,lpass"),
 	CLK_LOOKUP("iface_clk", q6ss_ahb_lfabif_clk.c, "fe200000.qcom,lpass"),
 	CLK_LOOKUP("reg_clk",        q6ss_ahbm_clk.c,  "fe200000.qcom,lpass"),
+
+	CLK_LOOKUP("xo",      gcc_xo_a_clk_src.c, "f9011050.qcom,acpuclk"),
+	CLK_LOOKUP("gpll0", gpll0_ao_clk_src.c, "f9011050.qcom,acpuclk"),
+	CLK_LOOKUP("a7sspll",        a7sspll.c, "f9011050.qcom,acpuclk"),
+
+	CLK_LOOKUP("measure_clk", apc0_m_clk, ""),
+	CLK_LOOKUP("measure_clk", apc1_m_clk, ""),
+	CLK_LOOKUP("measure_clk", apc2_m_clk, ""),
+	CLK_LOOKUP("measure_clk", apc3_m_clk, ""),
+	CLK_LOOKUP("measure_clk",   l2_m_clk, ""),
 };
 
 static struct clk_lookup msm_clocks_8610_rumi[] = {
@@ -3189,6 +3313,9 @@ static struct clk_lookup msm_clocks_8610_rumi[] = {
 	CLK_DUMMY("core_clk",   NULL, "fd000000.qcom,iommu", OFF),
 	CLK_DUMMY("iface_clk",  NULL, "fd010000.qcom,iommu", OFF),
 	CLK_DUMMY("core_clk",   NULL, "fd010000.qcom,iommu", OFF),
+	CLK_DUMMY("xo",      NULL, "f9011050.qcom,acpuclk", OFF),
+	CLK_DUMMY("gpll0",      NULL, "f9011050.qcom,acpuclk", OFF),
+	CLK_DUMMY("a7sspll",    NULL, "f9011050.qcom,acpuclk", OFF),
 };
 
 struct clock_init_data msm8610_rumi_clock_init_data __initdata = {
@@ -3385,6 +3512,9 @@ static void __init msm8610_clock_post_init(void)
 #define APCS_GCC_CC_PHYS	0xF9011000
 #define APCS_GCC_CC_SIZE	SZ_4K
 
+#define APCS_KPSS_SH_PLL_PHYS	0xF9016000
+#define APCS_KPSS_SH_PLL_SIZE	SZ_64
+
 static void __init msm8610_clock_pre_init(void)
 {
 	virt_bases[GCC_BASE] = ioremap(GCC_CC_PHYS, GCC_CC_SIZE);
@@ -3403,11 +3533,23 @@ static void __init msm8610_clock_pre_init(void)
 	if (!virt_bases[APCS_BASE])
 		panic("clock-8610: Unable to ioremap APCS_GCC_CC memory!");
 
+	virt_bases[APCS_PLL_BASE] = ioremap(APCS_KPSS_SH_PLL_PHYS,
+		APCS_KPSS_SH_PLL_SIZE);
+	if (!virt_bases[APCS_PLL_BASE])
+		panic("clock-8610: Unable to ioremap APCS_GCC_CC memory!");
+
 	clk_ops_local_pll.enable = sr_hpm_lp_pll_clk_enable;
 
 	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig_reg))
 		panic("clock-8610: Unable to get the vdd_dig regulator!");
+
+	vdd_sr2_reg = rpm_regulator_get(NULL, "vdd_sr2_pll");
+	if (IS_ERR(vdd_sr2_reg))
+		panic("clock-8610: Unable to get the vdd_sr2_pll regulator!");
+
+	rpm_regulator_set_voltage(vdd_sr2_reg, 1800000, 1800000);
+	rpm_regulator_enable(vdd_sr2_reg);
 
 	/*
 	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
