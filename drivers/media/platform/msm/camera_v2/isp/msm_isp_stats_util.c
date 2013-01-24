@@ -96,6 +96,9 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 			stats_event->stats_mask |= 1 << stream_info->stats_type;
 			stats_event->stats_buf_idxs[stream_info->stats_type] =
 				done_buf->buf_idx;
+			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
+				done_buf->bufq_handle, done_buf->buf_idx,
+				tv, 0);
 		}
 	}
 
