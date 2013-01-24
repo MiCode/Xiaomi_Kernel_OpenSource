@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,13 +29,9 @@
 void msm_jpeg_platform_p2v(struct msm_jpeg_device *pgmn_dev, struct file  *file,
 	struct ion_handle **ionhandle, int domain_num)
 {
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	ion_unmap_iommu(pgmn_dev->jpeg_client, *ionhandle, domain_num, 0);
 	ion_free(pgmn_dev->jpeg_client, *ionhandle);
 	*ionhandle = NULL;
-#elif CONFIG_ANDROID_PMEM
-	put_pmem_file(file);
-#endif
 }
 
 uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
@@ -44,26 +40,17 @@ uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
 	unsigned long paddr;
 	unsigned long size;
 	int rc;
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	*ionhandle = ion_import_dma_buf(pgmn_dev->jpeg_client, fd);
 	if (IS_ERR_OR_NULL(*ionhandle))
 		return 0;
 
 	rc = ion_map_iommu(pgmn_dev->jpeg_client, *ionhandle, domain_num, 0,
-		SZ_4K, 0, &paddr, (unsigned long *)&size, 0,
-0); JPEG_DBG("%s:%d] addr 0x%x size %ld", __func__, __LINE__,
-							(uint32_t)paddr, size);
+		SZ_4K, 0, &paddr, (unsigned long *)&size, 0, 0);
+	JPEG_DBG("%s:%d] addr 0x%x size %ld", __func__, __LINE__,
+		(uint32_t)paddr, size);
 
-#elif CONFIG_ANDROID_PMEM
-	unsigned long kvstart;
-	rc = get_pmem_file(fd, &paddr, &kvstart, &size, file_p);
-#else
-	rc = 0;
-	paddr = 0;
-	size = 0;
-#endif
 	if (rc < 0) {
-		JPEG_PR_ERR("%s: get_pmem_file fd %d error %d\n", __func__, fd,
+		JPEG_PR_ERR("%s: ion_map_iommu fd %d error %d\n", __func__, fd,
 			rc);
 		goto error1;
 	}
@@ -76,9 +63,7 @@ uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
 
 	return paddr;
 error1:
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	ion_free(pgmn_dev->jpeg_client, *ionhandle);
-#endif
 	return 0;
 }
 
@@ -129,7 +114,6 @@ static void set_vbif_params(void *jpeg_vbif_base)
 	writel_relaxed(0x2222,
 		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF1);
 }
-
 
 int msm_jpeg_platform_init(struct platform_device *pdev,
 	struct resource **mem,
@@ -184,6 +168,7 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	JPEG_DBG("%s:%d] jpeg_vbif 0x%x", __func__, __LINE__,
 		(uint32_t)pgmn_dev->jpeg_vbif);
 
+
 	pgmn_dev->jpeg_fs = regulator_get(&pgmn_dev->pdev->dev, "vdd");
 	rc = regulator_enable(pgmn_dev->jpeg_fs);
 	if (rc) {
@@ -226,9 +211,7 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	*base = jpeg_base;
 	*irq  = jpeg_irq;
 
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	pgmn_dev->jpeg_client = msm_ion_client_create(-1, "camera/jpeg");
-#endif
 	JPEG_DBG("%s:%d] success\n", __func__, __LINE__);
 
 	return rc;
@@ -288,9 +271,7 @@ int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
 	iounmap(pgmn_dev->jpeg_vbif);
 	iounmap(base);
 	release_mem_region(mem->start, resource_size(mem));
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	ion_client_destroy(pgmn_dev->jpeg_client);
-#endif
 	JPEG_DBG("%s:%d] success\n", __func__, __LINE__);
 	return result;
 }

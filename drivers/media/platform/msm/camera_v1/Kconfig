@@ -274,15 +274,6 @@ config MSM_MERCURY
         ---help---
           Enable support for Mercury Jpeg Engine
 
-config MSM_JPEG
-	tristate "Qualcomm MSM Jpeg Encoder Engine support"
-	depends on MSM_CAMERA && ARCH_MSM8974
-	---help---
-          Enable support for Jpeg Encoder/Decoder
-	  Engine for 8974.
-	  This module serves as the common driver
-	  for the JPEG 1.0 encoder and decoder.
-
 config MSM_VPE
 	tristate "Qualcomm MSM Video Pre-processing Engine support"
 	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60)
