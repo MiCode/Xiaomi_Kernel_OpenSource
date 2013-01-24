@@ -514,7 +514,7 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 	if (ret)
 		return ret;
 
-	ret = pil_do_ramdump(&drv->q6->desc, drv->ramdump_dev);
+	ret = pil_do_ramdump(&drv->desc, drv->ramdump_dev);
 	if (ret < 0) {
 		pr_err("Unable to dump modem fw memory (rc = %d).\n", ret);
 		goto out;
