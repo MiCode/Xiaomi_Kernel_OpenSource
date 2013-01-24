@@ -174,12 +174,6 @@ static int msm_ipc_router_create(struct net *net,
 	struct msm_ipc_port *port_ptr;
 	void *pil;
 
-	if (!check_permissions()) {
-		pr_err("%s: %s Do not have permissions\n",
-			__func__, current->comm);
-		return -EPERM;
-	}
-
 	if (unlikely(protocol != 0)) {
 		pr_err("%s: Protocol not supported\n", __func__);
 		return -EPROTONOSUPPORT;
@@ -228,6 +222,12 @@ int msm_ipc_router_bind(struct socket *sock, struct sockaddr *uaddr,
 
 	if (!sk)
 		return -EINVAL;
+
+	if (!check_permissions()) {
+		pr_err("%s: %s Do not have permissions\n",
+			__func__, current->comm);
+		return -EPERM;
+	}
 
 	if (!uaddr_len) {
 		pr_err("%s: Invalid address length\n", __func__);
