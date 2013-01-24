@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +80,7 @@ struct pm8xxx_ccadc_chip {
 	int			eoc_irq;
 	int			r_sense_uohm;
 	struct delayed_work	calib_ccadc_work;
+	struct mutex		calib_mutex;
 };
 
 static struct pm8xxx_ccadc_chip *the_chip;
@@ -378,11 +379,12 @@ void pm8xxx_calib_ccadc(void)
 		return;
 	}
 
+	mutex_lock(&the_chip->calib_mutex);
 	rc = pm8xxx_readb(the_chip->dev->parent,
 					ADC_ARB_SECP_CNTRL, &sec_cntrl);
 	if (rc < 0) {
 		pr_err("error = %d reading ADC_ARB_SECP_CNTRL\n", rc);
-		return;
+		goto calibration_unlock;
 	}
 
 	rc = calib_ccadc_enable_arbiter(the_chip);
@@ -514,6 +516,8 @@ void pm8xxx_calib_ccadc(void)
 		pr_debug("error = %d programming gain trim\n", rc);
 bail:
 	pm8xxx_writeb(the_chip->dev->parent, ADC_ARB_SECP_CNTRL, sec_cntrl);
+calibration_unlock:
+	mutex_unlock(&the_chip->calib_mutex);
 }
 EXPORT_SYMBOL(pm8xxx_calib_ccadc);
 
@@ -733,6 +737,7 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 	chip->r_sense_uohm = pdata->r_sense_uohm;
 	chip->calib_delay_ms = pdata->calib_delay_ms;
 	chip->batt_temp_channel = pdata->ccadc_cdata.batt_temp_channel;
+	mutex_init(&chip->calib_mutex);
 
 	calib_ccadc_read_offset_and_gain(chip,
 					&chip->ccadc_gain_uv,
@@ -756,6 +761,7 @@ static int __devinit pm8xxx_ccadc_probe(struct platform_device *pdev)
 	return 0;
 
 free_chip:
+	mutex_destroy(&chip->calib_mutex);
 	kfree(chip);
 	return rc;
 }
