@@ -645,26 +645,24 @@ static int mdss_mdp_overlay_rotate(struct msm_fb_data_type *mfd,
 	ret = mdss_mdp_overlay_get_buf(mfd, &src_data, &req->data, 1, flgs);
 	if (ret) {
 		pr_err("src_data pmem error\n");
-		goto rotate_done;
+		return ret;
 	}
 
 	ret = mdss_mdp_overlay_get_buf(mfd, &dst_data, &req->dst_data, 1, flgs);
 	if (ret) {
 		pr_err("dst_data pmem error\n");
-		goto rotate_done;
+		goto dst_buf_fail;
 	}
 
 	ret = mdss_mdp_rotator_queue(rot, &src_data, &dst_data);
-	if (ret) {
+	if (ret)
 		pr_err("rotator queue error session id=%x\n", req->id);
-		goto rotate_done;
-	}
 
-rotate_done:
 	mdss_mdp_overlay_free_buf(&dst_data);
+dst_buf_fail:
 	mdss_mdp_overlay_free_buf(&src_data);
 
-	return 0;
+	return ret;
 }
 
 static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
