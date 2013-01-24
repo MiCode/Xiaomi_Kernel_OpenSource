@@ -1,4 +1,4 @@
-ifeq ($(CONFIG_FB_MSM_MDSS),y)
+ifeq ($(CONFIG_FB_MSM_MDSS_COMMON),y)
 obj-y += mdss/
 else
 obj-y := msm_fb.o
