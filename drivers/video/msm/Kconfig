@@ -41,6 +41,9 @@ config FB_MSM_MDP_HW
 	bool
 	default n
 
+config FB_MSM_MDSS_COMMON
+	bool
+
 choice
 	prompt "MDP HW version"
 	default FB_MSM_MDP22
@@ -88,6 +91,7 @@ config FB_MSM_MDP40
 
 config FB_MSM_MDSS
 	bool "MDSS HW"
+	select FB_MSM_MDSS_COMMON
 	---help---
 	The Mobile Display Sub System (MDSS) driver supports devices which
 	contain MDSS hardware block.
@@ -102,6 +106,10 @@ config FB_MSM_MDP_NONE
 	  Say Y here if this is mdm platform.
 
 endchoice
+
+config FB_MSM_QPIC
+	bool
+	select FB_MSM_MDSS_COMMON
 
 config FB_MSM_EBI2
 	bool
@@ -949,6 +957,21 @@ config FB_MSM_EBI2_PANEL_DETECT
 	default n
 	---help---
 	  Support for EBI2 panel auto detect
+
+config FB_MSM_QPIC_ILI_QVGA_PANEL
+	bool "Qpic MIPI ILI QVGA Panel"
+	select FB_MSM_QPIC
+	---help---
+	  Support for MIPI ILI QVGA (240x320) panel
+	  ILI TECHNOLOGY 9341
+	  with on-chip full display RAM
+	  use parallel interface
+
+config FB_MSM_QPIC_PANEL_DETECT
+	bool "Qpic Panel Detect"
+	select FB_MSM_QPIC_ILI_QVGA_PANEL
+	---help---
+	  Support for Qpic panel auto detect
 
 if FB_MSM_MDSS
 	source "drivers/video/msm/mdss/Kconfig"
