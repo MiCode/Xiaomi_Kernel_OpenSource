@@ -85,7 +85,12 @@
 #define BB_PLL8_CONFIG_REG			REG(0x3154)
 #define BB_PLL8_TEST_CTL_REG			REG(0x3150)
 #define BB_MMCC_PLL2_MODE_REG			REG(0x3160)
+#define BB_MMCC_PLL2_L_REG			REG(0x3164)
+#define BB_MMCC_PLL2_M_REG			REG(0x3168)
+#define BB_MMCC_PLL2_N_REG			REG(0x316C)
 #define BB_MMCC_PLL2_TEST_CTL_REG		REG(0x3170)
+#define BB_MMCC_PLL2_CONFIG_REG			REG(0x3174)
+#define BB_MMCC_PLL2_STATUS_REG			REG(0x3178)
 #define BB_PLL14_MODE_REG			REG(0x31C0)
 #define BB_PLL14_L_VAL_REG			REG(0x31C4)
 #define BB_PLL14_M_VAL_REG			REG(0x31C8)
@@ -3518,7 +3523,7 @@ static struct rcg_clk gfx2d1_clk = {
 		.ctl_val = CC_BANKED(9, 6, n), \
 	}
 
-/*Shared by 8064, 8930, and 8960ab*/
+/*Shared by 8064, and 8930*/
 static struct clk_freq_tbl clk_tbl_gfx3d[] = {
 	F_GFX3D(        0, gnd,   0,  0),
 	F_GFX3D( 27000000, pxo,   0,  0),
@@ -3538,6 +3543,28 @@ static struct clk_freq_tbl clk_tbl_gfx3d[] = {
 	F_GFX3D(320000000, pll2,  2,  5),
 	F_GFX3D(400000000, pll2,  1,  2),
 	F_GFX3D(450000000, pll15, 1,  2),
+	F_END
+};
+
+static struct clk_freq_tbl clk_tbl_gfx3d_8960ab[] = {
+	F_GFX3D(        0, gnd,   0,  0),
+	F_GFX3D( 27000000, pxo,   0,  0),
+	F_GFX3D( 48000000, pll8,  1,  8),
+	F_GFX3D( 54857000, pll8,  1,  7),
+	F_GFX3D( 64000000, pll8,  1,  6),
+	F_GFX3D( 76800000, pll8,  1,  5),
+	F_GFX3D( 96000000, pll8,  1,  4),
+	F_GFX3D(128000000, pll8,  1,  3),
+	F_GFX3D(145455000, pll2,  2, 11),
+	F_GFX3D(160000000, pll2,  1,  5),
+	F_GFX3D(177778000, pll2,  2,  9),
+	F_GFX3D(192000000, pll8,  1,  2),
+	F_GFX3D(200000000, pll2,  1,  4),
+	F_GFX3D(228571000, pll2,  2,  7),
+	F_GFX3D(266667000, pll2,  1,  3),
+	F_GFX3D(320000000, pll2,  2,  5),
+	F_GFX3D(400000000, pll2,  1,  2),
+	F_GFX3D(440000000, pll3,  1,  2),
 	F_END
 };
 
@@ -3614,10 +3641,21 @@ static unsigned long fmax_gfx3d_8930ab[VDD_DIG_NUM] = {
 	[VDD_DIG_HIGH]    = 500000000
 };
 
-static unsigned long fmax_gfx3d_8960ab[VDD_DIG_NUM] = {
+static unsigned long fmax_gfx3d_8960ab_400[VDD_DIG_NUM] = {
 	[VDD_DIG_LOW]     = 192000000,
 	[VDD_DIG_NOMINAL] = 325000000,
 	[VDD_DIG_HIGH]    = 400000000
+};
+
+static unsigned long fmax_gfx3d_8960ab_440[VDD_DIG_NUM] = {
+	[VDD_DIG_LOW]     = 192000000,
+	[VDD_DIG_NOMINAL] = 325000000,
+	[VDD_DIG_HIGH]    = 440000000
+};
+
+static unsigned long *fmax_gfx3d_8960ab[] = {
+	[0] = fmax_gfx3d_8960ab_400,
+	[1] = fmax_gfx3d_8960ab_440,
 };
 
 static struct bank_masks bmnd_info_gfx3d = {
@@ -6275,6 +6313,31 @@ static void __init rmwreg(uint32_t val, void *reg, uint32_t mask)
 	writel_relaxed(regval, reg);
 }
 
+static struct pll_config_regs pll3_regs __initdata = {
+	.l_reg = BB_MMCC_PLL2_L_REG,
+	.m_reg = BB_MMCC_PLL2_M_REG,
+	.n_reg = BB_MMCC_PLL2_N_REG,
+	.config_reg = BB_MMCC_PLL2_CONFIG_REG,
+	.mode_reg = BB_MMCC_PLL2_MODE_REG,
+};
+
+/* Program PLL3 to 880MHZ */
+static struct pll_config pll3_config __initdata = {
+	.l = (32 | BVAL(31, 7, 0x8)),
+	.m = 16,
+	.n = 27,
+	.vco_val = 0x0,
+	.vco_mask = BM(8, 7),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BIT(15),
+	.post_div_val = 0x0,
+	.post_div_mask = BIT(16),
+	.mn_ena_val = 0,
+	.mn_ena_mask = 0,
+	.main_output_val = 0,
+	.main_output_mask = 0,
+};
+
 static struct pll_config_regs pll4_regs __initdata = {
 	.l_reg = LCC_PLL0_L_VAL_REG,
 	.m_reg = LCC_PLL0_M_VAL_REG,
@@ -6539,6 +6602,9 @@ static void __init reg_init(void)
 		pll15_config.m = 0x1;
 		pll15_config.n = 0x3;
 		configure_sr_pll(&pll15_config, &pll15_regs, 0);
+	} else if (cpu_is_msm8960ab()) {
+		pll3_clk.c.rate = 880000000;
+		configure_sr_pll(&pll3_config, &pll3_regs, 0);
 	}
 
 	/*
@@ -6559,6 +6625,27 @@ static void __init reg_init(void)
 		/* Disable AUX and BIST outputs */
 		writel_relaxed(0, MM_PLL3_TEST_CTL_REG);
 	}
+}
+
+#define PTE_EFUSE_GFX_PHYS (0x007000BC)
+
+static unsigned long *select_gfx_fmax_plan(unsigned long **gfx_fmax, int size)
+{
+	void __iomem *pte_efuse;
+	u32 gfx_speed_bin;
+
+	pte_efuse = ioremap(PTE_EFUSE_GFX_PHYS, 4);
+	gfx_speed_bin = readl_relaxed(pte_efuse);
+	gfx_speed_bin = (gfx_speed_bin & BM(25, 24)) >> 24;
+	iounmap(pte_efuse);
+
+	if (gfx_speed_bin >= size) {
+		pr_err("GFX_SPEED_BIN: defaulting to 0\n");
+		gfx_speed_bin = 0;
+	}
+
+	pr_info("GFX_SPEED_BIN: %d\n", gfx_speed_bin);
+	return gfx_fmax[gfx_speed_bin];
 }
 
 struct clock_init_data msm8960_clock_init_data __initdata;
@@ -6586,9 +6673,11 @@ static void __init msm8960_clock_pre_init(void)
 		memcpy(msm_clocks_8960, msm_clocks_8960_common,
 			sizeof(msm_clocks_8960_common));
 	if (cpu_is_msm8960ab()) {
-		pll3_clk.c.rate = 650000000;
-		gfx3d_clk.c.fmax = fmax_gfx3d_8960ab;
+		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8960ab;
 		mdp_clk.c.fmax = fmax_mdp_8960ab;
+
+		gfx3d_clk.c.fmax = select_gfx_fmax_plan(fmax_gfx3d_8960ab,
+						ARRAY_SIZE(fmax_gfx3d_8960ab));
 
 		memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_common),
 			msm_clocks_8960ab_only, sizeof(msm_clocks_8960ab_only));
