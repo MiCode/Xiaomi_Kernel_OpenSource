@@ -196,6 +196,8 @@ struct mdss_panel_data {
 
 	/* function entry chain */
 	int (*event_handler) (struct mdss_panel_data *pdata, int e, void *arg);
+
+	struct mdss_panel_data *next;
 };
 
 int mdss_register_panel(struct platform_device *pdev,

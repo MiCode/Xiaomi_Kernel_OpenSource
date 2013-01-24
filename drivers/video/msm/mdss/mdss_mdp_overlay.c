@@ -863,7 +863,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		return;
 	}
 
-	if (fbi->var.xres > MAX_MIXER_WIDTH) {
+	if (fbi->var.xres > MAX_MIXER_WIDTH || mfd->split_display) {
 		ret = mdss_mdp_overlay_get_fb_pipe(mfd, &pipe,
 						   MDSS_MDP_MIXER_MUX_RIGHT);
 		if (ret) {
@@ -1265,6 +1265,15 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 			pr_err("Unable to initialize ctl for fb%d\n",
 				mfd->index);
 			return PTR_ERR(ctl);
+		}
+
+		if (mfd->split_display && pdata->next) {
+			/* enable split display */
+			rc = mdss_mdp_ctl_split_display_setup(ctl, pdata->next);
+			if (rc) {
+				mdss_mdp_ctl_destroy(ctl);
+				return rc;
+			}
 		}
 		mfd->ctl = ctl;
 	}
