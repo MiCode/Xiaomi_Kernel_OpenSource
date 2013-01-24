@@ -4,8 +4,8 @@ Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
 - hfi : supported Host-Firmware Interface, one of:
-        - "venus"
-        - "q6"
+	- "venus"
+	- "q6"
 
 Optional properties:
 - reg : offset and length of the register set for the device.
@@ -18,6 +18,9 @@ Optional properties:
   or non-secure.
 - load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec clock
   required for optimal performance in descending order.
+- reg-presets : list of offset-value pairs for registers to be written. The
+  offsets are from the base offset specified in 'reg'. This is mainly used
+  for QoS, vbif, etc. presets for video.
 
 Example:
 
@@ -35,4 +38,6 @@ Example:
 				<108000 100000000>,
 				<36000 50000000>;
 		hfi = "venus";
+		reg-presets = <0x80004 0x1>,
+			<0x80178 0x00001FFF>;
 	};
