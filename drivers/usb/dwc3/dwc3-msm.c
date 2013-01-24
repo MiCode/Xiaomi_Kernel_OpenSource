@@ -1503,7 +1503,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		 * 1. Set suspend and sleep bits in GUSB2PHYCONFIG reg
 		 * 2. Clear interrupt latch register and enable BSV, ID HV intr
 		 * 3. Enable DP and DM HV interrupts in ALT_INTERRUPT_EN_REG
-		 * 4. Enable PHY retention
 		 */
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
@@ -1512,8 +1511,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		if (mdwc->otg_xceiv && (!mdwc->ext_xceiv.otg_capability))
 			dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG,
 							 0x18000, 0x18000);
-		dwc3_msm_write_reg(mdwc->base, ALT_INTERRUPT_EN_REG, 0x00A);
-		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x0);
+		dwc3_msm_write_reg(mdwc->base, ALT_INTERRUPT_EN_REG, 0xFC0);
 		udelay(5);
 	} else {
 		/* Sequence to put hardware in low power state:
@@ -1541,11 +1539,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	clk_disable_unprepare(mdwc->core_clk);
 	clk_disable_unprepare(mdwc->iface_clk);
 
-	/* USB PHY no more requires TCXO */
-	ret = msm_xo_mode_vote(mdwc->xo_handle, MSM_XO_MODE_OFF);
-	if (ret)
-		dev_err(mdwc->dev, "%s failed to devote for TCXO buffer%d\n",
+	if (!host_bus_suspend) {
+		/* USB PHY no more requires TCXO */
+		ret = msm_xo_mode_vote(mdwc->xo_handle, MSM_XO_MODE_OFF);
+		if (ret)
+			dev_err(mdwc->dev, "%s failed to devote XO buffer%d\n",
 						__func__, ret);
+	}
 
 	if (mdwc->bus_perf_client) {
 		ret = msm_bus_scale_client_update_request(
@@ -1560,7 +1560,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	dwc3_ssusb_ldo_enable(0);
 	dwc3_ssusb_config_vddcx(0);
-	dwc3_hsusb_config_vddcx(0);
+	if (!host_bus_suspend)
+		dwc3_hsusb_config_vddcx(0);
 	wake_unlock(&mdwc->wlock);
 	atomic_set(&mdwc->in_lpm, 1);
 
@@ -1594,21 +1595,25 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "Failed to vote for bus scaling\n");
 	}
 
-	/* Vote for TCXO while waking up USB HSPHY */
-	ret = msm_xo_mode_vote(mdwc->xo_handle, MSM_XO_MODE_ON);
-	if (ret)
-		dev_err(mdwc->dev, "%s failed to vote for TCXO buffer%d\n",
-						__func__, ret);
-
 	dcp = mdwc->charger.chg_type == DWC3_DCP_CHARGER;
 	host_bus_suspend = mdwc->host_mode == 1;
+
+	if (!host_bus_suspend) {
+		/* Vote for TCXO while waking up USB HSPHY */
+		ret = msm_xo_mode_vote(mdwc->xo_handle, MSM_XO_MODE_ON);
+		if (ret)
+			dev_err(mdwc->dev, "%s failed to vote TCXO buffer%d\n",
+						__func__, ret);
+	}
+
 	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp &&
 							!host_bus_suspend)
 		dwc3_hsusb_ldo_enable(1);
 
 	dwc3_ssusb_ldo_enable(1);
 	dwc3_ssusb_config_vddcx(1);
-	dwc3_hsusb_config_vddcx(1);
+	if (!host_bus_suspend)
+		dwc3_hsusb_config_vddcx(1);
 	clk_prepare_enable(mdwc->ref_clk);
 	usleep_range(1000, 1200);
 
@@ -1626,8 +1631,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		/* Disable DP and DM HV interrupt */
 		dwc3_msm_write_reg(mdwc->base, ALT_INTERRUPT_EN_REG, 0x000);
 
-		/* Disable Retention */
-		dwc3_msm_write_readback(mdwc->base, HS_PHY_CTRL_REG, 0x2, 0x2);
+		/* Clear suspend bit in GUSB2PHYCONFIG register */
+		dwc3_msm_write_readback(mdwc->base, DWC3_GUSB2PHYCFG(0),
+								0x40, 0x0);
 	} else {
 		/* Disable HV interrupt */
 		if (mdwc->otg_xceiv && (!mdwc->ext_xceiv.otg_capability))
