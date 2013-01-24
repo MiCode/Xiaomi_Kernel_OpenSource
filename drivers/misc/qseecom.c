@@ -1353,7 +1353,7 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	return ret;
 }
 
-static int qseecom_load_commonlib_image(void)
+static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 {
 	int32_t ret = 0;
 	uint32_t fw_size = 0;
@@ -1392,6 +1392,12 @@ static int qseecom_load_commonlib_image(void)
 			pr_err("scm call failed w/response result%d\n",
 						resp.result);
 			ret = -EINVAL;
+			break;
+		case  QSEOS_RESULT_INCOMPLETE:
+			ret = __qseecom_process_incomplete_cmd(data, &resp);
+			if (ret)
+				pr_err("process_incomplete_cmd failed err: %d\n",
+					ret);
 			break;
 		default:
 			pr_err("scm call return unknown response %d\n",
@@ -1453,25 +1459,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		return -EINVAL;
 	}
 
-	if (qseecom.qsee_version > QSEEE_VERSION_00) {
-		mutex_lock(&app_access_lock);
-		if (qseecom.commonlib_loaded == false) {
-			ret = qseecom_load_commonlib_image();
-			if (ret == 0)
-				qseecom.commonlib_loaded = true;
-		}
-		mutex_unlock(&app_access_lock);
-	}
-
-	if (ret)
-		return -EIO;
-
-	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
-	memcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
-	ret = __qseecom_check_app_exists(app_ireq);
-	if (ret < 0)
-		return -EINVAL;
-
 	*handle = kzalloc(sizeof(struct qseecom_handle), GFP_KERNEL);
 	if (!(*handle)) {
 		pr_err("failed to allocate memory for kernel client handle\n");
@@ -1507,6 +1494,30 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		*handle = NULL;
 		return -EINVAL;
 	}
+
+	if (qseecom.qsee_version > QSEEE_VERSION_00) {
+		mutex_lock(&app_access_lock);
+		if (qseecom.commonlib_loaded == false) {
+			ret = qseecom_load_commonlib_image(data);
+			if (ret == 0)
+				qseecom.commonlib_loaded = true;
+		}
+		mutex_unlock(&app_access_lock);
+	}
+
+	if (ret) {
+		pr_err("Failed to loadd commonlib image\n");
+		kfree(data);
+		kfree(*handle);
+		*handle = NULL;
+		return -EIO;
+	}
+
+	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
+	memcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
+	ret = __qseecom_check_app_exists(app_ireq);
+	if (ret < 0)
+		return -EINVAL;
 
 	if (ret > 0) {
 		pr_warn("App id %d for [%s] app exists\n", ret,
@@ -2149,7 +2160,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		atomic_inc(&data->ioctl_count);
 		if (qseecom.qsee_version > QSEEE_VERSION_00) {
 			if (qseecom.commonlib_loaded == false) {
-				ret = qseecom_load_commonlib_image();
+				ret = qseecom_load_commonlib_image(data);
 				if (ret == 0)
 					qseecom.commonlib_loaded = true;
 			}
