@@ -23,7 +23,6 @@ else
 endif
 obj-$(CONFIG_MSM_CAMERA) += vfe/
 obj-$(CONFIG_MSM_CAMERA) += msm_axi_qos.o gemini/ mercury/
-obj-$(CONFIG_MSM_JPEG) += jpeg_10/
 ifeq ($(CONFIG_MSM_CAMERA_V4L2),y)
   obj-$(CONFIG_ARCH_MSM8X60) += msm_vpe.o
   obj-$(CONFIG_ARCH_MSM7X30) += msm_vpe.o msm_axi_qos.o

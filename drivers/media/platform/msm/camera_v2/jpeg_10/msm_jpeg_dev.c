@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,6 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
 
-#include "msm.h"
 #include "msm_jpeg_sync.h"
 #include "msm_jpeg_common.h"
 
@@ -274,7 +273,7 @@ static struct platform_driver msm_jpeg_driver = {
 	.probe	= __msm_jpeg_probe,
 	.remove = __msm_jpeg_remove,
 	.driver = {
-		.name = MSM_JPEG_DRV_NAME,
+		.name = "msm_jpeg",
 		.owner = THIS_MODULE,
 		.of_match_table = msm_jpeg_dt_match,
 	},

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -864,7 +864,7 @@ long __msm_jpeg_ioctl(struct msm_jpeg_device *pgmn_dev,
 	}
 	return rc;
 }
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+
 static int camera_register_domain(void)
 {
 	struct msm_iova_partition camera_fw_partition = {
@@ -880,7 +880,6 @@ static int camera_register_domain(void)
 	};
 	return msm_register_domain(&camera_fw_layout);
 }
-#endif
 
 int __msm_jpeg_init(struct msm_jpeg_device *pgmn_dev)
 {
