@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -163,6 +163,12 @@ int usb_bam_reset(void);
  */
 int usb_bam_client_ready(bool ready);
 
+/**
+ * Returns QDSS BAM connection number
+ *
+ */
+u8 usb_bam_get_qdss_num(void);
+
 #else
 static inline int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 {
@@ -212,6 +218,11 @@ static inline int usb_bam_reset(void)
 }
 
 static inline int usb_bam_client_ready(bool ready)
+{
+	return -ENODEV;
+}
+
+static inline u8 usb_bam_get_qdss_num(void)
 {
 	return -ENODEV;
 }
