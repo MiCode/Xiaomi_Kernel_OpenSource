@@ -342,6 +342,9 @@ static enum msm_cpu cpu_of_id[] = {
 	/* 8064AA IDs */
 	[172] = MSM_CPU_8064AA,
 
+	/* zinc IDs */
+	[178] = MSM_CPU_ZINC,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
