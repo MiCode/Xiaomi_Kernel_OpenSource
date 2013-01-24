@@ -568,6 +568,44 @@ static void msm_vfe40_clear_framedrop(struct vfe_device *vfe_dev,
 			VFE40_WM_BASE(stream_info->wm[i]) + 0x1C);
 }
 
+static void msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream_request_cmd *stream_req_cmd)
+{
+	int bpp, bpp_reg = 0;
+	uint32_t io_format_reg;
+	bpp = msm_isp_get_bit_per_pixel(stream_req_cmd->output_format);
+
+	switch (bpp) {
+	case 8:
+		bpp_reg = 0;
+		break;
+	case 10:
+		bpp_reg = 1 << 0;
+		break;
+	case 12:
+		bpp_reg = 1 << 1;
+		break;
+	}
+	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
+	switch (stream_req_cmd->stream_src) {
+	case CAMIF_RAW:
+		io_format_reg &= 0xFFFFCFFF;
+		io_format_reg |= bpp_reg << 12;
+		break;
+	case IDEAL_RAW:
+		io_format_reg &= 0xFFFFFFC8;
+		io_format_reg |= bpp_reg << 4;
+		break;
+	case PIX_ENCODER:
+	case PIX_VIEWFINDER:
+	case RDI:
+	default:
+		pr_err("%s: Invalid stream source\n", __func__);
+		return;
+	}
+	msm_camera_io_w(io_format_reg, vfe_dev->vfe_base + 0x54);
+}
+
 static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
@@ -1190,6 +1228,7 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 		.axi_ops = {
 			.reload_wm = msm_vfe40_axi_reload_wm,
 			.enable_wm = msm_vfe40_axi_enable_wm,
+			.cfg_io_format = msm_vfe40_cfg_io_format,
 			.cfg_comp_mask = msm_vfe40_axi_cfg_comp_mask,
 			.clear_comp_mask = msm_vfe40_axi_clear_comp_mask,
 			.cfg_wm_irq_mask = msm_vfe40_axi_cfg_wm_irq_mask,
