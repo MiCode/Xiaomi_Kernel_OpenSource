@@ -1,0 +1,18 @@
+Qualcomm mdss-qpic
+
+mdss-qpic is a qpic controller device which supports dma transmission to MIPI
+and LCDC panel.
+
+Required properties:
+- compatible:			must be "qcom,mdss_qpic"
+- reg:					offset and length of the register set for the device.
+- reg-names :			names to refer to register sets related to this device
+- interrupts:			IRQ line
+
+Example:
+	qcom,msm_qpic@f9ac0000 {
+		compatible = "qcom,mdss_qpic";
+		reg = <0xf9ac0000 0x24000>;
+		reg-names = "qpic_base";
+		interrupts = <0 251 0>;
+	};

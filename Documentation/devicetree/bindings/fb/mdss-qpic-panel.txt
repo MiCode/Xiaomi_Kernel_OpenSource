@@ -1,0 +1,37 @@
+Qualcomm mdss-qpic-panel
+
+mdss-qpic-panel is a panel device which can be driven by qpic.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-qpic-panel"
+- qcom,mdss-pan-res:		A two dimensional array that specifies the panel
+							resolution.
+- qcom,mdss-pan-bpp:		Specifies the panel bits per pixel.
+- qcom,refresh_rate:		Panel refresh rate
+- vdd-supply:				Phandle for vdd regulator device node.
+- avdd-supply:				Phandle for avdd regulator device node.
+- qcom,cs-gpio:				Phandle for cs gpio device node.
+- qcom,te-gpio:				Phandle for te gpio device node.
+- qcom,rst-gpio:			Phandle for rst gpio device node.
+- qcom,ad8-gpio:			Phandle for ad8 gpio device node.
+
+Optional properties:
+- label:					A string used as a descriptive name of the panel
+
+
+Example:
+/ {
+	qcom,mdss_lcdc_ili9341_qvga {
+		compatible = "qcom,mdss-qpic-panel";
+		label = "ili qvga lcdc panel";
+		vdd-supply = <&pm8019_l11>;
+		avdd-supply = <&pm8019_l14>;
+		qcom,cs-gpio = <&msmgpio 21 0>;
+		qcom,te-gpio = <&msmgpio 22 0>;
+		qcom,rst-gpio = <&msmgpio 23 0>;
+		qcom,ad8-gpio = <&msmgpio 20 0>;
+		qcom,mdss-pan-res = <240 320>;
+		qcom,mdss-pan-bpp = <18>;
+		qcom,refresh_rate = <60>;
+	};
+};
