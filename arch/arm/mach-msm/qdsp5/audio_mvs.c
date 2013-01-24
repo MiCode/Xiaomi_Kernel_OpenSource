@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -335,6 +335,8 @@ struct audio_mvs_info_type {
 
 	struct wake_lock suspend_lock;
 	struct pm_qos_request pm_qos_req;
+
+	struct completion complete;
 };
 
 static struct audio_mvs_info_type audio_mvs_info;
@@ -1235,7 +1237,7 @@ static int audio_mvs_thread(void *data)
 		kfree(rpc_hdr);
 		rpc_hdr = NULL;
 	}
-
+	complete_and_exit(&audio->complete, 0);
 	MM_DBG("MVS thread stopped\n");
 
 	return 0;
@@ -1360,6 +1362,7 @@ static int audio_mvs_release(struct inode *inode, struct file *file)
 		audio_mvs_stop(audio);
 	audio->state = AUDIO_MVS_CLOSED;
 	msm_rpc_read_wakeup(audio->rpc_endpt);
+	wait_for_completion(&audio->complete);
 	msm_rpc_close(audio->rpc_endpt);
 	audio->task = NULL;
 	audio_mvs_free_buf(audio);
@@ -1715,6 +1718,8 @@ static int __init audio_mvs_init(void)
 	INIT_LIST_HEAD(&audio_mvs_info.free_in_queue);
 	INIT_LIST_HEAD(&audio_mvs_info.out_queue);
 	INIT_LIST_HEAD(&audio_mvs_info.free_out_queue);
+
+	init_completion(&audio_mvs_info.complete);
 
 	wake_lock_init(&audio_mvs_info.suspend_lock,
 		       WAKE_LOCK_SUSPEND,
