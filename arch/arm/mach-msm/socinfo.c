@@ -866,6 +866,10 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 147;
 		strlcpy(dummy_socinfo.build_id, "msm8610 - ",
 			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msmzinc()) {
+		dummy_socinfo.id = 178;
+		strlcpy(dummy_socinfo.build_id, "msmzinc - ",
+			sizeof(dummy_socinfo.build_id));
 	}
 	strlcat(dummy_socinfo.build_id, "Dummy socinfo",
 		sizeof(dummy_socinfo.build_id));
