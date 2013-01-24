@@ -1664,6 +1664,7 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 				__func__, dai->name);
 		}
 	}
+	rc = msm_dai_q6_dai_add_route(dai);
 rtn:
 	return rc;
 }
@@ -1991,24 +1992,99 @@ static struct snd_soc_dai_ops msm_dai_q6_mi2s_ops = {
 };
 
 /* Channel min and max are initialized base on platform data */
-static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai = {
-	.playback = {
-		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
-		SNDRV_PCM_RATE_16000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		.rate_min =     8000,
-		.rate_max =     48000,
+static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
+	{
+		.playback = {
+			.stream_name = "Primary I2S Playback",
+			.aif_name = "PRI_I2S_RX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.capture = {
+			.stream_name = "Primary I2S Capture",
+			.aif_name = "PRI_I2S_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.ops = &msm_dai_q6_mi2s_ops,
+		.probe = msm_dai_q6_dai_mi2s_probe,
+		.remove = msm_dai_q6_dai_mi2s_remove,
 	},
-	.capture = {
-		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
-		SNDRV_PCM_RATE_16000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
-		.rate_min =     8000,
-		.rate_max =     48000,
+	{
+		.playback = {
+			.stream_name = "Secondary MI2S Playback",
+			.aif_name = "SEC_MI2S_RX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.capture = {
+			.stream_name = "Secondary MI2S Capture",
+			.aif_name = "SEC_MI2S_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.ops = &msm_dai_q6_mi2s_ops,
+		.probe = msm_dai_q6_dai_mi2s_probe,
+		.remove = msm_dai_q6_dai_mi2s_remove,
 	},
-	.ops = &msm_dai_q6_mi2s_ops,
-	.probe = msm_dai_q6_dai_mi2s_probe,
-	.remove = msm_dai_q6_dai_mi2s_remove,
+	{
+		.playback = {
+			/*No AIF to connect*/
+			.stream_name = "Tertiary MI2S Playback",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.capture = {
+			/*No AIF to connect*/
+			.stream_name = "Tertiary MI2S Capture",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.ops = &msm_dai_q6_mi2s_ops,
+		.probe = msm_dai_q6_dai_mi2s_probe,
+		.remove = msm_dai_q6_dai_mi2s_remove,
+	},
+	{
+		.playback = {
+			.stream_name = "Quaternary MI2S Playback",
+			.aif_name = "QUAT_MI2S_RX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.capture = {
+			.stream_name = "Quaternary MI2S Capture",
+			.aif_name = "QUAT_MI2S_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.ops = &msm_dai_q6_mi2s_ops,
+		.probe = msm_dai_q6_dai_mi2s_probe,
+		.remove = msm_dai_q6_dai_mi2s_remove,
+	},
 };
 
 
@@ -2163,7 +2239,6 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	u32 mi2s_intf = 0;
 	struct msm_mi2s_pdata *mi2s_pdata;
 	int rc;
-	struct snd_soc_dai_driver *mi2s_dai;
 
 	rc = of_property_read_u32(pdev->dev.of_node, q6_mi2s_dev_id,
 				  &mi2s_intf);
@@ -2176,7 +2251,8 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "dev name %s dev id %x\n", dev_name(&pdev->dev),
 		mi2s_intf);
 
-	if (mi2s_intf < MSM_PRIM_MI2S || mi2s_intf > MSM_QUAT_MI2S) {
+	if (mi2s_intf < MSM_PRIM_MI2S || mi2s_intf > MSM_QUAT_MI2S
+		|| (mi2s_intf >= ARRAY_SIZE(msm_dai_q6_mi2s_dai))) {
 		dev_err(&pdev->dev,
 			"%s: Invalid MI2S ID %u from Device Tree\n",
 			__func__, mi2s_intf);
@@ -2225,21 +2301,13 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 
 	pdev->dev.platform_data = mi2s_pdata;
 
-	mi2s_dai = kzalloc(sizeof(struct snd_soc_dai_driver), GFP_KERNEL);
-	if (!mi2s_dai) {
-		dev_err(&pdev->dev, "fail to allocate for mi2s_dai\n");
-		rc = -ENOMEM;
-		goto free_dai_data;
-	}
-
-	memcpy(mi2s_dai, &msm_dai_q6_mi2s_dai,
-	       sizeof(struct snd_soc_dai_driver));
-	rc = msm_dai_q6_mi2s_platform_data_validation(pdev, mi2s_dai);
+	rc = msm_dai_q6_mi2s_platform_data_validation(pdev,
+			&msm_dai_q6_mi2s_dai[mi2s_intf]);
 	if (IS_ERR_VALUE(rc))
-		goto free_dai;
+		goto free_dai_data;
 
 	rc = snd_soc_register_component(&pdev->dev, &msm_q6_mi2s_dai_component,
-	mi2s_dai, 1);
+	&msm_dai_q6_mi2s_dai[mi2s_intf], 1);
 
 	if (IS_ERR_VALUE(rc))
 		goto err_register;
@@ -2247,8 +2315,6 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 
 err_register:
 	dev_err(&pdev->dev, "fail to msm_dai_q6_mi2s_dev_probe\n");
-free_dai:
-	kfree(mi2s_dai);
 free_dai_data:
 	kfree(dai_data);
 free_pdata:
