@@ -1847,6 +1847,11 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_sdcc2_ahb_clk.c,			GCC_BASE, 0x0071},
 	{&gcc_ce1_clk.c,			GCC_BASE, 0x0138},
 	{&gcc_sys_noc_ipa_axi_clk.c,		GCC_BASE, 0x0007},
+	{&gcc_ipa_clk.c,			GCC_BASE, 0x01E0},
+	{&gcc_ipa_cnoc_clk.c,			GCC_BASE, 0x01E1},
+	{&gcc_ipa_sleep_clk.c,			GCC_BASE, 0x01E2},
+	{&gcc_qpic_clk.c,			GCC_BASE, 0x01D8},
+	{&gcc_qpic_ahb_clk.c,			GCC_BASE, 0x01D9},
 
 	{&audio_core_lpaif_pcm_data_oe_clk.c,	LPASS_BASE, 0x0030},
 	{&audio_core_slimbus_core_clk.c,	LPASS_BASE, 0x003d},
