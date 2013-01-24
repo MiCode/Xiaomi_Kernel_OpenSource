@@ -1,0 +1,40 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+#ifndef __ASM_ARCH_MSM_IOMAP_zinc_H
+#define __ASM_ARCH_MSM_IOMAP_zinc_H
+
+/* Physical base address and size of peripherals.
+ * Ordered by the virtual base addresses they will be mapped at.
+ *
+ * If you add or remove entries here, you'll want to edit the
+ * io desc array in arch/arm/mach-msm/io.c to reflect your
+ * changes.
+ *
+ */
+
+#define MSMZINC_SHARED_RAM_PHYS     0x0FA00000
+
+#define MSMZINC_QGIC_DIST_PHYS	0xF9000000
+#define MSMZINC_QGIC_DIST_SIZE	SZ_4K
+
+#define MSMZINC_QGIC_CPU_PHYS	0xF9002000
+#define MSMZINC_QGIC_CPU_SIZE	SZ_4K
+
+#define MSMZINC_TLMM_PHYS	0xFD510000
+#define MSMZINC_TLMM_SIZE	SZ_16K
+
+#define MSMZINC_IMEM_PHYS       0xFC42B000
+#define MSMZINC_IMEM_SIZE       SZ_4K
+
+#endif
