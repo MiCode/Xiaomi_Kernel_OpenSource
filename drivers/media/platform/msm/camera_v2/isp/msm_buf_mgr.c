@@ -180,6 +180,9 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
+	if (buf_info->state == MSM_ISP_BUFFER_STATE_DISPATCHED)
+		return 0;
+
 	if (buf_info->state == MSM_ISP_BUFFER_STATE_UNUSED ||
 			buf_info->state != MSM_ISP_BUFFER_STATE_INITIALIZED) {
 		pr_err("%s: Invalid buffer state: %d\n",
