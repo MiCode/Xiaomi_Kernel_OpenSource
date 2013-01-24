@@ -46,6 +46,8 @@
 #include <mach/msm_bus_board.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
+#include <mach/memory.h>
+#include <mach/msm_memtypes.h>
 
 #include "mdss.h"
 #include "mdss_fb.h"
@@ -125,6 +127,39 @@ static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
 static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
 				       char *prop_name);
 static int mdss_mdp_parse_dt_smp(struct platform_device *pdev);
+
+int mdss_mdp_alloc_fb_mem(struct msm_fb_data_type *mfd,
+			  u32 size, u32 *phys, void **virt)
+{
+	int dom;
+	void *fb_virt;
+	u32 fb_phys;
+	fb_virt = allocate_contiguous_memory(size, MEMTYPE_EBI1, SZ_1M, 0);
+	if (!fb_virt) {
+		pr_err("unable to alloc fbmem size=%u\n", size);
+		return -ENOMEM;
+	}
+	fb_phys = memory_pool_node_paddr(fb_virt);
+	dom = mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE);
+	msm_iommu_map_contig_buffer(fb_phys, dom, 0, size, SZ_4K,
+					0, &(mfd->iova));
+	*phys = fb_phys;
+	*virt = fb_virt;
+	return 0;
+}
+
+u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
+{
+	/* The adreno GPU hardware requires that the pitch be aligned to
+	   32 pixels for color buffers, so for the cases where the GPU
+	   is writing directly to fb0, the framebuffer pitch
+	   also needs to be 32 pixel aligned */
+
+	if (fb_index == 0)
+		return ALIGN(xres, 32) * bpp;
+	else
+		return xres * bpp;
+}
 
 static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
 {
