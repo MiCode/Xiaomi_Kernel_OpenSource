@@ -101,6 +101,20 @@ static int32_t msm_cci_i2c_set_freq(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static void msm_cci_flush_queue(struct cci_device *cci_dev,
+	enum cci_i2c_master_t master)
+{
+	uint32_t rc = 0;
+
+	msm_camera_io_w(1 << master, cci_dev->base + CCI_HALT_REQ_ADDR);
+	rc = wait_for_completion_interruptible_timeout(
+		&cci_dev->cci_master_info[master].reset_complete, CCI_TIMEOUT);
+	if (rc <= 0)
+		pr_err("%s: wait_for_completion_interruptible_timeout %d\n",
+			__func__, __LINE__);
+	return;
+}
+
 static int32_t msm_cci_validate_queue(struct cci_device *cci_dev,
 	uint32_t len,
 	enum cci_i2c_master_t master,
@@ -139,6 +153,7 @@ static int32_t msm_cci_validate_queue(struct cci_device *cci_dev,
 				 __func__, __LINE__);
 			if (rc == 0)
 				rc = -ETIMEDOUT;
+			msm_cci_flush_queue(cci_dev, master);
 			return rc;
 		}
 		rc = cci_dev->cci_master_info[master].status;
@@ -318,7 +333,8 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 			 __func__, __LINE__);
 		if (rc == 0)
 			rc = -ETIMEDOUT;
-		return rc;
+		msm_cci_flush_queue(cci_dev, master);
+		goto ERROR;
 	} else {
 		rc = 0;
 	}
@@ -432,7 +448,8 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 			 __func__, __LINE__);
 		if (rc == 0)
 			rc = -ETIMEDOUT;
-		return rc;
+		msm_cci_flush_queue(cci_dev, master);
+		goto ERROR;
 	} else {
 		rc = 0;
 	}

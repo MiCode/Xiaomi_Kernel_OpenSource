@@ -29,8 +29,7 @@
 #define CCI_I2C_M0_READ_BUF_LEVEL_ADDR                              0x0000011C
 #define CCI_HALT_REQ_ADDR                                           0x00000034
 #define CCI_M0_HALT_REQ_RMSK                                               0x1
-#define CCI_M1_HALT_REQ_RMSK                                              0x01
-#define CCI_HALT_REQ_ADDR                                           0x00000034
+#define CCI_M1_HALT_REQ_RMSK                                               0x2
 #define CCI_I2C_M1_SCL_CTL_ADDR                                     0x00000200
 #define CCI_I2C_M1_SDA_CTL_0_ADDR                                   0x00000204
 #define CCI_I2C_M1_SDA_CTL_1_ADDR                                   0x00000208
