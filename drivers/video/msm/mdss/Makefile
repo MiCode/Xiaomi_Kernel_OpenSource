@@ -7,7 +7,10 @@ mdss-mdp-objs += mdss_mdp_overlay.o
 mdss-mdp-objs += mdss_mdp_wb.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss-mdp.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_fb.o
+
+ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-$(CONFIG_DEBUG_FS) += mdss_debug.o
+endif
 
 mdss-dsi-objs := mdss_dsi.o mdss_dsi_host.o
 mdss-dsi-objs += mdss_dsi_panel.o
@@ -23,3 +26,7 @@ obj-$(CONFIG_FB_MSM_MDSS_HDMI_MHL_SII8334) += mhl_sii8334.o mhl_msc.o
 obj-$(CONFIG_FB_MSM_MDSS_HDMI_PANEL) += mdss_hdmi_hdcp.o
 
 obj-$(CONFIG_FB_MSM_MDSS_WRITEBACK) += mdss_wb.o
+
+mdss-qpic-objs := mdss_qpic.o mdss_fb.o mdss_qpic_panel.o
+obj-$(CONFIG_FB_MSM_QPIC) += mdss-qpic.o
+obj-$(CONFIG_FB_MSM_QPIC_ILI_QVGA_PANEL) += qpic_panel_ili_qvga.o
