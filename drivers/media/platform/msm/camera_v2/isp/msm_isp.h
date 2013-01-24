@@ -80,7 +80,8 @@ struct msm_vfe_axi_ops {
 		uint32_t reload_mask);
 	void (*enable_wm) (struct vfe_device *vfe_dev,
 		uint8_t wm_idx, uint8_t enable);
-
+	void (*cfg_io_format) (struct vfe_device *vfe_dev,
+		struct msm_vfe_axi_stream_request_cmd *stream_req_cmd);
 	void (*cfg_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,

@@ -508,6 +508,11 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		&vfe_dev->axi_data.
 			stream_info[(stream_cfg_cmd->axi_stream_handle & 0xFF)];
 
+	if (stream_cfg_cmd->stream_src == CAMIF_RAW ||
+		stream_cfg_cmd->stream_src == IDEAL_RAW)
+			vfe_dev->hw_info->vfe_ops.axi_ops.
+				cfg_io_format(vfe_dev, stream_cfg_cmd);
+
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, stream_cfg_cmd);
 	vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(vfe_dev, stream_info);
 

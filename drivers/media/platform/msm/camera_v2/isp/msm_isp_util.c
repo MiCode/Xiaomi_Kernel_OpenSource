@@ -314,6 +314,35 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 	return val;
 }
 
+int msm_isp_get_bit_per_pixel(uint32_t output_format)
+{
+	switch (output_format) {
+	case V4L2_PIX_FMT_SBGGR8:
+	case V4L2_PIX_FMT_SGBRG8:
+	case V4L2_PIX_FMT_SGRBG8:
+	case V4L2_PIX_FMT_SRGGB8:
+		return 8;
+	case V4L2_PIX_FMT_SBGGR10:
+	case V4L2_PIX_FMT_SGBRG10:
+	case V4L2_PIX_FMT_SGRBG10:
+	case V4L2_PIX_FMT_SRGGB10:
+		return 10;
+	case V4L2_PIX_FMT_SBGGR12:
+	case V4L2_PIX_FMT_SGBRG12:
+	case V4L2_PIX_FMT_SGRBG12:
+	case V4L2_PIX_FMT_SRGGB12:
+		return 12;
+	case V4L2_PIX_FMT_NV12:
+	case V4L2_PIX_FMT_NV21:
+		return 8;
+		/*TD: Add more image format*/
+	default:
+		pr_err("%s: Invalid output format\n", __func__);
+		break;
+	}
+	return -EINVAL;
+}
+
 irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 {
 	unsigned long flags;
