@@ -397,8 +397,19 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	if (!card->ext_csd.bkops_en)
 		return;
 
+	if ((card->bkops_info.cancel_delayed_work) && !from_exception) {
+		pr_debug("%s: %s: cancel_delayed_work was set, exit\n",
+			 mmc_hostname(card->host), __func__);
+		card->bkops_info.cancel_delayed_work = false;
+		return;
+	}
+
 	mmc_claim_host(card->host);
 
+	/*
+	 * Since the cancel_delayed_work can be changed while we are waiting
+	 * for the lock we will to re-check it
+	 */
 	if ((card->bkops_info.cancel_delayed_work) && !from_exception) {
 		pr_debug("%s: %s: cancel_delayed_work was set, exit\n",
 			 mmc_hostname(card->host), __func__);
@@ -3148,11 +3159,9 @@ int mmc_suspend_host(struct mmc_host *host)
 
 		if (!err) {
 			if (host->bus_ops->suspend) {
-				if (mmc_card_doing_bkops(host->card)) {
-					err = mmc_stop_bkops(host->card);
-					if (err)
-						goto stop_bkops_err;
-				}
+				err = mmc_stop_bkops(host->card);
+				if (err)
+					goto stop_bkops_err;
 				err = host->bus_ops->suspend(host);
 				MMC_UPDATE_BKOPS_STATS_SUSPEND(host->
 						card->bkops_info.bkops_stats);
