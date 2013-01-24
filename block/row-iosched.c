@@ -165,6 +165,8 @@ struct idling_data {
  * @nr_reqs: nr_reqs[0] holds the number of all READ requests in
  *			scheduler, nr_reqs[1] holds the number of all WRITE
  *			requests in scheduler
+ * @nr_urgent_in_flight: number of uncompleted urgent requests
+ *			(both reads and writes)
  * @cycle_flags:	used for marking unserved queueus
  *
  */
@@ -175,6 +177,7 @@ struct row_data {
 
 	struct idling_data		rd_idle_data;
 	unsigned int			nr_reqs[2];
+	unsigned int			nr_urgent_in_flight;
 
 	unsigned int			cycle_flags;
 };
@@ -303,6 +306,7 @@ static void row_add_request(struct request_queue *q,
 		row_log_rowq(rd, rqueue->prio,
 			"added urgent request (total on queue=%d)",
 			rqueue->nr_req);
+		rq->cmd_flags |= REQ_URGENT;
 	} else
 		row_log_rowq(rd, rqueue->prio,
 			"added request (total on queue=%d)", rqueue->nr_req);
@@ -341,6 +345,20 @@ static int row_reinsert_req(struct request_queue *q,
 	return 0;
 }
 
+static void row_completed_req(struct request_queue *q, struct request *rq)
+{
+	struct row_data *rd = q->elevator->elevator_data;
+
+	 if (rq->cmd_flags & REQ_URGENT) {
+		if (!rd->nr_urgent_in_flight) {
+			pr_err("ROW BUG: %s() nr_urgent_in_flight = 0",
+				__func__);
+			return;
+		}
+		rd->nr_urgent_in_flight--;
+	}
+}
+
 /**
  * row_urgent_pending() - Return TRUE if there is an urgent
  *			  request on scheduler
@@ -351,7 +369,20 @@ static bool row_urgent_pending(struct request_queue *q)
 	struct row_data *rd = q->elevator->elevator_data;
 	int i;
 
-	for (i = 0; i < ROWQ_MAX_PRIO; i++)
+	if (rd->nr_urgent_in_flight) {
+		row_log(rd->dispatch_queue, "%d urgent requests in flight",
+			rd->nr_urgent_in_flight);
+		return false;
+	}
+
+	for (i = ROWQ_HIGH_PRIO_IDX; i < ROWQ_REG_PRIO_IDX; i++)
+		if (!list_empty(&rd->row_queues[i].fifo)) {
+			row_log_rowq(rd, i,
+				"Urgent (high prio) request pending");
+			return true;
+		}
+
+	for (i = ROWQ_REG_PRIO_IDX; i < ROWQ_MAX_PRIO; i++)
 		if (row_queues_def[i].is_urgent && row_rowq_unserved(rd, i) &&
 		    !list_empty(&rd->row_queues[i].fifo)) {
 			row_log_rowq(rd, i, "Urgent request pending");
@@ -398,6 +429,8 @@ static void row_dispatch_insert(struct row_data *rd, int queue_idx)
 	row_clear_rowq_unserved(rd, queue_idx);
 	row_log_rowq(rd, queue_idx, " Dispatched request nr_disp = %d",
 		     rd->row_queues[queue_idx].nr_dispatched);
+	if (rq->cmd_flags & REQ_URGENT)
+		rd->nr_urgent_in_flight++;
 }
 
 /*
@@ -642,6 +675,7 @@ static void *row_init_queue(struct request_queue *q)
 	rdata->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
 	rdata->dispatch_queue = q;
 
+	rdata->nr_urgent_in_flight = 0;
 	rdata->nr_reqs[READ] = rdata->nr_reqs[WRITE] = 0;
 
 	return rdata;
@@ -708,6 +742,7 @@ static enum row_queue_prio row_get_queue_prio(struct request *rq)
 				rq->rq_disk->disk_name, __func__);
 			q_type = ROWQ_PRIO_REG_WRITE;
 		}
+		rq->cmd_flags |= REQ_URGENT;
 		break;
 	case IOPRIO_CLASS_IDLE:
 		if (data_dir == READ)
@@ -864,6 +899,7 @@ static struct elevator_type iosched_row = {
 		.elevator_add_req_fn		= row_add_request,
 		.elevator_reinsert_req_fn	= row_reinsert_req,
 		.elevator_is_urgent_fn		= row_urgent_pending,
+		.elevator_completed_req_fn	= row_completed_req,
 		.elevator_former_req_fn		= elv_rb_former_request,
 		.elevator_latter_req_fn		= elv_rb_latter_request,
 		.elevator_set_req_fn		= row_set_request,
