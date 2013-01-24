@@ -730,19 +730,6 @@ static struct fb_ops mdss_fb_ops = {
 	.fb_mmap = mdss_fb_mmap,
 };
 
-static u32 mdss_fb_line_length(u32 fb_index, u32 xres, int bpp)
-{
-	/* The adreno GPU hardware requires that the pitch be aligned to
-	   32 pixels for color buffers, so for the cases where the GPU
-	   is writing directly to fb0, the framebuffer pitch
-	   also needs to be 32 pixel aligned */
-
-	if (fb_index == 0)
-		return ALIGN(xres, 32) * bpp;
-	else
-		return xres * bpp;
-}
-
 static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 {
 	void *virt = NULL;
@@ -753,16 +740,8 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 	size = PAGE_ALIGN(mfd->fbi->fix.line_length * yres);
 
 	if (mfd->index == 0) {
-		int dom;
-		virt = allocate_contiguous_memory(size, MEMTYPE_EBI1, SZ_1M, 0);
-		if (!virt) {
-			pr_err("unable to alloc fbmem size=%u\n", size);
-			return -ENOMEM;
-		}
-		phys = memory_pool_node_paddr(virt);
-		dom = mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE);
-		msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K,
-					    0, &(mfd->iova));
+		if (mdss_mdp_alloc_fb_mem(mfd, size, (u32 *)&phys, &virt))
+			return  -ENOMEM;
 		pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
 			size, virt, phys, mfd->index);
 	} else {
@@ -921,7 +900,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		var->xres *= 2;
 
 	fix->type = panel_info->is_3d_panel;
-	fix->line_length = mdss_fb_line_length(mfd->index, var->xres, bpp);
+	fix->line_length = mdss_mdp_fb_stride(mfd->index, var->xres, bpp);
 
 	var->yres = panel_info->yres;
 	var->xres_virtual = var->xres;
@@ -1425,7 +1404,7 @@ static int mdss_fb_set_par(struct fb_info *info)
 		return -EINVAL;
 	}
 
-	mfd->fbi->fix.line_length = mdss_fb_line_length(mfd->index, var->xres,
+	mfd->fbi->fix.line_length = mdss_mdp_fb_stride(mfd->index, var->xres,
 						var->bits_per_pixel / 8);
 
 	if (mfd->panel_reconfig || (mfd->fb_imgType != old_imgType)) {
