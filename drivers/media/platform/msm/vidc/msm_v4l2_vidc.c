@@ -30,6 +30,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_smem.h"
 #include "vidc_hfi_api.h"
+#include "msm_vidc_resources.h"
 
 #define BASE_DEVICE_NUMBER 32
 
@@ -735,6 +736,13 @@ static inline void msm_vidc_free_iommu_maps(
 	res->iommu_maps = NULL;
 }
 
+static inline void msm_vidc_free_reg_table(
+			struct msm_vidc_platform_resources *res)
+{
+	kfree(res->reg_set.reg_tbl);
+	res->reg_set.reg_tbl = NULL;
+}
+
 static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
@@ -817,6 +825,44 @@ error:
 	return rc;
 }
 
+static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
+{
+	struct reg_set *reg_set;
+	struct platform_device *pdev = res->pdev;
+	int i;
+	int rc = 0;
+
+	reg_set = &res->reg_set;
+	reg_set->count = get_u32_array_num_elements(pdev, "reg-presets");
+	if (reg_set->count == 0) {
+		dprintk(VIDC_DBG, "no elements in reg set\n");
+		return rc;
+	}
+
+	reg_set->reg_tbl = kzalloc(reg_set->count *
+			sizeof(*(reg_set->reg_tbl)), GFP_KERNEL);
+	if (!reg_set->reg_tbl) {
+		dprintk(VIDC_ERR, "%s Failed to alloc temp\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	if (of_property_read_u32_array(pdev->dev.of_node, "reg-presets",
+		(u32 *)reg_set->reg_tbl, reg_set->count * 2)) {
+		dprintk(VIDC_ERR, "Failed to read register table\n");
+		msm_vidc_free_reg_table(res);
+		return -EINVAL;
+	}
+	for (i = 0; i < reg_set->count; i++) {
+		dprintk(VIDC_DBG,
+			"reg = %x, value = %x\n",
+			reg_set->reg_tbl[i].reg,
+			reg_set->reg_tbl[i].value
+		);
+	}
+	return rc;
+}
+
 static int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res)
 {
@@ -848,7 +894,15 @@ static int read_platform_resources_from_dt(
 		dprintk(VIDC_ERR, "Failed to load iommu maps: %d\n", rc);
 		goto err_load_iommu_maps;
 	}
+	rc = msm_vidc_load_reg_table(res);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to load reg table: %d\n", rc);
+		goto err_load_reg_table;
+	}
 	return rc;
+
+err_load_reg_table:
+	msm_vidc_free_iommu_maps(res);
 err_load_iommu_maps:
 	msm_vidc_free_freq_table(res);
 err_load_freq_table:
@@ -1076,6 +1130,7 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 
 	msm_vidc_free_freq_table(&core->resources);
 	msm_vidc_free_iommu_maps(&core->resources);
+	msm_vidc_free_reg_table(&core->resources);
 	kfree(core);
 	return rc;
 }

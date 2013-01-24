@@ -1179,47 +1179,23 @@ static int venus_hfi_core_start_cpu(struct venus_hfi_device *device)
 	return rc;
 }
 
-static void venus_hfi_set_vbif_registers(struct venus_hfi_device *device)
+static void venus_hfi_set_registers(struct venus_hfi_device *device)
 {
-	/*Disable Dynamic clock gating for Venus VBIF*/
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-				   VIDC_VENUS_VBIF_CLK_ON, 1, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_OUT_AXI_AOOO_EN, 0x00001FFF, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_OUT_AXI_AOOO, 0x1FFF1FFF, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_IN_RD_LIM_CONF0, 0x10101001, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_IN_RD_LIM_CONF1, 0x10101010, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_IN_RD_LIM_CONF2, 0x10101010, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_IN_RD_LIM_CONF3, 0x00000010, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_IN_WR_LIM_CONF0, 0x1010100f, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_IN_WR_LIM_CONF1, 0x10101010, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_IN_WR_LIM_CONF2, 0x10101010, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_IN_WR_LIM_CONF3, 0x00000010, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_OUT_RD_LIM_CONF0, 0x00001010, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_OUT_WR_LIM_CONF0, 0x00001010, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VBIF_ARB_CTL, 0x00000030, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VENUS_VBIF_DDR_OUT_MAX_BURST, 0x00000707, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VENUS_VBIF_OCMEM_OUT_MAX_BURST, 0x00000707, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VENUS_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000001, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VENUS0_WRAPPER_VBIF_REQ_PRIORITY, 0x5555556, 0);
-	venus_hfi_write_register(device->hal_data->register_base_addr,
-			VIDC_VENUS0_WRAPPER_VBIF_PRIORITY_LEVEL, 0, 0);
+	struct reg_set *reg_set;
+	int i;
+
+	if (!device->res) {
+		dprintk(VIDC_ERR,
+			"device resources null, cannot set registers\n");
+		return;
+	}
+
+	reg_set = &device->res->reg_set;
+	for (i = 0; i < reg_set->count; i++) {
+		venus_hfi_write_register(device->hal_data->register_base_addr,
+				reg_set->reg_tbl[i].reg,
+				reg_set->reg_tbl[i].value, 0);
+	}
 }
 
 static int venus_hfi_sys_set_debug(struct venus_hfi_device *device, int debug)
@@ -1261,7 +1237,7 @@ static int venus_hfi_core_init(void *device)
 	INIT_LIST_HEAD(&dev->sess_head);
 	mutex_init(&dev->read_lock);
 	mutex_init(&dev->write_lock);
-	venus_hfi_set_vbif_registers(dev);
+	venus_hfi_set_registers(dev);
 
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(SMEM_ION);
@@ -2716,6 +2692,7 @@ static int venus_hfi_init_resources(struct venus_hfi_device *device,
 {
 	int rc = 0;
 
+	device->res = res;
 	rc = venus_hfi_init_clocks(res, device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init clocks\n");
