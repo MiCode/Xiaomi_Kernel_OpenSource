@@ -260,6 +260,8 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->fb_imgType = MDP_RGBA_8888;
 
 	mfd->pdev = pdev;
+	if (pdata->next)
+		mfd->split_display = true;
 
 	mutex_init(&mfd->lock);
 
@@ -885,13 +887,15 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		return ret;
 	}
 
-	fix->type = panel_info->is_3d_panel;
-	fix->line_length = mdss_fb_line_length(mfd->index, panel_info->xres,
-					       bpp);
-
 	var->xres = panel_info->xres;
+	if (mfd->split_display)
+		var->xres *= 2;
+
+	fix->type = panel_info->is_3d_panel;
+	fix->line_length = mdss_fb_line_length(mfd->index, var->xres, bpp);
+
 	var->yres = panel_info->yres;
-	var->xres_virtual = panel_info->xres;
+	var->xres_virtual = var->xres;
 	var->yres_virtual = panel_info->yres * mfd->fb_page;
 	var->bits_per_pixel = bpp * 8;	/* FrameBuffer color depth */
 	var->upper_margin = panel_info->lcdc.v_back_porch;
@@ -1734,6 +1738,36 @@ struct fb_info *msm_fb_get_writeback_fb(void)
 }
 EXPORT_SYMBOL(msm_fb_get_writeback_fb);
 
+static int mdss_fb_register_extra_panel(struct platform_device *pdev,
+	struct mdss_panel_data *pdata)
+{
+	struct mdss_panel_data *fb_pdata;
+
+	fb_pdata = dev_get_platdata(&pdev->dev);
+	if (!fb_pdata) {
+		pr_err("framebuffer device %s contains invalid panel data\n",
+				dev_name(&pdev->dev));
+		return -EINVAL;
+	}
+
+	if (fb_pdata->next) {
+		pr_err("split panel already setup for framebuffer device %s\n",
+				dev_name(&pdev->dev));
+		return -EEXIST;
+	}
+
+	if ((fb_pdata->panel_info.type != MIPI_VIDEO_PANEL) ||
+			(pdata->panel_info.type != MIPI_VIDEO_PANEL)) {
+		pr_err("Split panel not supported for panel type %d\n",
+				pdata->panel_info.type);
+		return -EINVAL;
+	}
+
+	fb_pdata->next = pdata;
+
+	return 0;
+}
+
 int mdss_register_panel(struct platform_device *pdev,
 	struct mdss_panel_data *pdata)
 {
@@ -1761,9 +1795,7 @@ int mdss_register_panel(struct platform_device *pdev,
 
 	fb_pdev = of_find_device_by_node(node);
 	if (fb_pdev) {
-		pr_warn("frame buffer device already exists for %s\n",
-				node->full_name);
-		rc = -EPERM;
+		rc = mdss_fb_register_extra_panel(fb_pdev, pdata);
 	} else {
 		pr_info("adding framebuffer device %s\n", dev_name(&pdev->dev));
 		fb_pdev = of_platform_device_create(node, NULL,
