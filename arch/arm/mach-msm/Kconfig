@@ -286,6 +286,23 @@ config ARCH_MSM8974
 	select MSM_LPM_TEST
 	select MSM_RPM_LOG
 
+config ARCH_MSMZINC
+	bool "MSMZINC"
+	select ARCH_MSM_KRAITMP
+	select GPIO_MSM_V3
+	select ARM_GIC
+	select CPU_V7
+	select MSM_SCM if SMP
+	select MSM_GPIOMUX
+	select MULTI_IRQ_HANDLER
+	select MSM_NATIVE_RESTART
+	select MSM_RESTART_V2
+	select MSM_PM8X60 if PM
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
+	select REGULATOR
+	select ARM_HAS_SG_CHAIN
+
 config ARCH_MPQ8092
 	bool "MPQ8092"
 	select ARCH_MSM_KRAITMP
@@ -1043,6 +1060,7 @@ config PHYS_OFFSET
 	default "0x80200000" if ARCH_MSM8960
 	default "0x80200000" if ARCH_MSM8930
 	default "0x00000000" if ARCH_MSM8974
+	default "0x00000000" if ARCH_MSMZINC
 	default "0x00000000" if ARCH_MPQ8092
 	default "0x00000000" if ARCH_MSM8226
 	default "0x00000000" if ARCH_MSM8610
