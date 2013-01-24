@@ -16,7 +16,6 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
-#include <linux/usb/android_composite.h>
 #include <linux/fs.h>
 #include <linux/usb/ccid_desc.h>
 #include <linux/miscdevice.h>

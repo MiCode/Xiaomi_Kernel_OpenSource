@@ -14,7 +14,6 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
-#include <linux/usb/android_composite.h>
 #include <linux/spinlock.h>
 
 #include <mach/usb_gadget_xport.h>
