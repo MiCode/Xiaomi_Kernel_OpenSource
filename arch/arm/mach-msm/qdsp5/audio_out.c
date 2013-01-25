@@ -189,6 +189,8 @@ struct audio_copp {
 	int srs_needs_commit;
 	int srs_feature_mask;
 	audpp_cmd_cfg_object_params_qconcert qconcert_plus;
+	int srs_current_feature_mask;
+	uint32_t audpp_disabled_features;
 
 	int status;
 	int opened;
@@ -298,11 +300,74 @@ void audio_commit_pending_pp_params(void *priv, unsigned id, uint16_t *msg)
 		return;
 	}
 
-	if (AUDPP_MSG_CFG_MSG == id && msg[0] == AUDPP_MSG_ENA_DIS)
+	if (AUDPP_MSG_CFG_MSG == id && msg[0] == AUDPP_MSG_ENA_DIS) {
+		audio_copp->audpp_disabled_features = 0;
 		return;
+	}
+	if (AUDPP_MSG_CFG_MSG == id && msg[0] == AUDPP_MSG_ENA_ENA)
+		audio_copp->audpp_disabled_features = 0;
 
 	if (!audio_copp->status)
 		return;
+
+	if (id == AUDPP_MSG_PP_DISABLE_FEEDBACK) {
+		audio_copp->audpp_disabled_features |=
+			((uint32_t)(msg[AUDPP_DISABLE_FEATS_MSW] << 16) |
+			 msg[AUDPP_DISABLE_FEATS_LSW]);
+		MM_DBG("AUDPP disable feedback: %x",
+				audio_copp->audpp_disabled_features);
+		return;
+	} else if (id == AUDPP_MSG_PP_FEATS_RE_ENABLE) {
+		MM_DBG("AUDPP re-enable messaage: %x, acdb_enabled %d",
+			audio_copp->audpp_disabled_features, is_acdb_enabled());
+		if (!is_acdb_enabled()) {
+			if ((audio_copp->audpp_disabled_features &
+				(1 << AUDPP_CMD_MBADRC)) ==
+				(1 << AUDPP_CMD_MBADRC)) {
+				audpp_dsp_set_mbadrc(COMMON_OBJ_ID,
+						audio_copp->mbadrc_enable,
+						&audio_copp->mbadrc);
+			}
+			if ((audio_copp->audpp_disabled_features &
+				(1 << AUDPP_CMD_EQUALIZER)) ==
+				(1 << AUDPP_CMD_EQUALIZER)) {
+				audpp_dsp_set_eq(COMMON_OBJ_ID,
+						audio_copp->eq_enable,
+						&audio_copp->eq);
+			}
+			if ((audio_copp->audpp_disabled_features &
+				(1 << AUDPP_CMD_IIR_TUNING_FILTER)) ==
+				(1 << AUDPP_CMD_IIR_TUNING_FILTER)) {
+				audpp_dsp_set_rx_iir(COMMON_OBJ_ID,
+						audio_copp->rx_iir_enable,
+						&audio_copp->iir);
+			}
+			if ((audio_copp->audpp_disabled_features &
+				(1 << AUDPP_CMD_QCONCERT)) ==
+					(1 << AUDPP_CMD_QCONCERT)) {
+				audpp_dsp_set_qconcert_plus(COMMON_OBJ_ID,
+					audio_copp->qconcert_plus_enable,
+					&audio_copp->qconcert_plus);
+			}
+		}
+		if ((audio_copp->audpp_disabled_features & (1 << AUDPP_CMD_SRS))
+			== (1 << AUDPP_CMD_SRS)) {
+			if (audio_copp->srs_current_feature_mask & SRS_MASK_W)
+				audpp_dsp_set_rx_srs_trumedia_w(&audio_copp->w);
+			if (audio_copp->srs_current_feature_mask & SRS_MASK_C)
+				audpp_dsp_set_rx_srs_trumedia_c(&audio_copp->c);
+			if (audio_copp->srs_current_feature_mask & SRS_MASK_HP)
+				audpp_dsp_set_rx_srs_trumedia_h(&audio_copp->h);
+			if (audio_copp->srs_current_feature_mask & SRS_MASK_P)
+				audpp_dsp_set_rx_srs_trumedia_p(&audio_copp->p);
+			if (audio_copp->srs_current_feature_mask & SRS_MASK_HL)
+				audpp_dsp_set_rx_srs_trumedia_l(&audio_copp->l);
+			if (audio_copp->srs_current_feature_mask & SRS_MASK_G)
+				audpp_dsp_set_rx_srs_trumedia_g(&audio_copp->g);
+		}
+		audio_copp->audpp_disabled_features = 0;
+		return;
+	}
 
 	if (!is_acdb_enabled()) {
 		audpp_dsp_set_mbadrc(COMMON_OBJ_ID, audio_copp->mbadrc_enable,
@@ -513,6 +578,8 @@ static int audio_enable_srs_trumedia(struct audio_copp *audio_copp, int enable)
 		if (audio_copp->srs_feature_mask & SRS_MASK_G)
 			audpp_dsp_set_rx_srs_trumedia_g(&audio_copp->g);
 
+		audio_copp->srs_current_feature_mask =
+			audio_copp->srs_feature_mask;
 		audio_copp->srs_needs_commit = 0;
 		audio_copp->srs_feature_mask = 0;
 	}

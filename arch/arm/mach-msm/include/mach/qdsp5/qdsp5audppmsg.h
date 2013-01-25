@@ -2,29 +2,29 @@
 #define QDSP5AUDPPMSG_H
 
 /*====*====*====*====*====*====*====*====*====*====*====*====*====*====*====*
-*
-*       Q D S P 5  A U D I O   P O S T   P R O C E S S I N G   M S G
-*
-* GENERAL DESCRIPTION
-*   Messages sent by AUDPPTASK to ARM
-*
-* REFERENCES
-*   None
-*
-* EXTERNALIZED FUNCTIONS
-*   None
-*
-* Copyright (c) 1992-2009, 2012 Code Aurora Forum. All rights reserved.
-*
-* This software is licensed under the terms of the GNU General Public
-* License version 2, as published by the Free Software Foundation, and
-* may be copied, distributed, and modified under those terms.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
+
+       Q D S P 5  A U D I O   P O S T   P R O C E S S I N G   M S G
+
+ GENERAL DESCRIPTION
+   Messages sent by AUDPPTASK to ARM
+
+ REFERENCES
+   None
+
+ EXTERNALIZED FUNCTIONS
+   None
+
+ Copyright (c) 1992-2009, 2012-2013 The Linux Foundation. All rights reserved.
+
+ This software is licensed under the terms of the GNU General Public
+ License version 2, as published by the Free Software Foundation, and
+ may be copied, distributed, and modified under those terms.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
 *====*====*====*====*====*====*====*====*====*====*====*====*====*====*====*/
 /*===========================================================================
 
@@ -319,4 +319,18 @@ struct audpp_msg_routing_ack {
 #define ADSP_MESSAGE_ID 0xFFFF
 
 #define AUDPP_MSG_FEAT_QUERY_DM_DONE 0x000b
+
+/*
+ * ADSP sends this message when a PP feature is disabled
+ * due to ADSP resource limitation.
+ */
+#define AUDPP_MSG_PP_DISABLE_FEEDBACK 0x000C
+
+/*
+ * This message is sent by ADSP if any PP features is disabled
+ * due to video and audio concurrency due to MIPS limitation and
+ * the video session is ended in ADSP.
+ */
+#define AUDPP_MSG_PP_FEATS_RE_ENABLE 0x000D
+
 #endif /* QDSP5AUDPPMSG_H */
