@@ -27,7 +27,7 @@
 
 struct kgsl_device;
 struct kgsl_device_private;
-struct adreno_recovery_data;
+struct adreno_ft_data;
 
 #define GSL_RB_MEMPTRS_SCRATCH_COUNT	 8
 struct kgsl_rbmemptrs {
@@ -115,7 +115,7 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb);
 void kgsl_cp_intrcallback(struct kgsl_device *device);
 
 void adreno_ringbuffer_extract(struct adreno_ringbuffer *rb,
-				struct adreno_recovery_data *rec_data);
+				struct adreno_ft_data *ft_data);
 
 void
 adreno_ringbuffer_restore(struct adreno_ringbuffer *rb, unsigned int *rb_buff,

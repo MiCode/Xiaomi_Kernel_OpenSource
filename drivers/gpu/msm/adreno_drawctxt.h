@@ -44,8 +44,8 @@
 #define CTXT_FLAGS_TRASHSTATE		BIT(10)
 /* per context timestamps enabled */
 #define CTXT_FLAGS_PER_CONTEXT_TS	BIT(11)
-/* Context has caused a GPU hang and recovered properly */
-#define CTXT_FLAGS_GPU_HANG_RECOVERED	BIT(12)
+/* Context has caused a GPU hang and fault tolerance successful */
+#define CTXT_FLAGS_GPU_HANG_FT	BIT(12)
 /* Context is being destroyed so dont save it */
 #define CTXT_FLAGS_BEING_DESTROYED	BIT(13)
 /* User mode generated timestamps enabled */
