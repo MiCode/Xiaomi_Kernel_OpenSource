@@ -83,6 +83,11 @@ enum dsi_panel_bl_ctrl {
 	UNKNOWN_CTRL,
 };
 
+enum dsi_ctrl_state {
+	DSI_LP_MODE,
+	DSI_HS_MODE,
+};
+
 #define DSI_NON_BURST_SYNCH_PULSE	0
 #define DSI_NON_BURST_SYNCH_EVENT	1
 #define DSI_BURST_MODE			2
@@ -244,17 +249,26 @@ struct dsi_kickoff_action {
 	void *data;
 };
 
+struct dsi_panel_cmds_list {
+	struct dsi_cmd_desc *buf;
+	char size;
+	char ctrl_state;
+};
+
 struct mdss_panel_common_pdata {
 	struct mdss_panel_info panel_info;
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	void (*bl_fnc) (struct mdss_panel_data *pdata, u32 bl_level);
+	struct dsi_panel_cmds_list *dsi_panel_on_cmds;
+	struct dsi_panel_cmds_list *dsi_panel_off_cmds;
 };
 
 struct dsi_drv_cm_data {
 	struct regulator *vdd_vreg;
 	struct regulator *vdd_io_vreg;
 	struct regulator *dsi_vreg;
+	int broadcast_enable;
 };
 
 struct mdss_dsi_ctrl_pdata {
@@ -269,6 +283,8 @@ struct mdss_dsi_ctrl_pdata {
 	int mdss_dsi_clk_on;
 	int rst_gpio;
 	int disp_en_gpio;
+	struct dsi_panel_cmds_list *on_cmds;
+	struct dsi_panel_cmds_list *off_cmds;
 	struct dsi_drv_cm_data shared_pdata;
 };
 
@@ -299,7 +315,7 @@ void mdss_dsi_op_mode_config(int mode,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_cmd_mode_ctrl(int enable);
 void mdp4_dsi_cmd_trigger(void);
-void mdss_dsi_cmd_mdp_start(void);
+void mdss_dsi_cmd_mdp_start(struct mdss_panel_data *pdata);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(unsigned char *dsi_base);
 void mdss_dsi_clk_enable(struct mdss_panel_data *pdata);

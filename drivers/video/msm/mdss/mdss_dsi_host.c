@@ -1,5 +1,4 @@
-
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,9 +30,16 @@ static int dsi_irq_enabled;
 static spinlock_t dsi_irq_lock;
 static spinlock_t dsi_mdp_lock;
 static int dsi_mdp_busy;
+static struct mdss_dsi_ctrl_pdata *left_ctrl_pdata;
 
-struct mdss_hw mdss_dsi_hw = {
+struct mdss_hw mdss_dsi0_hw = {
 	.hw_ndx = MDSS_HW_DSI0,
+	.ptr = NULL,
+	.irq_handler = mdss_dsi_isr,
+};
+
+struct mdss_hw mdss_dsi1_hw = {
+	.hw_ndx = MDSS_HW_DSI1,
 	.ptr = NULL,
 	.irq_handler = mdss_dsi_isr,
 };
@@ -47,12 +53,24 @@ void mdss_dsi_init(void)
 
 void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	mdss_dsi_hw.ptr = (void *)(ctrl_pdata);
+	if (ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1)
+		mdss_dsi0_hw.ptr = (void *)(ctrl_pdata);
+	else
+		mdss_dsi1_hw.ptr = (void *)(ctrl_pdata);
 }
 
-void mdss_dsi_enable_irq(void)
+void mdss_dsi_enable_irq(struct mdss_panel_data *pdata)
 {
 	unsigned long flags;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	spin_lock_irqsave(&dsi_irq_lock, flags);
 	if (dsi_irq_enabled) {
@@ -61,15 +79,28 @@ void mdss_dsi_enable_irq(void)
 		return;
 	}
 
-	mdss_enable_irq(&mdss_dsi_hw);
+	if ((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1)
+		mdss_enable_irq(&mdss_dsi0_hw);
+	else
+		mdss_enable_irq(&mdss_dsi1_hw);
+
 	dsi_irq_enabled = 1;
 	/* TO DO: Check whether MDSS IRQ is enabled */
 	spin_unlock_irqrestore(&dsi_irq_lock, flags);
 }
 
-void mdss_dsi_disable_irq(void)
+void mdss_dsi_disable_irq(struct mdss_panel_data *pdata)
 {
 	unsigned long flags;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	spin_lock_irqsave(&dsi_irq_lock, flags);
 	if (dsi_irq_enabled == 0) {
@@ -77,7 +108,11 @@ void mdss_dsi_disable_irq(void)
 		spin_unlock_irqrestore(&dsi_irq_lock, flags);
 		return;
 	}
-	mdss_disable_irq(&mdss_dsi_hw);
+	if (ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1)
+		mdss_disable_irq(&mdss_dsi0_hw);
+	else
+		mdss_disable_irq(&mdss_dsi1_hw);
+
 	dsi_irq_enabled = 0;
 	/* TO DO: Check whether MDSS IRQ is Disabled */
 	spin_unlock_irqrestore(&dsi_irq_lock, flags);
@@ -661,12 +696,13 @@ void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 	u32 data;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	pinfo->rgb_swap = DSI_RGB_SWAP_RGB;
 
@@ -740,7 +776,17 @@ void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 
 	/* from frame buffer, low power mode */
 	/* DSI_COMMAND_MODE_DMA_CTRL */
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x3C, 0x14000000);
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x3C, 0x94000000);
+	else
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x3C, 0x14000000);
+
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		if (pdata->panel_info.pdest == DISPLAY_1) {
+			pr_debug("%s: Broadcast mode enabled.\n",
+				 __func__);
+			left_ctrl_pdata = ctrl_pdata;
+		}
 
 	data = 0;
 	if (pinfo->te_sel)
@@ -793,12 +839,13 @@ void mipi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata)
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	u32 data;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	data = MIPI_INP((ctrl_pdata->ctrl_base) + 0x3c);
 
@@ -815,13 +862,13 @@ void mdss_dsi_sw_reset(struct mdss_panel_data *pdata)
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	u32 dsi_ctrl;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
 
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 	dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0004);
 	dsi_ctrl &= ~0x01;
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, dsi_ctrl);
@@ -848,12 +895,13 @@ void mdss_dsi_controller_cfg(int enable,
 	u32 timeout_us = 16000;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	/* Check for CMD_MODE_DMA_BUSY */
 	if (readl_poll_timeout(((ctrl_pdata->ctrl_base) + 0x0008),
@@ -895,12 +943,20 @@ void mdss_dsi_op_mode_config(int mode,
 	u32 dsi_ctrl, intr_ctrl;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		if (pdata->panel_info.pdest == DISPLAY_1) {
+			pr_debug("%s: Broadcast mode. 1st ctrl\n",
+				 __func__);
+			return;
+		}
 
 	dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0004);
 	/*If Video enabled, Keep Video and Cmd mode ON */
@@ -923,18 +979,27 @@ void mdss_dsi_op_mode_config(int mode,
 
 	pr_debug("%s: dsi_ctrl=%x intr=%x\n", __func__, dsi_ctrl, intr_ctrl);
 
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		if ((pdata->panel_info.pdest == DISPLAY_2)
+		  && (left_ctrl_pdata != NULL)) {
+			MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0110,
+				  intr_ctrl); /* DSI_INTL_CTRL */
+			MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0004,
+					dsi_ctrl);
+		}
+
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0110,
 				intr_ctrl); /* DSI_INTL_CTRL */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, dsi_ctrl);
 	wmb();
 }
 
-void mdss_dsi_cmd_mdp_start(void)
+void mdss_dsi_cmd_mdp_start(struct mdss_panel_data *pdata)
 {
 	unsigned long flag;
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	mdss_dsi_enable_irq();
+	mdss_dsi_enable_irq(pdata);
 	dsi_mdp_busy = true;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 }
@@ -946,12 +1011,13 @@ void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata)
 	int timeout_us = 10000;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x098, 0x01);	/* trigger */
 	wmb();
@@ -1008,18 +1074,40 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 	unsigned long flag;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		if (pdata->panel_info.pdest == DISPLAY_1) {
+			pr_debug("%s: Broadcast mode. 1st ctrl\n",
+				 __func__);
+			return 0;
+		}
 
 	/* turn on cmd mode
 	* for video mode, do not send cmds more than
 	* one pixel line, since it only transmit it
 	* during BLLP.
 	*/
+
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		if ((pdata->panel_info.pdest == DISPLAY_2)
+		  && (left_ctrl_pdata != NULL)) {
+			dsi_ctrl = MIPI_INP(left_ctrl_pdata->ctrl_base
+								+ 0x0004);
+			video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
+			if (video_mode) {
+				ctrl = dsi_ctrl | 0x04; /* CMD_MODE_EN */
+				MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0004,
+						ctrl);
+			}
+		}
+
 	dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0004);
 	video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
 	if (video_mode) {
@@ -1028,7 +1116,8 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 	}
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	mdss_dsi_enable_irq();
+	mdss_dsi_enable_irq(pdata);
+
 	dsi_mdp_busy = true;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
@@ -1045,7 +1134,7 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	dsi_mdp_busy = false;
-	mdss_dsi_disable_irq();
+	mdss_dsi_disable_irq(pdata);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	if (video_mode)
@@ -1083,12 +1172,13 @@ int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 	char cmd;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	if (pdata->panel_info.mipi.no_max_pkt_size)
 		rlen = ALIGN(rlen, 4); /* Only support rlen = 4*n */
@@ -1116,7 +1206,7 @@ int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 	}
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	mdss_dsi_enable_irq();
+	mdss_dsi_enable_irq(pdata);
 	dsi_mdp_busy = true;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
@@ -1153,7 +1243,7 @@ int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	dsi_mdp_busy = false;
-	mdss_dsi_disable_irq();
+	mdss_dsi_disable_irq(pdata);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	if (pdata->panel_info.mipi.no_max_pkt_size) {
@@ -1204,13 +1294,13 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 	unsigned long size, addr;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
 
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 	bp = tp->data;
 
 	pr_debug("%s: ", __func__);
@@ -1242,9 +1332,22 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 
 	INIT_COMPLETION(dsi_dma_comp);
 
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		if ((pdata->panel_info.pdest == DISPLAY_2)
+		  && (left_ctrl_pdata != NULL)) {
+			MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x048, addr);
+			MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x04c, len);
+		}
+
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x048, addr);
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x04c, len);
 	wmb();
+
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		if ((pdata->panel_info.pdest == DISPLAY_2)
+		  && (left_ctrl_pdata != NULL)) {
+			MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x090, 0x01);
+		}
 
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x090, 0x01);	/* trigger */
 	wmb();
@@ -1267,13 +1370,13 @@ int mdss_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen,
 	int i, off, cnt;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
+	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
 
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 	lp = (u32 *)rp->data;
 	cnt = rlen;
 	cnt += 3;
@@ -1382,6 +1485,15 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 
 	isr = MIPI_INP(dsi_base + 0x0110);/* DSI_INTR_CTRL */
 	MIPI_OUTP(dsi_base + 0x0110, isr);
+
+	if (ctrl_pdata->shared_pdata.broadcast_enable)
+		if ((ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_2)
+		    && (left_ctrl_pdata != NULL)) {
+			u32 isr0;
+			isr0 = MIPI_INP(left_ctrl_pdata->ctrl_base
+						+ 0x0110);/* DSI_INTR_CTRL */
+			MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0110, isr0);
+		}
 
 	if (isr & DSI_INTR_ERROR)
 		mdss_dsi_error(dsi_base);
