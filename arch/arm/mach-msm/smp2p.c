@@ -42,7 +42,7 @@ struct msm_smp2p_out {
 	struct list_head out_edge_list;
 	struct raw_notifier_head msm_smp2p_notifier_list;
 	struct notifier_block *open_nb;
-	uint32_t *l_smp2p_entry;
+	uint32_t __iomem *l_smp2p_entry;
 };
 
 /**
@@ -58,7 +58,7 @@ struct smp2p_out_list_item {
 	spinlock_t out_item_lock_lha1;
 
 	struct list_head list;
-	struct smp2p_smem *smem_edge_out;
+	struct smp2p_smem __iomem *smem_edge_out;
 	enum msm_smp2p_edge_state smem_edge_state;
 	struct smp2p_version_if *ops_ptr;
 };
@@ -86,7 +86,7 @@ struct smp2p_in {
 	struct list_head in_edge_list;
 	struct raw_notifier_head in_notifier_list;
 	uint32_t entry_val;
-	uint32_t *entry_ptr;
+	uint32_t __iomem *entry_ptr;
 	uint32_t notifier_count;
 };
 
@@ -100,7 +100,7 @@ struct smp2p_in {
 struct smp2p_in_list_item {
 	spinlock_t in_item_lock_lhb1;
 	struct list_head list;
-	struct smp2p_smem *smem_edge_in;
+	struct smp2p_smem __iomem *smem_edge_in;
 	uint32_t item_size;
 	uint32_t safe_total_entries;
 };
@@ -128,8 +128,9 @@ struct smp2p_version_if {
 	/* common functions */
 	bool is_supported;
 	uint32_t (*negotiate_features)(uint32_t features);
-	void (*find_entry)(struct smp2p_smem *item, uint32_t entries_total,
-			char *name, uint32_t **entry_ptr, int *empty_spot);
+	void (*find_entry)(struct smp2p_smem __iomem *item,
+			uint32_t entries_total,	char *name,
+			uint32_t **entry_ptr, int *empty_spot);
 
 	/* outbound entry functions */
 	int (*create_entry)(struct msm_smp2p_out *);
@@ -138,8 +139,8 @@ struct smp2p_version_if {
 	int (*modify_entry)(struct msm_smp2p_out *, uint32_t, uint32_t);
 
 	/* inbound entry functions */
-	struct smp2p_smem *(*validate_size)(int remote_pid,
-			struct smp2p_smem *, uint32_t);
+	struct smp2p_smem __iomem *(*validate_size)(int remote_pid,
+			struct smp2p_smem __iomem *, uint32_t);
 };
 
 static int smp2p_do_negotiation(int remote_pid, struct smp2p_out_list_item *p);
@@ -147,27 +148,27 @@ static void smp2p_send_interrupt(int remote_pid);
 
 /* v0 (uninitialized SMEM item) interface functions */
 static uint32_t smp2p_negotiate_features_v0(uint32_t features);
-static void smp2p_find_entry_v0(struct smp2p_smem *item,
+static void smp2p_find_entry_v0(struct smp2p_smem __iomem *item,
 		uint32_t entries_total, char *name, uint32_t **entry_ptr,
 		int *empty_spot);
 static int smp2p_out_create_v0(struct msm_smp2p_out *);
 static int smp2p_out_read_v0(struct msm_smp2p_out *, uint32_t *);
 static int smp2p_out_write_v0(struct msm_smp2p_out *, uint32_t);
 static int smp2p_out_modify_v0(struct msm_smp2p_out *, uint32_t, uint32_t);
-static struct smp2p_smem *smp2p_in_validate_size_v0(int remote_pid,
-		struct smp2p_smem *smem_item, uint32_t size);
+static struct smp2p_smem __iomem *smp2p_in_validate_size_v0(int remote_pid,
+		struct smp2p_smem __iomem *smem_item, uint32_t size);
 
 /* v1 interface functions */
 static uint32_t smp2p_negotiate_features_v1(uint32_t features);
-static void smp2p_find_entry_v1(struct smp2p_smem *item,
+static void smp2p_find_entry_v1(struct smp2p_smem __iomem *item,
 		uint32_t entries_total, char *name, uint32_t **entry_ptr,
 		int *empty_spot);
 static int smp2p_out_create_v1(struct msm_smp2p_out *);
 static int smp2p_out_read_v1(struct msm_smp2p_out *, uint32_t *);
 static int smp2p_out_write_v1(struct msm_smp2p_out *, uint32_t);
 static int smp2p_out_modify_v1(struct msm_smp2p_out *, uint32_t, uint32_t);
-static struct smp2p_smem *smp2p_in_validate_size_v1(int remote_pid,
-		struct smp2p_smem *smem_item, uint32_t size);
+static struct smp2p_smem __iomem *smp2p_in_validate_size_v1(int remote_pid,
+		struct smp2p_smem __iomem *smem_item, uint32_t size);
 
 /* Version interface functions */
 static struct smp2p_version_if version_if[] = {
@@ -251,7 +252,7 @@ const char *smp2p_pid_to_name(int remote_pid)
  *
  * This is used by debugfs to print the smem items.
  */
-struct smp2p_smem *smp2p_get_in_item(int remote_pid)
+struct smp2p_smem __iomem *smp2p_get_in_item(int remote_pid)
 {
 	void *ret = NULL;
 	unsigned long flags;
@@ -272,7 +273,7 @@ struct smp2p_smem *smp2p_get_in_item(int remote_pid)
  * @state:      Edge state of the outbound SMEM item.
  * @returns:    Pointer to outbound (remote) SMEM item.
  */
-struct smp2p_smem *smp2p_get_out_item(int remote_pid, int *state)
+struct smp2p_smem __iomem *smp2p_get_out_item(int remote_pid, int *state)
 {
 	void *ret = NULL;
 	unsigned long flags;
@@ -330,7 +331,7 @@ static int smp2p_get_smem_item_id(int write_pid, int read_pid)
  */
 static void *smp2p_get_local_smem_item(int remote_pid)
 {
-	struct smp2p_smem *item_ptr = NULL;
+	struct smp2p_smem __iomem *item_ptr = NULL;
 
 	if (remote_pid < SMP2P_REMOTE_MOCK_PROC) {
 		unsigned size;
@@ -422,7 +423,7 @@ static uint32_t smp2p_negotiate_features_v1(uint32_t features)
  * to the item is returned.  If it isn't found, the first empty
  * index is returned in @empty_spot.
  */
-static void smp2p_find_entry_v1(struct smp2p_smem *item,
+static void smp2p_find_entry_v1(struct smp2p_smem __iomem *item,
 		uint32_t entries_total, char *name, uint32_t **entry_ptr,
 		int *empty_spot)
 {
@@ -462,7 +463,7 @@ static void smp2p_find_entry_v1(struct smp2p_smem *item,
  */
 static int smp2p_out_create_v1(struct msm_smp2p_out *out_entry)
 {
-	struct smp2p_smem *smp2p_h_ptr;
+	struct smp2p_smem __iomem *smp2p_h_ptr;
 	struct smp2p_out_list_item *p_list;
 	uint32_t *state_entry_ptr;
 	uint32_t empty_spot;
@@ -531,7 +532,7 @@ static int smp2p_out_create_v1(struct msm_smp2p_out *out_entry)
  */
 static int smp2p_out_read_v1(struct msm_smp2p_out *out_entry, uint32_t *data)
 {
-	struct smp2p_smem  *smp2p_h_ptr;
+	struct smp2p_smem __iomem  *smp2p_h_ptr;
 	uint32_t remote_pid;
 
 	if (!out_entry)
@@ -565,7 +566,7 @@ static int smp2p_out_read_v1(struct msm_smp2p_out *out_entry, uint32_t *data)
  */
 static int smp2p_out_write_v1(struct msm_smp2p_out *out_entry, uint32_t data)
 {
-	struct smp2p_smem  *smp2p_h_ptr;
+	struct smp2p_smem __iomem  *smp2p_h_ptr;
 	uint32_t remote_pid;
 
 	if (!out_entry)
@@ -603,7 +604,7 @@ static int smp2p_out_write_v1(struct msm_smp2p_out *out_entry, uint32_t data)
 static int smp2p_out_modify_v1(struct msm_smp2p_out *out_entry,
 		uint32_t set_mask, uint32_t clear_mask)
 {
-	struct smp2p_smem  *smp2p_h_ptr;
+	struct smp2p_smem __iomem  *smp2p_h_ptr;
 	uint32_t remote_pid;
 
 	if (!out_entry)
@@ -646,19 +647,19 @@ static int smp2p_out_modify_v1(struct msm_smp2p_out *out_entry,
  *
  * Must be called with in_item_lock_lhb1 locked.
  */
-static struct smp2p_smem *smp2p_in_validate_size_v1(int remote_pid,
-		struct smp2p_smem *smem_item, uint32_t size)
+static struct smp2p_smem __iomem *smp2p_in_validate_size_v1(int remote_pid,
+		struct smp2p_smem __iomem *smem_item, uint32_t size)
 {
 	uint32_t total_entries;
 	unsigned expected_size;
-	struct smp2p_smem *item_ptr;
+	struct smp2p_smem __iomem *item_ptr;
 	struct smp2p_in_list_item *in_item;
 
 	if (remote_pid >= SMP2P_NUM_PROCS || !smem_item)
 		return NULL;
 
 	in_item = &in_list[remote_pid];
-	item_ptr = (struct smp2p_smem *)smem_item;
+	item_ptr = (struct smp2p_smem __iomem *)smem_item;
 
 	total_entries = SMP2P_GET_ENT_TOTAL(item_ptr->valid_total_ent);
 	if (total_entries > 0) {
@@ -716,7 +717,7 @@ static uint32_t smp2p_negotiate_features_v0(uint32_t features)
  *
  * Entries cannot be searched for until item negotiation has been completed.
  */
-static void smp2p_find_entry_v0(struct smp2p_smem *item,
+static void smp2p_find_entry_v0(struct smp2p_smem __iomem *item,
 		uint32_t entries_total, char *name, uint32_t **entry_ptr,
 		int *empty_spot)
 {
@@ -840,8 +841,8 @@ static int smp2p_out_modify_v0(struct msm_smp2p_out *out_entry,
  *
  * Must be called with in_item_lock_lhb1 locked.
  */
-static struct smp2p_smem *smp2p_in_validate_size_v0(int remote_pid,
-		struct smp2p_smem *smem_item, uint32_t size)
+static struct smp2p_smem __iomem *smp2p_in_validate_size_v0(int remote_pid,
+		struct smp2p_smem __iomem *smem_item, uint32_t size)
 {
 	struct smp2p_in_list_item *in_item;
 
@@ -874,7 +875,7 @@ static struct smp2p_smem *smp2p_in_validate_size_v0(int remote_pid,
  *
  * Initializes the header as defined in the protocol specification.
  */
-void smp2p_init_header(struct smp2p_smem *header_ptr,
+void smp2p_init_header(struct smp2p_smem __iomem *header_ptr,
 		int local_pid, int remote_pid,
 		uint32_t features, uint32_t version)
 {
@@ -904,7 +905,8 @@ void smp2p_init_header(struct smp2p_smem *header_ptr,
 static int smp2p_do_negotiation(int remote_pid,
 		struct smp2p_out_list_item *out_item)
 {
-	struct smp2p_smem *r_smem_ptr, *l_smem_ptr;
+	struct smp2p_smem __iomem *r_smem_ptr;
+	struct smp2p_smem __iomem *l_smem_ptr;
 	uint32_t r_version;
 	uint32_t r_feature;
 	uint32_t l_version, l_feature;
@@ -1442,7 +1444,7 @@ static void smp2p_in_edge_notify(int pid)
 	struct smp2p_in *pos;
 	uint32_t *entry_ptr;
 	unsigned long flags;
-	struct smp2p_smem *smem_h_ptr;
+	struct smp2p_smem __iomem *smem_h_ptr;
 	uint32_t curr_data;
 	struct  msm_smp2p_update_notif data;
 
