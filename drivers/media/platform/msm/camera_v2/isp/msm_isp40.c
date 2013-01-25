@@ -1165,11 +1165,11 @@ static int msm_vfe40_get_platform_data(struct vfe_device *vfe_dev)
 	}
 
 	if (vfe_dev->pdev->id == 0)
-		vfe_dev->iommu_ctx = msm_iommu_get_ctx("vfe0");
+		vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe0");
 	else if (vfe_dev->pdev->id == 1)
-		vfe_dev->iommu_ctx = msm_iommu_get_ctx("vfe1");
-	if (!vfe_dev->iommu_ctx) {
-		pr_err("%s: no irq resource?\n", __func__);
+		vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe1");
+	if (!vfe_dev->iommu_ctx[0]) {
+		pr_err("%s: cannot get iommu_ctx\n", __func__);
 		rc = -ENODEV;
 		goto vfe_no_resource;
 	}
@@ -1213,6 +1213,7 @@ static struct v4l2_subdev_internal_ops msm_vfe40_internal_ops = {
 };
 
 struct msm_vfe_hardware_info vfe40_hw_info = {
+	.num_iommu_ctx = 1,
 	.vfe_ops = {
 		.irq_ops = {
 			.read_irq_status = msm_vfe40_read_irq_status,

@@ -29,6 +29,7 @@
 #include "msm_isp_stats_util.h"
 #include "msm_sd.h"
 #include "msm_isp40.h"
+#include "msm_isp32.h"
 
 static struct msm_sd_req_vb2_q vfe_vb2_ops;
 
@@ -43,7 +44,7 @@ static const struct of_device_id msm_vfe_dt_match[] = {
 MODULE_DEVICE_TABLE(of, msm_vfe_dt_match);
 
 static const struct platform_device_id msm_vfe_dev_id[] = {
-	{"msm_vfe32"},
+	{"msm_vfe32", (kernel_ulong_t) &vfe32_hw_info},
 	{}
 };
 
@@ -80,7 +81,8 @@ static int __devinit vfe_probe(struct platform_device *pdev)
 		vfe_dev->hw_info =
 			(struct msm_vfe_hardware_info *) match_dev->data;
 	} else {
-		vfe_dev->hw_info = platform_get_drvdata(pdev);
+		vfe_dev->hw_info = (struct msm_vfe_hardware_info *)
+			platform_get_device_id(pdev)->driver_data;
 	}
 
 	if (!vfe_dev->hw_info) {
