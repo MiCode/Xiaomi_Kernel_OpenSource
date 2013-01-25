@@ -48,6 +48,9 @@ endif
 # MSM8974
    zreladdr-$(CONFIG_ARCH_MSM8974)	:= 0x00008000
 
+# MSMZINC
+   zreladdr-$(CONFIG_ARCH_MSMZINC)	:= 0x00008000
+
 # MSM9615
    zreladdr-$(CONFIG_ARCH_MSM9615)	:= 0x40808000
 
