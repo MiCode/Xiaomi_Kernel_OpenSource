@@ -2809,17 +2809,27 @@ static struct a3xx_vbif_data a330_vbif[] = {
 	{0, 0},
 };
 
+static struct {
+	int(*devfunc)(struct adreno_device *);
+	struct a3xx_vbif_data *vbif;
+} a3xx_vbif_platforms[] = {
+	{ adreno_is_a305, a305_vbif },
+	{ adreno_is_a320, a320_vbif },
+	{ adreno_is_a330, a330_vbif },
+};
+
 static void a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct a3xx_vbif_data *vbif = NULL;
+	int i;
 
-	if (adreno_is_a305(adreno_dev))
-		vbif = a305_vbif;
-	else if (adreno_is_a320(adreno_dev))
-		vbif = a320_vbif;
-	else if (adreno_is_a330(adreno_dev))
-		vbif = a330_vbif;
+	for (i = 0; i < ARRAY_SIZE(a3xx_vbif_platforms); i++) {
+		if (a3xx_vbif_platforms[i].devfunc(adreno_dev)) {
+			vbif = a3xx_vbif_platforms[i].vbif;
+			break;
+		}
+	}
 
 	BUG_ON(vbif == NULL);
 
