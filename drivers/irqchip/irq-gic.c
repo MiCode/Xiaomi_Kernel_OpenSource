@@ -99,6 +99,7 @@ struct irq_chip gic_arch_extn = {
 	.irq_retrigger	= NULL,
 	.irq_set_type	= NULL,
 	.irq_set_wake	= NULL,
+	.irq_disable	= NULL,
 };
 
 #ifndef MAX_GIC_NR
@@ -179,6 +180,12 @@ static void gic_unmask_irq(struct irq_data *d)
 		gic_arch_extn.irq_unmask(d);
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
 	raw_spin_unlock(&irq_controller_lock);
+}
+
+static void gic_disable_irq(struct irq_data *d)
+{
+	if (gic_arch_extn.irq_disable)
+		gic_arch_extn.irq_disable(d);
 }
 
 #ifdef CONFIG_PM
@@ -434,6 +441,7 @@ static struct irq_chip gic_chip = {
 #ifdef CONFIG_SMP
 	.irq_set_affinity	= gic_set_affinity,
 #endif
+	.irq_disable		= gic_disable_irq,
 	.irq_set_wake		= gic_set_wake,
 };
 
