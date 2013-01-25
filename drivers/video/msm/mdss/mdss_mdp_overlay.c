@@ -971,9 +971,9 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 	ret = wait_for_completion_interruptible_timeout(&mfd->vsync_comp,
 			timeout);
 	if (ret <= 0) {
-		pr_warn("vsync wait on fb%d interrupted (%d)\n",
-			mfd->index, ret);
-		return -EBUSY;
+		pr_warn("Sending current time as vsync timestamp for fb%d\n",
+				mfd->index);
+		mfd->vsync_time = ktime_get();
 	}
 
 	spin_lock_irqsave(&mfd->vsync_lock, flags);
