@@ -299,6 +299,7 @@ static struct q_irq_data *qpnpint_alloc_irq_data(
 {
 	struct q_irq_data *irq_d;
 	struct q_perip_data *per_d;
+	int rc;
 
 	irq_d = kzalloc(sizeof(struct q_irq_data), GFP_KERNEL);
 	if (!irq_d)
@@ -313,15 +314,26 @@ static struct q_irq_data *qpnpint_alloc_irq_data(
 	if (!per_d) {
 		per_d = kzalloc(sizeof(struct q_perip_data), GFP_KERNEL);
 		if (!per_d) {
-			kfree(irq_d);
-			return ERR_PTR(-ENOMEM);
+			rc = -ENOMEM;
+			goto alloc_fail;
 		}
-		radix_tree_insert(&chip_d->per_tree,
+		rc = radix_tree_preload(GFP_KERNEL);
+		if (rc)
+			goto alloc_fail;
+		rc = radix_tree_insert(&chip_d->per_tree,
 				  (hwirq & ~0x7), per_d);
+		if (rc)
+			goto alloc_fail;
+		radix_tree_preload_end();
 	}
 	irq_d->per_d = per_d;
 
 	return irq_d;
+
+alloc_fail:
+	kfree(per_d);
+	kfree(irq_d);
+	return ERR_PTR(rc);
 }
 
 static int qpnpint_irq_domain_dt_translate(struct irq_domain *d,
