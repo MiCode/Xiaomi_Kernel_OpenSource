@@ -882,7 +882,8 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	}
 	mutex_unlock(&mfd->ov_lock);
 
-	if (fbi->var.activate & FB_ACTIVATE_VBL)
+	if ((fbi->var.activate & FB_ACTIVATE_VBL) ||
+	    (fbi->var.activate & FB_ACTIVATE_FORCE))
 		mdss_mdp_overlay_kickoff(mfd->ctl);
 }
 
