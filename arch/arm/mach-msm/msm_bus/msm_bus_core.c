@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,6 +58,8 @@ struct msm_bus_fabric_device *msm_bus_get_fabric_device(int fabid)
 	struct msm_bus_fabric_device *fabric;
 	dev = bus_find_device(&msm_bus_type, NULL, (void *)fabid,
 		msm_bus_device_match);
+	if (!dev)
+		return NULL;
 	fabric = to_msm_bus_fabric_device(dev);
 	return fabric;
 }
