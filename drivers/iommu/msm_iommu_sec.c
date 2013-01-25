@@ -29,6 +29,7 @@
 
 #include <asm/sizes.h>
 
+#include <mach/iommu_perfmon.h>
 #include <mach/iommu_hw-v1.h>
 #include <mach/iommu.h>
 #include <mach/scm.h>
@@ -380,6 +381,10 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 	ctx_drvdata->attached_domain = domain;
 
+	mutex_unlock(&msm_iommu_lock);
+
+	msm_iommu_attached(dev->parent);
+	return ret;
 fail:
 	mutex_unlock(&msm_iommu_lock);
 	return ret;
@@ -390,6 +395,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 {
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
+
+	msm_iommu_detached(dev->parent);
 
 	mutex_lock(&msm_iommu_lock);
 	if (!dev)
