@@ -299,7 +299,13 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, 0x07);
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, pd->strength[0]);
 
-	off = 0x0580;	/* phy regulator ctrl settings */
+	/* phy regulator ctrl settings. Both the DSI controller
+	   have one regulator */
+	if ((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1)
+		off = 0x0580;
+	else
+		off = 0x0580 - 0x600;
+
 	/* Regulator ctrl - CAL_PWD_CFG */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 6), pd->regulator[6]);
 	/* Regulator ctrl - TEST */
@@ -350,7 +356,10 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	wmb();
 
 	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x04d4, 0x01);
+	if ((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1)
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x04d4, 0x01);
+	else
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x04d4, 0x00);
 	wmb();
 
 	off = 0x04b4;	/* phy BIST ctrl 0 - 5 */

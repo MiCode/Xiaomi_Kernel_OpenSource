@@ -16,7 +16,7 @@
 		compatible = "qcom,mdss-dsi-panel";
 		label = "toshiba 720p video mode dsi panel";
 		status = "disable";
-		qcom,dsi-ctrl-phandle = <&mdss_dsi>;
+		qcom,dsi-ctrl-phandle = <&mdss_dsi0>;
 		qcom,enable-gpio = <&msmgpio 58 0>;
 		qcom,rst-gpio = <&pm8941_gpios 19 0>;
 		qcom,mdss-pan-res = <720 1280>;
@@ -35,6 +35,7 @@
 		qcom,mdss-pan-dsi-vc = <0>;
 		qcom,mdss-pan-dsi-rgb-swap = <0>;
 		qcom,mdss-pan-dsi-data-lanes = <1 1 1 1>;
+		qcom,mdss-pan-dsi-dlane-swap = <0>;
 		qcom,mdss-pan-dsi-t-clk = <0x1b 0x04>;
 		qcom,mdss-pan-dsi-stream = <0>;
 		qcom,mdss-pan-dsi-mdp-tr = <0x0>;
@@ -115,7 +116,9 @@
 					23 01 00 00 0a 02 e2 00
 					05 01 00 00 78 02 11 00
 					05 01 00 00 32 02 29 00];
+		qcom,on-cmds-dsi-state = "DSI_LP_MODE";
 		qcom,panel-off-cmds = [05 01 00 00 32 02 28 00
 					05 01 00 00 78 02 10 00];
+		qcom,off-cmds-dsi-state = "DSI_HS_MODE";
 	};
 };

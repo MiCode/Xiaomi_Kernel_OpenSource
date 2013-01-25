@@ -12,9 +12,14 @@ Required properties:
 - vreg-supply:				Phandle for vreg regulator device node.
 - qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
 					interface is mapped.
+
+Optional properties:
+- label:		        	A string used to describe the controller used.
+
 Example:
-        mdss_dsi: qcom,mdss_dsi@fd922800 {
+        mdss_dsi0: qcom,mdss_dsi@fd922800 {
                 compatible = "qcom,mdss-dsi-ctrl";
+                label = "MDSS DSI CTRL->0";
                 cell-index = <0>;
                 reg = <0xfd922800 0x600>;
                 vdd-supply = <&pm8941_l22>;

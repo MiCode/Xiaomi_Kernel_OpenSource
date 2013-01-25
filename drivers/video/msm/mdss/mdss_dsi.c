@@ -356,32 +356,84 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
 	int rc = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	pr_debug("%s: event=%d\n", __func__, event);
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
-		rc = mdss_dsi_on(pdata);
+		if (ctrl_pdata->on_cmds->ctrl_state == DSI_LP_MODE) {
+			rc = mdss_dsi_on(pdata);
+		} else {
+			pr_debug("%s:event=%d, Dsi On not called: ctrl_state: %d\n",
+				 __func__, event,
+				 ctrl_pdata->on_cmds->ctrl_state);
+			rc = -EINVAL;
+		}
 		break;
 	case MDSS_EVENT_BLANK:
-		rc = mdss_dsi_ctrl_unprepare(pdata);
+		if (ctrl_pdata->off_cmds->ctrl_state == DSI_HS_MODE) {
+			rc = mdss_dsi_ctrl_unprepare(pdata);
+		} else {
+			pr_debug("%s:event=%d,Unprepare not called.Ctrl_state: %d\n",
+				 __func__, event,
+				 ctrl_pdata->on_cmds->ctrl_state);
+			rc = -EINVAL;
+		}
 		break;
 	case MDSS_EVENT_TIMEGEN_OFF:
+		if (ctrl_pdata->off_cmds->ctrl_state == DSI_LP_MODE) {
+			pr_debug("%s:event=%d, calling unprepare: ctrl_state: %d\n",
+				 __func__, event,
+				 ctrl_pdata->on_cmds->ctrl_state);
+			rc = mdss_dsi_ctrl_unprepare(pdata);
+		}
 		rc = mdss_dsi_off(pdata);
+		break;
+	default:
+		pr_debug("%s: unhandled event=%d\n", __func__, event);
 		break;
 	}
 	return rc;
 }
 
-static int mdss_dsi_resource_initialized;
-
 static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
+	u32 index;
+
 	pr_debug("%s\n", __func__);
 
-	if (pdev->dev.of_node && !mdss_dsi_resource_initialized) {
+	if (pdev->dev.of_node) {
 		struct resource *mdss_dsi_mres;
-		pdev->id = 1;
+		const char *ctrl_name;
+
+		ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);
+		if (!ctrl_name)
+			pr_info("%s:%d, DSI Ctrl name not specified\n",
+						__func__, __LINE__);
+		else
+			pr_info("%s: DSI Ctrl name = %s\n",
+				__func__, ctrl_name);
+
+		rc = of_property_read_u32(pdev->dev.of_node,
+					  "cell-index", &index);
+		if (rc) {
+			dev_err(&pdev->dev,
+				"%s: Cell-index not specified, rc=%d\n",
+							__func__, rc);
+			return rc;
+		}
+
+		if (index == 0)
+			pdev->id = 1;
+		else
+			pdev->id = 2;
+
 		mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		if (!mdss_dsi_mres) {
 			pr_err("%s:%d unable to get the MDSS resources",
@@ -398,8 +450,6 @@ static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 			}
 		}
 
-
-
 		rc = of_platform_populate(pdev->dev.of_node,
 					NULL, NULL, &pdev->dev);
 		if (rc) {
@@ -410,11 +460,8 @@ static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 			return rc;
 		}
 
-		mdss_dsi_resource_initialized = 1;
+		pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
 	}
-
-	if (!mdss_dsi_resource_initialized)
-		return -EPERM;
 
 	return 0;
 }
@@ -494,6 +541,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
 	unsigned char *ctrl_addr;
+	bool broadcast;
 
 	h_period = ((panel_data->panel_info.lcdc.h_pulse_width)
 			+ (panel_data->panel_info.lcdc.h_back_porch)
@@ -583,6 +631,11 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		return rc;
 	}
 
+	broadcast = of_property_read_bool(pdev->dev.of_node,
+					  "qcom,mdss-pan-broadcast-mode");
+	if (broadcast)
+		ctrl_pdata->shared_pdata.broadcast_enable = 1;
+
 	ctrl_pdata->disp_en_gpio = of_get_named_gpio(pdev->dev.of_node,
 						     "qcom,enable-gpio", 0);
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
@@ -637,6 +690,9 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 	pr_debug("%s: ctrl base address: 0x%x\n", __func__, (int)ctrl_addr);
 	ctrl_pdata->panel_data.event_handler = mdss_dsi_event_handler;
+
+	ctrl_pdata->on_cmds = panel_data->dsi_panel_on_cmds;
+	ctrl_pdata->off_cmds = panel_data->dsi_panel_off_cmds;
 
 	memcpy(&((ctrl_pdata->panel_data).panel_info),
 				&(panel_data->panel_info),
