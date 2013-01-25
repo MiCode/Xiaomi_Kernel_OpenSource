@@ -408,6 +408,115 @@ static void smp2p_ut_local_gpio_in(struct seq_file *s)
 }
 
 /**
+ * smp2p_ut_local_gpio_in_update_open - Verify combined open/update.
+ *
+ * @s:   pointer to output file
+ *
+ * If the remote side updates the SMP2P bits and sends before negotiation is
+ * complete, then the UPDATE event will have to be delayed until negotiation is
+ * complete.  This should result in both the OPEN and UPDATE events coming in
+ * right after each other and the behavior should be transparent to the clients
+ * of SMP2P GPIO.
+ */
+static void smp2p_ut_local_gpio_in_update_open(struct seq_file *s)
+{
+	int failed = 0;
+	struct gpio_info *cb_info = &gpio_info[SMP2P_REMOTE_MOCK_PROC].in;
+	int id;
+	int ret;
+	int virq;
+	struct msm_smp2p_remote_mock *mock;
+
+	seq_printf(s, "Running %s\n", __func__);
+
+	cb_data_reset(cb_info);
+	do {
+		/* initialize mock edge */
+		ret = smp2p_reset_mock_edge();
+		UT_ASSERT_INT(ret, ==, 0);
+
+		mock = msm_smp2p_get_remote_mock();
+		UT_ASSERT_PTR(mock, !=, NULL);
+
+		mock->rx_interrupt_count = 0;
+		memset(&mock->remote_item, 0,
+			sizeof(struct smp2p_smem_item));
+		smp2p_init_header((struct smp2p_smem *)&mock->remote_item,
+			SMP2P_REMOTE_MOCK_PROC, SMP2P_APPS_PROC,
+			0, 1);
+		strlcpy(mock->remote_item.entries[0].name, "smp2p",
+			SMP2P_MAX_ENTRY_NAME);
+		SMP2P_SET_ENT_VALID(
+			mock->remote_item.header.valid_total_ent, 1);
+
+		/* register for interrupts */
+		smp2p_gpio_open_test_entry("smp2p",
+				SMP2P_REMOTE_MOCK_PROC, true);
+
+		UT_ASSERT_INT(0, <, cb_info->irq_base_id);
+		for (id = 0; id < SMP2P_BITS_PER_ENTRY && !failed; ++id) {
+			virq = cb_info->irq_base_id + id;
+			UT_ASSERT_INT(0, >, (unsigned int)irq_to_desc(virq));
+			ret = request_irq(virq,
+					smp2p_gpio_irq,	IRQ_TYPE_EDGE_BOTH,
+					"smp2p_test", cb_info);
+			UT_ASSERT_INT(0, ==, ret);
+		}
+		if (failed)
+			break;
+
+		/* update the state value and complete negotiation */
+		mock->remote_item.entries[0].entry = 0xDEADDEAD;
+		msm_smp2p_set_remote_mock_exists(true);
+		mock->tx_interrupt();
+
+		/* verify delayed state updates were processed */
+		for (id = 0; id < SMP2P_BITS_PER_ENTRY && !failed; ++id) {
+			virq = cb_info->irq_base_id + id;
+
+			UT_ASSERT_INT(cb_info->cb_count, >, 0);
+			if (0x1 & (0xDEADDEAD >> id)) {
+				/* rising edge should have been triggered */
+				if (!test_bit(id, cb_info->triggered_irqs)) {
+					seq_printf(s,
+						"%s:%d bit %d clear, expected set\n",
+						__func__, __LINE__, id);
+					failed = 1;
+					break;
+				}
+			} else {
+				/* edge should not have been triggered */
+				if (test_bit(id, cb_info->triggered_irqs)) {
+					seq_printf(s,
+						"%s:%d bit %d set, expected clear\n",
+						__func__, __LINE__, id);
+					failed = 1;
+					break;
+				}
+			}
+		}
+		if (failed)
+			break;
+
+		seq_printf(s, "\tOK\n");
+	} while (0);
+
+	if (failed) {
+		pr_err("%s: Failed\n", __func__);
+		seq_printf(s, "\tFailed\n");
+	}
+
+	/* unregister for interrupts */
+	if (cb_info->irq_base_id) {
+		for (id = 0; id < SMP2P_BITS_PER_ENTRY; ++id)
+			free_irq(cb_info->irq_base_id + id, cb_info);
+	}
+
+	smp2p_gpio_open_test_entry("smp2p",
+			SMP2P_REMOTE_MOCK_PROC, false);
+}
+
+/**
  * smp2p_gpio_write_bits - writes value to each GPIO pin specified in mask.
  *
  * @gpio: gpio test structure
@@ -618,6 +727,8 @@ static int __init smp2p_debugfs_init(void)
 	 */
 	smp2p_debug_create("ut_local_gpio_out", smp2p_ut_local_gpio_out);
 	smp2p_debug_create("ut_local_gpio_in", smp2p_ut_local_gpio_in);
+	smp2p_debug_create("ut_local_gpio_in_update_open",
+		smp2p_ut_local_gpio_in_update_open);
 	smp2p_debug_create("ut_remote_gpio_inout", smp2p_ut_remote_inout);
 	return 0;
 }
