@@ -1330,13 +1330,27 @@ static int arizona_dai_set_sysclk(struct snd_soc_dai *dai,
 	routes[0].sink = dai->driver->capture.stream_name;
 	routes[1].sink = dai->driver->playback.stream_name;
 
-	routes[0].source = arizona_dai_clk_str(dai_priv->clk);
-	routes[1].source = arizona_dai_clk_str(dai_priv->clk);
-	snd_soc_dapm_del_routes(&codec->dapm, routes, ARRAY_SIZE(routes));
+	switch (clk_id) {
+	case ARIZONA_CLK_SYSCLK:
+		routes[0].source = arizona_dai_clk_str(dai_priv->clk);
+		routes[1].source = arizona_dai_clk_str(dai_priv->clk);
+		snd_soc_dapm_del_routes(&codec->dapm, routes,
+					ARRAY_SIZE(routes));
+		break;
+	default:
+		break;
+	}
 
-	routes[0].source = arizona_dai_clk_str(clk_id);
-	routes[1].source = arizona_dai_clk_str(clk_id);
-	snd_soc_dapm_add_routes(&codec->dapm, routes, ARRAY_SIZE(routes));
+	switch (clk_id) {
+	case ARIZONA_CLK_ASYNCCLK:
+		routes[0].source = arizona_dai_clk_str(clk_id);
+		routes[1].source = arizona_dai_clk_str(clk_id);
+		snd_soc_dapm_add_routes(&codec->dapm, routes,
+					ARRAY_SIZE(routes));
+		break;
+	default:
+		break;
+	}
 
 	dai_priv->clk = clk_id;
 
