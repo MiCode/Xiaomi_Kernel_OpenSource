@@ -445,12 +445,10 @@ diag_bridge_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ifc_num = ifc->cur_altsetting->desc.bInterfaceNumber;
 
 	/* is this interface supported ? */
-	if (ifc_num != id->driver_info)
+	if (ifc_num != (id->driver_info & 0xFF))
 		return -ENODEV;
 
-	/* This needs to figure out ID based on PID and/or host bus type */
-	devid = 0;
-
+	devid = (id->driver_info >> 8) & 0xFF;
 	if (devid < 0 || devid >= MAX_DIAG_BRIDGE_DEVS)
 		return -ENODEV;
 
@@ -559,17 +557,21 @@ static int diag_bridge_resume(struct usb_interface *ifc)
 }
 
 #define VALID_INTERFACE_NUM	0
+#define DEV_ID(n)		((n)<<8)
+
 static const struct usb_device_id diag_bridge_ids[] = {
 	{ USB_DEVICE(0x5c6, 0x9001),
-	.driver_info = VALID_INTERFACE_NUM, },
+	.driver_info = VALID_INTERFACE_NUM | DEV_ID(0), },
 	{ USB_DEVICE(0x5c6, 0x9034),
-	.driver_info = VALID_INTERFACE_NUM, },
+	.driver_info = VALID_INTERFACE_NUM | DEV_ID(0), },
 	{ USB_DEVICE(0x5c6, 0x9048),
-	.driver_info = VALID_INTERFACE_NUM, },
+	.driver_info = VALID_INTERFACE_NUM | DEV_ID(0), },
 	{ USB_DEVICE(0x5c6, 0x904C),
-	.driver_info = VALID_INTERFACE_NUM, },
+	.driver_info = VALID_INTERFACE_NUM | DEV_ID(0), },
 	{ USB_DEVICE(0x5c6, 0x9075),
-	.driver_info = VALID_INTERFACE_NUM, },
+	.driver_info = VALID_INTERFACE_NUM | DEV_ID(0), },
+	{ USB_DEVICE(0x5c6, 0x9079),
+	.driver_info = VALID_INTERFACE_NUM | DEV_ID(1), },
 
 	{} /* terminating entry */
 };
