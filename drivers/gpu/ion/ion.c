@@ -648,6 +648,19 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 	struct ion_iommu_map *iommu_map;
 	int ret = 0;
 
+	if (IS_ERR_OR_NULL(client)) {
+		pr_err("%s: client pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: handle pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+	if (IS_ERR_OR_NULL(handle->buffer)) {
+		pr_err("%s: buffer pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	if (ION_IS_CACHED(flags)) {
 		pr_err("%s: Cannot map iommu as cached.\n", __func__);
 		return -EINVAL;
@@ -754,6 +767,19 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 {
 	struct ion_iommu_map *iommu_map;
 	struct ion_buffer *buffer;
+
+	if (IS_ERR_OR_NULL(client)) {
+		pr_err("%s: client pointer is invalid\n", __func__);
+		return;
+	}
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: handle pointer is invalid\n", __func__);
+		return;
+	}
+	if (IS_ERR_OR_NULL(handle->buffer)) {
+		pr_err("%s: buffer pointer is invalid\n", __func__);
+		return;
+	}
 
 	mutex_lock(&client->lock);
 	buffer = handle->buffer;
