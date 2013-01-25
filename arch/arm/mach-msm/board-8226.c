@@ -95,6 +95,9 @@ static struct clk_lookup msm_clocks_dummy[] = {
 	CLK_DUMMY("iface_clk",		NULL, "fdc84000.qcom,iommu", OFF),
 	CLK_DUMMY("alt_core_clk",	NULL, "fdc84000.qcom,iommu", OFF),
 	CLK_DUMMY("core_clk",		NULL, "fdc84000.qcom,iommu", OFF),
+	CLK_DUMMY("core_clk",		NULL, "fdd00000.qcom,ocmem", OFF),
+	CLK_DUMMY("iface_clk",		NULL, "fdd00000.qcom,ocmem", OFF),
+	CLK_DUMMY("br_clk",		NULL, "fdd00000.qcom,ocmem", OFF),
 };
 
 static struct clock_init_data msm_dummy_clock_init_data __initdata = {
