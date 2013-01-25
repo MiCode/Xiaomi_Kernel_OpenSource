@@ -11,6 +11,7 @@
  */
 
 /include/ "dsi-panel-toshiba-720p-video.dtsi"
+/include/ "dsi-panel-orise-720p-video.dtsi"
 /include/ "msm8974-leds.dtsi"
 /include/ "msm8974-camera-sensor.dtsi"
 
@@ -21,6 +22,10 @@
 
 	qcom,mdss_dsi_toshiba_720p_video {
 		status = "ok";
+	};
+
+	qcom,mdss_dsi_orise_720p_video {
+		status = "disable";
 	};
 
 	qcom,hdmi_tx@fd922100 {
