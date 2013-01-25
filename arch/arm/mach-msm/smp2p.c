@@ -76,7 +76,7 @@ module_param_named(debug_mask, smp2p_debug_mask,
  * @remote_pid: Outbound processor ID.
  * @in_edge_list: Adds this structure into smp2p_in_list_item::list.
  * @in_notifier_list: List for notifier block for entry opening/updates.
- * @entry_val: Previous value of the entry.
+ * @prev_entry_val: Previous value of the entry.
  * @entry_ptr: Points to the current value in smem item.
  * @notifier_count: Counts the number of notifier registered per pid,entry.
  */
@@ -85,7 +85,7 @@ struct smp2p_in {
 	char name[SMP2P_MAX_ENTRY_NAME];
 	struct list_head in_edge_list;
 	struct raw_notifier_head in_notifier_list;
-	uint32_t entry_val;
+	uint32_t prev_entry_val;
 	uint32_t __iomem *entry_ptr;
 	uint32_t notifier_count;
 };
@@ -1333,10 +1333,10 @@ int msm_smp2p_in_register(int pid, const char *name,
 				&entry_ptr, NULL);
 		if (entry_ptr) {
 			in->entry_ptr = entry_ptr;
-			in->entry_val = *(entry_ptr);
+			in->prev_entry_val = readl_relaxed(entry_ptr);
 
-			data.previous_value = in->entry_val;
-			data.current_value = *(in->entry_ptr);
+			data.previous_value = in->prev_entry_val;
+			data.current_value = in->prev_entry_val;
 			in_notifier->notifier_call(in_notifier, SMP2P_OPEN,
 					(void *)&data);
 		}
@@ -1458,18 +1458,7 @@ static void smp2p_in_edge_notify(int pid)
 	}
 
 	list_for_each_entry(pos, &in_list[pid].list, in_edge_list) {
-		if (pos->entry_ptr != NULL) {
-			/* entry already open */
-			curr_data = *(pos->entry_ptr);
-			if (curr_data != pos->entry_val) {
-				data.previous_value = pos->entry_val;
-				data.current_value = curr_data;
-				pos->entry_val = curr_data;
-				raw_notifier_call_chain(
-					&pos->in_notifier_list,
-					SMP2P_ENTRY_UPDATE, (void *)&data);
-			}
-		} else {
+		if (pos->entry_ptr == NULL) {
 			/* entry not open - try to open it */
 			out_list[pid].ops_ptr->find_entry(smem_h_ptr,
 				in_list[pid].safe_total_entries, pos->name,
@@ -1477,12 +1466,25 @@ static void smp2p_in_edge_notify(int pid)
 
 			if (entry_ptr) {
 				pos->entry_ptr = entry_ptr;
+				pos->prev_entry_val = 0;
 				data.previous_value = 0;
-				data.current_value =
-					*(entry_ptr);
+				data.current_value = readl_relaxed(entry_ptr);
 				raw_notifier_call_chain(
 					    &pos->in_notifier_list,
 					    SMP2P_OPEN, (void *)&data);
+			}
+		}
+
+		if (pos->entry_ptr != NULL) {
+			/* send update notification */
+			curr_data = readl_relaxed(pos->entry_ptr);
+			if (curr_data != pos->prev_entry_val) {
+				data.previous_value = pos->prev_entry_val;
+				data.current_value = curr_data;
+				pos->prev_entry_val = curr_data;
+				raw_notifier_call_chain(
+					&pos->in_notifier_list,
+					SMP2P_ENTRY_UPDATE, (void *)&data);
 			}
 		}
 	}
