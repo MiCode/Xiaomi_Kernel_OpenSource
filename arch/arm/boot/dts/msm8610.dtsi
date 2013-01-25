@@ -233,6 +233,11 @@
 		rpm-standalone;
 	};
 
+	qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0x07C00000 0x6000000>; /* Address and Size of Hole */
+	};
+
 	qcom,wdt@f9017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;
