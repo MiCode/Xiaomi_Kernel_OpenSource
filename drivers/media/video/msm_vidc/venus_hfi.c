@@ -2996,6 +2996,13 @@ static int venus_hfi_get_fw_info(void *dev, enum fw_info info)
 	return rc;
 }
 
+int venus_hfi_get_stride_scanline(int color_fmt,
+	int width, int height, int *stride, int *scanlines) {
+	*stride = VENUS_Y_STRIDE(color_fmt, width);
+	*scanlines = VENUS_Y_SCANLINES(color_fmt, height);
+	return 0;
+}
+
 static void *venus_hfi_add_device(u32 device_id, struct platform_device *pdev,
 		void (*callback) (enum command_response cmd, void *data))
 {
@@ -3134,6 +3141,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->load_fw = venus_hfi_load_fw;
 	hdev->unload_fw = venus_hfi_unload_fw;
 	hdev->get_fw_info = venus_hfi_get_fw_info;
+	hdev->get_stride_scanline = venus_hfi_get_stride_scanline;
 }
 
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
