@@ -20,6 +20,8 @@
 #include <linux/android_pmem.h>
 #include <mach/camera.h>
 #include <mach/iommu_domains.h>
+#include <mach/msm_bus.h>
+#include <mach/msm_bus_board.h>
 
 #include "msm_jpeg_platform.h"
 #include "msm_jpeg_sync.h"
@@ -115,6 +117,41 @@ static void set_vbif_params(void *jpeg_vbif_base)
 		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF1);
 }
 
+static struct msm_bus_vectors msm_jpeg_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_JPEG,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+};
+
+static struct msm_bus_vectors msm_jpeg_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_JPEG,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 1027648000,
+		.ib  = 1105920000,
+	},
+};
+
+static struct msm_bus_paths msm_jpeg_bus_client_config[] = {
+	{
+		ARRAY_SIZE(msm_jpeg_init_vectors),
+		msm_jpeg_init_vectors,
+	},
+	{
+		ARRAY_SIZE(msm_jpeg_vectors),
+		msm_jpeg_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata msm_jpeg_bus_client_pdata = {
+	msm_jpeg_bus_client_config,
+	ARRAY_SIZE(msm_jpeg_bus_client_config),
+	.name = "msm_jpeg",
+};
+
 int msm_jpeg_platform_init(struct platform_device *pdev,
 	struct resource **mem,
 	void **base,
@@ -144,6 +181,16 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	jpeg_irq = jpeg_irq_res->start;
 	JPEG_DBG("%s base address: 0x%x, jpeg irq number: %d\n", __func__,
 		jpeg_mem->start, jpeg_irq);
+
+	pgmn_dev->jpeg_bus_client =
+		msm_bus_scale_register_client(&msm_jpeg_bus_client_pdata);
+	if (!pgmn_dev->jpeg_bus_client) {
+		JPEG_PR_ERR("%s: Registration Failed!\n", __func__);
+		pgmn_dev->jpeg_bus_client = 0;
+		return -EINVAL;
+	}
+	msm_bus_scale_client_update_request(
+		pgmn_dev->jpeg_bus_client, 1);
 
 	jpeg_io = request_mem_region(jpeg_mem->start,
 		resource_size(jpeg_mem), pdev->name);
@@ -259,6 +306,7 @@ int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
 	}
 #endif
 
+	msm_bus_scale_unregister_client(pgmn_dev->jpeg_bus_client);
 	msm_cam_clk_enable(&pgmn_dev->pdev->dev, jpeg_8x_clk_info,
 	pgmn_dev->jpeg_clk, ARRAY_SIZE(jpeg_8x_clk_info), 0);
 	JPEG_DBG("%s:%d] clock disbale done", __func__, __LINE__);
