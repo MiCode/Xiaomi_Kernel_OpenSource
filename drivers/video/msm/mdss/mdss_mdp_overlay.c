@@ -731,8 +731,7 @@ static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd)
 
 	if (fb_ndx) {
 		pr_debug("unstaging framebuffer pipes %x\n", fb_ndx);
-		mdss_mdp_overlay_unset(mfd, fb_ndx);
-		mdss_mdp_overlay_kickoff(mfd->ctl);
+		mdss_mdp_overlay_release(mfd, fb_ndx);
 	}
 	return 0;
 }
