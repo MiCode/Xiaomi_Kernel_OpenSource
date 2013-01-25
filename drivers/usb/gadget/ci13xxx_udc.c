@@ -1391,9 +1391,6 @@ static ssize_t show_registers(struct device *dev,
 		dev_err(dev, "[%s] EINVAL\n", __func__);
 		return 0;
 	}
-	dump = kmalloc(2048, GFP_KERNEL);
-	if (dump == NULL)
-		return -ENOMEM;
 
 	dump = kmalloc(sizeof(u32) * DUMP_ENTRIES, GFP_KERNEL);
 	if (!dump) {
