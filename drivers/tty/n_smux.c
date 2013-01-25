@@ -1287,8 +1287,9 @@ static int smux_handle_rx_open_cmd(struct smux_pkt_t *pkt)
 			goto out;
 		}
 		ack_pkt->hdr.cmd = SMUX_CMD_OPEN_LCH;
-		ack_pkt->hdr.flags = SMUX_CMD_OPEN_ACK
-			| SMUX_CMD_OPEN_POWER_COLLAPSE;
+		ack_pkt->hdr.flags = SMUX_CMD_OPEN_ACK;
+		if (enable_powerdown)
+			ack_pkt->hdr.flags |= SMUX_CMD_OPEN_POWER_COLLAPSE;
 		ack_pkt->hdr.lcid = lcid;
 		ack_pkt->hdr.payload_len = 0;
 		ack_pkt->hdr.pad_len = 0;
@@ -1308,8 +1309,9 @@ static int smux_handle_rx_open_cmd(struct smux_pkt_t *pkt)
 			if (ack_pkt) {
 				ack_pkt->hdr.lcid = lcid;
 				ack_pkt->hdr.cmd = SMUX_CMD_OPEN_LCH;
-				ack_pkt->hdr.flags =
-					SMUX_CMD_OPEN_POWER_COLLAPSE;
+				if (enable_powerdown)
+					ack_pkt->hdr.flags |=
+						SMUX_CMD_OPEN_POWER_COLLAPSE;
 				ack_pkt->hdr.payload_len = 0;
 				ack_pkt->hdr.pad_len = 0;
 				smux_tx_queue(ack_pkt, ch, 0);
