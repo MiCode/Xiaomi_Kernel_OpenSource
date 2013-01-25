@@ -223,7 +223,7 @@ static int msm_rpmstats_file_read(struct file *file, char __user *bufu,
 	if (!prvdata)
 		return -EINVAL;
 
-	if (!bufu || count < 0)
+	if (!bufu || count == 0)
 		return -EINVAL;
 
 	if (prvdata->platform_data->version == 1) {
