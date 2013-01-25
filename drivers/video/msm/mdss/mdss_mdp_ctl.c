@@ -69,10 +69,6 @@ static int mdss_mdp_ctl_perf_commit(u32 flags)
 		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ib_quota);
 		bus_ib_quota <<= MDSS_MDP_BUS_FACTOR_SHIFT;
 
-		if ((bus_ib_quota == 0) && (clk_rate > 0)) {
-			/* allocate min bw for panel cmds if mdp is active */
-			bus_ib_quota = SZ_16M;
-		}
 		mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_CLK) {
@@ -205,6 +201,10 @@ static int mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl, u32 *flags)
 			max_clk_rate = clk_rate;
 	}
 
+	/* request minimum bandwidth for dsi commands */
+	if ((total_ib_quota == 0) && (ctl->intf_type == MDSS_INTF_DSI))
+		total_ib_quota = SZ_16M >> MDSS_MDP_BUS_FACTOR_SHIFT;
+
 	*flags = 0;
 
 	if (max_clk_rate != ctl->clk_rate) {
@@ -219,7 +219,7 @@ static int mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl, u32 *flags)
 	if ((total_ab_quota != ctl->bus_ab_quota) ||
 			(total_ib_quota != ctl->bus_ib_quota)) {
 		if (ret == MDSS_MDP_PERF_UPDATE_SKIP) {
-			if (total_ib_quota > ctl->bus_ib_quota)
+			if (total_ib_quota >= ctl->bus_ib_quota)
 				ret = MDSS_MDP_PERF_UPDATE_EARLY;
 			else
 				ret = MDSS_MDP_PERF_UPDATE_LATE;
