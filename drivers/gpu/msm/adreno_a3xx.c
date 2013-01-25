@@ -452,6 +452,8 @@ unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 		return A305_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a320(adreno_dev))
 		return A320_RBBM_CLOCK_CTL_DEFAULT;
+	else if (adreno_is_a330v2(adreno_dev))
+		return A330v2_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a330(adreno_dev))
 		return A330_RBBM_CLOCK_CTL_DEFAULT;
 
@@ -2809,12 +2811,34 @@ static struct a3xx_vbif_data a330_vbif[] = {
 	{0, 0},
 };
 
+/*
+ * Most of the VBIF registers on 8974v2 have the correct values at power on, so
+ * we won't modify those if we don't need to
+ */
+static struct a3xx_vbif_data a330v2_vbif[] = {
+	/* Enable 1k sort */
+	{ A3XX_VBIF_ABIT_SORT, 0x0001003F },
+	{ A3XX_VBIF_ABIT_SORT_CONF, 0x000000A4 },
+	/* Enable WR-REQ */
+	{ A3XX_VBIF_GATE_OFF_WRREQ_EN, 0x00003F },
+	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x0000303 },
+	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
+	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
+	/* Disable VBIF clock gating. This is to enable AXI running
+	 * higher frequency than GPU.
+	 */
+	{ A3XX_VBIF_CLKON, 1 },
+	{0, 0},
+};
+
 static struct {
 	int(*devfunc)(struct adreno_device *);
 	struct a3xx_vbif_data *vbif;
 } a3xx_vbif_platforms[] = {
 	{ adreno_is_a305, a305_vbif },
 	{ adreno_is_a320, a320_vbif },
+	/* A330v2 needs to be ahead of A330 so the right device matches */
+	{ adreno_is_a330v2, a330v2_vbif },
 	{ adreno_is_a330, a330_vbif },
 };
 
@@ -2869,9 +2893,12 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, A3XX_RBBM_CLOCK_CTL,
 		adreno_a3xx_rbbm_clock_ctl_default(adreno_dev));
 
-	if (adreno_is_a330(adreno_dev))
+	if (adreno_is_a330v2(adreno_dev))
 		adreno_regwrite(device, A3XX_RBBM_GPR0_CTL,
-		A330_RBBM_GPR0_CTL_DEFAULT);
+			A330v2_RBBM_GPR0_CTL_DEFAULT);
+	else if (adreno_is_a330(adreno_dev))
+		adreno_regwrite(device, A3XX_RBBM_GPR0_CTL,
+			A330_RBBM_GPR0_CTL_DEFAULT);
 
 	/* Set the OCMEM base address for A330 */
 	if (adreno_is_a330(adreno_dev)) {
