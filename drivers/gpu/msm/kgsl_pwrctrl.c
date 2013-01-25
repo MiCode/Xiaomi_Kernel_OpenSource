@@ -1081,7 +1081,7 @@ void kgsl_idle_check(struct work_struct *work)
 			}
 		}
 	} else if (device->state & (KGSL_STATE_HUNG |
-					KGSL_STATE_DUMP_AND_RECOVER)) {
+					KGSL_STATE_DUMP_AND_FT)) {
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 	}
 
@@ -1120,7 +1120,7 @@ void kgsl_pre_hwaccess(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_INIT:
 	case KGSL_STATE_HUNG:
-	case KGSL_STATE_DUMP_AND_RECOVER:
+	case KGSL_STATE_DUMP_AND_FT:
 		if (test_bit(KGSL_PWRFLAGS_CLK_ON,
 					 &device->pwrctrl.power_flags))
 			break;
@@ -1144,9 +1144,9 @@ void kgsl_check_suspended(struct kgsl_device *device)
 		mutex_unlock(&device->mutex);
 		wait_for_completion(&device->hwaccess_gate);
 		mutex_lock(&device->mutex);
-	} else if (device->state == KGSL_STATE_DUMP_AND_RECOVER) {
+	} else if (device->state == KGSL_STATE_DUMP_AND_FT) {
 		mutex_unlock(&device->mutex);
-		wait_for_completion(&device->recovery_gate);
+		wait_for_completion(&device->ft_gate);
 		mutex_lock(&device->mutex);
 	} else if (device->state == KGSL_STATE_SLUMBER)
 		kgsl_pwrctrl_wake(device);
@@ -1385,7 +1385,7 @@ const char *kgsl_pwrstate_to_str(unsigned int state)
 		return "SUSPEND";
 	case KGSL_STATE_HUNG:
 		return "HUNG";
-	case KGSL_STATE_DUMP_AND_RECOVER:
+	case KGSL_STATE_DUMP_AND_FT:
 		return "DNR";
 	case KGSL_STATE_SLUMBER:
 		return "SLUMBER";
