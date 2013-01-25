@@ -17,6 +17,7 @@ Required properties:
 - vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
 - qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
 - qcom,gpio-err-fatal: GPIO used by the modem to indicate error fatal to the apps.
+- qcom,gpio-err-ready: GPIO used by the modem to indicate error ready to the apps.
 - qcom,gpio-proxy-unvote: GPIO used by the modem to trigger proxy unvoting in
   the apps.
 - qcom,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
@@ -49,6 +50,7 @@ Example:
 
 		/* GPIO inputs from mss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
 		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
 
 		/* GPIO output to mss */
