@@ -118,7 +118,9 @@ ifndef CONFIG_ARCH_MSM8226
 ifndef CONFIG_ARCH_MSM9625
 ifndef CONFIG_ARCH_MPQ8092
 ifndef CONFIG_ARCH_MSM8610
+ifndef CONFIG_ARCH_MSMZINC
 	obj-y += nand_partitions.o
+endif
 endif
 endif
 endif
@@ -290,6 +292,7 @@ obj-$(CONFIG_MACH_MPQ8064_HRD) += board-8064-all.o board-8064-regulator.o board-
 obj-$(CONFIG_MACH_MPQ8064_DTV) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o board-9615-gpiomux.o board-9615-storage.o board-9615-display.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o clock-pll.o
+obj-$(CONFIG_ARCH_MSMZINC) += board-zinc.o board-zinc-gpiomux.o
 obj-$(CONFIG_ARCH_MSM8974) += board-8974.o board-8974-gpiomux.o
 obj-$(CONFIG_ARCH_MSM8974) += acpuclock-8974.o
 obj-$(CONFIG_ARCH_MSM8974) += clock-local2.o clock-pll.o clock-8974.o clock-rpm.o clock-voter.o clock-mdss-8974.o
@@ -365,6 +368,7 @@ obj-$(CONFIG_ARCH_MSM9625) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_MPQ8092) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM8226) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM8610) += gpiomux-v2.o gpiomux.o
+obj-$(CONFIG_ARCH_MSMZINC) += gpiomux-v2.o gpiomux.o
 
 obj-$(CONFIG_MSM_SLEEP_STATS_DEVICE) += idle_stats_device.o
 obj-$(CONFIG_MSM_DCVS) += msm_dcvs_scm.o msm_dcvs.o msm_mpdecision.o
