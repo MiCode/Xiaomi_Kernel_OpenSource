@@ -15,7 +15,7 @@
 /include/ "msm9625-v1.dtsi"
 
 / {
-	model = "Qualcomm MSM 9625 CDP";
+	model = "Qualcomm MSM 9625V1 CDP";
 	compatible = "qcom,msm9625-cdp", "qcom,msm9625";
 	qcom,msm-id = <134 1 0>, <152 1 0>, <149 1 0>, <150 1 0>;
 
