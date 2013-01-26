@@ -35,7 +35,6 @@
 #define VDD_SC1_ARRAY_CLAMP_GFS_CTL 0x15A0
 #define SCSS_CPU1CORE_RESET 0xD80
 #define SCSS_DBG_STATUS_CORE_PWRDUP 0xE64
-#define BOOT_REMAP_ENABLE 0x01
 
 /*
  * control for which core is the next to come out of the secondary
@@ -372,27 +371,9 @@ static void __init msm_platform_smp_prepare_cpus(unsigned int max_cpus)
 		pr_warn("Failed to set CPU boot address\n");
 }
 
-static void __init arm_platform_smp_prepare_cpus(unsigned int max_cpus)
-{
-	void *remap_ptr = ioremap_nocache(0xF9010000, SZ_4K);
-	if (!remap_ptr) {
-		pr_err("Failed to ioremap for secondary cores\n");
-		return;
-	}
-
-	/*
-	 * Write the address of secondary startup into boot remapper
-	 * register and enable boot remapping.
-	 */
-	__raw_writel((virt_to_phys(msm_secondary_startup)|BOOT_REMAP_ENABLE),
-			(remap_ptr + 0x4));
-	mb();
-	iounmap(remap_ptr);
-}
-
 struct smp_operations arm_smp_ops __initdata = {
 	.smp_init_cpus = arm_smp_init_cpus,
-	.smp_prepare_cpus = arm_platform_smp_prepare_cpus,
+	.smp_prepare_cpus = msm_platform_smp_prepare_cpus,
 	.smp_secondary_init = platform_secondary_init,
 	.smp_boot_secondary = arm_boot_secondary,
 	.cpu_kill = platform_cpu_kill,
