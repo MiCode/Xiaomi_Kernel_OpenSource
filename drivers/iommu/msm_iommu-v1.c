@@ -28,7 +28,7 @@
 #include <linux/regulator/consumer.h>
 #include <asm/sizes.h>
 
-#include <mach/iommu_hw-v2.h>
+#include <mach/iommu_hw-v1.h>
 #include <mach/iommu.h>
 #include <mach/iommu_perfmon.h>
 #include "msm_iommu_pagetable.h"

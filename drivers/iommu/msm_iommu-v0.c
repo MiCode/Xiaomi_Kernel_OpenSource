@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@
 #include <asm/cacheflush.h>
 #include <asm/sizes.h>
 
-#include <mach/iommu_hw-8xxx.h>
+#include <mach/iommu_hw-v0.h>
 #include <mach/iommu.h>
 #include <mach/msm_smsm.h>
 
