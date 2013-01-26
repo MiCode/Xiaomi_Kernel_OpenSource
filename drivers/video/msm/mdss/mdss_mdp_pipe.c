@@ -267,6 +267,7 @@ static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
 			atomic_read(&pipe->ref_cnt));
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_pipe_sspp_term(pipe);
 	mdss_mdp_smp_free(pipe);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
