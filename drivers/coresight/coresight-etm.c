@@ -256,6 +256,7 @@ struct etm_drvdata {
 	bool				pcsave_enable;
 	bool				pcsave_sticky_enable;
 	bool				pcsave_boot_enable;
+	bool				round_robin;
 };
 
 static struct etm_drvdata *etmdrvdata[NR_CPUS];
@@ -1845,7 +1846,7 @@ static int etm_cpu_callback(struct notifier_block *nfb, unsigned long action,
 			etmdrvdata[cpu]->os_unlock = true;
 		}
 
-		if (etmdrvdata[cpu]->enable)
+		if (etmdrvdata[cpu]->enable && etmdrvdata[cpu]->round_robin)
 			__etm_enable(etmdrvdata[cpu]);
 		spin_unlock(&etmdrvdata[cpu]->spinlock);
 		break;
@@ -1858,7 +1859,7 @@ static int etm_cpu_callback(struct notifier_block *nfb, unsigned long action,
 
 	case CPU_DYING:
 		spin_lock(&etmdrvdata[cpu]->spinlock);
-		if (etmdrvdata[cpu]->enable)
+		if (etmdrvdata[cpu]->enable && etmdrvdata[cpu]->round_robin)
 			__etm_disable(etmdrvdata[cpu]);
 		spin_unlock(&etmdrvdata[cpu]->spinlock);
 		break;
@@ -2098,6 +2099,10 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	etm_init_default_data(drvdata);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	if (pdev->dev.of_node)
+		drvdata->round_robin = of_property_read_bool(pdev->dev.of_node,
+							"qcom,round-robin");
 
 	baddr = devm_kzalloc(dev, PAGE_SIZE + reg_size, GFP_KERNEL);
 	if (baddr) {
