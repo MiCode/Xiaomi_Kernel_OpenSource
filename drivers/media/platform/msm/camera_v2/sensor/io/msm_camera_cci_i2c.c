@@ -143,12 +143,16 @@ int32_t msm_camera_cci_i2c_write_seq(struct msm_camera_i2c_client *client,
 
 	S_I2C_DBG("%s reg addr = 0x%x num bytes: %d\n",
 			  __func__, addr, num_byte);
+	memset(reg_conf_tbl, 0,
+		num_byte * sizeof(struct msm_camera_i2c_reg_conf));
 	reg_conf_tbl[0].reg_addr = addr;
 	for (i = 0; i < num_byte; i++)
 		reg_conf_tbl[i].reg_data = data[i];
 	cci_ctrl.cmd = MSM_CCI_I2C_WRITE;
 	cci_ctrl.cci_info = client->cci_client;
 	cci_ctrl.cfg.cci_i2c_write_cfg.reg_conf_tbl = reg_conf_tbl;
+	cci_ctrl.cfg.cci_i2c_write_cfg.data_type = MSM_CAMERA_I2C_BYTE_DATA;
+	cci_ctrl.cfg.cci_i2c_write_cfg.addr_type = client->addr_type;
 	cci_ctrl.cfg.cci_i2c_write_cfg.size = num_byte;
 	rc = v4l2_subdev_call(client->cci_client->cci_subdev,
 			core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
