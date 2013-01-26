@@ -589,6 +589,8 @@ qpnp_chg_chgr_chg_trklchg_irq_handler(int irq, void *_chip)
 	struct qpnp_chg_chip *chip = _chip;
 
 	pr_debug("TRKL IRQ triggered\n");
+
+	chip->chg_done = false;
 	power_supply_changed(&chip->batt_psy);
 
 	return IRQ_HANDLED;
@@ -600,6 +602,8 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 	struct qpnp_chg_chip *chip = _chip;
 
 	pr_debug("FAST_CHG IRQ triggered\n");
+
+	chip->chg_done = false;
 	power_supply_changed(&chip->batt_psy);
 
 	return IRQ_HANDLED;
@@ -609,11 +613,19 @@ static irqreturn_t
 qpnp_chg_chgr_chg_done_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
+	u8 chgr_sts;
+	int rc;
 
 	pr_debug("CHG_DONE IRQ triggered\n");
-	chip->chg_done = true;
 
+	rc = qpnp_chg_read(chip, &chgr_sts,
+				INT_RT_STS(chip->chgr_base), 1);
+	if (rc)
+		pr_err("failed to read interrupt sts %d\n", rc);
+
+	chip->chg_done = true;
 	power_supply_changed(&chip->batt_psy);
+
 	return IRQ_HANDLED;
 }
 
@@ -871,18 +883,15 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 	int rc;
 	u8 chgr_sts;
 
+	if (chip->chg_done)
+		return POWER_SUPPLY_STATUS_FULL;
+
 	rc = qpnp_chg_read(chip, &chgr_sts,
 				INT_RT_STS(chip->chgr_base), 1);
 	if (rc) {
 		pr_err("failed to read interrupt sts %d\n", rc);
-		return POWER_SUPPLY_STATUS_DISCHARGING;
+		return POWER_SUPPLY_CHARGE_TYPE_NONE;
 	}
-
-	pr_debug("chgr sts 0x%x\n", chgr_sts);
-	if (chgr_sts & CHG_DONE_IRQ || chip->chg_done)
-		return POWER_SUPPLY_STATUS_FULL;
-	else
-		chip->chg_done = false;
 
 	if (chgr_sts & TRKL_CHG_ON_IRQ)
 		return POWER_SUPPLY_STATUS_CHARGING;
@@ -1417,7 +1426,8 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 
 		rc |= devm_request_irq(chip->dev, chip->chg_done_irq,
 				qpnp_chg_chgr_chg_done_irq_handler,
-				IRQF_TRIGGER_RISING, "chg_done", chip);
+				IRQF_TRIGGER_RISING,
+				"chg_done", chip);
 		if (rc < 0) {
 			pr_err("Can't request %d chg_done for chg: %d\n",
 						chip->chg_done_irq, rc);
@@ -1435,7 +1445,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 
 		rc |= devm_request_irq(chip->dev, chip->chg_fastchg_irq,
 				qpnp_chg_chgr_chg_fastchg_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				IRQF_TRIGGER_RISING,
 				"fast-chg-on", chip);
 		if (rc < 0) {
 			pr_err("Can't request %d fast-chg-on for chg: %d\n",
