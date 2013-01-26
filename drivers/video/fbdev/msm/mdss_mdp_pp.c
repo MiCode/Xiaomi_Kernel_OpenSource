@@ -461,6 +461,12 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	return ret;
 }
 
+void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
+{
+	memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
+	memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
+}
+
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
 	int ret = 0;
