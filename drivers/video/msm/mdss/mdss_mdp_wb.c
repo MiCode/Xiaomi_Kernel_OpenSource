@@ -25,6 +25,7 @@
 
 #include "mdss_mdp.h"
 #include "mdss_fb.h"
+#include "mdss_wb.h"
 
 
 enum mdss_mdp_wb_state {
@@ -535,11 +536,37 @@ kickoff_fail:
 	return ret;
 }
 
+int mdss_mdp_wb_set_mirr_hint(struct msm_fb_data_type *mfd, int hint)
+{
+	struct mdss_panel_data *pdata = NULL;
+	struct mdss_wb_ctrl *wb_ctrl = NULL;
+
+	if (!mfd) {
+		pr_err("No panel data!\n");
+		return -EINVAL;
+	}
+
+	pdata = mfd->pdev->dev.platform_data;
+	wb_ctrl = container_of(pdata, struct mdss_wb_ctrl, pdata);
+
+	switch (hint) {
+	case MDP_WRITEBACK_MIRROR_ON:
+	case MDP_WRITEBACK_MIRROR_PAUSE:
+	case MDP_WRITEBACK_MIRROR_RESUME:
+	case MDP_WRITEBACK_MIRROR_OFF:
+		pr_info("wfd state switched to %d\n", hint);
+		switch_set_state(&wb_ctrl->sdev, hint);
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 				void *arg)
 {
 	struct msmfb_data data;
-	int ret = -ENOSYS;
+	int ret = -ENOSYS, hint = 0;
 
 	switch (cmd) {
 	case MSMFB_WRITEBACK_INIT:
@@ -569,6 +596,14 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 		break;
 	case MSMFB_WRITEBACK_TERMINATE:
 		ret = mdss_mdp_wb_terminate(mfd);
+		break;
+	case MSMFB_WRITEBACK_SET_MIRRORING_HINT:
+		if (!copy_from_user(&hint, arg, sizeof(hint))) {
+			ret = mdss_mdp_wb_set_mirr_hint(mfd, hint);
+		} else {
+			pr_err("set mirroring hint failed on copy_from_user\n");
+			ret = -EFAULT;
+		}
 		break;
 	}
 
