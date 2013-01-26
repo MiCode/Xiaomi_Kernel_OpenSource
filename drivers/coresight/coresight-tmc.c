@@ -255,7 +255,12 @@ static int tmc_etr_bam_enable(struct tmc_drvdata *drvdata)
 	if (bamdata->enable)
 		return 0;
 
-	/* Configure and enable ndp bam */
+	/* Reset bam to start with */
+	ret = sps_device_reset(bamdata->handle);
+	if (ret)
+		goto err0;
+
+	/* Now configure and enable bam */
 
 	bamdata->pipe = sps_alloc_endpoint();
 	if (!bamdata->pipe)
@@ -263,7 +268,7 @@ static int tmc_etr_bam_enable(struct tmc_drvdata *drvdata)
 
 	ret = sps_get_config(bamdata->pipe, &bamdata->connect);
 	if (ret)
-		goto err;
+		goto err1;
 
 	bamdata->connect.mode = SPS_MODE_SRC;
 	bamdata->connect.source = bamdata->handle;
@@ -278,12 +283,13 @@ static int tmc_etr_bam_enable(struct tmc_drvdata *drvdata)
 
 	ret = sps_connect(bamdata->pipe, &bamdata->connect);
 	if (ret)
-		goto err;
+		goto err1;
 
 	bamdata->enable = true;
 	return 0;
-err:
+err1:
 	sps_free_endpoint(bamdata->pipe);
+err0:
 	return ret;
 }
 
