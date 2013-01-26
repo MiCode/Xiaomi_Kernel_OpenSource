@@ -23,6 +23,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/chipidea.h>
+#include <linux/usb/msm_hsusb.h>
 
 #include "ci.h"
 #include "udc.h"
