@@ -341,6 +341,7 @@ int mdss_mdp_pp_resume(u32 mixer_num);
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op);
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op);
+void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe);
 
 int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback);
 int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *cfg_ptr, u32 *copyback);
