@@ -11,7 +11,6 @@
 *
 */
 #include <linux/msm_mdp.h>
-#include <linux/switch.h>
 #include <mach/iommu_domains.h>
 #include <media/videobuf2-core.h>
 #include "enc-subdev.h"
@@ -23,7 +22,6 @@ struct mdp_instance {
 	u32 height;
 	u32 width;
 	bool secure;
-	struct switch_dev sdev;
 };
 
 static int mdp_secure(struct v4l2_subdev *sd, void *arg);
@@ -57,13 +55,6 @@ int mdp_open(struct v4l2_subdev *sd, void *arg)
 		rc = -ENODEV;
 		goto mdp_open_fail;
 	}
-	inst->sdev.name = "wfd";
-	/* Register wfd node to switch driver */
-	rc = switch_dev_register(&inst->sdev);
-	if (rc) {
-		WFD_MSG_ERR("WFD switch registration failed\n");
-		goto mdp_open_fail;
-	}
 
 	msm_fb_writeback_init(fbi);
 
@@ -81,7 +72,6 @@ int mdp_open(struct v4l2_subdev *sd, void *arg)
 	mops->cookie = inst;
 	return 0;
 mdp_secure_fail:
-	switch_dev_unregister(&inst->sdev);
 	msm_fb_writeback_terminate(inst->mdp);
 mdp_open_fail:
 	kfree(inst);
@@ -105,8 +95,6 @@ int mdp_start(struct v4l2_subdev *sd, void *arg)
 			rc = -ENODEV;
 			goto exit;
 		}
-		switch_set_state(&inst->sdev, true);
-		WFD_MSG_DBG("wfd state switched to %d\n", inst->sdev.state);
 	}
 exit:
 	return rc;
@@ -123,9 +111,8 @@ int mdp_stop(struct v4l2_subdev *sd, void *arg)
 			WFD_MSG_ERR("Failed to stop writeback mode\n");
 			return rc;
 		}
+
 		fbi = (struct fb_info *)inst->mdp;
-		switch_set_state(&inst->sdev, false);
-		WFD_MSG_DBG("wfd state switched to %d\n", inst->sdev.state);
 	}
 	return 0;
 }
@@ -139,8 +126,6 @@ static int mdp_close(struct v4l2_subdev *sd, void *arg)
 		if (inst->secure)
 			msm_fb_writeback_set_secure(inst->mdp, false);
 		msm_fb_writeback_terminate(fbi);
-		/* Unregister wfd node from switch driver */
-		switch_dev_unregister(&inst->sdev);
 		kfree(inst);
 	}
 	return 0;
