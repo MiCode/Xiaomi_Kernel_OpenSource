@@ -29,7 +29,7 @@
 
 #include <asm/sizes.h>
 
-#include <mach/iommu_hw-v2.h>
+#include <mach/iommu_hw-v1.h>
 #include <mach/iommu.h>
 #include <mach/scm.h>
 

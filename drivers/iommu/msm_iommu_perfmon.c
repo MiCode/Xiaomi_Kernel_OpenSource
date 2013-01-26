@@ -20,7 +20,7 @@
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
-#include <mach/iommu_hw-v2.h>
+#include <mach/iommu_hw-v1.h>
 #include <mach/iommu.h>
 #include <mach/iommu_perfmon.h>
 

@@ -25,7 +25,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 
-#include <mach/iommu_hw-v2.h>
+#include <mach/iommu_hw-v1.h>
 #include <mach/iommu.h>
 #include <mach/iommu_perfmon.h>
 
