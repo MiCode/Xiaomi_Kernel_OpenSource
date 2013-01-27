@@ -243,7 +243,7 @@ static void diagfwd_bridge_notifier(void *priv, unsigned event,
 		if (index == SMUX && driver->diag_smux_enabled)
 			diagfwd_write_complete_smux();
 		else if (diag_hsic[index].hsic_device_enabled)
-			diagfwd_write_complete_hsic(d_req);
+			diagfwd_write_complete_hsic(d_req, index);
 		break;
 	default:
 		pr_err("diag: in %s: Unknown event from USB diag:%u\n",
@@ -264,7 +264,7 @@ void diagfwd_bridge_init(int index)
 	} else if (index == SMUX) {
 		strlcpy(name, "smux", sizeof(name));
 	} else {
-		pr_err("diag: incorrect bridge init\n");
+		pr_err("diag: incorrect bridge init, instance: %d\n", index);
 		return;
 	}
 

@@ -99,7 +99,10 @@ do {							\
 /* List of remote processor supported */
 enum remote_procs {
 	MDM = 1,
-	QSC = 2,
+	MDM2 = 2,
+	MDM3 = 3,
+	MDM4 = 4,
+	QSC = 5,
 };
 
 struct diag_master_table {

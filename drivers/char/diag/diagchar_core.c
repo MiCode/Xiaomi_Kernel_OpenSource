@@ -382,25 +382,6 @@ void diag_add_reg(int j, struct bindpkt_params *params,
 	(*count_entries)++;
 }
 
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-uint16_t diag_get_remote_device_mask(void)
-{
-	uint16_t remote_dev = 0;
-
-	/* Check for MDM processor */
-	if (diag_hsic[HSIC].hsic_inited)
-		remote_dev |= 1 << 0;
-
-	/* Check for QSC processor */
-	if (driver->diag_smux_enabled)
-		remote_dev |= 1 << 1;
-
-	return remote_dev;
-}
-#else
-inline uint16_t diag_get_remote_device_mask(void) { return 0; }
-#endif
-
 static int diag_get_remote(int remote_info)
 {
 	int val = (remote_info < 0) ? -remote_info : remote_info;
@@ -408,6 +389,9 @@ static int diag_get_remote(int remote_info)
 
 	switch (val) {
 	case MDM:
+	case MDM2:
+	case MDM3:
+	case MDM4:
 	case QSC:
 		remote_val = -remote_info;
 		break;
@@ -418,6 +402,130 @@ static int diag_get_remote(int remote_info)
 
 	return remote_val;
 }
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+uint16_t diag_get_remote_device_mask(void)
+{
+	uint16_t remote_dev = 0;
+	int i;
+
+	/* Check for MDM processor */
+	for (i = 0; i < MAX_HSIC_CH; i++)
+		if (diag_hsic[i].hsic_inited)
+			remote_dev |= 1 << i;
+
+	/* Check for QSC processor */
+	if (driver->diag_smux_enabled)
+		remote_dev |= 1 << SMUX;
+
+	return remote_dev;
+}
+
+int diag_copy_remote(char __user *buf, size_t count, int *pret, int *pnum_data)
+{
+	int i;
+	int index;
+	int exit_stat = 1;
+	int ret = *pret;
+	int num_data = *pnum_data;
+	int remote_token;
+	unsigned long spin_lock_flags;
+	struct diag_write_device hsic_buf_tbl[NUM_HSIC_BUF_TBL_ENTRIES];
+
+	remote_token = diag_get_remote(MDM);
+	for (index = 0; index < MAX_HSIC_CH; index++) {
+		if (!diag_hsic[index].hsic_inited) {
+			remote_token--;
+			continue;
+		}
+
+		spin_lock_irqsave(&diag_hsic[index].hsic_spinlock,
+			spin_lock_flags);
+		for (i = 0; i < diag_hsic[index].poolsize_hsic_write; i++) {
+			hsic_buf_tbl[i].buf =
+				diag_hsic[index].hsic_buf_tbl[i].buf;
+			diag_hsic[index].hsic_buf_tbl[i].buf = 0;
+			hsic_buf_tbl[i].length =
+				diag_hsic[index].hsic_buf_tbl[i].length;
+			diag_hsic[HSIC].hsic_buf_tbl[i].length = 0;
+		}
+		diag_hsic[index].num_hsic_buf_tbl_entries = 0;
+		spin_unlock_irqrestore(&diag_hsic[HSIC].hsic_spinlock,
+			spin_lock_flags);
+
+		for (i = 0; i < diag_hsic[index].poolsize_hsic_write; i++) {
+			if (hsic_buf_tbl[i].length > 0) {
+				pr_debug("diag: HSIC copy to user, i: %d, buf: %x, len: %d\n",
+					i, (unsigned int)hsic_buf_tbl[i].buf,
+					hsic_buf_tbl[i].length);
+				num_data++;
+
+				/* Copy the negative token */
+				if (copy_to_user(buf+ret,
+					&remote_token, 4)) {
+						num_data--;
+						goto drop_hsic;
+				}
+				ret += 4;
+
+				/* Copy the length of data being passed */
+				if (copy_to_user(buf+ret,
+					(void *)&(hsic_buf_tbl[i].length),
+					4)) {
+						num_data--;
+						goto drop_hsic;
+				}
+				ret += 4;
+
+				/* Copy the actual data being passed */
+				if (copy_to_user(buf+ret,
+					(void *)hsic_buf_tbl[i].buf,
+					hsic_buf_tbl[i].length)) {
+						ret -= 4;
+						num_data--;
+						goto drop_hsic;
+				}
+				ret += hsic_buf_tbl[i].length;
+drop_hsic:
+				/* Return the buffer to the pool */
+				diagmem_free(driver,
+					(unsigned char *)(hsic_buf_tbl[i].buf),
+					POOL_TYPE_HSIC);
+
+				/* Call the write complete function */
+				diagfwd_write_complete_hsic(NULL, index);
+			}
+		}
+		remote_token--;
+	}
+	if (driver->in_busy_smux == 1) {
+		remote_token = diag_get_remote(QSC);
+		num_data++;
+
+		/* Copy the negative  token of data being passed */
+		COPY_USER_SPACE_OR_EXIT(buf+ret,
+			remote_token, 4);
+		/* Copy the length of data being passed */
+		COPY_USER_SPACE_OR_EXIT(buf+ret,
+			(driver->write_ptr_mdm->length), 4);
+		/* Copy the actual data being passed */
+		COPY_USER_SPACE_OR_EXIT(buf+ret,
+			*(driver->buf_in_smux),
+			driver->write_ptr_mdm->length);
+		pr_debug("diag: SMUX  data copied\n");
+		driver->in_busy_smux = 0;
+	}
+	exit_stat = 0;
+exit:
+	*pret = ret;
+	*pnum_data = num_data;
+	return exit_stat;
+}
+#else
+inline uint16_t diag_get_remote_device_mask(void) { return 0; }
+inline int diag_copy_remote(char __user *buf, size_t count, int *pret,
+			    int *pnum_data) { return 0; }
+#endif
 
 long diagchar_ioctl(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
@@ -825,6 +933,7 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 	int index = -1, i = 0, ret = 0;
 	int num_data = 0, data_type;
 	int remote_token;
+	int exit_stat;
 
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid == current->tgid)
@@ -841,10 +950,6 @@ static int diagchar_read(struct file *file, char __user *buf, size_t count,
 
 	if ((driver->data_ready[index] & USER_SPACE_DATA_TYPE) && (driver->
 					logging_mode == MEMORY_DEVICE_MODE)) {
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		unsigned long spin_lock_flags;
-		struct diag_write_device hsic_buf_tbl[NUM_HSIC_BUF_TBL_ENTRIES];
-#endif
 		remote_token = 0;
 		pr_debug("diag: process woken up\n");
 		/*Copy the type of data being passed*/
@@ -937,83 +1042,11 @@ drop:
 			driver->in_busy_sdio = 0;
 		}
 #endif
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		spin_lock_irqsave(&diag_hsic[HSIC].hsic_spinlock,
-							spin_lock_flags);
-		for (i = 0; i < diag_hsic[HSIC].poolsize_hsic_write; i++) {
-			hsic_buf_tbl[i].buf =
-					diag_hsic[HSIC].hsic_buf_tbl[i].buf;
-			diag_hsic[HSIC].hsic_buf_tbl[i].buf = 0;
-			hsic_buf_tbl[i].length =
-					diag_hsic[HSIC].hsic_buf_tbl[i].length;
-			diag_hsic[HSIC].hsic_buf_tbl[i].length = 0;
-		}
-		diag_hsic[HSIC].num_hsic_buf_tbl_entries = 0;
-		spin_unlock_irqrestore(&diag_hsic[HSIC].hsic_spinlock,
-					spin_lock_flags);
+		/* Copy date from remote processors */
+		exit_stat = diag_copy_remote(buf, count, &ret, &num_data);
+		if (exit_stat == 1)
+			goto exit;
 
-		remote_token = diag_get_remote(MDM);
-		for (i = 0; i < diag_hsic[HSIC].poolsize_hsic_write; i++) {
-			if (hsic_buf_tbl[i].length > 0) {
-				pr_debug("diag: HSIC copy to user, i: %d, buf: %x, len: %d\n",
-					 i, (unsigned int)hsic_buf_tbl[i].buf,
-					hsic_buf_tbl[i].length);
-				num_data++;
-
-				/* Copy the negative token */
-				if (copy_to_user(buf+ret,
-						&remote_token, 4)) {
-					num_data--;
-					goto drop_hsic;
-				}
-				ret += 4;
-
-				/* Copy the length of data being passed */
-				if (copy_to_user(buf+ret,
-					(void *)&(hsic_buf_tbl[i].length),
-					4)) {
-					num_data--;
-					goto drop_hsic;
-				}
-				ret += 4;
-
-				/* Copy the actual data being passed */
-				if (copy_to_user(buf+ret,
-						(void *)hsic_buf_tbl[i].buf,
-						hsic_buf_tbl[i].length)) {
-					ret -= 4;
-					num_data--;
-					goto drop_hsic;
-				}
-				ret += hsic_buf_tbl[i].length;
-drop_hsic:
-				/* Return the buffer to the pool */
-				diagmem_free(driver,
-					(unsigned char *)(hsic_buf_tbl[i].buf),
-					POOL_TYPE_HSIC);
-
-				/* Call the write complete function */
-				diagfwd_write_complete_hsic(NULL);
-			}
-		}
-		if (driver->in_busy_smux == 1) {
-			remote_token = diag_get_remote(QSC);
-			num_data++;
-
-			/* Copy the negative  token of data being passed */
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-						remote_token, 4);
-			/* Copy the length of data being passed */
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-					(driver->write_ptr_mdm->length), 4);
-			/* Copy the actual data being passed */
-			COPY_USER_SPACE_OR_EXIT(buf+ret,
-					*(driver->buf_in_smux),
-					driver->write_ptr_mdm->length);
-			pr_debug("diag: SMUX  data copied\n");
-			driver->in_busy_smux = 0;
-		}
-#endif
 		/* copy number of data fields */
 		COPY_USER_SPACE_OR_EXIT(buf+4, num_data, 4);
 		ret -= 4;
@@ -1203,9 +1236,9 @@ static int diagchar_write(struct file *file, const char __user *buf,
 #endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		/* send masks to All 9k */
-		for (index = 0; index < MAX_HSIC_CH; index++) {
-			if (diag_hsic[index].hsic_ch && (payload_size > 0) &&
-							 (remote_proc == MDM)) {
+		if ((remote_proc >= MDM) && (remote_proc <= MDM4)) {
+			index = remote_proc - MDM;
+			if (diag_hsic[index].hsic_ch && (payload_size > 0)) {
 				/* wait sending mask updates
 				 * if HSIC ch not ready */
 				if (diag_hsic[index].in_busy_hsic_write)
