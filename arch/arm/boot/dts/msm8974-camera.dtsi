@@ -203,6 +203,13 @@
 		qcom,hw-trdhld = <6>;
 		qcom,hw-tsp = <1>;
 
+		actuator0: qcom,actuator@18 {
+			cell-index = <0>;
+			reg = <0x18 0x0>;
+			compatible = "qcom,actuator";
+			qcom,cci-master = <0>;
+		};
+
 		qcom,camera@6e {
 			status = "disable";
 		};
