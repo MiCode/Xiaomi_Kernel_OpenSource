@@ -50,6 +50,7 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 	int32_t rc = 0, i = 0;
 	uint32_t val = 0, count = 0;
 	uint32_t *val_array = NULL;
+	struct device_node *src_node = NULL;
 
 	sensordata->sensor_info = kzalloc(sizeof(struct msm_sensor_info_t),
 		GFP_KERNEL);
@@ -60,17 +61,21 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 	for (i = 0; i < SUB_MODULE_MAX; i++)
 		sensordata->sensor_info->subdev_id[i] = -1;
 
-	if (of_property_read_bool(of_node, "qcom,actuator-sd-index") ==
-		true) {
-		rc = of_property_read_u32(of_node, "qcom,actuator-sd-index",
-			&val);
-		CDBG("%s qcom,actuator-sd-index %d, rc %d\n", __func__, val,
-			rc);
+	src_node = of_parse_phandle(of_node, "qcom,actuator-src", 0);
+	if (!src_node) {
+		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+	} else {
+		rc = of_property_read_u32(src_node, "cell-index", &val);
+		CDBG("%s qcom,actuator cell index %d, rc %d\n", __func__,
+			val, rc);
 		if (rc < 0) {
-			pr_err("%s:%d failed rc %d\n", __func__, __LINE__, rc);
-			return rc;
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			goto ERROR;
 		}
-		sensordata->sensor_info->subdev_id[SUB_MODULE_ACTUATOR] = val;
+		sensordata->sensor_info->
+			subdev_id[SUB_MODULE_ACTUATOR] = val;
+		of_node_put(src_node);
+		src_node = NULL;
 	}
 
 	if (of_property_read_bool(of_node, "qcom,eeprom-sd-index") ==
@@ -80,7 +85,7 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 		CDBG("%s qcom,eeprom-sd-index %d, rc %d\n", __func__, val, rc);
 		if (rc < 0) {
 			pr_err("%s:%d failed rc %d\n", __func__, __LINE__, rc);
-			return rc;
+			goto ERROR;
 		}
 		sensordata->sensor_info->subdev_id[SUB_MODULE_EEPROM] = val;
 	}
@@ -93,7 +98,7 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 			rc);
 		if (rc < 0) {
 			pr_err("%s:%d failed rc %d\n", __func__, __LINE__, rc);
-			return rc;
+			goto ERROR;
 		}
 		sensordata->sensor_info->subdev_id[SUB_MODULE_LED_FLASH] = val;
 	}
@@ -106,7 +111,7 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 			val, rc);
 		if (rc < 0) {
 			pr_err("%s:%d failed rc %d\n", __func__, __LINE__, rc);
-			return rc;
+			goto ERROR;
 		}
 		sensordata->sensor_info->subdev_id[SUB_MODULE_STROBE_FLASH] =
 			val;
@@ -117,12 +122,13 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 		if (count > 2) {
 			pr_err("%s qcom,csiphy-sd-index count %d > 2\n",
 				__func__, count);
-			return -EINVAL;
+			goto ERROR;
 		}
 		val_array = kzalloc(sizeof(uint32_t) * count, GFP_KERNEL);
 		if (!val_array) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
-			return -ENOMEM;
+			rc = -ENOMEM;
+			goto ERROR;
 		}
 
 		rc = of_property_read_u32_array(of_node, "qcom,csiphy-sd-index",
@@ -130,7 +136,7 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 		if (rc < 0) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
 			kfree(val_array);
-			return rc;
+			goto ERROR;
 		}
 		for (i = 0; i < count; i++) {
 			sensordata->sensor_info->subdev_id
@@ -142,7 +148,8 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 	} else {
 		pr_err("%s:%d qcom,csiphy-sd-index not present\n", __func__,
 			__LINE__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto ERROR;
 	}
 
 	if (of_get_property(of_node, "qcom,csid-sd-index", &count)) {
@@ -150,12 +157,14 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 		if (count > 2) {
 			pr_err("%s qcom,csid-sd-index count %d > 2\n",
 				__func__, count);
-			return -EINVAL;
+			rc = -EINVAL;
+			goto ERROR;
 		}
 		val_array = kzalloc(sizeof(uint32_t) * count, GFP_KERNEL);
 		if (!val_array) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
-			return -ENOMEM;
+			rc = -ENOMEM;
+			goto ERROR;
 		}
 
 		rc = of_property_read_u32_array(of_node, "qcom,csid-sd-index",
@@ -163,7 +172,7 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 		if (rc < 0) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
 			kfree(val_array);
-			return rc;
+			goto ERROR;
 		}
 		for (i = 0; i < count; i++) {
 			sensordata->sensor_info->subdev_id
@@ -175,8 +184,13 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 	} else {
 		pr_err("%s:%d qcom,csid-sd-index not present\n", __func__,
 			__LINE__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto ERROR;
 	}
+	return rc;
+ERROR:
+	kfree(sensordata->sensor_info);
+	sensordata->sensor_info = NULL;
 	return rc;
 }
 

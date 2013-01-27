@@ -129,6 +129,8 @@ Optional properties:
     sensor
     - 0 -> MASTER 0
     - 1 -> MASTER 1
+- qcom,actuator-src : if auto focus is supported by this sensor, this
+   property should contain phandle of respective actuator node
 
 * Qualcomm MSM ACTUATOR
 
@@ -188,6 +190,7 @@ Example:
                qcom,led-flash-sd-index = <0>;
                qcom,csiphy-sd-index = <2>;
                qcom,csid-sd-index = <0>;
+               qcom,actuator-src = <&actuator0>;
                qcom,mount-angle = <90>;
                qcom,sensor-name = "s5k3l1yx";
                cam_vdig-supply = <&pm8941_l3>;
