@@ -17,9 +17,9 @@
 #include <media/msm_cam_sensor.h>
 #include <mach/board.h>
 
-enum msm_sensor_device_type_t {
-	MSM_SENSOR_I2C_DEVICE,
-	MSM_SENSOR_PLATFORM_DEVICE,
+enum msm_camera_device_type_t {
+	MSM_CAMERA_I2C_DEVICE,
+	MSM_CAMERA_PLATFORM_DEVICE,
 };
 
 enum msm_bus_perf_setting {
