@@ -290,6 +290,8 @@ int diagfwd_cancel_hsic(void)
 
 	/* Cancel it for all active HSIC bridges */
 	for (i = 0; i < MAX_HSIC_CH; i++) {
+		if (!diag_bridge[i].enabled)
+			continue;
 		mutex_lock(&diag_bridge[i].bridge_mutex);
 		if (diag_hsic[i].hsic_device_enabled) {
 			if (diag_hsic[i].hsic_device_opened) {
@@ -300,10 +302,11 @@ int diagfwd_cancel_hsic(void)
 				err = diag_bridge_open(i,
 						   &hsic_diag_bridge_ops[i]);
 				if (err) {
-					pr_err("diag: HSIC channel open error: %d\n",
-						 err);
+					pr_err("diag: HSIC %d channel open error: %d\n",
+						 i, err);
 				} else {
-					pr_debug("diag: opened HSIC channel\n");
+					pr_debug("diag: opened HSIC channel: %d\n",
+						i);
 					diag_hsic[i].hsic_device_opened = 1;
 					diag_hsic[i].hsic_ch = 1;
 				}
@@ -318,10 +321,9 @@ int diagfwd_cancel_hsic(void)
  * diagfwd_write_complete_hsic is called after the asynchronous
  * usb_diag_write() on mdm channel is complete
  */
-int diagfwd_write_complete_hsic(struct diag_request *diag_write_ptr)
+int diagfwd_write_complete_hsic(struct diag_request *diag_write_ptr, int index)
 {
 	unsigned char *buf = (diag_write_ptr) ? diag_write_ptr->buf : NULL;
-	int index = (int)(diag_write_ptr->context);
 
 	if (buf) {
 		/* Return buffers to their pools */
@@ -411,6 +413,7 @@ static int diag_hsic_probe(struct platform_device *pdev)
 			mutex_unlock(&diag_bridge[pdev->id].bridge_mutex);
 			return -ENOMEM;
 		}
+		diag_hsic[pdev->id].id = pdev->id;
 		diag_hsic[pdev->id].count_hsic_pool = 0;
 		diag_hsic[pdev->id].count_hsic_write_pool = 0;
 		diag_hsic[pdev->id].itemsize_hsic = READ_HSIC_BUF_SIZE;

@@ -19,7 +19,7 @@
 #define N_MDM_READ	1
 #define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
 #define MAX_HSIC_CH	4
-int diagfwd_write_complete_hsic(struct diag_request *);
+int diagfwd_write_complete_hsic(struct diag_request *, int index);
 int diagfwd_cancel_hsic(void);
 void diag_read_usb_hsic_work_fn(struct work_struct *work);
 void diag_usb_read_complete_hsic_fn(struct work_struct *w);
