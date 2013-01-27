@@ -130,6 +130,20 @@ Optional properties:
     - 0 -> MASTER 0
     - 1 -> MASTER 1
 
+* Qualcomm MSM ACTUATOR
+
+Required properties:
+- cell-index : should contain unique identifier to differentiate
+    between multiple actuators
+- reg : should contain i2c slave address of the actuator and length of
+    data field which is 0x0
+- compatible :
+    - "qcom,actuator"
+- qcom,cci-master : should contain i2c master id to be used for this camera
+    sensor
+    - 0 -> MASTER 0
+    - 1 -> MASTER 1
+
 Example:
 
    qcom,cci@0xfda0c000 {
@@ -159,6 +173,14 @@ Example:
        qcom,hw-scl-stretch-en = <0>;
        qcom,hw-trdhld = <6>;
        qcom,hw-tsp = <1>;
+
+        actuator0: qcom,actuator@18 {
+                cell-index = <0>;
+                reg = <0x18 0x0>;
+                compatible = "qcom,actuator";
+                qcom,cci-master = <0>;
+        };
+
        qcom,s5k3l1yx@6e {
                compatible = "qcom,s5k3l1yx";
                reg = <0x6e 0x0>;

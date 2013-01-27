@@ -47,7 +47,7 @@ struct msm_sensor_fn_t {
 
 struct msm_sensor_ctrl_t {
 	struct platform_device *pdev;
-	enum msm_sensor_device_type_t sensor_device_type;
+	enum msm_camera_device_type_t sensor_device_type;
 	enum cci_i2c_master_t cci_i2c_master;
 	struct msm_camera_sensor_board_info *sensordata;
 	struct msm_sensor_power_setting_array power_setting_array;
