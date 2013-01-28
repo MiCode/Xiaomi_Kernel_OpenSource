@@ -20,6 +20,7 @@
 #include <linux/spinlock.h>
 #include <linux/errno.h>
 #include <linux/remote_spinlock.h>
+#include <linux/platform_device.h>
 #include <mach/msm_smsm.h>
 #include <mach/msm_smd.h>
 
@@ -206,6 +207,46 @@ struct smem_ram_ptn {
 	unsigned reserved2, reserved3, reserved4, reserved5;
 } __attribute__ ((__packed__));
 
+struct smd_channel {
+	volatile void __iomem *send; /* some variant of smd_half_channel */
+	volatile void __iomem *recv; /* some variant of smd_half_channel */
+	unsigned char *send_data;
+	unsigned char *recv_data;
+	unsigned fifo_size;
+	unsigned fifo_mask;
+	struct list_head ch_list;
+
+	unsigned current_packet;
+	unsigned n;
+	void *priv;
+	void (*notify)(void *priv, unsigned flags);
+
+	int (*read)(smd_channel_t *ch, void *data, int len, int user_buf);
+	int (*write)(smd_channel_t *ch, const void *data, int len,
+			int user_buf);
+	int (*read_avail)(smd_channel_t *ch);
+	int (*write_avail)(smd_channel_t *ch);
+	int (*read_from_cb)(smd_channel_t *ch, void *data, int len,
+			int user_buf);
+
+	void (*update_state)(smd_channel_t *ch);
+	unsigned last_state;
+	void (*notify_other_cpu)(smd_channel_t *ch);
+
+	char name[20];
+	struct platform_device pdev;
+	unsigned type;
+
+	int pending_pkt_sz;
+
+	char is_pkt_ch;
+
+	/*
+	 * private internal functions to access *send and *recv.
+	 * never to be exported outside of smd
+	 */
+	struct smd_half_channel_access *half_ch;
+};
 
 struct smem_ram_ptable {
 	#define _SMEM_RAM_PTABLE_MAGIC_1 0x9DA5E0A8
