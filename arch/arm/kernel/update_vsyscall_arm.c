@@ -10,9 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/timekeeper_internal.h>
 #include <linux/export.h>
-#include <linux/clocksource.h>
-#include <linux/time.h>
 #include "update_vsyscall_arm.h"
 /*
  * See entry-armv.S for the offsets into the kernel user helper for
@@ -55,8 +54,7 @@ struct kernel_wtm_t {
  * gettimeofday, clock_gettime, etc.
  */
 void
-update_vsyscall(struct timespec *ts, struct timespec *wtm,
-	struct clocksource *c, u32 mult)
+update_vsyscall(struct timekeeper *tk)
 {
 	unsigned long vectors = (unsigned long)vectors_page;
 	unsigned long flags;
@@ -68,14 +66,14 @@ update_vsyscall(struct timespec *ts, struct timespec *wtm,
 
 	write_seqlock_irqsave(&kuh_time_lock, flags);
 	*seqnum = kuh_time_lock.sequence;
-	dgtod->cycle_last = c->cycle_last;
-	dgtod->mask = c->mask;
-	dgtod->mult = c->mult;
-	dgtod->shift = c->shift;
-	dgtod->tv_sec = ts->tv_sec;
-	dgtod->tv_nsec = ts->tv_nsec;
-	dgwtm->tv_sec = wtm->tv_sec;
-	dgwtm->tv_nsec = wtm->tv_nsec;
+	dgtod->cycle_last = tk->clock->cycle_last;
+	dgtod->mask = tk->clock->mask;
+	dgtod->mult = tk->mult;
+	dgtod->shift = tk->shift;
+	dgtod->tv_sec = tk->xtime_sec;
+	dgtod->tv_nsec = tk->xtime_nsec;
+	dgwtm->tv_sec = tk->wall_to_monotonic.tv_sec;
+	dgwtm->tv_nsec = tk->wall_to_monotonic.tv_nsec;
 	*seqnum = kuh_time_lock.sequence + 1;
 	write_sequnlock_irqrestore(&kuh_time_lock, flags);
 }
