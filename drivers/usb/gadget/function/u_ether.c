@@ -511,6 +511,11 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	int length;
 	int retval;
 
+	if (!dev->port_usb) {
+		usb_ep_free_request(ep, req);
+		return;
+	}
+
 	switch (req->status) {
 	default:
 		dev->net->stats.tx_errors++;
