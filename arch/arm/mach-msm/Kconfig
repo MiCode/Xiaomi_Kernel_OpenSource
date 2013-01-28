@@ -378,7 +378,7 @@ config ARCH_MSM9625
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select CPU_HAS_L2_PMU
-	select MSM_JTAG_MM if MSM_QDSS
+	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MEMORY_HOLE_CARVEOUT
 
 config ARCH_MSM8610
@@ -479,14 +479,14 @@ config  ARCH_MSM_SCORPIONMP
 	select ARCH_MSM_SCORPION
 	select MSM_SMP
 	select HAVE_ARCH_HAS_CURRENT_TIMER
-	select MSM_JTAG if MSM_QDSS
+	select MSM_JTAG if CORESIGHT_ETM
 	bool
 
 config  ARCH_MSM_KRAITMP
 	select ARCH_MSM_KRAIT
 	select MSM_SMP
 	select HAVE_ARCH_HAS_CURRENT_TIMER
-	select MSM_JTAG if MSM_QDSS
+	select MSM_JTAG if CORESIGHT_ETM
 	bool
 
 config  ARCH_MSM_CORTEXMP
@@ -2319,28 +2319,29 @@ config MSM_DLOAD_MODE
 		enabled via another mechanism.
 
 config MSM_JTAG
-	bool "JTAG and kernel debug and trace support across power collapse"
+	bool "Debug and ETM trace support across power collapse"
 	help
-	  Enables support for kernel debugging (specifically breakpoints) and
+	  Enables support for debugging (specifically breakpoints) and ETM
 	  processor tracing across power collapse both for JTag and OS hosted
 	  software running on the target. Enabling this will ensure debug
 	  and ETM registers are saved and restored across power collapse.
 
-	  For production builds, you should probably say 'N' here to avoid
-	  potential power, performance and memory penalty.
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
 
 config MSM_JTAG_MM
-	bool "ETM trace and debug support across power collapse using memory mapped access"
+	bool "Debug and ETM trace support across power collapse using memory mapped access"
 	help
-	   Enables support for kernel debugging (specifically breakpoints) and
-	   processor tracing using ETM across power collapse both for JTag and
-	   OS hosted software running on the target. Enabling this will ensure
-	   debug and ETM registers are saved and restored across power collapse.
-	   Needed on targets on which cp14 access to debug and ETM registers is
-	   not permitted and so memory mapped access is necessary.
+	  Enables support for debugging (specifically breakpoints) and ETM
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on the target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
 
-	   For production builds, you should probably say 'N' here to avoid
-	   potential power, performance and memory penalty.
+	  Required on targets on which cp14 access to debug and ETM registers is
+	  not permitted and so memory mapped access is necessary.
+
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
 
 config MSM_ETM
 	tristate "Enable MSM ETM and ETB"

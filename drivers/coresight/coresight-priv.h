@@ -36,16 +36,19 @@
 #define BMVAL(val, lsb, msb)	((val & BM(lsb, msb)) >> lsb)
 #define BVAL(val, n)		((val & BIT(n)) >> n)
 
-#ifdef CONFIG_MSM_QDSS
+#ifdef CONFIG_CORESIGHT_CSR
 extern void msm_qdss_csr_enable_bam_to_usb(void);
 extern void msm_qdss_csr_disable_bam_to_usb(void);
 extern void msm_qdss_csr_disable_flush(void);
-extern unsigned int etm_readl_cp14(uint32_t off);
-extern void etm_writel_cp14(uint32_t val, uint32_t off);
 #else
 static inline void msm_qdss_csr_enable_bam_to_usb(void) {}
 static inline void msm_qdss_csr_disable_bam_to_usb(void) {}
 static inline void msm_qdss_csr_disable_flush(void) {}
+#endif
+#ifdef CONFIG_CORESIGHT_ETM
+extern unsigned int etm_readl_cp14(uint32_t off);
+extern void etm_writel_cp14(uint32_t val, uint32_t off);
+#else
 static inline unsigned int etm_readl_cp14(uint32_t off) { return 0; }
 static inline void etm_writel_cp14(uint32_t val, uint32_t off) {}
 #endif

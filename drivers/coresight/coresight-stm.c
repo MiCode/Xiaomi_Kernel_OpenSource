@@ -102,7 +102,7 @@ enum {
 					(ch * BYTES_PER_CHANNEL))
 #define stm_channel_off(type, opts)	(type & ~opts)
 
-#ifdef CONFIG_MSM_QDSS_STM_DEFAULT_ENABLE
+#ifdef CONFIG_CORESIGHT_STM_DEFAULT_ENABLE
 static int boot_enable = 1;
 #else
 static int boot_enable;
