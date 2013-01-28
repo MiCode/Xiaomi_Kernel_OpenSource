@@ -1558,27 +1558,6 @@ static struct rcg_clk csi0_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_mmss_mmssnoc_ahb_clk[] = {
-	F_MM(19200000, gcc_xo,  1, 0, 0),
-	F_MM(40000000,  gpll0, 15, 0, 0),
-	F_MM(80000000, mmpll0, 10, 0, 0),
-	F_END,
-};
-
-static struct rcg_clk ahb_clk_src = {
-	.cmd_rcgr_reg = AHB_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_mmss_mmssnoc_ahb_clk,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "ahb_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOW, 40000000, NOMINAL, 80000000),
-		CLK_INIT(ahb_clk_src.c),
-	},
-};
-
 static struct clk_freq_tbl ftbl_mmss_mmssnoc_axi_clk[] = {
 	F_MM( 19200000, gcc_xo,  1, 0, 0),
 	F_MM( 37500000,  gpll0, 16, 0, 0),
@@ -2189,18 +2168,6 @@ static struct branch_clk mmss_s0_axi_clk = {
 	},
 };
 
-static struct branch_clk mmss_mmssnoc_ahb_clk = {
-	.cbcr_reg = MMSS_MMSSNOC_AHB_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.parent = &ahb_clk_src.c,
-		.dbg_name = "mmss_mmssnoc_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(mmss_mmssnoc_ahb_clk.c),
-	},
-};
-
 static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
 	.cbcr_reg = MMSS_MMSSNOC_BTO_AHB_CBCR,
 	.has_sibling = 1,
@@ -2790,7 +2757,7 @@ static struct measure_mux_entry measure_mux[] = {
 	{                   &bimc_clk.c, GCC_BASE, 0x0154},
 	{       &gcc_lpass_q6_axi_clk.c, GCC_BASE, 0x0160},
 
-	{&mmss_mmssnoc_ahb_clk.c, MMSS_BASE, 0x0001},
+	{     &mmssnoc_ahb_clk.c, MMSS_BASE, 0x0001},
 	{   &mmss_misc_ahb_clk.c, MMSS_BASE, 0x0003},
 	{&mmss_mmssnoc_axi_clk.c, MMSS_BASE, 0x0004},
 	{     &mmss_s0_axi_clk.c, MMSS_BASE, 0x0005},
@@ -3213,7 +3180,6 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk",                mdp_vsync_clk.c, ""),
 	CLK_LOOKUP("core_clk",            mmss_misc_ahb_clk.c, ""),
 	CLK_LOOKUP("core_clk",              mmss_s0_axi_clk.c, ""),
-	CLK_LOOKUP("core_clk",         mmss_mmssnoc_ahb_clk.c, ""),
 	CLK_LOOKUP("core_clk",     mmss_mmssnoc_bto_ahb_clk.c, ""),
 	CLK_LOOKUP("core_clk",         mmss_mmssnoc_axi_clk.c, ""),
 	CLK_LOOKUP("core_clk",                      vfe_clk.c, ""),
@@ -3567,10 +3533,12 @@ static void __init msm8610_clock_pre_init(void)
 
 	reg_init();
 
+	/* Maintain the max nominal frequency on the MMSSNOC AHB bus. */
+	clk_set_rate(&mmssnoc_ahb_a_clk.c,  40000000);
+	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
+
 	/* TODO: Remove this once the bus driver is in place */
-	clk_set_rate(&ahb_clk_src.c,  40000000);
 	clk_set_rate(&axi_clk_src.c, 200000000);
-	clk_prepare_enable(&mmss_mmssnoc_ahb_clk.c);
 	clk_prepare_enable(&mmss_s0_axi_clk.c);
 
 	/* TODO: Temporarily enable a clock to allow access to LPASS core
