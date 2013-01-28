@@ -218,27 +218,43 @@ static void _process_event_list(struct kgsl_device *device,
 	}
 }
 
-static inline void _mark_next_event(struct kgsl_device *device,
+static inline int _mark_next_event(struct kgsl_device *device,
 		struct list_head *head)
 {
 	struct kgsl_event *event;
 
 	if (!list_empty(head)) {
 		event = list_first_entry(head, struct kgsl_event, list);
-		device->ftbl->next_event(device, event);
+
+		/*
+		 * Next event will return 0 if the event was marked or 1 if the
+		 * timestamp on the event has passed - return that up a layer
+		 */
+
+		return device->ftbl->next_event(device, event);
 	}
+
+	return 0;
 }
 
 static int kgsl_process_context_events(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
-	unsigned int timestamp = kgsl_readtimestamp(device, context,
-		KGSL_TIMESTAMP_RETIRED);
+	while (1) {
+		unsigned int timestamp = kgsl_readtimestamp(device, context,
+			KGSL_TIMESTAMP_RETIRED);
 
-	_process_event_list(device, &context->events, timestamp);
+		_process_event_list(device, &context->events, timestamp);
 
-	/* Mark the next pending event on the list to fire an interrupt */
-	_mark_next_event(device, &context->events);
+		/*
+		 * _mark_next event will return 1 as long as the next event
+		 * timestamp has expired - this is to cope with an unavoidable
+		 * race condition with the GPU that is still processing events.
+		 */
+
+		if (!_mark_next_event(device, &context->events))
+			break;
+	}
 
 	/*
 	 * Return 0 if the list is empty so the calling function can remove the

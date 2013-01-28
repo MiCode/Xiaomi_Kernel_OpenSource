@@ -113,7 +113,7 @@ struct kgsl_functable {
 		enum kgsl_property_type type, void *value,
 		unsigned int sizebytes);
 	int (*postmortem_dump) (struct kgsl_device *device, int manual);
-	void (*next_event)(struct kgsl_device *device,
+	int (*next_event)(struct kgsl_device *device,
 		struct kgsl_event *event);
 };
 
