@@ -295,7 +295,6 @@ config ATH6K_LEGACY_EXT
 
 config WCNSS_CORE
 	tristate "Qualcomm WCNSS CORE driver"
-	depends on (ARCH_MSM8960 || ARCH_MSM8974)
 	select WIRELESS_EXT
 	select WEXT_PRIV
 	select WEXT_CORE
