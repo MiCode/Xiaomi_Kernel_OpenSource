@@ -1741,7 +1741,7 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 		rc = -EPERM;
 	}
 
-	return 0;
+	return rc;
 } /* hdmi_tx_audio_info_setup */
 
 static int hdmi_tx_get_audio_edid_blk(struct platform_device *pdev,
