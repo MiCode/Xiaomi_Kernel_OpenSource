@@ -174,6 +174,7 @@ struct ci13xxx {
 	struct usb_phy			*transceiver;
 	struct usb_hcd			*hcd;
 	struct dentry			*debugfs;
+	bool                      skip_flush; /* skip flushing remaining EP */
 };
 
 static inline struct ci_role_driver *ci_role(struct ci13xxx *ci)
