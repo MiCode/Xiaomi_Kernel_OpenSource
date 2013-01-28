@@ -215,8 +215,8 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_NUM_CONCEALED_MB:
 		ret = HFI_PROPERTY_PARAM_VDEC_NUM_CONCEALED_MB;
 		break;
-	case HAL_EXTRADATA_INDEX:
-		ret = HFI_PROPERTY_PARAM_EXTRA_DATA_HEADER_CONFIG;
+	case HAL_EXTRADATA_ASPECT_RATIO:
+		ret = HFI_PROPERTY_PARAM_INDEX_EXTRADATA;
 		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
@@ -1056,7 +1056,10 @@ int create_pkt_cmd_session_set_property(
 			(struct hfi_index_extradata_config *)
 			&pkt->rg_property_data[1];
 		hfi->enable = extra->enable;
-		index = get_hfi_extradata_index(extra->index);
+		if (extra->index == HAL_EXTRADATA_ASPECT_RATIO)
+			index = EXTRADATA_ASPECT_RATIO;
+		else
+			index = get_hfi_extradata_index(extra->index);
 		if (index)
 			hfi->index_extra_data_id = index;
 		else {
