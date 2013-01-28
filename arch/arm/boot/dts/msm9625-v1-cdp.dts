@@ -17,7 +17,9 @@
 / {
 	model = "Qualcomm MSM 9625V1 CDP";
 	compatible = "qcom,msm9625-cdp", "qcom,msm9625";
-	qcom,msm-id = <134 1 0>, <152 1 0>, <149 1 0>, <150 1 0>;
+	qcom,msm-id = <134 1 0>, <152 1 0>, <149 1 0>, <150 1 0>,
+		      <151 1 0>, <148 1 0>, <173 1 0>, <174 1 0>,
+		      <175 1 0>;
 
 	i2c@f9925000 {
 		charger@57 {
