@@ -140,6 +140,10 @@ static int hw_ep_flush(struct ci13xxx *ci, int num, int dir)
 {
 	ktime_t start, diff;
 	int n = hw_ep_bit(num, dir);
+	struct ci13xxx_ep *mEp = &ci->ci13xxx_ep[n];
+
+	if (list_empty(&mEp->qh.queue))
+		return 0;
 
 	start = ktime_get();
 	do {
