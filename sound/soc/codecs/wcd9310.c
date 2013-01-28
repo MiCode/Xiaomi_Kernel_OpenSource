@@ -972,7 +972,7 @@ static int tabla_config_compander(struct snd_soc_dapm_widget *w,
 		/* Set sample rate dependent paramater*/
 		if (tabla->comp_enabled[w->shift] != 0) {
 			snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_FS_CFG +
-			w->shift * 8, 0x03,	rate);
+			w->shift * 8, 0x07,	rate);
 			snd_soc_update_bits(codec, TABLA_A_CDC_COMP1_B2_CTL +
 			w->shift * 8, 0x0F,
 			comp_samp_params[rate].peak_det_timeout);
