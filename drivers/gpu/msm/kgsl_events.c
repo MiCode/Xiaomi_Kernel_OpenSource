@@ -63,10 +63,15 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	}
 	cur_ts = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
 
-	/* Check to see if the requested timestamp has already fired */
+	/*
+	 * Check to see if the requested timestamp has already fired.  If it
+	 * did do the callback right away.  Make sure to send the timestamp that
+	 * the event expected instead of the current timestamp because sometimes
+	 * the event handlers can get confused.
+	 */
 
 	if (timestamp_cmp(cur_ts, ts) >= 0) {
-		cb(device, priv, id, cur_ts);
+		cb(device, priv, id, ts);
 		return 0;
 	}
 
@@ -127,7 +132,11 @@ void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 		 * Currently, events are used for lock and memory
 		 * management, so if the process is dying the right
 		 * thing to do is release or free.
+		 *
+		 * Send the current timestamp so the event knows how far the
+		 * system got before the event was canceled
 		 */
+
 		if (event->func)
 			event->func(device, event->priv, id, cur);
 
@@ -162,7 +171,9 @@ void kgsl_cancel_events(struct kgsl_device *device,
 		 * "cancel" the events by calling their callback.
 		 * Currently, events are used for lock and memory
 		 * management, so if the process is dying the right
-		 * thing to do is release or free.
+		 * thing to do is release or free. Send the current timestamp so
+		 * the callback knows how far the GPU made it before things went
+		 * explosion
 		 */
 		if (event->func)
 			event->func(device, event->priv, KGSL_MEMSTORE_GLOBAL,
@@ -189,8 +200,15 @@ static void _process_event_list(struct kgsl_device *device,
 
 		id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
 
+		/*
+		 * Send the timestamp of the expired event, not the current
+		 * timestamp.  This prevents the event handlers from getting
+		 * confused if they don't bother comparing the current timetamp
+		 * to the timestamp they wanted
+		 */
+
 		if (event->func)
-			event->func(device, event->priv, id, timestamp);
+			event->func(device, event->priv, id, event->timestamp);
 
 		if (event->context)
 			kgsl_context_put(event->context);
