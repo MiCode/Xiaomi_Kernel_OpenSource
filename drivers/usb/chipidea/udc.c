@@ -134,7 +134,6 @@ static int hw_ep_flush(struct ci13xxx *ci, int num, int dir)
  */
 static int hw_ep_disable(struct ci13xxx *ci, int num, int dir)
 {
-	hw_ep_flush(ci, num, dir);
 	hw_write(ci, OP_ENDPTCTRL + num,
 		 dir ? ENDPTCTRL_TXE : ENDPTCTRL_RXE, 0);
 	return 0;
