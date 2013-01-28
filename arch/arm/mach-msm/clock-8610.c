@@ -1583,6 +1583,9 @@ static struct rcg_clk axi_clk_src = {
 	},
 };
 
+static DEFINE_CLK_VOTER(mdp_axi_clk_src, &axi_clk_src.c, 200000000);
+static DEFINE_CLK_VOTER(mmssnoc_axi_clk_src, &axi_clk_src.c, 200000000);
+
 static struct clk_freq_tbl ftbl_dsi_pclk_clk[] = {
 	F_MDSS( 50000000, dsipll, 10, 0, 0),
 	F_MDSS(103330000, dsipll,  9, 0, 0),
@@ -2084,12 +2087,11 @@ static struct branch_clk mdp_ahb_clk = {
 
 static struct branch_clk mdp_axi_clk = {
 	.cbcr_reg = MDP_AXI_CBCR,
-	.has_sibling = 1,
 	.base = &virt_bases[MMSS_BASE],
 	 /* FIXME: Remove this once simulation is fixed. */
 	.halt_check = DELAY,
 	.c = {
-		.parent = &axi_clk_src.c,
+		.parent = &mdp_axi_clk_src.c,
 		.dbg_name = "mdp_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdp_axi_clk.c),
@@ -2160,7 +2162,7 @@ static struct branch_clk mmss_s0_axi_clk = {
 	.has_sibling = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
-		.parent = &axi_clk_src.c,
+		.parent = &mmssnoc_axi_clk_src.c,
 		.dbg_name = "mmss_s0_axi_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmss_s0_axi_clk.c),
@@ -3139,6 +3141,8 @@ static struct clk_lookup msm_clocks_8610[] = {
 
 	CLK_LOOKUP("core_clk_src",                csi0_clk_src.c, ""),
 	CLK_LOOKUP("core_clk_src",                 axi_clk_src.c, ""),
+	CLK_LOOKUP("",                         mdp_axi_clk_src.c, ""),
+	CLK_LOOKUP("",                     mmssnoc_axi_clk_src.c, ""),
 	CLK_LOOKUP("core_clk_src",            dsi_pclk_clk_src.c, ""),
 	CLK_LOOKUP("core_clk_src",               gfx3d_clk_src.c, ""),
 	CLK_LOOKUP("core_clk_src",                 vfe_clk_src.c, ""),
