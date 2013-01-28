@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -39,15 +39,6 @@
 
 #define MSM8974_MPM2_PSHOLD_PHYS	0xFC4AB000
 #define MSM8974_MPM2_PSHOLD_SIZE	SZ_4K
-
-/*
- * TODO: Revert IMEM_PHYS back to actual
- * address 0xfe805000
- * after IMEM issues resolved.
- *
- */
-#define MSM8974_IMEM_PHYS	0xFC42B000
-#define MSM8974_IMEM_SIZE	SZ_4K
 
 #ifdef CONFIG_DEBUG_MSM8974_UART
 #define MSM_DEBUG_UART_BASE	IOMEM(0xFA71E000)
