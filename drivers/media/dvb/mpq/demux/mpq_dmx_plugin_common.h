@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,11 +21,10 @@
 #include "dvb_demux.h"
 #include "dvb_frontend.h"
 #include "mpq_adapter.h"
-
+#include "mpq_sdmx.h"
 
 /* Max number open() request can be done on demux device */
 #define MPQ_MAX_DMX_FILES				128
-
 
 /**
  * TSIF alias name length
@@ -35,78 +34,19 @@
 #define MPQ_MAX_FOUND_PATTERNS				5
 
 /**
- * struct mpq_demux - mpq demux information
- * @demux: The dvb_demux instance used by mpq_demux
- * @dmxdev: The dmxdev instance used by mpq_demux
- * @fe_memory: Handle of front-end memory source to mpq_demux
- * @source: The current source connected to the demux
- * @is_initialized: Indicates whether this demux device was
- *                  initialized or not.
- * @ion_client: ION demux client used to allocate memory from ION.
- * @feed_lock: Lock used to protect against private feed data
- * @hw_notification_interval: Notification interval in msec,
- *                            exposed in debugfs.
- * @hw_notification_min_interval: Minimum notification internal in msec,
- * exposed in debugfs.
- * @hw_notification_count: Notification count, exposed in debugfs.
- * @hw_notification_size: Notification size in bytes, exposed in debugfs.
- * @hw_notification_min_size: Minimum notification size in bytes,
- *                            exposed in debugfs.
- * @decoder_drop_count: Accumulated number of bytes dropped due to decoder
- * buffer fullness, exposed in debugfs.
- * @decoder_out_count: Counter incremeneted for each video frame output by
- * demux, exposed in debugfs.
- * @decoder_out_interval_sum: Sum of intervals (msec) holding the time between
- * two successive video frames output, exposed in debugfs.
- * @decoder_out_interval_average: Average interval (msec) between two
- * successive video frames output, exposed in debugfs.
- * @decoder_out_interval_max: Max interval (msec) between two
- * successive video frames output, exposed in debugfs.
- * @decoder_ts_errors: Counter for number of decoder packets with TEI bit
- * set, exposed in debugfs.
- * @decoder_out_last_time: Time of last video frame output.
- * @last_notification_time: Time of last HW notification.
+ * Key ladder information table, manages association of pid with a key ladder
+ * index.
+ * @pid: pid
+ * @keyladder_id: key ladder index associated with the pid
+ * @list: list item pointer
+ * @refs: reference count of how many filters use this association.
  */
-struct mpq_demux {
-	struct dvb_demux demux;
-	struct dmxdev dmxdev;
-	struct dmx_frontend fe_memory;
-	dmx_source_t source;
-	int is_initialized;
-	struct ion_client *ion_client;
-	spinlock_t feed_lock;
-
-	/* debug-fs */
-	u32 hw_notification_interval;
-	u32 hw_notification_min_interval;
-	u32 hw_notification_count;
-	u32 hw_notification_size;
-	u32 hw_notification_min_size;
-	u32 decoder_drop_count;
-	u32 decoder_out_count;
-	u32 decoder_out_interval_sum;
-	u32 decoder_out_interval_average;
-	u32 decoder_out_interval_max;
-	u32 decoder_ts_errors;
-	struct timespec decoder_out_last_time;
-	struct timespec last_notification_time;
+struct mpq_demux_keyladder_info {
+	u16 pid;
+	u32 keyladder_id;
+	struct list_head list;
+	u16 refs;
 };
-
-/**
- * mpq_dmx_init - initialization and registration function of
- * single MPQ demux device
- *
- * @adapter: The adapter to register mpq_demux to
- * @mpq_demux: The mpq demux to initialize
- *
- * Every HW pluging need to provide implementation of such
- * function that will be called for each demux device on the
- * module initialization. The function mpq_demux_plugin_init
- * should be called during the HW plugin module initialization.
- */
-typedef int (*mpq_dmx_init)(
-				struct dvb_adapter *mpq_adapter,
-				struct mpq_demux *demux);
 
 /**
  * struct ts_packet_header - Transport packet header
@@ -307,9 +247,12 @@ struct mpq_decoder_buffers_desc {
 /*
  * mpq_video_feed_info - private data used for video feed.
  *
- * @plugin_data: Underlying plugin's own private data.
  * @video_buffer: Holds the streamer buffer shared with
  * the decoder for feeds having the data going to the decoder.
+ * @video_buffer_lock: Lock protecting against video output buffer.
+ * The lock protects against API calls to manipulate the output buffer
+ * (initialize, free, re-use buffers) and dvb-sw demux parsing the video
+ * data through mpq_dmx_process_video_packet().
  * @buffer_desc: Holds decoder buffer(s) information used for stream buffer.
  * @pes_header: Used for feeds that output data to decoder,
  * holds PES header of current processed PES.
@@ -319,8 +262,6 @@ struct mpq_decoder_buffers_desc {
  * pes header.
  * @fullness_wait_cancel: Flag used to signal to abort waiting for
  * decoder's fullness.
- * @pes_payload_address: Used for feeds that output data to decoder,
- * holds current PES payload start address.
  * @stream_interface: The ID of the video stream interface registered
  * with this stream buffer.
  * @patterns: pointer to the framing patterns to look for.
@@ -361,13 +302,12 @@ struct mpq_decoder_buffers_desc {
  * a new elementary stream data event.
  */
 struct mpq_video_feed_info {
-	void *plugin_data;
 	struct mpq_streambuffer *video_buffer;
+	spinlock_t video_buffer_lock;
 	struct mpq_decoder_buffers_desc buffer_desc;
 	struct pes_packet_header pes_header;
 	u32 pes_header_left_bytes;
 	u32 pes_header_offset;
-	u32 pes_payload_address;
 	int fullness_wait_cancel;
 	enum mpq_adapter_stream_if stream_interface;
 	const struct mpq_framing_pattern_lookup_params *patterns;
@@ -391,6 +331,145 @@ struct mpq_video_feed_info {
 	u32 ts_dropped_bytes;
 	int last_pkt_index;
 };
+
+/**
+ * mpq feed object - mpq common plugin feed information
+ *
+ * @dvb_demux_feed: Back pointer to dvb demux level feed object
+ * @mpq_demux: Pointer to common mpq demux object
+ * @plugin_priv: Plugin specific private data
+ * @sdmx_filter_handle: Secure demux filter handle. Recording feed may share
+ * same filter handle
+ * @secondary_feed: Specifies if this feed shares filter handle with
+ * other feeds
+ * @metadata_buf: Ring buffer object for managing the metadata buffer
+ * @metadata_buf_handle: Allocation handle for the metadata buffer
+ * @sdmx_buf: Ring buffer object for intermediate output data from the sdmx
+ * @sdmx_buf_handle: Allocation handle for the sdmx intermediate data buffer
+ * @video_info: Video feed specific information
+ */
+struct mpq_feed {
+	struct dvb_demux_feed *dvb_demux_feed;
+	struct mpq_demux *mpq_demux;
+	void *plugin_priv;
+
+	/* Secure demux related */
+	int sdmx_filter_handle;
+	int secondary_feed;
+	enum sdmx_filter filter_type;
+	struct dvb_ringbuffer metadata_buf;
+	struct ion_handle *metadata_buf_handle;
+
+	struct dvb_ringbuffer sdmx_buf;
+	struct ion_handle *sdmx_buf_handle;
+
+	struct mpq_video_feed_info video_info;
+};
+
+/**
+ * struct mpq_demux - mpq demux information
+ * @demux: The dvb_demux instance used by mpq_demux
+ * @dmxdev: The dmxdev instance used by mpq_demux
+ * @fe_memory: Handle of front-end memory source to mpq_demux
+ * @source: The current source connected to the demux
+ * @is_initialized: Indicates whether this demux device was
+ *                  initialized or not.
+ * @ion_client: ION demux client used to allocate memory from ION.
+ * @mutex: Lock used to protect against private feed data
+ * @feeds: mpq common feed object pool
+ * @filters_status: Array holding buffers status for each secure demux filter.
+ * Used before each call to sdmx_process() to build up to date state.
+ * @keyladder_list: List head of key ladder table
+ * @secure_mode_count: Number of filters set with secure mode
+ * @sdmx_session_handle: Secure demux open session handle
+ * @sdmx_filter_count: Number of active secure demux filters
+ * @plugin_priv: Underlying plugin's own private data
+ * @hw_notification_interval: Notification interval in msec,
+ *                            exposed in debugfs.
+ * @hw_notification_min_interval: Minimum notification internal in msec,
+ * exposed in debugfs.
+ * @hw_notification_count: Notification count, exposed in debugfs.
+ * @hw_notification_size: Notification size in bytes, exposed in debugfs.
+ * @hw_notification_min_size: Minimum notification size in bytes,
+ *                            exposed in debugfs.
+ * @decoder_drop_count: Accumulated number of bytes dropped due to decoder
+ * buffer fullness, exposed in debugfs.
+ * @decoder_out_count: Counter incremeneted for each video frame output by
+ * demux, exposed in debugfs.
+ * @decoder_out_interval_sum: Sum of intervals (msec) holding the time between
+ * two successive video frames output, exposed in debugfs.
+ * @decoder_out_interval_average: Average interval (msec) between two
+ * successive video frames output, exposed in debugfs.
+ * @decoder_out_interval_max: Max interval (msec) between two
+ * successive video frames output, exposed in debugfs.
+ * @decoder_ts_errors: Counter for number of decoder packets with TEI bit
+ * set, exposed in debugfs.
+ * @sdmx_process_count: Total number of times sdmx_process is called.
+ * @sdmx_process_time_sum: Total time sdmx_process takes.
+ * @sdmx_process_time_average: Average time sdmx_process takes.
+ * @sdmx_process_time_max: Max time sdmx_process takes.
+ * @sdmx_process_packets_sum: Total packets number sdmx_process handled.
+ * @sdmx_process_packets_average: Average packets number sdmx_process handled.
+ * @sdmx_process_packets_min: Minimum packets number sdmx_process handled.
+ * @decoder_out_last_time: Time of last video frame output.
+ * @last_notification_time: Time of last HW notification.
+ */
+struct mpq_demux {
+	struct dvb_demux demux;
+	struct dmxdev dmxdev;
+	struct dmx_frontend fe_memory;
+	dmx_source_t source;
+	int is_initialized;
+	struct ion_client *ion_client;
+	struct mutex mutex;
+	struct mpq_feed feeds[MPQ_MAX_DMX_FILES];
+	struct sdmx_filter_status filters_status[MPQ_MAX_DMX_FILES];
+	struct list_head keyladder_list; /* struct mpq_demux_keyladder_info */
+	int secure_mode_count;
+	int sdmx_session_handle;
+	int sdmx_session_ref_count;
+	int sdmx_filter_count;
+	void *plugin_priv;
+
+	/* debug-fs */
+	u32 hw_notification_interval;
+	u32 hw_notification_min_interval;
+	u32 hw_notification_count;
+	u32 hw_notification_size;
+	u32 hw_notification_min_size;
+	u32 decoder_drop_count;
+	u32 decoder_out_count;
+	u32 decoder_out_interval_sum;
+	u32 decoder_out_interval_average;
+	u32 decoder_out_interval_max;
+	u32 decoder_ts_errors;
+	u32 sdmx_process_count;
+	u32 sdmx_process_time_sum;
+	u32 sdmx_process_time_average;
+	u32 sdmx_process_time_max;
+	u32 sdmx_process_packets_sum;
+	u32 sdmx_process_packets_average;
+	u32 sdmx_process_packets_min;
+
+	struct timespec decoder_out_last_time;
+	struct timespec last_notification_time;
+};
+
+/**
+ * mpq_dmx_init - initialization and registration function of
+ * single MPQ demux device
+ *
+ * @adapter: The adapter to register mpq_demux to
+ * @mpq_demux: The mpq demux to initialize
+ *
+ * Every HW pluging need to provide implementation of such
+ * function that will be called for each demux device on the
+ * module initialization. The function mpq_demux_plugin_init
+ * should be called during the HW plugin module initialization.
+ */
+typedef int (*mpq_dmx_init)(
+				struct dvb_adapter *mpq_adapter,
+				struct mpq_demux *demux);
 
 /**
  * mpq_demux_plugin_init - Initialize demux devices and register
@@ -454,36 +533,7 @@ int mpq_dmx_map_buffer(struct dmx_demux *demux, struct dmx_buffer *dmx_buffer,
  * The function unmaps the buffer from kernel memory only if the buffer
  * was not allocated with secure flag.
  */
-int mpq_dmx_unmap_buffer(struct dmx_demux *demux,
-		void *priv_handle);
-
-/**
- * mpq_dmx_init_video_feed - Initializes video feed
- * used to pass data to decoder directly.
- *
- * @feed: The feed used for the video TS packets
- *
- * Return     error code.
- *
- * If the underlying plugin wishes to perform SW PES assmebly
- * for the video data and stream it to the decoder, it should
- * call this function when video feed is initialized before
- * using mpq_dmx_process_video_packet.
- *
- * The function allocates mpq_video_feed_info and saves in
- * feed->priv.
- */
-int mpq_dmx_init_video_feed(struct dvb_demux_feed *feed);
-
-/**
- * mpq_dmx_terminate_video_feed - Free private data of
- * video feed allocated in mpq_dmx_init_video_feed
- *
- * @feed: The feed used for the video TS packets
- *
- * Return     error code.
- */
-int mpq_dmx_terminate_video_feed(struct dvb_demux_feed *feed);
+int mpq_dmx_unmap_buffer(struct dmx_demux *demux, void *priv_handle);
 
 /**
  * mpq_dmx_decoder_fullness_init - Initialize waiting
@@ -634,13 +684,42 @@ static inline int mpq_dmx_is_pcr_feed(struct dvb_demux_feed *feed)
 }
 
 /**
+ * mpq_dmx_is_sec_feed - Returns whether this is a section feed
+ *
+ * @feed: The feed to be checked.
+ *
+ * Return 1 if feed is a section feed, 0 otherwise.
+ */
+static inline int mpq_dmx_is_sec_feed(struct dvb_demux_feed *feed)
+{
+	return (feed->type == DMX_TYPE_SEC);
+}
+
+/**
+ * mpq_dmx_is_rec_feed - Returns whether this is a recording feed
+ *
+ * @feed: The feed to be checked.
+ *
+ * Return 1 if feed is recording feed, 0 otherwise.
+ */
+static inline int mpq_dmx_is_rec_feed(struct dvb_demux_feed *feed)
+{
+	if (feed->type != DMX_TYPE_TS)
+		return 0;
+
+	if (feed->ts_type & (TS_DECODER | TS_PAYLOAD_ONLY))
+		return 0;
+
+	return 1;
+}
+
+/**
  * mpq_dmx_init_hw_statistics -
  * Extend dvb-demux debugfs with HW statistics.
  *
  * @mpq_demux: The mpq_demux device to initialize.
  */
 void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux);
-
 
 /**
  * mpq_dmx_update_hw_statistics -
@@ -649,6 +728,97 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux);
  * @mpq_demux: The mpq_demux device to update.
  */
 void mpq_dmx_update_hw_statistics(struct mpq_demux *mpq_demux);
+
+/**
+ * mpq_dmx_set_secure_mode - Handles set secure mode command from demux device
+ *
+ * @demux: demux interface
+ * @sec_mode: Secure mode details (key ladder info)
+ *
+ * Return error code
+ */
+int mpq_dmx_set_secure_mode(struct dmx_demux *demux,
+	struct dmx_secure_mode *sec_mode);
+
+/**
+ * mpq_sdmx_open_session - Handle the details of opening a new secure demux
+ * session for the specified mpq demux instance. Multiple calls to this
+ * is allowed, reference counting is managed to open it only when needed.
+ *
+ * @mpq_demux: mpq demux instance
+ *
+ * Return error code
+ */
+int mpq_sdmx_open_session(struct mpq_demux *mpq_demux);
+
+/**
+ * mpq_sdmx_close_session - Closes secure demux session. The session
+ * is closed only if reference counter of the session reaches 0.
+ *
+ * @mpq_demux: mpq demux instance
+ *
+ * Return error code
+ */
+int mpq_sdmx_close_session(struct mpq_demux *mpq_demux);
+
+/**
+ * mpq_dmx_init_mpq_feed - Initialize an mpq feed object
+ * The function allocates mpq_feed object and saves in the dvb_demux_feed
+ * priv field.
+ *
+ * @feed: A dvb demux level feed parent object
+ *
+ * Return error code
+ */
+int mpq_dmx_init_mpq_feed(struct dvb_demux_feed *feed);
+
+/**
+ * mpq_dmx_terminate_feed - Destroy an mpq feed object
+ *
+ * @feed: A dvb demux level feed parent object
+ *
+ * Return error code
+ */
+int mpq_dmx_terminate_feed(struct dvb_demux_feed *feed);
+
+/**
+ * mpq_dmx_write - demux write() function implementation.
+ *
+ * A wrapper function used for writing new data into the demux via DVR.
+ * It checks where new data should actually go, the secure demux or the normal
+ * dvb demux software demux.
+ *
+ * @demux: demux interface
+ * @buf: input buffer
+ * @count: number of data bytes in input buffer
+ *
+ * Return number of bytes processed or error code
+ */
+int mpq_dmx_write(struct dmx_demux *demux, const char *buf, size_t count);
+
+/**
+ * mpq_sdmx_process - Perform demuxing process on the specified input buffer
+ * in the secure demux instance
+ *
+ * @mpq_demux: mpq demux instance
+ * @input: input buffer descriptor
+ * @fill_count: number of data bytes in input buffer that can be read
+ * @read_offset: offset in buffer for reading
+ *
+ * Return number of bytes read or error code
+ */
+int mpq_sdmx_process(struct mpq_demux *mpq_demux,
+	struct sdmx_buff_descr *input,
+	u32 fill_count,
+	u32 read_offset);
+
+/**
+ * mpq_sdmx_loaded - Returns 1 if secure demux application is loaded,
+ * 0 otherwise. This function should be used to determine whether or not
+ * processing should take place in the SDMX.
+ */
+int mpq_sdmx_is_loaded(void);
+
 
 #endif /* _MPQ_DMX_PLUGIN_COMMON_H */
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -440,24 +440,17 @@ static int mpq_tsif_dmx_start_filtering(struct dvb_demux_feed *feed)
 	 */
 	feed->pusi_seen = 0;
 
-	/*
-	 * For video PES, data is tunneled to the decoder,
-	 * initialize tunneling and pes parsing.
-	 */
-	if (mpq_dmx_is_video_feed(feed)) {
-		ret = mpq_dmx_init_video_feed(feed);
+	ret = mpq_dmx_init_mpq_feed(feed);
+	if (ret < 0) {
+		MPQ_DVB_DBG_PRINT(
+			"%s: mpq_dmx_init_mpq_feed failed(%d)\n",
+			__func__,
+			ret);
 
-		if (ret < 0) {
-			MPQ_DVB_DBG_PRINT(
-				"%s: mpq_dmx_init_video_feed failed(%d)\n",
-				__func__,
-				ret);
+		if (mpq_demux->source < DMX_SOURCE_DVR0)
+			mpq_tsif_dmx_stop(mpq_demux);
 
-			if (mpq_demux->source < DMX_SOURCE_DVR0)
-				mpq_tsif_dmx_stop(mpq_demux);
-
-			return ret;
-		}
+		return ret;
 	}
 
 	return ret;
@@ -489,12 +482,7 @@ static int mpq_tsif_dmx_stop_filtering(struct dvb_demux_feed *feed)
 		return -EINVAL;
 	}
 
-	/*
-	 * For video PES, data is tunneled to the decoder,
-	 * terminate tunnel and pes parsing.
-	 */
-	if (mpq_dmx_is_video_feed(feed))
-		mpq_dmx_terminate_video_feed(feed);
+	mpq_dmx_terminate_feed(feed);
 
 	if (mpq_demux->source < DMX_SOURCE_DVR0) {
 		/* Source from TSIF, need to configure TSIF hardware */

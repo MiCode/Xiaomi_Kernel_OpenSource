@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kthread.h>
+#include <linux/vmalloc.h>
 #include <mach/msm_tspp.h>
 #include "mpq_dvb_debug.h"
 #include "mpq_dmx_plugin_common.h"
@@ -114,6 +115,13 @@ static struct
 		int buff_index;
 
 		u32 buffer_count;
+
+		/*
+		 * Array holding the IDs of the TSPP buffer descriptors in the
+		 * current aggregate, in order to release these descriptors at
+		 * the end of processing.
+		 */
+		int *aggregate_ids;
 
 		/*
 		 * Holds PIDs of allocated TSPP filters along with
@@ -222,6 +230,51 @@ static int mpq_tspp_get_filter_slot(int tsif, int pid)
 }
 
 /**
+ * Demux TS packets from TSPP by secure-demux.
+ * The fucntion assumes the buffer is physically contiguous
+ * and that TSPP descriptors are continuous in memory.
+ *
+ * @tsif: The TSIF interface to process its packets
+ * @channel_id: the TSPP output pipe with the TS packets
+ */
+static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
+{
+	const struct tspp_data_descriptor *tspp_data_desc;
+	struct mpq_demux *mpq_demux = mpq_dmx_tspp_info.tsif[tsif].mpq_demux;
+	struct sdmx_buff_descr input;
+	size_t aggregate_len = 0;
+	size_t aggregate_count = 0;
+	phys_addr_t start_addr = 0;
+	int i;
+
+	while ((tspp_data_desc = tspp_get_buffer(0, channel_id)) != NULL) {
+		if (0 == aggregate_count)
+			start_addr = tspp_data_desc->phys_base;
+		mpq_dmx_tspp_info.tsif[tsif].aggregate_ids[aggregate_count] =
+			tspp_data_desc->id;
+		aggregate_len += tspp_data_desc->size;
+		aggregate_count++;
+		mpq_demux->hw_notification_size +=
+			tspp_data_desc->size / TSPP_RAW_TTS_SIZE;
+	}
+
+	if (!aggregate_count)
+		return;
+
+	MPQ_DVB_DBG_PRINT(
+		"%s: Processing %d descriptors: %d bytes at start address 0x%x\n",
+		__func__, aggregate_count, aggregate_len, start_addr);
+	input.base_addr = (void *)start_addr;
+	input.size = aggregate_len;
+	mpq_sdmx_process(mpq_demux, &input, aggregate_len, 0);
+
+	for (i = 0; i < aggregate_count; i++)
+		tspp_release_buffer(0, channel_id,
+			mpq_dmx_tspp_info.tsif[tsif].aggregate_ids[i]);
+}
+
+
+/**
  * Demux thread function handling data from specific TSIF.
  *
  * @arg: TSIF number
@@ -270,27 +323,40 @@ static int mpq_dmx_tspp_thread(void *arg)
 		mpq_demux = mpq_dmx_tspp_info.tsif[tsif].mpq_demux;
 		mpq_demux->hw_notification_size = 0;
 
-		/*
-		 * Go through all filled descriptors
-		 * and perform demuxing on them
-		 */
-		while ((tspp_data_desc = tspp_get_buffer(0, channel_id))
-				!= NULL) {
-			notif_size = tspp_data_desc->size / TSPP_RAW_TTS_SIZE;
-			mpq_demux->hw_notification_size += notif_size;
+		if (MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC != allocation_mode &&
+			mpq_sdmx_is_loaded())
+			pr_err_once(
+				"%s: TSPP Allocation mode does not support secure demux.\n",
+				__func__);
 
-			for (j = 0; j < notif_size; j++)
-				dvb_dmx_swfilter_packet(
-				 &mpq_demux->demux,
-				 ((u8 *)tspp_data_desc->virt_base) +
-				 j * TSPP_RAW_TTS_SIZE,
-				 ((u8 *)tspp_data_desc->virt_base) +
-				 j * TSPP_RAW_TTS_SIZE + TSPP_RAW_SIZE);
+		if (MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC == allocation_mode &&
+			mpq_sdmx_is_loaded()) {
+			mpq_dmx_tspp_aggregated_process(tsif, channel_id);
+		} else {
 			/*
-			 * Notify TSPP that the buffer
-			 * is no longer needed
+			 * Go through all filled descriptors
+			 * and perform demuxing on them
 			 */
-			tspp_release_buffer(0, channel_id, tspp_data_desc->id);
+			while ((tspp_data_desc = tspp_get_buffer(0, channel_id))
+					!= NULL) {
+				notif_size = tspp_data_desc->size /
+					TSPP_RAW_TTS_SIZE;
+				mpq_demux->hw_notification_size += notif_size;
+
+				for (j = 0; j < notif_size; j++)
+					dvb_dmx_swfilter_packet(
+					 &mpq_demux->demux,
+					 ((u8 *)tspp_data_desc->virt_base) +
+					 j * TSPP_RAW_TTS_SIZE,
+					 ((u8 *)tspp_data_desc->virt_base) +
+					 j * TSPP_RAW_TTS_SIZE + TSPP_RAW_SIZE);
+				/*
+				 * Notify TSPP that the buffer
+				 * is no longer needed
+				 */
+				tspp_release_buffer(0, channel_id,
+					tspp_data_desc->id);
+			}
 		}
 
 		if (mpq_demux->hw_notification_size &&
@@ -523,8 +589,8 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 					   (void *)tsif,
 					   tspp_channel_timeout);
 
-		/* register allocater and provide allocation function
-		 * that allocates from continous memory so that we can have
+		/* register allocator and provide allocation function
+		 * that allocates from contiguous memory so that we can have
 		 * big notification size, smallest descriptor, and still provide
 		 * TZ with single big buffer based on notification size.
 		 */
@@ -739,7 +805,7 @@ static int mpq_tspp_dmx_start_filtering(struct dvb_demux_feed *feed)
 	struct mpq_demux *mpq_demux = feed->demux->priv;
 
 	MPQ_DVB_DBG_PRINT(
-		"%s(%d) executed\n",
+		"%s(pid=%d) executed\n",
 		__func__,
 		feed->pid);
 
@@ -770,24 +836,16 @@ static int mpq_tspp_dmx_start_filtering(struct dvb_demux_feed *feed)
 	 */
 	feed->pusi_seen = 0;
 
-	/*
-	 * For video PES, data is tunneled to the decoder,
-	 * initialize tunneling and pes parsing.
-	 */
-	if (mpq_dmx_is_video_feed(feed)) {
-		ret = mpq_dmx_init_video_feed(feed);
+	ret = mpq_dmx_init_mpq_feed(feed);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: mpq_dmx_init_mpq_feed failed(%d)\n",
+			__func__,
+			ret);
+		if (mpq_demux->source < DMX_SOURCE_DVR0)
+			mpq_tspp_dmx_remove_channel(feed);
 
-		if (ret < 0) {
-			MPQ_DVB_ERR_PRINT(
-				"%s: mpq_dmx_init_video_feed failed(%d)\n",
-				__func__,
-				ret);
-
-			if (mpq_demux->source < DMX_SOURCE_DVR0)
-				mpq_tspp_dmx_remove_channel(feed);
-
-			return ret;
-		}
+		return ret;
 	}
 
 	return 0;
@@ -797,18 +855,12 @@ static int mpq_tspp_dmx_stop_filtering(struct dvb_demux_feed *feed)
 {
 	int ret = 0;
 	struct mpq_demux *mpq_demux = feed->demux->priv;
-
 	MPQ_DVB_DBG_PRINT(
 		"%s(%d) executed\n",
 		__func__,
 		feed->pid);
 
-	/*
-	 * For video PES, data is tunneled to the decoder,
-	 * terminate tunnel and pes parsing.
-	 */
-	if (mpq_dmx_is_video_feed(feed))
-		mpq_dmx_terminate_video_feed(feed);
+	mpq_dmx_terminate_feed(feed);
 
 	if (mpq_demux->source < DMX_SOURCE_DVR0) {
 		/* source from TSPP, need to configure tspp pipe */
@@ -986,7 +1038,8 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->dmxdev.demux->get_caps = mpq_tspp_dmx_get_caps;
 	mpq_demux->dmxdev.demux->map_buffer = mpq_dmx_map_buffer;
 	mpq_demux->dmxdev.demux->unmap_buffer = mpq_dmx_unmap_buffer;
-
+	mpq_demux->dmxdev.demux->set_secure_mode = mpq_dmx_set_secure_mode;
+	mpq_demux->dmxdev.demux->write = mpq_dmx_write;
 	result = dvb_dmxdev_init(&mpq_demux->dmxdev, mpq_adapter);
 	if (result < 0) {
 		MPQ_DVB_ERR_PRINT("%s: dvb_dmxdev_init failed (errno=%d)\n",
@@ -1018,6 +1071,20 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 		mpq_dmx_tspp_info.tsif[i].buffer_count =
 				TSPP_BUFFER_COUNT(tspp_out_buffer_size);
 
+		mpq_dmx_tspp_info.tsif[i].aggregate_ids =
+			vzalloc(mpq_dmx_tspp_info.tsif[i].buffer_count *
+				sizeof(int));
+		if (NULL == mpq_dmx_tspp_info.tsif[i].aggregate_ids) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: Failed to allocate memory for buffer descriptors aggregation\n",
+				__func__);
+			for (j = 0; j < i; j++) {
+				kthread_stop(mpq_dmx_tspp_info.tsif[j].thread);
+				vfree(mpq_dmx_tspp_info.tsif[j].aggregate_ids);
+				mutex_destroy(&mpq_dmx_tspp_info.tsif[j].mutex);
+			}
+			return -ENOMEM;
+		}
 		mpq_dmx_tspp_info.tsif[i].channel_ref = 0;
 		mpq_dmx_tspp_info.tsif[i].buff_index = 0;
 		mpq_dmx_tspp_info.tsif[i].ch_mem_heap_handle = NULL;
@@ -1042,8 +1109,11 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 				mpq_dmx_tspp_info.tsif[i].name);
 
 		if (IS_ERR(mpq_dmx_tspp_info.tsif[i].thread)) {
+			vfree(mpq_dmx_tspp_info.tsif[i].aggregate_ids);
+
 			for (j = 0; j < i; j++) {
 				kthread_stop(mpq_dmx_tspp_info.tsif[j].thread);
+				vfree(mpq_dmx_tspp_info.tsif[j].aggregate_ids);
 				mutex_destroy(&mpq_dmx_tspp_info.tsif[j].mutex);
 			}
 
@@ -1067,6 +1137,7 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 
 		for (i = 0; i < TSIF_COUNT; i++) {
 			kthread_stop(mpq_dmx_tspp_info.tsif[i].thread);
+			vfree(mpq_dmx_tspp_info.tsif[i].aggregate_ids);
 			mutex_destroy(&mpq_dmx_tspp_info.tsif[i].mutex);
 		}
 	}
@@ -1098,6 +1169,8 @@ static void __exit mpq_dmx_tspp_plugin_exit(void)
 				MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC)
 				mpq_dmx_channel_mem_free(i);
 		}
+		if (mpq_dmx_tspp_info.tsif[i].aggregate_ids)
+			vfree(mpq_dmx_tspp_info.tsif[i].aggregate_ids);
 
 		mutex_unlock(&mpq_dmx_tspp_info.tsif[i].mutex);
 		kthread_stop(mpq_dmx_tspp_info.tsif[i].thread);

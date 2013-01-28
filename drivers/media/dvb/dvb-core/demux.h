@@ -360,7 +360,6 @@ struct dmx_demux {
 	struct dmx_frontend* frontend;    /* Front-end connected to the demux */
 	void* priv;                  /* Pointer to private data of the API client */
 	struct data_buffer dvr_input; /* DVR input buffer */
-
 	struct dentry *debugfs_demux_dir; /* debugfs dir */
 
 	int (*open) (struct dmx_demux* demux);
@@ -410,6 +409,9 @@ struct dmx_demux {
 
 	int (*unmap_buffer) (struct dmx_demux *demux,
 			void *priv_handle);
+
+	int (*set_secure_mode) (struct dmx_demux *demux,
+				struct dmx_secure_mode *sec_mode);
 };
 
 #endif /* #ifndef __DEMUX_H */
