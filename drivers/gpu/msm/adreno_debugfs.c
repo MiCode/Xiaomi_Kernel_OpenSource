@@ -75,5 +75,8 @@ void adreno_debugfs_init(struct kgsl_device *device)
 	adreno_dev->ft_policy = KGSL_FT_DEFAULT_POLICY;
 	debugfs_create_u32("ft_policy", 0644, device->d_debugfs,
 			   &adreno_dev->ft_policy);
-
+	/* By default enable long IB detection */
+	adreno_dev->long_ib_detect = 1;
+	debugfs_create_u32("long_ib_detect", 0644, device->d_debugfs,
+			   &adreno_dev->long_ib_detect);
 }

@@ -64,7 +64,7 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 	unsigned long wait_time;
 	unsigned long wait_timeout = msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
 	unsigned long wait_time_part;
-	unsigned int prev_reg_val[hang_detect_regs_count];
+	unsigned int prev_reg_val[ft_detect_regs_count];
 
 	memset(prev_reg_val, 0, sizeof(prev_reg_val));
 
@@ -109,7 +109,7 @@ adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 		if (time_after(jiffies, wait_time_part)) {
 			wait_time_part = jiffies +
 				msecs_to_jiffies(KGSL_TIMEOUT_PART);
-			if ((adreno_hang_detect(rb->device,
+			if ((adreno_ft_detect(rb->device,
 						prev_reg_val))){
 				KGSL_DRV_ERR(rb->device,
 				"Hang detected while waiting for freespace in"
@@ -1004,9 +1004,9 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	drawctxt = context->devctxt;
 
 	if (drawctxt->flags & CTXT_FLAGS_GPU_HANG) {
-		KGSL_CTXT_ERR(device, "Context %p failed fault tolerance"
+		KGSL_CTXT_ERR(device, "proc %s failed fault tolerance"
 			" will not accept commands for context %d\n",
-			drawctxt, drawctxt->id);
+			drawctxt->pid_name, drawctxt->id);
 		return -EDEADLK;
 	}
 
@@ -1020,9 +1020,9 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	if (drawctxt->flags & CTXT_FLAGS_SKIP_EOF) {
 		KGSL_CTXT_ERR(device,
-			"Context %p triggered fault tolerance"
+			"proc %s triggered fault tolerance"
 			" skipping commands for context till EOF %d\n",
-			drawctxt, drawctxt->id);
+			drawctxt->pid_name, drawctxt->id);
 		if (flags & KGSL_CMD_FLAGS_EOF)
 			drawctxt->flags &= ~CTXT_FLAGS_SKIP_EOF;
 		if (start_index)

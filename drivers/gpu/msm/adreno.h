@@ -105,6 +105,9 @@ struct adreno_device {
 	unsigned int ib_check_level;
 	unsigned int fast_hang_detect;
 	unsigned int ft_policy;
+	unsigned int long_ib_detect;
+	unsigned int long_ib;
+	unsigned int long_ib_ts;
 	unsigned int gpulist_index;
 	struct ocmem_buf *ocmem_hdl;
 	unsigned int ocmem_base;
@@ -205,8 +208,8 @@ extern const unsigned int a3xx_hlsq_registers_count;
 extern const unsigned int a330_registers[];
 extern const unsigned int a330_registers_count;
 
-extern unsigned int hang_detect_regs[];
-extern const unsigned int hang_detect_regs_count;
+extern unsigned int ft_detect_regs[];
+extern const unsigned int ft_detect_regs_count;
 
 
 int adreno_idle(struct kgsl_device *device);
@@ -242,7 +245,7 @@ int adreno_dump_and_exec_ft(struct kgsl_device *device);
 void adreno_dump_rb(struct kgsl_device *device, const void *buf,
 			 size_t len, int start, int size);
 
-unsigned int adreno_hang_detect(struct kgsl_device *device,
+unsigned int adreno_ft_detect(struct kgsl_device *device,
 						unsigned int *prev_reg_val);
 
 static inline int adreno_is_a200(struct adreno_device *adreno_dev)
