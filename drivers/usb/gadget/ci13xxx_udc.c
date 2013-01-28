@@ -453,7 +453,6 @@ static int hw_ep_flush(int num, int dir)
  */
 static int hw_ep_disable(int num, int dir)
 {
-	hw_ep_flush(num, dir);
 	hw_cwrite(CAP_ENDPTCTRL + num * sizeof(u32),
 		  dir ? ENDPTCTRL_TXE : ENDPTCTRL_RXE, 0);
 	return 0;
