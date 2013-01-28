@@ -2935,7 +2935,7 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("xo",	gcc_xo_clk_src.c, "pil-q6v5-mss"),
 	CLK_LOOKUP("xo",	gcc_xo_clk_src.c, "pil-mba"),
 	CLK_LOOKUP("xo",	gcc_xo_clk_src.c, "fb000000.qcom,wcnss-wlan"),
-	CLK_LOOKUP("xo",	gcc_xo_clk_src.c, "pil_pronto"),
+	CLK_LOOKUP("xo",	gcc_xo_clk_src.c, "fb21b000.qcom,pronto"),
 	CLK_LOOKUP("measure",	measure_clk.c,	"debug"),
 
 	CLK_LOOKUP("iface_clk",  gcc_blsp1_ahb_clk.c, "f991f000.serial"),
