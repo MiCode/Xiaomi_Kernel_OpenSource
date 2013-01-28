@@ -696,6 +696,9 @@ struct v4l2_buffer {
 #define V4L2_BUF_FLAG_NO_CACHE_INVALIDATE	0x0800
 #define V4L2_BUF_FLAG_NO_CACHE_CLEAN		0x1000
 #define V4L2_BUF_FLAG_EOS		0x2000
+#define V4L2_QCOM_BUF_FLAG_CODECCONFIG  0x4000
+#define V4L2_QCOM_BUF_FLAG_EOSEQ  0x8000
+#define V4L2_QCOM_BUF_TIMESTAMP_INVALID 0x10000
 
 /*
  *	O V E R L A Y   P R E V I E W
@@ -2139,9 +2142,6 @@ struct v4l2_encoder_cmd {
 		} raw;
 	};
 };
-
-#define V4L2_QCOM_BUF_FLAG_CODECCONFIG	0x4000
-#define V4L2_QCOM_BUF_FLAG_EOSEQ  0x8000
 
 /* Decoder commands */
 #define V4L2_DEC_CMD_START       (0)

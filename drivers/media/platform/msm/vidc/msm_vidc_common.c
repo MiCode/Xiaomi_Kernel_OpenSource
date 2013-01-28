@@ -668,7 +668,7 @@ static void msm_comm_update_clocks(struct msm_vidc_inst *inst,
 	if (inst->session_type == MSM_VIDC_ENCODER)
 		goto exit;
 	if (cur_time_stamp >= LLONG_MAX) {
-		dprintk(VIDC_WARN,
+		dprintk(VIDC_DBG,
 			"Clock scaling failed : Timestamp invalid\n");
 		goto exit;
 	}
@@ -1621,6 +1621,9 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				dprintk(VIDC_DBG,
 					"Received CODECCONFIG on output cap\n");
 			}
+			if (vb->v4l2_buf.flags &
+				V4L2_QCOM_BUF_TIMESTAMP_INVALID)
+				frame_data.timestamp = LLONG_MAX;
 			dprintk(VIDC_DBG,
 				"Sending etb to hal: Alloc: %d :filled: %d\n",
 				frame_data.alloc_len, frame_data.filled_len);
@@ -2221,6 +2224,9 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER:
 		ret = HAL_EXTRADATA_METADATA_FILLER;
+		break;
+	case V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO:
+		ret = HAL_EXTRADATA_ASPECT_RATIO;
 		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);
