@@ -263,15 +263,21 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	int irq, ret;
 	u32 nsid;
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq > 0) {
-		ret = request_threaded_irq(irq, NULL,
-				msm_iommu_fault_handler_v2,
-				IRQF_ONESHOT | IRQF_SHARED,
-				"msm_iommu_nonsecure_irq", pdev);
-		if (ret) {
-			pr_err("Request IRQ %d failed with ret=%d\n", irq, ret);
-			return ret;
+	ctx_drvdata->secure_context = of_property_read_bool(pdev->dev.of_node,
+							"qcom,secure-context");
+
+	if (!ctx_drvdata->secure_context) {
+		irq = platform_get_irq(pdev, 0);
+		if (irq > 0) {
+			ret = request_threaded_irq(irq, NULL,
+					msm_iommu_fault_handler_v2,
+					IRQF_ONESHOT | IRQF_SHARED,
+					"msm_iommu_nonsecure_irq", pdev);
+			if (ret) {
+				pr_err("Request IRQ %d failed with ret=%d\n",
+					irq, ret);
+				return ret;
+			}
 		}
 	}
 
@@ -307,8 +313,6 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	}
 	ctx_drvdata->nsid = nsid;
 
-	ctx_drvdata->secure_context = of_property_read_bool(pdev->dev.of_node,
-							"qcom,secure-context");
 	ctx_drvdata->asid = -1;
 	return 0;
 }
