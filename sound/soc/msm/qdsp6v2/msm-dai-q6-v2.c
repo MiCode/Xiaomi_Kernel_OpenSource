@@ -807,7 +807,7 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 		for (i = 0; i < rx_num; i++) {
 			dai_data->port_config.slim_sch.shared_ch_mapping[i] =
 			    rx_slot[i];
-			pr_err("%s: find number of channels[%d] ch[%d]\n",
+			pr_debug("%s: find number of channels[%d] ch[%d]\n",
 			       __func__, i, rx_slot[i]);
 		}
 		dai_data->port_config.slim_sch.num_channels = rx_num;
