@@ -2246,10 +2246,11 @@ static unsigned int adreno_check_hw_ts(struct kgsl_device *device,
 	return 0;
 }
 
-static void adreno_next_event(struct kgsl_device *device,
+/* Return 1 if the event timestmp has already passed, 0 if it was marked */
+static int adreno_next_event(struct kgsl_device *device,
 		struct kgsl_event *event)
 {
-	adreno_check_hw_ts(device, event->context, event->timestamp);
+	return adreno_check_hw_ts(device, event->context, event->timestamp);
 }
 
 static int adreno_check_interrupt_timestamp(struct kgsl_device *device,
