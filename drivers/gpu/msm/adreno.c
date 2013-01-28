@@ -2457,9 +2457,6 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 	do {
 		long status;
 
-		if (wait > (msecs - time_elapsed))
-			wait = msecs - time_elapsed;
-
 		/*
 		 * if the timestamp happens while we're not
 		 * waiting, there's a chance that an interrupt
@@ -2511,7 +2508,6 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 			ret = (status > 0) ? 0 : (int) status;
 			break;
 		}
-
 		time_elapsed += wait;
 
 		/* If user specified timestamps are being used, wait at least
@@ -2540,10 +2536,14 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		}
 
 		/*
-		 * all subsequent trips through the loop wait the full
-		 * KGSL_TIMEOUT_PART interval
+		 * We want to wait the floor of KGSL_TIMEOUT_PART
+		 * and (msecs - time_elapsed).
 		 */
-		wait = KGSL_TIMEOUT_PART;
+
+		if (KGSL_TIMEOUT_PART < (msecs - time_elapsed))
+			wait = KGSL_TIMEOUT_PART;
+		else
+			wait = (msecs - time_elapsed);
 
 	} while (!msecs || time_elapsed < msecs);
 
