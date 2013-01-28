@@ -125,6 +125,9 @@ struct wcd9xxx_resmgr {
 	/* Notifier needs mbhc pointer with resmgr */
 	struct wcd9xxx_mbhc *mbhc;
 
+	unsigned long cond_flags;
+	struct list_head update_bit_cond_h;
+
 	/*
 	 * Currently, only used for mbhc purpose, to protect
 	 * concurrent execution of mbhc threaded irq handlers and
@@ -188,5 +191,19 @@ int wcd9xxx_resmgr_unregister_notifier(struct wcd9xxx_resmgr *resmgr,
 				       struct notifier_block *nblock);
 void wcd9xxx_resmgr_notifier_call(struct wcd9xxx_resmgr *resmgr,
 				  const enum wcd9xxx_notify_event e);
+
+enum wcd9xxx_resmgr_cond {
+	WCD9XXX_COND_HPH_MIC = 1,
+};
+int wcd9xxx_resmgr_rm_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
+				       enum wcd9xxx_resmgr_cond cond,
+				       unsigned short reg, int shift,
+				       bool invert);
+int wcd9xxx_resmgr_add_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
+					enum wcd9xxx_resmgr_cond cond,
+					unsigned short reg, int shift,
+					bool invert);
+void wcd9xxx_resmgr_cond_update_cond(struct wcd9xxx_resmgr *resmgr,
+				     enum wcd9xxx_resmgr_cond cond, bool set);
 
 #endif /* __WCD9XXX_COMMON_H__ */

@@ -94,6 +94,14 @@ static char wcd9xxx_event_string[][64] = {
 	"WCD9XXX_EVENT_LAST",
 };
 
+struct wcd9xxx_resmgr_cond_entry {
+	unsigned short reg;
+	int shift;
+	bool invert;
+	enum wcd9xxx_resmgr_cond cond;
+	struct list_head list;
+};
+
 static enum wcd9xxx_clock_type wcd9xxx_save_clock(struct wcd9xxx_resmgr
 						  *resmgr);
 static void wcd9xxx_restore_clock(struct wcd9xxx_resmgr *resmgr,
@@ -640,6 +648,93 @@ done:
 	return rc;
 }
 
+void wcd9xxx_resmgr_cond_trigger_cond(struct wcd9xxx_resmgr *resmgr,
+				      enum wcd9xxx_resmgr_cond cond)
+{
+	struct list_head *l;
+	struct wcd9xxx_resmgr_cond_entry *e;
+	bool set;
+
+	pr_debug("%s: enter\n", __func__);
+	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
+	set = !!test_bit(cond, &resmgr->cond_flags);
+	list_for_each(l, &resmgr->update_bit_cond_h) {
+		e = list_entry(l, struct wcd9xxx_resmgr_cond_entry, list);
+		if (e->cond == cond)
+			snd_soc_update_bits(resmgr->codec, e->reg,
+					    1 << e->shift,
+					    (set ? !e->invert : e->invert)
+					    << e->shift);
+	}
+	pr_debug("%s: leave\n", __func__);
+}
+
+void wcd9xxx_resmgr_cond_update_cond(struct wcd9xxx_resmgr *resmgr,
+				     enum wcd9xxx_resmgr_cond cond, bool set)
+{
+	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
+	if ((set && !test_and_set_bit(cond, &resmgr->cond_flags)) ||
+	    (!set && test_and_clear_bit(cond, &resmgr->cond_flags))) {
+		pr_debug("%s: Resource %d condition changed to %s\n", __func__,
+			 cond, set ? "set" : "clear");
+		wcd9xxx_resmgr_cond_trigger_cond(resmgr, cond);
+	}
+}
+
+int wcd9xxx_resmgr_add_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
+					enum wcd9xxx_resmgr_cond cond,
+					unsigned short reg, int shift,
+					bool invert)
+{
+	struct wcd9xxx_resmgr_cond_entry *entry;
+
+	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	entry->cond = cond;
+	entry->reg = reg;
+	entry->shift = shift;
+	entry->invert = invert;
+	list_add_tail(&entry->list, &resmgr->update_bit_cond_h);
+
+	wcd9xxx_resmgr_cond_trigger_cond(resmgr, cond);
+
+	return 0;
+}
+
+/*
+ * wcd9xxx_resmgr_rm_cond_update_bits :
+ * Clear bit and remove from the conditional bit update list
+ */
+int wcd9xxx_resmgr_rm_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
+				       enum wcd9xxx_resmgr_cond cond,
+				       unsigned short reg, int shift,
+				       bool invert)
+{
+	struct list_head *l, *next;
+	struct wcd9xxx_resmgr_cond_entry *e = NULL;
+
+	pr_debug("%s: enter\n", __func__);
+	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
+	list_for_each_safe(l, next, &resmgr->update_bit_cond_h) {
+		e = list_entry(l, struct wcd9xxx_resmgr_cond_entry, list);
+		if (e->reg == reg && e->shift == shift && e->invert == invert) {
+			snd_soc_update_bits(resmgr->codec, e->reg,
+					    1 << e->shift,
+					    e->invert << e->shift);
+			list_del(&e->list);
+			kfree(e);
+			return 0;
+		}
+	}
+	pr_err("%s: Cannot find update bit entry reg 0x%x, shift %d\n",
+	       __func__, e ? e->reg : 0, e ? e->shift : 0);
+
+	return -EINVAL;
+}
+
 int wcd9xxx_resmgr_register_notifier(struct wcd9xxx_resmgr *resmgr,
 				     struct notifier_block *nblock)
 {
@@ -668,6 +763,8 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 	resmgr->core = wcd9xxx;
 	resmgr->pdata = pdata;
 	resmgr->reg_addr = reg_addr;
+
+	INIT_LIST_HEAD(&resmgr->update_bit_cond_h);
 
 	BLOCKING_INIT_NOTIFIER_HEAD(&resmgr->notifier);
 
