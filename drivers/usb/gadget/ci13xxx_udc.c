@@ -424,7 +424,7 @@ static int hw_ep_flush(int num, int dir)
 	int n = hw_ep_bit(num, dir);
 	struct ci13xxx_ep *mEp = &_udc->ci13xxx_ep[n];
 
-	if (list_empty(&mEp->qh.queue))
+	if (_udc->skip_flush || list_empty(&mEp->qh.queue))
 		return 0;
 
 	start = ktime_get();
@@ -440,6 +440,7 @@ static int hw_ep_flush(int num, int dir)
 					__func__, num,
 					dir ? "IN" : "OUT");
 				debug_ept_flush_info(num, dir);
+				_udc->skip_flush = true;
 				return 0;
 			}
 		}
@@ -2259,6 +2260,7 @@ __acquires(udc->lock)
 	if (retval)
 		goto done;
 
+	_udc->skip_flush = false;
 	retval = hw_usb_reset();
 	if (retval)
 		goto done;
