@@ -1,51 +1,135 @@
-config MSM_QDSS
-	bool "CoreSight tracing"
+menuconfig CORESIGHT
+	bool "CoreSight Tracing Support"
 	help
-	  Enables support for CoreSight tracing. This uses CoreSight trace
-	  components and buses to support both hardware (eg. processor ETM)
-	  and hardware assisted software instrumentation based (eg. STM)
-	  tracing.
+	  CoreSight components are compliant with the ARM CoreSight
+	  architecture specification and can be connected in various
+	  topologies to suite a particular SoCs tracing needs. These trace
+	  components can generally be classified as sources, links and
+	  sinks. Trace data produced by one or more sources flows through
+	  the intermediate links connecting the source to the currently
+	  selected sink.
 
-	  For production builds, you should probably say 'N' here to avoid
-	  potential power, performance and memory penalty.
+	  This framework provides an interface for the CoreSight debug and
+	  trace drivers to register themselves with. It's intended to build
+	  up a topological view of the CoreSight components and configure
+	  the right series of components on user input via sysfs. It also
+	  provides status information to user space applications through
+	  sysfs interface.
 
-config MSM_QDSS_STM_DEFAULT_ENABLE
-	bool "Turn on CoreSight STM tracing by default"
-	depends on MSM_QDSS
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
+if CORESIGHT
+
+config HAVE_CORESIGHT_SINK
+	bool
+
+config CORESIGHT_CSR
+	bool "CoreSight Slave Register driver"
+	help
+	  This driver provides support for CoreSight Slave Register block
+	  that hosts miscellaneous configuration registers.
+
+config CORESIGHT_TMC
+	bool "CoreSight Trace Memory Controller driver"
+	select CORESIGHT_CSR
+	select HAVE_CORESIGHT_SINK
+	help
+	  This driver provides support for Trace Memory Controller which
+	  can be configured as either an ETB (Embedded Trace Buffer),
+	  ETR (Embedded Trace Router) or ETF (Embedded Trace Fifo). It acts
+	  as sink when configured as ETB, ETR or ETF in circular buffer mode
+	  whereas it is a link when configured as ETF in hardware fifo mode.
+
+	  ETB collects trace data in a circular buffer whereas ETR can be
+	  used to route trace data to memory allocated in RAM. ETF in
+	  circular buffer mode is like an ETB whereas in hardware fifo mode
+	  it is a fifo link.
+
+config CORESIGHT_TPIU
+	bool "CoreSight Trace Port Interface Unit driver"
+	select HAVE_CORESIGHT_SINK
+	help
+	  This driver provides support for Trace Port Interface Unit which
+	  acts as a conduit for offchip trace collection.
+
+config CORESIGHT_ETB
+	bool "CoreSight Embedded Trace Buffer driver"
+	select HAVE_CORESIGHT_SINK
+	help
+	  This driver provides support for the legacy Embedded Trace Buffer
+	  which is a circular buffer.
+
+if HAVE_CORESIGHT_SINK
+
+config CORESIGHT_FUNNEL
+	bool "CoreSight Funnel driver"
+	help
+	  This driver provides support for Funnel which is a link that
+	  typically has multiple input ports and a single output port. Input
+	  trace data streams from the input ports are interleaved into a
+	  single output trace data stream coming out of the output port.
+
+config CORESIGHT_REPLICATOR
+	bool "CoreSight Replicator driver"
+	help
+	  This driver provides support for Replicator that typically has
+	  a single input port and two output ports. Single trace data
+	  stream on the input port is replicated to produce two identical
+	  trace data output streams coming out of the two output ports.
+
+config CORESIGHT_STM
+	bool "CoreSight System Trace Macrocell driver"
+	help
+	  This driver provides support for hardware assisted software
+	  instrumentation based tracing. This is primarily useful for
+	  logging useful software events or data.
+
+config CORESIGHT_STM_DEFAULT_ENABLE
+	bool "Turn on STM tracing by default"
+	depends on CORESIGHT_STM
 	help
 	  Turns on CoreSight STM tracing (hardware assisted software
 	  instrumentation based tracing) by default. Otherwise, tracing is
 	  disabled by default but can be enabled via sysfs.
 
-	  For production builds, you should probably say 'N' here to avoid
-	  potential power, performance and memory penalty.
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
 
-config MSM_QDSS_ETM_DEFAULT_ENABLE
-	bool "Turn on CoreSight ETM tracing by default"
-	depends on MSM_QDSS
+config CORESIGHT_ETM
+	bool "CoreSight Embedded Trace Macrocell driver"
+	help
+	  This driver provides support for processor tracing which allows
+	  tracing the instructions that the processor is executing. This is
+	  primarily useful for instruction level tracing.
+
+config CORESIGHT_ETM_DEFAULT_ENABLE
+	bool "Turn on ETM tracing by default"
+	depends on CORESIGHT_ETM
 	help
 	  Turns on CoreSight ETM tracing (processor tracing) by default.
 	  Otherwise, tracing is disabled by default but can be enabled via
 	  sysfs.
 
-	  For production builds, you should probably say 'N' here to avoid
-	  potential power, performance and memory penalty.
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
 
-config MSM_QDSS_ETM_PCSAVE_DEFAULT_ENABLE
+config CORESIGHT_ETM_PCSAVE_DEFAULT_ENABLE
 	bool "Turn on PC saving by default"
-	depends on MSM_QDSS
+	depends on CORESIGHT_ETM
 	help
 	  Turns on program counter saving on reset by default. Otherwise,
 	  PC saving is disabled by default but can be enabled via sysfs.
 
-	  For production builds, you should probably say 'N' here to avoid
-	  potential power penalty.
+	  If unsure, say 'N' here to avoid potential power penalty.
 
-config CONTROL_TRACE
-	tristate "Turn on to control tracing"
+endif
+
+config CORESIGHT_EVENT
+	tristate "CoreSight Event driver"
 	help
-	  Builds module to abort tracing on a user space data, instruction
-	  or prefetch abort.
+	  This driver provides support for registering with various events
+	  and performing CoreSight actions like aborting trace on their
+	  occurrence.
 
-	  For production builds, you should probably say 'N' here to avoid
-	  potential power, performance and memory penalty.
+endif

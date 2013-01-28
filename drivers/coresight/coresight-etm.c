@@ -181,7 +181,7 @@ enum etm_addr_type {
 	ETM_ADDR_TYPE_STOP,
 };
 
-#ifdef CONFIG_MSM_QDSS_ETM_DEFAULT_ENABLE
+#ifdef CONFIG_CORESIGHT_ETM_DEFAULT_ENABLE
 static int boot_enable = 1;
 #else
 static int boot_enable;
@@ -190,7 +190,7 @@ module_param_named(
 	boot_enable, boot_enable, int, S_IRUGO
 );
 
-#ifdef CONFIG_MSM_QDSS_ETM_PCSAVE_DEFAULT_ENABLE
+#ifdef CONFIG_CORESIGHT_ETM_PCSAVE_DEFAULT_ENABLE
 static int boot_pcsave_enable = 1;
 #else
 static int boot_pcsave_enable;
