@@ -11,4 +11,4 @@ obj-$(CONFIG_CORESIGHT_FUNNEL) += coresight-funnel.o
 obj-$(CONFIG_CORESIGHT_REPLICATOR) += coresight-replicator.o
 obj-$(CONFIG_CORESIGHT_STM) += coresight-stm.o
 obj-$(CONFIG_CORESIGHT_ETM) += coresight-etm.o coresight-etm-cp14.o
-obj-$(CONFIG_CORESIGHT_EVENT) += control_trace.o
+obj-$(CONFIG_CORESIGHT_EVENT) += coresight-event.o
