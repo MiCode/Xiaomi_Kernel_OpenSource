@@ -2049,7 +2049,7 @@ config CP_ACCESS
 	  Provide support for Coprocessor register access using /sys
 	  interface. Read and write to CP registers from userspace
 	  through sysfs interface. A sys file (cp_rw) will be created under
-	  /sys/devices/system/cpaccess/cpaccess0.
+	  /sys/devices/cpaccess/cpaccess0.
 
 	  If unsure, say N.
 
