@@ -2064,6 +2064,8 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 	int result = -ETIMEDOUT;
 	struct adreno_ft_data ft_data;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	unsigned int curr_pwrlevel;
 
 	if (device->state == KGSL_STATE_HUNG)
 		goto done;
@@ -2077,6 +2079,10 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_DUMP_AND_FT);
 		INIT_COMPLETION(device->ft_gate);
 		/* Detected a hang */
+
+		/* Run fault tolerance at max power level */
+		curr_pwrlevel = pwr->active_pwrlevel;
+		kgsl_pwrctrl_pwrlevel_change(device, pwr->max_pwrlevel);
 
 		/* Get the fault tolerance data as soon as hang is detected */
 		adreno_setup_ft_data(device, &ft_data);
@@ -2108,6 +2114,9 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 
 		result = adreno_ft(device, &ft_data);
 		adreno_destroy_ft_data(&ft_data);
+
+		/* restore power level */
+		kgsl_pwrctrl_pwrlevel_change(device, curr_pwrlevel);
 
 		if (result) {
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_HUNG);
