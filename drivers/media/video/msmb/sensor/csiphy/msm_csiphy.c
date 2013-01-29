@@ -27,7 +27,6 @@
 #define CSIPHY_VERSION_V3                        0x10
 #define MSM_CSIPHY_DRV_NAME                      "msm_csiphy"
 
-#define CONFIG_MSMB_CAMERA_DEBUG
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
