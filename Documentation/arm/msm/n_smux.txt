@@ -1,0 +1,630 @@
+Introduction
+============
+
+The Serial Mux (SMUX) is a TTY Line Discipline that multiplexes
+multiple logical channels onto a single TTY serial channel.  The
+logical channels are exposed through a kernel API.
+
+Companion adaptation drivers use the kernel API to expose logical
+channels as character devices (SMUX CTL - smux_ctl.c) to the user-space
+and as net devices (SMUX RMNET - msm_rmnet_smux.c) to the TCP/IP stack.
+
+Power control calls are supported to the physical serial driver to
+optimize power usage.
+
+
+Software description
+====================
+
+The Serial Mux driver will be similar in design to the SDIO DMUX and
+BAM DMUX drivers and will use the same multiplexing protocol with
+additional commands to support inactivity timeouts along with
+power-down and wake-up handshaking.  Companion adaptation drivers will
+support data-plane traffic through TCP/IP (SMUX_RMNET) and control
+plane traffic through SMUX_CTL.
+
+
+   ttyHS0     RMNET[0..N]            smuxctl[0..M]
+     |           |                        |
+     |           |                        |
+     |   ------------------      -------------------
+     |  |    IP Framework  |    |   VFS Framework   |
+     |   ------------------      -------------------
+     |     |           |            |           |
+     |     |           |            |           |
+     |  -------     -------      -------     -------
+     | | Rmnet |   | Rmnet |    | CDEV  |   | CDEV  |
+     | | Dev 0 |...| Dev N |    | Dev 0 |...| Dev M |
+     |  ---------------------   ---------------------   -------------
+     | |                     | |                     | |    Other    |
+     | |    msm_rmnet_smux   | |       smux_ctl      | | Kernel-only |
+     | |                     | |                     | |   Clients   |
+     |  ---------------------   ---------------------   -------------
+     |     |             |         |             |             |
+     |     |             |         |             |             |
+     |     |             |         |             |             |
+     |     |             |         |             |             |
+     |      ---------------------------------------------------
+     |                                               |
+     |                                               |
+     |                                               |
+     |                                               |
+   ---------------                         --------------------
+  |               |                       |                    |
+  | TTY Framework | <- Line Discipline -> |        SMUX        |
+  |               |                       |                    |
+   ---------------                         --------------------
+     |                                              |
+     |                                              |
+   ---------------                                  |
+  |               |                                 |
+  |    HS UART    |<---------- Power API -----------
+  |               |
+   ---------------
+         |
+         V
+   To Remote System
+
+
+Each logical channel will contain package management structures
+including a watermark to ensure fair usage of the physical layer by
+competing logical channels.  All data for logical channels will be
+processed in FIFO order.
+
+Once data has been queued with SMUX, processing, copying of data, and
+notification to clients will be done using a combination of the TTY
+framework notification context and a workqueue.  The lifetime of all
+buffers is controlled by the clients with SMUX taking temporary
+ownership of the buffers for read and write operations.
+
+The physical transport is assumed to be perfect and all errors will be
+handled by notifying the client of the failure.  Watermark support and
+round-robin scheduling ensure that individual logical channels do not
+starve other logical channels.
+
+Data stalls caused by failure of the remote system are handled by
+Subsystem Restart.  The restart logic will notify clients of the
+failure and all read and write buffers will be returned to the client
+with an error notification.
+
+Design
+======
+
+The goals for SMUX are to:
+	1) multiplex multiple logical channels into a single physical
+	   channel
+	2) support a kernel API
+	3) provide power control of the physical layer
+
+In addition, the companion adapter modules have the goals:
+	1) support userspace character-device clients (smux_ctl)
+	2) support net devices through the TCP/IP stack (msm_rmnet_smux)
+
+Alternate designs consider including 3GPP 27.010 MUX protocol
+implementations and existing SDIO CMUX/DMUX implementations.
+
+The 3GPP 27.010 MUX protocol as implemented in both n_gsm.c and OpenEZX
+looked promising at first glance.  However, upon further inspection,
+the implementations did not fully implement the power-control portions
+of the 27.010 MUX protocol.  They also did not support kernel clients
+as they were designed to work only with userspace through TTY devices.
+The code was reviewed to determine the effort to add power-control
+signaling to the physical transport driver and to add a kernel API, but
+it was deemed that adding the API to support both of these behaviors
+would be difficult to do in a generic way such that it would be
+accepted by the upstream community.
+
+The SDIO CMUX/DMUX drivers do not have power control in them and the
+CMUX and DMUX drivers both require a separate physical channel.  To use
+them, we would need to create an additional mux layer that would sit
+between CMUX/DMUX and the HS UART driver which would add another MUX
+header.
+
+Design - MUX Protocol
+=====================
+The MUX packet consists of a header (detailed below) and a payload.
+All values are in little-endian format and all reserved fields are set
+to zero unless otherwise mentioned in the individual command
+descriptions.
+
+Invalid commands and malformed commands will be logged to the kernel log
+as an error and ignored.
+
+	 -----------------------------------------
+	|31      24|       16|         8|        0|
+	|----------|---------|----------|---------|
+	|    Magic Number    |   Flags  |   CMD   |
+	|----------|---------|----------|---------|
+	| Pad Len  |   LCID  |  Packet Length (N) |
+	|-----------------------------------------|
+	|       Data Payload (0..N bytes)         |
+	|-----------------------------------------|
+	|        Pad Data (0..Pad Len bytes)      |
+	 -----------------------------------------
+
+Field definitions:
+ * Magic Number - always 0x33FC
+ * Flags - flags for individual commands
+ * CMD - SMUX command
+ * Pad Len - Padding in bytes at the end of the payload
+ * LCID - Logical channel ID
+ * Packet Length - Length of the data payload in bytes
+
+Commands
+ 0x0 - Data
+ 0x1 - Open Logical Channel
+ 0x2 - Close Logical Channel
+ 0x3 - Status
+ 0x4 - Power Control
+
+Data Command
+------------
+The Data command sends data on an already fully-opened logical channel.
+
+Flags:
+ * Bits 0:7 - Reserved
+
+Open Logical Channel Command
+----------------------------
+The Open command is a request to open a logical channel.  Each channel
+will have a local and remote open flag.  The remote open flag will be
+set to open when receiving an open command and responding with an open
+ACK.  The local open flag is set to open when sending an open command
+and receiving an ACK.
+
+               Remote Side  |  Local Side
+                            |
+ SMUX Client   SMUX                    SMUX                  SMUX Client
+     |          |                       |                        |
+     |  Open    |                       |                        |
+     |--------->|                       |                        |
+     |          |  Open Logical Channel |                        |
+     |          |---------------------->|                        |
+     |          |                       |---                     |
+     |          |                       |   | Set Remote Open    |
+     |          |                       |<--                     |
+     |          |        Open ACK       |                        |
+     |          |<----------------------|                        |
+     |          |---                    |                        |
+     |          |   | Set Local Open    |                        |
+     |          |<--                    |                        |
+     |         ...                     ...                      ...
+     |          |                       |    msm_smux_open()     |
+     |          |                       |<-----------------------|
+     |          |  Open Logical Channel |                        |
+     |          |<----------------------|                        |
+     |          |                       |                        |
+     |          |---                    |                        |
+     |          |   | Set Remote Open   |                        |
+     |          |<--                    |                        |
+     |          |        Open ACK       |                        |
+     |          |---------------------->|                        |
+     |          |                       |---                     |
+     |          |                       |   | Set Local Open     |
+     |          |                       |<--                     |
+     |          |                       | notify(SMUX_CONNECTED) |
+     |          |                       |----------------------->|
+
+
+          Logical channel is now fully open and can receive
+          and transmit data.
+
+No data shall be transmitted over the physical link for the logical
+channel unless the channel is open.
+
+Flags:
+ * Bit 0 - 1 = ACK
+ * Bit 1 - Power Collapse Enable
+ * Bit 2 - Remote Loopback Enable
+ * Bits 3:7 - Reserved
+
+Power Collapse Enable (bit 1) enables power-collapse handshaking when
+processing an open command.  The first logical channel open command
+received from the remote side will set the global power control state
+and all subsequent open commands should use the same value of the Power
+Collapse bit.  The value of this bit can be changed during runtime by
+closing all logical channels and then re-opening them with the new
+global state.
+
+If the protocol stack does not support power collapse and it receives
+an open command with the Power Collapse Enable bit set, then it
+shall respond with an open command with the Power Collapse Enable bit
+cleared.
+
+If Power Collapse is disabled, then Power Control Commands should not
+be sent.
+
+Remote Loopback Enable (bit 2) enables loopback support when data is
+received from the remote side.  In this case, SMUX should echo the
+received data packet back to the sender.
+
+Close Logical Channel Command
+-----------------------------
+The Close command closes the logical channel and updates the internal
+open state flags.  The remote open flag will be set to closed when
+receiving a close command and responding with an close ACK.  The local
+open flag is set to closed when sending a close command and receiving an
+ACK.
+
+No data shall be transmitted over the physical link for the logical
+channel after receiving a close command and responding with the close
+ACK.
+
+Flags:
+ * Bit 0 - ACK (when set to 1)
+ * Bits 1:7 - Reserved
+
+
+Status Command
+--------------
+The Status Command updates the channel status signals which include four
+ITU v.24 status bits in the lower nibble of the flags field along with a
+logical channel flow-control signal.  The v.24 signals are pass-through
+and do not affect the state of SMUX.
+
+The Logical Channel Flow Control bit will disable TX on the logical
+channel when set and send a flow-control notification to the logical
+channel client.  Any further attempts to transmit will result in an
+error return code.
+
+Flags:
+ * Bit 0 - RTC (DTR/DSR)
+ * Bit 1 - RTR (RTS/CTS)
+ * Bit 2 - RI
+ * Bit 3 - DCD
+ * Bit 4 - Logical Channel Flow Control
+ * Bits 5:7 - Reserved
+
+
+Power Control Command
+---------------------
+The physical layer requires a variable amount of time to wakeup from
+power collapse, reconfigure the hardware, and start processing data.
+Data may be lost until the wakeup has been completed.  Because of this,
+a character-based wakeup method will be used to ensure that the remote
+side is active and ready before sending SMUX commands.
+
+If the remote side has previously requested power-down (boot-up state),
+then a wakeup request character is sent at periodic intervals (1 ms or
+8 character-widths, whichever is larger) until a wakeup-acknowledge character
+has been received.  Normal transmit operations can then be performed.  Once an
+activity timeout occurs, then a sleep vote should be sent to the remote side to
+let it know that the channel is no longer needed.  The remote side should
+respond with an ACK.
+
+The following state diagram shows the full sequence of power state transitions.
+This state machine is identical on both the local and remote sides.  The states
+marked "(internal)" are transitional states used in this driver that are not
+part of the power states tracked by the remote side.  The edges are labeled
+using the format CONDITION:ACTION where condition is the guard condition that
+must be true for the edge to be taken and ACTION is the action that will be
+taken.
+
+                          +--------------+   RX Sleep ACK || RX Sleep Request
+  :Flush and power-down   |  Powering    |<---------+
+   UART         +---------+  Down Flush  |          |
+                |         |  (internal)  |          |
+                |         +--------------+          |
+                |                      ^            |
+                |                      |    +-------+------+
+                v                      |    |       |      |
+         +--------------+              |    |  Powering    |
+         |              |              |    |     Down     |<-----+
+Init --->|     OFF      |              |    |              |      |
+         |              |------+       |    +--------------+      |
+         |              |      |       |                          |
+         +------+-------+      |       |                  TX Sleep Request
+                |              |       |                      Complete
+                |              |       |                          |
+        Data ready to send     |       |                          |
+        :TX Wakeup Request     |       |RX Sleep Request          |
+                |              |       |:TX Sleep ACK             |
+                |              |       +------------+     +-------+------+
+                |              |                    |     |  Turning Off^|
+                |              |                    |     |     Flush    |
+                |              |                    |     |  (internal)  |
+                |              |RX Wakeup Request   |     +--------------+
+                |              |:TX Wakeup ACK      |             ^
+                |              |                    |             |
+                |              |                    |     Inactivity Timeout
+                |              +--------------+     |     :TX Sleep Request
+                |                             |     |             |
+                v                             v     |             |
+         +--------------+   RX Wakeup ACK   +-------+------+      |
+         |              +------------------>|     UP       |+-----+
+         |   Powering   |                   |              |
+         |      Up      +------------------>| Packet TX/RX |
+  +----->|              | RX Wakeup Request | is now active|<------+
+  |      +--+-----------+ :TX Wakeup ACK    +----------+---+       |
+  |         |                                          |           |
+  +---------+                                          +-----------+
+  Wakeup Request Timeout                                RX Wakeup Request
+  :TX Wakeup Request                                    :TX Wakeup ACK
+
+
+In-band wakeup bytes:
+ * 0xfd - Wakeup Request
+ * 0xfe - Wakeup Acknowledge
+
+Flags:
+ * Bit 0 - ACK (when set to 1)
+ * Bit 1 - 1 = Sleep Request
+ * Bits 2:7 - Reserved
+
+Initial SMUX State
+------------------
+The boot-up state of SMUX is in power-disabled mode and all logical
+channels closed.  Before sending any commands to open logical channels,
+the remote SMUX must be woken up.
+
+Power Management
+================
+
+Power management will consist of wakeup and shutdown control of the
+physical layer based upon an activity timeout.  Wakelocks will be
+utilized to prevent the system from going to sleep while the transport
+is active.  The activity timeout is anticipated to be 500 ms, but this
+is subject to tuning to meet power and performance specifications.
+
+SMP/multi-core
+==============
+
+Locking and synchronization will be done using mutexes or spinlocks
+where appropriate.  The software will be structured such that locking
+can be kept to a minimum by only locking when items are added and
+removed from lists.
+
+Security
+========
+
+No new security issues are anticipated as communication with userspace
+is done through the existing TCP/IP and CDEV frameworks.
+
+Performance
+===========
+
+The throughput requirements for this design are on the order of 250Kbps
+so throughput concerns are not expected to be an issue.  However, in
+the hope that this driver can be leveraged in the future instead of
+writing yet another multiplexing layer, performance will be considered
+when making design decisions.
+
+Interface
+=========
+
+The kernel API consists of commands to read and write data, vote for
+power, and verify the state of the logical channels.
+
+
+Open
+----
+int msm_smux_open(uint32_t lcid, void *priv,
+	void (*notify)(void *priv, int event_type, void *metadata),
+	int (*get_rx_buffer)(void *priv, void **pkt_priv,
+						void **buffer, int size))
+
+Open a logical channel.  The channel will be first opened locally and
+an open command will be sent to the remote processor.  Once the remote
+processor sends an open command, then the port will be fully open and
+ready for data operations -- the client will be notified with an
+SMUX_CONNECTED notification.
+
+For receive notifications, the driver will read the SMUX header into
+temporary storage and then when the logical channel and size are both
+known, the driver will call the get_rx_buffer() function to request a
+buffer for the data.  The client should return 0 upon success or < 0
+using standard Linux error codes if an error occurred.  If the error
+code is EAGAIN, then the call to get_rx_buffer() will be retried once,
+otherwise the data will be discarded by the driver and a kernel error
+message logged.
+
+Once the receive data has been processed, the notify() function will be
+called with metadata pointing to an instance of struct smux_meta_read
+and the event type will either be SMUX_READ_DONE for successful cases or
+SMUX_READ_FAIL for failure cases.
+
+/*
+ * Notification events that are passed to the notify() function.
+ *
+ * If the @metadata argument in the notifier is non-null, then it will
+ * point to the associated struct smux_meta_* structure.
+ */
+enum {
+	SMUX_CONNECTED,       /* @metadata is null */
+	SMUX_DISCONNECTED,
+	SMUX_READ_DONE,
+	SMUX_READ_FAIL,
+	SMUX_WRITE_DONE,
+	SMUX_WRITE_FAIL,
+	SMUX_TIOCM_UPDATE,
+	SMUX_LOW_WM_HIT,      /* @metadata is NULL */
+	SMUX_HIGH_WM_HIT,     /* @metadata is NULL */
+};
+
+/*
+ * Metadata for SMUX_READ_DONE/SMUX_READ_FAIL notification
+ *
+ * @pkt_priv: Packet-specific private data
+ * @buffer:   Buffer pointer passed into msm_smux_write
+ * @len:      Buffer length passed into  msm_smux_write
+ */
+struct smux_meta_read {
+	void *pkt_priv;
+	void *buffer;
+	int len;
+};
+
+Close
+-----
+int msm_smux_close(uint32_t lcid)
+
+Closes a logical channel locally and sends a close command to the
+remote host.
+
+If there is pending transmit or receive data, then SMUX_WRITE_FAIL and
+SMUX_READ_FAIL notifications will be made to return ownership of the
+buffers to the client.
+
+Once the remote side of the port has been closed, the notify function
+will be called with the event SMUX_DISCONNECTED and metadata pointing
+to a struct smux_meta_disconnected structure.  After this point, no
+further notifications will be performed.
+
+/*
+ * Metadata for SMUX_DISCONNECTED notification
+ *
+ * @is_ssr:  Disconnect caused by subsystem restart
+ */
+struct smux_meta_disconnected {
+	int is_ssr;
+};
+
+
+Write
+-----
+int msm_smux_write(uint32_t lcid, void *pkt_priv, void *data, int len)
+
+Queues data for transmit.  Once the data has been transmitted, the
+SMUX_WRITE_DONE or SMUX_WRITE_FAIL notifications will be sent with
+metadata pointing to an instance of struct smux_meta_write.
+
+If the high watermark has been exceeded, then further writes will
+return -EAGAIN.
+
+Data may be written as soon as the local side of the port has been
+opened, but the data will not be transmitted until the channel has been
+fully opened and the SMUX_CONNECTED event has been sent.
+
+/*
+ * Metadata for SMUX_WRITE_DONE/SMUX_WRITE_FAIL notification
+ *
+ * @pkt_priv: Packet-specific private data
+ * @buffer:   Buffer pointer returned by get_rx_buffer()
+ * @len:      Buffer length returned by get_rx_buffer()
+ */
+struct smux_meta_write {
+	void *pkt_priv;
+	void *buffer;
+	int len;
+};
+
+Watermark
+---------
+	int msm_smux_is_ch_full(uint32_t lcid)
+	int msm_smux_is_ch_low(uint32_t lcid)
+
+A channel watermark is used to keep individual clients from using
+excessive internal resources.  The client may call
+msm_smux_is_ch_full() after every msm_smux_write() operation and if the
+watermark is high, it should not queue any more packets for
+transmission.  As an alternative, the client may base this decision
+upon receiving an SMUX_HIGH_WM_HIT notification.
+
+Likewise, the client may call msm_smux_is_ch_low() after every
+SMUX_WRITE_DONE or SMUX_WRITE_FAIL notification and if the watermark is
+low, then new transmit operations can be started.  As an alternative,
+the client may base this decision upon receiving an SMUX_LOW_WM_HIT
+notification.
+
+Control Signals
+---------------
+	long msm_smux_tiocm_get(uint32_t lcid)
+	long msm_smux_tiocm_set(uint32_t lcid, uint32_t set, uint32_t clear)
+
+The TIOCM bits do not affect the SMUX internal state as they are
+pass-through for the clients.  The client can receive notifications of
+state changes through the SMUX_TIOCM_UPDATE command.
+
+See the "Status Command" section for details on the TIOCM bits.
+
+/*
+ * Metadata for SMUX_TIOCM_UPDATE notification
+ *
+ * @previous:  Previous TIOCM state
+ * @current:   Current TIOCM state
+ *
+ */
+struct smux_meta_tiocm {
+	uint32_t previous;
+	uint32_t current;
+};
+
+Subsystem Restart
+-----------------
+Subsystem restart is handled by sending a disconnect notification
+followed by sending read and write fail notifications to each client.
+This returns ownership of the read and write buffers to the clients for
+client-appropriate handling.
+
+The sequence of notifications shall be:
+	1) SMUX_DISCONNECTED notification with @metadata->is_ssr == 1
+	2) SMUX_WRITE_FAIL for each packet in TX queue
+	3) SMUX_READ_FAIL for any RX packet in progress
+
+After the completion of the sequence, the client should call msm_smux_close()
+followed by a call to msm_smux_open() to re-open the port.
+
+
+Debug / Testing
+---------------
+
+Several debugfs nodes will be exported under the n_gsm directory for
+testing and debugging.
+ * tbl - prints table of logical channels
+ * stats - prints transfer statistics
+ * enable_local_loopback - echo LCID to enable loopback
+ * disable_local_loopback - echo LCID to enable loopback
+ * enable_remote_loopback - echo LCID to enable loopback
+ * disable_remote_loopback - echo LCID to enable loopback
+
+Driver parameters
+=================
+
+A module parameter called debug_mask will be exported to allow a user
+to set the log level for debugging.
+
+Config options
+==============
+
+No configuration options are planned.
+
+Dependencies
+============
+
+The msm_rmnet_smux and smux_ctl drivers are part of this project and
+are used to interface with the Linux TCP/IP framework and user space.
+
+The physical transport is the HS UART driver which will be extended to
+add a kernel API (the current interface is a TTY interface).
+
+Initialization of dependency drivers is handled using the platform
+device framework.  When SMUX is loaded as a line discipline of the TTY
+Framework, it will register separate device drivers with the following
+device names:
+ * SMUX_CTL
+ * SMUX_RMNET
+ * SMUX_DUN_DATA_HSUART
+ * SMUX_RMNET_DATA_HSUART
+ * SMUX_RMNET_CTL_HSUART
+ * SMUX_DIAG
+
+The drivers are removed when SMUX is unloaded from the line discipline.
+
+
+User space utilities
+====================
+
+No userspace utilities are planned aside from testing and example
+applications.
+
+Known issues
+============
+
+None.
+
+To do
+=====
+Once completed, benchmark to determine if FIFO packet scheduling is
+sufficient or if a different scheduling algorithm such as deficit
+round-robin or deficit FIFO scheduling is needed to fairly handle
+variable-sized packets.
