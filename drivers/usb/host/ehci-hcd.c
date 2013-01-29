@@ -1235,10 +1235,6 @@ void ehci_init_driver(struct hc_driver *drv,
 			drv->start = over->start;
 		if (over->log_urb)
 			drv->log_urb = over->log_urb;
-		if (over->enable_ulpi_control)
-			drv->enable_ulpi_control = over->enable_ulpi_control;
-		if (over->disable_ulpi_control)
-			drv->disable_ulpi_control = over->disable_ulpi_control;
 		if (over->set_autosuspend_delay) {
 			drv->set_autosuspend_delay =
 				over->set_autosuspend_delay;

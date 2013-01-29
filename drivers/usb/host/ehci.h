@@ -809,8 +809,6 @@ struct ehci_driver_overrides {
 	int	(*bus_resume)(struct usb_hcd *);
 	int	(*start) (struct usb_hcd *hcd);
 	void	(*log_urb)(struct urb *urb, char * event, unsigned extra);
-	void	(*enable_ulpi_control)(struct usb_hcd *hcd, u32 linestate);
-	void	(*disable_ulpi_control)(struct usb_hcd *hcd);
 	void	(*set_autosuspend_delay)(struct usb_device *);
 };
 
