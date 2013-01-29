@@ -4378,7 +4378,6 @@ static int mpq_sdmx_write(struct mpq_demux *mpq_demux,
 	struct dvb_ringbuffer *rbuf = (struct dvb_ringbuffer *)
 				mpq_demux->demux.dmx.dvr_input.ringbuff;
 	ion_phys_addr_t phys_addr;
-	u32 fill_count;
 	u32 read_offset;
 	size_t len;
 	int ret;
@@ -4399,9 +4398,8 @@ static int mpq_sdmx_write(struct mpq_demux *mpq_demux,
 	buf_desc.base_addr = (void *)phys_addr;
 	buf_desc.size = rbuf->size;
 	read_offset = rbuf->pread;
-	fill_count = dvb_ringbuffer_avail(rbuf);
 
-	return mpq_sdmx_process(mpq_demux, &buf_desc, fill_count, read_offset);
+	return mpq_sdmx_process(mpq_demux, &buf_desc, count, read_offset);
 }
 
 int mpq_dmx_write(struct dmx_demux *demux, const char *buf, size_t count)
