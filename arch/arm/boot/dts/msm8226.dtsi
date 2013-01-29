@@ -88,8 +88,9 @@
 		qcom,hsusb-otg-disable-reset;
 	};
 
-	android_usb {
+	android_usb@fe8050c8 {
 		compatible = "qcom,android-usb";
+		reg = <0xfe8050c8 0xc8>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
