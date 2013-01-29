@@ -1,8 +1,8 @@
-* Qualcomm MSM IOMMU v1
+* Qualcomm MSM IOMMU v0
 
 Required properties:
 - compatible : one of:
-	- "qcom,msm-smmu-v1"
+	- "qcom,msm-smmu-v0"
 - reg : offset and length of the register set for the device.
 - qcom,glb-offset : Offset for the global register base.
 
@@ -22,7 +22,7 @@ Optional properties:
 Example:
 
 	qcom,iommu@fd000000 {
-		compatible = "qcom,msm-smmu-v1";
+		compatible = "qcom,msm-smmu-v0";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;

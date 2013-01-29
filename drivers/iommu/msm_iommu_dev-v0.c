@@ -549,13 +549,13 @@ static int __devexit msm_iommu_ctx_remove(struct platform_device *pdev)
 
 
 static struct of_device_id msm_iommu_match_table[] = {
-	{ .compatible = "qcom,msm-smmu-v1", },
+	{ .compatible = "qcom,msm-smmu-v0", },
 	{}
 };
 
 static struct platform_driver msm_iommu_driver = {
 	.driver = {
-		.name	= "msm_iommu",
+		.name	= "msm_iommu-v0",
 		.of_match_table = msm_iommu_match_table,
 	},
 	.probe		= msm_iommu_probe,
