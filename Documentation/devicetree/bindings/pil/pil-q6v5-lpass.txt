@@ -12,7 +12,12 @@ Required properties:
 - reg-names:	      Names of the bases for the above registers. "qdsp6_base"
 		      and "halt_base" are expected.
 - interrupts:         The lpass watchdog interrupt
+- vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - qcom,firmware-name: Base name of the firmware image. Ex. "lpass"
+
+Optional properties:
+- vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
+- qcom,vdd_pll:       Voltage to be set for the PLL's rail.
 
 Example:
 	qcom,lpass@fe200000 {
@@ -21,6 +26,6 @@ Example:
 	              <0xfd485100 0x00010>;
 		reg-names = "qdsp6_base", "halt_base";
 		interrupts = <0 194 1>;
-
+		vdd_cx-supply = <&pm8841_s2>;
 	        qcom,firmware-name = "lpass";
 	};
