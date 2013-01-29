@@ -18,6 +18,7 @@ Required Properties:
 		    "ocmem_irq" corresponds to OCMEM Error Interrupt.
 		    "dm_irq" corresponds to DM Interrupt.
 - qcom,ocmem-num-regions: The number of OCMEM hardware memory regions.
+- qcom,ocmem-num-macros: The number of OCMEM hardware memory macros.
 - qcom,resource-type: The hardware resource type of the OCMEM core.
 
 In addition to the information on the OCMEM core, the
