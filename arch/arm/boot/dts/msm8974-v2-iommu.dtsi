@@ -15,15 +15,15 @@
 &venus_iommu {
 	status = "ok";
 
-	qcom,iommu-ctx@fdc8c000 {
+	venus_ns: qcom,iommu-ctx@fdc8c000 {
 		qcom,iommu-ctx-sids = <0 1 2 3 4 5 7>;
 	};
 
-	qcom,iommu-ctx@fdc8d000 {
+	venus_sec_bitstream: qcom,iommu-ctx@fdc8d000 {
 		label = "venus_sec_bitstream";
 	};
 
-	qcom,iommu-ctx@fdc8f000 {
+	venus_sec_pixel: qcom,iommu-ctx@fdc8f000 {
 		reg = <0xfdc8f000 0x1000>;
 		interrupts = <0 42 0>;
 		qcom,iommu-ctx-sids = <0x85>;
@@ -31,7 +31,7 @@
 		qcom,secure-context;
 	};
 
-	qcom,iommu-ctx@fdc90000 {
+	venus_sec_non_pixel: qcom,iommu-ctx@fdc90000 {
 		reg = <0xfdc90000 0x1000>;
 		interrupts = <0 42 0>;
 		qcom,iommu-ctx-sids = <0x87 0xA0>;

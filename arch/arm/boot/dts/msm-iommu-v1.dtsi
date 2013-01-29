@@ -218,14 +218,14 @@
 					0x0
 					0x0>;
 
-		qcom,iommu-ctx@fdc8c000 {
+		venus_ns: qcom,iommu-ctx@fdc8c000 {
 			reg = <0xfdc8c000 0x1000>;
 			interrupts = <0 42 0>;
 			qcom,iommu-ctx-sids = <0 1 2 3 4 5>;
 			label = "venus_ns";
 		};
 
-		qcom,iommu-ctx@fdc8d000 {
+		venus_cp: qcom,iommu-ctx@fdc8d000 {
 			reg = <0xfdc8d000 0x1000>;
 			interrupts = <0 42 0>;
 			qcom,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84 0x85>;
@@ -233,7 +233,7 @@
 			qcom,secure-context;
 		};
 
-		qcom,iommu-ctx@fdc8e000 {
+		venus_fw: qcom,iommu-ctx@fdc8e000 {
 			reg = <0xfdc8e000 0x1000>;
 			interrupts = <0 42 0>;
 			qcom,iommu-ctx-sids = <0xc0 0xc6>;
