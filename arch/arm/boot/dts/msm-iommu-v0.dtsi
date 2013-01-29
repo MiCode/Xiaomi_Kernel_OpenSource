@@ -1,0 +1,228 @@
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	lpass_iommu: qcom,iommu@fd000000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfd000000 0x10000>;
+		qcom,glb-offset = <0xF000>;
+		label = "lpass_iommu";
+		status = "disabled";
+
+		lpass_q6_fw: qcom,iommu-ctx@fd000000 {
+			reg = <0xfd000000 0x1000>;
+			interrupts = <0 250 0>;
+			qcom,iommu-ctx-mids = <0 15>;
+			label = "q6_fw";
+		};
+
+		lpass_audio_shared: qcom,iommu-ctx@fd001000 {
+			reg = <0xfd001000 0x1000>;
+			interrupts = <0 250 0>;
+			qcom,iommu-ctx-mids = <1>;
+			label = "audio_shared";
+		};
+
+		lpass_video_shared: qcom,iommu-ctx@fd002000 {
+			reg = <0xfd002000 0x1000>;
+			interrupts = <0 250 0>;
+			qcom,iommu-ctx-mids = <2>;
+			label = "video_shared";
+		};
+
+		lpass_q6_spare: qcom,iommu-ctx@fd003000 {
+			reg = <0xfd003000 0x1000>;
+			interrupts = <0 250 0>;
+			qcom,iommu-ctx-mids = <3 4 5 6 7 8 9 10 11 12 13 14>;
+			label = "q6_spare";
+		};
+	};
+
+	copss_iommu: qcom,iommu@fd010000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfd010000 0x10000>;
+		qcom,glb-offset = <0xF000>;
+		label = "copss_iommu";
+		status = "disabled";
+
+		qcom,iommu-ctx@fd010000 {
+			reg = <0xfd010000 0x1000>;
+			interrupts = <0 254 0>;
+			qcom,iommu-ctx-mids = <0>;
+			label = "copss_0";
+		};
+
+		qcom,iommu-ctx@fd011000 {
+			reg = <0xfd011000 0x1000>;
+			interrupts = <0 254 0>;
+			qcom,iommu-ctx-mids = <1>;
+			label = "copss_1";
+		};
+
+		qcom,iommu-ctx@fd012000 {
+			reg = <0xfd012000 0x1000>;
+			interrupts = <0 254 0>;
+			qcom,iommu-ctx-mids = <2>;
+			label = "copss_2";
+		};
+
+		qcom,iommu-ctx@fd013000 {
+			reg = <0xfd013000 0x1000>;
+			interrupts = <0 254 0>;
+			qcom,iommu-ctx-mids = <3>;
+			label = "copss_3";
+		};
+
+		qcom,iommu-ctx@fd014000 {
+			reg = <0xfd014000 0x1000>;
+			interrupts = <0 254 0>;
+			qcom,iommu-ctx-mids = <4>;
+			label = "copss_4";
+		};
+
+		qcom,iommu-ctx@fd015000 {
+			reg = <0xfd015000 0x1000>;
+			interrupts = <0 254 0>;
+			qcom,iommu-ctx-mids = <5>;
+			label = "copss_5";
+		};
+
+		qcom,iommu-ctx@fd016000 {
+			reg = <0xfd016000 0x1000>;
+			interrupts = <0 254 0>;
+			qcom,iommu-ctx-mids = <6>;
+			label = "copss_6";
+		};
+
+		qcom,iommu-ctx@fd017000 {
+			reg = <0xfd017000 0x1000>;
+			interrupts = <0 254 0>;
+			qcom,iommu-ctx-mids = <7>;
+			label = "copss_7";
+		};
+	};
+
+	mdpe_iommu: qcom,iommu@fd860000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfd860000 0x10000>;
+		qcom,glb-offset = <0xF000>;
+		label = "mdpe_iommu";
+		status = "disabled";
+
+		qcom,iommu-ctx@fd860000 {
+			reg = <0xfd860000 0x1000>;
+			interrupts = <0 247 0>;
+			qcom,iommu-ctx-mids = <>;
+			label = "mdpe_0";
+		};
+
+		qcom,iommu-ctx@fd861000 {
+			reg = <0xfd861000 0x1000>;
+			interrupts = <0 247 0>;
+			qcom,iommu-ctx-mids = <>;
+			label = "mdpe_1";
+		};
+	};
+
+	mdps_iommu: qcom,iommu@fd870000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfd870000 0x10000>;
+		qcom,glb-offset = <0xF000>;
+		label = "mdps_iommu";
+		status = "disabled";
+
+		qcom,iommu-ctx@fd870000 {
+			reg = <0xfd870000 0x1000>;
+			interrupts = <0 247 0>;
+			qcom,iommu-ctx-mids = <>;
+			label = "mdps_0";
+		};
+
+		qcom,iommu-ctx@fd871000 {
+			reg = <0xfd871000 0x1000>;
+			interrupts = <0 247 0>;
+			qcom,iommu-ctx-mids = <>;
+			label = "mdps_1";
+		};
+	};
+
+	gfx_iommu: qcom,iommu@fd880000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfd880000 0x10000>;
+		qcom,glb-offset = <0xF000>;
+		label = "gfx_iommu";
+		status = "disabled";
+
+		qcom,iommu-ctx@fd880000 {
+			reg = <0xfd880000 0x1000>;
+			interrupts = <0 241 0>;
+			qcom,iommu-ctx-mids = <0 1 2 3 4 5 6 7 8 9 10 11 12 13
+					       14 15>;
+			label = "gfx3d_user";
+		};
+
+		qcom,iommu-ctx@fd881000 {
+			reg = <0xfd881000 0x1000>;
+			interrupts = <0 241 0>;
+			qcom,iommu-ctx-mids = <16 17 18 19 20 21 22 23 24 25
+					       26 27 28 29 30 31>;
+			label = "gfx3d_priv";
+		};
+
+		qcom,iommu-ctx@fd882000 {
+			reg = <0xfd882000 0x1000>;
+			interrupts = <0 241 0>;
+			qcom,iommu-ctx-mids = <>;
+			label = "gfx3d_spare";
+		};
+	};
+
+	vfe_iommu: qcom,iommu@fd890000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfd890000 0x10000>;
+		qcom,glb-offset = <0xF000>;
+		label = "vfe_iommu";
+		status = "disabled";
+
+		qcom,iommu-ctx@fd890000 {
+			reg = <0xfd890000 0x1000>;
+			interrupts = <0 65 0>;
+			qcom,iommu-ctx-mids = <0>;
+			label = "vfe0";
+		};
+
+		qcom,iommu-ctx@fd891000 {
+			reg = <0xfd891000 0x1000>;
+			interrupts = <0 65 0>;
+			qcom,iommu-ctx-mids = <1>;
+			label = "vfe1";
+		};
+	};
+};

@@ -12,7 +12,6 @@
 
 /include/ "skeleton.dtsi"
 /include/ "msm8974-pm.dtsi"
-/include/ "msm8974-iommu.dtsi"
 /include/ "msm8974-camera.dtsi"
 /include/ "msm8974-coresight.dtsi"
 /include/ "msm-gdsc.dtsi"

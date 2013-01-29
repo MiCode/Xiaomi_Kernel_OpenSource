@@ -11,7 +11,7 @@
  */
 
 /include/ "skeleton.dtsi"
-/include/ "msm-iommu-v1.dtsi"
+/include/ "msm-iommu-v0.dtsi"
 /include/ "msm8610-ion.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8610-pm.dtsi"
