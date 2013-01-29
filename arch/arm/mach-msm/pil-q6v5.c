@@ -19,6 +19,8 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/clk.h>
+#include <linux/regulator/consumer.h>
+#include <mach/rpm-regulator-smd.h>
 #include <mach/clk.h>
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -60,16 +62,37 @@ int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 
 	ret = clk_prepare_enable(drv->xo);
 	if (ret) {
-		dev_err(pil->dev, "Failed to enable XO\n");
-		return ret;
+		dev_err(pil->dev, "Failed to vote for XO\n");
+		goto out;
 	}
-	return 0;
+
+	ret = regulator_enable(drv->vreg_cx);
+	if (ret) {
+		dev_err(pil->dev, "Failed to vote for vdd_cx\n");
+		clk_disable_unprepare(drv->xo);
+		goto out;
+	}
+
+	if (drv->vreg_pll) {
+		ret = regulator_enable(drv->vreg_pll);
+		if (ret) {
+			dev_err(pil->dev, "Failed to vote for vdd_pll\n");
+			regulator_disable(drv->vreg_cx);
+			clk_disable_unprepare(drv->xo);
+		}
+	}
+
+out:
+	return ret;
 }
 EXPORT_SYMBOL(pil_q6v5_make_proxy_votes);
 
 void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	if (drv->vreg_pll)
+		regulator_disable(drv->vreg_pll);
+	regulator_disable(drv->vreg_cx);
 	clk_disable_unprepare(drv->xo);
 }
 EXPORT_SYMBOL(pil_q6v5_remove_proxy_votes);
@@ -206,6 +229,49 @@ struct q6v5_data __devinit *pil_q6v5_init(struct platform_device *pdev)
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);
+
+	drv->vreg_cx = devm_regulator_get(&pdev->dev, "vdd_cx");
+	if (IS_ERR(drv->vreg_cx))
+		return ERR_CAST(drv->vreg_cx);
+
+	ret = regulator_set_voltage(drv->vreg_cx,
+				    RPM_REGULATOR_CORNER_SUPER_TURBO,
+				    RPM_REGULATOR_CORNER_SUPER_TURBO);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to request vdd_cx voltage.\n");
+		return ERR_PTR(ret);
+	}
+
+	ret = regulator_set_optimum_mode(drv->vreg_cx, 100000);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Failed to set vdd_cx mode.\n");
+		return ERR_PTR(ret);
+	}
+
+	drv->vreg_pll = devm_regulator_get(&pdev->dev, "vdd_pll");
+	if (!IS_ERR(drv->vreg_pll)) {
+		int voltage;
+		ret = of_property_read_u32(pdev->dev.of_node, "qcom,vdd_pll",
+					   &voltage);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to find vdd_pll voltage.\n");
+			return ERR_PTR(ret);
+		}
+
+		ret = regulator_set_voltage(drv->vreg_pll, voltage, voltage);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to request vdd_pll voltage.\n");
+			return ERR_PTR(ret);
+		}
+
+		ret = regulator_set_optimum_mode(drv->vreg_pll, 10000);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Failed to set vdd_pll mode.\n");
+			return ERR_PTR(ret);
+		}
+	} else {
+		 drv->vreg_pll = NULL;
+	}
 
 	desc->dev = &pdev->dev;
 

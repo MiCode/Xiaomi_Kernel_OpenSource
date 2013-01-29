@@ -394,7 +394,7 @@
 		      <0xfd485100 0x00010>;
 		reg-names = "qdsp6_base", "halt_base";
 		interrupts = <0 162 1>;
-
+		vdd_cx-supply = <&pm8110_s1_corner>;
 		qcom,firmware-name = "adsp";
 	};
 };

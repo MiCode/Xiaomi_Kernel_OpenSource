@@ -608,6 +608,7 @@
 		reg = <0xfe200000 0x00100>,
 		      <0xfd485100 0x00010>;
 		reg-names = "qdsp6_base", "halt_base";
+		vdd_cx-supply = <&pm8841_s2_corner>;
 		interrupts = <0 162 1>;
 
 		qcom,firmware-name = "adsp";
@@ -834,8 +835,10 @@
 
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8841_s3>;
+		vdd_cx-supply = <&pm8841_s2_corner>;
 		vdd_mx-supply = <&pm8841_s1>;
-
+		vdd_pll-supply = <&pm8941_l12>;
+		qcom,vdd_pll = <1800000>;
 		qcom,is-loadable;
 		qcom,firmware-name = "mba";
 		qcom,pil-self-auth = <1>;
