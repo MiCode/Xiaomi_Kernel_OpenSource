@@ -839,7 +839,7 @@ static int ehci_hub_control (
 	u32 __iomem	*status_reg = &ehci->regs->port_status[
 				(wIndex & 0xff) - 1];
 	u32 __iomem	*hostpc_reg = NULL;
-	u32		temp, temp1, status, cmd = 0;
+	u32		temp, temp1, status;
 	unsigned long	flags;
 	int		retval = 0;
 	unsigned	selector;
@@ -1218,31 +1218,13 @@ static int ehci_hub_control (
 				ehci->reset_done [wIndex] = jiffies
 						+ msecs_to_jiffies (50);
 			}
-
-			if (ehci->reset_sof_bug && (temp & PORT_RESET)) {
-				cmd = ehci_readl(ehci, &ehci->regs->command);
-				cmd &= ~CMD_RUN;
-				ehci_writel(ehci, cmd, &ehci->regs->command);
-				if (handshake(ehci, &ehci->regs->status,
-						STS_HALT, STS_HALT, 16 * 125))
-					ehci_info(ehci,
-						"controller halt failed\n");
-			}
-			ehci_writel(ehci, temp, status_reg);
-			if (ehci->reset_sof_bug && (temp & PORT_RESET)
-				&& hcd->driver->enable_ulpi_control) {
-				hcd->driver->enable_ulpi_control(hcd,
-						PORT_RESET);
+			if (ehci->reset_sof_bug && (temp & PORT_RESET) &&
+					hcd->driver->reset_sof_bug_handler) {
 				spin_unlock_irqrestore(&ehci->lock, flags);
-				usleep_range(50000, 55000);
-				if (handshake(ehci, status_reg,
-						PORT_RESET, 0, 10 * 1000))
-					ehci_info(ehci,
-						"failed to clear reset\n");
+				hcd->driver->reset_sof_bug_handler(hcd, temp);
 				spin_lock_irqsave(&ehci->lock, flags);
-				hcd->driver->disable_ulpi_control(hcd);
-				cmd |= CMD_RUN;
-				ehci_writel(ehci, cmd, &ehci->regs->command);
+			} else {
+				ehci_writel(ehci, temp, status_reg);
 			}
 			break;
 
