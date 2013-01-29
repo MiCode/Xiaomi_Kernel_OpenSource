@@ -415,25 +415,28 @@ static inline int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 					   int num_planes,
 					   u32 flags)
 {
-	int i;
+	int i, rc = 0;
+
+	if ((num_planes <= 0) || (num_planes > MAX_PLANES))
+		return -EINVAL;
 
 	memset(data, 0, sizeof(*data));
 	for (i = 0; i < num_planes; i++) {
 		data->p[i].flags = flags;
-		mdss_mdp_get_img(&planes[i], &data->p[i]);
-		if (data->p[0].len == 0)
+		rc = mdss_mdp_get_img(&planes[i], &data->p[i]);
+		if (rc) {
+			pr_err("failed to map buf p=%d flags=%x\n", i, flags);
+			while (i > 0) {
+				i--;
+				mdss_mdp_put_img(&data->p[i]);
+			}
 			break;
+		}
 	}
 
-	if (i != num_planes) {
-		for (; i >= 0; i--)
-			mdss_mdp_put_img(&data->p[i]);
-		return -ENOMEM;
-	}
+	data->num_planes = i;
 
-	data->num_planes = num_planes;
-
-	return 0;
+	return rc;
 }
 
 static inline int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data)
