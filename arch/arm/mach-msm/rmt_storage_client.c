@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1357,7 +1357,7 @@ show_sync_sts(struct device *dev, struct device_attribute *attr, char *buf)
  * for encryption and sync.
  */
 #define MAX_GET_SYNC_STATUS_TRIES 200
-#define GET_SYNC_STATUS_SLEEP_INTERVAL 20
+#define RMT_SLEEP_INTERVAL_MS 20
 static int rmt_storage_reboot_call(
 	struct notifier_block *this, unsigned long code, void *cmd)
 {
@@ -1380,23 +1380,40 @@ static int rmt_storage_reboot_call(
 	case SYS_RESTART:
 	case SYS_HALT:
 	case SYS_POWER_OFF:
-		pr_info("%s: Force RMT storage final sync...\n", __func__);
+		pr_info("%s: Sending force-sync RPC request\n", __func__);
 		ret = rmt_storage_force_sync(rmt_srv->rpc_client);
 		if (ret)
 			break;
 
 		do {
 			count++;
-			msleep(GET_SYNC_STATUS_SLEEP_INTERVAL);
+			msleep(RMT_SLEEP_INTERVAL_MS);
 			ret = rmt_storage_get_sync_status(rmt_srv->rpc_client);
 		} while (ret != 1 && count < MAX_GET_SYNC_STATUS_TRIES);
 
 		if (ret == 1)
-			pr_info("%s: RMT storage sync successful.\n", __func__);
+			pr_info("%s: Final-sync successful\n", __func__);
 		else
-			pr_err("%s: RMT storage sync failed.\n", __func__);
+			pr_err("%s: Final-sync failed\n", __func__);
 
-		pr_info("%s: Un register RMT storage client.\n", __func__);
+		/*
+		 * Check if any ongoing efs_sync triggered just before force
+		 * sync is pending. If so, wait for 4sec for completing efs_sync
+		 * before unregistring client.
+		 */
+		count = 0;
+		while (count < MAX_GET_SYNC_STATUS_TRIES) {
+			if (atomic_read(&rmc->wcount) == 0) {
+				break;
+			} else {
+				count++;
+				msleep(RMT_SLEEP_INTERVAL_MS);
+			}
+		}
+		if (atomic_read(&rmc->wcount))
+			pr_err("%s: Efs_sync still incomplete\n", __func__);
+
+		pr_info("%s: Un-register RMT storage client\n", __func__);
 		msm_rpc_unregister_client(rmt_srv->rpc_client);
 		break;
 
