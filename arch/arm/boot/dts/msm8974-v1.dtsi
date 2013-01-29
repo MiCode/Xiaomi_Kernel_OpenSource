@@ -17,6 +17,7 @@
  */
 
 /include/ "msm8974.dtsi"
+/include/ "msm8974-v1-iommu.dtsi"
 
 / {
 	qcom,msm-imem@fc42b000 {
