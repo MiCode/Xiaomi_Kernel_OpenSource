@@ -228,8 +228,10 @@ struct dmx_ts_feed {
 			dmx_ts_data_ready_cb callback);
 	int (*notify_data_read)(struct dmx_ts_feed *feed,
 			u32 bytes_num);
-	int (*set_tsp_out_format) (struct dmx_ts_feed *feed,
+	int (*set_tsp_out_format)(struct dmx_ts_feed *feed,
 				enum dmx_tsp_format_t tsp_format);
+	int (*set_secure_mode)(struct dmx_ts_feed *feed,
+				struct dmx_secure_mode *sec_mode);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -276,6 +278,8 @@ struct dmx_section_feed {
 			dmx_section_data_ready_cb callback);
 	int (*notify_data_read)(struct dmx_section_filter *filter,
 			u32 bytes_num);
+	int (*set_secure_mode)(struct dmx_section_feed *feed,
+				struct dmx_secure_mode *sec_mode);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -409,9 +413,6 @@ struct dmx_demux {
 
 	int (*unmap_buffer) (struct dmx_demux *demux,
 			void *priv_handle);
-
-	int (*set_secure_mode) (struct dmx_demux *demux,
-				struct dmx_secure_mode *sec_mode);
 };
 
 #endif /* #ifndef __DEMUX_H */

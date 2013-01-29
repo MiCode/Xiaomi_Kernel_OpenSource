@@ -1003,21 +1003,13 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->demux.start_feed = mpq_tspp_dmx_start_filtering;
 	mpq_demux->demux.stop_feed = mpq_tspp_dmx_stop_filtering;
 	mpq_demux->demux.write_to_decoder = mpq_tspp_dmx_write_to_decoder;
-
-	mpq_demux->demux.decoder_fullness_init =
-		mpq_dmx_decoder_fullness_init;
-
-	mpq_demux->demux.decoder_fullness_wait =
-		mpq_dmx_decoder_fullness_wait;
-
+	mpq_demux->demux.decoder_fullness_init = mpq_dmx_decoder_fullness_init;
+	mpq_demux->demux.decoder_fullness_wait = mpq_dmx_decoder_fullness_wait;
 	mpq_demux->demux.decoder_fullness_abort =
 		mpq_dmx_decoder_fullness_abort;
-
-	mpq_demux->demux.decoder_buffer_status =
-		mpq_dmx_decoder_buffer_status;
-
-	mpq_demux->demux.reuse_decoder_buffer =
-		mpq_dmx_reuse_decoder_buffer;
+	mpq_demux->demux.decoder_buffer_status = mpq_dmx_decoder_buffer_status;
+	mpq_demux->demux.reuse_decoder_buffer = mpq_dmx_reuse_decoder_buffer;
+	mpq_demux->demux.set_secure_mode = mpq_dmx_set_secure_mode;
 
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);
@@ -1038,7 +1030,6 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->dmxdev.demux->get_caps = mpq_tspp_dmx_get_caps;
 	mpq_demux->dmxdev.demux->map_buffer = mpq_dmx_map_buffer;
 	mpq_demux->dmxdev.demux->unmap_buffer = mpq_dmx_unmap_buffer;
-	mpq_demux->dmxdev.demux->set_secure_mode = mpq_dmx_set_secure_mode;
 	mpq_demux->dmxdev.demux->write = mpq_dmx_write;
 	result = dvb_dmxdev_init(&mpq_demux->dmxdev, mpq_adapter);
 	if (result < 0) {

@@ -1207,6 +1207,24 @@ static int dmx_ts_feed_data_ready_cb(struct dmx_ts_feed *feed,
 	return 0;
 }
 
+static int dmx_ts_set_secure_mode(struct dmx_ts_feed *feed,
+				struct dmx_secure_mode *secure_mode)
+{
+	struct dvb_demux_feed *dvbdmxfeed = (struct dvb_demux_feed *)feed;
+	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
+
+	mutex_lock(&dvbdmx->mutex);
+
+	dvbdmxfeed->secure_mode = *secure_mode;
+
+	if ((dvbdmxfeed->state == DMX_STATE_GO) &&
+		dvbdmxfeed->demux->set_secure_mode)
+		dvbdmxfeed->demux->set_secure_mode(dvbdmxfeed, secure_mode);
+
+	mutex_unlock(&dvbdmx->mutex);
+	return 0;
+}
+
 static int dmx_ts_set_indexing_params(
 	struct dmx_ts_feed *ts_feed,
 	struct dmx_indexing_video_params *params)
@@ -1261,6 +1279,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	feed->pes_tei_counter = 0;
 	feed->pes_ts_packets_num = 0;
 	feed->pes_cont_err_counter = 0;
+	feed->secure_mode.is_secured = 0;
 	feed->buffer = NULL;
 	feed->tsp_out_format = DMX_TSP_FORMAT_188;
 	memset(&feed->indexing_params, 0,
@@ -1286,6 +1305,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->reuse_decoder_buffer = dmx_ts_feed_reuse_decoder_buffer;
 	(*ts_feed)->data_ready_cb = dmx_ts_feed_data_ready_cb;
 	(*ts_feed)->notify_data_read = NULL;
+	(*ts_feed)->set_secure_mode = dmx_ts_set_secure_mode;
 
 	if (!(feed->filter = dvb_dmx_filter_alloc(demux))) {
 		feed->state = DMX_STATE_FREE;
@@ -1514,6 +1534,23 @@ static int dmx_section_feed_data_ready_cb(struct dmx_section_feed *feed,
 	return 0;
 }
 
+static int dmx_section_set_secure_mode(struct dmx_section_feed *feed,
+				struct dmx_secure_mode *secure_mode)
+{
+	struct dvb_demux_feed *dvbdmxfeed = (struct dvb_demux_feed *)feed;
+	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
+
+	mutex_lock(&dvbdmx->mutex);
+
+	dvbdmxfeed->secure_mode = *secure_mode;
+	if ((dvbdmxfeed->state == DMX_STATE_GO) &&
+		dvbdmxfeed->demux->set_secure_mode)
+		dvbdmxfeed->demux->set_secure_mode(dvbdmxfeed, secure_mode);
+
+	mutex_unlock(&dvbdmx->mutex);
+	return 0;
+}
+
 static int dmx_section_feed_release_filter(struct dmx_section_feed *feed,
 					   struct dmx_section_filter *filter)
 {
@@ -1567,6 +1604,7 @@ static int dvbdmx_allocate_section_feed(struct dmx_demux *demux,
 	dvbdmxfeed->cb.sec = callback;
 	dvbdmxfeed->demux = dvbdmx;
 	dvbdmxfeed->pid = 0xffff;
+	dvbdmxfeed->secure_mode.is_secured = 0;
 	dvbdmxfeed->feed.sec.secbuf = dvbdmxfeed->feed.sec.secbuf_base;
 	dvbdmxfeed->feed.sec.secbufp = dvbdmxfeed->feed.sec.seclen = 0;
 	dvbdmxfeed->feed.sec.tsfeedp = 0;
@@ -1585,6 +1623,7 @@ static int dvbdmx_allocate_section_feed(struct dmx_demux *demux,
 	(*feed)->release_filter = dmx_section_feed_release_filter;
 	(*feed)->data_ready_cb = dmx_section_feed_data_ready_cb;
 	(*feed)->notify_data_read = NULL;
+	(*feed)->set_secure_mode = dmx_section_set_secure_mode;
 
 	mutex_unlock(&dvbdmx->mutex);
 	return 0;
@@ -1892,7 +1931,6 @@ int dvb_dmx_init(struct dvb_demux *dvbdemux)
 	dmx->get_pes_pids = dvbdmx_get_pes_pids;
 
 	dmx->set_tsp_format = dvbdmx_set_tsp_format;
-	dmx->set_secure_mode = NULL;
 
 	mutex_init(&dvbdemux->mutex);
 	spin_lock_init(&dvbdemux->lock);
