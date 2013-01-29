@@ -286,10 +286,9 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr,
 		}
 	}
 
-	if (!(*buf_info)) {
-		pr_err("%s: No free buffer\n", __func__);
+	if (!(*buf_info))
 		return rc;
-	}
+
 
 	(*buf_info)->state = MSM_ISP_BUFFER_STATE_DEQUEUED;
 	return 0;
