@@ -58,8 +58,14 @@ enum dmxdev_state {
 
 struct dmxdev_feed {
 	u16 pid;
+	struct dmx_secure_mode sec_mode;
 	struct dmx_ts_feed *ts;
 	struct list_head next;
+};
+
+struct dmxdev_sec_feed {
+	struct dmx_secure_mode sec_mode;
+	struct dmx_section_feed *feed;
 };
 
 struct dmxdev_events_queue {
@@ -99,7 +105,7 @@ struct dmxdev_filter {
 	union {
 		/* list of TS and PES feeds (struct dmxdev_feed) */
 		struct list_head ts;
-		struct dmx_section_feed *sec;
+		struct dmxdev_sec_feed sec;
 	} feed;
 
 	union {

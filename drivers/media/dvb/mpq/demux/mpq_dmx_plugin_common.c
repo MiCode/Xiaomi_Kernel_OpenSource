@@ -875,8 +875,6 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 
 		mutex_init(&mpq_demux->mutex);
 
-		INIT_LIST_HEAD(&mpq_demux->keyladder_list);
-		mpq_demux->secure_mode_count = 0;
 		mpq_demux->sdmx_filter_count = 0;
 		mpq_demux->sdmx_session_handle = SDMX_INVALID_SESSION_HANDLE;
 
@@ -953,17 +951,6 @@ init_failed:
 }
 EXPORT_SYMBOL(mpq_dmx_plugin_init);
 
-static void mpq_dmx_keyladder_list_cleanup(struct mpq_demux *mpq_demux)
-{
-	struct mpq_demux_keyladder_info *key;
-	struct mpq_demux_keyladder_info *tmp;
-
-	list_for_each_entry_safe(key, tmp, &mpq_demux->keyladder_list, list) {
-		list_del(&key->list);
-		vfree(key);
-	}
-}
-
 void mpq_dmx_plugin_exit(void)
 {
 	int i;
@@ -985,7 +972,6 @@ void mpq_dmx_plugin_exit(void)
 							&mpq_demux->demux.dmx,
 							&mpq_demux->fe_memory);
 
-				mpq_dmx_keyladder_list_cleanup(mpq_demux);
 				if (mpq_sdmx_is_loaded())
 					mpq_sdmx_close_session(mpq_demux);
 				mutex_destroy(&mpq_demux->mutex);
@@ -3148,85 +3134,64 @@ int mpq_dmx_process_pcr_packet(
 }
 EXPORT_SYMBOL(mpq_dmx_process_pcr_packet);
 
-int mpq_dmx_set_secure_mode(struct dmx_demux *demux,
+int mpq_dmx_set_secure_mode(struct dvb_demux_feed *feed,
 	struct dmx_secure_mode *sec_mode)
 {
-	struct dvb_demux *dvb_demux;
+	struct mpq_feed *mpq_feed;
 	struct mpq_demux *mpq_demux;
-	struct mpq_demux_keyladder_info *key_info;
-	int found = 0;
 	int ret;
 
-	if ((demux == NULL) || (demux->priv == NULL))
+	if (!feed || !feed->priv || !sec_mode) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: invalid parameters\n",
+			__func__);
 		return -EINVAL;
+	}
 
-	dvb_demux = demux->priv;
-	mpq_demux = dvb_demux->priv;
+	MPQ_DVB_DBG_PRINT("%s(%d, %d, %d)\n",
+		__func__, sec_mode->pid,
+		sec_mode->is_secured,
+		sec_mode->key_ladder_id);
 
-	if (mpq_demux == NULL)
-		return -EINVAL;
+	mpq_feed = feed->priv;
+	mpq_demux = mpq_feed->mpq_demux;
 
 	mutex_lock(&mpq_demux->mutex);
 
-	/* Lookup pid in the keyladder list */
-	list_for_each_entry(key_info, &mpq_demux->keyladder_list, list) {
-		if (key_info->pid == sec_mode->pid) {
-			found = 1;
-			break;
-		}
-	}
-
-	if (!sec_mode->is_secured) {
-		/* Key info needs to be removed */
-		if (found) {
-			key_info->refs--;
-			if (0 == key_info->refs) {
-				list_del(&key_info->list);
-				vfree(key_info);
-				mpq_demux->secure_mode_count--;
-			}
-		}
-	} else {
-		if (!found) {
-			key_info = vzalloc(sizeof(*key_info));
-			if (key_info == NULL)
-				return -ENOMEM;
-			key_info->pid = sec_mode->pid;
-			key_info->keyladder_id = sec_mode->key_ladder_id;
-			list_add(&key_info->list, &mpq_demux->keyladder_list);
-			mpq_demux->secure_mode_count++;
-		} else {
-			key_info->keyladder_id = sec_mode->key_ladder_id;
-		}
-
-		/*
-		 * If secure demux is active, set the KL now,
-		 * otherwise it will be set when secure-demux is started
-		 * (when filtering starts).
-		 */
-		if (mpq_demux->sdmx_session_handle !=
-			SDMX_INVALID_SESSION_HANDLE) {
+	/*
+	 * If secure demux is active, set the KL now,
+	 * otherwise it will be set when secure-demux is started
+	 * (when filtering starts).
+	 */
+	if (mpq_demux->sdmx_session_handle !=
+		SDMX_INVALID_SESSION_HANDLE) {
+		if (sec_mode->is_secured) {
+			MPQ_DVB_DBG_PRINT(
+				"%s: set key-ladder %d to PID %d\n",
+				__func__,
+				sec_mode->key_ladder_id,
+				sec_mode->pid);
 			ret = sdmx_set_kl_ind(mpq_demux->sdmx_session_handle,
-				sec_mode->pid,
-				sec_mode->key_ladder_id);
+				sec_mode->pid, sec_mode->key_ladder_id);
 			if (ret) {
 				MPQ_DVB_ERR_PRINT(
 					"%s: FAILED to set keyladder, ret=%d\n",
 					__func__, ret);
+				ret = -EINVAL;
 			}
+		} else {
+			MPQ_DVB_DBG_PRINT("%s: setting non-secure mode\n",
+				__func__);
+			ret = 0;
 		}
-
-		key_info->refs++;
+	} else {
+		MPQ_DVB_DBG_PRINT("%s: SDMX not started yet\n", __func__);
+		ret = 0;
 	}
-
-	MPQ_DVB_DBG_PRINT(
-		"%s: Setting pid=%d, key_id=%d, is_secured=%d, count=%d\n",
-		__func__, sec_mode->pid, sec_mode->key_ladder_id,
-		sec_mode->is_secured, mpq_demux->secure_mode_count);
 
 	mutex_unlock(&mpq_demux->mutex);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(mpq_dmx_set_secure_mode);
 
@@ -3415,7 +3380,6 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 	struct sdmx_buff_descr data_buff_desc[DMX_MAX_DECODER_BUFFER_NUM];
 	u32 data_buf_num = DMX_MAX_DECODER_BUFFER_NUM;
 	enum sdmx_buf_mode buf_mode;
-	struct mpq_demux_keyladder_info *key_info;
 
 	feed = dvbdmx_feed->priv;
 
@@ -3534,19 +3498,22 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 	 * If pid has a key ladder id associated, we need to
 	 * set it to SDMX.
 	 */
-	list_for_each_entry(key_info, &mpq_demux->keyladder_list, list) {
-		if (key_info->pid == dvbdmx_feed->pid) {
-			ret = sdmx_set_kl_ind(
-				mpq_demux->sdmx_session_handle,
-				key_info->pid,
-				key_info->keyladder_id);
-			if (ret) {
-				MPQ_DVB_ERR_PRINT(
-					"%s: FAILED to set key ladder, ret=%d\n",
-					__func__, ret);
-				ret = -ENODEV;
-				goto end;
-			}
+	if (dvbdmx_feed->secure_mode.is_secured)  {
+		MPQ_DVB_DBG_PRINT(
+				"%s: set key-ladder %d to PID %d\n",
+				__func__,
+				dvbdmx_feed->secure_mode.key_ladder_id,
+				dvbdmx_feed->secure_mode.pid);
+		ret = sdmx_set_kl_ind(
+			mpq_demux->sdmx_session_handle,
+			dvbdmx_feed->secure_mode.pid,
+			dvbdmx_feed->secure_mode.key_ladder_id);
+		if (ret) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: FAILED to set key ladder, ret=%d\n",
+				__func__, ret);
+			ret = -ENODEV;
+			goto end;
 		}
 	}
 
