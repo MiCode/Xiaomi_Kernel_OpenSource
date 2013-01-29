@@ -244,12 +244,13 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 	struct sdmx_buff_descr input;
 	size_t aggregate_len = 0;
 	size_t aggregate_count = 0;
-	phys_addr_t start_addr = 0;
+	phys_addr_t buff_start_addr;
+	phys_addr_t buff_current_addr;
 	int i;
 
 	while ((tspp_data_desc = tspp_get_buffer(0, channel_id)) != NULL) {
 		if (0 == aggregate_count)
-			start_addr = tspp_data_desc->phys_base;
+			buff_current_addr = tspp_data_desc->phys_base;
 		mpq_dmx_tspp_info.tsif[tsif].aggregate_ids[aggregate_count] =
 			tspp_data_desc->id;
 		aggregate_len += tspp_data_desc->size;
@@ -261,12 +262,19 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 	if (!aggregate_count)
 		return;
 
+	buff_start_addr = mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_phys_base;
+	input.base_addr = (void *)buff_start_addr;
+	input.size = mpq_dmx_tspp_info.tsif[tsif].buffer_count *
+		TSPP_DESCRIPTOR_SIZE;
+
 	MPQ_DVB_DBG_PRINT(
-		"%s: Processing %d descriptors: %d bytes at start address 0x%x\n",
-		__func__, aggregate_count, aggregate_len, start_addr);
-	input.base_addr = (void *)start_addr;
-	input.size = aggregate_len;
-	mpq_sdmx_process(mpq_demux, &input, aggregate_len, 0);
+		"%s: Processing %d descriptors: %d bytes at start address 0x%x, read offset %d\n",
+		__func__, aggregate_count, aggregate_len,
+		(unsigned int)input.base_addr,
+		buff_current_addr - buff_start_addr);
+
+	mpq_sdmx_process(mpq_demux, &input, aggregate_len,
+		 buff_current_addr - buff_start_addr);
 
 	for (i = 0; i < aggregate_count; i++)
 		tspp_release_buffer(0, channel_id,
