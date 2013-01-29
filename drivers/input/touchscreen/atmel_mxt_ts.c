@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -27,7 +27,12 @@
 #include <linux/regulator/consumer.h>
 #include <linux/string.h>
 #include <linux/of_gpio.h>
-#if defined(CONFIG_HAS_EARLYSUSPEND)
+
+#if defined(CONFIG_FB)
+#include <linux/notifier.h>
+#include <linux/fb.h>
+
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
 /* Early-suspend level */
 #define MXT_SUSPEND_LEVEL 1
@@ -356,7 +361,9 @@ struct mxt_data {
 	struct regulator *vcc_ana;
 	struct regulator *vcc_dig;
 	struct regulator *vcc_i2c;
-#if defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_FB)
+	struct notifier_block fb_notif;
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
 
@@ -2330,24 +2337,8 @@ static int mxt_resume(struct device *dev)
 	return 0;
 }
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-static void mxt_early_suspend(struct early_suspend *h)
-{
-	struct mxt_data *data = container_of(h, struct mxt_data, early_suspend);
-
-	mxt_suspend(&data->client->dev);
-}
-
-static void mxt_late_resume(struct early_suspend *h)
-{
-	struct mxt_data *data = container_of(h, struct mxt_data, early_suspend);
-
-	mxt_resume(&data->client->dev);
-}
-#endif
-
 static const struct dev_pm_ops mxt_pm_ops = {
-#ifndef CONFIG_HAS_EARLYSUSPEND
+#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
 	.suspend	= mxt_suspend,
 	.resume		= mxt_resume,
 #endif
@@ -2627,6 +2618,43 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 }
 #endif
 
+#if defined(CONFIG_FB)
+static int fb_notifier_callback(struct notifier_block *self,
+				 unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+	struct mxt_data *mxt_dev_data =
+		container_of(self, struct mxt_data, fb_notif);
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK && mxt_dev_data &&
+			mxt_dev_data->client) {
+		blank = evdata->data;
+		if (*blank == FB_BLANK_UNBLANK)
+			mxt_resume(&mxt_dev_data->client->dev);
+		else if (*blank == FB_BLANK_POWERDOWN)
+			mxt_suspend(&mxt_dev_data->client->dev);
+	}
+
+	return 0;
+}
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+static void mxt_early_suspend(struct early_suspend *h)
+{
+	struct mxt_data *data = container_of(h, struct mxt_data,
+						early_suspend);
+	mxt_suspend(&data->client->dev);
+}
+
+static void mxt_late_resume(struct early_suspend *h)
+{
+	struct mxt_data *data = container_of(h, struct mxt_data,
+						early_suspend);
+	mxt_resume(&data->client->dev);
+}
+
+#endif
+
 static int __devinit mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -2794,7 +2822,15 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	if (error)
 		goto err_unregister_device;
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_FB)
+	data->fb_notif.notifier_call = fb_notifier_callback;
+
+	error = fb_register_client(&data->fb_notif);
+
+	if (error)
+		dev_err(&client->dev, "Unable to register fb_notifier: %d\n",
+			error);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +
 						MXT_SUSPEND_LEVEL;
 	data->early_suspend.suspend = mxt_early_suspend;
@@ -2842,7 +2878,10 @@ static int __devexit mxt_remove(struct i2c_client *client)
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 	free_irq(data->irq, data);
 	input_unregister_device(data->input_dev);
-#if defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_FB)
+	if (fb_unregister_client(&data->fb_notif))
+		dev_err(&client->dev, "Error occurred while unregistering fb_notifier.\n");
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&data->early_suspend);
 #endif
 
