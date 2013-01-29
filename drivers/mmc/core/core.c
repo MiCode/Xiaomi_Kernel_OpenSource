@@ -404,7 +404,9 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 		return;
 	}
 
-	mmc_claim_host(card->host);
+	/* In case of delayed bkops we might be in race with suspend. */
+	if (!mmc_try_claim_host(card->host))
+		return;
 
 	/*
 	 * Since the cancel_delayed_work can be changed while we are waiting
