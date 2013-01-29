@@ -142,6 +142,8 @@
 #define PCIE_WAKE_N_PMIC_GPIO 12
 #define PCIE_PWR_EN_PMIC_GPIO 13
 #define PCIE_RST_N_PMIC_MPP 1
+#define PCIE_WAKE_N_PMIC_GPIO_HRD 22
+#define PCIE_PWR_EN_PMIC_GPIO_HRD 23
 
 /* PCIe pmic gpios for fsm8064_ep */
 /* Unused pin. The WAKE feature is not supported on fsm8064_ep */
@@ -2476,10 +2478,8 @@ static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 };
 
 static struct msm_pcie_platform msm_pcie_platform_data = {
-	.gpio = msm_pcie_gpio_info,
 	.axi_addr = PCIE_AXI_BAR_PHYS,
 	.axi_size = PCIE_AXI_BAR_SIZE,
-	.wake_n = PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PCIE_WAKE_N_PMIC_GPIO),
 };
 
 /* FSM8064_EP PCIe gpios */
@@ -2504,6 +2504,21 @@ static int __init mpq8064_pcie_enabled(void)
 static void __init mpq8064_pcie_init(void)
 {
 	if (mpq8064_pcie_enabled()) {
+		if (machine_is_mpq8064_hrd()) {
+			msm_pcie_platform_data.vreg_n = 3;
+			msm_pcie_gpio_info[1].num =
+			PM8921_GPIO_PM_TO_SYS(PCIE_PWR_EN_PMIC_GPIO_HRD);
+			msm_pcie_platform_data.wake_n =
+				PM8921_GPIO_IRQ(PM8921_IRQ_BASE,
+						PCIE_WAKE_N_PMIC_GPIO_HRD);
+		} else {
+			msm_pcie_platform_data.vreg_n = 4;
+			msm_pcie_platform_data.wake_n =
+				PM8921_GPIO_IRQ(PM8921_IRQ_BASE,
+						PCIE_WAKE_N_PMIC_GPIO);
+		}
+		msm_pcie_platform_data.gpio = msm_pcie_gpio_info;
+
 		msm_device_pcie.dev.platform_data = &msm_pcie_platform_data;
 		platform_device_register(&msm_device_pcie);
 	}
