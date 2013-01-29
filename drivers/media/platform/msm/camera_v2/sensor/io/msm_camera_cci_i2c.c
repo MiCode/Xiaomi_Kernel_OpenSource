@@ -14,7 +14,6 @@
 #include "msm_camera_i2c.h"
 #include "msm_cci.h"
 
-#define CONFIG_MSMB_CAMERA_DEBUG
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
