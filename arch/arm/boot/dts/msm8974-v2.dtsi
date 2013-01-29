@@ -24,3 +24,20 @@
 		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
 	};
 };
+
+/* GPU overrides */
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x03030001>;
+
+	/* Updated bus bandwidth requirements */
+	qcom,msm-bus,vectors-KBps =
+		/* Off */
+		<26 512 0 0>, <89 604 0 0>,
+		/* SVS */
+		<26 512 0 2504000>, <89 604 0 2400000>,
+		/* Nominal */
+		<26 512 0 5016000>, <89 604 0 5334880>,
+		/* Turbo */
+		<26 512 0 7464000>, <89 604 0 6400000>;
+};
