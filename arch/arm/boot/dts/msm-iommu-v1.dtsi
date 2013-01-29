@@ -12,7 +12,7 @@
 
 / {
 	jpeg_iommu: qcom,iommu@fda64000 {
-		compatible = "qcom,msm-smmu-v2";
+		compatible = "qcom,msm-smmu-v1";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -99,7 +99,7 @@
 	};
 
 	mdp_iommu: qcom,iommu@fd928000 {
-		compatible = "qcom,msm-smmu-v2";
+		compatible = "qcom,msm-smmu-v1";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -194,7 +194,7 @@
 	};
 
 	venus_iommu: qcom,iommu@fdc84000 {
-		compatible = "qcom,msm-smmu-v2";
+		compatible = "qcom,msm-smmu-v1";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -303,7 +303,7 @@
 	};
 
 	kgsl_iommu: qcom,iommu@fdb10000 {
-		compatible = "qcom,msm-smmu-v2";
+		compatible = "qcom,msm-smmu-v1";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -378,7 +378,7 @@
 	};
 
 	vfe_iommu: qcom,iommu@fda44000 {
-		compatible = "qcom,msm-smmu-v2";
+		compatible = "qcom,msm-smmu-v1";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;

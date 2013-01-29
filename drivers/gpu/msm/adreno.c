@@ -986,7 +986,7 @@ static int adreno_of_get_iommu(struct device_node *parent,
 			KGSL_CORE_ERR("Unable to read KGSL IOMMU 'reg'\n");
 			goto err;
 		}
-		if (msm_soc_version_supports_iommu_v1())
+		if (msm_soc_version_supports_iommu_v0())
 			ctxs[ctx_index].ctx_id = (reg_val[0] -
 				data->physstart) >> KGSL_IOMMU_CTX_SHIFT;
 		else

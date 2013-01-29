@@ -12,7 +12,7 @@
 
 / {
 	lpass_iommu: qcom,iommu@fd000000 {
-		compatible = "qcom,msm-smmu-v1";
+		compatible = "qcom,msm-smmu-v0";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -51,7 +51,7 @@
 	};
 
 	copss_iommu: qcom,iommu@fd010000 {
-		compatible = "qcom,msm-smmu-v1";
+		compatible = "qcom,msm-smmu-v0";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -118,7 +118,7 @@
 	};
 
 	mdpe_iommu: qcom,iommu@fd860000 {
-		compatible = "qcom,msm-smmu-v1";
+		compatible = "qcom,msm-smmu-v0";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -143,7 +143,7 @@
 	};
 
 	mdps_iommu: qcom,iommu@fd870000 {
-		compatible = "qcom,msm-smmu-v1";
+		compatible = "qcom,msm-smmu-v0";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -168,7 +168,7 @@
 	};
 
 	gfx_iommu: qcom,iommu@fd880000 {
-		compatible = "qcom,msm-smmu-v1";
+		compatible = "qcom,msm-smmu-v0";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -202,7 +202,7 @@
 	};
 
 	vfe_iommu: qcom,iommu@fd890000 {
-		compatible = "qcom,msm-smmu-v1";
+		compatible = "qcom,msm-smmu-v0";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;

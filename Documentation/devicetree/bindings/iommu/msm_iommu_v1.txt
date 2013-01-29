@@ -1,8 +1,8 @@
-* Qualcomm MSM IOMMU
+* Qualcomm MSM IOMMU v1
 
 Required properties:
 - compatible : one of:
-	- "qcom,msm-smmu-v2"
+	- "qcom,msm-smmu-v1"
 - reg : offset and length of the register set for the device. Optional
 	offset and length for clock register for additional clock that
 	needs to be turned on for access to this IOMMU.
@@ -47,7 +47,7 @@ Optional properties:
 Example:
 
 	qcom,iommu@fda64000 {
-		compatible = "qcom,msm-smmu-v2";
+		compatible = "qcom,msm-smmu-v1";
 		reg = <0xfda64000 0x10000>;
 		reg-names = "iommu_base";
 		vdd-supply = <&gdsc_iommu>;

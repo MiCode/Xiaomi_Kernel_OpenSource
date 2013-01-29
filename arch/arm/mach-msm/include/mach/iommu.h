@@ -235,18 +235,18 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
  */
 int msm_iommu_sec_program_iommu(int sec_id);
 
-static inline int msm_soc_version_supports_iommu_v1(void)
+static inline int msm_soc_version_supports_iommu_v0(void)
 {
 #ifdef CONFIG_OF
 	struct device_node *node;
 
-	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v2");
+	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v1");
 	if (node) {
 		of_node_put(node);
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v1");
+	node = of_find_compatible_node(NULL, NULL, "qcom,msm-smmu-v0");
 	if (node) {
 		of_node_put(node);
 		return 1;

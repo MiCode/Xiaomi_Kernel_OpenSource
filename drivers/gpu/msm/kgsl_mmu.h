@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -341,9 +341,9 @@ static inline int kgsl_mmu_get_num_iommu_units(struct kgsl_mmu *mmu)
 static inline int kgsl_mmu_is_perprocess(void)
 {
 
-	/* We presently do not support per-process for IOMMU-v2 */
+	/* We presently do not support per-process for IOMMU-v1 */
 	return (kgsl_mmu_get_mmutype() != KGSL_MMU_TYPE_IOMMU)
-		|| msm_soc_version_supports_iommu_v1();
+		|| msm_soc_version_supports_iommu_v0();
 }
 #else
 static inline int kgsl_mmu_is_perprocess(void)
