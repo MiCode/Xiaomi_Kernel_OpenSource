@@ -3219,8 +3219,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	motg->phy.otg = kzalloc(sizeof(struct usb_otg), GFP_KERNEL);
 	if (!motg->phy.otg) {
-		dev_err(&pdev->dev, "unable to allocate msm_otg\n");
-		return -ENOMEM;
+		dev_err(&pdev->dev, "unable to allocate usb_otg\n");
+		ret = -ENOMEM;
+		goto free_motg;
 	}
 
 	the_msm_otg = motg;
@@ -3236,7 +3237,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (aca_enabled() && motg->pdata->otg_control != OTG_PMIC_CONTROL) {
 		dev_err(&pdev->dev, "ACA can not be enabled without PMIC\n");
 		ret = -EINVAL;
-		goto free_motg;
+		goto free_otg;
 	}
 
 	/* initialize reset counter */
@@ -3495,8 +3496,9 @@ put_clk:
 		clk_put(motg->clk);
 	if (!IS_ERR(motg->phy_reset_clk))
 		clk_put(motg->phy_reset_clk);
-free_motg:
+free_otg:
 	kfree(motg->phy.otg);
+free_motg:
 	kfree(motg);
 	return ret;
 }
