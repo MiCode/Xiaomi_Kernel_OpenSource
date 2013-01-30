@@ -93,4 +93,11 @@ struct msm_camera_i2c_reg_conf {
 	int16_t mask;
 };
 
+struct msm_camera_i2c_conf_array {
+	struct msm_camera_i2c_reg_conf *conf;
+	uint16_t size;
+	uint16_t delay;
+	enum msm_camera_i2c_data_type data_type;
+};
+
 #endif
