@@ -409,6 +409,7 @@ config ARCH_MSM8610
 	select CPU_FREQ
 	select CPU_FREQ_GOV_USERSPACE
 	select CPU_FREQ_GOV_ONDEMAND
+	select MSM_PIL
 
 config ARCH_MSM8226
 	bool "MSM8226"
