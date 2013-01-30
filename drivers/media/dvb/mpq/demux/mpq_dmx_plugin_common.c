@@ -2072,7 +2072,8 @@ int mpq_dmx_decoder_fullness_wait(
 		return -EINVAL;
 	}
 
-	mutex_unlock(&mpq_demux->mutex);
+	if (!was_locked)
+		mutex_unlock(&mpq_demux->mutex);
 	return 0;
 }
 EXPORT_SYMBOL(mpq_dmx_decoder_fullness_wait);
