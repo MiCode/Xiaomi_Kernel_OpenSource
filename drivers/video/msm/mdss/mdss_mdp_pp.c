@@ -740,6 +740,27 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl)
 {
+	int ret = 0;
+
+	if ((!ctl->mfd) || (!mdss_pp_res))
+		return -EINVAL;
+
+	/* TODO: have some sort of reader/writer lock to prevent unclocked
+	 * access while display power is toggled */
+	if (!ctl->mfd->panel_power_on) {
+		ret = -EPERM;
+		goto error;
+	}
+	mutex_lock(&ctl->mfd->lock);
+	ret = mdss_mdp_pp_setup_locked(ctl);
+	mutex_unlock(&ctl->mfd->lock);
+error:
+	return ret;
+}
+
+/* call only when holding and mfd->lock */
+int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
+{
 	u32 disp_num;
 	if ((!ctl->mfd) || (!mdss_pp_res))
 		return -EINVAL;
