@@ -305,6 +305,14 @@ struct mdp_qseed_cfg {
 	uint32_t *data;
 };
 
+struct mdp_sharp_cfg {
+	uint32_t flags;
+	uint32_t strength;
+	uint32_t edge_thr;
+	uint32_t smooth_thr;
+	uint32_t noise_thr;
+};
+
 struct mdp_qseed_cfg_data {
 	uint32_t block;
 	struct mdp_qseed_cfg qseed_data;
@@ -314,6 +322,7 @@ struct mdp_qseed_cfg_data {
 #define MDP_OVERLAY_PP_QSEED_CFG       0x2
 #define MDP_OVERLAY_PP_PA_CFG          0x4
 #define MDP_OVERLAY_PP_IGC_CFG         0x8
+#define MDP_OVERLAY_PP_SHARP_CFG       0x10
 
 #define MDP_CSC_FLAG_ENABLE	0x1
 #define MDP_CSC_FLAG_YUV_IN	0x2
@@ -355,6 +364,7 @@ struct mdp_overlay_pp_params {
 	struct mdp_qseed_cfg qseed_cfg[2];
 	struct mdp_pa_cfg pa_cfg;
 	struct mdp_igc_lut_data igc_cfg;
+	struct mdp_sharp_cfg sharp_cfg;
 };
 
 struct mdp_overlay {

@@ -126,6 +126,7 @@ static u32 dither_depth_map[9] = {
 #define PP_FLAGS_DIRTY_GAMUT	0x40
 #define PP_FLAGS_DIRTY_HIST_COL	0x80
 #define PP_FLAGS_DIRTY_PGC	0x100
+#define PP_FLAGS_DIRTY_SHARP	0x200
 
 #define PP_STS_ENABLE	0x1
 #define PP_STS_GAMUT_FIRST	0x2
@@ -390,10 +391,33 @@ static void pp_enhist_config(unsigned long flags, u32 base,
 	}
 }
 
+static void pp_sharp_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_sharp_cfg *sharp_config)
+{
+	if (flags & PP_FLAGS_DIRTY_SHARP) {
+		if (sharp_config->flags & MDP_PP_OPS_WRITE) {
+			MDSS_MDP_REG_WRITE(base, sharp_config->strength);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, sharp_config->edge_thr);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, sharp_config->smooth_thr);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, sharp_config->noise_thr);
+		}
+		if (sharp_config->flags & MDP_PP_OPS_DISABLE)
+			pp_sts->sharp_sts &= ~PP_STS_ENABLE;
+		else if (sharp_config->flags & MDP_PP_OPS_ENABLE)
+			pp_sts->sharp_sts |= PP_STS_ENABLE;
+	}
+}
+
+
 static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
 	u32 opmode = 0, base = 0;
 	unsigned long flags = 0;
+	u32 upscaling = 1;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
@@ -437,6 +461,27 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 
 			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
 				opmode |= (1 << 4); /* PA_EN */
+		}
+
+		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_SHARP_CFG) {
+			if ((pipe->dst.w < pipe->src.w) ||
+				(pipe->dst.h < pipe->src.h))
+				upscaling = 0;
+			if ((pipe->src_fmt->is_yuv) && upscaling) {
+				flags = PP_FLAGS_DIRTY_SHARP;
+				base = MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
+					MDSS_MDP_REG_VIG_QSEED2_SHARP;
+				pp_sharp_config(flags, base,
+					&pipe->pp_res.pp_sts,
+					&pipe->pp_cfg.sharp_cfg);
+
+				if (pipe->pp_res.pp_sts.sharp_sts &
+					PP_STS_ENABLE)
+					MDSS_MDP_REG_WRITE(
+					   MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
+					   MDSS_MDP_REG_VIG_QSEED2_CONFIG,
+					   1 << 0 | 1 << 1);
+			}
 		}
 	}
 
