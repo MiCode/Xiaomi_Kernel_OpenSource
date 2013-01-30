@@ -177,8 +177,7 @@
 		compatible = "qcom,cci";
 		reg = <0xfda0C000 0x1000>;
                 #address-cells = <1>;
-                #size-cells = <1>;
-                ranges;
+                #size-cells = <0>;
 		reg-names = "cci";
 		interrupts = <0 50 0>;
 		interrupt-names = "cci";
@@ -205,7 +204,7 @@
 
 		actuator0: qcom,actuator@18 {
 			cell-index = <0>;
-			reg = <0x18 0x0>;
+			reg = <0x18>;
 			compatible = "qcom,actuator";
 			qcom,cci-master = <0>;
 		};
@@ -220,7 +219,7 @@
 
 		qcom,camera@90 {
 			compatible = "qcom,mt9m114";
-			reg = <0x90 0x0>;
+			reg = <0x90>;
 			qcom,slave-id = <0x90 0x0 0x2481>;
 			qcom,csiphy-sd-index = <1>;
 			qcom,csid-sd-index = <0>;
