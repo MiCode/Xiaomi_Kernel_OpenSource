@@ -196,6 +196,7 @@ struct qpnp_chg_chip {
 	u16				misc_base;
 	u16				freq_base;
 	unsigned int			usbin_valid_irq;
+	unsigned int			dcin_valid_irq;
 	unsigned int			chg_done_irq;
 	unsigned int			chg_failed_irq;
 	bool				chg_done;
@@ -434,6 +435,23 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 		chip->usb_present = usb_present;
 		power_supply_set_present(chip->usb_psy,
 			chip->usb_present);
+	}
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t
+qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
+{
+	struct qpnp_chg_chip *chip = _chip;
+	int dc_present;
+
+	dc_present = qpnp_chg_is_dc_chg_plugged_in(chip);
+	pr_debug("dcin-valid triggered: %d\n", dc_present);
+
+	if (chip->dc_present ^ dc_present) {
+		chip->dc_present = dc_present;
+		power_supply_changed(&chip->dc_psy);
 	}
 
 	return IRQ_HANDLED;
@@ -1283,6 +1301,23 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 
 		break;
 	case SMBB_DC_CHGPTH_SUBTYPE:
+		chip->dcin_valid_irq = spmi_get_irq_byname(chip->spmi,
+						spmi_resource, "dcin-valid");
+		if (chip->dcin_valid_irq < 0) {
+			pr_err("Unable to get dcin irq\n");
+			return -ENXIO;
+		}
+		rc = devm_request_irq(chip->dev, chip->dcin_valid_irq,
+				qpnp_chg_dc_dcin_valid_irq_handler,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				"chg_dcin_valid", chip);
+		if (rc < 0) {
+			pr_err("Can't request %d dcinvalid  for chg: %d\n",
+						chip->dcin_valid_irq, rc);
+			return -ENXIO;
+		}
+
+		enable_irq_wake(chip->dcin_valid_irq);
 		break;
 	case SMBB_BOOST_SUBTYPE:
 		break;
