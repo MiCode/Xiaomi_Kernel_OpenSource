@@ -58,6 +58,7 @@ static const char * const modes[] = {"MODE_DNAT", "MODE_FORWARD_IN",
 struct ipt_nattype {
 	struct list_head list;
 	struct timer_list timeout;
+	unsigned char is_valid;
 	unsigned short proto;		/* Protocol: TCP or UDP */
 	struct nf_nat_ipv4_range range;	/* LAN side src info*/
 	unsigned short nat_port;	/* Routed NAT port */
@@ -96,13 +97,24 @@ static void nattype_free(struct ipt_nattype *nte)
 /* netfilter NATTYPE nattype_refresh_timer()
  * Refresh the timer for this object.
  */
-static bool nattype_refresh_timer(struct ipt_nattype *nte)
+bool nattype_refresh_timer_impl(unsigned long nat_type)
 {
+	struct ipt_nattype *nte = (struct ipt_nattype *)nat_type;
+
+	if (!nte)
+		return false;
+	spin_lock_bh(&nattype_lock);
+	if (!nte->is_valid) {
+		spin_unlock_bh(&nattype_lock);
+		return false;
+	}
 	if (del_timer(&nte->timeout)) {
 		nte->timeout.expires = jiffies + NATTYPE_TIMEOUT * HZ;
 		add_timer(&nte->timeout);
+		spin_unlock_bh(&nattype_lock);
 		return true;
 	}
+	spin_unlock_bh(&nattype_lock);
 	return false;
 }
 
@@ -121,6 +133,7 @@ static void nattype_timer_timeout(unsigned long in_nattype)
 	nattype_nte_debug_print(nte, "timeout");
 	spin_lock_bh(&nattype_lock);
 	list_del(&nte->list);
+	memset(nte, 0, sizeof(struct ipt_nattype));
 	spin_unlock_bh(&nattype_lock);
 	nattype_free(nte);
 }
@@ -296,7 +309,8 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 		 * to include the reply as source
 		 */
 		DEBUGP("Expand ingress conntrack=%p, type=%d, src[%pI4:%d]\n",
-		       ct, ctinfo, &newrange.min_ip, ntohs(newrange.min.all));
+			ct, ctinfo, &newrange.min_ip, ntohs(newrange.min.all));
+		ct->nattype_entry = (unsigned long)nte;
 		ret = nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_DST);
 		DEBUGP("Expand returned: %d\n", ret);
 		return ret;
@@ -336,12 +350,13 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 			if (!nattype_packet_in_match(nte, skb, info))
 				continue;
 
+			spin_unlock_bh(&nattype_lock);
 			/* netfilter NATTYPE
 			 * Refresh the timer, if we fail, break
 			 * out and forward fail as though we never
 			 * found the entry.
 			 */
-			if (!nattype_refresh_timer(nte))
+			if (!nattype_refresh_timer((unsigned long)nte))
 				break;
 
 			/* netfilter NATTYPE
@@ -349,7 +364,6 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 			 * entry values should not change so print
 			 * them outside the lock.
 			 */
-			spin_unlock_bh(&nattype_lock);
 			nattype_nte_debug_print(nte, "refresh");
 			DEBUGP("FORWARD_IN_ACCEPT\n");
 			return NF_ACCEPT;
@@ -419,13 +433,13 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	list_for_each_entry(nte2, &nattype_list, list) {
 		if (!nattype_compare(nte, nte2))
 			continue;
-
+		spin_unlock_bh(&nattype_lock);
 		/* netfilter NATTYPE
 		 * If we can not refresh this entry, insert our new
 		 * entry as this one is timed out and will be removed
 		 * from the list shortly.
 		 */
-		if (!nattype_refresh_timer(nte2))
+		if (!nattype_refresh_timer((unsigned long)nte2))
 			break;
 
 		/* netfilter NATTYPE
@@ -434,7 +448,6 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 		 *
 		 * Free up the new entry.
 		 */
-		spin_unlock_bh(&nattype_lock);
 		nattype_nte_debug_print(nte2, "refresh");
 		nattype_free(nte);
 		return XT_CONTINUE;
@@ -446,6 +459,8 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	nte->timeout.expires = jiffies + (NATTYPE_TIMEOUT  * HZ);
 	add_timer(&nte->timeout);
 	list_add(&nte->list, &nattype_list);
+	ct->nattype_entry = (unsigned long)nte;
+	nte->is_valid = 1;
 	spin_unlock_bh(&nattype_lock);
 	nattype_nte_debug_print(nte, "ADD");
 	return XT_CONTINUE;
@@ -582,6 +597,8 @@ static struct xt_target nattype = {
 
 static int __init init(void)
 {
+	WARN_ON(nattype_refresh_timer);
+	RCU_INIT_POINTER(nattype_refresh_timer, nattype_refresh_timer_impl);
 	return xt_register_target(&nattype);
 }
 
