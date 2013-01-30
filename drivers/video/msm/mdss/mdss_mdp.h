@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -342,6 +343,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 
 int mdss_mdp_pp_init(struct device *dev);
 void mdss_mdp_pp_term(struct device *dev);
+
 int mdss_mdp_pp_resume(u32 mixer_num);
 
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl);
@@ -350,18 +352,34 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op);
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op);
 void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe);
 
-int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback);
-int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *cfg_ptr, u32 *copyback);
-int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config, u32 *copyback);
-int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config, u32 *copyback);
-int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config, u32 *copyback);
-int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config, u32 *copyback);
-int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config, u32 *copyback);
+int mdss_mdp_pa_config(struct mdss_mdp_ctl *ctl,
+				struct mdp_pa_cfg_data *config,
+				u32 *copyback);
+int mdss_mdp_pcc_config(struct mdss_mdp_ctl *ctl,
+				struct mdp_pcc_cfg_data *cfg_ptr,
+				u32 *copyback);
+int mdss_mdp_igc_lut_config(struct mdss_mdp_ctl *ctl,
+				struct mdp_igc_lut_data *config,
+				u32 *copyback);
+int mdss_mdp_argc_config(struct mdss_mdp_ctl *ctl,
+				struct mdp_pgc_lut_data *config,
+				u32 *copyback);
+int mdss_mdp_hist_lut_config(struct mdss_mdp_ctl *ctl,
+				struct mdp_hist_lut_data *config,
+				u32 *copyback);
+int mdss_mdp_dither_config(struct mdss_mdp_ctl *ctl,
+				struct mdp_dither_cfg_data *config,
+				u32 *copyback);
+int mdss_mdp_gamut_config(struct mdss_mdp_ctl *ctl,
+				struct mdp_gamut_cfg_data *config,
+				u32 *copyback);
 
-int mdss_mdp_histogram_start(struct mdp_histogram_start_req *req);
-int mdss_mdp_histogram_stop(u32 block);
-int mdss_mdp_hist_collect(struct fb_info *info,
-		   struct mdp_histogram_data *hist, u32 *hist_data_addr);
+int mdss_mdp_histogram_start(struct mdss_mdp_ctl *ctl,
+				struct mdp_histogram_start_req *req);
+int mdss_mdp_histogram_stop(struct mdss_mdp_ctl *ctl, u32 block);
+int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
+				struct mdp_histogram_data *hist,
+				u32 *hist_data_addr);
 void mdss_mdp_hist_intr_done(u32 isr);
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
