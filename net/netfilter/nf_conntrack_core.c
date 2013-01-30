@@ -971,6 +971,10 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
 #ifdef CONFIG_NF_CONNTRACK_SECMARK
 			ct->secmark = exp->master->secmark;
 #endif
+/* Initialize the NAT type entry. */
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+		ct->nattype_entry = 0;
+#endif
 			NF_CT_STAT_INC(net, expect_new);
 		}
 		spin_unlock(&nf_conntrack_expect_lock);
@@ -1229,6 +1233,11 @@ void __nf_ct_refresh_acct(struct nf_conn *ct,
 		if (newtime - ct->timeout.expires >= HZ)
 			mod_timer_pending(&ct->timeout, newtime);
 	}
+
+/* Refresh the NAT type entry. */
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	(void)nattype_refresh_timer(ct->nattype_entry);
+#endif
 
 acct:
 	if (do_acct) {
