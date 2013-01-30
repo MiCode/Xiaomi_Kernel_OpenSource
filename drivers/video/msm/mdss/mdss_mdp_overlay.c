@@ -516,16 +516,19 @@ int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 			}
 		}
 	}
-	mutex_unlock(&mfd->lock);
 
 	if (mfd->kickoff_fnc)
 		ret = mfd->kickoff_fnc(ctl);
 	else
 		ret = mdss_mdp_display_commit(ctl, NULL);
+	mutex_unlock(&mfd->lock);
+
 	if (IS_ERR_VALUE(ret)) {
 		mutex_unlock(&mfd->ov_lock);
 		return ret;
 	}
+
+	ret = mdss_mdp_display_wait4comp(ctl);
 
 	complete(&mfd->update.comp);
 	mutex_lock(&mfd->no_update.lock);
