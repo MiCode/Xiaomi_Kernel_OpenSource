@@ -43,7 +43,7 @@ static int msm_hdmi_edid_ctl_info(struct snd_kcontrol *kcontrol,
 			       edid_blk.spk_alloc_data_blk_size;
 	}
 
-	return rc;
+	return 0;
 }
 
 static int msm_hdmi_edid_get(struct snd_kcontrol *kcontrol,
