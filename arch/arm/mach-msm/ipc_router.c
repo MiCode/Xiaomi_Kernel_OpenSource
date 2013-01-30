@@ -1459,8 +1459,9 @@ static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	for (i = 0; i < RT_HASH_SIZE; i++) {
 		list_for_each_entry(rt_entry, &routing_table[i], list) {
 			if ((rt_entry->node_id != IPC_ROUTER_NID_LOCAL) &&
-			    (rt_entry->xprt_info->xprt->link_id ==
-			     xprt_info->xprt->link_id))
+			    (!rt_entry->xprt_info ||
+			     (rt_entry->xprt_info->xprt->link_id ==
+			      xprt_info->xprt->link_id)))
 				continue;
 			rc = msm_ipc_router_send_server_list(rt_entry->node_id,
 							     xprt_info);
