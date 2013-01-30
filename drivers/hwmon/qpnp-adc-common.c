@@ -582,7 +582,7 @@ int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_usbid_param *param,
 {
 	struct qpnp_vadc_linear_graph usb_param;
 
-	qpnp_get_vadc_gain_and_offset(&usb_param, CALIB_ABSOLUTE);
+	qpnp_get_vadc_gain_and_offset(&usb_param, CALIB_RATIOMETRIC);
 
 	*low_threshold = param->low_thr * usb_param.dy;
 	do_div(*low_threshold, usb_param.adc_vref);
