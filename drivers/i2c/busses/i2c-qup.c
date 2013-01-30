@@ -1305,6 +1305,7 @@ blsp_core_init:
 		"QUP I2C adapter",
 		sizeof(dev->adapter.name));
 	dev->adapter.nr = pdev->id;
+	dev->adapter.dev.parent = &pdev->dev;
 	if (pdata->msm_i2c_config_gpio)
 		pdata->msm_i2c_config_gpio(dev->adapter.nr, 1);
 
