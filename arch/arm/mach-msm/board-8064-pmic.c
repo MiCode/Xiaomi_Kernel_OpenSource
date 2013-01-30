@@ -229,6 +229,17 @@ void __init apq8064_pm8xxx_gpio_mpp_init(void)
 	int i, rc;
 
 	if (socinfo_get_pmic_model() != PMIC_MODEL_PM8917) {
+		/* PCIE_CLK_PWR_EN is 23 and PCIE_WAKE_N is 22
+		   for MPQ8064 Hybrid */
+		if (machine_is_mpq8064_hrd()) {
+			int size = ARRAY_SIZE(pm8921_gpios);
+			for (i = 0; i < size; i++)
+				if (pm8921_gpios[i].gpio == 13)
+					pm8921_gpios[i].gpio = 23;
+				else if (pm8921_gpios[i].gpio == 12)
+					pm8921_gpios[i].gpio = 22;
+		}
+
 		if (machine_is_fsm8064_ep())
 			apq8064_configure_gpios(pm8921_fsm8064_ep_gpios,
 					ARRAY_SIZE(pm8921_fsm8064_ep_gpios));
