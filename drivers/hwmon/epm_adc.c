@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -586,12 +586,16 @@ static int epm_adc_ads_scale_result(struct epm_adc_drv *epm_adc,
 	return 0;
 }
 
-static int epm_psoc_scale_result(uint32_t result, uint32_t index)
+static int epm_psoc_scale_result(int16_t result, uint32_t index)
 {
 	struct epm_adc_drv *epm_adc = epm_adc_drv;
-	int32_t result_cur;
+	int32_t result_cur, neg = 0;
 
 	if ((1 << index) & epm_adc->channel_mask) {
+		if (result & 0x800) {
+			neg = 1;
+			result = result & 0x7ff;
+		}
 		/* result = (2.048V * code)/(4096 * gain * rsense) */
 		result_cur = ((EPM_PSOC_VREF_VOLTAGE * result)/
 				EPM_PSOC_MAX_ADC_CODE_12_BIT);
@@ -599,14 +603,22 @@ static int epm_psoc_scale_result(uint32_t result, uint32_t index)
 		result_cur = (result_cur/
 			(epm_adc->epm_psoc_ch_prop[index].gain *
 			epm_adc->epm_psoc_ch_prop[index].resistorvalue));
+		if (neg)
+			result_cur -= result_cur;
 	} else {
+		if (result & 0x8000) {
+			neg = 1;
+			result = result & 0x7fff;
+		}
 		/* result = (2.048V * code)/(32767 * gain * rsense) */
-		result_cur = (((EPM_PSOC_VREF_VOLTAGE * result)/
+		result_cur = (((EPM_PSOC_VREF_VOLTAGE * (int) result)/
 				EPM_PSOC_MAX_ADC_CODE_15_BIT) * 1000);
 
 		result_cur = (result_cur/
 		(epm_adc->epm_psoc_ch_prop[index].gain *
 			epm_adc->epm_psoc_ch_prop[index].resistorvalue));
+		if (neg)
+			result_cur -= result_cur;
 	}
 
 	return result_cur;
@@ -869,10 +881,8 @@ static int epm_psoc_get_data(struct epm_adc_drv *epm_adc,
 	psoc_get_meas->timestamp_resp_value = (rx_buf[3] << 24) |
 			(rx_buf[4] << 16) | (rx_buf[5] << 8) |
 			rx_buf[6];
-	psoc_get_meas->reading_value = (rx_buf[7] << 8) | rx_buf[8];
+	psoc_get_meas->reading_raw = (rx_buf[7] << 8) | rx_buf[8];
 
-	pr_debug("dev_num:%d, chan_num:%d\n", rx_buf[1], rx_buf[2]);
-	pr_debug("data %d\n", psoc_get_meas->reading_value);
 	return rc;
 }
 
@@ -1336,7 +1346,7 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 			}
 
 			psoc_get_data.reading_value = epm_psoc_scale_result(
-				psoc_get_data.reading_value,
+				psoc_get_data.reading_raw,
 				psoc_get_data.chan_num);
 
 			if (copy_to_user((void __user *)arg, &psoc_get_data,
@@ -1753,8 +1763,6 @@ static ssize_t epm_adc_show_in(struct device *dev,
 	conv.device_idx = attr->index / pdata->chan_per_adc;
 	conv.channel_idx = attr->index % pdata->chan_per_adc;
 	conv.physical = 0;
-	pr_info("%s: device_idx=%d channel_idx=%d", __func__, conv.device_idx,
-			conv.channel_idx);
 
 	if (!epm_adc_expander_register) {
 		rc = epm_adc_i2c_expander_register();
