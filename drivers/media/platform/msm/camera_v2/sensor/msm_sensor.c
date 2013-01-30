@@ -1394,6 +1394,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_write_table_w_microdelay =
 		msm_camera_cci_i2c_write_table_w_microdelay,
 	.i2c_util = msm_sensor_cci_i2c_util,
+	.i2c_write_conf_tbl = msm_camera_cci_i2c_write_conf_tbl,
 };
 
 static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {

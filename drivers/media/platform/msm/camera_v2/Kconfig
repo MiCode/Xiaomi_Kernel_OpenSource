@@ -91,6 +91,15 @@ config OV2720
 		hfr video at 60, 90 and 120 fps. This sensor driver does
 		not support auto focus.
 
+config MT9M114
+	bool "Sensor MT9M114 (YUV 1.26MP)"
+	depends on MSMB_CAMERA
+	---help---
+		MT9M114 is Aptina YUV sensor. It supports 1.26 MP preview
+		and snapshot. The preview and snapshot resolution shall be
+		1280 * 270. It does not support auto focus. It supports
+		few special effects like saturation.
+
 config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	tristate "Qualcomm MSM V4l2 video overlay device"
 	---help---
