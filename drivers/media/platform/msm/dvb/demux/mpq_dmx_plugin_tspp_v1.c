@@ -245,7 +245,7 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 	size_t aggregate_len = 0;
 	size_t aggregate_count = 0;
 	phys_addr_t buff_start_addr;
-	phys_addr_t buff_current_addr;
+	phys_addr_t buff_current_addr = 0;
 	int i;
 
 	while ((tspp_data_desc = tspp_get_buffer(0, channel_id)) != NULL) {
