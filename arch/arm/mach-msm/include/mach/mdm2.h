@@ -12,6 +12,7 @@
 
 #ifndef _ARCH_ARM_MACH_MSM_MDM2_H
 #define _ARCH_ARM_MACH_MSM_MDM2_H
+#include "sysmon.h"
 
 struct mdm_vddmin_resource {
 	int rpm_id;
@@ -35,6 +36,9 @@ struct mdm_platform_data {
 	int image_upgrade_supported;
 	struct gpiomux_setting *mdm2ap_status_gpio_run_cfg;
 	int send_shdn;
+	int cascading_ssr;
+	int sysmon_subsys_id_valid;
+	enum subsys_id sysmon_subsys_id;
 };
 
 #endif
