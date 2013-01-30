@@ -1,0 +1,20 @@
+Memory Hole
+
+The msm_mem_hole module exists for the express purpose of removing
+memory via the msm memory-remove mechanism (see
+memory-reserve.txt). Compiling this module into a kernel is
+essentially the means by which any nodes in the device tree with
+compatible = "qcom,msm-mem-hole" will be "activated", thus providing a
+convenient mechanism for enabling/disabling memory removal
+(qcom,memory-*).
+
+
+Required properties
+
+- compatible: "qcom,msm-mem-hole"
+
+	qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0x8100000 0x7e00000>; /* Address and Size of Hole */
+	};
+
