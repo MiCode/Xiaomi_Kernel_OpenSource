@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,25 +44,22 @@ struct mdm_modem_drv {
 	unsigned mdm2ap_pblrdy;
 	unsigned usb_switch_gpio;
 
-	int mdm_errfatal_irq;
-	int mdm_status_irq;
-	int mdm_ready;
+	atomic_t mdm_ready;
 	int mdm_boot_status;
 	int mdm_ram_dump_status;
 	enum charm_boot_type boot_type;
 	int mdm_debug_on;
 	int mdm_unexpected_reset_occurred;
 	int disable_status_check;
+	unsigned int dump_timeout_ms;
+	int power_on_count;
+	int peripheral_status;
+	struct mutex peripheral_status_lock;
+	int device_id;
 
-	struct mdm_ops *ops;
 	struct mdm_platform_data *pdata;
 };
-
-int mdm_common_create(struct platform_device  *pdev,
-					  struct mdm_ops *mdm_cb);
-int mdm_common_modem_remove(struct platform_device *pdev);
-void mdm_common_modem_shutdown(struct platform_device *pdev);
-void mdm_common_set_debug_state(int value);
+int mdm_get_ops(struct mdm_ops **mdm_ops);
 
 #endif
 
