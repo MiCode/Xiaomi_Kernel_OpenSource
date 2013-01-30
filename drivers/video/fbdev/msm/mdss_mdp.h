@@ -129,6 +129,7 @@ struct mdss_mdp_ctl {
 	u32 bus_ab_quota;
 	u32 bus_ib_quota;
 	u32 clk_rate;
+	u32 perf_changed;
 
 	struct mdss_data_type *mdata;
 	struct msm_fb_data_type *mfd;
@@ -142,6 +143,7 @@ struct mdss_mdp_ctl {
 	int (*stop_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*display_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
+	int (*wait_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*set_vsync_handler) (struct mdss_mdp_ctl *, mdp_vsync_handler_t);
 
 	void *priv_data;
@@ -332,6 +334,7 @@ struct mdss_mdp_pipe *mdss_mdp_mixer_stage_pipe(struct mdss_mdp_ctl *ctl,
 int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed);
 int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg);
+int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl);
 
 int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type);
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
