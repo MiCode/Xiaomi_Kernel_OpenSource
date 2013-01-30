@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -262,7 +262,7 @@ static int __init msm_pcie_vreg_init(struct device *dev)
 	struct regulator *vreg;
 	struct msm_pcie_vreg_info_t *info;
 
-	for (i = 0; i < MSM_PCIE_MAX_VREG; i++) {
+	for (i = 0; i < msm_pcie_dev.vreg_n; i++) {
 		info = &msm_pcie_dev.vreg[i];
 
 		vreg = regulator_get(dev, info->name);
@@ -316,7 +316,7 @@ static void msm_pcie_vreg_deinit(void)
 {
 	int i;
 
-	for (i = 0; i < MSM_PCIE_MAX_VREG; i++) {
+	for (i = 0; i < msm_pcie_dev.vreg_n; i++) {
 		regulator_disable(msm_pcie_dev.vreg[i].hdl);
 		regulator_put(msm_pcie_dev.vreg[i].hdl);
 		msm_pcie_dev.vreg[i].hdl = NULL;
@@ -620,6 +620,7 @@ static int __init msm_pcie_probe(struct platform_device *pdev)
 	pdata = pdev->dev.platform_data;
 	msm_pcie_dev.gpio = pdata->gpio;
 	msm_pcie_dev.wake_n = pdata->wake_n;
+	msm_pcie_dev.vreg_n = pdata->vreg_n;
 	msm_pcie_dev.vreg = msm_pcie_vreg_info;
 	msm_pcie_dev.clk = msm_pcie_clk_info;
 	msm_pcie_dev.res = msm_pcie_res_info;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@ struct msm_pcie_platform {
 	uint32_t                      axi_addr;
 	uint32_t                      axi_size;
 	uint32_t                      wake_n;
+	uint32_t                      vreg_n;
 };
 
 #endif
