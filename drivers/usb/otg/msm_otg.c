@@ -3777,6 +3777,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				"qcom,hsusb-otg-disable-reset");
 	pdata->pnoc_errata_fix = of_property_read_bool(node,
 				"qcom,hsusb-otg-pnoc-errata-fix");
+	pdata->enable_lpm_on_dev_suspend = of_property_read_bool(node,
+				"qcom,hsusb-otg-lpm-on-dev-suspend");
 
 	return pdata;
 }
