@@ -222,6 +222,7 @@ struct pp_sts_type {
 	u32 dither_sts;
 	u32 gamut_sts;
 	u32 pgc_sts;
+	u32 sharp_sts;
 };
 
 struct mdss_pipe_pp_res {
