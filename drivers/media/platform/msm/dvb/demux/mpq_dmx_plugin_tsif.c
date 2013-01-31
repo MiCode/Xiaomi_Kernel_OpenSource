@@ -612,6 +612,43 @@ static int mpq_tsif_dmx_get_caps(struct dmx_demux *demux,
 }
 
 /**
+ * Reads TSIF STC from TSPP
+ *
+ * @demux: demux device
+ * @num: STC number. 0 for TSIF0 and 1 for TSIF1.
+ * @stc: STC value
+ * @base: divisor to get 90KHz value
+ *
+ * Return     error code
+ */
+static int mpq_tsif_dmx_get_stc(struct dmx_demux *demux, unsigned int num,
+		u64 *stc, unsigned int *base)
+{
+	struct tsif_driver_info *tsif_driver;
+	u32 tcr_counter;
+
+	if (!demux || !stc || !base)
+		return -EINVAL;
+
+	if (num == 0)
+		tsif_driver = &mpq_dmx_tsif_info.tsif[0].tsif_driver;
+	else if (num == 1)
+		tsif_driver = &mpq_dmx_tsif_info.tsif[1].tsif_driver;
+	else
+		return -EINVAL;
+
+	if (!tsif_driver->tsif_handler)
+		return -ENODEV;
+
+	tsif_get_ref_clk_counter(tsif_driver->tsif_handler, &tcr_counter);
+
+	*stc = ((u64)tcr_counter) * 256; /* conversion to 27MHz */
+	*base = 300; /* divisor to get 90KHz clock from stc value */
+
+	return 0;
+}
+
+/**
  * Initialize a single demux device.
  *
  * @mpq_adapter: MPQ DVB adapter
@@ -667,6 +704,7 @@ static int mpq_tsif_dmx_init(
 		DMXDEV_CAP_INDEXING;
 
 	mpq_demux->dmxdev.demux->set_source = mpq_dmx_set_source;
+	mpq_demux->dmxdev.demux->get_stc = mpq_tsif_dmx_get_stc;
 	mpq_demux->dmxdev.demux->get_caps = mpq_tsif_dmx_get_caps;
 	mpq_demux->dmxdev.demux->map_buffer = mpq_dmx_map_buffer;
 	mpq_demux->dmxdev.demux->unmap_buffer = mpq_dmx_unmap_buffer;
