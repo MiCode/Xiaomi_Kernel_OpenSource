@@ -96,7 +96,8 @@ static int msm_comm_scale_bus(struct msm_vidc_core *core,
 
 	load = msm_comm_get_load(core, type);
 
-	rc = hdev->scale_bus(hdev->hfi_device_data, load, type, mtype);
+	rc = call_hfi_op(hdev, scale_bus, hdev->hfi_device_data,
+					 load, type, mtype);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
 
@@ -117,16 +118,16 @@ static void msm_comm_unvote_buses(struct msm_vidc_core *core,
 
 	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
 		if ((mtype & DDR_MEM) &&
-			hdev->scale_bus(hdev->hfi_device_data, 0, i, DDR_MEM)) {
+			call_hfi_op(hdev, scale_bus, hdev->hfi_device_data,
+				0, i, DDR_MEM))
 			dprintk(VIDC_WARN,
 				"Failed to unvote for DDR accesses\n");
-		}
+
 		if ((mtype & OCMEM_MEM) &&
-			hdev->scale_bus(hdev->hfi_device_data, 0, i,
-					OCMEM_MEM)) {
+			call_hfi_op(hdev, scale_bus, hdev->hfi_device_data,
+				0, i, OCMEM_MEM))
 			dprintk(VIDC_WARN,
 				"Failed to unvote for OCMEM accesses\n");
-		}
 	}
 }
 
@@ -921,7 +922,8 @@ static int msm_comm_scale_clocks(struct msm_vidc_core *core)
 	num_mbs_per_sec += msm_comm_get_load(core, MSM_VIDC_DECODER);
 
 	dprintk(VIDC_INFO, "num_mbs_per_sec = %d\n", num_mbs_per_sec);
-	rc = hdev->scale_clocks(hdev->hfi_device_data, num_mbs_per_sec);
+	rc = call_hfi_op(hdev, scale_clocks,
+		hdev->hfi_device_data, num_mbs_per_sec);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
 	return rc;
@@ -947,7 +949,7 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 		dprintk(VIDC_WARN,
 				"Failed to scale DDR bus. Performance might be impacted\n");
 	}
-	if (hdev->is_ocmem_present(hdev->hfi_device_data)) {
+	if (call_hfi_op(hdev, is_ocmem_present, hdev->hfi_device_data)) {
 		if (msm_comm_scale_bus(core, inst->session_type,
 					OCMEM_MEM))
 			dprintk(VIDC_WARN,
@@ -984,7 +986,7 @@ static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 	init_completion(
 		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)]);
 
-	rc = hdev->unset_ocmem(hdev->hfi_device_data);
+	rc = call_hfi_op(hdev, unset_ocmem, hdev->hfi_device_data);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to set OCMEM on driver\n");
 		goto release_ocmem_failed;
@@ -1057,7 +1059,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		goto fail_scale_bus;
 	}
 
-	rc = hdev->load_fw(hdev->hfi_device_data);
+	rc = call_hfi_op(hdev, load_fw, hdev->hfi_device_data);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load video firmware\n");
 		goto fail_load_fw;
@@ -1069,7 +1071,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	}
 
 	init_completion(&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)]);
-	rc = hdev->core_init(hdev->hfi_device_data);
+	rc = call_hfi_op(hdev, core_init, hdev->hfi_device_data);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init core, id = %d\n", core->id);
 		goto fail_core_init;
@@ -1082,7 +1084,7 @@ core_already_inited:
 	mutex_unlock(&core->sync_lock);
 	return rc;
 fail_core_init:
-	hdev->unload_fw(hdev->hfi_device_data);
+	call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
 fail_load_fw:
 	msm_comm_unvote_buses(core, DDR_MEM);
 fail_scale_bus:
@@ -1115,9 +1117,9 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	if (list_empty(&core->instances)) {
 		if (inst->state != MSM_VIDC_CORE_INVALID)
 			msm_comm_unset_ocmem(core);
-		hdev->free_ocmem(hdev->hfi_device_data);
+		call_hfi_op(hdev, free_ocmem, hdev->hfi_device_data);
 		dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
-		rc = hdev->core_release(hdev->hfi_device_data);
+		rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to release core, id = %d\n",
 							core->id);
@@ -1126,7 +1128,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		spin_lock_irqsave(&core->lock, flags);
 		core->state = VIDC_CORE_UNINIT;
 		spin_unlock_irqrestore(&core->lock, flags);
-		hdev->unload_fw(hdev->hfi_device_data);
+		call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
 		msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
 	}
 core_already_uninited:
@@ -1232,9 +1234,9 @@ static int msm_comm_session_init(int flipped_state,
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_INIT_DONE)]);
-	inst->session = hdev->session_init(hdev->hfi_device_data, (u32) inst,
-					get_hal_domain(inst->session_type),
-					get_hal_codec_type(fourcc));
+	inst->session = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
+			(u32) inst, get_hal_domain(inst->session_type),
+			get_hal_codec_type(fourcc));
 	if (!inst->session) {
 		dprintk(VIDC_ERR,
 			"Failed to call session init for: %d, %d, %d, %d\n",
@@ -1278,7 +1280,8 @@ static int msm_vidc_load_resources(int flipped_state,
 	rc = msm_comm_scale_bus(inst->core, inst->session_type, OCMEM_MEM);
 	if (!rc) {
 		mutex_lock(&inst->core->sync_lock);
-		rc = hdev->alloc_ocmem(hdev->hfi_device_data, ocmem_sz);
+		rc = call_hfi_op(hdev, alloc_ocmem, hdev->hfi_device_data,
+				ocmem_sz);
 		mutex_unlock(&inst->core->sync_lock);
 		if (rc) {
 			dprintk(VIDC_WARN,
@@ -1289,7 +1292,7 @@ static int msm_vidc_load_resources(int flipped_state,
 		dprintk(VIDC_WARN,
 		"Failed to vote for OCMEM BW. Performance will be impacted\n");
 	}
-	rc = hdev->session_load_res((void *) inst->session);
+	rc = call_hfi_op(hdev, session_load_res, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send load resources\n");
@@ -1320,7 +1323,7 @@ static int msm_vidc_start(int flipped_state, struct msm_vidc_inst *inst)
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_START_DONE)]);
-	rc = hdev->session_start((void *) inst->session);
+	rc = call_hfi_op(hdev, session_start, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send start\n");
@@ -1351,7 +1354,7 @@ static int msm_vidc_stop(int flipped_state, struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "Send Stop to hal\n");
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_STOP_DONE)]);
-	rc = hdev->session_stop((void *) inst->session);
+	rc = call_hfi_op(hdev, session_stop, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to send stop\n");
 		goto exit;
@@ -1382,7 +1385,7 @@ static int msm_vidc_release_res(int flipped_state, struct msm_vidc_inst *inst)
 		"Send release res to hal\n");
 	init_completion(
 	&inst->completions[SESSION_MSG_INDEX(SESSION_RELEASE_RESOURCE_DONE)]);
-	rc = hdev->session_release_res((void *) inst->session);
+	rc = call_hfi_op(hdev, session_release_res, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send release resources\n");
@@ -1414,7 +1417,7 @@ static int msm_comm_session_close(int flipped_state,
 		"Send session close to hal\n");
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_END_DONE)]);
-	rc = hdev->session_end((void *) inst->session);
+	rc = call_hfi_op(hdev, session_end, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to send close\n");
@@ -1627,8 +1630,8 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			dprintk(VIDC_DBG,
 				"Sending etb to hal: Alloc: %d :filled: %d\n",
 				frame_data.alloc_len, frame_data.filled_len);
-			rc = hdev->session_etb((void *) inst->session,
-					&frame_data);
+			rc = call_hfi_op(hdev, session_etb, (void *)
+					inst->session, &frame_data);
 			if (!rc)
 				msm_vidc_debugfs_update(inst,
 					MSM_VIDC_DEBUGFS_EVENT_ETB);
@@ -1657,16 +1660,16 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				seq_hdr.seq_hdr = (u8 *) vb->v4l2_planes[0].
 					m.userptr;
 				seq_hdr.seq_hdr_len = vb->v4l2_planes[0].length;
-				rc = hdev->session_get_seq_hdr((void *)
-						inst->session, &seq_hdr);
+				rc = call_hfi_op(hdev, session_get_seq_hdr,
+					(void *) inst->session, &seq_hdr);
 				if (!rc) {
 					inst->vb2_seq_hdr = vb;
 					dprintk(VIDC_DBG, "Seq_hdr: %p\n",
 						inst->vb2_seq_hdr);
 				}
 			} else {
-				rc = hdev->session_ftb((void *)
-					inst->session, &frame_data);
+				rc = call_hfi_op(hdev, session_ftb,
+					(void *) inst->session, &frame_data);
 			if (!rc)
 				msm_vidc_debugfs_update(inst,
 					MSM_VIDC_DEBUGFS_EVENT_FTB);
@@ -1705,7 +1708,7 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	}
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)]);
-	rc = hdev->session_get_buf_req((void *) inst->session);
+	rc = call_hfi_op(hdev, session_get_buf_req, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get property\n");
 		goto exit;
@@ -1766,9 +1769,8 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 				init_completion(
 				   &inst->completions[SESSION_MSG_INDEX
 				   (SESSION_RELEASE_BUFFER_DONE)]);
-				rc = hdev->session_release_buffers(
-						(void *) inst->session,
-							&buffer_info);
+				rc = call_hfi_op(hdev, session_release_buffers,
+					(void *)inst->session, &buffer_info);
 				if (rc)
 					dprintk(VIDC_WARN,
 						"Rel scrtch buf fail:0x%x, %d",
@@ -1832,9 +1834,8 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 				init_completion(
 				   &inst->completions[SESSION_MSG_INDEX
 				   (SESSION_RELEASE_BUFFER_DONE)]);
-				rc = hdev->session_release_buffers(
-						(void *) inst->session,
-							&buffer_info);
+				rc = call_hfi_op(hdev, session_release_buffers,
+					(void *)inst->session, &buffer_info);
 				if (rc)
 					dprintk(VIDC_WARN,
 						"Rel prst buf fail:0x%x, %d",
@@ -1878,7 +1879,7 @@ int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
 		rc = -EAGAIN;
 		goto exit;
 	}
-	rc = hdev->session_set_property((void *)inst->session,
+	rc = call_hfi_op(hdev, session_set_property, (void *)inst->session,
 			ptype, pdata);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set hal property for framesize\n");
@@ -1916,10 +1917,12 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	if (msm_comm_release_scratch_buffers(inst))
 		dprintk(VIDC_WARN, "Failed to release scratch buffers\n");
 	if (inst->mode == VIDC_SECURE) {
-		domain = hdev->get_domain(hdev->hfi_device_data, CP_MAP);
+		domain = call_hfi_op(hdev, get_domain,
+				hdev->hfi_device_data, CP_MAP);
 		smem_flags |= SMEM_SECURE;
 	} else
-		domain = hdev->get_domain(hdev->hfi_device_data, NS_MAP);
+		domain = call_hfi_op(hdev, get_domain,
+				hdev->hfi_device_data, NS_MAP);
 
 	if (scratch_buf->buffer_size) {
 		for (i = 0; i < scratch_buf->buffer_count_actual;
@@ -1946,8 +1949,8 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			dprintk(VIDC_DBG, "Scratch buffer address: %x",
 					buffer_info.align_device_addr);
-			rc = hdev->session_set_buffers(
-					(void *) inst->session,	&buffer_info);
+			rc = call_hfi_op(hdev, session_set_buffers,
+				(void *) inst->session, &buffer_info);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"vidc_hal_session_set_buffers failed");
@@ -2000,10 +2003,12 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 	}
 
 	if (inst->mode == VIDC_SECURE) {
-		domain = hdev->get_domain(hdev->hfi_device_data, CP_MAP);
+		domain = call_hfi_op(hdev, get_domain,
+				hdev->hfi_device_data, CP_MAP);
 		flags |= SMEM_SECURE;
 	} else
-		domain = hdev->get_domain(hdev->hfi_device_data, NS_MAP);
+		domain = call_hfi_op(hdev, get_domain,
+				hdev->hfi_device_data, NS_MAP);
 
 	if (persist_buf->buffer_size) {
 		for (i = 0;	i <	persist_buf->buffer_count_actual; i++) {
@@ -2029,8 +2034,8 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 			buffer_info.align_device_addr = handle->device_addr;
 			dprintk(VIDC_DBG, "Persist buffer address: %x",
 					buffer_info.align_device_addr);
-			rc = hdev->session_set_buffers(
-				(void *) inst->session, &buffer_info);
+			rc = call_hfi_op(hdev, session_set_buffers,
+					(void *) inst->session, &buffer_info);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"vidc_hal_session_set_buffers failed");
@@ -2146,7 +2151,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 			dprintk(VIDC_WARN,
 			"FLUSH BUG: Pending q not empty! It should be empty\n");
 		}
-		rc = hdev->session_flush(inst->session,
+		rc = call_hfi_op(hdev, session_flush, inst->session,
 				HAL_FLUSH_OUTPUT);
 	} else {
 		if (!list_empty(&inst->pendingq)) {
@@ -2167,7 +2172,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				kfree(temp);
 			}
 		}
-		rc = hdev->session_flush(inst->session,
+		rc = call_hfi_op(hdev, session_flush, inst->session,
 				HAL_FLUSH_ALL);
 	}
 	mutex_unlock(&inst->sync_lock);
@@ -2246,6 +2251,7 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	}
 	hdev = core->device;
 	if (core->state == VIDC_CORE_INIT_DONE)
-		rc = hdev->core_trigger_ssr(hdev->hfi_device_data, type);
+		rc = call_hfi_op(hdev, core_trigger_ssr,
+				hdev->hfi_device_data, type);
 	return rc;
 }

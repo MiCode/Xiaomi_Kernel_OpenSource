@@ -423,8 +423,8 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 				buffer_info.extradata_addr = 0;
 				buffer_info.extradata_size = 0;
 			}
-			rc = hdev->session_set_buffers(
-				(void *)inst->session, &buffer_info);
+			rc = call_hfi_op(hdev, session_set_buffers,
+					(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
 				"vidc_hal_session_set_buffers failed");
@@ -501,8 +501,8 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 			else
 				buffer_info.extradata_addr = 0;
 			buffer_info.response_required = false;
-			rc = hdev->session_release_buffers(
-					(void *)inst->session, &buffer_info);
+			rc = call_hfi_op(hdev, session_release_buffers,
+				(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
 				"vidc_hal_session_release_buffers failed");
@@ -627,7 +627,8 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		} else {
 			switch (fmt->fourcc) {
 			case V4L2_PIX_FMT_NV12:
-				hdev->get_stride_scanline(COLOR_FMT_NV12,
+				call_hfi_op(hdev, get_stride_scanline,
+					COLOR_FMT_NV12,
 					inst->prop.width, inst->prop.height,
 					&stride, &scanlines);
 				break;
@@ -902,8 +903,8 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 
 			new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
 			new_buf_count.buffer_count_actual = *num_buffers;
-			rc = hdev->session_set_property(inst->session,
-					property_id, &new_buf_count);
+			rc = call_hfi_op(hdev, session_set_property,
+				inst->session, property_id, &new_buf_count);
 
 		}
 		bufreq = &inst->buff_req.buffer[HAL_BUFFER_OUTPUT];
@@ -1224,9 +1225,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			property_id,
 			msm_vdec_ctrls[control_idx].id,
 			control.value);
-			rc = hdev->session_set_property((void *)
-				inst->session, property_id,
-					pdata);
+			rc = call_hfi_op(hdev, session_set_property, (void *)
+				inst->session, property_id, pdata);
 	}
 
 	return rc;

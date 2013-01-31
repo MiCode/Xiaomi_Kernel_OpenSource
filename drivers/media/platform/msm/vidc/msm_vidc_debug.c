@@ -67,13 +67,17 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "state: %d\n", core->state);
 	write_str(&dbg_buf, "base addr: 0x%x\n",
-		hdev->get_fw_info(hdev->hfi_device_data, FW_BASE_ADDRESS));
+		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
+					FW_BASE_ADDRESS));
 	write_str(&dbg_buf, "register_base: 0x%x\n",
-		hdev->get_fw_info(hdev->hfi_device_data, FW_REGISTER_BASE));
+		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
+					FW_REGISTER_BASE));
 	write_str(&dbg_buf, "register_size: %u\n",
-		hdev->get_fw_info(hdev->hfi_device_data, FW_REGISTER_SIZE));
+		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
+					FW_REGISTER_SIZE));
 	write_str(&dbg_buf, "irq: %u\n",
-		hdev->get_fw_info(hdev->hfi_device_data, FW_IRQ));
+		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
+					FW_IRQ));
 	for (i = SYS_MSG_START; i < SYS_MSG_END; i++) {
 		write_str(&dbg_buf, "completions[%d]: %s\n", i,
 			completion_done(&core->completions[SYS_MSG_INDEX(i)]) ?

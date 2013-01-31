@@ -93,7 +93,7 @@ int msm_vidc_get_iommu_maps(void *instance,
 
 	hdev = inst->core->device;
 
-	return hdev->iommu_get_map(hdev->hfi_device_data, maps);
+	return call_hfi_op(hdev, iommu_get_map, hdev->hfi_device_data, maps);
 }
 
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
