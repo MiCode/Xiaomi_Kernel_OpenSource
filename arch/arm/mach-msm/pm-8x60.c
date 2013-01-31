@@ -670,7 +670,7 @@ static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 	int64_t time = 0;
 
 	if (msm_pm_init_data.use_sync_timer)
-		return sched_clock();
+		return ktime_to_ns(ktime_get());
 
 	time = msm_timer_get_sclk_time(period);
 	if (!time)
@@ -682,7 +682,7 @@ static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 static int64_t msm_pm_timer_exit_suspend(int64_t time, int64_t period)
 {
 	if (msm_pm_init_data.use_sync_timer)
-		return sched_clock() - time;
+		return ktime_to_ns(ktime_get()) - time;
 
 	if (time != 0) {
 		int64_t end_time = msm_timer_get_sclk_time(NULL);
