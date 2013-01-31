@@ -63,6 +63,8 @@ static int msm8974_auxpcm_rate = 8000;
 
 /* It takes about 13ms for Class-D PAs to ramp-up */
 #define EXT_CLASS_D_EN_DELAY 13000
+#define EXT_CLASS_D_DIS_DELAY 3000
+#define EXT_CLASS_D_DELAY_DELTA 2000
 
 #define NUM_OF_AUXPCM_GPIOS 4
 
@@ -117,6 +119,16 @@ static char *msm_auxpcm_gpio_name[][2] = {
 
 void *lpaif_pri_muxsel_virt_addr;
 
+struct msm8974_liquid_dock_dev {
+	int dock_plug_gpio;
+	int dock_plug_irq;
+	int dock_plug_det;
+	struct snd_soc_dapm_context *dapm;
+	struct work_struct irq_work;
+};
+
+static struct msm8974_liquid_dock_dev *msm8974_liquid_dock_dev;
+
 /* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
 enum {
 	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
@@ -143,6 +155,7 @@ static struct mutex cdc_mclk_mutex;
 static struct q_clkdiv *codec_clk;
 static int clk_users;
 static atomic_t auxpcm_rsc_ref;
+
 
 static int msm8974_liquid_ext_spk_power_amp_init(void)
 {
@@ -178,23 +191,130 @@ static int msm8974_liquid_ext_spk_power_amp_init(void)
 
 static void msm8974_liquid_ext_spk_power_amp_enable(u32 on)
 {
-	if (on)
+	if (on) {
 		regulator_enable(ext_spk_amp_regulator);
-	else
+		gpio_direction_output(ext_spk_amp_gpio, on);
+		/*time takes enable the external power amplifier*/
+		usleep_range(EXT_CLASS_D_EN_DELAY,
+			     EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	} else {
+		gpio_direction_output(ext_spk_amp_gpio, on);
 		regulator_disable(ext_spk_amp_regulator);
+		/*time takes disable the external power amplifier*/
+		usleep_range(EXT_CLASS_D_DIS_DELAY,
+			     EXT_CLASS_D_DIS_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	}
 
-	gpio_direction_output(ext_spk_amp_gpio, on);
-	usleep_range(EXT_CLASS_D_EN_DELAY, EXT_CLASS_D_EN_DELAY);
 	pr_debug("%s: %s external speaker PAs.\n", __func__,
 			on ? "Enable" : "Disable");
 }
 
+static void msm8974_liquid_docking_irq_work(struct work_struct *work)
+{
+	struct msm8974_liquid_dock_dev *dock_dev =
+		container_of(work,
+					 struct msm8974_liquid_dock_dev,
+					 irq_work);
+
+	struct snd_soc_dapm_context *dapm = dock_dev->dapm;
+
+
+	mutex_lock(&dapm->codec->mutex);
+	dock_dev->dock_plug_det =
+		gpio_get_value(dock_dev->dock_plug_gpio);
+
+
+	if (0 == dock_dev->dock_plug_det) {
+		if ((msm8974_ext_spk_pamp & LO_1_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_3_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_4_SPK_AMP))
+			msm8974_liquid_ext_spk_power_amp_enable(1);
+	} else {
+		if ((msm8974_ext_spk_pamp & LO_1_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_3_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_4_SPK_AMP))
+			msm8974_liquid_ext_spk_power_amp_enable(0);
+	}
+
+	mutex_unlock(&dapm->codec->mutex);
+
+}
+
+
+static irqreturn_t msm8974_liquid_docking_irq_handler(int irq, void *dev)
+{
+	struct msm8974_liquid_dock_dev *dock_dev = dev;
+
+	/* switch speakers should not run in interrupt context */
+	schedule_work(&dock_dev->irq_work);
+
+	return IRQ_HANDLED;
+}
+
+static int msm8974_liquid_init_docking(struct snd_soc_dapm_context *dapm)
+{
+	int ret = 0;
+	int dock_plug_gpio = 0;
+
+	/* plug in docking speaker+plug in device OR unplug one of them */
+	u32 dock_plug_irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+
+	dock_plug_gpio = of_get_named_gpio(spdev->dev.of_node,
+					   "qcom,dock-plug-det-irq", 0);
+
+	if (dock_plug_gpio >= 0) {
+
+		msm8974_liquid_dock_dev =
+		 kzalloc(sizeof(*msm8974_liquid_dock_dev), GFP_KERNEL);
+
+		if (!msm8974_liquid_dock_dev) {
+			pr_err("msm8974_liquid_dock_dev alloc fail.\n");
+			return -ENOMEM;
+		}
+
+		msm8974_liquid_dock_dev->dock_plug_gpio = dock_plug_gpio;
+
+		ret = gpio_request(msm8974_liquid_dock_dev->dock_plug_gpio,
+					   "dock-plug-det-irq");
+		if (ret) {
+			pr_err("%s:failed request msm8974_liquid_dock_plug_gpio.\n",
+				__func__);
+			return -EINVAL;
+		}
+
+		msm8974_liquid_dock_dev->dock_plug_det =
+			gpio_get_value(msm8974_liquid_dock_dev->dock_plug_gpio);
+
+		msm8974_liquid_dock_dev->dock_plug_irq =
+			gpio_to_irq(msm8974_liquid_dock_dev->dock_plug_gpio);
+
+		msm8974_liquid_dock_dev->dapm = dapm;
+
+		ret = request_irq(msm8974_liquid_dock_dev->dock_plug_irq,
+				  msm8974_liquid_docking_irq_handler,
+				  dock_plug_irq_flags,
+				  "liquid_dock_plug_irq",
+				  msm8974_liquid_dock_dev);
+
+		INIT_WORK(
+			&msm8974_liquid_dock_dev->irq_work,
+			msm8974_liquid_docking_irq_work);
+	}
+
+	return 0;
+}
+
+
+
+
 static void msm8974_ext_spk_power_amp_on(u32 spk)
 {
 	if (spk & (LO_1_SPK_AMP |
-					  LO_3_SPK_AMP |
-					  LO_2_SPK_AMP |
-					  LO_4_SPK_AMP)) {
+		   LO_3_SPK_AMP |
+		   LO_2_SPK_AMP |
+		   LO_4_SPK_AMP)) {
 
 		pr_debug("%s() External Left/Right Speakers already turned on. spk = 0x%08x\n",
 						__func__, spk);
@@ -206,7 +326,9 @@ static void msm8974_ext_spk_power_amp_on(u32 spk)
 			(msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
 			(msm8974_ext_spk_pamp & LO_4_SPK_AMP)) {
 
-			if (ext_spk_amp_gpio >= 0)
+			if (ext_spk_amp_gpio >= 0 &&
+				msm8974_liquid_dock_dev != NULL &&
+				msm8974_liquid_dock_dev->dock_plug_det == 0)
 				msm8974_liquid_ext_spk_power_amp_enable(1);
 		}
 	} else  {
@@ -220,15 +342,17 @@ static void msm8974_ext_spk_power_amp_on(u32 spk)
 static void msm8974_ext_spk_power_amp_off(u32 spk)
 {
 	if (spk & (LO_1_SPK_AMP |
-					  LO_3_SPK_AMP |
-					  LO_2_SPK_AMP |
-					  LO_4_SPK_AMP)) {
+		   LO_3_SPK_AMP |
+		   LO_2_SPK_AMP |
+		   LO_4_SPK_AMP)) {
 
 		pr_debug("%s Left and right speakers case spk = 0x%08x",
 				  __func__, spk);
 
 		if (!msm8974_ext_spk_pamp) {
-			if (ext_spk_amp_gpio >= 0)
+			if (ext_spk_amp_gpio >= 0 &&
+				msm8974_liquid_dock_dev != NULL &&
+				msm8974_liquid_dock_dev->dock_plug_det == 0)
 				msm8974_liquid_ext_spk_power_amp_enable(0);
 			msm8974_ext_spk_pamp = 0;
 		}
@@ -824,6 +948,13 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (err) {
 		pr_err("%s: LiQUID 8974 CLASS_D PAs init failed (%d)\n",
 			__func__, err);
+		return err;
+	}
+
+	err = msm8974_liquid_init_docking(dapm);
+	if (err) {
+		pr_err("%s: LiQUID 8974 init Docking stat IRQ failed (%d)\n",
+			   __func__, err);
 		return err;
 	}
 
@@ -1725,6 +1856,13 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	spdev = pdev;
 	ext_spk_amp_regulator = NULL;
 
+	mutex_init(&cdc_mclk_mutex);
+	atomic_set(&auxpcm_rsc_ref, 0);
+
+	spdev = pdev;
+	ext_spk_amp_regulator = NULL;
+	msm8974_liquid_dock_dev = NULL;
+
 	lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
 	if (lpaif_pri_muxsel_virt_addr == NULL) {
 		pr_err("%s Pri muxsel virt addr is null\n", __func__);
@@ -1748,6 +1886,19 @@ static int __devexit msm8974_asoc_machine_remove(struct platform_device *pdev)
 	gpio_free(pdata->mclk_gpio);
 	if (ext_spk_amp_gpio >= 0)
 		gpio_free(ext_spk_amp_gpio);
+
+	if (msm8974_liquid_dock_dev != NULL) {
+		if (msm8974_liquid_dock_dev->dock_plug_gpio)
+			gpio_free(msm8974_liquid_dock_dev->dock_plug_gpio);
+
+		if (msm8974_liquid_dock_dev->dock_plug_irq)
+			free_irq(msm8974_liquid_dock_dev->dock_plug_irq,
+				 msm8974_liquid_dock_dev);
+
+		kfree(msm8974_liquid_dock_dev);
+		msm8974_liquid_dock_dev = NULL;
+	}
+
 	iounmap(lpaif_pri_muxsel_virt_addr);
 	snd_soc_unregister_card(card);
 
