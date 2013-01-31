@@ -117,14 +117,14 @@ static void msm_comm_unvote_buses(struct msm_vidc_core *core,
 
 	for (i = 0; i < MSM_VIDC_MAX_DEVICES; i++) {
 		if ((mtype & DDR_MEM) &&
-			call_hfi_op(hdev, scale_bus, hdev->hfi_device_data,
-				0, i, DDR_MEM))
+			call_hfi_op(hdev, unvote_bus, hdev->hfi_device_data,
+				i, DDR_MEM))
 			dprintk(VIDC_WARN,
 				"Failed to unvote for DDR accesses\n");
 
 		if ((mtype & OCMEM_MEM) &&
-			call_hfi_op(hdev, scale_bus, hdev->hfi_device_data,
-				0, i, OCMEM_MEM))
+			call_hfi_op(hdev, unvote_bus, hdev->hfi_device_data,
+				i, OCMEM_MEM))
 			dprintk(VIDC_WARN,
 				"Failed to unvote for OCMEM accesses\n");
 	}

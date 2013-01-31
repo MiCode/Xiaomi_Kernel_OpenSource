@@ -2517,6 +2517,37 @@ static int venus_hfi_scale_bus(void *dev, int load,
 	return rc;
 }
 
+static int venus_hfi_unvote_bus(void *dev,
+				enum session_type type, enum mem_type mtype)
+{
+	int rc = 0;
+	u32 handle = 0;
+	struct venus_hfi_device *device = dev;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s invalid device handle %p",
+			__func__, device);
+		return -EINVAL;
+	}
+
+	if (mtype & DDR_MEM)
+		handle = device->resources.bus_info.ddr_handle[type];
+	if (mtype & OCMEM_MEM)
+		handle = device->resources.bus_info.ocmem_handle[type];
+
+	if (handle) {
+		rc = msm_bus_scale_client_update_request(
+				handle, 0);
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to unvote bus: %d\n", rc);
+	} else {
+		dprintk(VIDC_ERR, "Failed to unvote bus, mtype: %d\n",
+				mtype);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
 static int venus_hfi_set_ocmem(void *dev, struct ocmem_buf *ocmem)
 {
 	struct vidc_resource_hdr rhdr;
@@ -3078,6 +3109,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_get_property = venus_hfi_session_get_property;
 	hdev->scale_clocks = venus_hfi_scale_clocks;
 	hdev->scale_bus = venus_hfi_scale_bus;
+	hdev->unvote_bus = venus_hfi_unvote_bus;
 	hdev->unset_ocmem = venus_hfi_unset_ocmem;
 	hdev->alloc_ocmem = venus_hfi_alloc_ocmem;
 	hdev->free_ocmem = venus_hfi_free_ocmem;
