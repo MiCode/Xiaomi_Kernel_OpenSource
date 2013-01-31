@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,8 @@ struct ion_iommu_priv_data {
 	unsigned long size;
 };
 
+#define MAX_VMAP_RETRIES 10
+
 static int ion_iommu_heap_allocate(struct ion_heap *heap,
 				      struct ion_buffer *buffer,
 				      unsigned long size, unsigned long align,
@@ -49,7 +51,9 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 	if (msm_use_iommu()) {
 		struct scatterlist *sg;
 		struct sg_table *table;
-		unsigned int i;
+		unsigned int i, j, k;
+		void *ptr = NULL;
+		unsigned int npages_to_vmap, total_pages;
 
 		data = kmalloc(sizeof(*data), GFP_KERNEL);
 		if (!data)
@@ -77,12 +81,44 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 
 		for_each_sg(table->sgl, sg, table->nents, i) {
 			data->pages[i] = alloc_page(
-				GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO);
+				GFP_KERNEL | __GFP_HIGHMEM);
 			if (!data->pages[i])
 				goto err3;
 
 			sg_set_page(sg, data->pages[i], PAGE_SIZE, 0);
 			sg_dma_address(sg) = sg_phys(sg);
+		}
+
+		/*
+		 * As an optimization, we omit __GFP_ZERO from
+		 * alloc_page above and manually zero out all of the
+		 * pages in one fell swoop here. To safeguard against
+		 * insufficient vmalloc space, we only vmap
+		 * `npages_to_vmap' at a time, starting with a
+		 * conservative estimate of 1/8 of the total number of
+		 * vmalloc pages available.
+		 */
+		npages_to_vmap = ((VMALLOC_END - VMALLOC_START)/8)
+			>> PAGE_SHIFT;
+		total_pages = data->nrpages;
+		for (j = 0; j < total_pages; j += npages_to_vmap) {
+			npages_to_vmap = min(npages_to_vmap, total_pages - j);
+			for (k = 0; k < MAX_VMAP_RETRIES && npages_to_vmap;
+			     ++k) {
+				ptr = vmap(&data->pages[j], npages_to_vmap,
+					VM_IOREMAP, pgprot_kernel);
+				if (ptr)
+					break;
+				else
+					npages_to_vmap >>= 1;
+			}
+			if (!ptr) {
+				pr_err("Couldn't vmap the pages for zeroing\n");
+				ret = -ENOMEM;
+				goto err3;
+			}
+			memset(ptr, 0, npages_to_vmap * PAGE_SIZE);
+			vunmap(ptr);
 		}
 
 		if (!ION_IS_CACHED(flags))
