@@ -1495,6 +1495,9 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 	if (ep == NULL || req == NULL || mEp->ep.desc == NULL)
 		return -EINVAL;
 
+	if (!ci->softconnect)
+		return -ENODEV;
+
 	spin_lock_irqsave(mEp->lock, flags);
 	if (!ci->configured && mEp->type !=
 		USB_ENDPOINT_XFER_CONTROL) {
