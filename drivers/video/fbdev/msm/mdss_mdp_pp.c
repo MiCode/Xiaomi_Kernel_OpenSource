@@ -783,6 +783,7 @@ int mdss_mdp_pp_init(struct device *dev)
 		for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
 			data[i] = i;
 
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		/* Initialize Histogram LUT for all DSPPs */
 		for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
 			offset = MDSS_MDP_REG_DSPP_OFFSET(i) +
@@ -791,6 +792,7 @@ int mdss_mdp_pp_init(struct device *dev)
 			pp_update_hist_lut(offset,
 					&mdss_pp_res->enhist_disp_cfg[i]);
 		}
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	}
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
