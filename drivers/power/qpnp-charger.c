@@ -170,6 +170,9 @@
  * @term_current:		the charging based term current
  * @safe_current:		battery safety current setting
  * @revision:			PMIC revision
+ * @thermal_levels		amount of thermal mitigation levels
+ * @thermal_mitigation		thermal mitigation level values
+ * @therm_lvl_sel		thermal mitigation level selection
  * @dc_psy			power supply to export information to userspace
  * @usb_psy			power supply to export information to userspace
  * @bms_psy			power supply to export information to userspace
@@ -205,6 +208,9 @@ struct qpnp_chg_chip {
 	unsigned int			term_current;
 	unsigned int			safe_current;
 	unsigned int			revision;
+	unsigned int			thermal_levels;
+	unsigned int			therm_lvl_sel;
+	unsigned int			*thermal_mitigation;
 	struct power_supply		dc_psy;
 	struct power_supply		*usb_psy;
 	struct power_supply		*bms_psy;
@@ -464,6 +470,7 @@ qpnp_batt_property_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		return 1;
 	default:
 		break;
@@ -492,6 +499,29 @@ qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
 	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
 			CHGR_ON_BAT_FORCE_BIT,
 			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
+}
+
+static int
+qpnp_chg_buck_control(struct qpnp_chg_chip *chip, int enable)
+{
+	int rc;
+
+	if (chip->charging_disabled && enable) {
+		pr_debug("Charging disabled\n");
+		return 0;
+	}
+
+	rc = qpnp_chg_charge_en(chip, enable);
+	if (rc) {
+		pr_err("Failed to control charging %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_force_run_on_batt(chip, !enable);
+	if (rc)
+		pr_err("Failed to control charging %d\n", rc);
+
+	return rc;
 }
 
 static
@@ -569,6 +599,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 };
 
 static char *pm_power_supplied_to[] = {
@@ -884,32 +915,13 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = !(chip->charging_disabled);
 		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int
-qpnp_batt_power_set_property(struct power_supply *psy,
-				  enum power_supply_property psp,
-				  const union power_supply_propval *val)
-{
-	struct qpnp_chg_chip *chip = container_of(psy, struct qpnp_chg_chip,
-								batt_psy);
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		chip->charging_disabled = !(val->intval);
-		qpnp_chg_charge_en(chip, !chip->charging_disabled);
-		qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
+		val->intval = chip->therm_lvl_sel;
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	power_supply_changed(&chip->batt_psy);
 	return 0;
 }
 
@@ -1066,6 +1078,60 @@ qpnp_chg_vddmax_set(struct qpnp_chg_chip *chip, int voltage)
 		chip->chgr_base + CHGR_VDD_MAX, 1);
 }
 
+static void
+qpnp_chg_set_appropriate_battery_current(struct qpnp_chg_chip *chip)
+{
+	unsigned int chg_current = chip->max_bat_chg_current;
+
+	if (chip->therm_lvl_sel != 0 && chip->thermal_mitigation)
+		chg_current = min(chg_current,
+			chip->thermal_mitigation[chip->therm_lvl_sel]);
+
+	pr_debug("setting %d mA\n", chg_current);
+	qpnp_chg_ibatmax_set(chip, chg_current);
+}
+
+static void
+qpnp_batt_system_temp_level_set(struct qpnp_chg_chip *chip, int lvl_sel)
+{
+	if (lvl_sel >= 0 && lvl_sel < chip->thermal_levels) {
+		chip->therm_lvl_sel = lvl_sel;
+		if (lvl_sel == (chip->thermal_levels - 1)) {
+			/* disable charging if highest value selected */
+			qpnp_chg_buck_control(chip, 0);
+		} else {
+			qpnp_chg_buck_control(chip, 1);
+			qpnp_chg_set_appropriate_battery_current(chip);
+		}
+	} else {
+		pr_err("Unsupported level selected %d\n", lvl_sel);
+	}
+}
+
+static int
+qpnp_batt_power_set_property(struct power_supply *psy,
+				  enum power_supply_property psp,
+				  const union power_supply_propval *val)
+{
+	struct qpnp_chg_chip *chip = container_of(psy, struct qpnp_chg_chip,
+								batt_psy);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		chip->charging_disabled = !(val->intval);
+		qpnp_chg_charge_en(chip, !chip->charging_disabled);
+		qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
+		break;
+	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
+		qpnp_batt_system_temp_level_set(chip, val->intval);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	power_supply_changed(&chip->batt_psy);
+	return 0;
+}
 
 static void
 qpnp_chg_setup_flags(struct qpnp_chg_chip *chip)
@@ -1325,6 +1391,29 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	chip->use_default_batt_values = of_property_read_bool(spmi->dev.of_node,
 					"qcom,chg-use-default-batt-values");
 
+	of_get_property(spmi->dev.of_node, "qcom,chg-thermal-mitigation",
+		&(chip->thermal_levels));
+
+	if (chip->thermal_levels > sizeof(int)) {
+		chip->thermal_mitigation = kzalloc(
+			chip->thermal_levels,
+			GFP_KERNEL);
+
+		if (chip->thermal_mitigation == NULL) {
+			pr_err("thermal mitigation kzalloc() failed.\n");
+			goto fail_chg_enable;
+		}
+
+		chip->thermal_levels /= sizeof(int);
+		rc = of_property_read_u32_array(spmi->dev.of_node,
+				"qcom,chg-thermal-mitigation",
+				chip->thermal_mitigation, chip->thermal_levels);
+		if (rc) {
+			pr_err("qcom,chg-thermal-mitigation missing in dt\n");
+			goto fail_chg_enable;
+		}
+	}
+
 	/* Disable charging when faking battery values */
 	if (chip->use_default_batt_values)
 		chip->charging_disabled = true;
@@ -1475,6 +1564,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 unregister_dc:
 	power_supply_unregister(&chip->dc_psy);
 fail_chg_enable:
+	kfree(chip->thermal_mitigation);
 	kfree(chip);
 	dev_set_drvdata(&spmi->dev, NULL);
 	return rc;
