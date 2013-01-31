@@ -3388,24 +3388,26 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 {
 	struct measure_clk *clk = to_measure_clk(c);
 	unsigned long flags;
-	u32 regval, clk_sel;
+	u32 regval, clk_sel, found = 0;
 	int i;
-	struct measure_mux_entry *array[] = {
+	static const struct measure_mux_entry *array[] = {
 		measure_mux_GCC,
 		measure_mux_MMSS,
 		measure_mux_LPASS,
 		measure_mux_APSS,
 		NULL
 	};
-	struct measure_mux_entry *mux = array[0];
+	const struct measure_mux_entry *mux = array[0];
 
 	if (!parent)
 		return -EINVAL;
 
-	for (i = 0; array[i]; i++) {
+	for (i = 0; array[i] && !found; i++) {
 		for (mux = array[i]; mux->c != &dummy_clk; mux++)
-			if (mux->c == parent)
+			if (mux->c == parent) {
+				found = 1;
 				break;
+			}
 	}
 
 	if (mux->c == &dummy_clk)
