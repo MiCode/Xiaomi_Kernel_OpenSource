@@ -28,7 +28,7 @@
 #include <linux/wakelock.h>
 #include <linux/kfifo.h>
 #include <linux/of.h>
-
+#include <mach/msm_ipc_logging.h>
 #include <mach/sps.h>
 #include <mach/bam_dmux.h>
 #include <mach/msm_smsm.h>
@@ -305,7 +305,6 @@ static int in_global_reset;
 #define LOG_MESSAGE_MAX_SIZE 80
 struct kfifo bam_dmux_state_log;
 static uint32_t bam_dmux_state_logging_disabled;
-static DEFINE_SPINLOCK(bam_dmux_logging_spinlock);
 static int bam_dmux_uplink_vote;
 static int bam_dmux_power_state;
 
@@ -319,6 +318,10 @@ do { \
 	pr_err(fmt); \
 } while (0)
 
+static void *bam_ipc_log_txt;
+
+#define BAM_IPC_LOG_PAGES 5
+
 /**
  * Log a state change along with a small message.
  *
@@ -327,7 +330,6 @@ do { \
 static void bam_dmux_log(const char *fmt, ...)
 {
 	char buff[LOG_MESSAGE_MAX_SIZE];
-	unsigned long flags;
 	va_list arg_list;
 	unsigned long long t_now;
 	unsigned long nanosec_rem;
@@ -372,22 +374,8 @@ static void bam_dmux_log(const char *fmt, ...)
 	len += vscnprintf(buff + len, sizeof(buff) - len, fmt, arg_list);
 	va_end(arg_list);
 	memset(buff + len, 0x0, sizeof(buff) - len);
-
-	spin_lock_irqsave(&bam_dmux_logging_spinlock, flags);
-	if (kfifo_avail(&bam_dmux_state_log) < LOG_MESSAGE_MAX_SIZE) {
-		char junk[LOG_MESSAGE_MAX_SIZE];
-		int ret;
-
-		ret = kfifo_out(&bam_dmux_state_log, junk, sizeof(junk));
-		if (ret != LOG_MESSAGE_MAX_SIZE) {
-			pr_err("%s: unable to empty log %d\n", __func__, ret);
-			spin_unlock_irqrestore(&bam_dmux_logging_spinlock,
-					flags);
-			return;
-		}
-	}
-	kfifo_in(&bam_dmux_state_log, buff, sizeof(buff));
-	spin_unlock_irqrestore(&bam_dmux_logging_spinlock, flags);
+	if (bam_ipc_log_txt)
+		ipc_log_string(bam_ipc_log_txt, buff);
 }
 
 static inline void set_tx_timestamp(struct tx_pkt_info *pkt)
@@ -1378,60 +1366,6 @@ static int debug_stats(char *buf, int max)
 	return i;
 }
 
-static int debug_log(char *buff, int max, loff_t *ppos)
-{
-	unsigned long flags;
-	int i = 0;
-
-	if (bam_dmux_state_logging_disabled) {
-		i += scnprintf(buff - i, max - i, "Logging disabled\n");
-		return i;
-	}
-
-	if (*ppos == 0) {
-		i += scnprintf(buff - i, max - i,
-			"<DMUX> timestamp FLAGS [Message]\n"
-			"FLAGS:\n"
-			"\tD: 1 = Power collapse disabled\n"
-			"\tR: 1 = in global reset\n"
-			"\tP: 1 = BAM is powered up\n"
-			"\tA: 1 = BAM initialized and ready for data\n"
-			"\n"
-			"\tV: 1 = Uplink vote for power\n"
-			"\tU: 1 = Uplink active\n"
-			"\tW: 1 = Uplink Wait-for-ack\n"
-			"\tA: 1 = Uplink ACK received\n"
-			"\t#: >=1 On-demand uplink vote\n"
-			"\tD: 1 = Disconnect ACK active\n"
-				);
-		buff += i;
-	}
-
-	spin_lock_irqsave(&bam_dmux_logging_spinlock, flags);
-	while (kfifo_len(&bam_dmux_state_log)
-			&& (i + LOG_MESSAGE_MAX_SIZE) < max) {
-		int k_len;
-		k_len = kfifo_out(&bam_dmux_state_log,
-				buff, LOG_MESSAGE_MAX_SIZE);
-		if (k_len != LOG_MESSAGE_MAX_SIZE) {
-			pr_err("%s: retrieve failure %d\n", __func__, k_len);
-			break;
-		}
-
-		/* keep non-null portion of string and add line break */
-		k_len = strnlen(buff, LOG_MESSAGE_MAX_SIZE);
-		buff += k_len;
-		i += k_len;
-		if (k_len && *(buff - 1) != '\n') {
-			*buff++ = '\n';
-			++i;
-		}
-	}
-	spin_unlock_irqrestore(&bam_dmux_logging_spinlock, flags);
-
-	return i;
-}
-
 #define DEBUG_BUFMAX 4096
 static char debug_buffer[DEBUG_BUFMAX];
 
@@ -1443,30 +1377,6 @@ static ssize_t debug_read(struct file *file, char __user *buf,
 	return simple_read_from_buffer(buf, count, ppos, debug_buffer, bsize);
 }
 
-static ssize_t debug_read_multiple(struct file *file, char __user *buff,
-				size_t count, loff_t *ppos)
-{
-	int (*util_func)(char *buf, int max, loff_t *) = file->private_data;
-	char *buffer;
-	int bsize;
-
-	buffer = kmalloc(count, GFP_KERNEL);
-	if (!buffer)
-		return -ENOMEM;
-
-	bsize = util_func(buffer, count, ppos);
-
-	if (bsize >= 0) {
-		if (copy_to_user(buff, buffer, bsize)) {
-			kfree(buffer);
-			return -EFAULT;
-		}
-		*ppos += bsize;
-	}
-	kfree(buffer);
-	return bsize;
-}
-
 static int debug_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
@@ -1476,11 +1386,6 @@ static int debug_open(struct inode *inode, struct file *file)
 
 static const struct file_operations debug_ops = {
 	.read = debug_read,
-	.open = debug_open,
-};
-
-static const struct file_operations debug_ops_multiple = {
-	.read = debug_read_multiple,
 	.open = debug_open,
 };
 
@@ -1496,17 +1401,6 @@ static void debug_create(const char *name, mode_t mode,
 				(int)PTR_ERR(file));
 }
 
-static void debug_create_multiple(const char *name, mode_t mode,
-				struct dentry *dent,
-				int (*fill)(char *buf, int max, loff_t *ppos))
-{
-	struct dentry *file;
-
-	file = debugfs_create_file(name, mode, dent, fill, &debug_ops_multiple);
-	if (IS_ERR(file))
-		pr_err("%s: debugfs create failed %d\n", __func__,
-				(int)PTR_ERR(file));
-}
 #endif
 
 static void notify_all(int event, unsigned long data)
@@ -2525,7 +2419,6 @@ static struct platform_driver bam_dmux_driver = {
 
 static int __init bam_dmux_init(void)
 {
-	int ret;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dent;
 
@@ -2534,12 +2427,12 @@ static int __init bam_dmux_init(void)
 		debug_create("tbl", 0444, dent, debug_tbl);
 		debug_create("ul_pkt_cnt", 0444, dent, debug_ul_pkt_cnt);
 		debug_create("stats", 0444, dent, debug_stats);
-		debug_create_multiple("log", 0444, dent, debug_log);
 	}
 #endif
-	ret = kfifo_alloc(&bam_dmux_state_log, PAGE_SIZE, GFP_KERNEL);
-	if (ret) {
-		pr_err("%s: failed to allocate log %d\n", __func__, ret);
+
+	bam_ipc_log_txt = ipc_log_context_create(BAM_IPC_LOG_PAGES, "bam_dmux");
+	if (!bam_ipc_log_txt) {
+		pr_err("%s : unable to create IPC Logging Context", __func__);
 		bam_dmux_state_logging_disabled = 1;
 	}
 
