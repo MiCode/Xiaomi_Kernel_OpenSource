@@ -374,7 +374,7 @@ static struct wled_config_data wled_cfg = {
 	.op_fdbck = true,
 	.ovp_val = WLED_OVP_32V,
 	.boost_curr_lim = WLED_CURR_LIMIT_525mA,
-	.num_strings = 1,
+	.strings = WLED_SECOND_STRING,
 };
 
 static int pm8038_led0_pwm_duty_pcts[56] = {
