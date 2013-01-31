@@ -28,7 +28,13 @@ enum msm_isp_buffer_state {
 	MSM_ISP_BUFFER_STATE_PREPARED,       /* BUF mapped */
 	MSM_ISP_BUFFER_STATE_QUEUED,         /* buf queued */
 	MSM_ISP_BUFFER_STATE_DEQUEUED,       /* in use in VFE */
-	MSM_ISP_BUFFER_STATE_DISPATCHED,     /* sent to userspace */
+	MSM_ISP_BUFFER_STATE_DIVERTED,       /* Sent to other hardware*/
+	MSM_ISP_BUFFER_STATE_DISPATCHED,     /* Sent to HAL*/
+};
+
+enum msm_isp_buffer_flush_t {
+	MSM_ISP_BUFFER_FLUSH_DIVERTED,
+	MSM_ISP_BUFFER_FLUSH_ALL,
 };
 
 struct msm_isp_buffer_mapped_info {
@@ -43,6 +49,8 @@ struct msm_isp_buffer {
 	struct msm_isp_buffer_mapped_info mapped_info[VIDEO_MAX_PLANES];
 	int buf_idx;
 	uint32_t bufq_handle;
+	uint32_t frame_id;
+	struct timeval *tv;
 
 	/*Native buffer*/
 	struct list_head list;
@@ -83,7 +91,13 @@ struct msm_isp_buf_ops {
 	int (*put_buf) (struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index);
 
+	int (*flush_buf) (struct msm_isp_buf_mgr *buf_mgr,
+		uint32_t bufq_handle, enum msm_isp_buffer_flush_t flush_type);
+
 	int (*buf_done) (struct msm_isp_buf_mgr *buf_mgr,
+		uint32_t bufq_handle, uint32_t buf_index,
+		struct timeval *tv, uint32_t frame_id);
+	int (*buf_divert) (struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index,
 		struct timeval *tv, uint32_t frame_id);
 	int (*attach_ctx) (struct msm_isp_buf_mgr *buf_mgr,

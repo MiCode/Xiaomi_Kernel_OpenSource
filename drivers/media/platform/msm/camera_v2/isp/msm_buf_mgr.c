@@ -180,11 +180,10 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
-	if (buf_info->state == MSM_ISP_BUFFER_STATE_DISPATCHED)
-		return 0;
+	if (buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED)
+		return buf_info->state;
 
-	if (buf_info->state == MSM_ISP_BUFFER_STATE_UNUSED ||
-			buf_info->state != MSM_ISP_BUFFER_STATE_INITIALIZED) {
+	if (buf_info->state != MSM_ISP_BUFFER_STATE_INITIALIZED) {
 		pr_err("%s: Invalid buffer state: %d\n",
 			__func__, buf_info->state);
 		return rc;
@@ -317,6 +316,7 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 	case MSM_ISP_BUFFER_STATE_PREPARED:
 	case MSM_ISP_BUFFER_STATE_DEQUEUED:
 	case MSM_ISP_BUFFER_STATE_DISPATCHED:
+	case MSM_ISP_BUFFER_STATE_DIVERTED:
 		if (BUF_SRC(bufq->stream_id))
 			list_add_tail(&buf_info->list, &bufq->head);
 		else
@@ -353,9 +353,17 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
-	if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED) {
+	if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED ||
+		buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED) {
 		buf_info->state = MSM_ISP_BUFFER_STATE_DISPATCHED;
-		if (!(BUF_SRC(bufq->stream_id))) {
+		if ((BUF_SRC(bufq->stream_id))) {
+			rc = msm_isp_put_buf(buf_mgr, buf_info->bufq_handle,
+						buf_info->buf_idx);
+			if (rc < 0) {
+				pr_err("%s: Buf put failed\n", __func__);
+				return rc;
+			}
+		} else {
 			buf_info->vb2_buf->v4l2_buf.timestamp = *tv;
 			buf_info->vb2_buf->v4l2_buf.sequence  = frame_id;
 			buf_mgr->vb2_ops->buf_done(buf_info->vb2_buf);
@@ -365,26 +373,99 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 	return 0;
 }
 
-static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
-	struct msm_isp_qbuf_info *info)
+static int msm_isp_flush_buf(struct msm_isp_buf_mgr *buf_mgr,
+		uint32_t bufq_handle, enum msm_isp_buffer_flush_t flush_type)
 {
-	int rc;
+	int rc = -1, i;
 	struct msm_isp_bufq *bufq = NULL;
-	rc = msm_isp_buf_prepare(buf_mgr, info, NULL);
-	if (rc < 0) {
-		pr_err("%s: Buf prepare failed\n", __func__);
+	struct msm_isp_buffer *buf_info = NULL;
+
+	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
+	if (!bufq) {
+		pr_err("Invalid bufq\n");
 		return rc;
 	}
 
-	bufq = msm_isp_get_bufq(buf_mgr, info->handle);
-	if (BUF_SRC(bufq->stream_id)) {
-		rc = msm_isp_put_buf(buf_mgr, info->handle, info->buf_idx);
-		if (rc < 0) {
-			pr_err("%s: Buf put failed\n", __func__);
-			return rc;
+	for (i = 0; i < bufq->num_bufs; i++) {
+		buf_info = msm_isp_get_buf_ptr(buf_mgr, bufq_handle, i);
+		if (!buf_info) {
+			pr_err("%s: buf not found\n", __func__);
+			continue;
+		}
+
+		if (flush_type == MSM_ISP_BUFFER_FLUSH_DIVERTED &&
+			buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED) {
+			buf_info->state = MSM_ISP_BUFFER_STATE_QUEUED;
+		} else if (flush_type == MSM_ISP_BUFFER_FLUSH_ALL &&
+			(buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED ||
+			buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED ||
+			buf_info->state == MSM_ISP_BUFFER_STATE_DISPATCHED)) {
+			buf_info->state = MSM_ISP_BUFFER_STATE_QUEUED;
 		}
 	}
+	return 0;
+}
 
+static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
+	uint32_t bufq_handle, uint32_t buf_index,
+	struct timeval *tv, uint32_t frame_id)
+{
+	int rc = -1;
+	struct msm_isp_bufq *bufq = NULL;
+	struct msm_isp_buffer *buf_info = NULL;
+
+	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
+	if (!bufq) {
+		pr_err("Invalid bufq\n");
+		return rc;
+	}
+
+	buf_info = msm_isp_get_buf_ptr(buf_mgr, bufq_handle, buf_index);
+	if (!buf_info) {
+		pr_err("%s: buf not found\n", __func__);
+		return rc;
+	}
+
+	if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED) {
+		buf_info->state = MSM_ISP_BUFFER_STATE_DIVERTED;
+		buf_info->tv = tv;
+		buf_info->frame_id = frame_id;
+	}
+
+	return 0;
+}
+
+static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
+	struct msm_isp_qbuf_info *info)
+{
+	int rc = -1, buf_state;
+	struct msm_isp_bufq *bufq = NULL;
+	struct msm_isp_buffer *buf_info = NULL;
+	buf_state = msm_isp_buf_prepare(buf_mgr, info, NULL);
+	if (buf_state < 0) {
+		pr_err("%s: Buf prepare failed\n", __func__);
+		return -EINVAL;
+	}
+
+	if (buf_state == MSM_ISP_BUFFER_STATE_DIVERTED) {
+		buf_info = msm_isp_get_buf_ptr(buf_mgr,
+						info->handle, info->buf_idx);
+		if (info->dirty_buf)
+			msm_isp_put_buf(buf_mgr, info->handle, info->buf_idx);
+		else
+			msm_isp_buf_done(buf_mgr, info->handle, info->buf_idx,
+				buf_info->tv, buf_info->frame_id);
+	} else {
+		bufq = msm_isp_get_bufq(buf_mgr, info->handle);
+		if (BUF_SRC(bufq->stream_id)) {
+			rc = msm_isp_put_buf(buf_mgr,
+					info->handle, info->buf_idx);
+			if (rc < 0) {
+				pr_err("%s: Buf put failed\n", __func__);
+				return rc;
+			}
+		}
+	}
 	return rc;
 }
 
@@ -565,7 +646,9 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 	.get_bufq_handle = msm_isp_get_bufq_handle,
 	.get_buf = msm_isp_get_buf,
 	.put_buf = msm_isp_put_buf,
+	.flush_buf = msm_isp_flush_buf,
 	.buf_done = msm_isp_buf_done,
+	.buf_divert = msm_isp_buf_divert,
 	.attach_ctx = msm_isp_attach_ctx,
 	.detach_ctx = msm_isp_detach_ctx,
 	.buf_mgr_init = msm_isp_init_isp_buf_mgr,
