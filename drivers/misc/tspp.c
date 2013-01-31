@@ -1579,6 +1579,55 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 EXPORT_SYMBOL(tspp_close_channel);
 
 /**
+ * tspp_get_ref_clk_counter - return the TSIF clock reference (TCR) counter.
+ *
+ * @dev: TSPP device (up to TSPP_MAX_DEVICES)
+ * @source: The TSIF source from which the counter should be read
+ * @tcr_counter: the value of TCR counter
+ *
+ * Return  error status
+ *
+ * TCR increments at a rate equal to 27 MHz/256 = 105.47 kHz.
+ * If source is neither TSIF 0 or TSIF1 0 is returned.
+ */
+int tspp_get_ref_clk_counter(u32 dev, enum tspp_source source, u32 *tcr_counter)
+{
+	struct tspp_device *pdev;
+	struct tspp_tsif_device *tsif_device;
+
+	if (!tcr_counter)
+		return -EINVAL;
+
+	pdev = tspp_find_by_id(dev);
+	if (!pdev) {
+		pr_err("tspp_get_ref_clk_counter: can't find device %i\n", dev);
+		return -ENODEV;
+	}
+
+	switch (source) {
+	case TSPP_SOURCE_TSIF0:
+		tsif_device = &pdev->tsif[0];
+		break;
+
+	case TSPP_SOURCE_TSIF1:
+		tsif_device = &pdev->tsif[1];
+		break;
+
+	default:
+		tsif_device = NULL;
+		break;
+	}
+
+	if (tsif_device && tsif_device->ref_count)
+		*tcr_counter = ioread32(tsif_device->base + TSIF_CLK_REF_OFF);
+	else
+		*tcr_counter = 0;
+
+	return 0;
+}
+EXPORT_SYMBOL(tspp_get_ref_clk_counter);
+
+/**
  * tspp_add_filter - add a TSPP filter to a channel.
  *
  * @dev: TSPP device (up to TSPP_MAX_DEVICES)
