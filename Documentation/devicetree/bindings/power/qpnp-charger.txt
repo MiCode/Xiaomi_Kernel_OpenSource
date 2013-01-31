@@ -23,13 +23,15 @@ end of this file.
 			settings, comparator override features etc.
 
 Parent node required properties:
-- qcom,chg-vddmax-mv:	Target voltage of battery in mV
-- qcom,chg-vddsafe-mv:	Maximum Vdd voltage in mV
-- qcom,chg-vinmin-mv:	Minimum input voltage in mV
-- qcom,chg-vbatdet-mv:	Battery voltage at which charging resumes
-- qcom,chg-ibatmax-ma:	Maximum battery charge current in mA
-- qcom,chg-ibatterm-ma:	Current at which charging is terminated in mA.
-- qcom,chg-ibatsafe-ma:	Safety battery current setting
+- qcom,chg-vddmax-mv:			Target voltage of battery in mV.
+- qcom,chg-vddsafe-mv:			Maximum Vdd voltage in mV.
+- qcom,chg-vinmin-mv:			Minimum input voltage in mV.
+- qcom,chg-vbatdet-mv:			Battery charging resume voltage in mV.
+- qcom,chg-ibatmax-ma:			Maximum battery charge current in mA
+- qcom,chg-ibatterm-ma:			Current at which charging is terminated.
+- qcom,chg-ibatsafe-ma:			Safety battery current setting
+- qcom,chg-thermal-mitigation:		Array of ibatmax values for different
+					system thermal mitigation level.
 
 Parent node optional properties:
 - qcom,chg-charging-disabled:		Set this property to disable charging
@@ -128,8 +130,11 @@ Example:
 		qcom,chg-vddmax-mv = <4200>;
 		qcom,chg-vddsafe-mv = <4200>;
 		qcom,chg-vinmin-mv = <4200>;
-		qcom,chg-ibatmax-mv = <1500>;
-		qcom,chg-ibatterm-mv = <200>;
+		qcom,chg-vbatdet-mv = <4200>;
+		qcom,chg-ibatmax-ma = <1500>;
+		qcom,chg-ibatterm-ma = <200>;
+		qcom,chg-ibatsafe-ma = <1500>;
+		qcom,chg-thermal-mitigation = <1500 700 600 325>;
 
 		qcom,chg-chgr@1000 {
 			reg = <0x1000 0x100>;
