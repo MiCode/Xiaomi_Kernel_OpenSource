@@ -849,7 +849,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 {
 	int i, rc = 0;
 	struct msm_vidc_inst *inst;
-	unsigned long flags;
 	struct hal_buffer_requirements *bufreq;
 	int extra_idx = 0;
 	struct hfi_device *hdev;
@@ -893,7 +892,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				"Failed to get buffer requirements: %d\n", rc);
 			break;
 		}
-		spin_lock_irqsave(&inst->lock, flags);
+		mutex_lock(&inst->lock);
 		if (*num_buffers && *num_buffers >
 			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].
 				buffer_count_actual) {
@@ -912,7 +911,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			*num_buffers =  bufreq->buffer_count_actual;
 		else
 			bufreq->buffer_count_actual = *num_buffers ;
-		spin_unlock_irqrestore(&inst->lock, flags);
+		mutex_unlock(&inst->lock);
 		dprintk(VIDC_DBG, "count =  %d, size = %d, alignment = %d\n",
 				inst->buff_req.buffer[1].buffer_count_actual,
 				inst->buff_req.buffer[1].buffer_size,

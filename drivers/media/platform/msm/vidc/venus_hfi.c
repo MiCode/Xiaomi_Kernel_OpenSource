@@ -827,7 +827,7 @@ static int venus_hfi_iface_cmdq_write(struct venus_hfi_device *device,
 		return -EINVAL;
 	}
 
-	spin_lock(&device->write_lock);
+	mutex_lock(&device->write_lock);
 	q_info = &device->iface_queues[VIDC_IFACEQ_CMDQ_IDX];
 	if (!q_info) {
 		dprintk(VIDC_ERR, "cannot write to shared Q's");
@@ -845,7 +845,7 @@ static int venus_hfi_iface_cmdq_write(struct venus_hfi_device *device,
 		dprintk(VIDC_ERR, "venus_hfi_iface_cmdq_write:queue_full");
 	}
 err_q_write:
-	spin_unlock(&device->write_lock);
+	mutex_unlock(&device->write_lock);
 	return result;
 }
 
@@ -859,7 +859,7 @@ static int venus_hfi_iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	}
-	spin_lock(&device->read_lock);
+	mutex_lock(&device->read_lock);
 	if (device->iface_queues[VIDC_IFACEQ_MSGQ_IDX].
 		q_array.align_virtual_addr == 0) {
 		dprintk(VIDC_ERR, "cannot read from shared MSG Q's");
@@ -880,7 +880,7 @@ static int venus_hfi_iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		rc = -ENODATA;
 	}
 read_error:
-	spin_unlock(&device->read_lock);
+	mutex_unlock(&device->read_lock);
 	return rc;
 }
 
@@ -894,7 +894,7 @@ static int venus_hfi_iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 		dprintk(VIDC_ERR, "Invalid Params");
 		return -EINVAL;
 	}
-	spin_lock(&device->read_lock);
+	mutex_lock(&device->read_lock);
 	if (device->iface_queues[VIDC_IFACEQ_DBGQ_IDX].
 		q_array.align_virtual_addr == 0) {
 		dprintk(VIDC_ERR, "cannot read from shared DBG Q's");
@@ -914,7 +914,7 @@ static int venus_hfi_iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 		rc = -ENODATA;
 	}
 dbg_error:
-	spin_unlock(&device->read_lock);
+	mutex_unlock(&device->read_lock);
 	return rc;
 }
 
@@ -1259,8 +1259,8 @@ static int venus_hfi_core_init(void *device)
 	dev->intr_status = 0;
 	enable_irq(dev->hal_data->irq);
 	INIT_LIST_HEAD(&dev->sess_head);
-	spin_lock_init(&dev->read_lock);
-	spin_lock_init(&dev->write_lock);
+	mutex_init(&dev->read_lock);
+	mutex_init(&dev->write_lock);
 	venus_hfi_set_vbif_registers(dev);
 
 	if (!dev->hal_client) {

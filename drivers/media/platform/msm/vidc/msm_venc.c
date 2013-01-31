@@ -627,7 +627,6 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	struct msm_vidc_inst *inst;
 	struct hal_buffer_count_actual new_buf_count;
 	enum hal_property property_id;
-	unsigned long flags;
 	struct hfi_device *hdev;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
@@ -665,11 +664,11 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			break;
 		}
 		*num_planes = 1;
-		spin_lock_irqsave(&inst->lock, flags);
+		mutex_lock(&inst->lock);
 		*num_buffers = inst->buff_req.buffer[0].buffer_count_actual =
 			max(*num_buffers, inst->buff_req.buffer[0].
 				buffer_count_actual);
-		spin_unlock_irqrestore(&inst->lock, flags);
+		mutex_unlock(&inst->lock);
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
