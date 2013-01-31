@@ -51,29 +51,39 @@ static bool msm_lpm_get_rpm_notif = true;
 #define MAX_RS_SIZE		(4)
 #define IS_RPM_CTL(rs) \
 	(!strncmp(rs->name, "rpm_ctl", MAX_RS_NAME))
+#define MAX_STR_LEN		30
 
 static bool msm_lpm_beyond_limits_vdd_dig(struct msm_rpmrs_limits *limits);
 static void msm_lpm_aggregate_vdd_dig(struct msm_rpmrs_limits *limits);
 static void msm_lpm_flush_vdd_dig(int notify_rpm);
 static void msm_lpm_notify_vdd_dig(struct msm_rpm_notifier_data
 					*rpm_notifier_cb);
+static int msm_lpm_init_value_vdd_dig(struct device_node *node,
+					char *key, uint32_t *default_value);
 
 static bool msm_lpm_beyond_limits_vdd_mem(struct msm_rpmrs_limits *limits);
 static void msm_lpm_aggregate_vdd_mem(struct msm_rpmrs_limits *limits);
 static void msm_lpm_flush_vdd_mem(int notify_rpm);
 static void msm_lpm_notify_vdd_mem(struct msm_rpm_notifier_data
 					*rpm_notifier_cb);
+static int msm_lpm_init_value_vdd_mem(struct device_node *node,
+					char *key, uint32_t *default_value);
+
 
 static bool msm_lpm_beyond_limits_pxo(struct msm_rpmrs_limits *limits);
 static void msm_lpm_aggregate_pxo(struct msm_rpmrs_limits *limits);
 static void msm_lpm_flush_pxo(int notify_rpm);
 static void msm_lpm_notify_pxo(struct msm_rpm_notifier_data
 					*rpm_notifier_cb);
+static int msm_lpm_init_value_pxo(struct device_node *node,
+				char *key, uint32_t *default_value);
 
 
 static bool msm_lpm_beyond_limits_l2(struct msm_rpmrs_limits *limits);
 static void msm_lpm_flush_l2(int notify_rpm);
 static void msm_lpm_aggregate_l2(struct msm_rpmrs_limits *limits);
+static int msm_lpm_init_value_l2(struct device_node *node,
+				char *key, uint32_t *default_value);
 
 static void msm_lpm_flush_rpm_ctl(int notify_rpm);
 
@@ -127,8 +137,14 @@ struct msm_lpm_resource {
 	void (*flush)(int notify_rpm);
 	void (*notify)(struct msm_rpm_notifier_data *rpm_notifier_cb);
 	struct kobj_attribute ko_attr;
+	int (*init_value)(struct device_node *node,
+			char *key, uint32_t *default_value);
 };
 
+struct lpm_lookup_table {
+	uint32_t modes;
+	const char *mode_name;
+};
 
 static struct msm_lpm_resource msm_lpm_l2 = {
 	.name = "l2",
@@ -138,6 +154,7 @@ static struct msm_lpm_resource msm_lpm_l2 = {
 	.notify = NULL,
 	.valid = false,
 	.ko_attr = RPMRS_ATTR(l2),
+	.init_value = msm_lpm_init_value_l2,
 };
 
 static struct msm_lpm_resource msm_lpm_vdd_dig = {
@@ -148,6 +165,7 @@ static struct msm_lpm_resource msm_lpm_vdd_dig = {
 	.notify = msm_lpm_notify_vdd_dig,
 	.valid = false,
 	.ko_attr = RPMRS_ATTR(vdd_dig),
+	.init_value = msm_lpm_init_value_vdd_dig,
 };
 
 static struct msm_lpm_resource msm_lpm_vdd_mem = {
@@ -158,6 +176,7 @@ static struct msm_lpm_resource msm_lpm_vdd_mem = {
 	.notify = msm_lpm_notify_vdd_mem,
 	.valid = false,
 	.ko_attr = RPMRS_ATTR(vdd_mem),
+	.init_value = msm_lpm_init_value_vdd_mem,
 };
 
 static struct msm_lpm_resource msm_lpm_pxo = {
@@ -168,6 +187,7 @@ static struct msm_lpm_resource msm_lpm_pxo = {
 	.notify = msm_lpm_notify_pxo,
 	.valid = false,
 	.ko_attr = RPMRS_ATTR(pxo),
+	.init_value = msm_lpm_init_value_pxo,
 };
 
 static struct msm_lpm_resource *msm_lpm_resources[] = {
@@ -444,11 +464,45 @@ static void msm_lpm_set_l2_mode(int sleep_mode, int notify_rpm)
 				__func__, lpm);
 }
 
+static int msm_lpm_init_value_l2(struct device_node *node,
+					char *key, uint32_t *default_value)
+{
+	return msm_lpm_get_l2_cache_value(node, key, default_value);
+}
+
 static void msm_lpm_flush_l2(int notify_rpm)
 {
 	struct msm_lpm_resource *rs = &msm_lpm_l2;
 
 	msm_lpm_set_l2_mode(rs->sleep_value, notify_rpm);
+}
+
+int msm_lpm_get_l2_cache_value(struct device_node *node,
+			char *key, uint32_t *l2_val)
+{
+	int i;
+	struct lpm_lookup_table l2_mode_lookup[] = {
+		{MSM_LPM_L2_CACHE_HSFS_OPEN, "l2_cache_pc"},
+		{MSM_LPM_L2_CACHE_GDHS, "l2_cache_gdhs"},
+		{MSM_LPM_L2_CACHE_RETENTION, "l2_cache_retention"},
+		{MSM_LPM_L2_CACHE_ACTIVE, "l2_cache_active"}
+	};
+	const char *l2_str;
+	int ret;
+
+	ret = of_property_read_string(node, key, &l2_str);
+	if (!ret) {
+		ret = -EINVAL;
+		for (i = 0; i < ARRAY_SIZE(l2_mode_lookup); i++) {
+			if (!strncmp(l2_str, l2_mode_lookup[i].mode_name,
+				MAX_STR_LEN)) {
+				*l2_val = l2_mode_lookup[i].modes;
+				ret = 0;
+				break;
+			}
+		}
+	}
+	return ret;
 }
 
 /* RPM CTL */
@@ -482,6 +536,12 @@ static bool msm_lpm_beyond_limits_vdd_dig(struct msm_rpmrs_limits *limits)
 				limits->vdd_dig_upper_bound);
 	}
 	return ret;
+}
+
+static int msm_lpm_init_value_vdd_dig(struct device_node *node,
+					char *key, uint32_t *default_value)
+{
+	return of_property_read_u32(node, key, default_value);
 }
 
 static void msm_lpm_aggregate_vdd_dig(struct msm_rpmrs_limits *limits)
@@ -570,6 +630,12 @@ static void msm_lpm_notify_vdd_mem(struct msm_rpm_notifier_data
 	msm_lpm_notify_common(rpm_notifier_cb, rs);
 }
 
+static int msm_lpm_init_value_vdd_mem(struct device_node *node,
+					char *key, uint32_t *default_value)
+{
+	return of_property_read_u32(node, key, default_value);
+}
+
 /*PXO*/
 static bool msm_lpm_beyond_limits_pxo(struct msm_rpmrs_limits *limits)
 {
@@ -628,9 +694,41 @@ static void msm_lpm_notify_pxo(struct msm_rpm_notifier_data
 	msm_lpm_notify_common(rpm_notifier_cb, rs);
 }
 
+static int msm_lpm_init_value_pxo(struct device_node *node,
+				char *key, uint32_t *default_value)
+{
+	return msm_lpm_get_xo_value(node, key, default_value);
+}
+
 static inline bool msm_lpm_use_mpm(struct msm_rpmrs_limits *limits)
 {
 	return (limits->pxo == MSM_LPM_PXO_OFF);
+}
+
+int msm_lpm_get_xo_value(struct device_node *node,
+			char *key, uint32_t *xo_val)
+{
+	int  i;
+	struct lpm_lookup_table pxo_mode_lookup[] = {
+		{MSM_LPM_PXO_OFF, "xo_off"},
+		{MSM_LPM_PXO_ON, "xo_on"}
+	};
+	const char *xo_str;
+	int ret;
+
+	ret = of_property_read_string(node, key, &xo_str);
+	if (!ret) {
+		ret = -EINVAL;
+		for (i = 0; i < ARRAY_SIZE(pxo_mode_lookup); i++) {
+			if (!strncmp(xo_str, pxo_mode_lookup[i].mode_name,
+				MAX_STR_LEN)) {
+				*xo_val = pxo_mode_lookup[i].modes;
+				ret = 0;
+				break;
+			}
+		}
+	}
+	return ret;
 }
 
 /* LPM levels interface */
@@ -797,7 +895,7 @@ static int __devinit msm_lpmrs_probe(struct platform_device *pdev)
 		struct msm_lpm_resource *rs = NULL;
 		const char *val;
 		int i;
-		uint32_t resource_type;
+		bool local_resource;
 
 		key = "qcom,name";
 		ret = of_property_read_string(node, key, &val);
@@ -822,8 +920,7 @@ static int __devinit msm_lpmrs_probe(struct platform_device *pdev)
 		}
 
 		key = "qcom,init-value";
-		ret = of_property_read_u32(node, key,
-				&rs->rs_data.default_value);
+		ret = rs->init_value(node, key, &rs->rs_data.default_value);
 		if (ret) {
 			pr_err("%s():Failed to read %s\n", __func__, key);
 			goto fail;
@@ -831,18 +928,13 @@ static int __devinit msm_lpmrs_probe(struct platform_device *pdev)
 
 		rs->rs_data.value = rs->rs_data.default_value;
 
-		key = "qcom,resource-type";
-		ret = of_property_read_u32(node, key, &resource_type);
-		if (ret) {
-			pr_err("Failed to read resource-type\n");
-			goto fail;
-		}
+		key = "qcom,local-resource-type";
+		local_resource = of_property_read_bool(node, key);
 
-		switch (resource_type) {
-		case MSM_LPM_RPM_RS_TYPE:
+		if (!local_resource) {
 			key = "qcom,type";
 			ret = of_property_read_u32(node, key,
-						&rs->rs_data.type);
+					&rs->rs_data.type);
 			if (ret) {
 				pr_err("Failed to read type\n");
 				goto fail;
@@ -873,15 +965,9 @@ static int __devinit msm_lpmrs_probe(struct platform_device *pdev)
 				goto fail;
 			}
 			/* fall through */
-
-		case MSM_LPM_LOCAL_RS_TYPE:
-			rs->valid = true;
-			break;
-		default:
-			pr_err("%s: Invalid resource type %d", __func__,
-					resource_type);
-			goto fail;
 		}
+
+		rs->valid = true;
 	}
 	msm_rpm_register_notifier(&msm_lpm_rpm_nblk);
 	msm_lpm_init_rpm_ctl();
