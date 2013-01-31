@@ -2942,6 +2942,9 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 	if (ep == NULL || req == NULL || mEp->desc == NULL)
 		return -EINVAL;
 
+	if (!udc->softconnect)
+		return -ENODEV;
+
 	spin_lock_irqsave(mEp->lock, flags);
 
 	if (!udc->configured && mEp->type !=
