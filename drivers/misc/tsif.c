@@ -1,7 +1,7 @@
 /*
  * TSIF Driver
  *
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1769,6 +1769,22 @@ void tsif_stop(void *cookie)
 	action_close(tsif_device);
 }
 EXPORT_SYMBOL(tsif_stop);
+
+int tsif_get_ref_clk_counter(void *cookie, u32 *tcr_counter)
+{
+	struct msm_tsif_device *tsif_device = cookie;
+
+	if (!tsif_device || !tcr_counter)
+		return -EINVAL;
+
+	if (tsif_device->state == tsif_state_running)
+		*tcr_counter = ioread32(tsif_device->base + TSIF_CLK_REF_OFF);
+	else
+		*tcr_counter = 0;
+
+	return 0;
+}
+EXPORT_SYMBOL(tsif_get_ref_clk_counter);
 
 void tsif_reclaim_packets(void *cookie, int read_index)
 {
