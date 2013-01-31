@@ -1069,6 +1069,8 @@ struct hfi_device {
 	int (*scale_clocks)(void *dev, int load);
 	int (*scale_bus)(void *dev, int load,
 			enum session_type type, enum mem_type mtype);
+	int (*unvote_bus)(void *dev, enum session_type type,
+		enum mem_type mtype);
 	int (*unset_ocmem)(void *dev);
 	int (*alloc_ocmem)(void *dev, unsigned long size);
 	int (*free_ocmem)(void *dev);
