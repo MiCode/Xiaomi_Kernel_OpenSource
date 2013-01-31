@@ -407,11 +407,11 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 				&& (!EXTRADATA_IDX(b->length)
 					|| (i != EXTRADATA_IDX(b->length)))) {
 			smem_flags |= SMEM_SECURE;
-			domain = hdev->get_domain(hdev->hfi_device_data,
-						CP_MAP);
+			domain = call_hfi_op(hdev, get_domain,
+					hdev->hfi_device_data, CP_MAP);
 		} else
-			domain = hdev->get_domain(hdev->hfi_device_data,
-						NS_MAP);
+			domain = call_hfi_op(hdev, get_domain,
+					hdev->hfi_device_data, NS_MAP);
 
 		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			smem_flags |= SMEM_INPUT;

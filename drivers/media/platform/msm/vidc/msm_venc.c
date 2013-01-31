@@ -673,7 +673,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
-		rc = hdev->session_set_property(inst->session,
+		rc = call_hfi_op(hdev, session_set_property, inst->session,
 					property_id, &new_buf_count);
 		dprintk(VIDC_DBG, "size = %d, alignment = %d, count = %d\n",
 				inst->buff_req.buffer[0].buffer_size,
@@ -1445,8 +1445,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		dprintk(VIDC_DBG, "Control: HAL property=%d,ctrl_value=%d\n",
 				property_id,
 				ctrl->val);
-		rc = hdev->session_set_property((void *)inst->session,
-				property_id, pdata);
+		rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session, property_id, pdata);
 	}
 
 	return rc;
@@ -1645,8 +1645,9 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		frame_rate.frame_rate = inst->prop.fps * (0x1<<16);
 		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
 		pdata = &frame_rate;
-		rc = hdev->session_set_property((void *)inst->session,
-				property_id, pdata);
+		rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session, property_id, pdata);
+
 		if (rc) {
 			dprintk(VIDC_WARN,
 				"Failed to set frame rate %d\n", rc);
@@ -1694,16 +1695,16 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		frame_sz.height = inst->prop.height;
 		dprintk(VIDC_DBG, "width = %d, height = %d\n",
 				frame_sz.width, frame_sz.height);
-		rc = hdev->session_set_property((void *)inst->session,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
+		rc = call_hfi_op(hdev, session_set_property, (void *)
+			inst->session, HAL_PARAM_FRAME_SIZE, &frame_sz);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to set framesize for Output port\n");
 			goto exit;
 		}
 		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		rc = hdev->session_set_property((void *)inst->session,
-				HAL_PARAM_FRAME_SIZE, &frame_sz);
+		rc = call_hfi_op(hdev, session_set_property, (void *)
+			inst->session, HAL_PARAM_FRAME_SIZE, &frame_sz);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to set hal property for framesize\n");
@@ -1833,7 +1834,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 				b->m.planes[i].m.userptr;
 			buffer_info.extradata_size = 0;
 			buffer_info.extradata_addr = 0;
-			rc = hdev->session_set_buffers(
+			rc = call_hfi_op(hdev, session_set_buffers,
 				(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,
@@ -1887,7 +1888,7 @@ int msm_venc_release_buf(struct msm_vidc_inst *inst,
 			buffer_info.extradata_size = 0;
 			buffer_info.extradata_addr = 0;
 			buffer_info.response_required = false;
-			rc = hdev->session_release_buffers(
+			rc = call_hfi_op(hdev, session_release_buffers,
 				(void *)inst->session, &buffer_info);
 			if (rc)
 				dprintk(VIDC_ERR,

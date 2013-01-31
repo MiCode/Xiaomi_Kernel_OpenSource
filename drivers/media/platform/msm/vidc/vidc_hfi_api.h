@@ -1026,6 +1026,9 @@ enum fw_info {
 	FW_INFO_MAX,
 };
 
+#define call_hfi_op(q, op, args...)			\
+	(((q)->op) ? ((q)->op(args)) : 0)
+
 struct hfi_device {
 	void *hfi_device_data;
 
