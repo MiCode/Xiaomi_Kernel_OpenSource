@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/iopoll.h>
+#include <linux/regulator/consumer.h>
 
 #include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
@@ -451,11 +452,11 @@ static const int vdd_corner[] = {
 	[VDD_DIG_HIGH]	  = RPM_REGULATOR_CORNER_SUPER_TURBO,
 };
 
-static struct rpm_regulator *vdd_dig_reg;
+static struct regulator *vdd_dig_reg;
 
 static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
 {
-	return rpm_regulator_set_voltage(vdd_dig_reg, vdd_corner[level],
+	return regulator_set_voltage(vdd_dig_reg, vdd_corner[level],
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 }
 
@@ -549,15 +550,15 @@ enum vdd_sr2_pll_levels {
 	VDD_SR2_PLL_NUM
 };
 
-static struct rpm_regulator *vdd_sr2_reg;
+static struct regulator *vdd_sr2_reg;
 
 static int set_vdd_sr2_pll(struct clk_vdd_class *vdd_class, int level)
 {
 	if (level == VDD_SR2_PLL_ON) {
-		return rpm_regulator_set_voltage(vdd_sr2_reg, 1800000,
+		return regulator_set_voltage(vdd_sr2_reg, 1800000,
 		1800000);
 	} else {
-		return rpm_regulator_set_voltage(vdd_sr2_reg, 0, 1800000);
+		return regulator_set_voltage(vdd_sr2_reg, 0, 1800000);
 	}
 }
 
@@ -3510,16 +3511,16 @@ static void __init msm8610_clock_pre_init(void)
 
 	clk_ops_local_pll.enable = sr_hpm_lp_pll_clk_enable;
 
-	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
+	vdd_dig_reg = regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig_reg))
 		panic("clock-8610: Unable to get the vdd_dig regulator!");
 
-	vdd_sr2_reg = rpm_regulator_get(NULL, "vdd_sr2_pll");
+	vdd_sr2_reg = regulator_get(NULL, "vdd_sr2_pll");
 	if (IS_ERR(vdd_sr2_reg))
 		panic("clock-8610: Unable to get the vdd_sr2_pll regulator!");
 
-	rpm_regulator_set_voltage(vdd_sr2_reg, 1800000, 1800000);
-	rpm_regulator_enable(vdd_sr2_reg);
+	regulator_set_voltage(vdd_sr2_reg, 1800000, 1800000);
+	regulator_enable(vdd_sr2_reg);
 
 	/*
 	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
@@ -3528,7 +3529,7 @@ static void __init msm8610_clock_pre_init(void)
 	 * its necessity.
 	 */
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	rpm_regulator_enable(vdd_dig_reg);
+	regulator_enable(vdd_dig_reg);
 
 	enable_rpm_scaling();
 
