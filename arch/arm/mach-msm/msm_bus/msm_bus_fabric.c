@@ -789,6 +789,9 @@ static int __devinit msm_bus_fabric_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (msmbus_coresight_init(pdev))
+		pr_warn("Coresight support absent for bus: %d\n", pdata->id);
+
 	return ret;
 err:
 	kfree(fabric->info.node_info);
@@ -804,6 +807,7 @@ static int msm_bus_fabric_remove(struct platform_device *pdev)
 	int ret = 0;
 
 	fabdev = platform_get_drvdata(pdev);
+	msmbus_coresight_remove(pdev);
 	msm_bus_fabric_device_unregister(fabdev);
 	fabric = to_msm_bus_fabric(fabdev);
 	msm_bus_dbg_commit_data(fabric->fabdev.name, NULL, 0, 0, 0,

@@ -261,6 +261,21 @@ static inline void msm_bus_dbg_commit_data(const char *fabname,
 }
 #endif
 
+#ifdef CONFIG_CORESIGHT
+int msmbus_coresight_init(struct platform_device *pdev);
+void msmbus_coresight_remove(struct platform_device *pdev);
+#else
+int msmbus_coresight_init(struct platform_device *pdev)
+{
+	return 0;
+}
+
+void msmbus_coresight_remove(struct platform_device *pdev)
+{
+}
+#endif
+
+
 #ifdef CONFIG_OF
 struct msm_bus_fabric_registration
 	*msm_bus_of_get_fab_data(struct platform_device *pdev);
