@@ -133,7 +133,12 @@ static void select_clk_source_div(struct acpuclk_drv_data *drv_data,
 		pr_warn("acpu rcg didn't update its configuration\n");
 }
 
-static int set_speed(struct clkctl_acpu_speed *tgt_s)
+/*
+ * This function can be called in both atomic and nonatomic context.
+ * Since regulator APIS can sleep, we cannot always use the clk prepare
+ * unprepare API.
+ */
+static int set_speed(struct clkctl_acpu_speed *tgt_s, bool atomic)
 {
 	int rc = 0;
 	unsigned int tgt_freq_hz = tgt_s->khz * 1000;
@@ -147,11 +152,19 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s)
 		select_clk_source_div(acpuclk_init_data, cxo_s);
 
 		/* Re-program acpu pll */
-		clk_disable(tgt);
+		if (atomic)
+			clk_disable(tgt);
+		else
+			clk_disable_unprepare(tgt);
+
 		rc = clk_set_rate(tgt, tgt_freq_hz);
 		if (rc)
 			pr_err("Failed to set ACPU PLL to %u\n", tgt_freq_hz);
-		BUG_ON(clk_enable(tgt));
+
+		if (atomic)
+			BUG_ON(clk_enable(tgt));
+		else
+			BUG_ON(clk_prepare_enable(tgt));
 
 		/* Switch back to acpu pll */
 		select_clk_source_div(acpuclk_init_data, tgt_s);
@@ -163,7 +176,11 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s)
 			return rc;
 		}
 
-		rc = clk_enable(tgt);
+		if (atomic)
+			clk_enable(tgt);
+		else
+			clk_prepare_enable(tgt);
+
 		if (rc) {
 			pr_err("ACPU PLL enable failed\n");
 			return rc;
@@ -171,9 +188,17 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s)
 
 		select_clk_source_div(acpuclk_init_data, tgt_s);
 
-		clk_disable(strt);
+		if (atomic)
+			clk_disable(strt);
+		else
+			clk_disable_unprepare(strt);
+
 	} else {
-		rc = clk_enable(tgt);
+		if (atomic)
+			clk_enable(tgt);
+		else
+			clk_prepare_enable(tgt);
+
 		if (rc) {
 			pr_err("%s enable failed\n",
 				acpuclk_init_data->src_clocks[tgt_s->src].name);
@@ -182,7 +207,11 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s)
 
 		select_clk_source_div(acpuclk_init_data, tgt_s);
 
-		clk_disable(strt);
+		if (atomic)
+			clk_disable(strt);
+		else
+			clk_disable_unprepare(strt);
+
 	}
 
 	return rc;
@@ -223,8 +252,12 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	pr_debug("Switching from CPU rate %u KHz -> %u KHz\n",
 		strt_s->khz, tgt_s->khz);
 
-	/* Switch CPU speed. */
-	rc = set_speed(tgt_s);
+	/* Switch CPU speed. Flag indicates atomic context */
+	if (reason == SETRATE_CPUFREQ || reason == SETRATE_INIT)
+		rc = set_speed(tgt_s, false);
+	else
+		rc = set_speed(tgt_s, true);
+
 	if (rc)
 		goto out;
 
@@ -316,11 +349,6 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 			clk_get(&pdev->dev,
 				acpuclk_init_data->src_clocks[i].name);
 		BUG_ON(IS_ERR(acpuclk_init_data->src_clocks[i].clk));
-		/*
-		 * Prepare the PLLs because we enable/disable them
-		 * in atomic context during power collapse/restore.
-		 */
-		BUG_ON(clk_prepare(acpuclk_init_data->src_clocks[i].clk));
 	}
 
 	/* Improve boot time by ramping up CPU immediately */
@@ -368,7 +396,6 @@ err_vdd:
 	for (i = 0; i < NUM_SRC; i++) {
 		if (!acpuclk_init_data->src_clocks[i].name)
 			continue;
-		clk_unprepare(acpuclk_init_data->src_clocks[i].clk);
 		clk_put(acpuclk_init_data->src_clocks[i].clk);
 	}
 	return rc;
