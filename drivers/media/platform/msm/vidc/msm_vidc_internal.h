@@ -15,7 +15,6 @@
 #define _MSM_VIDC_INTERNAL_H_
 
 #include <linux/list.h>
-#include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/completion.h>
 #include <linux/wait.h>
@@ -106,7 +105,7 @@ struct msm_vidc_format {
 };
 
 struct msm_vidc_drv {
-	spinlock_t lock;
+	struct mutex lock;
 	struct list_head cores;
 	int num_cores;
 	struct dentry *debugfs_root;
@@ -168,12 +167,11 @@ enum msm_vidc_mode {
 
 struct msm_vidc_core {
 	struct list_head list;
-	struct mutex sync_lock;
+	struct mutex sync_lock, lock;
 	int id;
 	void *device;
 	struct msm_video_device vdev[MSM_VIDC_MAX_DEVICES];
 	struct v4l2_device v4l2_dev;
-	spinlock_t lock;
 	struct list_head instances;
 	struct dentry *debugfs_root;
 	enum vidc_core_state state;
@@ -184,7 +182,7 @@ struct msm_vidc_core {
 
 struct msm_vidc_inst {
 	struct list_head list;
-	struct mutex sync_lock;
+	struct mutex sync_lock, lock;
 	struct msm_vidc_core *core;
 	int session_type;
 	void *session;
@@ -192,7 +190,6 @@ struct msm_vidc_inst {
 	int state;
 	const struct msm_vidc_format *fmts[MAX_PORT_NUM];
 	struct buf_queue bufq[MAX_PORT_NUM];
-	spinlock_t lock;
 	struct list_head pendingq;
 	struct list_head internalbufs;
 	struct list_head persistbufs;

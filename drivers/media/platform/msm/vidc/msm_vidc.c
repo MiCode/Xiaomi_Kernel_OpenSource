@@ -395,7 +395,6 @@ void *msm_vidc_open(int core_id, int session_type)
 {
 	struct msm_vidc_inst *inst = NULL;
 	struct msm_vidc_core *core = NULL;
-	unsigned long flags;
 	int rc = 0;
 	int i = 0;
 	if (core_id >= MSM_VIDC_CORES_MAX ||
@@ -423,7 +422,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_init(&inst->bufq[OUTPUT_PORT].lock);
-	spin_lock_init(&inst->lock);
+	mutex_init(&inst->lock);
 	inst->session_type = session_type;
 	INIT_LIST_HEAD(&inst->pendingq);
 	INIT_LIST_HEAD(&inst->internalbufs);
@@ -475,9 +474,9 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	setup_event_queue(inst, &core->vdev[core_id].vdev);
 
-	spin_lock_irqsave(&core->lock, flags);
+	mutex_lock(&core->lock);
 	list_add_tail(&inst->list, &core->instances);
-	spin_unlock_irqrestore(&core->lock, flags);
+	mutex_unlock(&core->lock);
 	return inst;
 fail_init:
 	msm_smem_delete_client(inst->mem_client);
@@ -490,12 +489,11 @@ err_invalid_core:
 
 static void cleanup_instance(struct msm_vidc_inst *inst)
 {
-	unsigned long flags;
 	struct list_head *ptr, *next;
 	struct vb2_buf_entry *entry;
 	struct internal_buf *buf;
 	if (inst) {
-		spin_lock_irqsave(&inst->lock, flags);
+		mutex_lock(&inst->lock);
 		if (!list_empty(&inst->pendingq)) {
 			list_for_each_safe(ptr, next, &inst->pendingq) {
 				entry = list_entry(ptr, struct vb2_buf_entry,
@@ -509,10 +507,10 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 				buf = list_entry(ptr, struct internal_buf,
 						list);
 				list_del(&buf->list);
-				spin_unlock_irqrestore(&inst->lock, flags);
+				mutex_unlock(&inst->lock);
 				msm_smem_free(inst->mem_client, buf->handle);
 				kfree(buf);
-				spin_lock_irqsave(&inst->lock, flags);
+				mutex_lock(&inst->lock);
 			}
 		}
 		if (!list_empty(&inst->persistbufs)) {
@@ -520,18 +518,18 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 				buf = list_entry(ptr, struct internal_buf,
 						list);
 				list_del(&buf->list);
-				spin_unlock_irqrestore(&inst->lock, flags);
+				mutex_unlock(&inst->lock);
 				msm_smem_free(inst->mem_client, buf->handle);
 				kfree(buf);
-				spin_lock_irqsave(&inst->lock, flags);
+				mutex_lock(&inst->lock);
 			}
 		}
 		if (inst->extradata_handle) {
-			spin_unlock_irqrestore(&inst->lock, flags);
+			mutex_unlock(&inst->lock);
 			msm_smem_free(inst->mem_client, inst->extradata_handle);
-			spin_lock_irqsave(&inst->lock, flags);
+			mutex_lock(&inst->lock);
 		}
-		spin_unlock_irqrestore(&inst->lock, flags);
+		mutex_unlock(&inst->lock);
 		msm_smem_delete_client(inst->mem_client);
 		debugfs_remove_recursive(inst->debugfs_root);
 	}

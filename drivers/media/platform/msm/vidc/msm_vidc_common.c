@@ -58,20 +58,19 @@ static int msm_comm_get_load(struct msm_vidc_core *core,
 {
 	struct msm_vidc_inst *inst = NULL;
 	int num_mbs_per_sec = 0;
-	unsigned long flags;
 	if (!core) {
 		dprintk(VIDC_ERR, "Invalid args: %p\n", core);
 		return -EINVAL;
 	}
 	list_for_each_entry(inst, &core->instances, list) {
-		spin_lock_irqsave(&inst->lock, flags);
+		mutex_lock(&inst->lock);
 		if (inst->session_type == type &&
 			inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_STOP_DONE) {
 			num_mbs_per_sec += NUM_MBS_PER_SEC(inst->prop.height,
 					inst->prop.width, inst->prop.fps);
 		}
-		spin_unlock_irqrestore(&inst->lock, flags);
+		mutex_unlock(&inst->lock);
 	}
 	return num_mbs_per_sec;
 }
@@ -135,19 +134,18 @@ struct msm_vidc_core *get_vidc_core(int core_id)
 {
 	struct msm_vidc_core *core;
 	int found = 0;
-	unsigned long flags;
 	if (core_id > MSM_VIDC_CORES_MAX) {
 		dprintk(VIDC_ERR, "Core id = %d is greater than max = %d\n",
 			core_id, MSM_VIDC_CORES_MAX);
 		return NULL;
 	}
-	spin_lock_irqsave(&vidc_driver->lock, flags);
+	mutex_lock(&vidc_driver->lock);
 	list_for_each_entry(core, &vidc_driver->cores, list) {
 		if (core && core->id == core_id)
 			found = 1;
 			break;
 	}
-	spin_unlock_irqrestore(&vidc_driver->lock, flags);
+	mutex_unlock(&vidc_driver->lock);
 	if (found)
 		return core;
 	return NULL;
@@ -293,12 +291,11 @@ static void handle_sys_release_res_done(
 static void change_inst_state(struct msm_vidc_inst *inst,
 	enum instance_state state)
 {
-	unsigned long flags;
-	spin_lock_irqsave(&inst->lock, flags);
+	mutex_lock(&inst->lock);
 	dprintk(VIDC_DBG, "Moved inst: %p from state: %d to state: %d\n",
 		   inst, inst->state, state);
 	inst->state = state;
-	spin_unlock_irqrestore(&inst->lock, flags);
+	mutex_unlock(&inst->lock);
 }
 
 static int signal_session_msg_receipt(enum command_response cmd,
@@ -409,7 +406,6 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	unsigned long flags;
 	int i;
 	if (!response || !response->data) {
 		dprintk(VIDC_ERR,
@@ -417,10 +413,10 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 		return;
 	}
 	inst = (struct msm_vidc_inst *)response->session_id;
-	spin_lock_irqsave(&inst->lock, flags);
+	mutex_lock(&inst->lock);
 	memcpy(&inst->buff_req, response->data,
 			sizeof(struct buffer_requirements));
-	spin_unlock_irqrestore(&inst->lock, flags);
+	mutex_unlock(&inst->lock);
 	for (i = 0; i < 8; i++) {
 		dprintk(VIDC_DBG,
 			"buffer type: %d, count : %d, size: %d\n",
@@ -529,14 +525,13 @@ static void handle_sys_error(enum command_response cmd, void *data)
 	struct msm_vidc_inst *inst = NULL ;
 	struct msm_vidc_core *core = NULL;
 	struct v4l2_event dqevent;
-	unsigned long flags;
 	if (response) {
 		core = get_vidc_core(response->device_id);
 		dprintk(VIDC_WARN, "SYS_ERROR received for core %p\n", core);
 		if (core) {
-			spin_lock_irqsave(&core->lock, flags);
+			mutex_lock(&core->lock);
 			core->state = VIDC_CORE_INVALID;
-			spin_unlock_irqrestore(&core->lock, flags);
+			mutex_unlock(&core->lock);
 			dqevent.type = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 			dqevent.id = 0;
 			list_for_each_entry(inst, &core->instances,
@@ -544,9 +539,9 @@ static void handle_sys_error(enum command_response cmd, void *data)
 				v4l2_event_queue_fh(&inst->event_handler,
 						&dqevent);
 
-				spin_lock_irqsave(&inst->lock, flags);
+				mutex_lock(&inst->lock);
 				inst->state = MSM_VIDC_CORE_INVALID;
-				spin_unlock_irqrestore(&inst->lock, flags);
+				mutex_unlock(&inst->lock);
 
 				wake_up(&inst->kernel_event_queue);
 			}
@@ -566,7 +561,6 @@ static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
 	struct msm_vidc_inst *inst;
 	struct msm_vidc_core *core = NULL;
 	struct v4l2_event dqevent;
-	unsigned long flags;
 	dprintk(VIDC_ERR, "Venus Subsystem crashed\n");
 	core = get_vidc_core(response->device_id);
 	if (!core) {
@@ -574,18 +568,18 @@ static void handle_sys_watchdog_timeout(enum command_response cmd, void *data)
 		return;
 	}
 	subsystem_crashed("venus");
-	spin_lock_irqsave(&core->lock, flags);
+	mutex_lock(&core->lock);
 	core->state = VIDC_CORE_INVALID;
-	spin_unlock_irqrestore(&core->lock, flags);
+	mutex_unlock(&core->lock);
 	dqevent.type = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 	dqevent.id = 0;
 	list_for_each_entry(inst, &core->instances, list) {
 		if (inst) {
 			v4l2_event_queue_fh(&inst->event_handler, &dqevent);
-			spin_lock_irqsave(&inst->lock, flags);
+			mutex_lock(&inst->lock);
 			inst->state = MSM_VIDC_CORE_INVALID;
 			inst->session = NULL;
-			spin_unlock_irqrestore(&inst->lock, flags);
+			mutex_unlock(&inst->lock);
 		}
 	}
 }
@@ -1005,7 +999,6 @@ release_ocmem_failed:
 static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core = inst->core;
-	unsigned long flags;
 	int rc = 0;
 	mutex_lock(&core->sync_lock);
 	if (core->state >= VIDC_CORE_INIT_DONE) {
@@ -1022,9 +1015,9 @@ static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 		rc = -EIO;
 		goto exit;
 	} else {
-		spin_lock_irqsave(&core->lock, flags);
+		mutex_lock(&core->lock);
 		core->state = VIDC_CORE_INIT_DONE;
-		spin_unlock_irqrestore(&core->lock, flags);
+		mutex_unlock(&core->lock);
 	}
 	dprintk(VIDC_DBG, "SYS_INIT_DONE!!!\n");
 core_already_inited:
@@ -1039,7 +1032,6 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct msm_vidc_core *core = inst->core;
-	unsigned long flags;
 	struct hfi_device *hdev;
 
 	if (!core || !core->device)
@@ -1076,9 +1068,9 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Failed to init core, id = %d\n", core->id);
 		goto fail_core_init;
 	}
-	spin_lock_irqsave(&core->lock, flags);
+	mutex_lock(&core->lock);
 	core->state = VIDC_CORE_INIT;
-	spin_unlock_irqrestore(&core->lock, flags);
+	mutex_unlock(&core->lock);
 core_already_inited:
 	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->sync_lock);
@@ -1097,7 +1089,6 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
-	unsigned long flags;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
@@ -1125,10 +1116,10 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 							core->id);
 			goto exit;
 		}
-		spin_lock_irqsave(&core->lock, flags);
+		mutex_lock(&core->lock);
 		core->state = VIDC_CORE_UNINIT;
-		spin_unlock_irqrestore(&core->lock, flags);
 		call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
+		mutex_unlock(&core->lock);
 		msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
 	}
 core_already_uninited:
@@ -1734,7 +1725,6 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 	struct internal_buf *buf;
 	struct vidc_buffer_addr_info buffer_info;
 	int rc = 0;
-	unsigned long flags;
 	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
 	if (!inst) {
@@ -1753,7 +1743,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Invalid device pointer = %p\n", hdev);
 		return -EINVAL;
 	}
-	spin_lock_irqsave(&inst->lock, flags);
+	mutex_lock(&inst->lock);
 	if (!list_empty(&inst->internalbufs)) {
 		list_for_each_safe(ptr, next, &inst->internalbufs) {
 			buf = list_entry(ptr, struct internal_buf,
@@ -1776,19 +1766,19 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 						"Rel scrtch buf fail:0x%x, %d",
 						buffer_info.align_device_addr,
 						buffer_info.buffer_size);
-				spin_unlock_irqrestore(&inst->lock, flags);
+				mutex_unlock(&inst->lock);
 				rc = wait_for_sess_signal_receipt(inst,
 					SESSION_RELEASE_BUFFER_DONE);
-				spin_lock_irqsave(&inst->lock, flags);
+				mutex_lock(&inst->lock);
 			}
 			list_del(&buf->list);
-			spin_unlock_irqrestore(&inst->lock, flags);
+			mutex_unlock(&inst->lock);
 			msm_smem_free(inst->mem_client, buf->handle);
 			kfree(buf);
-			spin_lock_irqsave(&inst->lock, flags);
+			mutex_lock(&inst->lock);
 		}
 	}
-	spin_unlock_irqrestore(&inst->lock, flags);
+	mutex_unlock(&inst->lock);
 	return rc;
 }
 
@@ -1799,7 +1789,6 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 	struct internal_buf *buf;
 	struct vidc_buffer_addr_info buffer_info;
 	int rc = 0;
-	unsigned long flags;
 	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
 	if (!inst) {
@@ -1818,7 +1807,7 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Invalid device pointer = %p\n", hdev);
 		return -EINVAL;
 	}
-	spin_lock_irqsave(&inst->lock, flags);
+	mutex_lock(&inst->lock);
 	if (!list_empty(&inst->persistbufs)) {
 		list_for_each_safe(ptr, next, &inst->persistbufs) {
 			buf = list_entry(ptr, struct internal_buf,
@@ -1841,19 +1830,19 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 						"Rel prst buf fail:0x%x, %d",
 						buffer_info.align_device_addr,
 						buffer_info.buffer_size);
-				spin_unlock_irqrestore(&inst->lock, flags);
+				mutex_unlock(&inst->lock);
 				rc = wait_for_sess_signal_receipt(inst,
 					SESSION_RELEASE_BUFFER_DONE);
-				spin_lock_irqsave(&inst->lock, flags);
+				mutex_lock(&inst->lock);
 			}
 			list_del(&buf->list);
-			spin_unlock_irqrestore(&inst->lock, flags);
+			mutex_unlock(&inst->lock);
 			msm_smem_free(inst->mem_client, buf->handle);
 			kfree(buf);
-			spin_lock_irqsave(&inst->lock, flags);
+			mutex_lock(&inst->lock);
 		}
 	}
-	spin_unlock_irqrestore(&inst->lock, flags);
+	mutex_unlock(&inst->lock);
 	return rc;
 }
 
@@ -1894,7 +1883,6 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	struct msm_smem *handle;
 	struct internal_buf *binfo;
 	struct vidc_buffer_addr_info buffer_info;
-	unsigned long flags;
 	int domain;
 	unsigned long smem_flags = 0;
 	struct hal_buffer_requirements *scratch_buf;
@@ -1956,9 +1944,9 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 					"vidc_hal_session_set_buffers failed");
 				goto fail_set_buffers;
 			}
-			spin_lock_irqsave(&inst->lock, flags);
+			mutex_lock(&inst->lock);
 			list_add_tail(&binfo->list, &inst->internalbufs);
-			spin_unlock_irqrestore(&inst->lock, flags);
+			mutex_unlock(&inst->lock);
 		}
 	}
 	return rc;
@@ -2041,9 +2029,9 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 					"vidc_hal_session_set_buffers failed");
 				goto fail_set_buffers;
 			}
-			spin_lock_irqsave(&inst->lock, flags);
+			mutex_lock(&inst->lock);
 			list_add_tail(&binfo->list, &inst->persistbufs);
-			spin_unlock_irqrestore(&inst->lock, flags);
+			mutex_unlock(&inst->lock);
 		}
 	}
 	return rc;

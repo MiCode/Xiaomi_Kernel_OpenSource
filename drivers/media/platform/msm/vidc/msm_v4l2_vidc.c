@@ -15,7 +15,6 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/ioctl.h>
-#include <linux/spinlock.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
@@ -930,7 +929,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 
 	INIT_LIST_HEAD(&core->instances);
 	mutex_init(&core->sync_lock);
-	spin_lock_init(&core->lock);
+	mutex_init(&core->lock);
 
 	core->state = VIDC_CORE_UNINIT;
 	for (i = SYS_MSG_INDEX(SYS_MSG_START);
@@ -945,7 +944,6 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_vidc_core *core;
-	unsigned long flags;
 	core = kzalloc(sizeof(*core), GFP_KERNEL);
 	if (!core || !vidc_driver) {
 		dprintk(VIDC_ERR,
@@ -995,10 +993,9 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 		dprintk(VIDC_ERR, "Failed to create HFI device\n");
 		goto err_cores_exceeded;
 	}
-
-	spin_lock_irqsave(&vidc_driver->lock, flags);
+	mutex_lock(&vidc_driver->lock);
 	if (vidc_driver->num_cores  + 1 > MSM_VIDC_CORES_MAX) {
-		spin_unlock_irqrestore(&vidc_driver->lock, flags);
+		mutex_unlock(&vidc_driver->lock);
 		dprintk(VIDC_ERR, "Maximum cores already exist, core_no = %d\n",
 				vidc_driver->num_cores);
 		goto err_cores_exceeded;
@@ -1006,7 +1003,7 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 
 	core->id = vidc_driver->num_cores++;
 	list_add_tail(&core->list, &vidc_driver->cores);
-	spin_unlock_irqrestore(&vidc_driver->lock, flags);
+	mutex_unlock(&vidc_driver->lock);
 	core->debugfs_root = msm_vidc_debugfs_init_core(
 		core, vidc_driver->debugfs_root);
 	pdev->dev.platform_data = core;
@@ -1078,7 +1075,7 @@ static int __init msm_vidc_init(void)
 	}
 
 	INIT_LIST_HEAD(&vidc_driver->cores);
-	spin_lock_init(&vidc_driver->lock);
+	mutex_init(&vidc_driver->lock);
 	vidc_driver->debugfs_root = debugfs_create_dir("msm_vidc", NULL);
 	if (!vidc_driver->debugfs_root)
 		dprintk(VIDC_ERR,
