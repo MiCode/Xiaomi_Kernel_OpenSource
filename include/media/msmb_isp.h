@@ -142,6 +142,18 @@ struct msm_vfe_axi_stream_cfg_cmd {
 	enum msm_vfe_axi_stream_cmd cmd;
 };
 
+enum msm_vfe_axi_stream_update_type {
+	ENABLE_STREAM_BUF_DIVERT,
+	DISABLE_STREAM_BUF_DIVERT,
+	UPDATE_STREAM_FRAMEDROP_PATTERN,
+};
+
+struct msm_vfe_axi_stream_update_cmd {
+	uint32_t stream_handle;
+	enum msm_vfe_axi_stream_update_type update_type;
+	enum msm_vfe_frame_skip_pattern skip_pattern;
+};
+
 enum msm_vfe_stats_pipeline_policy {
 	STATS_COMP_ALL,
 	STATS_COMP_NONE,
@@ -223,6 +235,8 @@ struct msm_isp_qbuf_info {
 	int buf_idx;
 	/*Only used for prepare buffer*/
 	struct v4l2_buffer buffer;
+	/*Only used for diverted buffer*/
+	uint32_t dirty_buf;
 };
 
 struct msm_vfe_axi_src_state {
@@ -338,5 +352,8 @@ struct msm_isp_event_data {
 #define VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+12,   \
 	      struct msm_vfe_stats_comp_policy_cfg)
+
+#define VIDIOC_MSM_ISP_UPDATE_STREAM \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+13, struct msm_vfe_axi_stream_update_cmd)
 
 #endif /* __MSMB_ISP__ */

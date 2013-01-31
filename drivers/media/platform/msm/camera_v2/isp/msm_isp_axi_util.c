@@ -698,6 +698,11 @@ int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 
 	if (stream_info->buf[pingpong_bit] && tv) {
 		if (stream_info->buf_divert) {
+			vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
+				stream_info->buf[pingpong_bit]->bufq_handle,
+				stream_info->buf[pingpong_bit]->buf_idx,
+				tv, stream_info->frame_id);
+
 			buf_event.frame_id = stream_info->frame_id;
 			buf_event.timestamp = *tv;
 			buf_event.u.buf_done.session_id =
@@ -912,6 +917,38 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			pr_err("%s: wait timeout\n", __func__);
 			rc = -1;
 		}
+	}
+	return rc;
+}
+
+int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
+{
+	int rc = 0;
+	struct msm_vfe_axi_stream *stream_info;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	struct msm_vfe_axi_stream_update_cmd *update_cmd = arg;
+	stream_info = &axi_data->stream_info[
+			(update_cmd->stream_handle & 0xFF)];
+	if (stream_info->state != ACTIVE && stream_info->state != INACTIVE) {
+		pr_err("%s: Invalid stream state\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (update_cmd->update_type) {
+	case ENABLE_STREAM_BUF_DIVERT:
+		stream_info->buf_divert = 1;
+		break;
+	case DISABLE_STREAM_BUF_DIVERT:
+		stream_info->buf_divert = 0;
+		vfe_dev->buf_mgr->ops->flush_buf(vfe_dev->buf_mgr,
+				stream_info->bufq_handle,
+				MSM_ISP_BUFFER_FLUSH_DIVERTED);
+		break;
+	case UPDATE_STREAM_FRAMEDROP_PATTERN:
+		break;
+	default:
+		pr_err("%s: Invalid update type\n", __func__);
+		return -EINVAL;
 	}
 	return rc;
 }

@@ -145,6 +145,9 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY:
 		msm_isp_cfg_stats_comp_policy(vfe_dev, arg);
 		break;
+	case VIDIOC_MSM_ISP_UPDATE_STREAM:
+		msm_isp_update_axi_stream(vfe_dev, arg);
+		break;
 	}
 
 	mutex_unlock(&vfe_dev->mutex);
