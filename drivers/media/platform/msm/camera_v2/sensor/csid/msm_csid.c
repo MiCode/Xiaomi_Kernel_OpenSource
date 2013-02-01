@@ -313,7 +313,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 			goto clk_enable_failed;
 		}
 		CDBG("%s:%d called\n", __func__, __LINE__);
-	} else if (CSID_VERSION == CSID_VERSION_V3) {
+	} else if (CSID_VERSION >= CSID_VERSION_V3) {
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
@@ -377,7 +377,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	return rc;
 
 clk_enable_failed:
-	if (CSID_VERSION == CSID_VERSION_V3) {
+	if (CSID_VERSION >= CSID_VERSION_V3) {
 		msm_cam_clk_enable(&csid_dev->pdev->dev,
 			csid_8974_clk_info[0].clk_info, csid_dev->csid0_clk,
 			csid_8974_clk_info[0].num_clk_info, 0);
@@ -387,7 +387,7 @@ csid0_clk_enable_failed:
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
 			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
-	} else if (CSID_VERSION == CSID_VERSION_V3) {
+	} else if (CSID_VERSION >= CSID_VERSION_V3) {
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
 			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
@@ -397,7 +397,7 @@ vreg_enable_failed:
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
-	} else if (CSID_VERSION == CSID_VERSION_V3) {
+	} else if (CSID_VERSION >= CSID_VERSION_V3) {
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
@@ -436,7 +436,7 @@ static int msm_csid_release(struct csid_device *csid_dev)
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
 			csid_8960_vreg_info, ARRAY_SIZE(csid_8960_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
-	} else if (csid_dev->hw_version == CSID_VERSION_V3) {
+	} else if (csid_dev->hw_version >= CSID_VERSION_V3) {
 		core_id = csid_dev->pdev->id;
 		if (core_id)
 			msm_cam_clk_enable(&csid_dev->pdev->dev,

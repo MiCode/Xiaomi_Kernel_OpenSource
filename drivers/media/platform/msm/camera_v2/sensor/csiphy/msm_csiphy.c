@@ -66,7 +66,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	msm_camera_io_w(0x1, csiphybase + MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR);
 	msm_camera_io_w(0x1, csiphybase + MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR);
 
-	if (csiphy_dev->hw_version != CSIPHY_VERSION_V3) {
+	if (csiphy_dev->hw_version < CSIPHY_VERSION_V3) {
 		val = 0x3;
 		msm_camera_io_w((lane_mask << 2) | val,
 				csiphybase + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
@@ -198,7 +198,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
-	if (CSIPHY_VERSION != CSIPHY_VERSION_V3) {
+	if (CSIPHY_VERSION < CSIPHY_VERSION_V3) {
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
@@ -269,7 +269,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
-	if (CSIPHY_VERSION != CSIPHY_VERSION_V3) {
+	if (CSIPHY_VERSION < CSIPHY_VERSION_V3) {
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
@@ -329,7 +329,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		csi_lane_params->csi_lane_assign,
 		csi_lane_params->csi_lane_mask);
 
-	if (csiphy_dev->hw_version != CSIPHY_VERSION_V3) {
+	if (csiphy_dev->hw_version < CSIPHY_VERSION_V3) {
 		csiphy_dev->lane_mask[csiphy_dev->pdev->id] = 0;
 		for (i = 0; i < 4; i++)
 			msm_camera_io_w(0x0, csiphy_dev->base +
@@ -359,7 +359,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 
 	disable_irq(csiphy_dev->irq->start);
 
-	if (CSIPHY_VERSION != CSIPHY_VERSION_V3)
+	if (CSIPHY_VERSION < CSIPHY_VERSION_V3)
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_8960_clk_info), 0);
@@ -398,7 +398,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 		csi_lane_params->csi_lane_assign,
 		csi_lane_params->csi_lane_mask);
 
-	if (csiphy_dev->hw_version != CSIPHY_VERSION_V3) {
+	if (csiphy_dev->hw_version < CSIPHY_VERSION_V3) {
 		csiphy_dev->lane_mask[csiphy_dev->pdev->id] = 0;
 		for (i = 0; i < 4; i++)
 			msm_camera_io_w(0x0, csiphy_dev->base +
@@ -426,7 +426,7 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_LNCK_CFG2_ADDR);
 	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
 
-	if (CSIPHY_VERSION != CSIPHY_VERSION_V3)
+	if (CSIPHY_VERSION < CSIPHY_VERSION_V3)
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_8960_clk_info), 0);
