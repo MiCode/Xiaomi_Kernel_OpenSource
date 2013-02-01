@@ -101,6 +101,8 @@ int data_bridge_write(unsigned int , struct sk_buff *);
 int data_bridge_unthrottle_rx(unsigned int);
 
 /* defined in control bridge */
+int ctrl_bridge_init(void);
+void ctrl_bridge_exit(void);
 int ctrl_bridge_probe(struct usb_interface *, struct usb_host_endpoint *, int);
 void ctrl_bridge_disconnect(unsigned int);
 int ctrl_bridge_resume(unsigned int);
