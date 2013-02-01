@@ -784,9 +784,14 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	 * power mode (LPM). This interrupt is level triggered. So USB IRQ
 	 * line must be disabled till async interrupt enable bit is cleared
 	 * in USBCMD register. Assert STP (ULPI interface STOP signal) to
-	 * block data communication from PHY.
+	 * block data communication from PHY.  Enable asynchronous interrupt
+	 * only when wakeup gpio IRQ is not present.
 	 */
-	writel_relaxed(readl_relaxed(USB_USBCMD) | ASYNC_INTR_CTRL |
+	if (mehci->wakeup_irq)
+		writel_relaxed(readl_relaxed(USB_USBCMD) |
+				ULPI_STP_CTRL, USB_USBCMD);
+	else
+		writel_relaxed(readl_relaxed(USB_USBCMD) | ASYNC_INTR_CTRL |
 				ULPI_STP_CTRL, USB_USBCMD);
 
 	/*
