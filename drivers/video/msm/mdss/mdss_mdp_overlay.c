@@ -270,13 +270,13 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pipe->params_changed = true;
 	}
 
-	if (req->id == MSMFB_NEW_REQUEST) {
-		mixer = mdss_mdp_mixer_get(mfd->ctl, mixer_mux);
-		if (!mixer) {
-			pr_err("unable to get mixer\n");
-			return -ENODEV;
-		}
+	mixer = mdss_mdp_mixer_get(mfd->ctl, mixer_mux);
+	if (!mixer) {
+		pr_err("unable to get mixer\n");
+		return -ENODEV;
+	}
 
+	if (req->id == MSMFB_NEW_REQUEST) {
 		if (req->flags & MDP_OV_PIPE_FORCE_DMA)
 			pipe_type = MDSS_MDP_PIPE_TYPE_DMA;
 		else if (fmt->is_yuv || (req->flags & MDP_OV_PIPE_SHARE))
@@ -314,6 +314,21 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_err("invalid pipe ndx=%x\n", req->id);
 			return pipe ? PTR_ERR(pipe) : -ENODEV;
+		}
+
+		if (pipe->mixer != mixer) {
+			if (!mixer->ctl || (mixer->ctl->mfd != mfd)) {
+				pr_err("Can't switch mixer %d->%d pnum %d!\n",
+						pipe->mixer->num, mixer->num,
+						pipe->num);
+				mdss_mdp_pipe_unmap(pipe);
+				return -EINVAL;
+			}
+			pr_debug("switching pipe mixer %d->%d pnum %d\n",
+					pipe->mixer->num, mixer->num,
+					pipe->num);
+			mdss_mdp_mixer_pipe_unstage(pipe);
+			pipe->mixer = mixer;
 		}
 	}
 
