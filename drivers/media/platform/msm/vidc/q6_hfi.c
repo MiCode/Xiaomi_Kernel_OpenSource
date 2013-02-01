@@ -1132,6 +1132,15 @@ static int q6_hfi_load_fw(void *dev)
 	if (!device)
 		return -EINVAL;
 
+	if (!device->resources.fw.cookie)
+		device->resources.fw.cookie = subsystem_get("adsp");
+
+	if (IS_ERR_OR_NULL(device->resources.fw.cookie)) {
+		dprintk(VIDC_ERR, "Failed to download firmware\n");
+		rc = -ENOMEM;
+		goto fail_subsystem_get;
+	}
+
 	/*Set Q6 to loaded state*/
 	apr_set_q6_state(APR_SUBSYS_LOADED);
 
@@ -1156,9 +1165,11 @@ static int q6_hfi_load_fw(void *dev)
 
 fail_iommu_attach:
 	apr_deregister(device->apr);
+	device->apr = NULL;
 fail_apr_register:
 	subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
+fail_subsystem_get:
 	return rc;
 }
 
@@ -1168,8 +1179,17 @@ static void q6_hfi_unload_fw(void *hfi_device_data)
 
 	if (!device)
 		return;
-	if (device->apr)
-		apr_deregister(device->apr);
+
+	if (device->resources.fw.cookie) {
+		subsystem_put(device->resources.fw.cookie);
+		device->resources.fw.cookie = NULL;
+	}
+
+	if (device->apr) {
+		if (apr_deregister(device->apr))
+			dprintk(VIDC_ERR, "Failed to deregister APR");
+		device->apr = NULL;
+	}
 }
 
 static int q6_hfi_get_fw_info(void *dev, enum fw_info info)
