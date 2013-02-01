@@ -405,10 +405,10 @@ static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint32_t cmd_bits,
 			} else {
 				/* zero 2 bits */
 				ispif->applied_intf_cmd[vfe_intf].intf_cmd &=
-					~(0x3 << (vc * 2 + vfe_intf * 8));
+					~(0x3 << (vc * 2 + intf_type * 8));
 				/* set cmd bits */
 				ispif->applied_intf_cmd[vfe_intf].intf_cmd |=
-					(cmd_bits << (vc * 2 + vfe_intf * 8));
+					(cmd_bits << (vc * 2 + intf_type * 8));
 			}
 		}
 	}

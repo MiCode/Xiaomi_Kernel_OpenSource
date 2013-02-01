@@ -34,9 +34,6 @@
 #define VFE40_EQUAL_SLICE_UB 304
 #define VFE40_WM_BASE(idx) (0x6C + 0x24 * idx)
 #define VFE40_RDI_BASE(idx) (0x2E8 + 0x4 * idx)
-#define VFE40_RDI_MN_BASE(m) (0x2E8 + 0x4 * m/3)
-#define VFE40_RDI_MN_SEL_SHIFT(m) (4*(m%3) + 4)
-#define VFE40_RDI_MN_FB_SHIFT(m) ((m%3) + 16)
 #define VFE40_XBAR_BASE(idx) (0x58 + 0x4 * (idx / 2))
 #define VFE40_XBAR_SHIFT(idx) ((idx%2) ? 16 : 0)
 #define VFE40_PING_PONG_BASE(wm, ping_pong) \
@@ -449,7 +446,6 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
-	uint32_t update_mask = 0xF;
 	if (!(irq_status0 & 0xF0))
 		return;
 
@@ -467,15 +463,13 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 	msm_isp_update_framedrop_reg(vfe_dev);
 	msm_isp_update_error_frame_count(vfe_dev);
 
-	vfe_dev->hw_info->vfe_ops.core_ops.
-		reg_update(vfe_dev, update_mask);
+	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
 	return;
 }
 
-static void msm_vfe40_reg_update(
-	struct vfe_device *vfe_dev, uint32_t update_mask)
+static void msm_vfe40_reg_update(struct vfe_device *vfe_dev)
 {
-	msm_camera_io_w_mb(update_mask, vfe_dev->vfe_base + 0x378);
+	msm_camera_io_w_mb(0xF, vfe_dev->vfe_base + 0x378);
 }
 
 static long msm_vfe40_reset_hardware(struct vfe_device *vfe_dev)
@@ -495,12 +489,14 @@ static void msm_vfe40_axi_reload_wm(
 static void msm_vfe40_axi_enable_wm(struct vfe_device *vfe_dev,
 	uint8_t wm_idx, uint8_t enable)
 {
+	uint32_t val;
+	val = msm_camera_io_r(vfe_dev->vfe_base + VFE40_WM_BASE(wm_idx));
 	if (enable)
-		msm_camera_io_w_mb(0x1,
-			vfe_dev->vfe_base + VFE40_WM_BASE(wm_idx));
+		val |= 0x1;
 	else
-		msm_camera_io_w_mb(0x0,
-			vfe_dev->vfe_base + VFE40_WM_BASE(wm_idx));
+		val &= ~0x1;
+	msm_camera_io_w_mb(val,
+		vfe_dev->vfe_base + VFE40_WM_BASE(wm_idx));
 }
 
 static void msm_vfe40_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
@@ -624,7 +620,9 @@ static void msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 		break;
 	case PIX_ENCODER:
 	case PIX_VIEWFINDER:
-	case RDI:
+	case RDI_INTF_0:
+	case RDI_INTF_1:
+	case RDI_INTF_2:
 	default:
 		pr_err("%s: Invalid stream source\n", __func__);
 		return;
@@ -709,6 +707,27 @@ static void msm_vfe40_update_camif_state(struct vfe_device *vfe_dev,
 	}
 }
 
+static void msm_vfe40_cfg_rdi_reg(
+	struct vfe_device *vfe_dev, struct msm_vfe_rdi_cfg *rdi_cfg,
+	enum msm_vfe_input_src input_src)
+{
+	uint8_t rdi = input_src - VFE_RAW_0;
+	uint32_t rdi_reg_cfg;
+	rdi_reg_cfg = msm_camera_io_r(
+		vfe_dev->vfe_base + VFE40_RDI_BASE(0));
+	rdi_reg_cfg &= ~(BIT(16 + rdi));
+	rdi_reg_cfg |= rdi_cfg->frame_based << (16 + rdi);
+	msm_camera_io_w(rdi_reg_cfg,
+		vfe_dev->vfe_base + VFE40_RDI_BASE(0));
+
+	rdi_reg_cfg = msm_camera_io_r(
+		vfe_dev->vfe_base + VFE40_RDI_BASE(rdi));
+	rdi_reg_cfg &= 0x70003;
+	rdi_reg_cfg |= (rdi * 3) << 28 | rdi_cfg->cid << 4 | 0x4;
+	msm_camera_io_w(
+		rdi_reg_cfg, vfe_dev->vfe_base + VFE40_RDI_BASE(rdi));
+}
+
 static void msm_vfe40_axi_cfg_wm_reg(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
@@ -721,24 +740,37 @@ static void msm_vfe40_axi_cfg_wm_reg(
 			(stream_cfg_cmd->axi_stream_handle & 0xFF)];
 	uint32_t wm_base = VFE40_WM_BASE(stream_info->wm[plane_idx]);
 
-	/*WR_IMAGE_SIZE*/
-	val =
-		((msm_isp_cal_word_per_line(stream_cfg_cmd->output_format,
-		stream_cfg_cmd->plane_cfg[plane_idx].
-			output_width)+1)/2 - 1) << 16 |
-			(stream_cfg_cmd->plane_cfg[plane_idx].
-			output_height - 1);
-	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
+	if (!stream_info->frame_based) {
+		/*WR_IMAGE_SIZE*/
+		val =
+			((msm_isp_cal_word_per_line(
+				stream_cfg_cmd->output_format,
+				stream_cfg_cmd->plane_cfg[plane_idx].
+				output_width)+1)/2 - 1) << 16 |
+				(stream_cfg_cmd->plane_cfg[plane_idx].
+				output_height - 1);
+		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
 
-	/*WR_BUFFER_CFG*/
-	val =
-		msm_isp_cal_word_per_line(stream_cfg_cmd->output_format,
-		stream_cfg_cmd->plane_cfg[
-			plane_idx].output_stride) << 16 |
-		(stream_cfg_cmd->plane_cfg[
-			plane_idx].output_height - 1) << 4 |
-		VFE40_BURST_LEN;
-	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
+		/*WR_BUFFER_CFG*/
+		val =
+			msm_isp_cal_word_per_line(stream_cfg_cmd->output_format,
+			stream_cfg_cmd->plane_cfg[
+				plane_idx].output_stride) << 16 |
+			(stream_cfg_cmd->plane_cfg[
+				plane_idx].output_height - 1) << 4 |
+			VFE40_BURST_LEN;
+		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
+	} else {
+		msm_camera_io_w(0x2, vfe_dev->vfe_base + wm_base);
+		val =
+			msm_isp_cal_word_per_line(stream_cfg_cmd->output_format,
+			stream_cfg_cmd->plane_cfg[
+				plane_idx].output_width) << 16 |
+			(stream_cfg_cmd->plane_cfg[
+				plane_idx].output_height - 1) << 4 |
+			VFE40_BURST_LEN;
+		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
+	}
 
 	/*WR_IRQ_SUBSAMPLE_PATTERN*/
 	msm_camera_io_w(0xFFFFFFFF,
@@ -762,40 +794,6 @@ static void msm_vfe40_axi_clear_wm_reg(
 	/*WR_IRQ_SUBSAMPLE_PATTERN*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x20);
 	return;
-}
-
-static void msm_vfe40_axi_cfg_rdi_reg(
-	struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
-	uint8_t plane_idx)
-{
-	struct msm_vfe_axi_shared_data *axi_data =
-		&vfe_dev->axi_data;
-	struct msm_vfe_axi_stream *stream_info =
-		&axi_data->stream_info[
-			(stream_cfg_cmd->axi_stream_handle & 0xFF)];
-	struct msm_vfe_axi_plane_cfg *plane_cfg =
-		&stream_cfg_cmd->plane_cfg[plane_idx];
-	uint8_t rdi = stream_info->rdi[plane_idx];
-	uint8_t rdi_master = stream_info->rdi_master[plane_idx];
-	uint32_t rdi_reg_cfg;
-
-	rdi_reg_cfg = msm_camera_io_r(
-		vfe_dev->vfe_base + VFE40_RDI_BASE(rdi));
-	rdi_reg_cfg = (rdi_reg_cfg & 0xFFFFFFF) | rdi_master << 28;
-	msm_camera_io_w(
-		rdi_reg_cfg, vfe_dev->vfe_base + VFE40_RDI_BASE(rdi));
-
-	rdi_reg_cfg = msm_camera_io_r(
-		vfe_dev->vfe_base + VFE40_RDI_MN_BASE(rdi_master));
-	rdi_reg_cfg &= ~((0xF << VFE40_RDI_MN_SEL_SHIFT(rdi_master)) |
-		(0x1 << VFE40_RDI_MN_FB_SHIFT(rdi_master)));
-	rdi_reg_cfg |=
-		(plane_cfg->rdi_cid << VFE40_RDI_MN_SEL_SHIFT(rdi_master) |
-		(stream_cfg_cmd->frame_base <<
-		VFE40_RDI_MN_FB_SHIFT(rdi_master)));
-	msm_camera_io_w(rdi_reg_cfg,
-		vfe_dev->vfe_base + VFE40_RDI_MN_BASE(rdi_master));
 }
 
 static void msm_vfe40_axi_cfg_wm_xbar_reg(
@@ -839,13 +837,14 @@ static void msm_vfe40_axi_cfg_wm_xbar_reg(
 	case IDEAL_RAW:
 		xbar_cfg = 0x400;
 		break;
-	case RDI:
-		if (stream_info->rdi[plane_idx] == 0)
-			xbar_cfg = 0x500;
-		else if (stream_info->rdi[plane_idx] == 1)
-			xbar_cfg = 0x600;
-		else if (stream_info->rdi[plane_idx] == 2)
-			xbar_cfg = 0x700;
+	case RDI_INTF_0:
+		xbar_cfg = 0x500;
+		break;
+	case RDI_INTF_1:
+		xbar_cfg = 0x600;
+		break;
+	case RDI_INTF_2:
+		xbar_cfg = 0x700;
 		break;
 	default:
 		pr_err("%s: Invalid stream src\n", __func__);
@@ -1266,7 +1265,6 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.clear_wm_reg = msm_vfe40_axi_clear_wm_reg,
 			.cfg_wm_xbar_reg = msm_vfe40_axi_cfg_wm_xbar_reg,
 			.clear_wm_xbar_reg = msm_vfe40_axi_clear_wm_xbar_reg,
-			.cfg_rdi_reg = msm_vfe40_axi_cfg_rdi_reg,
 			.cfg_ub = msm_vfe40_cfg_axi_ub,
 			.update_ping_pong_addr =
 				msm_vfe40_update_ping_pong_addr,
@@ -1279,6 +1277,7 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.reg_update = msm_vfe40_reg_update,
 			.cfg_camif = msm_vfe40_cfg_camif,
 			.update_camif_state = msm_vfe40_update_camif_state,
+			.cfg_rdi_reg = msm_vfe40_cfg_rdi_reg,
 			.reset_hw = msm_vfe40_reset_hardware,
 			.init_hw = msm_vfe40_init_hardware,
 			.init_hw_reg = msm_vfe40_init_hardware_reg,

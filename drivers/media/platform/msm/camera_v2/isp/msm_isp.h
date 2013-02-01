@@ -116,10 +116,6 @@ struct msm_vfe_axi_ops {
 	void (*clear_wm_xbar_reg) (struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info, uint8_t plane_idx);
 
-	void (*cfg_rdi_reg) (struct vfe_device *vfe_dev,
-		struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd,
-		uint8_t plane_idx);
-
 	void (*cfg_ub) (struct vfe_device *vfe_dev);
 
 	void (*update_ping_pong_addr) (struct vfe_device *vfe_dev,
@@ -132,7 +128,7 @@ struct msm_vfe_axi_ops {
 };
 
 struct msm_vfe_core_ops {
-	void (*reg_update) (struct vfe_device *vfe_dev, uint32_t update_mask);
+	void (*reg_update) (struct vfe_device *vfe_dev);
 	long (*reset_hw) (struct vfe_device *vfe_dev);
 	int (*init_hw) (struct vfe_device *vfe_dev);
 	void (*init_hw_reg) (struct vfe_device *vfe_dev);
@@ -141,6 +137,9 @@ struct msm_vfe_core_ops {
 		struct msm_vfe_pix_cfg *pix_cfg);
 	void (*update_camif_state) (struct vfe_device *vfe_dev,
 		enum msm_isp_camif_update_state update_state);
+	void (*cfg_rdi_reg) (struct vfe_device *vfe_dev,
+		struct msm_vfe_rdi_cfg *rdi_cfg,
+		enum msm_vfe_input_src input_src);
 	int (*get_platform_data) (struct vfe_device *vfe_dev);
 	void (*get_error_mask) (uint32_t *error_mask0, uint32_t *error_mask1);
 	void (*process_error_status) (struct vfe_device *vfe_dev);
@@ -231,8 +230,6 @@ struct msm_vfe_axi_stream {
 	enum msm_vfe_axi_stream_src stream_src;
 	uint8_t num_planes;
 	uint8_t wm[MAX_PLANES_PER_STREAM];
-	uint8_t rdi[MAX_PLANES_PER_STREAM];
-	uint8_t rdi_master[MAX_PLANES_PER_STREAM];
 	uint8_t comp_mask_index;
 	struct msm_isp_buffer *buf[2];
 	uint32_t session_id;
@@ -242,6 +239,7 @@ struct msm_vfe_axi_stream {
 	uint8_t buf_divert;
 	enum msm_vfe_axi_stream_type stream_type;
 
+	uint32_t frame_based;
 	uint32_t framedrop_period;
 	uint32_t framedrop_pattern;
 	uint32_t init_frame_drop;
@@ -277,9 +275,6 @@ struct msm_vfe_axi_shared_data {
 	uint32_t wm_image_size[MAX_NUM_WM];
 	enum msm_wm_ub_cfg_type wm_ub_cfg_policy;
 	uint8_t num_used_wm;
-	uint8_t free_rdi[MAX_NUM_RDI];
-	uint8_t free_rdi_master[MAX_NUM_RDI][MAX_NUM_RDI_MASTER];
-	uint8_t num_used_rdi;
 	uint8_t num_active_stream;
 	struct msm_vfe_axi_composite_info
 		composite_info[MAX_NUM_COMPOSITE_MASK];
