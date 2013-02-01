@@ -29,9 +29,9 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 
-#define VFE40_BURST_LEN 4
-#define VFE40_UB_SIZE 1024
-#define VFE40_EQUAL_SLICE_UB 117
+#define VFE40_BURST_LEN 3
+#define VFE40_UB_SIZE 1536
+#define VFE40_EQUAL_SLICE_UB 304
 #define VFE40_WM_BASE(idx) (0x6C + 0x24 * idx)
 #define VFE40_RDI_BASE(idx) (0x2E8 + 0x4 * idx)
 #define VFE40_RDI_MN_BASE(m) (0x2E8 + 0x4 * m/3)
@@ -261,7 +261,7 @@ static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 	/* CGC_OVERRIDE */
 	msm_camera_io_w(0x3FFFFFFF, vfe_dev->vfe_base + 0x14);
 	/* BUS_CFG */
-	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x50);
+	msm_camera_io_w(0x10000001, vfe_dev->vfe_base + 0x50);
 	msm_camera_io_w(0x800000F3, vfe_dev->vfe_base + 0x28);
 	msm_camera_io_w_mb(0xFEFFFFFF, vfe_dev->vfe_base + 0x2C);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x30);
@@ -742,7 +742,7 @@ static void msm_vfe40_axi_cfg_wm_reg(
 			plane_idx].output_stride) << 16 |
 		(stream_cfg_cmd->plane_cfg[
 			plane_idx].output_scan_lines - 1) << 4 |
-		VFE40_BURST_LEN >> 2;
+		VFE40_BURST_LEN;
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
 
 	/*WR_IRQ_SUBSAMPLE_PATTERN*/
@@ -1204,7 +1204,7 @@ vfe_no_resource:
 }
 
 static struct msm_vfe_axi_hardware_info msm_vfe40_axi_hw_info = {
-	.num_wm = 7,
+	.num_wm = 4,
 	.num_comp_mask = 4,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
