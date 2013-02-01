@@ -139,6 +139,7 @@ struct msm_fb_data_type {
 	void (*vsync_ctrl) (int enable);
 	void (*vsync_init) (int cndx);
 	void (*update_panel_info)(struct msm_fb_data_type *mfd);
+	bool (*is_panel_ready)(void);
 	void *vsync_show;
 	void *cursor_buf;
 	void *cursor_buf_phys;
