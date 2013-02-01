@@ -1380,7 +1380,6 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	ret = scm_call(SCM_SVC_TZSCHEDULER, 1, &load_req,
 				sizeof(struct qseecom_load_lib_image_ireq),
 							&resp, sizeof(resp));
-	kzfree(img_data);
 	if (ret) {
 		pr_err("scm_call to load failed : ret %d\n", ret);
 		ret = -EIO;
@@ -1406,6 +1405,7 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 			break;
 		}
 	}
+	kzfree(img_data);
 	return ret;
 }
 
