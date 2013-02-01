@@ -135,8 +135,8 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			pr_err("%s: Failed to enable regulator.\n", __func__);
 			return ret;
 		}
-
-		mdss_dsi_panel_reset(pdata, 1);
+		if (pdata->panel_info.panel_power_on == 0)
+			mdss_dsi_panel_reset(pdata, 1);
 
 	} else {
 
@@ -222,6 +222,13 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
+	if (!pdata->panel_info.panel_power_on) {
+		pr_warn("%s:%d Panel already off.\n", __func__, __LINE__);
+		return -EPERM;
+	}
+
+	pdata->panel_info.panel_power_on = 0;
+
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 	mdss_dsi_clk_disable(pdata);
@@ -241,7 +248,38 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	return ret;
 }
 
-static int mdss_dsi_on(struct mdss_panel_data *pdata)
+int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
+{
+	int ret = 0;
+	struct mipi_panel_info *mipi;
+
+	pr_info("%s:%d DSI on for continuous splash.\n", __func__, __LINE__);
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	mipi  = &pdata->panel_info.mipi;
+
+	ret = mdss_dsi_panel_power_on(pdata, 1);
+	if (ret) {
+		pr_err("%s: Panel power on failed\n", __func__);
+		return ret;
+	}
+	mdss_dsi_sw_reset(pdata);
+	mdss_dsi_host_init(mipi, pdata);
+
+	pdata->panel_info.panel_power_on = 1;
+
+	mdss_dsi_op_mode_config(mipi->mode, pdata);
+
+	pr_debug("%s-:End\n", __func__);
+	return ret;
+}
+
+
+int mdss_dsi_on(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
 	u32 clk_rate;
@@ -257,6 +295,11 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
+	if (pdata->panel_info.panel_power_on) {
+		pr_warn("%s:%d Panel already on.\n", __func__, __LINE__);
+		return 0;
+	}
+
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 	pinfo = &pdata->panel_info;
@@ -266,6 +309,8 @@ static int mdss_dsi_on(struct mdss_panel_data *pdata)
 		pr_err("%s: Panel power on failed\n", __func__);
 		return ret;
 	}
+
+	pdata->panel_info.panel_power_on = 1;
 
 	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
 	mdss_dsi_phy_init(pdata);
@@ -393,6 +438,16 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 			rc = mdss_dsi_ctrl_unprepare(pdata);
 		}
 		rc = mdss_dsi_off(pdata);
+		break;
+	case MDSS_EVENT_CONT_SPLASH_FINISH:
+		if (ctrl_pdata->on_cmds->ctrl_state == DSI_LP_MODE) {
+			rc = mdss_dsi_cont_splash_on(pdata);
+		} else {
+			pr_debug("%s:event=%d, Dsi On not called: ctrl_state: %d\n",
+				 __func__, event,
+				 ctrl_pdata->on_cmds->ctrl_state);
+			rc = -EINVAL;
+		}
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
@@ -542,6 +597,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	struct platform_device *ctrl_pdev = NULL;
 	unsigned char *ctrl_addr;
 	bool broadcast;
+	bool cont_splash_enabled = false;
 
 	h_period = ((panel_data->panel_info.lcdc.h_pulse_width)
 			+ (panel_data->panel_info.lcdc.h_back_porch)
@@ -649,13 +705,6 @@ int dsi_panel_device_register(struct platform_device *pdev,
 			gpio_free(ctrl_pdata->disp_en_gpio);
 			return -ENODEV;
 		}
-		rc = gpio_direction_output(ctrl_pdata->disp_en_gpio, 1);
-		if (rc) {
-			pr_err("set_direction for disp_en gpio failed, rc=%d\n",
-			       rc);
-			gpio_free(ctrl_pdata->disp_en_gpio);
-			return -ENODEV;
-		}
 	}
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(pdev->dev.of_node,
@@ -705,6 +754,28 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	/*
 	 * register in mdp driver
 	 */
+
+	cont_splash_enabled = of_property_read_bool(pdev->dev.of_node,
+			"qcom,cont-splash-enabled");
+	if (!cont_splash_enabled) {
+		pr_info("%s:%d Continous splash flag not found.\n",
+				__func__, __LINE__);
+		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 0;
+		ctrl_pdata->panel_data.panel_info.panel_power_on = 0;
+	} else {
+		pr_info("%s:%d Continous splash flag enabled.\n",
+				__func__, __LINE__);
+
+		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 1;
+		ctrl_pdata->panel_data.panel_info.panel_power_on = 1;
+	}
+
+
+	if (ctrl_pdata->panel_data.panel_info.cont_splash_enabled) {
+		mdss_dsi_prepare_clocks(ctrl_pdata);
+		mdss_dsi_clk_enable(&(ctrl_pdata->panel_data));
+	}
+
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
 	if (rc) {
 		dev_err(&pdev->dev, "unable to register MIPI DSI panel\n");

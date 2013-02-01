@@ -566,6 +566,12 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 
 	ctl->opmode |= (ctl->intf_num << 4);
 
+	ret = mdss_mdp_ctl_setup(ctl);
+	if (ret) {
+		pr_err("unable to setup control path %d\n", ctl->num);
+		goto ctl_init_fail;
+	}
+
 	if (ctl->intf_num == MDSS_MDP_NO_INTF) {
 		ctl->dst_format = pdata->panel_info.out_format;
 	} else {
@@ -766,14 +772,15 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_ctl *sctl;
 	int ret = 0;
 
+	if (ctl->power_on) {
+		pr_debug("%s:%d already on!\n", __func__, __LINE__);
+		return 0;
+	}
+
 	ret = mdss_mdp_ctl_setup(ctl);
 	if (ret)
 		return ret;
 
-	if (ctl->power_on) {
-		WARN(1, "already on!\n");
-		return 0;
-	}
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
@@ -823,7 +830,7 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 	int ret = 0;
 
 	if (!ctl->power_on) {
-		WARN(1, "already off!\n");
+		pr_debug("%s %d already off!\n", __func__, __LINE__);
 		return 0;
 	}
 
