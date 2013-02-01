@@ -54,6 +54,9 @@
 
 struct mdss_data_type *mdss_res;
 
+#define IB_QUOTA 800000000
+#define AB_QUOTA 800000000
+
 static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 
@@ -644,7 +647,7 @@ int mdss_iommu_attach(struct mdss_data_type *mdata)
 	int i;
 
 	if (mdata->iommu_attached) {
-		pr_warn("mdp iommu already attached\n");
+		pr_debug("mdp iommu already attached\n");
 		return 0;
 	}
 
@@ -751,7 +754,7 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 	return 0;
 }
 
-static int mdss_hw_init(struct mdss_data_type *mdata)
+int mdss_hw_init(struct mdss_data_type *mdata)
 {
 	int i, j;
 	char *offset;
@@ -821,6 +824,21 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	rc = mdss_iommu_init(mdata);
 
 	return rc;
+}
+
+void mdss_mdp_footswitch_ctrl_splash(int on)
+{
+	if (mdss_res != NULL) {
+		if (on) {
+			pr_debug("Enable MDP FS for splash.\n");
+			regulator_enable(mdss_res->fs);
+		} else {
+			pr_debug("Disable MDP FS for splash.\n");
+			regulator_disable(mdss_res->fs);
+		}
+	} else {
+		pr_warn("mdss mdata not initialized\n");
+	}
 }
 
 static int mdss_mdp_probe(struct platform_device *pdev)
@@ -915,6 +933,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		pr_err("unable to register bus scaling\n");
 		goto probe_done;
 	}
+	mdss_mdp_bus_scale_set_quota(AB_QUOTA, IB_QUOTA);
 
 	rc = mdss_mdp_debug_init(mdata);
 	if (rc) {
@@ -1330,16 +1349,16 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 	if (!mdata->fs)
 		return;
 
-	if (on && !mdata->fs_ena) {
+	if (on) {
 		pr_debug("Enable MDP FS\n");
-		regulator_enable(mdata->fs);
-		mdss_iommu_attach(mdata);
-		mdss_hw_init(mdata);
+		if (!mdata->fs_ena)
+			regulator_enable(mdata->fs);
 		mdata->fs_ena = true;
-	} else if (!on && mdata->fs_ena) {
+	} else {
 		pr_debug("Disable MDP FS\n");
 		mdss_iommu_dettach(mdata);
-		regulator_disable(mdata->fs);
+		if (mdata->fs_ena)
+			regulator_disable(mdata->fs);
 		mdata->fs_ena = false;
 	}
 }
