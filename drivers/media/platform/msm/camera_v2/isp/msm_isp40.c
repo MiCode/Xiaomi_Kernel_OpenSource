@@ -49,22 +49,32 @@
 	(VFE40_STATS_BASE(idx) + 0x4 * \
 	(~(ping_pong >> (idx + VFE40_STATS_PING_PONG_OFFSET)) & 0x1))
 
-#define VFE40_VBIF_CLKON        0x4
-#define VFE40_VBIF_IN_RD_LIM_CONF0    0xB0
-#define VFE40_VBIF_IN_RD_LIM_CONF1    0xB4
-#define VFE40_VBIF_IN_RD_LIM_CONF2    0xB8
-#define VFE40_VBIF_IN_WR_LIM_CONF0    0xC0
-#define VFE40_VBIF_IN_WR_LIM_CONF1    0xC4
-#define VFE40_VBIF_IN_WR_LIM_CONF2    0xC8
-#define VFE40_VBIF_OUT_RD_LIM_CONF0   0xD0
-#define VFE40_VBIF_OUT_WR_LIM_CONF0   0xD4
-#define VFE40_VBIF_DDR_OUT_MAX_BURST  0xD8
-#define VFE40_VBIF_ARB_CTL        0xF0
-#define VFE40_VBIF_DDR_ARB_CONF0    0xF4
-#define VFE40_VBIF_DDR_ARB_CONF1    0xF8
-#define VFE40_VBIF_ROUND_ROBIN_QOS_ARB  0x124
-#define VFE40_VBIF_OUT_AXI_AOOO_EN    0x178
-#define VFE40_VBIF_OUT_AXI_AOOO     0x17C
+#define VFE40_VBIF_CLKON                    0x4
+#define VFE40_VBIF_IN_RD_LIM_CONF0          0xB0
+#define VFE40_VBIF_IN_RD_LIM_CONF1          0xB4
+#define VFE40_VBIF_IN_RD_LIM_CONF2          0xB8
+#define VFE40_VBIF_IN_WR_LIM_CONF0          0xC0
+#define VFE40_VBIF_IN_WR_LIM_CONF1          0xC4
+#define VFE40_VBIF_IN_WR_LIM_CONF2          0xC8
+#define VFE40_VBIF_OUT_RD_LIM_CONF0         0xD0
+#define VFE40_VBIF_OUT_WR_LIM_CONF0         0xD4
+#define VFE40_VBIF_DDR_OUT_MAX_BURST        0xD8
+#define VFE40_VBIF_OCMEM_OUT_MAX_BURST      0xDC
+#define VFE40_VBIF_ARB_CTL                  0xF0
+#define VFE40_VBIF_ROUND_ROBIN_QOS_ARB      0x124
+#define VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF0   0x160
+#define VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF1   0x164
+#define VFE40_VBIF_OUT_AXI_AOOO_EN          0x178
+#define VFE40_VBIF_OUT_AXI_AOOO             0x17C
+
+#define VFE40_BUS_BDG_QOS_CFG_0     0x000002C4
+#define VFE40_BUS_BDG_QOS_CFG_1     0x000002C8
+#define VFE40_BUS_BDG_QOS_CFG_2     0x000002CC
+#define VFE40_BUS_BDG_QOS_CFG_3     0x000002D0
+#define VFE40_BUS_BDG_QOS_CFG_4     0x000002D4
+#define VFE40_BUS_BDG_QOS_CFG_5     0x000002D8
+#define VFE40_BUS_BDG_QOS_CFG_6     0x000002DC
+#define VFE40_BUS_BDG_QOS_CFG_7     0x000002E0
 
 /*Temporary use fixed bus vectors in VFE */
 static struct msm_bus_vectors msm_vfe40_init_vectors[] = {
@@ -112,42 +122,56 @@ static struct msm_cam_clk_info msm_vfe40_clk_info[] = {
 	{"alt_bus_clk", -1},
 };
 
+static void msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev)
+{
+	void __iomem *vfebase = vfe_dev->vfe_base;
+	msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_0);
+	msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_1);
+	msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_2);
+	msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_3);
+	msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_4);
+	msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_5);
+	msm_camera_io_w(0xAAAAAAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_6);
+	msm_camera_io_w(0x0002AAAA, vfebase + VFE40_BUS_BDG_QOS_CFG_7);
+}
+
 static void msm_vfe40_init_vbif_parms(
 	void __iomem *vfe_vbif_base)
 {
-	msm_camera_io_w_mb(0x1,
+	msm_camera_io_w(0x1,
 		vfe_vbif_base + VFE40_VBIF_CLKON);
-	msm_camera_io_w_mb(0x1,
-		vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
-	msm_camera_io_w_mb(0xFFFF,
-		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
-	msm_camera_io_w_mb(0xFFFFFFFF,
-		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
-
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x01010101,
 		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF0);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x01010101,
 		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF1);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x10010110,
 		vfe_vbif_base + VFE40_VBIF_IN_RD_LIM_CONF2);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x10101010,
 		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF0);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x10101010,
 		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF1);
-	msm_camera_io_w_mb(0x10101010,
+	msm_camera_io_w(0x10101010,
 		vfe_vbif_base + VFE40_VBIF_IN_WR_LIM_CONF2);
-	msm_camera_io_w_mb(0x00001010,
+	msm_camera_io_w(0x00001010,
 		vfe_vbif_base + VFE40_VBIF_OUT_RD_LIM_CONF0);
-	msm_camera_io_w_mb(0x00001010,
+	msm_camera_io_w(0x00001010,
 		vfe_vbif_base + VFE40_VBIF_OUT_WR_LIM_CONF0);
-	msm_camera_io_w_mb(0x00000707,
+	msm_camera_io_w(0x00000707,
 		vfe_vbif_base + VFE40_VBIF_DDR_OUT_MAX_BURST);
-	msm_camera_io_w_mb(0x00000030,
+	msm_camera_io_w(0x00000707,
+		vfe_vbif_base + VFE40_VBIF_OCMEM_OUT_MAX_BURST);
+	msm_camera_io_w(0x00000030,
 		vfe_vbif_base + VFE40_VBIF_ARB_CTL);
-	msm_camera_io_w_mb(0x04210842,
-		vfe_vbif_base + VFE40_VBIF_DDR_ARB_CONF0);
-	msm_camera_io_w_mb(0x04210842,
-	vfe_vbif_base + VFE40_VBIF_DDR_ARB_CONF1);
+	msm_camera_io_w(0x00000FFF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO_EN);
+	msm_camera_io_w(0x0FFF0FFF,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AOOO);
+	msm_camera_io_w(0x00000001,
+		vfe_vbif_base + VFE40_VBIF_ROUND_ROBIN_QOS_ARB);
+	msm_camera_io_w(0x22222222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF0);
+	msm_camera_io_w(0x00002222,
+		vfe_vbif_base + VFE40_VBIF_OUT_AXI_AMEMTYPE_CONF1);
 }
 
 static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
@@ -200,6 +224,7 @@ static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
 		goto irq_req_failed;
 	}
 
+	msm_vfe40_init_qos_parms(vfe_dev);
 	msm_vfe40_init_vbif_parms(vfe_dev->vfe_vbif_base);
 	return rc;
 irq_req_failed:
