@@ -130,6 +130,9 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 		}
 	}
 
+	drvdata->halt_enabled = of_property_read_bool(pdev->dev.of_node,
+						      "qcom,iommu-enable-halt");
+
 	return 0;
 fail:
 	return ret;

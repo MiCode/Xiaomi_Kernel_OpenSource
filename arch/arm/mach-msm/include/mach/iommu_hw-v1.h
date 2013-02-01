@@ -144,6 +144,10 @@ do { \
 #define GET_CBFRSYNRA_N(b, N)    GET_GLOBAL_REG_N(CBFRSYNRA, N, (b))
 
 /* Implementation defined register setters/getters */
+#define SET_MICRO_MMU_CTRL_HALT_REQ(b, v) \
+				SET_GLOBAL_FIELD(b, MICRO_MMU_CTRL, HALT_REQ, v)
+#define GET_MICRO_MMU_CTRL_IDLE(b) \
+				GET_GLOBAL_FIELD(b, MICRO_MMU_CTRL, IDLE)
 #define SET_PREDICTIONDIS0(b, v) SET_GLOBAL_REG(PREDICTIONDIS0, (b), (v))
 #define SET_PREDICTIONDIS1(b, v) SET_GLOBAL_REG(PREDICTIONDIS1, (b), (v))
 #define SET_S1L1BFBLP0(b, v)     SET_GLOBAL_REG(S1L1BFBLP0, (b), (v))
@@ -955,6 +959,7 @@ do { \
 #define CBFRSYNRA	(0x1400)
 
 /* Implementation defined Register Space */
+#define MICRO_MMU_CTRL	(0x2000)
 #define PREDICTIONDIS0	(0x204C)
 #define PREDICTIONDIS1	(0x2050)
 #define S1L1BFBLP0	(0x215C)
@@ -1571,6 +1576,10 @@ do { \
 /* Context Bank Fault Restricted Syndrome Register A: CBFRSYNRA */
 #define CBFRSYNRA_SID_MASK      0x7FFF
 
+/* Implementation defined register space masks */
+#define MICRO_MMU_CTRL_HALT_REQ_MASK          0x01
+#define MICRO_MMU_CTRL_IDLE_MASK              0x01
+
 /* Stage 1 Context Bank Format Masks */
 /* Auxiliary Control Register: CB_ACTLR */
 #define CB_ACTLR_REQPRIORITY_MASK    0x3
@@ -1928,6 +1937,10 @@ do { \
 
 /* Context Bank Fault Restricted Syndrome Register A: CBFRSYNRA */
 #define CBFRSYNRA_SID_SHIFT        0
+
+/* Implementation defined register space shift */
+#define MICRO_MMU_CTRL_HALT_REQ_SHIFT         0x02
+#define MICRO_MMU_CTRL_IDLE_SHIFT             0x03
 
 /* Stage 1 Context Bank Format Shifts */
 /* Auxiliary Control Register: CB_ACTLR */
