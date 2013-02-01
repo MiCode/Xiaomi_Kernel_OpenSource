@@ -2593,6 +2593,30 @@ out:
 	return;
 }
 
+static bool mmc_is_vaild_state_for_clk_scaling(struct mmc_host *host)
+{
+	struct mmc_card *card = host->card;
+	u32 status;
+	bool ret = false;
+
+	if (!card)
+		goto out;
+
+	if (mmc_send_status(card, &status)) {
+		pr_err("%s: Get card status fail\n", mmc_hostname(card->host));
+		goto out;
+	}
+
+	switch (R1_CURRENT_STATE(status)) {
+	case R1_STATE_TRAN:
+		ret = true;
+		break;
+	default:
+		break;
+	}
+out:
+	return ret;
+}
 
 /**
  * mmc_clk_scaling() - clock scaling decision algorithm
@@ -2665,6 +2689,10 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 			if (!from_wq)
 				cancel_delayed_work_sync(
 						&host->clk_scaling.work);
+
+			if (!mmc_is_vaild_state_for_clk_scaling(host))
+				goto bypass_scaling;
+
 			err = host->bus_ops->change_bus_speed(host, &freq);
 			if (!err)
 				host->clk_scaling.curr_freq = freq;
@@ -2686,6 +2714,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 	}
 
 	mmc_reset_clk_scale_stats(host);
+bypass_scaling:
 	host->clk_scaling.in_progress = false;
 out:
 	return;
