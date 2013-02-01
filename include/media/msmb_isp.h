@@ -45,7 +45,9 @@ enum msm_vfe_axi_stream_src {
 	PIX_VIEWFINDER,
 	CAMIF_RAW,
 	IDEAL_RAW,
-	RDI,
+	RDI_INTF_0,
+	RDI_INTF_1,
+	RDI_INTF_2,
 	VFE_AXI_SRC_MAX
 };
 
@@ -94,12 +96,17 @@ struct msm_vfe_pix_cfg {
 	enum ISP_START_PIXEL_PATTERN pixel_pattern;
 };
 
+struct msm_vfe_rdi_cfg {
+	uint8_t cid;
+	uint8_t frame_based;
+};
+
 struct msm_vfe_input_cfg {
 	union {
 		struct msm_vfe_pix_cfg pix_cfg;
+		struct msm_vfe_rdi_cfg rdi_cfg;
 	} d;
 	enum msm_vfe_input_src input_src;
-
 };
 
 struct msm_vfe_axi_plane_cfg {
@@ -339,6 +346,19 @@ struct msm_isp_event_data {
 		struct msm_isp_buf_event buf_done;
 	} u; /* union can have max 52 bytes */
 };
+
+#define V4L2_PIX_FMT_QBGGR8  v4l2_fourcc('Q', 'B', 'G', '8')
+#define V4L2_PIX_FMT_QGBRG8  v4l2_fourcc('Q', 'G', 'B', '8')
+#define V4L2_PIX_FMT_QGRBG8  v4l2_fourcc('Q', 'G', 'R', '8')
+#define V4L2_PIX_FMT_QRGGB8  v4l2_fourcc('Q', 'R', 'G', '8')
+#define V4L2_PIX_FMT_QBGGR10 v4l2_fourcc('Q', 'B', 'G', '0')
+#define V4L2_PIX_FMT_QGBRG10 v4l2_fourcc('Q', 'G', 'B', '0')
+#define V4L2_PIX_FMT_QGRBG10 v4l2_fourcc('Q', 'G', 'R', '0')
+#define V4L2_PIX_FMT_QRGGB10 v4l2_fourcc('Q', 'R', 'G', '0')
+#define V4L2_PIX_FMT_QBGGR12 v4l2_fourcc('Q', 'B', 'G', '2')
+#define V4L2_PIX_FMT_QGBRG12 v4l2_fourcc('Q', 'G', 'B', '2')
+#define V4L2_PIX_FMT_QGRBG12 v4l2_fourcc('Q', 'G', 'R', '2')
+#define V4L2_PIX_FMT_QRGGB12 v4l2_fourcc('Q', 'R', 'G', '2')
 
 #define VIDIOC_MSM_VFE_REG_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_vfe_cfg_cmd2)
