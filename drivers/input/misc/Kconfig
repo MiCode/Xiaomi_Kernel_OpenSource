@@ -674,4 +674,22 @@ config BMP18X_I2C
          To compile this driver as a module, choose M here: the
          module will be called bmp18x-i2c.
 
+config SENSORS_MMA8X5X
+	tristate "MMA8451/MMA8452/MMA8453/MMA8652/MMA8653 device driver"
+	depends on I2C && SYSFS
+	select INPUT_POLLDEV
+	default n
+	help
+	  If you say yes here you get support for the Freescale MMA8451/
+	  MMA8452/MMA8453/MMA8652/MMA8653  sensors.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mma8x5x.
+
+config SENSORS_MMA_POSITION
+	int "MMA8x5x Accelerate Sensor Position Setting"
+	depends on SENSORS_MMA8X5X
+	default "0"
+	help
+	  this provide the sensor position setting , value is between 0~7
 endif
