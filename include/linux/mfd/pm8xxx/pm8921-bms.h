@@ -53,6 +53,8 @@ struct pm8921_bms_platform_data {
 	unsigned int			v_cutoff;
 	unsigned int			max_voltage_uv;
 	unsigned int			rconn_mohm;
+	unsigned int			alarm_low_mv;
+	unsigned int			alarm_high_mv;
 	int				enable_fcc_learning;
 	int				shutdown_soc_valid_limit;
 	int				ignore_shutdown_soc;

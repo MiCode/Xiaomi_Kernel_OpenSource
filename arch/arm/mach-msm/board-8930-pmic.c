@@ -476,6 +476,8 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.rconn_mohm			= 18,
 	.normal_voltage_calc_ms		= 20000,
 	.low_voltage_calc_ms		= 1000,
+	.alarm_low_mv			= 3400,
+	.alarm_high_mv			= 4000,
 };
 
 static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
