@@ -778,9 +778,9 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 	dep->free_slot++;
 
 	/* Skip the LINK-TRB on ISOC */
-	if (((cur_slot & DWC3_TRB_MASK) == DWC3_TRB_NUM - 1) &&
+	if (((dep->free_slot & DWC3_TRB_MASK) == DWC3_TRB_NUM - 1) &&
 			usb_endpoint_xfer_isoc(dep->endpoint.desc))
-		return;
+		dep->free_slot++;
 
 	if (!req->trb) {
 		dwc3_gadget_move_request_queued(req);
