@@ -65,6 +65,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_SUSPEND,
 	MDSS_EVENT_RESUME,
 	MDSS_EVENT_CHECK_PARAMS,
+	MDSS_EVENT_CONT_SPLASH_FINISH,
 	MDSS_EVENT_FB_REGISTERED,
 };
 
@@ -182,6 +183,9 @@ struct mdss_panel_info {
 	u32 is_3d_panel;
 	u32 out_format;
 	u32 vic; /* video identification code */
+
+	u32 cont_splash_enabled;
+	u32 panel_power_on;
 
 	struct lcd_panel_info lcd;
 	struct lcdc_panel_info lcdc;
