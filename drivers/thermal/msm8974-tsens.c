@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -859,10 +859,12 @@ compute_intercept_slope:
 		tmdev->sensor[i].calib_data_point2 = calib_tsens_point2_data[i];
 		tmdev->sensor[i].calib_data_point1 = calib_tsens_point1_data[i];
 		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
-			num = TSENS_CAL_DEGC_POINT2 - TSENS_CAL_DEGC_POINT2;
-			den = tmdev->sensor[i].calib_data_point2 -
+			/* slope (m) = adc_code2 - adc_code1 (y2 - y1)/
+				temp_120_degc - temp_30_degc (x2 - x1) */
+			num = tmdev->sensor[i].calib_data_point2 -
 					tmdev->sensor[i].calib_data_point1;
 			num *= tmdev->tsens_factor;
+			den = TSENS_CAL_DEGC_POINT2 - TSENS_CAL_DEGC_POINT1;
 			tmdev->sensor[i].slope_mul_tsens_factor = num/den;
 		}
 		tmdev->sensor[i].offset = (tmdev->sensor[i].calib_data_point1 *
