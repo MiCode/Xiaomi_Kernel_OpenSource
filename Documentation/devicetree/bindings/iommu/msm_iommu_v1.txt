@@ -16,6 +16,8 @@ Optional properties:
 - qcom,alt-vdd-supply : Alternative regulator needed to access IOMMU
   configuration registers.
 - interrupts : should contain the performance monitor overflow interrupt number.
+- qcom,iommu-enable-halt : Enable halt of the IOMMU before programming certain	19
+  registers
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:

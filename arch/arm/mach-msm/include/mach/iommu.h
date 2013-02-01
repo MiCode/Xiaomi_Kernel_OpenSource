@@ -95,6 +95,7 @@ struct msm_iommu_bfb_settings {
  * @dev:	Struct device this hardware instance is tied to
  * @list:	List head to link all iommus together
  * @clk_reg_virt: Optional clock register virtual address.
+ * @halt_enabled: Set to 1 if IOMMU halt is supported in the IOMMU, 0 otherwise.
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
@@ -115,12 +116,15 @@ struct msm_iommu_drvdata {
 	struct device *dev;
 	struct list_head list;
 	void __iomem *clk_reg_virt;
+	int halt_enabled;
 };
 
 void msm_iommu_add_drv(struct msm_iommu_drvdata *drv);
 void msm_iommu_remove_drv(struct msm_iommu_drvdata *drv);
 void program_iommu_bfb_settings(void __iomem *base,
 			const struct msm_iommu_bfb_settings *bfb_settings);
+void iommu_halt(const struct msm_iommu_drvdata *iommu_drvdata);
+void iommu_resume(const struct msm_iommu_drvdata *iommu_drvdata);
 
 /**
  * struct msm_iommu_ctx_drvdata - an IOMMU context bank instance

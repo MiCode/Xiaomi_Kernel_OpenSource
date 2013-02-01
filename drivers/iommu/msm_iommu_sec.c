@@ -364,11 +364,12 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 	}
 
+	iommu_halt(iommu_drvdata);
 	ret = msm_iommu_sec_program_iommu(iommu_drvdata->sec_id);
-
 	/* bfb settings are always programmed by HLOS */
 	program_iommu_bfb_settings(iommu_drvdata->base,
 				   iommu_drvdata->bfb_settings);
+	iommu_resume(iommu_drvdata);
 
 	__disable_clocks(iommu_drvdata);
 	if (ret) {

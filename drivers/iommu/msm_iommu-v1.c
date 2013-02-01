@@ -152,6 +152,30 @@ struct iommu_access_ops iommu_access_ops = {
 	.iommu_lock_release = _iommu_lock_release,
 };
 
+void iommu_halt(const struct msm_iommu_drvdata *iommu_drvdata)
+{
+	if (iommu_drvdata->halt_enabled) {
+		SET_MICRO_MMU_CTRL_HALT_REQ(iommu_drvdata->base, 1);
+
+		while (GET_MICRO_MMU_CTRL_IDLE(iommu_drvdata->base) == 0)
+			cpu_relax();
+		/* Ensure device is idle before continuing */
+		mb();
+	}
+}
+
+void iommu_resume(const struct msm_iommu_drvdata *iommu_drvdata)
+{
+	if (iommu_drvdata->halt_enabled) {
+		/*
+		 * Ensure transactions have completed before releasing
+		 * the halt
+		 */
+		mb();
+		SET_MICRO_MMU_CTRL_HALT_REQ(iommu_drvdata->base, 0);
+	}
+}
+
 static void __sync_tlb(void __iomem *base, int ctx)
 {
 	SET_TLBSYNC(base, ctx, 0);
@@ -570,6 +594,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 	}
 
+	iommu_halt(iommu_drvdata);
+
 	if (!msm_iommu_ctx_attached(dev->parent)) {
 		if (!is_secure) {
 			__program_iommu(iommu_drvdata->base);
@@ -588,6 +614,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	__program_context(iommu_drvdata, ctx_drvdata, __pa(priv->pt.fl_table),
 			  priv->pt.redirect, is_secure);
+
+	iommu_resume(iommu_drvdata);
 
 	__disable_clocks(iommu_drvdata);
 
@@ -633,9 +661,13 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num, ctx_drvdata->asid);
 	ctx_drvdata->asid = -1;
 
+	iommu_halt(iommu_drvdata);
+
 	__reset_context(iommu_drvdata->base, ctx_drvdata->num);
 	if (!is_secure)
 		__release_smg(iommu_drvdata->base, ctx_drvdata->num);
+
+	iommu_resume(iommu_drvdata);
 
 	__disable_clocks(iommu_drvdata);
 
@@ -846,6 +878,8 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 		goto fail;
 	}
 
+	iommu_halt(drvdata);
+
 	fsr = GET_FSR(drvdata->base, ctx_drvdata->num);
 	if (fsr) {
 		if (!ctx_drvdata->attached_domain) {
@@ -869,6 +903,8 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 		ret = IRQ_HANDLED;
 	} else
 		ret = IRQ_NONE;
+
+	iommu_resume(drvdata);
 
 	__disable_clocks(drvdata);
 fail:
