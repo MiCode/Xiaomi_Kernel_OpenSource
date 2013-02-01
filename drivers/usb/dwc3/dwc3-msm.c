@@ -179,6 +179,7 @@ struct dwc3_msm {
 	int			hsphy_init_seq;
 	bool			lpm_irq_seen;
 	struct delayed_work	resume_work;
+	struct work_struct	restart_usb_work;
 	struct wake_lock	wlock;
 	struct dwc3_charger	charger;
 	struct usb_phy		*otg_xceiv;
@@ -930,6 +931,50 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	return 0;
 }
 EXPORT_SYMBOL(msm_ep_unconfig);
+
+static void dwc3_restart_usb_work(struct work_struct *w)
+{
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
+						restart_usb_work);
+
+	dev_dbg(mdwc->dev, "%s\n", __func__);
+
+	if (atomic_read(&mdwc->in_lpm) || !mdwc->otg_xceiv) {
+		dev_err(mdwc->dev, "%s failed!!!\n", __func__);
+		return;
+	}
+
+	if (!mdwc->ext_xceiv.bsv) {
+		dev_dbg(mdwc->dev, "%s bailing out in disconnect\n", __func__);
+		return;
+	}
+
+	/* Reset active USB connection */
+	mdwc->ext_xceiv.bsv = false;
+	queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
+	/* Make sure disconnect is processed before sending connect */
+	flush_delayed_work(&mdwc->resume_work);
+
+	mdwc->ext_xceiv.bsv = true;
+	queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
+}
+
+/**
+ * Reset USB peripheral connection
+ * Inform OTG for Vbus LOW followed by Vbus HIGH notification.
+ * This performs full hardware reset and re-initialization which
+ * might be required by some DBM client driver during uninit/cleanup.
+ */
+void msm_dwc3_restart_usb_session(void)
+{
+	struct dwc3_msm *mdwc = context;
+
+	dev_dbg(mdwc->dev, "%s\n", __func__);
+	queue_work(system_nrt_wq, &mdwc->restart_usb_work);
+
+	return;
+}
+EXPORT_SYMBOL(msm_dwc3_restart_usb_session);
 
 /**
  * msm_register_usb_ext_notification: register for event notification
@@ -2141,6 +2186,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&msm->req_complete_list);
 	INIT_DELAYED_WORK(&msm->chg_work, dwc3_chg_detect_work);
 	INIT_DELAYED_WORK(&msm->resume_work, dwc3_resume_work);
+	INIT_WORK(&msm->restart_usb_work, dwc3_restart_usb_work);
 	INIT_DELAYED_WORK(&msm->init_adc_work, dwc3_init_adc_work);
 
 	msm->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
