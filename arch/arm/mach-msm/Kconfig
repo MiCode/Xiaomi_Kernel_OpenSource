@@ -435,6 +435,7 @@ config ARCH_MSM8226
 	select MSM_PM8X60 if PM
 	select MEMORY_HOLE_CARVEOUT
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
+	select MSM_BUS_SCALING
 endmenu
 
 choice
