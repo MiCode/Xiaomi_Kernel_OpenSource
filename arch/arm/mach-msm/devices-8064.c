@@ -49,6 +49,7 @@
 #include <mach/mpm.h>
 #include <mach/iommu_domains.h>
 #include <mach/msm_cache_dump.h>
+#include "pm.h"
 
 /* Address of GSBI blocks */
 #define MSM_GSBI1_PHYS		0x12440000
@@ -120,11 +121,24 @@ static struct resource msm8064_resources_pccntr[] = {
 	},
 };
 
-struct platform_device msm8064_pc_cntr = {
-	.name		= "pc-cntr",
+static uint32_t msm_pm_cp15_regs[] = {0x4501, 0x5501, 0x6501, 0x7501, 0x0500};
+
+static struct msm_pm_init_data_type msm_pm_data = {
+	.retention_calls_tz = true,
+	.cp15_data.save_cp15 = true,
+	.cp15_data.qsb_pc_vdd = 0x98,
+	.cp15_data.reg_data = &msm_pm_cp15_regs[0],
+	.cp15_data.reg_saved_state_size = ARRAY_SIZE(msm_pm_cp15_regs),
+};
+
+struct platform_device msm8064_pm_8x60 = {
+	.name		= "pm-8x60",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(msm8064_resources_pccntr),
 	.resource	= msm8064_resources_pccntr,
+	.dev = {
+		.platform_data = &msm_pm_data,
+	},
 };
 
 static struct msm_watchdog_pdata msm_watchdog_pdata = {

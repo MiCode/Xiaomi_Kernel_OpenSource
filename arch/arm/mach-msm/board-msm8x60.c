@@ -5299,6 +5299,7 @@ static struct platform_device *surf_devices[] __initdata = {
 	&msm_device_tz_log,
 	&msm_rtb_device,
 	&msm8660_iommu_domain_device,
+	&msm8660_pm_8x60,
 };
 
 #ifdef CONFIG_ION_MSM

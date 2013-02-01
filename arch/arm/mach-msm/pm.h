@@ -97,8 +97,19 @@ enum msm_pm_pc_mode_type {
 					external L2 cache controller */
 };
 
+struct msm_pm_cp15_save_data {
+	bool save_cp15;
+	uint32_t active_vdd;
+	uint32_t qsb_pc_vdd;
+	uint32_t reg_saved_state_size;
+	uint32_t *reg_data;
+	uint32_t *reg_val;
+};
+
 struct msm_pm_init_data_type {
 	enum msm_pm_pc_mode_type pc_mode;
+	bool retention_calls_tz;
+	struct msm_pm_cp15_save_data cp15_data;
 	bool use_sync_timer;
 };
 
