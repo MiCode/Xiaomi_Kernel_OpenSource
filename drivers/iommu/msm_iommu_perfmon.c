@@ -70,9 +70,6 @@ static struct event_class pmu_event_classes[] = {
 	{ 0x10, "access"           },
 	{ 0x11, "access_read"      },
 	{ 0x12, "access_write"     },
-};
-
-static struct event_class pmu_event_classes_impl_defined[] = {
 	{ 0x80, "full_misses"      },
 	{ 0x81, "partial_miss_1lbfb_hit" },
 	{ 0x82, "partial_miss_2lbfb_hit" },
@@ -90,22 +87,28 @@ static unsigned int iommu_pm_is_hw_access_OK(const struct iommu_pmon *pmon)
 }
 
 static unsigned int iommu_pm_create_sup_cls_str(char **buf,
-						unsigned int event_cls)
+						struct iommu_pmon *pmon)
 {
-	unsigned long buf_size = (ARRAY_SIZE(pmu_event_classes) +
-			ARRAY_SIZE(pmu_event_classes_impl_defined)) *
-			MAX_EVEN_CLASS_NAME_LEN;
+	unsigned long buf_size = ARRAY_SIZE(pmu_event_classes) *
+				 MAX_EVEN_CLASS_NAME_LEN;
 	unsigned int pos = 0;
+	unsigned int nevent_cls = pmon->nevent_cls_supported;
 
 	*buf = kzalloc(buf_size, GFP_KERNEL);
 	if (*buf) {
+		unsigned int j;
 		int i;
 		struct event_class *ptr;
 		size_t array_len = ARRAY_SIZE(pmu_event_classes);
 		ptr = pmu_event_classes;
 
-		for (i = 0; i < array_len; ++i) {
-			if ((1 << ptr[i].event_number) & event_cls) {
+		for (j = 0; j < nevent_cls; ++j) {
+			for (i = 0; i < array_len; ++i) {
+
+				if (ptr[i].event_number !=
+						pmon->event_cls_supported[j])
+					continue;
+
 				if (pos < buf_size) {
 					pos += snprintf(&(*buf)[pos],
 							buf_size-pos,
@@ -113,25 +116,7 @@ static unsigned int iommu_pm_create_sup_cls_str(char **buf,
 							ptr[i].event_number,
 							ptr[i].desc);
 				}
-
-			}
-		}
-
-		/*
-		 * No way to read a register to check if impl. defined
-		 * classes are supported or not so we just assume all of them
-		 * are
-		 */
-		array_len = ARRAY_SIZE(pmu_event_classes_impl_defined);
-		ptr = pmu_event_classes_impl_defined;
-
-		for (i = 0; i < array_len; ++i) {
-			if (buf_size > pos) {
-				pos += snprintf(&(*buf)[pos],
-						buf_size-pos,
-						"[%u] %s\n",
-						ptr[i].event_number,
-						ptr[i].desc);
+				break;
 			}
 		}
 	}
@@ -144,16 +129,11 @@ static const char *iommu_pm_find_event_class_name(int event_class)
 	struct event_class *ptr;
 	int i;
 	const char *event_class_name = NO_EVENT_CLASS_NAME;
-	if (event_class < 0) {
+	if (event_class < 0)
 		goto out;
-	} else if (event_class < 0x80) {
-		array_len = ARRAY_SIZE(pmu_event_classes);
-		ptr = pmu_event_classes;
-	} else {
-		/* All implementation defined classes are above 0x7F */
-		array_len = ARRAY_SIZE(pmu_event_classes_impl_defined);
-		ptr = pmu_event_classes_impl_defined;
-	}
+
+	array_len = ARRAY_SIZE(pmu_event_classes);
+	ptr = pmu_event_classes;
 
 	for (i = 0; i < array_len; ++i) {
 		if (ptr[i].event_number == event_class) {
@@ -178,16 +158,6 @@ static int iommu_pm_find_event_class(const char *event_class_name)
 
 	array_len = ARRAY_SIZE(pmu_event_classes);
 	ptr = pmu_event_classes;
-
-	for (i = 0; i < array_len; ++i) {
-		if (strcmp(ptr[i].desc, event_class_name) == 0) {
-			event_class =  ptr[i].event_number;
-			goto out;
-		}
-	}
-
-	array_len = ARRAY_SIZE(pmu_event_classes_impl_defined);
-	ptr = pmu_event_classes_impl_defined;
 
 	for (i = 0; i < array_len; ++i) {
 		if (strcmp(ptr[i].desc, event_class_name) == 0) {
@@ -248,7 +218,7 @@ static void iommu_pm_enable(struct iommu_info *iommu)
 	writel_relaxed(pmcr, iommu->base + PMCR);
 }
 
-void iommu_pm_disable(struct iommu_info *iommu)
+static void iommu_pm_disable(struct iommu_info *iommu)
 {
 	unsigned int pmcr;
 	pmcr = readl_relaxed(iommu->base + PMCR);
@@ -533,48 +503,6 @@ static void iommu_pm_off(struct iommu_pmon *pmon)
 		pmon->iommu.iommu_name);
 }
 
-static unsigned int iommu_pm_get_num_groups(struct iommu_pmon *iommu_pmon)
-{
-	unsigned int pmcfgr;
-	unsigned int num_cntgrp;
-	struct iommu_info *iommu = &iommu_pmon->iommu;
-
-	pmcfgr = readl_relaxed(iommu->base + PMCFGR);
-
-	/* Due to a bug in IOMMU hardware the counter register is returning
-	 * the wrong information. num_cntgrp should return "total number
-	 * of counter groups - 1". However, it returns "total number
-	 * of counter groups". Thus we do not add 1 to the total number of
-	 * counter groups. If we find that the number of counter group is 0
-	 * then we assume the bug has been fixed and add 1 to the count.
-	 */
-	num_cntgrp = ((pmcfgr & PMCFGR_NCG) >> PMCFGR_NCG_SHIFT);
-	if (num_cntgrp == 0)
-		num_cntgrp++;
-
-	return num_cntgrp;
-
-}
-
-static unsigned int iommu_pm_get_num_counters(struct iommu_pmon *iommu_pmon,
-						unsigned int group_no)
-{
-	unsigned int num_counters;
-	unsigned int tmp;
-	struct iommu_info *iommu = &iommu_pmon->iommu;
-
-	tmp = readl_relaxed(iommu->base + PMCGCR_(group_no));
-	num_counters = ((tmp & PMCGCR_CGNC) >> PMCGCR_CGNC_SHIFT);
-
-	return num_counters;
-
-}
-
-static unsigned int iommu_pm_get_sup_ev_cls(struct iommu_info *iommu)
-{
-	return readl_relaxed(iommu->base + PMCEID0);
-}
-
 static int iommu_pm_debug_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
@@ -659,7 +587,7 @@ static ssize_t iommu_pm_event_class_write(struct file *fp,
 		int rv;
 		long value;
 		buf[wr_cnt-1] = '\0';
-		rv = kstrtol(buf, 50, &value);
+		rv = kstrtol(buf, 10, &value);
 		if (!rv) {
 			counter->current_event_class =
 				iommu_pm_find_event_class(
@@ -799,7 +727,7 @@ static ssize_t iommu_pm_avail_event_cls_read(struct file *fp,
 
 	mutex_lock(&pmon->lock);
 
-	len = iommu_pm_create_sup_cls_str(&buf, pmon->event_cls_supp_value);
+	len = iommu_pm_create_sup_cls_str(&buf, pmon);
 	if (buf) {
 		rd_cnt = simple_read_from_buffer(user_buff, count, pos,
 						 buf, len);
@@ -877,8 +805,7 @@ static int iommu_pm_create_group_debugfs_hierarchy(struct iommu_info *iommu,
 	for (i = 0; i < pmon_entry->num_groups; ++i) {
 		pmon_entry->cnt_grp[i].pmon = pmon_entry;
 		pmon_entry->cnt_grp[i].grp_no = i;
-		pmon_entry->cnt_grp[i].num_counters =
-			iommu_pm_get_num_counters(pmon_entry, i);
+		pmon_entry->cnt_grp[i].num_counters = pmon_entry->num_counters;
 		pmon_entry->cnt_grp[i].counters =
 			kzalloc(sizeof(*pmon_entry->cnt_grp[i].counters)
 			* pmon_entry->cnt_grp[i].num_counters, GFP_KERNEL);
@@ -907,11 +834,10 @@ out:
 	return ret;
 }
 
-int msm_iommu_pm_iommu_register(struct iommu_info *iommu)
+int msm_iommu_pm_iommu_register(struct iommu_pmon *pmon_entry)
 {
-	struct iommu_pmon *pmon_entry;
 	int ret = 0;
-	struct msm_iommu_drvdata *iommu_drvdata;
+	struct iommu_info *iommu = &pmon_entry->iommu;
 	int i;
 
 	if (!iommu->ops || !iommu->iommu_name || !iommu->base
@@ -928,14 +854,7 @@ int msm_iommu_pm_iommu_register(struct iommu_info *iommu)
 			goto out;
 		}
 	}
-	pmon_entry = (struct iommu_pmon *)container_of(iommu,
-						struct iommu_pmon, iommu);
-	iommu_drvdata = dev_get_drvdata(iommu->iommu_dev);
 
-	iommu->ops->iommu_power_on(iommu_drvdata);
-	iommu->ops->iommu_lock_acquire();
-
-	pmon_entry->num_groups = iommu_pm_get_num_groups(pmon_entry);
 	pmon_entry->cnt_grp = kzalloc(sizeof(*pmon_entry->cnt_grp)
 				      * pmon_entry->num_groups, GFP_KERNEL);
 	if (!pmon_entry->cnt_grp) {
@@ -943,8 +862,6 @@ int msm_iommu_pm_iommu_register(struct iommu_info *iommu)
 		ret = -ENOMEM;
 		goto file_err;
 	}
-	pmon_entry->event_cls_supp_value = iommu_pm_get_sup_ev_cls(iommu);
-
 	pmon_entry->iommu_dir = debugfs_create_dir(iommu->iommu_name,
 						   msm_iommu_root_debugfs_dir);
 	if (IS_ERR_OR_NULL(pmon_entry->iommu_dir)) {
@@ -977,9 +894,6 @@ int msm_iommu_pm_iommu_register(struct iommu_info *iommu)
 	if (ret)
 		goto free_mem;
 
-	iommu->ops->iommu_lock_release();
-	iommu->ops->iommu_power_off(iommu_drvdata);
-
 	if (iommu->evt_irq > 0) {
 		ret = request_threaded_irq(iommu->evt_irq, NULL,
 				iommu_pm_evt_ovfl_int_handler,
@@ -995,8 +909,7 @@ int msm_iommu_pm_iommu_register(struct iommu_info *iommu)
 		pr_info("%s: Overflow interrupt not available\n", __func__);
 	}
 
-	dev_dbg(iommu->iommu_dev, "%s iommu registered\n",
-							iommu->iommu_name);
+	dev_dbg(iommu->iommu_dev, "%s iommu registered\n", iommu->iommu_name);
 
 	goto out;
 free_mem:
@@ -1042,7 +955,7 @@ remove_debugfs:
 }
 EXPORT_SYMBOL(msm_iommu_pm_iommu_unregister);
 
-struct iommu_info *msm_iommu_pm_alloc(struct device *dev)
+struct iommu_pmon *msm_iommu_pm_alloc(struct device *dev)
 {
 	struct iommu_pmon *pmon_entry;
 	struct iommu_info *info;
@@ -1053,7 +966,7 @@ struct iommu_info *msm_iommu_pm_alloc(struct device *dev)
 	info->iommu_dev = dev;
 	mutex_init(&pmon_entry->lock);
 	iommu_pm_add_to_iommu_list(pmon_entry);
-	return &pmon_entry->iommu;
+	return pmon_entry;
 }
 EXPORT_SYMBOL(msm_iommu_pm_alloc);
 
