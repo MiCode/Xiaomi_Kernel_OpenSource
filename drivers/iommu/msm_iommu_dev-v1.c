@@ -139,23 +139,67 @@ fail:
 }
 
 static int msm_iommu_pmon_parse_dt(struct platform_device *pdev,
-					struct iommu_info *pmon_info)
+					struct iommu_pmon *pmon_info)
 {
 	int ret = 0;
 	int irq = platform_get_irq(pdev, 0);
+	unsigned int cls_prop_size;
 
 	if (irq > 0) {
-		pmon_info->evt_irq = platform_get_irq(pdev, 0);
+		pmon_info->iommu.evt_irq = platform_get_irq(pdev, 0);
+
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "qcom,iommu-pmu-ngroups",
+					   &pmon_info->num_groups);
+		if (ret) {
+			pr_err("Error reading qcom,iommu-pmu-ngroups\n");
+			goto fail;
+		}
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "qcom,iommu-pmu-ncounters",
+					   &pmon_info->num_counters);
+		if (ret) {
+			pr_err("Error reading qcom,iommu-pmu-ncounters\n");
+			goto fail;
+		}
+
+		if (!of_get_property(pdev->dev.of_node,
+				     "qcom,iommu-pmu-event-classes",
+				     &cls_prop_size)) {
+			pr_err("Error reading qcom,iommu-pmu-event-classes\n");
+			return -EINVAL;
+		}
+
+		pmon_info->event_cls_supported =
+			   devm_kzalloc(&pdev->dev, cls_prop_size, GFP_KERNEL);
+
+		if (!pmon_info->event_cls_supported) {
+			pr_err("Unable to get memory for event class array\n");
+			return -ENOMEM;
+		}
+
+		pmon_info->nevent_cls_supported = cls_prop_size / sizeof(u32);
+
+		ret = of_property_read_u32_array(pdev->dev.of_node,
+					"qcom,iommu-pmu-event-classes",
+					pmon_info->event_cls_supported,
+					pmon_info->nevent_cls_supported);
+		if (ret) {
+			pr_err("Error reading qcom,iommu-pmu-event-classes\n");
+			return ret;
+		}
 	} else {
-		pmon_info->evt_irq = -1;
+		pmon_info->iommu.evt_irq = -1;
 		ret = irq;
 	}
+
+fail:
 	return ret;
 }
 
 static int __devinit msm_iommu_probe(struct platform_device *pdev)
 {
-	struct iommu_info *pmon_info;
+	struct iommu_pmon *pmon_info;
 	struct msm_iommu_drvdata *drvdata;
 	struct resource *r;
 	int ret, needs_alt_core_clk;
@@ -224,9 +268,9 @@ static int __devinit msm_iommu_probe(struct platform_device *pdev)
 			msm_iommu_pm_free(&pdev->dev);
 			pr_info("%s: pmon not available.\n", drvdata->name);
 		} else {
-			pmon_info->base = drvdata->base;
-			pmon_info->ops = &iommu_access_ops;
-			pmon_info->iommu_name = drvdata->name;
+			pmon_info->iommu.base = drvdata->base;
+			pmon_info->iommu.ops = &iommu_access_ops;
+			pmon_info->iommu.iommu_name = drvdata->name;
 			ret = msm_iommu_pm_iommu_register(pmon_info);
 			if (ret) {
 				pr_err("%s iommu register fail\n",
@@ -234,7 +278,7 @@ static int __devinit msm_iommu_probe(struct platform_device *pdev)
 				msm_iommu_pm_free(&pdev->dev);
 			} else {
 				pr_debug("%s iommu registered for pmon\n",
-						pmon_info->iommu_name);
+						pmon_info->iommu.iommu_name);
 			}
 		}
 	}

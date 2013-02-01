@@ -18,6 +18,9 @@ Optional properties:
 - interrupts : should contain the performance monitor overflow interrupt number.
 - qcom,iommu-enable-halt : Enable halt of the IOMMU before programming certain	19
   registers
+- qcom,iommu-pmu-ngroups: Number of Performance Monitor Unit (PMU) groups.
+- qcom,iommu-pmu-ncounters: Number of PMU counters per group.
+- qcom,iommu-pmu-event-classes: List of event classes supported.
 
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:
@@ -56,6 +59,10 @@ Example:
 		qcom,iommu-bfb-regs = <0x204c 0x2050>;
 		qcom,iommu-bfb-data = <0xffff 0xffce>;
 		label = "iommu_0";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <8>;
+		qcom,iommu-pmu-event-classes = <0x00,
+						0x01>;
 
 		qcom,iommu-ctx@fda6c000 {
 			reg = <0xfda6c000 0x1000>;
