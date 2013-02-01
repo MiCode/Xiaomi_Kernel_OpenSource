@@ -6846,7 +6846,6 @@ static void __init msm8064_clock_pre_init(void)
 	if ((cpu_is_apq8064() &&
 		SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) ||
 		cpu_is_apq8064ab() || cpu_is_apq8064aa()) {
-
 		vcodec_clk.c.fmax = fmax_vcodec_8064v2;
 		ce3_src_clk.c.fmax = fmax_ce3_8064v2;
 		sdc1_clk.c.fmax = fmax_sdc1_8064v2;
@@ -6925,7 +6924,7 @@ static void __init msm8930_clock_pre_init(void)
 	__msm8930_clock_pre_init();
 }
 
-static void __init msm8960_clock_post_init(void)
+static void __init common_clock_post_init(void)
 {
 	/* Keep PXO on whenever APPS cpu is active */
 	clk_prepare_enable(&pxo_a_clk.c);
@@ -6945,18 +6944,12 @@ static void __init msm8960_clock_post_init(void)
 	clk_set_rate(&tsif_ref_clk.c, 105000);
 	clk_set_rate(&tssc_clk.c, 27000000);
 	clk_set_rate(&usb_hs1_xcvr_clk.c, 60000000);
-	if (soc_class_is_apq8064()) {
-		clk_set_rate(&usb_hs3_xcvr_clk.c, 60000000);
-		clk_set_rate(&usb_hs4_xcvr_clk.c, 60000000);
-	}
 	clk_set_rate(&usb_fs1_src_clk.c, 60000000);
-	if (cpu_is_msm8960ab() || cpu_is_msm8960() || cpu_is_msm8930() ||
-		cpu_is_msm8930aa() || cpu_is_msm8627() || cpu_is_msm8930ab())
-		clk_set_rate(&usb_fs2_src_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_xcvr_fs_clk.c, 60000000);
 	clk_set_rate(&usb_hsic_hsic_src_clk.c, 480000000);
 	clk_set_rate(&usb_hsic_hsio_cal_clk.c, 9000000);
 	clk_set_rate(&usb_hsic_system_clk.c, 60000000);
+
 	/*
 	 * Set the CSI rates to a safe default to avoid warnings when
 	 * switching csi pix and rdi clocks.
@@ -6983,6 +6976,19 @@ static void __init msm8960_clock_post_init(void)
 	 */
 	clk_set_rate(&sfab_tmr_a_clk.c, 54000000);
 	clk_prepare_enable(&sfab_tmr_a_clk.c);
+}
+
+static void __init msm8960_clock_post_init(void)
+{
+	common_clock_post_init();
+	clk_set_rate(&usb_fs2_src_clk.c, 60000000);
+}
+
+static void __init msm8064_clock_post_init(void)
+{
+	common_clock_post_init();
+	clk_set_rate(&usb_hs3_xcvr_clk.c, 60000000);
+	clk_set_rate(&usb_hs4_xcvr_clk.c, 60000000);
 }
 
 static int __init msm8960_clock_late_init(void)
@@ -7028,7 +7034,7 @@ struct clock_init_data apq8064_clock_init_data __initdata = {
 	.table = msm_clocks_8064,
 	.size = ARRAY_SIZE(msm_clocks_8064),
 	.pre_init = msm8064_clock_pre_init,
-	.post_init = msm8960_clock_post_init,
+	.post_init = msm8064_clock_post_init,
 	.late_init = msm8960_clock_late_init,
 };
 
