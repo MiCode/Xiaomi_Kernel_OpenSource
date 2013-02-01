@@ -6645,13 +6645,15 @@ static unsigned long *select_gfx_fmax_plan(unsigned long **gfx_fmax, int size)
 }
 
 struct clock_init_data msm8960_clock_init_data __initdata;
+
 static void __init msm8960_clock_pre_init(void)
 {
+	struct clk_lookup *clk_lkup;
+	size_t clk_size;
+	struct clk_freq_tbl *tbl;
+
 	/* Initialize clock registers. */
 	reg_init();
-
-	if (soc_class_is_apq8064())
-		vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8064;
 
 	/* Detect PLL4 programmed for alternate 491.52MHz clock plan. */
 	if (readl_relaxed(LCC_PLL0_L_VAL_REG) == 0x12) {
@@ -6665,38 +6667,63 @@ static void __init msm8960_clock_pre_init(void)
 		pcm_clk.freq_tbl = clk_tbl_pcm_492;
 	}
 
-	if (cpu_is_msm8960() || cpu_is_msm8960ab())
-		memcpy(msm_clocks_8960, msm_clocks_8960_common,
-			sizeof(msm_clocks_8960_common));
-	if (cpu_is_msm8960ab()) {
-		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8960ab;
-		mdp_clk.c.fmax = fmax_mdp_8960ab;
-
-		gfx3d_clk.c.fmax = select_gfx_fmax_plan(fmax_gfx3d_8960ab,
-						ARRAY_SIZE(fmax_gfx3d_8960ab));
-
-		memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_common),
-			msm_clocks_8960ab_only, sizeof(msm_clocks_8960ab_only));
-		msm8960_clock_init_data.size -=
-			ARRAY_SIZE(msm_clocks_8960_only);
-
-		gmem_axi_clk.c.depends = &gfx3d_axi_clk.c;
-	} else if (cpu_is_msm8960()) {
-		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8960;
-		memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_common),
-			 msm_clocks_8960_only, sizeof(msm_clocks_8960_only));
+	if (cpu_is_msm8960()) {
+		tbl = clk_tbl_gfx3d_8960;
+		clk_lkup = msm_clocks_8960_only;
+		clk_size = sizeof(msm_clocks_8960_only);
 		msm8960_clock_init_data.size -=
 			ARRAY_SIZE(msm_clocks_8960ab_only);
 	}
-	/*
-	 * Change the freq tables for and voltage requirements for
-	 * clocks which differ between chips.
-	 */
-	if (cpu_is_apq8064() || cpu_is_apq8064aa())
-		gfx3d_clk.c.fmax = fmax_gfx3d_8064;
+
+	if (cpu_is_msm8960ab()) {
+		mdp_clk.c.fmax = fmax_mdp_8960ab;
+		gmem_axi_clk.c.depends = &gfx3d_axi_clk.c;
+		tbl = clk_tbl_gfx3d_8960ab;
+		gfx3d_clk.c.fmax = select_gfx_fmax_plan(fmax_gfx3d_8960ab,
+				ARRAY_SIZE(fmax_gfx3d_8960ab));
+
+		clk_lkup = msm_clocks_8960ab_only;
+		clk_size = sizeof(msm_clocks_8960ab_only);
+		msm8960_clock_init_data.size -=
+			 ARRAY_SIZE(msm_clocks_8960_only);
+	}
+
+	gfx3d_clk.freq_tbl = tbl;
+
+	memcpy(msm_clocks_8960, msm_clocks_8960_common,
+			sizeof(msm_clocks_8960_common));
+	memcpy(msm_clocks_8960 + ARRAY_SIZE(msm_clocks_8960_common),
+			clk_lkup, clk_size);
+
+	if ((readl_relaxed(PRNG_CLK_NS_REG) & 0x7F) == 0x2B)
+		prng_clk.freq_tbl = clk_tbl_prng_64;
+
+	clk_ops_local_pll.enable = sr_pll_clk_enable;
+}
+
+static void __init msm8064_clock_pre_init(void)
+{
+	unsigned long *fmax = fmax_gfx3d_8064;
+
+	/* Initialize clock registers. */
+	reg_init();
+
+	vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8064;
+
+	/* Detect PLL4 programmed for alternate 491.52MHz clock plan. */
+	if (readl_relaxed(LCC_PLL0_L_VAL_REG) == 0x12) {
+		pll4_clk.c.rate = 491520000;
+		audio_slimbus_clk.freq_tbl = clk_tbl_aif_osr_492;
+		mi2s_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		codec_i2s_mic_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		spare_i2s_mic_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		codec_i2s_spkr_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		spare_i2s_spkr_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		pcm_clk.freq_tbl = clk_tbl_pcm_492;
+	}
 
 	if (cpu_is_apq8064ab())
-		gfx3d_clk.c.fmax = fmax_gfx3d_8064ab;
+		fmax = fmax_gfx3d_8064ab;
 
 	if ((cpu_is_apq8064() &&
 		SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) ||
@@ -6706,32 +6733,55 @@ static void __init msm8960_clock_pre_init(void)
 		ce3_src_clk.c.fmax = fmax_ce3_8064v2;
 		sdc1_clk.c.fmax = fmax_sdc1_8064v2;
 	}
-	if (soc_class_is_apq8064()) {
-		ijpeg_clk.c.fmax = fmax_ijpeg_8064;
-		mdp_clk.c.fmax = fmax_mdp_8064;
-		tv_src_clk.c.fmax = fmax_tv_src_8064;
-		vfe_clk.c.fmax = fmax_vfe_8064;
-		gmem_axi_clk.c.depends = &gfx3d_axi_clk.c;
+
+	gfx3d_clk.c.fmax = fmax;
+	ijpeg_clk.c.fmax = fmax_ijpeg_8064;
+	mdp_clk.c.fmax = fmax_mdp_8064;
+	tv_src_clk.c.fmax = fmax_tv_src_8064;
+	vfe_clk.c.fmax = fmax_vfe_8064;
+
+	gmem_axi_clk.c.depends = &gfx3d_axi_clk.c;
+
+	if ((readl_relaxed(PRNG_CLK_NS_REG) & 0x7F) == 0x2B)
+		prng_clk.freq_tbl = clk_tbl_prng_64;
+
+	clk_ops_local_pll.enable = sr_pll_clk_enable;
+}
+
+static void __init __msm8930_clock_pre_init(void)
+{
+	unsigned long rate = 900000000;
+	unsigned long *fmax = fmax_gfx3d_8930;
+
+	/* Initialize clock registers. */
+	reg_init();
+
+	/* Detect PLL4 programmed for alternate 491.52MHz clock plan. */
+	if (readl_relaxed(LCC_PLL0_L_VAL_REG) == 0x12) {
+		pll4_clk.c.rate = 491520000;
+		audio_slimbus_clk.freq_tbl = clk_tbl_aif_osr_492;
+		mi2s_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		codec_i2s_mic_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		spare_i2s_mic_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		codec_i2s_spkr_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		spare_i2s_spkr_osr_clk.freq_tbl = clk_tbl_aif_osr_492;
+		pcm_clk.freq_tbl = clk_tbl_pcm_492;
 	}
 
-	/*
-	 * Change the freq tables and voltage requirements for
-	 * clocks which differ between 8960 and 8930.
-	 */
-	if (cpu_is_msm8930() || cpu_is_msm8627())
-		gfx3d_clk.c.fmax = fmax_gfx3d_8930;
-	else if (cpu_is_msm8930aa())
-		gfx3d_clk.c.fmax = fmax_gfx3d_8930aa;
-	if (cpu_is_msm8930() || cpu_is_msm8930aa() || cpu_is_msm8627()) {
-		pll15_clk.c.rate = 900000000;
-		gmem_axi_clk.c.depends = &gfx3d_axi_clk_8930.c;
-	} else if (cpu_is_msm8930ab()) {
+	if (cpu_is_msm8930aa())
+		fmax = fmax_gfx3d_8930aa;
+
+	if (cpu_is_msm8930ab()) {
+		rate = 1000000000;
+		fmax = fmax_gfx3d_8930ab;
 		gfx3d_clk.freq_tbl = clk_tbl_gfx3d_8930ab;
-		pll15_clk.c.rate = 1000000000;
-		gfx3d_clk.c.fmax = fmax_gfx3d_8930ab;
-		gmem_axi_clk.c.depends = &gfx3d_axi_clk_8930.c;
 		vcodec_clk.c.fmax = fmax_vcodec_8930ab;
 	}
+
+	pll15_clk.c.rate = rate;
+	gfx3d_clk.c.fmax = fmax;
+	gmem_axi_clk.c.depends = &gfx3d_axi_clk_8930.c;
+
 	if ((readl_relaxed(PRNG_CLK_NS_REG) & 0x7F) == 0x2B)
 		prng_clk.freq_tbl = clk_tbl_prng_64;
 
@@ -6746,7 +6796,7 @@ static void __init msm8930_pm8917_clock_pre_init(void)
 	rpm_vreg_dig_8930 = RPM_VREG_ID_PM8917_VDD_DIG_CORNER;
 	vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8930_pm8917;
 
-	msm8960_clock_pre_init();
+	__msm8930_clock_pre_init();
 }
 
 static void __init msm8930_clock_pre_init(void)
@@ -6754,7 +6804,7 @@ static void __init msm8930_clock_pre_init(void)
 	vdd_dig.set_vdd = set_vdd_dig_8930;
 	vdd_sr2_hdmi_pll.set_vdd = set_vdd_sr2_hdmi_pll_8930;
 
-	msm8960_clock_pre_init();
+	__msm8930_clock_pre_init();
 }
 
 static void __init msm8960_clock_post_init(void)
@@ -6859,7 +6909,7 @@ struct clock_init_data msm8960_clock_init_data __initdata = {
 struct clock_init_data apq8064_clock_init_data __initdata = {
 	.table = msm_clocks_8064,
 	.size = ARRAY_SIZE(msm_clocks_8064),
-	.pre_init = msm8960_clock_pre_init,
+	.pre_init = msm8064_clock_pre_init,
 	.post_init = msm8960_clock_post_init,
 	.late_init = msm8960_clock_late_init,
 };
