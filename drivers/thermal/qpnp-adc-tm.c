@@ -867,10 +867,10 @@ static void notify_batt_fn(struct work_struct *work)
 
 		if (status_low & QPNP_ADC_TM_LOW_THR_INT_EN_M1)
 			adc_tm->battery_param->threshold_notification(
-							ADC_TM_LOW_STATE);
+			ADC_TM_LOW_STATE, adc_tm->battery_param->btm_ctx);
 		else if (status_high & QPNP_ADC_TM_HIGH_THR_INT_EN_M1)
 			adc_tm->battery_param->threshold_notification(
-							ADC_TM_HIGH_STATE);
+			ADC_TM_HIGH_STATE, adc_tm->battery_param->btm_ctx);
 	}
 
 	return;
