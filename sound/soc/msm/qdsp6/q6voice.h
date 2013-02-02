@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1195,6 +1195,8 @@ struct voice_data {
 
 	uint32_t dtmf_rx_detect_en;
 
+	bool disable_topology;
+
 	struct voice_dev_route_state voc_route_state;
 
 	u16 session_id;
@@ -1291,6 +1293,7 @@ int voc_set_rx_vol_index(uint16_t session_id, uint32_t dir, uint32_t voc_idx);
 int voc_set_tx_mute(uint16_t session_id, uint32_t dir, uint32_t mute);
 int voc_set_rx_device_mute(uint16_t session_id, uint32_t mute);
 int voc_get_rx_device_mute(uint16_t session_id);
+int voc_disable_topology(uint16_t session_id, uint32_t disable);
 int voc_disable_cvp(uint16_t session_id);
 int voc_enable_cvp(uint16_t session_id);
 int voc_set_route_flag(uint16_t session_id, uint8_t path_dir, uint8_t set);
