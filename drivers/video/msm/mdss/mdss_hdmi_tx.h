@@ -58,6 +58,8 @@ struct hdmi_tx_ctrl {
 	u32 hpd_off_pending;
 	u32 hpd_feature_on;
 	u32 hpd_initialized;
+	u8  timing_gen_on;
+	u32 mhl_max_pclk;
 	struct completion hpd_done;
 	struct work_struct hpd_int_work;
 

@@ -30,6 +30,7 @@
 #include "mdss_panel.h"
 #include "mdss_io_util.h"
 #include "mhl_msc.h"
+#include "mdss_hdmi_mhl.h"
 
 #define MHL_DRIVER_NAME "sii8334"
 #define COMPATIBLE_NAME "qcom,mhl-sii8334"
@@ -193,8 +194,6 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl,
 static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 				  bool mhl_disc_en);
 
-static uint8_t store_tmds_state;
-
 int mhl_i2c_reg_read(struct i2c_client *client,
 			    uint8_t slave_addr_index, uint8_t reg_offset)
 {
@@ -239,6 +238,8 @@ static int mhl_tx_get_dt_data(struct device *dev,
 	int i, rc = 0;
 	struct device_node *of_node = NULL;
 	struct dss_gpio *temp_gpio = NULL;
+	struct platform_device *hdmi_pdev = NULL;
+	struct device_node *hdmi_tx_node = NULL;
 	int dt_gpio;
 	i = 0;
 
@@ -315,6 +316,23 @@ static int mhl_tx_get_dt_data(struct device *dev,
 	pr_debug("%s: intr gpio=[%d]\n", __func__,
 		 temp_gpio->gpio);
 	pdata->gpios[MHL_TX_INTR_GPIO] = temp_gpio;
+
+	/* parse phandle for hdmi tx */
+	hdmi_tx_node = of_parse_phandle(of_node, "qcom,hdmi-tx-map", 0);
+	if (!hdmi_tx_node) {
+		pr_err("%s: can't find hdmi phandle\n", __func__);
+		goto error;
+	}
+
+	hdmi_pdev = of_find_device_by_node(hdmi_tx_node);
+	if (!hdmi_pdev) {
+		pr_err("%s: can't find the device by node\n", __func__);
+		goto error;
+	}
+	pr_debug("%s: hdmi_pdev [0X%x] to pdata->pdev\n",
+	       __func__, (unsigned int)hdmi_pdev);
+
+	pdata->hdmi_pdev = hdmi_pdev;
 
 	return 0;
 error:
@@ -719,10 +737,6 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 	}
 }
 
-uint8_t check_tmds_enabled(void)
-{
-	return store_tmds_state;
-}
 
 void mhl_tmds_ctrl(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on)
 {
@@ -730,16 +744,8 @@ void mhl_tmds_ctrl(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on)
 	if (on) {
 		MHL_SII_REG_NAME_MOD(REG_TMDS_CCTRL, BIT4, BIT4);
 		mhl_drive_hpd(mhl_ctrl, HPD_UP);
-		/*
-		 * store the state to be used
-		 * before responding to RAP msgs
-		 * this needs to be obtained from
-		 * hdmi driver
-		 */
-		store_tmds_state = 1;
 	} else {
 		MHL_SII_REG_NAME_MOD(REG_TMDS_CCTRL, BIT4, 0x00);
-		store_tmds_state = 0;
 	}
 }
 
@@ -1007,7 +1013,10 @@ static void mhl_hpd_stat_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		 */
 		cbus_stat = MHL_SII_CBUS_RD(0x0D);
 		if (BIT6 & cbus_stat)
-			mhl_tmds_ctrl(mhl_ctrl, TMDS_ENABLE);
+			mhl_drive_hpd(mhl_ctrl, HPD_UP);
+		else
+			mhl_drive_hpd(mhl_ctrl, HPD_DOWN);
+
 	}
 }
 
@@ -1636,6 +1645,7 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	struct mhl_tx_platform_data *pdata = NULL;
 	struct mhl_tx_ctrl *mhl_ctrl;
 	struct usb_ext_notification *mhl_info = NULL;
+	struct msm_hdmi_mhl_ops *hdmi_mhl_ops = NULL;
 
 	mhl_ctrl = devm_kzalloc(&client->dev, sizeof(*mhl_ctrl), GFP_KERNEL);
 	if (!mhl_ctrl) {
@@ -1784,25 +1794,63 @@ static int mhl_i2c_probe(struct i2c_client *client,
 		goto failed_probe;
 	}
 
+	hdmi_mhl_ops = devm_kzalloc(&client->dev,
+				    sizeof(struct msm_hdmi_mhl_ops),
+				    GFP_KERNEL);
+	if (!hdmi_mhl_ops) {
+		pr_err("%s: alloc hdmi mhl ops failed\n", __func__);
+		rc = -ENOMEM;
+		goto failed_probe_pwr;
+	}
+
 	pr_debug("%s: i2c client addr is [%x]\n", __func__, client->addr);
+	if (mhl_ctrl->pdata->hdmi_pdev) {
+		rc = msm_hdmi_register_mhl(mhl_ctrl->pdata->hdmi_pdev,
+					   hdmi_mhl_ops);
+		if (rc) {
+			pr_err("%s: register with hdmi failed\n", __func__);
+			rc = -EPROBE_DEFER;
+			goto failed_probe_pwr;
+		}
+	}
+
+	if (!hdmi_mhl_ops || !hdmi_mhl_ops->tmds_enabled ||
+	    !hdmi_mhl_ops->set_mhl_max_pclk) {
+		pr_err("%s: func ptr is NULL\n", __func__);
+		rc = -EINVAL;
+		goto failed_probe_pwr;
+	}
+	mhl_ctrl->hdmi_mhl_ops = hdmi_mhl_ops;
+
+	rc = hdmi_mhl_ops->set_mhl_max_pclk(
+		mhl_ctrl->pdata->hdmi_pdev, MAX_MHL_PCLK);
+	if (rc) {
+		pr_err("%s: can't set max mhl pclk\n", __func__);
+		goto failed_probe_pwr;
+	}
 
 	mhl_info = devm_kzalloc(&client->dev, sizeof(*mhl_info), GFP_KERNEL);
 	if (!mhl_info) {
 		pr_err("%s: alloc mhl info failed\n", __func__);
-		goto failed_probe;
+		rc = -ENOMEM;
+		goto failed_probe_pwr;
 	}
 
 	mhl_info->ctxt = mhl_ctrl;
 	mhl_info->notify = mhl_sii_device_discovery;
 	if (msm_register_usb_ext_notification(mhl_info)) {
 		pr_err("%s: register for usb notifcn failed\n", __func__);
-		goto failed_probe;
+		rc = -EPROBE_DEFER;
+		goto failed_probe_pwr;
 	}
 	mhl_ctrl->mhl_info = mhl_info;
 	mhl_register_msc(mhl_ctrl);
-	mhl_ctrl->tmds_enabled = check_tmds_enabled;
 	return 0;
+
+failed_probe_pwr:
+	power_supply_unregister(&mhl_ctrl->mhl_psy);
 failed_probe:
+	free_irq(mhl_ctrl->i2c_handle->irq, mhl_ctrl);
 	mhl_gpio_config(mhl_ctrl, 0);
 	mhl_vreg_config(mhl_ctrl, 0);
 	/* do not deep-free */
@@ -1814,6 +1862,9 @@ failed_dt_data:
 failed_no_mem:
 	if (mhl_ctrl)
 		devm_kfree(&client->dev, mhl_ctrl);
+	mhl_info = NULL;
+	pdata = NULL;
+	mhl_ctrl = NULL;
 	pr_err("%s: PROBE FAILED, rc=%d\n", __func__, rc);
 	return rc;
 }
