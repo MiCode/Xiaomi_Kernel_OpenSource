@@ -27,10 +27,11 @@
 #define MSM_FB_MAX_DEV_LIST 32
 
 #define MSM_FB_ENABLE_DBGFS
-/* 900 ms for fence time out */
-#define WAIT_FENCE_TIMEOUT 900
-/* 950 ms for display operation time out */
-#define WAIT_DISP_OP_TIMEOUT 950
+#define WAIT_FENCE_FIRST_TIMEOUT MSEC_PER_SEC
+#define WAIT_FENCE_FINAL_TIMEOUT (10 * MSEC_PER_SEC)
+/* Display op timeout should be greater than total timeout */
+#define WAIT_DISP_OP_TIMEOUT ((WAIT_FENCE_FIRST_TIMEOUT + \
+		WAIT_FENCE_FINAL_TIMEOUT) * MDP_MAX_FENCE_FD)
 
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))
