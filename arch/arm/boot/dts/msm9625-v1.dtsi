@@ -23,12 +23,6 @@
 		compatible = "qcom,msm-imem";
 		reg = <0xfc42b000 0x1000>; /* Address and size of IMEM */
 	};
-
-	qcom,bam_dmux@fc834000 {
-		compatible = "qcom,bam_dmux";
-		reg = <0xfc834000 0x7000>;
-		interrupts = <0 29 1>;
-	};
 };
 
 &ipa_hw {
