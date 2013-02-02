@@ -25,3 +25,7 @@
 		reg = <0xfc42b000 0x1000>; /* Address and size of IMEM */
 	};
 };
+
+&tsens {
+	qcom,calibration-less-mode;
+};
