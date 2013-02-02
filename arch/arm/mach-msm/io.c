@@ -313,7 +313,6 @@ static struct map_desc msm_8974_io_desc[] __initdata = {
 #ifdef CONFIG_DEBUG_MSM8974_UART
 	MSM_DEVICE(DEBUG_UART),
 #endif
-	MSM_CHIP_DEVICE(DBG_IMEM, MSM8974),
 };
 
 void __init msm_map_8974_io(void)
@@ -480,7 +479,6 @@ static struct map_desc msm9625_io_desc[] __initdata = {
 #ifdef CONFIG_DEBUG_MSM9625_UART
 	MSM_DEVICE(DEBUG_UART),
 #endif
-	MSM_CHIP_DEVICE(DBG_IMEM, MSM9625),
 };
 
 void __init msm_map_msm9625_io(void)
