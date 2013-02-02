@@ -128,6 +128,40 @@ static bool msm_pm_retention_calls_tz;
 static uint32_t msm_pm_max_sleep_time;
 static bool msm_no_ramp_down_pc;
 
+static int msm_pm_get_pc_mode(struct device_node *node,
+		const char *key, uint32_t *pc_mode_val)
+{
+	struct pc_mode_of {
+		uint32_t mode;
+		char *mode_name;
+	};
+	int i;
+	struct pc_mode_of pc_modes[] = {
+				{MSM_PM_PC_TZ_L2_INT, "tz_l2_int"},
+				{MSM_PM_PC_NOTZ_L2_EXT, "no_tz_l2_ext"},
+				{MSM_PM_PC_TZ_L2_EXT , "tz_l2_ext"} };
+	int ret;
+	const char *pc_mode_str;
+
+	ret = of_property_read_string(node, key, &pc_mode_str);
+	if (ret) {
+		pr_debug("%s: Cannot read %s,defaulting to 0", __func__, key);
+		pc_mode_val = MSM_PM_PC_TZ_L2_INT;
+		ret = 0;
+	} else {
+		ret = -EINVAL;
+		for (i = 0; i < ARRAY_SIZE(pc_modes); i++) {
+			if (!strncmp(pc_mode_str, pc_modes[i].mode_name,
+				strlen(pc_modes[i].mode_name))) {
+				*pc_mode_val = pc_modes[i].mode;
+				ret = 0;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
 /*
  * Write out the attribute.
  */
@@ -1257,7 +1291,6 @@ static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
 {
 	char *key = NULL;
 	struct dentry *dent = NULL;
-	uint32_t val = 0;
 	struct resource *res = NULL;
 	int i ;
 	struct msm_pm_init_data_type pdata_local;
@@ -1299,14 +1332,14 @@ static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
 
 	} else {
 		key = "qcom,pc-mode";
-		ret = of_property_read_u32(pdev->dev.of_node, key, &val);
+		ret = msm_pm_get_pc_mode(pdev->dev.of_node,
+				key,
+				&pdata_local.pc_mode);
 		if (ret) {
-			pr_debug("%s: Cannot read %s,defaulting to 0",
+			pr_debug("%s: Error reading key %s",
 					__func__, key);
-			val = MSM_PM_PC_TZ_L2_INT;
-			ret = 0;
+			return -EINVAL;
 		}
-		pdata_local.pc_mode = val;
 
 		key = "qcom,use-sync-timer";
 		pdata_local.use_sync_timer =
