@@ -7,6 +7,7 @@ Required properties:
 - mhl-pwr-gpio: MHL power gpio required for power rails
 - mhl-rst-gpio: MHL reset gpio going into sii8334 for toggling reset pin
 - <supply-name>-supply: phandle to the regulator device tree node.
+- qcom,hdmi-tx-map: phandle to the hdmi tx device tree node.
 
 Example:
 	i2c@f9967000 {
@@ -22,5 +23,6 @@ Example:
 			avcc_12-supply = <&pm8941_l2>;
 			smps3a-supply = <&pm8941_s3>;
 			vdda-supply = <&pm8941_l12>;
+			qcom,hdmi-tx-map = <&mdss_hdmi_tx>;
 		};
 	};

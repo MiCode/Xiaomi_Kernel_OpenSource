@@ -50,6 +50,8 @@ struct scrpd_struct {
 	u8 data[MHL_SCRATCHPAD_SIZE];
 };
 
+/* MHL 8334 supports a max HD pixel clk of 75 MHz */
+#define MAX_MHL_PCLK 75000
 
 /* USB driver interface  */
 
@@ -124,6 +126,7 @@ struct mhl_tx_platform_data {
 	struct dss_gpio *gpios[MHL_TX_MAX_GPIO];
 	struct dss_vreg *vregs[MHL_TX_MAX_VREG];
 	int irq;
+	struct platform_device *hdmi_pdev;
 };
 
 struct mhl_tx_ctrl {
@@ -144,7 +147,7 @@ struct mhl_tx_ctrl {
 	uint8_t devcap[16];
 	uint8_t devcap_state;
 	uint8_t path_en_state;
-	uint8_t (*tmds_enabled)(void);
+	void *hdmi_mhl_ops;
 	struct work_struct mhl_msc_send_work;
 	struct list_head list_cmd;
 	struct input_dev *input;

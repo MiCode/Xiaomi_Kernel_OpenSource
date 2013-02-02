@@ -43,7 +43,7 @@ Required properties:
 - compatible : "msm-hdmi-audio-codec-rx";
 
 Example:
-	qcom,hdmi_tx@fd922100 {
+	mdss_hdmi_tx: qcom,hdmi_tx@fd922100 {
 		cell-index = <0>;
 		compatible = "qcom,hdmi-tx";
 		reg =	<0xfd922100 0x35C>,
