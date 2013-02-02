@@ -1437,7 +1437,8 @@ static void smp2p_send_interrupt(int remote_pid)
  * the list of the clients registered for the entries on the remote
  * processor and notifies them if  the data changes.
  *
- * Must be called with out_item_lock_lha1 locked.
+ * Note:  Edge state must be OPENED to avoid a race condition with
+ *        out_list[pid].ops_ptr->find_entry.
  */
 static void smp2p_in_edge_notify(int pid)
 {
@@ -1519,9 +1520,14 @@ static irqreturn_t smp2p_interrupt_handler(int irq, void *data)
 	if (out_list[remote_pid].smem_edge_state != SMP2P_EDGE_STATE_OPENED)
 		smp2p_do_negotiation(remote_pid, &out_list[remote_pid]);
 
-	if (out_list[remote_pid].smem_edge_state == SMP2P_EDGE_STATE_OPENED)
+	if (out_list[remote_pid].smem_edge_state == SMP2P_EDGE_STATE_OPENED) {
+		spin_unlock_irqrestore(&out_list[remote_pid].out_item_lock_lha1,
+			flags);
 		smp2p_in_edge_notify(remote_pid);
-	spin_unlock_irqrestore(&out_list[remote_pid].out_item_lock_lha1, flags);
+	} else {
+		spin_unlock_irqrestore(&out_list[remote_pid].out_item_lock_lha1,
+			flags);
+	}
 
 	return IRQ_HANDLED;
 }
