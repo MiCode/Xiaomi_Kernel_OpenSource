@@ -18,10 +18,10 @@ The optional properties are:
 - reg: physical IMEM address reserved for PC counters and the size
 - qcom,use-sync-timer: Indicates whether the target uses the synchronized QTimer.
 - qcom,pc-mode: Indicates the type of power collapse used by the target. The
-	valid values for this are:
-	0  (Power collapse terminates in TZ; integrated L2 cache controller)
-	1, (Power collapse doesn't terminate in TZ; external L2 cache controller)
-	2  (Power collapse terminates in TZ; external L2 cache controller)
+           valid values for this are:
+	"tz_l2_int"  (Power collapse terminates in TZ; integrated L2 cache controller)
+	"no_tz_l2_ext", (Power collapse doesn't terminate in TZ; external L2 cache controller)
+	"tz_l2_ext"  (Power collapse terminates in TZ; external L2 cache controller)
 - qcom,saw-turns-off-pll: Version of SAW2.1 or can turn off the HFPLL, when
 	doing power collapse and so the core need to switch to Global PLL before
 	PC.
@@ -31,6 +31,6 @@ Example:
 qcom,pm-8x60@fe800664 {
 		compatible = "qcom,pm-8x60";
 		reg = <0xfe800664 0x40>;
-		qcom,pc-mode = <0>;
+		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
 	};
