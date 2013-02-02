@@ -130,6 +130,8 @@ struct fastrpc_apps {
 	struct completion work;
 	struct ion_client *iclient;
 	struct cdev cdev;
+	struct class *class;
+	struct device *dev;
 	dev_t dev_no;
 	spinlock_t wrlock;
 	spinlock_t hlock;
@@ -868,11 +870,24 @@ static int __init fastrpc_device_init(void)
 	VERIFY(err, 0 == cdev_add(&me->cdev, MKDEV(MAJOR(me->dev_no), 0), 1));
 	if (err)
 		goto bail;
-	pr_info("'mknod /dev/%s c %d 0'\n", DEVICE_NAME, MAJOR(me->dev_no));
+	me->class = class_create(THIS_MODULE, "chardrv");
+	VERIFY(err, !IS_ERR(me->class));
+	if (err)
+		goto bail;
+	me->dev = device_create(me->class, NULL, MKDEV(MAJOR(me->dev_no), 0),
+				NULL, DEVICE_NAME);
+	VERIFY(err, !IS_ERR(me->dev));
+	if (err)
+		goto bail;
+	pr_info("'created /dev/%s c %d 0'\n", DEVICE_NAME, MAJOR(me->dev_no));
  bail:
 	if (err) {
 		if (me->dev_no)
 			unregister_chrdev_region(me->dev_no, 1);
+		if (me->class)
+			class_destroy(me->class);
+		if (me->cdev.owner)
+			cdev_del(&me->cdev);
 		fastrpc_deinit();
 	}
 	return err;
@@ -883,6 +898,8 @@ static void __exit fastrpc_device_exit(void)
 	struct fastrpc_apps *me = &gfa;
 
 	fastrpc_deinit();
+	device_destroy(me->class, MKDEV(MAJOR(me->dev_no), 0));
+	class_destroy(me->class);
 	cdev_del(&me->cdev);
 	unregister_chrdev_region(me->dev_no, 1);
 }
