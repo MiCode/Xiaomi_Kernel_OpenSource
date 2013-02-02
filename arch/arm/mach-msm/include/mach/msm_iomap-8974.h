@@ -45,13 +45,4 @@
 #define MSM_DEBUG_UART_PHYS	0xF991E000
 #endif
 
-/*
- * IMEM is retained for secure watchdog reset
- * Debug Image looks at actual IMEM to
- * do memory dumping.
- */
-
-#define MSM8974_DBG_IMEM_PHYS	0xFE805000
-#define MSM8974_DBG_IMEM_SIZE	SZ_4K
-
 #endif
