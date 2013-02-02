@@ -699,7 +699,7 @@ static int __init coresight_init(void)
 {
 	return bus_register(&coresight_bus_type);
 }
-subsys_initcall(coresight_init);
+core_initcall(coresight_init);
 
 static void __exit coresight_exit(void)
 {
