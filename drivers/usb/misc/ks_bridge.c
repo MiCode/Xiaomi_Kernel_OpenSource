@@ -166,7 +166,7 @@ static ssize_t ksb_fs_read(struct file *fp, char __user *buf,
 	int ret;
 	unsigned long flags;
 	struct ks_bridge *ksb = fp->private_data;
-	struct data_pkt *pkt;
+	struct data_pkt *pkt = NULL;
 	size_t space, copied;
 
 read_start:
@@ -187,10 +187,12 @@ read_start:
 
 	space = count;
 	copied = 0;
-	while (!list_empty(&ksb->to_ks_list) && space) {
+	while (!list_empty(&ksb->to_ks_list) && space &&
+			test_bit(USB_DEV_CONNECTED, &ksb->flags)) {
 		size_t len;
 
 		pkt = list_first_entry(&ksb->to_ks_list, struct data_pkt, list);
+		list_del_init(&pkt->list);
 		len = min_t(size_t, space, pkt->len - pkt->n_read);
 		spin_unlock_irqrestore(&ksb->lock, flags);
 
@@ -199,26 +201,32 @@ read_start:
 			dev_err(ksb->fs_dev.this_device,
 					"copy_to_user failed err:%d\n", ret);
 			ksb_free_data_pkt(pkt);
-			return ret;
+			return -EFAULT;
 		}
 
 		pkt->n_read += len;
 		space -= len;
 		copied += len;
 
-		spin_lock_irqsave(&ksb->lock, flags);
 		if (pkt->n_read == pkt->len) {
 			/*
 			 * re-init the packet and queue it
 			 * for more data.
 			 */
-			list_del_init(&pkt->list);
 			pkt->n_read = 0;
 			pkt->len = MAX_DATA_PKT_SIZE;
-			spin_unlock_irqrestore(&ksb->lock, flags);
 			submit_one_urb(ksb, GFP_KERNEL, pkt);
-			spin_lock_irqsave(&ksb->lock, flags);
+			pkt = NULL;
 		}
+		spin_lock_irqsave(&ksb->lock, flags);
+	}
+
+	/* put the partial packet back in the list */
+	if (!space && pkt && pkt->n_read != pkt->len) {
+		if (test_bit(USB_DEV_CONNECTED, &ksb->flags))
+			list_add(&pkt->list, &ksb->to_ks_list);
+		else
+			ksb_free_data_pkt(pkt);
 	}
 	spin_unlock_irqrestore(&ksb->lock, flags);
 
