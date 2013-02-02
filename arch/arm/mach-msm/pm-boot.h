@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,10 +18,10 @@
 /* end */
 
 enum {
-	MSM_PM_BOOT_CONFIG_TZ		     = 0,
-	MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS = 1,
-	MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT = 2,
-	MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR   = 3,
+	MSM_PM_BOOT_CONFIG_TZ		    ,
+	MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS,
+	MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT,
+	MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR  ,
 };
 
 struct msm_pm_boot_platform_data {
