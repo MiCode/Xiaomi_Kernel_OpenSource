@@ -16,10 +16,10 @@ Required parameters:
 
 - compatible: Must be "qcom,pm-boot"
 - qcom,mode: The mode that the target will use for booting
-	MSM_PM_BOOT_CONFIG_TZ                = 0,
-	MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS = 1,
-	MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT = 2,
-	MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR   = 3,
+	"tz" = MSM_PM_BOOT_CONFIG_TZ,
+	"reset_vector_phys" = MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS,
+	"reset_vector_virt" = MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT,
+	"remap_boot_addr" = MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR,
 
 Optional parameters (based on the mode chosen):
 
@@ -36,5 +36,5 @@ Example:
 
 	qcom,pm-boot {
 		compatible = "qcom,pm-boot";
-		qcom,mode = <0>; /* MSM_PM_BOOT_CONFIG_TZ */
+		qcom,mode = "tz"; /* MSM_PM_BOOT_CONFIG_TZ */
 	};
