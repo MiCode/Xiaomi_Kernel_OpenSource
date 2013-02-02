@@ -19,8 +19,10 @@
 #define N_MDM_READ	1
 #define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
 #define MAX_HSIC_CH	4
+#define REOPEN_HSIC 1
+#define DONT_REOPEN_HSIC 0
 int diagfwd_write_complete_hsic(struct diag_request *, int index);
-int diagfwd_cancel_hsic(void);
+int diagfwd_cancel_hsic(int reopen);
 void diag_read_usb_hsic_work_fn(struct work_struct *work);
 void diag_usb_read_complete_hsic_fn(struct work_struct *w);
 extern struct diag_bridge_ops hsic_diag_bridge_ops[MAX_HSIC_CH];
@@ -37,6 +39,7 @@ struct diag_hsic_dev {
 	int hsic_device_enabled;
 	int hsic_device_opened;
 	int hsic_suspend;
+	int hsic_data_requested;
 	int in_busy_hsic_read_on_device;
 	int in_busy_hsic_write;
 	struct work_struct diag_read_hsic_work;

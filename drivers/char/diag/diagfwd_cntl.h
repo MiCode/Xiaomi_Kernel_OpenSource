@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,11 +84,28 @@ struct diag_ctrl_feature_mask {
 	/* Copy feature mask here */
 } __packed;
 
+struct diag_ctrl_msg_diagmode {
+	uint32_t ctrl_pkt_id;
+	uint32_t ctrl_pkt_data_len;
+	uint32_t version;
+	uint32_t sleep_vote;
+	uint32_t real_time;
+	uint32_t use_nrt_values;
+	uint32_t commit_threshold;
+	uint32_t sleep_threshold;
+	uint32_t sleep_time;
+	uint32_t drain_timer_val;
+	uint32_t event_stale_timer_val;
+} __packed;
+
 void diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
 void diag_read_smd_cntl_work_fn(struct work_struct *);
 void diag_clean_reg_fn(struct work_struct *work);
 int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd);
+void diag_send_diag_mode_update(int real_time);
+void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
+							int real_time);
 
 #endif

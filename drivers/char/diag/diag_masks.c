@@ -314,6 +314,9 @@ void diag_mask_update_fn(struct work_struct *work)
 	diag_send_event_mask_update(smd_info->ch, diag_event_num_bytes);
 	diag_send_feature_mask_update(smd_info->ch, smd_info->peripheral);
 
+	if (smd_info->notify_context == SMD_EVENT_OPEN)
+		diag_send_diag_mode_update_by_smd(smd_info, MODE_REALTIME);
+
 	smd_info->notify_context = 0;
 }
 
