@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -430,6 +430,7 @@ void hdmi_init_supported_video_timings(void);
 int hdmi_get_video_id_code(struct hdmi_disp_mode_timing_type *timing_in);
 const struct hdmi_disp_mode_timing_type *hdmi_get_supported_mode(u32 mode);
 void hdmi_set_supported_mode(u32 mode);
+void hdmi_del_supported_mode(u32 mode);
 const char *hdmi_get_video_fmt_2string(u32 format);
 ssize_t hdmi_get_video_3d_fmt_2string(u32 format, char *buf);
 

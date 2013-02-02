@@ -30,6 +30,7 @@
 #include "mdss_hdmi_hdcp.h"
 #include "mdss.h"
 #include "mdss_panel.h"
+#include "mdss_hdmi_mhl.h"
 
 #define DRV_NAME "hdmi-tx"
 #define COMPATIBLE_NAME "qcom,hdmi-tx"
@@ -628,6 +629,30 @@ static void hdmi_tx_setup_video_mode_lut(void)
 	hdmi_set_supported_mode(HDMI_VFRMT_3840x2160p24_16_9);
 	hdmi_set_supported_mode(HDMI_VFRMT_4096x2160p24_16_9);
 } /* hdmi_tx_setup_video_mode_lut */
+
+/* Table tuned to indicate video formats supported by the MHL Tx */
+/* Valid pclk rates (Mhz): 25.2, 27, 27.03, 74.25 */
+static void hdmi_tx_setup_mhl_video_mode_lut(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	u32 i;
+	struct hdmi_disp_mode_timing_type *temp_timing;
+
+	if (!hdmi_ctrl->mhl_max_pclk) {
+		DEV_WARN("%s: mhl max pclk not set!\n", __func__);
+		return;
+	}
+	DEV_DBG("%s: max mode set to [%u]\n",
+		__func__, hdmi_ctrl->mhl_max_pclk);
+	for (i = 0; i < HDMI_VFRMT_MAX; i++) {
+		temp_timing =
+		(struct hdmi_disp_mode_timing_type *)hdmi_get_supported_mode(i);
+		if (!temp_timing)
+			continue;
+		/* formats that exceed max mhl line clk bw */
+		if (temp_timing->pixel_freq > hdmi_ctrl->mhl_max_pclk)
+			hdmi_del_supported_mode(i);
+	}
+} /* hdmi_tx_setup_mhl_video_mode_lut */
 
 static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
@@ -1758,12 +1783,65 @@ static int hdmi_tx_get_audio_edid_blk(struct platform_device *pdev,
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID], blk);
 } /* hdmi_tx_get_audio_edid_blk */
 
+static u8 hdmi_tx_tmds_enabled(struct platform_device *pdev)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	/* status of tmds */
+	return (hdmi_ctrl->timing_gen_on == true);
+}
+
+static int hdmi_tx_set_mhl_max_pclk(struct platform_device *pdev, u32 max_val)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+
+	hdmi_ctrl = platform_get_drvdata(pdev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+	if (max_val) {
+		hdmi_ctrl->mhl_max_pclk = max_val;
+		hdmi_tx_setup_mhl_video_mode_lut(hdmi_ctrl);
+	} else {
+		DEV_ERR("%s: invalid max pclk val\n", __func__);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int msm_hdmi_register_mhl(struct platform_device *pdev,
+		struct msm_hdmi_mhl_ops *ops)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid pdev\n", __func__);
+		return -ENODEV;
+	}
+
+	if (!ops) {
+		DEV_ERR("%s: invalid ops\n", __func__);
+		return -EINVAL;
+	}
+
+	ops->tmds_enabled = hdmi_tx_tmds_enabled;
+	ops->set_mhl_max_pclk = hdmi_tx_set_mhl_max_pclk;
+	return 0;
+}
+
 int msm_hdmi_register_audio_codec(struct platform_device *pdev,
 	struct msm_hdmi_audio_codec_ops *ops)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
 
-	if (!hdmi_ctrl) {
+	if (!hdmi_ctrl || !ops) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -ENODEV;
 	}
@@ -2436,6 +2514,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 				DEV_ERR("%s: hdcp auth failed. rc=%d\n",
 					__func__, rc);
 		}
+		hdmi_ctrl->timing_gen_on = true;
 		break;
 
 	case MDSS_EVENT_SUSPEND:
@@ -2463,6 +2542,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_TIMEGEN_OFF:
+		hdmi_ctrl->timing_gen_on = false;
 		break;
 
 	case MDSS_EVENT_CLOSE:
