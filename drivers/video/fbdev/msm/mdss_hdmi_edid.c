@@ -240,6 +240,8 @@ static ssize_t hdmi_edid_sysfs_rda_modes(struct device *dev,
 	if (edid_ctrl->sink_data.num_of_elements) {
 		u32 *video_mode = edid_ctrl->sink_data.disp_mode_list;
 		for (i = 0; i < edid_ctrl->sink_data.num_of_elements; ++i) {
+			if (!hdmi_get_supported_mode(*video_mode))
+				continue;
 			if (ret > 0)
 				ret += snprintf(buf+ret, PAGE_SIZE-ret, ",%d",
 					*video_mode++ + 1);
