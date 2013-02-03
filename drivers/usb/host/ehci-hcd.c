@@ -976,9 +976,10 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 	/* PCI errors [4.15.2.4] */
 	if (unlikely ((status & STS_FATAL) != 0)) {
 		ehci_err(ehci, "fatal error\n");
-		if (hcd->driver->dump_regs)
+		if (hcd->driver->dump_regs) {
 			hcd->driver->dump_regs(hcd);
-		panic("System error\n");
+			panic("System error\n");
+		}
 		dbg_cmd(ehci, "fatal", cmd);
 		dbg_status(ehci, "fatal", status);
 		ehci_halt(ehci);
