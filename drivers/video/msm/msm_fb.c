@@ -879,6 +879,17 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
 
+			if (mfd->timeline) {
+				/* Adding 1 is enough when pan_display is still
+				 * a blocking call and with mutex protection.
+				 * But if it is an async call, we will still
+				 * need to add 2. Adding 2 can be safer in
+				 * order to signal all existing fences, and it
+				 * is harmless. */
+				sw_sync_timeline_inc(mfd->timeline, 2);
+				mfd->timeline_value += 2;
+			}
+
 			mfd->op_enable = TRUE;
 		}
 		break;
