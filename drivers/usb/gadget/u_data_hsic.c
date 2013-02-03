@@ -25,13 +25,6 @@
 
 static unsigned int no_data_ports;
 
-static const char *data_bridge_names[] = {
-	"dun_data_hsic0",
-	"rmnet_data_hsic0"
-};
-
-#define DATA_BRIDGE_NAME_MAX_LEN		20
-
 #define GHSIC_DATA_RMNET_RX_Q_SIZE		50
 #define GHSIC_DATA_RMNET_TX_Q_SIZE		300
 #define GHSIC_DATA_SERIAL_RX_Q_SIZE		10
@@ -130,6 +123,7 @@ struct gdata_port {
 static struct {
 	struct gdata_port	*port;
 	struct platform_driver	pdrv;
+	char			port_name[BRIDGE_NAME_MAX_LEN];
 } gdata_ports[NUM_PORTS];
 
 static unsigned int get_timestamp(void);
@@ -586,19 +580,35 @@ static void ghsic_data_free_buffers(struct gdata_port *port)
 	spin_unlock_irqrestore(&port->rx_lock, flags);
 }
 
+static int ghsic_data_get_port_id(const char *pdev_name)
+{
+	struct gdata_port *port;
+	int i;
+
+	for (i = 0; i < no_data_ports; i++) {
+		port = gdata_ports[i].port;
+		if (!strncmp(port->brdg.name, pdev_name, BRIDGE_NAME_MAX_LEN))
+			return i;
+	}
+
+	return -EINVAL;
+}
+
 static int ghsic_data_probe(struct platform_device *pdev)
 {
 	struct gdata_port *port;
+	int id;
 
-	pr_debug("%s: name:%s no_data_ports= %d\n",
-		__func__, pdev->name, no_data_ports);
+	pr_debug("%s: name:%s no_data_ports= %d\n", __func__, pdev->name,
+			no_data_ports);
 
-	if (pdev->id >= no_data_ports) {
-		pr_err("%s: invalid port: %d\n", __func__, pdev->id);
+	id = ghsic_data_get_port_id(pdev->name);
+	if (id < 0 || id >= no_data_ports) {
+		pr_err("%s: invalid port: %d\n", __func__, id);
 		return -EINVAL;
 	}
 
-	port = gdata_ports[pdev->id].port;
+	port = gdata_ports[id].port;
 	set_bit(CH_READY, &port->bridge_sts);
 
 	/* if usb is online, try opening bridge */
@@ -614,15 +624,17 @@ static int ghsic_data_remove(struct platform_device *pdev)
 	struct gdata_port *port;
 	struct usb_ep	*ep_in;
 	struct usb_ep	*ep_out;
+	int id;
 
 	pr_debug("%s: name:%s\n", __func__, pdev->name);
 
-	if (pdev->id >= no_data_ports) {
-		pr_err("%s: invalid port: %d\n", __func__, pdev->id);
+	id = ghsic_data_get_port_id(pdev->name);
+	if (id < 0 || id >= no_data_ports) {
+		pr_err("%s: invalid port: %d\n", __func__, id);
 		return -EINVAL;
 	}
 
-	port = gdata_ports[pdev->id].port;
+	port = gdata_ports[id].port;
 
 	ep_in = port->in;
 	if (ep_in)
@@ -658,15 +670,17 @@ static int ghsic_data_port_alloc(unsigned port_num, enum gadget_type gtype)
 {
 	struct gdata_port	*port;
 	struct platform_driver	*pdrv;
+	char			*name;
 
 	port = kzalloc(sizeof(struct gdata_port), GFP_KERNEL);
 	if (!port)
 		return -ENOMEM;
 
-	port->wq = create_singlethread_workqueue(data_bridge_names[port_num]);
+	name = gdata_ports[port_num].port_name;
+
+	port->wq = create_singlethread_workqueue(name);
 	if (!port->wq) {
-		pr_err("%s: Unable to create workqueue:%s\n",
-			__func__, data_bridge_names[port_num]);
+		pr_err("%s: Unable to create workqueue:%s\n", __func__, name);
 		kfree(port);
 		return -ENOMEM;
 	}
@@ -688,7 +702,7 @@ static int ghsic_data_port_alloc(unsigned port_num, enum gadget_type gtype)
 	skb_queue_head_init(&port->rx_skb_q);
 
 	port->gtype = gtype;
-	port->brdg.ch_id = port_num;
+	port->brdg.name = name;
 	port->brdg.ctx = port;
 	port->brdg.ops.send_pkt = ghsic_data_receive;
 	port->brdg.ops.unthrottle_tx = ghsic_data_unthrottle_tx;
@@ -697,7 +711,7 @@ static int ghsic_data_port_alloc(unsigned port_num, enum gadget_type gtype)
 	pdrv = &gdata_ports[port_num].pdrv;
 	pdrv->probe = ghsic_data_probe;
 	pdrv->remove = ghsic_data_remove;
-	pdrv->driver.name = data_bridge_names[port_num];
+	pdrv->driver.name = name;
 	pdrv->driver.owner = THIS_MODULE;
 
 	platform_driver_register(pdrv);
@@ -846,7 +860,7 @@ fail:
 }
 
 #if defined(CONFIG_DEBUG_FS)
-#define DEBUG_BUF_SIZE 1024
+#define DEBUG_DATA_BUF_SIZE 4096
 
 static unsigned int	record_timestamp;
 module_param(record_timestamp, uint, S_IRUGO | S_IWUSR);
@@ -917,7 +931,7 @@ static ssize_t show_timestamp(struct file *file, char __user *ubuf,
 	if (!record_timestamp)
 		return 0;
 
-	buf = kzalloc(sizeof(char) * 4 * DEBUG_BUF_SIZE, GFP_KERNEL);
+	buf = kzalloc(sizeof(char) * DEBUG_DATA_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
@@ -927,7 +941,7 @@ static ssize_t show_timestamp(struct file *file, char __user *ubuf,
 	for (dbg_inc(&i); i != dbg_data.idx; dbg_inc(&i)) {
 		if (!strnlen(dbg_data.buf[i], DBG_DATA_MSG))
 			continue;
-		j += scnprintf(buf + j, (4 * DEBUG_BUF_SIZE) - j,
+		j += scnprintf(buf + j, DEBUG_DATA_BUF_SIZE - j,
 			       "%s\n", dbg_data.buf[i]);
 	}
 
@@ -955,7 +969,7 @@ static ssize_t ghsic_data_read_stats(struct file *file,
 	int			i;
 	int			temp = 0;
 
-	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	buf = kzalloc(sizeof(char) * DEBUG_DATA_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
@@ -966,7 +980,7 @@ static ssize_t ghsic_data_read_stats(struct file *file,
 		pdrv = &gdata_ports[i].pdrv;
 
 		spin_lock_irqsave(&port->rx_lock, flags);
-		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
+		temp += scnprintf(buf + temp, DEBUG_DATA_BUF_SIZE - temp,
 				"\nName:           %s\n"
 				"#PORT:%d port#:   %p\n"
 				"data_ch_open:	   %d\n"
@@ -991,7 +1005,7 @@ static ssize_t ghsic_data_read_stats(struct file *file,
 		spin_unlock_irqrestore(&port->rx_lock, flags);
 
 		spin_lock_irqsave(&port->tx_lock, flags);
-		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
+		temp += scnprintf(buf + temp, DEBUG_DATA_BUF_SIZE - temp,
 				"\n******DL INFO******\n\n"
 				"dpkts_to_usbhost: %lu\n"
 				"tx_buf_len:	   %u\n"
@@ -1093,6 +1107,31 @@ static unsigned int get_timestamp(void)
 }
 
 #endif
+
+/*portname will be used to find the bridge channel index*/
+void ghsic_data_set_port_name(const char *name, const char *xport_type)
+{
+	static unsigned int port_num;
+
+	if (port_num >= NUM_PORTS) {
+		pr_err("%s: setting xport name for invalid port num %d\n",
+				__func__, port_num);
+		return;
+	}
+
+	/*if no xport name is passed set it to xport type e.g. hsic*/
+	if (!name)
+		strlcpy(gdata_ports[port_num].port_name, xport_type,
+				BRIDGE_NAME_MAX_LEN);
+	else
+		strlcpy(gdata_ports[port_num].port_name, name,
+				BRIDGE_NAME_MAX_LEN);
+
+	/*append _data to get data bridge name: e.g. serial_hsic_data*/
+	strlcat(gdata_ports[port_num].port_name, "_data", BRIDGE_NAME_MAX_LEN);
+
+	port_num++;
+}
 
 int ghsic_data_setup(unsigned num_ports, enum gadget_type gtype)
 {

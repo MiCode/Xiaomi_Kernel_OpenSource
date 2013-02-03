@@ -29,9 +29,18 @@
 #define FLOW_CTRL_DISABLE		300
 #define FLOW_CTRL_SUPPORT		1
 
-static const char	*data_bridge_names[] = {
-	"dun_data_hsic0",
-	"rmnet_data_hsic0"
+#define BRIDGE_DATA_IDX		0
+#define BRIDGE_CTRL_IDX		1
+
+/*for xport : HSIC*/
+static const char * const serial_hsic_bridge_names[] = {
+	"serial_hsic_data",
+	"serial_hsic_ctrl",
+};
+
+static const char * const rmnet_hsic_bridge_names[] = {
+	"rmnet_hsic_data",
+	"rmnet_hsic_ctrl",
 };
 
 static struct workqueue_struct	*bridge_wq;
@@ -62,6 +71,7 @@ struct data_bridge {
 	struct usb_interface		*intf;
 	struct usb_device		*udev;
 	int				id;
+	char				*name;
 
 	unsigned int			bulk_in;
 	unsigned int			bulk_out;
@@ -109,6 +119,20 @@ static unsigned int get_timestamp(void);
 static void dbg_timestamp(char *, struct sk_buff *);
 static int submit_rx_urb(struct data_bridge *dev, struct urb *urb,
 		gfp_t flags);
+
+static int get_data_bridge_chid(char *xport_name)
+{
+	struct data_bridge	*dev;
+	int			i;
+
+	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
+		dev = __dev[i];
+		if (!strncmp(dev->name, xport_name, BRIDGE_NAME_MAX_LEN))
+			return i;
+	}
+
+	return -ENODEV;
+}
 
 static inline  bool rx_halted(struct data_bridge *dev)
 {
@@ -322,20 +346,22 @@ free_urbs:
 int data_bridge_open(struct bridge *brdg)
 {
 	struct data_bridge	*dev;
+	int			ch_id;
 
 	if (!brdg) {
 		err("bridge is null\n");
 		return -EINVAL;
 	}
 
-	if (brdg->ch_id >= MAX_BRIDGE_DEVICES)
-		return -EINVAL;
-
-	dev = __dev[brdg->ch_id];
-	if (!dev) {
-		err("dev is null\n");
-		return -ENODEV;
+	ch_id = get_data_bridge_chid(brdg->name);
+	if (ch_id < 0 || ch_id >= MAX_BRIDGE_DEVICES) {
+		err("%s: %s dev not found\n", __func__, brdg->name);
+		return ch_id;
 	}
+
+	brdg->ch_id = ch_id;
+
+	dev = __dev[ch_id];
 
 	dev_dbg(&dev->intf->dev, "%s: dev:%p\n", __func__, dev);
 
@@ -657,7 +683,7 @@ static int bridge_suspend(struct usb_interface *intf, pm_message_t message)
 
 static int data_bridge_probe(struct usb_interface *iface,
 		struct usb_host_endpoint *bulk_in,
-		struct usb_host_endpoint *bulk_out, int id)
+		struct usb_host_endpoint *bulk_out, char *name, int id)
 {
 	struct data_bridge	*dev;
 	int			retval;
@@ -668,7 +694,7 @@ static int data_bridge_probe(struct usb_interface *iface,
 		return -ENODEV;
 	}
 
-	dev->pdev = platform_device_alloc(data_bridge_names[id], id);
+	dev->pdev = platform_device_alloc(name, -1);
 	if (!dev->pdev) {
 		err("%s: unable to allocate platform device\n", __func__);
 		kfree(dev);
@@ -677,6 +703,7 @@ static int data_bridge_probe(struct usb_interface *iface,
 
 	dev->flags = 0;
 	dev->id = id;
+	dev->name = name;
 	dev->udev = interface_to_usbdev(iface);
 	dev->intf = iface;
 
@@ -939,18 +966,13 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	int				i;
 	int				status = 0;
 	int				numends;
-	unsigned int			iface_num;
-
-	iface_num = iface->cur_altsetting->desc.bInterfaceNumber;
+	char				**bname = (char **)id->driver_info;
 
 	if (iface->num_altsetting != 1) {
 		err("%s invalid num_altsetting %u\n",
 				__func__, iface->num_altsetting);
 		return -EINVAL;
 	}
-
-	if (!test_bit(iface_num, &id->driver_info))
-		return -ENODEV;
 
 	udev = interface_to_usbdev(iface);
 	usb_get_dev(udev);
@@ -979,13 +1001,15 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 		goto out;
 	}
 
-	status = data_bridge_probe(iface, bulk_in, bulk_out, ch_id);
+	status = data_bridge_probe(iface, bulk_in, bulk_out,
+			bname[BRIDGE_DATA_IDX], ch_id);
 	if (status < 0) {
 		dev_err(&iface->dev, "data_bridge_probe failed %d\n", status);
 		goto out;
 	}
 
-	status = ctrl_bridge_probe(iface, int_in, ch_id);
+	status = ctrl_bridge_probe(iface, int_in, bname[BRIDGE_CTRL_IDX],
+			ch_id);
 	if (status < 0) {
 		dev_err(&iface->dev, "ctrl_bridge_probe failed %d\n", status);
 		goto error;
@@ -1024,28 +1048,37 @@ static void bridge_disconnect(struct usb_interface *intf)
 	usb_put_dev(dev->udev);
 }
 
-/*bit position represents interface number*/
-#define PID9001_IFACE_MASK	0xC
-#define PID9034_IFACE_MASK	0xC
-#define PID9048_IFACE_MASK	0x18
-#define PID904C_IFACE_MASK	0x28
-#define PID9075_IFACE_MASK	0x28
-
+/*driver info stores data/ctrl bridge name used to match bridge xport name*/
 static const struct usb_device_id bridge_ids[] = {
-	{ USB_DEVICE(0x5c6, 0x9001),
-	.driver_info = PID9001_IFACE_MASK,
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9001, 2),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
 	},
-	{ USB_DEVICE(0x5c6, 0x9034),
-	.driver_info = PID9034_IFACE_MASK,
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9001, 3),
+	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
 	},
-	{ USB_DEVICE(0x5c6, 0x9048),
-	.driver_info = PID9048_IFACE_MASK,
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9034, 2),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
 	},
-	{ USB_DEVICE(0x5c6, 0x904c),
-	.driver_info = PID904C_IFACE_MASK,
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9034, 3),
+	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
 	},
-	{ USB_DEVICE(0x5c6, 0x9075),
-	.driver_info = PID9075_IFACE_MASK,
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 3),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 4),
+	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904c, 3),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904c, 5),
+	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9075, 3),
+	.driver_info = (unsigned long)serial_hsic_bridge_names,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9075, 5),
+	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
 	},
 
 	{ } /* Terminating entry */
@@ -1089,6 +1122,9 @@ static int __init bridge_init(void)
 		}
 
 		dev->wq = bridge_wq;
+
+		/*transport name will be set during probe*/
+		dev->name = "";
 
 		init_usb_anchor(&dev->tx_active);
 		init_usb_anchor(&dev->rx_active);

@@ -26,11 +26,6 @@
 #include <asm/unaligned.h>
 #include <mach/usb_bridge.h>
 
-static const char *ctrl_bridge_names[] = {
-	"dun_ctrl_hsic0",
-	"rmnet_ctrl_hsic0"
-};
-
 /* polling interval for Interrupt ep */
 #define HS_INTERVAL		7
 #define FS_LS_INTERVAL		3
@@ -43,6 +38,8 @@ static const char *ctrl_bridge_names[] = {
 struct ctrl_bridge {
 	struct usb_device	*udev;
 	struct usb_interface	*intf;
+
+	char			*name;
 
 	unsigned int		int_pipe;
 	struct urb		*inturb;
@@ -78,6 +75,20 @@ static struct ctrl_bridge	*__dev[MAX_BRIDGE_DEVICES];
 
 /* counter used for indexing ctrl bridge devices */
 static int	ch_id;
+
+static int get_ctrl_bridge_chid(char *xport_name)
+{
+	struct ctrl_bridge	*dev;
+	int			i;
+
+	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
+		dev = __dev[i];
+		if (!strncmp(dev->name, xport_name, BRIDGE_NAME_MAX_LEN))
+			return i;
+	}
+
+	return -ENODEV;
+}
 
 unsigned int ctrl_bridge_get_cbits_tohost(unsigned int id)
 {
@@ -272,21 +283,22 @@ static int ctrl_bridge_start_read(struct ctrl_bridge *dev)
 int ctrl_bridge_open(struct bridge *brdg)
 {
 	struct ctrl_bridge	*dev;
+	int			ch_id;
 
 	if (!brdg) {
 		err("bridge is null\n");
 		return -EINVAL;
 	}
 
-	if (brdg->ch_id >= MAX_BRIDGE_DEVICES)
-		return -EINVAL;
-
-	dev = __dev[brdg->ch_id];
-	if (!dev) {
-		err("dev is null\n");
-		return -ENODEV;
+	ch_id = get_ctrl_bridge_chid(brdg->name);
+	if (ch_id < 0 || ch_id >= MAX_BRIDGE_DEVICES) {
+		err("%s: %s dev not found\n", __func__, brdg->name);
+		return ch_id;
 	}
 
+	brdg->ch_id = ch_id;
+
+	dev = __dev[ch_id];
 	dev->brdg = brdg;
 	dev->snd_encap_cmd = 0;
 	dev->get_encap_res = 0;
@@ -596,7 +608,7 @@ static void ctrl_bridge_debugfs_exit(void) { }
 
 int
 ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
-		int id)
+		char *name, int id)
 {
 	struct ctrl_bridge		*dev;
 	struct usb_device		*udev;
@@ -613,7 +625,9 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 		return -ENODEV;
 	}
 
-	dev->pdev = platform_device_alloc(ctrl_bridge_names[id], id);
+	dev->name = name;
+
+	dev->pdev = platform_device_alloc(name, -1);
 	if (!dev->pdev) {
 		dev_err(&ifc->dev, "%s: unable to allocate platform device\n",
 			__func__);
@@ -742,6 +756,9 @@ int ctrl_bridge_init(void)
 			retval = -ENOMEM;
 			goto error;
 		}
+
+		/*transport name will be set during probe*/
+		dev->name = "";
 
 		init_usb_anchor(&dev->tx_submitted);
 		init_usb_anchor(&dev->tx_deferred);

@@ -1041,9 +1041,11 @@ MODULE_AUTHOR("David Brownell");
 /**
  * gserial_init_port - bind a gserial_port to its transport
  */
-static int gserial_init_port(int port_num, const char *name)
+static int gserial_init_port(int port_num, const char *name,
+		const char *port_name)
 {
 	enum transport_type transport;
+	int ret = 0;
 
 	if (port_num >= GSERIAL_NO_PORTS)
 		return -ENODEV;
@@ -1069,6 +1071,9 @@ static int gserial_init_port(int port_num, const char *name)
 		no_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, name);
+		ghsic_data_set_port_name(port_name, name);
+
 		/*client port number will be updated in gport_setup*/
 		no_hsic_sports++;
 		break;
@@ -1084,5 +1089,5 @@ static int gserial_init_port(int port_num, const char *name)
 
 	nr_ports++;
 
-	return 0;
+	return ret;
 }
