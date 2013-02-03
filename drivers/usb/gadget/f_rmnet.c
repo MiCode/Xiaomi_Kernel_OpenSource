@@ -1230,7 +1230,8 @@ static void frmnet_cleanup(void)
 	no_data_hsuart_ports = 0;
 }
 
-static int frmnet_init_port(const char *ctrl_name, const char *data_name)
+static int frmnet_init_port(const char *ctrl_name, const char *data_name,
+		const char *port_name)
 {
 	struct f_rmnet			*dev;
 	struct rmnet_ports		*rmnet_port;
@@ -1272,6 +1273,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		no_ctrl_qti_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_ctrl_set_port_name(port_name, ctrl_name);
 		rmnet_port->ctrl_xport_num = no_ctrl_hsic_ports;
 		no_ctrl_hsic_ports++;
 		break;
@@ -1299,6 +1301,7 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 		no_data_bam2bam_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
+		ghsic_data_set_port_name(port_name, data_name);
 		rmnet_port->data_xport_num = no_data_hsic_ports;
 		no_data_hsic_ports++;
 		break;
