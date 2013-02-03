@@ -2186,8 +2186,14 @@ static int dvb_dmxdev_feed_stop(struct dmxdev_filter *dmxdevfilter)
 			dmxdevfilter->feed.sec.feed);
 		break;
 	case DMXDEV_TYPE_PES:
-		list_for_each_entry(feed, &dmxdevfilter->feed.ts, next)
+		list_for_each_entry(feed, &dmxdevfilter->feed.ts, next) {
+			if (dmxdevfilter->params.pes.output == DMX_OUT_TS_TAP) {
+				dmxdevfilter->dev->dvr_feeds_count--;
+				if (!dmxdevfilter->dev->dvr_feeds_count)
+					dmxdevfilter->dev->dvr_feed = NULL;
+			}
 			feed->ts->stop_filtering(feed->ts);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -2268,12 +2274,6 @@ static int dvb_dmxdev_filter_stop(struct dmxdev_filter *dmxdevfilter)
 	case DMXDEV_TYPE_PES:
 		dvb_dmxdev_feed_stop(dmxdevfilter);
 		demux = dmxdevfilter->dev->demux;
-		if (dmxdevfilter->params.pes.output == DMX_OUT_TS_TAP) {
-			dmxdevfilter->dev->dvr_feeds_count--;
-			if (!dmxdevfilter->dev->dvr_feeds_count)
-				dmxdevfilter->dev->dvr_feed = NULL;
-		}
-
 		list_for_each_entry(feed, &dmxdevfilter->feed.ts, next) {
 			demux->release_ts_feed(demux, feed->ts);
 			feed->ts = NULL;
@@ -2559,14 +2559,32 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 			filter->params.pes.rec_chunk_size =
 				filter->buffer.size >> 2;
 
+		ret = 0;
 		list_for_each_entry(feed, &filter->feed.ts, next) {
 			ret = dvb_dmxdev_start_feed(dmxdev, filter, feed);
-			if (ret < 0) {
-				dvb_dmxdev_filter_stop(filter);
-				return ret;
+			if (ret)
+				break;
+		}
+
+		if (!ret)
+			break;
+
+		/* cleanup feeds that were started before the failure */
+		list_for_each_entry(feed, &filter->feed.ts, next) {
+			if (!feed->ts)
+				continue;
+			feed->ts->stop_filtering(feed->ts);
+			dmxdev->demux->release_ts_feed(dmxdev->demux, feed->ts);
+			feed->ts = NULL;
+
+			if (filter->params.pes.output == DMX_OUT_TS_TAP) {
+				filter->dev->dvr_feeds_count--;
+				if (!filter->dev->dvr_feeds_count)
+					filter->dev->dvr_feed = NULL;
 			}
 		}
-		break;
+		return ret;
+
 	default:
 		return -EINVAL;
 	}
