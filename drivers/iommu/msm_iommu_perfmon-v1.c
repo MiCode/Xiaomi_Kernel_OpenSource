@@ -238,7 +238,13 @@ static unsigned int iommu_pm_read_counter(struct iommu_pmon_counter *counter)
 	return readl_relaxed(info->base + PMEVCNTR_(cnt_no));
 }
 
+static void iommu_pm_initialize_hw(const struct iommu_pmon *pmon)
+{
+	/* No initialization needed */
+}
+
 static struct iommu_pm_hw_ops iommu_pm_hw_ops = {
+	.initialize_hw = iommu_pm_initialize_hw,
 	.is_hw_access_OK = iommu_pm_is_hw_access_OK,
 	.grp_enable = iommu_pm_grp_enable,
 	.grp_disable = iommu_pm_grp_disable,

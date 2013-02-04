@@ -7,6 +7,10 @@ Required properties:
 - qcom,glb-offset : Offset for the global register base.
 
 Optional properties:
+- interrupts : should contain the performance monitor overflow interrupt number.
+- qcom,iommu-pmu-ngroups: Number of Performance Monitor Unit (PMU) groups.
+- qcom,iommu-pmu-ncounters: Number of PMU counters per group.
+- qcom,iommu-pmu-event-classes: List of event classes supported.
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:
 
@@ -28,6 +32,11 @@ Example:
 		ranges;
 		reg = <0xfd890000 0x10000>;
 		qcom,glb-offset = <0xF000>;
+		interrupts = <0 38 0>;
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <4>;
+		qcom,iommu-pmu-event-classes = <0x08
+						0x11>;
 
 		qcom,iommu-ctx@fd000000 {
 			reg = <0xfd000000 0x1000>;
