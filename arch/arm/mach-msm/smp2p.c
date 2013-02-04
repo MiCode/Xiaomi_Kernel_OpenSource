@@ -1314,13 +1314,20 @@ int msm_smp2p_in_register(int pid, const char *name,
 	}
 
 	/* Create and add it to the list */
-	in->remote_pid = pid;
-	strlcpy(in->name, name, SMP2P_MAX_ENTRY_NAME);
-	RAW_INIT_NOTIFIER_HEAD(&in->in_notifier_list);
-	list_add(&in->in_edge_list, &in_list[pid].list);
+	if (!in->notifier_count) {
+		in->remote_pid = pid;
+		strlcpy(in->name, name, SMP2P_MAX_ENTRY_NAME);
+		RAW_INIT_NOTIFIER_HEAD(&in->in_notifier_list);
+		list_add(&in->in_edge_list, &in_list[pid].list);
+	}
+
 	ret = raw_notifier_chain_register(&in->in_notifier_list,
 			in_notifier);
 	if (ret) {
+		if (!in->notifier_count) {
+			list_del(&in->in_edge_list);
+			kfree(in);
+		}
 		SMP2P_DBG("%s: '%s':%d failed %d\n", __func__, name, pid, ret);
 		goto bail;
 	}
