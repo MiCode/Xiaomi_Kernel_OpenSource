@@ -3541,11 +3541,12 @@ int mpq_dmx_init_mpq_feed(struct dvb_demux_feed *feed)
 		}
 	}
 
+	mpq_feed->sdmx_buf_handle = NULL;
+	mpq_feed->metadata_buf_handle = NULL;
+	mpq_feed->sdmx_filter_handle = SDMX_INVALID_FILTER_HANDLE;
+
 	if (!mpq_sdmx_is_loaded()) {
 		/* nothing more to do */
-		mpq_feed->sdmx_buf_handle = NULL;
-		mpq_feed->metadata_buf_handle = NULL;
-		mpq_feed->sdmx_filter_handle = SDMX_INVALID_FILTER_HANDLE;
 		mpq_demux->sdmx_session_handle = SDMX_INVALID_SESSION_HANDLE;
 		mutex_unlock(&mpq_demux->mutex);
 		return ret;
