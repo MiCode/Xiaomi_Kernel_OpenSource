@@ -760,11 +760,9 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 
 		switch (mode) {
 		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
-			if (num_online_cpus() > 1) {
+			if (num_online_cpus() > 1)
 				allow = false;
-				break;
-			}
-			/* fall through */
+			break;
 		case MSM_PM_SLEEP_MODE_RETENTION:
 			/*
 			 * The Krait BHS regulator doesn't have enough head
@@ -772,63 +770,42 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 			 * has disabled retention
 			 */
 			if (!msm_pm_ldo_retention_enabled)
-				break;
-
-			if (!allow)
-				break;
-
-			if (msm_pm_retention_calls_tz &&
-				num_online_cpus() > 1) {
 				allow = false;
-				break;
-			}
-			/* fall through */
 
-		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
-			if (!allow)
-				break;
-			/* fall through */
-
-		case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
-			if (!allow)
-				break;
-			/* fall through */
-
-			if (pm_sleep_ops.lowest_limits)
-				rs_limits =
-				pm_sleep_ops.lowest_limits(true,
-						mode, &time_param, &power);
-
-			if (MSM_PM_DEBUG_IDLE & msm_pm_debug_mask)
-				pr_info("CPU%u: %s: %s, latency %uus, "
-					"sleep %uus, limit %p\n",
-					dev->cpu, __func__, state->desc,
-					time_param.latency_us,
-					time_param.sleep_us, rs_limits);
-
-			if (!rs_limits)
+			if (msm_pm_retention_calls_tz && num_online_cpus() > 1)
 				allow = false;
 			break;
-
+		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE:
+		case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
+			break;
 		default:
 			allow = false;
 			break;
 		}
 
+		if (!allow)
+			continue;
+
+		if (pm_sleep_ops.lowest_limits)
+			rs_limits = pm_sleep_ops.lowest_limits(true,
+					mode, &time_param, &power);
+
 		if (MSM_PM_DEBUG_IDLE & msm_pm_debug_mask)
-			pr_info("CPU%u: %s: allow %s: %d\n",
-				dev->cpu, __func__, state->desc, (int)allow);
+			pr_info("CPU%u:%s:%s, latency %uus, slp %uus, lim %p\n",
+					dev->cpu, __func__, state->desc,
+					time_param.latency_us,
+					time_param.sleep_us, rs_limits);
+		if (!rs_limits)
+			continue;
 
-		if (allow) {
-			if (power < power_usage) {
-				power_usage = power;
-				modified_time_us = time_param.modified_time_us;
-				ret = mode;
-			}
-
-			if (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == mode)
-				msm_pm_idle_rs_limits = rs_limits;
+		if (power < power_usage) {
+			power_usage = power;
+			modified_time_us = time_param.modified_time_us;
+			ret = mode;
 		}
+
+		if (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == mode)
+			msm_pm_idle_rs_limits = rs_limits;
 	}
 
 	if (modified_time_us && !dev->cpu)
