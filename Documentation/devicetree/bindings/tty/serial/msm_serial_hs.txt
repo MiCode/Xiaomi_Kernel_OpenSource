@@ -3,10 +3,6 @@
 Required properties:
 - compatible :
 	- "qcom,msm-hsuart-v14" to be used for UARTDM Core v1.4
-- cell-index : cell-index to be used as device id to enumerate
-	       TTY based HSUART device as /dev/ttyHS<cell-index>.
-	       Device probe fails if cell-index is not available.
-	       The cell-index value should be from 0 to 255.
 - reg : offset and length of the register set for both the device,
 	uart core and bam core
 - reg-names :
@@ -36,7 +32,6 @@ Example:
 
 	uart7: uart@f995d000 {
 		compatible = "qcom,msm-hsuart-v14";
-		cell-index = <0>;
 		reg = <0xf995d000 0x1000>,
 		      <0xf9944000 0x5000>;
 		reg-names = "core_mem", "bam_mem";
@@ -82,7 +77,6 @@ Example:
 
 	uart7: uart@f995d000 {
 		compatible = "qcom,msm-hsuart-v14"
-		cell-index = <0>;
 		reg = <0x19c40000 0x1000">,
 		      <0xf9944000 0x5000>;
 		reg-names = "core_mem", "bam_mem";
