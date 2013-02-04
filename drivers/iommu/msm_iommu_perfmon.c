@@ -20,35 +20,8 @@
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
-#include <mach/iommu_hw-v1.h>
 #include <mach/iommu.h>
 #include <mach/iommu_perfmon.h>
-
-#define PMCR_P_MASK		(0x1)
-#define PMCR_P_SHIFT		(1)
-#define PMCR_P			(PMCR_P_MASK << PMCR_P_SHIFT)
-#define PMCFGR_NCG_MASK		(0xFF)
-#define PMCFGR_NCG_SHIFT	(24)
-#define PMCFGR_NCG		(PMCFGR_NCG_MASK << PMCFGR_NCG_SHIFT)
-#define PMCFGR_N_MASK		(0xFF)
-#define PMCFGR_N_SHIFT		(0)
-#define PMCFGR_N		(PMCFGR_N_MASK << PMCFGR_N_SHIFT)
-#define CR_E			0x1
-#define CGCR_CEN		0x800
-#define CGCR_CEN_SHFT		(1 << 11)
-#define PMCGCR_CGNC_MASK	(0x0F)
-#define PMCGCR_CGNC_SHIFT	(24)
-#define PMCGCR_CGNC		(PMCGCR_CGNC_MASK << PMCGCR_CGNC_SHIFT)
-#define PMCGCR_(group)		(PMCGCR_N + group*4)
-
-#define PMOVSCLR_(n)		(PMOVSCLR_N + n*4)
-#define PMCNTENSET_(n)		(PMCNTENSET_N + n*4)
-#define PMCNTENCLR_(n)		(PMCNTENCLR_N + n*4)
-#define PMINTENSET_(n)		(PMINTENSET_N + n*4)
-#define PMINTENCLR_(n)		(PMINTENCLR_N + n*4)
-
-#define PMEVCNTR_(n)		(PMEVCNTR_N + n*4)
-#define PMEVTYPER_(n)		(PMEVTYPER_N + n*4)
 
 static LIST_HEAD(iommu_list);
 static struct dentry *msm_iommu_root_debugfs_dir;
@@ -80,11 +53,6 @@ static struct event_class pmu_event_classes[] = {
 	{ 0xb0, "tot_num_miss_axi_htw_read_req" },
 	{ 0xb1, "tot_num_pred_axi_htw_read_req" },
 };
-
-static unsigned int iommu_pm_is_hw_access_OK(const struct iommu_pmon *pmon)
-{
-	return pmon->enabled && (pmon->iommu_attach_count > 0);
-}
 
 static unsigned int iommu_pm_create_sup_cls_str(char **buf,
 						struct iommu_pmon *pmon)
@@ -194,170 +162,6 @@ static struct iommu_pmon *iommu_pm_get_pm_by_dev(struct device *dev)
 	return NULL;
 }
 
-static void iommu_pm_grp_enable(struct iommu_info *iommu, unsigned int grp_no)
-{
-	unsigned int pmcgcr;
-	pmcgcr = readl_relaxed(iommu->base + PMCGCR_(grp_no));
-	pmcgcr |= CGCR_CEN;
-	writel_relaxed(pmcgcr, iommu->base + PMCGCR_(grp_no));
-}
-
-static void iommu_pm_grp_disable(struct iommu_info *iommu, unsigned int grp_no)
-{
-	unsigned int pmcgcr;
-	pmcgcr = readl_relaxed(iommu->base + PMCGCR_(grp_no));
-	pmcgcr &= ~CGCR_CEN;
-	writel_relaxed(pmcgcr, iommu->base + PMCGCR_(grp_no));
-}
-
-static void iommu_pm_enable(struct iommu_info *iommu)
-{
-	unsigned int pmcr;
-	pmcr = readl_relaxed(iommu->base + PMCR);
-	pmcr |= CR_E;
-	writel_relaxed(pmcr, iommu->base + PMCR);
-}
-
-static void iommu_pm_disable(struct iommu_info *iommu)
-{
-	unsigned int pmcr;
-	pmcr = readl_relaxed(iommu->base + PMCR);
-	pmcr &= ~CR_E;
-	writel_relaxed(pmcr, iommu->base + PMCR);
-}
-
-static void iommu_pm_reset_counters(const struct iommu_info *iommu)
-{
-	unsigned int pmcr;
-	pmcr = readl_relaxed(iommu->base + PMCR);
-	pmcr |= PMCR_P;
-	writel_relaxed(pmcr, iommu->base + PMCR);
-}
-
-static void iommu_pm_check_for_overflow(struct iommu_pmon *pmon)
-{
-	struct iommu_pmon_counter *counter;
-	struct iommu_info *iommu = &pmon->iommu;
-	unsigned int reg_no = 0;
-	unsigned int bit_no;
-	unsigned int reg_value;
-	unsigned int i;
-	unsigned int j;
-	unsigned int curr_reg = 0;
-
-	reg_value = readl_relaxed(iommu->base + PMOVSCLR_(curr_reg));
-
-	for (i = 0; i < pmon->num_groups; ++i) {
-		struct iommu_pmon_cnt_group *cnt_grp = &pmon->cnt_grp[i];
-		for (j = 0; j < cnt_grp->num_counters; ++j) {
-			counter = &cnt_grp->counters[j];
-			reg_no = counter->absolute_counter_no / 32;
-			bit_no = counter->absolute_counter_no % 32;
-			if (reg_no != curr_reg) {
-				/* Clear overflow bits */
-				writel_relaxed(reg_value, iommu->base +
-					       PMOVSCLR_(reg_no));
-				curr_reg = reg_no;
-				reg_value = readl_relaxed(iommu->base +
-							  PMOVSCLR_(curr_reg));
-			}
-
-			if (counter->enabled) {
-				if (reg_value & (1 << bit_no))
-					counter->overflow_count++;
-			}
-		}
-	}
-
-	/* Clear overflow */
-	writel_relaxed(reg_value, iommu->base + PMOVSCLR_(reg_no));
-}
-
-irqreturn_t iommu_pm_evt_ovfl_int_handler(int irq, void *dev_id)
-{
-	struct iommu_pmon *pmon = dev_id;
-	struct iommu_info *iommu = &pmon->iommu;
-
-	mutex_lock(&pmon->lock);
-
-	if (!iommu_pm_is_hw_access_OK(pmon)) {
-		mutex_unlock(&pmon->lock);
-		goto out;
-	}
-
-	iommu->ops->iommu_lock_acquire();
-	iommu_pm_check_for_overflow(pmon);
-	iommu->ops->iommu_lock_release();
-
-	mutex_unlock(&pmon->lock);
-
-out:
-	return IRQ_HANDLED;
-}
-
-static void iommu_pm_counter_enable(struct iommu_info *iommu,
-				    struct iommu_pmon_counter *counter)
-{
-	unsigned int reg_no = counter->absolute_counter_no / 32;
-	unsigned int bit_no = counter->absolute_counter_no % 32;
-	unsigned int reg_value;
-
-	/* Clear overflow of counter */
-	reg_value = 1 << bit_no;
-	writel_relaxed(reg_value, iommu->base + PMOVSCLR_(reg_no));
-
-	/* Enable counter */
-	writel_relaxed(reg_value, iommu->base + PMCNTENSET_(reg_no));
-	counter->enabled = 1;
-}
-
-static void iommu_pm_counter_disable(struct iommu_info *iommu,
-				     struct iommu_pmon_counter *counter)
-{
-	unsigned int reg_no = counter->absolute_counter_no / 32;
-	unsigned int bit_no = counter->absolute_counter_no % 32;
-	unsigned int reg_value;
-
-	counter->enabled = 0;
-
-	/* Disable counter */
-	reg_value = 1 << bit_no;
-	writel_relaxed(reg_value, iommu->base + PMCNTENCLR_(reg_no));
-
-	/* Clear overflow of counter */
-	writel_relaxed(reg_value, iommu->base + PMOVSCLR_(reg_no));
-}
-
-/*
- * Must be called after iommu_start_access() is called
- */
-static void iommu_pm_ovfl_int_enable(struct iommu_info *iommu,
-				     const struct iommu_pmon_counter *counter)
-{
-	unsigned int reg_no = counter->absolute_counter_no / 32;
-	unsigned int bit_no = counter->absolute_counter_no % 32;
-	unsigned int reg_value;
-
-	/* Enable overflow interrupt for counter */
-	reg_value = (1 << bit_no);
-	writel_relaxed(reg_value, iommu->base + PMINTENSET_(reg_no));
-}
-
-/*
- * Must be called after iommu_start_access() is called
- */
-static void iommu_pm_ovfl_int_disable(struct iommu_info *iommu,
-				      const struct iommu_pmon_counter *counter)
-{
-	unsigned int reg_no = counter->absolute_counter_no / 32;
-	unsigned int bit_no = counter->absolute_counter_no % 32;
-	unsigned int reg_value;
-
-	/* Disable overflow interrupt for counter */
-	reg_value = 1 << bit_no;
-	writel_relaxed(reg_value, iommu->base + PMINTENCLR_(reg_no));
-}
-
 static void iommu_pm_set_event_type(struct iommu_pmon *pmon,
 				    struct iommu_pmon_counter *counter)
 {
@@ -369,11 +173,11 @@ static void iommu_pm_set_event_type(struct iommu_pmon *pmon,
 	count_no = counter->absolute_counter_no;
 
 	if (event_class == NO_EVENT_CLASS) {
-		if (iommu_pm_is_hw_access_OK(pmon)) {
+		if (iommu->hw_ops->is_hw_access_OK(pmon)) {
 			iommu->ops->iommu_lock_acquire();
-			iommu_pm_counter_disable(iommu, counter);
-			iommu_pm_ovfl_int_disable(iommu, counter);
-			writel_relaxed(0, iommu->base + PMEVTYPER_(count_no));
+			iommu->hw_ops->counter_disable(iommu, counter);
+			iommu->hw_ops->ovfl_int_disable(iommu, counter);
+			iommu->hw_ops->set_event_class(pmon, count_no, 0);
 			iommu->ops->iommu_lock_release();
 		}
 		counter->overflow_count = 0;
@@ -381,12 +185,12 @@ static void iommu_pm_set_event_type(struct iommu_pmon *pmon,
 	} else {
 		counter->overflow_count = 0;
 		counter->value = 0;
-		if (iommu_pm_is_hw_access_OK(pmon)) {
+		if (iommu->hw_ops->is_hw_access_OK(pmon)) {
 			iommu->ops->iommu_lock_acquire();
-			writel_relaxed(event_class,
-					iommu->base + PMEVTYPER_(count_no));
-			iommu_pm_ovfl_int_enable(iommu, counter);
-			iommu_pm_counter_enable(iommu, counter);
+			iommu->hw_ops->set_event_class(pmon, count_no,
+					event_class);
+			iommu->hw_ops->ovfl_int_enable(iommu, counter);
+			iommu->hw_ops->counter_enable(iommu, counter);
 			iommu->ops->iommu_lock_release();
 		}
 	}
@@ -405,19 +209,6 @@ static void iommu_pm_reset_counts(struct iommu_pmon *pmon)
 	}
 }
 
-static unsigned int iommu_pm_read_counter(struct iommu_pmon_counter *counter)
-{
-	struct iommu_pmon *pmon = counter->cnt_group->pmon;
-	struct iommu_info *info = &pmon->iommu;
-	unsigned int cnt_no = counter->absolute_counter_no;
-	unsigned int pmevcntr;
-
-	pmevcntr = readl_relaxed(info->base + PMEVCNTR_(cnt_no));
-
-	return pmevcntr;
-
-}
-
 static void iommu_pm_set_all_counters(struct iommu_pmon *pmon)
 {
 	unsigned int i;
@@ -433,12 +224,13 @@ static void iommu_pm_read_all_counters(struct iommu_pmon *pmon)
 {
 	unsigned int i;
 	unsigned int j;
+	struct iommu_info *iommu = &pmon->iommu;
 	for (i = 0; i < pmon->num_groups; ++i) {
 		struct iommu_pmon_cnt_group *cnt_grp = &pmon->cnt_grp[i];
 		for (j = 0; j < cnt_grp->num_counters; ++j) {
 			struct iommu_pmon_counter *counter;
 			counter = &cnt_grp->counters[j];
-			counter->value = iommu_pm_read_counter(counter);
+			counter->value = iommu->hw_ops->read_counter(counter);
 		}
 	}
 }
@@ -462,10 +254,10 @@ static void iommu_pm_on(struct iommu_pmon *pmon)
 
 	/* enable all counter group */
 	for (i = 0; i < pmon->num_groups; ++i)
-		iommu_pm_grp_enable(iommu, i);
+		iommu->hw_ops->grp_enable(iommu, i);
 
 	/* enable global counters */
-	iommu_pm_enable(iommu);
+	iommu->hw_ops->enable_pm(iommu);
 	iommu->ops->iommu_lock_release();
 
 	pr_info("%s: TLB performance monitoring turned ON\n",
@@ -484,14 +276,14 @@ static void iommu_pm_off(struct iommu_pmon *pmon)
 	iommu->ops->iommu_lock_acquire();
 
 	/* disable global counters */
-	iommu_pm_disable(iommu);
+	iommu->hw_ops->disable_pm(iommu);
 
 	/* Check if we overflowed just before turning off pmon */
-	iommu_pm_check_for_overflow(pmon);
+	iommu->hw_ops->check_for_overflow(pmon);
 
 	/* disable all counter group */
 	for (i = 0; i < pmon->num_groups; ++i)
-		iommu_pm_grp_disable(iommu, i);
+		iommu->hw_ops->grp_disable(iommu, i);
 
 	/* Update cached copy of counters before turning off power */
 	iommu_pm_read_all_counters(pmon);
@@ -524,9 +316,9 @@ static ssize_t iommu_pm_count_value_read(struct file *fp,
 
 	mutex_lock(&pmon->lock);
 
-	if (iommu_pm_is_hw_access_OK(pmon)) {
+	if (iommu->hw_ops->is_hw_access_OK(pmon)) {
 		iommu->ops->iommu_lock_acquire();
-		counter->value = iommu_pm_read_counter(counter);
+		counter->value = iommu->hw_ops->read_counter(counter);
 		iommu->ops->iommu_lock_release();
 	}
 	full_count = (unsigned long long) counter->value +
@@ -631,9 +423,9 @@ static ssize_t iommu_reset_counters_write(struct file *fp,
 		buf[wr_cnt-1] = '\0';
 		rv = kstrtoul(buf, 10, &cmd);
 		if (!rv && (cmd == 1)) {
-			if (iommu_pm_is_hw_access_OK(pmon)) {
+			if (iommu->hw_ops->is_hw_access_OK(pmon)) {
 				iommu->ops->iommu_lock_acquire();
-				iommu_pm_reset_counters(&pmon->iommu);
+				iommu->hw_ops->reset_counters(&pmon->iommu);
 				iommu->ops->iommu_lock_release();
 			}
 			iommu_pm_reset_counts(pmon);
@@ -896,7 +688,7 @@ int msm_iommu_pm_iommu_register(struct iommu_pmon *pmon_entry)
 
 	if (iommu->evt_irq > 0) {
 		ret = request_threaded_irq(iommu->evt_irq, NULL,
-				iommu_pm_evt_ovfl_int_handler,
+				iommu->hw_ops->evt_ovfl_int_handler,
 				IRQF_ONESHOT | IRQF_SHARED,
 				"msm_iommu_nonsecure_irq", pmon_entry);
 		if (ret) {

@@ -75,6 +75,7 @@ struct iommu_pmon_cnt_group {
  * @evt_irq:    irq number for event overflow interrupt
  * @iommu_dev:  pointer to iommu device
  * @ops:        iommu access operations pointer.
+ * @hw_ops:     iommu pm hw access operations pointer.
  */
 struct iommu_info {
 	const char *iommu_name;
@@ -82,6 +83,7 @@ struct iommu_info {
 	int evt_irq;
 	struct device *iommu_dev;
 	struct iommu_access_ops *ops;
+	struct iommu_pm_hw_ops *hw_ops;
 };
 
 /**
@@ -112,9 +114,54 @@ struct iommu_pmon {
 	struct mutex lock;
 };
 
-extern struct iommu_access_ops iommu_access_ops;
+/**
+ * struct iommu_hw_ops - Callbacks for accessing IOMMU HW
+ * @is_hw_access_ok: Returns 1 if we can access HW, 0 otherwise
+ * @grp_enable: Call to enable a counter group
+ * @grp_disable: Call to disable a counter group
+ * @enable_pm: Call to enable PM
+ * @disable_pm: Call to disable PM
+ * @reset_counters:  Call to reset counters
+ * @check_for_overflow:  Call to check for overflow
+ * @evt_ovfl_int_handler: Overflow interrupt handler callback
+ * @counter_enable: Call to enable counters
+ * @counter_disable: Call to disable counters
+ * @ovfl_int_enable: Call to enable overflow interrupts
+ * @ovfl_int_disable: Call to disable overflow interrupts
+ * @set_event_class: Call to set event class
+ * @read_counter: Call to read a counter value
+ */
+struct iommu_pm_hw_ops {
+	unsigned int (*is_hw_access_OK)(const struct iommu_pmon *);
+	void (*grp_enable)(struct iommu_info *, unsigned int);
+	void (*grp_disable)(struct iommu_info *, unsigned int);
+	void (*enable_pm)(struct iommu_info *);
+	void (*disable_pm)(struct iommu_info *);
+	void (*reset_counters)(const struct iommu_info *);
+	void (*check_for_overflow)(struct iommu_pmon *);
+	irqreturn_t (*evt_ovfl_int_handler)(int, void *);
+	void (*counter_enable)(struct iommu_info *,
+			       struct iommu_pmon_counter *);
+	void (*counter_disable)(struct iommu_info *,
+			       struct iommu_pmon_counter *);
+	void (*ovfl_int_enable)(struct iommu_info *,
+				const struct iommu_pmon_counter *);
+	void (*ovfl_int_disable)(struct iommu_info *,
+				const struct iommu_pmon_counter *);
+	void (*set_event_class)(struct iommu_pmon *pmon, unsigned int,
+				unsigned int);
+	unsigned int (*read_counter)(struct iommu_pmon_counter *);
+};
+
+extern struct iommu_access_ops iommu_access_ops_v1;
 
 #ifdef CONFIG_MSM_IOMMU_PMON
+
+/**
+ * Get pointer to PMU hardware access functions for IOMMUv1 PMU
+ */
+struct iommu_pm_hw_ops *iommu_pm_get_hw_ops_v1(void);
+
 /**
  * Allocate memory for performance monitor structure. Must
  * be called before iommu_pm_iommu_register
@@ -150,6 +197,11 @@ void msm_iommu_attached(struct device *dev);
   */
 void msm_iommu_detached(struct device *dev);
 #else
+static inline struct iommu_pm_hw_ops *iommu_pm_get_hw_ops_v1(void)
+{
+	return NULL;
+}
+
 static inline struct iommu_pmon *msm_iommu_pm_alloc(struct device *iommu_dev)
 {
 	return NULL;
