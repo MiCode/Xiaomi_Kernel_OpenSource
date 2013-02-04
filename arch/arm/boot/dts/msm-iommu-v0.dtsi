@@ -17,8 +17,16 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfd000000 0x10000>;
+		interrupts = <0 248 0>;
 		qcom,glb-offset = <0xF000>;
 		label = "lpass_iommu";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <4>;
+		qcom,iommu-pmu-event-classes = <0x08
+						0x09
+						0x10
+						0x12
+						0x80>;
 		status = "disabled";
 
 		lpass_q6_fw: qcom,iommu-ctx@fd000000 {
@@ -56,8 +64,16 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfd010000 0x10000>;
+		interrupts = <0 252 0>;
 		qcom,glb-offset = <0xF000>;
 		label = "copss_iommu";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <4>;
+		qcom,iommu-pmu-event-classes = <0x08
+						0x09
+						0x10
+						0x12
+						0x80>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fd010000 {
@@ -123,8 +139,16 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfd860000 0x10000>;
+		interrupts = <0 245 0>;
 		qcom,glb-offset = <0xF000>;
 		label = "mdpe_iommu";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <4>;
+		qcom,iommu-pmu-event-classes = <0x08
+						0x09
+						0x10
+						0x12
+						0x80>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fd860000 {
@@ -148,8 +172,16 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfd870000 0x10000>;
+		interrupts = <0 73 0>;
 		qcom,glb-offset = <0xF000>;
 		label = "mdps_iommu";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <4>;
+		qcom,iommu-pmu-event-classes = <0x08
+						0x09
+						0x10
+						0x12
+						0x80>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fd870000 {
@@ -173,8 +205,16 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfd880000 0x10000>;
+		interrupts = <0 38 0>;
 		qcom,glb-offset = <0xF000>;
 		label = "gfx_iommu";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <4>;
+		qcom,iommu-pmu-event-classes = <0x08
+						0x09
+						0x10
+						0x12
+						0x80>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fd880000 {
@@ -207,8 +247,16 @@
 		#size-cells = <1>;
 		ranges;
 		reg = <0xfd890000 0x10000>;
+		interrupts = <0 62 0>;
 		qcom,glb-offset = <0xF000>;
 		label = "vfe_iommu";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <4>;
+		qcom,iommu-pmu-event-classes = <0x08
+						0x09
+						0x10
+						0x12
+						0x80>;
 		status = "disabled";
 
 		qcom,iommu-ctx@fd890000 {
