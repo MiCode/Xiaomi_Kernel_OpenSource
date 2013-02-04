@@ -3,10 +3,6 @@
 Required properties:
 - compatible :
 	- "qcom,msm-hsuart-v14" to be used for UARTDM Core v1.4
-- cell-index : cell-index to be used as device id to enumerate
-	       TTY based HSUART device as /dev/ttyHS<cell-index>.
-	       Device probe fails if cell-index is not available.
-	       The cell-index value should be from 0 to 255.
 - reg : offset and length of the register set for both the device,
 	uart core and bam core
 - reg-names :
@@ -34,14 +30,15 @@ register blocks - uart core and bam core.
 
 Example:
 
-	uart7@f995d000 {
+	uart7: uart@f995d000 {
 		compatible = "qcom,msm-hsuart-v14";
-		cell-index = <0>;
 		reg = <0xf995d000 0x1000>,
 		      <0xf9944000 0x5000>;
 		reg-names = "core_mem", "bam_mem";
 		interrupts = <0 113 0>, <0 239 0>;
 		interrupt-names = "core_irq", "bam_irq";
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
 	};
 
 Optional properties:
@@ -59,11 +56,21 @@ HSUART driver injects provided character with property rx_to_inject.
 - qcom, rx_to_inject : The character to be inserted on wakeup.
 
 
+Aliases :
+An alias may be optionally used to bind the UART device to a TTY device
+(ttyHS<alias_num>) with a given alias number. Aliases are of the form
+uart<n> where <n> is an integer representing the alias number to use.
+On systems with multiple UART devices present, an alias may optionally be
+defined for such devices. The alias value should be from 0 to 255.
+
 Example:
+
+	aliases {
+		uart4 = &uart7; // This device will be enumerated as ttyHS4
+	};
 
 	uart7: uart@f995d000 {
 		compatible = "qcom,msm-hsuart-v14"
-		cell-index = <0>;
 		reg = <0x19c40000 0x1000">,
 		      <0xf9944000 0x5000>;
 		reg-names = "core_mem", "bam_mem";
