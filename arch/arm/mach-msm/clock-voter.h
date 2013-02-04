@@ -20,6 +20,7 @@ struct clk_ops;
 extern struct clk_ops clk_ops_voter;
 
 struct clk_voter {
+	int is_branch;
 	bool enabled;
 	struct clk c;
 };
@@ -29,8 +30,9 @@ static inline struct clk_voter *to_clk_voter(struct clk *clk)
 	return container_of(clk, struct clk_voter, c);
 }
 
-#define DEFINE_CLK_VOTER(clk_name, _parent, _default_rate) \
+#define __DEFINE_CLK_VOTER(clk_name, _parent, _default_rate, _is_branch) \
 	struct clk_voter clk_name = { \
+		.is_branch = (_is_branch), \
 		.c = { \
 			.parent = _parent, \
 			.dbg_name = #clk_name, \
@@ -39,5 +41,11 @@ static inline struct clk_voter *to_clk_voter(struct clk *clk)
 			CLK_INIT(clk_name.c), \
 		}, \
 	}
+
+#define DEFINE_CLK_VOTER(clk_name, _parent, _default_rate) \
+	 __DEFINE_CLK_VOTER(clk_name, _parent, _default_rate, 0)
+
+#define DEFINE_CLK_BRANCH_VOTER(clk_name, _parent) \
+	 __DEFINE_CLK_VOTER(clk_name, _parent, 1000, 1)
 
 #endif
