@@ -39,6 +39,9 @@ static int voter_clk_set_rate(struct clk *clk, unsigned long rate)
 	struct clk_voter *clkh, *v = to_clk_voter(clk);
 	unsigned long cur_rate, new_rate, other_rate = 0;
 
+	if (v->is_branch)
+		return 0;
+
 	mutex_lock(&voter_clk_lock);
 
 	if (v->enabled) {
@@ -77,6 +80,9 @@ static int voter_clk_prepare(struct clk *clk)
 	struct clk *parent;
 	struct clk_voter *v = to_clk_voter(clk);
 
+	if (v->is_branch)
+		return 0;
+
 	mutex_lock(&voter_clk_lock);
 	parent = clk->parent;
 
@@ -102,6 +108,9 @@ static void voter_clk_unprepare(struct clk *clk)
 	unsigned long cur_rate, new_rate;
 	struct clk *parent;
 	struct clk_voter *v = to_clk_voter(clk);
+
+	if (v->is_branch)
+		return;
 
 	mutex_lock(&voter_clk_lock);
 	parent = clk->parent;
