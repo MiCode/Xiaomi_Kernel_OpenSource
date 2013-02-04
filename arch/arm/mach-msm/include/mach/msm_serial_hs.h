@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Google, Inc.
+ * Copyright (C) 2010-2013, The Linux Foundation. All rights reserved.
  * Author: Nick Pelly <npelly@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -39,10 +40,10 @@ struct msm_serial_hs_platform_data {
 	int (*gpio_config)(int);
 	int userid;
 
-	unsigned uart_tx_gpio;
-	unsigned uart_rx_gpio;
-	unsigned uart_cts_gpio;
-	unsigned uart_rfr_gpio;
+	int uart_tx_gpio;
+	int uart_rx_gpio;
+	int uart_cts_gpio;
+	int uart_rfr_gpio;
 	unsigned bam_tx_ep_pipe_index;
 	unsigned bam_rx_ep_pipe_index;
 };
