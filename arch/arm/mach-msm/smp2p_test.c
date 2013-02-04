@@ -843,6 +843,116 @@ static void smp2p_ut_local_in_max_entries(struct seq_file *s)
 	}
 }
 
+/**
+ * smp2p_ut_local_in_multiple - Verify Multiple Inbound Registration.
+ *
+ * @s: pointer to output file
+ *
+ * This test verifies multiple clients registering for same inbound entries
+ * using the remote mock processor.
+ */
+static void smp2p_ut_local_in_multiple(struct seq_file *s)
+{
+	int failed = 0;
+	struct msm_smp2p_remote_mock *rmp = NULL;
+	int ret;
+	static struct mock_cb_data cb_in_1;
+	static struct mock_cb_data cb_in_2;
+	static struct mock_cb_data cb_out;
+
+	seq_printf(s, "Running %s\n", __func__);
+
+	mock_cb_data_init(&cb_in_1);
+	mock_cb_data_init(&cb_in_2);
+	mock_cb_data_init(&cb_out);
+
+	do {
+		/* Initialize mock edge */
+		ret = smp2p_reset_mock_edge();
+		UT_ASSERT_INT(ret, ==, 0);
+
+		rmp = msm_smp2p_get_remote_mock();
+		UT_ASSERT_PTR(rmp, !=, NULL);
+
+		rmp->rx_interrupt_count = 0;
+		memset(&rmp->remote_item, 0,
+			sizeof(struct smp2p_smem_item));
+		rmp->remote_item.header.magic = SMP2P_MAGIC;
+		SMP2P_SET_LOCAL_PID(
+		rmp->remote_item.header.rem_loc_proc_id,
+						SMP2P_REMOTE_MOCK_PROC);
+		SMP2P_SET_REMOTE_PID(
+		rmp->remote_item.header.rem_loc_proc_id,
+						SMP2P_APPS_PROC);
+		SMP2P_SET_VERSION(
+		rmp->remote_item.header.feature_version, 1);
+		SMP2P_SET_FEATURES(
+		rmp->remote_item.header.feature_version, 0);
+		SMP2P_SET_ENT_TOTAL(
+		rmp->remote_item.header.valid_total_ent, 1);
+		SMP2P_SET_ENT_VALID(
+		rmp->remote_item.header.valid_total_ent, 0);
+		rmp->remote_item.header.reserved = 0x0;
+		msm_smp2p_set_remote_mock_exists(true);
+
+		/* Create an Entry in the remote mock object */
+		scnprintf(rmp->remote_item.entries[0].name,
+				SMP2P_MAX_ENTRY_NAME, "smp2p%d", 1);
+		rmp->remote_item.entries[0].entry = 0;
+		rmp->tx_interrupt();
+
+		/* Register multiple clients for the inbound entry */
+		ret = msm_smp2p_in_register(SMP2P_REMOTE_MOCK_PROC,
+				rmp->remote_item.entries[0].name,
+				&cb_in_1.nb);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+				&(cb_in_1.cb_completion), HZ / 2),
+				>, 0);
+		UT_ASSERT_INT(cb_in_1.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_in_1.event_entry_update, ==, 0);
+
+		ret = msm_smp2p_in_register(SMP2P_REMOTE_MOCK_PROC,
+				rmp->remote_item.entries[0].name,
+				&cb_in_2.nb);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+				(int)wait_for_completion_timeout(
+				&(cb_in_2.cb_completion), HZ / 2),
+				>, 0);
+		UT_ASSERT_INT(cb_in_2.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_in_2.event_entry_update, ==, 0);
+
+
+		/* Unregister the clients */
+		ret = msm_smp2p_in_unregister(SMP2P_REMOTE_MOCK_PROC,
+				rmp->remote_item.entries[0].name,
+				&(cb_in_1.nb));
+		UT_ASSERT_INT(ret, ==, 0);
+
+		ret = msm_smp2p_in_unregister(SMP2P_REMOTE_MOCK_PROC,
+				rmp->remote_item.entries[0].name,
+				&(cb_in_2.nb));
+		UT_ASSERT_INT(ret, ==, 0);
+
+		seq_printf(s, "\tOK\n");
+	} while (0);
+
+	if (failed) {
+		pr_err("%s: Failed\n", __func__);
+		seq_printf(s, "\tFailed\n");
+
+		ret = msm_smp2p_in_unregister(SMP2P_REMOTE_MOCK_PROC,
+				rmp->remote_item.entries[0].name,
+				&(cb_in_1.nb));
+
+		ret = msm_smp2p_in_unregister(SMP2P_REMOTE_MOCK_PROC,
+				rmp->remote_item.entries[0].name,
+				&(cb_in_2.nb));
+	}
+}
+
 static struct dentry *dent;
 
 static int debugfs_show(struct seq_file *s, void *data)
@@ -907,6 +1017,8 @@ static int __init smp2p_debugfs_init(void)
 		smp2p_ut_local_in_max_entries);
 	smp2p_debug_create("ut_remote_out_max_entries",
 			smp2p_ut_remote_out_max_entries);
+	smp2p_debug_create("ut_local_in_multiple",
+			smp2p_ut_local_in_multiple);
 
 	return 0;
 }
