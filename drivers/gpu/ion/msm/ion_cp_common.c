@@ -176,9 +176,9 @@ static int __ion_cp_protect_buffer(struct ion_buffer *buffer, int version,
 				buffer, ret_value);
 			atomic_dec(&buf->secure_cnt);
 		} else {
-			pr_debug("Protected buffer %p from %x-%x\n",
-				buffer, buf->buffer,
-				buf->buffer + buffer->size);
+			pr_debug("Protected buffer %p from %pa (size %x)\n",
+				buffer, &buf->buffer,
+				buffer->size);
 			buf->want_delayed_unsecure |=
 				flags & ION_UNSECURE_DELAYED ? 1 : 0;
 			buf->data = data;
