@@ -181,6 +181,8 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 			"qcedev.0", NULL),
 	OF_DEV_AUXDATA("qcom,qcrypto", 0xFD440000, \
 			"qcrypto.0", NULL),
+	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, \
+			"msm_hsic_host", NULL),
 	{}
 };
 
