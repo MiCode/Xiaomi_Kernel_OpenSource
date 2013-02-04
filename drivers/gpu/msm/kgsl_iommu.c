@@ -34,7 +34,7 @@
 #include "z180.h"
 
 
-static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
+static struct kgsl_iommu_register_list kgsl_iommuv0_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0, 0, 0 },				/* GLOBAL_BASE */
 	{ 0x10, 0x0003FFFF, 14 },		/* TTBR0 */
 	{ 0x14, 0x0003FFFF, 14 },		/* TTBR1 */
@@ -45,7 +45,7 @@ static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x818, 0, 0 },			/* V2PUR */
 };
 
-static struct kgsl_iommu_register_list kgsl_iommuv2_reg[KGSL_IOMMU_REG_MAX] = {
+static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0, 0, 0 },				/* GLOBAL_BASE */
 	{ 0x20, 0x00FFFFFF, 14 },		/* TTBR0 */
 	{ 0x28, 0x00FFFFFF, 14 },		/* TTBR1 */
@@ -1191,15 +1191,15 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (status)
 		goto done;
 
-	iommu->iommu_reg_list = kgsl_iommuv1_reg;
-	iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
+	iommu->iommu_reg_list = kgsl_iommuv0_reg;
+	iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V0;
 
 	if (msm_soc_version_supports_iommu_v0()) {
+		iommu->iommu_reg_list = kgsl_iommuv0_reg;
+		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V0;
+	} else {
 		iommu->iommu_reg_list = kgsl_iommuv1_reg;
 		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
-	} else {
-		iommu->iommu_reg_list = kgsl_iommuv2_reg;
-		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2;
 	}
 
 	/* A nop is required in an indirect buffer when switching
