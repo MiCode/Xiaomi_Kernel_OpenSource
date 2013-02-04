@@ -113,6 +113,8 @@
 #define JPEG_DECODE_PRED_C_STATE          (JPEG_REG_BASE + 0x00000264)
 #define JPEG_DECODE_RSM_STATE             (JPEG_REG_BASE + 0x00000268)
 
+#define JPEG_HW_VERSION                   (JPEG_REG_BASE + 0x00000000)
+
 #define VBIF_BASE_ADDRESS                      0xFDA60000
 #define VBIF_REGION_SIZE                       0xC30
 #define JPEG_VBIF_CLKON                        0x4

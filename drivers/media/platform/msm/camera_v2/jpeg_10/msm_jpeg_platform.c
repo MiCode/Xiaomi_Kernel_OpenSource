@@ -77,7 +77,8 @@ static struct msm_cam_clk_info jpeg_8x_clk_info[] = {
 	{"camss_top_ahb_clk", -1},
 };
 
-static void set_vbif_params(void *jpeg_vbif_base)
+static void set_vbif_params(struct msm_jpeg_device *pgmn_dev,
+	 void *jpeg_vbif_base)
 {
 	writel_relaxed(0x1,
 		jpeg_vbif_base + JPEG_VBIF_CLKON);
@@ -109,8 +110,13 @@ static void set_vbif_params(void *jpeg_vbif_base)
 		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AOOO);
 	/*FE and WE QOS configuration need to be set when
 	QOS RR arbitration is enabled*/
-	writel_relaxed(0x00000001,
-		jpeg_vbif_base + JPEG_VBIF_ROUND_ROBIN_QOS_ARB);
+	if (pgmn_dev->hw_version == JPEG_8974_V2)
+		writel_relaxed(0x00000003,
+				jpeg_vbif_base + JPEG_VBIF_ROUND_ROBIN_QOS_ARB);
+	else
+		writel_relaxed(0x00000001,
+				jpeg_vbif_base + JPEG_VBIF_ROUND_ROBIN_QOS_ARB);
+
 	writel_relaxed(0x22222222,
 		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF0);
 	writel_relaxed(0x2222,
@@ -203,32 +209,37 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	if (!jpeg_base) {
 		rc = -ENOMEM;
 		JPEG_PR_ERR("%s: ioremap failed\n", __func__);
-		goto fail1;
+		goto fail_remap;
 	}
-
-	pgmn_dev->jpeg_vbif = ioremap(VBIF_BASE_ADDRESS, VBIF_REGION_SIZE);
-	if (!pgmn_dev->jpeg_vbif) {
-		rc = -ENOMEM;
-		JPEG_PR_ERR("%s:%d] ioremap failed\n", __func__, __LINE__);
-		goto fail1;
-	}
-	JPEG_DBG("%s:%d] jpeg_vbif 0x%x", __func__, __LINE__,
-		(uint32_t)pgmn_dev->jpeg_vbif);
-
 
 	pgmn_dev->jpeg_fs = regulator_get(&pgmn_dev->pdev->dev, "vdd");
 	rc = regulator_enable(pgmn_dev->jpeg_fs);
 	if (rc) {
 		JPEG_PR_ERR("%s:%d]jpeg regulator get failed\n",
-				__func__, __LINE__); }
+				__func__, __LINE__);
+		goto fail_fs;
+	}
 
-	pgmn_dev->hw_version = JPEG_8974;
 	rc = msm_cam_clk_enable(&pgmn_dev->pdev->dev, jpeg_8x_clk_info,
 	 pgmn_dev->jpeg_clk, ARRAY_SIZE(jpeg_8x_clk_info), 1);
 	if (rc < 0) {
 		JPEG_PR_ERR("%s: clk failed rc = %d\n", __func__, rc);
-		goto fail2;
+		goto fail_clk;
 	}
+
+	pgmn_dev->hw_version = readl_relaxed(jpeg_base +
+		JPEG_HW_VERSION);
+	JPEG_DBG_HIGH("%s:%d] jpeg HW version 0x%x", __func__, __LINE__,
+		pgmn_dev->hw_version);
+
+	pgmn_dev->jpeg_vbif = ioremap(VBIF_BASE_ADDRESS, VBIF_REGION_SIZE);
+	if (!pgmn_dev->jpeg_vbif) {
+		rc = -ENOMEM;
+		JPEG_PR_ERR("%s:%d] ioremap failed\n", __func__, __LINE__);
+		goto fail_vbif;
+	}
+	JPEG_DBG("%s:%d] jpeg_vbif 0x%x", __func__, __LINE__,
+		(uint32_t)pgmn_dev->jpeg_vbif);
 
 #ifdef CONFIG_MSM_IOMMU
 	for (i = 0; i < pgmn_dev->iommu_cnt; i++) {
@@ -237,21 +248,21 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 		if (rc < 0) {
 			rc = -ENODEV;
 			JPEG_PR_ERR("%s: Device attach failed\n", __func__);
-			goto fail;
+			goto fail_iommu;
 		}
 		JPEG_DBG("%s:%d] dom 0x%x ctx 0x%x", __func__, __LINE__,
 					(uint32_t)pgmn_dev->domain,
 					(uint32_t)pgmn_dev->iommu_ctx_arr[i]);
 	}
 #endif
-	set_vbif_params(pgmn_dev->jpeg_vbif);
+	set_vbif_params(pgmn_dev, pgmn_dev->jpeg_vbif);
 
 	rc = request_irq(jpeg_irq, handler, IRQF_TRIGGER_RISING, "jpeg",
 		context);
 	if (rc) {
 		JPEG_PR_ERR("%s: request_irq failed, %d\n", __func__,
 			jpeg_irq);
-		goto fail3;
+		goto fail_request_irq;
 	}
 
 	*mem  = jpeg_mem;
@@ -263,16 +274,7 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 
 	return rc;
 
-fail3:
-	msm_cam_clk_enable(&pgmn_dev->pdev->dev, jpeg_8x_clk_info,
-	pgmn_dev->jpeg_clk, ARRAY_SIZE(jpeg_8x_clk_info), 0);
-
-	regulator_put(pgmn_dev->jpeg_fs);
-	regulator_disable(pgmn_dev->jpeg_fs);
-	pgmn_dev->jpeg_fs = NULL;
-fail2:
-	iounmap(jpeg_base);
-fail1:
+fail_request_irq:
 #ifdef CONFIG_MSM_IOMMU
 	for (i = 0; i < pgmn_dev->iommu_cnt; i++) {
 		JPEG_PR_ERR("%s:%d] dom 0x%x ctx 0x%x", __func__, __LINE__,
@@ -282,7 +284,23 @@ fail1:
 					pgmn_dev->iommu_ctx_arr[i]);
 	}
 #endif
-fail:
+
+fail_iommu:
+	iounmap(pgmn_dev->jpeg_vbif);
+
+fail_vbif:
+	msm_cam_clk_enable(&pgmn_dev->pdev->dev, jpeg_8x_clk_info,
+	pgmn_dev->jpeg_clk, ARRAY_SIZE(jpeg_8x_clk_info), 0);
+
+fail_clk:
+	regulator_put(pgmn_dev->jpeg_fs);
+	regulator_disable(pgmn_dev->jpeg_fs);
+	pgmn_dev->jpeg_fs = NULL;
+
+fail_fs:
+	iounmap(jpeg_base);
+
+fail_remap:
 	release_mem_region(jpeg_mem->start, resource_size(jpeg_mem));
 	JPEG_DBG("%s:%d] fail\n", __func__, __LINE__);
 	return rc;

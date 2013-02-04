@@ -23,10 +23,8 @@
 #include <media/v4l2-subdev.h>
 #include "msm_jpeg_hw.h"
 
-#define JPEG_7X 0x1
-#define JPEG_8X60 (0x1 << 1)
-#define JPEG_8960 (0x1 << 2)
-#define JPEG_8974 0x1
+#define JPEG_8974_V1 0x10000000
+#define JPEG_8974_V2 0x10010000
 
 struct msm_jpeg_q {
 	char const	*name;
