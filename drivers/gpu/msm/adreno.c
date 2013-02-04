@@ -160,10 +160,10 @@ static const struct {
 	/* size of gmem for gpu*/
 	unsigned int gmem_size;
 	/* version of pm4 microcode that supports sync_lock
-	   between CPU and GPU for SMMU-v1 programming */
+	   between CPU and GPU for IOMMU-v0 programming */
 	unsigned int sync_lock_pm4_ver;
 	/* version of pfp microcode that supports sync_lock
-	   between CPU and GPU for SMMU-v1 programming */
+	   between CPU and GPU for IOMMU-v0 programming */
 	unsigned int sync_lock_pfp_ver;
 } adreno_gpulist[] = {
 	{ ADRENO_REV_A200, 0, 2, ANY_ID, ANY_ID,
