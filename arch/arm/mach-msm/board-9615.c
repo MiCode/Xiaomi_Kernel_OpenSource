@@ -915,6 +915,7 @@ static struct platform_device *common_devices[] = {
 	&msm_stub_codec,
 	&msm_voice,
 	&msm_dtmf,
+	&msm_host_pcm_voice,
 	&msm_voip,
 	&msm_i2s_cpudai0,
 	&msm_i2s_cpudai1,

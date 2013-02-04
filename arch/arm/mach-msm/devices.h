@@ -239,6 +239,7 @@ extern struct platform_device msm_stub_codec;
 extern struct platform_device msm_voice;
 extern struct platform_device msm_voip;
 extern struct platform_device msm_dtmf;
+extern struct platform_device msm_host_pcm_voice;
 extern struct platform_device msm_lpa_pcm;
 extern struct platform_device msm_pcm_hostless;
 extern struct platform_device msm_cpudai_afe_01_rx;
