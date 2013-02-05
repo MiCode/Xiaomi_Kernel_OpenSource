@@ -82,8 +82,10 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 		for_each_sg(table->sgl, sg, table->nents, i) {
 			data->pages[i] = alloc_page(
 				GFP_KERNEL | __GFP_HIGHMEM);
-			if (!data->pages[i])
+			if (!data->pages[i]) {
+				ret = -ENOMEM;
 				goto err3;
+			}
 
 			sg_set_page(sg, data->pages[i], PAGE_SIZE, 0);
 			sg_dma_address(sg) = sg_phys(sg);
