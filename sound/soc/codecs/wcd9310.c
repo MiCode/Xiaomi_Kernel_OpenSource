@@ -5844,7 +5844,7 @@ void tabla_set_and_turnoff_hph_padac(struct snd_soc_codec *codec)
 
 	snd_soc_update_bits(codec, TABLA_A_RX_HPH_CNP_EN, 0x30, 0x00);
 	snd_soc_update_bits(codec, TABLA_A_RX_HPH_L_DAC_CTL,
-			    0xC0, 0x00);
+			0x80, 0x00);
 	snd_soc_update_bits(codec, TABLA_A_RX_HPH_R_DAC_CTL,
 			    0xC0, 0x00);
 	usleep_range(wg_time * 1000, wg_time * 1000);
