@@ -423,6 +423,18 @@ struct msm_actuator_reg_params_t {
 	uint16_t data_shift;
 };
 
+enum msm_camera_led_config_t {
+	MSM_CAMERA_LED_OFF,
+	MSM_CAMERA_LED_LOW,
+	MSM_CAMERA_LED_HIGH,
+	MSM_CAMERA_LED_INIT,
+	MSM_CAMERA_LED_RELEASE,
+};
+
+struct msm_camera_led_cfg_t {
+	enum msm_camera_led_config_t cfgtype;
+};
+
 #define VIDIOC_MSM_SENSOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct sensorb_cfg_data)
 
@@ -440,6 +452,9 @@ struct msm_actuator_reg_params_t {
 
 #define VIDIOC_MSM_ACTUATOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct msm_actuator_cfg_data)
+
+#define VIDIOC_MSM_FLASH_LED_DATA_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct msm_camera_led_cfg_t)
 
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 
