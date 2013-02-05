@@ -663,8 +663,10 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ksb->fs_dev = (struct miscdevice *)id->driver_info;
 	misc_register(ksb->fs_dev);
 
-	ifc->needs_remote_wakeup = 1;
-	usb_enable_autosuspend(ksb->udev);
+	if (device_can_wakeup(&ksb->udev->dev)) {
+		ifc->needs_remote_wakeup = 1;
+		usb_enable_autosuspend(ksb->udev);
+	}
 
 	pr_debug("usb dev connected");
 
