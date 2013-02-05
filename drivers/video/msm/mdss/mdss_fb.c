@@ -1051,15 +1051,20 @@ void mdss_fb_wait_for_fence(struct msm_fb_data_type *mfd)
 	mfd->acq_fen_cnt = 0;
 }
 
-void mdss_fb_signal_timeline(struct msm_fb_data_type *mfd)
+static void mdss_fb_signal_timeline_locked(struct msm_fb_data_type *mfd)
 {
-	mutex_lock(&mfd->sync_mutex);
 	if (mfd->timeline) {
 		sw_sync_timeline_inc(mfd->timeline, 1);
 		mfd->timeline_value++;
 	}
 	mfd->last_rel_fence = mfd->cur_rel_fence;
 	mfd->cur_rel_fence = 0;
+}
+
+void mdss_fb_signal_timeline(struct msm_fb_data_type *mfd)
+{
+	mutex_lock(&mfd->sync_mutex);
+	mdss_fb_signal_timeline_locked(mfd);
 	mutex_unlock(&mfd->sync_mutex);
 }
 
@@ -1090,6 +1095,7 @@ static void mdss_fb_pan_idle(struct msm_fb_data_type *mfd)
 				__func__, ret, mfd->is_committing);
 		if (ret <= 0) {
 			mutex_lock(&mfd->sync_mutex);
+			mdss_fb_signal_timeline_locked(mfd);
 			mfd->is_committing = 0;
 			complete_all(&mfd->commit_comp);
 			mutex_unlock(&mfd->sync_mutex);
