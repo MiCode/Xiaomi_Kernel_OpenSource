@@ -22,6 +22,7 @@
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/list.h>
+#include <linux/regulator/consumer.h>
 #include <trace/events/power.h>
 #include <mach/clk-provider.h>
 #include "clock.h"
@@ -53,18 +54,37 @@ int find_vdd_level(struct clk *clk, unsigned long rate)
 /* Update voltage level given the current votes. */
 static int update_vdd(struct clk_vdd_class *vdd_class)
 {
-	int level, rc;
+	int level, rc = 0, i;
+	struct regulator **r = vdd_class->regulator;
+	const int **vdd_uv = vdd_class->vdd_uv;
+	int max_level = vdd_class->num_levels - 1;
 
-	for (level = vdd_class->num_levels-1; level > 0; level--)
+	for (level = max_level; level > 0; level--)
 		if (vdd_class->level_votes[level])
 			break;
 
 	if (level == vdd_class->cur_level)
 		return 0;
 
-	rc = vdd_class->set_vdd(vdd_class, level);
+	for (i = 0; i < vdd_class->num_regulators; i++) {
+		rc = regulator_set_voltage(r[i], vdd_uv[level][i],
+			vdd_uv[max_level][i]);
+		if (rc)
+			goto set_voltage_fail;
+	}
+	if (vdd_class->set_vdd && !vdd_class->num_regulators)
+		rc = vdd_class->set_vdd(vdd_class, level);
+
 	if (!rc)
 		vdd_class->cur_level = level;
+
+	return rc;
+
+set_voltage_fail:
+	level = vdd_class->cur_level;
+	for (i--; i >= 0; i--)
+		regulator_set_voltage(r[i], vdd_uv[level][i],
+			vdd_uv[max_level][i]);
 
 	return rc;
 }
