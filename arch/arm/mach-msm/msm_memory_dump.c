@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,6 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/init.h>
-#include <linux/notifier.h>
 #include <linux/export.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_memory_dump.h>
@@ -24,17 +23,6 @@
 #define MSM_DUMP_TABLE_VERSION	MK_TABLE(1, 0)
 
 static struct msm_memory_dump mem_dump_data;
-
-static int msm_memory_dump_panic(struct notifier_block *this,
-				unsigned long event, void *ptr)
-{
-	writel_relaxed(0, MSM_IMEM_BASE + DUMP_TABLE_OFFSET);
-	return 0;
-}
-
-static struct notifier_block msm_memory_dump_blk = {
-	.notifier_call  = msm_memory_dump_panic,
-};
 
 int msm_dump_table_register(struct msm_client_dump *client_entry)
 {
@@ -75,8 +63,6 @@ static int __init init_memory_dump(void)
 	 */
 	writel_relaxed(mem_dump_data.dump_table_phys,
 				MSM_DBG_IMEM_BASE + DUMP_TABLE_OFFSET);
-	atomic_notifier_chain_register(&panic_notifier_list,
-						&msm_memory_dump_blk);
 	printk(KERN_INFO "MSM Memory Dump table set up\n");
 	return 0;
 }
