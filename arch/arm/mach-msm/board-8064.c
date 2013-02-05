@@ -2493,6 +2493,7 @@ static struct msm_pcie_platform ep_pcie_platform_data = {
 	.axi_addr = PCIE_AXI_BAR_PHYS,
 	.axi_size = PCIE_AXI_BAR_SIZE,
 	.wake_n = PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PCIE_EP_WAKE_N_PMIC_GPIO),
+	.vreg_n = 4
 };
 
 static int __init mpq8064_pcie_enabled(void)
