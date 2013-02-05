@@ -5007,9 +5007,9 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	taiko_update_reg_defaults(codec);
 	pr_debug("%s: MCLK Rate = %x\n", __func__, wcd9xxx->mclk_rate);
 	if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ)
-		snd_soc_write(codec, TAIKO_A_CHIP_CTL, 0x04);
+		snd_soc_update_bits(codec, TAIKO_A_CHIP_CTL, 0x06, 0x0);
 	else if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_9P6HZ)
-		snd_soc_write(codec, TAIKO_A_CHIP_CTL, 0x0A);
+		snd_soc_update_bits(codec, TAIKO_A_CHIP_CTL, 0x06, 0x2);
 	taiko_codec_init_reg(codec);
 	ret = taiko_handle_pdata(taiko);
 	if (IS_ERR_VALUE(ret)) {
