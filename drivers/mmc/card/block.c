@@ -1725,6 +1725,20 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	mmc_queue_bounce_pre(mqrq);
 }
 
+/**
+ * mmc_blk_disable_wr_packing() - disables packing mode
+ * @mq:	MMC queue.
+ *
+ */
+void mmc_blk_disable_wr_packing(struct mmc_queue *mq)
+{
+	if (mq) {
+		mq->wr_packing_enabled = false;
+		mq->num_of_potential_packed_wr_reqs = 0;
+	}
+}
+EXPORT_SYMBOL(mmc_blk_disable_wr_packing);
+
 static void mmc_blk_write_packing_control(struct mmc_queue *mq,
 					  struct request *req)
 {
@@ -1759,8 +1773,7 @@ static void mmc_blk_write_packing_control(struct mmc_queue *mq,
 	data_dir = rq_data_dir(req);
 
 	if (data_dir == READ) {
-		mq->num_of_potential_packed_wr_reqs = 0;
-		mq->wr_packing_enabled = false;
+		mmc_blk_disable_wr_packing(mq);
 		return;
 	} else if (data_dir == WRITE) {
 		mq->num_of_potential_packed_wr_reqs++;
