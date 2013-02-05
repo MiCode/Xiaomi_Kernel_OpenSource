@@ -260,15 +260,15 @@ struct mmc_host {
 #define MMC_CAP2_DETECT_ON_ERR	(1 << 8)	/* On I/O err check card removal */
 #define MMC_CAP2_HC_ERASE_SZ	(1 << 9)	/* High-capacity erase size */
 
-#define MMC_CAP2_PACKED_RD	(1 << 10)	/* Allow packed read */
-#define MMC_CAP2_PACKED_WR	(1 << 11)	/* Allow packed write */
+#define MMC_CAP2_PACKED_RD	(1 << 12)	/* Allow packed read */
+#define MMC_CAP2_PACKED_WR	(1 << 13)	/* Allow packed write */
 #define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
 				 MMC_CAP2_PACKED_WR) /* Allow packed commands */
-#define MMC_CAP2_PACKED_WR_CONTROL (1 << 12) /* Allow write packing control */
+#define MMC_CAP2_PACKED_WR_CONTROL (1 << 14) /* Allow write packing control */
 
-#define MMC_CAP2_SANITIZE	(1 << 13)		/* Support Sanitize */
-#define MMC_CAP2_INIT_BKOPS	    (1 << 15)	/* Need to set BKOPS_EN */
-#define MMC_CAP2_CLK_SCALE	(1 << 16)	/* Allow dynamic clk scaling */
+#define MMC_CAP2_SANITIZE	(1 << 15)		/* Support Sanitize */
+#define MMC_CAP2_INIT_BKOPS	    (1 << 16)	/* Need to set BKOPS_EN */
+#define MMC_CAP2_CLK_SCALE	(1 << 17)	/* Allow dynamic clk scaling */
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 	int			clk_requests;	/* internal reference counter */
