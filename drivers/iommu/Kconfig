@@ -16,7 +16,7 @@ if IOMMU_SUPPORT
 # MSM IOMMU support
 config MSM_IOMMU
 	bool "MSM IOMMU Support"
-	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8974 || ARCH_MPQ8092 || ARCH_MSM8910 || ARCH_MSM8226
+	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064 || ARCH_MSM8974 || ARCH_MPQ8092 || ARCH_MSM8610 || ARCH_MSM8226
 	select IOMMU_API
 	help
 	  Support for the IOMMUs found on certain Qualcomm SOCs.
