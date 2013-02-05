@@ -532,6 +532,13 @@ static ssize_t mmc_wr_pack_stats_read(struct file *filp, char __user *ubuf,
 			pack_stats->pack_stop_reason[RANDOM]);
 		strlcat(ubuf, temp_buf, cnt);
 	}
+	if (pack_stats->pack_stop_reason[FUA]) {
+		snprintf(temp_buf, TEMP_BUF_SIZE,
+			 "%s: %d times: fua request\n",
+			mmc_hostname(card->host),
+			pack_stats->pack_stop_reason[FUA]);
+		strlcat(ubuf, temp_buf, cnt);
+	}
 
 	spin_unlock(&pack_stats->lock);
 
