@@ -21,6 +21,7 @@
 #include <linux/clkdev.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
+#include <linux/regulator/consumer.h>
 #include <mach/clk.h>
 
 /*
@@ -42,14 +43,23 @@
 /**
  * struct clk_vdd_class - Voltage scaling class
  * @class_name: name of the class
- * @set_vdd: function to call when applying a new voltage setting
- * @level_votes: array of votes for each level
+ * @regulator: array of regulators.
+ * @num_regulators: size of regulator array. Standard regulator APIs will be
+			used if this field > 0.
+ * @set_vdd: function to call when applying a new voltage setting.
+ * @vdd_uv: sorted 2D array of legal voltage settings. Indexed by level, then
+		regulator.
+ * @level_votes: array of votes for each level.
+ * @num_levels: specifies the size of level_votes array.
  * @cur_level: the currently set voltage level
  * @lock: lock to protect this struct
  */
 struct clk_vdd_class {
 	const char *class_name;
+	struct regulator **regulator;
+	int num_regulators;
 	int (*set_vdd)(struct clk_vdd_class *v_class, int level);
+	const int **vdd_uv;
 	int *level_votes;
 	int num_levels;
 	unsigned long cur_level;
@@ -65,6 +75,20 @@ struct clk_vdd_class {
 		.cur_level = _num_levels, \
 		.lock = __MUTEX_INITIALIZER(_name.lock) \
 	}
+
+#define DEFINE_VDD_REGULATORS(_name, _num_levels, _num_regulators, _vdd_uv) \
+	struct clk_vdd_class _name = { \
+		.class_name = #_name, \
+		.vdd_uv = _vdd_uv, \
+		.regulator = (struct regulator * [_num_regulators]) {}, \
+		.num_regulators = _num_regulators, \
+		.level_votes = (int [_num_levels]) {}, \
+		.num_levels = _num_levels, \
+		.cur_level = _num_levels, \
+		.lock = __MUTEX_INITIALIZER(_name.lock) \
+	}
+
+#define VDD_UV(...) ((int []){__VA_ARGS__})
 
 enum handoff {
 	HANDOFF_ENABLED_CLK,
