@@ -492,6 +492,7 @@ static void ksb_rx_cb(struct urb *urb)
 {
 	struct data_pkt *pkt = urb->context;
 	struct ks_bridge *ksb = pkt->ctxt;
+	bool wakeup = true;
 
 	dbg_log_event(ksb, "C RX_URB", urb->status, urb->actual_length);
 
@@ -499,8 +500,15 @@ static void ksb_rx_cb(struct urb *urb)
 			urb->actual_length);
 
 	/*non zero len of data received while unlinking urb*/
-	if (urb->status == -ENOENT && urb->actual_length > 0)
+	if (urb->status == -ENOENT && (urb->actual_length > 0)) {
+		/*
+		 * If we wakeup the reader process now, it may
+		 * queue the URB before its reject flag gets
+		 * cleared.
+		 */
+		wakeup = false;
 		goto add_to_list;
+	}
 
 	if (urb->status < 0) {
 		if (urb->status != -ESHUTDOWN && urb->status != -ENOENT
@@ -521,10 +529,9 @@ add_to_list:
 	pkt->len = urb->actual_length;
 	list_add_tail(&pkt->list, &ksb->to_ks_list);
 	spin_unlock(&ksb->lock);
-
 	/* wake up read thread */
-	wake_up(&ksb->ks_wait_q);
-
+	if (wakeup)
+		wake_up(&ksb->ks_wait_q);
 done:
 	atomic_dec(&ksb->rx_pending_cnt);
 	wake_up(&ksb->pending_urb_wait);
@@ -708,10 +715,25 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 static int ksb_usb_suspend(struct usb_interface *ifc, pm_message_t message)
 {
 	struct ks_bridge *ksb = usb_get_intfdata(ifc);
+	unsigned long flags;
 
 	dbg_log_event(ksb, "SUSPEND", 0, 0);
 
 	usb_kill_anchored_urbs(&ksb->submitted);
+
+	spin_lock_irqsave(&ksb->lock, flags);
+	if (!list_empty(&ksb->to_ks_list)) {
+		spin_unlock_irqrestore(&ksb->lock, flags);
+		dbg_log_event(ksb, "SUSPEND ABORT", 0, 0);
+		/*
+		 * Now wakeup the reader process and queue
+		 * Rx URBs for more data.
+		 */
+		wake_up(&ksb->ks_wait_q);
+		queue_work(ksb->wq, &ksb->start_rx_work);
+		return -EBUSY;
+	}
+	spin_unlock_irqrestore(&ksb->lock, flags);
 
 	return 0;
 }
