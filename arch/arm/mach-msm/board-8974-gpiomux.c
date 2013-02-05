@@ -341,6 +341,49 @@ static struct msm_gpiomux_config msm_hdmi_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting gpio_uart7_active_cfg = {
+	.func = GPIOMUX_FUNC_3,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gpio_uart7_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm_blsp2_uart7_configs[] __initdata = {
+	{
+		.gpio	= 41,	/* BLSP2 UART7 TX */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_uart7_active_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart7_suspend_cfg,
+		},
+	},
+	{
+		.gpio	= 42,	/* BLSP2 UART7 RX */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_uart7_active_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart7_suspend_cfg,
+		},
+	},
+	{
+		.gpio	= 43,	/* BLSP2 UART7 CTS */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_uart7_active_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart7_suspend_cfg,
+		},
+	},
+	{
+		.gpio	= 44,	/* BLSP2 UART7 RFR */
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &gpio_uart7_active_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart7_suspend_cfg,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_rumi_blsp_configs[] __initdata = {
 	{
 		.gpio      = 45,	/* BLSP2 UART8 TX */
@@ -947,6 +990,8 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install(msm_eth_configs, ARRAY_SIZE(msm_eth_configs));
 #endif
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+	msm_gpiomux_install(msm_blsp2_uart7_configs,
+			 ARRAY_SIZE(msm_blsp2_uart7_configs));
 	msm_gpiomux_install(wcnss_5wire_interface,
 				ARRAY_SIZE(wcnss_5wire_interface));
 
