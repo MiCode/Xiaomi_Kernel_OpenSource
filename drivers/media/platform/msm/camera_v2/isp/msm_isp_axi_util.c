@@ -842,7 +842,7 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 
 	if (camif_update == DISABLE_CAMIF)
 		vfe_dev->hw_info->vfe_ops.core_ops.
-			update_camif_state(vfe_dev, DISABLE_CAMIF_IMMEDIATELY);
+			update_camif_state(vfe_dev, DISABLE_CAMIF);
 
 	/*
 	* Stream start either immediately or at reg update
