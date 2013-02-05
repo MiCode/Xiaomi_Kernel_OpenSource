@@ -111,7 +111,7 @@ static int __get_pgprot(int prot, int len)
 }
 
 int msm_iommu_pagetable_map(struct iommu_pt *pt, unsigned long va,
-			phys_addr_t pa, int order, int prot)
+			phys_addr_t pa, size_t len, int prot)
 {
 	unsigned long *fl_pte;
 	unsigned long fl_offset;
@@ -119,7 +119,6 @@ int msm_iommu_pagetable_map(struct iommu_pt *pt, unsigned long va,
 	unsigned long *sl_pte;
 	unsigned long sl_offset;
 	unsigned int pgprot;
-	size_t len = 0x1000UL << order;
 	int ret = 0;
 
 	if (len != SZ_16M && len != SZ_1M &&
@@ -232,14 +231,14 @@ fail:
 	return ret;
 }
 
-int msm_iommu_pagetable_unmap(struct iommu_pt *pt, unsigned long va, int order)
+size_t msm_iommu_pagetable_unmap(struct iommu_pt *pt, unsigned long va,
+				size_t len)
 {
 	unsigned long *fl_pte;
 	unsigned long fl_offset;
 	unsigned long *sl_table;
 	unsigned long *sl_pte;
 	unsigned long sl_offset;
-	size_t len = 0x1000UL << order;
 	int i, ret = 0;
 
 	if (len != SZ_16M && len != SZ_1M &&

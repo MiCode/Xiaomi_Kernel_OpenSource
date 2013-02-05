@@ -30,8 +30,14 @@ config MSM_IOMMU
 	  If unsure, say N here.
 
 config IOMMU_PGTABLES_L2
-	def_bool y
+	bool "Allow SMMU page tables in the L2 cache (Experimental)"
 	depends on MSM_IOMMU && MMU && SMP && CPU_DCACHE_DISABLE=n
+	default y
+        help
+         Improves TLB miss latency at the expense of potential L2 pollution.
+         However, with large multimedia buffers, the TLB should mostly contain
+         section mappings and TLB misses should be quite infrequent.
+         Most people can probably say Y here.
 
 # AMD IOMMU support
 config AMD_IOMMU

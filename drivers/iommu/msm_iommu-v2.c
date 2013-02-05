@@ -31,6 +31,9 @@
 
 #include "msm_iommu_pagetable.h"
 
+/* bitmap of the page sizes currently supported */
+#define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_1M | SZ_16M)
+
 static DEFINE_MUTEX(msm_iommu_lock);
 
 struct msm_priv {
@@ -327,7 +330,7 @@ fail:
 }
 
 static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
-			 phys_addr_t pa, int order, int prot)
+			 phys_addr_t pa, size_t len, int prot)
 {
 	struct msm_priv *priv;
 	int ret = 0;
@@ -340,7 +343,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 		goto fail;
 	}
 
-	ret = msm_iommu_pagetable_map(&priv->pt, va, pa, order, prot);
+	ret = msm_iommu_pagetable_map(&priv->pt, va, pa, len, prot);
 	if (ret)
 		goto fail;
 
@@ -350,28 +353,29 @@ fail:
 	return ret;
 }
 
-static int msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
-			    int order)
+static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
+			    size_t len)
 {
 	struct msm_priv *priv;
-	int ret = 0;
+	int ret = -ENODEV;
 
 	mutex_lock(&msm_iommu_lock);
 
 	priv = domain->priv;
-	if (!priv) {
-		ret = -ENODEV;
+	if (!priv)
 		goto fail;
-	}
 
-	ret = msm_iommu_pagetable_unmap(&priv->pt, va, order);
+	ret = msm_iommu_pagetable_unmap(&priv->pt, va, len);
 	if (ret < 0)
 		goto fail;
 
 	ret = __flush_iotlb_va(domain, va);
 fail:
 	mutex_unlock(&msm_iommu_lock);
-	return ret;
+
+	/* the IOMMU API requires us to return how many bytes were unmapped */
+	len = ret ? 0 : len;
+	return len;
 }
 
 static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
@@ -554,13 +558,14 @@ static struct iommu_ops msm_iommu_ops = {
 	.unmap_range = msm_iommu_unmap_range,
 	.iova_to_phys = msm_iommu_iova_to_phys,
 	.domain_has_cap = msm_iommu_domain_has_cap,
-	.get_pt_base_addr = msm_iommu_get_pt_base_addr
+	.get_pt_base_addr = msm_iommu_get_pt_base_addr,
+	.pgsize_bitmap = MSM_IOMMU_PGSIZES,
 };
 
 static int __init msm_iommu_init(void)
 {
 	msm_iommu_pagetable_init();
-	register_iommu(&msm_iommu_ops);
+	bus_set_iommu(&platform_bus_type, &msm_iommu_ops);
 	return 0;
 }
 
