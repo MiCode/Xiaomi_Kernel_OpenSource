@@ -233,7 +233,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	pdata = dev_get_platdata(&pdev->dev);
 	if (!pdata)
-		return -ENODEV;
+		return -EPROBE_DEFER;
 
 	/*
 	 * alloc framebuffer info + par data
