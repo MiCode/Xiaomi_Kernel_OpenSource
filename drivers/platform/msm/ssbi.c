@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  * Copyright (c) 2010, Google Inc.
  *
  * Original authors: Code Aurora Forum
@@ -362,7 +362,7 @@ static int __devinit msm_ssbi_probe(struct platform_device *pdev)
 
 	ssbi->base = ioremap(mem_res->start, resource_size(mem_res));
 	if (!ssbi->base) {
-		pr_err("ioremap of 0x%p failed\n", (void *)mem_res->start);
+		pr_err("ioremap failed: %pr\n", mem_res);
 		ret = -EINVAL;
 		goto err_ioremap;
 	}
