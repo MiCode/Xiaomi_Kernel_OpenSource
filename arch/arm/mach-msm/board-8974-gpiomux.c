@@ -258,12 +258,6 @@ static struct gpiomux_setting mhl_active_1_cfg = {
 	.dir = GPIOMUX_OUT_HIGH,
 };
 
-static struct gpiomux_setting mhl_active_2_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
 static struct gpiomux_setting hdmi_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
@@ -297,14 +291,6 @@ static struct msm_gpiomux_config msm_mhl_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &mhl_suspend_config,
 			[GPIOMUX_ACTIVE]    = &mhl_active_1_cfg,
-		},
-	},
-	{
-		/* mhl-sii8334 reset */
-		.gpio = 8,
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &mhl_suspend_config,
-			[GPIOMUX_ACTIVE]    = &mhl_active_2_cfg,
 		},
 	},
 };
