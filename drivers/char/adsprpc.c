@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,8 +11,106 @@
  * GNU General Public License for more details.
  *
  */
+#include "adsprpc_shared.h"
+
+#include <linux/slab.h>
+#include <linux/completion.h>
+#include <linux/pagemap.h>
+#include <linux/mm.h>
+#include <linux/fs.h>
+#include <linux/sched.h>
+#include <linux/module.h>
+#include <linux/cdev.h>
+#include <linux/list.h>
+#include <linux/hash.h>
+#include <linux/msm_ion.h>
+#include <mach/msm_smd.h>
+#include <mach/ion.h>
 #include <linux/scatterlist.h>
-#include "adsprpc.h"
+#include <linux/fs.h>
+#include <linux/uaccess.h>
+#include <linux/device.h>
+
+#ifndef ION_ADSPRPC_HEAP_ID
+#define ION_ADSPRPC_HEAP_ID ION_AUDIO_HEAP_ID
+#endif /*ION_ADSPRPC_HEAP_ID*/
+
+#define RPC_TIMEOUT	(5 * HZ)
+#define RPC_HASH_BITS	5
+#define RPC_HASH_SZ	(1 << RPC_HASH_BITS)
+#define BALIGN		32
+
+#define LOCK_MMAP(kernel)\
+		do {\
+			if (!kernel)\
+				down_read(&current->mm->mmap_sem);\
+		} while (0)
+
+#define UNLOCK_MMAP(kernel)\
+		do {\
+			if (!kernel)\
+				up_read(&current->mm->mmap_sem);\
+		} while (0)
+
+
+static inline uint32_t buf_page_start(void *buf)
+{
+	uint32_t start = (uint32_t) buf & PAGE_MASK;
+	return start;
+}
+
+static inline uint32_t buf_page_offset(void *buf)
+{
+	uint32_t offset = (uint32_t) buf & (PAGE_SIZE - 1);
+	return offset;
+}
+
+static inline int buf_num_pages(void *buf, int len)
+{
+	uint32_t start = buf_page_start(buf) >> PAGE_SHIFT;
+	uint32_t end = (((uint32_t) buf + len - 1) & PAGE_MASK) >> PAGE_SHIFT;
+	int nPages = end - start + 1;
+	return nPages;
+}
+
+static inline uint32_t buf_page_size(uint32_t size)
+{
+	uint32_t sz = (size + (PAGE_SIZE - 1)) & PAGE_MASK;
+	return sz > PAGE_SIZE ? sz : PAGE_SIZE;
+}
+
+static inline int buf_get_pages(void *addr, int sz, int nr_pages, int access,
+				  struct smq_phy_page *pages, int nr_elems)
+{
+	struct vm_area_struct *vma;
+	uint32_t start = buf_page_start(addr);
+	uint32_t len = nr_pages << PAGE_SHIFT;
+	unsigned long pfn;
+	int n = -1, err = 0;
+
+	VERIFY(err, 0 != access_ok(access ? VERIFY_WRITE : VERIFY_READ,
+			      (void __user *)start, len));
+	if (err)
+		goto bail;
+	VERIFY(err, 0 != (vma = find_vma(current->mm, start)));
+	if (err)
+		goto bail;
+	VERIFY(err, ((uint32_t)addr + sz) <= vma->vm_end);
+	if (err)
+		goto bail;
+	n = 0;
+	VERIFY(err, 0 == follow_pfn(vma, start, &pfn));
+	if (err)
+		goto bail;
+	VERIFY(err, nr_elems > 0);
+	if (err)
+		goto bail;
+	pages->addr = __pfn_to_phys(pfn);
+	pages->size = len;
+	n++;
+ bail:
+	return n;
+}
 
 struct smq_invoke_ctx {
 	struct completion work;
@@ -485,9 +583,9 @@ static int fastrpc_init(void)
 static void free_dev(struct fastrpc_device *dev)
 {
 	if (dev) {
-		module_put(THIS_MODULE);
 		free_mem(&dev->buf);
 		kfree(dev);
+		module_put(THIS_MODULE);
 	}
 }
 
@@ -609,8 +707,10 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t kernel,
 		wait_for_completion(&ctx->work);
 	}
 	context_free(ctx);
+
 	for (i = 0, b = abufs; i < nbufs; ++i, ++b)
 		free_mem(b);
+
 	kfree(abufs);
 	if (dev) {
 		add_dev(me, dev);
