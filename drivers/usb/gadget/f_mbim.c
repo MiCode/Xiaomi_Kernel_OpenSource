@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,7 @@ enum mbim_notify_state {
 	NCM_NOTIFY_NONE,
 	NCM_NOTIFY_CONNECT,
 	NCM_NOTIFY_SPEED,
+	NCM_NOTIFY_RESPONSE_AVAILABLE,
 };
 
 struct f_mbim {
@@ -571,6 +572,7 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 		return;
 	}
 
+	req->length = sizeof *event;
 	event = req->buf;
 	event->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS
 			| USB_RECIP_INTERFACE;
@@ -581,7 +583,7 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	ret = usb_ep_queue(dev->not_port.notify,
-			   dev->not_port.notify_req, GFP_ATOMIC);
+			   req, GFP_ATOMIC);
 	if (ret) {
 		atomic_dec(&dev->not_port.notify_count);
 		pr_err("ep enqueue error %d\n", ret);
@@ -606,6 +608,13 @@ fmbim_send_cpkt_response(struct f_mbim *gr, struct ctrl_pkt *cpkt)
 
 	if (!atomic_read(&dev->online)) {
 		pr_err("dev:%p is not connected\n", dev);
+		mbim_free_ctrl_pkt(cpkt);
+		return 0;
+	}
+
+	if (dev->not_port.notify_state != NCM_NOTIFY_RESPONSE_AVAILABLE) {
+		pr_err("dev:%p state=%d, recover!!\n", dev,
+			dev->not_port.notify_state);
 		mbim_free_ctrl_pkt(cpkt);
 		return 0;
 	}
@@ -750,10 +759,18 @@ static void mbim_do_notify(struct f_mbim *mbim)
 	switch (mbim->not_port.notify_state) {
 
 	case NCM_NOTIFY_NONE:
+		if (atomic_read(&mbim->not_port.notify_count) > 0)
+			pr_err("Pending notifications in NCM_NOTIFY_NONE\n");
+		else
+			pr_debug("No pending notifications\n");
+
+		return;
+
+	case NCM_NOTIFY_RESPONSE_AVAILABLE:
 		pr_debug("Notification %02x sent\n", event->bNotificationType);
 
 		if (atomic_read(&mbim->not_port.notify_count) <= 0) {
-			pr_debug("notify_none: done");
+			pr_debug("notify_response_avaliable: done");
 			return;
 		}
 
@@ -778,7 +795,7 @@ static void mbim_do_notify(struct f_mbim *mbim)
 
 		pr_info("notify connect %s\n",
 			mbim->is_open ? "true" : "false");
-		mbim->not_port.notify_state = NCM_NOTIFY_NONE;
+		mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
 		break;
 
 	case NCM_NOTIFY_SPEED:
@@ -1364,6 +1381,8 @@ static void mbim_disable(struct usb_function *f)
 
 	pr_info("SET DEVICE OFFLINE");
 	atomic_set(&mbim->online, 0);
+
+	mbim->not_port.notify_state = NCM_NOTIFY_NONE;
 
 	mbim_clear_queues(mbim);
 	mbim_reset_function_queue(mbim);
