@@ -359,9 +359,13 @@ void ocmem_disable_core_clock(void)
 int ocmem_enable_iface_clock(void)
 {
 	int ret;
+
+	if (!ocmem_pdata->iface_clk)
+		return 0;
+
 	ret = clk_prepare_enable(ocmem_pdata->iface_clk);
 	if (ret) {
-		pr_err("ocmem: Failed to disable branch clock\n");
+		pr_err("ocmem: Failed to disable iface clock\n");
 		return ret;
 	}
 	pr_debug("ocmem: Enabled iface clock\n");
@@ -370,6 +374,9 @@ int ocmem_enable_iface_clock(void)
 
 void ocmem_disable_iface_clock(void)
 {
+	if (!ocmem_pdata->iface_clk)
+		return;
+
 	clk_disable_unprepare(ocmem_pdata->iface_clk);
 	pr_debug("ocmem: Disabled iface clock\n");
 }
@@ -789,10 +796,8 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 
 	ocmem_iface_clk = devm_clk_get(dev, "iface_clk");
 
-	if (IS_ERR(ocmem_iface_clk)) {
-		dev_err(dev, "Unable to get the memory interface clock\n");
-		return PTR_ERR(ocmem_core_clk);
-	};
+	if (IS_ERR_OR_NULL(ocmem_iface_clk))
+		ocmem_iface_clk = NULL;
 
 	ocmem_br_clk = devm_clk_get(dev, "br_clk");
 
