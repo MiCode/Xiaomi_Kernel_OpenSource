@@ -175,6 +175,8 @@ struct venus_hfi_device {
 	struct list_head sess_head;
 	u32 intr_status;
 	u32 device_id;
+	u32 load;
+	u32 clocks_enabled;
 	struct mutex read_lock;
 	struct mutex write_lock;
 	msm_vidc_callback callback;
