@@ -671,9 +671,10 @@ kgsl_get_process_private(struct kgsl_device_private *cur_dev_priv)
 	if (kgsl_mmu_enabled())
 	{
 		unsigned long pt_name;
+		struct kgsl_mmu *mmu = &cur_dev_priv->device->mmu;
 
 		pt_name = task_tgid_nr(current);
-		private->pagetable = kgsl_mmu_getpagetable(pt_name);
+		private->pagetable = kgsl_mmu_getpagetable(mmu, pt_name);
 		if (private->pagetable == NULL) {
 			kfree(private);
 			private = NULL;
@@ -872,7 +873,7 @@ kgsl_sharedmem_find_region(struct kgsl_process_private *private,
 {
 	struct rb_node *node = private->mem_rb.rb_node;
 
-	if (!kgsl_mmu_gpuaddr_in_range(gpuaddr))
+	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr))
 		return NULL;
 
 	while (node != NULL) {
@@ -925,7 +926,7 @@ kgsl_sharedmem_region_empty(struct kgsl_process_private *private,
 
 	struct rb_node *node = private->mem_rb.rb_node;
 
-	if (!kgsl_mmu_gpuaddr_in_range(gpuaddr))
+	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr))
 		return 0;
 
 	/* don't overflow */
@@ -1193,7 +1194,9 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	}
 
 	for (i = 0; i < param->numibs; i++) {
-		if (!kgsl_mmu_gpuaddr_in_range(ibdesc[i].gpuaddr)) {
+		struct kgsl_pagetable *pt = dev_priv->process_priv->pagetable;
+
+		if (!kgsl_mmu_gpuaddr_in_range(pt, ibdesc[i].gpuaddr)) {
 			result = -ERANGE;
 			KGSL_DRV_ERR(dev_priv->device,
 				     "invalid ib base GPU virtual addr %x\n",
@@ -1767,13 +1770,6 @@ err:
 	return -ENOMEM;
 }
 
-static inline int
-can_use_cpu_map(void)
-{
-	return (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU
-		&& kgsl_mmu_is_perprocess());
-}
-
 static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 				     unsigned int cmd, void *data)
 {
@@ -1805,7 +1801,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMFLAGS_USE_CPU_MAP;
 
 	entry->memdesc.flags = param->flags;
-	if (!can_use_cpu_map())
+	if (!kgsl_mmu_use_cpu_map(private->pagetable->mmu))
 		entry->memdesc.flags &= ~KGSL_MEMFLAGS_USE_CPU_MAP;
 
 	switch (memtype) {
@@ -2092,7 +2088,7 @@ kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 	struct kgsl_mem_entry *entry = NULL;
 	int result;
 
-	if (!can_use_cpu_map())
+	if (!kgsl_mmu_use_cpu_map(private->pagetable->mmu))
 		param->flags &= ~KGSL_MEMFLAGS_USE_CPU_MAP;
 
 	result = _gpumem_alloc(dev_priv, &entry, param->size, param->flags);
