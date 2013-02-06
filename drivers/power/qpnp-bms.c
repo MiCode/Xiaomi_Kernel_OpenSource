@@ -371,7 +371,7 @@ static int cc_reading_to_uv(int16_t reading)
 					CC_READING_RESOLUTION_D);
 }
 
-#define QPNP_ADC_GAIN_NV				17857LL
+#define QPNP_ADC_GAIN_IDEAL				3291LL
 static s64 cc_adjust_for_gain(s64 uv, uint16_t gain)
 {
 	s64 result_uv;
@@ -382,10 +382,10 @@ static s64 cc_adjust_for_gain(s64 uv, uint16_t gain)
 		return uv;
 	}
 	pr_debug("adjusting by factor: %lld/%hu = %lld%%\n",
-			QPNP_ADC_GAIN_NV, gain,
-			div_s64(QPNP_ADC_GAIN_NV * 100LL, (s64)gain));
+			QPNP_ADC_GAIN_IDEAL, gain,
+			div_s64(QPNP_ADC_GAIN_IDEAL * 100LL, (s64)gain));
 
-	result_uv = div_s64(uv * QPNP_ADC_GAIN_NV, (s64)gain);
+	result_uv = div_s64(uv * QPNP_ADC_GAIN_IDEAL, (s64)gain);
 	pr_debug("result_uv = %lld\n", result_uv);
 	return result_uv;
 }
@@ -397,7 +397,7 @@ static int convert_vsense_to_uv(struct qpnp_bms_chip *chip,
 
 	qpnp_iadc_get_gain_and_offset(&calibration);
 	return cc_adjust_for_gain(cc_reading_to_uv(reading),
-			calibration.gain_raw);
+			calibration.gain_raw - calibration.offset_raw);
 }
 
 static int read_vsense_avg(struct qpnp_bms_chip *chip, int *result_uv)
@@ -698,7 +698,9 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 					cc, chip->cc_reading_at_100,
 					cc_voltage_uv);
 	cc_voltage_uv = cc_to_uv(cc_voltage_uv);
-	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv, calibration.gain_raw);
+	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv,
+					calibration.gain_raw
+					- calibration.offset_raw);
 	pr_debug("cc_voltage_uv = %lld uv\n", cc_voltage_uv);
 	cc_uvh = cc_uv_to_uvh(cc_voltage_uv);
 	pr_debug("cc_uvh = %lld micro_volt_hour\n", cc_uvh);
