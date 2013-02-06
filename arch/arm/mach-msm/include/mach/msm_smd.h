@@ -1,7 +1,7 @@
 /* linux/include/asm-arm/arch-msm/msm_smd.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -141,8 +141,8 @@ struct smd_subsystem_restart_config {
  * @size: size of the region in bytes
  */
 struct smd_smem_regions {
-	void *phys_addr;
-	unsigned size;
+	phys_addr_t phys_addr;
+	resource_size_t size;
 };
 
 struct smd_platform {
