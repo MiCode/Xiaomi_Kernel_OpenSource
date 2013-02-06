@@ -92,6 +92,8 @@ static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 		value = readl_relaxed(drvdata->clk_reg_virt);
 		value &= ~0x1;
 		writel_relaxed(value, drvdata->clk_reg_virt);
+		/* Ensure clock is on before continuing */
+		mb();
 	}
 fail:
 	return ret;
