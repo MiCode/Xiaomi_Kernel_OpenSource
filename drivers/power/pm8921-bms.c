@@ -23,6 +23,7 @@
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/ccadc.h>
 #include <linux/mfd/pm8xxx/batterydata-lib.h>
+#include <linux/mfd/pm8xxx/batt-alarm.h>
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/debugfs.h>
@@ -120,6 +121,9 @@ struct pm8921_bms_chip {
 	unsigned int		charging_began;
 	unsigned int		start_percent;
 	unsigned int		end_percent;
+	unsigned int		alarm_low_mv;
+	unsigned int		alarm_high_mv;
+
 	int			charge_time_us;
 	int			catch_up_time_us;
 	enum battery_type	batt_type;
@@ -191,6 +195,13 @@ static int calculated_soc = -EINVAL;
 static int last_soc = -EINVAL;
 static int last_real_fcc_mah = -EINVAL;
 static int last_real_fcc_batt_temp = -EINVAL;
+
+static int pm8921_battery_gauge_alarm_notify(struct notifier_block *nb,
+				unsigned long status, void *unused);
+
+static struct notifier_block alarm_notifier = {
+	.notifier_call = pm8921_battery_gauge_alarm_notify,
+};
 
 static int bms_ops_set(const char *val, const struct kernel_param *kp)
 {
@@ -378,6 +389,124 @@ static int usb_chg_plugged_in(struct pm8921_bms_chip *chip)
 
 	return val;
 }
+
+static int pm8921_bms_enable_batt_alarm(struct pm8921_bms_chip *chip)
+{
+	int rc = 0;
+
+	rc = pm8xxx_batt_alarm_enable(PM8XXX_BATT_ALARM_LOWER_COMPARATOR);
+	if (!rc)
+		rc = pm8xxx_batt_alarm_disable(
+				PM8XXX_BATT_ALARM_UPPER_COMPARATOR);
+	if (rc) {
+		pr_err("unable to set batt alarm state rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int pm8921_bms_configure_batt_alarm(struct pm8921_bms_chip *chip)
+{
+	int rc = 0;
+
+	rc = pm8xxx_batt_alarm_disable(PM8XXX_BATT_ALARM_UPPER_COMPARATOR);
+	if (!rc)
+		rc = pm8xxx_batt_alarm_disable(
+			PM8XXX_BATT_ALARM_LOWER_COMPARATOR);
+	if (rc) {
+		pr_err("unable to set batt alarm state rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	* The batt-alarm driver requires sane values for both min / max,
+	* regardless of whether they're both activated.
+	*/
+	rc = pm8xxx_batt_alarm_threshold_set(
+			PM8XXX_BATT_ALARM_LOWER_COMPARATOR,
+					chip->alarm_low_mv);
+	if (!rc)
+		rc = pm8xxx_batt_alarm_threshold_set(
+			PM8XXX_BATT_ALARM_UPPER_COMPARATOR,
+					chip->alarm_high_mv);
+	if (rc) {
+		pr_err("unable to set batt alarm threshold rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = pm8xxx_batt_alarm_hold_time_set(
+			PM8XXX_BATT_ALARM_HOLD_TIME_16_MS);
+	if (rc) {
+		pr_err("unable to set batt alarm hold time rc=%d\n", rc);
+		return rc;
+	}
+
+	/* PWM enabled at 2Hz */
+	rc = pm8xxx_batt_alarm_pwm_rate_set(1, 7, 4);
+	if (rc) {
+		pr_err("unable to set batt alarm pwm rate rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = pm8xxx_batt_alarm_register_notifier(&alarm_notifier);
+	if (rc) {
+		pr_err("unable to register alarm notifier rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int pm8921_battery_gauge_alarm_notify(struct notifier_block *nb,
+		unsigned long status, void *unused)
+{
+	int rc;
+
+	if (!the_chip) {
+		pr_err("not initialized\n");
+		return -EINVAL;
+	}
+
+	switch (status) {
+	case 0:
+		pr_debug("spurious interrupt\n");
+		break;
+	case 1:
+		pr_debug("Low voltage alarm triggered\n");
+		/*
+		 * hold the low voltage wakelock until the soc
+		 * work finds it appropriate to release it.
+		 */
+		wake_lock(&the_chip->low_voltage_wake_lock);
+		the_chip->low_voltage_wake_lock_held = 1;
+
+		rc = pm8xxx_batt_alarm_disable(
+				PM8XXX_BATT_ALARM_LOWER_COMPARATOR);
+		if (!rc)
+			rc = pm8xxx_batt_alarm_enable(
+				PM8XXX_BATT_ALARM_UPPER_COMPARATOR);
+		if (rc)
+			pr_err("unable to set alarm state rc=%d\n", rc);
+		break;
+	case 2:
+		rc = pm8xxx_batt_alarm_disable(
+			PM8XXX_BATT_ALARM_UPPER_COMPARATOR);
+		if (!rc)
+			rc = pm8xxx_batt_alarm_enable(
+				PM8XXX_BATT_ALARM_LOWER_COMPARATOR);
+		if (rc)
+			pr_err("unable to set alarm state rc=%d\n", rc);
+
+		break;
+	default:
+		pr_err("error received\n");
+		break;
+	}
+
+	return 0;
+};
+
 
 #define HOLD_OREG_DATA		BIT(1)
 static int pm_bms_lock_output_data(struct pm8921_bms_chip *chip)
@@ -1618,6 +1747,7 @@ static int charging_adjustments(struct pm8921_bms_chip *chip,
 static void very_low_voltage_check(struct pm8921_bms_chip *chip,
 					int ibat_ua, int vbat_uv)
 {
+	int rc;
 	/*
 	 * if battery is very low (v_cutoff voltage + 20mv) hold
 	 * a wakelock untill soc = 0%
@@ -1636,6 +1766,9 @@ static void very_low_voltage_check(struct pm8921_bms_chip *chip,
 		chip->low_voltage_wake_lock_held = 0;
 		wake_unlock(&chip->low_voltage_wake_lock);
 		chip->soc_calc_period = chip->normal_voltage_calc_ms;
+		rc = pm8921_bms_enable_batt_alarm(chip);
+		if (rc)
+			pr_err("Unable to enable batt alarm\n");
 	}
 }
 
@@ -3150,6 +3283,9 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->ocv_dis_high_soc = pdata->ocv_dis_high_soc;
 	chip->ocv_dis_low_soc = pdata->ocv_dis_low_soc;
 
+	chip->alarm_low_mv = pdata->alarm_low_mv;
+	chip->alarm_high_mv = pdata->alarm_high_mv;
+
 	mutex_init(&chip->calib_mutex);
 	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
 
@@ -3189,6 +3325,18 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	/* enable the vbatt reading interrupts for scheduling hkadc calib */
 	pm8921_bms_enable_irq(chip, PM8921_BMS_GOOD_OCV);
 	pm8921_bms_enable_irq(chip, PM8921_BMS_OCV_FOR_R);
+
+	rc = pm8921_bms_configure_batt_alarm(chip);
+	if (rc) {
+		pr_err("Couldn't configure battery alarm! rc=%d\n", rc);
+		goto free_irqs;
+	}
+
+	rc = pm8921_bms_enable_batt_alarm(chip);
+	if (rc) {
+		pr_err("Couldn't enable battery alarm! rc=%d\n", rc);
+		goto free_irqs;
+	}
 
 	calculate_soc_work(&(chip->calculate_soc_delayed_work.work));
 
