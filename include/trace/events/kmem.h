@@ -302,6 +302,199 @@ TRACE_EVENT(mm_page_alloc_extfrag,
 		__entry->alloc_migratetype == __entry->fallback_migratetype)
 );
 
+
+DECLARE_EVENT_CLASS(ion_alloc,
+
+	TP_PROTO(const char *client_name,
+		 const char *heap_name,
+		 size_t len,
+		 unsigned int mask,
+		 unsigned int flags),
+
+	TP_ARGS(client_name, heap_name, len, mask, flags),
+
+	TP_STRUCT__entry(
+		__field(const char *,	client_name)
+		__field(const char *,	heap_name)
+		__field(size_t,		len)
+		__field(unsigned int,	mask)
+		__field(unsigned int,	flags)
+	),
+
+	TP_fast_assign(
+		__entry->client_name	= client_name;
+		__entry->heap_name	= heap_name;
+		__entry->len		= len;
+		__entry->mask		= mask;
+		__entry->flags		= flags;
+	),
+
+	TP_printk("client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x",
+		__entry->client_name,
+		__entry->heap_name,
+		__entry->len,
+		__entry->mask,
+		__entry->flags)
+);
+
+DEFINE_EVENT(ion_alloc, ion_alloc_buffer_start,
+
+	TP_PROTO(const char *client_name,
+		 const char *heap_name,
+		 size_t len,
+		 unsigned int mask,
+		 unsigned int flags),
+
+	TP_ARGS(client_name, heap_name, len, mask, flags)
+);
+
+DEFINE_EVENT(ion_alloc, ion_alloc_buffer_end,
+
+	TP_PROTO(const char *client_name,
+		 const char *heap_name,
+		 size_t len,
+		 unsigned int mask,
+		 unsigned int flags),
+
+	TP_ARGS(client_name, heap_name, len, mask, flags)
+);
+
+DECLARE_EVENT_CLASS(ion_alloc_error,
+
+	TP_PROTO(const char *client_name,
+		 const char *heap_name,
+		 size_t len,
+		 unsigned int mask,
+		 unsigned int flags,
+		 long error),
+
+	TP_ARGS(client_name, heap_name, len, mask, flags, error),
+
+	TP_STRUCT__entry(
+		__field(const char *,	client_name)
+		__field(const char *,	heap_name)
+		__field(size_t,		len)
+		__field(unsigned int,	mask)
+		__field(unsigned int,	flags)
+		__field(long,		error)
+	),
+
+	TP_fast_assign(
+		__entry->client_name	= client_name;
+		__entry->heap_name	= heap_name;
+		__entry->len		= len;
+		__entry->mask		= mask;
+		__entry->flags		= flags;
+		__entry->error		= error;
+	),
+
+	TP_printk(
+	"client_name=%s heap_name=%s len=%zu mask=0x%x flags=0x%x error=%ld",
+		__entry->client_name,
+		__entry->heap_name,
+		__entry->len,
+		__entry->mask,
+		__entry->flags,
+		__entry->error)
+);
+
+
+DEFINE_EVENT(ion_alloc_error, ion_alloc_buffer_fallback,
+
+	TP_PROTO(const char *client_name,
+		 const char *heap_name,
+		 size_t len,
+		 unsigned int mask,
+		 unsigned int flags,
+		 long error),
+
+	TP_ARGS(client_name, heap_name, len, mask, flags, error)
+);
+
+DEFINE_EVENT(ion_alloc_error, ion_alloc_buffer_fail,
+
+	TP_PROTO(const char *client_name,
+		 const char *heap_name,
+		 size_t len,
+		 unsigned int mask,
+		 unsigned int flags,
+		 long error),
+
+	TP_ARGS(client_name, heap_name, len, mask, flags, error)
+);
+
+
+DECLARE_EVENT_CLASS(alloc_retry,
+
+	TP_PROTO(int tries),
+
+	TP_ARGS(tries),
+
+	TP_STRUCT__entry(
+		__field(int, tries)
+	),
+
+	TP_fast_assign(
+		__entry->tries = tries;
+	),
+
+	TP_printk("tries=%d",
+		__entry->tries)
+);
+
+DEFINE_EVENT(alloc_retry, ion_cp_alloc_retry,
+
+	TP_PROTO(int tries),
+
+	TP_ARGS(tries)
+);
+
+DEFINE_EVENT(alloc_retry, migrate_retry,
+
+	TP_PROTO(int tries),
+
+	TP_ARGS(tries)
+);
+
+DEFINE_EVENT(alloc_retry, dma_alloc_contiguous_retry,
+
+	TP_PROTO(int tries),
+
+	TP_ARGS(tries)
+);
+
+DECLARE_EVENT_CLASS(migrate_pages,
+
+	TP_PROTO(int mode),
+
+	TP_ARGS(mode),
+
+	TP_STRUCT__entry(
+		__field(int, mode)
+	),
+
+	TP_fast_assign(
+		__entry->mode = mode;
+	),
+
+	TP_printk("mode=%d",
+		__entry->mode)
+);
+
+DEFINE_EVENT(migrate_pages, migrate_pages_start,
+
+	TP_PROTO(int mode),
+
+	TP_ARGS(mode)
+);
+
+DEFINE_EVENT(migrate_pages, migrate_pages_end,
+
+	TP_PROTO(int mode),
+
+	TP_ARGS(mode)
+);
+
 #endif /* _TRACE_KMEM_H */
 
 /* This part must be outside protection */
