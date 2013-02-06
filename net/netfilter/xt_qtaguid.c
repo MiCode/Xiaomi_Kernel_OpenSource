@@ -1773,6 +1773,8 @@ static bool qtaguid_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	}
 
 	sk = skb->sk;
+	if (sk && sk->sk_state == TCP_TIME_WAIT)
+		sk = NULL;
 	if (sk == NULL) {
 		/*
 		 * A missing sk->sk_socket happens when packets are in-flight
