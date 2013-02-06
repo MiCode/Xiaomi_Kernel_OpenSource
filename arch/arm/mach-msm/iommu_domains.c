@@ -15,7 +15,6 @@
 #include <linux/iommu.h>
 #include <linux/memory_alloc.h>
 #include <linux/platform_device.h>
-#include <linux/vmalloc.h>
 #include <linux/rbtree.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
