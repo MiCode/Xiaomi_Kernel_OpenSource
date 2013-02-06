@@ -1933,25 +1933,18 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		card->num_links	= ARRAY_SIZE(msm8974_common_dai_links);
 	}
 
+	mutex_init(&cdc_mclk_mutex);
+	atomic_set(&auxpcm_rsc_ref, 0);
+	spdev = pdev;
+	ext_spk_amp_regulator = NULL;
+	msm8974_liquid_dock_dev = NULL;
+
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
 		goto err;
 	}
-
-	mutex_init(&cdc_mclk_mutex);
-	atomic_set(&auxpcm_rsc_ref, 0);
-
-	spdev = pdev;
-	ext_spk_amp_regulator = NULL;
-
-	mutex_init(&cdc_mclk_mutex);
-	atomic_set(&auxpcm_rsc_ref, 0);
-
-	spdev = pdev;
-	ext_spk_amp_regulator = NULL;
-	msm8974_liquid_dock_dev = NULL;
 
 	lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
 	if (lpaif_pri_muxsel_virt_addr == NULL) {
