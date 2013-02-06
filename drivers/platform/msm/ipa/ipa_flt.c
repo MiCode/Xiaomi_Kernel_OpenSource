@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,12 +44,13 @@ static int ipa_generate_flt_hw_rule(enum ipa_ip_type ip,
 	const struct ipa_flt_rule *rule =
 		(const struct ipa_flt_rule *)&entry->rule;
 	u16 en_rule = 0;
-	u8 tmp[IPA_RT_FLT_HW_RULE_BUF_SIZE];
+	u32 tmp[IPA_RT_FLT_HW_RULE_BUF_SIZE/4];
 	u8 *start;
 
-	memset(tmp, 0, IPA_RT_FLT_HW_RULE_BUF_SIZE);
-	if (buf == NULL)
-		buf = tmp;
+	if (buf == NULL) {
+		memset(tmp, 0, IPA_RT_FLT_HW_RULE_BUF_SIZE);
+		buf = (u8 *)tmp;
+	}
 
 	start = buf;
 	hdr = (struct ipa_flt_rule_hw_hdr *)buf;

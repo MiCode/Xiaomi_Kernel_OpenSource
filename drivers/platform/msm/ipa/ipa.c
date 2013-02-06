@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,8 @@
 			       x == IPA_MODE_MOBILE_AP_WLAN)
 #define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
 #define IPA_V1_CLK_RATE (92.31 * 1000 * 1000UL)
+#define IPA_V1_1_CLK_RATE (100 * 1000 * 1000UL)
+#define IPA_DEFAULT_HEADER_LENGTH (8)
 #define IPA_DMA_POOL_SIZE (512)
 #define IPA_DMA_POOL_ALIGNMENT (4)
 #define IPA_DMA_POOL_BOUNDARY (1024)
@@ -45,19 +47,6 @@
 
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
-
-struct ipa_plat_drv_res {
-	u32 ipa_mem_base;
-	u32 ipa_mem_size;
-	u32 bam_mem_base;
-	u32 bam_mem_size;
-	u32 ipa_irq;
-	u32 bam_irq;
-	u32 ipa_pipe_mem_start_ofst;
-	u32 ipa_pipe_mem_size;
-	struct a2_mux_pipe_connection a2_to_ipa_pipe;
-	struct a2_mux_pipe_connection ipa_to_a2_pipe;
-};
 
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
@@ -577,9 +566,14 @@ static int ipa_setup_exception_path(void)
 	/*
 	 * only single stream for MBIM supported and no exception packets
 	 * expected so set default header to zero
+	 * for IPA HW 1.1 and up the default header length is 8 (exception)
 	 */
-	hdr_entry->hdr_len = 1;
-	hdr_entry->hdr[0] = 0;
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		hdr_entry->hdr_len = 1;
+		hdr_entry->hdr[0] = 0;
+	} else {
+			hdr_entry->hdr_len = IPA_DEFAULT_HEADER_LENGTH;
+	}
 
 	/*
 	 * SW does not know anything about default exception header so
@@ -711,37 +705,10 @@ static int ipa_setup_a5_pipes(void)
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_cmd)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
-		goto fail;
-	}
-
-	if (ipa_setup_exception_path()) {
-		IPAERR(":fail to setup excp path\n");
-		result = -EPERM;
 		goto fail_cmd;
 	}
 
-	/* LAN-WAN IN (IPA->A5) */
-	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
-	sys_in.client = IPA_CLIENT_A5_LAN_WAN_CONS;
-	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
-	sys_in.ipa_ep_cfg.hdr.hdr_a5_mux = 1;
-	sys_in.ipa_ep_cfg.hdr.hdr_len = 8;  /* size of A5 exception hdr */
-	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_in)) {
-		IPAERR(":setup sys pipe failed.\n");
-		result = -EPERM;
-		goto fail_cmd;
-	}
-	/* LAN-WAN OUT (A5->IPA) */
-	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
-	sys_in.client = IPA_CLIENT_A5_LAN_WAN_PROD;
-	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
-	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
-	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_A5_LAN_WAN_CONS;
-	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_out)) {
-		IPAERR(":setup sys pipe failed.\n");
-		result = -EPERM;
-		goto fail_data_out;
-	}
+	/* Start polling, only if needed */
 	if (ipa_ctx->polling_mode) {
 		INIT_DELAYED_WORK(&ipa_ctx->poll_work, ipa_poll_function);
 		result =
@@ -754,15 +721,50 @@ static int ipa_setup_a5_pipes(void)
 		}
 	}
 
+	if (ipa_setup_exception_path()) {
+		IPAERR(":fail to setup excp path\n");
+		result = -EPERM;
+		goto fail_schedule_delayed_work;
+	}
+
+	if (ipa_ctx->ipa_hw_type != IPA_HW_v1_0) {
+		if (ipa_setup_dflt_rt_tables()) {
+			IPAERR(":fail to setup dflt routes\n");
+			result = -EPERM;
+			goto fail_schedule_delayed_work;
+		}
+	}
+
+	/* LAN-WAN IN (IPA->A5) */
+	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
+	sys_in.client = IPA_CLIENT_A5_LAN_WAN_CONS;
+	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+	sys_in.ipa_ep_cfg.hdr.hdr_a5_mux = 1;
+	sys_in.ipa_ep_cfg.hdr.hdr_len = 8;  /* size of A5 exception hdr */
+	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_in)) {
+		IPAERR(":setup sys pipe failed.\n");
+		result = -EPERM;
+		goto fail_schedule_delayed_work;
+	}
+	/* LAN-WAN OUT (A5->IPA) */
+	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
+	sys_in.client = IPA_CLIENT_A5_LAN_WAN_PROD;
+	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
+	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_A5_LAN_WAN_CONS;
+	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_out)) {
+		IPAERR(":setup sys pipe failed.\n");
+		result = -EPERM;
+		goto fail_data_out;
+	}
+
 	return 0;
 
-fail_schedule_delayed_work:
-	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_out);
 fail_data_out:
 	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_in);
-fail_cmd:
+fail_schedule_delayed_work:
 	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_cmd);
-fail:
+fail_cmd:
 	return result;
 }
 
@@ -943,10 +945,12 @@ static void ipa_set_aggregation_params(void)
 	agg_params.aggr_time_limit = ipa_ctx->aggregation_time_limit;
 	ipa_cfg_ep_aggr(producer_hdl, &agg_params);
 
-	/* configure header on producer */
-	memset(&hdr_params, 0, sizeof(struct ipa_ep_cfg_hdr));
-	hdr_params.hdr_len = 1;
-	ipa_cfg_ep_hdr(producer_hdl, &hdr_params);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		/* configure header on producer */
+		memset(&hdr_params, 0, sizeof(struct ipa_ep_cfg_hdr));
+		hdr_params.hdr_len = 1;
+		ipa_cfg_ep_hdr(producer_hdl, &hdr_params);
+	}
 
 	/* configure deaggregation on consumer */
 	memset(&agg_params, 0, sizeof(struct ipa_ep_cfg_aggr));
@@ -1193,7 +1197,12 @@ void ipa_enable_clks(void)
 	}
 
 	if (ipa_clk_src)
-		clk_set_rate(ipa_clk_src, IPA_V1_CLK_RATE);
+		if (ipa_res.ipa_hw_type == IPA_HW_v1_0)
+			clk_set_rate(ipa_clk_src, IPA_V1_CLK_RATE);
+		else if (ipa_res.ipa_hw_type == IPA_HW_v1_1)
+			clk_set_rate(ipa_clk_src, IPA_V1_1_CLK_RATE);
+		else
+			WARN_ON(1);
 	else
 		WARN_ON(1);
 
@@ -1261,14 +1270,16 @@ static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
 {
 	void *bam_cnfg_bits;
 
-	bam_cnfg_bits = ioremap(res->ipa_mem_base + IPA_BAM_REG_BASE_OFST,
-				IPA_BAM_REMAP_SIZE);
-	if (!bam_cnfg_bits)
-		return -ENOMEM;
-	ipa_write_reg(bam_cnfg_bits, IPA_BAM_CNFG_BITS_OFST,
-		      IPA_BAM_CNFG_BITS_VAL);
-	iounmap(bam_cnfg_bits);
-
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		bam_cnfg_bits = ioremap(res->ipa_mem_base +
+						IPA_BAM_REG_BASE_OFST,
+					IPA_BAM_REMAP_SIZE);
+		if (!bam_cnfg_bits)
+			return -ENOMEM;
+		ipa_write_reg(bam_cnfg_bits, IPA_BAM_CNFG_BITS_OFST,
+				IPA_BAM_CNFG_BITS_VAL);
+		iounmap(bam_cnfg_bits);
+	}
 	return 0;
 }
 /**
@@ -1329,8 +1340,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	ipa_ctx->ip6_rt_tbl_lcl = ip6_rt_tbl_lcl;
 	ipa_ctx->ip4_flt_tbl_lcl = ip4_flt_tbl_lcl;
 	ipa_ctx->ip6_flt_tbl_lcl = ip6_flt_tbl_lcl;
-
 	ipa_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
+	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 
 	/* setup IPA register access */
 	ipa_ctx->mmio = ioremap(resource_p->ipa_mem_base + IPA_REG_BASE_OFST,
@@ -1348,24 +1359,31 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		goto fail_init_hw;
 	}
 
-	/* setup chicken bits */
-	result = ipa_set_single_ndp_per_mbim(true);
-	if (result) {
-		IPAERR(":failed to set single ndp per mbim.\n");
-		result = -EFAULT;
-		goto fail_init_hw;
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		/* setup chicken bits */
+		result = ipa_set_single_ndp_per_mbim(true);
+		if (result) {
+			IPAERR(":failed to set single ndp per mbim.\n");
+			result = -EFAULT;
+			goto fail_init_hw;
+		}
+
+		result = ipa_set_hw_timer_fix_for_mbim_aggr(true);
+		if (result) {
+			IPAERR(":failed to set HW timer fix for MBIM agg.\n");
+			result = -EFAULT;
+			goto fail_init_hw;
+		}
 	}
 
-	result = ipa_set_hw_timer_fix_for_mbim_aggr(true);
-	if (result) {
-		IPAERR(":failed to set HW timer fix for MBIM aggregation.\n");
-		result = -EFAULT;
-		goto fail_init_hw;
-	}
 
 	/* read how much SRAM is available for SW use */
-	ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
-			IPA_SHARED_MEM_SIZE_OFST);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+		ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
+				IPA_SHARED_MEM_SIZE_OFST_v1);
+	else
+		ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
+				IPA_SHARED_MEM_SIZE_OFST_v2);
 
 	if (IPA_RAM_END_OFST > ipa_ctx->smem_sz) {
 		IPAERR("SW expect more core memory, needed %d, avail %d\n",
@@ -1469,14 +1487,18 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	/*
 	 * setup DMA pool 4 byte aligned, don't cross 1k boundaries, nominal
 	 * size 512 bytes
+	 * This is an issue with IPA HW v1.0 only.
 	 */
-	ipa_ctx->one_kb_no_straddle_pool = dma_pool_create("ipa_1k", NULL,
-			IPA_DMA_POOL_SIZE, IPA_DMA_POOL_ALIGNMENT,
-			IPA_DMA_POOL_BOUNDARY);
-	if (!ipa_ctx->one_kb_no_straddle_pool) {
-		IPAERR("cannot setup 1kb alloc DMA pool.\n");
-		result = -ENOMEM;
-		goto fail_dma_pool;
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		ipa_ctx->one_kb_no_straddle_pool = dma_pool_create("ipa_1k",
+				NULL,
+				IPA_DMA_POOL_SIZE, IPA_DMA_POOL_ALIGNMENT,
+				IPA_DMA_POOL_BOUNDARY);
+		if (!ipa_ctx->one_kb_no_straddle_pool) {
+			IPAERR("cannot setup 1kb alloc DMA pool.\n");
+			result = -ENOMEM;
+			goto fail_dma_pool;
+		}
 	}
 
 	ipa_ctx->glob_flt_tbl[IPA_IP_v4].in_sys = !ipa_ctx->ip4_flt_tbl_lcl;
@@ -1640,7 +1662,11 @@ fail_bridge_init:
 fail_tx_wq:
 	destroy_workqueue(ipa_ctx->rx_wq);
 fail_rx_wq:
-	dma_pool_destroy(ipa_ctx->one_kb_no_straddle_pool);
+	/*
+	 * DMA pool need to be released only for IPA HW v1.0 only.
+	 */
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+		dma_pool_destroy(ipa_ctx->one_kb_no_straddle_pool);
 fail_dma_pool:
 	kmem_cache_destroy(ipa_ctx->tree_node_cache);
 fail_tree_node_cache:
@@ -1677,11 +1703,13 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 {
 	int result = 0;
 	struct resource *resource_p;
+
 	IPADBG("IPA plat drv probe\n");
 
 	/* initialize ipa_res */
 	ipa_res.ipa_pipe_mem_start_ofst = IPA_PIPE_MEM_START_OFST;
 	ipa_res.ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
+	ipa_res.ipa_hw_type = 0;
 
 	result = ipa_load_pipe_connection(pdev_p,
 					A2_TO_IPA,
@@ -1750,6 +1778,16 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 	} else {
 		ipa_res.bam_irq = resource_p->start;
 	}
+
+	/* Get IPA HW Version */
+	result = of_property_read_u32(pdev_p->dev.of_node, "qcom,ipa-hw-ver",
+					&ipa_res.ipa_hw_type);
+
+	if ((result) || (ipa_res.ipa_hw_type == 0)) {
+		IPAERR(":get resource failed for ipa-hw-ver!\n");
+		return -ENODEV;
+	}
+	IPADBG(": found ipa_res.ipa_hw_type = %d", ipa_res.ipa_hw_type);
 
 	IPADBG(":ipa_mem_base = 0x%x, ipa_mem_size = 0x%x\n",
 	       ipa_res.ipa_mem_base, ipa_res.ipa_mem_size);
@@ -1824,8 +1862,7 @@ static int __init ipa_module_init(void)
 
 	return result;
 }
-
-late_initcall(ipa_module_init);
+subsys_initcall(ipa_module_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");

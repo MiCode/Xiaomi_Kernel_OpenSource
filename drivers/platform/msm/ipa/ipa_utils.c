@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +42,12 @@ static const int ep_mapping[IPA_MODE_MAX][IPA_CLIENT_MAX] = {
  */
 int ipa_cfg_route(struct ipa_route *route)
 {
-	ipa_write_reg(ipa_ctx->mmio, IPA_ROUTE_OFST,
+	u32 ipa_route_offset = IPA_ROUTE_OFST_v1;
+
+	if (ipa_ctx->ipa_hw_type != IPA_HW_v1_0)
+		ipa_route_offset = IPA_ROUTE_OFST_v2;
+
+	ipa_write_reg(ipa_ctx->mmio, ipa_route_offset,
 		     IPA_SETFIELD(route->route_dis,
 				  IPA_ROUTE_ROUTE_DIS_SHFT,
 				  IPA_ROUTE_ROUTE_DIS_BMSK) |
@@ -67,10 +72,15 @@ int ipa_cfg_route(struct ipa_route *route)
  */
 int ipa_cfg_filter(u32 disable)
 {
-	ipa_write_reg(ipa_ctx->mmio, IPA_FILTER_OFST,
-		     IPA_SETFIELD(!disable,
-				  IPA_FILTER_FILTER_EN_SHFT,
-				  IPA_FILTER_FILTER_EN_BMSK));
+	u32 ipa_filter_ofst = IPA_FILTER_OFST_v1;
+
+	if (ipa_ctx->ipa_hw_type != IPA_HW_v1_0)
+		ipa_filter_ofst = IPA_FILTER_OFST_v2;
+	ipa_write_reg(ipa_ctx->mmio, ipa_filter_ofst,
+			IPA_SETFIELD(!disable,
+					IPA_FILTER_FILTER_EN_SHFT,
+					IPA_FILTER_FILTER_EN_BMSK));
+
 	return 0;
 }
 
@@ -654,10 +664,19 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ipa_ep_cfg)
 	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.nat = *ipa_ep_cfg;
 	/* clnt_hdl is used as pipe_index */
-	ipa_write_reg(ipa_ctx->mmio, IPA_ENDP_INIT_NAT_n_OFST(clnt_hdl),
-		      IPA_SETFIELD(ipa_ctx->ep[clnt_hdl].cfg.nat.nat_en,
-				   IPA_ENDP_INIT_NAT_n_NAT_EN_SHFT,
-				   IPA_ENDP_INIT_NAT_n_NAT_EN_BMSK));
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+		ipa_write_reg(ipa_ctx->mmio,
+			      IPA_ENDP_INIT_NAT_n_OFST_v1(clnt_hdl),
+			      IPA_SETFIELD(ipa_ctx->ep[clnt_hdl].cfg.nat.nat_en,
+					   IPA_ENDP_INIT_NAT_n_NAT_EN_SHFT,
+					   IPA_ENDP_INIT_NAT_n_NAT_EN_BMSK));
+	else
+		ipa_write_reg(ipa_ctx->mmio,
+			      IPA_ENDP_INIT_NAT_n_OFST_v2(clnt_hdl),
+			      IPA_SETFIELD(ipa_ctx->ep[clnt_hdl].cfg.nat.nat_en,
+					   IPA_ENDP_INIT_NAT_n_NAT_EN_SHFT,
+					   IPA_ENDP_INIT_NAT_n_NAT_EN_BMSK));
+
 	return 0;
 }
 EXPORT_SYMBOL(ipa_cfg_ep_nat);
@@ -709,7 +728,12 @@ int ipa_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg)
 		   IPA_ENDP_INIT_HDR_n_HDR_A5_MUX_SHFT,
 		   IPA_ENDP_INIT_HDR_n_HDR_A5_MUX_BMSK);
 
-	ipa_write_reg(ipa_ctx->mmio, IPA_ENDP_INIT_HDR_n_OFST(clnt_hdl), val);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HDR_n_OFST_v1(clnt_hdl), val);
+	else
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HDR_n_OFST_v2(clnt_hdl), val);
 
 	return 0;
 }
@@ -751,7 +775,12 @@ int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg)
 			   IPA_ENDP_INIT_MODE_n_DEST_PIPE_INDEX_SHFT,
 			   IPA_ENDP_INIT_MODE_n_DEST_PIPE_INDEX_BMSK);
 
-	ipa_write_reg(ipa_ctx->mmio, IPA_ENDP_INIT_MODE_n_OFST(clnt_hdl), val);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_MODE_n_OFST_v1(clnt_hdl), val);
+	else
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_MODE_n_OFST_v2(clnt_hdl), val);
 
 	return 0;
 }
@@ -791,7 +820,12 @@ int ipa_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ipa_ep_cfg)
 			   IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_SHFT,
 			   IPA_ENDP_INIT_AGGR_n_AGGR_TIME_LIMIT_BMSK);
 
-	ipa_write_reg(ipa_ctx->mmio, IPA_ENDP_INIT_AGGR_n_OFST(clnt_hdl), val);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_AGGR_n_OFST_v1(clnt_hdl), val);
+	else
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_AGGR_n_OFST_v2(clnt_hdl), val);
 
 	return 0;
 }
@@ -834,10 +868,19 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg)
 	/* always use the "default" routing tables whose indices are 0 */
 	ipa_ctx->ep[clnt_hdl].rt_tbl_idx = 0;
 
-	ipa_write_reg(ipa_ctx->mmio, IPA_ENDP_INIT_ROUTE_n_OFST(clnt_hdl),
-		      IPA_SETFIELD(ipa_ctx->ep[clnt_hdl].rt_tbl_idx,
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_ROUTE_n_OFST_v1(clnt_hdl),
+			IPA_SETFIELD(ipa_ctx->ep[clnt_hdl].rt_tbl_idx,
 			   IPA_ENDP_INIT_ROUTE_n_ROUTE_TABLE_INDEX_SHFT,
 			   IPA_ENDP_INIT_ROUTE_n_ROUTE_TABLE_INDEX_BMSK));
+	} else {
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_ROUTE_n_OFST_v2(clnt_hdl),
+			IPA_SETFIELD(ipa_ctx->ep[clnt_hdl].rt_tbl_idx,
+			   IPA_ENDP_INIT_ROUTE_n_ROUTE_TABLE_INDEX_SHFT,
+			   IPA_ENDP_INIT_ROUTE_n_ROUTE_TABLE_INDEX_BMSK));
+	}
 
 	return 0;
 }
@@ -1267,11 +1310,21 @@ int ipa_pipe_mem_free(u32 ofst, u32 size)
 int ipa_set_aggr_mode(enum ipa_aggr_mode mode)
 {
 	u32 reg_val;
-	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_2_OFST);
-	ipa_write_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_2_OFST,
-			((mode & IPA_AGGREGATION_MODE_MSK) <<
-				IPA_AGGREGATION_MODE_SHFT) |
-			(reg_val & IPA_AGGREGATION_MODE_BMSK));
+
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		reg_val = ipa_read_reg(ipa_ctx->mmio,
+				IPA_AGGREGATION_SPARE_REG_2_OFST);
+		ipa_write_reg(ipa_ctx->mmio,
+				IPA_AGGREGATION_SPARE_REG_2_OFST,
+				((mode & IPA_AGGREGATION_MODE_MSK) <<
+					IPA_AGGREGATION_MODE_SHFT) |
+					(reg_val & IPA_AGGREGATION_MODE_BMSK));
+	} else {
+		reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_QCNCM_OFST);
+		ipa_write_reg(ipa_ctx->mmio, IPA_QCNCM_OFST, (mode & 0x1) |
+				(reg_val & 0xfffffffe));
+
+	}
 	return 0;
 }
 EXPORT_SYMBOL(ipa_set_aggr_mode);
@@ -1291,15 +1344,25 @@ int ipa_set_qcncm_ndp_sig(char sig[3])
 {
 	u32 reg_val;
 
-	if (sig == NULL) {
-		IPAERR("bad argument for ipa_set_qcncm_ndp_sig/n");
-		return -EINVAL;
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		if (sig == NULL) {
+			IPAERR("bad argument for ipa_set_qcncm_ndp_sig/n");
+			return -EINVAL;
+		}
+		reg_val = ipa_read_reg(ipa_ctx->mmio,
+				IPA_AGGREGATION_SPARE_REG_2_OFST);
+		ipa_write_reg(ipa_ctx->mmio,
+				IPA_AGGREGATION_SPARE_REG_2_OFST, sig[0] <<
+				IPA_AGGREGATION_QCNCM_SIG0_SHFT |
+				(sig[1] << IPA_AGGREGATION_QCNCM_SIG1_SHFT) |
+				sig[2] |
+				(reg_val & IPA_AGGREGATION_QCNCM_SIG_BMSK));
+	} else {
+		reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_QCNCM_OFST);
+		ipa_write_reg(ipa_ctx->mmio, IPA_QCNCM_OFST, sig[0] << 20 |
+				(sig[1] << 12) | (sig[2] << 4) |
+				(reg_val & 0xf000000f));
 	}
-	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_2_OFST);
-	ipa_write_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_2_OFST, sig[0] <<
-			IPA_AGGREGATION_QCNCM_SIG0_SHFT |
-			(sig[1] << IPA_AGGREGATION_QCNCM_SIG1_SHFT) |
-			sig[2] | (reg_val & IPA_AGGREGATION_QCNCM_SIG_BMSK));
 	return 0;
 }
 EXPORT_SYMBOL(ipa_set_qcncm_ndp_sig);
@@ -1314,10 +1377,19 @@ EXPORT_SYMBOL(ipa_set_qcncm_ndp_sig);
 int ipa_set_single_ndp_per_mbim(bool enable)
 {
 	u32 reg_val;
-	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST);
-	ipa_write_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST, (enable &
-			IPA_AGGREGATION_SINGLE_NDP_MSK) |
-			(reg_val & IPA_AGGREGATION_SINGLE_NDP_BMSK));
+
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		reg_val = ipa_read_reg(ipa_ctx->mmio,
+				IPA_AGGREGATION_SPARE_REG_1_OFST);
+		ipa_write_reg(ipa_ctx->mmio,
+				IPA_AGGREGATION_SPARE_REG_1_OFST, (enable &
+				IPA_AGGREGATION_SINGLE_NDP_MSK) |
+				(reg_val & IPA_AGGREGATION_SINGLE_NDP_BMSK));
+	} else {
+		reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_SINGLE_NDP_MODE_OFST);
+		ipa_write_reg(ipa_ctx->mmio, IPA_SINGLE_NDP_MODE_OFST,
+				(enable & 0x1) | (reg_val & 0xfffffffe));
+	}
 	return 0;
 }
 EXPORT_SYMBOL(ipa_set_single_ndp_per_mbim);
