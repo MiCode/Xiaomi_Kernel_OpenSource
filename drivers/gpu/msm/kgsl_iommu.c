@@ -604,9 +604,9 @@ static int kgsl_iommu_pt_equal(struct kgsl_mmu *mmu,
  *
  * Return - void
  */
-static void kgsl_iommu_destroy_pagetable(void *mmu_specific_pt)
+static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 {
-	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
+	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	if (iommu_pt->domain)
 		iommu_domain_free(iommu_pt->domain);
 	kfree(iommu_pt);
@@ -829,7 +829,7 @@ static int kgsl_iommu_start_sync_lock(struct kgsl_mmu *mmu)
 
 	if (KGSL_DEVICE_3D0 != mmu->device->id ||
 		!msm_soc_version_supports_iommu_v0() ||
-		!kgsl_mmu_is_perprocess() ||
+		!kgsl_mmu_is_perprocess(mmu) ||
 		iommu->sync_lock_vars)
 		return 0;
 
@@ -870,7 +870,7 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 	uint32_t page_offset = 0;
 
 	if (!msm_soc_version_supports_iommu_v0() ||
-		!kgsl_mmu_is_perprocess())
+		!kgsl_mmu_is_perprocess(mmu))
 		return status;
 
 	/*
@@ -1268,6 +1268,32 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (status)
 		goto done;
 
+	/* We presently do not support per-process for IOMMU-v1 */
+	mmu->pt_per_process = KGSL_MMU_USE_PER_PROCESS_PT &&
+				msm_soc_version_supports_iommu_v0();
+
+	/*
+	 * For IOMMU per-process pagetables, the allocatable range
+	 * and the kernel global range must both be outside
+	 * the userspace address range. There is a 1Mb gap
+	 * between these address ranges to make overrun
+	 * detection easier.
+	 * For the shared pagetable case use 2GB and because
+	 * mirroring the CPU address space is not possible and
+	 * we're better off with extra room.
+	 */
+	if (mmu->pt_per_process) {
+		mmu->pt_base = PAGE_OFFSET;
+		mmu->pt_size = KGSL_IOMMU_GLOBAL_MEM_BASE
+				- kgsl_mmu_get_base_addr(mmu) - SZ_1M;
+		mmu->use_cpu_map = true;
+	} else {
+		mmu->pt_base = KGSL_PAGETABLE_BASE;
+		mmu->pt_size = SZ_2G;
+		mmu->use_cpu_map = false;
+	}
+
+
 	iommu->iommu_reg_list = kgsl_iommuv0_reg;
 	iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V0;
 
@@ -1321,7 +1347,8 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 	 * switching on the 3D side for which a separate table is allocated */
 	if (!cpu_is_msm8960() && msm_soc_version_supports_iommu_v0()) {
 		mmu->priv_bank_table =
-			kgsl_mmu_getpagetable(KGSL_MMU_PRIV_BANK_TABLE_NAME);
+			kgsl_mmu_getpagetable(mmu,
+					KGSL_MMU_PRIV_BANK_TABLE_NAME);
 		if (mmu->priv_bank_table == NULL) {
 			status = -ENOMEM;
 			goto err;
@@ -1330,7 +1357,7 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 		if (status)
 			goto err;
 	}
-	mmu->defaultpagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
+	mmu->defaultpagetable = kgsl_mmu_getpagetable(mmu, KGSL_MMU_GLOBAL_PT);
 	/* Return error if the default pagetable doesn't exist */
 	if (mmu->defaultpagetable == NULL) {
 		status = -ENOMEM;
@@ -1534,13 +1561,13 @@ done:
 }
 
 static int
-kgsl_iommu_unmap(void *mmu_specific_pt,
+kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc,
 		unsigned int *tlb_flags)
 {
 	int ret;
 	unsigned int range = kgsl_sg_size(memdesc->sg, memdesc->sglen);
-	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
+	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 
 	/* All GPU addresses as assigned are page aligned, but some
 	   functions purturb the gpuaddr with an offset, so apply the
@@ -1561,20 +1588,20 @@ kgsl_iommu_unmap(void *mmu_specific_pt,
 	 * Flushing only required if per process pagetables are used. With
 	 * global case, flushing will happen inside iommu_map function
 	 */
-	if (!ret && kgsl_mmu_is_perprocess())
+	if (!ret && kgsl_mmu_is_perprocess(pt->mmu))
 		*tlb_flags = UINT_MAX;
 	return 0;
 }
 
 static int
-kgsl_iommu_map(void *mmu_specific_pt,
+kgsl_iommu_map(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc,
 			unsigned int protflags,
 			unsigned int *tlb_flags)
 {
 	int ret;
 	unsigned int iommu_virt_addr;
-	struct kgsl_iommu_pt *iommu_pt = mmu_specific_pt;
+	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	int size = kgsl_sg_size(memdesc->sg, memdesc->sglen);
 
 	BUG_ON(NULL == iommu_pt);
