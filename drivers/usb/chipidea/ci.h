@@ -62,6 +62,7 @@ struct ci13xxx_ep {
 	unsigned long			      prime_fail_count;
 	int				      prime_timer_count;
 	struct timer_list		      prime_timer;
+	bool                                  multi_req;
 };
 
 enum ci_role {
