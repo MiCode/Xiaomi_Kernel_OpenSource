@@ -277,7 +277,9 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 			return -ENODEV;
 		}
 
-		if (fmt->is_yuv || (req->flags & MDP_OV_PIPE_SHARE))
+		if (req->flags & MDP_OV_PIPE_FORCE_DMA)
+			pipe_type = MDSS_MDP_PIPE_TYPE_DMA;
+		else if (fmt->is_yuv || (req->flags & MDP_OV_PIPE_SHARE))
 			pipe_type = MDSS_MDP_PIPE_TYPE_VIG;
 		else
 			pipe_type = MDSS_MDP_PIPE_TYPE_RGB;
