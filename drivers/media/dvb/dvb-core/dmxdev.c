@@ -2720,10 +2720,13 @@ static int dvb_dmxdev_remove_pid(struct dmxdev *dmxdev,
 		return -EINVAL;
 
 	list_for_each_entry_safe(feed, tmp, &filter->feed.ts, next) {
-		if ((feed->pid == pid) && (feed->ts != NULL)) {
-			feed->ts->stop_filtering(feed->ts);
-			filter->dev->demux->release_ts_feed(filter->dev->demux,
-							    feed->ts);
+		if (feed->pid == pid) {
+			if (feed->ts != NULL) {
+				feed->ts->stop_filtering(feed->ts);
+				filter->dev->demux->release_ts_feed(
+							filter->dev->demux,
+							feed->ts);
+			}
 			list_del(&feed->next);
 			kfree(feed);
 		}
