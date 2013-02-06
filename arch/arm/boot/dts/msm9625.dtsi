@@ -332,7 +332,7 @@
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50";
 	};
 
-	qcom,ipa@fd4c0000 {
+	ipa_hw: qcom,ipa@fd4c0000 {
 		compatible = "qcom,ipa";
 		reg = <0xfd4c0000 0x26000>,
 		      <0xfd4c4000 0x14818>;
