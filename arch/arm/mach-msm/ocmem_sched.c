@@ -1432,17 +1432,14 @@ int process_free(int id, struct ocmem_handle *handle)
 	sched_dequeue(req);
 	mutex_unlock(&sched_mutex);
 
-	if (!TEST_STATE(req, R_FREE)) {
-
+	if (TEST_STATE(req, R_MAPPED)) {
+		/* unmap the interval and clear the memory */
 		rc = process_unmap(req, req->req_start, req->req_end);
-		if (rc < 0)
-			return -EINVAL;
-
-		rc = do_free(req);
 		if (rc < 0)
 			return -EINVAL;
 	}
 
+	/* Turn off the memory */
 	if (req->req_sz != 0) {
 
 		offset = phys_to_offset(req->req_start);
@@ -1454,6 +1451,13 @@ int process_free(int id, struct ocmem_handle *handle)
 			return -EINVAL;
 		}
 
+	}
+
+	if (!TEST_STATE(req, R_FREE)) {
+		/* free the allocation */
+		rc = do_free(req);
+		if (rc < 0)
+			return -EINVAL;
 	}
 
 	inc_ocmem_stat(zone_of(req), NR_FREES);
