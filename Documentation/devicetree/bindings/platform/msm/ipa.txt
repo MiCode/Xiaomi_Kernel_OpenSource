@@ -16,6 +16,7 @@ IPA node:
 - interrupts: Specifies the interrupt associated with IPA.
 - interrupt-names: "ipa-irq" - string to identify the IPA core interrupt.
                    "bam-irq" - string to identify the IPA BAM interrupt.
+- qcom,ipa-hw-ver: Specifies the IPA hardware version.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
@@ -52,6 +53,7 @@ qcom,ipa@fd4c0000 {
 	interrupts = <0 252 0>,
 	             <0 253 0>;
 	interrupt-names = "ipa-irq", "bam-irq";
+	qcom,ipa-hw-ver = <1>;
 
 	qcom,pipe1 {
 		label = "a2-to-ipa";

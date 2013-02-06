@@ -24,3 +24,7 @@
 		reg = <0xfc42b000 0x1000>; /* Address and size of IMEM */
 	};
 };
+
+&ipa_hw {
+	qcom,ipa-hw-ver = <1>; /* IPA h-w revision */
+};
