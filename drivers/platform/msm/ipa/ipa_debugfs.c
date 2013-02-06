@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,7 +33,8 @@ static ssize_t ipa_read_gen_reg(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
-	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"IPA_VERSION=0x%x\n"
 			"IPA_COMP_HW_VERSION=0x%x\n"
 			"IPA_ROUTE=0x%x\n"
@@ -42,11 +43,26 @@ static ssize_t ipa_read_gen_reg(struct file *file, char __user *ubuf,
 			"IPA_HEAD_OF_LINE_BLOCK_EN=0x%x\n",
 			ipa_read_reg(ipa_ctx->mmio, IPA_VERSION_OFST),
 			ipa_read_reg(ipa_ctx->mmio, IPA_COMP_HW_VERSION_OFST),
-			ipa_read_reg(ipa_ctx->mmio, IPA_ROUTE_OFST),
-			ipa_read_reg(ipa_ctx->mmio, IPA_FILTER_OFST),
-			ipa_read_reg(ipa_ctx->mmio, IPA_SHARED_MEM_SIZE_OFST),
+			ipa_read_reg(ipa_ctx->mmio, IPA_ROUTE_OFST_v1),
+			ipa_read_reg(ipa_ctx->mmio, IPA_FILTER_OFST_v1),
 			ipa_read_reg(ipa_ctx->mmio,
-				IPA_HEAD_OF_LINE_BLOCK_EN_OFST));
+				IPA_SHARED_MEM_SIZE_OFST_v1),
+			ipa_read_reg(ipa_ctx->mmio,
+				IPA_HEAD_OF_LINE_BLOCK_EN_OFST)
+				);
+	 else
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"IPA_VERSION=0x%x\n"
+			"IPA_COMP_HW_VERSION=0x%x\n"
+			"IPA_ROUTE=0x%x\n"
+			"IPA_FILTER=0x%x\n"
+			"IPA_SHARED_MEM_SIZE=0x%x\n",
+			ipa_read_reg(ipa_ctx->mmio, IPA_VERSION_OFST),
+			ipa_read_reg(ipa_ctx->mmio, IPA_COMP_HW_VERSION_OFST),
+			ipa_read_reg(ipa_ctx->mmio, IPA_ROUTE_OFST_v2),
+			ipa_read_reg(ipa_ctx->mmio, IPA_FILTER_OFST_v2),
+			ipa_read_reg(ipa_ctx->mmio, IPA_SHARED_MEM_SIZE_OFST_v2)
+				);
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -100,22 +116,42 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 	pos = *ppos;
 	for (i = start_idx; i < end_idx; i++) {
 
-		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+		if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+			nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"IPA_ENDP_INIT_NAT_%u=0x%x\n"
 				"IPA_ENDP_INIT_HDR_%u=0x%x\n"
 				"IPA_ENDP_INIT_MODE_%u=0x%x\n"
 				"IPA_ENDP_INIT_AGGR_%u=0x%x\n"
 				"IPA_ENDP_INIT_ROUTE_%u=0x%x\n",
 				i, ipa_read_reg(ipa_ctx->mmio,
-					IPA_ENDP_INIT_NAT_n_OFST(i)),
+					IPA_ENDP_INIT_NAT_n_OFST_v1(i)),
 				i, ipa_read_reg(ipa_ctx->mmio,
-					IPA_ENDP_INIT_HDR_n_OFST(i)),
+					IPA_ENDP_INIT_HDR_n_OFST_v1(i)),
 				i, ipa_read_reg(ipa_ctx->mmio,
-					IPA_ENDP_INIT_MODE_n_OFST(i)),
+					IPA_ENDP_INIT_MODE_n_OFST_v1(i)),
 				i, ipa_read_reg(ipa_ctx->mmio,
-					IPA_ENDP_INIT_AGGR_n_OFST(i)),
+					IPA_ENDP_INIT_AGGR_n_OFST_v1(i)),
 				i, ipa_read_reg(ipa_ctx->mmio,
-					IPA_ENDP_INIT_ROUTE_n_OFST(i)));
+					IPA_ENDP_INIT_ROUTE_n_OFST_v1(i)));
+		} else {
+			nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"IPA_ENDP_INIT_NAT_%u=0x%x\n"
+				"IPA_ENDP_INIT_HDR_%u=0x%x\n"
+				"IPA_ENDP_INIT_MODE_%u=0x%x\n"
+				"IPA_ENDP_INIT_AGGR_%u=0x%x\n"
+				"IPA_ENDP_INIT_ROUTE_%u=0x%x\n",
+				i, ipa_read_reg(ipa_ctx->mmio,
+					IPA_ENDP_INIT_NAT_n_OFST_v2(i)),
+				i, ipa_read_reg(ipa_ctx->mmio,
+					IPA_ENDP_INIT_HDR_n_OFST_v2(i)),
+				i, ipa_read_reg(ipa_ctx->mmio,
+					IPA_ENDP_INIT_MODE_n_OFST_v2(i)),
+				i, ipa_read_reg(ipa_ctx->mmio,
+					IPA_ENDP_INIT_AGGR_n_OFST_v2(i)),
+				i, ipa_read_reg(ipa_ctx->mmio,
+					IPA_ENDP_INIT_ROUTE_n_OFST_v2(i)));
+		}
+
 		*ppos = pos;
 		ret = simple_read_from_buffer(ubuf, count, ppos, dbg_buff,
 					      nbytes);
