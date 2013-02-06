@@ -312,6 +312,8 @@ struct mdss_data_type *mdss_mdp_get_mdata(void);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en);
+int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
+		u32 *offsets,  u32 count);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl);

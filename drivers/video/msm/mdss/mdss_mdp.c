@@ -116,6 +116,7 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ctl(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_video_intf(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
 				      char *prop_name, u32 *offsets, int len);
 static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
@@ -1039,6 +1040,12 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = mdss_mdp_parse_dt_video_intf(pdev);
+	if (rc) {
+		pr_err("Error in device tree : ctl\n");
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -1262,6 +1269,39 @@ parse_done:
 	kfree(wb_offsets);
 wb_alloc_fail:
 	kfree(ctl_offsets);
+
+	return rc;
+}
+
+static int mdss_mdp_parse_dt_video_intf(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	u32 count;
+	u32 *offsets;
+	int rc;
+
+
+	count = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-intf-off");
+	if (count == 0)
+		return -EINVAL;
+
+	offsets = kzalloc(sizeof(u32) * count, GFP_KERNEL);
+	if (!offsets) {
+		pr_err("no mem assigned for video intf\n");
+		return -ENOMEM;
+	}
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-intf-off",
+			offsets, count);
+	if (rc)
+		goto parse_fail;
+
+	rc = mdss_mdp_video_addr_setup(mdata, offsets, count);
+	if (rc)
+		pr_err("unable to setup video interfaces\n");
+
+parse_fail:
+	kfree(offsets);
 
 	return rc;
 }
