@@ -346,16 +346,75 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	return -EINVAL;
 }
 
+void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
+{
+	struct msm_vfe_error_info *error_info = &vfe_dev->error_info;
+	error_info->info_dump_frame_count++;
+	if (error_info->info_dump_frame_count == 0)
+		error_info->info_dump_frame_count++;
+}
+
+void msm_isp_process_error_info(struct vfe_device *vfe_dev)
+{
+	int i;
+	struct msm_vfe_error_info *error_info = &vfe_dev->error_info;
+	if (error_info->error_count == 1 ||
+		!(error_info->info_dump_frame_count % 100)) {
+		vfe_dev->hw_info->vfe_ops.core_ops.
+			process_error_status(vfe_dev);
+		error_info->error_mask0 = 0;
+		error_info->error_mask1 = 0;
+		error_info->camif_status = 0;
+		error_info->violation_status = 0;
+		for (i = 0; i < MAX_NUM_STREAM; i++) {
+			if (error_info->stream_framedrop_count[i] != 0) {
+				pr_err("%s: Stream[%d]: dropped %d frames\n",
+					__func__, i,
+					error_info->stream_framedrop_count[i]);
+				error_info->stream_framedrop_count[i] = 0;
+			}
+		}
+		for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
+			if (error_info->stats_framedrop_count[i] != 0) {
+				pr_err("%s: Stats stream[%d]: dropped %d frames\n",
+					__func__, i,
+					error_info->stats_framedrop_count[i]);
+				error_info->stats_framedrop_count[i] = 0;
+			}
+		}
+	}
+}
+
+static inline void msm_isp_update_error_info(struct vfe_device *vfe_dev,
+	uint32_t error_mask0, uint32_t error_mask1)
+{
+	vfe_dev->error_info.error_mask0 |= error_mask0;
+	vfe_dev->error_info.error_mask1 |= error_mask1;
+	vfe_dev->error_info.error_count++;
+}
+
 irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 {
 	unsigned long flags;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct vfe_device *vfe_dev = (struct vfe_device *) data;
 	uint32_t irq_status0, irq_status1;
+	uint32_t error_mask0, error_mask1;
 
 	vfe_dev->hw_info->vfe_ops.irq_ops.
 		read_irq_status(vfe_dev, &irq_status0, &irq_status1);
-	if ((irq_status0 == 0) && (irq_status1 == 0)) {
+	vfe_dev->hw_info->vfe_ops.core_ops.
+		get_error_mask(&error_mask0, &error_mask1);
+	error_mask0 &= irq_status0;
+	error_mask1 &= irq_status1;
+	irq_status0 &= ~error_mask0;
+	irq_status1 &= ~error_mask1;
+	if ((error_mask0 != 0) || (error_mask1 != 0))
+		msm_isp_update_error_info(vfe_dev, error_mask0, error_mask1);
+
+	if ((irq_status0 == 0) && (irq_status1 == 0) &&
+		(!((error_mask0 != 0) || (error_mask1 != 0)) &&
+		 vfe_dev->error_info.error_count == 1)) {
 		ISP_DBG("%s: irq_status0 & 1 are both 0!\n", __func__);
 		return IRQ_HANDLED;
 	}
@@ -412,13 +471,12 @@ void msm_isp_do_tasklet(unsigned long data)
 			irq_status0, irq_status1);
 		irq_ops->process_camif_irq(vfe_dev,
 			irq_status0, irq_status1, &tv);
-		irq_ops->process_error_irq(vfe_dev,
-			irq_status0, irq_status1);
 		irq_ops->process_axi_irq(vfe_dev,
 			irq_status0, irq_status1, &tv);
 		irq_ops->process_stats_irq(vfe_dev,
 			irq_status0, irq_status1, &tv);
 		irq_ops->process_reg_update(vfe_dev, irq_status0, irq_status1);
+		msm_isp_process_error_info(vfe_dev);
 	}
 }
 
@@ -465,6 +523,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	memset(&vfe_dev->axi_data, 0, sizeof(struct msm_vfe_axi_shared_data));
 	memset(&vfe_dev->stats_data, 0,
 		sizeof(struct msm_vfe_stats_shared_data));
+	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 
 	ISP_DBG("%s: HW Version: 0x%x\n",

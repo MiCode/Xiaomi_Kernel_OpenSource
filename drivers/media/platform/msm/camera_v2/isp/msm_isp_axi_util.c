@@ -29,27 +29,30 @@ int msm_isp_axi_create_stream(
 		return rc;
 	}
 
-	axi_data->stream_info[i].session_id = stream_cfg_cmd->session_id;
-	axi_data->stream_info[i].stream_id = stream_cfg_cmd->stream_id;
-	axi_data->stream_info[i].buf_divert = stream_cfg_cmd->buf_divert;
-	axi_data->stream_info[i].state = INACTIVE;
-
 	if ((axi_data->stream_handle_cnt << 8) == 0)
 		axi_data->stream_handle_cnt++;
 
 	stream_cfg_cmd->axi_stream_handle =
 		(++axi_data->stream_handle_cnt) << 8 | i;
 
+	axi_data->stream_info[i].session_id = stream_cfg_cmd->session_id;
+	axi_data->stream_info[i].stream_id = stream_cfg_cmd->stream_id;
+	axi_data->stream_info[i].buf_divert = stream_cfg_cmd->buf_divert;
+	axi_data->stream_info[i].state = INACTIVE;
+	axi_data->stream_info[i].stream_handle =
+		stream_cfg_cmd->axi_stream_handle;
 	return 0;
 }
 
 void msm_isp_axi_destroy_stream(
 	struct msm_vfe_axi_shared_data *axi_data, int stream_idx)
 {
-	if (axi_data->stream_info[stream_idx].state != AVALIABLE)
+	if (axi_data->stream_info[stream_idx].state != AVALIABLE) {
 		axi_data->stream_info[stream_idx].state = AVALIABLE;
-	else
+		axi_data->stream_info[stream_idx].stream_handle = 0;
+	} else {
 		pr_err("%s: stream does not exist\n", __func__);
+	}
 }
 
 int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
@@ -659,6 +662,7 @@ int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	struct msm_isp_event_data buf_event;
 	uint32_t pingpong_bit = 0;
 	uint32_t bufq_handle = stream_info->bufq_handle;
+	uint32_t stream_idx = stream_info->stream_handle & 0xFF;
 
 	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
 	rc = vfe_dev->buf_mgr->ops->get_buf(
@@ -672,9 +676,8 @@ int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			else
 				buf = stream_info->buf[1];
 		} else {
-			pr_err("%s: No free buffer, stream_type = %d, burst_cnt = %d\n",
-				__func__, stream_info->stream_type,
-				stream_info->burst_frame_count);
+			vfe_dev->error_info.
+				stream_framedrop_count[stream_idx]++;
 			return rc;
 		}
 	}
