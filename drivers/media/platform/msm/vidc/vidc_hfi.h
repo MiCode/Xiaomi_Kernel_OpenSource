@@ -830,7 +830,7 @@ struct msm_vidc_fw {
 
 extern struct hal_device_data hal_ctxt;
 
-void hfi_process_msg_packet(msm_vidc_callback callback,
+u32 hfi_process_msg_packet(msm_vidc_callback callback,
 		u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr);
 #endif
 

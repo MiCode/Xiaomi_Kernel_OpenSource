@@ -823,19 +823,21 @@ static void hfi_process_session_get_seq_hdr_done(
 	callback(SESSION_GET_SEQ_HDR_DONE, &data_done);
 }
 
-void hfi_process_msg_packet(
+u32 hfi_process_msg_packet(
 		msm_vidc_callback callback, u32 device_id,
 		struct vidc_hal_msg_pkt_hdr *msg_hdr)
 {
+	u32 rc = 0;
 	if (!callback || !msg_hdr || msg_hdr->size <
 		VIDC_IFACEQ_MIN_PKT_SIZE) {
 		dprintk(VIDC_ERR, "hal_process_msg_packet:bad"
 			"packet/packet size: %d", msg_hdr->size);
-		return;
+		rc = -EINVAL;
+		return rc;
 	}
 
 	dprintk(VIDC_INFO, "Received: 0x%x in ", msg_hdr->packet);
-
+	rc = (u32) msg_hdr->packet;
 	switch (msg_hdr->packet) {
 	case HFI_MSG_EVENT_NOTIFY:
 		hfi_process_event_notify(callback, device_id,
@@ -845,6 +847,8 @@ void hfi_process_msg_packet(
 		hfi_process_sys_init_done(callback, device_id,
 			(struct hfi_msg_sys_init_done_packet *)
 					msg_hdr);
+		break;
+	case HFI_MSG_SYS_IDLE:
 		break;
 	case HFI_MSG_SYS_SESSION_INIT_DONE:
 		hfi_process_session_init_done(callback, device_id,
@@ -915,4 +919,5 @@ void hfi_process_msg_packet(
 		dprintk(VIDC_ERR, "UNKNOWN_MSG_TYPE : %d", msg_hdr->packet);
 		break;
 	}
+	return rc;
 }

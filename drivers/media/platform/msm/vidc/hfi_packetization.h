@@ -22,6 +22,10 @@ int create_pkt_cmd_sys_init(struct hfi_cmd_sys_init_packet *pkt,
 							   u32 arch_type);
 int create_pkt_cmd_sys_pc_prep(struct hfi_cmd_sys_pc_prep_packet *pkt);
 
+int create_pkt_cmd_sys_idle_indicator(
+		struct hfi_cmd_sys_set_property_packet *pkt,
+		u32 enable);
+
 int create_pkt_set_cmd_sys_resource(
 		struct hfi_cmd_sys_set_resource_packet *pkt,
 		struct vidc_resource_hdr *resource_hdr,
