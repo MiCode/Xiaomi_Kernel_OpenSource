@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,8 @@
  */
 #ifndef ADSPRPC_SHARED_H
 #define ADSPRPC_SHARED_H
+
+#include <linux/types.h>
 
 #define FASTRPC_IOCTL_INVOKE _IOWR('R', 1, struct fastrpc_ioctl_invoke)
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
