@@ -39,6 +39,8 @@
 #include "qcryptohw_50.h"
 
 #define CRYPTO_CONFIG_RESET 0xE001F
+#define QCE_MAX_NUM_DSCR    0x400
+#define QCE_SIZE_BAM_DSCR   0x08
 
 static DEFINE_MUTEX(bam_register_cnt);
 struct bam_registration_info {
@@ -1042,7 +1044,7 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 	 * descriptor memory (256 bytes + 8 bytes). But in order to be
 	 * in power of 2, we are allocating 512 bytes of memory.
 	 */
-	sps_connect_info->desc.size = 512;
+	sps_connect_info->desc.size = QCE_MAX_NUM_DSCR * QCE_SIZE_BAM_DSCR;
 	sps_connect_info->desc.base = dma_alloc_coherent(pce_dev->pdev,
 					sps_connect_info->desc.size,
 					&sps_connect_info->desc.phys_base,
