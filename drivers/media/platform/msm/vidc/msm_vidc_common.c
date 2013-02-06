@@ -819,8 +819,13 @@ static void  handle_seq_hdr_done(enum command_response cmd, void *data)
 	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
 	vb = get_vb_from_device_addr(&inst->bufq[CAPTURE_PORT],
 		(u32)fill_buf_done->packet_buffer1);
-	if (vb)
-		vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
+	if (!vb) {
+		dprintk(VIDC_ERR,
+				"Failed to find video buffer for seq_hdr_done");
+		return;
+	}
+
+	vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
 
 	vb->v4l2_buf.flags = V4L2_QCOM_BUF_FLAG_CODECCONFIG;
 
