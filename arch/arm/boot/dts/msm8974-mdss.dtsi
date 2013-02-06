@@ -36,6 +36,8 @@
 		qcom,mdss-dspp-off = <0x00004600 0x00004A00 0x00004E00>;
 		qcom,mdss-wb-off = <0x00011100 0x00013100 0x00015100
 				    0x00017100 0x00019100>;
+		qcom,mdss-intf-off = <0x00021100 0x00021300
+					   0x00021500 0x00021700>;
 
 		qcom,vbif-settings = <0x0004 0x00000001>,
 				     <0x00D8 0x00000707>,

@@ -75,6 +75,13 @@ Required properties
 				The number of writeback mixer offsets defined
 				should reflect the number of mixers that can
 				drive data to a writeback block.
+- qcom,mdss-intf-off:		Array of offset addresses for the available MDP
+				video interface blocks that can drive data to a
+				panel controller through timing engine.
+				The offsets are calculated from "mdp_phys"
+				defined in reg property. The number of offsets
+				defiend should reflect the number of progammable
+				interface blocks avaialble in hardware.
 
 Optional properties:
 - qcom,vbif-settings :	Array with key-value pairs of constant VBIF register
@@ -125,6 +132,8 @@ Example:
 		qcom,mdss-dspp-off = <0x00004600 0x00004A00 0x00004E00>;
 		qcom,mdss-wb-off = <0x00011100 0x00013100 0x00015100
 				    0x00017100 0x00019100>;
+		qcom,mdss-intf-off = <0x00021100 0x00021300
+					   0x00021500 0x00021700>;
 
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;

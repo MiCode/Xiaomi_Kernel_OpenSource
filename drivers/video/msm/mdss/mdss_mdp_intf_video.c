@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,9 +38,8 @@ struct intf_timing_params {
 	u32 hsync_skew;
 };
 
-#define MAX_SESSIONS 3
 struct mdss_mdp_video_ctx {
-	u32 pp_num;
+	u32 intf_num;
 	char __iomem *base;
 	u32 intf_type;
 	u8 ref_cnt;
@@ -53,12 +52,34 @@ struct mdss_mdp_video_ctx {
 	mdp_vsync_handler_t vsync_handler;
 };
 
-struct mdss_mdp_video_ctx mdss_mdp_video_ctx_list[MAX_SESSIONS];
-
 static inline void mdp_video_write(struct mdss_mdp_video_ctx *ctx,
 				   u32 reg, u32 val)
 {
 	writel_relaxed(val, ctx->base + reg);
+}
+
+int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
+				u32 *offsets,  u32 count)
+{
+	struct mdss_mdp_video_ctx *head;
+	u32 i;
+
+	head = devm_kzalloc(&mdata->pdev->dev,
+			sizeof(struct mdss_mdp_video_ctx) * count, GFP_KERNEL);
+	if (!head)
+		return -ENOMEM;
+
+	for (i = 0; i < count; i++) {
+		head[i].base = mdata->mdp_base + offsets[i];
+		pr_debug("adding Video Intf #%d offset=0x%x virt=%p\n", i,
+				offsets[i], head[i].base);
+		head[i].ref_cnt = 0;
+		head[i].intf_num = i + MDSS_MDP_INTF0;
+	}
+
+	mdata->video_intf = head;
+	mdata->nintf = count;
+	return 0;
 }
 
 static int mdss_mdp_video_timegen_setup(struct mdss_mdp_video_ctx *ctx,
@@ -228,10 +249,8 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num,
 				   NULL, NULL);
-	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
-				   NULL, NULL);
 
-	memset(ctx, 0, sizeof(*ctx));
+	ctx->ref_cnt--;
 
 	return 0;
 }
@@ -301,12 +320,14 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 {
+	struct mdss_data_type *mdata;
 	struct mdss_panel_info *pinfo;
 	struct mdss_mdp_video_ctx *ctx;
 	struct mdss_mdp_mixer *mixer;
 	struct intf_timing_params itp = {0};
 	int i;
 
+	mdata = ctl->mdata;
 	pinfo = &ctl->panel_data->panel_info;
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 
@@ -315,23 +336,23 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 		return -ENODEV;
 	}
 
+	i = ctl->intf_num - MDSS_MDP_INTF0;
+	if (i < mdata->nintf) {
+		ctx = ((struct mdss_mdp_video_ctx *) mdata->video_intf) + i;
+		if (ctx->ref_cnt) {
+			pr_err("Intf %d already in use\n", ctl->intf_num);
+			return -EBUSY;
+		}
+		pr_debug("video Intf #%d base=%p", ctx->intf_num, ctx->base);
+		ctx->ref_cnt++;
+	} else {
+		pr_err("Invalid intf number: %d\n", ctl->intf_num);
+		return -EINVAL;
+	}
+
 	pr_debug("start ctl=%u\n", ctl->num);
 
-	for (i = 0; i < MAX_SESSIONS; i++) {
-		ctx = &mdss_mdp_video_ctx_list[i];
-		if (ctx->ref_cnt == 0) {
-			ctx->ref_cnt++;
-			break;
-		}
-	}
-	if (i == MAX_SESSIONS) {
-		pr_err("too many sessions\n");
-		return -ENOMEM;
-	}
 	ctl->priv_data = ctx;
-	ctx->base = ctl->mdata->mdp_base +
-		MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
-	ctx->pp_num = mixer->num;
 	ctx->intf_type = ctl->intf_type;
 	init_completion(&ctx->vsync_comp);
 	spin_lock_init(&ctx->vsync_lock);
