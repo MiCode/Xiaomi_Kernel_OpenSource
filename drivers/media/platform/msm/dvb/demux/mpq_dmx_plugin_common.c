@@ -387,8 +387,8 @@ static int mpq_dmx_framing_pattern_search(
 					break;
 				}
 			}
-			current_size--;
 			prefix &= ~(0x1 << (current_size - 1));
+			current_size--;
 		}
 	}
 
@@ -2671,11 +2671,16 @@ static int mpq_dmx_process_video_packet_framing(
 			MPQ_DVB_DBG_PRINT("%s: could not write prefix\n",
 				__func__);
 		} else {
-			MPQ_DVB_DBG_PRINT("%s: Prefix = %d\n",
+			MPQ_DVB_DBG_PRINT(
+				"%s: Writing pattern prefix of size %d\n",
 				__func__, feed_data->first_prefix_size);
-			pending_data_len += feed_data->first_prefix_size;
+			/*
+			 * update the length of the data we report
+			 * to include the size of the prefix that was used.
+			 */
+			feed_data->pending_pattern_len +=
+				feed_data->first_prefix_size;
 		}
-		feed_data->first_prefix_size = 0;
 	}
 
 	feed->peslen += bytes_avail;
@@ -2684,9 +2689,37 @@ static int mpq_dmx_process_video_packet_framing(
 	meta_data.packet_type = DMX_FRAMING_INFO_PACKET;
 	packet.user_data_len = sizeof(struct mpq_adapter_video_meta_data);
 
+	/*
+	 * Go over all the patterns that were found in this packet.
+	 * For each pattern found, write the relevant data to the data
+	 * buffer, then write the respective meta-data.
+	 * Each pattern can only be reported when the next pattern is found
+	 * (in order to know the data length).
+	 * There are three possible cases for each pattern:
+	 * 1. This is the very first pattern we found in any TS packet in this
+	 *    feed.
+	 * 2. This is the first pattern found in this TS packet, but we've
+	 *    already found patterns in previous packets.
+	 * 3. This is not the first pattern in this packet, i.e., we've
+	 *    already found patterns in this TS packet.
+	 */
 	for (i = first_pattern; i < found_patterns; i++) {
 		if (i == first_pattern) {
-			if (0 == feed_data->pending_pattern_len) {
+			/*
+			 * The way to identify the very first pattern:
+			 * 1. It's the first pattern found in this packet.
+			 * 2. The pending_pattern_len, which indicates the
+			 *    data length of the previous pattern that has
+			 *    not yet been reported, is usually 0. However,
+			 *    it may be larger than 0 if a prefix was used
+			 *    to find this pattern (i.e., the pattern was
+			 *    split over two TS packets). In that case,
+			 *    pending_pattern_len equals first_prefix_size.
+			 *    first_prefix_size is set to 0 later in this
+			 *    function.
+			 */
+			if (feed_data->first_prefix_size ==
+				feed_data->pending_pattern_len) {
 				/*
 				 * This is the very first pattern, so no
 				 * previous pending frame data exists.
@@ -2733,6 +2766,7 @@ static int mpq_dmx_process_video_packet_framing(
 		is_video_frame = mpq_dmx_is_video_frame(
 				feed->indexing_params.standard,
 				feed_data->last_framing_match_type);
+
 		if (is_video_frame == 1) {
 			mpq_dmx_write_pts_dts(feed_data,
 				&(meta_data.info.framing.pts_dts_info));
@@ -2785,6 +2819,8 @@ static int mpq_dmx_process_video_packet_framing(
 		feed_data->last_pattern_offset =
 			framing_res.info[i].offset;
 	}
+
+	feed_data->first_prefix_size = 0;
 
 	if (pending_data_len) {
 		ret = mpq_streambuffer_data_write(
