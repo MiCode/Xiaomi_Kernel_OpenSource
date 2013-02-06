@@ -30,8 +30,8 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	rc = vfe_dev->buf_mgr->ops->get_buf(
 		vfe_dev->buf_mgr, bufq_handle, &buf);
 	if (rc < 0) {
-		pr_err("%s: No free buffer, stats_stream = %d\n",
-			__func__, stream_info->stream_handle);
+		vfe_dev->error_info.stats_framedrop_count[
+			STATS_IDX(stream_info->stream_handle)]++;
 		return rc;
 	}
 

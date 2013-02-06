@@ -136,6 +136,8 @@ struct msm_vfe_core_ops {
 	void (*update_camif_state) (struct vfe_device *vfe_dev,
 		enum msm_isp_camif_update_state update_state);
 	int (*get_platform_data) (struct vfe_device *vfe_dev);
+	void (*get_error_mask) (uint32_t *error_mask0, uint32_t *error_mask1);
+	void (*process_error_status) (struct vfe_device *vfe_dev);
 };
 struct msm_vfe_stats_ops {
 	int (*get_stats_idx) (enum msm_isp_stats_type stats_type);
@@ -327,6 +329,17 @@ struct msm_vfe_tasklet_queue_cmd {
 
 #define MSM_VFE_TASKLETQ_SIZE 200
 
+struct msm_vfe_error_info {
+	uint32_t error_mask0;
+	uint32_t error_mask1;
+	uint32_t violation_status;
+	uint32_t camif_status;
+	uint32_t stream_framedrop_count[MAX_NUM_STREAM];
+	uint32_t stats_framedrop_count[MSM_ISP_STATS_MAX];
+	uint32_t info_dump_frame_count;
+	uint32_t error_count;
+};
+
 struct vfe_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev subdev;
@@ -363,6 +376,7 @@ struct vfe_device {
 
 	struct msm_vfe_axi_shared_data axi_data;
 	struct msm_vfe_stats_shared_data stats_data;
+	struct msm_vfe_error_info error_info;
 	struct msm_isp_buf_mgr *buf_mgr;
 	int dump_reg;
 	uint32_t vfe_open_cnt;

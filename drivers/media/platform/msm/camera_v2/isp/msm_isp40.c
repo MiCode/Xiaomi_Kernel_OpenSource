@@ -304,11 +304,10 @@ static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
 	}
 }
 
-static void msm_vfe40_process_violation_irq(
+static void msm_vfe40_process_violation_status(
 	struct vfe_device *vfe_dev)
 {
-	uint32_t violation_status;
-	violation_status = msm_camera_io_r(vfe_dev->vfe_base + 0x48);
+	uint32_t violation_status = vfe_dev->error_info.violation_status;
 	if (!violation_status)
 		return;
 
@@ -370,63 +369,57 @@ static void msm_vfe40_process_violation_irq(
 		pr_err("%s: realign buf cr violation\n", __func__);
 }
 
-static void msm_vfe40_process_error_irq(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1)
+static void msm_vfe40_process_error_status(struct vfe_device *vfe_dev)
 {
-	uint32_t camif_status;
-	if (!(irq_status1 & 0x00FFFEFF))
-		return;
-
-	if (irq_status1 & (1 << 0)) {
-		camif_status = msm_camera_io_r(vfe_dev->vfe_base + 0x31C);
+	uint32_t error_status1 = vfe_dev->error_info.error_mask1;
+	if (error_status1 & (1 << 0))
 		pr_err("%s: camif error status: 0x%x\n",
-			__func__, camif_status);
-	}
-	if (irq_status1 & (1 << 1))
+			__func__, vfe_dev->error_info.camif_status);
+	if (error_status1 & (1 << 1))
 		pr_err("%s: stats bhist overwrite\n", __func__);
-	if (irq_status1 & (1 << 2))
+	if (error_status1 & (1 << 2))
 		pr_err("%s: stats cs overwrite\n", __func__);
-	if (irq_status1 & (1 << 3))
+	if (error_status1 & (1 << 3))
 		pr_err("%s: stats ihist overwrite\n", __func__);
-	if (irq_status1 & (1 << 4))
+	if (error_status1 & (1 << 4))
 		pr_err("%s: realign buf y overflow\n", __func__);
-	if (irq_status1 & (1 << 5))
+	if (error_status1 & (1 << 5))
 		pr_err("%s: realign buf cb overflow\n", __func__);
-	if (irq_status1 & (1 << 6))
+	if (error_status1 & (1 << 6))
 		pr_err("%s: realign buf cr overflow\n", __func__);
-	if (irq_status1 & (1 << 7)) {
+	if (error_status1 & (1 << 7)) {
 		pr_err("%s: violation\n", __func__);
-		msm_vfe40_process_violation_irq(vfe_dev);
+		msm_vfe40_process_violation_status(vfe_dev);
 	}
-	if (irq_status1 & (1 << 9))
+	if (error_status1 & (1 << 9))
 		pr_err("%s: image master 0 bus overflow\n", __func__);
-	if (irq_status1 & (1 << 10))
+	if (error_status1 & (1 << 10))
 		pr_err("%s: image master 1 bus overflow\n", __func__);
-	if (irq_status1 & (1 << 11))
+	if (error_status1 & (1 << 11))
 		pr_err("%s: image master 2 bus overflow\n", __func__);
-	if (irq_status1 & (1 << 12))
+	if (error_status1 & (1 << 12))
 		pr_err("%s: image master 3 bus overflow\n", __func__);
-	if (irq_status1 & (1 << 13))
+	if (error_status1 & (1 << 13))
 		pr_err("%s: image master 4 bus overflow\n", __func__);
-	if (irq_status1 & (1 << 14))
+	if (error_status1 & (1 << 14))
 		pr_err("%s: image master 5 bus overflow\n", __func__);
-	if (irq_status1 & (1 << 15))
+	if (error_status1 & (1 << 15))
 		pr_err("%s: image master 6 bus overflow\n", __func__);
-	if (irq_status1 & (1 << 16))
+	if (error_status1 & (1 << 16))
 		pr_err("%s: status be bus overflow\n", __func__);
-	if (irq_status1 & (1 << 17))
+	if (error_status1 & (1 << 17))
 		pr_err("%s: status bg bus overflow\n", __func__);
-	if (irq_status1 & (1 << 18))
+	if (error_status1 & (1 << 18))
 		pr_err("%s: status bf bus overflow\n", __func__);
-	if (irq_status1 & (1 << 19))
+	if (error_status1 & (1 << 19))
 		pr_err("%s: status awb bus overflow\n", __func__);
-	if (irq_status1 & (1 << 20))
+	if (error_status1 & (1 << 20))
 		pr_err("%s: status rs bus overflow\n", __func__);
-	if (irq_status1 & (1 << 21))
+	if (error_status1 & (1 << 21))
 		pr_err("%s: status cs bus overflow\n", __func__);
-	if (irq_status1 & (1 << 22))
+	if (error_status1 & (1 << 22))
 		pr_err("%s: status ihist bus overflow\n", __func__);
-	if (irq_status1 & (1 << 23))
+	if (error_status1 & (1 << 23))
 		pr_err("%s: status skin bhist bus overflow\n", __func__);
 }
 
@@ -438,6 +431,15 @@ static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
 	msm_camera_io_w(*irq_status0, vfe_dev->vfe_base + 0x30);
 	msm_camera_io_w(*irq_status1, vfe_dev->vfe_base + 0x34);
 	msm_camera_io_w_mb(1, vfe_dev->vfe_base + 0x24);
+
+	if (*irq_status1 & (1 << 0))
+		vfe_dev->error_info.camif_status =
+		msm_camera_io_r(vfe_dev->vfe_base + 0x31C);
+
+	if (*irq_status1 & (1 << 7))
+		vfe_dev->error_info.violation_status |=
+		msm_camera_io_r(vfe_dev->vfe_base + 0x48);
+
 }
 
 static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
@@ -451,6 +453,7 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 	if (vfe_dev->axi_data.stream_update)
 		msm_isp_axi_stream_update(vfe_dev);
 	msm_isp_update_framedrop_reg(vfe_dev);
+	msm_isp_update_error_frame_count(vfe_dev);
 
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		reg_update(vfe_dev, update_mask);
@@ -1203,6 +1206,13 @@ vfe_no_resource:
 	return rc;
 }
 
+static void msm_vfe40_get_error_mask(
+	uint32_t *error_mask0, uint32_t *error_mask1)
+{
+	*error_mask0 = 0x00000000;
+	*error_mask1 = 0x00FFFEFF;
+}
+
 static struct msm_vfe_axi_hardware_info msm_vfe40_axi_hw_info = {
 	.num_wm = 4,
 	.num_comp_mask = 4,
@@ -1246,7 +1256,6 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.process_reset_irq = msm_vfe40_process_reset_irq,
 			.process_halt_irq = msm_vfe40_process_halt_irq,
 			.process_reset_irq = msm_vfe40_process_reset_irq,
-			.process_error_irq = msm_vfe40_process_error_irq,
 			.process_reg_update = msm_vfe40_process_reg_update,
 			.process_axi_irq = msm_isp_process_axi_irq,
 			.process_stats_irq = msm_isp_process_stats_irq,
@@ -1284,6 +1293,8 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.init_hw_reg = msm_vfe40_init_hardware_reg,
 			.release_hw = msm_vfe40_release_hardware,
 			.get_platform_data = msm_vfe40_get_platform_data,
+			.get_error_mask = msm_vfe40_get_error_mask,
+			.process_error_status = msm_vfe40_process_error_status,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe40_get_stats_idx,
