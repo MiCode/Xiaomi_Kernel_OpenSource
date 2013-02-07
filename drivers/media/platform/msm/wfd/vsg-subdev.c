@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -101,8 +101,8 @@ static void vsg_work_func(struct work_struct *task)
 
 	list_for_each_entry(temp, &context->busy_queue.node, node) {
 		if (++count > MAX_BUFS_BUSY_WITH_ENC) {
-			WFD_MSG_WARN("Skipping encode, too many "
-				"buffers with encoder");
+			WFD_MSG_WARN(
+				"Skipping encode, too many buffers with encoder\n");
 			goto err_skip_encode;
 		}
 	}
@@ -158,8 +158,11 @@ static void vsg_work_func(struct work_struct *task)
 				&& can_release) {
 				vsg_release_input_buffer(context,
 					old_last_buffer);
-				kfree(old_last_buffer);
 			}
+
+			if (last_buf_with_us)
+				kfree(old_last_buffer);
+
 		}
 		vsg_set_last_buffer(context, buf_info);
 	}
@@ -406,8 +409,8 @@ static long vsg_queue_buffer(struct v4l2_subdev *sd, void *arg)
 			if (!is_last_buffer &&
 				!(temp->flags & VSG_NEVER_RELEASE)) {
 				vsg_release_input_buffer(context, temp);
-				kfree(temp);
 			}
+			kfree(temp);
 		}
 	}
 
@@ -458,8 +461,8 @@ queue_err_bad_param:
 static long vsg_return_ip_buffer(struct v4l2_subdev *sd, void *arg)
 {
 	struct vsg_context *context = NULL;
-	struct vsg_buf_info *buf_info, *last_buffer,
-			*expected_buffer;
+	struct vsg_buf_info *buf_info = NULL, *last_buffer = NULL,
+			*expected_buffer = NULL;
 	int rc = 0;
 
 	if (!arg || !sd) {
@@ -473,8 +476,10 @@ static long vsg_return_ip_buffer(struct v4l2_subdev *sd, void *arg)
 	buf_info = (struct vsg_buf_info *)arg;
 	last_buffer = context->last_buffer;
 
-	expected_buffer = list_first_entry(&context->busy_queue.node,
-			struct vsg_buf_info, node);
+	if (!list_empty(&context->busy_queue.node)) {
+		expected_buffer = list_first_entry(&context->busy_queue.node,
+				struct vsg_buf_info, node);
+	}
 
 	WFD_MSG_DBG("Return frame with paddr %p\n",
 			(void *)buf_info->mdp_buf_info.paddr);
