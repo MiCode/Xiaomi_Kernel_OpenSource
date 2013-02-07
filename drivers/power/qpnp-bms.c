@@ -116,6 +116,8 @@ struct qpnp_bms_chip {
 	u8				revision1;
 	u8				revision2;
 	int				battery_present;
+	bool				new_battery;
+	bool				last_soc_invalid;
 	/* platform data */
 	int				r_sense_uohm;
 	unsigned int			v_cutoff_uv;
@@ -135,6 +137,7 @@ struct qpnp_bms_chip {
 	int				default_rbatt_mohm;
 
 	struct delayed_work		calculate_soc_delayed_work;
+	struct work_struct		recalc_work;
 
 	struct mutex			bms_output_lock;
 	struct mutex			last_ocv_uv_mutex;
@@ -144,7 +147,7 @@ struct qpnp_bms_chip {
 	bool				use_ocv_thresholds;
 
 	bool				ignore_shutdown_soc;
-	int				shutdown_soc_invalid;
+	bool				shutdown_soc_invalid;
 	int				shutdown_soc;
 	int				shutdown_iavg_ma;
 
@@ -552,6 +555,100 @@ static void reset_cc(struct qpnp_bms_chip *chip)
 		pr_err("cc reenable failed: %d\n", rc);
 }
 
+static bool is_battery_charging(struct qpnp_bms_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the status property */
+		chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_STATUS, &ret);
+		return ret.intval == POWER_SUPPLY_STATUS_CHARGING;
+	}
+
+	/* Default to false if the battery power supply is not registered. */
+	pr_debug("battery power supply is not registered\n");
+	return false;
+}
+
+static bool is_batfet_open(struct qpnp_bms_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the status property */
+		chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_STATUS, &ret);
+		return ret.intval == POWER_SUPPLY_STATUS_FULL;
+	}
+
+	/* Default to true if the battery power supply is not registered. */
+	pr_debug("battery power supply is not registered\n");
+	return true;
+}
+
+static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
+					int *ibat_ua, int *vbat_uv)
+{
+	struct qpnp_iadc_result i_result;
+	struct qpnp_vadc_result v_result;
+	enum qpnp_iadc_channels iadc_channel;
+	int rc;
+
+	iadc_channel = chip->use_external_rsense ?
+				EXTERNAL_RSENSE : INTERNAL_RSENSE;
+	rc = qpnp_iadc_vadc_sync_read(iadc_channel, &i_result,
+				VBAT_SNS, &v_result);
+	if (rc) {
+		pr_err("vadc read failed with rc: %d\n", rc);
+		return rc;
+	}
+	/*
+	 * reverse the current read by the iadc, since the bms uses
+	 * flipped battery current polarity.
+	 */
+	*ibat_ua = -1 * (int)i_result.result_ua;
+	*vbat_uv = (int)v_result.physical;
+
+	return 0;
+}
+
+static int estimate_ocv(struct qpnp_bms_chip *chip)
+{
+	int ibat_ua, vbat_uv, ocv_est_uv;
+	int rc;
+	int rbatt_mohm = chip->default_rbatt_mohm + chip->r_conn_mohm;
+
+	rc = get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
+	if (rc) {
+		pr_err("simultaneous failed rc = %d\n", rc);
+		return rc;
+	}
+
+	ocv_est_uv = vbat_uv + (ibat_ua * rbatt_mohm) / 1000;
+	pr_debug("estimated pon ocv = %d\n", ocv_est_uv);
+	return ocv_est_uv;
+}
+
+static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
+{
+	chip->last_ocv_uv = estimate_ocv(chip);
+	chip->last_soc = -EINVAL;
+	chip->soc_at_cv = -EINVAL;
+	chip->shutdown_soc_invalid = true;
+	chip->shutdown_soc = 0;
+	chip->shutdown_iavg_ma = 0;
+	chip->prev_pc_unusable = -EINVAL;
+	reset_cc(chip);
+	chip->last_cc_uah = INT_MIN;
+	chip->last_ocv_temp = batt_temp;
+	chip->last_soc_invalid = true;
+}
+
 #define OCV_RAW_UNINITIALIZED	0xFFFF
 static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 				struct raw_soc_params *raw,
@@ -590,6 +687,12 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 	if (chip->prev_last_good_ocv_raw == OCV_RAW_UNINITIALIZED) {
 		convert_and_store_ocv(chip, raw, batt_temp);
 		pr_debug("PON_OCV_UV = %d\n", chip->last_ocv_uv);
+	} else if (chip->new_battery) {
+		/* if a new battery was inserted, estimate the ocv */
+		reset_for_new_battery(chip, batt_temp);
+		raw->cc = 0;
+		raw->last_good_ocv_uv = chip->last_ocv_uv;
+		chip->new_battery = false;
 	} else if (chip->prev_last_good_ocv_raw != raw->last_good_ocv_raw) {
 		convert_and_store_ocv(chip, raw, batt_temp);
 		/* forget the old cc value upon ocv */
@@ -1083,73 +1186,11 @@ static bool is_shutdown_soc_within_limits(struct qpnp_bms_chip *chip, int soc)
 		pr_debug("rejecting shutdown soc = %d, soc = %d limit = %d\n",
 			chip->shutdown_soc, soc,
 			chip->shutdown_soc_valid_limit);
-		chip->shutdown_soc_invalid = 1;
+		chip->shutdown_soc_invalid = true;
 		return 0;
 	}
 
 	return 1;
-}
-
-static bool is_battery_charging(struct qpnp_bms_chip *chip)
-{
-	union power_supply_propval ret = {0,};
-
-	if (chip->batt_psy == NULL)
-		chip->batt_psy = power_supply_get_by_name("battery");
-	if (chip->batt_psy) {
-		/* if battery has been registered, use the status property */
-		chip->batt_psy->get_property(chip->batt_psy,
-					POWER_SUPPLY_PROP_STATUS, &ret);
-		return ret.intval == POWER_SUPPLY_STATUS_CHARGING;
-	}
-
-	/* Default to false if the battery power supply is not registered. */
-	pr_debug("battery power supply is not registered\n");
-	return false;
-}
-
-static bool is_batfet_open(struct qpnp_bms_chip *chip)
-{
-	union power_supply_propval ret = {0,};
-
-	if (chip->batt_psy == NULL)
-		chip->batt_psy = power_supply_get_by_name("battery");
-	if (chip->batt_psy) {
-		/* if battery has been registered, use the status property */
-		chip->batt_psy->get_property(chip->batt_psy,
-					POWER_SUPPLY_PROP_STATUS, &ret);
-		return ret.intval == POWER_SUPPLY_STATUS_FULL;
-	}
-
-	/* Default to true if the battery power supply is not registered. */
-	pr_debug("battery power supply is not registered\n");
-	return true;
-}
-
-static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
-					int *ibat_ua, int *vbat_uv)
-{
-	struct qpnp_iadc_result i_result;
-	struct qpnp_vadc_result v_result;
-	enum qpnp_iadc_channels iadc_channel;
-	int rc;
-
-	iadc_channel = chip->use_external_rsense ?
-				EXTERNAL_RSENSE : INTERNAL_RSENSE;
-	rc = qpnp_iadc_vadc_sync_read(iadc_channel, &i_result,
-				VBAT_SNS, &v_result);
-	if (rc) {
-		pr_err("vadc read failed with rc: %d\n", rc);
-		return rc;
-	}
-	/*
-	 * reverse the current read by the iadc, since the bms uses
-	 * flipped battery current polarity.
-	 */
-	*ibat_ua = -1 * (int)i_result.result_ua;
-	*vbat_uv = (int)v_result.physical;
-
-	return 0;
 }
 
 static int bound_soc(int soc)
@@ -1188,6 +1229,7 @@ static int reset_bms_for_test(struct qpnp_bms_chip *chip)
 	pr_debug("forcing ocv to be %d due to bms reset mode\n", ocv_est_uv);
 	chip->last_ocv_uv = ocv_est_uv;
 	chip->last_soc = -EINVAL;
+	chip->last_soc_invalid = true;
 	reset_cc(chip);
 	chip->last_cc_uah = INT_MIN;
 	stop_ocv_updates(chip);
@@ -1475,6 +1517,11 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 	int shutdown_soc, new_calculated_soc, remaining_usable_charge_uah;
 	struct soc_params params;
 
+	if (!chip->battery_present) {
+		pr_debug("battery gone, reporting 0\n");
+		new_calculated_soc = 0;
+		goto done_calculating;
+	}
 	calculate_soc_params(chip, raw, &params, batt_temp);
 	/* calculate remaining usable charge */
 	remaining_usable_charge_uah = params.ocv_charge_uah
@@ -1574,6 +1621,10 @@ done_calculating:
 	}
 
 	chip->calculated_soc = new_calculated_soc;
+	if (chip->last_soc_invalid) {
+		chip->last_soc_invalid = false;
+		chip->last_soc = -EINVAL;
+	}
 	pr_debug("CC based calculated SOC = %d\n", chip->calculated_soc);
 	chip->first_time_calc_soc = 0;
 	get_current_time(&chip->last_recalc_time);
@@ -1637,6 +1688,15 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	}
 	wake_unlock(&chip->soc_wake_lock);
 	return soc;
+}
+
+static void recalculate_work(struct work_struct *work)
+{
+	struct qpnp_bms_chip *chip = container_of(work,
+				struct qpnp_bms_chip,
+				recalc_work);
+
+	recalculate_soc(chip);
 }
 
 static void calculate_soc_work(struct work_struct *work)
@@ -1820,7 +1880,7 @@ static int report_cc_based_soc(struct qpnp_bms_chip *chip)
 	pr_debug("Reported SOC = %d\n", chip->last_soc);
 	chip->t_soc_queried = now;
 
-	return chip->last_soc;
+	return soc;
 }
 
 static int report_state_of_charge(struct qpnp_bms_chip *chip)
@@ -1872,8 +1932,14 @@ static int get_prop_bms_present(struct qpnp_bms_chip *chip)
 
 static void set_prop_bms_present(struct qpnp_bms_chip *chip, int present)
 {
-	if (chip->battery_present != present)
+	if (chip->battery_present != present) {
 		chip->battery_present = present;
+		if (present)
+			chip->new_battery = true;
+		/* a new battery was inserted or removed, so force a soc
+		 * recalculation to update the SoC */
+		schedule_work(&chip->recalc_work);
+	}
 }
 
 static void qpnp_bms_external_power_changed(struct power_supply *psy)
@@ -1969,7 +2035,7 @@ static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 	u8 temp;
 
 	if (chip->ignore_shutdown_soc) {
-		chip->shutdown_soc_invalid = 1;
+		chip->shutdown_soc_invalid = true;
 		chip->shutdown_soc = 0;
 		chip->shutdown_iavg_ma = 0;
 	} else {
@@ -2003,7 +2069,7 @@ static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 
 			if (chip->shutdown_soc == 0) {
 				pr_debug("No shutdown soc available\n");
-				chip->shutdown_soc_invalid = 1;
+				chip->shutdown_soc_invalid = true;
 				chip->shutdown_iavg_ma = 0;
 			} else if (chip->shutdown_soc == SOC_ZERO) {
 				chip->shutdown_soc = 0;
@@ -2391,6 +2457,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 			"qpnp_low_voltage_lock");
 	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
 			calculate_soc_work);
+	INIT_WORK(&chip->recalc_work, recalculate_work);
 
 	read_shutdown_soc_and_iavg(chip);
 
@@ -2403,6 +2470,9 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		chip->batt_psy->get_property(chip->batt_psy,
 					POWER_SUPPLY_PROP_PRESENT, &retval);
 		chip->battery_present = retval.intval;
+		pr_debug("present = %d\n", chip->battery_present);
+	} else {
+		chip->battery_present = 1;
 	}
 
 	calculate_soc_work(&(chip->calculate_soc_delayed_work.work));
