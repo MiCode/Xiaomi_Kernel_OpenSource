@@ -57,12 +57,6 @@ static int __init init_memory_dump(void)
 	mem_dump_data.dump_table_phys = virt_to_phys(table);
 	writel_relaxed(mem_dump_data.dump_table_phys,
 				MSM_IMEM_BASE + DUMP_TABLE_OFFSET);
-	/* TODO: Write to Debug image IMEM.
-	 * Once IMEM issues are resolved MSM_IMEM_BASE
-	 * will have actual mapping.
-	 */
-	writel_relaxed(mem_dump_data.dump_table_phys,
-				MSM_DBG_IMEM_BASE + DUMP_TABLE_OFFSET);
 	printk(KERN_INFO "MSM Memory Dump table set up\n");
 	return 0;
 }
