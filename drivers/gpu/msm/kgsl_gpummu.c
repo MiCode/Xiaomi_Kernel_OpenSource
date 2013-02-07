@@ -22,6 +22,7 @@
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_trace.h"
+#include "adreno.h"
 
 #define KGSL_PAGETABLE_SIZE \
 	ALIGN(KGSL_PAGETABLE_ENTRIES(CONFIG_MSM_KGSL_PAGE_TABLE_SIZE) * \
@@ -403,11 +404,22 @@ static void kgsl_gpummu_pagefault(struct kgsl_mmu *mmu)
 {
 	unsigned int reg;
 	unsigned int ptbase;
+	struct kgsl_device *device;
+	struct adreno_device *adreno_dev;
+	unsigned int no_page_fault_log = 0;
 
-	kgsl_regread(mmu->device, MH_MMU_PAGE_FAULT, &reg);
-	kgsl_regread(mmu->device, MH_MMU_PT_BASE, &ptbase);
+	device = mmu->device;
+	adreno_dev = ADRENO_DEVICE(device);
 
-	KGSL_MEM_CRIT(mmu->device,
+	kgsl_regread(device, MH_MMU_PAGE_FAULT, &reg);
+	kgsl_regread(device, MH_MMU_PT_BASE, &ptbase);
+
+
+	if (adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE)
+		no_page_fault_log = kgsl_mmu_log_fault_addr(mmu, ptbase, reg);
+
+	if (!no_page_fault_log)
+		KGSL_MEM_CRIT(mmu->device,
 			"mmu page fault: page=0x%lx pt=%d op=%s axi=%d\n",
 			reg & ~(PAGE_SIZE - 1),
 			kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase),
