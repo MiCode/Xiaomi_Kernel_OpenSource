@@ -1,4 +1,4 @@
-/*  Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/*  Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1297,6 +1297,32 @@ fail:
 	return -EINVAL;
 }
 
+static void voc_get_tx_rx_topology(struct voice_data *v,
+				   uint32_t *tx_topology_id,
+				   uint32_t *rx_topology_id)
+{
+
+	uint32_t tx_id = 0;
+	uint32_t rx_id = 0;
+
+	if (v->disable_topology) {
+		tx_id = VSS_IVOCPROC_TOPOLOGY_ID_NONE;
+		rx_id = VSS_IVOCPROC_TOPOLOGY_ID_NONE;
+	} else {
+		/* Use default topology if invalid value in ACDB */
+		tx_id = get_voice_tx_topology();
+		if (tx_id == 0)
+			tx_id = VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS;
+
+		rx_id = get_voice_rx_topology();
+		if (rx_id == 0)
+			rx_id = VSS_IVOCPROC_TOPOLOGY_ID_RX_DEFAULT;
+	}
+
+	*tx_topology_id = tx_id;
+	*rx_topology_id = rx_id;
+}
+
 static int voice_send_set_device_cmd(struct voice_data *v)
 {
 	struct cvp_set_device_cmd  cvp_setdev_cmd;
@@ -1329,18 +1355,9 @@ static int voice_send_set_device_cmd(struct voice_data *v)
 	cvp_setdev_cmd.hdr.token = 0;
 	cvp_setdev_cmd.hdr.opcode = VSS_IVOCPROC_CMD_SET_DEVICE;
 
-	/* Use default topology if invalid value in ACDB */
-	cvp_setdev_cmd.cvp_set_device.tx_topology_id =
-				get_voice_tx_topology();
-	if (cvp_setdev_cmd.cvp_set_device.tx_topology_id == 0)
-		cvp_setdev_cmd.cvp_set_device.tx_topology_id =
-				VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS;
+	voc_get_tx_rx_topology(v, &cvp_setdev_cmd.cvp_set_device.tx_topology_id,
+			       &cvp_setdev_cmd.cvp_set_device.rx_topology_id);
 
-	cvp_setdev_cmd.cvp_set_device.rx_topology_id =
-				get_voice_rx_topology();
-	if (cvp_setdev_cmd.cvp_set_device.rx_topology_id == 0)
-		cvp_setdev_cmd.cvp_set_device.rx_topology_id =
-				VSS_IVOCPROC_TOPOLOGY_ID_RX_DEFAULT;
 	cvp_setdev_cmd.cvp_set_device.tx_port_id = v->dev_tx.port_id;
 	cvp_setdev_cmd.cvp_set_device.rx_port_id = v->dev_rx.port_id;
 	pr_debug("topology=%d , tx_port_id=%d, rx_port_id=%d\n",
@@ -2237,18 +2254,8 @@ static int voice_setup_vocproc(struct voice_data *v)
 	cvp_session_cmd.hdr.opcode =
 			VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION;
 
-	/* Use default topology if invalid value in ACDB */
-	cvp_session_cmd.cvp_session.tx_topology_id =
-				get_voice_tx_topology();
-	if (cvp_session_cmd.cvp_session.tx_topology_id == 0)
-		cvp_session_cmd.cvp_session.tx_topology_id =
-			VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS;
-
-	cvp_session_cmd.cvp_session.rx_topology_id =
-				get_voice_rx_topology();
-	if (cvp_session_cmd.cvp_session.rx_topology_id == 0)
-		cvp_session_cmd.cvp_session.rx_topology_id =
-			VSS_IVOCPROC_TOPOLOGY_ID_RX_DEFAULT;
+	voc_get_tx_rx_topology(v, &cvp_session_cmd.cvp_session.tx_topology_id,
+			       &cvp_session_cmd.cvp_session.rx_topology_id);
 
 	cvp_session_cmd.cvp_session.direction = 2; /*tx and rx*/
 	cvp_session_cmd.cvp_session.network_id = VSS_NETWORK_ID_DEFAULT;
@@ -2571,6 +2578,9 @@ static int voice_destroy_vocproc(struct voice_data *v)
 
 	/* Clear mute setting */
 	v->dev_tx.mute = common.default_mute_val;
+
+	/* clear disable topology setting */
+	v->disable_topology = false;
 
 	/* detach VOCPROC and wait for response from mvm */
 	mvm_d_vocproc_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -3319,6 +3329,26 @@ int voc_enable_cvp(uint16_t session_id)
 	}
 
 fail:
+	mutex_unlock(&v->lock);
+
+	return ret;
+}
+
+int voc_disable_topology(uint16_t session_id, uint32_t disable)
+{
+	struct voice_data *v = voice_get_session(session_id);
+	int ret = 0;
+
+	if (v == NULL) {
+		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+
+		return -EINVAL;
+	}
+
+	mutex_lock(&v->lock);
+
+	v->disable_topology = disable;
+
 	mutex_unlock(&v->lock);
 
 	return ret;
@@ -4510,6 +4540,7 @@ static int __init voice_init(void)
 		common.voice[i].dev_rx.port_id = 0;
 		common.voice[i].sidetone_gain = 0x512;
 		common.voice[i].dtmf_rx_detect_en = 0;
+		common.voice[i].disable_topology = false;
 
 		common.voice[i].voc_state = VOC_INIT;
 
