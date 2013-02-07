@@ -721,14 +721,108 @@ err_hfi_read:
 	return rc;
 }
 
+static inline void msm_vidc_free_freq_table(
+		struct msm_vidc_platform_resources *res)
+{
+	kfree(res->load_freq_tbl);
+	res->load_freq_tbl = NULL;
+}
+
+static inline void msm_vidc_free_iommu_maps(
+		struct msm_vidc_platform_resources *res)
+{
+	kfree(res->iommu_maps);
+	res->iommu_maps = NULL;
+}
+
+static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
+{
+	int rc = 0;
+	int num_elements = 0;
+	struct platform_device *pdev = res->pdev;
+
+	num_elements = get_u32_array_num_elements(pdev, "load-freq-tbl");
+	if (num_elements == 0) {
+		dprintk(VIDC_ERR, "no elements in frequency table\n");
+		return rc;
+	}
+
+	res->load_freq_tbl = kzalloc(num_elements * sizeof(*res->load_freq_tbl),
+			GFP_KERNEL);
+	if (!res->load_freq_tbl) {
+		dprintk(VIDC_ERR,
+				"%s Failed to alloc load_freq_tbl\n",
+				__func__);
+		return -ENOMEM;
+	}
+
+	if (of_property_read_u32_array(pdev->dev.of_node,
+		"load-freq-tbl", (u32 *)res->load_freq_tbl, num_elements * 2)) {
+		dprintk(VIDC_ERR, "Failed to read frequency table\n");
+		msm_vidc_free_freq_table(res);
+		return -EINVAL;
+	}
+
+	res->load_freq_tbl_size = num_elements;
+	return rc;
+}
+
+static int msm_vidc_load_iommu_maps(struct msm_vidc_platform_resources *res)
+{
+	int rc = 0;
+	int num_elements = 0;
+	int i;
+	struct platform_device *pdev = res->pdev;
+	char *names[MAX_MAP] = {
+		[CP_MAP] = "vidc-cp-map",
+		[NS_MAP] = "vidc-ns-map",
+	};
+	char *contexts[MAX_MAP] = {
+		[CP_MAP] = "venus_cp",
+		[NS_MAP] = "venus_ns",
+	};
+
+
+	res->iommu_maps = kzalloc(MAX_MAP * sizeof(*res->iommu_maps),
+			GFP_KERNEL);
+	if (!res->iommu_maps) {
+		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n", __func__);
+		return -ENOMEM;
+	}
+
+	res->iommu_maps_size = MAX_MAP;
+	for (i = 0; i < MAX_MAP; i++) {
+		num_elements = get_u32_array_num_elements(pdev, names[i]);
+		if (num_elements == 0) {
+			dprintk(VIDC_ERR,
+				"no elements in iommu map :%s\n", names[i]);
+			goto error;
+		}
+		memcpy(&res->iommu_maps[i].name, names[i],
+				strlen(names[i]));
+		memcpy(&res->iommu_maps[i].ctx, contexts[i],
+				strlen(contexts[i]));
+
+		if (of_property_read_u32_array(pdev->dev.of_node, names[i],
+			res->iommu_maps[i].addr_range, num_elements * 2)) {
+			dprintk(VIDC_ERR, "Failed to read iommu map :%s\n",
+					names[i]);
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+	return rc;
+error:
+	msm_vidc_free_iommu_maps(res);
+	return rc;
+}
+
 static int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res)
 {
 	struct platform_device *pdev = res->pdev;
 	struct resource *kres = NULL;
-	u32 *temp = NULL;
-	int c = 0, rc = 0;
-	int num_elements = 0;
+	int rc = 0;
 
 	if (!pdev->dev.of_node) {
 		dprintk(VIDC_ERR, "DT node not found\n");
@@ -744,82 +838,20 @@ static int read_platform_resources_from_dt(
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
 
-	num_elements = get_u32_array_num_elements(pdev, "load-freq-tbl");
-	if (num_elements) {
-		temp = kzalloc(num_elements*2, GFP_KERNEL);
-		if (!temp) {
-			dprintk(VIDC_ERR, "%s Failed to alloc temp\n",
-				__func__);
-			return -ENOMEM;
-		}
-		if (!of_property_read_u32_array(pdev->dev.of_node,
-				"load-freq-tbl", temp, num_elements * 2)) {
-			res->load_freq_tbl = kzalloc(num_elements *
-				sizeof(*res->load_freq_tbl), GFP_KERNEL);
-			if (!res->load_freq_tbl) {
-				dprintk(VIDC_ERR,
-					"%s Failed to alloc load_freq_tbl\n",
-					__func__);
-				kfree(temp);
-				return -ENOMEM;
-			}
-
-			res->load_freq_tbl_size = num_elements;
-
-			for (c = 0; c < num_elements; ++c) {
-				res->load_freq_tbl[c].load = temp[2*c];
-				res->load_freq_tbl[c].freq = temp[2*c+1];
-			}
-		}
-		kfree(temp);
-		temp = NULL;
+	rc = msm_vidc_load_freq_table(res);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);
+		goto err_load_freq_table;
 	}
-
-	res->iommu_maps = kzalloc(MAX_MAP *
-			sizeof(*res->iommu_maps), GFP_KERNEL);
-	if (!res->iommu_maps) {
-		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n", __func__);
-		kfree(res->load_freq_tbl);
-		return -ENOMEM;
+	rc = msm_vidc_load_iommu_maps(res);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to load iommu maps: %d\n", rc);
+		goto err_load_iommu_maps;
 	}
-	res->iommu_maps_size = MAX_MAP;
-
-	for (c = 0; c < MAX_MAP; ++c) {
-		char *names[MAX_MAP] = {
-			[CP_MAP] = "vidc-cp-map",
-			[NS_MAP] = "vidc-ns-map",
-		};
-		char *contexts[MAX_MAP] = {
-			[CP_MAP] = "venus_cp",
-			[NS_MAP] = "venus_ns",
-		};
-
-		num_elements = get_u32_array_num_elements(pdev, names[c]);
-		if (num_elements) {
-			temp = kzalloc(num_elements * 2, GFP_KERNEL);
-			if (!temp) {
-				dprintk(VIDC_ERR, "%s Failed to alloc temp\n",
-					__func__);
-				kfree(res->load_freq_tbl);
-				kfree(res->iommu_maps);
-				return -ENOMEM;
-			}
-			if (!of_property_read_u32_array(pdev->dev.of_node,
-					names[c], temp, num_elements * 2)) {
-				res->iommu_maps[c] =
-					(struct msm_vidc_iommu_info) {
-					.addr_range = {(u32)temp[0],
-							(u32)temp[1]},
-				};
-				memcpy(&res->iommu_maps[c].name, names[c],
-						strlen(names[c]));
-				memcpy(&res->iommu_maps[c].ctx, contexts[c],
-						strlen(contexts[c]));
-			}
-			kfree(temp);
-			temp = NULL;
-		}
-	}
+	return rc;
+err_load_iommu_maps:
+	msm_vidc_free_freq_table(res);
+err_load_freq_table:
 	return rc;
 }
 
@@ -1042,8 +1074,8 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 	v4l2_device_unregister(&core->v4l2_dev);
 
-	kfree(core->resources.load_freq_tbl);
-	kfree(core->resources.iommu_maps);
+	msm_vidc_free_freq_table(&core->resources);
+	msm_vidc_free_iommu_maps(&core->resources);
 	kfree(core);
 	return rc;
 }
