@@ -1,0 +1,15 @@
+* Battery Current Limit
+
+This Battery Current Limit device, provides an interface to detect and notify
+interested applications when the SOC is drawing current in excess of the limits
+specified.
+
+The device tree parameters for bcl are:
+
+Required parameters:
+- compatible: Must be "qcom,bcl"
+
+Example:
+	qcom,bcl {
+		compatible = "qcom,bcl";
+	};
