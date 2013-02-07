@@ -4,7 +4,7 @@
  * Copyright (C) 2000 Ralph Metzler & Marcus Metzler
  *                    for convergence integrated media GmbH
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -121,7 +121,6 @@ struct dmxdev_filter {
 	struct dvb_ringbuffer buffer;
 	void *priv_buff_handle;
 	enum dmx_buffer_mode buffer_mode;
-	u32 flush_data_len;
 
 	struct mutex mutex;
 
@@ -166,7 +165,6 @@ struct dmxdev {
 	enum dmx_buffer_mode dvr_buffer_mode;
 	struct dmxdev_events_queue dvr_output_events;
 	struct dmxdev_filter *dvr_feed;
-	u32 dvr_flush_data_len;
 	int dvr_feeds_count;
 
 	struct dvb_ringbuffer dvr_input_buffer;
