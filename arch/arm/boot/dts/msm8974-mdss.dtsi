@@ -11,7 +11,7 @@
  */
 
 / {
-	qcom,mdss_mdp@fd900000 {
+	mdss_mdp: qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
 		reg = <0xfd900000 0x22100>,
 			<0xfd924000 0x1000>;
