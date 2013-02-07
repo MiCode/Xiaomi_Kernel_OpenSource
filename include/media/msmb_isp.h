@@ -288,14 +288,15 @@ enum msm_isp_event_idx {
 	ISP_WM_BUS_OVERFLOW = 4,
 	ISP_STATS_OVERFLOW  = 5,
 	ISP_CAMIF_ERROR     = 6,
-	ISP_STATS_NOTIFY    = 7,
-	ISP_SOF             = 8,
-	ISP_EOF             = 9,
-	ISP_BUF_DIVERT      = 10,
-	ISP_EVENT_MAX       = 11
+	ISP_SOF             = 7,
+	ISP_EOF             = 8,
+	ISP_EVENT_MAX       = 9
 };
 
-#define ISP_EVENT_BASE            (V4L2_EVENT_PRIVATE_START + 1)
+#define ISP_EVENT_OFFSET          8
+#define ISP_EVENT_BASE            (V4L2_EVENT_PRIVATE_START)
+#define ISP_BUF_EVENT_BASE        (ISP_EVENT_BASE + (1 << ISP_EVENT_OFFSET))
+#define ISP_STATS_EVENT_BASE      (ISP_EVENT_BASE + (2 << ISP_EVENT_OFFSET))
 #define ISP_EVENT_REG_UPDATE      (ISP_EVENT_BASE + ISP_REG_UPDATE)
 #define ISP_EVENT_START_ACK       (ISP_EVENT_BASE + ISP_START_ACK)
 #define ISP_EVENT_STOP_ACK        (ISP_EVENT_BASE + ISP_STOP_ACK)
@@ -303,11 +304,10 @@ enum msm_isp_event_idx {
 #define ISP_EVENT_WM_BUS_OVERFLOW (ISP_EVENT_BASE + ISP_WM_BUS_OVERFLOW)
 #define ISP_EVENT_STATS_OVERFLOW  (ISP_EVENT_BASE + ISP_STATS_OVERFLOW)
 #define ISP_EVENT_CAMIF_ERROR     (ISP_EVENT_BASE + ISP_CAMIF_ERROR)
-#define ISP_EVENT_STATS_NOTIFY    (ISP_EVENT_BASE + ISP_STATS_NOTIFY)
 #define ISP_EVENT_SOF             (ISP_EVENT_BASE + ISP_SOF)
 #define ISP_EVENT_EOF             (ISP_EVENT_BASE + ISP_EOF)
-#define ISP_EVENT_BUF_DIVERT      (ISP_EVENT_BASE + ISP_BUF_DIVERT)
-
+#define ISP_EVENT_BUF_DIVERT      (ISP_BUF_EVENT_BASE)
+#define ISP_EVENT_STATS_NOTIFY    (ISP_STATS_EVENT_BASE)
 
 /* The msm_v4l2_event_data structure should match the
  * v4l2_event.u.data field.

@@ -107,7 +107,8 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 		buf_event.timestamp = ts->event_time;
 		buf_event.frame_id =
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-		msm_isp_send_event(vfe_dev, ISP_EVENT_STATS_NOTIFY, &buf_event);
+		msm_isp_send_event(vfe_dev, ISP_EVENT_STATS_NOTIFY +
+				stream_info->stats_type, &buf_event);
 	}
 }
 
