@@ -175,6 +175,12 @@ void iommu_resume(const struct msm_iommu_drvdata *iommu_drvdata)
 		 */
 		mb();
 		SET_MICRO_MMU_CTRL_HALT_REQ(iommu_drvdata->base, 0);
+		/*
+		 * Ensure write is complete before continuing to ensure
+		 * we don't turn off clocks while transaction is still
+		 * pending.
+		 */
+		mb();
 	}
 }
 
