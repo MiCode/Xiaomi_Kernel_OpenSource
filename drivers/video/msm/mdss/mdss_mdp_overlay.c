@@ -57,9 +57,18 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 				      struct mdss_mdp_format_params *fmt)
 {
 	u32 xres, yres;
+	u32 min_src_size, min_dst_size;
 
 	xres = mfd->fbi->var.xres;
 	yres = mfd->fbi->var.yres;
+
+	if (mfd->mdata->mdp_rev >= MDSS_MDP_HW_REV_102) {
+		min_src_size = fmt->is_yuv ? 2 : 1;
+		min_dst_size = 1;
+	} else {
+		min_src_size = fmt->is_yuv ? 10 : 5;
+		min_dst_size = 2;
+	}
 
 	if (req->z_order >= MDSS_MDP_MAX_STAGE) {
 		pr_err("zorder %d out of range\n", req->z_order);
@@ -68,7 +77,7 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 
 	if (req->src.width > MAX_IMG_WIDTH ||
 	    req->src.height > MAX_IMG_HEIGHT ||
-	    req->src_rect.w == 0 || req->src_rect.h == 0 ||
+	    req->src_rect.w < min_src_size || req->src_rect.h < min_src_size ||
 	    CHECK_BOUNDS(req->src_rect.x, req->src_rect.w, req->src.width) ||
 	    CHECK_BOUNDS(req->src_rect.y, req->src_rect.h, req->src.height)) {
 		pr_err("invalid source image img wh=%dx%d rect=%d,%d,%d,%d\n",
@@ -78,7 +87,7 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		return -EOVERFLOW;
 	}
 
-	if (req->dst_rect.w < MIN_DST_W || req->dst_rect.h < MIN_DST_H ||
+	if (req->dst_rect.w < min_dst_size || req->dst_rect.h < min_dst_size ||
 	    req->dst_rect.w > MAX_DST_W || req->dst_rect.h > MAX_DST_H) {
 		pr_err("invalid destination resolution (%dx%d)",
 		       req->dst_rect.w, req->dst_rect.h);
@@ -149,10 +158,6 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		if ((req->src_rect.x & 0x1) || (req->src_rect.y & 0x1) ||
 		    (req->src_rect.w & 0x1) || (req->src_rect.h & 0x1)) {
 			pr_err("invalid odd src resolution or coordinates\n");
-			return -EINVAL;
-		}
-		if ((req->dst_rect.w & 0x1) || (req->dst_rect.h & 0x1)) {
-			pr_err("invalid odd dst resolution\n");
 			return -EINVAL;
 		}
 	}
