@@ -1482,16 +1482,12 @@ out:
 static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 {
 	int rc, vbat_uv;
-	struct qpnp_vadc_result result;
 
-	rc = qpnp_vadc_read(VBAT_SNS, &result);
-	if (rc) {
-		pr_err("error reading vbat_sns adc channel = %d, rc = %d\n",
-						VBAT_SNS, rc);
-		return rc;
+	rc = get_battery_voltage(&vbat_uv);
+	if (rc < 0) {
+		pr_err("adc vbat failed err = %d\n", rc);
+		return soc;
 	}
-
-	vbat_uv = (int)result.physical;
 	if (soc == 0 && vbat_uv > chip->v_cutoff_uv) {
 		pr_debug("clamping soc to 1, vbat (%d) > cutoff (%d)\n",
 						vbat_uv, chip->v_cutoff_uv);
@@ -1620,28 +1616,16 @@ done_calculating:
 	return chip->calculated_soc;
 }
 
-static int read_vbat(struct qpnp_bms_chip *chip)
-{
-	int rc;
-	struct qpnp_vadc_result result;
-
-	rc = qpnp_vadc_read(VBAT_SNS, &result);
-	if (rc) {
-		pr_err("error reading vadc VBAT_SNS = %d, rc = %d\n",
-					VBAT_SNS, rc);
-		return rc;
-	}
-	pr_debug("read %duv from vadc\n", (int)result.physical);
-	return (int)result.physical;
-}
-
 static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
 {
 	int voltage_range_uv, voltage_remaining_uv, voltage_based_soc;
-	int vbat_uv;
+	int rc, vbat_uv;
 
-	vbat_uv = read_vbat(chip);
-
+	rc = get_battery_voltage(&vbat_uv);
+	if (rc < 0) {
+		pr_err("adc vbat failed err = %d\n", rc);
+		return rc;
+	}
 	voltage_range_uv = chip->max_voltage_uv - chip->v_cutoff_uv;
 	voltage_remaining_uv = vbat_uv - chip->v_cutoff_uv;
 	voltage_based_soc = voltage_remaining_uv * 100 / voltage_range_uv;
@@ -2475,7 +2459,12 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	}
 
 	vbatt = 0;
-	get_battery_voltage(&vbatt);
+	rc = get_battery_voltage(&vbatt);
+	if (rc) {
+		pr_err("error reading vbat_sns adc channel = %d, rc = %d\n",
+						VBAT_SNS, rc);
+		goto unregister_dc;
+	}
 
 	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_uohm = %u\n",
 				get_prop_bms_capacity(chip),
