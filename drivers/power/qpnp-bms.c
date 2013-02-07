@@ -921,8 +921,8 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 	if (bms_reset)
 		return (params->fcc_uah * 3) / 100;
 
-	uuc_uah_iavg = calculate_termination_uuc(chip, params, uuc_iavg_ma,
-						batt_temp, &pc_unusable);
+	uuc_uah_iavg = calculate_termination_uuc(chip, params, batt_temp,
+						uuc_iavg_ma, &pc_unusable);
 	pr_debug("uuc_iavg_ma = %d uuc with iavg = %d\n",
 						uuc_iavg_ma, uuc_uah_iavg);
 
