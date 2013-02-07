@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -545,6 +545,9 @@ qpnp_chg_bat_if_batt_pres_irq_handler(int irq, void *_chip)
 		chip->batt_present = batt_present;
 		power_supply_changed(&chip->batt_psy);
 	}
+
+	if (chip->bms_psy)
+		power_supply_set_present(chip->bms_psy, batt_present);
 
 	return IRQ_HANDLED;
 }
@@ -1638,6 +1641,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	struct qpnp_chg_chip	*chip;
 	struct resource *resource;
 	struct spmi_resource *spmi_resource;
+	bool present;
 	int rc = 0;
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
@@ -1935,6 +1939,14 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		rc = qpnp_vadc_is_ready();
 		if (rc)
 			goto fail_chg_enable;
+
+		/* if bms exists, notify it of the presence of the battery */
+		if (!chip->bms_psy)
+			chip->bms_psy = power_supply_get_by_name("bms");
+		if (chip->bms_psy) {
+			present = get_prop_batt_present(chip);
+			power_supply_set_present(chip->bms_psy, present);
+		}
 
 		chip->batt_psy.name = "battery";
 		chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY;
