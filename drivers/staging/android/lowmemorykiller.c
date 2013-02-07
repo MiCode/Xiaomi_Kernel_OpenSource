@@ -83,6 +83,22 @@ static unsigned long lowmem_count(struct shrinker *s,
 		global_node_page_state(NR_INACTIVE_FILE);
 }
 
+static int test_task_flag(struct task_struct *p, int flag)
+{
+	struct task_struct *t = p;
+
+	do {
+		task_lock(t);
+		if (test_tsk_thread_flag(t, flag)) {
+			task_unlock(t);
+			return 1;
+		}
+		task_unlock(t);
+	} while_each_thread(p, t);
+
+	return 0;
+}
+
 static int test_task_lmk_waiting(struct task_struct *p)
 {
 	struct task_struct *t = p;
@@ -158,6 +174,10 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		if (tsk->flags & PF_KTHREAD)
 			continue;
 
+		/* if task no longer has any memory ignore it */
+		if (test_task_flag(tsk, TIF_MM_RELEASED))
+			continue;
+
 		if (time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			if (test_task_lmk_waiting(tsk)) {
 				rcu_read_unlock();
@@ -218,13 +238,14 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			     free);
 		lowmem_deathpending_timeout = jiffies + HZ;
 		rem += selected_tasksize;
+		rcu_read_unlock();
 		/* give the system time to free up the memory */
 		msleep_interruptible(20);
-	}
+	} else
+		rcu_read_unlock();
 
 	lowmem_print(4, "lowmem_scan %lu, %x, return %lu\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
-	rcu_read_unlock();
 	mutex_unlock(&scan_mutex);
 	return rem;
 }
