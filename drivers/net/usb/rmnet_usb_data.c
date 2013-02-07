@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -466,7 +466,6 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 		const struct usb_device_id *prod)
 {
 	struct usbnet		*unet;
-	struct driver_info	*info;
 	struct usb_device	*udev;
 	unsigned int		iface_num;
 	static int		first_rmnet_iface_num = -EINVAL;
@@ -479,10 +478,6 @@ static int rmnet_usb_probe(struct usb_interface *iface,
 		status = -EINVAL;
 		goto out;
 	}
-
-	info = (struct driver_info *)prod->driver_info;
-	if (!test_bit(iface_num, &info->data))
-		return -ENODEV;
 
 	status = usbnet_probe(iface, prod);
 	if (status < 0) {
@@ -558,53 +553,48 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 	usbnet_disconnect(intf);
 }
 
-/*bit position represents interface number*/
-#define PID9034_IFACE_MASK	0xF0
-#define PID9048_IFACE_MASK	0x1E0
-#define PID904C_IFACE_MASK	0x1C0
-
-static const struct driver_info rmnet_info_pid9034 = {
+static const struct driver_info rmnet_info = {
 	.description   = "RmNET net device",
 	.flags         = FLAG_SEND_ZLP,
 	.bind          = rmnet_usb_bind,
 	.tx_fixup      = rmnet_usb_tx_fixup,
 	.rx_fixup      = rmnet_usb_rx_fixup,
 	.manage_power  = rmnet_usb_manage_power,
-	.data          = PID9034_IFACE_MASK,
-};
-
-static const struct driver_info rmnet_info_pid9048 = {
-	.description   = "RmNET net device",
-	.flags         = FLAG_SEND_ZLP,
-	.bind          = rmnet_usb_bind,
-	.tx_fixup      = rmnet_usb_tx_fixup,
-	.rx_fixup      = rmnet_usb_rx_fixup,
-	.manage_power  = rmnet_usb_manage_power,
-	.data          = PID9048_IFACE_MASK,
-};
-
-static const struct driver_info rmnet_info_pid904c = {
-	.description   = "RmNET net device",
-	.flags         = FLAG_SEND_ZLP,
-	.bind          = rmnet_usb_bind,
-	.tx_fixup      = rmnet_usb_tx_fixup,
-	.rx_fixup      = rmnet_usb_rx_fixup,
-	.manage_power  = rmnet_usb_manage_power,
-	.data          = PID904C_IFACE_MASK,
 };
 
 static const struct usb_device_id vidpids[] = {
-	{
-		USB_DEVICE(0x05c6, 0x9034), /* MDM9x15*/
-		.driver_info = (unsigned long)&rmnet_info_pid9034,
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9034, 4),
+	.driver_info = (unsigned long)&rmnet_info,
 	},
-	{
-		USB_DEVICE(0x05c6, 0x9048), /* MDM9x15*/
-		.driver_info = (unsigned long)&rmnet_info_pid9048,
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9034, 5),
+	.driver_info = (unsigned long)&rmnet_info,
 	},
-	{
-		USB_DEVICE(0x05c6, 0x904c), /* MDM9x15*/
-		.driver_info = (unsigned long)&rmnet_info_pid904c,
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9034, 6),
+	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9034, 7),
+	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9048, 5),
+	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9048, 6),
+	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9048, 7),
+	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9048, 8),
+	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x904c, 6),
+	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x904c, 7),
+	.driver_info = (unsigned long)&rmnet_info,
+	},
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x904c, 8),
+	.driver_info = (unsigned long)&rmnet_info,
 	},
 
 	{ }, /* Terminating entry */
