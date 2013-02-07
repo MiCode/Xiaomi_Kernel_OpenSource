@@ -288,20 +288,14 @@ static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
 	if (!(irq_status0 & 0xF))
 		return;
 
-	if (vfe_dev->hw_info->vfe_ops.core_ops.epoch_irq) {
-		if (irq_status0 & (1 << 2)) {
-			ISP_DBG("%s: EPOCH0 IRQ, PIX0_frameid = 0x%lu\n",
-				__func__,
-				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-			msm_isp_sof_notify(vfe_dev, VFE_PIX_0, tv);
-		}
-	} else {
-		if (irq_status0 & (1 << 0)) {
-			ISP_DBG("%s: SOF: PIX0 frame id: %lu\n", __func__,
-				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-			msm_isp_sof_notify(vfe_dev, VFE_PIX_0, tv);
-		}
-	}
+	if (irq_status0 & (1 << 0))
+		ISP_DBG("%s: SOF IRQ\n", __func__);
+	if (irq_status0 & (1 << 1))
+		ISP_DBG("%s: EOF IRQ\n", __func__);
+	if (irq_status0 & (1 << 2))
+		ISP_DBG("%s: EPOCH0 IRQ\n", __func__);
+	if (irq_status0 & (1 << 3))
+		ISP_DBG("%s: EPOCH1 IRQ\n", __func__);
 }
 
 static void msm_vfe40_process_violation_status(
@@ -443,12 +437,20 @@ static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
 }
 
 static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1)
+	uint32_t irq_status0, uint32_t irq_status1, struct timeval *tv)
 {
 	uint32_t update_mask = 0xF;
-
 	if (!(irq_status0 & 0xF0))
 		return;
+
+	if (irq_status0 & BIT(4))
+		msm_isp_sof_notify(vfe_dev, VFE_PIX_0, tv);
+	if (irq_status0 & BIT(5))
+		msm_isp_sof_notify(vfe_dev, VFE_RAW_0, tv);
+	if (irq_status0 & BIT(6))
+		msm_isp_sof_notify(vfe_dev, VFE_RAW_1, tv);
+	if (irq_status0 & BIT(7))
+		msm_isp_sof_notify(vfe_dev, VFE_RAW_2, tv);
 
 	if (vfe_dev->axi_data.stream_update)
 		msm_isp_axi_stream_update(vfe_dev);
@@ -458,30 +460,6 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		reg_update(vfe_dev, update_mask);
 	return;
-}
-
-static void msm_vfe40_epoch_irq_enb(struct vfe_device *vfe_dev,
-	uint32_t epoch_line0, uint32_t epoch_line1)
-{
-	uint32_t irq_mask = 0;
-	uint32_t epoch_val = 0;
-	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
-	if (epoch_line0 > 0) {
-		irq_mask |= 0x4;
-		epoch_val |= (epoch_line0 - 1) << 16;
-	} else {
-		irq_mask &= ~0x4;
-		epoch_val &= 0xFFFF;
-	}
-	if (epoch_line1 > 0) {
-		irq_mask |= 0x8;
-		epoch_val |= epoch_line1 - 1;
-	} else {
-		irq_mask &= ~0x8;
-		epoch_val &= 0xFFFF0000;
-	}
-	msm_camera_io_w_mb(epoch_val, vfe_dev->vfe_base + 0x318);
-	msm_camera_io_w_mb(irq_mask, vfe_dev->vfe_base + 0x28);
 }
 
 static void msm_vfe40_reg_update(
@@ -663,9 +641,6 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 	val = msm_camera_io_r(vfe_dev->vfe_base + 0x2E8);
 	val |= camif_cfg->camif_input;
 	msm_camera_io_w(val, vfe_dev->vfe_base + 0x2E8);
-
-	vfe_dev->hw_info->vfe_ops.core_ops.epoch_irq(vfe_dev,
-		camif_cfg->epoch_line0, camif_cfg->epoch_line1);
 
 	switch (pix_cfg->input_mux) {
 	case CAMIF:
@@ -1284,7 +1259,6 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.halt = msm_vfe40_axi_halt,
 		},
 		.core_ops = {
-			.epoch_irq = msm_vfe40_epoch_irq_enb,
 			.reg_update = msm_vfe40_reg_update,
 			.cfg_camif = msm_vfe40_cfg_camif,
 			.update_camif_state = msm_vfe40_update_camif_state,

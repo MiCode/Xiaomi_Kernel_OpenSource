@@ -475,7 +475,8 @@ void msm_isp_do_tasklet(unsigned long data)
 			irq_status0, irq_status1, &tv);
 		irq_ops->process_stats_irq(vfe_dev,
 			irq_status0, irq_status1, &tv);
-		irq_ops->process_reg_update(vfe_dev, irq_status0, irq_status1);
+		irq_ops->process_reg_update(vfe_dev,
+			irq_status0, irq_status1, &tv);
 		msm_isp_process_error_info(vfe_dev);
 	}
 }

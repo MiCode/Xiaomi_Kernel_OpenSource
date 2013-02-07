@@ -58,7 +58,8 @@ struct msm_vfe_irq_ops {
 	void (*read_irq_status) (struct vfe_device *vfe_dev,
 		uint32_t *irq_status0, uint32_t *irq_status1);
 	void (*process_reg_update) (struct vfe_device *vfe_dev,
-		uint32_t irq_status0, uint32_t irq_status1);
+		uint32_t irq_status0, uint32_t irq_status1,
+		struct timeval *tv);
 	void (*process_reset_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1);
 	void (*process_halt_irq) (struct vfe_device *vfe_dev,
@@ -124,8 +125,6 @@ struct msm_vfe_axi_ops {
 };
 
 struct msm_vfe_core_ops {
-	void (*epoch_irq) (struct vfe_device *vfe_dev,
-		uint32_t epoch_line0, uint32_t epoch_line1);
 	void (*reg_update) (struct vfe_device *vfe_dev, uint32_t update_mask);
 	long (*reset_hw) (struct vfe_device *vfe_dev);
 	int (*init_hw) (struct vfe_device *vfe_dev);
