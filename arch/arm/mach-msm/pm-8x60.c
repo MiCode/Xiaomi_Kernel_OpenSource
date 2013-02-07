@@ -26,6 +26,7 @@
 #include <linux/tick.h>
 #include <linux/irqchip/arm-gic.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/krait-regulator.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <mach/scm.h>
@@ -360,12 +361,15 @@ static void msm_pm_config_hw_before_swfi(void)
 static void msm_pm_config_hw_after_retention(void)
 {
 	int ret;
+
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 	WARN_ON(ret);
+	krait_power_mdd_enable(smp_processor_id(), false);
 }
 
 static void msm_pm_config_hw_before_retention(void)
 {
+	krait_power_mdd_enable(smp_processor_id(), true);
 	return;
 }
 
