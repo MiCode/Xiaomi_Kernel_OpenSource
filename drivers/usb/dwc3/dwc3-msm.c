@@ -1326,6 +1326,17 @@ static void dwc3_chg_enable_secondary_det(struct dwc3_msm *mdwc)
 	dwc3_msm_write_readback(mdwc->base, CHARGING_DET_CTRL_REG, 0x3F, 0x34);
 }
 
+static bool dwc3_chg_det_check_linestate(struct dwc3_msm *mdwc)
+{
+	u32 chg_det;
+	bool ret = false;
+
+	chg_det = dwc3_msm_read_reg(mdwc->base, CHARGING_DET_OUTPUT_REG);
+	ret = chg_det & (3 << 8);
+
+	return ret;
+}
+
 static bool dwc3_chg_det_check_output(struct dwc3_msm *mdwc)
 {
 	u32 chg_det;
@@ -1391,9 +1402,10 @@ static void dwc3_chg_block_reset(struct dwc3_msm *mdwc)
 static const char *chg_to_string(enum dwc3_chg_type chg_type)
 {
 	switch (chg_type) {
-	case USB_SDP_CHARGER:		return "USB_SDP_CHARGER";
-	case USB_DCP_CHARGER:		return "USB_DCP_CHARGER";
-	case USB_CDP_CHARGER:		return "USB_CDP_CHARGER";
+	case DWC3_SDP_CHARGER:		return "USB_SDP_CHARGER";
+	case DWC3_DCP_CHARGER:		return "USB_DCP_CHARGER";
+	case DWC3_CDP_CHARGER:		return "USB_CDP_CHARGER";
+	case DWC3_PROPRIETARY_CHARGER:	return "USB_PROPRIETARY_CHARGER";
 	default:			return "INVALID_CHARGER";
 	}
 }
@@ -1423,6 +1435,14 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 		tmout = ++mdwc->dcd_retries == DWC3_CHG_DCD_MAX_RETRIES;
 		if (is_dcd || tmout) {
 			dwc3_chg_disable_dcd(mdwc);
+			if (dwc3_chg_det_check_linestate(mdwc)) {
+				dev_dbg(mdwc->dev, "proprietary charger\n");
+				mdwc->charger.chg_type =
+						DWC3_PROPRIETARY_CHARGER;
+				mdwc->chg_state = USB_CHG_STATE_DETECTED;
+				delay = 0;
+				break;
+			}
 			dwc3_chg_enable_primary_det(mdwc);
 			delay = DWC3_CHG_PRIMARY_DET_TIME;
 			mdwc->chg_state = USB_CHG_STATE_DCD_DONE;
@@ -1437,7 +1457,7 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 			delay = DWC3_CHG_SECONDARY_DET_TIME;
 			mdwc->chg_state = USB_CHG_STATE_PRIMARY_DONE;
 		} else {
-			mdwc->charger.chg_type = USB_SDP_CHARGER;
+			mdwc->charger.chg_type = DWC3_SDP_CHARGER;
 			mdwc->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
 		}
@@ -1445,9 +1465,9 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 	case USB_CHG_STATE_PRIMARY_DONE:
 		vout = dwc3_chg_det_check_output(mdwc);
 		if (vout)
-			mdwc->charger.chg_type = USB_DCP_CHARGER;
+			mdwc->charger.chg_type = DWC3_DCP_CHARGER;
 		else
-			mdwc->charger.chg_type = USB_CDP_CHARGER;
+			mdwc->charger.chg_type = DWC3_CDP_CHARGER;
 		mdwc->chg_state = USB_CHG_STATE_SECONDARY_DONE;
 		/* fall through */
 	case USB_CHG_STATE_SECONDARY_DONE:

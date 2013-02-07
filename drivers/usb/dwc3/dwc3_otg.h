@@ -61,12 +61,15 @@ struct dwc3_otg {
  * DWC3_DCP_CHARGER	Dedicated charger port (AC charger/ Wall charger).
  * DWC3_CDP_CHARGER	Charging downstream port. Enumeration can happen and
  *                      IDEV_CHG_MAX can be drawn irrespective of USB state.
+ * DWC3_PROPRIETARY_CHARGER A proprietary charger pull DP and DM to specific
+ *                     voltages between 2.0-3.3v for identification.
  */
 enum dwc3_chg_type {
 	DWC3_INVALID_CHARGER = 0,
 	DWC3_SDP_CHARGER,
 	DWC3_DCP_CHARGER,
 	DWC3_CDP_CHARGER,
+	DWC3_PROPRIETARY_CHARGER,
 };
 
 struct dwc3_charger {
