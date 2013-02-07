@@ -373,6 +373,10 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 	struct usb_phy *phy = dotg->otg.phy;
 	int ret = 0;
 
+	/* Flush processing any pending events before handling new ones */
+	if (init)
+		flush_work(&dotg->sm_work);
+
 	if (event == DWC3_EVENT_PHY_RESUME) {
 		if (!pm_runtime_status_suspended(phy->dev)) {
 			dev_warn(phy->dev, "PHY_RESUME event out of LPM!!!!\n");
@@ -394,6 +398,12 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			}
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
+		if (pm_runtime_status_suspended(phy->dev)) {
+			dev_warn(phy->dev, "PHY_STATE event in LPM!!!!\n");
+			ret = pm_runtime_get(phy->dev);
+			if (ret < 0)
+				dev_warn(phy->dev, "pm_runtime_get failed!!\n");
+		}
 		if (ext_xceiv->id == DWC3_ID_FLOAT) {
 			dev_dbg(phy->dev, "XCVR: ID set\n");
 			set_bit(ID, &dotg->inputs);

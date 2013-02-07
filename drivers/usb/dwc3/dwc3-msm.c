@@ -1891,16 +1891,8 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		if (mdwc->otg_xceiv && !mdwc->ext_inuse &&
 		    (mdwc->ext_xceiv.otg_capability || !init)) {
 			mdwc->ext_xceiv.bsv = val->intval;
-			if (atomic_read(&mdwc->in_lpm)) {
-				dev_dbg(mdwc->dev,
-					"%s received in LPM\n", __func__);
-				queue_delayed_work(system_nrt_wq,
+			queue_delayed_work(system_nrt_wq,
 							&mdwc->resume_work, 0);
-			} else {
-				mdwc->ext_xceiv.notify_ext_events(
-							mdwc->otg_xceiv->otg,
-							DWC3_EVENT_XCEIV_STATE);
-			}
 
 			if (!init)
 				init = true;
