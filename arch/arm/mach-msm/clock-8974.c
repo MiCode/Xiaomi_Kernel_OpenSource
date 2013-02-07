@@ -5905,6 +5905,17 @@ static void __init reg_init(void)
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE_REG));
 
 	/*
+	 * V2 requires additional votes to allow the LPASS and MMSS
+	 * controllers to use GPLL0.
+	 */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+		regval = readl_relaxed(
+				GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
+		writel_relaxed(regval | BIT(26) | BIT(25),
+				GCC_REG_BASE(APCS_CLOCK_BRANCH_ENA_VOTE));
+	}
+
+	/*
 	 * TODO: Confirm that no clocks need to be voted on in this sleep vote
 	 * register.
 	 */
