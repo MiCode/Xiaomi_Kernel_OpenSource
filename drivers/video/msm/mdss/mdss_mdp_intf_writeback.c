@@ -109,6 +109,7 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 	struct mdss_mdp_format_params *fmt;
 	u32 dst_format, pattern, ystride0, ystride1, outsize, chroma_samp;
 	u32 opmode = ctx->opmode;
+	struct mdss_data_type *mdata;
 
 	pr_debug("wb_num=%d format=%d\n", ctx->wb_num, ctx->format);
 
@@ -162,8 +163,19 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 	}
 
 	if (fmt->fetch_planes != MDSS_MDP_PLANE_PLANAR) {
-		pattern = (fmt->element[3] << 24) | (fmt->element[2] << 15) |
-			(fmt->element[1] << 8) | (fmt->element[0] << 0);
+		mdata = mdss_mdp_get_mdata();
+		if (mdata && mdata->mdp_rev >= MDSS_MDP_HW_REV_102) {
+			pattern = (fmt->element[3] << 24) |
+				  (fmt->element[2] << 16) |
+				  (fmt->element[1] << 8)  |
+				  (fmt->element[0] << 0);
+		} else {
+			pattern = (fmt->element[3] << 24) |
+				  (fmt->element[2] << 15) |
+				  (fmt->element[1] << 8)  |
+				  (fmt->element[0] << 0);
+		}
+
 		dst_format |= (fmt->unpack_align_msb << 18) |
 			      (fmt->unpack_tight << 17) |
 			      ((fmt->unpack_count - 1) << 12) |
