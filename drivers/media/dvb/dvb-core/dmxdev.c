@@ -483,10 +483,9 @@ static int dvr_input_thread_entry(void *arg)
 			(!src->data) ||
 			(dvb_ringbuffer_avail(src) > 188) ||
 			(src->error != 0) ||
-			(dmxdev->dvr_in_exit) ||
-			kthread_should_stop());
+			dmxdev->dvr_in_exit);
 
-		if ((ret < 0) || kthread_should_stop())
+		if (ret < 0)
 			break;
 
 		spin_lock(&dmxdev->dvr_in_lock);
@@ -568,6 +567,12 @@ static int dvr_input_thread_entry(void *arg)
 		wake_up_all(&src->queue);
 	}
 
+	set_current_state(TASK_INTERRUPTIBLE);
+	while (!kthread_should_stop()) {
+		schedule();
+		set_current_state(TASK_INTERRUPTIBLE);
+	}
+	set_current_state(TASK_RUNNING);
 
 	return 0;
 }
