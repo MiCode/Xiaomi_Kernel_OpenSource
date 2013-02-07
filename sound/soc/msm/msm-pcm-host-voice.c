@@ -387,6 +387,7 @@ static void hpcm_unmap_and_free_shared_memory(struct hpcm_drv *prtd,
 	if (paddr) {
 		voc_send_cvp_unmap_vocpcm_memory(voc_get_session_id(sess),
 						 paddr);
+		ion_unmap_kernel(prtd->ion_client, tp->ion_handle);
 		ion_free(prtd->ion_client, tp->ion_handle);
 		tp->ion_mem_len = 0;
 		tp->playback_dai_data.vocpcm_ion_buffer.paddr = 0;
