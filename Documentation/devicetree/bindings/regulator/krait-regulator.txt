@@ -21,6 +21,7 @@ Required properties:
 - qcom,ldo-delta-voltage:	The delta used to reduce the requested voltage in order
 				to derive the LDO output voltage while switching
 				to LDO mode. Acceptable values are from 1000uV to 100000uV
+- qcom,cpu-num:			Indicates what cpu this regulator controls
 
 Any property defined as part of the core regulator
 binding, defined in regulator.txt, can also be used.
@@ -39,5 +40,6 @@ Example:
 		qcom,ldo-default-voltage = <745000>;
 		qcom,ldo-threshold-voltage = <750000>;
 		qcom,ldo-delta-voltage = <50000>;
+		qcom,cpu-num = 0;
 	};
 

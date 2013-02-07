@@ -70,6 +70,7 @@
 
 #define BHS_SETTLING_DELAY_US		1
 #define LDO_SETTLING_DELAY_US		1
+#define MDD_SETTLING_DELAY_US		5
 
 #define _KRAIT_MASK(BITS, POS)  (((u32)(1 << (BITS)) - 1) << POS)
 #define KRAIT_MASK(LEFT_BIT_POS, RIGHT_BIT_POS) \
@@ -179,8 +180,11 @@ struct krait_power_vreg {
 	int				headroom_uV;
 	int				ldo_threshold_uV;
 	int				ldo_delta_uV;
+	int				cpu_num;
 	bool				online;
 };
+
+DEFINE_PER_CPU(struct krait_power_vreg *, krait_vregs);
 
 static u32 version;
 
@@ -267,6 +271,40 @@ static int set_krait_ldo_uv(struct krait_power_vreg *kvreg, int uV)
 	return 0;
 }
 
+static int __krait_power_mdd_enable(struct krait_power_vreg *kvreg, bool on)
+{
+	if (on) {
+		writel_relaxed(0x00000002, kvreg->mdd_base + MDD_MODE);
+		/* complete the above write before the delay */
+		mb();
+		udelay(MDD_SETTLING_DELAY_US);
+	} else {
+		writel_relaxed(0x00000000, kvreg->mdd_base + MDD_MODE);
+		/*
+		 * complete the above write before other accesses
+		 * to krait regulator
+		 */
+		mb();
+	}
+	return 0;
+}
+
+int krait_power_mdd_enable(int cpu_num, bool on)
+{
+	struct krait_power_vreg *kvreg = per_cpu(krait_vregs, cpu_num);
+
+	if (!on && kvreg->mode == LDO_MODE) {
+		pr_debug("%s using LDO - cannot turn off MDD\n", kvreg->name);
+		return -EINVAL;
+	}
+
+	if ((on && kvreg->mode == LDO_MODE) || (!on && kvreg->mode == HS_MODE))
+		return 0;
+
+	__krait_power_mdd_enable(kvreg, on);
+	return 0;
+}
+
 static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 {
 	if (kvreg->mode == HS_MODE)
@@ -296,6 +334,8 @@ static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 	krait_masked_write(kvreg, APC_PWR_GATE_CTL,
 				LDO_PWR_DWN_MASK, LDO_PWR_DWN_MASK);
 
+	/* turn off MDD since LDO is not used */
+	__krait_power_mdd_enable(kvreg, false);
 	kvreg->mode = HS_MODE;
 	pr_debug("%s using BHS\n", kvreg->name);
 	return 0;
@@ -313,6 +353,9 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 	 */
 	if (kvreg->mode == LDO_MODE)
 		switch_to_using_hs(kvreg);
+
+	/* turn on MDD since LDO is being turned on */
+	__krait_power_mdd_enable(kvreg, true);
 
 	set_krait_ldo_uv(kvreg, kvreg->uV - kvreg->ldo_delta_uV);
 
@@ -873,6 +916,7 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	int rc = 0;
 	int headroom_uV, retention_uV, ldo_default_uV, ldo_threshold_uV;
 	int ldo_delta_uV;
+	int cpu_num;
 
 	/* Initialize the pmic gang if it hasn't been initialized already */
 	if (the_gang == NULL) {
@@ -967,6 +1011,13 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 					ldo_delta_uV);
 			return -EINVAL;
 		}
+		rc = of_property_read_u32(pdev->dev.of_node,
+					"qcom,cpu-num",
+					&cpu_num);
+		if (cpu_num > num_possible_cpus()) {
+			pr_err("bad cpu-num= %d specified\n", cpu_num);
+			return -EINVAL;
+		}
 	}
 
 	if (!init_data) {
@@ -1019,6 +1070,7 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	kvreg->ldo_default_uV	= ldo_default_uV;
 	kvreg->ldo_threshold_uV = ldo_threshold_uV;
 	kvreg->ldo_delta_uV	= ldo_delta_uV;
+	kvreg->cpu_num		= cpu_num;
 
 	platform_set_drvdata(pdev, kvreg);
 
@@ -1038,6 +1090,7 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	}
 
 	kvreg_hw_init(kvreg);
+	per_cpu(krait_vregs, cpu_num) = kvreg;
 	dev_dbg(&pdev->dev, "id=%d, name=%s\n", pdev->id, kvreg->name);
 
 	return 0;
