@@ -318,7 +318,7 @@ static void msm_vfe32_read_irq_status(struct vfe_device *vfe_dev,
 }
 
 static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1)
+	uint32_t irq_status0, uint32_t irq_status1, struct timeval *tv)
 {
 	if (!(irq_status0 & 0x20) && !(irq_status1 & 0x1C000000))
 		return;
