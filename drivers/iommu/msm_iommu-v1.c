@@ -602,11 +602,12 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 	}
 
-	iommu_halt(iommu_drvdata);
 
 	if (!msm_iommu_ctx_attached(dev->parent)) {
 		if (!is_secure) {
+			iommu_halt(iommu_drvdata);
 			__program_iommu(iommu_drvdata->base);
+			iommu_resume(iommu_drvdata);
 		} else {
 			ret = msm_iommu_sec_program_iommu(
 				iommu_drvdata->sec_id);
@@ -619,6 +620,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		program_iommu_bfb_settings(iommu_drvdata->base,
 					   iommu_drvdata->bfb_settings);
 	}
+
+	iommu_halt(iommu_drvdata);
 
 	__program_context(iommu_drvdata, ctx_drvdata, __pa(priv->pt.fl_table),
 			  priv->pt.redirect, is_secure);
