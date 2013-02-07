@@ -777,20 +777,18 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 
 static int mdss_hw_init(struct mdss_data_type *mdata)
 {
-	char *base = mdata->vbif_base;
-
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	/* Setup VBIF QoS settings*/
-	MDSS_MDP_REG_WRITE(0x2E0, 0x000000AA);
-	MDSS_MDP_REG_WRITE(0x2E4, 0x00000055);
-	writel_relaxed(0x00000001, base + 0x004);
-	writel_relaxed(0x00000707, base + 0x0D8);
-	writel_relaxed(0x00000030, base + 0x0F0);
-	writel_relaxed(0x00000001, base + 0x124);
-	writel_relaxed(0x00000FFF, base + 0x178);
-	writel_relaxed(0x0FFF0FFF, base + 0x17C);
-	writel_relaxed(0x22222222, base + 0x160);
-	writel_relaxed(0x00002222, base + 0x164);
+	mdata->rev = MDSS_MDP_REG_READ(MDSS_REG_HW_VERSION);
+	mdata->mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
+
+	if (mdata->hw_settings) {
+		struct mdss_hw_settings *hws = mdata->hw_settings;
+
+		while (hws->reg) {
+			writel_relaxed(hws->val, hws->reg);
+			hws++;
+		}
+	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	pr_debug("MDP hw init done\n");
 
@@ -820,11 +818,6 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	mdata->clk_ctrl_wq = create_singlethread_workqueue("mdp_clk_wq");
 	INIT_DELAYED_WORK(&mdata->clk_ctrl_worker,
 			  mdss_mdp_clk_ctrl_workqueue_handler);
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mdata->rev = MDSS_MDP_REG_READ(MDSS_REG_HW_VERSION);
-	mdata->mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	mdata->smp_mb_cnt = MDSS_MDP_SMP_MMB_BLOCKS;
 	mdata->smp_mb_size = MDSS_MDP_SMP_MMB_SIZE;
@@ -960,9 +953,73 @@ probe_done:
 	return rc;
 }
 
+static void mdss_mdp_parse_dt_regs_array(const u32 *arr, char __iomem *hw_base,
+	struct mdss_hw_settings *hws, int count)
+{
+	u32 len, reg;
+	int i;
+
+	if (!arr)
+		return;
+
+	for (i = 0, len = count * 2; i < len; i += 2) {
+		reg = be32_to_cpu(arr[i]);
+		hws->reg = hw_base + reg;
+		hws->val = be32_to_cpu(arr[i + 1]);
+		pr_debug("reg: 0x%04x=0x%08x\n", reg, hws->val);
+		hws++;
+	}
+}
+
+int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	struct mdss_hw_settings *hws;
+	const u32 *vbif_arr, *mdp_arr;
+	int vbif_len, mdp_len;
+
+	vbif_arr = of_get_property(pdev->dev.of_node, "qcom,vbif-settings",
+			&vbif_len);
+	if (!vbif_arr || (mdp_len & 1)) {
+		pr_warn("MDSS VBIF settings not found\n");
+		vbif_len = 0;
+	}
+	vbif_len /= 2 * sizeof(u32);
+
+	mdp_arr = of_get_property(pdev->dev.of_node, "qcom,mdp-settings",
+			&mdp_len);
+	if (!mdp_arr || (mdp_len & 1)) {
+		pr_warn("MDSS MDP settings not found\n");
+		mdp_len = 0;
+	}
+	mdp_len /= 2 * sizeof(u32);
+
+	if ((mdp_len + vbif_len) == 0)
+		return 0;
+
+	hws = devm_kzalloc(&pdev->dev, sizeof(*hws) * (vbif_len + mdp_len + 1),
+			GFP_KERNEL);
+	if (!hws)
+		return -ENOMEM;
+
+	mdss_mdp_parse_dt_regs_array(vbif_arr, mdata->vbif_base, hws, vbif_len);
+	mdss_mdp_parse_dt_regs_array(mdp_arr, mdata->mdp_base,
+		hws + vbif_len, mdp_len);
+
+	mdata->hw_settings = hws;
+
+	return 0;
+}
+
 static int mdss_mdp_parse_dt(struct platform_device *pdev)
 {
 	int rc;
+
+	rc = mdss_mdp_parse_dt_hw_settings(pdev);
+	if (rc) {
+		pr_err("Error in device tree : hw settings\n");
+		return rc;
+	}
 
 	rc = mdss_mdp_parse_dt_pipe(pdev);
 	if (rc) {

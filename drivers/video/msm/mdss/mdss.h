@@ -51,6 +51,11 @@ struct mdss_iommu_map_type {
 	int domain_idx;
 };
 
+struct mdss_hw_settings {
+	char __iomem *reg;
+	u32 val;
+};
+
 struct mdss_data_type {
 	u32 rev;
 	u32 mdp_rev;
@@ -84,6 +89,8 @@ struct mdss_data_type {
 
 	u32 smp_mb_cnt;
 	u32 smp_mb_size;
+
+	struct mdss_hw_settings *hw_settings;
 
 	struct mdss_mdp_pipe *vig_pipes;
 	struct mdss_mdp_pipe *rgb_pipes;

@@ -37,6 +37,17 @@
 		qcom,mdss-wb-off = <0x00011100 0x00013100 0x00015100
 				    0x00017100 0x00019100>;
 
+		qcom,vbif-settings = <0x0004 0x00000001>,
+				     <0x00D8 0x00000707>,
+				     <0x00F0 0x00000030>,
+				     <0x0124 0x00000001>,
+				     <0x0178 0x00000FFF>,
+				     <0x017C 0x0FFF0FFF>,
+				     <0x0160 0x22222222>,
+				     <0x0164 0x00002222>;
+		qcom,mdp-settings = <0x02E0 0x000000AA>,
+				    <0x02E4 0x00000055>;
+
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";

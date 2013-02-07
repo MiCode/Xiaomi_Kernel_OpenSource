@@ -76,6 +76,16 @@ Required properties
 				should reflect the number of mixers that can
 				drive data to a writeback block.
 
+Optional properties:
+- qcom,vbif-settings :	Array with key-value pairs of constant VBIF register
+			settings used to setup MDSS QoS for optimum performance.
+			The key used should be offset from "vbif_phys" register
+			defined in reg property.
+- qcom,mdp-settings :	Array with key-value pairs of constant MDP register
+			settings used to setup MDSS QoS for best performance.
+			The key used should be offset from "mdp_phys" register
+			defined in reg property.
+
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
 
@@ -94,6 +104,10 @@ Example:
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 
+		qcom,vbif-settings = <0x0004 0x00000001>,
+				     <0x00D8 0x00000707>;
+		qcom,mdp-settings = <0x02E0 0x000000AA>,
+				    <0x02E4 0x00000055>;
 		qcom,mdss-pipe-vig-off = <0x00001200 0x00001600
 					  0x00001A00>;
 		qcom,mdss-pipe-rgb-off = <0x00001E00 0x00002200
