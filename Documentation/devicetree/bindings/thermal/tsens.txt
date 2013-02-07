@@ -29,6 +29,11 @@ Required properties:
 	       sensor used to compute the offset. Slope is represented
 	       as ADC code/DegC and the value is multipled by a factor
 	       of 1000.
+- qcom,calib-mode : Calibration masks to use to abstract the offset data from efuse.
+		    Select from the following strings.
+		    "fuse_map1" : Used for 8974/9x25 fuse calibration map.
+		    "fuse_map2" : Used for 8x26 fuse calibration map.
+		    "fuse_map3" : Used for 8x10 fuse calibration map.
 
 Optional properties:
 - qcom,calibration-less-mode : If present the pre-characterized data for offsets
@@ -45,6 +50,7 @@ tsens@fc4a8000 {
 	interrupts = <0 184 0>;
 	qcom,calibration-less-mode;
 	qcom,sensors = <11>;
-	qcom,slope = <1134 1122 1142 1123 1176 1176 1176 1186 1176
-			1176>;
+	qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
+			3200>;
+	qcom,calib-mode = "fuse_map1";
 };
