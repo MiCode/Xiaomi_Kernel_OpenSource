@@ -36,7 +36,7 @@
 #define COMPATIBLE_NAME "qcom,mhl-sii8334"
 #define MAX_CURRENT 700000
 
-#define pr_debug_intr(...) pr_debug("\n")
+#define pr_debug_intr(...)
 
 #define MSC_START_BIT_MSC_CMD        (0x01 << 0)
 #define MSC_START_BIT_VS_CMD        (0x01 << 1)
@@ -475,9 +475,10 @@ static enum power_supply_property mhl_pm_power_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 };
 
-static void cbus_reset(struct i2c_client *client)
+static void cbus_reset(struct mhl_tx_ctrl *mhl_ctrl)
 {
 	uint8_t i;
+	struct i2c_client *client = mhl_ctrl->i2c_handle;
 
 	/*
 	 * REG_SRST
@@ -492,7 +493,10 @@ static void cbus_reset(struct i2c_client *client)
 	MHL_SII_REG_NAME_WR(REG_INTR4_MASK,
 		BIT0 | BIT2 | BIT3 | BIT4 | BIT5 | BIT6);
 
-	MHL_SII_REG_NAME_WR(REG_INTR5_MASK, 0x00);
+	if (mhl_ctrl->chip_rev_id < 1)
+		MHL_SII_REG_NAME_WR(REG_INTR5_MASK, BIT3 | BIT4);
+	else
+		MHL_SII_REG_NAME_WR(REG_INTR5_MASK, 0x00);
 
 	/* Unmask CBUS1 Intrs */
 	MHL_SII_REG_NAME_WR(REG_CBUS_INTR_ENABLE,
@@ -523,7 +527,7 @@ static void init_cbus_regs(struct i2c_client *client)
 	/* Increase DDC translation layer timer*/
 	MHL_SII_CBUS_WR(0x0007, 0xF2);
 	/* Drive High Time */
-	MHL_SII_CBUS_WR(0x0036, 0x03);
+	MHL_SII_CBUS_WR(0x0036, 0x0B);
 	/* Use programmed timing */
 	MHL_SII_CBUS_WR(0x0039, 0x30);
 	/* CBUS Drive Strength */
@@ -590,6 +594,8 @@ static void init_cbus_regs(struct i2c_client *client)
 static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 	bool mhl_disc_en)
 {
+	uint8_t regval;
+
 	/*
 	 * ============================================
 	 * POWER UP
@@ -599,11 +605,6 @@ static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 
 	/* Power up 1.2V core */
 	MHL_SII_PAGE1_WR(0x003D, 0x3F);
-	/*
-	 * Wait for the source power to be enabled
-	 * before enabling pll clocks.
-	 */
-	msleep(50);
 	/* Enable Tx PLL Clock */
 	MHL_SII_PAGE2_WR(0x0011, 0x01);
 	/* Enable Tx Clock Path and Equalizer */
@@ -611,22 +612,26 @@ static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 	/* Tx Source Termination ON */
 	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL1, 0x10);
 	/* Enable 1X MHL Clock output */
-	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL6, 0xAC);
+	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL6, 0xBC);
 	/* Tx Differential Driver Config */
 	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL2, 0x3C);
-	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL4, 0xD9);
+	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL4, 0xC8);
 	/* PLL Bandwidth Control */
-	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL8, 0x02);
+	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL7, 0x03);
+	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL8, 0x0A);
 	/*
 	 * ============================================
 	 * Analog PLL Control
 	 * ============================================
 	 */
 	/* Enable Rx PLL clock */
-	MHL_SII_REG_NAME_WR(REG_TMDS_CCTRL,  0x00);
-	MHL_SII_PAGE0_WR(0x00F8, 0x0C);
+	MHL_SII_REG_NAME_WR(REG_TMDS_CCTRL,  0x08);
+	MHL_SII_PAGE0_WR(0x00F8, 0x8C);
 	MHL_SII_PAGE0_WR(0x0085, 0x02);
 	MHL_SII_PAGE2_WR(0x0000, 0x00);
+	regval = MHL_SII_PAGE2_RD(0x0005);
+	regval &= ~BIT5;
+	MHL_SII_PAGE2_WR(0x0005, regval);
 	MHL_SII_PAGE2_WR(0x0013, 0x60);
 	/* PLL Cal ref sel */
 	MHL_SII_PAGE2_WR(0x0017, 0x03);
@@ -646,6 +651,7 @@ static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 	/* Rx PLL Bandwidth value from I2C */
 	MHL_SII_PAGE2_WR(0x0045, 0x06);
 	MHL_SII_PAGE2_WR(0x004B, 0x06);
+	MHL_SII_PAGE2_WR(0x004C, 0x60);
 	/* Manual zone control */
 	MHL_SII_PAGE2_WR(0x004C, 0xE0);
 	/* PLL Mode value */
@@ -658,20 +664,21 @@ static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 	 */
 	MHL_SII_REG_NAME_WR(REG_DISC_CTRL2, 0xAD);
 	/* 1.8V CBUS VTH */
-	MHL_SII_REG_NAME_WR(REG_DISC_CTRL5, 0x55);
+	MHL_SII_REG_NAME_WR(REG_DISC_CTRL5, 0x57);
 	/* RGND and single Discovery attempt */
 	MHL_SII_REG_NAME_WR(REG_DISC_CTRL6, 0x11);
 	/* Ignore VBUS */
 	MHL_SII_REG_NAME_WR(REG_DISC_CTRL8, 0x82);
-	MHL_SII_REG_NAME_WR(REG_DISC_CTRL9, 0x24);
 
 	/* Enable CBUS Discovery */
 	if (mhl_disc_en) {
+		MHL_SII_REG_NAME_WR(REG_DISC_CTRL9, 0x24);
 		/* Enable MHL Discovery */
 		MHL_SII_REG_NAME_WR(REG_DISC_CTRL1, 0x27);
 		/* Pull-up resistance off for IDLE state */
 		MHL_SII_REG_NAME_WR(REG_DISC_CTRL4, 0x8C);
 	} else {
+		MHL_SII_REG_NAME_WR(REG_DISC_CTRL9, 0x26);
 		/* Disable MHL Discovery */
 		MHL_SII_REG_NAME_WR(REG_DISC_CTRL1, 0x26);
 		MHL_SII_REG_NAME_WR(REG_DISC_CTRL4, 0x8C);
@@ -684,14 +691,14 @@ static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 	MHL_SII_PAGE3_WR(0x3C, 0x80);
 
 	if (mhl_ctrl->cur_state != POWER_STATE_D3)
-		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT5 | BIT4, BIT4);
+		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT6 | BIT5 | BIT4, BIT4);
 
 	/* Enable Auto Soft RESET */
 	MHL_SII_REG_NAME_WR(REG_SRST, 0x084);
 	/* HDMI Transcode mode enable */
 	MHL_SII_PAGE0_WR(0x000D, 0x1C);
 
-	cbus_reset(client);
+	cbus_reset(mhl_ctrl);
 	init_cbus_regs(client);
 }
 
