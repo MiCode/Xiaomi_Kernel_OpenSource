@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -808,7 +808,7 @@ int bam_check(void *base, u32 *version, u32 *num_pipes)
 	 *  Discover the hardware version number and the number of pipes
 	 *  supported by this BAM
 	 */
-	*num_pipes = bam_read_reg(base, NUM_PIPES);
+	*num_pipes = bam_read_reg_field(base, NUM_PIPES, BAM_NUM_PIPES);
 	*version = ver;
 
 	/* Check BAM version */
