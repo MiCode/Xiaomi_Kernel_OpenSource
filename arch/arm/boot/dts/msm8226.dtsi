@@ -554,4 +554,4 @@
 };
 
 /include/ "msm8226-regulator.dtsi"
-/include/ "msm-pm8026.dtsi"
+/include/ "msm-pm8226.dtsi"
