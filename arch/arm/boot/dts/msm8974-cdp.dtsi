@@ -534,3 +534,11 @@
 	mpp@a300 { /* MPP 4 */
 	};
 };
+
+&slim_msm {
+	taiko_codec {
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
+		qcom,cdc-micbias4-ext-cap;
+	};
+};

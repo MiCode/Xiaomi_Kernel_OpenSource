@@ -585,6 +585,7 @@
 &slim_msm {
 	taiko_codec {
 		qcom,cdc-micbias2-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
 	};
 };
 
