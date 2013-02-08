@@ -2169,45 +2169,44 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
-	u16 micb_int_reg;
+	u16 micb_int_reg = 0, micb_ctl_reg = 0;
 	u8 cfilt_sel_val = 0;
 	char *internal1_text = "Internal1";
 	char *internal2_text = "Internal2";
 	char *internal3_text = "Internal3";
 	enum wcd9xxx_notify_event e_post_off, e_pre_on, e_post_on;
 
-	pr_debug("%s %d\n", __func__, event);
-	switch (w->reg) {
-	case TAIKO_A_MICB_1_CTL:
+	pr_debug("%s: w->name %s event %d\n", __func__, w->name, event);
+	if (strnstr(w->name, "MIC BIAS1", sizeof("MIC BIAS1"))) {
+		micb_ctl_reg = TAIKO_A_MICB_1_CTL;
 		micb_int_reg = TAIKO_A_MICB_1_INT_RBIAS;
 		cfilt_sel_val = taiko->resmgr.pdata->micbias.bias1_cfilt_sel;
 		e_pre_on = WCD9XXX_EVENT_PRE_MICBIAS_1_ON;
 		e_post_on = WCD9XXX_EVENT_POST_MICBIAS_1_ON;
 		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_1_OFF;
-		break;
-	case TAIKO_A_MICB_2_CTL:
+	} else if (strnstr(w->name, "MIC BIAS2", sizeof("MIC BIAS2"))) {
+		micb_ctl_reg = TAIKO_A_MICB_2_CTL;
 		micb_int_reg = TAIKO_A_MICB_2_INT_RBIAS;
 		cfilt_sel_val = taiko->resmgr.pdata->micbias.bias2_cfilt_sel;
 		e_pre_on = WCD9XXX_EVENT_PRE_MICBIAS_2_ON;
 		e_post_on = WCD9XXX_EVENT_POST_MICBIAS_2_ON;
 		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_2_OFF;
-		break;
-	case TAIKO_A_MICB_3_CTL:
+	} else if (strnstr(w->name, "MIC BIAS3", sizeof("MIC BIAS3"))) {
+		micb_ctl_reg = TAIKO_A_MICB_2_CTL;
 		micb_int_reg = TAIKO_A_MICB_3_INT_RBIAS;
 		cfilt_sel_val = taiko->resmgr.pdata->micbias.bias3_cfilt_sel;
 		e_pre_on = WCD9XXX_EVENT_PRE_MICBIAS_3_ON;
 		e_post_on = WCD9XXX_EVENT_POST_MICBIAS_3_ON;
 		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_3_OFF;
-		break;
-	case TAIKO_A_MICB_4_CTL:
+	} else if (strnstr(w->name, "MIC BIAS4", sizeof("MIC BIAS4"))) {
+		micb_ctl_reg = TAIKO_A_MICB_2_CTL;
 		micb_int_reg = taiko->resmgr.reg_addr->micb_4_int_rbias;
 		cfilt_sel_val = taiko->resmgr.pdata->micbias.bias4_cfilt_sel;
 		e_pre_on = WCD9XXX_EVENT_PRE_MICBIAS_4_ON;
 		e_post_on = WCD9XXX_EVENT_POST_MICBIAS_4_ON;
 		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_4_OFF;
-		break;
-	default:
-		pr_err("%s: Error, invalid micbias register\n", __func__);
+	} else {
+		pr_err("%s: Error, invalid micbias %s\n", __func__, w->name);
 		return -EINVAL;
 	}
 
@@ -2226,6 +2225,16 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x3, 0x3);
 
+		if (micb_ctl_reg == TAIKO_A_MICB_2_CTL) {
+			WCD9XXX_BCL_LOCK(&taiko->resmgr);
+			wcd9xxx_resmgr_add_cond_update_bits(&taiko->resmgr,
+						  WCD9XXX_COND_HPH_MIC,
+						  micb_ctl_reg, w->shift,
+						  false);
+			WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+		} else
+			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
+					    1 << w->shift);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(20000, 20000);
@@ -2233,6 +2242,16 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		if (micb_ctl_reg == TAIKO_A_MICB_2_CTL) {
+			WCD9XXX_BCL_LOCK(&taiko->resmgr);
+			wcd9xxx_resmgr_rm_cond_update_bits(&taiko->resmgr,
+						  WCD9XXX_COND_HPH_MIC,
+						  micb_ctl_reg, 7, false);
+			WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+		} else
+			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
+					    0);
+
 		/* Let MBHC module know so micbias switch to be off */
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_off);
 
@@ -4220,15 +4239,18 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 
 
 	SND_SOC_DAPM_INPUT("AMIC1"),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 External", TAIKO_A_MICB_1_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal1", TAIKO_A_MICB_1_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal2", TAIKO_A_MICB_1_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 External", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal1", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1 Internal2", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC1", NULL, TAIKO_A_TX_1_2_EN, 7, 0,
 		taiko_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
@@ -4311,31 +4333,38 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("ANC1 FB MUX", SND_SOC_NOPM, 0, 0, &anc1_fb_mux),
 
 	SND_SOC_DAPM_INPUT("AMIC2"),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 External", TAIKO_A_MICB_2_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal1", TAIKO_A_MICB_2_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal2", TAIKO_A_MICB_2_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal3", TAIKO_A_MICB_2_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 External", TAIKO_A_MICB_3_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal1", TAIKO_A_MICB_3_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal2", TAIKO_A_MICB_3_CTL, 7, 0,
-		taiko_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", TAIKO_A_MICB_4_CTL, 7,
-				0, taiko_codec_enable_micbias,
-				SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-				SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 External", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal1", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU |
+			       SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal2", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 Internal3", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 External", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal1", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU |
+			       SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3 Internal2", SND_SOC_NOPM, 7, 0,
+			       taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU |
+			       SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4 External", SND_SOC_NOPM, 7,
+			       0, taiko_codec_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			       SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_ADC_E("ADC2", NULL, TAIKO_A_TX_1_2_EN, 3, 0,
 		taiko_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
