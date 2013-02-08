@@ -1015,7 +1015,9 @@ void __init msm_8974_init_gpiomux(void)
 				ARRAY_SIZE(msm_hsic_hub_configs));
 
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
-	msm_gpiomux_install(msm_mhl_configs, ARRAY_SIZE(msm_mhl_configs));
+	if (machine_is_msm8974_fluid())
+		msm_gpiomux_install(msm_mhl_configs,
+				    ARRAY_SIZE(msm_mhl_configs));
 
 	msm_gpiomux_install(msm8974_pri_auxpcm_configs,
 				 ARRAY_SIZE(msm8974_pri_auxpcm_configs));
