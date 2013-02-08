@@ -359,7 +359,8 @@ requeue_req:
 	}
 
 	/* wait for a request to complete */
-	ret = wait_event_interruptible(dev->read_wq, dev->rx_done);
+	ret = wait_event_interruptible(dev->read_wq, dev->rx_done ||
+				atomic_read(&dev->error));
 	if (ret < 0) {
 		if (ret != -ERESTARTSYS)
 		atomic_set(&dev->error, 1);
@@ -381,6 +382,9 @@ requeue_req:
 		r = -EIO;
 
 done:
+	if (atomic_read(&dev->error))
+		wake_up(&dev->write_wq);
+
 	adb_unlock(&dev->read_excl);
 	pr_debug("adb_read returning %d\n", r);
 	return r;
@@ -448,6 +452,9 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 
 	if (req)
 		adb_req_put(dev, &dev->tx_idle, req);
+
+	if (atomic_read(&dev->error))
+		wake_up(&dev->read_wq);
 
 	adb_unlock(&dev->write_excl);
 	pr_debug("adb_write returning %d\n", r);
