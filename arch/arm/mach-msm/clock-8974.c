@@ -112,6 +112,7 @@ static void __iomem *virt_bases[N_BASES];
 #define LPASS_LPA_PLL_VOTE_APPS_REG    0x2000
 
 #define GLB_CLK_DIAG_REG               0x001C
+#define L2_CBCR_REG                    0x004C
 
 #define USB30_MASTER_CMD_RCGR          0x03D4
 #define USB30_MOCK_UTMI_CMD_RCGR       0x03E8
@@ -4834,6 +4835,14 @@ struct measure_mux_entry {
 	u32 debug_mux;
 };
 
+enum {
+	M_ACPU0 = 0,
+	M_ACPU1,
+	M_ACPU2,
+	M_ACPU3,
+	M_L2,
+};
+
 struct measure_mux_entry measure_mux[] = {
 	{&gcc_pdm_ahb_clk.c,			GCC_BASE, 0x00d0},
 	{&gcc_blsp2_qup1_i2c_apps_clk.c,	GCC_BASE, 0x00ab},
@@ -5009,11 +5018,11 @@ struct measure_mux_entry measure_mux[] = {
 	{&audio_core_ixfabric_clk.c,		LPASS_BASE, 0x0059},
 	{&audio_wrapper_br_clk.c,		LPASS_BASE, 0x0022},
 
-	{&l2_m_clk,				APCS_BASE, 0x0081},
-	{&krait0_m_clk,				APCS_BASE, 0x0080},
-	{&krait1_m_clk,				APCS_BASE, 0x0088},
-	{&krait2_m_clk,				APCS_BASE, 0x0090},
-	{&krait3_m_clk,				APCS_BASE, 0x0098},
+	{&krait0_m_clk,				APCS_BASE, M_ACPU0},
+	{&krait1_m_clk,				APCS_BASE, M_ACPU1},
+	{&krait2_m_clk,				APCS_BASE, M_ACPU2},
+	{&krait3_m_clk,				APCS_BASE, M_ACPU3},
+	{&l2_m_clk,				APCS_BASE, M_L2},
 
 	{&dummy_clk,				N_BASES,   0x0000},
 };
@@ -5074,7 +5083,19 @@ static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 	case APCS_BASE:
 		clk->multiplier = 4;
 		clk_sel = 0x16A;
-		regval = measure_mux[i].debug_mux;
+
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {
+			if (measure_mux[i].debug_mux == M_L2)
+				regval = BIT(7)|BIT(0);
+			else
+				regval = BIT(7)|(measure_mux[i].debug_mux << 3);
+		} else {
+			if (measure_mux[i].debug_mux == M_L2)
+				regval = BIT(12);
+			else
+				regval = measure_mux[i].debug_mux << 8;
+			writel_relaxed(BIT(0), APCS_REG_BASE(L2_CBCR_REG));
+		}
 		writel_relaxed(regval, APCS_REG_BASE(GLB_CLK_DIAG_REG));
 		break;
 
