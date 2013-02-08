@@ -11,6 +11,7 @@
  * which has to be created by the fd = open(/dev/mobicore) command.
  *
  * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
+ * <-- Copyright Trustonic Limited 2013 -->
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -20,12 +21,37 @@
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/workqueue.h>
+#include <linux/cpu.h>
 
 #include "main.h"
 #include "fastcall.h"
 #include "ops.h"
 #include "mem.h"
 #include "debug.h"
+
+struct fastcall_work_struct {
+	struct work_struct work;
+	void *data;
+};
+
+static void fastcall_work_func(struct work_struct *work)
+{
+	struct fastcall_work_struct *fc_work =
+		container_of(work, struct fastcall_work_struct, work);
+	_smc(fc_work->data);
+}
+
+void mc_fastcall(void *data)
+{
+	struct fastcall_work_struct work = {
+		.data = data,
+	};
+	INIT_WORK(&work.work, fastcall_work_func);
+	schedule_work_on(0, &work.work);
+
+	flush_work(&work.work);
+}
 
 int mc_info(uint32_t ext_info_id, uint32_t *state, uint32_t *ext_info)
 {

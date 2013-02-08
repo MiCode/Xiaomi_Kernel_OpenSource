@@ -139,13 +139,27 @@ static void mcapi_callback(struct sk_buff *skb)
 
 static int __init mcapi_init(void)
 {
+	/* struct netlink_kernel_cfg netlink_cfg; */
+
 	dev_set_name(mc_kapi, "mcapi");
 
 	dev_info(mc_kapi, "Mobicore API module initialized!\n");
 
+	/*
+	 * netlink_cfg.groups = 0;
+	 * netlink_cfg.flags = 0;
+	 * netlink_cfg.input = mcapi_callback;
+	 * netlink_cfg.cb_mutex = NULL;
+	 * netlink_cfg.bind = NULL;
+	 */
 	mod_ctx = kzalloc(sizeof(struct mc_kernelapi_ctx), GFP_KERNEL);
 
 	/* start kernel thread */
+
+	/*
+	 * mod_ctx->sk = netlink_kernel_create(&init_net, MC_DAEMON_NETLINK,
+	 *					    &netlink_cfg);
+	 */
 	mod_ctx->sk = netlink_kernel_create(&init_net, MC_DAEMON_NETLINK, 0,
 					    mcapi_callback, NULL, THIS_MODULE);
 
