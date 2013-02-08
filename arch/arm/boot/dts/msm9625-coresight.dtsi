@@ -15,6 +15,7 @@
 		compatible = "arm,coresight-tmc";
 		reg = <0xfc322000 0x1000>,
 		      <0xfc37c000 0x3000>;
+		reg-names = "tmc-etr-base", "tmc-etr-bam-base";
 
 		qcom,memory-reservation-type = "EBI1";
 		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
@@ -27,6 +28,7 @@
 	tpiu: tpiu@fc318000 {
 		compatible = "arm,coresight-tpiu";
 		reg = <0xfc318000 0x1000>;
+		reg-names = "tpiu-base";
 
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
@@ -36,6 +38,7 @@
 	replicator: replicator@fc31c000 {
 		compatible = "qcom,coresight-replicator";
 		reg = <0xfc31c000 0x1000>;
+		reg-names = "replicator-base";
 
 		coresight-id = <2>;
 		coresight-name = "coresight-replicator";
@@ -48,6 +51,7 @@
 	tmc_etf: tmc@fc307000 {
 		compatible = "arm,coresight-tmc";
 		reg = <0xfc307000 0x1000>;
+		reg-names = "tmc-etf-base";
 
 		coresight-id = <3>;
 		coresight-name = "coresight-tmc-etf";
@@ -61,6 +65,7 @@
 	funnel_merg: funnel@fc31b000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc31b000 0x1000>;
+		reg-names = "funnel-merg-base";
 
 		coresight-id = <4>;
 		coresight-name = "coresight-funnel-merg";
@@ -73,6 +78,7 @@
 	funnel_in0: funnel@fc319000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc319000 0x1000>;
+		reg-names = "funnel-in0-base";
 
 		coresight-id = <5>;
 		coresight-name = "coresight-funnel-in0";
@@ -85,6 +91,7 @@
 	funnel_in1: funnel@fc31a000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc31a000 0x1000>;
+		reg-names = "funnel-in1-base";
 
 		coresight-id = <6>;
 		coresight-name = "coresight-funnel-in1";
@@ -98,6 +105,7 @@
 		compatible = "arm,coresight-stm";
 		reg = <0xfc321000 0x1000>,
 		      <0xfa280000 0x180000>;
+		reg-names = "stm-base", "stm-data-base";
 
 		coresight-id = <7>;
 		coresight-name = "coresight-stm";
@@ -110,6 +118,7 @@
 	etm: etm@fc332000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc332000 0x1000>;
+		reg-names = "etm-base";
 
 		coresight-id = <8>;
 		coresight-name = "coresight-etm";
@@ -124,6 +133,7 @@
 	csr: csr@fc302000 {
 		compatible = "qcom,coresight-csr";
 		reg = <0xfc302000 0x1000>;
+		reg-names = "csr-base";
 
 		coresight-id = <9>;
 		coresight-name = "coresight-csr";
