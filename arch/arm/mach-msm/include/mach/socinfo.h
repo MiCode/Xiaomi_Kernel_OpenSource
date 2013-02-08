@@ -40,6 +40,8 @@
 	of_machine_is_compatible("qcom,msm8974-sim")
 #define machine_is_msm8974_rumi()	\
 	of_machine_is_compatible("qcom,msm8974-rumi")
+#define machine_is_msm8974_fluid()	\
+	of_machine_is_compatible("qcom,msm8974-fluid")
 #define early_machine_is_msm9625()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm9625")
 #define machine_is_msm9625()		\
@@ -69,6 +71,7 @@
 #define machine_is_msm8974()		0
 #define machine_is_msm8974_sim()	0
 #define machine_is_msm8974_rumi()	0
+#define machine_is_msm8974_fluid()	0
 #define early_machine_is_msm9625()	0
 #define machine_is_msm9625()		0
 #define early_machine_is_mpq8092()	0
