@@ -23,6 +23,7 @@
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
 		coresight-nr-inports = <1>;
+		coresight-ctis = <&cti0 &cti8>;
 	};
 
 	tpiu: tpiu@fc318000 {
@@ -60,6 +61,7 @@
 		coresight-child-list = <&replicator>;
 		coresight-child-ports = <0>;
 		coresight-default-sink;
+		coresight-ctis = <&cti0 &cti8>;
 	};
 
 	funnel_merg: funnel@fc31b000 {
@@ -140,5 +142,105 @@
 		coresight-nr-inports = <0>;
 
 		qcom,blk-size = <1>;
+	};
+
+	cti0: cti@fc308000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc308000 0x1000>;
+		reg-names = "cti0-base";
+
+		coresight-id = <10>;
+		coresight-name = "coresight-cti0";
+		coresight-nr-inports = <0>;
+	};
+
+	cti1: cti@fc309000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc309000 0x1000>;
+		reg-names = "cti1-base";
+
+		coresight-id = <11>;
+		coresight-name = "coresight-cti1";
+		coresight-nr-inports = <0>;
+	};
+
+	cti2: cti@fc30a000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc30a000 0x1000>;
+		reg-names = "cti2-base";
+
+		coresight-id = <12>;
+		coresight-name = "coresight-cti2";
+		coresight-nr-inports = <0>;
+	};
+
+	cti3: cti@fc30b000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc30b000 0x1000>;
+		reg-names = "cti3-base";
+
+		coresight-id = <13>;
+		coresight-name = "coresight-cti3";
+		coresight-nr-inports = <0>;
+	};
+
+	cti4: cti@fc30c000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc30c000 0x1000>;
+		reg-names = "cti4-base";
+
+		coresight-id = <14>;
+		coresight-name = "coresight-cti4";
+		coresight-nr-inports = <0>;
+	};
+
+	cti5: cti@fc30d000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc30d000 0x1000>;
+		reg-names = "cti5-base";
+
+		coresight-id = <15>;
+		coresight-name = "coresight-cti5";
+		coresight-nr-inports = <0>;
+	};
+
+	cti6: cti@fc30e000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc30e000 0x1000>;
+		reg-names = "cti6-base";
+
+		coresight-id = <16>;
+		coresight-name = "coresight-cti6";
+		coresight-nr-inports = <0>;
+	};
+
+	cti7: cti@fc30f000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc30f000 0x1000>;
+		reg-names = "cti7-base";
+
+		coresight-id = <17>;
+		coresight-name = "coresight-cti7";
+		coresight-nr-inports = <0>;
+	};
+
+	cti8: cti@fc310000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc310000 0x1000>;
+		reg-names = "cti8-base";
+
+		coresight-id = <18>;
+		coresight-name = "coresight-cti8";
+		coresight-nr-inports = <0>;
+	};
+
+	cti_cpu: cti@fc333000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc333000 0x1000>;
+		reg-names = "cti-cpu-base";
+
+		coresight-id = <19>;
+		coresight-name = "coresight-cti-cpu";
+		coresight-nr-inports = <0>;
 	};
 };
