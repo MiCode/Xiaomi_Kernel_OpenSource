@@ -12,6 +12,7 @@ Required properties:
 
 - compatible : name of the component used for driver matching
 - reg : physical base address and length of the register set(s) of the component
+- reg-names: names corresponding to each reg property value
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
@@ -41,7 +42,9 @@ Examples:
 1. Sinks
 	tmc_etr: tmc@fc322000 {
 		compatible = "arm,coresight-tmc";
-		reg = <0xfc322000 0x1000>;
+		reg = <0xfc322000 0x1000>,
+		      <0xfc37c000 0x3000>;
+		reg-names = "tmc-etr-base", "tmc-etr-bam-base";
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
@@ -52,6 +55,7 @@ Examples:
 	tpiu: tpiu@fc318000 {
 		compatible = "arm,coresight-tpiu";
 		reg = <0xfc318000 0x1000>;
+		reg-names = "tpiu-base";
 
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
@@ -62,6 +66,7 @@ Examples:
 	funnel_merg: funnel@fc31b000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc31b000 0x1000>;
+		reg-names = "funnel-merg-base";
 
 		coresight-id = <4>;
 		coresight-name = "coresight-funnel-merg";
@@ -74,6 +79,7 @@ Examples:
 	funnel_in0: funnel@fc319000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc319000 0x1000>;
+		reg-names = "funnel-in0-base";
 
 		coresight-id = <5>;
 		coresight-name = "coresight-funnel-in0";
@@ -88,6 +94,7 @@ Examples:
 		compatible = "arm,coresight-stm";
 		reg = <0xfc321000 0x1000>,
 		      <0xfa280000 0x180000>;
+		reg-names = "stm-base", "stm-data-base";
 
 		coresight-id = <9>;
 		coresight-name = "coresight-stm";
@@ -100,6 +107,7 @@ Examples:
 	etm0: etm@fc33c000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc33c000 0x1000>;
+		reg-names = "etm0-base";
 
 		coresight-id = <10>;
 		coresight-name = "coresight-etm0";
