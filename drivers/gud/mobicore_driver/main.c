@@ -11,6 +11,7 @@
  * fd = open(/dev/mobicore-user)
  *
  * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
+ * <-- Copyright Trustonic Limited 2013 -->
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -81,7 +82,7 @@ static inline void free_continguous_pages(void *addr, unsigned int order)
 }
 
 /* Frees the memory associated with a buffer */
-static int free_buffer(struct mc_buffer *buffer)
+static int free_buffer(struct mc_buffer *buffer, bool unlock)
 {
 	if (buffer->handle == 0)
 		return -EINVAL;
@@ -89,21 +90,51 @@ static int free_buffer(struct mc_buffer *buffer)
 	if (buffer->addr == 0)
 		return -EINVAL;
 
-	if (!atomic_dec_and_test(&buffer->usage)) {
+	MCDRV_DBG_VERBOSE(mcd,
+			  "handle=%u phys_addr=0x%p, virt_addr=0x%p len=%u\n",
+		  buffer->handle, buffer->phys, buffer->addr, buffer->len);
 
-		MCDRV_DBG_VERBOSE(mcd, "Could not free buffer h=%u",
-				  buffer->handle);
+	if (!atomic_dec_and_test(&buffer->usage)) {
+		MCDRV_DBG_VERBOSE(mcd, "Could not free %u", buffer->handle);
 		return 0;
 	}
-
-	MCDRV_DBG(mcd, "handle=%u phys_addr=0x%p, virt_addr=0x%p\n",
-		  buffer->handle, buffer->phys, buffer->addr);
 
 	list_del(&buffer->list);
 
 	free_continguous_pages(buffer->addr, buffer->order);
 	kfree(buffer);
 	return 0;
+}
+
+static uint32_t mc_find_cont_wsm_addr(struct mc_instance *instance, void *uaddr,
+	uint32_t *addr, uint32_t len)
+{
+	int ret = 0;
+	struct mc_buffer *buffer;
+
+	if (WARN(!instance, "No instance data available"))
+		return -EFAULT;
+
+	mutex_lock(&instance->lock);
+
+	mutex_lock(&ctx.bufs_lock);
+
+	/* search for the given handle in the buffers list */
+	list_for_each_entry(buffer, &ctx.cont_bufs, list) {
+		if (buffer->uaddr == uaddr && buffer->len == len) {
+			*addr = (uint32_t)buffer->addr;
+			goto found;
+		}
+	}
+
+	/* Coundn't find the buffer */
+	ret = -EINVAL;
+
+found:
+	mutex_unlock(&ctx.bufs_lock);
+	mutex_unlock(&instance->lock);
+
+	return ret;
 }
 
 static uint32_t mc_find_cont_wsm(struct mc_instance *instance, uint32_t handle,
@@ -152,13 +183,59 @@ found:
  * Returns 0 if no error
  *
  */
-static int __free_buffer(struct mc_instance *instance, uint32_t handle)
+static int __free_buffer(struct mc_instance *instance, uint32_t handle,
+		bool unlock)
 {
 	int ret = 0;
 	struct mc_buffer *buffer;
+	void *uaddr = NULL;
+	size_t len = 0;
+#ifndef MC_VM_UNMAP
+	struct mm_struct *mm = current->mm;
+#endif
 
 	if (WARN(!instance, "No instance data available"))
 		return -EFAULT;
+
+	mutex_lock(&ctx.bufs_lock);
+	/* search for the given handle in the buffers list */
+	list_for_each_entry(buffer, &ctx.cont_bufs, list) {
+		if (buffer->handle == handle) {
+			uaddr = buffer->uaddr;
+			len = buffer->len;
+			goto found_buffer;
+		}
+	}
+	goto err;
+found_buffer:
+	if (!is_daemon(instance) || buffer->instance != instance)
+		goto err;
+	mutex_unlock(&ctx.bufs_lock);
+	/* Only unmap if the request is comming from the user space and
+	 * it hasn't already been unmapped */
+	if (unlock == false && uaddr != NULL)
+#ifndef MC_VM_UNMAP
+		/* do_munmap must be done with mm->mmap_sem taken */
+		down_write(&mm->mmap_sem);
+		ret = do_munmap(mm, (long unsigned int)uaddr, len);
+		if (ret < 0) {
+			/* Something is not right if we end up here, better not
+			 * clean the buffer so we just leak memory instead of
+			 * creating security issues */
+			MCDRV_DBG_ERROR(mcd, "Memory can't be unmapped\n");
+		}
+		up_write(&mm->mmap_sem);
+		if (ret < 0)
+			return -EINVAL;
+#else
+		if (vm_munmap((long unsigned int)uaddr, len) < 0) {
+			/* Something is not right if we end up here, better not
+			 * clean the buffer so we just leak memory instead of
+			 * creating security issues */
+			MCDRV_DBG_ERROR(mcd, "Memory can't be unmapped\n");
+			return -EINVAL;
+		}
+#endif
 
 	mutex_lock(&ctx.bufs_lock);
 	/* search for the given handle in the buffers list */
@@ -170,7 +247,7 @@ static int __free_buffer(struct mc_instance *instance, uint32_t handle)
 	goto err;
 
 del_buffer:
-	ret = free_buffer(buffer);
+	ret = free_buffer(buffer, unlock);
 err:
 	mutex_unlock(&ctx.bufs_lock);
 	return ret;
@@ -185,7 +262,7 @@ int mc_free_buffer(struct mc_instance *instance, uint32_t handle)
 
 	mutex_lock(&instance->lock);
 
-	ret = __free_buffer(instance, handle);
+	ret = __free_buffer(instance, handle, false);
 	mutex_unlock(&instance->lock);
 	return ret;
 }
@@ -253,8 +330,8 @@ int mc_get_buffer(struct mc_instance *instance,
 	INIT_LIST_HEAD(&cbuffer->list);
 	list_add(&cbuffer->list, &ctx.cont_bufs);
 
-	MCDRV_DBG(mcd,
-		  "allocated phys=0x%p - 0x%p, size=%ld, kvirt=0x%p, h=%d\n",
+	MCDRV_DBG_VERBOSE(mcd,
+			  "allocated phys=0x%p - 0x%p, size=%ld, kvirt=0x%p, h=%d\n",
 		  phys, (void *)((unsigned int)phys+allocated_size),
 		  allocated_size, addr, cbuffer->handle);
 	*buffer = cbuffer;
@@ -332,6 +409,7 @@ int mc_register_wsm_l2(struct mc_instance *instance,
 	int ret = 0;
 	struct mc_l2_table *table = NULL;
 	struct task_struct *task = current;
+	uint32_t kbuff = 0x0;
 
 	if (WARN(!instance, "No instance data available"))
 		return -EFAULT;
@@ -341,7 +419,12 @@ int mc_register_wsm_l2(struct mc_instance *instance,
 		return -EINVAL;
 	}
 
-	table = mc_alloc_l2_table(instance, task, (void *)buffer, len);
+	MCDRV_DBG_VERBOSE(mcd, "buffer: %p, len=%08x\n", (void *)buffer, len);
+
+	if (!mc_find_cont_wsm_addr(instance, (void *)buffer, &kbuff, len))
+		table = mc_alloc_l2_table(instance, NULL, (void *)kbuff, len);
+	else
+		table = mc_alloc_l2_table(instance, task, (void *)buffer, len);
 
 	if (IS_ERR(table)) {
 		MCDRV_DBG_ERROR(mcd, "new_used_l2_table() failed\n");
@@ -421,7 +504,7 @@ static int mc_unlock_handle(struct mc_instance *instance, uint32_t handle)
 	/* Not a l2 table, then it must be a buffer */
 	if (ret == -EINVAL) {
 		/* Call the non locking variant! */
-		ret = __free_buffer(instance, handle);
+		ret = __free_buffer(instance, handle, true);
 	}
 	mutex_unlock(&instance->lock);
 
@@ -471,8 +554,8 @@ static int mc_fd_mmap(struct file *file, struct vm_area_struct *vmarea)
 	struct mc_buffer *buffer = 0;
 	int ret = 0;
 
-	MCDRV_DBG(mcd, "enter (vma start=0x%p, size=%ld, mci=%p)\n",
-		  (void *)vmarea->vm_start, len, ctx.mci_base.phys);
+	MCDRV_DBG_VERBOSE(mcd, "enter (vma start=0x%p, size=%ld, mci=%p)\n",
+			  (void *)vmarea->vm_start, len, ctx.mci_base.phys);
 
 	if (WARN(!instance, "No instance data available"))
 		return -EFAULT;
@@ -496,7 +579,8 @@ static int mc_fd_mmap(struct file *file, struct vm_area_struct *vmarea)
 		return -EINVAL;
 
 found:
-		vmarea->vm_flags |= VM_RESERVED;
+		buffer->uaddr = (void *)vmarea->vm_start;
+		vmarea->vm_flags |= VM_IO;
 		/*
 		 * Convert kernel address to user address. Kernel address begins
 		 * at PAGE_OFFSET, user address range is below PAGE_OFFSET.
@@ -507,6 +591,10 @@ found:
 		pfn = (unsigned int)paddr >> PAGE_SHIFT;
 		ret = (int)remap_pfn_range(vmarea, vmarea->vm_start, pfn,
 			buffer->len, vmarea->vm_page_prot);
+		/* If the remap failed then don't mark this buffer as marked
+		 * since the unmaping will also fail */
+		if (ret)
+			buffer->uaddr = NULL;
 		mutex_unlock(&ctx.bufs_lock);
 	} else {
 		if (!is_daemon(instance))
@@ -516,7 +604,7 @@ found:
 		if (!paddr)
 			return -EFAULT;
 
-		vmarea->vm_flags |= VM_RESERVED;
+		vmarea->vm_flags |= VM_IO;
 		/*
 		 * Convert kernel address to user address. Kernel address begins
 		 * at PAGE_OFFSET, user address range is below PAGE_OFFSET.
@@ -614,8 +702,8 @@ static long mc_fd_user_ioctl(struct file *file, unsigned int cmd,
 		map.reused = 0;
 		if (copy_to_user(uarg, &map, sizeof(map)))
 			ret = -EFAULT;
-
-		ret = 0;
+		else
+			ret = 0;
 		break;
 	}
 	default:
@@ -754,6 +842,13 @@ static long mc_fd_admin_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 
+	case MC_IO_LOG_SETUP: {
+#ifdef MC_MEM_TRACES
+		ret = mobicore_log_setup();
+#endif
+		break;
+	}
+
 	/* The rest is handled commonly by user IOCTL */
 	default:
 		ret = mc_fd_user_ioctl(file, cmd, arg);
@@ -887,7 +982,7 @@ int mc_release_instance(struct mc_instance *instance)
 	list_for_each_entry_safe(buffer, tmp, &ctx.cont_bufs, list) {
 		if (buffer->instance == instance) {
 			buffer->instance = NULL;
-			free_buffer(buffer);
+			free_buffer(buffer, false);
 		}
 	}
 	mutex_unlock(&ctx.bufs_lock);
@@ -1097,10 +1192,6 @@ static int __init mobicore_init(void)
 		goto free_admin;
 	}
 
-#ifdef MC_MEM_TRACES
-	mobicore_log_setup();
-#endif
-
 	/* initialize event counter for signaling of an IRQ to zero */
 	atomic_set(&ctx.isr_counter, 0);
 
@@ -1159,6 +1250,7 @@ static void __exit mobicore_exit(void)
 module_init(mobicore_init);
 module_exit(mobicore_exit);
 MODULE_AUTHOR("Giesecke & Devrient GmbH");
+MODULE_AUTHOR("Trustonic Limited");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MobiCore driver");
 

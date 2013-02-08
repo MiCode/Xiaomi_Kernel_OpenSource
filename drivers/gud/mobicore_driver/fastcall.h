@@ -15,6 +15,15 @@
 
 #include "debug.h"
 
+/* Use the arch_extension sec pseudo op before switching to secure world */
+#if defined(__GNUC__) && \
+	defined(__GNUC_MINOR__) && \
+	defined(__GNUC_PATCHLEVEL__) && \
+	((__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) \
+	>= 40502
+#define MC_ARCH_EXTENSION_SEC
+#endif
+
 /*
  * MobiCore SMCs
  */
@@ -93,16 +102,18 @@ union mc_fc_info {
  */
 static inline long _smc(void *data)
 {
+	int ret = 0;
 	union fc_generic fc_generic;
-	memcpy(&fc_generic, data, sizeof(union fc_generic));
+
 	if (data == NULL)
 		return -EPERM;
+
 #ifdef MC_SMC_FASTCALL
 	{
-		int ret = 0;
-		ret = smc_fastcall(data, sizeof(union fc_generic));
+		ret = smc_fastcall(data, sizeof(fc_generic));
 	}
 #else
+	memcpy(&fc_generic, data, sizeof(union fc_generic));
 	{
 		/* SVC expect values in r0-r3 */
 		register u32 reg0 __asm__("r0") = fc_generic.as_in.cmd;
@@ -128,7 +139,7 @@ static inline long _smc(void *data)
 		memcpy(data, &fc_generic, sizeof(union fc_generic));
 	}
 #endif
-	return 0;
+	return ret;
 }
 
 /*

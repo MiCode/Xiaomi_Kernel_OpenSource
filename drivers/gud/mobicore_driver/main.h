@@ -27,7 +27,7 @@
 
 /* Instance data for MobiCore Daemon and TLCs. */
 struct mc_instance {
-	/* Instance lock */
+	/* lock for the instance */
 	struct mutex lock;
 	/* unique handle */
 	unsigned int handle;
@@ -48,6 +48,8 @@ struct mc_buffer {
 	atomic_t		usage;
 	/* virtual Kernel start address */
 	void			*addr;
+	/* virtual Userspace start address */
+	void			*uaddr;
 	/* physical start address */
 	void			*phys;
 	/* order of number of pages */
