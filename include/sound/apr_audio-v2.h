@@ -2593,6 +2593,14 @@ struct asm_enc_cfg_blk_param_v2 {
 
 } __packed;
 
+/* @brief Dolby Digital Plus end point configuration structure
+ */
+struct asm_dec_ddp_endp_param_v2 {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param  encdec;
+	int endp_param_value;
+} __packed;
+
 /* @brief Multichannel PCM encoder configuration structure used
  * in the #ASM_STREAM_CMD_OPEN_READ_V2 command.
  */
