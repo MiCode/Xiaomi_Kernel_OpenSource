@@ -321,6 +321,23 @@ static void compr_event_handler(uint32_t opcode,
 	}
 }
 
+static int msm_compr_send_ddp_cfg(struct audio_client *ac,
+					struct snd_dec_ddp *ddp)
+{
+	int i, rc;
+	pr_debug("%s\n", __func__);
+	for (i = 0; i < ddp->params_length/2; i++) {
+		rc = q6asm_ds1_set_endp_params(ac, ddp->params_id[i],
+						ddp->params_value[i]);
+		if (rc) {
+			pr_err("sending params_id: %d failed\n",
+				ddp->params_id[i]);
+			return rc;
+		}
+	}
+	return 0;
+}
+
 static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -358,6 +375,24 @@ static int msm_compr_playback_prepare(struct snd_pcm_substream *substream)
 		if (ret < 0)
 			pr_err("%s: CMD Format block failed\n", __func__);
 		break;
+	case SND_AUDIOCODEC_AC3: {
+		struct snd_dec_ddp *ddp =
+				&compr->info.codec_param.codec.options.ddp;
+		pr_debug("%s: SND_AUDIOCODEC_AC3\n", __func__);
+		ret = msm_compr_send_ddp_cfg(prtd->audio_client, ddp);
+		if (ret < 0)
+			pr_err("%s: DDP CMD CFG failed\n", __func__);
+		break;
+	}
+	case SND_AUDIOCODEC_EAC3: {
+		struct snd_dec_ddp *ddp =
+				&compr->info.codec_param.codec.options.ddp;
+		pr_debug("%s: SND_AUDIOCODEC_EAC3\n", __func__);
+		ret = msm_compr_send_ddp_cfg(prtd->audio_client, ddp);
+		if (ret < 0)
+			pr_err("%s: DDP CMD CFG failed\n", __func__);
+		break;
+	}
 	default:
 		return -EINVAL;
 	}
@@ -511,13 +546,15 @@ static void populate_codec_list(struct compr_audio *compr,
 {
 	pr_debug("%s\n", __func__);
 	/* MP3 Block */
-	compr->info.compr_cap.num_codecs = 2;
+	compr->info.compr_cap.num_codecs = 4;
 	compr->info.compr_cap.min_fragment_size = runtime->hw.period_bytes_min;
 	compr->info.compr_cap.max_fragment_size = runtime->hw.period_bytes_max;
 	compr->info.compr_cap.min_fragments = runtime->hw.periods_min;
 	compr->info.compr_cap.max_fragments = runtime->hw.periods_max;
 	compr->info.compr_cap.codecs[0] = SND_AUDIOCODEC_MP3;
 	compr->info.compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
+	compr->info.compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
+	compr->info.compr_cap.codecs[3] = SND_AUDIOCODEC_EAC3;
 	/* Add new codecs here */
 }
 
@@ -897,7 +934,7 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 		}
 		return 0;
 	case SNDRV_COMPRESS_SET_PARAMS:
-		pr_debug("SNDRV_COMPRESS_SET_PARAMS: ");
+		pr_debug("SNDRV_COMPRESS_SET_PARAMS:\n");
 		if (copy_from_user(&compr->info.codec_param, (void *) arg,
 			sizeof(struct snd_compr_params))) {
 			rc = -EFAULT;
@@ -914,6 +951,68 @@ static int msm_compr_ioctl(struct snd_pcm_substream *substream,
 			pr_debug("SND_AUDIOCODEC_AAC\n");
 			compr->codec = FORMAT_MPEG4_AAC;
 			break;
+		case SND_AUDIOCODEC_AC3: {
+			char params_value[18*2*sizeof(int)];
+			int *params_value_data = (int *)params_value;
+			/* 36 is the max param length for ddp */
+			int i;
+			struct snd_dec_ddp *ddp =
+				&compr->info.codec_param.codec.options.ddp;
+			int params_length = ddp->params_length*sizeof(int);
+			pr_debug("SND_AUDIOCODEC_AC3\n");
+			compr->codec = FORMAT_AC3;
+			if (copy_from_user(params_value, (void *)ddp->params,
+					params_length))
+				pr_err("%s: ERROR: copy ddp params value\n",
+					__func__);
+			pr_debug("params_length: %d\n", ddp->params_length);
+			for (i = 0; i < params_length; i++)
+				pr_debug("params_value[%d]: %x\n", i,
+					params_value_data[i]);
+			for (i = 0; i < ddp->params_length/2; i++) {
+				ddp->params_id[i] = params_value_data[2*i];
+				ddp->params_value[i] = params_value_data[2*i+1];
+			}
+			if (atomic_read(&prtd->start)) {
+				rc = msm_compr_send_ddp_cfg(prtd->audio_client,
+								ddp);
+				if (rc < 0)
+					pr_err("%s: DDP CMD CFG failed\n",
+						__func__);
+			}
+			break;
+		}
+		case SND_AUDIOCODEC_EAC3: {
+			char params_value[18*2*sizeof(int)];
+			int *params_value_data = (int *)params_value;
+			/* 36 is the max param length for ddp */
+			int i;
+			struct snd_dec_ddp *ddp =
+				&compr->info.codec_param.codec.options.ddp;
+			int params_length = ddp->params_length*sizeof(int);
+			pr_debug("SND_AUDIOCODEC_EAC3\n");
+			compr->codec = FORMAT_EAC3;
+			if (copy_from_user(params_value, (void *)ddp->params,
+					params_length))
+				pr_err("%s: ERROR: copy ddp params value\n",
+					__func__);
+			pr_debug("params_length: %d\n", ddp->params_length);
+			for (i = 0; i < ddp->params_length; i++)
+				pr_debug("params_value[%d]: %x\n", i,
+					params_value_data[i]);
+			for (i = 0; i < ddp->params_length/2; i++) {
+				ddp->params_id[i] = params_value_data[2*i];
+				ddp->params_value[i] = params_value_data[2*i+1];
+			}
+			if (atomic_read(&prtd->start)) {
+				rc = msm_compr_send_ddp_cfg(prtd->audio_client,
+								ddp);
+				if (rc < 0)
+					pr_err("%s: DDP CMD CFG failed\n",
+						__func__);
+			}
+			break;
+		}
 		default:
 			pr_debug("FORMAT_LINEAR_PCM\n");
 			compr->codec = FORMAT_LINEAR_PCM;
