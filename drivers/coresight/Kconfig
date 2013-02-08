@@ -24,6 +24,14 @@ if CORESIGHT
 config HAVE_CORESIGHT_SINK
 	bool
 
+config CORESIGHT_CTI
+	bool "CoreSight Cross Trigger Interface driver"
+	help
+	  This driver provides support for Cross Trigger Interface that is
+	  used to input or output i.e. pass cross trigger events from one
+	  hardware component to another. It can also be used to pass
+	  software generated events.
+
 config CORESIGHT_CSR
 	bool "CoreSight Slave Register driver"
 	help
@@ -32,6 +40,7 @@ config CORESIGHT_CSR
 
 config CORESIGHT_TMC
 	bool "CoreSight Trace Memory Controller driver"
+	select CORESIGHT_CTI
 	select CORESIGHT_CSR
 	select HAVE_CORESIGHT_SINK
 	help
