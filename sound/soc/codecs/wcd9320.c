@@ -932,12 +932,6 @@ static const struct snd_kcontrol_new taiko_snd_controls[] = {
 	SOC_SINGLE_TLV("ADC5 Volume", TAIKO_A_TX_5_6_EN, 5, 3, 0, analog_gain),
 	SOC_SINGLE_TLV("ADC6 Volume", TAIKO_A_TX_5_6_EN, 1, 3, 0, analog_gain),
 
-
-	SOC_SINGLE("MICBIAS1 CAPLESS Switch", TAIKO_A_MICB_1_CTL, 4, 1, 1),
-	SOC_SINGLE("MICBIAS2 CAPLESS Switch", TAIKO_A_MICB_2_CTL, 4, 1, 1),
-	SOC_SINGLE("MICBIAS3 CAPLESS Switch", TAIKO_A_MICB_3_CTL, 4, 1, 1),
-	SOC_SINGLE("MICBIAS4 CAPLESS Switch", TAIKO_A_MICB_4_CTL, 4, 1, 1),
-
 	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 0, 100, taiko_get_anc_slot,
 		taiko_put_anc_slot),
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
