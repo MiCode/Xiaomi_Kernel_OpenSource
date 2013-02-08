@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -458,6 +458,20 @@ struct ipa_nat_mem {
 };
 
 /**
+ * enum ipa_hw_type - IPA hardware version type
+ * @IPA_HW_None: IPA hardware version not defined
+ * @IPA_HW_v1_0: IPA hardware version 1.0, corresponding to ELAN 1.0
+ * @IPA_HW_v1_1: IPA hardware version 1.1, corresponding to ELAN 2.0
+ * @IPA_HW_v2_0: IPA hardware version 2.0
+ */
+enum ipa_hw_type {
+	IPA_HW_None = 0,
+	IPA_HW_v1_0 = 1,
+	IPA_HW_v1_1 = 2,
+	IPA_HW_v2_0 = 3
+};
+
+/**
  * struct ipa_context - IPA context
  * @class: pointer to the struct class
  * @dev_num: device number
@@ -570,6 +584,7 @@ struct ipa_context {
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
 	u8 a5_pipe_index;
+	enum ipa_hw_type ipa_hw_type;
 };
 
 /**
@@ -628,6 +643,20 @@ struct a2_mux_pipe_connection {
 	int			data_fifo_size;
 	int			desc_fifo_base_offset;
 	int			desc_fifo_size;
+};
+
+struct ipa_plat_drv_res {
+	u32 ipa_mem_base;
+	u32 ipa_mem_size;
+	u32 bam_mem_base;
+	u32 bam_mem_size;
+	u32 ipa_irq;
+	u32 bam_irq;
+	u32 ipa_pipe_mem_start_ofst;
+	u32 ipa_pipe_mem_size;
+	enum ipa_hw_type ipa_hw_type;
+	struct a2_mux_pipe_connection a2_to_ipa_pipe;
+	struct a2_mux_pipe_connection ipa_to_a2_pipe;
 };
 
 extern struct ipa_context *ipa_ctx;

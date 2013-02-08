@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,8 +68,16 @@ void ipa_wq_write_done(struct work_struct *work)
 		list_del(&tx_pkt->link);
 		tx_pkt->sys->len--;
 		spin_unlock_irqrestore(&tx_pkt->sys->spinlock, irq_flags);
-		dma_pool_free(ipa_ctx->one_kb_no_straddle_pool, tx_pkt->bounce,
-				tx_pkt->mem.phys_base);
+		if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+			dma_pool_free(ipa_ctx->one_kb_no_straddle_pool,
+					tx_pkt->bounce,
+					tx_pkt->mem.phys_base);
+		} else {
+			dma_unmap_single(NULL, tx_pkt->mem.phys_base,
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
+		}
+
 		if (tx_pkt->callback)
 			tx_pkt->callback(tx_pkt->user1, tx_pkt->user2);
 
@@ -111,23 +119,29 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc)
 		goto fail_mem_alloc;
 	}
 
-	WARN_ON(desc->len > 512);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+		WARN_ON(desc->len > 512);
 
-	/*
-	 * Due to a HW limitation, we need to make sure that the packet does not
-	 * cross a 1KB boundary
-	 */
-	tx_pkt->bounce = dma_pool_alloc(ipa_ctx->one_kb_no_straddle_pool,
-			GFP_KERNEL, &dma_address);
-	if (!tx_pkt->bounce) {
-		dma_address = 0;
+		/*
+		 * Due to a HW limitation, we need to make sure that the packet
+		 * does not cross a 1KB boundary
+		 */
+		tx_pkt->bounce = dma_pool_alloc(
+					ipa_ctx->one_kb_no_straddle_pool,
+					GFP_KERNEL, &dma_address);
+		if (!tx_pkt->bounce) {
+			dma_address = 0;
+		} else {
+			WARN_ON(!ipa_straddle_boundary
+		       ((u32)dma_address,
+				(u32)dma_address + desc->len - 1,
+				1024));
+			memcpy(tx_pkt->bounce, desc->pyld, desc->len);
+		}
 	} else {
-		WARN_ON(!ipa_straddle_boundary
-		       ((u32)dma_address, (u32)dma_address + desc->len - 1,
-			1024));
-		memcpy(tx_pkt->bounce, desc->pyld, desc->len);
+		dma_address = dma_map_single(NULL, desc->pyld, desc->len,
+				DMA_TO_DEVICE);
 	}
-
 	if (!dma_address) {
 		IPAERR("failed to DMA wrap\n");
 		goto fail_dma_map;
@@ -180,8 +194,11 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc)
 fail_sps_send:
 	list_del(&tx_pkt->link);
 	spin_unlock_irqrestore(&sys->spinlock, irq_flags);
-	dma_pool_free(ipa_ctx->one_kb_no_straddle_pool, tx_pkt->bounce,
-			dma_address);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+		dma_pool_free(ipa_ctx->one_kb_no_straddle_pool, tx_pkt->bounce,
+				dma_address);
+	else
+		dma_unmap_single(NULL, dma_address, desc->len, DMA_TO_DEVICE);
 fail_dma_map:
 	kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 fail_mem_alloc:
@@ -262,26 +279,32 @@ int ipa_send(struct ipa_sys_context *sys, u16 num_desc, struct ipa_desc *desc)
 		tx_pkt->mem.base = desc[i].pyld;
 		tx_pkt->mem.size = desc[i].len;
 
-		WARN_ON(tx_pkt->mem.size > 512);
+		if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+			WARN_ON(tx_pkt->mem.size > 512);
 
-		/*
-		 * Due to a HW limitation, we need to make sure that the
-		 * packet does not cross a 1KB boundary
-		 */
-		tx_pkt->bounce =
+			/*
+			 * Due to a HW limitation, we need to make sure that the
+			 * packet does not cross a 1KB boundary
+			 */
+			tx_pkt->bounce =
 		   dma_pool_alloc(ipa_ctx->one_kb_no_straddle_pool, GFP_KERNEL,
-				   &tx_pkt->mem.phys_base);
-		if (!tx_pkt->bounce) {
-			tx_pkt->mem.phys_base = 0;
-		} else {
-			WARN_ON(!ipa_straddle_boundary(
+					   &tx_pkt->mem.phys_base);
+			if (!tx_pkt->bounce) {
+				tx_pkt->mem.phys_base = 0;
+			} else {
+				WARN_ON(!ipa_straddle_boundary(
 						(u32)tx_pkt->mem.phys_base,
 						(u32)tx_pkt->mem.phys_base +
 						tx_pkt->mem.size - 1, 1024));
-			memcpy(tx_pkt->bounce, tx_pkt->mem.base,
-					tx_pkt->mem.size);
+				memcpy(tx_pkt->bounce, tx_pkt->mem.base,
+						tx_pkt->mem.size);
+			}
+		} else {
+			tx_pkt->mem.phys_base =
+			   dma_map_single(NULL, tx_pkt->mem.base,
+					   tx_pkt->mem.size,
+					   DMA_TO_DEVICE);
 		}
-
 		if (!tx_pkt->mem.phys_base) {
 			IPAERR("failed to alloc tx wrapper\n");
 			fail_dma_wrap = 1;
@@ -337,8 +360,14 @@ failure:
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
 		spin_unlock_irqrestore(&sys->spinlock, irq_flags);
-		dma_pool_free(ipa_ctx->one_kb_no_straddle_pool, tx_pkt->bounce,
-				tx_pkt->mem.phys_base);
+		if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
+			dma_pool_free(ipa_ctx->one_kb_no_straddle_pool,
+					tx_pkt->bounce,
+					tx_pkt->mem.phys_base);
+		else
+			dma_unmap_single(NULL, tx_pkt->mem.phys_base,
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}
