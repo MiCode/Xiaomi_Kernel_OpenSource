@@ -2316,6 +2316,9 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	uint32_t trailing_buf_len = 0;
 	uint32_t nbytes, index = 0;
 	uint32_t saved_length = 0;
+	uint32_t offset = 0;
+	uint32_t bytes = 0;
+
 	int ret = 0;
 
 	/* check for trailing buffer from previous updates and append it */
@@ -2326,13 +2329,9 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 		i = 0;
 
 		k_src = &sha_ctx->trailing_buf[sha_ctx->trailing_buf_len];
-		while (len > 0) {
-			memcpy(k_src, sg_virt(&req->src[i]),
-							req->src[i].length);
-			len -= req->src[i].length;
-			k_src += req->src[i].length;
-			i++;
-		}
+		num_sg = qcrypto_count_sg(req->src, len);
+		bytes = sg_copy_to_buffer(req->src, num_sg, k_src, len);
+
 		sha_ctx->trailing_buf_len = total;
 		if (sha_ctx->alg == QCE_HASH_SHA1)
 			_update_sha1_ctx(req);
@@ -2351,6 +2350,12 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	/*  get new trailing buffer */
 	sha_pad_len = ALIGN(total, sha_block_size) - total;
 	trailing_buf_len =  sha_block_size - sha_pad_len;
+	offset = req->nbytes - trailing_buf_len;
+
+	if (offset != req->nbytes)
+		scatterwalk_map_and_copy(k_src, req->src, offset,
+						trailing_buf_len, 0);
+
 	nbytes = total - trailing_buf_len;
 	num_sg = qcrypto_count_sg(req->src, req->nbytes);
 
@@ -2366,20 +2371,9 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 
 	end_src = i;
 	if (len < nbytes) {
-		uint32_t remnant = (nbytes - len);
-		memcpy(k_src, (sg_virt(&req->src[i]) + remnant),
-				(req->src[i].length - remnant));
-		k_src += (req->src[i].length - remnant);
 		saved_length = req->src[i].length;
 		index = i;
-		req->src[i].length = remnant;
-		i++;
-	}
-
-	while (i < num_sg) {
-		memcpy(k_src, sg_virt(&req->src[i]), req->src[i].length);
-		k_src += req->src[i].length;
-		i++;
+		req->src[i].length = (nbytes - len);
 	}
 
 	if (sha_ctx->trailing_buf_len) {
@@ -2411,10 +2405,9 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 			sg_mark_end(&sha_ctx->sg[0]);
 
 		} else {
-			num_sg = end_src + 2;
-
-			sha_ctx->sg = kzalloc(num_sg *
-				(sizeof(struct scatterlist)), GFP_KERNEL);
+			sg_mark_end(&req->src[end_src]);
+			sha_ctx->sg = kzalloc(2 * (sizeof(struct scatterlist)),
+								GFP_KERNEL);
 			if (sha_ctx->sg == NULL) {
 				pr_err("MEMalloc fail sha_ctx->sg, error %ld\n",
 							PTR_ERR(sha_ctx->sg));
@@ -2423,14 +2416,9 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 
 			sg_set_buf(&sha_ctx->sg[0], sha_ctx->tmp_tbuf,
 						sha_ctx->trailing_buf_len);
-			for (i = 1; i < num_sg; i++)
-				sg_set_buf(&sha_ctx->sg[i],
-						sg_virt(&req->src[i-1]),
-						req->src[i-1].length);
-
+			sg_mark_end(&sha_ctx->sg[1]);
+			sg_chain(sha_ctx->sg, 2, req->src);
 			req->src = sha_ctx->sg;
-			sg_mark_end(&sha_ctx->sg[num_sg - 1]);
-
 		}
 	} else
 		sg_mark_end(&req->src[end_src]);
