@@ -2824,10 +2824,6 @@ static struct a3xx_vbif_data a330v2_vbif[] = {
 	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x0000303 },
 	/* Set up VBIF_ROUND_ROBIN_QOS_ARB */
 	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
-	/* Disable VBIF clock gating. This is to enable AXI running
-	 * higher frequency than GPU.
-	 */
-	{ A3XX_VBIF_CLKON, 1 },
 	{0, 0},
 };
 
