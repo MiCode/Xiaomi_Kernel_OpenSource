@@ -31,6 +31,19 @@ qcom,virt:		A boolean property indicating this is a virtual bus.
 reg:			Register space of the bus device. Not required in case
 			the bus is virtual.
 
+The following properties are optional as collecting data via coresight might
+not be supported for every bus. The documentation for coresight properties
+can be found in:
+Documentation/devicetree/bindings/coresight/coresight.txt
+
+coreisght-id		Unique integer identifier for the bus.
+coresight-name		Unique descriptive name of the bus.
+coresight-nr-inports	Number of input ports on the bus.
+coresight-outports	List of output port numbers on the bus.
+coresight-child-list	List of phandles pointing to the children of this
+			component.
+coresight-child-ports	List of input port numbers of the children.
+
 
 Any interconnect on the bus is represented as a child node.
 A child node can be of type: master, slave or a gateway.
