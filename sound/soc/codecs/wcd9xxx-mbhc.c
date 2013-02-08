@@ -373,8 +373,14 @@ static void wcd9xxx_codec_switch_cfilt_mode(struct wcd9xxx_mbhc *mbhc,
 	}
 }
 
-static void wcd9xxx_jack_report(struct snd_soc_jack *jack, int status, int mask)
+static void wcd9xxx_jack_report(struct wcd9xxx_mbhc *mbhc,
+				struct snd_soc_jack *jack, int status, int mask)
 {
+	if (jack == &mbhc->headset_jack)
+		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
+						WCD9XXX_COND_HPH_MIC,
+						status & SND_JACK_MICROPHONE);
+
 	snd_soc_jack_report_no_dapm(jack, status, mask);
 }
 
@@ -387,7 +393,7 @@ static void __hphocp_off_report(struct wcd9xxx_mbhc *mbhc, u32 jack_status,
 	codec = mbhc->codec;
 	if (mbhc->hph_status & jack_status) {
 		mbhc->hph_status &= ~jack_status;
-		wcd9xxx_jack_report(&mbhc->headset_jack,
+		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD9XXX_JACK_MASK);
 		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_OCP_CTL, 0x10,
 				    0x00);
@@ -617,14 +623,14 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		else if (mbhc->buttons_pressed) {
 			pr_debug("%s: release of button press%d\n",
 				 __func__, jack_type);
-			wcd9xxx_jack_report(&mbhc->button_jack, 0,
+			wcd9xxx_jack_report(mbhc, &mbhc->button_jack, 0,
 					    mbhc->buttons_pressed);
 			mbhc->buttons_pressed &=
 				~WCD9XXX_JACK_BUTTON_MASK;
 		}
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
-		wcd9xxx_jack_report(&mbhc->headset_jack, mbhc->hph_status,
+		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack, mbhc->hph_status,
 				    WCD9XXX_JACK_MASK);
 		wcd9xxx_set_and_turnoff_hph_padac(mbhc);
 		hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
@@ -637,7 +643,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 			if (mbhc->hph_status && mbhc->hph_status != jack_type) {
 				pr_debug("%s: Reporting removal (%x)\n",
 					 __func__, mbhc->hph_status);
-				wcd9xxx_jack_report(&mbhc->headset_jack,
+				wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
 						    0, WCD9XXX_JACK_MASK);
 				mbhc->hph_status = 0;
 			}
@@ -657,7 +663,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		}
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
-		wcd9xxx_jack_report(&mbhc->headset_jack,
+		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD9XXX_JACK_MASK);
 		wcd9xxx_clr_and_turnon_hph_padac(mbhc);
 	}
@@ -1605,6 +1611,14 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 
 	pr_debug("%s: enter, removal interrupt\n", __func__);
 	WCD9XXX_BCL_LOCK(mbhc->resmgr);
+	/*
+	 * While we don't know whether MIC is there or not, let the resmgr know
+	 * so micbias can be disabled temporarily
+	 */
+	if (mbhc->current_plug == PLUG_TYPE_HEADSET)
+		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
+						WCD9XXX_COND_HPH_MIC, false);
+
 	vddio = (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV &&
 		 mbhc->mbhc_micbias_switched);
 	if (vddio)
@@ -1623,6 +1637,10 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 	 */
 	if (vddio && (mbhc->current_plug == PLUG_TYPE_HEADSET))
 		__wcd9xxx_switch_micbias(mbhc, 1, true, true);
+
+	if (mbhc->current_plug == PLUG_TYPE_HEADSET)
+		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
+						WCD9XXX_COND_HPH_MIC, true);
 	WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 
 	return IRQ_HANDLED;
@@ -1678,7 +1696,7 @@ static void wcd9xxx_btn_lpress_fn(struct work_struct *work)
 	pr_debug("%s: STA: %d, DCE: %d\n", __func__, sta_mv, dce_mv);
 
 	pr_debug("%s: Reporting long button press event\n", __func__);
-	wcd9xxx_jack_report(&mbhc->button_jack, mbhc->buttons_pressed,
+	wcd9xxx_jack_report(mbhc, &mbhc->button_jack, mbhc->buttons_pressed,
 			    mbhc->buttons_pressed);
 
 	pr_debug("%s: leave\n", __func__);
@@ -2356,7 +2374,7 @@ static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 		if (ret == 0) {
 			pr_debug("%s: Reporting long button release event\n",
 				 __func__);
-			wcd9xxx_jack_report(&mbhc->button_jack, 0,
+			wcd9xxx_jack_report(mbhc, &mbhc->button_jack, 0,
 					    mbhc->buttons_pressed);
 		} else {
 			if (wcd9xxx_is_fake_press(mbhc)) {
@@ -2369,12 +2387,14 @@ static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 				} else {
 					pr_debug("%s: Reporting btn press\n",
 						 __func__);
-					wcd9xxx_jack_report(&mbhc->button_jack,
+					wcd9xxx_jack_report(mbhc,
+							 &mbhc->button_jack,
 							 mbhc->buttons_pressed,
 							 mbhc->buttons_pressed);
 					pr_debug("%s: Reporting btn release\n",
 						 __func__);
-					wcd9xxx_jack_report(&mbhc->button_jack,
+					wcd9xxx_jack_report(mbhc,
+						      &mbhc->button_jack,
 						      0, mbhc->buttons_pressed);
 				}
 			}
@@ -2413,7 +2433,7 @@ static irqreturn_t wcd9xxx_hphl_ocp_irq(int irq, void *data)
 					  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
 			mbhc->hphlocp_cnt = 0;
 			mbhc->hph_status |= SND_JACK_OC_HPHL;
-			wcd9xxx_jack_report(&mbhc->headset_jack,
+			wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
 					    mbhc->hph_status,
 					    WCD9XXX_JACK_MASK);
 		}
@@ -2442,7 +2462,7 @@ static irqreturn_t wcd9xxx_hphr_ocp_irq(int irq, void *data)
 				    WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
 		mbhc->hphrocp_cnt = 0;
 		mbhc->hph_status |= SND_JACK_OC_HPHR;
-		wcd9xxx_jack_report(&mbhc->headset_jack,
+		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD9XXX_JACK_MASK);
 	}
 
