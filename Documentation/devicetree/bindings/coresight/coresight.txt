@@ -37,6 +37,8 @@ Optional properties:
 - qcom,blk-size : block size for tmc-etr to usb transfers
 - qcom,round-robin : indicates if per core etms are allowed round-robin access
 		     by the funnel
+- qcom,reset-flush-race : indicates if a race exists between flushing and ddr
+			  being put into self-refresh during watchdog reset
 
 Examples:
 
