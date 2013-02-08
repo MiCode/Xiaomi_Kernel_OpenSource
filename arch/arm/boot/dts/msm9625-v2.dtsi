@@ -23,4 +23,9 @@
 		compatible = "qcom,msm-imem";
 		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
 	};
+
+};
+
+&ipa_hw {
+	qcom,ipa-hw-ver = <2>; /* IPA h-w revision */
 };

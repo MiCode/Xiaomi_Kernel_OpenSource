@@ -30,3 +30,7 @@
 		interrupts = <0 29 1>;
 	};
 };
+
+&ipa_hw {
+	qcom,ipa-hw-ver = <1>; /* IPA h-w revision */
+};
