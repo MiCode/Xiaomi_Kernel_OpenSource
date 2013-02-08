@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,7 +81,7 @@ static void check_temp(struct work_struct *work)
 {
 	static int limit_init;
 	struct tsens_device tsens_dev;
-	unsigned long temp = 0;
+	long temp = 0;
 	uint32_t max_freq = limited_max_freq;
 	int cpu = 0;
 	int ret = 0;
