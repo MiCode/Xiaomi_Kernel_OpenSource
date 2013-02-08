@@ -19,6 +19,7 @@
 #include <linux/memory_alloc.h>
 #include <linux/fmem.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
 #include <linux/sched.h>
@@ -45,6 +46,7 @@ struct ion_heap_desc {
 };
 
 
+#ifdef CONFIG_OF
 static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_SYSTEM_HEAP_ID,
@@ -109,6 +111,7 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.name	= ION_CAMERA_HEAP_NAME,
 	},
 };
+#endif
 
 struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 					const char *name)
@@ -368,6 +371,7 @@ static void check_for_heap_overlap(const struct ion_platform_heap heap_list[],
 	}
 }
 
+#ifdef CONFIG_OF
 static int msm_init_extra_data(struct ion_platform_heap *heap,
 			       const struct ion_heap_desc *heap_desc)
 {
@@ -550,12 +554,13 @@ static void msm_ion_get_heap_adjacent(struct device_node *node,
 	}
 }
 
-static struct ion_platform_data *msm_ion_parse_dt(
-					const struct device_node *dt_node)
+static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 {
 	struct ion_platform_data *pdata = 0;
 	struct ion_platform_heap *heaps = NULL;
 	struct device_node *node;
+	struct platform_device *new_dev = NULL;
+	const struct device_node *dt_node = pdev->dev.of_node;
 	uint32_t val = 0;
 	int ret = 0;
 	uint32_t num_heaps = 0;
@@ -581,6 +586,13 @@ static struct ion_platform_data *msm_ion_parse_dt(
 	pdata->nr = num_heaps;
 
 	for_each_child_of_node(dt_node, node) {
+		new_dev = of_platform_device_create(node, NULL, &pdev->dev);
+		if (!new_dev) {
+			pr_err("Failed to create device %s\n", node->name);
+			goto free_heaps;
+		}
+
+		pdata->heaps[idx].priv = &new_dev->dev;
 		/**
 		 * TODO: Replace this with of_get_address() when this patch
 		 * gets merged: http://
@@ -614,6 +626,17 @@ free_heaps:
 	free_pdata(pdata);
 	return ERR_PTR(ret);
 }
+#else
+static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
+{
+	return NULL;
+}
+
+static void free_pdata(const struct ion_platform_data *pdata)
+{
+
+}
+#endif
 
 static int check_vaddr_bounds(unsigned long start, unsigned long end)
 {
@@ -723,7 +746,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 	int err = -1;
 	int i;
 	if (pdev->dev.of_node) {
-		pdata = msm_ion_parse_dt(pdev->dev.of_node);
+		pdata = msm_ion_parse_dt(pdev);
 		if (IS_ERR(pdata)) {
 			err = PTR_ERR(pdata);
 			goto out;
