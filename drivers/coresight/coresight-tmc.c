@@ -29,6 +29,7 @@
 #include <linux/of.h>
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
+#include <linux/coresight-cti.h>
 #include <linux/usb/usb_qdss.h>
 #include <mach/memory.h>
 #include <mach/sps.h>
@@ -136,6 +137,8 @@ struct tmc_drvdata {
 	struct miscdevice	miscdev;
 	struct clk		*clk;
 	spinlock_t		spinlock;
+	struct coresight_cti	*cti_flush;
+	struct coresight_cti	*cti_reset;
 	struct mutex		read_lock;
 	int			read_count;
 	bool			reading;
@@ -372,7 +375,7 @@ static void __tmc_etb_enable(struct tmc_drvdata *drvdata)
 	TMC_UNLOCK(drvdata);
 
 	tmc_writel(drvdata, TMC_MODE_CIRCULAR_BUFFER, TMC_MODE);
-	tmc_writel(drvdata, 0x133, TMC_FFCR);
+	tmc_writel(drvdata, 0x1133, TMC_FFCR);
 	tmc_writel(drvdata, drvdata->trigger_cntr, TMC_TRG);
 	__tmc_enable(drvdata);
 
@@ -430,7 +433,10 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		return ret;
 
 	mutex_lock(&drvdata->usb_lock);
-	if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
+		coresight_cti_map_trigout(drvdata->cti_flush, 1, 0);
+		coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
+	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			drvdata->usbch = usb_qdss_open("qdss", drvdata,
 						       usb_notifier);
@@ -439,6 +445,11 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 				ret = PTR_ERR(drvdata->usbch);
 				goto err0;
 			}
+		}
+	} else {
+		if (mode == TMC_MODE_CIRCULAR_BUFFER) {
+			coresight_cti_map_trigout(drvdata->cti_flush, 1, 0);
+			coresight_cti_map_trigin(drvdata->cti_reset, 0, 0);
 		}
 	}
 
@@ -632,7 +643,6 @@ static void __tmc_etf_disable(struct tmc_drvdata *drvdata)
 static void tmc_disable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 {
 	unsigned long flags;
-	bool etr_bam_disable = false;
 
 	mutex_lock(&drvdata->usb_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
@@ -645,29 +655,39 @@ static void tmc_disable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
 			__tmc_etr_disable_to_mem(drvdata);
 		else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
-			etr_bam_disable = true;
+			__tmc_etr_disable_to_bam(drvdata);
 	} else {
 		if (mode == TMC_MODE_CIRCULAR_BUFFER)
 			__tmc_etb_disable(drvdata);
 		else
 			__tmc_etf_disable(drvdata);
 	}
-out:
 	drvdata->enable = false;
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
-	if (etr_bam_disable) {
-		if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
-			if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
-				spin_lock_irqsave(&drvdata->spinlock, flags);
-				__tmc_etr_disable_to_bam(drvdata);
-				spin_unlock_irqrestore(&drvdata->spinlock,
-						       flags);
-				tmc_etr_bam_disable(drvdata);
-				usb_qdss_close(drvdata->usbch);
-			}
+	if (drvdata->config_type == TMC_CONFIG_TYPE_ETB) {
+		coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
+		coresight_cti_unmap_trigout(drvdata->cti_flush, 1, 0);
+	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
+		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+			tmc_etr_bam_disable(drvdata);
+			usb_qdss_close(drvdata->usbch);
+		}
+	} else {
+		if (mode == TMC_MODE_CIRCULAR_BUFFER) {
+			coresight_cti_unmap_trigin(drvdata->cti_reset, 0, 0);
+			coresight_cti_unmap_trigout(drvdata->cti_flush, 1, 0);
 		}
 	}
+	mutex_unlock(&drvdata->usb_lock);
+
+	clk_disable_unprepare(drvdata->clk);
+
+	dev_info(drvdata->dev, "TMC disabled\n");
+	return;
+out:
+	drvdata->enable = false;
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 	mutex_unlock(&drvdata->usb_lock);
 
 	clk_disable_unprepare(drvdata->clk);
@@ -1091,6 +1111,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	static int count;
 	void *baddr;
 	struct msm_client_dump dump;
+	struct coresight_cti_data *ctidata;
 	struct coresight_desc *desc;
 
 	if (pdev->dev.of_node) {
@@ -1208,6 +1229,23 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 		dev_info(dev, "TMC REG dump space allocation failed\n");
 	}
 	count++;
+
+	if (pdev->dev.of_node) {
+		ctidata = of_get_coresight_cti_data(dev, pdev->dev.of_node);
+		if (IS_ERR(ctidata)) {
+			dev_err(dev, "invalid cti data\n");
+		} else if (ctidata && ctidata->nr_ctis == 2) {
+			drvdata->cti_flush = coresight_cti_get(
+							ctidata->names[0]);
+			if (IS_ERR(drvdata->cti_flush))
+				dev_err(dev, "failed to get flush cti\n");
+
+			drvdata->cti_reset = coresight_cti_get(
+							ctidata->names[1]);
+			if (IS_ERR(drvdata->cti_reset))
+				dev_err(dev, "failed to get reset cti\n");
+		}
+	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc) {
