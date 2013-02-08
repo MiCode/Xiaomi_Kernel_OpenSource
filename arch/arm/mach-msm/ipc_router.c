@@ -1867,6 +1867,7 @@ static int loopback_data(struct msm_ipc_port *src,
 	struct rr_header *hdr;
 	struct msm_ipc_port *port_ptr;
 	struct rr_packet *pkt;
+	int ret_len;
 
 	if (!data) {
 		pr_err("%s: Invalid pkt pointer\n", __func__);
@@ -1912,11 +1913,12 @@ static int loopback_data(struct msm_ipc_port *src,
 	mutex_lock(&port_ptr->port_rx_q_lock);
 	wake_lock(&port_ptr->port_rx_wake_lock);
 	list_add_tail(&pkt->list, &port_ptr->port_rx_q);
+	ret_len = pkt->length;
 	wake_up(&port_ptr->port_rx_wait_q);
 	mutex_unlock(&port_ptr->port_rx_q_lock);
 	mutex_unlock(&local_ports_lock);
 
-	return pkt->length;
+	return ret_len;
 }
 
 static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
