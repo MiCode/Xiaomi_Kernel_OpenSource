@@ -142,34 +142,6 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 			"msm_sdcc.3", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98E4000, \
 			"msm_sdcc.4", NULL),
-	OF_DEV_AUXDATA("arm,coresight-tmc", 0xFC322000, \
-			"coresight-tmc-etr", NULL),
-	OF_DEV_AUXDATA("arm,coresight-tpiu", 0xFC318000, \
-			"coresight-tpiu", NULL),
-	OF_DEV_AUXDATA("qcom,coresight-replicator", 0xFC31C000, \
-			"coresight-replicator", NULL),
-	OF_DEV_AUXDATA("arm,coresight-tmc", 0xFC307000, \
-			"coresight-tmc-etf", NULL),
-	OF_DEV_AUXDATA("arm,coresight-funnel", 0xFC31B000, \
-			"coresight-funnel-merg", NULL),
-	OF_DEV_AUXDATA("arm,coresight-funnel", 0xFC319000, \
-			"coresight-funnel-in0", NULL),
-	OF_DEV_AUXDATA("arm,coresight-funnel", 0xFC31A000, \
-			"coresight-funnel-in1", NULL),
-	OF_DEV_AUXDATA("arm,coresight-funnel", 0xFC345000, \
-			"coresight-funnel-kpss", NULL),
-	OF_DEV_AUXDATA("arm,coresight-funnel", 0xFC364000, \
-			"coresight-funnel-mmss", NULL),
-	OF_DEV_AUXDATA("arm,coresight-stm", 0xFC321000, \
-			"coresight-stm", NULL),
-	OF_DEV_AUXDATA("arm,coresight-etm", 0xFC33C000, \
-			"coresight-etm0", NULL),
-	OF_DEV_AUXDATA("arm,coresight-etm", 0xFC33D000, \
-			"coresight-etm1", NULL),
-	OF_DEV_AUXDATA("arm,coresight-etm", 0xFC33E000, \
-			"coresight-etm2", NULL),
-	OF_DEV_AUXDATA("arm,coresight-etm", 0xFC33F000, \
-			"coresight-etm3", NULL),
 	OF_DEV_AUXDATA("qcom,msm-rng", 0xF9BFF000, \
 			"msm_rng", NULL),
 	OF_DEV_AUXDATA("qcom,qseecom", 0xFE806000, \
