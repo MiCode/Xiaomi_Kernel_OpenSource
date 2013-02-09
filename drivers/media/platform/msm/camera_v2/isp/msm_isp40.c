@@ -719,7 +719,7 @@ static void msm_vfe40_axi_cfg_wm_reg(
 		stream_cfg_cmd->plane_cfg[
 			plane_idx].output_stride) << 16 |
 		(stream_cfg_cmd->plane_cfg[
-			plane_idx].output_scan_lines - 1) << 4 |
+			plane_idx].output_height - 1) << 4 |
 		VFE40_BURST_LEN;
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
 
