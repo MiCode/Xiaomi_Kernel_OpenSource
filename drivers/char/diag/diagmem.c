@@ -135,7 +135,7 @@ void diagmem_exit(struct diagchar_dev *driver, int pool_type)
 		}
 
 		if (diag_hsic[index].diag_hsic_write_pool &&
-					(diag_hsic[HSIC].hsic_inited == 0)) {
+					(diag_hsic[index].hsic_inited == 0)) {
 			/*
 			 * Free up struct pool ONLY if there are no outstanding
 			 * transactions(aggregation buffer) with USB

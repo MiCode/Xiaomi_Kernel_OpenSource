@@ -447,10 +447,10 @@ int diag_copy_remote(char __user *buf, size_t count, int *pret, int *pnum_data)
 			diag_hsic[index].hsic_buf_tbl[i].buf = 0;
 			hsic_buf_tbl[i].length =
 				diag_hsic[index].hsic_buf_tbl[i].length;
-			diag_hsic[HSIC].hsic_buf_tbl[i].length = 0;
+			diag_hsic[index].hsic_buf_tbl[i].length = 0;
 		}
 		diag_hsic[index].num_hsic_buf_tbl_entries = 0;
-		spin_unlock_irqrestore(&diag_hsic[HSIC].hsic_spinlock,
+		spin_unlock_irqrestore(&diag_hsic[index].hsic_spinlock,
 			spin_lock_flags);
 
 		for (i = 0; i < diag_hsic[index].poolsize_hsic_write; i++) {
