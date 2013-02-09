@@ -89,6 +89,7 @@ struct venus_data {
 	struct iommu_domain *iommu_fw_domain;
 	int venus_domain_num;
 	bool is_booted;
+	bool hw_ver_checked;
 	void *ramdump_dev;
 	u32 fw_sz;
 	u32 fw_min_paddr;
@@ -285,7 +286,7 @@ static int pil_venus_reset(struct pil_desc *pil)
 	void __iomem *wrapper_base = drv->venus_wrapper_base;
 	phys_addr_t pa = pil_get_entry_addr(pil);
 	unsigned long iova;
-	u32 cpa_start_addr, cpa_end_addr, fw_start_addr, fw_end_addr;
+	u32 ver, cpa_start_addr, cpa_end_addr, fw_start_addr, fw_end_addr;
 
 	/*
 	 * GDSC needs to remain on till Venus is shutdown. So, enable
@@ -296,6 +297,14 @@ static int pil_venus_reset(struct pil_desc *pil)
 	if (rc) {
 		dev_err(pil->dev, "GDSC enable failed\n");
 		return rc;
+	}
+
+	/* Get Venus version number */
+	if (!drv->hw_ver_checked) {
+		ver = readl_relaxed(wrapper_base + VENUS_WRAPPER_HW_VERSION);
+		drv->hw_ver_minor = (ver & 0x0FFF0000) >> 16;
+		drv->hw_ver_major = (ver & 0xF0000000) >> 28;
+		drv->hw_ver_checked = 1;
 	}
 
 	/* Get the cpa and fw start/end addr based on Venus version */
@@ -532,7 +541,6 @@ static int __devinit pil_venus_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct pil_desc *desc;
 	int rc;
-	u32 ver;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -580,27 +588,6 @@ static int __devinit pil_venus_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	rc = regulator_enable(drv->gdsc);
-	if (rc) {
-		dev_err(&pdev->dev, "GDSC enable failed\n");
-		return rc;
-	}
-
-	rc = venus_clock_prepare_enable(&pdev->dev);
-	if (rc) {
-		dev_err(&pdev->dev, "clock prepare and enable failed\n");
-		regulator_disable(drv->gdsc);
-		return rc;
-	}
-
-	/* Get Venus version number */
-	ver = readl_relaxed(drv->venus_wrapper_base + VENUS_WRAPPER_HW_VERSION);
-	drv->hw_ver_minor = (ver & 0x0FFF0000) >> 16;
-	drv->hw_ver_major = (ver & 0xF0000000) >> 28;
-
-	venus_clock_disable_unprepare(&pdev->dev);
-
-	regulator_disable(drv->gdsc);
 
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
