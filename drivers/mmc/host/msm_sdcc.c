@@ -262,6 +262,11 @@ static int msmsdcc_bam_dml_reset_and_restore(struct msmsdcc_host *host)
 		goto out;
 	}
 
+	memset(host->sps.prod.config.desc.base, 0x00,
+			host->sps.prod.config.desc.size);
+	memset(host->sps.cons.config.desc.base, 0x00,
+			host->sps.cons.config.desc.size);
+
 	/* Restore all BAM pipes connections */
 	rc = msmsdcc_sps_restore_ep(host, &host->sps.prod);
 	if (rc) {
@@ -397,37 +402,26 @@ static void msmsdcc_hard_reset(struct msmsdcc_host *host)
 static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 {
 	if (is_soft_reset(host)) {
-		if (is_sps_mode(host))
-			/*
-			 * delay the SPS BAM reset in thread context as
-			 * sps_connect/sps_disconnect APIs can be called
-			 * only from non-atomic context.
-			 */
-			host->sps.reset_bam = true;
-
 		msmsdcc_soft_reset(host);
 
 		pr_debug("%s: Applied soft reset to Controller\n",
 				mmc_hostname(host->mmc));
 	} else {
-		/*
-		 * When there is a requirement to use this hard reset,
-		 * BAM needs to be reconfigured as well by calling
-		 * msmsdcc_sps_exit and msmsdcc_sps_init.
-		 */
-
 		/* Give Clock reset (hard reset) to controller */
 		u32	mci_clk = 0;
 		u32	mci_mask0 = 0;
+		u32	dll_config = 0;
 
 		/* Save the controller state */
 		mci_clk = readl_relaxed(host->base + MMCICLOCK);
 		mci_mask0 = readl_relaxed(host->base + MMCIMASK0);
 		host->pwr = readl_relaxed(host->base + MMCIPOWER);
+		if (host->tuning_needed)
+			dll_config = readl_relaxed(host->base + MCI_DLL_CONFIG);
 		mb();
 
 		msmsdcc_hard_reset(host);
-		pr_debug("%s: Controller has been reinitialized\n",
+		pr_debug("%s: Applied hard reset to controller\n",
 				mmc_hostname(host->mmc));
 
 		/* Restore the contoller state */
@@ -436,8 +430,18 @@ static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 		writel_relaxed(mci_clk, host->base + MMCICLOCK);
 		msmsdcc_sync_reg_wr(host);
 		writel_relaxed(mci_mask0, host->base + MMCIMASK0);
+		if (host->tuning_needed)
+			writel_relaxed(dll_config, host->base + MCI_DLL_CONFIG);
 		mb(); /* no delay required after writing to MASK0 register */
 	}
+
+	if (is_sps_mode(host))
+		/*
+		 * delay the SPS BAM reset in thread context as
+		 * sps_connect/sps_disconnect APIs can be called
+		 * only from non-atomic context.
+		 */
+		host->sps.reset_bam = true;
 
 	if (host->dummy_52_needed)
 		host->dummy_52_needed = 0;
