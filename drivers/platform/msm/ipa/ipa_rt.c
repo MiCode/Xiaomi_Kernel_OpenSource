@@ -681,19 +681,20 @@ bail:
 }
 EXPORT_SYMBOL(ipa_add_rt_rule);
 
-static int __ipa_del_rt_rule(u32 rule_hdl)
+int __ipa_del_rt_rule(u32 rule_hdl)
 {
 	struct ipa_rt_entry *entry = (struct ipa_rt_entry *)rule_hdl;
 	struct ipa_tree_node *node;
 
-	if (entry == NULL || (entry->cookie != IPA_COOKIE)) {
-		IPAERR("bad params\n");
-		return -EINVAL;
-	}
 	node = ipa_search(&ipa_ctx->rt_rule_hdl_tree, rule_hdl);
 	if (node == NULL) {
 		IPAERR("lookup failed\n");
-		return -EPERM;
+		return -EINVAL;
+	}
+
+	if (entry == NULL || (entry->cookie != IPA_COOKIE)) {
+		IPAERR("bad params\n");
+		return -EINVAL;
 	}
 
 	if (entry->hdr)
@@ -770,6 +771,12 @@ EXPORT_SYMBOL(ipa_del_rt_rule);
 int ipa_commit_rt(enum ipa_ip_type ip)
 {
 	int ret;
+
+	if (ip >= IPA_IP_MAX) {
+		IPAERR("bad parm\n");
+		return -EINVAL;
+	}
+
 	/*
 	 * issue a commit on the filtering module of same IP type since
 	 * filtering rules point to routing tables
@@ -808,6 +815,11 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 	struct ipa_rt_entry *rule_next;
 	struct ipa_tree_node *node;
 	struct ipa_rt_tbl_set *rset;
+
+	if (ip >= IPA_IP_MAX) {
+		IPAERR("bad parm\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * issue a reset on the filtering module of same IP type since
@@ -930,16 +942,21 @@ int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 	struct ipa_rt_tbl *entry = (struct ipa_rt_tbl *)rt_tbl_hdl;
 	struct ipa_tree_node *node;
 	enum ipa_ip_type ip = IPA_IP_MAX;
+	int result;
+
+	mutex_lock(&ipa_ctx->lock);
+	node = ipa_search(&ipa_ctx->rt_tbl_hdl_tree, rt_tbl_hdl);
+	if (node == NULL) {
+		IPAERR("lookup failed\n");
+		result = -EINVAL;
+		goto ret;
+	}
 
 	if (entry == NULL || (entry->cookie != IPA_COOKIE) ||
 			entry->ref_cnt == 0) {
 		IPAERR("bad parms\n");
-		return -EINVAL;
-	}
-	node = ipa_search(&ipa_ctx->rt_tbl_hdl_tree, rt_tbl_hdl);
-	if (node == NULL) {
-		IPAERR("lookup failed\n");
-		return -EPERM;
+		result = -EINVAL;
+		goto ret;
 	}
 
 	if (entry->set == &ipa_ctx->rt_tbl_set[IPA_IP_v4])
@@ -949,7 +966,6 @@ int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 	else
 		WARN_ON(1);
 
-	mutex_lock(&ipa_ctx->lock);
 	entry->ref_cnt--;
 	if (entry->ref_cnt == 0 && entry->rule_cnt == 0) {
 		if (__ipa_del_rt_tbl(entry))
@@ -958,8 +974,12 @@ int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 		if (__ipa_commit_rt(ip))
 			IPAERR("fail to commit RT tbl\n");
 	}
+
+	result = 0;
+
+ret:
 	mutex_unlock(&ipa_ctx->lock);
 
-	return 0;
+	return result;
 }
 EXPORT_SYMBOL(ipa_put_rt_tbl);

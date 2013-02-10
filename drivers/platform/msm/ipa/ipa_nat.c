@@ -356,11 +356,11 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 
 		desc[cnt].len = sizeof(struct ipa_nat_dma);
 		desc[cnt].pyld = (void *)&cmd[cnt];
+
+		ret = ipa_send_cmd(1, &desc[cnt]);
+		if (ret == -EPERM)
+			IPAERR("Fail to send immediate command %d\n", cnt);
 	}
-	IPADBG("posting dma command with entries %d\n", dma->entries);
-	ret = ipa_send_cmd(dma->entries, desc);
-	if (ret == -EPERM)
-		IPAERR("Fail to send immediate command\n");
 
 bail:
 	kfree(cmd);

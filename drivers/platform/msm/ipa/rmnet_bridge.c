@@ -17,11 +17,12 @@
 #include <mach/ipa.h>
 #include <mach/sps.h>
 #include "a2_service.h"
-#include "ipa_i.h"
 
 static struct rmnet_bridge_cb_type {
 	u32 producer_handle;
 	u32 consumer_handle;
+	u32 ipa_producer_handle;
+	u32 ipa_consumer_handle;
 	bool is_connected;
 } rmnet_bridge_cb;
 
@@ -57,8 +58,10 @@ int rmnet_bridge_disconnect(void)
 
 	rmnet_bridge_cb.is_connected = false;
 
-	ret = ipa_bridge_teardown(IPA_DL);
-	ret = ipa_bridge_teardown(IPA_UL);
+	ret = ipa_bridge_teardown(IPA_BRIDGE_DIR_DL, IPA_BRIDGE_TYPE_TETHERED,
+				  rmnet_bridge_cb.ipa_consumer_handle);
+	ret = ipa_bridge_teardown(IPA_BRIDGE_DIR_UL, IPA_BRIDGE_TYPE_TETHERED,
+				  rmnet_bridge_cb.ipa_producer_handle);
 bail:
 	return ret;
 }
@@ -78,6 +81,7 @@ int rmnet_bridge_connect(u32 producer_hdl,
 			 u32 consumer_hdl,
 			 int wwan_logical_channel_id)
 {
+	struct ipa_sys_connect_params props;
 	int ret = 0;
 
 	if (true == rmnet_bridge_cb.is_connected) {
@@ -91,19 +95,35 @@ int rmnet_bridge_connect(u32 producer_hdl,
 	rmnet_bridge_cb.producer_handle = producer_hdl;
 	rmnet_bridge_cb.is_connected = true;
 
-	ret = ipa_bridge_setup(IPA_DL);
+	memset(&props, 0, sizeof(props));
+	props.ipa_ep_cfg.mode.mode = IPA_DMA;
+	props.ipa_ep_cfg.mode.dst = IPA_CLIENT_USB_CONS;
+	props.client = IPA_CLIENT_A2_TETHERED_PROD;
+	props.desc_fifo_sz = 0x800;
+	/* setup notification callback if needed */
+
+	ret = ipa_bridge_setup(IPA_BRIDGE_DIR_DL, IPA_BRIDGE_TYPE_TETHERED,
+			&props, &rmnet_bridge_cb.ipa_consumer_handle);
 	if (ret) {
 		pr_err("%s: IPA DL bridge setup failure\n", __func__);
 		goto bail_dl;
 	}
-	ret = ipa_bridge_setup(IPA_UL);
+
+	memset(&props, 0, sizeof(props));
+	props.client = IPA_CLIENT_A2_TETHERED_CONS;
+	props.desc_fifo_sz = 0x800;
+	/* setup notification callback if needed */
+
+	ret = ipa_bridge_setup(IPA_BRIDGE_DIR_UL, IPA_BRIDGE_TYPE_TETHERED,
+			&props, &rmnet_bridge_cb.ipa_producer_handle);
 	if (ret) {
 		pr_err("%s: IPA UL bridge setup failure\n", __func__);
 		goto bail_ul;
 	}
 	return 0;
 bail_ul:
-	ipa_bridge_teardown(IPA_DL);
+	ipa_bridge_teardown(IPA_BRIDGE_DIR_DL, IPA_BRIDGE_TYPE_TETHERED,
+			    rmnet_bridge_cb.ipa_consumer_handle);
 bail_dl:
 	rmnet_bridge_cb.is_connected = false;
 bail:
