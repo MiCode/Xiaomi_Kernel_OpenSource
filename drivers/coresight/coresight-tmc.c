@@ -736,6 +736,8 @@ static void tmc_abort(struct coresight_device *csdev)
 	} else if (drvdata->config_type == TMC_CONFIG_TYPE_ETR) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
 			__tmc_etr_disable_to_mem(drvdata);
+		else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
+			__tmc_etr_disable_to_bam(drvdata);
 	} else {
 		mode = tmc_readl(drvdata, TMC_MODE);
 		if (mode == TMC_MODE_CIRCULAR_BUFFER)
