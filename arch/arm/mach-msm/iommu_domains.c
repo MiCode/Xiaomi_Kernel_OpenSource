@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -474,7 +474,7 @@ static int create_and_add_domain(struct iommu_group *group,
 				 const struct device_node *node)
 {
 	unsigned int ret_val = 0;
-	unsigned int i;
+	unsigned int i, j;
 	struct msm_iova_layout l;
 	struct msm_iova_partition *part = 0;
 	struct iommu_domain *domain = 0;
@@ -512,9 +512,9 @@ static int create_and_add_domain(struct iommu_group *group,
 			goto free_mem;
 		}
 
-		for (i = 0; i < l.npartitions * 2; i += 2) {
-			part[i].start = addr_array[i];
-			part[i].size = addr_array[i+1];
+		for (i = 0, j = 0; j < l.npartitions * 2; i++, j += 2) {
+			part[i].start = addr_array[j];
+			part[i].size = addr_array[j+1];
 		}
 	} else {
 		l.npartitions = 1;
