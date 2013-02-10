@@ -34,3 +34,8 @@
 &ipa_hw {
 	qcom,ipa-hw-ver = <1>; /* IPA h-w revision */
 };
+
+/* CoreSight */
+&tmc_etr {
+	qcom,reset-flush-race;
+};
