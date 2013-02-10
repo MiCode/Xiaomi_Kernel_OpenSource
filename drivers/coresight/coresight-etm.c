@@ -173,6 +173,8 @@ do {									\
 #define ETM_REG_DUMP_VER_OFF		(4)
 #define ETM_REG_DUMP_VER		(1)
 
+#define CPMR_ETMCLKEN			(8)
+
 enum etm_addr_type {
 	ETM_ADDR_TYPE_NONE,
 	ETM_ADDR_TYPE_SINGLE,
@@ -318,11 +320,21 @@ static void etm_clr_pwrdwn(struct etm_drvdata *drvdata)
 
 static void etm_set_pwrup(struct etm_drvdata *drvdata)
 {
+	uint32_t cpmr;
 	uint32_t etmpdcr;
 
-	etmpdcr = etm_readl_mm(drvdata, ETMPDCR);
-	etmpdcr |= BIT(3);
-	etm_writel_mm(drvdata, etmpdcr, ETMPDCR);
+	 /* For Krait, use cp15 CPMR_ETMCLKEN instead of ETMPDCR since ETMPDCR
+	  * is not supported for this purpose on Krait v4.
+	  */
+	if (cpu_is_krait()) {
+		asm volatile("mrc p15, 7, %0, c15, c0, 5" : "=r" (cpmr));
+		cpmr  |= CPMR_ETMCLKEN;
+		asm volatile("mcr p15, 7, %0, c15, c0, 5" : : "r" (cpmr));
+	} else {
+		etmpdcr = etm_readl_mm(drvdata, ETMPDCR);
+		etmpdcr |= BIT(3);
+		etm_writel_mm(drvdata, etmpdcr, ETMPDCR);
+	}
 	/* ensure pwrup completes before subsequent cp14 accesses */
 	mb();
 	isb();
@@ -330,14 +342,24 @@ static void etm_set_pwrup(struct etm_drvdata *drvdata)
 
 static void etm_clr_pwrup(struct etm_drvdata *drvdata)
 {
+	uint32_t cpmr;
 	uint32_t etmpdcr;
 
 	/* ensure pending cp14 accesses complete before clearing pwrup */
 	mb();
 	isb();
-	etmpdcr = etm_readl_mm(drvdata, ETMPDCR);
-	etmpdcr &= ~BIT(3);
-	etm_writel_mm(drvdata, etmpdcr, ETMPDCR);
+	 /* For Krait, use cp15 CPMR_ETMCLKEN instead of ETMPDCR since ETMPDCR
+	  * is not supported for this purpose on Krait v4.
+	  */
+	if (cpu_is_krait()) {
+		asm volatile("mrc p15, 7, %0, c15, c0, 5" : "=r" (cpmr));
+		cpmr  &= ~CPMR_ETMCLKEN;
+		asm volatile("mcr p15, 7, %0, c15, c0, 5" : : "r" (cpmr));
+	} else {
+		etmpdcr = etm_readl_mm(drvdata, ETMPDCR);
+		etmpdcr &= ~BIT(3);
+		etm_writel_mm(drvdata, etmpdcr, ETMPDCR);
+	}
 }
 
 static void etm_set_prog(struct etm_drvdata *drvdata)
