@@ -10,7 +10,93 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/delay.h>
 #include "ipa_i.h"
+
+static void ipa_enable_data_path(u32 clnt_hdl)
+{
+	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
+
+	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL) {
+		/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
+		return;
+	}
+
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1 && ep->suspended) {
+		ipa_write_reg(ipa_ctx->mmio,
+				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 0);
+		ep->suspended = false;
+	}
+}
+
+static int ipa_disable_data_path(u32 clnt_hdl)
+{
+	DECLARE_COMPLETION_ONSTACK(tag_rsp);
+	struct ipa_desc desc = {0};
+	struct ipa_ip_packet_tag cmd;
+	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
+	struct ipa_tree_node *node;
+	int result = 0;
+
+	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL) {
+		/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
+		return 0;
+	}
+
+	node = kmem_cache_zalloc(ipa_ctx->tree_node_cache, GFP_KERNEL);
+	if (!node) {
+		IPAERR("failed to alloc tree node object\n");
+		result = -ENOMEM;
+		goto fail_alloc;
+	}
+
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1 && !ep->suspended) {
+		ipa_write_reg(ipa_ctx->mmio,
+				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 1);
+
+		cmd.tag = (u32) &tag_rsp;
+
+		desc.pyld = &cmd;
+		desc.len = sizeof(struct ipa_ip_packet_tag);
+		desc.type = IPA_IMM_CMD_DESC;
+		desc.opcode = IPA_IP_PACKET_TAG;
+
+		IPADBG("Wait on TAG %p clnt=%d\n", &tag_rsp, clnt_hdl);
+
+		node->hdl = cmd.tag;
+		mutex_lock(&ipa_ctx->lock);
+		if (ipa_insert(&ipa_ctx->tag_tree, node)) {
+			IPAERR("failed to add to tree\n");
+			result = -EINVAL;
+			mutex_unlock(&ipa_ctx->lock);
+			goto fail_insert;
+		}
+		mutex_unlock(&ipa_ctx->lock);
+
+		if (ipa_send_cmd(1, &desc)) {
+			ipa_write_reg(ipa_ctx->mmio,
+				IPA_ENDP_INIT_CTRL_n_OFST(clnt_hdl), 0);
+			IPAERR("fail to send TAG command\n");
+			result = -EPERM;
+			goto fail_send;
+		}
+		wait_for_completion(&tag_rsp);
+		if (IPA_CLIENT_IS_CONS(ep->client) &&
+				ep->cfg.aggr.aggr_en == IPA_ENABLE_AGGR &&
+				ep->cfg.aggr.aggr_time_limit)
+			msleep(ep->cfg.aggr.aggr_time_limit);
+		ep->suspended = true;
+	}
+
+	return 0;
+
+fail_send:
+	rb_erase(&node->node, &ipa_ctx->tag_tree);
+fail_insert:
+	kmem_cache_free(ipa_ctx->tree_node_cache, node);
+fail_alloc:
+	return result;
+}
 
 static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
 				     struct ipa_ep_context *ep, int ipa_ep_idx)
@@ -94,7 +180,6 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 	return 0;
 }
 
-
 /**
  * ipa_connect() - low-level IPA client connect
  * @in:	[in] input parameters from client
@@ -114,16 +199,15 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		u32 *clnt_hdl)
 {
 	int ipa_ep_idx;
-	int ipa_ep_idx_dst;
 	int result = -EFAULT;
 	struct ipa_ep_context *ep;
 
 	if (atomic_inc_return(&ipa_ctx->ipa_active_clients) == 1)
-		ipa_enable_clks();
+		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
+			ipa_enable_clks();
 
 	if (in == NULL || sps == NULL || clnt_hdl == NULL ||
 	    in->client >= IPA_CLIENT_MAX ||
-	    in->ipa_ep_cfg.mode.dst >= IPA_CLIENT_MAX ||
 	    in->desc_fifo_sz == 0 || in->data_fifo_sz == 0) {
 		IPAERR("bad parm.\n");
 		result = -EINVAL;
@@ -141,16 +225,6 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	if (ep->valid) {
 		IPAERR("EP already allocated.\n");
 		goto fail;
-	}
-
-	if (IPA_CLIENT_IS_PROD(in->client) &&
-			(in->ipa_ep_cfg.mode.mode == IPA_DMA)) {
-		ipa_ep_idx_dst = ipa_get_ep_mapping(ipa_ctx->mode,
-				in->ipa_ep_cfg.mode.dst);
-		if ((ipa_ep_idx_dst == -1) ||
-				(ipa_ctx->ep[ipa_ep_idx_dst].valid)) {
-			IPADBG("dst EP for IPA input pipe doesn't yet exist\n");
-		}
 	}
 
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
@@ -247,13 +321,14 @@ desc_mem_alloc_fail:
 ipa_cfg_ep_fail:
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
 fail:
-	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0)
-		ipa_disable_clks();
+	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0) {
+		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
+			ipa_disable_clks();
+	}
 
 	return result;
 }
 EXPORT_SYMBOL(ipa_connect);
-
 /**
  * ipa_disconnect() - low-level IPA client disconnect
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -277,6 +352,13 @@ int ipa_disconnect(u32 clnt_hdl)
 	}
 
 	ep = &ipa_ctx->ep[clnt_hdl];
+
+	result = ipa_disable_data_path(clnt_hdl);
+	if (result) {
+		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
+				clnt_hdl);
+		return -EPERM;
+	}
 
 	result = sps_disconnect(ep->ep_hdl);
 	if (result) {
@@ -314,11 +396,68 @@ int ipa_disconnect(u32 clnt_hdl)
 		return -EPERM;
 	}
 
+	ipa_enable_data_path(clnt_hdl);
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 
-	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0)
-		ipa_disable_clks();
+	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0) {
+		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
+			ipa_disable_clks();
+	}
 
 	return 0;
 }
 EXPORT_SYMBOL(ipa_disconnect);
+
+/**
+ * ipa_connection_suspend() - suspend B2B connection to/from IPA
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ *
+ * Should be called by the driver of the peripheral that wants to suspend
+ * its BAM-BAM connection to/from IPA in BAM-BAM mode. The pipe is not
+ * disconnected and must later be resumed before data transfer can begin
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_connection_suspend(u32 clnt_hdl)
+{
+	int result;
+
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+	result = ipa_disable_data_path(clnt_hdl);
+	if (result)
+		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
+				clnt_hdl);
+
+	return result;
+}
+EXPORT_SYMBOL(ipa_connection_suspend);
+
+/**
+ * ipa_connection_resume() - resume B2B connection to/from IPA
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ *
+ * Should be called by the driver of the peripheral that wants to resume
+ * its previously suspended BAM-BAM connection to/from IPA in BAM-BAM mode.
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_connection_resume(u32 clnt_hdl)
+{
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+
+	ipa_enable_data_path(clnt_hdl);
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_connection_resume);
+

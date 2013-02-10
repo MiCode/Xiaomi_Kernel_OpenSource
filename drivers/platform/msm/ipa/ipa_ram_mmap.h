@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #define IPA_RAM_NAT_OFST    0
 #define IPA_RAM_NAT_SIZE    2048
 #define IPA_RAM_HDR_OFST    2048
-#define IPA_RAM_HDR_SIZE    256
+#define IPA_RAM_HDR_SIZE    440
 #define IPA_RAM_V4_FLT_OFST (IPA_RAM_HDR_OFST + IPA_RAM_HDR_SIZE)
 #define IPA_RAM_V4_FLT_SIZE 1024
 #define IPA_RAM_V4_RT_OFST  (IPA_RAM_V4_FLT_OFST + IPA_RAM_V4_FLT_SIZE)
