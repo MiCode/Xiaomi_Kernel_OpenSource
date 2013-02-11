@@ -51,6 +51,10 @@
 	qcom,reset-flush-race;
 };
 
+&stm {
+	qcom,write-64bit;
+};
+
 &msm_vidc {
 	qcom,vidc-cp-map = <0x1000000 0x3f000000>;
 	qcom,vidc-ns-map = <0x40000000 0x40000000>;
