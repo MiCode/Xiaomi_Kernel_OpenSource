@@ -2313,13 +2313,12 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(req->base.tfm);
 	struct crypto_priv *cp = sha_ctx->cp;
 	struct qcrypto_sha_req_ctx *rctx = ahash_request_ctx(req);
-	uint32_t total, len, i, num_sg;
+	uint32_t total, len, num_sg;
+	struct scatterlist *sg_last;
 	uint8_t *k_src = NULL;
 	uint32_t sha_pad_len = 0;
-	uint32_t end_src = 0;
 	uint32_t trailing_buf_len = 0;
-	uint32_t nbytes, index = 0;
-	uint32_t saved_length = 0;
+	uint32_t nbytes;
 	uint32_t offset = 0;
 	uint32_t bytes = 0;
 
@@ -2330,8 +2329,6 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	len = req->nbytes;
 
 	if (total <= sha_block_size) {
-		i = 0;
-
 		k_src = &sha_ctx->trailing_buf[sha_ctx->trailing_buf_len];
 		num_sg = qcrypto_count_sg(req->src, len);
 		bytes = sg_copy_to_buffer(req->src, num_sg, k_src, len);
@@ -2364,22 +2361,14 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	num_sg = qcrypto_count_sg(req->src, req->nbytes);
 
 	len = sha_ctx->trailing_buf_len;
-	i = 0;
+	sg_last = req->src;
 
 	while (len < nbytes) {
-		if ((len + req->src[i].length) > nbytes)
+		if ((len + sg_last->length) > nbytes)
 			break;
-		len += req->src[i].length;
-		i++;
+		len += sg_last->length;
+		sg_last = scatterwalk_sg_next(sg_last);
 	}
-
-	end_src = i;
-	if (len < nbytes) {
-		saved_length = req->src[i].length;
-		index = i;
-		req->src[i].length = (nbytes - len);
-	}
-
 	if (sha_ctx->trailing_buf_len) {
 		if (cp->ce_support.aligned_only)  {
 			sha_ctx->sg = kzalloc(sizeof(struct scatterlist),
@@ -2399,17 +2388,16 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 			memcpy(rctx->data2, sha_ctx->tmp_tbuf,
 						sha_ctx->trailing_buf_len);
 			memcpy((rctx->data2 + sha_ctx->trailing_buf_len),
-					rctx->data, req->src[i-1].length);
+					rctx->data, req->src->length);
 			kfree(rctx->data);
 			rctx->data = rctx->data2;
 			sg_set_buf(&sha_ctx->sg[0], rctx->data,
 					(sha_ctx->trailing_buf_len +
-							req->src[i-1].length));
+							req->src->length));
 			req->src = sha_ctx->sg;
 			sg_mark_end(&sha_ctx->sg[0]);
-
 		} else {
-			sg_mark_end(&req->src[end_src]);
+			sg_mark_end(sg_last);
 			sha_ctx->sg = kzalloc(2 * (sizeof(struct scatterlist)),
 								GFP_KERNEL);
 			if (sha_ctx->sg == NULL) {
@@ -2425,11 +2413,9 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 			req->src = sha_ctx->sg;
 		}
 	} else
-		sg_mark_end(&req->src[end_src]);
+		sg_mark_end(sg_last);
 
 	req->nbytes = nbytes;
-	if (saved_length > 0)
-		rctx->src[index].length = saved_length;
 	sha_ctx->trailing_buf_len = trailing_buf_len;
 
 	ret =  _qcrypto_queue_req(cp, &req->base);
