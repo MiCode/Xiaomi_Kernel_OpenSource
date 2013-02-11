@@ -21,6 +21,10 @@
 	compatible = "qcom,msm9625";
 	interrupt-parent = <&intc>;
 
+	aliases {
+		spi0 = &spi_0;
+	};
+
 	intc: interrupt-controller@F9000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
@@ -186,8 +190,7 @@
 		interrupt-names = "bam_irq";
 	};
 
-	spi@f9924000 {
-		cell-index = <0>;
+	spi_0: spi@f9924000 {
 		compatible = "qcom,spi-qup-v2";
 		reg = <0xf9924000 0x1000>;
 		interrupts = <0 96 0>;

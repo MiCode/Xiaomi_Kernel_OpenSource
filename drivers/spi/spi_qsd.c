@@ -2375,7 +2375,7 @@ __init msm_spi_dt_to_pdata(struct platform_device *pdev)
 
 	of_property_read_u32(node, "spi-max-frequency",
 			&pdata->max_clock_speed);
-	of_property_read_u32(node, "infinite_mode",
+	of_property_read_u32(node, "qcom,infinite-mode",
 			&pdata->infinite_mode);
 
 	pdata->ver_reg_exists = of_property_read_bool(node
@@ -2485,13 +2485,12 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 			goto err_probe_exit;
 		}
 
-		rc = of_property_read_u32(pdev->dev.of_node,
-				"cell-index", &pdev->id);
-		if (rc)
+		rc = of_alias_get_id(pdev->dev.of_node, "spi");
+		if (rc < 0)
 			dev_warn(&pdev->dev,
 				"using default bus_num %d\n", pdev->id);
 		else
-			master->bus_num = pdev->id;
+			master->bus_num = pdev->id = rc;
 
 		for (i = 0; i < ARRAY_SIZE(spi_rsrcs); ++i) {
 			dd->spi_gpios[i] = of_get_gpio_flags(pdev->dev.of_node,
