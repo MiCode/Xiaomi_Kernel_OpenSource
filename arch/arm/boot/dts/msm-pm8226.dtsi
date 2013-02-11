@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,4 +15,293 @@
 	#size-cells = <0>;
 	interrupt-controller;
 	#interrupt-cells = <3>;
+
+	qcom,pm8226@1 {
+		spmi-slave-container;
+		reg = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		regulator@1400 {
+			regulator-name = "8226_s1";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1400 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1400 {
+				reg = <0x1400 0x100>;
+			};
+			qcom,ps@1500 {
+				reg = <0x1500 0x100>;
+			};
+			qcom,freq@1600 {
+				reg = <0x1600 0x100>;
+			};
+		};
+
+		regulator@1700 {
+			regulator-name = "8226_s2";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1700 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1700 {
+				reg = <0x1700 0x100>;
+			};
+			qcom,ps@1800 {
+				reg = <0x1800 0x100>;
+			};
+			qcom,freq@1900 {
+				reg = <0x1900 0x100>;
+			};
+		};
+
+		regulator@1a00 {
+			regulator-name = "8226_s3";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1a00 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1a00 {
+				reg = <0x1a00 0x100>;
+			};
+			qcom,ps@1b00 {
+				reg = <0x1b00 0x100>;
+			};
+			qcom,freq@1c00 {
+				reg = <0x1c00 0x100>;
+			};
+		};
+
+		regulator@1d00 {
+			regulator-name = "8226_s4";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x1d00 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1d00 {
+				reg = <0x1d00 0x100>;
+			};
+			qcom,ps@1e00 {
+				reg = <0x1e00 0x100>;
+			};
+			qcom,freq@1f00 {
+				reg = <0x1f00 0x100>;
+			};
+		};
+
+		regulator@2000 {
+			regulator-name = "8226_s5";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "qcom,qpnp-regulator";
+			reg = <0x2000 0x300>;
+			status = "disabled";
+
+			qcom,ctl@2000 {
+				reg = <0x2000 0x100>;
+			};
+			qcom,ps@2100 {
+				reg = <0x2100 0x100>;
+			};
+			qcom,freq@2200 {
+				reg = <0x2200 0x100>;
+			};
+		};
+
+		regulator@4000 {
+			regulator-name = "8226_l1";
+			reg = <0x4000 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4100 {
+			regulator-name = "8226_l2";
+			reg = <0x4100 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4200 {
+			regulator-name = "8226_l3";
+			reg = <0x4200 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4300 {
+			regulator-name = "8226_l4";
+			reg = <0x4300 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4400 {
+			regulator-name = "8226_l5";
+			reg = <0x4400 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4500 {
+			regulator-name = "8226_l6";
+			reg = <0x4500 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4600 {
+			regulator-name = "8226_l7";
+			reg = <0x4600 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4700 {
+			regulator-name = "8226_l8";
+			reg = <0x4700 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4800 {
+			regulator-name = "8226_l9";
+			reg = <0x4800 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4900 {
+			regulator-name = "8226_l10";
+			reg = <0x4900 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4b00 {
+			regulator-name = "8226_l12";
+			reg = <0x4b00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4d00 {
+			regulator-name = "8226_l14";
+			reg = <0x4d00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4e00 {
+			regulator-name = "8226_l15";
+			reg = <0x4e00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@4f00 {
+			regulator-name = "8226_l16";
+			reg = <0x4f00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5000 {
+			regulator-name = "8226_l17";
+			reg = <0x5000 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5100 {
+			regulator-name = "8226_l18";
+			reg = <0x5100 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5200 {
+			regulator-name = "8226_l19";
+			reg = <0x5200 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5300 {
+			regulator-name = "8226_l20";
+			reg = <0x5300 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5400 {
+			regulator-name = "8226_l21";
+			reg = <0x5400 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5500 {
+			regulator-name = "8226_l22";
+			reg = <0x5500 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5600 {
+			regulator-name = "8226_l23";
+			reg = <0x5600 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5700 {
+			regulator-name = "8226_l24";
+			reg = <0x5700 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5900 {
+			regulator-name = "8226_l26";
+			reg = <0x5900 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5a00 {
+			regulator-name = "8226_l27";
+			reg = <0x5a00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@5b00 {
+			regulator-name = "8226_l28";
+			reg = <0x5b00 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+
+		regulator@8000 {
+			regulator-name = "8226_lvs1";
+			reg = <0x8000 0x100>;
+			compatible = "qcom,qpnp-regulator";
+			status = "disabled";
+		};
+	};
 };
