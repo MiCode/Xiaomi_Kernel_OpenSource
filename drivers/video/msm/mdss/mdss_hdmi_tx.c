@@ -397,13 +397,133 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_wta_hpd */
 
+static ssize_t hdmi_tx_sysfs_wta_vendor_name(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret;
+	u8 *s = (u8 *) buf;
+	u8 *d = NULL;
+	struct hdmi_tx_ctrl *hdmi_ctrl =
+		hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	d = hdmi_ctrl->spd_vendor_name;
+	ret = strnlen(buf, PAGE_SIZE);
+	ret = (ret > 8) ? 8 : ret;
+
+	memset(hdmi_ctrl->spd_vendor_name, 0, 8);
+	while (*s) {
+		if (*s & 0x60 && *s ^ 0x7f) {
+			*d = *s;
+		} else {
+			/* stop copying if control character found */
+			break;
+		}
+
+		if (++s > (u8 *) (buf + ret))
+			break;
+
+		d++;
+	}
+
+	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_vendor_name);
+
+	return ret;
+} /* hdmi_tx_sysfs_wta_vendor_name */
+
+static ssize_t hdmi_tx_sysfs_rda_vendor_name(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct hdmi_tx_ctrl *hdmi_ctrl =
+		hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%s\n", hdmi_ctrl->spd_vendor_name);
+	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_vendor_name);
+
+	return ret;
+} /* hdmi_tx_sysfs_rda_vendor_name */
+
+static ssize_t hdmi_tx_sysfs_wta_product_description(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret;
+	u8 *s = (u8 *) buf;
+	u8 *d = NULL;
+	struct hdmi_tx_ctrl *hdmi_ctrl =
+		hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	d = hdmi_ctrl->spd_product_description;
+	ret = strnlen(buf, PAGE_SIZE);
+	ret = (ret > 16) ? 16 : ret;
+
+	memset(hdmi_ctrl->spd_product_description, 0, 16);
+	while (*s) {
+		if (*s & 0x60 && *s ^ 0x7f) {
+			*d = *s;
+		} else {
+			/* stop copying if control character found */
+			break;
+		}
+
+		if (++s > (u8 *) (buf + ret))
+			break;
+
+		d++;
+	}
+
+	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_product_description);
+
+	return ret;
+} /* hdmi_tx_sysfs_wta_product_description */
+
+static ssize_t hdmi_tx_sysfs_rda_product_description(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct hdmi_tx_ctrl *hdmi_ctrl =
+		hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%s\n",
+		hdmi_ctrl->spd_product_description);
+	DEV_DBG("%s: '%s'\n", __func__, hdmi_ctrl->spd_product_description);
+
+	return ret;
+} /* hdmi_tx_sysfs_rda_product_description */
+
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_hpd,
 	hdmi_tx_sysfs_wta_hpd);
+static DEVICE_ATTR(vendor_name, S_IRUGO | S_IWUSR,
+	hdmi_tx_sysfs_rda_vendor_name, hdmi_tx_sysfs_wta_vendor_name);
+static DEVICE_ATTR(product_description, S_IRUGO | S_IWUSR,
+	hdmi_tx_sysfs_rda_product_description,
+	hdmi_tx_sysfs_wta_product_description);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
 	&dev_attr_hpd.attr,
+	&dev_attr_vendor_name.attr,
+	&dev_attr_product_description.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
