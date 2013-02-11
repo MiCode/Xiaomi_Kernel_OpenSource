@@ -121,7 +121,7 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 
 	msm_camera_io_w(ISPIF_RST_CMD_MASK, ispif->base + ISPIF_RST_CMD_ADDR);
 
-	if (ispif->csid_version == CSID_VERSION_V3)
+	if (ispif->csid_version >= CSID_VERSION_V3)
 		msm_camera_io_w_mb(ISPIF_RST_CMD_1_MASK, ispif->base +
 			ISPIF_RST_CMD_1_ADDR);
 
@@ -587,7 +587,7 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 
 		ispif_process_irq(ispif, out, VFE0);
 	}
-	if (ispif->csid_version == CSID_VERSION_V3) {
+	if (ispif->csid_version >= CSID_VERSION_V3) {
 		out[VFE1].ispifIrqStatus0 = msm_camera_io_r(ispif->base +
 			ISPIF_IRQ_STATUS_ADDR + 0x200);
 		msm_camera_io_w(out[VFE1].ispifIrqStatus0,
@@ -681,7 +681,7 @@ static int msm_ispif_init(struct ispif_device *ispif,
 				__func__, rc);
 			goto end;
 		}
-	} else if (ispif->csid_version == CSID_VERSION_V3) {
+	} else if (ispif->csid_version >= CSID_VERSION_V3) {
 		rc = msm_cam_clk_enable(&ispif->pdev->dev, ispif_8974_clk_info,
 			ispif->ispif_clk, ARRAY_SIZE(ispif_8974_clk_info), 1);
 		if (rc) {
@@ -726,7 +726,7 @@ error_clk:
 	} else if (ispif->csid_version == CSID_VERSION_V2) {
 		msm_cam_clk_enable(&ispif->pdev->dev, ispif_8960_clk_info,
 		ispif->ispif_clk, ARRAY_SIZE(ispif_8960_clk_info), 0);
-	} else if (ispif->csid_version == CSID_VERSION_V3) {
+	} else if (ispif->csid_version >= CSID_VERSION_V3) {
 		msm_cam_clk_enable(&ispif->pdev->dev, ispif_8974_clk_info,
 			ispif->ispif_clk, ARRAY_SIZE(ispif_8974_clk_info), 0);
 	}
@@ -757,7 +757,7 @@ static void msm_ispif_release(struct ispif_device *ispif)
 	} else if (ispif->csid_version == CSID_VERSION_V2) {
 		msm_cam_clk_enable(&ispif->pdev->dev, ispif_8960_clk_info,
 			ispif->ispif_clk, ARRAY_SIZE(ispif_8960_clk_info), 0);
-	} else if (ispif->csid_version == CSID_VERSION_V3) {
+	} else if (ispif->csid_version >= CSID_VERSION_V3) {
 		msm_cam_clk_enable(&ispif->pdev->dev, ispif_8974_clk_info,
 			ispif->ispif_clk, ARRAY_SIZE(ispif_8974_clk_info), 0);
 	}
