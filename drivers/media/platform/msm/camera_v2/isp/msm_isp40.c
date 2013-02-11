@@ -260,6 +260,7 @@ static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 {
 	/* CGC_OVERRIDE */
 	msm_camera_io_w(0x3FFFFFFF, vfe_dev->vfe_base + 0x14);
+	msm_camera_io_w(0xC001FF7F, vfe_dev->vfe_base + 0x974);
 	/* BUS_CFG */
 	msm_camera_io_w(0x10000001, vfe_dev->vfe_base + 0x50);
 	msm_camera_io_w(0x800000F3, vfe_dev->vfe_base + 0x28);
