@@ -73,9 +73,6 @@ struct ctrl_bridge {
 
 static struct ctrl_bridge	*__dev[MAX_BRIDGE_DEVICES];
 
-/* counter used for indexing ctrl bridge devices */
-static int	ch_id;
-
 static int get_ctrl_bridge_chid(char *xport_name)
 {
 	struct ctrl_bridge	*dev;
@@ -522,7 +519,7 @@ static ssize_t ctrl_bridge_read_stats(struct file *file, char __user *ubuf,
 	if (!buf)
 		return -ENOMEM;
 
-	for (i = 0; i < ch_id; i++) {
+	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
 		dev = __dev[i];
 		if (!dev)
 			continue;
@@ -537,7 +534,7 @@ static ssize_t ctrl_bridge_read_stats(struct file *file, char __user *ubuf,
 				"cbits_tomdm: %d\n"
 				"cbits_tohost: %d\n"
 				"suspended: %d\n",
-				dev->pdev->name, dev,
+				dev->name, dev,
 				dev->snd_encap_cmd,
 				dev->get_encap_res,
 				dev->resp_avail,
@@ -561,7 +558,7 @@ static ssize_t ctrl_bridge_reset_stats(struct file *file,
 	struct ctrl_bridge	*dev;
 	int			i;
 
-	for (i = 0; i < ch_id; i++) {
+	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
 		dev = __dev[i];
 		if (!dev)
 			continue;
@@ -701,8 +698,6 @@ ctrl_bridge_probe(struct usb_interface *ifc, struct usb_host_endpoint *int_in,
 
 	platform_device_add(dev->pdev);
 
-	ch_id++;
-
 	return ctrl_bridge_start_read(dev);
 
 free_rbuf:
@@ -725,6 +720,11 @@ void ctrl_bridge_disconnect(unsigned int id)
 
 	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
+	/*set device name to none to get correct channel id
+	 * at the time of bridge open
+	 */
+	dev->name = "none";
+
 	platform_device_unregister(dev->pdev);
 
 	usb_kill_anchored_urbs(&dev->tx_submitted);
@@ -738,8 +738,6 @@ void ctrl_bridge_disconnect(unsigned int id)
 
 	usb_free_urb(dev->readurb);
 	usb_free_urb(dev->inturb);
-
-	ch_id--;
 }
 
 int ctrl_bridge_init(void)
@@ -758,7 +756,7 @@ int ctrl_bridge_init(void)
 		}
 
 		/*transport name will be set during probe*/
-		dev->name = "";
+		dev->name = "none";
 
 		init_usb_anchor(&dev->tx_submitted);
 		init_usb_anchor(&dev->tx_deferred);

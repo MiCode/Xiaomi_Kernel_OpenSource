@@ -17,7 +17,7 @@
 #include <linux/netdevice.h>
 #include <linux/usb.h>
 
-#define MAX_BRIDGE_DEVICES 2
+#define MAX_BRIDGE_DEVICES 4
 #define BRIDGE_NAME_MAX_LEN 20
 
 struct bridge_ops {
