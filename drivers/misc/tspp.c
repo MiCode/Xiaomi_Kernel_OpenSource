@@ -43,11 +43,13 @@
 #include <linux/debugfs.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/string.h>
 
 /*
  * General defines
  */
 #define TSPP_TSIF_INSTANCES            2
+#define TSPP_GPIOS_PER_TSIF            4
 #define TSPP_FILTER_TABLES             3
 #define TSPP_MAX_DEVICES               1
 #define TSPP_NUM_CHANNELS              16
@@ -649,7 +651,9 @@ static void tspp_sps_complete_tlet(unsigned long data)
 }
 
 /*** GPIO functions ***/
-static int tspp_gpios_disable(const struct msm_gpio *table, int size)
+static int tspp_gpios_disable(const struct tspp_tsif_device *tsif_device,
+				const struct msm_gpio *table,
+				int size)
 {
 	int rc = 0;
 	int i;
@@ -658,6 +662,11 @@ static int tspp_gpios_disable(const struct msm_gpio *table, int size)
 	for (i = size-1; i >= 0; i--) {
 		int tmp;
 		g = table + i;
+
+		/* don't use sync GPIO when not working in mode 2 */
+		if ((tsif_device->mode != TSPP_TSIF_MODE_2) &&
+			(strnstr(g->label, "sync", strlen(g->label)) != NULL))
+			continue;
 
 		tmp = gpio_tlmm_config(GPIO_CFG(GPIO_PIN(g->gpio_cfg),
 			0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),
@@ -677,14 +686,22 @@ static int tspp_gpios_disable(const struct msm_gpio *table, int size)
 	return rc;
 }
 
-static int tspp_gpios_enable(const struct msm_gpio *table, int size)
+static int tspp_gpios_enable(const struct tspp_tsif_device *tsif_device,
+				const struct msm_gpio *table,
+				int size)
 {
 	int rc;
-	int i, j;
+	int i;
 	const struct msm_gpio *g;
 
 	for (i = 0; i < size; i++) {
 		g = table + i;
+
+		/* don't use sync GPIO when not working in mode 2 */
+		if ((tsif_device->mode != TSPP_TSIF_MODE_2) &&
+			(strnstr(g->label, "sync", strlen(g->label)) != NULL))
+			continue;
+
 		rc = gpio_tlmm_config(g->gpio_cfg, GPIO_CFG_ENABLE);
 		if (rc) {
 			pr_err("tspp: gpio_tlmm_config(0x%08x, GPIO_CFG_ENABLE) <%s> failed: %d\n",
@@ -698,26 +715,49 @@ static int tspp_gpios_enable(const struct msm_gpio *table, int size)
 	}
 	return 0;
 err:
-	for (j = 0; j < i; j++)
-		tspp_gpios_disable(table, j);
+	tspp_gpios_disable(tsif_device, table, i);
 
 	return rc;
 }
 
-static int tspp_start_gpios(struct tspp_device *device)
+
+static int tspp_config_gpios(struct tspp_device *device,
+				enum tspp_source source,
+				int enable)
 {
-	struct msm_tspp_platform_data *pdata =
-		device->pdev->dev.platform_data;
+	const struct msm_gpio *table;
+	struct msm_tspp_platform_data *pdata = device->pdev->dev.platform_data;
+	int num_gpios = (pdata->num_gpios / TSPP_TSIF_INSTANCES);
+	int i = 0;
 
-	return tspp_gpios_enable(pdata->gpios, pdata->num_gpios);
-}
+	if (num_gpios != TSPP_GPIOS_PER_TSIF) {
+		pr_err("tspp %s: unexpected number of GPIOs %d, expected %d\n",
+			__func__, num_gpios, TSPP_GPIOS_PER_TSIF);
+		return -EINVAL;
+	}
 
-static void tspp_stop_gpios(struct tspp_device *device)
-{
-	struct msm_tspp_platform_data *pdata =
-		device->pdev->dev.platform_data;
+	/*
+	 * Note: this code assumes that the GPIO definitions in the
+	 * pdata->gpios table are according to the TSIF instance number,
+	 * i.e., that TSIF0 GPIOs are defined first, then TSIF1 GPIOs etc.
+	 */
+	switch (source) {
+	case TSPP_SOURCE_TSIF0:
+		i = 0;
+		break;
+	case TSPP_SOURCE_TSIF1:
+		i = 1;
+		break;
+	default:
+		pr_err("tspp %s: invalid source\n", __func__);
+		return -EINVAL;
+	}
 
-	tspp_gpios_disable(pdata->gpios, pdata->num_gpios);
+	table = pdata->gpios + (i * num_gpios);
+	if (enable)
+		return tspp_gpios_enable(&device->tsif[i], table, num_gpios);
+	else
+		return tspp_gpios_disable(&device->tsif[i], table, num_gpios);
 }
 
 /*** Clock functions ***/
@@ -1270,6 +1310,10 @@ int tspp_open_stream(u32 dev, u32 channel_id,
 
 	switch (source->source) {
 	case TSPP_SOURCE_TSIF0:
+		if (tspp_config_gpios(pdev, channel->src, 1) != 0) {
+			pr_err("tspp: error enabling tsif0 GPIOs\n");
+			return -EBUSY;
+		}
 		/* make sure TSIF0 is running & enabled */
 		if (tspp_start_tsif(&pdev->tsif[0]) != 0) {
 			pr_err("tspp: error starting tsif0");
@@ -1281,6 +1325,10 @@ int tspp_open_stream(u32 dev, u32 channel_id,
 		wmb();
 		break;
 	case TSPP_SOURCE_TSIF1:
+		if (tspp_config_gpios(pdev, channel->src, 1) != 0) {
+			pr_err("tspp: error enabling tsif1 GPIOs\n");
+			return -EBUSY;
+		}
 		/* make sure TSIF1 is running & enabled */
 		if (tspp_start_tsif(&pdev->tsif[1]) != 0) {
 			pr_err("tspp: error starting tsif1");
@@ -1332,6 +1380,9 @@ int tspp_close_stream(u32 dev, u32 channel_id)
 	switch (channel->src) {
 	case TSPP_SOURCE_TSIF0:
 		tspp_stop_tsif(&pdev->tsif[0]);
+		if (tspp_config_gpios(pdev, channel->src, 0) != 0)
+			pr_err("tspp: error disabling tsif0 GPIOs\n");
+
 		val = readl_relaxed(pdev->base + TSPP_CONTROL);
 		writel_relaxed(val | TSPP_CONTROL_TSP_TSIF0_SRC_DIS,
 			pdev->base + TSPP_CONTROL);
@@ -1339,6 +1390,9 @@ int tspp_close_stream(u32 dev, u32 channel_id)
 		break;
 	case TSPP_SOURCE_TSIF1:
 		tspp_stop_tsif(&pdev->tsif[1]);
+		if (tspp_config_gpios(pdev, channel->src, 0) != 0)
+			pr_err("tspp: error disabling tsif0 GPIOs\n");
+
 		val = readl_relaxed(pdev->base + TSPP_CONTROL);
 		writel_relaxed(val | TSPP_CONTROL_TSP_TSIF1_SRC_DIS,
 			pdev->base + TSPP_CONTROL);
@@ -2835,11 +2889,6 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 	if (msm_tspp_map_irqs(pdev, device))
 		goto err_irq;
 
-	/* GPIOs */
-	rc = tspp_start_gpios(device);
-	if (rc)
-		goto err_gpio;
-
 	/* power management */
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -2924,9 +2973,6 @@ err_bam:
 	tspp_debugfs_exit(device);
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
 		tsif_debugfs_exit(&device->tsif[i]);
-
-	tspp_stop_gpios(device);
-err_gpio:
 err_irq:
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++) {
 		if (device->tsif[i].tsif_irq)
@@ -2987,7 +3033,6 @@ static int __devexit msm_tspp_remove(struct platform_device *pdev)
 
 	wake_lock_destroy(&device->wake_lock);
 	free_irq(device->tspp_irq, device);
-	tspp_stop_gpios(device);
 
 	iounmap(device->bam_props.virt_addr);
 	iounmap(device->base);
