@@ -10,275 +10,300 @@
  * GNU General Public License for more details.
  */
 
- /* Stub Regulators */
+/* Stub Regulators */
 
- / {
-	pm8026_s1: regulator-s1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_s1";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1150000>;
-		regulator-max-microvolt = <1150000>;
-	};
-
+/ {
 	pm8026_s1_corner: regulator-s1-corner {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_s1_corner";
+		regulator-name = "8226_s1_corner";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <7>;
 		qcom,consumer-supplies = "vdd_dig", "";
 	};
+};
 
-	pm8026_s2: regulator-s2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_s2";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1050000>;
-		regulator-max-microvolt = <1050000>;
-	};
+/* QPNP controlled regulators: */
 
-	pm8026_s3: regulator-s3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_s3";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1300000>;
-		regulator-max-microvolt = <1300000>;
-	};
+&spmi_bus {
 
-	pm8026_s4: regulator-s4 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_s4";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <2100000>;
-		regulator-max-microvolt = <2100000>;
-	};
+	qcom,pm8226@1 {
 
-	pm8026_s5: regulator-s5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_s5";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1150000>;
-		regulator-max-microvolt = <1150000>;
-	};
+		pm8226_s1: regulator@1400 {
+			status = "okay";
+			regulator-name = "8226_s1";
+			qcom,enable-time = <500>;
+			qcom,system-load = <100000>;
+			regulator-always-on;
+			regulator-min-microvolt = <1287500>;
+			regulator-max-microvolt = <1287500>;
+		};
 
-	pm8026_l1: regulator-l1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l1";
-		parent-supply = <&pm8026_s3>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1225000>;
-		regulator-max-microvolt = <1225000>;
-	};
+		pm8226_s2: regulator@1700 {
+			status = "okay";
+			regulator-name = "8226_s2";
+			qcom,enable-time = <500>;
+			qcom,system-load = <100000>;
+			regulator-always-on;
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1150000>;
+		};
 
-	pm8026_l2: regulator-l2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l2";
-		parent-supply = <&pm8026_s3>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-	};
+		pm8226_s3: regulator@1a00 {
+			status = "okay";
+			regulator-name = "8226_s3";
+			qcom,enable-time = <500>;
+			qcom,system-load = <100000>;
+			regulator-always-on;
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+		};
 
-	pm8026_l3: regulator-l3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l3";
-		parent-supply = <&pm8026_s3>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1150000>;
-		regulator-max-microvolt = <1150000>;
-	};
+		pm8226_s4: regulator@1d00 {
+			status = "okay";
+			regulator-name = "8226_s4";
+			qcom,enable-time = <500>;
+			qcom,system-load = <100000>;
+			regulator-always-on;
+			regulator-min-microvolt = <2100000>;
+			regulator-max-microvolt = <2100000>;
+		};
 
-	pm8026_l4: regulator-l4 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l4";
-		parent-supply = <&pm8026_s3>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-	};
+		pm8226_s5: regulator@2000 {
+			status = "okay";
+			regulator-name = "8226_s5";
+			qcom,enable-time = <500>;
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1150000>;
+		};
 
-	pm8026_l5: regulator-l5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l5";
-		parent-supply = <&pm8026_s3>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-	};
+		pm8226_l1: regulator@4000 {
+			status = "okay";
+			regulator-name = "8226_l1";
+			parent-supply = <&pm8226_s3>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1225000>;
+		};
 
-	pm8026_l6: regulator-l6 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l6";
-		parent-supply = <&pm8026_s4>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
+		pm8226_l2: regulator@4100 {
+			status = "okay";
+			regulator-name = "8226_l2";
+			parent-supply = <&pm8226_s3>;
+			regulator-always-on;
+			qcom,enable-time = <200>;
+			qcom,system-load = <10000>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+		};
 
-	pm8026_l7: regulator-l7 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l7";
-		parent-supply = <&pm8026_s4>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1850000>;
-		regulator-max-microvolt = <1850000>;
-	};
+		pm8226_l3: regulator@4200 {
+			status = "okay";
+			regulator-name = "8226_l3";
+			parent-supply = <&pm8226_s3>;
+			qcom,system-load = <10000>;
+			regulator-always-on;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1287500>;
+			regulator-max-microvolt = <1287500>;
+		};
 
-	pm8026_l8: regulator-l8 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l8";
-		parent-supply = <&pm8026_s4>;
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		qcom,consumer-supplies = "vdd_sr2_pll", "";
-	};
+		pm8226_l4: regulator@4300 {
+			status = "okay";
+			regulator-name = "8226_l4";
+			parent-supply = <&pm8226_s3>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+		};
 
-	pm8026_l9: regulator-l9 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l9";
-		parent-supply = <&pm8026_s4>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2050000>;
-		regulator-max-microvolt = <2050000>;
-	};
+		pm8226_l5: regulator@4400 {
+			status = "okay";
+			regulator-name = "8226_l5";
+			parent-supply = <&pm8226_s3>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+		};
 
-	pm8026_l10: regulator-l10 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l10";
-		parent-supply = <&pm8026_s4>;
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
+		pm8226_l6: regulator@4500 {
+			status = "okay";
+			regulator-name = "8226_l6";
+			parent-supply = <&pm8226_s4>;
+			qcom,system-load = <10000>;
+			regulator-always-on;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
 
-	pm8026_l12: regulator-l12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l12";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
+		pm8226_l7: regulator@4600 {
+			status = "okay";
+			regulator-name = "8226_l7";
+			parent-supply = <&pm8226_s4>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1850000>;
+			regulator-max-microvolt = <1850000>;
+		};
 
-	pm8026_l14: regulator-l14 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l14";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <2750000>;
-		regulator-max-microvolt = <2750000>;
-	};
+		pm8226_l8: regulator@4700 {
+			status = "okay";
+			regulator-name = "8226_l8";
+			parent-supply = <&pm8226_s4>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,consumer-supplies = "vdd_sr2_pll", "";
+		};
 
-	pm8026_l15: regulator-l15 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l15";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-	};
+		pm8226_l9: regulator@4800 {
+			status = "okay";
+			regulator-name = "8226_l9";
+			parent-supply = <&pm8226_s4>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2050000>;
+			regulator-max-microvolt = <2050000>;
+		};
 
-	pm8026_l16: regulator-l16 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l16";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <3000000>;
-		regulator-max-microvolt = <3000000>;
-	};
+		pm8226_l10: regulator@4900 {
+			status = "okay";
+			regulator-name = "8226_l10";
+			parent-supply = <&pm8226_s4>;
+			qcom,enable-time = <200>;
+			qcom,system-load = <5000>;
+			regulator-always-on;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
 
-	pm8026_l17: regulator-l17 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l17";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2950000>;
-		regulator-max-microvolt = <2950000>;
-	};
+		pm8226_l12: regulator@4b00 {
+			status = "okay";
+			regulator-name = "8226_l12";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
 
-	pm8026_l18: regulator-l18 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l18";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2950000>;
-		regulator-max-microvolt = <2950000>;
-	};
+		pm8226_l14: regulator@4d00 {
+			status = "okay";
+			regulator-name = "8226_l14";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2750000>;
+			regulator-max-microvolt = <2750000>;
+		};
 
-	pm8026_l19: regulator-l19 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l19";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2850000>;
-		regulator-max-microvolt = <2850000>;
-	};
+		pm8226_l15: regulator@4e00 {
+			status = "okay";
+			regulator-name = "8226_l15";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+		};
 
-	pm8026_l20: regulator-l20 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l20";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <3075000>;
-		regulator-max-microvolt = <3075000>;
-	};
+		pm8226_l16: regulator@4f00 {
+			status = "okay";
+			regulator-name = "8226_l16";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3300000>;
+		};
 
-	pm8026_l21: regulator-l21 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l21";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
-	};
+		pm8226_l17: regulator@5000 {
+			status = "okay";
+			regulator-name = "8226_l17";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+		};
 
-	pm8026_l22: regulator-l22 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l22";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
-	};
+		pm8226_l18: regulator@5100 {
+			status = "okay";
+			regulator-name = "8226_l18";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+		};
 
-	pm8026_l23: regulator-l23 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l23";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
-	};
+		pm8226_l19: regulator@5200 {
+			status = "okay";
+			regulator-name = "8226_l19";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2850000>;
+		};
 
-	pm8026_l24: regulator-l24 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l24";
-		parent-supply = <&pm8026_s3>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1300000>;
-		regulator-max-microvolt = <1300000>;
-	};
+		pm8226_l20: regulator@5300 {
+			status = "okay";
+			regulator-name = "8226_l20";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <3075000>;
+			regulator-max-microvolt = <3075000>;
+		};
 
-	pm8026_l26: regulator-l26 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l26";
-		parent-supply = <&pm8026_s3>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1225000>;
-		regulator-max-microvolt = <1225000>;
-	};
+		pm8226_l21: regulator@5400 {
+			status = "okay";
+			regulator-name = "8226_l21";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+		};
 
-	pm8026_l27: regulator-l27 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l27";
-		parent-supply = <&pm8026_s4>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2050000>;
-		regulator-max-microvolt = <2050000>;
-	};
+		pm8226_l22: regulator@5500 {
+			status = "okay";
+			regulator-name = "8226_l22";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+		};
 
-	pm8026_l28: regulator-l28 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_l28";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
-	};
+		pm8226_l23: regulator@5600 {
+			status = "okay";
+			regulator-name = "8226_l23";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+		};
 
-	 pm8026_lvs1: regulator-lvs1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8026_lvs1";
-		parent-supply = <&pm8026_l6>;
+		pm8226_l24: regulator@5700 {
+			status = "okay";
+			regulator-name = "8226_l24";
+			parent-supply = <&pm8226_s3>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+		};
+
+		pm8226_l26: regulator@5900 {
+			status = "okay";
+			regulator-name = "8226_l26";
+			parent-supply = <&pm8226_s3>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1225000>;
+		};
+
+		pm8226_l27: regulator@5a00 {
+			status = "okay";
+			regulator-name = "8226_l27";
+			parent-supply = <&pm8226_s4>;
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2050000>;
+			regulator-max-microvolt = <2050000>;
+		};
+
+		pm8226_l28: regulator@5b00 {
+			status = "okay";
+			regulator-name = "8226_l28";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+		};
+
+		pm8226_lvs1: regulator@8000 {
+			status = "okay";
+			regulator-name = "8226_lvs1";
+			parent-supply = <&pm8226_l6>;
+			qcom,enable-time = <200>;
+		};
 	};
 };

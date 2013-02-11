@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,8 +39,8 @@
 	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
-	vdd-supply = <&pm8026_l17>;
-	vdd-io-supply = <&pm8026_l6>;
+	vdd-supply = <&pm8226_l17>;
+	vdd-io-supply = <&pm8226_l6>;
 	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
 	qcom,sup-voltages = <2950 2950>;
 
@@ -50,8 +50,8 @@
 };
 
 &sdcc2 {
-	vdd-supply = <&pm8026_l18>;
-	vdd-io-supply = <&pm8026_l21>;
+	vdd-supply = <&pm8226_l18>;
+	vdd-io-supply = <&pm8226_l21>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <9000 800000>;
 
