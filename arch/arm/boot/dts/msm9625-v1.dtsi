@@ -39,3 +39,7 @@
 &tmc_etr {
 	qcom,reset-flush-race;
 };
+
+&stm {
+	qcom,write-64bit;
+};
