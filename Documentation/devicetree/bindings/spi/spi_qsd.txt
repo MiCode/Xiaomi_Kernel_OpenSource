@@ -1,25 +1,51 @@
 Qualcomm Serial Peripheral Interface (SPI)
 
 Required properties:
-- compatible : should be "qcom,spi-qup-v2".
-- reg : offset and length of the QUP register map.
-- interrupts : should contain the QUP core interrupt.
-- spi-max-frequency : specifies maximum SPI clock frequency, Units - Hz.
+- compatible : Should be "qcom,spi-qup-v2".
+- reg : Offset and length of the register regions for the device
+- reg-names : Register region names referenced in reg above.
+	Required register resource entries are:
+	"spi_physical" : Physical address of controller register blocks.
+- interrupts : Interrupt numbers used by this controller
+- interrupt-names : Interrupt resource names referenced in interrupts above.
+	Required interrupt resource entries are:
+	"spi_irq" : QUP-core interrupt.
+- spi-max-frequency : Specifies maximum SPI clock frequency, Units - Hz.
+
+Required alias:
+- The desired bus-number is specified via an alias with the following format
+	'spi{n}' where n is the bus number.
 
 Optional properties:
-- gpios : specifies the gpio pins to be used for SPI CLK, MISO, MOSI in
+- gpios : Specifies the gpio pins to be used for SPI CLK, MISO, MOSI in
   that order.
-- cs-gpios : specifies the gpio pins to be used for chipselects.
+- cs-gpios : Specifies the gpio pins to be used for chipselects.
+- qcom,infinite-mode: When missing or set to zero, QUP uses infinite-mode. When
+  value is non-zero, the value is the number of words in maximum transfer
+  length.
 
-SPI slave nodes must be children of the SPI master node and contain
+Optional properties which are required for support of BAM-mode:
+- qcom,ver-reg-exists : Boolean. When present, allows driver to verify if HW
+  version support latest features (e.g. BAM) and then enable them. Should be
+  removed for legacy HW.
+- qcom,use-bam : Boolean. When present, enables BAM-mode.
+- qcom,bam-consumer-pipe-index : BAM consumer-pipe index.
+- qcom,bam-producer-pipe-index : BAM producer-pipe index.
+- reg-names : register region names referenced in reg.
+	Required register resource for BAM are:
+	"spi_bam_physical" : Physical address of BAM for this controller.
+- interrupt-names : interrupt resource names referenced in interrupts.
+	Required interrupt resource from BAM are:
+	"spi_bam_irq" : BAM interrupt used by the controller.
+
+Optional SPI slave nodes must be children of the SPI master node and contain
 the following properties.
-- reg : (required) chip select address of device.
-- compatible : (required) name of SPI device following generic names
-  recommended practice
+- reg: (required) chip-select address of the device.
+- compatible : (required) Name of SPI device following generic names.
 - spi-max-frequency : (required) Maximum SPI clocking speed of device in Hz
-- interrupts : (recommended) should contain the SPI slave interrupt number
+- interrupts : (recommended) Should contain the SPI slave interrupt number
   encoded depending on the type of the interrupt controller.
-- interrupt-parent : (recommended) the phandle for the interrupt controller
+- interrupt-parent : (recommended) The phandle for the interrupt controller
   that services interrupts for this device.
 - spi-cpol : (optional) Empty property indicating device requires inverse
   clock polarity (CPOL) mode
@@ -29,18 +55,30 @@ the following properties.
   chip select active high
 
 Example:
-	spi@f9924000 {
-		compatible = "qcom,spi-qup-v2";
-		reg = <0xf9924000 0x1000>;
-		interrupts = <0 96 0>;
-		spi-max-frequency = <24000000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		device@0 {
-			compatible = "spidev";
-			reg = <0>;
-			spi-max-frequency = <5000000>;
-		};
+	aliases {
+		spi0 = &spi_0;
 	};
 
+	spi_0: spi@f9923000 {
+		compatible = "qcom,spi-qup-v2";
+
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0xf9923000 0x1000>,
+			<0xf9904000 0x10000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 95 0>, <0 238 0>;
+
+		spi-max-frequency = <19200000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&msmgpio 3 0>, /* CLK  */
+			<&msmgpio 1 0>, /* MISO */
+			<&msmgpio 0 0>; /* MOSI */
+		cs-gpios = <&msmgpio 9 0>;
+
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,bam-consumer-pipe-index = <12>;
+		qcom,bam-producer-pipe-index = <13>;
+		qcom,ver-reg-exists;
+	};
