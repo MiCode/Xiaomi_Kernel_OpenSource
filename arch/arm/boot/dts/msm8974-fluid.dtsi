@@ -11,7 +11,7 @@
  */
 
 /include/ "dsi-panel-toshiba-720p-video.dtsi"
-/include/ "msm8974-camera-sensor.dtsi"
+/include/ "msm8974-camera-sensor-fluid.dtsi"
 /include/ "msm8974-leds.dtsi"
 
 / {
