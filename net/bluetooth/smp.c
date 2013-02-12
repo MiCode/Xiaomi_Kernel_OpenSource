@@ -213,6 +213,7 @@ static __u8 authreq_to_seclevel(__u8 authreq)
 static __u8 seclevel_to_authreq(__u8 level)
 {
 	switch (level) {
+	case BT_SECURITY_VERY_HIGH:
 	case BT_SECURITY_HIGH:
 		return SMP_AUTH_MITM | SMP_AUTH_BONDING;
 
