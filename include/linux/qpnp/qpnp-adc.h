@@ -1149,6 +1149,23 @@ int32_t qpnp_adc_tm_scale_voltage_therm_pu2(uint32_t reg, int64_t *result);
  */
 int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_usbid_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold);
+/**
+ * qpnp_vadc_iadc_sync_request() - Performs Voltage ADC read and
+ *		locks the peripheral. When performing simultaneous
+ *		voltage and current request the VADC peripheral is
+ *		prepared for conversion and the IADC sync conversion
+ *		is done from the IADC peripheral.
+ * @channel:	Input channel to perform the voltage ADC read.
+ */
+int32_t qpnp_vadc_iadc_sync_request(enum qpnp_vadc_channels channel);
+/**
+ * qpnp_vadc_iadc_sync_complete_request() - Reads the ADC result and
+ *		unlocks the peripheral.
+ * @result:	Structure pointer of type adc_chan_result
+ *		in which the ADC read results are stored.
+ */
+int32_t qpnp_vadc_iadc_sync_complete_request(
+	enum qpnp_vadc_channels channel, struct qpnp_vadc_result *result);
 #else
 static inline int32_t qpnp_vadc_read(uint32_t channel,
 				struct qpnp_vadc_result *result)
@@ -1218,6 +1235,13 @@ static inline int32_t qpnp_adc_tm_scale_therm_voltage_pu2(
 static inline int32_t qpnp_adc_tm_scale_voltage_therm_pu2(
 				uint32_t reg, int64_t *result)
 { return -ENXIO; }
+static inline int32_t qpnp_vadc_iadc_sync_request(
+				enum qpnp_vadc_channels channel)
+{ return -ENXIO; }
+static inline int32_t qpnp_vadc_iadc_sync_complete_request(
+				enum qpnp_vadc_channels channel,
+				struct qpnp_vadc_result *result)
+{ return -ENXIO; }
 #endif
 
 /* Public API */
@@ -1226,7 +1250,7 @@ static inline int32_t qpnp_adc_tm_scale_voltage_therm_pu2(
 /**
  * qpnp_iadc_read() - Performs ADC read on the current channel.
  * @channel:	Input channel to perform the ADC read.
- * @result:	Current across rsens in mV.
+ * @result:	Current across rsense in mA.
  */
 int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 				struct qpnp_iadc_result *result);
@@ -1245,7 +1269,6 @@ int32_t qpnp_iadc_get_rsense(int32_t *rsense);
  *		type qpnp_iadc_calib.
  */
 int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result);
-
 /**
  * qpnp_iadc_is_ready() - Clients can use this API to check if the
  *			  device is ready to use.
@@ -1253,6 +1276,19 @@ int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result);
  *		has not occured.
  */
 int32_t qpnp_iadc_is_ready(void);
+/**
+ * qpnp_iadc_vadc_sync_read() - Performs synchronous VADC and IADC read.
+ *		The api is to be used only by the BMS to perform
+ *		simultaneous VADC and IADC measurement for battery voltage
+ *		and current.
+ * @i_channel:	Input battery current channel to perform the IADC read.
+ * @i_result:	Current across the rsense in mA.
+ * @v_channel:	Input battery voltage channel to perform VADC read.
+ * @v_result:	Voltage on the vbatt channel with units in mV.
+ */
+int32_t qpnp_iadc_vadc_sync_read(
+	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
+	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result);
 #else
 static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 						struct qpnp_iadc_result *result)
@@ -1261,6 +1297,10 @@ static inline int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib
 									*result)
 { return -ENXIO; }
 static inline int32_t qpnp_iadc_is_ready(void)
+{ return -ENXIO; }
+static inline int32_t qpnp_iadc_vadc_sync_read(
+	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
+	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result)
 { return -ENXIO; }
 #endif
 
