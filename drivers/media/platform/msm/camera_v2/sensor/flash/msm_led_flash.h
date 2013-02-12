@@ -24,6 +24,7 @@
 struct msm_led_flash_ctrl_t;
 
 struct msm_flash_fn_t {
+	int32_t (*flash_get_subdev_id)(struct msm_led_flash_ctrl_t *, void *);
 	int32_t (*flash_led_config)(struct msm_led_flash_ctrl_t *, void *);
 	int32_t (*flash_led_init)(struct msm_led_flash_ctrl_t *);
 	int32_t (*flash_led_release)(struct msm_led_flash_ctrl_t *);
