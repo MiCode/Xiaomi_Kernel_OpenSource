@@ -3,24 +3,24 @@
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
-- hfi : supported Host-Firmware Interface, one of:
+- qcom,hfi : supported Host-Firmware Interface, one of:
 	- "venus"
 	- "q6"
 
 Optional properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the vidc interrupt.
-- vidc-cp-map : start and size of device virtual address range for secure buffers.
-  Video hardware uses this address range to identify if the buffers are secure
-  or non-secure.
-- vidc-ns-map : start and size of device virtual address range for non-secure buffers.
-  Video hardware uses this address range to identify if the buffers are secure
-  or non-secure.
-- load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec clock
-  required for optimal performance in descending order.
-- reg-presets : list of offset-value pairs for registers to be written. The
-  offsets are from the base offset specified in 'reg'. This is mainly used
-  for QoS, vbif, etc. presets for video.
+- qcom,vidc-cp-map : start and size of device virtual address range for
+  secure buffers. Video hardware uses this address range to identify if
+  the buffers are secure or non-secure.
+- qcom,vidc-ns-map : start and size of device virtual address range for
+  non-secure buffers. Video hardware uses this address range to identify
+  if the buffers are secure or non-secure.
+- qcom,load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec
+  clock required for optimal performance in descending order.
+- qcom,reg-presets : list of offset-value pairs for registers to be written.
+  The offsets are from the base offset specified in 'reg'. This is mainly
+  used for QoS, vbif, etc. presets for video.
 
 Example:
 
@@ -29,15 +29,15 @@ Example:
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
 		interrupts = <0 44 0>;
-		vidc-cp-map = <0x1000000 0x40000000>;
-		vidc-ns-map = <0x40000000 0x40000000>;
-		load-freq-tbl = <979200 410000000>,
+		qcom,vidc-cp-map = <0x1000000 0x40000000>;
+		qcom,vidc-ns-map = <0x40000000 0x40000000>;
+		qcom,load-freq-tbl = <979200 410000000>,
 				<560145 266670000>,
 				<421161 200000000>,
 				<243000 133330000>,
 				<108000 100000000>,
 				<36000 50000000>;
-		hfi = "venus";
-		reg-presets = <0x80004 0x1>,
+		qcom,hfi = "venus";
+		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
 	};

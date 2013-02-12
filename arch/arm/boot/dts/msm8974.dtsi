@@ -65,14 +65,14 @@
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
 		interrupts = <0 44 0>;
-		vidc-cp-map = <0x1000000 0x3f000000>;
-		vidc-ns-map = <0x40000000 0x40000000>;
-		load-freq-tbl = <979200 410000000>,
+		qcom,vidc-cp-map = <0x1000000 0x3f000000>;
+		qcom,vidc-ns-map = <0x40000000 0x40000000>;
+		qcom,load-freq-tbl = <979200 410000000>,
 			<783360 410000000>,
 			<489600 266670000>,
 			<244800 133330000>;
-		hfi = "venus";
-		reg-presets = <0x80004 0x1>,
+		qcom,hfi = "venus";
+		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>,
 			<0x8017c 0x1FFF1FFF>,
 			<0x800b0 0x10101001>,

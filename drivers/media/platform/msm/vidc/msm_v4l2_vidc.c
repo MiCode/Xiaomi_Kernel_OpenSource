@@ -703,7 +703,7 @@ static int read_hfi_type(struct platform_device *pdev)
 	const char *hfi_name = NULL;
 
 	if (np) {
-		rc = of_property_read_string(np, "hfi", &hfi_name);
+		rc = of_property_read_string(np, "qcom,hfi", &hfi_name);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to read hfi from device tree\n");
@@ -749,7 +749,7 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	int num_elements = 0;
 	struct platform_device *pdev = res->pdev;
 
-	num_elements = get_u32_array_num_elements(pdev, "load-freq-tbl");
+	num_elements = get_u32_array_num_elements(pdev, "qcom,load-freq-tbl");
 	if (num_elements == 0) {
 		dprintk(VIDC_ERR, "no elements in frequency table\n");
 		return rc;
@@ -765,7 +765,8 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	}
 
 	if (of_property_read_u32_array(pdev->dev.of_node,
-		"load-freq-tbl", (u32 *)res->load_freq_tbl, num_elements * 2)) {
+		"qcom,load-freq-tbl", (u32 *)res->load_freq_tbl,
+		num_elements * 2)) {
 		dprintk(VIDC_ERR, "Failed to read frequency table\n");
 		msm_vidc_free_freq_table(res);
 		return -EINVAL;
@@ -782,8 +783,8 @@ static int msm_vidc_load_iommu_maps(struct msm_vidc_platform_resources *res)
 	int i;
 	struct platform_device *pdev = res->pdev;
 	char *names[MAX_MAP] = {
-		[CP_MAP] = "vidc-cp-map",
-		[NS_MAP] = "vidc-ns-map",
+		[CP_MAP] = "qcom,vidc-cp-map",
+		[NS_MAP] = "qcom,vidc-ns-map",
 	};
 	char *contexts[MAX_MAP] = {
 		[CP_MAP] = "venus_cp",
@@ -833,7 +834,7 @@ static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
 	int rc = 0;
 
 	reg_set = &res->reg_set;
-	reg_set->count = get_u32_array_num_elements(pdev, "reg-presets");
+	reg_set->count = get_u32_array_num_elements(pdev, "qcom,reg-presets");
 	if (reg_set->count == 0) {
 		dprintk(VIDC_DBG, "no elements in reg set\n");
 		return rc;
@@ -847,7 +848,7 @@ static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
 		return -ENOMEM;
 	}
 
-	if (of_property_read_u32_array(pdev->dev.of_node, "reg-presets",
+	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,reg-presets",
 		(u32 *)reg_set->reg_tbl, reg_set->count * 2)) {
 		dprintk(VIDC_ERR, "Failed to read register table\n");
 		msm_vidc_free_reg_table(res);
@@ -962,7 +963,7 @@ static int read_platform_resources_from_board(
 	size = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_CP][1];
 	res->iommu_maps[CP_MAP] = (struct msm_vidc_iommu_info) {
 		.addr_range = {(u32) start, (u32) size},
-			.name = "vidc-cp-map",
+			.name = "qcom,vidc-cp-map",
 			.ctx = "venus_cp",
 	};
 
@@ -970,7 +971,7 @@ static int read_platform_resources_from_board(
 	size = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_NS][1];
 	res->iommu_maps[NS_MAP] = (struct msm_vidc_iommu_info) {
 		.addr_range = {(u32) start, (u32) size},
-			.name = "vidc-ns-map",
+			.name = "qcom,vidc-ns-map",
 			.ctx = "venus_ns",
 	};
 	return rc;
