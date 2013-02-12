@@ -224,6 +224,16 @@ static struct usb_cdc_mbb_desc mbb_desc = {
 	.bmNetworkCapabilities = 0x20,
 };
 
+static struct usb_cdc_ext_mbb_desc ext_mbb_desc = {
+	.bLength =	sizeof ext_mbb_desc,
+	.bDescriptorType =	USB_DT_CS_INTERFACE,
+	.bDescriptorSubType =	USB_CDC_EXT_MBB_TYPE,
+
+	.bcdMbbExtendedVersion =	cpu_to_le16(0x0100),
+	.bMaxOutstandingCmdMsges =	64,
+	.wMTU =	1500,
+};
+
 /* the default data interface has no endpoints ... */
 static struct usb_interface_descriptor mbim_data_nop_intf = {
 	.bLength =		sizeof mbim_data_nop_intf,
@@ -286,6 +296,7 @@ static struct usb_descriptor_header *mbim_fs_function[] = {
 	(struct usb_descriptor_header *) &mbim_control_intf,
 	(struct usb_descriptor_header *) &mbim_header_desc,
 	(struct usb_descriptor_header *) &mbb_desc,
+	(struct usb_descriptor_header *) &ext_mbb_desc,
 	(struct usb_descriptor_header *) &fs_mbim_notify_desc,
 	/* data interface, altsettings 0 and 1 */
 	(struct usb_descriptor_header *) &mbim_data_nop_intf,
@@ -330,6 +341,7 @@ static struct usb_descriptor_header *mbim_hs_function[] = {
 	(struct usb_descriptor_header *) &mbim_control_intf,
 	(struct usb_descriptor_header *) &mbim_header_desc,
 	(struct usb_descriptor_header *) &mbb_desc,
+	(struct usb_descriptor_header *) &ext_mbb_desc,
 	(struct usb_descriptor_header *) &hs_mbim_notify_desc,
 	/* data interface, altsettings 0 and 1 */
 	(struct usb_descriptor_header *) &mbim_data_nop_intf,
