@@ -40,6 +40,7 @@
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/atomic.h>
 #include <linux/kernel.h>
 #include <linux/timer.h>
 #include <linux/clk.h>
@@ -2593,9 +2594,13 @@ deregister_bam:
 	return rc;
 }
 
+#define BLSP_UART_NR	12
+static int deviceid[BLSP_UART_NR] = {0};
+static atomic_t msm_serial_hs_next_id = ATOMIC_INIT(0);
+
 static int __devinit msm_hs_probe(struct platform_device *pdev)
 {
-	int ret = 0;
+	int ret = 0, alias_num = -1;
 	struct uart_port *uport;
 	struct msm_hs_port *msm_uport;
 	struct resource *core_resource;
@@ -2603,7 +2608,6 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	struct resource *resource;
 	int core_irqres, bam_irqres;
 	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
-	struct device_node *node = pdev->dev.of_node;
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
@@ -2611,8 +2615,32 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		if (IS_ERR(pdata))
 			return PTR_ERR(pdata);
 
-		of_property_read_u32(node, "cell-index",
-					&pdev->id);
+		if (pdev->id == -1) {
+			pdev->id = atomic_inc_return(&msm_serial_hs_next_id)-1;
+			deviceid[pdev->id] = 1;
+		}
+
+		/* Use alias from device tree if present
+		 * Alias is used as an optional property
+		 */
+		alias_num = of_alias_get_id(pdev->dev.of_node, "uart");
+		if (alias_num >= 0) {
+			/* If alias_num is between 0 and 11, check that it not
+			 * equal to previous incremented pdev-ids. If it is
+			 * equal to previous pdev.ids , fail deviceprobe.
+			 */
+			if (alias_num < BLSP_UART_NR) {
+				if (deviceid[alias_num] == 0) {
+					pdev->id = alias_num;
+				} else {
+					pr_err("alias_num=%d already used\n",
+								alias_num);
+					return -EINVAL;
+				}
+			} else {
+				pdev->id = alias_num;
+			}
+		}
 
 		pdev->dev.platform_data = pdata;
 	}
