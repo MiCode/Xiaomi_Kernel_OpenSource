@@ -128,6 +128,7 @@ enum {
 };
 
 #define QUP_MAX_CLK_STATE_RETRIES	300
+#define DEFAULT_CLK_RATE		(19200000)
 
 static char const * const i2c_rsrcs[] = {"i2c_clk", "i2c_sda"};
 
@@ -1235,18 +1236,26 @@ blsp_core_init:
 	dev->clk_ctl = 0;
 	dev->pos = 0;
 
+	if (dev->pdata->src_clk_rate <= 0) {
+		dev_info(&pdev->dev,
+			"No src_clk_rate specified in platfrom data or "
+						"qcom,i2c-src-freq in DT\n");
+		dev_info(&pdev->dev, "Using default clock rate %dHz\n",
+							DEFAULT_CLK_RATE);
+		dev->pdata->src_clk_rate = DEFAULT_CLK_RATE;
+	}
+
+	ret = clk_set_rate(dev->clk, dev->pdata->src_clk_rate);
+	if (ret)
+		dev_info(&pdev->dev, "clk_set_rate(core_clk, %dHz):%d\n",
+					dev->pdata->src_clk_rate, ret);
+
+	clk_prepare_enable(dev->clk);
+	clk_prepare_enable(dev->pclk);
 	/*
 	 * If bootloaders leave a pending interrupt on certain GSBI's,
 	 * then we reset the core before registering for interrupts.
 	 */
-
-	if (dev->pdata->src_clk_rate > 0)
-		clk_set_rate(dev->clk, dev->pdata->src_clk_rate);
-	else
-		dev->pdata->src_clk_rate = 19200000;
-
-	clk_prepare_enable(dev->clk);
-	clk_prepare_enable(dev->pclk);
 	writel_relaxed(1, dev->base + QUP_SW_RESET);
 	if (qup_i2c_poll_state(dev, 0, true) != 0)
 		goto err_reset_failed;
