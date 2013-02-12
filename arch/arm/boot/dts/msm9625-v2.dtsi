@@ -24,6 +24,11 @@
 		reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
 	};
 
+	android_usb@fe8078c8 {
+		compatible = "qcom,android-usb";
+		reg = <0xfe8078c8 0xc8>;
+		qcom,android-usb-swfi-latency = <100>;
+	};
 };
 
 &ipa_hw {
