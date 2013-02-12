@@ -153,7 +153,7 @@ void diag_clear_hsic_tbl(void)
 					/* Return the buffer to the pool */
 					diagmem_free(driver, (unsigned char *)
 						(diag_hsic[j].hsic_buf_tbl[i].
-						 buf), POOL_TYPE_HSIC);
+						 buf), j+POOL_TYPE_HSIC);
 					diag_hsic[j].hsic_buf_tbl[i].buf = 0;
 				}
 				diag_hsic[j].hsic_buf_tbl[i].length = 0;
@@ -490,7 +490,7 @@ drop_hsic:
 				/* Return the buffer to the pool */
 				diagmem_free(driver,
 					(unsigned char *)(hsic_buf_tbl[i].buf),
-					POOL_TYPE_HSIC);
+					index+POOL_TYPE_HSIC);
 
 				/* Call the write complete function */
 				diagfwd_write_complete_hsic(NULL, index);
