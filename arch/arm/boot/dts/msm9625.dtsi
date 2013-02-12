@@ -97,12 +97,6 @@
 				<87 512 40000 640000>;
 	};
 
-	android_usb@fc42b0c8 {
-		compatible = "qcom,android-usb";
-		reg = <0xfc42b0c8 0xc8>;
-		qcom,android-usb-swfi-latency = <100>;
-	};
-
 	hsic@f9a15000 {
 		compatible = "qcom,hsic-host";
 		reg = <0xf9a15000 0x400>;
