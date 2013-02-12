@@ -1471,7 +1471,8 @@ void free_hot_cold_page(struct page *page, bool cold)
 	 * excessively into the page allocator
 	 */
 	if (migratetype >= MIGRATE_PCPTYPES) {
-		if (unlikely(is_migrate_isolate(migratetype))) {
+		if (unlikely(is_migrate_isolate(migratetype)) ||
+			     is_migrate_cma(migratetype)) {
 			free_one_page(zone, page, pfn, 0, migratetype);
 			goto out;
 		}
