@@ -28,6 +28,19 @@
 
 static struct msm_led_flash_ctrl_t fctrl;
 
+static int32_t msm_led_trigger_get_subdev_id(struct msm_led_flash_ctrl_t *fctrl,
+	void *arg)
+{
+	uint32_t *subdev_id = (uint32_t *)arg;
+	if (!subdev_id) {
+		pr_err("%s:%d failed\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+	*subdev_id = fctrl->pdev->id;
+	CDBG("%s:%d subdev_id %d\n", __func__, __LINE__, *subdev_id);
+	return 0;
+}
+
 static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 	void *data)
 {
@@ -158,6 +171,7 @@ static int __init msm_led_trigger_add_driver(void)
 }
 
 static struct msm_flash_fn_t msm_led_trigger_func_tbl = {
+	.flash_get_subdev_id = msm_led_trigger_get_subdev_id,
 	.flash_led_config = msm_led_trigger_config,
 };
 
