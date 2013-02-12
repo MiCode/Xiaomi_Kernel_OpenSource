@@ -147,7 +147,6 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 {
 	uint32_t irq;
 	struct csid_device *csid_dev = data;
-	uint32_t val = 0;
 	void __iomem *csidbase;
 	csidbase = csid_dev->base;
 
@@ -164,12 +163,6 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 		pr_debug("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 			__func__, csid_dev->pdev->id, irq);
 		irq_count++;
-		if (irq_count >= 5) {
-			msm_camera_io_w(0x7f010800 | val,
-				csidbase + CSID_IRQ_MASK_ADDR);
-			msm_camera_io_w(0x7f010800 | val,
-				csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
-		}
 	}
 	msm_camera_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
