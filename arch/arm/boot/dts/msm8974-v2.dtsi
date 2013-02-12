@@ -110,6 +110,12 @@
 		<1620000 970000>,
 		<2024000 1212000>,
 		<2132000 1279000>;
+	qcom,iommu-groups = <&venus_domain_ns &venus_domain_sec_bitstream
+			&venus_domain_sec_pixel &venus_domain_sec_non_pixel>;
+	qcom,iommu-group-buffer-types = <0xfff 0x91 0x42 0x120>;
+	qcom,buffer-type-tz-usage-table = <0x91 0x1>,
+					<0x42 0x2>,
+					<0x120 0x3>;
 };
 
 &krait_pdn {
