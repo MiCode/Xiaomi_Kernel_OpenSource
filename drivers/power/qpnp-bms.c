@@ -670,10 +670,18 @@ static s64 cc_to_uv(s64 cc)
 #define SLEEP_CLK_HZ		32764
 #define SECONDS_PER_HOUR	3600
 
-static s64 cc_uv_to_uvh(s64 cc_uv)
+static s64 cc_uv_to_pvh(s64 cc_uv)
 {
-	return div_s64(cc_uv * CC_READING_TICKS,
-			SLEEP_CLK_HZ * SECONDS_PER_HOUR);
+	/* Note that it is necessary need to multiply by 1000000 to convert
+	 * from uvh to pvh here.
+	 * However, the maximum Coulomb Counter value is 2^35, which can cause
+	 * an over flow.
+	 * Multiply by 100000 first to perserve as much precision as possible
+	 * then multiply by 10 after doing the division in order to avoid
+	 * overflow on the maximum Coulomb Counter value.
+	 */
+	return div_s64(cc_uv * CC_READING_TICKS * 100000,
+			SLEEP_CLK_HZ * SECONDS_PER_HOUR) * 10;
 }
 
 /**
@@ -688,7 +696,7 @@ static s64 cc_uv_to_uvh(s64 cc_uv)
  */
 static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 {
-	int64_t cc_voltage_uv, cc_uvh, cc_uah;
+	int64_t cc_voltage_uv, cc_pvh, cc_uah;
 	struct qpnp_iadc_calib calibration;
 
 	qpnp_iadc_get_gain_and_offset(&calibration);
@@ -702,9 +710,9 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 					calibration.gain_raw
 					- calibration.offset_raw);
 	pr_debug("cc_voltage_uv = %lld uv\n", cc_voltage_uv);
-	cc_uvh = cc_uv_to_uvh(cc_voltage_uv);
-	pr_debug("cc_uvh = %lld micro_volt_hour\n", cc_uvh);
-	cc_uah = div_s64(cc_uvh * 1000000LL, chip->r_sense_uohm);
+	cc_pvh = cc_uv_to_pvh(cc_voltage_uv);
+	pr_debug("cc_pvh = %lld pvh\n", cc_pvh);
+	cc_uah = div_s64(cc_pvh, chip->r_sense_uohm);
 	/* cc_raw had 4 bits of extra precision.
 	   By now it should be within 32 bit range */
 	return (int)cc_uah;
