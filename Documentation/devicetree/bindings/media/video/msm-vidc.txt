@@ -21,6 +21,16 @@ Optional properties:
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, vbif, etc. presets for video.
+- qcom,bus-ports : number of bus ports supported by venus to access
+  ddr/ocmem.
+- qcom,enc-ocmem-ab-ib : list of bus vectors (ab, ib pair) for ocmem
+  bandwidth request by different video encoder usecases.
+- qcom,dec-ocmem-ab-ib : list of bus vectors(ab, ib pair) for ocmem
+  bandwidth request by different video decoder usecases.
+- qcom,enc-ddr-ab-ib : list of bus vectors(ab,ib pair) for ddr bandwidth
+  request by different video encoder usecases.
+- qcom,dec-ddr-ab-ib : list of bus vectors(ab, ib pair) for ddr bandwidth
+  request by different video decoder usecases.
 
 Example:
 
@@ -40,4 +50,13 @@ Example:
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
+		qcom,bus-ports = <1>;
+		qcom,enc-ocmem-ab-ib = <0 0>,
+			<138200 1222000>;
+		qcom,dec-ocmem-ab-ib = <0 0>,
+			<176900 1556640>;
+		qcom,enc-ddr-ab-ib = <0 0>,
+			<60000 664950>;
+		qcom,dec-ddr-ab-ib = <0 0>,
+			<110000 909000>;
 	};
