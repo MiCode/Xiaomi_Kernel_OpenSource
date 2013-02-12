@@ -38,7 +38,6 @@
 
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
-#include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
 #include <mach/clk.h>
 
@@ -160,7 +159,7 @@ struct dwc3_msm {
 	u8 ep_num_mapping[DBM_MAX_EPS];
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
 	struct list_head req_complete_list;
-	struct msm_xo_voter	*xo_handle;
+	struct clk		*xo_clk;
 	struct clk		*ref_clk;
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
@@ -1637,13 +1636,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	clk_disable_unprepare(mdwc->core_clk);
 	clk_disable_unprepare(mdwc->iface_clk);
 
-	if (!host_bus_suspend) {
-		/* USB PHY no more requires TCXO */
-		ret = msm_xo_mode_vote(mdwc->xo_handle, MSM_XO_MODE_OFF);
-		if (ret)
-			dev_err(mdwc->dev, "%s failed to devote XO buffer%d\n",
-						__func__, ret);
-	}
+	/* USB PHY no more requires TCXO */
+	if (!host_bus_suspend)
+		clk_disable_unprepare(mdwc->xo_clk);
 
 	if (mdwc->bus_perf_client) {
 		ret = msm_bus_scale_client_update_request(
@@ -1698,7 +1693,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	if (!host_bus_suspend) {
 		/* Vote for TCXO while waking up USB HSPHY */
-		ret = msm_xo_mode_vote(mdwc->xo_handle, MSM_XO_MODE_ON);
+		ret = clk_prepare_enable(mdwc->xo_clk);
 		if (ret)
 			dev_err(mdwc->dev, "%s failed to vote TCXO buffer%d\n",
 						__func__, ret);
@@ -2189,18 +2184,18 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&msm->restart_usb_work, dwc3_restart_usb_work);
 	INIT_DELAYED_WORK(&msm->init_adc_work, dwc3_init_adc_work);
 
-	msm->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
-	if (IS_ERR(msm->xo_handle)) {
+	msm->xo_clk = clk_get(&pdev->dev, "xo");
+	if (IS_ERR(msm->xo_clk)) {
 		dev_err(&pdev->dev, "%s unable to get TCXO buffer handle\n",
 								__func__);
-		return PTR_ERR(msm->xo_handle);
+		return PTR_ERR(msm->xo_clk);
 	}
 
-	ret = msm_xo_mode_vote(msm->xo_handle, MSM_XO_MODE_ON);
+	ret = clk_prepare_enable(msm->xo_clk);
 	if (ret) {
 		dev_err(&pdev->dev, "%s failed to vote for TCXO buffer%d\n",
 						__func__, ret);
-		goto free_xo_handle;
+		goto put_xo;
 	}
 
 	/*
@@ -2211,7 +2206,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	if (IS_ERR(msm->core_clk)) {
 		dev_err(&pdev->dev, "failed to get core_clk\n");
 		ret = PTR_ERR(msm->core_clk);
-		goto free_xo_handle;
+		goto disable_xo;
 	}
 	clk_set_rate(msm->core_clk, 125000000);
 	clk_prepare_enable(msm->core_clk);
@@ -2539,8 +2534,10 @@ disable_iface_clk:
 	clk_disable_unprepare(msm->iface_clk);
 disable_core_clk:
 	clk_disable_unprepare(msm->core_clk);
-free_xo_handle:
-	msm_xo_put(msm->xo_handle);
+disable_xo:
+	clk_disable_unprepare(msm->xo_clk);
+put_xo:
+	clk_put(msm->xo_clk);
 
 	return ret;
 }
@@ -2575,7 +2572,8 @@ static int __devexit dwc3_msm_remove(struct platform_device *pdev)
 	clk_disable_unprepare(msm->sleep_clk);
 	clk_disable_unprepare(msm->hsphy_sleep_clk);
 	clk_disable_unprepare(msm->ref_clk);
-	msm_xo_put(msm->xo_handle);
+	clk_disable_unprepare(msm->xo_clk);
+	clk_put(msm->xo_clk);
 
 	return 0;
 }
