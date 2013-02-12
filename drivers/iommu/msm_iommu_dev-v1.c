@@ -243,12 +243,12 @@ static int __devinit msm_iommu_probe(struct platform_device *pdev)
 	}
 
 	if (clk_get_rate(drvdata->clk) == 0) {
-		ret = clk_round_rate(drvdata->clk, 1);
+		ret = clk_round_rate(drvdata->clk, 1000);
 		clk_set_rate(drvdata->clk, ret);
 	}
 
 	if (drvdata->aclk && clk_get_rate(drvdata->aclk) == 0) {
-		ret = clk_round_rate(drvdata->aclk, 1);
+		ret = clk_round_rate(drvdata->aclk, 1000);
 		clk_set_rate(drvdata->aclk, ret);
 	}
 
