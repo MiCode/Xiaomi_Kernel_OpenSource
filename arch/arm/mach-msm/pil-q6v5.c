@@ -66,22 +66,45 @@ int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 		goto out;
 	}
 
+	ret = regulator_set_voltage(drv->vreg_cx,
+				    RPM_REGULATOR_CORNER_SUPER_TURBO,
+				    RPM_REGULATOR_CORNER_SUPER_TURBO);
+	if (ret) {
+		dev_err(pil->dev, "Failed to request vdd_cx voltage.\n");
+		goto err_cx_voltage;
+	}
+
+	ret = regulator_set_optimum_mode(drv->vreg_cx, 100000);
+	if (ret < 0) {
+		dev_err(pil->dev, "Failed to set vdd_cx mode.\n");
+		goto err_cx_mode;
+	}
+
 	ret = regulator_enable(drv->vreg_cx);
 	if (ret) {
 		dev_err(pil->dev, "Failed to vote for vdd_cx\n");
-		clk_disable_unprepare(drv->xo);
-		goto out;
+		goto err_cx_enable;
 	}
 
 	if (drv->vreg_pll) {
 		ret = regulator_enable(drv->vreg_pll);
 		if (ret) {
 			dev_err(pil->dev, "Failed to vote for vdd_pll\n");
-			regulator_disable(drv->vreg_cx);
-			clk_disable_unprepare(drv->xo);
+			goto err_vreg_pll;
 		}
 	}
 
+	return 0;
+
+err_vreg_pll:
+	regulator_disable(drv->vreg_cx);
+err_cx_enable:
+	regulator_set_optimum_mode(drv->vreg_cx, 0);
+err_cx_mode:
+	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE,
+			      RPM_REGULATOR_CORNER_SUPER_TURBO);
+err_cx_voltage:
+	clk_disable_unprepare(drv->xo);
 out:
 	return ret;
 }
@@ -93,6 +116,9 @@ void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 	if (drv->vreg_pll)
 		regulator_disable(drv->vreg_pll);
 	regulator_disable(drv->vreg_cx);
+	regulator_set_optimum_mode(drv->vreg_cx, 0);
+	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE,
+			      RPM_REGULATOR_CORNER_SUPER_TURBO);
 	clk_disable_unprepare(drv->xo);
 }
 EXPORT_SYMBOL(pil_q6v5_remove_proxy_votes);
@@ -233,20 +259,6 @@ struct q6v5_data __devinit *pil_q6v5_init(struct platform_device *pdev)
 	drv->vreg_cx = devm_regulator_get(&pdev->dev, "vdd_cx");
 	if (IS_ERR(drv->vreg_cx))
 		return ERR_CAST(drv->vreg_cx);
-
-	ret = regulator_set_voltage(drv->vreg_cx,
-				    RPM_REGULATOR_CORNER_SUPER_TURBO,
-				    RPM_REGULATOR_CORNER_SUPER_TURBO);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to request vdd_cx voltage.\n");
-		return ERR_PTR(ret);
-	}
-
-	ret = regulator_set_optimum_mode(drv->vreg_cx, 100000);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Failed to set vdd_cx mode.\n");
-		return ERR_PTR(ret);
-	}
 
 	drv->vreg_pll = devm_regulator_get(&pdev->dev, "vdd_pll");
 	if (!IS_ERR(drv->vreg_pll)) {
