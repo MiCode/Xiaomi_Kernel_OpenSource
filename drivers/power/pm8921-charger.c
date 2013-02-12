@@ -2968,8 +2968,8 @@ static int find_ibat_max_adj_ma(int ibat_target_ma)
 {
 	int i = 0;
 
-	for (i = ARRAY_SIZE(ibatmax_adj_table) - 1; i >= 0; i--) {
-		if (ibat_target_ma <= ibatmax_adj_table[i].ibat_max_ma)
+	for (i = ARRAY_SIZE(ibatmax_adj_table); i > 0; i--) {
+		if (ibat_target_ma >= ibatmax_adj_table[i - 1].ibat_max_ma)
 			break;
 	}
 
