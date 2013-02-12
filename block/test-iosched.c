@@ -573,7 +573,7 @@ static int run_test(struct test_data *td)
 		return ret;
 	}
 
-	__blk_run_queue(td->req_q);
+	blk_run_queue(td->req_q);
 
 	return 0;
 }
@@ -802,7 +802,7 @@ int test_iosched_start_test(struct test_info *t_info)
 		 * Wakeup the queue thread to fetch FS requests that might got
 		 * postponded due to the test
 		 */
-		__blk_run_queue(ptd->req_q);
+		blk_run_queue(ptd->req_q);
 
 		if (ptd->ignore_round)
 			test_pr_info(
