@@ -385,6 +385,10 @@ int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 
 	/* remove UID from user space pkt before sending to peripheral */
 	buf = buf + 4;
+	if (len < 4) {
+		pr_err("diag: dci: integer underflow\n");
+		return -EIO;
+	}
 	len = len - 4;
 	mutex_lock(&driver->dci_mutex);
 	/* prepare DCI packet */
