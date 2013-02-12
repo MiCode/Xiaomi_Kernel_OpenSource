@@ -1518,12 +1518,12 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 		pr_debug("FCC = %duAh, UUC = %duAh forcing soc = 0\n",
 						params.fcc_uah,
 						params.uuc_uah);
-		soc = 0;
-	} else {
-		soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
-					(params.fcc_uah
-						- params.uuc_uah));
+		new_calculated_soc = 0;
+		goto done_calculating;
 	}
+
+	soc = DIV_ROUND_CLOSEST((remaining_usable_charge_uah * 100),
+				(params.fcc_uah - params.uuc_uah));
 
 	if (chip->first_time_calc_soc && soc < 0) {
 		/*
@@ -1598,6 +1598,7 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 		new_calculated_soc = clamp_soc_based_on_voltage(chip,
 						new_calculated_soc);
 
+done_calculating:
 	if (new_calculated_soc != chip->calculated_soc
 			&& chip->bms_psy.name != NULL) {
 		power_supply_changed(&chip->bms_psy);
