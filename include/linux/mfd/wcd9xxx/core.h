@@ -36,11 +36,14 @@
 #define SITAR_IS_1P1(ver) \
 	((ver == SITAR_VERSION_1P1) ? 1 : 0)
 
-
-#define TAIKO_VERSION_1_0	0
+#define TAIKO_VERSION_1_0	1
 #define TAIKO_IS_1_0(ver) \
 	((ver == TAIKO_VERSION_1_0) ? 1 : 0)
 
+enum wcd9xxx_slim_slave_addr_type {
+	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA,
+	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO,
+};
 
 enum {
 	/* INTR_REG 0 */
@@ -186,6 +189,8 @@ struct wcd9xxx {
 	struct wcd9xxx_ch *rx_chs;
 	struct wcd9xxx_ch *tx_chs;
 	u32 mclk_rate;
+
+	enum wcd9xxx_slim_slave_addr_type slim_slave_type;
 };
 
 int wcd9xxx_reg_read(struct wcd9xxx *wcd9xxx, unsigned short reg);

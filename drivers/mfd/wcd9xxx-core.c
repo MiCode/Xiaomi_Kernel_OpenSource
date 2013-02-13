@@ -296,21 +296,37 @@ static struct wcd9xx_codec_type {
 	struct mfd_cell *dev;
 	int size;
 	int num_irqs;
+	int version; /* -1 to retrive version from chip version register */
+	enum wcd9xxx_slim_slave_addr_type slim_slave_type;
 } wcd9xxx_codecs[] = {
-	{{0x2, 0x0, 0x0, 0x1}, tabla_devs, ARRAY_SIZE(tabla_devs),
-	 TABLA_NUM_IRQS},
-	{{0x1, 0x0, 0x0, 0x1}, tabla1x_devs, ARRAY_SIZE(tabla1x_devs),
-	 TABLA_NUM_IRQS},
-	{{0x0, 0x0, 0x2, 0x1}, taiko_devs, ARRAY_SIZE(taiko_devs),
-	 TAIKO_NUM_IRQS},
-	{{0x0, 0x0, 0x3, 0x1}, tapan_devs, ARRAY_SIZE(tapan_devs),
-	 TAPAN_NUM_IRQS},
-	{{0x0, 0x0, 0x0, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
-	 SITAR_NUM_IRQS},
-	{{0x1, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
-	 SITAR_NUM_IRQS},
-	{{0x2, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
-	 SITAR_NUM_IRQS},
+	{
+	 {0x2, 0x0, 0x0, 0x1}, tabla_devs, ARRAY_SIZE(tabla_devs),
+	 TABLA_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA
+	},
+	{
+	 {0x1, 0x0, 0x0, 0x1}, tabla1x_devs, ARRAY_SIZE(tabla1x_devs),
+	 TABLA_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA
+	},
+	{ /* wcd9320 version 1 */
+	 {0x0, 0x0, 0x2, 0x1}, taiko_devs, ARRAY_SIZE(taiko_devs),
+	  TAIKO_NUM_IRQS, 1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO
+	},
+	{
+	 {0x0, 0x0, 0x3, 0x1}, tapan_devs, ARRAY_SIZE(tapan_devs),
+	 TAPAN_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO
+	},
+	{
+	 {0x0, 0x0, 0x0, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
+	 SITAR_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA
+	},
+	{
+	 {0x1, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
+	 SITAR_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA
+	},
+	{
+	 {0x2, 0x0, 0x1, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
+	 SITAR_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA
+	},
 };
 
 static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
@@ -393,6 +409,10 @@ static int wcd9xxx_check_codec_type(struct wcd9xxx *wcd9xxx,
 			*wcd9xxx_dev = wcd9xxx_codecs[i].dev;
 			*wcd9xxx_dev_size = wcd9xxx_codecs[i].size;
 			*wcd9xxx_dev_num_irqs = wcd9xxx_codecs[i].num_irqs;
+			wcd9xxx->slim_slave_type =
+			    wcd9xxx_codecs[i].slim_slave_type;
+			if (wcd9xxx_codecs[i].version > -1)
+				wcd9xxx->version = wcd9xxx_codecs[i].version;
 			break;
 		}
 		i++;
