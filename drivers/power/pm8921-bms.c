@@ -643,15 +643,15 @@ static s64 cc_to_microvolt(struct pm8921_bms_chip *chip, s64 cc)
 #define SLEEP_CLK_HZ		32764
 #define SECONDS_PER_HOUR	3600
 /**
- * ccmicrovolt_to_uvh -
+ * ccmicrovolt_to_pvh -
  * @cc_uv:  coulumb counter converted to uV
  *
- * RETURNS:	coulumb counter based charge in uVh
- *		(micro Volt Hour)
+ * RETURNS:	coulumb counter based charge in pVh
+ *		(pico Volt Hour)
  */
-static s64 ccmicrovolt_to_uvh(s64 cc_uv)
+static s64 ccmicrovolt_to_pvh(s64 cc_uv)
 {
-	return div_s64(cc_uv * CC_READING_TICKS,
+	return div_s64(cc_uv * CC_READING_TICKS * 1000000L,
 			SLEEP_CLK_HZ * SECONDS_PER_HOUR);
 }
 
@@ -1174,7 +1174,7 @@ static int calculate_pc(struct pm8921_bms_chip *chip, int ocv_uv,
  */
 static void calculate_cc_uah(struct pm8921_bms_chip *chip, int cc, int *val)
 {
-	int64_t cc_voltage_uv, cc_uvh, cc_uah;
+	int64_t cc_voltage_uv, cc_pvh, cc_uah;
 
 	cc_voltage_uv = cc;
 	cc_voltage_uv -= chip->cc_reading_at_100;
@@ -1184,9 +1184,9 @@ static void calculate_cc_uah(struct pm8921_bms_chip *chip, int cc, int *val)
 	cc_voltage_uv = cc_to_microvolt(chip, cc_voltage_uv);
 	cc_voltage_uv = pm8xxx_cc_adjust_for_gain(cc_voltage_uv);
 	pr_debug("cc_voltage_uv = %lld microvolts\n", cc_voltage_uv);
-	cc_uvh = ccmicrovolt_to_uvh(cc_voltage_uv);
-	pr_debug("cc_uvh = %lld micro_volt_hour\n", cc_uvh);
-	cc_uah = div_s64(cc_uvh * 1000000LL, chip->r_sense_uohm);
+	cc_pvh = ccmicrovolt_to_pvh(cc_voltage_uv);
+	pr_debug("cc_pvh = %lld pico_volt_hour\n", cc_pvh);
+	cc_uah = div_s64(cc_pvh, chip->r_sense_uohm);
 	*val = cc_uah;
 }
 
