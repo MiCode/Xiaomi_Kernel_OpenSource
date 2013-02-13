@@ -207,6 +207,7 @@ header-y += inotify.h
 header-y += input.h
 header-y += ioctl.h
 header-y += ion.h
+header-y += ioprio.h
 header-y += ip.h
 header-y += ip6_tunnel.h
 header-y += ip_vs.h
