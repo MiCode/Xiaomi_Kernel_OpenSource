@@ -42,6 +42,9 @@ struct acdb_data {
 	/* ANC Cal */
 	struct acdb_atomic_cal_block	anc_cal;
 
+	/* LSM Cal */
+	struct acdb_atomic_cal_block	lsm_cal;
+
 	/* AudProc Cal */
 	atomic_t			asm_topology;
 	atomic_t			adm_topology[MAX_AUDPROC_TYPES];
@@ -138,6 +141,46 @@ void get_voice_cal_allocation(struct acdb_cal_block *cal_block)
 		atomic_read(&acdb_data.vocproc_cal.cal_paddr);
 	cal_block->cal_kvaddr =
 		atomic_read(&acdb_data.vocproc_cal.cal_kvaddr);
+}
+
+void get_lsm_cal(struct acdb_cal_block *cal_block)
+{
+	pr_debug("%s\n", __func__);
+
+	if (cal_block == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		goto done;
+	}
+
+	cal_block->cal_size =
+		atomic_read(&acdb_data.lsm_cal.cal_size);
+	cal_block->cal_paddr =
+		atomic_read(&acdb_data.lsm_cal.cal_paddr);
+	cal_block->cal_kvaddr =
+		atomic_read(&acdb_data.lsm_cal.cal_kvaddr);
+done:
+	return;
+}
+
+void store_lsm_cal(struct cal_block *cal_block)
+{
+	pr_debug("%s,\n", __func__);
+
+	if (cal_block->cal_offset > atomic64_read(&acdb_data.mem_len)) {
+		pr_err("%s: offset %d is > mem_len %ld\n",
+			__func__, cal_block->cal_offset,
+			(long)atomic64_read(&acdb_data.mem_len));
+		goto done;
+	}
+
+	atomic_set(&acdb_data.lsm_cal.cal_size,
+		cal_block->cal_size);
+	atomic_set(&acdb_data.lsm_cal.cal_paddr,
+		cal_block->cal_offset + atomic64_read(&acdb_data.paddr));
+	atomic_set(&acdb_data.lsm_cal.cal_kvaddr,
+		cal_block->cal_offset + atomic64_read(&acdb_data.kvaddr));
+done:
+	return;
 }
 
 void get_anc_cal(struct acdb_cal_block *cal_block)
@@ -878,6 +921,9 @@ static long acdb_ioctl(struct file *f,
 		goto done;
 	case AUDIO_SET_ANC_CAL:
 		store_anc_cal((struct cal_block *)data);
+		goto done;
+	case AUDIO_SET_LSM_CAL:
+		store_lsm_cal((struct cal_block *)data);
 		goto done;
 	default:
 		pr_err("ACDB=> ACDB ioctl not found!\n");
