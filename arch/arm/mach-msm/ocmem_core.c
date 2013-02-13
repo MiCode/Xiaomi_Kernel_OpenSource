@@ -598,9 +598,6 @@ static int ocmem_core_set_default_state(void)
 	if (rc < 0)
 		return rc;
 
-	rc = ocmem_enable_br_clock();
-	if (rc < 0)
-		return rc;
 	return 0;
 }
 
