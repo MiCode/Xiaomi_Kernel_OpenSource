@@ -1,6 +1,6 @@
 GCC_VERSION      := $(shell $(CONFIG_SHELL) $(PWD)/scripts/gcc-version.sh $(CROSS_COMPILE)gcc)
-ccflags-y += -Idrivers/media/video/msm
-ccflags-y += -Idrivers/media/video/msm/server
+ccflags-y += -Idrivers/media/platform/msm/camera_v1
+ccflags-y += -Idrivers/media/platform/msm/camera_v1/server
 ifeq ($(GCC_VERSION),0404)
 CFLAGS_REMOVE_msm_vfe8x.o = -Wframe-larger-than=1024
 endif

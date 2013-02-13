@@ -1,9 +1,9 @@
 GCC_VERSION      := $(shell $(CONFIG_SHELL) $(PWD)/scripts/gcc-version.sh $(CROSS_COMPILE)gcc)
-ccflags-y += -Idrivers/media/video/msm -Idrivers/media/video/msm/server
+ccflags-y += -Idrivers/media/platform/msm/camera_v1 -Idrivers/media/platform/msm/camera_v1/server
 ifeq ($(CONFIG_MSM_CSI20_HEADER),y)
-  ccflags-y += -Idrivers/media/video/msm/csi/include/csi2.0
+  ccflags-y += -Idrivers/media/platform/msm/camera_v1/csi/include/csi2.0
 else ifeq ($(CONFIG_MSM_CSI30_HEADER),y)
-  ccflags-y += -Idrivers/media/video/msm/csi/include/csi3.0
+  ccflags-y += -Idrivers/media/platform/msm/camera_v1/csi/include/csi3.0
 endif
 obj-$(CONFIG_MSM_CSI2_REGISTER) += msm_csi2_register.o
 obj-$(CONFIG_MSM_CSIPHY) += msm_csiphy.o
