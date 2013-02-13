@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -239,7 +239,7 @@ static ssize_t sysmon_debug_read_stats(struct file *file, char __user *ubuf,
 		if (!hs)
 			continue;
 
-		ret += scnprintf(buf, DEBUG_BUF_SIZE,
+		ret += scnprintf(buf + ret, DEBUG_BUF_SIZE - ret,
 				"---HSIC Sysmon #%d---\n"
 				"epin:%d, epout:%d\n"
 				"bytes to host: %d\n"
@@ -324,15 +324,6 @@ hsic_sysmon_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	struct usb_endpoint_descriptor	*ep_desc;
 	int				i;
 	int				ret = -ENOMEM;
-	__u8				ifc_num;
-
-	pr_debug("id:%lu", id->driver_info);
-
-	ifc_num = ifc->cur_altsetting->desc.bInterfaceNumber;
-
-	/* is this the interface we're looking for? */
-	if (ifc_num != id->driver_info)
-		return -ENODEV;
 
 	hs = kzalloc(sizeof(*hs), GFP_KERNEL);
 	if (!hs) {
@@ -367,12 +358,17 @@ hsic_sysmon_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		goto error;
 	}
 
-	hs->id = HSIC_SYSMON_DEV_EXT_MODEM;
-	hsic_sysmon_devices[HSIC_SYSMON_DEV_EXT_MODEM] = hs;
+	hs->id = HSIC_SYSMON_DEV_EXT_MODEM + id->driver_info;
+	if (hs->id >= NUM_HSIC_SYSMON_DEVS) {
+		pr_warn("invalid dev id(%d)", hs->id);
+		hs->id = 0;
+	}
+
+	hsic_sysmon_devices[hs->id] = hs;
 	usb_set_intfdata(ifc, hs);
 
 	hs->pdev.name = "sys_mon";
-	hs->pdev.id = SYSMON_SS_EXT_MODEM;
+	hs->pdev.id = SYSMON_SS_EXT_MODEM + hs->id;
 	hs->pdev.dev.release = hsic_sysmon_pdev_release;
 	platform_device_register(&hs->pdev);
 
@@ -406,11 +402,12 @@ static int hsic_sysmon_resume(struct usb_interface *ifc)
 	return 0;
 }
 
-/* driver_info maps to the interface number corresponding to sysmon */
+/* driver_info is the instance number when multiple devices are present */
 static const struct usb_device_id hsic_sysmon_ids[] = {
-	{ USB_DEVICE(0x5c6, 0x9048), .driver_info = 1, },
-	{ USB_DEVICE(0x5c6, 0x904C), .driver_info = 1, },
-	{ USB_DEVICE(0x5c6, 0x9075), .driver_info = 1, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 1), .driver_info = 0, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904C, 1), .driver_info = 0, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9075, 1), .driver_info = 0, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9079, 1), .driver_info = 1, },
 	{} /* terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, hsic_sysmon_ids);
