@@ -2053,6 +2053,25 @@ static int _hardware_dequeue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 }
 
 /**
+ * restore_original_req: Restore original req's attributes
+ * @mReq: Request
+ *
+ * This function restores original req's attributes.  Call
+ * this function before completing the large req (>16K).
+ */
+static void restore_original_req(struct ci13xxx_req *mReq)
+{
+	mReq->req.buf = mReq->multi.buf;
+	mReq->req.length = mReq->multi.len;
+	if (!mReq->req.status)
+		mReq->req.actual = mReq->multi.actual;
+
+	mReq->multi.len = 0;
+	mReq->multi.actual = 0;
+	mReq->multi.buf = NULL;
+}
+
+/**
  * _ep_nuke: dequeues all endpoint requests
  * @mEp: endpoint
  *
@@ -2103,6 +2122,11 @@ __acquires(mEp->lock)
 				mEp->dir ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
 			mReq->req.dma = DMA_ADDR_INVALID;
 			mReq->map     = 0;
+		}
+
+		if (mEp->multi_req) {
+			restore_original_req(mReq);
+			mEp->multi_req = false;
 		}
 
 		if (mReq->req.complete != NULL) {
@@ -2454,8 +2478,44 @@ dequeue:
 			break;
 		}
 		req_dequeue = 0;
+
+		if (mEp->multi_req) { /* Large request in progress */
+			unsigned remain_len;
+
+			mReq->multi.actual += mReq->req.actual;
+			remain_len = mReq->multi.len - mReq->multi.actual;
+			if (mReq->req.status || !remain_len ||
+				(mReq->req.actual != mReq->req.length)) {
+				restore_original_req(mReq);
+				mEp->multi_req = false;
+			} else {
+				mReq->req.buf = mReq->multi.buf +
+						mReq->multi.actual;
+				mReq->req.length = min_t(unsigned, remain_len,
+						(4 * CI13XXX_PAGE_SIZE));
+
+				mReq->req.status = -EINPROGRESS;
+				mReq->req.actual = 0;
+				list_del_init(&mReq->queue);
+				retval = _hardware_enqueue(mEp, mReq);
+				if (retval) {
+					err("Large req failed in middle");
+					mReq->req.status = retval;
+					restore_original_req(mReq);
+					mEp->multi_req = false;
+					goto done;
+				} else {
+					list_add_tail(&mReq->queue,
+						&mEp->qh.queue);
+					return 0;
+				}
+			}
+		}
 		list_del_init(&mReq->queue);
+done:
+
 		dbg_done(_usb_addr(mEp), mReq->ptr->token, retval);
+
 		if (mReq->req.complete != NULL) {
 			spin_unlock(mEp->lock);
 			if ((mEp->type == USB_ENDPOINT_XFER_CONTROL) &&
@@ -2922,11 +2982,28 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 		err("request already in queue");
 		goto done;
 	}
+	if (mEp->multi_req) {
+		retval = -EAGAIN;
+		err("Large request is in progress. come again");
+		goto done;
+	}
 
 	if (req->length > (4 * CI13XXX_PAGE_SIZE)) {
+		if (!list_empty(&mEp->qh.queue)) {
+			retval = -EAGAIN;
+			err("Queue is busy. Large req is not allowed");
+			goto done;
+		}
+		if ((mEp->type != USB_ENDPOINT_XFER_BULK) ||
+				(mEp->dir != RX)) {
+			retval = -EINVAL;
+			err("Larger req is supported only for Bulk OUT");
+			goto done;
+		}
+		mEp->multi_req = true;
+		mReq->multi.len = req->length;
+		mReq->multi.buf = req->buf;
 		req->length = (4 * CI13XXX_PAGE_SIZE);
-		retval = -EMSGSIZE;
-		warn("request length truncated");
 	}
 
 	dbg_queue(_usb_addr(mEp), req, retval);
@@ -2943,6 +3020,8 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 	}
 	if (!retval)
 		list_add_tail(&mReq->queue, &mEp->qh.queue);
+	else if (mEp->multi_req)
+		mEp->multi_req = false;
 
  done:
 	spin_unlock_irqrestore(mEp->lock, flags);
@@ -2988,6 +3067,10 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 		mReq->map     = 0;
 	}
 	req->status = -ECONNRESET;
+	if (mEp->multi_req) {
+		restore_original_req(mReq);
+		mEp->multi_req = false;
+	}
 
 	if (mReq->req.complete != NULL) {
 		spin_unlock(mEp->lock);
