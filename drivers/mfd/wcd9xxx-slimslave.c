@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,8 +13,6 @@
 #include <linux/mutex.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
-
-#define WCD9XXX_CHIP_ID_TAIKO 0x00000201
 
 struct wcd9xxx_slim_sch {
 	u16 rx_port_ch_reg_base;
@@ -33,22 +31,15 @@ static int wcd9xxx_dealloc_slim_sh_ch(struct slim_device *slim,
 
 static int wcd9xxx_configure_ports(struct wcd9xxx *wcd9xxx)
 {
-	int i;
-	u32 id;
-	for (i = 0; i < 4; i++)
-		((u8 *)&id)[i] = wcd9xxx_reg_read(wcd9xxx,
-						  WCD9XXX_A_CHIP_ID_BYTE_0 + i);
-	id = cpu_to_be32(id);
-	pr_debug("%s: chip id 0x%08x\n", __func__, id);
-	if (id != WCD9XXX_CHIP_ID_TAIKO) {
-		sh_ch.rx_port_ch_reg_base = 0x180 ;
+	if (wcd9xxx->slim_slave_type == WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA) {
+		sh_ch.rx_port_ch_reg_base = 0x180;
 		sh_ch.port_rx_cfg_reg_base = 0x040;
 		sh_ch.port_tx_cfg_reg_base = 0x040;
 	} else {
 		sh_ch.rx_port_ch_reg_base =
 			0x180 - (TAIKO_SB_PGD_OFFSET_OF_RX_SLAVE_DEV_PORTS * 4);
 		sh_ch.port_rx_cfg_reg_base =
-			0x040 - TAIKO_SB_PGD_OFFSET_OF_RX_SLAVE_DEV_PORTS ;
+			0x040 - TAIKO_SB_PGD_OFFSET_OF_RX_SLAVE_DEV_PORTS;
 		sh_ch.port_tx_cfg_reg_base = 0x050;
 	}
 
