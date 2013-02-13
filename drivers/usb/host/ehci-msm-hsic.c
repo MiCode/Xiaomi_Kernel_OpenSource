@@ -91,6 +91,8 @@ struct msm_hsic_hcd {
 	int			peripheral_status_irq;
 	int			wakeup_irq;
 	bool			wakeup_irq_enabled;
+	int			async_irq;
+	uint32_t		async_int_cnt;
 	atomic_t		pm_usage_cnt;
 	uint32_t		bus_perf_client;
 	uint32_t		wakeup_int_cnt;
@@ -828,9 +830,11 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	atomic_set(&mehci->in_lpm, 1);
 	enable_irq(hcd->irq);
 
-	mehci->wakeup_irq_enabled = 1;
-	enable_irq_wake(mehci->wakeup_irq);
-	enable_irq(mehci->wakeup_irq);
+	if (mehci->wakeup_irq) {
+		mehci->wakeup_irq_enabled = 1;
+		enable_irq_wake(mehci->wakeup_irq);
+		enable_irq(mehci->wakeup_irq);
+	}
 
 	if (pdata && pdata->standalone_latency)
 		pm_qos_update_request(&mehci->pm_qos_req_dma,
@@ -864,13 +868,15 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 		pm_qos_update_request(&mehci->pm_qos_req_dma,
 			pdata->standalone_latency + 1);
 
-	spin_lock_irqsave(&mehci->wakeup_lock, flags);
-	if (mehci->wakeup_irq_enabled) {
-		disable_irq_wake(mehci->wakeup_irq);
-		disable_irq_nosync(mehci->wakeup_irq);
-		mehci->wakeup_irq_enabled = 0;
+	if (mehci->wakeup_irq) {
+		spin_lock_irqsave(&mehci->wakeup_lock, flags);
+		if (mehci->wakeup_irq_enabled) {
+			disable_irq_wake(mehci->wakeup_irq);
+			disable_irq_nosync(mehci->wakeup_irq);
+			mehci->wakeup_irq_enabled = 0;
+		}
+		spin_unlock_irqrestore(&mehci->wakeup_lock, flags);
 	}
-	spin_unlock_irqrestore(&mehci->wakeup_lock, flags);
 
 	wake_lock(&mehci->wlock);
 
@@ -1384,20 +1390,28 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	struct msm_hsic_hcd *mehci = data;
 	int ret;
 
-	mehci->wakeup_int_cnt++;
-	dbg_log_event(NULL, "Remote Wakeup IRQ", mehci->wakeup_int_cnt);
-	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt cnt: %u\n",
-			__func__, mehci->wakeup_int_cnt);
+	if (irq == mehci->async_irq) {
+		mehci->async_int_cnt++;
+		dbg_log_event(NULL, "Remote Wakeup (ASYNC) IRQ",
+							 mehci->async_int_cnt);
+	} else {
+		mehci->wakeup_int_cnt++;
+		dbg_log_event(NULL, "Remote Wakeup IRQ", mehci->wakeup_int_cnt);
+	}
+	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt %d cnt: %u, %u\n",
+		    __func__, irq, mehci->wakeup_int_cnt, mehci->async_int_cnt);
 
 	wake_lock(&mehci->wlock);
 
-	spin_lock(&mehci->wakeup_lock);
-	if (mehci->wakeup_irq_enabled) {
-		mehci->wakeup_irq_enabled = 0;
-		disable_irq_wake(irq);
-		disable_irq_nosync(irq);
+	if (mehci->wakeup_irq) {
+		spin_lock(&mehci->wakeup_lock);
+		if (mehci->wakeup_irq_enabled) {
+			mehci->wakeup_irq_enabled = 0;
+			disable_irq_wake(irq);
+			disable_irq_nosync(irq);
+		}
+		spin_unlock(&mehci->wakeup_lock);
 	}
-	spin_unlock(&mehci->wakeup_lock);
 
 	if (!atomic_read(&mehci->pm_usage_cnt)) {
 		ret = pm_runtime_get(mehci->dev);
@@ -1816,6 +1830,21 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	mehci->async_irq = platform_get_irq_byname(pdev, "async_irq");
+	if (mehci->async_irq < 0) {
+		dev_dbg(&pdev->dev, "platform_get_irq for async_int failed\n");
+		mehci->async_irq = 0;
+	} else {
+		ret = request_irq(mehci->async_irq, msm_hsic_wakeup_irq,
+				IRQF_TRIGGER_RISING, "msm_hsic_async", mehci);
+		if (ret) {
+			dev_err(&pdev->dev, "request irq failed (ASYNC INT)\n");
+			mehci->async_irq = 0;
+		} else {
+			enable_irq_wake(mehci->async_irq);
+		}
+	}
+
 	ret = ehci_hsic_msm_debugfs_init(mehci);
 	if (ret)
 		dev_dbg(&pdev->dev, "mode debugfs file is"
@@ -1889,6 +1918,10 @@ static int ehci_hsic_msm_remove(struct platform_device *pdev)
 		free_irq(mehci->wakeup_irq, mehci);
 	}
 
+	if (mehci->async_irq) {
+		disable_irq_wake(mehci->async_irq);
+		free_irq(mehci->async_irq, mehci);
+	}
 	/*
 	 * If the update request is called after unregister, the request will
 	 * fail. Results are undefined if unregister is called in the middle of
