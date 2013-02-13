@@ -526,7 +526,6 @@ static void __iomem *virt_bases[N_BASES];
 #define mm_gnd_source_val 6
 #define gpll1_hsic_source_val 4
 #define cxo_lpass_source_val 0
-#define lpapll0_lpass_source_val 1
 #define gpll0_lpass_source_val 5
 #define edppll_270_mm_source_val 4
 #define edppll_350_mm_source_val 4
@@ -739,21 +738,6 @@ static struct pll_vote_clk gpll1_clk_src = {
 		.dbg_name = "gpll1_clk_src",
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(gpll1_clk_src.c),
-	},
-};
-
-static struct pll_vote_clk lpapll0_clk_src = {
-	.en_reg = (void __iomem *)LPASS_LPA_PLL_VOTE_APPS_REG,
-	.en_mask = BIT(0),
-	.status_reg = (void __iomem *)LPAPLL_STATUS_REG,
-	.status_mask = BIT(17),
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &cxo_clk_src.c,
-		.rate = 491520000,
-		.dbg_name = "lpapll0_clk_src",
-		.ops = &clk_ops_pll_vote,
-		CLK_INIT(lpapll0_clk_src.c),
 	},
 };
 
@@ -4350,411 +4334,6 @@ static struct branch_clk oxilicx_ahb_clk = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_audio_core_slimbus_core_clock[] = {
-	F_LPASS(24576000, lpapll0, 4, 1, 5),
-	F_END
-};
-
-static struct rcg_clk audio_core_slimbus_core_clk_src = {
-	.cmd_rcgr_reg = SLIMBUS_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_slimbus_core_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_slimbus_core_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 70000000, NOMINAL, 140000000),
-		CLK_INIT(audio_core_slimbus_core_clk_src.c),
-	},
-};
-
-static struct branch_clk audio_core_slimbus_core_clk = {
-	.cbcr_reg = AUDIO_CORE_SLIMBUS_CORE_CBCR,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_slimbus_core_clk_src.c,
-		.dbg_name = "audio_core_slimbus_core_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_slimbus_core_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_slimbus_lfabif_clk = {
-	.cbcr_reg = AUDIO_CORE_SLIMBUS_LFABIF_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_slimbus_lfabif_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_slimbus_lfabif_clk.c),
-	},
-};
-
-static struct clk_freq_tbl ftbl_audio_core_lpaif_clock[] = {
-	F_LPASS(  512000, lpapll0, 16, 1, 60),
-	F_LPASS(  768000, lpapll0, 16, 1, 40),
-	F_LPASS( 1024000, lpapll0, 16, 1, 30),
-	F_LPASS( 1536000, lpapll0, 16, 1, 20),
-	F_LPASS( 2048000, lpapll0, 16, 1, 15),
-	F_LPASS( 3072000, lpapll0, 16, 1, 10),
-	F_LPASS( 4096000, lpapll0, 15, 1,  8),
-	F_LPASS( 6144000, lpapll0, 10, 1,  8),
-	F_LPASS( 8192000, lpapll0, 15, 1,  4),
-	F_LPASS(12288000, lpapll0, 10, 1,  4),
-	F_END
-};
-
-static struct rcg_clk audio_core_lpaif_codec_spkr_clk_src = {
-	.cmd_rcgr_reg = LPAIF_SPKR_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_lpaif_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_codec_spkr_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 12000000, NOMINAL, 25000000),
-		CLK_INIT(audio_core_lpaif_codec_spkr_clk_src.c),
-	},
-};
-
-static struct rcg_clk audio_core_lpaif_pri_clk_src = {
-	.cmd_rcgr_reg = LPAIF_PRI_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_lpaif_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_pri_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 12000000, NOMINAL, 25000000),
-		CLK_INIT(audio_core_lpaif_pri_clk_src.c),
-	},
-};
-
-static struct rcg_clk audio_core_lpaif_sec_clk_src = {
-	.cmd_rcgr_reg = LPAIF_SEC_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_lpaif_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_sec_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 12000000, NOMINAL, 25000000),
-		CLK_INIT(audio_core_lpaif_sec_clk_src.c),
-	},
-};
-
-static struct rcg_clk audio_core_lpaif_ter_clk_src = {
-	.cmd_rcgr_reg = LPAIF_TER_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_lpaif_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_ter_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 12000000, NOMINAL, 25000000),
-		CLK_INIT(audio_core_lpaif_ter_clk_src.c),
-	},
-};
-
-static struct rcg_clk audio_core_lpaif_quad_clk_src = {
-	.cmd_rcgr_reg = LPAIF_QUAD_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_lpaif_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_quad_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 12000000, NOMINAL, 25000000),
-		CLK_INIT(audio_core_lpaif_quad_clk_src.c),
-	},
-};
-
-static struct rcg_clk audio_core_lpaif_pcm0_clk_src = {
-	.cmd_rcgr_reg = LPAIF_PCM0_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_lpaif_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_pcm0_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 12000000, NOMINAL, 25000000),
-		CLK_INIT(audio_core_lpaif_pcm0_clk_src.c),
-	},
-};
-
-static struct rcg_clk audio_core_lpaif_pcm1_clk_src = {
-	.cmd_rcgr_reg = LPAIF_PCM1_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_lpaif_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_pcm1_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 12000000, NOMINAL, 25000000),
-		CLK_INIT(audio_core_lpaif_pcm1_clk_src.c),
-	},
-};
-
-struct rcg_clk audio_core_lpaif_pcmoe_clk_src = {
-	.cmd_rcgr_reg = LPAIF_PCMOE_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_audio_core_lpaif_clock,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_pcmoe_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP1(LOW, 12290000),
-		CLK_INIT(audio_core_lpaif_pcmoe_clk_src.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_codec_spkr_osr_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_CODEC_SPKR_OSR_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_codec_spkr_clk_src.c,
-		.dbg_name = "audio_core_lpaif_codec_spkr_osr_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_codec_spkr_osr_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_codec_spkr_ebit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_CODEC_SPKR_EBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_codec_spkr_ebit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_codec_spkr_ebit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_codec_spkr_ibit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_CODEC_SPKR_IBIT_CBCR,
-	.has_sibling = 1,
-	.max_div = 15,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_codec_spkr_clk_src.c,
-		.dbg_name = "audio_core_lpaif_codec_spkr_ibit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_codec_spkr_ibit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_pri_osr_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_PRI_OSR_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_pri_clk_src.c,
-		.dbg_name = "audio_core_lpaif_pri_osr_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_pri_osr_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_pri_ebit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_PRI_EBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_pri_ebit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_pri_ebit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_pri_ibit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_PRI_IBIT_CBCR,
-	.has_sibling = 1,
-	.max_div = 15,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_pri_clk_src.c,
-		.dbg_name = "audio_core_lpaif_pri_ibit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_pri_ibit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_sec_osr_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_SEC_OSR_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_sec_clk_src.c,
-		.dbg_name = "audio_core_lpaif_sec_osr_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_sec_osr_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_sec_ebit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_SEC_EBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_sec_ebit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_sec_ebit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_sec_ibit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_SEC_IBIT_CBCR,
-	.has_sibling = 1,
-	.max_div = 15,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_sec_clk_src.c,
-		.dbg_name = "audio_core_lpaif_sec_ibit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_sec_ibit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_ter_osr_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_TER_OSR_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_ter_clk_src.c,
-		.dbg_name = "audio_core_lpaif_ter_osr_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_ter_osr_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_ter_ebit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_TER_EBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_ter_ebit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_ter_ebit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_ter_ibit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_TER_IBIT_CBCR,
-	.has_sibling = 1,
-	.max_div = 15,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_ter_clk_src.c,
-		.dbg_name = "audio_core_lpaif_ter_ibit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_ter_ibit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_quad_osr_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_QUAD_OSR_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_quad_clk_src.c,
-		.dbg_name = "audio_core_lpaif_quad_osr_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_quad_osr_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_quad_ebit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_QUAD_EBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_quad_ebit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_quad_ebit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_quad_ibit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_QUAD_IBIT_CBCR,
-	.has_sibling = 1,
-	.max_div = 15,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_quad_clk_src.c,
-		.dbg_name = "audio_core_lpaif_quad_ibit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_quad_ibit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_pcm0_ebit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_PCM0_EBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_lpaif_pcm0_ebit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_pcm0_ebit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_pcm0_ibit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_PCM0_IBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_pcm0_clk_src.c,
-		.dbg_name = "audio_core_lpaif_pcm0_ibit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_pcm0_ibit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_pcm1_ebit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_PCM1_EBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_pcm1_clk_src.c,
-		.dbg_name = "audio_core_lpaif_pcm1_ebit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_pcm1_ebit_clk.c),
-	},
-};
-
-static struct branch_clk audio_core_lpaif_pcm1_ibit_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_PCM1_IBIT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_pcm1_clk_src.c,
-		.dbg_name = "audio_core_lpaif_pcm1_ibit_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_pcm1_ibit_clk.c),
-	},
-};
-
-struct branch_clk audio_core_lpaif_pcmoe_clk = {
-	.cbcr_reg = AUDIO_CORE_LPAIF_PCM_DATA_OE_CBCR,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.parent = &audio_core_lpaif_pcmoe_clk_src.c,
-		.dbg_name = "audio_core_lpaif_pcmoe_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_lpaif_pcmoe_clk.c),
-	},
-};
-
 static struct branch_clk q6ss_ahb_lfabif_clk = {
 	.cbcr_reg = LPASS_Q6SS_AHB_LFABIF_CBCR,
 	.has_sibling = 1,
@@ -4766,16 +4345,6 @@ static struct branch_clk q6ss_ahb_lfabif_clk = {
 	},
 };
 
-static struct branch_clk audio_core_ixfabric_clk = {
-	.cbcr_reg = AUDIO_CORE_IXFABRIC_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_core_ixfabric_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_core_ixfabric_clk.c),
-	},
-};
 
 static struct branch_clk gcc_lpass_q6_axi_clk = {
 	.cbcr_reg = LPASS_Q6_AXI_CBCR,
@@ -4808,17 +4377,6 @@ static struct branch_clk q6ss_ahbm_clk = {
 		.dbg_name = "q6ss_ahbm_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(q6ss_ahbm_clk.c),
-	},
-};
-
-static struct branch_clk audio_wrapper_br_clk = {
-	.cbcr_reg = AUDIO_WRAPPER_BR_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[LPASS_BASE],
-	.c = {
-		.dbg_name = "audio_wrapper_br_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(audio_wrapper_br_clk.c),
 	},
 };
 
@@ -5004,20 +4562,9 @@ struct measure_mux_entry measure_mux[] = {
 	{&mdss_hdmi_ahb_clk.c,			MMSS_BASE, 0x0023},
 	{&mdss_pclk0_clk.c,			MMSS_BASE, 0x0016},
 	{&mdss_pclk1_clk.c,			MMSS_BASE, 0x0017},
-	{&audio_core_lpaif_pri_clk_src.c,	LPASS_BASE, 0x0017},
-	{&audio_core_lpaif_sec_clk_src.c,	LPASS_BASE, 0x0016},
-	{&audio_core_lpaif_ter_clk_src.c,	LPASS_BASE, 0x0015},
-	{&audio_core_lpaif_quad_clk_src.c,	LPASS_BASE, 0x0014},
-	{&audio_core_lpaif_pcm0_clk_src.c,	LPASS_BASE, 0x0013},
-	{&audio_core_lpaif_pcm1_clk_src.c,	LPASS_BASE, 0x0012},
-	{&audio_core_lpaif_pcmoe_clk_src.c,	LPASS_BASE, 0x000f},
-	{&audio_core_slimbus_core_clk.c,	LPASS_BASE, 0x003d},
-	{&audio_core_slimbus_lfabif_clk.c,	LPASS_BASE, 0x003e},
 	{&q6ss_xo_clk.c,			LPASS_BASE, 0x002b},
 	{&q6ss_ahb_lfabif_clk.c,		LPASS_BASE, 0x001e},
 	{&q6ss_ahbm_clk.c,			LPASS_BASE, 0x001d},
-	{&audio_core_ixfabric_clk.c,		LPASS_BASE, 0x0059},
-	{&audio_wrapper_br_clk.c,		LPASS_BASE, 0x0022},
 
 	{&krait0_m_clk,				APCS_BASE, M_ACPU0},
 	{&krait1_m_clk,				APCS_BASE, M_ACPU1},
@@ -5625,57 +5172,6 @@ static struct clk_lookup msm_clocks_8974[] = {
 
 
 	/* LPASS clocks */
-	CLK_LOOKUP("bus_clk", audio_core_ixfabric_clk.c, ""),
-	CLK_LOOKUP("core_clk", audio_core_slimbus_core_clk.c, "fe12f000.slim"),
-	CLK_LOOKUP("iface_clk", audio_core_slimbus_lfabif_clk.c,
-			"fe12f000.slim"),
-	CLK_LOOKUP("core_clk", audio_core_lpaif_codec_spkr_clk_src.c, ""),
-	CLK_LOOKUP("osr_clk", audio_core_lpaif_codec_spkr_osr_clk.c, ""),
-	CLK_LOOKUP("ebit_clk", audio_core_lpaif_codec_spkr_ebit_clk.c, ""),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_codec_spkr_ibit_clk.c, ""),
-	CLK_LOOKUP("core_clk", audio_core_lpaif_pri_clk_src.c, ""),
-	CLK_LOOKUP("osr_clk", audio_core_lpaif_pri_osr_clk.c, ""),
-	CLK_LOOKUP("ebit_clk", audio_core_lpaif_pri_ebit_clk.c, ""),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pri_ibit_clk.c, ""),
-	CLK_LOOKUP("core_clk", audio_core_lpaif_sec_clk_src.c, ""),
-	CLK_LOOKUP("osr_clk", audio_core_lpaif_sec_osr_clk.c, ""),
-	CLK_LOOKUP("ebit_clk", audio_core_lpaif_sec_ebit_clk.c, ""),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_sec_ibit_clk.c, ""),
-	CLK_LOOKUP("core_clk", audio_core_lpaif_ter_clk_src.c, ""),
-	CLK_LOOKUP("osr_clk", audio_core_lpaif_ter_osr_clk.c, ""),
-	CLK_LOOKUP("ebit_clk", audio_core_lpaif_ter_ebit_clk.c, ""),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_ter_ibit_clk.c, ""),
-	CLK_LOOKUP("core_clk", audio_core_lpaif_quad_clk_src.c,
-			"msm-dai-q6-mi2s.3"),
-	CLK_LOOKUP("osr_clk", audio_core_lpaif_quad_osr_clk.c,
-			"msm-dai-q6-mi2s.3"),
-	CLK_LOOKUP("ebit_clk", audio_core_lpaif_quad_ebit_clk.c,
-			"msm-dai-q6-mi2s.3"),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_quad_ibit_clk.c,
-			"msm-dai-q6-mi2s.3"),
-	CLK_LOOKUP("pcm_clk", audio_core_lpaif_pcm0_clk_src.c,
-						"msm-dai-q6.4106"),
-	CLK_LOOKUP("ebit_clk", audio_core_lpaif_pcm0_ebit_clk.c, ""),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pcm0_ibit_clk.c,
-						"msm-dai-q6.4106"),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pcm0_ibit_clk.c, ""),
-	CLK_LOOKUP("core_clk", audio_core_lpaif_pcm1_clk_src.c, ""),
-	CLK_LOOKUP("ebit_clk", audio_core_lpaif_pcm1_ebit_clk.c, ""),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pcm1_ibit_clk.c, ""),
-	CLK_LOOKUP("core_oe_src_clk", audio_core_lpaif_pcmoe_clk_src.c,
-						"msm-dai-q6.4106"),
-	CLK_LOOKUP("core_oe_clk", audio_core_lpaif_pcmoe_clk.c,
-						"msm-dai-q6.4106"),
-	CLK_LOOKUP("pcm_clk", audio_core_lpaif_pcm0_clk_src.c,
-						"msm-dai-q6.4107"),
-	CLK_LOOKUP("ibit_clk", audio_core_lpaif_pcm0_ibit_clk.c,
-						"msm-dai-q6.4107"),
-	CLK_LOOKUP("core_oe_src_clk", audio_core_lpaif_pcmoe_clk_src.c,
-						"msm-dai-q6.4107"),
-	CLK_LOOKUP("core_oe_clk", audio_core_lpaif_pcmoe_clk.c,
-						"msm-dai-q6.4107"),
-	CLK_LOOKUP("br_clk", audio_wrapper_br_clk.c, "fdd00000.qcom,ocmem"),
-
 	CLK_LOOKUP("bus_clk", gcc_mss_q6_bimc_axi_clk.c, "fc880000.qcom,mss"),
 	CLK_LOOKUP("iface_clk", gcc_mss_cfg_ahb_clk.c, "fc880000.qcom,mss"),
 	CLK_LOOKUP("mem_clk", gcc_boot_rom_ahb_clk.c,  "fc880000.qcom,mss"),
@@ -5866,32 +5362,6 @@ static struct pll_config mmpll3_v2_config __initdata = {
 	.main_output_mask = BIT(0),
 };
 
-static struct pll_config_regs lpapll0_regs __initdata = {
-	.l_reg = (void __iomem *)LPAPLL_L_REG,
-	.m_reg = (void __iomem *)LPAPLL_M_REG,
-	.n_reg = (void __iomem *)LPAPLL_N_REG,
-	.config_reg = (void __iomem *)LPAPLL_USER_CTL_REG,
-	.mode_reg = (void __iomem *)LPAPLL_MODE_REG,
-	.base = &virt_bases[LPASS_BASE],
-};
-
-/* LPAPLL0 at 491.52 MHz, main output enabled. */
-static struct pll_config lpapll0_config __initdata = {
-	.l = 0x33,
-	.m = 0x1,
-	.n = 0x5,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = BVAL(14, 12, 0x1),
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
 #define PWR_ON_MASK		BIT(31)
 #define EN_REST_WAIT_MASK	(0xF << 20)
 #define EN_FEW_WAIT_MASK	(0xF << 16)
@@ -5908,8 +5378,7 @@ static struct pll_config lpapll0_config __initdata = {
 
 static void __init reg_init(void)
 {
-	u32 regval, status;
-	int ret;
+	u32 regval;
 
 	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
 
@@ -5920,7 +5389,6 @@ static void __init reg_init(void)
 		configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
 		configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
 	}
-	configure_sr_hpm_lp_pll(&lpapll0_config, &lpapll0_regs, 1);
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE_REG));
@@ -5943,31 +5411,6 @@ static void __init reg_init(void)
 	 * register.
 	 */
 	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
-
-	/*
-	 * TODO: The following sequence enables the LPASS audio core GDSC.
-	 * Remove when this becomes unnecessary.
-	 */
-
-	/*
-	 * Disable HW trigger: collapse/restore occur based on registers writes.
-	 * Disable SW override: Use hardware state-machine for sequencing.
-	 */
-	regval = readl_relaxed(LPASS_REG_BASE(AUDIO_CORE_GDSCR));
-	regval &= ~(HW_CONTROL_MASK | SW_OVERRIDE_MASK);
-
-	/* Configure wait time between states. */
-	regval &= ~(EN_REST_WAIT_MASK | EN_FEW_WAIT_MASK | CLK_DIS_WAIT_MASK);
-	regval |= EN_REST_WAIT_VAL | EN_FEW_WAIT_VAL | CLK_DIS_WAIT_VAL;
-	writel_relaxed(regval, LPASS_REG_BASE(AUDIO_CORE_GDSCR));
-
-	regval = readl_relaxed(LPASS_REG_BASE(AUDIO_CORE_GDSCR));
-	regval &= ~BIT(0);
-	writel_relaxed(regval, LPASS_REG_BASE(AUDIO_CORE_GDSCR));
-
-	ret = readl_poll_timeout(LPASS_REG_BASE(AUDIO_CORE_GDSCR), status,
-				status & PWR_ON_MASK, 50, GDSC_TIMEOUT_US);
-	WARN(ret, "LPASS Audio Core GDSC did not power on.\n");
 }
 
 static void __init mdss_clock_setup(void)
@@ -6007,11 +5450,6 @@ static void __init msm8974_clock_post_init(void)
 	 */
 	clk_prepare_enable(&cxo_a_clk_src.c);
 
-	/* TODO: Temporarily enable a clock to allow access to LPASS core
-	 * registers.
-	 */
-	clk_prepare_enable(&audio_core_ixfabric_clk.c);
-
 	/*
 	 * TODO: Temporarily enable NOC configuration AHB clocks. Remove when
 	 * the bus driver is ready.
@@ -6046,8 +5484,6 @@ static void __init msm8974_clock_post_init(void)
 	clk_set_rate(&esc1_clk_src.c, esc1_clk_src.freq_tbl[0].freq_hz);
 	clk_set_rate(&hdmi_clk_src.c, hdmi_clk_src.freq_tbl[0].freq_hz);
 	clk_set_rate(&vsync_clk_src.c, vsync_clk_src.freq_tbl[0].freq_hz);
-	clk_set_rate(&audio_core_slimbus_core_clk_src.c,
-			audio_core_slimbus_core_clk_src.freq_tbl[0].freq_hz);
 }
 
 #define GCC_CC_PHYS		0xFC400000
