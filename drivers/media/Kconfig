@@ -106,6 +106,8 @@ comment "Multimedia drivers"
 source "drivers/media/common/Kconfig"
 source "drivers/media/rc/Kconfig"
 
+source "drivers/media/platform/Kconfig"
+
 #
 # Tuner drivers for DVB and V4L
 #

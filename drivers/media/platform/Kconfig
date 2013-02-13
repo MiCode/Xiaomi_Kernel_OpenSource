@@ -1,0 +1,1 @@
+source "drivers/media/platform/msm/Kconfig"
