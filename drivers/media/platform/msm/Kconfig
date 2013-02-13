@@ -44,3 +44,4 @@ endif # MSMB_CAMERA
 
 source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/wfd/Kconfig"
+source "drivers/media/platform/msm/vcap/Kconfig"

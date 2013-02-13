@@ -639,14 +639,6 @@ config VIDEO_VIVI
 	  Say Y here if you want to test video apps or debug V4L devices.
 	  In doubt, say N.
 
-config MSM_VCAP
-	tristate "Qualcomm MSM VCAP"
-	depends on VIDEO_DEV && VIDEO_V4L2
-	default y
-	---help---
-		Enables VCAP driver. This device allows for video capture and
-		video processing using the v4l2 api
-
 #
 # USB Multimedia device configuration
 #
