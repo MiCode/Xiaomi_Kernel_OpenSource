@@ -7,7 +7,7 @@
  * Copyright (C) 2008 by Nokia Corporation
  * Copyright (c) 2011, The Linux Foundation. All rights reserved.
  *
- * This program from the The Linux Foundation is free software; you can
+ * This program from The Linux Foundation is free software; you can
  * redistribute it and/or modify it under the GNU General Public License
  * version 2 and only version 2 as published by the Free Software Foundation.
  * The original work available from [kernel.org] is subject to the notice below.
