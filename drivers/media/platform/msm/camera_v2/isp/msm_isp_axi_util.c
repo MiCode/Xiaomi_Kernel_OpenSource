@@ -427,37 +427,30 @@ void msm_isp_calculate_framedrop(
 		&axi_data->stream_info[
 		(stream_cfg_cmd->axi_stream_handle & 0xFF)];
 	uint32_t framedrop_period = 1;
-
 	switch (stream_cfg_cmd->frame_skip_pattern) {
 	case NO_SKIP:
-		stream_info->framedrop_pattern = VFE_NO_DROP;
-		framedrop_period = 1;
-		break;
 	case EVERY_2FRAME:
-		stream_info->framedrop_pattern = VFE_DROP_EVERY_2FRAME;
-		framedrop_period = 2;
-		break;
+	case EVERY_3FRAME:
 	case EVERY_4FRAME:
-		stream_info->framedrop_pattern = VFE_DROP_EVERY_4FRAME;
-		framedrop_period = 4;
-		break;
+	case EVERY_5FRAME:
+	case EVERY_6FRAME:
+	case EVERY_7FRAME:
 	case EVERY_8FRAME:
-		stream_info->framedrop_pattern = VFE_DROP_EVERY_8FRAME;
-		framedrop_period = 8;
+		framedrop_period = stream_cfg_cmd->frame_skip_pattern + 1;
 		break;
 	case EVERY_16FRAME:
-		stream_info->framedrop_pattern = VFE_DROP_EVERY_16FRAME;
 		framedrop_period = 16;
 		break;
 	case EVERY_32FRAME:
-		stream_info->framedrop_pattern = VFE_DROP_EVERY_32FRAME;
 		framedrop_period = 32;
 		break;
 	default:
-		stream_info->framedrop_pattern = VFE_NO_DROP;
 		framedrop_period = 1;
 		break;
 	}
+
+	stream_info->framedrop_pattern = 0x1;
+	stream_info->framedrop_period = framedrop_period - 1;
 
 	if (stream_cfg_cmd->init_frame_drop < framedrop_period) {
 		stream_info->framedrop_pattern <<=
@@ -970,7 +963,6 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_composite_info *comp_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 
-	ISP_DBG("%s: status: 0x%x\n", __func__, irq_status0);
 	comp_mask = vfe_dev->hw_info->vfe_ops.axi_ops.
 		get_comp_mask(irq_status0, irq_status1);
 	wm_mask = vfe_dev->hw_info->vfe_ops.axi_ops.
@@ -978,6 +970,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	if (!(comp_mask || wm_mask))
 		return;
 
+	ISP_DBG("%s: status: 0x%x\n", __func__, irq_status0);
 	pingpong_status =
 		vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
 

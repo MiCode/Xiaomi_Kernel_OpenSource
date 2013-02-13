@@ -52,7 +52,11 @@ enum msm_vfe_axi_stream_src {
 enum msm_vfe_frame_skip_pattern {
 	NO_SKIP,
 	EVERY_2FRAME,
+	EVERY_3FRAME,
 	EVERY_4FRAME,
+	EVERY_5FRAME,
+	EVERY_6FRAME,
+	EVERY_7FRAME,
 	EVERY_8FRAME,
 	EVERY_16FRAME,
 	EVERY_32FRAME,

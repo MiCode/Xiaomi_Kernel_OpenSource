@@ -292,8 +292,11 @@ static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
 	if (irq_status0 & (1 << 0)) {
 		ISP_DBG("%s: SOF IRQ\n", __func__);
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].raw_stream_count > 0
-		&& vfe_dev->axi_data.src_info[VFE_PIX_0].pix_stream_count == 0)
+			&& vfe_dev->axi_data.src_info[VFE_PIX_0].
+			pix_stream_count == 0) {
 			msm_isp_sof_notify(vfe_dev, VFE_PIX_0, tv);
+			msm_isp_update_framedrop_reg(vfe_dev);
+		}
 	}
 	if (irq_status0 & (1 << 1))
 		ISP_DBG("%s: EOF IRQ\n", __func__);
@@ -553,19 +556,29 @@ static void msm_vfe40_axi_clear_wm_irq_mask(struct vfe_device *vfe_dev,
 static void msm_vfe40_cfg_framedrop(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
-	uint32_t i;
-	uint32_t framedrop_pattern = 0;
+	uint32_t i, temp;
+	uint32_t framedrop_pattern = 0, framedrop_period = 0;
 
-	if (stream_info->init_frame_drop == 0)
+	if (stream_info->init_frame_drop == 0) {
 		framedrop_pattern = stream_info->framedrop_pattern;
+		framedrop_period = stream_info->framedrop_period;
+	}
 
 	if (stream_info->stream_type == BURST_STREAM &&
-			stream_info->burst_frame_count == 0)
+			stream_info->burst_frame_count == 0) {
 		framedrop_pattern = 0;
+		framedrop_period = 0;
+	}
 
-	for (i = 0; i < stream_info->num_planes; i++)
+	for (i = 0; i < stream_info->num_planes; i++) {
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base +
 			VFE40_WM_BASE(stream_info->wm[i]) + 0x1C);
+		temp = msm_camera_io_r(vfe_dev->vfe_base +
+			VFE40_WM_BASE(stream_info->wm[i]) + 0xC);
+		temp &= 0xFFFFFF83;
+		msm_camera_io_w(temp | framedrop_period << 2,
+		vfe_dev->vfe_base + VFE40_WM_BASE(stream_info->wm[i]) + 0xC);
+	}
 
 	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x378);
 }
@@ -705,9 +718,6 @@ static void msm_vfe40_axi_cfg_wm_reg(
 		&axi_data->stream_info[
 			(stream_cfg_cmd->axi_stream_handle & 0xFF)];
 	uint32_t wm_base = VFE40_WM_BASE(stream_info->wm[plane_idx]);
-
-	/*WR_ADDR_CFG*/
-	msm_camera_io_w(0x7C, vfe_dev->vfe_base + wm_base + 0xC);
 
 	/*WR_IMAGE_SIZE*/
 	val =

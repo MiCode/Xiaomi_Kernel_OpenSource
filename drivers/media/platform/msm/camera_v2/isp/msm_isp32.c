@@ -421,23 +421,27 @@ static void msm_vfe32_axi_clear_wm_irq_mask(struct vfe_device *vfe_dev,
 static void msm_vfe32_cfg_framedrop(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
-	uint32_t framedrop_pattern = 0;
+	uint32_t framedrop_pattern = 0, framedrop_period = 0;
 
-	if (stream_info->init_frame_drop == 0)
+	if (stream_info->init_frame_drop == 0) {
 		framedrop_pattern = stream_info->framedrop_pattern;
+		framedrop_period = stream_info->framedrop_period;
+	}
 
 	if (stream_info->stream_type == BURST_STREAM &&
-		stream_info->burst_frame_count == 0)
+		stream_info->burst_frame_count == 0) {
 		framedrop_pattern = 0;
+		framedrop_period = 0;
+	}
 
 	if (stream_info->stream_src == PIX_ENCODER) {
-		msm_camera_io_w(0x1F, vfe_dev->vfe_base + 0x504);
-		msm_camera_io_w(0x1F, vfe_dev->vfe_base + 0x508);
+		msm_camera_io_w(framedrop_period, vfe_dev->vfe_base + 0x504);
+		msm_camera_io_w(framedrop_period, vfe_dev->vfe_base + 0x508);
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base + 0x50C);
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base + 0x510);
 	} else if (stream_info->stream_src == PIX_VIEWFINDER) {
-		msm_camera_io_w(0x1F, vfe_dev->vfe_base + 0x514);
-		msm_camera_io_w(0x1F, vfe_dev->vfe_base + 0x518);
+		msm_camera_io_w(framedrop_period, vfe_dev->vfe_base + 0x514);
+		msm_camera_io_w(framedrop_period, vfe_dev->vfe_base + 0x518);
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base + 0x51C);
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base + 0x520);
 	}
