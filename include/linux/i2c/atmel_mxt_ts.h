@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -32,10 +32,8 @@
 /* Bootoader IDs */
 #define MXT_BOOTLOADER_ID_224		0x0A
 #define MXT_BOOTLOADER_ID_224E		0x06
-#define MXT_BOOTLOADER_ID_336S		0x1A
 #define MXT_BOOTLOADER_ID_1386		0x01
 #define MXT_BOOTLOADER_ID_1386E		0x10
-#define MXT_BOOTLOADER_ID_1664S		0x14
 
 /* Config data for a given maXTouch controller with a specific firmware */
 struct mxt_config_info {
@@ -77,7 +75,6 @@ struct mxt_platform_data {
 	int *key_codes;
 	bool need_calibration;
 	bool no_force_update;
-	u8 bl_addr;
 
 	u8(*read_chg) (void);
 	int (*init_hw) (bool);
