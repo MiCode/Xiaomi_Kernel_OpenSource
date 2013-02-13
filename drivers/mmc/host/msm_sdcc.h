@@ -503,7 +503,7 @@ static inline void set_default_hw_caps(struct msmsdcc_host *host)
 				 MSMSDCC_DATA_PEND_FOR_CMD53 |
 				 MSMSDCC_TESTBUS_DEBUG;
 
-	if (step == 0x2b)
+	if ((step == 0x2b) || (step == 0x38))
 		host->hw_caps |= MSMSDCC_SW_RST_CFG_BROKEN;
 }
 
