@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,9 +52,10 @@ static int __ocmem_free(int id, struct ocmem_buf *buf)
 	ret = process_free(id, handle);
 	mutex_unlock(&handle->handle_mutex);
 
-	if (ret)
-		return -EINVAL;
-
+	if (ret) {
+		pr_err("ocmem: Free failed for client %s\n", get_name(id));
+		return ret;
+	}
 	free_handle(handle);
 	return 0;
 }
