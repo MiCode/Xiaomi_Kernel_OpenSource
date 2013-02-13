@@ -234,6 +234,7 @@ struct msm_vfe_axi_stream {
 	uint8_t buf_divert;
 	enum msm_vfe_axi_stream_type stream_type;
 
+	uint32_t framedrop_period;
 	uint32_t framedrop_pattern;
 	uint32_t init_frame_drop;
 	uint32_t burst_frame_count;/*number of sof before burst stop*/
