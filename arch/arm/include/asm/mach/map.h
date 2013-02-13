@@ -9,8 +9,8 @@
  *
  *  Page table mapping constructs and function prototypes
  */
-#ifndef __ASM_ARM_MACH_MAP_H
-#define __ASM_ARM_MACH_MAP_H
+#ifndef __ASM_MACH_MAP_H
+#define __ASM_MACH_MAP_H
 
 #include <asm/io.h>
 
