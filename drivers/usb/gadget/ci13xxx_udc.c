@@ -992,16 +992,16 @@ static void dbg_print(u8 addr, const char *name, int status, const char *extra)
  * dbg_done: prints a DONE event
  * @addr:   endpoint address
  * @td:     transfer descriptor
+ * @status: status
  */
-static void dbg_done(u8 addr, const struct usb_request *req)
+static void dbg_done(u8 addr, const u32 token, int status)
 {
 	char msg[DBG_DATA_MSG];
 
-	if (req != NULL) {
-		scnprintf(msg, sizeof(msg),
-			  "%p %d %d", req, req->actual, req->length);
-		dbg_print(addr, "DONE", req->status, msg);
-	}
+	scnprintf(msg, sizeof(msg), "%d %02X",
+		  (int)(token & TD_TOTAL_BYTES) >> ffs_nr(TD_TOTAL_BYTES),
+		  (int)(token & TD_STATUS)      >> ffs_nr(TD_STATUS));
+	dbg_print(addr, "DONE", status, msg);
 }
 
 /**
@@ -1028,7 +1028,7 @@ static void dbg_queue(u8 addr, const struct usb_request *req, int status)
 
 	if (req != NULL) {
 		scnprintf(msg, sizeof(msg),
-			  "%p %d %d", req, !req->no_interrupt, req->length);
+			  "%d %d", !req->no_interrupt, req->length);
 		dbg_print(addr, "QUEUE", status, msg);
 	}
 }
@@ -1061,7 +1061,6 @@ static void dbg_usb_op_fail(u8 addr, const char *name,
 {
 	char msg[DBG_DATA_MSG];
 	struct ci13xxx_req *req;
-	struct ci13xxx_td_wrapper *td;
 	struct list_head *ptr = NULL;
 
 	if (mep != NULL) {
@@ -1078,14 +1077,15 @@ static void dbg_usb_op_fail(u8 addr, const char *name,
 
 		list_for_each(ptr, &mep->qh.queue) {
 			req = list_entry(ptr, struct ci13xxx_req, queue);
-			list_for_each_entry(td, &req->td_list, list) {
-				scnprintf(msg, sizeof(msg),
-						"%08X:%08X:%08X:%08X\n",
-						td->dma, td->ptr->next,
-						td->ptr->token,
-						td->ptr->page[0]);
-				dbg_print(addr, "TD", 0, msg);
-			}
+			scnprintf(msg, sizeof(msg),
+					"%08X:%08X:%08X\n",
+					req->dma, req->ptr->next,
+					req->ptr->token);
+			dbg_print(addr, "REQ", 0, msg);
+			scnprintf(msg, sizeof(msg), "%08X:%d\n",
+					req->ptr->page[0],
+					req->req.status);
+			dbg_print(addr, "REQPAGE", 0, msg);
 		}
 	}
 }
@@ -1456,7 +1456,6 @@ static ssize_t show_requests(struct device *dev, struct device_attribute *attr,
 	unsigned long flags;
 	struct list_head   *ptr = NULL;
 	struct ci13xxx_req *req = NULL;
-	struct ci13xxx_td_wrapper *td;
 	unsigned i, j, n = 0, qSize = sizeof(struct ci13xxx_td)/sizeof(u32);
 
 	dbg_trace("[%s] %p\n", __func__, buf);
@@ -1471,18 +1470,15 @@ static ssize_t show_requests(struct device *dev, struct device_attribute *attr,
 		{
 			req = list_entry(ptr, struct ci13xxx_req, queue);
 
-			list_for_each_entry(td, &req->td_list, list) {
-				n += scnprintf(buf + n, PAGE_SIZE - n,
-						"EP=%02i: TD=%08X %s\n",
-						i % hw_ep_max/2, (u32)td->dma,
-						((i < hw_ep_max/2) ?
-						 "RX" : "TX"));
+			n += scnprintf(buf + n, PAGE_SIZE - n,
+					"EP=%02i: TD=%08X %s\n",
+					i % hw_ep_max/2, (u32)req->dma,
+					((i < hw_ep_max/2) ? "RX" : "TX"));
 
-				for (j = 0; j < qSize; j++)
-					n += scnprintf(buf + n, PAGE_SIZE - n,
-							" %04X:    %08X\n", j,
-							*((u32 *)td->ptr + j));
-			}
+			for (j = 0; j < qSize; j++)
+				n += scnprintf(buf + n, PAGE_SIZE - n,
+						" %04X:    %08X\n", j,
+						*((u32 *)req->ptr + j));
 		}
 	spin_unlock_irqrestore(udc->lock, flags);
 
@@ -1500,7 +1496,6 @@ static ssize_t prime_ept(struct device *dev,
 	unsigned int ep_num, dir;
 	int n;
 	struct ci13xxx_req *mReq = NULL;
-	struct ci13xxx_td_wrapper *td;
 
 	if (sscanf(buf, "%u %u", &ep_num, &dir) != 2) {
 		dev_err(dev, "<ep_num> <dir>: prime the ep");
@@ -1514,8 +1509,7 @@ static ssize_t prime_ept(struct device *dev,
 
 	n = hw_ep_bit(mEp->num, mEp->dir);
 	mReq =  list_entry(mEp->qh.queue.next, struct ci13xxx_req, queue);
-	td = list_first_entry(&mReq->td_list, struct ci13xxx_td_wrapper, list);
-	mEp->qh.ptr->td.next   = td->dma;
+	mEp->qh.ptr->td.next   = mReq->dma;
 	mEp->qh.ptr->td.token &= ~TD_STATUS;
 
 	wmb();
@@ -1545,15 +1539,12 @@ static ssize_t print_dtds(struct device *dev,
 	int n;
 	struct list_head   *ptr = NULL;
 	struct ci13xxx_req *req = NULL;
-	struct ci13xxx_td_wrapper *td;
-	unsigned long flags;
 
 	if (sscanf(buf, "%u %u", &ep_num, &dir) != 2) {
 		dev_err(dev, "<ep_num> <dir>: to print dtds");
 		goto done;
 	}
 
-	spin_lock_irqsave(udc->lock, flags);
 	if (dir)
 		mEp = &udc->ci13xxx_ep[ep_num + hw_ep_max/2];
 	else
@@ -1577,12 +1568,11 @@ static ssize_t print_dtds(struct device *dev,
 
 	list_for_each(ptr, &mEp->qh.queue) {
 		req = list_entry(ptr, struct ci13xxx_req, queue);
-		list_for_each_entry(td, &req->td_list, list)
-			pr_info("\treq:%08x next:%08x token:%08x page0:%08x\n",
-				td->dma, td->ptr->next, td->ptr->token,
-				td->ptr->page[0]);
+
+		pr_info("\treq:%08x next:%08x token:%08x page0:%08x status:%d\n",
+				req->dma, req->ptr->next, req->ptr->token,
+				req->ptr->page[0], req->req.status);
 	}
-	spin_unlock_irqrestore(udc->lock, flags);
 done:
 	return count;
 
@@ -1762,7 +1752,6 @@ static void ep_prime_timer_func(unsigned long data)
 {
 	struct ci13xxx_ep *mep = (struct ci13xxx_ep *)data;
 	struct ci13xxx_req *req;
-	struct ci13xxx_td_wrapper *td;
 	struct list_head *ptr = NULL;
 	int n = hw_ep_bit(mep->num, mep->dir);
 	unsigned long flags;
@@ -1776,10 +1765,9 @@ static void ep_prime_timer_func(unsigned long data)
 		goto out;
 
 	req = list_entry(mep->qh.queue.next, struct ci13xxx_req, queue);
-	td = list_first_entry(&req->td_list, struct ci13xxx_td_wrapper, list);
 
 	mb();
-	if (!(TD_STATUS_ACTIVE & td->ptr->token))
+	if (!(TD_STATUS_ACTIVE & req->ptr->token))
 		goto out;
 
 	mep->prime_timer_count++;
@@ -1791,10 +1779,10 @@ static void ep_prime_timer_func(unsigned long data)
 				mep->qh.ptr->td.next, mep->qh.ptr->td.token);
 		list_for_each(ptr, &mep->qh.queue) {
 			req = list_entry(ptr, struct ci13xxx_req, queue);
-			list_for_each_entry(td, &req->td_list, list)
-				pr_info("\treq:%08xnext:%08xtkn:%08xpage0:%08x\n",
-					td->dma, td->ptr->next,
-					td->ptr->token, td->ptr->page[0]);
+			pr_info("\treq:%08xnext:%08xtkn:%08xpage0:%08xsts:%d\n",
+					req->dma, req->ptr->next,
+					req->ptr->token, req->ptr->page[0],
+					req->req.status);
 		}
 		dbg_usb_op_fail(0xFF, "PRIMEF", mep);
 		mep->prime_fail_count++;
@@ -1808,69 +1796,7 @@ static void ep_prime_timer_func(unsigned long data)
 out:
 	mep->prime_timer_count = 0;
 	spin_unlock_irqrestore(mep->lock, flags);
-}
 
-static int prepare_dtds(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
-{
-	int i;
-	unsigned len;
-	unsigned remaining_len = mReq->req.length;
-	dma_addr_t dma = mReq->req.dma;
-	struct ci13xxx_td_wrapper *td = list_first_entry(&mReq->td_list,
-			struct ci13xxx_td_wrapper, list);
-	struct ci13xxx_td_wrapper *prev_td = NULL;
-	bool zlp = mReq->req.zero && remaining_len &&
-			(remaining_len % mEp->ep.maxpacket == 0);
-
-	do {
-		td = kmalloc(sizeof(*td), GFP_ATOMIC);
-		if (td == NULL) {
-			pr_err("td wrapper allocation failed\n");
-			goto free;
-		}
-		td->ptr = dma_pool_alloc(mEp->td_pool, GFP_ATOMIC,
-				&td->dma);
-		if (td->ptr == NULL) {
-			kfree(td);
-			pr_err("td allocation failed\n");
-			goto free;
-		}
-
-		list_add_tail(&td->list, &mReq->td_list);
-		if (zlp && !remaining_len)
-			zlp = false;
-
-		len = min_t(unsigned, remaining_len, CI13XXX_MAX_REQ_SIZE);
-		remaining_len -= len;
-		memset(td->ptr, 0, sizeof(*td->ptr));
-		td->ptr->token    = len << ffs_nr(TD_TOTAL_BYTES);
-		td->ptr->token   &= TD_TOTAL_BYTES;
-		td->ptr->token   |= TD_STATUS_ACTIVE;
-
-		td->ptr->page[0]  = dma;
-		for (i = 1; i < 5; i++)
-			td->ptr->page[i] = (dma + i * CI13XXX_PAGE_SIZE) &
-					~TD_RESERVED_MASK;
-		if (prev_td)
-			prev_td->ptr->next = td->dma;
-
-		dma += len;
-		prev_td = td;
-
-	} while (remaining_len || zlp);
-
-	td->ptr->next = TD_TERMINATE;
-	if (!mReq->req.no_interrupt)
-		td->ptr->token |= TD_IOC;
-
-	return 0;
-free:
-	list_for_each_entry_safe(td, prev_td, &mReq->td_list, list) {
-		list_del(&td->list);
-		dma_pool_free(mEp->td_pool, td->ptr, td->dma);
-		kfree(td);
-	}
-	return -ENOMEM;
 }
 
 /**
@@ -1885,7 +1811,7 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	unsigned i;
 	int ret = 0;
 	unsigned length = mReq->req.length;
-	struct ci13xxx_td_wrapper *td;
+	struct ci13xxx *udc = _udc;
 
 	trace("%p, %p", mEp, mReq);
 
@@ -1905,23 +1831,40 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 		mReq->map = 1;
 	}
 
-	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID)
-		mReq->req.dma = 0;
-
-	ret = prepare_dtds(mEp, mReq);
-	if (ret) {
-		pr_err("dTD preparation failed\n");
-		if (mReq->map) {
-			dma_unmap_single(mEp->device, mReq->req.dma,
-					mReq->req.length,
-					mEp->dir ? DMA_TO_DEVICE :
+	if (mReq->req.zero && length && (length % mEp->ep.maxpacket == 0)) {
+		mReq->zptr = dma_pool_alloc(mEp->td_pool, GFP_ATOMIC,
+					   &mReq->zdma);
+		if (mReq->zptr == NULL) {
+			if (mReq->map) {
+				dma_unmap_single(mEp->device, mReq->req.dma,
+					length, mEp->dir ? DMA_TO_DEVICE :
 					DMA_FROM_DEVICE);
-			mReq->req.dma = DMA_ADDR_INVALID;
-			mReq->map     = 0;
+				mReq->req.dma = DMA_ADDR_INVALID;
+				mReq->map     = 0;
+			}
+			return -ENOMEM;
 		}
-		return ret;
+		memset(mReq->zptr, 0, sizeof(*mReq->zptr));
+		mReq->zptr->next    = TD_TERMINATE;
+		mReq->zptr->token   = TD_STATUS_ACTIVE;
+		if (!mReq->req.no_interrupt)
+			mReq->zptr->token   |= TD_IOC;
 	}
-	td = list_first_entry(&mReq->td_list, struct ci13xxx_td_wrapper, list);
+	/*
+	 * TD configuration
+	 * TODO - handle requests which spawns into several TDs
+	 */
+	memset(mReq->ptr, 0, sizeof(*mReq->ptr));
+	mReq->ptr->token    = length << ffs_nr(TD_TOTAL_BYTES);
+	mReq->ptr->token   &= TD_TOTAL_BYTES;
+	mReq->ptr->token   |= TD_STATUS_ACTIVE;
+	if (mReq->zptr) {
+		mReq->ptr->next    = mReq->zdma;
+	} else {
+		mReq->ptr->next    = TD_TERMINATE;
+		if (!mReq->req.no_interrupt)
+			mReq->ptr->token  |= TD_IOC;
+	}
 
 	/* MSM Specific: updating the request as required for
 	 * SPS mode. Enable MSM proprietary DMA engine acording
@@ -1929,28 +1872,46 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 	 */
 	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
 		if (mReq->req.udc_priv & MSM_SPS_MODE) {
-			td->ptr->token = TD_STATUS_ACTIVE;
+			mReq->ptr->token = TD_STATUS_ACTIVE;
 			if (mReq->req.udc_priv & MSM_IS_FINITE_TRANSFER)
-				td->ptr->next = TD_TERMINATE;
+				mReq->ptr->next = TD_TERMINATE;
 			else
-				td->ptr->next = MSM_ETD_TYPE | td->dma;
+				mReq->ptr->next = MSM_ETD_TYPE | mReq->dma;
 			if (!mReq->req.no_interrupt)
-				td->ptr->token |= MSM_ETD_IOC;
+				mReq->ptr->token |= MSM_ETD_IOC;
 		}
+		mReq->req.dma = 0;
+	}
+
+	mReq->ptr->page[0]  = mReq->req.dma;
+	for (i = 1; i < 5; i++)
+		mReq->ptr->page[i] = (mReq->req.dma + i * CI13XXX_PAGE_SIZE) &
+							~TD_RESERVED_MASK;
+
+	/* Remote Wakeup */
+	if (udc->suspended) {
+		if (!udc->remote_wakeup) {
+			mReq->req.status = -EAGAIN;
+			dev_dbg(mEp->device, "%s: queue failed (suspend) ept #%d\n",
+				__func__, mEp->num);
+			return -EAGAIN;
+		}
+		usb_phy_set_suspend(udc->transceiver, 0);
+		schedule_delayed_work(&udc->rw_work, REMOTE_WAKEUP_DELAY);
 	}
 
 	if (!list_empty(&mEp->qh.queue)) {
 		struct ci13xxx_req *mReqPrev;
-		struct ci13xxx_td_wrapper *prev_td;
 		int n = hw_ep_bit(mEp->num, mEp->dir);
 		int tmp_stat;
 		ktime_t start, diff;
 
 		mReqPrev = list_entry(mEp->qh.queue.prev,
 				struct ci13xxx_req, queue);
-		prev_td = list_entry(mReqPrev->td_list.prev,
-				struct ci13xxx_td_wrapper, list);
-		prev_td->ptr->next = td->dma & TD_ADDR_MASK;
+		if (mReqPrev->zptr)
+			mReqPrev->zptr->next = mReq->dma & TD_ADDR_MASK;
+		else
+			mReqPrev->ptr->next = mReq->dma & TD_ADDR_MASK;
 		wmb();
 		if (hw_cread(CAP_ENDPTPRIME, BIT(n)))
 			goto done;
@@ -1979,17 +1940,15 @@ static int _hardware_enqueue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 		struct ci13xxx_req *mReq = \
 			list_entry(mEp->qh.queue.next,
 				   struct ci13xxx_req, queue);
-		struct ci13xxx_td_wrapper *td = list_first_entry(&mReq->td_list,
-				struct ci13xxx_td_wrapper, list);
 
-		if (TD_STATUS_ACTIVE & td->ptr->token) {
-			mEp->qh.ptr->td.next   = td->dma;
+		if (TD_STATUS_ACTIVE & mReq->ptr->token) {
+			mEp->qh.ptr->td.next   = mReq->dma;
 			mEp->qh.ptr->td.token &= ~TD_STATUS;
 			goto prime;
 		}
 	}
 
-	mEp->qh.ptr->td.next   = td->dma;    /* TERMINATE = 0 */
+	mEp->qh.ptr->td.next   = mReq->dma;    /* TERMINATE = 0 */
 
 	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID) {
 		if (mReq->req.udc_priv & MSM_SPS_MODE) {
@@ -2046,27 +2005,27 @@ done:
  */
 static int _hardware_dequeue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 {
-	struct ci13xxx_td_wrapper *td, *temp_td;
-	unsigned rem, total_rem = 0;
-	int status;
-
 	trace("%p, %p", mEp, mReq);
 
 	if (mReq->req.status != -EALREADY)
 		return -EINVAL;
 
-	/* clean speculative fetches on td->ptr->token */
+	/* clean speculative fetches on req->ptr->token */
 	mb();
 
-	td = list_entry(mReq->td_list.prev, struct ci13xxx_td_wrapper, list);
-
-	if ((TD_STATUS_ACTIVE & td->ptr->token) != 0)
+	if ((TD_STATUS_ACTIVE & mReq->ptr->token) != 0)
 		return -EBUSY;
 
 	if (CI13XX_REQ_VENDOR_ID(mReq->req.udc_priv) == MSM_VENDOR_ID)
 		if ((mReq->req.udc_priv & MSM_SPS_MODE) &&
 			(mReq->req.udc_priv & MSM_IS_FINITE_TRANSFER))
 			return -EBUSY;
+	if (mReq->zptr) {
+		if ((TD_STATUS_ACTIVE & mReq->zptr->token) != 0)
+			return -EBUSY;
+		dma_pool_free(mEp->td_pool, mReq->zptr, mReq->zdma);
+		mReq->zptr = NULL;
+	}
 
 	mReq->req.status = 0;
 
@@ -2077,27 +2036,18 @@ static int _hardware_dequeue(struct ci13xxx_ep *mEp, struct ci13xxx_req *mReq)
 		mReq->map     = 0;
 	}
 
-	list_for_each_entry_safe(td, temp_td, &mReq->td_list, list) {
+	mReq->req.status = mReq->ptr->token & TD_STATUS;
+	if ((TD_STATUS_HALTED & mReq->req.status) != 0)
+		mReq->req.status = -1;
+	else if ((TD_STATUS_DT_ERR & mReq->req.status) != 0)
+		mReq->req.status = -1;
+	else if ((TD_STATUS_TR_ERR & mReq->req.status) != 0)
+		mReq->req.status = -1;
 
-		status = td->ptr->token & TD_STATUS;
-		if ((status & TD_STATUS_HALTED) != 0)
-			mReq->req.status = -1;
-		else if ((status & TD_STATUS_DT_ERR) != 0)
-			mReq->req.status = -1;
-		else if ((status & TD_STATUS_TR_ERR) != 0)
-			mReq->req.status = -1;
-
-		rem = td->ptr->token & TD_TOTAL_BYTES;
-		rem >>= ffs_nr(TD_TOTAL_BYTES);
-		total_rem += rem;
-
-		list_del(&td->list);
-		dma_pool_free(mEp->td_pool, td->ptr, td->dma);
-		kfree(td);
-	}
-
-	mReq->req.actual = mReq->req.status ? 0 :
-			(mReq->req.length - total_rem);
+	mReq->req.actual   = mReq->ptr->token & TD_TOTAL_BYTES;
+	mReq->req.actual >>= ffs_nr(TD_TOTAL_BYTES);
+	mReq->req.actual   = mReq->req.length - mReq->req.actual;
+	mReq->req.actual   = mReq->req.status ? 0 : mReq->req.actual;
 
 	return mReq->req.actual;
 }
@@ -2114,7 +2064,6 @@ __releases(mEp->lock)
 __acquires(mEp->lock)
 {
 	struct ci13xxx_ep *mEpTemp = mEp;
-	struct ci13xxx_td_wrapper *td, *temp_td;
 	unsigned val;
 
 	trace("%p", mEp);
@@ -2156,16 +2105,10 @@ __acquires(mEp->lock)
 			mReq->map     = 0;
 		}
 
-		list_for_each_entry_safe(td, temp_td, &mReq->td_list, list) {
-			list_del(&td->list);
-			dma_pool_free(mEp->td_pool, td->ptr, td->dma);
-			kfree(td);
-		}
-
 		if (mReq->req.complete != NULL) {
 			spin_unlock(mEp->lock);
 			if ((mEp->type == USB_ENDPOINT_XFER_CONTROL) &&
-					mReq->req.length)
+				mReq->req.length)
 				mEpTemp = &_udc->ep0in;
 			mReq->req.complete(&mEpTemp->ep, &mReq->req);
 			if (mEp->type == USB_ENDPOINT_XFER_CONTROL)
@@ -2512,7 +2455,7 @@ dequeue:
 		}
 		req_dequeue = 0;
 		list_del_init(&mReq->queue);
-		dbg_done(_usb_addr(mEp), &mReq->req);
+		dbg_done(_usb_addr(mEp), mReq->ptr->token, retval);
 		if (mReq->req.complete != NULL) {
 			spin_unlock(mEp->lock);
 			if ((mEp->type == USB_ENDPOINT_XFER_CONTROL) &&
@@ -2880,14 +2823,18 @@ static struct usb_request *ep_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 	}
 
 	mReq = kzalloc(sizeof(struct ci13xxx_req), gfp_flags);
-	if (mReq == NULL)
-		goto out;
+	if (mReq != NULL) {
+		INIT_LIST_HEAD(&mReq->queue);
+		mReq->req.dma = DMA_ADDR_INVALID;
 
-	INIT_LIST_HEAD(&mReq->queue);
-	mReq->req.dma = DMA_ADDR_INVALID;
-	INIT_LIST_HEAD(&mReq->td_list);
+		mReq->ptr = dma_pool_alloc(mEp->td_pool, gfp_flags,
+					   &mReq->dma);
+		if (mReq->ptr == NULL) {
+			kfree(mReq);
+			mReq = NULL;
+		}
+	}
 
-out:
 	dbg_event(_usb_addr(mEp), "ALLOC", mReq == NULL);
 
 	return (mReq == NULL) ? NULL : &mReq->req;
@@ -2916,6 +2863,8 @@ static void ep_free_request(struct usb_ep *ep, struct usb_request *req)
 
 	spin_lock_irqsave(mEp->lock, flags);
 
+	if (mReq->ptr)
+		dma_pool_free(mEp->td_pool, mReq->ptr, mReq->dma);
 	kfree(mReq);
 
 	dbg_event(_usb_addr(mEp), "FREE", 0);
@@ -2956,17 +2905,6 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 		return -ESHUTDOWN;
 	}
 
-	if (udc->suspended) {
-		if (!udc->remote_wakeup) {
-			mReq->req.status = -EAGAIN;
-			dev_dbg(mEp->device, "%s: queue failed (suspend) ept #%d\n",
-				__func__, mEp->num);
-			return -EAGAIN;
-		}
-		usb_phy_set_suspend(udc->transceiver, 0);
-		schedule_delayed_work(&udc->rw_work, REMOTE_WAKEUP_DELAY);
-	}
-
 	if (mEp->type == USB_ENDPOINT_XFER_CONTROL) {
 		if (req->length)
 			mEp = (_udc->ep0_dir == RX) ?
@@ -2985,9 +2923,11 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 		goto done;
 	}
 
-	/* REMOVE ME */
-	if (req->length > (CI13XXX_MAX_REQ_SIZE))
-		pr_warn_once("bigger request length\n");
+	if (req->length > (4 * CI13XXX_PAGE_SIZE)) {
+		req->length = (4 * CI13XXX_PAGE_SIZE);
+		retval = -EMSGSIZE;
+		warn("request length truncated");
+	}
 
 	dbg_queue(_usb_addr(mEp), req, retval);
 
@@ -3019,7 +2959,6 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 	struct ci13xxx_ep  *mEp  = container_of(ep,  struct ci13xxx_ep, ep);
 	struct ci13xxx_ep *mEpTemp = mEp;
 	struct ci13xxx_req *mReq = container_of(req, struct ci13xxx_req, req);
-	struct ci13xxx_td_wrapper *td, *temp_td;
 	unsigned long flags;
 
 	trace("%p, %p", ep, req);
@@ -3049,12 +2988,6 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 		mReq->map     = 0;
 	}
 	req->status = -ECONNRESET;
-
-	list_for_each_entry_safe(td, temp_td, &mReq->td_list, list) {
-		list_del(&td->list);
-		dma_pool_free(mEp->td_pool, td->ptr, td->dma);
-		kfree(td);
-	}
 
 	if (mReq->req.complete != NULL) {
 		spin_unlock(mEp->lock);
