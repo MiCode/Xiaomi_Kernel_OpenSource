@@ -1319,6 +1319,8 @@ static int __devinit _tsens_register_thermal(void)
 		for (i = 0; i < tmdev->tsens_num_sensor; i++)
 			thermal_zone_device_unregister(tmdev->sensor[i].tz_dev);
 		goto fail;
+	} else {
+		enable_irq_wake(tmdev->tsens_irq);
 	}
 	platform_set_drvdata(pdev, tmdev);
 
