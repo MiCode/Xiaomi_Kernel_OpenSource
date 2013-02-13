@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,8 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/cdc.h>
 
-#define CTRL_DEV_MAX_LEN 10
+#define MAX_RMNET_DEVS		4
+#define CTRL_DEV_MAX_LEN	10
 
 struct rmnet_ctrl_dev {
 
@@ -52,12 +53,6 @@ struct rmnet_ctrl_dev {
 
 	bool			is_connected;
 
-	/*input control lines (DSR, CTS, CD, RI)*/
-	unsigned int		cbits_tolocal;
-
-	/*output control lines (DTR, RTS)*/
-	unsigned int		cbits_tomdm;
-
 	/*
 	 * track first resp available from mdm when it boots up
 	 * to avoid bigger  timeout value used by qmuxd
@@ -65,6 +60,13 @@ struct rmnet_ctrl_dev {
 	bool			resp_available;
 
 	unsigned int		mdm_wait_timeout;
+
+	/*input control lines (DSR, CTS, CD, RI)*/
+	unsigned int		cbits_tolocal;
+	/*output control lines (DTR, RTS)*/
+	unsigned int		cbits_tomdm;
+
+	struct list_head	dev_list;
 
 	/*counters*/
 	unsigned int		snd_encap_cmd_cnt;
@@ -76,15 +78,14 @@ struct rmnet_ctrl_dev {
 	unsigned int		zlp_cnt;
 };
 
-extern struct rmnet_ctrl_dev *ctrl_dev[];
-
 extern int rmnet_usb_ctrl_start_rx(struct rmnet_ctrl_dev *);
 extern int rmnet_usb_ctrl_suspend(struct rmnet_ctrl_dev *dev);
-extern int rmnet_usb_ctrl_init(void);
-extern void rmnet_usb_ctrl_exit(void);
+extern int rmnet_usb_ctrl_init(int num_devs, int insts_per_dev);
+extern void rmnet_usb_ctrl_exit(int num_devs, int insts_per_dev);
 extern int rmnet_usb_ctrl_probe(struct usb_interface *intf,
-		struct usb_host_endpoint *status,
-		struct rmnet_ctrl_dev *dev);
+				struct usb_host_endpoint *int_in,
+				unsigned long rmnet_devnum,
+				struct rmnet_ctrl_dev **ctrldev);
 extern void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *);
 
 #endif /* __RMNET_USB_H*/
