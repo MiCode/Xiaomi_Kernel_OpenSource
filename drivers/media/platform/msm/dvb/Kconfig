@@ -7,6 +7,5 @@ config DVB_MPQ
 	  Support for Qualcomm MPQ based DVB adapter.
 	  Say Y or M if you own such a device and want to use it.
 
-source "drivers/media/dvb/mpq/demux/Kconfig"
-source "drivers/media/dvb/mpq/video/Kconfig"
-
+source "drivers/media/platform/msm/dvb/demux/Kconfig"
+source "drivers/media/platform/msm/dvb/video/Kconfig"
