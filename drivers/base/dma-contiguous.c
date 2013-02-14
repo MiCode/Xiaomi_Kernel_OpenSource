@@ -24,6 +24,9 @@
 
 #include <linux/memblock.h>
 #include <linux/err.h>
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #include <linux/mm.h>
 #include <linux/mutex.h>
 #include <linux/page-isolation.h>
@@ -181,6 +184,35 @@ no_mem:
 	return ERR_PTR(ret);
 }
 
+/*****************************************************************************/
+
+#ifdef CONFIG_OF
+int __init cma_fdt_scan(unsigned long node, const char *uname,
+				int depth, void *data)
+{
+	phys_addr_t base, size;
+	unsigned long len;
+	__be32 *prop;
+
+	if (strncmp(uname, "region@", 7) != 0 || depth != 2 ||
+	    !of_get_flat_dt_prop(node, "contiguous-region", NULL))
+		return 0;
+
+	prop = of_get_flat_dt_prop(node, "reg", &len);
+	if (!prop || (len != 2 * sizeof(unsigned long)))
+		return 0;
+
+	base = be32_to_cpu(prop[0]);
+	size = be32_to_cpu(prop[1]);
+
+	pr_info("Found %s, memory base %lx, size %ld MiB\n", uname,
+		(unsigned long)base, (unsigned long)size / SZ_1M);
+	dma_contiguous_reserve_area(size, &base, 0);
+
+	return 0;
+}
+#endif
+
 /**
  * dma_contiguous_reserve() - reserve area for contiguous memory handling
  * @limit: End address of the reserved memory (optional, 0 for any).
@@ -219,6 +251,9 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 		if (dma_contiguous_reserve_area(sel_size, &base, limit) == 0)
 			dma_contiguous_def_base = base;
 	}
+#ifdef CONFIG_OF
+	of_scan_flat_dt(cma_fdt_scan, NULL);
+#endif
 };
 
 /**
@@ -323,6 +358,40 @@ int __init dma_contiguous_add_device(struct device *dev, phys_addr_t base)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static void cma_assign_device_from_dt(struct device *dev)
+{
+	struct device_node *node;
+	struct cma *cma;
+	u32 value;
+
+	node = of_parse_phandle(dev->of_node, "linux,contiguous-region", 0);
+	if (!node)
+		return;
+	if (of_property_read_u32(node, "reg", &value) && !value)
+		return;
+	cma = cma_get_area(value);
+	if (!cma)
+		return;
+
+	dev_set_cma_area(dev, cma);
+	pr_info("Assigned CMA region at %lx to %s device\n", (unsigned long)value, dev_name(dev));
+}
+
+static int cma_device_init_notifier_call(struct notifier_block *nb,
+					 unsigned long event, void *data)
+{
+	struct device *dev = data;
+	if (event == BUS_NOTIFY_ADD_DEVICE && dev->of_node)
+		cma_assign_device_from_dt(dev);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block cma_dev_init_nb = {
+	.notifier_call = cma_device_init_notifier_call,
+};
+#endif
+
 static int __init cma_init_reserved_areas(void)
 {
 	struct cma *cma;
@@ -344,6 +413,9 @@ static int __init cma_init_reserved_areas(void)
 		dev_set_cma_area(cma_maps[i].dev, cma);
 	}
 
+#ifdef CONFIG_OF
+	bus_register_notifier(&platform_bus_type, &cma_dev_init_nb);
+#endif
 	return 0;
 }
 core_initcall(cma_init_reserved_areas);
