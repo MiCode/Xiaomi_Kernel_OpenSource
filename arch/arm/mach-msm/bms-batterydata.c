@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,4 +105,5 @@ struct bms_battery_data palladium_1500_data = {
 	.pc_temp_ocv_lut	= &pc_temp_ocv,
 	.rbatt_sf_lut		= &rbatt_sf,
 	.default_rbatt_mohm	= 236,
+	.rbatt_capacitive_mohm	= 50,
 };

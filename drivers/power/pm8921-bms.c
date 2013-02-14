@@ -136,6 +136,7 @@ struct pm8921_bms_chip {
 	int			amux_2_trim_delta;
 	uint16_t		prev_last_good_ocv_raw;
 	int			rconn_mohm;
+	int			rbatt_capacitive_mohm;
 	struct mutex		last_ocv_uv_mutex;
 	int			last_ocv_uv;
 	int			last_ocv_temp_decidegc;
@@ -847,8 +848,8 @@ static int estimate_ocv(struct pm8921_bms_chip *chip)
 {
 	int ibat_ua, vbat_uv, ocv_est_uv;
 	int rc;
-
-	int rbatt_mohm = chip->default_rbatt_mohm + chip->rconn_mohm;
+	int rbatt_mohm = chip->default_rbatt_mohm + chip->rconn_mohm
+				+ chip->rbatt_capacitive_mohm;
 
 	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
 							&ibat_ua,
@@ -917,7 +918,10 @@ static int reset_bms_for_test(void)
 	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
 							&ibat_ua,
 							&vbat_uv);
-
+	/*
+	 * don't include rbatt and rbatt_capacitve since we expect this to
+	 * be used with a fake battery which does not have internal resistnaces
+	 */
 	ocv_est_uv = vbat_uv + (ibat_ua * the_chip->rconn_mohm) / 1000;
 	pr_debug("forcing ocv to be %d due to bms reset mode\n", ocv_est_uv);
 	the_chip->last_ocv_uv = ocv_est_uv;
@@ -1071,6 +1075,10 @@ static int get_rbatt(struct pm8921_bms_chip *chip, int soc_rbatt, int batt_temp)
 	rbatt += the_chip->rconn_mohm;
 	pr_debug("adding rconn_mohm = %d rbatt = %d\n",
 				the_chip->rconn_mohm, rbatt);
+
+	rbatt += the_chip->rbatt_capacitive_mohm;
+	pr_debug("adding rbatt_capacitive_mohm = %d rbatt = %d\n",
+				the_chip->rbatt_capacitive_mohm, rbatt);
 
 	if (is_between(20, 10, soc_rbatt))
 		rbatt = rbatt
@@ -2869,6 +2877,8 @@ palladium:
 		chip->default_rbatt_mohm
 				= palladium_1500_data.default_rbatt_mohm;
 		chip->delta_rbatt_mohm = palladium_1500_data.delta_rbatt_mohm;
+		chip->rbatt_capacitive_mohm
+			= palladium_1500_data.rbatt_capacitive_mohm;
 		return 0;
 desay:
 		chip->fcc = desay_5200_data.fcc;
@@ -2878,6 +2888,8 @@ desay:
 		chip->rbatt_sf_lut = desay_5200_data.rbatt_sf_lut;
 		chip->default_rbatt_mohm = desay_5200_data.default_rbatt_mohm;
 		chip->delta_rbatt_mohm = desay_5200_data.delta_rbatt_mohm;
+		chip->rbatt_capacitive_mohm
+			= desay_5200_data.rbatt_capacitive_mohm;
 		return 0;
 }
 
