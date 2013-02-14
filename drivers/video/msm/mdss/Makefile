@@ -1,3 +1,6 @@
+mdss-mdp3-objs = mdp3.o mdp3_dma.o mdp3_ctrl.o
+obj-$(CONFIG_FB_MSM_MDSS) += mdss-mdp3.o
+
 mdss-mdp-objs := mdss_mdp.o mdss_mdp_ctl.o mdss_mdp_pipe.o mdss_mdp_util.o
 mdss-mdp-objs += mdss_mdp_pp.o
 mdss-mdp-objs += mdss_mdp_intf_video.o
