@@ -25,6 +25,8 @@
 
 #define MAX_PES_LENGTH	(SZ_64K)
 
+#define MAX_TS_PACKETS_FOR_SDMX_PROCESS	(500)
+
 /*
  * PES header length field is 8 bits so PES header length after this field
  * can be up to 256 bytes.
@@ -86,6 +88,11 @@ module_param(mpq_sdmx_scramble_odd, int, S_IRUGO | S_IWUSR);
 /* Whether to use secure demux or bypass it. Use for debugging */
 static int mpq_bypass_sdmx = 1;
 module_param(mpq_bypass_sdmx, int, S_IRUGO | S_IWUSR);
+
+/* Max number of TS packets allowed as input for a single sdmx process */
+static int mpq_sdmx_proc_limit = MAX_TS_PACKETS_FOR_SDMX_PROCESS;
+module_param(mpq_sdmx_proc_limit, int, S_IRUGO | S_IWUSR);
+
 
 /**
  * Maximum allowed framing pattern size
@@ -4339,7 +4346,7 @@ static void mpq_sdmx_process_results(struct mpq_demux *mpq_demux)
 	}
 }
 
-int mpq_sdmx_process(struct mpq_demux *mpq_demux,
+static int mpq_sdmx_process_buffer(struct mpq_demux *mpq_demux,
 	struct sdmx_buff_descr *input,
 	u32 fill_count,
 	u32 read_offset)
@@ -4434,6 +4441,41 @@ int mpq_sdmx_process(struct mpq_demux *mpq_demux,
 	mutex_unlock(&mpq_demux->mutex);
 
 	return bytes_read;
+}
+
+int mpq_sdmx_process(struct mpq_demux *mpq_demux,
+	struct sdmx_buff_descr *input,
+	u32 fill_count,
+	u32 read_offset)
+{
+	int ret;
+	int todo;
+	int total_bytes_read = 0;
+	int limit = mpq_sdmx_proc_limit * mpq_demux->demux.ts_packet_size;
+
+	do {
+		todo = fill_count > limit ? limit : fill_count;
+		ret = mpq_sdmx_process_buffer(mpq_demux, input, todo,
+			read_offset);
+		if (ret > 0) {
+			total_bytes_read += ret;
+			fill_count -= ret;
+			read_offset += ret;
+			if (read_offset >= input->size)
+				read_offset -= input->size;
+		} else if (ret == 0) {
+			/* Not enough data to read (less than 1 TS packet) */
+			break;
+		} else {
+			/* Some error occurred */
+			MPQ_DVB_ERR_PRINT(
+				"%s: mpq_sdmx_process_buffer failed, returned %d\n",
+				__func__, ret);
+			break;
+		}
+	} while (fill_count > 0);
+
+	return total_bytes_read;
 }
 EXPORT_SYMBOL(mpq_sdmx_process);
 
