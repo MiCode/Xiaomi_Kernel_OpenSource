@@ -638,6 +638,20 @@ void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
 	dwc3_gadget_restart(dwc);
 }
 
+static void (*notify_event) (struct dwc3 *, unsigned);
+void dwc3_set_notifier(void (*notify)(struct dwc3 *, unsigned))
+{
+	notify_event = notify;
+}
+EXPORT_SYMBOL(dwc3_set_notifier);
+
+void dwc3_notify_event(struct dwc3 *dwc, unsigned event)
+{
+	if (dwc->notify_event)
+		dwc->notify_event(dwc, event);
+}
+EXPORT_SYMBOL(dwc3_notify_event);
+
 #define DWC3_ALIGN_MASK		(16 - 1)
 
 static int dwc3_probe(struct platform_device *pdev)
@@ -661,6 +675,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->mem = mem;
 	dwc->dev = dev;
 
+	dwc->notify_event = notify_event;
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
 		dev_err(dev, "missing IRQ\n");

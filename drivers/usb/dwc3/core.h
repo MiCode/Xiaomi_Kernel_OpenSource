@@ -645,6 +645,7 @@ struct dwc3_scratchpad_array {
 	__le64	dma_adr[DWC3_MAX_HIBER_SCRATCHBUFS];
 };
 
+#define DWC3_CONTROLLER_ERROR_EVENT			0
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -799,6 +800,8 @@ struct dwc3 {
 
 	u8			test_mode;
 	u8			test_mode_nr;
+
+	void (*notify_event)	(struct dwc3 *, unsigned);
 
 	unsigned		delayed_status:1;
 	unsigned		ep0_bounced:1;
@@ -1042,5 +1045,9 @@ static inline int dwc3_gadget_resume(struct dwc3 *dwc)
 #endif /* !IS_ENABLED(CONFIG_USB_DWC3_HOST) */
 
 void dwc3_post_host_reset_core_init(struct dwc3 *dwc);
+
+extern void dwc3_set_notifier(
+		void (*notify) (struct dwc3 *dwc3, unsigned event));
+extern void dwc3_notify_event(struct dwc3 *dwc3, unsigned event);
 
 #endif /* __DRIVERS_USB_DWC3_CORE_H */
