@@ -19,43 +19,63 @@
 struct smem_client {
 	int mem_type;
 	void *clnt;
+	struct msm_vidc_platform_resources *res;
 };
 
-static int get_device_address(struct ion_client *clnt,
-		struct ion_handle *hndl, int domain_num, int partition_num,
-		unsigned long align, unsigned long *iova,
-		unsigned long *buffer_size, int flags)
+static int get_device_address(struct smem_client *smem_client,
+		struct ion_handle *hndl, unsigned long align,
+		unsigned long *iova, unsigned long *buffer_size,
+		u32 flags, u32 buffer_type)
 {
 	int rc = 0;
-	if (!iova || !buffer_size || !hndl || !clnt) {
+	int domain, partition;
+	struct ion_client *clnt = NULL;
+
+	if (!iova || !buffer_size || !hndl || !smem_client) {
 		dprintk(VIDC_ERR, "Invalid params: %p, %p, %p, %p\n",
-				clnt, hndl, iova, buffer_size);
+				smem_client, hndl, iova, buffer_size);
 		return -EINVAL;
 	}
-	dprintk(VIDC_DBG, "domain: %d, partition: %d\n",
-		domain_num, partition_num);
+
+	clnt = smem_client->clnt;
+	if (!clnt) {
+		dprintk(VIDC_ERR, "Invalid client");
+		return -EINVAL;
+	}
+
+	rc = msm_smem_get_domain_partition(smem_client, flags, buffer_type,
+			&domain, &partition);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to get domain and partition: %d", rc);
+		goto mem_domain_get_failed;
+	}
+
 	if (flags & SMEM_SECURE) {
-		if (flags & SMEM_INPUT)
-			rc = msm_ion_secure_buffer(clnt, hndl, 0x1, 0);
-		else
-			rc = msm_ion_secure_buffer(clnt, hndl, 0x2, 0);
+		rc = msm_ion_secure_buffer(clnt, hndl, buffer_type, 0);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to secure memory\n");
-			goto mem_secure_failed;
+			goto mem_domain_get_failed;
 		}
 	}
-	rc = ion_map_iommu(clnt, hndl, domain_num, partition_num, align,
+	rc = ion_map_iommu(clnt, hndl, domain, partition, align,
 			0, iova, buffer_size, 0, 0);
-	if (rc)
+	if (rc) {
 		dprintk(VIDC_ERR,
 		"ion_map_iommu failed(%d).domain: %d,partition: %d\n",
-		rc, domain_num, partition_num);
-mem_secure_failed:
+		rc, domain, partition);
+		goto mem_map_failed;
+	}
+
+	return 0;
+mem_map_failed:
+	if (flags & SMEM_SECURE)
+		msm_ion_unsecure_buffer(clnt, hndl);
+mem_domain_get_failed:
 	return rc;
 }
 
 static void put_device_address(struct ion_client *clnt,
-	struct ion_handle *hndl, int domain_num, int partition_num, int flags)
+	struct ion_handle *hndl, int domain_num, int partition_num, u32 flags)
 {
 	ion_unmap_iommu(clnt, hndl, domain_num, partition_num);
 	if (flags & SMEM_SECURE) {
@@ -64,9 +84,8 @@ static void put_device_address(struct ion_client *clnt,
 	}
 }
 
-static int ion_user_to_kernel(struct smem_client *client,
-			int fd, u32 offset, int domain, int partition,
-			struct msm_smem *mem, int flags)
+static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
+		struct msm_smem *mem, enum smem_buffer_type buffer_type)
 {
 	struct ion_handle *hndl;
 	unsigned long iova = 0;
@@ -74,6 +93,7 @@ static int ion_user_to_kernel(struct smem_client *client,
 	unsigned long ionflags = 0;
 	int rc = 0;
 	int align = SZ_4K;
+
 	hndl = ion_import_dma_buf(client->clnt, fd);
 	if (IS_ERR_OR_NULL(hndl)) {
 		dprintk(VIDC_ERR, "Failed to get handle: %p, %d, %d, %p\n",
@@ -82,9 +102,6 @@ static int ion_user_to_kernel(struct smem_client *client,
 		goto fail_import_fd;
 	}
 	mem->kvaddr = NULL;
-	mem->domain = domain;
-	mem->partition_num = partition;
-	mem->flags = flags;
 	rc = ion_handle_get_flags(client->clnt, hndl, &ionflags);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get ion flags: %d\n", rc);
@@ -99,11 +116,14 @@ static int ion_user_to_kernel(struct smem_client *client,
 			goto fail_map;
 		}
 	}
-	if (flags & SMEM_SECURE)
+
+	mem->flags = ionflags;
+	mem->buffer_type = buffer_type;
+	if (mem->flags & SMEM_SECURE)
 		align = ALIGN(align, SZ_1M);
 
-	rc = get_device_address(client->clnt, hndl, mem->domain,
-		mem->partition_num, align, &iova, &buffer_size, flags);
+	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
+					mem->flags, buffer_type);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n", rc);
 		goto fail_device_address;
@@ -125,26 +145,20 @@ fail_import_fd:
 	return rc;
 }
 
-static int alloc_ion_mem(struct smem_client *client, size_t size,
-		u32 align, u32 flags, int domain, int partition,
-		struct msm_smem *mem, int map_kernel)
+static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
+	u32 flags, enum smem_buffer_type buffer_type, struct msm_smem *mem,
+	int map_kernel)
 {
 	struct ion_handle *hndl;
 	unsigned long iova = 0;
 	unsigned long buffer_size = 0;
-	unsigned long ionflags = 0;
 	unsigned long heap_mask = 0;
 	int rc = 0;
-	if (flags & SMEM_CACHED)
-		ionflags = ION_SET_CACHED(ionflags);
-	else
-		ionflags = ION_SET_UNCACHED(ionflags);
 
 	align = ALIGN(align, SZ_4K);
 	size = ALIGN(size, SZ_4K);
 
 	if (flags & SMEM_SECURE) {
-		ionflags |= ION_SECURE;
 		size = ALIGN(size, SZ_1M);
 		align = ALIGN(align, SZ_1M);
 	}
@@ -153,21 +167,18 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	if (!(flags & SMEM_SECURE))
 		heap_mask |= ION_HEAP(ION_IOMMU_HEAP_ID);
 
-	dprintk(VIDC_DBG, "domain: %d, partition: %d\n",
-		domain, partition);
-	hndl = ion_alloc(client->clnt, size, align, heap_mask, ionflags);
+	hndl = ion_alloc(client->clnt, size, align, heap_mask, flags);
 	if (IS_ERR_OR_NULL(hndl)) {
 		dprintk(VIDC_ERR,
-		"Failed to allocate shared memory = %p, %d, %d, 0x%lx\n",
-		client, size, align, ionflags);
+		"Failed to allocate shared memory = %p, %d, %d, 0x%x\n",
+		client, size, align, flags);
 		rc = -ENOMEM;
 		goto fail_shared_mem_alloc;
 	}
 	mem->mem_type = client->mem_type;
 	mem->smem_priv = hndl;
-	mem->domain = domain;
-	mem->partition_num = partition;
 	mem->flags = flags;
+	mem->buffer_type = buffer_type;
 	if (map_kernel) {
 		mem->kvaddr = ion_map_kernel(client->clnt, hndl);
 		if (!mem->kvaddr) {
@@ -179,8 +190,8 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 	} else
 		mem->kvaddr = NULL;
 
-	rc = get_device_address(client->clnt, hndl, mem->domain,
-		mem->partition_num, align, &iova, &buffer_size, flags);
+	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
+				flags, buffer_type);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n",
 			rc);
@@ -202,10 +213,18 @@ fail_shared_mem_alloc:
 
 static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 {
+	int domain, partition, rc;
+
+	rc = msm_smem_get_domain_partition((void *)client, mem->flags,
+			mem->buffer_type, &domain, &partition);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to get domain, partition: %d", rc);
+		return;
+	}
+
 	if (mem->device_addr)
 		put_device_address(client->clnt,
-			mem->smem_priv, mem->domain,
-			mem->partition_num, mem->flags);
+			mem->smem_priv, domain, partition, mem->flags);
 	if (mem->kvaddr)
 		ion_unmap_kernel(client->clnt, mem->smem_priv);
 	if (mem->smem_priv)
@@ -227,7 +246,7 @@ static void ion_delete_client(struct smem_client *client)
 }
 
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
-	int domain, int partition, int flags)
+		enum smem_buffer_type buffer_type)
 {
 	struct smem_client *client = clt;
 	int rc = 0;
@@ -243,8 +262,7 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 	}
 	switch (client->mem_type) {
 	case SMEM_ION:
-		rc = ion_user_to_kernel(clt, fd, offset,
-			domain, partition, mem, flags);
+		rc = ion_user_to_kernel(clt, fd, offset, mem, buffer_type);
 		break;
 	default:
 		dprintk(VIDC_ERR, "Mem type not supported\n");
@@ -337,7 +355,8 @@ int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
 	return rc;
 }
 
-void *msm_smem_new_client(enum smem_type mtype)
+void *msm_smem_new_client(enum smem_type mtype,
+		struct msm_vidc_platform_resources *res)
 {
 	struct smem_client *client = NULL;
 	void *clnt = NULL;
@@ -354,6 +373,7 @@ void *msm_smem_new_client(enum smem_type mtype)
 		if (client) {
 			client->mem_type = mtype;
 			client->clnt = clnt;
+			client->res = res;
 		}
 	} else {
 		dprintk(VIDC_ERR, "Failed to create new client: mtype = %d\n",
@@ -363,7 +383,7 @@ void *msm_smem_new_client(enum smem_type mtype)
 };
 
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
-		int domain, int partition, int map_kernel)
+		enum smem_buffer_type buffer_type, int map_kernel)
 {
 	struct smem_client *client;
 	int rc = 0;
@@ -385,8 +405,8 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 	}
 	switch (client->mem_type) {
 	case SMEM_ION:
-		rc = alloc_ion_mem(client, size, align, flags,
-			domain, partition, mem, map_kernel);
+		rc = alloc_ion_mem(client, size, align, flags, buffer_type,
+					mem, map_kernel);
 		break;
 	default:
 		dprintk(VIDC_ERR, "Mem type not supported\n");
@@ -435,4 +455,36 @@ void msm_smem_delete_client(void *clt)
 		break;
 	}
 	kfree(client);
+}
+
+int msm_smem_get_domain_partition(void *clt, u32 flags, u32 buffer_type,
+					int *domain_num, int *partition_num)
+{
+	struct smem_client *client = clt;
+	struct iommu_set *iommu_group_set = &client->res->iommu_group_set;
+	int i;
+	bool is_secure = (flags & SMEM_SECURE);
+	struct iommu_info *iommu_map;
+
+	*domain_num = -1;
+	*partition_num = -1;
+	if (!iommu_group_set) {
+		dprintk(VIDC_DBG, "no iommu group set present!\n");
+		return -ENOENT;
+	}
+
+	for (i = 0; i < iommu_group_set->count; i++) {
+		iommu_map = &iommu_group_set->iommu_maps[i];
+		if (iommu_map->is_secure == is_secure) {
+			*domain_num = iommu_map->domain;
+			*partition_num = 0;
+			if ((buffer_type & CMND_QUE) &&
+				(iommu_map->npartitions == 2))
+				*partition_num = 1;
+			break;
+		}
+	}
+	dprintk(VIDC_DBG, "domain: %d, partition: %d found!\n",
+			*domain_num, *partition_num);
+	return 0;
 }

@@ -227,7 +227,7 @@ static int msm_v4l2_open(struct file *filp)
 		rc = -ENOMEM;
 		goto fail_nomem;
 	}
-	v4l2_inst->mem_client = msm_smem_new_client(SMEM_ION);
+	v4l2_inst->mem_client = msm_smem_new_client(SMEM_ION, &core->resources);
 	if (!v4l2_inst->mem_client) {
 		dprintk(VIDC_ERR, "Failed to create memory client\n");
 		rc = -ENOMEM;
@@ -400,9 +400,8 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 	struct msm_v4l2_vid_inst *v4l2_inst;
 	int plane = 0;
 	int i, rc = 0;
-	int smem_flags = 0;
-	int domain;
 	struct hfi_device *hdev;
+	enum hal_buffer buffer_type;
 
 	vidc_inst = get_vidc_inst(file, fh);
 	v4l2_inst = get_v4l2_inst(file, fh);
@@ -432,7 +431,7 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 		goto exit;
 	}
 	for (i = 0; i < b->length; ++i) {
-		smem_flags = 0;
+		buffer_type = PIXEL;
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
 			!b->m.planes[i].length) {
@@ -449,18 +448,8 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 			kfree(binfo);
 			goto exit;
 		}
-		if ((vidc_inst->mode == VIDC_SECURE)
-				&& (!EXTRADATA_IDX(b->length)
-					|| (i != EXTRADATA_IDX(b->length)))) {
-			smem_flags |= SMEM_SECURE;
-			domain = call_hfi_op(hdev, get_domain,
-					hdev->hfi_device_data, CP_MAP);
-		} else
-			domain = call_hfi_op(hdev, get_domain,
-					hdev->hfi_device_data, NS_MAP);
-
 		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-			smem_flags |= SMEM_INPUT;
+			buffer_type = BITSTREAM;
 
 		temp = get_same_fd_buffer(&v4l2_inst->registered_bufs,
 				b->m.planes[i].reserved[0], &plane);
@@ -476,9 +465,9 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 			binfo->handle[i] = NULL;
 		} else {
 			handle = msm_smem_user_to_kernel(v4l2_inst->mem_client,
-			b->m.planes[i].reserved[0],
-			b->m.planes[i].reserved[1],
-			domain,	0, smem_flags);
+					b->m.planes[i].reserved[0],
+					b->m.planes[i].reserved[1],
+					buffer_type);
 			if (!handle) {
 				dprintk(VIDC_ERR,
 					"Failed to get device buffer address\n");
