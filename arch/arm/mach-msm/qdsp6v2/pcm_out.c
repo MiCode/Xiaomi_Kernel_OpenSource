@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google, Inc.
- * Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public

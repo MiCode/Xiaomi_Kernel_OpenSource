@@ -2,7 +2,7 @@
  * arch/arm/mm/cache-l2x0.c - L210/L220 cache controller support
  *
  * Copyright (C) 2007 ARM Limited
- * Copyright (c) 2009, 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009, 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

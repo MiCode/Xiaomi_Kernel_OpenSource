@@ -1,7 +1,7 @@
 /*
  * u_smd.c - utilities for USB gadget serial over smd
  *
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)

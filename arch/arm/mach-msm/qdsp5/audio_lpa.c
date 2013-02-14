@@ -1,7 +1,7 @@
 
 /* audio_lpa.c - low power audio driver
  *
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Based on the PCM decoder driver in arch/arm/mach-msm/qdsp5/audio_pcm.c
  *

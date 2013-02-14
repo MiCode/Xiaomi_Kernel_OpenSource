@@ -4,7 +4,7 @@
  *
  *  Copyright (C) 2002-2003  Maxim Krasnyansky <maxk@qualcomm.com>
  *  Copyright (C) 2004-2005  Marcel Holtmann <marcel@holtmann.org>
- *  Copyright (c) 2000-2001, 2010, 2012 Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2000-2001, 2010, 2012 The Linux Foundation. All rights reserved.
  *
  *
  *  This program is free software; you can redistribute it and/or modify

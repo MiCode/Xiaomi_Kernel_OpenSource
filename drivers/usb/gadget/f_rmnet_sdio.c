@@ -5,7 +5,7 @@
  * Copyright (C) 2003-2004 Robert Schwebel, Benedikt Spranger
  * Copyright (C) 2003 Al Borchers (alborchers@steinerpoint.com)
  * Copyright (C) 2008 Nokia Corporation
- * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

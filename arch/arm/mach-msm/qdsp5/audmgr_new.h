@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/qdsp5/audmgr.h
  *
- * Copyright 2008,2012 (c) Code Aurora Forum. All rights reserved.
+ * Copyright 2008,2012 (c) The Linux Foundation. All rights reserved.
  * Copyright (C) 2008 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public

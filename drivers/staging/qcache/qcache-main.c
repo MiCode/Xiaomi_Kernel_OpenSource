@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2010,2011, Dan Magenheimer, Oracle Corp.
  * Copyright (c) 2010,2011, Nitin Gupta
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * Qcache provides an in-kernel "host implementation" for transcendent memory
  * and, thus indirectly, for cleancache and frontswap.  Qcache includes a

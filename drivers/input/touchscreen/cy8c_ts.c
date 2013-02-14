@@ -3,7 +3,7 @@
  * drivers/input/touchscreen/cy8c_ts.c
  *
  * Copyright (C) 2009, 2010 Cypress Semiconductor, Inc.
- * Copyright (c) 2010-2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2012 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License

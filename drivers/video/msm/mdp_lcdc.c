@@ -1,7 +1,7 @@
 /* drivers/video/msm/mdp_lcdc.c
  *
  * Copyright (c) 2009 Google Inc.
- * Copyright (c) 2009 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and

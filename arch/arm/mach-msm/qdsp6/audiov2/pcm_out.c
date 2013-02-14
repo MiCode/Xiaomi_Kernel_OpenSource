@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/qdsp6/audiov2/pcm_out.c
  *
  * Copyright (C) 2009 Google, Inc.
- * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009, The Linux Foundation. All rights reserved.
  *
  * Author: Brian Swetland <swetland@google.com>
  *

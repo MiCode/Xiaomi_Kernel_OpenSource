@@ -1,7 +1,7 @@
 /*
  * Common code to deal with the AUDPREPROC dsp task (audio preprocessing)
  *
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, The Linux Foundation. All rights reserved.
  *
  * Based on the audpp layer in arch/arm/mach-msm/qdsp5/audpp.c
  *

@@ -4,7 +4,7 @@
  * Character device that, being read
  * returns stream of TSIF packets.
  *
- * Copyright (c) 2009-2011, Code Aurora Forum. All rights
+ * Copyright (c) 2009-2011, The Linux Foundation. All rights
  * reserved.
  *
  * This program is free software; you can redistribute it and/or modify

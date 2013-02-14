@@ -1,7 +1,7 @@
 /* Quanta I2C Keyboard Driver
  *
  * Copyright (C) 2009 Quanta Computer Inc.
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010, The Linux Foundation. All rights reserved.
  * Author: Hsin Wu <hsin.wu@quantatw.com>
  * Author: Austin Lai <austin.lai@quantatw.com>
  *

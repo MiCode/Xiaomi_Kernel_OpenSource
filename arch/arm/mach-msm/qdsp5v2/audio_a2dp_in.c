@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * sbc/pcm audio input driver
  * Based on the pcm input driver in arch/arm/mach-msm/qdsp5v2/audio_pcm_in.c

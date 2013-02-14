@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1068,7 +1068,7 @@ module_param(host_name, charp, S_IRUGO);
 module_init(csdio_init);
 module_exit(csdio_exit);
 
-MODULE_AUTHOR("Code Aurora Forum");
+MODULE_AUTHOR("The Linux Foundation");
 MODULE_DESCRIPTION("CSDIO device driver version " VERSION);
 MODULE_VERSION(VERSION);
 MODULE_LICENSE("GPL v2");

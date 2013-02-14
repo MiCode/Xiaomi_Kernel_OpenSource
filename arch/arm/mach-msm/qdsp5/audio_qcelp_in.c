@@ -2,7 +2,7 @@
  *
  * qcelp audio input device
  *
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5v2/audio_qcelp_in.c,
  * Copyright (C) 2008 Google, Inc.

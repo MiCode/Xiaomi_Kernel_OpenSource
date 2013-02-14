@@ -2,7 +2,7 @@
  *  Routines for control of the CS8427 via i2c bus
  *  IEC958 (S/PDIF) receiver & transmitter by Cirrus Logic
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
- *  Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 and

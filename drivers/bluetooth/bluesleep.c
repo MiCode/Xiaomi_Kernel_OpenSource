@@ -15,7 +15,7 @@
 
 
    Copyright (C) 2006-2007 - Motorola
-   Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+   Copyright (c) 2008-2010, The Linux Foundation. All rights reserved.
 
    Date         Author           Comment
    -----------  --------------   --------------------------------

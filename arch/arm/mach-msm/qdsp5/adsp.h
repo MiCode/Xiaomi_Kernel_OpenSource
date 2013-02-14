@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/qdsp5/adsp.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2010, 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, 2012 The Linux Foundation. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public

@@ -1,5 +1,5 @@
 /* Copyright (C) 2010 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  * Author: Dima Zavin <dima@android.com>
  *
  * This program is free software; you can redistribute it and/or modify

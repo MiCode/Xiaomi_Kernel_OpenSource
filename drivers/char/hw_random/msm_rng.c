@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -266,6 +266,6 @@ static void __exit msm_rng_exit(void)
 
 module_exit(msm_rng_exit);
 
-MODULE_AUTHOR("Code Aurora Forum");
+MODULE_AUTHOR("The Linux Foundation");
 MODULE_DESCRIPTION("Qualcomm MSM Random Number Driver");
 MODULE_LICENSE("GPL v2");

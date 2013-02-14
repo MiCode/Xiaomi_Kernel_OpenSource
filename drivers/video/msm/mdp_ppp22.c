@@ -1,6 +1,6 @@
 /* drivers/video/msm/mdp_ppp22.c
  *
- * Copyright (C) 2007 Code Aurora Forum. All rights reserved.
+ * Copyright (C) 2007 The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public

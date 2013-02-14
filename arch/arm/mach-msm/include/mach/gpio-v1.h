@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2010, The Linux Foundation. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public

@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/rpc_server_time_remote.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011 The Linux Foundation. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public

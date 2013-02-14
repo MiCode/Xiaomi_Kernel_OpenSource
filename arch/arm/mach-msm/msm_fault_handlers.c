@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1995  Linus Torvalds
  *  Modifications for ARM processor (c) 1995-2004 Russell King
- *  Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2010, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

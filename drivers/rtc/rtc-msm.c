@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2009-2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011 The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@google.com>
  *
  * This software is licensed under the terms of the GNU General Public

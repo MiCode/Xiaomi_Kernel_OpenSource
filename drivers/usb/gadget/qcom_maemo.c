@@ -4,9 +4,9 @@
  * Copyright (C) 2008 David Brownell
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010, The Linux Foundation. All rights reserved.
  *
- * This program from the Code Aurora Forum is free software; you can
+ * This program from The Linux Foundation is free software; you can
  * redistribute it and/or modify it under the GNU General Public License
  * version 2 and only version 2 as published by the Free Software Foundation.
  * The original work available from [git.kernel.org ] is subject to the

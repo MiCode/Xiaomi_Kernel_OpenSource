@@ -1,7 +1,7 @@
 /* linux/arch/arm/mach-msm/dma.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2010, 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2010, 2012 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and

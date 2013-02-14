@@ -4,7 +4,7 @@
  * Transcendent memory
  *
  * Copyright (c) 2009-2011, Dan Magenheimer, Oracle Corp.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _TMEM_H_

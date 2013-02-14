@@ -3,7 +3,7 @@
  *
  * derived from: trace-event-python.c
  *
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  * Copyright (C) 2010 Tom Zanussi <tzanussi@gmail.com>
  *
  *  This program is free software; you can redistribute it and/or modify

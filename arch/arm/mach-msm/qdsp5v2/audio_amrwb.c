@@ -1,6 +1,6 @@
 /* amrwb audio decoder device
  *
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * Based on the mp3 native driver in arch/arm/mach-msm/qdsp5v2/audio_mp3.c
  *

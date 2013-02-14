@@ -1,6 +1,6 @@
 /* include/linux/msm_rpcrouter.h
  *
- * Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google, Inc.
  * Author: San Mehat <san@android.com>
  *

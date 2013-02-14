@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010, The Linux Foundation. All rights reserved.
  * Copyright (C) 2006-2008 Nokia Corporation
  *
  * This program is free software; you can redistribute it and/or modify it

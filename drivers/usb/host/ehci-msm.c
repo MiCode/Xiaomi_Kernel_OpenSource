@@ -1,6 +1,6 @@
 /* ehci-msm.c - HSUSB Host Controller Driver Implementation
  *
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  *
  * Partly derived from ehci-fsl.c and ehci-hcd.c
  * Copyright (c) 2000-2004 by David Brownell

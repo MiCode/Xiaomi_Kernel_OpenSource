@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5/audio_mp3.c
  *

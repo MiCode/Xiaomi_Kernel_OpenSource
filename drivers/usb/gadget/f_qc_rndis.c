@@ -6,7 +6,7 @@
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
  *			Author: Michal Nazarewicz (mina86@mina86.com)
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2

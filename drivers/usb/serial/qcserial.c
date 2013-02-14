@@ -1,7 +1,7 @@
 /*
  * Qualcomm Serial USB driver
  *
- *	Copyright (c) 2008, 2012 Code Aurora Forum. All rights reserved.
+ *	Copyright (c) 2008, 2012 The Linux Foundation. All rights reserved.
  *	Copyright (c) 2009 Greg Kroah-Hartman <gregkh@suse.de>
  *	Copyright (c) 2009 Novell Inc.
  *
