@@ -47,7 +47,7 @@ module_param_named(modem_wait, smd_tty_modem_wait,
 
 struct smd_tty_info {
 	smd_channel_t *ch;
-	struct tty_struct *tty;
+	struct tty_port port;
 	struct wake_lock wake_lock;
 	int open_count;
 	struct tasklet_struct tty_tsklt;
@@ -125,7 +125,7 @@ static void smd_tty_read(unsigned long param)
 	unsigned char *ptr;
 	int avail;
 	struct smd_tty_info *info = (struct smd_tty_info *)param;
-	struct tty_struct *tty = info->tty;
+	struct tty_struct *tty = tty_port_tty_get(&info->port);
 	unsigned long flags;
 
 	if (!tty)
@@ -156,6 +156,7 @@ static void smd_tty_read(unsigned long param)
 		if (avail <= 0) {
 			mod_timer(&info->buf_req_timer,
 					jiffies + msecs_to_jiffies(30));
+			tty_kref_put(tty);
 			return;
 		}
 
@@ -173,11 +174,13 @@ static void smd_tty_read(unsigned long param)
 
 	/* XXX only when writable and necessary */
 	tty_wakeup(tty);
+	tty_kref_put(tty);
 }
 
 static void smd_tty_notify(void *priv, unsigned event)
 {
 	struct smd_tty_info *info = priv;
+	struct tty_struct *tty;
 	unsigned long flags;
 
 	switch (event) {
@@ -195,8 +198,10 @@ static void smd_tty_notify(void *priv, unsigned event)
 		 */
 		if (smd_write_avail(info->ch)) {
 			smd_disable_read_intr(info->ch);
-			if (info->tty)
-				wake_up_interruptible(&info->tty->write_wait);
+			tty = tty_port_tty_get(&info->port);
+			if (tty)
+				wake_up_interruptible(&tty->write_wait);
+			tty_kref_put(tty);
 		}
 		spin_lock_irqsave(&info->ra_lock, flags);
 		if (smd_read_avail(info->ch)) {
@@ -225,9 +230,11 @@ static void smd_tty_notify(void *priv, unsigned event)
 		/* schedule task to send TTY_BREAK */
 		tasklet_hi_schedule(&info->tty_tsklt);
 
-		if (info->tty->index == LOOPBACK_IDX)
+		tty = tty_port_tty_get(&info->port);
+		if (tty->index == LOOPBACK_IDX)
 			schedule_delayed_work(&loopback_work,
 					msecs_to_jiffies(1000));
+		tty_kref_put(tty);
 		break;
 	}
 }
@@ -241,7 +248,8 @@ static uint32_t is_modem_smsm_inited(void)
 	return (modem_state & ready_state) == ready_state;
 }
 
-static int smd_tty_open(struct tty_struct *tty, struct file *f)
+static int smd_tty_port_activate(struct tty_port *tport,
+				 struct tty_struct *tty)
 {
 	int res = 0;
 	unsigned int n = tty->index;
@@ -306,8 +314,6 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 			}
 		}
 
-
-		info->tty = tty;
 		tasklet_init(&info->tty_tsklt, smd_tty_read,
 			     (unsigned long)info);
 		wake_lock_init(&info->wake_lock, WAKE_LOCK_SUSPEND,
@@ -354,24 +360,27 @@ out:
 	return res;
 }
 
-static void smd_tty_close(struct tty_struct *tty, struct file *f)
+static void smd_tty_port_shutdown(struct tty_port *tport)
 {
-	struct smd_tty_info *info = tty->driver_data;
+	struct smd_tty_info *info;
+	struct tty_struct *tty = tty_port_tty_get(tport);
 	unsigned long flags;
 
-	if (info == 0)
+	info = tty->driver_data;
+	if (info == 0) {
+		tty_kref_put(tty);
 		return;
+	}
 
 	mutex_lock(&smd_tty_lock);
 	if (--info->open_count == 0) {
 		spin_lock_irqsave(&info->reset_lock, flags);
 		info->is_open = 0;
 		spin_unlock_irqrestore(&info->reset_lock, flags);
-		if (info->tty) {
+		if (tty) {
 			tasklet_kill(&info->tty_tsklt);
 			wake_lock_destroy(&info->wake_lock);
 			wake_lock_destroy(&info->ra_wake_lock);
-			info->tty = 0;
 		}
 		tty->driver_data = 0;
 		del_timer(&info->buf_req_timer);
@@ -382,6 +391,21 @@ static void smd_tty_close(struct tty_struct *tty, struct file *f)
 		}
 	}
 	mutex_unlock(&smd_tty_lock);
+	tty_kref_put(tty);
+}
+
+static int smd_tty_open(struct tty_struct *tty, struct file *f)
+{
+	struct smd_tty_info *info = smd_tty + tty->index;
+
+	return tty_port_open(&info->port, tty, f);
+}
+
+static void smd_tty_close(struct tty_struct *tty, struct file *f)
+{
+	struct smd_tty_info *info = tty->driver_data;
+
+	tty_port_close(&info->port, tty, f);
 }
 
 static int smd_tty_write(struct tty_struct *tty, const unsigned char *buf, int len)
@@ -482,6 +506,11 @@ static void loopback_probe_worker(struct work_struct *work)
 			  0, SMSM_SMD_LOOPBACK);
 }
 
+static const struct tty_port_operations smd_tty_port_ops = {
+	.shutdown = smd_tty_port_shutdown,
+	.activate = smd_tty_port_activate,
+};
+
 static struct tty_operations smd_tty_ops = {
 	.open = smd_tty_open,
 	.close = smd_tty_close,
@@ -523,6 +552,7 @@ static int __init smd_tty_init(void)
 	int ret;
 	int n;
 	int idx;
+	struct tty_port *port;
 
 	smd_tty_driver = alloc_tty_driver(MAX_SMD_TTYS);
 	if (smd_tty_driver == 0)
@@ -578,6 +608,10 @@ static int __init smd_tty_init(void)
 				continue;
 		}
 
+		port = &smd_tty[idx].port;
+		tty_port_init(port);
+		port->ops = &smd_tty_port_ops;
+		/* TODO: For kernel >= 3.7 use tty_port_register_device */
 		tty_register_device(smd_tty_driver, idx, 0);
 		init_completion(&smd_tty[idx].ch_allocated);
 
