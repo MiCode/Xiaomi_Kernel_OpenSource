@@ -330,7 +330,6 @@ static struct branch_clk oxilicx_axi_clk;
 #define OXILI_GFX3D_CBCR                                   (0x4028)
 #define OXILICX_AXI_CBCR                                   (0x4038)
 #define OXILICX_AHB_CBCR                                   (0x403C)
-#define OCMEMCX_AHB_CBCR                                   (0x405C)
 #define MMPLL2_PLL_MODE                                    (0x4100)
 #define MMPLL2_PLL_STATUS                                  (0x411C)
 #define MMSS_MMSSNOC_AHB_CBCR                              (0x5024)
@@ -2579,17 +2578,6 @@ static struct branch_clk mmss_s0_axi_clk = {
 	},
 };
 
-static struct branch_clk ocmemcx_ahb_clk = {
-	.cbcr_reg = OCMEMCX_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "ocmemcx_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(ocmemcx_ahb_clk.c),
-	},
-};
-
 static struct branch_clk oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
 	.has_sibling = 1,
@@ -2667,7 +2655,6 @@ static struct measure_mux_entry measure_mux_MMSS[] = {
 	{ &mmss_misc_ahb_clk.c,  MMSS_BASE, 0x0003 },
 	{ &mmss_mmssnoc_axi_clk.c,  MMSS_BASE, 0x0004 },
 	{ &mmss_s0_axi_clk.c,  MMSS_BASE, 0x0005 },
-	{ &ocmemcx_ahb_clk.c,  MMSS_BASE, 0x000a },
 	{ &oxilicx_axi_clk.c,  MMSS_BASE, 0x000b },
 	{ &oxilicx_ahb_clk.c,  MMSS_BASE, 0x000c },
 	{ &oxili_gfx3d_clk.c,  MMSS_BASE, 0x000d },
@@ -3384,7 +3371,6 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("", mmss_mmssnoc_bto_ahb_clk.c, ""),
 	CLK_LOOKUP("", mmss_mmssnoc_axi_clk.c, ""),
 	CLK_LOOKUP("", mmss_s0_axi_clk.c, ""),
-	CLK_LOOKUP("", ocmemcx_ahb_clk.c, ""),
 };
 
 static struct clk_lookup msm_clocks_8226_rumi[] = {
