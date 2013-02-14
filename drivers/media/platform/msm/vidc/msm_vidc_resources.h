@@ -32,6 +32,36 @@ struct reg_set {
 	int count;
 };
 
+struct addr_range {
+	u32 start;
+	u32 size;
+};
+
+struct iommu_info {
+	const char *name;
+	u32 buffer_type;
+	struct iommu_group *group;
+	int domain;
+	bool is_secure;
+	struct addr_range addr_range[2];
+	int npartitions;
+};
+
+struct iommu_set {
+	struct iommu_info *iommu_maps;
+	u32 count;
+};
+
+struct buffer_usage_table {
+	u32 buffer_type;
+	u32 tz_usage;
+};
+
+struct buffer_usage_set {
+	struct buffer_usage_table *buffer_usage_tbl;
+	u32 count;
+};
+
 struct msm_vidc_platform_resources {
 	uint32_t fw_base_addr;
 	uint32_t register_base;
@@ -43,6 +73,8 @@ struct msm_vidc_platform_resources {
 	uint32_t iommu_maps_size;
 	struct reg_set reg_set;
 	struct msm_bus_scale_pdata *bus_pdata;
+	struct iommu_set iommu_group_set;
+	struct buffer_usage_set buffer_usage_set;
 	struct platform_device *pdev;
 };
 
