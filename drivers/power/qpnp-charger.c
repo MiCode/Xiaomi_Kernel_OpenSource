@@ -1578,16 +1578,16 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	chip->batt_psy.external_power_changed =
 				qpnp_batt_external_power_changed;
 
-	rc = power_supply_register(chip->dev, &chip->dc_psy);
-	if (rc < 0) {
-		pr_err("power_supply_register usb failed rc = %d\n", rc);
-		goto fail_chg_enable;
-	}
-
 	rc = power_supply_register(chip->dev, &chip->batt_psy);
 	if (rc < 0) {
 		pr_err("power_supply_register batt failed rc = %d\n", rc);
-		goto unregister_dc;
+		goto fail_chg_enable;
+	}
+
+	rc = power_supply_register(chip->dev, &chip->dc_psy);
+	if (rc < 0) {
+		pr_err("power_supply_register usb failed rc = %d\n", rc);
+		goto unregister_batt;
 	}
 
 	/* Turn on appropriate workaround flags */
@@ -1607,8 +1607,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			get_prop_batt_health(chip));
 	return 0;
 
-unregister_dc:
-	power_supply_unregister(&chip->dc_psy);
+unregister_batt:
+	power_supply_unregister(&chip->batt_psy);
 fail_chg_enable:
 	kfree(chip->thermal_mitigation);
 	kfree(chip);
