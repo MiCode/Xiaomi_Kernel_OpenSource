@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <media/msm_vidc.h>
 #include "msm_vidc_resources.h"
+#include "msm_smem.h"
 
 #define CONTAINS(__a, __sz, __t) ({\
 	int __rc = __t >= __a && \
@@ -373,21 +374,6 @@ enum hal_mvc_level {
 	HAL_MVC_LEVEL_5  = 0x00004000,
 	HAL_MVC_LEVEL_51 = 0x00008000,
 	HAL_UNUSED_MVC_LEVEL = 0x10000000,
-};
-
-enum hal_buffer {
-	HAL_BUFFER_INPUT,
-	HAL_BUFFER_OUTPUT,
-	HAL_BUFFER_OUTPUT2,
-	HAL_BUFFER_EXTRADATA_INPUT,
-	HAL_BUFFER_EXTRADATA_OUTPUT,
-	HAL_BUFFER_EXTRADATA_OUTPUT2,
-	HAL_BUFFER_INTERNAL_SCRATCH,
-	HAL_BUFFER_INTERNAL_SCRATCH_1,
-	HAL_BUFFER_INTERNAL_SCRATCH_2,
-	HAL_BUFFER_INTERNAL_PERSIST,
-	HAL_BUFFER_INTERNAL_PERSIST_1,
-	HAL_BUFFER_MAX
 };
 
 struct hal_frame_rate {

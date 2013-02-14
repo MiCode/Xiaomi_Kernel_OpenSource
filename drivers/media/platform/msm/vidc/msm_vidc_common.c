@@ -417,7 +417,7 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 	memcpy(&inst->buff_req, response->data,
 			sizeof(struct buffer_requirements));
 	mutex_unlock(&inst->lock);
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < HAL_BUFFER_MAX; i++) {
 		dprintk(VIDC_DBG,
 			"buffer type: %d, count : %d, size: %d\n",
 			inst->buff_req.buffer[i].buffer_type,

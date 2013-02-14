@@ -584,6 +584,7 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int rc = 0;
 	int ret;
 	int i;
+	struct hal_buffer_requirements *buff_req_buffer;
 	if (!inst || !f || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
 			"Invalid input, inst = %p, format = %p\n", inst, f);
@@ -636,12 +637,26 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				dprintk(VIDC_WARN,
 					"Color format not recognized\n");
 			}
-			f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].buffer_size;
+			buff_req_buffer =
+				get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+			if (buff_req_buffer)
+				f->fmt.pix_mp.plane_fmt[0].sizeimage =
+				buff_req_buffer->buffer_size;
+			else
+				f->fmt.pix_mp.plane_fmt[0].sizeimage = 0;
+
 			extra_idx = EXTRADATA_IDX(fmt->num_planes);
 			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
-				f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
-		inst->buff_req.buffer[HAL_BUFFER_EXTRADATA_OUTPUT].buffer_size;
+				buff_req_buffer =
+					get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_OUTPUT);
+				if (buff_req_buffer)
+					f->fmt.pix_mp.plane_fmt[extra_idx].
+						sizeimage =
+						buff_req_buffer->buffer_size;
+				else
+					f->fmt.pix_mp.plane_fmt[extra_idx].
+						sizeimage = 0;
 			}
 			for (i = 0; i < fmt->num_planes; ++i)
 				inst->bufq[CAPTURE_PORT].
@@ -708,6 +723,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int rc = 0;
 	int ret = 0;
 	int i;
+	struct hal_buffer_requirements *buff_req_buffer;
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
 			"Invalid input, inst = %p, format = %p\n", inst, f);
@@ -743,12 +759,24 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 						f->fmt.pix_mp.width);
 			}
 		} else {
-			f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].buffer_size;
+			buff_req_buffer =
+				get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+			if (buff_req_buffer)
+				f->fmt.pix_mp.plane_fmt[0].sizeimage =
+				buff_req_buffer->buffer_size;
+			else
+				f->fmt.pix_mp.plane_fmt[0].sizeimage = 0;
 			extra_idx = EXTRADATA_IDX(fmt->num_planes);
 			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
-				f->fmt.pix_mp.plane_fmt[1].sizeimage =
-		inst->buff_req.buffer[HAL_BUFFER_EXTRADATA_OUTPUT].buffer_size;
+				buff_req_buffer =
+					get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_OUTPUT);
+				if (buff_req_buffer)
+					f->fmt.pix_mp.plane_fmt[1].sizeimage =
+					buff_req_buffer->buffer_size;
+				else
+					f->fmt.pix_mp.plane_fmt[1].sizeimage =
+					0;
 			}
 		}
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
@@ -893,9 +921,16 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			break;
 		}
 		mutex_lock(&inst->lock);
+		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"No buffer requirement for buffer type %x\n",
+				HAL_BUFFER_OUTPUT);
+			rc = -EINVAL;
+			break;
+		}
 		if (*num_buffers && *num_buffers >
-			inst->buff_req.buffer[HAL_BUFFER_OUTPUT].
-				buffer_count_actual) {
+			bufreq->buffer_count_actual) {
 			struct hal_buffer_count_actual new_buf_count;
 			enum hal_property property_id =
 				HAL_PARAM_BUFFER_COUNT_ACTUAL;
@@ -906,22 +941,25 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				inst->session, property_id, &new_buf_count);
 
 		}
-		bufreq = &inst->buff_req.buffer[HAL_BUFFER_OUTPUT];
 		if (bufreq->buffer_count_actual > *num_buffers)
 			*num_buffers =  bufreq->buffer_count_actual;
 		else
-			bufreq->buffer_count_actual = *num_buffers ;
+			bufreq->buffer_count_actual = *num_buffers;
 		mutex_unlock(&inst->lock);
 		dprintk(VIDC_DBG, "count =  %d, size = %d, alignment = %d\n",
 				inst->buff_req.buffer[1].buffer_count_actual,
 				inst->buff_req.buffer[1].buffer_size,
 				inst->buff_req.buffer[1].buffer_alignment);
-		sizes[0] = inst->buff_req.buffer[HAL_BUFFER_OUTPUT].buffer_size;
+		sizes[0] = bufreq->buffer_size;
 		extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
 		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
-			sizes[extra_idx] =
-		inst->buff_req.buffer[HAL_BUFFER_EXTRADATA_OUTPUT].buffer_size;
+			bufreq = get_buff_req_buffer(inst,
+					HAL_BUFFER_EXTRADATA_OUTPUT);
+			if (bufreq)
+				sizes[extra_idx] = bufreq->buffer_size;
+			else
+				sizes[extra_idx] = 0;
 		}
 		break;
 	default:

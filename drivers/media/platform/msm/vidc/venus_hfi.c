@@ -643,7 +643,7 @@ static void venus_hfi_interface_queues_release(struct venus_hfi_device *device)
 				sizeof(struct hfi_mem_map_table));
 		mem_map = (struct hfi_mem_map *)(qdss + 1);
 		msm_smem_get_domain_partition(device->hal_client, 0,
-			CMND_QUE, &domain, &partition);
+			HAL_BUFFER_INTERNAL_CMD_QUEUE, &domain, &partition);
 		for (i = 0; i < num_entries; i++) {
 			msm_iommu_unmap_contig_buffer(
 				(unsigned long)(mem_map[i].virtual_addr),
@@ -728,7 +728,7 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 	mem_addr = &dev->mem_addr;
 	rc = venus_hfi_alloc((void *) mem_addr,
 			dev->hal_client, QUEUE_SIZE, 1, 0,
-			CMND_QUE);
+			HAL_BUFFER_INTERNAL_CMD_QUEUE);
 	if (rc) {
 		dprintk(VIDC_ERR, "iface_q_table_alloc_fail");
 		goto fail_alloc_queue;
@@ -755,7 +755,7 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 
 	rc = venus_hfi_alloc((void *) mem_addr,
 			dev->hal_client, QDSS_SIZE, 1, 0,
-			CMND_QUE);
+			HAL_BUFFER_INTERNAL_CMD_QUEUE);
 	if (rc) {
 		dprintk(VIDC_WARN,
 			"qdss_alloc_fail: QDSS messages logging will not work");
@@ -768,7 +768,7 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 	}
 	rc = venus_hfi_alloc((void *) mem_addr,
 			dev->hal_client, SFR_SIZE, 1, 0,
-			CMND_QUE);
+			HAL_BUFFER_INTERNAL_CMD_QUEUE);
 	if (rc) {
 		dprintk(VIDC_WARN, "sfr_alloc_fail: SFR not will work");
 		dev->sfr.align_device_addr = NULL;
@@ -827,7 +827,7 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 		sizeof(struct hfi_mem_map_table));
 	mem_map = (struct hfi_mem_map *)(qdss + 1);
 	msm_smem_get_domain_partition(dev->hal_client, 0,
-		CMND_QUE, &domain, &partition);
+		HAL_BUFFER_INTERNAL_CMD_QUEUE, &domain, &partition);
 	rc = venus_hfi_get_qdss_iommu_virtual_addr(mem_map, domain, partition);
 	if (rc) {
 		dprintk(VIDC_ERR,
