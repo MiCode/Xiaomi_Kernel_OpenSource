@@ -232,6 +232,9 @@ static int ahci_suspend(struct device *dev)
 	u32 ctl;
 	int rc;
 
+	if (pm_runtime_suspended(dev))
+		return 0;
+
 	if (hpriv->flags & AHCI_HFLAG_NO_SUSPEND) {
 		dev_err(dev, "firmware update required for suspend/resume\n");
 		return -EIO;
@@ -256,7 +259,7 @@ static int ahci_suspend(struct device *dev)
 	return 0;
 }
 
-static int ahci_resume(struct device *dev)
+static int ahci_resume_common(struct device *dev)
 {
 	struct ahci_platform_data *pdata = dev_get_platdata(dev);
 	struct ata_host *host = dev_get_drvdata(dev);
@@ -281,11 +284,25 @@ static int ahci_resume(struct device *dev)
 	return 0;
 }
 
+static int ahci_resume(struct device *dev)
+{
+	int rc;
+
+	rc = ahci_resume_common(dev);
+	if (!rc) {
+		pm_runtime_disable(dev);
+		pm_runtime_set_active(dev);
+		pm_runtime_enable(dev);
+	}
+
+	return rc;
+}
+
 static struct dev_pm_ops ahci_pm_ops = {
 	.suspend		= &ahci_suspend,
 	.resume			= &ahci_resume,
 	.runtime_suspend	= &ahci_suspend,
-	.runtime_resume		= &ahci_resume,
+	.runtime_resume		= &ahci_resume_common,
 };
 #endif
 
