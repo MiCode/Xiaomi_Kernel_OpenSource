@@ -9,7 +9,7 @@
 /*
  * Copyright 1999 Precision Insight, Inc., Cedar Park, Texas.
  * Copyright 2000 VA Linux Systems, Inc., Sunnyvale, California.
- * Copyright (c) 2009-2010, Code Aurora Forum.
+ * Copyright (c) 2009-2010, The Linux Foundation.
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
