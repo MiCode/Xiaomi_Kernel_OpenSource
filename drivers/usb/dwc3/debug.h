@@ -217,9 +217,29 @@ static inline const char *dwc3_gadget_event_type_string(u8 event)
 void dwc3_trace(void (*trace)(struct va_format *), const char *fmt, ...);
 
 #ifdef CONFIG_DEBUG_FS
+extern void dbg_event(u8, const char*, int);
+extern void dbg_print(u8, const char*, int, const char*);
+extern void dbg_done(u8, const u32, int);
+extern void dbg_queue(u8, const struct usb_request*, int);
+extern void dbg_setup(u8, const struct usb_ctrlrequest*);
 extern int dwc3_debugfs_init(struct dwc3 *);
 extern void dwc3_debugfs_exit(struct dwc3 *);
+extern void dbg_print_reg(const char *name, int reg);
 #else
+static inline void dbg_event(u8 ep_num, const char *name, int status)
+{  }
+static inline void dbg_print(u8 ep_num, const char *name, int status,
+			     const char *extra)
+{  }
+static inline void dbg_done(u8 ep_num, const u32 count, int status)
+{  }
+static inline void dbg_queue(u8 ep_num, const struct usb_request *req,
+			     int status)
+{  }
+static inline void dbg_setup(u8 ep_num, const struct usb_ctrlrequest *req)
+{  }
+static inline void dbg_print_reg(const char *name, int reg)
+{  }
 static inline int dwc3_debugfs_init(struct dwc3 *d)
 {  return 0;  }
 static inline void dwc3_debugfs_exit(struct dwc3 *d)

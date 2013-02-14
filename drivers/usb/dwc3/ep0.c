@@ -34,6 +34,7 @@
 #include "debug.h"
 #include "gadget.h"
 #include "io.h"
+#include "debug.h"
 
 static void __dwc3_ep0_do_control_status(struct dwc3 *dwc, struct dwc3_ep *dep);
 static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
@@ -288,6 +289,7 @@ int __dwc3_gadget_ep0_set_halt(struct usb_ep *ep, int value)
 	struct dwc3_ep			*dep = to_dwc3_ep(ep);
 	struct dwc3			*dwc = dep->dwc;
 
+	dbg_event(dep->number, "EP0STAL", value);
 	dwc3_ep0_stall_and_restart(dwc);
 
 	return 0;
@@ -773,6 +775,7 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 		dwc->ep0_next_event = DWC3_EP0_NRDY_DATA;
 	}
 
+	dbg_setup(0x00, ctrl);
 	if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_STANDARD)
 		ret = dwc3_ep0_std_request(dwc, ctrl);
 	else
@@ -782,8 +785,10 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 		dwc->delayed_status = true;
 
 out:
-	if (ret < 0)
+	if (ret < 0) {
+		dbg_event(0x0, "ERRSTAL", ret);
 		dwc3_ep0_stall_and_restart(dwc);
+	}
 }
 
 static void dwc3_ep0_complete_data(struct dwc3 *dwc,
@@ -865,7 +870,7 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 
 	if ((epnum & 1) && ur->actual < ur->length) {
 		/* for some reason we did not get everything out */
-
+		dbg_event(epnum, "INDATSTAL", 0);
 		dwc3_ep0_stall_and_restart(dwc);
 	} else {
 		dwc3_gadget_giveback(ep0, r, 0);
@@ -910,6 +915,7 @@ static void dwc3_ep0_complete_status(struct dwc3 *dwc,
 		if (ret < 0) {
 			dwc3_trace(trace_dwc3_ep0, "Invalid Test #%d",
 					dwc->test_mode_nr);
+			dbg_event(0x00, "INVALTEST", ret);
 			dwc3_ep0_stall_and_restart(dwc);
 			return;
 		}
@@ -919,6 +925,7 @@ static void dwc3_ep0_complete_status(struct dwc3 *dwc,
 	if (status == DWC3_TRBSTS_SETUP_PENDING)
 		dwc3_trace(trace_dwc3_ep0, "Setup Pending received");
 
+	dbg_print(dep->number, "DONE", status, "STATUS");
 	dwc->ep0state = EP0_SETUP_PHASE;
 	dwc3_ep0_out_start(dwc);
 }
@@ -1008,6 +1015,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 				false);
 	}
 
+	dbg_queue(dep->number, &req->request, ret);
 	WARN_ON(ret < 0);
 }
 
@@ -1025,13 +1033,16 @@ static int dwc3_ep0_start_control_status(struct dwc3_ep *dep)
 
 static void __dwc3_ep0_do_control_status(struct dwc3 *dwc, struct dwc3_ep *dep)
 {
+	int ret;
 	if (dwc->resize_fifos) {
 		dwc3_trace(trace_dwc3_ep0, "Resizing FIFOs");
 		dwc3_gadget_resize_tx_fifos(dwc);
 		dwc->resize_fifos = 0;
 	}
 
-	WARN_ON(dwc3_ep0_start_control_status(dep));
+	ret = dwc3_ep0_start_control_status(dep);
+	dbg_print(dep->number, "QUEUE", ret, "STATUS");
+	WARN_ON(ret);
 }
 
 static void dwc3_ep0_do_control_status(struct dwc3 *dwc,
@@ -1084,6 +1095,7 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 			dwc3_trace(trace_dwc3_ep0,
 					"Wrong direction for Data phase");
 			dwc3_ep0_end_control_data(dwc, dep);
+			dbg_event(epnum, "WRONGDR", 0);
 			dwc3_ep0_stall_and_restart(dwc);
 			return;
 		}
