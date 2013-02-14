@@ -1,14 +1,16 @@
 #ifndef IOPRIO_H
 #define IOPRIO_H
-
+#ifdef __KERNEL__
 #include <linux/sched.h>
 #include <linux/iocontext.h>
+#endif /* __KERNEL__ */
 
 /*
  * Gives us 8 prio classes with 13-bits of data for each class
  */
 #define IOPRIO_BITS		(16)
 #define IOPRIO_CLASS_SHIFT	(13)
+#ifdef __KERNEL__
 #define IOPRIO_PRIO_MASK	((1UL << IOPRIO_CLASS_SHIFT) - 1)
 
 #define IOPRIO_PRIO_CLASS(mask)	((mask) >> IOPRIO_CLASS_SHIFT)
@@ -16,6 +18,7 @@
 #define IOPRIO_PRIO_VALUE(class, data)	(((class) << IOPRIO_CLASS_SHIFT) | data)
 
 #define ioprio_valid(mask)	(IOPRIO_PRIO_CLASS((mask)) != IOPRIO_CLASS_NONE)
+#endif /* __KERNEL__ */
 
 /*
  * These are the io priority groups as implemented by CFQ. RT is the realtime
@@ -41,6 +44,7 @@ enum {
 	IOPRIO_WHO_USER,
 };
 
+#ifdef __KERNEL__
 /*
  * if process has set io priority explicitly, use that. if not, convert
  * the cpu scheduler nice value to an io priority
@@ -88,4 +92,5 @@ extern int ioprio_best(unsigned short aprio, unsigned short bprio);
 
 extern int set_task_ioprio(struct task_struct *task, int ioprio);
 
-#endif
+#endif /* __KERNEL__ */
+#endif /* IOPRIO_H */
