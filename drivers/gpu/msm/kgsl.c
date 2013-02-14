@@ -1766,6 +1766,8 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 		entry->memdesc.sglen++;
 	}
 
+	entry->memdesc.size = PAGE_ALIGN(entry->memdesc.size);
+
 	return 0;
 err:
 	ion_free(kgsl_ion_client, handle);
@@ -1948,8 +1950,10 @@ static int _kgsl_gpumem_sync_cache(struct kgsl_mem_entry *entry, int op)
 
 	mode = kgsl_memdesc_get_cachemode(&entry->memdesc);
 	if (mode != KGSL_CACHEMODE_UNCACHED
-		&& mode != KGSL_CACHEMODE_WRITECOMBINE)
+		&& mode != KGSL_CACHEMODE_WRITECOMBINE) {
+		trace_kgsl_mem_sync_cache(entry, op);
 		kgsl_cache_range_op(&entry->memdesc, cacheop);
+	}
 
 done:
 	return ret;
@@ -2324,34 +2328,48 @@ static long kgsl_ioctl_timestamp_event(struct kgsl_device_private *dev_priv,
 typedef long (*kgsl_ioctl_func_t)(struct kgsl_device_private *,
 	unsigned int, void *);
 
-#define KGSL_IOCTL_FUNC(_cmd, _func, _lock) \
-	[_IOC_NR(_cmd)] = { .cmd = _cmd, .func = _func, .lock = _lock }
+#define KGSL_IOCTL_FUNC(_cmd, _func, _flags) \
+	[_IOC_NR((_cmd))] = \
+		{ .cmd = (_cmd), .func = (_func), .flags = (_flags) }
+
+#define KGSL_IOCTL_LOCK		BIT(0)
+#define KGSL_IOCTL_WAKE		BIT(1)
 
 static const struct {
 	unsigned int cmd;
 	kgsl_ioctl_func_t func;
-	int lock;
+	unsigned int flags;
 } kgsl_ioctl_funcs[] = {
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_GETPROPERTY,
-			kgsl_ioctl_device_getproperty, 1),
+			kgsl_ioctl_device_getproperty,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_WAITTIMESTAMP,
-			kgsl_ioctl_device_waittimestamp, 1),
+			kgsl_ioctl_device_waittimestamp,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID,
-			kgsl_ioctl_device_waittimestamp_ctxtid, 1),
+			kgsl_ioctl_device_waittimestamp_ctxtid,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_RINGBUFFER_ISSUEIBCMDS,
-			kgsl_ioctl_rb_issueibcmds, 1),
+			kgsl_ioctl_rb_issueibcmds,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_READTIMESTAMP,
-			kgsl_ioctl_cmdstream_readtimestamp, 1),
+			kgsl_ioctl_cmdstream_readtimestamp,
+			KGSL_IOCTL_LOCK),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_READTIMESTAMP_CTXTID,
-			kgsl_ioctl_cmdstream_readtimestamp_ctxtid, 1),
+			kgsl_ioctl_cmdstream_readtimestamp_ctxtid,
+			KGSL_IOCTL_LOCK),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP,
-			kgsl_ioctl_cmdstream_freememontimestamp, 1),
+			kgsl_ioctl_cmdstream_freememontimestamp,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP_CTXTID,
-			kgsl_ioctl_cmdstream_freememontimestamp_ctxtid, 1),
+			kgsl_ioctl_cmdstream_freememontimestamp_ctxtid,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DRAWCTXT_CREATE,
-			kgsl_ioctl_drawctxt_create, 1),
+			kgsl_ioctl_drawctxt_create,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_DRAWCTXT_DESTROY,
-			kgsl_ioctl_drawctxt_destroy, 1),
+			kgsl_ioctl_drawctxt_destroy,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_MAP_USER_MEM,
 			kgsl_ioctl_map_user_mem, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SHAREDMEM_FROM_PMEM,
@@ -2367,9 +2385,11 @@ static const struct {
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CFF_USER_EVENT,
 			kgsl_ioctl_cff_user_event, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMESTAMP_EVENT,
-			kgsl_ioctl_timestamp_event, 1),
+			kgsl_ioctl_timestamp_event,
+			KGSL_IOCTL_LOCK),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SETPROPERTY,
-			kgsl_ioctl_device_setproperty, 1),
+			kgsl_ioctl_device_setproperty,
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_ALLOC_ID,
 			kgsl_ioctl_gpumem_alloc_id, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_FREE_ID,
@@ -2385,7 +2405,7 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	struct kgsl_device_private *dev_priv = filep->private_data;
 	unsigned int nr;
 	kgsl_ioctl_func_t func;
-	int lock, ret;
+	int lock, ret, use_hw;
 	char ustack[64];
 	void *uptr = NULL;
 
@@ -2442,7 +2462,8 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		}
 
 		func = kgsl_ioctl_funcs[nr].func;
-		lock = kgsl_ioctl_funcs[nr].lock;
+		lock = kgsl_ioctl_funcs[nr].flags & KGSL_IOCTL_LOCK;
+		use_hw = kgsl_ioctl_funcs[nr].flags & KGSL_IOCTL_WAKE;
 	} else {
 		func = dev_priv->device->ftbl->ioctl;
 		if (!func) {
@@ -2452,11 +2473,13 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			goto done;
 		}
 		lock = 1;
+		use_hw = 1;
 	}
 
 	if (lock) {
 		mutex_lock(&dev_priv->device->mutex);
-		kgsl_check_suspended(dev_priv->device);
+		if (use_hw)
+			kgsl_check_suspended(dev_priv->device);
 	}
 
 	ret = func(dev_priv, cmd, uptr);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,7 +49,6 @@ static struct ocmem_hw_region *region_ctrl;
 static struct mutex region_ctrl_lock;
 static void *ocmem_base;
 
-#define OCMEM_V1_REGIONS 3
 #define OCMEM_V1_MACROS 8
 #define OCMEM_V1_MACRO_SZ (SZ_64K)
 
@@ -964,30 +963,19 @@ int ocmem_core_init(struct platform_device *pdev)
 
 	hw_ver = ocmem_read(ocmem_base + OC_HW_PROFILE);
 
-	if (pdata->nr_regions != OCMEM_V1_REGIONS) {
-		pr_err("Invalid number of regions (%d)\n", pdata->nr_regions);
-		goto hw_not_supported;
-	}
-
 	num_macros = (hw_ver & NUM_MACROS_MASK) >> NUM_MACROS_SHIFT;
 	num_ports = (hw_ver & NUM_PORTS_MASK) >> NUM_PORTS_SHIFT;
 
-	if (num_macros != OCMEM_V1_MACROS) {
+	if (num_macros != pdata->nr_macros) {
 		pr_err("Invalid number of macros (%d)\n", pdata->nr_macros);
 		goto hw_not_supported;
 	}
 
 	interleaved = (hw_ver & INTERLEAVING_MASK) >> INTERLEAVING_SHIFT;
 
-	if (interleaved == false) {
-		pr_err("Interleaving is disabled\n");
-		goto hw_not_supported;
-	}
-
 	num_regions = pdata->nr_regions;
 
 	pdata->interleaved = true;
-	pdata->nr_macros = num_macros;
 	pdata->nr_ports = num_ports;
 	macro_size = OCMEM_V1_MACRO_SZ * 2;
 	num_banks = num_ports / 2;

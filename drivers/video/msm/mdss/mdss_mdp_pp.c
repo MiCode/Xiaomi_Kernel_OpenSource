@@ -78,11 +78,6 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 
 #define MDSS_BLOCK_DISP_NUM	(MDP_BLOCK_MAX - MDP_LOGICAL_BLOCK_DISP_0)
 
-#define IGC_LUT_ENTRIES	256
-#define GC_LUT_SEGMENTS	16
-#define ENHIST_LUT_ENTRIES 256
-#define HIST_V_SIZE	256
-
 #define HIST_WAIT_TIMEOUT(frame) ((60 * HZ * (frame)) / 1000)
 /* hist collect state */
 enum {
@@ -122,18 +117,6 @@ static u32 dither_depth_map[9] = {
 	GAMUT_T2_SIZE + GAMUT_T3_SIZE + GAMUT_T4_SIZE + \
 	GAMUT_T5_SIZE + GAMUT_T6_SIZE + GAMUT_T7_SIZE)
 
-struct pp_sts_type {
-	u32 pa_sts;
-	u32 pcc_sts;
-	u32 igc_sts;
-	u32 igc_tbl_idx;
-	u32 argc_sts;
-	u32 enhist_sts;
-	u32 dither_sts;
-	u32 gamut_sts;
-	u32 pgc_sts;
-};
-
 #define PP_FLAGS_DIRTY_PA	0x1
 #define PP_FLAGS_DIRTY_PCC	0x2
 #define PP_FLAGS_DIRTY_IGC	0x4
@@ -143,6 +126,7 @@ struct pp_sts_type {
 #define PP_FLAGS_DIRTY_GAMUT	0x40
 #define PP_FLAGS_DIRTY_HIST_COL	0x80
 #define PP_FLAGS_DIRTY_PGC	0x100
+#define PP_FLAGS_DIRTY_SHARP	0x200
 
 #define PP_STS_ENABLE	0x1
 #define PP_STS_GAMUT_FIRST	0x2
@@ -295,7 +279,7 @@ int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type)
 }
 
 static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
-				u32 base, u32 *gamut_sts)
+				u32 base, struct pp_sts_type *pp_sts)
 {
 	u32 offset;
 	int i, j;
@@ -320,13 +304,13 @@ static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
 			offset += 4;
 		}
 		if (gamut_cfg->gamut_first)
-			*gamut_sts |= PP_STS_GAMUT_FIRST;
+			pp_sts->gamut_sts |= PP_STS_GAMUT_FIRST;
 	}
 
 	if (gamut_cfg->flags & MDP_PP_OPS_DISABLE)
-		*gamut_sts &= ~PP_STS_ENABLE;
+		pp_sts->gamut_sts &= ~PP_STS_ENABLE;
 	else if (gamut_cfg->flags & MDP_PP_OPS_ENABLE)
-		*gamut_sts |= PP_STS_ENABLE;
+		pp_sts->gamut_sts |= PP_STS_ENABLE;
 }
 
 static void pp_pa_config(unsigned long flags, u32 base,
@@ -407,11 +391,33 @@ static void pp_enhist_config(unsigned long flags, u32 base,
 	}
 }
 
+static void pp_sharp_config(unsigned long flags, u32 base,
+				struct pp_sts_type *pp_sts,
+				struct mdp_sharp_cfg *sharp_config)
+{
+	if (flags & PP_FLAGS_DIRTY_SHARP) {
+		if (sharp_config->flags & MDP_PP_OPS_WRITE) {
+			MDSS_MDP_REG_WRITE(base, sharp_config->strength);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, sharp_config->edge_thr);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, sharp_config->smooth_thr);
+			base += 4;
+			MDSS_MDP_REG_WRITE(base, sharp_config->noise_thr);
+		}
+		if (sharp_config->flags & MDP_PP_OPS_DISABLE)
+			pp_sts->sharp_sts &= ~PP_STS_ENABLE;
+		else if (sharp_config->flags & MDP_PP_OPS_ENABLE)
+			pp_sts->sharp_sts |= PP_STS_ENABLE;
+	}
+}
+
+
 static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
-	struct pp_sts_type pp_sts;
 	u32 opmode = 0, base = 0;
 	unsigned long flags = 0;
+	u32 upscaling = 1;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
@@ -450,11 +456,32 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			flags = PP_FLAGS_DIRTY_PA;
 			base = MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
 				MDSS_MDP_REG_VIG_PA_BASE;
-			pp_sts.pa_sts = 0;
-			pp_pa_config(flags, base, &pp_sts,
+			pp_pa_config(flags, base, &pipe->pp_res.pp_sts,
 					&pipe->pp_cfg.pa_cfg);
-			if (pp_sts.pa_sts & PP_STS_ENABLE)
+
+			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
 				opmode |= (1 << 4); /* PA_EN */
+		}
+
+		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_SHARP_CFG) {
+			if ((pipe->dst.w < pipe->src.w) ||
+				(pipe->dst.h < pipe->src.h))
+				upscaling = 0;
+			if ((pipe->src_fmt->is_yuv) && upscaling) {
+				flags = PP_FLAGS_DIRTY_SHARP;
+				base = MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
+					MDSS_MDP_REG_VIG_QSEED2_SHARP;
+				pp_sharp_config(flags, base,
+					&pipe->pp_res.pp_sts,
+					&pipe->pp_cfg.sharp_cfg);
+
+				if (pipe->pp_res.pp_sts.sharp_sts &
+					PP_STS_ENABLE)
+					MDSS_MDP_REG_WRITE(
+					   MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
+					   MDSS_MDP_REG_VIG_QSEED2_CONFIG,
+					   1 << 0 | 1 << 1);
+			}
 		}
 	}
 
@@ -475,6 +502,56 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		ret = -EINVAL;
 	else if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
 		ret = -EINVAL;
+
+	return ret;
+}
+
+void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
+{
+	memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
+	memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
+}
+
+int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
+{
+	int ret = 0;
+	unsigned long flags = 0;
+	u32 pipe_base;
+	u32 pipe_num;
+
+	if (pipe == NULL)
+		return -EINVAL;
+
+	/*
+	 * TODO: should this function be responsible for masking multiple
+	 * pipes to be written in dual pipe case?
+	 * if so, requires rework of update_igc_lut
+	 */
+	switch (pipe->type) {
+	case MDSS_MDP_PIPE_TYPE_VIG:
+		pipe_base = MDSS_MDP_REG_IGC_VIG_BASE;
+		pipe_num = pipe->num - MDSS_MDP_SSPP_VIG0;
+		break;
+	case MDSS_MDP_PIPE_TYPE_RGB:
+		pipe_base = MDSS_MDP_REG_IGC_RGB_BASE;
+		pipe_num = pipe->num - MDSS_MDP_SSPP_RGB0;
+		break;
+	case MDSS_MDP_PIPE_TYPE_DMA:
+		pipe_base = MDSS_MDP_REG_IGC_DMA_BASE;
+		pipe_num = pipe->num - MDSS_MDP_SSPP_DMA0;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG) {
+		flags |= PP_FLAGS_DIRTY_IGC;
+		pp_igc_config(flags, pipe_base, &pipe->pp_res.pp_sts,
+					&pipe->pp_cfg.igc_cfg, pipe_num);
+	}
+
+	if (pipe->pp_res.pp_sts.igc_sts & PP_STS_ENABLE)
+		*op |= (1 << 16); /* IGC_LUT_EN */
 
 	return ret;
 }
@@ -634,8 +711,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	if (pp_sts->dither_sts & PP_STS_ENABLE)
 		opmode |= (1 << 8); /* DITHER_EN */
 	if (flags & PP_FLAGS_DIRTY_GAMUT)
-		pp_gamut_config(&mdss_pp_res->gamut_disp_cfg[disp_num],
-					base, &pp_sts->gamut_sts);
+		pp_gamut_config(&mdss_pp_res->gamut_disp_cfg[disp_num], base,
+				pp_sts);
 	if (pp_sts->gamut_sts & PP_STS_ENABLE) {
 		opmode |= (1 << 23); /* GAMUT_EN */
 		if (pp_sts->gamut_sts & PP_STS_GAMUT_FIRST)
@@ -687,6 +764,83 @@ int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
+/*
+ * Set dirty and write bits on features that were enabled so they will be
+ * reconfigured
+ */
+int mdss_mdp_pp_resume(u32 mixer_num)
+{
+	u32 flags = 0;
+	struct pp_sts_type pp_sts;
+
+	if (mixer_num >= MDSS_MDP_MAX_DSPP) {
+		pr_warn("invalid mixer_num");
+		return -EINVAL;
+	}
+
+	pp_sts = mdss_pp_res->pp_dspp_sts[mixer_num];
+
+	if (pp_sts.pa_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_PA;
+		if (!(mdss_pp_res->pa_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->pa_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.pcc_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_PCC;
+		if (!(mdss_pp_res->pcc_disp_cfg[mixer_num].ops
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->pcc_disp_cfg[mixer_num].ops |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.igc_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_IGC;
+		if (!(mdss_pp_res->igc_disp_cfg[mixer_num].ops
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->igc_disp_cfg[mixer_num].ops |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.argc_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_ARGC;
+		if (!(mdss_pp_res->argc_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->argc_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.enhist_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_ENHIST;
+		if (!(mdss_pp_res->enhist_disp_cfg[mixer_num].ops
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->enhist_disp_cfg[mixer_num].ops |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.dither_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_DITHER;
+		if (!(mdss_pp_res->dither_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->dither_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.gamut_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_GAMUT;
+		if (!(mdss_pp_res->gamut_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->gamut_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+	if (pp_sts.pgc_sts & PP_STS_ENABLE) {
+		flags |= PP_FLAGS_DIRTY_PGC;
+		if (!(mdss_pp_res->pgc_disp_cfg[mixer_num].flags
+					& MDP_PP_OPS_DISABLE))
+			mdss_pp_res->pgc_disp_cfg[mixer_num].flags |=
+				MDP_PP_OPS_WRITE;
+	}
+
+	mdss_pp_res->pp_disp_flags[mixer_num] = flags;
+	return 0;
+}
+
 int mdss_mdp_pp_init(struct device *dev)
 {
 	int ret = 0;
@@ -706,6 +860,7 @@ int mdss_mdp_pp_init(struct device *dev)
 		for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
 			data[i] = i;
 
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		/* Initialize Histogram LUT for all DSPPs */
 		for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
 			offset = MDSS_MDP_REG_DSPP_OFFSET(i) +
@@ -714,6 +869,7 @@ int mdss_mdp_pp_init(struct device *dev)
 			pp_update_hist_lut(offset,
 					&mdss_pp_res->enhist_disp_cfg[i]);
 		}
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	}
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;

@@ -232,27 +232,15 @@
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
+		reg-names = "core", "intr", "cnfg";
 		reg = <0xfc4cf000 0x1000>,
-		      <0Xfc4cb000 0x1000>;
+		      <0Xfc4cb000 0x1000>,
+		      <0Xfc4ca000 0x1000>;
 		/* 190,ee0_krait_hlos_spmi_periph_irq */
 		/* 187,channel_0_krait_hlos_trans_done_irq */
 		interrupts = <0 190 0 0 187 0>;
 		qcom,pmic-arb-ee = <0>;
 		qcom,pmic-arb-channel = <0>;
-		qcom,pmic-arb-ppid-map = <0x02400000>, /* TEMP_ALARM */
-					 <0x03100001>, /* VADC1_USR */
-					 <0x06100002>, /* RTC_ALARM */
-					 <0x06200003>, /* RTC_TIMER */
-					 <0x0a000004>, /* MPP1 */
-					 <0x0a100005>, /* MPP2 */
-					 <0x0a200006>, /* MPP3 */
-					 <0x0a300007>, /* MPP4 */
-					 <0x0a400008>, /* MPP5 */
-					 <0x0a500009>, /* MPP6 */
-					 <0x0c20000a>, /* GPIO3 */
-					 <0x0c30000b>, /* GPIO4 */
-					 <0x0c50000c>, /* GPIO6 */
-					 <0x0080000d>; /* PON */
 	};
 
 	i2c@f9925000 {
@@ -707,6 +695,12 @@
 		qcom,memory-reservation-type = "EBI1";
 		qcom,memory-reservation-size = <0x1000>; /* 4K EBI1 buffer */
 	};
+
+        qcom,msm-mem-hole {
+                compatible = "qcom,msm-mem-hole";
+                qcom,memblock-remove = <0x1f00000 0x5700000>; /* Address and Size of Hole */
+        };
+
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"

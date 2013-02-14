@@ -125,6 +125,9 @@ static const u32 tuning_block_128[] = {
 	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
 
+static int disable_slots;
+module_param(disable_slots, int, 0);
+
 #if IRQ_DEBUG == 1
 static char *irq_status_bits[] = { "cmdcrcfail", "datcrcfail", "cmdtimeout",
 				   "dattimeout", "txunderrun", "rxoverrun",
@@ -4277,35 +4280,40 @@ void msmsdcc_hw_reset(struct mmc_host *mmc)
 	if (!card || !mmc_card_sd(card))
 		return;
 
-	/*
-	 * Continuing on failing to disable regulator would lead to a panic
-	 * anyway, since the commands would fail and console would be flooded
-	 * with prints, eventually leading to a watchdog bark
-	 */
-	rc = msmsdcc_setup_vreg(host, false, false);
-	if (rc) {
-		pr_err("%s: %s disable regulator: failed: %d\n",
-		       mmc_hostname(mmc), __func__, rc);
-		BUG_ON(rc);
+	pr_debug("%s: Starting h/w reset\n", mmc_hostname(host->mmc));
+
+	if (host->plat->translate_vdd || host->plat->vreg_data) {
+
+		/* Disable the regulators */
+		if (host->plat->translate_vdd)
+			rc = host->plat->translate_vdd(mmc_dev(mmc), 0);
+		else if (host->plat->vreg_data)
+			rc = msmsdcc_setup_vreg(host, false, false);
+
+		if (rc) {
+			pr_err("%s: Failed to disable voltage regulator\n",
+				mmc_hostname(host->mmc));
+			BUG_ON(rc);
+		}
+
+		/* 10ms delay for supply to reach the desired voltage level */
+		usleep_range(10000, 12000);
+
+		/* Enable the regulators */
+		if (host->plat->translate_vdd)
+			rc = host->plat->translate_vdd(mmc_dev(mmc), 1);
+		else if (host->plat->vreg_data)
+			rc = msmsdcc_setup_vreg(host, true, false);
+
+		if (rc) {
+			pr_err("%s: Failed to enable voltage regulator\n",
+				mmc_hostname(host->mmc));
+			BUG_ON(rc);
+		}
+
+		/* 10ms delay for supply to reach the desired voltage level */
+		usleep_range(10000, 12000);
 	}
-
-	/* 10ms delay for the supply to reach the desired voltage level */
-	usleep_range(10000, 12000);
-
-	/*
-	 * Continuing on failing to enable regulator would lead to a panic
-	 * anyway, since the commands would fail and console would be flooded
-	 * with prints, eventually leading to a watchdog bark
-	 */
-	rc = msmsdcc_setup_vreg(host, true, false);
-	if (rc) {
-		pr_err("%s: %s enable regulator: failed: %d\n",
-		       mmc_hostname(mmc), __func__, rc);
-		BUG_ON(rc);
-	}
-
-	/* 10ms delay for the supply to reach the desired voltage level */
-	usleep_range(10000, 12000);
 }
 
 static const struct mmc_host_ops msmsdcc_ops = {
@@ -5770,6 +5778,11 @@ msmsdcc_probe(struct platform_device *pdev)
 		pr_err("%s: Platform data not available\n", __func__);
 		ret = -EINVAL;
 		goto out;
+	}
+
+	if (disable_slots & (1 << (pdev->id - 1))) {
+		pr_info("%s: Slot %d disabled\n", __func__, pdev->id);
+		return -ENODEV;
 	}
 
 	if (pdev->id < 1 || pdev->id > 5)

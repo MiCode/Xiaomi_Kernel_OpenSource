@@ -175,8 +175,11 @@ int afe_get_port_type(u16 port_id)
 	case INT_FM_RX:
 	case VOICE_PLAYBACK_TX:
 	case RT_PROXY_PORT_001_RX:
-	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+	case AUDIO_PORT_ID_I2S_RX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -195,8 +198,10 @@ int afe_get_port_type(u16 port_id)
 	case VOICE_RECORD_RX:
 	case INT_BT_SCO_TX:
 	case RT_PROXY_PORT_001_TX:
-	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 		ret = MSM_AFE_PORT_TYPE_TX;
 		break;
 
@@ -219,6 +224,7 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
 	case MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_i2s_cfg);
 		break;
 	case HDMI_RX:
@@ -229,8 +235,11 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_RX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_RX:
+	case SLIMBUS_2_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_slimbus_cfg);
 		break;
+	case VOICE_PLAYBACK_TX:
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_pseudo_port_cfg);
@@ -407,6 +416,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
 	case MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
@@ -418,6 +428,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case HDMI_RX:
 		cfg_type = AFE_PARAM_ID_HDMI_CONFIG;
 		break;
+	case VOICE_PLAYBACK_TX:
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:
 		cfg_type = AFE_PARAM_ID_PSEUDO_PORT_CONFIG;
@@ -564,6 +575,8 @@ int afe_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_PRIMARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
@@ -633,6 +646,7 @@ int afe_open(u16 port_id,
 		break;
 	case SECONDARY_I2S_RX:
 	case SECONDARY_I2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case MI2S_RX:
 	case MI2S_TX:
 		cfg_type = AFE_PARAM_ID_I2S_CONFIG;
@@ -1036,9 +1050,9 @@ int afe_stop_pseudo_port(u16 port_id)
 	return 0;
 }
 
-uint32_t afe_req_mmap_handle(void)
+uint32_t afe_req_mmap_handle(struct afe_audio_client *ac)
 {
-	return this_afe.mmap_handle;
+	return ac->mem_map_handle;
 }
 
 struct afe_audio_client *q6afe_audio_client_alloc(void *priv)
@@ -1163,6 +1177,21 @@ fail:
 	q6afe_audio_client_buf_free_contiguous(dir, ac);
 	return -EINVAL;
 }
+
+int afe_memory_map(u32 dma_addr_p, u32 dma_buf_sz, struct afe_audio_client *ac)
+{
+	int ret = 0;
+
+	ac->mem_map_handle = 0;
+	ret = afe_cmd_memory_map(dma_addr_p, dma_buf_sz);
+	if (ret < 0) {
+		pr_err("%s: afe_cmd_memory_map failed\n", __func__);
+		return ret;
+	}
+	ac->mem_map_handle = this_afe.mmap_handle;
+	return ret;
+}
+
 int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 {
 	int ret = 0;
@@ -1222,6 +1251,7 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz)
 	pr_debug("%s: dma_addr_p 0x%x , size %d\n", __func__,
 					dma_addr_p, dma_buf_sz);
 	atomic_set(&this_afe.state, 1);
+	this_afe.mmap_handle = 0;
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) mmap_region_cmd);
 	if (ret < 0) {
 		pr_err("%s: AFE memory map cmd failed %d\n",
@@ -1980,6 +2010,7 @@ int afe_validate_port(u16 port_id)
 	case RT_PROXY_PORT_001_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	{
 		ret = 0;
 		break;

@@ -20,6 +20,7 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,flash-src-index = <&led_flash0>;
+		qcom,actuator-src = <&actuator0>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "s5k3l1yx";
 		cam_vdig-supply = <&pm8941_l3>;
@@ -47,6 +48,7 @@
 		qcom,csi-lane-mask = <0x1F>;
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <1>;
+		qcom,cci-master = <0>;
 		status = "ok";
 	};
 
@@ -57,7 +59,7 @@
 		qcom,led-flash-sd-index = <0>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <180>;
+		qcom,mount-angle = <90>;
 		qcom,sensor-name = "ov2720";
 		cam_vdig-supply = <&pm8941_l3>;
 		cam_vana-supply = <&pm8941_l17>;
@@ -82,6 +84,7 @@
 		qcom,csi-lane-mask = <0x7>;
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <1>;
+		qcom,cci-master = <1>;
 		status = "ok";
 	};
 };

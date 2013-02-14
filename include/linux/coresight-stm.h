@@ -36,7 +36,7 @@ enum {
 #define stm_log(entity_id, data, size)					\
 	stm_log_inv_ts(entity_id, 0, data, size)
 
-#ifdef CONFIG_MSM_QDSS
+#ifdef CONFIG_CORESIGHT_STM
 extern int stm_trace(uint32_t options, uint8_t entity_id, uint8_t proto_id,
 		     const void *data, uint32_t size);
 #else

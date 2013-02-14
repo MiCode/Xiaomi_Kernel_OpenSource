@@ -142,6 +142,24 @@ struct msm_vfe_axi_stream_cfg_cmd {
 	enum msm_vfe_axi_stream_cmd cmd;
 };
 
+enum msm_vfe_axi_stream_update_type {
+	ENABLE_STREAM_BUF_DIVERT,
+	DISABLE_STREAM_BUF_DIVERT,
+	UPDATE_STREAM_FRAMEDROP_PATTERN,
+};
+
+struct msm_vfe_axi_stream_update_cmd {
+	uint32_t stream_handle;
+	enum msm_vfe_axi_stream_update_type update_type;
+	enum msm_vfe_frame_skip_pattern skip_pattern;
+};
+
+enum msm_vfe_stats_pipeline_policy {
+	STATS_COMP_ALL,
+	STATS_COMP_NONE,
+	MAX_STATS_POLICY,
+};
+
 enum msm_isp_stats_type {
 	MSM_ISP_STATS_AEC,   /* legacy based AEC */
 	MSM_ISP_STATS_AF,    /* legacy based AF */
@@ -161,10 +179,12 @@ struct msm_vfe_stats_stream_request_cmd {
 	uint32_t session_id;
 	uint32_t stream_id;
 	enum msm_isp_stats_type stats_type;
-	uint8_t comp_flag;
 	uint32_t framedrop_pattern;
+	uint32_t irq_subsample_pattern;
 	uint32_t stream_handle;
+	uint8_t comp_flag;
 };
+
 struct msm_vfe_stats_stream_release_cmd {
 	uint32_t stream_handle;
 };
@@ -173,13 +193,24 @@ struct msm_vfe_stats_stream_cfg_cmd {
 	uint32_t stream_handle[MSM_ISP_STATS_MAX];
 	uint8_t enable;
 };
+
+struct msm_vfe_stats_comp_policy_cfg {
+	enum msm_vfe_stats_pipeline_policy stats_pipeline_policy;
+	uint32_t comp_framedrop_pattern;
+	uint32_t comp_irq_subsample_pattern;
+};
+
 enum msm_vfe_reg_cfg_type {
 	VFE_WRITE,
 	VFE_WRITE_MB,
 	VFE_READ,
-	VFE_WRITE_MASK,
-	VFE_CLEAR_MASK,
-	VFE_WRITE_AUTO_INCREMENT,
+	VFE_CFG_MASK,
+	VFE_WRITE_DMI_16BIT,
+	VFE_WRITE_DMI_32BIT,
+	VFE_WRITE_DMI_64BIT,
+	VFE_READ_DMI_16BIT,
+	VFE_READ_DMI_32BIT,
+	VFE_READ_DMI_64BIT,
 };
 
 struct msm_vfe_cfg_cmd2 {
@@ -189,10 +220,31 @@ struct msm_vfe_cfg_cmd2 {
 	void __user *cfg_cmd;
 };
 
-struct msm_vfe_reg_cfg_cmd {
+struct msm_vfe_reg_rw_info {
 	uint32_t reg_offset;
-	uint32_t cmd_data;
+	uint32_t cmd_data_offset;
 	uint32_t len;
+};
+
+struct msm_vfe_reg_mask_info {
+	uint32_t reg_offset;
+	uint32_t mask;
+	uint32_t val;
+};
+
+struct msm_vfe_reg_dmi_info {
+	uint32_t hi_tbl_offset; /*Optional*/
+	uint32_t lo_tbl_offset; /*Required*/
+	uint32_t len;
+};
+
+struct msm_vfe_reg_cfg_cmd {
+	union {
+		struct msm_vfe_reg_rw_info rw_info;
+		struct msm_vfe_reg_mask_info mask_info;
+		struct msm_vfe_reg_dmi_info dmi_info;
+	} u;
+
 	enum msm_vfe_reg_cfg_type cmd_type;
 };
 
@@ -208,6 +260,8 @@ struct msm_isp_qbuf_info {
 	int buf_idx;
 	/*Only used for prepare buffer*/
 	struct v4l2_buffer buffer;
+	/*Only used for diverted buffer*/
+	uint32_t dirty_buf;
 };
 
 struct msm_vfe_axi_src_state {
@@ -319,5 +373,12 @@ struct msm_isp_event_data {
 #define VIDIOC_MSM_ISP_RELEASE_STATS_STREAM \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+11, \
 	struct msm_vfe_stats_stream_release_cmd)
+
+#define VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+12,   \
+	      struct msm_vfe_stats_comp_policy_cfg)
+
+#define VIDIOC_MSM_ISP_UPDATE_STREAM \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+13, struct msm_vfe_axi_stream_update_cmd)
 
 #endif /* __MSMB_ISP__ */

@@ -2007,3 +2007,8 @@ struct msm_bus_fabric_registration msm_bus_8974_ocmem_vnoc_pdata = {
 	.virt = 1,
 	.rpm_enabled = 1,
 };
+
+void msm_bus_board_init(struct msm_bus_fabric_registration *pdata)
+{
+	pdata->board_algo = &msm_bus_board_algo;
+}

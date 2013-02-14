@@ -87,10 +87,7 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 		goto done;
 	}
 
-	pipe = mdss_mdp_pipe_alloc_pnum(pnum);
-
-	if (!IS_ERR_OR_NULL(pipe))
-		pipe->mixer = mixer;
+	pipe = mdss_mdp_pipe_alloc_pnum(mixer, pnum);
 done:
 	if (!pipe)
 		mdss_mdp_wb_mixer_destroy(mixer);
@@ -185,7 +182,7 @@ int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
 			   struct mdss_mdp_data *src_data,
 			   struct mdss_mdp_data *dst_data)
 {
-	struct mdss_mdp_pipe *rot_pipe;
+	struct mdss_mdp_pipe *rot_pipe = NULL;
 	struct mdss_mdp_ctl *ctl;
 	int ret, need_wait = false;
 
@@ -237,6 +234,9 @@ done:
 
 	if (need_wait)
 		mdss_mdp_rotator_busy_wait(rot);
+
+	if (rot_pipe)
+		pr_debug("end of rotator pnum=%d enqueue\n", rot_pipe->num);
 
 	return ret;
 }

@@ -11,7 +11,7 @@
  */
 
 /include/ "skeleton.dtsi"
-/include/ "msm-iommu-v1.dtsi"
+/include/ "msm-iommu-v0.dtsi"
 /include/ "msm8610-ion.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8610-pm.dtsi"
@@ -72,8 +72,8 @@
 	usb@f9a55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9a55000 0x400>;
-		interrupts = <0 134 0>;
-		interrupt-names = "core_irq";
+		interrupts = <0 134 0>, <0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
 		HSUSB_VDDCX-supply = <&pm8110_s1>;
 		HSUSB_1p8-supply = <&pm8110_l10>;
 		HSUSB_3p3-supply = <&pm8110_l20>;
@@ -84,8 +84,9 @@
 		qcom,hsusb-otg-disable-reset;
 	};
 
-	android_usb {
+	android_usb@fe8050c8 {
 		compatible = "qcom,android-usb";
+		reg = <0xfe8050c8 0xc8>;
 	};
 
 	sdcc1: qcom,sdcc@f9824000 {
@@ -233,6 +234,11 @@
 		rpm-standalone;
 	};
 
+	qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0x07C00000 0x6000000>; /* Address and Size of Hole */
+	};
+
 	qcom,wdt@f9017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;
@@ -242,93 +248,156 @@
 		qcom,ipi-ping;
 	};
 
+	qcom,acpuclk@f9011050 {
+		compatible = "qcom,acpuclk-a7";
+		reg = <0xf9011050 0x8>;
+		reg-names = "rcg_base";
+		a7_cpu-supply = <&pm8110_s2>;
+		a7_mem-supply = <&pm8110_l3>;
+	};
+
 	spmi_bus: qcom,spmi@fc4c0000 {
 		cell-index = <0>;
 		compatible = "qcom,spmi-pmic-arb";
+		reg-names = "core", "intr", "cnfg";
 		reg = <0xfc4cf000 0x1000>,
-		      <0Xfc4cb000 0x1000>;
+		      <0Xfc4cb000 0x1000>,
+		      <0Xfc4ca000 0x1000>;
 		/* 190,ee0_krait_hlos_spmi_periph_irq */
 		/* 187,channel_0_krait_hlos_trans_done_irq */
 		interrupts = <0 190 0>, <0 187 0>;
 		qcom,not-wakeup;
 		qcom,pmic-arb-ee = <0>;
 		qcom,pmic-arb-channel = <0>;
-		qcom,pmic-arb-ppid-map = <0x001000a0>, /* PM8110 */
-					 <0x005000a2>, /* INTERRUPT */
-					 <0x006000a3>, /* SPMI_0 */
-					 <0x00800000>, /* PON0 */
-					 <0x01000002>, /* SMBB_CHG */
-					 <0x01100003>, /* SMBB_BUCK */
-					 <0x01200004>, /* SMBB_BIF */
-					 <0x01300005>, /* SMBB_USB */
-					 <0x01500006>, /* SMBB_BOOST */
-					 <0x01600007>, /* SMBB_MISC */
-					 <0x0280000a>, /* COINCELL */
-					 <0x02c000a5>, /* MBG */
-					 <0x0310000b>, /* VADC1_LC_USR */
-					 <0x03200041>, /* VADC3_LC_MDM */
-					 <0x0330000c>, /* VADC3_LC_BMS */
-					 <0x0340000d>, /* VADC2_LC_BTM */
-					 <0x0360000e>, /* IADC1_USR */
-					 <0x03700042>, /* IADC2_MDM */
-					 <0x0380000f>, /* IADC2_BMS */
-					 <0x04000010>, /* BMS_1 */
-					 <0x050000a6>, /* SHARED_XO */
-					 <0x051000a7>, /* BB_CLK1 */
-					 <0x054000a8>, /* RF_CLK1 */
-					 <0x055000a9>, /* RF_CLK1 */
-					 <0x05a000ab>, /* SLEEP_CLK */
-					 <0x06000043>, /* RTC_RW */
-					 <0x06100011>, /* RTC_ALARM */
-					 <0x070000ac>, /* PBS_CORE */
-					 <0x071000ad>, /* PBS_CLIENT_1 */
-					 <0x072000ae>, /* PBS_CLIENT_2 */
-					 <0x07300013>, /* PBS_CLIENT_3 */
-					 <0x07400044>, /* PBS_CLIENT_4 */
-					 <0x0a000014>, /* MPP_1 */
-					 <0x0a100015>, /* MPP_2 */
-					 <0x0a200016>, /* MPP_3 */
-					 <0x0a300045>, /* MPP_4 */
-					 <0x0c000046>, /* GPIO_1 */
-					 <0x0c1000f0>, /* GPIO_2 */
-					 <0x0c2000af>, /* GPIO_3 */
-					 <0x0c300047>, /* GPIO_4 */
-					 <0x0fe000b0>, /* TRIM_0 */
-					 <0x110000b1>, /* BUCK_CMN_1 */
-					 <0x11400048>, /* SMPS1 */
-					 <0x115000b2>, /* SMPS_1_PS1 */
-					 <0x116000b3>, /* BUCK_FREQ_1 */
-					 <0x11700017>, /* SMPS2 */
-					 <0x11800018>, /* FTPS1_2 */
-					 <0x11900019>, /* BUCK_FREQ_2 */
-					 <0x11a000b4>, /* SMPS3 */
-					 <0x11b000b5>, /* SMPS_3_PS1 */
-					 <0x11c000b6>, /* BUCK_FREQ_3 */
-					 <0x11d000b7>, /* SMPS4 */
-					 <0x11e000b8>, /* SMPS_4_PS1 */
-					 <0x11f000b9>, /* BUCK_FREQ_4 */
-					 <0x140000ba>, /* LDO_1 */
-					 <0x141000bb>, /* LDO_2 */
-					 <0x142000bc>, /* LDO_3 */
-					 <0x143000bd>, /* LDO_4 */
-					 <0x144000be>, /* LDO_5 */
-					 <0x145000bf>, /* LDO_6 */
-					 <0x146000c0>, /* LDO_7 */
-					 <0x147000c1>, /* LDO_8 */
-					 <0x148000c2>, /* LDO_9 */
-					 <0x149000c3>, /* LDO_10 */
-					 <0x14a000c4>, /* LDO_11 */
-					 <0x14b000c5>, /* LDO_12 */
-					 <0x14c000c6>, /* LDO_13 */
-					 <0x14d000c7>, /* LDO_14 */
-					 <0x14e000c8>, /* LDO_15 */
-					 <0x14f000c9>, /* LDO_16 */
-					 <0x150000ca>, /* LDO_17 */
-					 <0x151000cb>, /* LDO_18 */
-					 <0x152000cc>, /* LDO_19 */
-					 <0x153000cd>, /* LDO_20 */
-					 <0x154000ce>, /* LDO_21 */
-					 <0x155000cf>; /* LDO_22 */
+	};
+
+	i2c@f9925000 { /* BLSP-1 QUP-3 */
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0xf9925000 0x1000>;
+		interrupt-names = "qup_err_intr";
+		interrupts = <0 97 0>;
+		qcom,i2c-bus-freq = <100000>;
+	};
+
+	qcom,pronto@fb21b000 {
+		compatible = "qcom,pil-pronto";
+		reg = <0xfb21b000 0x3000>,
+		      <0xfc401700 0x4>,
+		      <0xfd485300 0xc>;
+		reg-names = "pmu_base", "clk_base", "halt_base";
+		interrupts = <0 149 1>;
+		vdd_pronto_pll-supply = <&pm8110_l10>;
+
+		qcom,firmware-name = "wcnss";
+	};
+
+	sound {
+		compatible = "qcom,msm8x10-audio-codec";
+		qcom,model = "msm8x10-snd-card";
+	};
+
+	qcom,msm-pcm {
+		compatible = "qcom,msm-pcm-dsp";
+	};
+
+	qcom,msm-pcm-routing {
+		compatible = "qcom,msm-pcm-routing";
+	};
+
+	qcom,msm-pcm-lpa {
+		compatible = "qcom,msm-pcm-lpa";
+	};
+
+	qcom,msm-compr-dsp {
+		compatible = "qcom,msm-compr-dsp";
+	};
+
+	qcom,msm-voip-dsp {
+		compatible = "qcom,msm-voip-dsp";
+	};
+
+	qcom,msm-pcm-voice {
+		compatible = "qcom,msm-pcm-voice";
+	};
+
+	qcom,msm-stub-codec {
+		compatible = "qcom,msm-stub-codec";
+	};
+
+	qcom,msm-dai-fe {
+		compatible = "qcom,msm-dai-fe";
+	};
+
+	qcom,msm-pcm-afe {
+		compatible = "qcom,msm-pcm-afe";
+	};
+
+	qcom,msm-dai-mi2s {
+		compatible = "qcom,msm-dai-mi2s";
+		qcom,msm-dai-q6-mi2s-prim {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <0>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <0>;
+		};
+
+		qcom,msm-dai-q6-mi2s-sec {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <1>;
+			qcom,msm-mi2s-rx-lines = <0>;
+			qcom,msm-mi2s-tx-lines = <3>;
+		};
+	};
+
+	qcom,msm-dai-q6 {
+		compatible = "qcom,msm-dai-q6";
+		qcom,msm-dai-q6-bt-sco-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12288>;
+		};
+
+		qcom,msm-dai-q6-bt-sco-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12289>;
+		};
+
+		qcom,msm-dai-q6-int-fm-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12292>;
+		};
+
+		qcom,msm-dai-q6-int-fm-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12293>;
+		};
+
+		qcom,msm-dai-q6-be-afe-pcm-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <224>;
+		};
+
+		qcom,msm-dai-q6-be-afe-pcm-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <225>;
+		};
+
+		qcom,msm-dai-q6-afe-proxy-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <241>;
+		};
+
+		qcom,msm-dai-q6-afe-proxy-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <240>;
+		};
+	};
+
+	qcom,msm-pcm-hostless {
+		compatible = "qcom,msm-pcm-hostless";
 	};
 
 	qcom,lpass@fe200000 {
@@ -337,7 +406,7 @@
 		      <0xfd485100 0x00010>;
 		reg-names = "qdsp6_base", "halt_base";
 		interrupts = <0 162 1>;
-
+		vdd_cx-supply = <&pm8110_s1_corner>;
 		qcom,firmware-name = "adsp";
 	};
 };

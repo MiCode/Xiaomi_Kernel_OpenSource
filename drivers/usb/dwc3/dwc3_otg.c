@@ -373,6 +373,10 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 	struct usb_phy *phy = dotg->otg.phy;
 	int ret = 0;
 
+	/* Flush processing any pending events before handling new ones */
+	if (init)
+		flush_work(&dotg->sm_work);
+
 	if (event == DWC3_EVENT_PHY_RESUME) {
 		if (!pm_runtime_status_suspended(phy->dev)) {
 			dev_warn(phy->dev, "PHY_RESUME event out of LPM!!!!\n");
@@ -394,6 +398,12 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			}
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
+		if (pm_runtime_status_suspended(phy->dev)) {
+			dev_warn(phy->dev, "PHY_STATE event in LPM!!!!\n");
+			ret = pm_runtime_get(phy->dev);
+			if (ret < 0)
+				dev_warn(phy->dev, "pm_runtime_get failed!!\n");
+		}
 		if (ext_xceiv->id == DWC3_ID_FLOAT) {
 			dev_dbg(phy->dev, "XCVR: ID set\n");
 			set_bit(ID, &dotg->inputs);
@@ -472,7 +482,8 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		power_supply_type = POWER_SUPPLY_TYPE_USB;
 	else if (dotg->charger->chg_type == DWC3_CDP_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB_CDP;
-	else if (dotg->charger->chg_type == DWC3_DCP_CHARGER)
+	else if (dotg->charger->chg_type == DWC3_DCP_CHARGER ||
+			dotg->charger->chg_type == DWC3_PROPRIETARY_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB_DCP;
 	else
 		power_supply_type = POWER_SUPPLY_TYPE_BATTERY;
@@ -675,6 +686,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				/* Has charger been detected? If no detect it */
 				switch (charger->chg_type) {
 				case DWC3_DCP_CHARGER:
+				case DWC3_PROPRIETARY_CHARGER:
 					dev_dbg(phy->dev, "lpm, DCP charger\n");
 					dwc3_otg_set_power(phy,
 							DWC3_IDEV_CHG_MAX);

@@ -41,6 +41,8 @@ struct intf_timing_params {
 #define MAX_SESSIONS 3
 struct mdss_mdp_video_ctx {
 	u32 pp_num;
+	char __iomem *base;
+	u32 intf_type;
 	u8 ref_cnt;
 
 	u8 timegen_en;
@@ -53,7 +55,13 @@ struct mdss_mdp_video_ctx {
 
 struct mdss_mdp_video_ctx mdss_mdp_video_ctx_list[MAX_SESSIONS];
 
-static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
+static inline void mdp_video_write(struct mdss_mdp_video_ctx *ctx,
+				   u32 reg, u32 val)
+{
+	writel_relaxed(val, ctx->base + reg);
+}
+
+static int mdss_mdp_video_timegen_setup(struct mdss_mdp_video_ctx *ctx,
 					struct intf_timing_params *p)
 {
 	u32 hsync_period, vsync_period;
@@ -61,9 +69,6 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	u32 active_h_start, active_h_end, active_v_start, active_v_end;
 	u32 den_polarity, hsync_polarity, vsync_polarity;
 	u32 display_hctl, active_hctl, hsync_ctl, polarity_ctl;
-	int off;
-
-	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
 
 	hsync_period = p->hsync_pulse_width + p->h_back_porch +
 			p->width + p->h_front_porch;
@@ -75,7 +80,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	display_v_end = ((vsync_period - p->v_front_porch) * hsync_period) +
 			p->hsync_skew - 1;
 
-	if (ctl->intf_type == MDSS_INTF_EDP) {
+	if (ctx->intf_type == MDSS_INTF_EDP) {
 		display_v_start += p->hsync_pulse_width + p->h_back_porch;
 		display_v_end -= p->h_front_porch;
 	}
@@ -114,7 +119,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	display_hctl = (hsync_end_x << 16) | hsync_start_x;
 
 	den_polarity = 0;
-	if (MDSS_INTF_HDMI ==  ctl->intf_type) {
+	if (MDSS_INTF_HDMI == ctx->intf_type) {
 		hsync_polarity = p->yres >= 720 ? 0 : 1;
 		vsync_polarity = p->yres >= 720 ? 0 : 1;
 	} else {
@@ -125,31 +130,25 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 		       (vsync_polarity << 1) | /* VSYNC Polarity */
 		       (hsync_polarity << 0);  /* HSYNC Polarity */
 
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_HSYNC_CTL, hsync_ctl);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_CTL, hsync_ctl);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
 			   vsync_period * hsync_period);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_VSYNC_PULSE_WIDTH_F0,
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PULSE_WIDTH_F0,
 			   p->vsync_pulse_width * hsync_period);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_DISPLAY_HCTL,
-			   display_hctl);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_DISPLAY_V_START_F0,
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_DISPLAY_HCTL, display_hctl);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_DISPLAY_V_START_F0,
 			   display_v_start);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_DISPLAY_V_END_F0,
-			   display_v_end);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_ACTIVE_HCTL, active_hctl);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_ACTIVE_V_START_F0,
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_DISPLAY_V_END_F0, display_v_end);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_ACTIVE_HCTL, active_hctl);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_ACTIVE_V_START_F0,
 			   active_v_start);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_ACTIVE_V_END_F0,
-			   active_v_end);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_ACTIVE_V_END_F0, active_v_end);
 
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_BORDER_COLOR,
-			   p->border_clr);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_UNDERFLOW_COLOR,
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_BORDER_COLOR, p->border_clr);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_UNDERFLOW_COLOR,
 			   p->underflow_clr);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_HSYNC_SKEW,
-			   p->hsync_skew);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_POLARITY_CTL,
-			   polarity_ctl);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_SKEW, p->hsync_skew);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_POLARITY_CTL, polarity_ctl);
 
 	return 0;
 }
@@ -198,7 +197,7 @@ static int mdss_mdp_video_set_vsync_handler(struct mdss_mdp_ctl *ctl,
 static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_video_ctx *ctx;
-	int rc, off;
+	int rc;
 
 	pr_debug("stop ctl=%d\n", ctl->num);
 
@@ -217,8 +216,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 		}
 		WARN(rc, "intf %d blank error (%d)\n", ctl->intf_num, rc);
 
-		off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
-		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 		ctx->timegen_en = false;
 
@@ -276,15 +274,13 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	video_vsync_irq_enable(ctl);
 
 	if (!ctx->timegen_en) {
-		int off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
-
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
 		WARN(rc, "intf %d unblank error (%d)\n", ctl->intf_num, rc);
 
 		pr_debug("enabling timing gen for intf=%d\n", ctl->intf_num);
 
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-		MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
 		wmb();
 	}
 
@@ -333,7 +329,10 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 		return -ENOMEM;
 	}
 	ctl->priv_data = ctx;
+	ctx->base = ctl->mdata->mdp_base +
+		MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
 	ctx->pp_num = mixer->num;
+	ctx->intf_type = ctl->intf_type;
 	init_completion(&ctx->vsync_comp);
 	spin_lock_init(&ctx->vsync_lock);
 	atomic_set(&ctx->vsync_ref, 0);
@@ -356,10 +355,11 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	itp.hsync_pulse_width = pinfo->lcdc.h_pulse_width;
 	itp.vsync_pulse_width = pinfo->lcdc.v_pulse_width;
 
-	if (mdss_mdp_video_timegen_setup(ctl, &itp)) {
+	if (mdss_mdp_video_timegen_setup(ctx, &itp)) {
 		pr_err("unable to get timing parameters\n");
 		return -EINVAL;
 	}
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PANEL_FORMAT, ctl->dst_format);
 
 	ctl->stop_fnc = mdss_mdp_video_stop;
 	ctl->display_fnc = mdss_mdp_video_display;

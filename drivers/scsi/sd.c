@@ -467,7 +467,7 @@ static struct scsi_disk *scsi_disk_get(struct gendisk *disk)
 	return sdkp;
 }
 
-static struct scsi_disk *scsi_disk_get_from_dev(struct device *dev)
+struct scsi_disk *scsi_disk_get_from_dev(struct device *dev)
 {
 	struct scsi_disk *sdkp;
 

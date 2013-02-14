@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/sysfs.h>
 
 #include <mach/clk.h>
 #include <mach/subsystem_restart.h>
@@ -35,6 +36,9 @@
 
 #define QDSP6SS_RST_EVB			0x010
 #define PROXY_TIMEOUT_MS		10000
+
+static struct kobject *lpass_status;
+static char status[32];
 
 struct lpass_data {
 	struct q6v5_data *q6;
@@ -278,6 +282,34 @@ static void send_q6_nmi(void)
 	pr_debug("%s: Q6 NMI was sent.\n", __func__);
 }
 
+/*
+ * The "status" file where a static variable is read from and written to.
+ */
+static ssize_t adsp_state_show(struct kobject *kobj,
+			struct kobj_attribute *attr,
+			char *buf)
+{
+	return snprintf(buf, sizeof(status), "%s\n", status);
+}
+
+static struct kobj_attribute adsp_state_attribute =
+	__ATTR(status, 0444, adsp_state_show, NULL);
+
+static struct attribute *attrs[] = {
+	&adsp_state_attribute.attr,
+	NULL,   /* need to NULL terminate the list of attributes */
+};
+
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+
+static void adsp_set_state(char *state)
+{
+	strlcpy(status, state, sizeof(status));
+	sysfs_notify(lpass_status, NULL, "status");
+}
+
 #define subsys_to_lpass(d) container_of(d, struct lpass_data, subsys_desc)
 
 static int adsp_shutdown(const struct subsys_desc *subsys)
@@ -290,6 +322,8 @@ static int adsp_shutdown(const struct subsys_desc *subsys)
 	pil_shutdown(&drv->q6->desc);
 	disable_irq_nosync(drv->wdog_irq);
 
+	pr_debug("ADSP is Down\n");
+	adsp_set_state("OFFLINE");
 	return 0;
 }
 
@@ -299,6 +333,9 @@ static int adsp_powerup(const struct subsys_desc *subsys)
 	int ret = 0;
 	ret = pil_boot(&drv->q6->desc);
 	enable_irq(drv->wdog_irq);
+
+	pr_debug("ADSP is back online\n");
+	adsp_set_state("ONLINE");
 	return ret;
 }
 
@@ -441,7 +478,24 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->modem_notif_hdle);
 		goto err_notif_modem;
 	}
+	lpass_status = kobject_create_and_add("audio_voice_service",
+						kernel_kobj);
+	if (!lpass_status) {
+		pr_err("%s: kobject create failed\n", __func__);
+		ret = -ENOMEM;
+		goto err_notif_modem;
+	}
+
+	ret = sysfs_create_group(lpass_status, &attr_group);
+	if (ret) {
+		pr_err("%s: sysfs create group failed\n", __func__);
+		goto err_kobj;
+	}
+
+	adsp_set_state("ONLINE");
 	return 0;
+err_kobj:
+	kobject_put(lpass_status);
 err_notif_modem:
 	subsys_notif_unregister_notifier(drv->riva_notif_hdle, &rnb);
 err_notif_riva:
@@ -454,7 +508,7 @@ err_subsys:
 	destroy_ramdump_device(drv->ramdump_dev);
 err_ramdump:
 	pil_desc_release(desc);
-	return 0;
+	return ret;
 }
 
 static int __devexit pil_lpass_driver_exit(struct platform_device *pdev)
@@ -467,6 +521,8 @@ static int __devexit pil_lpass_driver_exit(struct platform_device *pdev)
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->ramdump_dev);
 	pil_desc_release(&drv->q6->desc);
+	sysfs_remove_group(lpass_status, &attr_group);
+	kobject_del(lpass_status);
 	return 0;
 }
 

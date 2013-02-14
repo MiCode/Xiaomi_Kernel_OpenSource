@@ -199,7 +199,7 @@ static const struct {
 	{ ADRENO_REV_A320, 3, 2, ANY_ID, ANY_ID,
 		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_512K, 0x3FF037, 0x3FF016 },
-	{ ADRENO_REV_A330, 3, 3, 0, 0,
+	{ ADRENO_REV_A330, 3, 3, 0, ANY_ID,
 		"a330_pm4.fw", "a330_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_1M, NO_VER, NO_VER },
 };
@@ -986,7 +986,7 @@ static int adreno_of_get_iommu(struct device_node *parent,
 			KGSL_CORE_ERR("Unable to read KGSL IOMMU 'reg'\n");
 			goto err;
 		}
-		if (msm_soc_version_supports_iommu_v1())
+		if (msm_soc_version_supports_iommu_v0())
 			ctxs[ctx_index].ctx_id = (reg_val[0] -
 				data->physstart) >> KGSL_IOMMU_CTX_SHIFT;
 		else
@@ -1046,10 +1046,9 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	/* Default value is 83, if not found in DT */
 	if (adreno_of_read_property(pdev->dev.of_node, "qcom,idle-timeout",
 		&pdata->idle_timeout))
-		pdata->idle_timeout = 83;
+		pdata->idle_timeout = HZ/12;
 
 	if (adreno_of_read_property(pdev->dev.of_node, "qcom,nap-allowed",
 		&pdata->nap_allowed))
@@ -2238,7 +2237,7 @@ static unsigned int adreno_check_hw_ts(struct kgsl_device *device,
 		 * get an interrupt
 		 */
 
-		if (context) {
+		if (context && device->state != KGSL_STATE_SLUMBER) {
 			adreno_ringbuffer_issuecmds(device, context->devctxt,
 					KGSL_CMD_FLAGS_NONE, NULL, 0);
 		}
@@ -2247,10 +2246,11 @@ static unsigned int adreno_check_hw_ts(struct kgsl_device *device,
 	return 0;
 }
 
-static void adreno_next_event(struct kgsl_device *device,
+/* Return 1 if the event timestmp has already passed, 0 if it was marked */
+static int adreno_next_event(struct kgsl_device *device,
 		struct kgsl_event *event)
 {
-	adreno_check_hw_ts(device, event->context, event->timestamp);
+	return adreno_check_hw_ts(device, event->context, event->timestamp);
 }
 
 static int adreno_check_interrupt_timestamp(struct kgsl_device *device,
@@ -2573,7 +2573,8 @@ static unsigned int adreno_readtimestamp(struct kgsl_device *device,
 		break;
 	}
 	case KGSL_TIMESTAMP_CONSUMED:
-		adreno_regread(device, REG_CP_TIMESTAMP, &timestamp);
+		kgsl_sharedmem_readl(&device->memstore, &timestamp,
+			KGSL_MEMSTORE_OFFSET(context_id, soptimestamp));
 		break;
 	case KGSL_TIMESTAMP_RETIRED:
 		kgsl_sharedmem_readl(&device->memstore, &timestamp,

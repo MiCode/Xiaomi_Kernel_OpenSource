@@ -170,9 +170,6 @@ obj-$(CONFIG_VIDEO_VIVI) += vivi.o
 obj-$(CONFIG_VIDEO_MEM2MEM_TESTDEV) += mem2mem_testdev.o
 obj-$(CONFIG_VIDEO_CX23885) += cx23885/
 
-obj-$(CONFIG_MSM_VCAP) += vcap_v4l2.o
-obj-$(CONFIG_MSM_VCAP) += vcap_vc.o
-obj-$(CONFIG_MSM_VCAP) += vcap_vp.o
 obj-$(CONFIG_VIDEO_AK881X)		+= ak881x.o
 
 obj-$(CONFIG_VIDEO_OMAP2)		+= omap2cam.o
@@ -212,11 +209,7 @@ obj-$(CONFIG_VIDEO_IR_I2C)  += ir-kbd-i2c.o
 
 obj-y	+= davinci/
 
-obj-$(CONFIG_MSM_CAMERA) += msm/
-obj-$(CONFIG_MSMB_CAMERA) += msmb/
 obj-$(CONFIG_ARCH_OMAP)	+= omap/
-obj-$(CONFIG_MSM_VIDC_V4L2) += msm_vidc/
-obj-$(CONFIG_MSM_WFD) += msm_wfd/
 
 ccflags-y += -I$(srctree)/drivers/media/dvb/dvb-core
 ccflags-y += -I$(srctree)/drivers/media/dvb/frontends

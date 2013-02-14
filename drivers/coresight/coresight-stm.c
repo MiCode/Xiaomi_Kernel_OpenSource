@@ -102,7 +102,7 @@ enum {
 					(ch * BYTES_PER_CHANNEL))
 #define stm_channel_off(type, opts)	(type & ~opts)
 
-#ifdef CONFIG_MSM_QDSS_STM_DEFAULT_ENABLE
+#ifdef CONFIG_CORESIGHT_STM_DEFAULT_ENABLE
 static int boot_enable = 1;
 #else
 static int boot_enable;
@@ -767,13 +767,6 @@ static int __devinit stm_probe(struct platform_device *pdev)
 		goto err;
 
 	dev_info(drvdata->dev, "STM initialized\n");
-
-	/*
-	 * Enable and disable STM to undo the temporary default STM enable
-	 * done by RPM.
-	 */
-	coresight_enable(drvdata->csdev);
-	coresight_disable(drvdata->csdev);
 
 	if (boot_enable)
 		coresight_enable(drvdata->csdev);

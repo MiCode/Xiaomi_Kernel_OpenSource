@@ -397,8 +397,21 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 	if (!card->ext_csd.bkops_en)
 		return;
 
-	mmc_claim_host(card->host);
+	if ((card->bkops_info.cancel_delayed_work) && !from_exception) {
+		pr_debug("%s: %s: cancel_delayed_work was set, exit\n",
+			 mmc_hostname(card->host), __func__);
+		card->bkops_info.cancel_delayed_work = false;
+		return;
+	}
 
+	/* In case of delayed bkops we might be in race with suspend. */
+	if (!mmc_try_claim_host(card->host))
+		return;
+
+	/*
+	 * Since the cancel_delayed_work can be changed while we are waiting
+	 * for the lock we will to re-check it
+	 */
 	if ((card->bkops_info.cancel_delayed_work) && !from_exception) {
 		pr_debug("%s: %s: cancel_delayed_work was set, exit\n",
 			 mmc_hostname(card->host), __func__);
@@ -595,6 +608,7 @@ static int __mmc_start_data_req(struct mmc_host *host, struct mmc_request *mrq)
 	mrq->host = host;
 	if (mmc_card_removed(host->card)) {
 		mrq->cmd->error = -ENOMEDIUM;
+		mmc_wait_data_done(mrq);
 		return -ENOMEDIUM;
 	}
 	mmc_start_request(host, mrq);
@@ -2580,6 +2594,30 @@ out:
 	return;
 }
 
+static bool mmc_is_vaild_state_for_clk_scaling(struct mmc_host *host)
+{
+	struct mmc_card *card = host->card;
+	u32 status;
+	bool ret = false;
+
+	if (!card)
+		goto out;
+
+	if (mmc_send_status(card, &status)) {
+		pr_err("%s: Get card status fail\n", mmc_hostname(card->host));
+		goto out;
+	}
+
+	switch (R1_CURRENT_STATE(status)) {
+	case R1_STATE_TRAN:
+		ret = true;
+		break;
+	default:
+		break;
+	}
+out:
+	return ret;
+}
 
 /**
  * mmc_clk_scaling() - clock scaling decision algorithm
@@ -2652,6 +2690,10 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 			if (!from_wq)
 				cancel_delayed_work_sync(
 						&host->clk_scaling.work);
+
+			if (!mmc_is_vaild_state_for_clk_scaling(host))
+				goto bypass_scaling;
+
 			err = host->bus_ops->change_bus_speed(host, &freq);
 			if (!err)
 				host->clk_scaling.curr_freq = freq;
@@ -2673,6 +2715,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 	}
 
 	mmc_reset_clk_scale_stats(host);
+bypass_scaling:
 	host->clk_scaling.in_progress = false;
 out:
 	return;
@@ -3148,11 +3191,9 @@ int mmc_suspend_host(struct mmc_host *host)
 
 		if (!err) {
 			if (host->bus_ops->suspend) {
-				if (mmc_card_doing_bkops(host->card)) {
-					err = mmc_stop_bkops(host->card);
-					if (err)
-						goto stop_bkops_err;
-				}
+				err = mmc_stop_bkops(host->card);
+				if (err)
+					goto stop_bkops_err;
 				err = host->bus_ops->suspend(host);
 				MMC_UPDATE_BKOPS_STATS_SUSPEND(host->
 						card->bkops_info.bkops_stats);

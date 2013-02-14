@@ -16,7 +16,6 @@
 #ifndef MSM_IOMMU_PERFMON_H
 #define MSM_IOMMU_PERFMON_H
 
-
 /**
  * struct iommu_access_ops - Callbacks for accessing IOMMU
  * @iommu_power_on:     Turn on clocks/power to unit
@@ -92,7 +91,9 @@ struct iommu_info {
  * @iommu_list:           iommu_list head
  * @cnt_grp:              list of counter groups
  * @num_groups:           number of counter groups
- * @event_cls_supp_value: event classes supported for this PMU
+ * @num_counters:         number of counters per group
+ * @event_cls_supported:  an array of event classes supported for this PMU
+ * @nevent_cls_supported: number of event classes supported.
  * @enabled:              Indicates whether perf. mon is enabled or not
  * @iommu_attached        Indicates whether iommu is attached or not.
  * @lock:                 mutex used to synchronize access to shared data
@@ -102,8 +103,10 @@ struct iommu_pmon {
 	struct iommu_info iommu;
 	struct list_head iommu_list;
 	struct iommu_pmon_cnt_group *cnt_grp;
-	unsigned int num_groups;
-	unsigned int event_cls_supp_value;
+	u32 num_groups;
+	u32 num_counters;
+	u32 *event_cls_supported;
+	u32 nevent_cls_supported;
 	unsigned int enabled;
 	unsigned int iommu_attach_count;
 	struct mutex lock;
@@ -114,9 +117,9 @@ extern struct iommu_access_ops iommu_access_ops;
 #ifdef CONFIG_MSM_IOMMU_PMON
 /**
  * Allocate memory for performance monitor structure. Must
- * be called befre iommu_pm_iommu_register
+ * be called before iommu_pm_iommu_register
  */
-struct iommu_info *msm_iommu_pm_alloc(struct device *iommu_dev);
+struct iommu_pmon *msm_iommu_pm_alloc(struct device *iommu_dev);
 
 /**
  * Free memory previously allocated with iommu_pm_alloc
@@ -126,7 +129,7 @@ void msm_iommu_pm_free(struct device *iommu_dev);
 /**
  * Register iommu with the performance monitor module.
  */
-int msm_iommu_pm_iommu_register(struct iommu_info *info);
+int msm_iommu_pm_iommu_register(struct iommu_pmon *info);
 
 /**
  * Unregister iommu with the performance monitor module.
@@ -147,7 +150,7 @@ void msm_iommu_attached(struct device *dev);
   */
 void msm_iommu_detached(struct device *dev);
 #else
-static inline struct iommu_info *msm_iommu_pm_alloc(struct device *iommu_dev)
+static inline struct iommu_pmon *msm_iommu_pm_alloc(struct device *iommu_dev)
 {
 	return NULL;
 }
@@ -157,7 +160,7 @@ static inline void msm_iommu_pm_free(struct device *iommu_dev)
 	return;
 }
 
-static inline int msm_iommu_pm_iommu_register(struct iommu_info *info)
+static inline int msm_iommu_pm_iommu_register(struct iommu_pmon *info)
 {
 	return -EIO;
 }

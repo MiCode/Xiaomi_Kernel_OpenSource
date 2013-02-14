@@ -233,6 +233,17 @@ int slim_driver_register(struct slim_driver *drv)
 }
 EXPORT_SYMBOL_GPL(slim_driver_register);
 
+/*
+ * slim_driver_unregister: Undo effects of slim_driver_register
+ * @drv: Client driver to be unregistered
+ */
+void slim_driver_unregister(struct slim_driver *drv)
+{
+	if (drv)
+		driver_unregister(&drv->driver);
+}
+EXPORT_SYMBOL_GPL(slim_driver_unregister);
+
 #define slim_ctrl_attr_gr NULL
 
 static void slim_ctrl_release(struct device *dev)

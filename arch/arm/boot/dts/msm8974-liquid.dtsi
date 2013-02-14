@@ -73,10 +73,6 @@
 		};
 	};
 
-	qcom,mdss_mdp@fd900000 {
-		qcom,memory-reservation-size = <0x1000000>; /* size 16MB */
-	};
-
 	qcom,hdmi_tx@fd922100 {
 		status = "ok";
 
@@ -224,30 +220,34 @@
 			"Lineout_3 amp", "LINEOUT3",
 			"Lineout_2 amp", "LINEOUT2",
 			"Lineout_4 amp", "LINEOUT4",
-			"AMIC1", "MIC BIAS1 Internal1",
-			"MIC BIAS1 Internal1", "Handset Mic",
+			"AMIC1", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Analog Mic4",
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
 			"AMIC3", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCRight Headset Mic",
 			"AMIC4", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCLeft Headset Mic",
+			"AMIC5", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Analog Mic6",
+			"AMIC6", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Analog Mic7",
 			"DMIC1", "MIC BIAS3 External",
-			"MIC BIAS1 External", "Digital Mic1",
+			"MIC BIAS3 External", "Digital Mic1",
 			"DMIC2", "MIC BIAS3 External",
-			"MIC BIAS1 External", "Digital Mic2",
+			"MIC BIAS3 External", "Digital Mic2",
 			"DMIC3", "MIC BIAS2 External",
-			"MIC BIAS3 External", "Digital Mic3",
+			"MIC BIAS2 External", "Digital Mic3",
 			"DMIC4", "MIC BIAS3 External",
 			"MIC BIAS3 External", "Digital Mic4",
 			"DMIC5", "MIC BIAS2 External",
-			"MIC BIAS4 External", "Digital Mic5",
+			"MIC BIAS2 External", "Digital Mic5",
 			"DMIC6", "MIC BIAS2 External",
-			"MIC BIAS4 External", "Digital Mic6";
+			"MIC BIAS2 External", "Digital Mic6";
 
 		qcom,ext-spk-amp-supply = <&ext_5v>;
 		qcom,ext-spk-amp-gpio = <&pm8841_mpps 1 0>;
-
+		qcom,dock-plug-det-irq = <&pm8841_mpps 2 0>;
 		qcom,hdmi-audio-rx;
 	};
 
@@ -276,6 +276,10 @@
 			hsic,data-pad-offset = <0x2054>;
 		};
 	};
+};
+
+&mdss_fb0 {
+	qcom,memory-reservation-size = <0x1000000>; /* size 16MB */
 };
 
 &usb3 {
@@ -544,6 +548,11 @@
 	};
 
 	mpp@a100 { /* MPP 2 */
+		/* DOCK_PLUG_DET speakers+docking detect irq*/
+		qcom,mode = <0>; /* DIG_IN */
+		qcom,vin-sel = <2>; /* S3A 1.8v */
+		qcom,src-sel = <0>; /* CONSTANT */
+		qcom,master-en = <1>; /* ENABLE MPP */
 	};
 
 	mpp@a200 { /* HDMI_MUX_SEL MPP 3*/
@@ -587,5 +596,17 @@
 				75 500 50 200 5 5 3 1 1 1
 				1>;
 		qcom,channel-type = <0xf0000000>;
+	};
+};
+
+&spmi_bus {
+	qcom,pm8941@1 {
+		qcom,leds@d000 {
+			qcom,rgb_2 {
+				status = "ok";
+				qcom,default-state = "on";
+				qcom,turn-off-delay-ms = <1000>;
+			};
+		};
 	};
 };

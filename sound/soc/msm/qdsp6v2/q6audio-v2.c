@@ -41,6 +41,8 @@ int q6audio_get_port_index(u16 port_id)
 	case SLIMBUS_0_TX: return IDX_SLIMBUS_0_TX;
 	case SLIMBUS_1_RX: return IDX_SLIMBUS_1_RX;
 	case SLIMBUS_1_TX: return IDX_SLIMBUS_1_TX;
+	case SLIMBUS_2_RX: return IDX_SLIMBUS_2_RX;
+	case SLIMBUS_2_TX: return IDX_SLIMBUS_2_TX;
 	case INT_BT_SCO_RX: return IDX_INT_BT_SCO_RX;
 	case INT_BT_SCO_TX: return IDX_INT_BT_SCO_TX;
 	case INT_BT_A2DP_RX: return IDX_INT_BT_A2DP_RX;
@@ -48,6 +50,8 @@ int q6audio_get_port_index(u16 port_id)
 	case INT_FM_TX: return IDX_INT_FM_TX;
 	case RT_PROXY_PORT_001_RX: return IDX_RT_PROXY_PORT_001_RX;
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_PRIMARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
@@ -83,6 +87,8 @@ int q6audio_get_port_id(u16 port_id)
 	case SLIMBUS_0_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_0_TX;
 	case SLIMBUS_1_RX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_1_RX;
 	case SLIMBUS_1_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_1_TX;
+	case SLIMBUS_2_RX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_2_RX;
+	case SLIMBUS_2_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_2_TX;
 	case INT_BT_SCO_RX: return AFE_PORT_ID_INTERNAL_BT_SCO_RX;
 	case INT_BT_SCO_TX: return AFE_PORT_ID_INTERNAL_BT_SCO_TX;
 	case INT_BT_A2DP_RX: return AFE_PORT_ID_INTERNAL_BT_A2DP_RX;
@@ -90,6 +96,8 @@ int q6audio_get_port_id(u16 port_id)
 	case INT_FM_TX: return AFE_PORT_ID_INTERNAL_FM_TX;
 	case RT_PROXY_PORT_001_RX: return AFE_PORT_ID_RT_PROXY_PORT_001_RX;
 	case RT_PROXY_PORT_001_TX: return AFE_PORT_ID_RT_PROXY_PORT_001_TX;
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+			     return AFE_PORT_ID_PRIMARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 			     return AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
@@ -172,6 +180,8 @@ int q6audio_validate_port(u16 port_id)
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_RX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_RX:
+	case SLIMBUS_2_TX:
 	case INT_BT_SCO_RX:
 	case INT_BT_SCO_TX:
 	case INT_BT_A2DP_RX:
@@ -179,6 +189,7 @@ int q6audio_validate_port(u16 port_id)
 	case INT_FM_TX:
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:

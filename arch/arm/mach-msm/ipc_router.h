@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,13 @@
 
 #define ALL_SERVICE 0xFFFFFFFF
 #define ALL_INSTANCE 0xFFFFFFFF
+
+enum {
+	CLIENT_PORT,
+	SERVER_PORT,
+	CONTROL_PORT,
+	IRSC_PORT,
+};
 
 union rr_control_msg {
 	uint32_t cmd;

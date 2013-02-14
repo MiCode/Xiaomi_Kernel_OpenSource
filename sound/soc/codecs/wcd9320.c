@@ -499,8 +499,8 @@ static int taiko_get_iir_enable_audio_mixer(
 					kcontrol->private_value)->shift;
 
 	ucontrol->value.integer.value[0] =
-		snd_soc_read(codec, (TAIKO_A_CDC_IIR1_CTL + 16 * iir_idx)) &
-		(1 << band_idx);
+		(snd_soc_read(codec, (TAIKO_A_CDC_IIR1_CTL + 16 * iir_idx)) &
+		(1 << band_idx)) != 0;
 
 	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
 		iir_idx, band_idx,
@@ -524,22 +524,52 @@ static int taiko_put_iir_enable_audio_mixer(
 		(1 << band_idx), (value << band_idx));
 
 	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
-		iir_idx, band_idx, value);
+		iir_idx, band_idx,
+		((snd_soc_read(codec, (TAIKO_A_CDC_IIR1_CTL + 16 * iir_idx)) &
+		(1 << band_idx)) != 0));
 	return 0;
 }
 static uint32_t get_iir_band_coeff(struct snd_soc_codec *codec,
 				int iir_idx, int band_idx,
 				int coeff_idx)
 {
+	uint32_t value = 0;
+
 	/* Address does not automatically update if reading */
 	snd_soc_write(codec,
 		(TAIKO_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
-		(band_idx * BAND_MAX + coeff_idx) & 0x1F);
+		((band_idx * BAND_MAX + coeff_idx)
+		* sizeof(uint32_t)) & 0x7F);
+
+	value |= snd_soc_read(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx));
+
+	snd_soc_write(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		((band_idx * BAND_MAX + coeff_idx)
+		* sizeof(uint32_t) + 1) & 0x7F);
+
+	value |= (snd_soc_read(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) << 8);
+
+	snd_soc_write(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		((band_idx * BAND_MAX + coeff_idx)
+		* sizeof(uint32_t) + 2) & 0x7F);
+
+	value |= (snd_soc_read(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) << 16);
+
+	snd_soc_write(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		((band_idx * BAND_MAX + coeff_idx)
+		* sizeof(uint32_t) + 3) & 0x7F);
 
 	/* Mask bits top 2 bits since they are reserved */
-	return ((snd_soc_read(codec,
-		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) << 24)) &
-		0x3FFFFFFF;
+	value |= ((snd_soc_read(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx)) & 0x3F) << 24);
+
+	return value;
 }
 
 static int taiko_get_iir_band_audio_mixer(
@@ -583,19 +613,24 @@ static int taiko_get_iir_band_audio_mixer(
 
 static void set_iir_band_coeff(struct snd_soc_codec *codec,
 				int iir_idx, int band_idx,
-				int coeff_idx, uint32_t value)
+				uint32_t value)
 {
-	/* Mask top 3 bits, 6-8 are reserved */
-	/* Update address manually each time */
 	snd_soc_write(codec,
-		(TAIKO_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
-		(band_idx * BAND_MAX + coeff_idx) & 0x1F);
+		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
+		(value & 0xFF));
+
+	snd_soc_write(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
+		(value >> 8) & 0xFF);
+
+	snd_soc_write(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
+		(value >> 16) & 0xFF);
 
 	/* Mask top 2 bits, 7-8 are reserved */
 	snd_soc_write(codec,
 		(TAIKO_A_CDC_IIR1_COEF_B2_CTL + 16 * iir_idx),
 		(value >> 24) & 0x3F);
-
 }
 
 static int taiko_put_iir_band_audio_mixer(
@@ -608,15 +643,21 @@ static int taiko_put_iir_band_audio_mixer(
 	int band_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
 
-	set_iir_band_coeff(codec, iir_idx, band_idx, 0,
+	/* Mask top bit it is reserved */
+	/* Updates addr automatically for each B2 write */
+	snd_soc_write(codec,
+		(TAIKO_A_CDC_IIR1_COEF_B1_CTL + 16 * iir_idx),
+		(band_idx * BAND_MAX * sizeof(uint32_t)) & 0x7F);
+
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[0]);
-	set_iir_band_coeff(codec, iir_idx, band_idx, 1,
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[1]);
-	set_iir_band_coeff(codec, iir_idx, band_idx, 2,
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[2]);
-	set_iir_band_coeff(codec, iir_idx, band_idx, 3,
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[3]);
-	set_iir_band_coeff(codec, iir_idx, band_idx, 4,
+	set_iir_band_coeff(codec, iir_idx, band_idx,
 				ucontrol->value.integer.value[4]);
 
 	pr_debug("%s: IIR #%d band #%d b0 = 0x%x\n"
@@ -881,6 +922,9 @@ static const struct snd_kcontrol_new taiko_snd_controls[] = {
 	SOC_SINGLE_TLV("HPHL Volume", TAIKO_A_RX_HPH_L_GAIN, 0, 12, 1,
 		line_gain),
 	SOC_SINGLE_TLV("HPHR Volume", TAIKO_A_RX_HPH_R_GAIN, 0, 12, 1,
+		line_gain),
+
+	SOC_SINGLE_TLV("SPK DRV Volume", TAIKO_A_SPKR_DRV_GAIN, 3, 7, 1,
 		line_gain),
 
 	SOC_SINGLE_S8_TLV("RX1 Digital Volume", TAIKO_A_CDC_RX1_VOL_CTL_B2_CTL,
@@ -1717,14 +1761,14 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	break;
 	case 2:
 		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&taiko_p->dai[AIF1_PB].wcd9xxx_ch_list))
+			&taiko_p->dai[AIF2_PB].wcd9xxx_ch_list))
 			goto pr_err;
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &taiko_p->dai[AIF2_PB].wcd9xxx_ch_list);
 	break;
 	case 3:
 		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&taiko_p->dai[AIF1_PB].wcd9xxx_ch_list))
+			&taiko_p->dai[AIF3_PB].wcd9xxx_ch_list))
 			goto pr_err;
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &taiko_p->dai[AIF3_PB].wcd9xxx_ch_list);
@@ -2687,13 +2731,15 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX10 MUX", "DEC9", "DEC9 MUX"},
 	{"SLIM TX10 MUX", "DEC10", "DEC10 MUX"},
 
+	/* Change Pump */
+	{"CP", NULL, "CLASS_H_CLK"},
+
 	/* Earpiece (RX MIX1) */
 	{"EAR", NULL, "EAR PA"},
 	{"EAR PA", NULL, "EAR_PA_MIXER"},
 	{"EAR_PA_MIXER", NULL, "DAC1"},
-	{"DAC1", NULL, "CP"},
-	{"CP", NULL, "CLASS_H_EAR"},
-	{"CLASS_H_EAR", NULL, "CLASS_H_CLK"},
+	{"DAC1", NULL, "CLASS_H_EAR"},
+	{"CLASS_H_EAR", NULL, "CP"},
 
 	{"ANC1 FB MUX", "EAR_HPH_L", "RX1 MIX2"},
 	{"ANC1 FB MUX", "EAR_LINE_1", "RX2 MIX2"},
@@ -2709,13 +2755,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HPHR", NULL, "HPHR_PA_MIXER"},
 	{"HPHR_PA_MIXER", NULL, "HPHR DAC"},
 
-	{"HPHL DAC", NULL, "CP"},
-	{"CP", NULL, "CLASS_H_HPH_L"},
-	{"CLASS_H_HPH_L", NULL, "CLASS_H_CLK"},
+	{"HPHL DAC", NULL, "CLASS_H_HPH_L"},
+	{"CLASS_H_HPH_L", NULL, "CP"},
 
-	{"HPHR DAC", NULL, "CP"},
-	{"CP", NULL, "CLASS_H_HPH_R"},
-	{"CLASS_H_HPH_R", NULL, "CLASS_H_CLK"},
+	{"HPHR DAC", NULL, "CLASS_H_HPH_R"},
+	{"CLASS_H_HPH_R", NULL, "CP"},
 
 	{"ANC", NULL, "ANC1 MUX"},
 	{"ANC", NULL, "ANC2 MUX"},
@@ -3313,8 +3357,8 @@ static int taiko_get_channel_map(struct snd_soc_dai *dai,
 		}
 		list_for_each_entry(ch, &taiko_p->dai[dai->id].wcd9xxx_ch_list,
 				    list) {
-			pr_debug("%s: rx_slot[%d] %d, ch->ch_num %d\n",
-				 __func__, i, rx_slot[i], ch->ch_num);
+			pr_debug("%s: slot_num %u ch->ch_num %d\n",
+				 __func__, i, ch->ch_num);
 			rx_slot[i++] = ch->ch_num;
 		}
 		pr_debug("%s: rx_num %d\n", __func__, i);
@@ -3330,8 +3374,8 @@ static int taiko_get_channel_map(struct snd_soc_dai *dai,
 		}
 		list_for_each_entry(ch, &taiko_p->dai[dai->id].wcd9xxx_ch_list,
 				    list) {
-			pr_debug("%s: tx_slot[%d] %d, ch->ch_num %d\n",
-				 __func__, i, tx_slot[i], ch->ch_num);
+			pr_debug("%s: slot_num %u ch->ch_num %d\n",
+				 __func__, i,  ch->ch_num);
 			tx_slot[i++] = ch->ch_num;
 		}
 		pr_debug("%s: tx_num %d\n", __func__, i);
@@ -4670,7 +4714,7 @@ done:
 static const struct taiko_reg_mask_val taiko_reg_defaults[] = {
 
 	/* set MCLk to 9.6 */
-	TAIKO_REG_VAL(TAIKO_A_CHIP_CTL, 0x0A),
+	TAIKO_REG_VAL(TAIKO_A_CHIP_CTL, 0x02),
 	TAIKO_REG_VAL(TAIKO_A_CDC_CLK_POWER_CTL, 0x03),
 
 	/* EAR PA deafults  */

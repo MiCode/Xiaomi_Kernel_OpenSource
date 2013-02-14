@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_SUSPEND,
 	MDSS_EVENT_RESUME,
 	MDSS_EVENT_CHECK_PARAMS,
+	MDSS_EVENT_FB_REGISTERED,
 };
 
 /* panel info type */
@@ -186,7 +187,6 @@ struct mdss_panel_info {
 	struct lcdc_panel_info lcdc;
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
-	struct fb_info *fbi;
 };
 
 struct mdss_panel_data {
@@ -196,7 +196,10 @@ struct mdss_panel_data {
 
 	/* function entry chain */
 	int (*event_handler) (struct mdss_panel_data *pdata, int e, void *arg);
+
+	struct mdss_panel_data *next;
 };
 
-int mdss_register_panel(struct mdss_panel_data *pdata);
+int mdss_register_panel(struct platform_device *pdev,
+	struct mdss_panel_data *pdata);
 #endif /* MDSS_PANEL_H */

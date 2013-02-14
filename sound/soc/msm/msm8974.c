@@ -63,6 +63,8 @@ static int msm8974_auxpcm_rate = 8000;
 
 /* It takes about 13ms for Class-D PAs to ramp-up */
 #define EXT_CLASS_D_EN_DELAY 13000
+#define EXT_CLASS_D_DIS_DELAY 3000
+#define EXT_CLASS_D_DELAY_DELTA 2000
 
 #define NUM_OF_AUXPCM_GPIOS 4
 
@@ -117,6 +119,16 @@ static char *msm_auxpcm_gpio_name[][2] = {
 
 void *lpaif_pri_muxsel_virt_addr;
 
+struct msm8974_liquid_dock_dev {
+	int dock_plug_gpio;
+	int dock_plug_irq;
+	int dock_plug_det;
+	struct snd_soc_dapm_context *dapm;
+	struct work_struct irq_work;
+};
+
+static struct msm8974_liquid_dock_dev *msm8974_liquid_dock_dev;
+
 /* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
 enum {
 	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
@@ -143,6 +155,7 @@ static struct mutex cdc_mclk_mutex;
 static struct q_clkdiv *codec_clk;
 static int clk_users;
 static atomic_t auxpcm_rsc_ref;
+
 
 static int msm8974_liquid_ext_spk_power_amp_init(void)
 {
@@ -178,23 +191,130 @@ static int msm8974_liquid_ext_spk_power_amp_init(void)
 
 static void msm8974_liquid_ext_spk_power_amp_enable(u32 on)
 {
-	if (on)
+	if (on) {
 		regulator_enable(ext_spk_amp_regulator);
-	else
+		gpio_direction_output(ext_spk_amp_gpio, on);
+		/*time takes enable the external power amplifier*/
+		usleep_range(EXT_CLASS_D_EN_DELAY,
+			     EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	} else {
+		gpio_direction_output(ext_spk_amp_gpio, on);
 		regulator_disable(ext_spk_amp_regulator);
+		/*time takes disable the external power amplifier*/
+		usleep_range(EXT_CLASS_D_DIS_DELAY,
+			     EXT_CLASS_D_DIS_DELAY + EXT_CLASS_D_DELAY_DELTA);
+	}
 
-	gpio_direction_output(ext_spk_amp_gpio, on);
-	usleep_range(EXT_CLASS_D_EN_DELAY, EXT_CLASS_D_EN_DELAY);
 	pr_debug("%s: %s external speaker PAs.\n", __func__,
 			on ? "Enable" : "Disable");
 }
 
+static void msm8974_liquid_docking_irq_work(struct work_struct *work)
+{
+	struct msm8974_liquid_dock_dev *dock_dev =
+		container_of(work,
+					 struct msm8974_liquid_dock_dev,
+					 irq_work);
+
+	struct snd_soc_dapm_context *dapm = dock_dev->dapm;
+
+
+	mutex_lock(&dapm->codec->mutex);
+	dock_dev->dock_plug_det =
+		gpio_get_value(dock_dev->dock_plug_gpio);
+
+
+	if (0 == dock_dev->dock_plug_det) {
+		if ((msm8974_ext_spk_pamp & LO_1_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_3_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_4_SPK_AMP))
+			msm8974_liquid_ext_spk_power_amp_enable(1);
+	} else {
+		if ((msm8974_ext_spk_pamp & LO_1_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_3_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
+			(msm8974_ext_spk_pamp & LO_4_SPK_AMP))
+			msm8974_liquid_ext_spk_power_amp_enable(0);
+	}
+
+	mutex_unlock(&dapm->codec->mutex);
+
+}
+
+
+static irqreturn_t msm8974_liquid_docking_irq_handler(int irq, void *dev)
+{
+	struct msm8974_liquid_dock_dev *dock_dev = dev;
+
+	/* switch speakers should not run in interrupt context */
+	schedule_work(&dock_dev->irq_work);
+
+	return IRQ_HANDLED;
+}
+
+static int msm8974_liquid_init_docking(struct snd_soc_dapm_context *dapm)
+{
+	int ret = 0;
+	int dock_plug_gpio = 0;
+
+	/* plug in docking speaker+plug in device OR unplug one of them */
+	u32 dock_plug_irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+
+	dock_plug_gpio = of_get_named_gpio(spdev->dev.of_node,
+					   "qcom,dock-plug-det-irq", 0);
+
+	if (dock_plug_gpio >= 0) {
+
+		msm8974_liquid_dock_dev =
+		 kzalloc(sizeof(*msm8974_liquid_dock_dev), GFP_KERNEL);
+
+		if (!msm8974_liquid_dock_dev) {
+			pr_err("msm8974_liquid_dock_dev alloc fail.\n");
+			return -ENOMEM;
+		}
+
+		msm8974_liquid_dock_dev->dock_plug_gpio = dock_plug_gpio;
+
+		ret = gpio_request(msm8974_liquid_dock_dev->dock_plug_gpio,
+					   "dock-plug-det-irq");
+		if (ret) {
+			pr_err("%s:failed request msm8974_liquid_dock_plug_gpio.\n",
+				__func__);
+			return -EINVAL;
+		}
+
+		msm8974_liquid_dock_dev->dock_plug_det =
+			gpio_get_value(msm8974_liquid_dock_dev->dock_plug_gpio);
+
+		msm8974_liquid_dock_dev->dock_plug_irq =
+			gpio_to_irq(msm8974_liquid_dock_dev->dock_plug_gpio);
+
+		msm8974_liquid_dock_dev->dapm = dapm;
+
+		ret = request_irq(msm8974_liquid_dock_dev->dock_plug_irq,
+				  msm8974_liquid_docking_irq_handler,
+				  dock_plug_irq_flags,
+				  "liquid_dock_plug_irq",
+				  msm8974_liquid_dock_dev);
+
+		INIT_WORK(
+			&msm8974_liquid_dock_dev->irq_work,
+			msm8974_liquid_docking_irq_work);
+	}
+
+	return 0;
+}
+
+
+
+
 static void msm8974_ext_spk_power_amp_on(u32 spk)
 {
 	if (spk & (LO_1_SPK_AMP |
-					  LO_3_SPK_AMP |
-					  LO_2_SPK_AMP |
-					  LO_4_SPK_AMP)) {
+		   LO_3_SPK_AMP |
+		   LO_2_SPK_AMP |
+		   LO_4_SPK_AMP)) {
 
 		pr_debug("%s() External Left/Right Speakers already turned on. spk = 0x%08x\n",
 						__func__, spk);
@@ -206,7 +326,9 @@ static void msm8974_ext_spk_power_amp_on(u32 spk)
 			(msm8974_ext_spk_pamp & LO_2_SPK_AMP) &&
 			(msm8974_ext_spk_pamp & LO_4_SPK_AMP)) {
 
-			if (ext_spk_amp_gpio >= 0)
+			if (ext_spk_amp_gpio >= 0 &&
+				msm8974_liquid_dock_dev != NULL &&
+				msm8974_liquid_dock_dev->dock_plug_det == 0)
 				msm8974_liquid_ext_spk_power_amp_enable(1);
 		}
 	} else  {
@@ -220,15 +342,17 @@ static void msm8974_ext_spk_power_amp_on(u32 spk)
 static void msm8974_ext_spk_power_amp_off(u32 spk)
 {
 	if (spk & (LO_1_SPK_AMP |
-					  LO_3_SPK_AMP |
-					  LO_2_SPK_AMP |
-					  LO_4_SPK_AMP)) {
+		   LO_3_SPK_AMP |
+		   LO_2_SPK_AMP |
+		   LO_4_SPK_AMP)) {
 
 		pr_debug("%s Left and right speakers case spk = 0x%08x",
 				  __func__, spk);
 
 		if (!msm8974_ext_spk_pamp) {
-			if (ext_spk_amp_gpio >= 0)
+			if (ext_spk_amp_gpio >= 0 &&
+				msm8974_liquid_dock_dev != NULL &&
+				msm8974_liquid_dock_dev->dock_plug_det == 0)
 				msm8974_liquid_ext_spk_power_amp_enable(0);
 			msm8974_ext_spk_pamp = 0;
 		}
@@ -827,6 +951,13 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return err;
 	}
 
+	err = msm8974_liquid_init_docking(dapm);
+	if (err) {
+		pr_err("%s: LiQUID 8974 init Docking stat IRQ failed (%d)\n",
+			   __func__, err);
+		return err;
+	}
+
 	snd_soc_dapm_new_controls(dapm, msm8974_dapm_widgets,
 				ARRAY_SIZE(msm8974_dapm_widgets));
 
@@ -851,7 +982,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	return err;
 }
 
-static int msm_snd_startup(struct snd_pcm_substream *substream)
+static int msm8974_snd_startup(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -996,7 +1127,7 @@ end:
 	return ret;
 }
 
-static void msm_snd_shutdown(struct snd_pcm_substream *substream)
+static void msm8974_snd_shudown(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s(): substream = %s stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -1004,9 +1135,75 @@ static void msm_snd_shutdown(struct snd_pcm_substream *substream)
 }
 
 static struct snd_soc_ops msm8974_be_ops = {
-	.startup = msm_snd_startup,
+	.startup = msm8974_snd_startup,
 	.hw_params = msm_snd_hw_params,
-	.shutdown = msm_snd_shutdown,
+	.shutdown = msm8974_snd_shudown,
+};
+
+
+
+static int msm8974_slimbus_2_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch[SLIM_MAX_RX_PORTS], tx_ch[SLIM_MAX_TX_PORTS];
+	unsigned int rx_ch_cnt = 0, tx_ch_cnt = 0;
+	unsigned int num_tx_ch = 0;
+	unsigned int num_rx_ch = 0;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+
+		num_rx_ch =  params_channels(params);
+
+		pr_debug("%s: %s rx_dai_id = %d  num_ch = %d\n", __func__,
+			codec_dai->name, codec_dai->id, num_rx_ch);
+
+		ret = snd_soc_dai_get_channel_map(codec_dai,
+				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to get codec chan map\n", __func__);
+			goto end;
+		}
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0,
+				num_rx_ch, rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to set cpu chan map\n", __func__);
+			goto end;
+		}
+	} else {
+
+		num_tx_ch =  params_channels(params);
+
+		pr_debug("%s: %s  tx_dai_id = %d  num_ch = %d\n", __func__,
+			codec_dai->name, codec_dai->id, num_tx_ch);
+
+		ret = snd_soc_dai_get_channel_map(codec_dai,
+				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
+		if (ret < 0) {
+			pr_err("%s: failed to get codec chan map\n", __func__);
+			goto end;
+		}
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai,
+				num_tx_ch, tx_ch, 0 , 0);
+		if (ret < 0) {
+			pr_err("%s: failed to set cpu chan map\n", __func__);
+			goto end;
+		}
+	}
+end:
+	return ret;
+}
+
+
+static struct snd_soc_ops msm8974_slimbus_2_be_ops = {
+	.startup = msm8974_snd_startup,
+	.hw_params = msm8974_slimbus_2_hw_params,
+	.shutdown = msm8974_snd_shudown,
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -1239,6 +1436,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_INT_BT_SCO_TX,
@@ -1250,6 +1448,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_TX,
 		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_INT_FM_RX,
@@ -1263,6 +1462,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_INT_FM_TX,
@@ -1274,6 +1474,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INT_FM_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
 	},
 	/* Backend AFE DAI Links */
 	{
@@ -1288,6 +1489,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_hw_params_fixup = msm_proxy_be_hw_params_fixup,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_AFE_PCM_TX,
@@ -1299,6 +1501,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
 		.be_hw_params_fixup = msm_proxy_be_hw_params_fixup,
+		.ignore_suspend = 1,
 	},
 	/* HDMI Hostless */
 	{
@@ -1328,6 +1531,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
 		.ops = &msm_auxpcm_be_ops,
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 		/* this dainlink has playback support */
 	},
 	{
@@ -1341,6 +1545,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
 		.ops = &msm_auxpcm_be_ops,
+		.ignore_suspend = 1,
 	},
 	/* Backend DAI Links */
 	{
@@ -1356,6 +1561,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
 		.ops = &msm8974_be_ops,
 		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_0_TX,
@@ -1368,6 +1574,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8974_be_ops,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_1_RX,
@@ -1382,6 +1589,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.ops = &msm8974_be_ops,
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_1_TX,
@@ -1394,6 +1602,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8974_be_ops,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_3_RX,
@@ -1408,6 +1617,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.ops = &msm8974_be_ops,
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_3_TX,
@@ -1420,6 +1630,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8974_be_ops,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_4_RX,
@@ -1434,6 +1645,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.ops = &msm8974_be_ops,
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_4_TX,
@@ -1446,6 +1658,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8974_be_ops,
+		.ignore_suspend = 1,
 	},
 	/* Incall Record Uplink BACK END DAI Link */
 	{
@@ -1458,6 +1671,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
 	},
 	/* Incall Record Downlink BACK END DAI Link */
 	{
@@ -1470,6 +1684,44 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
+	},
+	/* Incall Music BACK END DAI Link */
+	{
+		.name = LPASS_BE_VOICE_PLAYBACK_TX,
+		.stream_name = "Voice Farend Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.32773",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
+	},
+	/* Ultrasound RX Back End DAI Link */
+	{
+		.name = "SLIMBUS_2 Hostless Playback",
+		.stream_name = "SLIMBUS_2 Hostless Playback",
+		.cpu_dai_name = "msm-dai-q6-dev.16388",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_rx2",
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8974_slimbus_2_be_ops,
+	},
+	/* Ultrasound TX Back End DAI Link */
+	{
+		.name = "SLIMBUS_2 Hostless Capture",
+		.stream_name = "SLIMBUS_2 Hostless Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16389",
+		.platform_name = "msm-pcm-hostless",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_tx2",
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ops = &msm8974_slimbus_2_be_ops,
 	},
 };
 
@@ -1486,6 +1738,7 @@ static struct snd_soc_dai_link msm8974_hdmi_dai_link[] = {
 		.be_id = MSM_BACKEND_DAI_HDMI_RX,
 		.be_hw_params_fixup = msm8974_hdmi_be_hw_params_fixup,
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 };
 
@@ -1680,18 +1933,18 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		card->num_links	= ARRAY_SIZE(msm8974_common_dai_links);
 	}
 
+	mutex_init(&cdc_mclk_mutex);
+	atomic_set(&auxpcm_rsc_ref, 0);
+	spdev = pdev;
+	ext_spk_amp_regulator = NULL;
+	msm8974_liquid_dock_dev = NULL;
+
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
 		goto err;
 	}
-
-	mutex_init(&cdc_mclk_mutex);
-	atomic_set(&auxpcm_rsc_ref, 0);
-
-	spdev = pdev;
-	ext_spk_amp_regulator = NULL;
 
 	lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
 	if (lpaif_pri_muxsel_virt_addr == NULL) {
@@ -1716,6 +1969,19 @@ static int __devexit msm8974_asoc_machine_remove(struct platform_device *pdev)
 	gpio_free(pdata->mclk_gpio);
 	if (ext_spk_amp_gpio >= 0)
 		gpio_free(ext_spk_amp_gpio);
+
+	if (msm8974_liquid_dock_dev != NULL) {
+		if (msm8974_liquid_dock_dev->dock_plug_gpio)
+			gpio_free(msm8974_liquid_dock_dev->dock_plug_gpio);
+
+		if (msm8974_liquid_dock_dev->dock_plug_irq)
+			free_irq(msm8974_liquid_dock_dev->dock_plug_irq,
+				 msm8974_liquid_dock_dev);
+
+		kfree(msm8974_liquid_dock_dev);
+		msm8974_liquid_dock_dev = NULL;
+	}
+
 	iounmap(lpaif_pri_muxsel_virt_addr);
 	snd_soc_unregister_card(card);
 

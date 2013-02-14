@@ -1,7 +1,7 @@
 /* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  * Copyright (c) 2010, Google Inc.
  *
- * Original authors: Code Aurora Forum
+ * Original authors: The Linux Foundation
  *
  * Author: Dima Zavin <dima@android.com>
  *  - Largely rewritten from original to not be an i2c driver.

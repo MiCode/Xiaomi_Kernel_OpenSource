@@ -19,10 +19,8 @@
 		status = "ok";
 	};
 
-	qcom,mdss_dsi@fd922800 {
-		qcom,mdss_dsi_toshiba_720p_video {
-			status = "ok";
-		};
+	qcom,mdss_dsi_toshiba_720p_video {
+		status = "ok";
 	};
 
 	qcom,hdmi_tx@fd922100 {
@@ -142,6 +140,16 @@
 				regulator-max-microamp = <9360>;
 			};
 		};
+	};
+
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "atmel_mxt_ts";
+		qcom,disp-maxx = <720>;
+		qcom,disp-maxy = <1280>;
+		qcom,panel-maxx = <760>;
+		qcom,panel-maxy = <1424>;
+		qcom,key-codes = <158 139 102 217>;
 	};
 
 	gpio_keys {
@@ -280,6 +288,10 @@
 
 &usb3 {
 	qcom,otg-capability;
+};
+
+&pm8941_bms {
+	status = "ok";
 };
 
 &pm8941_chg {

@@ -42,7 +42,6 @@
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
-#include <mach/msm_bus_board.h>
 #include "board-dt.h"
 #include "clock.h"
 #include "devices.h"
@@ -86,189 +85,17 @@ static void __init msm8974_early_memory(void)
 	of_scan_flat_dt(dt_scan_for_memory_hole, msm8974_reserve_table);
 }
 
-#define BIMC_BASE	0xfc380000
-#define BIMC_SIZE	0x0006A000
-#define SYS_NOC_BASE	0xfc460000
-#define PERIPH_NOC_BASE 0xFC468000
-#define OCMEM_NOC_BASE	0xfc470000
-#define	MMSS_NOC_BASE	0xfc478000
-#define CONFIG_NOC_BASE	0xfc480000
-#define NOC_SIZE	0x00004000
-
-static struct resource bimc_res[] = {
-	{
-		.start = BIMC_BASE,
-		.end = BIMC_BASE + BIMC_SIZE,
-		.flags = IORESOURCE_MEM,
-		.name = "bimc_mem",
-	},
-};
-
-static struct resource ocmem_noc_res[] = {
-	{
-		.start = OCMEM_NOC_BASE,
-		.end = OCMEM_NOC_BASE + NOC_SIZE,
-		.flags = IORESOURCE_MEM,
-		.name = "ocmem_noc_mem",
-	},
-};
-
-static struct resource mmss_noc_res[] = {
-	{
-		.start = MMSS_NOC_BASE,
-		.end = MMSS_NOC_BASE + NOC_SIZE,
-		.flags = IORESOURCE_MEM,
-		.name = "mmss_noc_mem",
-	},
-};
-
-static struct resource sys_noc_res[] = {
-	{
-		.start = SYS_NOC_BASE,
-		.end = SYS_NOC_BASE + NOC_SIZE,
-		.flags = IORESOURCE_MEM,
-		.name = "sys_noc_mem",
-	},
-};
-
-static struct resource config_noc_res[] = {
-	{
-		.start = CONFIG_NOC_BASE,
-		.end = CONFIG_NOC_BASE + NOC_SIZE,
-		.flags = IORESOURCE_MEM,
-		.name = "config_noc_mem",
-	},
-};
-
-static struct resource periph_noc_res[] = {
-	{
-		.start = PERIPH_NOC_BASE,
-		.end = PERIPH_NOC_BASE + NOC_SIZE,
-		.flags = IORESOURCE_MEM,
-		.name = "periph_noc_mem",
-	},
-};
-
-static struct platform_device msm_bus_sys_noc = {
-	.name  = "msm_bus_fabric",
-	.id    =  MSM_BUS_FAB_SYS_NOC,
-	.num_resources = ARRAY_SIZE(sys_noc_res),
-	.resource = sys_noc_res,
-};
-
-static struct platform_device msm_bus_bimc = {
-	.name  = "msm_bus_fabric",
-	.id    = MSM_BUS_FAB_BIMC,
-	.num_resources = ARRAY_SIZE(bimc_res),
-	.resource = bimc_res,
-};
-
-static struct platform_device msm_bus_mmss_noc = {
-	.name  = "msm_bus_fabric",
-	.id    = MSM_BUS_FAB_MMSS_NOC,
-	.num_resources = ARRAY_SIZE(mmss_noc_res),
-	.resource = mmss_noc_res,
-};
-
-static struct platform_device msm_bus_ocmem_noc = {
-	.name  = "msm_bus_fabric",
-	.id    = MSM_BUS_FAB_OCMEM_NOC,
-	.num_resources = ARRAY_SIZE(ocmem_noc_res),
-	.resource = ocmem_noc_res,
-};
-
-static struct platform_device msm_bus_periph_noc = {
-	.name  = "msm_bus_fabric",
-	.id    = MSM_BUS_FAB_PERIPH_NOC,
-	.num_resources = ARRAY_SIZE(periph_noc_res),
-	.resource = periph_noc_res,
-};
-
-static struct platform_device msm_bus_config_noc = {
-	.name  = "msm_bus_fabric",
-	.id    = MSM_BUS_FAB_CONFIG_NOC,
-	.num_resources = ARRAY_SIZE(config_noc_res),
-	.resource = config_noc_res,
-};
-
-static struct platform_device msm_bus_ocmem_vnoc = {
-	.name  = "msm_bus_fabric",
-	.id    = MSM_BUS_FAB_OCMEM_VNOC,
-};
-
 static struct platform_device msm_fm_platform_init = {
 	.name  = "iris_fm",
 	.id    = -1,
 };
 
 static struct platform_device *msm_bus_8974_devices[] = {
-	&msm_bus_sys_noc,
-	&msm_bus_bimc,
-	&msm_bus_mmss_noc,
-	&msm_bus_ocmem_noc,
-	&msm_bus_periph_noc,
-	&msm_bus_config_noc,
-	&msm_bus_ocmem_vnoc,
 	&msm_fm_platform_init,
 };
 
-static ssize_t mxt336s_vkeys_show(struct kobject *kobj,
-			struct kobj_attribute *attr, char *buf)
-{
-	return snprintf(buf, 200,
-	__stringify(EV_KEY) ":" __stringify(KEY_BACK) ":62:1345:90:90" \
-	":" __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":240:1345:90:90" \
-	":" __stringify(EV_KEY) ":" __stringify(KEY_HOME) ":470:1345:90:90" \
-	":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":658:1345:90:90" \
-	"\n");
-}
-
-static struct kobj_attribute mxt336s_vkeys_attr = {
-	.attr = {
-		.mode = S_IRUGO,
-	},
-	.show = &mxt336s_vkeys_show,
-};
-
-static struct attribute *mxt336s_properties_attrs[] = {
-	&mxt336s_vkeys_attr.attr,
-	NULL
-};
-
-static struct attribute_group mxt336s_properties_attr_group = {
-	.attrs = mxt336s_properties_attrs,
-};
-
-static void mxt_init_vkeys_8974(void)
-{
-	int rc = 0;
-	static struct kobject *mxt336s_properties_kobj;
-
-	mxt336s_vkeys_attr.attr.name = "virtualkeys.atmel_mxt_ts";
-	mxt336s_properties_kobj = kobject_create_and_add("board_properties",
-								NULL);
-	if (mxt336s_properties_kobj)
-		rc = sysfs_create_group(mxt336s_properties_kobj,
-					&mxt336s_properties_attr_group);
-	if (!mxt336s_properties_kobj || rc)
-		pr_err("%s: failed to create board_properties\n",
-				__func__);
-
-	return;
-}
-
 static void __init msm8974_init_buses(void)
 {
-#ifdef CONFIG_MSM_BUS_SCALING
-	msm_bus_sys_noc.dev.platform_data =
-		&msm_bus_8974_sys_noc_pdata;
-	msm_bus_bimc.dev.platform_data = &msm_bus_8974_bimc_pdata;
-	msm_bus_mmss_noc.dev.platform_data = &msm_bus_8974_mmss_noc_pdata;
-	msm_bus_ocmem_noc.dev.platform_data = &msm_bus_8974_ocmem_noc_pdata;
-	msm_bus_periph_noc.dev.platform_data = &msm_bus_8974_periph_noc_pdata;
-	msm_bus_config_noc.dev.platform_data = &msm_bus_8974_config_noc_pdata;
-	msm_bus_ocmem_vnoc.dev.platform_data = &msm_bus_8974_ocmem_vnoc_pdata;
-#endif
 	platform_add_devices(msm_bus_8974_devices,
 				ARRAY_SIZE(msm_bus_8974_devices));
 };
@@ -294,7 +121,6 @@ void __init msm8974_add_drivers(void)
 		msm_clock_init(&msm8974_clock_init_data);
 	msm8974_init_buses();
 	msm_thermal_device_init();
-	mxt_init_vkeys_8974();
 }
 
 static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
@@ -355,6 +181,8 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 			"qcedev.0", NULL),
 	OF_DEV_AUXDATA("qcom,qcrypto", 0xFD440000, \
 			"qcrypto.0", NULL),
+	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, \
+			"msm_hsic_host", NULL),
 	{}
 };
 

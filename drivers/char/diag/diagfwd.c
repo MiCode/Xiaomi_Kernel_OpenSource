@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
+#include "diagfwd_hsic.h"
 #include "diagchar_hdlc.h"
 #ifdef CONFIG_DIAG_SDIO_PIPE
 #include "diagfwd_sdio.h"
@@ -97,7 +98,7 @@ static int has_device_tree(void)
 
 int chk_config_get_id(void)
 {
-	/* For all Fusion targets, Modem will always be present */
+	/* For all Fusion targets,  Modem will always be present */
 	if (machine_is_msm8x60_fusion() || machine_is_msm8x60_fusn_ffa())
 		return 0;
 
@@ -115,6 +116,7 @@ int chk_config_get_id(void)
 			return AO8960_TOOLS_ID;
 		case MSM_CPU_8064:
 		case MSM_CPU_8064AB:
+		case MSM_CPU_8064AA:
 			return APQ8064_TOOLS_ID;
 		case MSM_CPU_8930:
 		case MSM_CPU_8930AA:
@@ -144,6 +146,7 @@ int chk_apps_only(void)
 	case MSM_CPU_8960AB:
 	case MSM_CPU_8064:
 	case MSM_CPU_8064AB:
+	case MSM_CPU_8064AA:
 	case MSM_CPU_8930:
 	case MSM_CPU_8930AA:
 	case MSM_CPU_8930AB:
@@ -350,7 +353,8 @@ void diag_read_smd_work_fn(struct work_struct *work)
 
 int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 {
-	int i, err = 0;
+	int i, err = 0, index;
+	index = 0;
 
 	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
 		if (data_type == APPS_DATA) {
@@ -370,28 +374,34 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		}
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		else if (data_type == HSIC_DATA) {
+		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
 			unsigned long flags;
 			int foundIndex = -1;
-
-			spin_lock_irqsave(&driver->hsic_spinlock, flags);
-			for (i = 0; i < driver->poolsize_hsic_write; i++) {
-				if (driver->hsic_buf_tbl[i].length == 0) {
-					driver->hsic_buf_tbl[i].buf = buf;
-					driver->hsic_buf_tbl[i].length =
-						diag_bridge[HSIC].write_len;
-					driver->num_hsic_buf_tbl_entries++;
+			index = data_type - HSIC_DATA;
+			spin_lock_irqsave(&diag_hsic[index].hsic_spinlock,
+									flags);
+			for (i = 0; i < diag_hsic[index].poolsize_hsic_write;
+									i++) {
+				if (diag_hsic[index].hsic_buf_tbl[i].length
+									== 0) {
+					diag_hsic[index].hsic_buf_tbl[i].buf
+									= buf;
+					diag_hsic[index].hsic_buf_tbl[i].length
+						= diag_bridge[index].write_len;
+					diag_hsic[index].
+						num_hsic_buf_tbl_entries++;
 					foundIndex = i;
 					break;
 				}
 			}
-			spin_unlock_irqrestore(&driver->hsic_spinlock, flags);
+			spin_unlock_irqrestore(&diag_hsic[index].hsic_spinlock,
+									flags);
 			if (foundIndex == -1)
 				err = -1;
 			else
-				pr_debug("diag: ENQUEUE HSIC buf ptr and length is %x , %d\n",
+				pr_debug("diag: ENQUEUE HSIC buf ptr and length is %x , %d, ch %d\n",
 					(unsigned int)buf,
-					 diag_bridge[HSIC].write_len);
+					 diag_bridge[index].write_len, index);
 		}
 #endif
 		for (i = 0; i < driver->num_clients; i++)
@@ -420,10 +430,12 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		}
 #endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		else if (data_type == HSIC_DATA) {
-			if (driver->hsic_ch)
-				queue_work(diag_bridge[HSIC].wq,
-					&(driver->diag_read_hsic_work));
+		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
+			index = data_type - HSIC_DATA;
+			if (diag_hsic[index].hsic_ch)
+				queue_work(diag_bridge[index].wq,
+					   &(diag_hsic[index].
+					     diag_read_hsic_work));
 		}
 #endif
 		err = -1;
@@ -465,27 +477,30 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		}
 #endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		else if (data_type == HSIC_DATA) {
-			if (driver->hsic_device_enabled) {
+		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
+			index = data_type - HSIC_DATA;
+			if (diag_hsic[index].hsic_device_enabled) {
 				struct diag_request *write_ptr_mdm;
 				write_ptr_mdm = (struct diag_request *)
 						diagmem_alloc(driver,
 						sizeof(struct diag_request),
+							index +
 							POOL_TYPE_HSIC_WRITE);
 				if (write_ptr_mdm) {
 					write_ptr_mdm->buf = buf;
 					write_ptr_mdm->length =
-					   diag_bridge[HSIC].write_len;
-					write_ptr_mdm->context = (void *)HSIC;
+					   diag_bridge[index].write_len;
+					write_ptr_mdm->context = (void *)index;
 					err = usb_diag_write(
-					diag_bridge[HSIC].ch, write_ptr_mdm);
+					diag_bridge[index].ch, write_ptr_mdm);
 					/* Return to the pool immediately */
 					if (err) {
 						diagmem_free(driver,
 							write_ptr_mdm,
+							index +
 							POOL_TYPE_HSIC_WRITE);
-						pr_err_ratelimited("diag: HSIC write failure, err: %d\n",
-							err);
+						pr_err_ratelimited("diag: HSIC write failure, err: %d, ch %d\n",
+							err, index);
 					}
 				} else {
 					pr_err("diag: allocate write fail\n");

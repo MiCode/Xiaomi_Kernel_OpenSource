@@ -17,9 +17,9 @@
 #include <media/msm_cam_sensor.h>
 #include <mach/board.h>
 
-enum msm_sensor_device_type_t {
-	MSM_SENSOR_I2C_DEVICE,
-	MSM_SENSOR_PLATFORM_DEVICE,
+enum msm_camera_device_type_t {
+	MSM_CAMERA_I2C_DEVICE,
+	MSM_CAMERA_PLATFORM_DEVICE,
 };
 
 enum msm_bus_perf_setting {
@@ -34,6 +34,11 @@ enum msm_bus_perf_setting {
 	S_LIVESHOT,
 	S_DUAL,
 	S_EXIT
+};
+
+enum cci_i2c_master_t {
+	MASTER_0,
+	MASTER_1,
 };
 
 struct msm_camera_slave_info {
@@ -86,6 +91,13 @@ struct msm_camera_i2c_reg_conf {
 	enum msm_camera_i2c_data_type dt;
 	enum msm_camera_i2c_cmd_type cmd_type;
 	int16_t mask;
+};
+
+struct msm_camera_i2c_conf_array {
+	struct msm_camera_i2c_reg_conf *conf;
+	uint16_t size;
+	uint16_t delay;
+	enum msm_camera_i2c_data_type data_type;
 };
 
 #endif

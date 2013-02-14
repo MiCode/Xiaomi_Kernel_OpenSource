@@ -88,8 +88,4 @@ comment "Supported DVB Frontends"
 	depends on DVB_CORE
 source "drivers/media/dvb/frontends/Kconfig"
 
-comment "Qualcomm MPQ adapter"
-	depends on ARCH_MSM && DVB_CORE
-source "drivers/media/dvb/mpq/Kconfig"
-
 endif # DVB_CAPTURE_DRIVERS

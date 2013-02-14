@@ -232,7 +232,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_format_params *fmt;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_mixer *mixer = NULL;
-	u32 pipe_type, mixer_mux;
+	u32 pipe_type, mixer_mux, len;
 	int ret;
 
 	if (mfd == NULL || mfd->ctl == NULL)
@@ -280,12 +280,12 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		else
 			pipe_type = MDSS_MDP_PIPE_TYPE_RGB;
 
-		pipe = mdss_mdp_pipe_alloc(pipe_type);
+		pipe = mdss_mdp_pipe_alloc(mixer, pipe_type);
 
 		/* VIG pipes can also support RGB format */
 		if (!pipe && pipe_type == MDSS_MDP_PIPE_TYPE_RGB) {
 			pipe_type = MDSS_MDP_PIPE_TYPE_VIG;
-			pipe = mdss_mdp_pipe_alloc(pipe_type);
+			pipe = mdss_mdp_pipe_alloc(mixer, pipe_type);
 		}
 
 		if (pipe == NULL) {
@@ -337,12 +337,25 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->req_data = *req;
 
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
-		if (pipe->num <= MDSS_MDP_SSPP_VIG2)
-			memcpy(&pipe->pp_cfg, &req->overlay_pp_cfg,
+		memcpy(&pipe->pp_cfg, &req->overlay_pp_cfg,
 					sizeof(struct mdp_overlay_pp_params));
-		else
-			pr_debug("%s: RGB Pipes don't support CSC/QSEED\n",
-								__func__);
+		len = pipe->pp_cfg.igc_cfg.len;
+		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG) &&
+						(len == IGC_LUT_ENTRIES)) {
+			ret = copy_from_user(pipe->pp_res.igc_c0_c1,
+					pipe->pp_cfg.igc_cfg.c0_c1_data,
+					sizeof(uint32_t) * len);
+			if (ret)
+				return -ENOMEM;
+			ret = copy_from_user(pipe->pp_res.igc_c2,
+					pipe->pp_cfg.igc_cfg.c2_data,
+					sizeof(uint32_t) * len);
+			if (ret)
+				return -ENOMEM;
+			pipe->pp_cfg.igc_cfg.c0_c1_data =
+							pipe->pp_res.igc_c0_c1;
+			pipe->pp_cfg.igc_cfg.c2_data = pipe->pp_res.igc_c2;
+		}
 	}
 
 	if (pipe->flags & MDP_DEINTERLACE) {
@@ -731,8 +744,7 @@ static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd)
 
 	if (fb_ndx) {
 		pr_debug("unstaging framebuffer pipes %x\n", fb_ndx);
-		mdss_mdp_overlay_unset(mfd, fb_ndx);
-		mdss_mdp_overlay_kickoff(mfd->ctl);
+		mdss_mdp_overlay_release(mfd, fb_ndx);
 	}
 	return 0;
 }
@@ -863,7 +875,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		return;
 	}
 
-	if (fbi->var.xres > MAX_MIXER_WIDTH) {
+	if (fbi->var.xres > MAX_MIXER_WIDTH || mfd->split_display) {
 		ret = mdss_mdp_overlay_get_fb_pipe(mfd, &pipe,
 						   MDSS_MDP_MIXER_MUX_RIGHT);
 		if (ret) {
@@ -883,7 +895,8 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	}
 	mutex_unlock(&mfd->ov_lock);
 
-	if (fbi->var.activate & FB_ACTIVATE_VBL)
+	if ((fbi->var.activate & FB_ACTIVATE_VBL) ||
+	    (fbi->var.activate & FB_ACTIVATE_FORCE))
 		mdss_mdp_overlay_kickoff(mfd->ctl);
 }
 
@@ -971,9 +984,9 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 	ret = wait_for_completion_interruptible_timeout(&mfd->vsync_comp,
 			timeout);
 	if (ret <= 0) {
-		pr_warn("vsync wait on fb%d interrupted (%d)\n",
-			mfd->index, ret);
-		return -EBUSY;
+		pr_warn("Sending current time as vsync timestamp for fb%d\n",
+				mfd->index);
+		mfd->vsync_time = ktime_get();
 	}
 
 	spin_lock_irqsave(&mfd->vsync_lock, flags);
@@ -1244,9 +1257,47 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 {
 	int rc;
 
-	rc = mdss_mdp_ctl_on(mfd);
-	if (rc == 0)
+	if (!mfd)
+		return -ENODEV;
+
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	if (!mfd->ctl) {
+		struct mdss_mdp_ctl *ctl;
+		struct mdss_panel_data *pdata;
+
+		pdata = dev_get_platdata(&mfd->pdev->dev);
+		if (!pdata) {
+			pr_err("no panel connected for fb%d\n", mfd->index);
+			return -ENODEV;
+		}
+
+		ctl = mdss_mdp_ctl_init(pdata, mfd);
+		if (IS_ERR_OR_NULL(ctl)) {
+			pr_err("Unable to initialize ctl for fb%d\n",
+				mfd->index);
+			return PTR_ERR(ctl);
+		}
+
+		if (mfd->split_display && pdata->next) {
+			/* enable split display */
+			rc = mdss_mdp_ctl_split_display_setup(ctl, pdata->next);
+			if (rc) {
+				mdss_mdp_ctl_destroy(ctl);
+				return rc;
+			}
+		}
+		mfd->ctl = ctl;
+	}
+
+	rc = mdss_mdp_ctl_start(mfd->ctl);
+	if (rc == 0) {
 		atomic_inc(&ov_active_panels);
+	} else {
+		mdss_mdp_ctl_destroy(mfd->ctl);
+		mfd->ctl = NULL;
+	}
 
 	return rc;
 }
@@ -1255,12 +1306,26 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 {
 	int rc;
 
+	if (!mfd)
+		return -ENODEV;
+
+	if (mfd->key != MFD_KEY)
+		return -EINVAL;
+
+	if (!mfd->ctl) {
+		pr_err("ctl not initialized\n");
+		return -ENODEV;
+	}
+
 	mdss_mdp_overlay_release_all(mfd);
 
-	rc = mdss_mdp_ctl_off(mfd);
+	rc = mdss_mdp_ctl_stop(mfd->ctl);
 	if (rc == 0) {
-		if (!mfd->ref_cnt)
+		if (!mfd->ref_cnt) {
 			mfd->borderfill_enable = false;
+			mdss_mdp_ctl_destroy(mfd->ctl);
+			mfd->ctl = NULL;
+		}
 
 		if (atomic_dec_return(&ov_active_panels) == 0)
 			mdss_mdp_rotator_release_all();
@@ -1273,6 +1338,12 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 {
 	struct device *dev = mfd->fbi->dev;
 	int rc;
+
+	mfd->mdata = dev_get_drvdata(mfd->pdev->dev.parent);
+	if (!mfd->mdata) {
+		pr_err("unable to initialize overlay for fb%d\n", mfd->index);
+		return -ENODEV;
+	}
 
 	mfd->on_fnc = mdss_mdp_overlay_on;
 	mfd->off_fnc = mdss_mdp_overlay_off;

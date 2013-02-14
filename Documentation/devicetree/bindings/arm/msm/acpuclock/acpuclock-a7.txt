@@ -1,0 +1,22 @@
+* Qualcomm Application CPU clock device
+
+acpuclock-a7 selects the clock source used by the cpus and l2 cache. It
+can be configured to divide the clock source by any value in [1, 16] in
+half-integer increments.
+
+Required properties:
+- compatible: "qcom,acpuclk-a7"
+- reg: offset and length of the register sets for the acpuclock controller
+- reg-names: name of the bases for the above registers. "rcg_base"
+	     is expected.
+- a7_cpu-supply: regulator to supply a7 cpu
+- a7_mem-supply: regulator to supply a7 l2 cache
+
+Example:
+	qcom,acpuclk@f9011050 {
+		compatible = "qcom,acpuclk-a7";
+		reg = <0xf9011050 0x8>;
+		reg-names = "rcg_base";
+		a7_cpu-supply = <&pm8026_s2>;
+		a7_mem-supply = <&pm8026_l3>;
+	};

@@ -648,6 +648,19 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 	struct ion_iommu_map *iommu_map;
 	int ret = 0;
 
+	if (IS_ERR_OR_NULL(client)) {
+		pr_err("%s: client pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: handle pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+	if (IS_ERR_OR_NULL(handle->buffer)) {
+		pr_err("%s: buffer pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+
 	if (ION_IS_CACHED(flags)) {
 		pr_err("%s: Cannot map iommu as cached.\n", __func__);
 		return -EINVAL;
@@ -754,6 +767,19 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 {
 	struct ion_iommu_map *iommu_map;
 	struct ion_buffer *buffer;
+
+	if (IS_ERR_OR_NULL(client)) {
+		pr_err("%s: client pointer is invalid\n", __func__);
+		return;
+	}
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: handle pointer is invalid\n", __func__);
+		return;
+	}
+	if (IS_ERR_OR_NULL(handle->buffer)) {
+		pr_err("%s: buffer pointer is invalid\n", __func__);
+		return;
+	}
 
 	mutex_lock(&client->lock);
 	buffer = handle->buffer;
@@ -1533,6 +1559,10 @@ void ion_debug_mem_map_create(struct seq_file *s, struct ion_heap *heap,
 {
 	struct ion_device *dev = heap->dev;
 	struct rb_node *n;
+	size_t size;
+
+	if (!heap->ops->phys)
+		return;
 
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer *buffer =
@@ -1545,9 +1575,11 @@ void ion_debug_mem_map_create(struct seq_file *s, struct ion_heap *heap,
 					   "Part of memory map will not be logged\n");
 				break;
 			}
-			data->addr = buffer->priv_phys;
-			data->addr_end = buffer->priv_phys + buffer->size-1;
-			data->size = buffer->size;
+
+			buffer->heap->ops->phys(buffer->heap, buffer,
+						&(data->addr), &size);
+			data->size = (unsigned long) size;
+			data->addr_end = data->addr + data->size - 1;
 			data->client_name = ion_debug_locate_owner(dev, buffer);
 			ion_debug_mem_map_add(mem_map, data);
 		}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,7 @@ enum battery_type {
 	BATT_UNKNOWN = 0,
 	BATT_PALLADIUM,
 	BATT_DESAY,
+	BATT_OEM,
 };
 
 /**
@@ -106,6 +107,7 @@ struct bms_battery_data {
 	defined(CONFIG_QPNP_BMS)
 extern struct bms_battery_data  palladium_1500_data;
 extern struct bms_battery_data  desay_5200_data;
+extern struct bms_battery_data  oem_batt_data;
 
 int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp);
 int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc);

@@ -48,6 +48,7 @@
 		qcom,csi-lane-mask = <0x1F>;
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <1>;
+		qcom,cci-master = <0>;
 		status = "ok";
 	};
 
@@ -83,6 +84,7 @@
 		qcom,csi-lane-mask = <0x7>;
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <1>;
+		qcom,cci-master = <0>;
 		status = "ok";
 	};
 };

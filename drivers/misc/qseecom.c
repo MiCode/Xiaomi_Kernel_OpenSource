@@ -42,6 +42,7 @@
 #include <mach/scm.h>
 #include <mach/subsystem_restart.h>
 #include <mach/socinfo.h>
+#include <mach/qseecomi.h>
 #include "qseecom_legacy.h"
 #include "qseecom_kernel.h"
 
@@ -60,112 +61,9 @@
 
 #define QSEECOM_MAX_SG_ENTRY	512
 
-enum qseecom_command_scm_resp_type {
-	QSEOS_APP_ID = 0xEE01,
-	QSEOS_LISTENER_ID
-};
-
-enum qseecom_qceos_cmd_id {
-	QSEOS_APP_START_COMMAND      = 0x01,
-	QSEOS_APP_SHUTDOWN_COMMAND,
-	QSEOS_APP_LOOKUP_COMMAND,
-	QSEOS_REGISTER_LISTENER,
-	QSEOS_DEREGISTER_LISTENER,
-	QSEOS_CLIENT_SEND_DATA_COMMAND,
-	QSEOS_LISTENER_DATA_RSP_COMMAND,
-	QSEOS_LOAD_EXTERNAL_ELF_COMMAND,
-	QSEOS_UNLOAD_EXTERNAL_ELF_COMMAND,
-	QSEOS_GET_APP_STATE_COMMAND,
-	QSEOS_LOAD_SERV_IMAGE_COMMAND,
-	QSEOS_UNLOAD_SERV_IMAGE_COMMAND,
-	QSEOS_APP_REGION_NOTIFICATION,
-	QSEOS_CMD_MAX     = 0xEFFFFFFF
-};
-
-enum qseecom_qceos_cmd_status {
-	QSEOS_RESULT_SUCCESS = 0,
-	QSEOS_RESULT_INCOMPLETE,
-	QSEOS_RESULT_FAILURE  = 0xFFFFFFFF
-};
-
 enum qseecom_clk_definitions {
 	CLK_DFAB = 0,
 	CLK_SFPB,
-};
-
-__packed  struct qsee_apps_region_info_ireq {
-	uint32_t qsee_cmd_id;
-	uint32_t addr;
-	uint32_t size;
-};
-
-__packed struct qseecom_check_app_ireq {
-	uint32_t qsee_cmd_id;
-	char     app_name[MAX_APP_NAME_SIZE];
-};
-
-__packed struct qseecom_load_app_ireq {
-	uint32_t qsee_cmd_id;
-	uint32_t mdt_len;		/* Length of the mdt file */
-	uint32_t img_len;		/* Length of .bxx and .mdt files */
-	uint32_t phy_addr;		/* phy addr of the start of image */
-	char     app_name[MAX_APP_NAME_SIZE];	/* application name*/
-};
-
-__packed struct qseecom_unload_app_ireq {
-	uint32_t qsee_cmd_id;
-	uint32_t  app_id;
-};
-
-__packed struct qseecom_load_lib_image_ireq {
-	uint32_t qsee_cmd_id;
-	uint32_t mdt_len;
-	uint32_t img_len;
-	uint32_t phy_addr;
-};
-
-__packed struct qseecom_unload_lib_image_ireq {
-	uint32_t qsee_cmd_id;
-};
-
-__packed struct qseecom_register_listener_ireq {
-	uint32_t qsee_cmd_id;
-	uint32_t listener_id;
-	void *sb_ptr;
-	uint32_t sb_len;
-};
-
-__packed struct qseecom_unregister_listener_ireq {
-	uint32_t qsee_cmd_id;
-	uint32_t  listener_id;
-};
-
-__packed struct qseecom_client_send_data_ireq {
-	uint32_t qsee_cmd_id;
-	uint32_t app_id;
-	void *req_ptr;
-	uint32_t req_len;
-	void *rsp_ptr;   /* First 4 bytes should always be the return status */
-	uint32_t rsp_len;
-};
-
-/* send_data resp */
-__packed struct qseecom_client_listener_data_irsp {
-	uint32_t qsee_cmd_id;
-	uint32_t listener_id;
-};
-
-/*
- * struct qseecom_command_scm_resp - qseecom response buffer
- * @cmd_status: value from enum tz_sched_cmd_status
- * @sb_in_rsp_addr: points to physical location of response
- *                buffer
- * @sb_in_rsp_len: length of command response
- */
-__packed struct qseecom_command_scm_resp {
-	uint32_t result;
-	enum qseecom_command_scm_resp_type resp_type;
-	unsigned int data;
 };
 
 static struct class *driver_class;
@@ -586,6 +484,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 					struct qseecom_command_scm_resp *resp)
 {
 	int ret = 0;
+	int rc = 0;
 	uint32_t lstnr;
 	unsigned long flags;
 	struct qseecom_client_listener_data_irsp send_data_rsp;
@@ -624,8 +523,12 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		if (data->abort) {
 			pr_err("Aborting listener service %d\n",
 				data->listener.id);
-			return -ENODEV;
+			rc = -ENODEV;
+			send_data_rsp.status  = QSEOS_RESULT_FAILURE;
+		} else {
+			send_data_rsp.status  = QSEOS_RESULT_SUCCESS;
 		}
+
 		qseecom.send_resp_flag = 0;
 		send_data_rsp.qsee_cmd_id = QSEOS_LISTENER_DATA_RSP_COMMAND;
 		send_data_rsp.listener_id  = lstnr ;
@@ -644,6 +547,9 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			return -EINVAL;
 		}
 	}
+	if (rc)
+		return rc;
+
 	return ret;
 }
 
@@ -1455,7 +1361,7 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	return ret;
 }
 
-static int qseecom_load_commonlib_image(void)
+static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 {
 	int32_t ret = 0;
 	uint32_t fw_size = 0;
@@ -1482,7 +1388,6 @@ static int qseecom_load_commonlib_image(void)
 	ret = scm_call(SCM_SVC_TZSCHEDULER, 1, &load_req,
 				sizeof(struct qseecom_load_lib_image_ireq),
 							&resp, sizeof(resp));
-	kzfree(img_data);
 	if (ret) {
 		pr_err("scm_call to load failed : ret %d\n", ret);
 		ret = -EIO;
@@ -1495,6 +1400,12 @@ static int qseecom_load_commonlib_image(void)
 						resp.result);
 			ret = -EINVAL;
 			break;
+		case  QSEOS_RESULT_INCOMPLETE:
+			ret = __qseecom_process_incomplete_cmd(data, &resp);
+			if (ret)
+				pr_err("process_incomplete_cmd failed err: %d\n",
+					ret);
+			break;
 		default:
 			pr_err("scm call return unknown response %d\n",
 						resp.result);
@@ -1502,6 +1413,7 @@ static int qseecom_load_commonlib_image(void)
 			break;
 		}
 	}
+	kzfree(img_data);
 	return ret;
 }
 
@@ -1555,25 +1467,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		return -EINVAL;
 	}
 
-	if (qseecom.qsee_version > QSEEE_VERSION_00) {
-		mutex_lock(&app_access_lock);
-		if (qseecom.commonlib_loaded == false) {
-			ret = qseecom_load_commonlib_image();
-			if (ret == 0)
-				qseecom.commonlib_loaded = true;
-		}
-		mutex_unlock(&app_access_lock);
-	}
-
-	if (ret)
-		return -EIO;
-
-	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
-	memcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
-	ret = __qseecom_check_app_exists(app_ireq);
-	if (ret < 0)
-		return -EINVAL;
-
 	*handle = kzalloc(sizeof(struct qseecom_handle), GFP_KERNEL);
 	if (!(*handle)) {
 		pr_err("failed to allocate memory for kernel client handle\n");
@@ -1609,6 +1502,30 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		*handle = NULL;
 		return -EINVAL;
 	}
+
+	if (qseecom.qsee_version > QSEEE_VERSION_00) {
+		mutex_lock(&app_access_lock);
+		if (qseecom.commonlib_loaded == false) {
+			ret = qseecom_load_commonlib_image(data);
+			if (ret == 0)
+				qseecom.commonlib_loaded = true;
+		}
+		mutex_unlock(&app_access_lock);
+	}
+
+	if (ret) {
+		pr_err("Failed to loadd commonlib image\n");
+		kfree(data);
+		kfree(*handle);
+		*handle = NULL;
+		return -EIO;
+	}
+
+	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
+	memcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
+	ret = __qseecom_check_app_exists(app_ireq);
+	if (ret < 0)
+		return -EINVAL;
 
 	if (ret > 0) {
 		pr_warn("App id %d for [%s] app exists\n", ret,
@@ -2251,7 +2168,7 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		atomic_inc(&data->ioctl_count);
 		if (qseecom.qsee_version > QSEEE_VERSION_00) {
 			if (qseecom.commonlib_loaded == false) {
-				ret = qseecom_load_commonlib_image();
+				ret = qseecom_load_commonlib_image(data);
 				if (ret == 0)
 					qseecom.commonlib_loaded = true;
 			}

@@ -1301,3 +1301,7 @@ struct msm_bus_fabric_registration msm_bus_9625_config_noc_pdata = {
 	.hw_sel = MSM_BUS_NOC,
 	.rpm_enabled = 1,
 };
+
+void msm_bus_board_init(struct msm_bus_fabric_registration *pdata)
+{
+}

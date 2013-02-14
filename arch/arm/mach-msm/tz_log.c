@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,16 +12,27 @@
  */
 #include <linux/debugfs.h>
 #include <linux/errno.h>
+#include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/msm_ion.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/types.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
+#include <mach/scm.h>
+#include <mach/qseecomi.h>
 
 #define DEBUG_MAX_RW_BUF 4096
 
+/* QSEE_LOG_BUF_SIZE = 32K */
+#define QSEE_LOG_BUF_SIZE 0x8000
+
+
+/* TZ Diagnostic Area legacy version number */
+#define TZBSP_DIAG_MAJOR_VERSION_LEGACY	2
 /*
  * Preprocessor Definitions and Constants
  */
@@ -96,6 +107,24 @@ struct tzdbg_int_t {
 	uint8_t int_desc[TZBSP_MAX_INT_DESC];
 	uint64_t int_count[TZBSP_CPU_COUNT]; /* # of times seen per CPU */
 };
+
+/*
+ * Log ring buffer position
+ */
+struct tzdbg_log_pos_t {
+	uint16_t wrap;
+	uint16_t offset;
+};
+
+ /*
+ * Log ring buffer
+ */
+struct tzdbg_log_t {
+	struct tzdbg_log_pos_t	log_pos;
+	/* open ended array to the end of the 4K IMEM buffer */
+	uint8_t					log_buf[];
+};
+
 /*
  * Diagnostic Table
  */
@@ -147,7 +176,7 @@ struct tzdbg_t {
 	/*
 	 * We need at least 2K for the ring buffer
 	 */
-	uint8_t *ring_buffer;	/* TZ Ring Buffer */
+	struct tzdbg_log_t ring_buffer;	/* TZ Ring Buffer */
 };
 
 /*
@@ -160,7 +189,8 @@ enum tzdbg_stats_type {
 	TZDBG_VMID,
 	TZDBG_GENERAL,
 	TZDBG_LOG,
-	TZDBG_STATS_MAX,
+	TZDBG_QSEE_LOG,
+	TZDBG_STATS_MAX
 };
 
 struct tzdbg_stat {
@@ -184,8 +214,10 @@ static struct tzdbg tzdbg = {
 	.stat[TZDBG_VMID].name = "vmid",
 	.stat[TZDBG_GENERAL].name = "general",
 	.stat[TZDBG_LOG].name = "log",
+	.stat[TZDBG_QSEE_LOG].name = "qsee_log",
 };
 
+static struct tzdbg_log_t *g_qsee_log;
 
 /*
  * Debugfs data structure and functions
@@ -346,7 +378,7 @@ static int _disp_tz_interrupt_stats(void)
 	return len;
 }
 
-static int _disp_tz_log_stats(void)
+static int _disp_tz_log_stats_legacy(void)
 {
 	int len = 0;
 	unsigned char *ptr;
@@ -358,6 +390,97 @@ static int _disp_tz_log_stats(void)
 
 	tzdbg.stat[TZDBG_LOG].data = tzdbg.disp_buf;
 	return len;
+}
+
+static int _disp_log_stats(struct tzdbg_log_t *log,
+			struct tzdbg_log_pos_t *log_start, uint32_t log_len,
+			size_t count, uint32_t buf_idx)
+{
+	uint32_t wrap_start;
+	uint32_t wrap_end;
+	uint32_t wrap_cnt;
+	int max_len;
+	int len = 0;
+	int i = 0;
+
+	wrap_start = log_start->wrap;
+	wrap_end = log->log_pos.wrap;
+
+	/* Calculate difference in # of buffer wrap-arounds */
+	if (wrap_end >= wrap_start) {
+		wrap_cnt = wrap_end - wrap_start;
+	} else {
+		/* wrap counter has wrapped around, invalidate start position */
+		wrap_cnt = 2;
+	}
+
+	if (wrap_cnt > 1) {
+		/* end position has wrapped around more than once, */
+		/* current start no longer valid                   */
+		log_start->wrap = log->log_pos.wrap - 1;
+		log_start->offset = (log->log_pos.offset + 1) % log_len;
+	} else if ((wrap_cnt == 1) &&
+		(log->log_pos.offset > log_start->offset)) {
+		/* end position has overwritten start */
+		log_start->offset = (log->log_pos.offset + 1) % log_len;
+	}
+
+	while (log_start->offset == log->log_pos.offset) {
+		/*
+		 * No data in ring buffer,
+		 * so we'll hang around until something happens
+		 */
+		unsigned long t = msleep_interruptible(50);
+		if (t != 0) {
+			/* Some event woke us up, so let's quit */
+			return 0;
+		}
+
+		if (buf_idx == TZDBG_LOG)
+			memcpy_fromio((void *)tzdbg.diag_buf, tzdbg.virt_iobase,
+						DEBUG_MAX_RW_BUF);
+
+	}
+
+	max_len = (count > DEBUG_MAX_RW_BUF) ? DEBUG_MAX_RW_BUF : count;
+
+	/*
+	 *  Read from ring buff while there is data and space in return buff
+	 */
+	while ((log_start->offset != log->log_pos.offset) && (len < max_len)) {
+		tzdbg.disp_buf[i++] = log->log_buf[log_start->offset];
+		log_start->offset = (log_start->offset + 1) % log_len;
+		if (0 == log_start->offset)
+			++log_start->wrap;
+		++len;
+	}
+
+	/*
+	 * return buffer to caller
+	 */
+	tzdbg.stat[buf_idx].data = tzdbg.disp_buf;
+	return len;
+}
+
+static int _disp_tz_log_stats(size_t count)
+{
+	static struct tzdbg_log_pos_t log_start = {0};
+	struct tzdbg_log_t *log_ptr;
+	log_ptr = (struct tzdbg_log_t *)((unsigned char *)tzdbg.diag_buf +
+				tzdbg.diag_buf->ring_off -
+				offsetof(struct tzdbg_log_t, log_buf));
+
+	return _disp_log_stats(log_ptr, &log_start,
+				tzdbg.diag_buf->ring_len, count, TZDBG_LOG);
+}
+
+static int _disp_qsee_log_stats(size_t count)
+{
+	static struct tzdbg_log_pos_t log_start = {0};
+
+	return _disp_log_stats(g_qsee_log, &log_start,
+			QSEE_LOG_BUF_SIZE - sizeof(struct tzdbg_log_pos_t),
+			count, TZDBG_QSEE_LOG);
 }
 
 static ssize_t tzdbgfs_read(struct file *file, char __user *buf,
@@ -385,7 +508,17 @@ static ssize_t tzdbgfs_read(struct file *file, char __user *buf,
 		len = _disp_tz_vmid_stats();
 		break;
 	case TZDBG_LOG:
-		len = _disp_tz_log_stats();
+		if (TZBSP_DIAG_MAJOR_VERSION_LEGACY <
+				(tzdbg.diag_buf->version >> 16)) {
+			len = _disp_tz_log_stats(count);
+			*offp = 0;
+		} else {
+			len = _disp_tz_log_stats_legacy();
+		}
+		break;
+	case TZDBG_QSEE_LOG:
+		len = _disp_qsee_log_stats(count);
+		*offp = 0;
 		break;
 	default:
 		break;
@@ -409,6 +542,78 @@ const struct file_operations tzdbg_fops = {
 	.read    = tzdbgfs_read,
 	.open    = tzdbgfs_open,
 };
+
+static struct ion_client  *g_ion_clnt;
+static struct ion_handle *g_ihandle;
+
+/*
+ * Allocates log buffer from ION, registers the buffer at TZ
+ */
+static void tzdbg_register_qsee_log_buf(void)
+{
+	/* register log buffer scm request */
+	struct qseecom_reg_log_buf_ireq req;
+
+	/* scm response */
+	struct qseecom_command_scm_resp resp;
+	ion_phys_addr_t pa = 0;
+	uint32_t len;
+	int ret = 0;
+
+	/* Create ION msm client */
+	g_ion_clnt = msm_ion_client_create(ION_HEAP_CARVEOUT_MASK, "qsee_log");
+	if (g_ion_clnt == NULL) {
+		pr_err("%s: Ion client cannot be created\n", __func__);
+		return;
+	}
+
+	g_ihandle = ion_alloc(g_ion_clnt, QSEE_LOG_BUF_SIZE,
+			4096, ION_HEAP(ION_QSECOM_HEAP_ID), 0);
+	if (IS_ERR_OR_NULL(g_ihandle)) {
+		pr_err("%s: Ion client could not retrieve the handle\n",
+			__func__);
+		goto err1;
+	}
+
+	ret = ion_phys(g_ion_clnt, g_ihandle, &pa, &len);
+	if (ret) {
+		pr_err("%s: Ion conversion to physical address failed\n",
+			__func__);
+		goto err2;
+	}
+
+	req.qsee_cmd_id = QSEOS_REGISTER_LOG_BUF_COMMAND;
+	req.phy_addr = pa;
+	req.len = len;
+
+	/*  SCM_CALL  to register the log buffer */
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &req, sizeof(req),
+		&resp, sizeof(resp));
+	if (ret) {
+		pr_err("%s: scm_call to register log buffer failed\n",
+			__func__);
+		goto err2;
+	}
+
+	if (resp.result != QSEOS_RESULT_SUCCESS) {
+		pr_err(
+		"%s: scm_call to register log buf failed, resp result =%d\n",
+		__func__, resp.result);
+		goto err2;
+	}
+
+	g_qsee_log =
+		(struct tzdbg_log_t *)ion_map_kernel(g_ion_clnt, g_ihandle);
+	g_qsee_log->log_pos.wrap = g_qsee_log->log_pos.offset = 0;
+	return;
+
+err2:
+	ion_free(g_ion_clnt, g_ihandle);
+	g_ihandle = NULL;
+err1:
+	ion_client_destroy(g_ion_clnt);
+	g_ion_clnt = NULL;
+}
 
 static int  tzdbgfs_init(struct platform_device *pdev)
 {
@@ -456,6 +661,13 @@ static void tzdbgfs_exit(struct platform_device *pdev)
 	kzfree(tzdbg.disp_buf);
 	dent_dir = platform_get_drvdata(pdev);
 	debugfs_remove_recursive(dent_dir);
+	if (g_ion_clnt != NULL) {
+		if (!IS_ERR_OR_NULL(g_ihandle)) {
+			ion_unmap_kernel(g_ion_clnt, g_ihandle);
+			ion_free(g_ion_clnt, g_ihandle);
+		}
+	ion_client_destroy(g_ion_clnt);
+}
 }
 
 /*
@@ -527,6 +739,7 @@ static int __devinit tz_log_probe(struct platform_device *pdev)
 	if (tzdbgfs_init(pdev))
 		goto err;
 
+	tzdbg_register_qsee_log_buf();
 	return 0;
 err:
 	kfree(tzdbg.diag_buf);

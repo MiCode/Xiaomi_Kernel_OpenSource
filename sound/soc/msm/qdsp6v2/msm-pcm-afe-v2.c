@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +68,7 @@ static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	u32 mem_map_handle = 0;
 
-	mem_map_handle = afe_req_mmap_handle();
+	mem_map_handle = afe_req_mmap_handle(prtd->audio_client);
 	if (!mem_map_handle)
 		pr_err("%s: mem_map_handle is NULL\n", __func__);
 
@@ -99,7 +99,7 @@ static enum hrtimer_restart afe_hrtimer_rec_callback(struct hrtimer *hrt)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	u32 mem_map_handle = 0;
 
-	mem_map_handle = afe_req_mmap_handle();
+	mem_map_handle = afe_req_mmap_handle(prtd->audio_client);
 	if (!mem_map_handle)
 		pr_err("%s: mem_map_handle is NULL\n", __func__);
 
@@ -394,7 +394,7 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 	}
 	hrtimer_cancel(&prtd->hrt);
 
-	rc = afe_cmd_memory_unmap(afe_req_mmap_handle());
+	rc = afe_cmd_memory_unmap(afe_req_mmap_handle(prtd->audio_client));
 	if (rc < 0)
 		pr_err("AFE memory unmap failed\n");
 
@@ -533,7 +533,7 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 
-	rc = afe_cmd_memory_map(dma_buf->addr, dma_buf->bytes);
+	rc = afe_memory_map(dma_buf->addr, dma_buf->bytes, prtd->audio_client);
 	if (rc < 0)
 		pr_err("fail to map memory to DSP\n");
 

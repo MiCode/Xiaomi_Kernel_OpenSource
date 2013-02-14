@@ -198,12 +198,6 @@ static wait_queue_head_t subsystem_restart_wait;
 static struct workqueue_struct *msm_ipc_router_workqueue;
 
 enum {
-	CLIENT_PORT,
-	SERVER_PORT,
-	CONTROL_PORT,
-};
-
-enum {
 	DOWN,
 	UP,
 };
@@ -1465,8 +1459,9 @@ static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	for (i = 0; i < RT_HASH_SIZE; i++) {
 		list_for_each_entry(rt_entry, &routing_table[i], list) {
 			if ((rt_entry->node_id != IPC_ROUTER_NID_LOCAL) &&
-			    (rt_entry->xprt_info->xprt->link_id ==
-			     xprt_info->xprt->link_id))
+			    (!rt_entry->xprt_info ||
+			     (rt_entry->xprt_info->xprt->link_id ==
+			      xprt_info->xprt->link_id)))
 				continue;
 			rc = msm_ipc_router_send_server_list(rt_entry->node_id,
 							     xprt_info);
@@ -1872,6 +1867,7 @@ static int loopback_data(struct msm_ipc_port *src,
 	struct rr_header *hdr;
 	struct msm_ipc_port *port_ptr;
 	struct rr_packet *pkt;
+	int ret_len;
 
 	if (!data) {
 		pr_err("%s: Invalid pkt pointer\n", __func__);
@@ -1917,11 +1913,12 @@ static int loopback_data(struct msm_ipc_port *src,
 	mutex_lock(&port_ptr->port_rx_q_lock);
 	wake_lock(&port_ptr->port_rx_wake_lock);
 	list_add_tail(&pkt->list, &port_ptr->port_rx_q);
+	ret_len = pkt->length;
 	wake_up(&port_ptr->port_rx_wait_q);
 	mutex_unlock(&port_ptr->port_rx_q_lock);
 	mutex_unlock(&local_ports_lock);
 
-	return pkt->length;
+	return ret_len;
 }
 
 static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
@@ -2307,6 +2304,11 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		mutex_lock(&control_ports_lock);
 		list_del(&port_ptr->list);
 		mutex_unlock(&control_ports_lock);
+	} else if (port_ptr->type == IRSC_PORT) {
+		mutex_lock(&local_ports_lock);
+		list_del(&port_ptr->list);
+		mutex_unlock(&local_ports_lock);
+		signal_irsc_completion();
 	}
 
 	mutex_lock(&port_ptr->port_rx_q_lock);

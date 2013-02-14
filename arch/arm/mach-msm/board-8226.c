@@ -66,41 +66,6 @@ static int msm8226_paddr_to_memtype(unsigned int paddr)
 {
 	return MEMTYPE_EBI1;
 }
-static struct clk_lookup msm_clocks_dummy[] = {
-	CLK_DUMMY("core_clk",   NULL,           "f9926000.i2c", OFF),
-	CLK_DUMMY("iface_clk",  NULL,           "f9926000.i2c", OFF),
-	CLK_DUMMY("core_clk",   BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  BLSP1_UART_CLK, "f991f000.serial", OFF),
-	CLK_DUMMY("iface_clk",  HSUSB_IFACE_CLK, "f9a55000.usb", OFF),
-	CLK_DUMMY("core_clk",	HSUSB_CORE_CLK, "f9a55000.usb", OFF),
-	CLK_DUMMY("dfab_clk",	DFAB_CLK, "msm_sps", OFF),
-	CLK_DUMMY("dma_bam_pclk",	DMA_BAM_P_CLK, "msm_sps", OFF),
-	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.1", OFF),
-	CLK_DUMMY("iface_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("core_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("bus_clk",	NULL,		"msm_sdcc.2", OFF),
-	CLK_DUMMY("core_clk",	NULL,		"f9928000.spi", OFF),
-	CLK_DUMMY("iface_clk",	NULL,		"f9928000.spi", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fda64000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fda64000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fda44000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fda44000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fd928000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fd928000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fdb10000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fdb10000.qcom,iommu", OFF),
-	CLK_DUMMY("alt_core_clk",	NULL, "fdb10000.qcom,iommu", OFF),
-	CLK_DUMMY("iface_clk",		NULL, "fdc84000.qcom,iommu", OFF),
-	CLK_DUMMY("alt_core_clk",	NULL, "fdc84000.qcom,iommu", OFF),
-	CLK_DUMMY("core_clk",		NULL, "fdc84000.qcom,iommu", OFF),
-};
-
-static struct clock_init_data msm_dummy_clock_init_data __initdata = {
-	.table = msm_clocks_dummy,
-	.size = ARRAY_SIZE(msm_clocks_dummy),
-};
 
 static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
@@ -118,20 +83,32 @@ static struct reserve_info msm8226_reserve_info __initdata = {
 static void __init msm8226_early_memory(void)
 {
 	reserve_info = &msm8226_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8226_reserve_table);
+	of_scan_flat_dt(dt_scan_for_memory_hole, msm8226_reserve_table);
 }
 
 static void __init msm8226_reserve(void)
 {
+	reserve_info = &msm8226_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8226_reserve_table);
 	msm_reserve();
 }
 
-
+/*
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
+ */
 void __init msm8226_add_drivers(void)
 {
 	msm_rpm_driver_init();
 	msm_lpmrs_module_init();
 	msm_spm_device_init();
+	if (machine_is_msm8226_rumi())
+		msm_clock_init(&msm8226_rumi_clock_init_data);
+	else
+		msm_clock_init(&msm8226_clock_init_data);
+
 	msm_thermal_device_init();
 }
 
@@ -143,10 +120,8 @@ void __init msm8226_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm8226_init_gpiomux();
-	msm8226_add_drivers();
-	msm_clock_init(&msm_dummy_clock_init_data);
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
-
+	msm8226_add_drivers();
 }
 
 static const char *msm8226_dt_match[] __initconst = {

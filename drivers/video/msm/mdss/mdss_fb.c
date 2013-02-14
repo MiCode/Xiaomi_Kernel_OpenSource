@@ -87,7 +87,8 @@ static void mdss_fb_release_fences(struct msm_fb_data_type *mfd);
 
 static void mdss_fb_commit_wq_handler(struct work_struct *work);
 static void mdss_fb_pan_idle(struct msm_fb_data_type *mfd);
-
+static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
+					int event, void *arg);
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -232,7 +233,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	pdata = dev_get_platdata(&pdev->dev);
 	if (!pdata)
-		return -ENODEV;
+		return -EPROBE_DEFER;
 
 	/*
 	 * alloc framebuffer info + par data
@@ -259,6 +260,8 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->fb_imgType = MDP_RGBA_8888;
 
 	mfd->pdev = pdev;
+	if (pdata->next)
+		mfd->split_display = true;
 
 	mutex_init(&mfd->lock);
 
@@ -284,6 +287,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	}
 
 	mdss_fb_create_sysfs(mfd);
+	mdss_fb_send_panel_event(mfd, MDSS_EVENT_FB_REGISTERED, fbi);
 
 	if (mfd->timeline == NULL) {
 		char timeline_name[16];
@@ -297,6 +301,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 			mfd->timeline_value = 0;
 		}
 	}
+
+	rc = mdss_mdp_overlay_init(mfd);
+	if (rc)
+		pr_err("unable to init overlay\n");
 
 	return 0;
 }
@@ -332,8 +340,8 @@ static int mdss_fb_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static inline int mdss_fb_send_panel_event(
-	struct msm_fb_data_type *mfd, int e, void *arg)
+static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
+					int event, void *arg)
 {
 	struct mdss_panel_data *pdata;
 
@@ -343,10 +351,10 @@ static inline int mdss_fb_send_panel_event(
 		return -ENODEV;
 	}
 
-	pr_debug("sending event=%d for fb%d\n", e, mfd->index);
+	pr_debug("sending event=%d for fb%d\n", event, mfd->index);
 
 	if (pdata->event_handler)
-		return pdata->event_handler(pdata, e, arg);
+		return pdata->event_handler(pdata, event, arg);
 
 	return 0;
 }
@@ -453,11 +461,18 @@ int mdss_fb_resume_all(void)
 	return result;
 }
 
+static const struct of_device_id mdss_fb_dt_match[] = {
+	{ .compatible = "qcom,mdss-fb",},
+	{}
+};
+EXPORT_COMPAT("qcom,mdss-fb");
+
 static struct platform_driver mdss_fb_driver = {
 	.probe = mdss_fb_probe,
 	.remove = mdss_fb_remove,
 	.driver = {
 		.name = "mdss_fb",
+		.of_match_table = mdss_fb_dt_match,
 	},
 };
 
@@ -872,13 +887,15 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		return ret;
 	}
 
-	fix->type = panel_info->is_3d_panel;
-	fix->line_length = mdss_fb_line_length(mfd->index, panel_info->xres,
-					       bpp);
-
 	var->xres = panel_info->xres;
+	if (mfd->split_display)
+		var->xres *= 2;
+
+	fix->type = panel_info->is_3d_panel;
+	fix->line_length = mdss_fb_line_length(mfd->index, var->xres, bpp);
+
 	var->yres = panel_info->yres;
-	var->xres_virtual = panel_info->xres;
+	var->xres_virtual = var->xres;
 	var->yres_virtual = panel_info->yres * mfd->fb_page;
 	var->bits_per_pixel = bpp * 8;	/* FrameBuffer color depth */
 	var->upper_margin = panel_info->lcdc.v_back_porch;
@@ -899,7 +916,6 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	fbi->flags = FBINFO_FLAG_DEFAULT;
 	fbi->pseudo_palette = mdss_fb_pseudo_palette;
 
-	panel_info->fbi = fbi;
 	mfd->ref_cnt = 0;
 	mfd->panel_power_on = false;
 
@@ -1035,15 +1051,20 @@ void mdss_fb_wait_for_fence(struct msm_fb_data_type *mfd)
 	mfd->acq_fen_cnt = 0;
 }
 
-void mdss_fb_signal_timeline(struct msm_fb_data_type *mfd)
+static void mdss_fb_signal_timeline_locked(struct msm_fb_data_type *mfd)
 {
-	mutex_lock(&mfd->sync_mutex);
 	if (mfd->timeline) {
 		sw_sync_timeline_inc(mfd->timeline, 1);
 		mfd->timeline_value++;
 	}
 	mfd->last_rel_fence = mfd->cur_rel_fence;
 	mfd->cur_rel_fence = 0;
+}
+
+void mdss_fb_signal_timeline(struct msm_fb_data_type *mfd)
+{
+	mutex_lock(&mfd->sync_mutex);
+	mdss_fb_signal_timeline_locked(mfd);
 	mutex_unlock(&mfd->sync_mutex);
 }
 
@@ -1074,6 +1095,7 @@ static void mdss_fb_pan_idle(struct msm_fb_data_type *mfd)
 				__func__, ret, mfd->is_committing);
 		if (ret <= 0) {
 			mutex_lock(&mfd->sync_mutex);
+			mdss_fb_signal_timeline_locked(mfd);
 			mfd->is_committing = 0;
 			complete_all(&mfd->commit_comp);
 			mutex_unlock(&mfd->sync_mutex);
@@ -1722,44 +1744,73 @@ struct fb_info *msm_fb_get_writeback_fb(void)
 }
 EXPORT_SYMBOL(msm_fb_get_writeback_fb);
 
-int mdss_register_panel(struct mdss_panel_data *pdata)
+static int mdss_fb_register_extra_panel(struct platform_device *pdev,
+	struct mdss_panel_data *pdata)
 {
-	struct platform_device *mdss_fb_dev = NULL;
-	struct msm_fb_data_type *mfd;
-	int rc;
+	struct mdss_panel_data *fb_pdata;
 
-	if (!mdss_res) {
-		pr_err("mdss mdp resources not initialized yet\n");
-		return -ENODEV;
-	}
-
-	mdss_fb_dev = platform_device_alloc("mdss_fb", pdata->panel_info.pdest);
-	if (!mdss_fb_dev) {
-		pr_err("unable to allocate mdss_fb device\n");
-		return -ENOMEM;
-	}
-
-	mdss_fb_dev->dev.platform_data = pdata;
-
-	rc = platform_device_add(mdss_fb_dev);
-	if (rc) {
-		platform_device_put(mdss_fb_dev);
-		pr_err("unable to probe mdss_fb device (%d)\n", rc);
-		return rc;
-	}
-
-	mfd = platform_get_drvdata(mdss_fb_dev);
-	if (!mfd)
-		return -ENODEV;
-	if (mfd->key != MFD_KEY)
+	fb_pdata = dev_get_platdata(&pdev->dev);
+	if (!fb_pdata) {
+		pr_err("framebuffer device %s contains invalid panel data\n",
+				dev_name(&pdev->dev));
 		return -EINVAL;
+	}
 
-	mfd->on_fnc = mdss_mdp_ctl_on;
-	mfd->off_fnc = mdss_mdp_ctl_off;
+	if (fb_pdata->next) {
+		pr_err("split panel already setup for framebuffer device %s\n",
+				dev_name(&pdev->dev));
+		return -EEXIST;
+	}
 
-	rc = mdss_mdp_overlay_init(mfd);
-	if (rc)
-		pr_err("unable to init overlay\n");
+	if ((fb_pdata->panel_info.type != MIPI_VIDEO_PANEL) ||
+			(pdata->panel_info.type != MIPI_VIDEO_PANEL)) {
+		pr_err("Split panel not supported for panel type %d\n",
+				pdata->panel_info.type);
+		return -EINVAL;
+	}
+
+	fb_pdata->next = pdata;
+
+	return 0;
+}
+
+int mdss_register_panel(struct platform_device *pdev,
+	struct mdss_panel_data *pdata)
+{
+	struct platform_device *fb_pdev, *mdss_pdev;
+	struct device_node *node;
+	int rc = 0;
+
+	if (!pdev || !pdev->dev.of_node) {
+		pr_err("Invalid device node\n");
+		return -ENODEV;
+	}
+
+	node = of_parse_phandle(pdev->dev.of_node, "qcom,mdss-fb-map", 0);
+	if (!node) {
+		pr_err("Unable to find fb node for device: %s\n",
+				pdev->name);
+		return -ENODEV;
+	}
+	mdss_pdev = of_find_device_by_node(node->parent);
+	if (!mdss_pdev) {
+		pr_err("Unable to find mdss for node: %s\n", node->full_name);
+		rc = -ENODEV;
+		goto mdss_notfound;
+	}
+
+	fb_pdev = of_find_device_by_node(node);
+	if (fb_pdev) {
+		rc = mdss_fb_register_extra_panel(fb_pdev, pdata);
+	} else {
+		pr_info("adding framebuffer device %s\n", dev_name(&pdev->dev));
+		fb_pdev = of_platform_device_create(node, NULL,
+				&mdss_pdev->dev);
+		fb_pdev->dev.platform_data = pdata;
+	}
+
+mdss_notfound:
+	of_node_put(node);
 
 	return rc;
 }
@@ -1801,4 +1852,4 @@ int __init mdss_fb_init(void)
 	return 0;
 }
 
-module_init(mdss_fb_init);
+device_initcall_sync(mdss_fb_init);

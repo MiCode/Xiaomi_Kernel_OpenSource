@@ -1,8 +1,0 @@
-#
-# VIDEO CORE
-#
-
-menuconfig MSM_VIDC_V4L2
-	bool "Qualcomm MSM Video Core Driver"
-		depends on ARCH_MSM8974 && VIDEO_V4L2
-		default y

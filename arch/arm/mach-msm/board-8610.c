@@ -81,11 +81,13 @@ static struct reserve_info msm8610_reserve_info __initdata = {
 static void __init msm8610_early_memory(void)
 {
 	reserve_info = &msm8610_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8610_reserve_table);
+	of_scan_flat_dt(dt_scan_for_memory_hole, msm8610_reserve_table);
 }
 
 static void __init msm8610_reserve(void)
 {
+	reserve_info = &msm8610_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8610_reserve_table);
 	msm_reserve();
 }
 
@@ -95,6 +97,11 @@ void __init msm8610_add_drivers(void)
 	msm_lpmrs_module_init();
 	msm_spm_device_init();
 	msm_thermal_device_init();
+
+	if (machine_is_msm8610_rumi())
+		msm_clock_init(&msm8610_rumi_clock_init_data);
+	else
+		msm_clock_init(&msm8610_clock_init_data);
 }
 
 void __init msm8610_init(void)
@@ -105,14 +112,8 @@ void __init msm8610_init(void)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	msm8610_init_gpiomux();
-	msm8610_add_drivers();
-
-	if (machine_is_msm8610_rumi())
-		msm_clock_init(&msm8610_rumi_clock_init_data);
-	else
-		msm_clock_init(&msm8610_clock_init_data);
-
 	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
+	msm8610_add_drivers();
 }
 
 static const char *msm8610_dt_match[] __initconst = {

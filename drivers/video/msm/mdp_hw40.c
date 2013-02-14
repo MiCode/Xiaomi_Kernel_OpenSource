@@ -2,7 +2,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Dima Zavin <dima@android.com>
  *
- * Based on code from Code Aurora Forum.
+ * Based on code from The Linux Foundation.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and

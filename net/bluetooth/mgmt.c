@@ -1,7 +1,7 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
    Copyright (C) 2010  Nokia Corporation
-   Copyright (c) 2011-2012 The Linux Foundation.  All rights reserved.
+   Copyright (c) 2011-2013 The Linux Foundation.  All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License version 2 as
@@ -2238,10 +2238,11 @@ void mgmt_inquiry_complete_evt(u16 index, u8 status)
 
 		mgmt_event(MGMT_EV_DISCOVERING, index, &cp, sizeof(cp), NULL);
 
-		hdev->disco_state = SCAN_IDLE;
-
-		if (hdev)
+		if (hdev) {
+			BT_DBG("Setting state to SCAN_IDLE\n");
+			hdev->disco_state = SCAN_IDLE;
 			goto done;
+		}
 		else
 			return;
 	}

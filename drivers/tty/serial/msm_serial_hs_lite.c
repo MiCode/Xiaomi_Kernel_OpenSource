@@ -49,6 +49,7 @@
 #include <linux/wakelock.h>
 #include <mach/board.h>
 #include <mach/msm_serial_hs_lite.h>
+#include <mach/msm_bus.h>
 #include <asm/mach-types.h>
 #include "msm_serial_hs_hwreg.h"
 
@@ -89,6 +90,10 @@ struct msm_hsl_port {
 	enum uart_core_type	uart_type;
 	enum uart_func_mode	func_mode;
 	struct wake_lock	port_open_wake_lock;
+	int			clk_enable_count;
+	u32			bus_perf_client;
+	/* BLSP UART required BUS Scaling data */
+	struct msm_bus_scale_pdata *bus_scale_table;
 };
 
 #define UARTDM_VERSION_11_13	0
@@ -366,23 +371,40 @@ static int clk_en(struct uart_port *port, int enable)
 
 	if (enable) {
 
+		msm_hsl_port->clk_enable_count++;
 		ret = clk_prepare_enable(msm_hsl_port->clk);
 		if (ret)
 			goto err;
 		if (msm_hsl_port->pclk) {
 			ret = clk_prepare_enable(msm_hsl_port->pclk);
-			if (ret) {
-				clk_disable_unprepare(msm_hsl_port->clk);
-				goto err;
-			}
+			if (ret)
+				goto err_clk_disable;
 		}
 	} else {
 
+		msm_hsl_port->clk_enable_count--;
 		clk_disable_unprepare(msm_hsl_port->clk);
 		if (msm_hsl_port->pclk)
 			clk_disable_unprepare(msm_hsl_port->pclk);
 	}
+
+	if (msm_hsl_port->bus_perf_client) {
+			pr_debug("Voting for bus scaling:%d\n",
+					!!msm_hsl_port->clk_enable_count);
+			ret = msm_bus_scale_client_update_request(
+				msm_hsl_port->bus_perf_client,
+				!!msm_hsl_port->clk_enable_count);
+			if (ret)
+				pr_err("Failed to request bus bw vector %d\n",
+					!!msm_hsl_port->clk_enable_count);
+	}
+
+	return ret;
+
+err_clk_disable:
+	clk_disable_unprepare(msm_hsl_port->clk);
 err:
+	msm_hsl_port->clk_enable_count--;
 	return ret;
 }
 static int msm_hsl_loopback_enable_set(void *data, u64 val)
@@ -1703,6 +1725,20 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 		 * UARTDM v14 Revision. Hence set uart_type as UART_BLSP.
 		 */
 		msm_hsl_port->uart_type = BLSP_HSUART;
+
+		msm_hsl_port->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+		if (!msm_hsl_port->bus_scale_table) {
+			pr_err("Bus scaling is disabled\n");
+		} else {
+			msm_hsl_port->bus_perf_client =
+				msm_bus_scale_register_client(
+					msm_hsl_port->bus_scale_table);
+			if (IS_ERR(&msm_hsl_port->bus_perf_client)) {
+				pr_err("Bus client register failed.\n");
+				ret = -EINVAL;
+				goto err;
+			}
+		}
 	}
 
 	gsbi_resource =	platform_get_resource_byname(pdev,
@@ -1767,6 +1803,8 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	ret = uart_add_one_port(&msm_hsl_uart_driver, port);
 	if (msm_hsl_port->pclk)
 		clk_disable_unprepare(msm_hsl_port->pclk);
+
+err:
 	return ret;
 }
 

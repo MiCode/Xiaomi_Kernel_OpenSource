@@ -109,8 +109,18 @@
 #define HDMI_VFRMT_1440x480i240_4_3	HDMI_VFRMT_720x480i240_4_3
 #define HDMI_VFRMT_720x480i240_16_9	58
 #define HDMI_VFRMT_1440x480i240_16_9	HDMI_VFRMT_720x480i240_16_9
-#define HDMI_VFRMT_MAX			59
 #define HDMI_VFRMT_FORCE_32BIT		0x7FFFFFFF
+
+/* Video Identification Codes from 65-127 are reserved for the future */
+#define HDMI_VFRMT_END			127
+
+/* VESA DMT TIMINGS */
+/* DMT ID: 23h, STD code: (81h, 80h), also a part of Established Timing III */
+#define HDMI_VFRMT_1280x1024p60_5_4	(HDMI_VFRMT_END + 1)
+#define DMT_VFRMT_END                   HDMI_VFRMT_1280x1024p60_5_4
+
+#define HDMI_VFRMT_MAX	                (DMT_VFRMT_END + 1)
+
 
 extern int ext_resolution;
 
@@ -185,6 +195,9 @@ struct hdmi_disp_mode_timing_type {
 #define HDMI_SETTINGS_1920x1080p30_16_9					\
 	{HDMI_VFRMT_1920x1080p30_16_9,   1920,  88,   44,  148,  FALSE,	\
 	 1080, 4, 5, 36, FALSE, 74250, 30000, FALSE, TRUE}
+#define HDMI_SETTINGS_1280x1024p60_5_4					\
+	{HDMI_VFRMT_1280x1024p60_5_4,   1280,  48,  112,  248,  FALSE, \
+	 1024, 1, 3, 38, FALSE, 108000, 60000, FALSE, TRUE}
 
 /* A lookup table for all the supported display modes by the HDMI
  * hardware and driver.  Use HDMI_SETUP_LUT in the module init to

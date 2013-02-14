@@ -410,6 +410,7 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	clear_eps(f);
 	clear_desc(c->cdev->gadget, f);
+	msm_dwc3_restart_usb_session();
 }
 
 static void qdss_eps_disable(struct usb_function *f)
@@ -795,11 +796,13 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	pr_debug("usb_qdss_close\n");
 
 	spin_lock_irqsave(&d_lock, flags);
-	/*free not used reqests*/
-	usb_qdss_free_req(ch);
 	usb_ep_dequeue(qdss->data, qdss->endless_req);
+	usb_ep_free_request(qdss->data, qdss->endless_req);
 	qdss->endless_req = NULL;
+	ch->app_conn = 0;
 	spin_unlock_irqrestore(&d_lock, flags);
+
+	msm_dwc3_restart_usb_session();
 }
 EXPORT_SYMBOL(usb_qdss_close);
 

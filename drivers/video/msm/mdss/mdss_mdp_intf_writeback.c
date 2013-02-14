@@ -27,6 +27,7 @@ enum mdss_mdp_writeback_type {
 
 struct mdss_mdp_writeback_ctx {
 	u32 wb_num;
+	char __iomem *base;
 	u8 ref_cnt;
 	u8 type;
 
@@ -75,10 +76,16 @@ static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 	},
 };
 
+static inline void mdp_wb_write(struct mdss_mdp_writeback_ctx *ctx,
+				u32 reg, u32 val)
+{
+	writel_relaxed(val, ctx->base + reg);
+}
+
 static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 					 struct mdss_mdp_data *data)
 {
-	int off, ret;
+	int ret;
 
 	if (!data)
 		return -EINVAL;
@@ -89,11 +96,10 @@ static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 	if (ret)
 		return ret;
 
-	off = MDSS_MDP_REG_WB_OFFSET(ctx->wb_num);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST0_ADDR, data->p[0].addr);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST1_ADDR, data->p[1].addr);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST2_ADDR, data->p[2].addr);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST3_ADDR, data->p[3].addr);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST0_ADDR, data->p[0].addr);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST1_ADDR, data->p[1].addr);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST2_ADDR, data->p[2].addr);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST3_ADDR, data->p[3].addr);
 
 	return 0;
 }
@@ -102,7 +108,6 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 {
 	struct mdss_mdp_format_params *fmt;
 	u32 dst_format, pattern, ystride0, ystride1, outsize, chroma_samp;
-	int off;
 	u32 opmode = ctx->opmode;
 
 	pr_debug("wb_num=%d format=%d\n", ctx->wb_num, ctx->format);
@@ -173,13 +178,12 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 		   (ctx->dst_planes.ystride[3] << 16);
 	outsize = (ctx->height << 16) | ctx->width;
 
-	off = MDSS_MDP_REG_WB_OFFSET(ctx->wb_num);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_FORMAT, dst_format);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_OP_MODE, opmode);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_PACK_PATTERN, pattern);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_YSTRIDE0, ystride0);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_DST_YSTRIDE1, ystride1);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_WB_OUT_SIZE, outsize);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_FORMAT, dst_format);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_OP_MODE, opmode);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_PACK_PATTERN, pattern);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_YSTRIDE0, ystride0);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_YSTRIDE1, ystride1);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_OUT_SIZE, outsize);
 
 	return 0;
 }
@@ -352,6 +356,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	}
 	ctl->priv_data = ctx;
 	ctx->wb_num = ctl->num;	/* wb num should match ctl num */
+	ctx->base = ctl->mdata->mdp_base + MDSS_MDP_REG_WB_OFFSET(ctx->wb_num);
 	ctx->initialized = false;
 
 	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,

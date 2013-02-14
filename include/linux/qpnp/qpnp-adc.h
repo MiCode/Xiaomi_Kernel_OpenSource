@@ -680,6 +680,7 @@ struct qpnp_adc_tm_usbid_param {
  * @state_request: Enable/disable the corresponding high and low temperature
  *		thresholds.
  * @timer_interval: Select polling rate from qpnp_adc_meas_timer_2 type.
+ * @btmid_ctx: A context of void type.
  * @threshold_notification: Notification callback once threshold are crossed.
  */
 struct qpnp_adc_tm_btm_param {
@@ -687,7 +688,9 @@ struct qpnp_adc_tm_btm_param {
 	int32_t					low_temp;
 	enum qpnp_state_request			state_request;
 	enum qpnp_adc_meas_timer_2		timer_interval;
-	void	(*threshold_notification) (enum qpnp_tm_state state);
+	void					*btm_ctx;
+	void	(*threshold_notification) (enum qpnp_tm_state state,
+						void *ctx);
 };
 
 /**

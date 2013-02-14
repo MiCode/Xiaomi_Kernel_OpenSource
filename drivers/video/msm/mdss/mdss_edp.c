@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,7 +433,7 @@ static int mdss_edp_device_register(struct mdss_edp_drv_pdata *edp_drv)
 	edp_drv->panel_data.event_handler = mdss_edp_event_handler;
 	edp_drv->panel_data.set_backlight = mdss_edp_set_backlight;
 
-	ret = mdss_register_panel(&edp_drv->panel_data);
+	ret = mdss_register_panel(edp_drv->pdev, &edp_drv->panel_data);
 	if (ret) {
 		dev_err(&(edp_drv->pdev->dev), "unable to register eDP\n");
 		return ret;

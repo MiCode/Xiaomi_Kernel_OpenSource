@@ -37,9 +37,9 @@ struct event_timer_info {
 	void *data;
 };
 
-
 static DEFINE_TIME_HEAD(timer_head);
 static DEFINE_SPINLOCK(event_timer_lock);
+static DEFINE_SPINLOCK(event_setup_lock);
 static struct hrtimer event_hrtimer;
 static enum hrtimer_restart event_hrtimer_cb(struct hrtimer *hrtimer);
 
@@ -73,6 +73,9 @@ struct event_timer_info *add_event_timer(void (*function)(void *), void *data)
 	event_info->data = data;
 	/* Init rb node and hr timer */
 	timerqueue_init(&event_info->node);
+	pr_debug("%s: New Event Added. Event 0x%x.",
+	__func__,
+	(unsigned int)event_info);
 
 	return event_info;
 }
@@ -140,10 +143,6 @@ static void create_hrtimer(ktime_t expires)
 
 	event_hrtimer.function = event_hrtimer_cb;
 	hrtimer_start(&event_hrtimer, expires, HRTIMER_MODE_ABS);
-
-	if (msm_event_debug_mask && MSM_EVENT_TIMER_DEBUG)
-		pr_info("%s: Setting timer for %lu", __func__,
-			(unsigned long)ktime_to_ns(expires));
 }
 
 /**
@@ -155,7 +154,9 @@ static enum hrtimer_restart event_hrtimer_cb(struct hrtimer *hrtimer)
 {
 	struct event_timer_info *event;
 	struct timerqueue_node *next;
+	unsigned long flags;
 
+	spin_lock_irqsave(&event_timer_lock, flags);
 	next = timerqueue_getnext(&timer_head);
 
 	while (next && (ktime_to_ns(next->expires)
@@ -168,7 +169,8 @@ static enum hrtimer_restart event_hrtimer_cb(struct hrtimer *hrtimer)
 			goto hrtimer_cb_exit;
 
 		if (msm_event_debug_mask && MSM_EVENT_TIMER_DEBUG)
-			pr_info("%s: Deleting event @ %lu", __func__,
+			pr_info("%s: Deleting event 0x%x @ %lu", __func__,
+			(unsigned int)event,
 			(unsigned long)ktime_to_ns(next->expires));
 
 		timerqueue_del(&timer_head, &event->node);
@@ -181,6 +183,7 @@ static enum hrtimer_restart event_hrtimer_cb(struct hrtimer *hrtimer)
 	if (next)
 		create_hrtimer(next->expires);
 
+	spin_unlock_irqrestore(&event_timer_lock, flags);
 hrtimer_cb_exit:
 	return HRTIMER_NORESTART;
 }
@@ -201,7 +204,10 @@ static void create_timer_smp(void *data)
 
 	next = timerqueue_getnext(&timer_head);
 	timerqueue_add(&timer_head, &event->node);
-	spin_unlock_irqrestore(&event_timer_lock, flags);
+	if (msm_event_debug_mask && MSM_EVENT_TIMER_DEBUG)
+		pr_info("%s: Adding Event 0x%x for %lu", __func__,
+		(unsigned int)event,
+		(unsigned long)ktime_to_ns(event->node.expires));
 
 	if (!next ||
 		(next && (ktime_to_ns(event->node.expires) <
@@ -211,6 +217,7 @@ static void create_timer_smp(void *data)
 			(unsigned long)ktime_to_ns(event->node.expires));
 		create_hrtimer(event->node.expires);
 	}
+	spin_unlock_irqrestore(&event_timer_lock, flags);
 }
 
 /**
@@ -239,9 +246,11 @@ void activate_event_timer(struct event_timer_info *event, ktime_t event_time)
 		pr_info("%s: Adding event timer @ %lu", __func__,
 				(unsigned long)ktime_to_us(event_time));
 
+	spin_lock(&event_setup_lock);
 	event->node.expires = event_time;
 	/* Start hr timer and add event to rb tree */
 	setup_event_hrtimer(event);
+	spin_unlock(&event_setup_lock);
 }
 
 

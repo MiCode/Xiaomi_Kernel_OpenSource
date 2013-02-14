@@ -712,11 +712,12 @@ static int __devinit msm_bus_fabric_probe(struct platform_device *pdev)
 
 	/* If possible, get pdata from device-tree */
 	if (pdev->dev.of_node) {
-		pdata = pdev->dev.platform_data;
+		pdata = msm_bus_of_get_fab_data(pdev);
 		if (IS_ERR(pdata) || ZERO_OR_NULL_PTR(pdata)) {
 			pr_err("Null platform data\n");
 			return PTR_ERR(pdata);
 		}
+		msm_bus_board_init(pdata);
 		fabric->fabdev.id = pdata->id;
 	} else {
 		pdata = (struct msm_bus_fabric_registration *)pdev->
@@ -788,6 +789,9 @@ static int __devinit msm_bus_fabric_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (msmbus_coresight_init(pdev))
+		pr_warn("Coresight support absent for bus: %d\n", pdata->id);
+
 	return ret;
 err:
 	kfree(fabric->info.node_info);
@@ -803,6 +807,7 @@ static int msm_bus_fabric_remove(struct platform_device *pdev)
 	int ret = 0;
 
 	fabdev = platform_get_drvdata(pdev);
+	msmbus_coresight_remove(pdev);
 	msm_bus_fabric_device_unregister(fabdev);
 	fabric = to_msm_bus_fabric(fabdev);
 	msm_bus_dbg_commit_data(fabric->fabdev.name, NULL, 0, 0, 0,
@@ -824,7 +829,7 @@ static int msm_bus_fabric_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id fabric_match[] = {
-	{.compatible = "msm_bus_fabric"},
+	{.compatible = "msm-bus-fabric"},
 	{}
 };
 
@@ -832,7 +837,7 @@ static struct platform_driver msm_bus_fabric_driver = {
 	.probe = msm_bus_fabric_probe,
 	.remove = msm_bus_fabric_remove,
 	.driver = {
-		.name = "msm_bus_fabric",
+		.name = "msm-bus-fabric",
 		.owner = THIS_MODULE,
 		.of_match_table = fabric_match,
 	},

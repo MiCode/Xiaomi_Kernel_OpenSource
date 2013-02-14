@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #include <linux/device.h>
 #include <linux/idr.h>
 #include <linux/debugfs.h>
+#include <linux/miscdevice.h>
 
 #include <asm/current.h>
 
@@ -144,6 +145,8 @@ struct subsys_device {
 	struct dentry *dentry;
 #endif
 	bool do_ramdump_on_put;
+	struct miscdevice misc_dev;
+	char miscdevice_name[32];
 };
 
 static struct subsys_device *to_subsys(struct device *d)
@@ -398,17 +401,17 @@ static void for_each_subsys_device(struct subsys_device **list, unsigned count,
 	}
 }
 
-static void __send_notification_to_order(struct subsys_device *dev, void *data)
+static void notify_each_subsys_device(struct subsys_device **list,
+		unsigned count,
+		enum subsys_notif_type notif, void *data)
 {
-	enum subsys_notif_type type = (enum subsys_notif_type)data;
-
-	subsys_notif_queue_notification(dev->notify, type);
-}
-
-static void send_notification_to_order(struct subsys_device **l, unsigned n,
-		enum subsys_notif_type t)
-{
-	for_each_subsys_device(l, n, (void *)t, __send_notification_to_order);
+	while (count--) {
+		enum subsys_notif_type type = (enum subsys_notif_type)type;
+		struct subsys_device *dev = *list++;
+		if (!dev)
+			continue;
+		subsys_notif_queue_notification(dev->notify, notif, data);
+	}
 }
 
 static void subsystem_shutdown(struct subsys_device *dev, void *data)
@@ -622,9 +625,12 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 
 	pr_debug("[%p]: Starting restart sequence for %s\n", current,
 			desc->name);
-	send_notification_to_order(list, count, SUBSYS_BEFORE_SHUTDOWN);
+	notify_each_subsys_device(list, count, SUBSYS_BEFORE_SHUTDOWN, NULL);
 	for_each_subsys_device(list, count, NULL, subsystem_shutdown);
-	send_notification_to_order(list, count, SUBSYS_AFTER_SHUTDOWN);
+	notify_each_subsys_device(list, count, SUBSYS_AFTER_SHUTDOWN, NULL);
+
+	notify_each_subsys_device(list, count, SUBSYS_RAMDUMP_NOTIFICATION,
+							  &enable_ramdumps);
 
 	spin_lock_irqsave(&track->s_lock, flags);
 	track->p_state = SUBSYS_RESTARTING;
@@ -633,9 +639,9 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	/* Collect ram dumps for all subsystems in order here */
 	for_each_subsys_device(list, count, NULL, subsystem_ramdump);
 
-	send_notification_to_order(list, count, SUBSYS_BEFORE_POWERUP);
+	notify_each_subsys_device(list, count, SUBSYS_BEFORE_POWERUP, NULL);
 	for_each_subsys_device(list, count, NULL, subsystem_powerup);
-	send_notification_to_order(list, count, SUBSYS_AFTER_POWERUP);
+	notify_each_subsys_device(list, count, SUBSYS_AFTER_POWERUP, NULL);
 
 	pr_info("[%p]: Restart sequence for %s completed.\n",
 			current, desc->name);
@@ -847,6 +853,41 @@ static int subsys_debugfs_add(struct subsys_device *subsys) { return 0; }
 static void subsys_debugfs_remove(struct subsys_device *subsys) { }
 #endif
 
+static int subsys_device_open(struct inode *inode, struct file *file)
+{
+	void *retval;
+	struct subsys_device *subsys_dev = container_of(file->private_data,
+		struct subsys_device, misc_dev);
+
+	if (!file->private_data)
+		return -EINVAL;
+
+	retval = subsystem_get(subsys_dev->desc->name);
+	if (IS_ERR(retval))
+		return PTR_ERR(retval);
+
+	return 0;
+}
+
+static int subsys_device_close(struct inode *inode, struct file *file)
+{
+	struct subsys_device *subsys_dev = container_of(file->private_data,
+		struct subsys_device, misc_dev);
+
+	if (!file->private_data)
+		return -EINVAL;
+
+	subsystem_put(subsys_dev);
+
+	return 0;
+}
+
+static const struct file_operations subsys_device_fops = {
+		.owner = THIS_MODULE,
+		.open = subsys_device_open,
+		.release = subsys_device_close,
+};
+
 static void subsys_device_release(struct device *dev)
 {
 	struct subsys_device *subsys = to_subsys(dev);
@@ -855,6 +896,33 @@ static void subsys_device_release(struct device *dev)
 	mutex_destroy(&subsys->track.lock);
 	ida_simple_remove(&subsys_ida, subsys->id);
 	kfree(subsys);
+}
+
+static int subsys_misc_device_add(struct subsys_device *subsys_dev)
+{
+	int ret;
+	memset(subsys_dev->miscdevice_name, 0,
+			ARRAY_SIZE(subsys_dev->miscdevice_name));
+	snprintf(subsys_dev->miscdevice_name,
+			 ARRAY_SIZE(subsys_dev->miscdevice_name), "subsys_%s",
+			 subsys_dev->desc->name);
+
+	subsys_dev->misc_dev.minor = MISC_DYNAMIC_MINOR;
+	subsys_dev->misc_dev.name = subsys_dev->miscdevice_name;
+	subsys_dev->misc_dev.fops = &subsys_device_fops;
+	subsys_dev->misc_dev.parent = &subsys_dev->dev;
+
+	ret = misc_register(&subsys_dev->misc_dev);
+	if (ret) {
+		pr_err("%s: misc_register() failed for %s (%d)", __func__,
+				subsys_dev->miscdevice_name, ret);
+	}
+	return ret;
+}
+
+static void subsys_misc_device_remove(struct subsys_device *subsys_dev)
+{
+	misc_deregister(&subsys_dev->misc_dev);
 }
 
 struct subsys_device *subsys_register(struct subsys_desc *desc)
@@ -895,6 +963,12 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 
 	ret = device_register(&subsys->dev);
 	if (ret) {
+		device_unregister(&subsys->dev);
+		goto err_register;
+	}
+
+	ret = subsys_misc_device_add(subsys);
+	if (ret) {
 		put_device(&subsys->dev);
 		goto err_register;
 	}
@@ -924,6 +998,7 @@ void subsys_unregister(struct subsys_device *subsys)
 		device_unregister(&subsys->dev);
 		mutex_unlock(&subsys->track.lock);
 		subsys_debugfs_remove(subsys);
+		subsys_misc_device_remove(subsys);
 		put_device(&subsys->dev);
 	}
 }

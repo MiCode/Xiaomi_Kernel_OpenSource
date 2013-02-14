@@ -861,7 +861,7 @@ int ion_cp_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct ion_cp_buffer *buf = buffer->priv_virt;
 
 	mutex_lock(&cp_heap->lock);
-	if (cp_heap->heap_protected == HEAP_NOT_PROTECTED) {
+	if (cp_heap->heap_protected == HEAP_NOT_PROTECTED && !buf->is_secure) {
 		if (ion_cp_request_region(cp_heap)) {
 			mutex_unlock(&cp_heap->lock);
 			return -EINVAL;

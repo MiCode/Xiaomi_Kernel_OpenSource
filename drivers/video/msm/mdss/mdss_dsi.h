@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,11 @@ enum dsi_panel_bl_ctrl {
 	BL_WLED,
 	BL_DCS_CMD,
 	UNKNOWN_CTRL,
+};
+
+enum dsi_ctrl_state {
+	DSI_LP_MODE,
+	DSI_HS_MODE,
 };
 
 #define DSI_NON_BURST_SYNCH_PULSE	0
@@ -244,17 +249,26 @@ struct dsi_kickoff_action {
 	void *data;
 };
 
+struct dsi_panel_cmds_list {
+	struct dsi_cmd_desc *buf;
+	char size;
+	char ctrl_state;
+};
+
 struct mdss_panel_common_pdata {
 	struct mdss_panel_info panel_info;
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	void (*bl_fnc) (struct mdss_panel_data *pdata, u32 bl_level);
+	struct dsi_panel_cmds_list *dsi_panel_on_cmds;
+	struct dsi_panel_cmds_list *dsi_panel_off_cmds;
 };
 
-struct mdss_dsi_drv_pdata {
+struct dsi_drv_cm_data {
 	struct regulator *vdd_vreg;
 	struct regulator *vdd_io_vreg;
 	struct regulator *dsi_vreg;
+	int broadcast_enable;
 };
 
 struct mdss_dsi_ctrl_pdata {
@@ -263,6 +277,15 @@ struct mdss_dsi_ctrl_pdata {
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
 	char bl_ctrl;
+	struct clk *byte_clk;
+	struct clk *esc_clk;
+	struct clk *pixel_clk;
+	int mdss_dsi_clk_on;
+	int rst_gpio;
+	int disp_en_gpio;
+	struct dsi_panel_cmds_list *on_cmds;
+	struct dsi_panel_cmds_list *off_cmds;
+	struct dsi_drv_cm_data shared_pdata;
 };
 
 int dsi_panel_device_register(struct platform_device *pdev,
@@ -292,7 +315,7 @@ void mdss_dsi_op_mode_config(int mode,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_cmd_mode_ctrl(int enable);
 void mdp4_dsi_cmd_trigger(void);
-void mdss_dsi_cmd_mdp_start(void);
+void mdss_dsi_cmd_mdp_start(struct mdss_panel_data *pdata);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(unsigned char *dsi_base);
 void mdss_dsi_clk_enable(struct mdss_panel_data *pdata);
@@ -307,11 +330,12 @@ void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mipi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);
 int mdss_dsi_clk_div_config(u8 bpp, u8 lanes,
 			    u32 *expected_dsi_pclk);
-int mdss_dsi_clk_init(struct platform_device *pdev);
-void mdss_dsi_clk_deinit(struct device *dev);
-void mdss_dsi_prepare_clocks(void);
-void mdss_dsi_unprepare_clocks(void);
-void mdss_dsi_panel_reset(int enable);
+int mdss_dsi_clk_init(struct platform_device *pdev,
+		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_prepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_unprepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
 void mdss_dsi_phy_enable(unsigned char *ctrl_base, int on);
 void mdss_dsi_phy_init(struct mdss_panel_data *pdata);
 void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base);

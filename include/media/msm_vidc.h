@@ -67,8 +67,8 @@ struct msm_vidc_framerate_payload {
 	unsigned int frame_rate;
 };
 struct msm_vidc_ts_payload {
-	unsigned int timestamp_hi;
 	unsigned int timestamp_lo;
+	unsigned int timestamp_hi;
 };
 struct msm_vidc_concealmb_payload {
 	unsigned int num_mbs;
@@ -76,6 +76,15 @@ struct msm_vidc_concealmb_payload {
 struct msm_vidc_recoverysei_payload {
 	unsigned int flags;
 };
+
+struct msm_vidc_aspect_ratio_payload {
+	unsigned int size;
+	unsigned int version;
+	unsigned int port_index;
+	unsigned int aspect_width;
+	unsigned int aspect_height;
+};
+
 struct msm_vidc_panscan_window {
 	unsigned int panscan_height_offset;
 	unsigned int panscan_width_offset;
@@ -100,6 +109,7 @@ enum msm_vidc_extradata_type {
 	EXTRADATA_MULTISLICE_INFO = 0x7F100000,
 	EXTRADATA_NUM_CONCEALED_MB = 0x7F100001,
 	EXTRADATA_INDEX = 0x7F100002,
+	EXTRADATA_ASPECT_RATIO = 0x7F100003,
 	EXTRADATA_METADATA_FILLER = 0x7FE00002,
 };
 enum msm_vidc_interlace_type {

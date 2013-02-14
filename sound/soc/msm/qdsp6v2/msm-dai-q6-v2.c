@@ -452,14 +452,8 @@ static int msm_dai_q6_prepare(struct snd_pcm_substream *substream,
 	int rc = 0;
 
 	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		switch (dai->id) {
-		case VOICE_PLAYBACK_TX:
-			rc = afe_start_pseudo_port(dai->id);
-			break;
-		default:
-			rc = afe_port_start(dai->id, &dai_data->port_config,
+		rc = afe_port_start(dai->id, &dai_data->port_config,
 					dai_data->rate);
-		}
 
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to open AFE port %x\n",
@@ -678,10 +672,12 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 		break;
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
+	case SLIMBUS_2_RX:
 	case SLIMBUS_3_RX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_TX:
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_TX:
 		rc = msm_dai_q6_slim_bus_hw_params(params, dai,
@@ -700,8 +696,6 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 		rc = msm_dai_q6_afe_rtproxy_hw_params(params, dai);
 		break;
 	case VOICE_PLAYBACK_TX:
-		rc = 0;
-		break;
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:
 		rc = msm_dai_q6_psuedo_port_hw_params(params,
@@ -723,16 +717,9 @@ static void msm_dai_q6_shutdown(struct snd_pcm_substream *substream,
 	int rc = 0;
 
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		switch (dai->id) {
-		case VOICE_PLAYBACK_TX:
-			pr_debug("%s, stop pseudo port:%d\n",
-						__func__,  dai->id);
-			rc = afe_stop_pseudo_port(dai->id);
-			break;
-		default:
-			rc = afe_close(dai->id); /* can block */
-			break;
-		}
+		pr_debug("%s, stop pseudo port:%d\n", __func__,  dai->id);
+		rc = afe_close(dai->id); /* can block */
+
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
 		pr_debug("%s: dai_data->status_mask = %ld\n", __func__,
@@ -794,6 +781,7 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 	switch (dai->id) {
 	case SLIMBUS_0_RX:
 	case SLIMBUS_1_RX:
+	case SLIMBUS_2_RX:
 	case SLIMBUS_3_RX:
 	case SLIMBUS_4_RX:
 		/*
@@ -807,17 +795,19 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 		for (i = 0; i < rx_num; i++) {
 			dai_data->port_config.slim_sch.shared_ch_mapping[i] =
 			    rx_slot[i];
-			pr_err("%s: find number of channels[%d] ch[%d]\n",
+			pr_debug("%s: find number of channels[%d] ch[%d]\n",
 			       __func__, i, rx_slot[i]);
 		}
 		dai_data->port_config.slim_sch.num_channels = rx_num;
-		pr_debug("%s:SLIMBUS_0_RX cnt[%d] ch[%d %d]\n", __func__,
-		rx_num, dai_data->port_config.slim_sch.shared_ch_mapping[0],
-		dai_data->port_config.slim_sch.shared_ch_mapping[1]);
+		pr_debug("%s:SLIMBUS_%d_RX cnt[%d] ch[%d %d]\n", __func__,
+			(dai->id - SLIMBUS_0_RX) / 2, rx_num,
+			dai_data->port_config.slim_sch.shared_ch_mapping[0],
+			dai_data->port_config.slim_sch.shared_ch_mapping[1]);
 
 		break;
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_TX:
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_TX:
 		/*
@@ -835,10 +825,10 @@ static int msm_dai_q6_set_channel_map(struct snd_soc_dai *dai,
 				 __func__, i, tx_slot[i]);
 		}
 		dai_data->port_config.slim_sch.num_channels = tx_num;
-		pr_debug("%s:SLIMBUS_0_TX cnt[%d] ch[%d %d]\n", __func__,
-			 tx_num,
-			 dai_data->port_config.slim_sch.shared_ch_mapping[0],
-		dai_data->port_config.slim_sch.shared_ch_mapping[1]);
+		pr_debug("%s:SLIMBUS_%d_TX cnt[%d] ch[%d %d]\n", __func__,
+			(dai->id - SLIMBUS_0_TX) / 2, tx_num,
+			dai_data->port_config.slim_sch.shared_ch_mapping[0],
+			dai_data->port_config.slim_sch.shared_ch_mapping[1]);
 		break;
 	default:
 		dev_err(dai->dev, "invalid cpu_dai id %d\n", dai->id);
@@ -882,15 +872,9 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 
 	/* If AFE port is still up, close it */
 	if (test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
-		switch (dai->id) {
-		case VOICE_PLAYBACK_TX:
-			pr_debug("%s, stop pseudo port:%d\n",
-				 __func__,  dai->id);
-			rc = afe_stop_pseudo_port(dai->id);
-			break;
-		default:
-			rc = afe_close(dai->id); /* can block */
-		}
+		pr_debug("%s, stop pseudo port:%d\n", __func__,  dai->id);
+		rc = afe_close(dai->id); /* can block */
+
 		if (IS_ERR_VALUE(rc))
 			dev_err(dai->dev, "fail to close AFE port\n");
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
@@ -1013,6 +997,21 @@ static struct snd_soc_dai_driver msm_dai_q6_fm_tx_dai = {
 		.channels_max = 2,
 		.rate_max = 48000,
 		.rate_min = 8000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
+
+static struct snd_soc_dai_driver msm_dai_q6_voice_playback_tx_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+		SNDRV_PCM_RATE_16000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 2,
+		.rate_min =     8000,
+		.rate_max =     48000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -1246,12 +1245,13 @@ static struct platform_driver msm_auxpcm_resource_driver = {
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai = {
 	.playback = {
 		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
-		SNDRV_PCM_RATE_16000,
+		SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
+		SNDRV_PCM_RATE_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.channels_min = 1,
 		.channels_max = 8,
 		.rate_min = 8000,
-		.rate_max = 48000,
+		.rate_max = 192000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -1261,12 +1261,13 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai = {
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai = {
 	.capture = {
 		.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
-		SNDRV_PCM_RATE_16000,
+		SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
+		SNDRV_PCM_RATE_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.channels_min = 1,
 		.channels_max = 8,
 		.rate_min = 8000,
-		.rate_max = 48000,
+		.rate_max = 192000,
 	},
 	.ops = &msm_dai_q6_ops,
 	.probe = msm_dai_q6_dai_probe,
@@ -1943,10 +1944,12 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 
 	switch (id) {
 	case SLIMBUS_0_RX:
+	case SLIMBUS_2_RX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					  &msm_dai_q6_slimbus_rx_dai);
 		break;
 	case SLIMBUS_0_TX:
+	case SLIMBUS_2_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					  &msm_dai_q6_slimbus_tx_dai);
 		break;
@@ -1983,6 +1986,10 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case RT_PROXY_DAI_001_TX:
 	case RT_PROXY_DAI_002_TX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_afe_tx_dai);
+		break;
+	case VOICE_PLAYBACK_TX:
+		rc = snd_soc_register_dai(&pdev->dev,
+					&msm_dai_q6_voice_playback_tx_dai);
 		break;
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:

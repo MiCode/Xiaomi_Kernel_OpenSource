@@ -25,6 +25,7 @@
 #include <linux/suspend.h>
 #include <linux/tick.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/krait-regulator.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <mach/system.h>
@@ -361,12 +362,15 @@ static void msm_pm_config_hw_before_swfi(void)
 static void msm_pm_config_hw_after_retention(void)
 {
 	int ret;
+
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 	WARN_ON(ret);
+	krait_power_mdd_enable(smp_processor_id(), false);
 }
 
 static void msm_pm_config_hw_before_retention(void)
 {
+	krait_power_mdd_enable(smp_processor_id(), true);
 	return;
 }
 
@@ -505,10 +509,6 @@ static bool __ref msm_pm_spm_power_collapse(
 	void *entry;
 	bool collapsed = 0;
 	int ret;
-	unsigned int saved_gic_cpu_ctrl;
-
-	saved_gic_cpu_ctrl = readl_relaxed(MSM_QGIC_CPU_BASE + GIC_CPU_CTRL);
-	mb();
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: notify_rpm %d\n",
@@ -526,22 +526,12 @@ static bool __ref msm_pm_spm_power_collapse(
 		pr_info("CPU%u: %s: program vector to %p\n",
 			cpu, __func__, entry);
 
-#ifdef CONFIG_VFP
-	vfp_pm_suspend();
-#endif
 	collapsed = msm_pm_collapse();
 
 	msm_pm_boot_config_after_pc(cpu);
 
 	if (collapsed) {
-#ifdef CONFIG_VFP
-		vfp_pm_resume();
-#endif
 		cpu_init();
-		writel(0xF0, MSM_QGIC_CPU_BASE + GIC_CPU_PRIMASK);
-		writel_relaxed(saved_gic_cpu_ctrl,
-				MSM_QGIC_CPU_BASE + GIC_CPU_CTRL);
-		mb();
 		local_fiq_enable();
 	}
 
@@ -670,7 +660,7 @@ static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 	int64_t time = 0;
 
 	if (msm_pm_init_data.use_sync_timer)
-		return sched_clock();
+		return ktime_to_ns(ktime_get());
 
 	time = msm_timer_get_sclk_time(period);
 	if (!time)
@@ -682,7 +672,7 @@ static int64_t msm_pm_timer_enter_suspend(int64_t *period)
 static int64_t msm_pm_timer_exit_suspend(int64_t time, int64_t period)
 {
 	if (msm_pm_init_data.use_sync_timer)
-		return sched_clock() - time;
+		return ktime_to_ns(ktime_get()) - time;
 
 	if (time != 0) {
 		int64_t end_time = msm_timer_get_sclk_time(NULL);

@@ -565,8 +565,8 @@ void *kgsl_iommu_create_pagetable(void)
 				sizeof(struct kgsl_iommu_pt));
 		return NULL;
 	}
-	/* L2 redirect is not stable on IOMMU v2 */
-	if (msm_soc_version_supports_iommu_v1())
+	/* L2 redirect is not stable on IOMMU v1 */
+	if (msm_soc_version_supports_iommu_v0())
 		iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
 					MSM_IOMMU_DOMAIN_PT_CACHEABLE);
 	else
@@ -749,7 +749,7 @@ static int kgsl_iommu_start_sync_lock(struct kgsl_mmu *mmu)
 	uint32_t lock_gpu_addr = 0;
 
 	if (KGSL_DEVICE_3D0 != mmu->device->id ||
-		!msm_soc_version_supports_iommu_v1() ||
+		!msm_soc_version_supports_iommu_v0() ||
 		!kgsl_mmu_is_perprocess() ||
 		iommu->sync_lock_vars)
 		return 0;
@@ -790,7 +790,7 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 	uint32_t lock_phy_addr = 0;
 	uint32_t page_offset = 0;
 
-	if (!msm_soc_version_supports_iommu_v1() ||
+	if (!msm_soc_version_supports_iommu_v0() ||
 		!kgsl_mmu_is_perprocess())
 		return status;
 
@@ -1113,7 +1113,7 @@ static int kgsl_iommu_setup_regs(struct kgsl_mmu *mmu,
 	int i = 0;
 	struct kgsl_iommu *iommu = mmu->priv;
 
-	if (!msm_soc_version_supports_iommu_v1())
+	if (!msm_soc_version_supports_iommu_v0())
 		return 0;
 
 	for (i = 0; i < iommu->unit_count; i++) {
@@ -1194,7 +1194,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	iommu->iommu_reg_list = kgsl_iommuv1_reg;
 	iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
 
-	if (msm_soc_version_supports_iommu_v1()) {
+	if (msm_soc_version_supports_iommu_v0()) {
 		iommu->iommu_reg_list = kgsl_iommuv1_reg;
 		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
 	} else {
@@ -1242,7 +1242,7 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 
 	/* If chip is not 8960 then we use the 2nd context bank for pagetable
 	 * switching on the 3D side for which a separate table is allocated */
-	if (!cpu_is_msm8960() && msm_soc_version_supports_iommu_v1()) {
+	if (!cpu_is_msm8960() && msm_soc_version_supports_iommu_v0()) {
 		mmu->priv_bank_table =
 			kgsl_mmu_getpagetable(KGSL_MMU_PRIV_BANK_TABLE_NAME);
 		if (mmu->priv_bank_table == NULL) {
@@ -1644,15 +1644,15 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	pt_base &= (iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_mask <<
 			iommu->iommu_reg_list[KGSL_IOMMU_CTX_TTBR0].reg_shift);
 
-	/* For v1 SMMU GPU needs to be idle for tlb invalidate as well */
-	if (msm_soc_version_supports_iommu_v1())
+	/* For v0 SMMU GPU needs to be idle for tlb invalidate as well */
+	if (msm_soc_version_supports_iommu_v0())
 		kgsl_idle(mmu->device);
 
 	/* Acquire GPU-CPU sync Lock here */
 	msm_iommu_lock();
 
 	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
-		if (!msm_soc_version_supports_iommu_v1())
+		if (!msm_soc_version_supports_iommu_v0())
 			kgsl_idle(mmu->device);
 		for (i = 0; i < iommu->unit_count; i++) {
 			/* get the lsb value which should not change when

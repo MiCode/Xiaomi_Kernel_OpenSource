@@ -832,11 +832,12 @@ static int audio_aio_ion_add(struct q6audio_aio *audio,
 				1);
 	if (rc < 0) {
 		pr_err("%s[%p]: memory map failed\n", __func__, audio);
-		goto ion_error;
+		goto mmap_error;
 	} else {
 		goto end;
 	}
-
+mmap_error:
+	list_del(&region->list);
 ion_error:
 	ion_unmap_kernel(audio->client, handle);
 map_error:

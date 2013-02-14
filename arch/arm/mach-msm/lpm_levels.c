@@ -176,6 +176,18 @@ s32 msm_cpuidle_get_deep_idle_latency(void)
 	}
 	return best->latency_us - 1;
 }
+static bool msm_lpm_irqs_detectable(struct msm_rpmrs_limits *limits,
+		bool irqs_detectable, bool gpio_detectable)
+{
+	if (!limits->irqs_detectable)
+		return irqs_detectable;
+
+	if (!limits->gpio_detectable)
+		return gpio_detectable;
+
+	return true;
+
+}
 
 static void *msm_lpm_lowest_limits(bool from_idle,
 		enum msm_pm_sleep_mode sleep_mode,
@@ -186,10 +198,18 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 	uint32_t pwr;
 	int i;
 	int best_level_iter = msm_lpm_level_count + 1;
+	bool irqs_detect = false;
+	bool gpio_detect = false;
+
 	if (!msm_lpm_levels)
 		return NULL;
 
 	msm_lpm_level_update();
+
+	if (sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) {
+		irqs_detect = msm_mpm_irqs_detectable(from_idle);
+		gpio_detect = msm_mpm_gpio_irqs_detectable(from_idle);
+	}
 
 	for (i = 0; i < msm_lpm_level_count; i++) {
 		struct msm_rpmrs_level *level = &msm_lpm_levels[i];
@@ -202,6 +222,11 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 
 		if (time_param->latency_us < level->latency_us)
 			continue;
+
+		if ((sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) &&
+			!msm_lpm_irqs_detectable(&level->rs_limits,
+				irqs_detect, gpio_detect))
+				continue;
 
 		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == sleep_mode)
 			|| (MSM_PM_SLEEP_MODE_POWER_COLLAPSE == sleep_mode))
@@ -324,6 +349,14 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 		if (ret)
 			goto fail;
 		level->rs_limits.vdd_mem_lower_bound = val;
+
+		key = "qcom,gpio-detectable";
+		level->rs_limits.gpio_detectable =
+				of_property_read_bool(node, key);
+
+		key = "qcom,irqs-detectable";
+		level->rs_limits.irqs_detectable =
+				of_property_read_bool(node, key);
 
 		key = "qcom,latency-us";
 		ret = of_property_read_u32(node, key, &val);

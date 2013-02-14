@@ -239,6 +239,7 @@ static int mhl_tx_get_dt_data(struct device *dev,
 	int i, rc = 0;
 	struct device_node *of_node = NULL;
 	struct dss_gpio *temp_gpio = NULL;
+	int dt_gpio;
 	i = 0;
 
 	if (!dev || !pdata) {
@@ -263,7 +264,13 @@ static int mhl_tx_get_dt_data(struct device *dev,
 		goto error;
 	}
 	/* RESET */
-	temp_gpio->gpio = of_get_named_gpio(of_node, "mhl-rst-gpio", 0);
+	dt_gpio = of_get_named_gpio(of_node, "mhl-rst-gpio", 0);
+	if (dt_gpio < 0) {
+		pr_err("%s: Can't get mhl-rst-gpio\n", __func__);
+		goto error;
+	}
+
+	temp_gpio->gpio = dt_gpio;
 	snprintf(temp_gpio->gpio_name, 32, "%s", "mhl-rst-gpio");
 	pr_debug("%s: rst gpio=[%d]\n", __func__,
 		 temp_gpio->gpio);
@@ -277,7 +284,13 @@ static int mhl_tx_get_dt_data(struct device *dev,
 		pr_err("%s: can't alloc %d gpio mem\n", __func__, i);
 		goto error;
 	}
-	temp_gpio->gpio = of_get_named_gpio(of_node, "mhl-pwr-gpio", 0);
+	dt_gpio = of_get_named_gpio(of_node, "mhl-pwr-gpio", 0);
+	if (dt_gpio < 0) {
+		pr_err("%s: Can't get mhl-pwr-gpio\n", __func__);
+		goto error;
+	}
+
+	temp_gpio->gpio = dt_gpio;
 	snprintf(temp_gpio->gpio_name, 32, "%s", "mhl-pwr-gpio");
 	pr_debug("%s: pmic gpio=[%d]\n", __func__,
 		 temp_gpio->gpio);
@@ -291,7 +304,13 @@ static int mhl_tx_get_dt_data(struct device *dev,
 		pr_err("%s: can't alloc %d gpio mem\n", __func__, i);
 		goto error;
 	}
-	temp_gpio->gpio = of_get_named_gpio(of_node, "mhl-intr-gpio", 0);
+	dt_gpio = of_get_named_gpio(of_node, "mhl-intr-gpio", 0);
+	if (dt_gpio < 0) {
+		pr_err("%s: Can't get mhl-intr-gpio\n", __func__);
+		goto error;
+	}
+
+	temp_gpio->gpio = dt_gpio;
 	snprintf(temp_gpio->gpio_name, 32, "%s", "mhl-intr-gpio");
 	pr_debug("%s: intr gpio=[%d]\n", __func__,
 		 temp_gpio->gpio);
@@ -308,8 +327,11 @@ error:
 
 static int mhl_sii_reset_pin(struct mhl_tx_ctrl *mhl_ctrl, int on)
 {
-	gpio_set_value(mhl_ctrl->pdata->gpios[MHL_TX_RESET_GPIO]->gpio,
-		       on);
+	if (mhl_ctrl->pdata->gpios[MHL_TX_RESET_GPIO]) {
+		gpio_set_value(
+			mhl_ctrl->pdata->gpios[MHL_TX_RESET_GPIO]->gpio,
+			on);
+	}
 	return 0;
 }
 
@@ -780,7 +802,8 @@ static void mhl_msm_connection(struct mhl_tx_ctrl *mhl_ctrl)
 
 	mhl_msc_send_set_int(mhl_ctrl,
 			     MHL_RCHANGE_INT,
-			     MHL_INT_DCAP_CHG);
+			     MHL_INT_DCAP_CHG,
+			     MSC_PRIORITY_SEND);
 
 }
 
@@ -1079,7 +1102,8 @@ int mhl_send_msc_command(struct mhl_tx_ctrl *mhl_ctrl,
 		}
 		burst_data = req->payload.burst_data;
 		for (i = 0; i < req->length; i++, burst_data++)
-			MHL_SII_CBUS_WR(0xC0 + i, *burst_data);
+			MHL_SII_REG_NAME_WR(REG_CBUS_SCRATCHPAD_0 + i,
+				*burst_data);
 		break;
 	default:
 		pr_err("%s: unknown command! (%02x)\n",
@@ -1114,6 +1138,18 @@ int mhl_send_msc_command(struct mhl_tx_ctrl *mhl_ctrl,
 
 cbus_send_fail:
 	return -EFAULT;
+}
+
+/* read scratchpad */
+void mhl_read_scratchpad(struct mhl_tx_ctrl *mhl_ctrl)
+{
+	struct i2c_client *client = mhl_ctrl->i2c_handle;
+	int i;
+
+	for (i = 0; i < MHL_SCRATCHPAD_SIZE; i++) {
+		mhl_ctrl->scrpd.data[i] = MHL_SII_REG_NAME_RD(
+			REG_CBUS_SCRATCHPAD_0 + i);
+	}
 }
 
 static void mhl_cbus_isr(struct mhl_tx_ctrl *mhl_ctrl)
@@ -1388,12 +1424,12 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 	static struct regulator *reg_8941_vdda;
 	int rc;
 
-	pr_debug("Inside %s\n", __func__);
+	pr_debug("%s\n", __func__);
 	if (!reg_8941_l24) {
 		reg_8941_l24 = regulator_get(&client->dev,
 			"avcc_18");
 		if (IS_ERR(reg_8941_l24)) {
-			pr_err("could not get reg_8038_l20, rc = %ld\n",
+			pr_err("could not get 8941 l24, rc = %ld\n",
 				PTR_ERR(reg_8941_l24));
 			return -ENODEV;
 		}
@@ -1404,7 +1440,7 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 		if (rc) {
 			pr_err("'%s' regulator config[%u] failed, rc=%d\n",
 			       "avcc_1.8V", enable, rc);
-			return rc;
+			goto l24_fail;
 		} else {
 			pr_debug("%s: vreg L24 %s\n",
 				 __func__, (enable ? "enabled" : "disabled"));
@@ -1417,7 +1453,7 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 		if (IS_ERR(reg_8941_l02)) {
 			pr_err("could not get reg_8941_l02, rc = %ld\n",
 				PTR_ERR(reg_8941_l02));
-			return -ENODEV;
+			goto l24_fail;
 		}
 		if (enable)
 			rc = regulator_enable(reg_8941_l02);
@@ -1426,7 +1462,7 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 		if (rc) {
 			pr_debug("'%s' regulator configure[%u] failed, rc=%d\n",
 				 "avcc_1.2V", enable, rc);
-			return rc;
+			goto l02_fail;
 		} else {
 			pr_debug("%s: vreg L02 %s\n",
 				 __func__, (enable ? "enabled" : "disabled"));
@@ -1437,9 +1473,9 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 		reg_8941_smps3a = regulator_get(&client->dev,
 			"smps3a");
 		if (IS_ERR(reg_8941_smps3a)) {
-			pr_err("could not get reg_8038_l20, rc = %ld\n",
+			pr_err("could not get vreg smps3a, rc = %ld\n",
 				PTR_ERR(reg_8941_smps3a));
-			return -ENODEV;
+			goto l02_fail;
 		}
 		if (enable)
 			rc = regulator_enable(reg_8941_smps3a);
@@ -1448,7 +1484,7 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 		if (rc) {
 			pr_err("'%s' regulator config[%u] failed, rc=%d\n",
 			       "SMPS3A", enable, rc);
-			return rc;
+			goto smps3a_fail;
 		} else {
 			pr_debug("%s: vreg SMPS3A %s\n",
 				 __func__, (enable ? "enabled" : "disabled"));
@@ -1459,9 +1495,9 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 		reg_8941_vdda = regulator_get(&client->dev,
 			"vdda");
 		if (IS_ERR(reg_8941_vdda)) {
-			pr_err("could not get reg_8038_l20, rc = %ld\n",
+			pr_err("could not get vreg vdda, rc = %ld\n",
 				PTR_ERR(reg_8941_vdda));
-			return -ENODEV;
+			goto smps3a_fail;
 		}
 		if (enable)
 			rc = regulator_enable(reg_8941_vdda);
@@ -1470,7 +1506,7 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 		if (rc) {
 			pr_err("'%s' regulator config[%u] failed, rc=%d\n",
 			       "VDDA", enable, rc);
-			return rc;
+			goto vdda_fail;
 		} else {
 			pr_debug("%s: vreg VDDA %s\n",
 				 __func__, (enable ? "enabled" : "disabled"));
@@ -1478,6 +1514,21 @@ static int mhl_sii_reg_config(struct i2c_client *client, bool enable)
 	}
 
 	return rc;
+
+vdda_fail:
+	regulator_disable(reg_8941_vdda);
+	regulator_put(reg_8941_vdda);
+smps3a_fail:
+	regulator_disable(reg_8941_smps3a);
+	regulator_put(reg_8941_smps3a);
+l02_fail:
+	regulator_disable(reg_8941_l02);
+	regulator_put(reg_8941_l02);
+l24_fail:
+	regulator_disable(reg_8941_l24);
+	regulator_put(reg_8941_l24);
+
+	return -EINVAL;
 }
 
 
@@ -1500,13 +1551,13 @@ static int mhl_vreg_config(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on)
 		if (ret < 0) {
 			pr_err("%s: set gpio MHL_PWR_EN dircn failed: %d\n",
 			       __func__, ret);
-			return ret;
+			goto vreg_config_failed;
 		}
 
 		ret = mhl_sii_reg_config(client, true);
 		if (ret) {
 			pr_err("%s: regulator enable failed\n", __func__);
-			return -EINVAL;
+			goto vreg_config_failed;
 		}
 		pr_debug("%s: mhl sii power on successful\n", __func__);
 	} else {
@@ -1516,6 +1567,9 @@ static int mhl_vreg_config(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on)
 	}
 	pr_debug("%s: successful\n", __func__);
 	return 0;
+vreg_config_failed:
+	gpio_free(pwr_gpio);
+	return -EINVAL;
 }
 
 /*

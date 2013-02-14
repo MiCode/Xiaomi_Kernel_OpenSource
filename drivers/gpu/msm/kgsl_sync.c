@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +179,7 @@ fail_pt:
 }
 
 static const struct sync_timeline_ops kgsl_sync_timeline_ops = {
+	.driver_name = "kgsl-timeline",
 	.dup = kgsl_sync_pt_dup,
 	.has_signaled = kgsl_sync_pt_has_signaled,
 	.compare = kgsl_sync_pt_compare,
@@ -204,7 +205,9 @@ void kgsl_sync_timeline_signal(struct sync_timeline *timeline,
 {
 	struct kgsl_sync_timeline *ktimeline =
 		(struct kgsl_sync_timeline *) timeline;
-	ktimeline->last_timestamp = timestamp;
+
+	if (timestamp_cmp(timestamp, ktimeline->last_timestamp > 0))
+		ktimeline->last_timestamp = timestamp;
 	sync_timeline_signal(timeline);
 }
 

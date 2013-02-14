@@ -47,3 +47,12 @@ config SCSI_UFSHCD
 	depends on PCI && SCSI
 	---help---
 	This is a generic driver which supports PCIe UFS Host controllers.
+
+config SCSI_UFS_TEST
+	tristate "Universal Flash Storage host controller driver unit-tests"
+	depends on SCSI_UFSHCD && IOSCHED_TEST
+	---help---
+	This adds UFS Host controller unit-test framework.
+	The UFS unit-tests register as a block device test utility to
+	the test-iosched and will be initiated when the test-iosched will
+	be chosen to be the active I/O scheduler.

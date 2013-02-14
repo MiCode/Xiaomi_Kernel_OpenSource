@@ -63,10 +63,15 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	}
 	cur_ts = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
 
-	/* Check to see if the requested timestamp has already fired */
+	/*
+	 * Check to see if the requested timestamp has already fired.  If it
+	 * did do the callback right away.  Make sure to send the timestamp that
+	 * the event expected instead of the current timestamp because sometimes
+	 * the event handlers can get confused.
+	 */
 
 	if (timestamp_cmp(cur_ts, ts) >= 0) {
-		cb(device, priv, id, cur_ts);
+		cb(device, priv, id, ts);
 		return 0;
 	}
 
@@ -127,7 +132,11 @@ void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 		 * Currently, events are used for lock and memory
 		 * management, so if the process is dying the right
 		 * thing to do is release or free.
+		 *
+		 * Send the current timestamp so the event knows how far the
+		 * system got before the event was canceled
 		 */
+
 		if (event->func)
 			event->func(device, event->priv, id, cur);
 
@@ -162,7 +171,9 @@ void kgsl_cancel_events(struct kgsl_device *device,
 		 * "cancel" the events by calling their callback.
 		 * Currently, events are used for lock and memory
 		 * management, so if the process is dying the right
-		 * thing to do is release or free.
+		 * thing to do is release or free. Send the current timestamp so
+		 * the callback knows how far the GPU made it before things went
+		 * explosion
 		 */
 		if (event->func)
 			event->func(device, event->priv, KGSL_MEMSTORE_GLOBAL,
@@ -189,8 +200,15 @@ static void _process_event_list(struct kgsl_device *device,
 
 		id = event->context ? event->context->id : KGSL_MEMSTORE_GLOBAL;
 
+		/*
+		 * Send the timestamp of the expired event, not the current
+		 * timestamp.  This prevents the event handlers from getting
+		 * confused if they don't bother comparing the current timetamp
+		 * to the timestamp they wanted
+		 */
+
 		if (event->func)
-			event->func(device, event->priv, id, timestamp);
+			event->func(device, event->priv, id, event->timestamp);
 
 		if (event->context)
 			kgsl_context_put(event->context);
@@ -200,27 +218,43 @@ static void _process_event_list(struct kgsl_device *device,
 	}
 }
 
-static inline void _mark_next_event(struct kgsl_device *device,
+static inline int _mark_next_event(struct kgsl_device *device,
 		struct list_head *head)
 {
 	struct kgsl_event *event;
 
 	if (!list_empty(head)) {
 		event = list_first_entry(head, struct kgsl_event, list);
-		device->ftbl->next_event(device, event);
+
+		/*
+		 * Next event will return 0 if the event was marked or 1 if the
+		 * timestamp on the event has passed - return that up a layer
+		 */
+
+		return device->ftbl->next_event(device, event);
 	}
+
+	return 0;
 }
 
 static int kgsl_process_context_events(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
-	unsigned int timestamp = kgsl_readtimestamp(device, context,
-		KGSL_TIMESTAMP_RETIRED);
+	while (1) {
+		unsigned int timestamp = kgsl_readtimestamp(device, context,
+			KGSL_TIMESTAMP_RETIRED);
 
-	_process_event_list(device, &context->events, timestamp);
+		_process_event_list(device, &context->events, timestamp);
 
-	/* Mark the next pending event on the list to fire an interrupt */
-	_mark_next_event(device, &context->events);
+		/*
+		 * _mark_next event will return 1 as long as the next event
+		 * timestamp has expired - this is to cope with an unavoidable
+		 * race condition with the GPU that is still processing events.
+		 */
+
+		if (!_mark_next_event(device, &context->events))
+			break;
+	}
 
 	/*
 	 * Return 0 if the list is empty so the calling function can remove the
