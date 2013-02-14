@@ -3777,8 +3777,6 @@ static void __init rmwreg(uint32_t val, void *reg, uint32_t mask)
 
 static void __init msm8660_clock_pre_init(void)
 {
-	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-
 	/* Setup MM_PLL2 (PLL3), but turn it off. Rate set by set_rate_tv(). */
 	rmwreg(0, MM_PLL2_MODE_REG, BIT(0)); /* Disable output */
 	/* Set ref, bypass, assert reset, disable output, disable test mode */
@@ -3900,7 +3898,7 @@ static int __init msm8660_clock_late_init(void)
 	if (WARN(rc, "mmfpb_a_clk not enabled (%d)\n", rc))
 		return rc;
 
-	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	return 0;
 }
 
 struct clock_init_data msm8x60_clock_init_data __initdata = {
