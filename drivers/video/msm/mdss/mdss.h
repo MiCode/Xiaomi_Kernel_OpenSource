@@ -57,7 +57,6 @@ struct mdss_hw_settings {
 };
 
 struct mdss_data_type {
-	u32 rev;
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
 	struct regulator *fs;

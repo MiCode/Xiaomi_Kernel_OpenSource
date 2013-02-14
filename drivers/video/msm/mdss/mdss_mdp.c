@@ -27,6 +27,7 @@
 #include <linux/iommu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/memory_alloc.h>
@@ -55,7 +56,6 @@ struct mdss_data_type *mdss_res;
 
 static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
-static DEFINE_MUTEX(mdp_suspend_mutex);
 
 #define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
 	{						\
@@ -111,7 +111,7 @@ struct mdss_hw mdss_mdp_hw = {
 static DEFINE_SPINLOCK(mdss_lock);
 struct mdss_hw *mdss_irq_handlers[MDSS_MAX_HW_BLK];
 
-static int mdss_mdp_register_early_suspend(struct mdss_data_type *mdata);
+static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on);
 static int mdss_mdp_parse_dt(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev);
@@ -612,8 +612,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		pr_err("unable to get gdsc regulator\n");
 		return -EINVAL;
 	}
-	regulator_enable(mdata->fs);
-	mdata->fs_ena = true;
+	mdata->fs_ena = false;
 
 	if (mdss_mdp_irq_clk_register(mdata, "bus_clk", MDSS_CLK_AXI) ||
 	    mdss_mdp_irq_clk_register(mdata, "iface_clk", MDSS_CLK_AHB) ||
@@ -673,7 +672,7 @@ int mdss_iommu_dettach(struct mdss_data_type *mdata)
 	int i;
 
 	if (!mdata->iommu_attached) {
-		pr_warn("mdp iommu already dettached\n");
+		pr_debug("mdp iommu already dettached\n");
 		return 0;
 	}
 
@@ -758,8 +757,8 @@ static int mdss_hw_init(struct mdss_data_type *mdata)
 	char *offset;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mdata->rev = MDSS_MDP_REG_READ(MDSS_REG_HW_VERSION);
 	mdata->mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
+	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
 
 	if (mdata->hw_settings) {
 		struct mdss_hw_settings *hws = mdata->hw_settings;
@@ -811,8 +810,6 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	mdata->smp_mb_cnt = MDSS_MDP_SMP_MMB_BLOCKS;
 	mdata->smp_mb_size = MDSS_MDP_SMP_MMB_SIZE;
 
-	pr_info("mdss_revision=%x\n", mdata->rev);
-	pr_info("mdp_hw_revision=%x\n", mdata->mdp_rev);
 
 	mdata->iclient = msm_ion_client_create(-1, mdata->pdev->name);
 	if (IS_ERR_OR_NULL(mdata->iclient)) {
@@ -822,10 +819,6 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	}
 
 	rc = mdss_iommu_init(mdata);
-	if (!IS_ERR_VALUE(rc))
-		mdss_iommu_attach(mdata);
-
-	rc = mdss_hw_init(mdata);
 
 	return rc;
 }
@@ -923,15 +916,16 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 
-	rc = mdss_mdp_register_early_suspend(mdata);
+	rc = mdss_mdp_debug_init(mdata);
 	if (rc) {
-		pr_err("unable to register early suspend\n");
+		pr_err("unable to initialize mdp debugging\n");
 		goto probe_done;
 	}
 
-	rc = mdss_mdp_debug_init(mdata);
-	if (rc)
-		pr_err("unable to initialize mdp debugging\n");
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	if (!pm_runtime_enabled(&pdev->dev))
+		mdss_mdp_footswitch_ctrl(mdata, true);
 
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
@@ -1333,16 +1327,14 @@ struct mdss_data_type *mdss_mdp_get_mdata()
 
 static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 {
-	mutex_lock(&mdp_suspend_mutex);
-	if (!mdata->suspend || !mdata->fs) {
-		mutex_unlock(&mdp_suspend_mutex);
+	if (!mdata->fs)
 		return;
-	}
 
 	if (on && !mdata->fs_ena) {
 		pr_debug("Enable MDP FS\n");
 		regulator_enable(mdata->fs);
 		mdss_iommu_attach(mdata);
+		mdss_hw_init(mdata);
 		mdata->fs_ena = true;
 	} else if (!on && mdata->fs_ena) {
 		pr_debug("Disable MDP FS\n");
@@ -1350,7 +1342,6 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 		regulator_disable(mdata->fs);
 		mdata->fs_ena = false;
 	}
-	mutex_unlock(&mdp_suspend_mutex);
 }
 
 static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)
@@ -1363,18 +1354,6 @@ static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)
 		return ret;
 	}
 
-	flush_workqueue(mdata->clk_ctrl_wq);
-
-	mutex_lock(&mdp_suspend_mutex);
-	mdata->suspend = true;
-	mutex_unlock(&mdp_suspend_mutex);
-
-	if (mdata->clk_ena) {
-		pr_err("MDP suspend failed\n");
-		return -EBUSY;
-	}
-	mdss_mdp_footswitch_ctrl(mdata, false);
-
 	pr_debug("suspend done\n");
 
 	return 0;
@@ -1384,11 +1363,6 @@ static inline int mdss_mdp_resume_sub(struct mdss_data_type *mdata)
 {
 	int ret = 0;
 
-	mdss_mdp_footswitch_ctrl(mdata, true);
-	mutex_lock(&mdp_suspend_mutex);
-	mdata->suspend = false;
-	mutex_unlock(&mdp_suspend_mutex);
-	mdss_hw_init(mdata);
 	ret = mdss_fb_resume_all();
 	if (IS_ERR_VALUE(ret))
 		pr_err("Unable to resume all fb panels (%d)\n", ret);
@@ -1398,7 +1372,37 @@ static inline int mdss_mdp_resume_sub(struct mdss_data_type *mdata)
 	return ret;
 }
 
-#if defined(CONFIG_PM) && !defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
+static int mdss_mdp_pm_suspend(struct device *dev)
+{
+	struct mdss_data_type *mdata;
+
+	mdata = dev_get_drvdata(dev);
+	if (!mdata)
+		return -ENODEV;
+
+	dev_dbg(dev, "display pm suspend\n");
+
+	return mdss_mdp_suspend_sub(mdata);
+}
+
+static int mdss_mdp_pm_resume(struct device *dev)
+{
+	struct mdss_data_type *mdata;
+
+	mdata = dev_get_drvdata(dev);
+	if (!mdata)
+		return -ENODEV;
+
+	dev_dbg(dev, "display pm resume\n");
+
+	return mdss_mdp_resume_sub(mdata);
+}
+
+#define mdss_mdp_suspend NULL
+#define mdss_mdp_resume NULL
+#else
 static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
@@ -1406,7 +1410,7 @@ static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
 	if (!mdata)
 		return -ENODEV;
 
-	pr_debug("display suspend\n");
+	dev_dbg(&pdev->dev, "display suspend\n");
 
 	return mdss_mdp_suspend_sub(mdata);
 }
@@ -1418,62 +1422,63 @@ static int mdss_mdp_resume(struct platform_device *pdev)
 	if (!mdata)
 		return -ENODEV;
 
-	pr_debug("display resume\n");
+	dev_dbg(&pdev->dev, "display resume\n");
 
 	return mdss_mdp_resume_sub(mdata);
 }
-#else
-#define mdss_mdp_suspend NULL
-#define mdss_mdp_resume NULL
 #endif
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void mdss_mdp_early_suspend(struct early_suspend *h)
+#ifdef CONFIG_PM_RUNTIME
+static int mdss_mdp_runtime_resume(struct device *dev)
 {
-	struct mdss_data_type *mdata;
-	mdata = container_of(h, struct mdss_data_type, early_suspend);
+	struct mdss_data_type *mdata = dev_get_drvdata(dev);
+	if (!mdata)
+		return -ENODEV;
 
-	pr_debug("display early suspend\n");
+	dev_dbg(dev, "pm_runtime: resuming...\n");
 
-	mdss_mdp_suspend_sub(mdata);
-}
-
-static void mdss_mdp_late_resume(struct early_suspend *h)
-{
-	struct mdss_data_type *mdata;
-	mdata = container_of(h, struct mdss_data_type, early_suspend);
-
-	pr_debug("display early resume\n");
-
-	mdss_mdp_resume_sub(mdata);
-}
-
-static int mdss_mdp_register_early_suspend(struct mdss_data_type *mdata)
-{
-	mdata->early_suspend.suspend = mdss_mdp_early_suspend;
-	mdata->early_suspend.resume = mdss_mdp_late_resume;
-	mdata->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-	register_early_suspend(&mdata->early_suspend);
+	mdss_mdp_footswitch_ctrl(mdata, true);
 
 	return 0;
 }
 
-static int mdss_mdp_remove_early_suspend(struct mdss_data_type *mdata)
+static int mdss_mdp_runtime_idle(struct device *dev)
 {
-	unregister_early_suspend(&mdata->early_suspend);
+	struct mdss_data_type *mdata = dev_get_drvdata(dev);
+	if (!mdata)
+		return -ENODEV;
+
+	dev_dbg(dev, "pm_runtime: idling...\n");
+
+	flush_workqueue(mdata->clk_ctrl_wq);
 
 	return 0;
 }
-#else
-static int mdss_mdp_register_early_suspend(struct mdss_data_type *mdata)
+
+static int mdss_mdp_runtime_suspend(struct device *dev)
 {
-	return 0;
-}
-static int mdss_mdp_remove_early_suspend(struct mdss_data_type *mdata)
-{
+	struct mdss_data_type *mdata = dev_get_drvdata(dev);
+	if (!mdata)
+		return -ENODEV;
+	dev_dbg(dev, "pm_runtime: suspending...\n");
+
+	if (mdata->clk_ena) {
+		pr_err("MDP suspend failed\n");
+		return -EBUSY;
+	}
+	mdss_mdp_footswitch_ctrl(mdata, false);
+
 	return 0;
 }
 #endif
+#endif
+
+static const struct dev_pm_ops mdss_mdp_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mdss_mdp_pm_suspend, mdss_mdp_pm_resume)
+	SET_RUNTIME_PM_OPS(mdss_mdp_runtime_suspend,
+			mdss_mdp_runtime_resume,
+			mdss_mdp_runtime_idle)
+};
 
 static int mdss_mdp_remove(struct platform_device *pdev)
 {
@@ -1483,7 +1488,6 @@ static int mdss_mdp_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	mdss_mdp_pp_term(&pdev->dev);
 	mdss_mdp_bus_scale_unregister(mdata);
-	mdss_mdp_remove_early_suspend(mdata);
 	mdss_debugfs_remove(mdata);
 	return 0;
 }
@@ -1507,6 +1511,7 @@ static struct platform_driver mdss_mdp_driver = {
 		 */
 		.name = "mdp",
 		.of_match_table = mdss_mdp_dt_match,
+		.pm = &mdss_mdp_pm_ops,
 	},
 };
 
