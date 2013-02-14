@@ -15,7 +15,6 @@
 #define MDSS_H
 
 #include <linux/msm_ion.h>
-#include <linux/earlysuspend.h>
 #include <linux/msm_mdp.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
@@ -58,7 +57,6 @@ struct mdss_hw_settings {
 };
 
 struct mdss_data_type {
-	u32 rev;
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
 	struct regulator *fs;
@@ -115,7 +113,6 @@ struct mdss_data_type {
 	int iommu_attached;
 	struct mdss_iommu_map_type *iommu_map;
 
-	struct early_suspend early_suspend;
 	void *debug_data;
 };
 extern struct mdss_data_type *mdss_res;
