@@ -987,7 +987,7 @@ static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 
 	rc = call_hfi_op(hdev, unset_ocmem, hdev->hfi_device_data);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to set OCMEM on driver\n");
+		dprintk(VIDC_INFO, "Failed to unset OCMEM on driver\n");
 		goto release_ocmem_failed;
 	}
 	rc = wait_for_completion_timeout(
