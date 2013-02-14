@@ -165,7 +165,8 @@ static irqreturn_t bam_isr(int irq, void *ctxt)
 
 	list_for_each_entry(pipe, &dev->pipes_q, list) {
 		/* Check this pipe's bit in the source mask */
-		if ((source & pipe->pipe_index_mask)) {
+		if (BAM_PIPE_IS_ASSIGNED(pipe)
+				&& (source & pipe->pipe_index_mask)) {
 			/* This pipe has an interrupt pending */
 			pipe_handler(dev, pipe);
 			source &= ~pipe->pipe_index_mask;
