@@ -1319,10 +1319,12 @@ int tspp_open_stream(u32 dev, u32 channel_id,
 			pr_err("tspp: error starting tsif0");
 			return -EBUSY;
 		}
-		val = readl_relaxed(pdev->base + TSPP_CONTROL);
-		writel_relaxed(val & ~TSPP_CONTROL_TSP_TSIF0_SRC_DIS,
-			pdev->base + TSPP_CONTROL);
-		wmb();
+		if (pdev->tsif[0].ref_count == 1) {
+			val = readl_relaxed(pdev->base + TSPP_CONTROL);
+			writel_relaxed(val & ~TSPP_CONTROL_TSP_TSIF0_SRC_DIS,
+				pdev->base + TSPP_CONTROL);
+			wmb();
+		}
 		break;
 	case TSPP_SOURCE_TSIF1:
 		if (tspp_config_gpios(pdev, channel->src, 1) != 0) {
@@ -1334,10 +1336,12 @@ int tspp_open_stream(u32 dev, u32 channel_id,
 			pr_err("tspp: error starting tsif1");
 			return -EBUSY;
 		}
-		val = readl_relaxed(pdev->base + TSPP_CONTROL);
-		writel_relaxed(val & ~TSPP_CONTROL_TSP_TSIF1_SRC_DIS,
-			pdev->base + TSPP_CONTROL);
-		wmb();
+		if (pdev->tsif[1].ref_count == 1) {
+			val = readl_relaxed(pdev->base + TSPP_CONTROL);
+			writel_relaxed(val & ~TSPP_CONTROL_TSP_TSIF1_SRC_DIS,
+				pdev->base + TSPP_CONTROL);
+			wmb();
+		}
 		break;
 	case TSPP_SOURCE_MEM:
 		break;
@@ -1363,6 +1367,7 @@ EXPORT_SYMBOL(tspp_open_stream);
 int tspp_close_stream(u32 dev, u32 channel_id)
 {
 	u32 val;
+	u32 prev_ref_count;
 	struct tspp_device *pdev;
 	struct tspp_channel *channel;
 
@@ -1379,23 +1384,30 @@ int tspp_close_stream(u32 dev, u32 channel_id)
 
 	switch (channel->src) {
 	case TSPP_SOURCE_TSIF0:
+		prev_ref_count = pdev->tsif[0].ref_count;
 		tspp_stop_tsif(&pdev->tsif[0]);
 		if (tspp_config_gpios(pdev, channel->src, 0) != 0)
 			pr_err("tspp: error disabling tsif0 GPIOs\n");
 
-		val = readl_relaxed(pdev->base + TSPP_CONTROL);
-		writel_relaxed(val | TSPP_CONTROL_TSP_TSIF0_SRC_DIS,
-			pdev->base + TSPP_CONTROL);
-		wmb();
+		if (prev_ref_count == 1) {
+			val = readl_relaxed(pdev->base + TSPP_CONTROL);
+			writel_relaxed(val | TSPP_CONTROL_TSP_TSIF0_SRC_DIS,
+				pdev->base + TSPP_CONTROL);
+			wmb();
+		}
 		break;
 	case TSPP_SOURCE_TSIF1:
+		prev_ref_count = pdev->tsif[1].ref_count;
 		tspp_stop_tsif(&pdev->tsif[1]);
 		if (tspp_config_gpios(pdev, channel->src, 0) != 0)
 			pr_err("tspp: error disabling tsif0 GPIOs\n");
 
-		val = readl_relaxed(pdev->base + TSPP_CONTROL);
-		writel_relaxed(val | TSPP_CONTROL_TSP_TSIF1_SRC_DIS,
-			pdev->base + TSPP_CONTROL);
+		if (prev_ref_count == 1) {
+			val = readl_relaxed(pdev->base + TSPP_CONTROL);
+			writel_relaxed(val | TSPP_CONTROL_TSP_TSIF1_SRC_DIS,
+				pdev->base + TSPP_CONTROL);
+			wmb();
+		}
 		break;
 	case TSPP_SOURCE_MEM:
 		break;
@@ -1594,9 +1606,6 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 		}
 	}
 	channel->filter_count = 0;
-
-	/* stop the stream */
-	tspp_close_stream(dev, channel->id);
 
 	/* disconnect the bam */
 	if (sps_disconnect(channel->pipe) != 0)
@@ -2435,7 +2444,7 @@ static long tspp_ioctl(struct file *filp,
 	channel = filp->private_data;
 	dev = channel->pdev->pdev->id;
 
-	if (!param1)
+	if ((param0 != TSPP_IOCTL_CLOSE_STREAM) && !param1)
 		return -EINVAL;
 
 	switch (param0) {
@@ -2501,6 +2510,9 @@ static long tspp_ioctl(struct file *filp,
 		if (__copy_from_user(&b, (void *)param1,
 			sizeof(struct tspp_buffer)) == 0)
 			rc = tspp_set_buffer_size(channel, &b);
+		break;
+	case TSPP_IOCTL_CLOSE_STREAM:
+		rc = tspp_close_stream(dev, channel->id);
 		break;
 	default:
 		pr_err("tspp: Unknown ioctl %i", param0);

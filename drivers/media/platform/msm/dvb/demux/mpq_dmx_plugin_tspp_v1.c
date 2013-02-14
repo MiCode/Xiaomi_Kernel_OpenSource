@@ -1433,8 +1433,8 @@ static int mpq_tspp_dmx_remove_channel(struct dvb_demux_feed *feed)
 	if (*channel_ref_count == 0) {
 		/* channel is not used any more, release it */
 		tspp_unregister_notification(0, channel_id);
-		tspp_close_channel(0, channel_id);
 		tspp_close_stream(0, channel_id);
+		tspp_close_channel(0, channel_id);
 		atomic_set(data_cnt, 0);
 
 		if (allocation_mode == MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC)

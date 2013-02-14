@@ -88,5 +88,7 @@ struct tspp_buffer {
 	_IOW(TSPP_IOCTL_BASE, 5, struct tspp_system_keys)
 #define TSPP_IOCTL_BUFFER_SIZE		\
 	_IOW(TSPP_IOCTL_BASE, 6, struct tspp_buffer)
+#define TSPP_IOCTL_CLOSE_STREAM		\
+	_IO(TSPP_IOCTL_BASE, 7)
 
 #endif /* _TSPP_H_ */
