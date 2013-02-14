@@ -54,6 +54,7 @@ struct f_rmnet {
 #define NR_RMNET_PORTS	3
 static unsigned int nr_rmnet_ports;
 static unsigned int no_ctrl_smd_ports;
+static unsigned int no_ctrl_qti_ports;
 static unsigned int no_ctrl_hsic_ports;
 static unsigned int no_ctrl_hsuart_ports;
 static unsigned int no_data_bam_ports;
@@ -401,6 +402,14 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 			return ret;
 		}
 		break;
+	case USB_GADGET_XPORT_QTI:
+		ret = gqti_ctrl_connect(&dev->port);
+		if (ret) {
+			pr_err("%s: gqti_ctrl_connect failed: err:%d\n",
+					__func__, ret);
+			return ret;
+		}
+		break;
 	case USB_GADGET_XPORT_HSIC:
 		ret = ghsic_ctrl_connect(&dev->port, port_num);
 		if (ret) {
@@ -435,7 +444,10 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 		if (ret) {
 			pr_err("%s: gbam_connect failed: err:%d\n",
 					__func__, ret);
-			gsmd_ctrl_disconnect(&dev->port, port_num);
+			if (cxport == USB_GADGET_XPORT_QTI)
+				gqti_ctrl_disconnect(&dev->port);
+			else
+				gsmd_ctrl_disconnect(&dev->port, port_num);
 			return ret;
 		}
 		break;
@@ -482,6 +494,9 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	switch (cxport) {
 	case USB_GADGET_XPORT_SMD:
 		gsmd_ctrl_disconnect(&dev->port, port_num);
+		break;
+	case USB_GADGET_XPORT_QTI:
+		gqti_ctrl_disconnect(&dev->port);
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		ghsic_ctrl_disconnect(&dev->port, port_num);
@@ -1169,6 +1184,7 @@ static void frmnet_cleanup(void)
 
 	nr_rmnet_ports = 0;
 	no_ctrl_smd_ports = 0;
+	no_ctrl_qti_ports = 0;
 	no_data_bam_ports = 0;
 	no_data_bam2bam_ports = 0;
 	no_ctrl_hsic_ports = 0;
@@ -1213,6 +1229,10 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name)
 	case USB_GADGET_XPORT_SMD:
 		rmnet_port->ctrl_xport_num = no_ctrl_smd_ports;
 		no_ctrl_smd_ports++;
+		break;
+	case USB_GADGET_XPORT_QTI:
+		rmnet_port->ctrl_xport_num = no_ctrl_qti_ports;
+		no_ctrl_qti_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		rmnet_port->ctrl_xport_num = no_ctrl_hsic_ports;
@@ -1267,6 +1287,7 @@ fail_probe:
 
 	nr_rmnet_ports = 0;
 	no_ctrl_smd_ports = 0;
+	no_ctrl_qti_ports = 0;
 	no_data_bam_ports = 0;
 	no_ctrl_hsic_ports = 0;
 	no_data_hsic_ports = 0;

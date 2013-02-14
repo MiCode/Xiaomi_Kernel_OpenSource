@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@ enum transport_type {
 	USB_GADGET_XPORT_TTY,
 	USB_GADGET_XPORT_SDIO,
 	USB_GADGET_XPORT_SMD,
+	USB_GADGET_XPORT_QTI,
 	USB_GADGET_XPORT_BAM,
 	USB_GADGET_XPORT_BAM2BAM,
 	USB_GADGET_XPORT_BAM2BAM_IPA,
@@ -38,6 +39,8 @@ static char *xport_to_str(enum transport_type t)
 		return "SDIO";
 	case USB_GADGET_XPORT_SMD:
 		return "SMD";
+	case USB_GADGET_XPORT_QTI:
+		return "QTI";
 	case USB_GADGET_XPORT_BAM:
 		return "BAM";
 	case USB_GADGET_XPORT_BAM2BAM:
@@ -63,6 +66,8 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_SDIO;
 	if (!strncasecmp("SMD", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_SMD;
+	if (!strncasecmp("QTI", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_QTI;
 	if (!strncasecmp("BAM", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_BAM;
 	if (!strncasecmp("BAM2BAM", name, XPORT_STR_LEN))
