@@ -3530,17 +3530,6 @@ static void __init msm8226_clock_pre_init(void)
 		panic("clock-8226: Unable to get the vdd_sr2_dig regulator!");
 
 	/*
-	 * These regulators are used at boot. Ensure they stay on
-	 * while the clock framework comes online.
-	 */
-	vote_vdd_level(&vdd_sr2_pll, VDD_SR2_PLL_TUR);
-	regulator_enable(vdd_sr2_pll.regulator[0]);
-	regulator_enable(vdd_sr2_pll.regulator[1]);
-
-	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	regulator_enable(vdd_dig.regulator[0]);
-
-	/*
 	 * Hold an active set vote at a rate of 40MHz for the MMSS NOC AHB
 	 * source. Sleep set vote is 0.
 	 * RPM will also turn on gcc_mmss_noc_cfg_ahb_clk, which is needed to
@@ -3562,17 +3551,9 @@ static void __init msm8226_clock_pre_init(void)
 	mdss_clk_ctrl_pre_init(&mdss_ahb_clk.c);
 }
 
-static int __init msm8226_clock_late_init(void)
-{
-	unvote_vdd_level(&vdd_sr2_pll, VDD_SR2_PLL_TUR);
-	unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	return 0;
-}
-
 struct clock_init_data msm8226_clock_init_data __initdata = {
 	.table = msm_clocks_8226,
 	.size = ARRAY_SIZE(msm_clocks_8226),
 	.pre_init = msm8226_clock_pre_init,
 	.post_init = msm8226_clock_post_init,
-	.late_init = msm8226_clock_late_init,
 };
