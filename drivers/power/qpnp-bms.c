@@ -45,8 +45,10 @@
 #define BMS1_OCV_USE_LIMIT_CTL		0x4C
 /* Delay control */
 #define BMS1_S1_DELAY_CTL		0x5A
-/* CC interrupt threshold */
-#define BMS1_CC_THR0			0x7A
+/* OCV interrupt threshold */
+#define BMS1_OCV_THR0			0x50
+/* SW CC interrupt threshold */
+#define BMS1_SW_CC_THR0			0xA0
 /* OCV for r registers */
 #define BMS1_OCV_FOR_R_DATA0		0x80
 #define BMS1_VSENSE_FOR_R_DATA0		0x82
@@ -120,6 +122,16 @@ struct fcc_data {
 	int chargecycles;
 };
 
+struct bms_irq {
+	unsigned int	irq;
+	unsigned long	disabled;
+};
+
+struct bms_wakeup_source {
+	struct wakeup_source	source;
+	unsigned long		disabled;
+};
+
 struct qpnp_bms_chip {
 	struct device			*dev;
 	struct power_supply		bms_psy;
@@ -176,7 +188,7 @@ struct qpnp_bms_chip {
 	int				low_soc_calc_threshold;
 	int				low_soc_calculate_soc_ms;
 	int				calculate_soc_ms;
-	struct wake_lock		soc_wake_lock;
+	struct bms_wakeup_source	soc_wake_source;
 	struct wake_lock		cv_wake_lock;
 
 	uint16_t			ocv_reading_at_100;
@@ -248,6 +260,8 @@ struct qpnp_bms_chip {
 	u8				charge_increase;
 	int				fcc_new_sysfs;
 	int				fcc_update_complete;
+	struct bms_irq			sw_cc_thr_irq;
+	struct bms_irq			ocv_thr_irq;
 };
 
 static struct of_device_id qpnp_bms_match_table[] = {
@@ -371,6 +385,38 @@ static int qpnp_masked_write(struct qpnp_bms_chip *chip, u16 addr,
 	return qpnp_masked_write_base(chip, chip->base + addr, mask, val);
 }
 
+static void bms_stay_awake(struct bms_wakeup_source *source)
+{
+	if (__test_and_clear_bit(0, &source->disabled)) {
+		__pm_stay_awake(&source->source);
+		pr_debug("enabled source %s\n", source->source.name);
+	}
+}
+
+static void bms_relax(struct bms_wakeup_source *source)
+{
+	if (!__test_and_set_bit(0, &source->disabled)) {
+		__pm_relax(&source->source);
+		pr_debug("disabled source %s\n", source->source.name);
+	}
+}
+
+static void enable_bms_irq(struct bms_irq *irq)
+{
+	if (__test_and_clear_bit(0, &irq->disabled)) {
+		enable_irq(irq->irq);
+		pr_debug("enabled irq %d\n", irq->irq);
+	}
+}
+
+static void disable_bms_irq(struct bms_irq *irq)
+{
+	if (!__test_and_set_bit(0, &irq->disabled)) {
+		disable_irq(irq->irq);
+		pr_debug("disabled irq %d\n", irq->irq);
+	}
+}
+
 #define HOLD_OREG_DATA		BIT(0)
 static int lock_output_data(struct qpnp_bms_chip *chip)
 {
@@ -412,7 +458,6 @@ static int vadc_reading_to_uv(int reading)
 
 #define VADC_CALIB_UV		625000
 #define VBATT_MUL_FACTOR	3
-
 static int adjust_vbatt_reading(struct qpnp_bms_chip *chip, int reading_uv)
 {
 	s64 numerator, denominator;
@@ -486,6 +531,30 @@ static s64 cc_adjust_for_gain(s64 uv, uint16_t gain)
 			div_s64(QPNP_ADC_GAIN_IDEAL * 100LL, (s64)gain));
 
 	result_uv = div_s64(uv * QPNP_ADC_GAIN_IDEAL, (s64)gain);
+	pr_debug("result_uv = %lld\n", result_uv);
+	return result_uv;
+}
+
+static s64 cc_reverse_adjust_for_gain(s64 uv)
+{
+	struct qpnp_iadc_calib calibration;
+	int gain;
+	s64 result_uv;
+
+	qpnp_iadc_get_gain_and_offset(&calibration);
+	gain = (int)calibration.gain_raw - (int)calibration.offset_raw;
+
+	pr_debug("reverse adjusting_uv = %lld\n", uv);
+	if (gain == 0) {
+		pr_debug("gain is %d, not adjusting\n", gain);
+		return uv;
+	}
+	pr_debug("adjusting by factor: %hu/%lld = %lld%%\n",
+			gain, QPNP_ADC_GAIN_IDEAL,
+			div64_s64((s64)gain * 100LL,
+				(s64)QPNP_ADC_GAIN_IDEAL));
+
+	result_uv = div64_s64(uv * (s64)gain, QPNP_ADC_GAIN_IDEAL);
 	pr_debug("result_uv = %lld\n", result_uv);
 	return result_uv;
 }
@@ -565,6 +634,20 @@ static int get_battery_voltage(int *result_uv)
 }
 
 #define CC_36_BIT_MASK 0xFFFFFFFFFLL
+static uint64_t convert_s64_to_s36(int64_t raw64)
+{
+	return (uint64_t) raw64 & CC_36_BIT_MASK;
+}
+
+#define SIGN_EXTEND_36_TO_64_MASK (-1LL ^ CC_36_BIT_MASK)
+static int64_t convert_s36_to_s64(uint64_t raw36)
+{
+	raw36 = raw36 & CC_36_BIT_MASK;
+	/* convert 36 bit signed value into 64 signed value */
+	return (raw36 >> 35) == 0LL ?
+		raw36 : (SIGN_EXTEND_36_TO_64_MASK | raw36);
+}
+
 static int read_cc_raw(struct qpnp_bms_chip *chip, int64_t *reading,
 							int cc_type)
 {
@@ -582,12 +665,7 @@ static int read_cc_raw(struct qpnp_bms_chip *chip, int64_t *reading,
 		return -ENXIO;
 	}
 
-	raw_reading = raw_reading & CC_36_BIT_MASK;
-	/* convert 36 bit signed value into 64 signed value */
-	*reading = (raw_reading >> 35) == 0LL ?
-		raw_reading : ((-1LL ^ CC_36_BIT_MASK) | raw_reading);
-	pr_debug("before conversion: %llx, after conversion: %llx\n",
-			raw_reading, *reading);
+	*reading = convert_s36_to_s64(raw_reading);
 
 	return 0;
 }
@@ -1282,6 +1360,59 @@ close_time:
 	return rc;
 }
 
+/* Returns estimated battery resistance */
+static int get_prop_bms_batt_resistance(struct qpnp_bms_chip *chip)
+{
+	return chip->rbatt_mohm * 1000;
+}
+
+/* Returns instantaneous current in uA */
+static int get_prop_bms_current_now(struct qpnp_bms_chip *chip)
+{
+	int rc, result_ua;
+
+	rc = get_battery_current(chip, &result_ua);
+	if (rc) {
+		pr_err("failed to get current: %d\n", rc);
+		return rc;
+	}
+	return result_ua;
+}
+
+/* Returns coulomb counter in uAh */
+static int get_prop_bms_charge_counter(struct qpnp_bms_chip *chip)
+{
+	int64_t cc_raw;
+
+	mutex_lock(&chip->bms_output_lock);
+	lock_output_data(chip);
+	read_cc_raw(chip, &cc_raw, false);
+	unlock_output_data(chip);
+	mutex_unlock(&chip->bms_output_lock);
+
+	return calculate_cc(chip, cc_raw, CC, NORESET);
+}
+
+/* Returns shadow coulomb counter in uAh */
+static int get_prop_bms_charge_counter_shadow(struct qpnp_bms_chip *chip)
+{
+	int64_t cc_raw;
+
+	mutex_lock(&chip->bms_output_lock);
+	lock_output_data(chip);
+	read_cc_raw(chip, &cc_raw, true);
+	unlock_output_data(chip);
+	mutex_unlock(&chip->bms_output_lock);
+
+	return calculate_cc(chip, cc_raw, SHDW_CC, NORESET);
+}
+
+/* Returns full charge design in uAh */
+static int get_prop_bms_charge_full_design(struct qpnp_bms_chip *chip)
+{
+	return chip->fcc_mah * 1000;
+}
+
 static int calculate_delta_time(unsigned long *time_stamp, int *delta_time_s)
 {
 	unsigned long now_tm_sec = 0;
@@ -1920,6 +2051,92 @@ static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 	}
 }
 
+static int64_t convert_cc_uah_to_raw(struct qpnp_bms_chip *chip, int64_t cc_uah)
+{
+	int64_t cc_uv, cc_pvh, cc_raw;
+
+	cc_pvh = cc_uah * chip->r_sense_uohm;
+	cc_uv = div_s64(cc_pvh * SLEEP_CLK_HZ * SECONDS_PER_HOUR,
+				CC_READING_TICKS * 1000000LL);
+	cc_raw = div_s64(cc_uv * CC_READING_RESOLUTION_D,
+			CC_READING_RESOLUTION_N);
+	return cc_raw;
+}
+
+#define CC_STEP_INCREMENT_UAH	1500
+#define OCV_STEP_INCREMENT	0x10
+static void configure_soc_wakeup(struct qpnp_bms_chip *chip,
+				struct soc_params *params,
+				int batt_temp, int target_soc)
+{
+	int target_ocv_uv;
+	int64_t target_cc_uah, cc_raw_64, current_shdw_cc_raw_64;
+	int64_t current_shdw_cc_uah, iadc_comp_factor;
+	uint64_t cc_raw, current_shdw_cc_raw;
+	int16_t ocv_raw, current_ocv_raw;
+
+	current_shdw_cc_raw = 0;
+	mutex_lock(&chip->bms_output_lock);
+	lock_output_data(chip);
+	qpnp_read_wrapper(chip, (u8 *)&current_ocv_raw,
+			chip->base + BMS1_OCV_FOR_SOC_DATA0, 2);
+	unlock_output_data(chip);
+	mutex_unlock(&chip->bms_output_lock);
+	current_shdw_cc_uah = get_prop_bms_charge_counter_shadow(chip);
+	current_shdw_cc_raw_64 = convert_cc_uah_to_raw(chip,
+			current_shdw_cc_uah);
+
+	/*
+	 * Calculate the target shadow coulomb counter threshold for when
+	 * the SoC changes.
+	 *
+	 * Since the BMS driver resets the shadow coulomb counter every
+	 * 20 seconds when the device is awake, calculate the threshold as
+	 * a delta from the current shadow coulomb count.
+	 */
+	target_cc_uah = (100 - target_soc)
+		* (params->fcc_uah - params->uuc_uah)
+		/ 100 - current_shdw_cc_uah;
+	if (target_cc_uah < 0) {
+		/*
+		 * If the target cc is below 0, that means we have already
+		 * passed the point where SoC should have fallen.
+		 * Set a wakeup in a few more mAh and check back again
+		 */
+		target_cc_uah = CC_STEP_INCREMENT_UAH;
+	}
+	iadc_comp_factor = 100000;
+	qpnp_iadc_comp_result(&iadc_comp_factor);
+	target_cc_uah = div64_s64(target_cc_uah * 100000, iadc_comp_factor);
+	target_cc_uah = cc_reverse_adjust_for_gain(target_cc_uah);
+	cc_raw_64 = convert_cc_uah_to_raw(chip, target_cc_uah);
+	cc_raw = convert_s64_to_s36(cc_raw_64);
+
+	find_ocv_for_soc(chip, params, batt_temp, target_soc, &target_ocv_uv);
+	ocv_raw = convert_vbatt_uv_to_raw(chip, target_ocv_uv);
+
+	/*
+	 * If the current_ocv_raw was updated since reaching 100% and is lower
+	 * than the calculated target ocv threshold, set the new target
+	 * threshold 1.5mAh lower in order to check if the SoC changed yet.
+	 */
+	if (current_ocv_raw != chip->ocv_reading_at_100
+			&& current_ocv_raw < ocv_raw)
+		ocv_raw = current_ocv_raw - OCV_STEP_INCREMENT;
+
+	qpnp_write_wrapper(chip, (u8 *)&cc_raw,
+			chip->base + BMS1_SW_CC_THR0, 5);
+	qpnp_write_wrapper(chip, (u8 *)&ocv_raw,
+			chip->base + BMS1_OCV_THR0, 2);
+
+	pr_debug("current sw_cc_raw = 0x%llx, current ocv = 0x%hx\n",
+			current_shdw_cc_raw, (uint16_t)current_ocv_raw);
+	pr_debug("target_cc_uah = %lld, raw64 = 0x%llx, raw 36 = 0x%llx, ocv_raw = 0x%hx\n",
+			target_cc_uah,
+			(uint64_t)cc_raw_64, cc_raw,
+			(uint16_t)ocv_raw);
+}
+
 #define SLEEP_RECALC_INTERVAL	3
 static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 					struct raw_soc_params *raw,
@@ -2022,7 +2239,13 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 	/* always clamp soc due to BMS hw/sw immaturities */
 	new_calculated_soc = clamp_soc_based_on_voltage(chip,
 					new_calculated_soc);
-
+	/*
+	 * If the battery is full, configure the cc threshold so the system
+	 * wakes up after SoC changes
+	 */
+	if (is_battery_full(chip))
+		configure_soc_wakeup(chip, &params,
+				batt_temp, bound_soc(new_calculated_soc - 1));
 done_calculating:
 	mutex_lock(&chip->last_soc_mutex);
 	previous_soc = chip->calculated_soc;
@@ -2101,8 +2324,7 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	struct qpnp_vadc_result result;
 	struct raw_soc_params raw;
 
-	if (!wake_lock_active(&chip->soc_wake_lock))
-		wake_lock(&chip->soc_wake_lock);
+	bms_stay_awake(&chip->soc_wake_source);
 	mutex_lock(&chip->vbat_monitor_mutex);
 	qpnp_adc_tm_channel_measure(&chip->vbat_monitor_params);
 	mutex_unlock(&chip->vbat_monitor_mutex);
@@ -2127,7 +2349,7 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 			mutex_unlock(&chip->last_ocv_uv_mutex);
 		}
 	}
-	wake_unlock(&chip->soc_wake_lock);
+	bms_relax(&chip->soc_wake_source);
 	return soc;
 }
 
@@ -2681,8 +2903,20 @@ static void battery_status_check(struct qpnp_bms_chip *chip)
 			pr_debug("charging ended\n");
 			charging_ended(chip);
 		}
+
+		if (status == POWER_SUPPLY_STATUS_FULL) {
+			pr_debug("battery full\n");
+			enable_bms_irq(&chip->ocv_thr_irq);
+			enable_bms_irq(&chip->sw_cc_thr_irq);
+		} else if (chip->battery_status
+				== POWER_SUPPLY_STATUS_FULL) {
+			pr_debug("battery not full any more\n");
+			disable_bms_irq(&chip->ocv_thr_irq);
+			disable_bms_irq(&chip->sw_cc_thr_irq);
+		}
+
 		chip->battery_status = status;
-		/* a new battery was inserted or removed, so force a soc
+		/* battery charge status has changed, so force a soc
 		 * recalculation to update the SoC */
 		schedule_work(&chip->recalc_work);
 	}
@@ -2714,59 +2948,6 @@ static void battery_insertion_check(struct qpnp_bms_chip *chip)
 static int get_prop_bms_capacity(struct qpnp_bms_chip *chip)
 {
 	return report_state_of_charge(chip);
-}
-
-/* Returns estimated battery resistance */
-static int get_prop_bms_batt_resistance(struct qpnp_bms_chip *chip)
-{
-	return chip->rbatt_mohm * 1000;
-}
-
-/* Returns instantaneous current in uA */
-static int get_prop_bms_current_now(struct qpnp_bms_chip *chip)
-{
-	int rc, result_ua;
-
-	rc = get_battery_current(chip, &result_ua);
-	if (rc) {
-		pr_err("failed to get current: %d\n", rc);
-		return rc;
-	}
-	return result_ua;
-}
-
-/* Returns coulomb counter in uAh */
-static int get_prop_bms_charge_counter(struct qpnp_bms_chip *chip)
-{
-	int64_t cc_raw;
-
-	mutex_lock(&chip->bms_output_lock);
-	lock_output_data(chip);
-	read_cc_raw(chip, &cc_raw, CC);
-	unlock_output_data(chip);
-	mutex_unlock(&chip->bms_output_lock);
-
-	return calculate_cc(chip, cc_raw, CC, NORESET);
-}
-
-/* Returns shadow coulomb counter in uAh */
-static int get_prop_bms_charge_counter_shadow(struct qpnp_bms_chip *chip)
-{
-	int64_t cc_raw;
-
-	mutex_lock(&chip->bms_output_lock);
-	lock_output_data(chip);
-	read_cc_raw(chip, &cc_raw, SHDW_CC);
-	unlock_output_data(chip);
-	mutex_unlock(&chip->bms_output_lock);
-
-	return calculate_cc(chip, cc_raw, SHDW_CC, NORESET);
-}
-
-/* Returns full charge design in uAh */
-static int get_prop_bms_charge_full_design(struct qpnp_bms_chip *chip)
-{
-	return chip->fcc_mah * 1000;
 }
 
 static void qpnp_bms_external_power_changed(struct power_supply *psy)
@@ -3019,6 +3200,26 @@ static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 			chip->shutdown_soc_invalid);
 }
 
+static irqreturn_t bms_ocv_thr_irq_handler(int irq, void *_chip)
+{
+	struct qpnp_bms_chip *chip = _chip;
+
+	pr_debug("ocv_thr irq triggered\n");
+	bms_stay_awake(&chip->soc_wake_source);
+	schedule_work(&chip->recalc_work);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t bms_sw_cc_thr_irq_handler(int irq, void *_chip)
+{
+	struct qpnp_bms_chip *chip = _chip;
+
+	pr_debug("sw_cc_thr irq triggered\n");
+	bms_stay_awake(&chip->soc_wake_source);
+	schedule_work(&chip->recalc_work);
+	return IRQ_HANDLED;
+}
+
 #define PALLADIUM_ID_MIN	0x7F40
 #define PALLADIUM_ID_MAX	0x7F5A
 #define DESAY_5200_ID_MIN	0x7F7F
@@ -3199,6 +3400,35 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 	chip->first_time_calc_uuc = 1;
 }
 
+#define SPMI_SETUP_IRQ(irq_name)					\
+do {									\
+	chip->irq_name##_irq.irq = spmi_get_irq_byname(chip->spmi,	\
+					resource, #irq_name);		\
+	if (chip->irq_name##_irq.irq < 0) {				\
+		pr_err("Unable to get " #irq_name " irq\n");		\
+		return -ENXIO;						\
+	}								\
+	rc = devm_request_irq(chip->dev, chip->irq_name##_irq.irq,	\
+			bms_##irq_name##_irq_handler,			\
+			IRQF_TRIGGER_RISING, #irq_name, chip);		\
+	if (rc < 0) {							\
+		pr_err("Unable to request " #irq_name " irq: %d\n", rc);\
+		return -ENXIO;						\
+	}								\
+} while (0)
+
+static int bms_setup_irqs(struct qpnp_bms_chip *chip,
+			struct spmi_resource *resource)
+{
+	int rc;
+
+	SPMI_SETUP_IRQ(sw_cc_thr);
+	enable_irq_wake(chip->sw_cc_thr_irq.irq);
+	SPMI_SETUP_IRQ(ocv_thr);
+	enable_irq_wake(chip->ocv_thr_irq.irq);
+	return 0;
+}
+
 #define REG_OFFSET_PERP_TYPE			0x04
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 #define BMS_BMS_TYPE				0xD
@@ -3246,6 +3476,11 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 
 		if (type == BMS_BMS_TYPE && subtype == BMS_BMS1_SUBTYPE) {
 			chip->base = resource->start;
+			rc = bms_setup_irqs(chip, spmi_resource);
+			if (rc) {
+				pr_err("Could not register irqs\n");
+				return rc;
+			}
 		} else if (type == BMS_IADC_TYPE
 				&& (subtype == BMS_IADC1_SUBTYPE
 				|| subtype == BMS_IADC2_SUBTYPE)) {
@@ -3509,8 +3744,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	mutex_init(&chip->soc_invalidation_mutex);
 	mutex_init(&chip->last_soc_mutex);
 
-	wake_lock_init(&chip->soc_wake_lock, WAKE_LOCK_SUSPEND,
-			"qpnp_soc_lock");
+	wakeup_source_init(&chip->soc_wake_source.source, "qpnp_soc_wake");
 	wake_lock_init(&chip->low_voltage_wake_lock, WAKE_LOCK_SUSPEND,
 			"qpnp_low_voltage_lock");
 	wake_lock_init(&chip->cv_wake_lock, WAKE_LOCK_SUSPEND,
@@ -3588,7 +3822,7 @@ unregister_dc:
 	power_supply_unregister(&chip->bms_psy);
 error_setup:
 	dev_set_drvdata(&spmi->dev, NULL);
-	wake_lock_destroy(&chip->soc_wake_lock);
+	wakeup_source_trash(&chip->soc_wake_source.source);
 	wake_lock_destroy(&chip->low_voltage_wake_lock);
 	wake_lock_destroy(&chip->cv_wake_lock);
 error_resource:
@@ -3640,9 +3874,8 @@ static int bms_resume(struct device *dev)
 				- (int)(time_since_last_recalc * 1000));
 	}
 
-	if (!wake_lock_active(&chip->soc_wake_lock)
-			&& time_until_next_recalc == 0)
-		wake_lock(&chip->soc_wake_lock);
+	if (time_until_next_recalc == 0)
+		bms_stay_awake(&chip->soc_wake_source);
 	schedule_delayed_work(&chip->calculate_soc_delayed_work,
 		round_jiffies_relative(msecs_to_jiffies
 		(time_until_next_recalc)));
