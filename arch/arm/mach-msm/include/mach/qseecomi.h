@@ -16,6 +16,8 @@
 
 #include <linux/qseecom.h>
 
+#define QSEECOM_KEY_ID_SIZE   32
+
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
 	QSEOS_LISTENER_ID
@@ -141,5 +143,45 @@ __packed struct qseecom_client_send_service_ireq {
 	unsigned int rsp_len; /* in/out */
 };
 
+/* Key Management requests */
+enum qseecom_qceos_key_gen_cmd_id {
+	QSEOS_GENERATE_KEY      = 0x02,
+	QSEOS_SET_KEY,
+	QSEOS_DELETE_KEY,
+	QSEOS_MAX_KEY_COUNT,
+	QSEOS_KEY_CMD_MAX     = 0xEFFFFFFF
+};
+
+__packed struct qseecom_key_generate_ireq {
+	uint32_t flags;
+	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
+};
+
+__packed struct qseecom_key_select_ireq {
+	uint32_t ce;
+	uint32_t pipe;
+	uint32_t flags;
+	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
+	unsigned char hash[QSEECOM_HASH_SIZE];
+};
+
+__packed struct qseecom_key_delete_ireq {
+	uint32_t flags;
+	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
+};
+
+__packed struct qseecom_key_max_count_query_ireq {
+	uint32_t flags;
+};
+
+__packed struct qseecom_key_max_count_query_irsp {
+	uint32_t max_key_count;
+};
+
+struct key_id_info {
+	uint32_t	ce_hw;
+	uint32_t	pipe;
+	bool		flags;
+};
 
 #endif /* __QSEECOMI_H_ */
