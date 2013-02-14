@@ -15,15 +15,22 @@
 
 #include <linux/types.h>
 #include <linux/msm_ion.h>
+#include "msm_vidc_resources.h"
 
 enum smem_type {
 	SMEM_ION,
 };
 
 enum smem_prop {
-	SMEM_CACHED = 0x1,
-	SMEM_SECURE = 0x2,
-	SMEM_INPUT = 0x4,
+	SMEM_CACHED = ION_FLAG_CACHED,
+	SMEM_SECURE = ION_SECURE,
+};
+
+enum smem_buffer_type {
+	BITSTREAM = 0x1,
+	PIXEL = 0x2,
+	NON_PIXEL = 0x3,
+	CMND_QUE = 0x4,
 };
 
 struct msm_smem {
@@ -31,10 +38,9 @@ struct msm_smem {
 	size_t size;
 	void *kvaddr;
 	unsigned long device_addr;
-	int domain;
-	int partition_num;
-	int flags;
+	u32 flags;
 	void *smem_priv;
+	enum smem_buffer_type buffer_type;
 };
 
 enum smem_cache_ops {
@@ -43,14 +49,17 @@ enum smem_cache_ops {
 	SMEM_CACHE_CLEAN_INVALIDATE,
 };
 
-
-void *msm_smem_new_client(enum smem_type mtype);
+void *msm_smem_new_client(enum smem_type mtype,
+				struct msm_vidc_platform_resources *res);
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
-		int domain, int partition, int map_kernel);
+				u32 buffer_type, int map_kernel);
 void msm_smem_free(void *clt, struct msm_smem *mem);
 void msm_smem_delete_client(void *clt);
-struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset, int
-		domain, int partition, int flags);
 int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
 		enum smem_cache_ops);
+struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
+				enum smem_buffer_type buffer_type);
+int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem);
+int msm_smem_get_domain_partition(void *clt, u32 flags, enum smem_buffer_type
+		buffer_type, int *domain_num, int *partition_num);
 #endif

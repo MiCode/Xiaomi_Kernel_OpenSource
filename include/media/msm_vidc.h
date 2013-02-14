@@ -26,8 +26,8 @@ struct msm_vidc_iommu_info {
 };
 
 enum msm_vidc_io_maps {
-	CP_MAP,
 	NS_MAP,
+	CP_MAP,
 	MAX_MAP
 };
 

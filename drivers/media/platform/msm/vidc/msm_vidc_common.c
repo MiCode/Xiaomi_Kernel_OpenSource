@@ -193,7 +193,7 @@ const struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
 }
 
 struct buf_queue *msm_comm_get_vb2q(
-		struct msm_vidc_inst *inst,	enum v4l2_buf_type type)
+		struct msm_vidc_inst *inst, enum v4l2_buf_type type)
 {
 	if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		return &inst->bufq[CAPTURE_PORT];
@@ -1462,7 +1462,6 @@ static int set_scratch_buffers(struct msm_vidc_inst *inst,
 	struct internal_buf *binfo;
 	struct vidc_buffer_addr_info buffer_info;
 	u32 smem_flags = 0;
-	int domain;
 	struct hal_buffer_requirements *scratch_buf;
 	int i;
 	struct hfi_device *hdev;
@@ -1481,20 +1480,15 @@ static int set_scratch_buffers(struct msm_vidc_inst *inst,
 		scratch_buf->buffer_count_actual,
 		scratch_buf->buffer_size);
 
-	if (inst->mode == VIDC_SECURE) {
-		domain = call_hfi_op(hdev, get_domain,
-				hdev->hfi_device_data, CP_MAP);
+	if (inst->mode == VIDC_SECURE)
 		smem_flags |= SMEM_SECURE;
-	} else
-		domain = call_hfi_op(hdev, get_domain,
-				hdev->hfi_device_data, NS_MAP);
 
 	if (scratch_buf->buffer_size) {
 		for (i = 0; i < scratch_buf->buffer_count_actual;
 				i++) {
 			handle = msm_smem_alloc(inst->mem_client,
 				scratch_buf->buffer_size, 1, smem_flags,
-				domain, 0, 0);
+				buffer_type, 0);
 			if (!handle) {
 				dprintk(VIDC_ERR,
 					"Failed to allocate scratch memory\n");
@@ -1550,7 +1544,6 @@ static int set_persist_buffers(struct msm_vidc_inst *inst,
 	struct internal_buf *binfo;
 	struct vidc_buffer_addr_info buffer_info;
 	u32 smem_flags = 0;
-	int domain;
 	struct hal_buffer_requirements *persist_buf;
 	int i;
 	struct hfi_device *hdev;
@@ -1575,19 +1568,14 @@ static int set_persist_buffers(struct msm_vidc_inst *inst,
 		return rc;
 	}
 
-	if (inst->mode == VIDC_SECURE) {
-		domain = call_hfi_op(hdev, get_domain,
-				hdev->hfi_device_data, CP_MAP);
+	if (inst->mode == VIDC_SECURE)
 		smem_flags |= SMEM_SECURE;
-	} else
-		domain = call_hfi_op(hdev, get_domain,
-				hdev->hfi_device_data, NS_MAP);
 
 	if (persist_buf->buffer_size) {
 		for (i = 0; i < persist_buf->buffer_count_actual; i++) {
 			handle = msm_smem_alloc(inst->mem_client,
 				persist_buf->buffer_size, 1, smem_flags,
-				domain, 0, 0);
+				buffer_type, 0);
 			if (!handle) {
 				dprintk(VIDC_ERR,
 					"Failed to allocate persist memory\n");
