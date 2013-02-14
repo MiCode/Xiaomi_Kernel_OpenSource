@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013 Google, Inc.
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -85,7 +86,26 @@ DEFINE_EVENT_CONDITION(mmc_blk_rw_class, mmc_blk_rw_end,
 	TP_CONDITION(((cmd == MMC_READ_MULTIPLE_BLOCK) ||
 		      (cmd == MMC_WRITE_MULTIPLE_BLOCK)) &&
 		      data));
-#endif /* _TRACE_MMC_H */
+
+TRACE_EVENT(mmc_clk,
+	TP_PROTO(char *print_info),
+
+	TP_ARGS(print_info),
+
+	TP_STRUCT__entry(
+		__string(print_info, print_info)
+	),
+
+	TP_fast_assign(
+		__assign_str(print_info, print_info);
+	),
+
+	TP_printk("%s",
+		__get_str(print_info)
+	)
+);
+
+#endif /* if !defined(_TRACE_MMC_H) || defined(TRACE_HEADER_MULTI_READ) */
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>
