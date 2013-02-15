@@ -510,6 +510,9 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 	}
 }
 
+static inline int parse_ib(struct kgsl_device *device, unsigned int ptbase,
+		unsigned int gpuaddr, unsigned int dwords);
+
 /* Add an IB as a GPU object, but first, parse it to find more goodies within */
 
 static int ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
@@ -549,32 +552,12 @@ static int ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
 			if (adreno_cmd_is_ib(src[i])) {
 				unsigned int gpuaddr = src[i + 1];
 				unsigned int size = src[i + 2];
-				unsigned int ibbase;
 
-				/* Address of the last processed IB2 */
-				kgsl_regread(device, REG_CP_IB2_BASE, &ibbase);
+				ret = parse_ib(device, ptbase, gpuaddr, size);
 
-				/*
-				 * If this is the last IB2 that was executed,
-				 * then push it to make sure it goes into the
-				 * static space
-				 */
-
-				if (ibbase == gpuaddr)
-					push_object(device,
-						SNAPSHOT_OBJ_TYPE_IB, ptbase,
-						gpuaddr, size);
-				else {
-					ret = ib_add_gpu_object(device,
-						ptbase, gpuaddr, size);
-
-					/*
-					 * If adding the IB failed then stop
-					 * parsing
-					 */
-					if (ret < 0)
-						goto done;
-				}
+				/* If adding the IB failed then stop parsing */
+				if (ret < 0)
+					goto done;
 			} else {
 				ret = ib_parse_type3(device, &src[i], ptbase);
 				/*
@@ -600,6 +583,36 @@ done:
 
 	if (ret >= 0)
 		snapshot_frozen_objsize += ret;
+
+	return ret;
+}
+
+/*
+ * We want to store the last executed IB1 and IB2 in the static region to ensure
+ * that we get at least some information out of the snapshot even if we can't
+ * access the dynamic data from the sysfs file.  Push all other IBs on the
+ * dynamic list
+ */
+static inline int parse_ib(struct kgsl_device *device, unsigned int ptbase,
+		unsigned int gpuaddr, unsigned int dwords)
+{
+	unsigned int ib1base, ib2base;
+	int ret = 0;
+
+	/*
+	 * Check the IB address - if it is either the last executed IB1 or the
+	 * last executed IB2 then push it into the static blob otherwise put
+	 * it in the dynamic list
+	 */
+
+	kgsl_regread(device, REG_CP_IB1_BASE, &ib1base);
+	kgsl_regread(device, REG_CP_IB2_BASE, &ib2base);
+
+	if (gpuaddr == ib1base || gpuaddr == ib2base)
+		push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
+			gpuaddr, dwords);
+	else
+		ret = ib_add_gpu_object(device, ptbase, gpuaddr, dwords);
 
 	return ret;
 }
@@ -754,12 +767,11 @@ static int snapshot_rb(struct kgsl_device *device, void *snapshot,
 			 * others get marked at GPU objects
 			 */
 
-			if (ibaddr == ibbase || memdesc != NULL)
+			if (memdesc != NULL)
 				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
 					ptbase, ibaddr, ibsize);
 			else
-				ib_add_gpu_object(device, ptbase, ibaddr,
-					ibsize);
+				parse_ib(device, ptbase, ibaddr, ibsize);
 		}
 
 		index = index + 1;
@@ -804,15 +816,14 @@ static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 				continue;
 
 			if (adreno_cmd_is_ib(*src))
-				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
-					obj->ptbase, src[1], src[2]);
-			else {
+				ret = parse_ib(device, obj->ptbase, src[1],
+					src[2]);
+			else
 				ret = ib_parse_type3(device, src, obj->ptbase);
 
-				/* Stop parsing if the type3 decode fails */
-				if (ret < 0)
-					break;
-			}
+			/* Stop parsing if the type3 decode fails */
+			if (ret < 0)
+				break;
 		}
 	}
 
