@@ -198,13 +198,13 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
 		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
-		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
+		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
 		.step = 0,
 		.menu_skip_mask = ~(
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) |
 		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_CBR)
 		),
-		.qmenu = mpeg_video_rate_control,
+		.qmenu = NULL,
 		.cluster = MSM_VENC_CTRL_CLUSTER_BITRATE,
 	},
 	{
