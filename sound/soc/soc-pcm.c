@@ -95,7 +95,7 @@ static int soc_pcm_apply_symmetry(struct snd_pcm_substream *substream,
  * like the DAC/ADC resolution to use but there isn't right now.
  */
 static int sample_sizes[] = {
-	24, 32,
+	8, 16, 24, 32,
 };
 
 static void soc_pcm_apply_msb(struct snd_pcm_substream *substream,
