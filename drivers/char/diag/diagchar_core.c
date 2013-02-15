@@ -245,7 +245,7 @@ fail:
 
 static int diagchar_close(struct inode *inode, struct file *file)
 {
-	int i = 0;
+	int i = -1;
 	struct diagchar_priv *diagpriv_data = file->private_data;
 
 	pr_debug("diag: process exit %s\n", current->comm);
@@ -261,14 +261,9 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	* This will specially help in case of ungraceful exit of any DCI client
 	* This call will remove any pending registrations of such client
 	*/
-	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-		if (driver->dci_client_tbl[i].client &&
-			driver->dci_client_tbl[i].client->tgid ==
-							 current->tgid) {
-			diagchar_ioctl(NULL, DIAG_IOCTL_DCI_DEINIT, 0);
-			break;
-		}
-	}
+	if (diag_dci_find_client_index(current->tgid) !=
+		 DCI_CLIENT_INDEX_INVALID)
+		diagchar_ioctl(NULL, DIAG_IOCTL_DCI_DEINIT, 0);
 	/* If the exiting process is the socket process */
 	if (driver->socket_process &&
 		(driver->socket_process->tgid == current->tgid)) {
@@ -530,7 +525,7 @@ inline int diag_copy_remote(char __user *buf, size_t count, int *pret,
 long diagchar_ioctl(struct file *filp,
 			   unsigned int iocmd, unsigned long ioarg)
 {
-	int i, j, temp, success = -1, status;
+	int i, j, temp, success = -1, status, index = -1;
 	unsigned int count_entries = 0, interim_count = 0;
 	void *temp_buf;
 	uint16_t support_list = 0;
@@ -731,19 +726,40 @@ long diagchar_ioctl(struct file *filp,
 		return driver->dci_client_id;
 	} else if (iocmd == DIAG_IOCTL_DCI_DEINIT) {
 		success = -1;
-		/* Delete this process from DCI table */
+		/*
+		* Clear log/event masks and send updated
+		* masks to peripherals
+		*/
 		mutex_lock(&driver->dci_mutex);
+		index = diag_dci_find_client_index(current->tgid);
+		if (index != DCI_CLIENT_INDEX_INVALID) {
+			/* clear respective cumulative log masks */
+			clear_client_dci_cumulative_log_mask(index);
+			/* send updated log mask to peripherals */
+			success =
+			diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
+			if (success != DIAG_DCI_NO_ERROR) {
+				mutex_unlock(&driver->dci_mutex);
+				return success;
+			}
+			/* clear respective cumulative event masks */
+			clear_client_dci_cumulative_event_mask(index);
+			/* send updated event mask to peripherals */
+			success =
+			diag_send_dci_event_mask(
+				driver->smd_cntl[MODEM_DATA].ch);
+			if (success != DIAG_DCI_NO_ERROR) {
+				mutex_unlock(&driver->dci_mutex);
+				return success;
+			}
+		}
+		/* Delete this process from DCI table */
 		for (i = 0; i < dci_max_reg; i++)
 			if (driver->req_tracking_tbl[i].pid == current->tgid)
 				driver->req_tracking_tbl[i].pid = 0;
-		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-			if (driver->dci_client_tbl[i].client &&
-			driver->dci_client_tbl[i].client->tgid ==
-							 current->tgid) {
-				driver->dci_client_tbl[i].client = NULL;
-				success = i;
-				break;
-			}
+		if (index != DCI_CLIENT_INDEX_INVALID) {
+			driver->dci_client_tbl[index].client = NULL;
+			success = index;
 		}
 		if (success >= 0)
 			driver->num_dci_client--;

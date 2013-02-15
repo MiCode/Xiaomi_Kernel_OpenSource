@@ -23,6 +23,8 @@
 #define SET_LOG_MASK		1
 #define DISABLE_LOG_MASK	0
 #define MAX_EVENT_SIZE		512
+#define DCI_CLIENT_INDEX_INVALID -1
+
 
 /* 16 log code categories, each has:
  * 1 bytes equip id + 1 dirty byte + 512 byte max log mask
@@ -86,14 +88,17 @@ int diag_process_dci_transaction(unsigned char *buf, int len);
 int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 							 int len, int index);
 void extract_dci_pkt_rsp(unsigned char *buf);
+int diag_dci_find_client_index(int client_id);
 /* DCI Log streaming functions */
 void create_dci_log_mask_tbl(unsigned char *tbl_buf);
 void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 						uint8_t byte_mask);
+void clear_client_dci_cumulative_log_mask(int client_index);
 int diag_send_dci_log_mask(smd_channel_t *ch);
 void extract_dci_log(unsigned char *buf);
 /* DCI event streaming functions */
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask);
+void clear_client_dci_cumulative_event_mask(int client_index);
 int diag_send_dci_event_mask(smd_channel_t *ch);
 void extract_dci_events(unsigned char *buf);
 void create_dci_event_mask_tbl(unsigned char *tbl_buf);
