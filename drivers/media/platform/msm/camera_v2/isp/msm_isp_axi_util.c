@@ -471,6 +471,8 @@ void msm_isp_calculate_framedrop(
 
 	if (stream_cfg_cmd->burst_count > 0) {
 		stream_info->stream_type = BURST_STREAM;
+		stream_info->num_burst_capture =
+			stream_cfg_cmd->burst_count;
 		stream_info->burst_frame_count =
 		stream_cfg_cmd->init_frame_drop +
 			(stream_cfg_cmd->burst_count - 1) *
@@ -478,6 +480,7 @@ void msm_isp_calculate_framedrop(
 	} else {
 		stream_info->stream_type = CONTINUOUS_STREAM;
 		stream_info->burst_frame_count = 0;
+		stream_info->num_burst_capture = 0;
 	}
 }
 
@@ -658,7 +661,7 @@ int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	struct timeval *tv)
 {
 	int i, rc = -1;
-	struct msm_isp_buffer *buf;
+	struct msm_isp_buffer *buf = NULL;
 	struct msm_isp_event_data buf_event;
 	uint32_t pingpong_bit = 0;
 	uint32_t bufq_handle = stream_info->bufq_handle;
@@ -669,7 +672,7 @@ int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 		vfe_dev->buf_mgr, bufq_handle, &buf);
 	if (rc < 0) {
 		if (stream_info->stream_type == BURST_STREAM &&
-				stream_info->burst_frame_count <= 1) {
+				stream_info->num_burst_capture <= 1) {
 			rc = 0;
 			if (pingpong_bit)
 				buf = stream_info->buf[0];
