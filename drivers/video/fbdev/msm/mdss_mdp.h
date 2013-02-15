@@ -66,7 +66,6 @@ static inline u32 mdss_mdp_reg_read(u32 addr)
 #endif
 
 enum mdss_mdp_block_power_state {
-	MDP_BLOCK_MASTER_OFF = -1,
 	MDP_BLOCK_POWER_OFF = 0,
 	MDP_BLOCK_POWER_ON = 1,
 };
