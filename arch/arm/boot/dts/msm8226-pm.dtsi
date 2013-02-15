@@ -309,10 +309,12 @@
 		qcom,gic-map = <47 172>, /* usb2_hsic_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
+			<0xff 56>,  /* q6_wdog_expired_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
 			<0xff 59>,  /* mss_to_apps_irq(2) */
 			<0xff 60>,  /* mss_to_apps_irq(3) */
+			<0xff 61>,  /* mss_a2_bam_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
 			<0xff 175>, /* o_wcss_apss_smd_low */
@@ -320,17 +322,15 @@
 			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
 			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
 			<0xff 179>, /* o_wcss_apss_asic_intr
-
+			<0xff 181>, /* o_wcss_apss_wdog_bite_and_reset_rdy */
 			<0xff 188>, /* lpass_irq_out_apcs(0) */
 			<0xff 189>, /* lpass_irq_out_apcs(1) */
 			<0xff 190>, /* lpass_irq_out_apcs(2) */
 			<0xff 191>, /* lpass_irq_out_apcs(3) */
 			<0xff 192>, /* lpass_irq_out_apcs(4) */
-			<0xff 193>, /* lpass_irq_out_apcs(5) */
-			<0xff 194>, /* lpass_irq_out_apcs(6) */
-			<0xff 195>, /* lpass_irq_out_apcs(7) */
-			<0xff 196>, /* lpass_irq_out_apcs(8) */
-			<0xff 197>, /* lpass_irq_out_apcs(9) */
+			<0xff 194>, /* lpass_irq_out_apcs[6] */
+			<0xff 195>, /* lpass_irq_out_apcs[7] */
+			<0xff 196>, /* lpass_irq_out_apcs[8] */
 			<0xff 200>, /* rpm_ipc(4) */
 			<0xff 201>, /* rpm_ipc(5) */
 			<0xff 202>, /* rpm_ipc(6) */
@@ -339,47 +339,54 @@
 			<0xff 205>, /* rpm_ipc(25) */
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
+			<0xff 258>, /* rpm_ipc(28) */
+			<0xff 259>, /* rpm_ipc(29) */
+			<0xff 275>, /* rpm_ipc(30) */
+			<0xff 276>, /* rpm_ipc(31) */
+			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 240>; /* summary_irq_kpss */
 
 		qcom,gpio-parent = <&msmgpio>;
-		qcom,gpio-map = <3  102>,
-			<4  1 >,
+		qcom,gpio-map = <3  1>,
+			<4  4 >,
 			<5  5 >,
 			<6  9 >,
-			<7  18>,
-			<8  20>,
-			<9  24>,
+			<7  13>,
+			<8  17>,
+			<9  21>,
 			<10  27>,
-			<11  28>,
-			<12  34>,
-			<13  35>,
-			<14  37>,
-			<15  42>,
-			<16  44>,
-			<17  46>,
-			<18  50>,
-			<19  54>,
-			<20  59>,
-			<21  61>,
-			<22  62>,
-			<23  64>,
-			<24  65>,
-			<25  66>,
-			<26  67>,
-			<27  68>,
-			<28  71>,
-			<29  72>,
-			<30  73>,
-			<31  74>,
-			<32  75>,
-			<33  77>,
-			<34  79>,
-			<35  80>,
-			<36  82>,
-			<37  86>,
-			<38  92>,
-			<39  93>,
-			<40  95>;
+			<11  29>,
+			<12  31>,
+			<13  33>,
+			<14  35>,
+			<15  37>,
+			<16  38>,
+			<17  39>,
+			<18  41>,
+			<19  46>,
+			<20  48>,
+			<21  49>,
+			<22  50>,
+			<23  51>,
+			<24  52>,
+			<25  54>,
+			<26  62>,
+			<27  63>,
+			<28  64>,
+			<29  65>,
+			<30  66>,
+			<31  67>,
+			<32  68>,
+			<33  69>,
+			<34  71>,
+			<35  72>,
+			<36  106>,
+			<37  107>,
+			<38  108>,
+			<39  109>,
+			<40  110>,
+			<54  111>,
+			<55  113>;
 	};
 
 	qcom,pm-8x60@fe805664 {
