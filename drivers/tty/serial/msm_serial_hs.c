@@ -855,6 +855,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	struct sps_pipe *sps_pipe_handle = rx->prod.pipe_handle;
 
 	mutex_lock(&msm_uport->clk_mutex);
+	msm_hs_write(uport, UARTDM_IMR_ADDR, 0);
 
 	/*
 	 * Disable Rx channel of UARTDM
@@ -947,7 +948,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 	uport->read_status_mask = (termios->c_cflag & CREAD);
 
-	msm_hs_write(uport, UARTDM_IMR_ADDR, 0);
 
 	/* Set Transmit software time out */
 	uart_update_timeout(uport, c_cflag, bps);
