@@ -39,7 +39,7 @@ static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
 {
 	struct mdss_mdp_pipe *pipe;
 
-	pipe = mdss_mdp_pipe_get(req->id);
+	pipe = mdss_mdp_pipe_get(mfd->mdata, req->id);
 	if (IS_ERR_OR_NULL(pipe)) {
 		pr_err("invalid pipe ndx=%x\n", req->id);
 		return pipe ? PTR_ERR(pipe) : -ENODEV;
@@ -306,7 +306,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pipe->mfd = mfd;
 		pipe->play_cnt = 0;
 	} else {
-		pipe = mdss_mdp_pipe_get(req->id);
+		pipe = mdss_mdp_pipe_get(mfd->mdata, req->id);
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_err("invalid pipe ndx=%x\n", req->id);
 			return pipe ? PTR_ERR(pipe) : -ENODEV;
@@ -518,7 +518,7 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 		pipe_ndx = BIT(i);
 		if (pipe_ndx & ndx) {
 			unset_ndx |= pipe_ndx;
-			pipe = mdss_mdp_pipe_get(pipe_ndx);
+			pipe = mdss_mdp_pipe_get(mfd->mdata, pipe_ndx);
 			if (IS_ERR_OR_NULL(pipe)) {
 				pr_warn("unknown pipe ndx=%x\n", pipe_ndx);
 				continue;
@@ -659,7 +659,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	int ret;
 	u32 flags;
 
-	pipe = mdss_mdp_pipe_get(req->id);
+	pipe = mdss_mdp_pipe_get(mfd->mdata, req->id);
 	if (IS_ERR_OR_NULL(pipe)) {
 		pr_err("pipe ndx=%x doesn't exist\n", req->id);
 		return pipe ? PTR_ERR(pipe) : -ENODEV;

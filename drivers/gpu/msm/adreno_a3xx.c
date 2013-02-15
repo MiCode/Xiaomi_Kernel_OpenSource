@@ -456,6 +456,8 @@ unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 		return A330v2_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a330(adreno_dev))
 		return A330_RBBM_CLOCK_CTL_DEFAULT;
+	else if (adreno_is_a305b(adreno_dev))
+		return A305B_RBBM_CLOCK_CTL_DEFAULT;
 
 	BUG_ON(1);
 }
@@ -2761,6 +2763,11 @@ static struct a3xx_vbif_data a305_vbif[] = {
 	{0, 0},
 };
 
+static struct a3xx_vbif_data a305b_vbif[] = {
+	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
+	{0, 0},
+};
+
 static struct a3xx_vbif_data a320_vbif[] = {
 	/* Set up 16 deep read/write request queues */
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010 },
@@ -2840,6 +2847,7 @@ static struct {
 	/* A330v2 needs to be ahead of A330 so the right device matches */
 	{ adreno_is_a330v2, a330v2_vbif },
 	{ adreno_is_a330, a330_vbif },
+	{ adreno_is_a305b, a305b_vbif },
 };
 
 static void a3xx_start(struct adreno_device *adreno_dev)
@@ -2901,7 +2909,8 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 			A330_RBBM_GPR0_CTL_DEFAULT);
 
 	/* Set the OCMEM base address for A330 */
-	if (adreno_is_a330(adreno_dev)) {
+	if (adreno_is_a330(adreno_dev) ||
+		adreno_is_a305b(adreno_dev)) {
 		adreno_regwrite(device, A3XX_RB_GMEM_BASE_ADDR,
 			(unsigned int)(adreno_dev->ocmem_base >> 14));
 	}

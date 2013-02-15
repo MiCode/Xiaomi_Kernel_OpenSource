@@ -49,7 +49,7 @@ static void msm_ispif_io_dump_reg(struct ispif_device *ispif)
 {
 	if (!ispif->enb_dump_reg)
 		return;
-	msm_camera_io_dump(ispif->base+0x100, 0x250);
+	msm_camera_io_dump(ispif->base, 0x250);
 }
 
 static inline int msm_ispif_is_intf_valid(uint32_t csid_version,
@@ -166,9 +166,10 @@ static void msm_ispif_sel_csid_core(struct ispif_device *ispif,
 		}
 
 		rc = clk_set_rate(ispif->ispif_clk[intftype], csid);
-		if (rc)
+		if (rc) {
 			pr_err("%s: clk_set_rate failed %d\n", __func__, rc);
-		return;
+			return;
+		}
 	}
 
 	data = msm_camera_io_r(ispif->base + ISPIF_INPUT_SEL_ADDR +

@@ -1853,6 +1853,9 @@ static u8 mmc_blk_prep_packed_list(struct mmc_queue *mq, struct request *req)
 			!IS_ALIGNED(blk_rq_sectors(cur), 8))
 		goto no_packed;
 
+	if (cur->cmd_flags & REQ_FUA)
+		goto no_packed;
+
 	max_blk_count = min(card->host->max_blk_count,
 			card->host->max_req_size >> 9);
 	if (unlikely(max_blk_count > 0xffff))
@@ -1888,6 +1891,12 @@ static u8 mmc_blk_prep_packed_list(struct mmc_queue *mq, struct request *req)
 		if (next->cmd_flags & REQ_DISCARD ||
 				next->cmd_flags & REQ_FLUSH) {
 			MMC_BLK_UPDATE_STOP_REASON(stats, FLUSH_OR_DISCARD);
+			put_back = 1;
+			break;
+		}
+
+		if (next->cmd_flags & REQ_FUA) {
+			MMC_BLK_UPDATE_STOP_REASON(stats, FUA);
 			put_back = 1;
 			break;
 		}

@@ -611,13 +611,15 @@ static int diag_process_apps_pkt(unsigned char *buf, int len)
 	int packet_type = 1, i, cmd_code;
 	unsigned char *temp = buf;
 	int data_type;
+	int mask_ret;
 #if defined(CONFIG_DIAG_OVER_USB)
 	unsigned char *ptr;
 #endif
 
 	/* Check if the command is a supported mask command */
-	if (diag_process_apps_masks(buf, len) == 0)
-		return 0;
+	mask_ret = diag_process_apps_masks(buf, len);
+	if (mask_ret <= 0)
+		return mask_ret;
 
 	/* Check for registered clients and forward packet to apropriate proc */
 	cmd_code = (int)(*(char *)buf);
@@ -991,10 +993,16 @@ void diag_process_hdlc(void *data, unsigned len)
 
 	ret = diag_hdlc_decode(&hdlc);
 
-	if (ret)
+	if (hdlc.dest_idx < 3) {
+		pr_err("diag: Integer underflow in hdlc processing\n");
+		return;
+	}
+	if (ret) {
 		type = diag_process_apps_pkt(driver->hdlc_buf,
 							  hdlc.dest_idx - 3);
-	else if (driver->debug_flag) {
+		if (type < 0)
+			return;
+	} else if (driver->debug_flag) {
 		printk(KERN_ERR "Packet dropped due to bad HDLC coding/CRC"
 				" errors or partial packet received, packet"
 				" length = %d\n", len);

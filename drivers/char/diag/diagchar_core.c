@@ -153,7 +153,7 @@ void diag_clear_hsic_tbl(void)
 					/* Return the buffer to the pool */
 					diagmem_free(driver, (unsigned char *)
 						(diag_hsic[j].hsic_buf_tbl[i].
-						 buf), POOL_TYPE_HSIC);
+						 buf), j+POOL_TYPE_HSIC);
 					diag_hsic[j].hsic_buf_tbl[i].buf = 0;
 				}
 				diag_hsic[j].hsic_buf_tbl[i].length = 0;
@@ -490,7 +490,7 @@ drop_hsic:
 				/* Return the buffer to the pool */
 				diagmem_free(driver,
 					(unsigned char *)(hsic_buf_tbl[i].buf),
-					POOL_TYPE_HSIC);
+					index+POOL_TYPE_HSIC);
 
 				/* Call the write complete function */
 				diagfwd_write_complete_hsic(NULL, index);
@@ -691,8 +691,10 @@ long diagchar_ioctl(struct file *filp,
 			return -ENOMEM;
 		}
 		if (copy_from_user(dci_params, (void *)ioarg,
-				 sizeof(struct diag_dci_client_tbl)))
+				 sizeof(struct diag_dci_client_tbl))) {
+			kfree(dci_params);
 			return -EFAULT;
+		}
 		mutex_lock(&driver->dci_mutex);
 		if (!(driver->num_dci_client))
 			for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
@@ -724,8 +726,8 @@ long diagchar_ioctl(struct file *filp,
 				break;
 			}
 		}
-		mutex_unlock(&driver->dci_mutex);
 		kfree(dci_params);
+		mutex_unlock(&driver->dci_mutex);
 		return driver->dci_client_id;
 	} else if (iocmd == DIAG_IOCTL_DCI_DEINIT) {
 		success = -1;
@@ -1197,6 +1199,10 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	if (pkt_type == USER_SPACE_DATA_TYPE) {
 		err = copy_from_user(driver->user_space_data, buf + 4,
 							 payload_size);
+		if (err) {
+			pr_err("diag: copy failed for user space data\n");
+			return -EIO;
+		}
 		/* Check for proc_type */
 		remote_proc = diag_get_remote(*(int *)driver->user_space_data);
 
