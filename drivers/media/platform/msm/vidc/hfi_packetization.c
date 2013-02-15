@@ -57,6 +57,27 @@ int create_pkt_cmd_sys_idle_indicator(
 	return 0;
 }
 
+int create_pkt_cmd_sys_debug_config(
+	struct hfi_cmd_sys_set_property_packet *pkt,
+	u32 mode)
+{
+	struct hfi_debug_config *hfi;
+	if (!pkt)
+		return -EINVAL;
+
+	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
+		sizeof(struct hfi_debug_config) + sizeof(u32);
+	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
+	pkt->num_properties = 1;
+	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_DEBUG_CONFIG;
+	hfi = (struct hfi_debug_config *) &pkt->rg_property_data[1];
+	hfi->debug_config = mode;
+	hfi->debug_mode = HFI_DEBUG_MODE_QUEUE;
+	if (msm_fw_debug_mode <= HFI_DEBUG_MODE_QDSS)
+		hfi->debug_mode = msm_fw_debug_mode;
+	return 0;
+}
+
 int create_pkt_set_cmd_sys_resource(
 		struct hfi_cmd_sys_set_resource_packet *pkt,
 		struct vidc_resource_hdr *resource_hdr,
