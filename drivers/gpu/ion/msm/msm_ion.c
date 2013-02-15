@@ -660,6 +660,21 @@ out:
 	return ret;
 }
 
+int ion_heap_allow_secure_allocation(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP);
+}
+
+int ion_heap_allow_handle_secure(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP);
+}
+
+int ion_heap_allow_heap_secure(enum ion_heap_type type)
+{
+	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP);
+}
+
 static long msm_ion_custom_ioctl(struct ion_client *client,
 				unsigned int cmd,
 				unsigned long arg)
