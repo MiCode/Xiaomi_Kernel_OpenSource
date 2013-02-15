@@ -38,6 +38,14 @@
 #define MXT_SUSPEND_LEVEL 1
 #endif
 
+#if defined(CONFIG_SECURE_TOUCH)
+#include <linux/completion.h>
+#include <linux/pm_runtime.h>
+#include <linux/errno.h>
+#include <asm/system.h>
+#include <linux/atomic.h>
+#endif
+
 /* Family ID */
 #define MXT224_ID	0x80
 #define MXT224E_ID	0x81
@@ -383,6 +391,11 @@ struct mxt_data {
 	bool update_cfg;
 	const char *fw_name;
 	bool no_force_update;
+#if defined(CONFIG_SECURE_TOUCH)
+	atomic_t st_enabled;
+	atomic_t st_pending_irqs;
+	struct completion st_completion;
+#endif
 };
 
 static struct dentry *debug_base;
@@ -979,6 +992,23 @@ static void mxt_handle_touch_supression(struct mxt_data *data, u8 status)
 		mxt_release_all(data);
 }
 
+#if defined(CONFIG_SECURE_TOUCH)
+static irqreturn_t mxt_filter_interrupt(struct mxt_data *data)
+{
+	if (atomic_read(&data->st_enabled)) {
+		atomic_cmpxchg(&data->st_pending_irqs, 0, 1);
+		complete(&data->st_completion);
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+#else
+static irqreturn_t mxt_filter_interrupt(struct mxt_data *data)
+{
+	return IRQ_NONE;
+}
+#endif
+
 static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 {
 	struct mxt_data *data = dev_id;
@@ -991,6 +1021,9 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 		dev_err(dev, "Ignoring IRQ - not in APPMODE state\n");
 		return IRQ_HANDLED;
 	}
+
+	if (IRQ_HANDLED == mxt_filter_interrupt(data))
+		goto end;
 
 	do {
 		if (mxt_read_message(data, &message)) {
@@ -1910,6 +1943,100 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 	return count;
 }
 
+#if defined(CONFIG_SECURE_TOUCH)
+
+static ssize_t mxt_secure_touch_enable_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	return scnprintf(buf, PAGE_SIZE, "%d", atomic_read(&data->st_enabled));
+}
+/*
+ * Accept only "0" and "1" valid values.
+ * "0" will reset the st_enabled flag, then wake up the reading process.
+ * The bus driver is notified via pm_runtime that it is not required to stay
+ * awake anymore.
+ * It will also make sure the queue of events is emptied in the controller,
+ * in case a touch happened in between the secure touch being disabled and
+ * the local ISR being ungated.
+ * "1" will set the st_enabled flag and clear the st_pending_irqs flag.
+ * The bus driver is requested via pm_runtime to stay awake.
+ */
+static ssize_t mxt_secure_touch_enable_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	unsigned long value;
+	int err = 0;
+
+	if (count > 2)
+		return -EINVAL;
+
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	err = count;
+
+	switch (value) {
+	case 0:
+		if (atomic_read(&data->st_enabled) == 0)
+			break;
+
+		pm_runtime_put(&data->client->adapter->dev);
+		atomic_set(&data->st_enabled, 0);
+		complete(&data->st_completion);
+		mxt_interrupt(data->client->irq, data);
+		break;
+	case 1:
+		if (atomic_read(&data->st_enabled)) {
+			err = -EBUSY;
+			break;
+		}
+
+		if (pm_runtime_get(data->client->adapter->dev.parent) < 0) {
+			dev_err(&data->client->dev, "pm_runtime_get failed\n");
+			err = -EIO;
+			break;
+		}
+		atomic_set(&data->st_pending_irqs, 0);
+		atomic_set(&data->st_enabled, 1);
+		break;
+	default:
+		dev_err(&data->client->dev, "unsupported value: %lu\n", value);
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
+static ssize_t mxt_secure_touch_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	int err;
+
+	if (atomic_read(&data->st_enabled) == 0)
+		return -EBADF;
+
+	err = wait_for_completion_interruptible(&data->st_completion);
+
+	if (err)
+		return err;
+
+	if (atomic_cmpxchg(&data->st_pending_irqs, 1, 0) != 1)
+		return -EBADF;
+
+	return scnprintf(buf, PAGE_SIZE, "%u", 1);
+}
+
+static DEVICE_ATTR(secure_touch_enable, 0666, mxt_secure_touch_enable_show,
+	mxt_secure_touch_enable_store);
+static DEVICE_ATTR(secure_touch, 0444, mxt_secure_touch_show, NULL);
+#endif
+
 static DEVICE_ATTR(object, 0444, mxt_object_show, NULL);
 static DEVICE_ATTR(update_fw, 0664, NULL, mxt_update_fw_store);
 static DEVICE_ATTR(force_cfg_update, 0664, NULL, mxt_force_cfg_update_store);
@@ -1918,6 +2045,10 @@ static struct attribute *mxt_attrs[] = {
 	&dev_attr_object.attr,
 	&dev_attr_update_fw.attr,
 	&dev_attr_force_cfg_update.attr,
+#if defined(CONFIG_SECURE_TOUCH)
+	&dev_attr_secure_touch_enable.attr,
+	&dev_attr_secure_touch.attr,
+#endif
 	NULL
 };
 
@@ -2655,6 +2786,17 @@ static void mxt_late_resume(struct early_suspend *h)
 
 #endif
 
+#if defined(CONFIG_SECURE_TOUCH)
+static void __devinit secure_touch_init(struct mxt_data *data)
+{
+	init_completion(&data->st_completion);
+}
+#else
+static void __devinit secure_touch_init(struct mxt_data *data)
+{
+}
+#endif
+
 static int __devinit mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -2839,6 +2981,8 @@ static int __devinit mxt_probe(struct i2c_client *client,
 #endif
 
 	mxt_debugfs_init(data);
+
+	secure_touch_init(data);
 
 	return 0;
 
