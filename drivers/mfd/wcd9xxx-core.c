@@ -311,6 +311,10 @@ static struct wcd9xx_codec_type {
 	 {0x0, 0x0, 0x2, 0x1}, taiko_devs, ARRAY_SIZE(taiko_devs),
 	  TAIKO_NUM_IRQS, 1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO
 	},
+	{ /* wcd9320 version 2 */
+	 {0x1, 0x0, 0x2, 0x1}, taiko_devs, ARRAY_SIZE(taiko_devs),
+	 TAIKO_NUM_IRQS, 2, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO
+	},
 	{
 	 {0x0, 0x0, 0x3, 0x1}, tapan_devs, ARRAY_SIZE(tapan_devs),
 	 TAPAN_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO
