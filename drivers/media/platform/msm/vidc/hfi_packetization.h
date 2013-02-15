@@ -31,6 +31,10 @@ int create_pkt_set_cmd_sys_resource(
 		struct vidc_resource_hdr *resource_hdr,
 		void *resource_value);
 
+int create_pkt_cmd_sys_debug_config(
+		struct hfi_cmd_sys_set_property_packet *pkt,
+		u32 mode);
+
 int create_pkt_cmd_sys_release_resource(
 		struct hfi_cmd_sys_release_resource_packet *pkt,
 		struct vidc_resource_hdr *resource_hdr);

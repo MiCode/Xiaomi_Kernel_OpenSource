@@ -892,20 +892,16 @@ static void venus_hfi_set_registers(struct venus_hfi_device *device)
 
 static int venus_hfi_sys_set_debug(struct venus_hfi_device *device, int debug)
 {
-	struct hfi_debug_config *hfi;
 	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
+	int rc = 0;
 	struct hfi_cmd_sys_set_property_packet *pkt =
 		(struct hfi_cmd_sys_set_property_packet *) &packet;
-	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-		sizeof(struct hfi_debug_config) + sizeof(u32);
-	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
-	pkt->num_properties = 1;
-	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_DEBUG_CONFIG;
-	hfi = (struct hfi_debug_config *) &pkt->rg_property_data[1];
-	hfi->debug_config = debug;
-	hfi->debug_mode = HFI_DEBUG_MODE_QUEUE;
-	if (msm_fw_debug_mode <= HFI_DEBUG_MODE_QDSS)
-		hfi->debug_mode = msm_fw_debug_mode;
+	rc = create_pkt_cmd_sys_debug_config(pkt, debug);
+	if (rc) {
+		dprintk(VIDC_WARN,
+			"Debug mode setting to FW failed\n");
+		return -ENOTEMPTY;
+	}
 	if (venus_hfi_iface_cmdq_write(device, pkt))
 		return -ENOTEMPTY;
 	return 0;
