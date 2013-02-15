@@ -837,7 +837,7 @@ static struct platform_driver msm_bus_fabric_driver = {
 	.probe = msm_bus_fabric_probe,
 	.remove = msm_bus_fabric_remove,
 	.driver = {
-		.name = "msm-bus-fabric",
+		.name = "msm_bus_fabric",
 		.owner = THIS_MODULE,
 		.of_match_table = fabric_match,
 	},
