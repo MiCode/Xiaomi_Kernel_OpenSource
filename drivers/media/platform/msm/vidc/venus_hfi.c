@@ -2862,6 +2862,12 @@ static int venus_hfi_load_fw(void *dev)
 		return -EINVAL;
 	}
 
+	rc = venus_hfi_iommu_attach(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to attach iommu");
+		goto fail_iommu_attach;
+	}
+
 	if (!device->resources.fw.cookie)
 		device->resources.fw.cookie = subsystem_get("venus");
 
@@ -2881,21 +2887,18 @@ static int venus_hfi_load_fw(void *dev)
 	rc = protect_cp_mem(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to protect memory\n");
-		goto fail_iommu_attach;
+		goto fail_protect_mem;
 	}
 
-	rc = venus_hfi_iommu_attach(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to attach iommu");
-		goto fail_iommu_attach;
-	}
 	return rc;
-fail_iommu_attach:
+fail_protect_mem:
 	venus_hfi_disable_clks(device);
 fail_enable_clks:
 	subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
 fail_load_fw:
+	venus_hfi_iommu_detach(device);
+fail_iommu_attach:
 	return rc;
 }
 
@@ -2908,9 +2911,9 @@ static void venus_hfi_unload_fw(void *dev)
 		return;
 	}
 	if (device->resources.fw.cookie) {
-		venus_hfi_iommu_detach(device);
 		venus_hfi_disable_clks(device);
 		subsystem_put(device->resources.fw.cookie);
+		venus_hfi_iommu_detach(device);
 		device->resources.fw.cookie = NULL;
 	}
 }
