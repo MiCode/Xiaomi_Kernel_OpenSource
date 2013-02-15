@@ -889,8 +889,6 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 		goto fail;
 	}
 
-	iommu_halt(drvdata);
-
 	fsr = GET_FSR(drvdata->base, ctx_drvdata->num);
 	if (fsr) {
 		if (!ctx_drvdata->attached_domain) {
@@ -914,8 +912,6 @@ irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id)
 		ret = IRQ_HANDLED;
 	} else
 		ret = IRQ_NONE;
-
-	iommu_resume(drvdata);
 
 	__disable_clocks(drvdata);
 fail:
