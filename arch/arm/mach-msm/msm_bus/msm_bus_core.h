@@ -265,12 +265,12 @@ static inline void msm_bus_dbg_commit_data(const char *fabname,
 int msmbus_coresight_init(struct platform_device *pdev);
 void msmbus_coresight_remove(struct platform_device *pdev);
 #else
-int msmbus_coresight_init(struct platform_device *pdev)
+static inline int msmbus_coresight_init(struct platform_device *pdev)
 {
 	return 0;
 }
 
-void msmbus_coresight_remove(struct platform_device *pdev)
+static inline void msmbus_coresight_remove(struct platform_device *pdev)
 {
 }
 #endif
