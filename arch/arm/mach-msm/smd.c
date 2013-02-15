@@ -397,6 +397,8 @@ static inline void log_notify(uint32_t subsystem, smd_channel_t *ch)
 {
 	const char *subsys = smd_edge_to_subsystem(subsystem);
 
+	(void) subsys;
+
 	if (!ch)
 		SMx_POWER_INFO("Apps->%s\n", subsys);
 	else
@@ -1352,6 +1354,8 @@ static void handle_smd_irq(struct list_head *list,
 static inline void log_irq(uint32_t subsystem)
 {
 	const char *subsys = smd_edge_to_subsystem(subsystem);
+
+	(void) subsys;
 
 	SMx_POWER_INFO("SMD Int %s->Apps\n", subsys);
 }

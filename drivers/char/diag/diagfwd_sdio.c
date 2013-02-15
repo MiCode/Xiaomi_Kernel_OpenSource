@@ -105,8 +105,8 @@ int diagfwd_connect_sdio(void)
 {
 	int err;
 
-	err = usb_diag_alloc_req(driver->mdm_ch, N_MDM_WRITE,
-							 N_MDM_READ);
+	err = usb_diag_alloc_req(driver->mdm_ch, N_MDM_SDIO_WRITE,
+							 N_MDM_SDIO_READ);
 	if (err)
 		pr_err("diag: unable to alloc USB req on mdm ch\n");
 
