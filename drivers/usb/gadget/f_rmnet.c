@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -538,6 +538,25 @@ static void frmnet_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(f->name);
 }
 
+static void frmnet_purge_responses(struct f_rmnet *dev)
+{
+	unsigned long flags;
+	struct rmnet_ctrl_pkt *cpkt;
+
+	pr_debug("%s: port#%d\n", __func__, dev->port_num);
+
+	spin_lock_irqsave(&dev->lock, flags);
+	while (!list_empty(&dev->cpkt_resp_q)) {
+		cpkt = list_first_entry(&dev->cpkt_resp_q,
+				struct rmnet_ctrl_pkt, list);
+
+		list_del(&cpkt->list);
+		rmnet_free_ctrl_pkt(cpkt);
+	}
+	atomic_set(&dev->notify_count, 0);
+	spin_unlock_irqrestore(&dev->lock, flags);
+}
+
 static void frmnet_suspend(struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
@@ -547,6 +566,8 @@ static void frmnet_suspend(struct usb_function *f)
 	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
 		__func__, xport_to_str(dxport),
 		dev, dev->port_num);
+
+	frmnet_purge_responses(dev);
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
@@ -601,8 +622,6 @@ static void frmnet_resume(struct usb_function *f)
 static void frmnet_disable(struct usb_function *f)
 {
 	struct f_rmnet *dev = func_to_rmnet(f);
-	unsigned long flags;
-	struct rmnet_ctrl_pkt *cpkt;
 
 	pr_debug("%s: port#%d\n", __func__, dev->port_num);
 
@@ -611,16 +630,7 @@ static void frmnet_disable(struct usb_function *f)
 
 	atomic_set(&dev->online, 0);
 
-	spin_lock_irqsave(&dev->lock, flags);
-	while (!list_empty(&dev->cpkt_resp_q)) {
-		cpkt = list_first_entry(&dev->cpkt_resp_q,
-				struct rmnet_ctrl_pkt, list);
-
-		list_del(&cpkt->list);
-		rmnet_free_ctrl_pkt(cpkt);
-	}
-	atomic_set(&dev->notify_count, 0);
-	spin_unlock_irqrestore(&dev->lock, flags);
+	frmnet_purge_responses(dev);
 
 	gport_rmnet_disconnect(dev);
 }
@@ -708,11 +718,11 @@ static void frmnet_ctrl_response_available(struct f_rmnet *dev)
 
 	ret = usb_ep_queue(dev->notify, dev->notify_req, GFP_ATOMIC);
 	if (ret) {
-		atomic_dec(&dev->notify_count);
 		spin_lock_irqsave(&dev->lock, flags);
-		cpkt = list_first_entry(&dev->cpkt_resp_q,
+		if (!list_empty(&dev->cpkt_resp_q)) {
+			atomic_dec(&dev->notify_count);
+			cpkt = list_first_entry(&dev->cpkt_resp_q,
 					struct rmnet_ctrl_pkt, list);
-		if (cpkt) {
 			list_del(&cpkt->list);
 			rmnet_free_ctrl_pkt(cpkt);
 		}
@@ -738,10 +748,8 @@ static void frmnet_connect(struct grmnet *gr)
 static void frmnet_disconnect(struct grmnet *gr)
 {
 	struct f_rmnet			*dev;
-	unsigned long			flags;
 	struct usb_cdc_notification	*event;
 	int				status;
-	struct rmnet_ctrl_pkt		*cpkt;
 
 	if (!gr) {
 		pr_err("%s: Invalid grmnet:%p\n", __func__, gr);
@@ -775,17 +783,7 @@ static void frmnet_disconnect(struct grmnet *gr)
 				__func__, status);
 	}
 
-	spin_lock_irqsave(&dev->lock, flags);
-	while (!list_empty(&dev->cpkt_resp_q)) {
-		cpkt = list_first_entry(&dev->cpkt_resp_q,
-				struct rmnet_ctrl_pkt, list);
-
-		list_del(&cpkt->list);
-		rmnet_free_ctrl_pkt(cpkt);
-	}
-	atomic_set(&dev->notify_count, 0);
-	spin_unlock_irqrestore(&dev->lock, flags);
-
+	frmnet_purge_responses(dev);
 }
 
 static int
@@ -875,11 +873,11 @@ static void frmnet_notify_complete(struct usb_ep *ep, struct usb_request *req)
 
 		status = usb_ep_queue(dev->notify, req, GFP_ATOMIC);
 		if (status) {
-			atomic_dec(&dev->notify_count);
 			spin_lock_irqsave(&dev->lock, flags);
-			cpkt = list_first_entry(&dev->cpkt_resp_q,
+			if (!list_empty(&dev->cpkt_resp_q)) {
+				atomic_dec(&dev->notify_count);
+				cpkt = list_first_entry(&dev->cpkt_resp_q,
 						struct rmnet_ctrl_pkt, list);
-			if (cpkt) {
 				list_del(&cpkt->list);
 				rmnet_free_ctrl_pkt(cpkt);
 			}
