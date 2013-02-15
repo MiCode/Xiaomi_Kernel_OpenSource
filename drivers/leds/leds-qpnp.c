@@ -27,6 +27,7 @@
 #define WLED_MOD_EN_REG(base, n)	(base + 0x60 + n*0x10)
 #define WLED_IDAC_DLY_REG(base, n)	(WLED_MOD_EN_REG(base, n) + 0x01)
 #define WLED_FULL_SCALE_REG(base, n)	(WLED_IDAC_DLY_REG(base, n) + 0x01)
+#define WLED_MOD_SRC_SEL_REG(base, n)	(WLED_FULL_SCALE_REG(base, n) + 0x01)
 
 /* wled control registers */
 #define WLED_BRIGHTNESS_CNTL_LSB(base, n)	(base + 0x40 + 2*n)
@@ -83,7 +84,7 @@
 #define FLASH_LED_1_CURR(base)		(base + 0x43)
 #define FLASH_CLAMP_CURR(base)		(base + 0x44)
 #define FLASH_LED_TMR_CTRL(base)	(base + 0x48)
-#define FLASH_HEADROOM(base)		(base + 0x49)
+#define FLASH_HEADROOM(base)		(base + 0x4A)
 #define FLASH_STARTUP_DELAY(base)	(base + 0x4B)
 #define FLASH_MASK_ENABLE(base)		(base + 0x4C)
 #define FLASH_VREG_OK_FORCE(base)	(base + 0x4F)
@@ -755,7 +756,7 @@ static int __devinit qpnp_wled_init(struct qpnp_led_data *led)
 
 		if (led->wled_cfg->dig_mod_gen_en) {
 			rc = qpnp_led_masked_write(led,
-				WLED_MOD_EN_REG(led->base, i),
+				WLED_MOD_SRC_SEL_REG(led->base, i),
 				WLED_NO_MASK, WLED_USE_EXT_GEN_MOD_SRC);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
