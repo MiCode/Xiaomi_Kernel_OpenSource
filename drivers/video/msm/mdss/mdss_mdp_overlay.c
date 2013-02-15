@@ -580,6 +580,13 @@ static int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd)
 		unset_ndx |= pipe->ndx;
 		cnt++;
 	}
+
+	if (cnt == 0 && !list_empty(&mfd->pipes_cleanup)) {
+		pr_warn("overlay release on fb%d called without commit!",
+			mfd->index);
+		cnt++;
+	}
+
 	mutex_unlock(&mfd->lock);
 
 	if (unset_ndx) {
