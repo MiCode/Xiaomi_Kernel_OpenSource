@@ -251,6 +251,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 				   NULL, NULL);
 
 	ctx->ref_cnt--;
+	ctl->priv_data = NULL;
 
 	return 0;
 }
