@@ -14,32 +14,41 @@
 #define __MSM_ISPIF_HWREG_V1_H__
 
 /* common registers */
-#define ISPIF_RST_CMD_ADDR                  0x0000
-#define ISPIF_RST_CMD_1_ADDR                0x0000 /* undefined */
-#define ISPIF_INTF_CMD_ADDR                 0x0004
-#define ISPIF_INTF_CMD_1_ADDR               0x0030
-#define ISPIF_CTRL_ADDR                     0x0008
-#define ISPIF_INPUT_SEL_ADDR                0x000C
-#define ISPIF_PIX_0_INTF_CID_MASK_ADDR      0x0010
-#define ISPIF_RDI_0_INTF_CID_MASK_ADDR      0x0014
-#define ISPIF_PIX_1_INTF_CID_MASK_ADDR      0x0038
-#define ISPIF_RDI_1_INTF_CID_MASK_ADDR      0x003C
-#define ISPIF_RDI_2_INTF_CID_MASK_ADDR      0x0044
-#define ISPIF_PIX_0_STATUS_ADDR             0x0024
-#define ISPIF_RDI_0_STATUS_ADDR             0x0028
-#define ISPIF_PIX_1_STATUS_ADDR             0x0060
-#define ISPIF_RDI_1_STATUS_ADDR             0x0064
-#define ISPIF_RDI_2_STATUS_ADDR             0x006C
-#define ISPIF_IRQ_MASK_ADDR                 0x0100
-#define ISPIF_IRQ_CLEAR_ADDR                0x0104
-#define ISPIF_IRQ_STATUS_ADDR               0x0108
-#define ISPIF_IRQ_MASK_1_ADDR               0x010C
-#define ISPIF_IRQ_CLEAR_1_ADDR              0x0110
-#define ISPIF_IRQ_STATUS_1_ADDR             0x0114
-#define ISPIF_IRQ_MASK_2_ADDR               0x0118
-#define ISPIF_IRQ_CLEAR_2_ADDR              0x011C
-#define ISPIF_IRQ_STATUS_2_ADDR             0x0120
-#define ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR     0x0124
+#define ISPIF_RST_CMD_ADDR                       0x0000
+#define ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR          0x0124
+
+#define ISPIF_VFE(m)                             (0x0)
+
+#define ISPIF_VFE_m_CTRL_0(m)                    (0x0008 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_MASK_0(m)                (0x0100 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_MASK_1(m)                (0x010C + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_MASK_2(m)                (0x0118 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_STATUS_0(m)              (0x0108 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_STATUS_1(m)              (0x0114 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_STATUS_2(m)              (0x0120 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_CLEAR_0(m)               (0x0104 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_CLEAR_1(m)               (0x0110 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_IRQ_CLEAR_2(m)               (0x011C + ISPIF_VFE(m))
+#define ISPIF_VFE_m_INPUT_SEL(m)                 (0x000C + ISPIF_VFE(m))
+#define ISPIF_VFE_m_INTF_CMD_0(m)                (0x0004 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_INTF_CMD_1(m)                (0x0030 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_PIX_INTF_n_CID_MASK(m, n)    (0x0010 + ISPIF_VFE(m) + 4*(n))
+#define ISPIF_VFE_m_RDI_INTF_n_CID_MASK(m, n)    (0x0014 + ISPIF_VFE(m) + 4*(n))
+#define ISPIF_VFE_m_PIX_OUTPUT_n_MISR(m, n)      (0x0290 + ISPIF_VFE(m) + 4*(n))
+#define ISPIF_VFE_m_RDI_OUTPUT_n_MISR_0(m, n)    (0x0298 + ISPIF_VFE(m) + 8*(n))
+#define ISPIF_VFE_m_RDI_OUTPUT_n_MISR_1(m, n)    (0x029C + ISPIF_VFE(m) + 8*(n))
+#define ISPIF_VFE_m_PIX_INTF_n_STATUS(m, n)      (0x0024 + ISPIF_VFE(m) + 4*(n))
+#define ISPIF_VFE_m_RDI_INTF_n_STATUS(m, n)      (0x0028 + ISPIF_VFE(m) + 4*(n))
+
+/* Defines for compatibility with newer ISPIF versions */
+#define ISPIF_RST_CMD_1_ADDR                     (0x0000)
+#define ISPIF_VFE_m_PIX_INTF_n_CROP(m, n)        (0x0000 + ISPIF_VFE(m) + 4*(n))
+#define ISPIF_VFE_m_3D_THRESHOLD(m)              (0x0000 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_OUTPUT_SEL(m)                (0x0000 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_3D_DESKEW_SIZE(m)            (0x0000 + ISPIF_VFE(m))
+
+
+
 
 /*ISPIF RESET BITS*/
 #define VFE_CLK_DOMAIN_RST                 BIT(31)
