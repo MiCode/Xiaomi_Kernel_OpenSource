@@ -19,9 +19,9 @@
 /include/ "msm9625.dtsi"
 
 / {
-	qcom,msm-imem@fc42b000 {
+	qcom,msm-imem@fc42a800 {
 		compatible = "qcom,msm-imem";
-		reg = <0xfc42b000 0x1000>; /* Address and size of IMEM */
+		reg = <0xfc42a800 0x1000>; /* Address and size of IMEM */
 	};
 
 	android_usb@fc42a8c8 {
