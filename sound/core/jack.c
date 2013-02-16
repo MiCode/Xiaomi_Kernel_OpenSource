@@ -25,13 +25,16 @@
 #include <sound/jack.h>
 #include <sound/core.h>
 
-static int jack_switch_types[SND_JACK_SWITCH_TYPES] = {
+static int jack_switch_types[] = {
 	SW_HEADPHONE_INSERT,
 	SW_MICROPHONE_INSERT,
 	SW_LINEOUT_INSERT,
 	SW_JACK_PHYSICAL_INSERT,
 	SW_VIDEOOUT_INSERT,
 	SW_LINEIN_INSERT,
+	SW_HPHL_OVERCURRENT,
+	SW_HPHR_OVERCURRENT,
+	SW_UNSUPPORT_INSERT,
 };
 
 static int snd_jack_dev_free(struct snd_device *device)
@@ -128,7 +131,7 @@ int snd_jack_new(struct snd_card *card, const char *id, int type,
 
 	jack->type = type;
 
-	for (i = 0; i < SND_JACK_SWITCH_TYPES; i++)
+	for (i = 0; i < ARRAY_SIZE(jack_switch_types); i++)
 		if (type & (1 << i))
 			input_set_capability(jack->input_dev, EV_SW,
 					     jack_switch_types[i]);
