@@ -25,14 +25,13 @@
 #include "msm_sd.h"
 
 struct msm_get_bufs {
-	struct list_head list;
+	struct list_head entry;
 	struct vb2_buffer *vb2_buf;
 };
 
 struct msm_buf_mngr_device {
+	struct list_head buf_qhead;
 	struct msm_sd_subdev subdev;
 	struct msm_sd_req_vb2_q vb2_ops;
-	struct msm_get_bufs bufs;
 };
-
 #endif

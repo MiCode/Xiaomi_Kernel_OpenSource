@@ -9,69 +9,98 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include "msm_generic_buf_mgr.h"
 
-struct msm_buf_mngr_device *msm_buf_mngr_dev;
+static struct msm_buf_mngr_device *msm_buf_mngr_dev;
 
 static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
-	struct msm_buf_mngr_info *buf_info)
+	void __user *argp)
 {
-	struct vb2_buffer *vb2_buf = NULL;
-	vb2_buf = buf_mngr_dev->vb2_ops.get_buf(buf_info->session_id,
+	struct msm_buf_mngr_info *buf_info =
+		(struct msm_buf_mngr_info *)argp;
+	struct msm_get_bufs *new_entry =
+		kzalloc(sizeof(struct msm_get_bufs), GFP_KERNEL);
+
+	if (!new_entry) {
+		pr_err("%s:No mem\n", __func__);
+		return -ENOMEM;
+	}
+	INIT_LIST_HEAD(&new_entry->entry);
+	new_entry->vb2_buf = buf_mngr_dev->vb2_ops.get_buf(buf_info->session_id,
 		buf_info->stream_id);
-	buf_mngr_dev->bufs.vb2_buf = vb2_buf;
-	list_add_tail(&buf_mngr_dev->bufs.list, &buf_mngr_dev->bufs.list);
-	buf_info->index = vb2_buf->v4l2_buf.index;
+	if (!new_entry->vb2_buf) {
+		pr_err("%s:Get buf is null\n", __func__);
+		kfree(new_entry);
+		return -EINVAL;
+	}
+	list_add_tail(&new_entry->entry, &buf_mngr_dev->buf_qhead);
+	buf_info->index = new_entry->vb2_buf->v4l2_buf.index;
 	return 0;
 }
 
 static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 	struct msm_buf_mngr_info *buf_info)
 {
-	struct vb2_buffer *vb2_buf = NULL;
-	list_for_each_entry(vb2_buf, &buf_mngr_dev->bufs.list, queued_entry) {
-		if (vb2_buf->v4l2_buf.index == buf_info->index) {
-			buf_mngr_dev->vb2_ops.put_buf(vb2_buf);
+	struct msm_get_bufs *bufs, *save;
+	int ret = -EINVAL;
+	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
+		if (bufs->vb2_buf->v4l2_buf.index == buf_info->index) {
+			bufs->vb2_buf->v4l2_buf.sequence  = buf_info->frame_id;
+			ret = buf_mngr_dev->vb2_ops.buf_done
+					(bufs->vb2_buf);
+			list_del_init(&bufs->entry);
+			kfree(bufs);
 			break;
 		}
 	}
-	return 0;
+	return ret;
 }
+
 
 static int msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	struct msm_buf_mngr_info *buf_info)
 {
-	struct vb2_buffer *vb2_buf = NULL;
-	list_for_each_entry(vb2_buf, &buf_mngr_dev->bufs.list, queued_entry) {
-		if (vb2_buf->v4l2_buf.index == buf_info->index) {
-			buf_mngr_dev->vb2_ops.buf_done(vb2_buf);
+	struct msm_get_bufs *bufs, *save;
+	int ret = -EINVAL;
+
+	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
+		if (bufs->vb2_buf->v4l2_buf.index == buf_info->index) {
+			ret = buf_mngr_dev->vb2_ops.put_buf(bufs->vb2_buf);
+			list_del_init(&bufs->entry);
+			kfree(bufs);
 			break;
 		}
 	}
-	return 0;
+	return ret;
 }
 
 static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
+	int rc = 0;
 	struct msm_buf_mngr_device *buf_mngr_dev = v4l2_get_subdevdata(sd);
-
 	void __user *argp = (void __user *)arg;
+
+	if (!buf_mngr_dev) {
+		pr_err("%s buf manager device NULL\n", __func__);
+		rc = -ENOMEM;
+		return rc;
+	}
+
 	switch (cmd) {
 	case VIDIOC_MSM_BUF_MNGR_GET_BUF:
-		msm_buf_mngr_get_buf(buf_mngr_dev, argp);
+		rc = msm_buf_mngr_get_buf(buf_mngr_dev, argp);
 		break;
 	case VIDIOC_MSM_BUF_MNGR_BUF_DONE:
-		msm_buf_mngr_buf_done(buf_mngr_dev, argp);
+		rc = msm_buf_mngr_buf_done(buf_mngr_dev, argp);
 		break;
 	case VIDIOC_MSM_BUF_MNGR_PUT_BUF:
-		msm_buf_mngr_put_buf(buf_mngr_dev, argp);
+		rc = msm_buf_mngr_put_buf(buf_mngr_dev, argp);
 		break;
 	default:
 		return -ENOIOCTLCMD;
 	}
-	return 0;
+	return rc;
 }
 
 static struct v4l2_subdev_core_ops msm_buf_mngr_subdev_core_ops = {
@@ -89,7 +118,6 @@ static const struct of_device_id msm_buf_mngr_dt_match[] = {
 static int __init msm_buf_mngr_init(void)
 {
 	int rc = 0;
-
 	msm_buf_mngr_dev = kzalloc(sizeof(*msm_buf_mngr_dev),
 		GFP_KERNEL);
 	if (WARN_ON(!msm_buf_mngr_dev)) {
@@ -115,8 +143,9 @@ static int __init msm_buf_mngr_init(void)
 	}
 
 	v4l2_subdev_notify(&msm_buf_mngr_dev->subdev.sd, MSM_SD_NOTIFY_REQ_CB,
-	  &msm_buf_mngr_dev->vb2_ops);
+		&msm_buf_mngr_dev->vb2_ops);
 
+	INIT_LIST_HEAD(&msm_buf_mngr_dev->buf_qhead);
 end:
 	return rc;
 }
