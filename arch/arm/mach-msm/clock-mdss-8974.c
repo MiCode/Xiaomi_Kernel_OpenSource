@@ -205,19 +205,17 @@ static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	REG_W(0x03, mdss_dsi_base + 0x0228); /* postDiv3 */
 
 	REG_W(0x2b, mdss_dsi_base + 0x0278); /* Cal CFG3 */
-	REG_W(0x06, mdss_dsi_base + 0x027c); /* Cal CFG4 */
-	REG_W(0x05, mdss_dsi_base + 0x0264); /* Cal CFG4 */
+	REG_W(0x66, mdss_dsi_base + 0x027c); /* Cal CFG4 */
+	REG_W(0x05, mdss_dsi_base + 0x0264); /* LKDET CFG2 */
 
 	REG_W(0x0a, mdss_dsi_base + 0x023c); /* SDM CFG1 */
 	REG_W(0xab, mdss_dsi_base + 0x0240); /* SDM CFG2 */
 	REG_W(0x0a, mdss_dsi_base + 0x0244); /* SDM CFG3 */
 	REG_W(0x00, mdss_dsi_base + 0x0248); /* SDM CFG4 */
 
-	udelay(10);
-
 	REG_W(0x01, mdss_dsi_base + 0x0200); /* REFCLK CFG */
 	REG_W(0x00, mdss_dsi_base + 0x0214); /* PWRGEN CFG */
-	REG_W(0x01, mdss_dsi_base + 0x020c); /* VCOLPF CFG */
+	REG_W(0x71, mdss_dsi_base + 0x020c); /* VCOLPF CFG */
 	REG_W(0x02, mdss_dsi_base + 0x0210); /* VREG CFG */
 	REG_W(0x00, mdss_dsi_base + 0x0238); /* SDM CFG0 */
 
@@ -242,6 +240,22 @@ static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	return 0;
 }
 
+static void mdss_dsi_uniphy_pll_lock_detect_setting(void)
+{
+	REG_W(0x04, mdss_dsi_base + 0x0264); /* LKDetect CFG2 */
+	udelay(100);
+	REG_W(0x05, mdss_dsi_base + 0x0264); /* LKDetect CFG2 */
+	udelay(500);
+}
+
+static void mdss_dsi_uniphy_pll_sw_reset(void)
+{
+	REG_W(0x01, mdss_dsi_base + 0x0268); /* PLL TEST CFG */
+	udelay(1);
+	REG_W(0x00, mdss_dsi_base + 0x0268); /* PLL TEST CFG */
+	udelay(1);
+}
+
 static int __mdss_dsi_pll_enable(struct clk *c)
 {
 	u32 status;
@@ -264,17 +278,23 @@ static int __mdss_dsi_pll_enable(struct clk *c)
 
 	clk_enable(mdss_dsi_ahb_clk);
 
+	mdss_dsi_uniphy_pll_sw_reset();
 	/* PLL power up */
-	for (i = 0; i < 3; i++) {
-		REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
-		REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
-		udelay(20);
-		REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
-		udelay(20);
-		REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+	/* Add HW recommended delay between
+	   register writes for the update to propagate */
+	REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1000);
+	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1000);
+	REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1000);
+	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1000);
 
+	for (i = 0; i < 3; i++) {
+		mdss_dsi_uniphy_pll_lock_detect_setting();
 		/* poll for PLL ready status */
-		max_reads = 20;
+		max_reads = 5;
 		timeout_us = 100;
 		if (readl_poll_timeout_noirq((mdss_dsi_base + 0x02c0),
 				   status,
@@ -286,6 +306,24 @@ static int __mdss_dsi_pll_enable(struct clk *c)
 			       __func__);
 		} else
 			break;
+
+		mdss_dsi_uniphy_pll_sw_reset();
+		udelay(1000);
+		/* Add HW recommended delay between
+		   register writes for the update to propagate */
+		REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(1000);
+		REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(1000);
+		REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(1000);
+		REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(1000);
+		REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(1000);
+		REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(2000);
+
 	}
 
 	if ((status & 0x01) != 1) {
