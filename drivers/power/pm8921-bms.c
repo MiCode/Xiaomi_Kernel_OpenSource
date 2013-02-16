@@ -1037,18 +1037,10 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 		raw->last_good_ocv_uv = chip->last_ocv_uv;
 	}
 
-	/* fake a high OCV if we are just done charging */
+	/* stop faking 100% after an OCV event */
 	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw) {
 		chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
 		chip->cc_reading_at_100 = 0;
-	} else {
-		/*
-		 * force 100% ocv by selecting the highest voltage the
-		 * battery could ever reach
-		 */
-		raw->last_good_ocv_uv = chip->max_voltage_uv;
-		chip->last_ocv_uv = chip->max_voltage_uv;
-		chip->last_ocv_temp_decidegc = batt_temp_decidegc;
 	}
 	pr_debug("0p625 = %duV\n", chip->xoadc_v0625);
 	pr_debug("1p25 = %duV\n", chip->xoadc_v125);
@@ -2618,6 +2610,7 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 		the_chip->last_ocv_uv = the_chip->max_voltage_uv;
 		raw.last_good_ocv_uv = the_chip->max_voltage_uv;
+		the_chip->last_ocv_temp_decidegc = batt_temp;
 		/*
 		 * since we are treating this as an ocv event
 		 * forget the old cc value
