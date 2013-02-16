@@ -754,6 +754,9 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 
 static int mdss_hw_init(struct mdss_data_type *mdata)
 {
+	int i, j;
+	char *offset;
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	mdata->rev = MDSS_MDP_REG_READ(MDSS_REG_HW_VERSION);
 	mdata->mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
@@ -765,6 +768,16 @@ static int mdss_hw_init(struct mdss_data_type *mdata)
 			writel_relaxed(hws->val, hws->reg);
 			hws++;
 		}
+	}
+
+	for (i = 0; i < mdata->nmixers_intf; i++) {
+		offset = mdata->mixer_intf[i].dspp_base +
+				MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
+		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
+			writel_relaxed(j, offset);
+
+		/* swap */
+		writel_relaxed(i, offset + 4);
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	pr_debug("MDP hw init done\n");

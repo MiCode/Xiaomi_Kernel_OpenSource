@@ -844,9 +844,6 @@ int mdss_mdp_pp_resume(u32 mixer_num)
 int mdss_mdp_pp_init(struct device *dev)
 {
 	int ret = 0;
-	int i;
-	u32 offset;
-	uint32_t data[ENHIST_LUT_ENTRIES];
 
 	mutex_lock(&mdss_pp_mutex);
 	if (!mdss_pp_res) {
@@ -856,20 +853,6 @@ int mdss_mdp_pp_init(struct device *dev)
 			pr_err("%s mdss_pp_res allocation failed!", __func__);
 			ret = -ENOMEM;
 		}
-
-		for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
-			data[i] = i;
-
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-		/* Initialize Histogram LUT for all DSPPs */
-		for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
-			offset = MDSS_MDP_REG_DSPP_OFFSET(i) +
-						MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
-			mdss_pp_res->enhist_disp_cfg[i].data = data;
-			pp_update_hist_lut(offset,
-					&mdss_pp_res->enhist_disp_cfg[i]);
-		}
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	}
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
