@@ -979,8 +979,10 @@ static int msm_ehci_init_clocks(struct msm_hcd *mhcd, u32 init)
 	return 0;
 
 put_clocks:
-	clk_disable_unprepare(mhcd->iface_clk);
-	clk_disable_unprepare(mhcd->core_clk);
+	if (!atomic_read(&mhcd->in_lpm)) {
+		clk_disable_unprepare(mhcd->iface_clk);
+		clk_disable_unprepare(mhcd->core_clk);
+	}
 	clk_put(mhcd->core_clk);
 	if (!IS_ERR(mhcd->phy_sleep_clk)) {
 		clk_disable_unprepare(mhcd->phy_sleep_clk);
