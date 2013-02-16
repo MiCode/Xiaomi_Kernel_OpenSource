@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -336,7 +336,6 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 
 	disable_irq_nosync(drv->irq);
 	drv->restart_inprogress = true;
-	wcnss_pronto_log_debug_regs();
 	restart_wcnss(drv);
 
 	return IRQ_HANDLED;
