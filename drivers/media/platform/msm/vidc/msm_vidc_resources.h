@@ -42,6 +42,7 @@ struct msm_vidc_platform_resources {
 	struct msm_vidc_iommu_info *iommu_maps;
 	uint32_t iommu_maps_size;
 	struct reg_set reg_set;
+	struct msm_bus_scale_pdata *bus_pdata;
 	struct platform_device *pdev;
 };
 
