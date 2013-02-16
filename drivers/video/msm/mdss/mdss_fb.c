@@ -1199,8 +1199,6 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 	pinfo->lcdc.h_back_porch = var->left_margin;
 	pinfo->lcdc.h_pulse_width = var->hsync_len;
 	pinfo->clk_rate = var->pixclock;
-	/* todo: find how to pass CEA vic through framebuffer APIs */
-	pinfo->vic = var->reserved[3];
 }
 
 static void mdss_fb_commit_wq_handler(struct work_struct *work)
@@ -1597,6 +1595,26 @@ static int mdss_fb_display_commit(struct fb_info *info,
 	return ret;
 }
 
+static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
+				struct msmfb_metadata *metadata)
+{
+	int ret = 0;
+	switch (metadata->op) {
+	case metadata_op_vic:
+		if (mfd->panel_info)
+			mfd->panel_info->vic =
+				metadata->data.video_info_code;
+		else
+			ret = -EINVAL;
+		break;
+	default:
+		pr_warn("unsupported request to MDP META IOCTL\n");
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 				struct msmfb_metadata *metadata)
 {
@@ -1707,6 +1725,13 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 
 	case MSMFB_DISPLAY_COMMIT:
 		ret = mdss_fb_display_commit(info, argp);
+		break;
+
+	case MSMFB_METADATA_SET:
+		ret = copy_from_user(&metadata, argp, sizeof(metadata));
+		if (ret)
+			return ret;
+		ret = mdss_fb_set_metadata(mfd, &metadata);
 		break;
 
 	case MSMFB_METADATA_GET:
