@@ -129,7 +129,7 @@ spinlock_t msm_pid_lock;
 		if (node->sd == q_node) {				\
 			__q->len--;				\
 			list_del_init(&node->member);		\
-			kfree(node);				\
+			kzfree(node);				\
 			break;					\
 		}						\
 	}							\
@@ -146,7 +146,7 @@ spinlock_t msm_pid_lock;
 		if (node == q_node) {				\
 			__q->len--;				\
 			list_del_init(&node->member);		\
-			kfree(node);				\
+			kzfree(node);				\
 			break;					\
 		}						\
 	}							\
@@ -165,7 +165,7 @@ spinlock_t msm_pid_lock;
 		if (node) {					\
 			if (&node->member) \
 				list_del_init(&node->member);		\
-			kfree(node);	\
+			kzfree(node);	\
 		}	\
 	}	\
 	spin_unlock_irqrestore(&__q->lock, flags);		\
@@ -288,14 +288,14 @@ void msm_delete_stream(unsigned int session_id, unsigned int stream_id)
 
 	list_del_init(&stream->list);
 	session->stream_q.len--;
-	kfree(stream);
+	kzfree(stream);
 }
 
 static void msm_sd_unregister_subdev(struct video_device *vdev)
 {
 	struct v4l2_subdev *sd = video_get_drvdata(vdev);
 	sd->devnode = NULL;
-	kfree(vdev);
+	kzfree(vdev);
 }
 
 static inline int __msm_sd_register_subdev(struct v4l2_subdev *sd)
@@ -330,7 +330,7 @@ static inline int __msm_sd_register_subdev(struct v4l2_subdev *sd)
 	rc = __video_register_device(vdev, VFL_TYPE_SUBDEV, -1, 1,
 		  sd->owner);
 	if (rc < 0) {
-		kfree(vdev);
+		kzfree(vdev);
 		goto clean_up;
 	}
 
@@ -588,7 +588,7 @@ static long msm_private_ioctl(struct file *file, void *fh,
 			__msm_queue_find_command_ack_q,
 			&stream_id);
 		if (WARN_ON(!cmd_ack)) {
-			kfree(ret_cmd);
+			kzfree(ret_cmd);
 			rc = -EFAULT;
 			break;
 		}
@@ -710,7 +710,7 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 
 	*event = cmd->event;
 
-	kfree(cmd);
+	kzfree(cmd);
 	return rc;
 }
 
@@ -1002,14 +1002,14 @@ register_fail:
 entity_fail:
 	media_device_unregister(msm_v4l2_dev->mdev);
 media_fail:
-	kfree(msm_v4l2_dev->mdev);
+	kzfree(msm_v4l2_dev->mdev);
 mdev_fail:
 #endif
 	video_device_release(pvdev->vdev);
 video_fail:
-	kfree(pvdev);
+	kzfree(pvdev);
 pvdev_fail:
-	kfree(msm_v4l2_dev);
+	kzfree(msm_v4l2_dev);
 probe_end:
 	return rc;
 }
