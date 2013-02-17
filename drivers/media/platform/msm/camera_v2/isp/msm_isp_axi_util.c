@@ -621,7 +621,6 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev)
 	int i;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	uint32_t wm_reload_mask = 0x0, reg_update_mask = 0x1;
-	int send_update_complete = 0;
 	for (i = 0; i < MAX_NUM_STREAM; i++) {
 		if (axi_data->stream_info[i].state == START_PENDING ||
 				axi_data->stream_info[i].state ==
@@ -631,9 +630,6 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev)
 				&wm_reload_mask, &reg_update_mask);
 			if (axi_data->stream_info[i].state == STOP_PENDING)
 				axi_data->stream_info[i].state = STOPPING;
-		} else if (axi_data->stream_info[i].state == STOPPING) {
-			send_update_complete = 1;
-			axi_data->stream_info[i].state = INACTIVE;
 		}
 	}
 	/*Reload AXI*/
@@ -642,7 +638,7 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev)
 	/*Reg update per src*/
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		reg_update(vfe_dev, reg_update_mask);
-	if (send_update_complete) {
+	if (vfe_dev->axi_data.stream_update) {
 		ISP_DBG("%s: send update complete\n", __func__);
 		vfe_dev->axi_data.stream_update = 0;
 		complete(&vfe_dev->stream_config_complete);
