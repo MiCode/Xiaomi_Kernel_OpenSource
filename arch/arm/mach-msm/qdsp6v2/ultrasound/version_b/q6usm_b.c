@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -327,6 +327,7 @@ struct us_client *q6usm_us_client_alloc(
 
 	return usc;
 fail:
+	kfree(p_mem_handle);
 	q6usm_us_client_free(usc);
 	return NULL;
 fail_session:
