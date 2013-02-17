@@ -879,10 +879,14 @@ static int msm_vidc_load_iommu_maps(struct msm_vidc_platform_resources *res)
 	res->iommu_maps_size = MAX_MAP;
 	for (i = 0; i < MAX_MAP; i++) {
 		num_elements = get_u32_array_num_elements(pdev, names[i]);
-		if (num_elements == 0) {
-			dprintk(VIDC_ERR,
-				"no elements in iommu map :%s\n", names[i]);
-			goto error;
+		if ((num_elements == 0)) {
+			if (i == NS_MAP) {
+				dprintk(VIDC_ERR,
+				"Domain not found in dtsi file :%s\n",
+				names[i]);
+				goto error;
+			} else
+				continue;
 		}
 		memcpy(&res->iommu_maps[i].name, names[i],
 				strlen(names[i]));
