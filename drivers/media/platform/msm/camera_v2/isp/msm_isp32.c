@@ -919,6 +919,7 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 			.get_pingpong_status = msm_vfe32_get_pingpong_status,
 		},
 	},
+	.dmi_reg_offset = 0x5A0,
 	.axi_hw_info = &msm_vfe32_axi_hw_info,
 	.subdev_ops = &msm_vfe32_subdev_ops,
 	.subdev_internal_ops = &msm_vfe32_internal_ops,

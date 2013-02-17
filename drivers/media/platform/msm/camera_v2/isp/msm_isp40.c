@@ -1302,6 +1302,7 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.get_pingpong_status = msm_vfe40_get_pingpong_status,
 		},
 	},
+	.dmi_reg_offset = 0x918,
 	.axi_hw_info = &msm_vfe40_axi_hw_info,
 	.stats_hw_info = &msm_vfe40_stats_hw_info,
 	.subdev_ops = &msm_vfe40_subdev_ops,
