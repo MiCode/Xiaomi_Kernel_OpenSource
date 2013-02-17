@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,10 @@ static DEFINE_SEMAPHORE(wcnss_power_on_lock);
 
 #define RIVA_PMU_OFFSET         0x28
 #define PRONTO_PMU_OFFSET       0x1004
+
+#define RIVA_SPARE_OFFSET       0x0b4
+#define PRONTO_SPARE_OFFSET     0x1088
+#define NVBIN_DLND_BIT          BIT(25)
 
 #define WCNSS_PMU_CFG_IRIS_XO_CFG          BIT(3)
 #define WCNSS_PMU_CFG_IRIS_XO_EN           BIT(4)
@@ -115,13 +119,16 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 	int rc = 0;
 	int size = 0;
 	int pmu_offset = 0;
+	int spare_offset = 0;
 	unsigned long wcnss_phys_addr;
 	void __iomem *pmu_conf_reg;
+	void __iomem *spare_reg;
 	struct clk *clk;
 
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		wcnss_phys_addr = MSM_PRONTO_PHYS;
 		pmu_offset = PRONTO_PMU_OFFSET;
+		spare_offset = PRONTO_SPARE_OFFSET;
 		size = 0x3000;
 
 		clk = clk_get(dev, "xo");
@@ -132,6 +139,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 	} else {
 		wcnss_phys_addr = MSM_RIVA_PHYS;
 		pmu_offset = RIVA_PMU_OFFSET;
+		spare_offset = RIVA_SPARE_OFFSET;
 		size = SZ_256;
 
 		clk = clk_get(dev, "cxo");
@@ -147,6 +155,13 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 			pr_err("ioremap wcnss physical failed\n");
 			goto fail;
 		}
+
+		pr_debug("wcnss: Indicate NV bin download\n");
+		spare_reg = msm_wcnss_base + spare_offset;
+		reg = readl_relaxed(spare_reg);
+		reg |= NVBIN_DLND_BIT;
+		writel_relaxed(reg, spare_reg);
+
 		pmu_conf_reg = msm_wcnss_base + pmu_offset;
 
 		/* Enable IRIS XO */
