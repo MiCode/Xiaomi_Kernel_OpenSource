@@ -884,7 +884,8 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 	if (!wait_for_complete) {
 		/*Reload AXI*/
-		vfe_dev->hw_info->vfe_ops.axi_ops.
+		if (stream_cfg_cmd->cmd == START_STREAM)
+			vfe_dev->hw_info->vfe_ops.axi_ops.
 			reload_wm(vfe_dev, wm_reload_mask);
 		/*Reg update per src*/
 		vfe_dev->hw_info->vfe_ops.core_ops.
@@ -900,7 +901,8 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		axi_data->stream_update = 1;
 		spin_unlock_irqrestore(&vfe_dev->shared_data_lock, flags);
 		/*Reload AXI*/
-		vfe_dev->hw_info->vfe_ops.axi_ops.
+		if (stream_cfg_cmd->cmd == START_STREAM)
+			vfe_dev->hw_info->vfe_ops.axi_ops.
 			reload_wm(vfe_dev, wm_reload_mask);
 		/*Reg update per src*/
 		vfe_dev->hw_info->vfe_ops.core_ops.
