@@ -1674,7 +1674,7 @@ mbim_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	}
 
 	while (list_empty(&dev->cpkt_req_q)) {
-		pr_err("Requests list is empty. Wait.\n");
+		pr_debug("Requests list is empty. Wait.\n");
 		ret = wait_event_interruptible(dev->read_wq,
 			!list_empty(&dev->cpkt_req_q));
 		if (ret < 0) {
