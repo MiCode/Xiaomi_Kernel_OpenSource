@@ -2063,6 +2063,8 @@ static int venus_hfi_register_iommu_domains(struct venus_hfi_device *device,
 			sizeof(io_map[NS_MAP].ctx));
 
 	for (i = 0; i < MAX_MAP; i++) {
+		if (!res->iommu_maps[i].addr_range[1])
+			continue;
 		memcpy(io_map[i].addr_range, &res->iommu_maps[i].addr_range,
 				sizeof(u32) * 2);
 
@@ -2481,6 +2483,8 @@ static int venus_hfi_iommu_attach(struct venus_hfi_device *device)
 
 	for (i = 0; i < MAX_MAP; i++) {
 		io_map = &device->resources.io_map[i];
+		if (!io_map->domain)
+			continue;
 		dev = msm_iommu_get_ctx(io_map->ctx);
 		domain = msm_get_iommu_domain(io_map->domain);
 		if (IS_ERR_OR_NULL(domain)) {
@@ -2565,7 +2569,6 @@ static int protect_cp_mem(struct venus_hfi_device *device)
 	unsigned int resp = 0;
 	int rc = 0;
 	struct msm_vidc_iommu_info *io_map;
-
 	if (!device)
 		return -EINVAL;
 
@@ -2574,6 +2577,8 @@ static int protect_cp_mem(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "invalid params: %p\n", io_map);
 		return -EINVAL;
 	}
+	if (!io_map[CP_MAP].addr_range[1])
+		return 0;
 	memprot.cp_start = 0x0;
 	memprot.cp_size = io_map[CP_MAP].addr_range[0] +
 			io_map[CP_MAP].addr_range[1];
