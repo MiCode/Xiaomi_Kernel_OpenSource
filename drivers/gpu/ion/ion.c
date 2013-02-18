@@ -440,7 +440,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			continue;
 		/* Do not allow un-secure heap if secure is specified */
 		if (secure_allocation &&
-			(heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP))
+		    !ion_heap_allow_secure_allocation(heap->type))
 			continue;
 		trace_ion_alloc_buffer_start(client->name, heap->name, len,
 					     heap_mask, flags);
@@ -1713,7 +1713,7 @@ int ion_secure_handle(struct ion_client *client, struct ion_handle *handle,
 	buffer = handle->buffer;
 	heap = buffer->heap;
 
-	if (heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP) {
+	if (!ion_heap_allow_handle_secure(heap->type)) {
 		pr_err("%s: cannot secure buffer from non secure heap\n",
 			__func__);
 		goto out_unlock;
@@ -1746,7 +1746,7 @@ int ion_unsecure_handle(struct ion_client *client, struct ion_handle *handle)
 	buffer = handle->buffer;
 	heap = buffer->heap;
 
-	if (heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP) {
+	if (!ion_heap_allow_handle_secure(heap->type)) {
 		pr_err("%s: cannot secure buffer from non secure heap\n",
 			__func__);
 		goto out_unlock;
@@ -1777,7 +1777,7 @@ int ion_secure_heap(struct ion_device *dev, int heap_id, int version,
 	mutex_lock(&dev->lock);
 	for (n = rb_first(&dev->heaps); n != NULL; n = rb_next(n)) {
 		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
-		if (heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP)
+		if (!ion_heap_allow_heap_secure(heap->type))
 			continue;
 		if (ION_HEAP(heap->id) != heap_id)
 			continue;
@@ -1805,7 +1805,7 @@ int ion_unsecure_heap(struct ion_device *dev, int heap_id, int version,
 	mutex_lock(&dev->lock);
 	for (n = rb_first(&dev->heaps); n != NULL; n = rb_next(n)) {
 		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
-		if (heap->type != (enum ion_heap_type) ION_HEAP_TYPE_CP)
+		if (!ion_heap_allow_heap_secure(heap->type))
 			continue;
 		if (ION_HEAP(heap->id) != heap_id)
 			continue;
