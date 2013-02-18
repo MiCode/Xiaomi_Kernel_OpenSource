@@ -54,6 +54,7 @@ MODULE_PARM_DESC(cfilt_adjust_ms, "delay after adjusting cfilt voltage in ms");
 #define TABLA_CFILT_SLOW_MODE 0x40
 #define MBHC_FW_READ_ATTEMPTS 15
 #define MBHC_FW_READ_TIMEOUT 2000000
+#define MBHC_VDDIO_SWITCH_WAIT_MS 10
 
 #define SLIM_CLOSE_TIMEOUT 1000
 
@@ -7142,6 +7143,48 @@ static void tabla_codec_hphr_gnd_switch(struct snd_soc_codec *codec, bool on)
 		usleep_range(5000, 5000);
 }
 
+
+static void tabla_codec_onoff_vddio_switch(struct snd_soc_codec *codec, bool on)
+{
+	bool override;
+	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: enter\n", __func__);
+	if (on) {
+		override = snd_soc_read(codec, TABLA_A_CDC_MBHC_B1_CTL) & 0x04;
+		if (!override)
+			tabla_turn_onoff_override(codec, true);
+
+		/* enable the vddio switch */
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
+				    0x91, 0x81);
+
+		/* deroute the override from MicBias2 to MicBias4 */
+		snd_soc_update_bits(codec, TABLA_A_MICB_1_MBHC,
+				    0x03, 0x03);
+
+		usleep_range(MBHC_VDDIO_SWITCH_WAIT_MS * 1000,
+				MBHC_VDDIO_SWITCH_WAIT_MS * 1000);
+
+		if (!override)
+			tabla_turn_onoff_override(codec, false);
+		tabla->mbhc_micbias_switched = true;
+		pr_debug("%s: VDDIO switch enabled\n", __func__);
+
+	} else {
+
+		snd_soc_update_bits(codec, tabla->mbhc_bias_regs.mbhc_reg,
+				    0x91, 0x00);
+
+		/* reroute the override to MicBias2 */
+		snd_soc_update_bits(codec, TABLA_A_MICB_1_MBHC,
+				    0x03, 0x01);
+
+		tabla->mbhc_micbias_switched = false;
+		pr_debug("%s: VDDIO switch disabled\n", __func__);
+	}
+}
+
 /* called under codec_resource_lock acquisition and mbhc override = 1 */
 static enum tabla_mbhc_plug_type
 tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
@@ -7182,7 +7225,7 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 	 * Nth: check voltage range with VDDIO switch */
 	for (i = 0; i < num_det; i++) {
 		gndswitch = (i == (num_det - 2));
-		vddioswitch = (i == (num_det - 1)) || (i == (num_det - 2));
+		vddioswitch = (i == (num_det - 1));
 		if (i == 0) {
 			mb_v[i] = tabla_codec_setup_hs_polling(codec);
 			mic_mv[i] = tabla_codec_sta_dce_v(codec, 1 , mb_v[i]);
@@ -7192,8 +7235,8 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 			scaled = mic_mv[i];
 		} else {
 			if (vddioswitch)
-				__tabla_codec_switch_micbias(tabla->codec, 1,
-							     false, false);
+				tabla_codec_onoff_vddio_switch(codec, true);
+
 			if (gndswitch)
 				tabla_codec_hphr_gnd_switch(codec, true);
 			mb_v[i] = __tabla_codec_sta_dce(codec, 1, true, true);
@@ -7217,8 +7260,7 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 			if (gndswitch)
 				tabla_codec_hphr_gnd_switch(codec, false);
 			if (vddioswitch)
-				__tabla_codec_switch_micbias(tabla->codec, 0,
-							     false, false);
+				tabla_codec_onoff_vddio_switch(codec, false);
 		}
 		pr_debug("%s: DCE #%d, %04x, V %d, scaled V %d, GND %d, "
 			 "VDDIO %d, inval %d\n", __func__,
