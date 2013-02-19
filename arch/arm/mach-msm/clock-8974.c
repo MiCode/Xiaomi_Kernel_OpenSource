@@ -1405,7 +1405,14 @@ static struct rcg_clk ce2_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_gp_clk[] = {
-	F(19200000,  cxo,  1,   0,   0),
+	F( 4800000,   cxo,  4,  0,   0),
+	F( 6000000, gpll0, 10,  1,  10),
+	F( 6750000, gpll0,  1,  1,  89),
+	F( 8000000, gpll0, 15,  1,   5),
+	F( 9600000,   cxo,  2,  0,   0),
+	F(16000000, gpll0,  1,  2,  75),
+	F(19200000,   cxo,  1,  0,   0),
+	F(24000000, gpll0,  5,  1,   5),
 	F_END
 };
 
