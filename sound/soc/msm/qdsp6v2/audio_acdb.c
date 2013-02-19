@@ -66,6 +66,12 @@ struct acdb_data {
 	/* VocProc dev cfg cal*/
 	struct acdb_atomic_cal_block	vocproc_dev_cal;
 
+	/* Custom topology */
+	struct acdb_atomic_cal_block	adm_custom_topology;
+	struct acdb_atomic_cal_block	asm_custom_topology;
+	atomic_t			valid_adm_custom_top;
+	atomic_t			valid_asm_custom_top;
+
 	/* AFE cal */
 	struct acdb_atomic_cal_block	afe_cal[MAX_AUDPROC_TYPES];
 
@@ -132,6 +138,106 @@ uint32_t get_asm_topology(void)
 void store_asm_topology(uint32_t topology)
 {
 	atomic_set(&acdb_data.asm_topology, topology);
+}
+
+void reset_custom_topology_flags(void)
+{
+	atomic_set(&acdb_data.valid_adm_custom_top, 1);
+	atomic_set(&acdb_data.valid_asm_custom_top, 1);
+}
+
+void get_adm_custom_topology(struct acdb_cal_block *cal_block)
+{
+	pr_debug("%s\n", __func__);
+
+	if (cal_block == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		goto done;
+	}
+
+	if (atomic_read(&acdb_data.valid_adm_custom_top) == 0) {
+		cal_block->cal_size = 0;
+		goto done;
+	}
+	atomic_set(&acdb_data.valid_adm_custom_top, 0);
+
+	cal_block->cal_size =
+		atomic_read(&acdb_data.adm_custom_topology.cal_size);
+	cal_block->cal_paddr =
+		atomic_read(&acdb_data.adm_custom_topology.cal_paddr);
+	cal_block->cal_kvaddr =
+		atomic_read(&acdb_data.adm_custom_topology.cal_kvaddr);
+done:
+	return;
+}
+
+void store_adm_custom_topology(struct cal_block *cal_block)
+{
+	pr_debug("%s,\n", __func__);
+
+	if (cal_block->cal_offset > atomic64_read(&acdb_data.mem_len)) {
+		pr_err("%s: offset %d is > mem_len %ld\n",
+			__func__, cal_block->cal_offset,
+			(long)atomic64_read(&acdb_data.mem_len));
+		goto done;
+	}
+
+	atomic_set(&acdb_data.adm_custom_topology.cal_size,
+		cal_block->cal_size);
+	atomic_set(&acdb_data.adm_custom_topology.cal_paddr,
+		cal_block->cal_offset + atomic64_read(&acdb_data.paddr));
+	atomic_set(&acdb_data.adm_custom_topology.cal_kvaddr,
+		cal_block->cal_offset +
+		atomic64_read(&acdb_data.kvaddr));
+done:
+	return;
+}
+
+void get_asm_custom_topology(struct acdb_cal_block *cal_block)
+{
+	pr_debug("%s\n", __func__);
+
+	if (cal_block == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		goto done;
+	}
+
+	if (atomic_read(&acdb_data.valid_asm_custom_top) == 0) {
+		cal_block->cal_size = 0;
+		goto done;
+	}
+	atomic_set(&acdb_data.valid_asm_custom_top, 0);
+
+	cal_block->cal_size =
+		atomic_read(&acdb_data.asm_custom_topology.cal_size);
+	cal_block->cal_paddr =
+		atomic_read(&acdb_data.asm_custom_topology.cal_paddr);
+	cal_block->cal_kvaddr =
+		atomic_read(&acdb_data.asm_custom_topology.cal_kvaddr);
+done:
+	return;
+}
+
+void store_asm_custom_topology(struct cal_block *cal_block)
+{
+	pr_debug("%s,\n", __func__);
+
+	if (cal_block->cal_offset > atomic64_read(&acdb_data.mem_len)) {
+		pr_err("%s: offset %d is > mem_len %ld\n",
+			__func__, cal_block->cal_offset,
+			(long)atomic64_read(&acdb_data.mem_len));
+		goto done;
+	}
+
+	atomic_set(&acdb_data.asm_custom_topology.cal_size,
+		cal_block->cal_size);
+	atomic_set(&acdb_data.asm_custom_topology.cal_paddr,
+		cal_block->cal_offset + atomic64_read(&acdb_data.paddr));
+	atomic_set(&acdb_data.asm_custom_topology.cal_kvaddr,
+		cal_block->cal_offset +
+		atomic64_read(&acdb_data.kvaddr));
+done:
+	return;
 }
 
 void get_voice_cal_allocation(struct acdb_cal_block *cal_block)
@@ -672,6 +778,8 @@ static int acdb_open(struct inode *inode, struct file *f)
 			__func__);
 	}
 
+	atomic_set(&acdb_data.valid_adm_custom_top, 1);
+	atomic_set(&acdb_data.valid_asm_custom_top, 1);
 	atomic_inc(&usage_count);
 	return result;
 }
@@ -925,6 +1033,12 @@ static long acdb_ioctl(struct file *f,
 	case AUDIO_SET_LSM_CAL:
 		store_lsm_cal((struct cal_block *)data);
 		goto done;
+	case AUDIO_SET_ADM_CUSTOM_TOPOLOGY:
+		store_adm_custom_topology((struct cal_block *)data);
+		goto done;
+	case AUDIO_SET_ASM_CUSTOM_TOPOLOGY:
+		store_asm_custom_topology((struct cal_block *)data);
+		goto done;
 	default:
 		pr_err("ACDB=> ACDB ioctl not found!\n");
 	}
@@ -998,6 +1112,8 @@ static int __init acdb_init(void)
 	memset(&acdb_data, 0, sizeof(acdb_data));
 	mutex_init(&acdb_data.acdb_mutex);
 	atomic_set(&usage_count, 0);
+	atomic_set(&acdb_data.valid_adm_custom_top, 1);
+	atomic_set(&acdb_data.valid_asm_custom_top, 1);
 
 	return misc_register(&acdb_misc);
 }

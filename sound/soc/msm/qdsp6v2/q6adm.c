@@ -46,8 +46,11 @@ struct adm_ctl {
 
 /* 0 - (MAX_AUDPROC_TYPES -1):				audproc handles */
 /* (MAX_AUDPROC_TYPES -1) - (2 * MAX_AUDPROC_TYPES -1):	audvol handles */
-	atomic_t mem_map_cal_handles[(2 * MAX_AUDPROC_TYPES)];
+/* + 1 for custom ADM topology */
+	atomic_t mem_map_cal_handles[(2 * MAX_AUDPROC_TYPES) + 1];
 	atomic_t mem_map_cal_index;
+
+	int set_custom_topology;
 };
 
 static struct adm_ctl			this_adm;
@@ -309,6 +312,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				atomic_set(&this_adm.copp_stat[i], 0);
 			}
 			this_adm.apr = NULL;
+			reset_custom_topology_flags();
+			this_adm.set_custom_topology = 1;
 		}
 		pr_debug("Resetting calibration blocks");
 		for (i = 0; i < MAX_AUDPROC_TYPES; i++) {
@@ -350,6 +355,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			case ADM_CMD_DEVICE_CLOSE_V5:
 			case ADM_CMD_SHARED_MEM_UNMAP_REGIONS:
 			case ADM_CMD_MATRIX_MAP_ROUTINGS_V5:
+			case ADM_CMD_ADD_TOPOLOGIES:
 				pr_debug("%s: Basic callback received, wake up.\n",
 					__func__);
 				atomic_set(&this_adm.copp_stat[index], 1);
@@ -433,6 +439,87 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 		}
 	}
 	return 0;
+}
+
+void send_adm_custom_topology(int port_id)
+{
+	struct acdb_cal_block		cal_block;
+	struct cmd_set_topologies	adm_top;
+	int				index;
+	int				result;
+	int				size = 4096;
+
+	get_adm_custom_topology(&cal_block);
+	if (cal_block.cal_size == 0) {
+		pr_debug("%s: no cal to send addr= 0x%x\n",
+				__func__, cal_block.cal_paddr);
+		goto done;
+	}
+
+	index = afe_get_port_index(port_id);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d portid %#x\n",
+				__func__, index, port_id);
+		goto done;
+	}
+
+	if (this_adm.set_custom_topology) {
+		/* specific index 4 for adm topology memory */
+		atomic_set(&this_adm.mem_map_cal_index, 4);
+
+		/* Only call this once */
+		this_adm.set_custom_topology = 0;
+
+		result = adm_memory_map_regions(port_id, &cal_block.cal_paddr,
+					0, &size, 1);
+		if (result < 0) {
+			pr_err("%s: mmap did not work! addr = 0x%x, size = %d\n",
+				__func__, cal_block.cal_paddr,
+			       cal_block.cal_size);
+			goto done;
+		}
+	}
+
+
+	adm_top.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+		APR_HDR_LEN(20), APR_PKT_VER);
+	adm_top.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+		sizeof(adm_top));
+	adm_top.hdr.src_svc = APR_SVC_ADM;
+	adm_top.hdr.src_domain = APR_DOMAIN_APPS;
+	adm_top.hdr.src_port = port_id;
+	adm_top.hdr.dest_svc = APR_SVC_ADM;
+	adm_top.hdr.dest_domain = APR_DOMAIN_ADSP;
+	adm_top.hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	adm_top.hdr.token = port_id;
+	adm_top.hdr.opcode = ADM_CMD_ADD_TOPOLOGIES;
+	adm_top.payload_addr_lsw = cal_block.cal_paddr;
+	adm_top.payload_addr_msw = 0;
+	adm_top.mem_map_handle = atomic_read(&this_adm.mem_map_cal_handles[4]);
+	adm_top.payload_size = cal_block.cal_size;
+
+	atomic_set(&this_adm.copp_stat[index], 0);
+	pr_debug("%s: Sending ADM_CMD_ADD_TOPOLOGIES payload = 0x%x, size = %d\n",
+		__func__, adm_top.payload_addr_lsw,
+		adm_top.payload_size);
+	result = apr_send_pkt(this_adm.apr, (uint32_t *)&adm_top);
+	if (result < 0) {
+		pr_err("%s: Set topologies failed port = 0x%x payload = 0x%x\n",
+			__func__, port_id, cal_block.cal_paddr);
+		goto done;
+	}
+	/* Wait for the callback */
+	result = wait_event_timeout(this_adm.wait[index],
+		atomic_read(&this_adm.copp_stat[index]),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!result) {
+		pr_err("%s: Set topologies timed out port = 0x%x, payload = 0x%x\n",
+			__func__, port_id, cal_block.cal_paddr);
+		goto done;
+	}
+
+done:
+	return;
 }
 
 static int send_adm_cal_block(int port_id, struct acdb_cal_block *aud_cal)
@@ -684,6 +771,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 		rtac_set_adm_handle(this_adm.apr);
 	}
 
+	send_adm_custom_topology(port_id);
 
 	/* Create a COPP if port id are not enabled */
 	if (atomic_read(&this_adm.copp_cnt[index]) == 0) {
@@ -1154,6 +1242,7 @@ static int __init adm_init(void)
 {
 	int i = 0;
 	this_adm.apr = NULL;
+	this_adm.set_custom_topology = 1;
 
 	for (i = 0; i < AFE_MAX_PORTS; i++) {
 		atomic_set(&this_adm.copp_id[i], RESET_COPP_ID);
