@@ -110,6 +110,8 @@ struct sdmx_add_filt_req {
 	enum sdmx_filter filter_type;
 	struct sdmx_buff_descr meta_data_buf;
 	enum sdmx_buf_mode buffer_mode;
+	enum sdmx_raw_out_format ts_out_format;
+	u32 flags;
 	u32 num_data_bufs;
 	struct sdmx_buff_descr data_bufs[];
 };
@@ -453,6 +455,9 @@ EXPORT_SYMBOL(sdmx_set_session_cfg);
  * @num_data_bufs: number of data buffers (use 1 for a ring buffer)
  * @data_bufs: data buffers descriptors array
  * @filter_handle: returned filter handle
+ * @ts_out_format: output format for raw filters
+ * @flags: optional flags for filter
+ *	   (currently only clear section CRC verification is supported)
  *
  * Return error code
  */
@@ -463,7 +468,9 @@ int sdmx_add_filter(int session_handle,
 	enum sdmx_buf_mode d_buf_mode,
 	u32 num_data_bufs,
 	struct sdmx_buff_descr *data_bufs,
-	int *filter_handle)
+	int *filter_handle,
+	enum sdmx_raw_out_format ts_out_format,
+	u32 flags)
 {
 	int res, cmd_len, rsp_len;
 	struct sdmx_add_filt_req *cmd;
@@ -493,6 +500,8 @@ int sdmx_add_filter(int session_handle,
 	cmd->session_handle = session_handle;
 	cmd->pid = (u32)pid;
 	cmd->filter_type = filterype;
+	cmd->ts_out_format = ts_out_format;
+	cmd->flags = flags;
 	if (meta_data_buf != NULL)
 		memcpy(&(cmd->meta_data_buf), meta_data_buf,
 			sizeof(struct sdmx_buff_descr));

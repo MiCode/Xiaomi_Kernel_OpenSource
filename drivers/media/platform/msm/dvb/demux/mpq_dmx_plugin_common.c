@@ -3455,11 +3455,15 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 	struct sdmx_buff_descr data_buff_desc[DMX_MAX_DECODER_BUFFER_NUM];
 	u32 data_buf_num = DMX_MAX_DECODER_BUFFER_NUM;
 	enum sdmx_buf_mode buf_mode;
+	enum sdmx_raw_out_format ts_out_format = SDMX_188_OUTPUT;
+	u32 filter_flags = 0;
 
 	feed = dvbdmx_feed->priv;
 
 	if (mpq_dmx_is_sec_feed(dvbdmx_feed)) {
 		feed->filter_type = SDMX_SECTION_FILTER;
+		if (dvbdmx_feed->feed.sec.check_crc)
+			filter_flags |= SDMX_FILTER_FLAG_VERIFY_SECTION_CRC;
 		MPQ_DVB_DBG_PRINT("%s: SDMX_SECTION_FILTER\n", __func__);
 	} else if (mpq_dmx_is_pcr_feed(dvbdmx_feed)) {
 		feed->filter_type = SDMX_PCR_FILTER;
@@ -3469,6 +3473,22 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 		MPQ_DVB_DBG_PRINT("%s: SDMX_SEPARATED_PES_FILTER\n", __func__);
 	} else if (mpq_dmx_is_rec_feed(dvbdmx_feed)) {
 		feed->filter_type = SDMX_RAW_FILTER;
+		switch (dvbdmx_feed->tsp_out_format) {
+		case (DMX_TSP_FORMAT_188):
+			ts_out_format = SDMX_188_OUTPUT;
+			break;
+		case (DMX_TSP_FORMAT_192_HEAD):
+			ts_out_format = SDMX_192_HEAD_OUTPUT;
+			break;
+		case (DMX_TSP_FORMAT_192_TAIL):
+			ts_out_format = SDMX_192_TAIL_OUTPUT;
+			break;
+		default:
+			MPQ_DVB_ERR_PRINT(
+				"%s: Unsupported TS output format %d\n",
+				__func__, dvbdmx_feed->tsp_out_format);
+			return -EINVAL;
+		}
 		MPQ_DVB_DBG_PRINT("%s: SDMX_RAW_FILTER\n", __func__);
 	} else {
 		feed->filter_type = SDMX_PES_FILTER;
@@ -3498,8 +3518,9 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 		feed->secondary_feed = 0;
 
 		MPQ_DVB_DBG_PRINT(
-			"%s: Adding new sdmx filter, pid %d\n",
-			__func__, dvbdmx_feed->pid);
+			"%s: Adding new sdmx filter, pid %d, flags=0x%X, ts_out_format=%d\n",
+			__func__, dvbdmx_feed->pid, filter_flags,
+			ts_out_format);
 
 		/* Meta-data initialization,
 		 * Recording filters do no need meta-data buffers.
@@ -3534,7 +3555,9 @@ static int mpq_sdmx_filter_setup(struct mpq_demux *mpq_demux,
 			buf_mode,
 			data_buf_num,
 			data_buff_desc,
-			&feed->sdmx_filter_handle);
+			&feed->sdmx_filter_handle,
+			ts_out_format,
+			filter_flags);
 		if (ret) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: SDMX_add_filter failed. ret = %d\n",
@@ -3869,6 +3892,7 @@ static void mpq_sdmx_pes_filter_results(struct mpq_demux *mpq_demux,
 {
 	int ret;
 	struct sdmx_metadata_header header;
+	struct sdmx_pes_counters counters;
 	struct dmx_data_ready data_event;
 	struct dmx_data_ready pes_event;
 	struct dvb_demux_feed *feed = mpq_feed->dvb_demux_feed;
@@ -3906,21 +3930,25 @@ static void mpq_sdmx_pes_filter_results(struct mpq_demux *mpq_demux,
 
 	while (sts->metadata_fill_count) {
 		if (dvb_ringbuffer_avail(&mpq_feed->metadata_buf) <
-			sizeof(header)) {
+			(sizeof(header) + sizeof(counters))) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: metadata_fill_count is %d but actual buffer has less than %d bytes\n",
 				__func__,
 				sts->metadata_fill_count,
-				sizeof(header));
+				sizeof(header) + sizeof(counters));
 			break;
 		}
 
-		dvb_ringbuffer_read(&mpq_feed->metadata_buf, (u8 *) &header,
+		dvb_ringbuffer_read(&mpq_feed->metadata_buf, (u8 *)&header,
 			sizeof(header));
 		MPQ_DVB_DBG_PRINT(
 			"%s: metadata header: start=%u, length=%u\n",
 			__func__, header.payload_start, header.payload_length);
 		sts->metadata_fill_count -= sizeof(header);
+
+		dvb_ringbuffer_read(&mpq_feed->metadata_buf, (u8 *)&counters,
+			sizeof(counters));
+		sts->metadata_fill_count -= sizeof(counters);
 
 		/* Notify new data in buffer */
 		data_event.status = DMX_OK;
@@ -3947,11 +3975,13 @@ static void mpq_sdmx_pes_filter_results(struct mpq_demux *mpq_demux,
 			pes_event.pes_end.pes_length_mismatch = 1;
 		if (sts->error_indicators & SDMX_FILTER_ERR_CONT_CNT_INVALID)
 			pes_event.pes_end.disc_indicator_set = 0;
-		/* TODO: report these when SDMX returns them */
+
 		pes_event.pes_end.stc = 0;
-		pes_event.pes_end.tei_counter = 0;
-		pes_event.pes_end.cont_err_counter = 0;
-		pes_event.pes_end.ts_packets_num = 0;
+		pes_event.pes_end.tei_counter = counters.transport_err_count;
+		pes_event.pes_end.cont_err_counter =
+			counters.continuity_err_count;
+		pes_event.pes_end.ts_packets_num =
+			counters.pes_ts_count;
 
 		ret = mpq_sdmx_check_ts_stall(mpq_demux, mpq_feed, sts, 0, 1);
 		if (ret) {
@@ -4024,6 +4054,7 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 	struct sdmx_filter_status *sts)
 {
 	struct sdmx_metadata_header header;
+	struct sdmx_pes_counters counters;
 	int pes_header_offset;
 	struct ts_packet_header *ts_header;
 	struct ts_adaptation_field *ts_adapt;
@@ -4060,7 +4091,7 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 		struct mpq_adapter_video_meta_data meta_data;
 
 		pes_cnt++;
-		/* Read header & metadata */
+		/* Read metadata header */
 		dvb_ringbuffer_read(&mpq_feed->metadata_buf, (u8 *)&header,
 			sizeof(header));
 		sts->metadata_fill_count -= sizeof(header);
@@ -4069,17 +4100,23 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 			__func__, header.payload_start, header.payload_length,
 			header.metadata_length);
 
-		/* Read actual metadata */
+		/* Read metadata - PES counters */
+		dvb_ringbuffer_read(&mpq_feed->metadata_buf, (u8 *)&counters,
+					sizeof(counters));
+		sts->metadata_fill_count -= sizeof(counters);
+
+		/* Read metadata - TS & PES headers */
 		if (header.metadata_length < MAX_SDMX_METADATA_LENGTH)
 			dvb_ringbuffer_read(&mpq_feed->metadata_buf,
 				metadata_buf,
-				header.metadata_length);
+				header.metadata_length - sizeof(counters));
 		else
 			MPQ_DVB_ERR_PRINT(
 				"%s: meta-data size=%d is too big for meta-data buffer=%d\n",
 				__func__, header.metadata_length,
 				MAX_SDMX_METADATA_LENGTH);
-		sts->metadata_fill_count -= header.metadata_length;
+		sts->metadata_fill_count -=
+			(header.metadata_length - sizeof(counters));
 
 		ts_header = (struct ts_packet_header *)&metadata_buf[0];
 		if (1 == ts_header->adaptation_field_control) {
@@ -4119,6 +4156,16 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 		}
 
 		spin_lock(&mpq_feed->video_info.video_buffer_lock);
+
+		mpq_feed->video_info.tei_errs =
+			counters.transport_err_count;
+		mpq_feed->video_info.continuity_errs =
+			counters.continuity_err_count;
+		mpq_feed->video_info.ts_packets_num =
+			counters.pes_ts_count;
+		mpq_feed->video_info.ts_dropped_bytes =
+			counters.drop_count * mpq_demux->demux.ts_packet_size;
+
 		sbuf = mpq_feed->video_info.video_buffer;
 		if (sbuf == NULL) {
 			MPQ_DVB_ERR_PRINT(
