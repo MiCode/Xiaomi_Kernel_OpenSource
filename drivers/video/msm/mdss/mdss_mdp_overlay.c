@@ -84,11 +84,7 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		return -EOVERFLOW;
 	}
 
-	if (req->flags & MDSS_MDP_ROT_ONLY) {
-		/* dst res should match src res in rotation only mode*/
-		req->dst_rect.w = req->src_rect.w;
-		req->dst_rect.h = req->src_rect.h;
-	} else {
+	if (!(req->flags & MDSS_MDP_ROT_ONLY)) {
 		u32 dst_w, dst_h;
 
 		if ((CHECK_BOUNDS(req->dst_rect.x, req->dst_rect.w, xres) ||
