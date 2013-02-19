@@ -151,6 +151,7 @@ struct audio_client {
 	struct audio_port_data port[2];
 	wait_queue_head_t      cmd_wait;
 	wait_queue_head_t      time_wait;
+	bool                   perf_mode;
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);

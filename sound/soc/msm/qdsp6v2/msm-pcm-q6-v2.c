@@ -48,7 +48,7 @@ static struct snd_msm_volume pcm_audio = {NULL, 0x2000};
 
 #define PLAYBACK_NUM_PERIODS	8
 #define PLAYBACK_MAX_PERIOD_SIZE    12288
-#define PLAYBACK_MIN_PERIOD_SIZE    2048
+#define PLAYBACK_MIN_PERIOD_SIZE    1024
 #define CAPTURE_NUM_PERIODS	16
 #define CAPTURE_MAX_PERIOD_SIZE 4096
 #define CAPTURE_MIN_PERIOD_SIZE 512
@@ -311,9 +311,15 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
+	struct msm_plat_data *pdata;
 	int ret = 0;
 
-	pr_debug("%s\n", __func__);
+	pdata = (struct msm_plat_data *)
+				dev_get_drvdata(soc_prtd->platform->dev);
+	if (!pdata) {
+		pr_err("%s: platform data not populated\n", __func__);
+		return -EINVAL;
+	}
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
 	if (prtd == NULL) {
 		pr_err("Failed to allocate memory for msm_audio\n");
@@ -327,6 +333,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		kfree(prtd);
 		return -ENOMEM;
 	}
+	prtd->audio_client->perf_mode = pdata->perf_mode;
+	pr_debug("%s: perf: %x\n", __func__, pdata->perf_mode);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		runtime->hw = msm_pcm_hardware_playback;
 		ret = q6asm_open_write(prtd->audio_client, FORMAT_LINEAR_PCM);
@@ -341,6 +349,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 			prtd->audio_client->session);
 		prtd->session_id = prtd->audio_client->session;
 		msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+			prtd->audio_client->perf_mode,
 			prtd->session_id, substream->stream);
 		prtd->cmd_ack = 1;
 
@@ -669,13 +678,14 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 			prtd->audio_client = NULL;
 			return -ENOMEM;
 		}
+
+		pr_debug("%s: session ID %d\n",
+				__func__, prtd->audio_client->session);
+		prtd->session_id = prtd->audio_client->session;
+		msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+				prtd->audio_client->perf_mode,
+				prtd->session_id, substream->stream);
 	}
-
-	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
-	prtd->session_id = prtd->audio_client->session;
-	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
-			prtd->session_id, substream->stream);
-
 
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
 			prtd->audio_client,
@@ -769,16 +779,46 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static __devinit int msm_pcm_probe(struct platform_device *pdev)
 {
-	if (pdev->dev.of_node)
-		dev_set_name(&pdev->dev, "%s", "msm-pcm-dsp");
+	int rc;
+	int id;
+	struct msm_plat_data *pdata;
 
-	pr_info("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
+	rc = of_property_read_u32(pdev->dev.of_node,
+				"qcom,msm-pcm-dsp-id", &id);
+	if (rc) {
+		dev_err(&pdev->dev, "%s: qcom,msm-pcm-dsp-id missing in DT node\n",
+					__func__);
+		return rc;
+	}
+
+	pdata = kzalloc(sizeof(struct msm_plat_data), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(&pdev->dev, "Failed to allocate memory for platform data\n");
+		return -ENOMEM;
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node,
+				"qcom,msm-pcm-low-latency"))
+		pdata->perf_mode = 1;
+	else
+		pdata->perf_mode = 0;
+
+	dev_set_drvdata(&pdev->dev, pdata);
+
+	dev_set_name(&pdev->dev, "%s.%d", "msm-pcm-dsp", id);
+
+	dev_dbg(&pdev->dev, "%s: dev name %s\n",
+				__func__, dev_name(&pdev->dev));
 	return snd_soc_register_platform(&pdev->dev,
 				   &msm_soc_platform);
 }
 
 static int msm_pcm_remove(struct platform_device *pdev)
 {
+	struct msm_plat_data *pdata;
+
+	pdata = dev_get_drvdata(&pdev->dev);
+	kfree(pdata);
 	snd_soc_unregister_platform(&pdev->dev);
 	return 0;
 }
