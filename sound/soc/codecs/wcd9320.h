@@ -41,12 +41,6 @@ enum taiko_pid_current {
 	TAIKO_PID_MIC_20_UA,
 };
 
-struct taiko_reg_mask_val {
-	u16	reg;
-	u8	mask;
-	u8	val;
-};
-
 enum taiko_mbhc_analog_pwr_cfg {
 	TAIKO_ANALOG_PWR_COLLAPSED = 0,
 	TAIKO_ANALOG_PWR_ON,

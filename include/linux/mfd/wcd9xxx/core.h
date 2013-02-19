@@ -29,6 +29,8 @@
 	(((ver == TABLA_VERSION_1_0) || (ver == TABLA_VERSION_1_1)) ? 1 : 0)
 #define TABLA_IS_2_0(ver) ((ver == TABLA_VERSION_2_0) ? 1 : 0)
 
+#define WCD9XXX_SUPPLY_BUCK_NAME "cdc-vdd-buck"
+
 #define SITAR_VERSION_1P0 0
 #define SITAR_VERSION_1P1 1
 #define SITAR_IS_1P0(ver) \
