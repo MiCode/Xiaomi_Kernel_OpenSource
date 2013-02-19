@@ -577,10 +577,12 @@ struct msmfb_mdp_pp {
 	} data;
 };
 
+#define FB_METADATA_VIDEO_INFO_CODE_SUPPORT 1
 enum {
 	metadata_op_none,
 	metadata_op_base_blend,
 	metadata_op_frame_rate,
+	metadata_op_vic,
 	metadata_op_max
 };
 
@@ -594,6 +596,7 @@ struct msmfb_metadata {
 	union {
 		struct mdp_blend_cfg blend_cfg;
 		uint32_t panel_frame_rate;
+		uint32_t video_info_code;
 	} data;
 };
 
