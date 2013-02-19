@@ -606,13 +606,6 @@ static int process_map(struct ocmem_req *req, unsigned long start,
 			goto iface_clock_fail;
 	}
 
-	if (is_remapped_access(req->owner)) {
-		rc = ocmem_enable_br_clock();
-
-		if (rc < 0)
-			goto br_clock_fail;
-	}
-
 	rc = ocmem_lock(req->owner, phys_to_offset(req->req_start), req->req_sz,
 							get_mode(req->owner));
 
@@ -636,9 +629,6 @@ static int process_map(struct ocmem_req *req, unsigned long start,
 process_map_fail:
 	ocmem_unlock(req->owner, phys_to_offset(req->req_start), req->req_sz);
 lock_failed:
-	if (is_remapped_access(req->owner))
-		ocmem_disable_br_clock();
-br_clock_fail:
 	if (is_iface_access(req->owner))
 		ocmem_disable_iface_clock();
 iface_clock_fail:
@@ -667,8 +657,6 @@ static int process_unmap(struct ocmem_req *req, unsigned long start,
 		goto unlock_failed;
 	}
 
-	if (is_remapped_access(req->owner))
-		ocmem_disable_br_clock();
 	if (is_iface_access(req->owner))
 		ocmem_disable_iface_clock();
 	ocmem_disable_core_clock();
