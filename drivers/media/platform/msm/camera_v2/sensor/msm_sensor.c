@@ -90,17 +90,21 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 		sensordata->sensor_info->subdev_id[SUB_MODULE_EEPROM] = val;
 	}
 
-	if (of_property_read_bool(of_node, "qcom,led-flash-sd-index") ==
-		true) {
-		rc = of_property_read_u32(of_node, "qcom,led-flash-sd-index",
-			&val);
-		CDBG("%s qcom,led-flash-sd-index %d, rc %d\n", __func__, val,
-			rc);
+	src_node = of_parse_phandle(of_node, "qcom,led-flash-src", 0);
+	if (!src_node) {
+		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+	} else {
+		rc = of_property_read_u32(src_node, "cell-index", &val);
+		CDBG("%s qcom,led flash cell index %d, rc %d\n", __func__,
+			val, rc);
 		if (rc < 0) {
-			pr_err("%s:%d failed rc %d\n", __func__, __LINE__, rc);
+			pr_err("%s:%d failed %d\n", __func__, __LINE__, rc);
 			goto ERROR;
 		}
-		sensordata->sensor_info->subdev_id[SUB_MODULE_LED_FLASH] = val;
+		sensordata->sensor_info->
+			subdev_id[SUB_MODULE_LED_FLASH] = val;
+		of_node_put(src_node);
+		src_node = NULL;
 	}
 
 	if (of_property_read_bool(of_node, "qcom,strobe-flash-sd-index") ==
