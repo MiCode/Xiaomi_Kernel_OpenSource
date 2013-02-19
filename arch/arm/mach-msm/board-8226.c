@@ -27,6 +27,7 @@
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
 #endif
+#include <linux/regulator/qpnp-regulator.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/arch.h>
@@ -104,6 +105,7 @@ void __init msm8226_add_drivers(void)
 	msm_rpm_driver_init();
 	msm_lpmrs_module_init();
 	msm_spm_device_init();
+	qpnp_regulator_init();
 	if (machine_is_msm8226_rumi())
 		msm_clock_init(&msm8226_rumi_clock_init_data);
 	else
