@@ -6215,6 +6215,22 @@ struct asm_eq_params {
 #define VOICE_CMD_GET_PARAM				0x0001133E
 #define VOICE_EVT_GET_PARAM_ACK				0x00011008
 
+/* Set Q6 topologies */
+#define ASM_CMD_ADD_TOPOLOGIES				0x00010DBE
+#define ADM_CMD_ADD_TOPOLOGIES				0x00010335
+
+/* structure used for both ioctls */
+struct cmd_set_topologies {
+	struct apr_hdr hdr;
+	u32		payload_addr_lsw;
+	/* LSW of parameter data payload address.*/
+	u32		payload_addr_msw;
+	/* MSW of parameter data payload address.*/
+	u32		mem_map_handle;
+	/* Memory map handle returned by mem map command */
+	u32		payload_size;
+	/* Size in bytes of the variable payload in shared memory */
+} __packed;
 
 /* SRS TRUMEDIA start */
 /* topology */
