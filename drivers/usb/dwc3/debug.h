@@ -39,9 +39,24 @@
 #include "core.h"
 
 #ifdef CONFIG_DEBUG_FS
+extern void dbg_event(u8, const char*, int);
+extern void dbg_print(u8, const char*, int, const char*);
+extern void dbg_done(u8, const u32, int);
+extern void dbg_queue(u8, const struct usb_request*, int);
+extern void dbg_setup(u8, const struct usb_ctrlrequest*);
 extern int dwc3_debugfs_init(struct dwc3 *);
 extern void dwc3_debugfs_exit(struct dwc3 *);
 #else
+static inline void dbg_event(u8, const char*, int)
+{  }
+static inline void dbg_print(u8, const char*, int, const char*)
+{  }
+static inline void dbg_done(u8, const u32, int)
+{  }
+static inline void dbg_queue(u8, const struct usb_request*, int)
+{  }
+static inline void dbg_setup(u8, const struct usb_ctrlrequest*)
+{  }
 static inline int dwc3_debugfs_init(struct dwc3 *d)
 {  return 0;  }
 static inline void dwc3_debugfs_exit(struct dwc3 *d)
