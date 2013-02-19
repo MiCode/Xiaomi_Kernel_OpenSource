@@ -320,7 +320,8 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 		if (BUF_SRC(bufq->stream_id))
 			list_add_tail(&buf_info->list, &bufq->head);
 		else
-			buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf);
+			buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
+				bufq->session_id, bufq->stream_id);
 		buf_info->state = MSM_ISP_BUFFER_STATE_QUEUED;
 		rc = 0;
 		break;
@@ -366,7 +367,8 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 		} else {
 			buf_info->vb2_buf->v4l2_buf.timestamp = *tv;
 			buf_info->vb2_buf->v4l2_buf.sequence  = frame_id;
-			buf_mgr->vb2_ops->buf_done(buf_info->vb2_buf);
+			buf_mgr->vb2_ops->buf_done(buf_info->vb2_buf,
+				bufq->session_id, bufq->stream_id);
 		}
 	}
 

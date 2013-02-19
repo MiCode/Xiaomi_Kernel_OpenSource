@@ -66,17 +66,6 @@ struct msm_command_ack {
 	int stream_id;
 };
 
-struct msm_stream {
-	struct list_head list;
-
-	/* stream index per session, same
-	 * as stream_id but set through s_parm */
-	unsigned int stream_id;
-
-	/* vb2 buffer handling */
-	struct vb2_queue *vb2_q;
-};
-
 struct msm_v4l2_subdev {
 	/* FIXME: for session close and error handling such
 	 * as daemon shutdown */
@@ -275,7 +264,7 @@ int msm_create_stream(unsigned int session_id,
 
 	stream->stream_id = stream_id;
 	stream->vb2_q = q;
-
+	spin_lock_init(&stream->stream_lock);
 	msm_enqueue(&session->stream_q, &stream->list);
 	session->stream_q.len++;
 
