@@ -172,8 +172,7 @@ static void event_handler(uint32_t opcode,
 				break;
 			}
 			if (prtd->mmap_flag) {
-				pr_debug("%s:writing %d bytes"
-					" of buffer to dsp\n",
+				pr_debug("%s:writing %d bytes of buffer to dsp\n",
 					__func__,
 					prtd->pcm_count);
 				q6asm_write_nolock(prtd->audio_client,
@@ -181,8 +180,7 @@ static void event_handler(uint32_t opcode,
 					0, 0, NO_TIMESTAMP);
 			} else {
 				while (atomic_read(&prtd->out_needed)) {
-					pr_debug("%s:writing %d bytes"
-						 " of buffer to dsp\n",
+					pr_debug("%s:writing %d bytes of buffer to dsp\n",
 						__func__,
 						prtd->pcm_count);
 					q6asm_write_nolock(prtd->audio_client,
@@ -336,6 +334,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		kfree(prtd);
 		return -ENOMEM;
 	}
+	prtd->audio_client->perf_mode = false;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		runtime->hw = msm_pcm_hardware_playback;
 		ret = q6asm_open_write(prtd->audio_client,
@@ -363,6 +362,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 
 	prtd->session_id = prtd->audio_client->session;
 	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+			prtd->audio_client->perf_mode,
 			prtd->session_id, substream->stream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
@@ -412,8 +412,8 @@ int multi_ch_pcm_set_volume(unsigned volume)
 		rc = q6asm_set_volume(multi_ch_pcm_audio.prtd->audio_client,
 								volume);
 		if (rc < 0) {
-			pr_err("%s: Send Volume command failed"
-				" rc=%d\n", __func__, rc);
+			pr_err("%s: Send Volume command failed rc=%d\n",
+							__func__, rc);
 		}
 	}
 	multi_ch_pcm_audio.volume = volume;

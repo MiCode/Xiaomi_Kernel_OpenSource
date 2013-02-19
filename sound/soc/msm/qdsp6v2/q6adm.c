@@ -740,7 +740,8 @@ fail_cmd:
 	return ret;
 }
 
-int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
+int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
+							bool perf_mode)
 {
 	struct adm_cmd_device_open_v5	open;
 	int ret = 0;
@@ -787,10 +788,16 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 		open.hdr.dest_port = tmp_port;
 		open.hdr.token = port_id;
 		open.hdr.opcode = ADM_CMD_DEVICE_OPEN_V5;
+		open.flags = 0x00;
+		if (perf_mode) {
+			open.flags |= ADM_LOW_LATENCY_DEVICE_SESSION <<
+				ADM_BIT_SHIFT_DEVICE_PERF_MODE_FLAG;
+		} else {
+			open.flags |= ADM_LEGACY_DEVICE_SESSION <<
+				ADM_BIT_SHIFT_DEVICE_PERF_MODE_FLAG;
+		}
 
 		open.mode_of_operation = path;
-		/* Reserved for future use, need to set this to 0 */
-		open.flags = 0x00;
 		open.endpoint_id_1 = tmp_port;
 		open.endpoint_id_2 = 0xFFFF;
 
@@ -879,8 +886,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 			atomic_read(&this_adm.copp_stat[index]),
 			msecs_to_jiffies(TIMEOUT_MS));
 		if (!ret) {
-			pr_err("%s ADM open failed for port %#x"
-			"for [%d]\n", __func__, tmp_port, port_id);
+			pr_err("%s ADM open failed for port %#x for [%d]\n",
+						__func__, tmp_port, port_id);
 			ret = -EINVAL;
 			goto fail_cmd;
 		}
@@ -895,11 +902,11 @@ fail_cmd:
 
 
 int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
-				int topology)
+				int topology, bool perf_mode)
 {
 	int ret = 0;
 
-	ret = adm_open(port_id, path, rate, channel_mode, topology);
+	ret = adm_open(port_id, path, rate, channel_mode, topology, perf_mode);
 
 	return ret;
 }

@@ -527,6 +527,7 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 		return -ENOMEM;
 	}
 
+	prtd->audio_client->perf_mode = false;
 	pr_info("%s: session ID %d\n", __func__, prtd->audio_client->session);
 
 	prtd->session_id = prtd->audio_client->session;
@@ -723,6 +724,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 		}
 		msm_pcm_routing_reg_phy_stream(
 			soc_prtd->dai_link->be_id,
+			prtd->audio_client->perf_mode,
 			prtd->session_id,
 			substream->stream);
 
@@ -754,6 +756,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 			pr_debug("msm_pcm_routing_reg_phy_stream\n");
 			msm_pcm_routing_reg_phy_stream(
 					soc_prtd->dai_link->be_id,
+					prtd->audio_client->perf_mode,
 					prtd->session_id, substream->stream);
 			break;
 		default:
