@@ -51,6 +51,17 @@ struct msm_vb2_private_data {
 	void *alloc_ctx;
 };
 
+struct msm_stream {
+	struct list_head list;
+
+	/* stream index per session, same
+	 * as stream_id but set through s_parm */
+	unsigned int stream_id;
+	/* vb2 buffer handling */
+	struct vb2_queue *vb2_q;
+	spinlock_t stream_lock;
+};
+
 struct vb2_ops *msm_vb2_get_q_ops(void);
 struct vb2_mem_ops *msm_vb2_get_q_mem_ops(void);
 int msm_vb2_request_cb(struct msm_sd_req_vb2_q *req_sd);
