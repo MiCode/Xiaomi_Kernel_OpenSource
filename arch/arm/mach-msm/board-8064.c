@@ -2644,7 +2644,6 @@ static struct platform_device *ep_devices[] __initdata = {
 	&apq8064_device_hsusb_host,
 	&android_usb_device,
 	&msm_device_wcnss_wlan,
-	&msm_device_iris_fm,
 	&apq8064_fmem_device,
 #ifdef CONFIG_ANDROID_PMEM
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -2695,8 +2694,6 @@ static struct platform_device *ep_devices[] __initdata = {
 	&msm_bus_8064_cpss_fpb,
 	&msm_pil_dsps,
 	&msm_8960_q6_lpass,
-	&msm_pil_vidc,
-	&msm_gss,
 	&apq8064_rtb_device,
 	&apq8064_dcvs_device,
 	&apq8064_msm_gov_device,
@@ -2726,9 +2723,6 @@ static struct platform_device *ep_devices[] __initdata = {
 	&apq8064_device_uart_gsbi1,
 	&apq8064_device_uart_gsbi4,
 	&msm_device_sps_apq8064,
-#ifdef CONFIG_MSM_ROTATOR
-	&msm_rotator_device,
-#endif
 	&msm8064_pc_cntr,
 };
 
@@ -3976,12 +3970,10 @@ static void __init fsm8064_ep_init(void)
 
 	apq8064_common_init();
 	ethernet_init();
-	msm_rotator_set_split_iommu_domain();
 	fsm8064_ep_pcie_init();
 	platform_add_devices(ep_devices, ARRAY_SIZE(ep_devices));
 	spi_register_board_info(spi_board_info, ARRAY_SIZE(spi_board_info));
 	apq8064_init_gpu();
-	platform_add_devices(apq8064_footswitch, apq8064_num_footswitch);
 	platform_device_register(&cdp_kp_pdev);
 #ifdef CONFIG_MSM_CAMERA
 	apq8064_init_cam();
