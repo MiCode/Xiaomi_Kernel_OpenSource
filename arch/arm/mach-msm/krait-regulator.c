@@ -894,8 +894,6 @@ static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 
 	/* setup the bandgap that configures the reference to the LDO */
 	writel_relaxed(0x00000190, kvreg->mdd_base + MDD_CONFIG_CTL);
-	/* Enable MDD */
-	writel_relaxed(0x00000002, kvreg->mdd_base + MDD_MODE);
 	mb();
 }
 
