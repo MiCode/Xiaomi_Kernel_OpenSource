@@ -957,4 +957,46 @@ config TOUCHSCREEN_GEN_VKEYS
          To compile this driver as a module, choose M here: the
          module will be called gen_vkeys.
 
+config TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+	tristate "Synaptics DSX I2C touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Synaptics DSX I2C touchscreen
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_i2c_rmi4.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_RMI4_DEV
+	tristate "Synaptics I2C touchscreen rmi device"
+	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+	help
+	  This enables support for character device channel for Synaptics
+	  RMI4 touchscreens.
+
+	  Say Y here if you have a Synaptics DSX I2C touchscreen
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_rmi4_dev.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
+	tristate "Synaptics I2C touchscreen firmware update"
+	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+	help
+	  This enables support for firmware update for Synaptics RMI4
+	  touchscreens.
+
+	  Say Y here if you have a Synaptics DSX I2C touchscreen
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_dsx_fw_update.
+
 endif
