@@ -82,6 +82,7 @@
 #define IGNORE_SOC_TEMP_DECIDEG		50
 #define IAVG_STEP_SIZE_MA		50
 #define IAVG_START			600
+#define IAVG_INVALID			0xFF
 #define SOC_ZERO			0xFF
 
 #define IAVG_SAMPLES 16
@@ -1972,6 +1973,10 @@ static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 		if (rc) {
 			pr_err("failed to read addr = %d %d assuming %d\n",
 					chip->base + IAVG_STORAGE_REG, rc,
+					IAVG_START);
+			chip->shutdown_iavg_ma = IAVG_START;
+		} else if (temp == IAVG_INVALID) {
+			pr_err("invalid iavg read from BMS1_DATA_REG_1, using %d\n",
 					IAVG_START);
 			chip->shutdown_iavg_ma = IAVG_START;
 		} else {
