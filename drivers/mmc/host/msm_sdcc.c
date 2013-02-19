@@ -4325,6 +4325,69 @@ void msmsdcc_hw_reset(struct mmc_host *mmc)
 	}
 }
 
+/**
+ *	msmsdcc_stop_request - stops ongoing request
+ *	@mmc: MMC host, running the request
+ *
+ *	Stops currently running request synchronously. All relevant request
+ *	information is cleared.
+ */
+int msmsdcc_stop_request(struct mmc_host *mmc)
+{
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	struct mmc_request *mrq;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(&host->lock, flags);
+	mrq = host->curr.mrq;
+	if (mrq) {
+		msmsdcc_reset_and_restore(host);
+		/*
+		 * Note: We are just taking care of SPS. We may also
+		 * need to think about ADM (and PIO?) later if required.
+		 */
+		if (host->sps.sg && is_sps_mode(host)) {
+			if (!mrq->data->host_cookie)
+				dma_unmap_sg(mmc_dev(host->mmc), host->sps.sg,
+					host->sps.num_ents, host->sps.dir);
+			host->sps.sg = NULL;
+			host->sps.busy = 0;
+		}
+
+		/*
+		 * Clear current request information as current
+		 * request has ended
+		 */
+		memset(&host->curr, 0, sizeof(struct msmsdcc_curr_req));
+		del_timer(&host->req_tout_timer);
+	} else {
+		rc = -EINVAL;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return rc;
+}
+
+/**
+ *	msmsdcc_get_xfer_remain - returns number of bytes passed on bus
+ *	@mmc: MMC host, running the request
+ *
+ *	Returns the number of bytes passed for SPS transfer. 0 - for non-SPS
+ *	transfer.
+ */
+unsigned int msmsdcc_get_xfer_remain(struct mmc_host *mmc)
+{
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	u32 data_cnt = 0;
+
+	/* Currently, we don't support to stop the non-SPS transfer */
+	if (host->sps.busy && atomic_read(&host->clks_on))
+		data_cnt = readl_relaxed(host->base + MMCIDATACNT);
+
+	return data_cnt;
+}
+
 static const struct mmc_host_ops msmsdcc_ops = {
 	.enable		= msmsdcc_enable,
 	.disable	= msmsdcc_disable,
@@ -4337,6 +4400,8 @@ static const struct mmc_host_ops msmsdcc_ops = {
 	.start_signal_voltage_switch = msmsdcc_switch_io_voltage,
 	.execute_tuning = msmsdcc_execute_tuning,
 	.hw_reset = msmsdcc_hw_reset,
+	.stop_request = msmsdcc_stop_request,
+	.get_xfer_remain = msmsdcc_get_xfer_remain,
 };
 
 static void msmsdcc_enable_status_gpio(struct msmsdcc_host *host)
