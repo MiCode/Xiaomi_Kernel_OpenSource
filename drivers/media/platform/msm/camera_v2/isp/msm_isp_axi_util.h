@@ -52,10 +52,6 @@ void msm_isp_axi_stream_enable_cfg(struct vfe_device *vfe_dev,
 
 void msm_isp_axi_stream_update(struct vfe_device *vfe_dev);
 
-int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream *stream_info, uint32_t pingpong_status,
-	struct timeval *tv);
-
 void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev);
 void msm_isp_update_framedrop_count(struct vfe_device *vfe_dev);
 void msm_isp_sof_notify(struct vfe_device *vfe_dev,
