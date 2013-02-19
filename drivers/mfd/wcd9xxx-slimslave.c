@@ -214,7 +214,7 @@ int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx,
 	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
 	prop.auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
 	prop.ratem = (rate/4000);
-	prop.sampleszbits = 16;
+	prop.sampleszbits = bit_width;
 
 	pr_debug("Before slim_define_ch:\n"
 		 "ch_cnt %d,ch_h[0] %d ch_h[1] %d, grph %d\n",
