@@ -82,9 +82,6 @@ Optional properties:
 - qcom,is-vpe : should be enabled if VPE module is required for post processing
     of this sensor
     - 1 if required, 0 otherwise
-- qcom,led-flash-sd-index : should contain phandle to flash source node if flash
-    is supported for this sensor
-    - led_flash0, led_flash1
 - qcom,mount-angle : should contain the physical mount angle of the sensor on
     the target
     - 0, 90, 180, 360
@@ -188,7 +185,6 @@ Example:
                compatible = "qcom,s5k3l1yx";
                reg = <0x6e 0x0>;
                qcom,slave-id = <0x6e 0x0 0x3121>;
-               qcom,led-flash-sd-index = <0>;
                qcom,csiphy-sd-index = <2>;
                qcom,csid-sd-index = <0>;
                qcom,actuator-src = <&actuator0>;

@@ -26,7 +26,6 @@
 		qcom,slave-id = <0x6e 0x0 0x3121>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
-		qcom,flash-src-index = <&led_flash0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,mount-angle = <270>;
 		qcom,sensor-name = "s5k3l1yx";
@@ -66,7 +65,6 @@
 		compatible = "qcom,ov2720";
 		reg = <0x6c>;
 		qcom,slave-id = <0x6c 0x300A 0x2720>;
-		qcom,led-flash-sd-index = <0>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
