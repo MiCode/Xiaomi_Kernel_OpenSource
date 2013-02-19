@@ -184,6 +184,7 @@ struct msm_vfe_hardware_info {
 	struct msm_vfe_stats_hardware_info *stats_hw_info;
 	struct v4l2_subdev_internal_ops *subdev_internal_ops;
 	struct v4l2_subdev_ops *subdev_ops;
+	uint32_t dmi_reg_offset;
 };
 
 struct msm_vfe_axi_hardware_info {
