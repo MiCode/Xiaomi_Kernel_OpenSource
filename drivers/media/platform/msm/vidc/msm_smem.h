@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,13 @@ struct msm_smem {
 	void *smem_priv;
 };
 
+enum smem_cache_ops {
+	SMEM_CACHE_CLEAN,
+	SMEM_CACHE_INVALIDATE,
+	SMEM_CACHE_CLEAN_INVALIDATE,
+};
+
+
 void *msm_smem_new_client(enum smem_type mtype);
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 		int domain, int partition, int map_kernel);
@@ -44,5 +51,6 @@ void msm_smem_free(void *clt, struct msm_smem *mem);
 void msm_smem_delete_client(void *clt);
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset, int
 		domain, int partition, int flags);
-int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem);
+int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
+		enum smem_cache_ops);
 #endif

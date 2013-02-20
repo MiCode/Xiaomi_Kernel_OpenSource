@@ -1929,6 +1929,12 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 				rc = -ENOMEM;
 				goto err_no_mem;
 			}
+			rc = msm_smem_cache_operations(inst->mem_client,
+					handle, SMEM_CACHE_CLEAN);
+			if (rc) {
+				dprintk(VIDC_WARN,
+				"Failed to clean cache may cause undefined behavior\n");
+			}
 			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 			if (!binfo) {
 				dprintk(VIDC_ERR, "Out of memory\n");
@@ -2013,6 +2019,12 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 					"Failed to allocate persist memory\n");
 				rc = -ENOMEM;
 				goto err_no_mem;
+			}
+			rc = msm_smem_cache_operations(inst->mem_client,
+					handle, SMEM_CACHE_CLEAN);
+			if (rc) {
+				dprintk(VIDC_WARN,
+				"Failed to clean cache may cause undefined behavior\n");
 			}
 			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
 			if (!binfo) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@ static int get_device_address(struct ion_client *clnt,
 		unsigned long align, unsigned long *iova,
 		unsigned long *buffer_size, int flags)
 {
-	int rc;
+	int rc = 0;
 	if (!iova || !buffer_size || !hndl || !clnt) {
 		dprintk(VIDC_ERR, "Invalid params: %p, %p, %p, %p\n",
 				clnt, hndl, iova, buffer_size);
@@ -71,6 +71,7 @@ static int ion_user_to_kernel(struct smem_client *client,
 	struct ion_handle *hndl;
 	unsigned long iova = 0;
 	unsigned long buffer_size = 0;
+	unsigned long ionflags = 0;
 	int rc = 0;
 	int align = SZ_4K;
 	hndl = ion_import_dma_buf(client->clnt, fd);
@@ -84,7 +85,20 @@ static int ion_user_to_kernel(struct smem_client *client,
 	mem->domain = domain;
 	mem->partition_num = partition;
 	mem->flags = flags;
-
+	rc = ion_handle_get_flags(client->clnt, hndl, &ionflags);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to get ion flags: %d\n", rc);
+		goto fail_map;
+	}
+	if (ION_IS_CACHED(ionflags)) {
+		mem->kvaddr = ion_map_kernel(client->clnt, hndl);
+		if (!mem->kvaddr) {
+			dprintk(VIDC_ERR,
+					"Failed to map shared mem in kernel\n");
+			rc = -EIO;
+			goto fail_map;
+		}
+	}
 	if (flags & SMEM_SECURE)
 		align = ALIGN(align, SZ_1M);
 
@@ -103,7 +117,9 @@ static int ion_user_to_kernel(struct smem_client *client,
 		mem->device_addr, mem->size);
 	return rc;
 fail_device_address:
-	ion_unmap_kernel(client->clnt, hndl);
+	if (mem->kvaddr)
+		ion_unmap_kernel(client->clnt, hndl);
+fail_map:
 	ion_free(client->clnt, hndl);
 fail_import_fd:
 	return rc;
@@ -243,31 +259,79 @@ struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 	return mem;
 }
 
-static int ion_mem_clean_invalidate(struct smem_client *clt,
-	struct msm_smem *mem)
+static int ion_cache_operations(struct smem_client *client,
+	struct msm_smem *mem, enum smem_cache_ops cache_op)
 {
-	/*
-	 * Note: We're always mapping into iommu as uncached
-	 * as a result we don't need to flush/clean anything
-	 */
-	return 0;
+	unsigned long ionflag = 0;
+	int rc = 0;
+	int msm_cache_ops = 0;
+	if (!mem || !client) {
+		dprintk(VIDC_ERR, "Invalid params: %p, %p\n",
+			mem, client);
+		return -EINVAL;
+	}
+	rc = ion_handle_get_flags(client->clnt,	mem->smem_priv,
+		&ionflag);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"ion_handle_get_flags failed: %d\n", rc);
+		goto cache_op_failed;
+	}
+	if (ION_IS_CACHED(ionflag)) {
+		switch (cache_op) {
+		case SMEM_CACHE_CLEAN:
+			msm_cache_ops = ION_IOC_CLEAN_CACHES;
+			break;
+		case SMEM_CACHE_INVALIDATE:
+			msm_cache_ops = ION_IOC_INV_CACHES;
+			break;
+		case SMEM_CACHE_CLEAN_INVALIDATE:
+			msm_cache_ops = ION_IOC_CLEAN_INV_CACHES;
+			break;
+		default:
+			dprintk(VIDC_ERR, "cache operation not supported\n");
+			rc = -EINVAL;
+			goto cache_op_failed;
+		}
+		if (mem->kvaddr) {
+			rc = msm_ion_do_cache_op(client->clnt,
+					(struct ion_handle *)mem->smem_priv,
+					(unsigned long *) mem->kvaddr,
+					(unsigned long)mem->size,
+					msm_cache_ops);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"cache operation failed %d\n", rc);
+				goto cache_op_failed;
+			}
+		} else {
+			dprintk(VIDC_WARN,
+				"cache operation failed as no kernel mapping\n");
+		}
+	}
+cache_op_failed:
+	return rc;
 }
 
-int msm_smem_clean_invalidate(void *clt, struct msm_smem *mem)
+int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
+		enum smem_cache_ops cache_op)
 {
 	struct smem_client *client = clt;
-	int rc;
-	if (!client || !mem) {
-		dprintk(VIDC_ERR, "Invalid  client/handle passed\n");
+	int rc = 0;
+	if (!client) {
+		dprintk(VIDC_ERR, "Invalid params: %p\n",
+			client);
 		return -EINVAL;
 	}
 	switch (client->mem_type) {
 	case SMEM_ION:
-		rc = ion_mem_clean_invalidate(client, mem);
+		rc = ion_cache_operations(client, mem, cache_op);
+		if (rc)
+			dprintk(VIDC_ERR,
+			"Failed cache operations: %d\n", rc);
 		break;
 	default:
 		dprintk(VIDC_ERR, "Mem type not supported\n");
-		rc = -EINVAL;
 		break;
 	}
 	return rc;
