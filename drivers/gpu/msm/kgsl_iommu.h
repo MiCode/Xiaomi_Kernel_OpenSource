@@ -15,8 +15,8 @@
 
 #include <mach/iommu.h>
 
-#define KGSL_IOMMU_CTX_OFFSET_V1	0
-#define KGSL_IOMMU_CTX_OFFSET_V2	0x8000
+#define KGSL_IOMMU_CTX_OFFSET_V0	0
+#define KGSL_IOMMU_CTX_OFFSET_V1	0x8000
 #define KGSL_IOMMU_CTX_SHIFT		12
 
 /* TLBLKCR feilds */
