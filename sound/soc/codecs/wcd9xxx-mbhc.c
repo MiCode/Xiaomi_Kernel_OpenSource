@@ -83,6 +83,7 @@
 #define VDDIO_MICBIAS_MV 1800
 
 #define WCD9XXX_HPHL_STATUS_READY_WAIT_US 1000
+#define WCD9XXX_MUX_SWITCH_READY_WAIT_US 100
 #define WCD9XXX_MEAS_DELTA_MAX_MV 50
 #define WCD9XXX_GM_SWAP_THRES_MIN_MV 150
 #define WCD9XXX_GM_SWAP_THRES_MAX_MV 500
@@ -2515,6 +2516,7 @@ static void wcd9xxx_update_mbhc_clk_rate(struct wcd9xxx_mbhc *mbhc, u32 rate)
 static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 {
 	u8 cfilt_mode;
+	u16 reg0, reg1;
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
@@ -2544,15 +2546,28 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_write(codec, WCD9XXX_A_TX_7_MBHC_TEST_CTL, 0x78);
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x04, 0x04);
 
-	/* DCE measurement for 0 volts */
+	/* Pull down micbias to ground */
+	reg0 = snd_soc_read(codec, mbhc->mbhc_bias_regs.ctl_reg);
+	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.ctl_reg, 1, 1);
+	/* Disconnect override from micbias */
+	reg1 = snd_soc_read(codec, WCD9XXX_A_MAD_ANA_CTRL);
+	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4, 1 << 0);
+	/* Connect the MUX to micbias */
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x82);
+	usleep_range(WCD9XXX_MUX_SWITCH_READY_WAIT_US,
+		     WCD9XXX_MUX_SWITCH_READY_WAIT_US +
+		     WCD9XXX_USLEEP_RANGE_MARGIN_US);
+	/* DCE measurement for 0 voltage */
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
-	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x04);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x02);
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x81);
-	usleep_range(100, 100);
-	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x04);
-	usleep_range(mbhc->mbhc_data.t_dce, mbhc->mbhc_data.t_dce);
-	mbhc->mbhc_data.dce_z = wcd9xxx_read_dce_result(codec);
+	mbhc->mbhc_data.dce_z = __wcd9xxx_codec_sta_dce(mbhc, 1, true, false);
+	/* STA measurement for 0 voltage */
+	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
+	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x02);
+	mbhc->mbhc_data.sta_z = __wcd9xxx_codec_sta_dce(mbhc, 0, true, false);
+	/* Restore registers */
+	snd_soc_write(codec, mbhc->mbhc_bias_regs.ctl_reg, reg0);
+	snd_soc_write(codec, WCD9XXX_A_MAD_ANA_CTRL, reg1);
 
 	/* DCE measurment for MB voltage */
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
@@ -2563,17 +2578,10 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	usleep_range(mbhc->mbhc_data.t_dce, mbhc->mbhc_data.t_dce);
 	mbhc->mbhc_data.dce_mb = wcd9xxx_read_dce_result(codec);
 
-	/* STA measuremnt for 0 volts */
+	/* STA Measurement for MB Voltage */
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x02);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x02);
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x81);
-	usleep_range(100, 100);
-	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x02);
-	usleep_range(mbhc->mbhc_data.t_sta, mbhc->mbhc_data.t_sta);
-	mbhc->mbhc_data.sta_z = wcd9xxx_read_sta_result(codec);
-
-	/* STA Measurement for MB Voltage */
 	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x82);
 	usleep_range(100, 100);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x02);
