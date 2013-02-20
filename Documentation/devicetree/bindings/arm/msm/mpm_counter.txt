@@ -1,0 +1,17 @@
+* MSM Timetick counter (mpm-v2)
+
+The MPM provides a timetick that starts when the device is powered up and
+is not reset by any of the boot loaders or the HLOS. The MPM timetick counter
+driver provides an api to get this value.
+
+The required nodes for the MPM timetick counter driver are:
+
+- compatible: "qcom,mpm-counter"
+- reg: Specifies the physical address of the timetick count register.
+
+Example:
+	qcom,mpm-counter@fc4a3000 {
+		compatible = "qcom,mpm-counter";
+		reg = <0xfc4a3000 0x1000>;
+	};
+
