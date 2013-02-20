@@ -755,20 +755,19 @@ static int venus_hfi_alloc(void *mem, void *clnt, u32 size, u32 align,
 		rc = -ENOMEM;
 		goto fail_smem_alloc;
 	}
-	rc = msm_smem_clean_invalidate(clnt, alloc);
-	if (rc) {
-		dprintk(VIDC_ERR, "NOTE: Failed to clean caches\n");
-		goto fail_clean_cache;
-	}
 	dprintk(VIDC_DBG, "venus_hfi_alloc:ptr=%p,size=%d",
 			alloc->kvaddr, size);
+	rc = msm_smem_cache_operations(clnt, alloc,
+		SMEM_CACHE_CLEAN);
+	if (rc) {
+		dprintk(VIDC_WARN, "Failed to clean cache\n");
+		dprintk(VIDC_WARN, "This may result in undefined behavior\n");
+	}
 	vmem->mem_size = alloc->size;
 	vmem->mem_data = alloc;
 	vmem->align_virtual_addr = (u8 *) alloc->kvaddr;
 	vmem->align_device_addr = (u8 *)alloc->device_addr;
 	return rc;
-fail_clean_cache:
-	msm_smem_free(clnt, alloc);
 fail_smem_alloc:
 	return rc;
 }

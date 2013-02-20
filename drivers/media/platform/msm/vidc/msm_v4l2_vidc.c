@@ -137,10 +137,12 @@ struct buffer_info *get_same_fd_buffer(struct list_head *list,
 err_invalid_input:
 	return ret;
 }
-static u32 device_to_uvaddr(struct list_head *list, u32 device_addr)
+
+static struct buffer_info *device_to_uvaddr(
+	struct list_head *list, u32 device_addr)
 {
-	struct buffer_info *temp;
-	u32 uvaddr = 0;
+	struct buffer_info *temp = NULL;
+	int found = 0;
 	int i;
 	if (!list || !device_addr) {
 		dprintk(VIDC_ERR, "Invalid input\n");
@@ -154,16 +156,16 @@ static u32 device_to_uvaddr(struct list_head *list, u32 device_addr)
 						== device_addr)  {
 					dprintk(VIDC_INFO,
 					"Found same fd buffer\n");
-					uvaddr = temp->uvaddr[i];
+					found = 1;
 					break;
 				}
 			}
-			if (uvaddr)
+			if (found)
 				break;
 		}
 	}
 err_invalid_input:
-	return uvaddr;
+	return temp;
 }
 
 static int msm_v4l2_open(struct file *filp)
@@ -500,9 +502,10 @@ int msm_v4l2_qbuf(struct file *file, void *fh,
 		b->m.planes[i].m.userptr = binfo->device_addr[i];
 		dprintk(VIDC_DBG, "Queueing device address = 0x%x\n",
 				binfo->device_addr[i]);
-		if (binfo->handle[i]) {
-			rc = msm_smem_clean_invalidate(v4l2_inst->mem_client,
-					binfo->handle[i]);
+		if (binfo->handle[i] &&
+			(b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
+			rc = msm_smem_cache_operations(v4l2_inst->mem_client,
+					binfo->handle[i], SMEM_CACHE_CLEAN);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"Failed to clean caches: %d\n", rc);
@@ -522,6 +525,7 @@ int msm_v4l2_dqbuf(struct file *file, void *fh,
 	int i;
 	struct msm_v4l2_vid_inst *v4l2_inst;
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	struct buffer_info *buffer_info;
 	if (b->length > VIDEO_MAX_PLANES) {
 		dprintk(VIDC_ERR, "num planes exceed maximum: %d\n",
 			b->length);
@@ -541,15 +545,26 @@ int msm_v4l2_dqbuf(struct file *file, void *fh,
 				!b->m.planes[i].m.userptr) {
 			continue;
 		}
-		b->m.planes[i].m.userptr = device_to_uvaddr(
+		buffer_info = device_to_uvaddr(
 				&v4l2_inst->registered_bufs,
 				b->m.planes[i].m.userptr);
+		b->m.planes[i].m.userptr = buffer_info->uvaddr[i];
 		if (!b->m.planes[i].m.userptr) {
 			dprintk(VIDC_ERR,
 			"Failed to find user virtual address, 0x%lx, %d, %d\n",
 			b->m.planes[i].m.userptr, b->type, i);
 			rc = -EINVAL;
 			goto fail_dq_buf;
+		}
+		if (buffer_info->handle[i] &&
+			(b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
+			rc = msm_smem_cache_operations(v4l2_inst->mem_client,
+				buffer_info->handle[i], SMEM_CACHE_INVALIDATE);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to clean caches: %d\n", rc);
+				goto fail_dq_buf;
+			}
 		}
 	}
 fail_dq_buf:
