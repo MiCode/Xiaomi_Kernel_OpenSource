@@ -117,56 +117,59 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 long msm_isp_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
+	long rc = 0;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 
 	mutex_lock(&vfe_dev->mutex);
 	ISP_DBG("%s cmd: %d\n", __func__, cmd);
-
 	switch (cmd) {
 	case VIDIOC_MSM_VFE_REG_CFG: {
-		msm_isp_proc_cmd(vfe_dev, arg);
+		rc = msm_isp_proc_cmd(vfe_dev, arg);
 		break;
 	}
 	case VIDIOC_MSM_ISP_REQUEST_BUF:
 	case VIDIOC_MSM_ISP_ENQUEUE_BUF:
 	case VIDIOC_MSM_ISP_RELEASE_BUF: {
-		msm_isp_proc_buf_cmd(vfe_dev->buf_mgr, cmd, arg);
+		rc = msm_isp_proc_buf_cmd(vfe_dev->buf_mgr, cmd, arg);
 		break;
 	}
 	case VIDIOC_MSM_ISP_REQUEST_STREAM:
-		msm_isp_request_axi_stream(vfe_dev, arg);
+		rc = msm_isp_request_axi_stream(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_RELEASE_STREAM:
-		msm_isp_release_axi_stream(vfe_dev, arg);
+		rc = msm_isp_release_axi_stream(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_CFG_STREAM:
-		msm_isp_cfg_axi_stream(vfe_dev, arg);
+		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_INPUT_CFG:
-		msm_isp_cfg_input(vfe_dev, arg);
+		rc = msm_isp_cfg_input(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_SET_SRC_STATE:
 		msm_isp_set_src_state(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_REQUEST_STATS_STREAM:
-		msm_isp_request_stats_stream(vfe_dev, arg);
+		rc = msm_isp_request_stats_stream(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_RELEASE_STATS_STREAM:
-		msm_isp_release_stats_stream(vfe_dev, arg);
+		rc = msm_isp_release_stats_stream(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_CFG_STATS_STREAM:
-		msm_isp_cfg_stats_stream(vfe_dev, arg);
+		rc = msm_isp_cfg_stats_stream(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY:
-		msm_isp_cfg_stats_comp_policy(vfe_dev, arg);
+		rc = msm_isp_cfg_stats_comp_policy(vfe_dev, arg);
 		break;
 	case VIDIOC_MSM_ISP_UPDATE_STREAM:
-		msm_isp_update_axi_stream(vfe_dev, arg);
+		rc = msm_isp_update_axi_stream(vfe_dev, arg);
 		break;
+	default:
+		pr_err("%s: Invalid ISP command\n", __func__);
+		rc = -EINVAL;
 	}
 
 	mutex_unlock(&vfe_dev->mutex);
-	return 0;
+	return rc;
 }
 
 static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
