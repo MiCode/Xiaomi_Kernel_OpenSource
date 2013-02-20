@@ -12,8 +12,6 @@
 
 #include "msm_vb2.h"
 
-static spinlock_t vb2_buf_lock;
-
 static int msm_vb2_queue_setup(struct vb2_queue *q,
 	const struct v4l2_format *fmt,
 	unsigned int *num_buffers, unsigned int *num_planes,
@@ -44,7 +42,6 @@ int msm_vb2_buf_init(struct vb2_buffer *vb)
 
 	msm_vb2_buf = container_of(vb, struct msm_vb2_buffer, vb2_buf);
 	msm_vb2_buf->in_freeq = 0;
-	spin_lock_init(&vb2_buf_lock);
 
 	return 0;
 }
@@ -102,22 +99,23 @@ static struct vb2_queue *msm_vb2_get_queue(int session_id,
 static struct vb2_buffer *msm_vb2_get_buf(int session_id,
 	unsigned int stream_id)
 {
-	struct vb2_queue *q;
+	struct msm_stream *stream;
 	struct vb2_buffer *vb2_buf = NULL;
 	struct msm_vb2_buffer *msm_vb2;
 	unsigned long flags;
 
-	spin_lock_irqsave(&vb2_buf_lock, flags);
+	stream = msm_get_stream(session_id, stream_id);
+	if (!stream)
+		return NULL;
 
-	q = msm_get_stream_vb2q(session_id, stream_id);
+	spin_lock_irqsave(&stream->stream_lock, flags);
 
-	/*FIXME: need a check if stream on issue*/
-	if (!q) {
+	if (!stream->vb2_q) {
 		pr_err("%s: stream q not available\n", __func__);
 		goto end;
 	}
 
-	list_for_each_entry(vb2_buf, &(q->queued_list),
+	list_for_each_entry(vb2_buf, &(stream->vb2_q->queued_list),
 		queued_entry) {
 		if (vb2_buf->state != VB2_BUF_STATE_ACTIVE)
 			continue;
@@ -131,11 +129,12 @@ static struct vb2_buffer *msm_vb2_get_buf(int session_id,
 	}
 	vb2_buf = NULL;
 end:
-	spin_unlock_irqrestore(&vb2_buf_lock, flags);
+	spin_unlock_irqrestore(&stream->stream_lock, flags);
 	return vb2_buf;
 }
 
-static int msm_vb2_put_buf(struct vb2_buffer *vb)
+static int msm_vb2_put_buf(struct vb2_buffer *vb, int session_id,
+				unsigned int stream_id)
 {
 	struct msm_vb2_buffer *msm_vb2;
 	int rc = 0;
@@ -155,13 +154,18 @@ static int msm_vb2_put_buf(struct vb2_buffer *vb)
 	return rc;
 }
 
-static int msm_vb2_buf_done(struct vb2_buffer *vb)
+static int msm_vb2_buf_done(struct vb2_buffer *vb, int session_id,
+				unsigned int stream_id)
 {
 	unsigned long flags;
 	struct msm_vb2_buffer *msm_vb2;
+	struct msm_stream *stream;
 	int rc = 0;
 
-	spin_lock_irqsave(&vb2_buf_lock, flags);
+	stream = msm_get_stream(session_id, stream_id);
+	if (!stream)
+		return 0;
+	spin_lock_irqsave(&stream->stream_lock, flags);
 	if (vb) {
 		msm_vb2 =
 			container_of(vb, struct msm_vb2_buffer, vb2_buf);
@@ -176,7 +180,7 @@ static int msm_vb2_buf_done(struct vb2_buffer *vb)
 		rc = -EINVAL;
 	}
 
-	spin_unlock_irqrestore(&vb2_buf_lock, flags);
+	spin_unlock_irqrestore(&stream->stream_lock, flags);
 	return rc;
 }
 
