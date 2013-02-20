@@ -639,6 +639,8 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 		goto fail;
 
 	init_waitqueue_head(&ac->cmd_wait);
+	init_waitqueue_head(&ac->time_wait);
+	atomic_set(&ac->time_flag, 1);
 	INIT_LIST_HEAD(&ac->port[0].mem_map_handle);
 	INIT_LIST_HEAD(&ac->port[1].mem_map_handle);
 	pr_debug("%s: mem_map_handle list init'ed\n", __func__);
@@ -1222,10 +1224,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				 payload[0], payload[1], payload[2]);
 		ac->time_stamp = (uint64_t)(((uint64_t)payload[2] << 32) |
 				payload[1]);
-		if (atomic_read(&ac->cmd_state)) {
-			atomic_set(&ac->cmd_state, 0);
-			wake_up(&ac->cmd_wait);
-		}
+		if (atomic_cmpxchg(&ac->time_flag, 1, 0))
+			wake_up(&ac->time_wait);
 		break;
 	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
 	case ASM_DATA_EVENT_ENC_SR_CM_CHANGE_NOTIFY:
@@ -3436,7 +3436,7 @@ int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
 	}
 	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
 	hdr.opcode = ASM_SESSION_CMD_GET_SESSIONTIME_V3;
-	atomic_set(&ac->cmd_state, 1);
+	atomic_set(&ac->time_flag, 1);
 
 	pr_debug("%s: session[%d]opcode[0x%x]\n", __func__,
 						ac->session,
@@ -3446,8 +3446,8 @@ int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
 		pr_err("Commmand 0x%x failed\n", hdr.opcode);
 		goto fail_cmd;
 	}
-	rc = wait_event_timeout(ac->cmd_wait,
-			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	rc = wait_event_timeout(ac->time_wait,
+			(atomic_read(&ac->time_flag) == 0), 5*HZ);
 	if (!rc) {
 		pr_err("%s: timeout in getting session time from DSP\n",
 			__func__);

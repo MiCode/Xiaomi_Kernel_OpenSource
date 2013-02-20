@@ -139,7 +139,7 @@ struct audio_client {
 	app_cb		       cb;
 	atomic_t	       cmd_state;
 	/* Relative or absolute TS */
-	uint32_t	       time_flag;
+	atomic_t	       time_flag;
 	atomic_t	       nowait_cmd_cnt;
 	void		       *priv;
 	uint32_t               io_mode;
@@ -150,6 +150,7 @@ struct audio_client {
 	/* idx:1 out port, 0: in port*/
 	struct audio_port_data port[2];
 	wait_queue_head_t      cmd_wait;
+	wait_queue_head_t      time_wait;
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);
