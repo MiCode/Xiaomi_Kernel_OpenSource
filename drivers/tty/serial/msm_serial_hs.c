@@ -1060,6 +1060,14 @@ static void msm_hs_stop_rx_locked(struct uart_port *uport)
 	}
 	if (!is_blsp_uart(msm_uport) && msm_uport->rx.flush != FLUSH_SHUTDOWN)
 		msm_uport->rx.flush = FLUSH_STOP;
+
+	/* During uart port close, due to spurious rx stale interrupt,
+	 * the rx state machine is causing BUG_ON to be hit in
+	 * msm_hs_shutdown causing kernel panic.
+	 * Hence fixing the same by handling the rx state machine.
+	 */
+	if (is_blsp_uart(msm_uport) && msm_uport->rx.flush == FLUSH_DATA_READY)
+		msm_uport->rx.flush = FLUSH_SHUTDOWN;
 }
 
 /*  Transmit the next chunk of data */
