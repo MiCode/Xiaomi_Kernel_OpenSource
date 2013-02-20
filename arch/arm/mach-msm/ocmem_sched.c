@@ -25,16 +25,19 @@
 #include <mach/ocmem_priv.h>
 
 enum request_states {
-	R_FREE = 0x0,	/* request is not allocated */
-	R_PENDING,	/* request has a pending operation */
-	R_ALLOCATED,	/* request has been allocated */
-	R_MUST_GROW,	/* request must grow as a part of pending operation */
-	R_MUST_SHRINK,	/* request must shrink as a part of pending operation */
-	R_MUST_MAP,	/* request must be mapped before being used */
-	R_MUST_UNMAP,	/* request must be unmapped when not being used */
-	R_MAPPED,	/* request is mapped and actively used by client */
-	R_UNMAPPED,	/* request is not mapped, so it's not in active use */
-	R_EVICTED,	/* request is evicted and must be restored */
+	R_FREE = 0x0,   /* request is not allocated */
+	R_PENDING,      /* request has a pending operation */
+	R_ALLOCATED,    /* request has been allocated */
+	R_ENQUEUED,     /* request has been enqueued for future retry */
+	R_MUST_GROW,    /* request must grow as a part of pending operation */
+	R_MUST_SHRINK,  /* request must shrink */
+	R_WF_SHRINK,    /* shrink must be ack'ed by a client */
+	R_SHRUNK,       /* request was shrunk */
+	R_MUST_MAP,     /* request must be mapped before being used */
+	R_MUST_UNMAP,   /* request must be unmapped when not being used */
+	R_MAPPED,       /* request is mapped and actively used by client */
+	R_UNMAPPED,     /* request is not mapped, so it's not in active use */
+	R_EVICTED,      /* request is evicted and must be restored */
 };
 
 #define SET_STATE(x, val) (set_bit((val), &(x)->state))
@@ -150,6 +153,7 @@ struct ocmem_table {
 static struct rb_root sched_tree;
 static struct mutex sched_mutex;
 static struct mutex allocation_mutex;
+static struct mutex free_mutex;
 
 /* A region represents a continuous interval in OCMEM address space */
 struct ocmem_region {
@@ -514,6 +518,12 @@ static struct ocmem_req *find_req_match(int owner, struct ocmem_region *region)
 static inline int is_mapped(struct ocmem_req *req)
 {
 	return TEST_STATE(req, R_MAPPED);
+}
+
+static inline int is_pending_shrink(struct ocmem_req *req)
+{
+	return TEST_STATE(req, R_MUST_SHRINK) ||
+		TEST_STATE(req, R_WF_SHRINK);
 }
 
 /* Must be called with sched_mutex held */
@@ -1051,8 +1061,8 @@ static int __sched_allocate(struct ocmem_req *req, bool can_block,
 
 	retry = false;
 
-	pr_debug("ocmem: do_allocate: %s request size %lx\n",
-						get_name(owner), sz);
+	pr_debug("ocmem: do_allocate: %s request %p size %lx\n",
+						get_name(owner), req, sz);
 
 retry_next_step:
 
@@ -1173,14 +1183,34 @@ invalid_op_error:
 	return OP_FAIL;
 }
 
+/* Remove the request from eviction lists */
+static void cancel_restore(struct ocmem_req *e_handle,
+				struct ocmem_req *req)
+{
+	struct ocmem_eviction_data *edata = e_handle->edata;
+
+	if (!edata || !req)
+		return;
+
+	if (list_empty(&edata->req_list))
+		return;
+
+	list_del_init(&req->eviction_list);
+	req->e_handle = NULL;
+
+	return;
+}
+
 static int sched_enqueue(struct ocmem_req *priv)
 {
 	struct ocmem_req *next = NULL;
 	mutex_lock(&sched_queue_mutex);
+	SET_STATE(priv, R_ENQUEUED);
 	list_add_tail(&priv->sched_list, &sched_queue[priv->owner]);
 	pr_debug("enqueued req %p\n", priv);
 	list_for_each_entry(next, &sched_queue[priv->owner], sched_list) {
-		pr_debug("pending requests for client %p\n", next);
+		pr_debug("pending request %p for client %s\n", next,
+				get_name(next->owner));
 	}
 	mutex_unlock(&sched_queue_mutex);
 	return 0;
@@ -1205,13 +1235,13 @@ static void sched_dequeue(struct ocmem_req *victim_req)
 	list_for_each_entry_safe(req, next, &sched_queue[id], sched_list)
 	{
 		if (req == victim_req) {
-			pr_debug("ocmem: Cancelling pending request %p\n",
-							req);
-			list_del(&req->sched_list);
-			goto dequeue_done;
+			pr_debug("ocmem: Cancelling pending request %p for %s\n",
+						req, get_name(req->owner));
+			list_del_init(&victim_req->sched_list);
+			CLEAR_STATE(victim_req, R_ENQUEUED);
+			break;
 		}
 	}
-
 dequeue_done:
 	mutex_unlock(&sched_queue_mutex);
 	return;
@@ -1233,7 +1263,8 @@ static struct ocmem_req *ocmem_fetch_req(void)
 				pr_debug("ocmem: Fetched pending request %p\n",
 									req);
 				list_del(&req->sched_list);
-			break;
+				CLEAR_STATE(req, R_ENQUEUED);
+				break;
 			}
 		}
 	}
@@ -1427,32 +1458,65 @@ int process_free(int id, struct ocmem_handle *handle)
 	unsigned long offset = 0;
 	int rc = 0;
 
+	mutex_lock(&free_mutex);
+
 	if (is_blocked(id)) {
 		pr_err("Client %d cannot request free\n", id);
-		return -EINVAL;
+		goto free_invalid;
 	}
 
 	req = handle_to_req(handle);
 	buffer = handle_to_buffer(handle);
 
-	if (!req)
-		return -EINVAL;
+	if (!req) {
+		pr_err("ocmem: No valid request to free\n");
+		goto free_invalid;
+	}
 
 	if (req->req_start != core_address(id, buffer->addr)) {
 		pr_err("Invalid buffer handle passed for free\n");
-		return -EINVAL;
+		goto free_invalid;
 	}
 
-	mutex_lock(&sched_mutex);
-	sched_dequeue(req);
-	mutex_unlock(&sched_mutex);
+	if (req->edata != NULL) {
+		pr_err("ocmem: Request %p(%2lx) yet to process eviction %p\n",
+					req, req->state, req->edata);
+		goto free_invalid;
+	}
+
+	if (is_pending_shrink(req)) {
+		pr_err("ocmem: Request %p(%2lx) yet to process eviction\n",
+					req, req->state);
+		goto pending_shrink;
+	}
+
+	/* Remove the request from any restore lists */
+	if (req->e_handle)
+		cancel_restore(req->e_handle, req);
+
+	/* Remove the request from any pending opreations */
+	if (TEST_STATE(req, R_ENQUEUED)) {
+		mutex_lock(&sched_mutex);
+		sched_dequeue(req);
+		mutex_unlock(&sched_mutex);
+	}
 
 	if (TEST_STATE(req, R_MAPPED)) {
 		/* unmap the interval and clear the memory */
 		rc = process_unmap(req, req->req_start, req->req_end);
-		if (rc < 0)
-			return -EINVAL;
-	}
+
+		if (rc < 0) {
+			pr_err("ocmem: Failed to unmap %p\n", req);
+			goto free_fail;
+		}
+
+		rc = do_free(req);
+		if (rc < 0) {
+			pr_err("ocmem: Failed to free %p\n", req);
+			goto free_fail;
+		}
+	} else
+			pr_debug("request %p was already shrunk to 0\n", req);
 
 	/* Turn off the memory */
 	if (req->req_sz != 0) {
@@ -1463,7 +1527,7 @@ int process_free(int id, struct ocmem_handle *handle)
 
 		if (rc < 0) {
 			pr_err("Failed to switch OFF memory macros\n");
-			return -EINVAL;
+			goto free_fail;
 		}
 
 	}
@@ -1481,7 +1545,15 @@ int process_free(int id, struct ocmem_handle *handle)
 	handle->req = NULL;
 
 	ocmem_schedule_pending();
+	mutex_unlock(&free_mutex);
 	return 0;
+free_fail:
+free_invalid:
+	mutex_unlock(&free_mutex);
+	return -EINVAL;
+pending_shrink:
+	mutex_unlock(&free_mutex);
+	return -EAGAIN;
 }
 
 static void ocmem_rdm_worker(struct work_struct *work)
@@ -1579,7 +1651,6 @@ int process_xfer_in(int id, struct ocmem_handle *handle,
 		goto transfer_in_error;
 	}
 
-
 	inc_ocmem_stat(zone_of(req), NR_TRANSFERS_TO_OCMEM);
 	rc = queue_transfer(req, handle, list, TO_OCMEM);
 
@@ -1612,16 +1683,23 @@ int process_shrink(int id, struct ocmem_handle *handle, unsigned long size)
 	if (!req)
 		return -EINVAL;
 
+	mutex_lock(&free_mutex);
+
 	if (req->req_start != core_address(id, buffer->addr)) {
 		pr_err("Invalid buffer handle passed for shrink\n");
-		return -EINVAL;
+		goto shrink_fail;
 	}
 
-	edata = req->edata;
+	if (!req->e_handle) {
+		pr_err("Unable to find evicting request\n");
+		goto shrink_fail;
+	}
+
+	edata = req->e_handle->edata;
 
 	if (!edata) {
 		pr_err("Unable to find eviction data\n");
-		return -EINVAL;
+		goto shrink_fail;
 	}
 
 	pr_debug("Found edata %p in request %p\n", edata, req);
@@ -1630,29 +1708,37 @@ int process_shrink(int id, struct ocmem_handle *handle, unsigned long size)
 
 	if (size == 0) {
 		pr_debug("req %p being shrunk to zero\n", req);
-		if (is_mapped(req))
+		if (is_mapped(req)) {
 			rc = process_unmap(req, req->req_start, req->req_end);
 			if (rc < 0)
-				return -EINVAL;
+				goto shrink_fail;
+		}
 		rc = do_free(req);
 		if (rc < 0)
-			return -EINVAL;
+			goto shrink_fail;
+		SET_STATE(req, R_FREE);
 	} else {
 		rc = do_shrink(req, size);
 		if (rc < 0)
-			return -EINVAL;
+			goto shrink_fail;
 	}
 
-	req->edata = NULL;
 	CLEAR_STATE(req, R_ALLOCATED);
-	SET_STATE(req, R_FREE);
+	CLEAR_STATE(req, R_WF_SHRINK);
+	SET_STATE(req, R_SHRUNK);
 
 	if (atomic_dec_and_test(&edata->pending)) {
 		pr_debug("ocmem: All conflicting allocations were shrunk\n");
 		complete(&edata->completion);
 	}
 
+	mutex_unlock(&free_mutex);
 	return 0;
+shrink_fail:
+	pr_err("ocmem: Failed to shrink request %p of %s\n",
+			req, get_name(req->owner));
+	mutex_unlock(&free_mutex);
+	return -EINVAL;
 }
 
 int process_xfer(int id, struct ocmem_handle *handle,
@@ -1757,11 +1843,12 @@ static int __evict_common(struct ocmem_eviction_data *edata,
 				if (needs_eviction) {
 					pr_debug("adding %p in region %p to eviction list\n",
 							e_req, tmp_region);
+					SET_STATE(e_req, R_MUST_SHRINK);
 					list_add_tail(
 						&e_req->eviction_list,
 						&edata->req_list);
 					atomic_inc(&edata->pending);
-					e_req->edata = edata;
+					e_req->e_handle = req;
 				}
 			}
 		} else {
@@ -1771,9 +1858,7 @@ static int __evict_common(struct ocmem_eviction_data *edata,
 
 	pr_debug("%d requests will be evicted\n", atomic_read(&edata->pending));
 
-	if (!atomic_read(&edata->pending))
-		return -EINVAL;
-	return 0;
+	return atomic_read(&edata->pending);
 }
 
 static void trigger_eviction(struct ocmem_eviction_data *edata)
@@ -1795,8 +1880,10 @@ static void trigger_eviction(struct ocmem_eviction_data *edata)
 			pr_debug("ocmem: Evicting request %p\n", req);
 			buffer.addr = req->req_start;
 			buffer.len = 0x0;
+			CLEAR_STATE(req, R_MUST_SHRINK);
 			dispatch_notification(req->owner, OCMEM_ALLOC_SHRINK,
 								&buffer);
+			SET_STATE(req, R_WF_SHRINK);
 		}
 	}
 	return;
@@ -1818,7 +1905,7 @@ int process_evict(int id)
 
 	rc = __evict_common(edata, NULL);
 
-	if (rc < 0)
+	if (rc == 0)
 		goto skip_eviction;
 
 	trigger_eviction(edata);
@@ -1852,15 +1939,18 @@ static int run_evict(struct ocmem_req *req)
 
 	edata->passive = false;
 
+	mutex_lock(&free_mutex);
 	rc = __evict_common(edata, req);
 
-	if (rc < 0)
+	if (rc == 0)
 		goto skip_eviction;
 
 	trigger_eviction(edata);
 
 	pr_debug("ocmem: attaching eviction %p to request %p", edata, req);
 	req->edata = edata;
+
+	mutex_unlock(&free_mutex);
 
 	wait_for_completion(&edata->completion);
 
@@ -1870,28 +1960,30 @@ static int run_evict(struct ocmem_req *req)
 skip_eviction:
 	pr_err("ocmem: Unable to run eviction\n");
 	free_eviction(edata);
-	return -EINVAL;
+	req->edata = NULL;
+	mutex_unlock(&free_mutex);
+	return 0;
 }
 
 static int __restore_common(struct ocmem_eviction_data *edata)
 {
 
 	struct ocmem_req *req = NULL;
-	struct ocmem_req *next = NULL;
 
 	if (!edata)
 		return -EINVAL;
 
-	list_for_each_entry_safe(req, next, &edata->req_list, eviction_list)
-	{
-		if (req) {
-			pr_debug("ocmem: restoring evicted request %p\n",
-								req);
-			list_del(&req->eviction_list);
-			req->op = SCHED_ALLOCATE;
-			sched_enqueue(req);
-			inc_ocmem_stat(zone_of(req), NR_RESTORES);
-		}
+	while (!list_empty(&edata->req_list)) {
+		req = list_first_entry(&edata->req_list, struct ocmem_req,
+						eviction_list);
+		list_del_init(&req->eviction_list);
+		pr_debug("ocmem: restoring evicted request %p\n",
+							req);
+		req->edata = NULL;
+		req->e_handle = NULL;
+		req->op = SCHED_ALLOCATE;
+		inc_ocmem_stat(zone_of(req), NR_RESTORES);
+		sched_enqueue(req);
 	}
 
 	pr_debug("Scheduled all evicted regions\n");
@@ -1910,12 +2002,15 @@ static int sched_restore(struct ocmem_req *req)
 	if (!req->edata)
 		return 0;
 
+	mutex_lock(&free_mutex);
 	rc = __restore_common(req->edata);
+	mutex_unlock(&free_mutex);
 
 	if (rc < 0)
 		return -EINVAL;
 
 	free_eviction(req->edata);
+	req->edata = NULL;
 	return 0;
 }
 
@@ -1927,7 +2022,9 @@ int process_restore(int id)
 	if (!edata)
 		return -EINVAL;
 
+	mutex_lock(&free_mutex);
 	rc = __restore_common(edata);
+	mutex_unlock(&free_mutex);
 
 	if (rc < 0) {
 		pr_err("Failed to restore evicted requests\n");
@@ -2291,6 +2388,7 @@ int ocmem_sched_init(struct platform_device *pdev)
 	sched_tree = RB_ROOT;
 	pdata = platform_get_drvdata(pdev);
 	mutex_init(&allocation_mutex);
+	mutex_init(&free_mutex);
 	mutex_init(&sched_mutex);
 	mutex_init(&sched_queue_mutex);
 	ocmem_vaddr = pdata->vbase;
