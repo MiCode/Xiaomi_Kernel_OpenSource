@@ -1,0 +1,36 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm9625.dtsi file.
+ */
+
+/include/ "msm9625.dtsi"
+
+/ {
+	qcom,msm-imem@fe807800 {
+		compatible = "qcom,msm-imem";
+		reg = <0xfe807800 0x1000>; /* Address and size of IMEM */
+	};
+
+	android_usb@fe8078c8 {
+		compatible = "qcom,android-usb";
+		reg = <0xfe8078c8 0xc8>;
+		qcom,android-usb-swfi-latency = <100>;
+	};
+};
+
+&ipa_hw {
+	qcom,ipa-hw-ver = <2>; /* IPA h-w revision */
+};
