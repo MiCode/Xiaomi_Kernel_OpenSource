@@ -21,8 +21,6 @@ Required properties:
 		      images and self-authentication is not desired;
 		      <1> if the hardware requires self-authenticating images.
 - qcom,is-loadable:   if PIL is required to load the modem image
-- qcom,gpio-err-fatal: GPIO used by the modem to indicate error fatal to the apps.
-- qcom,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
 
 Optional properties:
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
@@ -46,10 +44,4 @@ Example:
 		qcom,is-loadable;
 		qcom,firmware-name = "mba";
 		qcom,pil-self-auth = <1>;
-
-		/* GPIO inputs from mss */
-		gpio_err_fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
-
-		/* GPIO output to mss */
-		gpio_force_stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
