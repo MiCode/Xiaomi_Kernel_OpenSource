@@ -491,9 +491,7 @@ static int smsc_hub_lpm_enter(struct device *dev)
 {
 	int ret = 0;
 
-	if (!IS_ERR(smsc_hub->ref_clk)) {
-		clk_disable_unprepare(smsc_hub->ref_clk);
-	} else {
+	if (smsc_hub->xo_handle) {
 		ret = msm_xo_mode_vote(smsc_hub->xo_handle, MSM_XO_MODE_OFF);
 		if (ret) {
 			pr_err("%s: failed to devote for TCXO\n"
@@ -507,9 +505,7 @@ static int smsc_hub_lpm_exit(struct device *dev)
 {
 	int ret = 0;
 
-	if (!IS_ERR(smsc_hub->ref_clk)) {
-		clk_prepare_enable(smsc_hub->ref_clk);
-	} else {
+	if (smsc_hub->xo_handle) {
 		ret = msm_xo_mode_vote(smsc_hub->xo_handle, MSM_XO_MODE_ON);
 		if (ret) {
 			pr_err("%s: failed to vote for TCXO\n"
