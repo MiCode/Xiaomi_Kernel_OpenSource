@@ -271,11 +271,15 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		mmap_context.ion_client = wfd_dev->ion_client;
 		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl,
 				ENC_MMAP, &mmap_context);
-		if (rc || !enc_mregion->paddr) {
+		if (rc) {
 			WFD_MSG_ERR("Failed to map input memory\n");
 			goto alloc_fail;
+		} else if (!enc_mregion->paddr) {
+			WFD_MSG_ERR("ENC_MMAP returned success" \
+				"but failed to map input memory\n");
+			rc = -EINVAL;
+			goto alloc_fail;
 		}
-
 		WFD_MSG_DBG("NOTE: enc paddr = [%p->%p], kvaddr = %p\n",
 				enc_mregion->paddr, (int8_t *)
 				enc_mregion->paddr + enc_mregion->size,
@@ -303,10 +307,18 @@ int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 				MDP_MMAP, (void *)&mmap_context);
 
-		if (rc || !mdp_mregion->paddr) {
+		if (rc) {
 			WFD_MSG_ERR(
 				"Failed to map to mdp, rc = %d, paddr = 0x%p\n",
 				rc, mdp_mregion->paddr);
+			mdp_mregion->kvaddr = NULL;
+			mdp_mregion->paddr = NULL;
+			mdp_mregion->ion_handle = NULL;
+			goto mdp_mmap_fail;
+		} else if (!mdp_mregion->paddr) {
+			WFD_MSG_ERR("MDP_MMAP returned success" \
+				"but failed to map to MDP\n");
+			rc = -EINVAL;
 			mdp_mregion->kvaddr = NULL;
 			mdp_mregion->paddr = NULL;
 			mdp_mregion->ion_handle = NULL;
