@@ -693,7 +693,7 @@ static int ocmem_zone_init(struct platform_device *pdev)
 }
 
 /* Enable the ocmem graphics mpU as a workaround */
-/* This will be programmed by TZ after TZ support is integrated */
+#ifdef CONFIG_MSM_OCMEM_NONSECURE
 static int ocmem_init_gfx_mpu(struct platform_device *pdev)
 {
 	int rc;
@@ -714,6 +714,12 @@ static int ocmem_init_gfx_mpu(struct platform_device *pdev)
 	ocmem_disable_core_clock();
 	return 0;
 }
+#else
+static int ocmem_init_gfx_mpu(struct platform_device *pdev)
+{
+	return 0;
+}
+#endif /* CONFIG_MSM_OCMEM_NONSECURE */
 
 static int __devinit ocmem_debugfs_init(struct platform_device *pdev)
 {
@@ -782,6 +788,11 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 	ocmem_pdata->iface_clk = ocmem_iface_clk;
 
 	platform_set_drvdata(pdev, ocmem_pdata);
+
+	/* Parameter to be updated based on TZ */
+	/* Allow the OCMEM CSR to be programmed */
+	if (ocmem_enable_sec_program(OCMEM_SECURE_DEV_ID))
+		return -EBUSY;
 
 	if (ocmem_debugfs_init(pdev))
 		return -EBUSY;

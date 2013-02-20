@@ -17,6 +17,7 @@
 
 #include <mach/ocmem_priv.h>
 #include <mach/rpm-smd.h>
+#include <mach/scm.h>
 
 static unsigned num_regions;
 static unsigned num_macros;
@@ -514,6 +515,23 @@ static int do_unlock(enum ocmem_client id, unsigned long offset,
 	ocmem_clear(offset, len);
 	return 0;
 }
+
+int ocmem_enable_sec_program(int sec_id)
+{
+	return 0;
+}
+
+int ocmem_enable_dump(enum ocmem_client id, unsigned long offset,
+			unsigned long len)
+{
+	return 0;
+}
+
+int ocmem_disable_dump(enum ocmem_client id, unsigned long offset,
+			unsigned long len)
+{
+	return 0;
+}
 #else
 static int ocmem_gfx_mpu_set(unsigned long offset, unsigned long len)
 {
@@ -532,19 +550,117 @@ static int commit_region_modes(void)
 static int do_lock(enum ocmem_client id, unsigned long offset,
 			unsigned long len, enum region_mode mode)
 {
-	return 0;
+	int rc;
+	struct ocmem_tz_lock {
+		u32 id;
+		u32 offset;
+		u32 size;
+	} request;
+
+	request.id = get_tz_id(id);
+	request.offset = offset;
+	request.size = len;
+
+	rc = scm_call(OCMEM_SVC_ID, OCMEM_LOCK_CMD_ID, &request,
+				sizeof(request), NULL, 0);
+	if (rc)
+		pr_err("ocmem: Failed to lock region %s[%lx -- %lx] ret = %d\n",
+				get_name(id), offset, offset + len - 1, rc);
+	return rc;
 }
 
 static int do_unlock(enum ocmem_client id, unsigned long offset,
 			unsigned long len)
 {
-	return 0;
+	int rc;
+	struct ocmem_tz_unlock {
+		u32 id;
+		u32 offset;
+		u32 size;
+	} request;
+
+	request.id = get_tz_id(id);
+	request.offset = offset;
+	request.size = len;
+
+	rc = scm_call(OCMEM_SVC_ID, OCMEM_UNLOCK_CMD_ID, &request,
+				sizeof(request), NULL, 0);
+	if (rc)
+		pr_err("ocmem: Failed to unlock region %s[%lx -- %lx] ret = %d\n",
+				get_name(id), offset, offset + len - 1, rc);
+	return rc;
+}
+
+int ocmem_enable_dump(enum ocmem_client id, unsigned long offset,
+			unsigned long len)
+{
+	int rc;
+	struct ocmem_tz_en_dump {
+		u32 id;
+		u32 offset;
+		u32 size;
+	} request;
+
+	request.id = get_tz_id(id);
+	request.offset = offset;
+	request.size = len;
+
+	rc = scm_call(OCMEM_SVC_ID, OCMEM_ENABLE_DUMP_CMD_ID, &request,
+				sizeof(request), NULL, 0);
+	if (rc)
+		pr_err("ocmem: Failed to enable dump %s[%lx -- %lx] ret = %d\n",
+				get_name(id), offset, offset + len - 1, rc);
+	return rc;
+}
+
+int ocmem_disable_dump(enum ocmem_client id, unsigned long offset,
+			unsigned long len)
+{
+	int rc;
+	struct ocmem_tz_dis_dump {
+		u32 id;
+		u32 offset;
+		u32 size;
+	} request;
+
+	request.id = get_tz_id(id);
+	request.offset = offset;
+	request.size = len;
+
+	rc = scm_call(OCMEM_SVC_ID, OCMEM_DISABLE_DUMP_CMD_ID, &request,
+				sizeof(request), NULL, 0);
+	if (rc)
+		pr_err("ocmem: Failed to disable dump %s[%lx -- %lx] ret = %d\n",
+				get_name(id), offset, offset + len - 1, rc);
+	return rc;
+}
+
+int ocmem_enable_sec_program(int sec_id)
+{
+	int rc, scm_ret = 0;
+	struct msm_scm_sec_cfg {
+		unsigned int id;
+		unsigned int spare;
+	} cfg;
+
+	cfg.id = sec_id;
+
+	rc = scm_call(OCMEM_SECURE_SVC_ID, OCMEM_SECURE_CFG_ID, &cfg,
+			sizeof(cfg), &scm_ret, sizeof(scm_ret));
+
+	if (rc || scm_ret) {
+		pr_err("ocmem: Failed to enable secure programming\n");
+		return rc ? rc : -EINVAL;
+	}
+
+	return rc;
 }
 #endif /* CONFIG_MSM_OCMEM_NONSECURE */
 
 int ocmem_lock(enum ocmem_client id, unsigned long offset, unsigned long len,
 					enum region_mode mode)
 {
+	int rc = 0;
 
 	if (len < OCMEM_MIN_ALLOC) {
 		pr_err("ocmem: Invalid len %lx for lock\n", len);
@@ -561,27 +677,38 @@ int ocmem_lock(enum ocmem_client id, unsigned long offset, unsigned long len,
 
 	commit_region_modes();
 
-	do_lock(id, offset, len, mode);
+	rc = do_lock(id, offset, len, mode);
+	if (rc)
+		goto lock_fail;
 
 	mutex_unlock(&region_ctrl_lock);
 	return 0;
-
+lock_fail:
+	switch_region_mode(offset, len, MODE_DEFAULT);
 switch_region_fail:
+	ocmem_gfx_mpu_remove();
 	mutex_unlock(&region_ctrl_lock);
 	return -EINVAL;
 }
 
 int ocmem_unlock(enum ocmem_client id, unsigned long offset, unsigned long len)
 {
+	int rc = 0;
+
 	if (id == OCMEM_GRAPHICS)
 		ocmem_gfx_mpu_remove();
 
 	mutex_lock(&region_ctrl_lock);
-	do_unlock(id, offset, len);
+	rc = do_unlock(id, offset, len);
+	if (rc)
+		goto unlock_fail;
 	switch_region_mode(offset, len , MODE_DEFAULT);
 	commit_region_modes();
 	mutex_unlock(&region_ctrl_lock);
 	return 0;
+unlock_fail:
+	mutex_unlock(&region_ctrl_lock);
+	return -EINVAL;
 }
 
 #if defined(CONFIG_MSM_OCMEM_POWER_DISABLE)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -296,10 +296,6 @@ int ocmem_rdm_init(struct platform_device *pdev)
 
 	init_completion(&dm_clear_event);
 	init_completion(&dm_transfer_event);
-	/* Clear DM Mask */
-	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
-	/* enable dm interrupts */
-	ocmem_write(DM_INTR_RESET, dm_base + DM_INTR_CLR);
 	ocmem_disable_core_clock();
 	return 0;
 }
