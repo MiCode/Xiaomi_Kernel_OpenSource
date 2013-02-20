@@ -30,8 +30,9 @@
 #endif
 
 #define VFE40_BURST_LEN 3
+#define VFE40_STATS_BURST_LEN 2
 #define VFE40_UB_SIZE 1536
-#define VFE40_EQUAL_SLICE_UB 304
+#define VFE40_EQUAL_SLICE_UB 286
 #define VFE40_WM_BASE(idx) (0x6C + 0x24 * idx)
 #define VFE40_RDI_BASE(idx) (0x2E8 + 0x4 * idx)
 #define VFE40_XBAR_BASE(idx) (0x58 + 0x4 * (idx / 2))
@@ -1064,8 +1065,8 @@ static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 	uint32_t ub_offset = VFE40_UB_SIZE;
 	uint32_t ub_size[VFE40_NUM_STATS_TYPE] = {
 		64, /*MSM_ISP_STATS_BE*/
-		64, /*MSM_ISP_STATS_BG*/
-		64, /*MSM_ISP_STATS_BF*/
+		128, /*MSM_ISP_STATS_BG*/
+		128, /*MSM_ISP_STATS_BF*/
 		16, /*MSM_ISP_STATS_AWB*/
 		8,  /*MSM_ISP_STATS_RS*/
 		16, /*MSM_ISP_STATS_CS*/
@@ -1075,7 +1076,7 @@ static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 
 	for (i = 0; i < VFE40_NUM_STATS_TYPE; i++) {
 		ub_offset -= ub_size[i];
-		msm_camera_io_w(VFE40_BURST_LEN << 30 |
+		msm_camera_io_w(VFE40_STATS_BURST_LEN << 30 |
 			ub_offset << 16 | (ub_size[i] - 1),
 			vfe_dev->vfe_base + VFE40_STATS_BASE(i) + 0xC);
 	}
