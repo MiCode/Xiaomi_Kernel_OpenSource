@@ -29,6 +29,7 @@
 #include <asm/mach/flash.h>
 #include <mach/vreg.h>
 #include <mach/board.h>
+#include <mach/proc_comm.h>
 
 #include <asm/io.h>
 #include <asm/delay.h>
@@ -39,7 +40,6 @@
 
 #include "gpio_chip.h"
 #include "board-sapphire.h"
-#include "proc_comm.h"
 #include "devices.h"
 
 void msm_init_irq(void);

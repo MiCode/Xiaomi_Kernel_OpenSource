@@ -2865,6 +2865,10 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 				1: Fast pin select (default)
 				2: ATC IRMode
 
+	snddev_icodec.msm_codec_i2s_slave_mode= [ARM-MSM]
+			1, codec is I2S master
+			0, MSM is I2S master (default)
+
 	softlockup_panic=
 			[KNL] Should the soft-lockup detector generate panics.
 			Format: <integer>

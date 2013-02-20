@@ -16,12 +16,11 @@
 #include <mach/vreg.h>
 
 #include <linux/platform_data/mmc-msm_sdcc.h>
+#include <mach/proc_comm.h>
 
 #include "devices.h"
 
 #include "board-trout.h"
-
-#include "proc_comm.h"
 
 #define DEBUG_SDSLOT_VDD 1
 

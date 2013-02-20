@@ -1,0 +1,22 @@
+Qualcomm LPASS QDSP6v5 Peripheral Image Loader
+
+pil-qdsp6v5-lpass is a peripheral image loader (PIL) driver. It is used for
+loading QDSP6v5 (Hexagon) firmware images for Low Power Audio Subsystems
+into memory and preparing the subsystem's processor to execute code. It's
+also responsible for shutting down the processor when it's not needed.
+
+Required properties:
+- compatible:	      Must be "qcom,pil-q6v5-lpass"
+- reg:		      Two pairs of physical base addresses and region sizes
+		      of memory mapped registers. The first region corresponds
+		      to QDSP6SS_PUB, and the second to LPASS_HALTREQ.
+- qcom,firmware-name: Base name of the firmware image. Ex. "lpass"
+
+Example:
+	qcom,lpass@fe200000 {
+	        compatible = "qcom,pil-q6v5-lpass";
+	        reg = <0xfe200000 0x00100>,
+	              <0xfd485100 0x00010>;
+
+	        qcom,firmware-name = "lpass";
+	};

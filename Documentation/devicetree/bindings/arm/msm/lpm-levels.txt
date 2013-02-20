@@ -1,0 +1,47 @@
+* Low Power Management Levels
+
+The application processor in MSM can do a variety of C-States for low power
+management. These C-States are invoked by the CPUIdle framework when the core
+becomes idle. But based on the time available until the next scheduled wakeup,
+the system can do a combination of low power modes of different resources -
+L2, XO, Vdd Dig and Vdd Mem. The combination is captured in the device tree as
+lpm-level. The units for voltage are dependent on the PMIC used on the target
+and are in uV.
+
+The required nodes for lpm-levels are:
+
+- compatible: "qcom,lpm-levels"
+- reg: The numeric level id
+- qcom,mode: The sleep mode of the processor
+- qcom,xo: The state of XO clock.
+- qcom,l2: The state of L2 cache.
+- qcom,vdd-mem-upper-bound: The upper bound value of mem voltage in uV
+- qcom,vdd-mem-lower-bound: The lower bound value of mem voltage in uV
+- qcom,vdd-dig-upper-bound: The upper bound value of dig voltage in uV
+- qcom,vdd-dig-lower-bound: The lower bound value of dig voltage in uV
+- qcom,latency-us: The latency in handling the interrupt if this level was
+	chosen, in uSec
+- qcom,ss-power: The steady state power expelled when the processor is in this
+	level in mWatts
+- qcom,energy-overhead: The energy used up in entering and exiting this level
+	in mWatts.uSec
+- qcom,time-overhead: The time spent in entering and exiting this level in uS
+
+Example:
+
+qcom,lpm-levels {
+	qcom,lpm-level@0 {
+		reg = <0>;
+		qcom,mode = <0>;        /* MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT */
+		qcom,xo = <1>;          /* ON */
+		qcom,l2 = <3>;          /* ACTIVE */
+		qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
+		qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
+		qcom,vdd-dig-upper-bound = <1150000>; /* MAX */
+		qcom,vdd-dig-lower-bound = <950000>;  /* ACTIVE */
+		qcom,latency-us = <100>;
+		qcom,ss-power = <650>;
+		qcom,energy-overhead = <801>;
+		qcom,time-overhead = <200>;
+	};
+};

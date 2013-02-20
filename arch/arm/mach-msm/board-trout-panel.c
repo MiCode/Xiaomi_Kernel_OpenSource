@@ -16,9 +16,9 @@
 
 #include <linux/platform_data/video-msm_fb.h>
 #include <mach/vreg.h>
+#include <mach/proc_comm.h>
 
 #include "board-trout.h"
-#include "proc_comm.h"
 #include "devices.h"
 
 #define TROUT_DEFAULT_BACKLIGHT_BRIGHTNESS 255

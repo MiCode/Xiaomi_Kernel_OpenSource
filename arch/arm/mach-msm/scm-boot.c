@@ -8,27 +8,22 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
  */
 
 #include <linux/module.h>
 #include <linux/slab.h>
 
-#include "scm.h"
+#include <mach/scm.h>
 #include "scm-boot.h"
 
 /*
  * Set the cold/warm boot address for one of the CPU cores.
  */
-int scm_set_boot_addr(phys_addr_t addr, int flags)
+int scm_set_boot_addr(void *addr, int flags)
 {
 	struct {
 		unsigned int flags;
-		phys_addr_t  addr;
+		void *addr;
 	} cmd;
 
 	cmd.addr = addr;
@@ -37,3 +32,4 @@ int scm_set_boot_addr(phys_addr_t addr, int flags)
 			&cmd, sizeof(cmd), NULL, 0);
 }
 EXPORT_SYMBOL(scm_set_boot_addr);
+

@@ -33,7 +33,6 @@
 
 #include "board-mahimahi.h"
 #include "devices.h"
-#include "proc_comm.h"
 
 static uint debug_uart;
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2010, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,7 @@
 #define INT_AVS_SVIC_SW_DONE	6
 #define INT_SC_DBG_RX_FULL	7
 #define INT_SC_DBG_TX_EMPTY	8
-#define INT_ARM11_PM		9
+#define INT_ARMQC_PERFMON	9
 #define INT_AVS_REQ_DOWN	10
 #define INT_AVS_REQ_UP		11
 #define INT_SC_ACG		12
@@ -131,8 +131,8 @@
 #define INT_TCHSCRN1 		INT_TSSC_SAMPLE
 #define INT_TCHSCRN2 		INT_TSSC_PENUP
 #define INT_GP_TIMER_EXP 	INT_GPT0_TIMER_EXP
-#define INT_ADSP_A11 		INT_AD5A_MPROC_APPS_0
-#define INT_ADSP_A9_A11 	INT_AD5A_MPROC_APPS_1
+#define INT_ADSP_A9_A11 	INT_AD5A_MPROC_APPS_0
+#define INT_ADSP_A11		INT_AD5A_MPROC_APPS_1
 #define INT_MDDI_EXT		INT_EMDH
 #define INT_MDDI_PRI		INT_PMDH
 #define INT_MDDI_CLIENT		INT_MDC
@@ -142,12 +142,9 @@
 #define NR_MSM_IRQS		128
 #define NR_GPIO_IRQS		182
 #define PMIC8058_IRQ_BASE	(NR_MSM_IRQS + NR_GPIO_IRQS)
-#define NR_PMIC8058_GPIO_IRQS	40
-#define NR_PMIC8058_MPP_IRQS	12
-#define NR_PMIC8058_MISC_IRQS	8
-#define NR_PMIC8058_IRQS	(NR_PMIC8058_GPIO_IRQS +\
-				NR_PMIC8058_MPP_IRQS +\
-				NR_PMIC8058_MISC_IRQS)
+#define NR_PMIC8058_IRQS	256
 #define NR_BOARD_IRQS		NR_PMIC8058_IRQS
+
+#define INT_ADSP_A11_SMSM	INT_ADSP_A11
 
 #endif /* __ASM_ARCH_MSM_IRQS_7X30_H */
