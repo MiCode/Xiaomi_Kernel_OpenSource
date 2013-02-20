@@ -63,7 +63,7 @@ struct mdss_data_type {
 	struct regulator *fs;
 
 	struct workqueue_struct *clk_ctrl_wq;
-	struct delayed_work clk_ctrl_worker;
+	struct work_struct clk_ctrl_worker;
 	struct platform_device *pdev;
 	char __iomem *mdp_base;
 	size_t mdp_reg_size;
@@ -80,6 +80,7 @@ struct mdss_data_type {
 	u32 suspend;
 	u32 timeout;
 
+	atomic_t clk_ref;
 	u8 clk_ena;
 	u8 fs_ena;
 	u8 vsync_ena;
