@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -662,12 +662,14 @@ out:
 
 int ion_heap_allow_secure_allocation(enum ion_heap_type type)
 {
-	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP);
+	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP) ||
+		type == ((enum ion_heap_type) ION_HEAP_TYPE_SECURE_DMA);
 }
 
 int ion_heap_allow_handle_secure(enum ion_heap_type type)
 {
-	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP);
+	return type == ((enum ion_heap_type) ION_HEAP_TYPE_CP) ||
+		type == ((enum ion_heap_type) ION_HEAP_TYPE_SECURE_DMA);
 }
 
 int ion_heap_allow_heap_secure(enum ion_heap_type type)
