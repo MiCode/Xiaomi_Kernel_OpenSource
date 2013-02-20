@@ -366,7 +366,9 @@ int lpa_set_volume(unsigned volume)
 {
 	int rc = 0;
 	if (lpa_audio.prtd && lpa_audio.prtd->audio_client) {
-		rc = q6asm_set_volume(lpa_audio.prtd->audio_client, volume);
+		rc = q6asm_set_lrgain(lpa_audio.prtd->audio_client,
+						(volume >> 16) & 0xFFFF,
+						volume & 0xFFFF);
 		if (rc < 0) {
 			pr_err("%s: Send Volume command failed rc=%d\n",
 					__func__, rc);
