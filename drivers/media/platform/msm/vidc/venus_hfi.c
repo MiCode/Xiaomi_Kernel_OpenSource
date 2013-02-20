@@ -2553,17 +2553,25 @@ static int venus_hfi_unset_ocmem(void *dev)
 	struct vidc_resource_hdr rhdr;
 	struct venus_hfi_device *device = dev;
 	int rc = 0;
-	if (!device || !device->resources.ocmem.buf) {
+	if (!device) {
 		dprintk(VIDC_ERR, "%s Invalid params, device:%p\n",
 			__func__, device);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto ocmem_unset_failed;
 	}
+	if (!device->resources.ocmem.buf) {
+		dprintk(VIDC_INFO, "%s Trying to free OCMEM which is not set",
+			__func__);
+		rc = -EINVAL;
+		goto ocmem_unset_failed;
+	}
+
 	rhdr.resource_id = VIDC_RESOURCE_OCMEM;
 	rhdr.resource_handle = (u32) &device->resources.ocmem;
 	rc = venus_hfi_core_release_resource(device, &rhdr);
 	if (rc)
-		dprintk(VIDC_ERR, "Failed to set OCMEM on driver\n");
-
+		dprintk(VIDC_ERR, "Failed to unset OCMEM on driver\n");
+ocmem_unset_failed:
 	return rc;
 }
 
