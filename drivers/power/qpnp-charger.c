@@ -70,7 +70,7 @@
 #define CHGR_CHG_WDOG_PET			0x64
 #define CHGR_CHG_WDOG_EN			0x65
 #define CHGR_IR_DROP_COMPEN			0x67
-#define CHGR_USB_IUSB_MAX			0x44
+#define CHGR_I_MAX_REG			0x44
 #define CHGR_USB_USB_SUSP			0x47
 #define CHGR_USB_USB_OTG_CTL			0x48
 #define CHGR_USB_ENUM_T_STOP			0x4E
@@ -172,6 +172,8 @@
  * @resume_voltage_mv:		voltage at which the battery resumes charging
  * @term_current:		the charging based term current
  * @safe_current:		battery safety current setting
+ * @maxinput_usb_ma:		Maximum Input current USB
+ * @maxinput_dc_ma:		Maximum Input current DC
  * @revision:			PMIC revision
  * @thermal_levels		amount of thermal mitigation levels
  * @thermal_mitigation		thermal mitigation level values
@@ -210,6 +212,8 @@ struct qpnp_chg_chip {
 	unsigned int			min_voltage_mv;
 	unsigned int			resume_voltage_mv;
 	unsigned int			term_current;
+	unsigned int			maxinput_usb_ma;
+	unsigned int			maxinput_dc_ma;
 	unsigned int			safe_current;
 	unsigned int			revision;
 	unsigned int			thermal_levels;
@@ -348,36 +352,73 @@ qpnp_chg_is_dc_chg_plugged_in(struct qpnp_chg_chip *chip)
 	return (dcin_valid_rt_sts & DCIN_VALID_IRQ) ? 1 : 0;
 }
 
-#define QPNP_CHG_IUSB_MAX_MIN_100		100
-#define QPNP_CHG_IUSB_MAX_MIN_150		150
-#define QPNP_CHG_IUSB_MAX_MIN_MA		200
-#define QPNP_CHG_IUSB_MAX_MAX_MA		2500
-#define QPNP_CHG_IUSB_MAX_STEP_MA		100
+#define QPNP_CHG_I_MAX_MIN_100		100
+#define QPNP_CHG_I_MAX_MIN_150		150
+#define QPNP_CHG_I_MAX_MIN_MA		200
+#define QPNP_CHG_I_MAX_MAX_MA		2500
+#define QPNP_CHG_I_MAXSTEP_MA		100
+static int
+qpnp_chg_idcmax_set(struct qpnp_chg_chip *chip, int mA)
+{
+	int rc = 0;
+	u8 dc = 0;
+
+	if (mA < QPNP_CHG_I_MAX_MIN_100
+			|| mA > QPNP_CHG_I_MAX_MAX_MA) {
+		pr_err("bad mA=%d asked to set\n", mA);
+		return -EINVAL;
+	}
+
+	if (mA == QPNP_CHG_I_MAX_MIN_100) {
+		dc = 0x00;
+		pr_debug("current=%d setting %02x\n", mA, dc);
+		return qpnp_chg_write(chip, &dc,
+			chip->dc_chgpth_base + CHGR_I_MAX_REG, 1);
+	} else if (mA == QPNP_CHG_I_MAX_MIN_150) {
+		dc = 0x01;
+		pr_debug("current=%d setting %02x\n", mA, dc);
+		return qpnp_chg_write(chip, &dc,
+			chip->dc_chgpth_base + CHGR_I_MAX_REG, 1);
+	}
+
+	dc = mA / QPNP_CHG_I_MAXSTEP_MA;
+
+	pr_debug("current=%d setting 0x%x\n", mA, dc);
+	rc = qpnp_chg_write(chip, &dc,
+		chip->dc_chgpth_base + CHGR_I_MAX_REG, 1);
+
+	return rc;
+}
+
 static int
 qpnp_chg_iusbmax_set(struct qpnp_chg_chip *chip, int mA)
 {
 	int rc = 0;
 	u8 usb_reg = 0, temp = 8;
 
-	if (mA == QPNP_CHG_IUSB_MAX_MIN_100) {
-		usb_reg = 0x00;
-		pr_debug("current=%d setting %02x\n", mA, usb_reg);
-		return qpnp_chg_write(chip, &usb_reg,
-		chip->usb_chgpth_base + CHGR_USB_IUSB_MAX, 1);
-	} else if (mA == QPNP_CHG_IUSB_MAX_MIN_150) {
-		usb_reg = 0x01;
-		pr_debug("current=%d setting %02x\n", mA, usb_reg);
-		return qpnp_chg_write(chip, &usb_reg,
-		chip->usb_chgpth_base + CHGR_USB_IUSB_MAX, 1);
-	}
-
-	if (mA < QPNP_CHG_IUSB_MAX_MIN_MA
-			|| mA > QPNP_CHG_IUSB_MAX_MAX_MA) {
+	if (mA < QPNP_CHG_I_MAX_MIN_100
+			|| mA > QPNP_CHG_I_MAX_MAX_MA) {
 		pr_err("bad mA=%d asked to set\n", mA);
 		return -EINVAL;
 	}
 
-	usb_reg = mA / QPNP_CHG_IUSB_MAX_STEP_MA;
+	if (mA == QPNP_CHG_I_MAX_MIN_100) {
+		usb_reg = 0x00;
+		pr_debug("current=%d setting %02x\n", mA, usb_reg);
+		return qpnp_chg_write(chip, &usb_reg,
+		chip->usb_chgpth_base + CHGR_I_MAX_REG, 1);
+	} else if (mA == QPNP_CHG_I_MAX_MIN_150) {
+		usb_reg = 0x01;
+		pr_debug("current=%d setting %02x\n", mA, usb_reg);
+		return qpnp_chg_write(chip, &usb_reg,
+		chip->usb_chgpth_base + CHGR_I_MAX_REG, 1);
+	}
+
+	/* Impose input current limit */
+	if (chip->maxinput_usb_ma)
+		mA = (chip->maxinput_usb_ma) <= mA ? chip->maxinput_usb_ma : mA;
+
+	usb_reg = mA / QPNP_CHG_I_MAXSTEP_MA;
 
 	if (chip->flags & CHG_FLAGS_VCP_WA) {
 		temp = 0xA5;
@@ -390,7 +431,7 @@ qpnp_chg_iusbmax_set(struct qpnp_chg_chip *chip, int mA)
 
 	pr_debug("current=%d setting 0x%x\n", mA, usb_reg);
 	rc = qpnp_chg_write(chip, &usb_reg,
-		chip->usb_chgpth_base + CHGR_USB_IUSB_MAX, 1);
+		chip->usb_chgpth_base + CHGR_I_MAX_REG, 1);
 
 	if (chip->flags & CHG_FLAGS_VCP_WA) {
 		temp = 0xA5;
@@ -875,12 +916,12 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
 		qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
-		if ((ret.intval / 1000) <= QPNP_CHG_IUSB_MAX_MIN_MA)
+		if ((ret.intval / 1000) <= QPNP_CHG_I_MAX_MIN_MA)
 			qpnp_chg_usb_suspend_enable(chip, 1);
 		else
 			qpnp_chg_usb_suspend_enable(chip, 0);
 	} else {
-		qpnp_chg_iusbmax_set(chip, QPNP_CHG_IUSB_MAX_MIN_100);
+		qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 		qpnp_chg_usb_suspend_enable(chip, 0);
 	}
 
@@ -1429,6 +1470,33 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		goto fail_chg_enable;
 	}
 
+	/* Get the ibatsafe property */
+	rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,chg-vbatdet-mv",
+				&chip->resume_voltage_mv);
+	if (rc) {
+		pr_err("Error reading vbatdet property %d\n", rc);
+		goto fail_chg_enable;
+	}
+
+	/* Get the maxinput-dc-ma property */
+	rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,chg-maxinput-dc-ma",
+				&chip->maxinput_dc_ma);
+	if (rc && rc != -EINVAL) {
+		pr_err("Error reading maxinput-dc-ma property %d\n", rc);
+		goto fail_chg_enable;
+	}
+
+	/* Get the maxinput-usb-ma property */
+	rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,chg-maxinput-usb-ma",
+				&chip->maxinput_usb_ma);
+	if (rc && rc != -EINVAL) {
+		pr_err("Error reading maxinput-usb-ma property %d\n", rc);
+		goto fail_chg_enable;
+	}
+
 	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(spmi->dev.of_node,
 					"qcom,chg-charging-disabled");
@@ -1595,6 +1663,14 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	power_supply_set_present(chip->usb_psy,
 			qpnp_chg_is_usb_chg_plugged_in(chip));
+
+	if (chip->maxinput_dc_ma) {
+		rc = qpnp_chg_idcmax_set(chip, chip->maxinput_dc_ma);
+		if (rc) {
+			pr_err("Error setting idcmax property %d\n", rc);
+			goto fail_chg_enable;
+		}
+	}
 
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
 	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);

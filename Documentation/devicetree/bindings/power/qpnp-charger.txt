@@ -34,6 +34,8 @@ Parent node required properties:
 					system thermal mitigation level.
 
 Parent node optional properties:
+- qcom,chg-maxinput-usb-ma:		Maximum input current USB.
+- qcom,chg-maxinput-dc-ma:		Maximum input current DC.
 - qcom,chg-charging-disabled:		Set this property to disable charging
 					by default. This can then be overriden
 					writing the the module parameter
