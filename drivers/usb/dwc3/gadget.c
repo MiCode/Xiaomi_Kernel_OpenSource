@@ -1205,7 +1205,10 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 
 	int				ret;
 
+	spin_lock_irqsave(&dwc->lock, flags);
+
 	if (!dep->endpoint.desc) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		dev_dbg(dwc->dev, "trying to queue request %p to disabled %s\n",
 				request, ep->name);
 		return -ESHUTDOWN;
@@ -1217,7 +1220,6 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 	WARN(!dep->direction && (request->length % ep->desc->wMaxPacketSize),
 		"trying to queue unaligned request (%d)\n", request->length);
 
-	spin_lock_irqsave(&dwc->lock, flags);
 	ret = __dwc3_gadget_ep_queue(dep, req);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
