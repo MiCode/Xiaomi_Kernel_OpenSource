@@ -252,7 +252,15 @@ static struct acpu_level acpu_freq_tbl_pvs4[] __initdata = {
 	{ 0, { 0 } }
 };
 
-static struct pvs_table pvs_tables[NUM_SPEED_BINS][NUM_PVS] __initdata = {
+static struct pvs_table pvs_v1[NUM_SPEED_BINS][NUM_PVS] __initdata = {
+	[0][0] = { acpu_freq_tbl_pvs0, sizeof(acpu_freq_tbl_pvs0) },
+	[0][1] = { acpu_freq_tbl_pvs1, sizeof(acpu_freq_tbl_pvs1) },
+	[0][2] = { acpu_freq_tbl_pvs2, sizeof(acpu_freq_tbl_pvs2) },
+	[0][3] = { acpu_freq_tbl_pvs3, sizeof(acpu_freq_tbl_pvs3) },
+	[0][4] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
+};
+
+static struct pvs_table pvs_v2[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	[0][0] = { acpu_freq_tbl_pvs0, sizeof(acpu_freq_tbl_pvs0) },
 	[0][1] = { acpu_freq_tbl_pvs1, sizeof(acpu_freq_tbl_pvs1) },
 	[0][2] = { acpu_freq_tbl_pvs2, sizeof(acpu_freq_tbl_pvs2) },
@@ -269,7 +277,7 @@ static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
 	.scalable = scalable,
 	.scalable_size = sizeof(scalable),
 	.hfpll_data = &hfpll_data,
-	.pvs_tables = pvs_tables,
+	.pvs_tables = pvs_v2,
 	.l2_freq_tbl = l2_freq_tbl,
 	.l2_freq_tbl_size = sizeof(l2_freq_tbl),
 	.bus_scale = &bus_scale_data,
@@ -278,7 +286,7 @@ static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
 	.stby_khz = 300000,
 };
 
-static void __init apply_l2_workaround(void)
+static void __init apply_v1_l2_workaround(void)
 {
 	static struct l2_level resticted_l2_tbl[] __initdata = {
 		[0] = { {  300000, PLL_0, 0,   0 }, LVL_LOW,  1050000, 0 },
@@ -290,7 +298,7 @@ static void __init apply_l2_workaround(void)
 
 	for (s = 0; s < NUM_SPEED_BINS; s++)
 		for (p = 0; p < NUM_PVS; p++)
-			for (l = pvs_tables[s][p].table; l && l->speed.khz; l++)
+			for (l = pvs_v1[s][p].table; l && l->speed.khz; l++)
 				l->l2_level = l->l2_level > 5 ? 1 : 0;
 
 	acpuclk_8974_params.l2_freq_tbl = resticted_l2_tbl;
@@ -305,9 +313,11 @@ static int __init acpuclk_8974_probe(struct platform_device *pdev)
 	 * and 1497.6MHz (non-inclusive), or when vdd_mx is less than 1.05V.
 	 * Restrict L2 operation to safe performance points on these devices.
 	 */
-	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) < 2 &&
-	    SOCINFO_VERSION_MINOR(socinfo_get_version()) < 2)
-		apply_l2_workaround();
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {
+		acpuclk_8974_params.pvs_tables = pvs_v1;
+		if (SOCINFO_VERSION_MINOR(socinfo_get_version()) < 2)
+			apply_v1_l2_workaround();
+	}
 
 	return acpuclk_krait_init(&pdev->dev, &acpuclk_8974_params);
 }
