@@ -1293,6 +1293,8 @@ int32_t qpnp_iadc_vadc_sync_read(
 static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 						struct qpnp_iadc_result *result)
 { return -ENXIO; }
+static inline int32_t qpnp_iadc_get_rsense(int32_t *rsense)
+{ return -ENXIO; }
 static inline int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib
 									*result)
 { return -ENXIO; }
@@ -1362,8 +1364,6 @@ static inline int32_t qpnp_adc_tm_btm_configure(
 static inline int32_t qpnp_adc_tm_btm_end(void)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_is_ready(void)
-{ return -ENXIO; }
-static inline int32_t qpnp_iadc_get_rsense(int32_t *rsense)
 { return -ENXIO; }
 #endif
 
