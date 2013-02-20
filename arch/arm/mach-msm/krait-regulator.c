@@ -291,6 +291,11 @@ static int __krait_power_mdd_enable(struct krait_power_vreg *kvreg, bool on)
 
 int krait_power_mdd_enable(int cpu_num, bool on)
 {
+	/*
+	 * Expected to be called when the cpu goes to retention mode as a part
+	 * of idle power collapse. IT is guaranteed that cpu won't be put in
+	 * retention while being hotplugged out
+	 */
 	struct krait_power_vreg *kvreg = per_cpu(krait_vregs, cpu_num);
 
 	if (!on && kvreg->mode == LDO_MODE) {
@@ -298,7 +303,7 @@ int krait_power_mdd_enable(int cpu_num, bool on)
 		return -EINVAL;
 	}
 
-	if ((on && kvreg->mode == LDO_MODE) || (!on && kvreg->mode == HS_MODE))
+	if (on && kvreg->mode == LDO_MODE)
 		return 0;
 
 	__krait_power_mdd_enable(kvreg, on);
@@ -801,6 +806,8 @@ static int krait_power_enable(struct regulator_dev *rdev)
 	int rc;
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
+	if (kvreg->mode == LDO_MODE)
+		__krait_power_mdd_enable(kvreg, true);
 	kvreg->online = true;
 	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load_uA);
 	if (rc < 0)
@@ -830,6 +837,8 @@ static int krait_power_disable(struct regulator_dev *rdev)
 		goto dis_err;
 
 	rc = _set_voltage(rdev, kvreg->uV, kvreg->uV);
+	if (kvreg->mode == LDO_MODE)
+		__krait_power_mdd_enable(kvreg, false);
 dis_err:
 	mutex_unlock(&pvreg->krait_power_vregs_lock);
 	return rc;
