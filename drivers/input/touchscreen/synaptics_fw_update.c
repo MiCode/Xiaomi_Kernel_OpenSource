@@ -1529,7 +1529,7 @@ static ssize_t fwu_sysfs_disp_config_block_count_show(struct device *dev,
 static ssize_t fwu_sysfs_config_id_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	unsigned char config_id[8];
+	unsigned char config_id[4];
 	/* device config id */
 	fwu->fn_ptr->read(fwu->rmi4_data,
 				fwu->f34_fd.ctrl_base_addr,
