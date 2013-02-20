@@ -1043,6 +1043,7 @@
 		qcom,sensors = <11>;
 		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
 				3200 3200>;
+		qcom,calib-mode = "fuse_map1";
 	};
 
 	qcom,msm-rtb {
