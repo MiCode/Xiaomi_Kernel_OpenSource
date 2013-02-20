@@ -507,12 +507,18 @@ static int __devexit bcl_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id bcl_match_table[] = {
+	{.compatible = "qcom,bcl"},
+	{},
+};
+
 static struct platform_driver bcl_driver = {
 	.probe	= bcl_probe,
 	.remove	= __devexit_p(bcl_remove),
 	.driver	= {
 		.name	= BCL_DEV_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = bcl_match_table,
 	},
 };
 
