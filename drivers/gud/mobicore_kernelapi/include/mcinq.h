@@ -112,6 +112,6 @@ struct notification_queue {
 	struct notification_queue_header hdr;
 	/* Notification elements. */
 	struct notification notification[MIN_NQ_ELEM];
-} ;
+};
 
 #endif /* _MCINQ_H_ */

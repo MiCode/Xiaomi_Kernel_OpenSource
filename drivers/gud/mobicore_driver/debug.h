@@ -14,8 +14,7 @@
 extern struct device *mcd;
 
 #define MCDRV_DBG_ERROR(dev, txt, ...) \
-	dev_err(dev, "[%d] %s() ### ERROR: " txt, \
-		task_pid_vnr(current), \
+	dev_err(dev, "MobiCore %s() ### ERROR: " txt, \
 		__func__, \
 		##__VA_ARGS__)
 
@@ -32,15 +31,12 @@ extern struct device *mcd;
 #endif
 
 #define MCDRV_DBG(dev, txt, ...) \
-	dev_info(dev, "[%d on CPU%d] %s(): " txt, \
-		 task_pid_vnr(current), \
-		 raw_smp_processor_id(), \
+	dev_info(dev, "MobiCore %s(): " txt, \
 		 __func__, \
 		 ##__VA_ARGS__)
 
 #define MCDRV_DBG_WARN(dev, txt, ...) \
-	dev_warn(dev, "[%d] %s() WARNING: " txt, \
-		 task_pid_vnr(current), \
+	dev_warn(dev, "MobiCore %s() WARNING: " txt, \
 		 __func__, \
 		 ##__VA_ARGS__)
 
