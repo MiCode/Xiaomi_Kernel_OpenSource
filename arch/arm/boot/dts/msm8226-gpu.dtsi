@@ -15,6 +15,8 @@
 &msm_gpu {
 	qcom,chipid = <0x03000510>;
 
+	qcom,clk-map = <0x00000016>; /* KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE */
+
 	qcom,msm-bus,vectors-KBps =
 			<26 512 0 0>, <89 604 0 0>,
 			<26 512 0 1600000>, <89 604 0 6400000>,
