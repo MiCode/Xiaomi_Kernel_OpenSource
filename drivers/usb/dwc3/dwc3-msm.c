@@ -165,6 +165,7 @@ struct dwc3_msm {
 	struct clk		*iface_clk;
 	struct clk		*sleep_clk;
 	struct clk		*hsphy_sleep_clk;
+	struct clk		*utmi_clk;
 	struct regulator	*hsusb_3p3;
 	struct regulator	*hsusb_1p8;
 	struct regulator	*hsusb_vddcx;
@@ -1636,9 +1637,12 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	clk_disable_unprepare(mdwc->core_clk);
 	clk_disable_unprepare(mdwc->iface_clk);
 
-	/* USB PHY no more requires TCXO */
-	if (!host_bus_suspend)
+	if (!host_bus_suspend) {
+		clk_disable_unprepare(mdwc->utmi_clk);
+
+		/* USB PHY no more requires TCXO */
 		clk_disable_unprepare(mdwc->xo_clk);
+	}
 
 	if (mdwc->bus_perf_client) {
 		ret = msm_bus_scale_client_update_request(
@@ -1705,8 +1709,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	dwc3_ssusb_ldo_enable(1);
 	dwc3_ssusb_config_vddcx(1);
-	if (!host_bus_suspend)
+
+	if (!host_bus_suspend) {
 		dwc3_hsusb_config_vddcx(1);
+		clk_prepare_enable(mdwc->utmi_clk);
+	}
+
 	clk_prepare_enable(mdwc->ref_clk);
 	usleep_range(1000, 1200);
 
@@ -2235,14 +2243,21 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(msm->hsphy_sleep_clk);
 
+	msm->utmi_clk = devm_clk_get(&pdev->dev, "utmi_clk");
+	if (IS_ERR(msm->utmi_clk)) {
+		dev_err(&pdev->dev, "failed to get utmi_clk\n");
+		ret = PTR_ERR(msm->utmi_clk);
+		goto disable_sleep_a_clk;
+	}
+	clk_prepare_enable(msm->utmi_clk);
+
 	msm->ref_clk = devm_clk_get(&pdev->dev, "ref_clk");
 	if (IS_ERR(msm->ref_clk)) {
 		dev_err(&pdev->dev, "failed to get ref_clk\n");
 		ret = PTR_ERR(msm->ref_clk);
-		goto disable_sleep_a_clk;
+		goto disable_utmi_clk;
 	}
 	clk_prepare_enable(msm->ref_clk);
-
 
 	of_get_property(node, "qcom,vdd-voltage-level", &len);
 	if (len == sizeof(tmp)) {
@@ -2526,6 +2541,8 @@ unconfig_ss_vddcx:
 	dwc3_ssusb_config_vddcx(0);
 disable_ref_clk:
 	clk_disable_unprepare(msm->ref_clk);
+disable_utmi_clk:
+	clk_disable_unprepare(msm->utmi_clk);
 disable_sleep_a_clk:
 	clk_disable_unprepare(msm->hsphy_sleep_clk);
 disable_sleep_clk:
