@@ -532,6 +532,9 @@ static int __sched_unmap(struct ocmem_req *req)
 	struct ocmem_req *matched_req = NULL;
 	struct ocmem_region *matched_region = NULL;
 
+	if (!TEST_STATE(req, R_MAPPED))
+		goto invalid_op_error;
+
 	matched_region = find_region_match(req->req_start, req->req_end);
 	matched_req = find_req_match(req->req_id, matched_region);
 
@@ -1501,22 +1504,25 @@ int process_free(int id, struct ocmem_handle *handle)
 		mutex_unlock(&sched_mutex);
 	}
 
-	if (TEST_STATE(req, R_MAPPED)) {
-		/* unmap the interval and clear the memory */
-		rc = process_unmap(req, req->req_start, req->req_end);
+	if (!TEST_STATE(req, R_FREE)) {
 
-		if (rc < 0) {
-			pr_err("ocmem: Failed to unmap %p\n", req);
-			goto free_fail;
-		}
+		if (TEST_STATE(req, R_MAPPED)) {
+			/* unmap the interval and clear the memory */
+			rc = process_unmap(req, req->req_start, req->req_end);
 
-		rc = do_free(req);
-		if (rc < 0) {
-			pr_err("ocmem: Failed to free %p\n", req);
-			goto free_fail;
-		}
-	} else
+			if (rc < 0) {
+				pr_err("ocmem: Failed to unmap %p\n", req);
+				goto free_fail;
+			}
+
+			rc = do_free(req);
+			if (rc < 0) {
+				pr_err("ocmem: Failed to free %p\n", req);
+				goto free_fail;
+			}
+		} else
 			pr_debug("request %p was already shrunk to 0\n", req);
+	}
 
 	/* Turn off the memory */
 	if (req->req_sz != 0) {
@@ -1600,6 +1606,42 @@ int queue_transfer(struct ocmem_req *req, struct ocmem_handle *handle,
 	INIT_WORK(&work_data->work, ocmem_rdm_worker);
 	up_write(&req->rw_sem);
 	queue_work(ocmem_rdm_wq, &work_data->work);
+	return 0;
+}
+
+int process_drop(int id, struct ocmem_handle *handle,
+				 struct ocmem_map_list *list)
+{
+	struct ocmem_req *req = NULL;
+	struct ocmem_buf *buffer = NULL;
+	int rc = 0;
+
+	if (is_blocked(id)) {
+		pr_err("Client %d cannot request drop\n", id);
+		return -EINVAL;
+	}
+
+	if (is_tcm(id))
+		pr_err("Client %d cannot request drop\n", id);
+
+	req = handle_to_req(handle);
+	buffer = handle_to_buffer(handle);
+
+	if (!req)
+		return -EINVAL;
+
+	if (req->req_start != core_address(id, buffer->addr)) {
+		pr_err("Invalid buffer handle passed for drop\n");
+		return -EINVAL;
+	}
+
+	if (TEST_STATE(req, R_MAPPED)) {
+		rc = process_unmap(req, req->req_start, req->req_end);
+		if (rc < 0)
+			return -EINVAL;
+	} else
+		return -EINVAL;
+
 	return 0;
 }
 
