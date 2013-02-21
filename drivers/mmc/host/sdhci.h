@@ -297,6 +297,7 @@ struct sdhci_ops {
 	void	(*platform_init)(struct sdhci_host *host);
 	void    (*card_event)(struct sdhci_host *host);
 	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
+	void	(*check_power_status)(struct sdhci_host *host);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
