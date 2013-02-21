@@ -304,6 +304,9 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev)
 	struct msm_vfe_axi_stream *stream_info;
 	for (i = 0; i < MAX_NUM_STREAM; i++) {
 		stream_info = &axi_data->stream_info[i];
+		if (stream_info->state != ACTIVE)
+			continue;
+
 		if (stream_info->framedrop_update) {
 			if (stream_info->init_frame_drop == 0) {
 				stream_info->framedrop_update = 0;
@@ -312,8 +315,7 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev)
 			}
 		}
 		if (stream_info->stream_type == BURST_STREAM) {
-			if (stream_info->burst_frame_count == 0 &&
-					stream_info->state == ACTIVE) {
+			if (stream_info->burst_frame_count == 0) {
 				vfe_dev->hw_info->vfe_ops.axi_ops.
 				cfg_framedrop(vfe_dev, stream_info);
 				vfe_dev->hw_info->vfe_ops.core_ops.
@@ -331,6 +333,9 @@ void msm_isp_update_framedrop_count(
 	struct msm_vfe_axi_stream *stream_info;
 	for (i = 0; i < MAX_NUM_STREAM; i++) {
 		stream_info = &axi_data->stream_info[i];
+		if (stream_info->state != ACTIVE)
+			continue;
+
 		if (stream_info->framedrop_update)
 			stream_info->init_frame_drop--;
 
