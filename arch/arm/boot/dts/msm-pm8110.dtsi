@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,4 +15,18 @@
 	#size-cells = <0>;
 	interrupt-controller;
 	#interrupt-cells = <3>;
+
+	qcom,pm8110@0 {
+		spmi-slave-container;
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
+
+	qcom,pm8110@1 {
+		spmi-slave-container;
+		reg = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
 };
