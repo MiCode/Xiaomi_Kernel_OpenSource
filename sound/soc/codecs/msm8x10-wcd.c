@@ -50,9 +50,9 @@
 #define MSM8X10_WCD_I2S_MASTER_MODE_MASK	0x08
 #define MSM8X10_DINO_CODEC_BASE_ADDR		0xFE043000
 
-#define MAX_MSM8X10_WCD_DEVICE	2
+#define MAX_MSM8X10_WCD_DEVICE	4
 #define CODEC_DT_MAX_PROP_SIZE	40
-#define MSM8X10_WCD_I2C_GSBI_SLAVE_ID "2-000d"
+#define MSM8X10_WCD_I2C_GSBI_SLAVE_ID "1-000d"
 
 enum {
 	MSM8X10_WCD_I2C_TOP_LEVEL = 0,
@@ -88,6 +88,7 @@ enum {
 	IIR2,
 	IIR_MAX,
 };
+
 /* Codec supports 5 bands */
 enum {
 	BAND1 = 0,
@@ -118,7 +119,6 @@ struct msm8x10_wcd_priv {
 	/* mbhc module */
 	struct wcd9xxx_mbhc mbhc;
 };
-
 
 static unsigned short rx_digital_gain_reg[] = {
 	MSM8X10_WCD_A_CDC_RX1_VOL_CTL_B2_CTL,
@@ -171,7 +171,7 @@ static int get_i2c_msm8x10_wcd_device_info(u16 reg,
 	return rtn;
 }
 
-static int msm8x10_wcd_abh_write_device(u16 reg, u8 *value, u32 bytes)
+static int msm8x10_wcd_abh_write_device(u16 reg, unsigned int *value, u32 bytes)
 {
 	u32 temp = ((u32)(*value)) & 0x000000FF;
 	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
@@ -179,10 +179,10 @@ static int msm8x10_wcd_abh_write_device(u16 reg, u8 *value, u32 bytes)
 	return 0;
 }
 
-static int msm8x10_wcd_abh_read_device(u16 reg, u32 bytes, u8 *value)
+static int msm8x10_wcd_abh_read_device(u16 reg, u32 bytes, unsigned int *value)
 {
 	u32 offset = (((u32)(reg)) ^ 0x00000400) & 0x00000FFF;
-	*value = (u8)ioread32(ioremap(MSM8X10_DINO_CODEC_BASE_ADDR +
+	*value = ioread32(ioremap(MSM8X10_DINO_CODEC_BASE_ADDR +
 				      offset, 4));
 	return 0;
 }
@@ -194,10 +194,10 @@ static int msm8x10_wcd_i2c_write_device(u16 reg, u8 *value, u32 bytes)
 	int ret;
 	u8 reg_addr = 0;
 	u8 data[bytes + 1];
-	struct msm8x10_wcd_i2c *msm8x10_wcd;
+	struct msm8x10_wcd_i2c *msm8x10_wcd = NULL;
 
 	ret = get_i2c_msm8x10_wcd_device_info(reg, &msm8x10_wcd);
-	if (!ret) {
+	if (ret) {
 		pr_err("%s: Invalid register address\n", __func__);
 		return ret;
 	}
@@ -219,7 +219,7 @@ static int msm8x10_wcd_i2c_write_device(u16 reg, u8 *value, u32 bytes)
 	/* Try again if the write fails */
 	if (ret != 1) {
 		ret = i2c_transfer(msm8x10_wcd->client->adapter,
-						msm8x10_wcd->xfer_msg, 1);
+				   msm8x10_wcd->xfer_msg, 1);
 		if (ret != 1) {
 			pr_err("failed to write the device\n");
 			return ret;
@@ -235,11 +235,11 @@ int msm8x10_wcd_i2c_read_device(u32 reg, u32 bytes, u8 *dest)
 	struct i2c_msg *msg;
 	int ret = 0;
 	u8 reg_addr = 0;
-	struct msm8x10_wcd_i2c *msm8x10_wcd;
+	struct msm8x10_wcd_i2c *msm8x10_wcd = NULL;
 	u8 i = 0;
 
 	ret = get_i2c_msm8x10_wcd_device_info(reg, &msm8x10_wcd);
-	if (!ret) {
+	if (ret) {
 		pr_err("%s: Invalid register address\n", __func__);
 		return ret;
 	}
@@ -256,7 +256,6 @@ int msm8x10_wcd_i2c_read_device(u32 reg, u32 bytes, u8 *dest)
 		msg->len = 1;
 		msg->flags = 0;
 		msg->buf = &reg_addr;
-
 		msg = &msm8x10_wcd->xfer_msg[1];
 		msg->addr = msm8x10_wcd->client->addr;
 		msg->len = 1;
@@ -275,38 +274,45 @@ int msm8x10_wcd_i2c_read_device(u32 reg, u32 bytes, u8 *dest)
 			}
 		}
 	}
+	pr_debug("%s: Reg 0x%x = 0x%x\n", __func__, reg, *dest);
 	return 0;
 }
 
-static int msm8x10_wcd_reg_read(struct msm8x10_wcd *msm8x10_wcd, u16 reg)
+int msm8x10_wcd_i2c_read(unsigned short reg, int bytes, void *dest)
 {
-	u8 val;
+	return msm8x10_wcd_i2c_read_device(reg, bytes, dest);
+}
+
+int msm8x10_wcd_i2c_write(unsigned short reg, int bytes, void *src)
+{
+	return msm8x10_wcd_i2c_write_device(reg, src, bytes);
+}
+
+static int msm8x10_wcd_reg_read(struct msm8x10_wcd *msm8x10_wcd,
+				u16 reg, unsigned int *val)
+{
 	int ret = -EINVAL;
 
 	/* check if use I2C interface for Helicon or AHB for Dino */
 	mutex_lock(&msm8x10_wcd->io_lock);
 	if (MSM8X10_WCD_IS_HELICON_REG(reg))
-		ret = msm8x10_wcd_i2c_read_device(reg, 1, &val);
+		ret = msm8x10_wcd_i2c_read(reg, 1, val);
 	else if (MSM8X10_WCD_IS_DINO_REG(reg))
-		ret = msm8x10_wcd_abh_read_device(reg, 1, &val);
+		ret = msm8x10_wcd_abh_read_device(reg, 1, val);
 	mutex_unlock(&msm8x10_wcd->io_lock);
-
-	if (ret < 0)
-		return ret;
-	else
-		return val;
+	return ret;
 }
 
 
 static int msm8x10_wcd_reg_write(struct msm8x10_wcd *msm8x10_wcd, u16  reg,
-				 u8 val)
+				 unsigned int val)
 {
 	int ret = -EINVAL;
 
 	/* check if use I2C interface for Helicon or AHB for Dino */
 	mutex_lock(&msm8x10_wcd->io_lock);
 	if (MSM8X10_WCD_IS_HELICON_REG(reg))
-		ret = msm8x10_wcd_i2c_write_device(reg, &val, 1);
+		ret = msm8x10_wcd_i2c_write(reg, 1, &val);
 	else if (MSM8X10_WCD_IS_DINO_REG(reg))
 		ret = msm8x10_wcd_abh_write_device(reg, &val, 1);
 	mutex_unlock(&msm8x10_wcd->io_lock);
@@ -331,12 +337,13 @@ static bool msm8x10_wcd_is_digital_gain_register(unsigned int reg)
 	return rtn;
 }
 
-static int msm8x10_wcd_volatile(struct snd_soc_codec *ssc, unsigned int reg)
+static int msm8x10_wcd_volatile(struct snd_soc_codec *codec, unsigned int reg)
 {
 	/*
 	 * Registers lower than 0x100 are top level registers which can be
 	 * written by the Taiko core driver.
 	 */
+	dev_dbg(codec->dev, "%s: reg 0x%x\n", __func__, reg);
 
 	if ((reg >= MSM8X10_WCD_A_CDC_MBHC_EN_CTL) || (reg < 0x100))
 		return 1;
@@ -373,7 +380,7 @@ static int msm8x10_wcd_write(struct snd_soc_codec *codec, unsigned int reg,
 			     unsigned int value)
 {
 	int ret;
-
+	dev_dbg(codec->dev, "%s: Write from reg 0x%x\n", __func__, reg);
 	if (reg == SND_SOC_NOPM)
 		return 0;
 
@@ -395,6 +402,7 @@ static unsigned int msm8x10_wcd_read(struct snd_soc_codec *codec,
 	unsigned int val;
 	int ret;
 
+	dev_dbg(codec->dev, "%s: Read from reg 0x%x\n", __func__, reg);
 	if (reg == SND_SOC_NOPM)
 		return 0;
 
@@ -411,7 +419,7 @@ static unsigned int msm8x10_wcd_read(struct snd_soc_codec *codec,
 				reg, ret);
 	}
 
-	val = msm8x10_wcd_reg_read(codec->control_data, reg);
+	ret = msm8x10_wcd_reg_read(codec->control_data, reg, &val);
 	return val;
 }
 
@@ -431,7 +439,7 @@ static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
 
 	if (!regnode) {
 		dev_err(dev, "Looking up %s property in node %s failed",
-				prop_name, dev->of_node->full_name);
+			prop_name, dev->of_node->full_name);
 		return -ENODEV;
 	}
 	vreg->name = vreg_name;
@@ -442,7 +450,7 @@ static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
 
 	if (!prop || (len != (2 * sizeof(__be32)))) {
 		dev_err(dev, "%s %s property\n",
-				prop ? "invalid format" : "no", prop_name);
+			prop ? "invalid format" : "no", prop_name);
 		return -ENODEV;
 	} else {
 		vreg->min_uV = be32_to_cpup(&prop[0]);
@@ -450,18 +458,18 @@ static int msm8x10_wcd_dt_parse_vreg_info(struct device *dev,
 	}
 
 	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,%s-current", vreg_name);
+		"qcom,%s-current", vreg_name);
 
 	ret = of_property_read_u32(dev->of_node, prop_name, &prop_val);
 	if (ret) {
 		dev_err(dev, "Looking up %s property in node %s failed",
-				prop_name, dev->of_node->full_name);
+			prop_name, dev->of_node->full_name);
 		return -ENODEV;
 	}
 	vreg->optimum_uA = prop_val;
 
 	dev_info(dev, "%s: vol=[%d %d]uV, curr=[%d]uA\n", vreg->name,
-		vreg->min_uV, vreg->max_uV, vreg->optimum_uA);
+		 vreg->min_uV, vreg->max_uV, vreg->optimum_uA);
 	return 0;
 }
 
@@ -473,7 +481,7 @@ static int msm8x10_wcd_dt_parse_micbias_info(struct device *dev,
 	u32 prop_val;
 
 	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias-ldoh-v");
+		 "qcom,cdc-micbias-ldoh-v");
 	ret = of_property_read_u32(dev->of_node, prop_name, &prop_val);
 	if (ret) {
 		dev_err(dev, "Looking up %s property in node %s failed",
@@ -483,7 +491,7 @@ static int msm8x10_wcd_dt_parse_micbias_info(struct device *dev,
 	micbias->ldoh_v = (u8)prop_val;
 
 	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias-cfilt1-mv");
+		 "qcom,cdc-micbias-cfilt1-mv");
 	ret = of_property_read_u32(dev->of_node, prop_name,
 				   &micbias->cfilt1_mv);
 	if (ret) {
@@ -493,7 +501,7 @@ static int msm8x10_wcd_dt_parse_micbias_info(struct device *dev,
 	}
 
 	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
-			"qcom,cdc-micbias1-cfilt-sel");
+		 "qcom,cdc-micbias1-cfilt-sel");
 	ret = of_property_read_u32(dev->of_node, prop_name, &prop_val);
 	if (ret) {
 		dev_err(dev, "Looking up %s property in node %s failed",
@@ -508,7 +516,7 @@ static int msm8x10_wcd_dt_parse_micbias_info(struct device *dev,
 	     MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
 
 	dev_dbg(dev, "ldoh_v  %u cfilt1_mv %u\n",
-			(u32)micbias->ldoh_v, (u32)micbias->cfilt1_mv);
+		(u32)micbias->ldoh_v, (u32)micbias->cfilt1_mv);
 	dev_dbg(dev, "bias1_cfilt_sel %u\n", (u32)micbias->bias1_cfilt_sel);
 	dev_dbg(dev, "bias1_ext_cap %d\n", micbias->bias1_cap_mode);
 
@@ -533,13 +541,14 @@ static struct msm8x10_wcd_pdata *msm8x10_wcd_populate_dt_pdata(
 		num_of_supplies = ARRAY_SIZE(msm8x10_wcd_supplies);
 	} else {
 		dev_err(dev, "%s unsupported device %s\n",
-				__func__, dev_name(dev));
+			__func__, dev_name(dev));
 		goto err;
 	}
 
 	if (num_of_supplies > ARRAY_SIZE(pdata->regulator)) {
 		dev_err(dev, "%s: Num of supplies %u > max supported %u\n",
-		      __func__, num_of_supplies, ARRAY_SIZE(pdata->regulator));
+			__func__, num_of_supplies,
+			ARRAY_SIZE(pdata->regulator));
 
 		goto err;
 	}
@@ -574,8 +583,8 @@ static int msm8x10_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	dev_dbg(codec->dev, "%s: event = %d\n", __func__, event);
 
-	pr_debug("%s %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* Enable charge pump clock*/
@@ -623,13 +632,11 @@ static int msm8x10_wcd_pa_gain_get(struct snd_kcontrol *kcontrol,
 	} else if (ear_pa_gain == 0x04) {
 		ucontrol->value.integer.value[0] = 1;
 	} else  {
-		pr_err("%s: ERROR: Unsupported Ear Gain = 0x%x\n",
-				__func__, ear_pa_gain);
+		dev_err(codec->dev, "%s: ERROR: Unsupported Ear Gain = 0x%x\n",
+			__func__, ear_pa_gain);
 		return -EINVAL;
 	}
-
-	pr_debug("%s: ear_pa_gain = 0x%x\n", __func__, ear_pa_gain);
-
+	dev_dbg(codec->dev, "%s: ear_pa_gain = 0x%x\n", __func__, ear_pa_gain);
 	return 0;
 }
 
@@ -639,8 +646,8 @@ static int msm8x10_wcd_pa_gain_put(struct snd_kcontrol *kcontrol,
 	u8 ear_pa_gain;
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
-	pr_debug("%s: ucontrol->value.integer.value[0]  = %ld\n",
-		 __func__, ucontrol->value.integer.value[0]);
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
 
 	switch (ucontrol->value.integer.value[0]) {
 	case 0:
@@ -673,7 +680,7 @@ static int msm8x10_wcd_get_iir_enable_audio_mixer(
 			    (MSM8X10_WCD_A_CDC_IIR1_CTL + 64 * iir_idx)) &
 		(1 << band_idx);
 
-	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
+	dev_dbg(codec->dev, "%s: IIR #%d band #%d enable %d\n", __func__,
 		iir_idx, band_idx,
 		(uint32_t)ucontrol->value.integer.value[0]);
 	return 0;
@@ -692,15 +699,15 @@ static int msm8x10_wcd_put_iir_enable_audio_mixer(
 
 	/* Mask first 5 bits, 6-8 are reserved */
 	snd_soc_update_bits(codec, (MSM8X10_WCD_A_CDC_IIR1_CTL + 64 * iir_idx),
-		(1 << band_idx), (value << band_idx));
+			    (1 << band_idx), (value << band_idx));
 
-	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
+	dev_dbg(codec->dev, "%s: IIR #%d band #%d enable %d\n", __func__,
 		iir_idx, band_idx, value);
 	return 0;
 }
 static uint32_t get_iir_band_coeff(struct snd_soc_codec *codec,
-				int iir_idx, int band_idx,
-				int coeff_idx)
+				   int iir_idx, int band_idx,
+				   int coeff_idx)
 {
 	/* Address does not automatically update if reading */
 	snd_soc_write(codec,
@@ -734,7 +741,7 @@ static int msm8x10_wcd_get_iir_band_audio_mixer(
 	ucontrol->value.integer.value[4] =
 		get_iir_band_coeff(codec, iir_idx, band_idx, 4);
 
-	pr_debug("%s: IIR #%d band #%d b0 = 0x%x\n"
+	dev_dbg(codec->dev, "%s: IIR #%d band #%d b0 = 0x%x\n"
 		"%s: IIR #%d band #%d b1 = 0x%x\n"
 		"%s: IIR #%d band #%d b2 = 0x%x\n"
 		"%s: IIR #%d band #%d a1 = 0x%x\n"
@@ -780,17 +787,17 @@ static int msm8x10_wcd_put_iir_band_audio_mixer(
 					kcontrol->private_value)->shift;
 
 	set_iir_band_coeff(codec, iir_idx, band_idx, 0,
-				ucontrol->value.integer.value[0]);
+			   ucontrol->value.integer.value[0]);
 	set_iir_band_coeff(codec, iir_idx, band_idx, 1,
-				ucontrol->value.integer.value[1]);
+			   ucontrol->value.integer.value[1]);
 	set_iir_band_coeff(codec, iir_idx, band_idx, 2,
-				ucontrol->value.integer.value[2]);
+			   ucontrol->value.integer.value[2]);
 	set_iir_band_coeff(codec, iir_idx, band_idx, 3,
-				ucontrol->value.integer.value[3]);
+			   ucontrol->value.integer.value[3]);
 	set_iir_band_coeff(codec, iir_idx, band_idx, 4,
-				ucontrol->value.integer.value[4]);
+			   ucontrol->value.integer.value[4]);
 
-	pr_debug("%s: IIR #%d band #%d b0 = 0x%x\n"
+	dev_dbg(codec->dev, "%s: IIR #%d band #%d b0 = 0x%x\n"
 		"%s: IIR #%d band #%d b1 = 0x%x\n"
 		"%s: IIR #%d band #%d b2 = 0x%x\n"
 		"%s: IIR #%d band #%d a1 = 0x%x\n"
@@ -970,7 +977,6 @@ static const char * const dec_mux_text[] = {
 	"ZERO", "ADC1", "ADC2", "DMIC1", "DMIC2"
 };
 
-
 static const char * const anc_mux_text[] = {
 	"ZERO", "ADC1", "ADC2", "ADC3", "ADC4", "ADC5", "ADC6", "ADC_MB",
 		"RSVD_1", "DMIC1", "DMIC2", "DMIC3", "DMIC4", "DMIC5", "DMIC6"
@@ -1076,14 +1082,16 @@ static int msm8x10_wcd_put_dec_enum(struct snd_kcontrol *kcontrol,
 	dec_name = strsep(&widget_name, " ");
 	widget_name = temp;
 	if (!dec_name) {
-		pr_err("%s: Invalid decimator = %s\n", __func__, w->name);
+		dev_err(codec->dev, "%s: Invalid decimator = %s\n",
+			__func__, w->name);
 		ret =  -EINVAL;
 		goto out;
 	}
 
 	ret = kstrtouint(strpbrk(dec_name, "12"), 10, &decimator);
 	if (ret < 0) {
-		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
+		dev_err(codec->dev, "%s: Invalid decimator = %s\n",
+			__func__, dec_name);
 		ret =  -EINVAL;
 		goto out;
 	}
@@ -1100,7 +1108,8 @@ static int msm8x10_wcd_put_dec_enum(struct snd_kcontrol *kcontrol,
 			adc_dmic_sel = 0x0;
 		break;
 	default:
-		pr_err("%s: Invalid Decimator = %u\n", __func__, decimator);
+		dev_err(codec->dev, "%s: Invalid Decimator = %u\n",
+			__func__, decimator);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1204,18 +1213,18 @@ static const struct snd_kcontrol_new aif_cap_mixer[] = {
 static void msm8x10_wcd_codec_enable_adc_block(struct snd_soc_codec *codec,
 					 int enable)
 {
-	struct msm8x10_wcd_priv *taiko = snd_soc_codec_get_drvdata(codec);
+	struct msm8x10_wcd_priv *wcd8x10 = snd_soc_codec_get_drvdata(codec);
 
-	pr_debug("%s %d\n", __func__, enable);
+	dev_dbg(codec->dev, "%s %d\n", __func__, enable);
 
 	if (enable) {
-		taiko->adc_count++;
+		wcd8x10->adc_count++;
 		snd_soc_update_bits(codec,
 				    MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
 				    0x20, 0x20);
 	} else {
-		taiko->adc_count--;
-		if (!taiko->adc_count)
+		wcd8x10->adc_count--;
+		if (!wcd8x10->adc_count)
 			snd_soc_update_bits(codec,
 					    MSM8X10_WCD_A_CDC_ANA_CLK_CTL,
 					    0x20, 0x0);
@@ -1229,7 +1238,7 @@ static int msm8x10_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	u16 adc_reg;
 	u8 init_bit_shift;
 
-	pr_debug("%s %d\n", __func__, event);
+	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 	adc_reg = MSM8X10_WCD_A_TX_1_2_TEST_CTL;
 
 	if (w->reg == MSM8X10_WCD_A_TX_1_EN)
@@ -1237,7 +1246,8 @@ static int msm8x10_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	else if (adc_reg == MSM8X10_WCD_A_TX_2_EN)
 		init_bit_shift = 6;
 	else {
-		pr_err("%s: Error, invalid adc register\n", __func__);
+		dev_err(codec->dev, "%s: Error, invalid adc register\n",
+			__func__);
 		return -EINVAL;
 	}
 
@@ -1263,14 +1273,15 @@ static int msm8x10_wcd_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	u16 lineout_gain_reg;
 
-	pr_debug("%s %d %s\n", __func__, event, w->name);
+	dev_dbg(codec->dev, "%s %d %s\n", __func__, event, w->name);
 
 	switch (w->shift) {
 	case 0:
 		lineout_gain_reg = MSM8X10_WCD_A_RX_LINE_1_GAIN;
 		break;
 	default:
-		pr_err("%s: Error, incorrect lineout register value\n",
+		dev_err(codec->dev,
+			"%s: Error, incorrect lineout register value\n",
 			__func__);
 		return -EINVAL;
 	}
@@ -1280,8 +1291,8 @@ static int msm8x10_wcd_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, lineout_gain_reg, 0x40, 0x40);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		pr_debug("%s: sleeping 16 ms after %s PA turn on\n",
-				__func__, w->name);
+		dev_dbg(codec->dev, "%s: sleeping 16 ms after %s PA turn on\n",
+			__func__, w->name);
 		usleep_range(16000, 16100);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -1294,7 +1305,7 @@ static int msm8x10_wcd_codec_enable_lineout(struct snd_soc_dapm_widget *w,
 static int msm8x10_wcd_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol, int event)
 {
-	pr_debug("%s %d %s\n", __func__, event, w->name);
+	dev_dbg(w->codec->dev, "%s %d %s\n", __func__, event, w->name);
 	return 0;
 }
 
@@ -1311,7 +1322,8 @@ static int msm8x10_wcd_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 
 	ret = kstrtouint(strpbrk(w->name, "12"), 10, &dmic);
 	if (ret < 0) {
-		pr_err("%s: Invalid DMIC line on the codec\n", __func__);
+		dev_err(codec->dev,
+			"%s: Invalid DMIC line on the codec\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1321,11 +1333,12 @@ static int msm8x10_wcd_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		dmic_clk_en = 0x01;
 		dmic_clk_cnt = &(msm8x10_wcd->dmic_1_2_clk_cnt);
 		dmic_clk_reg = MSM8X10_WCD_A_CDC_CLK_DMIC_B1_CTL;
-		pr_debug("%s() event %d DMIC%d dmic_1_2_clk_cnt %d\n",
+		dev_dbg(codec->dev,
+			"%s() event %d DMIC%d dmic_1_2_clk_cnt %d\n",
 			__func__, event,  dmic, *dmic_clk_cnt);
 		break;
 	default:
-		pr_err("%s: Invalid DMIC Selection\n", __func__);
+		dev_err(codec->dev, "%s: Invalid DMIC Selection\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1360,7 +1373,7 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	char *internal3_text = "Internal3";
 	enum wcd9xxx_notify_event e_post_off, e_pre_on, e_post_on;
 
-	pr_debug("%s %d\n", __func__, event);
+	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 	switch (w->reg) {
 	case MSM8X10_WCD_A_MICB_1_CTL:
 		micb_int_reg = MSM8X10_WCD_A_MICB_1_INT_RBIAS;
@@ -1371,7 +1384,8 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_1_OFF;
 		break;
 	default:
-		pr_err("%s: Error, invalid micbias register\n", __func__);
+		dev_err(codec->dev,
+			"%s: Error, invalid micbias register\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1432,7 +1446,7 @@ static int msm8x10_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	u8 dec_hpf_cut_of_freq;
 	int offset;
 
-	pr_debug("%s %d\n", __func__, event);
+	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 
 	widget_name = kstrndup(w->name, 15, GFP_KERNEL);
 	if (!widget_name)
@@ -1442,26 +1456,29 @@ static int msm8x10_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	dec_name = strsep(&widget_name, " ");
 	widget_name = temp;
 	if (!dec_name) {
-		pr_err("%s: Invalid decimator = %s\n", __func__, w->name);
+		dev_err(codec->dev,
+			"%s: Invalid decimator = %s\n", __func__, w->name);
 		ret = -EINVAL;
 		goto out;
 	}
 
 	ret = kstrtouint(strpbrk(dec_name, "12"), 10, &decimator);
 	if (ret < 0) {
-		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
+		dev_err(codec->dev,
+			"%s: Invalid decimator = %s\n", __func__, dec_name);
 		ret = -EINVAL;
 		goto out;
 	}
 
-	pr_debug("%s(): widget = %s dec_name = %s decimator = %u\n", __func__,
-			w->name, dec_name, decimator);
+	dev_dbg(codec->dev,
+		"%s(): widget = %s dec_name = %s decimator = %u\n", __func__,
+		w->name, dec_name, decimator);
 
 	if (w->reg == MSM8X10_WCD_A_CDC_CLK_TX_CLK_EN_B1_CTL) {
 		dec_reset_reg = MSM8X10_WCD_A_CDC_CLK_TX_RESET_B1_CTL;
 		offset = 0;
 	} else {
-		pr_err("%s: Error, incorrect dec\n", __func__);
+		dev_err(codec->dev, "%s: Error, incorrect dec\n", __func__);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -1531,11 +1548,12 @@ out:
 }
 
 static int msm8x10_wcd_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
-	struct snd_kcontrol *kcontrol, int event)
+						 struct snd_kcontrol *kcontrol,
+						 int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 
-	pr_debug("%s %d %s\n", __func__, event, w->name);
+	dev_dbg(codec->dev, "%s %d %s\n", __func__, event, w->name);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1565,7 +1583,7 @@ static int msm8x10_wcd_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
 
-	pr_debug("%s %d\n", __func__, event);
+	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1583,7 +1601,7 @@ static int msm8x10_wcd_hphr_dac_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 
-	pr_debug("%s %s %d\n", __func__, w->name, event);
+	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1603,7 +1621,7 @@ static int msm8x10_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
 	enum wcd9xxx_notify_event e_pre_on, e_post_off;
 
-	pr_debug("%s: %s event = %d\n", __func__, w->name, event);
+	dev_dbg(codec->dev, "%s: %s event = %d\n", __func__, w->name, event);
 	if (w->shift == 5) {
 		e_pre_on = WCD9XXX_EVENT_PRE_HPHR_PA_ON;
 		e_post_off = WCD9XXX_EVENT_POST_HPHR_PA_OFF;
@@ -1611,7 +1629,8 @@ static int msm8x10_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 		e_pre_on = WCD9XXX_EVENT_PRE_HPHL_PA_ON;
 		e_post_off = WCD9XXX_EVENT_POST_HPHL_PA_OFF;
 	} else {
-		pr_err("%s: Invalid w->shift %d\n", __func__, w->shift);
+		dev_err(codec->dev,
+			"%s: Invalid w->shift %d\n", __func__, w->shift);
 		return -EINVAL;
 	}
 
@@ -1635,8 +1654,9 @@ static int msm8x10_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 		 * would have been locked while snd_soc_jack_report also
 		 * attempts to acquire same lock.
 		 */
-		pr_debug("%s: sleep 10 ms after %s PA disable.\n", __func__,
-			 w->name);
+		dev_dbg(codec->dev,
+			"%s: sleep 10 ms after %s PA disable.\n", __func__,
+			w->name);
 		usleep_range(10000, 10100);
 		break;
 	}
@@ -1648,7 +1668,7 @@ static int msm8x10_wcd_lineout_dac_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 
-	pr_debug("%s %s %d\n", __func__, w->name, event);
+	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1665,7 +1685,7 @@ static int msm8x10_wcd_lineout_dac_event(struct snd_soc_dapm_widget *w,
 static int msm8x10_wcd_spk_dac_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
-	pr_debug("%s %s %d\n", __func__, w->name, event);
+	dev_dbg(w->codec->dev, "%s %s %d\n", __func__, w->name, event);
 	return 0;
 }
 
@@ -1812,14 +1832,14 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MIC BIAS1 External", NULL, "LDO_H"},
 };
 
-
 static int msm8x10_wcd_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
 	struct msm8x10_wcd *msm8x10_wcd_core =
 		dev_get_drvdata(dai->codec->dev);
-	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
-		 substream->name, substream->stream);
+	dev_dbg(dai->codec->dev, "%s(): substream = %s  stream = %d\n",
+		__func__,
+		substream->name, substream->stream);
 	if ((msm8x10_wcd_core != NULL) &&
 	    (msm8x10_wcd_core->dev != NULL))
 		pm_runtime_get_sync(msm8x10_wcd_core->dev);
@@ -1832,8 +1852,9 @@ static void msm8x10_wcd_shutdown(struct snd_pcm_substream *substream,
 {
 	struct msm8x10_wcd *msm8x10_wcd_core =
 		dev_get_drvdata(dai->codec->dev);
-	pr_debug("%s(): substream = %s  stream = %d\n" , __func__,
-		 substream->name, substream->stream);
+	dev_dbg(dai->codec->dev,
+		"%s(): substream = %s  stream = %d\n" , __func__,
+		substream->name, substream->stream);
 	if ((msm8x10_wcd_core != NULL) &&
 	    (msm8x10_wcd_core->dev != NULL)) {
 		pm_runtime_mark_last_busy(msm8x10_wcd_core->dev);
@@ -1846,9 +1867,9 @@ int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec,
 {
 	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
 
-	pr_debug("%s: mclk_enable = %u, dapm = %d\n", __func__, mclk_enable,
-		 dapm);
-
+	dev_dbg(codec->dev,
+		"%s: mclk_enable = %u, dapm = %d\n", __func__,
+		mclk_enable, dapm);
 	WCD9XXX_BCL_LOCK(&msm8x10_wcd->resmgr);
 	if (mclk_enable) {
 		wcd9xxx_resmgr_get_bandgap(&msm8x10_wcd->resmgr,
@@ -1870,13 +1891,13 @@ int msm8x10_wcd_mclk_enable(struct snd_soc_codec *codec,
 static int msm8x10_wcd_set_dai_sysclk(struct snd_soc_dai *dai,
 		int clk_id, unsigned int freq, int dir)
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(dai->codec->dev, "%s\n", __func__);
 	return 0;
 }
 
 static int msm8x10_wcd_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(dai->codec->dev, "%s\n", __func__);
 	return 0;
 }
 
@@ -1885,7 +1906,7 @@ static int msm8x10_wcd_set_channel_map(struct snd_soc_dai *dai,
 				unsigned int rx_num, unsigned int *rx_slot)
 
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(dai->codec->dev, "%s\n", __func__);
 	return 0;
 }
 
@@ -1894,7 +1915,7 @@ static int msm8x10_wcd_get_channel_map(struct snd_soc_dai *dai,
 				 unsigned int *rx_num, unsigned int *rx_slot)
 
 {
-	pr_debug("%s\n", __func__);
+	dev_dbg(dai->codec->dev, "%s\n", __func__);
 	return 0;
 }
 
@@ -1917,7 +1938,8 @@ static int msm8x10_wcd_hw_params(struct snd_pcm_substream *substream,
 	u8 tx_fs_rate, rx_fs_rate;
 	int ret;
 
-	pr_debug("%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n", __func__,
+	dev_dbg(dai->codec->dev,
+		"%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n", __func__,
 		 dai->name, dai->id, params_rate(params),
 		 params_channels(params));
 
@@ -1947,7 +1969,8 @@ static int msm8x10_wcd_hw_params(struct snd_pcm_substream *substream,
 		rx_fs_rate = 0xA0;
 		break;
 	default:
-		pr_err("%s: Invalid sampling rate %d\n", __func__,
+		dev_err(dai->codec->dev,
+			"%s: Invalid sampling rate %d\n", __func__,
 			params_rate(params));
 		return -EINVAL;
 	}
@@ -1957,7 +1980,8 @@ static int msm8x10_wcd_hw_params(struct snd_pcm_substream *substream,
 		ret = msm8x10_wcd_set_decimator_rate(dai, tx_fs_rate,
 					       params_rate(params));
 		if (ret < 0) {
-			pr_err("%s: set decimator rate failed %d\n", __func__,
+			dev_err(dai->codec->dev,
+				"%s: set decimator rate failed %d\n", __func__,
 				ret);
 			return ret;
 		}
@@ -1966,13 +1990,15 @@ static int msm8x10_wcd_hw_params(struct snd_pcm_substream *substream,
 		ret = msm8x10_wcd_set_interpolator_rate(dai, rx_fs_rate,
 						  params_rate(params));
 		if (ret < 0) {
-			pr_err("%s: set decimator rate failed %d\n", __func__,
+			dev_err(dai->codec->dev,
+				"%s: set decimator rate failed %d\n", __func__,
 				ret);
 			return ret;
 		}
 		break;
 	default:
-		pr_err("%s: Invalid stream type %d\n", __func__,
+		dev_err(dai->codec->dev,
+			"%s: Invalid stream type %d\n", __func__,
 			substream->stream);
 		return -EINVAL;
 	}
@@ -2026,13 +2052,15 @@ static int msm8x10_wcd_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 {
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		pr_debug("%s: Sleeping 20ms after enabling EAR PA\n",
-				 __func__);
+		dev_dbg(w->codec->dev,
+			"%s: Sleeping 20ms after enabling EAR PA\n",
+			__func__);
 		msleep(20);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		pr_debug("%s: Sleeping 20ms after disabling EAR PA\n",
-				 __func__);
+		dev_dbg(w->codec->dev,
+			"%s: Sleeping 20ms after disabling EAR PA\n",
+			__func__);
 		msleep(20);
 		break;
 	}
@@ -2310,11 +2338,12 @@ EXPORT_SYMBOL_GPL(msm8x10_wcd_hs_detect);
 
 static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 {
-	msm8x10_wcd_codec_init_reg(codec);
+	dev_dbg(codec->dev, "%s()\n", __func__);
 
+	codec->control_data = dev_get_drvdata(codec->dev);
+	msm8x10_wcd_codec_init_reg(codec);
 	msm8x10_wcd_update_reg_defaults(codec);
 
-	dev_dbg(codec->dev, "%s()\n", __func__);
 
 	return 0;
 }
@@ -2323,6 +2352,18 @@ static int msm8x10_wcd_codec_remove(struct snd_soc_codec *codec)
 {
 	return 0;
 }
+
+static int msm8x10_wcd_device_init(struct msm8x10_wcd *msm8x10)
+{
+
+	mutex_init(&msm8x10->io_lock);
+	mutex_init(&msm8x10->xfer_lock);
+	mutex_init(&msm8x10->pm_lock);
+	msm8x10->wlock_holders = 0;
+
+	return 0;
+}
+
 
 static struct snd_soc_codec_driver soc_codec_dev_msm8x10_wcd = {
 	.probe	= msm8x10_wcd_codec_probe,
@@ -2349,8 +2390,21 @@ static struct snd_soc_codec_driver soc_codec_dev_msm8x10_wcd = {
 static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	int ret;
+	int ret = 0;
+	struct msm8x10_wcd *msm8x10 = NULL;
 	struct msm8x10_wcd_pdata *pdata;
+	static int device_id;
+	struct device *dev;
+
+	dev_dbg(&client->dev, "%s:slave addr = 0x%x device_id = %d\n",
+		__func__, client->addr, device_id);
+
+	if (device_id > 0) {
+		msm8x10_wcd_modules[device_id++].client = client;
+		return ret;
+	}
+
+	dev = &client->dev;
 	if (client->dev.of_node) {
 		dev_dbg(&client->dev, "%s:Platform data from device tree\n",
 			__func__);
@@ -2362,16 +2416,50 @@ static int __devinit msm8x10_wcd_i2c_probe(struct i2c_client *client,
 		pdata = client->dev.platform_data;
 	}
 
-	ret = snd_soc_register_codec(&client->dev,
-		&soc_codec_dev_msm8x10_wcd,
-		msm8x10_wcd_i2s_dai, ARRAY_SIZE(msm8x10_wcd_i2s_dai));
-	dev_dbg(&client->dev, "%s:ret = 0x%x\n", __func__, ret);
+	msm8x10 = kzalloc(sizeof(struct msm8x10_wcd), GFP_KERNEL);
+	if (msm8x10 == NULL) {
+		dev_err(&client->dev,
+			"%s: error, allocation failed\n", __func__);
+		ret = -ENOMEM;
+		goto fail;
+	}
 
+	msm8x10->dev = &client->dev;
+	msm8x10_wcd_modules[device_id++].client = client;
+	msm8x10->read_dev = msm8x10_wcd_reg_read;
+	msm8x10->write_dev = msm8x10_wcd_reg_write;
+	ret = msm8x10_wcd_device_init(msm8x10);
+	if (ret) {
+		dev_err(&client->dev,
+			"%s:msm8x10_wcd_device_init failed with error %d\n",
+			__func__, ret);
+		goto fail;
+	}
+	dev_set_drvdata(&client->dev, msm8x10);
+	ret = snd_soc_register_codec(&client->dev, &soc_codec_dev_msm8x10_wcd,
+				     msm8x10_wcd_i2s_dai,
+				     ARRAY_SIZE(msm8x10_wcd_i2s_dai));
+	if (ret)
+		dev_err(&client->dev,
+			"%s:snd_soc_register_codec failed with error %d\n",
+			__func__, ret);
+fail:
 	return ret;
+}
+
+static void msm8x10_wcd_device_exit(struct msm8x10_wcd *msm8x10)
+{
+	mutex_destroy(&msm8x10->pm_lock);
+	mutex_destroy(&msm8x10->io_lock);
+	mutex_destroy(&msm8x10->xfer_lock);
+	kfree(msm8x10);
 }
 
 static int __devexit msm8x10_wcd_i2c_remove(struct i2c_client *client)
 {
+	struct msm8x10_wcd *msm8x10 = dev_get_drvdata(&client->dev);
+
+	msm8x10_wcd_device_exit(msm8x10);
 	return 0;
 }
 
@@ -2407,8 +2495,8 @@ static int __init msm8x10_wcd_codec_init(void)
 	pr_debug("%s:\n", __func__);
 	ret = i2c_add_driver(&msm8x10_wcd_i2c_driver);
 	if (ret != 0)
-		pr_err("%s: Failed to add msm8x10 wcd I2C driver - error code %d\n",
-			   __func__, ret);
+		pr_err("%s: Failed to add msm8x10 wcd I2C driver - error %d\n",
+		       __func__, ret);
 	return ret;
 }
 
