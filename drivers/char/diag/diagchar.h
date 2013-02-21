@@ -217,6 +217,7 @@ struct diag_smd_info {
 	int peripheral;	/* The peripheral this smd channel communicates with */
 	int type;	/* The type of smd channel (data, control, dci) */
 	uint16_t peripheral_mask;
+	int encode_hdlc; /* Whether data is raw and needs to be hdlc encoded */
 
 	smd_channel_t *ch;
 	smd_channel_t *ch_save;
@@ -228,6 +229,9 @@ struct diag_smd_info {
 
 	unsigned char *buf_in_1;
 	unsigned char *buf_in_2;
+
+	unsigned char *buf_in_1_raw;
+	unsigned char *buf_in_2_raw;
 
 	struct diag_request *write_ptr_1;
 	struct diag_request *write_ptr_2;
@@ -270,6 +274,7 @@ struct diagchar_dev {
 	unsigned int buf_tbl_size;
 	int use_device_tree;
 	int supports_separate_cmdrsp;
+	int supports_apps_hdlc_encoding;
 	/* The state requested in the STM command */
 	int stm_state_requested[NUM_STM_PROCESSORS];
 	/* The current STM state */

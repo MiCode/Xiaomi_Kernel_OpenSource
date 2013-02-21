@@ -48,6 +48,9 @@
 /* Denotes we support diag over stm */
 #define F_DIAG_OVER_STM			0x02
 
+ /* Perform hdlc encoding of data coming from smd channel */
+#define F_DIAG_HDLC_ENCODE_IN_APPS_MASK	0x40
+
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
 
@@ -56,6 +59,9 @@
 
 #define UPDATE_PERIPHERAL_STM_STATE	1
 #define CLEAR_PERIPHERAL_STM_STATE	2
+
+#define ENABLE_APPS_HDLC_ENCODING	1
+#define DISABLE_APPS_HDLC_ENCODING	0
 
 struct cmd_code_range {
 	uint16_t cmd_code_lo;
