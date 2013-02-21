@@ -1008,9 +1008,11 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	}
 
 	if (device_may_wakeup(phy->dev)) {
-		enable_irq_wake(motg->irq);
 		if (motg->async_irq)
 			enable_irq_wake(motg->async_irq);
+		else
+			enable_irq_wake(motg->irq);
+
 		if (motg->pdata->pmic_id_irq)
 			enable_irq_wake(motg->pdata->pmic_id_irq);
 		if (pdata->otg_control == OTG_PHY_CONTROL &&
@@ -1117,9 +1119,11 @@ static int msm_otg_resume(struct msm_otg *motg)
 
 skip_phy_resume:
 	if (device_may_wakeup(phy->dev)) {
-		disable_irq_wake(motg->irq);
 		if (motg->async_irq)
 			disable_irq_wake(motg->async_irq);
+		else
+			disable_irq_wake(motg->irq);
+
 		if (motg->pdata->pmic_id_irq)
 			disable_irq_wake(motg->pdata->pmic_id_irq);
 		if (pdata->otg_control == OTG_PHY_CONTROL &&
