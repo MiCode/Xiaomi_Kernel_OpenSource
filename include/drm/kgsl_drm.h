@@ -20,6 +20,7 @@
 #define DRM_KGSL_GEM_UNLOCK_ON_TS 0x0D
 #define DRM_KGSL_GEM_CREATE_FD 0x0E
 #define DRM_KGSL_GEM_GET_ION_FD 0x0F
+#define DRM_KGSL_GEM_CREATE_FROM_ION 0x10
 
 #define DRM_IOCTL_KGSL_GEM_CREATE \
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_CREATE, struct drm_kgsl_gem_create)
@@ -79,6 +80,10 @@ struct drm_kgsl_gem_create_fd)
 #define DRM_IOCTL_KGSL_GEM_GET_ION_FD \
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_GET_ION_FD, \
 struct drm_kgsl_gem_get_ion_fd)
+
+#define DRM_IOCTL_KGSL_GEM_CREATE_FROM_ION \
+DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_CREATE_FROM_ION, \
+struct drm_kgsl_gem_create_from_ion)
 
 /* Maximum number of sub buffers per GEM object */
 #define DRM_KGSL_GEM_MAX_BUFFERS 2
@@ -195,6 +200,11 @@ struct drm_kgsl_gem_create_fd {
 };
 
 struct drm_kgsl_gem_get_ion_fd {
+	uint32_t ion_fd;
+	uint32_t handle;
+};
+
+struct drm_kgsl_gem_create_from_ion {
 	uint32_t ion_fd;
 	uint32_t handle;
 };
