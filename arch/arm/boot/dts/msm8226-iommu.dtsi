@@ -28,6 +28,14 @@
 	qcom,iommu-secure-id = <0xFFFFFFFF>;
 };
 
+&venus_ns {
+	   qcom,iommu-ctx-sids = <0 1 2 3 4 5 7>;
+};
+
+&venus_cp {
+	   qcom,iommu-ctx-sids = <0x80 0x81 0x82 0x83 0x84>;
+};
+
 &kgsl_iommu {
 	status = "ok";
 };
