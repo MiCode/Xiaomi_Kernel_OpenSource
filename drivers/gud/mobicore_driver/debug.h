@@ -2,6 +2,7 @@
  * MobiCore driver module.(interface to the secure world SWD)
  *
  * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
+ * <-- Copyright Trustonic Limited 2013 -->
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

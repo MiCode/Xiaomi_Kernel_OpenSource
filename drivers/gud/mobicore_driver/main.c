@@ -206,36 +206,34 @@ static int __free_buffer(struct mc_instance *instance, uint32_t handle,
 			goto found_buffer;
 		}
 	}
+	ret = -EINVAL;
 	goto err;
 found_buffer:
-	if (!is_daemon(instance) || buffer->instance != instance)
+	if (!is_daemon(instance) && buffer->instance != instance) {
+		ret = -EPERM;
 		goto err;
+	}
 	mutex_unlock(&ctx.bufs_lock);
 	/* Only unmap if the request is comming from the user space and
 	 * it hasn't already been unmapped */
-	if (unlock == false && uaddr != NULL)
+	if (unlock == false && uaddr != NULL) {
 #ifndef MC_VM_UNMAP
 		/* do_munmap must be done with mm->mmap_sem taken */
 		down_write(&mm->mmap_sem);
 		ret = do_munmap(mm, (long unsigned int)uaddr, len);
+		up_write(&mm->mmap_sem);
+
+#else
+		ret = vm_munmap((long unsigned int)uaddr, len);
+#endif
 		if (ret < 0) {
 			/* Something is not right if we end up here, better not
 			 * clean the buffer so we just leak memory instead of
 			 * creating security issues */
 			MCDRV_DBG_ERROR(mcd, "Memory can't be unmapped\n");
-		}
-		up_write(&mm->mmap_sem);
-		if (ret < 0)
-			return -EINVAL;
-#else
-		if (vm_munmap((long unsigned int)uaddr, len) < 0) {
-			/* Something is not right if we end up here, better not
-			 * clean the buffer so we just leak memory instead of
-			 * creating security issues */
-			MCDRV_DBG_ERROR(mcd, "Memory can't be unmapped\n");
 			return -EINVAL;
 		}
-#endif
+	}
 
 	mutex_lock(&ctx.bufs_lock);
 	/* search for the given handle in the buffers list */
@@ -247,7 +245,10 @@ found_buffer:
 	goto err;
 
 del_buffer:
-	ret = free_buffer(buffer, unlock);
+	if (is_daemon(instance) || buffer->instance == instance)
+		ret = free_buffer(buffer, unlock);
+	else
+		ret = -EPERM;
 err:
 	mutex_unlock(&ctx.bufs_lock);
 	return ret;
@@ -324,6 +325,7 @@ int mc_get_buffer(struct mc_instance *instance,
 	cbuffer->order = order;
 	cbuffer->len = len;
 	cbuffer->instance = instance;
+	cbuffer->uaddr = 0;
 	/* Refcount +1 because the TLC is requesting it */
 	atomic_set(&cbuffer->usage, 1);
 
@@ -569,10 +571,18 @@ static int mc_fd_mmap(struct file *file, struct vm_area_struct *vmarea)
 
 		/* search for the buffer list. */
 		list_for_each_entry(buffer, &ctx.cont_bufs, list) {
-			if (buffer->phys == paddr)
-				goto found;
-			else
+			/* Only allow mapping if the client owns it!*/
+			if (buffer->phys == paddr &&
+			    buffer->instance == instance) {
+				/*
+				 * We can't allow mapping the same
+				 * buffer twice
+				 */
+				if (!buffer->uaddr)
+					goto found;
+				else
 					break;
+			}
 		}
 		/* Nothing found return */
 		mutex_unlock(&ctx.bufs_lock);
@@ -737,16 +747,6 @@ static long mc_fd_admin_ioctl(struct file *file, unsigned int cmd,
 
 	if (ioctl_check_pointer(cmd, uarg))
 		return -EFAULT;
-
-	if (ctx.mcp) {
-		while (ctx.mcp->flags.sleep_mode.SleepReq) {
-			ctx.daemon = current;
-			set_current_state(TASK_INTERRUPTIBLE);
-			/* Back off daemon for a while */
-			schedule_timeout(msecs_to_jiffies(DAEMON_BACKOFF_TIME));
-			set_current_state(TASK_RUNNING);
-		}
-	}
 
 	switch (cmd) {
 	case MC_IO_INIT: {
@@ -980,6 +980,10 @@ int mc_release_instance(struct mc_instance *instance)
 
 	/* Check if some buffers are orphaned. */
 	list_for_each_entry_safe(buffer, tmp, &ctx.cont_bufs, list) {
+		/* It's safe here to only call free_buffer() without unmapping
+		 * because mmap() takes a refcount to the file's fd so only
+		 * time we end up here is when everything has been unmaped or
+		 * the process called exit() */
 		if (buffer->instance == instance) {
 			buffer->instance = NULL;
 			free_buffer(buffer, false);
@@ -1163,13 +1167,17 @@ static int __init mobicore_init(void)
 		return -ENODEV;
 	}
 
+	ret = mc_fastcall_init(&ctx);
+	if (ret)
+		goto error;
+
 	init_completion(&ctx.isr_comp);
 	/* set up S-SIQ interrupt handler */
 	ret = request_irq(MC_INTR_SSIQ, mc_ssiq_isr, IRQF_TRIGGER_RISING,
 			MC_ADMIN_DEVNODE, &ctx);
 	if (ret != 0) {
 		MCDRV_DBG_ERROR(mcd, "interrupt request failed\n");
-		goto error;
+		goto err_req_irq;
 	}
 
 #ifdef MC_PM_RUNTIME
@@ -1219,6 +1227,8 @@ free_admin:
 	misc_deregister(&mc_admin_device);
 free_isr:
 	free_irq(MC_INTR_SSIQ, &ctx);
+err_req_irq:
+	mc_fastcall_destroy();
 error:
 	return ret;
 }
@@ -1243,6 +1253,9 @@ static void __exit mobicore_exit(void)
 
 	misc_deregister(&mc_admin_device);
 	misc_deregister(&mc_user_device);
+
+	mc_fastcall_destroy();
+
 	MCDRV_DBG_VERBOSE(mcd, "exit");
 }
 
