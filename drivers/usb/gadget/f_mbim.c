@@ -847,7 +847,7 @@ static void mbim_notify(struct f_mbim *mbim)
 	 */
 	pr_debug("dev:%p\n", mbim);
 
-	mbim->not_port.notify_state = NCM_NOTIFY_SPEED;
+	mbim->not_port.notify_state = NCM_NOTIFY_RESPONSE_AVAILABLE;
 	mbim_do_notify(mbim);
 }
 
