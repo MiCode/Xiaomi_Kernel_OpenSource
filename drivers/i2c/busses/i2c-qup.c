@@ -192,13 +192,17 @@ static irqreturn_t
 qup_i2c_interrupt(int irq, void *devid)
 {
 	struct qup_i2c_dev *dev = devid;
-	uint32_t status = readl_relaxed(dev->base + QUP_I2C_STATUS);
-	uint32_t status1 = readl_relaxed(dev->base + QUP_ERROR_FLAGS);
-	uint32_t op_flgs = readl_relaxed(dev->base + QUP_OPERATIONAL);
+	uint32_t status = 0;
+	uint32_t status1 = 0;
+	uint32_t op_flgs = 0;
 	int err = 0;
 
 	if (pm_runtime_suspended(dev->dev))
 		return IRQ_NONE;
+
+	status = readl_relaxed(dev->base + QUP_I2C_STATUS);
+	status1 = readl_relaxed(dev->base + QUP_ERROR_FLAGS);
+	op_flgs = readl_relaxed(dev->base + QUP_OPERATIONAL);
 
 	if (!dev->msg || !dev->complete) {
 		/* Clear Error interrupt if it's a level triggered interrupt*/
