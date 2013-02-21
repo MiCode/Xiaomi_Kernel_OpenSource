@@ -14,6 +14,10 @@
 #include "msm_isp_util.h"
 #include "msm_isp_axi_util.h"
 
+#define SRC_TO_INTF(src) \
+	((src < RDI_INTF_0) ? VFE_PIX_0 : \
+	(VFE_RAW_0 + src - RDI_INTF_0))
+
 int msm_isp_axi_create_stream(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
@@ -656,7 +660,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 {
 	struct msm_isp_event_data buf_event;
 	uint32_t frame_id = vfe_dev->axi_data.
-		src_info[stream_info->stream_src].frame_id;
+		src_info[SRC_TO_INTF(stream_info->stream_src)].frame_id;
+
 	if (buf && ts) {
 		if (stream_info->buf_divert) {
 			vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
