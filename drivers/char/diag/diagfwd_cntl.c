@@ -89,6 +89,31 @@ static void process_stm_feature(struct diag_smd_info *smd_info,
 	}
 }
 
+static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info,
+					uint8_t feature_mask)
+{
+	/*
+	 * Check if apps supports hdlc encoding and the
+	 * peripheral supports apps hdlc encoding
+	 */
+	if (driver->supports_apps_hdlc_encoding &&
+		(feature_mask & F_DIAG_HDLC_ENCODE_IN_APPS_MASK)) {
+		driver->smd_data[smd_info->peripheral].encode_hdlc =
+						ENABLE_APPS_HDLC_ENCODING;
+		if (driver->separate_cmdrsp[smd_info->peripheral] &&
+			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
+			driver->smd_cmd[smd_info->peripheral].encode_hdlc =
+						ENABLE_APPS_HDLC_ENCODING;
+	} else {
+		driver->smd_data[smd_info->peripheral].encode_hdlc =
+						DISABLE_APPS_HDLC_ENCODING;
+		if (driver->separate_cmdrsp[smd_info->peripheral] &&
+			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
+			driver->smd_cmd[smd_info->peripheral].encode_hdlc =
+						DISABLE_APPS_HDLC_ENCODING;
+	}
+}
+
 /* Process the data read from the smd control channel */
 int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd)
@@ -187,6 +212,12 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 				else
 					driver->separate_cmdrsp[periph] =
 							DISABLE_SEPARATE_CMDRSP;
+				/*
+				 * Check if apps supports hdlc encoding and the
+				 * peripheral supports apps hdlc encoding
+				 */
+				process_hdlc_encoding_feature(smd_info,
+								feature_mask);
 				if (feature_mask_len > 1) {
 					feature_mask = *(uint8_t *)(buf+13);
 					process_stm_feature(smd_info,

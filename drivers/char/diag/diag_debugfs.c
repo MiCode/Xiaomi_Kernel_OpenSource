@@ -81,6 +81,11 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"LPASS STM requested state: %d\n"
 		"RIVA STM requested state: %d\n"
 		"APPS STM requested state: %d\n"
+		"supports apps hdlc encoding: %d\n"
+		"Modem hdlc encoding: %d\n"
+		"Lpass hdlc encoding: %d\n"
+		"RIVA hdlc encoding: %d\n"
+		"Modem CMD hdlc encoding: %d\n"
 		"logging_mode: %d\n"
 		"real_time_mode: %d\n",
 		(unsigned int)driver->smd_data[MODEM_DATA].ch,
@@ -123,6 +128,11 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->stm_state_requested[LPASS_DATA],
 		driver->stm_state_requested[WCNSS_DATA],
 		driver->stm_state_requested[APPS_DATA],
+		driver->supports_apps_hdlc_encoding,
+		driver->smd_data[MODEM_DATA].encode_hdlc,
+		driver->smd_data[LPASS_DATA].encode_hdlc,
+		driver->smd_data[WCNSS_DATA].encode_hdlc,
+		driver->smd_cmd[MODEM_DATA].encode_hdlc,
 		driver->logging_mode,
 		driver->real_time_mode);
 
