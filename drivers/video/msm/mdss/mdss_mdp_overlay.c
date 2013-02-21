@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/major.h>
 #include <linux/module.h>
+#include <linux/pm_runtime.h>
 #include <linux/uaccess.h>
 
 #include <mach/iommu_domains.h>
@@ -1301,12 +1302,16 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		mfd->ctl = ctl;
 	}
 
+	pm_runtime_get_sync(&mfd->pdev->dev);
+
 	rc = mdss_mdp_ctl_start(mfd->ctl);
 	if (rc == 0) {
 		atomic_inc(&ov_active_panels);
 	} else {
 		mdss_mdp_ctl_destroy(mfd->ctl);
 		mfd->ctl = NULL;
+
+		pm_runtime_put(&mfd->pdev->dev);
 	}
 
 	return rc;
@@ -1339,6 +1344,8 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 
 		if (atomic_dec_return(&ov_active_panels) == 0)
 			mdss_mdp_rotator_release_all();
+
+		pm_runtime_put(&mfd->pdev->dev);
 	}
 
 	return rc;
@@ -1378,6 +1385,9 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		pr_err("vsync sysfs group creation failed, ret=%d\n", rc);
 		return rc;
 	}
+
+	pm_runtime_set_suspended(&mfd->pdev->dev);
+	pm_runtime_enable(&mfd->pdev->dev);
 
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
 	pr_debug("vsync kobject_uevent(KOBJ_ADD)\n");
