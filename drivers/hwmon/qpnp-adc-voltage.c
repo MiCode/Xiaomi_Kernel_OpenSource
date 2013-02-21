@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,7 @@ struct qpnp_vadc_drv {
 	bool				vadc_init_calib;
 	bool				vadc_initialized;
 	int				max_channels_available;
+	bool				vadc_iadc_sync_lock;
 	struct sensor_device_attribute		sens_attr[0];
 };
 
@@ -304,11 +305,14 @@ static int32_t qpnp_vadc_configure(
 	if (rc)
 		return rc;
 
-	/* Request conversion */
-	rc = qpnp_vadc_write_reg(QPNP_VADC_CONV_REQ, QPNP_VADC_CONV_REQ_SET);
-	if (rc < 0) {
-		pr_err("Request conversion failed\n");
-		return rc;
+	if (!vadc->vadc_iadc_sync_lock) {
+		/* Request conversion */
+		rc = qpnp_vadc_write_reg(QPNP_VADC_CONV_REQ,
+					QPNP_VADC_CONV_REQ_SET);
+		if (rc < 0) {
+			pr_err("Request conversion failed\n");
+			return rc;
+		}
 	}
 
 	return 0;
@@ -734,6 +738,121 @@ int32_t qpnp_vadc_read(enum qpnp_vadc_channels channel,
 }
 EXPORT_SYMBOL_GPL(qpnp_vadc_read);
 
+static void qpnp_vadc_lock(void)
+{
+	struct qpnp_vadc_drv *vadc = qpnp_vadc;
+
+	mutex_lock(&vadc->adc->adc_lock);
+}
+
+static void qpnp_vadc_unlock(void)
+{
+	struct qpnp_vadc_drv *vadc = qpnp_vadc;
+
+	mutex_unlock(&vadc->adc->adc_lock);
+}
+
+int32_t qpnp_vadc_iadc_sync_request(enum qpnp_vadc_channels channel)
+{
+	struct qpnp_vadc_drv *vadc = qpnp_vadc;
+	int rc = 0, dt_index = 0;
+
+	if (!vadc || !vadc->vadc_initialized)
+		return -EPROBE_DEFER;
+
+	qpnp_vadc_lock();
+
+	if (!vadc->vadc_init_calib) {
+		rc = qpnp_vadc_version_check();
+		if (rc)
+			goto fail;
+
+		rc = qpnp_vadc_calib_device();
+		if (rc) {
+			pr_err("Calibration failed\n");
+			goto fail;
+		} else
+			vadc->vadc_init_calib = true;
+	}
+
+	vadc->adc->amux_prop->amux_channel = channel;
+
+	while ((vadc->adc->adc_channels[dt_index].channel_num
+		!= channel) && (dt_index < vadc->max_channels_available))
+		dt_index++;
+
+	if (dt_index >= vadc->max_channels_available) {
+		pr_err("not a valid VADC channel\n");
+		rc = -EINVAL;
+		goto fail;
+	}
+
+	vadc->adc->amux_prop->decimation =
+			vadc->adc->adc_channels[dt_index].adc_decimation;
+	vadc->adc->amux_prop->hw_settle_time =
+			vadc->adc->adc_channels[dt_index].hw_settle_time;
+	vadc->adc->amux_prop->fast_avg_setup =
+			vadc->adc->adc_channels[dt_index].fast_avg_setup;
+	vadc->adc->amux_prop->mode_sel = (ADC_OP_NORMAL_MODE
+					<< QPNP_VADC_OP_MODE_SHIFT);
+	vadc->vadc_iadc_sync_lock = true;
+
+	rc = qpnp_vadc_configure(vadc->adc->amux_prop);
+	if (rc) {
+		pr_err("qpnp vadc configure failed with %d\n", rc);
+		goto fail;
+	}
+
+	return rc;
+fail:
+	vadc->vadc_iadc_sync_lock = false;
+	qpnp_vadc_unlock();
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_vadc_iadc_sync_request);
+
+int32_t qpnp_vadc_iadc_sync_complete_request(enum qpnp_vadc_channels channel,
+						struct qpnp_vadc_result *result)
+{
+	struct qpnp_vadc_drv *vadc = qpnp_vadc;
+	int rc = 0, scale_type, amux_prescaling, dt_index = 0;
+
+	vadc->adc->amux_prop->amux_channel = channel;
+
+	while ((vadc->adc->adc_channels[dt_index].channel_num
+		!= channel) && (dt_index < vadc->max_channels_available))
+		dt_index++;
+
+	rc = qpnp_vadc_read_conversion_result(&result->adc_code);
+	if (rc) {
+		pr_err("qpnp vadc read adc code failed with %d\n", rc);
+		goto fail;
+	}
+
+	amux_prescaling =
+		vadc->adc->adc_channels[dt_index].chan_path_prescaling;
+
+	vadc->adc->amux_prop->chan_prop->offset_gain_numerator =
+		qpnp_vadc_amux_scaling_ratio[amux_prescaling].num;
+	vadc->adc->amux_prop->chan_prop->offset_gain_denominator =
+		 qpnp_vadc_amux_scaling_ratio[amux_prescaling].den;
+
+	scale_type = vadc->adc->adc_channels[dt_index].adc_scale_fn;
+	if (scale_type >= SCALE_NONE) {
+		rc = -EBADF;
+		goto fail;
+	}
+
+	vadc_scale_fn[scale_type].chan(result->adc_code,
+		vadc->adc->adc_prop, vadc->adc->amux_prop->chan_prop, result);
+
+fail:
+	vadc->vadc_iadc_sync_lock = false;
+	qpnp_vadc_unlock();
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_vadc_iadc_sync_complete_request);
+
 static ssize_t qpnp_adc_show(struct device *dev,
 			struct device_attribute *devattr, char *buf)
 {
@@ -857,6 +976,7 @@ static int __devinit qpnp_vadc_probe(struct spmi_device *spmi)
 	vadc->vadc_init_calib = false;
 	vadc->max_channels_available = count_adc_channel_list;
 	vadc->vadc_initialized = true;
+	vadc->vadc_iadc_sync_lock = false;
 
 	return 0;
 fail:

@@ -134,6 +134,8 @@ struct qpnp_iadc_drv {
 	bool					iadc_initialized;
 	int64_t					die_temp_calib_offset;
 	struct delayed_work			iadc_work;
+	struct mutex				iadc_vadc_lock;
+	bool					iadc_mode_sel;
 	struct sensor_device_attribute		sens_attr[0];
 };
 
@@ -292,7 +294,7 @@ static int32_t qpnp_iadc_read_conversion_result(uint16_t *data)
 }
 
 static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
-						uint16_t *raw_code)
+					uint16_t *raw_code, uint32_t mode_sel)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	u8 qpnp_iadc_mode_reg = 0, qpnp_iadc_ch_sel_reg = 0;
@@ -303,7 +305,11 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 
 	qpnp_iadc_dig_param_reg |= iadc->adc->amux_prop->decimation <<
 					QPNP_IADC_DEC_RATIO_SEL;
-	qpnp_iadc_mode_reg |= QPNP_ADC_TRIM_EN;
+	if (iadc->iadc_mode_sel)
+		qpnp_iadc_mode_reg |= (QPNP_ADC_TRIM_EN | QPNP_VADC_SYNCH_EN);
+	else
+		qpnp_iadc_mode_reg |= QPNP_ADC_TRIM_EN;
+
 	qpnp_iadc_conv_req = QPNP_IADC_CONV_REQ;
 
 	rc = qpnp_iadc_write_reg(QPNP_IADC_MODE_CTL, qpnp_iadc_mode_reg);
@@ -403,8 +409,10 @@ static int32_t qpnp_iadc_calibrate_for_trim(void)
 	uint8_t rslt_lsb, rslt_msb;
 	int32_t rc = 0;
 	uint16_t raw_data;
+	uint32_t mode_sel = 0;
 
-	rc = qpnp_iadc_configure(GAIN_CALIBRATION_17P857MV, &raw_data);
+	rc = qpnp_iadc_configure(GAIN_CALIBRATION_17P857MV,
+						&raw_data, mode_sel);
 	if (rc < 0) {
 		pr_err("qpnp adc result read failed with %d\n", rc);
 		goto fail;
@@ -412,8 +420,8 @@ static int32_t qpnp_iadc_calibrate_for_trim(void)
 
 	iadc->adc->calib.gain_raw = raw_data;
 
-	rc = qpnp_iadc_configure(OFFSET_CALIBRATION_SHORT_CADC_LEADS,
-								&raw_data);
+	rc = qpnp_iadc_configure(OFFSET_CALIBRATION_CSP2_CSN2,
+						&raw_data, mode_sel);
 	if (rc < 0) {
 		pr_err("qpnp adc result read failed with %d\n", rc);
 		goto fail;
@@ -568,22 +576,24 @@ int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 				struct qpnp_iadc_result *result)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
-	int32_t rc, rsense_n_ohms, sign = 0, num;
+	int32_t rc, rsense_n_ohms, sign = 0, num, mode_sel = 0;
 	int64_t result_current;
 	uint16_t raw_data;
 
 	if (!iadc || !iadc->iadc_initialized)
 		return -EPROBE_DEFER;
 
-	rc = qpnp_check_pmic_temp();
-	if (rc) {
-		pr_err("Error checking pmic therm temp\n");
-		return rc;
+	if (!iadc->iadc_mode_sel) {
+		rc = qpnp_check_pmic_temp();
+		if (rc) {
+			pr_err("Error checking pmic therm temp\n");
+			return rc;
+		}
 	}
 
 	mutex_lock(&iadc->adc->adc_lock);
 
-	rc = qpnp_iadc_configure(channel, &raw_data);
+	rc = qpnp_iadc_configure(channel, &raw_data, mode_sel);
 	if (rc < 0) {
 		pr_err("qpnp adc result read failed with %d\n", rc);
 		goto fail;
@@ -643,6 +653,50 @@ int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result)
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_iadc_get_gain_and_offset);
+
+int32_t qpnp_iadc_vadc_sync_read(
+	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
+	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result)
+{
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
+	int rc = 0;
+
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
+
+	mutex_lock(&iadc->iadc_vadc_lock);
+
+	rc = qpnp_check_pmic_temp();
+	if (rc) {
+		pr_err("PMIC die temp check failed\n");
+		goto fail;
+	}
+
+	iadc->iadc_mode_sel = true;
+
+	rc = qpnp_vadc_iadc_sync_request(v_channel);
+	if (rc) {
+		pr_err("Configuring VADC failed\n");
+		goto fail;
+	}
+
+	rc = qpnp_iadc_read(i_channel, i_result);
+	if (rc)
+		pr_err("Configuring IADC failed\n");
+	/* Intentional fall through to release VADC */
+
+	rc = qpnp_vadc_iadc_sync_complete_request(v_channel,
+							v_result);
+	if (rc)
+		pr_err("Releasing VADC failed\n");
+fail:
+	iadc->iadc_mode_sel = false;
+
+	mutex_unlock(&iadc->iadc_vadc_lock);
+
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_iadc_vadc_sync_read);
 
 static ssize_t qpnp_iadc_show(struct device *dev,
 			struct device_attribute *devattr, char *buf)
@@ -787,6 +841,7 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 			round_jiffies_relative(msecs_to_jiffies
 					(QPNP_IADC_CALIB_SECONDS)));
 	iadc->iadc_initialized = true;
+	mutex_init(&iadc->iadc_vadc_lock);
 
 	return 0;
 fail:
@@ -801,6 +856,7 @@ static int __devexit qpnp_iadc_remove(struct spmi_device *spmi)
 	struct device_node *child;
 	int i = 0;
 
+	mutex_destroy(&iadc->iadc_vadc_lock);
 	for_each_child_of_node(node, child) {
 		device_remove_file(&spmi->dev,
 			&iadc->sens_attr[i].dev_attr);
