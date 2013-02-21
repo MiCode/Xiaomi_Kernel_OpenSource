@@ -39,6 +39,24 @@ int create_pkt_cmd_sys_pc_prep(struct hfi_cmd_sys_pc_prep_packet *pkt)
 	return rc;
 }
 
+int create_pkt_cmd_sys_idle_indicator(
+	struct hfi_cmd_sys_set_property_packet *pkt,
+	u32 enable)
+{
+	struct hfi_enable *hfi;
+	if (!pkt)
+		return -EINVAL;
+
+	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
+		sizeof(struct hfi_enable) + sizeof(u32);
+	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
+	pkt->num_properties = 1;
+	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_IDLE_INDICATOR;
+	hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+	hfi->enable = enable;
+	return 0;
+}
+
 int create_pkt_set_cmd_sys_resource(
 		struct hfi_cmd_sys_set_resource_packet *pkt,
 		struct vidc_resource_hdr *resource_hdr,

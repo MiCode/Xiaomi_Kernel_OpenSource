@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@ enum msm_vidc_debugfs_event {
 extern int msm_vidc_debug;
 extern int msm_fw_debug;
 extern int msm_fw_debug_mode;
+extern int msm_fw_low_power_mode;
 
 #define dprintk(__level, __fmt, arg...)	\
 	do { \
