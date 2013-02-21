@@ -294,6 +294,7 @@ struct sdhci_ops {
 	void	(*platform_resume)(struct sdhci_host *host);
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);
 	void	(*platform_init)(struct sdhci_host *host);
+	void	(*check_power_status)(struct sdhci_host *host);
 	int	(*execute_tuning)(struct sdhci_host *host, u32 opcode);
 	void	(*toggle_cdr)(struct sdhci_host *host, bool enable);
 	unsigned int	(*get_max_segments)(void);
