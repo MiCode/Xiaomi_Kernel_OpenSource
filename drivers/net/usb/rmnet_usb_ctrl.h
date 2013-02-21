@@ -59,14 +59,14 @@ struct rmnet_ctrl_dev {
 	 */
 	bool			resp_available;
 
+	bool			claimed;
+
 	unsigned int		mdm_wait_timeout;
 
 	/*input control lines (DSR, CTS, CD, RI)*/
 	unsigned int		cbits_tolocal;
 	/*output control lines (DTR, RTS)*/
 	unsigned int		cbits_tomdm;
-
-	struct list_head	dev_list;
 
 	/*counters*/
 	unsigned int		snd_encap_cmd_cnt;
