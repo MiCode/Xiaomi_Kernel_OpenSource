@@ -349,9 +349,8 @@ struct hc_driver {
 	/* to log submission/completion events*/
 	void	(*log_urb)(struct urb *urb, char *event, unsigned extra);
 	void	(*dump_regs)(struct usb_hcd *);
-	void	(*enable_ulpi_control)(struct usb_hcd *hcd, u32 linestate);
-	void	(*disable_ulpi_control)(struct usb_hcd *hcd);
 	void	(*set_autosuspend_delay)(struct usb_device *);
+	void	(*reset_sof_bug_handler)(struct usb_hcd *hcd, u32 val);
 };
 
 extern int usb_hcd_link_urb_to_ep(struct usb_hcd *hcd, struct urb *urb);
