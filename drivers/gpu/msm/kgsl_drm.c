@@ -465,8 +465,11 @@ kgsl_gem_create_ioctl(struct drm_device *dev, void *data,
 	}
 
 	ret = kgsl_gem_init_obj(dev, file_priv, obj, &handle);
-	if (ret)
+	if (ret) {
+		drm_gem_object_release(obj);
+		DRM_ERROR("Unable to initialize GEM object ret = %d\n", ret);
 		return ret;
+	}
 
 	create->handle = handle;
 	return 0;
@@ -539,6 +542,106 @@ error_fput:
 }
 
 int
+kgsl_gem_create_from_ion_ioctl(struct drm_device *dev, void *data,
+		      struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_create_from_ion *args = data;
+	struct drm_gem_object *obj;
+	struct ion_handle *ion_handle;
+	struct drm_kgsl_gem_object *priv;
+	struct sg_table *sg_table;
+	struct scatterlist *s;
+	int ret, handle;
+	unsigned long size;
+
+	ion_handle = ion_import_dma_buf(kgsl_drm_ion_client, args->ion_fd);
+	if (IS_ERR_OR_NULL(ion_handle)) {
+		DRM_ERROR("Unable to import dmabuf.  Error number = %d\n",
+			(int)PTR_ERR(ion_handle));
+		return -EINVAL;
+	}
+
+	ion_handle_get_size(kgsl_drm_ion_client, ion_handle, &size);
+
+	if (size == 0) {
+		ion_free(kgsl_drm_ion_client, ion_handle);
+		DRM_ERROR(
+		"cannot create GEM object from zero size ION buffer\n");
+		return -EINVAL;
+	}
+
+	obj = drm_gem_object_alloc(dev, size);
+
+	if (obj == NULL) {
+		ion_free(kgsl_drm_ion_client, ion_handle);
+		DRM_ERROR("Unable to allocate the GEM object\n");
+		return -ENOMEM;
+	}
+
+	ret = kgsl_gem_init_obj(dev, file_priv, obj, &handle);
+	if (ret) {
+		ion_free(kgsl_drm_ion_client, ion_handle);
+		drm_gem_object_release(obj);
+		DRM_ERROR("Unable to initialize GEM object ret = %d\n", ret);
+		return ret;
+	}
+
+	priv = obj->driver_private;
+	priv->ion_handle = ion_handle;
+
+	priv->type = DRM_KGSL_GEM_TYPE_KMEM;
+	list_add(&priv->list, &kgsl_mem_list);
+
+	priv->pagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
+
+	priv->memdesc.pagetable = priv->pagetable;
+
+	sg_table = ion_sg_table(kgsl_drm_ion_client,
+		priv->ion_handle);
+	if (IS_ERR_OR_NULL(priv->ion_handle)) {
+		DRM_ERROR("Unable to get ION sg table\n");
+		ion_free(kgsl_drm_ion_client,
+			priv->ion_handle);
+		priv->ion_handle = NULL;
+		kgsl_mmu_putpagetable(priv->pagetable);
+		drm_gem_object_release(obj);
+		kfree(priv);
+		return -ENOMEM;
+	}
+
+	priv->memdesc.sg = sg_table->sgl;
+
+	/* Calculate the size of the memdesc from the sglist */
+
+	priv->memdesc.sglen = 0;
+
+	for (s = priv->memdesc.sg; s != NULL; s = sg_next(s)) {
+		priv->memdesc.size += s->length;
+		priv->memdesc.sglen++;
+	}
+
+	ret = kgsl_mmu_map(priv->pagetable, &priv->memdesc,
+		GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+	if (ret) {
+		DRM_ERROR("kgsl_mmu_map failed.  ret = %d\n", ret);
+		ion_free(kgsl_drm_ion_client,
+			priv->ion_handle);
+		priv->ion_handle = NULL;
+		kgsl_mmu_putpagetable(priv->pagetable);
+		drm_gem_object_release(obj);
+		kfree(priv);
+		return -ENOMEM;
+	}
+
+	priv->bufs[0].offset = 0;
+	priv->bufs[0].gpuaddr = priv->memdesc.gpuaddr;
+	priv->flags |= DRM_KGSL_GEM_FLAG_MAPPED;
+
+	args->handle = handle;
+	return 0;
+}
+
+int
 kgsl_gem_get_ion_fd_ioctl(struct drm_device *dev, void *data,
 			struct drm_file *file_priv)
 {
@@ -563,6 +666,12 @@ kgsl_gem_get_ion_fd_ioctl(struct drm_device *dev, void *data,
 		if (priv->ion_handle) {
 			args->ion_fd = ion_share_dma_buf(
 				kgsl_drm_ion_client, priv->ion_handle);
+			if (args->ion_fd < 0) {
+				DRM_ERROR(
+				"Could not share ion buffer. Error = %d\n",
+					args->ion_fd);
+				ret = -EINVAL;
+			}
 		} else {
 			DRM_ERROR("GEM object has no ion memory allocated.\n");
 			ret = -EINVAL;
@@ -1266,6 +1375,8 @@ struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_MMAP, kgsl_gem_mmap_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_BUFINFO, kgsl_gem_get_bufinfo_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_ION_FD, kgsl_gem_get_ion_fd_ioctl, 0),
+	DRM_IOCTL_DEF_DRV(KGSL_GEM_CREATE_FROM_ION,
+		kgsl_gem_create_from_ion_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_BUFCOUNT,
 		      kgsl_gem_set_bufcount_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_ACTIVE, kgsl_gem_set_active_ioctl, 0),
