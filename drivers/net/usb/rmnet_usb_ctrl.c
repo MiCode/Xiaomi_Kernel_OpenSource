@@ -94,9 +94,12 @@ do { \
 				pr_info(x); \
 		} while (0)
 
-static DEFINE_SPINLOCK(dev_list_lock);
-static LIST_HEAD(ctrl_devs);
-static LIST_HEAD(free_ctrl_devs);
+/* passed in rmnet_usb_ctrl_init */
+static int num_devs;
+static int insts_per_dev;
+
+/* dynamically allocated 2-D array of num_devs*insts_per_dev ctrl_devs */
+static struct rmnet_ctrl_dev **ctrl_devs;
 static struct class	*ctrldev_classp[MAX_RMNET_DEVS];
 static dev_t		ctrldev_num[MAX_RMNET_DEVS];
 
@@ -785,24 +788,25 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 			 unsigned long rmnet_devnum,
 			 struct rmnet_ctrl_dev **ctrldev)
 {
-	struct rmnet_ctrl_dev		*dev;
+	struct rmnet_ctrl_dev		*dev = NULL;
 	u16				wMaxPacketSize;
 	struct usb_endpoint_descriptor	*ep;
 	struct usb_device		*udev = interface_to_usbdev(intf);
 	int				interval;
-	int				ret = 0;
+	int				ret = 0, n;
 
-	spin_lock(&dev_list_lock);
-	if (list_empty(&free_ctrl_devs)) {
-		pr_err("%s: No more available ctrl devices\n", __func__);
-		spin_unlock(&dev_list_lock);
-		return -ENODEV;
+	/* Find next available ctrl_dev */
+	for (n = 0; n < insts_per_dev; n++) {
+		dev = &ctrl_devs[rmnet_devnum][n];
+		if (!dev->claimed)
+			break;
 	}
 
-	dev = list_first_entry(&free_ctrl_devs, struct rmnet_ctrl_dev,
-			       dev_list);
-	list_move_tail(&dev->dev_list, &ctrl_devs);
-	spin_unlock(&dev_list_lock);
+	if (!dev || n == insts_per_dev) {
+		pr_err("%s: No available ctrl devices for %lu\n", __func__,
+			rmnet_devnum);
+		return -ENODEV;
+	}
 
 	dev->int_pipe = usb_rcvintpipe(udev,
 		int_in->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
@@ -830,21 +834,14 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 			dev->cbits_tomdm,
 			dev->intf->cur_altsetting->desc.bInterfaceNumber,
 			NULL, 0, USB_CTRL_SET_TIMEOUT);
-	if (ret < 0) {
-		spin_lock(&dev_list_lock);
-		list_move(&dev->dev_list, &free_ctrl_devs);
-		spin_unlock(&dev_list_lock);
+	if (ret < 0)
 		return ret;
-	}
 
 	dev->set_ctrl_line_state_cnt++;
 
 	dev->inturb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!dev->inturb) {
 		dev_err(dev->devicep, "Error allocating int urb\n");
-		spin_lock(&dev_list_lock);
-		list_move(&dev->dev_list, &free_ctrl_devs);
-		spin_unlock(&dev_list_lock);
 		return -ENOMEM;
 	}
 
@@ -856,9 +853,6 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 	if (!dev->intbuf) {
 		usb_free_urb(dev->inturb);
 		dev_err(dev->devicep, "Error allocating int buffer\n");
-		spin_lock(&dev_list_lock);
-		list_move(&dev->dev_list, &free_ctrl_devs);
-		spin_unlock(&dev_list_lock);
 		return -ENOMEM;
 	}
 
@@ -884,15 +878,14 @@ int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 	if (!ret)
 		dev->is_connected = true;
 
+	dev->claimed = true;
 	*ctrldev = dev;
 	return 0;
 }
 
 void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *dev)
 {
-	spin_lock(&dev_list_lock);
-	list_move(&dev->dev_list, &free_ctrl_devs);
-	spin_unlock(&dev_list_lock);
+	dev->claimed = false;
 
 	mutex_lock(&dev->dev_lock);
 	/*TBD: for now just update CD status*/
@@ -923,41 +916,43 @@ static ssize_t rmnet_usb_ctrl_read_stats(struct file *file, char __user *ubuf,
 	struct rmnet_ctrl_dev	*dev;
 	char			*buf;
 	int			ret;
+	int			i, n;
 	int			temp = 0;
 
 	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
-	spin_lock(&dev_list_lock);
-	list_for_each_entry(dev, &ctrl_devs, dev_list) {
-		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
-				"\n#ctrl_dev: %p     Name: %s#\n"
-				"snd encap cmd cnt         %u\n"
-				"resp avail cnt:           %u\n"
-				"get encap resp cnt:       %u\n"
-				"set ctrl line state cnt:  %u\n"
-				"tx_err_cnt:               %u\n"
-				"cbits_tolocal:            %d\n"
-				"cbits_tomdm:              %d\n"
-				"mdm_wait_timeout:         %u\n"
-				"zlp_cnt:                  %u\n"
-				"get_encap_failure_cnt     %u\n"
-				"dev opened:               %s\n",
-				dev, dev->name,
-				dev->snd_encap_cmd_cnt,
-				dev->resp_avail_cnt,
-				dev->get_encap_resp_cnt,
-				dev->set_ctrl_line_state_cnt,
-				dev->tx_ctrl_err_cnt,
-				dev->cbits_tolocal,
-				dev->cbits_tomdm,
-				dev->mdm_wait_timeout,
-				dev->zlp_cnt,
-				dev->get_encap_failure_cnt,
-				dev->is_opened ? "OPEN" : "CLOSE");
+	for (i = 0; i < num_devs; i++) {
+		for (n = 0; n < insts_per_dev; n++) {
+			dev = &ctrl_devs[i][n];
+			temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
+					"\n#ctrl_dev: %p     Name: %s#\n"
+					"snd encap cmd cnt         %u\n"
+					"resp avail cnt:           %u\n"
+					"get encap resp cnt:       %u\n"
+					"set ctrl line state cnt:  %u\n"
+					"tx_err_cnt:               %u\n"
+					"cbits_tolocal:            %d\n"
+					"cbits_tomdm:              %d\n"
+					"mdm_wait_timeout:         %u\n"
+					"zlp_cnt:                  %u\n"
+					"get_encap_failure_cnt     %u\n"
+					"dev opened:               %s\n",
+					dev, dev->name,
+					dev->snd_encap_cmd_cnt,
+					dev->resp_avail_cnt,
+					dev->get_encap_resp_cnt,
+					dev->set_ctrl_line_state_cnt,
+					dev->tx_ctrl_err_cnt,
+					dev->cbits_tolocal,
+					dev->cbits_tomdm,
+					dev->mdm_wait_timeout,
+					dev->zlp_cnt,
+					dev->get_encap_failure_cnt,
+					dev->is_opened ? "OPEN" : "CLOSE");
+		}
 	}
-	spin_unlock(&dev_list_lock);
 
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, temp);
 	kfree(buf);
@@ -968,17 +963,20 @@ static ssize_t rmnet_usb_ctrl_reset_stats(struct file *file, const char __user *
 		buf, size_t count, loff_t *ppos)
 {
 	struct rmnet_ctrl_dev	*dev;
+	int			i, n;
 
-	spin_lock(&dev_list_lock);
-	list_for_each_entry(dev, &ctrl_devs, dev_list) {
-		dev->snd_encap_cmd_cnt = 0;
-		dev->resp_avail_cnt = 0;
-		dev->get_encap_resp_cnt = 0;
-		dev->set_ctrl_line_state_cnt = 0;
-		dev->tx_ctrl_err_cnt = 0;
-		dev->zlp_cnt = 0;
+	for (i = 0; i < num_devs; i++) {
+		for (n = 0; n < insts_per_dev; n++) {
+			dev = &ctrl_devs[i][n];
+
+			dev->snd_encap_cmd_cnt = 0;
+			dev->resp_avail_cnt = 0;
+			dev->get_encap_resp_cnt = 0;
+			dev->set_ctrl_line_state_cnt = 0;
+			dev->tx_ctrl_err_cnt = 0;
+			dev->zlp_cnt = 0;
+		}
 	}
-	spin_unlock(&dev_list_lock);
 	return count;
 }
 
@@ -1012,13 +1010,25 @@ static void rmnet_usb_ctrl_debugfs_init(void) { }
 static void rmnet_usb_ctrl_debugfs_exit(void) { }
 #endif
 
-int rmnet_usb_ctrl_init(int num_devs, int insts_per_dev)
+int rmnet_usb_ctrl_init(int no_rmnet_devs, int no_rmnet_insts_per_dev)
 {
 	struct rmnet_ctrl_dev	*dev;
 	int			i, n;
 	int			status;
 
+	num_devs = no_rmnet_devs;
+	insts_per_dev = no_rmnet_insts_per_dev;
+
+	ctrl_devs = kzalloc(num_devs * sizeof(*ctrl_devs), GFP_KERNEL);
+	if (!ctrl_devs)
+		return -ENOMEM;
+
 	for (i = 0; i < num_devs; i++) {
+		ctrl_devs[i] = kzalloc(insts_per_dev * sizeof(*ctrl_devs[i]),
+				       GFP_KERNEL);
+		if (!ctrl_devs[i])
+			return -ENOMEM;
+
 		status = alloc_chrdev_region(&ctrldev_num[i], 0, insts_per_dev,
 					     rmnet_dev_names[i]);
 		if (IS_ERR_VALUE(status)) {
@@ -1036,9 +1046,7 @@ int rmnet_usb_ctrl_init(int num_devs, int insts_per_dev)
 		}
 
 		for (n = 0; n < insts_per_dev; n++) {
-			dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-			if (!dev)
-				return -ENOMEM;
+			dev = &ctrl_devs[i][n];
 
 			/*for debug purpose*/
 			snprintf(dev->name, CTRL_DEV_MAX_LEN, "%s%d",
@@ -1059,7 +1067,6 @@ int rmnet_usb_ctrl_init(int num_devs, int insts_per_dev)
 			init_usb_anchor(&dev->tx_submitted);
 			init_usb_anchor(&dev->rx_submitted);
 			INIT_WORK(&dev->get_encap_work, get_encap_work);
-			INIT_LIST_HEAD(&dev->dev_list);
 
 			cdev_init(&dev->cdev, &ctrldev_fops);
 			dev->cdev.owner = THIS_MODULE;
@@ -1110,8 +1117,6 @@ int rmnet_usb_ctrl_init(int num_devs, int insts_per_dev)
 				kfree(dev);
 				return status;
 			}
-
-			list_add_tail(&dev->dev_list, &free_ctrl_devs);
 		}
 	}
 
@@ -1132,25 +1137,23 @@ static void free_rmnet_ctrl_dev(struct rmnet_ctrl_dev *dev)
 	destroy_workqueue(dev->wq);
 	device_destroy(dev->devicep->class,
 		       dev->devicep->devt);
-	__list_del_entry(&dev->dev_list);
-	kfree(dev);
 }
 
-void rmnet_usb_ctrl_exit(int num_devs, int insts_per_dev)
+void rmnet_usb_ctrl_exit(int no_rmnet_devs, int no_rmnet_insts_per_dev)
 {
-	struct rmnet_ctrl_dev	*dev, *tmp;
-	int			i;
+	int i, n;
 
-	spin_lock(&dev_list_lock);
-	list_for_each_entry_safe(dev, tmp, &free_ctrl_devs, dev_list)
-		free_rmnet_ctrl_dev(dev);
-	spin_unlock(&dev_list_lock);
+	for (i = 0; i < no_rmnet_devs; i++) {
+		for (n = 0; n < no_rmnet_insts_per_dev; n++)
+			free_rmnet_ctrl_dev(&ctrl_devs[i][n]);
 
-	for (i = 0; i < num_devs; i++) {
+		kfree(ctrl_devs[i]);
+
 		class_destroy(ctrldev_classp[i]);
 		if (ctrldev_num[i])
 			unregister_chrdev_region(ctrldev_num[i], insts_per_dev);
 	}
 
+	kfree(ctrl_devs);
 	rmnet_usb_ctrl_debugfs_exit();
 }
