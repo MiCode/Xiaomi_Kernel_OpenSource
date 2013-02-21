@@ -196,6 +196,10 @@ struct msm8x10_wcd {
 	u8 version;
 
 	int reset_gpio;
+	int (*read_dev)(struct msm8x10_wcd *msm8x10,
+			unsigned short reg, unsigned int *val);
+	int (*write_dev)(struct msm8x10_wcd *msm8x10,
+			 unsigned short reg, unsigned int val);
 
 	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;
