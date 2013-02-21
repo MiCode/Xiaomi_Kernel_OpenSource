@@ -17,9 +17,12 @@
 struct msm_thermal_data {
 	uint32_t sensor_id;
 	uint32_t poll_ms;
-	uint32_t limit_temp_degC;
-	uint32_t temp_hysteresis_degC;
+	int32_t limit_temp_degC;
+	int32_t temp_hysteresis_degC;
 	uint32_t freq_step;
+	int32_t core_limit_temp_degC;
+	int32_t core_temp_hysteresis_degC;
+	uint32_t core_control_mask;
 };
 
 #ifdef CONFIG_THERMAL_MONITOR

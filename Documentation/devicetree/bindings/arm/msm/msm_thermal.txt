@@ -19,8 +19,18 @@ Required properties
 			Typically the sensor closest to CPU0.
 - qcom,poll-ms: Sampling interval to read sensor, in ms.
 - qcom,limit-temp: Threshold temperature to start stepping CPU down, in degC.
-- qcom,temp-hysteresis: Degrees below threshold temperature to step CPU up.
+- qcom,temp-hysteresis: Degrees C below threshold temperature to step CPU up.
 - qcom,freq-step: Number of frequency steps to take on each CPU mitigation.
+
+Optional properties
+
+- qcom,core-limit-temp: Threshold temperature to start shutting down cores
+			in degC
+- qcom,core-temp-hysterisis: Degrees C below which the cores will be brought
+			online in sequence.
+- qcom,core-control-mask: The cpu mask that will be used to determine if a
+			core can be controlled or not. A mask of 0 indicates
+			the feature is disabled.
 
 Example:
 
@@ -31,4 +41,7 @@ Example:
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
+		qcom,core-limit-temp = <90>;
+		qcom,core-temp-hysterisis = <10>;
+		qcom,core-control-mask = <7>;
 	};
