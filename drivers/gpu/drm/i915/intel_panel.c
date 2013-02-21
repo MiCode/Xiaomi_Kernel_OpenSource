@@ -856,12 +856,14 @@ void intel_panel_enable_backlight(struct intel_connector *connector)
 
 	WARN_ON(panel->backlight.max == 0);
 
+#if 0
 	if (panel->backlight.level == 0) {
 		panel->backlight.level = panel->backlight.max;
 		if (panel->backlight.device)
 			panel->backlight.device->props.brightness =
 				panel->backlight.level;
 	}
+#endif
 
 	dev_priv->display.enable_backlight(connector);
 	panel->backlight.enabled = true;
