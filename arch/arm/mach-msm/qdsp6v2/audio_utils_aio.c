@@ -897,6 +897,11 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 	struct audio_client *ac;
 	struct audio_aio_write_param param;
 
+	if (!audio || !buf_node) {
+		pr_err("%s NULL pointer audio=[0x%p], buf_node=[0x%p]\n",
+			__func__, audio, buf_node);
+		return;
+	}
 	pr_debug("%s[%p]: Send write buff %p phy %lx len %d meta_enable = %d\n",
 		__func__, audio, buf_node, buf_node->paddr,
 		buf_node->buf.data_len,
@@ -922,8 +927,7 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 	if (!audio->buf_cfg.meta_info_enable)
 		param.flags = 0xFF00;
 
-	if ((buf_node != NULL) &&
-		(buf_node->meta_info.meta_in.nflags & AUDIO_DEC_EOF_SET))
+	if (buf_node->meta_info.meta_in.nflags & AUDIO_DEC_EOF_SET)
 		param.flags |= AUDIO_DEC_EOF_SET;
 
 	param.uid = param.paddr;
