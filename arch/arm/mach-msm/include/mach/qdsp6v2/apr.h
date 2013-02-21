@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,6 +82,7 @@ struct apr_hdr {
 #define APR_SVC_ADSP_CVS	0x0A
 #define APR_SVC_ADSP_CVP	0x0B
 #define APR_SVC_USM		0x0C
+#define APR_SVC_LSM		0x0D
 #define APR_SVC_VIDC		0x16
 #define APR_SVC_MAX		0x17
 
