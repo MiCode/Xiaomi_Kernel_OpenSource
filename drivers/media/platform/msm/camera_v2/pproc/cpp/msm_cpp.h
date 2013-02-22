@@ -131,6 +131,7 @@ struct cpp_device {
 	struct regulator *fs_cpp;
 	struct mutex mutex;
 	enum cpp_state state;
+	uint8_t is_firmware_loaded;
 
 	int domain_num;
 	struct iommu_domain *domain;

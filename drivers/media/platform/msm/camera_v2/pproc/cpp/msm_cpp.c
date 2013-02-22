@@ -122,6 +122,7 @@ static uint32_t msm_cpp_read(void __iomem *cpp_base)
 		CPP_DBG("Read failed\n");
 		tmp = 0xDEADBEEF;
 	}
+
 	return tmp;
 }
 
@@ -207,6 +208,48 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 	return IRQ_HANDLED;
 }
 
+static void msm_cpp_boot_hw(struct cpp_device *cpp_dev)
+{
+	disable_irq(cpp_dev->irq->start);
+
+	msm_camera_io_w(0x1, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
+	msm_camera_io_w(0x1, cpp_dev->base +
+				 MSM_CPP_MICRO_BOOT_START);
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
+
+	/*Trigger MC to jump to start address*/
+	msm_cpp_write(MSM_CPP_CMD_EXEC_JUMP, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_JUMP_ADDRESS, cpp_dev->base);
+
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
+	msm_cpp_poll(cpp_dev->base, 0x1);
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_JUMP_ACK);
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
+
+	/*Get Bootloader Version*/
+	msm_cpp_write(MSM_CPP_CMD_GET_BOOTLOADER_VER, cpp_dev->base);
+	pr_info("MC Bootloader Version: 0x%x\n",
+		   msm_cpp_read(cpp_dev->base));
+
+	/*Get Firmware Version*/
+	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_MSG_ID_CMD, cpp_dev->base);
+	msm_cpp_write(0x1, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_MSG_ID_TRAILER, cpp_dev->base);
+
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
+	msm_cpp_poll(cpp_dev->base, 0x2);
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_FW_VER);
+	pr_info("CPP FW Version: 0x%x\n", msm_cpp_read(cpp_dev->base));
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
+	enable_irq(cpp_dev->irq->start);
+	msm_camera_io_w_mb(0x8, cpp_dev->base +
+		MSM_CPP_MICRO_IRQGEN_MASK);
+	msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
+		MSM_CPP_MICRO_IRQGEN_CLR);
+}
+
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
@@ -261,7 +304,8 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	}
 
 	msm_camera_io_w(0x1, cpp_dev->vbif_base + 0x4);
-
+	if (cpp_dev->is_firmware_loaded == 1)
+		msm_cpp_boot_hw(cpp_dev);
 	return rc;
 req_irq_fail:
 	iounmap(cpp_dev->vbif_base);
@@ -365,6 +409,9 @@ static void cpp_load_fw(struct cpp_device *cpp_dev)
 	pr_info("CPP FW Version: 0x%x\n", msm_cpp_read(cpp_dev->base));
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
 
+	/*Disable MC clock*/
+	/*msm_camera_io_w(0x0, cpp_dev->base +
+					   MSM_CPP_MICRO_CLKEN_CTL);*/
 }
 
 static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -398,16 +445,6 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	if (cpp_dev->cpp_open_cnt == 1) {
 		cpp_init_hardware(cpp_dev);
 		cpp_init_mem(cpp_dev);
-		disable_irq(cpp_dev->irq->start);
-
-		cpp_load_fw(cpp_dev);
-
-		enable_irq(cpp_dev->irq->start);
-
-		msm_camera_io_w_mb(0x8, cpp_dev->base +
-			MSM_CPP_MICRO_IRQGEN_MASK);
-		msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
-			MSM_CPP_MICRO_IRQGEN_CLR);
 		cpp_dev->state = CPP_STATE_IDLE;
 	}
 	mutex_unlock(&cpp_dev->mutex);
@@ -657,6 +694,15 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	mutex_lock(&cpp_dev->mutex);
 	CPP_DBG("E cmd: %d\n", cmd);
 	switch (cmd) {
+	case VIDIOC_MSM_CPP_LOAD_FIRMWARE: {
+		if (cpp_dev->is_firmware_loaded == 0) {
+			disable_irq(cpp_dev->irq->start);
+			cpp_load_fw(cpp_dev);
+			enable_irq(cpp_dev->irq->start);
+			cpp_dev->is_firmware_loaded = 1;
+		}
+		break;
+	}
 	case VIDIOC_MSM_CPP_CFG:
 		rc = msm_cpp_cfg(cpp_dev, ioctl_ptr);
 		break;
@@ -899,6 +945,7 @@ static int __devinit cpp_probe(struct platform_device *pdev)
 	msm_queue_init(&cpp_dev->realtime_q, "frame");
 	msm_queue_init(&cpp_dev->processing_q, "frame");
 	cpp_dev->cpp_open_cnt = 0;
+	cpp_dev->is_firmware_loaded = 0;
 
 	return rc;
 
