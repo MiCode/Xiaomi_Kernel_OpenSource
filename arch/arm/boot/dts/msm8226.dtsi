@@ -673,7 +673,7 @@
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <1>;
-		qcom,hw-settle-time = <0>;
+		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 	};
 
@@ -695,7 +695,7 @@
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <4>;
-		qcom,hw-settle-time = <0>;
+		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 	};
 };
