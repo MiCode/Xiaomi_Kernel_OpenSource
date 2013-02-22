@@ -1492,10 +1492,6 @@ static void synaptics_rmi4_detection_work(struct work_struct *work)
 			container_of(work, struct synaptics_rmi4_data,
 			det_work.work);
 
-	queue_delayed_work(rmi4_data->det_workqueue,
-			&rmi4_data->det_work,
-			msecs_to_jiffies(EXP_FN_DET_INTERVAL));
-
 	mutex_lock(&exp_fn_list_mutex);
 	if (!list_empty(&exp_fn_list)) {
 		list_for_each_entry_safe(exp_fhandler,
@@ -1671,8 +1667,8 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->input_dev->name = DRIVER_NAME;
 	rmi4_data->input_dev->phys = INPUT_PHYS_NAME;
 	rmi4_data->input_dev->id.bustype = BUS_I2C;
-	rmi4_data->input_dev->id.product = SYNAPTICS_RMI4_DRIVER_PRODUCT;
-	rmi4_data->input_dev->id.version = SYNAPTICS_RMI4_DRIVER_VERSION;
+	rmi4_data->input_dev->id.product = SYNAPTICS_DSX_DRIVER_PRODUCT;
+	rmi4_data->input_dev->id.version = SYNAPTICS_DSX_DRIVER_VERSION;
 	rmi4_data->input_dev->dev.parent = &client->dev;
 	input_set_drvdata(rmi4_data->input_dev, rmi4_data);
 
