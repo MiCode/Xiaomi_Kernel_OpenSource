@@ -134,6 +134,16 @@ struct socinfo_v7 {
 	uint32_t pmic_die_revision;
 };
 
+struct socinfo_v8 {
+	struct socinfo_v7 v7;
+
+	/* only valid when format==8*/
+	uint32_t pmic_model_1;
+	uint32_t pmic_die_revision_1;
+	uint32_t pmic_model_2;
+	uint32_t pmic_die_revision_2;
+};
+
 static union {
 	struct socinfo_v1 v1;
 	struct socinfo_v2 v2;
@@ -142,6 +152,7 @@ static union {
 	struct socinfo_v5 v5;
 	struct socinfo_v6 v6;
 	struct socinfo_v7 v7;
+	struct socinfo_v8 v8;
 } *socinfo;
 
 static enum msm_cpu cpu_of_id[] = {
@@ -865,6 +876,7 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	device_create_file(msm_soc_device, &msm_soc_attr_vendor);
 
 	switch (legacy_format) {
+	case 8:
 	case 7:
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_pmic_model);
@@ -1054,6 +1066,7 @@ static void socinfo_print(void)
 			socinfo->v5.accessory_chip,
 			socinfo->v6.hw_platform_subtype);
 		break;
+	case 8:
 	case 7:
 		pr_info("%s: v%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u\n",
 			__func__,
@@ -1076,7 +1089,11 @@ static void socinfo_print(void)
 
 int __init socinfo_init(void)
 {
-	socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v7));
+	socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID, sizeof(struct socinfo_v8));
+
+	if (!socinfo)
+		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
+				sizeof(struct socinfo_v7));
 
 	if (!socinfo)
 		socinfo = smem_alloc(SMEM_HW_SW_BUILD_ID,
