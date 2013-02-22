@@ -1001,7 +1001,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	}
 
 	/* Set the CPU latency to 501usec to allow low latency PC modes */
-	pwr->pm_qos_latency = 3;
+	pwr->pm_qos_latency = 501;
 
 	pm_runtime_enable(device->parentdev);
 	register_early_suspend(&device->display_off);
