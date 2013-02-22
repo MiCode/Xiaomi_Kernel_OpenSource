@@ -32,8 +32,6 @@
 #define MAX_MIXER_HEIGHT	2400
 #define MAX_IMG_WIDTH		0x3FFF
 #define MAX_IMG_HEIGHT		0x3FFF
-#define MIN_DST_W		10
-#define MIN_DST_H		10
 #define MAX_DST_W		MAX_MIXER_WIDTH
 #define MAX_DST_H		MAX_MIXER_HEIGHT
 #define MAX_PLANES		4
