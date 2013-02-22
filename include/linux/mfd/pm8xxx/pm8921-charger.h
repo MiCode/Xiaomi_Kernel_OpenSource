@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,6 +188,7 @@ struct pm8921_charger_platform_data {
 	int				btc_delay_ms;
 	int				btc_panic_if_cant_stop_chg;
 	int				stop_chg_upon_expiry;
+	bool				disable_chg_rmvl_wrkarnd;
 };
 
 enum pm8921_charger_source {
