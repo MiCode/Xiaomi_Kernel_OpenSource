@@ -58,7 +58,7 @@ buf_error:
 
 void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
-	struct timeval *tv)
+	struct msm_isp_timestamp *ts)
 {
 	int i;
 	struct msm_isp_event_data buf_event;
@@ -98,12 +98,15 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 				done_buf->buf_idx;
 			vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
 				done_buf->bufq_handle, done_buf->buf_idx,
-				tv, 0);
+				&ts->buf_time, vfe_dev->axi_data.
+				src_info[VFE_PIX_0].frame_id);
 		}
 	}
 
 	if (stats_event->stats_mask) {
-		buf_event.timestamp = *tv;
+		buf_event.timestamp = ts->event_time;
+		buf_event.frame_id =
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 		msm_isp_send_event(vfe_dev, ISP_EVENT_STATS_NOTIFY, &buf_event);
 	}
 }

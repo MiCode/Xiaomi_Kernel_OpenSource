@@ -17,7 +17,7 @@
 
 void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
-	struct timeval *tv);
+	struct msm_isp_timestamp *ts);
 int msm_isp_cfg_stats_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_request_stats_stream(struct vfe_device *vfe_dev, void *arg);

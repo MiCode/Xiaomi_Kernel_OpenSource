@@ -54,27 +54,34 @@ enum msm_isp_camif_update_state {
 	DISABLE_CAMIF_IMMEDIATELY
 };
 
+struct msm_isp_timestamp {
+	/*Monotonic clock for v4l2 buffer*/
+	struct timeval buf_time;
+	/*Wall clock for userspace event*/
+	struct timeval event_time;
+};
+
 struct msm_vfe_irq_ops {
 	void (*read_irq_status) (struct vfe_device *vfe_dev,
 		uint32_t *irq_status0, uint32_t *irq_status1);
 	void (*process_reg_update) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
-		struct timeval *tv);
+		struct msm_isp_timestamp *ts);
 	void (*process_reset_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1);
 	void (*process_halt_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1);
 	void (*process_camif_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
-		struct timeval *tv);
+		struct msm_isp_timestamp *ts);
 	void (*process_axi_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
-		struct timeval *tv);
+		struct msm_isp_timestamp *ts);
 	void (*process_error_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1);
 	void (*process_stats_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
-		struct timeval *tv);
+		struct msm_isp_timestamp *ts);
 };
 
 struct msm_vfe_axi_ops {
@@ -325,7 +332,7 @@ struct msm_vfe_tasklet_queue_cmd {
 	struct list_head list;
 	uint32_t vfeInterruptStatus0;
 	uint32_t vfeInterruptStatus1;
-	struct timeval tv;
+	struct msm_isp_timestamp ts;
 	uint8_t cmd_used;
 };
 
