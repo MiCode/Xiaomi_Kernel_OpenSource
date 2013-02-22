@@ -948,15 +948,9 @@
 		};
 
 		partition@80000 {
-			reg = <0x80000 0xA0000>;
+			reg = <0x100000 0x80000>;
 			qcom,ocmem-part-name = "lp_audio";
-			qcom,ocmem-part-min = <0xA0000>;
-		};
-
-		partition@E0000 {
-			reg = <0x120000 0x20000>;
-			qcom,ocmem-part-name = "other_os";
-			qcom,ocmem-part-min = <0x20000>;
+			qcom,ocmem-part-min = <0x80000>;
 		};
 
 		partition@100000 {
@@ -965,11 +959,6 @@
 			qcom,ocmem-part-min = <0x55000>;
 		};
 
-		partition@140000 {
-			reg = <0x140000 0x40000>;
-			qcom,ocmem-part-name = "sensors";
-			qcom,ocmem-part-min = <0x40000>;
-		};
 	};
 
 	rpm_bus: qcom,rpm-smd {
