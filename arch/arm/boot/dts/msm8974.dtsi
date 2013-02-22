@@ -60,6 +60,11 @@
 		clock-frequency = <19200000>;
 	};
 
+	qcom,mpm-counter@fc4a3000 {
+		compatible = "qcom,mpm-counter";
+		reg = <0xfc4a3000 0x1000>;
+	};
+
 	qcom,vidc@fdc00000 {
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
