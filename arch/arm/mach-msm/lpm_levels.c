@@ -205,6 +205,8 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 	int best_level_iter = msm_lpm_level_count + 1;
 	bool irqs_detect = false;
 	bool gpio_detect = false;
+	bool modify_event_timer;
+	uint32_t next_wakeup_us = time_param->sleep_us;
 
 	if (!msm_lpm_levels)
 		return NULL;
@@ -219,6 +221,8 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 	for (i = 0; i < msm_lpm_level_count; i++) {
 		struct msm_rpmrs_level *level = &msm_lpm_levels[i];
 
+		modify_event_timer = false;
+
 		if (!level->available)
 			continue;
 
@@ -226,6 +230,23 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 			continue;
 
 		if (time_param->latency_us < level->latency_us)
+			continue;
+
+		if (time_param->next_event_us &&
+			time_param->next_event_us < level->latency_us)
+			continue;
+
+		if (time_param->next_event_us) {
+			if ((time_param->next_event_us < time_param->sleep_us)
+			|| ((time_param->next_event_us - level->latency_us) <
+				time_param->sleep_us)) {
+				modify_event_timer = true;
+				next_wakeup_us = time_param->next_event_us -
+						level->latency_us;
+			}
+		}
+
+		if (next_wakeup_us <= level->time_overhead_us)
 			continue;
 
 		if ((sleep_mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE) &&
@@ -238,19 +259,19 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 			if (!cpu && msm_rpm_waiting_for_ack())
 					break;
 
-		if (time_param->sleep_us <= 1) {
+		if (next_wakeup_us <= 1) {
 			pwr = level->energy_overhead;
-		} else if (time_param->sleep_us <= level->time_overhead_us) {
-			pwr = level->energy_overhead / time_param->sleep_us;
-		} else if ((time_param->sleep_us >> 10)
+		} else if (next_wakeup_us <= level->time_overhead_us) {
+			pwr = level->energy_overhead / next_wakeup_us;
+		} else if ((next_wakeup_us >> 10)
 				> level->time_overhead_us) {
 			pwr = level->steady_state_power;
 		} else {
 			pwr = level->steady_state_power;
 			pwr -= (level->time_overhead_us *
 				level->steady_state_power) /
-						time_param->sleep_us;
-			pwr += level->energy_overhead / time_param->sleep_us;
+						next_wakeup_us;
+			pwr += level->energy_overhead / next_wakeup_us;
 		}
 
 		if (!best_level || best_level->rs_limits.power[cpu] >= pwr) {
@@ -261,6 +282,14 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 			best_level_iter = i;
 			if (power)
 				*power = pwr;
+			if (modify_event_timer &&
+				(sleep_mode !=
+					MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT))
+				time_param->modified_time_us =
+					time_param->next_event_us -
+						best_level->latency_us;
+			else
+				time_param->modified_time_us = 0;
 		}
 	}
 	if (best_level && !lpm_level_permitted(best_level_iter))
