@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,9 @@
  * @uart_rx_gpio: GPIO number for UART Rx Line.
  * @uart_cts_gpio: GPIO number for UART CTS Line.
  * @uart_rfr_gpio: GPIO number for UART RFR Line.
+ * @set_uart_clk_zero: use this if setting UART Clock to zero is required
+ * It is mainly required where same UART is used across different processor.
+ * Make sure that Clock driver for platform support setting clock rate to zero.
  * @use_pm: use this to enable power management
  * @line: Used to set UART Port number.
  */
@@ -32,6 +35,7 @@ struct msm_serial_hslite_platform_data {
 	unsigned uart_rx_gpio;
 	unsigned uart_cts_gpio;
 	unsigned uart_rfr_gpio;
+	bool set_uart_clk_zero;
 	bool use_pm;
 	int line;
 };

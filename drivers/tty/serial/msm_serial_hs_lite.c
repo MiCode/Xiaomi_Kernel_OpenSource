@@ -2,7 +2,7 @@
  * drivers/serial/msm_serial.c - driver for msm7k serial device and console
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1257,6 +1257,9 @@ static void msm_hsl_power(struct uart_port *port, unsigned int state,
 {
 	int ret;
 	struct msm_hsl_port *msm_hsl_port = UART_TO_MSM(port);
+	struct platform_device *pdev = to_platform_device(port->dev);
+	const struct msm_serial_hslite_platform_data *pdata =
+					pdev->dev.platform_data;
 
 	switch (state) {
 	case 0:
@@ -1268,9 +1271,11 @@ static void msm_hsl_power(struct uart_port *port, unsigned int state,
 		break;
 	case 3:
 		clk_en(port, 0);
-		ret = clk_set_rate(msm_hsl_port->clk, 0);
-		if (ret)
-			pr_err("Error setting UART clock rate to zero.\n");
+		if (pdata && pdata->set_uart_clk_zero) {
+			ret = clk_set_rate(msm_hsl_port->clk, 0);
+			if (ret)
+				pr_err("Error setting UART clock rate to zero.\n");
+		}
 		break;
 	default:
 		pr_err("Unknown PM state %d\n", state);
