@@ -1123,8 +1123,8 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		}
 		mutex_lock(&core->lock);
 		core->state = VIDC_CORE_UNINIT;
-		call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
 		mutex_unlock(&core->lock);
+		call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
 		msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
 	}
 core_already_uninited:
