@@ -283,11 +283,6 @@
 	status = "ok";
 };
 
-&ehci {
-	status = "ok";
-	vbus-supply = <&usb2_otg_sw>;
-};
-
 &usb3 {
 	qcom,otg-capability;
 };
