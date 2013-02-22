@@ -292,6 +292,7 @@ struct diagchar_dev {
 	struct diag_request *write_ptr_mdm;
 #endif
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+	spinlock_t hsic_ready_spinlock;
 	/* common for all bridges */
 	struct work_struct diag_disconnect_work;
 	/* SGLTE variables */
