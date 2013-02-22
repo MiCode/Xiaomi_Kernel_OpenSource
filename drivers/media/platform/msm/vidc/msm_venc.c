@@ -913,7 +913,7 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		case V4L2_MPEG_VIDEO_H264_LEVEL_4_2:
 			return HAL_H264_LEVEL_42;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_0:
-			return HAL_H264_LEVEL_3;
+			return HAL_H264_LEVEL_5;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_1:
 			return HAL_H264_LEVEL_51;
 		default:
