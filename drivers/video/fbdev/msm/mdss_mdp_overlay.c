@@ -748,12 +748,6 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 		ret = mdss_mdp_overlay_free_fb_pipe(mfd);
 	} else {
 		ret = mdss_mdp_overlay_queue(mfd, req);
-
-		if ((ret == 0) && (mfd->panel.type == WRITEBACK_PANEL)) {
-			mutex_unlock(&mfd->ov_lock);
-			ret = mdss_mdp_overlay_kickoff(mfd->ctl);
-			return ret;
-		}
 	}
 
 	mutex_unlock(&mfd->ov_lock);
