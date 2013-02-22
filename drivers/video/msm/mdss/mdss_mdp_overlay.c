@@ -1330,6 +1330,11 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 	rc = mdss_mdp_ctl_start(mfd->ctl);
 	if (rc == 0) {
 		atomic_inc(&ov_active_panels);
+
+		if (mfd->vsync_pending) {
+			mfd->vsync_pending = 0;
+			mdss_mdp_overlay_vsync_ctrl(mfd, mfd->vsync_pending);
+		}
 	} else {
 		mdss_mdp_ctl_destroy(mfd->ctl);
 		mfd->ctl = NULL;
