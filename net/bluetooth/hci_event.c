@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2010-2012 The Linux Foundation. All rights reserved.
+   Copyright (c) 2000-2001, 2010-2013 The Linux Foundation. All rights reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -2046,7 +2046,7 @@ static inline void hci_remote_features_evt(struct hci_dev *hdev, struct sk_buff 
 							sizeof(cp), &cp);
 		goto unlock;
 	} else  if (!(lmp_ssp_capable(conn)) && conn->auth_initiator &&
-		(conn->pending_sec_level == BT_SECURITY_HIGH)) {
+		(conn->pending_sec_level == BT_SECURITY_VERY_HIGH)) {
 		conn->pending_sec_level = BT_SECURITY_MEDIUM;
 	}
 
@@ -2853,14 +2853,14 @@ static inline void hci_remote_ext_features_evt(struct hci_dev *hdev, struct sk_b
 
 		conn->ssp_mode = (ev->features[0] & 0x01);
 		/*In case if remote device ssp supported/2.0 device
-		reduce the security level to MEDIUM if it is HIGH*/
+		reduce the security level to MEDIUM if it is VERY HIGH*/
 		if (!conn->ssp_mode && conn->auth_initiator &&
-			(conn->pending_sec_level == BT_SECURITY_HIGH))
+			(conn->pending_sec_level == BT_SECURITY_VERY_HIGH))
 			conn->pending_sec_level = BT_SECURITY_MEDIUM;
 
 		if (conn->ssp_mode && conn->auth_initiator &&
 			conn->io_capability != 0x03) {
-			conn->pending_sec_level = BT_SECURITY_HIGH;
+			conn->pending_sec_level = BT_SECURITY_VERY_HIGH;
 			conn->auth_type = HCI_AT_DEDICATED_BONDING_MITM;
 		}
 	}

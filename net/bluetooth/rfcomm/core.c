@@ -262,6 +262,7 @@ static inline int rfcomm_check_security(struct rfcomm_dlc *d)
 	__u8 auth_type;
 
 	switch (d->sec_level) {
+	case BT_SECURITY_VERY_HIGH:
 	case BT_SECURITY_HIGH:
 		auth_type = HCI_AT_GENERAL_BONDING_MITM;
 		break;
@@ -2163,7 +2164,8 @@ static void rfcomm_security_cfm(struct hci_conn *conn, u8 status, u8 encrypt)
 				set_bit(RFCOMM_SEC_PENDING, &d->flags);
 				rfcomm_dlc_set_timer(d, RFCOMM_AUTH_TIMEOUT);
 				continue;
-			} else if (d->sec_level == BT_SECURITY_HIGH) {
+			} else if (d->sec_level == BT_SECURITY_HIGH ||
+				d->sec_level == BT_SECURITY_VERY_HIGH) {
 				__rfcomm_dlc_close(d, ECONNREFUSED);
 				continue;
 			}
