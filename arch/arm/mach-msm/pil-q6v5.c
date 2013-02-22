@@ -167,7 +167,7 @@ void pil_q6v5_shutdown(struct pil_desc *pil)
 
 	/* Assert Q6 resets */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_RESET);
-	val = (Q6SS_CORE_ARES | Q6SS_BUS_ARES_ENA);
+	val |= (Q6SS_CORE_ARES | Q6SS_BUS_ARES_ENA);
 	writel_relaxed(val, drv->reg_base + QDSP6SS_RESET);
 
 	/* Kill power at block headswitch */
