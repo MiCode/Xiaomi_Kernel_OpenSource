@@ -59,12 +59,12 @@ struct wcd9xxx_i2c {
 };
 
 static char *taiko_supplies[] = {
-	"cdc-vdd-buck", "cdc-vdd-tx-h", "cdc-vdd-rx-h", "cdc-vddpx-1",
+	WCD9XXX_SUPPLY_BUCK_NAME, "cdc-vdd-tx-h", "cdc-vdd-rx-h", "cdc-vddpx-1",
 	"cdc-vdd-a-1p2v", "cdc-vddcx-1", "cdc-vddcx-2",
 };
 
 static char *tapan_supplies[] = {
-	"cdc-vdd-buck", "cdc-vdd-h", "cdc-vdd-px",
+	WCD9XXX_SUPPLY_BUCK_NAME, "cdc-vdd-h", "cdc-vdd-px",
 	"cdc-vdd-a-1p2v", "cdc-vdd-cx"
 };
 
