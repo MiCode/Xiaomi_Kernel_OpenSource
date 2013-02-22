@@ -829,6 +829,17 @@ static void mxt_input_button(struct mxt_data *data, struct mxt_message *message)
 	}
 }
 
+static void mxt_release_all(struct mxt_data *data)
+{
+	int id;
+
+	for (id = 0; id < MXT_MAX_FINGER; id++)
+		if (data->finger[id].status)
+			data->finger[id].status = MXT_RELEASE;
+
+	mxt_input_report(data, 0);
+}
+
 static void mxt_input_touchevent(struct mxt_data *data,
 				      struct mxt_message *message, int id)
 {
@@ -839,6 +850,11 @@ static void mxt_input_touchevent(struct mxt_data *data,
 	int y;
 	int area;
 	int pressure;
+
+	if (status & MXT_SUPPRESS) {
+		mxt_release_all(data);
+		return;
+	}
 
 	x = (message->message[1] << 4) | ((message->message[3] >> 4) & 0xf);
 	y = (message->message[2] << 4) | ((message->message[3] & 0xf));
@@ -921,18 +937,7 @@ static void mxt_handle_key_array(struct mxt_data *data,
 	data->keyarray_old = data->keyarray_new;
 }
 
-static void mxt_release_all(struct mxt_data *data)
-{
-	int id;
-
-	for (id = 0; id < MXT_MAX_FINGER; id++)
-		if (data->finger[id].status)
-			data->finger[id].status = MXT_RELEASE;
-
-	mxt_input_report(data, 0);
-}
-
-static void mxt_handle_touch_supression(struct mxt_data *data, u8 status)
+static void mxt_handle_touch_suppression(struct mxt_data *data, u8 status)
 {
 	dev_dbg(&data->client->dev, "touch suppression\n");
 	/* release all touches */
@@ -986,7 +991,7 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 
 		id = reportid - data->t9_min_reportid;
 
-		 /* check whether report id is part of T9,T15 or T42*/
+		 /* check whether report id is part of T9, T15 or T42 */
 		if (reportid >= data->t9_min_reportid &&
 					reportid <= data->t9_max_reportid)
 			mxt_input_touchevent(data, &message, id);
@@ -994,8 +999,9 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 					reportid <= data->t15_max_reportid)
 			mxt_handle_key_array(data, &message);
 		else if (reportid >= data->t42_min_reportid &&
-					reportid <= data->t42_max_reportid)
-			mxt_handle_touch_supression(data, message.message[0]);
+				reportid <= data->t42_max_reportid)
+			mxt_handle_touch_suppression(data,
+					message.message[0]);
 		else
 			mxt_dump_message(dev, &message);
 	} while (reportid != 0xff);
