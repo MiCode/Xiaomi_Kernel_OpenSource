@@ -25,6 +25,11 @@
 	compatible = "qcom,msm8974";
 	interrupt-parent = <&intc>;
 
+	aliases {
+		spi0 = &spi_0;
+		spi7 = &spi_7;
+	};
+
 	intc: interrupt-controller@F9000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;
@@ -381,9 +386,8 @@
 		qcom,bam-dma-res-pipes = <6>;
 	};
 
-	spi_epm: spi@f9966000 {
+	spi_7: spi_epm: spi@f9966000 {
 		compatible = "qcom,spi-qup-v2";
-		cell-index = <7>;
 		reg = <0xf9966000 0x1000>;
 		interrupts = <0 104 0>;
 		spi-max-frequency = <19200000>;
@@ -572,8 +576,7 @@
 		qcom,i2c-src-freq = <19200000>;
 	};
 
-	spi@f9923000 {
-		cell-index = <0>;
+	spi_0: spi@f9923000 {
 		compatible = "qcom,spi-qup-v2";
 		reg = <0xf9923000 0x1000>;
 		interrupts = <0 95 0>;
