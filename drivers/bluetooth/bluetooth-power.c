@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2010, 2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,8 +20,42 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/rfkill.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/delay.h>
+
+static struct of_device_id ar3002_match_table[] = {
+	{	.compatible = "qca,ar3002" },
+	{}
+};
+
+static int bt_reset_gpio;
 
 static bool previous;
+
+static int bluetooth_power(int on)
+{
+	int rc;
+
+	pr_debug("%s  bt_gpio= %d\n", __func__, bt_reset_gpio);
+	if (on) {
+		rc = gpio_direction_output(bt_reset_gpio, 1);
+		if (rc) {
+			pr_err("%s: Unable to set direction\n", __func__);
+			return rc;
+		}
+		msleep(100);
+	} else {
+		gpio_set_value(bt_reset_gpio, 0);
+		rc = gpio_direction_input(bt_reset_gpio);
+		if (rc) {
+			pr_err("%s: Unable to set direction\n", __func__);
+			return rc;
+		}
+		msleep(100);
+	}
+	return 0;
+}
 
 static int bluetooth_toggle_radio(void *data, bool blocked)
 {
@@ -90,8 +124,36 @@ static int __devinit bt_power_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "%s\n", __func__);
 
 	if (!pdev->dev.platform_data) {
-		dev_err(&pdev->dev, "platform data not initialized\n");
-		return -ENOSYS;
+		/* Update the platform data if the
+		device node exists as part of device tree.*/
+		if (pdev->dev.of_node) {
+			pdev->dev.platform_data = bluetooth_power;
+		} else {
+			dev_err(&pdev->dev, "device node not set\n");
+			return -ENOSYS;
+		}
+	}
+	if (pdev->dev.of_node) {
+		bt_reset_gpio = of_get_named_gpio(pdev->dev.of_node,
+							"qca,bt-reset-gpio", 0);
+		if (bt_reset_gpio < 0) {
+			pr_err("bt-reset-gpio not available");
+			return bt_reset_gpio;
+		}
+	}
+
+	ret = gpio_request(bt_reset_gpio, "bt sys_rst_n");
+	if (ret) {
+		pr_err("%s: unable to request gpio %d (%d)\n",
+			__func__, bt_reset_gpio, ret);
+		return ret;
+	}
+
+	/* When booting up, de-assert BT reset pin */
+	ret = gpio_direction_output(bt_reset_gpio, 0);
+	if (ret) {
+		pr_err("%s: Unable to set direction\n", __func__);
+		return ret;
 	}
 
 	ret = bluetooth_power_rfkill_probe(pdev);
@@ -114,6 +176,7 @@ static struct platform_driver bt_power_driver = {
 	.driver = {
 		.name = "bt_power",
 		.owner = THIS_MODULE,
+		.of_match_table = ar3002_match_table,
 	},
 };
 
