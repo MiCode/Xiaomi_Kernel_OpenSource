@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 #define DCI_EVENT_TYPE		-2
 #define SET_LOG_MASK		1
 #define DISABLE_LOG_MASK	0
-#define MAX_EVENT_SIZE		100
+#define MAX_EVENT_SIZE		512
 
 /* 16 log code categories, each has:
  * 1 bytes equip id + 1 dirty byte + 512 byte max log mask
