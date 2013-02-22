@@ -362,9 +362,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	struct v4l2_event dqevent;
-	struct v4l2_control control = {0};
 	struct msm_vidc_cb_event *event_notify;
-	int rc = 0;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
 		dqevent.id = 0;
@@ -372,16 +370,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 		switch (event_notify->hal_event_type) {
 		case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
 			dqevent.type =
-				V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			control.id =
-				V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER;
-			rc = v4l2_g_ctrl(&inst->ctrl_handler, &control);
-			if (rc)
-				dprintk(VIDC_WARN,
-					"Failed to get Smooth streamng flag\n");
-			if (!rc && control.value == true)
-				dqevent.type =
-					V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
+				V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
 			break;
 		case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 			dqevent.type =
