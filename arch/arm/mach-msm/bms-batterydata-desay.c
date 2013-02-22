@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -83,4 +83,5 @@ struct bms_battery_data desay_5200_data = {
 	.pc_temp_ocv_lut	= &desay_5200_pc_temp_ocv,
 	.pc_sf_lut		= &desay_5200_pc_sf,
 	.default_rbatt_mohm	= 156,
+	.rbatt_capacitive_mohm	= 50,
 };
