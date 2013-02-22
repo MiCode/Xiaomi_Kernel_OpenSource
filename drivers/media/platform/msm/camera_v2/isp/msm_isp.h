@@ -242,11 +242,15 @@ struct msm_vfe_axi_stream {
 	uint32_t frame_based;
 	uint32_t framedrop_period;
 	uint32_t framedrop_pattern;
+	uint32_t num_burst_capture;/*number of frame to capture*/
 	uint32_t init_frame_drop;
 	uint32_t burst_frame_count;/*number of sof before burst stop*/
-	uint32_t num_burst_capture;/*number of frame to capture*/
-	uint8_t auto_trigger_stop;
 	uint8_t framedrop_update;
+
+	/*Run time update variables*/
+	uint32_t runtime_init_frame_drop;
+	uint32_t runtime_burst_frame_count;/*number of sof before burst stop*/
+	uint8_t runtime_framedrop_update;
 };
 
 struct msm_vfe_axi_composite_info {
