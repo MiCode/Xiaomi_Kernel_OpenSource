@@ -382,13 +382,9 @@
 			<40  95>;
 	};
 
-	qcom,pc-cntr@fe805664 {
-		compatible = "qcom,pc-cntr";
-		reg = <0xfe805664 0x40>;
-	};
-
-	qcom,pm-8x60 {
+	qcom,pm-8x60@fe805664 {
 		compatible = "qcom,pm-8x60";
+		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = <0>; /*MSM_PC_TZ_L2_INT */
 		qcom,use-sync-timer;
 	};
