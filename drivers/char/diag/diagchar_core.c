@@ -516,10 +516,59 @@ exit:
 	*pnum_data = num_data;
 	return exit_stat;
 }
+
+static void diag_update_data_ready(int index)
+{
+	int clear_bit = 1;
+	unsigned long hsic_lock_flags;
+	unsigned long ready_lock_flags;
+	int i;
+
+	/*
+	 * Determine whether the data_ready USER_SPACE_DATA_TYPE bit
+	 * should be updated/cleared or not. There is a race condition that
+	 * can occur when in MEMORY_DEVICE_MODE with the hsic data.
+	 * When new hsic data arrives we prepare the data so it can
+	 * later be copied to userspace.  We set the USER_SPACE_DATA_TYPE
+	 * bit in data ready at that time. We later copy the hsic data
+	 * to userspace and clear the USER_SPACE_DATA_TYPE bit in
+	 * data ready. The race condition occurs if new data arrives (bit set)
+	 * while we are processing the current data and sending
+	 * it to userspace (bit clear).  The clearing of the bit can
+	 * overwrite the setting of the bit.
+	 */
+
+	spin_lock_irqsave(&driver->hsic_ready_spinlock, ready_lock_flags);
+	for (i = 0; i < MAX_HSIC_CH; i++) {
+		if (diag_hsic[i].hsic_inited) {
+			spin_lock_irqsave(&diag_hsic[i].hsic_spinlock,
+							hsic_lock_flags);
+			if ((diag_hsic[i].num_hsic_buf_tbl_entries > 0) &&
+				diag_hsic[i].hsic_device_enabled &&
+				diag_hsic[i].hsic_ch) {
+				/* New data do not clear the bit */
+				clear_bit = 0;
+			}
+			spin_unlock_irqrestore(&diag_hsic[i].hsic_spinlock,
+							hsic_lock_flags);
+			if (!clear_bit)
+				break;
+		}
+	}
+
+	if (clear_bit)
+		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+
+	spin_unlock_irqrestore(&driver->hsic_ready_spinlock, ready_lock_flags);
+}
 #else
 inline uint16_t diag_get_remote_device_mask(void) { return 0; }
 inline int diag_copy_remote(char __user *buf, size_t count, int *pret,
 			    int *pnum_data) { return 0; }
+static void diag_update_data_ready(int index)
+{
+	driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+}
 #endif
 
 int diag_command_reg(unsigned long ioarg)
@@ -1164,7 +1213,7 @@ drop:
 		/* copy number of data fields */
 		COPY_USER_SPACE_OR_EXIT(buf+4, num_data, 4);
 		ret -= 4;
-		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+		diag_update_data_ready(index);
 		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
 			if (driver->smd_data[i].ch)
 				queue_work(driver->diag_wq,
@@ -1750,6 +1799,7 @@ static int __init diagchar_init(void)
 		diag_masks_init();
 		diagfwd_init();
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+		spin_lock_init(&driver->hsic_ready_spinlock);
 		diagfwd_bridge_init(HSIC);
 		diagfwd_bridge_init(HSIC_2);
 		/* register HSIC device */
