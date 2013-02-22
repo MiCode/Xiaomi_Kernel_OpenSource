@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,7 +95,7 @@ static int msm_cpuidle_enter(
 	return ret;
 }
 
-static void __init msm_cpuidle_set_states(void)
+static void __devinit msm_cpuidle_set_states(void)
 {
 	int i = 0;
 	int state_count = 0;
@@ -151,7 +151,7 @@ static void __init msm_cpuidle_set_cpu_statedata(struct cpuidle_device *dev)
 	dev->state_count = state_count; /* Per cpu state count */
 }
 
-int __init msm_cpuidle_init(void)
+int __devinit msm_cpuidle_init(void)
 {
 	unsigned int cpu = 0;
 	int ret = 0;

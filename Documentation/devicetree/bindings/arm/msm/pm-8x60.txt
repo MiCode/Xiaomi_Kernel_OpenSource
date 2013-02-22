@@ -5,6 +5,9 @@ This device sets up different components to do low power modes and registers wit
 the kernel to be notified of idle and suspend states and when called, follows
 through the set of instructions in putting the application cores to the lowest
 power mode possible.
+The PC debug counter reserves 16 registers in the IMEM memory space which maintains
+a count on the state of power collapse on each core. This count will be useful to
+debug the power collapse state on each core.
 
 The required properties for PM-8x60 are:
 
@@ -12,17 +15,19 @@ The required properties for PM-8x60 are:
 
 The optional properties are:
 
+- reg: physical IMEM address reserved for PC counters and the size
 - qcom,use-sync-timer: Indicates whether the target uses the synchronized QTimer.
 - qcom,pc-mode: Indicates the type of power collapse used by the target. The
-           valid values for this are:
+	valid values for this are:
 	0  (Power collapse terminates in TZ; integrated L2 cache controller)
 	1, (Power collapse doesn't terminate in TZ; external L2 cache controller)
 	2  (Power collapse terminates in TZ; external L2 cache controller)
 
 Example:
 
-qcom,pm-8x60 {
+qcom,pm-8x60@fe800664 {
 		compatible = "qcom,pm-8x60";
+		reg = <0xfe800664 0x40>;
 		qcom,pc-mode = <0>;
 		qcom,use-sync-timer;
 	};
