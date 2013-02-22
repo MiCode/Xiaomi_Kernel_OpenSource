@@ -395,7 +395,7 @@ void msm_isp_update_framedrop_count(
 }
 
 void msm_isp_sof_notify(struct vfe_device *vfe_dev,
-	enum msm_vfe_input_src frame_src, struct timeval *tv) {
+	enum msm_vfe_input_src frame_src, struct msm_isp_timestamp *ts) {
 	struct msm_isp_event_data sof_event;
 	switch (frame_src) {
 	case VFE_PIX_0:
@@ -417,7 +417,7 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	}
 
 	sof_event.frame_id = vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-	sof_event.timestamp = *tv;
+	sof_event.timestamp = ts->event_time;
 	msm_isp_send_event(vfe_dev, ISP_EVENT_SOF, &sof_event);
 }
 
@@ -714,17 +714,18 @@ buf_error:
 
 static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, struct msm_isp_buffer *buf,
-	struct timeval *tv)
+	struct msm_isp_timestamp *ts)
 {
 	struct msm_isp_event_data buf_event;
 	uint32_t frame_id = vfe_dev->axi_data.
 		src_info[stream_info->stream_src].frame_id;
-	if (buf && tv) {
+	if (buf && ts) {
 		if (stream_info->buf_divert) {
 			vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
-				buf->bufq_handle, buf->buf_idx, tv, frame_id);
+				buf->bufq_handle, buf->buf_idx,
+				&ts->buf_time, frame_id);
 			buf_event.frame_id = frame_id;
-			buf_event.timestamp = *tv;
+			buf_event.timestamp = ts->event_time;
 			buf_event.u.buf_done.session_id =
 				stream_info->session_id;
 			buf_event.u.buf_done.stream_id =
@@ -736,7 +737,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				vfe_dev, ISP_EVENT_BUF_DIVERT, &buf_event);
 		} else {
 			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
-				buf->bufq_handle, buf->buf_idx, tv, frame_id);
+				buf->bufq_handle, buf->buf_idx,
+				&ts->buf_time, frame_id);
 		}
 	}
 }
@@ -980,7 +982,7 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
-	struct timeval *tv)
+	struct msm_isp_timestamp *ts)
 {
 	int i, rc = 0;
 	struct msm_isp_buffer *done_buf = NULL;
@@ -1026,7 +1028,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				}
 				if (done_buf && !rc)
 					msm_isp_process_done_buf(vfe_dev,
-					stream_info, done_buf, tv);
+					stream_info, done_buf, ts);
 			}
 		}
 		wm_mask &= ~(comp_info->stream_composite_mask);
@@ -1051,7 +1053,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 			}
 			if (done_buf && !rc)
 				msm_isp_process_done_buf(vfe_dev,
-				stream_info, done_buf, tv);
+				stream_info, done_buf, ts);
 		}
 	}
 	return;

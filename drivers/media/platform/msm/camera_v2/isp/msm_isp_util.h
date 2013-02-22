@@ -22,8 +22,6 @@
 #define ISP_DBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
-void msm_isp_gettimeofday(struct timeval *tv);
-
 int msm_isp_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	struct v4l2_event_subscription *sub);
 

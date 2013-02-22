@@ -324,7 +324,7 @@ struct msm_isp_stream_ack {
 };
 
 struct msm_isp_event_data {
-	struct timeval timestamp;
+	struct timeval timestamp; /*Wall clock*/
 	/* if pix is a src frame_id is from camif */
 	uint32_t frame_id;
 	union {

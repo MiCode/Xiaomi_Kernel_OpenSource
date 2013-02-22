@@ -20,13 +20,13 @@
 
 #define MAX_ISP_V4l2_EVENTS 100
 
-void msm_isp_gettimeofday(struct timeval *tv)
+static inline void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
 {
 	struct timespec ts;
-
 	ktime_get_ts(&ts);
-	tv->tv_sec = ts.tv_sec;
-	tv->tv_usec = ts.tv_nsec/1000;
+	time_stamp->buf_time.tv_sec = ts.tv_sec;
+	time_stamp->buf_time.tv_usec = ts.tv_nsec/1000;
+	do_gettimeofday(&(time_stamp->event_time));
 }
 
 int msm_isp_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
@@ -504,7 +504,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	}
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
-	msm_isp_gettimeofday(&queue_cmd->tv);
+	msm_isp_get_timestamp(&queue_cmd->ts);
 	queue_cmd->cmd_used = 1;
 	vfe_dev->taskletq_idx =
 		(vfe_dev->taskletq_idx + 1) % MSM_VFE_TASKLETQ_SIZE;
@@ -520,7 +520,7 @@ void msm_isp_do_tasklet(unsigned long data)
 	struct vfe_device *vfe_dev = (struct vfe_device *) data;
 	struct msm_vfe_irq_ops *irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
-	struct timeval tv;
+	struct msm_isp_timestamp ts;
 	uint32_t irq_status0, irq_status1;
 	while (atomic_read(&vfe_dev->irq_cnt)) {
 		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
@@ -536,7 +536,7 @@ void msm_isp_do_tasklet(unsigned long data)
 		queue_cmd->cmd_used = 0;
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
-		tv = queue_cmd->tv;
+		ts = queue_cmd->ts;
 		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
 		ISP_DBG("%s: status0: 0x%x status1: 0x%x\n",
 			__func__, irq_status0, irq_status1);
@@ -545,13 +545,13 @@ void msm_isp_do_tasklet(unsigned long data)
 		irq_ops->process_halt_irq(vfe_dev,
 			irq_status0, irq_status1);
 		irq_ops->process_camif_irq(vfe_dev,
-			irq_status0, irq_status1, &tv);
+			irq_status0, irq_status1, &ts);
 		irq_ops->process_axi_irq(vfe_dev,
-			irq_status0, irq_status1, &tv);
+			irq_status0, irq_status1, &ts);
 		irq_ops->process_stats_irq(vfe_dev,
-			irq_status0, irq_status1, &tv);
+			irq_status0, irq_status1, &ts);
 		irq_ops->process_reg_update(vfe_dev,
-			irq_status0, irq_status1, &tv);
+			irq_status0, irq_status1, &ts);
 		msm_isp_process_error_info(vfe_dev);
 	}
 }

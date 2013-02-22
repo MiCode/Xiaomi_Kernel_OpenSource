@@ -170,7 +170,8 @@ static void msm_vfe32_process_halt_irq(struct vfe_device *vfe_dev,
 }
 
 static void msm_vfe32_process_camif_irq(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1, struct timeval *tv)
+	uint32_t irq_status0, uint32_t irq_status1,
+	struct msm_isp_timestamp *ts)
 {
 	if (!(irq_status0 & 0x1F))
 		return;
@@ -178,12 +179,13 @@ static void msm_vfe32_process_camif_irq(struct vfe_device *vfe_dev,
 	if (irq_status0 & BIT(0)) {
 		ISP_DBG("%s: PIX0 frame id: %lu\n", __func__,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-		msm_isp_sof_notify(vfe_dev, VFE_PIX_0, tv);
+		msm_isp_sof_notify(vfe_dev, VFE_PIX_0, ts);
 	}
 }
 
 static void msm_vfe32_process_stats_irq(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1, struct timeval *tv)
+	uint32_t irq_status0, uint32_t irq_status1,
+	struct msm_isp_timestamp *ts)
 {
 	/* todo: add stats specific code */
 	return;
@@ -321,7 +323,8 @@ static void msm_vfe32_read_irq_status(struct vfe_device *vfe_dev,
 }
 
 static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1, struct timeval *tv)
+	uint32_t irq_status0, uint32_t irq_status1,
+	struct msm_isp_timestamp *ts)
 {
 	if (!(irq_status0 & 0x20) && !(irq_status1 & 0x1C000000))
 		return;
