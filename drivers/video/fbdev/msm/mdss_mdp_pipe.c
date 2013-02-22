@@ -98,6 +98,9 @@ static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		num_blks = DIV_ROUND_UP(2 * ps.ystride[i],
 			mdss_res->smp_mb_size);
 
+		if (mdss_res->mdp_rev == MDSS_MDP_HW_REV_100)
+			num_blks = roundup_pow_of_two(num_blks);
+
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
 		reserved = mdss_mdp_smp_mmb_reserve(&pipe->smp[i], num_blks);
