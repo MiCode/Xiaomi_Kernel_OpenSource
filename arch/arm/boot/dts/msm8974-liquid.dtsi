@@ -210,6 +210,11 @@
 		enable-active-high;
 	};
 
+	bt_ar3002 {
+		compatible = "qca,ar3002";
+		qca,bt-reset-gpio = <&pm8941_gpios 34 0>;
+	};
+
 	sound {
 		qcom,model = "msm8974-taiko-liquid-snd-card";
 
