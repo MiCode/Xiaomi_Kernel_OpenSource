@@ -706,4 +706,4 @@ module_exit(rmidev_module_exit);
 
 MODULE_AUTHOR("Synaptics, Inc.");
 MODULE_DESCRIPTION("RMI4 RMI_Dev Module");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

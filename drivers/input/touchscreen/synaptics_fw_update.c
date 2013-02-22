@@ -1714,4 +1714,4 @@ module_exit(rmi4_fw_update_module_exit);
 
 MODULE_AUTHOR("Synaptics, Inc.");
 MODULE_DESCRIPTION("RMI4 FW Update Module");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
