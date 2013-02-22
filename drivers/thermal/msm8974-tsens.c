@@ -63,7 +63,7 @@
 #define TSENS_SN_REMOTE_CONFIG(n)	((n) + 0x3c)
 
 #define TSENS_EEPROM(n)			((n) + 0xd0)
-#define TSENS_EEPROM_REDUNDANCY_SEL(n)	((n) + 0x1cc)
+#define TSENS_EEPROM_REDUNDANCY_SEL(n)	((n) + 0x444)
 #define TSENS_EEPROM_BACKUP_REGION(n)	((n) + 0x440)
 
 #define TSENS_MAIN_CALIB_ADDR_RANGE	6
