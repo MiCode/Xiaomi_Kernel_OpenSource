@@ -512,7 +512,9 @@
 
 &slim_msm {
 	taiko_codec {
+		qcom,cdc-micbias1-ext-cap;
 		qcom,cdc-micbias2-ext-cap;
+		qcom,cdc-micbias4-ext-cap;
 	};
 };
 
