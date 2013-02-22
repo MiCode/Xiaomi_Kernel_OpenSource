@@ -33,6 +33,8 @@ static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 		kfree(new_entry);
 		return -EINVAL;
 	}
+	new_entry->session_id = buf_info->session_id;
+	new_entry->stream_id = buf_info->stream_id;
 	list_add_tail(&new_entry->entry, &buf_mngr_dev->buf_qhead);
 	buf_info->index = new_entry->vb2_buf->v4l2_buf.index;
 	return 0;
@@ -44,7 +46,9 @@ static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 	struct msm_get_bufs *bufs, *save;
 	int ret = -EINVAL;
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
-		if (bufs->vb2_buf->v4l2_buf.index == buf_info->index) {
+		if ((bufs->session_id == buf_info->session_id) &&
+			(bufs->stream_id == buf_info->stream_id) &&
+			(bufs->vb2_buf->v4l2_buf.index == buf_info->index)) {
 			bufs->vb2_buf->v4l2_buf.sequence  = buf_info->frame_id;
 			bufs->vb2_buf->v4l2_buf.timestamp = buf_info->timestamp;
 			ret = buf_mngr_dev->vb2_ops.buf_done
@@ -67,7 +71,9 @@ static int msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	int ret = -EINVAL;
 
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
-		if (bufs->vb2_buf->v4l2_buf.index == buf_info->index) {
+		if ((bufs->session_id == buf_info->session_id) &&
+			(bufs->stream_id == buf_info->stream_id) &&
+			(bufs->vb2_buf->v4l2_buf.index == buf_info->index)) {
 			ret = buf_mngr_dev->vb2_ops.put_buf(bufs->vb2_buf,
 				buf_info->session_id, buf_info->stream_id);
 			list_del_init(&bufs->entry);
