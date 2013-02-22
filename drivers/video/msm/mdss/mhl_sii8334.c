@@ -1712,18 +1712,18 @@ static int mhl_i2c_probe(struct i2c_client *client,
 		struct input_dev *input = mhl_ctrl->input;
 
 		mhl_ctrl->rcp_key_code_tbl = vmalloc(
-			ARRAY_SIZE(support_rcp_key_code_tbl));
+			sizeof(support_rcp_key_code_tbl));
 		if (!mhl_ctrl->rcp_key_code_tbl) {
 			pr_err("%s: no alloc mem for rcp keycode tbl\n",
 			       __func__);
 			return -ENOMEM;
 		}
 
+		mhl_ctrl->rcp_key_code_tbl_len = sizeof(
+			support_rcp_key_code_tbl);
 		memcpy(mhl_ctrl->rcp_key_code_tbl,
 		       &support_rcp_key_code_tbl[0],
-		       ARRAY_SIZE(support_rcp_key_code_tbl));
-		mhl_ctrl->rcp_key_code_tbl_len = ARRAY_SIZE(
-			support_rcp_key_code_tbl);
+		       mhl_ctrl->rcp_key_code_tbl_len);
 
 		input->phys = "cbus/input0";
 		input->id.bustype = BUS_VIRTUAL;
