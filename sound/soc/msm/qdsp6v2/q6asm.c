@@ -106,6 +106,9 @@ static int in_cont_index;
 static int out_cold_index;
 static char *out_buffer;
 static char *in_buffer;
+static int set_custom_topology;
+static int topology_map_handle;
+
 static int audio_output_latency_dbgfs_open(struct inode *inode,
 							struct file *file)
 {
@@ -341,6 +344,90 @@ static void q6asm_session_free(struct audio_client *ac)
 	return;
 }
 
+void send_asm_custom_topology(struct audio_client *ac)
+{
+	struct acdb_cal_block		cal_block;
+	struct cmd_set_topologies	asm_top;
+	struct audio_buffer		*buf;
+	struct asm_buffer_node		*buf_node = NULL;
+	struct list_head		*ptr, *next;
+	int				result;
+	int				size = 4096;
+
+	get_asm_custom_topology(&cal_block);
+	if (cal_block.cal_size == 0) {
+		pr_debug("%s: no cal to send addr= 0x%x\n",
+				__func__, cal_block.cal_paddr);
+		goto done;
+	}
+
+	if (set_custom_topology) {
+		/* Only call this once */
+		set_custom_topology = 0;
+
+		/* Use first asm buf to map memory */
+		buf = kzalloc(sizeof(struct audio_buffer), GFP_KERNEL);
+		if (!buf) {
+			pr_debug("%s: could not allocate temp memory\n",
+				__func__);
+			goto done;
+		}
+		buf[0].phys = cal_block.cal_paddr;
+		ac->port[0].buf = buf;
+
+		result = q6asm_memory_map_regions(ac, 0, size, 1, 1);
+		if (result < 0) {
+			pr_err("%s: mmap did not work! addr = 0x%x, size = %d\n",
+				__func__, cal_block.cal_paddr,
+				cal_block.cal_size);
+			goto done;
+		}
+
+		list_for_each_safe(ptr, next, &ac->port[IN].mem_map_handle) {
+			buf_node = list_entry(ptr, struct asm_buffer_node,
+						list);
+			if (buf_node->buf_addr_lsw == cal_block.cal_paddr) {
+				topology_map_handle =  buf_node->mmap_hdl;
+				break;
+			}
+		}
+
+		kfree(buf);
+	}
+
+	q6asm_add_hdr(ac, &asm_top.hdr, APR_PKT_SIZE(APR_HDR_SIZE,
+						sizeof(asm_top)), TRUE);
+
+	asm_top.hdr.opcode = ASM_CMD_ADD_TOPOLOGIES;
+	asm_top.payload_addr_lsw = cal_block.cal_paddr;
+	asm_top.payload_addr_msw = 0;
+	asm_top.mem_map_handle = topology_map_handle;
+	asm_top.payload_size = cal_block.cal_size;
+
+	 pr_debug("%s: Sending ASM_CMD_ADD_TOPOLOGIES payload = 0x%x, size = %d, map handle = 0x%x\n",
+		__func__, asm_top.payload_addr_lsw,
+		asm_top.payload_size, asm_top.mem_map_handle);
+
+	result = apr_send_pkt(ac->apr, (uint32_t *) &asm_top);
+	if (result < 0) {
+		pr_err("%s: Set topologies failed payload = 0x%x\n",
+			__func__, cal_block.cal_paddr);
+		goto done;
+	}
+
+	result = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (result < 0) {
+		pr_err("%s: Set topologies failed payload = 0x%x\n",
+			__func__, cal_block.cal_paddr);
+		goto done;
+	}
+
+
+done:
+	return;
+}
+
 int q6asm_audio_client_buf_free(unsigned int dir,
 			struct audio_client *ac)
 {
@@ -562,6 +649,8 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	}
 	atomic_set(&ac->cmd_state, 0);
 	atomic_set(&ac->nowait_cmd_cnt, 0);
+
+	send_asm_custom_topology(ac);
 
 	pr_debug("%s: session[%d]\n", __func__, ac->session);
 
@@ -822,6 +911,8 @@ static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv)
 		apr_reset(this_mmap.apr);
 		atomic_set(&this_mmap.ref_cnt, 0);
 		this_mmap.apr = NULL;
+		reset_custom_topology_flags();
+		set_custom_topology = 1;
 		return 0;
 	}
 	sid = (data->token >> 8) & 0x0F;
@@ -956,6 +1047,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 					(uint32_t *)data->payload, ac->priv);
 		apr_reset(ac->apr);
 		ac->apr = NULL;
+		reset_custom_topology_flags();
+		set_custom_topology = 1;
 		return 0;
 	}
 
@@ -997,6 +1090,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_OPEN_READWRITE_V2:
 		case ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
+		case ASM_CMD_ADD_TOPOLOGIES:
 		pr_debug("%s:Payload = [0x%x]stat[0x%x]\n",
 				__func__, payload[0], payload[1]);
 			if (atomic_read(&ac->cmd_state) && wakeup_flag) {
@@ -3564,6 +3658,7 @@ static int __init q6asm_init(void)
 {
 	pr_debug("%s\n", __func__);
 	memset(session, 0, sizeof(session));
+	set_custom_topology = 1;
 
 	config_debug_fs_init();
 
