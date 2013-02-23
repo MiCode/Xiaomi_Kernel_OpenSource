@@ -25,6 +25,10 @@ enum venc_framerate_modes {
 	VENC_MODE_VFR,
 };
 
+enum venc_event {
+	VENC_EVENT_HARDWARE_ERROR,
+};
+
 struct mem_region {
 	struct list_head list;
 	u8 *kvaddr;
@@ -64,6 +68,7 @@ struct venc_msg_ops {
 			struct vb2_buffer *buf);
 	void (*ip_buffer_done)(void *cookie, u32 status,
 			struct mem_region *mregion);
+	void (*on_event)(void *cookie, enum venc_event e);
 };
 
 static inline bool mem_region_equals(struct mem_region *a,
