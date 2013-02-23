@@ -111,6 +111,7 @@
 			qcom,calculate-soc-ms = <20000>;
 			qcom,chg-term-ua = <100000>;
 			qcom,batt-type = <0>;
+			qcom,low-voltage-threshold = <3420000>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
