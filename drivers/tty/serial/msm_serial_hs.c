@@ -2861,7 +2861,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 
 		if (unlikely(msm_uport->wakeup.irq < 0)) {
 			ret = -ENXIO;
-			goto unmap_memory;
+			goto deregister_bus_client;
 		}
 
 		if (is_blsp_uart(msm_uport)) {
@@ -2878,7 +2878,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 					IORESOURCE_DMA, "uartdm_channels");
 		if (unlikely(!resource)) {
 			ret =  -ENXIO;
-			goto unmap_memory;
+			goto deregister_bus_client;
 		}
 
 		msm_uport->dma_tx_channel = resource->start;
@@ -2888,7 +2888,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 					IORESOURCE_DMA, "uartdm_crci");
 		if (unlikely(!resource)) {
 			ret = -ENXIO;
-			goto unmap_memory;
+			goto deregister_bus_client;
 		}
 
 		msm_uport->dma_tx_crci = resource->start;
@@ -2905,7 +2905,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	msm_uport->clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(msm_uport->clk)) {
 		ret = PTR_ERR(msm_uport->clk);
-		goto unmap_memory;
+		goto deregister_bus_client;
 	}
 
 	msm_uport->pclk = clk_get(&pdev->dev, "iface_clk");
@@ -2919,7 +2919,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	ret = clk_set_rate(msm_uport->clk, uport->uartclk);
 	if (ret) {
 		printk(KERN_WARNING "Error setting clock rate on UART\n");
-		goto unmap_memory;
+		goto put_clk;
 	}
 
 	msm_uport->hsuart_wq = alloc_workqueue("k_hsuart",
@@ -2928,7 +2928,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		pr_err("%s(): Unable to create workqueue hsuart_wq\n",
 								__func__);
 		ret =  -ENOMEM;
-		goto unmap_memory;
+		goto put_clk;
 	}
 
 	INIT_WORK(&msm_uport->clock_off_w, hsuart_clock_off_work);
@@ -2946,7 +2946,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		ret = msm_hs_sps_init(msm_uport);
 		if (unlikely(ret)) {
 			pr_err("SPS Initialization failed ! err=%d", ret);
-			goto workqueue_destroy;
+			goto destroy_mutex;
 		}
 	}
 
@@ -2989,7 +2989,6 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		uport->line = pdata->userid;
 	ret = uart_add_one_port(&msm_hs_driver, uport);
 	if (!ret) {
-
 		msm_hs_bus_voting(msm_uport, BUS_RESET);
 		clk_disable_unprepare(msm_uport->clk);
 		if (msm_uport->pclk)
@@ -3003,8 +3002,21 @@ err_clock:
 	clk_disable_unprepare(msm_uport->clk);
 	if (msm_uport->pclk)
 		clk_disable_unprepare(msm_uport->pclk);
-workqueue_destroy:
+
+destroy_mutex:
+	mutex_destroy(&msm_uport->clk_mutex);
 	destroy_workqueue(msm_uport->hsuart_wq);
+
+put_clk:
+	if (msm_uport->pclk)
+		clk_put(msm_uport->pclk);
+
+	if (msm_uport->clk)
+		clk_put(msm_uport->clk);
+
+deregister_bus_client:
+	if (is_blsp_uart(msm_uport))
+		msm_bus_scale_unregister_client(msm_uport->bus_perf_client);
 unmap_memory:
 	iounmap(uport->membase);
 	if (is_blsp_uart(msm_uport))
