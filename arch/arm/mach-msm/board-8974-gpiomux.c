@@ -115,6 +115,7 @@ static struct gpiomux_setting lcd_en_act_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_HIGH,
 };
 
 static struct gpiomux_setting lcd_en_sus_cfg = {
@@ -385,6 +386,16 @@ static struct msm_gpiomux_config msm_rumi_blsp_configs[] __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
+	{
+		.gpio = 58,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
+			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
@@ -418,13 +429,6 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 #endif
-	{
-		.gpio = 58,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
-			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
-		},
-	},
 	{
 		.gpio      = 6,		/* BLSP1 QUP2 I2C_DAT */
 		.settings = {
@@ -1007,6 +1011,9 @@ void __init msm_8974_init_gpiomux(void)
 
 	msm_gpiomux_install(msm8974_pri_auxpcm_configs,
 				 ARRAY_SIZE(msm8974_pri_auxpcm_configs));
+
+	msm_gpiomux_install_nowrite(msm_lcd_configs,
+			ARRAY_SIZE(msm_lcd_configs));
 
 	if (machine_is_msm8974_rumi())
 		msm_gpiomux_install(msm_rumi_blsp_configs,
