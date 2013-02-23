@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -367,7 +367,42 @@ int32_t qpnp_adc_scale_pmic_therm(int32_t adc_code,
 }
 EXPORT_SYMBOL_GPL(qpnp_adc_scale_pmic_therm);
 
-/* Scales the ADC code to 0.001 degrees C using the map
+int32_t qpnp_adc_scale_millidegc_pmic_voltage_thr(
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{
+	struct qpnp_vadc_linear_graph btm_param;
+	int64_t *low_output = 0, *high_output = 0;
+	int rc = 0;
+
+	rc = qpnp_get_vadc_gain_and_offset(&btm_param, CALIB_ABSOLUTE);
+	if (rc < 0) {
+		pr_err("Could not acquire gain and offset\n");
+		return rc;
+	}
+
+	/* Convert to Kelvin and account for voltage to be written as 2mV/K */
+	*low_output = (param->low_temp + KELVINMIL_DEGMIL) * 2;
+	/* Convert to voltage threshold */
+	*low_output *= btm_param.dy;
+	do_div(*low_output, btm_param.adc_vref);
+	*low_output += btm_param.adc_gnd;
+
+	/* Convert to Kelvin and account for voltage to be written as 2mV/K */
+	*high_output = (param->high_temp + KELVINMIL_DEGMIL) * 2;
+	/* Convert to voltage threshold */
+	*high_output *= btm_param.dy;
+	do_div(*high_output, btm_param.adc_vref);
+	*high_output += btm_param.adc_gnd;
+
+	low_threshold = (uint32_t *) low_output;
+	high_threshold = (uint32_t *) high_output;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qpnp_adc_scale_millidegc_pmic_voltage_thr);
+
+/* Scales the ADC code to degC using the mapping
  * table for the XO thermistor.
  */
 int32_t qpnp_adc_tdkntcg_therm(int32_t adc_code,
@@ -577,7 +612,8 @@ int32_t qpnp_adc_scale_default(int32_t adc_code,
 }
 EXPORT_SYMBOL_GPL(qpnp_adc_scale_default);
 
-int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_usbid_param *param,
+/* Converts millivolts to ADC high/low threshold code */
+int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 {
 	struct qpnp_vadc_linear_graph usb_param;
@@ -592,10 +628,34 @@ int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_usbid_param *param,
 	do_div(*high_threshold, usb_param.adc_vref);
 	*high_threshold += usb_param.adc_gnd;
 
+	pr_debug("high_volt:%d, low_volt:%d\n", param->high_thr,
+				param->low_thr);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(qpnp_adc_usb_scaler);
 
+int32_t qpnp_adc_vbatt_rscaler(struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{
+	struct qpnp_vadc_linear_graph vbatt_param;
+
+	qpnp_get_vadc_gain_and_offset(&vbatt_param, CALIB_ABSOLUTE);
+
+	*low_threshold = param->low_thr * vbatt_param.dy;
+	do_div(*low_threshold, vbatt_param.adc_vref);
+	*low_threshold += vbatt_param.adc_gnd;
+
+	*high_threshold = param->high_thr * vbatt_param.dy;
+	do_div(*high_threshold, vbatt_param.adc_vref);
+	*high_threshold += vbatt_param.adc_gnd;
+
+	pr_debug("high_volt:%d, low_volt:%d\n", param->high_thr,
+				param->low_thr);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(qpnp_adc_vbatt_rscaler);
+
+/* Converts decidegreesC to voltage based on the mapping table */
 int32_t qpnp_adc_btm_scaler(struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 {
@@ -625,6 +685,8 @@ int32_t qpnp_adc_btm_scaler(struct qpnp_adc_tm_btm_param *param,
 	if (rc)
 		return rc;
 
+	pr_debug("warm_temp:%d and cool_temp:%d\n", param->high_temp,
+				param->low_temp);
 	*high_output *= btm_param.dy;
 	do_div(*high_output, btm_param.adc_vref);
 	*high_output += btm_param.adc_gnd;

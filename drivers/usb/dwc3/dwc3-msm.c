@@ -188,7 +188,7 @@ struct dwc3_msm {
 	enum usb_chg_state	chg_state;
 	int			pmic_id_irq;
 	struct work_struct	id_work;
-	struct qpnp_adc_tm_usbid_param	adc_param;
+	struct qpnp_adc_tm_btm_param	adc_param;
 	struct delayed_work	init_adc_work;
 	bool			id_adc_detect;
 	u8			dcd_retries;
@@ -2159,7 +2159,7 @@ static void dwc3_init_adc_work(struct work_struct *w)
 	mdwc->adc_param.high_thr = adc_high_threshold;
 	mdwc->adc_param.timer_interval = adc_meas_interval;
 	mdwc->adc_param.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
-	mdwc->adc_param.usbid_ctx = mdwc;
+	mdwc->adc_param.btm_ctx = mdwc;
 	mdwc->adc_param.threshold_notification = dwc3_adc_notification;
 
 	ret = qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
