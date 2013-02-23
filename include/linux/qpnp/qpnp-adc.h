@@ -195,7 +195,7 @@ enum qpnp_adc_channel_scaling_param {
 };
 
 /**
- * enum qpnp_adc_scale_fn_type - Scaling function for pm8921 pre calibrated
+ * enum qpnp_adc_scale_fn_type - Scaling function for pm8941 pre calibrated
  *				   digital data relative to ADC reference.
  * %ADC_SCALE_DEFAULT: Default scaling to convert raw adc code to voltage.
  * %ADC_SCALE_BATT_THERM: Conversion to temperature based on btm parameters.
@@ -215,6 +215,26 @@ enum qpnp_adc_scale_fn_type {
 	SCALE_XOTHERM,
 	SCALE_THERM_150K_PULLUP,
 	SCALE_NONE,
+};
+
+
+/**
+ * enum qpnp_adc_tm_rscale_fn_type - Scaling function used to convert the
+ *	channels input voltage/temperature to corresponding ADC code that is
+ *	applied for thresholds. Check the corresponding channels scaling to
+ *	determine the appropriate temperature/voltage units that are passed
+ *	to the scaling function. Example battery follows the power supply
+ *	framework that needs its units to be in decidegreesC so it passes
+ *	deci-degreesC. PA_THERM clients pass the temperature in degrees.
+ *	The order below should match the one in the driver for
+ *	adc_tm_rscale_fn[].
+ */
+enum qpnp_adc_tm_rscale_fn_type {
+	SCALE_R_VBATT = 0,
+	SCALE_RBATT_THERM,
+	SCALE_R_USB_ID,
+	SCALE_RPMIC_THERM,
+	SCALE_RSCALE_NONE,
 };
 
 /**
@@ -560,16 +580,11 @@ enum qpnp_adc_meas_interval_op_ctl {
 };
 
 /**
- * Channel selection registers for each of the 5 configurable measurements
- * Channels allotment is fixed for the given channels below.
- * The USB_ID and BATT_THERM channels are used only by the kernel space
- * USB and Battery drivers.
+ * Channel selection registers for each of the configurable measurements
+ * Channels allotment is set at device config for a channel.
+ * The USB_ID, BATT_THERM, PMIC_THERM and VBAT channels are used by the
+ * kernel space USB, Battery and IADC drivers.
  * The other 3 channels are configurable for use by userspace clients.
- * USB_ID uses QPNP_ADC_TM_M0_ADC_CH_SEL_CTL
- * BATT_TEMP uses QPNP_ADC_TM_M1_ADC_CH_SEL_CTL
- * PA_THERM1 uses QPNP_ADC_TM_M2_ADC_CH_SEL_CTL
- * PA_THERM2 uses QPNP_ADC_TM_M3_ADC_CH_SEL_CTL
- * EMMC_THERM uses QPNP_ADC_TM_M4_ADC_CH_SEL_CTL
  */
 enum qpnp_adc_tm_channel_select	{
 	QPNP_ADC_TM_M0_ADC_CH_SEL_CTL = 0x48,
@@ -577,6 +592,9 @@ enum qpnp_adc_tm_channel_select	{
 	QPNP_ADC_TM_M2_ADC_CH_SEL_CTL = 0x70,
 	QPNP_ADC_TM_M3_ADC_CH_SEL_CTL = 0x78,
 	QPNP_ADC_TM_M4_ADC_CH_SEL_CTL = 0x80,
+	QPNP_ADC_TM_M5_ADC_CH_SEL_CTL = 0x88,
+	QPNP_ADC_TM_M6_ADC_CH_SEL_CTL = 0x90,
+	QPNP_ADC_TM_M7_ADC_CH_SEL_CTL = 0x98,
 	QPNP_ADC_TM_CH_SELECT_NONE
 };
 
@@ -652,42 +670,37 @@ enum qpnp_state_request {
 };
 
 /**
- * struct qpnp_adc_tm_usbid_param - Represent USB_ID threshold
- *				monitoring configuration.
- * @high_thr: High voltage threshold for which notification is requested.
- * @low_thr: Low voltage threshold for which notification is requested.
- * @state_request: Enable/disable the corresponding high and low voltage
- *		thresholds.
- * @timer_interval: Select polling rate from qpnp_adc_meas_timer_1 type.
- * @threshold_notification: Notification callback once threshold are crossed.
- * @usbid_ctx: A context of void type.
- */
-struct qpnp_adc_tm_usbid_param {
-	int32_t					high_thr;
-	int32_t					low_thr;
-	enum qpnp_state_request			state_request;
-	enum qpnp_adc_meas_timer_1		timer_interval;
-	void					*usbid_ctx;
-	void	(*threshold_notification) (enum qpnp_tm_state state,
-				void *ctx);
-};
-
-/**
  * struct qpnp_adc_tm_btm_param - Represent Battery temperature threshold
  *				monitoring configuration.
  * @high_temp: High temperature threshold for which notification is requested.
  * @low_temp: Low temperature threshold for which notification is requested.
+ * @high_thr_voltage: High voltage for which notification is requested.
+ * @low_thr_voltage: Low voltage for which notification is requested.
  * @state_request: Enable/disable the corresponding high and low temperature
  *		thresholds.
- * @timer_interval: Select polling rate from qpnp_adc_meas_timer_2 type.
+ * @timer_interval1: Select polling rate from qpnp_adc_meas_timer_1 type.
+ * @timer_interval2: Select polling rate from qpnp_adc_meas_timer_2 type.
+ * @timer_interval3: Select polling rate from qpnp_adc_meas_timer_3 type.
  * @btmid_ctx: A context of void type.
  * @threshold_notification: Notification callback once threshold are crossed.
+ * units to be used for High/Low temperature and voltage notification -
+ * This depends on the clients usage. Check the rscaling function
+ * for the appropriate channel nodes.
+ * @Batt therm clients temperature units is decidegreesCentigrate.
+ * @USB_ID inputs the voltage units in milli-volts.
+ * @PA_THERM inputs the units in degC.
+ * @PMIC_THERM inputs the units in millidegC.
  */
 struct qpnp_adc_tm_btm_param {
 	int32_t					high_temp;
 	int32_t					low_temp;
+	int32_t					high_thr;
+	int32_t					low_thr;
+	enum qpnp_vadc_channels			channel;
 	enum qpnp_state_request			state_request;
-	enum qpnp_adc_meas_timer_2		timer_interval;
+	enum qpnp_adc_meas_timer_1		timer_interval;
+	enum qpnp_adc_meas_timer_2		timer_interval2;
+	enum qpnp_adc_meas_timer_3		timer_interval3;
 	void					*btm_ctx;
 	void	(*threshold_notification) (enum qpnp_tm_state state,
 						void *ctx);
@@ -838,6 +851,17 @@ struct qpnp_vadc_scale_fn {
 		const struct qpnp_adc_properties *,
 		const struct qpnp_vadc_chan_properties *,
 		struct qpnp_vadc_result *);
+};
+
+/**
+ * struct qpnp_adc_tm_reverse_scale_fn - Reverse scaling prototype
+ * @chan: Function pointer to one of the scaling functions
+ *	which takes the adc properties, channel properties,
+ *	and returns the physical result
+ */
+struct qpnp_adc_tm_reverse_scale_fn {
+	int32_t (*chan) (struct qpnp_adc_tm_btm_param *,
+		uint32_t *, uint32_t *);
 };
 
 /**
@@ -1107,6 +1131,21 @@ static inline int32_t qpnp_adc_tm_scaler(struct qpnp_adc_tm_config *tm_config,
 int32_t qpnp_get_vadc_gain_and_offset(struct qpnp_vadc_linear_graph *param,
 			enum qpnp_adc_calib_type calib_type);
 /**
+ * qpnp_adc_scale_millidegc_pmic_voltage_thr() - Performs reverse calibration
+ *		on the low/high temperature threshold values passed by the
+ *		client. The function coverts milldegC to voltage threshold
+ *		and accounts for the corresponding channels scaling as (2mV/K).
+ * @param:	The input parameters that contain the low/high temperature
+ *		values.
+ * @low_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ * @high_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ */
+int32_t qpnp_adc_scale_millidegc_pmic_voltage_thr(
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold);
+/**
  * qpnp_adc_btm_scaler() - Performs reverse calibration on the low/high
  *		temperature threshold values passed by the client.
  *		The function maps the temperature to voltage and applies
@@ -1147,7 +1186,21 @@ int32_t qpnp_adc_tm_scale_voltage_therm_pu2(uint32_t reg, int64_t *result);
  * @high_threshold: The low threshold value that needs to be updated with
  *		the above calibrated voltage value.
  */
-int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_usbid_param *param,
+int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold);
+/**
+ * qpnp_adc_vbatt_rscaler() - Performs reverse calibration on the low/high
+ *		voltage threshold values passed by the client.
+ *		The function applies ratiometric calibration on the
+ *		voltage values.
+ * @param:	The input parameters that contain the low/high voltage
+ *		threshold values.
+ * @low_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ * @high_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ */
+int32_t qpnp_adc_vbatt_rscaler(struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold);
 /**
  * qpnp_vadc_iadc_sync_request() - Performs Voltage ADC read and
@@ -1217,10 +1270,18 @@ static inline int32_t qpnp_get_vadc_gain_and_offset(
 			enum qpnp_adc_calib_type calib_type)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_usb_scaler(
-		struct qpnp_adc_tm_usbid_param *param,
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_vbatt_rscaler(
+		struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_btm_scaler(
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_millidegc_pmic_voltage_thr(
 		struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 { return -ENXIO; }
@@ -1314,7 +1375,7 @@ static inline int32_t qpnp_iadc_vadc_sync_read(
  *		Clients pass the low/high voltage along with the threshold
  *		notification callback.
  */
-int32_t qpnp_adc_tm_usbid_configure(struct qpnp_adc_tm_usbid_param *param);
+int32_t qpnp_adc_tm_usbid_configure(struct qpnp_adc_tm_btm_param *param);
 /**
  * qpnp_adc_tm_usbid_end() - Disables the monitoring of channel 0 thats
  *		assigned for monitoring USB_ID. Disables the low/high
@@ -1323,23 +1384,25 @@ int32_t qpnp_adc_tm_usbid_configure(struct qpnp_adc_tm_usbid_param *param);
  */
 int32_t qpnp_adc_tm_usbid_end(void);
 /**
- * qpnp_adc_tm_usbid_configure() - Configures Channel 1 of VADC_BTM to
- *		monitor batt_therm channel using 100k internal pull-up.
- *		Battery driver passes the high/low voltage threshold along
+ * qpnp_adc_tm_channel_measure() - Configures kernel clients a channel to
+ *		monitor the corresponding ADC channel for threshold detection.
+ *		Driver passes the high/low voltage threshold along
  *		with the notification callback once the set thresholds
  *		are crossed.
  * @param:	Structure pointer of qpnp_adc_tm_btm_param type.
  *		Clients pass the low/high temperature along with the threshold
  *		notification callback.
  */
-int32_t qpnp_adc_tm_btm_configure(struct qpnp_adc_tm_btm_param *param);
+int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_btm_param *param);
 /**
- * qpnp_adc_tm_btm_end() - Disables the monitoring of channel 1 thats
- *		assigned for monitoring batt_therm. Disables the low/high
- *		threshold activation for channel 1 as well.
- * @param:	none.
+ * qpnp_adc_tm_disable_chan_meas() - Disables the monitoring of channel thats
+ *		assigned for monitoring kernel clients. Disables the low/high
+ *		threshold activation for the corresponding channel.
+ * @param:	Structure pointer of qpnp_adc_tm_btm_param type.
+ *		This is used to identify the channel for which the corresponding
+ *		channels high/low threshold notification will be disabled.
  */
-int32_t qpnp_adc_tm_btm_end(void);
+int32_t qpnp_adc_tm_disable_chan_meas(struct qpnp_adc_tm_btm_param *param);
 /**
  * qpnp_adc_tm_is_ready() - Clients can use this API to check if the
  *			  device is ready to use.
@@ -1349,14 +1412,14 @@ int32_t qpnp_adc_tm_btm_end(void);
 int32_t	qpnp_adc_tm_is_ready(void);
 #else
 static inline int32_t qpnp_adc_tm_usbid_configure(
-			struct qpnp_adc_tm_usbid_param *param)
+			struct qpnp_adc_tm_btm_param *param)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_usbid_end(void)
 { return -ENXIO; }
-static inline int32_t qpnp_adc_tm_btm_configure(
+static inline int32_t qpnp_adc_tm_channel_measure(
 		struct qpnp_adc_tm_btm_param *param)
 { return -ENXIO; }
-static inline int32_t qpnp_adc_tm_btm_end(void)
+static inline int32_t qpnp_adc_tm_disable_chan_meas(void)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_is_ready(void)
 { return -ENXIO; }

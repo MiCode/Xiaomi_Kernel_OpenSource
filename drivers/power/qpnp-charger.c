@@ -1353,7 +1353,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 	}
 
 	/* re-arm ADC interrupt */
-	qpnp_adc_tm_btm_configure(&chip->adc_param);
+	qpnp_adc_tm_channel_measure(&chip->adc_param);
 }
 
 static int
@@ -2005,8 +2005,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		chip->adc_param.btm_ctx = chip;
 		chip->adc_param.threshold_notification =
 						qpnp_chg_adc_notification;
-
-		rc = qpnp_adc_tm_btm_configure(&chip->adc_param);
+		chip->adc_param.channel = LR_MUX1_BATT_THERM;
+		rc = qpnp_adc_tm_channel_measure(&chip->adc_param);
 		if (rc) {
 			pr_err("request ADC error %d\n", rc);
 			goto fail_chg_enable;
