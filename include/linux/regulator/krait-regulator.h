@@ -13,7 +13,8 @@
 #ifndef __KRAIT_REGULATOR_H__
 #define __KRAIT_REGULATOR_H__
 
-#define KRAIT_REGULATOR_DRIVER_NAME "krait-power-regulator"
+#define KRAIT_REGULATOR_DRIVER_NAME	"krait-power-regulator"
+#define KRAIT_PDN_DRIVER_NAME		"krait-pdn"
 
 /**
  * krait_power_init - driver initialization function

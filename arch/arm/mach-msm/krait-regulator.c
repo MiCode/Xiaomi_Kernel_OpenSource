@@ -155,6 +155,7 @@ struct pmic_gang_vreg {
 	bool			pfm_mode;
 	int			pmic_min_uV_for_retention;
 	bool			retention_enabled;
+	bool			use_phase_switching;
 };
 
 static struct pmic_gang_vreg *the_gang;
@@ -390,13 +391,17 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 	return 0;
 }
 
-static int set_pmic_gang_phases(int phase_count)
+static int set_pmic_gang_phases(struct pmic_gang_vreg *pvreg, int phase_count)
 {
-	/*
-	 * TODO : spm writes for phase control,
-	 * pmic phase control is not working yet
-	 */
-	return 0;
+	pr_debug("programming phase_count = %d\n", phase_count);
+	if (pvreg->use_phase_switching)
+		/*
+		 * note the PMIC sets the phase count to one more than
+		 * the value in the register - hence subtract 1 from it
+		 */
+		return msm_spm_apcs_set_phase(phase_count - 1);
+	else
+		return 0;
 }
 
 static int set_pmic_gang_voltage(struct pmic_gang_vreg *pvreg, int uV)
@@ -547,14 +552,19 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 				int load_uA)
 {
 	struct pmic_gang_vreg *pvreg = from->pvreg;
-	int phase_count = DIV_ROUND_UP(load_uA, LOAD_PER_PHASE) - 1;
+	int phase_count = DIV_ROUND_UP(load_uA, LOAD_PER_PHASE);
 	int rc = 0;
 
-	if (phase_count < 0)
-		phase_count = 0;
+	if (phase_count <= 0)
+		phase_count = 1;
+
+	 /* Increase phases if it is less than the number of cpus online */
+	if (phase_count < num_online_cpus()) {
+		phase_count = num_online_cpus();
+	}
 
 	if (phase_count != pvreg->pmic_phase_count) {
-		rc = set_pmic_gang_phases(phase_count);
+		rc = set_pmic_gang_phases(pvreg, phase_count);
 		if (rc < 0) {
 			dev_err(&from->rdev->dev,
 				"%s failed set phase %d rc = %d\n",
@@ -575,32 +585,6 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 		pvreg->pmic_phase_count = phase_count;
 	}
 	return rc;
-}
-
-static int __devinit pvreg_init(struct platform_device *pdev)
-{
-	struct pmic_gang_vreg *pvreg;
-
-	pvreg = devm_kzalloc(&pdev->dev,
-			sizeof(struct pmic_gang_vreg), GFP_KERNEL);
-	if (!pvreg) {
-		pr_err("kzalloc failed.\n");
-		return -ENOMEM;
-	}
-
-	pvreg->name = "pmic_gang";
-	pvreg->pmic_vmax_uV = PMIC_VOLTAGE_MIN;
-	pvreg->pmic_phase_count = 1;
-	pvreg->retention_enabled = true;
-	pvreg->pmic_min_uV_for_retention = INT_MAX;
-
-	mutex_init(&pvreg->krait_power_vregs_lock);
-	INIT_LIST_HEAD(&pvreg->krait_power_vregs);
-	the_gang = pvreg;
-
-	pr_debug("name=%s inited\n", pvreg->name);
-
-	return 0;
 }
 
 static int krait_power_get_voltage(struct regulator_dev *rdev)
@@ -925,24 +909,6 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	int ldo_delta_uV;
 	int cpu_num;
 
-	/* Initialize the pmic gang if it hasn't been initialized already */
-	if (the_gang == NULL) {
-		rc = pvreg_init(pdev);
-		if (rc < 0) {
-			dev_err(&pdev->dev,
-				"failed to init pmic gang rc = %d\n", rc);
-			return rc;
-		}
-		/* global initializtion */
-		glb_init(pdev);
-	}
-
-	if (dent == NULL) {
-		dent = debugfs_create_dir(KRAIT_REGULATOR_DRIVER_NAME, NULL);
-		debugfs_create_file("retention_uV",
-				0644, dent, the_gang, &retention_fops);
-	}
-
 	if (pdev->dev.of_node) {
 		/* Get init_data from device tree. */
 		init_data = of_get_regulator_init_data(&pdev->dev,
@@ -1139,14 +1105,93 @@ static struct platform_driver krait_power_driver = {
 	},
 };
 
+static struct of_device_id krait_pdn_match_table[] = {
+	{ .compatible = "qcom,krait-pdn", },
+	{}
+};
+
+static int __devinit krait_pdn_probe(struct platform_device *pdev)
+{
+	int rc;
+	bool use_phase_switching = false;
+	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
+	struct pmic_gang_vreg *pvreg;
+
+	if (!dev->of_node) {
+		dev_err(dev, "device tree information missing\n");
+		return -ENODEV;
+	}
+
+	use_phase_switching = of_property_read_bool(node,
+						"qcom,use-phase-switching");
+	pvreg = devm_kzalloc(&pdev->dev,
+			sizeof(struct pmic_gang_vreg), GFP_KERNEL);
+	if (!pvreg) {
+		pr_err("kzalloc failed.\n");
+		return 0;
+	}
+
+	pvreg->name = "pmic_gang";
+	pvreg->pmic_vmax_uV = PMIC_VOLTAGE_MIN;
+	pvreg->pmic_phase_count = -EINVAL;
+	pvreg->retention_enabled = true;
+	pvreg->pmic_min_uV_for_retention = INT_MAX;
+	pvreg->use_phase_switching = use_phase_switching;
+
+	mutex_init(&pvreg->krait_power_vregs_lock);
+	INIT_LIST_HEAD(&pvreg->krait_power_vregs);
+	the_gang = pvreg;
+
+	pr_debug("name=%s inited\n", pvreg->name);
+
+	/* global initializtion */
+	glb_init(pdev);
+
+	rc = of_platform_populate(node, NULL, NULL, dev);
+	if (rc) {
+		dev_err(dev, "failed to add child nodes, rc=%d\n", rc);
+		return rc;
+	}
+
+	dent = debugfs_create_dir(KRAIT_REGULATOR_DRIVER_NAME, NULL);
+	debugfs_create_file("retention_uV",
+			0644, dent, the_gang, &retention_fops);
+	return 0;
+}
+
+static int __devexit krait_pdn_remove(struct platform_device *pdev)
+{
+	the_gang = NULL;
+	debugfs_remove_recursive(dent);
+	return 0;
+}
+
+static struct platform_driver krait_pdn_driver = {
+	.probe	= krait_pdn_probe,
+	.remove	= __devexit_p(krait_pdn_remove),
+	.driver	= {
+		.name		= KRAIT_PDN_DRIVER_NAME,
+		.of_match_table	= krait_pdn_match_table,
+		.owner		= THIS_MODULE,
+	},
+};
+
 int __init krait_power_init(void)
 {
-	return platform_driver_register(&krait_power_driver);
+	int rc = platform_driver_register(&krait_power_driver);
+	if (rc) {
+		pr_err("failed to add %s driver rc = %d\n",
+				KRAIT_REGULATOR_DRIVER_NAME, rc);
+		return rc;
+	}
+	return platform_driver_register(&krait_pdn_driver);
 }
 
 static void __exit krait_power_exit(void)
 {
 	platform_driver_unregister(&krait_power_driver);
+	platform_driver_unregister(&krait_pdn_driver);
 }
 module_exit(krait_power_exit);
 

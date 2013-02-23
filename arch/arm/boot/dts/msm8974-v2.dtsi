@@ -111,3 +111,7 @@
 		<2024000 1212000>,
 		<2132000 1279000>;
 };
+
+&krait_pdn {
+	qcom,use-phase-switching;
+};
