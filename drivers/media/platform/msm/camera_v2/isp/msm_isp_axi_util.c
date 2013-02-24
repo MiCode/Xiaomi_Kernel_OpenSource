@@ -664,7 +664,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				buf->bufq_handle, buf->buf_idx,
 				&ts->buf_time, frame_id);
 			buf_event.frame_id = frame_id;
-			buf_event.timestamp = ts->event_time;
+			buf_event.timestamp = ts->buf_time;
 			buf_event.u.buf_done.session_id =
 				stream_info->session_id;
 			buf_event.u.buf_done.stream_id =
