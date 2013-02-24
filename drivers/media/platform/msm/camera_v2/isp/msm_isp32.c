@@ -425,13 +425,13 @@ static void msm_vfe32_cfg_framedrop(struct vfe_device *vfe_dev,
 {
 	uint32_t framedrop_pattern = 0, framedrop_period = 0;
 
-	if (stream_info->init_frame_drop == 0) {
+	if (stream_info->runtime_init_frame_drop == 0) {
 		framedrop_pattern = stream_info->framedrop_pattern;
 		framedrop_period = stream_info->framedrop_period;
 	}
 
 	if (stream_info->stream_type == BURST_STREAM &&
-		stream_info->burst_frame_count == 0) {
+		stream_info->runtime_burst_frame_count == 0) {
 		framedrop_pattern = 0;
 		framedrop_period = 0;
 	}

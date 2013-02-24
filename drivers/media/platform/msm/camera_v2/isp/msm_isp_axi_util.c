@@ -307,15 +307,17 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev)
 		if (stream_info->state != ACTIVE)
 			continue;
 
-		if (stream_info->framedrop_update) {
-			if (stream_info->init_frame_drop == 0) {
-				stream_info->framedrop_update = 0;
+		if (stream_info->runtime_framedrop_update) {
+			stream_info->runtime_init_frame_drop--;
+			if (stream_info->runtime_init_frame_drop == 0) {
+				stream_info->runtime_framedrop_update = 0;
 				vfe_dev->hw_info->vfe_ops.axi_ops.
 				cfg_framedrop(vfe_dev, stream_info);
 			}
 		}
 		if (stream_info->stream_type == BURST_STREAM) {
-			if (stream_info->burst_frame_count == 0) {
+			stream_info->runtime_burst_frame_count--;
+			if (stream_info->runtime_burst_frame_count == 0) {
 				vfe_dev->hw_info->vfe_ops.axi_ops.
 				cfg_framedrop(vfe_dev, stream_info);
 				vfe_dev->hw_info->vfe_ops.core_ops.
@@ -325,23 +327,14 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev)
 	}
 }
 
-void msm_isp_update_framedrop_count(
-	struct vfe_device *vfe_dev)
+static void msm_isp_reset_framedrop(struct vfe_device *vfe_dev,
+			struct msm_vfe_axi_stream *stream_info)
 {
-	int i;
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	struct msm_vfe_axi_stream *stream_info;
-	for (i = 0; i < MAX_NUM_STREAM; i++) {
-		stream_info = &axi_data->stream_info[i];
-		if (stream_info->state != ACTIVE)
-			continue;
-
-		if (stream_info->framedrop_update)
-			stream_info->init_frame_drop--;
-
-		if (stream_info->stream_type == BURST_STREAM)
-			stream_info->burst_frame_count--;
-	}
+	stream_info->runtime_init_frame_drop = stream_info->init_frame_drop;
+	stream_info->runtime_burst_frame_count =
+		stream_info->burst_frame_count;
+	stream_info->runtime_framedrop_update = stream_info->framedrop_update;
+	vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(vfe_dev, stream_info);
 }
 
 void msm_isp_sof_notify(struct vfe_device *vfe_dev,
@@ -351,7 +344,6 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	case VFE_PIX_0:
 		ISP_DBG("%s: PIX0 frame id: %lu\n", __func__,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-		msm_isp_update_framedrop_count(vfe_dev);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id++;
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id == 0)
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 1;
@@ -362,7 +354,6 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 		ISP_DBG("%s: RDI%d frame id: %lu\n",
 			__func__, frame_src - VFE_RAW_0,
 			vfe_dev->axi_data.src_info[frame_src].frame_id);
-		msm_isp_update_framedrop_count(vfe_dev);
 		vfe_dev->axi_data.src_info[frame_src].frame_id++;
 		if (vfe_dev->axi_data.src_info[frame_src].frame_id == 0)
 			vfe_dev->axi_data.src_info[frame_src].frame_id = 1;
@@ -469,7 +460,6 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				cfg_io_format(vfe_dev, stream_cfg_cmd);
 
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, stream_cfg_cmd);
-	vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(vfe_dev, stream_info);
 
 	if (stream_info->num_planes > 1) {
 		msm_isp_axi_reserve_comp_mask(
@@ -826,6 +816,9 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			START_PENDING : STOP_PENDING;
 
 		if (stream_cfg_cmd->cmd == START_STREAM) {
+			/*Configure framedrop*/
+			msm_isp_reset_framedrop(vfe_dev, stream_info);
+
 			/*Set address for both PING & PONG register */
 			rc = msm_isp_cfg_ping_pong_address(vfe_dev,
 				stream_info, VFE_PONG_FLAG);
