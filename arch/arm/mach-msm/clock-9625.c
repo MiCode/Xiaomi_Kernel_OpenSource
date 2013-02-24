@@ -1558,7 +1558,7 @@ struct measure_mux_entry {
 	u32 debug_mux;
 };
 
-struct measure_mux_entry measure_mux[] = {
+struct measure_mux_entry measure_mux_common[] __initdata = {
 	{&gcc_pdm_ahb_clk.c,			GCC_BASE, 0x00d0},
 	{&gcc_usb_hsic_xcvr_fs_clk.c,		GCC_BASE, 0x005d},
 	{&gcc_usb_hsic_system_clk.c,		GCC_BASE, 0x0059},
@@ -1608,6 +1608,17 @@ struct measure_mux_entry measure_mux[] = {
 
 	{&dummy_clk,				N_BASES,    0x0000},
 };
+
+struct measure_mux_entry measure_mux_v2_only[] __initdata = {
+	{&gcc_ipa_clk.c,			GCC_BASE, 0x01E0},
+	{&gcc_ipa_cnoc_clk.c,			GCC_BASE, 0x01E1},
+	{&gcc_ipa_sleep_clk.c,			GCC_BASE, 0x01E2},
+	{&gcc_qpic_clk.c,			GCC_BASE, 0x01D8},
+	{&gcc_qpic_ahb_clk.c,			GCC_BASE, 0x01D9},
+};
+
+struct measure_mux_entry measure_mux[ARRAY_SIZE(measure_mux_common)
+				+ ARRAY_SIZE(measure_mux_v2_only)];
 
 static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 {
@@ -2127,6 +2138,16 @@ static void __init msm9625_clock_pre_init(void)
 	enable_rpm_scaling();
 
 	reg_init();
+
+	/* Construct measurement mux array */
+	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
+		memcpy(measure_mux,
+			measure_mux_v2_only, sizeof(measure_mux_v2_only));
+		memcpy(measure_mux + ARRAY_SIZE(measure_mux_v2_only),
+			measure_mux_common, sizeof(measure_mux_common));
+	} else
+		memcpy(measure_mux,
+			measure_mux_common, sizeof(measure_mux_common));
 }
 
 static int __init msm9625_clock_late_init(void)
