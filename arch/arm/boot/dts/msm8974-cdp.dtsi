@@ -230,7 +230,7 @@
 				linux,default-trigger = "bkl-trigger";
 				qcom,cs-out-en;
 				qcom,op-fdbck;
-				qcom,default-state = "off";
+				qcom,default-state = "on";
 				qcom,max-current = <25>;
 				qcom,ctrl-delay-us = <0>;
 				qcom,boost-curr-lim = <3>;
