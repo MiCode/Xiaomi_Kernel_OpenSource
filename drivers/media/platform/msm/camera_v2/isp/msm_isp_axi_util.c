@@ -654,6 +654,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	struct msm_isp_timestamp *ts)
 {
 	struct msm_isp_event_data buf_event;
+	uint32_t stream_idx = stream_info->stream_handle & 0xFF;
 	uint32_t frame_id = vfe_dev->axi_data.
 		src_info[SRC_TO_INTF(stream_info->stream_src)].frame_id;
 
@@ -671,8 +672,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			buf_event.u.buf_done.handle =
 				stream_info->bufq_handle;
 			buf_event.u.buf_done.buf_idx = buf->buf_idx;
-			msm_isp_send_event(
-				vfe_dev, ISP_EVENT_BUF_DIVERT, &buf_event);
+			msm_isp_send_event(vfe_dev, ISP_EVENT_BUF_DIVERT +
+					stream_idx, &buf_event);
 		} else {
 			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
 				buf->bufq_handle, buf->buf_idx,
