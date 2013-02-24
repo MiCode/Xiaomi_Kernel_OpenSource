@@ -881,6 +881,8 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		if (rc == 0) {
 			pr_err("%s: wait timeout\n", __func__);
 			rc = -1;
+		} else {
+			rc = 0;
 		}
 	}
 	return rc;
