@@ -1063,7 +1063,8 @@ void mdss_fb_wait_for_fence(struct msm_fb_data_type *mfd)
 
 static void mdss_fb_signal_timeline_locked(struct msm_fb_data_type *mfd)
 {
-	if (mfd->timeline) {
+	if (mfd->timeline && !list_empty((const struct list_head *)
+				(&(mfd->timeline->obj.active_list_head)))) {
 		sw_sync_timeline_inc(mfd->timeline, 1);
 		mfd->timeline_value++;
 	}
