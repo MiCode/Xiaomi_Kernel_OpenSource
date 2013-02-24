@@ -18,7 +18,7 @@
 #include "mpq_dmx_plugin_common.h"
 #include "mpq_sdmx.h"
 
-#define SDMX_MAJOR_VERSION_MATCH	(2)
+#define SDMX_MAJOR_VERSION_MATCH	(3)
 
 #define TS_PACKET_HEADER_LENGTH (4)
 
