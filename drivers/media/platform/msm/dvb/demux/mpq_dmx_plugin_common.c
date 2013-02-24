@@ -18,6 +18,8 @@
 #include "mpq_dmx_plugin_common.h"
 #include "mpq_sdmx.h"
 
+#define SDMX_MAJOR_VERSION_MATCH	(2)
+
 #define TS_PACKET_HEADER_LENGTH (4)
 
 /* Length of mandatory fields that must exist in header of video PES */
@@ -776,6 +778,7 @@ EXPORT_SYMBOL(mpq_dmx_update_hw_statistics);
 static void mpq_sdmx_check_app_loaded(void)
 {
 	int session;
+	u32 version;
 	int ret;
 
 	ret = sdmx_open_session(&session);
@@ -785,6 +788,24 @@ static void mpq_sdmx_check_app_loaded(void)
 			__func__, ret);
 		mpq_dmx_info.secure_demux_app_loaded = 0;
 		return;
+	}
+
+	/* Check proper sdmx major version */
+	ret = sdmx_get_version(session, &version);
+	if (ret != SDMX_SUCCESS) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: Could not get sdmx version. ret = %d\n",
+			__func__, ret);
+	} else {
+		if ((version >> 8) != SDMX_MAJOR_VERSION_MATCH)
+			MPQ_DVB_ERR_PRINT(
+				"%s: sdmx major version does not match. expected=%d, actual=%d\n",
+				__func__, SDMX_MAJOR_VERSION_MATCH,
+				(version >> 8));
+		else
+			MPQ_DVB_DBG_PRINT(
+				"%s: sdmx major version is ok = %d\n",
+				__func__, SDMX_MAJOR_VERSION_MATCH);
 	}
 
 	mpq_dmx_info.secure_demux_app_loaded = 1;
