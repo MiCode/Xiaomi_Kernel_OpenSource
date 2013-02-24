@@ -19,4 +19,8 @@
 	model = "Qualcomm MSM 8974 FLUID";
 	compatible = "qcom,msm8974-fluid", "qcom,msm8974";
 	qcom,msm-id = <126 3 0>;
+
+	qcom,mdss_dsi_toshiba_720p_video {
+		qcom,cont-splash-enabled;
+	};
 };

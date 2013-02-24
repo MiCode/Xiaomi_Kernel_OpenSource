@@ -19,4 +19,8 @@
 	model = "Qualcomm MSM 8974 MTP";
 	compatible = "qcom,msm8974-mtp", "qcom,msm8974";
 	qcom,msm-id = <126 8 0>;
+
+	qcom,mdss_dsi_toshiba_720p_video {
+		qcom,cont-splash-enabled;
+	};
 };

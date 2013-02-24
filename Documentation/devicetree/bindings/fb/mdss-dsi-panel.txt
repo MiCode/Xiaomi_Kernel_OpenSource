@@ -56,6 +56,7 @@ Optional properties:
 - qcom,enable-gpio:			Specifies the panel lcd/display enable gpio.
 - qcom,rst-gpio:			Specifies the panel reset gpio.
 - qcom,mdss-pan-broadcast-mode:		Boolean used to enable broadcast mode.
+- qcom,cont-splash-enabled:		Boolean used to enable continuous splash mode.
 - qcom,mdss-pan-porch-values:		An array of size 6 that specifies the panel blanking values.
 - qcom,mdss-pan-underflow-clr:		Specifies the controller settings for the panel underflow clear
 					settings. Default value is 0xff.
