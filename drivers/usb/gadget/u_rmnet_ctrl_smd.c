@@ -422,6 +422,7 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 	unsigned long		flags;
 	struct smd_ch_info	*c;
 	struct rmnet_ctrl_pkt	*cpkt;
+	int clear_bits;
 
 	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
 
@@ -453,9 +454,11 @@ void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	if (test_and_clear_bit(CH_OPENED, &c->flags))
+	if (test_and_clear_bit(CH_OPENED, &c->flags)) {
+		clear_bits = ~(c->cbits_tomodem | TIOCM_RTS);
 		/* send dtr zero */
-		smd_tiocmset(c->ch, c->cbits_tomodem, ~c->cbits_tomodem);
+		smd_tiocmset(c->ch, c->cbits_tomodem, clear_bits);
+	}
 
 	if (c->ch) {
 		smd_close(c->ch);
