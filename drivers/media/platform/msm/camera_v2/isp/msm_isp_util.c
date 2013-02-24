@@ -81,6 +81,18 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	return rc;
 }
 
+int msm_isp_cfg_rdi(struct vfe_device *vfe_dev,
+	struct msm_vfe_rdi_cfg *rdi_cfg, enum msm_vfe_input_src input_src)
+{
+	int rc = 0;
+	/*TD Validate config info
+	 * should check if all streams are off */
+
+	vfe_dev->hw_info->vfe_ops.core_ops.
+		cfg_rdi_reg(vfe_dev, rdi_cfg, input_src);
+	return rc;
+}
+
 int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0;
@@ -93,6 +105,9 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	case VFE_RAW_0:
 	case VFE_RAW_1:
 	case VFE_RAW_2:
+		msm_isp_cfg_rdi(vfe_dev, &input_cfg->d.rdi_cfg,
+						input_cfg->input_src);
+		break;
 	case VFE_SRC_MAX:
 		break;
 	}
@@ -366,18 +381,34 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 	case V4L2_PIX_FMT_SGBRG8:
 	case V4L2_PIX_FMT_SGRBG8:
 	case V4L2_PIX_FMT_SRGGB8:
+	case V4L2_PIX_FMT_QBGGR8:
+	case V4L2_PIX_FMT_QGBRG8:
+	case V4L2_PIX_FMT_QGRBG8:
+	case V4L2_PIX_FMT_QRGGB8:
 		val = CAL_WORD(pixel_per_line, 1, 8);
 		break;
 	case V4L2_PIX_FMT_SBGGR10:
 	case V4L2_PIX_FMT_SGBRG10:
 	case V4L2_PIX_FMT_SGRBG10:
 	case V4L2_PIX_FMT_SRGGB10:
-		val = CAL_WORD(pixel_per_line, 1, 6);
+		val = CAL_WORD(pixel_per_line, 5, 32);
 		break;
 	case V4L2_PIX_FMT_SBGGR12:
 	case V4L2_PIX_FMT_SGBRG12:
 	case V4L2_PIX_FMT_SGRBG12:
 	case V4L2_PIX_FMT_SRGGB12:
+		val = CAL_WORD(pixel_per_line, 3, 16);
+		break;
+	case V4L2_PIX_FMT_QBGGR10:
+	case V4L2_PIX_FMT_QGBRG10:
+	case V4L2_PIX_FMT_QGRBG10:
+	case V4L2_PIX_FMT_QRGGB10:
+		val = CAL_WORD(pixel_per_line, 1, 6);
+		break;
+	case V4L2_PIX_FMT_QBGGR12:
+	case V4L2_PIX_FMT_QGBRG12:
+	case V4L2_PIX_FMT_QGRBG12:
+	case V4L2_PIX_FMT_QRGGB12:
 		val = CAL_WORD(pixel_per_line, 1, 5);
 		break;
 	case V4L2_PIX_FMT_NV12:
@@ -399,16 +430,28 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_SGBRG8:
 	case V4L2_PIX_FMT_SGRBG8:
 	case V4L2_PIX_FMT_SRGGB8:
+	case V4L2_PIX_FMT_QBGGR8:
+	case V4L2_PIX_FMT_QGBRG8:
+	case V4L2_PIX_FMT_QGRBG8:
+	case V4L2_PIX_FMT_QRGGB8:
 		return 8;
 	case V4L2_PIX_FMT_SBGGR10:
 	case V4L2_PIX_FMT_SGBRG10:
 	case V4L2_PIX_FMT_SGRBG10:
 	case V4L2_PIX_FMT_SRGGB10:
+	case V4L2_PIX_FMT_QBGGR10:
+	case V4L2_PIX_FMT_QGBRG10:
+	case V4L2_PIX_FMT_QGRBG10:
+	case V4L2_PIX_FMT_QRGGB10:
 		return 10;
 	case V4L2_PIX_FMT_SBGGR12:
 	case V4L2_PIX_FMT_SGBRG12:
 	case V4L2_PIX_FMT_SGRBG12:
 	case V4L2_PIX_FMT_SRGGB12:
+	case V4L2_PIX_FMT_QBGGR12:
+	case V4L2_PIX_FMT_QGBRG12:
+	case V4L2_PIX_FMT_QGRBG12:
+	case V4L2_PIX_FMT_QRGGB12:
 		return 12;
 	case V4L2_PIX_FMT_NV12:
 	case V4L2_PIX_FMT_NV21:
