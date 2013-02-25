@@ -504,10 +504,8 @@ static inline void set_default_hw_caps(struct msmsdcc_host *host)
 		host->hw_caps |= MSMSDCC_SW_RST | MSMSDCC_SW_RST_CFG |
 				 MSMSDCC_AUTO_CMD21 |
 				 MSMSDCC_DATA_PEND_FOR_CMD53 |
-				 MSMSDCC_TESTBUS_DEBUG;
-
-	if ((step == 0x2b) || (step == 0x38))
-		host->hw_caps |= MSMSDCC_SW_RST_CFG_BROKEN;
+				 MSMSDCC_TESTBUS_DEBUG |
+				 MSMSDCC_SW_RST_CFG_BROKEN;
 }
 
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave);
