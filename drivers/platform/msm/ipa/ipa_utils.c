@@ -14,7 +14,6 @@
 #include <linux/genalloc.h>	/* gen_pool_alloc() */
 #include <linux/io.h>
 #include "ipa_i.h"
-
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
 static const int ipa_ofst_meq128[] = { IPA_OFFSET_MEQ128_0,
@@ -120,6 +119,23 @@ int ipa_get_ep_mapping(enum ipa_operating_mode mode,
 		enum ipa_client_type client)
 {
 	return ep_mapping[mode][client];
+}
+
+/**
+ * ipa_get_client_mapping() - provide client mapping
+ * @mode: IPA operating mode
+ * @pipe_idx: IPA end-point number
+ *
+ * Return value: client mapping
+ */
+int ipa_get_client_mapping(enum ipa_operating_mode mode, int pipe_idx)
+{
+	int i;
+
+	for (i = 0; i < IPA_CLIENT_MAX; i++)
+		if (ep_mapping[mode][i] == pipe_idx)
+			break;
+	return i;
 }
 
 /**
@@ -751,6 +767,7 @@ EXPORT_SYMBOL(ipa_cfg_ep_hdr);
 int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg)
 {
 	u32 val;
+	int ep;
 
 	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0 ||
 			ipa_ep_cfg == NULL) {
@@ -763,10 +780,16 @@ int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg)
 		return -EINVAL;
 	}
 
+	ep = ipa_get_ep_mapping(ipa_ctx->mode, ipa_ep_cfg->dst);
+	if (ep == -1 && ipa_ep_cfg->mode == IPA_DMA) {
+		IPAERR("dst %d does not exist in mode %d\n", ipa_ep_cfg->dst,
+		       ipa_ctx->mode);
+		return -EINVAL;
+	}
+
 	/* copy over EP cfg */
 	ipa_ctx->ep[clnt_hdl].cfg.mode = *ipa_ep_cfg;
-	ipa_ctx->ep[clnt_hdl].dst_pipe_index = ipa_get_ep_mapping(ipa_ctx->mode,
-			ipa_ep_cfg->dst);
+	ipa_ctx->ep[clnt_hdl].dst_pipe_index = ep;
 
 	val = IPA_SETFIELD(ipa_ctx->ep[clnt_hdl].cfg.mode.mode,
 			   IPA_ENDP_INIT_MODE_n_MODE_SHFT,
@@ -942,206 +965,6 @@ void ipa_dump(void)
 		dma_free_coherent(NULL, flt_mem.size, flt_mem.base,
 				flt_mem.phys_base);
 	mutex_unlock(&ipa_ctx->lock);
-}
-
-/*
- * TODO: add swap if needed, for now assume LE is ok for device memory
- * even though IPA registers are assumed to be BE
- */
-/**
- * ipa_write_dev_8() - writes 8 bit value
- * @val: value
- * @ofst_ipa_sram: address to write to
- */
-void ipa_write_dev_8(u8 val, u16 ofst_ipa_sram)
-{
-	iowrite8(val, (u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram);
-}
-
-/**
- * ipa_write_dev_16() - writes 16 bit value
- * @val: value
- * @ofst_ipa_sram: address to write to
- *
- */
-void ipa_write_dev_16(u16 val, u16 ofst_ipa_sram)
-{
-	iowrite16(val, (u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram);
-}
-
-/**
- * ipa_write_dev_32() - writes 32 bit value
- * @val: value
- * @ofst_ipa_sram: address to write to
- */
-void ipa_write_dev_32(u32 val, u16 ofst_ipa_sram)
-{
-	iowrite32(val, (u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram);
-}
-
-/**
- * ipa_read_dev_8() - reads 8 bit value
- * @ofst_ipa_sram: address to read from
- *
- * Return value: value read
- */
-unsigned int ipa_read_dev_8(u16 ofst_ipa_sram)
-{
-	return ioread8((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram);
-}
-
-/**
- * ipa_read_dev_16() - reads 16 bit value
- * @ofst_ipa_sram: address to read from
- *
- * Return value: value read
- */
-unsigned int ipa_read_dev_16(u16 ofst_ipa_sram)
-{
-	return ioread16((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram);
-}
-
-/**
- * ipa_read_dev_32() - reads 32 bit value
- * @ofst_ipa_sram: address to read from
- *
- * Return value: value read
- */
-unsigned int ipa_read_dev_32(u16 ofst_ipa_sram)
-{
-	return ioread32((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram);
-}
-
-/**
- * ipa_write_dev_8rep() - writes 8 bit value
- * @val: value
- * @ofst_ipa_sram: address to write to
- * @count: num of bytes to write
- */
-void ipa_write_dev_8rep(u16 ofst_ipa_sram, const void *buf, unsigned long count)
-{
-	iowrite8_rep((void *)((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram), buf,
-			count);
-}
-
-/**
- * ipa_write_dev_16rep() - writes 16 bit value
- * @val: value
- * @ofst_ipa_sram: address to write to
- * @count: num of bytes to write
- */
-void ipa_write_dev_16rep(u16 ofst_ipa_sram, const void *buf,
-		unsigned long count)
-{
-	iowrite16_rep((void *)((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram),
-			buf, count);
-}
-
-/**
- * ipa_write_dev_32rep() - writes 32 bit value
- * @val: value
- * @ofst_ipa_sram: address to write to
- * @count: num of bytes to write
- */
-void ipa_write_dev_32rep(u16 ofst_ipa_sram, const void *buf,
-		unsigned long count)
-{
-	iowrite32_rep((void *)((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram),
-			buf, count);
-}
-
-/**
- * ipa_read_dev_8rep() - reads 8 bit value
- * @ofst_ipa_sram: address to read from
- * @buf: buffer to read to
- * @count: number of bytes to read
- */
-void ipa_read_dev_8rep(u16 ofst_ipa_sram, void *buf, unsigned long count)
-{
-	ioread8_rep((void *)((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram), buf,
-			count);
-}
-
-/**
- * ipa_read_dev_16rep() - reads 16 bit value
- * @ofst_ipa_sram: address to read from
- * @buf: buffer to read to
- * @count: number of bytes to read
- */
-void ipa_read_dev_16rep(u16 ofst_ipa_sram, void *buf, unsigned long count)
-{
-	ioread16_rep((void *)((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram), buf,
-			count);
-}
-
-/**
- * ipa_read_dev_32rep() - reads 32 bit value
- * @ofst_ipa_sram: address to read from
- * @buf: buffer to read to
- * @count: number of bytes to read
- */
-void ipa_read_dev_32rep(u16 ofst_ipa_sram, void *buf, unsigned long count)
-{
-	ioread32_rep((void *)((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram), buf,
-			count);
-}
-
-/**
- * ipa_memset_dev() - memset IO
- * @ofst_ipa_sram: address to set
- * @value: value
- * @count: number of bytes to set
- */
-void ipa_memset_dev(u16 ofst_ipa_sram, u8 value, unsigned int count)
-{
-	memset_io((void *)((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram), value,
-			count);
-}
-
-/**
- * ipa_memcpy_from_dev() - copy memory from device
- * @dest: buffer to copy to
- * @ofst_ipa_sram: address
- * @count: number of bytes to copy
- */
-void ipa_memcpy_from_dev(void *dest, u16 ofst_ipa_sram, unsigned int count)
-{
-	memcpy_fromio(dest, (void *)((u32)ipa_ctx->mmio + 0x4000 +
-				ofst_ipa_sram), count);
-}
-
-/**
- * ipa_memcpy_to_dev() - copy memory to device
- * @ofst_ipa_sram: address
- * @source: buffer to copy from
- * @count: number of bytes to copy
- */
-void ipa_memcpy_to_dev(u16 ofst_ipa_sram, void *source, unsigned int count)
-{
-	memcpy_toio((void *)((u32)ipa_ctx->mmio + 0x4000 + ofst_ipa_sram),
-			source, count);
-}
-
-/**
- * ipa_defrag() - handle de-frag for bridging type of cases
- * @skb: skb
- *
- * Return value:
- * 0: success
- */
-int ipa_defrag(struct sk_buff *skb)
-{
-	/*
-	 * Reassemble IP fragments. TODO: need to setup network_header to
-	 * point to start of IP header
-	 */
-	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
-		if (ip_defrag(skb, IP_DEFRAG_CONNTRACK_IN))
-			return -EINPROGRESS;
-	}
-
-	/* skb is not fully assembled, send it back out */
-	return 0;
 }
 
 /**

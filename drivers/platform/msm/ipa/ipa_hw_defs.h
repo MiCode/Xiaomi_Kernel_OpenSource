@@ -164,12 +164,12 @@ struct ipa_hdr_init_system {
 	u64 rsvd:32;
 };
 
-#define IPA_A5_MUX_HDR_EXCP_FLAG_IP		BIT(0)
-#define IPA_A5_MUX_HDR_EXCP_FLAG_NAT		BIT(1)
-#define IPA_A5_MUX_HDR_EXCP_FLAG_SW_FLT	BIT(2)
-#define IPA_A5_MUX_HDR_EXCP_FLAG_TAG		BIT(3)
-#define IPA_A5_MUX_HDR_EXCP_FLAG_REPLICATED	BIT(4)
-#define IPA_A5_MUX_HDR_EXCP_FLAG_IHL		BIT(5)
+#define IPA_A5_MUX_HDR_EXCP_FLAG_IP		BIT(7)
+#define IPA_A5_MUX_HDR_EXCP_FLAG_NAT		BIT(6)
+#define IPA_A5_MUX_HDR_EXCP_FLAG_SW_FLT	BIT(5)
+#define IPA_A5_MUX_HDR_EXCP_FLAG_TAG		BIT(4)
+#define IPA_A5_MUX_HDR_EXCP_FLAG_REPLICATED	BIT(3)
+#define IPA_A5_MUX_HDR_EXCP_FLAG_IHL		BIT(2)
 
 /**
  * struct ipa_a5_mux_hdr - A5 MUX header definition
@@ -253,6 +253,14 @@ struct ipa_ip_v4_nat_init {
 	u64 size_expansion_tables:10;
 	u64 rsvd2:2;
 	u64 public_ip_addr:32;
+};
+
+/**
+ * struct ipa_ip_packet_tag - IPA_IP_PACKET_TAG command payload
+ * @tag: tag value returned with response
+ */
+struct ipa_ip_packet_tag {
+	u32 tag;
 };
 
 #endif /* _IPA_HW_DEFS_H */

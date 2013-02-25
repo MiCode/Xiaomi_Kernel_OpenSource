@@ -12,7 +12,7 @@
 
 #include "ipa_i.h"
 
-static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 32, 64 };
+static const u32 ipa_hdr_bin_sz[IPA_HDR_BIN_MAX] = { 8, 16, 24, 36 };
 
 /**
  * ipa_generate_hdr_hw_tbl() - generates the headers table
@@ -234,20 +234,21 @@ error:
 	return -EPERM;
 }
 
-static int __ipa_del_hdr(u32 hdr_hdl)
+int __ipa_del_hdr(u32 hdr_hdl)
 {
 	struct ipa_hdr_entry *entry = (struct ipa_hdr_entry *)hdr_hdl;
 	struct ipa_tree_node *node;
 	struct ipa_hdr_tbl *htbl = &ipa_ctx->hdr_tbl;
 
-	if (!entry || (entry->cookie != IPA_COOKIE) || (entry->ref_cnt != 0)) {
-		IPAERR("bad parm\n");
-		return -EINVAL;
-	}
 	node = ipa_search(&ipa_ctx->hdr_hdl_tree, hdr_hdl);
 	if (node == NULL) {
 		IPAERR("lookup failed\n");
-		return -EPERM;
+		return -EINVAL;
+	}
+
+	if (!entry || (entry->cookie != IPA_COOKIE) || (entry->ref_cnt != 0)) {
+		IPAERR("bad parm\n");
+		return -EINVAL;
 	}
 
 	IPADBG("del hdr of sz=%d hdr_cnt=%d ofst=%d\n", entry->hdr_len,
@@ -545,17 +546,21 @@ int ipa_put_hdr(u32 hdr_hdl)
 	struct ipa_tree_node *node;
 	int result = -EFAULT;
 
-	if (entry == NULL || entry->cookie != IPA_COOKIE ||
-			entry->ref_cnt == 0) {
-		IPAERR("bad params\n");
-		return -EINVAL;
-	}
+	mutex_lock(&ipa_ctx->lock);
 	node = ipa_search(&ipa_ctx->hdr_hdl_tree, hdr_hdl);
 	if (node == NULL) {
 		IPAERR("lookup failed\n");
-		return -EPERM;
+		result = -EINVAL;
+		goto bail;
 	}
-	mutex_lock(&ipa_ctx->lock);
+
+	if (entry == NULL || entry->cookie != IPA_COOKIE ||
+			entry->ref_cnt == 0) {
+		IPAERR("bad params\n");
+		result = -EINVAL;
+		goto bail;
+	}
+
 	entry->ref_cnt--;
 	if (entry->ref_cnt == 0) {
 		if (__ipa_del_hdr(hdr_hdl)) {

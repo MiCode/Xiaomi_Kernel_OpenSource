@@ -47,7 +47,7 @@
 #define IPA_IOCTL_V4_INIT_NAT    23
 #define IPA_IOCTL_NAT_DMA        24
 #define IPA_IOCTL_V4_DEL_NAT     26
-#define IPA_IOCTL_GET_ASYNC_MSG  27
+#define IPA_IOCTL_PULL_MSG       27
 #define IPA_IOCTL_GET_NAT_OFFSET 28
 #define IPA_IOCTL_MAX            29
 
@@ -60,6 +60,11 @@
  * max size of the name of the resource (routing table, header)
  */
 #define IPA_RESOURCE_NAME_MAX 20
+
+/**
+ * size of the mac address
+ */
+#define IPA_MAC_ADDR_SIZE  6
 
 /**
  * the attributes of the rule (routing or filtering)
@@ -140,6 +145,26 @@ enum ipa_flt_action {
 	IPA_PASS_TO_DST_NAT,
 	IPA_PASS_TO_EXCEPTION
 };
+
+/**
+ * enum ipa_wlan_event - Events for wlan client
+ *
+ * wlan client connect: New wlan client connected
+ * wlan client disconnect: wlan client disconnected
+ * wlan client power save: wlan client moved to power save
+ * wlan client normal: wlan client moved out of power save
+ * sw routing enable: ipa routing is disabled
+ * sw routing disable: ipa routing is enabled
+ */
+enum ipa_wlan_event {
+	WLAN_CLIENT_CONNECT,
+	WLAN_CLIENT_DISCONNECT,
+	WLAN_CLIENT_POWER_SAVE_MODE,
+	WLAN_CLIENT_NORMAL_MODE,
+	SW_ROUTING_ENABLE,
+	SW_ROUTING_DISABLE,
+};
+
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
@@ -501,10 +526,12 @@ struct ipa_ioc_tx_intf_prop {
 /**
  * struct ipa_ioc_query_intf_tx_props - interface tx propertie
  * @name: name of interface
+ * @num_tx_props: number of TX properties
  * @tx[0]: output parameter, the tx properties go here back to back
  */
 struct ipa_ioc_query_intf_tx_props {
 	char name[IPA_RESOURCE_NAME_MAX];
+	uint32_t num_tx_props;
 	struct ipa_ioc_tx_intf_prop tx[0];
 };
 
@@ -523,10 +550,12 @@ struct ipa_ioc_rx_intf_prop {
 /**
  * struct ipa_ioc_query_intf_rx_props - interface rx propertie
  * @name: name of interface
+ * @num_rx_props: number of RX properties
  * @rx: output parameter, the rx properties go here back to back
  */
 struct ipa_ioc_query_intf_rx_props {
 	char name[IPA_RESOURCE_NAME_MAX];
+	uint32_t num_rx_props;
 	struct ipa_ioc_rx_intf_prop rx[0];
 };
 
@@ -609,22 +638,43 @@ struct ipa_ioc_nat_dma_cmd {
 /**
  * struct ipa_msg_meta - Format of the message meta-data.
  * @msg_type: the type of the message
- * @msg_len: the length of the message in bytes
  * @rsvd: reserved bits for future use.
+ * @msg_len: the length of the message in bytes
  *
+ * For push model:
  * Client in user-space should issue a read on the device (/dev/ipa) with a
- * buffer of atleast this size in an continuous loop, call will block when there
- * is no pending async message.
+ * sufficiently large buffer in a continuous loop, call will block when there is
+ * no message to read. Upon return, client can read the ipa_msg_meta from start
+ * of buffer to find out type and length of message
+ * size of buffer supplied >= (size of largest message + size of metadata)
  *
- * After reading a message's meta-data using above scheme, client should issue a
- * GET_MSG IOCTL to actually read the message itself into the buffer of
- * "msg_len" immediately following the ipa_msg_meta itself in the IOCTL payload
+ * For pull model:
+ * Client in user-space can also issue a pull msg IOCTL to device (/dev/ipa)
+ * with a payload containing space for the ipa_msg_meta and the message specific
+ * payload length.
+ * size of buffer supplied == (len of specific message  + size of metadata)
  */
 struct ipa_msg_meta {
 	uint8_t msg_type;
-	uint16_t msg_len;
 	uint8_t rsvd;
+	uint16_t msg_len;
 };
+
+/**
+ * struct ipa_wlan_msg - To hold information about wlan client
+ * @name: name of the wlan interface
+ * @mac_addr: mac address of wlan client
+ *
+ * wlan drivers need to pass name of wlan iface and mac address of
+ * wlan client along with ipa_wlan_event, whenever a wlan client is
+ * connected/disconnected/moved to power save/come out of power save
+ */
+struct ipa_wlan_msg {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint8_t mac_addr[IPA_MAC_ADDR_SIZE];
+};
+
+
 
 /**
  *   actual IOCTLs supported by IPA driver
@@ -707,8 +757,8 @@ struct ipa_msg_meta {
 #define IPA_IOC_SET_FLT _IOW(IPA_IOC_MAGIC, \
 			IPA_IOCTL_SET_FLT, \
 			uint32_t)
-#define IPA_IOC_GET_ASYNC_MSG _IOWR(IPA_IOC_MAGIC, \
-				IPA_IOCTL_GET_ASYNC_MSG, \
+#define IPA_IOC_PULL_MSG _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_PULL_MSG, \
 				struct ipa_msg_meta *)
 
 #endif /* _MSM_IPA_H_ */

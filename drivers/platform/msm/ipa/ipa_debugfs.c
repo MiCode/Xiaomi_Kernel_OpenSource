@@ -13,10 +13,38 @@
 #ifdef CONFIG_DEBUG_FS
 
 #include <linux/debugfs.h>
+#include <linux/stringify.h>
 #include "ipa_i.h"
 
 
-#define IPA_MAX_MSG_LEN 1024
+#define IPA_MAX_MSG_LEN 4096
+
+const char *ipa_client_name[] = {
+	__stringify(IPA_CLIENT_HSIC1_PROD),
+	__stringify(IPA_CLIENT_HSIC2_PROD),
+	__stringify(IPA_CLIENT_HSIC3_PROD),
+	__stringify(IPA_CLIENT_HSIC4_PROD),
+	__stringify(IPA_CLIENT_HSIC5_PROD),
+	__stringify(IPA_CLIENT_USB_PROD),
+	__stringify(IPA_CLIENT_A5_WLAN_AMPDU_PROD),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_PROD),
+	__stringify(IPA_CLIENT_A2_TETHERED_PROD),
+	__stringify(IPA_CLIENT_A5_LAN_WAN_PROD),
+	__stringify(IPA_CLIENT_A5_CMD_PROD),
+	__stringify(IPA_CLIENT_Q6_LAN_PROD),
+	__stringify(IPA_CLIENT_HSIC1_CONS),
+	__stringify(IPA_CLIENT_HSIC2_CONS),
+	__stringify(IPA_CLIENT_HSIC3_CONS),
+	__stringify(IPA_CLIENT_HSIC4_CONS),
+	__stringify(IPA_CLIENT_HSIC5_CONS),
+	__stringify(IPA_CLIENT_USB_CONS),
+	__stringify(IPA_CLIENT_A2_EMBEDDED_CONS),
+	__stringify(IPA_CLIENT_A2_TETHERED_CONS),
+	__stringify(IPA_CLIENT_A5_LAN_WAN_CONS),
+	__stringify(IPA_CLIENT_Q6_LAN_CONS),
+	__stringify(IPA_CLIENT_MAX),
+};
+
 static struct dentry *dent;
 static struct dentry *dfile_gen_reg;
 static struct dentry *dfile_ep_reg;
@@ -25,6 +53,7 @@ static struct dentry *dfile_ip4_rt;
 static struct dentry *dfile_ip6_rt;
 static struct dentry *dfile_ip4_flt;
 static struct dentry *dfile_ip6_flt;
+static struct dentry *dfile_stats;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static s8 ep_reg_idx;
 
@@ -365,9 +394,10 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 				hdr_ofst = 0;
 			nbytes = scnprintf(dbg_buff + cnt,
 					IPA_MAX_MSG_LEN - cnt,
-					"tbl_idx:%d tbl_name:%s tbl_ref:%u rule_idx:%d dst:%d ep:%d S:%u hdr_ofst[words]:%u attrib_mask:%08x ",
+					"tbl_idx:%d tbl_name:%s tbl_ref:%u rule_idx:%d dst:%d name:%s ep:%d S:%u hdr_ofst[words]:%u attrib_mask:%08x ",
 					entry->tbl->idx, entry->tbl->name,
 					entry->tbl->ref_cnt, i, entry->rule.dst,
+					ipa_client_name[entry->rule.dst],
 					ipa_get_ep_mapping(ipa_ctx->mode,
 						entry->rule.dst),
 					   !ipa_ctx->hdr_tbl_lcl,
@@ -393,19 +423,25 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 	int cnt = 0;
 	int i;
 	int j;
+	int k;
 	struct ipa_flt_tbl *tbl;
 	struct ipa_flt_entry *entry;
 	enum ipa_ip_type ip = (enum ipa_ip_type)file->private_data;
 	struct ipa_rt_tbl *rt_tbl;
+	u32 rt_tbl_idx;
 
 	tbl = &ipa_ctx->glob_flt_tbl[ip];
 	mutex_lock(&ipa_ctx->lock);
 	i = 0;
 	list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
 		rt_tbl = (struct ipa_rt_tbl *)entry->rule.rt_tbl_hdl;
+		if (rt_tbl == NULL)
+			rt_tbl_idx = ~0;
+		else
+			rt_tbl_idx = rt_tbl->idx;
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
 				   "ep_idx:global rule_idx:%d act:%d rt_tbl_idx:%d attrib_mask:%08x ",
-				   i, entry->rule.action, rt_tbl->idx,
+				   i, entry->rule.action, rt_tbl_idx,
 				   entry->rule.attrib.attrib_mask);
 		cnt += nbytes;
 		cnt += ipa_attrib_dump(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
@@ -418,10 +454,16 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
 			rt_tbl = (struct ipa_rt_tbl *)entry->rule.rt_tbl_hdl;
+			if (rt_tbl == NULL)
+				rt_tbl_idx = ~0;
+			else
+				rt_tbl_idx = rt_tbl->idx;
+			k = ipa_get_client_mapping(ipa_ctx->mode, j);
 			nbytes = scnprintf(dbg_buff + cnt,
 					IPA_MAX_MSG_LEN - cnt,
-					"ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d attrib_mask:%08x ",
-					j, i, entry->rule.action, rt_tbl->idx,
+					"ep_idx:%d name:%s rule_idx:%d act:%d rt_tbl_idx:%d attrib_mask:%08x ",
+					j, ipa_client_name[k], i,
+					entry->rule.action, rt_tbl_idx,
 					entry->rule.attrib.attrib_mask);
 			cnt += nbytes;
 			cnt +=
@@ -436,6 +478,51 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
+
+static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	int nbytes;
+	int i;
+	int cnt = 0;
+
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"sw_tx=%u\n"
+			"hw_tx=%u\n"
+			"rx=%u\n",
+			ipa_ctx->stats.tx_sw_pkts,
+			ipa_ctx->stats.tx_hw_pkts,
+			ipa_ctx->stats.rx_pkts);
+	cnt += nbytes;
+
+	for (i = 0; i < MAX_NUM_EXCP; i++) {
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				"rx_excp[%u]=%u\n", i,
+				ipa_ctx->stats.rx_excp_pkts[i]);
+		cnt += nbytes;
+	}
+
+	for (i = 0; i < IPA_BRIDGE_TYPE_MAX; i++) {
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				"bridged_pkt[%u][dl]=%u\n"
+				"bridged_pkt[%u][ul]=%u\n",
+				i,
+				ipa_ctx->stats.bridged_pkts[i][0],
+				i,
+				ipa_ctx->stats.bridged_pkts[i][1]);
+		cnt += nbytes;
+	}
+
+	for (i = 0; i < MAX_NUM_IMM_CMD; i++) {
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				"IC[%u]=%u\n", i,
+				ipa_ctx->stats.imm_cmds[i]);
+		cnt += nbytes;
+	}
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 
 const struct file_operations ipa_gen_reg_ops = {
 	.read = ipa_read_gen_reg,
@@ -458,6 +545,10 @@ const struct file_operations ipa_rt_ops = {
 const struct file_operations ipa_flt_ops = {
 	.read = ipa_read_flt,
 	.open = ipa_open_dbg,
+};
+
+const struct file_operations ipa_stats_ops = {
+	.read = ipa_read_stats,
 };
 
 void ipa_debugfs_init(void)
@@ -518,6 +609,13 @@ void ipa_debugfs_init(void)
 			(void *)IPA_IP_v6, &ipa_flt_ops);
 	if (!dfile_ip6_flt || IS_ERR(dfile_ip6_flt)) {
 		IPAERR("fail to create file for debug_fs ip6 flt\n");
+		goto fail;
+	}
+
+	dfile_stats = debugfs_create_file("stats", read_only_mode, dent, 0,
+			&ipa_stats_ops);
+	if (!dfile_stats || IS_ERR(dfile_stats)) {
+		IPAERR("fail to create file for debug_fs stats\n");
 		goto fail;
 	}
 
