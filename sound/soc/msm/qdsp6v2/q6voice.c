@@ -2765,13 +2765,14 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 	uint64_t *enc_buf;
 	void *apr_cvs;
 	u16 cvs_handle;
-	dec_buf = (uint64_t *)v->shmem_info.sh_buf.buf[0].phys;
-	enc_buf = (uint64_t *)v->shmem_info.sh_buf.buf[1].phys;
 
 	if (v == NULL) {
 		pr_err("%s: v is NULL\n", __func__);
 		return -EINVAL;
 	}
+	dec_buf = (uint64_t *)v->shmem_info.sh_buf.buf[0].phys;
+	enc_buf = (uint64_t *)v->shmem_info.sh_buf.buf[1].phys;
+
 	apr_cvs = common.apr_q6_cvs;
 
 	if (!apr_cvs) {
@@ -4618,6 +4619,10 @@ static int voice_alloc_oob_shared_mem(void)
 	struct voice_data *v = voice_get_session(
 				common.voice[VOC_PATH_FULL].session_id);
 
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
 	v->shmem_info.sh_buf.client = msm_ion_client_create(UINT_MAX,
 							    "voip_client");
 	if (IS_ERR_OR_NULL((void *)v->shmem_info.sh_buf.client)) {
@@ -4686,6 +4691,10 @@ static int voice_alloc_oob_mem_table(void)
 	struct voice_data *v = voice_get_session(
 				common.voice[VOC_PATH_FULL].session_id);
 
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+		return -EINVAL;
+	}
 	v->shmem_info.memtbl.client = msm_ion_client_create(UINT_MAX,
 							      "voip_client");
 	if (IS_ERR_OR_NULL((void *)v->shmem_info.memtbl.client)) {
