@@ -185,6 +185,7 @@ struct mdss_panel_info {
 	u32 vic; /* video identification code */
 
 	u32 cont_splash_enabled;
+	struct ion_handle *splash_ihdl;
 	u32 panel_power_on;
 
 	struct lcd_panel_info lcd;
