@@ -185,6 +185,25 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	}
+	case AUDIO_SET_AAC_MIX_CONFIG:	{
+		pr_debug("%s, AUDIO_SET_AAC_MIX_CONFIG", __func__);
+		if (copy_from_user(audio->codec_cfg, (void *)arg,
+			sizeof(unsigned long))) {
+			rc = -EFAULT;
+			break;
+		} else {
+			unsigned long *mix_coeff =
+					(unsigned long *)audio->codec_cfg;
+			pr_debug("%s, value of coeff = %lu",
+						__func__, *mix_coeff);
+			q6asm_cfg_aac_sel_mix_coef(audio->ac, *mix_coeff);
+			if (rc < 0)
+				pr_err("%s asm aac_sel_mix_coef failed rc=%d\n",
+								 __func__, rc);
+			break;
+		}
+		break;
+	}
 	default:
 		pr_debug("Calling utils ioctl\n");
 		rc = audio->codec_ioctl(file, cmd, arg);
