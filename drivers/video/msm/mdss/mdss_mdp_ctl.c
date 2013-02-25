@@ -278,7 +278,7 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 }
 
 static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
-		struct mdss_mdp_ctl *ctl, u32 type)
+		struct mdss_mdp_ctl *ctl, u32 type, int mux)
 {
 	struct mdss_mdp_mixer *mixer = NULL;
 	u32 nmixers_intf;
@@ -295,7 +295,6 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	nmixers_wb = ctl->mdata->nmixers_wb;
 
 	switch (type) {
-
 	case MDSS_MDP_MIXER_TYPE_INTF:
 		mixer_pool = ctl->mdata->mixer_intf;
 		nmixers = nmixers_intf;
@@ -311,6 +310,15 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		pr_err("invalid pipe type %d\n", type);
 		break;
 	}
+
+	/* early mdp revision only supports mux of dual pipe on mixers 0 and 1,
+	 * need to ensure that these pipes are readily available by using
+	 * mixer 2 if available and mux is not required */
+	if (!mux && (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_100) &&
+			(type == MDSS_MDP_MIXER_TYPE_INTF) &&
+			(nmixers >= MDSS_MDP_INTF_LAYERMIXER2) &&
+			(mixer_pool[MDSS_MDP_INTF_LAYERMIXER2].ref_cnt == 0))
+		mixer_pool += MDSS_MDP_INTF_LAYERMIXER2;
 
 	for (i = 0; i < nmixers; i++) {
 		mixer = mixer_pool + i;
@@ -356,7 +364,7 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	if (!ctl)
 		return NULL;
 
-	mixer = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_WRITEBACK);
+	mixer = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_WRITEBACK, false);
 	if (!mixer)
 		goto error;
 
@@ -461,7 +469,8 @@ static int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	if (!ctl->mixer_left) {
 		ctl->mixer_left =
-			mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF);
+			mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF,
+					(width > MAX_MIXER_WIDTH));
 		if (!ctl->mixer_left) {
 			pr_err("unable to allocate layer mixer\n");
 			return -ENOMEM;
@@ -482,7 +491,7 @@ static int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	if (width < ctl->width) {
 		if (ctl->mixer_right == NULL) {
 			ctl->mixer_right = mdss_mdp_mixer_alloc(ctl,
-					MDSS_MDP_MIXER_TYPE_INTF);
+					MDSS_MDP_MIXER_TYPE_INTF, true);
 			if (!ctl->mixer_right) {
 				pr_err("unable to allocate right mixer\n");
 				if (ctl->mixer_left)
@@ -617,14 +626,15 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 	sctl->width = pdata->panel_info.xres;
 	sctl->height = pdata->panel_info.yres;
 
-	ctl->mixer_left = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF);
+	ctl->mixer_left = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF,
+			false);
 	if (!ctl->mixer_left) {
 		pr_err("unable to allocate layer mixer\n");
 		mdss_mdp_ctl_destroy(sctl);
 		return -ENOMEM;
 	}
 
-	mixer = mdss_mdp_mixer_alloc(sctl, MDSS_MDP_MIXER_TYPE_INTF);
+	mixer = mdss_mdp_mixer_alloc(sctl, MDSS_MDP_MIXER_TYPE_INTF, false);
 	if (!mixer) {
 		pr_err("unable to allocate layer mixer\n");
 		mdss_mdp_ctl_destroy(sctl);
