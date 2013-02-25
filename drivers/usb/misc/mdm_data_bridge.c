@@ -99,9 +99,6 @@ struct data_bridge {
 	struct usb_anchor		tx_active;
 	struct usb_anchor		rx_active;
 
-	/* keep track of outgoing URBs during suspend */
-	struct usb_anchor		delayed;
-
 	struct list_head		rx_idle;
 	struct sk_buff_head		rx_done;
 
@@ -437,7 +434,6 @@ void data_bridge_close(unsigned int id)
 
 	usb_kill_anchored_urbs(&dev->tx_active);
 	usb_kill_anchored_urbs(&dev->rx_active);
-	usb_kill_anchored_urbs(&dev->delayed);
 
 	spin_lock_irqsave(&dev->rx_done.lock, flags);
 	while ((skb = __skb_dequeue(&dev->rx_done)))
@@ -596,11 +592,6 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 
 	txurb->transfer_flags |= URB_ZERO_PACKET;
 
-	if (test_bit(SUSPENDED, &dev->flags)) {
-		usb_anchor_urb(txurb, &dev->delayed);
-		goto free_urb;
-	}
-
 	pending = atomic_inc_return(&dev->pending_txurbs);
 	usb_anchor_urb(txurb, &dev->tx_active);
 
@@ -640,66 +631,19 @@ pm_error:
 }
 EXPORT_SYMBOL(data_bridge_write);
 
-static int data_bridge_resume(struct data_bridge *dev)
+static int bridge_resume(struct usb_interface *iface)
 {
-	struct urb	*urb;
-	int		retval;
+	int			retval = 0;
+	struct data_bridge	*dev = usb_get_intfdata(iface);
 
-	if (!test_and_clear_bit(SUSPENDED, &dev->flags))
-		return 0;
-
-	while ((urb = usb_get_from_anchor(&dev->delayed))) {
-		usb_anchor_urb(urb, &dev->tx_active);
-		atomic_inc(&dev->pending_txurbs);
-		retval = usb_submit_urb(urb, GFP_ATOMIC);
-		if (retval < 0) {
-			atomic_dec(&dev->pending_txurbs);
-			usb_unanchor_urb(urb);
-
-			/* TODO: need to free urb data */
-			usb_scuttle_anchored_urbs(&dev->delayed);
-			break;
-		}
-		dev->to_modem++;
-		dev->txurb_drp_cnt--;
-	}
+	clear_bit(SUSPENDED, &dev->flags);
 
 	if (dev->brdg)
 		queue_work(dev->wq, &dev->process_rx_w);
 
-	return 0;
-}
-
-static int bridge_resume(struct usb_interface *iface)
-{
-	int			retval = 0;
-	int			oldstate;
-	struct data_bridge	*dev = usb_get_intfdata(iface);
-
-	oldstate = iface->dev.power.power_state.event;
-	iface->dev.power.power_state.event = PM_EVENT_ON;
-
-	if (oldstate & PM_EVENT_SUSPEND) {
-		retval = data_bridge_resume(dev);
-		if (!retval)
-			retval = ctrl_bridge_resume(dev->id);
-	}
+	retval = ctrl_bridge_resume(dev->id);
 
 	return retval;
-}
-
-static int data_bridge_suspend(struct data_bridge *dev, pm_message_t message)
-{
-	if (atomic_read(&dev->pending_txurbs) &&
-		(message.event & PM_EVENT_AUTO))
-		return -EBUSY;
-
-	set_bit(SUSPENDED, &dev->flags);
-
-	usb_kill_anchored_urbs(&dev->tx_active);
-	usb_kill_anchored_urbs(&dev->rx_active);
-
-	return 0;
 }
 
 static int bridge_suspend(struct usb_interface *intf, pm_message_t message)
@@ -707,13 +651,17 @@ static int bridge_suspend(struct usb_interface *intf, pm_message_t message)
 	int			retval;
 	struct data_bridge	*dev = usb_get_intfdata(intf);
 
-	retval = data_bridge_suspend(dev, message);
-	if (!retval) {
-		retval = ctrl_bridge_suspend(dev->id);
-		intf->dev.power.power_state.event = message.event;
-	}
+	if (atomic_read(&dev->pending_txurbs))
+		return -EBUSY;
 
-	return retval;
+	retval = ctrl_bridge_suspend(dev->id);
+	if (retval)
+		return retval;
+
+	set_bit(SUSPENDED, &dev->flags);
+	usb_kill_anchored_urbs(&dev->rx_active);
+
+	return 0;
 }
 
 static int data_bridge_probe(struct usb_interface *iface,
@@ -1184,7 +1132,6 @@ static int __init bridge_init(void)
 
 		init_usb_anchor(&dev->tx_active);
 		init_usb_anchor(&dev->rx_active);
-		init_usb_anchor(&dev->delayed);
 
 		INIT_LIST_HEAD(&dev->rx_idle);
 
