@@ -916,7 +916,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 {
 	struct adm_cmd_matrix_map_routings_v5	*route;
 	struct adm_session_map_node_v5 *node;
-	uint32_t *copps_list;
+	uint16_t *copps_list;
 	int cmd_size = 0;
 	int ret = 0, i = 0;
 	void *payload = NULL;
@@ -975,7 +975,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	node->session_id = session_id;
 	node->num_copps = num_copps;
 	payload = (u8 *)node + sizeof(struct adm_session_map_node_v5);
-	copps_list = (uint32_t *)payload;
+	copps_list = (uint16_t *)payload;
 	for (i = 0; i < num_copps; i++) {
 		int tmp;
 		port_id[i] = q6audio_convert_virtual_to_portid(port_id[i]);
