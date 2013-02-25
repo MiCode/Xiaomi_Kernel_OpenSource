@@ -2205,6 +2205,39 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_cfg_aac_sel_mix_coef(struct audio_client *ac, uint32_t mix_coeff)
+{
+	struct asm_aac_stereo_mix_coeff_selection_param aac_mix_coeff;
+	int rc = 0;
+	q6asm_add_hdr(ac, &aac_mix_coeff.hdr, sizeof(aac_mix_coeff), TRUE);
+	aac_mix_coeff.hdr.opcode =
+		ASM_STREAM_CMD_SET_ENCDEC_PARAM;
+	aac_mix_coeff.param_id =
+		ASM_PARAM_ID_AAC_STEREO_MIX_COEFF_SELECTION_FLAG;
+	aac_mix_coeff.param_size =
+		sizeof(struct asm_aac_stereo_mix_coeff_selection_param);
+	aac_mix_coeff.aac_stereo_mix_coeff_flag	= mix_coeff;
+	pr_debug("%s, mix_coeff = %u", __func__, mix_coeff);
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &aac_mix_coeff);
+	if (rc < 0) {
+		pr_err("%s:Command opcode[0x%x]paramid[0x%x] failed\n",
+			__func__, ASM_STREAM_CMD_SET_ENCDEC_PARAM,
+			ASM_PARAM_ID_AAC_STEREO_MIX_COEFF_SELECTION_FLAG);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s:timeout opcode[0x%x]\n", __func__,
+						aac_mix_coeff.hdr.opcode);
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return -EINVAL;
+}
+
 int q6asm_set_encdec_chan_map(struct audio_client *ac,
 			uint32_t num_channels)
 {

@@ -2091,6 +2091,13 @@ fail_cmd:
 	return -EINVAL;
 }
 
+/* Support for selecting stereo mixing coefficients for B family not done */
+int q6asm_cfg_aac_sel_mix_coef(struct audio_client *ac, uint32_t mix_coeff)
+{
+	/* To Be Done */
+	return 0;
+}
+
 int q6asm_enc_cfg_blk_qcelp(struct audio_client *ac, uint32_t frames_per_buf,
 		uint16_t min_rate, uint16_t max_rate,
 		uint16_t reduced_rate_level, uint16_t rate_modulation_cmd)
