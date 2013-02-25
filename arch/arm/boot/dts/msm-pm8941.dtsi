@@ -1103,6 +1103,13 @@
 			status = "disabled";
 		};
 
+		qcom,vibrator@c000 {
+			compatible = "qcom,qpnp-vibrator";
+			reg = <0xc000 0x100>;
+			label = "vibrator";
+			status = "disabled";
+		};
+
 		qcom,leds@d000 {
 			compatible = "qcom,leds-qpnp";
 			reg = <0xd000 0x100>;
