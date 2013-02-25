@@ -82,6 +82,14 @@ struct adm_cmd_matrix_map_routings_v5 {
 */
 #define ADM_CMD_DEVICE_OPEN_V5                          0x00010326
 
+#define ADM_BIT_SHIFT_DEVICE_PERF_MODE_FLAG                           13
+
+/* Definition for a legacy device session. */
+#define ADM_LEGACY_DEVICE_SESSION                                      0
+
+/* Definition for a low latency stream session. */
+#define ADM_LOW_LATENCY_DEVICE_SESSION                                 1
+
 /* Indicates that endpoint_id_2 is to be ignored.*/
 #define ADM_CMD_COPP_OPEN_END_POINT_ID_2_IGNORE				0xFFFF
 
@@ -3794,8 +3802,15 @@ struct asm_session_cmdrsp_get_path_delay_v2 {
 
 /* adsp_asm_session_command.h*/
 #define ASM_STREAM_CMD_OPEN_WRITE_V2       0x00010D8F
+#define ASM_STREAM_CMD_OPEN_WRITE_V3       0x00010DB3
 
-struct asm_stream_cmd_open_write_v2 {
+#define ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_WRITE                     28
+
+#define ASM_LEGACY_STREAM_SESSION                                      0
+
+#define ASM_LOW_LATENCY_STREAM_SESSION                                  1
+
+struct asm_stream_cmd_open_write_v3 {
 	struct apr_hdr			hdr;
 	uint32_t                    mode_flags;
 /* Mode flags that configure the stream to notify the client
@@ -3878,6 +3893,9 @@ struct asm_stream_cmd_open_write_v2 {
 } __packed;
 
 #define ASM_STREAM_CMD_OPEN_READ_V2                 0x00010D8C
+
+#define ASM_STREAM_CMD_OPEN_READ_V3                 0x00010DB4
+
 /* Definition of the timestamp type flag bitmask */
 #define ASM_BIT_MASKIMESTAMPYPE_FLAG        (0x00000020UL)
 
@@ -3890,8 +3908,10 @@ struct asm_stream_cmd_open_write_v2 {
 /* Absolute timestamp is identified by this value.*/
 #define ASM_ABSOLUTEIMESTAMP      1
 
+/* Bit shift for the stream_perf_mode subfield. */
+#define ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_READ              29
 
-struct asm_stream_cmd_open_read_v2 {
+struct asm_stream_cmd_open_read_v3 {
 	struct apr_hdr hdr;
 	u32                    mode_flags;
 /* Mode flags that indicate whether meta information per encoded

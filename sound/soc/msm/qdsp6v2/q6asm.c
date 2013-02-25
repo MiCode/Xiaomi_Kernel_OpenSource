@@ -341,6 +341,7 @@ static void q6asm_session_free(struct audio_client *ac)
 	session[ac->session] = 0;
 	mutex_unlock(&session_lock);
 	ac->session = 0;
+	ac->perf_mode = 0;
 	return;
 }
 
@@ -622,6 +623,7 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	ac->cb = cb;
 	ac->priv = priv;
 	ac->io_mode = SYNC_IO_MODE;
+	ac->perf_mode = false;
 	ac->apr = apr_register("ADSP", "ASM", \
 				(apr_fn)q6asm_callback,\
 				((ac->session) << 8 | 0x0001),\
@@ -1087,8 +1089,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 					__func__, token, ac->session);
 			return -EINVAL;
 		}
-		case ASM_STREAM_CMD_OPEN_READ_V2:
-		case ASM_STREAM_CMD_OPEN_WRITE_V2:
+		case ASM_STREAM_CMD_OPEN_READ_V3:
+		case ASM_STREAM_CMD_OPEN_WRITE_V3:
 		case ASM_STREAM_CMD_OPEN_READWRITE_V2:
 		case ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
@@ -1433,7 +1435,7 @@ int q6asm_open_read(struct audio_client *ac,
 		uint32_t format)
 {
 	int rc = 0x00;
-	struct asm_stream_cmd_open_read_v2 open;
+	struct asm_stream_cmd_open_read_v3 open;
 
 	uint16_t bits_per_sample = 16;
 
@@ -1447,7 +1449,7 @@ int q6asm_open_read(struct audio_client *ac,
 	pr_debug("%s:session[%d]", __func__, ac->session);
 
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
-	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READ_V2;
+	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READ_V3;
 	/* Stream prio : High, provide meta info with encoded frames */
 	open.src_endpointype = ASM_END_POINT_DEVICE_MATRIX;
 
@@ -1455,30 +1457,39 @@ int q6asm_open_read(struct audio_client *ac,
 	if (open.preprocopo_id == 0)
 		open.preprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_DEFAULT;
 	open.bits_per_sample = bits_per_sample;
+	open.mode_flags = 0x0;
+
+	if (ac->perf_mode) {
+		open.mode_flags |= ASM_LOW_LATENCY_STREAM_SESSION <<
+				ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_READ;
+	} else {
+		open.mode_flags |= ASM_LEGACY_STREAM_SESSION <<
+				ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_READ;
+	}
 
 	switch (format) {
 	case FORMAT_LINEAR_PCM:
-		open.mode_flags = 0x00;
+		open.mode_flags |= 0x00;
 		open.enc_cfg_id = ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2;
 		break;
 	case FORMAT_MPEG4_AAC:
-		open.mode_flags = BUFFER_META_ENABLE;
+		open.mode_flags |= BUFFER_META_ENABLE;
 		open.enc_cfg_id = ASM_MEDIA_FMT_AAC_V2;
 		break;
 	case FORMAT_V13K:
-		open.mode_flags = BUFFER_META_ENABLE;
+		open.mode_flags |= BUFFER_META_ENABLE;
 		open.enc_cfg_id = ASM_MEDIA_FMT_V13K_FS;
 		break;
 	case FORMAT_EVRC:
-		open.mode_flags = BUFFER_META_ENABLE;
+		open.mode_flags |= BUFFER_META_ENABLE;
 		open.enc_cfg_id = ASM_MEDIA_FMT_EVRC_FS;
 		break;
 	case FORMAT_AMRNB:
-		open.mode_flags = BUFFER_META_ENABLE ;
+		open.mode_flags |= BUFFER_META_ENABLE ;
 		open.enc_cfg_id = ASM_MEDIA_FMT_AMRNB_FS;
 		break;
 	case FORMAT_AMRWB:
-		open.mode_flags = BUFFER_META_ENABLE ;
+		open.mode_flags |= BUFFER_META_ENABLE ;
 		open.enc_cfg_id = ASM_MEDIA_FMT_AMRWB_FS;
 		break;
 	default:
@@ -1505,7 +1516,7 @@ fail_cmd:
 int q6asm_open_write(struct audio_client *ac, uint32_t format)
 {
 	int rc = 0x00;
-	struct asm_stream_cmd_open_write_v2 open;
+	struct asm_stream_cmd_open_write_v3 open;
 
 	if ((ac == NULL) || (ac->apr == NULL)) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -1516,8 +1527,15 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format)
 
 	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
 
-	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE_V2;
+	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE_V3;
 	open.mode_flags = 0x00;
+	if (ac->perf_mode)
+		open.mode_flags |= (ASM_LOW_LATENCY_STREAM_SESSION <<
+				ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_WRITE);
+	else
+		open.mode_flags |= (ASM_LEGACY_STREAM_SESSION <<
+				ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_WRITE);
+
 	/* source endpoint : matrix */
 	open.sink_endpointype = ASM_END_POINT_DEVICE_MATRIX;
 	open.bits_per_sample = 16;
