@@ -641,6 +641,7 @@ struct sdhci_ops {
 					  bool enable,
 					  u32 type);
 	void	(*dump_vendor_regs)(struct sdhci_host *host);
+	void	(*toggle_cdr)(struct sdhci_host *host, bool enable);
 	void	(*voltage_switch)(struct sdhci_host *host);
 	int	(*select_drive_strength)(struct sdhci_host *host,
 					 struct mmc_card *card,
