@@ -20,3 +20,8 @@
 	compatible = "qcom,msm8974-cdp", "qcom,msm8974";
 	qcom,msm-id = <126 1 0>;
 };
+
+&ehci {
+	status = "ok";
+	vbus-supply = <&usb2_otg_sw>;
+};
