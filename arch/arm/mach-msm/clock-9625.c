@@ -1907,56 +1907,6 @@ static struct clk_lookup msm_clocks_9625[] = {
 
 };
 
-static struct pll_config_regs gpll0_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL0_L_REG,
-	.m_reg = (void __iomem *)GPLL0_M_REG,
-	.n_reg = (void __iomem *)GPLL0_N_REG,
-	.config_reg = (void __iomem *)GPLL0_USER_CTL_REG,
-	.mode_reg = (void __iomem *)GPLL0_MODE_REG,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* GPLL0 at 600 MHz, main output enabled. */
-static struct pll_config gpll0_config __initdata = {
-	.l = 0x1f,
-	.m = 0x1,
-	.n = 0x4,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-static struct pll_config_regs gpll1_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL1_L_REG,
-	.m_reg = (void __iomem *)GPLL1_M_REG,
-	.n_reg = (void __iomem *)GPLL1_N_REG,
-	.config_reg = (void __iomem *)GPLL1_USER_CTL_REG,
-	.mode_reg = (void __iomem *)GPLL1_MODE_REG,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* GPLL1 at 480 MHz, main output enabled. */
-static struct pll_config gpll1_config __initdata = {
-	.l = 0x19,
-	.m = 0x0,
-	.n = 0x1,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
 #define PLL_AUX_OUTPUT_BIT 1
 #define PLL_AUX2_OUTPUT_BIT 2
 
@@ -1998,47 +1948,9 @@ static int sr_pll_clk_enable_9625(struct clk *c)
 	return 0;
 }
 
-static void __init configure_apcs_pll(void)
-{
-	u32 regval;
-
-	clk_set_rate(&apcspll_clk_src.c, 998400000);
-
-	writel_relaxed(0x00141200,
-			APCS_PLL_REG_BASE(APCS_CPU_PLL_CONFIG_CTL_REG));
-
-	/* Enable AUX and AUX2 output */
-	regval = readl_relaxed(APCS_PLL_REG_BASE(APCS_CPU_PLL_USER_CTL_REG));
-	regval |= BIT(PLL_AUX_OUTPUT_BIT) | BIT(PLL_AUX2_OUTPUT_BIT);
-	writel_relaxed(regval, APCS_PLL_REG_BASE(APCS_CPU_PLL_USER_CTL_REG));
-}
-
 static void __init reg_init(void)
 {
 	u32 regval;
-
-	if (!(readl_relaxed(GCC_REG_BASE(GPLL0_STATUS_REG))
-			& gpll0_clk_src.status_mask))
-		configure_sr_hpm_lp_pll(&gpll0_config, &gpll0_regs, 1);
-
-	if (!(readl_relaxed(GCC_REG_BASE(GPLL1_STATUS_REG))
-			& gpll1_clk_src.status_mask))
-		configure_sr_hpm_lp_pll(&gpll1_config, &gpll1_regs, 1);
-
-	/* TODO: Remove A5 pll configuration once the bootloader is avaiable */
-	regval = readl_relaxed(APCS_PLL_REG_BASE(APCS_CPU_PLL_MODE_REG));
-	if ((regval & BM(2, 0)) != 0x7)
-		configure_apcs_pll();
-
-	/* TODO:
-	 * 1) do we need to turn on AUX2 output too?
-	 * 2) if need to vote off all sleep clocks
-	 */
-
-	/* Enable GPLL0's aux outputs. */
-	regval = readl_relaxed(GCC_REG_BASE(GPLL0_USER_CTL_REG));
-	regval |= BIT(PLL_AUX_OUTPUT_BIT) | BIT(PLL_AUX2_OUTPUT_BIT);
-	writel_relaxed(regval, GCC_REG_BASE(GPLL0_USER_CTL_REG));
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE_REG));
