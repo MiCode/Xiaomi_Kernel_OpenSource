@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/memory.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -507,11 +507,10 @@ out:
  */
 void adjust_meminfo(unsigned long start, unsigned long size)
 {
-	int i, j;
+	int i;
 
-	for (i = 0, j = 0; i < meminfo.nr_banks; i++) {
-		struct membank *bank = &meminfo.bank[j];
-		*bank = meminfo.bank[i];
+	for (i = 0; i < meminfo.nr_banks; i++) {
+		struct membank *bank = &meminfo.bank[i];
 
 		if (((start + size) <= (bank->start + bank->size)) &&
 			(start >= bank->start)) {
@@ -519,15 +518,15 @@ void adjust_meminfo(unsigned long start, unsigned long size)
 				(meminfo.nr_banks - i) * sizeof(*bank));
 			meminfo.nr_banks++;
 			i++;
-			bank[1].size -= (start + size);
-			bank[1].start = (start + size);
-			bank[1].highmem = 0;
-			j++;
+
 			bank->size = start - bank->start;
+			bank[1].start = (start + size);
+			bank[1].size -= (bank->size + size);
+			bank[1].highmem = 0;
 		}
-		j++;
 	}
 }
+
 unsigned long get_ddr_size(void)
 {
 	unsigned int i;
