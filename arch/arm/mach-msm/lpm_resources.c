@@ -108,6 +108,12 @@ enum {
 	MSM_LPM_LOCAL_RS_TYPE = 1,
 };
 
+enum {
+	MSM_SCM_L2_ON = 0,
+	MSM_SCM_L2_OFF = 1,
+	MSM_SCM_L2_GDHS = 3,
+};
+
 struct msm_lpm_resource {
 	struct msm_lpm_rs_data rs_data;
 	uint32_t sleep_value;
@@ -407,15 +413,16 @@ static void msm_lpm_set_l2_mode(int sleep_mode, int notify_rpm)
 {
 	int lpm, rc;
 
-	msm_pm_set_l2_flush_flag(0);
+	msm_pm_set_l2_flush_flag(MSM_SCM_L2_ON);
 
 	switch (sleep_mode) {
 	case MSM_LPM_L2_CACHE_HSFS_OPEN:
 		lpm = MSM_SPM_L2_MODE_POWER_COLLAPSE;
-		msm_pm_set_l2_flush_flag(1);
+		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
 		break;
 	case MSM_LPM_L2_CACHE_GDHS:
 		lpm = MSM_SPM_L2_MODE_GDHS;
+		msm_pm_set_l2_flush_flag(MSM_SCM_L2_GDHS);
 		break;
 	case MSM_LPM_L2_CACHE_RETENTION:
 		lpm = MSM_SPM_L2_MODE_RETENTION;
