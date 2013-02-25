@@ -44,6 +44,9 @@
 
 static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
+#define SAMPLING_RATE_48KHZ 48000
+#define SAMPLING_RATE_96KHZ 96000
+
 static int msm8974_auxpcm_rate = 8000;
 #define LO_1_SPK_AMP	0x1
 #define LO_3_SPK_AMP	0x2
@@ -176,6 +179,7 @@ static int msm_slim_0_tx_ch = 1;
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 static int msm_hdmi_rx_ch = 2;
+static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 
 static struct mutex cdc_mclk_mutex;
 static struct q_clkdiv *codec_clk;
@@ -570,6 +574,7 @@ static const char *const slim0_tx_ch_text[] = {"One", "Two", "Three", "Four"};
 static char const *hdmi_rx_ch_text[] = {"Two", "Three", "Four", "Five",
 					"Six", "Seven", "Eight"};
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
+static char const *slim0_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96"};
 
 static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
@@ -581,6 +586,50 @@ static const char *const btsco_rate_text[] = {"8000", "16000"};
 static const struct soc_enum msm_btsco_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
 };
+
+static int slim0_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int sample_rate_val = 0;
+
+	switch (slim0_rx_sample_rate) {
+	case SAMPLING_RATE_96KHZ:
+		sample_rate_val = 1;
+		break;
+
+	case SAMPLING_RATE_48KHZ:
+	default:
+		sample_rate_val = 0;
+		break;
+	}
+
+	ucontrol->value.integer.value[0] = sample_rate_val;
+	pr_debug("%s: slim0_rx_sample_rate = %d\n", __func__,
+				slim0_rx_sample_rate);
+
+	return 0;
+}
+
+static int slim0_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: ucontrol value = %ld\n", __func__,
+			ucontrol->value.integer.value[0]);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		slim0_rx_sample_rate = SAMPLING_RATE_96KHZ;
+		break;
+	case 0:
+	default:
+		slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
+	}
+
+	pr_debug("%s: slim0_rx_sample_rate = %d\n", __func__,
+			slim0_rx_sample_rate);
+
+	return 0;
+}
 
 static int slim0_rx_bit_format_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
@@ -927,7 +976,7 @@ static int msm_slim_0_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s()\n", __func__);
 	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 				   slim0_rx_bit_format);
-	rate->min = rate->max = 48000;
+	rate->min = rate->max = slim0_rx_sample_rate;
 	channels->min = channels->max = msm_slim_0_rx_ch;
 
 	 pr_debug("%s: format = %d, rate = %d, channels = %d\n",
@@ -971,6 +1020,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(7, hdmi_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
+	SOC_ENUM_SINGLE_EXT(2, slim0_rx_sample_rate_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -986,6 +1036,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_hdmi_rx_ch_get, msm_hdmi_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_RX Format", msm_snd_enum[4],
 			slim0_rx_bit_format_get, slim0_rx_bit_format_put),
+	SOC_ENUM_EXT("SLIM_0_RX SampleRate", msm_snd_enum[5],
+			slim0_rx_sample_rate_get, slim0_rx_sample_rate_put),
 };
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
