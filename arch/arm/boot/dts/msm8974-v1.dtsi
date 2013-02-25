@@ -36,3 +36,12 @@
 &tsens {
 	qcom,calibration-less-mode;
 };
+
+/* I2C clock frequency overrides */
+&i2c_0 {
+	qcom,i2c-src-freq = <19200000>;
+};
+
+&i2c_2 {
+	qcom,i2c-src-freq = <19200000>;
+};
