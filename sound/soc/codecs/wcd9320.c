@@ -71,6 +71,11 @@ MODULE_PARM_DESC(spkr_drv_wrnd,
 #define TAIKO_MCLK_CLK_12P288MHZ 12288000
 #define TAIKO_MCLK_CLK_9P6HZ 9600000
 
+#define TAIKO_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
+			SNDRV_PCM_FORMAT_S24_LE)
+
+#define TAIKO_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
+
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -3196,7 +3201,6 @@ static int taiko_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	return 0;
 }
 
-#define TAIKO_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
 static int taiko_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int value)
 {
@@ -3673,6 +3677,29 @@ static int taiko_hw_params(struct snd_pcm_substream *substream,
 			snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_RX_I2S_CTL,
 					    0x03, (rx_fs_rate >> 0x05));
 		} else {
+			switch (params_format(params)) {
+			case SNDRV_PCM_FORMAT_S16_LE:
+				snd_soc_update_bits(codec,
+					TAIKO_A_CDC_CONN_RX_SB_B1_CTL,
+					0xFF, 0xAA);
+				snd_soc_update_bits(codec,
+					TAIKO_A_CDC_CONN_RX_SB_B2_CTL,
+					0xFF, 0x2A);
+				taiko->dai[dai->id].bit_width = 16;
+				break;
+			case SNDRV_PCM_FORMAT_S24_LE:
+				snd_soc_update_bits(codec,
+					TAIKO_A_CDC_CONN_RX_SB_B1_CTL,
+					0xFF, 0x00);
+				snd_soc_update_bits(codec,
+					TAIKO_A_CDC_CONN_RX_SB_B2_CTL,
+					0xFF, 0x00);
+				taiko->dai[dai->id].bit_width = 24;
+				break;
+			default:
+				dev_err(codec->dev, "Invalid format\n");
+				break;
+			}
 			taiko->dai[dai->id].rate   = params_rate(params);
 		}
 		break;
@@ -3702,7 +3729,7 @@ static struct snd_soc_dai_driver taiko_dai[] = {
 		.playback = {
 			.stream_name = "AIF1 Playback",
 			.rates = WCD9320_RATES,
-			.formats = TAIKO_FORMATS,
+			.formats = TAIKO_FORMATS_S16_S24_LE,
 			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
@@ -3730,7 +3757,7 @@ static struct snd_soc_dai_driver taiko_dai[] = {
 		.playback = {
 			.stream_name = "AIF2 Playback",
 			.rates = WCD9320_RATES,
-			.formats = TAIKO_FORMATS,
+			.formats = TAIKO_FORMATS_S16_S24_LE,
 			.rate_min = 8000,
 			.rate_max = 192000,
 			.channels_min = 1,
@@ -3772,7 +3799,7 @@ static struct snd_soc_dai_driver taiko_dai[] = {
 		.playback = {
 			.stream_name = "AIF3 Playback",
 			.rates = WCD9320_RATES,
-			.formats = TAIKO_FORMATS,
+			.formats = TAIKO_FORMATS_S16_S24_LE,
 			.rate_min = 8000,
 			.rate_max = 192000,
 			.channels_min = 1,
@@ -4896,10 +4923,6 @@ static const struct wcd9xxx_reg_mask_val taiko_codec_reg_init_val[] = {
 	{TAIKO_A_CDC_CONN_TX_SB_B8_CTL, 0x60, 0x40},
 	{TAIKO_A_CDC_CONN_TX_SB_B9_CTL, 0x60, 0x40},
 	{TAIKO_A_CDC_CONN_TX_SB_B10_CTL, 0x60, 0x40},
-
-	/* Use 16 bit sample size for RX */
-	{TAIKO_A_CDC_CONN_RX_SB_B1_CTL, 0xFF, 0xAA},
-	{TAIKO_A_CDC_CONN_RX_SB_B2_CTL, 0xFF, 0x2A},
 
 	/*enable HPF filter for TX paths */
 	{TAIKO_A_CDC_TX1_MUX_CTL, 0x8, 0x0},

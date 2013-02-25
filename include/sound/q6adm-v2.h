@@ -30,10 +30,10 @@ struct route_payload {
 int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params);
 
 int adm_open(int port, int path, int rate, int mode, int topology,
-						bool perf_mode);
+				bool perf_mode, uint16_t bits_per_sample);
 
 int adm_multi_ch_copp_open(int port, int path, int rate, int mode,
-				int topology, bool perf_mode);
+			int topology, bool perf_mode, uint16_t bits_per_sample);
 
 int adm_memory_map_regions(int port_id, uint32_t *buf_add, uint32_t mempool_id,
 				uint32_t *bufsz, uint32_t bufcnt);

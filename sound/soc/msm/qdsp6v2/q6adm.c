@@ -741,7 +741,7 @@ fail_cmd:
 }
 
 int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
-							bool perf_mode)
+			bool perf_mode, uint16_t bits_per_sample)
 {
 	struct adm_cmd_device_open_v5	open;
 	int ret = 0;
@@ -817,7 +817,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			open.topology_id = topology;
 
 		open.dev_num_channel = channel_mode & 0x00FF;
-		open.bit_width = 16;
+		open.bit_width = bits_per_sample;
 		open.sample_rate  = rate;
 		memset(open.dev_channel_mapping, 0, 8);
 
@@ -900,13 +900,13 @@ fail_cmd:
 	return ret;
 }
 
-
 int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
-				int topology, bool perf_mode)
+			int topology, bool perf_mode, uint16_t bits_per_sample)
 {
 	int ret = 0;
 
-	ret = adm_open(port_id, path, rate, channel_mode, topology, perf_mode);
+	ret = adm_open(port_id, path, rate, channel_mode,
+				   topology, perf_mode, bits_per_sample);
 
 	return ret;
 }
