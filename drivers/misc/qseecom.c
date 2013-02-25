@@ -1604,8 +1604,8 @@ EXPORT_SYMBOL(qseecom_start_app);
 int qseecom_shutdown_app(struct qseecom_handle **handle)
 {
 	int ret = -EINVAL;
-	struct qseecom_dev_handle *data =
-			(struct qseecom_dev_handle *) ((*handle)->dev);
+	struct qseecom_dev_handle *data;
+
 	struct qseecom_registered_kclient_list *kclient = NULL;
 	unsigned long flags = 0;
 	bool found_handle = false;
@@ -1614,11 +1614,11 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 		pr_err("This functionality is UNSUPPORTED in version 1.3\n");
 		return -EINVAL;
 	}
-	if (*handle == NULL) {
+	if ((handle == NULL)  || (*handle == NULL)) {
 		pr_err("Handle is not initialized\n");
 		return -EINVAL;
 	}
-
+	data =	(struct qseecom_dev_handle *) ((*handle)->dev);
 	spin_lock_irqsave(&qseecom.registered_kclient_list_lock, flags);
 	list_for_each_entry(kclient, &qseecom.registered_kclient_list_head,
 				list) {
