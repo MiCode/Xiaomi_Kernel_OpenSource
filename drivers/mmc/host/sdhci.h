@@ -430,6 +430,9 @@ struct sdhci_host {
  */
 #define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<18)
 
+/* Ignore CMD CRC errors for tuning commands */
+#define SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING		(1<<6)
+
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
