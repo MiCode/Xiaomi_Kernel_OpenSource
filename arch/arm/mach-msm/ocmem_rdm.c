@@ -206,6 +206,11 @@ int ocmem_rdm_transfer(int id, struct ocmem_map_list *clist,
 		return rc;
 	}
 
+	/* Clear DM Mask */
+	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
+	/* Clear DM Interrupts */
+	ocmem_write(DM_INTR_RESET, dm_base + DM_INTR_CLR);
+
 	for (i = 0, j = slot; i < num_chunks; i++, j++) {
 
 		struct ocmem_chunk *chunk = &clist->chunks[i];
