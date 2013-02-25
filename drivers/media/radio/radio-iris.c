@@ -49,6 +49,7 @@ static unsigned char c_byt_pair_index;
 static char utf_8_flag;
 static char rt_ert_flag;
 static char formatting_dir;
+static DEFINE_MUTEX(iris_fm);
 
 module_param(rds_buf, uint, 0);
 MODULE_PARM_DESC(rds_buf, "RDS buffer entries: *100*");
@@ -1167,6 +1168,7 @@ static int __radio_hci_request(struct radio_hci_dev *hdev,
 
 	DECLARE_WAITQUEUE(wait, current);
 
+	mutex_lock(&iris_fm);
 	hdev->req_status = HCI_REQ_PEND;
 
 	add_wait_queue(&hdev->req_wait_q, &wait);
@@ -1178,8 +1180,10 @@ static int __radio_hci_request(struct radio_hci_dev *hdev,
 
 	remove_wait_queue(&hdev->req_wait_q, &wait);
 
-	if (signal_pending(current))
+	if (signal_pending(current)) {
+		mutex_unlock(&iris_fm);
 		return -EINTR;
+	}
 
 	switch (hdev->req_status) {
 	case HCI_REQ_DONE:
@@ -1197,6 +1201,7 @@ static int __radio_hci_request(struct radio_hci_dev *hdev,
 	}
 
 	hdev->req_status = hdev->req_result = 0;
+	mutex_unlock(&iris_fm);
 
 	return err;
 }
