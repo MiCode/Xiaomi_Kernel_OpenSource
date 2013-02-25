@@ -895,8 +895,13 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 		}
 	}
 
-	if (data->flags & MMC_DATA_READ)
+	if (data->flags & MMC_DATA_READ) {
 		mode |= SDHCI_TRNS_READ;
+		if (host->ops->toggle_cdr)
+			host->ops->toggle_cdr(host, true);
+	}
+	if (host->ops->toggle_cdr && (data->flags & MMC_DATA_WRITE))
+		host->ops->toggle_cdr(host, false);
 	if (host->flags & SDHCI_REQ_USE_DMA)
 		mode |= SDHCI_TRNS_DMA;
 
