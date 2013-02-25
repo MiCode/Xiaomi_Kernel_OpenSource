@@ -305,6 +305,7 @@ struct sdhci_ops {
 	unsigned int	(*get_max_segments)(void);
 	void	(*platform_init)(struct sdhci_host *host);
 	void    (*check_power_status)(struct sdhci_host *host, u32 req_type);
+	void	(*toggle_cdr)(struct sdhci_host *host, bool enable);
 #define REQ_BUS_OFF	(1 << 0)
 #define REQ_BUS_ON	(1 << 1)
 #define REQ_IO_LOW	(1 << 2)
