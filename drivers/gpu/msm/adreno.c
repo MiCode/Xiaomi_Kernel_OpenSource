@@ -759,6 +759,10 @@ static int adreno_of_get_pwrlevels(struct device_node *parent,
 		&pdata->init_level))
 		pdata->init_level = 1;
 
+	if (adreno_of_read_property(parent, "qcom,step-pwrlevel",
+		&pdata->step_mul))
+		pdata->step_mul = 1;
+
 	if (pdata->init_level < 0 || pdata->init_level > pdata->num_levels) {
 		KGSL_CORE_ERR("Initial power level out of range\n");
 		pdata->init_level = 1;
