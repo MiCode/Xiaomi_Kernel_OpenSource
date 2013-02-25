@@ -13,7 +13,7 @@
 /* Stub Regulators */
 
 / {
-	pm8026_s1_corner: regulator-s1-corner {
+	pm8226_s1_corner: regulator-s1-corner {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "8226_s1_corner";
 		qcom,hpm-min-load = <100000>;
@@ -35,8 +35,8 @@
 			qcom,enable-time = <500>;
 			qcom,system-load = <100000>;
 			regulator-always-on;
-			regulator-min-microvolt = <1287500>;
-			regulator-max-microvolt = <1287500>;
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1150000>;
 		};
 
 		pm8226_s2: regulator@1700 {
@@ -104,8 +104,8 @@
 			qcom,system-load = <10000>;
 			regulator-always-on;
 			qcom,enable-time = <200>;
-			regulator-min-microvolt = <1287500>;
-			regulator-max-microvolt = <1287500>;
+			regulator-min-microvolt = <1150000>;
+			regulator-max-microvolt = <1150000>;
 		};
 
 		pm8226_l4: regulator@4300 {
