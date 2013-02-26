@@ -281,6 +281,20 @@ static inline int msm_ion_unsecure_heap_2_0(int heap_id,
 {
 	return -ENODEV;
 }
+
+static inline int msm_ion_secure_buffer(struct ion_client *client,
+					struct ion_handle *handle,
+					enum cp_mem_usage usage,
+					int flags)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ion_unsecure_buffer(struct ion_client *client,
+					struct ion_handle *handle)
+{
+	return -ENODEV;
+}
 #endif /* CONFIG_ION */
 
 #endif /* __KERNEL */
