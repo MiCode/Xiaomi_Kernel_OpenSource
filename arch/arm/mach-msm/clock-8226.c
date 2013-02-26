@@ -499,7 +499,8 @@ static struct pll_vote_clk gpll1 = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_blsp1_qup1_6_i2c_apps_clk[] = {
-	F_GCC(  19200000,         xo,   0,    0,    0),
+	F_GCC(  19200000,         xo,   1,    0,    0),
+	F_GCC(  50000000,      gpll0,  12,    0,    0),
 	F_END
 };
 
@@ -1850,6 +1851,7 @@ static struct clk_freq_tbl ftbl_venus0_vcodec0_clk[] = {
 	F_MMSS(  66700000,      gpll0,   9,    0,    0),
 	F_MMSS( 100000000,      gpll0,   6,    0,    0),
 	F_MMSS( 133330000, mmpll0_pll,   6,    0,    0),
+	F_MMSS( 160000000, mmpll0_pll,   5,    0,    0),
 	F_END
 };
 
