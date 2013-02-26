@@ -24,8 +24,7 @@
 			compatible = "qcom,msm-ion-reserve";
 			reg = <8>;
 			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x7800000>;
+			linux,contiguous-region = <&secure_mem>;
 		};
 
 		qcom,ion-heap@25 { /* IOMMU HEAP */
