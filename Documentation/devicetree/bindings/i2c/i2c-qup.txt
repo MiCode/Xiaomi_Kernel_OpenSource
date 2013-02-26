@@ -24,6 +24,11 @@ Optional property:
 		      desired I2C bus frequency. If this value is not
 		      provided, the source clock is assumed to be running
 		      at 19.2 MHz.
+ - qcom,scl-gpio     : I2C clock GPIO number. Required for execution of bus
+		      recovery procedure.
+ - qcom,sda-gpio     : I2C data  GPIO number. Required for execution of bus
+		      recovery procedure.
+
 Example:
 	i2c@f9966000 {
 		cell-index = <0>;
@@ -34,4 +39,6 @@ Example:
 		interrupt-names = "qup_err_intr";
 		qcom,i2c-bus-freq = <100000>;
 		qcom,i2c-src-freq = <24000000>;
+		qcom,scl-gpio = <&msmgpio 7 0>;
+		qcom,sda-gpio = <&msmgpio 6 0>;
 	};
