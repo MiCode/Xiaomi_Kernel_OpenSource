@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,13 +29,14 @@
 #include <linux/mutex.h>
 #include <linux/timer.h>
 #include <linux/slab.h>
-#include <mach/board.h>
-#include <mach/gpiomux.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/gpio.h>
 #include <linux/of.h>
 #include <linux/of_i2c.h>
+#include <linux/of_gpio.h>
+#include <mach/board.h>
+#include <mach/gpiomux.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("0.2");
@@ -131,6 +132,7 @@ enum {
 #define DEFAULT_CLK_RATE		(19200000)
 #define I2C_STATUS_CLK_STATE		13
 #define QUP_OUT_FIFO_NOT_EMPTY		0x10
+#define I2C_GPIOS_DT_CNT		(2)		/* sda and scl */
 
 static char const * const i2c_rsrcs[] = {"i2c_clk", "i2c_sda"};
 
@@ -1088,6 +1090,72 @@ timeout_err:
 	return ret;
 }
 
+enum msm_i2c_dt_entry_status {
+	DT_REQUIRED,
+	DT_SUGGESTED,
+	DT_OPTIONAL,
+};
+
+enum msm_i2c_dt_entry_type {
+	DT_U32,
+	DT_GPIO,
+};
+
+struct msm_i2c_dt_to_pdata_map {
+	const char                  *dt_name;
+	int                         *ptr_data;
+	enum msm_i2c_dt_entry_status status;
+	enum msm_i2c_dt_entry_type   type;
+	int                          default_val;
+};
+
+int __devinit msm_i2c_rsrcs_dt_to_pdata_map(struct platform_device *pdev,
+				struct msm_i2c_platform_data *pdata, int *gpios)
+{
+	int  ret, err = 0;
+	struct device_node *node = pdev->dev.of_node;
+	struct msm_i2c_dt_to_pdata_map *itr;
+	struct msm_i2c_dt_to_pdata_map  map[] = {
+	{"qcom,i2c-bus-freq", &pdata->clk_freq    , DT_REQUIRED , DT_U32 ,  0},
+	{"cell-index"       , &pdev->id           , DT_REQUIRED , DT_U32 , -1},
+	{"qcom,i2c-src-freq", &pdata->src_clk_rate, DT_SUGGESTED, DT_U32,   0},
+	{"qcom,scl-gpio"    , gpios               , DT_OPTIONAL , DT_GPIO, -1},
+	{"qcom,sda-gpio"    , gpios + 1           , DT_OPTIONAL , DT_GPIO, -1},
+	{NULL               , NULL                , 0           , 0      ,  0},
+	};
+
+	for (itr = map; itr->dt_name ; ++itr) {
+		if (itr->type == DT_GPIO) {
+			ret = of_get_named_gpio(node, itr->dt_name, 0);
+			if (ret >= 0) {
+				*itr->ptr_data = ret;
+				ret = 0;
+			}
+		} else {
+			ret = of_property_read_u32(node, itr->dt_name,
+								itr->ptr_data);
+		}
+
+		dev_dbg(&pdev->dev, "DT entry ret:%d name:%s val:%d\n",
+					ret, itr->dt_name, *itr->ptr_data);
+
+		if (ret) {
+			*itr->ptr_data = itr->default_val;
+
+			if (itr->status < DT_OPTIONAL) {
+				dev_err(&pdev->dev, "Missing '%s' DT entry\n",
+								itr->dt_name);
+
+				/* cont on err to dump all missing entries */
+				if (itr->status == DT_REQUIRED && !err)
+					err = ret;
+			}
+		}
+	}
+
+	return err;
+}
+
 static u32
 qup_i2c_func(struct i2c_adapter *adap)
 {
@@ -1106,28 +1174,23 @@ qup_i2c_probe(struct platform_device *pdev)
 	struct resource         *qup_mem, *gsbi_mem, *qup_io, *gsbi_io, *res;
 	struct resource		*in_irq, *out_irq, *err_irq;
 	struct clk         *clk, *pclk;
-	int ret = 0;
-	int i;
+	int  ret = 0;
+	int  i;
+	int  dt_gpios[I2C_GPIOS_DT_CNT];
+	bool use_device_tree = pdev->dev.of_node;
 	struct msm_i2c_platform_data *pdata;
 
 	gsbi_mem = NULL;
 	dev_dbg(&pdev->dev, "qup_i2c_probe\n");
 
-	if (pdev->dev.of_node) {
-		struct device_node *node = pdev->dev.of_node;
-		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (use_device_tree) {
+		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
 			return -ENOMEM;
-		ret = of_property_read_u32(node, "qcom,i2c-bus-freq",
-					&pdata->clk_freq);
+
+		ret = msm_i2c_rsrcs_dt_to_pdata_map(pdev, pdata, dt_gpios);
 		if (ret)
 			goto get_res_failed;
-		ret = of_property_read_u32(node, "cell-index", &pdev->id);
-		if (ret)
-			goto get_res_failed;
-		/* Optional property */
-		of_property_read_u32(node, "qcom,i2c-src-freq",
-					&pdata->src_clk_rate);
 	} else
 		pdata = pdev->dev.platform_data;
 
@@ -1247,9 +1310,13 @@ blsp_core_init:
 	}
 
 	for (i = 0; i < ARRAY_SIZE(i2c_rsrcs); ++i) {
-		res = platform_get_resource_byname(pdev, IORESOURCE_IO,
-						   i2c_rsrcs[i]);
-		dev->i2c_gpios[i] = res ? res->start : -1;
+		if (use_device_tree && i < I2C_GPIOS_DT_CNT) {
+			dev->i2c_gpios[i] = dt_gpios[i];
+		} else {
+			res = platform_get_resource_byname(pdev, IORESOURCE_IO,
+							   i2c_rsrcs[i]);
+			dev->i2c_gpios[i] = res ? res->start : -1;
+		}
 	}
 
 	platform_set_drvdata(pdev, dev);
@@ -1261,8 +1328,7 @@ blsp_core_init:
 
 	if (dev->pdata->src_clk_rate <= 0) {
 		dev_info(&pdev->dev,
-			"No src_clk_rate specified in platfrom data or "
-						"qcom,i2c-src-freq in DT\n");
+			"No src_clk_rate specified in platfrom data\n");
 		dev_info(&pdev->dev, "Using default clock rate %dHz\n",
 							DEFAULT_CLK_RATE);
 		dev->pdata->src_clk_rate = DEFAULT_CLK_RATE;
