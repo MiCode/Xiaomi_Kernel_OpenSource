@@ -131,7 +131,6 @@ struct qpnp_iadc_drv {
 	struct qpnp_adc_drv			*adc;
 	int32_t					rsense;
 	struct device				*iadc_hwmon;
-	bool					iadc_init_calib;
 	bool					iadc_initialized;
 	int64_t					die_temp_calib_offset;
 	struct delayed_work			iadc_work;
@@ -413,6 +412,8 @@ static int32_t qpnp_iadc_calibrate_for_trim(void)
 	uint16_t raw_data;
 	uint32_t mode_sel = 0;
 
+	mutex_lock(&iadc->adc->adc_lock);
+
 	rc = qpnp_iadc_configure(GAIN_CALIBRATION_17P857MV,
 						&raw_data, mode_sel);
 	if (rc < 0) {
@@ -469,6 +470,7 @@ static int32_t qpnp_iadc_calibrate_for_trim(void)
 		goto fail;
 	}
 fail:
+	mutex_unlock(&iadc->adc->adc_lock);
 	return rc;
 }
 
@@ -477,15 +479,11 @@ static void qpnp_iadc_work(struct work_struct *work)
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	int rc = 0;
 
-	mutex_lock(&iadc->adc->adc_lock);
-
 	rc = qpnp_iadc_calibrate_for_trim();
 	if (rc) {
 		pr_err("periodic IADC calibration failed\n");
 		iadc->iadc_err_cnt++;
 	}
-
-	mutex_unlock(&iadc->adc->adc_lock);
 
 	if (iadc->iadc_err_cnt < QPNP_IADC_ERR_CHK_RATELIMIT)
 		schedule_delayed_work(&iadc->iadc_work,
@@ -527,8 +525,12 @@ EXPORT_SYMBOL(qpnp_iadc_is_ready);
 
 int32_t qpnp_iadc_get_rsense(int32_t *rsense)
 {
+	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	uint8_t	rslt_rsense;
 	int32_t	rc, sign_bit = 0;
+
+	if (!iadc || !iadc->iadc_initialized)
+		return -EPROBE_DEFER;
 
 	rc = qpnp_iadc_read_reg(QPNP_IADC_NOMINAL_RSENSE, &rslt_rsense);
 	if (rc < 0) {
@@ -552,7 +554,7 @@ int32_t qpnp_iadc_get_rsense(int32_t *rsense)
 }
 EXPORT_SYMBOL(qpnp_iadc_get_rsense);
 
-int32_t qpnp_check_pmic_temp(void)
+static int32_t qpnp_check_pmic_temp(void)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	struct qpnp_vadc_result result_pmic_therm;
@@ -565,13 +567,9 @@ int32_t qpnp_check_pmic_temp(void)
 	if (((uint64_t) (result_pmic_therm.physical -
 				iadc->die_temp_calib_offset))
 			> QPNP_IADC_DIE_TEMP_CALIB_OFFSET) {
-		mutex_lock(&iadc->adc->adc_lock);
-
 		rc = qpnp_iadc_calibrate_for_trim();
 		if (rc)
 			pr_err("periodic IADC calibration failed\n");
-
-		mutex_unlock(&iadc->adc->adc_lock);
 	}
 
 	return 0;
@@ -818,7 +816,6 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 	} else
 		enable_irq_wake(iadc->adc->adc_irq_eoc);
 
-	iadc->iadc_init_calib = false;
 	dev_set_drvdata(&spmi->dev, iadc);
 	qpnp_iadc = iadc;
 
@@ -835,20 +832,17 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 		goto fail;
 	}
 
-	rc = qpnp_iadc_calibrate_for_trim();
-	if (rc) {
-		dev_err(&spmi->dev, "failed to calibrate for USR trim\n");
-		goto fail;
-	}
-	iadc->iadc_init_calib = true;
-	INIT_DELAYED_WORK(&iadc->iadc_work, qpnp_iadc_work);
-	schedule_delayed_work(&iadc->iadc_work,
-			round_jiffies_relative(msecs_to_jiffies
-					(QPNP_IADC_CALIB_SECONDS)));
 	mutex_init(&iadc->iadc_vadc_lock);
+	INIT_DELAYED_WORK(&iadc->iadc_work, qpnp_iadc_work);
 	iadc->iadc_err_cnt = 0;
 	iadc->iadc_initialized = true;
 
+	rc = qpnp_iadc_calibrate_for_trim();
+	if (rc)
+		dev_err(&spmi->dev, "failed to calibrate for USR trim\n");
+	schedule_delayed_work(&iadc->iadc_work,
+			round_jiffies_relative(msecs_to_jiffies
+					(QPNP_IADC_CALIB_SECONDS)));
 	return 0;
 fail:
 	qpnp_iadc = NULL;
@@ -862,6 +856,7 @@ static int __devexit qpnp_iadc_remove(struct spmi_device *spmi)
 	struct device_node *child;
 	int i = 0;
 
+	cancel_delayed_work(&iadc->iadc_work);
 	mutex_destroy(&iadc->iadc_vadc_lock);
 	for_each_child_of_node(node, child) {
 		device_remove_file(&spmi->dev,
