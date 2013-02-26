@@ -23,11 +23,12 @@
 #include <linux/tick.h>
 #include <mach/mpm.h>
 #include <mach/rpm-smd.h>
+#include <mach/trace_msm_low_power.h>
 #include "spm.h"
 #include "lpm_resources.h"
 #include "rpm-notifier.h"
 #include "idle.h"
-#include "trace_msm_low_power.h"
+
 
 /*Debug Definitions*/
 enum {
