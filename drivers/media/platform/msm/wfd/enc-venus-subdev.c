@@ -549,12 +549,30 @@ venc_stop_fail:
 	return rc;
 }
 
+static void populate_planes(struct v4l2_plane *planes, int num_planes,
+		void *userptr, int size)
+{
+	int c = 0;
+
+	planes[0] = (struct v4l2_plane) {
+		.length = size,
+		.m.userptr = (int)userptr,
+	};
+
+	for (c = 1; c < num_planes - 1; ++c) {
+		planes[c] = (struct v4l2_plane) {
+			.length = 0,
+			.m.userptr = (int)NULL,
+		};
+	}
+}
+
 static long venc_set_input_buffer(struct v4l2_subdev *sd, void *arg)
 {
 	int rc = 0;
 	struct venc_inst *inst = NULL;
 	struct v4l2_buffer buf = {0};
-	struct v4l2_plane plane = {0};
+	struct v4l2_plane *planes = NULL;
 	struct mem_region *mregion = arg;
 
 	if (!sd) {
@@ -575,20 +593,21 @@ static long venc_set_input_buffer(struct v4l2_subdev *sd, void *arg)
 	}
 
 	mregion = kzalloc(sizeof(*mregion), GFP_KERNEL);
-	*mregion = *(struct mem_region *)arg;
+	planes = kzalloc(sizeof(*planes) * inst->num_input_planes, GFP_KERNEL);
+	if (!mregion || !planes)
+		return -ENOMEM;
 
-	plane = (struct v4l2_plane) {
-		.length = mregion->size,
-		.m.userptr = (u32)mregion->paddr,
-	};
+	*mregion = *(struct mem_region *)arg;
+	populate_planes(planes, inst->num_input_planes,
+			mregion->paddr, mregion->size);
 
 	buf = (struct v4l2_buffer) {
 		.index = get_list_len(&inst->registered_input_bufs),
 		.type = BUF_TYPE_INPUT,
 		.bytesused = 0,
 		.memory = V4L2_MEMORY_USERPTR,
-		.m.planes = &plane,
-		.length = 1,
+		.m.planes = planes,
+		.length = inst->num_input_planes,
 	};
 
 	WFD_MSG_DBG("Prepare %p with index, %d",
@@ -600,9 +619,12 @@ static long venc_set_input_buffer(struct v4l2_subdev *sd, void *arg)
 	}
 
 	list_add_tail(&mregion->list, &inst->registered_input_bufs.list);
+
+	kfree(planes);
 	return 0;
 set_input_buffer_fail:
 	kfree(mregion);
+	kfree(planes);
 	return rc;
 }
 
@@ -689,7 +711,7 @@ static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
 	int rc = 0;
 	struct venc_inst *inst = NULL;
 	struct v4l2_buffer buf = {0};
-	struct v4l2_plane plane = {0};
+	struct v4l2_plane *planes = NULL;
 	struct mem_region *mregion = arg;
 
 	if (!sd) {
@@ -712,8 +734,9 @@ static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
 	}
 
 	mregion = kzalloc(sizeof(*mregion), GFP_KERNEL);
+	planes = kzalloc(sizeof(*planes) * inst->num_output_planes, GFP_KERNEL);
 
-	if (!mregion) {
+	if (!mregion || !planes) {
 		WFD_MSG_ERR("Failed to allocate memory\n");
 		goto venc_set_output_buffer_fail;
 	}
@@ -727,18 +750,16 @@ static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
 		goto venc_set_output_buffer_map_fail;
 	}
 
-	plane = (struct v4l2_plane) {
-		.length = mregion->size,
-		.m.userptr = (u32)mregion->paddr,
-	};
+	populate_planes(planes, inst->num_output_planes,
+			mregion->paddr, mregion->size);
 
 	buf = (struct v4l2_buffer) {
 		.index = get_list_len(&inst->registered_output_bufs),
 		.type = BUF_TYPE_OUTPUT,
 		.bytesused = 0,
 		.memory = V4L2_MEMORY_USERPTR,
-		.m.planes = &plane,
-		.length = 1,
+		.m.planes = planes,
+		.length = inst->num_output_planes,
 	};
 
 	WFD_MSG_DBG("Prepare %p with index, %d",
@@ -750,11 +771,14 @@ static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
 	}
 
 	list_add_tail(&mregion->list, &inst->registered_output_bufs.list);
-	return rc;
+
+	kfree(planes);
+	return 0;
 venc_set_output_buffer_prepare_fail:
 	venc_unmap_user_to_kernel(inst, mregion);
 venc_set_output_buffer_map_fail:
 	kfree(mregion);
+	kfree(planes);
 venc_set_output_buffer_fail:
 	return rc;
 }
