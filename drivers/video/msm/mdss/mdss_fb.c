@@ -1449,32 +1449,32 @@ static int mdss_fb_handle_pp_ioctl(struct msm_fb_data_type *mfd,
 
 	switch (mdp_pp.op) {
 	case mdp_op_pa_cfg:
-		ret = mdss_mdp_pa_config(&mdp_pp.data.pa_cfg_data,
+		ret = mdss_mdp_pa_config(mfd->ctl, &mdp_pp.data.pa_cfg_data,
 				&copyback);
 		break;
 
 	case mdp_op_pcc_cfg:
-		ret = mdss_mdp_pcc_config(&mdp_pp.data.pcc_cfg_data,
+		ret = mdss_mdp_pcc_config(mfd->ctl, &mdp_pp.data.pcc_cfg_data,
 			   &copyback);
 		break;
 
 	case mdp_op_lut_cfg:
 		switch (mdp_pp.data.lut_cfg_data.lut_type) {
 		case mdp_lut_igc:
-			ret = mdss_mdp_igc_lut_config(
+			ret = mdss_mdp_igc_lut_config(mfd->ctl,
 					(struct mdp_igc_lut_data *)
 					&mdp_pp.data.lut_cfg_data.data,
 					&copyback);
 			break;
 
 		case mdp_lut_pgc:
-			ret = mdss_mdp_argc_config(
+			ret = mdss_mdp_argc_config(mfd->ctl,
 				&mdp_pp.data.lut_cfg_data.data.pgc_lut_data,
 				&copyback);
 			break;
 
 		case mdp_lut_hist:
-			ret = mdss_mdp_hist_lut_config(
+			ret = mdss_mdp_hist_lut_config(mfd->ctl,
 				(struct mdp_hist_lut_data *)
 				&mdp_pp.data.lut_cfg_data.data, &copyback);
 			break;
@@ -1485,12 +1485,12 @@ static int mdss_fb_handle_pp_ioctl(struct msm_fb_data_type *mfd,
 		}
 		break;
 	case mdp_op_dither_cfg:
-		ret = mdss_mdp_dither_config(&mdp_pp.data.dither_cfg_data,
-				&copyback);
+		ret = mdss_mdp_dither_config(mfd->ctl,
+				&mdp_pp.data.dither_cfg_data, &copyback);
 		break;
 	case mdp_op_gamut_cfg:
-		ret = mdss_mdp_gamut_config(&mdp_pp.data.gamut_cfg_data,
-				&copyback);
+		ret = mdss_mdp_gamut_config(mfd->ctl,
+					&mdp_pp.data.gamut_cfg_data, &copyback);
 		break;
 	case mdp_bl_scale_cfg:
 		ret = mdss_bl_scale_config(mfd, (struct mdp_bl_scale_data *)
@@ -1676,7 +1676,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret)
 			return ret;
 
-		ret = mdss_mdp_hist_collect(info, &hist, &hist_data_addr);
+		ret = mdss_mdp_hist_collect(mfd->ctl, &hist, &hist_data_addr);
 		if ((ret == 0) && hist_data_addr) {
 			ret = copy_to_user(hist.c0, (u32 *)hist_data_addr,
 				sizeof(u32) * hist.bin_cnt);
@@ -1694,7 +1694,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret)
 			return ret;
 
-		ret = mdss_mdp_histogram_start(&hist_req);
+		ret = mdss_mdp_histogram_start(mfd->ctl, &hist_req);
 		break;
 
 	case MSMFB_HISTOGRAM_STOP:
@@ -1702,7 +1702,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret)
 			return ret;
 
-		ret = mdss_mdp_histogram_stop(block);
+		ret = mdss_mdp_histogram_stop(mfd->ctl, block);
 		break;
 
 	case MSMFB_GET_PAGE_PROTECTION:
