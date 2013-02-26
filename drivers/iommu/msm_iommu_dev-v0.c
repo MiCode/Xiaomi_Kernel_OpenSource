@@ -134,6 +134,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	struct device_node *child;
 	struct resource *r;
 	u32 glb_offset = 0;
+	int ret;
 
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!r) {
@@ -162,7 +163,12 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 			pr_err("Failed to create %s device\n", child->name);
 	}
 
-	drvdata->name = dev_name(&pdev->dev);
+	ret = of_property_read_string(pdev->dev.of_node, "label",
+			&drvdata->name);
+	if (ret) {
+		pr_err("%s: Missing property label\n", __func__);
+		return -EINVAL;
+	}
 	drvdata->sec_id = -1;
 	drvdata->ttbr_split = 0;
 #endif

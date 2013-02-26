@@ -26,7 +26,6 @@
 static LIST_HEAD(iommu_list);
 static struct dentry *msm_iommu_root_debugfs_dir;
 static const char *NO_EVENT_CLASS_NAME = "none";
-static int NO_EVENT_CLASS = -1;
 static const unsigned int MAX_EVEN_CLASS_NAME_LEN = 36;
 
 struct event_class {
@@ -119,7 +118,7 @@ static int iommu_pm_find_event_class(const char *event_class_name)
 	size_t array_len;
 	struct event_class *ptr;
 	int i;
-	int event_class = NO_EVENT_CLASS;
+	int event_class = MSM_IOMMU_PMU_NO_EVENT_CLASS;
 
 	if (strcmp(event_class_name, NO_EVENT_CLASS_NAME) == 0)
 		goto out;
@@ -172,7 +171,7 @@ static void iommu_pm_set_event_type(struct iommu_pmon *pmon,
 	event_class = counter->current_event_class;
 	count_no = counter->absolute_counter_no;
 
-	if (event_class == NO_EVENT_CLASS) {
+	if (event_class == MSM_IOMMU_PMU_NO_EVENT_CLASS) {
 		if (iommu->hw_ops->is_hw_access_OK(pmon)) {
 			iommu->ops->iommu_lock_acquire();
 			iommu->hw_ops->counter_disable(iommu, counter);
@@ -244,6 +243,12 @@ static void iommu_pm_on(struct iommu_pmon *pmon)
 
 	iommu->ops->iommu_power_on(iommu_drvdata);
 
+	/* Reset counters in HW */
+	iommu->ops->iommu_lock_acquire();
+	iommu->hw_ops->reset_counters(&pmon->iommu);
+	iommu->ops->iommu_lock_release();
+
+	/* Reset SW counters */
 	iommu_pm_reset_counts(pmon);
 
 	pmon->enabled = 1;
@@ -553,7 +558,8 @@ static int iommu_pm_create_grp_debugfs_counters_hierarchy(
 		(*abs_counter_no)++;
 		cnt_grp->counters[j].value = 0;
 		cnt_grp->counters[j].overflow_count = 0;
-		cnt_grp->counters[j].current_event_class = NO_EVENT_CLASS;
+		cnt_grp->counters[j].current_event_class =
+						MSM_IOMMU_PMU_NO_EVENT_CLASS;
 
 		snprintf(name, 20, "counter%u", j);
 
@@ -686,11 +692,13 @@ int msm_iommu_pm_iommu_register(struct iommu_pmon *pmon_entry)
 	if (ret)
 		goto free_mem;
 
+	iommu->hw_ops->initialize_hw(pmon_entry);
+
 	if (iommu->evt_irq > 0) {
 		ret = request_threaded_irq(iommu->evt_irq, NULL,
 				iommu->hw_ops->evt_ovfl_int_handler,
 				IRQF_ONESHOT | IRQF_SHARED,
-				"msm_iommu_nonsecure_irq", pmon_entry);
+				"msm_iommu_pmon_nonsecure_irq", pmon_entry);
 		if (ret) {
 			pr_err("Request IRQ %d failed with ret=%d\n",
 								iommu->evt_irq,

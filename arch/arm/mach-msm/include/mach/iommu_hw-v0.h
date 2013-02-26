@@ -830,6 +830,11 @@ do { \
 #define IDR		(0xFF8)
 #define RPU_ACR		(0xFFC)
 
+/* Event Monitor (EM) Registers */
+#define EMMC		(0xE000)
+#define EMCS		(0xE004)
+#define EMCC_N		(0xE100)
+#define EMC_N		(0xE200)
 
 /* Context Bank Registers */
 #define SCTLR		(0x000)

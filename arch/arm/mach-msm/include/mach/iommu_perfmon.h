@@ -116,6 +116,7 @@ struct iommu_pmon {
 
 /**
  * struct iommu_hw_ops - Callbacks for accessing IOMMU HW
+ * @initialize_hw: Call to do any initialization before enabling ovf interrupts
  * @is_hw_access_ok: Returns 1 if we can access HW, 0 otherwise
  * @grp_enable: Call to enable a counter group
  * @grp_disable: Call to disable a counter group
@@ -132,6 +133,7 @@ struct iommu_pmon {
  * @read_counter: Call to read a counter value
  */
 struct iommu_pm_hw_ops {
+	void (*initialize_hw)(const struct iommu_pmon *);
 	unsigned int (*is_hw_access_OK)(const struct iommu_pmon *);
 	void (*grp_enable)(struct iommu_info *, unsigned int);
 	void (*grp_disable)(struct iommu_info *, unsigned int);
@@ -153,9 +155,16 @@ struct iommu_pm_hw_ops {
 	unsigned int (*read_counter)(struct iommu_pmon_counter *);
 };
 
+extern struct iommu_access_ops iommu_access_ops_v0;
 extern struct iommu_access_ops iommu_access_ops_v1;
+#define MSM_IOMMU_PMU_NO_EVENT_CLASS -1
 
 #ifdef CONFIG_MSM_IOMMU_PMON
+
+/**
+ * Get pointer to PMU hardware access functions for IOMMUv0 PMU
+ */
+struct iommu_pm_hw_ops *iommu_pm_get_hw_ops_v0(void);
 
 /**
  * Get pointer to PMU hardware access functions for IOMMUv1 PMU
@@ -197,6 +206,11 @@ void msm_iommu_attached(struct device *dev);
   */
 void msm_iommu_detached(struct device *dev);
 #else
+static inline struct iommu_pm_hw_ops *iommu_pm_get_hw_ops_v0(void)
+{
+	return NULL;
+}
+
 static inline struct iommu_pm_hw_ops *iommu_pm_get_hw_ops_v1(void)
 {
 	return NULL;
