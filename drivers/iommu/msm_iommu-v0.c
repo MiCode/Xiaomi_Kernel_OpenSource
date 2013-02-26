@@ -27,6 +27,7 @@
 #include <asm/cacheflush.h>
 #include <asm/sizes.h>
 
+#include <mach/iommu_perfmon.h>
 #include <mach/iommu_hw-v0.h>
 #include <mach/iommu.h>
 #include <mach/msm_smsm.h>
@@ -159,6 +160,41 @@ static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 		clk_disable_unprepare(drvdata->clk);
 	clk_disable_unprepare(drvdata->pclk);
 }
+
+static int _iommu_power_on(void *data)
+{
+	struct msm_iommu_drvdata *drvdata;
+
+	drvdata = (struct msm_iommu_drvdata *)data;
+	return __enable_clocks(drvdata);
+}
+
+static int _iommu_power_off(void *data)
+{
+	struct msm_iommu_drvdata *drvdata;
+
+	drvdata = (struct msm_iommu_drvdata *)data;
+	__disable_clocks(drvdata);
+	return 0;
+}
+
+static void _iommu_lock_acquire(void)
+{
+	msm_iommu_lock();
+}
+
+static void _iommu_lock_release(void)
+{
+	msm_iommu_unlock();
+}
+
+struct iommu_access_ops iommu_access_ops_v0 = {
+	.iommu_power_on = _iommu_power_on,
+	.iommu_power_off = _iommu_power_off,
+	.iommu_lock_acquire = _iommu_lock_acquire,
+	.iommu_lock_release = _iommu_lock_release,
+};
+EXPORT_SYMBOL(iommu_access_ops_v0);
 
 static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 {
@@ -468,6 +504,11 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 
 	ctx_drvdata->attached_domain = domain;
+
+	mutex_unlock(&msm_iommu_lock);
+
+	msm_iommu_attached(dev->parent);
+	return ret;
 unlock:
 	mutex_unlock(&msm_iommu_lock);
 	return ret;
@@ -480,6 +521,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret;
+
+	msm_iommu_detached(dev->parent);
 
 	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
