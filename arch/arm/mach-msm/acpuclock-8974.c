@@ -266,11 +266,17 @@ static struct pvs_table pvs_v2[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	[0][2] = { acpu_freq_tbl_pvs2, sizeof(acpu_freq_tbl_pvs2) },
 	[0][3] = { acpu_freq_tbl_pvs3, sizeof(acpu_freq_tbl_pvs3) },
 	[0][4] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
+	[0][5] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
+	[0][6] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
+	[0][7] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
 	[1][0] = { acpu_freq_tbl_pvs0, sizeof(acpu_freq_tbl_pvs0) },
 	[1][1] = { acpu_freq_tbl_pvs1, sizeof(acpu_freq_tbl_pvs1) },
 	[1][2] = { acpu_freq_tbl_pvs2, sizeof(acpu_freq_tbl_pvs2) },
 	[1][3] = { acpu_freq_tbl_pvs3, sizeof(acpu_freq_tbl_pvs3) },
 	[1][4] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
+	[1][5] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
+	[1][6] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
+	[1][7] = { acpu_freq_tbl_pvs4, sizeof(acpu_freq_tbl_pvs4) },
 };
 
 static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
