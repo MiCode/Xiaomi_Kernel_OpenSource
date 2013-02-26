@@ -1112,7 +1112,7 @@ static const struct file_operations mc_admin_fops = {
 static struct miscdevice mc_admin_device = {
 	.name	= MC_ADMIN_DEVNODE,
 	.mode	= (S_IRWXU),
-	.minor	= MISC_DYNAMIC_MINOR,
+	.minor	= 253,
 	.fops	= &mc_admin_fops,
 };
 
@@ -1128,7 +1128,7 @@ static const struct file_operations mc_user_fops = {
 static struct miscdevice mc_user_device = {
 	.name	= MC_USER_DEVNODE,
 	.mode	= (S_IRWXU | S_IRWXG | S_IRWXO),
-	.minor	= MISC_DYNAMIC_MINOR,
+	.minor	= 254,
 	.fops	= &mc_user_fops,
 };
 
