@@ -223,6 +223,12 @@ int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
 	adm_params->hdr.dest_svc = APR_SVC_ADM;
 	adm_params->hdr.dest_domain = APR_DOMAIN_ADSP;
 	index = afe_get_port_index(port_id);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d portid %#x\n",
+				__func__, index, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
 	adm_params->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
 	adm_params->hdr.token = port_id;
 	adm_params->hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
