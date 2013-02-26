@@ -732,11 +732,9 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 			return -ENOMEM;
 		}
 		phys = memory_pool_node_paddr(virt);
-		if (is_mdss_iommu_attached()) {
-			dom = mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE);
-			msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K,
-						    0, &(mfd->iova));
-		}
+		dom = mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE);
+		msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K,
+					    0, &(mfd->iova));
 		pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
 			size, virt, phys, mfd->index);
 	} else {
