@@ -35,6 +35,8 @@
 #include <mach/system.h>
 #include <mach/scm.h>
 #include <mach/socinfo.h>
+#define CREATE_TRACE_POINTS
+#include <mach/trace_msm_low_power.h>
 #include <mach/msm-krait-l2-accessors.h>
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
@@ -55,8 +57,7 @@
 #include "timer.h"
 #include "pm-boot.h"
 #include <mach/event_timer.h>
-#define CREATE_TRACE_POINTS
-#include "trace_msm_low_power.h"
+
 #define SCM_L2_RETENTION	(0x2)
 #define SCM_CMD_TERMINATE_PC	(0x2)
 
