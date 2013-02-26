@@ -41,6 +41,7 @@
 #include <mach/msm_rtb.h>
 #include <linux/msm_ion.h>
 #include "clock.h"
+#include "pm.h"
 #include "devices.h"
 #include "footswitch.h"
 #include "msm_watchdog.h"
@@ -138,6 +139,19 @@ struct platform_device msm8064_pm_8x60 = {
 	.resource	= msm8064_resources_pccntr,
 	.dev = {
 		.platform_data = &msm_pm_data,
+	},
+};
+
+static struct msm_pm_sleep_status_data msm_pm_slp_sts_data = {
+	.base_addr = MSM_ACC0_BASE + 0x08,
+	.cpu_offset = MSM_ACC1_BASE - MSM_ACC0_BASE,
+	.mask = 1UL << 13,
+};
+struct platform_device msm8064_cpu_slp_status = {
+	.name		= "cpu_slp_status",
+	.id		= -1,
+	.dev = {
+		.platform_data = &msm_pm_slp_sts_data,
 	},
 };
 

@@ -124,6 +124,10 @@ extern struct platform_device msm_device_hsusb_host;
 extern struct platform_device msm_device_hsusb_host2;
 extern struct platform_device msm_device_hsic_host;
 
+extern struct platform_device msm8960_cpu_slp_status;
+extern struct platform_device msm8064_cpu_slp_status;
+extern struct platform_device msm8930_cpu_slp_status;
+
 extern struct platform_device msm_device_otg;
 extern struct platform_device msm_android_usb_device;
 extern struct platform_device msm_android_usb_hsic_device;
