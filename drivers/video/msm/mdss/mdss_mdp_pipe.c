@@ -330,182 +330,6 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 	return readl_relaxed(pipe->base + reg);
 }
 
-static int mdss_mdp_leading_zero(u32 num)
-{
-	u32 bit = 0x80000000;
-	int i;
-
-	for (i = 0; i < 32; i++) {
-		if (bit & num)
-			return i;
-		bit >>= 1;
-	}
-
-	return i;
-}
-
-static u32 mdss_mdp_scale_phase_step(int f_num, u32 src, u32 dst)
-{
-	u32 val, s;
-	int n;
-
-	n = mdss_mdp_leading_zero(src);
-	if (n > f_num)
-		n = f_num;
-	s = src << n;	/* maximum to reduce lose of resolution */
-	val = s / dst;
-	if (n < f_num) {
-		n = f_num - n;
-		val <<= n;
-		val |= ((s % dst) << n) / dst;
-	}
-
-	return val;
-}
-
-static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
-{
-	u32 scale_config = 0;
-	u32 phasex_step = 0, phasey_step = 0;
-	u32 chroma_sample;
-
-	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA) {
-		if (pipe->dst.h != pipe->src.h || pipe->dst.w != pipe->src.w) {
-			pr_err("no scaling supported on dma pipe\n");
-			return -EINVAL;
-		} else {
-			return 0;
-		}
-	}
-
-	chroma_sample = pipe->src_fmt->chroma_sample;
-	if (pipe->flags & MDP_SOURCE_ROTATED_90) {
-		if (chroma_sample == MDSS_MDP_CHROMA_H1V2)
-			chroma_sample = MDSS_MDP_CHROMA_H2V1;
-		else if (chroma_sample == MDSS_MDP_CHROMA_H2V1)
-			chroma_sample = MDSS_MDP_CHROMA_H1V2;
-	}
-
-	if ((pipe->src.h != pipe->dst.h) ||
-	    (chroma_sample == MDSS_MDP_CHROMA_420) ||
-	    (chroma_sample == MDSS_MDP_CHROMA_H1V2)) {
-		pr_debug("scale y - src_h=%d dst_h=%d\n",
-				pipe->src.h, pipe->dst.h);
-
-		if ((pipe->src.h / MAX_DOWNSCALE_RATIO) > pipe->dst.h) {
-			pr_err("too much downscaling height=%d->%d",
-			       pipe->src.h, pipe->dst.h);
-			return -EINVAL;
-		}
-
-		scale_config |= MDSS_MDP_SCALEY_EN;
-
-		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
-			u32 chr_dst_h = pipe->dst.h;
-			if ((chroma_sample == MDSS_MDP_CHROMA_420) ||
-			    (chroma_sample == MDSS_MDP_CHROMA_H1V2))
-				chr_dst_h *= 2;	/* 2x upsample chroma */
-
-			if (pipe->src.h <= pipe->dst.h)
-				scale_config |= /* G/Y, A */
-					(MDSS_MDP_SCALE_FILTER_BIL << 10) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
-			else
-				scale_config |= /* G/Y, A */
-					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
-					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
-
-			if (pipe->src.h <= chr_dst_h)
-				scale_config |= /* CrCb */
-					(MDSS_MDP_SCALE_FILTER_BIL << 14);
-			else
-				scale_config |= /* CrCb */
-					(MDSS_MDP_SCALE_FILTER_PCMN << 14);
-
-			phasey_step = mdss_mdp_scale_phase_step(
-				PHASE_STEP_SHIFT, pipe->src.h, chr_dst_h);
-
-			mdss_mdp_pipe_write(pipe,
-					MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPY,
-					phasey_step);
-		} else {
-			if (pipe->src.h <= pipe->dst.h)
-				scale_config |= /* RGB, A */
-					(MDSS_MDP_SCALE_FILTER_BIL << 10) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
-			else
-				scale_config |= /* RGB, A */
-					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
-		}
-
-		phasey_step = mdss_mdp_scale_phase_step(
-			PHASE_STEP_SHIFT, pipe->src.h, pipe->dst.h);
-	}
-
-	if ((pipe->src.w != pipe->dst.w) ||
-	    (chroma_sample == MDSS_MDP_CHROMA_420) ||
-	    (chroma_sample == MDSS_MDP_CHROMA_H2V1)) {
-		pr_debug("scale x - src_w=%d dst_w=%d\n",
-				pipe->src.w, pipe->dst.w);
-
-		if ((pipe->src.w / MAX_DOWNSCALE_RATIO) > pipe->dst.w) {
-			pr_err("too much downscaling width=%d->%d",
-			       pipe->src.w, pipe->dst.w);
-			return -EINVAL;
-		}
-
-		scale_config |= MDSS_MDP_SCALEX_EN;
-
-		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
-			u32 chr_dst_w = pipe->dst.w;
-
-			if ((chroma_sample == MDSS_MDP_CHROMA_420) ||
-			    (chroma_sample == MDSS_MDP_CHROMA_H2V1))
-				chr_dst_w *= 2;	/* 2x upsample chroma */
-
-			if (pipe->src.w <= pipe->dst.w)
-				scale_config |= /* G/Y, A */
-					(MDSS_MDP_SCALE_FILTER_BIL << 8) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
-			else
-				scale_config |= /* G/Y, A */
-					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
-					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
-
-			if (pipe->src.w <= chr_dst_w)
-				scale_config |= /* CrCb */
-					(MDSS_MDP_SCALE_FILTER_BIL << 12);
-			else
-				scale_config |= /* CrCb */
-					(MDSS_MDP_SCALE_FILTER_PCMN << 12);
-
-			phasex_step = mdss_mdp_scale_phase_step(
-				PHASE_STEP_SHIFT, pipe->src.w, chr_dst_w);
-			mdss_mdp_pipe_write(pipe,
-					MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPX,
-					phasex_step);
-		} else {
-			if (pipe->src.w <= pipe->dst.w)
-				scale_config |= /* RGB, A */
-					(MDSS_MDP_SCALE_FILTER_BIL << 8) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
-			else
-				scale_config |= /* RGB, A */
-					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
-					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
-		}
-
-		phasex_step = mdss_mdp_scale_phase_step(
-			PHASE_STEP_SHIFT, pipe->src.w, pipe->dst.w);
-	}
-
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SCALE_CONFIG, scale_config);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SCALE_PHASE_STEP_X, phasex_step);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SCALE_PHASE_STEP_Y, phasey_step);
-	return 0;
-}
-
 static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 {
 	u32 img_size, src_size, src_xy, dst_size, dst_xy, ystride0, ystride1;
@@ -515,9 +339,6 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 		   pipe->num, pipe->img_width, pipe->img_height,
 		   pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
 		   pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
-
-	if (mdss_mdp_scale_setup(pipe))
-		return -EINVAL;
 
 	width = pipe->img_width;
 	height = pipe->img_height;
@@ -775,6 +596,12 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	if (params_changed) {
 		pipe->params_changed = 0;
 
+		ret = mdss_mdp_pipe_pp_setup(pipe, &opmode);
+		if (ret) {
+			pr_err("pipe pp setup error for pnum=%d\n", pipe->num);
+			goto done;
+		}
+
 		ret = mdss_mdp_image_setup(pipe);
 		if (ret) {
 			pr_err("image setup error for pnum=%d\n", pipe->num);
@@ -788,7 +615,6 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			goto done;
 		}
 
-		mdss_mdp_pipe_pp_setup(pipe, &opmode);
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)
 			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_OP_MODE,
 			opmode);
