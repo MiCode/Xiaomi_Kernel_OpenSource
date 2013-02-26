@@ -2600,7 +2600,6 @@ static struct branch_clk oxili_gfx3d_clk = {
 		.parent = &gfx3d_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(oxili_gfx3d_clk.c),
-		.depends = &oxilicx_axi_clk.c,
 	},
 };
 
