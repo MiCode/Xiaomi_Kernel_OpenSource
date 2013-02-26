@@ -400,6 +400,14 @@ static int msm_ipc_router_ioctl(struct socket *sock,
 		if (server_arg.num_entries_in_array) {
 			srv_info_sz = server_arg.num_entries_in_array *
 					sizeof(*srv_info);
+			if ((srv_info_sz / sizeof(*srv_info)) !=
+			    server_arg.num_entries_in_array) {
+				pr_err("%s: Integer Overflow %d * %d\n",
+					__func__, sizeof(*srv_info),
+					server_arg.num_entries_in_array);
+				ret = -EINVAL;
+				break;
+			}
 			srv_info = kmalloc(srv_info_sz, GFP_KERNEL);
 			if (!srv_info) {
 				ret = -ENOMEM;
