@@ -26,6 +26,7 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include "ipa_i.h"
+#include "ipa_rm_i.h"
 
 #define IPA_SUMMING_THRESHOLD (0x10)
 #define IPA_PIPE_MEM_START_OFST (0x0)
@@ -1528,6 +1529,7 @@ static int ipa_init_flt_block(void)
 * - Create empty routing table in system memory(no committing)
 * - Initialize pipes memory pool with ipa_pipe_mem_init for supported platforms
 * - Create a char-device for IPA
+* - Initialize IPA RM (resource manager)
 */
 static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 {
@@ -1870,10 +1872,20 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
 		ipa_disable_clks();
 
+	/* Initialize IPA RM (resource manager) */
+	result = ipa_rm_initialize();
+	if (result) {
+		IPAERR(":cdev_add err=%d\n", -result);
+		result = -ENODEV;
+		goto fail_ipa_rm_init;
+	}
+
 	IPADBG(":IPA driver init OK.\n");
 
 	return 0;
 
+fail_ipa_rm_init:
+	cdev_del(&ipa_ctx->cdev);
 fail_cdev_add:
 	device_destroy(ipa_ctx->class, ipa_ctx->dev_num);
 fail_device_create:
