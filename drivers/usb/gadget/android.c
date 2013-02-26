@@ -36,7 +36,9 @@
 #include "gadget_chips.h"
 
 #include "f_fs.c"
+#ifdef CONFIG_SND_PCM
 #include "f_audio_source.c"
+#endif
 #include "f_mass_storage.c"
 #include "f_diag.c"
 #include "f_qdss.c"
@@ -1717,6 +1719,7 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+#ifdef CONFIG_SND_PCM
 static int audio_source_function_init(struct android_usb_function *f,
 			struct usb_composite_dev *cdev)
 {
@@ -1778,6 +1781,7 @@ static struct android_usb_function audio_source_function = {
 	.unbind_config	= audio_source_function_unbind_config,
 	.attributes	= audio_source_function_attributes,
 };
+#endif
 
 static int android_uasp_connect_cb(bool connect)
 {
@@ -1848,7 +1852,9 @@ static struct android_usb_function *supported_functions[] = {
 	&ecm_function,
 	&mass_storage_function,
 	&accessory_function,
+#ifdef CONFIG_SND_PCM
 	&audio_source_function,
+#endif
 	&uasp_function,
 	NULL
 };
