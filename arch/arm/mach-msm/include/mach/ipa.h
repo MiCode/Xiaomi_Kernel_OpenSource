@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -354,6 +354,90 @@ enum ipa_bridge_type {
 	IPA_BRIDGE_TYPE_MAX
 };
 
+/**
+ * enum ipa_rm_resource_name - IPA RM clients identification names
+ *
+ * Add new mapping to ipa_rm_dep_prod_index() / ipa_rm_dep_cons_index()
+ * when adding new entry to this enum.
+ */
+enum ipa_rm_resource_name {
+	IPA_RM_RESOURCE_PROD = 0,
+	IPA_RM_RESOURCE_BRIDGE_PROD = IPA_RM_RESOURCE_PROD,
+	IPA_RM_RESOURCE_A2_PROD,
+	IPA_RM_RESOURCE_USB_PROD,
+	IPA_RM_RESOURCE_HSIC_PROD,
+	IPA_RM_RESOURCE_STD_ECM_PROD,
+	IPA_RM_RESOURCE_WWAN_0_PROD,
+	IPA_RM_RESOURCE_WWAN_1_PROD,
+	IPA_RM_RESOURCE_WWAN_2_PROD,
+	IPA_RM_RESOURCE_WWAN_3_PROD,
+	IPA_RM_RESOURCE_WWAN_4_PROD,
+	IPA_RM_RESOURCE_WWAN_5_PROD,
+	IPA_RM_RESOURCE_WWAN_6_PROD,
+	IPA_RM_RESOURCE_WWAN_7_PROD,
+	IPA_RM_RESOURCE_WLAN_PROD,
+	IPA_RM_RESOURCE_PROD_MAX,
+
+	IPA_RM_RESOURCE_A2_CONS = IPA_RM_RESOURCE_PROD_MAX,
+	IPA_RM_RESOURCE_USB_CONS,
+	IPA_RM_RESOURCE_HSIC_CONS,
+	IPA_RM_RESOURCE_MAX
+};
+
+/**
+ * enum ipa_rm_event - IPA RM events
+ *
+ * Indicate the resource state change
+ */
+enum ipa_rm_event {
+	IPA_RM_RESOURCE_GRANTED,
+	IPA_RM_RESOURCE_RELEASED
+};
+
+typedef void (*ipa_rm_notify_cb)(void *user_data,
+		enum ipa_rm_event event,
+		unsigned long data);
+/**
+ * struct ipa_rm_register_params - information needed to
+ *      register IPA RM client with IPA RM
+ *
+ * @user_data: IPA RM client provided information
+ *		to be passed to notify_cb callback below
+ * @notify_cb: callback which is called by resource
+ *		to notify the IPA RM client about its state
+ *		change IPA RM client is expected to perform non
+ *		blocking operations only in notify_cb and
+ *		release notification context as soon as
+ *		possible.
+ */
+struct ipa_rm_register_params {
+	void *user_data;
+	ipa_rm_notify_cb notify_cb;
+};
+
+/**
+ * struct ipa_rm_create_params - information needed to initialize
+ *				the resource
+ * @name: resource name
+ * @reg_params: register parameters, contains are ignored
+ *		for consumer resource NULL should be provided
+ *		for consumer resource
+ * @request_resource: function which should be called to request resource,
+ *			NULL should be provided for producer resource
+ * @release_resource: function which should be called to release resource,
+ *			NULL should be provided for producer resource
+ *
+ * IPA RM client is expected to perform non blocking operations only
+ * in request_resource and release_resource functions and
+ * release notification context as soon as possible.
+ */
+struct ipa_rm_create_params {
+	enum ipa_rm_resource_name name;
+	struct ipa_rm_register_params reg_params;
+	int (*request_resource)(void);
+	int (*release_resource)(void);
+};
+
 #ifdef CONFIG_IPA
 
 /*
@@ -488,6 +572,41 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
 
 int ipa_teardown_sys_pipe(u32 clnt_hdl);
+
+/*
+ * Resource manager
+ */
+int ipa_rm_create_resource(struct ipa_rm_create_params *create_params);
+
+int ipa_rm_register(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_register_params *reg_params);
+
+int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_register_params *reg_params);
+
+int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name);
+
+int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name);
+
+int ipa_rm_request_resource(enum ipa_rm_resource_name resource_name);
+
+int ipa_rm_release_resource(enum ipa_rm_resource_name resource_name);
+
+int ipa_rm_notify_completion(enum ipa_rm_event event,
+		enum ipa_rm_resource_name resource_name);
+
+int ipa_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
+				 unsigned long msecs);
+
+int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name);
+
+int ipa_rm_inactivity_timer_request_resource(
+				enum ipa_rm_resource_name resource_name);
+
+int ipa_rm_inactivity_timer_release_resource(
+				enum ipa_rm_resource_name resource_name);
 
 #else /* CONFIG_IPA */
 
@@ -774,6 +893,84 @@ static inline int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in,
 }
 
 static inline int ipa_teardown_sys_pipe(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+/*
+ * Resource manager
+ */
+static inline int ipa_rm_create_resource(
+		struct ipa_rm_create_params *create_params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_register(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_register_params *reg_params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_register_params *reg_params)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_add_dependency(
+		enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_name depends_on_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_delete_dependency(
+		enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_name depends_on_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_request_resource(
+		enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_release_resource(
+		enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_notify_completion(enum ipa_rm_event event,
+		enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_inactivity_timer_init(
+		enum ipa_rm_resource_name resource_name,
+			unsigned long msecs)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_inactivity_timer_destroy(
+		enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_inactivity_timer_request_resource(
+				enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_inactivity_timer_release_resource(
+				enum ipa_rm_resource_name resource_name)
 {
 	return -EPERM;
 }
