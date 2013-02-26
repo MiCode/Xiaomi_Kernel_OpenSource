@@ -239,13 +239,15 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 				msm_camera_io_w(lo_val1, vfe_dev->vfe_base +
 					vfe_dev->hw_info->dmi_reg_offset + 0x4);
 			} else if (reg_cfg_cmd->cmd_type ==
-					VFE_WRITE_DMI_64BIT) {
-				hi_val = *hi_tbl_ptr++;
+					   VFE_WRITE_DMI_64BIT) {
+				lo_tbl_ptr++;
+				hi_val = *hi_tbl_ptr;
+				hi_tbl_ptr = hi_tbl_ptr + 2;
 				msm_camera_io_w(hi_val, vfe_dev->vfe_base +
-					   vfe_dev->hw_info->dmi_reg_offset);
+					vfe_dev->hw_info->dmi_reg_offset);
 			}
 			msm_camera_io_w(lo_val, vfe_dev->vfe_base +
-					vfe_dev->hw_info->dmi_reg_offset + 0x4);
+				vfe_dev->hw_info->dmi_reg_offset + 0x4);
 		}
 		break;
 	}
