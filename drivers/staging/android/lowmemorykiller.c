@@ -67,60 +67,6 @@ static unsigned long lowmem_deathpending_timeout;
 			pr_info(x);			\
 	} while (0)
 
-
-static int can_use_cma_pages(struct zone *zone, gfp_t gfp_mask)
-{
-	int can_use = 0;
-	int mtype = allocflags_to_migratetype(gfp_mask);
-	int i = 0;
-	int *mtype_fallbacks = get_migratetype_fallbacks(mtype);
-
-	if (is_migrate_cma(mtype)) {
-		can_use = 1;
-	} else {
-		for (i = 0;; i++) {
-			int fallbacktype = mtype_fallbacks[i];
-
-			if (is_migrate_cma(fallbacktype)) {
-				can_use = 1;
-				break;
-			}
-
-			if (fallbacktype == MIGRATE_RESERVE)
-				break;
-		}
-	}
-	return can_use;
-}
-
-
-static int nr_free_zone_pages(struct zone *zone, gfp_t gfp_mask)
-{
-	int sum = zone_page_state(zone, NR_FREE_PAGES);
-
-	if (!can_use_cma_pages(zone, gfp_mask))
-		sum -= zone_page_state(zone, NR_FREE_CMA_PAGES);
-
-	return sum;
-}
-
-
-static int lmk_nr_free_pages(gfp_t gfp_mask)
-{
-	struct zoneref *z;
-	struct zone *zone;
-	int sum = 0;
-
-	struct zonelist *zonelist = node_zonelist(numa_node_id(), gfp_mask);
-
-	for_each_zone_zonelist(zone, z, zonelist, gfp_zone(gfp_mask)) {
-		sum += nr_free_zone_pages(zone, gfp_mask);
-	}
-
-	return sum;
-}
-
-
 static int test_task_flag(struct task_struct *p, int flag)
 {
 	struct task_struct *t = p;
@@ -163,15 +109,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 	other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
-
-	if (nr_to_scan > 0 && other_free > other_file) {
-		/*
-		 * If the number of free pages is going to affect the decision
-		 * of which process is selected then ensure only free pages
-		 * which can satisfy the request are considered.
-		 */
-		other_free = lmk_nr_free_pages(sc->gfp_mask);
-	}
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
