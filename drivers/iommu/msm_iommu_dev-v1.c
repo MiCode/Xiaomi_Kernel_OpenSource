@@ -269,7 +269,8 @@ static int __devinit msm_iommu_probe(struct platform_device *pdev)
 			pr_info("%s: pmon not available.\n", drvdata->name);
 		} else {
 			pmon_info->iommu.base = drvdata->base;
-			pmon_info->iommu.ops = &iommu_access_ops;
+			pmon_info->iommu.ops = &iommu_access_ops_v1;
+			pmon_info->iommu.hw_ops = iommu_pm_get_hw_ops_v1();
 			pmon_info->iommu.iommu_name = drvdata->name;
 			ret = msm_iommu_pm_iommu_register(pmon_info);
 			if (ret) {
