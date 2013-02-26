@@ -503,6 +503,7 @@ static void voice_ocmem_process_workdata(struct work_struct *work)
 		rc = -EINVAL;
 	}
 
+	kfree(voice_ocm_work);
 	return;
 }
 /**
@@ -614,6 +615,7 @@ static void audio_ocmem_process_workdata(struct work_struct *work)
 		rc = -EINVAL;
 	}
 
+	kfree(audio_ocm_work);
 	return;
 }
 
