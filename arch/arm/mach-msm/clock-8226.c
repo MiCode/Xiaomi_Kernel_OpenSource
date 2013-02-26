@@ -3882,6 +3882,8 @@ static struct clk_lookup msm_clocks_8226[] = {
 	/* KGSL Clocks */
 	CLK_LOOKUP("core_clk", oxili_gfx3d_clk.c, "fdb00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb00000.qcom,kgsl-3d0"),
+	CLK_LOOKUP("mem_iface_clk", oxilicx_axi_clk.c,
+		"fdb00000.qcom,kgsl-3d0"),
 
 	CLK_LOOKUP("alt_core_clk", oxili_gfx3d_clk.c, "fdb10000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", oxilicx_ahb_clk.c, "fdb10000.qcom,iommu"),
