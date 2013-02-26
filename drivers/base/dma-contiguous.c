@@ -198,7 +198,7 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	__be32 *prop;
 
 	if (strncmp(uname, "region@", 7) != 0 || depth != 2 ||
-	    !of_get_flat_dt_prop(node, "contiguous-region", NULL))
+	    !of_get_flat_dt_prop(node, "linux,contiguous-region", NULL))
 		return 0;
 
 	prop = of_get_flat_dt_prop(node, "reg", &len);
