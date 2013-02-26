@@ -15,8 +15,6 @@
 
 #define CTX_SHIFT  12
 #define CTX_OFFSET 0x8000
-#define IMPLDEF_OFFSET	0x2000
-#define IMPLDEF_LENGTH	0xDFF
 
 #define GET_GLOBAL_REG(reg, base) (readl_relaxed((base) + (reg)))
 #define GET_CTX_REG(reg, base, ctx) \

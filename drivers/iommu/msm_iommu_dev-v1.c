@@ -34,7 +34,7 @@ static int msm_iommu_parse_bfb_settings(struct platform_device *pdev,
 {
 	struct msm_iommu_bfb_settings *bfb_settings;
 	u32 nreg, nval;
-	int ret, i;
+	int ret;
 
 	/*
 	 * It is not valid for a device to have the qcom,iommu-bfb-regs
@@ -79,11 +79,6 @@ static int msm_iommu_parse_bfb_settings(struct platform_device *pdev,
 		return ret;
 
 	bfb_settings->length = nreg / sizeof(*bfb_settings->regs);
-
-	for (i = 0; i < bfb_settings->length; i++)
-		if (bfb_settings->regs[i] < IMPLDEF_OFFSET ||
-		    bfb_settings->regs[i] >= IMPLDEF_OFFSET + IMPLDEF_LENGTH)
-			return -EINVAL;
 
 	drvdata->bfb_settings = bfb_settings;
 	return 0;
