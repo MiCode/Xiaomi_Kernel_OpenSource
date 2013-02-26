@@ -50,7 +50,7 @@ enum pvs {
 	PVS_NOMINAL = 1,
 	PVS_FAST = 3,
 	PVS_FASTER = 4,
-	NUM_PVS = 7
+	NUM_PVS = 8
 };
 
 /**
