@@ -31,6 +31,15 @@
 		spi7 = &spi_7;
 	};
 
+	memory {
+
+		secure_mem: region@0 {
+			linux,contiguous-region;
+			reg = <0 0x7800000>;
+			label = "secure_mem";
+		};
+	};
+
 	intc: interrupt-controller@F9000000 {
 		compatible = "qcom,msm-qgic2";
 		interrupt-controller;

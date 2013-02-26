@@ -55,7 +55,7 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	},
 	{
 		.id	= ION_CP_MM_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CP,
+		.type	= ION_HEAP_TYPE_SECURE_DMA,
 		.name	= ION_MM_HEAP_NAME,
 		.permission_type = IPT_TYPE_MM_CARVEOUT,
 	},
