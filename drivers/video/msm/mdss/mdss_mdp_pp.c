@@ -131,6 +131,11 @@ static u32 dither_depth_map[9] = {
 #define PP_STS_ENABLE	0x1
 #define PP_STS_GAMUT_FIRST	0x2
 
+#define SHARP_STRENGTH_DEFAULT	32
+#define SHARP_EDGE_THR_DEFAULT	112
+#define SHARP_SMOOTH_THR_DEFAULT	8
+#define SHARP_NOISE_THR_DEFAULT	2
+
 struct mdss_pp_res_type {
 	/* logical info */
 	u32 pp_disp_flags[MDSS_BLOCK_DISP_NUM];
@@ -188,6 +193,10 @@ static void pp_igc_config(unsigned long flags, u32 base,
 static void pp_enhist_config(unsigned long flags, u32 base,
 				struct pp_sts_type *pp_sts,
 				struct mdp_hist_lut_data *enhist_cfg);
+static void pp_sharp_config(char __iomem *offset,
+				struct pp_sts_type *pp_sts,
+				struct mdp_sharp_cfg *sharp_config);
+
 
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 				   struct mdp_csc_cfg *data)
@@ -397,33 +406,31 @@ static void pp_enhist_config(unsigned long flags, u32 base,
 	}
 }
 
-static void pp_sharp_config(unsigned long flags, u32 base,
+/*the below function doesn't do error checking on the input params*/
+static void pp_sharp_config(char __iomem *base,
 				struct pp_sts_type *pp_sts,
 				struct mdp_sharp_cfg *sharp_config)
 {
-	if (flags & PP_FLAGS_DIRTY_SHARP) {
-		if (sharp_config->flags & MDP_PP_OPS_WRITE) {
-			MDSS_MDP_REG_WRITE(base, sharp_config->strength);
-			base += 4;
-			MDSS_MDP_REG_WRITE(base, sharp_config->edge_thr);
-			base += 4;
-			MDSS_MDP_REG_WRITE(base, sharp_config->smooth_thr);
-			base += 4;
-			MDSS_MDP_REG_WRITE(base, sharp_config->noise_thr);
-		}
-		if (sharp_config->flags & MDP_PP_OPS_DISABLE)
-			pp_sts->sharp_sts &= ~PP_STS_ENABLE;
-		else if (sharp_config->flags & MDP_PP_OPS_ENABLE)
-			pp_sts->sharp_sts |= PP_STS_ENABLE;
+	if (sharp_config->flags & MDP_PP_OPS_WRITE) {
+		writel_relaxed(sharp_config->strength, base);
+		base += 4;
+		writel_relaxed(sharp_config->edge_thr, base);
+		base += 4;
+		writel_relaxed(sharp_config->smooth_thr, base);
+		base += 4;
+		writel_relaxed(sharp_config->noise_thr, base);
 	}
-}
+	if (sharp_config->flags & MDP_PP_OPS_DISABLE)
+		pp_sts->sharp_sts &= ~PP_STS_ENABLE;
+	else if (sharp_config->flags & MDP_PP_OPS_ENABLE)
+		pp_sts->sharp_sts |= PP_STS_ENABLE;
 
+}
 
 static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
 	u32 opmode = 0, base = 0;
 	unsigned long flags = 0;
-	u32 upscaling = 1;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
@@ -468,31 +475,214 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
 				opmode |= (1 << 4); /* PA_EN */
 		}
-
-		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_SHARP_CFG) {
-			if ((pipe->dst.w < pipe->src.w) ||
-				(pipe->dst.h < pipe->src.h))
-				upscaling = 0;
-			if ((pipe->src_fmt->is_yuv) && upscaling) {
-				flags = PP_FLAGS_DIRTY_SHARP;
-				base = MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
-					MDSS_MDP_REG_VIG_QSEED2_SHARP;
-				pp_sharp_config(flags, base,
-					&pipe->pp_res.pp_sts,
-					&pipe->pp_cfg.sharp_cfg);
-
-				if (pipe->pp_res.pp_sts.sharp_sts &
-					PP_STS_ENABLE)
-					MDSS_MDP_REG_WRITE(
-					   MDSS_MDP_REG_SSPP_OFFSET(pipe->num) +
-					   MDSS_MDP_REG_VIG_QSEED2_CONFIG,
-					   1 << 0 | 1 << 1);
-			}
-		}
 	}
 
 	*op = opmode;
 
+	return 0;
+}
+
+static int mdss_mdp_leading_zero(u32 num)
+{
+	u32 bit = 0x80000000;
+	int i;
+
+	for (i = 0; i < 32; i++) {
+		if (bit & num)
+			return i;
+		bit >>= 1;
+	}
+
+	return i;
+}
+
+static u32 mdss_mdp_scale_phase_step(int f_num, u32 src, u32 dst)
+{
+	u32 val, s;
+	int n;
+
+	n = mdss_mdp_leading_zero(src);
+	if (n > f_num)
+		n = f_num;
+	s = src << n;	/* maximum to reduce lose of resolution */
+	val = s / dst;
+	if (n < f_num) {
+		n = f_num - n;
+		val <<= n;
+		val |= ((s % dst) << n) / dst;
+	}
+
+	return val;
+}
+
+static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
+{
+	u32 scale_config = 0;
+	u32 phasex_step = 0, phasey_step = 0;
+	u32 chroma_sample;
+	u32 filter_mode;
+	struct mdss_data_type *mdata;
+
+	mdata = mdss_mdp_get_mdata();
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102)
+		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
+	else
+		filter_mode = MDSS_MDP_SCALE_FILTER_BIL;
+
+	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA) {
+		if (pipe->dst.h != pipe->src.h || pipe->dst.w != pipe->src.w) {
+			pr_err("no scaling supported on dma pipe\n");
+			return -EINVAL;
+		} else {
+			return 0;
+		}
+	}
+
+	chroma_sample = pipe->src_fmt->chroma_sample;
+	if (pipe->flags & MDP_SOURCE_ROTATED_90) {
+		if (chroma_sample == MDSS_MDP_CHROMA_H1V2)
+			chroma_sample = MDSS_MDP_CHROMA_H2V1;
+		else if (chroma_sample == MDSS_MDP_CHROMA_H2V1)
+			chroma_sample = MDSS_MDP_CHROMA_H1V2;
+	}
+
+	if (!(pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_SHARP_CFG)) {
+		pipe->pp_cfg.sharp_cfg.flags = MDP_PP_OPS_ENABLE |
+			MDP_PP_OPS_WRITE;
+		pipe->pp_cfg.sharp_cfg.strength = SHARP_STRENGTH_DEFAULT;
+		pipe->pp_cfg.sharp_cfg.edge_thr = SHARP_EDGE_THR_DEFAULT;
+		pipe->pp_cfg.sharp_cfg.smooth_thr = SHARP_SMOOTH_THR_DEFAULT;
+		pipe->pp_cfg.sharp_cfg.noise_thr = SHARP_NOISE_THR_DEFAULT;
+	}
+
+	if ((pipe->src_fmt->is_yuv) &&
+		!((pipe->dst.w < pipe->src.w) || (pipe->dst.h < pipe->src.h))) {
+		pp_sharp_config(pipe->base +
+		   MDSS_MDP_REG_VIG_QSEED2_SHARP,
+		   &pipe->pp_res.pp_sts,
+		   &pipe->pp_cfg.sharp_cfg);
+	}
+
+	if ((pipe->src.h != pipe->dst.h) ||
+	    (pipe->pp_res.pp_sts.sharp_sts & PP_STS_ENABLE) ||
+	    (chroma_sample == MDSS_MDP_CHROMA_420) ||
+	    (chroma_sample == MDSS_MDP_CHROMA_H1V2)) {
+		pr_debug("scale y - src_h=%d dst_h=%d\n",
+				pipe->src.h, pipe->dst.h);
+
+		if ((pipe->src.h / MAX_DOWNSCALE_RATIO) > pipe->dst.h) {
+			pr_err("too much downscaling height=%d->%d",
+			       pipe->src.h, pipe->dst.h);
+			return -EINVAL;
+		}
+
+		scale_config |= MDSS_MDP_SCALEY_EN;
+
+		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
+			u32 chr_dst_h = pipe->dst.h;
+			if ((chroma_sample == MDSS_MDP_CHROMA_420) ||
+			    (chroma_sample == MDSS_MDP_CHROMA_H1V2))
+				chr_dst_h *= 2;	/* 2x upsample chroma */
+
+			if (pipe->src.h <= pipe->dst.h) {
+				scale_config |= /* G/Y, A */
+					(filter_mode << 10) |
+					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
+			} else
+				scale_config |= /* G/Y, A */
+					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
+					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
+
+			if (pipe->src.h <= chr_dst_h)
+				scale_config |= /* CrCb */
+					(MDSS_MDP_SCALE_FILTER_BIL << 14);
+			else
+				scale_config |= /* CrCb */
+					(MDSS_MDP_SCALE_FILTER_PCMN << 14);
+
+			phasey_step = mdss_mdp_scale_phase_step(
+				PHASE_STEP_SHIFT, pipe->src.h, chr_dst_h);
+
+			writel_relaxed(phasey_step, pipe->base +
+				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPY);
+		} else {
+			if (pipe->src.h <= pipe->dst.h)
+				scale_config |= /* RGB, A */
+					(MDSS_MDP_SCALE_FILTER_BIL << 10) |
+					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
+			else
+				scale_config |= /* RGB, A */
+					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
+					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
+		}
+
+		phasey_step = mdss_mdp_scale_phase_step(
+			PHASE_STEP_SHIFT, pipe->src.h, pipe->dst.h);
+	}
+
+	if ((pipe->src.w != pipe->dst.w) ||
+	    (pipe->pp_res.pp_sts.sharp_sts & PP_STS_ENABLE) ||
+	    (chroma_sample == MDSS_MDP_CHROMA_420) ||
+	    (chroma_sample == MDSS_MDP_CHROMA_H2V1)) {
+		pr_debug("scale x - src_w=%d dst_w=%d\n",
+				pipe->src.w, pipe->dst.w);
+
+		if ((pipe->src.w / MAX_DOWNSCALE_RATIO) > pipe->dst.w) {
+			pr_err("too much downscaling width=%d->%d",
+			       pipe->src.w, pipe->dst.w);
+			return -EINVAL;
+		}
+
+		scale_config |= MDSS_MDP_SCALEX_EN;
+
+		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
+			u32 chr_dst_w = pipe->dst.w;
+
+			if ((chroma_sample == MDSS_MDP_CHROMA_420) ||
+			    (chroma_sample == MDSS_MDP_CHROMA_H2V1))
+				chr_dst_w *= 2;	/* 2x upsample chroma */
+
+			if (pipe->src.w <= pipe->dst.w) {
+				scale_config |= /* G/Y, A */
+					(filter_mode << 8) |
+					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
+			} else
+				scale_config |= /* G/Y, A */
+					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
+					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
+
+			if (pipe->src.w <= chr_dst_w)
+				scale_config |= /* CrCb */
+					(MDSS_MDP_SCALE_FILTER_BIL << 12);
+			else
+				scale_config |= /* CrCb */
+					(MDSS_MDP_SCALE_FILTER_PCMN << 12);
+
+			phasex_step = mdss_mdp_scale_phase_step(
+				PHASE_STEP_SHIFT, pipe->src.w, chr_dst_w);
+			writel_relaxed(phasex_step, pipe->base +
+				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPX);
+		} else {
+			if (pipe->src.w <= pipe->dst.w)
+				scale_config |= /* RGB, A */
+					(MDSS_MDP_SCALE_FILTER_BIL << 8) |
+					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
+			else
+				scale_config |= /* RGB, A */
+					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
+					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
+		}
+
+		phasex_step = mdss_mdp_scale_phase_step(
+			PHASE_STEP_SHIFT, pipe->src.w, pipe->dst.w);
+	}
+
+	writel_relaxed(scale_config, pipe->base +
+	   MDSS_MDP_REG_SCALE_CONFIG);
+	writel_relaxed(phasex_step, pipe->base +
+	   MDSS_MDP_REG_SCALE_PHASE_STEP_X);
+	writel_relaxed(phasey_step, pipe->base +
+	   MDSS_MDP_REG_SCALE_PHASE_STEP_Y);
 	return 0;
 }
 
@@ -502,12 +692,12 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	if (!pipe)
 		return -ENODEV;
 
+	ret = mdss_mdp_scale_setup(pipe);
+	if (ret)
+		return -EINVAL;
+
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)
 		ret = pp_vig_pipe_setup(pipe, op);
-	else if (pipe->type == MDSS_MDP_PIPE_TYPE_RGB)
-		ret = -EINVAL;
-	else if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
-		ret = -EINVAL;
 
 	return ret;
 }
