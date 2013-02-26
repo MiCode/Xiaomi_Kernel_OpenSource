@@ -129,6 +129,8 @@ enum {
 
 #define QUP_MAX_CLK_STATE_RETRIES	300
 #define DEFAULT_CLK_RATE		(19200000)
+#define I2C_STATUS_CLK_STATE		13
+#define QUP_OUT_FIFO_NOT_EMPTY		0x10
 
 static char const * const i2c_rsrcs[] = {"i2c_clk", "i2c_sda"};
 
@@ -380,6 +382,7 @@ qup_i2c_poll_writeready(struct qup_i2c_dev *dev, int rem)
 static int qup_i2c_poll_clock_ready(struct qup_i2c_dev *dev)
 {
 	uint32_t retries = 0;
+	uint32_t op_flgs = -1, clk_state = -1;
 
 	/*
 	 * Wait for the clock state to transition to either IDLE or FORCED
@@ -388,16 +391,32 @@ static int qup_i2c_poll_clock_ready(struct qup_i2c_dev *dev)
 
 	while (retries++ < QUP_MAX_CLK_STATE_RETRIES) {
 		uint32_t status = readl_relaxed(dev->base + QUP_I2C_STATUS);
-		uint32_t clk_state = (status >> 13) & 0x7;
+		clk_state = (status >> I2C_STATUS_CLK_STATE) & 0x7;
+		/* Read the operational register */
+		op_flgs = readl_relaxed(dev->base +
+			QUP_OPERATIONAL) & QUP_OUT_FIFO_NOT_EMPTY;
 
-		if (clk_state == I2C_CLK_RESET_BUSIDLE_STATE ||
-				clk_state == I2C_CLK_FORCED_LOW_STATE)
+		/*
+		 * In very corner case when slave do clock stretching and
+		 * output fifo will have 1 block of data space empty at
+		 * the same time.  So i2c qup will get output service
+		 * interrupt and as it doesn't have more data to be written.
+		 * This can lead to issue where output fifo is not empty.
+		*/
+		if (op_flgs == 0 &&
+			(clk_state == I2C_CLK_RESET_BUSIDLE_STATE ||
+			clk_state == I2C_CLK_FORCED_LOW_STATE)){
+			dev_dbg(dev->dev, "clk_state 0x%x op_flgs [%x]\n",
+				clk_state, op_flgs);
 			return 0;
+		}
+
 		/* 1-bit delay before we check again */
 		udelay(dev->one_bit_t);
 	}
 
-	dev_err(dev->dev, "Error waiting for clk ready\n");
+	dev_err(dev->dev, "Error waiting for clk ready clk_state: 0x%x op_flgs: 0x%x\n",
+		clk_state, op_flgs);
 	return -ETIMEDOUT;
 }
 
