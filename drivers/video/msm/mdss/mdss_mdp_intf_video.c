@@ -46,6 +46,7 @@ struct mdss_mdp_video_ctx {
 
 	u8 timegen_en;
 	struct completion vsync_comp;
+	int wait_pending;
 
 	atomic_t vsync_ref;
 	spinlock_t vsync_lock;
@@ -271,11 +272,36 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 
 	pr_debug("intr ctl=%d\n", ctl->num);
 
-	complete(&ctx->vsync_comp);
+	complete_all(&ctx->vsync_comp);
 	spin_lock(&ctx->vsync_lock);
 	if (ctx->vsync_handler)
 		ctx->vsync_handler(ctl, vsync_time);
 	spin_unlock(&ctx->vsync_lock);
+}
+
+static int mdss_mdp_video_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
+{
+	struct mdss_mdp_video_ctx *ctx;
+	int rc;
+
+	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
+
+	WARN(!ctx->wait_pending, "waiting without commit! ctl=%d", ctl->num);
+
+	rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
+			VSYNC_TIMEOUT);
+	WARN(rc <= 0, "vsync timed out (%d) ctl=%d\n", rc, ctl->num);
+
+	if (ctx->wait_pending) {
+		ctx->wait_pending = 0;
+		video_vsync_irq_disable(ctl);
+	}
+
+	return rc;
 }
 
 static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
@@ -290,8 +316,14 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		pr_err("invalid ctx\n");
 		return -ENODEV;
 	}
-	INIT_COMPLETION(ctx->vsync_comp);
-	video_vsync_irq_enable(ctl);
+
+	if (!ctx->wait_pending) {
+		ctx->wait_pending++;
+		INIT_COMPLETION(ctx->vsync_comp);
+		video_vsync_irq_enable(ctl);
+	} else {
+		WARN(1, "commit without wait! ctl=%d", ctl->num);
+	}
 
 	if (!ctx->timegen_en) {
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
@@ -302,19 +334,16 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
 		wmb();
-	}
 
-	rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
-			VSYNC_TIMEOUT);
-	WARN(rc <= 0, "vsync timed out (%d) ctl=%d\n", rc, ctl->num);
+		rc = wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
+				VSYNC_TIMEOUT);
+		WARN(rc <= 0, "timeout (%d) enabling timegen on ctl=%d\n",
+				rc, ctl->num);
 
-	if (!ctx->timegen_en) {
 		ctx->timegen_en = true;
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_TIMEGEN_ON, NULL);
 		WARN(rc, "intf %d timegen on error (%d)\n", ctl->intf_num, rc);
 	}
-
-	video_vsync_irq_disable(ctl);
 
 	return 0;
 }
@@ -385,6 +414,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 
 	ctl->stop_fnc = mdss_mdp_video_stop;
 	ctl->display_fnc = mdss_mdp_video_display;
+	ctl->wait_fnc = mdss_mdp_video_wait4comp;
 	ctl->set_vsync_handler = mdss_mdp_video_set_vsync_handler;
 
 	return 0;
