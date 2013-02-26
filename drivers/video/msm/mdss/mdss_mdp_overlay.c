@@ -1322,7 +1322,11 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		mfd->ctl = ctl;
 	}
 
-	pm_runtime_get_sync(&mfd->pdev->dev);
+	rc = pm_runtime_get_sync(&mfd->pdev->dev);
+	if (rc) {
+		pr_err("unable to resume with pm_runtime_get_sync (%d)\n", rc);
+		return rc;
+	}
 
 	rc = mdss_mdp_ctl_start(mfd->ctl);
 	if (rc == 0) {
@@ -1370,7 +1374,9 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		if (atomic_dec_return(&ov_active_panels) == 0)
 			mdss_mdp_rotator_release_all();
 
-		pm_runtime_put(&mfd->pdev->dev);
+		rc = pm_runtime_put(&mfd->pdev->dev);
+		if (rc)
+			pr_err("unable to suspend w/pm_runtime_put (%d)\n", rc);
 	}
 
 	return rc;
