@@ -16,6 +16,7 @@
 #include <linux/vmalloc.h>
 #include <linux/input.h>
 #include "mhl_msc.h"
+#include "mdss_hdmi_mhl.h"
 
 static struct mhl_tx_ctrl *mhl_ctrl;
 static DEFINE_MUTEX(msc_send_workqueue_mutex);
@@ -38,6 +39,18 @@ const char *devcap_reg_name[] = {
 	"INT_STAT_SIZE   ",
 	"Reserved        ",
 };
+
+static bool mhl_check_tmds_enabled(struct mhl_tx_ctrl *mhl_ctrl)
+{
+	if (mhl_ctrl && mhl_ctrl->hdmi_mhl_ops) {
+		struct msm_hdmi_mhl_ops *ops = mhl_ctrl->hdmi_mhl_ops;
+		struct platform_device *pdev = mhl_ctrl->pdata->hdmi_pdev;
+		return (ops->tmds_enabled(pdev) == true);
+	} else {
+		pr_err("%s: invalid input\n", __func__);
+		return false;
+	}
+}
 
 static void mhl_print_devcap(u8 offset, u8 devcap)
 {
@@ -398,10 +411,12 @@ static int mhl_rap_action(struct mhl_tx_ctrl *mhl_ctrl, u8 action_code)
 static int mhl_rap_recv(struct mhl_tx_ctrl *mhl_ctrl, u8 action_code)
 {
 	u8 error_code;
+	bool tmds_en;
 
 	switch (action_code) {
 	case MHL_RAP_POLL:
-		if (mhl_ctrl->tmds_enabled())
+		tmds_en = mhl_check_tmds_enabled(mhl_ctrl);
+		if (tmds_en)
 			error_code = MHL_RAPK_NO_ERROR;
 		else
 			error_code = MHL_RAPK_UNSUPPORTED_ACTION_CODE;
@@ -513,6 +528,8 @@ int mhl_msc_recv_set_int(struct mhl_tx_ctrl *mhl_ctrl,
 int mhl_msc_recv_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 			    u8 offset, u8 value)
 {
+	bool tmds_en;
+
 	if (offset >= 2)
 		return -EFAULT;
 
@@ -543,10 +560,11 @@ int mhl_msc_recv_write_stat(struct mhl_tx_ctrl *mhl_ctrl,
 		 * changed and PATH ENABLED
 		 * bit set
 		 */
+		tmds_en = mhl_check_tmds_enabled(mhl_ctrl);
 		if ((value ^ mhl_ctrl->path_en_state)
 		    & MHL_STATUS_PATH_ENABLED) {
 			if (value & MHL_STATUS_PATH_ENABLED) {
-				if (mhl_ctrl->tmds_enabled() &&
+				if (tmds_en &&
 				    (mhl_ctrl->devcap[offset] &
 				     MHL_FEATURE_RAP_SUPPORT)) {
 					mhl_msc_send_msc_msg(
