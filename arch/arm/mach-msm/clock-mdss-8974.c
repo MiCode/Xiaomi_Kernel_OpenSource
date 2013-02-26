@@ -109,20 +109,14 @@ static void __iomem *hdmi_phy_base;
 static void __iomem *hdmi_phy_pll_base;
 static unsigned hdmi_pll_on;
 
-void __init mdss_clk_ctrl_init(void)
+void __init mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 {
+	BUG_ON(ahb_clk == NULL);
 	mdss_dsi_base = ioremap(DSI_PHY_PHYS, DSI_PHY_SIZE);
 	if (!mdss_dsi_base)
 		pr_err("%s: unable to remap dsi base", __func__);
 
-	mdss_dsi_ahb_clk = clk_get_sys("mdss_dsi_clk_ctrl", "iface_clk");
-	if (!IS_ERR(mdss_dsi_ahb_clk)) {
-		clk_prepare(mdss_dsi_ahb_clk);
-	} else {
-		mdss_dsi_ahb_clk = NULL;
-		pr_err("%s:%d unable to get dsi iface clock\n",
-			       __func__, __LINE__);
-	}
+	mdss_dsi_ahb_clk = ahb_clk;
 
 	hdmi_phy_base = ioremap(HDMI_PHY_PHYS, HDMI_PHY_SIZE);
 	if (!hdmi_phy_base)
@@ -131,6 +125,30 @@ void __init mdss_clk_ctrl_init(void)
 	hdmi_phy_pll_base = ioremap(HDMI_PHY_PLL_PHYS, HDMI_PHY_PLL_SIZE);
 	if (!hdmi_phy_pll_base)
 		pr_err("%s: unable to ioremap hdmi phy pll base", __func__);
+}
+
+#define PLL_POLL_MAX_READS 10
+#define PLL_POLL_TIMEOUT_US 50
+
+static int mdss_dsi_check_pll_lock(void)
+{
+	u32 status;
+
+	clk_prepare_enable(mdss_dsi_ahb_clk);
+	/* poll for PLL ready status */
+	if (readl_poll_timeout_noirq((mdss_dsi_base + 0x02c0),
+				status,
+				((status & BIT(0)) == 1),
+				PLL_POLL_MAX_READS, PLL_POLL_TIMEOUT_US)) {
+		pr_err("%s: DSI PLL status=%x failed to Lock\n",
+				__func__, status);
+		pll_initialized = 0;
+	} else {
+		pll_initialized = 1;
+	}
+	clk_disable_unprepare(mdss_dsi_ahb_clk);
+
+	return pll_initialized;
 }
 
 static long mdss_dsi_pll_byte_round_rate(struct clk *c, unsigned long rate)
@@ -166,7 +184,7 @@ static int mdss_dsi_pll_pixel_set_rate(struct clk *c, unsigned long rate)
 	}
 }
 
-static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
+static int __mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 {
 	int pll_divcfg1, pll_divcfg2;
 	int half_bitclk_rate;
@@ -174,14 +192,6 @@ static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	pr_debug("%s:\n", __func__);
 	if (pll_initialized)
 		return 0;
-
-	if (!mdss_dsi_ahb_clk) {
-		pr_err("%s: mdss_dsi_ahb_clk not initialized\n",
-				__func__);
-		return -EINVAL;
-	}
-
-	clk_enable(mdss_dsi_ahb_clk);
 
 	half_bitclk_rate = rate * 4;
 
@@ -233,11 +243,21 @@ static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	pll_byte_clk_rate = 53000000;
 	pll_pclk_rate = 105000000;
 
-	clk_disable(mdss_dsi_ahb_clk);
 	pr_debug("%s: **** PLL initialized success\n", __func__);
 	pll_initialized = 1;
 
 	return 0;
+}
+
+static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
+{
+	int ret;
+
+	clk_prepare_enable(mdss_dsi_ahb_clk);
+	ret = __mdss_dsi_pll_byte_set_rate(c, rate);
+	clk_disable_unprepare(mdss_dsi_ahb_clk);
+
+	return ret;
 }
 
 static void mdss_dsi_uniphy_pll_lock_detect_setting(void)
@@ -264,19 +284,11 @@ static int __mdss_dsi_pll_enable(struct clk *c)
 
 	if (!pll_initialized) {
 		if (dsi_pll_rate)
-			mdss_dsi_pll_byte_set_rate(c, dsi_pll_rate);
+			__mdss_dsi_pll_byte_set_rate(c, dsi_pll_rate);
 		else
 			pr_err("%s: Calling clk_en before set_rate\n",
 						__func__);
 	}
-
-	if (!mdss_dsi_ahb_clk) {
-		pr_err("%s: mdss_dsi_ahb_clk not initialized\n",
-				__func__);
-		return -EINVAL;
-	}
-
-	clk_enable(mdss_dsi_ahb_clk);
 
 	mdss_dsi_uniphy_pll_sw_reset();
 	/* PLL power up */
@@ -329,25 +341,17 @@ static int __mdss_dsi_pll_enable(struct clk *c)
 	if ((status & 0x01) != 1) {
 		pr_err("%s: DSI PLL status=%x failed to Lock\n",
 		       __func__, status);
-		clk_disable(mdss_dsi_ahb_clk);
 		return -EINVAL;
 	}
 
 	pr_debug("%s: **** PLL Lock success\n", __func__);
-	clk_disable(mdss_dsi_ahb_clk);
 
 	return 0;
 }
 
 static void __mdss_dsi_pll_disable(void)
 {
-	if (!mdss_dsi_ahb_clk)
-		pr_err("%s: mdss_dsi_ahb_clk not initialized\n",
-				__func__);
-
-	clk_enable(mdss_dsi_ahb_clk);
 	writel_relaxed(0x00, mdss_dsi_base + 0x0220); /* GLB CFG */
-	clk_disable(mdss_dsi_ahb_clk);
 	pr_debug("%s: **** disable pll Initialize\n", __func__);
 	pll_initialized = 0;
 }
@@ -386,13 +390,28 @@ out:
 	return ret;
 }
 
-static enum handoff mdss_dsi_pll_handoff(struct clk *c)
+static enum handoff mdss_dsi_pll_byte_handoff(struct clk *c)
 {
-	/*
-	 * FIXME: Continuous display is not implemented. So the display is
-	 * always off. Implement a poor man's handoff by always returning
-	 * "disabled".
-	 */
+	if (mdss_dsi_check_pll_lock()) {
+		c->rate = 53000000;
+		dsi_pll_rate = 53000000;
+		pll_byte_clk_rate = 53000000;
+		pll_pclk_rate = 105000000;
+		dsipll_refcount++;
+		return HANDOFF_ENABLED_CLK;
+	}
+
+	return HANDOFF_DISABLED_CLK;
+}
+
+static enum handoff mdss_dsi_pll_pixel_handoff(struct clk *c)
+{
+	if (mdss_dsi_check_pll_lock()) {
+		c->rate = 105000000;
+		dsipll_refcount++;
+		return HANDOFF_ENABLED_CLK;
+	}
+
 	return HANDOFF_DISABLED_CLK;
 }
 
@@ -814,7 +833,7 @@ struct clk_ops clk_ops_dsi_pixel_pll = {
 	.disable = mdss_dsi_pll_disable,
 	.set_rate = mdss_dsi_pll_pixel_set_rate,
 	.round_rate = mdss_dsi_pll_pixel_round_rate,
-	.handoff = mdss_dsi_pll_handoff,
+	.handoff = mdss_dsi_pll_pixel_handoff,
 };
 
 struct clk_ops clk_ops_dsi_byte_pll = {
@@ -822,5 +841,5 @@ struct clk_ops clk_ops_dsi_byte_pll = {
 	.disable = mdss_dsi_pll_disable,
 	.set_rate = mdss_dsi_pll_byte_set_rate,
 	.round_rate = mdss_dsi_pll_byte_round_rate,
-	.handoff = mdss_dsi_pll_handoff,
+	.handoff = mdss_dsi_pll_byte_handoff,
 };
