@@ -72,6 +72,7 @@
 #define SMD_VERSION 0x00020000
 #define SMSM_SNAPSHOT_CNT 64
 #define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4)
+#define RSPIN_INIT_WAIT_MS 1000
 
 uint32_t SMSM_NUM_ENTRIES = 8;
 uint32_t SMSM_NUM_HOSTS = 3;
@@ -2534,6 +2535,18 @@ static int smsm_init(void)
 	struct smem_shared *shared = (void *) MSM_SHARED_RAM_BASE;
 	int i;
 	struct smsm_size_info_type *smsm_size_info;
+	unsigned long flags;
+	unsigned long j_start;
+
+	/* Verify that remote spinlock is not deadlocked */
+	j_start = jiffies;
+	while (!remote_spin_trylock_irqsave(&remote_spinlock, flags)) {
+		if (jiffies_to_msecs(jiffies - j_start) > RSPIN_INIT_WAIT_MS) {
+			panic("%s: Remote processor %d will not release spinlock\n",
+				__func__, remote_spin_owner(&remote_spinlock));
+		}
+	}
+	remote_spin_unlock_irqrestore(&remote_spinlock, flags);
 
 	smsm_size_info = smem_alloc(SMEM_SMSM_SIZE_INFO,
 				sizeof(struct smsm_size_info_type));
