@@ -36,6 +36,7 @@ wit the following convention:
 	reg = <(baseaddr) (size)>;
 	(linux,contiguous-region);
 	(linux,default-contiguous-region);
+        label = (unique_name);
 };
 
 name:		an name given to the defined region.
@@ -47,7 +48,11 @@ linux,contiguous-region: property indicating that the defined memory
 linux,default-contiguous-region: property indicating that the region
 		is the default region for all contiguous memory
 		allocations, Linux specific (optional)
-
+label:		an internal name used for automatically associating the
+		cma region with a given device. The label is optional;
+		if the label is not given the client is responsible for
+		calling the appropriate functions to associate the region
+		with a device.
 
 * Device nodes
 
