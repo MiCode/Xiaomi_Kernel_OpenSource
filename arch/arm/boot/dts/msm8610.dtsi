@@ -13,6 +13,7 @@
 /include/ "skeleton.dtsi"
 /include/ "msm-iommu-v0.dtsi"
 /include/ "msm8610-ion.dtsi"
+/include/ "msm8610-gpu.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8610-coresight.dtsi"
 /include/ "msm8610-pm.dtsi"
