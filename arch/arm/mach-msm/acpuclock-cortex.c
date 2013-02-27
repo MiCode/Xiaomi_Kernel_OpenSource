@@ -324,9 +324,9 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 	}
 
 	/* Improve boot time by ramping up CPU immediately */
-	for (i = 0; acpuclk_init_data->freq_tbl[i].khz != 0 &&
-			acpuclk_init_data->freq_tbl[i].use_for_scaling; i++)
-		max_cpu_khz = acpuclk_init_data->freq_tbl[i].khz;
+	for (i = 0; acpuclk_init_data->freq_tbl[i].khz != 0; i++)
+		if (acpuclk_init_data->freq_tbl[i].use_for_scaling)
+			max_cpu_khz = acpuclk_init_data->freq_tbl[i].khz;
 
 	/* Initialize regulators */
 	rc = increase_vdd(acpuclk_init_data->freq_tbl[i].vdd_cpu,
@@ -346,6 +346,12 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 		goto err_vdd_cpu;
 	}
 
+	/*
+	 * Select a state which is always a valid transition to align SW with
+	 * the HW configuration set by the bootloaders.
+	 */
+	acpuclk_cortex_set_rate(0, acpuclk_cortex_data.power_collapse_khz,
+		SETRATE_INIT);
 	acpuclk_cortex_set_rate(0, max_cpu_khz, SETRATE_INIT);
 
 	acpuclk_register(&acpuclk_cortex_data);
