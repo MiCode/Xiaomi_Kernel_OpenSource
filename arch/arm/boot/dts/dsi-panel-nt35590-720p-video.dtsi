@@ -1,0 +1,159 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,mdss_dsi_nt35590_720p_video {
+		compatible = "qcom,mdss-dsi-panel";
+		label = "nt35590 720p video mode dsi panel";
+		status = "disable";
+		qcom,dsi-ctrl-phandle = <&mdss_dsi0>;
+		qcom,rst-gpio = <&msmgpio 25 0>;
+		qcom,mdss-pan-res = <720 1280>;
+		qcom,mdss-pan-bpp = <24>;
+		qcom,mdss-pan-dest = "display_1";
+		qcom,mdss-pan-porch-values = <164 8 140 1 1 6>;
+		qcom,mdss-pan-underflow-clr = <0xff>;
+		qcom,mdss-pan-bl-ctrl = "bl_ctrl_wled";
+		qcom,mdss-pan-bl-levels = <1 255>;
+		qcom,mdss-pan-dsi-mode = <0>;
+		qcom,mdss-pan-dsi-h-pulse-mode = <1>;
+		qcom,mdss-pan-dsi-h-power-stop = <0 0 0>;
+		qcom,mdss-pan-dsi-bllp-power-stop = <1 1>;
+		qcom,mdss-pan-dsi-traffic-mode = <2>;
+		qcom,mdss-pan-dsi-dst-format = <3>;
+		qcom,mdss-pan-dsi-vc = <0>;
+		qcom,mdss-pan-dsi-rgb-swap = <0>;
+		qcom,mdss-pan-dsi-data-lanes = <1 1 1 1>; /* 4 lanes */
+		qcom,mdss-pan-dsi-dlane-swap = <0>;
+		qcom,mdss-pan-dsi-t-clk = <0x2c 0x20>;
+		qcom,mdss-pan-dsi-stream = <0>;
+		qcom,mdss-pan-dsi-mdp-tr = <0x0>;
+		qcom,mdss-pan-dsi-dma-tr = <0x04>;
+		qcom,mdss-pan-frame-rate = <60>;
+		qcom,panel-phy-regulatorSettings = [07 09 03 00  /* Regualotor settings */
+						    20 00 01];
+		qcom,panel-phy-timingSettings = [7d 25 1d 00 37 33
+						    22 27 1e 03 04 00];
+		qcom,panel-phy-strengthCtrl = [ff 06];
+		qcom,panel-phy-bistCtrl = [00 00 b1 ff           /* BIST Ctrl settings */
+					   00 00];
+		qcom,panel-phy-laneConfig = [00 00 00 00 00 00 00 01 97 /* lane0 config */
+					     00 00 00 00 05 00 00 01 97 /* lane1 config */
+					     00 00 00 00 0a 00 00 01 97 /* lane2 config */
+					     00 00 00 00 0f 00 00 01 97 /* lane3 config */
+					     00 c0 00 00 00 00 00 01 bb]; /* Clk ln config */
+		qcom,panel-on-cmds = [29 01 00 00 00 02 FF EE
+					29 01 00 00 00 02 26 08
+					29 01 00 00 00 02 26 00
+					29 01 00 00 10 02 FF 00
+					29 01 00 00 00 02 BA 03
+					29 01 00 00 00 02 C2 03
+					29 01 00 00 00 02 FF 01
+					29 01 00 00 00 02 FB 01
+					29 01 00 00 00 02 00 4A
+					29 01 00 00 00 02 01 33
+					29 01 00 00 00 02 02 53
+					29 01 00 00 00 02 03 55
+					29 01 00 00 00 02 04 55
+					29 01 00 00 00 02 05 33
+					29 01 00 00 00 02 06 22
+					29 01 00 00 00 02 08 56
+					29 01 00 00 00 02 09 8F
+					29 01 00 00 00 02 36 73
+					29 01 00 00 00 02 0B 9F
+					29 01 00 00 00 02 0C 9F
+					29 01 00 00 00 02 0D 2F
+					29 01 00 00 00 02 0E 24
+					29 01 00 00 00 02 11 83
+					29 01 00 00 00 02 12 03
+					29 01 00 00 00 02 71 2C
+					29 01 00 00 00 02 6F 03
+					29 01 00 00 00 02 0F 0A
+					29 01 00 00 00 02 FF 05
+					29 01 00 00 00 02 FB 01
+					29 01 00 00 00 02 01 00
+					29 01 00 00 00 02 02 8B
+					29 01 00 00 00 02 03 82
+					29 01 00 00 00 02 04 82
+					29 01 00 00 00 02 05 30
+					29 01 00 00 00 02 06 33
+					29 01 00 00 00 02 07 01
+					29 01 00 00 00 02 08 00
+					29 01 00 00 00 02 09 46
+					29 01 00 00 00 02 0A 46
+					29 01 00 00 00 02 0D 0B
+					29 01 00 00 00 02 0E 1D
+					29 01 00 00 00 02 0F 08
+					29 01 00 00 00 02 10 53
+					29 01 00 00 00 02 11 00
+					29 01 00 00 00 02 12 00
+					29 01 00 00 00 02 14 01
+					29 01 00 00 00 02 15 00
+					29 01 00 00 00 02 16 05
+					29 01 00 00 00 02 17 00
+					29 01 00 00 00 02 19 7F
+					29 01 00 00 00 02 1A FF
+					29 01 00 00 00 02 1B 0F
+					29 01 00 00 00 02 1C 00
+					29 01 00 00 00 02 1D 00
+					29 01 00 00 00 02 1E 00
+					29 01 00 00 00 02 1F 07
+					29 01 00 00 00 02 20 00
+					29 01 00 00 00 02 21 06
+					29 01 00 00 00 02 22 55
+					29 01 00 00 00 02 23 4D
+					29 01 00 00 00 02 2D 02
+					29 01 00 00 00 02 28 01
+					29 01 00 00 00 02 2F 02
+					29 01 00 00 00 02 83 01
+					29 01 00 00 00 02 9E 58
+					29 01 00 00 00 02 9F 6A
+					29 01 00 00 00 02 A0 01
+					29 01 00 00 00 02 A2 10
+					29 01 00 00 00 02 BB 0A
+					29 01 00 00 00 02 BC 0A
+					29 01 00 00 00 02 32 08
+					29 01 00 00 00 02 33 B8
+					29 01 00 00 00 02 36 01
+					29 01 00 00 00 02 37 00
+					29 01 00 00 00 02 43 00
+					29 01 00 00 00 02 4B 21
+					29 01 00 00 00 02 4C 03
+					29 01 00 00 00 02 50 21
+					29 01 00 00 00 02 51 03
+					29 01 00 00 00 02 58 21
+					29 01 00 00 00 02 59 03
+					29 01 00 00 00 02 5D 21
+					29 01 00 00 00 02 5E 03
+					29 01 00 00 00 02 6C 00
+					29 01 00 00 00 02 6D 00
+					29 01 00 00 00 02 FF 01
+					29 01 00 00 00 02 FB 01
+					29 01 00 00 00 02 FF 02
+					29 01 00 00 00 02 FB 01
+					29 01 00 00 00 02 FF 04
+					29 01 00 00 00 02 FB 01
+					29 01 00 00 00 02 FF 00
+					29 01 00 00 64 02 11 00
+					29 01 00 00 00 02 FF EE
+					29 01 00 00 00 02 12 50
+					29 01 00 00 00 02 13 02
+					29 01 00 00 00 02 6A 60
+					29 01 00 00 00 02 FF 00
+					29 01 00 00 78 02 29 00];
+
+		qcom,on-cmds-dsi-state = "DSI_LP_MODE";
+		qcom,panel-off-cmds = [05 01 00 00 32 02 28 00
+					05 01 00 00 78 02 10 00];
+		qcom,off-cmds-dsi-state = "DSI_HS_MODE";
+	};
+};
