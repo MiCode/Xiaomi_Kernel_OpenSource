@@ -109,7 +109,7 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 		void *ptr = NULL;
 		unsigned int npages_to_vmap, total_pages, num_large_pages = 0;
 		long size_remaining = PAGE_ALIGN(size);
-		unsigned int max_order = orders[0];
+		unsigned int max_order = ION_IS_CACHED(flags) ? 0 : orders[0];
 
 		data = kmalloc(sizeof(*data), GFP_KERNEL);
 		if (!data)
