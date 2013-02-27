@@ -3008,7 +3008,9 @@ static struct rcg_clk cpp_clk_src = {
 	},
 };
 
+static struct branch_clk mdss_ahb_clk;
 static struct clk dsipll0_byte_clk_src = {
+	.depends = &mdss_ahb_clk.c,
 	.parent = &cxo_clk_src.c,
 	.dbg_name = "dsipll0_byte_clk_src",
 	.ops = &clk_ops_dsi_byte_pll,
@@ -3016,6 +3018,7 @@ static struct clk dsipll0_byte_clk_src = {
 };
 
 static struct clk dsipll0_pixel_clk_src = {
+	.depends = &mdss_ahb_clk.c,
 	.parent = &cxo_clk_src.c,
 	.dbg_name = "dsipll0_pixel_clk_src",
 	.ops = &clk_ops_dsi_pixel_pll,
@@ -3034,11 +3037,47 @@ static struct clk_ops clk_ops_byte;
 static struct clk_ops clk_ops_pixel;
 
 #define CFG_RCGR_DIV_MASK		BM(4, 0)
+#define CFG_RCGR_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0x4)
+#define M_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0x8)
+#define N_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0xC)
+#define MND_MODE_MASK			BM(13, 12)
+#define MND_DUAL_EDGE_MODE_BVAL		BVAL(13, 12, 0x2)
+#define CFG_RCGR_SRC_SEL_MASK		BM(10, 8)
+
+static struct clk *get_parent_byte(struct clk *clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+
+	/* The byte clock has only one known parent. */
+	if ((readl_relaxed(CFG_RCGR_REG(rcg)) & CFG_RCGR_SRC_SEL_MASK)
+			== BVAL(10, 8, dsipll0_byte_mm_source_val))
+		return &dsipll0_byte_clk_src;
+
+	return NULL;
+}
+
+static enum handoff byte_rcg_handoff(struct clk *clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	u32 div_val;
+	unsigned long pre_div_rate, parent_rate = clk_get_rate(clk->parent);
+
+	/* If the pre-divider is used, find the rate after the division */
+	div_val = readl_relaxed(CFG_RCGR_REG(rcg)) & CFG_RCGR_DIV_MASK;
+	if (div_val > 1)
+		pre_div_rate = parent_rate / ((div_val + 1) >> 1);
+	else
+		pre_div_rate = parent_rate;
+
+	clk->rate = pre_div_rate;
+
+	return HANDOFF_ENABLED_CLK;
+}
 
 static int set_rate_byte(struct clk *clk, unsigned long rate)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
-	struct clk *pll = &dsipll0_byte_clk_src;
+	struct clk *pll = clk->parent;
 	unsigned long source_rate, div;
 	int rc;
 
@@ -3064,10 +3103,52 @@ static int set_rate_byte(struct clk *clk, unsigned long rate)
 	return 0;
 }
 
+static struct clk *get_parent_pixel(struct clk *clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+
+	/* The pixel clock has one known parent. */
+	if ((readl_relaxed(CFG_RCGR_REG(rcg)) & CFG_RCGR_SRC_SEL_MASK)
+			== BVAL(10, 8, dsipll0_pixel_mm_source_val))
+		return &dsipll0_pixel_clk_src;
+
+	return NULL;
+}
+
+static enum handoff pixel_rcg_handoff(struct clk *clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	u32 div_val, mval, nval, cfg_regval;
+	unsigned long pre_div_rate, parent_rate = clk_get_rate(clk->parent);
+
+	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
+
+	/* If the pre-divider is used, find the rate after the division */
+	div_val = cfg_regval & CFG_RCGR_DIV_MASK;
+	if (div_val > 1)
+		pre_div_rate = parent_rate / ((div_val + 1) >> 1);
+	else
+		pre_div_rate = parent_rate;
+
+	clk->rate = pre_div_rate;
+
+	/* If MND is used, find the rate after the MND division */
+	if ((cfg_regval & MND_MODE_MASK) == MND_DUAL_EDGE_MODE_BVAL) {
+		mval = readl_relaxed(M_REG(rcg));
+		nval = readl_relaxed(N_REG(rcg));
+		if (!nval)
+			return HANDOFF_DISABLED_CLK;
+		nval = (~nval) + mval;
+		clk->rate = (pre_div_rate * mval) / nval;
+	}
+
+	return HANDOFF_ENABLED_CLK;
+}
+
 static int set_rate_pixel(struct clk *clk, unsigned long rate)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
-	struct clk *pll = &dsipll0_pixel_clk_src;
+	struct clk *pll = clk->parent;
 	unsigned long source_rate, div;
 	int rc;
 
@@ -5432,14 +5513,22 @@ static void __init mdss_clock_setup(void)
 {
 	clk_ops_byte = clk_ops_rcg;
 	clk_ops_byte.set_rate = set_rate_byte;
+	clk_ops_byte.get_parent = get_parent_byte;
+	clk_ops_byte.handoff = byte_rcg_handoff;
 
 	clk_ops_pixel = clk_ops_rcg_mnd;
 	clk_ops_pixel.set_rate = set_rate_pixel;
+	clk_ops_pixel.get_parent = get_parent_pixel;
+	clk_ops_pixel.handoff = pixel_rcg_handoff;
 
 	clk_ops_rcg_hdmi = clk_ops_rcg;
 	clk_ops_rcg_hdmi.set_rate = rcg_clk_set_rate_hdmi;
 
-	mdss_clk_ctrl_init();
+	/*
+	 * MDSS needs the ahb clock and needs to init before we register the
+	 * lookup table.
+	 */
+	mdss_clk_ctrl_pre_init(&mdss_ahb_clk.c);
 }
 
 static void __init msm8974_clock_post_init(void)
@@ -5471,8 +5560,6 @@ static void __init msm8974_clock_post_init(void)
 	 */
 	clk_prepare_enable(&gcc_mmss_noc_cfg_ahb_clk.c);
 	clk_prepare_enable(&gcc_ocmem_noc_cfg_ahb_clk.c);
-
-	mdss_clock_setup();
 
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb30_master_clk_src.c,
@@ -5589,6 +5676,8 @@ static void __init msm8974_clock_pre_init(void)
 		for (i = 0; i < ARRAY_SIZE(qup_i2c_clks); i++)
 			qup_i2c_clks[i][0]->parent =  qup_i2c_clks[i][1];
 	}
+
+	mdss_clock_setup();
 }
 
 static int __init msm8974_clock_late_init(void)
