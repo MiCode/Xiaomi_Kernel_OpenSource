@@ -1850,6 +1850,7 @@ int mdss_register_panel(struct platform_device *pdev,
 	if (pdata->panel_info.cont_splash_enabled) {
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		mdss_mdp_footswitch_ctrl_splash(1);
+		mdss_mdp_copy_splash_screen(pdata);
 	}
 
 mdss_notfound:
