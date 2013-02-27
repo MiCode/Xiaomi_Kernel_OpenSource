@@ -3059,7 +3059,7 @@ static int set_rate_byte(struct clk *clk, unsigned long rate)
 
 	byte_freq.div_src_val &= ~CFG_RCGR_DIV_MASK;
 	byte_freq.div_src_val |= BVAL(4, 0, div);
-	set_rate_mnd(rcg, &byte_freq);
+	set_rate_hid(rcg, &byte_freq);
 
 	return 0;
 }
@@ -3088,7 +3088,7 @@ static int set_rate_pixel(struct clk *clk, unsigned long rate)
 
 	pixel_freq.div_src_val &= ~CFG_RCGR_DIV_MASK;
 	pixel_freq.div_src_val |= BVAL(4, 0, div);
-	set_rate_hid(rcg, &pixel_freq);
+	set_rate_mnd(rcg, &pixel_freq);
 
 	return 0;
 }
@@ -5430,10 +5430,10 @@ static void __init reg_init(void)
 
 static void __init mdss_clock_setup(void)
 {
-	clk_ops_byte = clk_ops_rcg_mnd;
+	clk_ops_byte = clk_ops_rcg;
 	clk_ops_byte.set_rate = set_rate_byte;
 
-	clk_ops_pixel = clk_ops_rcg;
+	clk_ops_pixel = clk_ops_rcg_mnd;
 	clk_ops_pixel.set_rate = set_rate_pixel;
 
 	clk_ops_rcg_hdmi = clk_ops_rcg;
