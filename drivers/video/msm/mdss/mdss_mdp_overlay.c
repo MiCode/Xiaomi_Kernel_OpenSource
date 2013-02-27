@@ -654,10 +654,8 @@ int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 		ret = mdss_mdp_display_commit(ctl, NULL);
 	mutex_unlock(&mfd->lock);
 
-	if (IS_ERR_VALUE(ret)) {
-		mutex_unlock(&mfd->ov_lock);
-		return ret;
-	}
+	if (IS_ERR_VALUE(ret))
+		goto commit_fail;
 
 	ret = mdss_mdp_display_wait4comp(ctl);
 
@@ -670,6 +668,7 @@ int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 	add_timer(&mfd->no_update.timer);
 	mutex_unlock(&mfd->no_update.lock);
 
+commit_fail:
 	ret = mdss_mdp_overlay_cleanup(mfd);
 
 	mutex_unlock(&mfd->ov_lock);
