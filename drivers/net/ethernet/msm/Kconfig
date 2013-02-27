@@ -50,3 +50,9 @@ config QFEC
 	  This driver supports Ethernet in the FSM9xxx.
 	  To compile this driver as a module, choose M here: the
 	  module will be called qfec.
+
+config ECM_IPA
+	tristate "STD ECM LAN Driver support"
+	depends on IPA
+	help
+	  Allows LAN between Apps and tethered HOST on STD ECM
