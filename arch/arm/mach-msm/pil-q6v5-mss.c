@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -462,7 +462,7 @@ static int modem_shutdown(const struct subsys_desc *subsys)
 
 	if (!drv->is_loadable)
 		return 0;
-	/* MBA doesn't support shutdown */
+	pil_shutdown(&drv->desc);
 	pil_shutdown(&drv->q6->desc);
 	return 0;
 }
@@ -578,7 +578,7 @@ static void mss_stop(const struct subsys_desc *desc)
 	if (!drv->is_loadable)
 		return;
 
-	/* MBA doesn't support shutdown */
+	pil_shutdown(&drv->desc);
 	pil_shutdown(&drv->q6->desc);
 }
 
