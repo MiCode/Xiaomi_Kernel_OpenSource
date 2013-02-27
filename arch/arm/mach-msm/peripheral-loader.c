@@ -656,7 +656,8 @@ EXPORT_SYMBOL(pil_boot);
 void pil_shutdown(struct pil_desc *desc)
 {
 	struct pil_priv *priv = desc->priv;
-	desc->ops->shutdown(desc);
+	if (desc->ops->shutdown)
+		desc->ops->shutdown(desc);
 	if (proxy_timeout_ms == 0 && desc->ops->proxy_unvote)
 		desc->ops->proxy_unvote(desc);
 	else
