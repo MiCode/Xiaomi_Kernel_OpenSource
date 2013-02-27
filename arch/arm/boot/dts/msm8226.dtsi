@@ -532,7 +532,7 @@
 
 	qcom,msm-mem-hole {
 		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0x8100000 0x7e00000>; /* Address and Size of Hole */
+		qcom,memblock-remove = <0x8400000 0x7b00000>; /* Address and Size of Hole */
 	};
 
 	tsens: tsens@fc4a8000 {
