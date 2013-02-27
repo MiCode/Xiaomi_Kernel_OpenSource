@@ -595,6 +595,9 @@ static int start_sha_req(struct qcedev_control *podev)
 		sreq.authklen = qcedev_areq->sha_op_req.authklen;
 		break;
 	default:
+		pr_err("Algorithm %d not supported, exiting\n",
+			qcedev_areq->sha_op_req.alg);
+		return -EINVAL;
 		break;
 	};
 
