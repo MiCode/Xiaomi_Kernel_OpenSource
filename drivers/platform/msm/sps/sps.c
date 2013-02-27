@@ -2232,8 +2232,7 @@ int sps_timer_ctrl(struct sps_pipe *h,
 		SPS_ERR("sps:%s:timer_ctrl pointer is NULL.\n", __func__);
 		return SPS_ERROR;
 	} else if (timer_result == NULL) {
-		SPS_ERR("sps:%s:result pointer is NULL.\n", __func__);
-		return SPS_ERROR;
+		SPS_DBG("sps:%s:no result to return.\n", __func__);
 	}
 
 	bam = sps_bam_lock(pipe);

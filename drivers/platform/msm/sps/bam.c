@@ -886,6 +886,12 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 				(u32) base, status);
 			bam_output_register_content(base);
 			*cb_case = SPS_CALLBACK_BAM_HRESP_ERR_IRQ;
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+		} else if (status & IRQ_STTS_BAM_TIMER_IRQ) {
+			SPS_DBG1("sps:bam 0x%x(va);receive BAM_TIMER_IRQ\n",
+				(u32) base);
+			*cb_case = SPS_CALLBACK_BAM_TIMER_IRQ;
+#endif
 		} else
 			SPS_INFO("sps:bam 0x%x(va);bam irq status="
 				"0x%x.", (u32) base, status);
@@ -1126,9 +1132,25 @@ u32 bam_pipe_get_desc_read_offset(void *base, u32 pipe)
 void bam_pipe_timer_config(void *base, u32 pipe, enum bam_pipe_timer_mode mode,
 			 u32 timeout_count)
 {
-	bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_MODE, mode);
-	bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_TRSHLD,
-			    timeout_count);
+	u32 for_all_pipes = 0;
+
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+	for_all_pipes = bam_read_reg_field(base, REVISION,
+						BAM_NUM_INACTIV_TMRS);
+#endif
+
+	if (for_all_pipes) {
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+		bam_write_reg_field(base, TIMER_CTRL, TIMER_MODE, mode);
+		bam_write_reg_field(base, TIMER_CTRL, TIMER_TRSHLD,
+				    timeout_count);
+#endif
+	} else {
+		bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_MODE,
+					mode);
+		bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_TRSHLD,
+				    timeout_count);
+	}
 }
 
 /**
@@ -1137,10 +1159,26 @@ void bam_pipe_timer_config(void *base, u32 pipe, enum bam_pipe_timer_mode mode,
  */
 void bam_pipe_timer_reset(void *base, u32 pipe)
 {
-	/* reset */
-	bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_RST, 0);
-	/* active */
-	bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_RST, 1);
+	u32 for_all_pipes = 0;
+
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+	for_all_pipes = bam_read_reg_field(base, REVISION,
+						BAM_NUM_INACTIV_TMRS);
+#endif
+
+	if (for_all_pipes) {
+#ifdef CONFIG_SPS_SUPPORT_NDP_BAM
+		/* reset */
+		bam_write_reg_field(base, TIMER_CTRL, TIMER_RST, 0);
+		/* active */
+		bam_write_reg_field(base, TIMER_CTRL, TIMER_RST, 1);
+#endif
+	} else {
+		/* reset */
+		bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_RST, 0);
+		/* active */
+		bam_write_reg_field(base, P_TIMER_CTRL(pipe), P_TIMER_RST, 1);
+	}
 }
 
 /**
