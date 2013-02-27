@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -472,7 +472,7 @@ int init_motion_buf(struct vcap_client_data *c_data)
 	int rc;
 	struct vcap_dev *dev = c_data->dev;
 	struct ion_handle *handle = NULL;
-	unsigned long paddr, len, ionflag = 0;
+	unsigned long paddr, len;
 	void *vaddr;
 	size_t size = ((c_data->vp_out_fmt.width + 63) >> 6) *
 		((c_data->vp_out_fmt.height + 7) >> 3) * 16;
@@ -487,13 +487,6 @@ int init_motion_buf(struct vcap_client_data *c_data)
 	if (IS_ERR_OR_NULL(handle)) {
 		pr_err("%s: ion_alloc failed\n", __func__);
 		return -ENOMEM;
-	}
-
-	rc = ion_handle_get_flags(dev->ion_client, handle, &ionflag);
-	if (rc) {
-		pr_err("%s: get flags ion handle failed\n", __func__);
-		ion_free(dev->ion_client, handle);
-		return rc;
 	}
 
 	vaddr = ion_map_kernel(dev->ion_client, handle);
