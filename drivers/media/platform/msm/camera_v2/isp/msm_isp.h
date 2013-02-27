@@ -49,6 +49,16 @@ struct vfe_subscribe_info {
 	uint32_t active;
 };
 
+enum msm_isp_pack_fmt {
+	QCOM,
+	MIPI,
+	DPCM6,
+	DPCM8,
+	PLAIN8,
+	PLAIN16,
+	MAX_ISP_PACK_FMT,
+};
+
 enum msm_isp_camif_update_state {
 	NO_UPDATE,
 	ENABLE_CAMIF,
@@ -290,7 +300,7 @@ struct msm_vfe_src_info {
 	enum msm_vfe_inputmux input_mux;
 	uint32_t width;
 	long pixel_clock;
-	uint32_t input_format;
+	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
 };
 
 enum msm_wm_ub_cfg_type {
