@@ -641,7 +641,7 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 		struct mem_region *mregion)
 {
 	int rc = 0;
-	unsigned long flags = 0, size = 0, align_req = 0;
+	unsigned long size = 0, align_req = 0;
 	if (!mregion) {
 		rc = -EINVAL;
 		goto venc_map_fail;
@@ -660,12 +660,6 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 		WFD_MSG_ERR("Failed to get handle: %p, %d, %d, %d\n",
 			venc_ion_client, mregion->fd, mregion->offset, rc);
 		mregion->ion_handle = NULL;
-		goto venc_map_fail;
-	}
-
-	rc = ion_handle_get_flags(venc_ion_client, mregion->ion_handle, &flags);
-	if (rc) {
-		WFD_MSG_ERR("Failed to get ion flags %d\n", rc);
 		goto venc_map_fail;
 	}
 
@@ -693,7 +687,8 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 
 	rc = ion_map_iommu(venc_ion_client, mregion->ion_handle,
 			inst->domain, 0, align_req, 0,
-			(unsigned long *)&mregion->paddr, &size, flags, 0);
+			(unsigned long *)&mregion->paddr, &size, 0, 0);
+
 	if (rc) {
 		WFD_MSG_ERR("Failed to map into iommu\n");
 		goto venc_map_iommu_map_fail;
