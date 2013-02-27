@@ -1248,14 +1248,12 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	mutex_lock(&buffer->lock);
 	/* now map it to userspace */
 	ret = buffer->heap->ops->map_user(buffer->heap, buffer, vma);
+	mutex_unlock(&buffer->lock);
 
 	if (ret) {
-		mutex_unlock(&buffer->lock);
 		pr_err("%s: failure mapping buffer to userspace\n",
 		       __func__);
 	} else {
-		mutex_unlock(&buffer->lock);
-
 		vma->vm_ops = &ion_vm_ops;
 		/*
 		 * move the buffer into the vm_private_data so we can access it
