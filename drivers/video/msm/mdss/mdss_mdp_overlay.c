@@ -20,9 +20,11 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/uaccess.h>
+#include <linux/delay.h>
 
 #include <mach/iommu_domains.h>
 
+#include "mdss.h"
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
@@ -498,6 +500,74 @@ static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
+static int mdss_mdp_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
+{
+
+	struct msm_fb_data_type *mfd = ctl->mfd;
+	int ret = 0, off;
+
+	if (!mfd) {
+		pr_debug("Invalid handle for reconfigure splash\n");
+		return ret;
+	}
+	off = 0;
+	ctl->panel_data->panel_info.cont_splash_enabled = 0;
+
+	mdss_mdp_ctl_write(ctl, 0, MDSS_MDP_LM_BORDER_COLOR);
+	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
+
+	/* wait for 1 VSYNC for the pipe to be unstaged */
+	msleep(20);
+	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
+	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_FINISH,
+			NULL);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_footswitch_ctrl_splash(0);
+	return ret;
+}
+
+static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
+{
+	int rc;
+
+	if (mfd->ctl->power_on)
+		return 0;
+
+	pr_debug("starting overlay\n");
+
+	rc = pm_runtime_get_sync(&mfd->pdev->dev);
+	if (rc) {
+		pr_err("unable to resume with pm_runtime_get_sync (%d)\n", rc);
+		return rc;
+	}
+
+	if (mfd->panel_info->cont_splash_enabled)
+		mdss_mdp_reconfigure_splash_done(mfd->ctl);
+
+	if (!is_mdss_iommu_attached()) {
+		mdss_iommu_attach(mdss_res);
+		mdss_hw_init(mdss_res);
+	}
+
+	rc = mdss_mdp_ctl_start(mfd->ctl);
+	if (rc == 0) {
+		atomic_inc(&ov_active_panels);
+
+		if (mfd->vsync_pending) {
+			mfd->vsync_pending = 0;
+			mdss_mdp_overlay_vsync_ctrl(mfd, mfd->vsync_pending);
+		}
+	} else {
+		pr_err("overlay start failed.\n");
+		mdss_mdp_ctl_destroy(mfd->ctl);
+		mfd->ctl = NULL;
+
+		pm_runtime_put(&mfd->pdev->dev);
+	}
+
+	return rc;
+}
+
 int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 {
 	struct msm_fb_data_type *mfd = ctl->mfd;
@@ -741,6 +811,12 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 	if (!mfd->panel_power_on) {
 		mutex_unlock(&mfd->ov_lock);
 		return -EPERM;
+	}
+
+	ret = mdss_mdp_overlay_start(mfd);
+	if (ret) {
+		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
+		return ret;
 	}
 
 	if (req->id & MDSS_MDP_ROT_SESSION_MASK) {
@@ -1286,7 +1362,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 
 static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 {
-	int rc;
+	int rc = 0;
 
 	if (!mfd)
 		return -ENODEV;
@@ -1322,27 +1398,6 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		mfd->ctl = ctl;
 	}
 
-	rc = pm_runtime_get_sync(&mfd->pdev->dev);
-	if (rc) {
-		pr_err("unable to resume with pm_runtime_get_sync (%d)\n", rc);
-		return rc;
-	}
-
-	rc = mdss_mdp_ctl_start(mfd->ctl);
-	if (rc == 0) {
-		atomic_inc(&ov_active_panels);
-
-		if (mfd->vsync_pending) {
-			mfd->vsync_pending = 0;
-			mdss_mdp_overlay_vsync_ctrl(mfd, mfd->vsync_pending);
-		}
-	} else {
-		mdss_mdp_ctl_destroy(mfd->ctl);
-		mfd->ctl = NULL;
-
-		pm_runtime_put(&mfd->pdev->dev);
-	}
-
 	return rc;
 }
 
@@ -1360,6 +1415,9 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		pr_err("ctl not initialized\n");
 		return -ENODEV;
 	}
+
+	if (!mfd->ctl->power_on)
+		return 0;
 
 	mdss_mdp_overlay_release_all(mfd);
 
