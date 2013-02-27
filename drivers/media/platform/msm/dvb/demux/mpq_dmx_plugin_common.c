@@ -847,7 +847,7 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 	mpq_dmx_info.devices = NULL;
 	mpq_dmx_info.ion_client = NULL;
 
-	mpq_sdmx_check_app_loaded();
+	mpq_dmx_info.secure_demux_app_loaded = 0;
 
 	/*
 	 * TODO: the following should be set based on the decoder:
@@ -4610,6 +4610,16 @@ EXPORT_SYMBOL(mpq_dmx_write);
 
 int mpq_sdmx_is_loaded(void)
 {
-	return mpq_bypass_sdmx ? 0 : mpq_dmx_info.secure_demux_app_loaded;
+	static int sdmx_load_checked;
+
+	if (mpq_bypass_sdmx)
+		return 0;
+
+	if (!sdmx_load_checked) {
+		mpq_sdmx_check_app_loaded();
+		sdmx_load_checked = 1;
+	}
+
+	return mpq_dmx_info.secure_demux_app_loaded;
 }
 EXPORT_SYMBOL(mpq_sdmx_is_loaded);
