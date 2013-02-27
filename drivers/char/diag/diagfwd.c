@@ -611,8 +611,12 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 						diag_check_mode_reset(buf)) {
 						return;
 					}
+					mutex_lock(&driver->smd_data[index].
+								smd_ch_mutex);
 					smd_write(driver->smd_data[index].ch,
 							buf, len);
+					mutex_unlock(&driver->smd_data[index].
+								smd_ch_mutex);
 				} else {
 					pr_err("diag: In %s, smd channel %d not open\n",
 						__func__, index);
@@ -1003,6 +1007,9 @@ void diag_process_hdlc(void *data, unsigned len)
 {
 	struct diag_hdlc_decode_type hdlc;
 	int ret, type = 0;
+
+	mutex_lock(&driver->diag_hdlc_mutex);
+
 	pr_debug("diag: HDLC decode fn, len of data  %d\n", len);
 	hdlc.dest_ptr = driver->hdlc_buf;
 	hdlc.dest_size = USB_MAX_OUT_BUF;
@@ -1023,14 +1030,17 @@ void diag_process_hdlc(void *data, unsigned len)
 	if (hdlc.dest_idx < 4) {
 		pr_err_ratelimited("diag: In %s, message is too short, len: %d, dest len: %d\n",
 			__func__, len, hdlc.dest_idx);
+		mutex_unlock(&driver->diag_hdlc_mutex);
 		return;
 	}
 
 	if (ret) {
 		type = diag_process_apps_pkt(driver->hdlc_buf,
 							  hdlc.dest_idx - 3);
-		if (type < 0)
+		if (type < 0) {
+			mutex_unlock(&driver->diag_hdlc_mutex);
 			return;
+		}
 	} else if (driver->debug_flag) {
 		printk(KERN_ERR "Packet dropped due to bad HDLC coding/CRC"
 				" errors or partial packet received, packet"
@@ -1049,10 +1059,15 @@ void diag_process_hdlc(void *data, unsigned len)
 		if (chk_apps_only()) {
 			diag_send_error_rsp(hdlc.dest_idx);
 		} else { /* APQ 8060, Let Q6 respond */
-			if (driver->smd_data[LPASS_DATA].ch)
+			if (driver->smd_data[LPASS_DATA].ch) {
+				mutex_lock(&driver->smd_data[LPASS_DATA].
+								smd_ch_mutex);
 				smd_write(driver->smd_data[LPASS_DATA].ch,
 						driver->hdlc_buf,
 						hdlc.dest_idx - 3);
+				mutex_unlock(&driver->smd_data[LPASS_DATA].
+								smd_ch_mutex);
+			}
 		}
 		type = 0;
 	}
@@ -1067,8 +1082,10 @@ void diag_process_hdlc(void *data, unsigned len)
 	if ((driver->smd_data[MODEM_DATA].ch) && (ret) && (type) &&
 						(hdlc.dest_idx > 3)) {
 		APPEND_DEBUG('g');
+		mutex_lock(&driver->smd_data[MODEM_DATA].smd_ch_mutex);
 		smd_write(driver->smd_data[MODEM_DATA].ch,
 					driver->hdlc_buf, hdlc.dest_idx - 3);
+		mutex_unlock(&driver->smd_data[MODEM_DATA].smd_ch_mutex);
 		APPEND_DEBUG('h');
 #ifdef DIAG_DEBUG
 		printk(KERN_INFO "writing data to SMD, pkt length %d\n", len);
@@ -1076,6 +1093,7 @@ void diag_process_hdlc(void *data, unsigned len)
 			       1, DUMP_PREFIX_ADDRESS, data, len, 1);
 #endif /* DIAG DEBUG */
 	}
+	mutex_unlock(&driver->diag_hdlc_mutex);
 }
 
 #ifdef CONFIG_DIAG_OVER_USB
@@ -1411,6 +1429,7 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 {
 	smd_info->peripheral = peripheral;
 	smd_info->type = type;
+	mutex_init(&smd_info->smd_ch_mutex);
 
 	switch (peripheral) {
 	case MODEM_DATA:
@@ -1525,6 +1544,7 @@ void diagfwd_init(void)
 	diag_debug_buf_idx = 0;
 	driver->read_len_legacy = 0;
 	driver->use_device_tree = has_device_tree();
+	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 
 	success = diag_smd_constructor(&driver->smd_data[MODEM_DATA],
