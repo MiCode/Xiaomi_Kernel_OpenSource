@@ -28,7 +28,7 @@
 
 #include "qdsp6/q6voice.h"
 
-#define HPCM_MAX_Q_LEN 2
+#define HPCM_MAX_Q_LEN 10
 #define HPCM_MIN_VOC_PKT_SIZE 320
 #define HPCM_MAX_VOC_PKT_SIZE 640
 
