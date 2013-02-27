@@ -516,7 +516,8 @@ int mdss_mdp_wb_kickoff(struct mdss_mdp_ctl *ctl)
 
 	if (wb_args.data == NULL) {
 		pr_err("unable to get writeback buf ctl=%d\n", ctl->num);
-		ret = -ENOMEM;
+		/* drop buffer but don't return error */
+		ret = 0;
 		goto kickoff_fail;
 	}
 

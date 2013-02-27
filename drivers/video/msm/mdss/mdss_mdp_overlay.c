@@ -608,11 +608,6 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	rc = mdss_mdp_ctl_start(mfd->ctl);
 	if (rc == 0) {
 		atomic_inc(&ov_active_panels);
-
-		if (mfd->vsync_pending) {
-			mfd->vsync_pending = 0;
-			mdss_mdp_overlay_vsync_ctrl(mfd, mfd->vsync_pending);
-		}
 	} else {
 		pr_err("overlay start failed.\n");
 		mdss_mdp_ctl_destroy(mfd->ctl);
@@ -1107,10 +1102,6 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 
 	spin_lock_irqsave(&mfd->vsync_lock, flags);
 	INIT_COMPLETION(mfd->vsync_comp);
-	if (en && ctl->play_cnt == 0) {
-		mfd->vsync_time = ktime_get();
-		complete(&mfd->vsync_comp);
-	}
 	spin_unlock_irqrestore(&mfd->vsync_lock, flags);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
@@ -1139,11 +1130,6 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 		return 0;
 
 	timeout = msecs_to_jiffies(VSYNC_PERIOD * 5);
-	if (mfd->ctl->play_cnt == 0) {
-		pr_debug("timegen enable still pending on fb%d\n", mfd->index);
-		timeout <<= 5;
-	}
-
 	ret = wait_for_completion_interruptible_timeout(&mfd->vsync_comp,
 			timeout);
 	if (ret <= 0) {
@@ -1452,6 +1438,17 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 			}
 		}
 		mfd->ctl = ctl;
+	}
+
+	if (!mfd->panel_info->cont_splash_enabled) {
+		rc = mdss_mdp_overlay_start(mfd);
+		if (!IS_ERR_VALUE(rc))
+			rc = mdss_mdp_overlay_kickoff(mfd->ctl);
+	}
+
+	if (!IS_ERR_VALUE(rc) && mfd->vsync_pending) {
+		mfd->vsync_pending = 0;
+		mdss_mdp_overlay_vsync_ctrl(mfd, mfd->vsync_pending);
 	}
 
 	return rc;
