@@ -6,6 +6,12 @@ Required properties:
   - reg-names : should contain the crypto and bam base register names.
   - interrupts : should contain crypto BAM interrupt.
   - qcom,bam-pipe-pair : should contain crypto BAM pipe pair index.
+  - qcom,ce-hw-instance : should contain crypto HW instance.
+  - qcom,msm_bus,name: Should be "qcedev-noc"
+  - qcom,msm_bus,num_cases: Depends on the use cases for bus scaling
+  - qcom,msm_bus,active-only: Default vector index
+  - qcom,msm_bus,num_paths: The paths for source and destination ports
+  - qcom,msm_bus,vectors: Vectors for bus topology.
 
 Example:
 
@@ -16,4 +22,12 @@ Example:
 		reg-names = "crypto-base","crypto-bam-base";
 		interrupts = <0 235 0>;
 		qcom,bam-pipe-pair = <0>;
+		qcom,ce-hw-instance = <1>;
+                qcom,msm-bus,name = "qcedev-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<56 512 0 0>,
+				<56 512 3936000 393600>,
 	};
