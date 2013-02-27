@@ -157,6 +157,7 @@ static struct {
 	const struct dev_pm_ops *pm_ops;
 	int		triggered;
 	int		smd_channel_ready;
+	int		cold_boot_done;
 	smd_channel_t	*smd_ch;
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned int	serial_number;
@@ -727,6 +728,16 @@ int wcnss_hardware_type(void)
 }
 EXPORT_SYMBOL(wcnss_hardware_type);
 
+int wcnss_cold_boot_done(void)
+{
+	if (penv)
+		return penv->cold_boot_done;
+	else
+		return -ENODEV;
+}
+EXPORT_SYMBOL(wcnss_cold_boot_done);
+
+
 static int wcnss_smd_tx(void *data, int len)
 {
 	int ret = 0;
@@ -1062,6 +1073,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 			goto fail_ioremap;
 		}
 	}
+	penv->cold_boot_done = 1;
 
 	return 0;
 
