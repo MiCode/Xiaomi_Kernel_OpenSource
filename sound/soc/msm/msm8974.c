@@ -27,7 +27,7 @@
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
 #include <sound/pcm_params.h>
-#include <qdsp6v2/msm-pcm-routing-v2.h>
+#include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "../codecs/wcd9320.h"
 #include <linux/io.h>
 
