@@ -497,6 +497,14 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 					b->m.planes[i].reserved[0],
 					b->m.planes[i].reserved[1],
 					b->m.planes[i].length);
+			rc = msm_smem_cache_operations(v4l2_inst->mem_client,
+				binfo->handle[i], SMEM_CACHE_CLEAN);
+			if (rc)
+				dprintk(VIDC_WARN,
+					"CACHE Clean failed: %d, %d, %d\n",
+					b->m.planes[i].reserved[0],
+					b->m.planes[i].reserved[1],
+					b->m.planes[i].length);
 		}
 		b->m.planes[i].m.userptr = binfo->device_addr[i];
 	}
