@@ -734,22 +734,6 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 		break;
 
 	}
-	case ION_IOC_GET_FLAGS:
-	{
-		struct ion_flag_data data;
-		int ret;
-		if (copy_from_user(&data, (void __user *)arg,
-					sizeof(struct ion_flag_data)))
-			return -EFAULT;
-
-		ret = ion_handle_get_flags(client, data.handle, &data.flags);
-		if (ret < 0)
-			return ret;
-		if (copy_to_user((void __user *)arg, &data,
-					sizeof(struct ion_flag_data)))
-			return -EFAULT;
-		break;
-	}
 	default:
 		return -ENOTTY;
 	}
