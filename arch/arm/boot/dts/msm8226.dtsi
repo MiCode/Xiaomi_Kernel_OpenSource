@@ -524,7 +524,7 @@
 		reg = <0xfe200000 0x00100>,
 		      <0xfd485100 0x00010>;
 		reg-names = "qdsp6_base", "halt_base";
-		vdd_cx-supply = <&pm8026_s1_corner>;
+		vdd_cx-supply = <&pm8226_s1_corner>;
 		interrupts = <0 162 1>;
 
 		qcom,firmware-name = "adsp";
