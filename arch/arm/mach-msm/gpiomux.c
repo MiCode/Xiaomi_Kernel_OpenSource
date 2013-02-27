@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010,2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,13 +24,12 @@ static struct msm_gpiomux_rec *msm_gpiomux_recs;
 static struct gpiomux_setting *msm_gpiomux_sets;
 static unsigned msm_gpiomux_ngpio;
 
-int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
+static int msm_gpiomux_store(unsigned gpio, enum msm_gpiomux_setting which,
 	struct gpiomux_setting *setting, struct gpiomux_setting *old_setting)
 {
 	struct msm_gpiomux_rec *rec = msm_gpiomux_recs + gpio;
 	unsigned set_slot = gpio * GPIOMUX_NSETTINGS + which;
 	unsigned long irq_flags;
-	struct gpiomux_setting *new_set;
 	int status = 0;
 
 	if (!msm_gpiomux_recs)
@@ -55,13 +54,31 @@ int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
 		rec->sets[which] = NULL;
 	}
 
+	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
+	return status;
+}
+
+int msm_gpiomux_write(unsigned gpio, enum msm_gpiomux_setting which,
+	struct gpiomux_setting *setting, struct gpiomux_setting *old_setting)
+{
+	int ret;
+	unsigned long irq_flags;
+	struct gpiomux_setting *new_set;
+	struct msm_gpiomux_rec *rec = msm_gpiomux_recs + gpio;
+
+	ret = msm_gpiomux_store(gpio, which, setting, old_setting);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&gpiomux_lock, irq_flags);
+
 	new_set = rec->ref ? rec->sets[GPIOMUX_ACTIVE] :
 		rec->sets[GPIOMUX_SUSPENDED];
 	if (new_set)
 		__msm_gpiomux_write(gpio, *new_set);
 
 	spin_unlock_irqrestore(&gpiomux_lock, irq_flags);
-	return status;
+	return ret;
 }
 EXPORT_SYMBOL(msm_gpiomux_write);
 
@@ -133,6 +150,22 @@ int msm_gpiomux_init(size_t ngpio)
 	return 0;
 }
 EXPORT_SYMBOL(msm_gpiomux_init);
+
+void msm_gpiomux_install_nowrite(struct msm_gpiomux_config *configs,
+				unsigned nconfigs)
+{
+	unsigned c, s;
+	int rc;
+
+	for (c = 0; c < nconfigs; ++c) {
+		for (s = 0; s < GPIOMUX_NSETTINGS; ++s) {
+			rc = msm_gpiomux_store(configs[c].gpio, s,
+				configs[c].settings[s], NULL);
+			if (rc)
+				pr_err("%s: write failure: %d\n", __func__, rc);
+		}
+	}
+}
 
 void msm_gpiomux_install(struct msm_gpiomux_config *configs, unsigned nconfigs)
 {
