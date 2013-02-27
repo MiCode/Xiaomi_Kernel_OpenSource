@@ -604,53 +604,30 @@ static void __init *early_alloc(unsigned long sz)
 	return early_alloc_aligned(sz, sz);
 }
 
-static pte_t * __init early_pte_alloc(pmd_t *pmd)
-{
-	if (pmd_none(*pmd) || pmd_bad(*pmd))
-		return early_alloc(PTE_HWTABLE_OFF + PTE_HWTABLE_SIZE);
-	return pmd_page_vaddr(*pmd);
-}
-
-static void __init early_pte_install(pmd_t *pmd, pte_t *pte, unsigned long prot)
-{
-	__pmd_populate(pmd, __pa(pte), prot);
-	BUG_ON(pmd_bad(*pmd));
-}
-
-#ifdef CONFIG_HIGHMEM
-static pte_t * __init early_pte_alloc_and_install(pmd_t *pmd,
-	unsigned long addr, unsigned long prot)
+static pte_t * __init early_pte_alloc(pmd_t *pmd, unsigned long addr, unsigned long prot)
 {
 	if (pmd_none(*pmd)) {
-		pte_t *pte = early_pte_alloc(pmd);
-		early_pte_install(pmd, pte, prot);
+		pte_t *pte = early_alloc(PTE_HWTABLE_OFF + PTE_HWTABLE_SIZE);
+		__pmd_populate(pmd, __pa(pte), prot);
 	}
 	BUG_ON(pmd_bad(*pmd));
 	return pte_offset_kernel(pmd, addr);
 }
-#endif
 
 static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 				  unsigned long end, unsigned long pfn,
 				  const struct mem_type *type)
 {
-	pte_t *start_pte = early_pte_alloc(pmd);
-	pte_t *pte = start_pte + pte_index(addr);
-
-	/* If replacing a section mapping, the whole section must be replaced */
-	BUG_ON(pmd_bad(*pmd) && ((addr | end) & ~PMD_MASK));
-
+	pte_t *pte = early_pte_alloc(pmd, addr, type->prot_l1);
 	do {
 		set_pte_ext(pte, pfn_pte(pfn, __pgprot(type->prot_pte)), 0);
 		pfn++;
 	} while (pte++, addr += PAGE_SIZE, addr != end);
-	early_pte_install(pmd, start_pte, type->prot_l1);
 }
 
 static void __init alloc_init_section(pud_t *pud, unsigned long addr,
 				      unsigned long end, phys_addr_t phys,
-				      const struct mem_type *type,
-				      bool force_pages)
+				      const struct mem_type *type)
 {
 	pmd_t *pmd = pmd_offset(pud, addr);
 
@@ -660,7 +637,7 @@ static void __init alloc_init_section(pud_t *pud, unsigned long addr,
 	 * L1 entries, whereas PGDs refer to a group of L1 entries making
 	 * up one logical pointer to an L2 table.
 	 */
-	if (type->prot_sect && ((addr | end | phys) & ~SECTION_MASK) == 0 && !force_pages) {
+	if (type->prot_sect && ((addr | end | phys) & ~SECTION_MASK) == 0) {
 		pmd_t *p = pmd;
 
 #ifndef CONFIG_ARM_LPAE
@@ -684,15 +661,14 @@ static void __init alloc_init_section(pud_t *pud, unsigned long addr,
 }
 
 static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
-	unsigned long end, unsigned long phys, const struct mem_type *type,
-	bool force_pages)
+	unsigned long end, unsigned long phys, const struct mem_type *type)
 {
 	pud_t *pud = pud_offset(pgd, addr);
 	unsigned long next;
 
 	do {
 		next = pud_addr_end(addr, end);
-		alloc_init_section(pud, addr, next, phys, type, force_pages);
+		alloc_init_section(pud, addr, next, phys, type);
 		phys += next - addr;
 	} while (pud++, addr = next, addr != end);
 }
@@ -766,7 +742,7 @@ static void __init create_36bit_mapping(struct map_desc *md,
  * offsets, and we take full advantage of sections and
  * supersections.
  */
-static void __init create_mapping(struct map_desc *md, bool force_pages)
+static void __init create_mapping(struct map_desc *md)
 {
 	unsigned long addr, length, end;
 	phys_addr_t phys;
@@ -818,7 +794,7 @@ static void __init create_mapping(struct map_desc *md, bool force_pages)
 	do {
 		unsigned long next = pgd_addr_end(addr, end);
 
-		alloc_init_pud(pgd, addr, next, phys, type, force_pages);
+		alloc_init_pud(pgd, addr, next, phys, type);
 
 		phys += next - addr;
 		addr = next;
@@ -839,7 +815,7 @@ void __init iotable_init(struct map_desc *io_desc, int nr)
 	vm = early_alloc_aligned(sizeof(*vm) * nr, __alignof__(*vm));
 
 	for (md = io_desc; nr; md++, nr--) {
-		create_mapping(md, false);
+		create_mapping(md);
 		vm->addr = (void *)(md->virtual & PAGE_MASK);
 		vm->size = PAGE_ALIGN(md->length + (md->virtual & ~PAGE_MASK));
 		vm->phys_addr = __pfn_to_phys(md->pfn); 
@@ -1199,12 +1175,12 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 	map.virtual = 0xffff0000;
 	map.length = PAGE_SIZE;
 	map.type = MT_HIGH_VECTORS;
-	create_mapping(&map, false);
+	create_mapping(&map);
 
 	if (!vectors_high()) {
 		map.virtual = 0;
 		map.type = MT_LOW_VECTORS;
-		create_mapping(&map, false);
+		create_mapping(&map);
 	}
 
 	/*
@@ -1224,7 +1200,7 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 			map.virtual = CONFIG_ARM_USER_ACCESSIBLE_TIMER_BASE;
 			map.length = PAGE_SIZE;
 			map.type = MT_DEVICE_USER_ACCESSIBLE;
-			create_mapping(&map, false);
+			create_mapping(&map);
 		}
 	}
 
@@ -1241,7 +1217,7 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 static void __init kmap_init(void)
 {
 #ifdef CONFIG_HIGHMEM
-	pkmap_page_table = early_pte_alloc_and_install(pmd_off_k(PKMAP_BASE),
+	pkmap_page_table = early_pte_alloc(pmd_off_k(PKMAP_BASE),
 		PKMAP_BASE, _PAGE_KERNEL_TABLE);
 #endif
 }
@@ -1349,14 +1325,12 @@ extern char __init_data[];
 static void __init map_lowmem(void)
 {
 	struct memblock_region *reg;
-	phys_addr_t start;
-	phys_addr_t end;
-	struct map_desc map;
 
 	/* Map all the lowmem memory banks. */
 	for_each_memblock(memory, reg) {
-		start = reg->base;
-		end = start + reg->size;
+		phys_addr_t start = reg->base;
+		phys_addr_t end = start + reg->size;
+		struct map_desc map;
 
 		if (end > arm_lowmem_limit)
 			end = arm_lowmem_limit;
@@ -1370,28 +1344,28 @@ static void __init map_lowmem(void)
 			map.length = SECTION_SIZE;
 			map.type = MT_MEMORY;
 
-			create_mapping(&map, false);
+			create_mapping(&map);
 
 			map.pfn = __phys_to_pfn(start + SECTION_SIZE);
 			map.virtual = __phys_to_virt(start + SECTION_SIZE);
 			map.length = (unsigned long)RX_AREA_END - map.virtual;
 			map.type = MT_MEMORY_RX;
 
-			create_mapping(&map, false);
+			create_mapping(&map);
 
 			map.pfn = __phys_to_pfn(__pa(__start_rodata));
 			map.virtual = (unsigned long)__start_rodata;
 			map.length = __init_begin - __start_rodata;
 			map.type = MT_MEMORY_R;
 
-			create_mapping(&map, false);
+			create_mapping(&map);
 
 			map.pfn = __phys_to_pfn(__pa(__init_begin));
 			map.virtual = (unsigned long)__init_begin;
 			map.length = __init_data - __init_begin;
 			map.type = MT_MEMORY;
 
-			create_mapping(&map, false);
+			create_mapping(&map);
 
 			map.pfn = __phys_to_pfn(__pa(__init_data));
 			map.virtual = (unsigned long)__init_data;
@@ -1406,20 +1380,8 @@ static void __init map_lowmem(void)
 		map.type = MT_MEMORY;
 #endif
 
-		create_mapping(&map, false);
+		create_mapping(&map);
 	}
-
-#ifdef CONFIG_DEBUG_RODATA
-	start = __pa(_stext) & PMD_MASK;
-	end = ALIGN(__pa(__end_rodata), PMD_SIZE);
-
-	map.pfn = __phys_to_pfn(start);
-	map.virtual = __phys_to_virt(start);
-	map.length = end - start;
-	map.type = MT_MEMORY;
-
-	create_mapping(&map, true);
-#endif
 }
 
 /*
