@@ -675,7 +675,7 @@ static void qup_i2c_recover_bus_busy(struct qup_i2c_dev *dev)
 	int gpio_dat;
 	bool gpio_clk_status = false;
 	uint32_t status = readl_relaxed(dev->base + QUP_I2C_STATUS);
-	struct gpiomux_setting old_gpio_setting;
+	struct gpiomux_setting old_gpio_setting[ARRAY_SIZE(i2c_rsrcs)];
 
 	if (dev->pdata->msm_i2c_config_gpio)
 		return;
@@ -695,7 +695,7 @@ static void qup_i2c_recover_bus_busy(struct qup_i2c_dev *dev)
 	disable_irq(dev->err_irq);
 	for (i = 0; i < ARRAY_SIZE(i2c_rsrcs); ++i) {
 		if (msm_gpiomux_write(dev->i2c_gpios[i], GPIOMUX_ACTIVE,
-				&recovery_config, &old_gpio_setting)) {
+				&recovery_config, &old_gpio_setting[i])) {
 			dev_err(dev->dev, "GPIO pins have no active setting\n");
 			goto recovery_end;
 		}
@@ -725,7 +725,7 @@ static void qup_i2c_recover_bus_busy(struct qup_i2c_dev *dev)
 	/* Configure ALT funciton to QUP I2C*/
 	for (i = 0; i < ARRAY_SIZE(i2c_rsrcs); ++i) {
 		msm_gpiomux_write(dev->i2c_gpios[i], GPIOMUX_ACTIVE,
-				&old_gpio_setting, NULL);
+				&old_gpio_setting[i], NULL);
 	}
 
 	udelay(10);
