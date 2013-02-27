@@ -95,7 +95,7 @@ static bool mhl_det_in_progress;
 
 static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
-static struct regulator *hsusb_vddcx;
+static struct regulator *hsusb_vdd;
 static struct regulator *vbus_otg;
 static struct regulator *mhl_usb_hs_switch;
 static struct power_supply *psy;
@@ -111,7 +111,7 @@ static inline bool aca_enabled(void)
 #endif
 }
 
-static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
+static int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
 		{  /* VDD_CX CORNER Voting */
 			[VDD_NONE]	= RPM_VREG_CORNER_NONE,
 			[VDD_MIN]	= RPM_VREG_CORNER_NOMINAL,
@@ -175,7 +175,7 @@ static int msm_hsusb_config_vddcx(int high)
 	int ret;
 
 	min_vol = vdd_val[vdd_type][!!high];
-	ret = regulator_set_voltage(hsusb_vddcx, min_vol, max_vol);
+	ret = regulator_set_voltage(hsusb_vdd, min_vol, max_vol);
 	if (ret) {
 		pr_err("%s: unable to set the voltage for regulator "
 			"HSUSB_VDDCX\n", __func__);
@@ -3802,6 +3802,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 static int __init msm_otg_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	int len = 0;
+	u32 tmp[3];
 	struct resource *res;
 	struct msm_otg *motg;
 	struct usb_phy *phy;
@@ -3958,15 +3960,31 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	clk_prepare_enable(motg->pclk);
 
 	motg->vdd_type = VDDCX_CORNER;
-	hsusb_vddcx = devm_regulator_get(motg->phy.dev, "hsusb_vdd_dig");
-	if (IS_ERR(hsusb_vddcx)) {
-		hsusb_vddcx = devm_regulator_get(motg->phy.dev, "HSUSB_VDDCX");
-		if (IS_ERR(hsusb_vddcx)) {
+	hsusb_vdd = devm_regulator_get(motg->phy.dev, "hsusb_vdd_dig");
+	if (IS_ERR(hsusb_vdd)) {
+		hsusb_vdd = devm_regulator_get(motg->phy.dev, "HSUSB_VDDCX");
+		if (IS_ERR(hsusb_vdd)) {
 			dev_err(motg->phy.dev, "unable to get hsusb vddcx\n");
-			ret = PTR_ERR(hsusb_vddcx);
+			ret = PTR_ERR(hsusb_vdd);
 			goto devote_xo_handle;
 		}
 		motg->vdd_type = VDDCX;
+	}
+
+	if (pdev->dev.of_node) {
+		of_get_property(pdev->dev.of_node,
+				"qcom,vdd-voltage-level",
+				&len);
+		if (len == sizeof(tmp)) {
+			of_property_read_u32_array(pdev->dev.of_node,
+					"qcom,vdd-voltage-level",
+					tmp, len/sizeof(*tmp));
+			vdd_val[motg->vdd_type][0] = tmp[0];
+			vdd_val[motg->vdd_type][1] = tmp[1];
+			vdd_val[motg->vdd_type][2] = tmp[2];
+		} else {
+			dev_dbg(&pdev->dev, "Using default hsusb vdd config.\n");
+		}
 	}
 
 	ret = msm_hsusb_config_vddcx(1);
@@ -3975,7 +3993,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		goto devote_xo_handle;
 	}
 
-	ret = regulator_enable(hsusb_vddcx);
+	ret = regulator_enable(hsusb_vdd);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to enable the hsusb vddcx\n");
 		goto free_config_vddcx;
@@ -3984,7 +4002,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	ret = msm_hsusb_ldo_init(motg, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg configuration failed\n");
-		goto free_hsusb_vddcx;
+		goto free_hsusb_vdd;
 	}
 
 	if (pdata->mhl_enable) {
@@ -4167,10 +4185,10 @@ destroy_wlock:
 	msm_hsusb_ldo_enable(motg, USB_PHY_REG_OFF);
 free_ldo_init:
 	msm_hsusb_ldo_init(motg, 0);
-free_hsusb_vddcx:
-	regulator_disable(hsusb_vddcx);
+free_hsusb_vdd:
+	regulator_disable(hsusb_vdd);
 free_config_vddcx:
-	regulator_set_voltage(hsusb_vddcx,
+	regulator_set_voltage(hsusb_vdd,
 		vdd_val[motg->vdd_type][VDD_NONE],
 		vdd_val[motg->vdd_type][VDD_MAX]);
 devote_xo_handle:
@@ -4264,8 +4282,8 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	}
 	msm_hsusb_ldo_enable(motg, USB_PHY_REG_OFF);
 	msm_hsusb_ldo_init(motg, 0);
-	regulator_disable(hsusb_vddcx);
-	regulator_set_voltage(hsusb_vddcx,
+	regulator_disable(hsusb_vdd);
+	regulator_set_voltage(hsusb_vdd,
 		vdd_val[motg->vdd_type][VDD_NONE],
 		vdd_val[motg->vdd_type][VDD_MAX]);
 

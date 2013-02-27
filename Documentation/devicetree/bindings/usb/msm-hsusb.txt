@@ -52,6 +52,13 @@ Optional properties :
 - qcom,hsusb-otg-clk-always-on-workaround: If present then USB core clocks
 	    remain active upon receiving bus suspend and USB cable is connected.
 	    Used for allowing USB to respond for remote wakup.
+- <supply-name>-supply: handle to the regulator device tree node
+         Required "supply-name" is "HSUSB_VDDCX" (when voting for VDDCX) or
+         "hsusb_vdd_dig" (when voting for VDDCX Corner voltage),
+         "HSUSB_1p8-supply" and "HSUSB_3p3-supply".
+- qcom,vdd-voltage-level: This property must be a list of three integer
+	values (no, min, max) where each value represents either a voltage
+	in microvolts or a value corresponding to voltage corner.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -72,6 +79,10 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-pmic-id-irq = <47>
 		qcom,hsusb-otg-lpm-on-dev-suspend;
 		qcom,hsusb-otg-clk-always-on-workaround;
+		hsusb_vdd_dig-supply = <&pm8226_s1_corner>;
+                HSUSB_1p8-supply = <&pm8226_l10>;
+                HSUSB_3p3-supply = <&pm8226_l20>;
+		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,msm_bus,name = "usb2";
 		qcom,msm_bus,num_cases = <2>;
