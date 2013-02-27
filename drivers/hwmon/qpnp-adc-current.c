@@ -391,10 +391,13 @@ static int32_t qpnp_convert_raw_offset_voltage(void)
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	uint32_t num = 0;
 
-	num = iadc->adc->calib.offset_raw - iadc->adc->calib.offset_raw;
+	if ((iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw) == 0) {
+		pr_err("raw offset errors! raw_gain:0x%x and raw_offset:0x%x\n",
+			iadc->adc->calib.gain_raw, iadc->adc->calib.offset_raw);
+		return -EINVAL;
+	}
 
-	iadc->adc->calib.offset_uv = (num * QPNP_ADC_GAIN_NV)/
-		(iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw);
+	iadc->adc->calib.offset_uv = 0;
 
 	num = iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw;
 
@@ -437,6 +440,10 @@ static int32_t qpnp_iadc_calibrate_for_trim(void)
 	}
 
 	rc = qpnp_convert_raw_offset_voltage();
+	if (rc < 0) {
+		pr_err("qpnp raw_voltage conversion failed\n");
+		goto fail;
+	}
 
 	rslt_msb = (raw_data & QPNP_RAW_CODE_16_BIT_MSB_MASK) >>
 							QPNP_BIT_SHIFT_8;
@@ -558,7 +565,7 @@ static int32_t qpnp_check_pmic_temp(void)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	struct qpnp_vadc_result result_pmic_therm;
-	int rc;
+	int rc = 0;
 
 	rc = qpnp_vadc_read(DIE_TEMP, &result_pmic_therm);
 	if (rc < 0)
@@ -572,7 +579,7 @@ static int32_t qpnp_check_pmic_temp(void)
 			pr_err("periodic IADC calibration failed\n");
 	}
 
-	return 0;
+	return rc;
 }
 
 int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
