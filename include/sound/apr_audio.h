@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1511,6 +1511,17 @@ struct asm_stream_cmd_encdec_dualmono {
 	u32            param_id;
 	u32            param_size;
 	struct asm_dual_mono channel_map;
+} __packed;
+
+#define ASM_PARAM_ID_AAC_STEREO_MIX_COEFF_SELECTION_FLAG        0x00010DD8
+
+/* Structure for AAC decoder stereo coefficient setting. */
+
+struct asm_aac_stereo_mix_coeff_selection_param {
+	struct apr_hdr				hdr;
+	u32					param_id;
+	u32					param_size;
+	u32					aac_stereo_mix_coeff_flag;
 } __packed;
 
 #define ASM_ENCDEC_DEC_CHAN_MAP				 0x00010D82
