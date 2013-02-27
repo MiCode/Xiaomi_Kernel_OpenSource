@@ -94,6 +94,13 @@ static int msm_ispif_intf_reset(struct ispif_device *ispif,
 	if (data > 0x1) {
 		unsigned long jiffes = msecs_to_jiffies(500);
 		long lrc = 0;
+		unsigned long flags;
+
+		spin_lock_irqsave(&ispif->auto_complete_lock, flags);
+		ispif->wait_timeout = 0;
+		init_completion(&ispif->reset_complete);
+		spin_unlock_irqrestore(&ispif->auto_complete_lock, flags);
+
 		if (params->vfe_intf == VFE0)
 			msm_camera_io_w(data, ispif->base + ISPIF_RST_CMD_ADDR);
 		else
@@ -104,6 +111,11 @@ static int msm_ispif_intf_reset(struct ispif_device *ispif,
 		if (lrc < 0 || !lrc) {
 			pr_err("%s: wait timeout ret = %ld\n", __func__, lrc);
 			rc = -EIO;
+
+			spin_lock_irqsave(&ispif->auto_complete_lock, flags);
+			ispif->wait_timeout = 1;
+			spin_unlock_irqrestore(
+				&ispif->auto_complete_lock, flags);
 		}
 	}
 	return rc;
@@ -114,6 +126,12 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 	int rc = 0;
 	long lrc = 0;
 	unsigned long jiffes = msecs_to_jiffies(500);
+	unsigned long flags;
+
+	spin_lock_irqsave(&ispif->auto_complete_lock, flags);
+	ispif->wait_timeout = 0;
+	init_completion(&ispif->reset_complete);
+	spin_unlock_irqrestore(&ispif->auto_complete_lock, flags);
 
 	BUG_ON(!ispif);
 
@@ -125,14 +143,17 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 		msm_camera_io_w_mb(ISPIF_RST_CMD_1_MASK, ispif->base +
 			ISPIF_RST_CMD_1_ADDR);
 
-	CDBG("%s: Sending reset\n", __func__);
 	lrc = wait_for_completion_interruptible_timeout(
 		&ispif->reset_complete, jiffes);
+
 	if (lrc < 0 || !lrc) {
 		pr_err("%s: wait timeout ret = %ld\n", __func__, lrc);
 		rc = -EIO;
+
+		spin_lock_irqsave(&ispif->auto_complete_lock, flags);
+		ispif->wait_timeout = 1;
+		spin_unlock_irqrestore(&ispif->auto_complete_lock, flags);
 	}
-	CDBG("%s: reset returned\n", __func__);
 
 	return rc;
 }
@@ -571,8 +592,14 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 		ispif->base + ISPIF_IRQ_CLEAR_2_ADDR);
 
 	if (out[VFE0].ispifIrqStatus0 & ISPIF_IRQ_STATUS_MASK) {
-		if (out[VFE0].ispifIrqStatus0 & RESET_DONE_IRQ)
-			complete(&ispif->reset_complete);
+		if (out[VFE0].ispifIrqStatus0 & RESET_DONE_IRQ) {
+			unsigned long flags;
+			spin_lock_irqsave(&ispif->auto_complete_lock, flags);
+			if (ispif->wait_timeout == 0)
+				complete(&ispif->reset_complete);
+			spin_unlock_irqrestore(
+				&ispif->auto_complete_lock, flags);
+		}
 
 		if (out[VFE0].ispifIrqStatus0 & PIX_INTF_0_OVERFLOW_IRQ)
 			pr_err("%s: VFE0 pix0 overflow.\n", __func__);
@@ -709,8 +736,6 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		goto error_irq;
 	}
 
-	init_completion(&ispif->reset_complete);
-
 	rc = msm_ispif_reset(ispif);
 	if (rc == 0) {
 		ispif->ispif_state = ISPIF_POWER_UP;
@@ -830,13 +855,8 @@ static int ispif_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	struct ispif_device *ispif = v4l2_get_subdevdata(sd);
 
 	mutex_lock(&ispif->mutex);
-	if (ispif->open_cnt > 0) {
-		CDBG("%s: dev already open\n", __func__);
-		goto end;
-	}
 	/* mem remap is done in init when the clock is on */
 	ispif->open_cnt++;
-end:
 	mutex_unlock(&ispif->mutex);
 	return 0;
 }
@@ -940,7 +960,8 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 	ispif->pdev = pdev;
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 	ispif->open_cnt = 0;
-
+	spin_lock_init(&ispif->auto_complete_lock);
+	ispif->wait_timeout = 0;
 	return 0;
 
 error:

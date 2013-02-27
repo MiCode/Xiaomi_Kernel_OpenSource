@@ -48,6 +48,8 @@ struct ispif_device {
 	struct mutex mutex;
 	uint8_t start_ack_pending;
 	struct completion reset_complete;
+	spinlock_t auto_complete_lock;
+	uint8_t wait_timeout;
 	uint32_t csid_version;
 	int enb_dump_reg;
 	uint32_t open_cnt;
