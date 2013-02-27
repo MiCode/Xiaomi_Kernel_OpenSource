@@ -1126,33 +1126,17 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 {
 }
 
-static void ion_vma_open(struct vm_area_struct *vma)
-{
-	struct ion_buffer *buffer = vma->vm_private_data;
-
-	pr_debug("%s: %d\n", __func__, __LINE__);
-
-	mutex_lock(&buffer->lock);
-	buffer->umap_cnt++;
-	mutex_unlock(&buffer->lock);
-}
-
 static void ion_vma_close(struct vm_area_struct *vma)
 {
 	struct ion_buffer *buffer = vma->vm_private_data;
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
 
-	mutex_lock(&buffer->lock);
-	buffer->umap_cnt--;
-	mutex_unlock(&buffer->lock);
-
 	if (buffer->heap->ops->unmap_user)
 		buffer->heap->ops->unmap_user(buffer->heap, buffer);
 }
 
 static struct vm_operations_struct ion_vm_ops = {
-	.open = ion_vma_open,
 	.close = ion_vma_close,
 };
 
@@ -1176,7 +1160,6 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		pr_err("%s: failure mapping buffer to userspace\n",
 		       __func__);
 	} else {
-		buffer->umap_cnt++;
 		mutex_unlock(&buffer->lock);
 
 		vma->vm_ops = &ion_vm_ops;
