@@ -457,6 +457,12 @@ static int ion_cp_heap_allocate(struct ion_heap *heap,
 	struct ion_cp_buffer *buf;
 	phys_addr_t addr;
 
+	/*
+	 * we never want Ion to fault pages in for us with this
+	 * heap. We want to set up the mappings ourselves in .map_user
+	 */
+	flags |= ION_FLAG_CACHED_NEEDS_SYNC;
+
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return ION_CP_ALLOCATE_FAIL;
