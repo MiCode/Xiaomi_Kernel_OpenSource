@@ -1914,13 +1914,14 @@ static int restart_notifier_cb(struct notifier_block *this,
 	 * processing.  We do not wat to access the bam hardware during SSR
 	 * because a watchdog crash from a bus stall would likely occur.
 	 */
-	if (code == SUBSYS_BEFORE_SHUTDOWN)
+	if (code == SUBSYS_BEFORE_SHUTDOWN) {
+		in_global_reset = 1;
 		in_ssr = 1;
+		bam_dmux_log("%s: begin\n", __func__);
+		flush_workqueue(bam_mux_rx_workqueue);
+	}
 	if (code != SUBSYS_AFTER_SHUTDOWN)
 		return NOTIFY_DONE;
-
-	bam_dmux_log("%s: begin\n", __func__);
-	in_global_reset = 1;
 
 	/* Handle uplink Powerdown */
 	write_lock_irqsave(&ul_wakeup_lock, flags);
