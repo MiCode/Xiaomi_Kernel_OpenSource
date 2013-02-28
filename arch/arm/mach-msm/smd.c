@@ -860,6 +860,29 @@ static int pid_is_on_edge(void *shared2,
 	return ret;
 }
 
+/**
+ * smd_remote_ss_to_edge() - return edge type from remote ss type
+ * @name:	remote subsystem name
+ *
+ * Returns the edge type connected between the local subsystem(APPS)
+ * and remote subsystem @name.
+ */
+int smd_remote_ss_to_edge(const char *name)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(edge_to_pids); ++i) {
+		if (edge_to_pids[i].subsys_name[0] != 0x0) {
+			if (!strncmp(edge_to_pids[i].subsys_name, name,
+								strlen(name)))
+				return i;
+		}
+	}
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(smd_remote_ss_to_edge);
+
 /*
  * Returns a pointer to the subsystem name or NULL if no
  * subsystem name is available.
