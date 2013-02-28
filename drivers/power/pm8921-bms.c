@@ -128,7 +128,6 @@ struct pm8921_bms_chip {
 	int			catch_up_time_us;
 	enum battery_type	batt_type;
 	uint16_t		ocv_reading_at_100;
-	int			cc_reading_at_100;
 	int			max_voltage_uv;
 
 	int			chg_term_ua;
@@ -1042,10 +1041,8 @@ static int read_soc_params_raw(struct pm8921_bms_chip *chip,
 	}
 
 	/* stop faking 100% after an OCV event */
-	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw) {
+	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw)
 		chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
-		chip->cc_reading_at_100 = 0;
-	}
 	pr_debug("0p625 = %duV\n", chip->xoadc_v0625);
 	pr_debug("1p25 = %duV\n", chip->xoadc_v125);
 	pr_debug("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
@@ -1185,10 +1182,7 @@ static void calculate_cc_uah(struct pm8921_bms_chip *chip, int cc, int *val)
 	int64_t cc_voltage_uv, cc_pvh, cc_uah;
 
 	cc_voltage_uv = cc;
-	cc_voltage_uv -= chip->cc_reading_at_100;
-	pr_debug("cc = %d. after subtracting 0x%x cc = %lld\n",
-					cc, chip->cc_reading_at_100,
-					cc_voltage_uv);
+	pr_debug("cc = %d\n", cc);
 	cc_voltage_uv = cc_to_microvolt(chip, cc_voltage_uv);
 	cc_voltage_uv = pm8xxx_cc_adjust_for_gain(cc_voltage_uv);
 	pr_debug("cc_voltage_uv = %lld microvolts\n", cc_voltage_uv);
@@ -1513,10 +1507,7 @@ static void calculate_soc_params(struct pm8921_bms_chip *chip,
 
 	/* calculate cc micro_volt_hour */
 	calculate_cc_uah(chip, raw->cc, cc_uah);
-	pr_debug("cc_uah = %duAh raw->cc = %x cc = %lld after subtracting %x\n",
-				*cc_uah, raw->cc,
-				(int64_t)raw->cc - chip->cc_reading_at_100,
-				chip->cc_reading_at_100);
+	pr_debug("cc_uah = %duAh raw->cc = %x\n", *cc_uah, raw->cc);
 
 	soc_rbatt = ((*remaining_charge_uah - *cc_uah) * 100) / *fcc_uah;
 	if (soc_rbatt < 0)
@@ -2653,19 +2644,20 @@ void pm8921_bms_charging_end(int is_battery_full)
 
 	if (is_battery_full) {
 		the_chip->ocv_reading_at_100 = raw.last_good_ocv_raw;
-		the_chip->cc_reading_at_100 = raw.cc;
 
 		the_chip->last_ocv_uv = the_chip->max_voltage_uv;
 		raw.last_good_ocv_uv = the_chip->max_voltage_uv;
+		raw.cc = 0;
+		/* reset the cc in h/w */
+		reset_cc(the_chip);
 		the_chip->last_ocv_temp_decidegc = batt_temp;
 		/*
 		 * since we are treating this as an ocv event
 		 * forget the old cc value
 		 */
 		the_chip->last_cc_uah = 0;
-		pr_debug("EOC BATT_FULL ocv_reading = 0x%x cc = 0x%x\n",
-				the_chip->ocv_reading_at_100,
-				the_chip->cc_reading_at_100);
+		pr_debug("EOC BATT_FULL ocv_reading = 0x%x\n",
+				the_chip->ocv_reading_at_100);
 	}
 
 	the_chip->end_percent = calculate_state_of_charge(the_chip, &raw,
