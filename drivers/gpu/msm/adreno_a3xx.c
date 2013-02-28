@@ -2764,6 +2764,11 @@ static struct a3xx_vbif_data a305_vbif[] = {
 };
 
 static struct a3xx_vbif_data a305b_vbif[] = {
+	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x00181818 },
+	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x00181818 },
+	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x00000018 },
+	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x00000018 },
+	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x00000303 },
 	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
 	{0, 0},
 };
