@@ -763,12 +763,18 @@ err_add_controller:
 static int __devexit spmi_pmic_arb_remove(struct platform_device *pdev)
 {
 	struct spmi_pmic_arb_dev *pmic_arb = platform_get_drvdata(pdev);
+	int ret;
+
+	ret = qpnpint_unregister_controller(pmic_arb->controller.dev.of_node);
+	if (ret)
+		dev_err(&pdev->dev, "Unable to unregister controller %d\n",
+					pmic_arb->controller.nr);
 
 	if (pmic_arb->allow_wakeup)
 		irq_set_irq_wake(pmic_arb->pic_irq, 0);
 	platform_set_drvdata(pdev, NULL);
 	spmi_del_controller(&pmic_arb->controller);
-	return 0;
+	return ret;
 }
 
 static struct of_device_id spmi_pmic_arb_match_table[] = {
