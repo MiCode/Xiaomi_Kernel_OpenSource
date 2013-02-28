@@ -351,6 +351,7 @@
 		reg-names = "hc_mem", "core_mem";
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 		qcom,cpu-dma-latency-us = <200>;
 
@@ -377,6 +378,7 @@
 		interrupts = <0 125 0>, <0 221 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
 
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 		qcom,bus-width = <4>;
 		qcom,cpu-dma-latency-us = <200>;
 
@@ -410,6 +412,7 @@
 			<&msmgpio 35 0>; /* DATA3 */
 		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
 
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000>;
 		qcom,bus-width = <4>;
 		qcom,cpu-dma-latency-us = <200>;
 
@@ -443,6 +446,7 @@
 			<&msmgpio 92 0>; /* DATA3 */
 		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
 
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000>;
 		qcom,bus-width = <4>;
 		qcom,cpu-dma-latency-us = <200>;
 
