@@ -797,11 +797,9 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	}
 
 	mdata->res_init = true;
-	mdata->timeout = HZ/20;
 	mdata->clk_ena = false;
 	mdata->irq_mask = MDSS_MDP_DEFAULT_INTR_MASK;
 	mdata->irq_ena = false;
-	mdata->suspend = false;
 
 	rc = mdss_mdp_irq_clk_setup(mdata);
 	if (rc)
@@ -1365,33 +1363,26 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 
 static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)
 {
-	int ret;
+	flush_workqueue(mdata->clk_ctrl_wq);
 
-	ret = mdss_fb_suspend_all();
-	if (IS_ERR_VALUE(ret)) {
-		pr_err("Unable to suspend all fb panels (%d)\n", ret);
-		return ret;
-	}
+	mdata->suspend_fs_ena = mdata->fs_ena;
+	mdss_mdp_footswitch_ctrl(mdata, false);
 
-	pr_debug("suspend done\n");
+	pr_debug("suspend done fs=%d\n", mdata->suspend_fs_ena);
 
 	return 0;
 }
 
 static inline int mdss_mdp_resume_sub(struct mdss_data_type *mdata)
 {
-	int ret = 0;
+	if (mdata->suspend_fs_ena)
+		mdss_mdp_footswitch_ctrl(mdata, true);
 
-	ret = mdss_fb_resume_all();
-	if (IS_ERR_VALUE(ret))
-		pr_err("Unable to resume all fb panels (%d)\n", ret);
+	pr_debug("resume done fs=%d\n", mdata->suspend_fs_ena);
 
-	pr_debug("resume done\n");
-
-	return ret;
+	return 0;
 }
 
-#ifdef CONFIG_PM
 #ifdef CONFIG_PM_SLEEP
 static int mdss_mdp_pm_suspend(struct device *dev)
 {
@@ -1418,10 +1409,9 @@ static int mdss_mdp_pm_resume(struct device *dev)
 
 	return mdss_mdp_resume_sub(mdata);
 }
+#endif
 
-#define mdss_mdp_suspend NULL
-#define mdss_mdp_resume NULL
-#else
+#if defined(CONFIG_PM) && !defined(CONFIG_PM_SLEEP)
 static int mdss_mdp_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
@@ -1445,6 +1435,9 @@ static int mdss_mdp_resume(struct platform_device *pdev)
 
 	return mdss_mdp_resume_sub(mdata);
 }
+#else
+#define mdss_mdp_suspend NULL
+#define mdss_mdp_resume NULL
 #endif
 
 #ifdef CONFIG_PM_RUNTIME
@@ -1489,7 +1482,6 @@ static int mdss_mdp_runtime_suspend(struct device *dev)
 
 	return 0;
 }
-#endif
 #endif
 
 static const struct dev_pm_ops mdss_mdp_pm_ops = {
