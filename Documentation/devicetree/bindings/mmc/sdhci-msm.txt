@@ -12,6 +12,8 @@ Required properties:
 		      Required "interrupt-names" are "hc_irq" and "pwr_irq".
   - <supply-name>-supply: phandle to the regulator device tree node
 			  Required "supply-name" are "vdd" and "vdd-io".
+  - qcom,clk-rates: this is an array that specifies supported SDHC clock
+		    frequencies for a slot, Units - Hz.
 
 Required alias:
 - The slot number is specified via an alias with the following format
@@ -112,6 +114,7 @@ Example:
                 qcom,bus-width = <4>;
 		qcom,nonremovable;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 
 		gpios = <&msmgpio 40 0>, /* CLK */
 			<&msmgpio 39 0>, /* CMD */
@@ -120,7 +123,6 @@ Example:
 			<&msmgpio 36 0>, /* DATA2 */
 			<&msmgpio 35 0>; /* DATA3 */
 		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
-		qcom,cpu-dma-latency-us = <200>;
 	};
 
 	sdhc_2: qcom,sdhc@f98a4900 {
@@ -143,6 +145,7 @@ Example:
 		vdd-io-supply = <&pm8941_l13>;
 
                 qcom,bus-width = <4>;
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 
 		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */

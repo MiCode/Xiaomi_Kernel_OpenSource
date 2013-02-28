@@ -114,7 +114,12 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<5)
 /* Ignore CMD CRC errors for tuning commands */
 #define SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING		(1<<6)
-
+/*
+ * If the base clock can be scalable, then there should be no further
+ * clock dividing as the input clock itself will be scaled down to
+ * required frequency.
+ */
+#define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<7)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
