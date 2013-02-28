@@ -562,7 +562,7 @@ int msm_bus_scale_client_update_request(uint32_t cl, unsigned index)
 	int pnode, src, curr, ctx;
 	uint64_t req_clk, req_bw, curr_clk, curr_bw;
 	struct msm_bus_client *client = (struct msm_bus_client *)cl;
-	if (IS_ERR(client)) {
+	if (IS_ERR_OR_NULL(client)) {
 		MSM_BUS_ERR("msm_bus_scale_client update req error %d\n",
 				(uint32_t)client);
 		return -ENXIO;
