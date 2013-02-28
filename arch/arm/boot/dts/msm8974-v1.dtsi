@@ -101,3 +101,11 @@
 		<1616000 2908800>,
 		<2020000 6400000>;
 };
+
+&sfpb_spinlock {
+	status = "disable";
+};
+
+&ldrex_spinlock {
+	status = "ok";
+};
