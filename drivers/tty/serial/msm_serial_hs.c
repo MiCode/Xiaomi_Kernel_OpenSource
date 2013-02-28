@@ -218,6 +218,7 @@ struct msm_hs_port {
 	u32 bus_perf_client;
 	/* BLSP UART required BUS Scaling data */
 	struct msm_bus_scale_pdata *bus_scale_table;
+	bool rx_discard_flush_issued;
 };
 
 #define MSM_UARTDM_BURST_SIZE 16   /* DM burst size (in bytes) */
@@ -229,6 +230,7 @@ struct msm_hs_port {
 #define BAM_PIPE_MAX 11
 #define BUS_SCALING 1
 #define BUS_RESET 0
+#define RX_FLUSH_COMPLETE_TIMEOUT 300 /* In jiffies */
 
 static struct dentry *debug_base;
 static struct msm_hs_port q_uart_port[UARTDM_NR];
@@ -849,6 +851,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 {
 	unsigned int bps;
 	unsigned long data;
+	int ret;
 	unsigned int c_cflag = termios->c_cflag;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct msm_hs_rx *rx = &msm_uport->rx;
@@ -969,8 +972,17 @@ static void msm_hs_set_termios(struct uart_port *uport,
 			msm_hs_spsconnect_rx(uport);
 			msm_serial_hs_rx_tlet((unsigned long) &rx->tlet);
 		} else {
+			msm_uport->rx_discard_flush_issued = true;
 			/* do discard flush */
 			msm_dmov_flush(msm_uport->dma_rx_channel, 0);
+			pr_debug("%s(): wainting for flush completion.\n",
+								__func__);
+			ret = wait_event_timeout(msm_uport->rx.wait,
+				msm_uport->rx_discard_flush_issued == false,
+				RX_FLUSH_COMPLETE_TIMEOUT);
+			if (!ret)
+				pr_err("%s(): Discard flush pending.\n",
+								__func__);
 		}
 	}
 
@@ -1514,8 +1526,23 @@ static void msm_hs_dmov_rx_callback(struct msm_dmov_cmd *cmd_ptr,
 					struct msm_dmov_errdata *err)
 {
 	struct msm_hs_port *msm_uport;
+	struct uart_port *uport;
+	unsigned long flags;
 
 	msm_uport = container_of(cmd_ptr, struct msm_hs_port, rx.xfer);
+	uport = &(msm_uport->uport);
+
+	pr_debug("%s(): called result:%x\n", __func__, result);
+	if (!(result & DMOV_RSLT_ERROR)) {
+		if (result & DMOV_RSLT_FLUSH) {
+			if (msm_uport->rx_discard_flush_issued) {
+				spin_lock_irqsave(&uport->lock, flags);
+				msm_uport->rx_discard_flush_issued = false;
+				spin_unlock_irqrestore(&uport->lock, flags);
+				wake_up(&msm_uport->rx.wait);
+			}
+		}
+	}
 
 	tasklet_schedule(&msm_uport->rx.tlet);
 }
@@ -1661,6 +1688,7 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 {
 	unsigned long sr_status;
 	unsigned long flags;
+	int ret;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct circ_buf *tx_buf = &uport->state->xmit;
 
@@ -1716,10 +1744,23 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 	}
 
 	if (msm_uport->rx.flush != FLUSH_SHUTDOWN) {
-		if (msm_uport->rx.flush == FLUSH_NONE)
+		if (msm_uport->rx.flush == FLUSH_NONE) {
 			msm_hs_stop_rx_locked(uport);
+			msm_uport->rx_discard_flush_issued = true;
+		}
 
 		spin_unlock_irqrestore(&uport->lock, flags);
+		if (msm_uport->rx_discard_flush_issued) {
+			pr_debug("%s(): wainting for flush completion.\n",
+								__func__);
+			ret = wait_event_timeout(msm_uport->rx.wait,
+				msm_uport->rx_discard_flush_issued == false,
+				RX_FLUSH_COMPLETE_TIMEOUT);
+			if (!ret)
+				pr_err("%s(): Flush complete pending.\n",
+								__func__);
+		}
+
 		mutex_unlock(&msm_uport->clk_mutex);
 		return 0;  /* come back later to really clock off */
 	}
