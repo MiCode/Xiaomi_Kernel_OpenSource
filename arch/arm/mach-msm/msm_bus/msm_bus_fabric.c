@@ -364,7 +364,7 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 {
 	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
 	void *sel_cdata;
-	int i;
+	long rounded_rate;
 
 	sel_cdata = fabric->cdata[ctx];
 
@@ -379,8 +379,17 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 	}
 
 	/* Enable clocks before accessing QoS registers */
-	for (i = 0; i < NUM_CTX; i++)
-		clk_prepare_enable(fabric->info.nodeclk[i].clk);
+	if (fabric->info.nodeclk[DUAL_CTX].clk)
+		if (fabric->info.nodeclk[DUAL_CTX].rate == 0) {
+			rounded_rate = clk_round_rate(fabric->
+				info.nodeclk[DUAL_CTX].clk, 1);
+		if (clk_set_rate(fabric->info.nodeclk[DUAL_CTX].clk,
+				rounded_rate))
+			MSM_BUS_ERR("Error: clk: en: Node: %d rate: %ld",
+				fabric->fabdev.id, rounded_rate);
+
+		clk_prepare_enable(fabric->info.nodeclk[DUAL_CTX].clk);
+	}
 
 	if (info->iface_clk.clk)
 		clk_prepare_enable(info->iface_clk.clk);
@@ -392,8 +401,9 @@ void msm_bus_fabric_update_bw(struct msm_bus_fabric_device *fabdev,
 		master_tiers, add_bw);
 
 	/* Disable clocks after accessing QoS registers */
-	for (i = 0; i < NUM_CTX; i++)
-		clk_disable_unprepare(fabric->info.nodeclk[i].clk);
+	if (fabric->info.nodeclk[DUAL_CTX].clk &&
+			fabric->info.nodeclk[DUAL_CTX].rate == 0)
+		clk_disable_unprepare(fabric->info.nodeclk[DUAL_CTX].clk);
 
 	if (info->iface_clk.clk) {
 		MSM_BUS_DBG("Commented: Will disable clock for info: %d\n",
