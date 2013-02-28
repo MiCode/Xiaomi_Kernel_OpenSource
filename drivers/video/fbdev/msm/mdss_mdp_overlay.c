@@ -589,11 +589,11 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	if (mfd->ctl->power_on)
 		return 0;
 
-	pr_debug("starting overlay\n");
+	pr_debug("starting fb%d overlay\n", mfd->index);
 
 	rc = pm_runtime_get_sync(&mfd->pdev->dev);
-	if (rc) {
-		pr_err("unable to resume with pm_runtime_get_sync (%d)\n", rc);
+	if (IS_ERR_VALUE(rc)) {
+		pr_err("unable to resume with pm_runtime_get_sync rc=%d\n", rc);
 		return rc;
 	}
 

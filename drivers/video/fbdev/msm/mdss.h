@@ -76,9 +76,7 @@ struct mdss_data_type {
 	u32 mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 
-	u32 suspend;
-	u32 timeout;
-
+	int suspend_fs_ena;
 	atomic_t clk_ref;
 	u8 clk_ena;
 	u8 fs_ena;
