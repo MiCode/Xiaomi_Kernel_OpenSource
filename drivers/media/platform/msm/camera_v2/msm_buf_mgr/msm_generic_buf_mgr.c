@@ -35,7 +35,9 @@ static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	}
 	new_entry->session_id = buf_info->session_id;
 	new_entry->stream_id = buf_info->stream_id;
+	mutex_lock(&buf_mngr_dev->buf_q_lock);
 	list_add_tail(&new_entry->entry, &buf_mngr_dev->buf_qhead);
+	mutex_unlock(&buf_mngr_dev->buf_q_lock);
 	buf_info->index = new_entry->vb2_buf->v4l2_buf.index;
 	return 0;
 }
@@ -55,7 +57,9 @@ static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 					(bufs->vb2_buf,
 						buf_info->session_id,
 						buf_info->stream_id);
+			mutex_lock(&buf_mngr_dev->buf_q_lock);
 			list_del_init(&bufs->entry);
+			mutex_unlock(&buf_mngr_dev->buf_q_lock);
 			kfree(bufs);
 			break;
 		}
@@ -76,7 +80,9 @@ static int msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 			(bufs->vb2_buf->v4l2_buf.index == buf_info->index)) {
 			ret = buf_mngr_dev->vb2_ops.put_buf(bufs->vb2_buf,
 				buf_info->session_id, buf_info->stream_id);
+			mutex_lock(&buf_mngr_dev->buf_q_lock);
 			list_del_init(&bufs->entry);
+			mutex_unlock(&buf_mngr_dev->buf_q_lock);
 			kfree(bufs);
 			break;
 		}
@@ -156,12 +162,14 @@ static int __init msm_buf_mngr_init(void)
 		&msm_buf_mngr_dev->vb2_ops);
 
 	INIT_LIST_HEAD(&msm_buf_mngr_dev->buf_qhead);
+	mutex_init(&msm_buf_mngr_dev->buf_q_lock);
 end:
 	return rc;
 }
 
 static void __exit msm_buf_mngr_exit(void)
 {
+	mutex_destroy(&msm_buf_mngr_dev->buf_q_lock);
 	kfree(msm_buf_mngr_dev);
 }
 
