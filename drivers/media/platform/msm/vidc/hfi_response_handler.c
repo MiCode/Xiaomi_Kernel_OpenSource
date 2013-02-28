@@ -391,11 +391,29 @@ static void hfi_process_sess_get_prop_buf_req(
 			buffreq->buffer[6].buffer_type =
 				HAL_BUFFER_INTERNAL_SCRATCH;
 			break;
-		case HFI_BUFFER_INTERNAL_PERSIST:
+		case HFI_BUFFER_INTERNAL_SCRATCH_1:
 			memcpy(&buffreq->buffer[7], hfi_buf_req,
-			sizeof(struct hfi_buffer_requirements));
+				sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[7].buffer_type =
+				HAL_BUFFER_INTERNAL_SCRATCH_1;
+			break;
+		case HFI_BUFFER_INTERNAL_SCRATCH_2:
+			memcpy(&buffreq->buffer[8], hfi_buf_req,
+				sizeof(struct hfi_buffer_requirements));
+			buffreq->buffer[8].buffer_type =
+				HAL_BUFFER_INTERNAL_SCRATCH_2;
+			break;
+		case HFI_BUFFER_INTERNAL_PERSIST:
+			memcpy(&buffreq->buffer[9], hfi_buf_req,
+			sizeof(struct hfi_buffer_requirements));
+			buffreq->buffer[9].buffer_type =
 				HAL_BUFFER_INTERNAL_PERSIST;
+			break;
+		case HFI_BUFFER_INTERNAL_PERSIST_1:
+			memcpy(&buffreq->buffer[10], hfi_buf_req,
+				sizeof(struct hfi_buffer_requirements));
+			buffreq->buffer[10].buffer_type =
+				HAL_BUFFER_INTERNAL_PERSIST_1;
 			break;
 		default:
 			dprintk(VIDC_ERR,

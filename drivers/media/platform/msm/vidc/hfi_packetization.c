@@ -199,8 +199,17 @@ static u32 get_hfi_buffer(int hal_buffer)
 	case HAL_BUFFER_INTERNAL_SCRATCH:
 		buffer = HFI_BUFFER_INTERNAL_SCRATCH;
 		break;
+	case HAL_BUFFER_INTERNAL_SCRATCH_1:
+		buffer = HFI_BUFFER_INTERNAL_SCRATCH_1;
+		break;
+	case HAL_BUFFER_INTERNAL_SCRATCH_2:
+		buffer = HFI_BUFFER_INTERNAL_SCRATCH_2;
+		break;
 	case HAL_BUFFER_INTERNAL_PERSIST:
 		buffer = HFI_BUFFER_INTERNAL_PERSIST;
+		break;
+	case HAL_BUFFER_INTERNAL_PERSIST_1:
+		buffer = HFI_BUFFER_INTERNAL_PERSIST_1;
 		break;
 	default:
 		dprintk(VIDC_ERR, "Invalid buffer :0x%x\n",
