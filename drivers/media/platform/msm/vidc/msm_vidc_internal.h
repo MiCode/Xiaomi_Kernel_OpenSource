@@ -92,6 +92,7 @@ struct buf_info {
 
 struct internal_buf {
 	struct list_head list;
+	enum hal_buffer buffer_type;
 	struct msm_smem *handle;
 };
 
