@@ -12,6 +12,7 @@
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/list.h>
+#include <linux/irqreturn.h>
 
 #ifndef MSM_IOMMU_PERFMON_H
 #define MSM_IOMMU_PERFMON_H
