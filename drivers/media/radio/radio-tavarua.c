@@ -1354,13 +1354,16 @@ static int optimized_search_algorithm(struct tavarua_device *radio,
 	/* Set channel spacing */
 	switch (region) {
 	case TAVARUA_REGION_US:
-		if (adie_type_bahma) {
+		if ((adie_type_bahma) && (bahama_version == 0x09)) {
 			FMDBG("Adie type : Bahama\n");
 			/*
 			Configuring all 200KHZ spaced regions as 100KHz due to
 			change in the new Bahma FM SoC search algorithm.
 			*/
 			value = FM_CH_SPACE_100KHZ;
+		} else if ((adie_type_bahma) && (bahama_version == 0x0a)) {
+			FMDBG("Adie type : Bahama B1\n");
+			value = FM_CH_SPACE_200KHZ;
 		} else {
 			FMDBG("Adie type : Marimba\n");
 			value = FM_CH_SPACE_200KHZ;
@@ -1368,7 +1371,7 @@ static int optimized_search_algorithm(struct tavarua_device *radio,
 		break;
 	case TAVARUA_REGION_JAPAN:
 	case TAVARUA_REGION_OTHER:
-		if (adie_type_bahma) {
+		if ((adie_type_bahma) && (bahama_version == 0x09)) {
 			FMDBG("Adie type : Bahama\n");
 			FMDBG("%s: Configuring the channel-spacing as 50KHz"
 				"for the Region : %d", __func__, region);
@@ -1377,6 +1380,9 @@ static int optimized_search_algorithm(struct tavarua_device *radio,
 			change in the new Bahma FM SoC search algorithm.
 			*/
 			value = FM_CH_SPACE_50KHZ;
+		} else if ((adie_type_bahma) && (bahama_version == 0x0a)) {
+			FMDBG("Adie type : Bahama B1\n");
+			value = FM_CH_SPACE_100KHZ;
 		} else {
 			FMDBG("Adie type : Marimba\n");
 			value = FM_CH_SPACE_100KHZ;
