@@ -200,8 +200,8 @@ static int mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl)
 			max_clk_rate = clk_rate;
 	}
 
-	/* request minimum bandwidth for dsi commands */
-	if ((total_ib_quota == 0) && (ctl->intf_type == MDSS_INTF_DSI))
+	/* request minimum bandwidth to have bus clock on when display is on */
+	if (total_ib_quota == 0)
 		total_ib_quota = SZ_16M >> MDSS_MDP_BUS_FACTOR_SHIFT;
 
 	if (max_clk_rate != ctl->clk_rate) {
