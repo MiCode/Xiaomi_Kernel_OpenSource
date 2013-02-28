@@ -113,7 +113,7 @@ void ipc_log_write(void *ctxt, struct encode_context *ectxt);
  * @ilctxt: Debug Log Context created using ipc_log_context_create()
  * @fmt:    Data specified using format specifiers
  */
-int ipc_log_string(void *ilctxt, const char *fmt, ...);
+int ipc_log_string(void *ilctxt, const char *fmt, ...) __printf(2, 3);
 
 /*
  * Print a string to decode context.
