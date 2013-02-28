@@ -176,8 +176,10 @@ struct venus_hfi_device {
 	u32 device_id;
 	u32 load;
 	u32 clocks_enabled;
+	enum vidc_clocks clk_gating_level;
 	struct mutex read_lock;
 	struct mutex write_lock;
+	struct mutex clock_lock;
 	msm_vidc_callback callback;
 	struct vidc_mem_addr iface_q_table;
 	struct vidc_mem_addr qdss;
