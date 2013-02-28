@@ -434,6 +434,8 @@ struct sdhci_host {
 /* Ignore CMD CRC errors for tuning commands */
 #define SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING		(1<<6)
 
+#define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<19)
+
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
