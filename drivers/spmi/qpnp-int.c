@@ -117,6 +117,18 @@ static inline int qpnpint_decode_hwirq(unsigned long hwirq,
 	return 0;
 }
 
+static int qpnpint_spmi_read(struct q_irq_data *irq_d, uint8_t reg,
+			     void *buf, uint32_t len)
+{
+	struct q_chip_data *chip_d = irq_d->chip_d;
+
+	if (!chip_d->spmi_ctrl)
+		return -ENODEV;
+
+	return spmi_ext_register_readl(chip_d->spmi_ctrl, irq_d->spmi_slave,
+				       irq_d->spmi_offset + reg, buf, len);
+}
+
 static int qpnpint_spmi_write(struct q_irq_data *irq_d, uint8_t reg,
 			      void *buf, uint32_t len)
 {
@@ -307,6 +319,23 @@ static int qpnpint_irq_set_type(struct irq_data *d, unsigned int flow_type)
 	return 0;
 }
 
+static int qpnpint_irq_read_line(struct irq_data *d)
+{
+	struct q_irq_data *irq_d = irq_data_get_irq_chip_data(d);
+	int rc;
+	u8 buf;
+
+	pr_debug("hwirq %lu irq: %d\n", d->hwirq, d->irq);
+
+	rc = qpnpint_spmi_read(irq_d, QPNPINT_REG_RT_STS, &buf, 1);
+	if (rc) {
+		pr_err("spmi failure on irq %d\n", d->irq);
+		return rc;
+	}
+
+	return (buf & irq_d->mask_shift) ? 1 : 0;
+}
+
 static int qpnpint_irq_set_wake(struct irq_data *d, unsigned int on)
 {
 	return 0;
@@ -318,6 +347,7 @@ static struct irq_chip qpnpint_chip = {
 	.irq_mask_ack	= qpnpint_irq_mask_ack,
 	.irq_unmask	= qpnpint_irq_unmask,
 	.irq_set_type	= qpnpint_irq_set_type,
+	.irq_read_line	= qpnpint_irq_read_line,
 	.irq_set_wake	= qpnpint_irq_set_wake,
 	.flags		= IRQCHIP_MASK_ON_SUSPEND,
 };
