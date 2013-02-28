@@ -369,15 +369,10 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	msm_isp_send_event(vfe_dev, ISP_EVENT_SOF, &sof_event);
 }
 
-void msm_isp_calculate_framedrop(
-	struct msm_vfe_axi_shared_data *axi_data,
-	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
+uint32_t msm_isp_get_framedrop_period(
+	enum msm_vfe_frame_skip_pattern frame_skip_pattern)
 {
-	struct msm_vfe_axi_stream *stream_info =
-		&axi_data->stream_info[
-		(stream_cfg_cmd->axi_stream_handle & 0xFF)];
-	uint32_t framedrop_period = 1;
-	switch (stream_cfg_cmd->frame_skip_pattern) {
+	switch (frame_skip_pattern) {
 	case NO_SKIP:
 	case EVERY_2FRAME:
 	case EVERY_3FRAME:
@@ -386,18 +381,28 @@ void msm_isp_calculate_framedrop(
 	case EVERY_6FRAME:
 	case EVERY_7FRAME:
 	case EVERY_8FRAME:
-		framedrop_period = stream_cfg_cmd->frame_skip_pattern + 1;
-		break;
+		return frame_skip_pattern + 1;
 	case EVERY_16FRAME:
-		framedrop_period = 16;
+		return 16;
 		break;
 	case EVERY_32FRAME:
-		framedrop_period = 32;
+		return 32;
 		break;
 	default:
-		framedrop_period = 1;
-		break;
+		return 1;
 	}
+	return 1;
+}
+
+void msm_isp_calculate_framedrop(
+	struct msm_vfe_axi_shared_data *axi_data,
+	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
+{
+	struct msm_vfe_axi_stream *stream_info =
+		&axi_data->stream_info[
+		(stream_cfg_cmd->axi_stream_handle & 0xFF)];
+	uint32_t framedrop_period = msm_isp_get_framedrop_period(
+	   stream_cfg_cmd->frame_skip_pattern);
 
 	stream_info->framedrop_pattern = 0x1;
 	stream_info->framedrop_period = framedrop_period - 1;
@@ -911,8 +916,16 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				stream_info->bufq_handle,
 				MSM_ISP_BUFFER_FLUSH_DIVERTED);
 		break;
-	case UPDATE_STREAM_FRAMEDROP_PATTERN:
+	case UPDATE_STREAM_FRAMEDROP_PATTERN: {
+		uint32_t framedrop_period =
+			msm_isp_get_framedrop_period(update_cmd->skip_pattern);
+		stream_info->runtime_init_frame_drop = 0;
+		stream_info->framedrop_pattern = 0x1;
+		stream_info->framedrop_period = framedrop_period - 1;
+		vfe_dev->hw_info->vfe_ops.axi_ops.
+			cfg_framedrop(vfe_dev, stream_info);
 		break;
+	}
 	default:
 		pr_err("%s: Invalid update type\n", __func__);
 		return -EINVAL;
