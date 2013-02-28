@@ -167,13 +167,14 @@ struct sdhci_msm_pltfm_data {
 	u32 caps2;
 
 	unsigned long mmc_bus_width;
-	u32 max_clk;
 	struct sdhci_msm_slot_reg_data *vreg_data;
 	bool nonremovable;
 	struct sdhci_msm_pin_data *pin_data;
 	u32 cpu_dma_latency_us;
 	int status_gpio; /* card detection GPIO that is configured as IRQ */
 	struct sdhci_msm_bus_voting_data *voting_data;
+	u32 *sup_clk_table;
+	unsigned char sup_clk_cnt;
 };
 
 struct sdhci_msm_bus_vote {
@@ -198,6 +199,7 @@ struct sdhci_msm_host {
 	struct sdhci_pltfm_data sdhci_msm_pdata;
 	wait_queue_head_t pwr_irq_wait;
 	struct sdhci_msm_bus_vote msm_bus_vote;
+	u32 clk_rate; /* Keeps track of current clock rate that is set */
 };
 
 enum vdd_io_level {
@@ -517,9 +519,18 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 	int size = sizeof(tuning_block_64); /* Tuning pattern size in bytes */
 	int rc;
 	struct mmc_host *mmc = host->mmc;
+	struct mmc_ios	ios = host->mmc->ios;
+
+	/*
+	 * Tuning is required for SDR104 and HS200 cards and if clock frequency
+	 * is greater than 100MHz in these modes.
+	 */
+	if (host->clock <= (100 * 1000 * 1000) ||
+		!(ios.timing == MMC_TIMING_MMC_HS200 ||
+		ios.timing == MMC_TIMING_UHS_SDR104))
+		return 0;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(mmc), __func__);
-	/* Tuning is only required for SDR104 modes */
 	spin_lock_irqsave(&host->lock, flags);
 
 	if ((opcode == MMC_SEND_TUNING_BLOCK_HS200) &&
@@ -831,6 +842,8 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 	u32 bus_width = 0;
 	u32 cpu_dma_latency;
 	int len, i;
+	int clk_table_len;
+	u32 *clk_table = NULL;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -853,6 +866,18 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 	if (!of_property_read_u32(np, "qcom,cpu-dma-latency-us",
 				&cpu_dma_latency))
 		pdata->cpu_dma_latency_us = cpu_dma_latency;
+
+	if (sdhci_msm_dt_get_array(dev, "qcom,clk-rates",
+			&clk_table, &clk_table_len, 0)) {
+		dev_err(dev, "failed parsing supported clock rates\n");
+		goto out;
+	}
+	if (!clk_table || !clk_table_len) {
+		dev_err(dev, "Invalid clock table\n");
+		goto out;
+	}
+	pdata->sup_clk_table = clk_table;
+	pdata->sup_clk_cnt = clk_table_len;
 
 	pdata->vreg_data = devm_kzalloc(dev, sizeof(struct
 						    sdhci_msm_slot_reg_data),
@@ -878,8 +903,6 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 		dev_err(dev, "failed parsing gpio data\n");
 		goto out;
 	}
-
-	of_property_read_u32(np, "qcom,max-clk-rate", &pdata->max_clk);
 
 	len = of_property_count_strings(np, "qcom,bus-speed-mode");
 
@@ -1543,16 +1566,58 @@ static unsigned int sdhci_msm_max_segs(void)
 	return SDHCI_MSM_MAX_SEGMENTS;
 }
 
-void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
+static unsigned int sdhci_msm_get_min_clock(struct sdhci_host *host)
 {
-	int rc;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	unsigned long flags;
 
-	if (clock && !atomic_read(&msm_host->clks_on)) {
-		pr_debug("%s: request to enable clock at rate %u\n",
-				mmc_hostname(host->mmc), clock);
+	return msm_host->pdata->sup_clk_table[0];
+}
+
+static unsigned int sdhci_msm_get_max_clock(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int max_clk_index = msm_host->pdata->sup_clk_cnt;
+
+	return msm_host->pdata->sup_clk_table[max_clk_index - 1];
+}
+
+static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
+						u32 req_clk)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	unsigned int sel_clk = -1;
+	unsigned char cnt;
+
+	if (req_clk < sdhci_msm_get_min_clock(host)) {
+		sel_clk = sdhci_msm_get_min_clock(host);
+		return sel_clk;
+	}
+
+	for (cnt = 0; cnt < msm_host->pdata->sup_clk_cnt; cnt++) {
+		if (msm_host->pdata->sup_clk_table[cnt] > req_clk) {
+			break;
+		} else if (msm_host->pdata->sup_clk_table[cnt] == req_clk) {
+			sel_clk = msm_host->pdata->sup_clk_table[cnt];
+			break;
+		} else {
+			sel_clk = msm_host->pdata->sup_clk_table[cnt];
+		}
+	}
+	return sel_clk;
+}
+
+static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int rc = 0;
+
+	if (enable && !atomic_read(&msm_host->clks_on)) {
+		pr_debug("%s: request to enable clocks\n",
+				mmc_hostname(host->mmc));
 		if (!IS_ERR_OR_NULL(msm_host->bus_clk)) {
 			rc = clk_prepare_enable(msm_host->bus_clk);
 			if (rc) {
@@ -1576,9 +1641,8 @@ void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 			goto disable_pclk;
 		}
 		mb();
-		atomic_set(&msm_host->clks_on, 1);
 
-	} else if (!clock && atomic_read(&msm_host->clks_on)) {
+	} else if (!enable && atomic_read(&msm_host->clks_on)) {
 		pr_debug("%s: request to disable clocks\n",
 				mmc_hostname(host->mmc));
 		sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
@@ -1588,11 +1652,8 @@ void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 			clk_disable_unprepare(msm_host->pclk);
 		if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 			clk_disable_unprepare(msm_host->bus_clk);
-		atomic_set(&msm_host->clks_on, 0);
 	}
-	spin_lock_irqsave(&host->lock, flags);
-	host->clock = clock;
-	spin_unlock_irqrestore(&host->lock, flags);
+	atomic_set(&msm_host->clks_on, enable);
 	goto out;
 disable_pclk:
 	if (!IS_ERR_OR_NULL(msm_host->pclk))
@@ -1601,7 +1662,54 @@ disable_bus_clk:
 	if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 		clk_disable_unprepare(msm_host->bus_clk);
 out:
-	return;
+	return rc;
+}
+
+static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
+{
+	int rc;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct mmc_ios	curr_ios = host->mmc->ios;
+	u32 sup_clock, ddr_clock;
+
+	if (!clock) {
+		sdhci_msm_prepare_clocks(host, false);
+		host->clock = clock;
+		goto out;
+	}
+
+	rc = sdhci_msm_prepare_clocks(host, true);
+	if (rc)
+		goto out;
+
+	sup_clock = sdhci_msm_get_sup_clk_rate(host, clock);
+	if (curr_ios.timing == MMC_TIMING_UHS_DDR50) {
+		/*
+		 * The SDHC requires internal clock frequency to be double the
+		 * actual clock that will be set for DDR mode. The controller
+		 * uses the faster clock(100MHz) for some of its parts and send
+		 * the actual required clock (50MHz) to the card.
+		 */
+		ddr_clock = clock * 2;
+		sup_clock = sdhci_msm_get_sup_clk_rate(host,
+				ddr_clock);
+	}
+	if (sup_clock != msm_host->clk_rate) {
+		pr_debug("%s: %s: setting clk rate to %u\n",
+				mmc_hostname(host->mmc), __func__, sup_clock);
+		rc = clk_set_rate(msm_host->clk, sup_clock);
+		if (rc) {
+			pr_err("%s: %s: Failed to set rate %u for host-clk : %d\n",
+					mmc_hostname(host->mmc), __func__,
+					sup_clock, rc);
+			goto out;
+		}
+		msm_host->clk_rate = sup_clock;
+		host->clock = clock;
+	}
+out:
+	sdhci_set_clock(host, clock);
 }
 
 static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
@@ -1624,6 +1732,17 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
 	else if (uhs == MMC_TIMING_UHS_DDR50)
 		ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
+	/*
+	 * When clock frquency is less than 100MHz, the feedback clock must be
+	 * provided and DLL must not be used so that tuning can be skipped. To
+	 * provide feedback clock, the mode selection can be any value less
+	 * than 3'b011 in bits [2:0] of HOST CONTROL2 register.
+	 */
+	if (host->clock <= (100 * 1000 * 1000) &&
+			(uhs == MMC_TIMING_MMC_HS200 ||
+			uhs == MMC_TIMING_UHS_SDR104))
+		ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
+
 	sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
 
 }
@@ -1636,6 +1755,8 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.get_max_segments = sdhci_msm_max_segs,
 	.set_clock = sdhci_msm_set_clock,
 	.platform_bus_voting = sdhci_msm_bus_voting,
+	.get_min_clock = sdhci_msm_get_min_clock,
+	.get_max_clock = sdhci_msm_get_max_clock,
 };
 
 static int sdhci_msm_probe(struct platform_device *pdev)
@@ -1713,7 +1834,15 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto pclk_disable;
 
+	/* Set to the minimum supported clock frequency */
+	ret = clk_set_rate(msm_host->clk, sdhci_msm_get_min_clock(host));
+	if (ret) {
+		dev_err(&pdev->dev, "MClk rate set failed (%d)\n", ret);
+		goto clk_disable;
+	}
+	msm_host->clk_rate = sdhci_msm_get_min_clock(host);
 	atomic_set(&msm_host->clks_on, 1);
+
 	/* Setup regulators */
 	ret = sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, true);
 	if (ret) {
@@ -1745,6 +1874,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	 */
 	host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
 	host->quirks |= SDHCI_QUIRK_SINGLE_POWER_WRITE;
+	host->quirks |= SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN;
+	host->quirks2 |= SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK;
 
 	host_version = readl_relaxed((host->ioaddr + SDHCI_HOST_VERSION));
 	dev_dbg(&pdev->dev, "Host Version: 0x%x Vendor Version 0x%x\n",
@@ -1795,6 +1926,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= msm_host->pdata->caps2;
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR;
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR_CONTROL;
+	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 
 	if (msm_host->pdata->nonremovable)
 		msm_host->mmc->caps |= MMC_CAP_NONREMOVABLE;
@@ -1830,15 +1962,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Add host failed (%d)\n", ret);
 		goto vreg_deinit;
-	}
-
-	 /* Set core clk rate, optionally override from dts */
-	if (msm_host->pdata->max_clk)
-		host->max_clk = msm_host->pdata->max_clk;
-	ret = clk_set_rate(msm_host->clk, host->max_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "MClk rate set failed (%d)\n", ret);
-		goto remove_host;
 	}
 
 	msm_host->msm_bus_vote.max_bus_bw.show = show_sdhci_max_bus_bw;

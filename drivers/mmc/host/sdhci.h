@@ -438,6 +438,8 @@ struct sdhci_host {
 */
 #define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<18)
 
+#define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<19)
+
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 

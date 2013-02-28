@@ -320,6 +320,7 @@ struct mmc_host {
 #define MMC_CAP2_NO_SD		(1 << 21)	/* Do not send SD commands during initialization */
 #define MMC_CAP2_NO_MMC		(1 << 22)	/* Do not send (e)MMC commands during initialization */
 #define MMC_CAP2_PACKED_WR_CONTROL (1 << 23)	/* Allow write packing control */
+#define MMC_CAP2_CLK_SCALE	(1 << 24)	/* Allow dynamic clk scaling */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
