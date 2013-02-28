@@ -124,6 +124,7 @@ static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
 				      char *prop_name, u32 *offsets, int len);
 static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
 				       char *prop_name);
+static int mdss_mdp_parse_dt_smp(struct platform_device *pdev);
 
 static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
 {
@@ -808,10 +809,6 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	mdata->clk_ctrl_wq = create_singlethread_workqueue("mdp_clk_wq");
 	INIT_WORK(&mdata->clk_ctrl_worker, mdss_mdp_clk_ctrl_workqueue_handler);
 
-	mdata->smp_mb_cnt = MDSS_MDP_SMP_MMB_BLOCKS;
-	mdata->smp_mb_size = MDSS_MDP_SMP_MMB_SIZE;
-
-
 	mdata->iclient = msm_ion_client_create(-1, mdata->pdev->name);
 	if (IS_ERR_OR_NULL(mdata->iclient)) {
 		pr_err("msm_ion_client_create() return error (%p)\n",
@@ -1042,6 +1039,12 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 	rc = mdss_mdp_parse_dt_video_intf(pdev);
 	if (rc) {
 		pr_err("Error in device tree : ctl\n");
+		return rc;
+	}
+
+	rc = mdss_mdp_parse_dt_smp(pdev);
+	if (rc) {
+		pr_err("Error in device tree : smp\n");
 		return rc;
 	}
 
@@ -1301,6 +1304,30 @@ static int mdss_mdp_parse_dt_video_intf(struct platform_device *pdev)
 
 parse_fail:
 	kfree(offsets);
+
+	return rc;
+}
+
+static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	u32 num;
+	u32 data[2];
+	int rc;
+
+	num = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-smp-data");
+
+	if (num != 2)
+		return -EINVAL;
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-smp-data", data, num);
+	if (rc)
+		return rc;
+
+	rc = mdss_mdp_smp_setup(mdata, data[0], data[1]);
+
+	if (rc)
+		pr_err("unable to setup smp data\n");
 
 	return rc;
 }

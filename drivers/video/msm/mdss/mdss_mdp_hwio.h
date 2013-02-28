@@ -447,8 +447,7 @@ enum mdss_mdp_pingpong_index {
 #define MDSS_MDP_REG_SMP_ALLOC_W0			0x00180
 #define MDSS_MDP_REG_SMP_ALLOC_R0			0x00230
 
-#define MDSS_MDP_SMP_MMB_SIZE		4096
-#define MDSS_MDP_SMP_MMB_BLOCKS		22
+#define MDSS_MDP_SMP_MMB_BLOCKS			22
 
 enum mdss_mdp_smp_client_index {
 	MDSS_MDP_SMP_CLIENT_UNUSED,
