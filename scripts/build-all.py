@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-# Copyright (c) 2009-2011, The Linux Foundation. All rights reserved.
+# Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -88,7 +88,6 @@ def scan_configs():
         r'[fm]sm[0-9]*_defconfig',
         r'apq*_defconfig',
         r'qsd*_defconfig',
-        r'omap2*_defconfig',
         )
     for p in arch_pats:
         for n in glob.glob('arch/arm/configs/' + p):
