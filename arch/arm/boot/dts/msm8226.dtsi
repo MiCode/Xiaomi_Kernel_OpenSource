@@ -19,6 +19,7 @@
 /include/ "msm8226-gpu.dtsi"
 /include/ "msm8226-bus.dtsi"
 /include/ "msm8226-mdss.dtsi"
+/include/ "msm8226-coresight.dtsi"
 
 / {
 	model = "Qualcomm MSM 8226";

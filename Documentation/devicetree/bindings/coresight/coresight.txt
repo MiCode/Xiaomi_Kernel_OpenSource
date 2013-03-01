@@ -10,9 +10,68 @@ characteristcs.
 
 Required properties:
 
-- compatible : name of the component used for driver matching
+- compatible : name of the component used for driver matching, should be one of
+	the following:
+	"arm,coresight-tmc" for coresight tmc-etr or tmc-etf device,
+	"arm,coresight-tpiu" for coresight tpiu device,
+	"qcom,coresight-replicator" for coresight replicator device,
+	"arm,coresight-funnel" for coresight funnel devices,
+	"arm,coresight-stm" for coresight stm trace device,
+	"arm,coresight-etm" for coresight etm trace devices,
+	"qcom,coresight-csr" for coresight csr device,
+	"arm,coresight-cti" for coresight cti devices
 - reg : physical base address and length of the register set(s) of the component
-- reg-names: names corresponding to each reg property value
+- reg-names : names corresponding to each reg property value. The reg-names that
+	need to be used with corresponding compatible string for a coresight device
+	are:
+	- for coresight tmc-etr device:
+		compatible : should be "arm,coresight-tmc"
+		reg-names  : should be:
+			"tmc-etr-base" - physical base address of tmc-etr registers
+			"tmc-etr-bam-base" - physical base address of tmc-etr bam
+				 registers
+	- for coresight tmc-etf device:
+		compatible : should be "arm,coresight-tmc"
+		reg-names  : should be:
+			"tmc-etf-base" - physical base address of tmc-etf registers
+	- for coresight tpiu device:
+		compatible : should be "arm,coresight-tpiu"
+		reg-names  : should be:
+			"tpiu-base" - physical base address of tpiu registers
+	- for coresight replicator device
+		compatible : should be "qcom,coresight-replicator"
+		reg-names  : should be:
+			"replicator-base" - physical base address of replicator registers
+	- for coresight funnel devices
+		compatible : should be "arm,coresight-funnel"
+		reg-names  : should be:
+			"funnel-<val>-base" - physical base address of funnel registers
+				where <val> can be "merg", "in0", "in1", "kpss", "a7ss" or
+				"mmss"
+	- for coresight stm trace device
+		compatible : should be "arm,coresight-stm"
+		reg-names  : should be:
+			"stm-base" - physical base address of stm registers
+			"stm-data-base" - physical base address of stm data registers
+	- for coresight etm trace devices
+		compatible : should be "arm,coresight-etm"
+		reg-names  : should be:
+			"etm<num>-base" - physical base address of etm registers in
+				general where <num> is the number of etm components or cores
+				present for more than one cpu core
+	- for coresight csr device:
+		compatible : should be "qcom,coresight-csr"
+		reg-names  : should be:
+			"csr-base" - physical base address of csr registers
+	- for coresight cti devices:
+		compatible : should be "arm,coresight-cti"
+		reg-names  : should be:
+			"cti<num>-base" - physical base address of cti registers in general
+				 where <num> is the cti component number for more than one
+				 cti components
+			"cti-cpu<num>-base" - physical base address of cti cpu registers
+				 where <num> is the component number for more than one cpu core
+			"cti-l2" - physical base address of L2 cti registers
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
