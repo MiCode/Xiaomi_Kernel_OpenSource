@@ -2354,6 +2354,190 @@
 			qcom,smdtty-dev-name = "LOOPBACK_TTY";
 		};
 	};
+
+	qcom,smdpkt {
+		compatible = "qcom,smdpkt";
+
+		qcom,smdpkt-data5-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA5_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl0";
+		};
+
+		qcom,smdpkt-data6-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA6_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl1";
+		};
+
+		qcom,smdpkt-data7-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA7_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl2";
+		};
+
+		qcom,smdpkt-data8-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA8_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl3";
+		};
+
+		qcom,smdpkt-data9-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA9_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl4";
+		};
+
+		qcom,smdpkt-data12-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA12_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl5";
+		};
+
+		qcom,smdpkt-data13-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA13_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl6";
+		};
+
+		qcom,smdpkt-data14-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA14_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl7";
+		};
+
+		qcom,smdpkt-data15-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA15_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl9";
+		};
+
+		qcom,smdpkt-data16-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA16_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl10";
+		};
+
+		qcom,smdpkt-data17-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA17_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl11";
+		};
+
+		qcom,smdpkt-data22 {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA22";
+			qcom,smdpkt-dev-name = "smd22";
+		};
+
+		qcom,smdpkt-data23-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA23_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev0";
+		};
+
+		qcom,smdpkt-data24-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA24_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev1";
+		};
+
+		qcom,smdpkt-data25-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA25_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev2";
+		};
+
+		qcom,smdpkt-data26-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA26_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev3";
+		};
+
+		qcom,smdpkt-data27-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA27_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev4";
+		};
+
+		qcom,smdpkt-data28-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA28_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev5";
+		};
+
+		qcom,smdpkt-data29-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA29_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev6";
+		};
+
+		qcom,smdpkt-data30-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA30_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev7";
+		};
+
+		qcom,smdpkt-data31-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA31_CNTL";
+			qcom,smdpkt-dev-name = "smdcnt_rev8";
+		};
+
+		qcom,smdpkt-apr-apps2 {
+			qcom,smdpkt-remote = "adsp";
+			qcom,smdpkt-port-name = "apr_apps2";
+			qcom,smdpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,smdpkt-data40-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA40_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl8";
+		};
+
+		qcom,smdpkt-sensor_adsp {
+			qcom,smdpkt-remote = "adsp";
+			qcom,smdpkt-port-name = "SENSOR";
+			qcom,smdpkt-dev-name = "smd_sns_adsp";
+		};
+
+		qcom,smdpkt-cxm-qmi-port-8064 {
+			qcom,smdpkt-remote = "wcnss";
+			qcom,smdpkt-port-name = "CXM_QMI_PORT_8064";
+			qcom,smdpkt-dev-name = "smd_cxm_qmi";
+		};
+
+		qcom,smdpkt-smd_test_framework {
+			qcom,smdpkt-remote = "adsp";
+			qcom,smdpkt-port-name = "TESTFRAMEWORK";
+			qcom,smdpkt-dev-name = "smd_test_framework";
+		};
+
+		qcom,smdpkt-smd_logging_0 {
+			qcom,smdpkt-remote = "adsp";
+			qcom,smdpkt-port-name = "LOGGING";
+			qcom,smdpkt-dev-name = "smd_logging_0";
+		};
+
+		qcom,smdpkt-smd_data_0 {
+			qcom,smdpkt-remote = "adsp";
+			qcom,smdpkt-port-name = "DATA";
+			qcom,smdpkt-dev-name = "smd_data_0";
+		};
+
+		qcom,smdpkt-apr {
+			qcom,smdpkt-remote = "adsp";
+			qcom,smdpkt-port-name = "apr";
+			qcom,smdpkt-dev-name = "apr";
+		};
+
+		qcom,smdpkt-loopback {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "LOOPBACK";
+			qcom,smdpkt-dev-name = "smd_pkt_loopback";
+		};
+	};
 };
 
 &gdsc_venus {

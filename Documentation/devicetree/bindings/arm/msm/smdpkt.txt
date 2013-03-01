@@ -1,0 +1,43 @@
+Qualcomm Shared Memory Packet Driver (smdpkt)
+
+[Root level node]
+Required properties:
+-compatible : should be "qcom,smdpkt"
+
+[Second level nodes]
+qcom,smdpkt-port-names
+Required properties:
+-qcom,smdpkt-remote : the remote subsystem name
+-qcom,smdpkt-port-name : the smd channel name
+-qcom,smdpkt-dev-name : the smdpkt device name
+
+Example:
+
+	qcom,smdpkt {
+		compatible = "qcom,smdpkt";
+
+		qcom,smdpkt-data5-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA5_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl0";
+		};
+
+		qcom,smdpkt-data6-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA6_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl1";
+		};
+
+		qcom,smdpkt-cxm-qmi-port-8064 {
+			qcom,smdpkt-remote = "wcnss";
+			qcom,smdpkt-port-name = "CXM_QMI_PORT_8064";
+			qcom,smdpkt-dev-name = "smd_cxm_qmi";
+		};
+
+		qcom,smdpkt-loopback {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "LOOPBACK";
+			qcom,smdpkt-dev-name = "smd_pkt_loopback";
+		};
+	};
+

@@ -32,6 +32,7 @@
 #include <linux/poll.h>
 #include <asm/ioctls.h>
 #include <linux/wakelock.h>
+#include <linux/of.h>
 
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
@@ -39,18 +40,23 @@
 
 #include "smd_private.h"
 #ifdef CONFIG_ARCH_FSM9XXX
-#define NUM_SMD_PKT_PORTS 4
+#define DEFAULT_NUM_SMD_PKT_PORTS 4
 #else
-#define NUM_SMD_PKT_PORTS 31
+#define DEFAULT_NUM_SMD_PKT_PORTS 31
 #endif
 
 #define PDRIVER_NAME_MAX_SIZE 32
-#define LOOPBACK_INX (NUM_SMD_PKT_PORTS - 1)
 
+#define MODULE_NAME "msm_smdpkt"
 #define DEVICE_NAME "smdpkt"
 #define WAKELOCK_TIMEOUT (2*HZ)
 
 struct smd_pkt_dev {
+	struct list_head dev_list;
+	char dev_name[PDRIVER_NAME_MAX_SIZE];
+	char ch_name[SMD_MAX_CH_NAME_LEN];
+	uint32_t edge;
+
 	struct cdev cdev;
 	struct device *devicep;
 	void *pil;
@@ -81,7 +87,7 @@ struct smd_pkt_dev {
 	struct work_struct packet_arrival_work;
 	struct spinlock pa_spinlock;
 	int wakelock_locked;
-} *smd_pkt_devp[NUM_SMD_PKT_PORTS];
+};
 
 struct class *smd_pkt_classp;
 static dev_t smd_pkt_number;
@@ -89,6 +95,13 @@ static struct delayed_work loopback_work;
 static void check_and_wakeup_reader(struct smd_pkt_dev *smd_pkt_devp);
 static void check_and_wakeup_writer(struct smd_pkt_dev *smd_pkt_devp);
 static uint32_t is_modem_smsm_inited(void);
+
+#define SMD_PKT_PROBE_WAIT_TIMEOUT 3000
+static struct delayed_work smdpkt_probe_work;
+static int smdpkt_probe_done;
+static DEFINE_MUTEX(smd_pkt_dev_lock_lha1);
+static LIST_HEAD(smd_pkt_dev_list);
+static int num_smd_pkt_ports = DEFAULT_NUM_SMD_PKT_PORTS;
 
 #define SMD_PKT_IPC_LOG_PAGE_CNT 2
 static void *smd_pkt_ilctxt;
@@ -195,46 +208,121 @@ static ssize_t open_timeout_store(struct device *d,
 				  const char *buf,
 				  size_t n)
 {
-	int i;
+	struct smd_pkt_dev *smd_pkt_devp;
 	unsigned long tmp;
-	for (i = 0; i < NUM_SMD_PKT_PORTS; ++i) {
-		if (smd_pkt_devp[i]->devicep == d)
-			break;
+
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	list_for_each_entry(smd_pkt_devp, &smd_pkt_dev_list, dev_list) {
+		if (smd_pkt_devp->devicep == d) {
+			if (!kstrtoul(buf, 10, &tmp)) {
+				smd_pkt_devp->open_modem_wait = tmp;
+				mutex_unlock(&smd_pkt_dev_lock_lha1);
+				return n;
+			} else {
+				mutex_unlock(&smd_pkt_dev_lock_lha1);
+				pr_err("%s: unable to convert: %s to an int\n",
+						__func__, buf);
+				return -EINVAL;
+			}
+		}
 	}
-	if (i >= NUM_SMD_PKT_PORTS) {
-		pr_err("%s: unable to match device to valid smd_pkt port\n",
-			__func__);
-		return -EINVAL;
-	}
-	if (!strict_strtoul(buf, 10, &tmp)) {
-		smd_pkt_devp[i]->open_modem_wait = tmp;
-		return n;
-	} else {
-		pr_err("%s: unable to convert: %s to an int\n", __func__,
-			buf);
-		return -EINVAL;
-	}
+	mutex_unlock(&smd_pkt_dev_lock_lha1);
+
+	pr_err("%s: unable to match device to valid smd_pkt port\n", __func__);
+	return -EINVAL;
 }
 
 static ssize_t open_timeout_show(struct device *d,
 				 struct device_attribute *attr,
 				 char *buf)
 {
-	int i;
-	for (i = 0; i < NUM_SMD_PKT_PORTS; ++i) {
-		if (smd_pkt_devp[i]->devicep == d)
-			break;
+	struct smd_pkt_dev *smd_pkt_devp;
+
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	list_for_each_entry(smd_pkt_devp, &smd_pkt_dev_list, dev_list) {
+		if (smd_pkt_devp->devicep == d) {
+			mutex_unlock(&smd_pkt_dev_lock_lha1);
+			return snprintf(buf, PAGE_SIZE, "%d\n",
+					smd_pkt_devp->open_modem_wait);
+		}
 	}
-	if (i >= NUM_SMD_PKT_PORTS) {
-		pr_err("%s: unable to match device to valid smd_pkt port\n",
-			__func__);
-		return -EINVAL;
-	}
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			smd_pkt_devp[i]->open_modem_wait);
+	mutex_unlock(&smd_pkt_dev_lock_lha1);
+	pr_err("%s: unable to match device to valid smd_pkt port\n", __func__);
+	return -EINVAL;
+
 }
 
 static DEVICE_ATTR(open_timeout, 0664, open_timeout_show, open_timeout_store);
+
+/**
+ * loopback_edge_store() - Set the edge type for loopback device
+ * @d:		Linux device structure
+ * @attr:	Device attribute structure
+ * @buf:	Input string
+ * @n:		Length of the input string
+ *
+ * This function is used to set the loopback device edge runtime
+ * by writing to the loopback_edge node.
+ */
+static ssize_t loopback_edge_store(struct device *d,
+				  struct device_attribute *attr,
+				  const char *buf,
+				  size_t n)
+{
+	struct smd_pkt_dev *smd_pkt_devp;
+	unsigned long tmp;
+
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	list_for_each_entry(smd_pkt_devp, &smd_pkt_dev_list, dev_list) {
+		if (smd_pkt_devp->devicep == d) {
+			if (!kstrtoul(buf, 10, &tmp)) {
+				smd_pkt_devp->edge = tmp;
+				mutex_unlock(&smd_pkt_dev_lock_lha1);
+				return n;
+			} else {
+				mutex_unlock(&smd_pkt_dev_lock_lha1);
+				pr_err("%s: unable to convert: %s to an int\n",
+						__func__, buf);
+				return -EINVAL;
+			}
+		}
+	}
+	mutex_unlock(&smd_pkt_dev_lock_lha1);
+	pr_err("%s: unable to match device to valid smd_pkt port\n", __func__);
+	return -EINVAL;
+}
+
+/**
+ * loopback_edge_show() - Get the edge type for loopback device
+ * @d:		Linux device structure
+ * @attr:	Device attribute structure
+ * @buf:	Output buffer
+ *
+ * This function is used to get the loopback device edge runtime
+ * by reading the loopback_edge node.
+ */
+static ssize_t loopback_edge_show(struct device *d,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct smd_pkt_dev *smd_pkt_devp;
+
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	list_for_each_entry(smd_pkt_devp, &smd_pkt_dev_list, dev_list) {
+		if (smd_pkt_devp->devicep == d) {
+			mutex_unlock(&smd_pkt_dev_lock_lha1);
+			return snprintf(buf, PAGE_SIZE, "%d\n",
+					smd_pkt_devp->edge);
+		}
+	}
+	mutex_unlock(&smd_pkt_dev_lock_lha1);
+	pr_err("%s: unable to match device to valid smd_pkt port\n", __func__);
+	return -EINVAL;
+
+}
+
+static DEVICE_ATTR(loopback_edge, 0664, loopback_edge_show,
+						loopback_edge_store);
 
 static int notify_reset(struct smd_pkt_dev *smd_pkt_devp)
 {
@@ -673,13 +761,18 @@ static void ch_notify(void *priv, unsigned event)
 		smd_pkt_devp->is_open = 0;
 		/* put port into reset state */
 		clean_and_signal(smd_pkt_devp);
-		if (smd_pkt_devp->i == LOOPBACK_INX)
+		if (!strncmp(smd_pkt_devp->ch_name, "LOOPBACK",
+						SMD_MAX_CH_NAME_LEN))
 			schedule_delayed_work(&loopback_work,
 					msecs_to_jiffies(1000));
 		break;
 	}
 }
 
+/*
+ * Legacy configuration : smd_ch_name[], smd_ch_edge[] and smd_pkt_dev_name[].
+ * Future targets use either platform device or device tree configuration.
+ */
 #ifdef CONFIG_ARCH_FSM9XXX
 static char *smd_pkt_dev_name[] = {
 	"smdcntl1",
@@ -804,24 +897,24 @@ static uint32_t smd_ch_edge[] = {
 	SMD_APPS_MODEM,
 };
 #endif
-module_param_named(loopback_edge, smd_ch_edge[LOOPBACK_INX],
-		int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static int smd_pkt_dummy_probe(struct platform_device *pdev)
 {
-	int i;
+	struct smd_pkt_dev *smd_pkt_devp;
 
-	for (i = 0; i < NUM_SMD_PKT_PORTS; i++) {
-		if (smd_ch_edge[i] == pdev->id
-		    && !strncmp(pdev->name, smd_ch_name[i],
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	list_for_each_entry(smd_pkt_devp, &smd_pkt_dev_list, dev_list) {
+		if (smd_pkt_devp->edge == pdev->id
+		    && !strncmp(pdev->name, smd_pkt_devp->ch_name,
 				SMD_MAX_CH_NAME_LEN)
-		    && smd_pkt_devp[i]->driver.probe) {
-			complete_all(&smd_pkt_devp[i]->ch_allocated);
+		    && smd_pkt_devp->driver.probe) {
+			complete_all(&smd_pkt_devp->ch_allocated);
 			D_STATUS("%s allocated SMD ch for smd_pkt_dev id:%d\n",
-				 __func__, i);
+				 __func__, smd_pkt_devp->i);
 			break;
 		}
 	}
+	mutex_unlock(&smd_pkt_dev_lock_lha1);
 	return 0;
 }
 
@@ -853,24 +946,23 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 	mutex_lock(&smd_pkt_devp->ch_lock);
 	if (smd_pkt_devp->ch == 0) {
 		wake_lock_init(&smd_pkt_devp->pa_wake_lock, WAKE_LOCK_SUSPEND,
-				smd_pkt_dev_name[smd_pkt_devp->i]);
+				smd_pkt_devp->dev_name);
 		INIT_WORK(&smd_pkt_devp->packet_arrival_work,
 				packet_arrival_worker);
 		init_completion(&smd_pkt_devp->ch_allocated);
 		smd_pkt_devp->driver.probe = smd_pkt_dummy_probe;
 		scnprintf(smd_pkt_devp->pdriver_name, PDRIVER_NAME_MAX_SIZE,
-			  "%s", smd_ch_name[smd_pkt_devp->i]);
+			  "%s", smd_pkt_devp->ch_name);
 		smd_pkt_devp->driver.driver.name = smd_pkt_devp->pdriver_name;
 		smd_pkt_devp->driver.driver.owner = THIS_MODULE;
 		r = platform_driver_register(&smd_pkt_devp->driver);
 		if (r) {
 			pr_err("%s: %s Platform driver reg. failed\n",
-				__func__, smd_ch_name[smd_pkt_devp->i]);
+				__func__, smd_pkt_devp->ch_name);
 			goto out;
 		}
 
-		peripheral = smd_edge_to_subsystem(
-				smd_ch_edge[smd_pkt_devp->i]);
+		peripheral = smd_edge_to_subsystem(smd_pkt_devp->edge);
 		if (peripheral) {
 			smd_pkt_devp->pil = subsystem_get(peripheral);
 			if (IS_ERR(smd_pkt_devp->pil)) {
@@ -890,7 +982,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			** Loopback channel to be allocated at the modem. Since
 			** the wait need to be done atmost once, using msleep
 			** doesn't degrade the performance. */
-			if (!strncmp(smd_ch_name[smd_pkt_devp->i], "LOOPBACK",
+			if (!strncmp(smd_pkt_devp->ch_name, "LOOPBACK",
 						SMD_MAX_CH_NAME_LEN)) {
 				if (!is_modem_smsm_inited())
 					msleep(5000);
@@ -920,14 +1012,14 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			}
 		}
 
-		r = smd_named_open_on_edge(smd_ch_name[smd_pkt_devp->i],
-					   smd_ch_edge[smd_pkt_devp->i],
+		r = smd_named_open_on_edge(smd_pkt_devp->ch_name,
+					   smd_pkt_devp->edge,
 					   &smd_pkt_devp->ch,
 					   smd_pkt_devp,
 					   ch_notify);
 		if (r < 0) {
 			pr_err("%s: %s open failed %d\n", __func__,
-			       smd_ch_name[smd_pkt_devp->i], r);
+			       smd_pkt_devp->ch_name, r);
 			goto release_pil;
 		}
 
@@ -1032,133 +1124,355 @@ static const struct file_operations smd_pkt_fops = {
 	.unlocked_ioctl = smd_pkt_ioctl,
 };
 
-static int __init smd_pkt_init(void)
+static int smd_pkt_init_add_device(struct smd_pkt_dev *smd_pkt_devp, int i)
 {
-	int i;
+	int r = 0;
+
+	smd_pkt_devp->i = i;
+
+	init_waitqueue_head(&smd_pkt_devp->ch_read_wait_queue);
+	init_waitqueue_head(&smd_pkt_devp->ch_write_wait_queue);
+	smd_pkt_devp->is_open = 0;
+	smd_pkt_devp->poll_mode = 0;
+	smd_pkt_devp->wakelock_locked = 0;
+	init_waitqueue_head(&smd_pkt_devp->ch_opened_wait_queue);
+
+	spin_lock_init(&smd_pkt_devp->pa_spinlock);
+	mutex_init(&smd_pkt_devp->ch_lock);
+	mutex_init(&smd_pkt_devp->rx_lock);
+	mutex_init(&smd_pkt_devp->tx_lock);
+
+	cdev_init(&smd_pkt_devp->cdev, &smd_pkt_fops);
+	smd_pkt_devp->cdev.owner = THIS_MODULE;
+
+	r = cdev_add(&smd_pkt_devp->cdev, (smd_pkt_number + i), 1);
+	if (IS_ERR_VALUE(r)) {
+		pr_err("%s: cdev_add() failed for smd_pkt_dev id:%d ret:%i\n",
+			__func__, i, r);
+		return r;
+	}
+
+	smd_pkt_devp->devicep =
+		device_create(smd_pkt_classp,
+			      NULL,
+			      (smd_pkt_number + i),
+			      NULL,
+			      smd_pkt_devp->dev_name);
+
+	if (IS_ERR_OR_NULL(smd_pkt_devp->devicep)) {
+		pr_err("%s: device_create() failed for smd_pkt_dev id:%d\n",
+			__func__, i);
+		r = -ENOMEM;
+		cdev_del(&smd_pkt_devp->cdev);
+		return r;
+	}
+	if (device_create_file(smd_pkt_devp->devicep,
+				&dev_attr_open_timeout))
+		pr_err("%s: unable to create device attr for smd_pkt_dev id:%d\n",
+			__func__, i);
+
+	if (!strncmp(smd_pkt_devp->ch_name, "LOOPBACK",
+						SMD_MAX_CH_NAME_LEN)) {
+		if (device_create_file(smd_pkt_devp->devicep,
+					&dev_attr_loopback_edge))
+			pr_err("%s: unable to create device attr for smd_pkt_dev id:%d\n",
+				__func__, i);
+	}
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	list_add(&smd_pkt_devp->dev_list, &smd_pkt_dev_list);
+	mutex_unlock(&smd_pkt_dev_lock_lha1);
+
+	return r;
+}
+
+static void smd_pkt_core_deinit(void)
+{
+	struct smd_pkt_dev *smd_pkt_devp;
+	struct smd_pkt_dev *index;
+
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	list_for_each_entry_safe(smd_pkt_devp, index, &smd_pkt_dev_list,
+							dev_list) {
+		cdev_del(&smd_pkt_devp->cdev);
+		list_del(&smd_pkt_devp->dev_list);
+		device_destroy(smd_pkt_classp,
+			       MKDEV(MAJOR(smd_pkt_number), smd_pkt_devp->i));
+		kfree(smd_pkt_devp);
+	}
+	mutex_unlock(&smd_pkt_dev_lock_lha1);
+
+	if (!IS_ERR_OR_NULL(smd_pkt_classp))
+		class_destroy(smd_pkt_classp);
+
+	unregister_chrdev_region(MAJOR(smd_pkt_number), num_smd_pkt_ports);
+}
+
+static int smd_pkt_alloc_chrdev_region(void)
+{
 	int r;
 
-	if (ARRAY_SIZE(smd_ch_name) != NUM_SMD_PKT_PORTS ||
-			ARRAY_SIZE(smd_ch_edge) != NUM_SMD_PKT_PORTS ||
-			ARRAY_SIZE(smd_pkt_dev_name) != NUM_SMD_PKT_PORTS) {
+	if (ARRAY_SIZE(smd_ch_name) != DEFAULT_NUM_SMD_PKT_PORTS ||
+			ARRAY_SIZE(smd_ch_edge) != DEFAULT_NUM_SMD_PKT_PORTS ||
+			ARRAY_SIZE(smd_pkt_dev_name)
+					!= DEFAULT_NUM_SMD_PKT_PORTS) {
 		pr_err("%s: mismatch in number of ports\n", __func__);
 		BUG();
 	}
 
 	r = alloc_chrdev_region(&smd_pkt_number,
 			       0,
-			       NUM_SMD_PKT_PORTS,
+			       num_smd_pkt_ports,
 			       DEVICE_NAME);
 	if (IS_ERR_VALUE(r)) {
 		pr_err("%s: alloc_chrdev_region() failed ret:%i\n",
-		       __func__, r);
-		goto error0;
+			__func__, r);
+		return r;
 	}
 
 	smd_pkt_classp = class_create(THIS_MODULE, DEVICE_NAME);
 	if (IS_ERR(smd_pkt_classp)) {
 		pr_err("%s: class_create() failed ENOMEM\n", __func__);
 		r = -ENOMEM;
-		goto error1;
+		unregister_chrdev_region(MAJOR(smd_pkt_number),
+						num_smd_pkt_ports);
+		return r;
 	}
 
-	for (i = 0; i < NUM_SMD_PKT_PORTS; ++i) {
-		smd_pkt_devp[i] = kzalloc(sizeof(struct smd_pkt_dev),
+	return 0;
+}
+
+static int smd_pkt_core_init(void)
+{
+	int i;
+	int r;
+	struct smd_pkt_dev *smd_pkt_devp;
+
+	r = smd_pkt_alloc_chrdev_region();
+	if (r) {
+		pr_err("%s: smd_pkt_alloc_chrdev_region() failed ret:%i\n",
+			__func__, r);
+		return r;
+	}
+
+	for (i = 0; i < num_smd_pkt_ports; ++i) {
+		smd_pkt_devp = kzalloc(sizeof(struct smd_pkt_dev),
 					 GFP_KERNEL);
-		if (IS_ERR(smd_pkt_devp[i])) {
+		if (IS_ERR_OR_NULL(smd_pkt_devp)) {
 			pr_err("%s: kzalloc() failed for smd_pkt_dev id:%d\n",
 				__func__, i);
 			r = -ENOMEM;
-			goto error2;
+			goto error_destroy;
 		}
 
-		smd_pkt_devp[i]->i = i;
+		smd_pkt_devp->edge = smd_ch_edge[i];
+		strlcpy(smd_pkt_devp->ch_name, smd_ch_name[i],
+							SMD_MAX_CH_NAME_LEN);
+		strlcpy(smd_pkt_devp->dev_name, smd_pkt_dev_name[i],
+							PDRIVER_NAME_MAX_SIZE);
 
-		init_waitqueue_head(&smd_pkt_devp[i]->ch_read_wait_queue);
-		init_waitqueue_head(&smd_pkt_devp[i]->ch_write_wait_queue);
-		smd_pkt_devp[i]->is_open = 0;
-		smd_pkt_devp[i]->poll_mode = 0;
-		smd_pkt_devp[i]->wakelock_locked = 0;
-		init_waitqueue_head(&smd_pkt_devp[i]->ch_opened_wait_queue);
-
-		spin_lock_init(&smd_pkt_devp[i]->pa_spinlock);
-		mutex_init(&smd_pkt_devp[i]->ch_lock);
-		mutex_init(&smd_pkt_devp[i]->rx_lock);
-		mutex_init(&smd_pkt_devp[i]->tx_lock);
-
-		cdev_init(&smd_pkt_devp[i]->cdev, &smd_pkt_fops);
-		smd_pkt_devp[i]->cdev.owner = THIS_MODULE;
-
-		r = cdev_add(&smd_pkt_devp[i]->cdev,
-			     (smd_pkt_number + i),
-			     1);
-
-		if (IS_ERR_VALUE(r)) {
-			pr_err("%s: cdev_add() failed for smd_pkt_dev id:%d"
-			       " ret:%i\n", __func__, i, r);
-			kfree(smd_pkt_devp[i]);
-			goto error2;
+		r = smd_pkt_init_add_device(smd_pkt_devp, i);
+		if (r < 0) {
+			pr_err("add device failed for idx:%d ret=%d\n", i, r);
+			kfree(smd_pkt_devp);
+			goto error_destroy;
 		}
-
-		smd_pkt_devp[i]->devicep =
-			device_create(smd_pkt_classp,
-				      NULL,
-				      (smd_pkt_number + i),
-				      NULL,
-				      smd_pkt_dev_name[i]);
-
-		if (IS_ERR(smd_pkt_devp[i]->devicep)) {
-			pr_err("%s: device_create() failed for smd_pkt_dev"
-			       " id:%d\n", __func__, i);
-			r = -ENOMEM;
-			cdev_del(&smd_pkt_devp[i]->cdev);
-			kfree(smd_pkt_devp[i]);
-			goto error2;
-		}
-		if (device_create_file(smd_pkt_devp[i]->devicep,
-					&dev_attr_open_timeout))
-			pr_err("%s: unable to create device attr for"
-			       " smd_pkt_dev id:%d\n", __func__, i);
 	}
 
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 
-	smd_pkt_ilctxt = ipc_log_context_create(SMD_PKT_IPC_LOG_PAGE_CNT,
-						"smd_pkt");
+	D_STATUS("SMD Packet Port Driver Initialized.\n");
+	return 0;
+
+error_destroy:
+	smd_pkt_core_deinit();
+	return r;
+}
+
+static int parse_smdpkt_devicetree(struct device_node *node,
+					struct smd_pkt_dev *smd_pkt_devp)
+{
+	int edge;
+	char *key;
+	const char *ch_name;
+	const char *dev_name;
+	const char *remote_ss;
+
+	key = "qcom,smdpkt-remote";
+	remote_ss = of_get_property(node, key, NULL);
+	if (!remote_ss)
+		goto error;
+
+	edge = smd_remote_ss_to_edge(remote_ss);
+	if (edge < 0)
+		goto error;
+
+	smd_pkt_devp->edge = edge;
+	D_STATUS("%s: %s = %d", __func__, key, edge);
+
+	key = "qcom,smdpkt-port-name";
+	ch_name = of_get_property(node, key, NULL);
+	if (!ch_name)
+		goto error;
+
+	strlcpy(smd_pkt_devp->ch_name, ch_name, SMD_MAX_CH_NAME_LEN);
+	D_STATUS("%s ch_name = %s\n", __func__, ch_name);
+
+	key = "qcom,smdpkt-dev-name";
+	dev_name = of_get_property(node, key, NULL);
+	if (!dev_name)
+		goto error;
+
+	strlcpy(smd_pkt_devp->dev_name, dev_name, PDRIVER_NAME_MAX_SIZE);
+	D_STATUS("%s dev_name = %s\n", __func__, dev_name);
+
+	return 0;
+
+error:
+	pr_err("%s: missing key: %s\n", __func__, key);
+	return -ENODEV;
+
+}
+
+static int smd_pkt_devicetree_init(struct platform_device *pdev)
+{
+	int ret;
+	int i = 0;
+	struct device_node *node;
+	struct smd_pkt_dev *smd_pkt_devp;
+	int subnode_num = 0;
+
+	for_each_child_of_node(pdev->dev.of_node, node)
+		++subnode_num;
+
+	num_smd_pkt_ports = subnode_num;
+
+	ret = smd_pkt_alloc_chrdev_region();
+	if (ret) {
+		pr_err("%s: smd_pkt_alloc_chrdev_region() failed ret:%i\n",
+			__func__, ret);
+		return ret;
+	}
+
+	for_each_child_of_node(pdev->dev.of_node, node) {
+		smd_pkt_devp = kzalloc(sizeof(struct smd_pkt_dev), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(smd_pkt_devp)) {
+			pr_err("%s: kzalloc() failed for smd_pkt_dev id:%d\n",
+				__func__, i);
+			ret = -ENOMEM;
+			goto error_destroy;
+		}
+
+		ret = parse_smdpkt_devicetree(node, smd_pkt_devp);
+		if (ret) {
+			pr_err(" failed to parse_smdpkt_devicetree %d\n", i);
+			kfree(smd_pkt_devp);
+			goto error_destroy;
+		}
+
+		ret = smd_pkt_init_add_device(smd_pkt_devp, i);
+		if (ret < 0) {
+			pr_err("add device failed for idx:%d ret=%d\n", i, ret);
+			kfree(smd_pkt_devp);
+			goto error_destroy;
+		}
+		i++;
+	}
+
+	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 
 	D_STATUS("SMD Packet Port Driver Initialized.\n");
 	return 0;
 
- error2:
-	if (i > 0) {
-		while (--i >= 0) {
-			cdev_del(&smd_pkt_devp[i]->cdev);
-			kfree(smd_pkt_devp[i]);
-			device_destroy(smd_pkt_classp,
-				       MKDEV(MAJOR(smd_pkt_number), i));
+error_destroy:
+	smd_pkt_core_deinit();
+	return ret;
+}
+
+static int msm_smd_pkt_probe(struct platform_device *pdev)
+{
+	int ret;
+	/*
+	 * If smd_probe_worker called before msm_smd_pkt_probe,
+	 * then remove legacy device and proceed with new configuration.
+	 */
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	if (smdpkt_probe_done == 1) {
+		mutex_unlock(&smd_pkt_dev_lock_lha1);
+		smd_pkt_core_deinit();
+	} else {
+		smdpkt_probe_done = 1;
+		mutex_unlock(&smd_pkt_dev_lock_lha1);
+	}
+	D_STATUS("%s smdpkt_probe_done = %d\n", __func__, smdpkt_probe_done);
+
+	if (pdev) {
+		if (pdev->dev.of_node) {
+			D_STATUS("%s device tree implementation\n", __func__);
+			ret = smd_pkt_devicetree_init(pdev);
+			if (ret)
+				pr_err("%s: device tree init failed\n",
+					__func__);
 		}
 	}
 
-	class_destroy(smd_pkt_classp);
- error1:
-	unregister_chrdev_region(MAJOR(smd_pkt_number), NUM_SMD_PKT_PORTS);
- error0:
-	return r;
+	return 0;
+}
+
+static void smdpkt_probe_worker(struct work_struct *work)
+{
+	int ret;
+	D_STATUS("%s smdpkt_probe_done =%d\n", __func__, smdpkt_probe_done);
+
+	mutex_lock(&smd_pkt_dev_lock_lha1);
+	if (!smdpkt_probe_done) {
+		smdpkt_probe_done = 1;
+		mutex_unlock(&smd_pkt_dev_lock_lha1);
+		ret = smd_pkt_core_init();
+		if (ret < 0)
+			pr_err("smd_pkt_core_init failed ret = %d\n", ret);
+		return;
+	}
+	mutex_unlock(&smd_pkt_dev_lock_lha1);
+}
+
+static struct of_device_id msm_smd_pkt_match_table[] = {
+	{ .compatible = "qcom,smdpkt" },
+	{},
+};
+
+static struct platform_driver msm_smd_pkt_driver = {
+	.probe = msm_smd_pkt_probe,
+	.driver = {
+		.name = MODULE_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = msm_smd_pkt_match_table,
+	 },
+};
+
+static int __init smd_pkt_init(void)
+{
+	int rc;
+
+	INIT_LIST_HEAD(&smd_pkt_dev_list);
+	rc = platform_driver_register(&msm_smd_pkt_driver);
+	if (rc) {
+		pr_err("%s: msm_smd_driver register failed %d\n",
+			 __func__, rc);
+		return rc;
+	}
+
+	INIT_DELAYED_WORK(&smdpkt_probe_work, smdpkt_probe_worker);
+	schedule_delayed_work(&smdpkt_probe_work,
+				msecs_to_jiffies(SMD_PKT_PROBE_WAIT_TIMEOUT));
+
+	smd_pkt_ilctxt = ipc_log_context_create(SMD_PKT_IPC_LOG_PAGE_CNT,
+						"smd_pkt");
+	return 0;
 }
 
 static void __exit smd_pkt_cleanup(void)
 {
-	int i;
-
-	for (i = 0; i < NUM_SMD_PKT_PORTS; ++i) {
-		cdev_del(&smd_pkt_devp[i]->cdev);
-		kfree(smd_pkt_devp[i]);
-		device_destroy(smd_pkt_classp,
-			       MKDEV(MAJOR(smd_pkt_number), i));
-	}
-
-	class_destroy(smd_pkt_classp);
-
-	unregister_chrdev_region(MAJOR(smd_pkt_number), NUM_SMD_PKT_PORTS);
+	smd_pkt_core_deinit();
 }
 
 module_init(smd_pkt_init);
