@@ -633,13 +633,23 @@ int mdss_mdp_overlay_kickoff(struct mdss_mdp_ctl *ctl)
 	mutex_lock(&mfd->ov_lock);
 	mutex_lock(&mfd->lock);
 	list_for_each_entry(pipe, &mfd->pipes_used, used_list) {
-		if (pipe->params_changed || pipe->back_buf.num_planes) {
-			ret = mdss_mdp_pipe_queue_data(pipe, &pipe->back_buf);
-			if (IS_ERR_VALUE(ret)) {
-				pr_warn("Unable to queue data for pnum=%d\n",
-						pipe->num);
-				mdss_mdp_overlay_free_buf(&pipe->back_buf);
-			}
+		struct mdss_mdp_data *buf;
+		if (pipe->back_buf.num_planes) {
+			buf = &pipe->back_buf;
+		} else if (!pipe->params_changed) {
+			continue;
+		} else if (pipe->front_buf.num_planes) {
+			buf = &pipe->front_buf;
+		} else {
+			pr_warn("pipe queue without buffer\n");
+			buf = NULL;
+		}
+
+		ret = mdss_mdp_pipe_queue_data(pipe, buf);
+		if (IS_ERR_VALUE(ret)) {
+			pr_warn("Unable to queue data for pnum=%d\n",
+					pipe->num);
+			mdss_mdp_overlay_free_buf(buf);
 		}
 	}
 
