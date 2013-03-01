@@ -103,8 +103,6 @@ static int mhl_flag_scrpd_burst_req(struct mhl_tx_ctrl *mhl_ctrl,
 	return postpone_send;
 }
 
-
-
 void mhl_msc_send_work(struct work_struct *work)
 {
 	struct mhl_tx_ctrl *mhl_ctrl =
@@ -202,7 +200,6 @@ static int mhl_update_devcap(struct mhl_tx_ctrl *mhl_ctrl,
 	return 0;
 }
 
-
 int mhl_msc_command_done(struct mhl_tx_ctrl *mhl_ctrl,
 			 struct msc_command_struct *req)
 {
@@ -286,8 +283,6 @@ static int mhl_msc_write_burst(struct mhl_tx_ctrl *mhl_ctrl,
 	return 0;
 }
 
-
-
 int mhl_msc_send_msc_msg(struct mhl_tx_ctrl *mhl_ctrl,
 			 u8 sub_cmd, u8 cmd_data)
 {
@@ -315,7 +310,6 @@ static int mhl_msc_send_prior_msc_msg(struct mhl_tx_ctrl *mhl_ctrl,
 	return mhl_queue_msc_command(mhl_ctrl, &req, MSC_PRIORITY_SEND);
 }
 
-
 int mhl_msc_read_devcap(struct mhl_tx_ctrl *mhl_ctrl, u8 offset)
 {
 	struct msc_command_struct req;
@@ -340,7 +334,6 @@ int mhl_msc_read_devcap_all(struct mhl_tx_ctrl *mhl_ctrl)
 	return ret;
 }
 
-
 static void mhl_handle_input(struct mhl_tx_ctrl *mhl_ctrl,
 			     u8 key_code, u16 input_key_code)
 {
@@ -351,8 +344,6 @@ static void mhl_handle_input(struct mhl_tx_ctrl *mhl_ctrl,
 	input_report_key(mhl_ctrl->input, input_key_code, key_press);
 	input_sync(mhl_ctrl->input);
 }
-
-
 
 int mhl_rcp_recv(struct mhl_tx_ctrl *mhl_ctrl, u8 key_code)
 {
@@ -392,7 +383,6 @@ int mhl_rcp_recv(struct mhl_tx_ctrl *mhl_ctrl, u8 key_code)
 	return 0;
 }
 
-
 static int mhl_rap_action(struct mhl_tx_ctrl *mhl_ctrl, u8 action_code)
 {
 	switch (action_code) {
@@ -400,7 +390,14 @@ static int mhl_rap_action(struct mhl_tx_ctrl *mhl_ctrl, u8 action_code)
 		mhl_tmds_ctrl(mhl_ctrl, TMDS_ENABLE);
 		break;
 	case MHL_RAP_CONTENT_OFF:
-		mhl_tmds_ctrl(mhl_ctrl, TMDS_DISABLE);
+		/*
+		 * instead of only disabling tmds
+		 * send power button press - CONTENT_OFF
+		 */
+		input_report_key(mhl_ctrl->input, KEY_VENDOR, 1);
+		input_sync(mhl_ctrl->input);
+		input_report_key(mhl_ctrl->input, KEY_VENDOR, 0);
+		input_sync(mhl_ctrl->input);
 		break;
 	default:
 		break;
@@ -413,9 +410,9 @@ static int mhl_rap_recv(struct mhl_tx_ctrl *mhl_ctrl, u8 action_code)
 	u8 error_code;
 	bool tmds_en;
 
+	tmds_en = mhl_check_tmds_enabled(mhl_ctrl);
 	switch (action_code) {
 	case MHL_RAP_POLL:
-		tmds_en = mhl_check_tmds_enabled(mhl_ctrl);
 		if (tmds_en)
 			error_code = MHL_RAPK_NO_ERROR;
 		else
@@ -423,8 +420,12 @@ static int mhl_rap_recv(struct mhl_tx_ctrl *mhl_ctrl, u8 action_code)
 		break;
 	case MHL_RAP_CONTENT_ON:
 	case MHL_RAP_CONTENT_OFF:
-		mhl_rap_action(mhl_ctrl, action_code);
-		error_code = MHL_RAPK_NO_ERROR;
+		if (tmds_en) {
+			mhl_rap_action(mhl_ctrl, action_code);
+			error_code = MHL_RAPK_NO_ERROR;
+		} else {
+			error_code = MHL_RAPK_UNSUPPORTED_ACTION_CODE;
+		}
 		break;
 	default:
 		error_code = MHL_RAPK_UNRECOGNIZED_ACTION_CODE;
@@ -436,7 +437,6 @@ static int mhl_rap_recv(struct mhl_tx_ctrl *mhl_ctrl, u8 action_code)
 		MHL_MSC_MSG_RAPK,
 		error_code);
 }
-
 
 int mhl_msc_recv_msc_msg(struct mhl_tx_ctrl *mhl_ctrl,
 			 u8 sub_cmd, u8 cmd_data)
