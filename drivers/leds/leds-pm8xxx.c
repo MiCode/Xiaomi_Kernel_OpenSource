@@ -53,6 +53,9 @@
 #define WLED_BOOST_CFG_REG		SSBI_REG_ADDR_WLED_CTRL(14)
 #define WLED_HIGH_POLE_CAP_REG		SSBI_REG_ADDR_WLED_CTRL(16)
 
+#define WLED_STRING_ONE			0	/* Rightmost string */
+#define WLED_STRING_TWO			1	/* Middle string */
+#define WLED_STRING_THREE		2	/* Leftmost string */
 #define WLED_STRINGS			0x03
 #define WLED_OVP_VAL_MASK		0x30
 #define WLED_OVP_VAL_BIT_SHFT		0x04
@@ -565,7 +568,7 @@ static enum led_brightness pm8xxx_led_get(struct led_classdev *led_cdev)
 static int __devinit init_wled(struct pm8xxx_led_data *led)
 {
 	int rc, i;
-	u8 val;
+	u8 val, string_max_current;
 
 	/* program over voltage protection threshold */
 	if (led->wled_cfg->ovp_val > WLED_OVP_37V) {
@@ -642,7 +645,7 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 	for (i = 0; i < WLED_STRINGS; i++) {
 		if (led->wled_cfg->strings && (1 << i)) {
 			rc = pm8xxx_readb(led->dev->parent,
-					WLED_MAX_CURR_CFG_REG(i + 2), &val);
+					WLED_MAX_CURR_CFG_REG(i), &val);
 			if (rc) {
 				dev_err(led->dev->parent,
 					"can't read wled max current"
@@ -668,11 +671,26 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 					"Invalid max current\n");
 				return -EINVAL;
 			}
-
+		if (led->wled_cfg->max_current_ind) {
+			switch (i) {
+			case WLED_STRING_ONE:
+				string_max_current = led->wled_cfg->max_one;
+				break;
+			case WLED_STRING_TWO:
+				string_max_current = led->wled_cfg->max_two;
+				break;
+			case WLED_STRING_THREE:
+				string_max_current = led->wled_cfg->max_three;
+				break;
+			default:
+				return -EINVAL;
+			}
+			val = (val & ~WLED_MAX_CURR_MASK) | string_max_current;
+		} else
 			val = (val & ~WLED_MAX_CURR_MASK) | led->max_current;
 
 			rc = pm8xxx_writeb(led->dev->parent,
-					WLED_MAX_CURR_CFG_REG(i + 2), val);
+					WLED_MAX_CURR_CFG_REG(i), val);
 			if (rc) {
 				dev_err(led->dev->parent,
 					"can't write wled max current"
