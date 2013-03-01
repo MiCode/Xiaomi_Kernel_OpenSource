@@ -45,7 +45,7 @@
 			qcom,enable-time = <500>;
 			qcom,system-load = <100000>;
 			regulator-always-on;
-			regulator-min-microvolt = <1150000>;
+			regulator-min-microvolt = <1050000>;
 			regulator-max-microvolt = <1150000>;
 		};
 
