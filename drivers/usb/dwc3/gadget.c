@@ -191,7 +191,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	 * FIXME For now we will only allocate 1 wMaxPacketSize space
 	 * for each enabled endpoint, later patches will come to
 	 * improve this algorithm so that we better use the internal
-	 * FIFO space
+	 * FIFO space. Also consider the case where TxFIFO RAM space
+	 * may change dynamically based on the USB configuration.
 	 */
 	for (num = 0; num < DWC3_ENDPOINTS_NUM; num++) {
 		struct dwc3_ep	*dep = dwc->eps[num];
@@ -205,7 +206,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		if (!(dep->flags & DWC3_EP_ENABLED))
 			continue;
 
-		if (usb_endpoint_xfer_bulk(dep->endpoint.desc)
+		if (((dep->endpoint.maxburst > 1) &&
+				usb_endpoint_xfer_bulk(dep->endpoint.desc))
 				|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
 			mult = 3;
 
@@ -215,8 +217,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		 * Make sure that's true somehow and change FIFO allocation
 		 * accordingly.
 		 *
-		 * If we have Bulk or Isochronous endpoints, we want
-		 * them to be able to be very, very fast. So we're giving
+		 * If we have Bulk (burst only) or Isochronous endpoints, we
+		 * want them to be able to be very, very fast. So we're giving
 		 * those endpoints a fifo_size which is enough for 3 full
 		 * packets
 		 */
