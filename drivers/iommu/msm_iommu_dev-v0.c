@@ -466,7 +466,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 		ret = request_threaded_irq(irq, NULL,
 				msm_iommu_fault_handler,
 				IRQF_ONESHOT | IRQF_SHARED,
-				"msm_iommu_nonsecure_irq", pdev);
+				"msm_iommu_nonsecure_irq", ctx_drvdata);
 		if (ret) {
 			pr_err("Request IRQ %d failed with ret=%d\n", irq, ret);
 			return ret;
