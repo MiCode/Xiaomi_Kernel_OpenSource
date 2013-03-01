@@ -47,9 +47,9 @@ struct ispif_device {
 	void __iomem *base;
 	struct mutex mutex;
 	uint8_t start_ack_pending;
-	struct completion reset_complete;
+	struct completion reset_complete[VFE_MAX];
 	spinlock_t auto_complete_lock;
-	uint8_t wait_timeout;
+	uint8_t wait_timeout[VFE_MAX];
 	uint32_t csid_version;
 	int enb_dump_reg;
 	uint32_t open_cnt;
