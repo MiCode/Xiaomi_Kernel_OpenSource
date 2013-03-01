@@ -587,6 +587,34 @@ static const struct file_operations stats_show_fops = {
 	.release = seq_release,
 };
 
+static int ocmem_timing_show(struct seq_file *f, void *dummy)
+{
+	unsigned i = 0;
+	for (i = OCMEM_GRAPHICS; i < OCMEM_CLIENT_MAX; i++) {
+		struct ocmem_zone *z = get_zone(i);
+		if (z && z->active == true)
+			seq_printf(f, "zone %s\t: alloc_delay:[max:%d, min:%d, total:%llu,cnt:%lu] free_delay:[max:%d, min:%d, total:%llu, cnt:%lu]\n",
+				get_name(z->owner), z->max_alloc_time,
+				z->min_alloc_time, z->total_alloc_time,
+				get_ocmem_stat(z, 1), z->max_free_time,
+				z->min_free_time, z->total_free_time,
+				get_ocmem_stat(z, 6));
+	}
+	return 0;
+}
+
+static int ocmem_timing_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ocmem_timing_show, inode->i_private);
+}
+
+static const struct file_operations timing_show_fops = {
+	.open = ocmem_timing_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+};
+
 static int ocmem_zone_init(struct platform_device *pdev)
 {
 
@@ -656,6 +684,13 @@ static int ocmem_zone_init(struct platform_device *pdev)
 		zone->max_regions = 0;
 		INIT_LIST_HEAD(&zone->req_list);
 		zone->z_ops = z_ops;
+		zone->max_alloc_time = 0;
+		zone->min_alloc_time = 0xFFFFFFFF;
+		zone->total_alloc_time = 0;
+		zone->max_free_time = 0;
+		zone->min_free_time = 0xFFFFFFFF;
+		zone->total_free_time = 0;
+
 		if (part->p_tail) {
 			z_ops->allocate = allocate_tail;
 			z_ops->free = free_tail;
@@ -685,6 +720,12 @@ static int ocmem_zone_init(struct platform_device *pdev)
 	if (!debugfs_create_file("stats", S_IRUGO, pdata->debug_node,
 					NULL, &stats_show_fops)) {
 		dev_err(dev, "Unable to create debugfs node for stats\n");
+		return -EBUSY;
+	}
+
+	if (!debugfs_create_file("timing", S_IRUGO, pdata->debug_node,
+					NULL, &timing_show_fops)) {
+		dev_err(dev, "Unable to create debugfs node for timing\n");
 		return -EBUSY;
 	}
 
