@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,10 +86,6 @@
 #define ONE_WLED_STRING			1
 #define TWO_WLED_STRINGS		2
 #define THREE_WLED_STRINGS		3
-
-#define WLED_CABC_ONE_STRING		0x01
-#define WLED_CABC_TWO_STRING		0x03
-#define WLED_CABC_THREE_STRING		0x07
 
 #define WLED_CABC_SHIFT			3
 
@@ -247,7 +243,7 @@ static int
 led_wled_set(struct pm8xxx_led_data *led, enum led_brightness value)
 {
 	int rc, duty;
-	u8 val, i, num_wled_strings;
+	u8 val, i;
 
 	if (value > WLED_MAX_LEVEL)
 		value = WLED_MAX_LEVEL;
@@ -272,36 +268,41 @@ led_wled_set(struct pm8xxx_led_data *led, enum led_brightness value)
 
 	duty = (WLED_MAX_DUTY_CYCLE * value) / WLED_MAX_LEVEL;
 
-	num_wled_strings = led->wled_cfg->num_strings;
-
 	/* program brightness control registers */
-	for (i = 0; i < num_wled_strings; i++) {
-		rc = pm8xxx_readb(led->dev->parent,
-				WLED_BRIGHTNESS_CNTL_REG1(i), &val);
-		if (rc) {
-			dev_err(led->dev->parent, "can't read wled brightnes ctrl"
-				" register1 rc=%d\n", rc);
-			return rc;
-		}
+	for (i = 0; i < WLED_STRINGS; i++) {
+		if (led->wled_cfg->strings && (1 << i)) {
+			rc = pm8xxx_readb(led->dev->parent,
+					WLED_BRIGHTNESS_CNTL_REG1(i), &val);
+			if (rc) {
+				dev_err(led->dev->parent,
+					"can't read wled brightnes ctrl"
+					" register1 rc=%d\n", rc);
+				return rc;
+			}
 
-		val = (val & ~WLED_BRIGHTNESS_MSB_MASK) |
-			(duty >> WLED_8_BIT_SHFT);
-		rc = pm8xxx_writeb(led->dev->parent,
-				WLED_BRIGHTNESS_CNTL_REG1(i), val);
-		if (rc) {
-			dev_err(led->dev->parent, "can't write wled brightness ctrl"
-				" register1 rc=%d\n", rc);
-			return rc;
-		}
+			val = (val & ~WLED_MAX_CURR_MASK) |
+				(duty >> WLED_8_BIT_SHFT);
 
-		val = duty & WLED_8_BIT_MASK;
-		rc = pm8xxx_writeb(led->dev->parent,
-				WLED_BRIGHTNESS_CNTL_REG2(i), val);
-		if (rc) {
-			dev_err(led->dev->parent, "can't write wled brightness ctrl"
-				" register2 rc=%d\n", rc);
-			return rc;
-		}
+			rc = pm8xxx_writeb(led->dev->parent,
+					WLED_BRIGHTNESS_CNTL_REG1(i), val);
+			if (rc) {
+				dev_err(led->dev->parent,
+					"can't write wled brightness ctrl"
+					" register1 rc=%d\n", rc);
+				return rc;
+			}
+
+			val = duty & WLED_8_BIT_MASK;
+			rc = pm8xxx_writeb(led->dev->parent,
+					WLED_BRIGHTNESS_CNTL_REG2(i), val);
+			if (rc) {
+				dev_err(led->dev->parent,
+					"can't write wled brightness ctrl"
+					" register2 rc=%d\n", rc);
+				return rc;
+			}
+		} else
+			continue;
 	}
 	rc = pm8xxx_readb(led->dev->parent, WLED_SYNC_REG, &val);
 	if (rc) {
@@ -564,9 +565,7 @@ static enum led_brightness pm8xxx_led_get(struct led_classdev *led_cdev)
 static int __devinit init_wled(struct pm8xxx_led_data *led)
 {
 	int rc, i;
-	u8 val, num_wled_strings;
-
-	num_wled_strings = led->wled_cfg->num_strings;
+	u8 val;
 
 	/* program over voltage protection threshold */
 	if (led->wled_cfg->ovp_val > WLED_OVP_37V) {
@@ -640,38 +639,46 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 	}
 
 	/* program activation delay and maximum current */
-	for (i = 0; i < num_wled_strings; i++) {
-		rc = pm8xxx_readb(led->dev->parent,
-				WLED_MAX_CURR_CFG_REG(i), &val);
-		if (rc) {
-			dev_err(led->dev->parent, "can't read wled max current"
-				" config register rc=%d\n", rc);
-			return rc;
-		}
+	for (i = 0; i < WLED_STRINGS; i++) {
+		if (led->wled_cfg->strings && (1 << i)) {
+			rc = pm8xxx_readb(led->dev->parent,
+					WLED_MAX_CURR_CFG_REG(i + 2), &val);
+			if (rc) {
+				dev_err(led->dev->parent,
+					"can't read wled max current"
+					" config register rc=%d\n", rc);
+				return rc;
+			}
 
-		if ((led->wled_cfg->ctrl_delay_us % WLED_CTL_DLY_STEP) ||
-			(led->wled_cfg->ctrl_delay_us > WLED_CTL_DLY_MAX)) {
-			dev_err(led->dev->parent, "Invalid control delay\n");
-			return rc;
-		}
+			if ((led->wled_cfg->ctrl_delay_us % WLED_CTL_DLY_STEP)
+				|| (led->wled_cfg->ctrl_delay_us >
+					WLED_CTL_DLY_MAX)) {
+				dev_err(led->dev->parent,
+					"Invalid control delay\n");
+				return rc;
+			}
 
-		val = val / WLED_CTL_DLY_STEP;
-		val = (val & ~WLED_CTL_DLY_MASK) |
-			(led->wled_cfg->ctrl_delay_us << WLED_CTL_DLY_BIT_SHFT);
+			val = val / WLED_CTL_DLY_STEP;
+			val = (val & ~WLED_CTL_DLY_MASK) |
+				(led->wled_cfg->ctrl_delay_us <<
+					WLED_CTL_DLY_BIT_SHFT);
 
-		if ((led->max_current > WLED_MAX_CURR)) {
-			dev_err(led->dev->parent, "Invalid max current\n");
-			return -EINVAL;
-		}
+			if ((led->max_current > WLED_MAX_CURR)) {
+				dev_err(led->dev->parent,
+					"Invalid max current\n");
+				return -EINVAL;
+			}
 
-		val = (val & ~WLED_MAX_CURR_MASK) | led->max_current;
+			val = (val & ~WLED_MAX_CURR_MASK) | led->max_current;
 
-		rc = pm8xxx_writeb(led->dev->parent,
-				WLED_MAX_CURR_CFG_REG(i), val);
-		if (rc) {
-			dev_err(led->dev->parent, "can't write wled max current"
-				" config register rc=%d\n", rc);
-			return rc;
+			rc = pm8xxx_writeb(led->dev->parent,
+					WLED_MAX_CURR_CFG_REG(i + 2), val);
+			if (rc) {
+				dev_err(led->dev->parent,
+					"can't write wled max current"
+					" config register rc=%d\n", rc);
+				return rc;
+			}
 		}
 	}
 
@@ -683,19 +690,7 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 			return rc;
 		}
 
-		switch (num_wled_strings) {
-		case ONE_WLED_STRING:
-			val |= (WLED_CABC_ONE_STRING << WLED_CABC_SHIFT);
-			break;
-		case TWO_WLED_STRINGS:
-			val |= (WLED_CABC_TWO_STRING << WLED_CABC_SHIFT);
-			break;
-		case THREE_WLED_STRINGS:
-			val |= (WLED_CABC_THREE_STRING << WLED_CABC_SHIFT);
-			break;
-		default:
-			break;
-		}
+		val |= (led->wled_cfg->strings << WLED_CABC_SHIFT);
 
 		rc = pm8xxx_writeb(led->dev->parent, WLED_SYNC_REG, val);
 		if (rc) {
