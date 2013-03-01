@@ -1706,34 +1706,6 @@ static void a2xx_cp_intrcallback(struct kgsl_device *device)
 		return;
 	}
 
-	if (status & CP_INT_CNTL__RB_INT_MASK) {
-		/* signal intr completion event */
-		unsigned int context_id, timestamp;
-		kgsl_sharedmem_readl(&device->memstore, &context_id,
-				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-					current_context));
-
-		kgsl_sharedmem_readl(&device->memstore, &timestamp,
-				KGSL_MEMSTORE_OFFSET(context_id,
-					eoptimestamp));
-
-		if (context_id < KGSL_MEMSTORE_MAX) {
-			/* reset per context ts_cmp_enable */
-			kgsl_sharedmem_writel(&device->memstore,
-					KGSL_MEMSTORE_OFFSET(context_id,
-						ts_cmp_enable), 0);
-			/* Always reset global timestamp ts_cmp_enable */
-			kgsl_sharedmem_writel(&device->memstore,
-					KGSL_MEMSTORE_OFFSET(
-						KGSL_MEMSTORE_GLOBAL,
-						ts_cmp_enable), 0);
-			wmb();
-		}
-
-		KGSL_CMD_WARN(device, "<%d:0x%x> ringbuffer interrupt\n",
-				context_id, timestamp);
-	}
-
 	for (i = 0; i < ARRAY_SIZE(kgsl_cp_error_irqs); i++) {
 		if (status & kgsl_cp_error_irqs[i].mask) {
 			KGSL_CMD_CRIT(rb->device, "%s\n",

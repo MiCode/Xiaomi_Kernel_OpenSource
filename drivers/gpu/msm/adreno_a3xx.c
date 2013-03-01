@@ -2591,33 +2591,7 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	if (irq == A3XX_INT_CP_RB_INT) {
-		unsigned int context_id, timestamp;
-		kgsl_sharedmem_readl(&device->memstore, &context_id,
-				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-					current_context));
-
-		kgsl_sharedmem_readl(&device->memstore, &timestamp,
-				KGSL_MEMSTORE_OFFSET(context_id,
-					eoptimestamp));
-
-		if (context_id < KGSL_MEMSTORE_MAX) {
-			/* reset per context ts_cmp_enable */
-			kgsl_sharedmem_writel(&device->memstore,
-					KGSL_MEMSTORE_OFFSET(context_id,
-						ts_cmp_enable), 0);
-			/* Always reset global timestamp ts_cmp_enable */
-			kgsl_sharedmem_writel(&device->memstore,
-					KGSL_MEMSTORE_OFFSET(
-						KGSL_MEMSTORE_GLOBAL,
-						ts_cmp_enable), 0);
-			wmb();
-		}
-
-		KGSL_CMD_WARN(device, "<%d:0x%x> ringbuffer interrupt\n",
-				context_id, timestamp);
-	}
-
+	/* Wake up everybody waiting for the interrupt */
 	wake_up_interruptible_all(&device->wait_queue);
 
 	/* Schedule work to free mem and issue ibs */
