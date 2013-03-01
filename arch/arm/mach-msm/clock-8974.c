@@ -3046,18 +3046,6 @@ static struct clk_ops clk_ops_pixel;
 #define CFG_RCGR_SRC_SEL_MASK		BM(10, 8)
 #define CMD_RCGR_ROOT_STATUS_BIT	BIT(31)
 
-static struct clk *get_parent_byte(struct clk *clk)
-{
-	struct rcg_clk *rcg = to_rcg_clk(clk);
-
-	/* The byte clock has only one known parent. */
-	if ((readl_relaxed(CFG_RCGR_REG(rcg)) & CFG_RCGR_SRC_SEL_MASK)
-			== BVAL(10, 8, dsipll0_byte_mm_source_val))
-		return &dsipll0_byte_clk_src;
-
-	return NULL;
-}
-
 static enum handoff byte_rcg_handoff(struct clk *clk)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
@@ -3106,18 +3094,6 @@ static int set_rate_byte(struct clk *clk, unsigned long rate)
 	set_rate_hid(rcg, &byte_freq);
 
 	return 0;
-}
-
-static struct clk *get_parent_pixel(struct clk *clk)
-{
-	struct rcg_clk *rcg = to_rcg_clk(clk);
-
-	/* The pixel clock has one known parent. */
-	if ((readl_relaxed(CFG_RCGR_REG(rcg)) & CFG_RCGR_SRC_SEL_MASK)
-			== BVAL(10, 8, dsipll0_pixel_mm_source_val))
-		return &dsipll0_pixel_clk_src;
-
-	return NULL;
 }
 
 static enum handoff pixel_rcg_handoff(struct clk *clk)
@@ -5549,13 +5525,13 @@ static void __init mdss_clock_setup(void)
 {
 	clk_ops_byte = clk_ops_rcg;
 	clk_ops_byte.set_rate = set_rate_byte;
-	clk_ops_byte.get_parent = get_parent_byte;
 	clk_ops_byte.handoff = byte_rcg_handoff;
+	clk_ops_byte.get_parent = NULL;
 
 	clk_ops_pixel = clk_ops_rcg_mnd;
 	clk_ops_pixel.set_rate = set_rate_pixel;
-	clk_ops_pixel.get_parent = get_parent_pixel;
 	clk_ops_pixel.handoff = pixel_rcg_handoff;
+	clk_ops_pixel.get_parent = NULL;
 
 	clk_ops_rcg_hdmi = clk_ops_rcg;
 	clk_ops_rcg_hdmi.set_rate = rcg_clk_set_rate_hdmi;
