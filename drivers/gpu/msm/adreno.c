@@ -2000,8 +2000,17 @@ static unsigned int adreno_isidle(struct kgsl_device *device)
 		/* Is the ring buffer is empty? */
 		GSL_RB_GET_READPTR(rb, &rb->rptr);
 		if (!device->active_cnt && (rb->rptr == rb->wptr)) {
-			/* Is the core idle? */
-			status = is_adreno_rbbm_status_idle(device);
+			/*
+			 * Are there interrupts pending? If so then pretend we
+			 * are not idle - this avoids the possiblity that we go
+			 * to a lower power state without handling interrupts
+			 * first.
+			 */
+
+			if (!adreno_dev->gpudev->irq_pending(adreno_dev)) {
+				/* Is the core idle? */
+				status = is_adreno_rbbm_status_idle(device);
+			}
 		}
 	} else {
 		status = true;
