@@ -312,6 +312,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 {
 	unsigned long mask, pfn, pageno, start = 0;
 	struct cma *cma = dev_get_cma_area(dev);
+	struct page *page = NULL;
 	int ret;
 	int tries = 0;
 
@@ -334,18 +335,17 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	for (;;) {
 		pageno = bitmap_find_next_zero_area(cma->bitmap, cma->count,
 						    start, count, mask);
-		if (pageno >= cma->count) {
-			ret = -ENOMEM;
-			goto error;
-		}
+		if (pageno >= cma->count)
+			break;
 
 		pfn = cma->base_pfn + pageno;
 		ret = alloc_contig_range(pfn, pfn + count, MIGRATE_CMA);
 		if (ret == 0) {
 			bitmap_set(cma->bitmap, pageno, count);
+			page = pfn_to_page(pfn);
 			break;
 		} else if (ret != -EBUSY) {
-			goto error;
+			break;
 		}
 		tries++;
 		trace_dma_alloc_contiguous_retry(tries);
@@ -357,12 +357,8 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	}
 
 	mutex_unlock(&cma_mutex);
-
-	pr_debug("%s(): returned %p\n", __func__, pfn_to_page(pfn));
-	return pfn_to_page(pfn);
-error:
-	mutex_unlock(&cma_mutex);
-	return NULL;
+	pr_debug("%s(): returned %p\n", __func__, page);
+	return page;
 }
 
 /**
