@@ -329,8 +329,8 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 			max_cpu_khz = acpuclk_init_data->freq_tbl[i].khz;
 
 	/* Initialize regulators */
-	rc = increase_vdd(acpuclk_init_data->freq_tbl[i].vdd_cpu,
-		acpuclk_init_data->freq_tbl[i].vdd_mem);
+	rc = increase_vdd(acpuclk_init_data->vdd_max_cpu,
+		acpuclk_init_data->vdd_max_mem);
 	if (rc)
 		goto err_vdd;
 
