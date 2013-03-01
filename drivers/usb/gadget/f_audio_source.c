@@ -14,6 +14,8 @@
  *
  */
 
+#include <asm/dma.h>
+#include <linux/dma-mapping.h>
 #include <linux/device.h>
 #include <linux/usb/audio.h>
 #include <linux/wait.h>
@@ -694,6 +696,7 @@ static int audio_pcm_close(struct snd_pcm_substream *substream)
 static int audio_pcm_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params)
 {
+	struct snd_dma_buffer *buf = &substream->dma_buffer;
 	unsigned int channels = params_channels(params);
 	unsigned int rate = params_rate(params);
 
@@ -702,13 +705,31 @@ static int audio_pcm_hw_params(struct snd_pcm_substream *substream,
 	if (channels != 2)
 		return -EINVAL;
 
-	return snd_pcm_lib_alloc_vmalloc_buffer(substream,
-		params_buffer_bytes(params));
+	if (!substream->pcm->card->dev->coherent_dma_mask)
+		substream->pcm->card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+
+	buf->dev.type = SNDRV_DMA_TYPE_DEV;
+	buf->dev.dev = substream->pcm->card->dev;
+	buf->private_data = NULL;
+	buf->area = dma_alloc_coherent(substream->pcm->card->dev,
+			params_buffer_bytes(params),
+			&buf->addr, GFP_KERNEL);
+	if (!buf->area)
+		return -ENOMEM;
+	buf->bytes = params_buffer_bytes(params);
+	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
+	return 0;
 }
 
 static int audio_pcm_hw_free(struct snd_pcm_substream *substream)
 {
-	return snd_pcm_lib_free_vmalloc_buffer(substream);
+	struct snd_dma_buffer *buf = &substream->dma_buffer;
+
+	if (buf->area != NULL)
+		dma_free_coherent(substream->pcm->card->dev, buf->bytes,
+					buf->area, buf->addr);
+	buf->area = NULL;
+	return 0;
 }
 
 static int audio_pcm_prepare(struct snd_pcm_substream *substream)
@@ -760,6 +781,22 @@ static int audio_pcm_playback_trigger(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+static int audio_pcm_mmap(struct snd_pcm_substream *substream,
+				struct vm_area_struct *vma)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+
+	if (runtime->dma_addr && runtime->dma_bytes) {
+		return dma_mmap_coherent(substream->pcm->card->dev, vma,
+					runtime->dma_area,
+					runtime->dma_addr,
+					runtime->dma_bytes);
+	} else {
+		pr_err("Physical address or size of buf is NULL");
+		return -EINVAL;
+	}
+}
+
 static struct audio_dev _audio_dev = {
 	.func = {
 		.name = "audio_source",
@@ -784,6 +821,7 @@ static struct snd_pcm_ops audio_playback_ops = {
 	.prepare	= audio_pcm_prepare,
 	.trigger	= audio_pcm_playback_trigger,
 	.pointer	= audio_pcm_pointer,
+	.mmap		= audio_pcm_mmap,
 };
 
 int audio_source_bind_config(struct usb_configuration *c,
