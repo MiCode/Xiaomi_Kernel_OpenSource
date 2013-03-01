@@ -109,6 +109,14 @@ struct msm_gpiomux_configs {
 	size_t                     ncfg;
 };
 
+/* Provide an enum and an API to write to misc TLMM registers */
+enum msm_tlmm_misc_reg {
+	TLMM_ETM_MODE_REG = 0x2014,
+	TLMM_SDC2_HDRV_PULL_CTL = 0x2048,
+};
+
+void msm_tlmm_misc_reg_write(enum msm_tlmm_misc_reg misc_reg, int val);
+
 #ifdef CONFIG_MSM_GPIOMUX
 
 /* Before using gpiomux, initialize the subsystem by telling it how many

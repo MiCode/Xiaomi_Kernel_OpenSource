@@ -13,7 +13,9 @@
 #include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/io.h>
 #include <mach/gpiomux.h>
+#include <mach/msm_iomap.h>
 
 struct msm_gpiomux_rec {
 	struct gpiomux_setting *sets[GPIOMUX_NSETTINGS];
@@ -120,6 +122,13 @@ int msm_gpiomux_put(unsigned gpio)
 	return 0;
 }
 EXPORT_SYMBOL(msm_gpiomux_put);
+
+void msm_tlmm_misc_reg_write(enum msm_tlmm_misc_reg misc_reg, int val)
+{
+	writel_relaxed(val, MSM_TLMM_BASE + misc_reg);
+	/* ensure the write completes before returning */
+	mb();
+}
 
 int msm_gpiomux_init(size_t ngpio)
 {
