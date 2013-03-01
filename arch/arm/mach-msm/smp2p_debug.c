@@ -233,7 +233,7 @@ static void smp2p_item(struct seq_file *s, int remote_pid)
 	if (in_ptr) {
 		in_entries = (struct smp2p_entry_v1 *)((void *)in_ptr +
 				sizeof(struct smp2p_smem));
-		in_valid = SMP2P_GET_ENT_VALID(out_ptr->valid_total_ent);
+		in_valid = SMP2P_GET_ENT_VALID(in_ptr->valid_total_ent);
 	}
 
 	for (entry = 0; out_entries || in_entries; ++entry) {
