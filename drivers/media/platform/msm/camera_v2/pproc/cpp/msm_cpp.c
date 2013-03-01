@@ -553,8 +553,6 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *new_frame =
 		kzalloc(sizeof(struct msm_cpp_frame_info_t), GFP_KERNEL);
 	uint32_t *cpp_frame_msg;
-	struct ion_handle *src_ion_handle = NULL;
-	struct ion_handle *dest_ion_handle = NULL;
 	unsigned long len;
 	unsigned long in_phyaddr, out_phyaddr;
 	uint16_t num_stripes = 0;
@@ -595,41 +593,41 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	CPP_DBG("CPP in_fd: %d out_fd: %d\n", new_frame->src_fd,
 		new_frame->dst_fd);
 
-	src_ion_handle = ion_import_dma_buf(cpp_dev->client,
+	new_frame->src_ion_handle = ion_import_dma_buf(cpp_dev->client,
 		new_frame->src_fd);
-	if (IS_ERR_OR_NULL(src_ion_handle)) {
+	if (IS_ERR_OR_NULL(new_frame->src_ion_handle)) {
 		pr_err("ION import failed\n");
-		rc = PTR_ERR(src_ion_handle);
+		rc = PTR_ERR(new_frame->src_ion_handle);
 		goto ERROR2;
 	}
-	rc = ion_map_iommu(cpp_dev->client, src_ion_handle,
+
+	rc = ion_map_iommu(cpp_dev->client, new_frame->src_ion_handle,
 		cpp_dev->domain_num, 0, SZ_4K, 0,
 		(unsigned long *)&in_phyaddr, &len, 0, 0);
 	if (rc < 0) {
 		pr_err("ION import failed\n");
-		rc = PTR_ERR(src_ion_handle);
+		rc = PTR_ERR(new_frame->src_ion_handle);
 		goto ERROR3;
 	}
 
 	CPP_DBG("in phy addr: 0x%x len: %ld\n", (uint32_t) in_phyaddr, len);
-
-	dest_ion_handle = ion_import_dma_buf(cpp_dev->client,
+	new_frame->dest_ion_handle = ion_import_dma_buf(cpp_dev->client,
 		new_frame->dst_fd);
-	if (IS_ERR_OR_NULL(dest_ion_handle)) {
+	if (IS_ERR_OR_NULL(new_frame->dest_ion_handle)) {
 		pr_err("ION import failed\n");
-		rc = PTR_ERR(dest_ion_handle);
+		rc = PTR_ERR(new_frame->dest_ion_handle);
 		goto ERROR4;
 	}
-	rc = ion_map_iommu(cpp_dev->client, dest_ion_handle,
+
+	rc = ion_map_iommu(cpp_dev->client, new_frame->dest_ion_handle,
 		cpp_dev->domain_num, 0, SZ_4K, 0,
 		(unsigned long *)&out_phyaddr, &len, 0, 0);
 	if (rc < 0) {
-		rc = PTR_ERR(dest_ion_handle);
+		rc = PTR_ERR(new_frame->dest_ion_handle);
 		goto ERROR5;
 	}
 
 	CPP_DBG("out phy addr: 0x%x len: %ld\n", (uint32_t)out_phyaddr, len);
-
 	num_stripes = ((cpp_frame_msg[12] >> 20) & 0x3FF) +
 		((cpp_frame_msg[12] >> 10) & 0x3FF) +
 		(cpp_frame_msg[12] & 0x3FF);
@@ -667,15 +665,17 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 ERROR7:
 	kfree(frame_qcmd);
 ERROR6:
-	ion_unmap_iommu(cpp_dev->client, dest_ion_handle,
+	ion_unmap_iommu(cpp_dev->client, new_frame->dest_ion_handle,
 		cpp_dev->domain_num, 0);
 ERROR5:
-	ion_free(cpp_dev->client, dest_ion_handle);
+	ion_free(cpp_dev->client, new_frame->dest_ion_handle);
+	new_frame->dest_ion_handle = NULL;
 ERROR4:
-	ion_unmap_iommu(cpp_dev->client, src_ion_handle,
+	ion_unmap_iommu(cpp_dev->client, new_frame->src_ion_handle,
 		cpp_dev->domain_num, 0);
 ERROR3:
-	ion_free(cpp_dev->client, src_ion_handle);
+	ion_free(cpp_dev->client, new_frame->src_ion_handle);
+	new_frame->src_ion_handle = NULL;
 ERROR2:
 	kfree(cpp_frame_msg);
 ERROR1:
@@ -719,6 +719,24 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 					mutex_unlock(&cpp_dev->mutex);
 					return -EINVAL;
 		}
+		if (process_frame->dest_ion_handle) {
+			ion_unmap_iommu(cpp_dev->client,
+				process_frame->dest_ion_handle,
+				cpp_dev->domain_num, 0);
+			ion_free(cpp_dev->client,
+				process_frame->dest_ion_handle);
+			process_frame->dest_ion_handle = NULL;
+		}
+
+		if (process_frame->src_ion_handle) {
+			ion_unmap_iommu(cpp_dev->client,
+				process_frame->src_ion_handle,
+				cpp_dev->domain_num, 0);
+			ion_free(cpp_dev->client,
+				process_frame->src_ion_handle);
+			process_frame->src_ion_handle = NULL;
+		}
+
 		kfree(process_frame->cpp_cmd_msg);
 		kfree(process_frame);
 		kfree(event_qcmd);

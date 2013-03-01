@@ -85,6 +85,8 @@ struct msm_cpp_frame_info_t {
 	uint32_t *cpp_cmd_msg;
 	int src_fd;
 	int dst_fd;
+	struct ion_handle *src_ion_handle;
+	struct ion_handle *dest_ion_handle;
 };
 
 struct msm_ver_num_info {
