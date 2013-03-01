@@ -57,7 +57,6 @@
 #define QSEOS_CHECK_VERSION_CMD		0x00001803
 
 #define QSEE_CE_CLK_100MHZ		100000000
-#define QSEE_CE_CLK_50MHZ		50000000
 
 #define QSEECOM_MAX_SG_ENTRY	512
 
@@ -1387,6 +1386,14 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	}
 	/* Populate the remaining parameters */
 	load_req.qsee_cmd_id = QSEOS_LOAD_SERV_IMAGE_COMMAND;
+	/* Vote for the SFPB clock */
+	ret = qsee_vote_for_clock(data, CLK_SFPB);
+	if (ret) {
+		pr_err("Unable to vote for SFPB clock: ret = %d", ret);
+		kzfree(img_data);
+		return -EIO;
+	}
+
 	/* SCM_CALL to load the image */
 	ret = scm_call(SCM_SVC_TZSCHEDULER, 1, &load_req,
 				sizeof(struct qseecom_load_lib_image_ireq),
@@ -1417,6 +1424,7 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 		}
 	}
 	kzfree(img_data);
+	qsee_disable_clock_vote(data, CLK_SFPB);
 	return ret;
 }
 
@@ -1746,6 +1754,50 @@ static int qseecom_get_qseos_version(struct qseecom_dev_handle *data,
 	return 0;
 }
 
+static int __qseecom_enable_clk(void)
+{
+	int rc = 0;
+
+	/* Enable CE core clk */
+	rc = clk_prepare_enable(ce_core_clk);
+	if (rc) {
+		pr_err("Unable to enable/prepare CE core clk\n");
+		goto err;
+	} else {
+		/* Enable CE clk */
+		rc = clk_prepare_enable(ce_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE iface clk\n");
+			goto ce_clk_err;
+		} else {
+			/* Enable AXI clk */
+			rc = clk_prepare_enable(ce_bus_clk);
+			if (rc) {
+				pr_err("Unable to enable/prepare CE bus clk\n");
+				goto ce_bus_clk_err;
+			}
+		}
+	}
+	return 0;
+
+ce_bus_clk_err:
+	clk_disable_unprepare(ce_clk);
+ce_clk_err:
+	clk_disable_unprepare(ce_core_clk);
+err:
+	return -EIO;
+}
+
+static void __qseecom_disable_clk(void)
+{
+	if (ce_clk != NULL)
+		clk_disable_unprepare(ce_clk);
+	if (ce_core_clk != NULL)
+		clk_disable_unprepare(ce_core_clk);
+	if (ce_bus_clk != NULL)
+		clk_disable_unprepare(ce_bus_clk);
+}
+
 static int qsee_vote_for_clock(struct qseecom_dev_handle *data,
 						int32_t clk_type)
 {
@@ -1763,10 +1815,14 @@ static int qsee_vote_for_clock(struct qseecom_dev_handle *data,
 						qsee_perf_client, 3);
 			else {
 				if (ce_core_src_clk != NULL)
-					clk_set_rate(ce_core_src_clk,
-							QSEE_CE_CLK_100MHZ);
-				ret = msm_bus_scale_client_update_request(
+					ret = __qseecom_enable_clk();
+				if (!ret) {
+					ret =
+					msm_bus_scale_client_update_request(
 						qsee_perf_client, 1);
+					if ((ret) && (ce_core_src_clk != NULL))
+						__qseecom_disable_clk();
+				}
 			}
 			if (ret)
 				pr_err("DFAB Bandwidth req failed (%d)\n",
@@ -1789,10 +1845,14 @@ static int qsee_vote_for_clock(struct qseecom_dev_handle *data,
 						qsee_perf_client, 3);
 			else {
 				if (ce_core_src_clk != NULL)
-					clk_set_rate(ce_core_src_clk,
-							QSEE_CE_CLK_100MHZ);
-				ret = msm_bus_scale_client_update_request(
+					ret = __qseecom_enable_clk();
+				if (!ret) {
+					ret =
+					msm_bus_scale_client_update_request(
 						qsee_perf_client, 2);
+					if ((ret) && (ce_core_src_clk != NULL))
+						__qseecom_disable_clk();
+				}
 			}
 
 			if (ret)
@@ -1839,9 +1899,8 @@ static void qsee_disable_clock_vote(struct qseecom_dev_handle *data,
 			else {
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 0);
-				if (ce_core_src_clk != NULL)
-					clk_set_rate(ce_core_src_clk,
-							QSEE_CE_CLK_50MHZ);
+				if ((!ret) && (ce_core_src_clk != NULL))
+					__qseecom_disable_clk();
 			}
 			if (ret)
 				pr_err("SFPB Bandwidth req fail (%d)\n",
@@ -1870,9 +1929,8 @@ static void qsee_disable_clock_vote(struct qseecom_dev_handle *data,
 			else {
 				ret = msm_bus_scale_client_update_request(
 						qsee_perf_client, 0);
-				if (ce_core_src_clk != NULL)
-					clk_set_rate(ce_core_src_clk,
-							QSEE_CE_CLK_50MHZ);
+				if ((!ret) && (ce_core_src_clk != NULL))
+					__qseecom_disable_clk();
 			}
 			if (ret)
 				pr_err("SFPB Bandwidth req fail (%d)\n",
@@ -1941,6 +1999,13 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 		ret = -EFAULT;
 		goto qseecom_load_external_elf_set_cpu_err;
 	}
+	/* Vote for the SFPB clock */
+	ret = qsee_vote_for_clock(data, CLK_SFPB);
+	if (ret) {
+		pr_err("Unable to vote for SFPB clock: ret = %d", ret);
+		ret = -EIO;
+		goto qseecom_load_external_elf_set_cpu_err;
+	}
 
 	/*  SCM_CALL to load the external elf */
 	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &load_req,
@@ -1980,7 +2045,7 @@ qseecom_load_external_elf_set_cpu_err:
 	/* Deallocate the handle */
 	if (!IS_ERR_OR_NULL(ihandle))
 		ion_free(qseecom.ion_clnt, ihandle);
-
+	qsee_disable_clock_vote(data, CLK_SFPB);
 	return ret;
 }
 
@@ -2350,46 +2415,6 @@ static const struct file_operations qseecom_fops = {
 		.release = qseecom_release
 };
 
-static int __qseecom_enable_clk(void)
-{
-	int rc = 0;
-
-	/* Enable CE core clk */
-	rc = clk_prepare_enable(ce_core_clk);
-	if (rc) {
-		pr_err("Unable to enable/prepare CE core clk\n");
-		return -EIO;
-	} else {
-		/* Enable CE clk */
-		rc = clk_prepare_enable(ce_clk);
-		if (rc) {
-			pr_err("Unable to enable/prepare CE iface clk\n");
-			clk_disable_unprepare(ce_core_clk);
-			return -EIO;
-		} else {
-			/* Enable AXI clk */
-			rc = clk_prepare_enable(ce_bus_clk);
-			if (rc) {
-				pr_err("Unable to enable/prepare CE iface clk\n");
-				clk_disable_unprepare(ce_core_clk);
-				clk_disable_unprepare(ce_clk);
-				return -EIO;
-			}
-		}
-	}
-	return rc;
-}
-
-static void __qseecom_disable_clk(void)
-{
-	if (ce_clk != NULL)
-		clk_disable_unprepare(ce_clk);
-	if (ce_core_clk != NULL)
-		clk_disable_unprepare(ce_core_clk);
-	if (ce_bus_clk != NULL)
-		clk_disable_unprepare(ce_bus_clk);
-}
-
 static int __qseecom_init_clk(void)
 {
 	int rc = 0;
@@ -2399,8 +2424,8 @@ static int __qseecom_init_clk(void)
 	/* Get CE3 src core clk. */
 	ce_core_src_clk = clk_get(pdev, "core_clk_src");
 	if (!IS_ERR(ce_core_src_clk)) {
-		/* Set the core src clk @50Mhz */
-		rc = clk_set_rate(ce_core_src_clk, QSEE_CE_CLK_50MHZ);
+		/* Set the core src clk @100Mhz */
+		rc = clk_set_rate(ce_core_src_clk, QSEE_CE_CLK_100MHZ);
 		if (rc) {
 			clk_put(ce_core_src_clk);
 			pr_err("Unable to set the core src clk @100Mhz.\n");
@@ -2561,11 +2586,7 @@ static int __devinit qseecom_probe(struct platform_device *pdev)
 		ret = __qseecom_init_clk();
 		if (ret)
 			goto err;
-		ret = __qseecom_enable_clk();
-		if (ret) {
-			__qseecom_deinit_clk();
-			goto err;
-		}
+
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
 						msm_bus_cl_get_pdata(pdev);
 		if (qseecom.qsee_version >= (QSEE_VERSION_02)) {
@@ -2675,10 +2696,9 @@ static int __devinit qseecom_remove(struct platform_device *pdev)
 	if (qsee_perf_client)
 		msm_bus_scale_client_update_request(qsee_perf_client, 0);
 	/* register client for bus scaling */
-	if (pdev->dev.of_node) {
-		__qseecom_disable_clk();
+	if (pdev->dev.of_node)
 		__qseecom_deinit_clk();
-	}
+
 	return ret;
 };
 
