@@ -749,7 +749,7 @@ static struct snd_soc_dai_link mdm9625_dai[] = {
 		.name = "MDM9625 Media1",
 		.stream_name = "MultiMedia1",
 		.cpu_dai_name = "MultiMedia1",
-		.platform_name  = "msm-pcm-dsp",
+		.platform_name  = "msm-pcm-dsp.0",
 		.dynamic = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST},
