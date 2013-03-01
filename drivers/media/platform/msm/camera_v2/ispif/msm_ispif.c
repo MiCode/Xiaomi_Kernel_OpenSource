@@ -97,8 +97,8 @@ static int msm_ispif_intf_reset(struct ispif_device *ispif,
 		unsigned long flags;
 
 		spin_lock_irqsave(&ispif->auto_complete_lock, flags);
-		ispif->wait_timeout = 0;
-		init_completion(&ispif->reset_complete);
+		ispif->wait_timeout[params->vfe_intf] = 0;
+		init_completion(&ispif->reset_complete[params->vfe_intf]);
 		spin_unlock_irqrestore(&ispif->auto_complete_lock, flags);
 
 		if (params->vfe_intf == VFE0)
@@ -106,14 +106,15 @@ static int msm_ispif_intf_reset(struct ispif_device *ispif,
 		else
 			msm_camera_io_w(data, ispif->base +
 				ISPIF_RST_CMD_1_ADDR);
+
 		lrc = wait_for_completion_interruptible_timeout(
-			&ispif->reset_complete, jiffes);
+			&ispif->reset_complete[params->vfe_intf], jiffes);
 		if (lrc < 0 || !lrc) {
 			pr_err("%s: wait timeout ret = %ld\n", __func__, lrc);
 			rc = -EIO;
 
 			spin_lock_irqsave(&ispif->auto_complete_lock, flags);
-			ispif->wait_timeout = 1;
+			ispif->wait_timeout[params->vfe_intf] = 1;
 			spin_unlock_irqrestore(
 				&ispif->auto_complete_lock, flags);
 		}
@@ -129,8 +130,12 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 	unsigned long flags;
 
 	spin_lock_irqsave(&ispif->auto_complete_lock, flags);
-	ispif->wait_timeout = 0;
-	init_completion(&ispif->reset_complete);
+	ispif->wait_timeout[VFE0] = 0;
+	init_completion(&ispif->reset_complete[VFE0]);
+	if (ispif->csid_version >= CSID_VERSION_V3) {
+		ispif->wait_timeout[VFE1] = 0;
+		init_completion(&ispif->reset_complete[VFE1]);
+	}
 	spin_unlock_irqrestore(&ispif->auto_complete_lock, flags);
 
 	BUG_ON(!ispif);
@@ -139,22 +144,40 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 
 	msm_camera_io_w(ISPIF_RST_CMD_MASK, ispif->base + ISPIF_RST_CMD_ADDR);
 
-	if (ispif->csid_version >= CSID_VERSION_V3)
-		msm_camera_io_w_mb(ISPIF_RST_CMD_1_MASK, ispif->base +
-			ISPIF_RST_CMD_1_ADDR);
-
 	lrc = wait_for_completion_interruptible_timeout(
-		&ispif->reset_complete, jiffes);
+		&ispif->reset_complete[VFE0], jiffes);
 
 	if (lrc < 0 || !lrc) {
 		pr_err("%s: wait timeout ret = %ld\n", __func__, lrc);
 		rc = -EIO;
 
 		spin_lock_irqsave(&ispif->auto_complete_lock, flags);
-		ispif->wait_timeout = 1;
+		ispif->wait_timeout[VFE0] = 1;
 		spin_unlock_irqrestore(&ispif->auto_complete_lock, flags);
+
+		goto end;
 	}
 
+	if (ispif->csid_version >= CSID_VERSION_V3) {
+		msm_camera_io_w_mb(ISPIF_RST_CMD_1_MASK, ispif->base +
+			ISPIF_RST_CMD_1_ADDR);
+
+		lrc = wait_for_completion_interruptible_timeout(
+			&ispif->reset_complete[VFE1], jiffes);
+
+		if (lrc < 0 || !lrc) {
+			pr_err("%s: wait timeout ret = %ld\n", __func__, lrc);
+			rc = -EIO;
+
+			spin_lock_irqsave(&ispif->auto_complete_lock, flags);
+			ispif->wait_timeout[VFE1] = 1;
+			spin_unlock_irqrestore(&ispif->auto_complete_lock,
+				flags);
+		}
+
+	}
+
+end:
 	return rc;
 }
 
@@ -590,8 +613,8 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 		if (out[VFE0].ispifIrqStatus0 & RESET_DONE_IRQ) {
 			unsigned long flags;
 			spin_lock_irqsave(&ispif->auto_complete_lock, flags);
-			if (ispif->wait_timeout == 0)
-				complete(&ispif->reset_complete);
+			if (ispif->wait_timeout[VFE0] == 0)
+				complete(&ispif->reset_complete[VFE0]);
 			spin_unlock_irqrestore(
 				&ispif->auto_complete_lock, flags);
 		}
@@ -625,6 +648,16 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 			ISPIF_VFE_m_IRQ_STATUS_2(VFE1));
 		msm_camera_io_w_mb(out[VFE1].ispifIrqStatus2,
 			ispif->base + ISPIF_VFE_m_IRQ_CLEAR_2(VFE1));
+
+
+		if (out[VFE1].ispifIrqStatus0 & RESET_DONE_IRQ) {
+			unsigned long flags;
+			spin_lock_irqsave(&ispif->auto_complete_lock, flags);
+			if (ispif->wait_timeout[VFE1] == 0)
+				complete(&ispif->reset_complete[VFE1]);
+			spin_unlock_irqrestore(
+				&ispif->auto_complete_lock, flags);
+		}
 
 		if (out[VFE1].ispifIrqStatus0 & PIX_INTF_0_OVERFLOW_IRQ)
 			pr_err("%s: VFE1 pix0 overflow.\n", __func__);
@@ -897,6 +930,7 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 {
 	int rc;
 	struct ispif_device *ispif;
+	int i;
 
 	ispif = kzalloc(sizeof(struct ispif_device), GFP_KERNEL);
 	if (!ispif) {
@@ -955,7 +989,9 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 	ispif->open_cnt = 0;
 	spin_lock_init(&ispif->auto_complete_lock);
-	ispif->wait_timeout = 0;
+	for (i = 0; i < VFE_MAX; i++)
+		ispif->wait_timeout[i] = 0;
+
 	return 0;
 
 error:
