@@ -32,6 +32,7 @@ Optional properties:
 			 component
 - coresight-child-ports : list of input port numbers of the children
 - coresight-default-sink : represents the default compile time CoreSight sink
+- coresight-ctis : list of ctis that this component interacts with
 - qcom,pc-save : program counter save implemented
 - qcom,blk-size : block size for tmc-etr to usb transfers
 - qcom,round-robin : indicates if per core etms are allowed round-robin access
@@ -117,4 +118,25 @@ Examples:
 		coresight-child-ports = <0>;
 		qcom,pc-save;
 		qcom,round-robin;
+	};
+
+4. Miscellaneous
+	cti0: cti@fc308000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc308000 0x1000>;
+		reg-names = "cti0-base";
+
+		coresight-id = <15>;
+		coresight-name = "coresight-cti0";
+		coresight-nr-inports = <0>;
+	};
+
+	cti1: cti@fc309000 {
+		compatible = "arm,coresight-cti";
+		reg = <0xfc309000 0x1000>;
+		reg-names = "cti1-base";
+
+		coresight-id = <16>;
+		coresight-name = "coresight-cti1";
+		coresight-nr-inports = <0>;
 	};
