@@ -17,7 +17,7 @@
 / {
 	model = "Qualcomm MSM 8226 Simulator";
 	compatible = "qcom,msm8226-sim", "qcom,msm8226";
-	qcom,msm-id = <145 1 0>;
+	qcom,msm-id = <145 16 0>;
 
 	serial@f991f000 {
 		status = "ok";
