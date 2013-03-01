@@ -27,6 +27,9 @@
 #define REG_R(addr)		readl_relaxed(addr)
 #define REG_W(data, addr)	writel_relaxed(data, addr)
 
+#define GDSC_PHYS		0xFD8C2304
+#define GDSC_SIZE		0x4
+
 #define DSI_PHY_PHYS		0xFD922800
 #define DSI_PHY_SIZE		0x00000800
 
@@ -99,6 +102,7 @@
 
 #define VCO_CLK				424000000
 static unsigned char *mdss_dsi_base;
+static unsigned char *gdsc_base;
 static int pll_byte_clk_rate;
 static int pll_pclk_rate;
 static int pll_initialized;
@@ -112,6 +116,11 @@ static unsigned hdmi_pll_on;
 void __init mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 {
 	BUG_ON(ahb_clk == NULL);
+
+	gdsc_base = ioremap(GDSC_PHYS, GDSC_SIZE);
+	if (!gdsc_base)
+		pr_err("%s: unable to remap gdsc base", __func__);
+
 	mdss_dsi_base = ioremap(DSI_PHY_PHYS, DSI_PHY_SIZE);
 	if (!mdss_dsi_base)
 		pr_err("%s: unable to remap dsi base", __func__);
@@ -129,6 +138,14 @@ void __init mdss_clk_ctrl_pre_init(struct clk *ahb_clk)
 
 #define PLL_POLL_MAX_READS 10
 #define PLL_POLL_TIMEOUT_US 50
+
+static int mdss_gdsc_enabled(void)
+{
+	if (!gdsc_base)
+		return 0;
+
+	return !!(readl_relaxed(gdsc_base) & BIT(31));
+}
 
 static int mdss_dsi_check_pll_lock(void)
 {
@@ -392,7 +409,7 @@ out:
 
 static enum handoff mdss_dsi_pll_byte_handoff(struct clk *c)
 {
-	if (mdss_dsi_check_pll_lock()) {
+	if (mdss_gdsc_enabled() && mdss_dsi_check_pll_lock()) {
 		c->rate = 53000000;
 		dsi_pll_rate = 53000000;
 		pll_byte_clk_rate = 53000000;
@@ -406,7 +423,7 @@ static enum handoff mdss_dsi_pll_byte_handoff(struct clk *c)
 
 static enum handoff mdss_dsi_pll_pixel_handoff(struct clk *c)
 {
-	if (mdss_dsi_check_pll_lock()) {
+	if (mdss_gdsc_enabled() && mdss_dsi_check_pll_lock()) {
 		c->rate = 105000000;
 		dsipll_refcount++;
 		return HANDOFF_ENABLED_CLK;
