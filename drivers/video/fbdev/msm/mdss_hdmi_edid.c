@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -244,14 +244,14 @@ static ssize_t hdmi_edid_sysfs_rda_modes(struct device *dev,
 				continue;
 			if (ret > 0)
 				ret += snprintf(buf+ret, PAGE_SIZE-ret, ",%d",
-					*video_mode++ + 1);
+					*video_mode++);
 			else
 				ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
-					*video_mode++ + 1);
+					*video_mode++);
 		}
 	} else {
 		ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
-			edid_ctrl->video_resolution+1);
+			edid_ctrl->video_resolution);
 	}
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
@@ -324,16 +324,16 @@ static ssize_t hdmi_edid_sysfs_rda_3d_modes(struct device *dev,
 				buff_3d);
 			if (ret > 0)
 				ret += snprintf(buf+ret, PAGE_SIZE-ret,
-					",%d=%s", *video_mode++ + 1,
+					",%d=%s", *video_mode++,
 					buff_3d);
 			else
 				ret += snprintf(buf+ret, PAGE_SIZE-ret,
-					"%d=%s", *video_mode++ + 1,
+					"%d=%s", *video_mode++,
 					buff_3d);
 		}
 	} else {
 		ret += snprintf(buf+ret, PAGE_SIZE-ret, "%d",
-			edid_ctrl->video_resolution+1);
+			edid_ctrl->video_resolution);
 	}
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
@@ -817,25 +817,25 @@ static void hdmi_edid_add_sink_3d_format(struct hdmi_edid_sink_data *sink_data,
 	hdmi_get_video_3d_fmt_2string(video_3d_format, string);
 
 	DEV_DBG("%s: EDID[3D]: format: %d [%s], %s %s\n", __func__,
-		video_format, hdmi_get_video_fmt_2string(video_format),
+		video_format, msm_hdmi_mode_2string(video_format),
 		string, added ? "added" : "NOT added");
 } /* hdmi_edid_add_sink_3d_format */
 
 static void hdmi_edid_add_sink_video_format(
 	struct hdmi_edid_sink_data *sink_data, u32 video_format)
 {
-	const struct hdmi_disp_mode_timing_type *timing =
+	const struct msm_hdmi_mode_timing_info *timing =
 		hdmi_get_supported_mode(video_format);
 	u32 supported = timing != NULL;
 
 	if (video_format >= HDMI_VFRMT_MAX) {
 		DEV_ERR("%s: video format: %s is not supported\n", __func__,
-			hdmi_get_video_fmt_2string(video_format));
+			msm_hdmi_mode_2string(video_format));
 		return;
 	}
 
 	DEV_DBG("%s: EDID: format: %d [%s], %s\n", __func__,
-		video_format, hdmi_get_video_fmt_2string(video_format),
+		video_format, msm_hdmi_mode_2string(video_format),
 		supported ? "Supported" : "Not-Supported");
 
 	if (supported) {
@@ -1050,7 +1050,7 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 			 * while the Video identification code is 1 based in the
 			 * CEA_861D spec
 			 */
-			video_format = (*svd & 0x7F) - 1;
+			video_format = (*svd & 0x7F);
 			hdmi_edid_add_sink_video_format(sink_data,
 				video_format);
 			/* Make a note of the preferred video format */
@@ -1096,7 +1096,7 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 
 			DEV_DBG("[%s:%d] Block-0 Adding vid fmt = [%s]\n",
 				__func__, __LINE__,
-				hdmi_get_video_fmt_2string(video_format));
+				msm_hdmi_mode_2string(video_format));
 
 			hdmi_edid_add_sink_video_format(sink_data,
 				video_format);
@@ -1125,7 +1125,7 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 
 			DEV_DBG("[%s:%d] Block-0 Adding vid fmt = [%s]\n",
 				__func__, __LINE__,
-				hdmi_get_video_fmt_2string(video_format));
+				msm_hdmi_mode_2string(video_format));
 
 			hdmi_edid_add_sink_video_format(sink_data,
 				video_format);
@@ -1158,7 +1158,7 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 
 			DEV_DBG("[%s:%d] Block-1 Adding vid fmt = [%s]\n",
 				__func__, __LINE__,
-				hdmi_get_video_fmt_2string(video_format));
+				msm_hdmi_mode_2string(video_format));
 
 			hdmi_edid_add_sink_video_format(sink_data,
 				video_format);

@@ -13,6 +13,7 @@
 #ifndef __HDMI_UTIL_H__
 #define __HDMI_UTIL_H__
 #include "mdss_io_util.h"
+#include "video/msm_hdmi_modes.h"
 
 /* HDMI_TX Registers */
 #define HDMI_CTRL                        (0x00000000)
@@ -218,166 +219,6 @@
 #define HDCP_KSV_LSB                     (0x000060D8)
 #define HDCP_KSV_MSB                     (0x000060DC)
 
-/* all video formats defined by EIA CEA-861-E */
-#define HDMI_VFRMT_640x480p60_4_3	0
-#define HDMI_VFRMT_720x480p60_4_3	1
-#define HDMI_VFRMT_720x480p60_16_9	2
-#define HDMI_VFRMT_1280x720p60_16_9	3
-#define HDMI_VFRMT_1920x1080i60_16_9	4
-#define HDMI_VFRMT_720x480i60_4_3	5
-#define HDMI_VFRMT_1440x480i60_4_3	HDMI_VFRMT_720x480i60_4_3
-#define HDMI_VFRMT_720x480i60_16_9	6
-#define HDMI_VFRMT_1440x480i60_16_9	HDMI_VFRMT_720x480i60_16_9
-#define HDMI_VFRMT_720x240p60_4_3	7
-#define HDMI_VFRMT_1440x240p60_4_3	HDMI_VFRMT_720x240p60_4_3
-#define HDMI_VFRMT_720x240p60_16_9	8
-#define HDMI_VFRMT_1440x240p60_16_9	HDMI_VFRMT_720x240p60_16_9
-#define HDMI_VFRMT_2880x480i60_4_3	9
-#define HDMI_VFRMT_2880x480i60_16_9	10
-#define HDMI_VFRMT_2880x240p60_4_3	11
-#define HDMI_VFRMT_2880x240p60_16_9	12
-#define HDMI_VFRMT_1440x480p60_4_3	13
-#define HDMI_VFRMT_1440x480p60_16_9	14
-#define HDMI_VFRMT_1920x1080p60_16_9	15
-#define HDMI_VFRMT_720x576p50_4_3	16
-#define HDMI_VFRMT_720x576p50_16_9	17
-#define HDMI_VFRMT_1280x720p50_16_9	18
-#define HDMI_VFRMT_1920x1080i50_16_9	19
-#define HDMI_VFRMT_720x576i50_4_3	20
-#define HDMI_VFRMT_1440x576i50_4_3	HDMI_VFRMT_720x576i50_4_3
-#define HDMI_VFRMT_720x576i50_16_9	21
-#define HDMI_VFRMT_1440x576i50_16_9	HDMI_VFRMT_720x576i50_16_9
-#define HDMI_VFRMT_720x288p50_4_3	22
-#define HDMI_VFRMT_1440x288p50_4_3	HDMI_VFRMT_720x288p50_4_3
-#define HDMI_VFRMT_720x288p50_16_9	23
-#define HDMI_VFRMT_1440x288p50_16_9	HDMI_VFRMT_720x288p50_16_9
-#define HDMI_VFRMT_2880x576i50_4_3	24
-#define HDMI_VFRMT_2880x576i50_16_9	25
-#define HDMI_VFRMT_2880x288p50_4_3	26
-#define HDMI_VFRMT_2880x288p50_16_9	27
-#define HDMI_VFRMT_1440x576p50_4_3	28
-#define HDMI_VFRMT_1440x576p50_16_9	29
-#define HDMI_VFRMT_1920x1080p50_16_9	30
-#define HDMI_VFRMT_1920x1080p24_16_9	31
-#define HDMI_VFRMT_1920x1080p25_16_9	32
-#define HDMI_VFRMT_1920x1080p30_16_9	33
-#define HDMI_VFRMT_2880x480p60_4_3	34
-#define HDMI_VFRMT_2880x480p60_16_9	35
-#define HDMI_VFRMT_2880x576p50_4_3	36
-#define HDMI_VFRMT_2880x576p50_16_9	37
-#define HDMI_VFRMT_1920x1250i50_16_9	38
-#define HDMI_VFRMT_1920x1080i100_16_9	39
-#define HDMI_VFRMT_1280x720p100_16_9	40
-#define HDMI_VFRMT_720x576p100_4_3	41
-#define HDMI_VFRMT_720x576p100_16_9	42
-#define HDMI_VFRMT_720x576i100_4_3	43
-#define HDMI_VFRMT_1440x576i100_4_3	HDMI_VFRMT_720x576i100_4_3
-#define HDMI_VFRMT_720x576i100_16_9	44
-#define HDMI_VFRMT_1440x576i100_16_9	HDMI_VFRMT_720x576i100_16_9
-#define HDMI_VFRMT_1920x1080i120_16_9	45
-#define HDMI_VFRMT_1280x720p120_16_9	46
-#define HDMI_VFRMT_720x480p120_4_3	47
-#define HDMI_VFRMT_720x480p120_16_9	48
-#define HDMI_VFRMT_720x480i120_4_3	49
-#define HDMI_VFRMT_1440x480i120_4_3	HDMI_VFRMT_720x480i120_4_3
-#define HDMI_VFRMT_720x480i120_16_9	50
-#define HDMI_VFRMT_1440x480i120_16_9	HDMI_VFRMT_720x480i120_16_9
-#define HDMI_VFRMT_720x576p200_4_3	51
-#define HDMI_VFRMT_720x576p200_16_9	52
-#define HDMI_VFRMT_720x576i200_4_3	53
-#define HDMI_VFRMT_1440x576i200_4_3	HDMI_VFRMT_720x576i200_4_3
-#define HDMI_VFRMT_720x576i200_16_9	54
-#define HDMI_VFRMT_1440x576i200_16_9	HDMI_VFRMT_720x576i200_16_9
-#define HDMI_VFRMT_720x480p240_4_3	55
-#define HDMI_VFRMT_720x480p240_16_9	56
-#define HDMI_VFRMT_720x480i240_4_3	57
-#define HDMI_VFRMT_1440x480i240_4_3	HDMI_VFRMT_720x480i240_4_3
-#define HDMI_VFRMT_720x480i240_16_9	58
-#define HDMI_VFRMT_1440x480i240_16_9	HDMI_VFRMT_720x480i240_16_9
-/* Video Identification Codes from 65-127 are reserved for the future */
-#define HDMI_VFRMT_END			127
-/* extended video formats */
-#define HDMI_VFRMT_3840x2160p30_16_9	(HDMI_VFRMT_END + 1)
-#define HDMI_VFRMT_3840x2160p25_16_9	(HDMI_VFRMT_END + 2)
-#define HDMI_VFRMT_3840x2160p24_16_9	(HDMI_VFRMT_END + 3)
-#define HDMI_VFRMT_4096x2160p24_16_9	(HDMI_VFRMT_END + 4)
-#define HDMI_EVFRMT_END			HDMI_VFRMT_4096x2160p24_16_9
-/* DVI only resolutions */
-#define HDMI_VFRMT_2560x1600p60_16_9	(HDMI_EVFRMT_END + 1)
-#define DVI_VFRMT_END			HDMI_VFRMT_2560x1600p60_16_9
-#define HDMI_VFRMT_MAX			(DVI_VFRMT_END + 1)
-#define HDMI_VFRMT_FORCE_32BIT		0x7FFFFFFF
-
-#define VFRMT_NOT_SUPPORTED(VFRMT) \
-	{VFRMT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false}
-
-#define HDMI_SETTINGS_640x480p60_4_3					\
-	{HDMI_VFRMT_640x480p60_4_3,      640,  16,  96,  48,  true,	\
-	 480, 10, 2, 33, true, 25200, 60000, false, true}
-#define HDMI_SETTINGS_720x480p60_4_3					\
-	{HDMI_VFRMT_720x480p60_4_3,      720,  16,  62,  60,  true,	\
-	 480, 9, 6, 30,  true, 27030, 60000, false, true}
-#define HDMI_SETTINGS_720x480p60_16_9					\
-	{HDMI_VFRMT_720x480p60_16_9,     720,  16,  62,  60,  true,	\
-	 480, 9, 6, 30,  true, 27030, 60000, false, true}
-#define HDMI_SETTINGS_1280x720p60_16_9					\
-	{HDMI_VFRMT_1280x720p60_16_9,    1280, 110, 40,  220, false,	\
-	 720, 5, 5, 20, false, 74250, 60000, false, true}
-#define HDMI_SETTINGS_1920x1080i60_16_9					\
-	{HDMI_VFRMT_1920x1080i60_16_9,   1920, 88,  44,  148, false,	\
-	 540, 2, 5, 5, false, 74250, 60000, false, true}
-#define HDMI_SETTINGS_1440x480i60_4_3					\
-	{HDMI_VFRMT_1440x480i60_4_3,     1440, 38,  124, 114, true,	\
-	 240, 4, 3, 15, true, 27000, 60000, true, true}
-#define HDMI_SETTINGS_1440x480i60_16_9					\
-	{HDMI_VFRMT_1440x480i60_16_9,    1440, 38,  124, 114, true,	\
-	 240, 4, 3, 15, true, 27000, 60000, true, true}
-#define HDMI_SETTINGS_1920x1080p60_16_9					\
-	{HDMI_VFRMT_1920x1080p60_16_9,   1920, 88,  44,  148,  false,	\
-	 1080, 4, 5, 36, false, 148500, 60000, false, true}
-#define HDMI_SETTINGS_720x576p50_4_3					\
-	{HDMI_VFRMT_720x576p50_4_3,      720,  12,  64,  68,   true,	\
-	 576,  5, 5, 39, true, 27000, 50000, false, true}
-#define HDMI_SETTINGS_720x576p50_16_9					\
-	{HDMI_VFRMT_720x576p50_16_9,     720,  12,  64,  68,   true,	\
-	 576,  5, 5, 39, true, 27000, 50000, false, true}
-#define HDMI_SETTINGS_1280x720p50_16_9					\
-	{HDMI_VFRMT_1280x720p50_16_9,    1280, 440, 40,  220,  false,	\
-	 720,  5, 5, 20, false, 74250, 50000, false, true}
-#define HDMI_SETTINGS_1440x576i50_4_3					\
-	{HDMI_VFRMT_1440x576i50_4_3,     1440, 24,  126, 138,  true,	\
-	 288,  2, 3, 19, true, 27000, 50000, true, true}
-#define HDMI_SETTINGS_1440x576i50_16_9					\
-	{HDMI_VFRMT_1440x576i50_16_9,    1440, 24,  126, 138,  true,	\
-	 288,  2, 3, 19, true, 27000, 50000, true, true}
-#define HDMI_SETTINGS_1920x1080p50_16_9					\
-	{HDMI_VFRMT_1920x1080p50_16_9,   1920,  528,  44,  148,  false,	\
-	 1080, 4, 5, 36, false, 148500, 50000, false, true}
-#define HDMI_SETTINGS_1920x1080p24_16_9					\
-	{HDMI_VFRMT_1920x1080p24_16_9,   1920,  638,  44,  148,  false,	\
-	 1080, 4, 5, 36, false, 74250, 24000, false, true}
-#define HDMI_SETTINGS_1920x1080p25_16_9					\
-	{HDMI_VFRMT_1920x1080p25_16_9,   1920,  528,  44,  148,  false,	\
-	 1080, 4, 5, 36, false, 74250, 25000, false, true}
-#define HDMI_SETTINGS_1920x1080p30_16_9					\
-	{HDMI_VFRMT_1920x1080p30_16_9,   1920,  88,   44,  148,  false,	\
-	 1080, 4, 5, 36, false, 74250, 30000, false, true}
-#define HDMI_SETTINGS_2560x1600p60_16_9					\
-	{HDMI_VFRMT_2560x1600p60_16_9,   2560,  48,   32,  80,  false,	\
-	 1600, 3, 6, 37, false, 268500, 60000, false, true}
-#define HDMI_SETTINGS_3840x2160p30_16_9					\
-	{HDMI_VFRMT_3840x2160p30_16_9, 3840, 176, 88, 296, false,	\
-	 2160, 8, 10, 72, false, 297000, 30000, false, true}
-#define HDMI_SETTINGS_3840x2160p25_16_9					\
-	{HDMI_VFRMT_3840x2160p25_16_9, 3840, 1056, 88, 296, false,	\
-	 2160, 8, 10, 72, false, 297000, 25000, false, true}
-#define HDMI_SETTINGS_3840x2160p24_16_9					\
-	{HDMI_VFRMT_3840x2160p24_16_9, 3840, 1276, 88, 296, false,	\
-	 2160, 8, 10, 72, false, 297000, 24000, false, true}
-#define HDMI_SETTINGS_4096x2160p24_16_9					\
-	{HDMI_VFRMT_4096x2160p24_16_9, 4096, 1020, 88, 296, false,	\
-	 2160, 8, 10, 72, false, 297000, 24000, false, true}
-
 #define TOP_AND_BOTTOM		0x10
 #define FRAME_PACKING		0x20
 #define SIDE_BY_SIDE_HALF	0x40
@@ -387,26 +228,6 @@ enum hdmi_tx_feature_type {
 	HDMI_TX_FEAT_HDCP,
 	HDMI_TX_FEAT_CEC,
 	HDMI_TX_FEAT_MAX,
-};
-
-struct hdmi_disp_mode_timing_type {
-	u32	video_format;
-	u32	active_h;
-	u32	front_porch_h;
-	u32	pulse_width_h;
-	u32	back_porch_h;
-	u32	active_low_h;
-	u32	active_v;
-	u32	front_porch_v;
-	u32	pulse_width_v;
-	u32	back_porch_v;
-	u32	active_low_v;
-	/* Must divide by 1000 to get the actual frequency in MHZ */
-	u32	pixel_freq;
-	/* Must divide by 1000 to get the actual frequency in HZ */
-	u32	refresh_rate;
-	u32	interlaced;
-	u32	supported;
 };
 
 struct hdmi_tx_ddc_ctrl {
@@ -426,12 +247,10 @@ struct hdmi_tx_ddc_data {
 };
 
 /* video timing related utility routines */
-void hdmi_init_supported_video_timings(void);
-int hdmi_get_video_id_code(struct hdmi_disp_mode_timing_type *timing_in);
-const struct hdmi_disp_mode_timing_type *hdmi_get_supported_mode(u32 mode);
-void hdmi_set_supported_mode(u32 mode);
+void hdmi_setup_video_mode_lut(void);
+int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in);
+const struct msm_hdmi_mode_timing_info *hdmi_get_supported_mode(u32 mode);
 void hdmi_del_supported_mode(u32 mode);
-const char *hdmi_get_video_fmt_2string(u32 format);
 ssize_t hdmi_get_video_3d_fmt_2string(u32 format, char *buf);
 
 /* todo: Fix this. Right now this is defined in mdss_hdmi_tx.c */
