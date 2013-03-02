@@ -31,6 +31,7 @@
 #include <sound/tlv.h>
 #include <sound/asound.h>
 #include <sound/pcm_params.h>
+#include <mach/qdsp6v2/q6core.h>
 
 #include "msm-pcm-routing-v2.h"
 #include "q6voice.h"
@@ -2090,6 +2091,27 @@ static const struct snd_kcontrol_new lpa_SRS_trumedia_controls_I2S[] = {
 	}
 };
 
+int msm_routing_get_dolby_security_control(
+		struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) {
+	/* not used while setting the manfr id*/
+	return 0;
+}
+
+int msm_routing_put_dolby_security_control(
+		struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol) {
+	int manufacturer_id = ucontrol->value.integer.value[0];
+	core_set_dolby_manufacturer_id(manufacturer_id);
+	return 0;
+}
+
+static const struct snd_kcontrol_new dolby_security_controls[] = {
+	SOC_SINGLE_MULTI_EXT("DS1 Security", SND_SOC_NOPM, 0,
+	0xFFFFFFFF, 0, 1, msm_routing_get_dolby_security_control,
+	msm_routing_put_dolby_security_control),
+};
+
 static const struct snd_kcontrol_new eq_enable_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1 EQ Enable", SND_SOC_NOPM,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_eq_enable_mixer,
@@ -3130,6 +3152,11 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				aanc_slim_0_rx_mux,
 				ARRAY_SIZE(aanc_slim_0_rx_mux));
+
+	snd_soc_add_platform_controls(platform,
+				dolby_security_controls,
+			ARRAY_SIZE(dolby_security_controls));
+
 	return 0;
 }
 
