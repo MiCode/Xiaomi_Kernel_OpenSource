@@ -186,14 +186,14 @@
 
 		qcom,iommu-ctx@fd870000 {
 			reg = <0xfd870000 0x1000>;
-			interrupts = <0 247 0>;
+			interrupts = <0 47 0>;
 			qcom,iommu-ctx-mids = <0>;
 			label = "mdps_0";
 		};
 
 		qcom,iommu-ctx@fd871000 {
 			reg = <0xfd871000 0x1000>;
-			interrupts = <0 247 0>;
+			interrupts = <0 47 0>;
 			qcom,iommu-ctx-mids = <1>;
 			label = "mdps_1";
 		};
