@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1728,20 +1728,18 @@ static struct snd_soc_dai_link msm_dai[] = {
 		.codec_name = "snd-soc-dummy",
 	},
 	{
-		.name = "VoLTE",
-		.stream_name = "VoLTE",
-		.cpu_dai_name   = "VoLTE",
-		.platform_name  = "msm-pcm-voice",
+		.name = "VoLTE Stub",
+		.stream_name = "VoLTE Stub",
+		.cpu_dai_name   = "VOLTE_STUB",
+		.platform_name  = "msm-pcm-hostless",
 		.dynamic = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-				SND_SOC_DPCM_TRIGGER_POST},
+			    SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
-		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-		.be_id = MSM_FRONTEND_DAI_VOLTE,
 	},
 	{
 		.name = "MSM8960 LowLatency",
