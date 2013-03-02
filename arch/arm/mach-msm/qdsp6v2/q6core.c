@@ -413,6 +413,32 @@ uint32_t core_set_dts_model_id(uint32_t id_size, uint8_t *id)
 	return rc;
 }
 
+uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
+{
+	struct adsp_dolby_manufacturer_id payload;
+	int rc = 0;
+	pr_debug("%s manufacturer_id :%d\n", __func__, manufacturer_id);
+	core_open();
+	if (core_handle_q) {
+		payload.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		payload.hdr.pkt_size =
+			sizeof(struct adsp_dolby_manufacturer_id);
+		payload.hdr.src_port = 0;
+		payload.hdr.dest_port = 0;
+		payload.hdr.token = 0;
+		payload.hdr.opcode = ADSP_CMD_SET_DOLBY_MANUFACTURER_ID;
+		payload.manufacturer_id = manufacturer_id;
+		pr_debug("Send Dolby security opcode=%x manufacturer ID = %d\n",
+			payload.hdr.opcode, payload.manufacturer_id);
+		rc = apr_send_pkt(core_handle_q, (uint32_t *)&payload);
+		if (rc < 0)
+			pr_err("%s: SET_DOLBY_MANUFACTURER_ID failed op[0x%x]rc[%d]\n",
+				__func__, payload.hdr.opcode, rc);
+	}
+	return rc;
+}
+
 static const struct file_operations apr_debug_fops = {
 	.write = apr_debug_write,
 	.open = apr_debug_open,
