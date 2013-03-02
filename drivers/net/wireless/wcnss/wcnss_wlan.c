@@ -976,12 +976,11 @@ wcnss_trigger_config(struct platform_device *pdev)
 		if (has_pronto_hw) {
 			has_48mhz_xo = of_property_read_bool(pdev->dev.of_node,
 										"qcom,has_48mhz_xo");
-			penv->wcnss_hw_type = WCNSS_PRONTO_HW;
 		} else {
-			penv->wcnss_hw_type = WCNSS_RIVA_HW;
 			has_48mhz_xo = pdata->has_48mhz_xo;
 		}
 	}
+	penv->wcnss_hw_type = (has_pronto_hw) ? WCNSS_PRONTO_HW : WCNSS_RIVA_HW;
 	penv->wlan_config.use_48mhz_xo = has_48mhz_xo;
 
 	penv->thermal_mitigation = 0;
