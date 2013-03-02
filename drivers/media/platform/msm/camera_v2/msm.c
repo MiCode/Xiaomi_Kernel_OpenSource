@@ -461,9 +461,6 @@ static void msm_sd_try_shutdown(void)
 static inline int __msm_sd_close_session_streams(struct v4l2_subdev *sd,
 	struct msm_sd_close_ioctl *sd_close)
 {
-	v4l2_subdev_call(sd, core, ioctl,
-		MSM_SD_CLOSE_SESSION_AND_STREAM, &sd_close);
-
 	return 0;
 }
 
