@@ -2339,7 +2339,7 @@ static int __q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
 	fmt.fmt_blk.fmt_blk_size = sizeof(fmt) - sizeof(fmt.hdr) -
 					sizeof(fmt.fmt_blk);
 	fmt.num_channels = channels;
-	fmt.bits_per_sample = 16;
+	fmt.bits_per_sample = bits_per_sample;
 	fmt.sample_rate = rate;
 	fmt.is_signed = 1;
 
