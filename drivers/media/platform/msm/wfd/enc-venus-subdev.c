@@ -46,7 +46,6 @@ struct venc_inst {
 	bool callback_thread_running;
 	struct completion dq_complete, cmd_complete;
 	bool secure;
-	int domain;
 };
 
 int venc_load_fw(struct v4l2_subdev *sd)
@@ -252,18 +251,6 @@ static long set_default_properties(struct venc_inst *inst)
 	return msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
 }
 
-static long get_iommu_domain(struct venc_inst *inst)
-{
-	struct msm_vidc_iommu_info maps[MAX_MAP];
-	int rc = msm_vidc_get_iommu_maps(inst->vidc_context, maps);
-	if (rc) {
-		WFD_MSG_ERR("Failed to retreive domain mappings\n");
-		return rc;
-	}
-
-	return maps[inst->secure ? CP_MAP : NS_MAP].domain;
-}
-
 static long venc_open(struct v4l2_subdev *sd, void *arg)
 {
 	struct venc_inst *inst = NULL;
@@ -313,12 +300,6 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 	rc = msm_vidc_subscribe_event(inst->vidc_context, &event);
 	if (rc) {
 		WFD_MSG_ERR("Failed to subscribe to FLUSH_DONE event\n");
-		goto vidc_subscribe_fail;
-	}
-
-	inst->domain = get_iommu_domain(inst);
-	if (inst->domain < 0) {
-		WFD_MSG_ERR("Failed to get domain\n");
 		goto vidc_subscribe_fail;
 	}
 
@@ -641,7 +622,9 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 		struct mem_region *mregion)
 {
 	int rc = 0;
-	unsigned long size = 0, align_req = 0;
+	unsigned long size = 0, align_req = 0, flags = 0;
+	int domain = 0, partition = 0;
+
 	if (!mregion) {
 		rc = -EINVAL;
 		goto venc_map_fail;
@@ -660,6 +643,12 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 		WFD_MSG_ERR("Failed to get handle: %p, %d, %d, %d\n",
 			venc_ion_client, mregion->fd, mregion->offset, rc);
 		mregion->ion_handle = NULL;
+		goto venc_map_fail;
+	}
+
+	rc = ion_handle_get_flags(venc_ion_client, mregion->ion_handle, &flags);
+	if (rc) {
+		WFD_MSG_ERR("Failed to get ion flags %d\n", rc);
 		goto venc_map_fail;
 	}
 
@@ -685,10 +674,16 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 		}
 	}
 
-	rc = ion_map_iommu(venc_ion_client, mregion->ion_handle,
-			inst->domain, 0, align_req, 0,
-			(unsigned long *)&mregion->paddr, &size, 0, 0);
+	rc = msm_vidc_get_iommu_domain_partition(inst->vidc_context,
+			flags, BUF_TYPE_OUTPUT, &domain, &partition);
+	if (rc) {
+		WFD_MSG_ERR("Failed to get domain for output buffer\n");
+		goto venc_domain_fail;
+	}
 
+	rc = ion_map_iommu(venc_ion_client, mregion->ion_handle,
+			domain, partition, align_req, 0,
+			(unsigned long *)&mregion->paddr, &size, 0, 0);
 	if (rc) {
 		WFD_MSG_ERR("Failed to map into iommu\n");
 		goto venc_map_iommu_map_fail;
@@ -700,8 +695,8 @@ static int venc_map_user_to_kernel(struct venc_inst *inst,
 	return 0;
 venc_map_iommu_size_fail:
 	ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
-			inst->domain, 0);
-
+			domain, partition);
+venc_domain_fail:
 	if (inst->secure)
 		msm_ion_unsecure_buffer(venc_ion_client, mregion->ion_handle);
 venc_map_iommu_map_fail:
@@ -714,12 +709,28 @@ venc_map_fail:
 static int venc_unmap_user_to_kernel(struct venc_inst *inst,
 		struct mem_region *mregion)
 {
+	unsigned long flags = 0;
+	int domain = 0, partition = 0, rc = 0;
+
 	if (!mregion || !mregion->ion_handle)
 		return 0;
 
+	rc = ion_handle_get_flags(venc_ion_client, mregion->ion_handle, &flags);
+	if (rc) {
+		WFD_MSG_ERR("Failed to get ion flags %d\n", rc);
+		return rc;
+	}
+
+	rc = msm_vidc_get_iommu_domain_partition(inst->vidc_context,
+		flags, BUF_TYPE_OUTPUT, &domain, &partition);
+	if (rc) {
+		WFD_MSG_ERR("Failed to get domain for input buffer\n");
+		return rc;
+	}
+
 	if (mregion->paddr) {
 		ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
-				inst->domain, 0);
+				domain, partition);
 		mregion->paddr = NULL;
 	}
 
@@ -731,7 +742,7 @@ static int venc_unmap_user_to_kernel(struct venc_inst *inst,
 	if (inst->secure)
 		msm_ion_unsecure_buffer(venc_ion_client, mregion->ion_handle);
 
-	return 0;
+	return rc;
 }
 
 static long venc_set_output_buffer(struct v4l2_subdev *sd, void *arg)
@@ -1145,7 +1156,8 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 {
 	struct mem_region_map *mmap = arg;
 	struct mem_region *mregion = NULL;
-	unsigned long rc = 0, size = 0, align_req = 0;
+	unsigned long size = 0, align_req = 0, flags = 0;
+	int domain = 0, partition = 0, rc = 0;
 	void *paddr = NULL;
 	struct venc_inst *inst = NULL;
 
@@ -1167,21 +1179,34 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 		goto venc_map_bad_align;
 	}
 
+	rc = ion_handle_get_flags(mmap->ion_client, mregion->ion_handle,
+			&flags);
+	if (rc) {
+		WFD_MSG_ERR("Failed to get ion flags %d\n", rc);
+		goto venc_map_bad_align;
+	}
+
 	if (inst->secure) {
 		rc = msm_ion_secure_buffer(mmap->ion_client,
-			mregion->ion_handle, VIDEO_PIXEL, 0);
+				mregion->ion_handle, VIDEO_PIXEL, 0);
 		if (rc) {
 			WFD_MSG_ERR("Failed to secure input buffer\n");
 			goto venc_map_bad_align;
 		}
 	}
 
-	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
-			inst->domain, 0, align_req, 0, (unsigned long *)&paddr,
-			&size, 0, 0);
-
+	rc = msm_vidc_get_iommu_domain_partition(inst->vidc_context,
+			flags, BUF_TYPE_INPUT, &domain, &partition);
 	if (rc) {
-		WFD_MSG_ERR("Failed to get physical addr %ld\n", rc);
+		WFD_MSG_ERR("Failed to get domain for output buffer\n");
+		goto venc_map_domain_fail;
+	}
+
+	rc = ion_map_iommu(mmap->ion_client, mregion->ion_handle,
+			domain, partition, align_req, 0,
+			(unsigned long *)&paddr, &size, 0, 0);
+	if (rc) {
+		WFD_MSG_ERR("Failed to get physical addr %d\n", rc);
 		paddr = NULL;
 		goto venc_map_bad_align;
 	} else if (size < mregion->size) {
@@ -1191,12 +1216,12 @@ long venc_mmap(struct v4l2_subdev *sd, void *arg)
 	}
 
 	mregion->paddr = paddr;
-	return 0;
+	return rc;
 
 venc_map_iommu_size_fail:
 	ion_unmap_iommu(venc_ion_client, mregion->ion_handle,
-			inst->domain, 0);
-
+			domain, partition);
+venc_map_domain_fail:
 	if (inst->secure)
 		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
 venc_map_bad_align:
@@ -1208,6 +1233,8 @@ long venc_munmap(struct v4l2_subdev *sd, void *arg)
 	struct mem_region_map *mmap = arg;
 	struct mem_region *mregion = NULL;
 	struct venc_inst *inst = NULL;
+	unsigned long flags = 0;
+	int domain = 0, partition = 0, rc = 0;
 
 	if (!sd) {
 		WFD_MSG_ERR("Subdevice required for %s\n", __func__);
@@ -1220,14 +1247,28 @@ long venc_munmap(struct v4l2_subdev *sd, void *arg)
 	inst = (struct venc_inst *)sd->dev_priv;
 	mregion = mmap->mregion;
 
+	rc = ion_handle_get_flags(mmap->ion_client,
+			mregion->ion_handle, &flags);
+	if (rc) {
+		WFD_MSG_ERR("Failed to get ion flags %d\n", rc);
+		return rc;
+	}
+
+	rc = msm_vidc_get_iommu_domain_partition(inst->vidc_context,
+		flags, BUF_TYPE_INPUT, &domain, &partition);
+	if (rc) {
+		WFD_MSG_ERR("Failed to get domain for input buffer\n");
+		return rc;
+	}
+
 	if (mregion->paddr)
 		ion_unmap_iommu(mmap->ion_client, mregion->ion_handle,
-			inst->domain, 0);
+			domain, partition);
 
 	if (inst->secure)
 		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
 
-	return 0;
+	return rc;
 }
 
 static long venc_set_framerate_mode(struct v4l2_subdev *sd,
@@ -1236,24 +1277,6 @@ static long venc_set_framerate_mode(struct v4l2_subdev *sd,
 	/* TODO: Unsupported for now, but return false success
 	 * to preserve binary compatibility for userspace apps
 	 * across targets */
-	return 0;
-}
-
-static long secure_toggle(struct venc_inst *inst, bool secure)
-{
-	if (inst->secure == secure)
-		return 0;
-
-	if (!list_empty(&inst->registered_input_bufs.list) ||
-		!list_empty(&inst->registered_output_bufs.list)) {
-		WFD_MSG_ERR(
-			"Attempt to (un)secure encoder not allowed after registering buffers"
-			);
-		return -EEXIST;
-	}
-
-	inst->secure = secure;
-	inst->domain = get_iommu_domain(inst);
 	return 0;
 }
 
@@ -1269,9 +1292,18 @@ static long venc_secure(struct v4l2_subdev *sd)
 	}
 
 	inst = sd->dev_priv;
-	rc = secure_toggle(inst, true);
-	if (rc) {
-		WFD_MSG_ERR("Failed to toggle into secure mode\n");
+
+	if (!list_empty(&inst->registered_input_bufs.list) ||
+		!list_empty(&inst->registered_output_bufs.list)) {
+		WFD_MSG_ERR(
+			"Attempt to (un)secure encoder not allowed after registering buffers"
+			);
+		rc = -EEXIST;
+	}
+
+	if (inst->secure) {
+		/* Nothing to do! */
+		rc = 0;
 		goto secure_fail;
 	}
 
@@ -1282,9 +1314,8 @@ static long venc_secure(struct v4l2_subdev *sd)
 		goto secure_fail;
 	}
 
-	return 0;
+	inst->secure = true;
 secure_fail:
-	secure_toggle(sd->dev_priv, false);
 	return rc;
 }
 

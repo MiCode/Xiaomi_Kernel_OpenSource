@@ -1113,25 +1113,14 @@ static int q6_hfi_is_ocmem_present(void *dev)
 	return 0;
 }
 
-static int q6_hfi_get_domain(void *dev, enum msm_vidc_io_maps iomap)
+static int q6_hfi_iommu_get_domain_partition(void *dev, u32 flags,
+	u32 buffer_type, int *domain, int *partition)
 {
 	(void)dev;
-	(void)iomap;
 
 	dprintk(VIDC_ERR, "Not implemented: %s", __func__);
 
-	return 0;
-}
-
-static int q6_hfi_iommu_get_map(void *dev,
-			struct msm_vidc_iommu_info maps[MAX_MAP])
-{
-	(void)dev;
-	(void)maps;
-
-	dprintk(VIDC_ERR, "Not implemented: %s", __func__);
-
-	return 0;
+	return -ENOTSUPP;
 }
 
 static int q6_hfi_iommu_attach(void *dev)
@@ -1230,8 +1219,7 @@ static void q6_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->alloc_ocmem = q6_hfi_alloc_ocmem;
 	hdev->free_ocmem = q6_hfi_free_ocmem;
 	hdev->is_ocmem_present = q6_hfi_is_ocmem_present;
-	hdev->get_domain = q6_hfi_get_domain;
-	hdev->iommu_get_map = q6_hfi_iommu_get_map;
+	hdev->iommu_get_domain_partition = q6_hfi_iommu_get_domain_partition;
 	hdev->load_fw = q6_hfi_load_fw;
 	hdev->unload_fw = q6_hfi_unload_fw;
 	hdev->get_fw_info = q6_hfi_get_fw_info;

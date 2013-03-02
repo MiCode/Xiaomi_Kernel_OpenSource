@@ -39,6 +39,8 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_force_cleanup(struct msm_vidc_inst *inst);
 enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	enum v4l2_mpeg_vidc_extradata index);
+int msm_comm_get_domain_partition(struct msm_vidc_inst *inst, u32 flags,
+	enum v4l2_buf_type buf_type, int *domain, int *partition);
 struct hal_buffer_requirements *get_buff_req_buffer(
 			struct msm_vidc_inst *inst, u32 buffer_type);
 #define IS_PRIV_CTRL(idx) (\

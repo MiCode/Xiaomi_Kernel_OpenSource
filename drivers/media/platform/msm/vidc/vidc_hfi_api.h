@@ -1047,9 +1047,8 @@ struct hfi_device {
 	int (*alloc_ocmem)(void *dev, unsigned long size);
 	int (*free_ocmem)(void *dev);
 	int (*is_ocmem_present)(void *dev);
-	int (*get_domain)(void *dev, enum msm_vidc_io_maps iomap);
-	int (*iommu_get_map)(void *dev,
-			struct msm_vidc_iommu_info maps[MAX_MAP]);
+	int (*iommu_get_domain_partition)(void *dev, u32 flags, u32 buffer_type,
+			int *domain_num, int *partition_num);
 	int (*load_fw)(void *dev);
 	void (*unload_fw)(void *dev);
 	int (*get_fw_info)(void *dev, enum fw_info info);

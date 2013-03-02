@@ -69,8 +69,6 @@ struct msm_vidc_platform_resources {
 	uint32_t irq;
 	struct load_freq_table *load_freq_tbl;
 	uint32_t load_freq_tbl_size;
-	struct msm_vidc_iommu_info *iommu_maps;
-	uint32_t iommu_maps_size;
 	struct reg_set reg_set;
 	struct msm_bus_scale_pdata *bus_pdata;
 	struct iommu_set iommu_group_set;
