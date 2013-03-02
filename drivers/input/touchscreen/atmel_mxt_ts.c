@@ -369,6 +369,7 @@ struct mxt_data {
 	struct regulator *vcc_ana;
 	struct regulator *vcc_dig;
 	struct regulator *vcc_i2c;
+	struct mxt_address_pair addr_pair;
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -490,9 +491,27 @@ static void mxt_dump_message(struct device *dev,
 	dev_dbg(dev, "checksum:\t0x%x\n", message->checksum);
 }
 
-static int mxt_switch_to_bootloader_address(struct mxt_data *data)
+static int mxt_lookup_bootloader_address(struct mxt_data *data)
 {
 	int i;
+
+	for (i = 0; mxt_slave_addresses[i].application != 0;  i++) {
+		if (mxt_slave_addresses[i].application ==
+				data->client->addr) {
+			data->addr_pair.bootloader =
+				mxt_slave_addresses[i].bootloader;
+			return 0;
+		}
+	}
+
+	dev_err(&data->client->dev, "Address 0x%02x not found in address table",
+			data->client->addr);
+	return -EINVAL;
+
+};
+
+static int mxt_switch_to_bootloader_address(struct mxt_data *data)
+{
 	struct i2c_client *client = data->client;
 
 	if (data->state == BOOTLOADER) {
@@ -500,27 +519,16 @@ static int mxt_switch_to_bootloader_address(struct mxt_data *data)
 		return -EINVAL;
 	}
 
-	for (i = 0; mxt_slave_addresses[i].application != 0;  i++) {
-		if (mxt_slave_addresses[i].application == client->addr) {
-			dev_info(&client->dev, "Changing to bootloader address: "
-				"%02x -> %02x",
-				client->addr,
-				mxt_slave_addresses[i].bootloader);
+	dev_info(&client->dev, "Changing to bootloader address: 0x%02x -> 0x%02x",
+			client->addr, data->addr_pair.bootloader);
 
-			client->addr = mxt_slave_addresses[i].bootloader;
-			data->state = BOOTLOADER;
-			return 0;
-		}
-	}
-
-	dev_err(&client->dev, "Address 0x%02x not found in address table",
-								client->addr);
-	return -EINVAL;
+	client->addr = data->addr_pair.bootloader;
+	data->state = BOOTLOADER;
+	return 0;
 }
 
 static int mxt_switch_to_appmode_address(struct mxt_data *data)
 {
-	int i;
 	struct i2c_client *client = data->client;
 
 	if (data->state == APPMODE) {
@@ -528,23 +536,13 @@ static int mxt_switch_to_appmode_address(struct mxt_data *data)
 		return -EINVAL;
 	}
 
-	for (i = 0; mxt_slave_addresses[i].application != 0;  i++) {
-		if (mxt_slave_addresses[i].bootloader == client->addr) {
-			dev_info(&client->dev,
-				"Changing to application mode address: "
-							"0x%02x -> 0x%02x",
-				client->addr,
-				mxt_slave_addresses[i].application);
+	dev_info(&client->dev, "Changing to application mode address: " \
+			"0x%02x -> 0x%02x", client->addr,
+			data->addr_pair.application);
 
-			client->addr = mxt_slave_addresses[i].application;
-			data->state = APPMODE;
-			return 0;
-		}
-	}
-
-	dev_err(&client->dev, "Address 0x%02x not found in address table",
-								client->addr);
-	return -EINVAL;
+	client->addr = data->addr_pair.application;
+	data->state = APPMODE;
+	return 0;
 }
 
 static int mxt_get_bootloader_version(struct i2c_client *client, u8 val)
@@ -1700,9 +1698,11 @@ static int mxt_load_fw(struct device *dev, const char *fn)
 	switch (data->info.family_id) {
 	case MXT224_ID:
 	case MXT224E_ID:
+	case MXT336S_ID:
 		max_frame_size = MXT_SINGLE_FW_MAX_FRAME_SIZE;
 		break;
 	case MXT1386_ID:
+	case MXT1664S_ID:
 		max_frame_size = MXT_CHIPSET_FW_MAX_FRAME_SIZE;
 		break;
 	default:
@@ -2691,6 +2691,12 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 		return -ENOMEM;
 	}
 
+	rc = of_property_read_u32(np, "atmel,bl-addr", &temp_val);
+	if (rc && (rc != -EINVAL))
+		dev_err(dev, "Unable to read bootloader address\n");
+	else if (rc != -EINVAL)
+		pdata->bl_addr = (u8) temp_val;
+
 	pdata->config_array  = info;
 
 	for_each_child_of_node(np, temp) {
@@ -2729,12 +2735,11 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 		} else
 			info->build = (u8) temp_val;
 
-		info->bootldr_id = of_property_read_u32(temp,
+		rc = of_property_read_u32(temp,
 					"atmel,bootldr-id", &temp_val);
-		if (rc) {
+		if (rc && (rc != -EINVAL))
 			dev_err(dev, "Unable to read bootldr-id\n");
-			return rc;
-		} else
+		else if (rc != -EINVAL)
 			info->bootldr_id = (u8) temp_val;
 
 		rc = mxt_parse_config(dev, temp, info);
@@ -2941,6 +2946,13 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	}
 
 	mxt_power_on_delay(data);
+
+	data->addr_pair.application = data->client->addr;
+
+	if (pdata->bl_addr)
+		data->addr_pair.bootloader = pdata->bl_addr;
+	else
+		mxt_lookup_bootloader_address(data);
 
 	error = mxt_initialize(data);
 	if (error)
