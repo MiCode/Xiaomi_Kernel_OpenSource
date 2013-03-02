@@ -74,6 +74,9 @@ endif
 # MSM8226
    zreladdr-$(CONFIG_ARCH_MSM8226)	:= 0x00008000
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-sim.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-cdp.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-mtp.dtb
+        dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-qrd.dtb
 
 # FSM9XXX
    zreladdr-$(CONFIG_ARCH_FSM9XXX)	:= 0x10008000
