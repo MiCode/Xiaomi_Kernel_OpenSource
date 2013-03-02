@@ -3157,7 +3157,15 @@ static void msm_otg_set_vbus_state(int online)
 	static bool init;
 	struct msm_otg *motg = the_msm_otg;
 
-	/* Ignore received BSV interrupts, if ID pin is GND */
+	if (online) {
+		pr_debug("PMIC: BSV set\n");
+		set_bit(B_SESS_VLD, &motg->inputs);
+	} else {
+		pr_debug("PMIC: BSV clear\n");
+		clear_bit(B_SESS_VLD, &motg->inputs);
+	}
+
+	/* do not queue state m/c work if id is grounded */
 	if (!test_bit(ID, &motg->inputs)) {
 		/*
 		 * state machine work waits for initial VBUS
@@ -3166,17 +3174,8 @@ static void msm_otg_set_vbus_state(int online)
 		 */
 		if (init)
 			return;
-		goto complete;
 	}
 
-	if (online) {
-		pr_debug("PMIC: BSV set\n");
-		set_bit(B_SESS_VLD, &motg->inputs);
-	} else {
-		pr_debug("PMIC: BSV clear\n");
-		clear_bit(B_SESS_VLD, &motg->inputs);
-	}
-complete:
 	if (!init) {
 		init = true;
 		complete(&pmic_vbus_init);
