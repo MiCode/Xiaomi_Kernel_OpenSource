@@ -785,13 +785,6 @@ static inline void msm_vidc_free_freq_table(
 	res->load_freq_tbl = NULL;
 }
 
-static inline void msm_vidc_free_iommu_maps(
-		struct msm_vidc_platform_resources *res)
-{
-	kfree(res->iommu_maps);
-	res->iommu_maps = NULL;
-}
-
 static inline void msm_vidc_free_reg_table(
 			struct msm_vidc_platform_resources *res)
 {
@@ -861,60 +854,6 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	}
 
 	res->load_freq_tbl_size = num_elements;
-	return rc;
-}
-
-static int msm_vidc_load_iommu_maps(struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	int num_elements = 0;
-	int i;
-	struct platform_device *pdev = res->pdev;
-	char *names[MAX_MAP] = {
-		[CP_MAP] = "qcom,vidc-cp-map",
-		[NS_MAP] = "qcom,vidc-ns-map",
-	};
-	char *contexts[MAX_MAP] = {
-		[CP_MAP] = "venus_cp",
-		[NS_MAP] = "venus_ns",
-	};
-
-
-	res->iommu_maps = kzalloc(MAX_MAP * sizeof(*res->iommu_maps),
-			GFP_KERNEL);
-	if (!res->iommu_maps) {
-		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n", __func__);
-		return -ENOMEM;
-	}
-
-	res->iommu_maps_size = MAX_MAP;
-	for (i = 0; i < MAX_MAP; i++) {
-		num_elements = get_u32_array_num_elements(pdev, names[i]);
-		if ((num_elements == 0)) {
-			if (i == NS_MAP) {
-				dprintk(VIDC_ERR,
-				"Domain not found in dtsi file :%s\n",
-				names[i]);
-				goto error;
-			} else
-				continue;
-		}
-		memcpy(&res->iommu_maps[i].name, names[i],
-				strlen(names[i]));
-		memcpy(&res->iommu_maps[i].ctx, contexts[i],
-				strlen(contexts[i]));
-
-		if (of_property_read_u32_array(pdev->dev.of_node, names[i],
-			res->iommu_maps[i].addr_range, num_elements * 2)) {
-			dprintk(VIDC_ERR, "Failed to read iommu map :%s\n",
-					names[i]);
-			rc = -EINVAL;
-			goto error;
-		}
-	}
-	return rc;
-error:
-	msm_vidc_free_iommu_maps(res);
 	return rc;
 }
 
@@ -1267,11 +1206,6 @@ static int read_platform_resources_from_dt(
 		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);
 		goto err_load_freq_table;
 	}
-	rc = msm_vidc_load_iommu_maps(res);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to load iommu maps: %d\n", rc);
-		goto err_load_iommu_maps;
-	}
 	rc = msm_vidc_load_reg_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load reg table: %d\n", rc);
@@ -1302,8 +1236,6 @@ err_load_iommu_groups:
 err_load_bus_vectors:
 	msm_vidc_free_reg_table(res);
 err_load_reg_table:
-	msm_vidc_free_iommu_maps(res);
-err_load_iommu_maps:
 	msm_vidc_free_freq_table(res);
 err_load_freq_table:
 	return rc;
@@ -1315,7 +1247,6 @@ static int read_platform_resources_from_board(
 	struct resource *kres = NULL;
 	struct platform_device *pdev = res->pdev;
 	struct msm_vidc_v4l2_platform_data *pdata = pdev->dev.platform_data;
-	int64_t start, size;
 	int c = 0, rc = 0;
 
 	if (!pdata) {
@@ -1346,33 +1277,6 @@ static int read_platform_resources_from_board(
 		res->load_freq_tbl[c].load = pdata->load_table[c][0];
 		res->load_freq_tbl[c].freq = pdata->load_table[c][1];
 	}
-
-	res->iommu_maps = kzalloc(MAX_MAP *
-			sizeof(*res->iommu_maps), GFP_KERNEL);
-	if (!res->iommu_maps) {
-		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n",
-				__func__);
-		kfree(res->load_freq_tbl);
-		return -ENOMEM;
-	}
-
-	res->iommu_maps_size = MAX_MAP;
-
-	start = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_CP][0];
-	size = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_CP][1];
-	res->iommu_maps[CP_MAP] = (struct msm_vidc_iommu_info) {
-		.addr_range = {(u32) start, (u32) size},
-			.name = "qcom,vidc-cp-map",
-			.ctx = "venus_cp",
-	};
-
-	start = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_NS][0];
-	size = pdata->iommu_table[MSM_VIDC_V4L2_IOMMU_MAP_NS][1];
-	res->iommu_maps[NS_MAP] = (struct msm_vidc_iommu_info) {
-		.addr_range = {(u32) start, (u32) size},
-			.name = "qcom,vidc-ns-map",
-			.ctx = "venus_ns",
-	};
 	return rc;
 }
 
@@ -1529,7 +1433,6 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&core->v4l2_dev);
 
 	msm_vidc_free_freq_table(&core->resources);
-	msm_vidc_free_iommu_maps(&core->resources);
 	msm_vidc_free_reg_table(&core->resources);
 	msm_vidc_free_bus_vectors(&core->resources);
 	msm_vidc_free_iommu_groups(&core->resources);
