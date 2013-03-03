@@ -45,6 +45,37 @@ const char *ipa_client_name[] = {
 	__stringify(IPA_CLIENT_MAX),
 };
 
+const char *ipa_ic_name[] = {
+	__stringify_1(IPA_IP_CMD_INVALID),
+	__stringify_1(IPA_DECIPH_INIT),
+	__stringify_1(IPA_PPP_FRM_INIT),
+	__stringify_1(IPA_IP_V4_FILTER_INIT),
+	__stringify_1(IPA_IP_V6_FILTER_INIT),
+	__stringify_1(IPA_IP_V4_NAT_INIT),
+	__stringify_1(IPA_IP_V6_NAT_INIT),
+	__stringify_1(IPA_IP_V4_ROUTING_INIT),
+	__stringify_1(IPA_IP_V6_ROUTING_INIT),
+	__stringify_1(IPA_HDR_INIT_LOCAL),
+	__stringify_1(IPA_HDR_INIT_SYSTEM),
+	__stringify_1(IPA_DECIPH_SETUP),
+	__stringify_1(IPA_INSERT_NAT_RULE),
+	__stringify_1(IPA_DELETE_NAT_RULE),
+	__stringify_1(IPA_NAT_DMA),
+	__stringify_1(IPA_IP_PACKET_TAG),
+	__stringify_1(IPA_IP_PACKET_INIT),
+};
+
+const char *ipa_excp_name[] = {
+	__stringify_1(IPA_A5_MUX_HDR_EXCP_RSVD0),
+	__stringify_1(IPA_A5_MUX_HDR_EXCP_RSVD1),
+	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_IHL),
+	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_REPLICATED),
+	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_TAG),
+	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_SW_FLT),
+	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_NAT),
+	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_IP),
+};
+
 static struct dentry *dent;
 static struct dentry *dfile_gen_reg;
 static struct dentry *dfile_ep_reg;
@@ -489,33 +520,39 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"sw_tx=%u\n"
 			"hw_tx=%u\n"
-			"rx=%u\n",
+			"rx=%u\n"
+			"rx_repl_repost=%u\n"
+			"x_intr_repost=%u\n"
+			"rx_q_len=%u\n",
 			ipa_ctx->stats.tx_sw_pkts,
 			ipa_ctx->stats.tx_hw_pkts,
-			ipa_ctx->stats.rx_pkts);
+			ipa_ctx->stats.rx_pkts,
+			ipa_ctx->stats.rx_repl_repost,
+			ipa_ctx->stats.x_intr_repost,
+			ipa_ctx->stats.rx_q_len);
 	cnt += nbytes;
 
 	for (i = 0; i < MAX_NUM_EXCP; i++) {
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"rx_excp[%u]=%u\n", i,
+				"rx_excp[%u:%35s]=%u\n", i, ipa_excp_name[i],
 				ipa_ctx->stats.rx_excp_pkts[i]);
 		cnt += nbytes;
 	}
 
 	for (i = 0; i < IPA_BRIDGE_TYPE_MAX; i++) {
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"bridged_pkt[%u][dl]=%u\n"
-				"bridged_pkt[%u][ul]=%u\n",
-				i,
+				"brg_pkt[%u:%s][dl]=%u\n"
+				"brg_pkt[%u:%s][ul]=%u\n",
+				i, (i == 0) ? "teth" : "embd",
 				ipa_ctx->stats.bridged_pkts[i][0],
-				i,
+				i, (i == 0) ? "teth" : "embd",
 				ipa_ctx->stats.bridged_pkts[i][1]);
 		cnt += nbytes;
 	}
 
 	for (i = 0; i < MAX_NUM_IMM_CMD; i++) {
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				"IC[%u]=%u\n", i,
+				"IC[%2u:%22s]=%u\n", i, ipa_ic_name[i],
 				ipa_ctx->stats.imm_cmds[i]);
 		cnt += nbytes;
 	}
