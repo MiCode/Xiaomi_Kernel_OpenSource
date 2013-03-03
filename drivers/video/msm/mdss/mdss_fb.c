@@ -386,6 +386,7 @@ static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
 			return ret;
 		}
 		mfd->op_enable = false;
+		fb_set_suspend(mfd->fbi, FBINFO_STATE_SUSPENDED);
 	}
 
 	return 0;
@@ -417,6 +418,8 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 					mfd->op_enable);
 		if (ret)
 			pr_warn("can't turn on display!\n");
+		else
+			fb_set_suspend(mfd->fbi, FBINFO_STATE_RUNNING);
 	}
 	mfd->is_power_setting = false;
 	complete_all(&mfd->power_set_comp);
@@ -424,39 +427,61 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 	return ret;
 }
 
-int mdss_fb_suspend_all(void)
+#if defined(CONFIG_PM) && !defined(CONFIG_PM_SLEEP)
+static int mdss_fb_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct fb_info *fbi;
-	int ret, i;
-	int result = 0;
-	for (i = 0; i < fbi_list_index; i++) {
-		fbi = fbi_list[i];
-		fb_set_suspend(fbi, FBINFO_STATE_SUSPENDED);
+	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
+	if (!mfd)
+		return -ENODEV;
 
-		ret = mdss_fb_suspend_sub(fbi->par);
-		if (ret != 0) {
-			fb_set_suspend(fbi, FBINFO_STATE_RUNNING);
-			result = ret;
-		}
-	}
-	return result;
+	dev_dbg(&pdev->dev, "display suspend\n");
+
+	return mdss_fb_suspend_sub(mfd);
 }
 
-int mdss_fb_resume_all(void)
+static int mdss_fb_resume(struct platform_device *pdev)
 {
-	struct fb_info *fbi;
-	int ret, i;
-	int result = 0;
+	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
+	if (!mfd)
+		return -ENODEV;
 
-	for (i = 0; i < fbi_list_index; i++) {
-		fbi = fbi_list[i];
+	dev_dbg(&pdev->dev, "display resume\n");
 
-		ret = mdss_fb_resume_sub(fbi->par);
-		if (ret == 0)
-			fb_set_suspend(fbi, FBINFO_STATE_RUNNING);
-	}
-	return result;
+	return mdss_fb_resume_sub(mfd);
 }
+#else
+#define mdss_fb_suspend NULL
+#define mdss_fb_resume NULL
+#endif
+
+#ifdef CONFIG_PM_SLEEP
+static int mdss_fb_pm_suspend(struct device *dev)
+{
+	struct msm_fb_data_type *mfd = dev_get_drvdata(dev);
+
+	if (!mfd)
+		return -ENODEV;
+
+	dev_dbg(dev, "display pm suspend\n");
+
+	return mdss_fb_suspend_sub(mfd);
+}
+
+static int mdss_fb_pm_resume(struct device *dev)
+{
+	struct msm_fb_data_type *mfd = dev_get_drvdata(dev);
+	if (!mfd)
+		return -ENODEV;
+
+	dev_dbg(dev, "display pm resume\n");
+
+	return mdss_fb_resume_sub(mfd);
+}
+#endif
+
+static const struct dev_pm_ops mdss_fb_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mdss_fb_pm_suspend, mdss_fb_pm_resume)
+};
 
 static const struct of_device_id mdss_fb_dt_match[] = {
 	{ .compatible = "qcom,mdss-fb",},
@@ -467,9 +492,12 @@ EXPORT_COMPAT("qcom,mdss-fb");
 static struct platform_driver mdss_fb_driver = {
 	.probe = mdss_fb_probe,
 	.remove = mdss_fb_remove,
+	.suspend = mdss_fb_suspend,
+	.resume = mdss_fb_resume,
 	.driver = {
 		.name = "mdss_fb",
 		.of_match_table = mdss_fb_dt_match,
+		.pm = &mdss_fb_pm_ops,
 	},
 };
 
