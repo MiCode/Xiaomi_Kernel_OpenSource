@@ -984,12 +984,18 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
 	if (!host_bus_suspend) {
-		ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
-		if (ret)
-			dev_err(phy->dev, "%s failed to devote for "
-				"TCXO D0 buffer%d\n", __func__, ret);
-		else
+		if (!IS_ERR(motg->xo_clk)) {
+			clk_disable_unprepare(motg->xo_clk);
 			motg->lpm_flags |= XO_SHUTDOWN;
+		} else {
+			ret = msm_xo_mode_vote(motg->xo_handle,
+							MSM_XO_MODE_OFF);
+			if (ret)
+				dev_err(phy->dev, "%s fail to devote XO %d\n",
+								 __func__, ret);
+			else
+				motg->lpm_flags |= XO_SHUTDOWN;
+		}
 	}
 
 	if (motg->caps & ALLOW_PHY_POWER_COLLAPSE &&
@@ -1052,10 +1058,14 @@ static int msm_otg_resume(struct msm_otg *motg)
 
 	/* Vote for TCXO when waking up the phy */
 	if (motg->lpm_flags & XO_SHUTDOWN) {
-		ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
-		if (ret)
-			dev_err(phy->dev, "%s failed to vote for "
-				"TCXO D0 buffer%d\n", __func__, ret);
+		if (!IS_ERR(motg->xo_clk)) {
+			clk_prepare_enable(motg->xo_clk);
+		} else {
+			ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
+			if (ret)
+				dev_err(phy->dev, "%s fail to vote for XO %d\n",
+								__func__, ret);
+		}
 		motg->lpm_flags &= ~XO_SHUTDOWN;
 	}
 
@@ -3919,20 +3929,31 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		motg->async_irq = 0;
 	}
 
-	motg->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
-	if (IS_ERR(motg->xo_handle)) {
-		dev_err(&pdev->dev, "%s not able to get the handle "
-			"to vote for TCXO D0 buffer\n", __func__);
-		ret = PTR_ERR(motg->xo_handle);
-		goto free_regs;
+	motg->xo_clk = clk_get(&pdev->dev, "xo");
+	if (IS_ERR(motg->xo_clk)) {
+		motg->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
+		if (IS_ERR(motg->xo_handle)) {
+			dev_err(&pdev->dev, "%s fail to get handle for TCXO\n",
+								__func__);
+			ret = PTR_ERR(motg->xo_handle);
+			goto free_regs;
+		} else {
+			ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
+			if (ret) {
+				dev_err(&pdev->dev, "%s XO voting failed %d\n",
+								__func__, ret);
+				goto free_xo_handle;
+			}
+		}
+	} else {
+		ret = clk_prepare_enable(motg->xo_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "%s failed to vote for TCXO %d\n",
+							__func__, ret);
+			goto free_xo_handle;
+		}
 	}
 
-	ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
-	if (ret) {
-		dev_err(&pdev->dev, "%s failed to vote for TCXO "
-			"D0 buffer%d\n", __func__, ret);
-		goto free_xo_handle;
-	}
 
 	clk_prepare_enable(motg->pclk);
 
@@ -4154,9 +4175,15 @@ free_config_vddcx:
 		vdd_val[motg->vdd_type][VDD_MAX]);
 devote_xo_handle:
 	clk_disable_unprepare(motg->pclk);
-	msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
+	if (!IS_ERR(motg->xo_clk))
+		clk_disable_unprepare(motg->xo_clk);
+	else
+		msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
 free_xo_handle:
-	msm_xo_put(motg->xo_handle);
+	if (!IS_ERR(motg->xo_clk))
+		clk_put(motg->xo_clk);
+	else
+		msm_xo_put(motg->xo_handle);
 free_regs:
 	iounmap(motg->regs);
 put_pclk:
@@ -4229,7 +4256,12 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(motg->pclk);
 	clk_disable_unprepare(motg->core_clk);
-	msm_xo_put(motg->xo_handle);
+	if (!IS_ERR(motg->xo_clk)) {
+		clk_disable_unprepare(motg->xo_clk);
+		clk_put(motg->xo_clk);
+	} else {
+		msm_xo_put(motg->xo_handle);
+	}
 	msm_hsusb_ldo_enable(motg, USB_PHY_REG_OFF);
 	msm_hsusb_ldo_init(motg, 0);
 	regulator_disable(hsusb_vddcx);

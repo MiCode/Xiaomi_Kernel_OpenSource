@@ -304,6 +304,7 @@ struct msm_otg {
 	struct msm_otg_platform_data *pdata;
 	int irq;
 	int async_irq;
+	struct clk *xo_clk;
 	struct clk *clk;
 	struct clk *pclk;
 	struct clk *phy_reset_clk;
