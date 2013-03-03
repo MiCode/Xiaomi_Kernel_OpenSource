@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,49 @@ static void ci13xxx_msm_resume(void)
 	}
 }
 
+static void ci13xxx_msm_disconnect(void)
+{
+	struct ci13xxx *udc = _udc;
+	struct usb_phy *phy = udc->transceiver;
+
+	if (phy && (phy->flags & ENABLE_DP_MANUAL_PULLUP))
+		usb_phy_io_write(phy,
+				ULPI_MISC_A_VBUSVLDEXT |
+				ULPI_MISC_A_VBUSVLDEXTSEL,
+				ULPI_CLR(ULPI_MISC_A));
+}
+
+static void ci13xxx_msm_connect(void)
+{
+	struct ci13xxx *udc = _udc;
+	struct usb_phy *phy = udc->transceiver;
+
+	if (phy && (phy->flags & ENABLE_DP_MANUAL_PULLUP)) {
+		int	temp;
+
+		usb_phy_io_write(phy,
+			ULPI_MISC_A_VBUSVLDEXT |
+			ULPI_MISC_A_VBUSVLDEXTSEL,
+			ULPI_SET(ULPI_MISC_A));
+
+		temp = readl_relaxed(USB_GENCONFIG2);
+		temp |= GENCFG2_SESS_VLD_CTRL_EN;
+		writel_relaxed(temp, USB_GENCONFIG2);
+
+		temp = readl_relaxed(USB_USBCMD);
+		temp |= USBCMD_SESS_VLD_CTRL;
+		writel_relaxed(temp, USB_USBCMD);
+
+		/*
+		 * Add memory barrier as it is must to complete
+		 * above USB PHY and Link register writes before
+		 * moving ahead with USB peripheral mode enumeration,
+		 * otherwise USB peripheral mode may not work.
+		 */
+		mb();
+	}
+}
+
 static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 {
 	struct device *dev = udc->gadget.dev.parent;
@@ -73,7 +116,12 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 		break;
 	case CI13XXX_CONTROLLER_DISCONNECT_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_DISCONNECT_EVENT received\n");
+		ci13xxx_msm_disconnect();
 		ci13xxx_msm_resume();
+		break;
+	case CI13XXX_CONTROLLER_CONNECT_EVENT:
+		dev_info(dev, "CI13XXX_CONTROLLER_CONNECT_EVENT received\n");
+		ci13xxx_msm_connect();
 		break;
 	case CI13XXX_CONTROLLER_SUSPEND_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_SUSPEND_EVENT received\n");

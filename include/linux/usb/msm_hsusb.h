@@ -221,9 +221,13 @@ struct msm_otg_platform_data {
 	bool enable_lpm_on_dev_suspend;
 	bool core_clk_always_on_workaround;
 	bool delay_lpm_on_disconnect;
+	bool dp_manual_pullup;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	const char *mhl_dev_name;
 };
+
+/* phy related flags */
+#define ENABLE_DP_MANUAL_PULLUP		BIT(0)
 
 /* Timeout (in msec) values (min - max) associated with OTG timers */
 
