@@ -99,6 +99,11 @@ static int hw_device_state(struct ci13xxx *ci, u32 dma)
 					USBMODE_CI_SDIS);
 
 		hw_write(ci, OP_ENDPTLISTADDR, ~0, dma);
+
+		if (ci->ci_driver->notify_event)
+			ci->udc_driver->notify_event(ci,
+				CI13XXX_CONTROLLER_CONNECT_EVENT);
+
 		/* interrupt, error, port change, reset, sleep/suspend */
 		hw_write(ci, OP_USBINTR, ~0,
 			     USBi_UI|USBi_UEI|USBi_PCI|USBi_URI|USBi_SLI);
@@ -1847,12 +1852,9 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_on)
 {
 	struct ci13xxx *ci = container_of(_gadget, struct ci13xxx, gadget);
 
-	if (is_on) {
+	if (is_on)
 		hw_write(ci, OP_USBCMD, USBCMD_RS, USBCMD_RS);
-		if (ci->platdata->notify_event)
-			ci->platdata->notify_event(ci,
-				CI13XXX_CONTROLLER_CONNECT_EVENT);
-	} else
+	else
 		hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
 
 	return 0;

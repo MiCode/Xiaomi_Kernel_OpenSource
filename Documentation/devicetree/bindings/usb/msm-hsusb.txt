@@ -61,6 +61,9 @@ Optional properties :
 - qcom,vdd-voltage-level: This property must be a list of three integer
 	values (no, min, max) where each value represents either a voltage
 	in microvolts or a value corresponding to voltage corner.
+- qcom,dp-manual-pullup: If present, vbus is not routed to USB controller/phy
+	and controller driver therefore enables pull-up explicitly before
+	starting controller using usbcmd run/stop bit.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
@@ -85,7 +88,7 @@ Example HSUSB OTG controller device node :
                 HSUSB_1p8-supply = <&pm8226_l10>;
                 HSUSB_3p3-supply = <&pm8226_l20>;
 		qcom,vdd-voltage-level = <1 5 7>;
-
+		qcom,dp-manual-pullup;
 		qcom,msm_bus,name = "usb2";
 		qcom,msm_bus,num_cases = <2>;
 		qcom,msm_bus,active_only = <0>;
