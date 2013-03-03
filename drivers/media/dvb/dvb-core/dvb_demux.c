@@ -514,6 +514,10 @@ static inline int dvb_dmx_swfilter_buffer_check(
 			((feed->pid != pid) && (feed->pid != 0x2000)))
 			continue;
 
+		if (feed->secure_mode.is_secured &&
+			!dvb_dmx_is_rec_feed(feed))
+			return 0;
+
 		if (feed->type == DMX_TYPE_TS) {
 			desired_space = 192; /* upper bound */
 			ts = &feed->feed.ts;
@@ -593,19 +597,23 @@ static inline void dvb_dmx_swfilter_packet_type(struct dvb_demux_feed *feed,
 		if (!feed->feed.ts.is_filtering)
 			break;
 		if (feed->ts_type & TS_PACKET) {
-			if (feed->ts_type & TS_PAYLOAD_ONLY)
-				dvb_dmx_swfilter_payload(feed, buf);
-			else
+			if (feed->ts_type & TS_PAYLOAD_ONLY) {
+				if (!feed->secure_mode.is_secured)
+					dvb_dmx_swfilter_payload(feed, buf);
+			} else {
 				dvb_dmx_swfilter_output_packet(feed,
 						buf, timestamp);
+			}
 		}
-		if (feed->ts_type & TS_DECODER)
+		if ((feed->ts_type & TS_DECODER) &&
+			!feed->secure_mode.is_secured)
 			if (feed->demux->write_to_decoder)
 				feed->demux->write_to_decoder(feed, buf, 188);
 		break;
 
 	case DMX_TYPE_SEC:
-		if (!feed->feed.sec.is_filtering)
+		if (!feed->feed.sec.is_filtering ||
+			feed->secure_mode.is_secured)
 			break;
 		if (dvb_dmx_swfilter_section_packet(feed, buf) < 0)
 			feed->feed.sec.seclen = feed->feed.sec.secbufp = 0;
@@ -1212,17 +1220,22 @@ static int dmx_ts_set_secure_mode(struct dmx_ts_feed *feed,
 {
 	struct dvb_demux_feed *dvbdmxfeed = (struct dvb_demux_feed *)feed;
 	struct dvb_demux *dvbdmx = dvbdmxfeed->demux;
+	int ret = 0;
 
 	mutex_lock(&dvbdmx->mutex);
 
-	dvbdmxfeed->secure_mode = *secure_mode;
-
 	if ((dvbdmxfeed->state == DMX_STATE_GO) &&
-		dvbdmxfeed->demux->set_secure_mode)
-		dvbdmxfeed->demux->set_secure_mode(dvbdmxfeed, secure_mode);
+		dvbdmxfeed->demux->set_secure_mode) {
+		ret = dvbdmxfeed->demux->set_secure_mode(dvbdmxfeed,
+			secure_mode);
+		if (!ret)
+			dvbdmxfeed->secure_mode = *secure_mode;
+	} else {
+		dvbdmxfeed->secure_mode = *secure_mode;
+	}
 
 	mutex_unlock(&dvbdmx->mutex);
-	return 0;
+	return ret;
 }
 
 static int dmx_ts_set_indexing_params(

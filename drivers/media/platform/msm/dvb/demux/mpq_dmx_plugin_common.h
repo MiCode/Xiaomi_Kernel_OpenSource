@@ -362,6 +362,9 @@ struct mpq_feed {
  * @ion_client: ION demux client used to allocate memory from ION.
  * @mutex: Lock used to protect against private feed data
  * @feeds: mpq common feed object pool
+ * @num_active_feeds: Number of active mpq feeds
+ * @num_secure_feeds: Number of secure feeds (have a sdmx filter associated)
+ * currently allocated.
  * @filters_status: Array holding buffers status for each secure demux filter.
  * Used before each call to sdmx_process() to build up to date state.
  * @sdmx_session_handle: Secure demux open session handle
@@ -406,6 +409,8 @@ struct mpq_demux {
 	struct ion_client *ion_client;
 	struct mutex mutex;
 	struct mpq_feed feeds[MPQ_MAX_DMX_FILES];
+	u32 num_active_feeds;
+	u32 num_secure_feeds;
 	struct sdmx_filter_status filters_status[MPQ_MAX_DMX_FILES];
 	int sdmx_session_handle;
 	int sdmx_session_ref_count;
@@ -613,86 +618,6 @@ int mpq_dmx_process_video_packet(struct dvb_demux_feed *feed, const u8 *buf);
  * pair.
  */
 int mpq_dmx_process_pcr_packet(struct dvb_demux_feed *feed, const u8 *buf);
-
-/**
- * mpq_dmx_is_video_feed - Returns whether the PES feed
- * is video one.
- *
- * @feed: The feed to be checked.
- *
- * Return     1 if feed is video feed, 0 otherwise.
- */
-static inline int mpq_dmx_is_video_feed(struct dvb_demux_feed *feed)
-{
-	if (feed->type != DMX_TYPE_TS)
-		return 0;
-
-	if (feed->ts_type & (~TS_DECODER))
-		return 0;
-
-	if ((feed->pes_type == DMX_TS_PES_VIDEO0) ||
-		(feed->pes_type == DMX_TS_PES_VIDEO1) ||
-		(feed->pes_type == DMX_TS_PES_VIDEO2) ||
-		(feed->pes_type == DMX_TS_PES_VIDEO3))
-		return 1;
-
-	return 0;
-}
-
-/**
- * mpq_dmx_is_pcr_feed - Returns whether the PES feed
- * is PCR one.
- *
- * @feed: The feed to be checked.
- *
- * Return     1 if feed is PCR feed, 0 otherwise.
- */
-static inline int mpq_dmx_is_pcr_feed(struct dvb_demux_feed *feed)
-{
-	if (feed->type != DMX_TYPE_TS)
-		return 0;
-
-	if (feed->ts_type & (~TS_DECODER))
-		return 0;
-
-	if ((feed->pes_type == DMX_TS_PES_PCR0) ||
-		(feed->pes_type == DMX_TS_PES_PCR1) ||
-		(feed->pes_type == DMX_TS_PES_PCR2) ||
-		(feed->pes_type == DMX_TS_PES_PCR3))
-		return 1;
-
-	return 0;
-}
-
-/**
- * mpq_dmx_is_sec_feed - Returns whether this is a section feed
- *
- * @feed: The feed to be checked.
- *
- * Return 1 if feed is a section feed, 0 otherwise.
- */
-static inline int mpq_dmx_is_sec_feed(struct dvb_demux_feed *feed)
-{
-	return (feed->type == DMX_TYPE_SEC);
-}
-
-/**
- * mpq_dmx_is_rec_feed - Returns whether this is a recording feed
- *
- * @feed: The feed to be checked.
- *
- * Return 1 if feed is recording feed, 0 otherwise.
- */
-static inline int mpq_dmx_is_rec_feed(struct dvb_demux_feed *feed)
-{
-	if (feed->type != DMX_TYPE_TS)
-		return 0;
-
-	if (feed->ts_type & (TS_DECODER | TS_PAYLOAD_ONLY))
-		return 0;
-
-	return 1;
-}
 
 /**
  * mpq_dmx_init_hw_statistics -

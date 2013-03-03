@@ -518,10 +518,10 @@ static int mpq_tsif_dmx_write_to_decoder(
 				"%s: warnning - len larger than one packet\n",
 				__func__);
 
-	if (mpq_dmx_is_video_feed(feed))
+	if (dvb_dmx_is_video_feed(feed))
 		return mpq_dmx_process_video_packet(feed, buf);
 
-	if (mpq_dmx_is_pcr_feed(feed))
+	if (dvb_dmx_is_pcr_feed(feed))
 		return mpq_dmx_process_pcr_packet(feed, buf);
 
 	return 0;
