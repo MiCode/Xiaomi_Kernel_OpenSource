@@ -1713,7 +1713,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	struct sdhci_host *host;
 	u16 ctrl;
-	u32 ier;
+	u32 ier = 0;
 	int tuning_loop_counter = MAX_TUNING_LOOP;
 	unsigned long timeout;
 	int err = 0;
@@ -1749,6 +1749,14 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		return 0;
 	}
 
+	if (host->ops->execute_tuning) {
+		spin_unlock(&host->lock);
+		enable_irq(host->irq);
+		host->ops->execute_tuning(host, opcode);
+		disable_irq(host->irq);
+		spin_lock(&host->lock);
+		goto out;
+	}
 	sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 
 	/*

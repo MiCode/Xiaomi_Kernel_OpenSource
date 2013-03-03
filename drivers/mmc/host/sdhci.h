@@ -278,6 +278,7 @@ struct sdhci_ops {
 	void	(*platform_suspend)(struct sdhci_host *host);
 	void	(*platform_resume)(struct sdhci_host *host);
 	void	(*check_power_status)(struct sdhci_host *host);
+	int	(*execute_tuning)(struct sdhci_host *host, u32 opcode);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
