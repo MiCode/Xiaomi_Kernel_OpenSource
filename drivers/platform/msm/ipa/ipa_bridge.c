@@ -42,9 +42,6 @@ struct ipa_bridge_pipe_context {
 	struct sps_connect connection;
 	struct sps_mem_buffer desc_mem_buf;
 	struct sps_register_event register_event;
-	spinlock_t spinlock;
-	u32 len;
-	u32 free_len;
 	struct list_head free_desc_list;
 };
 
@@ -162,12 +159,10 @@ static int queue_rx_single(enum ipa_bridge_dir dir, enum ipa_bridge_type type)
 		goto fail_dma;
 	}
 
-	info->len = ~0;
-
 	list_add_tail(&info->link, &sys_rx->head_desc_list);
 	ret = sps_transfer_one(sys_rx->pipe, info->dma_address,
 			       IPA_RX_SKB_SIZE, info,
-			       SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+			       SPS_IOVEC_FLAG_INT);
 	if (ret) {
 		list_del(&info->link);
 		dma_unmap_single(NULL, info->dma_address, IPA_RX_SKB_SIZE,
@@ -176,7 +171,6 @@ static int queue_rx_single(enum ipa_bridge_dir dir, enum ipa_bridge_type type)
 				type, dir);
 		goto fail_dma;
 	}
-	sys_rx->len++;
 	return 0;
 
 fail_dma:
@@ -206,9 +200,6 @@ static int ipa_reclaim_tx(struct ipa_bridge_pipe_context *sys_tx, bool all)
 						  link);
 			list_move_tail(&tx_pkt->link,
 					&sys_tx->free_desc_list);
-			sys_tx->len--;
-			sys_tx->free_len++;
-			tx_pkt->len = ~0;
 			cnt++;
 		}
 	} while (all);
@@ -245,7 +236,6 @@ static void ipa_do_bridge_work(enum ipa_bridge_dir dir,
 						  struct ipa_pkt_info,
 						  link);
 			list_del(&rx_pkt->link);
-			sys_rx->len--;
 			rx_pkt->len = iov.size;
 
 retry_alloc_tx:
@@ -285,15 +275,12 @@ retry_alloc_tx:
 
 				list_add_tail(&tmp_pkt->link,
 						&sys_tx->free_desc_list);
-				sys_tx->free_len++;
-				tmp_pkt->len = ~0;
 			}
 
 			tx_pkt = list_first_entry(&sys_tx->free_desc_list,
 						  struct ipa_pkt_info,
 						  link);
 			list_del(&tx_pkt->link);
-			sys_tx->free_len--;
 
 retry_add_rx:
 			list_add_tail(&tx_pkt->link,
@@ -302,8 +289,7 @@ retry_add_rx:
 					tx_pkt->dma_address,
 					IPA_RX_SKB_SIZE,
 					tx_pkt,
-					SPS_IOVEC_FLAG_INT |
-					SPS_IOVEC_FLAG_EOT);
+					SPS_IOVEC_FLAG_INT);
 			if (ret) {
 				list_del(&tx_pkt->link);
 				pr_debug_ratelimited("%s: sps_transfer_one failed %d type=%d dir=%d\n",
@@ -312,7 +298,6 @@ retry_add_rx:
 						polling_max_sleep[dir]);
 				goto retry_add_rx;
 			}
-			sys_rx->len++;
 
 retry_add_tx:
 			list_add_tail(&rx_pkt->link,
@@ -332,7 +317,6 @@ retry_add_tx:
 						polling_max_sleep[dir]);
 				goto retry_add_tx;
 			}
-			sys_tx->len++;
 			IPA_STATS_INC_BRIDGE_CNT(ctx->type, dir,
 					ipa_ctx->stats.bridged_pkts);
 		}
@@ -444,7 +428,6 @@ static int setup_bridge_to_ipa(enum ipa_bridge_dir dir,
 
 	INIT_LIST_HEAD(&sys->head_desc_list);
 	INIT_LIST_HEAD(&sys->free_desc_list);
-	spin_lock_init(&sys->spinlock);
 
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0,
 	       sizeof(struct ipa_ep_context));
@@ -614,7 +597,6 @@ static int setup_bridge_to_a2(enum ipa_bridge_dir dir,
 
 	INIT_LIST_HEAD(&sys->head_desc_list);
 	INIT_LIST_HEAD(&sys->free_desc_list);
-	spin_lock_init(&sys->spinlock);
 
 	if (dir == IPA_BRIDGE_DIR_DL) {
 		sys->register_event.options = SPS_O_EOT;
@@ -663,32 +645,32 @@ int ipa_bridge_init(void)
 	int ret;
 	int i;
 
-	bridge[IPA_BRIDGE_TYPE_TETHERED].ul_wq = alloc_workqueue("ipa_ul_teth",
-			WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
+	bridge[IPA_BRIDGE_TYPE_TETHERED].ul_wq =
+		create_singlethread_workqueue("ipa_ul_teth");
 	if (!bridge[IPA_BRIDGE_TYPE_TETHERED].ul_wq) {
 		IPAERR("ipa ul teth wq alloc failed\n");
 		ret = -ENOMEM;
 		goto fail_ul_teth;
 	}
 
-	bridge[IPA_BRIDGE_TYPE_TETHERED].dl_wq = alloc_workqueue("ipa_dl_teth",
-			WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
+	bridge[IPA_BRIDGE_TYPE_TETHERED].dl_wq =
+		create_singlethread_workqueue("ipa_dl_teth");
 	if (!bridge[IPA_BRIDGE_TYPE_TETHERED].dl_wq) {
 		IPAERR("ipa dl teth wq alloc failed\n");
 		ret = -ENOMEM;
 		goto fail_dl_teth;
 	}
 
-	bridge[IPA_BRIDGE_TYPE_EMBEDDED].ul_wq = alloc_workqueue("ipa_ul_emb",
-					 WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
+	bridge[IPA_BRIDGE_TYPE_EMBEDDED].ul_wq =
+		create_singlethread_workqueue("ipa_ul_emb");
 	if (!bridge[IPA_BRIDGE_TYPE_EMBEDDED].ul_wq) {
 		IPAERR("ipa ul emb wq alloc failed\n");
 		ret = -ENOMEM;
 		goto fail_ul_emb;
 	}
 
-	bridge[IPA_BRIDGE_TYPE_EMBEDDED].dl_wq = alloc_workqueue("ipa_dl_emb",
-					 WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
+	bridge[IPA_BRIDGE_TYPE_EMBEDDED].dl_wq =
+		create_singlethread_workqueue("ipa_dl_emb");
 	if (!bridge[IPA_BRIDGE_TYPE_EMBEDDED].dl_wq) {
 		IPAERR("ipa dl emb wq alloc failed\n");
 		ret = -ENOMEM;
