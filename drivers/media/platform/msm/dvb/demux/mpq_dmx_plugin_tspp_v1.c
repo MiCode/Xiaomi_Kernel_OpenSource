@@ -306,6 +306,30 @@ static int mpq_tspp_get_filter_slot(int tsif, int pid)
 }
 
 /**
+ * mpq_dmx_tspp_swfilter_desc - helper function
+ *
+ * Takes a tspp buffer descriptor and send it to the SW filter for demuxing,
+ * one TS packet at a time.
+ *
+ * @mpq_demux - mpq demux object
+ * @tspp_data_desc - tspp buffer descriptor
+ */
+static inline void mpq_dmx_tspp_swfilter_desc(struct mpq_demux *mpq_demux,
+	const struct tspp_data_descriptor *tspp_data_desc)
+{
+	u32 notif_size;
+	int i;
+
+	notif_size = tspp_data_desc->size / TSPP_RAW_TTS_SIZE;
+	for (i = 0; i < notif_size; i++)
+		dvb_dmx_swfilter_packet(&mpq_demux->demux,
+			((u8 *)tspp_data_desc->virt_base) +
+			i * TSPP_RAW_TTS_SIZE,
+			((u8 *)tspp_data_desc->virt_base) +
+			i * TSPP_RAW_TTS_SIZE + TSPP_RAW_SIZE);
+}
+
+/**
  * Demux TS packets from TSPP by secure-demux.
  * The fucntion assumes the buffer is physically contiguous
  * and that TSPP descriptors are continuous in memory.
@@ -320,37 +344,46 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 	struct sdmx_buff_descr input;
 	size_t aggregate_len = 0;
 	size_t aggregate_count = 0;
-	phys_addr_t buff_start_addr;
-	phys_addr_t buff_current_addr = 0;
+	phys_addr_t buff_start_addr_phys;
+	phys_addr_t buff_current_addr_phys = 0;
+	u32 notif_size;
 	int i;
 
 	while ((tspp_data_desc = tspp_get_buffer(0, channel_id)) != NULL) {
 		if (0 == aggregate_count)
-			buff_current_addr = tspp_data_desc->phys_base;
+			buff_current_addr_phys = tspp_data_desc->phys_base;
+		notif_size = tspp_data_desc->size / TSPP_RAW_TTS_SIZE;
 		mpq_dmx_tspp_info.tsif[tsif].aggregate_ids[aggregate_count] =
 			tspp_data_desc->id;
 		aggregate_len += tspp_data_desc->size;
 		aggregate_count++;
-		mpq_demux->hw_notification_size +=
-			tspp_data_desc->size / TSPP_RAW_TTS_SIZE;
+		mpq_demux->hw_notification_size += notif_size;
+
+		/* Let SW filter process only if it might be relevant */
+		if (mpq_demux->num_active_feeds > mpq_demux->num_secure_feeds)
+			mpq_dmx_tspp_swfilter_desc(mpq_demux, tspp_data_desc);
+
 	}
 
 	if (!aggregate_count)
 		return;
 
-	buff_start_addr = mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_phys_base;
-	input.base_addr = (void *)buff_start_addr;
+	buff_start_addr_phys =
+		mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_phys_base;
+	input.base_addr = (void *)buff_start_addr_phys;
 	input.size = mpq_dmx_tspp_info.tsif[tsif].buffer_count *
 		TSPP_DESCRIPTOR_SIZE;
 
-	MPQ_DVB_DBG_PRINT(
-		"%s: Processing %d descriptors: %d bytes at start address 0x%x, read offset %d\n",
-		__func__, aggregate_count, aggregate_len,
-		(unsigned int)input.base_addr,
-		buff_current_addr - buff_start_addr);
+	if (mpq_sdmx_is_loaded() && mpq_demux->sdmx_filter_count) {
+		MPQ_DVB_DBG_PRINT(
+			"%s: SDMX Processing %d descriptors: %d bytes at start address 0x%x, read offset %d\n",
+			__func__, aggregate_count, aggregate_len,
+			(unsigned int)input.base_addr,
+			buff_current_addr_phys - buff_start_addr_phys);
 
-	mpq_sdmx_process(mpq_demux, &input, aggregate_len,
-		 buff_current_addr - buff_start_addr);
+		mpq_sdmx_process(mpq_demux, &input, aggregate_len,
+			buff_current_addr_phys - buff_start_addr_phys);
+	}
 
 	for (i = 0; i < aggregate_count; i++)
 		tspp_release_buffer(0, channel_id,
@@ -373,7 +406,6 @@ static int mpq_dmx_tspp_thread(void *arg)
 	int channel_id;
 	int ref_count;
 	int ret;
-	int j;
 
 	do {
 		ret = wait_event_interruptible(
@@ -427,13 +459,8 @@ static int mpq_dmx_tspp_thread(void *arg)
 					TSPP_RAW_TTS_SIZE;
 				mpq_demux->hw_notification_size += notif_size;
 
-				for (j = 0; j < notif_size; j++)
-					dvb_dmx_swfilter_packet(
-					 &mpq_demux->demux,
-					 ((u8 *)tspp_data_desc->virt_base) +
-					 j * TSPP_RAW_TTS_SIZE,
-					 ((u8 *)tspp_data_desc->virt_base) +
-					 j * TSPP_RAW_TTS_SIZE + TSPP_RAW_SIZE);
+				mpq_dmx_tspp_swfilter_desc(mpq_demux,
+					tspp_data_desc);
 				/*
 				 * Notify TSPP that the buffer
 				 * is no longer needed
@@ -1554,10 +1581,10 @@ static int mpq_tspp_dmx_write_to_decoder(
 				"%s: warnning - len larger than one packet\n",
 				__func__);
 
-	if (mpq_dmx_is_video_feed(feed))
+	if (dvb_dmx_is_video_feed(feed))
 		return mpq_dmx_process_video_packet(feed, buf);
 
-	if (mpq_dmx_is_pcr_feed(feed))
+	if (dvb_dmx_is_pcr_feed(feed))
 		return mpq_dmx_process_pcr_packet(feed, buf);
 
 	return 0;
