@@ -498,6 +498,12 @@
 			status = "disabled";
 		};
 
+		qcom,leds@d800 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd800 0x100>;
+			label = "wled";
+		};
+
 		regulator@8000 {
 			regulator-name = "8226_lvs1";
 			reg = <0x8000 0x100>;
