@@ -3037,12 +3037,14 @@ static struct clk_ops clk_ops_byte;
 static struct clk_ops clk_ops_pixel;
 
 #define CFG_RCGR_DIV_MASK		BM(4, 0)
+#define CMD_RCGR_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0x0)
 #define CFG_RCGR_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0x4)
 #define M_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0x8)
 #define N_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0xC)
 #define MND_MODE_MASK			BM(13, 12)
 #define MND_DUAL_EDGE_MODE_BVAL		BVAL(13, 12, 0x2)
 #define CFG_RCGR_SRC_SEL_MASK		BM(10, 8)
+#define CMD_RCGR_ROOT_STATUS_BIT	BIT(31)
 
 static struct clk *get_parent_byte(struct clk *clk)
 {
@@ -3070,6 +3072,9 @@ static enum handoff byte_rcg_handoff(struct clk *clk)
 		pre_div_rate = parent_rate;
 
 	clk->rate = pre_div_rate;
+
+	if (readl_relaxed(CMD_RCGR_REG(rcg)) & CMD_RCGR_ROOT_STATUS_BIT)
+		return HANDOFF_DISABLED_CLK;
 
 	return HANDOFF_ENABLED_CLK;
 }
@@ -3141,6 +3146,9 @@ static enum handoff pixel_rcg_handoff(struct clk *clk)
 		nval = (~nval) + mval;
 		clk->rate = (pre_div_rate * mval) / nval;
 	}
+
+	if (readl_relaxed(CMD_RCGR_REG(rcg)) & CMD_RCGR_ROOT_STATUS_BIT)
+		return HANDOFF_DISABLED_CLK;
 
 	return HANDOFF_ENABLED_CLK;
 }
