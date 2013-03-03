@@ -19,6 +19,6 @@
 	qcom,msm-id = <145 11 0>;
 
 	serial@f991f000 {
-		status = "disabled";
+		status = "ok";
 	};
 };
