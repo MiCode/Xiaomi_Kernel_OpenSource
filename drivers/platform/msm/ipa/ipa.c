@@ -1417,7 +1417,8 @@ static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
 {
 	void *bam_cnfg_bits;
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
+	if ((ipa_ctx->ipa_hw_type == IPA_HW_v1_0) ||
+	    (ipa_ctx->ipa_hw_type == IPA_HW_v1_1)) {
 		bam_cnfg_bits = ioremap(res->ipa_mem_base +
 						IPA_BAM_REG_BASE_OFST,
 					IPA_BAM_REMAP_SIZE);
