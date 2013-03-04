@@ -1135,7 +1135,6 @@
         };
 
 	uart7: uart@f995d000 { /*BLSP #2, UART #7 */
-		cell-index = <0>;
 		compatible = "qcom,msm-hsuart-v14";
 		status = "disabled";
 		reg = <0xf995d000 0x1000>,
