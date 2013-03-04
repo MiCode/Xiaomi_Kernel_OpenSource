@@ -825,5 +825,6 @@ int a2_mux_exit(void);
 
 void wwan_cleanup(void);
 
+int teth_bridge_driver_init(void);
 
 #endif /* _IPA_I_H_ */
