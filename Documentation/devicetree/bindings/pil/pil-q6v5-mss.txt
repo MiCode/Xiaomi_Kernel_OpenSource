@@ -25,6 +25,8 @@ Required properties:
 Optional properties:
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
 - qcom,vdd_pll:       Voltage to be set for the PLL's rail.
+- reg-names:          "cxrail_bhs_reg" - control register for modem power
+		      domain.
 
 Example:
 	qcom,mss@fc880000 {
