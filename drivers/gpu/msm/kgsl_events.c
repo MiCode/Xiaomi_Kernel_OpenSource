@@ -149,6 +149,7 @@ void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 		 * Send the current timestamp so the event knows how far the
 		 * system got before the event was canceled
 		 */
+		list_del(&event->list);
 
 		trace_kgsl_fire_event(id, cur, jiffies - event->created);
 
@@ -156,7 +157,6 @@ void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 			event->func(device, event->priv, id, cur);
 
 		kgsl_context_put(context);
-		list_del(&event->list);
 		kfree(event);
 
 		kgsl_active_count_put(device);
@@ -192,6 +192,7 @@ void kgsl_cancel_events(struct kgsl_device *device,
 		 * the callback knows how far the GPU made it before things went
 		 * explosion
 		 */
+		list_del(&event->list);
 
 		trace_kgsl_fire_event(KGSL_MEMSTORE_GLOBAL, cur,
 			jiffies - event->created);
@@ -202,8 +203,6 @@ void kgsl_cancel_events(struct kgsl_device *device,
 
 		if (event->context)
 			kgsl_context_put(event->context);
-
-		list_del(&event->list);
 		kfree(event);
 
 		kgsl_active_count_put(device);
@@ -229,6 +228,7 @@ static void _process_event_list(struct kgsl_device *device,
 		 * confused if they don't bother comparing the current timetamp
 		 * to the timestamp they wanted
 		 */
+		list_del(&event->list);
 
 		trace_kgsl_fire_event(id, event->timestamp,
 			jiffies - event->created);
@@ -238,8 +238,6 @@ static void _process_event_list(struct kgsl_device *device,
 
 		if (event->context)
 			kgsl_context_put(event->context);
-
-		list_del(&event->list);
 		kfree(event);
 
 		kgsl_active_count_put(device);
