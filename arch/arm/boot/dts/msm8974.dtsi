@@ -1138,7 +1138,7 @@
 		compatible = "qcom,msm-hsuart-v14";
 		status = "disabled";
 		reg = <0xf995d000 0x1000>,
-			<0xf9944000 0x5000>;
+			<0xf9944000 0x19000>;
 		reg-names = "core_mem", "bam_mem";
 		interrupts = <0 113 0>, <0 239 0>;
 		interrupt-names = "core_irq", "bam_irq";
