@@ -463,26 +463,28 @@ typedef void (*a2_mux_notify_cb)(void *user_data,
 		enum a2_mux_event_type event,
 		unsigned long data);
 
-#ifdef CONFIG_IPA
-
-/*
- * a2 service
+/**
+ * enum teth_tethering_mode - Tethering mode (Rmnet / MBIM)
  */
-int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
-			void *user_data,
-			a2_mux_notify_cb notify_cb);
+enum teth_tethering_mode {
+	TETH_TETHERING_MODE_RMNET,
+	TETH_TETHERING_MODE_MBIM,
+	TETH_TETHERING_MODE_MAX,
+};
 
-int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid);
+/**
+ * struct teth_bridge_connect_params - Parameters used in teth_bridge_connect()
+ * @ipa_usb_pipe_hdl:	IPA to USB pipe handle, returned from ipa_connect()
+ * @usb_ipa_pipe_hdl:	USB to IPA pipe handle, returned from ipa_connect()
+ * @tethering_mode:	Rmnet or MBIM
+ */
+struct teth_bridge_connect_params {
+	u32 ipa_usb_pipe_hdl;
+	u32 usb_ipa_pipe_hdl;
+	enum teth_tethering_mode tethering_mode;
+};
 
-int a2_mux_write(enum a2_mux_logical_channel_id lcid, struct sk_buff *skb);
-
-int a2_mux_is_ch_low(enum a2_mux_logical_channel_id lcid);
-
-int a2_mux_is_ch_full(enum a2_mux_logical_channel_id lcid);
-
-int a2_mux_get_tethered_client_handles(enum a2_mux_logical_channel_id lcid,
-		unsigned int *clnt_cons_handle,
-		unsigned int *clnt_prod_handle);
+#ifdef CONFIG_IPA
 
 /*
  * Connect / Disconnect
@@ -652,6 +654,34 @@ int ipa_rm_inactivity_timer_request_resource(
 int ipa_rm_inactivity_timer_release_resource(
 				enum ipa_rm_resource_name resource_name);
 
+/*
+ * a2 service
+ */
+int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
+			void *user_data,
+			a2_mux_notify_cb notify_cb);
+
+int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid);
+
+int a2_mux_write(enum a2_mux_logical_channel_id lcid, struct sk_buff *skb);
+
+int a2_mux_is_ch_low(enum a2_mux_logical_channel_id lcid);
+
+int a2_mux_is_ch_full(enum a2_mux_logical_channel_id lcid);
+
+int a2_mux_get_tethered_client_handles(enum a2_mux_logical_channel_id lcid,
+		unsigned int *clnt_cons_handle,
+		unsigned int *clnt_prod_handle);
+
+/*
+ * Tethering bridge (Rmnet / MBIM)
+ */
+int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr);
+
+int teth_bridge_disconnect(void);
+
+int teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
+
 #else /* CONFIG_IPA */
 
 static inline int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
@@ -687,7 +717,6 @@ static inline int a2_mux_get_tethered_client_handles(
 {
 	return -EPERM;
 }
-
 
 /*
  * Connect / Disconnect
@@ -1050,6 +1079,26 @@ static inline int ipa_rm_inactivity_timer_request_resource(
 
 static inline int ipa_rm_inactivity_timer_release_resource(
 				enum ipa_rm_resource_name resource_name)
+{
+	return -EPERM;
+}
+
+/*
+ * Tethering bridge (Rmnetm / MBIM)
+ */
+static inline int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr,
+				   void **private_data_ptr)
+{
+	return -EPERM;
+}
+
+static inline int teth_bridge_disconnect(void)
+{
+	return -EPERM;
+}
+
+static inline int teth_bridge_connect(struct teth_bridge_connect_params
+				      *connect_params)
 {
 	return -EPERM;
 }

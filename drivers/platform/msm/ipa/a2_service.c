@@ -1534,6 +1534,13 @@ int a2_mux_init(void)
 	}
 	if (smsm_get_state(SMSM_MODEM_STATE) & SMSM_A2_POWER_CONTROL)
 		bam_dmux_smsm_cb(NULL, 0, smsm_get_state(SMSM_MODEM_STATE));
+
+	/*
+	 * Set remote channel open for tethered channel since there is
+	 *  no actual remote tethered channel
+	 */
+	a2_mux_ctx->bam_ch[A2_MUX_TETHERED_0].status |= BAM_CH_REMOTE_OPEN;
+
 	rc = 0;
 	goto bail;
 
