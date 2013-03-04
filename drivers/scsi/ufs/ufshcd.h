@@ -63,6 +63,8 @@
 #include <scsi/scsi_dbg.h>
 #include <scsi/scsi_eh.h>
 
+#include <linux/fault-inject.h>
+
 #include "ufs.h"
 #include "ufshci.h"
 
@@ -211,6 +213,9 @@ struct debugfs_files {
 	struct dentry *tag_stats;
 	struct dentry *show_hba;
 	struct dentry *host_regs;
+#ifdef CONFIG_UFS_FAULT_INJECTION
+	struct fault_attr fail_attr;
+#endif
 };
 #endif
 

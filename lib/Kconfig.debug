@@ -1274,6 +1274,20 @@ config FAIL_MMC_REQUEST
 	  and to test how the mmc host driver handles retries from
 	  the block device.
 
+config UFS_FAULT_INJECTION
+	bool "Fault-injection capability for UFS IO"
+	select DEBUG_FS
+	depends on FAULT_INJECTION && SCSI_UFSHCD
+	help
+	 Provide fault-injection capability for UFS IO.
+	 This will make the UFS host controller driver to randomly
+	 abort ongoing commands in the host controller, update OCS
+	 field according to the injected fatal error and can also
+	 forcefully hang the command indefinitely till upper layer
+	 timeout occurs. This is useful to test error handling in
+	 the UFS contoller driver and test how the driver handles
+	 the retries from block/SCSI mid layer.
+
 config FAULT_INJECTION_DEBUG_FS
 	bool "Debugfs entries for fault-injection capabilities"
 	depends on FAULT_INJECTION && SYSFS && DEBUG_FS
