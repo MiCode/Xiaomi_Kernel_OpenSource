@@ -27,6 +27,16 @@
 void ufsdbg_add_debugfs(struct ufs_hba *hba);
 
 void ufsdbg_remove_debugfs(struct ufs_hba *hba);
+void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status);
+#else
+void ufsdbg_add_debugfs(struct ufs_hba *hba)
+{
+}
+void ufsdbg_remove_debugfs(struct ufs_hba *hba)
+{
+}
+void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
+{
+}
 #endif
-
 #endif /* End of Header */

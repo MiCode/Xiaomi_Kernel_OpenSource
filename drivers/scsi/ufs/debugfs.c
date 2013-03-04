@@ -17,7 +17,145 @@
  *
  */
 
+#include <linux/random.h>
 #include "debugfs.h"
+
+#ifdef CONFIG_UFS_FAULT_INJECTION
+
+#define INJECT_COMMAND_HANG (0x0)
+
+static DECLARE_FAULT_ATTR(fail_default_attr);
+static char *fail_request;
+module_param(fail_request, charp, 0);
+
+static bool inject_fatal_err_tr(struct ufs_hba *hba, u8 ocs_err)
+{
+	int tag;
+
+	tag = find_first_bit(&hba->outstanding_reqs, hba->nutrs);
+	if (tag == hba->nutrs)
+		return 0;
+
+	ufshcd_writel(hba, ~(1 << tag), REG_UTP_TRANSFER_REQ_LIST_CLEAR);
+	(&hba->lrb[tag])->utr_descriptor_ptr->header.dword_2 =
+							cpu_to_be32(ocs_err);
+
+	/* fatal error injected */
+	return 1;
+}
+
+static bool inject_fatal_err_tm(struct ufs_hba *hba, u8 ocs_err)
+{
+	int tag;
+
+	tag = find_first_bit(&hba->outstanding_tasks, hba->nutmrs);
+	if (tag == hba->nutmrs)
+		return 0;
+
+	ufshcd_writel(hba, ~(1 << tag), REG_UTP_TASK_REQ_LIST_CLEAR);
+	(&hba->utmrdl_base_addr[tag])->header.dword_2 =
+						cpu_to_be32(ocs_err);
+
+	/* fatal error injected */
+	return 1;
+}
+
+static bool inject_cmd_hang_tr(struct ufs_hba *hba)
+{
+	int tag;
+
+	tag = find_first_bit(&hba->outstanding_reqs, hba->nutrs);
+	if (tag == hba->nutrs)
+		return 0;
+
+	__clear_bit(tag, &hba->outstanding_reqs);
+	hba->lrb[tag].cmd = NULL;
+	__clear_bit(tag, &hba->lrb_in_use);
+
+	/* command hang injected */
+	return 1;
+}
+
+static int inject_cmd_hang_tm(struct ufs_hba *hba)
+{
+	int tag;
+
+	tag = find_first_bit(&hba->outstanding_tasks, hba->nutmrs);
+	if (tag == hba->nutmrs)
+		return 0;
+
+	__clear_bit(tag, &hba->outstanding_tasks);
+	__clear_bit(tag, &hba->tm_slots_in_use);
+
+	/* command hang injected */
+	return 1;
+}
+
+void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
+{
+	u8 ocs_err;
+	static const u32 errors[] = {
+		CONTROLLER_FATAL_ERROR,
+		SYSTEM_BUS_FATAL_ERROR,
+		INJECT_COMMAND_HANG,
+	};
+
+	if (!should_fail(&hba->debugfs_files.fail_attr, 1))
+		goto out;
+
+	*intr_status = errors[prandom_u32() % ARRAY_SIZE(errors)];
+	dev_info(hba->dev, "%s: fault-inject error: 0x%x\n",
+			__func__, *intr_status);
+
+	switch (*intr_status) {
+	case CONTROLLER_FATAL_ERROR: /* fall through */
+		ocs_err = OCS_FATAL_ERROR;
+		goto set_ocs;
+	case SYSTEM_BUS_FATAL_ERROR:
+		ocs_err = OCS_INVALID_CMD_TABLE_ATTR;
+set_ocs:
+		if (!inject_fatal_err_tr(hba, ocs_err))
+			if (!inject_fatal_err_tm(hba, ocs_err))
+				*intr_status = 0;
+		break;
+	case INJECT_COMMAND_HANG:
+		if (!inject_cmd_hang_tr(hba))
+			inject_cmd_hang_tm(hba);
+		break;
+	default:
+		BUG();
+		/* some configurations ignore panics caused by BUG() */
+		break;
+	}
+out:
+	return;
+}
+
+static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
+{
+	hba->debugfs_files.fail_attr = fail_default_attr;
+
+	if (fail_request)
+		setup_fault_attr(&hba->debugfs_files.fail_attr, fail_request);
+
+	/* suppress dump stack everytime failure is injected */
+	hba->debugfs_files.fail_attr.verbose = 0;
+
+	if (IS_ERR(fault_create_debugfs_attr("inject_fault",
+					hba->debugfs_files.debugfs_root,
+					&hba->debugfs_files.fail_attr)))
+		dev_err(hba->dev, "%s: failed to create debugfs entry\n",
+				__func__);
+}
+#else
+void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
+{
+}
+
+static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
+{
+}
+#endif /* CONFIG_UFS_FAULT_INJECTION */
 
 #define BUFF_LINE_CAPACITY 16
 
@@ -261,6 +399,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 		dev_err(hba->dev, "%s:  NULL hba file, exiting", __func__);
 		goto err;
 	}
+
+	ufsdbg_setup_fault_injection(hba);
 
 	return;
 
