@@ -665,7 +665,8 @@ static int mbim_bam_connect(struct f_mbim *dev)
 
 	pr_info("dev:%p portno:%d\n", dev, dev->port_num);
 
-	ret = bam_data_connect(&dev->bam_port, dev->port_num, dev->port_num);
+	ret = bam_data_connect(&dev->bam_port, dev->port_num,
+		USB_GADGET_XPORT_BAM2BAM, dev->port_num, USB_FUNC_MBIM);
 	if (ret) {
 		pr_err("bam_data_setup failed: err:%d\n",
 				ret);

@@ -4,7 +4,7 @@
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2003-2004 Robert Schwebel, Benedikt Spranger
  * Copyright (C) 2008 Nokia Corporation
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -62,7 +62,7 @@ struct eth_qc_dev {
 	 * or updating its backlink port_usb->ioport
 	 */
 	spinlock_t		lock;
-	struct qc_gether		*port_usb;
+	struct qc_gether	*port_usb;
 
 	struct net_device	*net;
 	struct usb_gadget	*gadget;
@@ -235,6 +235,14 @@ static struct device_type qc_gadget_type = {
 	.name	= "gadget",
 };
 
+void gether_qc_get_macs(u8 dev_mac[ETH_ALEN], u8 host_mac[ETH_ALEN])
+{
+	if (get_qc_ether_addr(qc_dev_addr, dev_mac))
+		pr_debug("using random dev_mac ethernet address\n");
+	if (get_qc_ether_addr(qc_host_addr, host_mac))
+		pr_debug("using random host_mac ethernet address\n");
+}
+
 /**
  * gether_qc_setup - initialize one ethernet-over-usb link
  * @g: gadget to associated with these links
@@ -320,6 +328,7 @@ int gether_qc_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 
 /**
  * gether_qc_cleanup_name - remove Ethernet-over-USB device
+ * @netname: name for network device (for example, "usb")
  * Context: may sleep
  *
  * This is called to free all resources allocated by @gether_qc_setup().
@@ -343,6 +352,7 @@ void gether_qc_cleanup_name(const char *netname)
  * is active
  * @link: the USB link, set up with endpoints, descriptors matching
  *	current device speed, and any framing wrapper(s) set up.
+ * @netname: name for network device (for example, "usb")
  * Context: irqs blocked
  *
  * This is called to let the network layer know the connection
@@ -391,6 +401,7 @@ struct net_device *gether_qc_connect_name(struct qc_gether *link,
  * gether_qc_disconnect_name - notify network layer that USB
  * link is inactive
  * @link: the USB link, on which gether_connect() was called
+ * @netname: name for network device (for example, "usb")
  * Context: irqs blocked
  *
  * This is called to let the network layer know the connection
