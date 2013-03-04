@@ -162,6 +162,22 @@
 			qcom,mode= <3>;         /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
 			qcom,xo = <0>;          /* OFF */
 			qcom,l2 = <0>;          /* OFF */
+			qcom,vdd-mem-upper-bound = <1050000>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <950000>; /* SVS SOC */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <3>;  /* SVS SOC */
+			qcom,irqs-detectable;
+			qcom,latency-us = <8000>;
+			qcom,ss-power = <1800>;
+			qcom,energy-overhead = <71950000>;
+			qcom,time-overhead = <15300>;
+		};
+
+		qcom,lpm-level@6 {
+			reg = <0x6>;
+			qcom,mode= <3>;         /* MSM_PM_SLEEP_MODE_POWER_COLLAPSE */
+			qcom,xo = <0>;          /* OFF */
+			qcom,l2 = <0>;          /* OFF */
 			qcom,vdd-mem-upper-bound = <950000>; /* SVS SOC */
 			qcom,vdd-mem-lower-bound = <675000>; /* RETENTION */
 			qcom,vdd-dig-upper-bound = <3>; /* SVS SOC */
