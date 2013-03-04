@@ -693,6 +693,41 @@ TRACE_EVENT(kgsl_regwrite,
 	)
 );
 
+TRACE_EVENT(kgsl_register_event,
+		TP_PROTO(unsigned int id, unsigned int timestamp),
+		TP_ARGS(id, timestamp),
+		TP_STRUCT__entry(
+			__field(unsigned int, id)
+			__field(unsigned int, timestamp)
+		),
+		TP_fast_assign(
+			__entry->id = id;
+			__entry->timestamp = timestamp;
+		),
+		TP_printk(
+			"ctx=%d ts=%d",
+			__entry->id, __entry->timestamp)
+);
+
+TRACE_EVENT(kgsl_fire_event,
+		TP_PROTO(unsigned int id, unsigned int ts,
+			unsigned int age),
+		TP_ARGS(id, ts, age),
+		TP_STRUCT__entry(
+			__field(unsigned int, id)
+			__field(unsigned int, ts)
+			__field(unsigned int, age)
+		),
+		TP_fast_assign(
+			__entry->id = id;
+			__entry->ts = ts;
+			__entry->age = age;
+		),
+		TP_printk(
+			"ctx=%d ts=%d age=%u",
+			__entry->id, __entry->ts, __entry->age)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */
