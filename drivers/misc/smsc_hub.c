@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -471,7 +471,8 @@ static int smsc_hub_remove(struct platform_device *pdev)
 	}
 	pm_runtime_disable(&pdev->dev);
 
-	regulator_disable(smsc_hub->hub_vbus_reg);
+	if (!IS_ERR(smsc_hub->hub_vbus_reg))
+		regulator_disable(smsc_hub->hub_vbus_reg);
 	msm_hsic_hub_init_gpio(smsc_hub, 0);
 	msm_hsic_hub_init_clock(smsc_hub, 0);
 	msm_hsic_hub_init_vdd(smsc_hub, 0);
