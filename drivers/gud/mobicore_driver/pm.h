@@ -12,7 +12,24 @@
 #ifndef _MC_PM_H_
 #define _MC_PM_H_
 
-/* How much time after resume the daemon should back off */
-#define DAEMON_BACKOFF_TIME	10
+#include "main.h"
+#ifdef MC_BL_NOTIFIER
+#include <asm/bL_switcher.h>
+#endif
+
+
+#define NO_SLEEP_REQ	0
+#define REQ_TO_SLEEP	1
+
+#define NORMAL_EXECUTION	0
+#define READY_TO_SLEEP		1
+
+/* How much time after resume the daemon should backoff */
+#define DAEMON_BACKOFF_TIME	500
+
+/* Initialize Power Management */
+int mc_pm_initialize(struct mc_context *context);
+/* Free all Power Management resources*/
+int mc_pm_free(void);
 
 #endif /* _MC_PM_H_ */

@@ -618,19 +618,24 @@ err_no_mem:
 	return ERR_PTR(ret);
 }
 
-uint32_t mc_find_l2_table(struct mc_instance *instance, uint32_t handle)
+uint32_t mc_find_l2_table(uint32_t handle, int32_t fd)
 {
 	uint32_t ret = 0;
 	struct mc_l2_table *table = NULL;
-
-	if (WARN(!instance, "No instance data available"))
-		return 0;
 
 	mutex_lock(&mem_ctx.table_lock);
 	table = find_l2_table(handle);
 
 	if (table == NULL) {
 		MCDRV_DBG_ERROR(mcd, "entry not found %u\n", handle);
+		ret = 0;
+		goto table_err;
+	}
+
+	/* It's safe here not to lock the instance since the owner of
+	 * the table will be cleared only with the table lock taken */
+	if (!mc_check_owner_fd(table->owner, fd)) {
+		MCDRV_DBG_ERROR(mcd, "not valid owner%u\n", handle);
 		ret = 0;
 		goto table_err;
 	}

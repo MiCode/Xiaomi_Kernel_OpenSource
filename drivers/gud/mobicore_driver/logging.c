@@ -316,6 +316,7 @@ long mobicore_log_setup(void)
 		ret = -EIO;
 		goto err_stop_kthread;
 	}
+
 	set_task_state(log_thread, TASK_INTERRUPTIBLE);
 
 	MCDRV_DBG(mcd, "fc_log Logger version %u\n", log_buf->version);

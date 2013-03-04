@@ -144,4 +144,7 @@ int mc_get_buffer(struct mc_instance *instance,
 /* Free the buffer allocated above */
 int mc_free_buffer(struct mc_instance *instance, uint32_t handle);
 
+/* Check if the other end of the fd owns instance */
+bool mc_check_owner_fd(struct mc_instance *instance, int32_t fd);
+
 #endif /* _MC_MAIN_H_ */
