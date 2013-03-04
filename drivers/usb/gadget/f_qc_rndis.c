@@ -6,7 +6,7 @@
  * Copyright (C) 2008 Nokia Corporation
  * Copyright (C) 2009 Samsung Electronics
  *			Author: Michal Nazarewicz (mina86@mina86.com)
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -427,7 +427,8 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 	dev->bam_port.out = dev->port.out_ep;
 
 	/* currently we use the first connection */
-	ret = bam_data_connect(&dev->bam_port, 0, 0);
+	ret = bam_data_connect(&dev->bam_port, 0, USB_GADGET_XPORT_BAM2BAM,
+			0, USB_FUNC_RNDIS);
 	if (ret) {
 		pr_err("bam_data_connect failed: err:%d\n",
 				ret);

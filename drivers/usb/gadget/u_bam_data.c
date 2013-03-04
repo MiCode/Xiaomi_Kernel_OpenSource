@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,8 +22,9 @@
 #include <linux/usb/gadget.h>
 
 #include <mach/bam_dmux.h>
-#include <mach/usb_gadget_xport.h>
 #include <mach/usb_bam.h>
+
+#include "u_bam_data.h"
 
 #define BAM2BAM_DATA_N_PORTS	1
 
@@ -33,12 +34,6 @@ static int n_bam2bam_data_ports;
 #define SPS_PARAMS_SPS_MODE		BIT(5)
 #define SPS_PARAMS_TBE		        BIT(6)
 #define MSM_VENDOR_ID			BIT(16)
-
-struct data_port {
-	struct usb_composite_dev	*cdev;
-	struct usb_ep			*in;
-	struct usb_ep			*out;
-};
 
 struct bam_data_ch_info {
 	unsigned long		flags;
@@ -53,6 +48,10 @@ struct bam_data_ch_info {
 	u32			src_pipe_idx;
 	u32			dst_pipe_idx;
 	u8			connection_idx;
+
+	enum function_type			func_type;
+	enum transport_type			trans;
+	struct usb_bam_connect_ipa_params	ipa_params;
 };
 
 struct bam_data_port {
@@ -175,6 +174,22 @@ reenable_eps:
 	return 0;
 }
 
+static void bam2bam_data_disconnect_work(struct work_struct *w)
+{
+	struct bam_data_port *port =
+			container_of(w, struct bam_data_port, disconnect_w);
+	struct bam_data_ch_info *d = &port->data_ch;
+	int ret;
+
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		if (d->func_type == USB_FUNC_ECM)
+			ecm_ipa_disconnect(d->ipa_params.priv);
+		ret = usb_bam_disconnect_ipa(d->connection_idx, &d->ipa_params);
+		if (ret)
+			pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
+	}
+}
+
 static void bam2bam_data_connect_work(struct work_struct *w)
 {
 	struct bam_data_port *port = container_of(w, struct bam_data_port,
@@ -185,14 +200,49 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 
 	pr_debug("%s: Connect workqueue started", __func__);
 
-	ret = usb_bam_connect(d->connection_idx, &d->src_pipe_idx,
-						  &d->dst_pipe_idx);
-	d->src_pipe_idx = 11;
-	d->dst_pipe_idx = 10;
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		d->ipa_params.client = IPA_CLIENT_USB_CONS;
+		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
+		if (d->func_type == USB_FUNC_ECM) {
+			d->ipa_params.notify = ecm_qc_get_ipa_tx_cb();
+			d->ipa_params.priv = ecm_qc_get_ipa_priv();
+		}
+		ret = usb_bam_connect_ipa(&d->ipa_params);
+		if (ret) {
+			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
+				__func__, ret);
+			return;
+		}
 
-	if (ret) {
-		pr_err("usb_bam_connect failed: err:%d\n", ret);
-		return;
+		d->ipa_params.client = IPA_CLIENT_USB_PROD;
+		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
+		if (d->func_type == USB_FUNC_ECM) {
+			d->ipa_params.notify = ecm_qc_get_ipa_rx_cb();
+			d->ipa_params.priv = ecm_qc_get_ipa_priv();
+		}
+		ret = usb_bam_connect_ipa(&d->ipa_params);
+		if (ret) {
+			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
+				__func__, ret);
+			return;
+		}
+		if (d->func_type == USB_FUNC_ECM) {
+			ret = ecm_ipa_connect(d->ipa_params.cons_clnt_hdl,
+				d->ipa_params.prod_clnt_hdl,
+				d->ipa_params.priv);
+			if (ret) {
+				pr_err("%s: failed to connect IPA: err:%d\n",
+					__func__, ret);
+				return;
+			}
+		}
+	} else { /* transport type is USB_GADGET_XPORT_BAM2BAM */
+		ret = usb_bam_connect(d->connection_idx, &d->src_pipe_idx,
+						  &d->dst_pipe_idx);
+		if (ret) {
+			pr_err("usb_bam_connect failed: err:%d\n", ret);
+			return;
+		}
 	}
 
 	if (!port->port_usb) {
@@ -230,15 +280,17 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	bam_data_start_endless_rx(port);
 	bam_data_start_endless_tx(port);
 
-	/* Register for peer reset callback */
-	usb_bam_register_peer_reset_cb(d->connection_idx,
+	/* Register for peer reset callback if USB_GADGET_XPORT_BAM2BAM */
+	if (d->trans != USB_GADGET_XPORT_BAM2BAM_IPA) {
+		usb_bam_register_peer_reset_cb(d->connection_idx,
 			bam_data_peer_reset_cb, port);
 
-	ret = usb_bam_client_ready(true);
-	if (ret) {
-		pr_err("%s: usb_bam_client_ready failed: err:%d\n",
+		ret = usb_bam_client_ready(true);
+		if (ret) {
+			pr_err("%s: usb_bam_client_ready failed: err:%d\n",
 			__func__, ret);
-		return;
+			return;
+		}
 	}
 
 	pr_debug("%s: Connect workqueue done", __func__);
@@ -262,6 +314,7 @@ static int bam2bam_data_port_alloc(int portno)
 	port->port_num = portno;
 
 	INIT_WORK(&port->connect_w, bam2bam_data_connect_work);
+	INIT_WORK(&port->disconnect_w, bam2bam_data_disconnect_work);
 
 	/* data ch */
 	d = &port->data_ch;
@@ -276,6 +329,7 @@ static int bam2bam_data_port_alloc(int portno)
 void bam_data_disconnect(struct data_port *gr, u8 port_num)
 {
 	struct bam_data_port	*port;
+	struct bam_data_ch_info	*d;
 
 	pr_debug("dev:%p port#%d\n", gr, port_num);
 
@@ -285,7 +339,7 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 	}
 
 	if (!gr) {
-		pr_err("mbim data port is null\n");
+		pr_err("data port is null\n");
 		return;
 	}
 
@@ -303,12 +357,19 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 		port->port_usb = 0;
 	}
 
-	if (usb_bam_client_ready(false))
-		pr_err("%s: usb_bam_client_ready failed\n", __func__);
+	d = &port->data_ch;
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA)
+		queue_work(gbam_wq, &port->disconnect_w);
+	else {
+		if (usb_bam_client_ready(false)) {
+			pr_err("%s: usb_bam_client_ready failed\n",
+				__func__);
+		}
+	}
 }
 
 int bam_data_connect(struct data_port *gr, u8 port_num,
-				 u8 connection_idx)
+	enum transport_type trans, u8 connection_idx, enum function_type func)
 {
 	struct bam_data_port	*port;
 	struct bam_data_ch_info	*d;
@@ -322,7 +383,7 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 	}
 
 	if (!gr) {
-		pr_err("mbim data port is null\n");
+		pr_err("data port is null\n");
 		return -ENODEV;
 	}
 
@@ -348,6 +409,16 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 	port->port_usb = gr;
 
 	d->connection_idx = connection_idx;
+
+	d->trans = trans;
+
+	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		d->ipa_params.src_pipe = &(d->src_pipe_idx);
+		d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
+		d->ipa_params.idx = connection_idx;
+	}
+
+	d->func_type = func;
 
 	queue_work(bam_data_wq, &port->connect_w);
 
