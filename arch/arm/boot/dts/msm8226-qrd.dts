@@ -16,7 +16,7 @@
 / {
 	model = "Qualcomm MSM 8226 QRD";
 	compatible = "qcom,msm8226-qrd", "qcom,msm8226";
-	qcom,msm-id = <145 99 0>;
+	qcom,msm-id = <145 11 0>;
 
 	serial@f991f000 {
 		status = "disabled";
