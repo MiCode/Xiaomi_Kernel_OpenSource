@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -177,10 +177,11 @@ static int load_state_unit_sizes[7][2] = {
 	{ 8, 2 },
 };
 
-static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
+static int ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
 	unsigned int ptbase)
 {
 	unsigned int block, source, type;
+	int ret = 0;
 
 	/*
 	 * The object here is to find indirect shaders i.e - shaders loaded from
@@ -192,7 +193,7 @@ static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
 	 */
 
 	if (type3_pkt_size(pkt[0]) < 2)
-		return;
+		return 0;
 
 	/*
 	 * pkt[1] 18:16 - source
@@ -220,8 +221,14 @@ static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
 				pkt[2] & 0xFFFFFFFC,
 				(((pkt[1] >> 22) & 0x03FF) * unitsize) << 2,
 				SNAPSHOT_GPU_OBJECT_SHADER);
+
+		if (ret < 0)
+			return -EINVAL;
+
 		snapshot_frozen_objsize += ret;
 	}
+
+	return ret;
 }
 
 /*
@@ -229,23 +236,31 @@ static void ib_parse_load_state(struct kgsl_device *device, unsigned int *pkt,
  * visiblity stream size buffer.
  */
 
-static void ib_parse_set_bin_data(struct kgsl_device *device, unsigned int *pkt,
+static int ib_parse_set_bin_data(struct kgsl_device *device, unsigned int *pkt,
 	unsigned int ptbase)
 {
 	int ret;
 
 	if (type3_pkt_size(pkt[0]) < 2)
-		return;
+		return 0;
 
 	/* Visiblity stream buffer */
 	ret = kgsl_snapshot_get_object(device, ptbase, pkt[1], 0,
 			SNAPSHOT_GPU_OBJECT_GENERIC);
+
+	if (ret < 0)
+		return -EINVAL;
+
 	snapshot_frozen_objsize += ret;
 
 	/* visiblity stream size buffer (fixed size 8 dwords) */
 	ret = kgsl_snapshot_get_object(device, ptbase, pkt[2], 32,
 			SNAPSHOT_GPU_OBJECT_GENERIC);
-	snapshot_frozen_objsize += ret;
+
+	if (ret >= 0)
+		snapshot_frozen_objsize += ret;
+
+	return ret;
 }
 
 /*
@@ -254,13 +269,13 @@ static void ib_parse_set_bin_data(struct kgsl_device *device, unsigned int *pkt,
  * buffers that are written to as frozen
  */
 
-static void ib_parse_mem_write(struct kgsl_device *device, unsigned int *pkt,
+static int ib_parse_mem_write(struct kgsl_device *device, unsigned int *pkt,
 	unsigned int ptbase)
 {
 	int ret;
 
 	if (type3_pkt_size(pkt[0]) < 1)
-		return;
+		return 0;
 
 	/*
 	 * The address is where the data in the rest of this packet is written
@@ -272,7 +287,10 @@ static void ib_parse_mem_write(struct kgsl_device *device, unsigned int *pkt,
 	ret = kgsl_snapshot_get_object(device, ptbase, pkt[1] & 0xFFFFFFFC, 0,
 		SNAPSHOT_GPU_OBJECT_GENERIC);
 
-	snapshot_frozen_objsize += ret;
+	if (ret >= 0)
+		snapshot_frozen_objsize += ret;
+
+	return ret;
 }
 
 /*
@@ -282,19 +300,22 @@ static void ib_parse_mem_write(struct kgsl_device *device, unsigned int *pkt,
  * frozen with the others
  */
 
-static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
+static int ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 	unsigned int ptbase)
 {
-	int ret, i;
+	int ret = 0, i;
 
 	if (type3_pkt_size(pkt[0]) < 3)
-		return;
+		return 0;
 
 	/*  DRAW_IDX may have a index buffer pointer */
 
 	if (type3_pkt_size(pkt[0]) > 3) {
 		ret = kgsl_snapshot_get_object(device, ptbase, pkt[4], pkt[5],
 			SNAPSHOT_GPU_OBJECT_GENERIC);
+		if (ret < 0)
+			return -EINVAL;
+
 		snapshot_frozen_objsize += ret;
 	}
 
@@ -310,6 +331,9 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 			ret = kgsl_snapshot_get_object(device, ptbase,
 				vsc_pipe[i].base, vsc_pipe[i].size,
 				SNAPSHOT_GPU_OBJECT_GENERIC);
+			if (ret < 0)
+				return -EINVAL;
+
 			snapshot_frozen_objsize += ret;
 		}
 	}
@@ -320,6 +344,9 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 		ret = kgsl_snapshot_get_object(device, ptbase,
 				vsc_size_address, 32,
 				SNAPSHOT_GPU_OBJECT_GENERIC);
+		if (ret < 0)
+			return -EINVAL;
+
 		snapshot_frozen_objsize += ret;
 	}
 
@@ -328,6 +355,9 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 		ret = kgsl_snapshot_get_object(device, ptbase,
 				sp_vs_pvt_mem_addr, 8192,
 				SNAPSHOT_GPU_OBJECT_GENERIC);
+		if (ret < 0)
+			return -EINVAL;
+
 		snapshot_frozen_objsize += ret;
 		sp_vs_pvt_mem_addr = 0;
 	}
@@ -336,6 +366,9 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 		ret = kgsl_snapshot_get_object(device, ptbase,
 				sp_fs_pvt_mem_addr, 8192,
 				SNAPSHOT_GPU_OBJECT_GENERIC);
+		if (ret < 0)
+			return -EINVAL;
+
 		snapshot_frozen_objsize += ret;
 		sp_fs_pvt_mem_addr = 0;
 	}
@@ -358,6 +391,9 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 			ret = kgsl_snapshot_get_object(device, ptbase,
 				vbo[i].base,
 				0, SNAPSHOT_GPU_OBJECT_GENERIC);
+			if (ret < 0)
+				return -EINVAL;
+
 			snapshot_frozen_objsize += ret;
 		}
 
@@ -367,6 +403,8 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
 
 	vfd_control_0 = 0;
 	vfd_index_max = 0;
+
+	return ret;
 }
 
 /*
@@ -374,23 +412,21 @@ static void ib_parse_draw_indx(struct kgsl_device *device, unsigned int *pkt,
  * such as additional GPU buffers to grab or a draw initator
  */
 
-static void ib_parse_type3(struct kgsl_device *device, unsigned int *ptr,
+static int ib_parse_type3(struct kgsl_device *device, unsigned int *ptr,
 	unsigned int ptbase)
 {
-	switch (cp_type3_opcode(*ptr)) {
-	case CP_LOAD_STATE:
-		ib_parse_load_state(device, ptr, ptbase);
-		break;
-	case CP_SET_BIN_DATA:
-		ib_parse_set_bin_data(device, ptr, ptbase);
-		break;
-	case CP_MEM_WRITE:
-		ib_parse_mem_write(device, ptr, ptbase);
-		break;
-	case CP_DRAW_INDX:
-		ib_parse_draw_indx(device, ptr, ptbase);
-		break;
-	}
+	int opcode = cp_type3_opcode(*ptr);
+
+	if (opcode == CP_LOAD_STATE)
+		return ib_parse_load_state(device, ptr, ptbase);
+	else if (opcode == CP_SET_BIN_DATA)
+		return ib_parse_set_bin_data(device, ptr, ptbase);
+	else if (opcode == CP_MEM_WRITE)
+		return ib_parse_mem_write(device, ptr, ptbase);
+	else if (opcode == CP_DRAW_INDX)
+		return ib_parse_draw_indx(device, ptr, ptbase);
+
+	return 0;
 }
 
 /*
@@ -476,7 +512,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 
 /* Add an IB as a GPU object, but first, parse it to find more goodies within */
 
-static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
+static int ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
 		unsigned int gpuaddr, unsigned int dwords)
 {
 	int i, ret, rem = dwords;
@@ -487,13 +523,13 @@ static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
 	 */
 
 	if (kgsl_snapshot_have_object(device, ptbase, gpuaddr, dwords << 2))
-		return;
+		return 0;
 
 	src = (unsigned int *) adreno_convertaddr(device, ptbase, gpuaddr,
 		dwords << 2);
 
 	if (src == NULL)
-		return;
+		return -EINVAL;
 
 	for (i = 0; rem > 0; rem--, i++) {
 		int pktsize;
@@ -528,11 +564,28 @@ static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
 					push_object(device,
 						SNAPSHOT_OBJ_TYPE_IB, ptbase,
 						gpuaddr, size);
-				else
-					ib_add_gpu_object(device, ptbase,
-						gpuaddr, size);
-			} else
-				ib_parse_type3(device, &src[i], ptbase);
+				else {
+					ret = ib_add_gpu_object(device,
+						ptbase, gpuaddr, size);
+
+					/*
+					 * If adding the IB failed then stop
+					 * parsing
+					 */
+					if (ret < 0)
+						goto done;
+				}
+			} else {
+				ret = ib_parse_type3(device, &src[i], ptbase);
+				/*
+				 * If the parse function failed (probably
+				 * because of a bad decode) then bail out and
+				 * just capture the binary IB data
+				 */
+
+				if (ret < 0)
+					goto done;
+			}
 		} else if (pkt_is_type0(src[i])) {
 			ib_parse_type0(device, &src[i], ptbase);
 		}
@@ -541,10 +594,14 @@ static void ib_add_gpu_object(struct kgsl_device *device, unsigned int ptbase,
 		rem -= pktsize;
 	}
 
+done:
 	ret = kgsl_snapshot_get_object(device, ptbase, gpuaddr, dwords << 2,
 		SNAPSHOT_GPU_OBJECT_IB);
 
-	snapshot_frozen_objsize += ret;
+	if (ret >= 0)
+		snapshot_frozen_objsize += ret;
+
+	return ret;
 }
 
 /* Snapshot the ringbuffer memory */
@@ -725,7 +782,7 @@ static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 	struct kgsl_snapshot_obj *obj = priv;
 	unsigned int *src = obj->ptr;
 	unsigned int *dst = snapshot + sizeof(*header);
-	int i;
+	int i, ret;
 
 	if (remain < (obj->dwords << 2) + sizeof(*header)) {
 		KGSL_DRV_ERR(device,
@@ -749,8 +806,13 @@ static int snapshot_ib(struct kgsl_device *device, void *snapshot,
 			if (adreno_cmd_is_ib(*src))
 				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
 					obj->ptbase, src[1], src[2]);
-			else
-				ib_parse_type3(device, src, obj->ptbase);
+			else {
+				ret = ib_parse_type3(device, src, obj->ptbase);
+
+				/* Stop parsing if the type3 decode fails */
+				if (ret < 0)
+					break;
+			}
 		}
 	}
 
