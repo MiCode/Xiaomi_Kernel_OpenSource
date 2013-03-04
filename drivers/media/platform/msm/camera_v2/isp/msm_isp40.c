@@ -88,8 +88,8 @@ static struct msm_bus_vectors msm_vfe40_preview_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1027648000,
-		.ib  = 1105920000,
+		.ab  = 2027648000U,
+		.ib  = 2805920000U,
 	},
 };
 
