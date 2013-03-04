@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,6 @@
 #include <mach/bam_dmux.h>
 #include <mach/ipa.h>
 #include <mach/sps.h>
-#include "a2_service.h"
 
 static struct rmnet_bridge_cb_type {
 	u32 producer_handle;
