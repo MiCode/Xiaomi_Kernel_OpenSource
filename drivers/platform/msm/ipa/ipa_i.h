@@ -719,8 +719,11 @@ struct ipa_plat_drv_res {
 	u32 ipa_mem_size;
 	u32 bam_mem_base;
 	u32 bam_mem_size;
+	u32 a2_bam_mem_base;
+	u32 a2_bam_mem_size;
 	u32 ipa_irq;
 	u32 bam_irq;
+	u32 a2_bam_irq;
 	u32 ipa_pipe_mem_start_ofst;
 	u32 ipa_pipe_mem_size;
 	enum ipa_hw_type ipa_hw_type;
@@ -733,6 +736,8 @@ extern struct ipa_context *ipa_ctx;
 
 int ipa_get_a2_mux_pipe_info(enum a2_mux_pipe_direction pipe_dir,
 				struct a2_mux_pipe_connection *pipe_connect);
+int ipa_get_a2_mux_bam_info(u32 *a2_bam_mem_base, u32 *a2_bam_mem_size,
+			    u32 *a2_bam_irq);
 void rmnet_bridge_get_client_handles(u32 *producer_handle,
 		u32 *consumer_handle);
 int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
@@ -814,5 +819,8 @@ int ipa_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count);
 int ipa_query_intf(struct ipa_ioc_query_intf *lookup);
 int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx);
 int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx);
+
+int a2_mux_init(void);
+int a2_mux_exit(void);
 
 #endif /* _IPA_I_H_ */

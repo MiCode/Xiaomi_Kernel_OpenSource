@@ -326,11 +326,13 @@
 	ipa_hw: qcom,ipa@fd4c0000 {
 		compatible = "qcom,ipa";
 		reg = <0xfd4c0000 0x26000>,
-		      <0xfd4c4000 0x14818>;
-		reg-names = "ipa-base", "bam-base";
+		      <0xfd4c4000 0x14818>,
+		      <0xfc834000 0x7000>;
+		reg-names = "ipa-base", "bam-base", "a2-bam-base";
 		interrupts = <0 252 0>,
-		             <0 253 0>;
-		interrupt-names = "ipa-irq", "bam-irq";
+		             <0 253 0>,
+		             <0 29 1>;
+		interrupt-names = "ipa-irq", "bam-irq", "a2-bam-irq";
 
 		qcom,pipe1 {
 			label = "a2-to-ipa";

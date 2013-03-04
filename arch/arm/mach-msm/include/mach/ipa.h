@@ -438,7 +438,48 @@ struct ipa_rm_create_params {
 	int (*release_resource)(void);
 };
 
+enum a2_mux_event_type {
+	A2_MUX_RECEIVE,
+	A2_MUX_WRITE_DONE
+};
+
+enum a2_mux_logical_channel_id {
+	A2_MUX_WWAN_0,
+	A2_MUX_WWAN_1,
+	A2_MUX_WWAN_2,
+	A2_MUX_WWAN_3,
+	A2_MUX_WWAN_4,
+	A2_MUX_WWAN_5,
+	A2_MUX_WWAN_6,
+	A2_MUX_WWAN_7,
+	A2_MUX_TETHERED_0,
+	A2_MUX_NUM_CHANNELS
+};
+
+typedef void (*a2_mux_notify_cb)(void *user_data,
+		enum a2_mux_event_type event,
+		unsigned long data);
+
 #ifdef CONFIG_IPA
+
+/*
+ * a2 service
+ */
+int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
+			void *user_data,
+			a2_mux_notify_cb notify_cb);
+
+int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid);
+
+int a2_mux_write(enum a2_mux_logical_channel_id lcid, struct sk_buff *skb);
+
+int a2_mux_is_ch_low(enum a2_mux_logical_channel_id lcid);
+
+int a2_mux_is_ch_full(enum a2_mux_logical_channel_id lcid);
+
+int a2_mux_get_tethered_client_handles(enum a2_mux_logical_channel_id lcid,
+		unsigned int *clnt_cons_handle,
+		unsigned int *clnt_prod_handle);
 
 /*
  * Connect / Disconnect
@@ -609,6 +650,41 @@ int ipa_rm_inactivity_timer_release_resource(
 				enum ipa_rm_resource_name resource_name);
 
 #else /* CONFIG_IPA */
+
+static inline int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
+	void *user_data, a2_mux_notify_cb notify_cb)
+{
+	return -EPERM;
+}
+
+static inline int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid)
+{
+	return -EPERM;
+}
+
+static inline int a2_mux_write(enum a2_mux_logical_channel_id lcid,
+			       struct sk_buff *skb)
+{
+	return -EPERM;
+}
+
+static inline int a2_mux_is_ch_low(enum a2_mux_logical_channel_id lcid)
+{
+	return -EPERM;
+}
+
+static inline int a2_mux_is_ch_full(enum a2_mux_logical_channel_id lcid)
+{
+	return -EPERM;
+}
+
+static inline int a2_mux_get_tethered_client_handles(
+	enum a2_mux_logical_channel_id lcid, unsigned int *clnt_cons_handle,
+	unsigned int *clnt_prod_handle)
+{
+	return -EPERM;
+}
+
 
 /*
  * Connect / Disconnect
