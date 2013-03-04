@@ -123,7 +123,6 @@ void mc_fastcall(void *data)
 		.data = data,
 	};
 	INIT_WORK(&work.work, fastcall_work_func);
-
 	schedule_work_on(0, &work.work);
 
 	flush_work(&work.work);
@@ -267,4 +266,3 @@ uint32_t mc_get_version(void)
 	return MC_VERSION(MCDRVMODULEAPI_VERSION_MAJOR,
 					MCDRVMODULEAPI_VERSION_MINOR);
 }
-
