@@ -70,6 +70,11 @@
 
 #define MAX_SSR_REASON_LEN 81U
 
+/* External BHS */
+#define EXTERNAL_BHS_ON			BIT(0)
+#define EXTERNAL_BHS_STATUS		BIT(4)
+#define BHS_TIMEOUT_US			50
+
 struct mba_data {
 	void __iomem *metadata_base;
 	void __iomem *rmb_base;
@@ -99,16 +104,34 @@ static int pil_mss_power_up(struct q6v5_data *drv)
 {
 	int ret;
 	struct device *dev = drv->desc.dev;
+	u32 regval;
 
 	ret = regulator_enable(drv->vreg);
 	if (ret)
 		dev_err(dev, "Failed to enable modem regulator.\n");
+
+	if (drv->cxrail_bhs) {
+		regval = readl_relaxed(drv->cxrail_bhs);
+		regval |= EXTERNAL_BHS_ON;
+		writel_relaxed(regval, drv->cxrail_bhs);
+
+		ret = readl_poll_timeout(drv->cxrail_bhs, regval,
+			regval & EXTERNAL_BHS_STATUS, 1, BHS_TIMEOUT_US);
+	}
 
 	return ret;
 }
 
 static int pil_mss_power_down(struct q6v5_data *drv)
 {
+	u32 regval;
+
+	if (drv->cxrail_bhs) {
+		regval = readl_relaxed(drv->cxrail_bhs);
+		regval &= ~EXTERNAL_BHS_ON;
+		writel_relaxed(regval, drv->cxrail_bhs);
+	}
+
 	return regulator_disable(drv->vreg);
 }
 
@@ -198,9 +221,14 @@ static int pil_mss_shutdown(struct pil_desc *pil)
 	pil_q6v5_shutdown(pil);
 
 	pil_mss_disable_clks(drv);
-	pil_mss_power_down(drv);
 
 	writel_relaxed(1, drv->restart_reg);
+
+	/*
+	 * access to the cx_rail_bhs is restricted until after the gcc_mss
+	 * reset is asserted once the PBL starts executing.
+	 */
+	pil_mss_power_down(drv);
 
 	drv->is_booted = false;
 
@@ -215,11 +243,6 @@ static int pil_mss_reset(struct pil_desc *pil)
 	unsigned long start_addr = pil_get_entry_addr(pil);
 	int ret;
 
-	/* Deassert reset to subsystem and wait for propagation */
-	writel_relaxed(0, drv->restart_reg);
-	mb();
-	udelay(2);
-
 	/*
 	 * Bring subsystem out of reset and enable required
 	 * regulators and clocks.
@@ -227,6 +250,11 @@ static int pil_mss_reset(struct pil_desc *pil)
 	ret = pil_mss_power_up(drv);
 	if (ret)
 		goto err_power;
+
+	/* Deassert reset to subsystem and wait for propagation */
+	writel_relaxed(0, drv->restart_reg);
+	mb();
+	udelay(2);
 
 	ret = pil_mss_enable_clks(drv);
 	if (ret)
@@ -720,6 +748,13 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 		dev_err(&pdev->dev, "Failed to set regulator's mode.\n");
 		return ret;
 	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+		"cxrail_bhs_reg");
+	if (res)
+		q6->cxrail_bhs = devm_ioremap(&pdev->dev, res->start,
+					  resource_size(res));
+
 
 	q6->ahb_clk = devm_clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(q6->ahb_clk))
