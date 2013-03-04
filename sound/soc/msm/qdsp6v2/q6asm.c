@@ -279,13 +279,13 @@ static void config_debug_fs_init(void)
 {
 	out_buffer = kmalloc(OUT_BUFFER_SIZE, GFP_KERNEL);
 	out_dentry = debugfs_create_file("audio_out_latency_measurement_node",\
-				S_IFREG | S_IRUGO | S_IWUGO,\
+				S_IRUGO | S_IWUSR | S_IWGRP,\
 				NULL, NULL, &audio_output_latency_debug_fops);
 	if (IS_ERR(out_dentry))
 		pr_err("debugfs_create_file failed\n");
 	in_buffer = kmalloc(IN_BUFFER_SIZE, GFP_KERNEL);
 	in_dentry = debugfs_create_file("audio_in_latency_measurement_node",\
-				S_IFREG | S_IRUGO | S_IWUGO,\
+				S_IRUGO | S_IWUSR | S_IWGRP,\
 				NULL, NULL, &audio_input_latency_debug_fops);
 	if (IS_ERR(in_dentry))
 		pr_err("debugfs_create_file failed\n");
