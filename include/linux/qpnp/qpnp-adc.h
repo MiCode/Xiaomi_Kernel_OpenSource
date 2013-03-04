@@ -1203,19 +1203,14 @@ static inline int32_t qpnp_adc_tdkntcg_therm(int32_t adc_code,
 static inline int32_t qpnp_adc_scale_therm_pu1(int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
-			struct qpnp_vadc_result *chan_rslt);
+			struct qpnp_vadc_result *chan_rslt)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_scale_therm_pu2(int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
-			struct qpnp_vadc_result *chan_rslt);
+			struct qpnp_vadc_result *chan_rslt)
 { return -ENXIO; }
 static inline int32_t qpnp_vadc_is_ready(void)
-{ return -ENXIO; }
-static inline int32_t qpnp_adc_scale_default(int32_t adc_code,
-			const struct qpnp_adc_properties *adc_prop,
-			const struct qpnp_adc_chan_properties *chan_prop,
-			struct qpnp_adc_chan_result *chan_rslt)
 { return -ENXIO; }
 static inline int32_t qpnp_get_vadc_gain_and_offset(
 			struct qpnp_vadc_linear_graph *param,
