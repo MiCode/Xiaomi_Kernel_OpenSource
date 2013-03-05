@@ -41,6 +41,12 @@
 			reg = <0 0x7800000>;
 			label = "secure_mem";
 		};
+
+		adsp_mem: region@0 {
+			linux,contiguous-region;
+			reg = <0 0x2000000>;
+			label = "adsp_mem";
+		};
 	};
 
 	intc: interrupt-controller@F9000000 {
