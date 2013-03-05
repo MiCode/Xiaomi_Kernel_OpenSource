@@ -208,16 +208,24 @@ static int pil_proxy_vote(struct pil_desc *desc)
 	return ret;
 }
 
-static void pil_proxy_unvote(struct pil_desc *desc, unsigned long timeout)
+static void pil_proxy_unvote(struct pil_desc *desc, int immediate)
 {
 	struct pil_priv *priv = desc->priv;
+	unsigned long timeout;
 
-	if (proxy_timeout_ms >= 0)
+	if (proxy_timeout_ms == 0 && !immediate)
+		return;
+	else if (proxy_timeout_ms > 0)
 		timeout = proxy_timeout_ms;
+	else
+		timeout = desc->proxy_timeout;
 
-	if (timeout && desc->ops->proxy_unvote) {
+	if (desc->ops->proxy_unvote) {
 		if (WARN_ON(!try_module_get(desc->owner)))
 			return;
+
+		if (immediate)
+			timeout = 0;
 		schedule_delayed_work(&priv->proxy, msecs_to_jiffies(timeout));
 	}
 }
@@ -558,7 +566,6 @@ int pil_boot(struct pil_desc *desc)
 	const struct elf32_hdr *ehdr;
 	struct pil_seg *seg;
 	const struct firmware *fw;
-	unsigned long proxy_timeout = desc->proxy_timeout;
 	struct pil_priv *priv = desc->priv;
 
 	/* Reinitialize for new image */
@@ -633,12 +640,11 @@ int pil_boot(struct pil_desc *desc)
 	ret = desc->ops->auth_and_reset(desc);
 	if (ret) {
 		pil_err(desc, "Failed to bring out of reset\n");
-		proxy_timeout = 0; /* Remove proxy vote immediately on error */
 		goto err_boot;
 	}
 	pil_info(desc, "Brought out of reset\n");
 err_boot:
-	pil_proxy_unvote(desc, proxy_timeout);
+	pil_proxy_unvote(desc, ret);
 release_fw:
 	release_firmware(fw);
 out:
