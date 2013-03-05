@@ -1181,6 +1181,26 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 		bpp = 4;
 		break;
 
+	case MDP_BGRA_8888:
+		fix->type = FB_TYPE_PACKED_PIXELS;
+		fix->xpanstep = 1;
+		fix->ypanstep = 1;
+		var->vmode = FB_VMODE_NONINTERLACED;
+		var->blue.offset = 0;
+		var->green.offset = 8;
+		var->red.offset = 16;
+		var->blue.length = 8;
+		var->green.length = 8;
+		var->red.length = 8;
+		var->blue.msb_right = 0;
+		var->green.msb_right = 0;
+		var->red.msb_right = 0;
+		var->transp.offset = 24;
+		var->transp.length = 8;
+		bpp = 4;
+		break;
+
+
 	case MDP_YCRYCB_H2V1:
 		/* ToDo: need to check TV-Out YUV422i framebuffer format */
 		/*       we might need to create new type define */
@@ -1900,7 +1920,9 @@ static int msm_fb_set_par(struct fb_info *info)
 		break;
 
 	case 32:
-		if (var->transp.offset == 24)
+		if ((var->transp.offset == 24) && (var->blue.offset == 0))
+			mfd->fb_imgType = MDP_BGRA_8888;
+		else if (var->transp.offset == 24)
 			mfd->fb_imgType = MDP_ARGB_8888;
 		else
 			mfd->fb_imgType = MDP_RGBA_8888;
