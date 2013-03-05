@@ -109,7 +109,7 @@ static struct rpm_regulator_param params[RPM_REGULATOR_PARAM_MAX] = {
 	PARAM(MODE_SMPS,       0,  1,  0,  0, "ssmd", 0, 2,          "qcom,init-smps-mode"),
 	PARAM(PIN_CTRL_ENABLE, 1,  1,  1,  0, "pcen", 0, 0xF,        "qcom,init-pin-ctrl-enable"),
 	PARAM(PIN_CTRL_MODE,   1,  1,  1,  0, "pcmd", 0, 0x1F,       "qcom,init-pin-ctrl-mode"),
-	PARAM(FREQUENCY,       0,  1,  0,  1, "freq", 0, 16,         "qcom,init-frequency"),
+	PARAM(FREQUENCY,       0,  1,  0,  1, "freq", 0, 31,         "qcom,init-frequency"),
 	PARAM(HEAD_ROOM,       1,  0,  0,  1, "hr",   0, 0x7FFFFFFF, "qcom,init-head-room"),
 	PARAM(QUIET_MODE,      0,  1,  0,  0, "qm",   0, 2,          "qcom,init-quiet-mode"),
 	PARAM(FREQ_REASON,     0,  1,  0,  1, "resn", 0, 8,          "qcom,init-freq-reason"),
@@ -394,6 +394,13 @@ static int rpm_vreg_send_request(struct rpm_regulator *regulator, u32 set)
 	return rc;
 }
 
+#define RPM_VREG_AGGR_MIN(_idx, _param_aggr, _param_reg) \
+{ \
+	_param_aggr[RPM_REGULATOR_PARAM_##_idx] \
+	 = min(_param_aggr[RPM_REGULATOR_PARAM_##_idx], \
+		_param_reg[RPM_REGULATOR_PARAM_##_idx]); \
+}
+
 #define RPM_VREG_AGGR_MAX(_idx, _param_aggr, _param_reg) \
 { \
 	_param_aggr[RPM_REGULATOR_PARAM_##_idx] \
@@ -414,20 +421,6 @@ static int rpm_vreg_send_request(struct rpm_regulator *regulator, u32 set)
 }
 
 /*
- * The RPM treats freq=0 as a special value meaning that this consumer does not
- * care what the SMPS switching freqency is.
- */
-#define RPM_REGULATOR_FREQ_DONT_CARE 0
-
-static inline void rpm_vreg_freqency_aggr(u32 *freq, u32 consumer_freq)
-{
-	if (consumer_freq != RPM_REGULATOR_FREQ_DONT_CARE
-		&& (consumer_freq < *freq
-			|| *freq == RPM_REGULATOR_FREQ_DONT_CARE))
-		*freq = consumer_freq;
-}
-
-/*
  * Aggregation is performed on each parameter based on the way that the RPM
  * aggregates that type internally between RPM masters.
  */
@@ -440,8 +433,7 @@ static void rpm_vreg_aggregate_params(u32 *param_aggr, const u32 *param_reg)
 	RPM_VREG_AGGR_MAX(MODE_SMPS, param_aggr, param_reg);
 	RPM_VREG_AGGR_OR(PIN_CTRL_ENABLE, param_aggr, param_reg);
 	RPM_VREG_AGGR_OR(PIN_CTRL_MODE, param_aggr, param_reg);
-	rpm_vreg_freqency_aggr(&param_aggr[RPM_REGULATOR_PARAM_FREQUENCY],
-		param_reg[RPM_REGULATOR_PARAM_FREQUENCY]);
+	RPM_VREG_AGGR_MIN(FREQUENCY, param_aggr, param_reg);
 	RPM_VREG_AGGR_MAX(HEAD_ROOM, param_aggr, param_reg);
 	RPM_VREG_AGGR_MAX(QUIET_MODE, param_aggr, param_reg);
 	RPM_VREG_AGGR_MAX(FREQ_REASON, param_aggr, param_reg);

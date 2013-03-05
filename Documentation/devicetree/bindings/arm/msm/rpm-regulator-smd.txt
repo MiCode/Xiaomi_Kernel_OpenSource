@@ -116,25 +116,9 @@ RPM in regulator requests.
 					BIT(2) = follow HW2_EN signal
 					BIT(3) = follow HW3_EN signal
 					BIT(4) = follow PMIC awake state
-- qcom,init-frequency:         Switching frequency in MHz for SMPS regulators.
-				Supported values are:
-					 0 = Don't care about frequency used
-					 1 = 19.20
-					 2 = 9.60
-					 3 = 6.40
-					 4 = 4.80
-					 5 = 3.84
-					 6 = 3.20
-					 7 = 2.74
-					 8 = 2.40
-					 9 = 2.13
-					10 = 1.92
-					11 = 1.75
-					12 = 1.60
-					13 = 1.48
-					14 = 1.37
-					15 = 1.28
-					16 = 1.20
+- qcom,init-frequency:         Switching frequency divisor for SMPS regulators.
+				Supported values are n = 0 to 31 where
+				freq = 19.2 MHz / (n + 1).
 - qcom,init-head-room:         Voltage head room in mV required for the
 				regulator.  This head room value should be used
 				in situations where the device connected to the
