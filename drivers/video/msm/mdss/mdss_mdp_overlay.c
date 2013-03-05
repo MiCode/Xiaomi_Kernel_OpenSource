@@ -92,8 +92,7 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		return -EOVERFLOW;
 	}
 
-	if (req->dst_rect.w < min_dst_size || req->dst_rect.h < min_dst_size ||
-	    req->dst_rect.w > MAX_DST_W || req->dst_rect.h > MAX_DST_H) {
+	if (req->dst_rect.w < min_dst_size || req->dst_rect.h < min_dst_size) {
 		pr_err("invalid destination resolution (%dx%d)",
 		       req->dst_rect.w, req->dst_rect.h);
 		return -EOVERFLOW;
@@ -227,9 +226,13 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 		rot->src_rect.h /= 2;
 	}
 
-	rot->params_changed++;
-
-	req->id = rot->session_id;
+	ret = mdss_mdp_rotator_setup(rot);
+	if (ret == 0) {
+		req->id = rot->session_id;
+	} else {
+		pr_err("Unable to setup rotator session\n");
+		mdss_mdp_rotator_release(rot->session_id);
+	}
 
 	return ret;
 }
@@ -248,6 +251,17 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	if (mdp5_data->ctl == NULL)
 		return -ENODEV;
 
+	if (req->flags & MDP_ROT_90) {
+		pr_err("unsupported inline rotation\n");
+		return -ENOTSUPP;
+	}
+
+	if ((req->dst_rect.w > MAX_DST_W) || (req->dst_rect.h > MAX_DST_H)) {
+		pr_err("exceeded max mixer supported resolution %dx%d\n",
+				req->dst_rect.w, req->dst_rect.h);
+		return -EOVERFLOW;
+	}
+
 	if (req->flags & MDSS_MDP_RIGHT_MIXER)
 		mixer_mux = MDSS_MDP_MIXER_MUX_RIGHT;
 	else
@@ -255,11 +269,6 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 
 	pr_debug("pipe ctl=%u req id=%x mux=%d\n", mdp5_data->ctl->num, req->id,
 			mixer_mux);
-
-	if (req->flags & MDP_ROT_90) {
-		pr_err("unsupported inline rotation\n");
-		return -ENOTSUPP;
-	}
 
 	src_format = req->src.format;
 	if (req->flags & (MDP_SOURCE_ROTATED_90 | MDP_BWC_EN))
@@ -365,7 +374,8 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->is_fg = req->is_fg;
 	pipe->alpha = req->alpha;
 	pipe->transp = req->transp_mask;
-	pipe->overfetch_disable = fmt->is_yuv;
+	pipe->overfetch_disable = fmt->is_yuv &&
+			!(pipe->flags & MDP_SOURCE_ROTATED_90);
 
 	pipe->req_data = *req;
 
@@ -1583,10 +1593,8 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 				ret = copy_to_user(argp, &req, sizeof(req));
 		}
 
-		if (ret) {
+		if (ret)
 			pr_debug("OVERLAY_GET failed (%d)\n", ret);
-			ret = -EFAULT;
-		}
 		break;
 
 	case MSMFB_OVERLAY_SET:
@@ -1597,10 +1605,8 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			if (!IS_ERR_VALUE(ret))
 				ret = copy_to_user(argp, &req, sizeof(req));
 		}
-		if (ret) {
+		if (ret)
 			pr_debug("OVERLAY_SET failed (%d)\n", ret);
-			ret = -EFAULT;
-		}
 		break;
 
 
@@ -1629,10 +1635,8 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 					mdss_fb_update_backlight(mfd);
 			}
 
-			if (ret) {
+			if (ret)
 				pr_debug("OVERLAY_PLAY failed (%d)\n", ret);
-				ret = -EFAULT;
-			}
 		} else {
 			ret = 0;
 		}
@@ -1646,10 +1650,8 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			if (!ret)
 				ret = mdss_mdp_overlay_play_wait(mfd, &data);
 
-			if (ret) {
+			if (ret)
 				pr_err("OVERLAY_PLAY_WAIT failed (%d)\n", ret);
-				ret = -EFAULT;
-			}
 		} else {
 			ret = 0;
 		}

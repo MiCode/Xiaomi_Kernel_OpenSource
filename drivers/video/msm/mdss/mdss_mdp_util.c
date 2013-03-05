@@ -387,6 +387,31 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 	return 0;
 }
 
+void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
+	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt)
+{
+	if ((x == 0) && (y == 0))
+		return;
+
+	data->p[0].addr += y * ps->ystride[0];
+
+	if (data->num_planes == 1) {
+		data->p[0].addr += x * fmt->bpp;
+	} else {
+		u8 hmap[] = { 1, 2, 1, 2 };
+		u8 vmap[] = { 1, 1, 2, 2 };
+		u16 xoff = x / hmap[fmt->chroma_sample];
+		u16 yoff = y / vmap[fmt->chroma_sample];
+
+		data->p[0].addr += x;
+		data->p[1].addr += xoff + (yoff * ps->ystride[1]);
+		if (data->num_planes == 2) /* pseudo planar */
+			data->p[1].addr += xoff;
+		else /* planar */
+			data->p[2].addr += xoff + (yoff * ps->ystride[2]);
+	}
+}
+
 int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 {
 	struct ion_client *iclient = mdss_get_ionclient();
