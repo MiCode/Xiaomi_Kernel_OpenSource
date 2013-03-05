@@ -1059,6 +1059,7 @@ static void ehci_hsic_reset_sof_bug_handler(struct usb_hcd *hcd, u32 val)
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
 	u32 __iomem *status_reg = &ehci->regs->port_status[0];
+	u32 cmd;
 	unsigned long flags;
 	int retries = 0, ret, cnt = RESET_SIGNAL_TIME_USEC;
 
@@ -1067,6 +1068,19 @@ static void ehci_hsic_reset_sof_bug_handler(struct usb_hcd *hcd, u32 val)
 			pdata->swfi_latency + 1);
 
 	mehci->bus_reset = 1;
+
+	/* Halt the controller */
+	cmd = ehci_readl(ehci, &ehci->regs->command);
+	cmd &= ~CMD_RUN;
+	ehci_writel(ehci, cmd, &ehci->regs->command);
+	ret = handshake(ehci, &ehci->regs->status, STS_HALT,
+			STS_HALT, 16 * 125);
+	if (ret) {
+		pr_err("halt handshake fatal error\n");
+		dbg_log_event(NULL, "HALT: fatal", 0);
+		goto fail;
+	}
+
 retry:
 	retries++;
 	dbg_log_event(NULL, "RESET: start", retries);
