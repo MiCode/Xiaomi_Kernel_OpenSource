@@ -3352,150 +3352,9 @@ struct clock_init_data msm8226_rumi_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clocks_8226_rumi),
 };
 
-static struct pll_config_regs gpll0_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL0_L_VAL,
-	.m_reg = (void __iomem *)GPLL0_M_VAL,
-	.n_reg = (void __iomem *)GPLL0_N_VAL,
-	.config_reg = (void __iomem *)GPLL0_USER_CTL,
-	.mode_reg = (void __iomem *)GPLL0_MODE,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* GPLL0 at 600 MHz, main output enabled. */
-static struct pll_config gpll0_config __initdata = {
-	.l = 0x1f,
-	.m = 0x1,
-	.n = 0x4,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-static struct pll_config_regs gpll1_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL1_L_VAL,
-	.m_reg = (void __iomem *)GPLL1_M_VAL,
-	.n_reg = (void __iomem *)GPLL1_N_VAL,
-	.config_reg = (void __iomem *)GPLL1_USER_CTL,
-	.mode_reg = (void __iomem *)GPLL1_MODE,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* GPLL1 at 480 MHz, main output enabled. */
-static struct pll_config gpll1_config __initdata = {
-	.l = 0x19,
-	.m = 0x0,
-	.n = 0x1,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-static struct pll_config_regs mmpll0_regs __initdata = {
-	.l_reg = (void __iomem *)MMPLL0_PLL_L_VAL,
-	.m_reg = (void __iomem *)MMPLL0_PLL_M_VAL,
-	.n_reg = (void __iomem *)MMPLL0_PLL_N_VAL,
-	.config_reg = (void __iomem *)MMPLL0_PLL_USER_CTL,
-	.mode_reg = (void __iomem *)MMPLL0_PLL_MODE,
-	.base = &virt_bases[MMSS_BASE],
-};
-
-/* MMPLL0 at 800 MHz, main output enabled. */
-static struct pll_config mmpll0_config __initdata = {
-	.l = 0x29,
-	.m = 0x2,
-	.n = 0x3,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-static struct pll_config_regs mmpll1_regs __initdata = {
-	.l_reg = (void __iomem *)MMPLL1_PLL_L_VAL,
-	.m_reg = (void __iomem *)MMPLL1_PLL_M_VAL,
-	.n_reg = (void __iomem *)MMPLL1_PLL_N_VAL,
-	.config_reg = (void __iomem *)MMPLL1_PLL_USER_CTL,
-	.mode_reg = (void __iomem *)MMPLL1_PLL_MODE,
-	.base = &virt_bases[MMSS_BASE],
-};
-
-/* MMPLL1 at 1000 MHz, main output enabled. */
-static struct pll_config mmpll1_config __initdata = {
-	.l = 0x2C,
-	.m = 0x1,
-	.n = 0x10,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-#define PLL_AUX_OUTPUT_BIT 1
-#define PLL_AUX2_OUTPUT_BIT 2
-
-#define PWR_ON_MASK		BIT(31)
-#define EN_REST_WAIT_MASK	(0xF << 20)
-#define EN_FEW_WAIT_MASK	(0xF << 16)
-#define CLK_DIS_WAIT_MASK	(0xF << 12)
-#define SW_OVERRIDE_MASK	BIT(2)
-#define HW_CONTROL_MASK		BIT(1)
-#define SW_COLLAPSE_MASK	BIT(0)
-
-/* Wait 2^n CXO cycles between all states. Here, n=2 (4 cycles). */
-#define EN_REST_WAIT_VAL	(0x2 << 20)
-#define EN_FEW_WAIT_VAL		(0x2 << 16)
-#define CLK_DIS_WAIT_VAL	(0x2 << 12)
-#define GDSC_TIMEOUT_US		50000
-
-#define PLL_OUTCTRL BIT(0)
-#define PLL_BYPASSNL BIT(1)
-#define PLL_RESET_N BIT(2)
-#define PLL_LOCKED_BIT BIT(16)
-#define ENABLE_WAIT_MAX_LOOPS 200
-
 static void __init reg_init(void)
 {
 	u32 regval;
-
-	if (!(readl_relaxed(GCC_REG_BASE(GPLL0_STATUS))
-			& gpll0.status_mask))
-		configure_sr_hpm_lp_pll(&gpll0_config, &gpll0_regs, 1);
-
-	if (!(readl_relaxed(GCC_REG_BASE(GPLL1_STATUS))
-			& gpll1.status_mask))
-		configure_sr_hpm_lp_pll(&gpll1_config, &gpll1_regs, 1);
-
-	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
-	configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
-
-	/* Enable GPLL0's aux outputs. */
-	regval = readl_relaxed(GCC_REG_BASE(GPLL0_USER_CTL));
-	regval |= BIT(PLL_AUX_OUTPUT_BIT) | BIT(PLL_AUX2_OUTPUT_BIT);
-	writel_relaxed(regval, GCC_REG_BASE(GPLL0_USER_CTL));
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
@@ -3503,15 +3362,13 @@ static void __init reg_init(void)
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 
 	/*
-	 * TODO: Confirm that no clocks need to be voted on in this sleep vote
-	 * register.
+	 * No clocks need to be enabled during sleep.
 	 */
 	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
 }
 
 static void __init msm8226_clock_post_init(void)
 {
-
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb_hs_system_clk_src.c,
 			usb_hs_system_clk_src.freq_tbl[0].freq_hz);
@@ -3580,18 +3437,12 @@ static void __init msm8226_clock_pre_init(void)
 		panic("clock-8226: Unable to get the sr2_pll regulator!");
 
 	/*
-	 * The SR2 PLL is used at boot. Vote to prevent its regulator from
-	 * being turned off while the PLL is still in use.
+	 * These regulators are used at boot. Ensure they stay on
+	 * while the clock framework comes online.
 	 */
 	regulator_set_voltage(vdd_sr2_reg, 1800000, 1800000);
 	regulator_enable(vdd_sr2_reg);
 
-	/*
-	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
-	 * until late_init. This may not be necessary with clock handoff;
-	 * Investigate this code on a real non-simulator target to determine
-	 * its necessity.
-	 */
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
 	regulator_enable(vdd_dig_reg);
 
@@ -3602,7 +3453,6 @@ static void __init msm8226_clock_pre_init(void)
 	 * access mmss clock controller registers.
 	 */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
-	clk_prepare_enable(&mmssnoc_ahb_a_clk.c);
 
 	/*
 	 * Hold an active set vote for CXO; this is because CXO is expected
@@ -3613,18 +3463,6 @@ static void __init msm8226_clock_pre_init(void)
 	enable_rpm_scaling();
 
 	reg_init();
-	/*
-	 * FIXME remove after bus driver is in place
-	 * Requires gpll0 to be configured
-	 */
-	clk_set_rate(&axi_clk_src.c, 200000000);
-	clk_prepare_enable(&mmss_s0_axi_clk.c);
-
-	/*
-	 * TODO: Enable the gcc_bimc_clk smcbc, which is the parent of thhe
-	 * mss_gcc_q6_bimc_axi_clk
-	 */
-	writel_relaxed(0x1, GCC_REG_BASE(0x1118));
 }
 
 static int __init msm8226_clock_late_init(void)
