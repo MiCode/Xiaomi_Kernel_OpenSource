@@ -137,7 +137,7 @@ static struct pm8xxx_gpio_init pm8921_fsm8064_ep_gpios[] __initdata = {
 	PM8921_GPIO_OUTPUT_VIN(14, 1, PM_GPIO_VIN_VPH),
 	/* PPS_SRC_SEL_N, chooses between WGR7640 PPS source (high) or
 	 * CW GPS module PPS source (low) */
-	PM8921_GPIO_OUTPUT_VIN(19, 1, PM_GPIO_VIN_VPH),	/* PPS_SRC_SEL_N */
+	PM8921_GPIO_OUTPUT_VIN(19, 0, PM_GPIO_VIN_VPH),	/* PPS_SRC_SEL_N */
 
 	PM8921_GPIO_OUTPUT_VIN(13, 1, PM_GPIO_VIN_VPH),	/* PCIE_CLK_PWR_EN */
 	PM8921_GPIO_OUTPUT_VIN(37, 1, PM_GPIO_VIN_VPH),	/* PCIE_RST_N */

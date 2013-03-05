@@ -1729,13 +1729,6 @@ static struct msm_gpiomux_config fsm8064_ep_uim_configs[] __initdata = {
 	},
 };
 
-static struct gpiomux_setting fsm8064_ep_sync_drsync_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
-	.dir = GPIOMUX_OUT_HIGH,
-};
-
 static struct gpiomux_setting fsm8064_ep_sync_input_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_4MA,
@@ -1746,7 +1739,7 @@ static struct msm_gpiomux_config fsm8064_ep_sync_configs[] __initdata = {
 	{
 		.gpio      = 6,		/* GPSPPSIN_DRSYNC */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &fsm8064_ep_sync_drsync_cfg,
+			[GPIOMUX_SUSPENDED] = &fsm8064_ep_sync_input_cfg,
 		},
 	},
 	{
