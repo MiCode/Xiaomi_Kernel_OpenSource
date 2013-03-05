@@ -22,6 +22,7 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 #include <mach/msm_iomap.h>
+#include <mach/msm_memtypes.h>
 #include <mach/msm_smd.h>
 #include <mach/restart.h>
 #include <mach/socinfo.h>
@@ -31,12 +32,38 @@
 #include "devices.h"
 #include "platsmp.h"
 
+static struct memtype_reserve msmzinc_reserve_table[] __initdata = {
+	[MEMTYPE_SMI] = {
+	},
+	[MEMTYPE_EBI0] = {
+		.flags  =       MEMTYPE_FLAGS_1M_ALIGN,
+	},
+	[MEMTYPE_EBI1] = {
+		.flags  =       MEMTYPE_FLAGS_1M_ALIGN,
+	},
+};
+
+static int msmzinc_paddr_to_memtype(unsigned int paddr)
+{
+	return MEMTYPE_EBI1;
+}
+
+static struct reserve_info msmzinc_reserve_info __initdata = {
+	.memtype_reserve_table = msmzinc_reserve_table,
+	.paddr_to_memtype = msmzinc_paddr_to_memtype,
+};
+
 void __init msmzinc_reserve(void)
 {
+	reserve_info = &msmzinc_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, msmzinc_reserve_table);
+	msm_reserve();
 }
 
 static void __init msmzinc_early_memory(void)
 {
+	reserve_info = &msmzinc_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_hole, msmzinc_reserve_table);
 }
 
 static struct clk_lookup msm_clocks_dummy[] = {
