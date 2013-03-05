@@ -1069,6 +1069,33 @@ int ipa_get_a2_mux_pipe_info(enum a2_mux_pipe_direction  pipe_dir,
 	return 0;
 }
 
+/**
+* ipa_get_a2_mux_bam_info() - Exposes A2 parameters fetched from
+* DTS
+*
+* @a2_bam_mem_base: A2 BAM Memory base
+* @a2_bam_mem_size: A2 BAM Memory size
+* @a2_bam_irq: A2 BAM IRQ
+*
+* Return codes:
+* 0: success
+* -EFAULT: invalid parameters
+*/
+int ipa_get_a2_mux_bam_info(u32 *a2_bam_mem_base, u32 *a2_bam_mem_size,
+			    u32 *a2_bam_irq)
+{
+	if (!a2_bam_mem_base || !a2_bam_mem_size || !a2_bam_irq) {
+		IPAERR("ipa_get_a2_mux_bam_info null args\n");
+		return -EFAULT;
+	}
+
+	*a2_bam_mem_base = ipa_res.a2_bam_mem_base;
+	*a2_bam_mem_size = ipa_res.a2_bam_mem_size;
+	*a2_bam_irq = ipa_res.a2_bam_irq;
+
+	return 0;
+}
+
 static void ipa_set_aggregation_params(void)
 {
 	struct ipa_ep_cfg_aggr agg_params;
@@ -1881,6 +1908,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		goto fail_ipa_rm_init;
 	}
 
+	a2_mux_init();
+
 	IPADBG(":IPA driver init OK.\n");
 
 	return 0;
@@ -1994,6 +2023,18 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 		ipa_res.bam_mem_size = resource_size(resource_p);
 	}
 
+	/* Get IPA A2 BAM address */
+	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_MEM,
+			"a2-bam-base");
+
+	if (!resource_p) {
+		IPAERR(":get resource failed for a2-bam-base!\n");
+		return -ENODEV;
+	} else {
+		ipa_res.a2_bam_mem_base = resource_p->start;
+		ipa_res.a2_bam_mem_size = resource_size(resource_p);
+	}
+
 	/* Get IPA pipe mem start ofst */
 	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_MEM,
 			"ipa-pipe-mem");
@@ -2025,6 +2066,17 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 		return -ENODEV;
 	} else {
 		ipa_res.bam_irq = resource_p->start;
+	}
+
+	/* Get IPA A2 BAM IRQ number */
+	resource_p = platform_get_resource_byname(pdev_p, IORESOURCE_IRQ,
+			"a2-bam-irq");
+
+	if (!resource_p) {
+		IPAERR(":get resource failed for a2-bam-irq!\n");
+		return -ENODEV;
+	} else {
+		ipa_res.a2_bam_irq = resource_p->start;
 	}
 
 	/* Get IPA HW Version */

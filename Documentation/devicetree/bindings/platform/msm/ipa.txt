@@ -13,9 +13,11 @@ IPA node:
        registers.
 - reg-names: "ipa-base" - string to identify the IPA CORE base registers.
 	     "bam-base" - string to identify the IPA BAM base registers.
+	     "a2-bam-base" - string to identify the A2 BAM base registers.
 - interrupts: Specifies the interrupt associated with IPA.
 - interrupt-names: "ipa-irq" - string to identify the IPA core interrupt.
                    "bam-irq" - string to identify the IPA BAM interrupt.
+                   "a2-bam-irq" - string to identify the A2 BAM interrupt.
 - qcom,ipa-hw-ver: Specifies the IPA hardware version.
 
 IPA pipe sub nodes (A2 static pipes configurations):
@@ -49,10 +51,12 @@ qcom,ipa@fd4c0000 {
 	compatible = "qcom,ipa";
 	reg = <0xfd4c0000 0x26000>,
 	      <0xfd4c4000 0x14818>;
-	reg-names = "ipa-base", "bam-base";
+	      <0xfc834000 0x7000>;
+	reg-names = "ipa-base", "bam-base"; "a2-bam-base";
 	interrupts = <0 252 0>,
 	             <0 253 0>;
-	interrupt-names = "ipa-irq", "bam-irq";
+	             <0 29 1>;
+	interrupt-names = "ipa-irq", "bam-irq"; "a2-bam-irq";
 	qcom,ipa-hw-ver = <1>;
 
 	qcom,pipe1 {
