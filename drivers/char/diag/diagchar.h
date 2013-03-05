@@ -30,7 +30,6 @@
 #define IN_BUF_SIZE		16384
 #define MAX_IN_BUF_SIZE	32768
 #define MAX_SYNC_OBJ_NAME_SIZE	32
-#define UINT32_MAX	UINT_MAX
 /* Size of the buffer used for deframing a packet
   reveived from the PC tool*/
 #define HDLC_MAX 4096
@@ -86,8 +85,8 @@
 #define SMD_DCI_TYPE 2
 
 /* Maximum number of pkt reg supported at initialization*/
-extern unsigned int diag_max_reg;
-extern unsigned int diag_threshold_reg;
+extern int diag_max_reg;
+extern int diag_threshold_reg;
 
 #define APPEND_DEBUG(ch) \
 do {							\
