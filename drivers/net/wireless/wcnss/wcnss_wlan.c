@@ -58,15 +58,34 @@ static DEFINE_SPINLOCK(reg_spinlock);
 
 #define MSM_RIVA_CCU_BASE			0x03200800
 
-#define CCU_INVALID_ADDR_OFFSET		0x100
-#define CCU_LAST_ADDR0_OFFSET		0x104
-#define CCU_LAST_ADDR1_OFFSET		0x108
-#define CCU_LAST_ADDR2_OFFSET		0x10c
+#define CCU_RIVA_INVALID_ADDR_OFFSET		0x100
+#define CCU_RIVA_LAST_ADDR0_OFFSET		0x104
+#define CCU_RIVA_LAST_ADDR1_OFFSET		0x108
+#define CCU_RIVA_LAST_ADDR2_OFFSET		0x10c
 
 #define MSM_PRONTO_A2XB_BASE		0xfb100400
-#define A2XB_CFG_OFFSET		        0x00
-#define A2XB_INT_SRC_OFFSET		0x0c
+#define A2XB_CFG_OFFSET				0x00
+#define A2XB_INT_SRC_OFFSET			0x0c
+#define A2XB_TSTBUS_CTRL_OFFSET		0x14
+#define A2XB_TSTBUS_OFFSET			0x18
 #define A2XB_ERR_INFO_OFFSET		0x1c
+
+#define WCNSS_TSTBUS_CTRL_EN		BIT(0)
+#define WCNSS_TSTBUS_CTRL_AXIM		(0x02 << 1)
+#define WCNSS_TSTBUS_CTRL_CMDFIFO	(0x03 << 1)
+#define WCNSS_TSTBUS_CTRL_WRFIFO	(0x04 << 1)
+#define WCNSS_TSTBUS_CTRL_RDFIFO	(0x05 << 1)
+#define WCNSS_TSTBUS_CTRL_CTRL		(0x07 << 1)
+#define WCNSS_TSTBUS_CTRL_AXIM_CFG0	(0x00 << 6)
+#define WCNSS_TSTBUS_CTRL_AXIM_CFG1	(0x01 << 6)
+#define WCNSS_TSTBUS_CTRL_CTRL_CFG0	(0x00 << 12)
+#define WCNSS_TSTBUS_CTRL_CTRL_CFG1	(0x01 << 12)
+
+#define MSM_PRONTO_CCPU_BASE			0xfb205050
+#define CCU_PRONTO_INVALID_ADDR_OFFSET		0x08
+#define CCU_PRONTO_LAST_ADDR0_OFFSET		0x0c
+#define CCU_PRONTO_LAST_ADDR1_OFFSET		0x10
+#define CCU_PRONTO_LAST_ADDR2_OFFSET		0x14
 
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
 #define WCNSS_MAX_FRAME_SIZE		500
@@ -173,6 +192,7 @@ static struct {
 	void __iomem *msm_wcnss_base;
 	void __iomem *riva_ccu_base;
 	void __iomem *pronto_a2xb_base;
+	void __iomem *pronto_ccpu_base;
 } *penv = NULL;
 
 static ssize_t wcnss_serial_number_show(struct device *dev,
@@ -253,19 +273,19 @@ void wcnss_riva_log_debug_regs(void)
 	void __iomem *ccu_reg;
 	u32 reg = 0;
 
-	ccu_reg = penv->riva_ccu_base + CCU_INVALID_ADDR_OFFSET;
+	ccu_reg = penv->riva_ccu_base + CCU_RIVA_INVALID_ADDR_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_INVALID_ADDR %08x\n", __func__, reg);
 
-	ccu_reg = penv->riva_ccu_base + CCU_LAST_ADDR0_OFFSET;
+	ccu_reg = penv->riva_ccu_base + CCU_RIVA_LAST_ADDR0_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR0 %08x\n", __func__, reg);
 
-	ccu_reg = penv->riva_ccu_base + CCU_LAST_ADDR1_OFFSET;
+	ccu_reg = penv->riva_ccu_base + CCU_RIVA_LAST_ADDR1_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR1 %08x\n", __func__, reg);
 
-	ccu_reg = penv->riva_ccu_base + CCU_LAST_ADDR2_OFFSET;
+	ccu_reg = penv->riva_ccu_base + CCU_RIVA_LAST_ADDR2_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
 
@@ -275,7 +295,7 @@ EXPORT_SYMBOL(wcnss_riva_log_debug_regs);
 /* Log pronto debug registers before sending reset interrupt */
 void wcnss_pronto_log_debug_regs(void)
 {
-	void __iomem *reg_addr;
+	void __iomem *reg_addr, *tst_addr, *tst_ctrl_addr;
 	u32 reg = 0;
 
 	reg_addr = penv->pronto_a2xb_base + A2XB_CFG_OFFSET;
@@ -289,6 +309,84 @@ void wcnss_pronto_log_debug_regs(void)
 	reg_addr = penv->pronto_a2xb_base + A2XB_ERR_INFO_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_info_ratelimited("%s: A2XB_ERR_INFO_OFFSET %08x\n", __func__, reg);
+
+	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_INVALID_ADDR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: CCU_CCPU_INVALID_ADDR %08x\n", __func__, reg);
+
+	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_LAST_ADDR0_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR0 %08x\n", __func__, reg);
+
+	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_LAST_ADDR1_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR1 %08x\n", __func__, reg);
+
+	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_LAST_ADDR2_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
+
+	tst_addr = penv->pronto_a2xb_base + A2XB_TSTBUS_OFFSET;
+	tst_ctrl_addr = penv->pronto_a2xb_base + A2XB_TSTBUS_CTRL_OFFSET;
+
+	/*  read data FIFO */
+	reg = 0;
+	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_RDFIFO;
+	writel_relaxed(reg, tst_ctrl_addr);
+	reg = readl_relaxed(tst_addr);
+	pr_info_ratelimited("%s:  Read data FIFO testbus %08x\n",
+					__func__, reg);
+
+	/*  command FIFO */
+	reg = 0;
+	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_CMDFIFO;
+	writel_relaxed(reg, tst_ctrl_addr);
+	reg = readl_relaxed(tst_addr);
+	pr_info_ratelimited("%s:  Command FIFO testbus %08x\n",
+					__func__, reg);
+
+	/*  write data FIFO */
+	reg = 0;
+	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_WRFIFO;
+	writel_relaxed(reg, tst_ctrl_addr);
+	reg = readl_relaxed(tst_addr);
+	pr_info_ratelimited("%s:  Rrite data FIFO testbus %08x\n",
+					__func__, reg);
+
+	/*   AXIM SEL CFG0 */
+	reg = 0;
+	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_AXIM |
+				WCNSS_TSTBUS_CTRL_AXIM_CFG0;
+	writel_relaxed(reg, tst_ctrl_addr);
+	reg = readl_relaxed(tst_addr);
+	pr_info_ratelimited("%s:  AXIM SEL CFG0 testbus %08x\n",
+					__func__, reg);
+
+	/*   AXIM SEL CFG1 */
+	reg = 0;
+	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_AXIM |
+				WCNSS_TSTBUS_CTRL_AXIM_CFG1;
+	writel_relaxed(reg, tst_ctrl_addr);
+	reg = readl_relaxed(tst_addr);
+	pr_info_ratelimited("%s:  AXIM SEL CFG1 testbus %08x\n",
+					__func__, reg);
+
+	/*   CTRL SEL CFG0 */
+	reg = 0;
+	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_CTRL |
+		WCNSS_TSTBUS_CTRL_CTRL_CFG0;
+	writel_relaxed(reg, tst_ctrl_addr);
+	reg = readl_relaxed(tst_addr);
+	pr_info_ratelimited("%s:  CTRL SEL CFG0 testbus %08x\n",
+					__func__, reg);
+
+	/*   CTRL SEL CFG1 */
+	reg = 0;
+	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_CTRL |
+		WCNSS_TSTBUS_CTRL_CTRL_CFG1;
+	writel_relaxed(reg, tst_ctrl_addr);
+	reg = readl_relaxed(tst_addr);
+	pr_info_ratelimited("%s:  CTRL SEL CFG1 testbus %08x\n", __func__, reg);
 
 }
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
@@ -1071,11 +1169,19 @@ wcnss_trigger_config(struct platform_device *pdev)
 			pr_err("%s: ioremap wcnss physical failed\n", __func__);
 			goto fail_ioremap;
 		}
+		penv->pronto_ccpu_base =  ioremap(MSM_PRONTO_CCPU_BASE, SZ_512);
+		if (!penv->pronto_ccpu_base) {
+			ret = -ENOMEM;
+			pr_err("%s: ioremap wcnss physical failed\n", __func__);
+			goto fail_ioremap2;
+		}
 	}
 	penv->cold_boot_done = 1;
 
 	return 0;
 
+fail_ioremap2:
+	iounmap(penv->pronto_a2xb_base);
 fail_ioremap:
 	iounmap(penv->msm_wcnss_base);
 fail_wake:
