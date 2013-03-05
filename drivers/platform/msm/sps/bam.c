@@ -992,7 +992,11 @@ void bam_pipe_enable(void *base, u32 pipe)
 {
 	SPS_DBG2("sps:%s:bam=0x%x(va).pipe=%d.", __func__, (u32) base, pipe);
 
-	bam_write_reg_field(base, P_CTRL(pipe), P_EN, 1);
+	if (bam_read_reg_field(base, P_CTRL(pipe), P_EN))
+		SPS_DBG2("sps:bam=0x%x(va).pipe=%d is already enabled.\n",
+			(u32) base, pipe);
+	else
+		bam_write_reg_field(base, P_CTRL(pipe), P_EN, 1);
 }
 
 /**
