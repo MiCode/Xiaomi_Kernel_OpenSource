@@ -986,6 +986,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				list_add_tail(&playback_copy_buf->list,
 						&audio->play_queue);
 				schedule_work(&audio->playback_work);
+				audio->playback_copy_buf = NULL;
 			} else {
 				pr_err("playback_buf is empty. Stop.");
 			}
