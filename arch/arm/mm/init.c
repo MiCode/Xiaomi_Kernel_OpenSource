@@ -721,9 +721,6 @@ void __init mem_init(void)
 	extern u32 dtcm_end;
 	extern u32 itcm_end;
 #endif
-#ifdef CONFIG_FIX_MOVABLE_ZONE
-	struct zone *zone;
-#endif
 
 	max_mapnr   = pfn_to_page(max_pfn + PHYS_PFN_OFFSET) - mem_map;
 
@@ -768,14 +765,6 @@ void __init mem_init(void)
 		} while (page < end);
 #endif
 	}
-
-#ifdef CONFIG_FIX_MOVABLE_ZONE
-	for_each_zone(zone) {
-		if (zone_idx(zone) == ZONE_MOVABLE)
-			total_unmovable_pages = totalram_pages -
-							zone->spanned_pages;
-	}
-#endif
 
 	/*
 	 * Since our memory may not be contiguous, calculate the
@@ -898,38 +887,8 @@ void free_initmem(void)
 					    __phys_to_pfn(__pa(__init_end)),
 					    "init");
 		totalram_pages += reclaimed_initmem;
-#ifdef CONFIG_FIX_MOVABLE_ZONE
-		total_unmovable_pages += reclaimed_initmem;
-#endif
 	}
 }
-
-#ifdef CONFIG_MEMORY_HOTPLUG
-int arch_add_memory(int nid, u64 start, u64 size)
-{
-	struct pglist_data *pgdata = NODE_DATA(nid);
-	struct zone *zone = pgdata->node_zones + ZONE_MOVABLE;
-	unsigned long start_pfn = start >> PAGE_SHIFT;
-	unsigned long nr_pages = size >> PAGE_SHIFT;
-
-	return __add_pages(nid, zone, start_pfn, nr_pages);
-}
-
-int arch_physical_active_memory(u64 start, u64 size)
-{
-	return platform_physical_active_pages(start, size);
-}
-
-int arch_physical_remove_memory(u64 start, u64 size)
-{
-	return platform_physical_remove_pages(start, size);
-}
-
-int arch_physical_low_power_memory(u64 start, u64 size)
-{
-	return platform_physical_low_power_pages(start, size);
-}
-#endif
 
 #ifdef CONFIG_BLK_DEV_INITRD
 
@@ -945,9 +904,6 @@ void free_initrd_mem(unsigned long start, unsigned long end)
 						 __phys_to_pfn(__pa(end)),
 						 "initrd");
 		totalram_pages += reclaimed_initrd_mem;
-#ifdef CONFIG_FIX_MOVABLE_ZONE
-		total_unmovable_pages += reclaimed_initrd_mem;
-#endif
 	}
 }
 
