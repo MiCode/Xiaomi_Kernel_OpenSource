@@ -53,13 +53,13 @@ static struct msm_bus_scale_pdata bus_client_pdata = {
  * 3) Depending on Frodo version, may need minimum of LVL_NOM
  */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 0,   19200, CXO,     0, 0,   LVL_LOW,    950000, 0 },
-	{ 1,  300000, PLL0,    4, 2,   LVL_LOW,    950000, 4 },
-	{ 1,  384000, ACPUPLL, 5, 0,   LVL_LOW,    950000, 4 },
-	{ 1,  600000, PLL0,    4, 0,   LVL_NOM,    950000, 6 },
-	{ 1,  787200, ACPUPLL, 5, 0,   LVL_NOM,   1050000, 6 },
-	{ 1,  998400, ACPUPLL, 5, 0,   LVL_HIGH,  1050000, 7 },
-	{ 1, 1190400, ACPUPLL, 5, 0,   LVL_HIGH,  1050000, 7 },
+	{ 0,   19200, CXO,     0, 0,   1150000,   1150000, 0 },
+	{ 1,  300000, PLL0,    4, 2,   1150000,   1150000, 4 },
+	{ 1,  384000, ACPUPLL, 5, 0,   1150000,   1150000, 4 },
+	{ 1,  600000, PLL0,    4, 0,   1150000,   1150000, 6 },
+	{ 1,  787200, ACPUPLL, 5, 0,   1150000,   1150000, 6 },
+	{ 0,  998400, ACPUPLL, 5, 0,   1150000,   1150000, 7 },
+	{ 0, 1190400, ACPUPLL, 5, 0,   1150000,   1150000, 7 },
 	{ 0 }
 };
 
@@ -68,7 +68,7 @@ static struct acpuclk_drv_data drv_data = {
 	.current_speed = &(struct clkctl_acpu_speed){ 0 },
 	.bus_scale = &bus_client_pdata,
 	/* FIXME regulator doesn't support corners yet */
-	.vdd_max_cpu = 1050000,
+	.vdd_max_cpu = 1150000,
 	.vdd_max_mem = 1150000,
 	.src_clocks = {
 		[PLL0].name = "gpll0",
