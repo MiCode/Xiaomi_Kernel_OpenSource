@@ -72,6 +72,18 @@ Optional properties:
 				qcom,use-voltage-floor-corner are mutually
 				exclusive.  Only one may be specified for a
 				given regulator.
+- qcom,always-send-voltage:    Flag which indicates that updates to the voltage
+				or voltage corner set point should always be
+				sent immediately to the RPM.  If this flag is
+				not specified, then voltage set point updates
+				are only sent if the given regulator has also
+				been enabled by a Linux consumer.
+- qcom,always-send-current:    Flag which indicates that updates to the load
+				current should always be sent immediately to the
+				RPM.  If this flag is not specified, then load
+				current updates are only sent if the given
+				regulator has also been enabled by a Linux
+				consumer.
 The following properties specify initial values for parameters to be sent to the
 RPM in regulator requests.
 - qcom,init-enable:            0 = regulator disabled
