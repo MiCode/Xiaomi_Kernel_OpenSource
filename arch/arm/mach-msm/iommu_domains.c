@@ -19,15 +19,15 @@
 #include <linux/rbtree.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <asm/sizes.h>
 #include <asm/page.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
 #include <mach/socinfo.h>
 #include <mach/msm_subsystem_map.h>
-#include <linux/of.h>
-#include <linux/of_address.h>
-#include <linux/of_device.h>
 
 struct msm_iova_data {
 	struct rb_node node;
