@@ -11,6 +11,7 @@
  */
 
 /include/ "skeleton.dtsi"
+/include/ "msmzinc-ion.dtsi"
 
 / {
 	model = "Qualcomm MSM ZINC";
@@ -82,13 +83,4 @@
 		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
 	};
 
-	qcom,ion {
-		compatible = "qcom,msm-ion";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		qcom,ion-heap@30 { /* SYSTEM HEAP */
-			reg = <30>;
-		};
-	};
 };
