@@ -25,6 +25,8 @@ struct pil_priv;
  * @proxy_timeout: delay in ms until proxy vote is removed
  * @flags: bitfield for image flags
  * @priv: DON'T USE - internal only
+ * @proxy_unvote_irq: IRQ to trigger a proxy unvote. proxy_timeout
+ * is ignored if this is set.
  */
 struct pil_desc {
 	const char *name;
@@ -35,6 +37,7 @@ struct pil_desc {
 	unsigned long flags;
 #define PIL_SKIP_ENTRY_CHECK	BIT(0)
 	struct pil_priv *priv;
+	unsigned int proxy_unvote_irq;
 };
 
 /**
