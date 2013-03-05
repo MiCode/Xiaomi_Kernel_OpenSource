@@ -29,6 +29,7 @@
 #include <linux/list.h>
 #include <linux/list_sort.h>
 #include <linux/idr.h>
+#include <linux/interrupt.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -226,8 +227,19 @@ static void pil_proxy_unvote(struct pil_desc *desc, int immediate)
 
 		if (immediate)
 			timeout = 0;
-		schedule_delayed_work(&priv->proxy, msecs_to_jiffies(timeout));
+
+		if (!desc->proxy_unvote_irq || immediate)
+			schedule_delayed_work(&priv->proxy,
+					      msecs_to_jiffies(timeout));
 	}
+}
+
+static irqreturn_t proxy_unvote_intr_handler(int irq, void *dev_id)
+{
+	struct pil_desc *desc = dev_id;
+
+	schedule_delayed_work(&desc->priv->proxy, 0);
+	return IRQ_HANDLED;
 }
 
 static bool segment_is_relocatable(const struct elf32_phdr *p)
@@ -685,13 +697,16 @@ static DEFINE_IDA(pil_ida);
 int pil_desc_init(struct pil_desc *desc)
 {
 	struct pil_priv *priv;
-	int id;
+	int ret;
 	void __iomem *addr;
 	char buf[sizeof(priv->info->name)];
 
 	/* Ignore users who don't make any sense */
-	WARN(desc->ops->proxy_unvote && !desc->proxy_timeout,
-			"A proxy timeout of 0 was specified.\n");
+	WARN(desc->ops->proxy_unvote && desc->proxy_unvote_irq == 0
+		 && !desc->proxy_timeout,
+		 "Invalid proxy unvote callback or a proxy timeout of 0"
+		 " was specified or no proxy unvote IRQ was specified.\n");
+
 	if (WARN(desc->ops->proxy_unvote && !desc->ops->proxy_vote,
 				"Invalid proxy voting. Ignoring\n"))
 		((struct pil_reset_ops *)desc->ops)->proxy_unvote = NULL;
@@ -702,16 +717,28 @@ int pil_desc_init(struct pil_desc *desc)
 	desc->priv = priv;
 	priv->desc = desc;
 
-	priv->id = id = ida_simple_get(&pil_ida, 0, 10, GFP_KERNEL);
-	if (id < 0) {
-		kfree(priv);
-		return id;
-	}
-	addr = PIL_IMAGE_INFO_BASE + sizeof(struct pil_image_info) * id;
+	priv->id = ret = ida_simple_get(&pil_ida, 0, 10, GFP_KERNEL);
+	if (priv->id < 0)
+		goto err;
+
+	addr = PIL_IMAGE_INFO_BASE + sizeof(struct pil_image_info) * priv->id;
 	priv->info = (struct pil_image_info __iomem *)addr;
 
 	strncpy(buf, desc->name, sizeof(buf));
 	__iowrite32_copy(priv->info->name, buf, sizeof(buf) / 4);
+
+	if (desc->proxy_unvote_irq > 0) {
+		ret = request_irq(desc->proxy_unvote_irq,
+				  proxy_unvote_intr_handler,
+				  IRQF_TRIGGER_RISING|IRQF_SHARED,
+				  desc->name, desc);
+		if (ret < 0) {
+			dev_err(desc->dev,
+				"Unable to request proxy unvote IRQ: %d\n",
+				ret);
+			goto err;
+		}
+	}
 
 	snprintf(priv->wname, sizeof(priv->wname), "pil-%s", desc->name);
 	wake_lock_init(&priv->wlock, WAKE_LOCK_SUSPEND, priv->wname);
@@ -719,6 +746,9 @@ int pil_desc_init(struct pil_desc *desc)
 	INIT_LIST_HEAD(&priv->segs);
 
 	return 0;
+err:
+	kfree(priv);
+	return ret;
 }
 EXPORT_SYMBOL(pil_desc_init);
 
