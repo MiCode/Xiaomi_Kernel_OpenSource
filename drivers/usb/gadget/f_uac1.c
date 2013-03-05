@@ -463,6 +463,8 @@ struct f_audio {
 	struct list_head		capture_queue;
 	struct usb_request		*capture_req;
 
+	u8				alt_intf[F_AUDIO_NUM_INTERFACES];
+
 	/* Control Set command */
 	struct list_head		fu_cs;
 	struct list_head		ep_cs;
@@ -881,6 +883,18 @@ f_audio_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	return value;
 }
 
+static int f_audio_get_alt(struct usb_function *f, unsigned intf)
+{
+	struct f_audio	*audio = func_to_audio(f);
+
+	if (intf == ac_header_desc.baInterfaceNr[0])
+		return audio->alt_intf[0];
+	if (intf == ac_header_desc.baInterfaceNr[1])
+		return audio->alt_intf[1];
+
+	return 0;
+}
+
 static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_audio		*audio = func_to_audio(f);
@@ -938,6 +952,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			}
 			spin_unlock_irqrestore(&audio->capture_lock, flags);
 		}
+		audio->alt_intf[0] = alt;
 	} else if (intf == ac_header_desc.baInterfaceNr[1]) {
 		if (alt == 1) {
 			err = usb_ep_enable(out_ep);
@@ -990,6 +1005,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				pr_err("playback_buf is empty. Stop.");
 			}
 		}
+		audio->alt_intf[1] = alt;
 	} else {
 		pr_err("Interface %d. Do nothing. Return %d\n", intf, err);
 	}
@@ -1066,6 +1082,7 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	microphone_as_interface_alt_0_desc.bInterfaceNumber = status;
 	microphone_as_interface_alt_1_desc.bInterfaceNumber = status;
 	ac_header_desc.baInterfaceNr[0] = status;
+	audio->alt_intf[0] = 0;
 
 	status = -ENODEV;
 
@@ -1077,6 +1094,7 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	speaker_as_interface_alt_0_desc.bInterfaceNumber = status;
 	speaker_as_interface_alt_1_desc.bInterfaceNumber = status;
 	ac_header_desc.baInterfaceNr[1] = status;
+	audio->alt_intf[1] = 0;
 
 	status = -ENODEV;
 
@@ -1225,6 +1243,7 @@ int audio_bind_config(struct usb_configuration *c)
 	audio->card.func.strings = audio_strings;
 	audio->card.func.bind = f_audio_bind;
 	audio->card.func.unbind = f_audio_unbind;
+	audio->card.func.get_alt = f_audio_get_alt;
 	audio->card.func.set_alt = f_audio_set_alt;
 	audio->card.func.setup = f_audio_setup;
 	audio->card.func.disable = f_audio_disable;
