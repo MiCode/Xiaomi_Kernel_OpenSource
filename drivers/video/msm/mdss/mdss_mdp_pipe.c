@@ -487,28 +487,6 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
-static void mdss_mdp_addr_add_offset(struct mdss_mdp_pipe *pipe,
-				    struct mdss_mdp_data *data)
-{
-	data->p[0].addr += pipe->src.x +
-		(pipe->src.y * pipe->src_planes.ystride[0]);
-	if (data->num_planes > 1) {
-		u8 hmap[] = { 1, 2, 1, 2 };
-		u8 vmap[] = { 1, 1, 2, 2 };
-		u16 xoff = pipe->src.x / hmap[pipe->src_fmt->chroma_sample];
-		u16 yoff = pipe->src.y / vmap[pipe->src_fmt->chroma_sample];
-
-		if (data->num_planes == 2) /* pseudo planar */
-			xoff *= 2;
-		data->p[1].addr += xoff + (yoff * pipe->src_planes.ystride[1]);
-
-		if (data->num_planes > 2) { /* planar */
-			data->p[2].addr += xoff +
-				(yoff * pipe->src_planes.ystride[2]);
-		}
-	}
-}
-
 int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata, u32 *offsets,
 				u32 *ftch_id, u32 type, u32 num_base, u32 len)
 {
@@ -571,7 +549,8 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 		return ret;
 
 	if (pipe->overfetch_disable)
-		mdss_mdp_addr_add_offset(pipe, data);
+		mdss_mdp_data_calc_offset(data, pipe->src.x, pipe->src.y,
+			&pipe->src_planes, pipe->src_fmt);
 
 	/* planar format expects YCbCr, swap chroma planes if YCrCb */
 	if (!is_rot && (pipe->src_fmt->fetch_planes == MDSS_MDP_PLANE_PLANAR) &&

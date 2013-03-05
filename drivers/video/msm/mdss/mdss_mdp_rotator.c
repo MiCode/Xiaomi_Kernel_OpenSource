@@ -27,6 +27,8 @@ static DEFINE_MUTEX(rotator_lock);
 static struct mdss_mdp_rotator_session rotator_session[MAX_ROTATOR_SESSIONS];
 static LIST_HEAD(rotator_queue);
 
+static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot);
+
 struct mdss_mdp_rotator_session *mdss_mdp_rotator_session_alloc(void)
 {
 	struct mdss_mdp_rotator_session *rot;
@@ -166,27 +168,21 @@ static int mdss_mdp_rotator_pipe_dequeue(struct mdss_mdp_rotator_session *rot)
 	return 0;
 }
 
-int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
+static int mdss_mdp_rotator_queue_sub(struct mdss_mdp_rotator_session *rot,
 			   struct mdss_mdp_data *src_data,
 			   struct mdss_mdp_data *dst_data)
 {
 	struct mdss_mdp_pipe *rot_pipe = NULL;
 	struct mdss_mdp_ctl *ctl;
-	int ret, need_wait = false;
+	int ret;
 
-	ret = mutex_lock_interruptible(&rotator_lock);
-	if (ret)
-		return ret;
-
-	if (!rot || !rot->ref_cnt) {
-		mutex_unlock(&rotator_lock);
-		return -ENODEV;
-	}
+	if (!rot || !rot->ref_cnt)
+		return -ENOENT;
 
 	ret = mdss_mdp_rotator_pipe_dequeue(rot);
 	if (ret) {
 		pr_err("unable to acquire rotator\n");
-		goto done;
+		return ret;
 	}
 
 	rot_pipe = rot->pipe;
@@ -203,29 +199,139 @@ int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
 		rot_pipe->img_height = rot->img_height;
 		rot_pipe->src = rot->src_rect;
 		rot_pipe->dst = rot->src_rect;
+		rot_pipe->dst.x = 0;
+		rot_pipe->dst.y = 0;
 		rot_pipe->params_changed++;
 	}
 
 	ret = mdss_mdp_pipe_queue_data(rot->pipe, src_data);
 	if (ret) {
 		pr_err("unable to queue rot data\n");
-		goto done;
+		return ret;
 	}
 
 	ret = mdss_mdp_rotator_kickoff(ctl, rot, dst_data);
 
-	if (ret == 0 && !rot->no_wait)
-		need_wait = true;
-done:
+	return ret;
+}
+
+int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot,
+			   struct mdss_mdp_data *src_data,
+			   struct mdss_mdp_data *dst_data)
+{
+	int ret;
+	struct mdss_mdp_rotator_session *tmp = rot;
+
+	ret = mutex_lock_interruptible(&rotator_lock);
+	if (ret)
+		return ret;
+
+	pr_debug("rotator session=%x start\n", rot->session_id);
+
+	for (ret = 0, tmp = rot; ret == 0 && tmp; tmp = tmp->next)
+		ret = mdss_mdp_rotator_queue_sub(tmp, src_data, dst_data);
+
 	mutex_unlock(&rotator_lock);
 
-	if (need_wait)
-		mdss_mdp_rotator_busy_wait(rot);
+	if (ret) {
+		pr_err("rotation failed %d for rot=%d\n", ret, rot->session_id);
+		return ret;
+	}
 
-	if (rot_pipe)
-		pr_debug("end of rotator pnum=%d enqueue\n", rot_pipe->num);
+	for (tmp = rot; tmp; tmp = tmp->next)
+		mdss_mdp_rotator_busy_wait(tmp);
+
+	pr_debug("rotator session=%x queue done\n", rot->session_id);
 
 	return ret;
+}
+
+int mdss_mdp_rotator_setup(struct mdss_mdp_rotator_session *rot)
+{
+
+	rot->dst = rot->src_rect;
+	/*
+	 * by default, rotator output should be placed directly on
+	 * output buffer address without any offset.
+	 */
+	rot->dst.x = 0;
+	rot->dst.y = 0;
+
+	if (rot->flags & MDP_ROT_90)
+		swap(rot->dst.w, rot->dst.h);
+
+	if (rot->src_rect.w > MAX_MIXER_WIDTH) {
+		struct mdss_mdp_rotator_session *tmp;
+		u32 width;
+
+		if (rot->bwc_mode) {
+			pr_err("Unable to do split rotation with bwc set\n");
+			return -EINVAL;
+		}
+
+		width = rot->src_rect.w;
+
+		pr_debug("setting up split rotation src=%dx%d\n",
+			rot->src_rect.w, rot->src_rect.h);
+
+		if (width > (MAX_MIXER_WIDTH * 2)) {
+			pr_err("unsupported source width %d\n", width);
+			return -EOVERFLOW;
+		}
+
+		if (!rot->next) {
+			tmp = mdss_mdp_rotator_session_alloc();
+			if (!tmp) {
+				pr_err("unable to allocate rot dual session\n");
+				return -ENOMEM;
+			}
+			rot->next = tmp;
+		}
+		tmp = rot->next;
+
+		tmp->session_id = rot->session_id & ~MDSS_MDP_ROT_SESSION_MASK;
+		tmp->flags = rot->flags;
+		tmp->format = rot->format;
+		tmp->img_width = rot->img_width;
+		tmp->img_height = rot->img_height;
+		tmp->src_rect = rot->src_rect;
+
+		tmp->src_rect.w = width / 2;
+		width -= tmp->src_rect.w;
+		tmp->src_rect.x += width;
+
+		tmp->dst = rot->dst;
+		rot->src_rect.w = width;
+
+		if (rot->flags & MDP_ROT_90) {
+			/*
+			 * If rotated by 90 first half should be on top.
+			 * But if horizontally flipped should be on bottom.
+			 */
+			if (rot->flags & MDP_FLIP_LR)
+				rot->dst.y = tmp->src_rect.w;
+			else
+				tmp->dst.y = rot->src_rect.w;
+		} else {
+			/*
+			 * If not rotated, first half should be the left part
+			 * of the frame, unless horizontally flipped
+			 */
+			if (rot->flags & MDP_FLIP_LR)
+				rot->dst.x = tmp->src_rect.w;
+			else
+				tmp->dst.x = rot->src_rect.w;
+		}
+
+		tmp->params_changed++;
+	} else if (rot->next) {
+		mdss_mdp_rotator_finish(rot->next);
+		rot->next = NULL;
+	}
+
+	rot->params_changed++;
+
+	return 0;
 }
 
 static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
@@ -236,6 +342,9 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 		return -ENODEV;
 
 	pr_debug("finish rot id=%x\n", rot->session_id);
+
+	if (rot->next)
+		mdss_mdp_rotator_finish(rot->next);
 
 	rot_pipe = rot->pipe;
 	if (rot_pipe) {
