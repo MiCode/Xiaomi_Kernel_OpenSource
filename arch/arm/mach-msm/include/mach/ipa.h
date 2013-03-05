@@ -438,6 +438,9 @@ struct ipa_rm_create_params {
 	int (*release_resource)(void);
 };
 
+#define A2_MUX_HDR_NAME_V4_PREF "dmux_hdr_v4_"
+#define A2_MUX_HDR_NAME_V6_PREF "dmux_hdr_v6_"
+
 enum a2_mux_event_type {
 	A2_MUX_RECEIVE,
 	A2_MUX_WRITE_DONE
