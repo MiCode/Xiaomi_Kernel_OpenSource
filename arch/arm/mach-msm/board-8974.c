@@ -85,21 +85,6 @@ static void __init msm8974_early_memory(void)
 	of_scan_flat_dt(dt_scan_for_memory_hole, msm8974_reserve_table);
 }
 
-static struct platform_device msm_fm_platform_init = {
-	.name  = "iris_fm",
-	.id    = -1,
-};
-
-static struct platform_device *msm_bus_8974_devices[] = {
-	&msm_fm_platform_init,
-};
-
-static void __init msm8974_init_buses(void)
-{
-	platform_add_devices(msm_bus_8974_devices,
-				ARRAY_SIZE(msm_bus_8974_devices));
-};
-
 /*
  * Used to satisfy dependencies for devices that need to be
  * run early or in a particular order. Most likely your device doesn't fall
@@ -119,7 +104,6 @@ void __init msm8974_add_drivers(void)
 		msm_clock_init(&msm8974_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8974_clock_init_data);
-	msm8974_init_buses();
 	msm_thermal_device_init();
 }
 
