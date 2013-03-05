@@ -2343,6 +2343,8 @@ static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 static struct msm_pcie_platform msm_pcie_platform_data = {
 	.axi_addr = PCIE_AXI_BAR_PHYS,
 	.axi_size = PCIE_AXI_BAR_SIZE,
+	.parf_deemph = 0x282828,
+	.parf_swing = 0x7F7F,
 };
 
 /* FSM8064_EP PCIe gpios */
@@ -2356,7 +2358,9 @@ static struct msm_pcie_platform ep_pcie_platform_data = {
 	.axi_addr = PCIE_AXI_BAR_PHYS,
 	.axi_size = PCIE_AXI_BAR_SIZE,
 	.wake_n = PM8921_GPIO_IRQ(PM8921_IRQ_BASE, PCIE_EP_WAKE_N_PMIC_GPIO),
-	.vreg_n = 4
+	.vreg_n = 4,
+	.parf_deemph = 0x101010,
+	.parf_swing = 0x6B6B,
 };
 
 static int __init mpq8064_pcie_enabled(void)

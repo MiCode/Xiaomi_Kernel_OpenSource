@@ -71,6 +71,8 @@ struct msm_pcie_dev_t {
 
 	uint32_t                      wake_n;
 	uint32_t                      vreg_n;
+	uint32_t                      parf_deemph;
+	uint32_t                      parf_swing;
 };
 
 extern uint32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev);

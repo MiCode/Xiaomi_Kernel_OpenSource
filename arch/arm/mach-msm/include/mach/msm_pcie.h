@@ -37,6 +37,8 @@ struct msm_pcie_platform {
 	uint32_t                      axi_size;
 	uint32_t                      wake_n;
 	uint32_t                      vreg_n;
+	uint32_t                      parf_deemph;
+	uint32_t                      parf_swing;
 };
 
 #endif
