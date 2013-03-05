@@ -586,6 +586,9 @@ static int msm_isp_init_isp_buf_mgr(
 	const char *ctx_name, uint16_t num_buf_q)
 {
 	int rc = -1;
+	if (buf_mgr->open_count++)
+		return 0;
+
 	if (!num_buf_q) {
 		pr_err("Invalid buffer queue number\n");
 		return rc;
@@ -602,7 +605,6 @@ static int msm_isp_init_isp_buf_mgr(
 	}
 	buf_mgr->client = msm_ion_client_create(-1, ctx_name);
 	buf_mgr->buf_handle_cnt = 0;
-
 	return 0;
 bufq_error:
 	return rc;
@@ -611,6 +613,8 @@ bufq_error:
 static int msm_isp_deinit_isp_buf_mgr(
 	struct msm_isp_buf_mgr *buf_mgr)
 {
+	if (--buf_mgr->open_count)
+		return 0;
 	msm_isp_release_all_bufq(buf_mgr);
 	ion_client_destroy(buf_mgr->client);
 	kfree(buf_mgr->bufq);
@@ -684,7 +688,7 @@ int msm_isp_create_isp_buf_mgr(
 	buf_mgr->ops = &isp_buf_ops;
 	buf_mgr->vb2_ops = vb2_ops;
 	buf_mgr->init_done = 1;
-	buf_mgr->ref_count = 0;
+	buf_mgr->open_count = 0;
 	return 0;
 iommu_domain_error:
 	return rc;
