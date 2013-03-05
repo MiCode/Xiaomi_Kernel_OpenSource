@@ -89,7 +89,7 @@ static inline int buf_get_pages(void *addr, int sz, int nr_pages, int access,
 	int n = -1, err = 0;
 
 	VERIFY(err, 0 != access_ok(access ? VERIFY_WRITE : VERIFY_READ,
-			      (void __user *)start, len));
+					(void __user *)start, len));
 	if (err)
 		goto bail;
 	VERIFY(err, 0 != (vma = find_vma(current->mm, start)));
@@ -611,27 +611,28 @@ static int alloc_dev(struct fastrpc_device **dev)
 static int get_dev(struct fastrpc_apps *me, struct fastrpc_device **rdev)
 {
 	struct hlist_head *head;
-	struct fastrpc_device *dev = 0;
-	struct hlist_node *n;
+	struct fastrpc_device *dev = 0, *devfree = 0;
+	struct hlist_node *pos, *n;
 	uint32_t h = hash_32(current->tgid, RPC_HASH_BITS);
 	int err = 0;
 
 	spin_lock(&me->hlock);
 	head = &me->htbl[h];
-	hlist_for_each_entry(dev, n, head, hn) {
+	hlist_for_each_entry_safe(dev, pos, n, head, hn) {
 		if (dev->tgid == current->tgid) {
 			hlist_del(&dev->hn);
+			devfree = dev;
 			break;
 		}
 	}
 	spin_unlock(&me->hlock);
-	VERIFY(err, dev != 0);
+	VERIFY(err, devfree != 0);
 	if (err)
 		goto bail;
-	*rdev = dev;
+	*rdev = devfree;
  bail:
 	if (err) {
-		free_dev(dev);
+		free_dev(devfree);
 		err = alloc_dev(rdev);
 	}
 	return err;
@@ -756,22 +757,23 @@ static void cleanup_current_dev(void)
 	struct fastrpc_apps *me = &gfa;
 	uint32_t h = hash_32(current->tgid, RPC_HASH_BITS);
 	struct hlist_head *head;
-	struct hlist_node *pos;
-	struct fastrpc_device *dev;
+	struct hlist_node *pos, *n;
+	struct fastrpc_device *dev, *devfree;
 
  rnext:
-	dev = 0;
+	devfree = dev = 0;
 	spin_lock(&me->hlock);
 	head = &me->htbl[h];
-	hlist_for_each_entry(dev, pos, head, hn) {
+	hlist_for_each_entry_safe(dev, pos, n, head, hn) {
 		if (dev->tgid == current->tgid) {
 			hlist_del(&dev->hn);
+			devfree = dev;
 			break;
 		}
 	}
 	spin_unlock(&me->hlock);
-	if (dev) {
-		free_dev(dev);
+	if (devfree) {
+		free_dev(devfree);
 		goto rnext;
 	}
 	return;
