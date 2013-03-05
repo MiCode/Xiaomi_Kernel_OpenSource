@@ -62,6 +62,16 @@ Optional properties:
 				1.  This value shift is necessary to work around
 				limitations in the regulator framework which
 				treat 0 uV as an error.
+- qcom,use-voltage-floor-corner:  Flag that signifies if regulator_set_voltage
+				calls should modify the floor corner parameter
+				instead of the voltage parameter.  When used,
+				voltages specified inside of the regulator
+				framework represent corners that have been
+				incremented by 1.  The properties
+				qcom,use-voltage-corner and
+				qcom,use-voltage-floor-corner are mutually
+				exclusive.  Only one may be specified for a
+				given regulator.
 The following properties specify initial values for parameters to be sent to the
 RPM in regulator requests.
 - qcom,init-enable:            0 = regulator disabled
@@ -165,6 +175,10 @@ RPM in regulator requests.
 					0 = Allow RPM to utilize LDO bypass mode
 						if possible
 					1 = Disallow LDO bypass mode
+- qcom,init-voltage-floor-corner:  Minimum performance corner to use if any
+				processor in the system is awake.  This property
+				supports the same values as
+				qcom,init-voltage-corner.
 
 All properties specified within the core regulator framework can also be used in
 second level nodes.  These bindings can be found in:
