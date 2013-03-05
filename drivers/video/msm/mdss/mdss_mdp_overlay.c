@@ -1017,6 +1017,12 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		return;
 	}
 
+	ret = mdss_mdp_overlay_start(mfd);
+	if (ret) {
+		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
+		return;
+	}
+
 	if (is_mdss_iommu_attached())
 		data.p[0].addr = mfd->iova;
 	else
@@ -1454,6 +1460,10 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		rc = mdss_mdp_overlay_start(mfd);
 		if (!IS_ERR_VALUE(rc))
 			rc = mdss_mdp_overlay_kickoff(mfd->ctl);
+	} else {
+		rc = mdss_mdp_ctl_setup(mfd->ctl);
+		if (rc)
+			return rc;
 	}
 
 	if (!IS_ERR_VALUE(rc) && mfd->vsync_pending) {
