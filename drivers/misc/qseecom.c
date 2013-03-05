@@ -663,6 +663,9 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 			&resp, sizeof(resp));
 		if (ret) {
 			pr_err("scm_call to load app failed\n");
+			if (!IS_ERR_OR_NULL(ihandle))
+				ion_free(qseecom.ion_clnt, ihandle);
+			qsee_disable_clock_vote(data, CLK_SFPB);
 			return -EINVAL;
 		}
 
@@ -1524,8 +1527,12 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	memcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
 	ret = __qseecom_check_app_exists(app_ireq);
-	if (ret < 0)
+	if (ret < 0) {
+		kzfree(data);
+		kfree(*handle);
+		*handle = NULL;
 		return -EINVAL;
+	}
 
 	if (ret > 0) {
 		pr_warn("App id %d for [%s] app exists\n", ret,
@@ -1554,6 +1561,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 
 		if (ret < 0) {
 			kfree(*handle);
+			kfree(data);
 			*handle = NULL;
 			return ret;
 		}
@@ -1563,6 +1571,9 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
 		if (!entry) {
 			pr_err("kmalloc failed\n");
+			kfree(data);
+			kfree(*handle);
+			*handle = NULL;
 			return -ENOMEM;
 		}
 		entry->app_id = ret;
