@@ -110,6 +110,11 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_CAMERA_HEAP_NAME,
 	},
+	{
+		.id	= ION_ADSP_HEAP_ID,
+		.type	= ION_HEAP_TYPE_DMA,
+		.name	= ION_ADSP_HEAP_NAME,
+	}
 };
 #endif
 
