@@ -202,7 +202,7 @@ int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 	int rc = 0, align = 0;
 	struct mem_region_map *mmap = arg;
 	struct mem_region *mregion;
-	bool domain = -1;
+	int domain = -1;
 	struct mdp_instance *inst = NULL;
 
 	if (!mmap || !mmap->mregion || !mmap->cookie) {
@@ -241,6 +241,8 @@ int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 				!inst->secure ? "non" : "", rc);
 		goto iommu_fail;
 	}
+
+	return 0;
 iommu_fail:
 	if (inst->secure)
 		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
@@ -252,7 +254,7 @@ int mdp_munmap(struct v4l2_subdev *sd, void *arg)
 {
 	struct mem_region_map *mmap = arg;
 	struct mem_region *mregion;
-	bool domain = -1;
+	int domain = -1;
 	struct mdp_instance *inst = NULL;
 
 	if (!mmap || !mmap->mregion || !mmap->cookie) {
