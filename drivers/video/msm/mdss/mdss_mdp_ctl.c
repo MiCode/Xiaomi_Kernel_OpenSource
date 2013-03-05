@@ -279,8 +279,6 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 		return -EINVAL;
 	}
 
-	mutex_lock(&mdss_mdp_ctl_lock);
-	ctl->ref_cnt--;
 	if (ctl->mixer_left) {
 		mdss_mdp_mixer_free(ctl->mixer_left);
 		ctl->mixer_left = NULL;
@@ -289,6 +287,8 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 		mdss_mdp_mixer_free(ctl->mixer_right);
 		ctl->mixer_right = NULL;
 	}
+	mutex_lock(&mdss_mdp_ctl_lock);
+	ctl->ref_cnt--;
 	ctl->power_on = false;
 	ctl->start_fnc = NULL;
 	ctl->stop_fnc = NULL;
@@ -437,7 +437,6 @@ int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer)
 	if (ctl->stop_fnc)
 		ctl->stop_fnc(ctl);
 
-	mdss_mdp_mixer_free(mixer);
 	mdss_mdp_ctl_free(ctl);
 
 	mdss_mdp_ctl_perf_commit(ctl->mdata, MDSS_MDP_PERF_UPDATE_ALL);
