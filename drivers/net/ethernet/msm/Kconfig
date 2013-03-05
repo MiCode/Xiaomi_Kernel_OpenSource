@@ -42,6 +42,16 @@ config MSM_RMNET_DEBUG
 	help
 	  Debug stats on wakeup counts.
 
+config MSM_RMNET_WWAN
+	tristate "MSM RMNET WWAN Network Device"
+	depends on IPA
+	default n
+	help
+	  WWAN Network Driver
+	  Provides an API to embedded
+	  applications to send and receive
+	  the data to/from A2
+
 config QFEC
 	tristate "QFEC ethernet driver"
 	select MII
