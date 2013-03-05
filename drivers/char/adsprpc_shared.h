@@ -16,7 +16,9 @@
 
 #include <linux/types.h>
 
-#define FASTRPC_IOCTL_INVOKE _IOWR('R', 1, struct fastrpc_ioctl_invoke)
+#define FASTRPC_IOCTL_INVOKE  _IOWR('R', 1, struct fastrpc_ioctl_invoke)
+#define FASTRPC_IOCTL_MMAP    _IOWR('R', 2, struct fastrpc_ioctl_mmap)
+#define FASTRPC_IOCTL_MUNMAP  _IOWR('R', 3, struct fastrpc_ioctl_munmap)
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
 #define DEVICE_NAME      "adsprpc-smd"
 
@@ -90,6 +92,20 @@ struct fastrpc_ioctl_invoke {
 	uint32_t handle;	/* remote handle */
 	uint32_t sc;		/* scalars describing the data */
 	remote_arg_t *pra;	/* remote arguments list */
+};
+
+struct fastrpc_ioctl_munmap {
+	uint32_t vaddrout;	/* address to unmap */
+	int  size;		/* size */
+};
+
+
+struct fastrpc_ioctl_mmap {
+	int fd;			/* ion fd */
+	uint32_t flags;		/* flags for dsp to map with */
+	uint32_t vaddrin;	/* optional virtual address */
+	int  size;		/* size */
+	uint32_t vaddrout;	/* dsps virtual address */
 };
 
 struct smq_null_invoke {

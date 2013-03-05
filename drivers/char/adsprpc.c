@@ -138,12 +138,26 @@ struct fastrpc_apps {
 	struct hlist_head htbl[RPC_HASH_SZ];
 };
 
+struct fastrpc_mmap {
+	struct hlist_node hn;
+	struct ion_handle *handle;
+	void *virt;
+	uint32_t vaddrin;
+	uint32_t vaddrout;
+	int size;
+};
+
 struct fastrpc_buf {
 	struct ion_handle *handle;
 	void *virt;
 	ion_phys_addr_t phys;
 	int size;
 	int used;
+};
+
+struct file_data {
+	spinlock_t hlock;
+	struct hlist_head hlst;
 };
 
 struct fastrpc_device {
@@ -168,18 +182,31 @@ static void free_mem(struct fastrpc_buf *buf)
 	}
 }
 
+static void free_map(struct fastrpc_mmap *map)
+{
+	struct fastrpc_apps *me = &gfa;
+	if (map->handle) {
+		if (map->virt) {
+			ion_unmap_kernel(me->iclient, map->handle);
+			map->virt = 0;
+		}
+		ion_free(me->iclient, map->handle);
+	}
+	map->handle = 0;
+}
+
 static int alloc_mem(struct fastrpc_buf *buf)
 {
 	struct ion_client *clnt = gfa.iclient;
 	struct sg_table *sg;
 	int err = 0;
-
+	buf->handle = 0;
+	buf->virt = 0;
 	buf->handle = ion_alloc(clnt, buf->size, SZ_4K,
 				ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 	VERIFY(err, 0 == IS_ERR_OR_NULL(buf->handle));
 	if (err)
 		goto bail;
-	buf->virt = 0;
 	VERIFY(err, 0 != (buf->virt = ion_map_kernel(clnt, buf->handle)));
 	if (err)
 		goto bail;
@@ -211,7 +238,6 @@ static int context_list_ctor(struct smq_context_list *me, int size)
 static void context_list_dtor(struct smq_context_list *me)
 {
 	kfree(me->ls);
-	me->ls = 0;
 }
 
 static void context_list_alloc_ctx(struct smq_context_list *me,
@@ -277,7 +303,6 @@ static int get_page_list(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 	if (rlen < 0) {
 		rlen = ((uint32_t)pages - (uint32_t)obuf->virt) - obuf->size;
 		obuf->size += buf_page_size(rlen);
-		obuf->handle = 0;
 		VERIFY(err, 0 == alloc_mem(obuf));
 		if (err)
 			goto bail;
@@ -314,7 +339,6 @@ static int get_page_list(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 			if (obuf->handle != ibuf->handle)
 				free_mem(obuf);
 			obuf->size += buf_page_size(sizeof(*pages));
-			obuf->handle = 0;
 			VERIFY(err, 0 == alloc_mem(obuf));
 			if (err)
 				goto bail;
@@ -430,10 +454,15 @@ static int put_args(uint32_t kernel, uint32_t sc, remote_arg_t *pra,
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		if (rpra[i].buf.pv != pra[i].buf.pv) {
-			VERIFY(err, 0 == copy_to_user(pra[i].buf.pv,
+			if (!kernel) {
+				VERIFY(err, 0 == copy_to_user(pra[i].buf.pv,
 					rpra[i].buf.pv, rpra[i].buf.len));
-			if (err)
-				goto bail;
+				if (err)
+					goto bail;
+			} else {
+				memmove(pra[i].buf.pv, rpra[i].buf.pv,
+							rpra[i].buf.len);
+			}
 		}
 	}
 	size = sizeof(*rpra) * REMOTE_SCALARS_OUTHANDLES(sc);
@@ -471,15 +500,17 @@ static void inv_args(uint32_t sc, remote_arg_t *rpra, int used)
 		dmac_inv_range(rpra, (char *)rpra + used);
 }
 
-static int fastrpc_invoke_send(struct fastrpc_apps *me, uint32_t handle,
+static int fastrpc_invoke_send(struct fastrpc_apps *me,
+				 uint32_t kernel, uint32_t handle,
 				 uint32_t sc, struct smq_invoke_ctx *ctx,
 				 struct fastrpc_buf *buf)
 {
 	struct smq_msg msg;
 	int err = 0, len;
-
 	msg.pid = current->tgid;
 	msg.tid = current->pid;
+	if (kernel)
+		msg.pid = 0;
 	msg.invoke.header.ctx = ctx;
 	msg.invoke.header.handle = handle;
 	msg.invoke.header.sc = sc;
@@ -595,12 +626,15 @@ static int alloc_dev(struct fastrpc_device **dev)
 	VERIFY(err, 0 != (fd = kzalloc(sizeof(*fd), GFP_KERNEL)));
 	if (err)
 		goto bail;
+
+	INIT_HLIST_NODE(&fd->hn);
+
 	fd->buf.size = PAGE_SIZE;
 	VERIFY(err, 0 == alloc_mem(&fd->buf));
 	if (err)
 		goto bail;
 	fd->tgid = current->tgid;
-	INIT_HLIST_NODE(&fd->hn);
+
 	*dev = fd;
  bail:
 	if (err)
@@ -681,8 +715,8 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t kernel,
 	}
 
 	context_list_alloc_ctx(&me->clst, &ctx);
-	VERIFY(err, 0 == fastrpc_invoke_send(me, invoke->handle, sc, ctx,
-						&obuf));
+	VERIFY(err, 0 == fastrpc_invoke_send(me, kernel, invoke->handle, sc,
+						ctx, &obuf));
 	if (err)
 		goto bail;
 	inv_args(sc, rpra, obuf.used);
@@ -730,7 +764,7 @@ static int fastrpc_create_current_dsp_process(void)
 	ioctl.handle = 1;
 	ioctl.sc = REMOTE_SCALARS_MAKE(0, 1, 0);
 	ioctl.pra = ra;
-	VERIFY(err, 0 == fastrpc_internal_invoke(me, 1, &ioctl, ra));
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 1, &ioctl, ra)));
 	return err;
 }
 
@@ -748,7 +782,155 @@ static int fastrpc_release_current_dsp_process(void)
 	ioctl.handle = 1;
 	ioctl.sc = REMOTE_SCALARS_MAKE(1, 1, 0);
 	ioctl.pra = ra;
-	VERIFY(err, 0 == fastrpc_internal_invoke(me, 1, &ioctl, ra));
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 1, &ioctl, ra)));
+	return err;
+}
+
+static int fastrpc_mmap_on_dsp(struct fastrpc_apps *me,
+					 struct fastrpc_ioctl_mmap *mmap,
+					 struct smq_phy_page *pages,
+					 int num)
+{
+	struct fastrpc_ioctl_invoke ioctl;
+	remote_arg_t ra[3];
+	int err = 0;
+	struct {
+		int pid;
+		uint32_t flags;
+		uint32_t vaddrin;
+		int num;
+	} inargs;
+
+	struct {
+		uint32_t vaddrout;
+	} routargs;
+	inargs.pid = current->tgid;
+	inargs.vaddrin = mmap->vaddrin;
+	inargs.flags = mmap->flags;
+	inargs.num = num;
+	ra[0].buf.pv = &inargs;
+	ra[0].buf.len = sizeof(inargs);
+
+	ra[1].buf.pv = pages;
+	ra[1].buf.len = num * sizeof(*pages);
+
+	ra[2].buf.pv = &routargs;
+	ra[2].buf.len = sizeof(routargs);
+
+	ioctl.handle = 1;
+	ioctl.sc = REMOTE_SCALARS_MAKE(2, 2, 1);
+	ioctl.pra = ra;
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 1, &ioctl, ra)));
+	mmap->vaddrout = routargs.vaddrout;
+	if (err)
+		goto bail;
+bail:
+	return err;
+}
+
+static int fastrpc_munmap_on_dsp(struct fastrpc_apps *me,
+				 struct fastrpc_ioctl_munmap *munmap)
+{
+	struct fastrpc_ioctl_invoke ioctl;
+	remote_arg_t ra[1];
+	int err = 0;
+	struct {
+		int pid;
+		uint32_t vaddrout;
+		int size;
+	} inargs;
+
+	inargs.pid = current->tgid;
+	inargs.size = munmap->size;
+	inargs.vaddrout = munmap->vaddrout;
+	ra[0].buf.pv = &inargs;
+	ra[0].buf.len = sizeof(inargs);
+
+	ioctl.handle = 1;
+	ioctl.sc = REMOTE_SCALARS_MAKE(3, 1, 0);
+	ioctl.pra = ra;
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 1, &ioctl, ra)));
+	return err;
+}
+
+static int fastrpc_internal_munmap(struct fastrpc_apps *me,
+				   struct file_data *fdata,
+				   struct fastrpc_ioctl_munmap *munmap)
+{
+	int err = 0;
+	struct fastrpc_mmap *map = 0, *mapfree = 0;
+	struct hlist_node *pos, *n;
+	VERIFY(err, 0 == (err = fastrpc_munmap_on_dsp(me, munmap)));
+	if (err)
+		goto bail;
+	spin_lock(&fdata->hlock);
+	hlist_for_each_entry_safe(map, pos, n, &fdata->hlst, hn) {
+		if (map->vaddrout == munmap->vaddrout &&
+		    map->size == munmap->size) {
+			hlist_del(&map->hn);
+			mapfree = map;
+			map = 0;
+			break;
+		}
+	}
+	spin_unlock(&fdata->hlock);
+bail:
+	if (mapfree) {
+		free_map(mapfree);
+		kfree(mapfree);
+	}
+	return err;
+}
+
+
+static int fastrpc_internal_mmap(struct fastrpc_apps *me,
+				 struct file_data *fdata,
+				 struct fastrpc_ioctl_mmap *mmap)
+{
+	struct ion_client *clnt = gfa.iclient;
+	struct fastrpc_mmap *map = 0;
+	struct smq_phy_page *pages = 0;
+	void *buf;
+	int len;
+	int num;
+	int err = 0;
+
+	VERIFY(err, 0 != (map = kzalloc(sizeof(*map), GFP_KERNEL)));
+	if (err)
+		goto bail;
+	map->handle = ion_import_dma_buf(clnt, mmap->fd);
+	VERIFY(err, 0 == IS_ERR_OR_NULL(map->handle));
+	if (err)
+		goto bail;
+	VERIFY(err, 0 != (map->virt = ion_map_kernel(clnt, map->handle)));
+	if (err)
+		goto bail;
+	buf = (void *)mmap->vaddrin;
+	len =  mmap->size;
+	num = buf_num_pages(buf, len);
+	VERIFY(err, 0 != (pages = kzalloc(num * sizeof(*pages), GFP_KERNEL)));
+	if (err)
+		goto bail;
+	VERIFY(err, 0 < (num = buf_get_pages(buf, len, num, 1, pages, num)));
+	if (err)
+		goto bail;
+
+	VERIFY(err, 0 == fastrpc_mmap_on_dsp(me, mmap, pages, num));
+	if (err)
+		goto bail;
+	map->vaddrin = mmap->vaddrin;
+	map->vaddrout = mmap->vaddrout;
+	map->size = mmap->size;
+	INIT_HLIST_NODE(&map->hn);
+	spin_lock(&fdata->hlock);
+	hlist_add_head(&map->hn, &fdata->hlst);
+	spin_unlock(&fdata->hlock);
+ bail:
+	if (err && map) {
+		free_map(map);
+		kfree(map);
+	}
+	kfree(pages);
 	return err;
 }
 
@@ -781,22 +963,48 @@ static void cleanup_current_dev(void)
 
 static int fastrpc_device_release(struct inode *inode, struct file *file)
 {
+	struct file_data *fdata = (struct file_data *)file->private_data;
 	(void)fastrpc_release_current_dsp_process();
 	cleanup_current_dev();
+	if (fdata) {
+		struct fastrpc_mmap *map;
+		struct hlist_node *n, *pos;
+		file->private_data = 0;
+		hlist_for_each_entry_safe(map, pos, n, &fdata->hlst, hn) {
+			hlist_del(&map->hn);
+			free_map(map);
+			kfree(map);
+		}
+		kfree(fdata);
+	}
 	return 0;
 }
 
 static int fastrpc_device_open(struct inode *inode, struct file *filp)
 {
 	int err = 0;
-
+	filp->private_data = 0;
 	if (0 != try_module_get(THIS_MODULE)) {
+		struct file_data *fdata = 0;
 		/* This call will cause a dev to be created
 		 * which will addref this module
 		 */
+		VERIFY(err, 0 != (fdata = kzalloc(sizeof(*fdata), GFP_KERNEL)));
+		if (err)
+			goto bail;
+
+		spin_lock_init(&fdata->hlock);
+		INIT_HLIST_HEAD(&fdata->hlst);
+
 		VERIFY(err, 0 == fastrpc_create_current_dsp_process());
 		if (err)
+			goto bail;
+		filp->private_data = fdata;
+bail:
+		if (err) {
 			cleanup_current_dev();
+			kfree(fdata);
+		}
 		module_put(THIS_MODULE);
 	}
 	return err;
@@ -808,8 +1016,11 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_ioctl_invoke invoke;
+	struct fastrpc_ioctl_mmap mmap;
+	struct fastrpc_ioctl_munmap munmap;
 	remote_arg_t *pra = 0;
 	void *param = (char *)ioctl_param;
+	struct file_data *fdata = (struct file_data *)file->private_data;
 	int bufs, err = 0;
 
 	switch (ioctl_num) {
@@ -831,6 +1042,29 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			goto bail;
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, 0, &invoke,
 								pra)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_MMAP:
+		VERIFY(err, 0 == copy_from_user(&mmap, param,
+						sizeof(mmap)));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_mmap(me, fdata,
+							      &mmap)));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == copy_to_user(param, &mmap, sizeof(mmap)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_MUNMAP:
+		VERIFY(err, 0 == copy_from_user(&munmap, param,
+						sizeof(munmap)));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_munmap(me, fdata,
+								&munmap)));
 		if (err)
 			goto bail;
 		break;
