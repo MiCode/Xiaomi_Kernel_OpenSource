@@ -295,3 +295,12 @@ config USB_QCOM_KS_BRIDGE
 	  boot images, ram-dumps and efs sync
 	  To compile this driver as a module, choose M here: the module
 	  will be called ks_bridge. If unsure, choose N.
+
+config USB_QCOM_IPC_BRIDGE
+	tristate "USB Qualcomm IPC bridge bridge"
+	depends on USB
+	help
+	  Say Y here if you have a Qualcomm modem device connected via USB that
+	  will be bridged in kernel space. This driver works as a transport
+	  layer for IPC router module that enables communication between
+	  APPS processor and MODEM processor.
