@@ -202,7 +202,6 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = 0;
-	int asid;
 
 	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
 		BUG_ON(!ctx_drvdata->pdev || !ctx_drvdata->pdev->dev.parent);
@@ -215,11 +214,8 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 		if (ret)
 			goto fail;
 
-		asid = GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base,
-					   ctx_drvdata->num);
-
 		SET_TLBIVA(iommu_drvdata->base, ctx_drvdata->num,
-			   asid | (va & CB_TLBIVA_VA));
+			   ctx_drvdata->asid | (va & CB_TLBIVA_VA));
 		mb();
 		__sync_tlb(iommu_drvdata->base, ctx_drvdata->num);
 		__disable_clocks(iommu_drvdata);
@@ -234,7 +230,6 @@ static int __flush_iotlb(struct iommu_domain *domain)
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = 0;
-	int asid;
 
 	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
 		BUG_ON(!ctx_drvdata->pdev || !ctx_drvdata->pdev->dev.parent);
@@ -246,10 +241,8 @@ static int __flush_iotlb(struct iommu_domain *domain)
 		if (ret)
 			goto fail;
 
-		asid = GET_CB_CONTEXTIDR_ASID(iommu_drvdata->base,
-					   ctx_drvdata->num);
-
-		SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num, asid);
+		SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num,
+			     ctx_drvdata->asid);
 		mb();
 		__sync_tlb(iommu_drvdata->base, ctx_drvdata->num);
 		__disable_clocks(iommu_drvdata);
@@ -342,69 +335,46 @@ static void __release_smg(void __iomem *base, int ctx)
 
 static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
 				  struct msm_iommu_ctx_drvdata *curr_ctx,
-				  phys_addr_t pgtable)
+				  struct msm_priv *priv)
 {
-	struct platform_device *pdev;
-	struct device_node *child;
-	struct msm_iommu_ctx_drvdata *ctx;
 	unsigned int found = 0;
 	void __iomem *base = iommu_drvdata->base;
-	struct device_node *iommu_node = iommu_drvdata->dev->of_node;
-	unsigned int asid;
+	unsigned int i;
 	unsigned int ncb = iommu_drvdata->ncb;
+	struct msm_iommu_ctx_drvdata *tmp_drvdata;
 
 	/* Find if this page table is used elsewhere, and re-use ASID */
-	for_each_child_of_node(iommu_node, child) {
-		pdev = of_find_device_by_node(child);
-		ctx = dev_get_drvdata(&pdev->dev);
+	if (!list_empty(&priv->list_attached)) {
+		tmp_drvdata = list_first_entry(&priv->list_attached,
+				struct msm_iommu_ctx_drvdata, attached_elm);
 
-		if (ctx->secure_context) {
-			of_dev_put(pdev);
-			continue;
-		}
+		++iommu_drvdata->asid[tmp_drvdata->asid - 1];
+		curr_ctx->asid = tmp_drvdata->asid;
 
-		if ((ctx != curr_ctx) &&
-		    (GET_CB_TTBR0_ADDR(base, ctx->num) == pgtable)) {
-			SET_CB_CONTEXTIDR_ASID(base, curr_ctx->num, ctx->asid);
-			curr_ctx->asid = ctx->asid;
-			found = 1;
-			of_dev_put(pdev);
-			of_node_put(child);
-			break;
-		}
-		of_dev_put(pdev);
+		SET_CB_CONTEXTIDR_ASID(base, curr_ctx->num, curr_ctx->asid);
+		found = 1;
 	}
 
 	/* If page table is new, find an unused ASID */
 	if (!found) {
-		for (asid = 1; asid < ncb + 1; ++asid) {
-			found = 0;
-			for_each_child_of_node(iommu_node, child) {
-				pdev = of_find_device_by_node(child);
-				ctx = dev_get_drvdata(&pdev->dev);
+		for (i = 0; i < ncb; ++i) {
+			if (iommu_drvdata->asid[i] == 0) {
+				++iommu_drvdata->asid[i];
+				curr_ctx->asid = i + 1;
 
-				if (ctx != curr_ctx && ctx->asid == asid) {
-					found = 1;
-					of_dev_put(pdev);
-					of_node_put(child);
-					break;
-				}
-				of_dev_put(pdev);
-			}
-			if (!found) {
 				SET_CB_CONTEXTIDR_ASID(base, curr_ctx->num,
-						       asid);
-				curr_ctx->asid = asid;
+						       curr_ctx->asid);
+				found = 1;
 				break;
 			}
 		}
-		BUG_ON(found);
+		BUG_ON(!found);
 	}
 }
 
 static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 			      struct msm_iommu_ctx_drvdata *ctx_drvdata,
-			      phys_addr_t pgtable, int redirect, bool is_secure)
+			      struct msm_priv *priv, bool is_secure)
 {
 	unsigned int prrr, nmrr;
 	unsigned int pn;
@@ -413,6 +383,7 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	unsigned int ctx = ctx_drvdata->num;
 	u32 *sids = ctx_drvdata->sids;
 	int len = ctx_drvdata->nsid;
+	phys_addr_t pgtable = __pa(priv->pt.fl_table);
 
 	__reset_context(base, ctx);
 
@@ -443,7 +414,7 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	/* Configure page tables as inner-cacheable and shareable to reduce
 	 * the TLB miss penalty.
 	 */
-	if (redirect) {
+	if (priv->pt.redirect) {
 		SET_CB_TTBR0_S(base, ctx, 1);
 		SET_CB_TTBR0_NOS(base, ctx, 1);
 		SET_CB_TTBR0_IRGN1(base, ctx, 0); /* WB, WA */
@@ -489,7 +460,7 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 
 	}
 
-	msm_iommu_assign_ASID(iommu_drvdata, ctx_drvdata, pn);
+	msm_iommu_assign_ASID(iommu_drvdata, ctx_drvdata, priv);
 
 	/* Enable the MMU */
 	SET_CB_SCTLR_M(base, ctx, 1);
@@ -624,8 +595,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	iommu_halt(iommu_drvdata);
 
-	__program_context(iommu_drvdata, ctx_drvdata, __pa(priv->pt.fl_table),
-			  priv->pt.redirect, is_secure);
+	__program_context(iommu_drvdata, ctx_drvdata, priv, is_secure);
 
 	iommu_resume(iommu_drvdata);
 
@@ -671,6 +641,9 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	is_secure = iommu_drvdata->sec_id != -1;
 
 	SET_TLBIASID(iommu_drvdata->base, ctx_drvdata->num, ctx_drvdata->asid);
+
+	BUG_ON(iommu_drvdata->asid[ctx_drvdata->asid - 1] == 0);
+	iommu_drvdata->asid[ctx_drvdata->asid - 1]--;
 	ctx_drvdata->asid = -1;
 
 	iommu_halt(iommu_drvdata);
