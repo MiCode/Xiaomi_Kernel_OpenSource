@@ -89,10 +89,9 @@ struct msm_cpp_frame_info_t {
 	struct ion_handle *dest_ion_handle;
 };
 
-struct msm_ver_num_info {
-	uint32_t main;
-	uint32_t minor;
-	uint32_t rev;
+struct cpp_hw_info {
+	uint32_t cpp_hw_version;
+	uint32_t cpp_hw_caps;
 };
 
 #define VIDIOC_MSM_CPP_CFG \
@@ -106,6 +105,9 @@ struct msm_ver_num_info {
 
 #define VIDIOC_MSM_CPP_LOAD_FIRMWARE \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_CPP_GET_HW_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct msm_camera_v4l2_ioctl_t)
 
 #define V4L2_EVENT_CPP_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 0)
 

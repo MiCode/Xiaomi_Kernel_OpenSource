@@ -7,8 +7,9 @@ Required properties:
 - reg : offset and length of the register set for the device
     for the cpp operating in compatible mode.
 - reg-names : should specify relevant names to each reg property defined.
-  - cpp - has CPP hardware register set.
+  - cpp - has CPP MICRO register set.
   - cpp_vbif - has VBIF core register set used by CPP.
+  - cpp_hw - has CPP hardware register set.
 - interrupts : should contain the cpp interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
@@ -21,7 +22,8 @@ Example:
        compatible = "qcom,cpp";
        reg = <0xfda04000 0x100>;
              <0xfda40000 0x200>;
-       reg-names = "cpp", "cpp_vbif";
+             <0xfd180000 0x008>;
+       reg-names = "cpp", "cpp_vbif", "cpp_hw";
        interrupts = <0 49 0>;
        interrupt-names = "cpp";
        vdd-supply = <&gdsc_vfe>;
