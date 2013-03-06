@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -275,6 +275,7 @@ struct blend_cfg {
 	int solidfill;
 	struct mdp4_overlay_pipe *solidfill_pipe;
 };
+
 
 struct mdp4_overlay_pipe {
 	uint32 pipe_used;
@@ -983,6 +984,8 @@ int mdp4_overlay_mdp_perf_req(struct msm_fb_data_type *mfd,
 void mdp4_overlay_mdp_perf_upd(struct msm_fb_data_type *mfd, int flag);
 int mdp4_update_base_blend(struct msm_fb_data_type *mfd,
 				struct mdp_blend_cfg *mdp_blend_cfg);
+int mdp4_update_writeback_format(struct msm_fb_data_type *mfd,
+			struct mdp_mixer_cfg *mdp_mixer_cfg);
 u32 mdp4_get_mixer_num(u32 panel_type);
 
 #ifndef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL

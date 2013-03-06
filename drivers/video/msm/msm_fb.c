@@ -3301,6 +3301,10 @@ static int msmfb_handle_metadata_ioctl(struct msm_fb_data_type *mfd,
 		ret = mdp4_update_base_blend(mfd,
 						&metadata_ptr->data.blend_cfg);
 		break;
+	case metadata_op_wb_format:
+		ret = mdp4_update_writeback_format(mfd,
+					&metadata_ptr->data.mixer_cfg);
+		break;
 #endif
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");
