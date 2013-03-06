@@ -155,6 +155,10 @@ enum ipa_flt_action {
  * wlan client normal: wlan client moved out of power save
  * sw routing enable: ipa routing is disabled
  * sw routing disable: ipa routing is enabled
+ * wlan ap connect: wlan AP(access point) is up
+ * wlan ap disconnect: wlan AP(access point) is down
+ * wlan sta connect: wlan STA(station) is up
+ * wlan sta disconnect: wlan STA(station) is down
  */
 enum ipa_wlan_event {
 	WLAN_CLIENT_CONNECT,
@@ -163,6 +167,10 @@ enum ipa_wlan_event {
 	WLAN_CLIENT_NORMAL_MODE,
 	SW_ROUTING_ENABLE,
 	SW_ROUTING_DISABLE,
+	WLAN_AP_CONNECT,
+	WLAN_AP_DISCONNECT,
+	WLAN_STA_CONNECT,
+	WLAN_STA_DISCONNECT,
 };
 
 
