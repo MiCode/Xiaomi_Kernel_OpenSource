@@ -450,3 +450,4 @@ header-y += coresight-stm.h
 header-y += ci-bridge-spi.h
 header-y += msm_audio_amrwbplus.h
 header-y += avtimer.h
+header-y += msm_ipa.h
