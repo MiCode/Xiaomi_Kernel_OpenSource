@@ -1095,60 +1095,6 @@ static bool is_shutdown_soc_within_limits(struct qpnp_bms_chip *chip, int soc)
 	return 1;
 }
 
-#define BMS_OVERRIDE_MODE_EN_BIT	BIT(7)
-#define EN_VBAT_BIT			BIT(0)
-#define OVERRIDE_MODE_DELAY_MS		20
-static int override_mode_batt_v_and_i(
-		struct qpnp_bms_chip *chip, int *ibat_ua, int *vbat_uv)
-{
-	int16_t vsense_raw, vbat_raw;
-	int vsense_uv, rc;
-	u8 delay;
-
-	mutex_lock(&chip->bms_output_lock);
-
-	delay = 0x00;
-	rc = qpnp_write_wrapper(chip, &delay,
-			chip->base + BMS1_S1_DELAY_CTL, 1);
-	if (rc)
-		pr_err("unable to write into BMS1_S1_DELAY, rc: %d\n", rc);
-
-	rc = qpnp_masked_write(chip, BMS1_MODE_CTL,
-			BMS_OVERRIDE_MODE_EN_BIT | EN_VBAT_BIT,
-			BMS_OVERRIDE_MODE_EN_BIT | EN_VBAT_BIT);
-	if (rc)
-		pr_err("unable to write into BMS1_MODE_CTL, rc: %d\n", rc);
-
-	msleep(OVERRIDE_MODE_DELAY_MS);
-
-	lock_output_data(chip);
-	qpnp_read_wrapper(chip, (u8 *)&vsense_raw,
-			chip->base + BMS1_VSENSE_AVG_DATA0, 2);
-	qpnp_read_wrapper(chip, (u8 *)&vbat_raw,
-			chip->base + BMS1_VBAT_AVG_DATA0, 2);
-	unlock_output_data(chip);
-
-	rc = qpnp_masked_write(chip, BMS1_MODE_CTL,
-			BMS_OVERRIDE_MODE_EN_BIT | EN_VBAT_BIT, 0);
-
-	delay = 0x0B;
-	rc = qpnp_write_wrapper(chip, &delay,
-			chip->base + BMS1_S1_DELAY_CTL, 1);
-	if (rc)
-		pr_err("unable to write into BMS1_S1_DELAY, rc: %d\n", rc);
-
-	mutex_unlock(&chip->bms_output_lock);
-
-	*vbat_uv = convert_vbatt_raw_to_uv(chip, vbat_raw);
-	vsense_uv = convert_vsense_to_uv(chip, vsense_raw);
-	*ibat_ua = div_s64(vsense_uv * 1000000LL, (int)chip->r_sense_uohm);
-
-	pr_debug("vsense_raw = 0x%x vbat_raw = 0x%x ibat_ua = %d vbat_uv = %d\n",
-			(uint16_t)vsense_raw, (uint16_t)vbat_raw,
-			*ibat_ua, *vbat_uv);
-	return 0;
-}
-
 static bool is_battery_charging(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
@@ -1188,23 +1134,21 @@ static bool is_batfet_open(struct qpnp_bms_chip *chip)
 static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
 					int *ibat_ua, int *vbat_uv)
 {
+	struct qpnp_iadc_result i_result;
+	struct qpnp_vadc_result v_result;
+	enum qpnp_iadc_channels iadc_channel;
 	int rc;
 
-	if (is_batfet_open(chip)) {
-		pr_debug("batfet is open using separate vbat and ibat meas\n");
-		rc = get_battery_voltage(vbat_uv);
-		if (rc < 0) {
-			pr_err("adc vbat failed err = %d\n", rc);
-			return rc;
-		}
-		rc = get_battery_current(chip, ibat_ua);
-		if (rc < 0) {
-			pr_err("bms ibat failed err = %d\n", rc);
-			return rc;
-		}
-	} else {
-		return override_mode_batt_v_and_i(chip, ibat_ua, vbat_uv);
+	iadc_channel = chip->use_external_rsense ?
+				EXTERNAL_RSENSE : INTERNAL_RSENSE;
+	rc = qpnp_iadc_vadc_sync_read(iadc_channel, &i_result,
+				VBAT_SNS, &v_result);
+	if (rc) {
+		pr_err("vadc read failed with rc: %d\n", rc);
+		return rc;
 	}
+	*ibat_ua = (int)i_result.result_ua;
+	*vbat_uv = (int)v_result.physical;
 
 	return 0;
 }
@@ -1231,7 +1175,7 @@ static int stop_ocv_updates(struct qpnp_bms_chip *chip)
 
 static int reset_bms_for_test(struct qpnp_bms_chip *chip)
 {
-	int ibat_ua, vbat_uv, rc;
+	int ibat_ua = 0, vbat_uv = 0, rc;
 	int ocv_est_uv;
 
 	if (!chip) {
