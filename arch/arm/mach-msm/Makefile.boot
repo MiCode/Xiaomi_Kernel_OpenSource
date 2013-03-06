@@ -72,7 +72,7 @@ endif
 	dtb-$(CONFIG_ARCH_MSM9625)      += msm9625-v2-1-cdp.dtb
 
 # MSM8226
-   zreladdr-$(CONFIG_ARCH_MSM8226)	:= 0x00108000
+   zreladdr-$(CONFIG_ARCH_MSM8226)	:= 0x00008000
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-sim.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-cdp.dtb
         dtb-$(CONFIG_ARCH_MSM8226)	+= msm8226-mtp.dtb
@@ -87,6 +87,6 @@ initrd_phys-$(CONFIG_ARCH_FSM9XXX)	:= 0x12000000
    zreladdr-$(CONFIG_ARCH_MPQ8092)	:= 0x00008000
 
 # MSM8610
-   zreladdr-$(CONFIG_ARCH_MSM8610)	:= 0x00108000
+   zreladdr-$(CONFIG_ARCH_MSM8610)	:= 0x00008000
         dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-rumi.dtb
         dtb-$(CONFIG_ARCH_MSM8610)	+= msm8610-sim.dtb
