@@ -14,6 +14,8 @@
 
 #define WCD9XXX_CODEC_COMMON
 
+#include "wcd9xxx-resmgr.h"
+
 #define WCD9XXX_CLSH_REQ_ENABLE true
 #define WCD9XXX_CLSH_REQ_DISABLE false
 
@@ -50,6 +52,7 @@ struct wcd9xxx_reg_mask_val {
 struct wcd9xxx_clsh_cdc_data {
 	u8 state;
 	int buck_mv;
+	struct wcd9xxx_resmgr *resmgr;
 };
 
 
@@ -63,6 +66,7 @@ extern void wcd9xxx_clsh_fsm(struct snd_soc_codec *codec,
 		struct wcd9xxx_clsh_cdc_data *cdc_clsh_d,
 		u8 req_state, bool req_type, u8 clsh_event);
 
-extern void wcd9xxx_clsh_init(struct wcd9xxx_clsh_cdc_data *clsh);
+extern void wcd9xxx_clsh_init(struct wcd9xxx_clsh_cdc_data *clsh,
+			      struct wcd9xxx_resmgr *resmgr);
 
 #endif
