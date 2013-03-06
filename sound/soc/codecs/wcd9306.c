@@ -487,16 +487,16 @@ static const struct soc_enum cf_dec4_enum =
 	SOC_ENUM_SINGLE(TAPAN_A_CDC_TX4_MUX_CTL, 4, 3, cf_text);
 
 static const struct soc_enum cf_rxmix1_enum =
-	SOC_ENUM_SINGLE(TAPAN_A_CDC_RX1_B4_CTL, 1, 3, cf_text);
+	SOC_ENUM_SINGLE(TAPAN_A_CDC_RX1_B4_CTL, 0, 3, cf_text);
 
 static const struct soc_enum cf_rxmix2_enum =
-	SOC_ENUM_SINGLE(TAPAN_A_CDC_RX2_B4_CTL, 1, 3, cf_text);
+	SOC_ENUM_SINGLE(TAPAN_A_CDC_RX2_B4_CTL, 0, 3, cf_text);
 
 static const struct soc_enum cf_rxmix3_enum =
-	SOC_ENUM_SINGLE(TAPAN_A_CDC_RX3_B4_CTL, 1, 3, cf_text);
+	SOC_ENUM_SINGLE(TAPAN_A_CDC_RX3_B4_CTL, 0, 3, cf_text);
 
 static const struct soc_enum cf_rxmix4_enum =
-	SOC_ENUM_SINGLE(TAPAN_A_CDC_RX4_B4_CTL, 1, 3, cf_text);
+	SOC_ENUM_SINGLE(TAPAN_A_CDC_RX4_B4_CTL, 0, 3, cf_text);
 
 static const struct snd_kcontrol_new tapan_snd_controls[] = {
 
