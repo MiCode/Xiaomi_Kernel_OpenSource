@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -378,8 +378,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* start mbhc */
 	mbhc_cfg.calibration = def_tapan_mbhc_cal();
-	if (mbhc_cfg.calibration)
-		err = tapan_hs_detect(codec, &mbhc_cfg);
+	if (mbhc_cfg.calibration) {
+		pr_info("%s: WCD9306: Headset detection disabled\n",
+				__func__);
+	}
+
 	else
 		err = -ENOMEM;
 
