@@ -115,7 +115,7 @@ struct msm_vfe_axi_plane_cfg {
 	uint32_t output_stride;
 	uint32_t output_scan_lines;
 	uint32_t output_plane_format; /*Y/Cb/Cr/CbCr*/
-
+	uint32_t plane_addr_offset;
 	uint8_t csid_src; /*RDI 0-2*/
 	uint8_t rdi_cid;/*CID 1-16*/
 };
@@ -259,11 +259,18 @@ struct msm_vfe_reg_cfg_cmd {
 	enum msm_vfe_reg_cfg_type cmd_type;
 };
 
+enum msm_isp_buf_type {
+	ISP_PRIVATE_BUF,
+	ISP_SHARE_BUF,
+	MAX_ISP_BUF_TYPE,
+};
+
 struct msm_isp_buf_request {
 	uint32_t session_id;
 	uint32_t stream_id;
 	uint8_t num_buf;
 	uint32_t handle;
+	enum msm_isp_buf_type buf_type;
 };
 
 struct msm_isp_qbuf_info {

@@ -64,7 +64,7 @@ void msm_isp_axi_destroy_stream(
 int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
 {
-	int rc = -1;
+	int rc = -1, i;
 	struct msm_vfe_axi_stream *stream_info =
 		&axi_data->stream_info[
 			(stream_cfg_cmd->axi_stream_handle & 0xFF)];
@@ -128,6 +128,10 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 		pr_err("%s: Invalid skip pattern\n", __func__);
 		return rc;
 	}
+
+	for (i = 0; i < stream_info->num_planes; i++)
+		stream_info->plane_offset[i] =
+			stream_cfg_cmd->plane_cfg[i].plane_addr_offset;
 
 	stream_info->stream_src = stream_cfg_cmd->stream_src;
 	stream_info->frame_based = stream_cfg_cmd->frame_base;
@@ -596,8 +600,9 @@ static void msm_isp_cfg_pong_address(struct vfe_device *vfe_dev,
 	struct msm_isp_buffer *buf = stream_info->buf[1];
 	for (i = 0; i < stream_info->num_planes; i++)
 		vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
-		vfe_dev, stream_info->wm[i],
-		VFE_PING_FLAG, buf->mapped_info[i].paddr);
+			vfe_dev, stream_info->wm[i],
+			VFE_PING_FLAG, buf->mapped_info[i].paddr +
+			stream_info->plane_offset[i]);
 	stream_info->buf[0] = buf;
 }
 
@@ -626,8 +631,8 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	uint32_t bufq_handle = stream_info->bufq_handle;
 	uint32_t stream_idx = stream_info->stream_handle & 0xFF;
 
-	rc = vfe_dev->buf_mgr->ops->get_buf(
-		vfe_dev->buf_mgr, bufq_handle, &buf);
+	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
+			vfe_dev->pdev->id, bufq_handle, &buf);
 	if (rc < 0) {
 		vfe_dev->error_info.
 			stream_framedrop_count[stream_idx]++;
@@ -642,8 +647,9 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 
 	for (i = 0; i < stream_info->num_planes; i++)
 		vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
-		vfe_dev, stream_info->wm[i],
-		pingpong_status, buf->mapped_info[i].paddr);
+			vfe_dev, stream_info->wm[i],
+			pingpong_status, buf->mapped_info[i].paddr +
+			stream_info->plane_offset[i]);
 
 	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
 	stream_info->buf[pingpong_bit] = buf;
@@ -658,6 +664,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, struct msm_isp_buffer *buf,
 	struct msm_isp_timestamp *ts)
 {
+	int rc;
 	struct msm_isp_event_data buf_event;
 	uint32_t stream_idx = stream_info->stream_handle & 0xFF;
 	uint32_t frame_id = vfe_dev->axi_data.
@@ -665,20 +672,27 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 
 	if (buf && ts) {
 		if (stream_info->buf_divert) {
-			vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
+			rc = vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
 				buf->bufq_handle, buf->buf_idx,
 				&ts->buf_time, frame_id);
-			buf_event.frame_id = frame_id;
-			buf_event.timestamp = ts->buf_time;
-			buf_event.u.buf_done.session_id =
-				stream_info->session_id;
-			buf_event.u.buf_done.stream_id =
-				stream_info->stream_id;
-			buf_event.u.buf_done.handle =
-				stream_info->bufq_handle;
-			buf_event.u.buf_done.buf_idx = buf->buf_idx;
-			msm_isp_send_event(vfe_dev, ISP_EVENT_BUF_DIVERT +
-					stream_idx, &buf_event);
+			/* Buf divert return value represent whether the buf
+			 * can be diverted. A positive return value means
+			 * other ISP hardware is still processing the frame.
+			 */
+			if (rc == 0) {
+				buf_event.frame_id = frame_id;
+				buf_event.timestamp = ts->buf_time;
+				buf_event.u.buf_done.session_id =
+					stream_info->session_id;
+				buf_event.u.buf_done.stream_id =
+					stream_info->stream_id;
+				buf_event.u.buf_done.handle =
+					stream_info->bufq_handle;
+				buf_event.u.buf_done.buf_idx = buf->buf_idx;
+				msm_isp_send_event(vfe_dev,
+					ISP_EVENT_BUF_DIVERT + stream_idx,
+					&buf_event);
+			}
 		} else {
 			vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
 				buf->bufq_handle, buf->buf_idx,
