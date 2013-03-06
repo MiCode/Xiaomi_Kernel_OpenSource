@@ -754,7 +754,7 @@ static int msm_compr_hw_params(struct snd_pcm_substream *substream,
 			prtd->session_id,
 			substream->stream);
 
-		ret = compressed_set_volume(compressed_audio.volume);
+		ret = compressed_set_volume(0);
 		if (ret < 0)
 			pr_err("%s : Set Volume failed : %d", __func__, ret);
 
