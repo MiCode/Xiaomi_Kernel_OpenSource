@@ -1660,6 +1660,22 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
+		struct mdss_hw_caps *caps)
+{
+	struct mdss_data_type *mdata = mfd->mdata;
+
+	if (!mdata)
+		return -ENODEV;
+
+	caps->mdp_rev = mdata->mdp_rev;
+	caps->vig_pipes = mdata->nvig_pipes;
+	caps->rgb_pipes = mdata->nrgb_pipes;
+	caps->dma_pipes = mdata->ndma_pipes;
+
+	return 0;
+}
+
 static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 				struct msmfb_metadata *metadata)
 {
@@ -1668,6 +1684,9 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 	case metadata_op_frame_rate:
 		metadata->data.panel_frame_rate =
 			mdss_get_panel_framerate(mfd);
+		break;
+	case metadata_op_get_caps:
+		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");

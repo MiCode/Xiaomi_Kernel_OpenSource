@@ -581,6 +581,7 @@ enum {
 	metadata_op_frame_rate,
 	metadata_op_vic,
 	metadata_op_wb_format,
+	metadata_op_get_caps,
 	metadata_op_max
 };
 
@@ -593,6 +594,13 @@ struct mdp_mixer_cfg {
 	uint32_t alpha;
 };
 
+struct mdss_hw_caps {
+	uint32_t mdp_rev;
+	uint8_t rgb_pipes;
+	uint8_t vig_pipes;
+	uint8_t dma_pipes;
+};
+
 struct msmfb_metadata {
 	uint32_t op;
 	uint32_t flags;
@@ -601,6 +609,7 @@ struct msmfb_metadata {
 		struct mdp_mixer_cfg mixer_cfg;
 		uint32_t panel_frame_rate;
 		uint32_t video_info_code;
+		struct mdss_hw_caps caps;
 	} data;
 };
 
