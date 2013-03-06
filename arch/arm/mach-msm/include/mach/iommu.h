@@ -96,6 +96,7 @@ struct msm_iommu_bfb_settings {
  * @list:	List head to link all iommus together
  * @clk_reg_virt: Optional clock register virtual address.
  * @halt_enabled: Set to 1 if IOMMU halt is supported in the IOMMU, 0 otherwise.
+ * @asid:         List of ASID and their usage count (index is ASID value).
  *
  * A msm_iommu_drvdata holds the global driver data about a single piece
  * of an IOMMU hardware instance.
@@ -117,6 +118,7 @@ struct msm_iommu_drvdata {
 	struct list_head list;
 	void __iomem *clk_reg_virt;
 	int halt_enabled;
+	int *asid;
 };
 
 void msm_iommu_add_drv(struct msm_iommu_drvdata *drv);
