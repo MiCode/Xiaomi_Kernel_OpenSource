@@ -123,8 +123,4 @@ bool nl80211_unexpected_frame(struct net_device *dev,
 bool nl80211_unexpected_4addr_frame(struct net_device *dev,
 				    const u8 *addr, gfp_t gfp);
 
-void nl80211_ft_event(struct cfg80211_registered_device *rdev,
-			struct net_device *netdev,
-			struct cfg80211_ft_event_params ft_event);
-
 #endif /* __NET_WIRELESS_NL80211_H */
