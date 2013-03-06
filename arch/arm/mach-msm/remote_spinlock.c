@@ -343,7 +343,9 @@ static void __raw_remote_sfpb_spin_lock(raw_remote_spinlock_t *lock)
 
 static int __raw_remote_sfpb_spin_trylock(raw_remote_spinlock_t *lock)
 {
-	return 1;
+	writel_relaxed(SPINLOCK_PID_APPS, lock);
+	smp_mb();
+	return readl_relaxed(lock) == SPINLOCK_PID_APPS;
 }
 
 static void __raw_remote_sfpb_spin_unlock(raw_remote_spinlock_t *lock)
