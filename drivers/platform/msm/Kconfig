@@ -82,6 +82,15 @@ config QPNP_VIBRATOR
 	  VIB_DRV_N line and can be controlled manually or by the DTEST lines.
 	  It uses the android timed-output framework.
 
+config QPNP_REVID
+	tristate "QPNP Revision ID Peripheral"
+	depends on SPMI
+	help
+	  Say 'y' here to include support for the Qualcomm QPNP REVID
+	  peripheral. REVID prints out the PMIC type and revision numbers
+	  in the kernel log along with the PMIC option status. The PMIC
+	  type is mapped to a Qualcomm chip part number and logged as well.
+
 config IPA
 	tristate "IPA support"
 	depends on SPS
