@@ -74,6 +74,7 @@ struct msm_isp_bufq {
 	uint32_t bufq_handle;
 	enum msm_isp_buf_type buf_type;
 	struct msm_isp_buffer *bufs;
+	spinlock_t bufq_lock;
 
 	/*Native buffer queue*/
 	struct list_head head;
