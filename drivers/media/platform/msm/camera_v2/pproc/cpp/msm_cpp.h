@@ -125,8 +125,10 @@ struct cpp_device {
 	struct resource *io;
 	struct resource	*vbif_mem;
 	struct resource *vbif_io;
+	struct resource	*cpp_hw_mem;
 	void __iomem *vbif_base;
 	void __iomem *base;
+	void __iomem *cpp_hw_base;
 	struct clk **cpp_clk;
 	struct regulator *fs_cpp;
 	struct mutex mutex;
@@ -141,6 +143,7 @@ struct cpp_device {
 
 	struct cpp_subscribe_info cpp_subscribe_list[MAX_ACTIVE_CPP_INSTANCE];
 	uint32_t cpp_open_cnt;
+	struct cpp_hw_info hw_info;
 
 	struct msm_device_queue eventData_q; /* V4L2 Event Payload Queue */
 
