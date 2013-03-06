@@ -1179,13 +1179,7 @@ static int diagchar_write(struct file *file, const char __user *buf,
 	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 	void *buf_copy = NULL;
 	unsigned int payload_size;
-#ifdef CONFIG_DIAG_OVER_USB
-	if (((driver->logging_mode == USB_MODE) && (!driver->usb_connected)) ||
-				(driver->logging_mode == NO_LOGGING_MODE)) {
-		/*Drop the diag payload */
-		return -EIO;
-	}
-#endif /* DIAG over USB */
+
 	index = 0;
 	/* Get the packet type F3/log/event/Pkt response */
 	err = copy_from_user((&pkt_type), buf, 4);
@@ -1201,6 +1195,14 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		driver->dropped_count++;
 		return -EBADMSG;
 	}
+#ifdef CONFIG_DIAG_OVER_USB
+	if (((pkt_type != DCI_DATA_TYPE) && (driver->logging_mode == USB_MODE)
+				&& (!driver->usb_connected)) ||
+				(driver->logging_mode == NO_LOGGING_MODE)) {
+		/*Drop the diag payload */
+		return -EIO;
+	}
+#endif /* DIAG over USB */
 	if (pkt_type == DCI_DATA_TYPE) {
 		err = copy_from_user(driver->user_space_data, buf + 4,
 							 payload_size);
