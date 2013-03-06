@@ -265,6 +265,16 @@ struct etm_drvdata {
 
 static struct etm_drvdata *etmdrvdata[NR_CPUS];
 
+static bool etm_os_lock_present(struct etm_drvdata *drvdata)
+{
+	uint32_t etmoslsr;
+
+	etmoslsr = etm_readl(drvdata, ETMOSLSR);
+	if (!BVAL(etmoslsr, 0) && !BVAL(etmoslsr, 3))
+		return false;
+	return true;
+}
+
 /*
  * Memory mapped writes to clear os lock are not supported on Krait v1, v2
  * and OS lock must be unlocked before any memory mapped access, otherwise
@@ -272,10 +282,17 @@ static struct etm_drvdata *etmdrvdata[NR_CPUS];
  */
 static void etm_os_unlock(void *info)
 {
+	struct etm_drvdata *drvdata = (struct etm_drvdata *) info;
+
+	ETM_UNLOCK(drvdata);
 	if (cpu_is_krait()) {
 		etm_writel_cp14(0x0, ETMOSLAR);
 		isb();
+	} else if (etm_os_lock_present(drvdata)) {
+		etm_writel(drvdata, 0x0, ETMOSLAR);
+		mb();
 	}
+	ETM_LOCK(drvdata);
 }
 
 /*
@@ -2104,7 +2121,7 @@ static int __devinit etm_probe(struct platform_device *pdev)
 	get_online_cpus();
 	etmdrvdata[drvdata->cpu] = drvdata;
 
-	if (!smp_call_function_single(drvdata->cpu, etm_os_unlock, NULL, 1))
+	if (!smp_call_function_single(drvdata->cpu, etm_os_unlock, drvdata, 1))
 		drvdata->os_unlock = true;
 	/*
 	 * Use CPU0 to populate read-only configuration data for ETM0. For
