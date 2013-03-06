@@ -326,7 +326,7 @@ struct smp_operations msm8625_smp_ops __initdata = {
 	.smp_prepare_cpus = msm8625_platform_smp_prepare_cpus,
 	.smp_secondary_init = msm8625_platform_secondary_init,
 	.smp_boot_secondary = msm8625_boot_secondary,
-	.cpu_kill = platform_cpu_kill,
+	.cpu_kill = msm_cpu_kill,
 	.cpu_die = platform_cpu_die,
 	.cpu_disable = platform_cpu_disable
 };

@@ -361,6 +361,7 @@ struct smp_operations arm_smp_ops __initdata = {
 	.smp_boot_secondary = arm_boot_secondary,
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
+	.cpu_kill = msm_cpu_kill,
 #endif
 };
 
@@ -371,6 +372,7 @@ struct smp_operations msm8974_smp_ops __initdata = {
 	.smp_boot_secondary = msm8974_boot_secondary,
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
+	.cpu_kill = msm_cpu_kill,
 #endif
 };
 
@@ -381,6 +383,7 @@ struct smp_operations msm8960_smp_ops __initdata = {
 	.smp_boot_secondary = msm8960_boot_secondary,
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
+	.cpu_kill = msm_cpu_kill,
 #endif
 };
 
@@ -391,5 +394,6 @@ struct smp_operations scorpion_smp_ops __initdata = {
 	.smp_boot_secondary = scorpion_boot_secondary,
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
+	.cpu_kill = msm_cpu_kill,
 #endif
 };

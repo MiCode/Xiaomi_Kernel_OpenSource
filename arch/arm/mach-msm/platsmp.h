@@ -14,6 +14,7 @@ void msm_secondary_startup(void);
 void write_pen_release(int val);
 
 void msm_cpu_die(unsigned int cpu);
+int msm_cpu_kill(unsigned int cpu);
 
 extern struct smp_operations arm_smp_ops;
 extern struct smp_operations msm8960_smp_ops;

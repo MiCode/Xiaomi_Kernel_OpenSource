@@ -65,6 +65,16 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 	}
 }
 
+int msm_cpu_kill(unsigned int cpu)
+{
+	int ret;
+
+	ret = msm_pm_wait_cpu_shutdown(cpu);
+	if (ret)
+		return 0;
+	return 1;
+}
+
 /*
  * platform-specific code to shutdown a CPU
  *
