@@ -86,8 +86,8 @@
 #define USB_OVP_CTL				0x42
 #define SEC_ACCESS				0xD0
 
-/* SMBB peripheral subtype values */
 #define REG_OFFSET_PERP_SUBTYPE			0x05
+/* SMBB peripheral subtype values */
 #define SMBB_CHGR_SUBTYPE			0x01
 #define SMBB_BUCK_SUBTYPE			0x02
 #define SMBB_BAT_IF_SUBTYPE			0x03
@@ -95,6 +95,14 @@
 #define SMBB_DC_CHGPTH_SUBTYPE			0x05
 #define SMBB_BOOST_SUBTYPE			0x06
 #define SMBB_MISC_SUBTYPE			0x07
+
+/* SMBB peripheral subtype values */
+#define SMBBP_CHGR_SUBTYPE			0x31
+#define SMBBP_BUCK_SUBTYPE			0x32
+#define SMBBP_BAT_IF_SUBTYPE			0x33
+#define SMBBP_USB_CHGPTH_SUBTYPE		0x34
+#define SMBBP_BOOST_SUBTYPE			0x36
+#define SMBBP_MISC_SUBTYPE			0x37
 
 #define QPNP_CHARGER_DEV_NAME	"qcom,qpnp-charger"
 
@@ -340,6 +348,9 @@ qpnp_chg_is_dc_chg_plugged_in(struct qpnp_chg_chip *chip)
 {
 	u8 dcin_valid_rt_sts;
 	int rc;
+
+	if (!chip->dc_chgpth_base)
+		return 0;
 
 	rc = qpnp_chg_read(chip, &dcin_valid_rt_sts,
 				 INT_RT_STS(chip->dc_chgpth_base), 1);
@@ -1212,6 +1223,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 
 	switch (subtype) {
 	case SMBB_CHGR_SUBTYPE:
+	case SMBBP_CHGR_SUBTYPE:
 		chip->chg_done_irq = spmi_get_irq_byname(chip->spmi,
 						spmi_resource, "chg-done");
 		if (chip->chg_done_irq < 0) {
@@ -1289,6 +1301,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		enable_irq_wake(chip->chg_done_irq);
 		break;
 	case SMBB_BUCK_SUBTYPE:
+	case SMBBP_BUCK_SUBTYPE:
 		rc = qpnp_chg_masked_write(chip,
 			chip->chgr_base + CHGR_BUCK_BCK_VBAT_REG_MODE,
 			BUCK_VBAT_REG_NODE_SEL_BIT,
@@ -1299,8 +1312,10 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		}
 		break;
 	case SMBB_BAT_IF_SUBTYPE:
+	case SMBBP_BAT_IF_SUBTYPE:
 		break;
 	case SMBB_USB_CHGPTH_SUBTYPE:
+	case SMBBP_USB_CHGPTH_SUBTYPE:
 		chip->usbin_valid_irq = spmi_get_irq_byname(chip->spmi,
 						spmi_resource, "usbin-valid");
 		if (chip->usbin_valid_irq < 0) {
@@ -1361,8 +1376,10 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		enable_irq_wake(chip->dcin_valid_irq);
 		break;
 	case SMBB_BOOST_SUBTYPE:
+	case SMBBP_BOOST_SUBTYPE:
 		break;
 	case SMBB_MISC_SUBTYPE:
+	case SMBBP_MISC_SUBTYPE:
 		pr_debug("Setting BOOT_DONE\n");
 		rc = qpnp_chg_masked_write(chip,
 			chip->misc_base + CHGR_MISC_BOOT_DONE,
@@ -1396,10 +1413,6 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		pr_err("kzalloc() failed.\n");
 		return -ENOMEM;
 	}
-
-	rc = qpnp_vadc_is_ready();
-	if (rc)
-		goto fail_chg_enable;
 
 	chip->dev = &(spmi->dev);
 	chip->spmi = spmi;
@@ -1557,6 +1570,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 		switch (subtype) {
 		case SMBB_CHGR_SUBTYPE:
+		case SMBBP_CHGR_SUBTYPE:
 			chip->chgr_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1566,6 +1580,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			}
 			break;
 		case SMBB_BUCK_SUBTYPE:
+		case SMBBP_BUCK_SUBTYPE:
 			chip->buck_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1575,6 +1590,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			}
 			break;
 		case SMBB_BAT_IF_SUBTYPE:
+		case SMBBP_BAT_IF_SUBTYPE:
 			chip->bat_if_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1584,6 +1600,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			}
 			break;
 		case SMBB_USB_CHGPTH_SUBTYPE:
+		case SMBBP_USB_CHGPTH_SUBTYPE:
 			chip->usb_chgpth_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1602,6 +1619,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			}
 			break;
 		case SMBB_BOOST_SUBTYPE:
+		case SMBBP_BOOST_SUBTYPE:
 			chip->boost_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1611,6 +1629,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			}
 			break;
 		case SMBB_MISC_SUBTYPE:
+		case SMBBP_MISC_SUBTYPE:
 			chip->misc_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1628,34 +1647,44 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, chip);
 	device_init_wakeup(&spmi->dev, 1);
 
-	chip->dc_psy.name = "qpnp-dc";
-	chip->dc_psy.type = POWER_SUPPLY_TYPE_MAINS;
-	chip->dc_psy.supplied_to = pm_power_supplied_to;
-	chip->dc_psy.num_supplicants = ARRAY_SIZE(pm_power_supplied_to);
-	chip->dc_psy.properties = pm_power_props_mains;
-	chip->dc_psy.num_properties = ARRAY_SIZE(pm_power_props_mains);
-	chip->dc_psy.get_property = qpnp_power_get_property_mains;
+	if (chip->bat_if_base) {
+		rc = qpnp_vadc_is_ready();
+		if (rc)
+			goto fail_chg_enable;
 
-	chip->batt_psy.name = "battery";
-	chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY;
-	chip->batt_psy.properties = msm_batt_power_props;
-	chip->batt_psy.num_properties = ARRAY_SIZE(msm_batt_power_props);
-	chip->batt_psy.get_property = qpnp_batt_power_get_property;
-	chip->batt_psy.set_property = qpnp_batt_power_set_property;
-	chip->batt_psy.property_is_writeable = qpnp_batt_property_is_writeable;
-	chip->batt_psy.external_power_changed =
+		chip->batt_psy.name = "battery";
+		chip->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY;
+		chip->batt_psy.properties = msm_batt_power_props;
+		chip->batt_psy.num_properties =
+			ARRAY_SIZE(msm_batt_power_props);
+		chip->batt_psy.get_property = qpnp_batt_power_get_property;
+		chip->batt_psy.set_property = qpnp_batt_power_set_property;
+		chip->batt_psy.property_is_writeable =
+				qpnp_batt_property_is_writeable;
+		chip->batt_psy.external_power_changed =
 				qpnp_batt_external_power_changed;
 
-	rc = power_supply_register(chip->dev, &chip->batt_psy);
-	if (rc < 0) {
-		pr_err("power_supply_register batt failed rc = %d\n", rc);
-		goto fail_chg_enable;
+		rc = power_supply_register(chip->dev, &chip->batt_psy);
+		if (rc < 0) {
+			pr_err("batt failed to register rc = %d\n", rc);
+			goto fail_chg_enable;
+		}
 	}
 
-	rc = power_supply_register(chip->dev, &chip->dc_psy);
-	if (rc < 0) {
-		pr_err("power_supply_register usb failed rc = %d\n", rc);
-		goto unregister_batt;
+	if (chip->dc_chgpth_base) {
+		chip->dc_psy.name = "qpnp-dc";
+		chip->dc_psy.type = POWER_SUPPLY_TYPE_MAINS;
+		chip->dc_psy.supplied_to = pm_power_supplied_to;
+		chip->dc_psy.num_supplicants = ARRAY_SIZE(pm_power_supplied_to);
+		chip->dc_psy.properties = pm_power_props_mains;
+		chip->dc_psy.num_properties = ARRAY_SIZE(pm_power_props_mains);
+		chip->dc_psy.get_property = qpnp_power_get_property_mains;
+
+		rc = power_supply_register(chip->dev, &chip->dc_psy);
+		if (rc < 0) {
+			pr_err("power_supply_register dc failed rc=%d\n", rc);
+			goto unregister_batt;
+		}
 	}
 
 	/* Turn on appropriate workaround flags */
@@ -1664,11 +1693,11 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	power_supply_set_present(chip->usb_psy,
 			qpnp_chg_is_usb_chg_plugged_in(chip));
 
-	if (chip->maxinput_dc_ma) {
+	if (chip->maxinput_dc_ma && chip->dc_chgpth_base) {
 		rc = qpnp_chg_idcmax_set(chip, chip->maxinput_dc_ma);
 		if (rc) {
 			pr_err("Error setting idcmax property %d\n", rc);
-			goto fail_chg_enable;
+			goto unregister_batt;
 		}
 	}
 
@@ -1684,7 +1713,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	return 0;
 
 unregister_batt:
-	power_supply_unregister(&chip->batt_psy);
+	if (chip->bat_if_base)
+		power_supply_unregister(&chip->batt_psy);
 fail_chg_enable:
 	kfree(chip->thermal_mitigation);
 	kfree(chip);
