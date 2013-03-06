@@ -193,7 +193,8 @@ void wcd9xxx_resmgr_notifier_call(struct wcd9xxx_resmgr *resmgr,
 				  const enum wcd9xxx_notify_event e);
 
 enum wcd9xxx_resmgr_cond {
-	WCD9XXX_COND_HPH_MIC = 1,
+	WCD9XXX_COND_HPH = 0x01, /* Headphone */
+	WCD9XXX_COND_HPH_MIC = 0x02, /* Microphone on the headset */
 };
 int wcd9xxx_resmgr_rm_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 				       enum wcd9xxx_resmgr_cond cond,
