@@ -163,6 +163,12 @@
 	};
 
 	mpp@a400 { /* MPP 5 */
+		/* PA_THERM0 config */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <0>; /* AMUX 5 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
 	};
 
 	mpp@a500 { /* MPP 6 */
@@ -172,6 +178,12 @@
 	};
 
 	mpp@a700 { /* MPP 8 */
+		/* PA_THERM1 config */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <3>; /* AMUX 8 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
 	};
 };
 
