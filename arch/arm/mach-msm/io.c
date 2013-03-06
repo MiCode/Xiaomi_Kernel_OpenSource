@@ -334,6 +334,9 @@ static struct map_desc msm_zinc_io_desc[] __initdata = {
 		.length =   MSM_SHARED_RAM_SIZE,
 		.type =     MT_DEVICE,
 	},
+#ifdef CONFIG_DEBUG_MSMZINC_UART
+	MSM_DEVICE(DEBUG_UART),
+#endif
 };
 
 void __init msm_map_zinc_io(void)
