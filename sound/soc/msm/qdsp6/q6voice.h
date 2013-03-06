@@ -1314,12 +1314,12 @@ int voc_send_cvp_vocpcm_push_buf_evt(u16 session_id,
 #define VOICE_SESSION_NAME "Voice session"
 #define VOIP_SESSION_NAME "VoIP session"
 #define VOLTE_SESSION_NAME "VoLTE session"
-#define SGLTE_SESSION_NAME "SGLTE session"
+#define VOICE2_SESSION_NAME "Voice2 session"
 
 #define VOC_PATH_PASSIVE 0
 #define VOC_PATH_FULL 1
 #define VOC_PATH_VOLTE_PASSIVE 2
-#define VOC_PATH_SGLTE_PASSIVE 3
+#define VOC_PATH_VOICE2_PASSIVE 3
 
 uint16_t voc_get_session_id(char *name);
 
