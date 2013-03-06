@@ -1,11 +1,8 @@
-#ifndef _MSM_IPA_H_
-#define _MSM_IPA_H_
+#ifndef _UAPI_MSM_IPA_H_
+#define _UAPI_MSM_IPA_H_
 
-#ifndef __KERNEL__
-#include <stdint.h>
-#include <stddef.h>
-#include <sys/stat.h>
-#endif
+#include <linux/types.h>
+#include <linux/stddef.h>
 #include <linux/ioctl.h>
 
 /**
@@ -761,4 +758,4 @@ struct ipa_wlan_msg {
 				IPA_IOCTL_PULL_MSG, \
 				struct ipa_msg_meta *)
 
-#endif /* _MSM_IPA_H_ */
+#endif /* _UAPI_MSM_IPA_H_ */
