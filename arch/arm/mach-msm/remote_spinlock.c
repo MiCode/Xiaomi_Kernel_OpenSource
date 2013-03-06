@@ -196,6 +196,8 @@ static void __raw_remote_swp_spin_unlock(raw_remote_spinlock_t *lock)
 /* end swp implementation --------------------------------------------------- */
 
 /* ldrex implementation ----------------------------------------------------- */
+static char *ldrex_compatible_string = "qcom,ipc-spinlock-ldrex";
+
 static void __raw_remote_ex_spin_lock(raw_remote_spinlock_t *lock)
 {
 	unsigned long tmp;
@@ -267,7 +269,7 @@ static uint32_t lock_size;
 static void *hw_mutex_reg_base;
 static DEFINE_MUTEX(hw_map_init_lock);
 
-static char *compatible_string = "qcom,ipc-spinlock";
+static char *sfpb_compatible_string = "qcom,ipc-spinlock-sfpb";
 
 static int init_hw_mutex(struct device_node *node)
 {
@@ -294,7 +296,7 @@ static void find_and_init_hw_mutex(void)
 {
 	struct device_node *node;
 
-	node = of_find_compatible_node(NULL, NULL, compatible_string);
+	node = of_find_compatible_node(NULL, NULL, sfpb_compatible_string);
 	if (node) {
 		init_hw_mutex(node);
 	} else {
@@ -397,6 +399,23 @@ static int __raw_remote_gen_spin_owner(raw_remote_spinlock_t *lock)
 }
 
 
+static int dt_node_is_valid(const struct device_node *node)
+{
+	const char *status;
+	int statlen;
+
+	status = of_get_property(node, "status", &statlen);
+	if (status == NULL)
+		return 1;
+
+	if (statlen > 0) {
+		if (!strcmp(status, "okay") || !strcmp(status, "ok"))
+			return 1;
+	}
+
+	return 0;
+}
+
 static void initialize_ops(void)
 {
 	struct device_node *node;
@@ -435,23 +454,42 @@ static void initialize_ops(void)
 		is_hw_lock_type = 1;
 		break;
 	case AUTO_MODE:
-		node = of_find_compatible_node(NULL, NULL, compatible_string);
-		if (node) {
+		/*
+		 * of_find_compatible_node() returns a valid pointer even if
+		 * the status property is "disabled", so the validity needs
+		 * to be checked
+		 */
+		node = of_find_compatible_node(NULL, NULL,
+						sfpb_compatible_string);
+		if (node && dt_node_is_valid(node)) {
 			current_ops.lock = __raw_remote_sfpb_spin_lock;
 			current_ops.unlock = __raw_remote_sfpb_spin_unlock;
 			current_ops.trylock = __raw_remote_sfpb_spin_trylock;
 			current_ops.release = __raw_remote_gen_spin_release;
 			current_ops.owner = __raw_remote_gen_spin_owner;
 			is_hw_lock_type = 1;
-		} else {
+			break;
+		}
+
+		node = of_find_compatible_node(NULL, NULL,
+						ldrex_compatible_string);
+		if (node && dt_node_is_valid(node)) {
 			current_ops.lock = __raw_remote_ex_spin_lock;
 			current_ops.unlock = __raw_remote_ex_spin_unlock;
 			current_ops.trylock = __raw_remote_ex_spin_trylock;
 			current_ops.release = __raw_remote_gen_spin_release;
 			current_ops.owner = __raw_remote_gen_spin_owner;
 			is_hw_lock_type = 0;
-			pr_warn("Falling back to LDREX remote spinlock implementation");
+			break;
 		}
+
+		current_ops.lock = __raw_remote_ex_spin_lock;
+		current_ops.unlock = __raw_remote_ex_spin_unlock;
+		current_ops.trylock = __raw_remote_ex_spin_trylock;
+		current_ops.release = __raw_remote_gen_spin_release;
+		current_ops.owner = __raw_remote_gen_spin_owner;
+		is_hw_lock_type = 0;
+		pr_warn("Falling back to LDREX remote spinlock implementation");
 		break;
 	default:
 		BUG();
