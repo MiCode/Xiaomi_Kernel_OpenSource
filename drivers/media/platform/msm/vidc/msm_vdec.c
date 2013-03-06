@@ -20,10 +20,6 @@
 #include "msm_vidc_debug.h"
 
 #define MSM_VDEC_DVC_NAME "msm_vdec_8974"
-#define DEFAULT_HEIGHT 720
-#define DEFAULT_WIDTH 1280
-#define MAX_SUPPORTED_WIDTH 3820
-#define MAX_SUPPORTED_HEIGHT 2160
 #define MIN_NUM_OUTPUT_BUFFERS 4
 #define MAX_NUM_OUTPUT_BUFFERS 6
 
@@ -582,7 +578,6 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int stride, scanlines;
 	int extra_idx = 0;
 	int rc = 0;
-	int ret;
 	int i;
 	struct hal_buffer_requirements *buff_req_buffer;
 	if (!inst || !f || !inst->core || !inst->core->device) {
@@ -606,7 +601,7 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			if (rc) {
 				dprintk(VIDC_ERR,
 				"%s: session not supported\n", __func__);
-				return rc;
+				goto exit;
 			}
 		}
 		f->fmt.pix_mp.height = inst->prop.height;
@@ -618,10 +613,20 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		frame_sz.height = inst->prop.height;
 		dprintk(VIDC_DBG, "width = %d, height = %d\n",
 				frame_sz.width, frame_sz.height);
-		ret = msm_comm_try_set_prop(inst,
+		rc = msm_comm_try_set_prop(inst,
 			HAL_PARAM_FRAME_SIZE, &frame_sz);
-		ret = ret || msm_comm_try_get_bufreqs(inst);
-		if (ret || (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: Failed : Frame size setting\n", __func__);
+			goto exit;
+		}
+		rc = msm_comm_try_get_bufreqs(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: Failed : Buffer requirements\n", __func__);
+			goto exit;
+		}
+		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			for (i = 0; i < fmt->num_planes; ++i) {
 				f->fmt.pix_mp.plane_fmt[i].sizeimage =
 					fmt->get_frame_size(i,
@@ -686,6 +691,7 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			f->type);
 		rc = -EINVAL;
 	}
+exit:
 	return rc;
 }
 int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
@@ -793,14 +799,12 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		inst->prop.width = f->fmt.pix_mp.width;
 		inst->prop.height = f->fmt.pix_mp.height;
-
 		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"%s: session not supported\n", __func__);
 			goto err_invalid_fmt;
 		}
-
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 				ARRAY_SIZE(vdec_formats),
 				f->fmt.pix_mp.pixelformat,
@@ -1175,6 +1179,10 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->fmts[CAPTURE_PORT] = &vdec_formats[0];
 	inst->prop.height = DEFAULT_HEIGHT;
 	inst->prop.width = DEFAULT_WIDTH;
+	inst->capability.height.min = MIN_SUPPORTED_HEIGHT;
+	inst->capability.height.max = DEFAULT_HEIGHT;
+	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
+	inst->capability.width.max = DEFAULT_WIDTH;
 	inst->prop.fps = 30;
 	inst->prop.prev_time_stamp = 0;
 	return rc;
