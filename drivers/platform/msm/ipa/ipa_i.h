@@ -823,4 +823,7 @@ int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx);
 int a2_mux_init(void);
 int a2_mux_exit(void);
 
+void wwan_cleanup(void);
+
+
 #endif /* _IPA_I_H_ */

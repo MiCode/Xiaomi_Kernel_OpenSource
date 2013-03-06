@@ -53,6 +53,8 @@ struct bam_ch_info {
 	spinlock_t		lock;
 	int			num_tx_pkts;
 	int			use_wm;
+	u32			v4_hdr_hdl;
+	u32			v6_hdr_hdl;
 };
 struct tx_pkt_info {
 	struct sk_buff		*skb;
@@ -70,6 +72,7 @@ struct bam_mux_hdr {
 	u8			ch_id;
 	u16			pkt_len;
 };
+
 struct a2_mux_context_type {
 	u32 tethered_prod;
 	u32 tethered_cons;
@@ -515,6 +518,9 @@ static int connect_to_bam(void)
 		goto bridge_tethered_dl_failed;
 	}
 	memset(&connect_params, 0, sizeof(struct ipa_sys_connect_params));
+	connect_params.ipa_ep_cfg.hdr.hdr_len = sizeof(struct bam_mux_hdr);
+	connect_params.ipa_ep_cfg.hdr.hdr_ofst_pkt_size_valid = 1;
+	connect_params.ipa_ep_cfg.hdr.hdr_ofst_pkt_size = 6;
 	connect_params.client = IPA_CLIENT_A2_EMBEDDED_CONS;
 	connect_params.notify = ipa_embedded_notify;
 	connect_params.desc_fifo_sz = 0x800;
@@ -527,6 +533,9 @@ static int connect_to_bam(void)
 		goto bridge_embedded_ul_failed;
 	}
 	memset(&connect_params, 0, sizeof(struct ipa_sys_connect_params));
+	connect_params.ipa_ep_cfg.hdr.hdr_len = sizeof(struct bam_mux_hdr);
+	connect_params.ipa_ep_cfg.hdr.hdr_ofst_metadata_valid = 1;
+	connect_params.ipa_ep_cfg.hdr.hdr_ofst_metadata = 4;
 	connect_params.client = IPA_CLIENT_A2_EMBEDDED_PROD;
 	connect_params.notify = ipa_embedded_notify;
 	connect_params.desc_fifo_sz = 0x800;
@@ -1006,6 +1015,176 @@ write_fail:
 }
 
 /**
+ * a2_mux_add_hdr() - called when MUX header should
+ *		be added
+ * @lcid: logical channel ID
+ *
+ * Returns: 0 on success, negative on failure
+ */
+static int a2_mux_add_hdr(enum a2_mux_logical_channel_id lcid)
+{
+	struct ipa_ioc_add_hdr *hdrs;
+	struct ipa_hdr_add *ipv4_hdr;
+	struct ipa_hdr_add *ipv6_hdr;
+	struct bam_mux_hdr *dmux_hdr;
+	int rc;
+
+	IPADBG("%s: ch %d\n", __func__, lcid);
+
+	if (lcid < A2_MUX_WWAN_0 || lcid > A2_MUX_WWAN_7) {
+		IPAERR("%s: non valid lcid passed: %d\n", __func__, lcid);
+		return -EINVAL;
+	}
+
+
+	hdrs = kzalloc(sizeof(struct ipa_ioc_add_hdr) +
+		       2 * sizeof(struct ipa_hdr_add), GFP_KERNEL);
+	if (!hdrs) {
+		IPAERR("%s: hdr allocation fail for ch %d\n", __func__, lcid);
+		return -ENOMEM;
+	}
+
+	ipv4_hdr = &hdrs->hdr[0];
+	ipv6_hdr = &hdrs->hdr[1];
+
+	dmux_hdr = (struct bam_mux_hdr *)ipv4_hdr->hdr;
+	snprintf(ipv4_hdr->name, IPA_RESOURCE_NAME_MAX, "%s%d",
+		 A2_MUX_HDR_NAME_V4_PREF, lcid);
+	dmux_hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
+	dmux_hdr->cmd = BAM_MUX_HDR_CMD_DATA;
+	dmux_hdr->reserved = 0;
+	dmux_hdr->ch_id = lcid;
+
+	/* Packet lenght is added by IPA */
+	dmux_hdr->pkt_len = 0;
+	dmux_hdr->pad_len = 0;
+
+	dmux_hdr->magic_num = htons(dmux_hdr->magic_num);
+	IPADBG("converted to network order magic_num=%d\n",
+		    dmux_hdr->magic_num);
+
+	ipv4_hdr->hdr_len = sizeof(struct bam_mux_hdr);
+	ipv4_hdr->is_partial = 0;
+
+	dmux_hdr = (struct bam_mux_hdr *)ipv6_hdr->hdr;
+	snprintf(ipv6_hdr->name, IPA_RESOURCE_NAME_MAX, "%s%d",
+		 A2_MUX_HDR_NAME_V6_PREF, lcid);
+	dmux_hdr->magic_num = BAM_MUX_HDR_MAGIC_NO;
+	dmux_hdr->cmd = BAM_MUX_HDR_CMD_DATA;
+	dmux_hdr->reserved = 0;
+	dmux_hdr->ch_id = lcid;
+
+	/* Packet lenght is added by IPA */
+	dmux_hdr->pkt_len = 0;
+	dmux_hdr->pad_len = 0;
+
+	dmux_hdr->magic_num = htons(dmux_hdr->magic_num);
+	IPADBG("converted to network order magic_num=%d\n",
+		    dmux_hdr->magic_num);
+
+	ipv6_hdr->hdr_len = sizeof(struct bam_mux_hdr);
+	ipv6_hdr->is_partial = 0;
+
+	hdrs->commit = 1;
+	hdrs->num_hdrs = 2;
+
+	rc = ipa_add_hdr(hdrs);
+	if (rc) {
+		IPAERR("Fail on Header-Insertion(%d)\n", rc);
+		goto bail;
+	}
+
+	if (ipv4_hdr->status) {
+		IPAERR("Fail on Header-Insertion ipv4(%d)\n",
+				ipv4_hdr->status);
+		rc = ipv4_hdr->status;
+		goto bail;
+	}
+
+	if (ipv6_hdr->status) {
+		IPAERR("%s: Fail on Header-Insertion ipv4(%d)\n", __func__,
+				ipv6_hdr->status);
+		rc = ipv6_hdr->status;
+		goto bail;
+	}
+
+	a2_mux_ctx->bam_ch[lcid].v4_hdr_hdl = ipv4_hdr->hdr_hdl;
+	a2_mux_ctx->bam_ch[lcid].v6_hdr_hdl = ipv6_hdr->hdr_hdl;
+
+	rc = 0;
+bail:
+	kfree(hdrs);
+	return rc;
+}
+
+/**
+ * a2_mux_del_hdr() - called when MUX header should
+ *		be removed
+ * @lcid: logical channel ID
+ *
+ * Returns: 0 on success, negative on failure
+ */
+static int a2_mux_del_hdr(enum a2_mux_logical_channel_id lcid)
+{
+	struct ipa_ioc_del_hdr *hdrs;
+	struct ipa_hdr_del *ipv4_hdl;
+	struct ipa_hdr_del *ipv6_hdl;
+	int rc;
+
+	IPADBG("%s: ch %d\n", __func__, lcid);
+
+	if (lcid < A2_MUX_WWAN_0 || lcid > A2_MUX_WWAN_7) {
+		IPAERR("invalid lcid passed: %d\n", lcid);
+		return -EINVAL;
+	}
+
+
+	hdrs = kzalloc(sizeof(struct ipa_ioc_del_hdr) +
+		       2 * sizeof(struct ipa_hdr_del), GFP_KERNEL);
+	if (!hdrs) {
+		IPAERR("hdr alloc fail for ch %d\n", lcid);
+		return -ENOMEM;
+	}
+
+	ipv4_hdl = &hdrs->hdl[0];
+	ipv6_hdl = &hdrs->hdl[1];
+
+	ipv4_hdl->hdl = a2_mux_ctx->bam_ch[lcid].v4_hdr_hdl;
+	ipv6_hdl->hdl = a2_mux_ctx->bam_ch[lcid].v6_hdr_hdl;
+
+	hdrs->commit = 1;
+	hdrs->num_hdls = 2;
+
+	rc = ipa_del_hdr(hdrs);
+	if (rc) {
+		IPAERR("Fail on Del Header-Insertion(%d)\n", rc);
+		goto bail;
+	}
+
+	if (ipv4_hdl->status) {
+		IPAERR("Fail on Del Header-Insertion ipv4(%d)\n",
+				ipv4_hdl->status);
+		rc = ipv4_hdl->status;
+		goto bail;
+	}
+	a2_mux_ctx->bam_ch[lcid].v4_hdr_hdl = 0;
+
+	if (ipv6_hdl->status) {
+		IPAERR("Fail on Del Header-Insertion ipv4(%d)\n",
+				ipv6_hdl->status);
+		rc = ipv6_hdl->status;
+		goto bail;
+	}
+	a2_mux_ctx->bam_ch[lcid].v6_hdr_hdl = 0;
+
+	rc = 0;
+bail:
+	kfree(hdrs);
+	return rc;
+
+}
+
+/**
  * a2_mux_open_channel() - opens logical channel
  *		to A2
  * @lcid: logical channel ID
@@ -1090,6 +1269,12 @@ int a2_mux_open_channel(enum a2_mux_logical_channel_id lcid,
 			kfree(hdr);
 			return rc;
 		}
+		rc = a2_mux_add_hdr(lcid);
+		if (rc) {
+			IPAERR("a2_mux_add_hdr failed %d; ch: %d\n",
+			       rc, lcid);
+			return rc;
+		}
 	}
 
 open_done:
@@ -1152,6 +1337,13 @@ int a2_mux_close_channel(enum a2_mux_logical_channel_id lcid)
 			IPAERR("%s: bam_mux_write_cmd failed %d; ch: %d\n",
 			       __func__, rc, lcid);
 			kfree(hdr);
+			return rc;
+		}
+
+		rc = a2_mux_del_hdr(lcid);
+		if (rc) {
+			IPAERR("a2_mux_del_hdr failed %d; ch: %d\n",
+			       rc, lcid);
 			return rc;
 		}
 	}
