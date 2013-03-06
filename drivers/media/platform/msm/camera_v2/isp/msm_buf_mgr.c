@@ -245,7 +245,7 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 	return 0;
 }
 
-static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr,
+static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	uint32_t bufq_handle, struct msm_isp_buffer **buf_info)
 {
 	int rc = -1;
@@ -259,6 +259,22 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr,
 	}
 
 	*buf_info = NULL;
+	if (bufq->buf_type == ISP_SHARE_BUF) {
+		list_for_each_entry(temp_buf_info,
+			&bufq->share_head, share_list) {
+			if (!temp_buf_info->buf_used[id]) {
+				*buf_info = temp_buf_info;
+				temp_buf_info->buf_used[id] = 1;
+				temp_buf_info->buf_get_count++;
+				if (temp_buf_info->buf_get_count ==
+					bufq->buf_client_count)
+					list_del_init(
+					&temp_buf_info->share_list);
+				return 0;
+			}
+		}
+	}
+
 	if (BUF_SRC(bufq->stream_id)) {
 		list_for_each_entry(temp_buf_info, &bufq->head, list) {
 			if (temp_buf_info->state ==
@@ -288,8 +304,15 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr,
 	if (!(*buf_info))
 		return rc;
 
-
 	(*buf_info)->state = MSM_ISP_BUFFER_STATE_DEQUEUED;
+	if (bufq->buf_type == ISP_SHARE_BUF) {
+		memset((*buf_info)->buf_used, 0,
+			   sizeof(uint8_t) * bufq->buf_client_count);
+		(*buf_info)->buf_used[id] = 1;
+		(*buf_info)->buf_get_count = 1;
+		(*buf_info)->buf_put_count = 0;
+		list_add_tail(&(*buf_info)->share_list, &bufq->share_head);
+	}
 	return 0;
 }
 
@@ -356,6 +379,11 @@ static int msm_isp_buf_done(struct msm_isp_buf_mgr *buf_mgr,
 
 	if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED ||
 		buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED) {
+		if (bufq->buf_type == ISP_SHARE_BUF) {
+			buf_info->buf_put_count++;
+			if (buf_info->buf_put_count != ISP_SHARE_BUF_CLIENT)
+				return buf_info->buf_put_count;
+		}
 		buf_info->state = MSM_ISP_BUFFER_STATE_DISPATCHED;
 		if ((BUF_SRC(bufq->stream_id))) {
 			rc = msm_isp_put_buf(buf_mgr, buf_info->bufq_handle,
@@ -426,6 +454,12 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 	if (!buf_info) {
 		pr_err("%s: buf not found\n", __func__);
 		return rc;
+	}
+
+	if (bufq->buf_type == ISP_SHARE_BUF) {
+		buf_info->buf_put_count++;
+		if (buf_info->buf_put_count != ISP_SHARE_BUF_CLIENT)
+			return buf_info->buf_put_count;
 	}
 
 	if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED) {
@@ -520,7 +554,11 @@ static int msm_isp_request_bufq(struct msm_isp_buf_mgr *buf_mgr,
 	bufq->session_id = buf_request->session_id;
 	bufq->stream_id = buf_request->stream_id;
 	bufq->num_bufs = buf_request->num_buf;
+	bufq->buf_type = buf_request->buf_type;
+	if (bufq->buf_type == ISP_SHARE_BUF)
+		bufq->buf_client_count = ISP_SHARE_BUF_CLIENT;
 	INIT_LIST_HEAD(&bufq->head);
+	INIT_LIST_HEAD(&bufq->share_head);
 	for (i = 0; i < buf_request->num_buf; i++) {
 		bufq->bufs[i].state = MSM_ISP_BUFFER_STATE_INITIALIZED;
 		bufq->bufs[i].bufq_handle = bufq->bufq_handle;
