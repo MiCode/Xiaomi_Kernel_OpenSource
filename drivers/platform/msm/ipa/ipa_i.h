@@ -110,7 +110,7 @@
 
 #define IPA_EVENT_THRESHOLD 0x10
 
-#define IPA_RX_POOL_CEIL 24
+#define IPA_RX_POOL_CEIL 32
 #define IPA_RX_SKB_SIZE 2048
 
 #define IPA_DFLT_HDR_NAME "ipa_excp_hdr"
@@ -422,7 +422,7 @@ struct ipa_tx_pkt_wrapper {
 	void *user2;
 	struct ipa_sys_context *sys;
 	struct ipa_mem_buffer mult;
-	u16 cnt;
+	u32 cnt;
 	void *bounce;
 };
 
@@ -453,16 +453,14 @@ struct ipa_desc {
  * struct ipa_rx_pkt_wrapper - IPA Rx packet wrapper
  * @skb: skb
  * @dma_address: DMA address of this Rx packet
- * @work: work struct for current Rx packet
  * @link: linked to the Rx packets on that pipe
  * @len: how many bytes are copied into skb's flat buffer
  */
 struct ipa_rx_pkt_wrapper {
 	struct sk_buff *skb;
 	dma_addr_t dma_address;
-	struct work_struct work;
 	struct list_head link;
-	u16 len;
+	u32 len;
 };
 
 /**
@@ -527,6 +525,9 @@ struct ipa_stats {
 	u32 rx_pkts;
 	u32 rx_excp_pkts[MAX_NUM_EXCP];
 	u32 bridged_pkts[IPA_BRIDGE_TYPE_MAX][IPA_BRIDGE_DIR_MAX];
+	u32 rx_repl_repost;
+	u32 x_intr_repost;
+	u32 rx_q_len;
 };
 
 /**
@@ -629,7 +630,7 @@ struct ipa_context {
 	uint aggregation_type;
 	uint aggregation_byte_limit;
 	uint aggregation_time_limit;
-	uint curr_polling_state;
+	atomic_t curr_polling_state;
 	struct delayed_work poll_work;
 	bool hdr_tbl_lcl;
 	struct ipa_mem_buffer hdr_mem;
@@ -742,7 +743,7 @@ void rmnet_bridge_get_client_handles(u32 *producer_handle,
 		u32 *consumer_handle);
 int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		bool in_atomic);
-int ipa_send(struct ipa_sys_context *sys, u16 num_desc, struct ipa_desc *desc,
+int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		bool in_atomic);
 int ipa_get_ep_mapping(enum ipa_operating_mode mode,
 		       enum ipa_client_type client);
@@ -783,8 +784,7 @@ void ipa_replenish_rx_cache(void);
 void ipa_cleanup_rx(void);
 int ipa_cfg_filter(u32 disable);
 void ipa_wq_write_done(struct work_struct *work);
-void ipa_wq_handle_rx(struct work_struct *work);
-int ipa_handle_rx_core(bool process_all);
+int ipa_handle_rx_core(bool process_all, bool in_poll_state);
 int ipa_pipe_mem_init(u32 start_ofst, u32 size);
 int ipa_pipe_mem_alloc(u32 *ofst, u32 size);
 int ipa_pipe_mem_free(u32 ofst, u32 size);

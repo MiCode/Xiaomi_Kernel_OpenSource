@@ -806,7 +806,7 @@ static void ipa_poll_function(struct work_struct *work)
 
 		/* check all the system pipes for tx comp and rx avail */
 		if (ipa_ctx->sys[IPA_A5_LAN_WAN_IN].ep->valid)
-			cnt |= ipa_handle_rx_core(false);
+			cnt |= ipa_handle_rx_core(false, true);
 
 		for (i = 0; i < num_tx_pipes; i++)
 			if (ipa_ctx->sys[tx_pipes[i]].ep->valid)
@@ -1578,6 +1578,10 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 
 	IPADBG("polling_mode=%u delay_ms=%u\n", polling_mode, polling_delay_ms);
 	ipa_ctx->polling_mode = polling_mode;
+	if (ipa_ctx->polling_mode)
+		atomic_set(&ipa_ctx->curr_polling_state, 1);
+	else
+		atomic_set(&ipa_ctx->curr_polling_state, 0);
 	IPADBG("hdr_lcl=%u ip4_rt=%u ip6_rt=%u ip4_flt=%u ip6_flt=%u\n",
 	       hdr_tbl_lcl, ip4_rt_tbl_lcl, ip6_rt_tbl_lcl, ip4_flt_tbl_lcl,
 	       ip6_flt_tbl_lcl);
