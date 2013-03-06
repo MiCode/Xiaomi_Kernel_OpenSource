@@ -293,6 +293,7 @@ struct pm8921_chg_chip {
 	int				stop_chg_upon_expiry;
 	bool				disable_aicl;
 	int				usb_type;
+	bool				disable_chg_rmvl_wrkarnd;
 };
 
 /* user space parameter to limit usb current */
@@ -2767,7 +2768,7 @@ static void unplug_check_worker(struct work_struct *work)
 	pr_debug("reg_loop=0x%x usb_ma = %d\n", reg_loop, usb_ma);
 
 	ibat = get_prop_batt_current(chip);
-	if (reg_loop & VIN_ACTIVE_BIT) {
+	if ((reg_loop & VIN_ACTIVE_BIT) && !chip->disable_chg_rmvl_wrkarnd) {
 		if (ibat > 0) {
 			pr_debug("revboost ibat = %d fsm = %d loop = 0x%x\n",
 				ibat, pm_chg_get_fsm_state(chip), reg_loop);
@@ -2787,7 +2788,8 @@ static void unplug_check_worker(struct work_struct *work)
 			active_path, active_chg_plugged_in);
 	chg_gone = pm_chg_get_rt_status(chip, CHG_GONE_IRQ);
 
-	if (chg_gone == 1  && active_chg_plugged_in == 1) {
+	if (chg_gone == 1  && active_chg_plugged_in == 1 &&
+					!chip->disable_chg_rmvl_wrkarnd) {
 		pr_debug("chg_gone=%d, active_chg_plugged_in = %d\n",
 					chg_gone, active_chg_plugged_in);
 		unplug_ovp_fet_open(chip);
@@ -4606,6 +4608,7 @@ static int __devinit pm8921_charger_probe(struct platform_device *pdev)
 	chip->vin_min = pdata->vin_min;
 	chip->thermal_mitigation = pdata->thermal_mitigation;
 	chip->thermal_levels = pdata->thermal_levels;
+	chip->disable_chg_rmvl_wrkarnd = pdata->disable_chg_rmvl_wrkarnd;
 
 	chip->cold_thr = pdata->cold_thr;
 	chip->hot_thr = pdata->hot_thr;
