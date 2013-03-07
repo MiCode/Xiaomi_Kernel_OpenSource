@@ -58,6 +58,7 @@ static struct cma_area {
 	phys_addr_t base;
 	unsigned long size;
 	struct cma *cma;
+	const char *name;
 } cma_areas[MAX_CMA_AREAS];
 static unsigned cma_area_count;
 
@@ -76,6 +77,20 @@ static struct cma *cma_get_area(phys_addr_t base)
 			return cma_areas[i].cma;
 	return NULL;
 }
+
+static struct cma *cma_get_area_by_name(const char *name)
+{
+	int i;
+	if (!name)
+		return NULL;
+
+	for (i = 0; i < cma_area_count; i++)
+		if (cma_areas[i].name && strcmp(cma_areas[i].name, name) == 0)
+			return cma_areas[i].cma;
+	return NULL;
+}
+
+
 
 #ifdef CONFIG_CMA_SIZE_MBYTES
 #define CMA_SIZE_MBYTES CONFIG_CMA_SIZE_MBYTES
@@ -196,6 +211,7 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	phys_addr_t base, size;
 	unsigned long len;
 	__be32 *prop;
+	char *name;
 
 	if (strncmp(uname, "region@", 7) != 0 || depth != 2 ||
 	    !of_get_flat_dt_prop(node, "linux,contiguous-region", NULL))
@@ -208,9 +224,11 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	base = be32_to_cpu(prop[0]);
 	size = be32_to_cpu(prop[1]);
 
+	name = of_get_flat_dt_prop(node, "label", NULL);
+
 	pr_info("Found %s, memory base %lx, size %ld MiB\n", uname,
 		(unsigned long)base, (unsigned long)size / SZ_1M);
-	dma_contiguous_reserve_area(size, &base, 0);
+	dma_contiguous_reserve_area(size, &base, 0, name);
 
 	return 0;
 }
@@ -251,7 +269,8 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 		pr_debug("%s: reserving %ld MiB for global area\n", __func__,
 			 (unsigned long)sel_size / SZ_1M);
 
-		if (dma_contiguous_reserve_area(sel_size, &base, limit) == 0)
+		if (dma_contiguous_reserve_area(sel_size, &base, limit, NULL)
+		    == 0)
 			dma_contiguous_def_base = base;
 	}
 #ifdef CONFIG_OF
@@ -274,7 +293,7 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
  * devices.
  */
 int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
-				       phys_addr_t limit)
+				       phys_addr_t limit, const char *name)
 {
 	phys_addr_t base = *res_base;
 	phys_addr_t alignment;
@@ -326,6 +345,7 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	 */
 	cma_areas[cma_area_count].base = base;
 	cma_areas[cma_area_count].size = size;
+	cma_areas[cma_area_count].name = name;
 	cma_area_count++;
 	*res_base = base;
 
@@ -366,6 +386,7 @@ static void cma_assign_device_from_dt(struct device *dev)
 {
 	struct device_node *node;
 	struct cma *cma;
+	const char *name;
 	u32 value;
 
 	node = of_parse_phandle(dev->of_node, "linux,contiguous-region", 0);
@@ -373,7 +394,11 @@ static void cma_assign_device_from_dt(struct device *dev)
 		return;
 	if (of_property_read_u32(node, "reg", &value) && !value)
 		return;
-	cma = cma_get_area(value);
+
+	if (of_property_read_string(node, "label", &name))
+		return;
+
+	cma = cma_get_area_by_name(name);
 	if (!cma)
 		return;
 
