@@ -2182,14 +2182,14 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		e_post_on = WCD9XXX_EVENT_POST_MICBIAS_2_ON;
 		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_2_OFF;
 	} else if (strnstr(w->name, "MIC BIAS3", sizeof("MIC BIAS3"))) {
-		micb_ctl_reg = TAIKO_A_MICB_2_CTL;
+		micb_ctl_reg = TAIKO_A_MICB_3_CTL;
 		micb_int_reg = TAIKO_A_MICB_3_INT_RBIAS;
 		cfilt_sel_val = taiko->resmgr.pdata->micbias.bias3_cfilt_sel;
 		e_pre_on = WCD9XXX_EVENT_PRE_MICBIAS_3_ON;
 		e_post_on = WCD9XXX_EVENT_POST_MICBIAS_3_ON;
 		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_3_OFF;
 	} else if (strnstr(w->name, "MIC BIAS4", sizeof("MIC BIAS4"))) {
-		micb_ctl_reg = TAIKO_A_MICB_2_CTL;
+		micb_ctl_reg = TAIKO_A_MICB_4_CTL;
 		micb_int_reg = taiko->resmgr.reg_addr->micb_4_int_rbias;
 		cfilt_sel_val = taiko->resmgr.pdata->micbias.bias4_cfilt_sel;
 		e_pre_on = WCD9XXX_EVENT_PRE_MICBIAS_4_ON;
