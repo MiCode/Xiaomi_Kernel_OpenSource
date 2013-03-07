@@ -1217,6 +1217,8 @@
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <3>;
 			qcom,slv-hw-id = <2>;
+			qcom,mode = "Bypass";
+			qcom,hw-sel = "RPM";
 		};
 
 		slv-ebi-ch0 {
