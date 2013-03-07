@@ -131,6 +131,7 @@
 #define DBGCLAIMCLR		(0xFA4)
 
 #define DBGDSCR_MASK		(0x6C30FC3C)
+#define OSLOCK_MAGIC		(0xC5ACCE55)
 
 #define MAX_DBG_STATE_SIZE	(90)
 #define MAX_ETM_STATE_SIZE	(78)
@@ -221,11 +222,39 @@ struct etm_ctx {
 	uint8_t			nr_ctxid_cmp;
 	struct etm_cpu_ctx	*cpu_ctx[NR_CPUS];
 	bool			save_restore_enabled[NR_CPUS];
+	bool			os_lock_present;
 };
 
 static struct etm_ctx etm;
 
 static struct clk *clock[NR_CPUS];
+
+static void etm_os_lock(struct etm_cpu_ctx *etmdata)
+{
+	uint32_t count;
+
+	if (etm.os_lock_present) {
+		etm_write(etmdata, OSLOCK_MAGIC, ETMOSLAR);
+		/* Ensure OS lock is set before proceeding */
+		mb();
+		for (count = TIMEOUT_US; BVAL(etm_read(etmdata, ETMSR), 1) != 1
+							&& count > 0; count--)
+			udelay(1);
+		if (count == 0)
+			pr_err_ratelimited(
+				"timeout while setting prog bit, ETMSR: %#x\n",
+						etm_read(etmdata, ETMSR));
+	}
+}
+
+static void etm_os_unlock(struct etm_cpu_ctx *etmdata)
+{
+	if (etm.os_lock_present) {
+		/* Ensure all writes are complete before clearing OS lock */
+		mb();
+		etm_write(etmdata, 0x0, ETMOSLAR);
+	}
+}
 
 static void etm_set_pwrdwn(struct etm_cpu_ctx *etmdata)
 {
@@ -273,6 +302,8 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 
 	switch (etm.arch) {
 	case ETM_ARCH_V3_5:
+		etm_os_lock(etmdata);
+
 		etmdata->state[i++] = etm_read(etmdata, ETMTRIGGER);
 		etmdata->state[i++] = etm_read(etmdata, ETMASICCTLR);
 		etmdata->state[i++] = etm_read(etmdata, ETMSR);
@@ -346,6 +377,8 @@ static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
 
 	switch (etm.arch) {
 	case ETM_ARCH_V3_5:
+		etm_os_lock(etmdata);
+
 		etm_clr_pwrdwn(etmdata);
 		etm_write(etmdata, etmdata->state[i++], ETMTRIGGER);
 		etm_write(etmdata, etmdata->state[i++], ETMASICCTLR);
@@ -406,6 +439,8 @@ static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
 		 * bit
 		 */
 		etm_write(etmdata, etmdata->state[i++], ETMCR);
+
+		etm_os_unlock(etmdata);
 		break;
 	default:
 		pr_err_ratelimited("unsupported etm arch %d in %s\n", etm.arch,
@@ -529,6 +564,17 @@ static inline bool etm_arch_supported(uint8_t arch)
 	return true;
 }
 
+static void __devinit etm_os_lock_init(struct etm_cpu_ctx *etmdata)
+{
+	uint32_t etmoslsr;
+
+	etmoslsr = etm_read(etmdata, ETMOSLSR);
+	if (!BVAL(etmoslsr, 0) && !BVAL(etmoslsr, 3))
+		etm.os_lock_present = false;
+	else
+		etm.os_lock_present = true;
+}
+
 static void __devinit etm_init_arch_data(void *info)
 {
 	uint32_t etmidr;
@@ -540,6 +586,8 @@ static void __devinit etm_init_arch_data(void *info)
 	 * certain registers might be ignored.
 	 */
 	ETM_UNLOCK(etmdata);
+
+	etm_os_lock_init(etmdata);
 
 	etm_clr_pwrdwn(etmdata);
 	/* Set prog bit. It will be set from reset but this is included to
@@ -590,8 +638,11 @@ static int __devinit jtag_mm_etm_probe(struct platform_device *pdev,
 	if (!etmdata->state)
 		return -ENOMEM;
 
-	smp_call_function_single(0, etm_init_arch_data, etmdata, 1);
-
+	if (cpu == 0) {
+		if (smp_call_function_single(cpu, etm_init_arch_data,
+								etmdata, 1))
+			dev_err(dev, "Jtagmm: ETM arch init failed\n");
+	}
 	if (etm_arch_supported(etm.arch)) {
 		if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) < TZ_DBG_ETM_VER)
 			etm.save_restore_enabled[cpu] = true;
@@ -654,8 +705,11 @@ static int __devinit jtag_mm_dbg_probe(struct platform_device *pdev,
 	if (!dbgdata->state)
 		return -ENOMEM;
 
-	smp_call_function_single(0, dbg_init_arch_data, dbgdata, 1);
-
+	if (cpu == 0) {
+		if (smp_call_function_single(cpu, dbg_init_arch_data,
+								dbgdata, 1))
+			dev_err(dev, "Jtagmm: Dbg arch init failed\n");
+	}
 	if (dbg_arch_supported(dbg.arch)) {
 		if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) < TZ_DBG_ETM_VER)
 			dbg.save_restore_enabled[cpu] = true;
