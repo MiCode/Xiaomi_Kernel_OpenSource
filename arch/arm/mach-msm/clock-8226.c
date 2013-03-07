@@ -1334,17 +1334,6 @@ static struct branch_clk gcc_lpass_q6_axi_clk = {
 	},
 };
 
-static struct branch_clk gcc_mmss_noc_cfg_ahb_clk = {
-	.cbcr_reg = MMSS_NOC_CFG_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_mmss_noc_cfg_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_mmss_noc_cfg_ahb_clk.c),
-	},
-};
-
 static struct branch_clk gcc_mss_cfg_ahb_clk = {
 	.cbcr_reg = MSS_CFG_AHB_CBCR,
 	.has_sibling = 1,
@@ -1592,7 +1581,6 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 static struct measure_mux_entry measure_mux_GCC[] = {
 	{ &gcc_periph_noc_ahb_clk.c,  GCC_BASE, 0x0010 },
 	{ &gcc_noc_conf_xpu_ahb_clk.c,  GCC_BASE, 0x0018 },
-	{ &gcc_mmss_noc_cfg_ahb_clk.c,  GCC_BASE, 0x002a },
 	{ &gcc_mss_cfg_ahb_clk.c,  GCC_BASE, 0x0030 },
 	{ &gcc_mss_q6_bimc_axi_clk.c,  GCC_BASE, 0x0031 },
 	{ &gcc_usb_hsic_ahb_clk.c,  GCC_BASE, 0x0058 },
@@ -1694,19 +1682,6 @@ static struct rcg_clk axi_clk_src = {
 		VDD_DIG_FMAX_MAP3(LOW, 100000000, NOMINAL, 200000000, HIGH,
 			266670000),
 		CLK_INIT(axi_clk_src.c),
-	},
-};
-
-static struct pll_clk mmpll2_pll = {
-	.mode_reg = (void __iomem *)MMPLL2_PLL_MODE,
-	.status_reg = (void __iomem *)MMPLL2_PLL_STATUS,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "mmpll2_pll",
-		.parent = &xo.c,
-		.rate = 900000000,
-		.ops = &clk_ops_local_pll,
-		CLK_INIT(mmpll2_pll.c),
 	},
 };
 
@@ -2530,17 +2505,6 @@ static struct branch_clk mmss_misc_ahb_clk = {
 	},
 };
 
-static struct branch_clk mmss_mmssnoc_ahb_clk = {
-	.cbcr_reg = MMSS_MMSSNOC_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "mmss_mmssnoc_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(mmss_mmssnoc_ahb_clk.c),
-	},
-};
-
 static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
 	.cbcr_reg = MMSS_MMSSNOC_BTO_AHB_CBCR,
 	.has_sibling = 1,
@@ -2650,7 +2614,6 @@ static struct branch_clk venus0_vcodec0_clk = {
 };
 
 static struct measure_mux_entry measure_mux_MMSS[] = {
-	{ &mmss_mmssnoc_ahb_clk.c,  MMSS_BASE, 0x0001 },
 	{ &mmss_mmssnoc_bto_ahb_clk.c,  MMSS_BASE, 0x0002 },
 	{ &mmss_misc_ahb_clk.c,  MMSS_BASE, 0x0003 },
 	{ &mmss_mmssnoc_axi_clk.c,  MMSS_BASE, 0x0004 },
@@ -3100,7 +3063,6 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("ocmem_a_clk", ocmemgx_msmbus_a_clk.c, "msm_bus"),
 	CLK_LOOKUP("bus_clk",	mmss_s0_axi_clk.c,	"msm_mmss_noc"),
 	CLK_LOOKUP("bus_a_clk",	mmss_s0_axi_clk.c,	"msm_mmss_noc"),
-	CLK_LOOKUP("iface_clk", gcc_mmss_noc_cfg_ahb_clk.c, ""),
 
 	/* CoreSight clocks */
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc322000.tmc"),
@@ -3197,7 +3159,6 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("gpll1", gpll1.c, ""),
 	CLK_LOOKUP("mmpll0", mmpll0_pll.c, ""),
 	CLK_LOOKUP("mmpll1", mmpll1_pll.c, ""),
-	CLK_LOOKUP("mmpll2", mmpll2_pll.c, ""),
 
 	CLK_LOOKUP("core_clk", gcc_blsp1_qup1_i2c_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp1_qup2_i2c_apps_clk.c, ""),
@@ -3368,7 +3329,6 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("cam_gp1_clk", camss_gp1_clk.c, ""),
 	CLK_LOOKUP("iface_clk", camss_micro_ahb_clk.c, ""),
 
-	CLK_LOOKUP("", mmss_mmssnoc_ahb_clk.c, ""),
 	CLK_LOOKUP("", mmss_mmssnoc_bto_ahb_clk.c, ""),
 	CLK_LOOKUP("", mmss_mmssnoc_axi_clk.c, ""),
 	CLK_LOOKUP("", mmss_s0_axi_clk.c, ""),
