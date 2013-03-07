@@ -41,6 +41,7 @@
 #define CRYPTO_CONFIG_RESET 0xE001F
 #define QCE_MAX_NUM_DSCR    0x400
 #define QCE_SIZE_BAM_DSCR   0x08
+#define QCE_SECTOR_SIZE	    0x200
 
 static DEFINE_MUTEX(bam_register_cnt);
 struct bam_registration_info {
@@ -445,6 +446,7 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 	uint32_t enck_size_in_word = 0;
 	uint32_t key_size;
 	bool use_hw_key = false;
+	bool use_pipe_key = false;
 	uint32_t encr_cfg = 0;
 	uint32_t ivsize = creq->ivsize;
 	int i;
@@ -456,6 +458,7 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 		key_size = creq->encklen;
 
 	_byte_stream_to_net_words(enckey32, creq->enckey, key_size);
+	pce = cmdlistinfo->go_proc;
 
 	/* check for null key. If null, use hw key*/
 	enck_size_in_word = key_size/sizeof(uint32_t);
@@ -463,15 +466,22 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 		if (enckey32[i] != 0)
 			break;
 	}
-	pce = cmdlistinfo->go_proc;
 	if (i == enck_size_in_word) {
 		use_hw_key = true;
 		pce->addr = (uint32_t)(CRYPTO_GOPROC_QC_KEY_REG +
 						pce_dev->phy_iobase);
-	} else {
+	}
+	if (use_hw_key == false) {
+		for (i = 0; i < enck_size_in_word; i++) {
+			if (enckey32[i] != 0xFFFFFFFF)
+				break;
+		}
+		if (i == enck_size_in_word)
+			use_pipe_key = true;
+	}
+	if (use_hw_key == false)
 		pce->addr = (uint32_t)(CRYPTO_GOPROC_REG +
 						pce_dev->phy_iobase);
-	}
 
 	if ((creq->op == QCE_REQ_AEAD) && (creq->mode == QCE_MODE_CCM)) {
 		uint32_t authklen32 = creq->encklen/sizeof(uint32_t);
@@ -600,7 +610,10 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 
 			/* write xts du size */
 			pce = cmdlistinfo->encr_xts_du_size;
-			pce->data = creq->cryptlen;
+			if (use_pipe_key == true)
+				pce->data = QCE_SECTOR_SIZE;
+			else
+				pce->data = creq->cryptlen;
 		}
 		if (creq->mode !=  QCE_MODE_ECB) {
 			if (creq->mode ==  QCE_MODE_XTS)
@@ -652,6 +665,10 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 		} /* else of if (creq->op == QCE_REQ_ABLK_CIPHER_NO_KEY) */
 		break;
 	} /* end of switch (creq->mode)  */
+
+	if (use_pipe_key)
+		encr_cfg |= (CRYPTO_USE_PIPE_KEY_ENCR_ENABLED
+					<< CRYPTO_USE_PIPE_KEY_ENCR);
 
 	/* write encr seg cfg */
 	pce = cmdlistinfo->encr_seg_cfg;
