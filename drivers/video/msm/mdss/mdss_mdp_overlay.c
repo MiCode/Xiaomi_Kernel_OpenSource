@@ -564,6 +564,8 @@ int mdss_mdp_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 	struct ion_client *iclient = mdss_get_ionclient();
 	struct mdss_panel_data *pdata;
 	int ret = 0, off;
+	int mdss_mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
+	int mdss_v2_intf_off = 0;
 
 	off = 0;
 
@@ -576,9 +578,13 @@ int mdss_mdp_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_ctl_write(ctl, 0, MDSS_MDP_LM_BORDER_COLOR);
 	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
 
+	if (mdss_mdp_rev == MDSS_MDP_HW_REV_102)
+		mdss_v2_intf_off =  0xEC00;
+
 	/* wait for 1 VSYNC for the pipe to be unstaged */
 	msleep(20);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
+	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN -
+			mdss_v2_intf_off, 0);
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_FINISH,
 			NULL);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
