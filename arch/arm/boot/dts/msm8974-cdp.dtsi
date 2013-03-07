@@ -333,6 +333,10 @@
 
 &uart7 {
 	status = "ok";
+	qcom,tx-gpio = <&msmgpio 41 0x00>;
+	qcom,rx-gpio = <&msmgpio 42 0x00>;
+	qcom,cts-gpio = <&msmgpio 43 0x00>;
+	qcom,rfr-gpio = <&msmgpio 44 0x00>;
 };
 
 &usb3 {
