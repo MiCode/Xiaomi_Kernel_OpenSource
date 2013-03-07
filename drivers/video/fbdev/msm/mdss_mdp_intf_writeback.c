@@ -17,6 +17,9 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 
+/* wait for at most 2 vsync for lowest refresh rate (24hz) */
+#define KOFF_TIMEOUT msecs_to_jiffies(84)
+
 enum mdss_mdp_writeback_type {
 	MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
 	MDSS_MDP_WRITEBACK_TYPE_LINE,
@@ -28,6 +31,8 @@ struct mdss_mdp_writeback_ctx {
 	char __iomem *base;
 	u8 ref_cnt;
 	u8 type;
+	struct completion wb_comp;
+	int comp_cnt;
 
 	u32 intr_type;
 	u32 intf_num;
@@ -321,10 +326,37 @@ static void mdss_mdp_writeback_intr_done(void *arg)
 	pr_debug("intr wb_num=%d\n", ctx->wb_num);
 
 	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, true);
 
 	if (ctx->callback_fnc)
 		ctx->callback_fnc(ctx->callback_arg);
+
+	complete_all(&ctx->wb_comp);
+}
+
+static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
+{
+	struct mdss_mdp_writeback_ctx *ctx;
+	int rc = 0;
+
+	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
+
+	if (ctx->comp_cnt == 0)
+		return rc;
+
+	rc = wait_for_completion_interruptible_timeout(&ctx->wb_comp,
+			KOFF_TIMEOUT);
+	WARN(rc <= 0, "writeback kickoff timed out (%d) ctl=%d\n",
+							rc, ctl->num);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false); /* clock off */
+
+	ctx->comp_cnt--;
+
+	return rc;
 }
 
 static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
@@ -337,6 +369,12 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
 	if (!ctx)
 		return -ENODEV;
+
+	if (ctx->comp_cnt) {
+		pr_err("previous kickoff not completed yet, ctl=%d\n",
+					ctl->num);
+		return -EPERM;
+	}
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
 	if (!wb_args)
@@ -355,11 +393,14 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_ADDR_SW_STATUS, ctl->is_secure);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
 
+	INIT_COMPLETION(ctx->wb_comp);
 	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
 	wmb();
+
+	ctx->comp_cnt++;
 
 	return 0;
 }
@@ -388,6 +429,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	ctx->wb_num = ctl->num;	/* wb num should match ctl num */
 	ctx->base = ctl->wb_base;
 	ctx->initialized = false;
+	init_completion(&ctx->wb_comp);
 
 	mdss_mdp_set_intr_callback(ctx->intr_type, ctx->intf_num,
 				   mdss_mdp_writeback_intr_done, ctx);
@@ -398,6 +440,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 		ctl->prepare_fnc = mdss_mdp_writeback_prepare_wfd;
 	ctl->stop_fnc = mdss_mdp_writeback_stop;
 	ctl->display_fnc = mdss_mdp_writeback_display;
+	ctl->wait_fnc = mdss_mdp_wb_wait4comp;
 
 	return ret;
 }

@@ -41,7 +41,6 @@ struct mdss_mdp_rotator_session *mdss_mdp_rotator_session_alloc(void)
 			rot->ref_cnt++;
 			rot->session_id = i | MDSS_MDP_ROT_SESSION_MASK;
 			mutex_init(&rot->lock);
-			init_completion(&rot->comp);
 			break;
 		}
 	}
@@ -87,10 +86,18 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 
 static int mdss_mdp_rotator_busy_wait(struct mdss_mdp_rotator_session *rot)
 {
+	struct mdss_mdp_pipe *rot_pipe = NULL;
+	struct mdss_mdp_ctl *ctl = NULL;
+
+	rot_pipe = rot->pipe;
+	if (!rot_pipe)
+		return -ENODEV;
+
+	ctl = rot_pipe->mixer->ctl;
 	mutex_lock(&rot->lock);
 	if (rot->busy) {
 		pr_debug("waiting for rot=%d to complete\n", rot->pipe->num);
-		wait_for_completion_interruptible(&rot->comp);
+		mdss_mdp_display_wait4comp(ctl);
 		rot->busy = false;
 
 	}
@@ -99,28 +106,18 @@ static int mdss_mdp_rotator_busy_wait(struct mdss_mdp_rotator_session *rot)
 	return 0;
 }
 
-static void mdss_mdp_rotator_callback(void *arg)
-{
-	struct mdss_mdp_rotator_session *rot;
-
-	rot = (struct mdss_mdp_rotator_session *) arg;
-	if (rot)
-		complete(&rot->comp);
-}
-
 static int mdss_mdp_rotator_kickoff(struct mdss_mdp_ctl *ctl,
 				    struct mdss_mdp_rotator_session *rot,
 				    struct mdss_mdp_data *dst_data)
 {
 	int ret;
 	struct mdss_mdp_writeback_arg wb_args = {
-		.callback_fnc = mdss_mdp_rotator_callback,
+		.callback_fnc = NULL,
 		.data = dst_data,
 		.priv_data = rot,
 	};
 
 	mutex_lock(&rot->lock);
-	INIT_COMPLETION(rot->comp);
 	rot->busy = true;
 	ret = mdss_mdp_display_commit(ctl, &wb_args);
 	if (ret) {
