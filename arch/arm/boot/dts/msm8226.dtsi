@@ -94,6 +94,14 @@
 		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <1>;
 		qcom,hsusb-otg-disable-reset;
+
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 60000 960000>;
 	};
 
 	android_usb@fe8050c8 {
