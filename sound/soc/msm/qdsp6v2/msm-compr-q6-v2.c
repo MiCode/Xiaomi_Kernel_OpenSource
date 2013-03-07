@@ -148,7 +148,6 @@ static void compr_event_handler(uint32_t opcode,
 		 */
 		snd_pcm_stream_lock_irq(substream);
 		if (snd_pcm_playback_empty(substream)) {
-			atomic_set(&prtd->pending_buffer, 1);
 			runtime->render_flag |= SNDRV_RENDER_STOPPED;
 			stop_playback = 1;
 		}
@@ -1038,7 +1037,6 @@ static int msm_compr_restart(struct snd_pcm_substream *substream)
 				(prtd->out_head + 1) & (runtime->periods - 1);
 
 		runtime->render_flag &= ~SNDRV_RENDER_STOPPED;
-		atomic_set(&prtd->pending_buffer, 0);
 		return 0;
 	}
 	return 0;
