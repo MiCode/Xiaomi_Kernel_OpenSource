@@ -434,6 +434,8 @@ config ARCH_MSM8226
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
 	select MSM_BUS_SCALING
 	select ARM_HAS_SG_CHAIN
+	select REGULATOR
+	select MSM_RPM_REGULATOR_SMD
 endmenu
 
 choice
