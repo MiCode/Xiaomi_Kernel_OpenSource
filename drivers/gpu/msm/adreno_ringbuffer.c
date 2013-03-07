@@ -570,7 +570,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	total_sizedwords += (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) ? 2 : 0;
 
 	/* Add CP_COND_EXEC commands to generate CP_INTERRUPT */
-	total_sizedwords += context ? 7 : 0;
+	total_sizedwords += context ? 13 : 0;
 
 	if (adreno_is_a3xx(adreno_dev))
 		total_sizedwords += 7;
@@ -720,7 +720,25 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				context_id, ref_wait_ts)) >> 2);
 		GSL_RB_WRITE(ringcmds, rcmd_gpu, timestamp);
 		/* # of conditional command DWORDs */
-		GSL_RB_WRITE(ringcmds, rcmd_gpu, 2);
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, 8);
+
+		/* Clear the ts_cmp_enable for the context */
+		GSL_RB_WRITE(ringcmds, rcmd_gpu,
+			cp_type3_packet(CP_MEM_WRITE, 2));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, gpuaddr +
+			KGSL_MEMSTORE_OFFSET(
+				context_id, ts_cmp_enable));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, 0x0);
+
+		/* Clear the ts_cmp_enable for the global timestamp */
+		GSL_RB_WRITE(ringcmds, rcmd_gpu,
+			cp_type3_packet(CP_MEM_WRITE, 2));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, gpuaddr +
+			KGSL_MEMSTORE_OFFSET(
+				KGSL_MEMSTORE_GLOBAL, ts_cmp_enable));
+		GSL_RB_WRITE(ringcmds, rcmd_gpu, 0x0);
+
+		/* Trigger the interrupt */
 		GSL_RB_WRITE(ringcmds, rcmd_gpu,
 			cp_type3_packet(CP_INTERRUPT, 1));
 		GSL_RB_WRITE(ringcmds, rcmd_gpu, CP_INT_CNTL__RB_INT_MASK);
