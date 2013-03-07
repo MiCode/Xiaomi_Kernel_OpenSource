@@ -621,71 +621,43 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
 	return clk_rate;
 }
 
-static void mdss_mdp_clk_ctrl_update(struct mdss_data_type *mdata)
-{
-	int enable;
-
-	mutex_lock(&mdp_clk_lock);
-	enable = atomic_read(&mdata->clk_ref) > 0;
-	if (mdata->clk_ena == enable) {
-		mutex_unlock(&mdp_clk_lock);
-		return;
-	}
-	mdata->clk_ena = enable;
-
-	if (enable)
-		pm_runtime_get_sync(&mdata->pdev->dev);
-
-	pr_debug("MDP CLKS %s\n", (enable ? "Enable" : "Disable"));
-	mb();
-
-	mdss_mdp_clk_update(MDSS_CLK_AHB, enable);
-	mdss_mdp_clk_update(MDSS_CLK_AXI, enable);
-
-	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, enable);
-	mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, enable);
-	if (mdata->vsync_ena)
-		mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
-
-	if (!enable)
-		pm_runtime_put(&mdata->pdev->dev);
-
-	mutex_unlock(&mdp_clk_lock);
-}
-
-static void mdss_mdp_clk_ctrl_workqueue_handler(struct work_struct *work)
-{
-	struct mdss_data_type *mdata;
-
-	mdata = container_of(work, struct mdss_data_type, clk_ctrl_worker);
-	mdss_mdp_clk_ctrl_update(mdata);
-}
-
 void mdss_mdp_clk_ctrl(int enable, int isr)
 {
 	struct mdss_data_type *mdata = mdss_res;
+	static int mdp_clk_cnt;
+	int changed = 0;
 
-	pr_debug("clk enable=%d isr=%d ref= %d\n", enable, isr,
-			atomic_read(&mdata->clk_ref));
-
-	if (enable == MDP_BLOCK_POWER_ON) {
-		BUG_ON(isr);
-
-		if (atomic_inc_return(&mdata->clk_ref) == 1)
-			mdss_mdp_clk_ctrl_update(mdata);
+	mutex_lock(&mdp_clk_lock);
+	if (enable) {
+		if (mdp_clk_cnt == 0)
+			changed++;
+		mdp_clk_cnt++;
 	} else {
-		BUG_ON(atomic_read(&mdata->clk_ref) == 0);
-
-		if (atomic_dec_and_test(&mdata->clk_ref)) {
-			if (isr)
-				queue_work(mdata->clk_ctrl_wq,
-						&mdata->clk_ctrl_worker);
-			else
-				mdss_mdp_clk_ctrl_update(mdata);
-		}
+		mdp_clk_cnt--;
+		if (mdp_clk_cnt == 0)
+			changed++;
 	}
 
+	pr_debug("%s: clk_cnt=%d changed=%d enable=%d\n",
+			__func__, mdp_clk_cnt, changed, enable);
 
+	if (changed) {
+		mdata->clk_ena = enable;
+		if (enable)
+			pm_runtime_get_sync(&mdata->pdev->dev);
+
+		mdss_mdp_clk_update(MDSS_CLK_AHB, enable);
+		mdss_mdp_clk_update(MDSS_CLK_AXI, enable);
+		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, enable);
+		mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, enable);
+		if (mdata->vsync_ena)
+			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
+
+		if (!enable)
+			pm_runtime_put(&mdata->pdev->dev);
+	}
+
+	mutex_unlock(&mdp_clk_lock);
 }
 
 static inline int mdss_mdp_irq_clk_register(struct mdss_data_type *mdata,
@@ -933,9 +905,6 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	rc = mdss_mdp_irq_clk_setup(mdata);
 	if (rc)
 		return rc;
-
-	mdata->clk_ctrl_wq = create_singlethread_workqueue("mdp_clk_wq");
-	INIT_WORK(&mdata->clk_ctrl_worker, mdss_mdp_clk_ctrl_workqueue_handler);
 
 	mdata->iclient = msm_ion_client_create(-1, mdata->pdev->name);
 	if (IS_ERR_OR_NULL(mdata->iclient)) {
@@ -1572,8 +1541,6 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 
 static inline int mdss_mdp_suspend_sub(struct mdss_data_type *mdata)
 {
-	flush_workqueue(mdata->clk_ctrl_wq);
-
 	mdata->suspend_fs_ena = mdata->fs_ena;
 	mdss_mdp_footswitch_ctrl(mdata, false);
 
@@ -1670,8 +1637,6 @@ static int mdss_mdp_runtime_idle(struct device *dev)
 		return -ENODEV;
 
 	dev_dbg(dev, "pm_runtime: idling...\n");
-
-	flush_workqueue(mdata->clk_ctrl_wq);
 
 	return 0;
 }

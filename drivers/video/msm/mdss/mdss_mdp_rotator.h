@@ -36,7 +36,6 @@ struct mdss_mdp_rotator_session {
 	struct mdss_mdp_pipe *pipe;
 
 	struct mutex lock;
-	struct completion comp;
 	u8 busy;
 	u8 no_wait;
 
