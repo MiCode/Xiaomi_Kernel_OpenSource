@@ -542,8 +542,8 @@
 		      <0xfc4b8000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
 		interrupts = <0 184 0>;
-		qcom,sensors = <6>;
-		qcom,slope = <3200 3200 3200 3200 3200 3200>;
+		qcom,sensors = <4>;
+		qcom,slope = <2901 2846 3038 2955>;
 		qcom,calib-mode = "fuse_map2";
 	};
 
