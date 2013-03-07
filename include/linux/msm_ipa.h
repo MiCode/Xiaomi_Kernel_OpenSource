@@ -769,4 +769,87 @@ struct ipa_wlan_msg {
 				IPA_IOCTL_PULL_MSG, \
 				struct ipa_msg_meta *)
 
+/*
+ * unique magic number of the Tethering bridge ioctls
+ */
+#define TETH_BRIDGE_IOC_MAGIC 0xCE
+
+/*
+ * Ioctls supported by Tethering bridge driver
+ */
+#define TETH_BRIDGE_IOCTL_SET_BRIDGE_MODE	0
+#define TETH_BRIDGE_IOCTL_SET_AGGR_PARAMS	1
+#define TETH_BRIDGE_IOCTL_GET_AGGR_PARAMS	2
+#define TETH_BRIDGE_IOCTL_GET_AGGR_CAPABILITIES	3
+#define TETH_BRIDGE_IOCTL_MAX			4
+
+
+/**
+ * enum teth_link_protocol_type - link protocol (IP / Ethernet)
+ */
+enum teth_link_protocol_type {
+	TETH_LINK_PROTOCOL_IP,
+	TETH_LINK_PROTOCOL_ETHERNET,
+	TETH_LINK_PROTOCOL_MAX,
+};
+
+/**
+ * enum teth_aggr_protocol_type - Aggregation protocol (MBIM / TLP)
+ */
+enum teth_aggr_protocol_type {
+	TETH_AGGR_PROTOCOL_NONE,
+	TETH_AGGR_PROTOCOL_MBIM,
+	TETH_AGGR_PROTOCOL_TLP,
+	TETH_AGGR_PROTOCOL_MAX,
+};
+
+/**
+ * struct teth_aggr_params_link - Aggregation parameters for uplink/downlink
+ * @aggr_prot:			Aggregation protocol (MBIM / TLP)
+ * @max_transfer_size_byte:	Maximal size of aggregated packet in bytes.
+ *				Default value is 16*1024.
+ * @max_datagrams:		Maximal number of IP packets in an aggregated
+ *				packet. Default value is 16
+ */
+struct teth_aggr_params_link {
+	enum teth_aggr_protocol_type aggr_prot;
+	uint32_t max_transfer_size_byte;
+	uint32_t max_datagrams;
+};
+
+
+/**
+ * struct teth_aggr_params - Aggregation parmeters
+ * @ul:	Uplink parameters
+ * @dl: Downlink parmaeters
+ */
+struct teth_aggr_params {
+	struct teth_aggr_params_link ul;
+	struct teth_aggr_params_link dl;
+};
+
+/**
+ * struct teth_aggr_capabilities - Aggregation capabilities
+ * @num_protocols:		Number of protocols described in the array
+ * @prot_caps[]:		Array of aggregation capabilities per protocol
+ */
+struct teth_aggr_capabilities {
+	uint16_t num_protocols;
+	struct teth_aggr_params_link prot_caps[0];
+};
+
+
+#define TETH_BRIDGE_IOC_SET_BRIDGE_MODE _IOW(TETH_BRIDGE_IOC_MAGIC, \
+				TETH_BRIDGE_IOCTL_SET_BRIDGE_MODE, \
+				enum teth_link_protocol_type)
+#define TETH_BRIDGE_IOC_SET_AGGR_PARAMS _IOW(TETH_BRIDGE_IOC_MAGIC, \
+				TETH_BRIDGE_IOCTL_SET_AGGR_PARAMS, \
+				struct teth_aggr_params *)
+#define TETH_BRIDGE_IOC_GET_AGGR_PARAMS _IOR(TETH_BRIDGE_IOC_MAGIC, \
+				TETH_BRIDGE_IOCTL_GET_AGGR_PARAMS, \
+				struct teth_aggr_params *)
+#define TETH_BRIDGE_IOC_GET_AGGR_CAPABILITIES _IOWR(TETH_BRIDGE_IOC_MAGIC, \
+				TETH_BRIDGE_IOCTL_GET_AGGR_CAPABILITIES, \
+				struct teth_aggr_capabilities *)
+
 #endif /* _MSM_IPA_H_ */

@@ -1900,10 +1900,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	ipa_ctx->aggregation_byte_limit = 1;
 	ipa_ctx->aggregation_time_limit = 0;
 
-	/* gate IPA clocks */
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-		ipa_disable_clks();
-
 	/* Initialize IPA RM (resource manager) */
 	result = ipa_rm_initialize();
 	if (result) {
@@ -1913,6 +1909,18 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	}
 
 	a2_mux_init();
+
+	/* Initialize the tethering bridge driver */
+	result = teth_bridge_driver_init();
+	if (result) {
+		IPAERR(":teth_bridge_driver_init() failed\n");
+		result = -ENODEV;
+		goto fail_cdev_add;
+	}
+
+	/* gate IPA clocks */
+	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
+		ipa_disable_clks();
 
 	IPADBG(":IPA driver init OK.\n");
 
