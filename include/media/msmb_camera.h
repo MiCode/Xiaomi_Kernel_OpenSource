@@ -102,9 +102,9 @@ struct msm_v4l2_event_data {
 	/*word 6*/
 	unsigned int notify;
 	/*word 7*/
-	unsigned int nop1;
+	unsigned int arg_value;
 	/*word 8*/
-	unsigned int nop2;
+	unsigned int ret_value;
 	/*word 9*/
 	unsigned int nop3;
 	/*word 10*/
