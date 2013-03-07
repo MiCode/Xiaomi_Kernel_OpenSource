@@ -179,6 +179,7 @@
 #define HFI_BUFFER_OUTPUT				(HFI_COMMON_BASE + 0x2)
 #define HFI_BUFFER_OUTPUT2				(HFI_COMMON_BASE + 0x3)
 #define HFI_BUFFER_INTERNAL_PERSIST		(HFI_COMMON_BASE + 0x4)
+#define HFI_BUFFER_INTERNAL_PERSIST_1		(HFI_COMMON_BASE + 0x5)
 
 struct hfi_buffer_info {
 	u32 buffer_addr;

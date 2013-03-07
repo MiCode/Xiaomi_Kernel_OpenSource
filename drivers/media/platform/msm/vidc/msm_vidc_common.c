@@ -1443,6 +1443,198 @@ static int get_flipped_state(int present_state,
 	return flipped_state;
 }
 
+struct hal_buffer_requirements *get_buff_req_buffer(
+		struct msm_vidc_inst *inst, enum hal_buffer buffer_type)
+{
+	int i;
+	for (i = 0; i < HAL_BUFFER_MAX; i++) {
+		if (inst->buff_req.buffer[i].buffer_type == buffer_type)
+			return &inst->buff_req.buffer[i];
+	}
+	return NULL;
+}
+
+static int set_scratch_buffers(struct msm_vidc_inst *inst,
+	enum hal_buffer buffer_type)
+{
+	int rc = 0;
+	struct msm_smem *handle;
+	struct internal_buf *binfo;
+	struct vidc_buffer_addr_info buffer_info;
+	u32 smem_flags = 0;
+	int domain;
+	struct hal_buffer_requirements *scratch_buf;
+	int i;
+	struct hfi_device *hdev;
+
+	hdev = inst->core->device;
+
+	scratch_buf = get_buff_req_buffer(inst, buffer_type);
+	if (!scratch_buf) {
+		dprintk(VIDC_DBG,
+			"This scratch buffer not required, buffer_type: %x\n",
+			buffer_type);
+		return 0;
+	}
+	dprintk(VIDC_DBG,
+		"scratch: num = %d, size = %d\n",
+		scratch_buf->buffer_count_actual,
+		scratch_buf->buffer_size);
+
+	if (inst->mode == VIDC_SECURE) {
+		domain = call_hfi_op(hdev, get_domain,
+				hdev->hfi_device_data, CP_MAP);
+		smem_flags |= SMEM_SECURE;
+	} else
+		domain = call_hfi_op(hdev, get_domain,
+				hdev->hfi_device_data, NS_MAP);
+
+	if (scratch_buf->buffer_size) {
+		for (i = 0; i < scratch_buf->buffer_count_actual;
+				i++) {
+			handle = msm_smem_alloc(inst->mem_client,
+				scratch_buf->buffer_size, 1, smem_flags,
+				domain, 0, 0);
+			if (!handle) {
+				dprintk(VIDC_ERR,
+					"Failed to allocate scratch memory\n");
+				rc = -ENOMEM;
+				goto err_no_mem;
+			}
+			rc = msm_smem_cache_operations(inst->mem_client,
+					handle, SMEM_CACHE_CLEAN);
+			if (rc) {
+				dprintk(VIDC_WARN,
+				"Failed to clean cache may cause undefined behavior\n");
+			}
+			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+			if (!binfo) {
+				dprintk(VIDC_ERR, "Out of memory\n");
+				rc = -ENOMEM;
+				goto fail_kzalloc;
+			}
+			binfo->handle = handle;
+			buffer_info.buffer_size = scratch_buf->buffer_size;
+			buffer_info.buffer_type = buffer_type;
+			binfo->buffer_type = buffer_type;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr = handle->device_addr;
+			dprintk(VIDC_DBG, "Scratch buffer address: %x",
+					buffer_info.align_device_addr);
+			rc = call_hfi_op(hdev, session_set_buffers,
+				(void *) inst->session, &buffer_info);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"vidc_hal_session_set_buffers failed");
+				goto fail_set_buffers;
+			}
+			mutex_lock(&inst->lock);
+			list_add_tail(&binfo->list, &inst->internalbufs);
+			mutex_unlock(&inst->lock);
+		}
+	}
+	return rc;
+fail_set_buffers:
+	kfree(binfo);
+fail_kzalloc:
+	msm_smem_free(inst->mem_client, handle);
+err_no_mem:
+	return rc;
+}
+
+static int set_persist_buffers(struct msm_vidc_inst *inst,
+	enum hal_buffer buffer_type)
+{
+	int rc = 0;
+	struct msm_smem *handle;
+	struct internal_buf *binfo;
+	struct vidc_buffer_addr_info buffer_info;
+	u32 smem_flags = 0;
+	int domain;
+	struct hal_buffer_requirements *persist_buf;
+	int i;
+	struct hfi_device *hdev;
+
+	hdev = inst->core->device;
+
+	persist_buf = get_buff_req_buffer(inst, buffer_type);
+	if (!persist_buf) {
+		dprintk(VIDC_DBG,
+			"This persist buffer not required, buffer_type: %x\n",
+			buffer_type);
+		return 0;
+	}
+
+	dprintk(VIDC_DBG,
+		"persist: num = %d, size = %d\n",
+		persist_buf->buffer_count_actual,
+		persist_buf->buffer_size);
+	if (!list_empty(&inst->persistbufs)) {
+		dprintk(VIDC_ERR,
+			"Persist buffers already allocated\n");
+		return rc;
+	}
+
+	if (inst->mode == VIDC_SECURE) {
+		domain = call_hfi_op(hdev, get_domain,
+				hdev->hfi_device_data, CP_MAP);
+		smem_flags |= SMEM_SECURE;
+	} else
+		domain = call_hfi_op(hdev, get_domain,
+				hdev->hfi_device_data, NS_MAP);
+
+	if (persist_buf->buffer_size) {
+		for (i = 0; i < persist_buf->buffer_count_actual; i++) {
+			handle = msm_smem_alloc(inst->mem_client,
+				persist_buf->buffer_size, 1, smem_flags,
+				domain, 0, 0);
+			if (!handle) {
+				dprintk(VIDC_ERR,
+					"Failed to allocate persist memory\n");
+				rc = -ENOMEM;
+				goto err_no_mem;
+			}
+			rc = msm_smem_cache_operations(inst->mem_client,
+					handle, SMEM_CACHE_CLEAN);
+			if (rc) {
+				dprintk(VIDC_WARN,
+				"Failed to clean cache may cause undefined behavior\n");
+			}
+			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+			if (!binfo) {
+				dprintk(VIDC_ERR, "Out of memory\n");
+				rc = -ENOMEM;
+				goto fail_kzalloc;
+			}
+			binfo->handle = handle;
+			buffer_info.buffer_size = persist_buf->buffer_size;
+			buffer_info.buffer_type = buffer_type;
+			binfo->buffer_type = buffer_type;
+			buffer_info.num_buffers = 1;
+			buffer_info.align_device_addr = handle->device_addr;
+			dprintk(VIDC_DBG, "Persist buffer address: %x",
+					buffer_info.align_device_addr);
+			rc = call_hfi_op(hdev, session_set_buffers,
+					(void *) inst->session, &buffer_info);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"vidc_hal_session_set_buffers failed");
+				goto fail_set_buffers;
+			}
+			mutex_lock(&inst->lock);
+			list_add_tail(&binfo->list, &inst->persistbufs);
+			mutex_unlock(&inst->lock);
+		}
+	}
+	return rc;
+fail_set_buffers:
+	kfree(binfo);
+fail_kzalloc:
+	msm_smem_free(inst->mem_client, handle);
+err_no_mem:
+	return rc;
+}
+
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 {
 	int rc = 0;
@@ -1723,6 +1915,7 @@ exit:
 	mutex_unlock(&inst->sync_lock);
 	return rc;
 }
+
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 {
 	struct msm_smem *handle;
@@ -1755,7 +1948,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 					list);
 			handle = buf->handle;
 			buffer_info.buffer_size = handle->size;
-			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
+			buffer_info.buffer_type = buf->buffer_type;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr = handle->device_addr;
 			if (inst->state != MSM_VIDC_CORE_INVALID &&
@@ -1819,7 +2012,7 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 					list);
 			handle = buf->handle;
 			buffer_info.buffer_size = handle->size;
-			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
+			buffer_info.buffer_type = buf->buffer_type;
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr = handle->device_addr;
 			if (inst->state != MSM_VIDC_CORE_INVALID &&
@@ -1885,178 +2078,50 @@ exit:
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct msm_smem *handle;
-	struct internal_buf *binfo;
-	struct vidc_buffer_addr_info buffer_info;
-	int domain;
-	unsigned long smem_flags = 0;
-	struct hal_buffer_requirements *scratch_buf;
-	int i;
-	struct hfi_device *hdev;
-
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;
 	}
 
-	hdev = inst->core->device;
-
-	scratch_buf =
-		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_SCRATCH];
-	dprintk(VIDC_DBG,
-		"scratch: num = %d, size = %d\n",
-		scratch_buf->buffer_count_actual,
-		scratch_buf->buffer_size);
 	if (msm_comm_release_scratch_buffers(inst))
 		dprintk(VIDC_WARN, "Failed to release scratch buffers\n");
-	if (inst->mode == VIDC_SECURE) {
-		domain = call_hfi_op(hdev, get_domain,
-				hdev->hfi_device_data, CP_MAP);
-		smem_flags |= SMEM_SECURE;
-	} else
-		domain = call_hfi_op(hdev, get_domain,
-				hdev->hfi_device_data, NS_MAP);
 
-	if (scratch_buf->buffer_size) {
-		for (i = 0; i < scratch_buf->buffer_count_actual;
-				i++) {
-			handle = msm_smem_alloc(inst->mem_client,
-				scratch_buf->buffer_size, 1, smem_flags,
-				domain, 0, 0);
-			if (!handle) {
-				dprintk(VIDC_ERR,
-					"Failed to allocate scratch memory\n");
-				rc = -ENOMEM;
-				goto err_no_mem;
-			}
-			rc = msm_smem_cache_operations(inst->mem_client,
-					handle, SMEM_CACHE_CLEAN);
-			if (rc) {
-				dprintk(VIDC_WARN,
-				"Failed to clean cache may cause undefined behavior\n");
-			}
-			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
-			if (!binfo) {
-				dprintk(VIDC_ERR, "Out of memory\n");
-				rc = -ENOMEM;
-				goto fail_kzalloc;
-			}
-			binfo->handle = handle;
-			buffer_info.buffer_size = scratch_buf->buffer_size;
-			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_SCRATCH;
-			buffer_info.num_buffers = 1;
-			buffer_info.align_device_addr = handle->device_addr;
-			dprintk(VIDC_DBG, "Scratch buffer address: %x",
-					buffer_info.align_device_addr);
-			rc = call_hfi_op(hdev, session_set_buffers,
-				(void *) inst->session, &buffer_info);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"vidc_hal_session_set_buffers failed");
-				goto fail_set_buffers;
-			}
-			mutex_lock(&inst->lock);
-			list_add_tail(&binfo->list, &inst->internalbufs);
-			mutex_unlock(&inst->lock);
-		}
-	}
+	rc = set_scratch_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH);
+	if (rc)
+		goto error;
+
+	rc = set_scratch_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH_1);
+	if (rc)
+		goto error;
+
+	rc = set_scratch_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH_2);
+	if (rc)
+		goto error;
+
 	return rc;
-fail_set_buffers:
-	kfree(binfo);
-fail_kzalloc:
-	msm_smem_free(inst->mem_client, handle);
-err_no_mem:
+error:
+	msm_comm_release_scratch_buffers(inst);
 	return rc;
 }
 
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct msm_smem *handle;
-	struct internal_buf *binfo;
-	struct vidc_buffer_addr_info buffer_info;
-	unsigned long flags;
-	unsigned long smem_flags = 0;
-	int domain;
-	struct hal_buffer_requirements *persist_buf;
-	int i;
-	struct hfi_device *hdev;
-
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;
 	}
 
-	hdev = inst->core->device;
+	rc = set_persist_buffers(inst, HAL_BUFFER_INTERNAL_PERSIST);
+	if (rc)
+		goto error;
 
-	persist_buf =
-		&inst->buff_req.buffer[HAL_BUFFER_INTERNAL_PERSIST];
-	dprintk(VIDC_DBG,
-		"persist: num = %d, size = %d\n",
-		persist_buf->buffer_count_actual,
-		persist_buf->buffer_size);
-	if (!list_empty(&inst->persistbufs)) {
-		dprintk(VIDC_ERR,
-			"Persist buffers already allocated\n");
-		return rc;
-	}
-
-	if (inst->mode == VIDC_SECURE) {
-		domain = call_hfi_op(hdev, get_domain,
-				hdev->hfi_device_data, CP_MAP);
-		flags |= SMEM_SECURE;
-	} else
-		domain = call_hfi_op(hdev, get_domain,
-				hdev->hfi_device_data, NS_MAP);
-
-	if (persist_buf->buffer_size) {
-		for (i = 0;	i <	persist_buf->buffer_count_actual; i++) {
-			handle = msm_smem_alloc(inst->mem_client,
-				persist_buf->buffer_size, 1, smem_flags,
-				domain, 0, 0);
-			if (!handle) {
-				dprintk(VIDC_ERR,
-					"Failed to allocate persist memory\n");
-				rc = -ENOMEM;
-				goto err_no_mem;
-			}
-			rc = msm_smem_cache_operations(inst->mem_client,
-					handle, SMEM_CACHE_CLEAN);
-			if (rc) {
-				dprintk(VIDC_WARN,
-				"Failed to clean cache may cause undefined behavior\n");
-			}
-			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
-			if (!binfo) {
-				dprintk(VIDC_ERR, "Out of memory\n");
-				rc = -ENOMEM;
-				goto fail_kzalloc;
-			}
-			binfo->handle = handle;
-			buffer_info.buffer_size = persist_buf->buffer_size;
-			buffer_info.buffer_type = HAL_BUFFER_INTERNAL_PERSIST;
-			buffer_info.num_buffers = 1;
-			buffer_info.align_device_addr = handle->device_addr;
-			dprintk(VIDC_DBG, "Persist buffer address: %x",
-					buffer_info.align_device_addr);
-			rc = call_hfi_op(hdev, session_set_buffers,
-					(void *) inst->session, &buffer_info);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"vidc_hal_session_set_buffers failed");
-				goto fail_set_buffers;
-			}
-			mutex_lock(&inst->lock);
-			list_add_tail(&binfo->list, &inst->persistbufs);
-			mutex_unlock(&inst->lock);
-		}
-	}
+	rc = set_persist_buffers(inst, HAL_BUFFER_INTERNAL_PERSIST_1);
+	if (rc)
+		goto error;
 	return rc;
-fail_set_buffers:
-	kfree(binfo);
-fail_kzalloc:
-	msm_smem_free(inst->mem_client, handle);
-err_no_mem:
+error:
+	msm_comm_release_persist_buffers(inst);
 	return rc;
 }
 
