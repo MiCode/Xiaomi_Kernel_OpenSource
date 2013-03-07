@@ -640,7 +640,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	for (i = 0; i < vfe_dev->hw_info->num_iommu_ctx; i++)
 		vfe_dev->buf_mgr->ops->attach_ctx(vfe_dev->buf_mgr,
 			vfe_dev->iommu_ctx[i]);
-	vfe_dev->buf_mgr->ops->buf_mgr_init(vfe_dev->buf_mgr, "msm_isp", 14);
+	vfe_dev->buf_mgr->ops->buf_mgr_init(vfe_dev->buf_mgr, "msm_isp", 28);
 
 	memset(&vfe_dev->axi_data, 0, sizeof(struct msm_vfe_axi_shared_data));
 	memset(&vfe_dev->stats_data, 0,
