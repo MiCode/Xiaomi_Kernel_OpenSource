@@ -443,7 +443,7 @@ static inline struct mdss_mdp_ctl *mdss_mdp_get_split_ctl(
 	return NULL;
 }
 
-static int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_ctl *split_ctl;
 	u32 width, height;
@@ -565,12 +565,6 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	}
 
 	ctl->opmode |= (ctl->intf_num << 4);
-
-	ret = mdss_mdp_ctl_setup(ctl);
-	if (ret) {
-		pr_err("unable to setup control path %d\n", ctl->num);
-		goto ctl_init_fail;
-	}
 
 	if (ctl->intf_num == MDSS_MDP_NO_INTF) {
 		ctl->dst_format = pdata->panel_info.out_format;
