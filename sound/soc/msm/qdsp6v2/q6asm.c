@@ -570,15 +570,17 @@ int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode1)
 {
 	uint32_t mode;
 
+	if (ac == NULL) {
+		pr_err("%s APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	ac->io_mode &= 0xFF00;
 	mode = (mode1 & 0xF);
 
 	pr_debug("%s ac->mode after anding with FF00:0x[%x],\n",
 		__func__, ac->io_mode);
-	if (ac == NULL) {
-		pr_err("%s APR handle NULL\n", __func__);
-		return -EINVAL;
-	}
+
 	if ((mode == ASYNC_IO_MODE) || (mode == SYNC_IO_MODE)) {
 		ac->io_mode |= mode1;
 		pr_debug("%s:Set Mode to 0x[%x]\n", __func__, ac->io_mode);
@@ -896,7 +898,7 @@ static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv)
 {
 	uint32_t sid = 0;
 	uint32_t dir = 0;
-	uint32_t *payload = data->payload;
+	uint32_t *payload;
 	unsigned long dsp_flags;
 
 	struct audio_client *ac = NULL;
@@ -906,6 +908,9 @@ static int32_t q6asm_mmapcallback(struct apr_client_data *data, void *priv)
 		pr_err("%s: Invalid CB\n", __func__);
 		return 0;
 	}
+
+	payload = data->payload;
+
 	if (data->opcode == RESET_EVENTS) {
 		pr_debug("%s: Reset event is received: %d %d apr[%p]\n",
 				__func__,
@@ -2555,6 +2560,7 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 	if (mmap_region_cmd == NULL) {
 		pr_err("%s: Mem alloc failed\n", __func__);
 		rc = -EINVAL;
+		kfree(buffer_node);
 		return rc;
 	}
 	mmap_regions = (struct avs_cmd_shared_mem_map_regions *)
@@ -2583,6 +2589,7 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 		pr_err("mmap op[0x%x]rc[%d]\n",
 					mmap_regions->hdr.opcode, rc);
 		rc = -EINVAL;
+		kfree(buffer_node);
 		goto fail_cmd;
 	}
 
@@ -2592,6 +2599,7 @@ int q6asm_memory_map(struct audio_client *ac, uint32_t buf_add, int dir,
 	if (!rc) {
 		pr_err("timeout. waited for memory_map\n");
 		rc = -EINVAL;
+		kfree(buffer_node);
 		goto fail_cmd;
 	}
 	buffer_node->buf_addr_lsw = buf_add;
@@ -2698,11 +2706,17 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 
 	buffer_node = kzalloc(sizeof(struct asm_buffer_node) * bufcnt,
 				GFP_KERNEL);
+	if (!buffer_node) {
+		pr_err("%s: Mem alloc failed for asm_buffer_node\n",
+				__func__);
+		return -ENOMEM;
+	}
 
 	mmap_region_cmd = kzalloc(cmd_size, GFP_KERNEL);
-	if ((mmap_region_cmd == NULL) || (buffer_node == NULL)) {
+	if (mmap_region_cmd == NULL) {
 		pr_err("%s: Mem alloc failed\n", __func__);
 		rc = -EINVAL;
+		kfree(buffer_node);
 		return rc;
 	}
 	mmap_regions = (struct avs_cmd_shared_mem_map_regions *)
@@ -2737,6 +2751,7 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 		pr_err("mmap_regions op[0x%x]rc[%d]\n",
 					mmap_regions->hdr.opcode, rc);
 		rc = -EINVAL;
+		kfree(buffer_node);
 		goto fail_cmd;
 	}
 
@@ -2746,6 +2761,7 @@ static int q6asm_memory_map_regions(struct audio_client *ac, int dir,
 	if (!rc) {
 		pr_err("timeout. waited for memory_map\n");
 		rc = -EINVAL;
+		kfree(buffer_node);
 		goto fail_cmd;
 	}
 	mutex_lock(&ac->cmd_lock);
