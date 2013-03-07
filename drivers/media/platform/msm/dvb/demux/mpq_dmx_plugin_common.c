@@ -95,6 +95,10 @@ module_param(mpq_bypass_sdmx, int, S_IRUGO | S_IWUSR);
 static int mpq_sdmx_proc_limit = MAX_TS_PACKETS_FOR_SDMX_PROCESS;
 module_param(mpq_sdmx_proc_limit, int, S_IRUGO | S_IWUSR);
 
+/* Debug flag for secure demux process */
+static int mpq_sdmx_debug;
+module_param(mpq_sdmx_debug, int, S_IRUGO | S_IWUSR);
+
 
 /**
  * Maximum allowed framing pattern size
@@ -4421,7 +4425,8 @@ static int mpq_sdmx_process_buffer(struct mpq_demux *mpq_demux,
 {
 	struct sdmx_filter_status *sts;
 	struct mpq_feed *mpq_feed;
-	u8 flags = 0;	/* MPQ_TODO: EOS handling */
+	/* MPQ_TODO: EOS handling */
+	u8 flags = mpq_sdmx_debug ? SDMX_INPUT_FLAG_DBG_ENABLE : 0;
 	u32 errors;
 	u32 status;
 	u32 prev_read_offset;
