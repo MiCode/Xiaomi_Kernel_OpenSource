@@ -434,6 +434,7 @@ Required properties:
 - prim-auxpcm-gpio-sync : GPIO on which AUXPCM SYNC signal is coming.
 - prim-auxpcm-gpio-din : GPIO on which AUXPCM DIN signal is coming.
 - prim-auxpcm-gpio-dout : GPIO on which AUXPCM DOUT signal is coming.
+- qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
 
 Optional properties:
 - qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
@@ -476,6 +477,7 @@ sound {
 	qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
 	taiko-mclk-clk = <&pm8941_clkdiv1>;
 	qcom,taiko-mclk-clk-freq = <9600000>;
+	qcom,us-euro-gpios = <&pm8941_gpios 20 0>;
 
 	qcom,hdmi-audio-rx;
 
