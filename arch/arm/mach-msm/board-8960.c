@@ -3037,7 +3037,10 @@ static void __init msm8960_gfx_init(void)
 
 	/* Fixup data that needs to change based on GPU ID */
 	if (cpu_is_msm8960ab()) {
-		kgsl_3d0_pdata->chipid = ADRENO_CHIPID(3, 2, 1, 0);
+		if (SOCINFO_VERSION_MINOR(soc_platform_version) == 0)
+			kgsl_3d0_pdata->chipid = ADRENO_CHIPID(3, 2, 1, 0);
+		else
+			kgsl_3d0_pdata->chipid = ADRENO_CHIPID(3, 2, 1, 1);
 		/* 8960PRO nominal clock rate is 320Mhz */
 		kgsl_3d0_pdata->pwrlevel[1].gpu_freq = 320000000;
 #ifdef CONFIG_MSM_BUS_SCALING
