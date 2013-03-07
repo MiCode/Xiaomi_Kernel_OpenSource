@@ -359,26 +359,30 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (ret)
 		goto fail;
 
-	ret = __enable_clocks(iommu_drvdata);
-	if (ret) {
-		regulator_disable(iommu_drvdata->gdsc);
-		goto fail;
-	}
+	/* We can only do this once */
+	if (!iommu_drvdata->ctx_attach_count) {
+		ret = __enable_clocks(iommu_drvdata);
+		if (ret) {
+			regulator_disable(iommu_drvdata->gdsc);
+			goto fail;
+		}
 
-	ret = msm_iommu_sec_program_iommu(iommu_drvdata->sec_id);
+		ret = msm_iommu_sec_program_iommu(iommu_drvdata->sec_id);
 
-	/* bfb settings are always programmed by HLOS */
-	program_iommu_bfb_settings(iommu_drvdata->base,
-				   iommu_drvdata->bfb_settings);
+		/* bfb settings are always programmed by HLOS */
+		program_iommu_bfb_settings(iommu_drvdata->base,
+					   iommu_drvdata->bfb_settings);
 
-	__disable_clocks(iommu_drvdata);
-	if (ret) {
-		regulator_disable(iommu_drvdata->gdsc);
-		goto fail;
+		__disable_clocks(iommu_drvdata);
+		if (ret) {
+			regulator_disable(iommu_drvdata->gdsc);
+			goto fail;
+		}
 	}
 
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 	ctx_drvdata->attached_domain = domain;
+	++iommu_drvdata->ctx_attach_count;
 
 	mutex_unlock(&msm_iommu_lock);
 
@@ -410,7 +414,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	ctx_drvdata->attached_domain = NULL;
 
 	regulator_disable(iommu_drvdata->gdsc);
-
+	BUG_ON(iommu_drvdata->ctx_attach_count == 0);
+	--iommu_drvdata->ctx_attach_count;
 fail:
 	mutex_unlock(&msm_iommu_lock);
 }
