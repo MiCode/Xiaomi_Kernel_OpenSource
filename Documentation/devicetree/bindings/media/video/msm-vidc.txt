@@ -31,6 +31,14 @@ Optional properties:
   request by different video encoder usecases.
 - qcom,dec-ddr-ab-ib : list of bus vectors(ab, ib pair) for ddr bandwidth
   request by different video decoder usecases.
+- qcom,iommu-groups : list of IOMMU groups to be used.  Groups are defined as
+  phandles in <target>-iommu-domains.dtsi (e.g msm8974-v1-iommu-domains.dtsi)
+- qcom,iommu-group-buffer-types : bitmap of buffer types that can be mapped into
+  the corresponding IOMMU group. Buffer types are defined within the vidc driver
+  by "enum hal_buffer" in msm_smem.h
+- qcom,buffer-type-tz-usage-table : a key-value pair, mapping a buffer type
+  (enum hal_buffer) to its corresponding TZ usage. The TZ usages are defined
+  as "enum cp_mem_usage" in include/linux/msm_ion.h
 
 Example:
 
@@ -59,4 +67,8 @@ Example:
 			<60000 664950>;
 		qcom,dec-ddr-ab-ib = <0 0>,
 			<110000 909000>;
+		qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
+		qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
+		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
+						<0x1fe 0x2>;
 	};
