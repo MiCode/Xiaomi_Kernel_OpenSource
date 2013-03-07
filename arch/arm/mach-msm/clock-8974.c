@@ -3030,134 +3030,6 @@ static struct clk_freq_tbl byte_freq = {
 	.src_clk = &dsipll0_byte_clk_src,
 	.div_src_val = BVAL(10, 8, dsipll0_byte_mm_source_val),
 };
-static struct clk_freq_tbl pixel_freq = {
-	.src_clk = &dsipll0_pixel_clk_src,
-	.div_src_val = BVAL(10, 8, dsipll0_pixel_mm_source_val),
-};
-static struct clk_ops clk_ops_byte;
-static struct clk_ops clk_ops_pixel;
-
-#define CFG_RCGR_DIV_MASK		BM(4, 0)
-#define CMD_RCGR_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0x0)
-#define CFG_RCGR_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0x4)
-#define M_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0x8)
-#define N_REG(x)			(*(x)->base + (x)->cmd_rcgr_reg + 0xC)
-#define MND_MODE_MASK			BM(13, 12)
-#define MND_DUAL_EDGE_MODE_BVAL		BVAL(13, 12, 0x2)
-#define CFG_RCGR_SRC_SEL_MASK		BM(10, 8)
-#define CMD_RCGR_ROOT_STATUS_BIT	BIT(31)
-
-static enum handoff byte_rcg_handoff(struct clk *clk)
-{
-	struct rcg_clk *rcg = to_rcg_clk(clk);
-	u32 div_val;
-	unsigned long pre_div_rate, parent_rate = clk_get_rate(clk->parent);
-
-	/* If the pre-divider is used, find the rate after the division */
-	div_val = readl_relaxed(CFG_RCGR_REG(rcg)) & CFG_RCGR_DIV_MASK;
-	if (div_val > 1)
-		pre_div_rate = parent_rate / ((div_val + 1) >> 1);
-	else
-		pre_div_rate = parent_rate;
-
-	clk->rate = pre_div_rate;
-
-	if (readl_relaxed(CMD_RCGR_REG(rcg)) & CMD_RCGR_ROOT_STATUS_BIT)
-		return HANDOFF_DISABLED_CLK;
-
-	return HANDOFF_ENABLED_CLK;
-}
-
-static int set_rate_byte(struct clk *clk, unsigned long rate)
-{
-	struct rcg_clk *rcg = to_rcg_clk(clk);
-	struct clk *pll = clk->parent;
-	unsigned long source_rate, div;
-	int rc;
-
-	if (rate == 0)
-		return -EINVAL;
-
-	rc = clk_set_rate(pll, rate);
-	if (rc)
-		return rc;
-
-	source_rate = clk_round_rate(pll, rate);
-	if ((2 * source_rate) % rate)
-		return -EINVAL;
-
-	div = ((2 * source_rate)/rate) - 1;
-	if (div > CFG_RCGR_DIV_MASK)
-		return -EINVAL;
-
-	byte_freq.div_src_val &= ~CFG_RCGR_DIV_MASK;
-	byte_freq.div_src_val |= BVAL(4, 0, div);
-	set_rate_hid(rcg, &byte_freq);
-
-	return 0;
-}
-
-static enum handoff pixel_rcg_handoff(struct clk *clk)
-{
-	struct rcg_clk *rcg = to_rcg_clk(clk);
-	u32 div_val, mval, nval, cfg_regval;
-	unsigned long pre_div_rate, parent_rate = clk_get_rate(clk->parent);
-
-	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
-
-	/* If the pre-divider is used, find the rate after the division */
-	div_val = cfg_regval & CFG_RCGR_DIV_MASK;
-	if (div_val > 1)
-		pre_div_rate = parent_rate / ((div_val + 1) >> 1);
-	else
-		pre_div_rate = parent_rate;
-
-	clk->rate = pre_div_rate;
-
-	/* If MND is used, find the rate after the MND division */
-	if ((cfg_regval & MND_MODE_MASK) == MND_DUAL_EDGE_MODE_BVAL) {
-		mval = readl_relaxed(M_REG(rcg));
-		nval = readl_relaxed(N_REG(rcg));
-		if (!nval)
-			return HANDOFF_DISABLED_CLK;
-		nval = (~nval) + mval;
-		clk->rate = (pre_div_rate * mval) / nval;
-	}
-
-	if (readl_relaxed(CMD_RCGR_REG(rcg)) & CMD_RCGR_ROOT_STATUS_BIT)
-		return HANDOFF_DISABLED_CLK;
-
-	return HANDOFF_ENABLED_CLK;
-}
-
-static int set_rate_pixel(struct clk *clk, unsigned long rate)
-{
-	struct rcg_clk *rcg = to_rcg_clk(clk);
-	struct clk *pll = clk->parent;
-	unsigned long source_rate, div;
-	int rc;
-
-	if (rate == 0)
-		return -EINVAL;
-
-	rc = clk_set_rate(pll, rate);
-	if (rc)
-		return rc;
-
-	source_rate = clk_round_rate(pll, rate);
-	if ((2 * source_rate) % rate)
-		return -EINVAL;
-
-	div = ((2 * source_rate)/rate) - 1;
-	if (div > CFG_RCGR_DIV_MASK)
-		return -EINVAL;
-
-	pixel_freq.div_src_val &= ~CFG_RCGR_DIV_MASK;
-	pixel_freq.div_src_val |= BVAL(4, 0, div);
-	set_rate_mnd(rcg, &pixel_freq);
-
-	return 0;
-}
 
 static struct rcg_clk byte0_clk_src = {
 	.cmd_rcgr_reg = BYTE0_CMD_RCGR,
@@ -3324,35 +3196,6 @@ static struct clk_freq_tbl ftbl_mdss_extpclk_clk[] = {
 	F_END
 };
 
-/*
- * Unlike other clocks, the HDMI rate is adjusted through PLL
- * re-programming. It is also routed through an HID divider.
- */
-static int rcg_clk_set_rate_hdmi(struct clk *c, unsigned long rate)
-{
-	struct clk_freq_tbl *nf;
-	struct rcg_clk *rcg = to_rcg_clk(c);
-	int rc;
-
-	for (nf = rcg->freq_tbl; nf->freq_hz != rate; nf++)
-		if (nf->freq_hz == FREQ_END) {
-			rc = -EINVAL;
-			goto out;
-		}
-
-	rc = clk_set_rate(nf->src_clk, rate);
-	if (rc < 0)
-		goto out;
-	set_rate_hid(rcg, nf);
-
-	rcg->current_freq = nf;
-	c->parent = nf->src_clk;
-out:
-	return rc;
-}
-
-static struct clk_ops clk_ops_rcg_hdmi;
-
 static struct rcg_clk extpclk_clk_src = {
 	.cmd_rcgr_reg = EXTPCLK_CMD_RCGR,
 	.freq_tbl = ftbl_mdss_extpclk_clk,
@@ -3385,6 +3228,10 @@ static struct rcg_clk hdmi_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl pixel_freq = {
+	.src_clk = &dsipll0_pixel_clk_src,
+	.div_src_val = BVAL(10, 8, dsipll0_pixel_mm_source_val),
+};
 
 static struct rcg_clk pclk0_clk_src = {
 	.cmd_rcgr_reg = PCLK0_CMD_RCGR,
@@ -5525,28 +5372,6 @@ static void __init reg_init(void)
 	writel_relaxed(0x0, GCC_REG_BASE(APCS_CLOCK_SLEEP_ENA_VOTE));
 }
 
-static void __init mdss_clock_setup(void)
-{
-	clk_ops_byte = clk_ops_rcg;
-	clk_ops_byte.set_rate = set_rate_byte;
-	clk_ops_byte.handoff = byte_rcg_handoff;
-	clk_ops_byte.get_parent = NULL;
-
-	clk_ops_pixel = clk_ops_rcg_mnd;
-	clk_ops_pixel.set_rate = set_rate_pixel;
-	clk_ops_pixel.handoff = pixel_rcg_handoff;
-	clk_ops_pixel.get_parent = NULL;
-
-	clk_ops_rcg_hdmi = clk_ops_rcg;
-	clk_ops_rcg_hdmi.set_rate = rcg_clk_set_rate_hdmi;
-
-	/*
-	 * MDSS needs the ahb clock and needs to init before we register the
-	 * lookup table.
-	 */
-	mdss_clk_ctrl_pre_init(&mdss_ahb_clk.c);
-}
-
 static void __init msm8974_clock_post_init(void)
 {
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 2) {
@@ -5693,7 +5518,11 @@ static void __init msm8974_clock_pre_init(void)
 			qup_i2c_clks[i][0]->parent =  qup_i2c_clks[i][1];
 	}
 
-	mdss_clock_setup();
+	/*
+	 * MDSS needs the ahb clock and needs to init before we register the
+	 * lookup table.
+	 */
+	mdss_clk_ctrl_pre_init(&mdss_ahb_clk.c);
 }
 
 static int __init msm8974_clock_late_init(void)
