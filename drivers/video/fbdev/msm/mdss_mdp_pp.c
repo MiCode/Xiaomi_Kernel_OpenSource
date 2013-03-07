@@ -193,17 +193,24 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 				   struct mdp_csc_cfg *data)
 {
 	int i, ret = 0;
-	u32 *off, base, val = 0;
+	char __iomem *base, *off;
+	u32 val = 0;
+	struct mdss_data_type *mdata;
+	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_ctl *ctl;
+
 
 	if (data == NULL) {
 		pr_err("no csc matrix specified\n");
 		return -EINVAL;
 	}
 
+	mdata = mdss_mdp_get_mdata();
 	switch (block) {
 	case MDSS_MDP_BLOCK_SSPP:
-		if (blk_idx < MDSS_MDP_SSPP_RGB0) {
-			base = MDSS_MDP_REG_SSPP_OFFSET(blk_idx);
+		if (blk_idx < mdata->nvig_pipes) {
+			pipe = mdata->vig_pipes + blk_idx;
+			base = pipe->base;
 			if (tbl_idx == 1)
 				base += MDSS_MDP_REG_VIG_CSC_1_BASE;
 			else
@@ -213,9 +220,9 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 		}
 		break;
 	case MDSS_MDP_BLOCK_WB:
-		if (blk_idx < MDSS_MDP_MAX_WRITEBACK) {
-			base = MDSS_MDP_REG_WB_OFFSET(blk_idx) +
-			       MDSS_MDP_REG_WB_CSC_BASE;
+		if (blk_idx < mdata->nctl) {
+			ctl = mdata->ctl_off + blk_idx;
+			base = ctl->wb_base + MDSS_MDP_REG_WB_CSC_BASE;
 		} else {
 			ret = -EINVAL;
 		}
@@ -229,34 +236,33 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 		return ret;
 	}
 
-	off = (u32 *) (base + CSC_MV_OFF);
+	off = base + CSC_MV_OFF;
 	for (i = 0; i < 9; i++) {
 		if (i & 0x1) {
 			val |= data->csc_mv[i] << 16;
-			MDSS_MDP_REG_WRITE(off, val);
-			off++;
+			writel_relaxed(val, off);
+			off += sizeof(u32 *);
 		} else {
 			val = data->csc_mv[i];
 		}
 	}
-	MDSS_MDP_REG_WRITE(off, val); /* COEFF_33 */
+	writel_relaxed(val, off); /* COEFF_33 */
 
-	off = (u32 *) (base + CSC_BV_OFF);
+	off = base + CSC_BV_OFF;
 	for (i = 0; i < 3; i++) {
-		MDSS_MDP_REG_WRITE(off, data->csc_pre_bv[i]);
-		MDSS_MDP_REG_WRITE((u32 *)(((u32)off) + CSC_POST_OFF),
-				   data->csc_post_bv[i]);
-		off++;
+		writel_relaxed(data->csc_pre_bv[i], off);
+		writel_relaxed(data->csc_post_bv[i], off + CSC_POST_OFF);
+		off += sizeof(u32 *);
 	}
 
-	off = (u32 *) (base + CSC_LV_OFF);
+	off = base + CSC_LV_OFF;
 	for (i = 0; i < 6; i += 2) {
 		val = (data->csc_pre_lv[i] << 8) | data->csc_pre_lv[i+1];
-		MDSS_MDP_REG_WRITE(off, val);
+		writel_relaxed(val, off);
 
 		val = (data->csc_post_lv[i] << 8) | data->csc_post_lv[i+1];
-		MDSS_MDP_REG_WRITE((u32 *)(((u32)off) + CSC_POST_OFF), val);
-		off++;
+		writel_relaxed(val, off + CSC_POST_OFF);
+		off += sizeof(u32 *);
 	}
 
 	return ret;
