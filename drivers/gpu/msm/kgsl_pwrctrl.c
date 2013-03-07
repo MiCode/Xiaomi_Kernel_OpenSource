@@ -130,6 +130,16 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 */
 
 	pwr->active_pwrlevel = new_level;
+	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
+
+	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)) {
+
+		if (pwr->pcl)
+			msm_bus_scale_client_update_request(pwr->pcl,
+				pwrlevel->bus_freq);
+		else if (pwr->ebi1_clk)
+			clk_set_rate(pwr->ebi1_clk, pwrlevel->bus_freq);
+	}
 
 	if (test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->power_flags) ||
 		(device->state == KGSL_STATE_NAP)) {
@@ -156,16 +166,6 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 		}
 	}
 
-	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
-
-	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)) {
-
-		if (pwr->pcl)
-			msm_bus_scale_client_update_request(pwr->pcl,
-				pwrlevel->bus_freq);
-		else if (pwr->ebi1_clk)
-			clk_set_rate(pwr->ebi1_clk, pwrlevel->bus_freq);
-	}
 
 	trace_kgsl_pwrlevel(device, pwr->active_pwrlevel, pwrlevel->gpu_freq);
 }
