@@ -378,8 +378,9 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 	} else if (1 == hpd && !hdmi_ctrl->hpd_feature_on) {
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
 	} else {
-		rc = -EPERM;
-		ret = rc;
+		DEV_DBG("%s: hpd is already '%s'. return\n", __func__,
+			hdmi_ctrl->hpd_feature_on ? "enabled" : "disabled");
+		return ret;
 	}
 
 	if (!rc) {
@@ -387,8 +388,9 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 			(~hdmi_ctrl->hpd_feature_on) & BIT(0);
 		DEV_DBG("%s: '%d'\n", __func__, hdmi_ctrl->hpd_feature_on);
 	} else {
-		DEV_DBG("%s: '%d' (unchanged)\n", __func__,
-			hdmi_ctrl->hpd_feature_on);
+		DEV_ERR("%s: failed to '%s' hpd. rc = %d\n", __func__,
+			hpd ? "enable" : "disable", rc);
+		ret = rc;
 	}
 
 	return ret;
