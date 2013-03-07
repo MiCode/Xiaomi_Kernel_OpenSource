@@ -263,6 +263,17 @@ static irqreturn_t msm_slim_interrupt(int irq, void *d)
 			 */
 			mb();
 			complete(&dev->rx_msgq_notify);
+		} else if (mt == SLIM_MSG_MT_CORE &&
+			mc == SLIM_MSG_MC_REPORT_ABSENT) {
+			writel_relaxed(MGR_INT_RX_MSG_RCVD, dev->base +
+						MGR_INT_CLR);
+			/*
+			 * Guarantee that CLR bit write goes through
+			 * before signalling completion
+			 */
+			mb();
+			complete(&dev->rx_msgq_notify);
+
 		} else if (mc == SLIM_MSG_MC_REPLY_INFORMATION ||
 				mc == SLIM_MSG_MC_REPLY_VALUE) {
 			msm_slim_rx_enqueue(dev, rx_buf, len);
@@ -975,6 +986,10 @@ send_capability:
 			txn.wbuf = wbuf;
 			gen_ack = true;
 			ret = msm_xfer_msg(&dev->ctrl, &txn);
+			break;
+		case SLIM_MSG_MC_REPORT_ABSENT:
+			dev_info(dev->dev, "Received Report Absent Message\n");
+			break;
 		default:
 			break;
 		}
@@ -1087,7 +1102,8 @@ static int msm_slim_rx_msgq_thread(void *data)
 				laddr = (u8)((buffer[0] >> 16) & 0xff);
 				sat = addr_to_sat(dev, laddr);
 			}
-		} else if ((index * 4) >= msg_len) {
+		}
+		if ((index * 4) >= msg_len) {
 			index = 0;
 			if (sat) {
 				msm_sat_enqueue(sat, buffer, msg_len);
