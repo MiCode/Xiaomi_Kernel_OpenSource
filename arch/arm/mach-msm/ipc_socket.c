@@ -20,6 +20,9 @@
 #include <linux/fcntl.h>
 #include <linux/gfp.h>
 #include <linux/msm_ipc.h>
+#include <linux/sched.h>
+#include <linux/thread_info.h>
+#include <linux/qmi_encdec.h>
 
 #include <asm/string.h>
 #include <asm/atomic.h>
@@ -27,16 +30,93 @@
 #include <net/sock.h>
 
 #include <mach/msm_ipc_router.h>
+#include <mach/msm_ipc_logging.h>
 
 #include "ipc_router.h"
 #include "msm_ipc_router_security.h"
 
 #define msm_ipc_sk(sk) ((struct msm_ipc_sock *)(sk))
 #define msm_ipc_sk_port(sk) ((struct msm_ipc_port *)(msm_ipc_sk(sk)->port))
+#define REQ_RESP_IPC_LOG_PAGES 5
+#define IND_IPC_LOG_PAGES 5
+#define IPC_SEND 1
+#define IPC_RECV 2
+#define IPC_REQ_RESP_LOG(level, buf...) \
+do { \
+	if (ipc_req_resp_log_txt) { \
+		ipc_log_string(ipc_req_resp_log_txt, buf); \
+	} \
+} while (0) \
+
+#define IPC_IND_LOG(level, buf...) \
+do { \
+	if (ipc_ind_log_txt) { \
+		ipc_log_string(ipc_ind_log_txt, buf); \
+	} \
+} while (0) \
 
 static int sockets_enabled;
 static struct proto msm_ipc_proto;
 static const struct proto_ops msm_ipc_proto_ops;
+static void *ipc_req_resp_log_txt;
+static void *ipc_ind_log_txt;
+
+/**
+ * msm_ipc_router_ipc_log() - Pass log data to IPC logging framework
+ * @tran:	Identifies the data to be a receive or send.
+ * @ipc_buf:	Buffer to extract the log data.
+ * @port_ptr:	IPC Router port corresponding to the current log data.
+ *
+ * This function builds the data the would be passed on to the IPC logging
+ * framework. The data that would be passed corresponds to the information
+ * that is exchanged between the IPC Router and user space modules during
+ * request/response/indication transactions.
+ */
+
+static void msm_ipc_router_ipc_log(uint8_t tran,
+			struct sk_buff *ipc_buf, struct msm_ipc_port *port_ptr)
+{
+	struct qmi_header *hdr = (struct qmi_header *)ipc_buf->data;
+
+	/*
+	 * IPC Logging format is as below:-
+	 * <Name>(Name of the User Space Process):
+	 * <PID> (PID of the user space process) :
+	 * <TID> (TID of the user space thread)  :
+	 * <User Space Module>(CLNT or  SERV)    :
+	 * <Opertaion Type> (Transmit)		 :
+	 * <Control Flag> (Req/Resp/Ind)	 :
+	 * <Transaction ID>			 :
+	 * <Message ID>				 :
+	 * <Message Length>			 :
+	 */
+	if (ipc_req_resp_log_txt &&
+		(((uint8_t) hdr->cntl_flag == QMI_REQUEST_CONTROL_FLAG) ||
+		((uint8_t) hdr->cntl_flag == QMI_RESPONSE_CONTROL_FLAG)) &&
+		(port_ptr->type == CLIENT_PORT ||
+					port_ptr->type == SERVER_PORT)) {
+		IPC_REQ_RESP_LOG(KERN_DEBUG,
+			"%s %d %d %s %s CF:%x TI:%x MI:%x ML:%x",
+			current->comm, current->tgid, current->pid,
+			(port_ptr->type == CLIENT_PORT ? "QCCI" : "QCSI"),
+			(tran == IPC_RECV ? "RX" :
+			(tran == IPC_SEND ? "TX" : "ERR")),
+			(uint8_t)hdr->cntl_flag, hdr->txn_id, hdr->msg_id,
+			hdr->msg_len);
+	} else if (ipc_ind_log_txt &&
+		((uint8_t)hdr->cntl_flag == QMI_INDICATION_CONTROL_FLAG) &&
+		(port_ptr->type == CLIENT_PORT ||
+					port_ptr->type == SERVER_PORT)) {
+		IPC_IND_LOG(KERN_DEBUG,
+			"%s %d %d %s %s CF:%x TI:%x MI:%x ML:%x",
+			current->comm, current->tgid, current->pid,
+			(port_ptr->type == CLIENT_PORT ? "QCCI" : "QCSI"),
+			(tran == IPC_RECV ? "RX" :
+			(tran == IPC_SEND ? "TX" : "ERR")),
+			(uint8_t)hdr->cntl_flag, hdr->txn_id, hdr->msg_id,
+			hdr->msg_len);
+	}
+}
 
 static struct sk_buff_head *msm_ipc_router_build_msg(unsigned int num_sect,
 					  struct iovec const *msg_sect,
@@ -263,6 +343,7 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 	struct msm_ipc_port *port_ptr = msm_ipc_sk_port(sk);
 	struct sockaddr_msm_ipc *dest = (struct sockaddr_msm_ipc *)m->msg_name;
 	struct sk_buff_head *msg;
+	struct sk_buff *ipc_buf;
 	int ret;
 
 	if (!dest)
@@ -284,7 +365,8 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	if (port_ptr->type == CLIENT_PORT)
 		wait_for_irsc_completion();
-
+	ipc_buf = skb_peek(msg);
+	msm_ipc_router_ipc_log(IPC_SEND, ipc_buf, port_ptr);
 	ret = msm_ipc_router_send_to(port_ptr, msg, &dest->address);
 	if (ret == (IPC_ROUTER_HDR_SIZE + total_len))
 		ret = total_len;
@@ -300,6 +382,7 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 	struct sock *sk = sock->sk;
 	struct msm_ipc_port *port_ptr = msm_ipc_sk_port(sk);
 	struct sk_buff_head *msg;
+	struct sk_buff *ipc_buf;
 	long timeout;
 	int ret;
 
@@ -344,6 +427,8 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 	}
 
 	ret = msm_ipc_router_extract_msg(m, msg);
+	ipc_buf = skb_peek(msg);
+	msm_ipc_router_ipc_log(IPC_RECV, ipc_buf, port_ptr);
 	msm_ipc_router_release_msg(msg);
 	msg = NULL;
 	release_sock(sk);
@@ -518,6 +603,29 @@ static struct proto msm_ipc_proto = {
 	.obj_size       = sizeof(struct msm_ipc_sock),
 };
 
+/**
+ * msm_ipc_router_ipc_log_init() - Init function for IPC Logging
+ *
+ * Initialize the buffers to be used to provide the log information
+ * pertaining to the request, response and indication data flow that
+ * happens between user and kernel spaces.
+ */
+void msm_ipc_router_ipc_log_init(void)
+{
+	ipc_req_resp_log_txt =
+		ipc_log_context_create(REQ_RESP_IPC_LOG_PAGES, "req_resp");
+	if (!ipc_req_resp_log_txt) {
+		pr_err("%s: Unable to create IPC logging for Req/Resp",
+			__func__);
+	}
+	ipc_ind_log_txt =
+		ipc_log_context_create(IND_IPC_LOG_PAGES, "indication");
+	if (!ipc_ind_log_txt) {
+		pr_err("%s: Unable to create IPC logging for Indications",
+			__func__);
+	}
+}
+
 int msm_ipc_router_init_sockets(void)
 {
 	int ret;
@@ -536,6 +644,7 @@ int msm_ipc_router_init_sockets(void)
 	}
 
 	sockets_enabled = 1;
+	msm_ipc_router_ipc_log_init();
 out_init_sockets:
 	return ret;
 }
