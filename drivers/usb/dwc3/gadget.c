@@ -1599,6 +1599,7 @@ static void dwc3_gadget_disable_irq(struct dwc3 *dwc)
 
 static irqreturn_t dwc3_interrupt(int irq, void *_dwc);
 static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc);
+static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc);
 
 static int dwc3_gadget_vbus_session(struct usb_gadget *_gadget, int is_active)
 {
@@ -1629,17 +1630,18 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *_gadget, int is_active)
 		} else {
 			dwc3_gadget_run_stop(dwc, 0);
 		}
-	} else if (dwc->gadget_driver && !dwc->softconnect &&
-						!dwc->vbus_active) {
-		if (dwc->gadget_driver->disconnect) {
-			spin_unlock_irqrestore(&dwc->lock, flags);
-			dwc->gadget_driver->disconnect(&dwc->gadget);
-			return 0;
-		}
+	}
+
+	/*
+	 * Clearing run/stop bit might occur before disconnect event is seen.
+	 * Make sure to let gadget driver know in that case.
+	 */
+	if (!dwc->vbus_active && dwc->start_config_issued) {
+		dev_dbg(dwc->dev, "calling disconnect from %s\n", __func__);
+		dwc3_gadget_disconnect_interrupt(dwc);
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
-
 	return 0;
 }
 
