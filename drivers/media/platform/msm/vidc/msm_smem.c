@@ -149,9 +149,9 @@ static int alloc_ion_mem(struct smem_client *client, size_t size,
 		align = ALIGN(align, SZ_1M);
 	}
 
-	heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
-	if (!(flags & SMEM_SECURE))
-		heap_mask |= ION_HEAP(ION_IOMMU_HEAP_ID);
+	heap_mask = ION_HEAP(ION_IOMMU_HEAP_ID);
+	if (flags & SMEM_SECURE)
+		heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
 
 	dprintk(VIDC_DBG, "domain: %d, partition: %d\n",
 		domain, partition);
