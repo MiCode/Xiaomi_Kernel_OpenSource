@@ -536,8 +536,8 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 		memset(&tstamp, 0x0, sizeof(struct snd_compr_tstamp));
 		rc = q6asm_get_session_time(prtd->audio_client, &timestamp);
 		if (rc < 0) {
-			pr_err("%s: Get Session Time return value =%lld\n",
-				__func__, timestamp);
+			pr_err("%s: Fail to get session time stamp, rc:%d\n",
+							__func__, rc);
 			return -EAGAIN;
 		}
 		temp = (timestamp * 2 * runtime->channels);
