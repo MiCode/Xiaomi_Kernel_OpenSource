@@ -177,9 +177,7 @@ struct sdmx_metadata_header {
 	/* Payload length */
 	u32 payload_length;
 
-	/* Total metadata length (including this header, plus optional
-	 * additional metadata.
-	 */
+	/* Number of meta data bytes immediately following this header */
 	u32 metadata_length;
 };
 
