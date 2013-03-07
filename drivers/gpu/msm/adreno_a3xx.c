@@ -2713,6 +2713,15 @@ static void a3xx_irq_control(struct adreno_device *adreno_dev, int state)
 		adreno_regwrite(device, A3XX_RBBM_INT_0_MASK, 0);
 }
 
+static unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev)
+{
+	unsigned int status;
+
+	adreno_regread(&adreno_dev->dev, A3XX_RBBM_INT_0_STATUS, &status);
+
+	return (status & A3XX_INT_MASK) ? 1 : 0;
+}
+
 static unsigned int a3xx_busy_cycles(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -2958,6 +2967,7 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.rb_init = a3xx_rb_init,
 	.irq_control = a3xx_irq_control,
 	.irq_handler = a3xx_irq_handler,
+	.irq_pending = a3xx_irq_pending,
 	.busy_cycles = a3xx_busy_cycles,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,

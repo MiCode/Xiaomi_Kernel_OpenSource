@@ -106,6 +106,13 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	} else
 		_add_event_to_list(&device->events, event);
 
+	/*
+	 * Increase the active count on the device to avoid going into power
+	 * saving modes while events are pending
+	 */
+
+	device->active_cnt++;
+
 	queue_work(device->work_queue, &device->ts_expired_ws);
 	return 0;
 }
@@ -143,6 +150,8 @@ void kgsl_cancel_events_ctxt(struct kgsl_device *device,
 		kgsl_context_put(context);
 		list_del(&event->list);
 		kfree(event);
+
+		kgsl_active_count_put(device);
 	}
 
 	/* Remove ourselves from the master pending list */
@@ -184,6 +193,8 @@ void kgsl_cancel_events(struct kgsl_device *device,
 
 		list_del(&event->list);
 		kfree(event);
+
+		kgsl_active_count_put(device);
 	}
 }
 EXPORT_SYMBOL(kgsl_cancel_events);
@@ -215,6 +226,8 @@ static void _process_event_list(struct kgsl_device *device,
 
 		list_del(&event->list);
 		kfree(event);
+
+		kgsl_active_count_put(device);
 	}
 }
 

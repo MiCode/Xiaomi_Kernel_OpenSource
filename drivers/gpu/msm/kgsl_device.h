@@ -449,4 +449,23 @@ kgsl_context_put(struct kgsl_context *context)
 	kref_put(&context->refcount, kgsl_context_destroy);
 }
 
+/**
+ * kgsl_active_count_put - Decrease the device active count
+ * @device: Pointer to a KGSL device
+ *
+ * Decrease the active count for the KGSL device and trigger the suspend_gate
+ * completion if it hits zero
+ */
+static inline void
+kgsl_active_count_put(struct kgsl_device *device)
+{
+	if (device->active_cnt == 1)
+		INIT_COMPLETION(device->suspend_gate);
+
+	device->active_cnt--;
+
+	if (device->active_cnt == 0)
+		complete(&device->suspend_gate);
+}
+
 #endif  /* __KGSL_DEVICE_H */
