@@ -133,6 +133,7 @@ struct msm_auxpcm_ctrl {
 struct msm8974_asoc_mach_data {
 	int mclk_gpio;
 	u32 mclk_freq;
+	int us_euro_gpio;
 	struct msm_auxpcm_ctrl *pri_auxpcm_ctrl;
 };
 
@@ -1039,6 +1040,16 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("SLIM_0_RX SampleRate", msm_snd_enum[5],
 			slim0_rx_sample_rate_get, slim0_rx_sample_rate_put),
 };
+
+static bool msm8974_swap_gnd_mic(struct snd_soc_codec *codec)
+{
+	struct snd_soc_card *card = codec->card;
+	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int value = gpio_get_value_cansleep(pdata->us_euro_gpio);
+	pr_debug("%s: swap select switch %d to %d\n", __func__, value, !value);
+	gpio_set_value_cansleep(pdata->us_euro_gpio, !value);
+	return true;
+}
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -1984,6 +1995,25 @@ static int msm8974_prepare_codec_mclk(struct snd_soc_card *card)
 	return 0;
 }
 
+static int msm8974_prepare_us_euro(struct snd_soc_card *card)
+{
+	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret;
+	if (pdata->us_euro_gpio) {
+		dev_dbg(card->dev, "%s : us_euro gpio request %d", __func__,
+			pdata->us_euro_gpio);
+		ret = gpio_request(pdata->us_euro_gpio, "TAIKO_CODEC_US_EURO");
+		if (ret) {
+			dev_err(card->dev,
+				"%s: Failed to request taiko US/EURO gpio %d error %d\n",
+				__func__, pdata->us_euro_gpio, ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_card_msm8974;
@@ -2073,6 +2103,23 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		card->num_links	= ARRAY_SIZE(msm8974_common_dai_links);
 	}
 
+	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,us-euro-gpios", 0);
+	if (pdata->us_euro_gpio < 0) {
+		dev_err(&pdev->dev, "Looking up %s property in node %s failed",
+			"qcom,us-euro-gpios",
+			pdev->dev.of_node->full_name);
+	} else {
+		dev_dbg(&pdev->dev, "%s detected %d",
+			"qcom,us-euro-gpios", pdata->us_euro_gpio);
+		mbhc_cfg.swap_gnd_mic = msm8974_swap_gnd_mic;
+	}
+
+	ret = msm8974_prepare_us_euro(card);
+	if (ret)
+		dev_err(&pdev->dev, "msm8974_prepare_us_euro failed (%d)\n",
+			ret);
+
 	mutex_init(&cdc_mclk_mutex);
 	atomic_set(&auxpcm_rsc_ref, 0);
 	spdev = pdev;
@@ -2094,6 +2141,18 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	}
 	return 0;
 err:
+	if (pdata->mclk_gpio > 0) {
+		dev_dbg(&pdev->dev, "%s free gpio %d\n",
+			__func__, pdata->mclk_gpio);
+		gpio_free(pdata->mclk_gpio);
+		pdata->mclk_gpio = 0;
+	}
+	if (pdata->us_euro_gpio > 0) {
+		dev_dbg(&pdev->dev, "%s free us_euro gpio %d\n",
+			__func__, pdata->us_euro_gpio);
+		gpio_free(pdata->us_euro_gpio);
+		pdata->us_euro_gpio = 0;
+	}
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }
@@ -2107,6 +2166,7 @@ static int __devexit msm8974_asoc_machine_remove(struct platform_device *pdev)
 		regulator_put(ext_spk_amp_regulator);
 
 	gpio_free(pdata->mclk_gpio);
+	gpio_free(pdata->us_euro_gpio);
 	if (ext_spk_amp_gpio >= 0)
 		gpio_free(ext_spk_amp_gpio);
 
