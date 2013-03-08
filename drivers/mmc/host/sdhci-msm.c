@@ -30,6 +30,7 @@
 
 #include "sdhci-pltfm.h"
 
+#define SDHCI_VER_100		0x2B
 #define CORE_HC_MODE		0x78
 #define HC_MODE_EN		0x1
 
@@ -1061,6 +1062,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	struct resource *core_memres = NULL;
 	int ret = 0, pwr_irq = 0, dead = 0;
 	u32 vdd_max_current;
+	u32 host_version;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -1159,6 +1161,25 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
 	host->quirks |= SDHCI_QUIRK_SINGLE_POWER_WRITE;
 
+	host_version = readl_relaxed((host->ioaddr + SDHCI_HOST_VERSION));
+	dev_dbg(&pdev->dev, "Host Version: 0x%x Vendor Version 0x%x\n",
+		host_version, ((host_version & SDHCI_VENDOR_VER_MASK) >>
+		  SDHCI_VENDOR_VER_SHIFT));
+	if (((host_version & SDHCI_VENDOR_VER_MASK) >>
+		SDHCI_VENDOR_VER_SHIFT) == SDHCI_VER_100) {
+		/*
+		 * Add 40us delay in interrupt handler when
+		 * operating at initialization frequency(400KHz).
+		 */
+		host->quirks2 |= SDHCI_QUIRK2_SLOW_INT_CLR;
+		/*
+		 * Set Software Reset for DAT line in Software
+		 * Reset Register (Bit 2).
+		 */
+		host->quirks2 |= SDHCI_QUIRK2_RDWR_TX_ACTIVE_EOT;
+	}
+
+	/* Setup PWRCTL irq */
 	pwr_irq = platform_get_irq_byname(pdev, "pwr_irq");
 	if (pwr_irq < 0) {
 		dev_err(&pdev->dev, "Failed to get pwr_irq by name (%d)\n",
