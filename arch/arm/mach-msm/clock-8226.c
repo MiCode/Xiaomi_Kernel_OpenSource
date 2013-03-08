@@ -1919,6 +1919,8 @@ static struct rcg_clk mmss_gp1_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_camss_mclk0_1_clk[] = {
+	F_MMSS(  19200000,         xo,   1,    0,    0),
+	F_MMSS(  24000000,      gpll0,   5,    1,    5),
 	F_MMSS(  66670000,      gpll0,   9,    0,    0),
 	F_END
 };
