@@ -1807,28 +1807,61 @@ static int taiko_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	u16 adc_reg;
 	u8 init_bit_shift;
+	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 
 	pr_debug("%s %d\n", __func__, event);
 
-	if (w->reg == TAIKO_A_TX_1_2_EN)
-		adc_reg = TAIKO_A_TX_1_2_TEST_CTL;
-	else if (w->reg == TAIKO_A_TX_3_4_EN)
-		adc_reg = TAIKO_A_TX_3_4_TEST_CTL;
-	else if (w->reg == TAIKO_A_TX_5_6_EN)
-		adc_reg = TAIKO_A_TX_5_6_TEST_CTL;
-	else {
-		pr_err("%s: Error, invalid adc register\n", __func__);
-		return -EINVAL;
-	}
+	if (TAIKO_IS_1_0(core->version)) {
+		if (w->reg == TAIKO_A_TX_1_2_EN) {
+			adc_reg = TAIKO_A_TX_1_2_TEST_CTL;
+		} else if (w->reg == TAIKO_A_TX_3_4_EN) {
+			adc_reg = TAIKO_A_TX_3_4_TEST_CTL;
+		} else if (w->reg == TAIKO_A_TX_5_6_EN) {
+			adc_reg = TAIKO_A_TX_5_6_TEST_CTL;
+		} else {
+			pr_err("%s: Error, invalid adc register\n", __func__);
+			return -EINVAL;
+		}
 
-	if (w->shift == 3)
-		init_bit_shift = 6;
-	else if  (w->shift == 7)
-		init_bit_shift = 7;
-	else {
-		pr_err("%s: Error, invalid init bit postion adc register\n",
-				__func__);
-		return -EINVAL;
+		if (w->shift == 3) {
+			init_bit_shift = 6;
+		} else if  (w->shift == 7) {
+			init_bit_shift = 7;
+		} else {
+			pr_err("%s: Error, invalid init bit postion adc register\n",
+			       __func__);
+			return -EINVAL;
+		}
+	} else {
+		switch (w->reg) {
+		case TAIKO_A_CDC_TX_1_GAIN:
+			adc_reg = TAIKO_A_TX_1_2_TEST_CTL;
+			init_bit_shift = 7;
+			break;
+		case TAIKO_A_CDC_TX_2_GAIN:
+			adc_reg = TAIKO_A_TX_1_2_TEST_CTL;
+			init_bit_shift = 6;
+			break;
+		case TAIKO_A_CDC_TX_3_GAIN:
+			adc_reg = TAIKO_A_TX_3_4_TEST_CTL;
+			init_bit_shift = 7;
+			break;
+		case TAIKO_A_CDC_TX_4_GAIN:
+			adc_reg = TAIKO_A_TX_3_4_TEST_CTL;
+			init_bit_shift = 6;
+			break;
+		case TAIKO_A_CDC_TX_5_GAIN:
+			adc_reg = TAIKO_A_TX_5_6_TEST_CTL;
+			init_bit_shift = 7;
+			break;
+		case TAIKO_A_CDC_TX_6_GAIN:
+			adc_reg = TAIKO_A_TX_5_6_TEST_CTL;
+			init_bit_shift = 6;
+			break;
+		default:
+			pr_err("%s: Error, invalid adc register\n", __func__);
+			return -EINVAL;
+		}
 	}
 
 	switch (event) {
@@ -1838,9 +1871,7 @@ static int taiko_codec_enable_adc(struct snd_soc_dapm_widget *w,
 				1 << init_bit_shift);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
-
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		taiko_codec_enable_adc_block(codec, 0);
@@ -4299,27 +4330,14 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 			       taiko_codec_enable_micbias,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			       SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_ADC_E("ADC1", NULL, TAIKO_A_TX_1_2_EN, 7, 0,
-		taiko_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC3"),
-	SND_SOC_DAPM_ADC_E("ADC3", NULL, TAIKO_A_TX_3_4_EN, 7, 0,
-		taiko_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC4"),
-	SND_SOC_DAPM_ADC_E("ADC4", NULL, TAIKO_A_TX_3_4_EN, 3, 0,
-		taiko_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC5"),
-	SND_SOC_DAPM_ADC_E("ADC5", NULL, TAIKO_A_TX_5_6_EN, 7, 0,
-		taiko_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_INPUT("AMIC6"),
-	SND_SOC_DAPM_ADC_E("ADC6", NULL, TAIKO_A_TX_5_6_EN, 3, 0,
-		taiko_codec_enable_adc, SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_MUX_E("DEC1 MUX", TAIKO_A_CDC_CLK_TX_CLK_EN_B1_CTL, 0, 0,
 		&dec1_mux, taiko_codec_enable_dec,
@@ -4413,10 +4431,6 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 			       0, taiko_codec_enable_micbias,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			       SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_ADC_E("ADC2", NULL, TAIKO_A_TX_1_2_EN, 3, 0,
-		taiko_codec_enable_adc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_AIF_OUT_E("AIF1 CAP", "AIF1 Capture", 0, SND_SOC_NOPM,
 		AIF1_CAP, 0, taiko_codec_enable_slimtx,
@@ -5067,6 +5081,56 @@ static int taiko_codec_get_buck_mv(struct snd_soc_codec *codec)
 	return buck_volt;
 }
 
+static const struct snd_soc_dapm_widget taiko_1_dapm_widgets[] = {
+	SND_SOC_DAPM_ADC_E("ADC1", NULL, TAIKO_A_TX_1_2_EN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_PRE_PMU |
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC2", NULL, TAIKO_A_TX_1_2_EN, 3, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_PRE_PMU |
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC3", NULL, TAIKO_A_TX_3_4_EN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC4", NULL, TAIKO_A_TX_3_4_EN, 3, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC5", NULL, TAIKO_A_TX_5_6_EN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_ADC_E("ADC6", NULL, TAIKO_A_TX_5_6_EN, 3, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_POST_PMU),
+};
+
+static const struct snd_soc_dapm_widget taiko_2_dapm_widgets[] = {
+	SND_SOC_DAPM_ADC_E("ADC1", NULL, TAIKO_A_CDC_TX_1_GAIN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_PRE_PMU |
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC2", NULL, TAIKO_A_CDC_TX_2_GAIN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_PRE_PMU |
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC3", NULL, TAIKO_A_CDC_TX_3_GAIN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC4", NULL, TAIKO_A_CDC_TX_4_GAIN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_ADC_E("ADC5", NULL, TAIKO_A_CDC_TX_5_GAIN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_ADC_E("ADC6", NULL, TAIKO_A_CDC_TX_6_GAIN, 7, 0,
+			   taiko_codec_enable_adc,
+			   SND_SOC_DAPM_POST_PMU),
+};
+
 static int taiko_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -5178,6 +5242,13 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 			init_waitqueue_head(&taiko->dai[i].dai_wait);
 		}
 	}
+
+	if (TAIKO_IS_1_0(control->version))
+		snd_soc_dapm_new_controls(dapm, taiko_1_dapm_widgets,
+					  ARRAY_SIZE(taiko_1_dapm_widgets));
+	else
+		snd_soc_dapm_new_controls(dapm, taiko_2_dapm_widgets,
+					  ARRAY_SIZE(taiko_2_dapm_widgets));
 
 	control->num_rx_port = TAIKO_RX_MAX;
 	control->rx_chs = ptr;
