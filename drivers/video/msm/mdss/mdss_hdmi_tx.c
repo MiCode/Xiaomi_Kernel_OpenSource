@@ -428,9 +428,6 @@ static int hdmi_tx_sysfs_create(struct hdmi_tx_ctrl *hdmi_ctrl,
 	hdmi_ctrl->kobj = &fbi->dev->kobj;
 	DEV_DBG("%s: sysfs group %p\n", __func__, hdmi_ctrl->kobj);
 
-	kobject_uevent(hdmi_ctrl->kobj, KOBJ_ADD);
-	DEV_DBG("%s: kobject_uevent(KOBJ_ADD)\n", __func__);
-
 	return 0;
 } /* hdmi_tx_sysfs_create */
 
@@ -697,17 +694,13 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 
 	if (hdmi_ctrl->hpd_state) {
 		hdmi_tx_read_sink_info(hdmi_ctrl);
-		DEV_INFO("HDMI HPD: sense CONNECTED: send ONLINE\n");
-		kobject_uevent(hdmi_ctrl->kobj, KOBJ_ONLINE);
 		switch_set_state(&hdmi_ctrl->sdev, 1);
-		DEV_INFO("%s: Hdmi state switch to %d\n", __func__,
-			hdmi_ctrl->sdev.state);
+		DEV_INFO("%s: sense cable CONNECTED: state switch to %d\n",
+			__func__, hdmi_ctrl->sdev.state);
 	} else {
-		DEV_INFO("HDMI HPD: sense DISCONNECTED: send OFFLINE\n");
-		kobject_uevent(hdmi_ctrl->kobj, KOBJ_OFFLINE);
 		switch_set_state(&hdmi_ctrl->sdev, 0);
-		DEV_INFO("%s: Hdmi state switch to %d\n", __func__,
-			hdmi_ctrl->sdev.state);
+		DEV_INFO("%s: sense cable DISCONNECTED: state switch to %d\n",
+			__func__, hdmi_ctrl->sdev.state);
 	}
 
 	if (!completion_done(&hdmi_ctrl->hpd_done))
@@ -2267,8 +2260,6 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 			switch_set_state(&hdmi_ctrl->sdev, 0);
 			DEV_DBG("%s: Hdmi state switch to %d\n", __func__,
 				hdmi_ctrl->sdev.state);
-			DEV_DBG("HDMI HPD: sent fake OFFLINE event\n");
-			kobject_uevent(hdmi_ctrl->kobj, KOBJ_OFFLINE);
 		}
 	}
 
@@ -2488,10 +2479,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 			if (!timeout & !hdmi_ctrl->hpd_state) {
 				DEV_INFO("%s: cable removed during suspend\n",
 					__func__);
-
-				kobject_uevent(hdmi_ctrl->kobj, KOBJ_OFFLINE);
 				switch_set_state(&hdmi_ctrl->sdev, 0);
-
 				rc = -EPERM;
 			} else {
 				DEV_DBG("%s: cable present after resume\n",
