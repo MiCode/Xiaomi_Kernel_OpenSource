@@ -44,6 +44,7 @@ struct afe_ctl {
 	atomic_t mem_map_cal_index;
 	u16 dtmf_gen_rx_portid;
 	struct afe_spkr_prot_calib_get_resp calib_data;
+	int vi_tx_port;
 };
 
 static struct afe_ctl this_afe;
@@ -391,6 +392,7 @@ static int afe_spk_prot_prepare(int port, int param_id,
 		config.pdata.module_id = AFE_MODULE_FB_SPKR_PROT_RX;
 		break;
 	case AFE_PARAM_ID_FEEDBACK_PATH_CFG:
+		this_afe.vi_tx_port = port;
 	case AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG:
 	case AFE_PARAM_ID_MODE_VI_PROC_CFG:
 		config.pdata.module_id = AFE_MODULE_FB_SPKR_PROT_VI_PROC;
@@ -449,7 +451,8 @@ static void afe_send_cal_spkr_prot_tx(int port_id)
 	/*Get spkr protection cfg data*/
 	get_spk_protection_cfg(&prot_cfg);
 
-	if (!prot_cfg.mode || prot_cfg.mode == 1) {
+	if ((!prot_cfg.mode || prot_cfg.mode == 1) &&
+		(this_afe.vi_tx_port == port_id)) {
 		afe_spk_config.mode_rx_cfg.minor_version = 1;
 		afe_spk_config.mode_rx_cfg.mode =
 		(uint32_t)prot_cfg.mode;
