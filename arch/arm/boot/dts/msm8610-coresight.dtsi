@@ -15,7 +15,7 @@
 		compatible = "arm,coresight-tmc";
 		reg = <0xfc326000 0x1000>,
 		      <0xfc37c000 0x3000>;
-		reg-names = "tmc-etr-base", "tmc-etr-bam-base";
+		reg-names = "tmc-base", "bam-base";
 
 		qcom,memory-reservation-type = "EBI1";
 		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
@@ -52,7 +52,7 @@
 	tmc_etf: tmc@fc325000 {
 		compatible = "arm,coresight-tmc";
 		reg = <0xfc325000 0x1000>;
-		reg-names = "tmc-etf-base";
+		reg-names = "tmc-base";
 
 		coresight-id = <3>;
 		coresight-name = "coresight-tmc-etf";
@@ -67,7 +67,7 @@
 	funnel_merg: funnel@fc323000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc323000 0x1000>;
-		reg-names = "funnel-merg-base";
+		reg-names = "funnel-base";
 
 		coresight-id = <4>;
 		coresight-name = "coresight-funnel-merg";
@@ -80,7 +80,7 @@
 	funnel_in0: funnel@fc321000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc321000 0x1000>;
-		reg-names = "funnel-in0-base";
+		reg-names = "funnel-base";
 
 		coresight-id = <5>;
 		coresight-name = "coresight-funnel-in0";
@@ -93,7 +93,7 @@
 	funnel_in1: funnel@fc322000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc322000 0x1000>;
-		reg-names = "funnel-in1-base";
+		reg-names = "funnel-base";
 
 		coresight-id = <6>;
 		coresight-name = "coresight-funnel-in1";
@@ -106,7 +106,7 @@
 	funnel_a7ss: funnel@fc355000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc355000 0x1000>;
-		reg-names = "funnel-a7ss-base";
+		reg-names = "funnel-base";
 
 		coresight-id = <7>;
 		coresight-name = "coresight-funnel-a7ss";
@@ -133,7 +133,7 @@
 	etm0: etm@fc34c000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc34c000 0x1000>;
-		reg-names = "etm0-base";
+		reg-names = "etm-base";
 
 		coresight-id = <9>;
 		coresight-name = "coresight-etm0";
@@ -149,7 +149,7 @@
 	etm1: etm@fc34d000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc34d000 0x1000>;
-		reg-names = "etm1-base";
+		reg-names = "etm-base";
 
 		coresight-id = <10>;
 		coresight-name = "coresight-etm1";
@@ -165,7 +165,7 @@
 	etm2: etm@fc34e000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc34e000 0x1000>;
-		reg-names = "etm2-base";
+		reg-names = "etm-base";
 
 		coresight-id = <11>;
 		coresight-name = "coresight-etm2";
@@ -181,7 +181,7 @@
 	etm3: etm@fc34f000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc34f000 0x1000>;
-		reg-names = "etm3-base";
+		reg-names = "etm-base";
 
 		coresight-id = <12>;
 		coresight-name = "coresight-etm3";
@@ -209,7 +209,7 @@
 	cti0: cti@fc310000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc310000 0x1000>;
-		reg-names = "cti0-base";
+		reg-names = "cti-base";
 
 		coresight-id = <14>;
 		coresight-name = "coresight-cti0";
@@ -219,7 +219,7 @@
 	cti1: cti@fc311000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc311000 0x1000>;
-		reg-names = "cti1-base";
+		reg-names = "cti-base";
 
 		coresight-id = <15>;
 		coresight-name = "coresight-cti1";
@@ -229,7 +229,7 @@
 	cti2: cti@fc312000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc312000 0x1000>;
-		reg-names = "cti2-base";
+		reg-names = "cti-base";
 
 		coresight-id = <16>;
 		coresight-name = "coresight-cti2";
@@ -239,7 +239,7 @@
 	cti3: cti@fc313000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc313000 0x1000>;
-		reg-names = "cti3-base";
+		reg-names = "cti-base";
 
 		coresight-id = <17>;
 		coresight-name = "coresight-cti3";
@@ -249,7 +249,7 @@
 	cti4: cti@fc314000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc314000 0x1000>;
-		reg-names = "cti4-base";
+		reg-names = "cti-base";
 
 		coresight-id = <18>;
 		coresight-name = "coresight-cti4";
@@ -259,7 +259,7 @@
 	cti5: cti@fc315000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc315000 0x1000>;
-		reg-names = "cti5-base";
+		reg-names = "cti-base";
 
 		coresight-id = <19>;
 		coresight-name = "coresight-cti5";
@@ -269,7 +269,7 @@
 	cti6: cti@fc316000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc316000 0x1000>;
-		reg-names = "cti6-base";
+		reg-names = "cti-base";
 
 		coresight-id = <20>;
 		coresight-name = "coresight-cti6";
@@ -279,7 +279,7 @@
 	cti7: cti@fc317000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc317000 0x1000>;
-		reg-names = "cti7-base";
+		reg-names = "cti-base";
 
 		coresight-id = <21>;
 		coresight-name = "coresight-cti7";
@@ -289,7 +289,7 @@
 	cti8: cti@fc318000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc318000 0x1000>;
-		reg-names = "cti8-base";
+		reg-names = "cti-base";
 
 		coresight-id = <22>;
 		coresight-name = "coresight-cti8";
@@ -299,7 +299,7 @@
 	cti_cpu0: cti@fc351000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc351000 0x1000>;
-		reg-names = "cti-cpu0-base";
+		reg-names = "cti-base";
 
 		coresight-id = <23>;
 		coresight-name = "coresight-cti-cpu0";
@@ -309,7 +309,7 @@
 	cti_cpu1: cti@fc352000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc352000 0x1000>;
-		reg-names = "cti-cpu1-base";
+		reg-names = "cti-base";
 
 		coresight-id = <24>;
 		coresight-name = "coresight-cti-cpu1";
@@ -319,7 +319,7 @@
 	cti_cpu2: cti@fc353000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc353000 0x1000>;
-		reg-names = "cti-cpu2-base";
+		reg-names = "cti-base";
 
 		coresight-id = <25>;
 		coresight-name = "coresight-cti-cpu2";
@@ -329,7 +329,7 @@
 	cti_cpu3: cti@fc354000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc354000 0x1000>;
-		reg-names = "cti-cpu3-base";
+		reg-names = "cti-base";
 
 		coresight-id = <26>;
 		coresight-name = "coresight-cti-cpu3";
