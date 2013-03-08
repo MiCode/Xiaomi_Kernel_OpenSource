@@ -118,7 +118,7 @@ int mc_lock_l2_table(struct mc_instance *instance, uint32_t handle);
 /* Unlock l2 table. */
 int mc_unlock_l2_table(struct mc_instance *instance, uint32_t handle);
 /* Return the phys address of l2 table. */
-uint32_t mc_find_l2_table(struct mc_instance *instance, uint32_t handle);
+uint32_t mc_find_l2_table(uint32_t handle, int32_t fd);
 /* Release all used l2 tables to Linux memory space */
 void mc_release_l2_tables(void);
 
