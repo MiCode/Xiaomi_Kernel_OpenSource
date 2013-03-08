@@ -16,7 +16,7 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/uaccess.h>
-#include <linux/android_pmem.h>
+
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
