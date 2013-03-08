@@ -49,3 +49,11 @@
 &stm {
 	qcom,write-64bit;
 };
+
+&sfpb_spinlock {
+	status = "disable";
+};
+
+&ldrex_spinlock {
+	status = "ok";
+};

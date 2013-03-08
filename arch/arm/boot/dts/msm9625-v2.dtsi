@@ -34,3 +34,11 @@
 &ipa_hw {
 	qcom,ipa-hw-ver = <2>; /* IPA h-w revision */
 };
+
+&sfpb_spinlock {
+	status = "disable";
+};
+
+&ldrex_spinlock {
+	status = "ok";
+};
