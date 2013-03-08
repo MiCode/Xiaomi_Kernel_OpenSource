@@ -32,13 +32,30 @@
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
 #include <mach/socinfo.h>
+#include <mach/msm_ipc_logging.h>
 
 #include "smd_private.h"
 
 #define MAX_SMD_TTYS 37
 #define MAX_TTY_BUF_SIZE 2048
 #define MAX_RA_WAKE_LOCK_NAME_LEN 32
+#define SMD_TTY_LOG_PAGES 2
 
+#define SMD_TTY_INFO(buf...) \
+do { \
+	if (smd_tty_log_ctx) { \
+		ipc_log_string(smd_tty_log_ctx, buf); \
+	} \
+} while (0)
+
+#define SMD_TTY_ERR(buf...) \
+do { \
+	if (smd_tty_log_ctx) \
+		ipc_log_string(smd_tty_log_ctx, buf); \
+	pr_err(buf); \
+} while (0)
+
+static void *smd_tty_log_ctx;
 static DEFINE_MUTEX(smd_tty_lock);
 
 static uint smd_tty_modem_wait;
@@ -165,7 +182,9 @@ static void smd_tty_read(unsigned long param)
 			** context here and nobody else could 'steal' our
 			** characters.
 			*/
-			printk(KERN_ERR "OOPS - smd_tty_buffer mismatch?!");
+			SMD_TTY_ERR(
+				"%s - Possible smd_tty_buffer mismatch for %s",
+				__func__, info->ch->name);
 		}
 
 		wake_lock_timeout(&info->wake_lock, HZ / 2);
@@ -299,14 +318,15 @@ static int smd_tty_port_activate(struct tty_port *tport,
 									1000));
 
 				if (res == 0) {
-					pr_err("Timed out waiting for SMD"
-								" channel\n");
+					SMD_TTY_INFO(
+						"Timed out waiting for SMD channel %s",
+						smd_tty[n].smd->port_name);
 					res = -ETIMEDOUT;
 					goto release_pil;
 				} else if (res < 0) {
-					pr_err("Error waiting for SMD channel:"
-									" %d\n",
-						res);
+					SMD_TTY_INFO(
+						"Error waiting for SMD channel %s : %d\n",
+						smd_tty[n].smd->port_name, res);
 					goto release_pil;
 				}
 
@@ -329,8 +349,10 @@ static int smd_tty_port_activate(struct tty_port *tport,
 							&info->ch, info,
 							smd_tty_notify);
 			if (res < 0) {
-				pr_err("%s: %s open failed %d\n", __func__,
-					smd_tty[n].smd->port_name, res);
+				SMD_TTY_INFO(
+					"%s: %s open failed %d\n",
+					__func__, smd_tty[n].smd->port_name,
+					res);
 				goto release_pil;
 			}
 
@@ -340,12 +362,16 @@ static int smd_tty_port_activate(struct tty_port *tport,
 			if (res == 0)
 				res = -ETIMEDOUT;
 			if (res < 0) {
-				pr_err("%s: wait for %s smd_open failed %d\n",
+				SMD_TTY_INFO(
+					"%s: wait for %s smd_open failed %d\n",
 					__func__, smd_tty[n].smd->port_name,
 					res);
 				goto release_pil;
 			}
 			res = 0;
+			SMD_TTY_INFO("%s with PID %u opened port %s",
+				current->comm, current->pid,
+				smd_tty[n].smd->port_name);
 		}
 	}
 
@@ -382,6 +408,9 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 			wake_lock_destroy(&info->wake_lock);
 			wake_lock_destroy(&info->ra_wake_lock);
 		}
+		SMD_TTY_INFO("%s with PID %u closed port %s",
+				current->comm, current->pid,
+				info->smd->port_name);
 		tty->driver_data = 0;
 		del_timer(&info->buf_req_timer);
 		if (info->ch) {
@@ -430,6 +459,8 @@ static int smd_tty_write(struct tty_struct *tty, const unsigned char *buf, int l
 	}
 	if (len > avail)
 		len = avail;
+	SMD_TTY_INFO("[WRITE]: PID %u -> port %s %x bytes",
+			current->pid, info->smd->port_name, len);
 
 	return smd_write(info->ch, buf, len);
 }
@@ -480,6 +511,8 @@ static int smd_tty_tiocmget(struct tty_struct *tty)
 		tiocm |= TIOCM_OUT2;
 		info->in_reset_updated = 0;
 	}
+	SMD_TTY_INFO("PID %u --> %s TIOCM is %x ",
+			current->pid, __func__, tiocm);
 	spin_unlock_irqrestore(&info->reset_lock, flags);
 
 	return tiocm;
@@ -493,6 +526,8 @@ static int smd_tty_tiocmset(struct tty_struct *tty,
 	if (info->in_reset)
 		return -ENETRESET;
 
+	SMD_TTY_INFO("PID %u --> %s Set: %x Clear: %x",
+			current->pid, __func__, set, clear);
 	return smd_tiocmset(info->ch, set, clear);
 }
 
@@ -540,9 +575,23 @@ static int smd_tty_dummy_probe(struct platform_device *pdev)
 			return 0;
 		}
 	}
-	pr_err("%s: unknown device '%s'\n", __func__, pdev->name);
+	SMD_TTY_ERR("[ERR]%s: unknown device '%s'\n", __func__, pdev->name);
 
 	return -ENODEV;
+}
+
+/**
+ * smd_tty_log_init()- Init function for IPC logging
+ *
+ * Initialize the buffer that is used to provide the log information
+ * pertaining to the smd_tty module.
+ */
+static void smd_tty_log_init(void)
+{
+	smd_tty_log_ctx = ipc_log_context_create(SMD_TTY_LOG_PAGES,
+						"smd_tty");
+	if (!smd_tty_log_ctx)
+		pr_err("%s: Unable to create IPC log", __func__);
 }
 
 static struct tty_driver *smd_tty_driver;
@@ -554,9 +603,12 @@ static int __init smd_tty_init(void)
 	int idx;
 	struct tty_port *port;
 
+	smd_tty_log_init();
 	smd_tty_driver = alloc_tty_driver(MAX_SMD_TTYS);
-	if (smd_tty_driver == 0)
+	if (smd_tty_driver == 0) {
+		SMD_TTY_ERR("%s - Driver allocation failed", __func__);
 		return -ENOMEM;
+	}
 
 	smd_tty_driver->owner = THIS_MODULE;
 	smd_tty_driver->driver_name = "smd_tty_driver";
@@ -577,7 +629,7 @@ static int __init smd_tty_init(void)
 	ret = tty_register_driver(smd_tty_driver);
 	if (ret) {
 		put_tty_driver(smd_tty_driver);
-		pr_err("%s: driver registration failed %d\n", __func__, ret);
+		SMD_TTY_ERR("%s: driver registration failed %d", __func__, ret);
 		return ret;
 	}
 
@@ -628,7 +680,8 @@ static int __init smd_tty_init(void)
 		ret = platform_driver_register(&smd_tty[idx].driver);
 
 		if (ret) {
-			pr_err("%s: init failed %d (%d)\n", __func__, idx, ret);
+			SMD_TTY_ERR(
+				"%s: init failed %d (%d)", __func__, idx, ret);
 			smd_tty[idx].driver.probe = NULL;
 			goto out;
 		}
