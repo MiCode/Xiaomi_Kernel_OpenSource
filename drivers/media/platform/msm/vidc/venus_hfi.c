@@ -2044,21 +2044,10 @@ static int venus_hfi_register_iommu_domains(struct venus_hfi_device *device,
 	struct iommu_domain *domain;
 	int rc = 0, i = 0;
 	struct iommu_set *iommu_group_set;
-	struct msm_vidc_iommu_info *io_map;
 	struct iommu_info *iommu_map;
 
 	if (!device || !res)
 		return -EINVAL;
-
-	io_map = device->resources.io_map;
-	strlcpy(io_map[CP_MAP].name, "vidc-cp-map",
-			sizeof(io_map[CP_MAP].name));
-	strlcpy(io_map[CP_MAP].ctx, "venus_cp",
-			sizeof(io_map[CP_MAP].ctx));
-	strlcpy(io_map[NS_MAP].name, "vidc-ns-map",
-			sizeof(io_map[NS_MAP].name));
-	strlcpy(io_map[NS_MAP].ctx, "venus_ns",
-			sizeof(io_map[NS_MAP].ctx));
 
 	iommu_group_set = &device->res->iommu_group_set;
 
@@ -2083,12 +2072,6 @@ static int venus_hfi_register_iommu_domains(struct venus_hfi_device *device,
 				"Failed to get domain index for domain %p",
 				domain);
 			goto fail_group;
-		}
-		if (i < MAX_MAP) {
-			memcpy(io_map[i].addr_range,
-					&res->iommu_maps[i].addr_range,
-					sizeof(u32) * 2);
-			io_map[i].domain = iommu_map->domain;
 		}
 	}
 	return rc;
@@ -2554,32 +2537,19 @@ static void venus_hfi_iommu_detach(struct venus_hfi_device *device)
 	}
 }
 
-static int venus_hfi_get_domain(void *dev, enum msm_vidc_io_maps iomap)
+static int venus_hfi_iommu_get_domain_partition(void *dev, u32 flags,
+			u32 buffer_type, int *domain, int *partition)
 {
 	struct venus_hfi_device *device = dev;
-	if (!device || iomap < CP_MAP || iomap >= MAX_MAP) {
-		dprintk(VIDC_ERR, "%s: Invalid parameter: %p iomap: %d\n",
-				__func__, device, iomap);
-		return -EINVAL;
-	}
-	return device->resources.io_map[iomap].domain;
-}
 
-static int venus_hfi_iommu_get_map(void *dev,
-			struct msm_vidc_iommu_info maps[MAX_MAP])
-{
-	int i = 0;
-	struct venus_hfi_device *device = dev;
-
-	if (!device || !maps) {
-		dprintk(VIDC_ERR, "%s: Invalid param device: %p maps: %p\n",
-		 __func__, device, maps);
+	if (!device) {
+		dprintk(VIDC_ERR, "%s: Invalid param device: %p\n",
+		 __func__, device);
 		return -EINVAL;
 	}
 
-	for (i = 0; i < MAX_MAP; i++)
-		maps[i] = device->resources.io_map[i];
-
+	msm_smem_get_domain_partition(device->hal_client, flags, buffer_type,
+			domain, partition);
 	return 0;
 }
 
@@ -2871,8 +2841,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->alloc_ocmem = venus_hfi_alloc_ocmem;
 	hdev->free_ocmem = venus_hfi_free_ocmem;
 	hdev->is_ocmem_present = venus_hfi_is_ocmem_present;
-	hdev->get_domain = venus_hfi_get_domain;
-	hdev->iommu_get_map = venus_hfi_iommu_get_map;
+	hdev->iommu_get_domain_partition = venus_hfi_iommu_get_domain_partition;
 	hdev->load_fw = venus_hfi_load_fw;
 	hdev->unload_fw = venus_hfi_unload_fw;
 	hdev->get_fw_info = venus_hfi_get_fw_info;

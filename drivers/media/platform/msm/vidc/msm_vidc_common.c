@@ -2298,6 +2298,41 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	return ret;
 };
 
+int msm_comm_get_domain_partition(struct msm_vidc_inst *inst, u32 flags,
+	enum v4l2_buf_type buf_type, int *domain, int *partition)
+{
+	struct hfi_device *hdev;
+	u32 hal_buffer_type = 0;
+	if (!inst || !inst->core || !inst->core->device)
+		return -EINVAL;
+
+	hdev = inst->core->device;
+
+	/*
+	 * TODO: Due to the way in which the underlying smem mechanism
+	 * maps buffer types to corresponding IOMMU domains, we need to
+	 * pass in HAL_BUFFER_OUTPUT for input buffers (and vice versa)
+	 * so that buffers are mapped into the correct domains. In the
+	 * future, we should try to remove this workaround.
+	 */
+	switch (buf_type) {
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		hal_buffer_type = (inst->session_type == MSM_VIDC_ENCODER) ?
+			HAL_BUFFER_INPUT : HAL_BUFFER_OUTPUT;
+		break;
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		hal_buffer_type = (inst->session_type == MSM_VIDC_ENCODER) ?
+			HAL_BUFFER_OUTPUT : HAL_BUFFER_INPUT;
+		break;
+	default:
+		dprintk(VIDC_ERR, "v4l2 buf type not found %d\n", buf_type);
+		return -ENOTSUPP;
+	}
+	return call_hfi_op(hdev, iommu_get_domain_partition,
+		hdev->hfi_device_data, flags, hal_buffer_type, domain,
+		partition);
+};
+
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type)
 {

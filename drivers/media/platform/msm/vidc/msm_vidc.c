@@ -82,18 +82,16 @@ int msm_vidc_wait(void *instance)
 	return rc;
 }
 
-int msm_vidc_get_iommu_maps(void *instance,
-		struct msm_vidc_iommu_info maps[MAX_MAP])
+int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
+		enum v4l2_buf_type buf_type, int *domain, int *partition)
 {
 	struct msm_vidc_inst *inst = instance;
-	struct hfi_device *hdev;
 
-	if (!inst || !maps || !inst->core || !inst->core->device)
+	if (!inst || !inst->core || !inst->core->device)
 		return -EINVAL;
 
-	hdev = inst->core->device;
-
-	return call_hfi_op(hdev, iommu_get_map, hdev->hfi_device_data, maps);
+	return msm_comm_get_domain_partition(inst, flags, buf_type, domain,
+		partition);
 }
 
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)

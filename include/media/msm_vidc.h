@@ -17,20 +17,6 @@ enum session_type {
 	MSM_VIDC_MAX_DEVICES,
 };
 
-struct msm_vidc_iommu_info {
-	u32 addr_range[2];
-	char name[64];
-	char ctx[64];
-	int domain;
-	int partition;
-};
-
-enum msm_vidc_io_maps {
-	NS_MAP,
-	CP_MAP,
-	MAX_MAP
-};
-
 void *msm_vidc_open(int core_id, int session_type);
 int msm_vidc_close(void *instance);
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap);
@@ -50,8 +36,8 @@ int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec);
 int msm_vidc_encoder_cmd(void *instance, struct v4l2_encoder_cmd *enc);
 int msm_vidc_poll(void *instance, struct file *filp,
 		struct poll_table_struct *pt);
-int msm_vidc_get_iommu_maps(void *instance,
-		struct msm_vidc_iommu_info maps[MAX_MAP]);
+int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
+		enum v4l2_buf_type, int *domain, int *partition);
 int msm_vidc_subscribe_event(void *instance,
 		struct v4l2_event_subscription *sub);
 int msm_vidc_unsubscribe_event(void *instance,

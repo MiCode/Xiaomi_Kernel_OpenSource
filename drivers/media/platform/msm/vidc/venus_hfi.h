@@ -164,7 +164,6 @@ struct on_chip_mem {
 
 struct venus_resources {
 	struct msm_vidc_fw fw;
-	struct msm_vidc_iommu_info io_map[MAX_MAP];
 	struct venus_core_clock clock[VCODEC_MAX_CLKS];
 	struct venus_bus_info bus_info;
 	struct on_chip_mem ocmem;
