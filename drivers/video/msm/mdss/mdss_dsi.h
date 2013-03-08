@@ -286,6 +286,8 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds_list *on_cmds;
 	struct dsi_panel_cmds_list *off_cmds;
 	struct dsi_drv_cm_data shared_pdata;
+	u32 pclk_rate;
+	u32 byte_clk_rate;
 };
 
 int dsi_panel_device_register(struct platform_device *pdev,
