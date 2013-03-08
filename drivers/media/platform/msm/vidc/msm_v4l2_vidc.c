@@ -828,6 +828,20 @@ static inline void msm_vidc_free_bus_vectors(
 	}
 }
 
+static inline void msm_vidc_free_iommu_groups(
+			struct msm_vidc_platform_resources *res)
+{
+	kfree(res->iommu_group_set.iommu_maps);
+	res->iommu_group_set.iommu_maps = NULL;
+}
+
+static inline void msm_vidc_free_buffer_usage_table(
+			struct msm_vidc_platform_resources *res)
+{
+	kfree(res->buffer_usage_set.buffer_usage_tbl);
+	res->buffer_usage_set.buffer_usage_tbl = NULL;
+}
+
 static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
@@ -932,7 +946,7 @@ static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
 	reg_set->reg_tbl = kzalloc(reg_set->count *
 			sizeof(*(reg_set->reg_tbl)), GFP_KERNEL);
 	if (!reg_set->reg_tbl) {
-		dprintk(VIDC_ERR, "%s Failed to alloc temp\n",
+		dprintk(VIDC_ERR, "%s Failed to alloc register table\n",
 			__func__);
 		return -ENOMEM;
 	}
@@ -1091,6 +1105,153 @@ err_mem_alloc:
 	return rc;
 }
 
+static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
+{
+	int rc = 0;
+	struct platform_device *pdev = res->pdev;
+	struct device_node *ctx_node;
+	struct iommu_set *iommu_group_set = &res->iommu_group_set;
+	int array_size;
+	int i;
+	struct iommu_info *iommu_map;
+	u32 *buffer_types = NULL;
+
+	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-groups",
+				&array_size)) {
+		dprintk(VIDC_ERR, "Could not find iommu_groups property\n");
+		iommu_group_set->count = 0;
+		rc = -ENOENT;
+		goto err_no_of_node;
+	}
+
+	iommu_group_set->count = array_size / sizeof(u32);
+	if (iommu_group_set->count == 0) {
+		dprintk(VIDC_ERR, "No group present in iommu_groups\n");
+		rc = -ENOENT;
+		goto err_no_of_node;
+	}
+
+	iommu_group_set->iommu_maps = kzalloc(iommu_group_set->count *
+			sizeof(*(iommu_group_set->iommu_maps)), GFP_KERNEL);
+	if (!iommu_group_set->iommu_maps) {
+		dprintk(VIDC_ERR, "%s Failed to alloc iommu_maps\n",
+			__func__);
+		rc = -ENOMEM;
+		goto err_no_of_node;
+	}
+
+	buffer_types = kzalloc(iommu_group_set->count * sizeof(*buffer_types),
+				GFP_KERNEL);
+	if (!buffer_types) {
+		dprintk(VIDC_ERR,
+			"%s Failed to alloc iommu group buffer types\n",
+			__func__);
+		rc = -ENOMEM;
+		goto err_load_groups;
+	}
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,iommu-group-buffer-types", buffer_types,
+			iommu_group_set->count);
+	if (rc) {
+		dprintk(VIDC_ERR,
+		    "%s Failed to read iommu group buffer types\n", __func__);
+		goto err_load_groups;
+	}
+
+	for (i = 0; i < iommu_group_set->count; i++) {
+		iommu_map = &iommu_group_set->iommu_maps[i];
+		ctx_node = of_parse_phandle(pdev->dev.of_node,
+				"qcom,iommu-groups", i);
+		if (!ctx_node) {
+			dprintk(VIDC_ERR, "Unable to parse phandle : %u\n", i);
+			rc = -EBADHANDLE;
+			goto err_load_groups;
+		}
+
+		rc = of_property_read_string(ctx_node, "label",
+				&(iommu_map->name));
+		if (rc) {
+			dprintk(VIDC_ERR, "Could not find label property\n");
+			goto err_load_groups;
+		}
+
+		if (!of_get_property(ctx_node, "qcom,virtual-addr-pool",
+				&array_size)) {
+			dprintk(VIDC_ERR,
+				"Could not find any addr pool for group : %s\n",
+				iommu_map->name);
+			rc = -EBADHANDLE;
+			goto err_load_groups;
+		}
+
+		iommu_map->npartitions = array_size / sizeof(u32) / 2;
+
+		rc = of_property_read_u32_array(ctx_node,
+				"qcom,virtual-addr-pool",
+				(u32 *)iommu_map->addr_range,
+				iommu_map->npartitions * 2);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Could not read addr pool for group : %s\n",
+				iommu_map->name);
+			goto err_load_groups;
+		}
+
+		iommu_map->buffer_type = buffer_types[i];
+		iommu_map->is_secure =
+			of_property_read_bool(ctx_node,	"qcom,secure-domain");
+	}
+	kfree(buffer_types);
+	return 0;
+err_load_groups:
+	kfree(buffer_types);
+	msm_vidc_free_iommu_groups(res);
+err_no_of_node:
+	return rc;
+}
+
+static int msm_vidc_load_buffer_usage_table(
+		struct msm_vidc_platform_resources *res)
+{
+	int rc = 0;
+	struct platform_device *pdev = res->pdev;
+	struct buffer_usage_set *buffer_usage_set = &res->buffer_usage_set;
+
+	buffer_usage_set->count = get_u32_array_num_elements(
+				    pdev, "qcom,buffer-type-tz-usage-table");
+	if (buffer_usage_set->count == 0) {
+		dprintk(VIDC_DBG, "no elements in buffer usage set\n");
+		return 0;
+	}
+
+	buffer_usage_set->buffer_usage_tbl = kzalloc(buffer_usage_set->count *
+			sizeof(*(buffer_usage_set->buffer_usage_tbl)),
+			GFP_KERNEL);
+	if (!buffer_usage_set->buffer_usage_tbl) {
+		dprintk(VIDC_ERR, "%s Failed to alloc buffer usage table\n",
+			__func__);
+		rc = -ENOMEM;
+		goto err_load_buf_usage;
+	}
+
+	rc = of_property_read_u32_array(pdev->dev.of_node,
+		    "qcom,buffer-type-tz-usage-table",
+		(u32 *)buffer_usage_set->buffer_usage_tbl,
+		buffer_usage_set->count *
+		(sizeof(*buffer_usage_set->buffer_usage_tbl)/sizeof(u32)));
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to read buffer usage table\n");
+		goto err_load_buf_usage;
+	}
+
+	return 0;
+err_load_buf_usage:
+	msm_vidc_free_buffer_usage_table(res);
+	return rc;
+}
+
+
 static int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res)
 {
@@ -1127,14 +1288,28 @@ static int read_platform_resources_from_dt(
 		dprintk(VIDC_ERR, "Failed to load reg table: %d\n", rc);
 		goto err_load_reg_table;
 	}
-
 	rc = msm_vidc_load_bus_vectors(res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load bus vectors: %d\n", rc);
 		goto err_load_bus_vectors;
 	}
+	rc = msm_vidc_load_iommu_groups(res);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to load iommu groups: %d\n", rc);
+		goto err_load_iommu_groups;
+	}
+	rc = msm_vidc_load_buffer_usage_table(res);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to load buffer usage table: %d\n", rc);
+		goto err_load_buffer_usage_table;
+	}
 	return rc;
 
+err_load_buffer_usage_table:
+	msm_vidc_free_iommu_groups(res);
+err_load_iommu_groups:
+	msm_vidc_free_bus_vectors(res);
 err_load_bus_vectors:
 	msm_vidc_free_reg_table(res);
 err_load_reg_table:
@@ -1368,6 +1543,8 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 	msm_vidc_free_iommu_maps(&core->resources);
 	msm_vidc_free_reg_table(&core->resources);
 	msm_vidc_free_bus_vectors(&core->resources);
+	msm_vidc_free_iommu_groups(&core->resources);
+	msm_vidc_free_buffer_usage_table(&core->resources);
 	kfree(core);
 	return rc;
 }
