@@ -713,14 +713,7 @@ ENTRY(__switch_to)
 	ldr	r7, [r7, #TSK_STACK_CANARY]
 #endif
 #ifdef CONFIG_CPU_USE_DOMAINS
-#ifdef CONFIG_EMULATE_DOMAIN_MANAGER_V7
-	stmdb	r13!, {r0-r3, lr}
-	mov	r0, r6
-	bl	emulate_domain_manager_set
-	ldmia	r13!, {r0-r3, lr}
-#else
 	mcr	p15, 0, r6, c3, c0, 0		@ Set domain register
-#endif
 #endif
 	mov	r5, r0
 	add	r4, r2, #TI_CPU_SAVE

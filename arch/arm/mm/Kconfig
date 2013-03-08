@@ -588,9 +588,6 @@ config CPU_TLB_V6
 config CPU_TLB_V7
 	bool
 
-config EMULATE_DOMAIN_MANAGER_V7
-	bool
-
 config VERIFY_PERMISSION_FAULT
 	bool
 endif
