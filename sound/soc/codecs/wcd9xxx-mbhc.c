@@ -85,6 +85,8 @@
 #define WCD9XXX_HPHL_STATUS_READY_WAIT_US 1000
 #define WCD9XXX_MUX_SWITCH_READY_WAIT_US 100
 #define WCD9XXX_MEAS_DELTA_MAX_MV 50
+#define WCD9XXX_MEAS_INVALD_RANGE_LOW_MV 20
+#define WCD9XXX_MEAS_INVALD_RANGE_HIGH_MV 80
 #define WCD9XXX_GM_SWAP_THRES_MIN_MV 150
 #define WCD9XXX_GM_SWAP_THRES_MAX_MV 500
 
@@ -1012,6 +1014,20 @@ wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 			 __func__, i, d->dce, vdce, d->_vdces,
 			 d->swap_gnd, d->vddio, d->hphl_status & 0x01,
 			 d->_type);
+
+
+		/*
+		 * If GND and MIC prongs are aligned to HPHR and GND of
+		 * headphone, codec measures the voltage based on
+		 * impedance between HPHR and GND which results in ~80mv.
+		 * Avoid this.
+		 */
+		if (d->_vdces >= WCD9XXX_MEAS_INVALD_RANGE_LOW_MV &&
+		    d->_vdces <= WCD9XXX_MEAS_INVALD_RANGE_HIGH_MV) {
+			pr_debug("%s: within invalid range\n", __func__);
+			type = PLUG_TYPE_INVALID;
+			goto exit;
+		}
 	}
 	if (ch != size && ch > 0) {
 		pr_debug("%s: Invalid, inconsistent HPHL\n", __func__);
