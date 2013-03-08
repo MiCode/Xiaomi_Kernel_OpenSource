@@ -93,7 +93,7 @@ static struct scalable scalable[] __initdata = {
 	},
 };
 
-static struct msm_bus_paths bw_level_tbl[] __initdata = {
+static struct msm_bus_paths bw_level_tbl_v1[] __initdata = {
 	[0] =  BW_MBPS(600), /* At least  75 MHz on bus. */
 	[1] =  BW_MBPS(800), /* At least 100 MHz on bus. */
 	[2] = BW_MBPS(1200), /* At least 150 MHz on bus. */
@@ -102,13 +102,6 @@ static struct msm_bus_paths bw_level_tbl[] __initdata = {
 	[5] = BW_MBPS(3200), /* At least 400 MHz on bus. */
 	[6] = BW_MBPS(4448), /* At least 556 MHz on bus. */
 	[7] = BW_MBPS(6400), /* At least 800 MHz on bus. */
-};
-
-static struct msm_bus_scale_pdata bus_scale_data __initdata = {
-	.usecase = bw_level_tbl,
-	.num_usecases = ARRAY_SIZE(bw_level_tbl),
-	.active_only = 1,
-	.name = "acpuclk-8974",
 };
 
 static struct l2_level l2_freq_tbl_v1[] __initdata = {
@@ -252,6 +245,18 @@ static struct acpu_level acpu_freq_tbl_v1_pvs4[] __initdata = {
 	{ 0, { 0 } }
 };
 
+static struct msm_bus_paths bw_level_tbl_v2[] __initdata = {
+	[0] =  BW_MBPS(600), /* At least  75 MHz on bus. */
+	[1] =  BW_MBPS(800), /* At least 100 MHz on bus. */
+	[2] = BW_MBPS(1200), /* At least 150 MHz on bus. */
+	[3] = BW_MBPS(1600), /* At least 200 MHz on bus. */
+	[4] = BW_MBPS(2456), /* At least 307 MHz on bus. */
+	[5] = BW_MBPS(3680), /* At least 460 MHz on bus. */
+	[6] = BW_MBPS(4912), /* At least 614 MHz on bus. */
+	[7] = BW_MBPS(6400), /* At least 800 MHz on bus. */
+	[8] = BW_MBPS(7448), /* At least 931 MHz on bus. */
+};
+
 static struct l2_level l2_freq_tbl_v2[] __initdata = {
 	[0]  = { {  300000, PLL_0, 0,   0 }, LVL_LOW,   950000, 0 },
 	[1]  = { {  345600, HFPLL, 2,  36 }, LVL_NOM,   950000, 1 },
@@ -270,9 +275,9 @@ static struct l2_level l2_freq_tbl_v2[] __initdata = {
 	[14] = { { 1344000, HFPLL, 1,  70 }, LVL_HIGH, 1050000, 7 },
 	[15] = { { 1420800, HFPLL, 1,  74 }, LVL_HIGH, 1050000, 7 },
 	[16] = { { 1497600, HFPLL, 1,  78 }, LVL_HIGH, 1050000, 7 },
-	[17] = { { 1574400, HFPLL, 1,  82 }, LVL_HIGH, 1050000, 7 },
-	[18] = { { 1651200, HFPLL, 1,  86 }, LVL_HIGH, 1050000, 7 },
-	[19] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 7 },
+	[17] = { { 1574400, HFPLL, 1,  82 }, LVL_HIGH, 1050000, 8 },
+	[18] = { { 1651200, HFPLL, 1,  86 }, LVL_HIGH, 1050000, 8 },
+	[19] = { { 1728000, HFPLL, 1,  90 }, LVL_HIGH, 1050000, 8 },
 	{ }
 };
 
@@ -365,6 +370,13 @@ static struct pvs_table pvs_v2[NUM_SPEED_BINS][NUM_PVS] __initdata = {
 	[1][7] = { acpu_freq_tbl_2p3g_pvs0, sizeof(acpu_freq_tbl_2p3g_pvs0) },
 };
 
+static struct msm_bus_scale_pdata bus_scale_data __initdata = {
+	.usecase = bw_level_tbl_v2,
+	.num_usecases = ARRAY_SIZE(bw_level_tbl_v2),
+	.active_only = 1,
+	.name = "acpuclk-8974",
+};
+
 static struct acpuclk_krait_params acpuclk_8974_params __initdata = {
 	.scalable = scalable,
 	.scalable_size = sizeof(scalable),
@@ -402,6 +414,8 @@ static int __init acpuclk_8974_probe(struct platform_device *pdev)
 	if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) == 1) {
 		acpuclk_8974_params.pvs_tables = pvs_v1;
 		acpuclk_8974_params.l2_freq_tbl = l2_freq_tbl_v1;
+		bus_scale_data.usecase = bw_level_tbl_v1;
+		bus_scale_data.num_usecases = ARRAY_SIZE(bw_level_tbl_v1);
 		acpuclk_8974_params.l2_freq_tbl_size = sizeof(l2_freq_tbl_v1);
 
 		/*
