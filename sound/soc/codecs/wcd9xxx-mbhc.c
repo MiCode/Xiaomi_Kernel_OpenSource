@@ -379,10 +379,14 @@ static void wcd9xxx_codec_switch_cfilt_mode(struct wcd9xxx_mbhc *mbhc,
 static void wcd9xxx_jack_report(struct wcd9xxx_mbhc *mbhc,
 				struct snd_soc_jack *jack, int status, int mask)
 {
-	if (jack == &mbhc->headset_jack)
+	if (jack == &mbhc->headset_jack) {
 		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
 						WCD9XXX_COND_HPH_MIC,
 						status & SND_JACK_MICROPHONE);
+		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
+						WCD9XXX_COND_HPH,
+						status & SND_JACK_HEADPHONE);
+	}
 
 	snd_soc_jack_report_no_dapm(jack, status, mask);
 }
@@ -1632,9 +1636,15 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 	 * While we don't know whether MIC is there or not, let the resmgr know
 	 * so micbias can be disabled temporarily
 	 */
-	if (mbhc->current_plug == PLUG_TYPE_HEADSET)
+	if (mbhc->current_plug == PLUG_TYPE_HEADSET) {
 		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
 						WCD9XXX_COND_HPH_MIC, false);
+		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
+						WCD9XXX_COND_HPH, false);
+	} else if (mbhc->current_plug == PLUG_TYPE_HEADPHONE) {
+		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
+						WCD9XXX_COND_HPH, false);
+	}
 
 	vddio = (mbhc->mbhc_data.micb_mv != VDDIO_MICBIAS_MV &&
 		 mbhc->mbhc_micbias_switched);
@@ -1655,9 +1665,15 @@ static irqreturn_t wcd9xxx_hs_remove_irq(int irq, void *data)
 	if (vddio && (mbhc->current_plug == PLUG_TYPE_HEADSET))
 		__wcd9xxx_switch_micbias(mbhc, 1, true, true);
 
-	if (mbhc->current_plug == PLUG_TYPE_HEADSET)
+	if (mbhc->current_plug == PLUG_TYPE_HEADSET) {
+		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
+						WCD9XXX_COND_HPH, true);
 		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
 						WCD9XXX_COND_HPH_MIC, true);
+	} else if (mbhc->current_plug == PLUG_TYPE_HEADPHONE) {
+		wcd9xxx_resmgr_cond_update_cond(mbhc->resmgr,
+						WCD9XXX_COND_HPH, true);
+	}
 	WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 
 	return IRQ_HANDLED;
