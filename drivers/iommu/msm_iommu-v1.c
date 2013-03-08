@@ -506,27 +506,6 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 	mutex_unlock(&msm_iommu_lock);
 }
 
-static int msm_iommu_ctx_attached(struct device *dev)
-{
-	struct platform_device *pdev;
-	struct device_node *child;
-	struct msm_iommu_ctx_drvdata *ctx;
-
-	for_each_child_of_node(dev->of_node, child) {
-		pdev = of_find_device_by_node(child);
-
-		ctx = dev_get_drvdata(&pdev->dev);
-		if (ctx->attached_domain) {
-			of_dev_put(pdev);
-			of_node_put(child);
-			return 1;
-		}
-		of_dev_put(pdev);
-	}
-
-	return 0;
-}
-
 static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	struct msm_priv *priv;
@@ -574,8 +553,8 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto fail;
 	}
 
-
-	if (!msm_iommu_ctx_attached(dev->parent)) {
+	/* We can only do this once */
+	if (!iommu_drvdata->ctx_attach_count) {
 		if (!is_secure) {
 			iommu_halt(iommu_drvdata);
 			__program_iommu(iommu_drvdata->base);
@@ -603,6 +582,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	list_add(&(ctx_drvdata->attached_elm), &priv->list_attached);
 	ctx_drvdata->attached_domain = domain;
+	++iommu_drvdata->ctx_attach_count;
 
 	mutex_unlock(&msm_iommu_lock);
 
@@ -660,7 +640,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	list_del_init(&ctx_drvdata->attached_elm);
 	ctx_drvdata->attached_domain = NULL;
-
+	BUG_ON(iommu_drvdata->ctx_attach_count == 0);
+	--iommu_drvdata->ctx_attach_count;
 fail:
 	mutex_unlock(&msm_iommu_lock);
 }
