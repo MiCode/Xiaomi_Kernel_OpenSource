@@ -826,10 +826,10 @@ static int qpnp_bsi_send_burst_length(struct qpnp_bsi_chip *chip, int burst_len)
 	/*
 	 * Send burst read length bus commands according to the following:
 	 *
-	 * 256                --> RBL0
-	 * 0-255 = 16 * y + x --> RBEy and RBLx
-	 *		RBE0 does not need to be sent
-	 *		RBL0 does not need to be sent
+	 * 1                     --> No RBE or RBL
+	 * 2  - 15  = x          --> RBLx
+	 * 16 - 255 = 16 * y + x --> RBEy and RBLx (RBL0 not sent)
+	 * 256                   --> RBL0
 	 */
 	if (burst_len == 256) {
 		rc = qpnp_bsi_issue_transaction(chip, BIF_TRANS_BC,
@@ -851,7 +851,7 @@ static int qpnp_bsi_send_burst_length(struct qpnp_bsi_chip *chip, int burst_len)
 			return rc;
 	}
 
-	if (burst_len % 16) {
+	if (burst_len % 16 && burst_len > 1) {
 		rc = qpnp_bsi_issue_transaction(chip, BIF_TRANS_BC,
 					BIF_CMD_RBL + (burst_len % 16));
 		if (rc)
