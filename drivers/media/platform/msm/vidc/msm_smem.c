@@ -22,10 +22,32 @@ struct smem_client {
 	struct msm_vidc_platform_resources *res;
 };
 
+static u32 get_tz_usage(struct smem_client *client, enum hal_buffer buffer_type)
+{
+	int i;
+	struct buffer_usage_set *buffer_usage_set;
+	struct buffer_usage_table *buffer_usage_tbl;
+
+	buffer_usage_set = &client->res->buffer_usage_set;
+	if (!buffer_usage_set) {
+		dprintk(VIDC_DBG, "no buffer usage set present!\n");
+		return 0;
+	}
+
+	for (i = 0; i < buffer_usage_set->count; i++) {
+		buffer_usage_tbl = &buffer_usage_set->buffer_usage_tbl[i];
+		if (buffer_usage_tbl->buffer_type & buffer_type)
+			return buffer_usage_tbl->tz_usage;
+	}
+	dprintk(VIDC_DBG, "No tz usage found for buffer type: %x\n",
+			buffer_type);
+	return 0;
+}
+
 static int get_device_address(struct smem_client *smem_client,
 		struct ion_handle *hndl, unsigned long align,
 		unsigned long *iova, unsigned long *buffer_size,
-		u32 flags, u32 buffer_type)
+		u32 flags, enum hal_buffer buffer_type)
 {
 	int rc = 0;
 	int domain, partition;
@@ -51,7 +73,8 @@ static int get_device_address(struct smem_client *smem_client,
 	}
 
 	if (flags & SMEM_SECURE) {
-		rc = msm_ion_secure_buffer(clnt, hndl, buffer_type, 0);
+		rc = msm_ion_secure_buffer(clnt, hndl,
+			get_tz_usage(smem_client, buffer_type), 0);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to secure memory\n");
 			goto mem_domain_get_failed;
@@ -85,7 +108,7 @@ static void put_device_address(struct ion_client *clnt,
 }
 
 static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
-		struct msm_smem *mem, enum smem_buffer_type buffer_type)
+		struct msm_smem *mem, enum hal_buffer buffer_type)
 {
 	struct ion_handle *hndl;
 	unsigned long iova = 0;
@@ -146,7 +169,7 @@ fail_import_fd:
 }
 
 static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
-	u32 flags, enum smem_buffer_type buffer_type, struct msm_smem *mem,
+	u32 flags, enum hal_buffer buffer_type, struct msm_smem *mem,
 	int map_kernel)
 {
 	struct ion_handle *hndl;
@@ -246,7 +269,7 @@ static void ion_delete_client(struct smem_client *client)
 }
 
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
-		enum smem_buffer_type buffer_type)
+		enum hal_buffer buffer_type)
 {
 	struct smem_client *client = clt;
 	int rc = 0;
@@ -383,7 +406,7 @@ void *msm_smem_new_client(enum smem_type mtype,
 };
 
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
-		enum smem_buffer_type buffer_type, int map_kernel)
+		enum hal_buffer buffer_type, int map_kernel)
 {
 	struct smem_client *client;
 	int rc = 0;
@@ -457,8 +480,8 @@ void msm_smem_delete_client(void *clt)
 	kfree(client);
 }
 
-int msm_smem_get_domain_partition(void *clt, u32 flags, u32 buffer_type,
-					int *domain_num, int *partition_num)
+int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
+		buffer_type, int *domain_num, int *partition_num)
 {
 	struct smem_client *client = clt;
 	struct iommu_set *iommu_group_set = &client->res->iommu_group_set;
@@ -475,10 +498,11 @@ int msm_smem_get_domain_partition(void *clt, u32 flags, u32 buffer_type,
 
 	for (i = 0; i < iommu_group_set->count; i++) {
 		iommu_map = &iommu_group_set->iommu_maps[i];
-		if (iommu_map->is_secure == is_secure) {
+		if ((iommu_map->is_secure == is_secure) &&
+			(iommu_map->buffer_type & buffer_type)) {
 			*domain_num = iommu_map->domain;
 			*partition_num = 0;
-			if ((buffer_type & CMND_QUE) &&
+			if ((buffer_type & HAL_BUFFER_INTERNAL_CMD_QUEUE) &&
 				(iommu_map->npartitions == 2))
 				*partition_num = 1;
 			break;

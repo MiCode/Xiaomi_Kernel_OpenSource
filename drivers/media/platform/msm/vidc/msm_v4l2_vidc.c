@@ -431,7 +431,7 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 		goto exit;
 	}
 	for (i = 0; i < b->length; ++i) {
-		buffer_type = PIXEL;
+		buffer_type = HAL_BUFFER_OUTPUT;
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
 			!b->m.planes[i].length) {
@@ -449,7 +449,7 @@ int msm_v4l2_prepare_buf(struct file *file, void *fh,
 			goto exit;
 		}
 		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-			buffer_type = BITSTREAM;
+			buffer_type = HAL_BUFFER_INPUT;
 
 		temp = get_same_fd_buffer(&v4l2_inst->registered_bufs,
 				b->m.planes[i].reserved[0], &plane);
