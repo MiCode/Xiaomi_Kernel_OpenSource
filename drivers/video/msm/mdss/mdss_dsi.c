@@ -659,7 +659,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		return rc;
 	}
 
-	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 103300000))
+	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 250000000))
 		dsi_pclk_rate = 35000000;
 	mipi->dsi_pclk_rate = dsi_pclk_rate;
 
@@ -789,6 +789,11 @@ int dsi_panel_device_register(struct platform_device *pdev,
 
 	ctrl_pdata->on = panel_data->on;
 	ctrl_pdata->off = panel_data->off;
+
+	ctrl_pdata->pclk_rate = dsi_pclk_rate;
+	ctrl_pdata->byte_clk_rate = panel_data->panel_info.clk_rate / 8;
+	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
+			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
 	pr_debug("%s: Panal data initialized\n", __func__);
 	return 0;
