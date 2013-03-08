@@ -36,6 +36,7 @@ Optional properties :
 - interrupt-names : Optional interrupt resource entries are:
     "hs_phy_irq" : Interrupt from HSPHY for asynchronous events in LPM.
 	This is not used if wakeup events are received externally (e.g. PMIC)
+    "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
 - qcom,otg-capability: If present then depend on PMIC for VBUS notifications,
   otherwise depend on PHY.
 - qcom,charging-disabled: If present then battery charging using USB
