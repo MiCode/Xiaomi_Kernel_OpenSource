@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 
 #include <sound/soc.h>
 #include <sound/jack.h>
+#include <sound/apr_audio-v2.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
 #include "wcd9xxx-mbhc.h"
 #include "wcd9xxx-resmgr.h"
@@ -24,6 +25,10 @@
 
 #define TAIKO_REG_VAL(reg, val)		{reg, 0, val}
 #define TAIKO_MCLK_ID 0
+
+#define TAIKO_REGISTER_START_OFFSET 0x800
+#define TAIKO_SB_PGD_PORT_RX_BASE   0x40
+#define TAIKO_SB_PGD_PORT_TX_BASE   0x50
 
 extern const u8 taiko_reg_readable[TAIKO_CACHE_SIZE];
 extern const u8 taiko_reset_reg_defaults[TAIKO_CACHE_SIZE];
@@ -90,9 +95,62 @@ struct anc_header {
 	u32 num_anc_slots;
 };
 
+struct mad_audio_header {
+	u32 reserved[3];
+	u32 num_reg_cfg;
+};
+
+struct mad_microphone_info {
+	uint8_t input_microphone;
+	uint8_t cycle_time;
+	uint8_t settle_time;
+	uint8_t padding;
+} __packed;
+
+struct mad_micbias_info {
+	uint8_t micbias;
+	uint8_t k_factor;
+	uint8_t external_bypass_capacitor;
+	uint8_t internal_biasing;
+	uint8_t cfilter;
+	uint8_t padding[3];
+} __packed;
+
+struct mad_rms_audio_beacon_info {
+	uint8_t rms_omit_samples;
+	uint8_t rms_comp_time;
+	uint8_t detection_mechanism;
+	uint8_t rms_diff_threshold;
+	uint8_t rms_threshold_lsb;
+	uint8_t rms_threshold_msb;
+	uint8_t padding[2];
+	uint8_t iir_coefficients[36];
+} __packed;
+
+struct mad_rms_ultrasound_info {
+	uint8_t rms_comp_time;
+	uint8_t detection_mechanism;
+	uint8_t rms_diff_threshold;
+	uint8_t rms_threshold_lsb;
+	uint8_t rms_threshold_msb;
+	uint8_t padding[3];
+	uint8_t iir_coefficients[36];
+} __packed;
+
+struct mad_audio_cal {
+	uint32_t version;
+	struct mad_microphone_info microphone_info;
+	struct mad_micbias_info micbias_info;
+	struct mad_rms_audio_beacon_info audio_info;
+	struct mad_rms_audio_beacon_info beacon_info;
+	struct mad_rms_ultrasound_info ultrasound_info;
+} __packed;
+
 extern int taiko_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
 			     bool dapm);
 extern int taiko_hs_detect(struct snd_soc_codec *codec,
 			   struct wcd9xxx_mbhc_config *mbhc_cfg);
+extern void *taiko_get_afe_config(struct snd_soc_codec *codec,
+				  enum afe_config_type config_type);
 
 #endif
