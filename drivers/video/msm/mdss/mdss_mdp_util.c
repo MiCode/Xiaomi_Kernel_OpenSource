@@ -12,7 +12,6 @@
  */
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
-#include <linux/android_pmem.h>
 #include <linux/dma-mapping.h>
 #include <linux/errno.h>
 #include <linux/file.h>
@@ -310,7 +309,6 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 		data->srcp_file = NULL;
 	} else if (data->srcp_file) {
 		pr_debug("pmem buf=0x%x\n", data->addr);
-		put_pmem_file(data->srcp_file);
 		data->srcp_file = NULL;
 	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
 		pr_debug("ion hdl=%p buf=0x%x\n", data->srcp_ihdl, data->addr);
@@ -414,10 +412,6 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 			pr_err("failed to map ion handle (%d)\n", ret);
 			return ret;
 		}
-	} else {
-		unsigned long vstart;
-		ret = get_pmem_file(img->memory_id, start, &vstart, len,
-				    &data->srcp_file);
 	}
 
 	if (!ret && (img->offset < data->len)) {

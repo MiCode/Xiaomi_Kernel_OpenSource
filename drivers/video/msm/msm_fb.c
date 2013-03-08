@@ -38,7 +38,6 @@
 #include <linux/vmalloc.h>
 #include <linux/debugfs.h>
 #include <linux/console.h>
-#include <linux/android_pmem.h>
 #include <linux/leds.h>
 #include <linux/pm_runtime.h>
 #include <linux/sync.h>

@@ -22,7 +22,6 @@
 #include <linux/fb.h>
 #include <linux/msm_mdp.h>
 #include <linux/file.h>
-#include <linux/android_pmem.h>
 #include <linux/major.h>
 
 #include "linux/proc_fs.h"
@@ -548,40 +547,8 @@ static void mdp_ppp_setbg(MDPIBUF *iBuf)
 	  format == MDP_Y_CRCB_H2V2) ?  2 : (format == MDP_Y_CBCR_H2V1 || \
 	  format == MDP_Y_CRCB_H2V1) ?  1 : 1)
 
-#ifdef CONFIG_ANDROID_PMEM
-static void get_len(struct mdp_img *img, struct mdp_rect *rect, uint32_t bpp,
-			uint32_t *len0, uint32_t *len1)
-{
-	*len0 = IMG_LEN(rect->h, img->width, rect->w, bpp);
-	if (IS_PSEUDOPLNR(img->format))
-		*len1 = *len0/Y_TO_CRCB_RATIO(img->format);
-	else
-		*len1 = 0;
-}
-
-static void flush_imgs(struct mdp_blit_req *req, int src_bpp, int dst_bpp,
-			struct file *p_src_file, struct file *p_dst_file)
-{
-	uint32_t src0_len, src1_len;
-
-	if (!(req->flags & MDP_BLIT_NON_CACHED)) {
-		/* flush src images to memory before dma to mdp */
-		get_len(&req->src, &req->src_rect, src_bpp,
-		&src0_len, &src1_len);
-
-		flush_pmem_file(p_src_file,
-		req->src.offset, src0_len);
-
-		if (IS_PSEUDOPLNR(req->src.format))
-			flush_pmem_file(p_src_file,
-				req->src.offset + src0_len, src1_len);
-	}
-
-}
-#else
 static void flush_imgs(struct mdp_blit_req *req, int src_bpp, int dst_bpp,
 			struct file *p_src_file, struct file *p_dst_file) { }
-#endif
 
 static void mdp_start_ppp(struct msm_fb_data_type *mfd, MDPIBUF *iBuf,
 struct mdp_blit_req *req, struct file *p_src_file, struct file *p_dst_file)
@@ -1286,9 +1253,6 @@ int get_img(struct mdp_img *img, struct mdp_blit_req *req,
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 #endif
-#ifdef CONFIG_ANDROID_PMEM
-	unsigned long vstart;
-#endif
 
 	if (req->flags & MDP_MEMORY_ID_TYPE_FB) {
 		file = fget_light(img->memory_id, &put_needed);
@@ -1321,21 +1285,10 @@ int get_img(struct mdp_img *img, struct mdp_blit_req *req,
 			return -EINVAL;
 #endif
 
-#ifdef CONFIG_ANDROID_PMEM
-	if (!get_pmem_file(img->memory_id, start, &vstart, len, srcp_file))
-		return ret;
-	else
-		return -EINVAL;
-#endif
 }
 
 void put_img(struct file *p_src_file, struct ion_handle *p_ihdl)
 {
-#ifdef CONFIG_ANDROID_PMEM
-	if (p_src_file)
-		put_pmem_file(p_src_file);
-#endif
-
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	if (!IS_ERR_OR_NULL(p_ihdl))
 		ion_free(ppp_display_iclient, p_ihdl);
