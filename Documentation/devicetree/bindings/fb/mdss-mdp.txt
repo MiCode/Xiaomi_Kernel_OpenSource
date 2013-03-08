@@ -43,6 +43,11 @@ Required properties
 				previous property, the amount of fetch ids
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-smp-data:		Array of shared memory pool data. There should
+				be only two values in this property. The first
+				value corresponds to the number of smp blocks
+				and the second is the size of each block
+				present in the mdss hardware.
 - qcom,mdss-ctl-off:		Array of offset addresses for the available ctl
 				hw blocks within MDP, these offsets are
 				calculated from register "mdp_phys" defined in
@@ -123,6 +128,7 @@ Example:
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
+		qcom,mdss-smp-data = <22 4096>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;
