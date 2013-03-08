@@ -3463,7 +3463,7 @@ static int taiko_set_interpolator_rate(struct snd_soc_dai *dai,
 					taiko->comp_fs[comp_rx_path[j]]
 					= compander_fs;
 			}
-			if (j <= 2)
+			if (j < 2)
 				rx_mix_1_reg_1 += 3;
 			else
 				rx_mix_1_reg_1 += 2;
