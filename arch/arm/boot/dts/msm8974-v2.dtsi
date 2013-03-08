@@ -19,6 +19,7 @@
 /include/ "msm8974.dtsi"
 /include/ "msm8974-v2-iommu.dtsi"
 /include/ "msm8974-v2-iommu-domains.dtsi"
+/include/ "msm8974-v2-pm.dtsi"
 
 / {
 	android_usb@fe8050c8 {
