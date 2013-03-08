@@ -1963,7 +1963,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		    (mdwc->ext_xceiv.otg_capability || !init)) {
 			mdwc->ext_xceiv.bsv = val->intval;
 			queue_delayed_work(system_nrt_wq,
-							&mdwc->resume_work, 0);
+							&mdwc->resume_work, 20);
 
 			if (!init)
 				init = true;
