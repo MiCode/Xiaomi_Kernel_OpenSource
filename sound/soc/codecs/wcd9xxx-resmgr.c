@@ -688,7 +688,6 @@ int wcd9xxx_resmgr_add_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 {
 	struct wcd9xxx_resmgr_cond_entry *entry;
 
-	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
 	if (!entry)
 		return -ENOMEM;
@@ -697,9 +696,12 @@ int wcd9xxx_resmgr_add_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 	entry->reg = reg;
 	entry->shift = shift;
 	entry->invert = invert;
+
+	WCD9XXX_BCL_LOCK(resmgr);
 	list_add_tail(&entry->list, &resmgr->update_bit_cond_h);
 
 	wcd9xxx_resmgr_cond_trigger_cond(resmgr, cond);
+	WCD9XXX_BCL_UNLOCK(resmgr);
 
 	return 0;
 }
@@ -717,7 +719,7 @@ int wcd9xxx_resmgr_rm_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 	struct wcd9xxx_resmgr_cond_entry *e = NULL;
 
 	pr_debug("%s: enter\n", __func__);
-	WCD9XXX_BCL_ASSERT_LOCKED(resmgr);
+	WCD9XXX_BCL_LOCK(resmgr);
 	list_for_each_safe(l, next, &resmgr->update_bit_cond_h) {
 		e = list_entry(l, struct wcd9xxx_resmgr_cond_entry, list);
 		if (e->reg == reg && e->shift == shift && e->invert == invert) {
@@ -725,10 +727,12 @@ int wcd9xxx_resmgr_rm_cond_update_bits(struct wcd9xxx_resmgr *resmgr,
 					    1 << e->shift,
 					    e->invert << e->shift);
 			list_del(&e->list);
+			WCD9XXX_BCL_UNLOCK(resmgr);
 			kfree(e);
 			return 0;
 		}
 	}
+	WCD9XXX_BCL_UNLOCK(resmgr);
 	pr_err("%s: Cannot find update bit entry reg 0x%x, shift %d\n",
 	       __func__, e ? e->reg : 0, e ? e->shift : 0);
 

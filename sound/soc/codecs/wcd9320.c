@@ -2215,14 +2215,12 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x3, 0x3);
 
-		if (micb_ctl_reg == TAIKO_A_MICB_2_CTL) {
-			WCD9XXX_BCL_LOCK(&taiko->resmgr);
+		if (micb_ctl_reg == TAIKO_A_MICB_2_CTL)
 			wcd9xxx_resmgr_add_cond_update_bits(&taiko->resmgr,
 						  WCD9XXX_COND_HPH_MIC,
 						  micb_ctl_reg, w->shift,
 						  false);
-			WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
-		} else
+		else
 			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
 					    1 << w->shift);
 		break;
@@ -2232,13 +2230,11 @@ static int taiko_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (micb_ctl_reg == TAIKO_A_MICB_2_CTL) {
-			WCD9XXX_BCL_LOCK(&taiko->resmgr);
+		if (micb_ctl_reg == TAIKO_A_MICB_2_CTL)
 			wcd9xxx_resmgr_rm_cond_update_bits(&taiko->resmgr,
 						  WCD9XXX_COND_HPH_MIC,
 						  micb_ctl_reg, 7, false);
-			WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
-		} else
+		else
 			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
 					    0);
 
