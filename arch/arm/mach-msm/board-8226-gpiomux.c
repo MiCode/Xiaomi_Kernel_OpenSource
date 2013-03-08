@@ -114,6 +114,29 @@ static struct msm_gpiomux_config msm_keypad_configs[] __initdata = {
 	},
 };
 
+static struct gpiomux_setting lcd_rst_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct gpiomux_setting lcd_rst_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
+	{
+		.gpio = 25,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &lcd_rst_act_cfg,
+			[GPIOMUX_SUSPENDED] = &lcd_rst_sus_cfg,
+		},
+	}
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 0,		/* BLSP1 QUP1 SPI_DATA_MOSI */
@@ -225,4 +248,6 @@ void __init msm8226_init_gpiomux(void)
 	msm_gpiomux_install(&sd_card_det, 1);
 	msm_gpiomux_install(msm_synaptics_configs,
 			ARRAY_SIZE(msm_synaptics_configs));
+	msm_gpiomux_install_nowrite(msm_lcd_configs,
+			ARRAY_SIZE(msm_lcd_configs));
 }
