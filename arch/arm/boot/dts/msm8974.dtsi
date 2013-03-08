@@ -29,6 +29,10 @@
 	aliases {
 		spi0 = &spi_0;
 		spi7 = &spi_7;
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+		sdhc3 = &sdhc_3; /* SDC3 SDIO slot */
+		sdhc4 = &sdhc_4; /* SDC4 SDIO slot */
 	};
 
 	memory {
@@ -330,6 +334,63 @@
 				<80 512 800000 1600000>, /* 200 MB/s */
 				<80 512 2048000 4096000>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
+		status = "disable";
+	};
+
+	sdhc_1: sdhci@f9824900 {
+		qcom,bus-width = <8>;
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf9824900 0x11c>, <0xf9824000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+		status = "disable";
+	};
+
+	sdhc_2: sdhci@f98a4900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf98a4900 0x11c>, <0xf98a4000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+		interrupts = <0 125 0>, <0 221 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <4>;
+		status = "disable";
+	};
+
+	sdhc_3: sdhci@f9864900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf9864900 0x11c>, <0xf9864000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+		interrupts = <0 127 0>, <0 224 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+		gpios = <&msmgpio 40 0>, /* CLK */
+			<&msmgpio 39 0>, /* CMD */
+			<&msmgpio 38 0>, /* DATA0 */
+			<&msmgpio 37 0>, /* DATA1 */
+			<&msmgpio 36 0>, /* DATA2 */
+			<&msmgpio 35 0>; /* DATA3 */
+		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+
+		qcom,bus-width = <4>;
+		status = "disable";
+	};
+
+	sdhc_4: sdhci@f98e4900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf98e4900 0x11c>, <0xf98e4000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+		interrupts = <0 129 0>, <0 227 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+		gpios = <&msmgpio 93 0>, /* CLK */
+			<&msmgpio 91 0>, /* CMD */
+			<&msmgpio 96 0>, /* DATA0 */
+			<&msmgpio 95 0>, /* DATA1 */
+			<&msmgpio 94 0>, /* DATA2 */
+			<&msmgpio 92 0>; /* DATA3 */
+		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+
+		qcom,bus-width = <4>;
 		status = "disable";
 	};
 
