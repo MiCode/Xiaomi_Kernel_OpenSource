@@ -485,6 +485,7 @@ static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
+	case SNDRV_PCM_FMTBIT_SPECIAL:
 		dai_data->port_config.i2s.bit_width = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
@@ -560,6 +561,7 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
+	case SNDRV_PCM_FMTBIT_SPECIAL:
 		dai_data->port_config.slim_sch.bit_width = 16;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
