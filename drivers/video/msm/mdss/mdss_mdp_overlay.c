@@ -236,7 +236,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_format_params *fmt;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_mixer *mixer = NULL;
-	u32 pipe_type, mixer_mux, len;
+	u32 pipe_type, mixer_mux, len, src_format;
 	int ret;
 
 	if (mfd == NULL || mfd->ctl == NULL)
@@ -255,9 +255,13 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		return -ENOTSUPP;
 	}
 
-	fmt = mdss_mdp_get_format_params(req->src.format);
+	src_format = req->src.format;
+	if (req->flags & MDP_SOURCE_ROTATED_90)
+		src_format = mdss_mdp_get_rotator_dst_format(src_format);
+
+	fmt = mdss_mdp_get_format_params(src_format);
 	if (!fmt) {
-		pr_err("invalid pipe format %d\n", req->src.format);
+		pr_err("invalid pipe format %d\n", src_format);
 		return -EINVAL;
 	}
 
