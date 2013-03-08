@@ -24,16 +24,12 @@ Required properties:
 - reg-names : names corresponding to each reg property value. The reg-names that
 	need to be used with corresponding compatible string for a coresight device
 	are:
-	- for coresight tmc-etr device:
+	- for coresight tmc-etr or tmc-etf device:
 		compatible : should be "arm,coresight-tmc"
 		reg-names  : should be:
-			"tmc-etr-base" - physical base address of tmc-etr registers
-			"tmc-etr-bam-base" - physical base address of tmc-etr bam
-				 registers
-	- for coresight tmc-etf device:
-		compatible : should be "arm,coresight-tmc"
-		reg-names  : should be:
-			"tmc-etf-base" - physical base address of tmc-etf registers
+			"tmc-base" - physical base address of tmc configuration
+				registers
+			"bam-base" - physical base address of tmc-etr bam registers
 	- for coresight tpiu device:
 		compatible : should be "arm,coresight-tpiu"
 		reg-names  : should be:
@@ -41,24 +37,22 @@ Required properties:
 	- for coresight replicator device
 		compatible : should be "qcom,coresight-replicator"
 		reg-names  : should be:
-			"replicator-base" - physical base address of replicator registers
+			"replicator-base" - physical base address of replicator
+				registers
 	- for coresight funnel devices
 		compatible : should be "arm,coresight-funnel"
 		reg-names  : should be:
-			"funnel-<val>-base" - physical base address of funnel registers
-				where <val> can be "merg", "in0", "in1", "kpss", "a7ss" or
-				"mmss"
+			"funnel-base" - physical base address of funnel registers
 	- for coresight stm trace device
 		compatible : should be "arm,coresight-stm"
 		reg-names  : should be:
-			"stm-base" - physical base address of stm registers
+			"stm-base" - physical base address of stm configuration
+				registers
 			"stm-data-base" - physical base address of stm data registers
 	- for coresight etm trace devices
 		compatible : should be "arm,coresight-etm"
 		reg-names  : should be:
-			"etm<num>-base" - physical base address of etm registers in
-				general where <num> is the number of etm components or cores
-				present for more than one cpu core
+			"etm-base" - physical base address of etm registers
 	- for coresight csr device:
 		compatible : should be "qcom,coresight-csr"
 		reg-names  : should be:
@@ -66,12 +60,7 @@ Required properties:
 	- for coresight cti devices:
 		compatible : should be "arm,coresight-cti"
 		reg-names  : should be:
-			"cti<num>-base" - physical base address of cti registers in general
-				 where <num> is the cti component number for more than one
-				 cti components
-			"cti-cpu<num>-base" - physical base address of cti cpu registers
-				 where <num> is the component number for more than one cpu core
-			"cti-l2" - physical base address of L2 cti registers
+			"cti<num>-base" - physical base address of cti registers
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
@@ -107,7 +96,7 @@ Examples:
 		compatible = "arm,coresight-tmc";
 		reg = <0xfc322000 0x1000>,
 		      <0xfc37c000 0x3000>;
-		reg-names = "tmc-etr-base", "tmc-etr-bam-base";
+		reg-names = "tmc-base", "bam-base";
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
@@ -129,7 +118,7 @@ Examples:
 	funnel_merg: funnel@fc31b000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc31b000 0x1000>;
-		reg-names = "funnel-merg-base";
+		reg-names = "funnel-base";
 
 		coresight-id = <4>;
 		coresight-name = "coresight-funnel-merg";
@@ -142,7 +131,7 @@ Examples:
 	funnel_in0: funnel@fc319000 {
 		compatible = "arm,coresight-funnel";
 		reg = <0xfc319000 0x1000>;
-		reg-names = "funnel-in0-base";
+		reg-names = "funnel-base";
 
 		coresight-id = <5>;
 		coresight-name = "coresight-funnel-in0";
@@ -170,7 +159,7 @@ Examples:
 	etm0: etm@fc33c000 {
 		compatible = "arm,coresight-etm";
 		reg = <0xfc33c000 0x1000>;
-		reg-names = "etm0-base";
+		reg-names = "etm-base";
 
 		coresight-id = <10>;
 		coresight-name = "coresight-etm0";
@@ -186,7 +175,7 @@ Examples:
 	cti0: cti@fc308000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc308000 0x1000>;
-		reg-names = "cti0-base";
+		reg-names = "cti-base";
 
 		coresight-id = <15>;
 		coresight-name = "coresight-cti0";
@@ -196,7 +185,7 @@ Examples:
 	cti1: cti@fc309000 {
 		compatible = "arm,coresight-cti";
 		reg = <0xfc309000 0x1000>;
-		reg-names = "cti1-base";
+		reg-names = "cti-base";
 
 		coresight-id = <16>;
 		coresight-name = "coresight-cti1";
