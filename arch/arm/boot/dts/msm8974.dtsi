@@ -344,6 +344,7 @@
 		reg-names = "hc_mem", "core_mem";
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
+		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 		status = "disable";
 	};
 
