@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,18 @@ struct mdss_mdp_rotator_session {
 
 	struct list_head head;
 };
+
+static inline u32 mdss_mdp_get_rotator_dst_format(u32 in_format)
+{
+	switch (in_format) {
+	case MDP_Y_CBCR_H2V2_VENUS:
+		return MDP_Y_CBCR_H2V2;
+	case MDP_Y_CR_CB_GH2V2:
+		return MDP_Y_CR_CB_H2V2;
+	default:
+		return in_format;
+	}
+}
 
 struct mdss_mdp_rotator_session *mdss_mdp_rotator_session_alloc(void);
 struct mdss_mdp_rotator_session *mdss_mdp_rotator_session_get(u32 session_id);

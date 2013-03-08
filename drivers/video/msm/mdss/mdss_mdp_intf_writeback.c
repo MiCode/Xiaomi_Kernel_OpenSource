@@ -265,12 +265,12 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	if (ctx->rot90) {
 		ctx->opmode |= BIT(5); /* ROT 90 */
 		swap(ctx->width, ctx->height);
+		ctx->format = mdss_mdp_get_rotator_dst_format(rot->format);
+	} else {
+		ctx->format = rot->format;
 	}
 
-	if (mdss_mdp_writeback_format_setup(ctx))
-		return -EINVAL;
-
-	return 0;
+	return mdss_mdp_writeback_format_setup(ctx);
 }
 
 static int mdss_mdp_writeback_stop(struct mdss_mdp_ctl *ctl)
