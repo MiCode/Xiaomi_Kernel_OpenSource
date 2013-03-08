@@ -62,7 +62,7 @@
 #define WLED_OP_FDBCK_MASK		0x07
 #define WLED_OP_FDBCK_BIT_SHFT		0x00
 
-#define WLED_MAX_LEVEL			255
+#define WLED_MAX_LEVEL			4095
 #define WLED_8_BIT_MASK			0xFF
 #define WLED_4_BIT_MASK			0x0F
 #define WLED_8_BIT_SHFT			0x08
@@ -365,8 +365,8 @@ static void qpnp_dump_regs(struct qpnp_led_data *led, u8 regs[], u8 array_size)
 
 static int qpnp_wled_set(struct qpnp_led_data *led)
 {
-	int rc, duty;
-	u8 level, val, i, num_wled_strings;
+	int rc, duty, level;
+	u8 val, i, num_wled_strings;
 
 	level = led->cdev.brightness;
 
