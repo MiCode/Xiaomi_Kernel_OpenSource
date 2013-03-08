@@ -314,7 +314,7 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 	return rc;
 
 set_fmt_fail:
-	kfree(sp->vb2_q.drv_priv);
+	kzfree(sp->vb2_q.drv_priv);
 	return rc;
 }
 
@@ -445,7 +445,7 @@ static int camera_v4l2_fh_release(struct file *filep)
 		v4l2_fh_exit(&sp->fh);
 	}
 
-	kfree(sp);
+	kzfree(sp);
 	return 0;
 }
 
@@ -479,7 +479,7 @@ static void camera_v4l2_vb2_q_release(struct file *filep)
 {
 	struct camera_v4l2_private *sp = filep->private_data;
 
-	kfree(sp->vb2_q.drv_priv);
+	kzfree(sp->vb2_q.drv_priv);
 	vb2_queue_release(&sp->vb2_q);
 }
 
@@ -687,14 +687,14 @@ register_fail:
 entity_fail:
 	media_device_unregister(v4l2_dev->mdev);
 media_fail:
-	kfree(v4l2_dev->mdev);
+	kzfree(v4l2_dev->mdev);
 mdev_fail:
 #endif
-	kfree(v4l2_dev);
+	kzfree(v4l2_dev);
 v4l2_fail:
 	video_device_release(pvdev->vdev);
 video_fail:
-	kfree(pvdev);
+	kzfree(pvdev);
 init_end:
 	return rc;
 }

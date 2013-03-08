@@ -77,7 +77,7 @@ static void *msm_vb2_dma_contig_get_userptr(void *alloc_ctx,
 
 static void msm_vb2_dma_contig_put_userptr(void *buf_priv)
 {
-	kfree(buf_priv);
+	kzfree(buf_priv);
 }
 
 static struct vb2_mem_ops msm_vb2_get_q_mem_op = {
