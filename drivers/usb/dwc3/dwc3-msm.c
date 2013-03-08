@@ -185,6 +185,8 @@ struct dwc3_msm {
 	struct usb_phy		*otg_xceiv;
 	struct delayed_work	chg_work;
 	enum usb_chg_state	chg_state;
+	int			pmic_id_irq;
+	struct work_struct	id_work;
 	struct qpnp_adc_tm_usbid_param	adc_param;
 	struct delayed_work	init_adc_work;
 	bool			id_adc_detect;
@@ -2066,19 +2068,36 @@ static void dwc3_ext_notify_online(int on)
 		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
 }
 
-static bool dwc3_ext_trigger_handled(struct dwc3_msm *mdwc,
-				     enum dwc3_id_state id)
+static void dwc3_id_work(struct work_struct *w)
 {
-	int ret;
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, id_work);
 
-	if (!usb_ext)
-		return false;
+	/* Give external client a chance to handle */
+	if (!mdwc->ext_inuse) {
+		if (usb_ext) {
+			int ret = usb_ext->notify(usb_ext->ctxt, mdwc->id_state,
+						  dwc3_ext_notify_online);
+			dev_dbg(mdwc->dev, "%s: external handler returned %d\n",
+				__func__, ret);
+			mdwc->ext_inuse = (ret == 0);
+		}
+	}
 
-	ret = usb_ext->notify(usb_ext->ctxt, id, dwc3_ext_notify_online);
-	dev_dbg(mdwc->dev, "%s: external event handler returned %d\n", __func__,
-			ret);
-	mdwc->ext_inuse = ret == 0;
-	return mdwc->ext_inuse;
+	if (!mdwc->ext_inuse) { /* notify OTG */
+		mdwc->ext_xceiv.id = mdwc->id_state;
+		dwc3_resume_work(&mdwc->resume_work.work);
+	}
+}
+
+static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
+{
+	struct dwc3_msm *mdwc = data;
+
+	/* If we can't read ID line state for some reason, treat it as float */
+	mdwc->id_state = !!irq_read_line(irq);
+	queue_work(system_nrt_wq, &mdwc->id_work);
+
+	return IRQ_HANDLED;
 }
 
 static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
@@ -2093,10 +2112,6 @@ static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 	dev_dbg(mdwc->dev, "%s: state = %s\n", __func__,
 			state == ADC_TM_HIGH_STATE ? "high" : "low");
 
-	/* Give external client a chance to handle */
-	if (!mdwc->ext_inuse)
-		dwc3_ext_trigger_handled(mdwc, (state == ADC_TM_HIGH_STATE));
-
 	/* save ID state, but don't necessarily notify OTG */
 	if (state == ADC_TM_HIGH_STATE) {
 		mdwc->id_state = DWC3_ID_FLOAT;
@@ -2106,13 +2121,10 @@ static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 		mdwc->adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
 	}
 
+	dwc3_id_work(&mdwc->id_work);
+
 	/* re-arm ADC interrupt */
 	qpnp_adc_tm_usbid_configure(&mdwc->adc_param);
-
-	if (!mdwc->ext_inuse) { /* notify OTG */
-		mdwc->ext_xceiv.id = mdwc->id_state;
-		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
-	}
 }
 
 static void dwc3_init_adc_work(struct work_struct *w)
@@ -2196,6 +2208,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&msm->chg_work, dwc3_chg_detect_work);
 	INIT_DELAYED_WORK(&msm->resume_work, dwc3_resume_work);
 	INIT_WORK(&msm->restart_usb_work, dwc3_restart_usb_work);
+	INIT_WORK(&msm->id_work, dwc3_id_work);
 	INIT_DELAYED_WORK(&msm->init_adc_work, dwc3_init_adc_work);
 
 	msm->xo_clk = clk_get(&pdev->dev, "xo");
@@ -2366,10 +2379,26 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		}
 		enable_irq_wake(msm->hs_phy_irq);
 	}
+
 	if (msm->ext_xceiv.otg_capability) {
-		/* Use ADC for ID pin detection */
-		queue_delayed_work(system_nrt_wq, &msm->init_adc_work, 0);
-		device_create_file(&pdev->dev, &dev_attr_adc_enable);
+		msm->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
+		if (msm->pmic_id_irq > 0) {
+			ret = devm_request_irq(&pdev->dev, msm->pmic_id_irq,
+					       dwc3_pmic_id_irq,
+					       IRQF_TRIGGER_RISING |
+					       IRQF_TRIGGER_FALLING,
+					       "dwc3_msm_pmic_id", msm);
+			if (ret) {
+				dev_err(&pdev->dev, "irqreq IDINT failed\n");
+				goto disable_hs_ldo;
+			}
+			enable_irq_wake(msm->pmic_id_irq);
+		} else {
+			/* If no PMIC ID IRQ, use ADC for ID pin detection */
+			queue_work(system_nrt_wq, &msm->init_adc_work.work);
+			device_create_file(&pdev->dev, &dev_attr_adc_enable);
+			msm->pmic_id_irq = 0;
+		}
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
