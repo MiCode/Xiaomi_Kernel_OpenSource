@@ -3038,7 +3038,7 @@ static irqreturn_t msm_otg_irq(int irq, void *data)
 		set_bit(A_SRP_DET, &motg->inputs);
 		set_bit(A_BUS_REQ, &motg->inputs);
 		work = 1;
-	} else if (otgsc & OTGSC_BSVIS) {
+	} else if ((otgsc & OTGSC_BSVIE) && (otgsc & OTGSC_BSVIS)) {
 		writel_relaxed(otgsc, USB_OTGSC);
 		/*
 		 * BSV interrupt comes when operating as an A-device
