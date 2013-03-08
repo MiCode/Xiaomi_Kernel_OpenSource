@@ -44,10 +44,18 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- gpios - specifies gpios assigned for sdhc slot.
 	- qcom,gpio-names -  a list of strings that map in order to the list of gpios
 
+	A slot has either gpios or dedicated tlmm pins as represented below.
+	- qcom,pad-pull-on - Active pull configuration for sdc tlmm pins
+	- qcom,pad-pull-off - Suspend pull configuration for sdc tlmm pins.
+	- qcom,pad-drv-on - Active drive strength configuration for sdc tlmm pins.
+	- qcom,pad-drv-off - Suspend drive strength configuration for sdc tlmm pins.
+	Tlmm pins are specified as <clk cmd data>
+
 Example:
 
 	aliases {
 		sdhc1 = &sdhc_1;
+		sdhc2 = &sdhc_2;
 	};
 
 	sdhc_1: qcom,sdhc@f9824900 {
@@ -78,4 +86,22 @@ Example:
 			<&msmgpio 36 0>, /* DATA2 */
 			<&msmgpio 35 0>; /* DATA3 */
 		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+	};
+
+	sdhc_2: qcom,sdhc@f98a4900 {
+		compatible = "qcom,sdhci-msm";
+                reg = <0xf9824900 0x11c>, <0xf9824000 0x800>;
+                reg-names = "hc_mem", "core_mem";
+                interrupts = <0 123 0>, <0 138 0>;
+                interrupt-names = "hc_irq", "pwr_irq";
+
+		vdd-supply = <&pm8941_l21>;
+		vdd-io-supply = <&pm8941_l13>;
+
+                qcom,bus-width = <4>;
+
+		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
+		qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
+		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 	};
