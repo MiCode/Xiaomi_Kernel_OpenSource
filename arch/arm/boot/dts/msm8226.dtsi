@@ -593,6 +593,12 @@
 		reg = <0xfc834000 0x7000>;
 		interrupts = <0 29 1>;
 	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
+	};
 };
 
 &gdsc_venus {
