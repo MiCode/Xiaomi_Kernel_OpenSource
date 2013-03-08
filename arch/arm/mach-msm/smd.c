@@ -172,13 +172,13 @@ static struct interrupt_config private_intr_config[NUM_SMD_SUBSYSTEMS] = {
 };
 
 struct smem_area {
-	void *phys_addr;
-	unsigned size;
+	phys_addr_t phys_addr;
+	resource_size_t size;
 	void __iomem *virt_addr;
 };
 static uint32_t num_smem_areas;
 static struct smem_area *smem_areas;
-static void *smem_range_check(void *base, unsigned offset);
+static void *smem_range_check(phys_addr_t base, unsigned offset);
 
 struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
 
@@ -2365,11 +2365,11 @@ EXPORT_SYMBOL(smd_is_pkt_avail);
  * @base: physical base address to check
  * @offset: offset from the base to get the final address
  */
-static void *smem_range_check(void *base, unsigned offset)
+static void *smem_range_check(phys_addr_t base, unsigned offset)
 {
 	int i;
-	void *phys_addr;
-	unsigned size;
+	phys_addr_t phys_addr;
+	resource_size_t size;
 
 	for (i = 0; i < num_smem_areas; ++i) {
 		phys_addr = smem_areas[i].phys_addr;
@@ -2464,7 +2464,7 @@ void *smem_get_entry(unsigned id, unsigned *size)
 			ret = (void *) (MSM_SHARED_RAM_BASE + toc[id].offset);
 		else
 			ret = smem_range_check(
-				(void *)(toc[id].reserved & BASE_ADDR_MASK),
+				toc[id].reserved & BASE_ADDR_MASK,
 				toc[id].offset);
 	} else {
 		*size = 0;
@@ -3466,10 +3466,10 @@ int smd_core_platform_init(struct platform_device *pdev)
 				(unsigned long)(smem_areas[smem_idx].phys_addr),
 				smem_areas[smem_idx].size);
 			if (!smem_areas[smem_idx].virt_addr) {
-				pr_err("%s: ioremap_nocache() of addr:%p"
-					" size: %x\n", __func__,
-					smem_areas[smem_idx].phys_addr,
-					smem_areas[smem_idx].size);
+				pr_err("%s: ioremap_nocache() of addr: %pa size: %pa\n",
+					__func__,
+					&smem_areas[smem_idx].phys_addr,
+					&smem_areas[smem_idx].size);
 				err_ret = -ENOMEM;
 				++smem_idx;
 				goto smem_failed;
@@ -3712,8 +3712,8 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 	char *key;
 	struct resource *r;
 	void *irq_out_base;
-	void *aux_mem_base;
-	uint32_t aux_mem_size;
+	phys_addr_t aux_mem_base;
+	resource_size_t aux_mem_size;
 	int temp_string_size = 11; /* max 3 digit count */
 	char temp_string[temp_string_size];
 	int count;
@@ -3721,6 +3721,7 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 	int ret;
 	const char *compatible;
 	int subnode_num = 0;
+	resource_size_t irq_out_size;
 
 	disable_smsm_reset_handshake = 1;
 
@@ -3730,7 +3731,13 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 		pr_err("%s: missing '%s'\n", __func__, key);
 		return -ENODEV;
 	}
-	irq_out_base = (void *)(r->start);
+	irq_out_size = resource_size(r);
+	irq_out_base = ioremap_nocache(r->start, irq_out_size);
+	if (!irq_out_base) {
+		pr_err("%s: ioremap_nocache() of irq_out_base addr:%pr size:%pr\n",
+				__func__, &r->start, &irq_out_size);
+		return -ENOMEM;
+	}
 	SMD_DBG("%s: %s = %p", __func__, key, irq_out_base);
 
 	count = 1;
@@ -3766,20 +3773,20 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 								temp_string);
 			if (!r)
 				break;
-			aux_mem_base = (void *)(r->start);
-			aux_mem_size = (uint32_t)(resource_size(r));
-			SMD_DBG("%s: %s = %p %x", __func__, temp_string,
-					aux_mem_base, aux_mem_size);
+			aux_mem_base = r->start;
+			aux_mem_size = resource_size(r);
+			SMD_DBG("%s: %s = %pa %pa", __func__, temp_string,
+					&aux_mem_base, &aux_mem_size);
 			smem_areas[count - 1].phys_addr = aux_mem_base;
 			smem_areas[count - 1].size = aux_mem_size;
 			smem_areas[count - 1].virt_addr = ioremap_nocache(
 				(unsigned long)(smem_areas[count-1].phys_addr),
 				smem_areas[count - 1].size);
 			if (!smem_areas[count - 1].virt_addr) {
-				pr_err("%s: ioremap_nocache() of addr:%p size: %x\n",
+				pr_err("%s: ioremap_nocache() of addr:%pa size: %pa\n",
 					__func__,
-					smem_areas[count - 1].phys_addr,
-					smem_areas[count - 1].size);
+					&smem_areas[count - 1].phys_addr,
+					&smem_areas[count - 1].size);
 				ret = -ENOMEM;
 				goto free_smem_areas;
 			}
