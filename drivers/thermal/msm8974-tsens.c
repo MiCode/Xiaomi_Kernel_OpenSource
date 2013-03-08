@@ -616,7 +616,8 @@ static int tsens_calib_8x26_sensors(void)
 	calib_data[5] = readl_relaxed(
 			(TSENS_EEPROM_8X26_2(tmdev->tsens_calib_addr)) + 0x8);
 
-	tsens_calibration_mode = calib_data[5] & TSENS_8X26_TSENS_CAL_SEL;
+	tsens_calibration_mode = (calib_data[5] & TSENS_8X26_TSENS_CAL_SEL)
+			>> TSENS_8X26_CAL_SEL_SHIFT;
 
 	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
 		(tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2)) {
