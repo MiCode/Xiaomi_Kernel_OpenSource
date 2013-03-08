@@ -940,10 +940,6 @@ void __init sanity_check_meminfo(void)
 	find_memory_hole();
 #endif
 
-#if (defined CONFIG_HIGHMEM) && (defined CONFIG_FIX_MOVABLE_ZONE)
-	if (movable_reserved_size && __pa(vmalloc_min) > movable_reserved_start)
-		vmalloc_min = __va(movable_reserved_start);
-#endif
 	for (i = 0, j = 0; i < meminfo.nr_banks; i++) {
 		struct membank *bank = &meminfo.bank[j];
 		*bank = meminfo.bank[i];

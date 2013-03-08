@@ -135,29 +135,6 @@ void * __init alloc_bootmem_aligned(unsigned long size, unsigned long alignment)
 	return (void *)addr;
 }
 
-int (*change_memory_power)(u64, u64, int);
-
-int platform_physical_remove_pages(u64 start, u64 size)
-{
-	if (!change_memory_power)
-		return 0;
-	return change_memory_power(start, size, MEMORY_DEEP_POWERDOWN);
-}
-
-int platform_physical_active_pages(u64 start, u64 size)
-{
-	if (!change_memory_power)
-		return 0;
-	return change_memory_power(start, size, MEMORY_ACTIVE);
-}
-
-int platform_physical_low_power_pages(u64 start, u64 size)
-{
-	if (!change_memory_power)
-		return 0;
-	return change_memory_power(start, size, MEMORY_SELF_REFRESH);
-}
-
 char *memtype_name[] = {
 	"SMI_KERNEL",
 	"SMI",
