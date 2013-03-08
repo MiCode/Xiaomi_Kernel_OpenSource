@@ -2477,7 +2477,11 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		mutex_unlock(&dev_priv->device->mutex);
 	}
 
-	if (ret == 0 && (cmd & IOC_OUT)) {
+	/*
+	 * Still copy back on failure, but assume function took
+	 * all necessary precautions sanitizing the return values.
+	 */
+	if (cmd & IOC_OUT) {
 		if (copy_to_user((void __user *) arg, uptr, _IOC_SIZE(cmd)))
 			ret = -EFAULT;
 	}
