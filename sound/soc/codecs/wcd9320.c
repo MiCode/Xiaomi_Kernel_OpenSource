@@ -5173,7 +5173,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	taiko->clsh_d.buck_mv = taiko_codec_get_buck_mv(codec);
-	wcd9xxx_clsh_init(&taiko->clsh_d);
+	wcd9xxx_clsh_init(&taiko->clsh_d, &taiko->resmgr);
 
 	/* init and start mbhc */
 	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec);
