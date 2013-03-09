@@ -60,6 +60,8 @@ static void __iomem *virt_bases[N_BASES];
 #define gpll0_mm_source_val 5
 #define dsipll_750_mm_source_val 1
 #define dsipll_667_mm_source_val 1
+#define dsipll0_byte_mm_source_val 1
+#define dsipll0_pixel_mm_source_val 1
 
 #define gpll1_hsic_source_val 4
 
@@ -1801,21 +1803,36 @@ static struct rcg_clk jpeg0_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_mdss_pclk0_clk[] = {
-	F_MDSS(  83000000, dsipll_667,   8,    0,    0),
-	F_MDSS( 166000000, dsipll_667,   4,    0,    0),
-	F_END
+static struct branch_clk mdss_ahb_clk;
+static struct clk dsipll0_byte_clk_src = {
+	.depends = &mdss_ahb_clk.c,
+	.parent = &xo.c,
+	.dbg_name = "dsipll0_byte_clk_src",
+	.ops = &clk_ops_dsi_byte_pll,
+	CLK_INIT(dsipll0_byte_clk_src),
+};
+
+static struct clk dsipll0_pixel_clk_src = {
+	.depends = &mdss_ahb_clk.c,
+	.parent = &xo.c,
+	.dbg_name = "dsipll0_pixel_clk_src",
+	.ops = &clk_ops_dsi_pixel_pll,
+	CLK_INIT(dsipll0_pixel_clk_src),
+};
+
+static struct clk_freq_tbl pixel_freq = {
+	.src_clk = &dsipll0_pixel_clk_src,
+	.div_src_val = BVAL(10, 8, dsipll0_pixel_mm_source_val),
 };
 
 static struct rcg_clk pclk0_clk_src = {
 	.cmd_rcgr_reg = PCLK0_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_mdss_pclk0_clk,
-	.current_freq = &rcg_dummy_freq,
+	.current_freq = &pixel_freq,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
+		.parent = &dsipll0_pixel_clk_src,
 		.dbg_name = "pclk0_clk_src",
-		.ops = &clk_ops_rcg_mnd,
+		.ops = &clk_ops_pixel,
 		VDD_DIG_FMAX_MAP2(LOW, 83330000, NOMINAL, 166670000),
 		CLK_INIT(pclk0_clk_src.c),
 	},
@@ -1990,21 +2007,19 @@ static struct rcg_clk cpp_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_mdss_byte0_clk[] = {
-	F_MDSS(  62500000, dsipll_750,  12,    0,    0),
-	F_MDSS( 125000000, dsipll_750,   6,    0,    0),
-	F_END
+static struct clk_freq_tbl byte_freq = {
+	.src_clk = &dsipll0_byte_clk_src,
+	.div_src_val = BVAL(10, 8, dsipll0_byte_mm_source_val),
 };
 
 static struct rcg_clk byte0_clk_src = {
 	.cmd_rcgr_reg = BYTE0_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_mdss_byte0_clk,
-	.current_freq = &rcg_dummy_freq,
+	.current_freq = &byte_freq,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
+		.parent = &dsipll0_byte_clk_src,
 		.dbg_name = "byte0_clk_src",
-		.ops = &clk_ops_rcg,
+		.ops = &clk_ops_byte,
 		VDD_DIG_FMAX_MAP2(LOW, 62500000, NOMINAL, 125000000),
 		CLK_INIT(byte0_clk_src.c),
 	},
@@ -3463,6 +3478,12 @@ static void __init msm8226_clock_pre_init(void)
 	enable_rpm_scaling();
 
 	reg_init();
+
+	/*
+	 * MDSS needs the ahb clock and needs to init before we register the
+	 * lookup table.
+	 */
+	mdss_clk_ctrl_pre_init(&mdss_ahb_clk.c);
 }
 
 static int __init msm8226_clock_late_init(void)
