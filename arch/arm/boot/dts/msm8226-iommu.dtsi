@@ -50,8 +50,6 @@
 
 &mdp_iommu {
 	status = "ok";
-	/* HACK: set to -1 during pre-si due to lack of TZ */
-	qcom,iommu-secure-id = <0xFFFFFFFF>;
 
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2050
@@ -94,8 +92,6 @@
 
 &venus_iommu {
 	status = "ok";
-	/* HACK: set to -1 during pre-si due to lack of TZ */
-	qcom,iommu-secure-id = <0xFFFFFFFF>;
 
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2050
