@@ -302,6 +302,7 @@ config ARCH_MSMZINC
 	select SPARSE_IRQ
 	select REGULATOR
 	select ARM_HAS_SG_CHAIN
+	select ARCH_DMA_ADDR_T_64BIT if ARM_LPAE
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
