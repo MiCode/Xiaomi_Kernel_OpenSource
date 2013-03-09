@@ -718,7 +718,8 @@ int dsi_panel_device_register(struct platform_device *pdev,
 			pr_err("request reset gpio failed, rc=%d\n",
 				rc);
 			gpio_free(ctrl_pdata->rst_gpio);
-			gpio_free(ctrl_pdata->disp_en_gpio);
+			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+				gpio_free(ctrl_pdata->disp_en_gpio);
 			return -ENODEV;
 		}
 	}
@@ -782,7 +783,7 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		devm_kfree(&pdev->dev, ctrl_pdata);
 		if (ctrl_pdata->rst_gpio)
 			gpio_free(ctrl_pdata->rst_gpio);
-		if (ctrl_pdata->disp_en_gpio)
+		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		return rc;
 	}
