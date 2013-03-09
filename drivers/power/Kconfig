@@ -432,6 +432,7 @@ config QPNP_CHARGER
 	tristate "QPNP Charger driver"
 	depends on SPMI
 	depends on OF_SPMI
+	depends on THERMAL_QPNP_ADC_TM
 	help
 	  Say Y here to enable the switch mode battery charger
 	  and boost device which supports USB detection and charging. The driver
