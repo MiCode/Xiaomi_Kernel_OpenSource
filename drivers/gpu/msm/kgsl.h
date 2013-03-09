@@ -158,7 +158,7 @@ struct kgsl_memdesc {
 	void *hostptr; /* kernel virtual address */
 	unsigned long useraddr; /* userspace address */
 	unsigned int gpuaddr;
-	unsigned int physaddr;
+	phys_addr_t physaddr;
 	unsigned int size;
 	unsigned int priv; /* Internal flags and settings */
 	struct scatterlist *sg;
