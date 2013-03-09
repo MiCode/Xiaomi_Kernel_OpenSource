@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <asm/mach-types.h>
 #include <asm/cputype.h>
 #include "avs.h"
+#include "spm.h"
 
 u32 avs_get_avscsr(void)
 {
@@ -72,7 +73,10 @@ static void avs_enable_local(void *data)
 
 static void avs_disable_local(void *data)
 {
+	int cpu = smp_processor_id();
+
 	avs_set_avscsr(0);
+	msm_spm_set_vdd(cpu, msm_spm_get_vdd(cpu));
 }
 
 void avs_enable(int cpu, u32 avsdscr)
