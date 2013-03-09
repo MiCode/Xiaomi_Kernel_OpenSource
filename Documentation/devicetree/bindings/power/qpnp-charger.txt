@@ -26,7 +26,6 @@ Parent node required properties:
 - qcom,chg-vddmax-mv:			Target voltage of battery in mV.
 - qcom,chg-vddsafe-mv:			Maximum Vdd voltage in mV.
 - qcom,chg-vinmin-mv:			Minimum input voltage in mV.
-- qcom,chg-vbatdet-mv:			Battery charging resume voltage in mV.
 - qcom,chg-ibatmax-ma:			Maximum battery charge current in mA
 - qcom,chg-ibatterm-ma:			Current at which charging is terminated.
 - qcom,chg-ibatsafe-ma:			Safety battery current setting
@@ -36,6 +35,7 @@ Parent node required properties:
 Parent node optional properties:
 - qcom,chg-maxinput-usb-ma:		Maximum input current USB.
 - qcom,chg-maxinput-dc-ma:		Maximum input current DC.
+- qcom,chg-vbatdet-delta-mv:		Battery charging resume delta.
 - qcom,chg-charging-disabled:		Set this property to disable charging
 					by default. This can then be overriden
 					writing the the module parameter
@@ -44,6 +44,16 @@ Parent node optional properties:
 					battery temperature of 250 decidegree
 					Celsius, state of charge to be 50%
 					and disable charging.
+- qcom,chg-warm-bat-degc:		Warm battery temperature in degC.
+- qcom,chg-cool-bat-degc:		Cool battery temperature in degC.
+					Note that if both warm and cool battery
+					temperatures are set, the corresponding
+					ibatmax and bat-mv properties are
+					required to be set.
+- qcom,chg-ibatmax-cool-ma:		Maximum cool battery charge current.
+- qcom,chg-ibatmax-warm-ma:		Maximum warm battery charge current.
+- qcom,chg-warm-bat-mv:			Warm temperature battery target voltage.
+- qcom,chg-cool-bat-mv:			Cool temperature battery target voltage.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
@@ -132,11 +142,17 @@ Example:
 		qcom,chg-vddmax-mv = <4200>;
 		qcom,chg-vddsafe-mv = <4200>;
 		qcom,chg-vinmin-mv = <4200>;
-		qcom,chg-vbatdet-mv = <4200>;
 		qcom,chg-ibatmax-ma = <1500>;
 		qcom,chg-ibatterm-ma = <200>;
 		qcom,chg-ibatsafe-ma = <1500>;
 		qcom,chg-thermal-mitigation = <1500 700 600 325>;
+		qcom,chg-cool-bat-degc = <10>;
+		qcom,chg-cool-bat-mv = <4100>;
+		qcom,chg-ibatmax-warm-ma = <350>;
+		qcom,chg-warm-bat-degc = <45>;
+		qcom,chg-warm-bat-mv = <4100>;
+		qcom,chg-ibatmax-cool-ma = <350>;
+		qcom,chg-vbatdet-delta-mv = <60>;
 
 		qcom,chg-chgr@1000 {
 			reg = <0x1000 0x100>;
