@@ -624,6 +624,148 @@ static enum handoff local_vote_clk_handoff(struct clk *c)
 	return HANDOFF_ENABLED_CLK;
 }
 
+static enum handoff byte_rcg_handoff(struct clk *clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	u32 div_val;
+	unsigned long pre_div_rate, parent_rate = clk_get_rate(clk->parent);
+
+	/* If the pre-divider is used, find the rate after the division */
+	div_val = readl_relaxed(CFG_RCGR_REG(rcg)) & CFG_RCGR_DIV_MASK;
+	if (div_val > 1)
+		pre_div_rate = parent_rate / ((div_val + 1) >> 1);
+	else
+		pre_div_rate = parent_rate;
+
+	clk->rate = pre_div_rate;
+
+	if (readl_relaxed(CMD_RCGR_REG(rcg)) & CMD_RCGR_ROOT_STATUS_BIT)
+		return HANDOFF_DISABLED_CLK;
+
+	return HANDOFF_ENABLED_CLK;
+}
+
+static int set_rate_byte(struct clk *clk, unsigned long rate)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	struct clk *pll = clk->parent;
+	unsigned long source_rate, div;
+	struct clk_freq_tbl *byte_freq = rcg->current_freq;
+	int rc;
+
+	if (rate == 0)
+		return -EINVAL;
+
+	rc = clk_set_rate(pll, rate);
+	if (rc)
+		return rc;
+
+	source_rate = clk_round_rate(pll, rate);
+	if ((2 * source_rate) % rate)
+		return -EINVAL;
+
+	div = ((2 * source_rate)/rate) - 1;
+	if (div > CFG_RCGR_DIV_MASK)
+		return -EINVAL;
+
+	byte_freq->div_src_val &= ~CFG_RCGR_DIV_MASK;
+	byte_freq->div_src_val |= BVAL(4, 0, div);
+	set_rate_hid(rcg, byte_freq);
+
+	return 0;
+}
+
+static enum handoff pixel_rcg_handoff(struct clk *clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	u32 div_val, mval, nval, cfg_regval;
+	unsigned long pre_div_rate, parent_rate = clk_get_rate(clk->parent);
+
+	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
+
+	/* If the pre-divider is used, find the rate after the division */
+	div_val = cfg_regval & CFG_RCGR_DIV_MASK;
+	if (div_val > 1)
+		pre_div_rate = parent_rate / ((div_val + 1) >> 1);
+	else
+		pre_div_rate = parent_rate;
+
+	clk->rate = pre_div_rate;
+
+	/* If MND is used, find the rate after the MND division */
+	if ((cfg_regval & MND_MODE_MASK) == MND_DUAL_EDGE_MODE_BVAL) {
+		mval = readl_relaxed(M_REG(rcg));
+		nval = readl_relaxed(N_REG(rcg));
+		if (!nval)
+			return HANDOFF_DISABLED_CLK;
+		nval = (~nval) + mval;
+		clk->rate = (pre_div_rate * mval) / nval;
+	}
+
+	if (readl_relaxed(CMD_RCGR_REG(rcg)) & CMD_RCGR_ROOT_STATUS_BIT)
+		return HANDOFF_DISABLED_CLK;
+
+	return HANDOFF_ENABLED_CLK;
+}
+
+static int set_rate_pixel(struct clk *clk, unsigned long rate)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	struct clk *pll = clk->parent;
+	unsigned long source_rate, div;
+	struct clk_freq_tbl *pixel_freq = rcg->current_freq;
+	int rc;
+
+	if (rate == 0)
+		return -EINVAL;
+
+	rc = clk_set_rate(pll, rate);
+	if (rc)
+		return rc;
+
+	source_rate = clk_round_rate(pll, rate);
+	if ((2 * source_rate) % rate)
+		return -EINVAL;
+
+	div = ((2 * source_rate)/rate) - 1;
+	if (div > CFG_RCGR_DIV_MASK)
+		return -EINVAL;
+
+	pixel_freq->div_src_val &= ~CFG_RCGR_DIV_MASK;
+	pixel_freq->div_src_val |= BVAL(4, 0, div);
+	set_rate_mnd(rcg, pixel_freq);
+
+	return 0;
+}
+
+/*
+ * Unlike other clocks, the HDMI rate is adjusted through PLL
+ * re-programming. It is also routed through an HID divider.
+ */
+static int rcg_clk_set_rate_hdmi(struct clk *c, unsigned long rate)
+{
+	struct clk_freq_tbl *nf;
+	struct rcg_clk *rcg = to_rcg_clk(c);
+	int rc;
+
+	for (nf = rcg->freq_tbl; nf->freq_hz != rate; nf++)
+		if (nf->freq_hz == FREQ_END) {
+			rc = -EINVAL;
+			goto out;
+		}
+
+	rc = clk_set_rate(nf->src_clk, rate);
+	if (rc < 0)
+		goto out;
+	set_rate_hid(rcg, nf);
+
+	rcg->current_freq = nf;
+	c->parent = nf->src_clk;
+out:
+	return rc;
+}
+
+
 struct clk_ops clk_ops_empty;
 
 struct clk_ops clk_ops_rcg = {
@@ -642,6 +784,32 @@ struct clk_ops clk_ops_rcg_mnd = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_mnd_clk_handoff,
 	.get_parent = rcg_mnd_clk_get_parent,
+};
+
+struct clk_ops clk_ops_pixel = {
+	.enable = rcg_clk_prepare,
+	.set_rate = set_rate_pixel,
+	.list_rate = rcg_clk_list_rate,
+	.round_rate = rcg_clk_round_rate,
+	.handoff = pixel_rcg_handoff,
+};
+
+struct clk_ops clk_ops_byte = {
+	.enable = rcg_clk_prepare,
+	.set_rate = set_rate_byte,
+	.list_rate = rcg_clk_list_rate,
+	.round_rate = rcg_clk_round_rate,
+	.handoff = byte_rcg_handoff,
+};
+
+struct clk_ops clk_ops_rcg_hdmi = {
+	.enable = rcg_clk_prepare,
+	.set_rate = rcg_clk_set_rate_hdmi,
+	.set_rate = rcg_clk_set_rate,
+	.list_rate = rcg_clk_list_rate,
+	.round_rate = rcg_clk_round_rate,
+	.handoff = rcg_clk_handoff,
+	.get_parent = rcg_clk_get_parent,
 };
 
 struct clk_ops clk_ops_branch = {
