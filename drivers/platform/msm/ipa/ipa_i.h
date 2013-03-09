@@ -41,6 +41,7 @@
 #endif
 
 #define WLAN_AMPDU_TX_EP (15)
+#define WLAN_PROD_TX_EP (19)
 #define MAX_NUM_EXCP	 (8)
 #define MAX_NUM_IMM_CMD	 (17)
 

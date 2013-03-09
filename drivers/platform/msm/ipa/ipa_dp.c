@@ -530,6 +530,7 @@ int ipa_handle_rx_core(bool process_all, bool in_poll_state)
 	int cnt = 0;
 	struct completion *compl;
 	struct ipa_tree_node *node;
+	unsigned int src_pipe;
 
 	while ((in_poll_state ? atomic_read(&ipa_ctx->curr_polling_state) :
 				!atomic_read(&ipa_ctx->curr_polling_state))) {
@@ -572,10 +573,11 @@ int ipa_handle_rx_core(bool process_all, bool in_poll_state)
 
 		mux_hdr = (struct ipa_a5_mux_hdr *)rx_skb->data;
 
+		src_pipe = mux_hdr->src_pipe_index;
+
 		IPADBG("RX pkt len=%d IID=0x%x src=%d, flags=0x%x, meta=0x%x\n",
 			rx_skb->len, ntohs(mux_hdr->interface_id),
-			mux_hdr->src_pipe_index,
-			mux_hdr->flags, ntohl(mux_hdr->metadata));
+			src_pipe, mux_hdr->flags, ntohl(mux_hdr->metadata));
 
 		IPA_DUMP_BUFF(rx_skb->data, 0, rx_skb->len);
 
@@ -611,20 +613,26 @@ int ipa_handle_rx_core(bool process_all, bool in_poll_state)
 			continue;
 		}
 
-		if (unlikely(mux_hdr->src_pipe_index >= IPA_NUM_PIPES ||
-			!ipa_ctx->ep[mux_hdr->src_pipe_index].valid ||
-			!ipa_ctx->ep[mux_hdr->src_pipe_index].client_notify)) {
+		/*
+		 * Any packets arriving over AMPDU_TX should be dispatched
+		 * to the regular WLAN RX data-path.
+		 */
+		if (unlikely(src_pipe == WLAN_AMPDU_TX_EP))
+			src_pipe = WLAN_PROD_TX_EP;
+
+		if (unlikely(src_pipe >= IPA_NUM_PIPES ||
+			!ipa_ctx->ep[src_pipe].valid ||
+			!ipa_ctx->ep[src_pipe].client_notify)) {
 			IPAERR("drop pipe=%d ep_valid=%d client_notify=%p\n",
-			  mux_hdr->src_pipe_index,
-			  ipa_ctx->ep[mux_hdr->src_pipe_index].valid,
-			  ipa_ctx->ep[mux_hdr->src_pipe_index].client_notify);
+			  src_pipe, ipa_ctx->ep[src_pipe].valid,
+			  ipa_ctx->ep[src_pipe].client_notify);
 			dev_kfree_skb(rx_skb);
 			ipa_replenish_rx_cache();
 			++cnt;
 			continue;
 		}
 
-		ep = &ipa_ctx->ep[mux_hdr->src_pipe_index];
+		ep = &ipa_ctx->ep[src_pipe];
 		pull_len = sizeof(struct ipa_a5_mux_hdr);
 
 		/*
