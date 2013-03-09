@@ -1489,10 +1489,12 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			pr_debug("failed setting ibatmax rc=%d\n", rc);
 			return rc;
 		}
-		rc = qpnp_chg_ibatterm_set(chip, chip->term_current);
-		if (rc) {
-			pr_debug("failed setting ibatterm rc=%d\n", rc);
-			return rc;
+		if (chip->term_current) {
+			rc = qpnp_chg_ibatterm_set(chip, chip->term_current);
+			if (rc) {
+				pr_debug("failed setting ibatterm rc=%d\n", rc);
+				return rc;
+			}
 		}
 		rc = qpnp_chg_ibatsafe_set(chip, chip->safe_current);
 		if (rc) {
@@ -1503,10 +1505,10 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		rc = qpnp_chg_masked_write(chip, chip->chgr_base + 0x62,
 			0xFF, 0xA0, 1);
 
-		/* HACK: use analog EOC */
+		/* HACK: use digital EOC */
 		rc = qpnp_chg_masked_write(chip, chip->chgr_base +
 			CHGR_IBAT_TERM_CHGR,
-			0x80, 0x80, 1);
+			0x88, 0x80, 1);
 
 		enable_irq_wake(chip->chg_fastchg_irq);
 		enable_irq_wake(chip->chg_trklchg_irq);

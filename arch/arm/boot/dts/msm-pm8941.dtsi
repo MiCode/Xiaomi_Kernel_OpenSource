@@ -167,7 +167,6 @@
 			qcom,chg-vddsafe-mv = <4200>;
 			qcom,chg-vinmin-mv = <4200>;
 			qcom,chg-ibatmax-ma = <1500>;
-			qcom,chg-ibatterm-ma = <200>;
 			qcom,chg-ibatsafe-ma = <1500>;
 			qcom,chg-thermal-mitigation = <1500 700 600 325>;
 			qcom,chg-cool-bat-degc = <10>;
