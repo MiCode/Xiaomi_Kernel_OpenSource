@@ -87,7 +87,7 @@ struct acdb_data {
 	atomic64_t			mem_len;
 
 	/* Speaker protection */
-	struct acdb_spk_prot_cfg spk_prot_cfg;
+	struct msm_spk_prot_cfg spk_prot_cfg;
 };
 
 static struct acdb_data		acdb_data;
@@ -770,7 +770,7 @@ void get_sidetone_cal(struct sidetone_cal *cal_data)
 done:
 	return;
 }
-void get_spk_protection_cfg(struct acdb_spk_prot_cfg *prot_cfg)
+void get_spk_protection_cfg(struct msm_spk_prot_cfg *prot_cfg)
 {
 	mutex_lock(&acdb_data.acdb_mutex);
 	if (prot_cfg) {
@@ -781,7 +781,7 @@ void get_spk_protection_cfg(struct acdb_spk_prot_cfg *prot_cfg)
 		pr_err("%s prot_cfg is NULL\n", __func__);
 	mutex_unlock(&acdb_data.acdb_mutex);
 }
-static void get_spk_protection_status(struct acdb_spk_prot_status *status)
+static void get_spk_protection_status(struct msm_spk_prot_status *status)
 {
 	/*Call AFE function here to query the status*/
 	struct afe_spkr_prot_get_vi_calib calib_resp;
@@ -912,7 +912,7 @@ static long acdb_ioctl(struct file *f,
 	uint32_t		topology;
 	uint32_t		data[MAX_IOCTL_DATA];
 	struct msm_spk_prot_status prot_status;
-	struct acdb_spk_prot_status acdb_spk_status;
+	struct msm_spk_prot_status acdb_spk_status;
 	pr_debug("%s\n", __func__);
 
 	switch (cmd) {
