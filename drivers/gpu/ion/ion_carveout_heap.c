@@ -241,25 +241,78 @@ int ion_carveout_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
 			void *vaddr, unsigned int offset, unsigned int length,
 			unsigned int cmd)
 {
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t);
+	void (*outer_cache_op)(phys_addr_t, phys_addr_t) = NULL;
 	struct ion_carveout_heap *carveout_heap =
 	     container_of(heap, struct  ion_carveout_heap, heap);
+	unsigned int size_to_vmap, total_size;
+	int i, j;
+	void *ptr = NULL;
+	ion_phys_addr_t buff_phys = buffer->priv_phys;
 
-	switch (cmd) {
-	case ION_IOC_CLEAN_CACHES:
-		dmac_clean_range(vaddr, vaddr + length);
-		outer_cache_op = outer_clean_range;
-		break;
-	case ION_IOC_INV_CACHES:
-		dmac_inv_range(vaddr, vaddr + length);
-		outer_cache_op = outer_inv_range;
-		break;
-	case ION_IOC_CLEAN_INV_CACHES:
-		dmac_flush_range(vaddr, vaddr + length);
-		outer_cache_op = outer_flush_range;
-		break;
-	default:
-		return -EINVAL;
+	if (!vaddr) {
+		/*
+		 * Split the vmalloc space into smaller regions in
+		 * order to clean and/or invalidate the cache.
+		 */
+		size_to_vmap = ((VMALLOC_END - VMALLOC_START)/8);
+		total_size = buffer->size;
+
+		for (i = 0; i < total_size; i += size_to_vmap) {
+			size_to_vmap = min(size_to_vmap, total_size - i);
+			for (j = 0; j < 10 && size_to_vmap; ++j) {
+				ptr = ioremap(buff_phys, size_to_vmap);
+				if (ptr) {
+					switch (cmd) {
+					case ION_IOC_CLEAN_CACHES:
+						dmac_clean_range(ptr,
+							ptr + size_to_vmap);
+						outer_cache_op =
+							outer_clean_range;
+						break;
+					case ION_IOC_INV_CACHES:
+						dmac_inv_range(ptr,
+							ptr + size_to_vmap);
+						outer_cache_op =
+							outer_inv_range;
+						break;
+					case ION_IOC_CLEAN_INV_CACHES:
+						dmac_flush_range(ptr,
+							ptr + size_to_vmap);
+						outer_cache_op =
+							outer_flush_range;
+						break;
+					default:
+						return -EINVAL;
+					}
+					buff_phys += size_to_vmap;
+					break;
+				} else {
+					size_to_vmap >>= 1;
+				}
+			}
+			if (!ptr) {
+				pr_err("Couldn't io-remap the memory\n");
+				return -EINVAL;
+			}
+			iounmap(ptr);
+		}
+	} else {
+		switch (cmd) {
+		case ION_IOC_CLEAN_CACHES:
+			dmac_clean_range(vaddr, vaddr + length);
+			outer_cache_op = outer_clean_range;
+			break;
+		case ION_IOC_INV_CACHES:
+			dmac_inv_range(vaddr, vaddr + length);
+			outer_cache_op = outer_inv_range;
+			break;
+		case ION_IOC_CLEAN_INV_CACHES:
+			dmac_flush_range(vaddr, vaddr + length);
+			outer_cache_op = outer_flush_range;
+			break;
+		default:
+			return -EINVAL;
+		}
 	}
 
 	if (carveout_heap->has_outer_cache) {
