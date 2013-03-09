@@ -14,7 +14,7 @@
 #include <linux/msm_adsp.h>
 #include <linux/uaccess.h>
 #include <linux/fs.h>
-#include <linux/android_pmem.h>
+
 #include <linux/slab.h>
 #include <mach/msm_adsp.h>
 #include <mach/clk.h>

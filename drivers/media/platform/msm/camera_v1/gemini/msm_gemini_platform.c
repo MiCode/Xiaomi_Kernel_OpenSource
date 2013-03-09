@@ -15,7 +15,7 @@
 #include <linux/clk.h>
 #include <mach/clk.h>
 #include <linux/io.h>
-#include <linux/android_pmem.h>
+
 #include <mach/camera.h>
 #include <mach/iommu_domains.h>
 
@@ -35,8 +35,6 @@ void msm_gemini_platform_p2v(struct file  *file,
 	ion_unmap_iommu(gemini_client, *ionhandle, CAMERA_DOMAIN, GEN_POOL);
 	ion_free(gemini_client, *ionhandle);
 	*ionhandle = NULL;
-#elif CONFIG_ANDROID_PMEM
-	put_pmem_file(file);
 #endif
 }
 
@@ -53,9 +51,6 @@ uint32_t msm_gemini_platform_v2p(int fd, uint32_t len, struct file **file_p,
 
 	rc = ion_map_iommu(gemini_client, *ionhandle, CAMERA_DOMAIN, GEN_POOL,
 			SZ_4K, 0, &paddr, (unsigned long *)&size, 0, 0);
-#elif CONFIG_ANDROID_PMEM
-	unsigned long kvstart;
-	rc = get_pmem_file(fd, &paddr, &kvstart, &size, file_p);
 #else
 	rc = 0;
 	paddr = 0;

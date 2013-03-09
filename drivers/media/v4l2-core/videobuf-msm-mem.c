@@ -24,7 +24,7 @@
 #include <linux/pagemap.h>
 #include <linux/sched.h>
 #include <linux/io.h>
-#include <linux/android_pmem.h>
+
 #include <linux/memory_alloc.h>
 #include <media/videobuf-msm-mem.h>
 #include <media/msm_camera.h>
@@ -140,55 +140,6 @@ static const struct vm_operations_struct videobuf_vm_ops = {
 	.close    = videobuf_vm_close,
 };
 
-/**
- * videobuf_pmem_contig_user_put() - reset pointer to user space buffer
- * @mem: per-buffer private videobuf-contig-pmem data
- *
- * This function resets the user space pointer
- */
-static void videobuf_pmem_contig_user_put(struct videobuf_contig_pmem *mem)
-{
-	if (mem->phyaddr) {
-		put_pmem_file(mem->file);
-		mem->is_userptr = 0;
-		mem->phyaddr = 0;
-		mem->size = 0;
-	}
-}
-
-/**
- * videobuf_pmem_contig_user_get() - setup user space memory pointer
- * @mem: per-buffer private videobuf-contig-pmem data
- * @vb: video buffer to map
- *
- * This function validates and sets up a pointer to user space memory.
- * Only physically contiguous pfn-mapped memory is accepted.
- *
- * Returns 0 if successful.
- */
-static int videobuf_pmem_contig_user_get(struct videobuf_contig_pmem *mem,
-					struct videobuf_buffer *vb)
-{
-	unsigned long kvstart;
-	unsigned long len;
-	int rc;
-
-	mem->size = PAGE_ALIGN(vb->size);
-	rc = get_pmem_file(vb->baddr, (unsigned long *)&mem->phyaddr,
-					&kvstart, &len, &mem->file);
-	if (rc < 0) {
-		pr_err("%s: get_pmem_file fd %lu error %d\n",
-					__func__, vb->baddr,
-							rc);
-		return rc;
-	}
-	mem->phyaddr += vb->boff;
-	mem->y_off = 0;
-	mem->cbcr_off = (vb->size)*2/3;
-	mem->is_userptr = 1;
-	return rc;
-}
-
 static struct videobuf_buffer *__videobuf_alloc(size_t size)
 {
 	struct videobuf_contig_pmem *mem;
@@ -228,12 +179,6 @@ static int __videobuf_iolock(struct videobuf_queue *q,
 		D("%s memory method MMAP\n", __func__);
 
 		/* All handling should be done by __videobuf_mmap_mapper() */
-		break;
-	case V4L2_MEMORY_USERPTR:
-		D("%s memory method USERPTR\n", __func__);
-
-		/* handle pointer from user space */
-		rc = videobuf_pmem_contig_user_get(mem, vb);
 		break;
 	case V4L2_MEMORY_OVERLAY:
 	default:
@@ -383,7 +328,6 @@ int videobuf_pmem_contig_free(struct videobuf_queue *q,
 
 	/* handle user space pointer case */
 	if (buf->baddr) {
-		videobuf_pmem_contig_user_put(mem);
 		return 0;
 	} else {
 		/* don't support read() method */

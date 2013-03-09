@@ -20,7 +20,7 @@
 #include <linux/proc_fs.h>
 #include <linux/videodev2.h>
 #include <linux/vmalloc.h>
-#include <linux/android_pmem.h>
+
 
 #include <media/v4l2-dev.h>
 #include <media/v4l2-ioctl.h>
