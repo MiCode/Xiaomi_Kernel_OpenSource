@@ -445,7 +445,7 @@ fail_cmd:
 
 static void afe_send_cal_spkr_prot_tx(int port_id)
 {
-	struct acdb_spk_prot_cfg prot_cfg;
+	struct msm_spk_prot_cfg prot_cfg;
 	union afe_spkr_prot_config afe_spk_config;
 
 	/*Get spkr protection cfg data*/
@@ -475,7 +475,7 @@ static void afe_send_cal_spkr_prot_tx(int port_id)
 
 static void afe_send_cal_spkr_prot_rx(int port_id)
 {
-	struct acdb_spk_prot_cfg prot_cfg;
+	struct msm_spk_prot_cfg prot_cfg;
 	union afe_spkr_prot_config afe_spk_config;
 
 	/*Get spkr protection cfg data*/

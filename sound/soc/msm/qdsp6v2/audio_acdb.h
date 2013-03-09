@@ -41,17 +41,6 @@ struct acdb_atomic_cal_block {
 	atomic_t		cal_paddr;
 };
 
-struct acdb_spk_prot_cfg {
-	int t0;
-	int r0;
-	int mode;
-};
-
-struct acdb_spk_prot_status {
-	int r0;
-	int status;
-};
-
 uint32_t get_voice_rx_topology(void);
 uint32_t get_voice_tx_topology(void);
 uint32_t get_adm_rx_topology(void);
@@ -74,6 +63,6 @@ void get_vocproc_cal(struct acdb_cal_block *cal_block);
 void get_vocstrm_cal(struct acdb_cal_block *cal_block);
 void get_vocvol_cal(struct acdb_cal_block *cal_block);
 void get_sidetone_cal(struct sidetone_cal *cal_data);
-void get_spk_protection_cfg(struct acdb_spk_prot_cfg *prot_cfg);
+void get_spk_protection_cfg(struct msm_spk_prot_cfg *prot_cfg);
 
 #endif
