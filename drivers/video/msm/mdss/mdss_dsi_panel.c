@@ -45,7 +45,6 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
-		return;
 	}
 
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio)) {
@@ -59,18 +58,16 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	if (enable) {
 		gpio_set_value((ctrl_pdata->rst_gpio), 1);
 		msleep(20);
-		wmb();
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 		udelay(200);
-		wmb();
 		gpio_set_value((ctrl_pdata->rst_gpio), 1);
 		msleep(20);
-		wmb();
-		gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
-		wmb();
+		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
 	} else {
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
-		gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
+		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
+			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 	}
 }
 
