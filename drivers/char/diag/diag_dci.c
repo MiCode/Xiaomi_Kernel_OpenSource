@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,50 +149,63 @@ void extract_dci_pkt_rsp(unsigned char *buf)
 
 void extract_dci_events(unsigned char *buf)
 {
-	uint16_t event_id, event_id_packet;
-	uint8_t *event_mask_ptr, byte_mask, payload_len;
-	uint8_t event_data[MAX_EVENT_SIZE], timestamp[8];
-	unsigned int byte_index;
-	int i, bit_index, length, temp_len;
-	int total_event_len, payload_len_field, timestamp_len;
+	uint16_t event_id, event_id_packet, length, temp_len;
+	uint8_t *event_mask_ptr, byte_mask, payload_len, payload_len_field;
+	uint8_t timestamp[8], bit_index, timestamp_len;
+	uint8_t event_data[MAX_EVENT_SIZE];
+	unsigned int byte_index, total_event_len, i;
 	struct diag_dci_client_tbl *entry;
 
-	length =  *(uint16_t *)(buf+1); /* total length of event series */
+	length =  *(uint16_t *)(buf + 1); /* total length of event series */
+	if (length == 0) {
+		pr_err("diag: Incoming dci event length is invalid\n");
+		return;
+	}
 	temp_len = 0;
 	buf = buf + 3; /* start of event series */
-	while (temp_len < length-1) {
-		*event_data = EVENT_CMD_CODE;
-		event_id_packet = *(uint16_t *)(buf+temp_len);
+	while (temp_len < (length - 1)) {
+		event_id_packet = *(uint16_t *)(buf + temp_len);
 		event_id = event_id_packet & 0x0FFF; /* extract 12 bits */
 		if (event_id_packet & 0x8000) {
 			timestamp_len = 2;
+			memset(timestamp, 0, 8);
 		} else {
 			timestamp_len = 8;
-			memcpy(timestamp, buf+temp_len+2, 8);
+			memcpy(timestamp, buf + temp_len + 2, timestamp_len);
 		}
+		/* 13th and 14th bit represent the payload length */
 		if (((event_id_packet & 0x6000) >> 13) == 3) {
 			payload_len_field = 1;
 			payload_len = *(uint8_t *)
-					(buf+temp_len+2+timestamp_len);
-			memcpy(event_data+13, buf+temp_len+2+timestamp_len, 1);
-			memcpy(event_data+14, buf+temp_len+2+timestamp_len+1,
-								 payload_len);
+					(buf + temp_len + 2 + timestamp_len);
+			if (payload_len < (MAX_EVENT_SIZE - 13)) {
+				/* copy the payload length and the payload */
+				memcpy(event_data + 12, buf + temp_len + 2 +
+							timestamp_len, 1);
+				memcpy(event_data + 13, buf + temp_len + 2 +
+					timestamp_len + 1, payload_len);
+			} else {
+				pr_err("diag: event > %d, payload_len = %d\n",
+					(MAX_EVENT_SIZE - 13), payload_len);
+				return;
+			}
 		} else {
 			payload_len_field = 0;
 			payload_len = (event_id_packet & 0x6000) >> 13;
-			if (payload_len < MAX_EVENT_SIZE)
-				memcpy(event_data+13,
-				 buf+temp_len+2+timestamp_len, payload_len);
-			else
-				pr_alert("diag: event > %d\n", MAX_EVENT_SIZE);
+			/* copy the payload */
+			memcpy(event_data + 12, buf + temp_len + 2 +
+						timestamp_len, payload_len);
 		}
 		/* 2 bytes for the event id & timestamp len is hard coded to 8,
 		   as individual events have full timestamp */
-		*(uint16_t *)(event_data+1) = 10+payload_len_field+payload_len;
-		*(uint16_t *)(event_data+3) = event_id_packet & 0x7FFF;
-		memcpy(event_data+5, timestamp, 8);
-		total_event_len = 3 + 10 + payload_len_field + payload_len;
-		byte_index = event_id/8;
+		*(uint16_t *)(event_data) = 10 +
+					payload_len_field + payload_len;
+		*(uint16_t *)(event_data + 2) = event_id_packet & 0x7FFF;
+		memcpy(event_data + 4, timestamp, 8);
+		/* 2 bytes for the event length field which is added to
+		   the event data */
+		total_event_len = 2 + 10 + payload_len_field + payload_len;
+		byte_index = event_id / 8;
 		bit_index = event_id % 8;
 		byte_mask = 0x1 << bit_index;
 		/* parse through event mask tbl of each client and check mask */
@@ -205,7 +218,7 @@ void extract_dci_events(unsigned char *buf)
 					/* copy to client buffer */
 					if (DCI_CHK_CAPACITY(entry,
 							 4 + total_event_len)) {
-						pr_err("diag:DCI event drop\n");
+						pr_err("diag: DCI event drop\n");
 						driver->dci_client_tbl[i].
 							dropped_events++;
 						return;
@@ -214,8 +227,10 @@ void extract_dci_events(unsigned char *buf)
 							received_events++;
 					*(int *)(entry->dci_data+
 					entry->data_len) = DCI_EVENT_TYPE;
-					memcpy(entry->dci_data+
-				entry->data_len+4, event_data, total_event_len);
+					/* 4 bytes for DCI_EVENT_TYPE */
+					memcpy(entry->dci_data +
+						entry->data_len + 4, event_data
+						, total_event_len);
 					entry->data_len += 4 + total_event_len;
 				}
 			}
@@ -228,44 +243,37 @@ void extract_dci_log(unsigned char *buf)
 {
 	uint16_t log_code, item_num;
 	uint8_t equip_id, *log_mask_ptr, byte_mask;
-	unsigned int byte_index;
-	int i, found = 0;
+	unsigned int i, byte_index, byte_offset = 0;
 	struct diag_dci_client_tbl *entry;
 
-	log_code = *(uint16_t *)(buf+6);
+	log_code = *(uint16_t *)(buf + 6);
 	equip_id = LOG_GET_EQUIP_ID(log_code);
 	item_num = LOG_GET_ITEM_NUM(log_code);
 	byte_index = item_num/8 + 2;
 	byte_mask = 0x01 << (item_num % 8);
+
+	byte_offset = (equip_id * 514) + byte_index;
+	if (byte_offset >=  DCI_LOG_MASK_SIZE) {
+		pr_err("diag: Invalid byte_offset %d in dci log\n",
+							byte_offset);
+		return;
+	}
 
 	/* parse through log mask table of each client and check mask */
 	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
 		if (driver->dci_client_tbl[i].client) {
 			entry = &(driver->dci_client_tbl[i]);
 			log_mask_ptr = entry->dci_log_mask;
-			found = 0;
-			while (log_mask_ptr) {
-				if (*log_mask_ptr == equip_id) {
-					found = 1;
-					pr_debug("diag: find equip id = %x at %p\n",
-					equip_id, log_mask_ptr);
-					break;
-				} else {
-					pr_debug("diag: did not find equip id = %x at %p\n",
-						 equip_id, log_mask_ptr);
-					log_mask_ptr += 514;
-				}
-			}
-			if (!found)
-				pr_err("diag: dci equip id not found\n");
-			log_mask_ptr = log_mask_ptr + byte_index;
+			if (!log_mask_ptr)
+				return;
+			log_mask_ptr = log_mask_ptr + byte_offset;
 			if (*log_mask_ptr & byte_mask) {
 				pr_debug("\t log code %x needed by client %d",
 					 log_code, entry->client->tgid);
 				/* copy to client buffer */
 				if (DCI_CHK_CAPACITY(entry,
-						 4 + *(uint16_t *)(buf+2))) {
-						pr_err("diag:DCI log drop\n");
+						 4 + *(uint16_t *)(buf + 2))) {
+						pr_err("diag: DCI log drop\n");
 						driver->dci_client_tbl[i].
 								dropped_logs++;
 						return;
@@ -273,9 +281,9 @@ void extract_dci_log(unsigned char *buf)
 				driver->dci_client_tbl[i].received_logs++;
 				*(int *)(entry->dci_data+entry->data_len) =
 								DCI_LOG_TYPE;
-				memcpy(entry->dci_data+entry->data_len+4, buf+4,
-						 *(uint16_t *)(buf+2));
-				entry->data_len += 4 + *(uint16_t *)(buf+2);
+				memcpy(entry->dci_data + entry->data_len + 4,
+					    buf + 4, *(uint16_t *)(buf + 2));
+				entry->data_len += 4 + *(uint16_t *)(buf + 2);
 			}
 		}
 	}
