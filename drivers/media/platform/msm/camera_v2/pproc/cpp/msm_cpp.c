@@ -293,6 +293,14 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		goto vbif_remap_failed;
 	}
 
+	cpp_dev->cpp_hw_base = ioremap(cpp_dev->cpp_hw_mem->start,
+		resource_size(cpp_dev->cpp_hw_mem));
+	if (!cpp_dev->cpp_hw_base) {
+		rc = -ENOMEM;
+		pr_err("ioremap failed\n");
+		goto cpp_hw_remap_failed;
+	}
+
 	if (cpp_dev->state != CPP_STATE_BOOT) {
 		rc = request_irq(cpp_dev->irq->start, msm_cpp_irq,
 			IRQF_TRIGGER_RISING, "cpp", cpp_dev);
@@ -303,11 +311,19 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		}
 	}
 
+	cpp_dev->hw_info.cpp_hw_version =
+		msm_camera_io_r(cpp_dev->cpp_hw_base);
+	pr_debug("CPP HW Version: 0x%x\n", cpp_dev->hw_info.cpp_hw_version);
+	cpp_dev->hw_info.cpp_hw_caps =
+		msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4);
+	pr_debug("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
 	msm_camera_io_w(0x1, cpp_dev->vbif_base + 0x4);
 	if (cpp_dev->is_firmware_loaded == 1)
 		msm_cpp_boot_hw(cpp_dev);
 	return rc;
 req_irq_fail:
+	iounmap(cpp_dev->cpp_hw_base);
+cpp_hw_remap_failed:
 	iounmap(cpp_dev->vbif_base);
 vbif_remap_failed:
 	iounmap(cpp_dev->base);
@@ -327,6 +343,8 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 		free_irq(cpp_dev->irq->start, cpp_dev);
 
 	iounmap(cpp_dev->base);
+	iounmap(cpp_dev->vbif_base);
+	iounmap(cpp_dev->cpp_hw_base);
 	msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
 		cpp_dev->cpp_clk, ARRAY_SIZE(cpp_clk_info), 0);
 	if (0) {
@@ -336,15 +354,15 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	}
 }
 
-static void cpp_load_fw(struct cpp_device *cpp_dev)
+static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 {
 	uint32_t i;
 	uint32_t *ptr_bin = NULL;
 	int32_t rc = -EFAULT;
 	const struct firmware *fw = NULL;
-	char *fw_name_bin = "cpp_firmware_v1_1_1.fw";
 	struct device *dev = &cpp_dev->pdev->dev;
 
+	pr_debug("%s: FW file: %s\n", __func__, fw_name_bin);
 	rc = request_firmware(&fw, fw_name_bin, dev);
 	if (rc) {
 		dev_err(dev, "Failed to locate blob %s from device %p, Error: %d\n",
@@ -690,14 +708,44 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	struct cpp_device *cpp_dev = v4l2_get_subdevdata(sd);
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr = arg;
 	int rc = 0;
+	char *fw_name_bin;
 
 	mutex_lock(&cpp_dev->mutex);
 	CPP_DBG("E cmd: %d\n", cmd);
 	switch (cmd) {
+	case VIDIOC_MSM_CPP_GET_HW_INFO: {
+		if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
+			&cpp_dev->hw_info,
+			sizeof(struct cpp_hw_info))) {
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+		break;
+	}
+
 	case VIDIOC_MSM_CPP_LOAD_FIRMWARE: {
 		if (cpp_dev->is_firmware_loaded == 0) {
+			fw_name_bin = kzalloc(ioctl_ptr->len, GFP_KERNEL);
+			if (!fw_name_bin) {
+				pr_err("%s:%d: malloc error\n", __func__,
+					__LINE__);
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
+
+			rc = (copy_from_user(fw_name_bin,
+				(void __user *)ioctl_ptr->ioctl_ptr,
+				ioctl_ptr->len) ? -EFAULT : 0);
+			if (rc) {
+				ERR_COPY_FROM_USER();
+				kfree(fw_name_bin);
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
+
 			disable_irq(cpp_dev->irq->start);
-			cpp_load_fw(cpp_dev);
+			cpp_load_fw(cpp_dev, fw_name_bin);
+			kfree(fw_name_bin);
 			enable_irq(cpp_dev->irq->start);
 			cpp_dev->is_firmware_loaded = 1;
 		}
@@ -894,6 +942,14 @@ static int __devinit cpp_probe(struct platform_device *pdev)
 		goto ERROR2;
 	}
 
+	cpp_dev->cpp_hw_mem = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "cpp_hw");
+	if (!cpp_dev->cpp_hw_mem) {
+		pr_err("no mem resource?\n");
+		rc = -ENODEV;
+		goto ERROR2;
+	}
+
 	cpp_dev->irq = platform_get_resource_byname(pdev,
 					IORESOURCE_IRQ, "cpp");
 	if (!cpp_dev->irq) {
@@ -999,6 +1055,10 @@ static int cpp_device_remove(struct platform_device *dev)
 	iommu_detach_device(cpp_dev->domain, cpp_dev->iommu_ctx);
 	msm_sd_unregister(&cpp_dev->msm_sd);
 	release_mem_region(cpp_dev->mem->start, resource_size(cpp_dev->mem));
+	release_mem_region(cpp_dev->vbif_mem->start,
+		resource_size(cpp_dev->vbif_mem));
+	release_mem_region(cpp_dev->cpp_hw_mem->start,
+		resource_size(cpp_dev->cpp_hw_mem));
 	mutex_destroy(&cpp_dev->mutex);
 	kfree(cpp_dev->cpp_clk);
 	kfree(cpp_dev);
