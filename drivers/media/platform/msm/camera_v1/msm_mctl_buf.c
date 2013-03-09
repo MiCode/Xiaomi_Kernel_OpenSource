@@ -23,7 +23,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-device.h>
 
-#include <linux/android_pmem.h>
+
 
 #include "msm.h"
 #include "msm_cam_server.h"
@@ -996,78 +996,6 @@ static int __msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
 						meta_frame->map[j].handle);
 				}
 			}
-			return -EINVAL;
-		}
-		meta_frame->map[i].data_offset =
-			meta_frame->frame.mp[i].data_offset;
-		/* Add the addr_offset to the paddr here itself. The addr_offset
-		 * will be non-zero only if the user has allocated a buffer with
-		 * a single fd, but logically partitioned it into
-		 * multiple planes or buffers.*/
-		paddr += meta_frame->frame.mp[i].addr_offset;
-		meta_frame->map[i].paddr = paddr;
-		meta_frame->map[i].len = len;
-		D("%s Plane %d fd %d handle %p paddr %x", __func__,
-			i, meta_frame->frame.mp[i].fd,
-			meta_frame->map[i].handle,
-			(uint32_t)meta_frame->map[i].paddr);
-	}
-	D("%s Frame mapped successfully ", __func__);
-	return 0;
-}
-#else
-/* Unmap using PMEM APIs */
-static int __msm_mctl_unmap_user_frame(struct msm_cam_meta_frame *meta_frame,
-	struct ion_client *client, int domain_num)
-{
-	int i = 0, rc = 0;
-
-	for (i = 0; i < meta_frame->frame.num_planes; i++) {
-		D("%s Plane %d handle %p", __func__, i,
-			meta_frame->map[i].handle);
-		put_pmem_file(meta_frame->map[i].file);
-	}
-}
-
-/* Map using PMEM APIs */
-static int __msm_mctl_map_user_frame(struct msm_cam_meta_frame *meta_frame,
-	struct ion_client *client, int domain_num)
-{
-	unsigned long kvstart = 0;
-	unsigned long paddr = 0;
-	struct file *file = NULL;
-	unsigned long len;
-	int i = 0, j = 0;
-
-	for (i = 0; i < meta_frame->frame.num_planes; i++) {
-		rc = get_pmem_file(meta_frame->frame.mp[i].fd,
-			&paddr, &kvstart, &len, &file);
-		if (rc < 0) {
-			pr_err("%s: get_pmem_file fd %d error %d\n",
-				__func__, meta_frame->frame.mp[i].fd, rc);
-			/* Roll back previous plane mappings, if any */
-			for (j = i-1; j >= 0; j--)
-				if (meta_frame->map[j].file)
-					put_pmem_file(meta_frame->map[j].file);
-
-			return -EACCES;
-		}
-		D("%s Got pmem file for fd %d plane %d as %p", __func__,
-			meta_frame->frame.mp[i].fd, i, file);
-		meta_frame->map[i].file = file;
-		/* Validate the offsets with the mapped length. */
-		if ((meta_frame->frame.mp[i].addr_offset > len) ||
-			(meta_frame->frame.mp[i].data_offset +
-			meta_frame->frame.mp[i].length > len)) {
-			pr_err("%s: Invalid offsets A %d D %d L %d len %ld",
-				__func__, meta_frame->frame.mp[i].addr_offset,
-				meta_frame->frame.mp[i].data_offset,
-				meta_frame->frame.mp[i].length, len);
-			/* Roll back previous plane mappings, if any */
-			for (j = i; j >= 0; j--)
-				if (meta_frame->map[j].file)
-					put_pmem_file(meta_frame->map[j].file);
-
 			return -EINVAL;
 		}
 		meta_frame->map[i].data_offset =

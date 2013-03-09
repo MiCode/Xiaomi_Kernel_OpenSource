@@ -24,7 +24,7 @@
 #include <linux/pagemap.h>
 #include <linux/sched.h>
 #include <linux/io.h>
-#include <linux/android_pmem.h>
+
 #include <linux/memory_alloc.h>
 #include <media/videobuf2-msm-mem.h>
 #include <media/msm_camera.h>
@@ -177,15 +177,14 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 					struct ion_client *client,
 					int domain_num)
 {
-	unsigned long len;
 	int rc = 0;
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	unsigned long kvstart;
+#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+	unsigned long len;
 #endif
 	unsigned long paddr = 0;
 	if (mem->phyaddr != 0)
 		return 0;
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+#if defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 	mem->ion_handle = ion_import_dma_buf(client, (int)mem->vaddr);
 	if (IS_ERR_OR_NULL(mem->ion_handle)) {
 		pr_err("%s ION import failed\n", __func__);
@@ -195,17 +194,8 @@ int videobuf2_pmem_contig_user_get(struct videobuf2_contig_pmem *mem,
 		SZ_4K, 0, (unsigned long *)&mem->phyaddr, &len, 0, 0);
 	if (rc < 0)
 		ion_free(client, mem->ion_handle);
-#elif CONFIG_ANDROID_PMEM
-	rc = get_pmem_file((int)mem->vaddr, (unsigned long *)&mem->phyaddr,
-					&kvstart, &len, &mem->file);
-	if (rc < 0) {
-		pr_err("%s: get_pmem_file fd %d error %d\n",
-					__func__, (int)mem->vaddr, rc);
-		return rc;
-	}
 #else
 	paddr = 0;
-	kvstart = 0;
 #endif
 	if (offset)
 		mem->offset = *offset;
@@ -224,12 +214,10 @@ void videobuf2_pmem_contig_user_put(struct videobuf2_contig_pmem *mem,
 				struct ion_client *client, int domain_num)
 {
 	if (mem->is_userptr) {
-#ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
+#if defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 		ion_unmap_iommu(client, mem->ion_handle,
 				domain_num, 0);
 		ion_free(client, mem->ion_handle);
-#elif CONFIG_ANDROID_PMEM
-		put_pmem_file(mem->file);
 #endif
 	}
 	mem->is_userptr = 0;
