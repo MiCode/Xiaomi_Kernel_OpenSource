@@ -805,7 +805,6 @@ struct clk_ops clk_ops_byte = {
 struct clk_ops clk_ops_rcg_hdmi = {
 	.enable = rcg_clk_prepare,
 	.set_rate = rcg_clk_set_rate_hdmi,
-	.set_rate = rcg_clk_set_rate,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
