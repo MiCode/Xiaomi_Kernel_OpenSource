@@ -31,6 +31,10 @@ Optional Properties:
 				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
 				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
 				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
+	- qcom,cpu-dma-latency-us: specifies acceptable DMA latency in microseconds. There is
+				   no default value that the driver assumes if this property
+				   is not specified. So if this property is not specified,
+				   then SDHC driver will not vote for PM QOS.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
@@ -86,6 +90,7 @@ Example:
 			<&msmgpio 36 0>, /* DATA2 */
 			<&msmgpio 35 0>; /* DATA3 */
 		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+		qcom,cpu-dma-latency-us = <200>;
 	};
 
 	sdhc_2: qcom,sdhc@f98a4900 {
@@ -104,4 +109,6 @@ Example:
 		qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 		qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
 		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+
+		qcom,cpu-dma-latency-us = <200>;
 	};
