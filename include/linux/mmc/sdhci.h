@@ -15,6 +15,7 @@
 #include <linux/compiler.h>
 #include <linux/types.h>
 #include <linux/io.h>
+#include <linux/pm_qos.h>
 #include <linux/mmc/host.h>
 
 struct sdhci_host {
@@ -200,6 +201,8 @@ struct sdhci_host {
 	unsigned int		tuning_count;	/* Timer count for re-tuning */
 	unsigned int		tuning_mode;	/* Re-tuning mode supported by host */
 #define SDHCI_TUNING_MODE_1	0
+	unsigned int		cpu_dma_latency_us;
+	struct pm_qos_request	pm_qos_req_dma;
 	struct timer_list	tuning_timer;	/* Timer for tuning */
 
 	unsigned long private[0] ____cacheline_aligned;
