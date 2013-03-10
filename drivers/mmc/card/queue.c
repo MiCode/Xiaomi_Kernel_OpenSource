@@ -78,7 +78,15 @@ static int mmc_queue_thread(void *d)
 			mq->issue_fn(mq, req);
 			if (mq->flags & MMC_QUEUE_NEW_REQUEST) {
 				continue; /* fetch again */
-			} else if (mq->flags & MMC_QUEUE_URGENT_REQUEST) {
+			} else if ((mq->flags & MMC_QUEUE_URGENT_REQUEST) &&
+				   (mq->mqrq_cur->req &&
+				!(mq->mqrq_cur->req->cmd_flags & REQ_URGENT))) {
+				/*
+				 * clean current request when urgent request
+				 * processing in progress and current request is
+				 * not urgent (all existing requests completed
+				 * or reinserted to the block layer
+				 */
 				mq->mqrq_cur->brq.mrq.data = NULL;
 				mq->mqrq_cur->req = NULL;
 			}
@@ -98,6 +106,7 @@ static int mmc_queue_thread(void *d)
 				break;
 			}
 			mmc_start_delayed_bkops(card);
+			mq->card->host->context_info.is_urgent = false;
 			up(&mq->thread_sem);
 			schedule();
 			down(&mq->thread_sem);
@@ -172,7 +181,7 @@ static void mmc_urgent_request(struct request_queue *q)
 	spin_lock_irqsave(&cntx->lock, flags);
 
 	/* do stop flow only when mmc thread is waiting for done */
-	if (cntx->is_waiting) {
+	if (mq->mqrq_cur->req || mq->mqrq_prev->req) {
 		/*
 		 * Urgent request must be executed alone
 		 * so disable the write packing
