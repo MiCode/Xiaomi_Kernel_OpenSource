@@ -57,7 +57,8 @@
 		struct msm_spk_prot_cfg)
 #define AUDIO_GET_SPEAKER_PROT _IOR(AUDIO_IOCTL_MAGIC, 26, \
 		struct msm_spk_prot_status)
-
+#define AUDIO_SET_AANC_CAL		_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+27), unsigned)
 #define	AUDIO_MAX_ACDB_IOCTL	(AUDIO_MAX_COMMON_IOCTL_NUM+30)
 
 /* ACDB structures */

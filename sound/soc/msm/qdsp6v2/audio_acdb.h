@@ -64,5 +64,6 @@ void get_vocstrm_cal(struct acdb_cal_block *cal_block);
 void get_vocvol_cal(struct acdb_cal_block *cal_block);
 void get_sidetone_cal(struct sidetone_cal *cal_data);
 void get_spk_protection_cfg(struct msm_spk_prot_cfg *prot_cfg);
+void get_aanc_cal(struct acdb_cal_block *cal_block);
 
 #endif
