@@ -9,6 +9,10 @@ krait LDO/BHS control regulator.
 [First Level Nodes]
 Required properties:
 - compatible:			Must be "qcom,krait-pdn"
+- reg:				Specifies the physical address of the APCS GCC
+				register base
+- reg-names:			"apcs_gcc" -string to identify the area where
+				the APCS GCC registers reside.
 
 Optional properties:
 - qcom,use-phase-switching	indicates whether the driver should add/shed phases on the PMIC
@@ -42,7 +46,9 @@ Any property defined as part of the core regulator
 binding, defined in regulator.txt, can also be used.
 
 Example:
-	krait_pdn: krait-pdn {
+	krait_pdn: krait-pdn@f9011000 {
+		reg = <0xf9011000 0x1000>;
+		reg-names = "apcs_gcc";
 		compatible = "qcom,krait-pdn";
 		qcom,use-phase-switching;
 		#address-cells = <1>;

@@ -145,6 +145,7 @@
  *				regulator's callback functions to prevent
  *				simultaneous updates to the pmic's phase
  *				voltage.
+ * @apcs_gcc_base		virtual address of the APCS GCC registers
  */
 struct pmic_gang_vreg {
 	const char		*name;
@@ -156,6 +157,7 @@ struct pmic_gang_vreg {
 	int			pmic_min_uV_for_retention;
 	bool			retention_enabled;
 	bool			use_phase_switching;
+	void __iomem		*apcs_gcc_base;
 };
 
 static struct pmic_gang_vreg *the_gang;
@@ -890,12 +892,12 @@ static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 	mb();
 }
 
-static void glb_init(struct platform_device *pdev)
+static void glb_init(void __iomem *apcs_gcc_base)
 {
 	/* configure bi-modal switch */
-	writel_relaxed(0x0008736E, MSM_APCS_GCC_BASE + PWR_GATE_CONFIG);
+	writel_relaxed(0x0008736E, apcs_gcc_base + PWR_GATE_CONFIG);
 	/* read kpss version */
-	version = readl_relaxed(MSM_APCS_GCC_BASE + VERSION);
+	version = readl_relaxed(apcs_gcc_base + VERSION);
 	pr_debug("version= 0x%x\n", version);
 }
 
@@ -1117,6 +1119,7 @@ static int __devinit krait_pdn_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 	struct pmic_gang_vreg *pvreg;
+	struct resource *res;
 
 	if (!dev->of_node) {
 		dev_err(dev, "device tree information missing\n");
@@ -1132,6 +1135,18 @@ static int __devinit krait_pdn_probe(struct platform_device *pdev)
 		return 0;
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_gcc");
+	if (!res) {
+		dev_err(&pdev->dev, "missing apcs gcc base addresses\n");
+		return -EINVAL;
+	}
+
+	pvreg->apcs_gcc_base = devm_ioremap(&pdev->dev, res->start,
+					    resource_size(res));
+
+	if (pvreg->apcs_gcc_base == NULL)
+		return -ENOMEM;
+
 	pvreg->name = "pmic_gang";
 	pvreg->pmic_vmax_uV = PMIC_VOLTAGE_MIN;
 	pvreg->pmic_phase_count = -EINVAL;
@@ -1146,7 +1161,7 @@ static int __devinit krait_pdn_probe(struct platform_device *pdev)
 	pr_debug("name=%s inited\n", pvreg->name);
 
 	/* global initializtion */
-	glb_init(pdev);
+	glb_init(pvreg->apcs_gcc_base);
 
 	rc = of_platform_populate(node, NULL, NULL, dev);
 	if (rc) {
