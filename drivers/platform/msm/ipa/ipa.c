@@ -161,6 +161,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct ipa_ioc_nat_alloc_mem nat_mem;
 	struct ipa_ioc_v4_nat_init nat_init;
 	struct ipa_ioc_v4_nat_del nat_del;
+	struct ipa_ioc_rm_dependency rm_depend;
 	size_t sz;
 
 	IPADBG("cmd=%x nr=%d\n", cmd, _IOC_NR(cmd));
@@ -592,6 +593,24 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
+		break;
+	case IPA_IOC_RM_ADD_DEPENDENCY:
+		if (copy_from_user((u8 *)&rm_depend, (u8 *)arg,
+				sizeof(struct ipa_ioc_rm_dependency))) {
+			retval = -EFAULT;
+			break;
+		}
+		retval = ipa_rm_add_dependency(rm_depend.resource_name,
+						rm_depend.depends_on_name);
+		break;
+	case IPA_IOC_RM_DEL_DEPENDENCY:
+		if (copy_from_user((u8 *)&rm_depend, (u8 *)arg,
+				sizeof(struct ipa_ioc_rm_dependency))) {
+			retval = -EFAULT;
+			break;
+		}
+		retval = ipa_rm_delete_dependency(rm_depend.resource_name,
+						rm_depend.depends_on_name);
 		break;
 	default:        /* redundant, as cmd was checked against MAXNR */
 		return -ENOTTY;
