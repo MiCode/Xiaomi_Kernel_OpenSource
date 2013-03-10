@@ -52,7 +52,8 @@
 #define SDMX_INVALID_FILTER_HANDLE		(-1)
 
 /* Input flags */
-#define SDMX_INPUT_FLAG_EOS BIT(0)
+#define SDMX_INPUT_FLAG_EOS		BIT(0)
+#define SDMX_INPUT_FLAG_DBG_ENABLE	BIT(1)
 
 
 enum sdmx_buf_mode {
