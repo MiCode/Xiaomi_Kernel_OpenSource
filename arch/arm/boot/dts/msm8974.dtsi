@@ -344,6 +344,7 @@
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+		qcom,cpu-dma-latency-us = <200>;
 		status = "disable";
 	};
 
@@ -355,6 +356,7 @@
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <200>;
 		status = "disable";
 	};
 
@@ -373,6 +375,7 @@
 		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
 
 		qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <200>;
 		status = "disable";
 	};
 
@@ -391,6 +394,7 @@
 		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
 
 		qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <200>;
 		status = "disable";
 	};
 
