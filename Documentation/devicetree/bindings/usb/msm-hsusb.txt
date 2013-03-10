@@ -52,6 +52,8 @@ Optional properties :
 - qcom,hsusb-otg-clk-always-on-workaround: If present then USB core clocks
 	    remain active upon receiving bus suspend and USB cable is connected.
 	    Used for allowing USB to respond for remote wakup.
+- qcom,hsusb-otg-delay-lpm: If present then USB core will wait one second
+	after disconnect before entering low power mode.
 - <supply-name>-supply: handle to the regulator device tree node
          Required "supply-name" is "HSUSB_VDDCX" (when voting for VDDCX) or
          "hsusb_vdd_dig" (when voting for VDDCX Corner voltage),
