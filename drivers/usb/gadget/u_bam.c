@@ -667,7 +667,7 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 		if (ret)
 			pr_err("%s: usb_bam_disconnect_ipa failed: err:%d\n",
 				__func__, ret);
-		rmnet_bridge_disconnect();
+		teth_bridge_disconnect();
 	}
 }
 
@@ -707,8 +707,11 @@ static void gbam_connect_work(struct work_struct *w)
 static void gbam2bam_connect_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, connect_w);
+	struct teth_bridge_connect_params connect_params;
 	struct bam_ch_info *d = &port->data_ch;
 	u32 sps_params;
+	ipa_notify_cb usb_notify_cb;
+	void *priv;
 	int ret;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
@@ -720,6 +723,15 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			return;
 		}
 	} else if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		ret = teth_bridge_init(&usb_notify_cb, &priv);
+		if (ret) {
+			pr_err("%s:teth_bridge_init() failed\n", __func__);
+			return;
+		}
+		d->ipa_params.notify = usb_notify_cb;
+		d->ipa_params.priv = priv;
+		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
+
 		d->ipa_params.client = IPA_CLIENT_USB_CONS;
 		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
@@ -731,18 +743,21 @@ static void gbam2bam_connect_work(struct work_struct *w)
 
 		d->ipa_params.client = IPA_CLIENT_USB_PROD;
 		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
-		/* Currently only DMA mode is supported */
-		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_DMA;
-		d->ipa_params.ipa_ep_cfg.mode.dst =
-				IPA_CLIENT_A2_TETHERED_CONS;
 		ret = usb_bam_connect_ipa(&d->ipa_params);
 		if (ret) {
 			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
 				__func__, ret);
 			return;
 		}
-		rmnet_bridge_connect(d->ipa_params.prod_clnt_hdl,
-				d->ipa_params.cons_clnt_hdl, 0);
+
+		connect_params.ipa_usb_pipe_hdl = d->ipa_params.prod_clnt_hdl;
+		connect_params.usb_ipa_pipe_hdl = d->ipa_params.cons_clnt_hdl;
+		connect_params.tethering_mode = TETH_TETHERING_MODE_RMNET;
+		ret = teth_bridge_connect(&connect_params);
+		if (ret) {
+			pr_err("%s:teth_bridge_connect() failed\n", __func__);
+			return;
+		}
 	}
 
 	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_KERNEL);
