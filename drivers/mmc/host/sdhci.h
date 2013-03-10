@@ -281,6 +281,7 @@ struct sdhci_ops {
 	int	(*execute_tuning)(struct sdhci_host *host, u32 opcode);
 	void	(*toggle_cdr)(struct sdhci_host *host, bool enable);
 	unsigned int	(*get_max_segments)(void);
+	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS

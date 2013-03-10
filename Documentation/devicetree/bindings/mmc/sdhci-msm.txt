@@ -55,6 +55,18 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- qcom,pad-drv-off - Suspend drive strength configuration for sdc tlmm pins.
 	Tlmm pins are specified as <clk cmd data>
 
+	- qcom,bus-bw-vectors-bps: specifies array of throughput values in
+	Bytes/sec. The values in the array are determined according to
+	supported bus speed modes. For example, if host supports SDR12 mode,
+	value is 13631488 Bytes/sec.
+	- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+	below optional properties:
+	- qcom,msm-bus,name
+	- qcom,msm-bus,num-cases
+	- qcom,msm-bus,active-only
+	- qcom,msm-bus,num-paths
+	- qcom,msm-bus,vectors-KBps
+
 Example:
 
 	aliases {
@@ -111,4 +123,16 @@ Example:
 		qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
 		qcom,cpu-dma-latency-us = <200>;
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <7>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+				<81 512 6656 13312>, /* 13 MB/s*/
+				<81 512 13312 26624>, /* 26 MB/s */
+				<81 512 26624 53248>, /* 52 MB/s */
+				<81 512 53248 106496>, /* 104 MB/s */
+				<81 512 106496 212992>, /* 208 MB/s */
+				<81 512 2147483647 4294967295>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 13631488 27262976 54525952 109051904 218103808 4294967295>;
 	};
