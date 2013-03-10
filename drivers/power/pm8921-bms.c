@@ -2479,9 +2479,18 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 
 	/* last_soc < soc  ... scale and catch up */
 	if (last_soc != -EINVAL && last_soc < soc && soc != 100)
-		soc = scale_soc_while_chg(chip, delta_time_us, soc, last_soc);
+			soc = scale_soc_while_chg(chip, delta_time_us,
+							soc, last_soc);
 
-	last_soc = soc;
+	/* restrict soc to 1% change */
+	if (last_soc != -EINVAL) {
+		if (soc < last_soc && soc != 0)
+			soc = last_soc - 1;
+		if (soc > last_soc && soc != 100)
+			soc = last_soc + 1;
+	}
+
+	last_soc = bound_soc(soc);
 	backup_soc_and_iavg(chip, batt_temp, last_soc);
 	pr_debug("Reported SOC = %d\n", last_soc);
 	chip->t_soc_queried = now;
@@ -2986,6 +2995,7 @@ enum bms_request_operation {
 	GET_VBAT_VSENSE_SIMULTANEOUS,
 	STOP_OCV,
 	START_OCV,
+	SET_OCV,
 };
 
 static int test_batt_temp = 5;
@@ -3227,6 +3237,8 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 				(void *)STOP_OCV, &calc_fops);
 	debugfs_create_file("start_ocv", 0644, chip->dent,
 				(void *)START_OCV, &calc_fops);
+	debugfs_create_file("set_ocv", 0644, chip->dent,
+				(void *)SET_OCV, &calc_fops);
 
 	debugfs_create_file("simultaneous", 0644, chip->dent,
 			(void *)GET_VBAT_VSENSE_SIMULTANEOUS, &calc_fops);
@@ -3463,6 +3475,18 @@ static int __devexit pm8921_bms_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int pm8921_bms_suspend(struct device *dev)
+{
+	/*
+	 * set the last reported soc to invalid, so that
+	 * next time we resume we don't want to restrict
+	 * the decrease of soc by only 1%
+	 */
+	last_soc = -EINVAL;
+
+	return 0;
+}
+
 static int pm8921_bms_resume(struct device *dev)
 {
 	int rc;
@@ -3490,6 +3514,7 @@ static int pm8921_bms_resume(struct device *dev)
 
 static const struct dev_pm_ops pm8921_bms_pm_ops = {
 	.resume		= pm8921_bms_resume,
+	.suspend	= pm8921_bms_suspend,
 };
 
 static struct platform_driver pm8921_bms_driver = {
