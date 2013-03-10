@@ -138,6 +138,25 @@ struct qseecom_wipe_key_req {
 	enum qseecom_key_management_usage_type usage;
 };
 
+#define SHA256_DIGEST_LENGTH	(256/8)
+/*
+ * struct qseecom_save_partition_hash_req
+ * @partition_id - partition id.
+ * @hash[SHA256_DIGEST_LENGTH] -  sha256 digest.
+ */
+struct qseecom_save_partition_hash_req {
+	int partition_id; /* in */
+	char digest[SHA256_DIGEST_LENGTH]; /* in */
+};
+
+/*
+ * struct qseecom_is_es_activated_req
+ * @is_activated - 1=true , 0=false
+ */
+struct qseecom_is_es_activated_req {
+	int is_activated; /* out */
+};
+
 #define QSEECOM_IOC_MAGIC    0x97
 
 
@@ -195,5 +214,10 @@ struct qseecom_wipe_key_req {
 #define QSEECOM_IOCTL_WIPE_KEY_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 18, struct qseecom_wipe_key_req)
 
+#define QSEECOM_IOCTL_SAVE_PARTITION_HASH_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 19, struct qseecom_save_partition_hash_req)
+
+#define QSEECOM_IOCTL_IS_ES_ACTIVATED_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 20, struct qseecom_is_es_activated_req)
 
 #endif /* __QSEECOM_H_ */
