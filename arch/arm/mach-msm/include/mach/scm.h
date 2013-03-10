@@ -24,6 +24,7 @@
 #define SCM_SVC_MP			0xC
 #define SCM_SVC_CRYPTO			0xA
 #define SCM_SVC_DCVS			0xD
+#define SCM_SVC_ES			0x10
 #define SCM_SVC_TZSCHEDULER		0xFC
 
 #ifdef CONFIG_MSM_SCM
