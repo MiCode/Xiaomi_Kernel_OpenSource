@@ -486,6 +486,7 @@ struct sdhci_host {
 	bool pending_reset;	/* Cmd/data reset is pending */
 
 	struct mmc_request *mrqs_done[SDHCI_MAX_MRQS];	/* Requests done */
+	struct mmc_request *mrq;	/* Current request */
 	struct mmc_command *cmd;	/* Current command */
 	struct mmc_command *data_cmd;	/* Current data command */
 	struct mmc_data *data;	/* Current data request */
@@ -575,6 +576,7 @@ struct sdhci_ops {
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);
 	unsigned int	(*get_max_segments)(void);
 	void    (*card_event)(struct sdhci_host *host);
+	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
 	void	(*toggle_cdr)(struct sdhci_host *host, bool enable);
 	void	(*check_power_status)(struct sdhci_host *host);
 	void	(*voltage_switch)(struct sdhci_host *host);
