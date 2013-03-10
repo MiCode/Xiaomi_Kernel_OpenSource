@@ -441,9 +441,9 @@ Required properties:
 - prim-auxpcm-gpio-din : GPIO on which AUXPCM DIN signal is coming.
 - prim-auxpcm-gpio-dout : GPIO on which AUXPCM DOUT signal is coming.
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
-
 Optional properties:
 - qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
+- qcom,ext-ult-spk-amp-gpio : GPIO for enabling of speaker path amplifier.
 
 Example:
 
