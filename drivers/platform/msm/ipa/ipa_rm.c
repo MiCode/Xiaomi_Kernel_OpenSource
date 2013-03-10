@@ -48,7 +48,7 @@ int ipa_rm_create_resource(struct ipa_rm_create_params *create_params)
 	if (ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
 					  create_params->name,
 					  &resource) == 0) {
-		result = -EPERM;
+		result = -EEXIST;
 		goto bail;
 	}
 	result = ipa_rm_resource_create(create_params,

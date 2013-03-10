@@ -355,36 +355,6 @@ enum ipa_bridge_type {
 };
 
 /**
- * enum ipa_rm_resource_name - IPA RM clients identification names
- *
- * Add new mapping to ipa_rm_dep_prod_index() / ipa_rm_dep_cons_index()
- * when adding new entry to this enum.
- */
-enum ipa_rm_resource_name {
-	IPA_RM_RESOURCE_PROD = 0,
-	IPA_RM_RESOURCE_BRIDGE_PROD = IPA_RM_RESOURCE_PROD,
-	IPA_RM_RESOURCE_A2_PROD,
-	IPA_RM_RESOURCE_USB_PROD,
-	IPA_RM_RESOURCE_HSIC_PROD,
-	IPA_RM_RESOURCE_STD_ECM_PROD,
-	IPA_RM_RESOURCE_WWAN_0_PROD,
-	IPA_RM_RESOURCE_WWAN_1_PROD,
-	IPA_RM_RESOURCE_WWAN_2_PROD,
-	IPA_RM_RESOURCE_WWAN_3_PROD,
-	IPA_RM_RESOURCE_WWAN_4_PROD,
-	IPA_RM_RESOURCE_WWAN_5_PROD,
-	IPA_RM_RESOURCE_WWAN_6_PROD,
-	IPA_RM_RESOURCE_WWAN_7_PROD,
-	IPA_RM_RESOURCE_WLAN_PROD,
-	IPA_RM_RESOURCE_PROD_MAX,
-
-	IPA_RM_RESOURCE_A2_CONS = IPA_RM_RESOURCE_PROD_MAX,
-	IPA_RM_RESOURCE_USB_CONS,
-	IPA_RM_RESOURCE_HSIC_CONS,
-	IPA_RM_RESOURCE_MAX
-};
-
-/**
  * enum ipa_rm_event - IPA RM events
  *
  * Indicate the resource state change

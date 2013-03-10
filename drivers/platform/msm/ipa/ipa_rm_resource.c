@@ -451,7 +451,7 @@ int ipa_rm_resource_add_dependency(struct ipa_rm_resource *resource,
 			resource->name,
 			depends_on->peers_list,
 			depends_on->name))
-		return -EINVAL;
+		return -EEXIST;
 	ipa_rm_peers_list_add_peer(resource->peers_list, depends_on);
 	ipa_rm_peers_list_add_peer(depends_on->peers_list, resource);
 	spin_lock_irqsave(&resource->state_lock, flags);
@@ -507,7 +507,7 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 	unsigned long flags;
 	if (!resource || !depends_on)
 		return -EINVAL;
-	if (ipa_rm_peers_list_check_dependency(resource->peers_list,
+	if (!ipa_rm_peers_list_check_dependency(resource->peers_list,
 			resource->name,
 			depends_on->peers_list,
 			depends_on->name))
