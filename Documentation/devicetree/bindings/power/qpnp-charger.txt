@@ -54,7 +54,7 @@ Sub node required structure:
 	each should be their own subnode.
 
 Sub node required properties:
-- compatible:		Must be "qcom,charger".
+- compatible:		Must be "qcom,qpnp-charger".
 - reg:			Specifies the SPMI address and size for this peripheral.
 - interrupts:		Specifies the interrupt associated with the peripheral.
 - interrupt-names:	Specifies the interrupt names for the peripheral. Every
@@ -125,7 +125,7 @@ Sub node required properties:
 Example:
 	pm8941-chg {
 		spmi-dev-container;
-		compatible = "qcom,charger";
+		compatible = "qcom,qpnp-charger";
 		#address-cells = <1>;
 		#size-cells = <1>;
 
