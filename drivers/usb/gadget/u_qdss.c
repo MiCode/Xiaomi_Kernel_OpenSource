@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,8 @@
 #include <linux/device.h>
 #include <linux/usb/msm_hsusb.h>
 #include <mach/usb_bam.h>
+
+#define BAM_CONNC_IDX 0 /* USB bam connection index */
 
 struct  usb_qdss_bam_connect_info {
 	u32 usb_bam_pipe_idx;
@@ -55,18 +57,17 @@ int send_sps_req(struct usb_ep *data_ep)
 		pr_err("send_sps_req: usb_ep_queue error\n");
 		return -EIO;
 	}
-
 	return 0;
 }
 
 int set_qdss_data_connection(struct usb_ep *data_ep, u8 data_addr, int enable)
 {
 	int res = 0;
-	u8 conn_num = usb_bam_get_qdss_num();
+
 	pr_debug("set_qdss_data_connection\n");
 
 	if (enable) {
-		res = usb_bam_connect(conn_num, NULL,
+		res = usb_bam_connect(BAM_CONNC_IDX, NULL,
 			&(bam_info.usb_bam_pipe_idx));
 		if (res) {
 			pr_err("usb_bam_connection error\n");
@@ -79,7 +80,7 @@ int set_qdss_data_connection(struct usb_ep *data_ep, u8 data_addr, int enable)
 			pr_err("qdss_data_connection: memory alloc failed\n");
 			return -ENOMEM;
 		}
-		get_bam2bam_connection_info(conn_num,
+		get_bam2bam_connection_info(BAM_CONNC_IDX,
 			PEER_PERIPHERAL_TO_USB, &bam_info.usb_bam_handle,
 			&bam_info.usb_bam_pipe_idx, &bam_info.peer_pipe_idx,
 			NULL, bam_info.data_fifo);
@@ -88,7 +89,7 @@ int set_qdss_data_connection(struct usb_ep *data_ep, u8 data_addr, int enable)
 			bam_info.data_fifo->size, bam_info.usb_bam_pipe_idx);
 	} else {
 		kfree(bam_info.data_fifo);
-		res = usb_bam_disconnect_pipe(conn_num);
+		res = usb_bam_disconnect_pipe(BAM_CONNC_IDX);
 		if (res) {
 			pr_err("usb_bam_disconnection error\n");
 			return res;
