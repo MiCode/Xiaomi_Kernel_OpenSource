@@ -16,6 +16,7 @@
 #include <linux/types.h>
 #include <linux/io.h>
 #include <linux/mmc/host.h>
+#include <linux/pm_qos.h>
 
 struct sdhci_host {
 	/* Data set by hardware interface driver */
@@ -186,6 +187,9 @@ struct sdhci_host {
 	unsigned int		tuning_mode;	/* Re-tuning mode supported by host */
 #define SDHCI_TUNING_MODE_1	0
 	struct timer_list	tuning_timer;	/* Timer for tuning */
+
+	unsigned int cpu_dma_latency_us;
+	struct pm_qos_request pm_qos_req_dma;
 
 	unsigned long private[0] ____cacheline_aligned;
 };

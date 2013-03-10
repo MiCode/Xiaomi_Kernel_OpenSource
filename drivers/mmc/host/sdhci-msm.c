@@ -192,6 +192,7 @@ struct sdhci_msm_pltfm_data {
 	struct sdhci_msm_slot_reg_data *vreg_data;
 	bool nonremovable;
 	struct sdhci_msm_pin_data *pin_data;
+	u32 cpu_dma_latency_us;
 };
 
 struct sdhci_msm_host {
@@ -1045,6 +1046,7 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 	struct sdhci_msm_pltfm_data *pdata = NULL;
 	struct device_node *np = dev->of_node;
 	u32 bus_width = 0;
+	u32 cpu_dma_latency;
 	int len, i;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
@@ -1062,6 +1064,10 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 		dev_notice(dev, "invalid bus-width, default to 1-bit mode\n");
 		pdata->mmc_bus_width = 0;
 	}
+
+	if (!of_property_read_u32(np, "qcom,cpu-dma-latency-us",
+				&cpu_dma_latency))
+		pdata->cpu_dma_latency_us = cpu_dma_latency;
 
 	pdata->vreg_data = devm_kzalloc(dev, sizeof(struct
 						    sdhci_msm_slot_reg_data),
@@ -1771,6 +1777,8 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 
 	if (msm_host->pdata->nonremovable)
 		msm_host->mmc->caps |= MMC_CAP_NONREMOVABLE;
+
+	host->cpu_dma_latency_us = msm_host->pdata->cpu_dma_latency_us;
 
 	ret = sdhci_add_host(host);
 	if (ret) {
