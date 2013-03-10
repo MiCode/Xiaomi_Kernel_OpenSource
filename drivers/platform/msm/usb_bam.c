@@ -472,6 +472,63 @@ int usb_bam_connect(u8 idx, u32 *src_pipe_idx, u32 *dst_pipe_idx)
 	return 0;
 }
 
+static void usb_prod_notify_cb(void *user_data, enum ipa_rm_event event,
+	unsigned long data)
+{
+	switch (event) {
+	case IPA_RM_RESOURCE_GRANTED:
+		pr_debug("USB_PROD resource granted\n");
+		break;
+	case IPA_RM_RESOURCE_RELEASED:
+		pr_debug("USB_PROD resource released\n");
+		break;
+	default:
+		break;
+	}
+	return;
+}
+
+static int usb_cons_request_resource(void)
+{
+	pr_debug(": Requesting USB_CONS resource\n");
+	return 0;
+}
+
+static int usb_cons_release_resource(void)
+{
+	pr_debug(": Releasing USB_CONS resource\n");
+	return 0;
+}
+
+static void usb_bam_ipa_create_resources(void)
+{
+	struct ipa_rm_create_params usb_prod_create_params;
+	struct ipa_rm_create_params usb_cons_create_params;
+	int ret;
+
+	/* Create USB_PROD entity */
+	memset(&usb_prod_create_params, 0, sizeof(usb_prod_create_params));
+	usb_prod_create_params.name = IPA_RM_RESOURCE_USB_PROD;
+	usb_prod_create_params.reg_params.notify_cb = usb_prod_notify_cb;
+	usb_prod_create_params.reg_params.user_data = NULL;
+	ret = ipa_rm_create_resource(&usb_prod_create_params);
+	if (ret) {
+		pr_err("%s: Failed to create USB_PROD resource\n", __func__);
+		return;
+	}
+
+	/* Create USB_CONS entity */
+	memset(&usb_cons_create_params, 0, sizeof(usb_cons_create_params));
+	usb_cons_create_params.name = IPA_RM_RESOURCE_USB_CONS;
+	usb_cons_create_params.request_resource = usb_cons_request_resource;
+	usb_cons_create_params.release_resource = usb_cons_release_resource;
+	ret = ipa_rm_create_resource(&usb_cons_create_params);
+	if (ret) {
+		pr_err("%s: Failed to create USB_CONS resource\n", __func__);
+		return ;
+	}
+}
+
 int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 {
 	u8 idx = ipa_params->idx;
@@ -499,6 +556,8 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		connection->dst_pipe = ipa_params->dst_pipe;
 
 	connection->idx = idx;
+
+	ipa_rm_request_resource(IPA_CLIENT_USB_PROD);
 
 	ret = connect_pipe_ipa(ipa_params);
 	if (ret) {
@@ -779,6 +838,7 @@ int usb_bam_disconnect_ipa(u8 idx,
 		}
 	}
 
+	ipa_rm_release_resource(IPA_CLIENT_USB_PROD);
 	return 0;
 
 }
@@ -1275,6 +1335,8 @@ static int usb_bam_probe(struct platform_device *pdev)
 		pr_err("unable to create workqueue usb_bam_wq\n");
 		return -ENOMEM;
 	}
+
+	usb_bam_ipa_create_resources();
 
 	return ret;
 }
