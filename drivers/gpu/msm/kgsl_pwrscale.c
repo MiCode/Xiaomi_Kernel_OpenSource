@@ -237,16 +237,14 @@ EXPORT_SYMBOL(kgsl_pwrscale_wake);
 void kgsl_pwrscale_busy(struct kgsl_device *device)
 {
 	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->busy)
-		if (device->requested_state != KGSL_STATE_SLUMBER)
-			device->pwrscale.policy->busy(device,
-					&device->pwrscale);
+		device->pwrscale.policy->busy(device,
+				&device->pwrscale);
 }
 
 void kgsl_pwrscale_idle(struct kgsl_device *device)
 {
 	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->idle)
-		if (device->requested_state != KGSL_STATE_SLUMBER &&
-			device->requested_state != KGSL_STATE_SLEEP)
+		if (device->state == KGSL_STATE_ACTIVE)
 			device->pwrscale.policy->idle(device,
 					&device->pwrscale);
 }
