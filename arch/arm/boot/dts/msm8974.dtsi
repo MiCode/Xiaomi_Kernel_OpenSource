@@ -914,7 +914,7 @@
 		qcom,vdd_pll = <1800000>;
 		qcom,is-loadable;
 		qcom,firmware-name = "mba";
-		qcom,pil-self-auth = <1>;
+		qcom,pil-self-auth;
 	};
 
 	qcom,pronto@fb21b000 {
