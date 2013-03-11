@@ -91,6 +91,7 @@
 		qcom,hsusb-otg-disable-reset;
 		qcom,hsusb-otg-lpm-on-dev-suspend;
 		qcom,hsusb-otg-clk-always-on-workaround;
+		qcom,hsusb-otg-delay-lpm;
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <2>;
