@@ -420,9 +420,19 @@
 
 	qcom,pm-8x60@fe805664 {
 		compatible = "qcom,pm-8x60";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
 		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
+
+		qcom,cpu-sleep-status@f9088008 {
+			compatible = "qcom,cpu-sleep-status";
+			reg = <0xf9088008 0x4>;
+			qcom,cpu-alias-addr = <0x10000>;
+			qcom,sleep-status-mask= <0x80000>;
+		};
 	};
 
 	qcom,rpm-log@fc19dc00 {
