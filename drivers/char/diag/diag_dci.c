@@ -107,43 +107,40 @@ void extract_dci_pkt_rsp(unsigned char *buf)
 			break;
 		}
 	}
-	if (index == -1)
+	if (index == -1) {
 		pr_alert("diag: No matching PID for DCI data\n");
+		return;
+	}
 	/* Using PID of client process, find client buffer */
-	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-		if (driver->dci_client_tbl[i].client != NULL) {
-			if (curr_client_pid ==
-				driver->dci_client_tbl[i].client->tgid) {
-				/* copy pkt rsp in client buf */
-				entry = &(driver->dci_client_tbl[i]);
-				if (DCI_CHK_CAPACITY(entry, 8+write_len)) {
-					pr_alert("diag: create capacity for pkt rsp\n");
-					entry->total_capacity += 8+write_len;
-					temp_buf = krealloc(entry->dci_data,
-					entry->total_capacity, GFP_KERNEL);
-					if (!temp_buf) {
-						pr_err("diag: DCI realloc failed\n");
-						break;
-					} else {
-						entry->dci_data = temp_buf;
-					}
-				}
-				*(int *)(entry->dci_data+entry->data_len) =
-							DCI_PKT_RSP_TYPE;
-				entry->data_len += 4;
-				*(int *)(entry->dci_data+entry->data_len)
-								= write_len;
-				entry->data_len += 4;
-				memcpy(entry->dci_data+entry->data_len,
-					buf+4+cmd_code_len, write_len);
-				entry->data_len += write_len;
-				/* delete immediate response entry */
-				if (driver->smd_dci[MODEM_DATA].
-					buf_in_1[8+cmd_code_len] != 0x80)
-					driver->req_tracking_tbl[index].pid = 0;
-				break;
+	i = diag_dci_find_client_index(curr_client_pid);
+	if (i != DCI_CLIENT_INDEX_INVALID) {
+		/* copy pkt rsp in client buf */
+		entry = &(driver->dci_client_tbl[i]);
+		if (DCI_CHK_CAPACITY(entry, 8+write_len)) {
+			pr_alert("diag: create capacity for pkt rsp\n");
+			entry->total_capacity += 8+write_len;
+			temp_buf = krealloc(entry->dci_data,
+			entry->total_capacity, GFP_KERNEL);
+			if (!temp_buf) {
+				pr_err("diag: DCI realloc failed\n");
+				return;
+			} else {
+				entry->dci_data = temp_buf;
 			}
 		}
+		*(int *)(entry->dci_data+entry->data_len) =
+					DCI_PKT_RSP_TYPE;
+		entry->data_len += 4;
+		*(int *)(entry->dci_data+entry->data_len)
+						= write_len;
+		entry->data_len += 4;
+		memcpy(entry->dci_data+entry->data_len,
+			buf+4+cmd_code_len, write_len);
+		entry->data_len += write_len;
+		/* delete immediate response entry */
+		if (driver->smd_dci[MODEM_DATA].
+			buf_in_1[8+cmd_code_len] != 0x80)
+			driver->req_tracking_tbl[index].pid = 0;
 	}
 }
 
@@ -527,16 +524,8 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		}
 	} else if (*(int *)temp == DCI_LOG_TYPE) {
 		/* find client id and table */
-		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-			if (driver->dci_client_tbl[i].client != NULL) {
-				if (driver->dci_client_tbl[i].client->tgid ==
-							current->tgid) {
-					found = 1;
-					break;
-				}
-			}
-		}
-		if (!found) {
+		i = diag_dci_find_client_index(current->tgid);
+		if (i == DCI_CLIENT_INDEX_INVALID) {
 			pr_err("diag: dci client not registered/found\n");
 			return ret;
 		}
@@ -610,16 +599,8 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		ret = diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
 	} else if (*(int *)temp == DCI_EVENT_TYPE) {
 		/* find client id and table */
-		for (i = 0; i < MAX_DCI_CLIENTS; i++) {
-			if (driver->dci_client_tbl[i].client != NULL) {
-				if (driver->dci_client_tbl[i].client->tgid ==
-							current->tgid) {
-					found = 1;
-					break;
-				}
-			}
-		}
-		if (!found) {
+		i = diag_dci_find_client_index(current->tgid);
+		if (i == DCI_CLIENT_INDEX_INVALID) {
 			pr_err("diag: dci client not registered/found\n");
 			return ret;
 		}
@@ -672,6 +653,22 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 	return ret;
 }
 
+int diag_dci_find_client_index(int client_id)
+{
+	int i, ret = DCI_CLIENT_INDEX_INVALID;
+
+	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		if (driver->dci_client_tbl[i].client != NULL) {
+			if (driver->dci_client_tbl[i].client->tgid ==
+					client_id) {
+				ret = i;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask)
 {
 	int i;
@@ -697,6 +694,69 @@ void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask)
 		*update_ptr |= byte_mask;
 	mutex_unlock(&dci_event_mask_mutex);
 }
+
+void clear_client_dci_cumulative_event_mask(int client_index)
+{
+	int i, j;
+	uint8_t *update_ptr = dci_cumulative_event_mask;
+	uint8_t *event_mask_ptr, *client_event_mask_ptr, byte_mask = 0;
+	bool is_set = false;
+
+	event_mask_ptr =
+		(driver->dci_client_tbl[client_index].dci_event_mask);
+
+	mutex_lock(&dci_event_mask_mutex);
+	for (i = 0; i < DCI_EVENT_MASK_SIZE; i++) {
+		is_set = false;
+		/* Already cleared event masks need not to be considered */
+		if (*event_mask_ptr != 0) {
+			byte_mask = *event_mask_ptr;
+		} else {
+			update_ptr++;
+			event_mask_ptr++;
+			continue;
+		}
+		for (j = 0; j < MAX_DCI_CLIENTS; j++) {
+			/* continue searching for valid client */
+			if (driver->dci_client_tbl[j].client == NULL ||
+				client_index == j)
+				continue;
+			client_event_mask_ptr =
+				(driver->dci_client_tbl[j].dci_event_mask);
+			client_event_mask_ptr += i;
+			if (*client_event_mask_ptr & byte_mask) {
+				/*
+				* Break if another client has same
+				* event mask set
+				*/
+				if ((*client_event_mask_ptr &
+					byte_mask) == byte_mask) {
+					is_set = true;
+					break;
+				} else {
+					byte_mask =
+					(~(*client_event_mask_ptr) &
+					byte_mask);
+					is_set = false;
+				}
+			}
+		}
+		/*
+		* Clear only if this client has event mask set else
+		* don't update cumulative event mask ptr
+		*/
+		if (is_set == false)
+			*update_ptr &= ~byte_mask;
+
+		update_ptr++;
+		event_mask_ptr++;
+	}
+	event_mask_ptr =
+		(driver->dci_client_tbl[client_index].dci_event_mask);
+	memset(event_mask_ptr, 0, DCI_EVENT_MASK_SIZE);
+	mutex_unlock(&dci_event_mask_mutex);
+}
+
 
 int diag_send_dci_event_mask(smd_channel_t *ch)
 {
@@ -774,6 +834,87 @@ void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 		*update_ptr &= ~byte_mask;
 	else
 		*update_ptr |= byte_mask;
+	mutex_unlock(&dci_log_mask_mutex);
+}
+
+void clear_client_dci_cumulative_log_mask(int client_index)
+{
+	int i, j, k;
+	uint8_t *update_ptr = dci_cumulative_log_mask;
+	uint8_t *log_mask_ptr, *client_log_mask_ptr, byte_mask = 0;
+	bool is_set = false;
+
+	log_mask_ptr = driver->dci_client_tbl[client_index].dci_log_mask;
+
+	mutex_lock(&dci_log_mask_mutex);
+	*update_ptr = 0;
+	/* set the equipment IDs */
+	for (i = 0; i < 16; i++)
+		*(update_ptr + (i*514)) = i;
+
+	/* update cumulative log mask ptr*/
+	update_ptr += 2;
+	log_mask_ptr += 2;
+	for (i = 0; i < 16; i++) {
+		for (j = 0; j < 512; j++) {
+			is_set = false;
+			/*
+			* Already cleared log masks need
+			* not to be considered
+			*/
+			if (*log_mask_ptr != 0) {
+				byte_mask = *log_mask_ptr;
+			} else {
+				update_ptr++;
+				log_mask_ptr++;
+				continue;
+			}
+			for (k = 0; k < MAX_DCI_CLIENTS; k++) {
+				/* continue searching for valid client */
+				if (driver->dci_client_tbl[k].client == NULL ||
+					client_index == k)
+					continue;
+				client_log_mask_ptr =
+				 (driver->dci_client_tbl[k].dci_log_mask);
+				client_log_mask_ptr += (i*514) + 2 + j;
+				if (*client_log_mask_ptr & byte_mask) {
+					/*
+					* Break if another client has same
+					* log mask set
+					*/
+					if ((*client_log_mask_ptr &
+						byte_mask) == byte_mask) {
+						is_set = true;
+						break;
+					} else {
+						byte_mask =
+						 (~(*client_log_mask_ptr) &
+						 byte_mask);
+						is_set = false;
+					}
+				}
+			}
+			/*
+			* Clear only if this client has log mask set else
+			* don't update cumulative log mask ptr
+			*/
+			if (is_set == false) {
+				/*
+				* Update the dirty bit for the equipment
+				* whose mask is changing
+				*/
+				dci_cumulative_log_mask[1+(i*514)] = 1;
+				*update_ptr &= ~byte_mask;
+			}
+
+			update_ptr++;
+			log_mask_ptr++;
+		}
+		update_ptr += 2;
+		log_mask_ptr += 2;
+	}
+	log_mask_ptr = driver->dci_client_tbl[client_index].dci_log_mask;
+	memset(log_mask_ptr, 0, DCI_LOG_MASK_SIZE);
 	mutex_unlock(&dci_log_mask_mutex);
 }
 
@@ -886,10 +1027,12 @@ int diag_dci_init(void)
 	mutex_init(&driver->dci_mutex);
 	mutex_init(&dci_log_mask_mutex);
 	mutex_init(&dci_event_mask_mutex);
-	success = diag_smd_constructor(&driver->smd_dci[MODEM_DATA],
-					MODEM_DATA, SMD_DCI_TYPE);
-	if (!success)
-		goto err;
+	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
+		success = diag_smd_constructor(&driver->smd_dci[i],
+					i, SMD_DCI_TYPE);
+		if (!success)
+			goto err;
+	}
 
 	if (driver->req_tracking_tbl == NULL) {
 		driver->req_tracking_tbl = kzalloc(dci_max_reg *
