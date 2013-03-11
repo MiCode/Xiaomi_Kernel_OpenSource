@@ -602,6 +602,12 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		if (inst->in_reconfig == true) {
 			inst->prop.height = inst->reconfig_height;
 			inst->prop.width = inst->reconfig_width;
+			rc = msm_vidc_check_session_supported(inst);
+			if (rc) {
+				dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+				return rc;
+			}
 		}
 		f->fmt.pix_mp.height = inst->prop.height;
 		f->fmt.pix_mp.width = inst->prop.width;
@@ -787,6 +793,14 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		inst->prop.width = f->fmt.pix_mp.width;
 		inst->prop.height = f->fmt.pix_mp.height;
+
+		rc = msm_vidc_check_session_supported(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+			goto err_invalid_fmt;
+		}
+
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 				ARRAY_SIZE(vdec_formats),
 				f->fmt.pix_mp.pixelformat,

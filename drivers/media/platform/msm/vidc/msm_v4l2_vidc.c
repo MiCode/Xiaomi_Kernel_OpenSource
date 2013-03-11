@@ -682,6 +682,13 @@ static int msm_v4l2_g_parm(struct file *file, void *fh,
 {
 	return 0;
 }
+
+static int msm_v4l2_enum_framesizes(struct file *file, void *fh,
+				struct v4l2_frmsizeenum *fsize)
+{
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+	return msm_vidc_enum_framesizes((void *)vidc_inst, fsize);
+}
 static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_v4l2_querycap,
 	.vidioc_enum_fmt_vid_cap_mplane = msm_v4l2_enum_fmt,
@@ -703,7 +710,8 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_decoder_cmd = msm_v4l2_decoder_cmd,
 	.vidioc_encoder_cmd = msm_v4l2_encoder_cmd,
 	.vidioc_s_parm = msm_v4l2_s_parm,
-	.vidioc_g_parm = msm_v4l2_g_parm
+	.vidioc_g_parm = msm_v4l2_g_parm,
+	.vidioc_enum_framesizes = msm_v4l2_enum_framesizes,
 };
 
 static const struct v4l2_ioctl_ops msm_v4l2_enc_ioctl_ops = {

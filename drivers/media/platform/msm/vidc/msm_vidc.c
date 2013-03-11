@@ -299,6 +299,30 @@ int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i)
 	return -EINVAL;
 }
 
+
+int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
+{
+	struct msm_vidc_inst *inst = instance;
+	struct msm_vidc_core_capability *capability = NULL;
+
+	if (!inst || !fsize) {
+		dprintk(VIDC_ERR, "%s: invalid parameter: %p %p\n",
+				__func__, inst, fsize);
+		return -EINVAL;
+	}
+	if (!inst->core)
+		return -EINVAL;
+
+	capability = &inst->capability;
+	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
+	fsize->stepwise.min_width = capability->width.min;
+	fsize->stepwise.max_width = capability->width.max;
+	fsize->stepwise.step_width = capability->width.step_size;
+	fsize->stepwise.min_height = capability->height.min;
+	fsize->stepwise.max_height = capability->height.max;
+	fsize->stepwise.step_height = capability->height.step_size;
+	return 0;
+}
 static void *vidc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 				unsigned long size, int write)
 {
