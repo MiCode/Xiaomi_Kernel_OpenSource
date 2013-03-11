@@ -44,6 +44,8 @@
 #define MOVE_NEAR 0
 #define MOVE_FAR  1
 
+#define MAX_EEPROM_NAME 32
+
 enum msm_camera_i2c_reg_addr_type {
 	MSM_CAMERA_I2C_BYTE_ADDR = 1,
 	MSM_CAMERA_I2C_WORD_ADDR,
@@ -284,6 +286,37 @@ struct csiphy_cfg_data {
 	} cfg;
 };
 
+enum eeprom_cfg_type_t {
+	CFG_EEPROM_GET_INFO,
+	CFG_EEPROM_GET_DATA,
+	CFG_EEPROM_READ_DATA,
+	CFG_EEPROM_WRITE_DATA,
+};
+struct eeprom_get_t {
+	uint16_t num_bytes;
+};
+
+struct eeprom_read_t {
+	uint8_t *dbuffer;
+	uint16_t num_bytes;
+};
+
+struct eeprom_write_t {
+	uint8_t *dbuffer;
+	uint16_t num_bytes;
+};
+
+struct msm_eeprom_cfg_data {
+	enum eeprom_cfg_type_t cfgtype;
+	uint8_t is_supported;
+	union {
+		char eeprom_name[MAX_SENSOR_NAME];
+		struct eeprom_get_t get_data;
+		struct eeprom_read_t read_data;
+		struct eeprom_write_t write_data;
+	} cfg;
+};
+
 enum msm_sensor_cfg_type_t {
 	CFG_SET_SLAVE_INFO,
 	CFG_WRITE_I2C_ARRAY,
@@ -456,6 +489,9 @@ struct msm_camera_led_cfg_t {
 
 #define VIDIOC_MSM_FLASH_LED_DATA_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct msm_camera_led_cfg_t)
+
+#define VIDIOC_MSM_EEPROM_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_eeprom_cfg_data)
 
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 
