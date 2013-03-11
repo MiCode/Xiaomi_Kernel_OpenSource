@@ -221,9 +221,6 @@ static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
 		pr_err("%s: irq request failed\n", __func__);
 		goto irq_req_failed;
 	}
-
-	msm_vfe40_init_qos_parms(vfe_dev);
-	msm_vfe40_init_vbif_parms(vfe_dev->vfe_vbif_base);
 	return rc;
 irq_req_failed:
 	iounmap(vfe_dev->vfe_vbif_base);
@@ -256,6 +253,8 @@ static void msm_vfe40_release_hardware(struct vfe_device *vfe_dev)
 
 static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 {
+	msm_vfe40_init_qos_parms(vfe_dev);
+	msm_vfe40_init_vbif_parms(vfe_dev->vfe_vbif_base);
 	/* CGC_OVERRIDE */
 	msm_camera_io_w(0x3FFFFFFF, vfe_dev->vfe_base + 0x14);
 	msm_camera_io_w(0xC001FF7F, vfe_dev->vfe_base + 0x974);
