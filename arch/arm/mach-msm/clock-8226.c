@@ -2559,7 +2559,7 @@ static struct branch_clk mmss_s0_axi_clk = {
 
 static struct branch_clk oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.max_div = 0,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
