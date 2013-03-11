@@ -64,6 +64,15 @@ config MSM_CSID
           based on cid which is mapped to a virtual channel
           and datatype.
 
+config MSM_EEPROM
+        bool "Qualcomm MSM Camera ROM Interface for Calibration support"
+        depends on MSMB_CAMERA
+        ---help---
+          Enable support for ROM Interface for Calibration
+          Provides interface for reading the Claibration data.
+          and also provides support for writing data in case of FLASH ROM.
+	  Currently supports I2C, CCI and SPI protocol
+
 config MSM_ISPIF
         bool "Qualcomm MSM Image Signal Processing interface support"
         depends on MSMB_CAMERA
