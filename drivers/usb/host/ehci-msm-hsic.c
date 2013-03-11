@@ -624,6 +624,15 @@ static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 	int ret;
 	void __iomem *reg;
 
+	if (pdata && pdata->resume_gpio) {
+		ret = gpio_request(pdata->resume_gpio, "HSIC_RESUME_GPIO");
+		if (ret < 0) {
+			dev_err(mehci->dev,
+				"gpio req failed for hsic resume:%d\n", ret);
+			pdata->resume_gpio = 0;
+		}
+	}
+
 	/* HSIC init sequence when HSIC signals (Strobe/Data) are
 	routed via GPIOs */
 	if (pdata && pdata->strobe && pdata->data) {
@@ -645,7 +654,7 @@ static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 		ret = msm_hsic_config_gpios(mehci, 1);
 		if (ret) {
 			dev_err(mehci->dev, " gpio configuarion failed\n");
-			return ret;
+			goto free_resume_gpio;
 		}
 		if (pdata->strobe_pad_offset) {
 			/* Set CORE_CTL_EN in STROBE GPIO PAD_CTL register */
@@ -694,6 +703,12 @@ static int msm_hsic_start(struct msm_hsic_hcd *mehci)
 	ulpi_write(mehci, ULPI_IFC_CTRL_AUTORESUME, ULPI_CLR(ULPI_IFC_CTRL));
 
 	return 0;
+
+free_resume_gpio:
+	if (pdata && pdata->resume_gpio)
+		gpio_free(pdata->resume_gpio);
+
+	return ret;
 }
 
 #define PHY_SUSPEND_TIMEOUT_USEC	(500 * 1000)
@@ -1312,6 +1327,10 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 	struct ehci_hcd		*ehci = hcd_to_ehci(hcd);
 	u32			temp;
 	struct task_struct	*resume_thread = NULL;
+	struct msm_hsic_host_platform_data *pdata =  mehci->dev->platform_data;
+
+	if (pdata->resume_gpio)
+		gpio_direction_output(pdata->resume_gpio, 1);
 
 	mehci->resume_status = 0;
 	resume_thread = kthread_run(msm_hsic_resume_thread,
@@ -1350,6 +1369,9 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 	ehci_writel(ehci, INTR_MASK, &ehci->regs->intr_enable);
 
 	spin_unlock_irq(&ehci->lock);
+
+	if (pdata->resume_gpio)
+		gpio_direction_output(pdata->resume_gpio, 0);
 
 	return 0;
 }
@@ -1781,6 +1803,11 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 		res_gpio = 0;
 	pdata->data = res_gpio;
 
+	res_gpio = of_get_named_gpio(node, "hsic,resume-gpio", 0);
+	if (res_gpio < 0)
+		res_gpio = 0;
+	pdata->resume_gpio = res_gpio;
+
 	pdata->ignore_cal_pad_config = of_property_read_bool(node,
 					"hsic,ignore-cal-pad-config");
 	of_property_read_u32(node, "hsic,strobe-pad-offset",
@@ -2099,6 +2126,10 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	destroy_workqueue(ehci_wq);
 
 	msm_hsic_config_gpios(mehci, 0);
+
+	if (pdata && pdata->resume_gpio)
+		gpio_free(pdata->resume_gpio);
+
 	msm_hsic_init_vddcx(mehci, 0);
 	msm_hsic_init_gdsc(mehci, 0);
 
