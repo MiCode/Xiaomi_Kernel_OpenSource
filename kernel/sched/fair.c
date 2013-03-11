@@ -5160,6 +5160,8 @@ struct lb_env {
 	struct list_head	tasks;
 };
 
+static DEFINE_PER_CPU(bool, dbs_boost_needed);
+
 /*
  * Is this task likely cache-hot:
  */
@@ -5499,6 +5501,8 @@ static void attach_task(struct rq *rq, struct task_struct *p)
 	p->on_rq = TASK_ON_RQ_QUEUED;
 	activate_task(rq, p, 0);
 	check_preempt_curr(rq, p, 0);
+	if (task_notify_on_migrate(p))
+		per_cpu(dbs_boost_needed, task_cpu(p)) = true;
 }
 
 /*
@@ -6849,9 +6853,14 @@ more_balance:
 			 */
 			sd->nr_balance_failed = sd->cache_nice_tries+1;
 		}
-	} else
+	} else {
 		sd->nr_balance_failed = 0;
-
+		if (per_cpu(dbs_boost_needed, this_cpu)) {
+			per_cpu(dbs_boost_needed, this_cpu) = false;
+			atomic_notifier_call_chain(&migration_notifier_head,
+				   this_cpu, (void *)(long)cpu_of(busiest));
+		}
+	}
 	if (likely(!active_balance)) {
 		/* We were unbalanced, so reset the balancing interval */
 		sd->balance_interval = sd->min_interval;
@@ -7103,6 +7112,12 @@ out_unlock:
 
 	local_irq_enable();
 
+	if (per_cpu(dbs_boost_needed, target_cpu)) {
+		per_cpu(dbs_boost_needed, target_cpu) = false;
+		atomic_notifier_call_chain(&migration_notifier_head,
+					   target_cpu,
+					   (void *)(long)cpu_of(busiest_rq));
+	}
 	return 0;
 }
 
