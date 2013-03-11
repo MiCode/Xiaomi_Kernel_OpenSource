@@ -88,18 +88,6 @@ enum {
 	HIST_READY,
 };
 
-struct pp_hist_col_info {
-	u32 col_state;
-	u32 col_en;
-	u32 read_request;
-	u32 hist_cnt_read;
-	u32 hist_cnt_sent;
-	u32 frame_cnt;
-	u32 is_kick_ready;
-	struct completion comp;
-	u32 data[HIST_V_SIZE];
-};
-
 static u32 dither_matrix[16] = {
 	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10};
 static u32 dither_depth_map[9] = {
