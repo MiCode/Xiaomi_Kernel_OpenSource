@@ -41,7 +41,6 @@ struct usb_ehci_pdata {
 	unsigned	big_endian_mmio:1;
 	unsigned	port_power_on:1;
 	unsigned	port_power_off:1;
-	unsigned	pool_64_bit_align:1;
 };
 
 #endif /* __USB_CORE_EHCI_PDRIVER_H */

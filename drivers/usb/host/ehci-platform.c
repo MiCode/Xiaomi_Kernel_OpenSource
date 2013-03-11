@@ -30,7 +30,6 @@ static int ehci_platform_reset(struct usb_hcd *hcd)
 
 	hcd->has_tt = pdata->has_tt;
 	ehci->has_synopsys_hc_bug = pdata->has_synopsys_hc_bug;
-	ehci->pool_64_bit_align = pdata->pool_64_bit_align;
 	ehci->big_endian_desc = pdata->big_endian_desc;
 	ehci->big_endian_mmio = pdata->big_endian_mmio;
 
