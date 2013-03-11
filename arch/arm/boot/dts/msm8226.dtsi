@@ -50,6 +50,14 @@
 		spi0 = &spi_0;
 	};
 
+	memory {
+		secure_mem: secure_region {
+			linux,contiguous-region;
+			reg = <0 0x3800000>;
+			label = "secure_mem";
+		};
+	};
+
 	timer {
 		compatible = "arm,armv7-timer";
 		interrupts = <1 2 0 1 3 0>;
