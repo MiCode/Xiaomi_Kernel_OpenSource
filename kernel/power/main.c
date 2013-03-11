@@ -502,6 +502,8 @@ power_attr(wake_unlock);
 #endif
 
 static struct attribute *g[] = {
+	&touch_event_attr.attr,
+	&touch_event_timer_attr.attr,
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
 	&pm_trace_attr.attr,
@@ -510,8 +512,6 @@ static struct attribute *g[] = {
 #ifdef CONFIG_PM_SLEEP
 	&pm_async_attr.attr,
 	&wakeup_count_attr.attr,
-	&touch_event_attr.attr,
-	&touch_event_timer_attr.attr,
 #ifdef CONFIG_PM_DEBUG
 	&pm_test_attr.attr,
 #endif
