@@ -161,6 +161,10 @@ struct sdhci_host {
 	u8 *adma_desc;		/* ADMA descriptor table */
 	u8 *align_buffer;	/* Bounce buffer */
 
+	unsigned int adma_desc_sz; /* ADMA descriptor table size */
+	unsigned int align_buf_sz; /* Bounce buffer size */
+	unsigned int adma_max_desc; /* Max ADMA descriptos (max sg segments) */
+
 	dma_addr_t adma_addr;	/* Mapped ADMA descr. table */
 	dma_addr_t align_addr;	/* Mapped bounce buffer */
 
