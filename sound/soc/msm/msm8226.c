@@ -84,6 +84,7 @@ static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
 static struct mutex cdc_mclk_mutex;
+static struct clk *codec_clk;
 static int clk_users;
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
@@ -95,21 +96,35 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 
 	mutex_lock(&cdc_mclk_mutex);
 	if (enable) {
+		if (!codec_clk) {
+			dev_err(codec->dev, "%s: did not get Taiko MCLK\n",
+					__func__);
+			ret = -EINVAL;
+			goto exit;
+		}
 
 		clk_users++;
 		if (clk_users != 1)
 			goto exit;
-		/* TODO: clk_disable */
-		tapan_mclk_enable(codec, 1, dapm);
+		if (codec_clk) {
+			clk_set_rate(codec_clk, TAPAN_EXT_CLK_RATE);
+			clk_prepare_enable(codec_clk);
+			tapan_mclk_enable(codec, 1, dapm);
+		} else {
+			pr_err("%s: Error setting Tapan MCLK\n", __func__);
+			clk_users--;
+			ret = -EINVAL;
+			goto exit;
+		}
 	} else {
 		if (clk_users > 0) {
 			clk_users--;
 			if (clk_users == 0) {
 				tapan_mclk_enable(codec, 0, dapm);
-				/* TODO: clk_enable */
+				clk_disable_unprepare(codec_clk);
 			}
 		} else {
-			pr_err("%s: Error releasing Tabla MCLK\n", __func__);
+			pr_err("%s: Error releasing Tapan MCLK\n", __func__);
 			ret = -EINVAL;
 			goto exit;
 		}
@@ -348,6 +363,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 				ARRAY_SIZE(msm8226_dapm_widgets));
 
 	snd_soc_dapm_sync(dapm);
+
+	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+	if (codec_clk < 0)
+		pr_err("%s() Failed to get clock for %s\n",
+			   __func__, dev_name(cpu_dai->dev));
 
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
@@ -957,6 +977,17 @@ struct snd_soc_card snd_soc_card_msm8226 = {
 
 static int msm8226_prepare_codec_mclk(struct snd_soc_card *card)
 {
+	struct msm8226_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret;
+	if (pdata->mclk_gpio) {
+		ret = gpio_request(pdata->mclk_gpio, "TAPAN_CODEC_PMIC_MCLK");
+		if (ret) {
+			dev_err(card->dev,
+				"%s: Failed to request taiko mclk gpio %d\n",
+				__func__, pdata->mclk_gpio);
+			return ret;
+		}
+	}
 	return 0;
 }
 
@@ -1008,7 +1039,16 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* TODO: MCLK GPIO */
+	pdata->mclk_gpio = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,cdc-mclk-gpios", 0);
+	if (pdata->mclk_gpio < 0) {
+		dev_err(&pdev->dev,
+			"Looking up %s property in node %s failed %d\n",
+			"qcom, cdc-mclk-gpios", pdev->dev.of_node->full_name,
+			pdata->mclk_gpio);
+		ret = -ENODEV;
+		goto err;
+	}
 
 	ret = msm8226_prepare_codec_mclk(card);
 	if (ret)
@@ -1024,6 +1064,12 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 
 	return 0;
 err:
+	if (pdata->mclk_gpio > 0) {
+		dev_dbg(&pdev->dev, "%s free gpio %d\n",
+			__func__, pdata->mclk_gpio);
+		gpio_free(pdata->mclk_gpio);
+		pdata->mclk_gpio = 0;
+	}
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }
@@ -1031,8 +1077,9 @@ err:
 static int __devexit msm8226_asoc_machine_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct msm8226_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
-	/* TODO: GPIO MCLK */
+	gpio_free(pdata->mclk_gpio);
 	snd_soc_unregister_card(card);
 
 	return 0;
