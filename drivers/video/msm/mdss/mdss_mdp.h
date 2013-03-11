@@ -217,6 +217,21 @@ struct mdss_mdp_data {
 	struct mdss_mdp_img_data p[MAX_PLANES];
 };
 
+struct pp_hist_col_info {
+	u32 col_state;
+	u32 col_en;
+	u32 read_request;
+	u32 hist_cnt_read;
+	u32 hist_cnt_sent;
+	u32 hist_cnt_time;
+	u32 frame_cnt;
+	u32 is_kick_ready;
+	struct completion comp;
+	u32 data[HIST_V_SIZE];
+	struct mutex hist_mutex;
+	spinlock_t hist_lock;
+};
+
 struct pp_sts_type {
 	u32 pa_sts;
 	u32 pcc_sts;
@@ -233,6 +248,7 @@ struct pp_sts_type {
 struct mdss_pipe_pp_res {
 	u32 igc_c0_c1[IGC_LUT_ENTRIES];
 	u32 igc_c2[IGC_LUT_ENTRIES];
+	struct pp_hist_col_info hist;
 	struct pp_sts_type pp_sts;
 };
 
