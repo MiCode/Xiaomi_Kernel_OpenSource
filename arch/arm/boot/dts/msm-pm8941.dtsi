@@ -85,6 +85,11 @@
 			qcom,sample-rate = <4>;
 		};
 
+		pm8941_coincell: qcom,coincell@2800 {
+			compatible = "qcom,qpnp-coincell";
+			reg = <0x2800 0x100>;
+		};
+
 		pm8941_bms: qcom,bms {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-bms";
