@@ -49,7 +49,9 @@
 #define IPA_IOCTL_V4_DEL_NAT     26
 #define IPA_IOCTL_PULL_MSG       27
 #define IPA_IOCTL_GET_NAT_OFFSET 28
-#define IPA_IOCTL_MAX            29
+#define IPA_IOCTL_RM_ADD_DEPENDENCY 29
+#define IPA_IOCTL_RM_DEL_DEPENDENCY 30
+#define IPA_IOCTL_MAX            31
 
 /**
  * max size of the header to be inserted
@@ -173,6 +175,35 @@ enum ipa_wlan_event {
 	WLAN_STA_DISCONNECT,
 };
 
+/**
+ * enum ipa_rm_resource_name - IPA RM clients identification names
+ *
+ * Add new mapping to ipa_rm_dep_prod_index() / ipa_rm_dep_cons_index()
+ * when adding new entry to this enum.
+ */
+enum ipa_rm_resource_name {
+	IPA_RM_RESOURCE_PROD = 0,
+	IPA_RM_RESOURCE_BRIDGE_PROD = IPA_RM_RESOURCE_PROD,
+	IPA_RM_RESOURCE_A2_PROD,
+	IPA_RM_RESOURCE_USB_PROD,
+	IPA_RM_RESOURCE_HSIC_PROD,
+	IPA_RM_RESOURCE_STD_ECM_PROD,
+	IPA_RM_RESOURCE_WWAN_0_PROD,
+	IPA_RM_RESOURCE_WWAN_1_PROD,
+	IPA_RM_RESOURCE_WWAN_2_PROD,
+	IPA_RM_RESOURCE_WWAN_3_PROD,
+	IPA_RM_RESOURCE_WWAN_4_PROD,
+	IPA_RM_RESOURCE_WWAN_5_PROD,
+	IPA_RM_RESOURCE_WWAN_6_PROD,
+	IPA_RM_RESOURCE_WWAN_7_PROD,
+	IPA_RM_RESOURCE_WLAN_PROD,
+	IPA_RM_RESOURCE_PROD_MAX,
+
+	IPA_RM_RESOURCE_A2_CONS = IPA_RM_RESOURCE_PROD_MAX,
+	IPA_RM_RESOURCE_USB_CONS,
+	IPA_RM_RESOURCE_HSIC_CONS,
+	IPA_RM_RESOURCE_MAX
+};
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
@@ -682,6 +713,15 @@ struct ipa_wlan_msg {
 	uint8_t mac_addr[IPA_MAC_ADDR_SIZE];
 };
 
+/**
+ * struct ipa_ioc_rm_dependency - parameters for add/delete dependency
+ * @resource_name: name of dependent resource
+ * @depends_on_name: name of its dependency
+ */
+struct ipa_ioc_rm_dependency {
+	enum ipa_rm_resource_name resource_name;
+	enum ipa_rm_resource_name depends_on_name;
+};
 
 
 /**
@@ -768,6 +808,12 @@ struct ipa_wlan_msg {
 #define IPA_IOC_PULL_MSG _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_PULL_MSG, \
 				struct ipa_msg_meta *)
+#define IPA_IOC_RM_ADD_DEPENDENCY _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_RM_ADD_DEPENDENCY, \
+				struct ipa_ioc_rm_dependency *)
+#define IPA_IOC_RM_DEL_DEPENDENCY _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_RM_DEL_DEPENDENCY, \
+				struct ipa_ioc_rm_dependency *)
 
 /*
  * unique magic number of the Tethering bridge ioctls
