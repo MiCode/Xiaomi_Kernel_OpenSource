@@ -213,6 +213,7 @@
                 HSIC_GDSC-supply = <&gdsc_usb_hsic>;
                 hsic,strobe-gpio = <&msmgpio 144 0x00>;
                 hsic,data-gpio = <&msmgpio 145 0x00>;
+                hsic,resume-gpio = <&msmgpio 80 0x00>;
                 hsic,ignore-cal-pad-config;
                 hsic,strobe-pad-offset = <0x2050>;
                 hsic,data-pad-offset = <0x2054>;
