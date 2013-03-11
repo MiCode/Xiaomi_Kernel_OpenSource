@@ -3103,6 +3103,8 @@ struct lb_env {
 	unsigned int		loop_max;
 };
 
+static DEFINE_PER_CPU(bool, dbs_boost_needed);
+
 /*
  * move_task - move a task from one runqueue to another runqueue.
  * Both runqueues must be locked.
@@ -3113,6 +3115,8 @@ static void move_task(struct task_struct *p, struct lb_env *env)
 	set_task_cpu(p, env->dst_cpu);
 	activate_task(env->dst_rq, p, 0);
 	check_preempt_curr(env->dst_rq, p, 0);
+	if (task_notify_on_migrate(p))
+		per_cpu(dbs_boost_needed, env->dst_cpu) = true;
 }
 
 /*
@@ -4543,9 +4547,15 @@ more_balance:
 			 */
 			sd->nr_balance_failed = sd->cache_nice_tries+1;
 		}
-	} else
+	} else {
 		sd->nr_balance_failed = 0;
-
+		if (per_cpu(dbs_boost_needed, this_cpu)) {
+			per_cpu(dbs_boost_needed, this_cpu) = false;
+			atomic_notifier_call_chain(&migration_notifier_head,
+						   this_cpu,
+						   (void *)cpu_of(busiest));
+		}
+	}
 	if (likely(!active_balance)) {
 		/* We were unbalanced, so reset the balancing interval */
 		sd->balance_interval = sd->min_interval;
@@ -4700,6 +4710,12 @@ static int active_load_balance_cpu_stop(void *data)
 out_unlock:
 	busiest_rq->active_balance = 0;
 	raw_spin_unlock_irq(&busiest_rq->lock);
+	if (per_cpu(dbs_boost_needed, target_cpu)) {
+		per_cpu(dbs_boost_needed, target_cpu) = false;
+		atomic_notifier_call_chain(&migration_notifier_head,
+					   target_cpu,
+					   (void *)cpu_of(busiest_rq));
+	}
 	return 0;
 }
 
