@@ -17,16 +17,14 @@ Required properties:
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
 - qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
-- qcom,pil-self-auth: <0> if the hardware does not require self-authenticating
-		      images and self-authentication is not desired;
-		      <1> if the hardware requires self-authenticating images.
-- qcom,is-loadable:   if PIL is required to load the modem image
 
 Optional properties:
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
 - qcom,vdd_pll:       Voltage to be set for the PLL's rail.
 - reg-names:          "cxrail_bhs_reg" - control register for modem power
 		      domain.
+- qcom,is-loadable:   Boolean- Present if the image needs to be loaded.
+- qcom,pil-self-auth: Boolean- True if authentication is required.
 
 Example:
 	qcom,mss@fc880000 {
@@ -45,5 +43,5 @@ Example:
 
 		qcom,is-loadable;
 		qcom,firmware-name = "mba";
-		qcom,pil-self-auth = <1>;
+		qcom,pil-self-auth;
 	};
