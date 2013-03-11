@@ -985,14 +985,6 @@ static int usb_bam_update_conn_array_index(struct platform_device *pdev,
 	return 0;
 }
 
-static u8 qdss_conn_num;
-
-u8 usb_bam_get_qdss_num(void)
-{
-	return qdss_conn_num;
-}
-EXPORT_SYMBOL(usb_bam_get_qdss_num);
-
 static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	struct platform_device *pdev)
 {
@@ -1115,11 +1107,6 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 			!strcmp(str, "usb-to-peri-qdss-hsusb") ||
 			!strcmp(str, "peri-to-usb-qdss-hsusb"))
 				conn_num = 0;
-		else if (!strcmp(str, "usb-to-qdss-hsusb") ||
-			!strcmp(str, "qdss-to-usb-hsusb")) {
-				conn_num = 1;
-				qdss_conn_num = 1;
-		}
 		else
 			goto err;
 
@@ -1153,8 +1140,6 @@ static int usb_bam_init(void)
 		&msm_usb_bam_connections_info[pdata->usb_active_bam][0][0];
 	struct resource *res, *ram_resource;
 	int irq;
-
-	qdss_conn_num = 0;
 
 	res = platform_get_resource_byname(usb_bam_pdev, IORESOURCE_MEM,
 				bam_enable_strings[pdata->usb_active_bam]);
