@@ -86,7 +86,7 @@ struct mba_data {
 	void *adsp_state_notifier;
 	u32 img_length;
 	struct q6v5_data *q6;
-	int self_auth;
+	bool self_auth;
 	void *ramdump_dev;
 	void *smem_ramdump_dev;
 	bool crash_shutdown;
@@ -707,8 +707,8 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 	q6_desc->owner = THIS_MODULE;
 	q6_desc->proxy_timeout = PROXY_TIMEOUT_MS;
 
-	of_property_read_u32(pdev->dev.of_node, "qcom,pil-self-auth",
-			     &drv->self_auth);
+	drv->self_auth = of_property_read_bool(pdev->dev.of_node,
+							"qcom,pil-self-auth");
 	if (drv->self_auth) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						    "rmb_base");
