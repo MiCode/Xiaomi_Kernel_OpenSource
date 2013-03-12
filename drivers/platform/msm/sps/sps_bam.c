@@ -403,8 +403,9 @@ int sps_bam_enable(struct sps_bam *dev)
 	}
 
 	dev->state |= BAM_STATE_ENABLED;
-	SPS_INFO("sps:BAM 0x%x enabled: ver:0x%x, number of pipes:%d",
-		BAM_ID(dev), dev->version, dev->props.num_pipes);
+	SPS_INFO("sps:BAM 0x%x (va:0x%x) enabled: ver:0x%x, number of pipes:%d",
+		BAM_ID(dev), (u32) dev->base, dev->version,
+		dev->props.num_pipes);
 	return 0;
 }
 
