@@ -2357,8 +2357,9 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "pget_irq for hs_phy_irq failed\n");
 		msm->hs_phy_irq = 0;
 	} else {
-		ret = request_irq(msm->hs_phy_irq, msm_dwc3_irq,
-				IRQF_TRIGGER_RISING, "msm_dwc3", msm);
+		ret = devm_request_irq(&pdev->dev, msm->hs_phy_irq,
+				msm_dwc3_irq, IRQF_TRIGGER_RISING,
+			       "msm_dwc3", msm);
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq HSPHYINT failed\n");
 			goto disable_hs_ldo;
@@ -2394,7 +2395,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
 		ret = -ENODEV;
-		goto free_hsphy_irq;
+		goto disable_hs_ldo;
 	}
 
 	msm->base = devm_ioremap_nocache(&pdev->dev, res->start,
@@ -2402,14 +2403,14 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	if (!msm->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENODEV;
-		goto free_hsphy_irq;
+		goto disable_hs_ldo;
 	}
 
 	dwc3 = platform_device_alloc("dwc3", -1);
 	if (!dwc3) {
 		dev_err(&pdev->dev, "couldn't allocate dwc3 device\n");
 		ret = -ENODEV;
-		goto free_hsphy_irq;
+		goto disable_hs_ldo;
 	}
 
 	dwc3->dev.parent = &pdev->dev;
@@ -2526,9 +2527,6 @@ put_psupply:
 	power_supply_unregister(&msm->usb_psy);
 put_pdev:
 	platform_device_put(dwc3);
-free_hsphy_irq:
-	if (msm->hs_phy_irq)
-		free_irq(msm->hs_phy_irq, msm);
 disable_hs_ldo:
 	dwc3_hsusb_ldo_enable(0);
 free_hs_ldo_init:
