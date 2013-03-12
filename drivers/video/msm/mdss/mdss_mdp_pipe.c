@@ -119,25 +119,32 @@ static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	u32 num_blks = 0, reserved = 0;
 	struct mdss_mdp_plane_sizes ps;
 	int i, rc;
+	u32 nlines;
 
-	if ((mdata->mdp_rev >= MDSS_MDP_HW_REV_102) &&
+	if (pipe->bwc_mode) {
+		rc = mdss_mdp_get_rau_strides(pipe->src.w, pipe->src.h,
+			pipe->src_fmt, &ps);
+		if (rc)
+			return rc;
+		pr_debug("BWC SMP strides ystride0=%x ystride1=%x\n",
+			ps.ystride[0], ps.ystride[1]);
+	} else if ((mdata->mdp_rev >= MDSS_MDP_HW_REV_102) &&
 			pipe->src_fmt->is_yuv) {
 		ps.num_planes = 2;
 		ps.ystride[0] = pipe->src.w;
 		ps.ystride[1] = pipe->src.w;
 	} else {
 		rc = mdss_mdp_get_plane_sizes(pipe->src_fmt->format,
-				pipe->src.w, pipe->src.h, &ps);
+			pipe->src.w, pipe->src.h, &ps, 0);
 		if (rc)
 			return rc;
 	}
 
-	if ((ps.num_planes > 1) && (pipe->type == MDSS_MDP_PIPE_TYPE_RGB))
-		return -EINVAL;
-
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < ps.num_planes; i++) {
-		num_blks = DIV_ROUND_UP(2 * ps.ystride[i], SMP_MB_SIZE);
+		nlines = pipe->bwc_mode ? ps.rau_h[i] : 2;
+		num_blks = DIV_ROUND_UP(nlines * ps.ystride[i],
+			mdss_res->smp_mb_size);
 
 		if (mdata->mdp_rev == MDSS_MDP_HW_REV_100)
 			num_blks = roundup_pow_of_two(num_blks);
@@ -341,6 +348,8 @@ static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe)
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	mdss_mdp_pipe_sspp_term(pipe);
 	mdss_mdp_smp_free(pipe);
+	pipe->flags = 0;
+	pipe->bwc_mode = 0;
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	return 0;
@@ -376,7 +385,7 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 	width = pipe->img_width;
 	height = pipe->img_height;
 	mdss_mdp_get_plane_sizes(pipe->src_fmt->format, width, height,
-			&pipe->src_planes);
+			&pipe->src_planes, pipe->bwc_mode);
 
 	if ((pipe->flags & MDP_DEINTERLACE) &&
 			!(pipe->flags & MDP_SOURCE_ROTATED_90)) {
@@ -416,8 +425,9 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_mdp_format_params *fmt;
-	u32 opmode, chroma_samp, unpack, src_format;
+	u32 chroma_samp, unpack, src_format;
 	u32 secure = 0;
+	u32 opmode;
 
 	fmt = pipe->src_fmt;
 
@@ -554,8 +564,7 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 
 	pr_debug("pnum=%d\n", pipe->num);
 
-	if (!is_rot)
-		data->bwc_enabled = pipe->bwc_mode;
+	data->bwc_enabled = pipe->bwc_mode;
 
 	ret = mdss_mdp_data_check(data, &pipe->src_planes);
 	if (ret)

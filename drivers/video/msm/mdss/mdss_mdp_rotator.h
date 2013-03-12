@@ -45,10 +45,14 @@ struct mdss_mdp_rotator_session {
 static inline u32 mdss_mdp_get_rotator_dst_format(u32 in_format)
 {
 	switch (in_format) {
+	case MDP_RGB_565:
+	case MDP_BGR_565:
+		return MDP_RGB_888;
 	case MDP_Y_CBCR_H2V2_VENUS:
-		return MDP_Y_CBCR_H2V2;
+	case MDP_Y_CB_CR_H2V2:
 	case MDP_Y_CR_CB_GH2V2:
-		return MDP_Y_CR_CB_H2V2;
+	case MDP_Y_CR_CB_H2V2:
+		return MDP_Y_CRCB_H2V2;
 	default:
 		return in_format;
 	}
