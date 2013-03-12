@@ -954,9 +954,7 @@ static void wcnss_nvbin_dnld_req(struct work_struct *worker)
 	const void *nv_blob_addr = NULL;
 	unsigned int nv_blob_size = 0;
 	const struct firmware *nv = NULL;
-	struct device *dev = NULL;
-
-	dev = wcnss_wlan_get_device();
+	struct device *dev = &penv->pdev->dev;
 
 	ret = request_firmware(&nv, NVBIN_FILE, dev);
 
