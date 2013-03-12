@@ -74,6 +74,10 @@
 	of_machine_is_compatible("qcom,msm8610-sim")
 #define machine_is_msm8610_rumi()		\
 	of_machine_is_compatible("qcom,msm8610-rumi")
+#define early_machine_is_msmzinc()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmzinc")
+#define machine_is_msmzinc_sim()		\
+	of_machine_is_compatible("qcom,msmzinc-sim")
 #else
 #define early_machine_is_msm8974()	0
 #define machine_is_msm8974()		0
@@ -92,6 +96,8 @@
 #define machine_is_msm8610()		0
 #define machine_is_msm8610_sim()	0
 #define machine_is_msm8610_rumi()	0
+#define early_machine_is_msmzinc()	0
+#define machine_is_msmzinc_sim()	0
 
 #endif
 
@@ -130,6 +136,7 @@ enum msm_cpu {
 	MSM_CPU_8226,
 	MSM_CPU_8610,
 	MSM_CPU_8625Q,
+	MSM_CPU_ZINC,
 };
 
 enum pmic_model {
