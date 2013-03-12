@@ -314,6 +314,17 @@
 };
 
 &sdhc_2 {
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &msmgpio 62 0x3>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&msmgpio 62 0x1>;
+
 	vdd-supply = <&pm8941_l21>;
 	vdd-io-supply = <&pm8941_l13>;
 
