@@ -1047,7 +1047,6 @@ struct hfi_device {
 	int (*unset_ocmem)(void *dev);
 	int (*alloc_ocmem)(void *dev, unsigned long size);
 	int (*free_ocmem)(void *dev);
-	int (*is_ocmem_present)(void *dev);
 	int (*iommu_get_domain_partition)(void *dev, u32 flags, u32 buffer_type,
 			int *domain_num, int *partition_num);
 	int (*load_fw)(void *dev);

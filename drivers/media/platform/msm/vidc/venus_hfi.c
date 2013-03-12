@@ -1941,8 +1941,11 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 		sizeof(clock[VCODEC_AHB_CLK].name));
 	strlcpy(clock[VCODEC_AXI_CLK].name, "bus_clk",
 		sizeof(clock[VCODEC_AXI_CLK].name));
-	strlcpy(clock[VCODEC_OCMEM_CLK].name, "mem_clk",
-		sizeof(clock[VCODEC_OCMEM_CLK].name));
+
+	if (res->has_ocmem) {
+		strlcpy(clock[VCODEC_OCMEM_CLK].name, "mem_clk",
+			sizeof(clock[VCODEC_OCMEM_CLK].name));
+	}
 
 	clock[VCODEC_CLK].count = res->load_freq_tbl_size;
 	memcpy((void *)clock[VCODEC_CLK].load_freq_tbl, res->load_freq_tbl,
@@ -1962,6 +1965,8 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 	}
 
 	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+		if (i == VCODEC_OCMEM_CLK && !res->has_ocmem)
+			continue;
 		cl = &device->resources.clock[i];
 		if (!cl->clk) {
 			cl->clk = devm_clk_get(&res->pdev->dev, cl->name);
@@ -1976,6 +1981,8 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 
 	if (i < VCODEC_MAX_CLKS) {
 		for (--i; i >= 0; i--) {
+			if (i == VCODEC_OCMEM_CLK && !res->has_ocmem)
+				continue;
 			cl = &device->resources.clock[i];
 			clk_put(cl->clk);
 		}
@@ -1991,8 +1998,12 @@ static inline void venus_hfi_deinit_clocks(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Invalid args\n");
 		return;
 	}
-	for (i = 0; i < VCODEC_MAX_CLKS; i++)
+
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+		if (i == VCODEC_OCMEM_CLK && !device->res->has_ocmem)
+			continue;
 		clk_put(device->resources.clock[i].clk);
+	}
 }
 static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 {
@@ -2003,7 +2014,9 @@ static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 		return;
 	}
 
-	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+	for (i = VCODEC_CLK; i < VCODEC_MAX_CLKS; i++) {
+		if (i == VCODEC_OCMEM_CLK && !device->res->has_ocmem)
+			continue;
 		cl = &device->resources.clock[i];
 		clk_disable_unprepare(cl->clk);
 	}
@@ -2018,7 +2031,10 @@ static inline int venus_hfi_enable_clks(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
 	}
-	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
+
+	for (i = VCODEC_CLK; i < VCODEC_MAX_CLKS; i++) {
+		if (i == VCODEC_OCMEM_CLK && !device->res->has_ocmem)
+			continue;
 		cl = &device->resources.clock[i];
 		rc = clk_prepare_enable(cl->clk);
 		if (rc) {
@@ -2151,18 +2167,27 @@ static int venus_hfi_init_bus(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
 		goto err_init_bus;
 	}
-	bus_info->ocmem_handle[MSM_VIDC_ENCODER] =
-		msm_bus_scale_register_client(&device->res->bus_pdata[0]);
-	if (!bus_info->ocmem_handle[MSM_VIDC_ENCODER]) {
-		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
-		goto err_init_bus;
+
+	if (device->res->has_ocmem) {
+		bus_info->ocmem_handle[MSM_VIDC_ENCODER] =
+			msm_bus_scale_register_client(
+						&device->res->bus_pdata[0]);
+		if (!bus_info->ocmem_handle[MSM_VIDC_ENCODER]) {
+			dprintk(VIDC_ERR,
+				"Failed to register bus scale client\n");
+			goto err_init_bus;
+		}
+
+		bus_info->ocmem_handle[MSM_VIDC_DECODER] =
+			msm_bus_scale_register_client(
+						&device->res->bus_pdata[1]);
+		if (!bus_info->ocmem_handle[MSM_VIDC_DECODER]) {
+			dprintk(VIDC_ERR,
+				"Failed to register bus scale client\n");
+			goto err_init_bus;
+		}
 	}
-	bus_info->ocmem_handle[MSM_VIDC_DECODER] =
-		msm_bus_scale_register_client(&device->res->bus_pdata[1]);
-	if (!bus_info->ocmem_handle[MSM_VIDC_DECODER]) {
-		dprintk(VIDC_ERR, "Failed to register bus scale client\n");
-		goto err_init_bus;
-	}
+
 	return rc;
 err_init_bus:
 	venus_hfi_deinit_bus(device);
@@ -2406,18 +2431,6 @@ static int venus_hfi_free_ocmem(void *dev)
 	return rc;
 }
 
-static int venus_hfi_is_ocmem_present(void *dev)
-{
-	struct venus_hfi_device *device = dev;
-	if (!device) {
-		dprintk(VIDC_ERR, "%s invalid device handle %p",
-			__func__, device);
-		return -EINVAL;
-	}
-
-	return device->resources.ocmem.buf ? 1 : 0;
-}
-
 static void venus_hfi_deinit_ocmem(struct venus_hfi_device *device)
 {
 	if (device->resources.ocmem.handle)
@@ -2451,7 +2464,9 @@ static int venus_hfi_init_resources(struct venus_hfi_device *device,
 		goto err_register_iommu_domain;
 	}
 
-	venus_hfi_ocmem_init(device);
+	if (res->has_ocmem)
+		venus_hfi_ocmem_init(device);
+
 	return rc;
 
 err_register_iommu_domain:
@@ -2464,7 +2479,8 @@ err_init_clocks:
 
 static void venus_hfi_deinit_resources(struct venus_hfi_device *device)
 {
-	venus_hfi_deinit_ocmem(device);
+	if (device->res->has_ocmem)
+		venus_hfi_deinit_ocmem(device);
 	venus_hfi_deregister_iommu_domains(device);
 	venus_hfi_deinit_bus(device);
 	venus_hfi_deinit_clocks(device);
@@ -2839,7 +2855,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->unset_ocmem = venus_hfi_unset_ocmem;
 	hdev->alloc_ocmem = venus_hfi_alloc_ocmem;
 	hdev->free_ocmem = venus_hfi_free_ocmem;
-	hdev->is_ocmem_present = venus_hfi_is_ocmem_present;
 	hdev->iommu_get_domain_partition = venus_hfi_iommu_get_domain_partition;
 	hdev->load_fw = venus_hfi_load_fw;
 	hdev->unload_fw = venus_hfi_unload_fw;

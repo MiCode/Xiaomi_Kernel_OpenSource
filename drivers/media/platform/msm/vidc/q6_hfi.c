@@ -1105,14 +1105,6 @@ static int q6_hfi_free_ocmem(void *dev)
 	return 0;
 }
 
-static int q6_hfi_is_ocmem_present(void *dev)
-{
-	(void)dev;
-
-	/* Q6 does not support ocmem */
-	return 0;
-}
-
 static int q6_hfi_iommu_get_domain_partition(void *dev, u32 flags,
 	u32 buffer_type, int *domain, int *partition)
 {
@@ -1225,7 +1217,6 @@ static void q6_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->unset_ocmem = q6_hfi_unset_ocmem;
 	hdev->alloc_ocmem = q6_hfi_alloc_ocmem;
 	hdev->free_ocmem = q6_hfi_free_ocmem;
-	hdev->is_ocmem_present = q6_hfi_is_ocmem_present;
 	hdev->iommu_get_domain_partition = q6_hfi_iommu_get_domain_partition;
 	hdev->load_fw = q6_hfi_load_fw;
 	hdev->unload_fw = q6_hfi_unload_fw;

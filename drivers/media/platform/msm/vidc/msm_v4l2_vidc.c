@@ -1006,6 +1006,13 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 		goto err_mem_alloc;
 	}
 	for (i = 0; i < num_bus_pdata; i++) {
+		if (!res->has_ocmem &&
+			(!strcmp(bus_pdata_config_vector[i].name,
+				"qcom,enc-ocmem-ab-ib")
+			|| !strcmp(bus_pdata_config_vector[i].name,
+				"qcom,dec-ocmem-ab-ib"))) {
+			continue;
+		}
 		res->bus_pdata[i].num_usecases = get_u32_array_num_elements(
 					pdev, bus_pdata_config_vector[i].name);
 		if (res->bus_pdata[i].num_usecases == 0) {
@@ -1200,6 +1207,9 @@ static int read_platform_resources_from_dt(
 
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
+
+	res->has_ocmem = of_property_read_bool(pdev->dev.of_node,
+						"qcom,has-ocmem");
 
 	rc = msm_vidc_load_freq_table(res);
 	if (rc) {
