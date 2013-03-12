@@ -51,6 +51,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/msm_xo.h>
 #include <mach/rpm-regulator.h>
+#include "hbm.c"
 
 #include "ehci.h"
 
@@ -111,6 +112,7 @@ struct msm_hsic_hcd {
 	int			reset_again;
 
 	struct pm_qos_request pm_qos_req_dma;
+	unsigned		enable_hbm:1;
 };
 
 static const char hcd_name[] = "ehci-msm";
@@ -1374,12 +1376,25 @@ static void ehci_msm_set_autosuspend_delay(struct usb_device *dev)
 		pm_runtime_set_autosuspend_delay(&dev->dev, 200);
 }
 
+static int ehci_msm_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
+				gfp_t mem_flags)
+{
+	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
+	struct usb_host_bam_type *usb_host_bam =
+			(struct usb_host_bam_type *)urb->priv_data;
+
+	if (usb_host_bam && mehci && mehci->enable_hbm)
+		return hbm_urb_enqueue(hcd, urb, mem_flags);
+	return ehci_urb_enqueue(hcd, urb, mem_flags);
+}
+
 static const struct ehci_driver_overrides ehci_msm_hsic_overrides __initdata = {
 	.flags			= HCD_OLD_ENUM,
 
 	.reset			= ehci_hsic_reset,
 	.extra_priv_size	= sizeof(struct msm_hsic_hcd),
 	.irq			= msm_hsic_irq,
+	.urb_enqueue		= ehci_msm_urb_enqueue,
 	.bus_suspend		= ehci_hsic_bus_suspend,
 	.bus_resume		= ehci_hsic_bus_resume,
 	.log_urb		= dbg_log_event,
@@ -1750,6 +1765,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 
 	pdata->pool_64_bit_align = of_property_read_bool(node,
 				"qcom,pool-64-bit-align");
+	pdata->enable_hbm = of_property_read_bool(node,
+				"qcom,enable-hbm");
 
 	return pdata;
 }
@@ -1834,6 +1851,7 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	mehci->ehci.resume_sof_bug = 1;
 	mehci->ehci.pool_64_bit_align = pdata->pool_64_bit_align;
+	mehci->enable_hbm = pdata->enable_hbm;
 
 	if (pdata)
 		mehci->ehci.log2_irq_thresh = pdata->log2_irq_thresh;
@@ -1984,6 +2002,9 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	if (pdev->dev.parent)
 		pm_runtime_put_sync(pdev->dev.parent);
 
+	if (mehci->enable_hbm)
+		hbm_init(hcd);
+
 	return 0;
 
 destroy_wq:
@@ -2012,6 +2033,9 @@ static int ehci_hsic_msm_remove(struct platform_device *pdev)
 		pm_runtime_disable(&pdev->dev);
 
 	pm_runtime_set_suspended(&pdev->dev);
+
+	if (mehci->enable_hbm)
+		hbm_uninit();
 
 	/* Remove the HCD prior to releasing our resources. */
 	usb_remove_hcd(hcd);
