@@ -16,7 +16,7 @@
  */
 #include "drmP.h"
 #include "drm.h"
-#include <linux/android_pmem.h>
+
 #include <linux/msm_ion.h>
 
 #include "kgsl.h"
