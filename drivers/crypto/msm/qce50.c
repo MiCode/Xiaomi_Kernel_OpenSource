@@ -353,6 +353,9 @@ go_proc:
 	pce = cmdlistinfo->auth_seg_size;
 	pce->data = sreq->size;
 
+	pce = cmdlistinfo->encr_seg_cfg;
+	pce->data = 0;
+
 	/* write auth seg size start*/
 	pce = cmdlistinfo->auth_seg_start;
 	pce->data = 0;
@@ -521,8 +524,12 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 			pce->data = totallen_in - creq->authsize;
 		pce = cmdlistinfo->auth_seg_start;
 		pce->data = 0;
+	} else {
+		if (creq->op != QCE_REQ_AEAD) {
+			pce = cmdlistinfo->auth_seg_cfg;
+			pce->data = 0;
+		}
 	}
-
 	switch (creq->mode) {
 	case QCE_MODE_ECB:
 		encr_cfg |= (CRYPTO_ENCR_MODE_ECB << CRYPTO_ENCR_MODE);
