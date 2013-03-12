@@ -150,6 +150,8 @@ struct device;
 struct mmc_async_req {
 	/* active mmc request */
 	struct mmc_request	*mrq;
+	unsigned int cmd_flags; /* copied from struct request */
+
 	/*
 	 * Check error status of completed mmc request.
 	 * Returns 0 if success otherwise non zero.
@@ -170,10 +172,6 @@ struct mmc_async_req {
  *			NULL fetched as second request. MMC_BLK_NEW_REQUEST
  *			notification will wake up mmc thread from waiting.
  * @is_urgent		wake up reason was urgent request
- * @is_waiting		is true, when first request is running on the bus,
- *			second request preparation started or mmc thread is
- *			waiting for the completion of the current request
- *			(latter case is like @is_waiting_last_req)
  * @wait		wait queue
  * @lock		lock to protect data fields
  */
@@ -182,7 +180,6 @@ struct mmc_context_info {
 	bool			is_new_req;
 	bool			is_waiting_last_req;
 	bool			is_urgent;
-	bool			is_waiting;
 	wait_queue_head_t	wait;
 	spinlock_t		lock;
 };
