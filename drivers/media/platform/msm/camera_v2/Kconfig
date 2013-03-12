@@ -109,6 +109,15 @@ config MT9M114
 		1280 * 270. It does not support auto focus. It supports
 		few special effects like saturation.
 
+config OV8825
+	bool "OmniVision OV8825 (BAYER 8MP)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 8 MP Bayer Sensor with auto focus.uses
+		2 mipi lanes, preview config = 1632*1224 30 fps,
+		snapshot config = 3264 * 2448 at 18 fps.
+		2 lanes max fps is 18, 4 lanes max fps is 24.
+
 config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	tristate "Qualcomm MSM V4l2 video overlay device"
 	---help---
@@ -119,7 +128,7 @@ config MSM_V4L2_VIDEO_OVERLAY_DEVICE
 
 config MSMB_JPEG
 	tristate "Qualcomm MSM Jpeg Encoder Engine support"
-	depends on MSMB_CAMERA && ARCH_MSM8974
+	depends on MSMB_CAMERA && (ARCH_MSM8974 || ARCH_MSM8226)
 	---help---
 	  Enable support for Jpeg Encoder/Decoder
 	  Engine for 8974.
