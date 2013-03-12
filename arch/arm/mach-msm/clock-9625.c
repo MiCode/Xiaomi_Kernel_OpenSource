@@ -344,6 +344,7 @@ static unsigned int soft_vote_gpll0;
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
+	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS_REG,
 	.status_mask = BIT(17),
 	.soft_vote = &soft_vote_gpll0,
@@ -360,6 +361,7 @@ static struct pll_vote_clk gpll0_clk_src = {
 
 static struct pll_vote_clk gpll0_activeonly_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
+	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS_REG,
 	.status_mask = BIT(17),
 	.soft_vote = &soft_vote_gpll0,
