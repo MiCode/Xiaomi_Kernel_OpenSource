@@ -37,7 +37,7 @@ struct mdss_mdp_writeback_ctx {
 	u16 width;
 	u16 height;
 	u8 rot90;
-
+	u32 bwc_mode;
 	int initialized;
 
 	struct mdss_mdp_plane_sizes dst_planes;
@@ -90,6 +90,9 @@ static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 
 	pr_debug("wb_num=%d addr=0x%x\n", ctx->wb_num, data->p[0].addr);
 
+	if (ctx->bwc_mode)
+		data->bwc_enabled = 1;
+
 	ret = mdss_mdp_data_check(data, &ctx->dst_planes);
 	if (ret)
 		return ret;
@@ -112,7 +115,8 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx)
 	pr_debug("wb_num=%d format=%d\n", ctx->wb_num, ctx->format);
 
 	mdss_mdp_get_plane_sizes(ctx->format, ctx->width, ctx->height,
-				 &ctx->dst_planes);
+				 &ctx->dst_planes,
+				 ctx->opmode & MDSS_MDP_OP_BWC_EN);
 
 	fmt = mdss_mdp_get_format_params(ctx->format);
 	if (!fmt) {
@@ -252,7 +256,8 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	if (ctl->mdata->rot_block_size == 128)
 		ctx->opmode |= BIT(4); /* block size 128 */
 
-	ctx->opmode |= rot->bwc_mode;
+	ctx->bwc_mode = rot->bwc_mode;
+	ctx->opmode |= ctx->bwc_mode;
 
 	ctx->width = rot->src_rect.w;
 	ctx->height = rot->src_rect.h;
@@ -260,12 +265,15 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	ctx->format = rot->format;
 
 	ctx->rot90 = !!(rot->flags & MDP_ROT_90);
+
+	if (ctx->bwc_mode || ctx->rot90)
+		ctx->format = mdss_mdp_get_rotator_dst_format(rot->format);
+	else
+		ctx->format = rot->format;
+
 	if (ctx->rot90) {
 		ctx->opmode |= BIT(5); /* ROT 90 */
 		swap(ctx->width, ctx->height);
-		ctx->format = mdss_mdp_get_rotator_dst_format(rot->format);
-	} else {
-		ctx->format = rot->format;
 	}
 
 	return mdss_mdp_writeback_format_setup(ctx);
