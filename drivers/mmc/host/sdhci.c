@@ -1285,6 +1285,9 @@ static int sdhci_enable(struct mmc_host *mmc)
 	if (host->cpu_dma_latency_us)
 		pm_qos_update_request(&host->pm_qos_req_dma,
 					host->cpu_dma_latency_us);
+	if (host->ops->platform_bus_voting)
+		host->ops->platform_bus_voting(host, 1);
+
 	return 0;
 }
 
@@ -1295,6 +1298,9 @@ static int sdhci_disable(struct mmc_host *mmc)
 	if (host->cpu_dma_latency_us)
 		pm_qos_update_request(&host->pm_qos_req_dma,
 					PM_QOS_DEFAULT_VALUE);
+	if (host->ops->platform_bus_voting)
+		host->ops->platform_bus_voting(host, 0);
+
 	return 0;
 }
 
