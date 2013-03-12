@@ -277,6 +277,7 @@ void msm_delete_stream(unsigned int session_id, unsigned int stream_id)
 {
 	struct msm_session *session = NULL;
 	struct msm_stream  *stream = NULL;
+	unsigned long flags;
 
 	session = msm_queue_find(msm_session_q, struct msm_session,
 		list, __msm_queue_find_session, &session_id);
@@ -287,9 +288,10 @@ void msm_delete_stream(unsigned int session_id, unsigned int stream_id)
 		list, __msm_queue_find_stream, &stream_id);
 	if (!stream)
 		return;
-
+	spin_lock_irqsave(&(session->stream_q.lock), flags);
 	list_del_init(&stream->list);
 	session->stream_q.len--;
+	spin_unlock_irqrestore(&(session->stream_q.lock), flags);
 	kzfree(stream);
 }
 
@@ -426,6 +428,7 @@ void msm_delete_command_ack_q(unsigned int session_id, unsigned int stream_id)
 {
 	struct msm_session *session;
 	struct msm_command_ack *cmd_ack;
+	unsigned long flags;
 
 	session = msm_queue_find(msm_session_q, struct msm_session,
 		list, __msm_queue_find_session, &session_id);
@@ -439,6 +442,11 @@ void msm_delete_command_ack_q(unsigned int session_id, unsigned int stream_id)
 		return;
 
 	msm_queue_drain(&cmd_ack->command_q, struct msm_command, list);
+
+	spin_lock_irqsave(&(session->command_ack_q.lock), flags);
+	list_del_init(&cmd_ack->list);
+	session->command_ack_q.len--;
+	spin_unlock_irqrestore(&(session->command_ack_q.lock), flags);
 }
 
 static inline int __msm_v4l2_subdev_shutdown(struct v4l2_subdev *sd)
