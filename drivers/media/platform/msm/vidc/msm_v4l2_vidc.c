@@ -1061,10 +1061,9 @@ static int msm_vidc_load_iommu_groups(struct msm_vidc_platform_resources *res)
 
 	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-groups",
 				&array_size)) {
-		dprintk(VIDC_ERR, "Could not find iommu_groups property\n");
+		dprintk(VIDC_DBG, "iommu_groups property not present\n");
 		iommu_group_set->count = 0;
-		rc = -ENOENT;
-		goto err_no_of_node;
+		return 0;
 	}
 
 	iommu_group_set->count = array_size / sizeof(u32);
