@@ -293,8 +293,12 @@ fail_vbif:
 	pgmn_dev->jpeg_clk, ARRAY_SIZE(jpeg_8x_clk_info), 0);
 
 fail_clk:
-	regulator_put(pgmn_dev->jpeg_fs);
-	regulator_disable(pgmn_dev->jpeg_fs);
+	rc = regulator_disable(pgmn_dev->jpeg_fs);
+	if (!rc)
+		regulator_put(pgmn_dev->jpeg_fs);
+	else
+		JPEG_PR_ERR("%s:%d] regulator disable failed %d",
+			__func__, __LINE__, rc);
 	pgmn_dev->jpeg_fs = NULL;
 
 fail_fs:
@@ -330,8 +334,12 @@ int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
 	JPEG_DBG("%s:%d] clock disbale done", __func__, __LINE__);
 
 	if (pgmn_dev->jpeg_fs) {
-		regulator_put(pgmn_dev->jpeg_fs);
-		regulator_disable(pgmn_dev->jpeg_fs);
+		result = regulator_disable(pgmn_dev->jpeg_fs);
+		if (!result)
+			regulator_put(pgmn_dev->jpeg_fs);
+		else
+			JPEG_PR_ERR("%s:%d] regulator disable failed %d",
+				__func__, __LINE__, result);
 		pgmn_dev->jpeg_fs = NULL;
 	}
 	iounmap(pgmn_dev->jpeg_vbif);
