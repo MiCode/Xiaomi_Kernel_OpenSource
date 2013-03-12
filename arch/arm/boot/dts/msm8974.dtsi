@@ -590,6 +590,7 @@
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
+			"AIF4 MAD", "MCLK",
 			"AMIC1", "MIC BIAS1 Internal1",
 			"MIC BIAS1 Internal1", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
@@ -854,6 +855,11 @@
 		qcom,msm-dai-q6-sb-4-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16393>;
+		};
+
+		qcom,msm-dai-q6-sb-5-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16395>;
 		};
 
 		qcom,msm-dai-q6-bt-sco-rx {
