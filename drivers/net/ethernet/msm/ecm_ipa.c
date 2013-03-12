@@ -340,7 +340,7 @@ static int ecm_ipa_register_tx(struct ecm_ipa_dev *dev)
 	strlcpy(ipv6_property->hdr_name, ECM_IPA_IPV6_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	tx_properties.num_props = 2;
-	result = ipa_register_intf(dev->net->name, &tx_properties, NULL);
+	result = ipa_register_intf("ecm0", &tx_properties, NULL);
 	if (result)
 		ECM_IPA_ERROR("fail on Tx_prop registration\n");
 	ECM_IPA_LOG_EXIT();
