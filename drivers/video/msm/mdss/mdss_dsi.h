@@ -18,6 +18,7 @@
 #include <mach/scm-io.h>
 
 #include "mdss_panel.h"
+#include "mdss_io_util.h"
 
 #define MMSS_SERDES_BASE_PHY 0x04f01000 /* mmss (De)Serializer CFG */
 
@@ -267,7 +268,7 @@ struct mdss_panel_common_pdata {
 struct dsi_drv_cm_data {
 	struct regulator *vdd_vreg;
 	struct regulator *vdd_io_vreg;
-	struct regulator *dsi_vreg;
+	struct regulator *vdda_vreg;
 	int broadcast_enable;
 };
 
@@ -288,6 +289,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_drv_cm_data shared_pdata;
 	u32 pclk_rate;
 	u32 byte_clk_rate;
+	struct dss_module_power power_data;
 };
 
 int dsi_panel_device_register(struct platform_device *pdev,
