@@ -24,6 +24,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
+#include <sound/q6afe-v2.h>
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
 #include <sound/pcm_params.h>
@@ -1003,6 +1004,33 @@ static int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_slim_5_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	int rc;
+	void *config;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_interval *rate =
+	    hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels =
+	    hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s enter\n", __func__);
+	rate->min = rate->max = 16000;
+	channels->min = channels->max = 1;
+
+	config = taiko_get_afe_config(codec, AFE_SLIMBUS_SLAVE_PORT_CONFIG);
+	rc = afe_set_config(AFE_SLIMBUS_SLAVE_PORT_CONFIG, config,
+			    SLIMBUS_5_TX);
+	if (rc) {
+		pr_err("%s: Failed to set slimbus slave port config %d\n",
+		       __func__, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
 {
@@ -1054,6 +1082,7 @@ static bool msm8974_swap_gnd_mic(struct snd_soc_codec *codec)
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
+	void *config_data;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
@@ -1107,6 +1136,23 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
+
+
+	config_data = taiko_get_afe_config(codec, AFE_CDC_REGISTERS_CONFIG);
+	err = afe_set_config(AFE_CDC_REGISTERS_CONFIG, config_data, 0);
+	if (err) {
+		pr_err("%s: Failed to set codec registers config %d\n",
+		       __func__, err);
+		return err;
+	}
+
+	config_data = taiko_get_afe_config(codec, AFE_SLIMBUS_SLAVE_CONFIG);
+	err = afe_set_config(AFE_SLIMBUS_SLAVE_CONFIG, config_data, 0);
+	if (err) {
+		pr_err("%s: Failed to set slimbus slave config %d\n", __func__,
+		       err);
+		return err;
+	}
 
 	/* start mbhc */
 	mbhc_cfg.calibration = def_taiko_mbhc_cal();
@@ -1574,6 +1620,22 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA5,
 	},
+	/* LSM FE */
+	{
+		.name = "Listen Audio Service",
+		.stream_name = "Listen Audio Service",
+		.cpu_dai_name = "LSM",
+		.platform_name = "msm-lsm-client",
+		.dynamic = 1,
+		.trigger = { SND_SOC_DPCM_TRIGGER_POST,
+			     SND_SOC_DPCM_TRIGGER_POST },
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_LSM1,
+	},
 	/* Backend BT/FM DAI Links */
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
@@ -1836,6 +1898,19 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
+	},
+	/* MAD BE */
+	{
+		.name = LPASS_BE_SLIMBUS_5_TX,
+		.stream_name = "Slimbus5 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16395",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "taiko_codec",
+		.codec_dai_name = "taiko_mad1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_5_TX,
+		.be_hw_params_fixup = msm_slim_5_tx_be_hw_params_fixup,
+		.ops = &msm8974_be_ops,
 	},
 	/* Incall Music BACK END DAI Link */
 	{
