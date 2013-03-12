@@ -462,6 +462,9 @@ Optional properties:
 - qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
 - qcom,ext-ult-spk-amp-gpio : GPIO for enabling of speaker path amplifier.
 
+- qcom,ext-ult-lo-amp-gpio: GPIO to enable external ultrasound lineout
+			    amplifier.
+
 Example:
 
 sound {
@@ -502,6 +505,7 @@ sound {
 	qcom,us-euro-gpios = <&pm8941_gpios 20 0>;
 
 	qcom,hdmi-audio-rx;
+	qcom,ext-ult-lo-amp-gpio = <&pm8941_gpios 6 0>;
 
 	qcom,prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
 	qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
