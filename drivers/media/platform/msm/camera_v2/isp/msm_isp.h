@@ -378,8 +378,8 @@ struct vfe_device {
 	struct msm_vfe_tasklet_queue_cmd
 		tasklet_queue_cmd[MSM_VFE_TASKLETQ_SIZE];
 
+	uint32_t vfe_hw_version;
 	struct msm_vfe_hardware_info *hw_info;
-
 	struct msm_vfe_axi_shared_data axi_data;
 	struct msm_vfe_stats_shared_data stats_data;
 	struct msm_vfe_error_info error_info;
