@@ -751,6 +751,11 @@ int test_iosched_start_test(struct test_info *t_info)
 		ptd->test_state = TEST_RUNNING;
 
 		spin_unlock(&ptd->lock);
+		/*
+		 * Give an already dispatch request from
+		 * FS a chanse to complete
+		 */
+		msleep(2000);
 
 		timeout_msec = get_timeout_msec(ptd);
 		mod_timer(&ptd->timeout_timer, jiffies +
