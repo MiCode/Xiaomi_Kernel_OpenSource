@@ -1,0 +1,52 @@
+Synaptics touch controller
+
+Required properties:
+
+ - compatible	: should be "synaptics,rmi4"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: touch sample interrupt to indicate presense or release
+				of fingers on the panel.
+ - synaptics,irq-gpio	: irq gpio
+ - synaptics,reset-gpio	: reset gpio
+
+Optional property:
+ - vdd-supply		: Analog power supply needed to power device
+ - synaptics,reg-en	: specify to indicate regulator is needed
+ - vcc_i2c-supply		: Power source required to pull up i2c bus
+ - synaptics,i2c-pull-up	: specify to indicate pull up is needed
+ - synaptics,button-map		: virtual key code mappings to be used
+ - synaptics,x-flip		: modify orientation of the x axis
+ - synaptics,y-flip		: modify orientation of the y axis
+ - synaptics,panel-x		: panel x dimension
+ - synaptics,panel-y		: panel y dimension
+
+Example:
+	i2c@f9927000 { /* BLSP1 QUP5 */
+		cell-index = <5>;
+		compatible = "qcom,i2c-qup";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0xf9927000 0x1000>;
+		interrupt-names = "qup_err_intr";
+		interrupts = <0 99 0>;
+		gpios = <&msmgpio 19 0>, /* SCL */
+			<&msmgpio 18 0>; /* SDA */
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <19200000>;
+
+		synaptics@20 {
+			compatible = "synaptics,rmi4"
+			reg = <0x20>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2>;
+			vdd-supply = <&pm8226_l19>;
+			vcc_i2c-supply = <&pm8226_lvs1>;
+			synaptics,reset-gpio = <&msmgpio 16 0x00>;
+			synaptics,irq-gpio = <&msmgpio 17 0x00>;
+			synaptics,button-map = [8B 66 9E];
+			synaptics,i2c-pull-up;
+			synaptics,reg-en;
+		};
+	};
