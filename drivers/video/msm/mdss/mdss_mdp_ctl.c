@@ -200,6 +200,20 @@ static int mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl)
 		total_ib_quota += ib_quota;
 		if (clk_rate > max_clk_rate)
 			max_clk_rate = clk_rate;
+
+		if (ctl->intf_type) {
+			struct mdss_panel_info *pinfo;
+
+			pinfo = &ctl->panel_data->panel_info;
+			clk_rate = (ctl->intf_type == MDSS_INTF_DSI) ?
+					pinfo->mipi.dsi_pclk_rate :
+					pinfo->clk_rate;
+
+			/* minimum clock rate due to inefficiency in 3dmux */
+			clk_rate = mult_frac(clk_rate >> 1, 9, 8);
+			if (clk_rate > max_clk_rate)
+				max_clk_rate = clk_rate;
+		}
 	}
 
 	/* request minimum bandwidth to have bus clock on when display is on */
