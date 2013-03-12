@@ -787,6 +787,7 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_mixer *mixer;
 	u32 outsize, temp;
 	int ret = 0;
+	int i, nmixers;
 
 	if (ctl->start_fnc)
 		ret = ctl->start_fnc(ctl);
@@ -800,6 +801,10 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl)
 	}
 
 	pr_debug("ctl_num=%d\n", ctl->num);
+
+	nmixers = MDSS_MDP_INTF_MAX_LAYERMIXER + MDSS_MDP_WB_MAX_LAYERMIXER;
+	for (i = 0; i < nmixers; i++)
+		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(i), 0);
 
 	mixer = ctl->mixer_left;
 	mdss_mdp_pp_resume(mixer->num);
@@ -821,7 +826,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl)
 	int ret = 0;
 
 	if (ctl->power_on) {
-		pr_debug("%s:%d already on!\n", __func__, __LINE__);
+		pr_debug("%d: panel already on!\n", __LINE__);
 		return 0;
 	}
 
@@ -907,14 +912,6 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 		ctl->power_on = false;
 		ctl->play_cnt = 0;
 		ctl->clk_rate = 0;
-		if (ctl->mixer_left) {
-			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(
-					ctl->mixer_left->num), 0);
-		}
-		if (ctl->mixer_right) {
-			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(
-					ctl->mixer_right->num), 0);
-		}
 		mdss_mdp_ctl_perf_commit(ctl->mdata, MDSS_MDP_PERF_UPDATE_ALL);
 	}
 
