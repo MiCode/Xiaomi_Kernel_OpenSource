@@ -898,6 +898,8 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		}
 	}
 
+	*clnt_hdl = ipa_ep_idx;
+
 	return 0;
 
 fail_register_event:
