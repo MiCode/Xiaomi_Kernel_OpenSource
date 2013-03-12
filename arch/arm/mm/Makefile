@@ -102,5 +102,3 @@ obj-$(CONFIG_CACHE_L2X0)	+= cache-l2x0.o
 obj-$(CONFIG_CACHE_PL310_ERP)   += cache-pl310-erp.o
 obj-$(CONFIG_CACHE_XSC3L2)	+= cache-xsc3l2.o
 obj-$(CONFIG_CACHE_TAUROS2)	+= cache-tauros2.o
-obj-$(CONFIG_VCM)		+= vcm.o vcm_alloc.o
-obj-$(CONFIG_VCM_MM)		+= vcm_mm.o
