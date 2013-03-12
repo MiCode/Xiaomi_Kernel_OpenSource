@@ -3796,6 +3796,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				"qcom,hsusb-otg-clk-always-on-workaround");
 	pdata->delay_lpm_on_disconnect = of_property_read_bool(node,
 				"qcom,hsusb-otg-delay-lpm");
+	pdata->dp_manual_pullup = of_property_read_bool(node,
+				"qcom,dp-manual-pullup");
 
 	return pdata;
 }
@@ -4075,6 +4077,8 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	phy->otg->set_peripheral = msm_otg_set_peripheral;
 	phy->otg->start_hnp = msm_otg_start_hnp;
 	phy->otg->start_srp = msm_otg_start_srp;
+	if (pdata->dp_manual_pullup)
+		phy->flags |= ENABLE_DP_MANUAL_PULLUP;
 
 	ret = usb_set_transceiver(&motg->phy);
 	if (ret) {
