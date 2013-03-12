@@ -2159,9 +2159,10 @@ static inline void bms_initialize_constants(struct qpnp_bms_chip *chip)
 #define REG_OFFSET_PERP_TYPE			0x04
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 #define BMS_BMS_TYPE				0xD
-#define BMS_BMS_SUBTYPE				0x1
+#define BMS_BMS1_SUBTYPE			0x1
 #define BMS_IADC_TYPE				0x8
-#define BMS_IADC_SUBTYPE			0x3
+#define BMS_IADC1_SUBTYPE			0x3
+#define BMS_IADC2_SUBTYPE			0x5
 
 static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 {
@@ -2200,10 +2201,11 @@ static int register_spmi(struct qpnp_bms_chip *chip, struct spmi_device *spmi)
 			return rc;
 		}
 
-		if (type == BMS_BMS_TYPE && subtype == BMS_BMS_SUBTYPE) {
+		if (type == BMS_BMS_TYPE && subtype == BMS_BMS1_SUBTYPE) {
 			chip->base = resource->start;
 		} else if (type == BMS_IADC_TYPE
-					&& subtype == BMS_IADC_SUBTYPE) {
+				&& (subtype == BMS_IADC1_SUBTYPE
+				|| subtype == BMS_IADC2_SUBTYPE)) {
 			chip->iadc_base = resource->start;
 		} else {
 			pr_err("Invalid peripheral start=0x%x type=0x%x, subtype=0x%x\n",
