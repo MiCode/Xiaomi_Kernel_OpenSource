@@ -22,7 +22,7 @@
 #include <mach/ecm_ipa.h>
 
 #define DRIVER_NAME "ecm_ipa"
-#define DRIVER_VERSION "19-Feb-2013"
+#define DRIVER_VERSION "12-Mar-2013"
 #define ECM_IPA_IPV4_HDR_NAME "ecm_eth_ipv4"
 #define ECM_IPA_IPV6_HDR_NAME "ecm_eth_ipv6"
 #define IPA_TO_USB_CLIENT	IPA_CLIENT_USB_CONS
@@ -341,7 +341,7 @@ static int ecm_ipa_register_tx(struct ecm_ipa_dev *dev)
 	strlcpy(ipv6_property->hdr_name, ECM_IPA_IPV6_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	tx_properties.num_props = 2;
-	result = ipa_register_intf(dev->net->name, &tx_properties, NULL);
+	result = ipa_register_intf("ecm0", &tx_properties, NULL);
 	if (result)
 		ECM_IPA_ERROR("fail on Tx_prop registration\n");
 	ECM_IPA_LOG_EXIT();
