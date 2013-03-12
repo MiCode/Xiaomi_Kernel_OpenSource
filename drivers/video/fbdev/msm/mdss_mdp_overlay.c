@@ -213,6 +213,7 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 	rot->flags = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD |
 				   MDP_SECURE_OVERLAY_SESSION);
 
+	rot->bwc_mode = (req->flags & MDP_BWC_EN) ? 1 : 0;
 	rot->format = fmt->format;
 	rot->img_width = req->src.width;
 	rot->img_height = req->src.height;
@@ -261,7 +262,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	}
 
 	src_format = req->src.format;
-	if (req->flags & MDP_SOURCE_ROTATED_90)
+	if (req->flags & (MDP_SOURCE_ROTATED_90 | MDP_BWC_EN))
 		src_format = mdss_mdp_get_rotator_dst_format(src_format);
 
 	fmt = mdss_mdp_get_format_params(src_format);
@@ -345,7 +346,8 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	}
 
 	pipe->flags = req->flags;
-
+	pipe->bwc_mode = pipe->mixer->rotator_mode ?
+		0 : (req->flags & MDP_BWC_EN ? 1 : 0) ;
 	pipe->img_width = req->src.width & 0x3fff;
 	pipe->img_height = req->src.height & 0x3fff;
 	pipe->src.x = req->src_rect.x;
