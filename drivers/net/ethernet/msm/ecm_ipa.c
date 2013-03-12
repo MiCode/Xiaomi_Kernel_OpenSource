@@ -95,7 +95,6 @@ struct ecm_ipa_dev {
 static struct ecm_ipa_dev *ecm_ipa_ctx;
 
 static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl);
-static void sk_buff_print(struct sk_buff *skb);
 static int ecm_ipa_set_device_ethernet_addr(
 	u8 *dev_ethaddr, u8 device_ethaddr[]);
 static void ecm_ipa_packet_receive_notify(void *priv,
@@ -606,24 +605,22 @@ EXPORT_SYMBOL(ecm_ipa_cleanup);
 static int resource_request(struct ecm_ipa_dev *dev)
 {
 	int result = 0;
-	ECM_IPA_LOG_ENTRY();
+
 	if (!rm_enabled(dev))
 		goto out;
 	result = ipa_rm_inactivity_timer_request_resource(
 			IPA_RM_RESOURCE_STD_ECM_PROD);
 out:
-	ECM_IPA_LOG_EXIT();
 	return result;
 }
 
 static void resource_release(struct ecm_ipa_dev *dev)
 {
-	ECM_IPA_LOG_ENTRY();
 	if (!rm_enabled(dev))
 		goto out;
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_STD_ECM_PROD);
 out:
-	ECM_IPA_LOG_EXIT();
+	return;
 }
 
 /**
@@ -644,15 +641,15 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 	netdev_tx_t status = NETDEV_TX_BUSY;
 	struct ecm_ipa_dev *dev = netdev_priv(net);
 	unsigned long flags;
-	ECM_IPA_LOG_ENTRY();
+
 	if (unlikely(netif_queue_stopped(net))) {
 		ECM_IPA_ERROR("interface queue is stopped\n");
 		goto out;
 	}
-	ECM_IPA_DEBUG("send (proto=0x%04x)\n", ntohs(skb->protocol));
+
 	if (unlikely(tx_filter(skb))) {
 		dev_kfree_skb_any(skb);
-		ECM_IPA_ERROR("packet got filtered out on Tx path\n");
+		ECM_IPA_DEBUG("packet got filtered out on Tx path\n");
 		status = NETDEV_TX_OK;
 		goto out;
 	}
@@ -662,26 +659,19 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 		netif_stop_queue(net);
 		goto resource_busy;
 	}
-	ECM_IPA_DEBUG("taking ack_lock\n");
+
 	spin_lock_irqsave(&dev->ack_spinlock, flags);
-	ECM_IPA_DEBUG("ack_lock taken\n");
 	if (dev->last_out_skb) {
 		ECM_IPA_DEBUG("No Tx-ack received for previous packet\n");
-		ECM_IPA_DEBUG("releasing ack_lock\n");
 		spin_unlock_irqrestore(&dev->ack_spinlock, flags);
-		ECM_IPA_DEBUG("ack_lock released\n");
 		netif_stop_queue(net);
 		status = -NETDEV_TX_BUSY;
 		goto out;
 	} else {
 		dev->last_out_skb = skb;
 	}
-	ECM_IPA_DEBUG("releasing ack_lock\n");
 	spin_unlock_irqrestore(&dev->ack_spinlock, flags);
-	ECM_IPA_DEBUG("ack_lock released\n");
-	sk_buff_print(skb);
-	ECM_IPA_DEBUG("ipa_tx_dp is called (dst_client=%d)\n",
-			IPA_TO_USB_CLIENT);
+
 	ret = ipa_tx_dp(IPA_TO_USB_CLIENT, skb, NULL);
 	if (ret) {
 		ECM_IPA_ERROR("ipa transmit failed (%d)\n", ret);
@@ -689,14 +679,13 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 	}
 	net->stats.tx_packets++;
 	net->stats.tx_bytes += skb->len;
-	ECM_IPA_LOG_EXIT();
 	status = NETDEV_TX_OK;
 	goto out;
+
 fail_tx_packet:
 out:
 	resource_release(dev);
 resource_busy:
-	ECM_IPA_LOG_EXIT();
 	return status;
 }
 
@@ -716,27 +705,26 @@ void ecm_ipa_packet_receive_notify(void *priv,
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct ecm_ipa_dev *dev = priv;
 	int result;
-	ECM_IPA_LOG_ENTRY();
+
 	if (evt != IPA_RECEIVE)	{
 		ECM_IPA_ERROR("A none IPA_RECEIVE event in ecm_ipa_receive\n");
 		return;
 	}
-	ECM_IPA_DEBUG("receive\n");
-	sk_buff_print(skb);
+
 	skb->dev = dev->net;
 	skb->protocol = eth_type_trans(skb, dev->net);
 	if (rx_filter(skb)) {
-		ECM_IPA_ERROR("packet got filtered out on Rx path\n");
+		ECM_IPA_DEBUG("packet got filtered out on Rx path\n");
 		dev_kfree_skb_any(skb);
 		return;
 	}
-	ECM_IPA_DEBUG("kernel stack Rx is called\n");
+
 	result = netif_rx(skb);
 	if (result)
 		ECM_IPA_ERROR("fail on netif_rx\n");
 	dev->net->stats.rx_packets++;
 	dev->net->stats.rx_bytes += skb->len;
-	ECM_IPA_LOG_EXIT();
+
 	return;
 }
 
@@ -757,7 +745,6 @@ void ecm_ipa_tx_complete_notify(void *priv,
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct ecm_ipa_dev *dev = priv;
 	unsigned long flags;
-	ECM_IPA_LOG_ENTRY();
 
 	if (!dev) {
 		ECM_IPA_ERROR("dev is NULL pointer\n");
@@ -767,21 +754,16 @@ void ecm_ipa_tx_complete_notify(void *priv,
 		ECM_IPA_ERROR("unsupported event on Tx callback\n");
 		return;
 	}
-	ECM_IPA_DEBUG("taking ack_lock\n");
 	spin_lock_irqsave(&dev->ack_spinlock, flags);
-	ECM_IPA_DEBUG("ack_lock taken\n");
 	if (skb != dev->last_out_skb)
 		ECM_IPA_ERROR("ACKed/Sent not the same(FIFO expected)\n");
 	dev->last_out_skb = NULL;
-	ECM_IPA_DEBUG("releasing ack_lock\n");
 	spin_unlock_irqrestore(&dev->ack_spinlock, flags);
-	ECM_IPA_DEBUG("ack_lock released\n");
 	if (netif_queue_stopped(dev->net)) {
 		ECM_IPA_DEBUG("waking up queue\n");
 		netif_wake_queue(dev->net);
 	}
 	dev_kfree_skb_any(skb);
-	ECM_IPA_LOG_EXIT();
 	return;
 }
 
@@ -1033,45 +1015,6 @@ int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl)
 out:
 	ECM_IPA_LOG_EXIT();
 	return result;
-}
-
-static void ecm_ipa_dump_buff(u8 *buff, u32 byte_size)
-{
-	int i;
-	ECM_IPA_DEBUG("ofst(hex), addr(hex), data(hex), value(char):\n");
-	for (i = 0 ; i < byte_size; i += 4) {
-		ECM_IPA_DEBUG("%2x  %p   %02x %02x %02x %02x | %c %c %c %c\n",
-				i, &buff[i],
-				buff[i], buff[i+1], buff[i+2], buff[i+3],
-				buff[i], buff[i+1], buff[i+2], buff[i+3]);
-	}
-}
-
-/**
- * sk_buff_print() - detailed sk_buff printouts
- * @skb: the socket buff
- */
-void sk_buff_print(struct sk_buff *skb)
-{
-	ECM_IPA_DEBUG("called by: %s\n", current->comm);
-	ECM_IPA_DEBUG("skb->next=0x%p, skb->prev=0x%p, skb->sk=0x%p\n",
-			skb->next, skb->prev, skb->sk);
-	ECM_IPA_DEBUG("skb->len=0x%x, skb->data_len=0x%x protocol=0x%04x\n",
-				skb->len, skb->data_len, skb->protocol);
-	ECM_IPA_DEBUG("skb->mac_len=0x%x, skb->hdr_len=0x%x, skb->csum=%x\n",
-			skb->mac_len, skb->hdr_len, skb->csum);
-
-	ECM_IPA_DEBUG("mac_header = 0x%p\n", skb_mac_header(skb));
-	ECM_IPA_DEBUG("network_header = 0x%p\n", skb_network_header(skb));
-	ECM_IPA_DEBUG("transport_header=0x%p\n", skb_transport_header(skb));
-
-	ECM_IPA_DEBUG("skb->head=0x%p\n", skb->head);
-	ECM_IPA_DEBUG("skb->data=0x%p\n", skb->data);
-	ECM_IPA_DEBUG("tail=0x%p\n", skb_tail_pointer(skb));
-	ECM_IPA_DEBUG("end =0x%p\n", skb_end_pointer(skb));
-	ECM_IPA_DEBUG("skb->truesize=0x%x (buffer size)\n",
-				skb->truesize);
-	ecm_ipa_dump_buff(skb->data, skb->len);
 }
 
 /**
