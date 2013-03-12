@@ -1,0 +1,40 @@
+* Qcom Performance Monitor Units
+Qcom cores have several PMUs for counting CPU side, L2 and bus side events.
+
+For the L1CC PMU:
+In most cases the L1 cache controller PMU is a per cpu unit. The irq-is-percpu
+flag becomes a requirement if this is the case.
+
+Required Properties:
+
+- compatible : Should be "qcom,krait-pmu"
+- interrupts : 1 combined interrupt or 1 per core. See the devicetree/bindings/gic.txt for more details on this format.
+
+Optional:
+
+- qcom,irq-is-percpu: 	Define this if the IRQ of the PMU is a PPI. This will tell perf to use
+			the per_cpu IRQ API for request and free.
+
+Example:
+
+ arm-pmu {
+                compatible = "qcom,krait-pmu";
+                qcom,irq-is-percpu;
+                interrupts = <1 7 0xf00>;
+        };
+
+For the L2CC PMU:
+If the L2 cache controller PMU is available, its DT bindings should be defined as
+follows.
+
+Required Properties:
+
+- compatible: Should be "qcom,l2-pmu"
+- interrupts : 1 combined interrupt.
+
+Example:
+
+  l2-pmu {
+                compatible = "qcom,l2-pmu";
+                interrupts = <0 1 0>;
+        };

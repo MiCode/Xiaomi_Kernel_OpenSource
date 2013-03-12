@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -917,7 +917,7 @@ static int __devinit scorpion_l2_pmu_device_probe(struct platform_device *pdev)
 
 static struct platform_driver scorpion_l2_pmu_driver = {
 	.driver		= {
-		.name	= "l2-arm-pmu",
+		.name	= "l2-pmu",
 	},
 	.probe		= scorpion_l2_pmu_device_probe,
 };

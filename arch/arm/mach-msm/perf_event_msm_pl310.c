@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 ARM Limited
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -415,9 +415,18 @@ static int __devinit l2x0pmu_device_probe(struct platform_device *pdev)
 	return 0;
 }
 
+/*
+ * PMU platform driver and devicetree bindings.
+ */
+static struct of_device_id l2pmu_of_device_ids[] = {
+	{.compatible = "qcom,l2-pmu"},
+	{},
+};
+
 static struct platform_driver l2x0pmu_driver = {
 	.driver		= {
-		.name	= "l2-arm-pmu",
+		.name	= "l2-pmu",
+		.of_match_table = l2pmu_of_device_ids,
 	},
 	.probe		= l2x0pmu_device_probe,
 };

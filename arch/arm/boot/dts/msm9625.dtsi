@@ -731,6 +731,17 @@
 		status = "disable";
 	};
 
+	cpu-pmu {
+                compatible = "arm,cortex-a5-pmu";
+                qcom,irq-is-percpu;
+                interrupts = <1 7 0x00>;
+        };
+
+        l2-pmu {
+                compatible = "qcom,l2-pmu";
+                interrupts = <0 1 0>;
+        };
+
 };
 
 /include/ "msm-pm8019-rpm-regulator.dtsi"
