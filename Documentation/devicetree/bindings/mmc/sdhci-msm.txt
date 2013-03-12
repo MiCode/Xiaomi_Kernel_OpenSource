@@ -20,6 +20,24 @@ Required alias:
 Optional Properties:
 	- interrupt-names - "status_irq". This status_irq will be used for card
 			     detection.
+	- cd-gpios: specify GPIO for card detection. If this property is
+		    defined, then it means SDHC device has more than one interrupt
+		    parent and hence, it is required to define the following properties
+		    to configure interrupts from multiple parents -
+
+		    interrupt-parent - This must provide reference to the current
+				       device node.
+		    #address-cells - Should provide a value of 0.
+		    interrupts - Should be <0 1 2> and it is an index to the
+				 interrupt-map.
+		    #interrupt-cells - should provide a value of 1.
+		    #interrupt-mask - should provide a value of 0xffffffff.
+		    interrupt-map - Must create mapping for the number of interrupts
+				    that are defined in above interrupts property.
+				    For SDHC device node, it must define 3 mappings for
+				    hc_irq, pwr_irq and status_irq in the format
+				    mentioned in below example node of sdhc_2.
+
 	- qcom,bus-width - defines the bus I/O width that controller supports.
 			   Units - number of bits. The valid bus-width values are
 			   1, 4 and 8.
@@ -109,8 +127,17 @@ Example:
 		compatible = "qcom,sdhci-msm";
                 reg = <0xf9824900 0x11c>, <0xf9824000 0x800>;
                 reg-names = "hc_mem", "core_mem";
-                interrupts = <0 123 0>, <0 138 0>;
-                interrupt-names = "hc_irq", "pwr_irq";
+
+		#address-cells = <0>;
+		interrupt-parent = <&sdhc_2>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 125 0
+				1 &intc 0 221 0
+				2 &msmgpio 62 0x3>;
+                interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+		cd-gpios = <&msmgpio 62 0x1>;
 
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_l13>;
