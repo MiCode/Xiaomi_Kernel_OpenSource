@@ -22,7 +22,7 @@
 #include <mach/ecm_ipa.h>
 
 #define DRIVER_NAME "ecm_ipa"
-#define DRIVER_VERSION "19-Feb-2013"
+#define DRIVER_VERSION "12-Mar-2013"
 #define ECM_IPA_IPV4_HDR_NAME "ecm_eth_ipv4"
 #define ECM_IPA_IPV6_HDR_NAME "ecm_eth_ipv6"
 #define IPA_TO_USB_CLIENT	IPA_CLIENT_USB_CONS
@@ -513,8 +513,17 @@ static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *dev)
 		goto fail_it;
 	}
 	ECM_IPA_DEBUG("rm_it client was created");
+
+	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
+				IPA_RM_RESOURCE_USB_CONS);
+	if (result)
+		ECM_IPA_ERROR("unable to add dependency (%d)\n", result);
+
+	ECM_IPA_DEBUG("rm dependency was set\n");
+
 	ECM_IPA_LOG_EXIT();
 	return 0;
+
 fail_it:
 fail_rm_create:
 	return result;
@@ -523,7 +532,11 @@ fail_rm_create:
 static void ecm_ipa_destory_rm_resource(void)
 {
 	ECM_IPA_LOG_ENTRY();
+
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
+			IPA_RM_RESOURCE_USB_CONS);
 	ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_STD_ECM_PROD);
+
 	ECM_IPA_LOG_EXIT();
 }
 
