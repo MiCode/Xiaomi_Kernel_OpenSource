@@ -13,7 +13,46 @@
 #include "hfi_packetization.h"
 #include "msm_vidc_debug.h"
 #include <linux/errno.h>
+#include <linux/log2.h>
 #include <mach/ocmem.h>
+
+/* Set up look-up tables to convert HAL_* to HFI_*.
+ *
+ * The tables below mostly take advantage of the fact that most
+ * HAL_* types are defined bitwise. So if we index them normally
+ * when declaring the tables, we end up with huge arrays with wasted
+ * space.  So before indexing them, we apply log2 to use a more
+ * sensible index.
+ */
+static int profile_table[] = {
+	[ilog2(HAL_H264_PROFILE_BASELINE)] = HFI_H264_PROFILE_BASELINE,
+	[ilog2(HAL_H264_PROFILE_MAIN)] = HFI_H264_PROFILE_MAIN,
+	[ilog2(HAL_H264_PROFILE_HIGH)] = HFI_H264_PROFILE_HIGH,
+	[ilog2(HAL_H264_PROFILE_CONSTRAINED_BASE)] =
+		HFI_H264_PROFILE_CONSTRAINED_BASE,
+	[ilog2(HAL_H264_PROFILE_CONSTRAINED_HIGH)] =
+		HFI_H264_PROFILE_CONSTRAINED_HIGH,
+};
+
+static inline int hal_to_hfi_type(int property, int hal_type)
+{
+	if (hal_type && (roundup_pow_of_two(hal_type) != hal_type)) {
+		/* Not a power of 2, it's not going
+		 * to be in any of the tables anyway */
+		return -EINVAL;
+	}
+
+	if (hal_type)
+		hal_type = ilog2(hal_type);
+
+	switch (property) {
+	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
+		return (hal_type >= ARRAY_SIZE(profile_table)) ?
+			-ENOTSUPP : profile_table[hal_type];
+	default:
+		return -ENOTSUPP;
+	}
+}
 
 int create_pkt_cmd_sys_init(struct hfi_cmd_sys_init_packet *pkt,
 			   u32 arch_type)
@@ -845,16 +884,28 @@ int create_pkt_cmd_session_set_property(
 		struct hfi_profile_level *hfi;
 		struct hal_profile_level *prop =
 			(struct hal_profile_level *) pdata;
+
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT;
 		hfi = (struct hfi_profile_level *)
 			&pkt->rg_property_data[1];
-		hfi->level = (u32) prop->level;
-		hfi->profile = prop->profile;
-		if (!hfi->profile)
+		hfi->level = (u32)prop->level;
+		hfi->profile = hal_to_hfi_type(HAL_PARAM_PROFILE_LEVEL_CURRENT,
+				prop->profile);
+		if (hfi->profile <= 0) {
 			hfi->profile = HFI_H264_PROFILE_HIGH;
-		if (!hfi->level)
+			dprintk(VIDC_WARN,
+					"Profile %d not supported, falling back to high",
+					prop->profile);
+		}
+
+		if (!hfi->level) {
 			hfi->level = 1;
+			dprintk(VIDC_WARN,
+					"Level %d not supported, falling back to high",
+					prop->level);
+		}
+
 		pkt->size += sizeof(u32) + sizeof(struct hfi_profile_level);
 		break;
 	}
