@@ -107,34 +107,6 @@ void invalidate_caches(unsigned long vstart,
 	outer_inv_range(pstart, pstart + length);
 }
 
-void * __init alloc_bootmem_aligned(unsigned long size, unsigned long alignment)
-{
-	void *unused_addr = NULL;
-	unsigned long addr, tmp_size, unused_size;
-
-	/* Allocate maximum size needed, see where it ends up.
-	 * Then free it -- in this path there are no other allocators
-	 * so we can depend on getting the same address back
-	 * when we allocate a smaller piece that is aligned
-	 * at the end (if necessary) and the piece we really want,
-	 * then free the unused first piece.
-	 */
-
-	tmp_size = size + alignment - PAGE_SIZE;
-	addr = (unsigned long)alloc_bootmem(tmp_size);
-	free_bootmem(__pa(addr), tmp_size);
-
-	unused_size = alignment - (addr % alignment);
-	if (unused_size)
-		unused_addr = alloc_bootmem(unused_size);
-
-	addr = (unsigned long)alloc_bootmem(size);
-	if (unused_size)
-		free_bootmem(__pa(unused_addr), unused_size);
-
-	return (void *)addr;
-}
-
 char *memtype_name[] = {
 	"SMI_KERNEL",
 	"SMI",
