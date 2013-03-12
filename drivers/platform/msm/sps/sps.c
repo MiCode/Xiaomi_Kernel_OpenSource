@@ -325,7 +325,7 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 		print_bam_reg(vir_addr);
 		break;
 	case 3: /* output selected BAM-level registers */
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		break;
 	case 4: /* output selected registers of all pipes */
 		for (i = 0; i < num_pipes; i++)
@@ -401,21 +401,14 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 	case 91: /* output testbus register, BAM global regisers
 			and registers of all pipes */
 		print_bam_test_bus_reg(vir_addr, testbus_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			print_bam_pipe_selected_reg(vir_addr, i);
 		break;
 	case 92: /* output testbus register, BAM global regisers
 			and registers of selected pipes */
 		print_bam_test_bus_reg(vir_addr, testbus_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			if (bam_pipe_sel & (1UL << i))
-				print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (bam_pipe_sel & (1UL << i))
 				print_bam_pipe_selected_reg(vir_addr, i);
@@ -425,11 +418,7 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 		if (desc_option == 0)
 			desc_option = 1;
 		print_bam_test_bus_reg(vir_addr, testbus_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			if (bam_pipe_sel & (1UL << i))
-				print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (bam_pipe_sel & (1UL << i))
 				print_bam_pipe_selected_reg(vir_addr, i);
@@ -443,11 +432,9 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 		if (desc_option == 0)
 			desc_option = 1;
 		print_bam_test_bus_reg(vir_addr, testbus_sel);
-		print_bam_reg(vir_addr);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (bam_pipe_sel & (1UL << i)) {
-				print_bam_pipe_reg(vir_addr, i);
 				print_bam_pipe_selected_reg(vir_addr, i);
 				print_bam_pipe_desc_fifo(vir_addr, i,
 							desc_option);
@@ -456,11 +443,7 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 	case 95: /* output registers and desc FIFOs
 			of selected pipes: format 1 */
 		print_bam_test_bus_reg(vir_addr, testbus_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			if (bam_pipe_sel & (1UL << i))
-				print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (bam_pipe_sel & (1UL << i))
 				print_bam_pipe_selected_reg(vir_addr, i);
@@ -471,11 +454,9 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 	case 96: /* output registers and desc FIFOs
 			of selected pipes: format 2 */
 		print_bam_test_bus_reg(vir_addr, testbus_sel);
-		print_bam_reg(vir_addr);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (bam_pipe_sel & (1UL << i)) {
-				print_bam_pipe_reg(vir_addr, i);
 				print_bam_pipe_selected_reg(vir_addr, i);
 				print_bam_pipe_desc_fifo(vir_addr, i, 0);
 			}
@@ -483,11 +464,7 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 	case 97: /* output registers, desc FIFOs and partial data blocks
 			of selected pipes: format 1 */
 		print_bam_test_bus_reg(vir_addr, testbus_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			if (bam_pipe_sel & (1UL << i))
-				print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (bam_pipe_sel & (1UL << i))
 				print_bam_pipe_selected_reg(vir_addr, i);
@@ -501,11 +478,9 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 	case 98: /* output registers, desc FIFOs and partial data blocks
 			of selected pipes: format 2 */
 		print_bam_test_bus_reg(vir_addr, testbus_sel);
-		print_bam_reg(vir_addr);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (bam_pipe_sel & (1UL << i)) {
-				print_bam_pipe_reg(vir_addr, i);
 				print_bam_pipe_selected_reg(vir_addr, i);
 				print_bam_pipe_desc_fifo(vir_addr, i, 0);
 				print_bam_pipe_desc_fifo(vir_addr, i, 100);
@@ -516,7 +491,7 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 		print_bam_reg(vir_addr);
 		for (i = 0; i < num_pipes; i++)
 			print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			print_bam_pipe_selected_reg(vir_addr, i);
 		for (i = 0; i < num_pipes; i++)
@@ -674,7 +649,7 @@ static void sps_debugfs_exit(void)
 
 /* Get the debug info of BAM registers and descriptor FIFOs */
 int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
-		u32 tb_sel, u8 desc_sel)
+		u32 tb_sel, u32 desc_sel)
 {
 	int res = 0;
 	struct sps_bam *bam;
@@ -700,6 +675,8 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 	vir_addr = bam->base;
 	num_pipes = bam->props.num_pipes;
 
+	SPS_INFO("sps:<bam-addr> dump BAM:0x%x.\n", bam->props.phys_addr);
+
 	switch (option) {
 	case 1: /* output all registers of this BAM */
 		print_bam_reg(vir_addr);
@@ -710,7 +687,7 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 		print_bam_reg(vir_addr);
 		break;
 	case 3: /* output selected BAM-level registers */
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		break;
 	case 4: /* output selected registers of all pipes */
 		for (i = 0; i < num_pipes; i++)
@@ -784,21 +761,14 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 	case 91: /* output testbus register, BAM global regisers
 			and registers of all pipes */
 		print_bam_test_bus_reg(vir_addr, tb_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			print_bam_pipe_selected_reg(vir_addr, i);
 		break;
 	case 92: /* output testbus register, BAM global regisers
 			and registers of selected pipes */
 		print_bam_test_bus_reg(vir_addr, tb_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			if (para & (1UL << i))
-				print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (para & (1UL << i))
 				print_bam_pipe_selected_reg(vir_addr, i);
@@ -808,11 +778,7 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 		if (desc_sel == 0)
 			desc_sel = 1;
 		print_bam_test_bus_reg(vir_addr, tb_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			if (para & (1UL << i))
-				print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (para & (1UL << i))
 				print_bam_pipe_selected_reg(vir_addr, i);
@@ -826,11 +792,9 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 		if (desc_sel == 0)
 			desc_sel = 1;
 		print_bam_test_bus_reg(vir_addr, tb_sel);
-		print_bam_reg(vir_addr);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (para & (1UL << i)) {
-				print_bam_pipe_reg(vir_addr, i);
 				print_bam_pipe_selected_reg(vir_addr, i);
 				print_bam_pipe_desc_fifo(vir_addr, i,
 							desc_sel);
@@ -839,11 +803,7 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 	case 95: /* output registers and desc FIFOs
 			of selected pipes: format 1 */
 		print_bam_test_bus_reg(vir_addr, tb_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			if (para & (1UL << i))
-				print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (para & (1UL << i))
 				print_bam_pipe_selected_reg(vir_addr, i);
@@ -854,11 +814,9 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 	case 96: /* output registers and desc FIFOs
 			of selected pipes: format 2 */
 		print_bam_test_bus_reg(vir_addr, tb_sel);
-		print_bam_reg(vir_addr);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (para & (1UL << i)) {
-				print_bam_pipe_reg(vir_addr, i);
 				print_bam_pipe_selected_reg(vir_addr, i);
 				print_bam_pipe_desc_fifo(vir_addr, i, 0);
 			}
@@ -866,11 +824,7 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 	case 97: /* output registers, desc FIFOs and partial data blocks
 			of selected pipes: format 1 */
 		print_bam_test_bus_reg(vir_addr, tb_sel);
-		print_bam_reg(vir_addr);
-		for (i = 0; i < num_pipes; i++)
-			if (para & (1UL << i))
-				print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (para & (1UL << i))
 				print_bam_pipe_selected_reg(vir_addr, i);
@@ -884,11 +838,9 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 	case 98: /* output registers, desc FIFOs and partial data blocks
 			of selected pipes: format 2 */
 		print_bam_test_bus_reg(vir_addr, tb_sel);
-		print_bam_reg(vir_addr);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			if (para & (1UL << i)) {
-				print_bam_pipe_reg(vir_addr, i);
 				print_bam_pipe_selected_reg(vir_addr, i);
 				print_bam_pipe_desc_fifo(vir_addr, i, 0);
 				print_bam_pipe_desc_fifo(vir_addr, i, 100);
@@ -899,7 +851,7 @@ int sps_get_bam_debug_info(u32 dev, u32 option, u32 para,
 		print_bam_reg(vir_addr);
 		for (i = 0; i < num_pipes; i++)
 			print_bam_pipe_reg(vir_addr, i);
-		print_bam_selected_reg(vir_addr);
+		print_bam_selected_reg(vir_addr, bam->props.ee);
 		for (i = 0; i < num_pipes; i++)
 			print_bam_pipe_selected_reg(vir_addr, i);
 		for (i = 0; i < num_pipes; i++)
