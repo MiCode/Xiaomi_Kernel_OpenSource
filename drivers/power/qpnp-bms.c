@@ -155,7 +155,6 @@ struct qpnp_bms_chip {
 	struct wake_lock		soc_wake_lock;
 
 	uint16_t			ocv_reading_at_100;
-	int64_t				cc_reading_at_100;
 	uint16_t			prev_last_good_ocv_raw;
 	int				last_ocv_uv;
 	int				last_ocv_temp;
@@ -601,7 +600,6 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 	/* fake a high OCV if done charging */
 	if (chip->ocv_reading_at_100 != raw->last_good_ocv_raw) {
 		chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
-		chip->cc_reading_at_100 = 0;
 	} else {
 		/*
 		 * force 100% ocv by selecting the highest voltage the
@@ -610,6 +608,8 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		raw->last_good_ocv_uv = chip->max_voltage_uv;
 		chip->last_ocv_uv = chip->max_voltage_uv;
 		chip->last_ocv_temp = batt_temp;
+		reset_cc(chip);
+		raw->cc = 0;
 	}
 	pr_debug("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
 			raw->last_good_ocv_raw, raw->last_good_ocv_uv);
@@ -701,12 +701,8 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 	struct qpnp_iadc_calib calibration;
 
 	qpnp_iadc_get_gain_and_offset(&calibration);
-	cc_voltage_uv = cc;
-	cc_voltage_uv -= chip->cc_reading_at_100;
-	pr_debug("cc = %lld. after subtracting 0x%llx cc = %lld\n",
-					cc, chip->cc_reading_at_100,
-					cc_voltage_uv);
-	cc_voltage_uv = cc_to_uv(cc_voltage_uv);
+	pr_debug("cc = %lld\n", cc);
+	cc_voltage_uv = cc_to_uv(cc);
 	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv,
 					calibration.gain_raw
 					- calibration.offset_raw);
@@ -1059,10 +1055,7 @@ static void calculate_soc_params(struct qpnp_bms_chip *chip,
 
 	/* calculate cc micro_volt_hour */
 	params->cc_uah = calculate_cc(chip, raw->cc);
-	pr_debug("cc_uah = %duAh raw->cc = %llx cc = %lld after subtracting %llx\n",
-				params->cc_uah, raw->cc,
-				(int64_t)raw->cc - chip->cc_reading_at_100,
-				chip->cc_reading_at_100);
+	pr_debug("cc_uah = %duAh raw->cc = %llx\n", params->cc_uah, raw->cc);
 
 	soc_rbatt = ((params->ocv_charge_uah - params->cc_uah) * 100)
 							/ params->fcc_uah;
