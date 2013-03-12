@@ -32,6 +32,7 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/mmc/mmc.h>
+#include <linux/mmc/slot-gpio.h>
 #include <mach/gpio.h>
 #include <mach/msm_bus.h>
 
@@ -200,6 +201,7 @@ struct sdhci_msm_pltfm_data {
 	bool nonremovable;
 	struct sdhci_msm_pin_data *pin_data;
 	u32 cpu_dma_latency_us;
+	int status_gpio; /* card detection GPIO that is configured as IRQ */
 	struct sdhci_msm_bus_voting_data *voting_data;
 };
 
@@ -1074,6 +1076,8 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 		dev_err(dev, "failed to allocate memory for platform data\n");
 		goto out;
 	}
+
+	pdata->status_gpio = of_get_named_gpio_flags(np, "cd-gpios", 0, 0);
 
 	of_property_read_u32(np, "qcom,bus-width", &bus_width);
 	if (bus_width == 8)
@@ -2021,10 +2025,20 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		INIT_DELAYED_WORK(&msm_host->msm_bus_vote.vote_work,
 				  sdhci_msm_bus_work);
 
+	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
+		ret = mmc_gpio_request_cd(msm_host->mmc,
+				msm_host->pdata->status_gpio, 0);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: Failed to request card detection IRQ %d\n",
+					__func__, ret);
+			goto bus_unregister;
+		}
+	}
+
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(&pdev->dev, "Add host failed (%d)\n", ret);
-		goto bus_unregister;
+		goto free_cd_gpio;
 	}
 
 	 /* Set core clk rate, optionally override from dts */
@@ -2052,6 +2066,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 remove_host:
 	dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
 	sdhci_remove_host(host, dead);
+free_cd_gpio:
+	if (gpio_is_valid(msm_host->pdata->status_gpio))
+		mmc_gpio_free_cd(msm_host->mmc);
 bus_unregister:
 	sdhci_msm_bus_unregister(msm_host);
 vreg_deinit:
@@ -2085,6 +2102,10 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
 	sdhci_remove_host(host, dead);
 	sdhci_pltfm_free(pdev);
+
+	if (gpio_is_valid(msm_host->pdata->status_gpio))
+		mmc_gpio_free_cd(msm_host->mmc);
+
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 
 	if (pdata->pin_data)
