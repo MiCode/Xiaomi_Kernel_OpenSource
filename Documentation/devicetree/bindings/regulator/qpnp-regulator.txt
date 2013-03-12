@@ -76,6 +76,16 @@ Optional properties:
 					1 = 0.25 uA
 					2 = 0.55 uA
 					3 = 0.75 uA
+- qcom,hpm-enable:             1 = Enable high power mode (HPM), also referred
+				to as NPM.  HPM consumes more ground current
+				than LPM, but it can source significantly higher
+				load current.  HPM is not available on boost
+				type regulators.  For voltage switch type
+				regulators, HPM implies that over current
+				protection and soft start are active all the
+				time.  This configuration can be overwritten
+				by changing the regulator's mode dynamically.
+			       0 = Do not enable HPM
 - qcom,force-type: 	       Override the type and subtype register values. Useful for some
 				regulators that have invalid types advertised by the hardware.
 				The format is two unsigned integers of the form <type subtype>.

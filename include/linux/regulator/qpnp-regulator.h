@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,6 +132,18 @@ enum qpnp_boost_current_limit {
  *			    0 = Do not enable bypass mode
  *			    QPNP_REGULATOR_USE_HW_DEFAULT = do not modify
  *			        bypass mode state
+ * @hpm_enable:             1 = Enable high power mode (HPM), also referred to
+ *				as NPM.  HPM consumes more ground current than
+ *				LPM, but it can source significantly higher load
+ *				current.  HPM is not available on boost type
+ *				regulators.  For voltage switch type regulators,
+ *				HPM implies that over current protection and
+ *				soft start are active all the time.  This
+ *				configuration can be overwritten by changing the
+ *				regulator's mode dynamically.
+ *			    0 = Do not enable HPM
+ *			    QPNP_REGULATOR_USE_HW_DEFAULT = do not modify
+ *			        HPM state
  * @base_addr:              SMPI base address for the regulator peripheral
  */
 struct qpnp_regulator_platform_data {
@@ -148,6 +160,7 @@ struct qpnp_regulator_platform_data {
 	int					ocp_enable_time;
 	int					auto_mode_enable;
 	int					bypass_mode_enable;
+	int					hpm_enable;
 	u16					base_addr;
 };
 
