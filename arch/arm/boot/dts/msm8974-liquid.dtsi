@@ -299,6 +299,15 @@
 		qca,bt-reset-gpio = <&pm8941_gpios 34 0>;
 	};
 
+	bt_ar3002_sleep {
+		compatible = "qca,ar3002_bluesleep";
+		host-wake-gpio = <&msmgpio 79 0>;
+		ext-wake-gpio = <&msmgpio 51 0>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <79 2>;
+		interrupt-names = "host_wake";
+	};
+
 	sound {
 		qcom,model = "msm8974-taiko-liquid-snd-card";
 
