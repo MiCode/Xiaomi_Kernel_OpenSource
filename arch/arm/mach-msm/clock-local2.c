@@ -32,7 +32,7 @@
  * When enabling/disabling a clock, check the halt bit up to this number
  * number of times (with a 1 us delay in between) before continuing.
  */
-#define HALT_CHECK_MAX_LOOPS	200
+#define HALT_CHECK_MAX_LOOPS	500
 /* For clock without halt checking, wait this long after enables/disables. */
 #define HALT_CHECK_DELAY_US	10
 
@@ -40,7 +40,7 @@
  * When updating an RCG configuration, check the update bit up to this number
  * number of times (with a 1 us delay in between) before continuing.
  */
-#define UPDATE_CHECK_MAX_LOOPS	200
+#define UPDATE_CHECK_MAX_LOOPS	500
 
 DEFINE_SPINLOCK(local_clock_reg_lock);
 struct clk_freq_tbl rcg_dummy_freq = F_END;
