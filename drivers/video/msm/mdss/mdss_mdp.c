@@ -896,15 +896,17 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 void mdss_mdp_footswitch_ctrl_splash(int on)
 {
 	int ret;
-	if (mdss_res != NULL) {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	if (mdata != NULL) {
 		if (on) {
 			pr_debug("Enable MDP FS for splash.\n");
-			ret = regulator_enable(mdss_res->fs);
+			ret = regulator_enable(mdata->fs);
 			if (ret)
 				pr_err("Footswitch failed to enable\n");
+			mdss_hw_init(mdata);
 		} else {
 			pr_debug("Disable MDP FS for splash.\n");
-			regulator_disable(mdss_res->fs);
+			regulator_disable(mdata->fs);
 		}
 	} else {
 		pr_warn("mdss mdata not initialized\n");
