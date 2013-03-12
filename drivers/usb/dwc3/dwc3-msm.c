@@ -177,6 +177,9 @@ struct dwc3_msm {
 	struct regulator	*hsusb_vddcx;
 	struct regulator	*ssusb_1p8;
 	struct regulator	*ssusb_vddcx;
+
+	/* VBUS regulator if no OTG and running in host only mode */
+	struct regulator	*vbus_otg;
 	struct dwc3_ext_xceiv	ext_xceiv;
 	bool			resume_pending;
 	atomic_t                pm_suspended;
@@ -1838,7 +1841,7 @@ static void dwc3_resume_work(struct work_struct *w)
 		if (mdwc->otg_xceiv)
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_PHY_RESUME);
-		pm_runtime_put_sync(mdwc->dev);
+		pm_runtime_put_noidle(mdwc->dev);
 		if (mdwc->otg_xceiv && (mdwc->ext_xceiv.otg_capability))
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_XCEIV_STATE);
@@ -2529,24 +2532,28 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto disable_hs_ldo;
 	}
 
-	msm->usb_psy.name = "usb";
-	msm->usb_psy.type = POWER_SUPPLY_TYPE_USB;
-	msm->usb_psy.supplied_to = dwc3_msm_pm_power_supplied_to;
-	msm->usb_psy.num_supplicants = ARRAY_SIZE(
-					dwc3_msm_pm_power_supplied_to);
-	msm->usb_psy.properties = dwc3_msm_pm_power_props_usb;
-	msm->usb_psy.num_properties = ARRAY_SIZE(dwc3_msm_pm_power_props_usb);
-	msm->usb_psy.get_property = dwc3_msm_power_get_property_usb;
-	msm->usb_psy.set_property = dwc3_msm_power_set_property_usb;
-	msm->usb_psy.external_power_changed =
-				dwc3_msm_external_power_changed;
+	/* usb_psy required only for vbus_notifications or charging support */
+	if (msm->ext_xceiv.otg_capability || !msm->charger.charging_disabled) {
+		msm->usb_psy.name = "usb";
+		msm->usb_psy.type = POWER_SUPPLY_TYPE_USB;
+		msm->usb_psy.supplied_to = dwc3_msm_pm_power_supplied_to;
+		msm->usb_psy.num_supplicants = ARRAY_SIZE(
+						dwc3_msm_pm_power_supplied_to);
+		msm->usb_psy.properties = dwc3_msm_pm_power_props_usb;
+		msm->usb_psy.num_properties =
+					ARRAY_SIZE(dwc3_msm_pm_power_props_usb);
+		msm->usb_psy.get_property = dwc3_msm_power_get_property_usb;
+		msm->usb_psy.set_property = dwc3_msm_power_set_property_usb;
+		msm->usb_psy.external_power_changed =
+					dwc3_msm_external_power_changed;
 
-	ret = power_supply_register(&pdev->dev, &msm->usb_psy);
-	if (ret < 0) {
-		dev_err(&pdev->dev,
-				"%s:power_supply_register usb failed\n",
-					__func__);
-		goto disable_hs_ldo;
+		ret = power_supply_register(&pdev->dev, &msm->usb_psy);
+		if (ret < 0) {
+			dev_err(&pdev->dev,
+					"%s:power_supply_register usb failed\n",
+						__func__);
+			goto disable_hs_ldo;
+		}
 	}
 
 	if (node) {
@@ -2571,7 +2578,8 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	msm->otg_xceiv = usb_get_transceiver();
-	if (msm->otg_xceiv) {
+	/* Register with OTG if present, ignore USB2 OTG using other PHY */
+	if (msm->otg_xceiv && !(msm->otg_xceiv->flags & ENABLE_SECONDARY_PHY)) {
 		msm->charger.start_detection = dwc3_start_chg_det;
 		ret = dwc3_set_charger(msm->otg_xceiv->otg, &msm->charger);
 		if (ret || !msm->charger.notify_detection_complete) {
@@ -2589,7 +2597,20 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 			goto put_xcvr;
 		}
 	} else {
-		dev_err(&pdev->dev, "%s: No OTG transceiver found\n", __func__);
+		dev_dbg(&pdev->dev, "No OTG, DWC3 running in host only mode\n");
+		msm->host_mode = 1;
+		msm->vbus_otg = devm_regulator_get(&pdev->dev, "vbus_dwc3");
+		if (IS_ERR(msm->vbus_otg)) {
+			dev_dbg(&pdev->dev, "Failed to get vbus regulator\n");
+			msm->vbus_otg = 0;
+		} else {
+			ret = regulator_enable(msm->vbus_otg);
+			if (ret) {
+				msm->vbus_otg = 0;
+				dev_err(&pdev->dev, "Failed to enable vbus_otg\n");
+			}
+		}
+		msm->otg_xceiv = NULL;
 	}
 
 	wake_lock_init(&msm->wlock, WAKE_LOCK_SUSPEND, "msm_dwc3");
@@ -2601,7 +2622,8 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 put_xcvr:
 	usb_put_transceiver(msm->otg_xceiv);
 put_psupply:
-	power_supply_unregister(&msm->usb_psy);
+	if (msm->usb_psy.dev)
+		power_supply_unregister(&msm->usb_psy);
 disable_hs_ldo:
 	dwc3_hsusb_ldo_enable(0);
 free_hs_ldo_init:
@@ -2650,6 +2672,10 @@ static int __devexit dwc3_msm_remove(struct platform_device *pdev)
 		dwc3_start_chg_det(&msm->charger, false);
 		usb_put_transceiver(msm->otg_xceiv);
 	}
+	if (msm->usb_psy.dev)
+		power_supply_unregister(&msm->usb_psy);
+	if (msm->vbus_otg)
+		regulator_disable(msm->vbus_otg);
 
 	pm_runtime_disable(msm->dev);
 	wake_lock_destroy(&msm->wlock);

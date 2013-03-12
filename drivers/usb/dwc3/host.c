@@ -79,6 +79,7 @@ int dwc3_host_init(struct dwc3 *dwc)
 
 	/* Add XHCI device if !OTG, otherwise OTG takes care of this */
 	if (!dwc->dotg) {
+		xhci->dev.parent = dwc->dev;
 		ret = platform_device_add(xhci);
 		if (ret) {
 			dev_err(dwc->dev, "failed to register xHCI device\n");
