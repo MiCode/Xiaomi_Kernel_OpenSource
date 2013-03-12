@@ -968,6 +968,8 @@ static void sdhci_finish_data(struct sdhci_host *host)
 		tasklet_schedule(&host->finish_tasklet);
 }
 
+#define SDHCI_REQUEST_TIMEOUT	10 /* Default request timeout in seconds */
+
 static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 {
 	int flags;
@@ -1001,7 +1003,11 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		mdelay(1);
 	}
 
-	mod_timer(&host->timer, jiffies + 10 * HZ);
+	mod_timer(&host->timer, jiffies + SDHCI_REQUEST_TIMEOUT * HZ);
+
+	if (cmd->cmd_timeout_ms > SDHCI_REQUEST_TIMEOUT * MSEC_PER_SEC)
+		mod_timer(&host->timer, jiffies +
+				(msecs_to_jiffies(cmd->cmd_timeout_ms * 2)));
 
 	host->cmd = cmd;
 
