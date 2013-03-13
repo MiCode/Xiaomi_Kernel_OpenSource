@@ -325,9 +325,9 @@ static int ion_cma_print_debug(struct ion_heap *heap, struct seq_file *s,
 			if (data->client_name)
 				client_name = data->client_name;
 
-			seq_printf(s, "%16.s %14lx %14lx %14lu (%lx)\n",
-				   client_name, data->addr,
-				   data->addr_end,
+			seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
+				   client_name, &data->addr,
+				   &data->addr_end,
 				   data->size, data->size);
 		}
 	}
