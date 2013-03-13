@@ -1196,7 +1196,7 @@ static bool test_urgent_pending(struct request_queue *q)
 void test_iosched_add_urgent_req(struct test_request *test_rq)
 {
 	spin_lock_irq(&ptd->lock);
-	blk_mark_rq_urgent(test_rq->rq);
+	test_rq->rq->cmd_flags |= REQ_URGENT;
 	list_add_tail(&test_rq->queuelist, &ptd->urgent_queue);
 	ptd->urgent_count++;
 	spin_unlock_irq(&ptd->lock);
