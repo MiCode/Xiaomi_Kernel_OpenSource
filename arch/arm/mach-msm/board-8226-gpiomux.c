@@ -17,7 +17,7 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 
-#define KS8851_IRQ_GPIO 75
+#define KS8851_IRQ_GPIO 115
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct gpiomux_setting gpio_eth_config = {
@@ -80,6 +80,12 @@ static struct gpiomux_setting gpio_spi_config = {
 
 static struct gpiomux_setting gpio_spi_cs_config = {
 	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting gpio_spi_cs_eth_config = {
+	.func = GPIOMUX_FUNC_4,
 	.drv = GPIOMUX_DRV_6MA,
 	.pull = GPIOMUX_PULL_DOWN,
 };
@@ -184,6 +190,12 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.gpio      = 19,		/* BLSP1 QUP5 I2C_SCL */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 22,		/* BLSP1 QUP1 SPI_CS_ETH */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_eth_config,
 		},
 	},
 };
