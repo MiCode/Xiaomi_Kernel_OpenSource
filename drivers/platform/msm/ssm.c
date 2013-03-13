@@ -66,7 +66,7 @@ struct ssm_driver {
 	struct device *dev;
 	smd_channel_t *ch;
 	ion_phys_addr_t buff_phys;
-	ion_virt_addr_t buff_virt;
+	void *buff_virt;
 	dev_t ssm_device_no;
 	struct work_struct ipc_work;
 	struct mutex mutex;
@@ -401,7 +401,7 @@ static int ssm_load_app(struct ssm_driver *ssm)
 	const struct elf32_phdr *phdr;
 	struct ion_handle *ion_handle;
 	ion_phys_addr_t buff_phys;
-	ion_virt_addr_t buff_virt;
+	void *buff_virt;
 
 	/* Check if TZ app already loaded */
 	app_req.cmd_id = APP_LOOKUP_COMMAND;
@@ -509,8 +509,7 @@ static int ssm_load_app(struct ssm_driver *ssm)
 		goto ion_free;
 	}
 
-	buff_virt =
-		(ion_virt_addr_t)ion_map_kernel(ssm_drv->ssm_ion_client,
+	buff_virt = ion_map_kernel(ssm_drv->ssm_ion_client,
 				ion_handle);
 	if (IS_ERR_OR_NULL((void *)buff_virt)) {
 		rc = PTR_ERR((void *)buff_virt);
@@ -605,8 +604,7 @@ static int ssm_setup_ion(struct ssm_driver *ssm)
 		goto ion_free;
 	}
 
-	ssm->buff_virt =
-		(ion_virt_addr_t)ion_map_kernel(ssm->ssm_ion_client,
+	ssm->buff_virt = ion_map_kernel(ssm->ssm_ion_client,
 				ssm->ssm_ion_handle);
 	if (IS_ERR_OR_NULL((void *)ssm->buff_virt)) {
 		rc = PTR_ERR((void *)ssm->buff_virt);
