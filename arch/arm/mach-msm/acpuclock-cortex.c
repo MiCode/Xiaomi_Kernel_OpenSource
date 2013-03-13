@@ -40,7 +40,7 @@
 #define POLL_INTERVAL_US		1
 #define APCS_RCG_UPDATE_TIMEOUT_US	20
 
-static struct acpuclk_drv_data *acpuclk_init_data;
+static struct acpuclk_drv_data *priv;
 static uint32_t bus_perf_client;
 
 /* Update the bus bandwidth request. */
@@ -48,7 +48,7 @@ static void set_bus_bw(unsigned int bw)
 {
 	int ret;
 
-	if (bw >= acpuclk_init_data->bus_scale->num_usecases) {
+	if (bw >= priv->bus_scale->num_usecases) {
 		pr_err("invalid bandwidth request (%d)\n", bw);
 		return;
 	}
@@ -67,15 +67,13 @@ static int increase_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 	int rc = 0;
 
 	/* Increase vdd_mem before vdd_cpu. vdd_mem should be >= vdd_cpu. */
-	rc = regulator_set_voltage(acpuclk_init_data->vdd_mem, vdd_mem,
-		acpuclk_init_data->vdd_max_mem);
+	rc = regulator_set_voltage(priv->vdd_mem, vdd_mem, priv->vdd_max_mem);
 	if (rc) {
 		pr_err("vdd_mem increase failed (%d)\n", rc);
 		return rc;
 	}
 
-	rc = regulator_set_voltage(acpuclk_init_data->vdd_cpu, vdd_cpu,
-		acpuclk_init_data->vdd_max_cpu);
+	rc = regulator_set_voltage(priv->vdd_cpu, vdd_cpu, priv->vdd_max_cpu);
 	if (rc)
 		pr_err("vdd_cpu increase failed (%d)\n", rc);
 
@@ -88,16 +86,14 @@ static void decrease_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 	int ret;
 
 	/* Update CPU voltage. */
-	ret = regulator_set_voltage(acpuclk_init_data->vdd_cpu, vdd_cpu,
-		acpuclk_init_data->vdd_max_cpu);
+	ret = regulator_set_voltage(priv->vdd_cpu, vdd_cpu, priv->vdd_max_cpu);
 	if (ret) {
 		pr_err("vdd_cpu decrease failed (%d)\n", ret);
 		return;
 	}
 
 	/* Decrease vdd_mem after vdd_cpu. vdd_mem should be >= vdd_cpu. */
-	ret = regulator_set_voltage(acpuclk_init_data->vdd_mem, vdd_mem,
-		acpuclk_init_data->vdd_max_mem);
+	ret = regulator_set_voltage(priv->vdd_mem, vdd_mem, priv->vdd_max_mem);
 	if (ret)
 		pr_err("vdd_mem decrease failed (%d)\n", ret);
 }
@@ -142,14 +138,14 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s, bool atomic)
 {
 	int rc = 0;
 	unsigned int tgt_freq_hz = tgt_s->khz * 1000;
-	struct clkctl_acpu_speed *strt_s = acpuclk_init_data->current_speed;
-	struct clkctl_acpu_speed *cxo_s = &acpuclk_init_data->freq_tbl[0];
-	struct clk *strt = acpuclk_init_data->src_clocks[strt_s->src].clk;
-	struct clk *tgt = acpuclk_init_data->src_clocks[tgt_s->src].clk;
+	struct clkctl_acpu_speed *strt_s = priv->current_speed;
+	struct clkctl_acpu_speed *cxo_s = &priv->freq_tbl[0];
+	struct clk *strt = priv->src_clocks[strt_s->src].clk;
+	struct clk *tgt = priv->src_clocks[tgt_s->src].clk;
 
 	if (strt_s->src == ACPUPLL && tgt_s->src == ACPUPLL) {
 		/* Switch to another always on src */
-		select_clk_source_div(acpuclk_init_data, cxo_s);
+		select_clk_source_div(priv, cxo_s);
 
 		/* Re-program acpu pll */
 		if (atomic)
@@ -167,7 +163,7 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s, bool atomic)
 			BUG_ON(clk_prepare_enable(tgt));
 
 		/* Switch back to acpu pll */
-		select_clk_source_div(acpuclk_init_data, tgt_s);
+		select_clk_source_div(priv, tgt_s);
 
 	} else if (strt_s->src != ACPUPLL && tgt_s->src == ACPUPLL) {
 		rc = clk_set_rate(tgt, tgt_freq_hz);
@@ -186,7 +182,7 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s, bool atomic)
 			return rc;
 		}
 
-		select_clk_source_div(acpuclk_init_data, tgt_s);
+		select_clk_source_div(priv, tgt_s);
 
 		if (atomic)
 			clk_disable(strt);
@@ -201,11 +197,11 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s, bool atomic)
 
 		if (rc) {
 			pr_err("%s enable failed\n",
-				acpuclk_init_data->src_clocks[tgt_s->src].name);
+				priv->src_clocks[tgt_s->src].name);
 			return rc;
 		}
 
-		select_clk_source_div(acpuclk_init_data, tgt_s);
+		select_clk_source_div(priv, tgt_s);
 
 		if (atomic)
 			clk_disable(strt);
@@ -224,16 +220,16 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	int rc = 0;
 
 	if (reason == SETRATE_CPUFREQ)
-		mutex_lock(&acpuclk_init_data->lock);
+		mutex_lock(&priv->lock);
 
-	strt_s = acpuclk_init_data->current_speed;
+	strt_s = priv->current_speed;
 
 	/* Return early if rate didn't change */
 	if (rate == strt_s->khz)
 		goto out;
 
 	/* Find target frequency */
-	for (tgt_s = acpuclk_init_data->freq_tbl; tgt_s->khz != 0; tgt_s++)
+	for (tgt_s = priv->freq_tbl; tgt_s->khz != 0; tgt_s++)
 		if (tgt_s->khz == rate)
 			break;
 	if (tgt_s->khz == 0) {
@@ -261,7 +257,7 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	if (rc)
 		goto out;
 
-	acpuclk_init_data->current_speed = tgt_s;
+	priv->current_speed = tgt_s;
 	pr_debug("CPU speed change complete\n");
 
 	/* Nothing else to do for SWFI or power-collapse. */
@@ -277,13 +273,13 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 
 out:
 	if (reason == SETRATE_CPUFREQ)
-		mutex_unlock(&acpuclk_init_data->lock);
+		mutex_unlock(&priv->lock);
 	return rc;
 }
 
 static unsigned long acpuclk_cortex_get_rate(int cpu)
 {
-	return acpuclk_init_data->current_speed->khz;
+	return priv->current_speed->khz;
 }
 
 #ifdef CONFIG_CPU_FREQ_MSM
@@ -293,18 +289,17 @@ static void __init cpufreq_table_init(void)
 {
 	int i, freq_cnt = 0;
 
-	/* Construct the freq_table tables from acpuclk_init_data->freq_tbl. */
-	for (i = 0; acpuclk_init_data->freq_tbl[i].khz != 0
+	/* Construct the freq_table tables from priv->freq_tbl. */
+	for (i = 0; priv->freq_tbl[i].khz != 0
 			&& freq_cnt < ARRAY_SIZE(freq_table); i++) {
-		if (!acpuclk_init_data->freq_tbl[i].use_for_scaling)
+		if (!priv->freq_tbl[i].use_for_scaling)
 			continue;
 		freq_table[freq_cnt].index = freq_cnt;
-		freq_table[freq_cnt].frequency =
-			acpuclk_init_data->freq_tbl[i].khz;
+		freq_table[freq_cnt].frequency = priv->freq_tbl[i].khz;
 		freq_cnt++;
 	}
 	/* freq_table not big enough to store all usable freqs. */
-	BUG_ON(acpuclk_init_data->freq_tbl[i].khz != 0);
+	BUG_ON(priv->freq_tbl[i].khz != 0);
 
 	freq_table[freq_cnt].index = freq_cnt;
 	freq_table[freq_cnt].frequency = CPUFREQ_TABLE_END;
@@ -332,43 +327,40 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 	unsigned long max_cpu_khz = 0;
 	int i, rc;
 
-	acpuclk_init_data = data;
-	mutex_init(&acpuclk_init_data->lock);
+	priv = data;
+	mutex_init(&priv->lock);
 
-	bus_perf_client = msm_bus_scale_register_client(
-		acpuclk_init_data->bus_scale);
+	bus_perf_client = msm_bus_scale_register_client(priv->bus_scale);
 	if (!bus_perf_client) {
 		pr_err("Unable to register bus client\n");
 		BUG();
 	}
 
 	for (i = 0; i < NUM_SRC; i++) {
-		if (!acpuclk_init_data->src_clocks[i].name)
+		if (!priv->src_clocks[i].name)
 			continue;
-		acpuclk_init_data->src_clocks[i].clk =
-			clk_get(&pdev->dev,
-				acpuclk_init_data->src_clocks[i].name);
-		BUG_ON(IS_ERR(acpuclk_init_data->src_clocks[i].clk));
+		priv->src_clocks[i].clk =
+			clk_get(&pdev->dev, priv->src_clocks[i].name);
+		BUG_ON(IS_ERR(priv->src_clocks[i].clk));
 	}
 
 	/* Improve boot time by ramping up CPU immediately */
-	for (i = 0; acpuclk_init_data->freq_tbl[i].khz != 0; i++)
-		if (acpuclk_init_data->freq_tbl[i].use_for_scaling)
-			max_cpu_khz = acpuclk_init_data->freq_tbl[i].khz;
+	for (i = 0; priv->freq_tbl[i].khz != 0; i++)
+		if (priv->freq_tbl[i].use_for_scaling)
+			max_cpu_khz = priv->freq_tbl[i].khz;
 
 	/* Initialize regulators */
-	rc = increase_vdd(acpuclk_init_data->vdd_max_cpu,
-		acpuclk_init_data->vdd_max_mem);
+	rc = increase_vdd(priv->vdd_max_cpu, priv->vdd_max_mem);
 	if (rc)
 		goto err_vdd;
 
-	rc = regulator_enable(acpuclk_init_data->vdd_mem);
+	rc = regulator_enable(priv->vdd_mem);
 	if (rc) {
 		dev_err(&pdev->dev, "regulator_enable for mem failed\n");
 		goto err_vdd;
 	}
 
-	rc = regulator_enable(acpuclk_init_data->vdd_cpu);
+	rc = regulator_enable(priv->vdd_cpu);
 	if (rc) {
 		dev_err(&pdev->dev, "regulator_enable for cpu failed\n");
 		goto err_vdd_cpu;
@@ -388,15 +380,15 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 	return 0;
 
 err_vdd_cpu:
-	regulator_disable(acpuclk_init_data->vdd_mem);
+	regulator_disable(priv->vdd_mem);
 err_vdd:
-	regulator_put(acpuclk_init_data->vdd_mem);
-	regulator_put(acpuclk_init_data->vdd_cpu);
+	regulator_put(priv->vdd_mem);
+	regulator_put(priv->vdd_cpu);
 
 	for (i = 0; i < NUM_SRC; i++) {
-		if (!acpuclk_init_data->src_clocks[i].name)
+		if (!priv->src_clocks[i].name)
 			continue;
-		clk_put(acpuclk_init_data->src_clocks[i].clk);
+		clk_put(priv->src_clocks[i].clk);
 	}
 	return rc;
 }
