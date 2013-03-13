@@ -36,6 +36,7 @@
 #ifdef CONFIG_ION_MSM
 #include <mach/ion.h>
 #endif
+#include <linux/regulator/qpnp-regulator.h>
 #include <mach/msm_memtypes.h>
 #include <mach/socinfo.h>
 #include <mach/board.h>
@@ -96,6 +97,7 @@ void __init msm8610_add_drivers(void)
 	msm_rpm_driver_init();
 	msm_lpmrs_module_init();
 	msm_spm_device_init();
+	qpnp_regulator_init();
 	msm_thermal_device_init();
 
 	if (machine_is_msm8610_rumi())
