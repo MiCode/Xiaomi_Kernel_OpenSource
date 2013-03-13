@@ -839,7 +839,7 @@ static int register_memory(void)
 {
 	int			result;
 	int			i;
-	unsigned long		paddr;
+	ion_phys_addr_t		paddr;
 	void                    *kvptr;
 	unsigned long		kvaddr;
 	unsigned long		mem_len;

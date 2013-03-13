@@ -189,8 +189,8 @@ struct ion_heap {
  */
 struct mem_map_data {
 	struct rb_node node;
-	unsigned long addr;
-	unsigned long addr_end;
+	ion_phys_addr_t addr;
+	ion_phys_addr_t addr_end;
 	unsigned long size;
 	const char *client_name;
 };
