@@ -151,7 +151,8 @@ static int hw_ep_flush(struct ci13xxx *ci, int num, int dir)
 	int n = hw_ep_bit(num, dir);
 	struct ci13xxx_ep *mEp = &ci->ci13xxx_ep[n];
 
-	if (ci->skip_flush || list_empty(&mEp->qh.queue))
+	/* Flush ep0 even when queue is empty */
+	if (ci->skip_flush || (num && list_empty(&mEp->qh.queue)))
 		return 0;
 
 	start = ktime_get();
