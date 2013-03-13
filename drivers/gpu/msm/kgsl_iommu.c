@@ -722,29 +722,29 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu,
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[unit_id];
-	int i;
+	int i, j;
+	int found_ctx;
 
-	if (data->iommu_ctx_count > KGSL_IOMMU_MAX_DEVS_PER_UNIT) {
-		KGSL_CORE_ERR("Too many iommu devices defined for an "
-				"IOMMU unit\n");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < data->iommu_ctx_count; i++) {
-		if (!data->iommu_ctxs[i].iommu_ctx_name)
-			continue;
+	for (j = 0; j < KGSL_IOMMU_MAX_DEVS_PER_UNIT; j++) {
+		found_ctx = 0;
+		for (i = 0; i < data->iommu_ctx_count; i++) {
+			if (j == data->iommu_ctxs[i].ctx_id) {
+				found_ctx = 1;
+				break;
+			}
+		}
+		if (!found_ctx)
+			break;
+		if (!data->iommu_ctxs[i].iommu_ctx_name) {
+			KGSL_CORE_ERR("Context name invalid\n");
+			return -EINVAL;
+		}
 
 		iommu_unit->dev[iommu_unit->dev_count].dev =
 			msm_iommu_get_ctx(data->iommu_ctxs[i].iommu_ctx_name);
 		if (iommu_unit->dev[iommu_unit->dev_count].dev == NULL) {
 			KGSL_CORE_ERR("Failed to get iommu dev handle for "
 			"device %s\n", data->iommu_ctxs[i].iommu_ctx_name);
-			return -EINVAL;
-		}
-		if (KGSL_IOMMU_CONTEXT_USER != data->iommu_ctxs[i].ctx_id &&
-			KGSL_IOMMU_CONTEXT_PRIV != data->iommu_ctxs[i].ctx_id) {
-			KGSL_CORE_ERR("Invalid context ID defined: %d\n",
-					data->iommu_ctxs[i].ctx_id);
 			return -EINVAL;
 		}
 		iommu_unit->dev[iommu_unit->dev_count].ctx_id =
@@ -757,6 +757,10 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu,
 				data->iommu_ctxs[i].iommu_ctx_name);
 
 		iommu_unit->dev_count++;
+	}
+	if (!j) {
+		KGSL_CORE_ERR("No ctxts initialized, user ctxt absent\n ");
+		return -EINVAL;
 	}
 
 	return 0;
