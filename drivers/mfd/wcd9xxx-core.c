@@ -320,6 +320,10 @@ static struct wcd9xx_codec_type {
 	 TAPAN_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO
 	},
 	{
+	 {0x1, 0x0, 0x3, 0x1}, tapan_devs, ARRAY_SIZE(tapan_devs),
+	 TAPAN_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO
+	},
+	{
 	 {0x0, 0x0, 0x0, 0x1}, sitar_devs, ARRAY_SIZE(sitar_devs),
 	 SITAR_NUM_IRQS, -1, WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA
 	},
