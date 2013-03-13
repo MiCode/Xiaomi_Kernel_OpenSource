@@ -171,17 +171,26 @@
  * @boost_base:			boost peripheral base address
  * @misc_base:			misc peripheral base address
  * @freq_base:			freq peripheral base address
+ * @bat_is_cool:		indicates that battery is cool
+ * @bat_is_warm:		indicates that battery is warm
  * @chg_done:			indicates that charging is completed
  * @usb_present:		present status of usb
  * @dc_present:			present status of dc
  * @use_default_batt_values:	flag to report default battery properties
  * @max_voltage_mv:		the max volts the batt should be charged up to
  * @min_voltage_mv:		min battery voltage before turning the FET on
- * @resume_voltage_mv:		voltage at which the battery resumes charging
+ * @max_bat_chg_current:	maximum battery charge current in mA
+ * @warm_bat_chg_ma:	warm battery maximum charge current in mA
+ * @cool_bat_chg_ma:	cool battery maximum charge current in mA
+ * @warm_bat_mv:		warm temperature battery target voltage
+ * @cool_bat_mv:		cool temperature battery target voltage
+ * @resume_delta_mv:		voltage delta at which battery resumes charging
  * @term_current:		the charging based term current
  * @safe_current:		battery safety current setting
  * @maxinput_usb_ma:		Maximum Input current USB
  * @maxinput_dc_ma:		Maximum Input current DC
+ * @warm_bat_degc		Warm battery temperature in degree Celsius
+ * @cool_bat_degc		Cool battery temperature in degree Celsius
  * @revision:			PMIC revision
  * @thermal_levels		amount of thermal mitigation levels
  * @thermal_mitigation		thermal mitigation level values
@@ -209,19 +218,28 @@ struct qpnp_chg_chip {
 	unsigned int			dcin_valid_irq;
 	unsigned int			chg_done_irq;
 	unsigned int			chg_failed_irq;
+	unsigned int			batt_pres_irq;
+	bool				bat_is_cool;
+	bool				bat_is_warm;
 	bool				chg_done;
 	bool				usb_present;
 	bool				dc_present;
 	bool				charging_disabled;
 	bool				use_default_batt_values;
 	unsigned int			max_bat_chg_current;
+	unsigned int			warm_bat_chg_ma;
+	unsigned int			cool_bat_chg_ma;
 	unsigned int			safe_voltage_mv;
 	unsigned int			max_voltage_mv;
 	unsigned int			min_voltage_mv;
-	unsigned int			resume_voltage_mv;
+	unsigned int			warm_bat_mv;
+	unsigned int			cool_bat_mv;
+	unsigned int			resume_delta_mv;
 	unsigned int			term_current;
 	unsigned int			maxinput_usb_ma;
 	unsigned int			maxinput_dc_ma;
+	unsigned int			warm_bat_degc;
+	unsigned int			cool_bat_degc;
 	unsigned int			safe_current;
 	unsigned int			revision;
 	unsigned int			thermal_levels;
@@ -232,6 +250,7 @@ struct qpnp_chg_chip {
 	struct power_supply		*bms_psy;
 	struct power_supply		batt_psy;
 	uint32_t			flags;
+	struct qpnp_adc_tm_btm_param	adc_param;
 };
 
 static struct of_device_id qpnp_charger_match_table[] = {
@@ -597,8 +616,8 @@ qpnp_chg_buck_control(struct qpnp_chg_chip *chip, int enable)
 	return rc;
 }
 
-static
-int switch_usb_to_charge_mode(struct qpnp_chg_chip *chip)
+static int
+switch_usb_to_charge_mode(struct qpnp_chg_chip *chip)
 {
 	int rc;
 
@@ -625,8 +644,8 @@ int switch_usb_to_charge_mode(struct qpnp_chg_chip *chip)
 	return 0;
 }
 
-static
-int switch_usb_to_host_mode(struct qpnp_chg_chip *chip)
+static int
+switch_usb_to_host_mode(struct qpnp_chg_chip *chip)
 {
 	int rc;
 
@@ -1147,14 +1166,45 @@ qpnp_chg_vddmax_set(struct qpnp_chg_chip *chip, int voltage)
 	temp = (voltage - QPNP_CHG_V_MIN_MV) / QPNP_CHG_V_STEP_MV;
 
 	pr_debug("voltage=%d setting %02x\n", voltage, temp);
-	return qpnp_chg_write(chip, &temp,
-		chip->chgr_base + CHGR_VDD_MAX, 1);
+	return qpnp_chg_write(chip, &temp, chip->chgr_base + CHGR_VDD_MAX, 1);
+}
+
+/* JEITA compliance logic */
+static void
+qpnp_chg_set_appropriate_vddmax(struct qpnp_chg_chip *chip)
+{
+	if (chip->bat_is_cool)
+		qpnp_chg_vddmax_set(chip, chip->cool_bat_mv);
+	else if (chip->bat_is_warm)
+		qpnp_chg_vddmax_set(chip, chip->warm_bat_mv);
+	else
+		qpnp_chg_vddmax_set(chip, chip->max_voltage_mv);
+}
+
+static void
+qpnp_chg_set_appropriate_vbatdet(struct qpnp_chg_chip *chip)
+{
+	if (chip->bat_is_cool)
+		qpnp_chg_vbatdet_set(chip, chip->cool_bat_mv
+			- chip->resume_delta_mv);
+	else if (chip->bat_is_warm)
+		qpnp_chg_vbatdet_set(chip, chip->warm_bat_mv
+			- chip->resume_delta_mv);
+	else
+		qpnp_chg_vbatdet_set(chip, chip->max_voltage_mv
+			- chip->resume_delta_mv);
 }
 
 static void
 qpnp_chg_set_appropriate_battery_current(struct qpnp_chg_chip *chip)
 {
 	unsigned int chg_current = chip->max_bat_chg_current;
+
+	if (chip->bat_is_cool)
+		chg_current = min(chg_current, chip->cool_bat_chg_ma);
+
+	if (chip->bat_is_warm)
+		chg_current = min(chg_current, chip->warm_bat_chg_ma);
 
 	if (chip->therm_lvl_sel != 0 && chip->thermal_mitigation)
 		chg_current = min(chg_current,
@@ -1179,6 +1229,58 @@ qpnp_batt_system_temp_level_set(struct qpnp_chg_chip *chip, int lvl_sel)
 	} else {
 		pr_err("Unsupported level selected %d\n", lvl_sel);
 	}
+}
+
+#define TEMP_HYSTERISIS_DEGC 2
+static void
+qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
+{
+	struct qpnp_chg_chip *chip = ctx;
+	bool bat_warm = 0, bat_cool = 0;
+
+	if (state >= ADC_TM_STATE_NUM) {
+		pr_err("invalid notification %d\n", state);
+		return;
+	}
+
+	pr_debug("state = %s\n", state == ADC_TM_HIGH_STATE ? "high" : "low");
+
+	if (state == ADC_TM_HIGH_STATE) {
+		if (!chip->bat_is_warm) {
+			bat_warm = true;
+			bat_cool = false;
+			chip->adc_param.low_temp =
+				chip->warm_bat_degc - TEMP_HYSTERISIS_DEGC;
+		} else if (chip->bat_is_cool) {
+			bat_warm = false;
+			bat_cool = false;
+			chip->adc_param.high_temp = chip->warm_bat_degc;
+		}
+	} else {
+		if (!chip->bat_is_cool) {
+			bat_cool = true;
+			bat_warm = false;
+			chip->adc_param.high_temp =
+				chip->cool_bat_degc + TEMP_HYSTERISIS_DEGC;
+		} else if (chip->bat_is_warm) {
+			bat_cool = false;
+			bat_warm = false;
+			chip->adc_param.low_temp = chip->cool_bat_degc;
+		}
+	}
+
+	if (chip->bat_is_cool ^ bat_cool || chip->bat_is_warm ^ bat_warm) {
+		/* set appropriate voltages and currents */
+		qpnp_chg_set_appropriate_vddmax(chip);
+		qpnp_chg_set_appropriate_battery_current(chip);
+		qpnp_chg_set_appropriate_vbatdet(chip);
+
+		chip->bat_is_cool = bat_cool;
+		chip->bat_is_warm = bat_warm;
+	}
+
+	/* re-arm ADC interrupt */
+	qpnp_adc_tm_btm_configure(&chip->adc_param);
 }
 
 static int
@@ -1269,7 +1371,8 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			pr_debug("failed setting safe_voltage rc=%d\n", rc);
 			return rc;
 		}
-		rc = qpnp_chg_vbatdet_set(chip, chip->resume_voltage_mv);
+		rc = qpnp_chg_vbatdet_set(chip,
+				chip->max_voltage_mv - chip->resume_delta_mv);
 		if (rc) {
 			pr_debug("failed setting resume_voltage rc=%d\n", rc);
 			return rc;
@@ -1427,7 +1530,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	/* Get the vddmax property */
 	rc = of_property_read_u32(spmi->dev.of_node, "qcom,chg-vddmax-mv",
 						&chip->max_voltage_mv);
-	if (rc && rc != -EINVAL) {
+	if (rc) {
 		pr_err("Error reading vddmax property %d\n", rc);
 		goto fail_chg_enable;
 	}
@@ -1435,7 +1538,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	/* Get the vinmin property */
 	rc = of_property_read_u32(spmi->dev.of_node, "qcom,chg-vinmin-mv",
 						&chip->min_voltage_mv);
-	if (rc && rc != -EINVAL) {
+	if (rc) {
 		pr_err("Error reading vddmax property %d\n", rc);
 		goto fail_chg_enable;
 	}
@@ -1443,17 +1546,17 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	/* Get the vddmax property */
 	rc = of_property_read_u32(spmi->dev.of_node, "qcom,chg-vddsafe-mv",
 						&chip->safe_voltage_mv);
-	if (rc && rc != -EINVAL) {
+	if (rc) {
 		pr_err("Error reading vddsave property %d\n", rc);
 		goto fail_chg_enable;
 	}
 
-	/* Get the ibatsafe property */
+	/* Get the vbatdet-delta property */
 	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-vbatdet-mv",
-				&chip->resume_voltage_mv);
-	if (rc) {
-		pr_err("Error reading vbatdet property %d\n", rc);
+				"qcom,chg-vbatdet-delta-mv",
+				&chip->resume_delta_mv);
+	if (rc && rc != -EINVAL) {
+		pr_err("Error reading vbatdet-delta property %d\n", rc);
 		goto fail_chg_enable;
 	}
 
@@ -1478,17 +1581,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	/* Get the ibatmax property */
 	rc = of_property_read_u32(spmi->dev.of_node, "qcom,chg-ibatmax-ma",
 						&chip->max_bat_chg_current);
-	if (rc && rc != -EINVAL) {
-		pr_err("Error reading ibatmax property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the ibatsafe property */
-	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-vbatdet-mv",
-				&chip->resume_voltage_mv);
 	if (rc) {
-		pr_err("Error reading vbatdet property %d\n", rc);
+		pr_err("Error reading ibatmax property %d\n", rc);
 		goto fail_chg_enable;
 	}
 
@@ -1513,6 +1607,67 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(spmi->dev.of_node,
 					"qcom,chg-charging-disabled");
+
+	/* Get the warm-bat-degc property */
+	rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,chg-warm-bat-degc",
+				&chip->warm_bat_degc);
+	if (rc && rc != -EINVAL) {
+		pr_err("Error reading warm-bat-degc property %d\n", rc);
+		goto fail_chg_enable;
+	}
+
+	/* Get the cool-bat-degc property */
+	rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,chg-cool-bat-degc",
+				&chip->cool_bat_degc);
+	if (rc && rc != -EINVAL) {
+		pr_err("Error reading cool-bat-degc property %d\n", rc);
+		goto fail_chg_enable;
+	}
+
+	if (chip->cool_bat_degc && chip->warm_bat_degc) {
+		rc = qpnp_adc_tm_is_ready();
+		if (rc) {
+			pr_err("tm not ready %d\n", rc);
+			goto fail_chg_enable;
+		}
+
+		/* Get the ibatmax-warm property */
+		rc = of_property_read_u32(spmi->dev.of_node,
+					"qcom,chg-ibatmax-warm-ma",
+					&chip->warm_bat_chg_ma);
+		if (rc) {
+			pr_err("Error reading ibatmax-warm-ma %d\n", rc);
+			goto fail_chg_enable;
+		}
+
+		/* Get the ibatmax-cool property */
+		rc = of_property_read_u32(spmi->dev.of_node,
+					"qcom,chg-ibatmax-cool-ma",
+					&chip->cool_bat_chg_ma);
+		if (rc) {
+			pr_err("Error reading ibatmax-cool-ma %d\n", rc);
+			goto fail_chg_enable;
+		}
+		/* Get the cool-bat-mv property */
+		rc = of_property_read_u32(spmi->dev.of_node,
+					"qcom,chg-cool-bat-mv",
+					&chip->cool_bat_mv);
+		if (rc) {
+			pr_err("Error reading cool-bat-mv property %d\n", rc);
+			goto fail_chg_enable;
+		}
+
+		/* Get the warm-bat-mv property */
+		rc = of_property_read_u32(spmi->dev.of_node,
+					"qcom,chg-warm-bat-mv",
+					&chip->warm_bat_mv);
+		if (rc) {
+			pr_err("Error reading warm-bat-mv property %d\n", rc);
+			goto fail_chg_enable;
+		}
+	}
 
 	/* Get the fake-batt-values property */
 	chip->use_default_batt_values = of_property_read_bool(spmi->dev.of_node,
@@ -1698,6 +1853,22 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		if (rc) {
 			pr_err("Error setting idcmax property %d\n", rc);
 			goto unregister_batt;
+		}
+	}
+
+	if (chip->cool_bat_degc && chip->warm_bat_degc) {
+		chip->adc_param.low_temp = chip->cool_bat_degc;
+		chip->adc_param.high_temp = chip->warm_bat_degc;
+		chip->adc_param.timer_interval = ADC_MEAS2_INTERVAL_1S;
+		chip->adc_param.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
+		chip->adc_param.btm_ctx = chip;
+		chip->adc_param.threshold_notification =
+						qpnp_chg_adc_notification;
+
+		rc = qpnp_adc_tm_btm_configure(&chip->adc_param);
+		if (rc) {
+			pr_err("request ADC error %d\n", rc);
+			goto fail_chg_enable;
 		}
 	}
 
