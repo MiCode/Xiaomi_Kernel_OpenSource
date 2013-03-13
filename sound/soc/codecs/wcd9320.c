@@ -83,6 +83,7 @@ enum {
 	AIF2_CAP,
 	AIF3_PB,
 	AIF3_CAP,
+	AIF4_VIFEED,
 	NUM_CODEC_DAIS,
 };
 
@@ -2671,6 +2672,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF1 CAP", NULL, "AIF1_CAP Mixer"},
 	{"AIF2 CAP", NULL, "AIF2_CAP Mixer"},
 	{"AIF3 CAP", NULL, "AIF3_CAP Mixer"},
+	{"AIF4 VI", NULL, "SPK_OUT"},
 
 	/* SLIM_MIXER("AIF1_CAP Mixer"),*/
 	{"AIF1_CAP Mixer", "SLIM TX1", "SLIM TX1 MUX"},
@@ -3143,6 +3145,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MIC BIAS3 Internal2", NULL, "LDO_H"},
 	{"MIC BIAS3 External", NULL, "LDO_H"},
 	{"MIC BIAS4 External", NULL, "LDO_H"},
+
 };
 
 static int taiko_readable(struct snd_soc_codec *ssc, unsigned int reg)
@@ -3367,6 +3370,7 @@ static int taiko_set_channel_map(struct snd_soc_dai *dai,
 				unsigned int rx_num, unsigned int *rx_slot)
 
 {
+	struct wcd9xxx_codec_dai_data *dai_data = NULL;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(dai->codec);
 	struct wcd9xxx *core = dev_get_drvdata(dai->codec->dev->parent);
 	if (!tx_slot && !rx_slot) {
@@ -3378,9 +3382,18 @@ static int taiko_set_channel_map(struct snd_soc_dai *dai,
 		 __func__, dai->name, dai->id, tx_num, rx_num,
 		 taiko->intf_type);
 
-	if (taiko->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+	if (taiko->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		wcd9xxx_init_slimslave(core, core->slim->laddr,
-				       tx_num, tx_slot, rx_num, rx_slot);
+					   tx_num, tx_slot, rx_num, rx_slot);
+		/*Reserve tx11 and tx12 for VI feedback path*/
+		dai_data = &taiko->dai[AIF4_VIFEED];
+		if (dai_data) {
+			list_add_tail(&core->tx_chs[TAIKO_TX11].list,
+			&dai_data->wcd9xxx_ch_list);
+			list_add_tail(&core->tx_chs[TAIKO_TX12].list,
+			&dai_data->wcd9xxx_ch_list);
+		}
+	}
 	return 0;
 }
 
@@ -3414,6 +3427,7 @@ static int taiko_get_channel_map(struct snd_soc_dai *dai,
 	case AIF1_CAP:
 	case AIF2_CAP:
 	case AIF3_CAP:
+	case AIF4_VIFEED:
 		if (!tx_slot || !tx_num) {
 			pr_err("%s: Invalid tx_slot %d or tx_num %d\n",
 				 __func__, (u32) tx_slot, (u32) tx_num);
@@ -3639,12 +3653,14 @@ static int taiko_hw_params(struct snd_pcm_substream *substream,
 
 	switch (substream->stream) {
 	case SNDRV_PCM_STREAM_CAPTURE:
-		ret = taiko_set_decimator_rate(dai, tx_fs_rate,
-					       params_rate(params));
-		if (ret < 0) {
-			pr_err("%s: set decimator rate failed %d\n", __func__,
-				ret);
-			return ret;
+		if (dai->id != AIF4_VIFEED) {
+			ret = taiko_set_decimator_rate(dai, tx_fs_rate,
+							   params_rate(params));
+			if (ret < 0) {
+				pr_err("%s: set decimator rate failed %d\n",
+					__func__, ret);
+				return ret;
+			}
 		}
 
 		if (taiko->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
@@ -3828,6 +3844,20 @@ static struct snd_soc_dai_driver taiko_dai[] = {
 		},
 		.ops = &taiko_dai_ops,
 	},
+	{
+		.name = "taiko_vifeedback",
+		.id = AIF4_VIFEED,
+		.capture = {
+			.stream_name = "VIfeed",
+			.rates = SNDRV_PCM_RATE_48000,
+			.formats = TAIKO_FORMATS,
+			.rate_max = 48000,
+			.rate_min = 48000,
+			.channels_min = 2,
+			.channels_max = 2,
+	 },
+		.ops = &taiko_dai_ops,
+	},
 };
 
 static struct snd_soc_dai_driver taiko_i2s_dai[] = {
@@ -3964,6 +3994,89 @@ static int taiko_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	}
+	return ret;
+}
+
+static int taiko_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol,
+				int event)
+{
+	struct wcd9xxx *core = NULL;
+	struct snd_soc_codec *codec = NULL;
+	struct taiko_priv *taiko_p = NULL;
+	u32 ret = 0;
+	struct wcd9xxx_codec_dai_data *dai = NULL;
+
+	if (!w || !w->codec) {
+		pr_err("%s invalid params\n", __func__);
+		return -EINVAL;
+	}
+	codec = w->codec;
+	taiko_p = snd_soc_codec_get_drvdata(codec);
+	core = dev_get_drvdata(codec->dev->parent);
+
+	pr_debug("%s: event called! codec name %s num_dai %d stream name %s\n",
+		__func__, w->codec->name, w->codec->num_dai, w->sname);
+
+	/* Execute the callback only if interface type is slimbus */
+	if (taiko_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		pr_err("%s Interface is not correct", __func__);
+		return 0;
+	}
+
+	pr_debug("%s(): w->name %s event %d w->shift %d\n",
+		__func__, w->name, event, w->shift);
+	if (w->shift != AIF4_VIFEED) {
+		pr_err("%s Error in enabling the tx path\n", __func__);
+		ret = -EINVAL;
+		goto out_vi;
+	}
+	dai = &taiko_p->dai[w->shift];
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/*Enable Clip Detection*/
+		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_CLIP_DET,
+				0x8, 0x8);
+		/*Enable V&I sensing*/
+		snd_soc_update_bits(codec, TAIKO_A_SPKR_PROT_EN,
+				0x88, 0x88);
+		/*Enable spkr VI clocks*/
+		snd_soc_update_bits(codec,
+		TAIKO_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0xC, 0xC);
+		/*Enable Voltage Decimator*/
+		snd_soc_update_bits(codec,
+		TAIKO_A_CDC_CONN_TX_SB_B9_CTL, 0x1F, 0x12);
+		/*Enable Current Decimator*/
+		snd_soc_update_bits(codec,
+		TAIKO_A_CDC_CONN_TX_SB_B10_CTL, 0x1F, 0x13);
+		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
+					dai->rate, dai->bit_width,
+					&dai->grph);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
+						dai->grph);
+		if (ret)
+			pr_err("%s error in close_slim_sch_tx %d\n",
+				__func__, ret);
+		/*Disable Voltage decimator*/
+		snd_soc_update_bits(codec,
+		TAIKO_A_CDC_CONN_TX_SB_B9_CTL, 0x1F, 0x0);
+		/*Disable Current decimator*/
+		snd_soc_update_bits(codec,
+		TAIKO_A_CDC_CONN_TX_SB_B10_CTL, 0x1F, 0x0);
+		/*Disable spkr VI clocks*/
+		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_TX_CLK_EN_B2_CTL,
+				0xC, 0x0);
+		/*Disable V&I sensing*/
+		snd_soc_update_bits(codec, TAIKO_A_SPKR_PROT_EN,
+				0x88, 0x00);
+		/*Disable clip detection*/
+		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_CLIP_DET,
+				0x8, 0x0);
+		break;
+	}
+out_vi:
 	return ret;
 }
 
@@ -4440,6 +4553,10 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 		AIF3_CAP, 0, taiko_codec_enable_slimtx,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_AIF_OUT_E("AIF4 VI", "VIfeed", 0, SND_SOC_NOPM,
+		AIF4_VIFEED, 0, taiko_codec_enable_slimvi_feedback,
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MIXER("AIF1_CAP Mixer", SND_SOC_NOPM, AIF1_CAP, 0,
 		aif_cap_mixer, ARRAY_SIZE(aif_cap_mixer)),
 
@@ -4529,7 +4646,6 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MIXER("LINEOUT4_PA_MIXER", SND_SOC_NOPM, 0, 0,
 		lineout4_pa_mix, ARRAY_SIZE(lineout4_pa_mix)),
-
 };
 
 static irqreturn_t taiko_slimbus_irq(int irq, void *data)
