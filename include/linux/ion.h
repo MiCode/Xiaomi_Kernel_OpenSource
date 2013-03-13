@@ -74,7 +74,6 @@ struct ion_buffer;
    be converted to phys_addr_t.  For the time being many kernel interfaces
    do not accept phys_addr_t's that would have to */
 #define ion_phys_addr_t unsigned long
-#define ion_virt_addr_t unsigned long
 
 /**
  * struct ion_platform_heap - defines a heap in the given platform
