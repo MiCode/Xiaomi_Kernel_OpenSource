@@ -69,6 +69,11 @@ struct mac_addresses_type {
 	bool device_mac_addr_known;
 };
 
+struct stats {
+	u64 a2_to_usb_num_sw_tx_packets;
+	u64 usb_to_a2_num_sw_tx_packets;
+};
+
 struct teth_bridge_ctx {
 	struct class *class;
 	dev_t dev_num;
@@ -90,6 +95,7 @@ struct teth_bridge_ctx {
 	struct work_struct comp_hw_bridge_work;
 	bool comp_hw_bridge_in_progress;
 	struct teth_aggr_capabilities *aggr_caps;
+	struct stats stats;
 };
 
 static struct teth_bridge_ctx *teth_ctx;
@@ -806,6 +812,7 @@ static void usb_notify_cb(void *priv,
 				&teth_ctx->mac_addresses.device_mac_addr_known);
 
 		/* Send the packet to A2, using a2_service driver API */
+		teth_ctx->stats.usb_to_a2_num_sw_tx_packets++;
 		res = a2_mux_write(A2_MUX_TETHERED_0, skb);
 		if (res) {
 			TETH_ERR("Packet send failure, dropping packet !\n");
@@ -843,6 +850,7 @@ static void a2_notify_cb(void *user_data,
 				mac_addresses.host_pc_mac_addr_known);
 
 		/* Send the packet to USB */
+		teth_ctx->stats.a2_to_usb_num_sw_tx_packets++;
 		res = ipa_tx_dp(IPA_CLIENT_USB_CONS, skb, NULL);
 		if (res) {
 			TETH_ERR("Packet send failure, dropping packet !\n");
@@ -1216,6 +1224,8 @@ static struct dentry *dent;
 static struct dentry *dfile_link_protocol;
 static struct dentry *dfile_get_aggr_params;
 static struct dentry *dfile_set_aggr_protocol;
+static struct dentry *dfile_stats;
+static struct dentry *dfile_is_hw_bridge_complete;
 
 static ssize_t teth_debugfs_read_link_protocol(struct file *file,
 					       char __user *ubuf,
@@ -1351,6 +1361,43 @@ static ssize_t teth_debugfs_set_aggr_protocol(struct file *file,
 	return count;
 }
 
+static ssize_t teth_debugfs_stats(struct file *file,
+				  char __user *ubuf,
+				  size_t count,
+				  loff_t *ppos)
+{
+	int nbytes = 0;
+
+	nbytes += scnprintf(&dbg_buff[nbytes],
+			    TETH_MAX_MSG_LEN - nbytes,
+			   "USB to A2 SW Tx packets: %lld\n",
+			    teth_ctx->stats.usb_to_a2_num_sw_tx_packets);
+	nbytes += scnprintf(&dbg_buff[nbytes],
+			    TETH_MAX_MSG_LEN - nbytes,
+			   "A2 to USB SW Tx packets: %lld\n",
+			    teth_ctx->stats.a2_to_usb_num_sw_tx_packets);
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
+}
+
+static ssize_t teth_debugfs_hw_bridge_status(struct file *file,
+					     char __user *ubuf,
+					     size_t count,
+					     loff_t *ppos)
+{
+	int nbytes = 0;
+
+	if (teth_ctx->is_hw_bridge_complete)
+		nbytes += scnprintf(&dbg_buff[nbytes],
+				    TETH_MAX_MSG_LEN - nbytes,
+				   "HW bridge is in use.\n");
+	else
+		nbytes += scnprintf(&dbg_buff[nbytes],
+				    TETH_MAX_MSG_LEN - nbytes,
+				   "SW bridge is in use. HW bridge not complete yet.\n");
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
+}
+
 const struct file_operations teth_link_protocol_ops = {
 	.read = teth_debugfs_read_link_protocol,
 	.write = teth_debugfs_write_link_protocol,
@@ -1362,6 +1409,14 @@ const struct file_operations teth_get_aggr_params_ops = {
 
 const struct file_operations teth_set_aggr_protocol_ops = {
 	.write = teth_debugfs_set_aggr_protocol,
+};
+
+const struct file_operations teth_stats_ops = {
+	.read = teth_debugfs_stats,
+};
+
+const struct file_operations teth_hw_bridge_status_ops = {
+	.read = teth_debugfs_hw_bridge_status,
 };
 
 void teth_debugfs_init(void)
@@ -1397,6 +1452,23 @@ void teth_debugfs_init(void)
 				    0, &teth_set_aggr_protocol_ops);
 	if (!dfile_set_aggr_protocol || IS_ERR(dfile_set_aggr_protocol)) {
 		IPAERR("fail to create file set_aggr_protocol\n");
+		goto fail;
+	}
+
+	dfile_stats =
+		debugfs_create_file("stats", read_only_mode, dent,
+				    0, &teth_stats_ops);
+	if (!dfile_stats || IS_ERR(dfile_stats)) {
+		IPAERR("fail to create file stats\n");
+		goto fail;
+	}
+
+	dfile_is_hw_bridge_complete =
+		debugfs_create_file("is_hw_bridge_complete", read_only_mode,
+				    dent, 0, &teth_hw_bridge_status_ops);
+	if (!dfile_is_hw_bridge_complete ||
+	    IS_ERR(dfile_is_hw_bridge_complete)) {
+		IPAERR("fail to create file is_hw_bridge_complete\n");
 		goto fail;
 	}
 
