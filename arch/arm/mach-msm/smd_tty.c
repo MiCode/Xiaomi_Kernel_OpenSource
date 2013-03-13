@@ -58,13 +58,10 @@ do { \
 static void *smd_tty_log_ctx;
 static DEFINE_MUTEX(smd_tty_lock);
 
-static uint smd_tty_modem_wait;
-module_param_named(modem_wait, smd_tty_modem_wait,
-			uint, S_IRUGO | S_IWUSR | S_IWGRP);
-
 struct smd_tty_info {
 	smd_channel_t *ch;
 	struct tty_port port;
+	struct device *device_ptr;
 	struct wake_lock wake_lock;
 	int open_count;
 	struct tasklet_struct tty_tsklt;
@@ -75,6 +72,7 @@ struct smd_tty_info {
 	int in_reset;
 	int in_reset_updated;
 	int is_open;
+	unsigned int open_wait;
 	wait_queue_head_t ch_opened_wait_queue;
 	spinlock_t reset_lock;
 	spinlock_t ra_lock;		/* Read Available Lock*/
@@ -136,6 +134,57 @@ static void buf_req_retry(unsigned long param)
 	}
 	spin_unlock_irqrestore(&info->reset_lock, flags);
 }
+
+static ssize_t open_timeout_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t n)
+{
+	unsigned int num_dev;
+	unsigned long wait;
+	if (dev == NULL) {
+		SMD_TTY_INFO("%s: Invalid Device passed", __func__);
+		return -EINVAL;
+	}
+	for (num_dev = 0; num_dev < MAX_SMD_TTYS; num_dev++) {
+		if (dev == smd_tty[num_dev].device_ptr)
+			break;
+	}
+	if (num_dev >= MAX_SMD_TTYS) {
+		SMD_TTY_ERR("[%s]: Device Not found", __func__);
+		return -EINVAL;
+	}
+	if (!kstrtoul(buf, 10, &wait)) {
+		smd_tty[num_dev].open_wait = wait;
+		return n;
+	} else {
+		SMD_TTY_INFO("[%s]: Unable to convert %s to an int",
+			__func__, buf);
+		return -EINVAL;
+	}
+}
+
+static ssize_t open_timeout_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	unsigned int num_dev;
+
+	if (dev == NULL) {
+		SMD_TTY_INFO("%s: Invalid Device passed", __func__);
+		return -EINVAL;
+	}
+	for (num_dev = 0; num_dev < MAX_SMD_TTYS; num_dev++) {
+		if (dev == smd_tty[num_dev].device_ptr)
+			break;
+	}
+	if (num_dev >= MAX_SMD_TTYS)
+		SMD_TTY_ERR("[%s]: Device Not Found", __func__);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			smd_tty[num_dev].open_wait);
+}
+
+static DEVICE_ATTR
+	(open_timeout, 0664, open_timeout_show, open_timeout_store);
 
 static void smd_tty_read(unsigned long param)
 {
@@ -311,10 +360,10 @@ static int smd_tty_port_activate(struct tty_port *tport,
 			 * Wait for a channel to be allocated so we know
 			 * the modem is ready enough.
 			 */
-			if (smd_tty_modem_wait) {
+			if (smd_tty[n].open_wait) {
 				res = wait_for_completion_interruptible_timeout(
 					&info->ch_allocated,
-					msecs_to_jiffies(smd_tty_modem_wait *
+					msecs_to_jiffies(smd_tty[n].open_wait *
 									1000));
 
 				if (res == 0) {
@@ -664,7 +713,14 @@ static int __init smd_tty_init(void)
 		tty_port_init(port);
 		port->ops = &smd_tty_port_ops;
 		/* TODO: For kernel >= 3.7 use tty_port_register_device */
-		tty_register_device(smd_tty_driver, idx, 0);
+		smd_tty[idx].device_ptr =
+			tty_register_device(smd_tty_driver, idx, 0);
+		if (device_create_file(smd_tty[idx].device_ptr,
+					&dev_attr_open_timeout))
+			SMD_TTY_ERR(
+				"%s: Unable to create device attributes for %s",
+				__func__, smd_configs[n].port_name);
+
 		init_completion(&smd_tty[idx].ch_allocated);
 
 		/* register platform device */
