@@ -74,6 +74,19 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	spi@f9923000 {
+		ethernet-switch@3 {
+			compatible = "micrel,ks8851";
+			reg = <3>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <0 115 0>;
+			spi-max-frequency = <4800000>;
+			rst-gpio = <&msmgpio 114 0>;
+			vdd-io-supply = <&pm8226_lvs1>;
+			vdd-phy-supply = <&pm8226_lvs1>;
+		};
+	};
 };
 
 &sdcc1 {
