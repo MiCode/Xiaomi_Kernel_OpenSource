@@ -617,7 +617,7 @@
 		gpios = <&msmgpio 3 0>, /* CLK  */
 			<&msmgpio 1 0>, /* MISO */
 			<&msmgpio 0 0>; /* MOSI */
-		cs-gpios = <&msmgpio 2 0>;
+		cs-gpios = <&msmgpio 22 0>;
 
 		qcom,infinite-mode = <0>;
 		qcom,use-bam;
