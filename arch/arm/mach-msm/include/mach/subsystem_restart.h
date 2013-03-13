@@ -75,6 +75,8 @@ extern struct subsys_device *subsys_register(struct subsys_desc *desc);
 extern void subsys_unregister(struct subsys_device *dev);
 
 extern void subsys_default_online(struct subsys_device *dev);
+extern void subsys_set_crash_status(struct subsys_device *dev, bool crashed);
+extern bool subsys_get_crash_status(struct subsys_device *dev);
 
 #else
 
@@ -114,6 +116,12 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 static inline void subsys_unregister(struct subsys_device *dev) { }
 
 static inline void subsys_default_online(struct subsys_device *dev) { }
+static inline
+void subsys_set_crash_status(struct subsys_device *dev, bool crashed) { }
+static inline bool subsys_get_crash_status(struct subsys_device *dev)
+{
+	return false;
+}
 
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
