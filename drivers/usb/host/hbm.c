@@ -194,12 +194,6 @@ void hbm_init(struct usb_hcd *hcd)
 		pr_err("%s: hbm_ctx alloc failed\n", __func__);
 		return;
 	}
-	hbm_ctx->base = kzalloc(sizeof(u32), GFP_KERNEL);
-	if (!hbm_ctx->base) {
-		pr_err("%s: hbm_ctx base alloc failed\n", __func__);
-		kfree(hbm_ctx);
-		return;
-	}
 
 	hbm_ctx->base = hcd->regs;
 	hbm_ctx->hcd = hcd;
@@ -214,7 +208,7 @@ void hbm_init(struct usb_hcd *hcd)
 
 void hbm_uninit(void)
 {
-	kfree(hbm_ctx->base);
+	hbm_config(false);
 	kfree(hbm_ctx);
 }
 
