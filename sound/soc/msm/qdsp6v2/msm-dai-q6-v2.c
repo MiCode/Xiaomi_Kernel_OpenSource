@@ -1345,6 +1345,9 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 			ctrl = &mi2s_config_controls[0];
 		if (!strncmp(dai->name, "msm-dai-q6-mi2s.1", 17))
 			ctrl = &mi2s_config_controls[3];
+	}
+
+	if (!ctrl) {
 		kcontrol = snd_ctl_new1(ctrl,
 					&mi2s_dai_data->rx_dai.mi2s_dai_data);
 		rc = snd_ctl_add(dai->card->snd_card, kcontrol);
@@ -1355,11 +1358,16 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 			goto rtn;
 		}
 	}
+
+	ctrl = NULL;
 	if (mi2s_dai_data->tx_dai.mi2s_dai_data.port_config.i2s.channel_mode) {
 		if (!strncmp(dai->name, "msm-dai-q6-mi2s.0", 17))
 			ctrl = &mi2s_config_controls[2];
 		if (!strncmp(dai->name, "msm-dai-q6-mi2s.1", 17))
 			ctrl = &mi2s_config_controls[4];
+	}
+
+	if (!ctrl) {
 		rc = snd_ctl_add(dai->card->snd_card,
 				snd_ctl_new1(ctrl,
 				&mi2s_dai_data->tx_dai.mi2s_dai_data));
@@ -1897,7 +1905,7 @@ static __devinit int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "%s: Rx line from DT file %s\n", __func__,
 			"qcom,msm-mi2s-rx-lines");
-		return rc;
+		goto rtn;
 	}
 
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-mi2s-tx-lines",
@@ -1905,7 +1913,7 @@ static __devinit int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "%s: Tx line from DT file %s\n", __func__,
 			"qcom,msm-mi2s-tx-lines");
-		return rc;
+		goto rtn;
 	}
 	dev_dbg(&pdev->dev, "dev name %s Rx line %x , Tx ine %x\n",
 		dev_name(&pdev->dev), rx_line, tx_line);
@@ -1934,6 +1942,7 @@ err_pdata:
 	dev_err(&pdev->dev, "fail to msm_dai_q6_mi2s_dev_probe\n");
 	kfree(dai_data);
 rtn:
+	kfree(mi2s_pdata);
 	return rc;
 }
 
