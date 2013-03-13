@@ -12,7 +12,7 @@
 
 /include/ "dsi-panel-sim-video.dtsi"
 /include/ "msm8974-leds.dtsi"
-/include/ "msm8974-camera-sensor-cdp-mtp.dtsi"
+/include/ "msm8974-camera-sensor-cdp.dtsi"
 
 / {
 	qcom,mdss_dsi@fd922800 {
