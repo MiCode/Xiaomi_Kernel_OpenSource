@@ -1266,10 +1266,6 @@
 		interrupts = <0 29 1>;
 	};
 
-        qcom,msm-wdog-debug@fc401000 {
-               compatible = "qcom,msm-wdog-debug";
-               reg = <0xfc401000 0x1000>;
-        };
         qcom,msm-mem-hole {
                 compatible = "qcom,msm-mem-hole";
                 qcom,memblock-remove = <0x7f00000 0x8000000>; /* Address and Size of Hole */
