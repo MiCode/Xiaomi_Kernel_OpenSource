@@ -5,11 +5,14 @@ Required properties :
 - regs : offset and length of the register set in the memory map
 - interrupts: IRQ lines used by this controller
 - interrupt-names : Required interrupt resource entries are:
-            HSIC EHCI expects "core_irq" and optionally "async_irq".
+	"core_irq" : Interrupt for HSIC core
 - <supply-name>-supply: handle to the regulator device tree node
   Required "supply-name" is "HSIC_VDDCX" and optionally - "HSIC_GDSC".
 
 Optional properties :
+- interrupt-names : Optional interrupt resource entries are:
+	"async_irq" : Interrupt from HSIC for asynchronous events in HSIC LPM.
+	"wakeup" : Wakeup interrupt from HSIC during suspend (or XO shutdown).
 - hsic,<gpio-name>-gpio : handle to the GPIO node, see "gpios property"
   in Documentation/devicetree/bindings/gpio/gpio.txt.
   Optional "gpio-name" can be "strobe" and "data".
