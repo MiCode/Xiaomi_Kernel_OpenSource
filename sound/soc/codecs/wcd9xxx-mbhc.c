@@ -1039,7 +1039,7 @@ wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 		goto exit;
 	}
 
-	for (i = 0, d = dt, ch = 0; i < size; i++, d++) {
+	for (i = 0, d = dt; i < size; i++, d++) {
 		if ((i > 0) && (d->_type != dprev->_type)) {
 			pr_debug("%s: Invalid, inconsistent types\n", __func__);
 			type = PLUG_TYPE_INVALID;
@@ -1068,7 +1068,12 @@ wcd9xxx_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 		     maxv))
 			type = PLUG_TYPE_GND_MIC_SWAP;
 	}
-
+	if (((type == PLUG_TYPE_HEADSET || type == PLUG_TYPE_HEADPHONE) &&
+	    ch != size) || (type == PLUG_TYPE_GND_MIC_SWAP && ch)) {
+		pr_debug("%s: Invalid, not fully inserted, TYPE %d\n",
+		    __func__, type);
+		type = PLUG_TYPE_INVALID;
+	}
 exit:
 	pr_debug("%s: Plug type %d detected\n", __func__, type);
 	return type;
