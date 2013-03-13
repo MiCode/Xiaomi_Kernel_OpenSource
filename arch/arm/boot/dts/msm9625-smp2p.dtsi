@@ -12,8 +12,7 @@
 / {
 	qcom,smp2p-modem {
 		compatible = "qcom,smp2p";
-		reg = <0xfa006000 0x1000>, <0x8 0x0>;
-		reg-names = "irq-reg-base", "irq-reg-offset";
+		reg = <0xf9011008 0x4>;
 		qcom,remote-pid = <1>;
 		qcom,irq-bitmask = <0x4000>;
 		interrupts = <0 27 1>;
@@ -21,8 +20,7 @@
 
 	qcom,smp2p-adsp {
 		compatible = "qcom,smp2p";
-		reg = <0xfa006000 0x1000>, <0x8 0x0>;
-		reg-names = "irq-reg-base", "irq-reg-offset";
+		reg = <0xf9011008 0x4>;
 		qcom,remote-pid = <2>;
 		qcom,irq-bitmask = <0x400>;
 		interrupts = <0 158 1>;
