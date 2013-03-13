@@ -359,7 +359,6 @@ void diag_dci_notify_client(int peripheral_mask, int data)
 			if (stat)
 				pr_err("diag: Err sending dci signal to client, signal data: 0x%x, stat: %d\n",
 				info.si_int, stat);
-			break;
 		}
 	} /* end of loop for all DCI clients */
 }
@@ -933,6 +932,7 @@ int diag_send_dci_log_mask(smd_channel_t *ch)
 
 	mutex_lock(&driver->diag_cntl_mutex);
 	for (i = 0; i < 16; i++) {
+		retry_count = 0;
 		driver->log_mask->cmd_type = DIAG_CTRL_MSG_LOG_MASK;
 		driver->log_mask->num_items = 512;
 		driver->log_mask->data_len  = 11 + 512;
@@ -954,8 +954,9 @@ int diag_send_dci_log_mask(smd_channel_t *ch)
 					break;
 			}
 			if (wr_size != header_size + 512) {
-				pr_err("diag: dci log mask update failed %d, tried %d",
-					 wr_size, header_size + 512);
+				pr_err("diag: dci log mask update failed %d, tried %d for equip_id %d\n",
+					wr_size, header_size + 512,
+					driver->log_mask->equip_id);
 				ret = DIAG_DCI_SEND_DATA_FAIL;
 
 			} else {
