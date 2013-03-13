@@ -12,7 +12,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/mman.h>
-#include <linux/android_pmem.h>
+
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -454,14 +454,12 @@ static int start_cipher_req(struct qcedev_control *podev)
 
 	/* start the command on the podev->active_command */
 	qcedev_areq = podev->active_command;
-
 	qcedev_areq->cipher_req.cookie = qcedev_areq->handle;
-	creq.use_pmem = qcedev_areq->cipher_op_req.use_pmem;
-	if (qcedev_areq->cipher_op_req.use_pmem == QCEDEV_USE_PMEM)
-		creq.pmem = &qcedev_areq->cipher_op_req.pmem;
-	else
-		creq.pmem = NULL;
-
+	if (qcedev_areq->cipher_op_req.use_pmem == QCEDEV_USE_PMEM) {
+		pr_err("%s: Use of PMEM is not supported\n", __func__);
+		goto unsupported;
+	}
+	creq.pmem = NULL;
 	switch (qcedev_areq->cipher_op_req.alg) {
 	case QCEDEV_ALG_DES:
 		creq.alg = CIPHER_ALG_DES;
@@ -1274,224 +1272,6 @@ static int qcedev_hash_final(struct qcedev_async_req *areq,
 		return qcedev_hmac_final(areq, handle);
 }
 
-#ifdef CONFIG_ANDROID_PMEM
-static int qcedev_pmem_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
-						struct qcedev_handle *handle)
-{
-	int i = 0;
-	int err = 0;
-	struct scatterlist *sg_src = NULL;
-	struct scatterlist *sg_dst = NULL;
-	struct scatterlist *sg_ndex = NULL;
-	struct file *file_src = NULL;
-	struct file *file_dst = NULL;
-	unsigned long paddr;
-	unsigned long kvaddr;
-	unsigned long len;
-
-	sg_src = kmalloc((sizeof(struct scatterlist) *
-				areq->cipher_op_req.entries),	GFP_KERNEL);
-	if (sg_src == NULL) {
-		pr_err("%s: Can't Allocate memory:sg_src 0x%x\n",
-			__func__, (uint32_t)sg_src);
-		return -ENOMEM;
-
-	}
-	memset(sg_src, 0, (sizeof(struct scatterlist) *
-				areq->cipher_op_req.entries));
-	sg_ndex = sg_src;
-	areq->cipher_req.creq.src = sg_src;
-
-	/* address src */
-	get_pmem_file(areq->cipher_op_req.pmem.fd_src, &paddr,
-					&kvaddr, &len, &file_src);
-
-	for (i = 0; i < areq->cipher_op_req.entries; i++) {
-		sg_set_buf(sg_ndex,
-		((uint8_t *)(areq->cipher_op_req.pmem.src[i].offset) + kvaddr),
-		areq->cipher_op_req.pmem.src[i].len);
-		sg_ndex++;
-	}
-	sg_mark_end(--sg_ndex);
-
-	for (i = 0; i < areq->cipher_op_req.entries; i++)
-		areq->cipher_op_req.pmem.src[i].offset += (uint32_t)paddr;
-
-	/* address dst */
-	/* If not place encryption/decryption */
-	if (areq->cipher_op_req.in_place_op != 1) {
-		sg_dst = kmalloc((sizeof(struct scatterlist) *
-				areq->cipher_op_req.entries), GFP_KERNEL);
-		if (sg_dst == NULL) {
-			pr_err("%s: Can't Allocate memory: sg_dst 0x%x\n",
-			__func__, (uint32_t)sg_dst);
-			return -ENOMEM;
-		}
-		memset(sg_dst, 0, (sizeof(struct scatterlist) *
-					areq->cipher_op_req.entries));
-		areq->cipher_req.creq.dst = sg_dst;
-		sg_ndex = sg_dst;
-
-		get_pmem_file(areq->cipher_op_req.pmem.fd_dst, &paddr,
-					&kvaddr, &len, &file_dst);
-		for (i = 0; i < areq->cipher_op_req.entries; i++)
-			sg_set_buf(sg_ndex++,
-			((uint8_t *)(areq->cipher_op_req.pmem.dst[i].offset)
-			+ kvaddr), areq->cipher_op_req.pmem.dst[i].len);
-		sg_mark_end(--sg_ndex);
-
-		for (i = 0; i < areq->cipher_op_req.entries; i++)
-			areq->cipher_op_req.pmem.dst[i].offset +=
-							(uint32_t)paddr;
-	} else {
-		areq->cipher_req.creq.dst = sg_src;
-		for (i = 0; i < areq->cipher_op_req.entries; i++) {
-			areq->cipher_op_req.pmem.dst[i].offset =
-				areq->cipher_op_req.pmem.src[i].offset;
-			areq->cipher_op_req.pmem.dst[i].len =
-				areq->cipher_op_req.pmem.src[i].len;
-		}
-	}
-
-	areq->cipher_req.creq.nbytes = areq->cipher_op_req.data_len;
-	areq->cipher_req.creq.info = areq->cipher_op_req.iv;
-
-	err = submit_req(areq, handle);
-
-	kfree(sg_src);
-	kfree(sg_dst);
-
-	if (file_dst)
-		put_pmem_file(file_dst);
-	if (file_src)
-		put_pmem_file(file_src);
-
-	return err;
-};
-
-
-static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
-						struct qcedev_handle *handle)
-{
-	int err = 0;
-	int i = 0;
-	int j = 0;
-	int k = 0;
-	int num_entries = 0;
-	uint32_t total = 0;
-	struct qcedev_cipher_op_req *saved_req;
-	struct qcedev_cipher_op_req *creq = &qcedev_areq->cipher_op_req;
-
-	saved_req = kmalloc(sizeof(struct qcedev_cipher_op_req), GFP_KERNEL);
-	if (saved_req == NULL) {
-		pr_err(KERN_ERR "%s:Can't Allocate mem:saved_req 0x%x\n",
-		__func__, (uint32_t)saved_req);
-		return -ENOMEM;
-	}
-	memcpy(saved_req, creq, sizeof(struct qcedev_cipher_op_req));
-
-	if (qcedev_areq->cipher_op_req.data_len > QCE_MAX_OPER_DATA) {
-
-		struct qcedev_cipher_op_req req;
-
-		/* save the original req structure */
-		memcpy(&req, creq, sizeof(struct qcedev_cipher_op_req));
-
-		i = 0;
-		/* Address 32 KB  at a time */
-		while ((i < req.entries) && (err == 0)) {
-			if (creq->pmem.src[i].len > QCE_MAX_OPER_DATA) {
-				creq->pmem.src[0].len =	QCE_MAX_OPER_DATA;
-				if (i > 0) {
-					creq->pmem.src[0].offset =
-						creq->pmem.src[i].offset;
-				}
-
-				creq->data_len = QCE_MAX_OPER_DATA;
-				creq->entries = 1;
-
-				err =
-				qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq,
-								handle);
-
-				creq->pmem.src[i].len =	req.pmem.src[i].len -
-							QCE_MAX_OPER_DATA;
-				creq->pmem.src[i].offset =
-						req.pmem.src[i].offset +
-						QCE_MAX_OPER_DATA;
-				req.pmem.src[i].offset =
-						creq->pmem.src[i].offset;
-				req.pmem.src[i].len = creq->pmem.src[i].len;
-			} else {
-				total = 0;
-				for (j = i; j < req.entries; j++) {
-					num_entries++;
-					if ((total + creq->pmem.src[j].len)
-							>= QCE_MAX_OPER_DATA) {
-						creq->pmem.src[j].len =
-						QCE_MAX_OPER_DATA - total;
-						total = QCE_MAX_OPER_DATA;
-						break;
-					}
-					total += creq->pmem.src[j].len;
-				}
-
-				creq->data_len = total;
-				if (i > 0)
-					for (k = 0; k < num_entries; k++) {
-						creq->pmem.src[k].len =
-						creq->pmem.src[i+k].len;
-						creq->pmem.src[k].offset =
-						creq->pmem.src[i+k].offset;
-					}
-				creq->entries =  num_entries;
-
-				i = j;
-				err =
-				qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq,
-								handle);
-				num_entries = 0;
-
-					creq->pmem.src[i].offset =
-						req.pmem.src[i].offset +
-						creq->pmem.src[i].len;
-					creq->pmem.src[i].len =
-						req.pmem.src[i].len -
-						creq->pmem.src[i].len;
-					req.pmem.src[i].offset =
-						creq->pmem.src[i].offset;
-					req.pmem.src[i].len =
-						creq->pmem.src[i].len;
-
-				if (creq->pmem.src[i].len == 0)
-					i++;
-			}
-
-		} /* end of while ((i < req.entries) && (err == 0)) */
-
-	} else
-		err = qcedev_pmem_ablk_cipher_max_xfer(qcedev_areq, handle);
-
-	/* Restore the original req structure */
-	for (i = 0; i < saved_req->entries; i++) {
-		creq->pmem.src[i].len = saved_req->pmem.src[i].len;
-		creq->pmem.src[i].offset = saved_req->pmem.src[i].offset;
-	}
-	creq->entries = saved_req->entries;
-	creq->data_len = saved_req->data_len;
-	kfree(saved_req);
-
-	return err;
-
-}
-#else
-static int qcedev_pmem_ablk_cipher(struct qcedev_async_req *qcedev_areq,
-						struct qcedev_handle *handle)
-{
-	return -EPERM;
-}
-#endif/*CONFIG_ANDROID_PMEM*/
-
 static int qcedev_vbuf_ablk_cipher_max_xfer(struct qcedev_async_req *areq,
 				int *di, struct qcedev_handle *handle,
 				uint8_t *k_align_src)
@@ -1753,6 +1533,10 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
 						struct qcedev_control *podev)
 {
+	if (req->use_pmem) {
+		pr_err("%s: Use of PMEM is not supported\n", __func__);
+		goto error;
+	}
 	if ((req->entries == 0) || (req->data_len == 0))
 		goto error;
 	if ((req->alg >= QCEDEV_ALG_LAST) ||
@@ -1791,15 +1575,6 @@ static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
 	/* if using a byteoffset, make sure it is CTR mode using vbuf */
 	if (req->byteoffset) {
 		if (req->mode != QCEDEV_AES_MODE_CTR)
-			goto error;
-		else { /* if using CTR mode make sure not using Pmem */
-			if (req->use_pmem)
-				goto error;
-		}
-	}
-	/* if using PMEM with non-zero byteoffset, ensure it is in_place_op */
-	if (req->use_pmem) {
-		if (!req->in_place_op)
 			goto error;
 	}
 	/* Ensure zer ivlen for ECB  mode  */
@@ -1890,10 +1665,7 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 				podev))
 			return -EINVAL;
 
-		if (qcedev_areq.cipher_op_req.use_pmem)
-			err = qcedev_pmem_ablk_cipher(&qcedev_areq, handle);
-		else
-			err = qcedev_vbuf_ablk_cipher(&qcedev_areq, handle);
+		err = qcedev_vbuf_ablk_cipher(&qcedev_areq, handle);
 		if (err)
 			return err;
 		if (__copy_to_user((void __user *)arg,
