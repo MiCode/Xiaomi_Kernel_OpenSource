@@ -663,6 +663,7 @@
 	status = "ok";
 };
 
+/include/ "msm-pm8226-rpm-regulator.dtsi"
 /include/ "msm-pm8226.dtsi"
 /include/ "msm8226-regulator.dtsi"
 
