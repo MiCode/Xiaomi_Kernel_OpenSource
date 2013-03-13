@@ -2904,6 +2904,9 @@ static int find_ibat_max_adj_ma(int ibat_target_ma)
 			break;
 	}
 
+	if (i > 0)
+		i--;
+
 	return ibatmax_adj_table[i].max_adj_ma;
 }
 
