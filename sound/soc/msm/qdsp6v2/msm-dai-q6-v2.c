@@ -1349,7 +1349,7 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 			ctrl = &mi2s_config_controls[3];
 	}
 
-	if (!ctrl) {
+	if (ctrl) {
 		kcontrol = snd_ctl_new1(ctrl,
 					&mi2s_dai_data->rx_dai.mi2s_dai_data);
 		rc = snd_ctl_add(dai->card->snd_card, kcontrol);
@@ -1369,7 +1369,7 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 			ctrl = &mi2s_config_controls[4];
 	}
 
-	if (!ctrl) {
+	if (ctrl) {
 		rc = snd_ctl_add(dai->card->snd_card,
 				snd_ctl_new1(ctrl,
 				&mi2s_dai_data->tx_dai.mi2s_dai_data));
