@@ -359,7 +359,7 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 
 	d = &port->data_ch;
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA)
-		queue_work(gbam_wq, &port->disconnect_w);
+		queue_work(bam_data_wq, &port->disconnect_w);
 	else {
 		if (usb_bam_client_ready(false)) {
 			pr_err("%s: usb_bam_client_ready failed\n",
