@@ -992,6 +992,8 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		if (tmp >= 0 && tmp < AFE_MAX_PORTS)
 			copps_list[i] =
 					atomic_read(&this_adm.copp_id[tmp]);
+		else
+			continue;
 		pr_debug("%s: port_id[%#x]: %d, index: %d act coppid[0x%x]\n",
 			__func__, i, port_id[i], tmp,
 			atomic_read(&this_adm.copp_id[tmp]));
