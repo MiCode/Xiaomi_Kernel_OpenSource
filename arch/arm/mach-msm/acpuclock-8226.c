@@ -98,13 +98,13 @@ static int __init acpuclk_a7_probe(struct platform_device *pdev)
 
 	drv_data.apcs_rcg_config = drv_data.apcs_rcg_cmd + 4;
 
-	drv_data.vdd_cpu = regulator_get(&pdev->dev, "a7_cpu");
+	drv_data.vdd_cpu = devm_regulator_get(&pdev->dev, "a7_cpu");
 	if (IS_ERR(drv_data.vdd_cpu)) {
 		dev_err(&pdev->dev, "regulator for %s get failed\n", "a7_cpu");
 		return PTR_ERR(drv_data.vdd_cpu);
 	}
 
-	drv_data.vdd_mem = regulator_get(&pdev->dev, "a7_mem");
+	drv_data.vdd_mem = devm_regulator_get(&pdev->dev, "a7_mem");
 	if (IS_ERR(drv_data.vdd_mem)) {
 		dev_err(&pdev->dev, "regulator for %s get failed\n", "a7_mem");
 		return PTR_ERR(drv_data.vdd_mem);

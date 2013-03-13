@@ -340,7 +340,7 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 		if (!priv->src_clocks[i].name)
 			continue;
 		priv->src_clocks[i].clk =
-			clk_get(&pdev->dev, priv->src_clocks[i].name);
+			devm_clk_get(&pdev->dev, priv->src_clocks[i].name);
 		BUG_ON(IS_ERR(priv->src_clocks[i].clk));
 	}
 
@@ -382,13 +382,5 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 err_vdd_cpu:
 	regulator_disable(priv->vdd_mem);
 err_vdd:
-	regulator_put(priv->vdd_mem);
-	regulator_put(priv->vdd_cpu);
-
-	for (i = 0; i < NUM_SRC; i++) {
-		if (!priv->src_clocks[i].name)
-			continue;
-		clk_put(priv->src_clocks[i].clk);
-	}
 	return rc;
 }

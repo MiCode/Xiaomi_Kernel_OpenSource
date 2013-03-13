@@ -105,13 +105,13 @@ static int __init acpuclk_9625_probe(struct platform_device *pdev)
 	if (!drv_data.apcs_cpu_pwr_ctl)
 		return -ENOMEM;
 
-	drv_data.vdd_cpu = regulator_get(&pdev->dev, "a5_cpu");
+	drv_data.vdd_cpu = devm_regulator_get(&pdev->dev, "a5_cpu");
 	if (IS_ERR(drv_data.vdd_cpu)) {
 		dev_err(&pdev->dev, "regulator for %s get failed\n", "a5_cpu");
 		return PTR_ERR(drv_data.vdd_cpu);
 	}
 
-	drv_data.vdd_mem = regulator_get(&pdev->dev, "a5_mem");
+	drv_data.vdd_mem = devm_regulator_get(&pdev->dev, "a5_mem");
 	if (IS_ERR(drv_data.vdd_mem)) {
 		dev_err(&pdev->dev, "regulator for %s get failed\n", "a5_mem");
 		return PTR_ERR(drv_data.vdd_mem);
