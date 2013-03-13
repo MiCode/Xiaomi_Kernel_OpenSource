@@ -70,7 +70,6 @@ extern phys_addr_t arm_dma_limit;
 #define arm_dma_limit ((phys_addr_t)~0)
 #endif
 
-struct map_desc;
 extern phys_addr_t arm_lowmem_limit;
 
 void __init bootmem_init(void);
