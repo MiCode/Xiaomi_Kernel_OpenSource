@@ -15,8 +15,8 @@
 / {
 	qcom,spm@f9089000 {
 		compatible = "qcom,spm-v2";
-		#address-cells = <1>;
-		#size-cells = <1>;
+	#address-cells = <1>;
+	#size-cells = <1>;
 		reg = <0xf9089000 0x1000>;
 		qcom,core-id = <0>;
 		qcom,saw2-ver-reg = <0xfd0>;
@@ -29,10 +29,10 @@
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 03 d4 5b 0b 00 42 1b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 50 80 60 70 10 E0 03 6E 70 3B
-				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+		qcom,saw2-spm-cmd-spc = [00 20 80 10 E0 03 3B E4 5B 82 10 0B
+			30 06 26 30 0F];
 		qcom,saw2-spm-cmd-pc = [00 20 50 80 60 70 10 E0 07 6E 70 3B
-				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+			E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
 	};
 
 	qcom,spm@f9099000 {
@@ -51,8 +51,8 @@
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 03 d4 5b 0b 00 42 1b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 50 80 60 70 10 E0 03 6E 70 3B
-				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+		qcom,saw2-spm-cmd-spc = [00 20 80 10 E0 03 3B E4 5B 82 10 0B
+			30 06 26 30 0F];
 		qcom,saw2-spm-cmd-pc = [00 20 50 80 60 70 10 E0 07 6E 70 3B
 				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
 	};
@@ -73,8 +73,8 @@
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 03 d4 5b 0b 00 42 1b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 50 80 60 70 10 E0 03 6E 70 3B
-				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+		qcom,saw2-spm-cmd-spc = [00 20 80 10 E0 03 3B E4 5B 82 10 0B
+			30 06 26 30 0F];
 		qcom,saw2-spm-cmd-pc = [00 20 50 80 60 70 10 E0 07 6E 70 3B
 				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
 	};
@@ -95,8 +95,8 @@
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 03 d4 5b 0b 00 42 1b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 50 80 60 70 10 E0 03 6E 70 3B
-				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+		qcom,saw2-spm-cmd-spc = [00 20 80 10 E0 03 3B E4 5B 82 10 0B
+			30 06 26 30 0F];
 		qcom,saw2-spm-cmd-pc = [00 20 50 80 60 70 10 E0 07 6E 70 3B
 				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
 	};
