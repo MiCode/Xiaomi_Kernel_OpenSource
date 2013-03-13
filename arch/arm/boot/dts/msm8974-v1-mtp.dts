@@ -24,3 +24,7 @@
 		qcom,cont-splash-enabled;
 	};
 };
+
+&pm8941_chg {
+	qcom,chg-charging-disabled;
+};
