@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -253,7 +253,7 @@ void msm_restart(char mode, const char *cmd)
 		__raw_writel(0x31F3, msm_tmr0_base + WDT0_BITE_TIME);
 		__raw_writel(1, msm_tmr0_base + WDT0_EN);
 	} else {
-		/* Needed for 8974: Reset GCC_WDOG_DEBUG register */
+		/* Needed to bypass debug image on some chips */
 		msm_disable_wdog_debug();
 		__raw_writel(0, MSM_MPM2_PSHOLD_BASE);
 	}
