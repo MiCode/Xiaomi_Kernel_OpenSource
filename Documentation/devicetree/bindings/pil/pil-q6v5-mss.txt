@@ -20,6 +20,8 @@ Required properties:
 - qcom,gpio-proxy-unvote: GPIO used by the modem to trigger proxy unvoting in
   the apps.
 - qcom,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
+- qcom,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
+		      to the apps.
 
 Optional properties:
 - vdd_mss-supply:     Reference to the regulator that supplies the processor.

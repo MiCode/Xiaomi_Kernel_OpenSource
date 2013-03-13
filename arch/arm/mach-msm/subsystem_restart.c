@@ -137,6 +137,7 @@ struct restart_log {
  * @dentry: debugfs directory for this device
  * @do_ramdump_on_put: ramdump on subsystem_put() if true
  * @err_ready: completion variable to record error ready from subsystem
+ * @crashed: indicates if subsystem has crashed
  */
 struct subsys_device {
 	struct subsys_desc *desc;
@@ -160,6 +161,7 @@ struct subsys_device {
 	struct miscdevice misc_dev;
 	char miscdevice_name[32];
 	struct completion err_ready;
+	bool crashed;
 };
 
 static struct subsys_device *to_subsys(struct device *d)
@@ -813,6 +815,15 @@ int subsystem_crashed(const char *name)
 }
 EXPORT_SYMBOL(subsystem_crashed);
 
+void subsys_set_crash_status(struct subsys_device *dev, bool crashed)
+{
+	dev->crashed = true;
+}
+
+bool subsys_get_crash_status(struct subsys_device *dev)
+{
+	return dev->crashed;
+}
 #ifdef CONFIG_DEBUG_FS
 static ssize_t subsys_debugfs_read(struct file *filp, char __user *ubuf,
 		size_t cnt, loff_t *ppos)
