@@ -1774,6 +1774,12 @@ static int hdmi_tx_get_audio_edid_blk(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
+	if (!hdmi_ctrl->audio_sdev.state) {
+		DEV_ERR("%s: failed. HDMI is not connected/ready for audio\n",
+			__func__);
+		return -EPERM;
+	}
+
 	return hdmi_edid_get_audio_blk(
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID], blk);
 } /* hdmi_tx_get_audio_edid_blk */
