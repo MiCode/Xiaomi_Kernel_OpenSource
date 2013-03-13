@@ -111,7 +111,7 @@ struct msm_isp_buf_ops {
 
 struct msm_isp_buf_mgr {
 	int init_done;
-	uint32_t ref_count;
+	uint32_t open_count;
 	spinlock_t lock;
 	uint16_t num_buf_q;
 	struct msm_isp_bufq *bufq;
