@@ -658,6 +658,11 @@ struct adm_cmd_connect_afe_port_v5 {
 #define SLIMBUS_3_TX		0x4007
 #define SLIMBUS_4_RX		0x4008
 #define SLIMBUS_4_TX		0x4009		/* index = 24 */
+#define SLIMBUS_5_RX		0x400a
+#define SLIMBUS_5_TX		0x400b
+#define SLIMBUS_6_RX		0x400c
+#define SLIMBUS_6_TX		0x400d
+#define SLIMBUS_PORT_LAST	SLIMBUS_6_TX
 #define INT_BT_SCO_RX 0x3000		/* index = 25 */
 #define INT_BT_SCO_TX 0x3001		/* index = 26 */
 #define INT_BT_A2DP_RX 0x3002		/* index = 27 */
@@ -6498,6 +6503,8 @@ struct srs_trumedia_params {
 #define AFE_PARAM_ID_CDC_REG_CFG			(0x00010236)
 #define AFE_PARAM_ID_CDC_REG_CFG_INIT			(0x00010237)
 
+#define AFE_MAX_CDC_REGISTERS_TO_CONFIG			(20)
+
 /* ERROR CODES */
 /* Success. The operation completed with no errors. */
 #define ADSP_EOK          0x00000000
@@ -6723,6 +6730,106 @@ struct afe_dtmf_generation_command {
 	 * variable for 32 bit alignment of APR packet.
 	 */
 	uint16_t                  reserved;
+} __packed;
+
+enum afe_config_type {
+	AFE_SLIMBUS_SLAVE_PORT_CONFIG,
+	AFE_SLIMBUS_SLAVE_CONFIG,
+	AFE_CDC_REGISTERS_CONFIG,
+	AFE_MAX_CONFIG_TYPES,
+};
+
+struct afe_param_slimbus_slave_port_cfg {
+	uint32_t minor_version;
+	uint16_t slimbus_dev_id;
+	uint16_t slave_dev_pgd_la;
+	uint16_t slave_dev_intfdev_la;
+	uint16_t bit_width;
+	uint16_t data_format;
+	uint16_t num_channels;
+	uint16_t slave_port_mapping[AFE_PORT_MAX_AUDIO_CHAN_CNT];
+} __packed;
+
+struct afe_param_cdc_slimbus_slave_cfg {
+	uint32_t minor_version;
+	uint32_t device_enum_addr_lsw;
+	uint32_t device_enum_addr_msw;
+	uint16_t tx_slave_port_offset;
+	uint16_t rx_slave_port_offset;
+} __packed;
+
+struct afe_param_cdc_reg_cfg {
+	uint32_t minor_version;
+	uint32_t reg_logical_addr;
+	uint32_t reg_field_type;
+	uint32_t reg_field_bit_mask;
+	uint16_t reg_bit_width;
+	uint16_t reg_offset_scale;
+} __packed;
+
+struct afe_param_cdc_reg_cfg_data {
+	uint32_t num_registers;
+	struct afe_param_cdc_reg_cfg *reg_data;
+} __packed;
+
+struct afe_svc_cmd_set_param {
+	uint32_t payload_size;
+	uint32_t payload_address_lsw;
+	uint32_t payload_address_msw;
+	uint32_t mem_map_handle;
+} __packed;
+
+struct afe_param_hw_mad_ctrl {
+	uint32_t minor_version;
+	uint16_t mad_type;
+	uint16_t mad_enable;
+} __packed;
+
+struct afe_cmd_hw_mad_ctrl {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_hw_mad_ctrl payload;
+} __packed;
+
+struct afe_cmd_hw_mad_slimbus_slave_port_cfg {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_slimbus_slave_port_cfg sb_port_cfg;
+} __packed;
+
+struct afe_cmd_sw_mad_enable {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2 pdata;
+} __packed;
+
+struct afe_param_cdc_reg_cfg_payload {
+	struct afe_port_param_data_v2 common;
+	struct afe_param_cdc_reg_cfg  reg_cfg;
+} __packed;
+
+/*
+ * reg_data's size can be up to AFE_MAX_CDC_REGISTERS_TO_CONFIG
+ */
+struct afe_svc_cmd_cdc_reg_cfg {
+	struct apr_hdr hdr;
+	struct afe_svc_cmd_set_param param;
+	struct afe_param_cdc_reg_cfg_payload reg_data[0];
+} __packed;
+
+struct afe_svc_cmd_init_cdc_reg_cfg {
+	struct apr_hdr hdr;
+	struct afe_svc_cmd_set_param param;
+	struct afe_port_param_data_v2 init;
+} __packed;
+
+struct afe_svc_cmd_sb_slave_cfg {
+	struct apr_hdr hdr;
+	struct afe_svc_cmd_set_param param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_cdc_slimbus_slave_cfg sb_slave_cfg;
 } __packed;
 
 #endif /*_APR_AUDIO_V2_H_ */
