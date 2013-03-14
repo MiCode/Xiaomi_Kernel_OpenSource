@@ -144,9 +144,6 @@ static int mmc_bus_resume(struct device *dev)
 		ret = drv->resume(card);
 	return ret;
 }
-#else
-#define mmc_bus_suspend NULL
-#define mmc_bus_resume NULL
 #endif
 
 #ifdef CONFIG_PM_RUNTIME

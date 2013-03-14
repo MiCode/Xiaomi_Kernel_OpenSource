@@ -57,7 +57,6 @@ static int mmc_queue_thread(void *d)
 {
 	struct mmc_queue *mq = d;
 	struct request_queue *q = mq->queue;
-	struct request *req;
 	struct mmc_card *card = mq->card;
 
 	current->flags |= PF_MEMALLOC;
@@ -65,7 +64,7 @@ static int mmc_queue_thread(void *d)
 	down(&mq->thread_sem);
 	do {
 		struct mmc_queue_req *tmp;
-		req = NULL;	/* Must be set to NULL at each iteration */
+		struct request *req = NULL;
 
 		spin_lock_irq(q->queue_lock);
 		set_current_state(TASK_INTERRUPTIBLE);
