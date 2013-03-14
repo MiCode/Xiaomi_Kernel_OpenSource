@@ -248,7 +248,7 @@ static u32 get_frame_size_compressed(int plane,
 	return (MAX_SUPPORTED_WIDTH * MAX_SUPPORTED_HEIGHT * 3/2)/2;
 }
 
-static const struct msm_vidc_format vdec_formats[] = {
+struct msm_vidc_format vdec_formats[] = {
 	{
 		.name = "YCbCr Semiplanar 4:2:0",
 		.description = "Y/CbCr 4:2:0",
@@ -717,7 +717,7 @@ exit:
 }
 int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
-	const struct msm_vidc_format *fmt = NULL;
+	struct msm_vidc_format *fmt = NULL;
 	struct hal_frame_size frame_sz;
 	int extra_idx = 0;
 	int rc = 0;

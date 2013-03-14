@@ -189,7 +189,7 @@ struct msm_vidc_inst {
 	void *session;
 	struct session_prop prop;
 	int state;
-	const struct msm_vidc_format *fmts[MAX_PORT_NUM];
+	struct msm_vidc_format *fmts[MAX_PORT_NUM];
 	struct buf_queue bufq[MAX_PORT_NUM];
 	struct list_head pendingq;
 	struct list_head internalbufs;
