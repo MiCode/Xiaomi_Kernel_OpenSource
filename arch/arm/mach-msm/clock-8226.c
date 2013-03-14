@@ -3342,7 +3342,7 @@ static struct clk_lookup msm_clocks_8226[] = {
 	"fdc84000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", venus0_ahb_clk.c, "fdc84000.qcom,iommu"),
 	CLK_LOOKUP("core_clk", venus0_axi_clk.c, "fdc84000.qcom,iommu"),
-
+	CLK_LOOKUP("iface_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng"),
 	CLK_LOOKUP("cam_gp0_clk", camss_gp0_clk.c, ""),
 	CLK_LOOKUP("cam_gp1_clk", camss_gp1_clk.c, ""),
 	CLK_LOOKUP("iface_clk", camss_micro_ahb_clk.c, ""),
