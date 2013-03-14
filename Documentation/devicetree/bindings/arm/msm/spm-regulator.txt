@@ -1,0 +1,32 @@
+Qualcomm SPM Regulators
+
+spm-regulator is a regulator device which supports PMIC processor supply
+regulators via the SPM module.
+
+Required properties:
+- compatible:      Must be "qcom,spm-regulator"
+- reg:             Specifies the SPMI address and size for this regulator device
+- regulator-name:  A string used as a descriptive name for the regulator
+
+Required structure:
+- A qcom,spm-regulator node must be a child of an SPMI node that has specified
+	the spmi-slave-container property
+
+All properties specified within the core regulator framework can also be used.
+These bindings can be found in regulator.txt.
+
+Example:
+	qcom,spmi@fc4c0000 {
+
+		qcom,pm8226@1 {
+			spmi-slave-container;
+
+			spm-regulator@1700 {
+				compatible = "qcom,spm-regulator";
+				regulator-name = "8226_s2";
+				reg = <0x1700 0x100>;
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <1275000>;
+			};
+		};
+	};
