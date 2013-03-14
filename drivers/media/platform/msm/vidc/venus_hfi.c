@@ -2002,12 +2002,8 @@ static inline void venus_hfi_disable_clks(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return;
 	}
-	if (device->clocks_enabled) {
-		cl = &device->resources.clock[VCODEC_CLK];
-		clk_disable_unprepare(cl->clk);
-	}
 
-	for (i = VCODEC_CLK; i < VCODEC_MAX_CLKS; i++) {
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
 		cl = &device->resources.clock[i];
 		clk_disable_unprepare(cl->clk);
 	}
@@ -2022,17 +2018,7 @@ static inline int venus_hfi_enable_clks(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
 	}
-	if (!device->clocks_enabled) {
-		cl = &device->resources.clock[VCODEC_CLK];
-		rc = clk_prepare_enable(cl->clk);
-		if (rc) {
-			dprintk(VIDC_ERR, "Failed to enable clocks\n");
-			goto fail_clk_enable;
-		} else {
-			dprintk(VIDC_DBG, "Clock: %s enabled\n", cl->name);
-		}
-	}
-	for (i = VCODEC_CLK; i < VCODEC_MAX_CLKS; i++) {
+	for (i = 0; i < VCODEC_MAX_CLKS; i++) {
 		cl = &device->resources.clock[i];
 		rc = clk_prepare_enable(cl->clk);
 		if (rc) {
