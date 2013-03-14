@@ -54,6 +54,7 @@
 #define TSENS_SW_RST			BIT(1)
 #define TSENS_ADC_CLK_SEL		BIT(2)
 #define TSENS_SENSOR0_SHIFT		3
+#define TSENS_62_5_MS_MEAS_PERIOD	1
 #define TSENS_312_5_MS_MEAS_PERIOD	2
 #define TSENS_MEAS_PERIOD_SHIFT		18
 
@@ -239,6 +240,7 @@ struct tsens_tm_device {
 	struct platform_device		*pdev;
 	bool				prev_reading_avail;
 	bool				calibration_less_mode;
+	bool				tsens_local_init;
 	int				tsens_factor;
 	uint32_t			tsens_num_sensor;
 	int				tsens_irq;
@@ -570,24 +572,28 @@ static void tsens_hw_init(void)
 	unsigned int reg_cntl = 0;
 	unsigned int i;
 
-	reg_cntl = readl_relaxed(TSENS_CTRL_ADDR(tmdev->tsens_addr));
-	writel_relaxed(reg_cntl | TSENS_SW_RST,
+	if (tmdev->tsens_local_init) {
+		writel_relaxed(reg_cntl, TSENS_CTRL_ADDR(tmdev->tsens_addr));
+		writel_relaxed(reg_cntl | TSENS_SW_RST,
 			TSENS_CTRL_ADDR(tmdev->tsens_addr));
-	reg_cntl |= ((TSENS_312_5_MS_MEAS_PERIOD << TSENS_MEAS_PERIOD_SHIFT) |
+		reg_cntl |= ((TSENS_62_5_MS_MEAS_PERIOD <<
+		TSENS_MEAS_PERIOD_SHIFT) |
 		(((1 << tmdev->tsens_num_sensor) - 1) << TSENS_SENSOR0_SHIFT) |
 		TSENS_EN);
-	writel_relaxed(reg_cntl, TSENS_CTRL_ADDR(tmdev->tsens_addr));
-	writel_relaxed(TSENS_GLOBAL_INIT_DATA,
+		writel_relaxed(reg_cntl, TSENS_CTRL_ADDR(tmdev->tsens_addr));
+		writel_relaxed(TSENS_GLOBAL_INIT_DATA,
 			TSENS_GLOBAL_CONFIG(tmdev->tsens_addr));
-	writel_relaxed(TSENS_S0_MAIN_CFG_INIT_DATA,
+		writel_relaxed(TSENS_S0_MAIN_CFG_INIT_DATA,
 			TSENS_S0_MAIN_CONFIG(tmdev->tsens_addr));
-	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
-		writel_relaxed(TSENS_SN_MIN_MAX_STATUS_CTRL_DATA,
+		for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+			writel_relaxed(TSENS_SN_MIN_MAX_STATUS_CTRL_DATA,
 			TSENS_SN_MIN_MAX_STATUS_CTRL(tmdev->tsens_addr)
 				+ (i * TSENS_SN_ADDR_OFFSET));
-		writel_relaxed(TSENS_SN_REMOTE_CFG_DATA,
+			writel_relaxed(TSENS_SN_REMOTE_CFG_DATA,
 			TSENS_SN_REMOTE_CONFIG(tmdev->tsens_addr)
 				+ (i * TSENS_SN_ADDR_OFFSET));
+		}
+		pr_debug("Local TSENS control initialization\n");
 	}
 	writel_relaxed(TSENS_INTERRUPT_EN,
 		TSENS_UPPER_LOWER_INTERRUPT_CTRL(tmdev->tsens_addr));
@@ -1156,6 +1162,8 @@ static int get_device_tree_data(struct platform_device *pdev)
 	tmdev->calibration_less_mode = of_property_read_bool(of_node,
 				"qcom,calibration-less-mode");
 	tmdev->calib_mode = calib_type;
+	tmdev->tsens_local_init = of_property_read_bool(of_node,
+				"qcom,tsens_local_init");
 
 	tmdev->tsens_irq = platform_get_irq(pdev, 0);
 	if (tmdev->tsens_irq < 0) {
