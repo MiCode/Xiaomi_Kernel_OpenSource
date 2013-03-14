@@ -192,11 +192,12 @@ static long mdss_dsi_pll_pixel_round_rate(struct clk *c, unsigned long rate)
 
 static int mdss_dsi_pll_pixel_set_rate(struct clk *c, unsigned long rate)
 {
-	if (pll_initialized)
+	if (pll_initialized) {
+		pll_pclk_rate = (rate * 3) / 2;
+		pr_debug("%s: pll_pclk_rate=%d\n", __func__, pll_pclk_rate);
 		return 0;
-	else {
-		pr_err("%s: Configure Byte clk first\n",
-				__func__);
+	} else {
+		pr_err("%s: Configure Byte clk first\n", __func__);
 		return -EINVAL;
 	}
 }
@@ -256,11 +257,9 @@ static int __mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	REG_W(0x20, mdss_dsi_base + 0x029c); /* EFUSE CFG */
 
 	dsi_pll_rate = rate;
+	pll_byte_clk_rate = rate;
 
-	pll_byte_clk_rate = 53000000;
-	pll_pclk_rate = 105000000;
-
-	pr_debug("%s: **** PLL initialized success\n", __func__);
+	pr_debug("%s: PLL initialized. bcl=%d\n", __func__, pll_byte_clk_rate);
 	pll_initialized = 1;
 
 	return 0;
