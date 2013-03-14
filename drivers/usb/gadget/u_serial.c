@@ -448,6 +448,8 @@ __acquires(&port->port_lock)
 		prev_len = req->length;
 		port->nbytes_from_tty += req->length;
 
+		port->write_started++;
+
 	}
 
 	if (do_tty_wake && port->port_tty)
@@ -1381,7 +1383,6 @@ int gserial_setup(struct usb_gadget *g, unsigned count)
 	/* export the driver ... */
 	status = tty_register_driver(gs_tty_driver);
 	if (status) {
-		put_tty_driver(gs_tty_driver);
 		pr_err("%s: cannot register, err %d\n",
 				__func__, status);
 		goto fail;
