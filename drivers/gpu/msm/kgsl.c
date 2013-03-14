@@ -2747,6 +2747,29 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	}
 
 	vma->vm_ops = &kgsl_gpumem_vm_ops;
+
+	if (cache == KGSL_CACHEMODE_WRITEBACK
+		|| cache == KGSL_CACHEMODE_WRITETHROUGH) {
+		struct scatterlist *s;
+		int i;
+		int sglen = entry->memdesc.sglen;
+		unsigned long addr = vma->vm_start;
+
+		/* don't map in the guard page, it should always fault */
+		if (kgsl_memdesc_has_guard_page(&entry->memdesc))
+			sglen--;
+
+		for_each_sg(entry->memdesc.sg, s, sglen, i) {
+			int j;
+			for (j = 0; j < (sg_dma_len(s) >> PAGE_SHIFT); j++) {
+				struct page *page = sg_page(s);
+				page = nth_page(page, j);
+				vm_insert_page(vma, addr, page);
+				addr += PAGE_SIZE;
+			}
+		}
+	}
+
 	vma->vm_file = file;
 
 	entry->memdesc.useraddr = vma->vm_start;
