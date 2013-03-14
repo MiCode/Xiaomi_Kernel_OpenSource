@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #include <linux/list.h>
 #include <linux/time.h>
 #include <linux/dma-mapping.h>
-#include <linux/android_pmem.h>
+
 
 #define DDL_MSG_LOG 0
 #define DEBUG 0
