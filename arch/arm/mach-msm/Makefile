@@ -193,6 +193,7 @@ obj-$(CONFIG_ARCH_MSM8X60) += devices-msm8x60.o clock-local.o clock-8x60.o acpuc
 obj-$(CONFIG_ARCH_MSM8X60) += clock-rpm.o
 obj-$(CONFIG_ARCH_MSM8X60) += saw-regulator.o
 obj-$(CONFIG_ARCH_MSM8X60) += footswitch-8x60.o
+obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 
 ifdef CONFIG_MSM_RPM_REGULATOR
 obj-y += rpm-regulator.o

@@ -29,6 +29,7 @@
 #include <mach/socinfo.h>
 
 #include "smd_private.h"
+#include "boot_stats.h"
 
 #define BUILD_ID_LENGTH 32
 
@@ -1139,6 +1140,7 @@ int __init socinfo_init(void)
 	if (socinfo->v1.id < ARRAY_SIZE(cpu_of_id))
 		cur_cpu = cpu_of_id[socinfo->v1.id];
 
+	boot_stats_init();
 	socinfo_print();
 
 	return 0;
