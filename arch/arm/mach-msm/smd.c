@@ -49,6 +49,7 @@
 
 #include "smd_private.h"
 #include "modem_notifier.h"
+#include "ramdump.h"
 
 #if defined(CONFIG_ARCH_QSD8X50) || defined(CONFIG_ARCH_MSM8X60) \
 	|| defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_FSM9XXX) \
@@ -178,7 +179,10 @@ struct smem_area {
 };
 static uint32_t num_smem_areas;
 static struct smem_area *smem_areas;
+static struct ramdump_segment *smem_ramdump_segments;
+static void *smem_ramdump_dev;
 static void *smem_range_check(phys_addr_t base, unsigned offset);
+static void *smd_dev;
 
 struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
 
@@ -976,10 +980,6 @@ void smd_channel_reset(uint32_t restart_pid)
 	unsigned long flags;
 
 	SMx_POWER_INFO("%s: starting reset\n", __func__);
-
-	/* release any held spinlocks */
-	remote_spin_release(&remote_spinlock, restart_pid);
-	remote_spin_release_all(restart_pid);
 
 	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared) * 64);
 	if (!shared) {
@@ -3720,6 +3720,7 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 	struct device_node *node;
 	int ret;
 	const char *compatible;
+	struct ramdump_segment *ramdump_segments_tmp;
 	int subnode_num = 0;
 	resource_size_t irq_out_size;
 
@@ -3757,13 +3758,33 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 		}
 	}
 
+	/* initialize SSR ramdump regions */
+	key = "smem";
+	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
+	if (!r) {
+		pr_err("%s: missing '%s'\n", __func__, key);
+		return -ENODEV;
+	}
+	ramdump_segments_tmp = kmalloc_array(num_smem_areas + 1,
+			sizeof(struct ramdump_segment), GFP_KERNEL);
+
+	if (!ramdump_segments_tmp) {
+		pr_err("%s: ramdump segment kmalloc failed\n", __func__);
+		ret = -ENOMEM;
+		goto free_smem_areas;
+	}
+	ramdump_segments_tmp[0].address = r->start;
+	ramdump_segments_tmp[0].size = resource_size(r);
+
 	if (num_smem_areas) {
+
 		smem_areas = kmalloc(sizeof(struct smem_area) * num_smem_areas,
 					GFP_KERNEL);
+
 		if (!smem_areas) {
 			pr_err("%s: smem areas kmalloc failed\n", __func__);
-			num_smem_areas = 0;
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto free_smem_areas;
 		}
 		count = 1;
 		while (1) {
@@ -3775,6 +3796,16 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 				break;
 			aux_mem_base = r->start;
 			aux_mem_size = resource_size(r);
+
+			/*
+			 * Add to ram-dumps segments.
+			 * ramdump_segments_tmp[0] is the main SMEM region,
+			 * so auxiliary segments are indexed by count
+			 * instead of count - 1.
+			 */
+			ramdump_segments_tmp[count].address = aux_mem_base;
+			ramdump_segments_tmp[count].size = aux_mem_size;
+
 			SMD_DBG("%s: %s = %pa %pa", __func__, temp_string,
 					&aux_mem_base, &aux_mem_size);
 			smem_areas[count - 1].phys_addr = aux_mem_base;
@@ -3822,6 +3853,7 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 		++subnode_num;
 	}
 
+	smem_ramdump_segments = ramdump_segments_tmp;
 	return 0;
 
 rollback_subnodes:
@@ -3838,6 +3870,7 @@ rollback_subnodes:
 	}
 free_smem_areas:
 	num_smem_areas = 0;
+	kfree(ramdump_segments_tmp);
 	kfree(smem_areas);
 	smem_areas = NULL;
 	return ret;
@@ -3869,6 +3902,7 @@ static int __devinit msm_smd_probe(struct platform_device *pdev)
 								__func__);
 				return ret;
 			}
+			smd_dev = &pdev->dev;
 		} else if (pdev->dev.platform_data) {
 			ret = smd_core_platform_init(pdev);
 			if (ret) {
@@ -3928,6 +3962,26 @@ static int restart_notifier_cb(struct notifier_block *this,
 				__func__, notifier->processor,
 				notifier->name);
 
+		remote_spin_release(&remote_spinlock, notifier->processor);
+		remote_spin_release_all(notifier->processor);
+
+		if (smem_ramdump_dev) {
+			int ret;
+
+			SMD_INFO("%s: saving ramdump\n", __func__);
+			/*
+			 * XPU protection does not currently allow the
+			 * auxiliary memory regions to be dumped.  If this
+			 * changes, then num_smem_areas + 1 should be passed
+			 * into do_elf_ramdump() to dump all regions.
+			 */
+			ret = do_elf_ramdump(smem_ramdump_dev,
+					smem_ramdump_segments, 1);
+			if (ret < 0)
+				pr_err("%s: unable to dump smem %d\n", __func__,
+						ret);
+		}
+
 		smd_channel_reset(notifier->processor);
 	}
 
@@ -3940,12 +3994,20 @@ static __init int modem_restart_late_init(void)
 	void *handle;
 	struct restart_notifier_block *nb;
 
+	smem_ramdump_dev = create_ramdump_device("smem-smd", smd_dev);
+	if (IS_ERR_OR_NULL(smem_ramdump_dev)) {
+		pr_err("%s: Unable to create smem ramdump device.\n",
+			__func__);
+		smem_ramdump_dev = NULL;
+	}
+
 	for (i = 0; i < ARRAY_SIZE(restart_notifiers); i++) {
 		nb = &restart_notifiers[i];
 		handle = subsys_notif_register_notifier(nb->name, &nb->nb);
 		SMD_DBG("%s: registering notif for '%s', handle=%p\n",
 				__func__, nb->name, handle);
 	}
+
 	return 0;
 }
 late_initcall(modem_restart_late_init);
