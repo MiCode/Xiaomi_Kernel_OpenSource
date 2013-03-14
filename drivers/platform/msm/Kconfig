@@ -91,6 +91,16 @@ config QPNP_REVID
 	  in the kernel log along with the PMIC option status. The PMIC
 	  type is mapped to a Qualcomm chip part number and logged as well.
 
+config QPNP_COINCELL
+	tristate "Qualcomm QPNP coincell charger support"
+	depends on SPMI && OF_SPMI
+	help
+	  This driver supports the QPNP coincell peripheral found inside of
+	  Qualcomm QPNP PMIC devices.  The coincell charger provides a means to
+	  charge a coincell battery or backup capacitor which is used to
+	  maintain PMIC register state when the main battery is removed from the
+	  mobile device.
+
 config IPA
 	tristate "IPA support"
 	depends on SPS
