@@ -38,7 +38,11 @@ Required properties:
 Optional properties:
 - qcom,calibration-less-mode : If present the pre-characterized data for offsets
 		are used else it defaults to use calibration data from QFPROM.
-
+- qcom,tsens-local-init : If the flag is present the TSENS control registers are
+		initialized. If the boot configures the control register there is
+		no need to re-initialize them. The control registers are also
+		under a secure domain which can prevent them from being initialized
+		locally.
 Example:
 
 tsens@fc4a8000 {

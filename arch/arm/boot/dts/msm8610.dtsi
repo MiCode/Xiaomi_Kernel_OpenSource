@@ -452,6 +452,7 @@
 		qcom,slope = <2901 2846>;
 		qcom,calib-mode = "fuse_map2";
 		qcom,calibration-less-mode;
+		qcom,tsens-local-init;
 	};
 
 };
