@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -332,6 +332,9 @@ int mdss_debugfs_init(struct mdss_data_type *mdata)
 		mdss_debugfs_cleanup(mdd);
 		return -ENODEV;
 	}
+
+	debugfs_create_u32("min_mdp_clk", 0644, mdd->root,
+		(u32 *)&mdata->min_mdp_clk);
 
 	mdata->debug_data = mdd;
 
