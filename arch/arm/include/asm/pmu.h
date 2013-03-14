@@ -52,6 +52,10 @@ struct arm_pmu_platdata {
 	void (*disable_irq)(int irq);
 };
 
+extern int multicore_request_irq(int irq, irq_handler_t *handle_irq);
+extern void multicore_free_irq(int irq);
+extern struct arm_pmu_platdata multicore_data;
+
 #ifdef CONFIG_CPU_HAS_PMU
 
 /**
@@ -150,9 +154,6 @@ u64 armpmu_event_update(struct perf_event *event,
 int armpmu_event_set_period(struct perf_event *event,
 			    struct hw_perf_event *hwc,
 			    int idx);
-
-extern void enable_irq_callback(void *);
-extern void disable_irq_callback(void *);
 
 #endif /* CONFIG_HW_PERF_EVENTS */
 
