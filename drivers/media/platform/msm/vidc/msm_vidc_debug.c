@@ -18,7 +18,7 @@
 int msm_vidc_debug = 0x3;
 int msm_fw_debug = 0x18;
 int msm_fw_debug_mode = 0x1;
-int msm_fw_low_power_mode = 0x1;
+int msm_fw_low_power_mode = 0x0;
 
 struct debug_buffer {
 	char ptr[MAX_DBG_BUF_SIZE];
