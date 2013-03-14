@@ -164,6 +164,11 @@ static int venus_hfi_write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
 	}
 
 	qinfo =	(struct vidc_iface_q_info *) info;
+	if (!qinfo || !qinfo->q_array.align_virtual_addr) {
+		dprintk(VIDC_WARN, "Queues have already been freed\n");
+		return -EINVAL;
+	}
+
 	venus_hfi_sim_modify_cmd_packet(packet);
 
 	queue = (struct hfi_queue_header *) qinfo->q_hdr;
@@ -282,6 +287,10 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 	}
 
 	qinfo =	(struct vidc_iface_q_info *) info;
+	if (!qinfo || !qinfo->q_array.align_virtual_addr) {
+		dprintk(VIDC_WARN, "Queues have already been freed\n");
+		return -EINVAL;
+	}
 	queue = (struct hfi_queue_header *) qinfo->q_hdr;
 
 	if (!queue) {
@@ -634,6 +643,8 @@ static void venus_hfi_interface_queues_release(struct venus_hfi_device *device)
 	int num_entries = sizeof(venus_qdss_entries)/(2 * sizeof(u32));
 	int domain, partition;
 
+	mutex_lock(&device->write_lock);
+	mutex_lock(&device->read_lock);
 	if (device->qdss.mem_data) {
 		qdss = (struct hfi_mem_map_table *)
 			device->qdss.align_virtual_addr;
@@ -674,6 +685,8 @@ static void venus_hfi_interface_queues_release(struct venus_hfi_device *device)
 
 	msm_smem_delete_client(device->hal_client);
 	device->hal_client = NULL;
+	mutex_unlock(&device->read_lock);
+	mutex_unlock(&device->write_lock);
 }
 static int venus_hfi_get_qdss_iommu_virtual_addr(struct hfi_mem_map *mem_map,
 						int domain, int partition)
@@ -937,7 +950,6 @@ static int venus_hfi_core_init(void *device)
 	}
 
 	dev->intr_status = 0;
-	enable_irq(dev->hal_data->irq);
 	INIT_LIST_HEAD(&dev->sess_head);
 	mutex_init(&dev->read_lock);
 	mutex_init(&dev->write_lock);
@@ -966,6 +978,7 @@ static int venus_hfi_core_init(void *device)
 		rc = -EEXIST;
 		goto err_core_init;
 	}
+	enable_irq(dev->hal_data->irq);
 	venus_hfi_write_register(dev->hal_data->register_base_addr,
 		VIDC_CTRL_INIT, 0x1, 0);
 	rc = venus_hfi_core_start_cpu(dev);
