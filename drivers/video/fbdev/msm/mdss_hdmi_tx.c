@@ -2189,6 +2189,7 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_INFO("%s: Failed to disable hpd power. Error=%d\n",
 			__func__, rc);
 
+	hdmi_ctrl->hpd_state = false;
 	hdmi_ctrl->hpd_initialized = false;
 } /* hdmi_tx_hpd_off */
 
