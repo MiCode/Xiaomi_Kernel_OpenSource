@@ -10,6 +10,8 @@ config FB_MSM
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
+	select SYNC
+	select SW_SYNC
 	---help---
 	  Support for MSM Framebuffer.
 
