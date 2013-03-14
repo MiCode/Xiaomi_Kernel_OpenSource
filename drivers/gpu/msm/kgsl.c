@@ -1871,10 +1871,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	else if (entry->memdesc.size >= SZ_64K)
 		kgsl_memdesc_set_align(&entry->memdesc, ilog2(SZ_64));
 
-	result = kgsl_mmu_map(private->pagetable,
-			      &entry->memdesc,
-			      GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
-
+	result = kgsl_mmu_map(private->pagetable, &entry->memdesc);
 	if (result)
 		goto error_put_file_ptr;
 
@@ -2065,8 +2062,7 @@ kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	if (result)
 		return result;
 
-	result = kgsl_mmu_map(private->pagetable, &entry->memdesc,
-				kgsl_memdesc_protflags(&entry->memdesc));
+	result = kgsl_mmu_map(private->pagetable, &entry->memdesc);
 	if (result)
 		goto err;
 
@@ -2104,8 +2100,7 @@ kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 		goto err;
 
 	if (!kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
-		result = kgsl_mmu_map(private->pagetable, &entry->memdesc,
-				kgsl_memdesc_protflags(&entry->memdesc));
+		result = kgsl_mmu_map(private->pagetable, &entry->memdesc);
 		if (result)
 			goto err;
 	}
@@ -2719,8 +2714,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	if (kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
 		entry->memdesc.gpuaddr = vma->vm_start;
 
-		ret = kgsl_mmu_map(private->pagetable, &entry->memdesc,
-				   kgsl_memdesc_protflags(&entry->memdesc));
+		ret = kgsl_mmu_map(private->pagetable, &entry->memdesc);
 		if (ret) {
 			kgsl_mem_entry_put(entry);
 			return ret;
