@@ -27,12 +27,13 @@ Parent node required properties:
 - qcom,chg-vddsafe-mv:			Maximum Vdd voltage in mV.
 - qcom,chg-vinmin-mv:			Minimum input voltage in mV.
 - qcom,chg-ibatmax-ma:			Maximum battery charge current in mA
-- qcom,chg-ibatterm-ma:			Current at which charging is terminated.
 - qcom,chg-ibatsafe-ma:			Safety battery current setting
 - qcom,chg-thermal-mitigation:		Array of ibatmax values for different
 					system thermal mitigation level.
 
 Parent node optional properties:
+- qcom,chg-ibatterm-ma:			Current at which charging is terminated when
+					the analog end of charge option is selected.
 - qcom,chg-maxinput-usb-ma:		Maximum input current USB.
 - qcom,chg-maxinput-dc-ma:		Maximum input current DC.
 - qcom,chg-vbatdet-delta-mv:		Battery charging resume delta.
