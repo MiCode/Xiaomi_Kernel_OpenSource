@@ -897,18 +897,16 @@ static int rmnet_data_start(void)
 		return -EINVAL;
 	}
 
-	retval = usb_register(&rmnet_usb);
-	if (retval) {
-		err("usb_register failed: %d", retval);
-		return retval;
-	}
-
 	/* initialize ctrl devices */
 	retval = rmnet_usb_ctrl_init(no_rmnet_devs, no_rmnet_insts_per_dev);
 	if (retval) {
-		rmnet_usb_ctrl_exit(no_rmnet_devs, no_rmnet_insts_per_dev);
-		usb_deregister(&rmnet_usb);
 		err("rmnet_usb_cmux_init failed: %d", retval);
+		return retval;
+	}
+
+	retval = usb_register(&rmnet_usb);
+	if (retval) {
+		err("usb_register failed: %d", retval);
 		return retval;
 	}
 
