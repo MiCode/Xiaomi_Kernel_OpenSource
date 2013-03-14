@@ -818,7 +818,7 @@ static struct attribute_group clk_scaling_attr_grp = {
 static ssize_t
 show_perf(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct mmc_host *host = dev_get_drvdata(dev);
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int64_t rtime_drv, wtime_drv;
 	unsigned long rbytes_drv, wbytes_drv;
 
@@ -844,8 +844,8 @@ static ssize_t
 set_perf(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int64_t value;
-	struct mmc_host *host = dev_get_drvdata(dev);
 
 	sscanf(buf, "%lld", &value);
 	spin_lock(&host->lock);
@@ -914,7 +914,7 @@ int mmc_add_host(struct mmc_host *host)
 	mmc_latency_hist_sysfs_init(host);
 #endif
 
-	err = sysfs_create_group(&host->parent->kobj, &dev_attr_grp);
+	err = sysfs_create_group(&host->class_dev.kobj, &dev_attr_grp);
 	if (err)
 		pr_err("%s: failed to create sysfs group with err %d\n",
 							 __func__, err);
