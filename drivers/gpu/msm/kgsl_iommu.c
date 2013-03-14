@@ -118,6 +118,7 @@ struct _mem_entry {
 	unsigned int gpuaddr;
 	unsigned int size;
 	unsigned int flags;
+	unsigned int priv;
 	pid_t pid;
 };
 
@@ -147,6 +148,7 @@ static void _prev_entry(struct kgsl_process_private *priv,
 			ret->gpuaddr = entry->memdesc.gpuaddr;
 			ret->size = entry->memdesc.size;
 			ret->flags = entry->memdesc.flags;
+			ret->priv = entry->memdesc.priv;
 			ret->pid = priv->pid;
 		}
 
@@ -180,6 +182,7 @@ static void _next_entry(struct kgsl_process_private *priv,
 			ret->gpuaddr = entry->memdesc.gpuaddr;
 			ret->size = entry->memdesc.size;
 			ret->flags = entry->memdesc.flags;
+			ret->priv = entry->memdesc.priv;
 			ret->pid = priv->pid;
 		}
 
@@ -224,9 +227,10 @@ static void _print_entry(struct kgsl_device *device, struct _mem_entry *entry)
 	kgsl_get_memory_usage(name, sizeof(name) - 1, entry->flags);
 
 	KGSL_LOG_DUMP(device,
-		"[%8.8X - %8.8X] (pid = %d) (%s)\n",
+		"[%8.8X - %8.8X] %s (pid = %d) (%s)\n",
 		entry->gpuaddr,
 		entry->gpuaddr + entry->size,
+		entry->priv & KGSL_MEMDESC_GUARD_PAGE ? "(+guard)" : "",
 		entry->pid, name);
 }
 
@@ -1500,19 +1504,36 @@ kgsl_iommu_map(void *mmu_specific_pt,
 
 	BUG_ON(NULL == iommu_pt);
 
+	/* if there's a guard page, we'll map it read only below */
+	if ((protflags & IOMMU_WRITE) && kgsl_memdesc_has_guard_page(memdesc))
+			size -= PAGE_SIZE;
 
 	iommu_virt_addr = memdesc->gpuaddr;
 
 	ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr, memdesc->sg,
 				size, protflags);
 	if (ret) {
-		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %d, %d) "
-				"failed with err: %d\n", iommu_pt->domain,
-				iommu_virt_addr, memdesc->sg, size,
-				protflags, ret);
+		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %d, %x) err: %d\n",
+			iommu_pt->domain, iommu_virt_addr, memdesc->sg, size,
+			protflags, ret);
 		return ret;
 	}
+	if ((protflags & IOMMU_WRITE) && kgsl_memdesc_has_guard_page(memdesc)) {
+		struct scatterlist *sg = &memdesc->sg[memdesc->sglen - 1];
 
+		ret = iommu_map(iommu_pt->domain, iommu_virt_addr + size,
+				kgsl_get_sg_pa(sg), PAGE_SIZE,
+				protflags & ~IOMMU_WRITE);
+		if (ret) {
+			KGSL_CORE_ERR("iommu_map(%p, %x, %x, %x) err: %d\n",
+				iommu_pt->domain, iommu_virt_addr + size,
+				kgsl_get_sg_pa(sg), protflags & ~IOMMU_WRITE,
+				ret);
+			/* cleanup the partial mapping */
+			iommu_unmap_range(iommu_pt->domain, iommu_virt_addr,
+					  size);
+		}
+	}
 	return ret;
 }
 
