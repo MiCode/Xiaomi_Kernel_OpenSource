@@ -1919,22 +1919,26 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	ipa_ctx->aggregation_byte_limit = 1;
 	ipa_ctx->aggregation_time_limit = 0;
 
-	/* Initialize IPA RM (resource manager) */
-	result = ipa_rm_initialize();
-	if (result) {
-		IPAERR(":cdev_add err=%d\n", -result);
-		result = -ENODEV;
-		goto fail_ipa_rm_init;
+	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_PCIE) {
+		/* Initialize IPA RM (resource manager) */
+		result = ipa_rm_initialize();
+		if (result) {
+			IPAERR(":cdev_add err=%d\n", -result);
+			result = -ENODEV;
+			goto fail_ipa_rm_init;
+		}
 	}
 
-	a2_mux_init();
+	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL) {
+		a2_mux_init();
 
-	/* Initialize the tethering bridge driver */
-	result = teth_bridge_driver_init();
-	if (result) {
-		IPAERR(":teth_bridge_driver_init() failed\n");
-		result = -ENODEV;
-		goto fail_cdev_add;
+		/* Initialize the tethering bridge driver */
+		result = teth_bridge_driver_init();
+		if (result) {
+			IPAERR(":teth_bridge_driver_init() failed\n");
+			result = -ENODEV;
+			goto fail_cdev_add;
+		}
 	}
 
 	/* gate IPA clocks */
