@@ -51,5 +51,6 @@ struct msm_stream *msm_get_stream(unsigned int session_id,
 	unsigned int stream_id);
 struct vb2_queue *msm_get_stream_vb2q(unsigned int session_id,
 	unsigned int stream_id);
+struct msm_stream *msm_get_stream_from_vb2q(struct vb2_queue *q);
 
 #endif /*_MSM_H */

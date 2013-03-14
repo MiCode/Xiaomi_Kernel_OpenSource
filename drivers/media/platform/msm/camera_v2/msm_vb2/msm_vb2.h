@@ -42,6 +42,7 @@ struct msm_vb2_buffer {
 	struct vb2_buffer vb2_buf;
 	struct list_head list;
 	int in_freeq;
+	struct msm_stream *stream;
 };
 
 struct msm_vb2_private_data {
@@ -60,6 +61,7 @@ struct msm_stream {
 	/* vb2 buffer handling */
 	struct vb2_queue *vb2_q;
 	spinlock_t stream_lock;
+	struct list_head queued_list;
 };
 
 struct vb2_ops *msm_vb2_get_q_ops(void);
