@@ -118,8 +118,8 @@ static bool rm_enabled(struct ecm_ipa_dev *dev);
 
 static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *dev,
 		const void *dst_mac, const void *src_mac);
-static int ecm_ipa_register_tx(struct ecm_ipa_dev *dev);
-static void ecm_ipa_deregister_tx(struct ecm_ipa_dev *dev);
+static int ecm_ipa_register_properties(void);
+static void ecm_ipa_deregister_properties(void);
 static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev);
 static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *dev);
 static int ecm_ipa_debugfs_tx_open(struct inode *inode, struct file *file);
@@ -262,13 +262,13 @@ static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *dev,
 	strlcpy(ipv4_hdr->name, ECM_IPA_IPV4_HDR_NAME, IPA_RESOURCE_NAME_MAX);
 	memcpy(eth_ipv4->h_dest, dst_mac, ETH_ALEN);
 	memcpy(eth_ipv4->h_source, src_mac, ETH_ALEN);
-	eth_ipv4->h_proto = ETH_P_IP;
+	eth_ipv4->h_proto = htons(ETH_P_IP);
 	ipv4_hdr->hdr_len = ETH_HLEN;
 	ipv4_hdr->is_partial = 0;
 	strlcpy(ipv6_hdr->name, ECM_IPA_IPV6_HDR_NAME, IPA_RESOURCE_NAME_MAX);
 	memcpy(eth_ipv6->h_dest, dst_mac, ETH_ALEN);
 	memcpy(eth_ipv6->h_source, src_mac, ETH_ALEN);
-	eth_ipv6->h_proto = ETH_P_IPV6;
+	eth_ipv6->h_proto = htons(ETH_P_IPV6);
 	ipv6_hdr->hdr_len = ETH_HLEN;
 	ipv6_hdr->is_partial = 0;
 	hdrs->commit = 1;
@@ -320,14 +320,29 @@ static void ecm_ipa_rules_destroy(struct ecm_ipa_dev *dev)
 		ECM_IPA_ERROR("ipa_del_hdr failed");
 }
 
-static int ecm_ipa_register_tx(struct ecm_ipa_dev *dev)
+/* ecm_ipa_register_properties() - set Tx/Rx properties for ipacm
+ *
+ * Register ecm0 interface with 2 Tx properties and 2 Rx properties:
+ * The 2 Tx properties are for data flowing from IPA to USB, they
+ * have Header-Insertion properties both for Ipv4 and Ipv6 Ethernet framing.
+ * The 2 Rx properties are for data flowing from USB to IPA, they have
+ * simple rule which always "hit".
+ *
+ */
+static int ecm_ipa_register_properties(void)
 {
 	struct ipa_tx_intf tx_properties = {0};
 	struct ipa_ioc_tx_intf_prop properties[2] = { {0}, {0} };
 	struct ipa_ioc_tx_intf_prop *ipv4_property;
 	struct ipa_ioc_tx_intf_prop *ipv6_property;
+	struct ipa_ioc_rx_intf_prop rx_ioc_properties[2] = { {0}, {0} };
+	struct ipa_rx_intf rx_properties = {0};
+	struct ipa_ioc_rx_intf_prop *rx_ipv4_property;
+	struct ipa_ioc_rx_intf_prop *rx_ipv6_property;
 	int result = 0;
+
 	ECM_IPA_LOG_ENTRY();
+
 	tx_properties.prop = properties;
 	ipv4_property = &tx_properties.prop[0];
 	ipv4_property->ip = IPA_IP_v4;
@@ -340,18 +355,32 @@ static int ecm_ipa_register_tx(struct ecm_ipa_dev *dev)
 	strlcpy(ipv6_property->hdr_name, ECM_IPA_IPV6_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	tx_properties.num_props = 2;
-	result = ipa_register_intf("ecm0", &tx_properties, NULL);
+
+	rx_properties.prop = rx_ioc_properties;
+	rx_ipv4_property = &rx_properties.prop[0];
+	rx_ipv4_property->ip = IPA_IP_v4;
+	rx_ipv4_property->attrib.attrib_mask = 0;
+	rx_ipv4_property->src_pipe = IPA_CLIENT_USB_PROD;
+	rx_ipv6_property = &rx_properties.prop[1];
+	rx_ipv6_property->ip = IPA_IP_v6;
+	rx_ipv6_property->attrib.attrib_mask = 0;
+	rx_ipv6_property->src_pipe = IPA_CLIENT_USB_PROD;
+	rx_properties.num_props = 2;
+
+	result = ipa_register_intf("ecm0", &tx_properties, &rx_properties);
 	if (result)
-		ECM_IPA_ERROR("fail on Tx_prop registration\n");
+		ECM_IPA_ERROR("fail on Tx/Rx properties registration\n");
+
 	ECM_IPA_LOG_EXIT();
+
 	return result;
 }
 
-static void ecm_ipa_deregister_tx(struct ecm_ipa_dev *dev)
+static void ecm_ipa_deregister_properties(void)
 {
 	int result;
 	ECM_IPA_LOG_ENTRY();
-	result = ipa_deregister_intf(dev->net->name);
+	result = ipa_deregister_intf("ecm0");
 	if (result)
 		ECM_IPA_DEBUG("Fail on Tx prop deregister\n");
 	ECM_IPA_LOG_EXIT();
@@ -407,12 +436,12 @@ int ecm_ipa_configure(u8 host_ethaddr[], u8 device_ethaddr[],
 		goto fail_set_device_ethernet;
 	}
 	ECM_IPA_DEBUG("Ethernet header insertion was set\n");
-	result = ecm_ipa_register_tx(dev);
+	result = ecm_ipa_register_properties();
 	if (result) {
 		ECM_IPA_ERROR("fail on properties set\n");
 		goto fail_register_tx;
 	}
-	ECM_IPA_DEBUG("ECM Tx properties were registered\n");
+	ECM_IPA_DEBUG("ECM 2 Tx and 2 Rx properties were registered\n");
 	result = register_netdev(net);
 	if (result) {
 		ECM_IPA_ERROR("register_netdev failed: %d\n", result);
@@ -422,7 +451,7 @@ int ecm_ipa_configure(u8 host_ethaddr[], u8 device_ethaddr[],
 	ECM_IPA_LOG_EXIT();
 	return 0;
 fail_register_netdev:
-	ecm_ipa_deregister_tx(dev);
+	ecm_ipa_deregister_properties();
 fail_register_tx:
 fail_set_device_ethernet:
 	ecm_ipa_rules_destroy(dev);
