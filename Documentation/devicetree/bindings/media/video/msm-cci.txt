@@ -39,8 +39,7 @@ MSM sensor node contains properties of camera sensor
 Required properties:
 - compatible : should be "qcom" followed by sensor name
     - "qcom,s5k3l1yx"
-- reg : should contain i2c slave address of the camera sensor and
-    length of data field which is 0x0
+- reg : should contain i2c slave address of the device
 - qcom,slave-id : should contain i2c slave address, device id address
     and expected id read value
 - qcom,csiphy-sd-index : should contain csiphy instance that will used to
@@ -176,14 +175,14 @@ Example:
 
         actuator0: qcom,actuator@18 {
                 cell-index = <0>;
-                reg = <0x18 0x0>;
+                reg = <0x18>;
                 compatible = "qcom,actuator";
                 qcom,cci-master = <0>;
         };
 
        qcom,s5k3l1yx@6e {
                compatible = "qcom,s5k3l1yx";
-               reg = <0x6e 0x0>;
+               reg = <0x6e>;
                qcom,slave-id = <0x6e 0x0 0x3121>;
                qcom,csiphy-sd-index = <2>;
                qcom,csid-sd-index = <0>;

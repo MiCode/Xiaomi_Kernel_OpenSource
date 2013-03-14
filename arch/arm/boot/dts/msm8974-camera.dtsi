@@ -179,8 +179,7 @@
 		compatible = "qcom,cci";
 		reg = <0xfda0C000 0x1000>;
                 #address-cells = <1>;
-                #size-cells = <1>;
-                ranges;
+		#size-cells = <0>;
 		reg-names = "cci";
 		interrupts = <0 50 0>;
 		interrupt-names = "cci";
