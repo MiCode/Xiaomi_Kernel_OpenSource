@@ -25,7 +25,6 @@
 
 #include "audio_acdb.h"
 
-
 struct afe_ctl {
 	void *apr;
 	atomic_t state;
@@ -44,6 +43,7 @@ struct afe_ctl {
 	atomic_t mem_map_cal_handles[MAX_AUDPROC_TYPES];
 	atomic_t mem_map_cal_index;
 	u16 dtmf_gen_rx_portid;
+	struct afe_spkr_prot_calib_get_resp calib_data;
 };
 
 static struct afe_ctl this_afe;
@@ -56,6 +56,10 @@ static struct afe_ctl this_afe;
 
 static int32_t afe_callback(struct apr_client_data *data, void *priv)
 {
+	if (!data) {
+		pr_err("%s: Invalid param data\n", __func__);
+		return -EINVAL;
+	}
 	if (data->opcode == RESET_EVENTS) {
 		pr_debug("q6afe: reset event = %d %d apr[%p]\n",
 			data->reset_event, data->reset_proc, this_afe.apr);
@@ -69,11 +73,30 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			this_afe.task->comm, this_afe.task->pid);
 		return 0;
 	}
-	pr_debug("%s:opcode = 0x%x cmd = 0x%x status = 0x%x\n",
-				__func__, data->opcode,
-				((uint32_t *)(data->payload))[0],
-				((uint32_t *)(data->payload))[1]);
-	if (data->payload_size) {
+	pr_debug("%s:opcode = 0x%x cmd = 0x%x status = 0x%x size = %d\n",
+			__func__, data->opcode,
+			((uint32_t *)(data->payload))[0],
+			((uint32_t *)(data->payload))[1],
+			 data->payload_size);
+	if (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V2) {
+		u8 *payload = data->payload;
+		if ((data->payload_size < sizeof(this_afe.calib_data))
+			|| !payload || (data->token >= AFE_MAX_PORTS)) {
+			pr_err("%s size %d payload %p token %d\n",
+			__func__, data->payload_size, payload, data->token);
+			return -EINVAL;
+		}
+		memcpy(&this_afe.calib_data, payload,
+			   sizeof(this_afe.calib_data));
+		if (!this_afe.calib_data.status) {
+			atomic_set(&this_afe.state, 0);
+			pr_err("%s rest %d state %x\n" , __func__
+			, this_afe.calib_data.res_cfg.r0_cali_q24,
+			this_afe.calib_data.res_cfg.th_vi_ca_state);
+		} else
+			atomic_set(&this_afe.state, -1);
+		wake_up(&this_afe.wait[data->token]);
+	} else if (data->payload_size) {
 		uint32_t *payload;
 		uint16_t port_id = 0;
 		payload = data->payload;
@@ -346,14 +369,138 @@ done:
 	return;
 }
 
+static int afe_spk_prot_prepare(int port, int param_id,
+		union afe_spkr_prot_config *prot_config)
+{
+	int ret = -EINVAL;
+	int index = 0;
+	struct afe_spkr_prot_config_command config;
+
+	if (!prot_config) {
+		pr_err("%s Invalid params\n", __func__);
+		goto fail_cmd;
+	}
+	if ((q6audio_validate_port(port) < 0)) {
+		pr_err("%s invalid port %d", __func__, port);
+		goto fail_cmd;
+	}
+	memset(&config, 0 , sizeof(config));
+	index = q6audio_get_port_index(port);
+	switch (param_id) {
+	case AFE_PARAM_ID_FBSP_MODE_RX_CFG:
+		config.pdata.module_id = AFE_MODULE_FB_SPKR_PROT_RX;
+		break;
+	case AFE_PARAM_ID_FEEDBACK_PATH_CFG:
+	case AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG:
+	case AFE_PARAM_ID_MODE_VI_PROC_CFG:
+		config.pdata.module_id = AFE_MODULE_FB_SPKR_PROT_VI_PROC;
+		break;
+	default:
+		goto fail_cmd;
+		break;
+	}
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	config.param.port_id = q6audio_get_port_id(port);
+	config.param.payload_size = sizeof(config) - sizeof(config.hdr)
+		- sizeof(config.param);
+	config.pdata.param_id = param_id;
+	config.pdata.param_size = sizeof(config.prot_config);
+	config.prot_config = *prot_config;
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: Setting param for port %d param[0x%x]failed\n",
+		 __func__, port, param_id);
+		goto fail_cmd;
+	}
+	ret = wait_event_timeout(this_afe.wait[index],
+		(atomic_read(&this_afe.state) == 0),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	ret = 0;
+fail_cmd:
+	pr_err("%s config.pdata.param_id %x status %d\n",
+	__func__, config.pdata.param_id, ret);
+	return ret;
+}
+
+static void afe_send_cal_spkr_prot_tx(int port_id)
+{
+	struct acdb_spk_prot_cfg prot_cfg;
+	union afe_spkr_prot_config afe_spk_config;
+
+	/*Get spkr protection cfg data*/
+	get_spk_protection_cfg(&prot_cfg);
+
+	if (!prot_cfg.mode || prot_cfg.mode == 1) {
+		afe_spk_config.mode_rx_cfg.minor_version = 1;
+		afe_spk_config.mode_rx_cfg.mode =
+		(uint32_t)prot_cfg.mode;
+		if (afe_spk_prot_prepare(port_id,
+			AFE_PARAM_ID_MODE_VI_PROC_CFG,
+			&afe_spk_config))
+			pr_err("%s TX VI_PROC_CFG failed\n", __func__);
+		afe_spk_config.vi_proc_cfg.minor_version = 1;
+		afe_spk_config.vi_proc_cfg.r0_cali_q24 =
+		(uint32_t) prot_cfg.r0;
+		afe_spk_config.vi_proc_cfg.t0_cali_q6 =
+		(uint32_t) prot_cfg.t0;
+		if (afe_spk_prot_prepare(port_id,
+			AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG,
+			&afe_spk_config))
+			pr_err("%s SPKR_CALIB_VI_PROC_CFG failed\n",
+				__func__);
+	}
+}
+
+static void afe_send_cal_spkr_prot_rx(int port_id)
+{
+	struct acdb_spk_prot_cfg prot_cfg;
+	union afe_spkr_prot_config afe_spk_config;
+
+	/*Get spkr protection cfg data*/
+	get_spk_protection_cfg(&prot_cfg);
+
+	if (!prot_cfg.mode || prot_cfg.mode == 1) {
+		afe_spk_config.mode_rx_cfg.mode =
+		(uint32_t)prot_cfg.mode;
+		afe_spk_config.mode_rx_cfg.minor_version = 1;
+		if (afe_spk_prot_prepare(port_id,
+			AFE_PARAM_ID_FBSP_MODE_RX_CFG,
+			&afe_spk_config))
+			pr_err("%s RX MODE_VI_PROC_CFG failed\n",
+				   __func__);
+	}
+}
+
 void afe_send_cal(u16 port_id)
 {
 	pr_debug("%s\n", __func__);
 
-	if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_TX)
+	if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_TX) {
+		afe_send_cal_spkr_prot_tx(port_id);
 		afe_send_cal_block(TX_CAL, port_id);
-	else if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_RX)
+	} else if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_RX) {
+		afe_send_cal_spkr_prot_rx(port_id);
 		afe_send_cal_block(RX_CAL, port_id);
+	}
 }
 
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
@@ -2296,6 +2443,107 @@ int q6afe_check_osr_clk_freq(u32 freq)
 	default:
 		ret = -EINVAL;
 	}
+	return ret;
+}
+
+int afe_spk_prot_get_calib_data(struct afe_spkr_prot_get_vi_calib *calib_resp)
+{
+	int ret = -EINVAL;
+	int index = 0, port = SLIMBUS_4_TX;
+
+	if (!calib_resp) {
+		pr_err("%s Invalid params\n", __func__);
+		goto fail_cmd;
+	}
+	if ((q6audio_validate_port(port) < 0)) {
+		pr_err("%s invalid port %d\n", __func__, port);
+		goto fail_cmd;
+	}
+	index = q6audio_get_port_index(port);
+	calib_resp->get_param.hdr.hdr_field =
+	APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+	APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	calib_resp->get_param.hdr.pkt_size = sizeof(*calib_resp);
+	calib_resp->get_param.hdr.src_port = 0;
+	calib_resp->get_param.hdr.dest_port = 0;
+	calib_resp->get_param.hdr.token = index;
+	calib_resp->get_param.hdr.opcode =  AFE_PORT_CMD_GET_PARAM_V2;
+	calib_resp->get_param.mem_map_handle = 0;
+	calib_resp->get_param.module_id = AFE_MODULE_FB_SPKR_PROT_VI_PROC;
+	calib_resp->get_param.param_id = AFE_PARAM_ID_CALIB_RES_CFG;
+	calib_resp->get_param.payload_address_lsw = 0;
+	calib_resp->get_param.payload_address_msw = 0;
+	calib_resp->get_param.payload_size = sizeof(*calib_resp)
+		- sizeof(calib_resp->get_param);
+	calib_resp->get_param.port_id = q6audio_get_port_id(port);
+	calib_resp->pdata.module_id = AFE_MODULE_FB_SPKR_PROT_VI_PROC;
+	calib_resp->pdata.param_id = AFE_PARAM_ID_CALIB_RES_CFG;
+	calib_resp->pdata.param_size = sizeof(calib_resp->res_cfg);
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *)calib_resp);
+	if (ret < 0) {
+		pr_err("%s: get param port %d param id[0x%x]failed\n",
+			   __func__, port, calib_resp->get_param.param_id);
+		goto fail_cmd;
+	}
+	ret = wait_event_timeout(this_afe.wait[index],
+		(atomic_read(&this_afe.state) == 0),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	memcpy(&calib_resp->res_cfg , &this_afe.calib_data.res_cfg,
+		sizeof(this_afe.calib_data.res_cfg));
+	pr_debug("%s state %d resistance %d\n", __func__,
+			 calib_resp->res_cfg.th_vi_ca_state,
+			 calib_resp->res_cfg.r0_cali_q24);
+	ret = 0;
+fail_cmd:
+	return ret;
+}
+
+int afe_spk_prot_feed_back_cfg(int src_port, int dst_port,
+	int l_ch, int r_ch)
+{
+	int ret = -EINVAL;
+	union afe_spkr_prot_config prot_config;
+	int index = 0;
+
+	if ((q6audio_validate_port(src_port) < 0) ||
+		(q6audio_validate_port(dst_port) < 0)) {
+		pr_err("%s invalid ports src %d dst %d",
+			__func__, src_port, dst_port);
+		goto fail_cmd;
+	}
+	if (!l_ch && !r_ch) {
+		pr_err("%s error ch values zero\n", __func__);
+		goto fail_cmd;
+	}
+	pr_debug("%s src_port %x  dst_port %x l_ch %d r_ch %d\n",
+		 __func__, src_port, dst_port, l_ch, r_ch);
+	memset(&prot_config, 0, sizeof(prot_config));
+	prot_config.feedback_path_cfg.dst_portid =
+		q6audio_get_port_id(dst_port);
+	if (l_ch) {
+		prot_config.feedback_path_cfg.chan_info[index++] = 1;
+		prot_config.feedback_path_cfg.chan_info[index++] = 2;
+	}
+	if (r_ch) {
+		prot_config.feedback_path_cfg.chan_info[index++] = 3;
+		prot_config.feedback_path_cfg.chan_info[index++] = 4;
+	}
+	prot_config.feedback_path_cfg.num_channels = index;
+	prot_config.feedback_path_cfg.minor_version = 1;
+	ret = afe_spk_prot_prepare(src_port,
+			AFE_PARAM_ID_FEEDBACK_PATH_CFG, &prot_config);
+fail_cmd:
 	return ret;
 }
 
