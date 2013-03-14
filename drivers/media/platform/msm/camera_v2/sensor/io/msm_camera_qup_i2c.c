@@ -69,7 +69,7 @@ static int32_t msm_camera_qup_i2c_txdata(
 }
 
 int32_t msm_camera_qup_i2c_read(struct msm_camera_i2c_client *client,
-	uint16_t addr, uint16_t *data,
+	uint32_t addr, uint16_t *data,
 	enum msm_camera_i2c_data_type data_type)
 {
 	int32_t rc = -EFAULT;
@@ -103,7 +103,7 @@ int32_t msm_camera_qup_i2c_read(struct msm_camera_i2c_client *client,
 }
 
 int32_t msm_camera_qup_i2c_read_seq(struct msm_camera_i2c_client *client,
-	uint16_t addr, uint8_t *data, uint16_t num_byte)
+	uint32_t addr, uint8_t *data, uint16_t num_byte)
 {
 	int32_t rc = -EFAULT;
 	unsigned char buf[client->addr_type+num_byte];
@@ -136,7 +136,7 @@ int32_t msm_camera_qup_i2c_read_seq(struct msm_camera_i2c_client *client,
 }
 
 int32_t msm_camera_qup_i2c_write(struct msm_camera_i2c_client *client,
-	uint16_t addr, uint16_t data,
+	uint32_t addr, uint16_t data,
 	enum msm_camera_i2c_data_type data_type)
 {
 	int32_t rc = -EFAULT;
@@ -184,7 +184,7 @@ int32_t msm_camera_qup_i2c_write(struct msm_camera_i2c_client *client,
 }
 
 int32_t msm_camera_qup_i2c_write_seq(struct msm_camera_i2c_client *client,
-	uint16_t addr, uint8_t *data, uint16_t num_byte)
+	uint32_t addr, uint8_t *data, uint16_t num_byte)
 {
 	int32_t rc = -EFAULT;
 	unsigned char buf[client->addr_type+num_byte];
