@@ -53,6 +53,17 @@
 		};
 	};
 
+	mdss_dsi0: qcom,mdss_dsi@fd922800 {
+		compatible = "qcom,mdss-dsi-ctrl";
+		label = "MDSS DSI CTRL->0";
+		cell-index = <0>;
+		reg = <0xfd922800 0x600>;
+		vdd-supply = <&pm8226_l15>;
+		vdd_io-supply = <&pm8226_l8>;
+		vreg-supply = <&pm8226_l4>;
+		qcom,mdss-fb-map = <&mdss_fb0>;
+	};
+
 	qcom,mdss_wb_panel {
 		compatible = "qcom,mdss_wb";
 		qcom,mdss_pan_res = <1280 720>;
