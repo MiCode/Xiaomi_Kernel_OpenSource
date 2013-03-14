@@ -176,13 +176,12 @@ ep_found:
 	_ep->comp_desc = comp_desc;
 	if (g->speed == USB_SPEED_SUPER) {
 		switch (usb_endpoint_type(_ep->desc)) {
-		case USB_ENDPOINT_XFER_BULK:
-		case USB_ENDPOINT_XFER_INT:
-			_ep->maxburst = comp_desc->bMaxBurst + 1;
-			break;
 		case USB_ENDPOINT_XFER_ISOC:
 			/* mult: bits 1:0 of bmAttributes */
 			_ep->mult = comp_desc->bmAttributes & 0x3;
+		case USB_ENDPOINT_XFER_BULK:
+		case USB_ENDPOINT_XFER_INT:
+			_ep->maxburst = comp_desc->bMaxBurst + 1;
 			break;
 		default:
 			if (comp_desc->bMaxBurst != 0)
@@ -693,7 +692,6 @@ static int set_config(struct usb_composite_dev *cdev,
 			CONFIG_USB_GADGET_VBUS_DRAW;
 done:
 	usb_gadget_vbus_draw(gadget, power);
-
 	if (result >= 0 && cdev->delayed_status)
 		result = USB_GADGET_DELAYED_STATUS;
 	return result;
