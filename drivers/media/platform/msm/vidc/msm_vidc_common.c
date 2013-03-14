@@ -174,8 +174,8 @@ const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
 	}
 	return &fmt[i];
 }
-const struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
-	const struct msm_vidc_format fmt[], int size, int fourcc, int fmt_type)
+struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
+	struct msm_vidc_format fmt[], int size, int fourcc, int fmt_type)
 {
 	int i;
 	if (!fmt) {
