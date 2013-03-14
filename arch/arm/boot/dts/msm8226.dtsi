@@ -637,10 +637,16 @@
 		qcom,memory-reservation-type = "EBI1";
 		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
 	};
+
 	qcom,msm-rng@f9bff000 {
                 compatible = "qcom,msm-rng";
                 reg = <0xf9bff000 0x200>;
                 qcom,msm-rng-iface-clk;
+	};
+
+	qcom,tz-log@fc5b82c {
+		compatible = "qcom,tz-log";
+		reg = <0x0fc5b82c 0x1000>;
 	};
 };
 
