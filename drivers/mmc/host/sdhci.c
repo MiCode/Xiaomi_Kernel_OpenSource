@@ -2665,13 +2665,20 @@ EXPORT_SYMBOL_GPL(sdhci_enable_irq_wakeups);
 
 static int sdhci_runtime_pm_get(struct sdhci_host *host)
 {
-	return pm_runtime_get_sync(host->mmc->parent);
+	if (!mmc_use_core_runtime_pm(host->mmc))
+		return pm_runtime_get_sync(host->mmc->parent);
+	else
+		return 0;
 }
 
 static int sdhci_runtime_pm_put(struct sdhci_host *host)
 {
-	pm_runtime_mark_last_busy(host->mmc->parent);
-	return pm_runtime_put_autosuspend(host->mmc->parent);
+	if (!mmc_use_core_runtime_pm(host->mmc)) {
+		pm_runtime_mark_last_busy(host->mmc->parent);
+		return pm_runtime_put_autosuspend(host->mmc->parent);
+	} else {
+		return 0;
+	}
 }
 
 int sdhci_runtime_suspend_host(struct sdhci_host *host)

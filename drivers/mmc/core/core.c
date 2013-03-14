@@ -409,9 +409,12 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 		return;
 	}
 
+	mmc_rpm_hold(card->host, &card->dev);
 	/* In case of delayed bkops we might be in race with suspend. */
-	if (!mmc_try_claim_host(card->host))
+	if (!mmc_try_claim_host(card->host)) {
+		mmc_rpm_release(card->host, &card->dev);
 		return;
+	}
 
 	/*
 	 * Since the cancel_delayed_work can be changed while we are waiting
@@ -486,6 +489,7 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 
 out:
 	mmc_release_host(card->host);
+	mmc_rpm_release(card->host, &card->dev);
 }
 EXPORT_SYMBOL(mmc_start_bkops);
 
@@ -515,6 +519,7 @@ void mmc_bkops_completion_polling(struct work_struct *work)
 	 * the host from getting into suspend
 	 */
 	do {
+		mmc_rpm_hold(card->host, &card->dev);
 		mmc_claim_host(card->host);
 
 		if (!mmc_card_doing_bkops(card))
@@ -541,6 +546,7 @@ void mmc_bkops_completion_polling(struct work_struct *work)
 		}
 
 		mmc_release_host(card->host);
+		mmc_rpm_release(card->host, &card->dev);
 
 		/*
 		 * Sleep before checking the card status again to allow the
@@ -559,6 +565,7 @@ void mmc_bkops_completion_polling(struct work_struct *work)
 	return;
 out:
 	mmc_release_host(card->host);
+	mmc_rpm_release(card->host, &card->dev);
 }
 
 /**
@@ -2786,8 +2793,9 @@ static void mmc_clk_scale_work(struct work_struct *work)
 	if (!host->card || !host->bus_ops ||
 			!host->bus_ops->change_bus_speed ||
 			!host->clk_scaling.enable || !host->ios.clock)
-		goto out;
+		return;
 
+	mmc_rpm_hold(host, &host->card->dev);
 	if (!mmc_try_claim_host(host)) {
 		/* retry after a timer tick */
 		queue_delayed_work(system_nrt_wq, &host->clk_scaling.work, 1);
@@ -2797,6 +2805,7 @@ static void mmc_clk_scale_work(struct work_struct *work)
 	mmc_clk_scaling(host, true);
 	mmc_release_host(host);
 out:
+	mmc_rpm_release(host, &host->card->dev);
 	return;
 }
 
@@ -3139,11 +3148,12 @@ void mmc_rescan(struct work_struct *work)
 	if (host->ops->get_cd && host->ops->get_cd(host) == 0)
 		goto out;
 
+	mmc_rpm_hold(host, &host->class_dev);
 	mmc_claim_host(host);
 	if (!mmc_rescan_try_freq(host, host->f_min))
 		extend_wakelock = true;
 	mmc_release_host(host);
-
+	mmc_rpm_release(host, &host->class_dev);
  out:
 	if (extend_wakelock)
 		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
@@ -3366,9 +3376,6 @@ int mmc_suspend_host(struct mmc_host *host)
 	if (mmc_bus_needs_resume(host))
 		return 0;
 
-	cancel_delayed_work(&host->detect);
-	mmc_flush_scheduled_work();
-
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
 		/*
@@ -3578,6 +3585,37 @@ void mmc_set_embedded_sdio_data(struct mmc_host *host,
 
 EXPORT_SYMBOL(mmc_set_embedded_sdio_data);
 #endif
+
+void mmc_rpm_hold(struct mmc_host *host, struct device *dev)
+{
+	int ret = 0;
+
+	if (!mmc_use_core_runtime_pm(host))
+		return;
+
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		pr_err("%s: %s: %s: error resuming device: %d\n",
+		       dev_name(dev), mmc_hostname(host), __func__, ret);
+		if (pm_runtime_suspended(dev))
+			BUG_ON(1);
+	}
+}
+EXPORT_SYMBOL(mmc_rpm_hold);
+
+void mmc_rpm_release(struct mmc_host *host, struct device *dev)
+{
+	int ret = 0;
+
+	if (!mmc_use_core_runtime_pm(host))
+		return;
+
+	ret = pm_runtime_put_sync(dev);
+	if (ret < 0 && ret != -EBUSY)
+		pr_err("%s: %s: %s: put sync ret: %d\n",
+		       dev_name(dev), mmc_hostname(host), __func__, ret);
+}
+EXPORT_SYMBOL(mmc_rpm_release);
 
 /**
  * mmc_init_context_info() - init synchronization context

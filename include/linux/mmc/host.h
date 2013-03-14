@@ -281,6 +281,8 @@ struct mmc_host {
 #define MMC_CAP2_INIT_BKOPS	    (1 << 16)	/* Need to set BKOPS_EN */
 #define MMC_CAP2_CLK_SCALE	(1 << 17)	/* Allow dynamic clk scaling */
 #define MMC_CAP2_STOP_REQUEST	(1 << 18)	/* Allow stop ongoing request */
+/* Use runtime PM framework provided by MMC core */
+#define MMC_CAP2_CORE_RUNTIME_PM (1 << 19)
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 	int			clk_requests;	/* internal reference counter */
@@ -537,4 +539,10 @@ static inline unsigned int mmc_host_clk_rate(struct mmc_host *host)
 	return host->ios.clock;
 }
 #endif
+
+static inline int mmc_use_core_runtime_pm(struct mmc_host *host)
+{
+	return host->caps2 & MMC_CAP2_CORE_RUNTIME_PM;
+}
+
 #endif /* LINUX_MMC_HOST_H */

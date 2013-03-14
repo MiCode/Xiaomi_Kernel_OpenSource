@@ -21,6 +21,7 @@
 #include <linux/leds.h>
 #include <linux/slab.h>
 #include <linux/suspend.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
@@ -37,9 +38,73 @@ static void mmc_host_classdev_release(struct device *dev)
 	kfree(host);
 }
 
+static int mmc_host_runtime_suspend(struct device *dev)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	int ret = 0;
+
+	ret = mmc_suspend_host(host);
+	if (ret < 0)
+		pr_err("%s: %s: suspend host failed: %d\n", mmc_hostname(host),
+		       __func__, ret);
+
+	return ret;
+}
+
+static int mmc_host_runtime_resume(struct device *dev)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	int ret = 0;
+
+	ret = mmc_resume_host(host);
+	if (ret < 0) {
+		pr_err("%s: %s: resume host: failed: ret: %d\n",
+		       mmc_hostname(host), __func__, ret);
+		if (pm_runtime_suspended(dev))
+			BUG_ON(1);
+	}
+
+	return ret;
+}
+
+static int mmc_host_suspend(struct device *dev)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	int ret = 0;
+
+	if (!pm_runtime_suspended(dev)) {
+		ret = mmc_suspend_host(host);
+		if (ret < 0)
+			pr_err("%s: %s: failed: ret: %d\n", mmc_hostname(host),
+			       __func__, ret);
+	}
+	return ret;
+}
+
+static int mmc_host_resume(struct device *dev)
+{
+	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	int ret = 0;
+
+	if (!pm_runtime_suspended(dev)) {
+		ret = mmc_resume_host(host);
+		if (ret < 0)
+			pr_err("%s: %s: failed: ret: %d\n", mmc_hostname(host),
+			       __func__, ret);
+	}
+	return ret;
+}
+
+static const struct dev_pm_ops mmc_host_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mmc_host_suspend, mmc_host_resume)
+	SET_RUNTIME_PM_OPS(mmc_host_runtime_suspend, mmc_host_runtime_resume,
+			   pm_generic_runtime_idle)
+};
+
 static struct class mmc_host_class = {
 	.name		= "mmc_host",
 	.dev_release	= mmc_host_classdev_release,
+	.pm		= &mmc_host_pm_ops,
 };
 
 int mmc_register_host_class(void)
@@ -601,6 +666,14 @@ int mmc_add_host(struct mmc_host *host)
 	WARN_ON((host->caps & MMC_CAP_SDIO_IRQ) &&
 		!host->ops->enable_sdio_irq);
 
+	if (mmc_use_core_runtime_pm(host)) {
+		err = pm_runtime_set_active(&host->class_dev);
+		if (err)
+			pr_err("%s: %s: failed setting runtime active: err: %d\n",
+			       mmc_hostname(host), __func__, err);
+		else
+			pm_runtime_enable(&host->class_dev);
+	}
 	err = device_add(&host->class_dev);
 	if (err)
 		return err;
