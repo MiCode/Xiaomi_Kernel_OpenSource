@@ -34,6 +34,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/mmc/cd-gpio.h>
 #include <mach/gpio.h>
 #include <mach/msm_bus.h>
 
@@ -202,6 +203,7 @@ struct sdhci_msm_pltfm_data {
 	bool nonremovable;
 	struct sdhci_msm_pin_data *pin_data;
 	u32 cpu_dma_latency_us;
+	int status_gpio; /* card detection GPIO that is configured as IRQ */
 	struct sdhci_msm_bus_voting_data *voting_data;
 };
 
@@ -1077,6 +1079,8 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 		dev_err(dev, "failed to allocate memory for platform data\n");
 		goto out;
 	}
+
+	pdata->status_gpio = of_get_named_gpio_flags(np, "cd-gpios", 0, 0);
 
 	of_property_read_u32(np, "qcom,bus-width", &bus_width);
 	if (bus_width == 8)
@@ -2055,10 +2059,20 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		INIT_DELAYED_WORK(&msm_host->msm_bus_vote.vote_work,
 				  sdhci_msm_bus_work);
 
+	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
+		ret = mmc_cd_gpio_request(msm_host->mmc,
+				msm_host->pdata->status_gpio);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: Failed to request card detection IRQ %d\n",
+					__func__, ret);
+			goto bus_unregister;
+		}
+	}
+
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(&pdev->dev, "Add host failed (%d)\n", ret);
-		goto bus_unregister;
+		goto free_cd_gpio;
 	}
 
 	 /* Set core clk rate, optionally override from dts */
@@ -2093,6 +2107,9 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 remove_host:
 	dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
 	sdhci_remove_host(host, dead);
+free_cd_gpio:
+	if (gpio_is_valid(msm_host->pdata->status_gpio))
+		mmc_cd_gpio_free(msm_host->mmc);
 bus_unregister:
 	sdhci_msm_bus_unregister(msm_host);
 vreg_deinit:
@@ -2127,6 +2144,10 @@ static int __devexit sdhci_msm_remove(struct platform_device *pdev)
 	sdhci_remove_host(host, dead);
 	pm_runtime_disable(&pdev->dev);
 	sdhci_pltfm_free(pdev);
+
+	if (gpio_is_valid(msm_host->pdata->status_gpio))
+		mmc_cd_gpio_free(msm_host->mmc);
+
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 
 	if (pdata->pin_data)
@@ -2168,7 +2189,12 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 static int sdhci_msm_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int ret = 0;
+
+	if (gpio_is_valid(msm_host->pdata->status_gpio))
+		mmc_cd_gpio_free(msm_host->mmc);
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -2184,7 +2210,17 @@ out:
 static int sdhci_msm_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int ret = 0;
+
+	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
+		ret = mmc_cd_gpio_request(msm_host->mmc,
+				msm_host->pdata->status_gpio);
+		if (ret)
+			pr_err("%s: %s: Failed to request card detection IRQ %d\n",
+					mmc_hostname(host->mmc), __func__, ret);
+	}
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
