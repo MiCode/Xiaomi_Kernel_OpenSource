@@ -163,7 +163,7 @@ struct ion_cp_heap_pdata {
 	enum ion_fixed_position fixed_position;
 	int iommu_map_all;
 	int iommu_2x_map_domain;
-	ion_virt_addr_t *virt_addr;
+	void *virt_addr;
 	int (*request_region)(void *);
 	int (*release_region)(void *);
 	void *(*setup_region)(void);
