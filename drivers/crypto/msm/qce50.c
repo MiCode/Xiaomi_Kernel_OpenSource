@@ -1289,7 +1289,7 @@ static void _aead_sps_producer_callback(struct sps_event_notify *notify)
 					CRYPTO_RESULT_DUMP_SIZE,
 					  &pce_dev->ce_sps.out_transfer);
 		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
-				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_INT);
+				SPS_IOVEC_FLAG_INT);
 		rc = sps_transfer(pce_dev->ce_sps.producer.pipe,
 					  &pce_dev->ce_sps.out_transfer);
 		if (rc) {
@@ -1364,7 +1364,7 @@ static void _ablk_cipher_sps_producer_callback(struct sps_event_notify *notify)
 					CRYPTO_RESULT_DUMP_SIZE,
 					  &pce_dev->ce_sps.out_transfer);
 		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
-				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_INT);
+				SPS_IOVEC_FLAG_INT);
 		rc = sps_transfer(pce_dev->ce_sps.producer.pipe,
 					  &pce_dev->ce_sps.out_transfer);
 		if (rc) {
