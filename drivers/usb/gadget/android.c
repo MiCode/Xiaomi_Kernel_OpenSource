@@ -77,8 +77,8 @@
 #include "f_rndis.c"
 #include "rndis.c"
 #include "f_qc_ecm.c"
-#include "u_bam_data.c"
 #include "f_mbim.c"
+#include "u_bam_data.c"
 #include "f_ecm.c"
 #include "f_qc_rndis.c"
 #include "u_ether.c"
@@ -865,10 +865,18 @@ static void mbim_function_cleanup(struct android_usb_function *f)
 	fmbim_cleanup();
 }
 
+
+/* mbim transport string */
+static char mbim_transports[MAX_XPORT_STR_LEN];
+
 static int mbim_function_bind_config(struct android_usb_function *f,
 					  struct usb_configuration *c)
 {
-	return mbim_bind_config(c, 0);
+	char *trans;
+
+	pr_debug("%s: mbim transport is %s", __func__, mbim_transports);
+	trans = strim(mbim_transports);
+	return mbim_bind_config(c, 0, trans);
 }
 
 static int mbim_function_ctrlrequest(struct android_usb_function *f,
@@ -878,12 +886,34 @@ static int mbim_function_ctrlrequest(struct android_usb_function *f,
 	return mbim_ctrlrequest(cdev, c);
 }
 
+static ssize_t mbim_transports_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", mbim_transports);
+}
+
+static ssize_t mbim_transports_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	strlcpy(mbim_transports, buf, sizeof(mbim_transports));
+	return size;
+}
+
+static DEVICE_ATTR(mbim_transports, S_IRUGO | S_IWUSR, mbim_transports_show,
+				   mbim_transports_store);
+
+static struct device_attribute *mbim_function_attributes[] = {
+	&dev_attr_mbim_transports,
+	NULL
+};
+
 static struct android_usb_function mbim_function = {
 	.name		= "usb_mbim",
 	.cleanup	= mbim_function_cleanup,
 	.bind_config	= mbim_function_bind_config,
 	.init		= mbim_function_init,
 	.ctrlrequest	= mbim_function_ctrlrequest,
+	.attributes		= mbim_function_attributes,
 };
 
 #ifdef CONFIG_SND_PCM

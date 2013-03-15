@@ -183,6 +183,8 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	int ret;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		if (d->func_type == USB_FUNC_MBIM)
+			teth_bridge_disconnect();
 		if (d->func_type == USB_FUNC_ECM)
 			ecm_ipa_disconnect(d->ipa_params.priv);
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
@@ -195,13 +197,28 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 {
 	struct bam_data_port *port = container_of(w, struct bam_data_port,
 						  connect_w);
+	struct teth_bridge_connect_params connect_params;
 	struct bam_data_ch_info *d = &port->data_ch;
+	ipa_notify_cb usb_notify_cb;
+	void *priv;
 	u32 sps_params;
 	int ret;
 
 	pr_debug("%s: Connect workqueue started", __func__);
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		if (d->func_type == USB_FUNC_MBIM) {
+			ret = teth_bridge_init(&usb_notify_cb, &priv);
+			if (ret) {
+				pr_err("%s:teth_bridge_init() failed\n",
+				      __func__);
+				return;
+			}
+			d->ipa_params.notify = usb_notify_cb;
+			d->ipa_params.priv = priv;
+			d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
+		}
+
 		d->ipa_params.client = IPA_CLIENT_USB_CONS;
 		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
 		if (d->func_type == USB_FUNC_ECM) {
@@ -227,6 +244,23 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				__func__, ret);
 			return;
 		}
+
+		if (d->func_type == USB_FUNC_MBIM) {
+			connect_params.ipa_usb_pipe_hdl =
+				d->ipa_params.prod_clnt_hdl;
+			connect_params.usb_ipa_pipe_hdl =
+				d->ipa_params.cons_clnt_hdl;
+			connect_params.tethering_mode =
+				TETH_TETHERING_MODE_MBIM;
+			ret = teth_bridge_connect(&connect_params);
+			if (ret) {
+				pr_err("%s:teth_bridge_connect() failed\n",
+				      __func__);
+				return;
+			}
+			mbim_configure_params();
+		}
+
 		if (d->func_type == USB_FUNC_ECM) {
 			ret = ecm_ipa_connect(d->ipa_params.cons_clnt_hdl,
 				d->ipa_params.prod_clnt_hdl,
@@ -417,6 +451,7 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 	d->dst_connection_idx = dst_connection_idx;
 
 	d->trans = trans;
+	d->func_type = func;
 
 	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		d->ipa_params.src_pipe = &(d->src_pipe_idx);
@@ -424,8 +459,6 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 		d->ipa_params.src_idx = src_connection_idx;
 		d->ipa_params.dst_idx = dst_connection_idx;
 	}
-
-	d->func_type = func;
 
 	queue_work(bam_data_wq, &port->connect_w);
 
