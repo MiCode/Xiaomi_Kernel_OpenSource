@@ -1,0 +1,83 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/include/ "skeleton.dtsi"
+
+/ {
+	model = "Qualcomm MSM ZINC";
+	compatible = "qcom,msmzinc";
+	interrupt-parent = <&intc>;
+
+	intc: interrupt-controller@f9000000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0xF9000000 0x1000>,
+		      <0xF9002000 0x1000>;
+	};
+
+	msmgpio: gpio@fd510000 {
+		compatible = "qcom,msm-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		reg = <0xfd510000 0x4000>;
+		ngpio = <146>;
+		interrupts = <0 208 0>;
+		qcom,direct-connect-irqs = <8>;
+	};
+
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 2 0 1 3 0>;
+		clock-frequency = <19200000>;
+	};
+
+	serial@f991f000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf991f000 0x1000>;
+		interrupts = <0 109 0>;
+		status = "disabled";
+	};
+
+	qcom,cache_erp {
+		compatible = "qcom,cache_erp";
+		interrupts = <1 9 0>, <0 2 0>;
+		interrupt-names = "l1_irq", "l2_irq";
+	};
+
+	qcom,cache_dump {
+		compatible = "qcom,cache_dump";
+		qcom,l1-dump-size = <0x100000>;
+		qcom,l2-dump-size = <0x500000>;
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x600000>; /* 6M EBI1 buffer */
+	};
+
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		rpm-standalone;
+	};
+
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ion-heap@30 { /* SYSTEM HEAP */
+			reg = <30>;
+		};
+	};
+};
