@@ -36,13 +36,13 @@
 
 	memory {
 
-		secure_mem: region@0 {
+		secure_mem: secure_region {
 			linux,contiguous-region;
 			reg = <0 0x7800000>;
 			label = "secure_mem";
 		};
 
-		adsp_mem: region@0 {
+		adsp_mem: adsp_region {
 			linux,contiguous-region;
 			reg = <0 0x2000000>;
 			label = "adsp_mem";
