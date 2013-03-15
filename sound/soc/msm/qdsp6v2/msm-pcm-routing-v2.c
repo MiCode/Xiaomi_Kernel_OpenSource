@@ -44,7 +44,7 @@ struct msm_pcm_routing_bdai_data {
 	unsigned int  sample_rate;
 	unsigned int  channel;
 	unsigned int  format;
-	bool perf_mode;
+	unsigned long perf_mode;
 };
 
 #define INVALID_SESSION -1
@@ -270,7 +270,7 @@ static uint8_t is_be_dai_extproc(int be_dai)
 }
 
 static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
-	int path_type)
+	int path_type, bool perf_mode)
 {
 	int i, port_type;
 	struct route_payload payload;
@@ -290,7 +290,7 @@ static void msm_pcm_routing_build_matrix(int fedai_id, int dspst_id,
 
 	if (payload.num_copps)
 		adm_matrix_map(dspst_id, path_type,
-			payload.num_copps, payload.copp_ids, 0);
+			payload.num_copps, payload.copp_ids, 0, perf_mode);
 }
 
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
@@ -365,8 +365,8 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 		msm_send_eq_values(fedai_id);
 	topology = get_topology(path_type);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
-		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions))
-			msm_bedais[i].perf_mode = perf_mode;
+		if (test_bit(fedai_id, &msm_bedais[i].fe_sessions) && perf_mode)
+			set_bit(fedai_id, &msm_bedais[i].perf_mode);
 		if (!is_be_dai_extproc(i) &&
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
@@ -385,7 +385,8 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 				path_type,
 				msm_bedais[i].sample_rate,
 				msm_bedais[i].channel,
-				topology, msm_bedais[i].perf_mode,
+				topology,
+				test_bit(fedai_id, &msm_bedais[i].perf_mode),
 				bits_per_sample);
 			else
 				adm_open(msm_bedais[i].port_id,
@@ -408,7 +409,7 @@ void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode,
 	}
 	if (payload.num_copps)
 		adm_matrix_map(dspst_id, path_type,
-			payload.num_copps, payload.copp_ids, 0);
+			payload.num_copps, payload.copp_ids, 0, perf_mode);
 
 	mutex_unlock(&routing_lock);
 }
@@ -440,7 +441,8 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 		   (afe_get_port_type(msm_bedais[i].port_id) == port_type) &&
 		   (msm_bedais[i].active) &&
 		   (test_bit(fedai_id, &msm_bedais[i].fe_sessions))) {
-			adm_close(msm_bedais[i].port_id);
+			adm_close(msm_bedais[i].port_id,
+				test_bit(fedai_id, &msm_bedais[i].perf_mode));
 			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
 				dolby_dap_deinit(msm_bedais[i].port_id);
 		}
@@ -473,6 +475,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	int session_type, path_type, port_id, topology;
 	u32 channels;
 	uint16_t bits_per_sample = 16;
+	bool perf_mode = false;
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 
@@ -507,12 +510,14 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 
 			if ((session_type == SESSION_TYPE_RX) &&
 				(channels > 0)) {
+				perf_mode = test_bit(val,
+						&msm_bedais[reg].perf_mode);
 				adm_multi_ch_copp_open(msm_bedais[reg].port_id,
 				path_type,
 				msm_bedais[reg].sample_rate,
 				channels,
 				topology,
-				msm_bedais[reg].perf_mode,
+				perf_mode,
 				bits_per_sample);
 			} else
 				adm_open(msm_bedais[reg].port_id,
@@ -521,7 +526,8 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				topology, false, bits_per_sample);
 
 			msm_pcm_routing_build_matrix(val,
-				fe_dai_map[val][session_type], path_type);
+				fe_dai_map[val][session_type], path_type,
+				perf_mode);
 			port_id = srs_port_id = msm_bedais[reg].port_id;
 			srs_send_params(srs_port_id, 1, 0);
 			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
@@ -536,11 +542,13 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		clear_bit(val, &msm_bedais[reg].fe_sessions);
 		if (msm_bedais[reg].active && fe_dai_map[val][session_type] !=
 			INVALID_SESSION) {
-			adm_close(msm_bedais[reg].port_id);
+			perf_mode = test_bit(val, &msm_bedais[reg].perf_mode);
+			adm_close(msm_bedais[reg].port_id, perf_mode);
 			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
 				dolby_dap_deinit(msm_bedais[reg].port_id);
 			msm_pcm_routing_build_matrix(val,
-				fe_dai_map[val][session_type], path_type);
+				fe_dai_map[val][session_type], path_type,
+				perf_mode);
 		}
 	}
 	if ((msm_bedais[reg].port_id == VOICE_RECORD_RX)
@@ -3243,8 +3251,10 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	topology = get_topology(path_type);
 	for_each_set_bit(i, &bedai->fe_sessions, MSM_FRONTEND_DAI_MM_SIZE) {
 		if (fe_dai_map[i][session_type] != INVALID_SESSION) {
-			adm_close(bedai->port_id);
+			adm_close(bedai->port_id,
+				test_bit(i, &(bedai->perf_mode)));
 			srs_port_id = -1;
+			clear_bit(i, &(bedai->perf_mode));
 			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
 				dolby_dap_deinit(bedai->port_id);
 		}
@@ -3253,7 +3263,6 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	bedai->active = 0;
 	bedai->sample_rate = 0;
 	bedai->channel = 0;
-	bedai->perf_mode = false;
 	mutex_unlock(&routing_lock);
 
 	return 0;
@@ -3268,6 +3277,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 	u32 channels;
 	bool playback, capture;
 	uint16_t bits_per_sample = 16;
+	bool perf_mode = false;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
 		pr_err("%s: unexpected be_id %d\n", __func__, be_id);
@@ -3306,11 +3316,13 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 				bits_per_sample = 24;
 
 			if ((playback) && (channels > 0)) {
+				perf_mode = test_bit(i, &(bedai->perf_mode));
 				adm_multi_ch_copp_open(bedai->port_id,
 					path_type,
 					bedai->sample_rate,
 					channels,
-					topology, bedai->perf_mode,
+					topology,
+					perf_mode,
 					bits_per_sample);
 			} else if (capture) {
 				adm_open(bedai->port_id,
@@ -3322,7 +3334,8 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			}
 
 			msm_pcm_routing_build_matrix(i,
-				fe_dai_map[i][session_type], path_type);
+				fe_dai_map[i][session_type], path_type,
+				perf_mode);
 			port_id = srs_port_id = bedai->port_id;
 			srs_send_params(srs_port_id, 1, 0);
 			if (DOLBY_ADM_COPP_TOPOLOGY_ID == topology)
