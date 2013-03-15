@@ -999,10 +999,15 @@ void msm_pm_enable_retention(bool enable)
 	 * up as they enter the deepest sleep mode, namely RPM assited power
 	 * collapse
 	 */
-	if (!enable)
+	if (!enable) {
+		preempt_disable();
 		smp_call_function_many(cpu_online_mask,
 				msm_pm_ack_retention_disable,
 				NULL, true);
+		preempt_enable();
+
+
+	}
 }
 EXPORT_SYMBOL(msm_pm_enable_retention);
 
