@@ -24,6 +24,7 @@
 
 #define REG_DUMP 0
 
+#include "mdss_debug.h"
 #include "mdss_fb.h"
 #include "mdss_hdmi_tx.h"
 #include "mdss_hdmi_edid.h"
@@ -3177,6 +3178,11 @@ static int __devinit hdmi_tx_probe(struct platform_device *pdev)
 	} else {
 		DEV_DBG("%s: Add child devices.\n", __func__);
 	}
+
+	if (mdss_debug_register_base("hdmi",
+			hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO].base,
+			hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO].len))
+		DEV_WARN("%s: hdmi_tx debugfs register failed\n", __func__);
 
 	return rc;
 
