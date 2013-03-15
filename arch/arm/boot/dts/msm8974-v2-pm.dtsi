@@ -418,7 +418,7 @@
 	qcom,pm-8x60@fe805664 {
 		compatible = "qcom,pm-8x60";
 		reg = <0xfe805664 0x40>;
-		qcom,pc-mode = <0>; /*MSM_PC_TZ_L2_INT */
+		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
 		qcom,saw-turns-off-pll;
 	};

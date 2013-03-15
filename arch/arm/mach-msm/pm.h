@@ -95,11 +95,11 @@ struct msm_pm_sleep_ops {
 };
 
 enum msm_pm_pc_mode_type {
-	MSM_PM_PC_TZ_L2_INT = 0,   /*Power collapse terminates in TZ;
+	MSM_PM_PC_TZ_L2_INT,   /*Power collapse terminates in TZ;
 					integrated L2 cache controller */
-	MSM_PM_PC_NOTZ_L2_EXT = 1, /* Power collapse doesn't terminate in
+	MSM_PM_PC_NOTZ_L2_EXT, /* Power collapse doesn't terminate in
 					TZ; external L2 cache controller */
-	MSM_PM_PC_TZ_L2_EXT = 2,   /* Power collapse terminates in TZ;
+	MSM_PM_PC_TZ_L2_EXT,   /* Power collapse terminates in TZ;
 					external L2 cache controller */
 };
 
