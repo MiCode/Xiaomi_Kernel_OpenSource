@@ -90,6 +90,7 @@
 
 	sound {
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
+		qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;
 	};
 };
 
@@ -193,6 +194,13 @@
 	};
 
 	gpio@c100 { /* GPIO 2 */
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>;
+		qcom,out-strength = <3>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
 	};
 
 	gpio@c200 { /* GPIO 3 */
