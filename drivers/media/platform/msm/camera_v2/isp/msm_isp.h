@@ -313,6 +313,7 @@ struct msm_vfe_stats_stream {
 	uint32_t framedrop_pattern;
 	uint32_t irq_subsample_pattern;
 
+	uint32_t buffer_offset;
 	struct msm_isp_buffer *buf[2];
 	uint32_t bufq_handle;
 };
