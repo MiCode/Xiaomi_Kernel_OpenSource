@@ -110,6 +110,7 @@ void machine_kexec(struct kimage *image)
 	unsigned long reboot_code_buffer_phys;
 	void *reboot_code_buffer;
 
+	arch_kexec();
 
 	page_list = image->head & PAGE_MASK;
 

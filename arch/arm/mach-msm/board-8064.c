@@ -2388,18 +2388,18 @@ static void __init mpq8064_pcie_init(void)
 	}
 }
 
-static void __init fsm8064_ep_pcie_init(void)
-{
-	msm_device_pcie.dev.platform_data = &ep_pcie_platform_data;
-	platform_device_register(&msm_device_pcie);
-}
-
 static struct platform_device mpq8064_device_ext_3p3v_vreg = {
 	.name			= "reg-fixed-voltage",
 	.dev			= {
 		.platform_data	= &mpq8064_3p3_regulator_pdata,
 	},
 };
+
+static void __init fsm8064_ep_pcie_init(void)
+{
+	msm_device_pcie.dev.platform_data = &ep_pcie_platform_data;
+	platform_device_register(&msm_device_pcie);
+}
 
 static struct platform_device apq8064_device_ext_5v_vreg __devinitdata = {
 	.name	= GPIO_REGULATOR_DEV_NAME,

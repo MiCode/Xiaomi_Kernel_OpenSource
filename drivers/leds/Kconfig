@@ -195,23 +195,6 @@ config LEDS_MSM_TRICOLOR
 	  To compile this driver as a module, choose M here: the
 	  module will be called leds-msm-tricolor.
 
-config LEDS_GPIO_PLATFORM
-	bool "Platform device bindings for GPIO LEDs"
-	depends on LEDS_GPIO
-	default y
-	help
-	  Let the leds-gpio driver drive LEDs which have been defined as
-	  platform devices.  If you don't know what this means, say yes.
-
-config LEDS_GPIO_OF
-	bool "OpenFirmware platform device bindings for GPIO LEDs"
-	depends on LEDS_GPIO && OF_DEVICE
-	default y
-	help
-	  Let the leds-gpio driver drive LEDs which have been defined as
-	  of_platform devices.  For instance, LEDs which are listed in a "dts"
-	  file.
-
 config LEDS_LP3944
 	tristate "LED Support for N.S. LP3944 (Fun Light) I2C chip"
 	depends on LEDS_CLASS

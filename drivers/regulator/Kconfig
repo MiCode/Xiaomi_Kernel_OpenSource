@@ -436,4 +436,6 @@ config REGULATOR_QPNP
 	  comply with QPNP.  QPNP is a SPMI based PMIC implementation.  These
 	  chips provide several different varieties of LDO and switching
 	  regulators.  They also provide voltage switches and boost regulators.
+
 endif
+
