@@ -3432,6 +3432,12 @@ static void __init reg_init(void)
 
 static void __init msm8226_clock_post_init(void)
 {
+	/*
+	 * Hold an active set vote for CXO; this is because CXO is expected
+	 * to remain on whenever CPUs aren't power collapsed.
+	 */
+	clk_prepare_enable(&xo_a_clk.c);
+
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb_hs_system_clk_src.c,
 			usb_hs_system_clk_src.freq_tbl[0].freq_hz);
@@ -3516,12 +3522,6 @@ static void __init msm8226_clock_pre_init(void)
 	 * access mmss clock controller registers.
 	 */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
-
-	/*
-	 * Hold an active set vote for CXO; this is because CXO is expected
-	 * to remain on whenever CPUs aren't power collapsed.
-	 */
-	clk_prepare_enable(&xo_a_clk.c);
 
 	enable_rpm_scaling();
 
