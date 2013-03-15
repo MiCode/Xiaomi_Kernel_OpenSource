@@ -84,7 +84,6 @@ static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
 static struct mutex cdc_mclk_mutex;
-static struct q_clkdiv *codec_clk;
 static int clk_users;
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
@@ -96,24 +95,18 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 
 	mutex_lock(&cdc_mclk_mutex);
 	if (enable) {
-		if (!codec_clk) {
-			dev_err(codec->dev, "%s: did not get Taiko MCLK\n",
-				__func__);
-			ret = -EINVAL;
-			goto exit;
-		}
 
 		clk_users++;
 		if (clk_users != 1)
 			goto exit;
-		/* TODO: qpnp_clkdiv_enable */
+		/* TODO: clk_disable */
 		tapan_mclk_enable(codec, 1, dapm);
 	} else {
 		if (clk_users > 0) {
 			clk_users--;
 			if (clk_users == 0) {
 				tapan_mclk_enable(codec, 0, dapm);
-				/* TODO: qpnp_clkdiv_disable */
+				/* TODO: clk_enable */
 			}
 		} else {
 			pr_err("%s: Error releasing Tabla MCLK\n", __func__);
@@ -268,23 +261,6 @@ static int msm_proxy_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-static int msm8226_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-					struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
-
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	pr_debug("%s channels->min %u channels->max %u ()\n", __func__,
-			channels->min, channels->max);
-
-	rate->min = rate->max = 48000;
-
-	return 0;
-}
-
 static int msm_slim_0_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					    struct snd_pcm_hw_params *params)
 {
@@ -335,9 +311,9 @@ static const struct soc_enum msm_snd_enum[] = {
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
-	SOC_ENUM_EXT("SLIM_0_RX Channels", msm_snd_enum[1],
+	SOC_ENUM_EXT("SLIM_0_RX Channels", msm_snd_enum[0],
 		     msm_slim_0_rx_ch_get, msm_slim_0_rx_ch_put),
-	SOC_ENUM_EXT("SLIM_0_TX Channels", msm_snd_enum[2],
+	SOC_ENUM_EXT("SLIM_0_TX Channels", msm_snd_enum[1],
 		     msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
 };
 
@@ -553,7 +529,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.name = "MSM8226 Media1",
 		.stream_name = "MultiMedia1",
 		.cpu_dai_name	= "MultiMedia1",
-		.platform_name  = "msm-pcm-dsp",
+		.platform_name  = "msm-pcm-dsp.0",
 		.dynamic = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			SND_SOC_DPCM_TRIGGER_POST},
@@ -568,7 +544,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.name = "MSM8226 Media2",
 		.stream_name = "MultiMedia2",
 		.cpu_dai_name   = "MultiMedia2",
-		.platform_name  = "msm-pcm-dsp",
+		.platform_name  = "msm-pcm-dsp.0",
 		.dynamic = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
@@ -747,6 +723,22 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
+	{
+		.name = "VoLTE",
+		.stream_name = "VoLTE",
+		.cpu_dai_name   = "VoLTE",
+		.platform_name  = "msm-pcm-voice",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_VOLTE,
+	},
 	/* Backend BT/FM DAI Links */
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
@@ -760,6 +752,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_INT_BT_SCO_TX,
@@ -771,6 +764,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_TX,
 		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_INT_FM_RX,
@@ -784,6 +778,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_INT_FM_TX,
@@ -795,6 +790,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INT_FM_TX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_suspend = 1,
 	},
 	/* Backend AFE DAI Links */
 	{
@@ -809,6 +805,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.be_hw_params_fixup = msm_proxy_be_hw_params_fixup,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_AFE_PCM_TX,
@@ -820,6 +817,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AFE_PCM_TX,
 		.be_hw_params_fixup = msm_proxy_be_hw_params_fixup,
+		.ignore_suspend = 1,
 	},
 	/* HDMI Hostless */
 	{
@@ -836,19 +834,6 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-	/* HDMI BACK END DAI Link */
-	{
-		.name = LPASS_BE_HDMI,
-		.stream_name = "HDMI Playback",
-		.cpu_dai_name = "msm-dai-q6-hdmi.8",
-		.platform_name = "msm-pcm-routing",
-		.codec_name     = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_HDMI_RX,
-		.be_hw_params_fixup = msm8226_hdmi_be_hw_params_fixup,
-		.ignore_pmdown_time = 1,
-	},
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
@@ -863,6 +848,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
 		.ops = &msm8226_be_ops,
 		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_0_TX,
@@ -875,6 +861,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_1_RX,
@@ -889,6 +876,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.ops = &msm8226_be_ops,
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_1_TX,
@@ -901,6 +889,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_3_RX,
@@ -915,6 +904,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.ops = &msm8226_be_ops,
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_3_TX,
@@ -927,6 +917,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_4_RX,
@@ -941,6 +932,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.ops = &msm8226_be_ops,
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
 	},
 	{
 		.name = LPASS_BE_SLIMBUS_4_TX,
@@ -953,6 +945,7 @@ static struct snd_soc_dai_link msm8226_dai[] = {
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
 		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
 		.ops = &msm8226_be_ops,
+		.ignore_suspend = 1,
 	},
 };
 
