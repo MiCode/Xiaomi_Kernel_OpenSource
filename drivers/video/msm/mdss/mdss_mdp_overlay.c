@@ -539,9 +539,9 @@ int mdss_mdp_copy_splash_screen(struct mdss_panel_data *pdata)
 	virt = ion_map_kernel(iclient, ihdl);
 	ion_phys(iclient, ihdl, &phys, &size);
 
-	pr_debug("%s %d Allocating %u bytes at 0x%lx (%lx phys)\n",
+	pr_debug("%s %d Allocating %u bytes at 0x%lx (%pa phys)\n",
 			__func__, __LINE__, size,
-			(unsigned long int)virt, phys);
+			(unsigned long int)virt, &phys);
 
 	bl_fb_addr_va = (unsigned long *)ioremap(bl_fb_addr, size);
 

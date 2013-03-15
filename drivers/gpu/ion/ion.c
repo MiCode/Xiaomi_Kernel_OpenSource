@@ -914,7 +914,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 		if (type == ION_HEAP_TYPE_SYSTEM_CONTIG ||
 			type == ION_HEAP_TYPE_CARVEOUT ||
 			type == (enum ion_heap_type) ION_HEAP_TYPE_CP)
-			seq_printf(s, " : %12lx", handle->buffer->priv_phys);
+			seq_printf(s, " : %12pa", &handle->buffer->priv_phys);
 		else
 			seq_printf(s, " : %12s", "N/A");
 
@@ -1988,8 +1988,8 @@ void __init ion_reserve(struct ion_platform_data *data)
 		ret = memblock_reserve(data->heaps[i].base,
 				       data->heaps[i].size);
 		if (ret)
-			pr_err("memblock reserve of %x@%lx failed\n",
+			pr_err("memblock reserve of %x@%pa failed\n",
 			       data->heaps[i].size,
-			       data->heaps[i].base);
+			       &data->heaps[i].base);
 	}
 }

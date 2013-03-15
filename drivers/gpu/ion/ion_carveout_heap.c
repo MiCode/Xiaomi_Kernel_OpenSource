@@ -297,8 +297,11 @@ static int ion_carveout_print_debug(struct ion_heap *heap, struct seq_file *s,
 			const char *client_name = "(null)";
 
 			if (last_end < data->addr) {
-				seq_printf(s, "%16.s %14lx %14lx %14lu (%lx)\n",
-					   "FREE", last_end, data->addr-1,
+				phys_addr_t da;
+
+				da = data->addr-1;
+				seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
+					   "FREE", &last_end, &da,
 					   data->addr-last_end,
 					   data->addr-last_end);
 			}
@@ -306,9 +309,9 @@ static int ion_carveout_print_debug(struct ion_heap *heap, struct seq_file *s,
 			if (data->client_name)
 				client_name = data->client_name;
 
-			seq_printf(s, "%16.s %14lx %14lx %14lu (%lx)\n",
-				   client_name, data->addr,
-				   data->addr_end,
+			seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
+				   client_name, &data->addr,
+				   &data->addr_end,
 				   data->size, data->size);
 			last_end = data->addr_end+1;
 		}
