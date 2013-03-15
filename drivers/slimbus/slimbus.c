@@ -2568,11 +2568,12 @@ static void slim_chan_changes(struct slim_device *sb, bool revert)
 					struct slim_pending_ch, pending);
 		struct slim_ich *slc = &ctrl->chans[pch->chan];
 		u32 sl = slc->seglen << slc->rootexp;
-		if (revert) {
+		if (revert || slc->def > 0) {
 			if (slc->coeff == SLIM_COEFF_3)
 				sl *= 3;
 			ctrl->sched.usedslots += sl;
-			slc->def = 1;
+			if (revert)
+				slc->def++;
 			slc->state = SLIM_CH_ACTIVE;
 		} else
 			slim_remove_ch(ctrl, slc);
@@ -2635,7 +2636,11 @@ int slim_reconfigure_now(struct slim_device *sb)
 			/* Disconnect source port to free it up */
 			if (SLIM_HDL_TO_LA(slc->srch) == sb->laddr)
 				slc->srch = 0;
-			if (slc->def != 0) {
+			/*
+			 * If controller overrides BW allocation,
+			 * delete this in remove channel itself
+			 */
+			if (slc->def != 0 && !ctrl->allocbw) {
 				list_del(&pch->pending);
 				kfree(pch);
 			}
