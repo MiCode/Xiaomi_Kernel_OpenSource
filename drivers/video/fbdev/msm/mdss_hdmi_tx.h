@@ -30,8 +30,9 @@ enum hdmi_tx_power_module_type {
 	HDMI_TX_MAX_PM
 };
 
+/* Data filled from device tree */
 struct hdmi_tx_platform_data {
-	/* Data filled from device tree nodes */
+	bool primary;
 	struct dss_io_data io[HDMI_TX_MAX_IO];
 	struct dss_module_power power_data[HDMI_TX_MAX_PM];
 };
