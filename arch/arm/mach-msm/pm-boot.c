@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,42 @@ static uint32_t *msm_pm_reset_vector;
 static uint32_t saved_vector[2];
 static void (*msm_pm_boot_before_pc)(unsigned int cpu, unsigned long entry);
 static void (*msm_pm_boot_after_pc)(unsigned int cpu);
+
+
+static int msm_pm_get_boot_config_mode(struct device_node *dev,
+		const char *key, uint32_t *boot_config_mode)
+{
+	struct pm_lookup_table {
+		uint32_t boot_config_mode;
+		const char *boot_config_name;
+	};
+	const char *boot_config_str;
+	struct pm_lookup_table boot_config_lookup[] = {
+		{MSM_PM_BOOT_CONFIG_TZ, "tz"},
+		{MSM_PM_BOOT_CONFIG_RESET_VECTOR_PHYS, "reset_vector_phys"},
+		{MSM_PM_BOOT_CONFIG_RESET_VECTOR_VIRT, "reset_vector_virt"},
+		{MSM_PM_BOOT_CONFIG_REMAP_BOOT_ADDR, "remap_boot_addr"}
+	};
+	int ret;
+	int i;
+
+	ret = of_property_read_string(dev, key, &boot_config_str);
+	if (!ret) {
+		ret = -EINVAL;
+		for (i = 0; i < ARRAY_SIZE(boot_config_lookup); i++) {
+			if (!strncmp(boot_config_str,
+				boot_config_lookup[i].boot_config_name,
+				strlen(boot_config_lookup[i].boot_config_name))
+			) {
+				*boot_config_mode =
+					boot_config_lookup[i].boot_config_mode;
+				ret = 0;
+				break;
+			}
+		}
+	}
+	return ret;
+}
 
 static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
 {
@@ -235,11 +271,9 @@ static int __devinit msm_pm_boot_probe(struct platform_device *pdev)
 	vaddr_val = 0;
 
 	key = "qcom,mode";
-	ret = of_property_read_u32(pdev->dev.of_node, key, &val);
-	if (ret) {
-		pr_err("Unable to read boot mode Err(%d).\n", ret);
-		return -ENODEV;
-	}
+	ret = msm_pm_get_boot_config_mode(pdev->dev.of_node, key, &val);
+	if (ret)
+		goto fail;
 	pdata.mode = val;
 
 	key = "qcom,phy-addr";
