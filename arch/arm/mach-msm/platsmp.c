@@ -284,7 +284,8 @@ int __cpuinit msm8974_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	if (per_cpu(cold_boot_done, cpu) == false) {
 		if (machine_is_msm8974_sim() || machine_is_mpq8092_sim())
 			release_secondary_sim(0xf9088000, cpu);
-		else if (!machine_is_msm8974_rumi())
+		else if (!machine_is_msm8974_rumi() &&
+			 !machine_is_msmzinc_sim())
 			msm8974_release_secondary(0xf9088000, cpu);
 
 		per_cpu(cold_boot_done, cpu) = true;
