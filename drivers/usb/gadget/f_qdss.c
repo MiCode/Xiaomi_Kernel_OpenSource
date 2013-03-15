@@ -410,7 +410,6 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	clear_eps(f);
 	clear_desc(c->cdev->gadget, f);
-	msm_dwc3_restart_usb_session();
 }
 
 static void qdss_eps_disable(struct usb_function *f)
@@ -467,12 +466,12 @@ static void qdss_disable(struct usb_function *f)
 	qdss->usb_connected = 0;
 	spin_unlock_irqrestore(&qdss->lock, flags);
 
+	/*cancell all active xfers*/
+	qdss_eps_disable(f);
+
 	status = uninit_data(qdss->data);
 	if (status)
 		pr_err("%s: uninit_data error\n", __func__);
-
-	/*cancell all active xfers*/
-	qdss_eps_disable(f);
 
 	schedule_work(&qdss->disconnect_w);
 }

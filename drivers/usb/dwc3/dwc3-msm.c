@@ -535,6 +535,7 @@ static int dwc3_msm_dbm_ep_config(u8 usb_ep, u8 bam_pipe,
 static int dwc3_msm_dbm_ep_unconfig(u8 usb_ep)
 {
 	u8 dbm_ep;
+	u32 data;
 
 	dev_dbg(context->dev, "%s\n", __func__);
 
@@ -548,10 +549,18 @@ static int dwc3_msm_dbm_ep_unconfig(u8 usb_ep)
 
 	context->ep_num_mapping[dbm_ep] = 0;
 
-	dwc3_msm_write_reg(context->base, DBM_EP_CFG(dbm_ep), 0);
+	data = dwc3_msm_read_reg(context->base, DBM_EP_CFG(dbm_ep));
+	data &= (~0x1);
+	dwc3_msm_write_reg(context->base, DBM_EP_CFG(dbm_ep), data);
 
 	/* Reset the dbm endpoint */
 	dwc3_msm_dbm_ep_soft_reset(dbm_ep, true);
+	/*
+	 * 10 usec delay is required before deasserting DBM endpoint reset
+	 * according to hardware programming guide.
+	 */
+	udelay(10);
+	dwc3_msm_dbm_ep_soft_reset(dbm_ep, false);
 
 	return 0;
 }
@@ -888,6 +897,8 @@ int msm_ep_config(struct usb_ep *ep)
 	}
 	(*new_ep_ops) = (*ep->ops);
 	new_ep_ops->queue = dwc3_msm_ep_queue;
+	new_ep_ops->disable = ep->ops->disable;
+
 	ep->ops = new_ep_ops;
 
 	/*
@@ -1328,24 +1339,27 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 	dwc3_msm_write_readback(msm->base, SS_PHY_PARAM_CTRL_1, 0x07, 0x5);
 }
 
-static void dwc3_msm_block_reset(void)
+static void dwc3_msm_block_reset(bool core_reset)
 {
+
 	struct dwc3_msm *mdwc = context;
 	int ret  = 0;
 
-	ret = dwc3_msm_link_clk_reset(1);
-	if (ret)
-		return;
+	if (core_reset) {
+		ret = dwc3_msm_link_clk_reset(1);
+		if (ret)
+			return;
 
-	usleep_range(1000, 1200);
-	ret = dwc3_msm_link_clk_reset(0);
-	if (ret)
-		return;
+		usleep_range(1000, 1200);
+		ret = dwc3_msm_link_clk_reset(0);
+		if (ret)
+			return;
 
-	usleep_range(10000, 12000);
+		usleep_range(10000, 12000);
 
-	/* Reinitialize QSCRATCH registers after block reset */
-	dwc3_msm_qscratch_reg_init(mdwc);
+		/* Reinitialize QSCRATCH registers after block reset */
+		dwc3_msm_qscratch_reg_init(mdwc);
+	}
 
 	/* Reset the DBM */
 	dwc3_msm_dbm_soft_reset(1);
