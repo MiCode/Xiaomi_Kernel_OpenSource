@@ -1141,7 +1141,11 @@ static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
 		pr_err("vadc read failed with rc: %d\n", rc);
 		return rc;
 	}
-	*ibat_ua = (int)i_result.result_ua;
+	/*
+	 * reverse the current read by the iadc, since the bms uses
+	 * flipped battery current polarity.
+	 */
+	*ibat_ua = -1 * (int)i_result.result_ua;
 	*vbat_uv = (int)v_result.physical;
 
 	return 0;
