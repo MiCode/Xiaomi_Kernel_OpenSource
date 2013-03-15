@@ -192,6 +192,7 @@ struct msm_vfe_stats_stream_request_cmd {
 	enum msm_isp_stats_type stats_type;
 	uint32_t framedrop_pattern;
 	uint32_t irq_subsample_pattern;
+	uint32_t buffer_offset;
 	uint32_t stream_handle;
 	uint8_t comp_flag;
 };
