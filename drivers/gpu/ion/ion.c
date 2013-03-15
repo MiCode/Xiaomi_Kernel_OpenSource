@@ -461,6 +461,14 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 
 	dbg_str[0] = '\0';
 
+	/*
+	 * For now, we don't want to fault in pages individually since
+	 * clients are already doing manual cache maintenance. In
+	 * other words, the implicit caching infrastructure is in
+	 * place (in code) but should not be used.
+	 */
+	flags |= ION_FLAG_CACHED_NEEDS_SYNC;
+
 	pr_debug("%s: len %d align %d heap_mask %u flags %x\n", __func__, len,
 		 align, heap_mask, flags);
 	/*
