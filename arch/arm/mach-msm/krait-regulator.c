@@ -28,6 +28,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/krait-regulator.h>
 #include <linux/debugfs.h>
+#include <linux/syscore_ops.h>
 #include <mach/msm_iomap.h>
 
 #include "spm.h"
@@ -292,27 +293,6 @@ static int __krait_power_mdd_enable(struct krait_power_vreg *kvreg, bool on)
 	return 0;
 }
 
-int krait_power_mdd_enable(int cpu_num, bool on)
-{
-	/*
-	 * Expected to be called when the cpu goes to retention mode as a part
-	 * of idle power collapse. IT is guaranteed that cpu won't be put in
-	 * retention while being hotplugged out
-	 */
-	struct krait_power_vreg *kvreg = per_cpu(krait_vregs, cpu_num);
-
-	if (!on && kvreg->mode == LDO_MODE) {
-		pr_debug("%s using LDO - cannot turn off MDD\n", kvreg->name);
-		return -EINVAL;
-	}
-
-	if (on && kvreg->mode == LDO_MODE)
-		return 0;
-
-	__krait_power_mdd_enable(kvreg, on);
-	return 0;
-}
-
 static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 {
 	if (kvreg->mode == HS_MODE)
@@ -342,8 +322,6 @@ static int switch_to_using_hs(struct krait_power_vreg *kvreg)
 	krait_masked_write(kvreg, APC_PWR_GATE_CTL,
 				LDO_PWR_DWN_MASK, LDO_PWR_DWN_MASK);
 
-	/* turn off MDD since LDO is not used */
-	__krait_power_mdd_enable(kvreg, false);
 	kvreg->mode = HS_MODE;
 	pr_debug("%s using BHS\n", kvreg->name);
 	return 0;
@@ -361,9 +339,6 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 	 */
 	if (kvreg->mode == LDO_MODE)
 		switch_to_using_hs(kvreg);
-
-	/* turn on MDD since LDO is being turned on */
-	__krait_power_mdd_enable(kvreg, true);
 
 	set_krait_ldo_uv(kvreg, kvreg->uV - kvreg->ldo_delta_uV);
 
@@ -792,8 +767,7 @@ static int krait_power_enable(struct regulator_dev *rdev)
 	int rc;
 
 	mutex_lock(&pvreg->krait_power_vregs_lock);
-	if (kvreg->mode == LDO_MODE)
-		__krait_power_mdd_enable(kvreg, true);
+	__krait_power_mdd_enable(kvreg, true);
 	kvreg->online = true;
 	rc = _get_optimum_mode(rdev, kvreg->uV, kvreg->uV, kvreg->load_uA);
 	if (rc < 0)
@@ -823,8 +797,7 @@ static int krait_power_disable(struct regulator_dev *rdev)
 		goto dis_err;
 
 	rc = _set_voltage(rdev, kvreg->uV, kvreg->uV);
-	if (kvreg->mode == LDO_MODE)
-		__krait_power_mdd_enable(kvreg, false);
+	__krait_power_mdd_enable(kvreg, false);
 dis_err:
 	mutex_unlock(&pvreg->krait_power_vregs_lock);
 	return rc;
@@ -889,6 +862,8 @@ static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 
 	/* setup the bandgap that configures the reference to the LDO */
 	writel_relaxed(0x00000190, kvreg->mdd_base + MDD_CONFIG_CTL);
+	/* Enable MDD */
+	writel_relaxed(0x00000002, kvreg->mdd_base + MDD_MODE);
 	mb();
 }
 
@@ -1112,6 +1087,26 @@ static struct of_device_id krait_pdn_match_table[] = {
 	{}
 };
 
+static int boot_cpu_mdd_off(void)
+{
+	struct krait_power_vreg *kvreg = per_cpu(krait_vregs, 0);
+
+	__krait_power_mdd_enable(kvreg, false);
+	return 0;
+}
+
+static void boot_cpu_mdd_on(void)
+{
+	struct krait_power_vreg *kvreg = per_cpu(krait_vregs, 0);
+
+	__krait_power_mdd_enable(kvreg, true);
+}
+
+static struct syscore_ops boot_cpu_mdd_ops = {
+	.suspend	= boot_cpu_mdd_off,
+	.resume		= boot_cpu_mdd_on,
+};
+
 static int __devinit krait_pdn_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -1172,6 +1167,7 @@ static int __devinit krait_pdn_probe(struct platform_device *pdev)
 	dent = debugfs_create_dir(KRAIT_REGULATOR_DRIVER_NAME, NULL);
 	debugfs_create_file("retention_uV",
 			0644, dent, the_gang, &retention_fops);
+	register_syscore_ops(&boot_cpu_mdd_ops);
 	return 0;
 }
 
