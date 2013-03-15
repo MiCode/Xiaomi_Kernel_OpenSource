@@ -203,7 +203,6 @@ static struct gpiomux_setting hsic_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
-	.dir = GPIOMUX_OUT_LOW,
 };
 
 static struct gpiomux_setting hsic_act_cfg = {
@@ -219,6 +218,19 @@ static struct gpiomux_setting hsic_hub_act_cfg = {
 	.dir = GPIOMUX_IN,
 };
 
+static struct gpiomux_setting hsic_resume_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct gpiomux_setting hsic_resume_susp_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
 static struct msm_gpiomux_config msm_hsic_configs[] = {
 	{
 		.gpio = 144,               /*HSIC_STROBE */
@@ -232,6 +244,13 @@ static struct msm_gpiomux_config msm_hsic_configs[] = {
 		.settings = {
 			[GPIOMUX_ACTIVE] = &hsic_act_cfg,
 			[GPIOMUX_SUSPENDED] = &hsic_sus_cfg,
+		},
+	},
+	{
+		.gpio = 80,
+		.settings = {
+			[GPIOMUX_ACTIVE] = &hsic_resume_act_cfg,
+			[GPIOMUX_SUSPENDED] = &hsic_resume_susp_cfg,
 		},
 	},
 };
