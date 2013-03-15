@@ -37,6 +37,7 @@
 
 extern unsigned int dci_max_reg;
 extern unsigned int dci_max_clients;
+extern struct mutex dci_health_mutex;
 
 struct dci_pkt_req_tracking_tbl {
 	int pid;
@@ -68,6 +69,13 @@ struct diag_dci_health_stats {
 	int reset_status;
 };
 
+/* This is used for querying DCI Log
+   or Event Mask */
+struct diag_log_event_stats {
+	uint16_t code;
+	int is_set;
+};
+
 enum {
 	DIAG_DCI_NO_ERROR = 1001,	/* No error */
 	DIAG_DCI_NO_REG,		/* Could not register */
@@ -96,10 +104,14 @@ void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
 void clear_client_dci_cumulative_log_mask(int client_index);
 int diag_send_dci_log_mask(smd_channel_t *ch);
 void extract_dci_log(unsigned char *buf);
+int diag_dci_clear_log_mask(void);
+int diag_dci_query_log_mask(uint16_t log_code);
 /* DCI event streaming functions */
 void update_dci_cumulative_event_mask(int offset, uint8_t byte_mask);
 void clear_client_dci_cumulative_event_mask(int client_index);
 int diag_send_dci_event_mask(smd_channel_t *ch);
 void extract_dci_events(unsigned char *buf);
 void create_dci_event_mask_tbl(unsigned char *tbl_buf);
+int diag_dci_clear_event_mask(void);
+int diag_dci_query_event_mask(uint16_t event_id);
 #endif

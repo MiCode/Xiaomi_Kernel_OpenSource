@@ -37,6 +37,7 @@ unsigned char dci_cumulative_log_mask[DCI_LOG_MASK_SIZE];
 unsigned char dci_cumulative_event_mask[DCI_EVENT_MASK_SIZE];
 struct mutex dci_log_mask_mutex;
 struct mutex dci_event_mask_mutex;
+struct mutex dci_health_mutex;
 
 #define DCI_CHK_CAPACITY(entry, new_data_len)				\
 ((entry->data_len + new_data_len > entry->total_capacity) ? 1 : 0)	\
@@ -211,6 +212,7 @@ void extract_dci_events(unsigned char *buf)
 				entry = &(driver->dci_client_tbl[i]);
 				event_mask_ptr = entry->dci_event_mask +
 								 byte_index;
+				mutex_lock(&dci_health_mutex);
 				if (*event_mask_ptr & byte_mask) {
 					/* copy to client buffer */
 					if (DCI_CHK_CAPACITY(entry,
@@ -218,7 +220,9 @@ void extract_dci_events(unsigned char *buf)
 						pr_err("diag: DCI event drop\n");
 						driver->dci_client_tbl[i].
 							dropped_events++;
-						return;
+						mutex_unlock(
+							&dci_health_mutex);
+						break;
 					}
 					driver->dci_client_tbl[i].
 							received_events++;
@@ -230,6 +234,7 @@ void extract_dci_events(unsigned char *buf)
 						, total_event_len);
 					entry->data_len += 4 + total_event_len;
 				}
+				mutex_unlock(&dci_health_mutex);
 			}
 		}
 		temp_len += 2 + timestamp_len + payload_len_field + payload_len;
@@ -264,6 +269,7 @@ void extract_dci_log(unsigned char *buf)
 			if (!log_mask_ptr)
 				return;
 			log_mask_ptr = log_mask_ptr + byte_offset;
+			mutex_lock(&dci_health_mutex);
 			if (*log_mask_ptr & byte_mask) {
 				pr_debug("\t log code %x needed by client %d",
 					 log_code, entry->client->tgid);
@@ -273,6 +279,8 @@ void extract_dci_log(unsigned char *buf)
 						pr_err("diag: DCI log drop\n");
 						driver->dci_client_tbl[i].
 								dropped_logs++;
+						mutex_unlock(
+							&dci_health_mutex);
 						return;
 				}
 				driver->dci_client_tbl[i].received_logs++;
@@ -282,6 +290,7 @@ void extract_dci_log(unsigned char *buf)
 					    buf + 4, *(uint16_t *)(buf + 2));
 				entry->data_len += 4 + *(uint16_t *)(buf + 2);
 			}
+			mutex_unlock(&dci_health_mutex);
 		}
 	}
 }
@@ -1028,6 +1037,8 @@ int diag_dci_init(void)
 	mutex_init(&driver->dci_mutex);
 	mutex_init(&dci_log_mask_mutex);
 	mutex_init(&dci_event_mask_mutex);
+	mutex_init(&dci_health_mutex);
+
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 		success = diag_smd_constructor(&driver->smd_dci[i],
 					i, SMD_DCI_TYPE);
@@ -1082,5 +1093,118 @@ void diag_dci_exit(void)
 	kfree(driver->req_tracking_tbl);
 	kfree(driver->dci_client_tbl);
 	kfree(driver->apps_dci_buf);
+	mutex_destroy(&driver->dci_mutex);
+	mutex_destroy(&dci_log_mask_mutex);
+	mutex_destroy(&dci_event_mask_mutex);
+	mutex_destroy(&dci_health_mutex);
 	destroy_workqueue(driver->diag_dci_wq);
 }
+
+int diag_dci_clear_log_mask()
+{
+	int i, j, k, err = DIAG_DCI_NO_ERROR;
+	uint8_t *log_mask_ptr, *update_ptr;
+
+	i = diag_dci_find_client_index(current->tgid);
+	if (i == DCI_CLIENT_INDEX_INVALID)
+		return DIAG_DCI_TABLE_ERR;
+
+	mutex_lock(&dci_log_mask_mutex);
+	create_dci_log_mask_tbl(
+			driver->dci_client_tbl[i].dci_log_mask);
+	memset(dci_cumulative_log_mask,
+				0x0, DCI_LOG_MASK_SIZE);
+	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		update_ptr = dci_cumulative_log_mask;
+		if (driver->dci_client_tbl[i].client) {
+			log_mask_ptr =
+				driver->dci_client_tbl[i].dci_log_mask;
+			for (j = 0; j < 16; j++) {
+				*update_ptr = j;
+				*(update_ptr + 1) = 1;
+				update_ptr += 2;
+				log_mask_ptr += 2;
+				for (k = 0; k < 513; k++) {
+					*update_ptr |= *log_mask_ptr;
+					update_ptr++;
+					log_mask_ptr++;
+				}
+			}
+		}
+	}
+	mutex_unlock(&dci_log_mask_mutex);
+	err = diag_send_dci_log_mask(driver->smd_cntl[MODEM_DATA].ch);
+	return err;
+}
+
+int diag_dci_clear_event_mask()
+{
+	int i, j, err = DIAG_DCI_NO_ERROR;
+	uint8_t *event_mask_ptr, *update_ptr;
+
+	i = diag_dci_find_client_index(current->tgid);
+	if (i == DCI_CLIENT_INDEX_INVALID)
+		return DIAG_DCI_TABLE_ERR;
+
+	mutex_lock(&dci_event_mask_mutex);
+	memset(driver->dci_client_tbl[i].dci_event_mask,
+			0x0, DCI_EVENT_MASK_SIZE);
+	memset(dci_cumulative_event_mask,
+			0x0, DCI_EVENT_MASK_SIZE);
+	update_ptr = dci_cumulative_event_mask;
+	for (i = 0; i < MAX_DCI_CLIENTS; i++) {
+		event_mask_ptr =
+			driver->dci_client_tbl[i].dci_event_mask;
+		for (j = 0; j < DCI_EVENT_MASK_SIZE; j++)
+			*(update_ptr + j) |= *(event_mask_ptr + j);
+	}
+	mutex_unlock(&dci_event_mask_mutex);
+	err = diag_send_dci_event_mask(driver->smd_cntl[MODEM_DATA].ch);
+	return err;
+}
+
+int diag_dci_query_log_mask(uint16_t log_code)
+{
+	uint16_t item_num;
+	uint8_t equip_id, *log_mask_ptr, byte_mask;
+	int i, byte_index, offset;
+
+	equip_id = LOG_GET_EQUIP_ID(log_code);
+	item_num = LOG_GET_ITEM_NUM(log_code);
+	byte_index = item_num/8 + 2;
+	byte_mask = 0x01 << (item_num % 8);
+	offset = equip_id * 514;
+
+	i = diag_dci_find_client_index(current->tgid);
+	if (i != DCI_CLIENT_INDEX_INVALID) {
+		log_mask_ptr = driver->dci_client_tbl[i].dci_log_mask;
+		log_mask_ptr = log_mask_ptr + offset + byte_index;
+		return ((*log_mask_ptr & byte_mask) == byte_mask) ?
+								1 : 0;
+	}
+	return 0;
+}
+
+
+int diag_dci_query_event_mask(uint16_t event_id)
+{
+	uint8_t *event_mask_ptr, byte_mask;
+	int i, byte_index, bit_index;
+	byte_index = event_id/8;
+	bit_index = event_id % 8;
+	byte_mask = 0x1 << bit_index;
+
+	i = diag_dci_find_client_index(current->tgid);
+	if (i != DCI_CLIENT_INDEX_INVALID) {
+		event_mask_ptr =
+		driver->dci_client_tbl[i].dci_event_mask;
+		event_mask_ptr = event_mask_ptr + byte_index;
+		if ((*event_mask_ptr & byte_mask) == byte_mask)
+			return 1;
+		else
+			return 0;
+	}
+	return 0;
+}
+
+
