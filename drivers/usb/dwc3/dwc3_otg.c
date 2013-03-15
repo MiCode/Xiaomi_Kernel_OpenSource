@@ -206,6 +206,20 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			return ret;
 		}
 		dwc3_otg_notify_host_mode(otg, on);
+
+		/*
+		 * Perform USB hardware RESET (both core reset and DBM reset)
+		 * when moving from host to peripheral. This is required for
+		 * peripheral mode to work.
+		 */
+		if (ext_xceiv && ext_xceiv->otg_capability &&
+						ext_xceiv->ext_block_reset)
+			ext_xceiv->ext_block_reset(true);
+
+		/* re-init core and OTG registers as block reset clears these */
+		dwc3_post_host_reset_core_init(dwc);
+		if (ext_xceiv && !ext_xceiv->otg_capability)
+			dwc3_otg_reset(dotg);
 	}
 
 	return 0;
@@ -253,7 +267,6 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 {
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
 	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
-	struct dwc3 *dwc = dotg->dwc;
 
 	if (!otg->gadget)
 		return -EINVAL;
@@ -262,20 +275,11 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 		dev_dbg(otg->phy->dev, "%s: turn on gadget %s\n",
 					__func__, otg->gadget->name);
 
-		/*
-		 * Hardware reset is required to support below scenarios:
-		 * 1. Host <-> peripheral switching
-		 * 2. Once an endpoint is configured in DBM (BAM) mode, it
-		 * can be unconfigured only after RESET
-		 */
+		/* Core reset is not required during start peripheral. Only
+		 * DBM reset is required, hence perform only DBM reset here */
 		if (ext_xceiv && ext_xceiv->otg_capability &&
 						ext_xceiv->ext_block_reset)
-			ext_xceiv->ext_block_reset();
-
-		/* re-init core and OTG registers as block reset clears these */
-		dwc3_post_host_reset_core_init(dwc);
-		if (ext_xceiv && !ext_xceiv->otg_capability)
-			dwc3_otg_reset(dotg);
+			ext_xceiv->ext_block_reset(false);
 
 		dwc3_otg_set_peripheral_regs(dotg);
 		usb_gadget_vbus_connect(otg->gadget);
