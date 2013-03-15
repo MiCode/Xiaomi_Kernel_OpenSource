@@ -10,18 +10,16 @@
  * GNU General Public License for more details.
  */
 
-/* QPNP controlled regulators: */
+/* SPM controlled regulators: */
 
 &spmi_bus {
 	qcom,pm8226@1 {
-		pm8226_s2: regulator@1700 {
-			status = "okay";
+		pm8226_s2: spm-regulator@1700 {
+			compatible = "qcom,spm-regulator";
 			regulator-name = "8226_s2";
-			qcom,enable-time = <500>;
-			qcom,system-load = <100000>;
-			regulator-min-microvolt = <1050000>;
-			regulator-max-microvolt = <1150000>;
-			regulator-always-on;
+			reg = <0x1700 0x100>;
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <1275000>;
 		};
 	};
 };
