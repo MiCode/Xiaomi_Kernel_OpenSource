@@ -448,6 +448,18 @@ static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) ? 0 : 1;
 } /* hdmi_tx_is_dvi_mode */
 
+static inline void hdmi_tx_send_cable_notification(
+	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
+{
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (!hdmi_ctrl->pdata.primary && (hdmi_ctrl->sdev.state != val))
+		switch_set_state(&hdmi_ctrl->sdev, val);
+} /* hdmi_tx_send_cable_notification */
+
 static inline void hdmi_tx_set_audio_switch_node(struct hdmi_tx_ctrl *hdmi_ctrl,
 	int val, bool force)
 {
@@ -694,11 +706,11 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 
 	if (hdmi_ctrl->hpd_state) {
 		hdmi_tx_read_sink_info(hdmi_ctrl);
-		switch_set_state(&hdmi_ctrl->sdev, 1);
+		hdmi_tx_send_cable_notification(hdmi_ctrl, 1);
 		DEV_INFO("%s: sense cable CONNECTED: state switch to %d\n",
 			__func__, hdmi_ctrl->sdev.state);
 	} else {
-		switch_set_state(&hdmi_ctrl->sdev, 0);
+		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
 		DEV_INFO("%s: sense cable DISCONNECTED: state switch to %d\n",
 			__func__, hdmi_ctrl->sdev.state);
 	}
@@ -2090,6 +2102,7 @@ static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 
 static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 {
+	u32 timeout;
 	int rc = 0;
 	struct dss_io_data *io = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
@@ -2113,6 +2126,16 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 
 	/* If a power down is already underway, wait for it to finish */
 	flush_work_sync(&hdmi_ctrl->power_off_work);
+
+	if (hdmi_ctrl->pdata.primary) {
+		timeout = wait_for_completion_interruptible_timeout(
+			&hdmi_ctrl->hpd_done, HZ);
+		if (!timeout) {
+			DEV_ERR("%s: cable connection hasn't happened yet\n",
+				__func__);
+			return -ETIMEDOUT;
+		}
+	}
 
 	rc = hdmi_tx_set_video_fmt(hdmi_ctrl, &panel_data->panel_info);
 	if (rc) {
@@ -2257,7 +2280,7 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 		} else {
 			hdmi_ctrl->hpd_off_pending = true;
 
-			switch_set_state(&hdmi_ctrl->sdev, 0);
+			hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
 			DEV_DBG("%s: Hdmi state switch to %d\n", __func__,
 				hdmi_ctrl->sdev.state);
 		}
@@ -2433,6 +2456,20 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 			hdmi_tx_sysfs_remove(hdmi_ctrl);
 			return rc;
 		}
+
+		if (hdmi_ctrl->pdata.primary) {
+			INIT_COMPLETION(hdmi_ctrl->hpd_done);
+			rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
+			if (rc) {
+				DEV_ERR("%s: hpd_enable failed. rc=%d\n",
+					__func__, rc);
+				hdmi_tx_sysfs_remove(hdmi_ctrl);
+				return rc;
+			} else {
+				hdmi_ctrl->hpd_feature_on = true;
+			}
+		}
+
 		break;
 
 	case MDSS_EVENT_CHECK_PARAMS:
@@ -2479,7 +2516,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 			if (!timeout & !hdmi_ctrl->hpd_state) {
 				DEV_INFO("%s: cable removed during suspend\n",
 					__func__);
-				switch_set_state(&hdmi_ctrl->sdev, 0);
+				hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
 				rc = -EPERM;
 			} else {
 				DEV_DBG("%s: cable present after resume\n",
@@ -3108,6 +3145,13 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 		}
 	}
 
+	if (of_find_property(pdev->dev.of_node, "qcom,primary_panel", NULL)) {
+		u32 tmp;
+		of_property_read_u32(pdev->dev.of_node, "qcom,primary_panel",
+			&tmp);
+		pdata->primary = tmp ? true : false;
+	}
+
 	return rc;
 
 error:
@@ -3167,15 +3211,13 @@ static int __devinit hdmi_tx_probe(struct platform_device *pdev)
 	if (rc) {
 		DEV_ERR("%s: Failed to add child devices. rc=%d\n",
 			__func__, rc);
-		goto failed_init_features;
+		goto failed_reg_panel;
 	} else {
 		DEV_DBG("%s: Add child devices.\n", __func__);
 	}
 
 	return rc;
 
-failed_init_features:
-	hdmi_tx_sysfs_remove(hdmi_ctrl);
 failed_reg_panel:
 	hdmi_tx_dev_deinit(hdmi_ctrl);
 failed_dev_init:
