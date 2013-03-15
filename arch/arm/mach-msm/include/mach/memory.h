@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/include/mach/memory.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -96,11 +96,15 @@ extern void store_ttbr0(void);
 extern unsigned long memory_hole_offset;
 extern unsigned long memory_hole_start;
 extern unsigned long memory_hole_end;
+extern unsigned long memory_hole_align;
+extern unsigned long virtual_hole_start;
+extern unsigned long virtual_hole_end;
 #ifdef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
 void find_memory_hole(void);
 
 #define MEM_HOLE_END_PHYS_OFFSET (memory_hole_end)
-#define MEM_HOLE_PAGE_OFFSET (PAGE_OFFSET + memory_hole_offset)
+#define MEM_HOLE_PAGE_OFFSET (PAGE_OFFSET + memory_hole_offset + \
+				memory_hole_align)
 
 #define __phys_to_virt(phys)				\
 	((MEM_HOLE_END_PHYS_OFFSET && ((phys) >= MEM_HOLE_END_PHYS_OFFSET)) ? \
