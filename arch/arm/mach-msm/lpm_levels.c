@@ -28,6 +28,8 @@ enum {
 	MSM_LPM_LVL_DBG_IDLE_LIMITS = BIT(1),
 };
 
+#define MAX_STR_LEN 30
+
 static int msm_lpm_lvl_dbg_msk;
 
 module_param_named(
@@ -40,6 +42,48 @@ static int msm_lpm_level_count;
 static DEFINE_PER_CPU(uint32_t , msm_lpm_sleep_time);
 static DEFINE_PER_CPU(int , lpm_permitted_level);
 static DEFINE_PER_CPU(struct atomic_notifier_head, lpm_notify_head);
+
+static int msm_pm_get_sleep_mode_value(struct device_node *node,
+			const char *key, uint32_t *sleep_mode_val)
+{
+	int i;
+	struct lpm_lookup_table {
+		uint32_t modes;
+		const char *mode_name;
+	};
+	struct lpm_lookup_table pm_sm_lookup[] = {
+		{MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT,
+			"wfi"},
+		{MSM_PM_SLEEP_MODE_RAMP_DOWN_AND_WAIT_FOR_INTERRUPT,
+			"ramp_down_and_wfi"},
+		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE,
+			"standalone_pc"},
+		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+			"pc"},
+		{MSM_PM_SLEEP_MODE_RETENTION,
+			"retention"},
+		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE_SUSPEND,
+			"pc_suspend"},
+		{MSM_PM_SLEEP_MODE_POWER_COLLAPSE_NO_XO_SHUTDOWN,
+			"pc_no_xo_shutdown"}
+	};
+	int ret;
+	const char *mode_name;
+
+	ret = of_property_read_string(node, key, &mode_name);
+	if (!ret) {
+		ret = -EINVAL;
+		for (i = 0; i < ARRAY_SIZE(pm_sm_lookup); i++) {
+			if (!strncmp(mode_name, pm_sm_lookup[i].mode_name,
+				MAX_STR_LEN)) {
+				*sleep_mode_val = pm_sm_lookup[i].modes;
+				ret = 0;
+				break;
+			}
+		}
+	}
+	return ret;
+}
 
 static void msm_lpm_level_update(void)
 {
@@ -343,19 +387,19 @@ static int __devinit msm_lpm_levels_probe(struct platform_device *pdev)
 		level->available = false;
 
 		key = "qcom,mode";
-		ret = of_property_read_u32(node, key, &val);
+		ret = msm_pm_get_sleep_mode_value(node, key, &val);
 		if (ret)
 			goto fail;
 		level->sleep_mode = val;
 
 		key = "qcom,xo";
-		ret = of_property_read_u32(node, key, &val);
+		ret = msm_lpm_get_xo_value(node, key, &val);
 		if (ret)
 			goto fail;
 		level->rs_limits.pxo = val;
 
 		key = "qcom,l2";
-		ret = of_property_read_u32(node, key, &val);
+		ret = msm_lpm_get_l2_cache_value(node, key, &val);
 		if (ret)
 			goto fail;
 		level->rs_limits.l2_cache = val;

@@ -20,10 +20,9 @@ Required Nodes:
 - reg: The numeric level id
 - qcom,name: The name of the low power resource represented
              as a string.
-- qcom,resource-type: The type of the LPM resource.
-   MSM_LPM_RPM_RS_TYPE    = 0
-   MSM_LPM_LOCAL_RS_TYPE  = 1
-- qcom,init-value: Initialization value of the LPM resource.
+- qcom,init-value: Initialization value of the LPM resource represented as
+			decimal value for vdd-dig and vdd-mem resources and
+			as string for pxo and l2 resources.
 
 
 Optional Nodes:
@@ -33,12 +32,13 @@ Optional Nodes:
 - qcom,id: The id representing a device within a resource type.
 - qcom,key: The key is the specific attribute of the resource being
             monitored represented as a hex value.
+- qcom,local-resource-type: The property exists only for locally managed
+				resource and is represented as a bool.
 
 Example:
             qcom,lpm-resources@0 {
                         reg = <0x0>;
                         qcom,name = "vdd-dig";
-                        qcom,resource-type = <0>;
                         qcom,type = <0x62706d73>;   /* "smpb" */
                         qcom,id = <0x02>;
                         qcom,key = <0x6e726f63>;   /* "corn" */

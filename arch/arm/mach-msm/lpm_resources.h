@@ -17,15 +17,15 @@
 #include "test-lpm.h"
 
 enum {
-	MSM_LPM_PXO_OFF = 0,
-	MSM_LPM_PXO_ON = 1,
+	MSM_LPM_PXO_OFF,
+	MSM_LPM_PXO_ON
 };
 
 enum {
-	MSM_LPM_L2_CACHE_HSFS_OPEN = 0,
-	MSM_LPM_L2_CACHE_GDHS = 1,
-	MSM_LPM_L2_CACHE_RETENTION = 2,
-	MSM_LPM_L2_CACHE_ACTIVE = 3,
+	MSM_LPM_L2_CACHE_HSFS_OPEN,
+	MSM_LPM_L2_CACHE_GDHS,
+	MSM_LPM_L2_CACHE_RETENTION,
+	MSM_LPM_L2_CACHE_ACTIVE,
 };
 
 struct msm_rpmrs_limits {
@@ -97,6 +97,24 @@ uint32_t msm_pm_get_vdd_mem(struct msm_rpmrs_limits *limits);
  */
 
 uint32_t msm_pm_get_vdd_dig(struct msm_rpmrs_limits *limits);
+
+/**
+ * msm_lpm_get_xo_value() - get the enum value for xo
+ * @node		pointer to the device node
+ * @key			pxo property key
+ * @xo_val		xo enum value
+ */
+int msm_lpm_get_xo_value(struct device_node *node,
+			char *key, uint32_t *xo_val);
+
+/**
+ * msm_lpm_get_l2_cache_value() - get the enum value for l2 cache
+ * @node                pointer to the device node
+ * @key                 l2 cache property key
+ * @l2_val              l2 mode enum value
+ */
+int msm_lpm_get_l2_cache_value(struct device_node *node,
+				char *key, uint32_t *l2_val);
 
 /**
  * struct msm_lpm_sleep_data - abstraction to get sleep data
