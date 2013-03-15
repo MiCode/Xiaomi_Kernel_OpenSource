@@ -54,7 +54,8 @@
 	defined(CONFIG_ARCH_MSM7X25) || defined(CONFIG_ARCH_MSM7X01A) || \
 	defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_MSM7X30) || \
 	defined(CONFIG_ARCH_MSM9625) || defined(CONFIG_ARCH_MPQ8092) || \
-	defined(CONFIG_ARCH_MSM8226) || defined(CONFIG_ARCH_MSM8610)
+	defined(CONFIG_ARCH_MSM8226) || defined(CONFIG_ARCH_MSM8610) || \
+	defined(CONFIG_ARCH_MSMZINC)
 
 /* Unified iomap */
 
@@ -129,6 +130,7 @@
 #include "msm_iomap-8064.h"
 #include "msm_iomap-9615.h"
 #include "msm_iomap-8974.h"
+#include "msm_iomap-zinc.h"
 #include "msm_iomap-9625.h"
 #include "msm_iomap-8092.h"
 #include "msm_iomap-8226.h"
