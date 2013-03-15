@@ -39,7 +39,8 @@ struct epm_psoc_get_data {
 	uint8_t		dev_num;
 	uint8_t		chan_num;
 	uint32_t	timestamp_resp_value;
-	uint32_t	reading_value;
+	int16_t		reading_raw;
+	int32_t		reading_value;
 };
 
 struct epm_psoc_get_buffered_data {
