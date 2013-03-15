@@ -177,9 +177,9 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s, bool atomic)
 		}
 
 		if (atomic)
-			clk_enable(tgt);
+			rc = clk_enable(tgt);
 		else
-			clk_prepare_enable(tgt);
+			rc = clk_prepare_enable(tgt);
 
 		if (rc) {
 			pr_err("ACPU PLL enable failed\n");
@@ -195,9 +195,9 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s, bool atomic)
 
 	} else {
 		if (atomic)
-			clk_enable(tgt);
+			rc = clk_enable(tgt);
 		else
-			clk_prepare_enable(tgt);
+			rc = clk_prepare_enable(tgt);
 
 		if (rc) {
 			pr_err("%s enable failed\n",
