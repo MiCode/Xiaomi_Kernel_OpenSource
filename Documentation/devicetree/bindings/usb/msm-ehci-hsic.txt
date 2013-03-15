@@ -15,7 +15,10 @@ Optional properties :
 	"wakeup" : Wakeup interrupt from HSIC during suspend (or XO shutdown).
 - hsic,<gpio-name>-gpio : handle to the GPIO node, see "gpios property"
   in Documentation/devicetree/bindings/gpio/gpio.txt.
-  Optional "gpio-name" can be "strobe" and "data".
+  Optional "gpio-name" can be "strobe", "data" and "resume".
+- hsic,resume-gpio : if present then periperal connected to hsic controller
+  cannot wakeup from XO shutdown using in-band hsic resume. Use resume
+  gpio to wakeup peripheral
 - hsic,ignore-cal-pad-config : If present then HSIC CAL PAD configuration
   using TLMM is not performed.
 - hsic,strobe-pad-offset : Offset of TLMM register for configuring HSIC
