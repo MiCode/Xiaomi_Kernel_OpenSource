@@ -86,6 +86,7 @@ static int msm_btsco_ch = 1;
 static struct mutex cdc_mclk_mutex;
 static struct clk *codec_clk;
 static int clk_users;
+static int vdd_spkr_gpio = -1;
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm)
@@ -149,6 +150,30 @@ static int msm8226_mclk_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int msm8226_vdd_spkr_event(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	pr_debug("%s: event = %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (vdd_spkr_gpio >= 0) {
+			gpio_direction_output(vdd_spkr_gpio, 1);
+			pr_debug("%s: Enabled 5V external supply for speaker\n",
+					__func__);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (vdd_spkr_gpio >= 0) {
+			gpio_direction_output(vdd_spkr_gpio, 0);
+			pr_debug("%s: Disabled 5V external supply for speaker\n",
+					__func__);
+		}
+		break;
+	}
+	return 0;
+}
+
 static const struct snd_soc_dapm_widget msm8226_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
@@ -165,6 +190,9 @@ static const struct snd_soc_dapm_widget msm8226_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
+
+	SND_SOC_DAPM_SUPPLY("EXT_VDD_SPKR",  SND_SOC_NOPM, 0, 0,
+	msm8226_vdd_spkr_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 };
 
 static const char *const slim0_rx_ch_text[] = {"One", "Two"};
@@ -1104,19 +1132,44 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	vdd_spkr_gpio = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,cdc-vdd-spkr-gpios", 0);
+	if (vdd_spkr_gpio < 0) {
+		dev_err(&pdev->dev,
+			"Looking up %s property in node %s failed %d\n",
+			"qcom, cdc-vdd-spkr-gpios",
+			pdev->dev.of_node->full_name, vdd_spkr_gpio);
+	} else {
+		ret = gpio_request(vdd_spkr_gpio, "TAPAN_CODEC_VDD_SPKR");
+		if (ret) {
+			/* GPIO to enable EXT VDD exists, but failed request */
+			dev_err(card->dev,
+					"%s: Failed to request tapan vdd spkr gpio %d\n",
+					__func__, vdd_spkr_gpio);
+			goto err;
+		}
+	}
+
 	ret = msm8226_prepare_codec_mclk(card);
 	if (ret)
-		goto err;
+		goto err_vdd_spkr;
 
 	ret = snd_soc_register_card(card);
 	if (ret) {
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
-		goto err;
+		goto err_vdd_spkr;
 	}
 	mutex_init(&cdc_mclk_mutex);
 
 	return 0;
+
+err_vdd_spkr:
+	if (vdd_spkr_gpio >= 0) {
+		gpio_free(vdd_spkr_gpio);
+		vdd_spkr_gpio = -1;
+	}
+
 err:
 	if (pdata->mclk_gpio > 0) {
 		dev_dbg(&pdev->dev, "%s free gpio %d\n",
@@ -1134,6 +1187,8 @@ static int __devexit msm8226_asoc_machine_remove(struct platform_device *pdev)
 	struct msm8226_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	gpio_free(pdata->mclk_gpio);
+	gpio_free(vdd_spkr_gpio);
+	vdd_spkr_gpio = -1;
 	snd_soc_unregister_card(card);
 
 	return 0;
