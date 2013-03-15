@@ -94,7 +94,7 @@ extern int msm_use_iommu(void);
 
 extern int msm_iommu_map_extra(struct iommu_domain *domain,
 						unsigned long start_iova,
-						unsigned long phys_addr,
+						phys_addr_t phys_addr,
 						unsigned long size,
 						unsigned long page_size,
 						int cached);
@@ -104,7 +104,7 @@ extern void msm_iommu_unmap_extra(struct iommu_domain *domain,
 						unsigned long size,
 						unsigned long page_size);
 
-extern int msm_iommu_map_contig_buffer(unsigned long phys,
+extern int msm_iommu_map_contig_buffer(phys_addr_t phys,
 				unsigned int domain_no,
 				unsigned int partition_no,
 				unsigned long size,
@@ -148,7 +148,7 @@ static inline int msm_use_iommu(void)
 
 static inline int msm_iommu_map_extra(struct iommu_domain *domain,
 						unsigned long start_iova,
-						unsigned long phys_addr,
+						phys_addr_t phys_addr,
 						unsigned long size,
 						unsigned long page_size,
 						int cached)
@@ -163,7 +163,7 @@ static inline void msm_iommu_unmap_extra(struct iommu_domain *domain,
 {
 }
 
-static inline int msm_iommu_map_contig_buffer(unsigned long phys,
+static inline int msm_iommu_map_contig_buffer(phys_addr_t phys,
 				unsigned int domain_no,
 				unsigned int partition_no,
 				unsigned long size,
