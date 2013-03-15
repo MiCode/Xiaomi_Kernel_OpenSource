@@ -652,29 +652,6 @@ static void __init reserve_ion_memory(void)
 #endif
 }
 
-static void ion_adjust_secure_allocation(void)
-{
-	int i;
-
-	for (i = 0; i < msm8960_ion_pdata.nr; i++) {
-		struct ion_platform_heap *heap =
-			&(msm8960_ion_pdata.heaps[i]);
-
-
-		if (heap->extra_data) {
-			switch ((int) heap->type) {
-			case ION_HEAP_TYPE_CP:
-				if (cpu_is_msm8960()) {
-					((struct ion_cp_heap_pdata *)
-					heap->extra_data)->allow_nonsecure_alloc
-						= 1;
-				}
-
-			}
-		}
-	}
-}
-
 static void __init reserve_mdp_memory(void)
 {
 	msm8960_mdp_writeback(msm8960_reserve_table);
@@ -3394,7 +3371,6 @@ static void __init msm8960_cdp_init(void)
 		mdm_sglte_device.dev.platform_data = &sglte_platform_data;
 		platform_device_register(&mdm_sglte_device);
 	}
-	ion_adjust_secure_allocation();
 }
 
 MACHINE_START(MSM8960_CDP, "QCT MSM8960 CDP")
