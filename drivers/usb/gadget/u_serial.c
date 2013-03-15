@@ -1048,6 +1048,13 @@ static void gs_unthrottle(struct tty_struct *tty)
 	struct gs_port		*port = tty->driver_data;
 	unsigned long		flags;
 
+	/*
+	 * tty's driver data is set to NULL during port close.  Nothing
+	 * to do here.
+	 */
+	if (!port)
+		return;
+
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb) {
 		/* Kickstart read queue processing.  We don't do xon/xoff,
