@@ -428,6 +428,7 @@ config ARCH_MSM8610
 	select ARM_HAS_SG_CHAIN
 	select REGULATOR
 	select MSM_RPM_REGULATOR_SMD
+	select MSM_SPM_REGULATOR
 
 config ARCH_MSM8226
 	bool "MSM8226"
@@ -463,6 +464,7 @@ config ARCH_MSM8226
 	select ARM_HAS_SG_CHAIN
 	select REGULATOR
 	select MSM_RPM_REGULATOR_SMD
+	select MSM_SPM_REGULATOR
 	select MSM_JTAG_MM if CORESIGHT_ETM
 endmenu
 
