@@ -4,7 +4,7 @@
  *  Copyright (C) 2003 Russell King, All Rights Reserved.
  *  Copyright (C) 2007-2008 Pierre Ossman
  *  Copyright (C) 2010 Linus Walleij
- *  Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -47,6 +47,9 @@ static int mmc_host_runtime_suspend(struct device *dev)
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int ret = 0;
 
+	if (!mmc_use_core_runtime_pm(host))
+		return 0;
+
 	ret = mmc_suspend_host(host);
 	if (ret < 0)
 		pr_err("%s: %s: suspend host failed: %d\n", mmc_hostname(host),
@@ -59,6 +62,9 @@ static int mmc_host_runtime_resume(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int ret = 0;
+
+	if (!mmc_use_core_runtime_pm(host))
+		return 0;
 
 	ret = mmc_resume_host(host);
 	if (ret < 0) {
@@ -76,6 +82,9 @@ static int mmc_host_suspend(struct device *dev)
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int ret = 0;
 
+	if (!mmc_use_core_runtime_pm(host))
+		return 0;
+
 	if (!pm_runtime_suspended(dev)) {
 		ret = mmc_suspend_host(host);
 		if (ret < 0)
@@ -89,6 +98,9 @@ static int mmc_host_resume(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int ret = 0;
+
+	if (!mmc_use_core_runtime_pm(host))
+		return 0;
 
 	if (!pm_runtime_suspended(dev)) {
 		ret = mmc_resume_host(host);
