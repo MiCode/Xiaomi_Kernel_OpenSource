@@ -87,6 +87,10 @@
 			vdd-phy-supply = <&pm8226_lvs1>;
 		};
 	};
+
+	sound {
+		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
+	};
 };
 
 &sdcc1 {
@@ -175,6 +179,14 @@
 
 &pm8226_gpios {
 	gpio@c000 { /* GPIO 1 */
+		/* XO_PMIC_CDC_MCLK enable for tapan codec */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;	/* CMOS logic */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO*/
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,out-strength = <3>;/* QPNP_PIN_OUT_STRENGTH_HIGH */
+		qcom,src-sel = <2>;		/* QPNP_PIN_SEL_FUNC_1 */
+		qcom,master-en = <1>;	/* Enable GPIO */
 	};
 
 	gpio@c100 { /* GPIO 2 */
