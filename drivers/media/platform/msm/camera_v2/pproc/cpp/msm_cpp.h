@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/list.h>
 #include <linux/platform_device.h>
+#include <linux/interrupt.h>
 #include <media/v4l2-subdev.h>
 #include "msm_sd.h"
 
@@ -70,6 +71,8 @@
 #define MSM_CPP_END_ADDRESS			0x3F00
 
 #define MSM_CPP_POLL_RETRIES		20
+#define MSM_CPP_TASKLETQ_SIZE		16
+#define MSM_CPP_TX_FIFO_LEVEL		16
 
 struct cpp_subscribe_info {
 	struct v4l2_fh *vfh;
@@ -116,6 +119,14 @@ struct msm_device_queue {
 	const char *name;
 };
 
+struct msm_cpp_tasklet_queue_cmd {
+	struct list_head list;
+	uint32_t irq_status;
+	uint32_t tx_fifo[MSM_CPP_TX_FIFO_LEVEL];
+	uint32_t tx_level;
+	uint8_t cmd_used;
+};
+
 struct cpp_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
@@ -140,6 +151,15 @@ struct cpp_device {
 	struct device *iommu_ctx;
 	struct ion_client *client;
 	struct kref refcount;
+
+	/* Reusing proven tasklet from msm isp */
+	atomic_t irq_cnt;
+	uint8_t taskletq_idx;
+	spinlock_t  tasklet_lock;
+	struct list_head tasklet_q;
+	struct tasklet_struct cpp_tasklet;
+	struct msm_cpp_tasklet_queue_cmd
+		tasklet_queue_cmd[MSM_CPP_TASKLETQ_SIZE];
 
 	struct cpp_subscribe_info cpp_subscribe_list[MAX_ACTIVE_CPP_INSTANCE];
 	uint32_t cpp_open_cnt;

@@ -176,12 +176,13 @@ static void cpp_deinit_mem(struct cpp_device *cpp_dev)
 
 static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 {
+	unsigned long flags;
 	uint32_t tx_level;
 	uint32_t irq_status;
-	uint32_t msg_id, cmd_len;
 	uint32_t i;
-	uint32_t tx_fifo[16];
+	uint32_t tx_fifo[MSM_CPP_TX_FIFO_LEVEL];
 	struct cpp_device *cpp_dev = data;
+	struct msm_cpp_tasklet_queue_cmd *queue_cmd;
 	irq_status = msm_camera_io_r(cpp_dev->base + MSM_CPP_MICRO_IRQGEN_STAT);
 	CPP_DBG("status: 0x%x\n", irq_status);
 	if (irq_status & 0x8) {
@@ -191,6 +192,62 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 			tx_fifo[i] = msm_camera_io_r(cpp_dev->base +
 				MSM_CPP_MICRO_FIFO_TX_DATA);
 		}
+
+		spin_lock_irqsave(&cpp_dev->tasklet_lock, flags);
+		queue_cmd = &cpp_dev->tasklet_queue_cmd[cpp_dev->taskletq_idx];
+		if (queue_cmd->cmd_used) {
+			pr_err("%s: cpp tasklet queue overflow\n", __func__);
+			list_del(&queue_cmd->list);
+		} else {
+			atomic_add(1, &cpp_dev->irq_cnt);
+		}
+		queue_cmd->irq_status = irq_status;
+		queue_cmd->tx_level = tx_level;
+		memset(&queue_cmd->tx_fifo[0], 0, sizeof(queue_cmd->tx_fifo));
+		for (i = 0; i < tx_level; i++)
+			queue_cmd->tx_fifo[i] = tx_fifo[i];
+
+		queue_cmd->cmd_used = 1;
+		cpp_dev->taskletq_idx =
+			(cpp_dev->taskletq_idx + 1) % MSM_CPP_TASKLETQ_SIZE;
+		list_add_tail(&queue_cmd->list, &cpp_dev->tasklet_q);
+		spin_unlock_irqrestore(&cpp_dev->tasklet_lock, flags);
+
+		tasklet_schedule(&cpp_dev->cpp_tasklet);
+	}
+	msm_camera_io_w(irq_status, cpp_dev->base + MSM_CPP_MICRO_IRQGEN_CLR);
+	return IRQ_HANDLED;
+}
+
+void msm_cpp_do_tasklet(unsigned long data)
+{
+	unsigned long flags;
+	uint32_t irq_status;
+	uint32_t tx_level;
+	uint32_t msg_id, cmd_len;
+	uint32_t i;
+	uint32_t tx_fifo[MSM_CPP_TX_FIFO_LEVEL];
+	struct cpp_device *cpp_dev = (struct cpp_device *) data;
+	struct msm_cpp_tasklet_queue_cmd *queue_cmd;
+
+	while (atomic_read(&cpp_dev->irq_cnt)) {
+		spin_lock_irqsave(&cpp_dev->tasklet_lock, flags);
+		queue_cmd = list_first_entry(&cpp_dev->tasklet_q,
+		struct msm_cpp_tasklet_queue_cmd, list);
+		if (!queue_cmd) {
+			atomic_set(&cpp_dev->irq_cnt, 0);
+			spin_unlock_irqrestore(&cpp_dev->tasklet_lock, flags);
+			return;
+		}
+		atomic_sub(1, &cpp_dev->irq_cnt);
+		list_del(&queue_cmd->list);
+		queue_cmd->cmd_used = 0;
+		irq_status = queue_cmd->irq_status;
+		tx_level = queue_cmd->tx_level;
+		for (i = 0; i < tx_level; i++)
+			tx_fifo[i] = queue_cmd->tx_fifo[i];
+
+		spin_unlock_irqrestore(&cpp_dev->tasklet_lock, flags);
 
 		for (i = 0; i < tx_level; i++) {
 			if (tx_fifo[i] == MSM_CPP_MSG_ID_CMD) {
@@ -204,8 +261,6 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 			}
 		}
 	}
-	msm_camera_io_w(irq_status, cpp_dev->base + MSM_CPP_MICRO_IRQGEN_CLR);
-	return IRQ_HANDLED;
 }
 
 static void msm_cpp_boot_hw(struct cpp_device *cpp_dev)
@@ -318,6 +373,8 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4);
 	pr_debug("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
 	msm_camera_io_w(0x1, cpp_dev->vbif_base + 0x4);
+	cpp_dev->taskletq_idx = 0;
+	atomic_set(&cpp_dev->irq_cnt, 0);
 	if (cpp_dev->is_firmware_loaded == 1)
 		msm_cpp_boot_hw(cpp_dev);
 	return rc;
@@ -339,8 +396,11 @@ fs_failed:
 
 static void cpp_release_hardware(struct cpp_device *cpp_dev)
 {
-	if (cpp_dev->state != CPP_STATE_BOOT)
+	if (cpp_dev->state != CPP_STATE_BOOT) {
 		free_irq(cpp_dev->irq->start, cpp_dev);
+		tasklet_kill(&cpp_dev->cpp_tasklet);
+		atomic_set(&cpp_dev->irq_cnt, 0);
+	}
 
 	iounmap(cpp_dev->base);
 	iounmap(cpp_dev->vbif_base);
@@ -960,6 +1020,7 @@ static int __devinit cpp_probe(struct platform_device *pdev)
 	v4l2_set_subdevdata(&cpp_dev->msm_sd.sd, cpp_dev);
 	platform_set_drvdata(pdev, &cpp_dev->msm_sd.sd);
 	mutex_init(&cpp_dev->mutex);
+	spin_lock_init(&cpp_dev->tasklet_lock);
 
 	if (pdev->dev.of_node)
 		of_property_read_u32((&pdev->dev)->of_node,
@@ -1059,6 +1120,9 @@ static int __devinit cpp_probe(struct platform_device *pdev)
 	msm_queue_init(&cpp_dev->offline_q, "frame");
 	msm_queue_init(&cpp_dev->realtime_q, "frame");
 	msm_queue_init(&cpp_dev->processing_q, "frame");
+	INIT_LIST_HEAD(&cpp_dev->tasklet_q);
+	tasklet_init(&cpp_dev->cpp_tasklet, msm_cpp_do_tasklet,
+		(unsigned long)cpp_dev);
 	cpp_dev->cpp_open_cnt = 0;
 	cpp_dev->is_firmware_loaded = 0;
 
