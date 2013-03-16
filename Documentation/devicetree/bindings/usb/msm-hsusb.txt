@@ -172,115 +172,90 @@ Required properties:
             If SSUSB_BAM is used, "ssusb" should be present.
             If HSUSB_BAM is used, "hsusb" should be present.
             If HSIC_BAM is used, "hsic" should be present.
-- qcom,usb-active-bam: active BAM type. Can be one of
-            0 - SSUSB_BAM
-            1 - HSUSB_BAM
-            2 - HSIC_BAM
-- qcom,usb-total-bam-num: total number of BAMs that are supported
 - qcom,usb-bam-num-pipes: max number of pipes that can be used
 - qcom,usb-base-address: physical base address of the BAM
 
 A number of USB BAM pipe parameters are represented as sub-nodes:
 
 Subnode Required:
-- label: a string describing the pipe's direction and BAM instance under use
-- qcom,usb-bam-type: BAM type. Can be one of
-            0 - SSUSB_BAM
-            1 - HSUSB_BAM
-            2 - HSIC_BAM
+- label: a string describing uniquely the usb bam pipe. The string can be
+  constracted as follows: <core>-<peer>-<direction>-<pipe num>.
+	core options: hsusb, ssusb/dwc3, hsic
+	peer options: qdss, ipa, a2
+	direction options: in (from peer to usb), out (from usb to peer)
+	pipe num options: 0..127
 - qcom,usb-bam-mem-type: Type of memory used by this PIPE. Can be one of
             0 - Uses SPS's dedicated pipe memory
             1 - USB's private memory residing @ 'qcom,usb-base-address'
             2 - System RAM allocated by driver
-- qcom,src-bam-physical-address: source BAM physical address
-- qcom,src-bam-pipe-index: source BAM pipe index
-- qcom,dst-bam-physical-address: destination BAM physical address
-- qcom,dst-bam-pipe-index: destination BAM pipe index
-- qcom,data-fifo-offset: data fifo offset address
+- qcom,bam-type: BAM type can be one of
+	0 - SSUSB_BAM
+	1 - HSUSB_BAM
+	2 - HSIC_BAM
+- qcom,dir: pipe direction
+	0 - from usb (out)
+	1 - to usb (in)
+- qcom,pipe-num: pipe number
+- qcom,peer-bam: peer BAM can be one of
+	0 - A2_P_BAM
+	1 - QDSS_P_BAM
+	2 - IPA_P_BAM
 - qcom,data-fifo-size: data fifo size
-- qcom,descriptor-fifo-offset: descriptor fifo offset address
 - qcom,descriptor-fifo-size: descriptor fifo size
 
 Optional Properties for Subnode:
 - qcom,reset-bam-on-connect: If present then BAM is RESET before connecting
   pipe. This may be required if BAM peripheral is also reset before connect.
+- qcom,dst-bam-physical-address: destination BAM physical address
+- qcom,dst-bam-pipe-index: destination BAM pipe index
+- qcom,src-bam-physical-address: source BAM physical address
+- qcom,src-bam-pipe-index: source BAM pipe index
+- qcom,data-fifo-offset: data fifo offset address
+- qcom,descriptor-fifo-offset: descriptor fifo offset address
 
 Optional properties :
 - qcom,ignore-core-reset-ack: If present then BAM ignores ACK from USB core
 	    while performing PIPE RESET
 - qcom,disable-clk-gating: If present then disable BAM clock gating.
 
-
 Example USB BAM controller device node:
 
-	qcom,usbbam@f9304000 {
+	qcom,usbbam@f9a44000 {
 		compatible = "qcom,usb-bam-msm";
-		reg = <0xf9304000 0x5000>,
-		      <0xf9a44000 0x11000>,
-		      <0xf92f880c 0x4>;
-		reg-names = "ssusb", "hsusb", "qscratch_ram1_reg";
-		interrupts = <0 132 0 0 135 0>;
-		interrupt-names = "ssusb", "hsusb";
-		qcom,usb-active-bam = <0>;
-		qcom,usb-total-bam-num = <2>;
+		reg = <0xf9a44000 0x11000>;
+		reg-names = "hsusb";
+		interrupts = <0 135 0>;
+		interrupt-names = "hsusb";
 		qcom,usb-bam-num-pipes = <16>;
-		qcom,usb-base-address = <0xf9200000>;
 		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
 
+		qcom,pipe0 {
+			label = "hsusb-ipa-out-0";
+			qcom,usb-bam-mem-type = <0>;
+			qcom,bam-type = <1>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <2>;
+			qcom,src-bam-physical-address = <0xf9a44000>;
+			qcom,src-bam-pipe-index = <1>;
+			qcom,data-fifo-offset = <0x2200>;
+			qcom,data-fifo-size = <0x1e00>;
+			qcom,descriptor-fifo-offset = <0x2100>;
+			qcom,descriptor-fifo-size = <0x100>;
+		};
 		qcom,pipe1 {
-			label = "usb-to-peri-qdss-dwc3";
-			qcom,usb-bam-type = <0>;
-			qcom,usb-bam-mem-type = <1>;
-			qcom,src-bam-physical-address = <0>;
-			qcom,src-bam-pipe-index = <0>;
-			qcom,dst-bam-physical-address = <0>;
-			qcom,dst-bam-pipe-index = <0>;
-			qcom,data-fifo-offset = <0>;
-			qcom,data-fifo-size = <0>;
-			qcom,descriptor-fifo-offset = <0>;
-			qcom,descriptor-fifo-size = <0>;
-		};
-
-		qcom,pipe2 {
-			label = "peri-to-usb-qdss-dwc3";
-			qcom,usb-bam-type = <0>;
-			qcom,usb-bam-mem-type = <1>;
-			qcom,src-bam-physical-address = <0xfc37C000>;
-			qcom,src-bam-pipe-index = <0>;
-			qcom,dst-bam-physical-address = <0xf9304000>;
-			qcom,dst-bam-pipe-index = <2>;
-			qcom,data-fifo-offset = <0xf0000>;
-			qcom,data-fifo-size = <0x4000>;
-			qcom,descriptor-fifo-offset = <0xf4000>;
-			qcom,descriptor-fifo-size = <0x1400>;
-			qcom,reset-bam-on-connect;
-		};
-
-		qcom,pipe3 {
-			label = "usb-to-peri-qdss-hsusb";
-			qcom,usb-bam-type = <1>;
-			qcom,usb-bam-mem-type = <1>;
-			qcom,src-bam-physical-address = <0>;
-			qcom,src-bam-pipe-index = <0>;
-			qcom,dst-bam-physical-address = <0>;
-			qcom,dst-bam-pipe-index = <0>;
-			qcom,data-fifo-offset = <0>;
-			qcom,data-fifo-size = <0>;
-			qcom,descriptor-fifo-offset = <0>;
-			qcom,descriptor-fifo-size = <0>;
-		};
-
-		qcom,pipe4 {
-			label = "peri-to-usb-qdss-hsusb";
-			qcom,usb-bam-type = <1>;
-			qcom,usb-bam-mem-type = <1>;
-			qcom,src-bam-physical-address = <0xfc37c000>;
-			qcom,src-bam-pipe-index = <0>;
+			label = "hsusb-ipa-in-0";
+			qcom,usb-bam-mem-type = <0>;
+			qcom,bam-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <2>;
 			qcom,dst-bam-physical-address = <0xf9a44000>;
-			qcom,dst-bam-pipe-index = <2>;
-			qcom,data-fifo-offset = <0xf4000>;
-			qcom,data-fifo-size = <0x1000>;
-			qcom,descriptor-fifo-offset = <0xf5000>;
-			qcom,descriptor-fifo-size = <0x400>;
+			qcom,dst-bam-pipe-index = <0>;
+			qcom,data-fifo-offset = <0x300>;
+			qcom,data-fifo-size = <0x1e00>;
+			qcom,descriptor-fifo-offset = <0>;
+			qcom,descriptor-fifo-size = <0x300>;
 		};
 	};
