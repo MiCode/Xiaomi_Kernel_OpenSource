@@ -3350,6 +3350,15 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("", mmss_mmssnoc_bto_ahb_clk.c, ""),
 	CLK_LOOKUP("", mmss_mmssnoc_axi_clk.c, ""),
 	CLK_LOOKUP("", mmss_s0_axi_clk.c, ""),
+
+	/* Audio clocks */
+	CLK_LOOKUP("osr_clk", div_clk1.c, "msm-dai-q6-dev.224"),
+	CLK_LOOKUP("osr_clk", div_clk1.c, "msm-dai-q6-dev.4106"),
+	CLK_LOOKUP("osr_clk", div_clk1.c, "msm-dai-q6-dev.16384"),
+	CLK_LOOKUP("osr_clk", div_clk1.c, "msm-dai-q6-dev.16386"),
+	CLK_LOOKUP("osr_clk", div_clk1.c, "msm-dai-q6-dev.16390"),
+	CLK_LOOKUP("osr_clk", div_clk1.c, "msm-dai-q6-dev.16391"),
+
 };
 
 static struct clk_lookup msm_clocks_8226_rumi[] = {
