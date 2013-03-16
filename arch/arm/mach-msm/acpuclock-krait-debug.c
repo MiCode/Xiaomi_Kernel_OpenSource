@@ -249,6 +249,56 @@ static int boost_get(void *data, u64 *val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(boost_fops, boost_get, NULL, "%lld\n");
 
+static int acpu_table_show(struct seq_file *m, void *unused)
+{
+	const struct acpu_level *level;
+
+	seq_printf(m, "CPU_KHz  PLL_L_Val   L2_KHz  VDD_Dig  VDD_Mem  ");
+	seq_printf(m, "BW_Mbps  VDD_Core  UA_Core  AVS\n");
+
+	for (level = drv->acpu_freq_tbl; level->speed.khz != 0; level++) {
+
+		const struct l2_level *l2 =
+					&drv->l2_freq_tbl[level->l2_level];
+		u32 bw = drv->bus_scale->usecase[l2->bw_level].vectors[0].ib;
+
+		if (!level->use_for_scaling)
+			continue;
+
+		/* CPU speed information */
+		seq_printf(m, "%7lu  %9u  ",
+				level->speed.khz,
+				level->speed.pll_l_val);
+
+		/* L2 level information */
+		seq_printf(m, "%7lu  %7d  %7d  %7u  ",
+				l2->speed.khz,
+				l2->vdd_dig,
+				l2->vdd_mem,
+				bw / 1000000);
+
+		/* Core voltage information */
+		seq_printf(m, "%8d  %7d  %3d\n",
+				level->vdd_core,
+				level->ua_core,
+				level->avsdscr_setting);
+	}
+
+	return 0;
+}
+
+static int acpu_table_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, acpu_table_show, inode->i_private);
+}
+
+static const struct file_operations acpu_table_fops = {
+	.open		= acpu_table_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 static void __cpuinit add_scalable_dir(int sc_id)
 {
 	char sc_name[8];
@@ -326,6 +376,8 @@ void __init acpuclk_krait_debug_init(struct drv_data *drv_data)
 							&speed_bin_fops);
 	debugfs_create_file("pvs_bin", S_IRUGO, base_dir, NULL, &pvs_bin_fops);
 	debugfs_create_file("boost_uv", S_IRUGO, base_dir, NULL, &boost_fops);
+	debugfs_create_file("acpu_table", S_IRUGO, base_dir, NULL,
+				&acpu_table_fops);
 
 	for_each_online_cpu(cpu)
 		add_scalable_dir(cpu);
