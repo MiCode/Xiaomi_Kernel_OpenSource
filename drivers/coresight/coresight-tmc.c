@@ -217,7 +217,7 @@ static void tmc_etr_fill_usb_bam_data(struct tmc_drvdata *drvdata)
 {
 	struct tmc_etr_bam_data *bamdata = drvdata->bamdata;
 
-	get_bam2bam_connection_info(0, PEER_PERIPHERAL_TO_USB,
+	get_bam2bam_connection_info(usb_bam_get_qdss_idx(0),
 				    &bamdata->dest,
 				    &bamdata->dest_pipe_idx,
 				    &bamdata->src_pipe_idx,

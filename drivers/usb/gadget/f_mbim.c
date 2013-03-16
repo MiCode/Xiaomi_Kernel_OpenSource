@@ -662,19 +662,30 @@ static int mbim_bam_setup(int no_ports)
 static int mbim_bam_connect(struct f_mbim *dev)
 {
 	int ret;
+	u8 src_connection_idx, dst_connection_idx;
+	struct usb_gadget *gadget = dev->cdev->gadget;
 
 	pr_info("dev:%p portno:%d\n", dev, dev->port_num);
 
+	src_connection_idx = usb_bam_get_connection_idx(gadget->name, A2_P_BAM,
+		USB_TO_PEER_PERIPHERAL, dev->port_num);
+	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, A2_P_BAM,
+		PEER_PERIPHERAL_TO_USB, dev->port_num);
+	if (src_connection_idx < 0 || dst_connection_idx < 0) {
+		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
+		return ret;
+	}
+
 	ret = bam_data_connect(&dev->bam_port, dev->port_num,
-		USB_GADGET_XPORT_BAM2BAM, dev->port_num, USB_FUNC_MBIM);
+		USB_GADGET_XPORT_BAM2BAM, src_connection_idx,
+		dst_connection_idx, USB_FUNC_MBIM);
 	if (ret) {
 		pr_err("bam_data_setup failed: err:%d\n",
 				ret);
 		return ret;
-	} else {
-		pr_info("mbim bam connected\n");
 	}
 
+	pr_info("mbim bam connected\n");
 	return 0;
 }
 

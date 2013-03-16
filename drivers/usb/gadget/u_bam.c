@@ -100,7 +100,8 @@ struct bam_ch_info {
 
 	u32					src_pipe_idx;
 	u32					dst_pipe_idx;
-	u8					connection_idx;
+	u8					src_connection_idx;
+	u8					dst_connection_idx;
 	enum transport_type trans;
 	struct usb_bam_connect_ipa_params ipa_params;
 
@@ -663,7 +664,7 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 	int ret;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		ret = usb_bam_disconnect_ipa(d->connection_idx, &d->ipa_params);
+		ret = usb_bam_disconnect_ipa(&d->ipa_params);
 		if (ret)
 			pr_err("%s: usb_bam_disconnect_ipa failed: err:%d\n",
 				__func__, ret);
@@ -715,10 +716,15 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	int ret;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
-		ret = usb_bam_connect(d->connection_idx, &d->src_pipe_idx,
-							  &d->dst_pipe_idx);
+		ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
 		if (ret) {
-			pr_err("%s: usb_bam_connect failed: err:%d\n",
+			pr_err("%s: usb_bam_connect (src) failed: err:%d\n",
+				__func__, ret);
+			return;
+		}
+		ret = usb_bam_connect(d->dst_connection_idx, &d->dst_pipe_idx);
+		if (ret) {
+			pr_err("%s: usb_bam_connect (dst) failed: err:%d\n",
 				__func__, ret);
 			return;
 		}
@@ -787,8 +793,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM && port->port_num == 0) {
 		/* Register for peer reset callback */
-		usb_bam_register_peer_reset_cb(d->connection_idx,
-			gbam_peer_reset_cb, port);
+		usb_bam_register_peer_reset_cb(gbam_peer_reset_cb, port);
 
 		ret = usb_bam_client_ready(true);
 		if (ret) {
@@ -832,7 +837,7 @@ static int gbam_peer_reset_cb(void *param)
 	msm_hw_bam_disable(1);
 
 	/* Reset BAM */
-	ret = usb_bam_reset();
+	ret = usb_bam_a2_reset();
 	if (ret) {
 		pr_err("%s: BAM reset failed %d\n", __func__, ret);
 		goto reenable_eps;
@@ -867,7 +872,7 @@ reenable_eps:
 
 	/* Unregister the peer reset callback */
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM && port->port_num == 0)
-		usb_bam_register_peer_reset_cb(d->connection_idx, NULL, NULL);
+		usb_bam_register_peer_reset_cb(NULL, NULL);
 
 	return 0;
 }
@@ -1216,7 +1221,8 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 }
 
 int gbam_connect(struct grmnet *gr, u8 port_num,
-				 enum transport_type trans, u8 connection_idx)
+		enum transport_type trans, u8 src_connection_idx,
+		u8 dst_connection_idx)
 {
 	struct gbam_port	*port;
 	struct bam_ch_info	*d;
@@ -1283,12 +1289,14 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 
 	if (trans == USB_GADGET_XPORT_BAM2BAM) {
 		port->gr = gr;
-		d->connection_idx = connection_idx;
+		d->src_connection_idx = src_connection_idx;
+		d->dst_connection_idx = dst_connection_idx;
 	} else if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		port->gr = gr;
 		d->ipa_params.src_pipe = &(d->src_pipe_idx);
 		d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
-		d->ipa_params.idx = connection_idx;
+		d->ipa_params.src_idx = src_connection_idx;
+		d->ipa_params.dst_idx = dst_connection_idx;
 	}
 
 	d->trans = trans;
@@ -1379,7 +1387,7 @@ void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans)
 
 	pr_debug("%s: suspended port %d\n", __func__, port_num);
 
-	usb_bam_register_wake_cb(d->connection_idx, gbam_wake_cb, port);
+	usb_bam_register_wake_cb(d->dst_connection_idx, gbam_wake_cb, port);
 }
 
 void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans)
@@ -1396,5 +1404,5 @@ void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans)
 
 	pr_debug("%s: resumed port %d\n", __func__, port_num);
 
-	usb_bam_register_wake_cb(d->connection_idx, NULL, NULL);
+	usb_bam_register_wake_cb(d->dst_connection_idx, NULL, NULL);
 }

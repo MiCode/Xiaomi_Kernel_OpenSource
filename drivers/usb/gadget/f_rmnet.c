@@ -387,6 +387,8 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	unsigned		port_num;
 	enum transport_type	cxport = rmnet_ports[dev->port_num].ctrl_xport;
 	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
+	u8			src_connection_idx, dst_connection_idx;
+	struct usb_gadget	*gadget = dev->cdev->gadget;
 
 	pr_debug("%s: ctrl xport: %s data xport: %s dev: %p portno: %d\n",
 			__func__, xport_to_str(cxport), xport_to_str(dxport),
@@ -435,12 +437,42 @@ static int gport_rmnet_connect(struct f_rmnet *dev)
 	}
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
+
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 	case USB_GADGET_XPORT_BAM2BAM:
-	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		src_connection_idx = usb_bam_get_connection_idx(gadget->name,
+			A2_P_BAM, USB_TO_PEER_PERIPHERAL, port_num);
+		dst_connection_idx = usb_bam_get_connection_idx(gadget->name,
+			A2_P_BAM, PEER_PERIPHERAL_TO_USB, port_num);
+		if (dst_connection_idx < 0 || src_connection_idx < 0) {
+			pr_err("%s: usb_bam_get_connection_idx failed\n",
+				__func__);
+			gsmd_ctrl_disconnect(&dev->port, port_num);
+			return ret;
+		}
 		ret = gbam_connect(&dev->port, port_num,
-						   dxport, port_num);
+			dxport, src_connection_idx, dst_connection_idx);
+		if (ret) {
+			pr_err("%s: gbam_connect failed: err:%d\n",
+				__func__, ret);
+			gsmd_ctrl_disconnect(&dev->port, port_num);
+			return ret;
+		}
+		break;
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		src_connection_idx = usb_bam_get_connection_idx(gadget->name,
+			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, port_num);
+		dst_connection_idx = usb_bam_get_connection_idx(gadget->name,
+			IPA_P_BAM, PEER_PERIPHERAL_TO_USB, port_num);
+		if (dst_connection_idx < 0 || src_connection_idx < 0) {
+			pr_err("%s: usb_bam_get_connection_idx failed\n",
+				__func__);
+			gsmd_ctrl_disconnect(&dev->port, port_num);
+			return ret;
+		}
+		ret = gbam_connect(&dev->port, port_num,
+			dxport, src_connection_idx, dst_connection_idx);
 		if (ret) {
 			pr_err("%s: gbam_connect failed: err:%d\n",
 					__func__, ret);

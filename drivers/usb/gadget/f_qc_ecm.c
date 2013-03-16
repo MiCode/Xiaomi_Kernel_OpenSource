@@ -390,14 +390,27 @@ static int ecm_qc_bam_setup(void)
 static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 {
 	int ret;
+	u8 src_connection_idx, dst_connection_idx;
+	struct usb_composite_dev *cdev = dev->port.func.config->cdev;
+	struct usb_gadget *gadget = cdev->gadget;
+	enum peer_bam peer_bam = (dev->xport == USB_GADGET_XPORT_BAM2BAM_IPA) ?
+		IPA_P_BAM : A2_P_BAM;
 
-	ecm_qc_bam_port.cdev = dev->port.func.config->cdev;
+	ecm_qc_bam_port.cdev = cdev;
 	ecm_qc_bam_port.in = dev->port.in_ep;
 	ecm_qc_bam_port.out = dev->port.out_ep;
 
 	/* currently we use the first connection */
+	src_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
+		USB_TO_PEER_PERIPHERAL, 0);
+	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
+		PEER_PERIPHERAL_TO_USB, 0);
+	if (src_connection_idx < 0 || dst_connection_idx < 0) {
+		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
+		return ret;
+	}
 	ret = bam_data_connect(&ecm_qc_bam_port, 0, dev->xport,
-					0, USB_FUNC_ECM);
+		src_connection_idx, dst_connection_idx, USB_FUNC_ECM);
 	if (ret) {
 		pr_err("bam_data_connect failed: err:%d\n", ret);
 		return ret;

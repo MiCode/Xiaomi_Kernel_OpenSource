@@ -1,4 +1,4 @@
-/* linux/include/asm-arm/arch-msm/hsusb.h
+/* include/linux/usb/msm_hsusb.h
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
@@ -433,68 +433,6 @@ struct msm_usb_host_platform_data {
  */
 struct msm_hsic_peripheral_platform_data {
 	bool core_clk_always_on_workaround;
-};
-
-enum usb_pipe_mem_type {
-	SPS_PIPE_MEM = 0,	/* Default, SPS dedicated pipe memory */
-	USB_PRIVATE_MEM,	/* USB's private memory */
-	SYSTEM_MEM,		/* System RAM, requires allocation */
-};
-
-/**
- * struct usb_bam_pipe_connect: pipe connection information
- * between USB/HSIC BAM and another BAM. USB/HSIC BAM can be
- * either src BAM or dst BAM
- * @src_phy_addr: src bam physical address.
- * @src_pipe_index: src bam pipe index.
- * @dst_phy_addr: dst bam physical address.
- * @dst_pipe_index: dst bam pipe index.
- * @mem_type: type of memory used for BAM FIFOs
- * @data_fifo_base_offset: data fifo offset.
- * @data_fifo_size: data fifo size.
- * @desc_fifo_base_offset: descriptor fifo offset.
- * @desc_fifo_size: descriptor fifo size.
- */
-struct usb_bam_pipe_connect {
-	u32 src_phy_addr;
-	u32 src_pipe_index;
-	u32 dst_phy_addr;
-	u32 dst_pipe_index;
-	enum usb_pipe_mem_type mem_type;
-	u32 data_fifo_base_offset;
-	u32 data_fifo_size;
-	u32 desc_fifo_base_offset;
-	u32 desc_fifo_size;
-};
-
-enum usb_bam {
-	SSUSB_BAM = 0,
-	HSUSB_BAM,
-	HSIC_BAM,
-	MAX_BAMS,
-};
-
-/**
- * struct msm_usb_bam_platform_data: pipe connection information
- * between USB/HSIC BAM and another BAM. USB/HSIC BAM can be
- * either src BAM or dst BAM
- * @connections: holds all pipe connections data.
- * @usb_active_bam: set USB or HSIC as the active BAM.
- * @usb_bam_num_pipes: max number of pipes to use.
- * @active_conn_num: number of active pipe connections.
- * @usb_base_address: BAM physical address.
- * @ignore_core_reset_ack: BAM can ignore ACK from USB core during PIPE RESET
- * @disable_clk_gating: Disable clock gating
- */
-struct msm_usb_bam_platform_data {
-	struct usb_bam_pipe_connect *connections;
-	int usb_active_bam;
-	int usb_bam_num_pipes;
-	u32 total_bam_num;
-	u32 usb_base_address;
-	bool ignore_core_reset_ack;
-	bool reset_on_connect[MAX_BAMS];
-	bool disable_clk_gating;
 };
 
 /**
