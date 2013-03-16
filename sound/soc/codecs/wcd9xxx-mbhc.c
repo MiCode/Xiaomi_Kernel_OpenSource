@@ -2455,8 +2455,10 @@ static irqreturn_t wcd9xxx_hphl_ocp_irq(int irq, void *data)
 
 	if (mbhc) {
 		codec = mbhc->codec;
-		if (mbhc->hphlocp_cnt++ < OCP_ATTEMPT) {
+		if ((mbhc->hphlocp_cnt < OCP_ATTEMPT) &&
+		    (!mbhc->hphrocp_cnt)) {
 			pr_info("%s: retry\n", __func__);
+			mbhc->hphlocp_cnt++;
 			snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_OCP_CTL,
 					    0x10, 0x00);
 			snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_OCP_CTL,
@@ -2464,7 +2466,6 @@ static irqreturn_t wcd9xxx_hphl_ocp_irq(int irq, void *data)
 		} else {
 			wcd9xxx_disable_irq(codec->control_data,
 					  WCD9XXX_IRQ_HPH_PA_OCPL_FAULT);
-			mbhc->hphlocp_cnt = 0;
 			mbhc->hph_status |= SND_JACK_OC_HPHL;
 			wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
 					    mbhc->hph_status,
@@ -2484,8 +2485,10 @@ static irqreturn_t wcd9xxx_hphr_ocp_irq(int irq, void *data)
 
 	pr_info("%s: received HPHR OCP irq\n", __func__);
 	codec = mbhc->codec;
-	if (mbhc->hphrocp_cnt++ < OCP_ATTEMPT) {
+	if ((mbhc->hphrocp_cnt < OCP_ATTEMPT) &&
+	    (!mbhc->hphlocp_cnt)) {
 		pr_info("%s: retry\n", __func__);
+		mbhc->hphrocp_cnt++;
 		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_OCP_CTL, 0x10,
 				    0x00);
 		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_OCP_CTL, 0x10,
@@ -2493,7 +2496,6 @@ static irqreturn_t wcd9xxx_hphr_ocp_irq(int irq, void *data)
 	} else {
 		wcd9xxx_disable_irq(mbhc->resmgr->core,
 				    WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
-		mbhc->hphrocp_cnt = 0;
 		mbhc->hph_status |= SND_JACK_OC_HPHR;
 		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
 				    mbhc->hph_status, WCD9XXX_JACK_MASK);
