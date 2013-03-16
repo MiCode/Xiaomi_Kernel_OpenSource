@@ -2843,12 +2843,12 @@ config MSM_RPC_PMAPP
 	 does not have a direct access to the PMIC.
 
 config MSM_ENABLE_WDOG_DEBUG_CONTROL
-	bool "MSM Watchdog driver to disable debug Image"
+	bool "Enable control of watchdog debug and boot partition select"
 	help
-	 This driver supports the configuration of the GCC_WDOG_DEBUG register
-	 used to control debug image.
-	 This support is currently required for MSM8974 to disable debug image
-	 on PS HOLD reset
+	  Enables support for controlling watchdog debug and boot partition
+	  select. This is currently used to bypass debug image for PS_HOLD reset
+	  by disabling watchdog debug and boot partition select. This allows
+	  for a clean MSM reset for reboot scenarios.
 
 config MSM_FIQ
 	bool "Enable FIQ for debugging"
