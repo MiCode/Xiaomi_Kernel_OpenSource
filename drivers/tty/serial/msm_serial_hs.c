@@ -1746,7 +1746,8 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 	if (msm_uport->rx.flush != FLUSH_SHUTDOWN) {
 		if (msm_uport->rx.flush == FLUSH_NONE) {
 			msm_hs_stop_rx_locked(uport);
-			msm_uport->rx_discard_flush_issued = true;
+			if (!is_blsp_uart(msm_uport))
+				msm_uport->rx_discard_flush_issued = true;
 		}
 
 		spin_unlock_irqrestore(&uport->lock, flags);
