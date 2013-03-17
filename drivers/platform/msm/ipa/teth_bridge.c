@@ -29,7 +29,6 @@
 
 #define TETH_BRIDGE_DRV_NAME "ipa_tethering_bridge"
 
-#ifdef TETH_DEBUG
 #define TETH_DBG(fmt, args...) \
 	pr_debug(TETH_BRIDGE_DRV_NAME " %s:%d " fmt, \
 		 __func__, __LINE__, ## args)
@@ -37,12 +36,6 @@
 	pr_debug(TETH_BRIDGE_DRV_NAME " %s:%d ENTRY\n", __func__, __LINE__)
 #define TETH_DBG_FUNC_EXIT() \
 	pr_debug(TETH_BRIDGE_DRV_NAME " %s:%d EXIT\n", __func__, __LINE__)
-#else
-#define TETH_DBG(fmt, args...)
-#define TETH_DBG_FUNC_ENTRY()
-#define TETH_DBG_FUNC_EXIT()
-#endif
-
 #define TETH_ERR(fmt, args...) \
 	pr_err(TETH_BRIDGE_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
@@ -61,6 +54,9 @@
 
 #define ETHERTYPE_IPV4 0x0800
 #define ETHERTYPE_IPV6 0x86DD
+
+#define TETH_AGGR_MAX_DATAGRAMS_DEFAULT 16
+#define TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT (8*1024)
 
 struct mac_addresses_type {
 	u8 host_pc_mac_addr[ETH_ALEN];
@@ -905,7 +901,6 @@ static void bridge_prod_notify_cb(void *notify_cb_data,
 int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr)
 {
 	int res = 0;
-	struct ipa_rm_create_params bridge_prod_params;
 
 	TETH_DBG_FUNC_ENTRY();
 	if (usb_notify_cb_ptr == NULL) {
@@ -918,48 +913,34 @@ int teth_bridge_init(ipa_notify_cb *usb_notify_cb_ptr, void **private_data_ptr)
 	*private_data_ptr = NULL;
 
 	/* Build IPA Resource manager dependency graph */
-	bridge_prod_params.name = IPA_RM_RESOURCE_BRIDGE_PROD;
-	bridge_prod_params.reg_params.user_data = NULL;
-	bridge_prod_params.reg_params.notify_cb = bridge_prod_notify_cb;
-	res = ipa_rm_create_resource(&bridge_prod_params);
-	if (res) {
-		TETH_ERR("ipa_rm_create_resource() failed\n");
-		goto bail;
-	}
-
 	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
 				    IPA_RM_RESOURCE_USB_CONS);
-	if (res) {
+	if (res && res != -EEXIST) {
 		TETH_ERR("ipa_rm_add_dependency() failed\n");
 		goto bail;
 	}
 
 	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
 				    IPA_RM_RESOURCE_A2_CONS);
-	if (res) {
+	if (res && res != -EEXIST) {
 		TETH_ERR("ipa_rm_add_dependency() failed\n");
 		goto fail_add_dependency_1;
 	}
 
 	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
 				    IPA_RM_RESOURCE_A2_CONS);
-	if (res) {
+	if (res && res != -EEXIST) {
 		TETH_ERR("ipa_rm_add_dependency() failed\n");
 		goto fail_add_dependency_2;
 	}
 
 	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_A2_PROD,
 				    IPA_RM_RESOURCE_USB_CONS);
-	if (res) {
+	if (res && res != -EEXIST) {
 		TETH_ERR("ipa_rm_add_dependency() failed\n");
 		goto fail_add_dependency_3;
 	}
 
-	init_completion(&teth_ctx->is_bridge_prod_up);
-	init_completion(&teth_ctx->is_bridge_prod_down);
-
-	/* The default link protocol is Ethernet */
-	teth_ctx->link_protocol = TETH_LINK_PROTOCOL_ETHERNET;
 	goto bail;
 
 fail_add_dependency_3:
@@ -1001,6 +982,20 @@ int teth_bridge_disconnect(void)
 	if (res == -EINPROGRESS)
 		wait_for_completion(&teth_ctx->is_bridge_prod_down);
 
+	/* Initialize statistics */
+	memset(&teth_ctx->stats, 0, sizeof(teth_ctx->stats));
+
+	/* Delete IPA Resource manager dependency graph */
+	res = ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
+				       IPA_RM_RESOURCE_USB_CONS);
+	res |= ipa_rm_delete_dependency(IPA_RM_RESOURCE_BRIDGE_PROD,
+					IPA_RM_RESOURCE_A2_CONS);
+	res |= ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+					IPA_RM_RESOURCE_A2_CONS);
+	res |= ipa_rm_delete_dependency(IPA_RM_RESOURCE_A2_PROD,
+					IPA_RM_RESOURCE_USB_CONS);
+	if (res)
+		TETH_ERR("Failed deleting ipa_rm dependency.\n");
 bail:
 	TETH_DBG_FUNC_EXIT();
 	return res;
@@ -1084,9 +1079,11 @@ EXPORT_SYMBOL(teth_bridge_connect);
 static void set_aggr_default_params(struct teth_aggr_params_link *params)
 {
 	if (params->max_datagrams == 0)
-		params->max_datagrams = 16;
+		params->max_datagrams =
+		   TETH_AGGR_MAX_DATAGRAMS_DEFAULT;
 	if (params->max_transfer_size_byte == 0)
-		params->max_transfer_size_byte = 16*1024;
+		params->max_transfer_size_byte =
+		   TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT;
 }
 
 static void teth_set_bridge_mode(enum teth_link_protocol_type link_protocol)
@@ -1096,11 +1093,38 @@ static void teth_set_bridge_mode(enum teth_link_protocol_type link_protocol)
 	memset(&teth_ctx->mac_addresses, 0, sizeof(teth_ctx->mac_addresses));
 }
 
+int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
+{
+	int res;
+
+	if (!aggr_params) {
+		TETH_ERR("Invalid parameter\n");
+		return -EINVAL;
+	}
+
+	memcpy(&teth_ctx->aggr_params,
+	       aggr_params,
+	       sizeof(struct teth_aggr_params));
+	set_aggr_default_params(&teth_ctx->aggr_params.dl);
+	set_aggr_default_params(&teth_ctx->aggr_params.ul);
+
+	teth_ctx->aggr_params_known = true;
+	res = teth_set_aggregation();
+	if (res) {
+		TETH_ERR("Failed setting aggregation params\n");
+		res = -EFAULT;
+	}
+
+	return res;
+}
+EXPORT_SYMBOL(teth_bridge_set_aggr_params);
+
 static long teth_bridge_ioctl(struct file *filp,
 			      unsigned int cmd,
 			      unsigned long arg)
 {
 	int res = 0;
+	struct teth_aggr_params aggr_params;
 
 	TETH_DBG("cmd=%x nr=%d\n", cmd, _IOC_NR(cmd));
 
@@ -1119,7 +1143,7 @@ static long teth_bridge_ioctl(struct file *filp,
 
 	case TETH_BRIDGE_IOC_SET_AGGR_PARAMS:
 		TETH_DBG("TETH_BRIDGE_IOC_SET_AGGR_PARAMS ioctl called\n");
-		res = copy_from_user(&teth_ctx->aggr_params,
+		res = copy_from_user(&aggr_params,
 				   (struct teth_aggr_params *)arg,
 				   sizeof(struct teth_aggr_params));
 		if (res) {
@@ -1127,9 +1151,8 @@ static long teth_bridge_ioctl(struct file *filp,
 			res = -EFAULT;
 			break;
 		}
-		set_aggr_default_params(&teth_ctx->aggr_params.dl);
-		set_aggr_default_params(&teth_ctx->aggr_params.ul);
-		teth_ctx->aggr_params_known = true;
+
+		res = teth_bridge_set_aggr_params(&aggr_params);
 		break;
 
 	case TETH_BRIDGE_IOC_GET_AGGR_PARAMS:
@@ -1201,12 +1224,10 @@ static void set_aggr_capabilities(void)
 	teth_ctx->aggr_caps->num_protocols = NUM_PROTOCOLS;
 
 	teth_ctx->aggr_caps->prot_caps[0].aggr_prot = TETH_AGGR_PROTOCOL_MBIM;
-	teth_ctx->aggr_caps->prot_caps[0].max_datagrams = 16;
-	teth_ctx->aggr_caps->prot_caps[0].max_transfer_size_byte = 16*1024;
+	set_aggr_default_params(&teth_ctx->aggr_caps->prot_caps[0]);
 
 	teth_ctx->aggr_caps->prot_caps[1].aggr_prot = TETH_AGGR_PROTOCOL_TLP;
-	teth_ctx->aggr_caps->prot_caps[1].max_datagrams = 16;
-	teth_ctx->aggr_caps->prot_caps[1].max_transfer_size_byte = 16*1024;
+	set_aggr_default_params(&teth_ctx->aggr_caps->prot_caps[1]);
 }
 
 void teth_bridge_get_client_handles(u32 *producer_handle,
@@ -1287,7 +1308,7 @@ static ssize_t teth_debugfs_read_aggr_params(struct file *file,
 	aggr_prot_to_str(teth_ctx->aggr_params.ul.aggr_prot,
 			 aggr_str,
 			 sizeof(aggr_str)-1);
-	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN,
+	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
 			   "Aggregation parameters for uplink:\n");
 	nbytes += scnprintf(&dbg_buff[nbytes], TETH_MAX_MSG_LEN - nbytes,
 			    "  Aggregation protocol: %s\n",
@@ -1493,6 +1514,7 @@ static const struct file_operations teth_bridge_drv_fops = {
 int teth_bridge_driver_init(void)
 {
 	int res;
+	struct ipa_rm_create_params bridge_prod_params;
 
 	TETH_DBG("Tethering bridge driver init\n");
 	teth_ctx = kzalloc(sizeof(*teth_ctx), GFP_KERNEL);
@@ -1535,6 +1557,22 @@ int teth_bridge_driver_init(void)
 	teth_ctx->comp_hw_bridge_in_progress = false;
 
 	teth_debugfs_init();
+
+	/* Create BRIDGE_PROD entity in IPA Resource Manager */
+	bridge_prod_params.name = IPA_RM_RESOURCE_BRIDGE_PROD;
+	bridge_prod_params.reg_params.user_data = NULL;
+	bridge_prod_params.reg_params.notify_cb = bridge_prod_notify_cb;
+	res = ipa_rm_create_resource(&bridge_prod_params);
+	if (res) {
+		TETH_ERR("ipa_rm_create_resource() failed\n");
+		goto fail_cdev_add;
+	}
+	init_completion(&teth_ctx->is_bridge_prod_up);
+	init_completion(&teth_ctx->is_bridge_prod_down);
+
+	/* The default link protocol is Ethernet */
+	teth_ctx->link_protocol = TETH_LINK_PROTOCOL_ETHERNET;
+
 	TETH_DBG("Tethering bridge driver init OK\n");
 
 	return 0;
