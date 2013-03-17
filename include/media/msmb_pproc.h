@@ -11,6 +11,7 @@
 #define MAX_PLANES VIDEO_MAX_PLANES
 
 #define MAX_NUM_CPP_STRIPS 8
+#define MSM_CPP_MAX_NUM_PLANES 3
 
 enum msm_cpp_frame_type {
 	MSM_CPP_OFFLINE_FRAME,
@@ -74,9 +75,25 @@ struct msm_cpp_frame_strip_info {
 	int postscale_crop_en;
 };
 
+struct msm_cpp_buffer_info_t {
+	int fd;
+	uint32_t index;
+	uint32_t offset;
+	uint8_t native_buff;
+	uint8_t processed_divert;
+};
+
+struct msm_cpp_stream_buff_info_t {
+	uint32_t identity;
+	uint32_t num_buffs;
+	struct msm_cpp_buffer_info_t *buffer_info;
+};
+
 struct msm_cpp_frame_info_t {
 	int32_t frame_id;
+	struct timeval timestamp;
 	uint32_t inst_id;
+	uint32_t identity;
 	uint32_t client_id;
 	enum msm_cpp_frame_type frame_type;
 	uint32_t num_strips;
@@ -87,6 +104,11 @@ struct msm_cpp_frame_info_t {
 	int dst_fd;
 	struct ion_handle *src_ion_handle;
 	struct ion_handle *dest_ion_handle;
+	struct timeval in_time, out_time;
+	void *cookie;
+
+	struct msm_cpp_buffer_info_t input_buffer_info;
+	struct msm_cpp_buffer_info_t output_buffer_info;
 };
 
 struct cpp_hw_info {
@@ -111,6 +133,12 @@ struct cpp_hw_info {
 
 #define VIDIOC_MSM_CPP_FLUSH_QUEUE \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_CPP_ENQUEUE_STREAM_BUFF_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct msm_camera_v4l2_ioctl_t)
 
 #define V4L2_EVENT_CPP_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 0)
 
