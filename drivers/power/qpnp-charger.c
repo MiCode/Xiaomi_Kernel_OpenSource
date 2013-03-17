@@ -525,6 +525,8 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 
 	if (chip->usb_present ^ usb_present) {
 		chip->usb_present = usb_present;
+		if (!usb_present)
+			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 		power_supply_set_present(chip->usb_psy,
 			chip->usb_present);
 	}
@@ -1012,17 +1014,15 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 	chip->usb_psy->get_property(chip->usb_psy,
 			  POWER_SUPPLY_PROP_ONLINE, &ret);
 
-	if (ret.intval && qpnp_chg_is_usb_chg_plugged_in(chip)) {
-		chip->usb_psy->get_property(chip->usb_psy,
-			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
-		qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
-		if ((ret.intval / 1000) <= QPNP_CHG_I_MAX_MIN_MA)
+	/* Only honour requests while USB is present */
+	if (qpnp_chg_is_usb_chg_plugged_in(chip)) {
+		if (ret.intval <= 2) {
 			qpnp_chg_usb_suspend_enable(chip, 1);
-		else
+			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
+		} else {
+			qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
 			qpnp_chg_usb_suspend_enable(chip, 0);
-	} else {
-		qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
-		qpnp_chg_usb_suspend_enable(chip, 0);
+		}
 	}
 
 	pr_debug("end of power supply changed\n");
