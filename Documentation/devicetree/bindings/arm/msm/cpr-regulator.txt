@@ -1,0 +1,69 @@
+Qualcomm CPR (Core Power Reduction) Regulator
+
+CPR regulator device is for Qualcomm RBCPR (RapidBridge CPR) on
+	application processor core. It takes voltage corner level
+	as input and converts it to actual voltage based on the
+	suggestions from factory production process. When CPR is
+	enabled for application processer core, it will suggest
+	scaling the voltage up or down for best performance and
+	power of the core. The scaling based on factory production
+	process is called PVS (Process Voltage Scaling) with efuse
+	bits to indicate what bin (and voltage range) a chip is in.
+
+Required properties:
+- compatible:			Must be "qcom,cpr-regulator"
+- reg:				Register addresses for RBCPR and efuse
+- reg-names:			Register names. Must be "rbcpr" and "efuse_phys"
+- regulator-name:		A string used to describe the regulator
+- regulator-min-microvolt:	Minimum corner value as min constraint, which
+				should be 1 for SVS corner
+- regulator-max-microvolt:	Maximum corner value as max constraint, which
+				should be 4 for SUPER_TURBO or 3 for TURBO
+- qcom,num-efuse-bits:		The number of bits used in efuse memory to
+				represent total number of PVS bins. It should
+				not exceed a maximum of 5 for total number of
+				32 bins.
+- qcom,efuse-bit-pos:		A list of integers whose length must equal
+				to qcom,num-efuse-bits and each integer indicates
+				bit position in efuse memory from LSB to MSB
+- qcom,pvs-bin-process:		A list of integers whose length is equal to 2 to
+				the power of qcom,num-efuse-bits. The location or
+				0-based index of an element in the list corresponds
+				to the bin number. The value of each integer
+				corresponds to the PVS process speed of the APC
+				silicon for a chip with one of these cases:
+					1 = APC_PVS_SLOW
+					2 = APC_PVS_NOM
+					3 = APC_PVS_FAST
+					0 or other values = No PVS
+- qcom,pvs-corner-ceiling-slow:	Ceiling voltages of all corners for APC_PVS_SLOW
+- qcom,pvs-corner-ceiling-nom:	Ceiling voltages of all corners for APC_PVS_NOM
+- qcom,pvs-corner-ceiling-fast:	Ceiling voltages of all corners for APC_PVS_FAST
+				The ceiling voltages for each of above three
+				properties may look like this:
+				  0 (SVS voltage):		1050000 uV
+				  1 (NORMAL voltage):		1150000 uV
+				  2 (TURBO voltage):		1275000 uV
+				  3 (SUPER_TURBO voltage):	1275000 uV
+- vdd-apc-supply:		Regulator to supply VDD APC power
+
+Example:
+	apc_vreg_corner: regulator@f9018000 {
+		status = "okay";
+		compatible = "qcom,cpr-regulator";
+		reg = <0xf9018000 0x1000>,
+			<0xfc4b80b0 8>;
+		reg-names = "rbcpr", "efuse_phys";
+		regulator-name = "apc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <4>;
+		qcom,num-efuse-bits = <5>;
+		qcom,efuse-bit-pos = <6 7 8 9 10>;
+		qcom,pvs-bin-process = <0 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2
+					2 2 2 2 3 3 3 3 3 3 3 3 0 0 0 0>;
+		qcom,pvs-corner-ceiling-slow = <1050000 1150000 1275000 1350000>;
+		qcom,pvs-corner-ceiling-nom  =  <975000 1075000 1200000 1200000>;
+		qcom,pvs-corner-ceiling-fast =  <900000 1000000 1140000 1140000>;
+		vdd-apc-supply = <&pm8226_s2>;
+	};
+
