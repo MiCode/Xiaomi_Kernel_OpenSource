@@ -127,6 +127,26 @@ struct msm_cpp_tasklet_queue_cmd {
 	uint8_t cmd_used;
 };
 
+struct msm_cpp_buffer_map_info_t {
+	unsigned long len;
+	unsigned long phy_addr;
+	struct ion_handle *ion_handle;
+	struct msm_cpp_buffer_info_t buff_info;
+};
+
+struct msm_cpp_buffer_map_list_t {
+	struct msm_cpp_buffer_map_info_t map_info;
+	struct list_head entry;
+};
+
+struct msm_cpp_buff_queue_info_t {
+	uint32_t used;
+	uint16_t session_id;
+	uint16_t stream_id;
+	struct list_head vb2_buff_head;
+	struct list_head native_buff_head;
+};
+
 struct cpp_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
@@ -167,13 +187,13 @@ struct cpp_device {
 
 	struct msm_device_queue eventData_q; /* V4L2 Event Payload Queue */
 
-	/* Offline Frame Queue process when realtime queue is empty */
-	struct msm_device_queue offline_q;
-	/* Realtime Frame Queue process with highest priority */
-	struct msm_device_queue realtime_q;
 	/* Processing Queue
 	 * store frame info for frames sent to microcontroller
 	 */
 	struct msm_device_queue processing_q;
+
+	struct msm_cpp_buff_queue_info_t *buff_queue;
+	uint32_t num_buffq;
+	struct v4l2_subdev *buf_mgr_subdev;
 };
 #endif /* __MSM_CPP_H__ */
