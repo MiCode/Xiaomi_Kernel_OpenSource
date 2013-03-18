@@ -115,8 +115,7 @@ struct qpnp_bms_chip {
 
 	u8				revision1;
 	u8				revision2;
-	int				charger_status;
-	bool				online;
+	int				battery_present;
 	/* platform data */
 	int				r_sense_uohm;
 	unsigned int			v_cutoff_uv;
@@ -207,8 +206,7 @@ static char *qpnp_bms_supplicants[] = {
 };
 
 static enum power_supply_property msm_bms_power_props[] = {
-	POWER_SUPPLY_PROP_STATUS,
-	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
@@ -1867,24 +1865,15 @@ static int get_prop_bms_charge_full_design(struct qpnp_bms_chip *chip)
 	return chip->fcc;
 }
 
-static bool get_prop_bms_online(struct qpnp_bms_chip *chip)
+static int get_prop_bms_present(struct qpnp_bms_chip *chip)
 {
-	return chip->online;
+	return chip->battery_present;
 }
 
-static int get_prop_bms_status(struct qpnp_bms_chip *chip)
+static void set_prop_bms_present(struct qpnp_bms_chip *chip, int present)
 {
-	return chip->charger_status;
-}
-
-static void set_prop_bms_online(struct qpnp_bms_chip *chip, bool online)
-{
-	chip->online = online;
-}
-
-static void set_prop_bms_status(struct qpnp_bms_chip *chip, int status)
-{
-	chip->charger_status = status;
+	if (chip->battery_present != present)
+		chip->battery_present = present;
 }
 
 static void qpnp_bms_external_power_changed(struct power_supply *psy)
@@ -1911,11 +1900,8 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_bms_charge_full_design(chip);
 		break;
-	case POWER_SUPPLY_PROP_STATUS:
-		val->intval = get_prop_bms_status(chip);
-		break;
-	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = get_prop_bms_online(chip);
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = get_prop_bms_present(chip);
 		break;
 	default:
 		return -EINVAL;
@@ -1931,11 +1917,8 @@ static int qpnp_bms_power_set_property(struct power_supply *psy,
 								bms_psy);
 
 	switch (psp) {
-	case POWER_SUPPLY_PROP_ONLINE:
-		set_prop_bms_online(chip, val->intval);
-		break;
-	case POWER_SUPPLY_PROP_STATUS:
-		set_prop_bms_status(chip, (bool)val->intval);
+	case POWER_SUPPLY_PROP_PRESENT:
+		set_prop_bms_present(chip, val->intval);
 		break;
 	default:
 		return -EINVAL;
@@ -2324,6 +2307,7 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip;
+	union power_supply_propval retval = {0,};
 	int rc, vbatt;
 
 	chip = kzalloc(sizeof *chip, GFP_KERNEL);
@@ -2412,6 +2396,14 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 
 	dev_set_drvdata(&spmi->dev, chip);
 	device_init_wakeup(&spmi->dev, 1);
+
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		chip->batt_psy->get_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_PRESENT, &retval);
+		chip->battery_present = retval.intval;
+	}
 
 	calculate_soc_work(&(chip->calculate_soc_delayed_work.work));
 
