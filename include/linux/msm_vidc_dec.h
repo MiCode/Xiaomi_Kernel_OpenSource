@@ -282,7 +282,8 @@ enum vdec_codec {
 	VDEC_CODECTYPE_MPEG1 = 0x9,
 	VDEC_CODECTYPE_MPEG2 = 0xa,
 	VDEC_CODECTYPE_VC1 = 0xb,
-	VDEC_CODECTYPE_VC1_RCV = 0xc
+	VDEC_CODECTYPE_VC1_RCV = 0xc,
+	VDEC_CODECTYPE_HEVC = 0xd,
 };
 
 enum vdec_mpeg2_profile {
