@@ -318,6 +318,7 @@ struct mdp_qseed_cfg_data {
 #define MDP_OVERLAY_PP_IGC_CFG         0x8
 #define MDP_OVERLAY_PP_SHARP_CFG       0x10
 #define MDP_OVERLAY_PP_HIST_CFG        0x20
+#define MDP_OVERLAY_PP_HIST_LUT_CFG    0x40
 
 #define MDP_CSC_FLAG_ENABLE	0x1
 #define MDP_CSC_FLAG_YUV_IN	0x2
@@ -361,6 +362,13 @@ struct mdp_histogram_cfg {
 	uint16_t num_bins;
 };
 
+struct mdp_hist_lut_data {
+	uint32_t block;
+	uint32_t ops;
+	uint32_t len;
+	uint32_t *data;
+};
+
 struct mdp_overlay_pp_params {
 	uint32_t config_ops;
 	struct mdp_csc_cfg csc_cfg;
@@ -369,6 +377,7 @@ struct mdp_overlay_pp_params {
 	struct mdp_igc_lut_data igc_cfg;
 	struct mdp_sharp_cfg sharp_cfg;
 	struct mdp_histogram_cfg hist_cfg;
+	struct mdp_hist_lut_data hist_lut_cfg;
 };
 
 struct mdp_overlay {
@@ -502,13 +511,6 @@ struct mdp_pgc_lut_data {
 	struct mdp_ar_gc_lut_data *b_data;
 };
 
-
-struct mdp_hist_lut_data {
-	uint32_t block;
-	uint32_t ops;
-	uint32_t len;
-	uint32_t *data;
-};
 
 struct mdp_lut_cfg_data {
 	uint32_t lut_type;
