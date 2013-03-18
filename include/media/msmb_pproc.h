@@ -109,6 +109,9 @@ struct cpp_hw_info {
 #define VIDIOC_MSM_CPP_GET_HW_INFO \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct msm_camera_v4l2_ioctl_t)
 
+#define VIDIOC_MSM_CPP_FLUSH_QUEUE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct msm_camera_v4l2_ioctl_t)
+
 #define V4L2_EVENT_CPP_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 0)
 
 struct msm_camera_v4l2_ioctl_t {

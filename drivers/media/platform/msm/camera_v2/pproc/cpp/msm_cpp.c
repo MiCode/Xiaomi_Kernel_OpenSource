@@ -754,6 +754,9 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_CPP_CFG:
 		rc = msm_cpp_cfg(cpp_dev, ioctl_ptr);
 		break;
+	case VIDIOC_MSM_CPP_FLUSH_QUEUE:
+		rc = msm_cpp_send_frame_to_hardware(cpp_dev);
+		break;
 	case VIDIOC_MSM_CPP_GET_EVENTPAYLOAD: {
 		struct msm_device_queue *queue = &cpp_dev->eventData_q;
 		struct msm_queue_cmd *event_qcmd;
