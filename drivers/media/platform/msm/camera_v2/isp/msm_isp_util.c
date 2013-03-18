@@ -68,28 +68,65 @@ int msm_isp_unsubscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	return rc;
 }
 
-int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
-	struct msm_vfe_pix_cfg *pix_cfg)
+static int msm_isp_set_clk_rate(struct vfe_device *vfe_dev, uint32_t rate)
 {
 	int rc = 0;
-	/*TD Validate config info
-	 * should check if all streams are off */
+	int clk_idx = vfe_dev->hw_info->vfe_clk_idx;
+	long round_rate =
+		clk_round_rate(vfe_dev->vfe_clk[clk_idx], rate);
+	if (round_rate < 0) {
+		pr_err("%s: Invalid vfe clock rate\n", __func__);
+		return round_rate;
+	}
 
-	vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux = pix_cfg->input_mux;
+	rc = clk_set_rate(vfe_dev->vfe_clk[clk_idx], round_rate);
+	if (rc < 0) {
+		pr_err("%s: Vfe set rate error\n", __func__);
+		return rc;
+	}
+	return 0;
+}
 
-	vfe_dev->hw_info->vfe_ops.core_ops.cfg_camif(vfe_dev, pix_cfg);
+int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
+	struct msm_vfe_input_cfg *input_cfg)
+{
+	int rc = 0;
+	if (vfe_dev->axi_data.src_info[VFE_PIX_0].active) {
+		pr_err("%s: pixel path is active\n", __func__);
+		return -EINVAL;
+	}
+
+	vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock =
+		input_cfg->input_pix_clk;
+	vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux =
+		input_cfg->d.pix_cfg.input_mux;
+
+	rc = msm_isp_set_clk_rate(vfe_dev,
+		vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock);
+	if (rc < 0) {
+		pr_err("%s: clock set rate failed\n", __func__);
+		return rc;
+	}
+
+	vfe_dev->hw_info->vfe_ops.core_ops.cfg_camif(
+		vfe_dev, &input_cfg->d.pix_cfg);
 	return rc;
 }
 
 int msm_isp_cfg_rdi(struct vfe_device *vfe_dev,
-	struct msm_vfe_rdi_cfg *rdi_cfg, enum msm_vfe_input_src input_src)
+	struct msm_vfe_input_cfg *input_cfg)
 {
 	int rc = 0;
-	/*TD Validate config info
-	 * should check if all streams are off */
+	if (vfe_dev->axi_data.src_info[input_cfg->input_src].active) {
+		pr_err("%s: RAW%d path is active\n", __func__,
+			   input_cfg->input_src - VFE_RAW_0);
+		return -EINVAL;
+	}
 
-	vfe_dev->hw_info->vfe_ops.core_ops.
-		cfg_rdi_reg(vfe_dev, rdi_cfg, input_src);
+	vfe_dev->axi_data.src_info[input_cfg->input_src].pixel_clock =
+		input_cfg->input_pix_clk;
+	vfe_dev->hw_info->vfe_ops.core_ops.cfg_rdi_reg(
+		vfe_dev, &input_cfg->d.rdi_cfg, input_cfg->input_src);
 	return rc;
 }
 
@@ -100,16 +137,16 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 
 	switch (input_cfg->input_src) {
 	case VFE_PIX_0:
-		msm_isp_cfg_pix(vfe_dev, &input_cfg->d.pix_cfg);
+		rc = msm_isp_cfg_pix(vfe_dev, input_cfg);
 		break;
 	case VFE_RAW_0:
 	case VFE_RAW_1:
 	case VFE_RAW_2:
-		msm_isp_cfg_rdi(vfe_dev, &input_cfg->d.rdi_cfg,
-						input_cfg->input_src);
+		rc = msm_isp_cfg_rdi(vfe_dev, input_cfg);
 		break;
-	case VFE_SRC_MAX:
-		break;
+	default:
+		pr_err("%s: Invalid input source\n", __func__);
+		rc = -EINVAL;
 	}
 	return rc;
 }

@@ -113,6 +113,7 @@ static struct msm_bus_scale_pdata msm_vfe40_bus_client_pdata = {
 	.name = "msm_camera_vfe",
 };
 
+#define VFE40_CLK_IDX 1
 static struct msm_cam_clk_info msm_vfe40_clk_info[] = {
 	{"camss_top_ahb_clk", -1},
 	{"vfe_clk_src", 266670000},
@@ -1288,6 +1289,7 @@ static struct v4l2_subdev_internal_ops msm_vfe40_internal_ops = {
 
 struct msm_vfe_hardware_info vfe40_hw_info = {
 	.num_iommu_ctx = 1,
+	.vfe_clk_idx = VFE40_CLK_IDX,
 	.vfe_ops = {
 		.irq_ops = {
 			.read_irq_status = msm_vfe40_read_irq_status,

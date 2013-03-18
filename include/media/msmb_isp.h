@@ -109,6 +109,7 @@ struct msm_vfe_input_cfg {
 		struct msm_vfe_rdi_cfg rdi_cfg;
 	} d;
 	enum msm_vfe_input_src input_src;
+	uint32_t input_pix_clk;
 };
 
 struct msm_vfe_axi_plane_cfg {
