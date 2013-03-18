@@ -27,7 +27,6 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
-static struct msm_actuator_ctrl_t msm_actuator_t;
 static struct msm_actuator msm_vcm_actuator_table;
 static struct msm_actuator msm_piezo_actuator_table;
 
@@ -618,103 +617,21 @@ static const struct v4l2_subdev_internal_ops msm_actuator_internal_ops = {
 	.close = msm_actuator_close,
 };
 
-static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *id)
+static long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
+			unsigned int cmd, void *arg)
 {
-	int rc = 0;
-	struct msm_actuator_ctrl_t *act_ctrl_t = NULL;
+	struct msm_actuator_ctrl_t *a_ctrl = v4l2_get_subdevdata(sd);
+	void __user *argp = (void __user *)arg;
 	CDBG("Enter\n");
-
-	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		pr_err("i2c_check_functionality failed\n");
-		goto probe_failure;
+	CDBG("%s:%d a_ctrl %p argp %p\n", __func__, __LINE__, a_ctrl, argp);
+	switch (cmd) {
+	case VIDIOC_MSM_SENSOR_GET_SUBDEV_ID:
+		return msm_actuator_get_subdev_id(a_ctrl, argp);
+	case VIDIOC_MSM_ACTUATOR_CFG:
+		return msm_actuator_config(a_ctrl, argp);
+	default:
+		return -ENOIOCTLCMD;
 	}
-
-	act_ctrl_t = (struct msm_actuator_ctrl_t *)(id->driver_data);
-	CDBG("client = %x\n", (unsigned int) client);
-	act_ctrl_t->i2c_client.client = client;
-	/* Set device type as I2C */
-	act_ctrl_t->act_device_type = MSM_CAMERA_I2C_DEVICE;
-	act_ctrl_t->i2c_client.i2c_func_tbl = &msm_sensor_qup_func_tbl;
-
-	/* Assign name for sub device */
-	snprintf(act_ctrl_t->msm_sd.sd.name, sizeof(act_ctrl_t->msm_sd.sd.name),
-		"%s", act_ctrl_t->i2c_driver->driver.name);
-
-	/* Initialize sub device */
-	v4l2_i2c_subdev_init(&act_ctrl_t->msm_sd.sd,
-		act_ctrl_t->i2c_client.client,
-		act_ctrl_t->act_v4l2_subdev_ops);
-	v4l2_set_subdevdata(&act_ctrl_t->msm_sd.sd, act_ctrl_t);
-	act_ctrl_t->msm_sd.sd.internal_ops = &msm_actuator_internal_ops;
-	act_ctrl_t->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	media_entity_init(&act_ctrl_t->msm_sd.sd.entity, 0, NULL, 0);
-	act_ctrl_t->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
-	act_ctrl_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
-	msm_sd_register(&act_ctrl_t->msm_sd);
-	CDBG("succeeded\n");
-	CDBG("Exit\n");
-
-probe_failure:
-	return rc;
-}
-
-static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
-{
-	int32_t rc = 0;
-	struct msm_camera_cci_client *cci_client = NULL;
-	CDBG("Enter\n");
-
-	if (!pdev->dev.of_node) {
-		pr_err("of_node NULL\n");
-		return -EINVAL;
-	}
-
-	rc = of_property_read_u32((&pdev->dev)->of_node, "cell-index",
-		&pdev->id);
-	CDBG("cell-index %d, rc %d\n", pdev->id, rc);
-	if (rc < 0) {
-		pr_err("failed rc %d\n", rc);
-		return rc;
-	}
-
-	rc = of_property_read_u32((&pdev->dev)->of_node, "qcom,cci-master",
-		&msm_actuator_t.cci_master);
-	CDBG("qcom,cci-master %d, rc %d\n", msm_actuator_t.cci_master, rc);
-	if (rc < 0) {
-		pr_err("failed rc %d\n", rc);
-		return rc;
-	}
-
-	msm_actuator_t.cam_name = pdev->id;
-
-	/* Set platform device handle */
-	msm_actuator_t.pdev = pdev;
-	/* Set device type as platform device */
-	msm_actuator_t.act_device_type = MSM_CAMERA_PLATFORM_DEVICE;
-	msm_actuator_t.i2c_client.i2c_func_tbl = &msm_sensor_cci_func_tbl;
-	msm_actuator_t.i2c_client.cci_client = kzalloc(sizeof(
-		struct msm_camera_cci_client), GFP_KERNEL);
-	if (!msm_actuator_t.i2c_client.cci_client) {
-		pr_err("failed no memory\n");
-		return -ENOMEM;
-	}
-
-	cci_client = msm_actuator_t.i2c_client.cci_client;
-	cci_client->cci_subdev = msm_cci_get_subdev();
-	v4l2_subdev_init(&msm_actuator_t.msm_sd.sd,
-		msm_actuator_t.act_v4l2_subdev_ops);
-	v4l2_set_subdevdata(&msm_actuator_t.msm_sd.sd, &msm_actuator_t);
-	msm_actuator_t.msm_sd.sd.internal_ops = &msm_actuator_internal_ops;
-	msm_actuator_t.msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
-	snprintf(msm_actuator_t.msm_sd.sd.name,
-		ARRAY_SIZE(msm_actuator_t.msm_sd.sd.name), "msm_actuator");
-	media_entity_init(&msm_actuator_t.msm_sd.sd.entity, 0, NULL, 0);
-	msm_actuator_t.msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
-	msm_actuator_t.msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
-	msm_sd_register(&msm_actuator_t.msm_sd);
-	CDBG("Exit\n");
-	return rc;
 }
 
 static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl)
@@ -733,64 +650,6 @@ static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl)
 	}
 	CDBG("Exit\n");
 	return rc;
-}
-
-static const struct i2c_device_id msm_actuator_i2c_id[] = {
-	{"msm_actuator", (kernel_ulong_t)&msm_actuator_t},
-	{ }
-};
-
-static struct i2c_driver msm_actuator_i2c_driver = {
-	.id_table = msm_actuator_i2c_id,
-	.probe  = msm_actuator_i2c_probe,
-	.remove = __exit_p(msm_actuator_i2c_remove),
-	.driver = {
-		.name = "msm_actuator",
-	},
-};
-
-static const struct of_device_id msm_actuator_dt_match[] = {
-	{.compatible = "qcom,actuator", .data = &msm_actuator_t},
-	{}
-};
-
-MODULE_DEVICE_TABLE(of, msm_actuator_dt_match);
-
-static struct platform_driver msm_actuator_platform_driver = {
-	.driver = {
-		.name = "qcom,actuator",
-		.owner = THIS_MODULE,
-		.of_match_table = msm_actuator_dt_match,
-	},
-};
-
-static int __init msm_actuator_init_module(void)
-{
-	int32_t rc = 0;
-	CDBG("Enter\n");
-	rc = platform_driver_probe(msm_actuator_t.pdriver,
-		msm_actuator_platform_probe);
-	if (!rc)
-		return rc;
-	CDBG("%s:%d rc %d\n", __func__, __LINE__, rc);
-	return i2c_add_driver(msm_actuator_t.i2c_driver);
-}
-
-static long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
-			unsigned int cmd, void *arg)
-{
-	struct msm_actuator_ctrl_t *a_ctrl = v4l2_get_subdevdata(sd);
-	void __user *argp = (void __user *)arg;
-	CDBG("Enter\n");
-	CDBG("%s:%d a_ctrl %p argp %p\n", __func__, __LINE__, a_ctrl, argp);
-	switch (cmd) {
-	case VIDIOC_MSM_SENSOR_GET_SUBDEV_ID:
-		return msm_actuator_get_subdev_id(a_ctrl, argp);
-	case VIDIOC_MSM_ACTUATOR_CFG:
-		return msm_actuator_config(a_ctrl, argp);
-	default:
-		return -ENOIOCTLCMD;
-	}
 }
 
 static int32_t msm_actuator_power(struct v4l2_subdev *sd, int on)
@@ -817,16 +676,155 @@ static struct v4l2_subdev_ops msm_actuator_subdev_ops = {
 	.core = &msm_actuator_subdev_core_ops,
 };
 
-static struct msm_actuator_ctrl_t msm_actuator_t = {
-	.i2c_driver = &msm_actuator_i2c_driver,
-	.pdriver = &msm_actuator_platform_driver,
-	.act_v4l2_subdev_ops = &msm_actuator_subdev_ops,
+static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	int rc = 0;
+	struct msm_actuator_ctrl_t *act_ctrl_t = NULL;
+	CDBG("Enter\n");
 
-	.curr_step_pos = 0,
-	.curr_region_index = 0,
-	.actuator_mutex = &msm_actuator_mutex,
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		pr_err("i2c_check_functionality failed\n");
+		goto probe_failure;
+	}
 
+	act_ctrl_t = (struct msm_actuator_ctrl_t *)(id->driver_data);
+	CDBG("client = %x\n", (unsigned int) client);
+	act_ctrl_t->i2c_client.client = client;
+	/* Set device type as I2C */
+	act_ctrl_t->act_device_type = MSM_CAMERA_I2C_DEVICE;
+	act_ctrl_t->i2c_client.i2c_func_tbl = &msm_sensor_qup_func_tbl;
+	act_ctrl_t->act_v4l2_subdev_ops = &msm_actuator_subdev_ops;
+	act_ctrl_t->actuator_mutex = &msm_actuator_mutex;
+	/* Assign name for sub device */
+	snprintf(act_ctrl_t->msm_sd.sd.name, sizeof(act_ctrl_t->msm_sd.sd.name),
+		"%s", act_ctrl_t->i2c_driver->driver.name);
+
+	/* Initialize sub device */
+	v4l2_i2c_subdev_init(&act_ctrl_t->msm_sd.sd,
+		act_ctrl_t->i2c_client.client,
+		act_ctrl_t->act_v4l2_subdev_ops);
+	v4l2_set_subdevdata(&act_ctrl_t->msm_sd.sd, act_ctrl_t);
+	act_ctrl_t->msm_sd.sd.internal_ops = &msm_actuator_internal_ops;
+	act_ctrl_t->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	media_entity_init(&act_ctrl_t->msm_sd.sd.entity, 0, NULL, 0);
+	act_ctrl_t->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	act_ctrl_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
+	msm_sd_register(&act_ctrl_t->msm_sd);
+	CDBG("succeeded\n");
+	CDBG("Exit\n");
+
+probe_failure:
+	return rc;
+}
+
+static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
+{
+	int32_t rc = 0;
+	struct msm_camera_cci_client *cci_client = NULL;
+	struct msm_actuator_ctrl_t *msm_actuator_t = NULL;
+	CDBG("Enter\n");
+
+	if (!pdev->dev.of_node) {
+		pr_err("of_node NULL\n");
+		return -EINVAL;
+	}
+
+	msm_actuator_t = kzalloc(sizeof(struct msm_actuator_ctrl_t),
+		GFP_KERNEL);
+	if (!msm_actuator_t) {
+		pr_err("%s:%d failed no memory\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+	rc = of_property_read_u32((&pdev->dev)->of_node, "cell-index",
+		&pdev->id);
+	CDBG("cell-index %d, rc %d\n", pdev->id, rc);
+	if (rc < 0) {
+		pr_err("failed rc %d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32((&pdev->dev)->of_node, "qcom,cci-master",
+		&msm_actuator_t->cci_master);
+	CDBG("qcom,cci-master %d, rc %d\n", msm_actuator_t->cci_master, rc);
+	if (rc < 0) {
+		pr_err("failed rc %d\n", rc);
+		return rc;
+	}
+
+	msm_actuator_t->act_v4l2_subdev_ops = &msm_actuator_subdev_ops;
+	msm_actuator_t->actuator_mutex = &msm_actuator_mutex;
+	msm_actuator_t->cam_name = pdev->id;
+
+	/* Set platform device handle */
+	msm_actuator_t->pdev = pdev;
+	/* Set device type as platform device */
+	msm_actuator_t->act_device_type = MSM_CAMERA_PLATFORM_DEVICE;
+	msm_actuator_t->i2c_client.i2c_func_tbl = &msm_sensor_cci_func_tbl;
+	msm_actuator_t->i2c_client.cci_client = kzalloc(sizeof(
+		struct msm_camera_cci_client), GFP_KERNEL);
+	if (!msm_actuator_t->i2c_client.cci_client) {
+		pr_err("failed no memory\n");
+		return -ENOMEM;
+	}
+
+	cci_client = msm_actuator_t->i2c_client.cci_client;
+	cci_client->cci_subdev = msm_cci_get_subdev();
+	v4l2_subdev_init(&msm_actuator_t->msm_sd.sd,
+		msm_actuator_t->act_v4l2_subdev_ops);
+	v4l2_set_subdevdata(&msm_actuator_t->msm_sd.sd, msm_actuator_t);
+	msm_actuator_t->msm_sd.sd.internal_ops = &msm_actuator_internal_ops;
+	msm_actuator_t->msm_sd.sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	snprintf(msm_actuator_t->msm_sd.sd.name,
+		ARRAY_SIZE(msm_actuator_t->msm_sd.sd.name), "msm_actuator");
+	media_entity_init(&msm_actuator_t->msm_sd.sd.entity, 0, NULL, 0);
+	msm_actuator_t->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
+	msm_actuator_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
+	msm_sd_register(&msm_actuator_t->msm_sd);
+	CDBG("Exit\n");
+	return rc;
+}
+
+static const struct i2c_device_id msm_actuator_i2c_id[] = {
+	{"msm_actuator", (kernel_ulong_t)NULL},
+	{ }
 };
+
+static struct i2c_driver msm_actuator_i2c_driver = {
+	.id_table = msm_actuator_i2c_id,
+	.probe  = msm_actuator_i2c_probe,
+	.remove = __exit_p(msm_actuator_i2c_remove),
+	.driver = {
+		.name = "msm_actuator",
+	},
+};
+
+static const struct of_device_id msm_actuator_dt_match[] = {
+	{.compatible = "qcom,actuator", .data = NULL},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, msm_actuator_dt_match);
+
+static struct platform_driver msm_actuator_platform_driver = {
+	.driver = {
+		.name = "qcom,actuator",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_actuator_dt_match,
+	},
+};
+
+static int __init msm_actuator_init_module(void)
+{
+	int32_t rc = 0;
+	CDBG("Enter\n");
+	rc = platform_driver_probe(&msm_actuator_platform_driver,
+		msm_actuator_platform_probe);
+	if (!rc)
+		return rc;
+	CDBG("%s:%d rc %d\n", __func__, __LINE__, rc);
+	return i2c_add_driver(&msm_actuator_i2c_driver);
+}
 
 static struct msm_actuator msm_vcm_actuator_table = {
 	.act_type = ACTUATOR_VCM,
