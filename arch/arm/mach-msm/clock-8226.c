@@ -3094,6 +3094,10 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc33d000.etm"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc33e000.etm"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc33f000.etm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc33c000.jtagmm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc33d000.jtagmm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc33e000.jtagmm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc33f000.jtagmm"),
 
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc322000.tmc"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc318000.tpiu"),
@@ -3109,6 +3113,10 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc33d000.etm"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc33e000.etm"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc33f000.etm"),
+	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc33c000.jtagmm"),
+	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc33d000.jtagmm"),
+	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc33e000.jtagmm"),
+	CLK_LOOKUP("core_a_clk", qdss_clk.c, "fc33f000.jtagmm"),
 
 	/* HSUSB-OTG Clocks */
 	CLK_LOOKUP("xo",                          xo.c, "f9a55000.usb"),
