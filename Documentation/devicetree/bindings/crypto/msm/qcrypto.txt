@@ -13,6 +13,10 @@ Required properties:
   - qcom,msm_bus,num_paths: The paths for source and destination ports
   - qcom,msm_bus,vectors: Vectors for bus topology.
 
+Optional properties:
+  - qcom,ce-hw-shared : optional, indicates if the hardware is shared between EE.
+
+
 Example:
 
         qcom,qcrypto@fd444000 {
@@ -23,6 +27,7 @@ Example:
 		interrupts = <0 235 0>;
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <1>;
+		qcom,ce-hw-shared;
                 qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,active-only = <0>;
