@@ -30,7 +30,7 @@ Optional properties for WLED:
 - qcom,ctrl-delay-us: delay in activation of led
 - qcom,dig-mod-gen-en: digital module generator
 - qcom,cs-out-en: current sink output enable
-- qcom,op-fdbck: selection of output as feedback for the boost
+- qcom,op-fdbck: selection of output as feedback for the boost, 00 = automatic selection, 01 = select LED1 output, 02 = select LED2 output, 03 = select LED3 output
 - qcom,cp-select: high pole capacitance
 - linux,default-trigger: trigger the led from external modules such as display
 - qcom,default-state:  default state of the led, should be "on" or "off"
@@ -138,7 +138,7 @@ Example:
 				linux,default-trigger = "bkl-trigger"
 				label = "wled";
 				qcom,cs-out-en;
-				qcom,op-fdbck;
+				qcom,op-fdbck = <1>;
 				qcom,default-state "off";
 				qcom,max-current = <25>;
 				qcom,ctrl-delay-us = <0>;

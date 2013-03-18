@@ -247,7 +247,7 @@
 				linux,name = "wled:backlight";
 				linux,default-trigger = "bkl-trigger";
 				qcom,cs-out-en;
-				qcom,op-fdbck;
+				qcom,op-fdbck = <1>;
 				qcom,default-state = "on";
 				qcom,max-current = <25>;
 				qcom,ctrl-delay-us = <0>;
