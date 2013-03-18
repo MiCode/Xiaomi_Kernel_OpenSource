@@ -563,6 +563,44 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev)
 	return 0;
 }
 
+static int msm_cpp_flush_frames(struct cpp_device *cpp_dev)
+{
+	struct v4l2_event v4l2_evt;
+	struct msm_queue_cmd *frame_qcmd;
+	struct msm_cpp_frame_info_t *process_frame;
+	struct msm_device_queue *queue;
+	struct msm_queue_cmd *event_qcmd;
+
+	do {
+		if (cpp_dev->realtime_q.len != 0) {
+			queue = &cpp_dev->realtime_q;
+		} else if (cpp_dev->offline_q.len != 0) {
+			queue = &cpp_dev->offline_q;
+		} else {
+			pr_debug("All frames flushed\n");
+			break;
+		}
+		frame_qcmd = msm_dequeue(queue, list_frame);
+		process_frame = frame_qcmd->command;
+		kfree(frame_qcmd);
+		event_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_ATOMIC);
+		if (!event_qcmd) {
+			pr_err("Insufficient memory. return");
+			return -ENOMEM;
+		}
+		atomic_set(&event_qcmd->on_heap, 1);
+		event_qcmd->command = process_frame;
+		CPP_DBG("fid %d\n", process_frame->frame_id);
+		msm_enqueue(&cpp_dev->eventData_q, &event_qcmd->list_eventdata);
+
+		v4l2_evt.id = process_frame->inst_id;
+		v4l2_evt.type = V4L2_EVENT_CPP_FRAME_DONE;
+		v4l2_event_queue(cpp_dev->msm_sd.sd.devnode, &v4l2_evt);
+	} while ((cpp_dev->realtime_q.len != 0) ||
+		(cpp_dev->offline_q.len != 0));
+	return 0;
+}
+
 static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
 {
@@ -755,7 +793,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_cpp_cfg(cpp_dev, ioctl_ptr);
 		break;
 	case VIDIOC_MSM_CPP_FLUSH_QUEUE:
-		rc = msm_cpp_send_frame_to_hardware(cpp_dev);
+		rc = msm_cpp_flush_frames(cpp_dev);
 		break;
 	case VIDIOC_MSM_CPP_GET_EVENTPAYLOAD: {
 		struct msm_device_queue *queue = &cpp_dev->eventData_q;
