@@ -243,6 +243,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_mixer *mixer = NULL;
 	u32 pipe_type, mixer_mux, len, src_format;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdp_histogram_start_req hist;
 	int ret;
 
 	if (mdp5_data->ctl == NULL)
@@ -388,6 +389,21 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 			pipe->pp_cfg.igc_cfg.c0_c1_data =
 							pipe->pp_res.igc_c0_c1;
 			pipe->pp_cfg.igc_cfg.c2_data = pipe->pp_res.igc_c2;
+		}
+		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_CFG) {
+			if (pipe->pp_cfg.hist_cfg.ops & MDP_PP_OPS_ENABLE) {
+				hist.block = pipe->pp_cfg.hist_cfg.block;
+				hist.frame_cnt =
+					pipe->pp_cfg.hist_cfg.frame_cnt;
+				hist.bit_mask = pipe->pp_cfg.hist_cfg.bit_mask;
+				hist.num_bins = pipe->pp_cfg.hist_cfg.num_bins;
+				mdss_mdp_histogram_start(pipe->mixer->ctl,
+									&hist);
+			} else if (pipe->pp_cfg.hist_cfg.ops &
+							MDP_PP_OPS_DISABLE) {
+				mdss_mdp_histogram_stop(pipe->mixer->ctl,
+						pipe->pp_cfg.hist_cfg.block);
+			}
 		}
 	}
 
@@ -1457,7 +1473,7 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 	int ret = -ENOSYS;
 	struct mdp_histogram_data hist;
 	struct mdp_histogram_start_req hist_req;
-	u32 block, hist_data_addr = 0;
+	u32 block;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
 	switch (cmd) {
@@ -1488,15 +1504,9 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 		if (ret)
 			return ret;
 
-		ret = mdss_mdp_hist_collect(mdp5_data->ctl, &hist,
-					&hist_data_addr);
-		if ((ret == 0) && hist_data_addr) {
-			ret = copy_to_user(hist.c0, (u32 *)hist_data_addr,
-				sizeof(u32) * hist.bin_cnt);
-			if (ret == 0)
-				ret = copy_to_user(argp, &hist,
-						   sizeof(hist));
-		}
+		ret = mdss_mdp_hist_collect(mdp5_data->ctl, &hist);
+		if (!ret)
+			ret = copy_to_user(argp, &hist, sizeof(hist));
 		break;
 	default:
 		break;

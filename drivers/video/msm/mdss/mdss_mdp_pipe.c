@@ -27,8 +27,6 @@ static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
 static DECLARE_BITMAP(mdss_mdp_smp_mmb_pool, MDSS_MDP_SMP_MMB_BLOCKS);
 
-static struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
-						  u32 ndx);
 static int mdss_mdp_pipe_free(struct mdss_mdp_pipe *pipe);
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
@@ -257,9 +255,11 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		pipe = NULL;
 	}
 
-	if (pipe)
-		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
-	else
+	if (pipe) {
+		pr_info("type=%x   pnum=%d\n", pipe->type, pipe->num);
+		mutex_init(&pipe->pp_res.hist.hist_mutex);
+		spin_lock_init(&pipe->pp_res.hist.hist_lock);
+	} else
 		pr_err("no %d type pipes available\n", type);
 
 	return pipe;
@@ -318,7 +318,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx)
 	return pipe;
 }
 
-static struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
+struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
 						  u32 ndx)
 {
 	u32 i;

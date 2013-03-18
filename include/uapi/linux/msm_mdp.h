@@ -282,7 +282,7 @@ struct msmfb_writeback_data {
 
 #define MDSS_PP_ARG_MASK	0x3C00
 #define MDSS_PP_ARG_NUM		4
-#define MDSS_PP_ARG_SHIFT	8
+#define MDSS_PP_ARG_SHIFT	10
 #define MDSS_PP_LOCATION_MASK	0x0300
 #define MDSS_PP_LOGICAL_MASK	0x00FF
 
