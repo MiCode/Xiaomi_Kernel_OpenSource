@@ -11,6 +11,7 @@
  *
  */
 
+#include <linux/jiffies.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <asm/div64.h>
@@ -21,7 +22,7 @@
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
 
-#define HW_RESPONSE_TIMEOUT (5 * 60 * 1000)
+#define HW_RESPONSE_TIMEOUT msecs_to_jiffies(200)
 
 #define IS_ALREADY_IN_STATE(__p, __d) ({\
 	int __rc = (__p >= __d);\
@@ -313,7 +314,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 	enum command_response cmd)
 {
 	int rc = 0;
-	rc = wait_for_completion_interruptible_timeout(
+	rc = wait_for_completion_timeout(
 		&inst->completions[SESSION_MSG_INDEX(cmd)],
 		msecs_to_jiffies(HW_RESPONSE_TIMEOUT));
 	if (!rc) {
