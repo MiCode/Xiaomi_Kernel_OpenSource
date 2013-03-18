@@ -173,6 +173,7 @@ enum ipa_wlan_event {
 	WLAN_AP_DISCONNECT,
 	WLAN_STA_CONNECT,
 	WLAN_STA_DISCONNECT,
+	IPA_EVENT_MAX
 };
 
 /**

@@ -529,6 +529,8 @@ struct ipa_stats {
 	u32 rx_repl_repost;
 	u32 x_intr_repost;
 	u32 rx_q_len;
+	u32 msg_w[IPA_EVENT_MAX];
+	u32 msg_r[IPA_EVENT_MAX];
 };
 
 /**
