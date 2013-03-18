@@ -88,7 +88,7 @@ static int msm_iommu_sec_ptbl_init(void)
 		return 0;
 
 	of_node_put(np);
-	ret = scm_call(SCM_SVC_CP, IOMMU_SECURE_PTBL_SIZE, &spare,
+	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_PTBL_SIZE, &spare,
 			sizeof(spare), psize, sizeof(psize));
 	if (ret) {
 		pr_err("scm call IOMMU_SECURE_PTBL_SIZE failed\n");
@@ -111,7 +111,7 @@ static int msm_iommu_sec_ptbl_init(void)
 	pinit.paddr = virt_to_phys(buf);
 	pinit.size = psize[0];
 
-	ret = scm_call(SCM_SVC_CP, IOMMU_SECURE_PTBL_INIT, &pinit,
+	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_PTBL_INIT, &pinit,
 			sizeof(pinit), &ptbl_ret, sizeof(ptbl_ret));
 	if (ret) {
 		pr_err("scm call IOMMU_SECURE_PTBL_INIT failed\n");
@@ -142,7 +142,7 @@ int msm_iommu_sec_program_iommu(int sec_id)
 
 	cfg.id = sec_id;
 
-	ret = scm_call(SCM_SVC_CP, IOMMU_SECURE_CFG, &cfg, sizeof(cfg),
+	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_CFG, &cfg, sizeof(cfg),
 			&scm_ret, sizeof(scm_ret));
 	if (ret || scm_ret) {
 		pr_err("scm call IOMMU_SECURE_CFG failed\n");
@@ -167,7 +167,7 @@ static int msm_iommu_sec_ptbl_map(struct msm_iommu_drvdata *iommu_drvdata,
 	map.info.va = va;
 	map.info.size = len;
 
-	if (scm_call(SCM_SVC_CP, IOMMU_SECURE_MAP, &map, sizeof(map), &ret,
+	if (scm_call(SCM_SVC_MP, IOMMU_SECURE_MAP, &map, sizeof(map), &ret,
 								sizeof(ret)))
 		return -EINVAL;
 	if (ret)
@@ -242,7 +242,7 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 		map.plist.size = SZ_1M;
 	}
 
-	ret = scm_call(SCM_SVC_CP, IOMMU_SECURE_MAP, &map, sizeof(map),
+	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_MAP, &map, sizeof(map),
 			&scm_ret, sizeof(scm_ret));
 	kfree(pa_list);
 	return ret;
@@ -260,7 +260,7 @@ static int msm_iommu_sec_ptbl_unmap(struct msm_iommu_drvdata *iommu_drvdata,
 	mi.va = va;
 	mi.size = len;
 
-	ret = scm_call(SCM_SVC_CP, IOMMU_SECURE_UNMAP, &mi, sizeof(mi),
+	ret = scm_call(SCM_SVC_MP, IOMMU_SECURE_UNMAP, &mi, sizeof(mi),
 			&scm_ret, sizeof(scm_ret));
 	return ret;
 }
