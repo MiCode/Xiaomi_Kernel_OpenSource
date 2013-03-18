@@ -25,6 +25,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/of_gpio.h>
+#include <linux/dma-mapping.h>
 
 #include <mach/subsystem_restart.h>
 #include <mach/clk.h>
@@ -78,10 +79,8 @@
 #define BHS_TIMEOUT_US			50
 
 struct mba_data {
-	void __iomem *metadata_base;
 	void __iomem *rmb_base;
 	void __iomem *io_clamp_reg;
-	unsigned long metadata_phys;
 	struct pil_desc desc;
 	struct subsys_device *subsys;
 	struct subsys_desc subsys_desc;
@@ -364,18 +363,28 @@ static int pil_mba_init_image(struct pil_desc *pil,
 			      const u8 *metadata, size_t size)
 {
 	struct mba_data *drv = dev_get_drvdata(pil->dev);
+	void *mdata_virt;
+	dma_addr_t mdata_phys;
 	s32 status;
 	int ret;
 
-	/* Copy metadata to assigned shared buffer location */
-	memcpy(drv->metadata_base, metadata, size);
+	/* Make metadata physically contiguous and 4K aligned. */
+	mdata_virt = dma_alloc_coherent(pil->dev, size, &mdata_phys,
+					GFP_KERNEL);
+	if (!mdata_virt) {
+		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
+		return -ENOMEM;
+	}
+	memcpy(mdata_virt, metadata, size);
+	/* wmb() ensures copy completes prior to starting authentication. */
+	wmb();
 
 	/* Initialize length counter to 0 */
 	writel_relaxed(0, drv->rmb_base + RMB_PMI_CODE_LENGTH);
 	drv->img_length = 0;
 
 	/* Pass address of meta-data to the MBA and perform authentication */
-	writel_relaxed(drv->metadata_phys, drv->rmb_base + RMB_PMI_META_DATA);
+	writel_relaxed(mdata_phys, drv->rmb_base + RMB_PMI_META_DATA);
 	writel_relaxed(CMD_META_DATA_READY, drv->rmb_base + RMB_MBA_COMMAND);
 	ret = readl_poll_timeout(drv->rmb_base + RMB_MBA_STATUS, status,
 		status == STATUS_META_DATA_AUTH_SUCCESS || status < 0,
@@ -387,6 +396,8 @@ static int pil_mba_init_image(struct pil_desc *pil,
 				status);
 		ret = -EINVAL;
 	}
+
+	dma_free_coherent(pil->dev, size, mdata_virt, mdata_phys);
 
 	return ret;
 }
@@ -716,15 +727,6 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 		drv->rmb_base = devm_request_and_ioremap(&pdev->dev, res);
 		if (!drv->rmb_base)
 			return -ENOMEM;
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					    "metadata_base");
-		if (res) {
-			drv->metadata_base = devm_ioremap(&pdev->dev,
-						res->start, resource_size(res));
-			if (!drv->metadata_base)
-				return -ENOMEM;
-			drv->metadata_phys = res->start;
-		}
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "restart_reg");
