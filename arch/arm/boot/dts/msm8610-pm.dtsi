@@ -111,8 +111,8 @@
 		qcom,lpm-resources@0 {
 			reg = <0x0>;
 			qcom,name = "vdd-dig";
-			qcom,type = <0x62706d73>;	/* "smpb" */
-			qcom,id = <0x02>;
+			qcom,type = <0x61706d73>;	/* "smpa" */
+			qcom,id = <0x01>;
 			qcom,key = <0x6e726f63>;	/* "corn" */
 			qcom,init-value = <5>;		/* Super Turbo */
 		};
@@ -120,10 +120,10 @@
 		qcom,lpm-resources@1 {
 			reg = <0x1>;
 			qcom,name = "vdd-mem";
-			qcom,type = <0x62706d73>;	/* "smpb" */
-			qcom,id = <0x01>;
-			qcom,key = <0x7675>;		/* "uv" */
-			qcom,init-value = <1050000>;	/* Super Turbo */
+			qcom,type = <0x616F646C>;	/* "ldoa" */
+			qcom,id = <0x03>;
+			qcom,key = <0x6e726f63>;	/* "corn" */
+			qcom,init-value = <3>;		/* Active */
 		};
 
 		qcom,lpm-resources@2 {
@@ -153,10 +153,10 @@
 			qcom,mode = "wfi";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_active";
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
 			qcom,latency-us = <1>;
 			qcom,ss-power = <784>;
 			qcom,energy-overhead = <190000>;
@@ -168,10 +168,10 @@
 			qcom,mode = "retention";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_active";
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
 			qcom,latency-us = <75>;
 			qcom,ss-power = <735>;
 			qcom,energy-overhead = <77341>;
@@ -184,10 +184,10 @@
 			qcom,mode = "standalone_pc";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_active";
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
 			qcom,latency-us = <95>;
 			qcom,ss-power = <725>;
 			qcom,energy-overhead = <99500>;
@@ -199,10 +199,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_gdhs";
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
 			qcom,latency-us = <2000>;
 			qcom,ss-power = <138>;
 			qcom,energy-overhead = <1208400>;
@@ -214,10 +214,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_pc";
-			qcom,vdd-mem-upper-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-mem-lower-bound = <750000>;  /* RETENTION HIGH */
-			qcom,vdd-dig-upper-bound = <3>;  /* ACTIVE */
-			qcom,vdd-dig-lower-bound = <2>;  /* RETENTION HIGH */
+			qcom,vdd-mem-upper-bound = <3>; /* NORMAL */
+			qcom,vdd-mem-lower-bound = <2>;  /* SVS SOC */
+			qcom,vdd-dig-upper-bound = <3>;  /* NORMAL */
+			qcom,vdd-dig-lower-bound = <2>;  /* SVS SOC */
 			qcom,latency-us = <3000>;
 			qcom,ss-power = <110>;
 			qcom,energy-overhead = <1250300>;
@@ -229,10 +229,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_gdhs";
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
 			qcom,latency-us = <3000>;
 			qcom,ss-power = <68>;
 			qcom,energy-overhead = <1350200>;
@@ -244,10 +244,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
-			qcom,vdd-mem-upper-bound = <1150000>; /* MAX */
-			qcom,vdd-mem-lower-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-dig-upper-bound = <5>; /* MAX */
-			qcom,vdd-dig-lower-bound = <3>;  /* ACTIVE */
+			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
 			qcom,latency-us = <10300>;
 			qcom,ss-power = <63>;
 			qcom,energy-overhead = <2128000>;
@@ -259,10 +259,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
-			qcom,vdd-mem-upper-bound = <1050000>; /* ACTIVE */
-			qcom,vdd-mem-lower-bound = <750000>;  /* RETENTION HIGH */
-			qcom,vdd-dig-upper-bound = <3>;  /* ACTIVE */
-			qcom,vdd-dig-lower-bound = <2>;  /* RETIONTION HIGH */
+			qcom,vdd-mem-upper-bound = <3>; /* NORMAL */
+			qcom,vdd-mem-lower-bound = <2>;  /* SVS SOC */
+			qcom,vdd-dig-upper-bound = <3>;  /* NORMAL */
+			qcom,vdd-dig-lower-bound = <2>;  /* SVS SOC */
 			qcom,latency-us = <18000>;
 			qcom,ss-power = <10>;
 			qcom,energy-overhead = <3202600>;
@@ -274,10 +274,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
-			qcom,vdd-mem-upper-bound = <750000>; /* RETENTION HIGH */
-			qcom,vdd-mem-lower-bound = <750000>; /* RETENTION LOW */
-			qcom,vdd-dig-upper-bound = <2>; /* RETENTION HIGH */
-			qcom,vdd-dig-lower-bound = <0>; /* RETENTION LOW */
+			qcom,vdd-mem-upper-bound = <2>; /* SVS SOC */
+			qcom,vdd-mem-lower-bound = <0>; /* RETENTION */
+			qcom,vdd-dig-upper-bound = <2>; /* SVS SOC */
+			qcom,vdd-dig-lower-bound = <0>; /* RETENTION */
 			qcom,latency-us = <20000>;
 			qcom,ss-power = <2>;
 			qcom,energy-overhead = <4252000>;
