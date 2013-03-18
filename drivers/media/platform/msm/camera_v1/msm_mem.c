@@ -25,7 +25,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-device.h>
 
-#include <linux/android_pmem.h>
+
 
 #include "msm.h"
 
@@ -70,26 +70,6 @@
 })
 
 static DEFINE_MUTEX(hlist_mut);
-
-#ifdef CONFIG_ANDROID_PMEM
-static int check_pmem_info(struct msm_pmem_info *info, int len)
-{
-	if (info->offset < len &&
-		info->offset + info->len <= len &&
-		info->planar0_off < len &&
-		info->planar1_off < len)
-		return 0;
-
-	pr_err("%s: check failed: off %d len %d y %d cbcr %d (total len %d)\n",
-						__func__,
-						info->offset,
-						info->len,
-						info->planar0_off,
-						info->planar1_off,
-						len);
-	return -EINVAL;
-}
-#endif
 
 static int check_overlap(struct hlist_head *ptype,
 				unsigned long paddr,
@@ -138,14 +118,6 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 	if (ion_map_iommu(client, region->handle, domain_num, 0,
 				  SZ_4K, 0, &paddr, &len, 0, 0) < 0)
 		goto out2;
-#elif CONFIG_ANDROID_PMEM
-	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
-	if (rc < 0) {
-		pr_err("%s: get_pmem_file fd %d error %d\n",
-				__func__, info->fd, rc);
-		goto out1;
-	}
-	region->file = file;
 #else
 	paddr = 0;
 	file = NULL;
@@ -153,9 +125,6 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 #endif
 	if (!info->len)
 		info->len = len;
-	rc = check_pmem_info(info, len);
-	if (rc < 0)
-		goto out3;
 	paddr += info->offset;
 	len = info->len;
 
@@ -185,8 +154,6 @@ out3:
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 out2:
 	ion_free(client, region->handle);
-#elif CONFIG_ANDROID_PMEM
-	put_pmem_file(region->file);
 #endif
 out1:
 	kfree(region);
@@ -256,8 +223,6 @@ static int __msm_pmem_table_del(struct hlist_head *ptype,
 				ion_unmap_iommu(client, region->handle,
 					domain_num, 0);
 				ion_free(client, region->handle);
-#else
-				put_pmem_file(region->file);
 #endif
 				kfree(region);
 			}
