@@ -48,7 +48,7 @@
 #define IPC_ROUTER_XPRT_EVENT_CLOSE 3
 
 #define IPC_ROUTER_INFINITY -1
-#define DEFAULT_RCV_TIMEO IPC_ROUTER_INFINITY
+#define DEFAULT_RCV_TIMEO 0
 
 #define ALIGN_SIZE(x) ((4 - ((x) & 3)) & 3)
 
