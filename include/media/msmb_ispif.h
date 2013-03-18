@@ -76,6 +76,17 @@ struct msm_ispif_param_data {
 	struct msm_ispif_params_entry entries[INTF_MAX];
 };
 
+struct msm_isp_info {
+	uint32_t max_resolution;
+	uint32_t id;
+	uint32_t ver;
+};
+
+struct msm_ispif_vfe_info {
+	int num_vfe;
+	struct msm_isp_info info[VFE_MAX];
+};
+
 enum ispif_cfg_type_t {
 	ISPIF_CLK_ENABLE,
 	ISPIF_CLK_DISABLE,
@@ -86,6 +97,7 @@ enum ispif_cfg_type_t {
 	ISPIF_STOP_IMMEDIATELY,
 	ISPIF_RELEASE,
 	ISPIF_ENABLE_REG_DUMP,
+	ISPIF_SET_VFE_INFO,
 };
 
 struct ispif_cfg_data {
@@ -93,6 +105,7 @@ struct ispif_cfg_data {
 	union {
 		int reg_dump;                        /* ISPIF_ENABLE_REG_DUMP */
 		uint32_t csid_version;               /* ISPIF_INIT */
+		struct msm_ispif_vfe_info vfe_info;  /* ISPIF_SET_VFE_INFO */
 		struct msm_ispif_param_data params;  /* CFG, START, STOP */
 	};
 };
