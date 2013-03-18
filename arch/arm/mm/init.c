@@ -375,11 +375,11 @@ static int __init meminfo_cmp(const void *_a, const void *_b)
 	return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
 }
 
-unsigned long memory_hole_offset;
+phys_addr_t memory_hole_offset;
 EXPORT_SYMBOL(memory_hole_offset);
-unsigned long memory_hole_start;
+phys_addr_t memory_hole_start;
 EXPORT_SYMBOL(memory_hole_start);
-unsigned long memory_hole_end;
+phys_addr_t memory_hole_end;
 EXPORT_SYMBOL(memory_hole_end);
 unsigned long memory_hole_align;
 EXPORT_SYMBOL(memory_hole_align);
@@ -390,8 +390,8 @@ unsigned long virtual_hole_end;
 void find_memory_hole(void)
 {
 	int i;
-	unsigned long hole_start;
-	unsigned long hole_size;
+	phys_addr_t hole_start;
+	phys_addr_t hole_size;
 	unsigned long hole_end_virt;
 
 	/*
@@ -428,13 +428,13 @@ void find_memory_hole(void)
 
 	memory_hole_offset = memory_hole_start - PHYS_OFFSET;
 	if (!IS_ALIGNED(memory_hole_start, SECTION_SIZE)) {
-		pr_err("memory_hole_start %lx is not aligned to %lx\n",
-			memory_hole_start, SECTION_SIZE);
+		pr_err("memory_hole_start %pa is not aligned to %lx\n",
+			&memory_hole_start, SECTION_SIZE);
 		BUG();
 	}
 	if (!IS_ALIGNED(memory_hole_end, SECTION_SIZE)) {
-		pr_err("memory_hole_end %lx is not aligned to %lx\n",
-			memory_hole_end, SECTION_SIZE);
+		pr_err("memory_hole_end %pa is not aligned to %lx\n",
+			&memory_hole_end, SECTION_SIZE);
 		BUG();
 	}
 
@@ -444,8 +444,9 @@ void find_memory_hole(void)
 	     IS_ALIGNED(memory_hole_end, PMD_SIZE)) ||
 	     (IS_ALIGNED(hole_end_virt, PMD_SIZE) &&
 	      !IS_ALIGNED(memory_hole_end, PMD_SIZE))) {
-		memory_hole_align = max(hole_end_virt & ~PMD_MASK,
-					memory_hole_end & ~PMD_MASK);
+		memory_hole_align = !IS_ALIGNED(hole_end_virt, PMD_SIZE) ?
+					hole_end_virt & ~PMD_MASK :
+					memory_hole_end & ~PMD_MASK;
 		virtual_hole_start = hole_end_virt;
 		virtual_hole_end = hole_end_virt + memory_hole_align;
 		pr_info("Physical memory hole is not aligned. There will be a virtual memory hole from %lx to %lx\n",
