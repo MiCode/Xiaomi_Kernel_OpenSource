@@ -358,18 +358,11 @@
 &pm8941_chg {
 	status = "ok";
 
-	qcom,chg-charging-disabled;
-	qcom,chg-use-default-batt-values;
-
 	qcom,chg-chgr@1000 {
 		status = "ok";
 	};
 
 	qcom,chg-buck@1100 {
-		status = "ok";
-	};
-
-	qcom,chg-bat-if@1200 {
 		status = "ok";
 	};
 
