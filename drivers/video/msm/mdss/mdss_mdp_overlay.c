@@ -405,6 +405,16 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 						pipe->pp_cfg.hist_cfg.block);
 			}
 		}
+		len = pipe->pp_cfg.hist_lut_cfg.len;
+		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) &&
+						(len == ENHIST_LUT_ENTRIES)) {
+			ret = copy_from_user(pipe->pp_res.hist_lut,
+					pipe->pp_cfg.hist_lut_cfg.data,
+					sizeof(uint32_t) * len);
+			if (ret)
+				return -ENOMEM;
+			pipe->pp_cfg.hist_lut_cfg.data = pipe->pp_res.hist_lut;
+		}
 	}
 
 	if (pipe->flags & MDP_DEINTERLACE) {
