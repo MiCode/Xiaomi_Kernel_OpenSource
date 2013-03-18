@@ -601,6 +601,7 @@ void msm_map_msm7x30_io(void);
 void msm_map_fsm9xxx_io(void);
 void msm_map_8974_io(void);
 void msm_map_zinc_io(void);
+void msm_map_krypton_io(void);
 void msm_map_msm8625_io(void);
 void msm_map_msm9625_io(void);
 void msm_init_irq(void);
