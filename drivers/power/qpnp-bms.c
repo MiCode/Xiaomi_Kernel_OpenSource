@@ -149,6 +149,9 @@ struct qpnp_bms_chip {
 	int				shutdown_soc;
 	int				shutdown_iavg_ma;
 
+	struct wake_lock		low_voltage_wake_lock;
+	bool				low_voltage_wake_lock_held;
+	int				low_voltage_threshold;
 	int				low_soc_calc_threshold;
 	int				low_soc_calculate_soc_ms;
 	int				calculate_soc_ms;
@@ -1289,6 +1292,25 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 	return chip->prev_chg_soc;
 }
 
+static void very_low_voltage_check(struct qpnp_bms_chip *chip, int vbat_uv)
+{
+	/*
+	 * if battery is very low (v_cutoff voltage + 20mv) hold
+	 * a wakelock untill soc = 0%
+	 */
+	if (vbat_uv <= chip->low_voltage_threshold
+			&& !chip->low_voltage_wake_lock_held) {
+		pr_debug("voltage = %d low holding wakelock\n", vbat_uv);
+		wake_lock(&chip->low_voltage_wake_lock);
+		chip->low_voltage_wake_lock_held = 1;
+	} else if (vbat_uv > chip->low_voltage_threshold
+			&& chip->low_voltage_wake_lock_held) {
+		pr_debug("voltage = %d releasing wakelock\n", vbat_uv);
+		chip->low_voltage_wake_lock_held = 0;
+		wake_unlock(&chip->low_voltage_wake_lock);
+	}
+}
+
 static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 							int soc, int batt_temp)
 {
@@ -1308,6 +1330,8 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 		pr_err("simultaneous vbat ibat failed err = %d\n", rc);
 		goto out;
 	}
+
+	very_low_voltage_check(chip, vbat_uv);
 
 	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
 
@@ -1624,7 +1648,8 @@ static void calculate_soc_work(struct work_struct *work)
 				calculate_soc_delayed_work.work);
 	int soc = recalculate_soc(chip);
 
-	if (soc < chip->low_soc_calc_threshold)
+	if (soc < chip->low_soc_calc_threshold
+			|| chip->low_voltage_wake_lock_held)
 		schedule_delayed_work(&chip->calculate_soc_delayed_work,
 			round_jiffies_relative(msecs_to_jiffies
 			(chip->low_soc_calculate_soc_ms)));
@@ -2125,6 +2150,7 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 			"ocv-voltage-high-threshold-uv", rc);
 	SPMI_PROP_READ(ocv_low_threshold_uv,
 			"ocv-voltage-low-threshold-uv", rc);
+	SPMI_PROP_READ(low_voltage_threshold, "low-voltage-threshold", rc);
 
 	if (chip->adjust_soc_low_threshold >= 45)
 		chip->adjust_soc_low_threshold = 45;
@@ -2377,6 +2403,8 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 
 	wake_lock_init(&chip->soc_wake_lock, WAKE_LOCK_SUSPEND,
 			"qpnp_soc_lock");
+	wake_lock_init(&chip->low_voltage_wake_lock, WAKE_LOCK_SUSPEND,
+			"qpnp_low_voltage_lock");
 	INIT_DELAYED_WORK(&chip->calculate_soc_delayed_work,
 			calculate_soc_work);
 
@@ -2421,6 +2449,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 
 unregister_dc:
 	wake_lock_destroy(&chip->soc_wake_lock);
+	wake_lock_destroy(&chip->low_voltage_wake_lock);
 	power_supply_unregister(&chip->bms_psy);
 	dev_set_drvdata(&spmi->dev, NULL);
 error_resource:
