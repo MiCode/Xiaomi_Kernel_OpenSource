@@ -239,3 +239,8 @@
 	mpp@a700 { /* MPP 8 */
 	};
 };
+
+&pm8226_chg {
+	qcom,chg-charging-disabled;
+	qcom,chg-use-default-batt-values;
+};
