@@ -127,6 +127,7 @@ static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
 static int mdss_mdp_parse_dt_prop_len(struct platform_device *pdev,
 				       char *prop_name);
 static int mdss_mdp_parse_dt_smp(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
 
 int mdss_mdp_alloc_fb_mem(struct msm_fb_data_type *mfd,
 			  u32 size, u32 *phys, void **virt)
@@ -1100,6 +1101,12 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = mdss_mdp_parse_dt_misc(pdev);
+	if (rc) {
+		pr_err("Error in device tree : misc\n");
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -1382,6 +1389,19 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 		pr_err("unable to setup smp data\n");
 
 	return rc;
+}
+
+static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	u32 data;
+	int rc;
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,mdss-rot-block-size",
+		&data);
+	mdata->rot_block_size = (!rc ? data : 128);
+
+	return 0;
 }
 
 static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
