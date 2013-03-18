@@ -310,6 +310,8 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 			IPA_HOLB_TMR_VAL);
 	}
 
+	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
+
 	return 0;
 
 sps_connect_fail:
@@ -345,6 +347,7 @@ fail:
 	return result;
 }
 EXPORT_SYMBOL(ipa_connect);
+
 /**
  * ipa_disconnect() - low-level IPA client disconnect
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -419,6 +422,8 @@ int ipa_disconnect(u32 clnt_hdl)
 		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
 			ipa_disable_clks();
 	}
+
+	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
 	return 0;
 }

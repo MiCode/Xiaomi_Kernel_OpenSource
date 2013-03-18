@@ -18,6 +18,8 @@
 
 
 #define IPA_MAX_MSG_LEN 4096
+#define IPA_DBG_CNTR_ON 127265
+#define IPA_DBG_CNTR_OFF 127264
 
 const char *ipa_client_name[] = {
 	__stringify(IPA_CLIENT_HSIC1_PROD),
@@ -76,6 +78,19 @@ const char *ipa_excp_name[] = {
 	__stringify_1(IPA_A5_MUX_HDR_EXCP_FLAG_IP),
 };
 
+const char *ipa_event_name[] = {
+	__stringify(WLAN_CLIENT_CONNECT),
+	__stringify(WLAN_CLIENT_DISCONNECT),
+	__stringify(WLAN_CLIENT_POWER_SAVE_MODE),
+	__stringify(WLAN_CLIENT_NORMAL_MODE),
+	__stringify(SW_ROUTING_ENABLE),
+	__stringify(SW_ROUTING_DISABLE),
+	__stringify(WLAN_AP_CONNECT),
+	__stringify(WLAN_AP_DISCONNECT),
+	__stringify(WLAN_STA_CONNECT),
+	__stringify(WLAN_STA_DISCONNECT),
+};
+
 static struct dentry *dent;
 static struct dentry *dfile_gen_reg;
 static struct dentry *dfile_ep_reg;
@@ -85,6 +100,8 @@ static struct dentry *dfile_ip6_rt;
 static struct dentry *dfile_ip4_flt;
 static struct dentry *dfile_ip6_flt;
 static struct dentry *dfile_stats;
+static struct dentry *dfile_dbg_cnt;
+static struct dentry *dfile_msg;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static s8 ep_reg_idx;
 
@@ -199,7 +216,10 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 				"IPA_ENDP_INIT_HDR_%u=0x%x\n"
 				"IPA_ENDP_INIT_MODE_%u=0x%x\n"
 				"IPA_ENDP_INIT_AGGR_%u=0x%x\n"
-				"IPA_ENDP_INIT_ROUTE_%u=0x%x\n",
+				"IPA_ENDP_INIT_ROUTE_%u=0x%x\n"
+				"IPA_ENDP_INIT_CTRL_%u=0x%x\n"
+				"IPA_ENDP_INIT_HOL_EN_%u=0x%x\n"
+				"IPA_ENDP_INIT_HOL_TIMER_%u=0x%x\n",
 				i, ipa_read_reg(ipa_ctx->mmio,
 					IPA_ENDP_INIT_NAT_n_OFST_v2(i)),
 				i, ipa_read_reg(ipa_ctx->mmio,
@@ -209,7 +229,14 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 				i, ipa_read_reg(ipa_ctx->mmio,
 					IPA_ENDP_INIT_AGGR_n_OFST_v2(i)),
 				i, ipa_read_reg(ipa_ctx->mmio,
-					IPA_ENDP_INIT_ROUTE_n_OFST_v2(i)));
+					IPA_ENDP_INIT_ROUTE_n_OFST_v2(i)),
+				i, ipa_read_reg(ipa_ctx->mmio,
+					IPA_ENDP_INIT_CTRL_n_OFST(i)),
+				i, ipa_read_reg(ipa_ctx->mmio,
+					IPA_ENDP_INIT_HOL_BLOCK_EN_n_OFST(i)),
+				i, ipa_read_reg(ipa_ctx->mmio,
+					IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_OFST(i))
+					);
 		}
 
 		*ppos = pos;
@@ -516,6 +543,10 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 	int nbytes;
 	int i;
 	int cnt = 0;
+	uint connect = 0;
+
+	for (i = 0; i < IPA_NUM_PIPES; i++)
+		connect |= (ipa_ctx->ep[i].valid << i);
 
 	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"sw_tx=%u\n"
@@ -523,13 +554,17 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			"rx=%u\n"
 			"rx_repl_repost=%u\n"
 			"x_intr_repost=%u\n"
-			"rx_q_len=%u\n",
+			"rx_q_len=%u\n"
+			"act_clnt=%u\n"
+			"con_clnt_bmap=0x%x\n",
 			ipa_ctx->stats.tx_sw_pkts,
 			ipa_ctx->stats.tx_hw_pkts,
 			ipa_ctx->stats.rx_pkts,
 			ipa_ctx->stats.rx_repl_repost,
 			ipa_ctx->stats.x_intr_repost,
-			ipa_ctx->stats.rx_q_len);
+			ipa_ctx->stats.rx_q_len,
+			atomic_read(&ipa_ctx->ipa_active_clients),
+			connect);
 	cnt += nbytes;
 
 	for (i = 0; i < MAX_NUM_EXCP; i++) {
@@ -560,6 +595,64 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa_write_dbg_cnt(struct file *file, const char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+	u32 option = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, buf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtou32(dbg_buff, 0, &option))
+		return -EFAULT;
+
+	if (option == 1)
+		ipa_write_reg(ipa_ctx->mmio, IPA_DEBUG_CNT_CTRL_n_OFST(0),
+				IPA_DBG_CNTR_ON);
+	else
+		ipa_write_reg(ipa_ctx->mmio, IPA_DEBUG_CNT_CTRL_n_OFST(0),
+				IPA_DBG_CNTR_OFF);
+
+	return count;
+}
+
+static ssize_t ipa_read_dbg_cnt(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	int nbytes;
+
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"IPA_DEBUG_CNT_REG_0=0x%x\n",
+			ipa_read_reg(ipa_ctx->mmio,
+			IPA_DEBUG_CNT_REG_n_OFST(0)));
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
+}
+
+static ssize_t ipa_read_msg(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	int nbytes;
+	int cnt = 0;
+	int i;
+
+	for (i = 0; i < IPA_EVENT_MAX; i++) {
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				"msg[%u:%27s] W:%u R:%u\n", i,
+				ipa_event_name[i],
+				ipa_ctx->stats.msg_w[i],
+				ipa_ctx->stats.msg_r[i]);
+		cnt += nbytes;
+	}
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
 
 const struct file_operations ipa_gen_reg_ops = {
 	.read = ipa_read_gen_reg,
@@ -586,6 +679,15 @@ const struct file_operations ipa_flt_ops = {
 
 const struct file_operations ipa_stats_ops = {
 	.read = ipa_read_stats,
+};
+
+const struct file_operations ipa_msg_ops = {
+	.read = ipa_read_msg,
+};
+
+const struct file_operations ipa_dbg_cnt_ops = {
+	.read = ipa_read_dbg_cnt,
+	.write = ipa_write_dbg_cnt,
 };
 
 void ipa_debugfs_init(void)
@@ -653,6 +755,20 @@ void ipa_debugfs_init(void)
 			&ipa_stats_ops);
 	if (!dfile_stats || IS_ERR(dfile_stats)) {
 		IPAERR("fail to create file for debug_fs stats\n");
+		goto fail;
+	}
+
+	dfile_dbg_cnt = debugfs_create_file("dbg_cnt", read_write_mode, dent, 0,
+			&ipa_dbg_cnt_ops);
+	if (!dfile_dbg_cnt || IS_ERR(dfile_dbg_cnt)) {
+		IPAERR("fail to create file for debug_fs dbg_cnt\n");
+		goto fail;
+	}
+
+	dfile_msg = debugfs_create_file("msg", read_only_mode, dent, 0,
+			&ipa_msg_ops);
+	if (!dfile_msg || IS_ERR(dfile_msg)) {
+		IPAERR("fail to create file for debug_fs msg\n");
 		goto fail;
 	}
 
