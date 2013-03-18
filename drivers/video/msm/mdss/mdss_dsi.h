@@ -252,7 +252,7 @@ struct dsi_kickoff_action {
 
 struct dsi_panel_cmds_list {
 	struct dsi_cmd_desc *buf;
-	char size;
+	u32 size;
 	char ctrl_state;
 };
 
