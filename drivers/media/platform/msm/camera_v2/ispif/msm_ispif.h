@@ -56,6 +56,6 @@ struct ispif_device {
 	struct ispif_sof_count sof_count[VFE_MAX];
 	struct ispif_intf_cmd applied_intf_cmd[VFE_MAX];
 	enum msm_ispif_state_t ispif_state;
-	struct clk *ispif_clk[INTF_MAX];
+	struct clk *ispif_clk[VFE_MAX][INTF_MAX];
 };
 #endif
