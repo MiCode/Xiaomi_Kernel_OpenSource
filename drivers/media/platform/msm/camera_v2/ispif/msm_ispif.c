@@ -19,6 +19,7 @@
 #include <linux/videodev2.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
+#include <media/msmb_isp.h>
 
 #include "msm_ispif.h"
 #include "msm.h"
@@ -205,7 +206,8 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 	spin_lock_irqsave(&ispif->auto_complete_lock, flags);
 	ispif->wait_timeout[VFE0] = 0;
 	init_completion(&ispif->reset_complete[VFE0]);
-	if (ispif->csid_version >= CSID_VERSION_V3) {
+	if (ispif->csid_version >= CSID_VERSION_V3 &&
+		ispif->vfe_info.num_vfe > 1) {
 		ispif->wait_timeout[VFE1] = 0;
 		init_completion(&ispif->reset_complete[VFE1]);
 	}
@@ -231,7 +233,8 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 		goto end;
 	}
 
-	if (ispif->csid_version >= CSID_VERSION_V3) {
+	if (ispif->csid_version >= CSID_VERSION_V3 &&
+		ispif->vfe_info.num_vfe > 1) {
 		msm_camera_io_w_mb(ISPIF_RST_CMD_1_MASK, ispif->base +
 			ISPIF_RST_CMD_1_ADDR);
 
@@ -450,7 +453,8 @@ static int msm_ispif_config(struct ispif_device *ispif,
 		CDBG("%s intftype %x, vfe_intf %d, csid %d\n", __func__,
 			intftype, vfe_intf, params->entries[i].csid);
 
-		if ((intftype >= INTF_MAX) || (vfe_intf >= VFE_MAX) ||
+		if ((intftype >= INTF_MAX) ||
+			(vfe_intf >=  ispif->vfe_info.num_vfe) ||
 			(ispif->csid_version <= CSID_VERSION_V2 &&
 			(vfe_intf > VFE0))) {
 			pr_err("%s: VFEID %d and CSID version %d mismatch\n",
@@ -738,7 +742,8 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 
 		ispif_process_irq(ispif, out, VFE0);
 	}
-	if (ispif->csid_version >= CSID_VERSION_V3) {
+	if (ispif->csid_version >= CSID_VERSION_V3 &&
+		ispif->vfe_info.num_vfe > 1) {
 		out[VFE1].ispifIrqStatus0 = msm_camera_io_r(ispif->base +
 			ISPIF_VFE_m_IRQ_STATUS_0(VFE1));
 		msm_camera_io_w(out[VFE1].ispifIrqStatus0,
@@ -790,6 +795,14 @@ static irqreturn_t msm_io_ispif_irq(int irq_num, void *data)
 	return IRQ_HANDLED;
 }
 
+static int msm_ispif_set_vfe_info(struct ispif_device *ispif,
+	struct msm_ispif_vfe_info *vfe_info)
+{
+	memcpy(&ispif->vfe_info, vfe_info, sizeof(struct msm_ispif_vfe_info));
+
+	return 0;
+}
+
 static int msm_ispif_init(struct ispif_device *ispif,
 	uint32_t csid_version)
 {
@@ -818,7 +831,8 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		goto error_clk0;
 	}
 
-	if (ispif->csid_version >= CSID_VERSION_V3) {
+	if (ispif->csid_version >= CSID_VERSION_V3 &&
+		ispif->vfe_info.num_vfe > 1) {
 		rc = msm_ispif_clk_enable(ispif, VFE1, 1);
 		if (rc < 0) {
 			pr_err("%s: unable to enable clocks for VFE1",
@@ -852,7 +866,8 @@ error_irq:
 	iounmap(ispif->base);
 
 end:
-	if (ispif->csid_version >= CSID_VERSION_V3)
+	if (ispif->csid_version >= CSID_VERSION_V3 &&
+		ispif->vfe_info.num_vfe > 1)
 		msm_ispif_clk_enable(ispif, VFE1, 0);
 
 error_clk1:
@@ -873,7 +888,7 @@ static void msm_ispif_release(struct ispif_device *ispif)
 		return;
 	}
 
-	for (i = 0; i < VFE_MAX; i++)
+	for (i = 0; i < ispif->vfe_info.num_vfe; i++)
 		msm_ispif_clk_enable(ispif, i, 1);
 
 	/* make sure no streaming going on */
@@ -883,7 +898,7 @@ static void msm_ispif_release(struct ispif_device *ispif)
 
 	iounmap(ispif->base);
 
-	for (i = 0; i < VFE_MAX; i++)
+	for (i = 0; i < ispif->vfe_info.num_vfe; i++)
 		msm_ispif_clk_enable(ispif, i, 0);
 
 	ispif->ispif_state = ISPIF_POWER_DOWN;
@@ -926,6 +941,9 @@ static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
 		break;
 	case ISPIF_RELEASE:
 		msm_ispif_release(ispif);
+		break;
+	case ISPIF_SET_VFE_INFO:
+		rc = msm_ispif_set_vfe_info(ispif, &pcdata->vfe_info);
 		break;
 	default:
 		pr_err("%s: invalid cfg_type\n", __func__);
