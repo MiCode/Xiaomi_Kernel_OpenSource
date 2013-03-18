@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,7 +161,7 @@ err:
 }
 
 static void *
-_kgsl_ptpool_get_entry(struct kgsl_ptpool *pool, unsigned int *physaddr)
+_kgsl_ptpool_get_entry(struct kgsl_ptpool *pool, phys_addr_t *physaddr)
 {
 	struct kgsl_ptpool_chunk *chunk;
 
@@ -227,7 +227,7 @@ kgsl_ptpool_add(struct kgsl_ptpool *pool, int count)
  */
 
 static void *kgsl_ptpool_alloc(struct kgsl_ptpool *pool,
-				unsigned int *physaddr)
+				phys_addr_t *physaddr)
 {
 	void *addr = NULL;
 	int ret;
