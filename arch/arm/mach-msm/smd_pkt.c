@@ -645,8 +645,9 @@ static void ch_notify(void *priv, unsigned event)
 	struct smd_pkt_dev *smd_pkt_devp = priv;
 
 	if (smd_pkt_devp->ch == 0) {
-		pr_err("%s on a closed smd_pkt_dev id:%d\n",
-			__func__, smd_pkt_devp->i);
+		if (event != SMD_EVENT_CLOSE)
+			pr_err("%s on a closed smd_pkt_dev id:%d\n",
+					__func__, smd_pkt_devp->i);
 		return;
 	}
 
