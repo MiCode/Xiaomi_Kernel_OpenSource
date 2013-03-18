@@ -90,6 +90,8 @@ struct mdss_data_type {
 	u32 smp_mb_cnt;
 	u32 smp_mb_size;
 
+	u32 rot_block_size;
+
 	struct mdss_hw_settings *hw_settings;
 
 	struct mdss_mdp_pipe *vig_pipes;

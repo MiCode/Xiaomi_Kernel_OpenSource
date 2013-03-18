@@ -99,6 +99,9 @@ Optional properties:
 			settings used to setup MDSS QoS for best performance.
 			The key used should be offset from "mdp_phys" register
 			defined in reg property.
+- qcom,mdss-rot-block-size:	The size of a memory block (in pixels) to be used
+				by the rotator. If this property is not specified,
+				then a default value of 128 pixels would be used.
 
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
@@ -131,6 +134,7 @@ Example:
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
 		qcom,mdss-smp-data = <22 4096>;
+		qcom,mdss-rot-block-size = <64>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;
