@@ -169,7 +169,8 @@ static void pp_update_gc_one_lut(u32 offset,
 				struct mdp_ar_gc_lut_data *lut_data);
 static void pp_update_argc_lut(u32 offset,
 				struct mdp_pgc_lut_data *config);
-static void pp_update_hist_lut(u32 offset, struct mdp_hist_lut_data *cfg);
+static void pp_update_hist_lut(char __iomem *base,
+				struct mdp_hist_lut_data *cfg);
 static void pp_pa_config(unsigned long flags, u32 base,
 				struct pp_sts_type *pp_sts,
 				struct mdp_pa_cfg *pa_config);
@@ -180,7 +181,7 @@ static void pp_igc_config(unsigned long flags, u32 base,
 				struct pp_sts_type *pp_sts,
 				struct mdp_igc_lut_data *igc_config,
 				u32 pipe_num);
-static void pp_enhist_config(unsigned long flags, u32 base,
+static void pp_enhist_config(unsigned long flags, char __iomem *base,
 				struct pp_sts_type *pp_sts,
 				struct mdp_hist_lut_data *enhist_cfg);
 static void pp_sharp_config(char __iomem *offset,
@@ -381,7 +382,7 @@ static void pp_igc_config(unsigned long flags, u32 base,
 	}
 }
 
-static void pp_enhist_config(unsigned long flags, u32 base,
+static void pp_enhist_config(unsigned long flags, char __iomem *base,
 				struct pp_sts_type *pp_sts,
 				struct mdp_hist_lut_data *enhist_cfg)
 {
@@ -421,6 +422,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
 	u32 opmode = 0, base = 0;
 	unsigned long flags = 0;
+	char __iomem *offset;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
@@ -466,6 +468,26 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 
 			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
 				opmode |= (1 << 4); /* PA_EN */
+		}
+
+		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
+			pp_enhist_config(PP_FLAGS_DIRTY_ENHIST,
+				pipe->base + MDSS_MDP_REG_VIG_HIST_LUT_BASE,
+				&pipe->pp_res.pp_sts,
+				&pipe->pp_cfg.hist_lut_cfg);
+		}
+	}
+
+	if (pipe->pp_res.pp_sts.enhist_sts & PP_STS_ENABLE) {
+		/* Enable HistLUT and PA */
+		opmode |= BIT(10) | BIT(4);
+		if (!(pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)) {
+			/* Program default value */
+			offset = pipe->base + MDSS_MDP_REG_VIG_PA_BASE;
+			writel_relaxed(0, offset);
+			writel_relaxed(0, offset + 4);
+			writel_relaxed(0, offset + 8);
+			writel_relaxed(0, offset + 12);
 		}
 	}
 
@@ -918,7 +940,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	pp_igc_config(flags, MDSS_MDP_REG_IGC_DSPP_BASE, pp_sts,
 				&mdss_pp_res->igc_disp_cfg[disp_num], dspp_num);
 
-	pp_enhist_config(flags, base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE,
+	pp_enhist_config(flags, basel + MDSS_MDP_REG_DSPP_HIST_LUT_BASE,
 			pp_sts, &mdss_pp_res->enhist_disp_cfg[disp_num]);
 
 	if (pp_sts->pa_sts & PP_STS_ENABLE)
@@ -1617,13 +1639,17 @@ static int pp_read_argc_lut(struct mdp_pgc_lut_data *config, u32 offset)
 }
 
 /* Note: Assumes that its inputs have been checked by calling function */
-static void pp_update_hist_lut(u32 offset, struct mdp_hist_lut_data *cfg)
+static void pp_update_hist_lut(char __iomem *offset,
+				struct mdp_hist_lut_data *cfg)
 {
 	int i;
 	for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
-		MDSS_MDP_REG_WRITE(offset, cfg->data[i]);
+		writel_relaxed(cfg->data[i], offset);
 	/* swap */
-	MDSS_MDP_REG_WRITE(offset + 4, 1);
+	if (PP_LOCAT(cfg->block) == MDSS_PP_DSPP_CFG)
+		writel_relaxed(1, offset + 4);
+	else
+		writel_relaxed(1, offset + 16);
 }
 
 int mdss_mdp_argc_config(struct mdss_mdp_ctl *ctl,
