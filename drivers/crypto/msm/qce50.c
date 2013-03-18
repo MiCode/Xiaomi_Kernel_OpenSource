@@ -61,6 +61,7 @@ struct qce_device {
 	unsigned char *coh_vmem;    /* Allocated coherent virtual memory */
 	dma_addr_t coh_pmem;	    /* Allocated coherent physical memory */
 	int memsize;				/* Memory allocated */
+	int is_shared;				/* CE HW is shared */
 
 	void __iomem *iobase;	    /* Virtual io base of CE HW  */
 	unsigned int phy_iobase;    /* Physical io base of CE HW    */
@@ -2619,6 +2620,9 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 	struct resource *resource;
 	int rc = 0;
 
+	pce_dev->is_shared = of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,ce-hw-shared");
+
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,bam-pipe-pair",
 				&pce_dev->ce_sps.pipe_pair_index)) {
@@ -2902,6 +2906,7 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 	ce_support->aes_xts = true;
 	ce_support->ota = false;
 	ce_support->bam = true;
+	ce_support->is_shared = (pce_dev->is_shared == 1) ? true : false;
 	ce_support->aes_ccm = true;
 	if (pce_dev->ce_sps.minor_version)
 		ce_support->aligned_only = false;

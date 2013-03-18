@@ -113,6 +113,7 @@ struct ce_hw_support {
 	bool ota;
 	bool aligned_only;
 	bool bam;
+	bool is_shared;
 };
 
 /* Sha operation parameters */
