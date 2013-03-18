@@ -2634,6 +2634,7 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 	ce_support->aes_ccm = true;
 	ce_support->ota = false;
 	ce_support->aligned_only = false;
+	ce_support->is_shared = false;
 	ce_support->bam = false;
 	return 0;
 }
