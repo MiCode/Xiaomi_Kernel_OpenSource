@@ -17,8 +17,6 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 
-#define ROT_BLK_SIZE	128
-
 enum mdss_mdp_writeback_type {
 	MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
 	MDSS_MDP_WRITEBACK_TYPE_LINE,
@@ -251,7 +249,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	pr_debug("rot setup wb_num=%d\n", ctx->wb_num);
 
 	ctx->opmode = BIT(6); /* ROT EN */
-	if (ROT_BLK_SIZE == 128)
+	if (ctl->mdata->rot_block_size == 128)
 		ctx->opmode |= BIT(4); /* block size 128 */
 
 	ctx->opmode |= rot->bwc_mode;
