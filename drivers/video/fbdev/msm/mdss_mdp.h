@@ -438,13 +438,14 @@ int mdss_mdp_histogram_start(struct mdss_mdp_ctl *ctl,
 				struct mdp_histogram_start_req *req);
 int mdss_mdp_histogram_stop(struct mdss_mdp_ctl *ctl, u32 block);
 int mdss_mdp_hist_collect(struct mdss_mdp_ctl *ctl,
-				struct mdp_histogram_data *hist,
-				u32 *hist_data_addr);
+				struct mdp_histogram_data *hist);
 void mdss_mdp_hist_intr_done(u32 isr);
 
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc(struct mdss_mdp_mixer *mixer,
 					  u32 type);
 struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx);
+struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
+						  u32 ndx);
 int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer);
