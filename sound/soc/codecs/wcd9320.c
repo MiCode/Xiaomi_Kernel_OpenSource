@@ -1676,6 +1676,9 @@ static const struct snd_kcontrol_new lineout3_ground_switch =
 static const struct snd_kcontrol_new lineout4_ground_switch =
 	SOC_DAPM_SINGLE("Switch", TAIKO_A_RX_LINE_4_DAC_CTL, 6, 1, 0);
 
+static const struct snd_kcontrol_new aif4_mad_switch =
+	SOC_DAPM_SINGLE("Switch", TAIKO_A_CDC_CLK_OTHR_CTL, 4, 1, 0);
+
 /* virtual port entries */
 static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
@@ -2899,7 +2902,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	/* MAD */
 	{"AIF4 MAD", NULL, "CDC_CONN"},
-	{"AIF4 MAD", NULL, "MADINPUT"},
+	{"MADONOFF", "Switch", "MADINPUT"},
+	{"AIF4 MAD", NULL, "MADONOFF"},
 
 	/* SLIM_MIXER("AIF1_CAP Mixer"),*/
 	{"AIF1_CAP Mixer", "SLIM TX1", "SLIM TX1 MUX"},
@@ -4806,8 +4810,10 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 		AIF4_VIFEED, 0, taiko_codec_enable_slimvi_feedback,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_OUT_E("AIF4 MAD", "AIF4 MAD TX", 0,
-			       TAIKO_A_CDC_CLK_OTHR_CTL, 4, 0,
+			       SND_SOC_NOPM, 0, 0,
 			       taiko_codec_enable_mad, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_SWITCH("MADONOFF", SND_SOC_NOPM, 0, 0,
+			    &aif4_mad_switch),
 	SND_SOC_DAPM_INPUT("MADINPUT"),
 
 	SND_SOC_DAPM_MIXER("AIF1_CAP Mixer", SND_SOC_NOPM, AIF1_CAP, 0,
