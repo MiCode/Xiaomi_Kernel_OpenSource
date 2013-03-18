@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -447,8 +447,8 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 		qdss->ch.notify(qdss->ch.priv, USB_QDSS_DISCONNECT, NULL,
 			NULL);
 		/* If the app was never started, we can skip USB BAM reset */
-		status = set_qdss_data_connection(qdss->data,
-			qdss->data->address, 0);
+		status = set_qdss_data_connection(qdss->cdev->gadget,
+			qdss->data, qdss->data->address, 0);
 		if (status)
 			pr_err("qdss_disconnect error");
 	}
@@ -490,7 +490,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 		return;
 	}
 
-	status = set_qdss_data_connection(qdss->data,
+	status = set_qdss_data_connection(qdss->cdev->gadget, qdss->data,
 		qdss->data->address, 1);
 	if (status) {
 		pr_err("set_qdss_data_connection error");

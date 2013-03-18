@@ -30,7 +30,8 @@ struct data_port {
 void bam_data_disconnect(struct data_port *gr, u8 port_num);
 
 int bam_data_connect(struct data_port *gr, u8 port_num,
-	enum transport_type trans, u8 connection_idx, enum function_type func);
+	enum transport_type trans, u8 src_connection_idx,
+	u8 dst_connection_idx, enum function_type func);
 
 int bam_data_setup(unsigned int no_bam2bam_port);
 
