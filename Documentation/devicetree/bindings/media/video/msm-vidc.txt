@@ -39,6 +39,7 @@ Optional properties:
 - qcom,buffer-type-tz-usage-table : a key-value pair, mapping a buffer type
   (enum hal_buffer) to its corresponding TZ usage. The TZ usages are defined
   as "enum cp_mem_usage" in include/linux/msm_ion.h
+- qcom,has-ocmem: indicate the target has ocmem if this property exists
 
 Example:
 
@@ -55,6 +56,7 @@ Example:
 				<243000 133330000>,
 				<108000 100000000>,
 				<36000 50000000>;
+		qcom,has-ocmem;
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
