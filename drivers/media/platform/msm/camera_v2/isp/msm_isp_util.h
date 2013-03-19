@@ -22,6 +22,32 @@
 #define ISP_DBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
+#define ALT_VECTOR_IDX(x) {x = 3 - x; }
+struct msm_isp_bandwidth_info {
+	uint32_t active;
+	uint64_t ab;
+	uint64_t ib;
+};
+
+enum msm_isp_hw_client {
+	ISP_VFE0,
+	ISP_VFE1,
+	ISP_CPP,
+	MAX_ISP_CLIENT,
+};
+
+struct msm_isp_bandwidth_mgr {
+	uint32_t bus_client;
+	uint32_t bus_vector_active_idx;
+	uint32_t use_count;
+	struct msm_isp_bandwidth_info client_info[MAX_ISP_CLIENT];
+};
+
+int msm_isp_init_bandwidth_mgr(enum msm_isp_hw_client client);
+int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
+	uint64_t ab, uint64_t ib);
+void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client);
+
 int msm_isp_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	struct v4l2_event_subscription *sub);
 

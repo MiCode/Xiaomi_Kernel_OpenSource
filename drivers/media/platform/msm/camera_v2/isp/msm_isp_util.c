@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/mutex.h>
 #include <linux/io.h>
 #include <media/v4l2-subdev.h>
 
@@ -19,6 +20,139 @@
 #include "msm_camera_io_util.h"
 
 #define MAX_ISP_V4l2_EVENTS 100
+static DEFINE_MUTEX(bandwidth_mgr_mutex);
+static struct msm_isp_bandwidth_mgr isp_bandwidth_mgr;
+
+#define MSM_ISP_MIN_AB 300000000
+#define MSM_ISP_MIN_IB 450000000
+
+static struct msm_bus_vectors msm_isp_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+};
+
+static struct msm_bus_vectors msm_isp_ping_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = MSM_ISP_MIN_AB,
+		.ib  = MSM_ISP_MIN_IB,
+	},
+};
+
+static struct msm_bus_vectors msm_isp_pong_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VFE,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = MSM_ISP_MIN_AB,
+		.ib  = MSM_ISP_MIN_IB,
+	},
+};
+
+static struct msm_bus_paths msm_isp_bus_client_config[] = {
+	{
+		ARRAY_SIZE(msm_isp_init_vectors),
+		msm_isp_init_vectors,
+	},
+	{
+		ARRAY_SIZE(msm_isp_ping_vectors),
+		msm_isp_ping_vectors,
+	},
+	{
+		ARRAY_SIZE(msm_isp_pong_vectors),
+		msm_isp_pong_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata msm_isp_bus_client_pdata = {
+	msm_isp_bus_client_config,
+	ARRAY_SIZE(msm_isp_bus_client_config),
+	.name = "msm_camera_isp",
+};
+
+int msm_isp_init_bandwidth_mgr(enum msm_isp_hw_client client)
+{
+	int rc = 0;
+	mutex_lock(&bandwidth_mgr_mutex);
+	isp_bandwidth_mgr.client_info[client].active = 1;
+	if (isp_bandwidth_mgr.use_count++) {
+		mutex_unlock(&bandwidth_mgr_mutex);
+		return rc;
+	}
+	isp_bandwidth_mgr.bus_client =
+		msm_bus_scale_register_client(&msm_isp_bus_client_pdata);
+	if (!isp_bandwidth_mgr.bus_client) {
+		pr_err("%s: client register failed\n", __func__);
+		mutex_unlock(&bandwidth_mgr_mutex);
+		return -EINVAL;
+	}
+
+	isp_bandwidth_mgr.bus_vector_active_idx = 1;
+	msm_bus_scale_client_update_request(
+	   isp_bandwidth_mgr.bus_client,
+	   isp_bandwidth_mgr.bus_vector_active_idx);
+
+	mutex_unlock(&bandwidth_mgr_mutex);
+	return 0;
+}
+
+int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
+	uint64_t ab, uint64_t ib)
+{
+	int i;
+	struct msm_bus_paths *path;
+	mutex_lock(&bandwidth_mgr_mutex);
+	if (!isp_bandwidth_mgr.use_count ||
+		!isp_bandwidth_mgr.bus_client) {
+		pr_err("%s: bandwidth manager inactive\n", __func__);
+		return -EINVAL;
+	}
+
+	isp_bandwidth_mgr.client_info[client].ab = ab;
+	isp_bandwidth_mgr.client_info[client].ib = ib;
+	ALT_VECTOR_IDX(isp_bandwidth_mgr.bus_vector_active_idx);
+	path =
+		&(msm_isp_bus_client_pdata.usecase[
+		  isp_bandwidth_mgr.bus_vector_active_idx]);
+	path->vectors[0].ab = MSM_ISP_MIN_AB;
+	path->vectors[0].ib = MSM_ISP_MIN_IB;
+	for (i = 0; i < MAX_ISP_CLIENT; i++) {
+		if (isp_bandwidth_mgr.client_info[client].active) {
+			path->vectors[0].ab +=
+				isp_bandwidth_mgr.client_info[i].ab;
+			path->vectors[0].ib +=
+				isp_bandwidth_mgr.client_info[i].ib;
+		}
+	}
+	msm_bus_scale_client_update_request(isp_bandwidth_mgr.bus_client,
+		isp_bandwidth_mgr.bus_vector_active_idx);
+	mutex_unlock(&bandwidth_mgr_mutex);
+	return 0;
+}
+
+void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client)
+{
+	mutex_lock(&bandwidth_mgr_mutex);
+	memset(&isp_bandwidth_mgr.client_info[client], 0,
+		   sizeof(struct msm_isp_bandwidth_info));
+	if (--isp_bandwidth_mgr.use_count) {
+		mutex_unlock(&bandwidth_mgr_mutex);
+		return;
+	}
+
+	if (!isp_bandwidth_mgr.bus_client)
+		return;
+
+	msm_bus_scale_client_update_request(
+	   isp_bandwidth_mgr.bus_client, 0);
+	msm_bus_scale_unregister_client(isp_bandwidth_mgr.bus_client);
+	isp_bandwidth_mgr.bus_client = 0;
+	mutex_unlock(&bandwidth_mgr_mutex);
+}
 
 static inline void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
 {
@@ -100,6 +234,8 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 		input_cfg->input_pix_clk;
 	vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux =
 		input_cfg->d.pix_cfg.input_mux;
+	vfe_dev->axi_data.src_info[VFE_PIX_0].width =
+		input_cfg->d.pix_cfg.camif_cfg.pixels_per_line;
 
 	rc = msm_isp_set_clk_rate(vfe_dev,
 		vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock);
