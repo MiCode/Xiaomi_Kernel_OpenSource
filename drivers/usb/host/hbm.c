@@ -39,6 +39,7 @@
 #define PIPE_PRODUCER	1
 #define MAX_PIPE_NUM	16
 #define HBM_QH_MAP_PIPE	0xffffffc0
+#define QTD_CERR_MASK	0xfffff3ff
 
 struct hbm_msm {
 	u32 *base;
@@ -257,6 +258,7 @@ int hbm_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 {
 	struct ehci_hcd	*ehci = hcd_to_ehci(hcd);
 	struct list_head qtd_list;
+	struct ehci_qtd *qtd;
 
 	INIT_LIST_HEAD(&qtd_list);
 
@@ -272,5 +274,11 @@ int hbm_urb_enqueue(struct usb_hcd *hcd, struct urb *urb,
 
 	if (!qh_urb_transaction(ehci, urb, &qtd_list, mem_flags))
 		return -ENOMEM;
+
+	/* set err counter in qTD token to zero */
+	qtd = list_entry(qtd_list.next, struct ehci_qtd, qtd_list);
+	if (qtd != NULL)
+		qtd->hw_token &= QTD_CERR_MASK;
+
 	return hbm_submit_async(ehci, urb, &qtd_list, mem_flags);
 }
