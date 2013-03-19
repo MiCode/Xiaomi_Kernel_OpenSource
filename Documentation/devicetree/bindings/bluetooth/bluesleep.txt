@@ -1,0 +1,41 @@
+* Bluetooth Sleep Protocol driver
+Bluetooth controller communicates with the Bluetooth Host using HCI Transport layer.
+HCI Transport layer can be based on UART or USB serial communication protocol.
+
+Apart from the transport layer, Bluetooth Controller also supports Low Power Mode
+using various mechanisms. One of such mechanism is Out-of-Band Sleep. Also known
+as 2-wire sleep mechanism.
+
+Out-of-Band Sleep:
+It requires two GPIOs to communicate the sleep protocol between Host and Controller.
+One of them is called as Host Wake GPIO where as other is known as a External wake
+GPIO.
+Host Wake GPIO is used for awake the Host from the Sleep Mode. It is controlled by the
+Controller. It should be wakeup interruptible source on the Host.
+External Wake GPIO is used for awake the Controller from the Sleep Mode. It is controlled
+by the Host.
+
+Required Properties:
+
+  - compatible: Should be "qca,ar3002_bluesleep"
+  - host-wake-gpio: Specify GPIO for Host wake signal (Controller -> Host).
+  - ext-wake-gpio: Specify GPIO for Controller wake signal(Host -> Controller).
+  - interrupt-parent: Should be phandle for the interrupt controller
+      that services interrupts for this device.
+  - interrupts: Should contain host wake interrupt from controller.
+  - interrupt-names: indicates interrupts passed to driver
+      (via interrupts property) by name. "host_wake" is mandatory.
+
+Optional Properties:
+  None
+
+Example:
+
+	bt_sleep {
+		compatible = "qca,ar3002_bluesleep";
+		host-wake-gpio = <&msmgpio 12 0>;
+		ext-wake-gpio = <&msmgpio 13 0>;
+		interrupt-parent = <&msmgpio>;
+		interrupts = <12 0>;
+		interrupt-names = "host_wake";
+	};
