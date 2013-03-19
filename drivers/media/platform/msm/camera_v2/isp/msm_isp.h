@@ -33,7 +33,7 @@
 #define MAX_NUM_COMPOSITE_MASK 4
 #define MAX_NUM_STATS_COMP_MASK 2
 #define MAX_INIT_FRAME_DROP 31
-#define ISP_SUB(a) ((a > 0) ? a-1 : 0)
+#define ISP_Q2 (1 << 2)
 
 #define VFE_PING_FLAG 0xFFFFFFFF
 #define VFE_PONG_FLAG 0x0
@@ -248,6 +248,12 @@ struct msm_vfe_axi_stream {
 	uint32_t burst_frame_count;/*number of sof before burst stop*/
 	uint8_t framedrop_update;
 
+	/*Bandwidth calculation info*/
+	uint32_t max_width;
+	/*Based on format plane size in Q2. e.g NV12 = 1.5*/
+	uint32_t format_factor;
+	uint32_t bandwidth;
+
 	/*Run time update variables*/
 	uint32_t runtime_init_frame_drop;
 	uint32_t runtime_burst_frame_count;/*number of sof before burst stop*/
@@ -266,7 +272,8 @@ struct msm_vfe_src_info {
 	uint8_t pix_stream_count;
 	uint8_t raw_stream_count;
 	enum msm_vfe_inputmux input_mux;
-	uint32_t pixel_clock;
+	uint32_t width;
+	long pixel_clock;
 };
 
 enum msm_wm_ub_cfg_type {

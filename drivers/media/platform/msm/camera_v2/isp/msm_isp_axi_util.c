@@ -97,12 +97,14 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	case V4L2_PIX_FMT_QGRBG12:
 	case V4L2_PIX_FMT_QRGGB12:
 		stream_info->num_planes = 1;
+		stream_info->format_factor = ISP_Q2;
 		break;
 	case V4L2_PIX_FMT_NV12:
 	case V4L2_PIX_FMT_NV21:
 	case V4L2_PIX_FMT_NV16:
 	case V4L2_PIX_FMT_NV61:
 		stream_info->num_planes = 2;
+		stream_info->format_factor = 1.5 * ISP_Q2;
 		break;
 	/*TD: Add more image format*/
 	default:
@@ -133,9 +135,12 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 		return rc;
 	}
 
-	for (i = 0; i < stream_info->num_planes; i++)
+	for (i = 0; i < stream_info->num_planes; i++) {
 		stream_info->plane_offset[i] =
 			stream_cfg_cmd->plane_cfg[i].plane_addr_offset;
+		stream_info->max_width = max(stream_info->max_width,
+			stream_cfg_cmd->plane_cfg[i].output_width);
+	}
 
 	stream_info->stream_src = stream_cfg_cmd->stream_src;
 	stream_info->frame_based = stream_cfg_cmd->frame_base;
@@ -444,6 +449,23 @@ void msm_isp_calculate_framedrop(
 		stream_info->stream_type = CONTINUOUS_STREAM;
 		stream_info->burst_frame_count = 0;
 		stream_info->num_burst_capture = 0;
+	}
+}
+
+void msm_isp_calculate_bandwidth(
+	struct msm_vfe_axi_shared_data *axi_data,
+	struct msm_vfe_axi_stream *stream_info)
+{
+	if (stream_info->stream_src < RDI_INTF_0) {
+		stream_info->bandwidth =
+			(axi_data->src_info[VFE_PIX_0].pixel_clock /
+			axi_data->src_info[VFE_PIX_0].width) *
+			stream_info->max_width;
+		stream_info->bandwidth = stream_info->bandwidth *
+			stream_info->format_factor / ISP_Q2;
+	} else {
+		int rdi = SRC_TO_INTF(stream_info->stream_src);
+		stream_info->bandwidth = axi_data->src_info[rdi].pixel_clock;
 	}
 }
 
@@ -787,6 +809,46 @@ void msm_camera_io_dump_2(void __iomem *addr, int size)
 		ISP_DBG("%s\n", line_str);
 }
 
+/*Factor in Q2 format*/
+#define ISP_DEFAULT_FORMAT_FACTOR 6
+#define ISP_BUS_UTILIZATION_FACTOR 6
+static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
+{
+	int i, rc = 0;
+	struct msm_vfe_axi_stream *stream_info;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	uint32_t total_pix_bandwidth = 0, total_rdi_bandwidth = 0;
+	uint32_t num_pix_streams = 0;
+	uint64_t total_bandwidth = 0;
+
+	for (i = 0; i < MAX_NUM_STREAM; i++) {
+		stream_info = &axi_data->stream_info[i];
+		if (stream_info->state == ACTIVE ||
+			stream_info->state == START_PENDING) {
+			if (stream_info->stream_src < RDI_INTF_0) {
+				total_pix_bandwidth += stream_info->bandwidth;
+				num_pix_streams++;
+			} else {
+				total_rdi_bandwidth += stream_info->bandwidth;
+			}
+		}
+	}
+	if (num_pix_streams > 0)
+		total_pix_bandwidth = total_pix_bandwidth /
+			num_pix_streams * (num_pix_streams - 1) +
+			axi_data->src_info[VFE_PIX_0].pixel_clock *
+			ISP_DEFAULT_FORMAT_FACTOR / ISP_Q2;
+	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
+
+	rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
+		total_bandwidth, total_bandwidth *
+		ISP_BUS_UTILIZATION_FACTOR / ISP_Q2);
+	if (rc < 0)
+		pr_err("%s: update failed\n", __func__);
+
+	return rc;
+}
+
 static int msm_isp_axi_wait_for_cfg_done(struct vfe_device *vfe_dev)
 {
 	int rc;
@@ -864,6 +926,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		src_state = axi_data->src_info[
 			SRC_TO_INTF(stream_info->stream_src)].active;
 
+		msm_isp_calculate_bandwidth(axi_data, stream_info);
 		msm_isp_reset_framedrop(vfe_dev, stream_info);
 		msm_isp_get_stream_wm_mask(stream_info, &wm_reload_mask);
 		rc = msm_isp_init_stream_ping_pong_reg(vfe_dev, stream_info);
@@ -886,7 +949,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			stream_info->state = ACTIVE;
 		}
 	}
-
+	msm_isp_update_stream_bandwidth(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev, wm_reload_mask);
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
 
@@ -918,7 +981,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		pr_err("%s: wait for config done failed\n", __func__);
 		return rc;
 	}
-
+	msm_isp_update_stream_bandwidth(vfe_dev);
 	if (camif_update == DISABLE_CAMIF)
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, DISABLE_CAMIF);

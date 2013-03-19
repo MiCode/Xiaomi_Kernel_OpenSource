@@ -34,6 +34,7 @@
 #include <media/msmb_pproc.h>
 #include <media/msmb_generic_buf_mgr.h>
 #include "msm_cpp.h"
+#include "msm_isp_util.h"
 #include "msm_camera_io_util.h"
 
 #define MSM_CPP_DRV_NAME "msm_cpp"
@@ -582,6 +583,12 @@ static void msm_cpp_boot_hw(struct cpp_device *cpp_dev)
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
+	rc = msm_isp_init_bandwidth_mgr(ISP_CPP);
+	if (rc < 0) {
+		pr_err("%s: Bandwidth registration Failed!\n", __func__);
+		goto bus_scale_register_failed;
+	}
+	msm_isp_update_bandwidth(ISP_CPP, 981345600, 1600020000);
 
 	if (cpp_dev->fs_cpp == NULL) {
 		cpp_dev->fs_cpp =
@@ -667,6 +674,9 @@ clk_failed:
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
 fs_failed:
+	msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+	msm_isp_deinit_bandwidth_mgr(ISP_CPP);
+bus_scale_register_failed:
 	return rc;
 }
 
@@ -688,6 +698,8 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 		regulator_put(cpp_dev->fs_cpp);
 		cpp_dev->fs_cpp = NULL;
 	}
+	msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+	msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 }
 
 static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
