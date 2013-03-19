@@ -23,6 +23,7 @@
 #include <sound/apr_audio-v2.h>
 #include <sound/q6afe-v2.h>
 #include <sound/msm-dai-q6-v2.h>
+#include <sound/pcm_params.h>
 
 #define HDMI_RX_CA_MAX 0x32
 
@@ -119,7 +120,14 @@ static int msm_dai_q6_hdmi_hw_params(struct snd_pcm_substream *substream,
 	dai_data->port_config.hdmi_multi_ch.reserved = 0;
 	dai_data->port_config.hdmi_multi_ch.hdmi_cfg_minor_version = 1;
 	dai_data->port_config.hdmi_multi_ch.sample_rate = dai_data->rate;
-	dai_data->port_config.hdmi_multi_ch.bit_width = 16;
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		dai_data->port_config.hdmi_multi_ch.bit_width = 16;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		dai_data->port_config.hdmi_multi_ch.bit_width = 24;
+		break;
+	}
 
 	switch (dai_data->channels) {
 	case 2:
@@ -257,7 +265,7 @@ static struct snd_soc_dai_ops msm_dai_q6_hdmi_ops = {
 static struct snd_soc_dai_driver msm_dai_q6_hdmi_hdmi_rx_dai = {
 	.playback = {
 		.rates = SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
 		.channels_min = 2,
 		.channels_max = 8,
 		.rate_max =     48000,
