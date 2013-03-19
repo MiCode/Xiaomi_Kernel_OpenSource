@@ -112,6 +112,7 @@ dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	msm8226-qrd.dtb
 dtb-$(CONFIG_ARCH_MSM8610) += msm8610-rumi.dtb \
 	msm8610-sim.dtb
+dtb-$(CONFIG_ARCH_MSMKRYPTON) += msmkrypton-sim.dtb
 dtb-$(CONFIG_ARCH_MSMZINC) += msmzinc-sim.dtb
 dtb-$(CONFIG_ARCH_MVEBU) += armada-370-db.dtb \
 	armada-370-mirabox.dtb \
