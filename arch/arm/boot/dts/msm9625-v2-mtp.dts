@@ -42,7 +42,7 @@
 
 	wlan0: qca,wlan {
 		cell-index = <0>;
-		compatible = "qca,ar6004-sdio";
+		compatible = "qca,ar6004-hsic";
 		qca,chip-pwd-l-gpios = <&msmgpio 62 0>;
 		qca,pm-enable-gpios = <&pm8019_gpios 3 0x0>;
 		qca,ar6004-vdd-io-supply = <&pm8019_l11>;
