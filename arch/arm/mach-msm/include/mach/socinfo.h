@@ -74,6 +74,10 @@
 	of_machine_is_compatible("qcom,msm8610-sim")
 #define machine_is_msm8610_rumi()		\
 	of_machine_is_compatible("qcom,msm8610-rumi")
+#define machine_is_msm8610_mtp()		\
+	of_machine_is_compatible("qcom,msm8610-mtp")
+#define machine_is_msm8610_cdp()		\
+	of_machine_is_compatible("qcom,msm8610-cdp")
 #define early_machine_is_msmzinc()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmzinc")
 #define machine_is_msmzinc_sim()		\
