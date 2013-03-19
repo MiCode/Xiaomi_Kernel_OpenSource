@@ -20,6 +20,13 @@
 		qcom,cci-master = <0>;
 	};
 
+	actuator1: qcom,actuator@36 {
+		cell-index = <1>;
+		reg = <0x36>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <0>;
+	};
+
 	qcom,camera@6e {
 		compatible = "qcom,s5k3l1yx";
 		reg = <0x6e>;
@@ -65,11 +72,12 @@
     qcom,camera@20 {
 		compatible = "qcom,imx135";
 		reg = <0x20>;
-		qcom,slave-id = <0x20 0x0 0x1210>;
+		qcom,slave-id = <0x20 0x0016 0x0135>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "imx135";
+		qcom,actuator-src = <&actuator1>;
 		cam_vdig-supply = <&pm8941_l3>;
 		cam_vana-supply = <&pm8941_l17>;
 		cam_vio-supply = <&pm8941_lvs3>;
