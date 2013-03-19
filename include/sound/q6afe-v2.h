@@ -64,22 +64,32 @@ enum {
 	IDX_SLIMBUS_3_TX = 22,
 	IDX_SLIMBUS_4_RX = 23,
 	IDX_SLIMBUS_4_TX = 24,
-	IDX_INT_BT_SCO_RX = 25,
-	IDX_INT_BT_SCO_TX = 26,
-	IDX_INT_BT_A2DP_RX = 27,
-	IDX_INT_FM_RX = 28,
-	IDX_INT_FM_TX = 29,
-	IDX_RT_PROXY_PORT_001_RX = 30,
-	IDX_RT_PROXY_PORT_001_TX = 31,
-	IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX = 32,
-	IDX_AFE_PORT_ID_QUATERNARY_MI2S_TX = 33,
-	IDX_AFE_PORT_ID_SECONDARY_MI2S_RX = 34,
-	IDX_AFE_PORT_ID_SECONDARY_MI2S_TX = 35,
-	IDX_AFE_PORT_ID_TERTIARY_MI2S_RX = 36,
-	IDX_AFE_PORT_ID_TERTIARY_MI2S_TX = 37,
-	IDX_AFE_PORT_ID_PRIMARY_MI2S_RX = 38,
-	IDX_AFE_PORT_ID_PRIMARY_MI2S_TX = 39,
+	IDX_SLIMBUS_5_RX = 25,
+	IDX_SLIMBUS_5_TX = 26,
+	IDX_INT_BT_SCO_RX = 27,
+	IDX_INT_BT_SCO_TX = 28,
+	IDX_INT_BT_A2DP_RX = 29,
+	IDX_INT_FM_RX = 30,
+	IDX_INT_FM_TX = 31,
+	IDX_RT_PROXY_PORT_001_RX = 32,
+	IDX_RT_PROXY_PORT_001_TX = 33,
+	IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX = 34,
+	IDX_AFE_PORT_ID_QUATERNARY_MI2S_TX = 35,
+	IDX_AFE_PORT_ID_SECONDARY_MI2S_RX = 36,
+	IDX_AFE_PORT_ID_SECONDARY_MI2S_TX = 37,
+	IDX_AFE_PORT_ID_TERTIARY_MI2S_RX = 38,
+	IDX_AFE_PORT_ID_TERTIARY_MI2S_TX = 39,
+	IDX_AFE_PORT_ID_PRIMARY_MI2S_RX = 40,
+	IDX_AFE_PORT_ID_PRIMARY_MI2S_TX = 41,
+	IDX_GLOBAL_CFG,
 	AFE_MAX_PORTS
+};
+
+enum afe_mad_type {
+	MAD_HW_NONE = 0x00,
+	MAD_HW_AUDIO = 0x01,
+	MAD_HW_BEACON = 0x02,
+	MAD_HW_ULTRASOUND = 0x04
 };
 
 struct afe_audio_buffer {
@@ -171,5 +181,11 @@ int afe_set_lpass_clock(u16 port_id, struct afe_clk_cfg *cfg);
 int afe_set_lpass_internal_digital_codec_clock(u16 port_id,
 				struct afe_digital_clk_cfg *cfg);
 int q6afe_check_osr_clk_freq(u32 freq);
+
+int afe_turn_onoff_hw_mad(u16 mad_type, u16 mad_enable);
+int afe_port_set_mad_type(u16 port_id, enum afe_mad_type mad_type);
+enum afe_mad_type afe_port_get_mad_type(u16 port_id);
+int afe_set_config(enum afe_config_type config_type, void *config_data,
+		   int arg);
 
 #endif /* __Q6AFE_V2_H__ */
