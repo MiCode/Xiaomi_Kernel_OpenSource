@@ -416,14 +416,16 @@ static int disconnect_pipe(u8 idx)
 
 	if (pipe_connect->mem_type == SYSTEM_MEM) {
 		pr_debug("%s: Freeing system memory used by PIPE\n", __func__);
-		dma_free_coherent(&ctx.usb_bam_pdev->dev,
-				sps_connection->data.size,
-				sps_connection->data.base,
-				sps_connection->data.phys_base);
-		dma_free_coherent(&ctx.usb_bam_pdev->dev,
-				sps_connection->desc.size,
-				sps_connection->desc.base,
-				sps_connection->desc.phys_base);
+		if (sps_connection->data.phys_base)
+			dma_free_coherent(&ctx.usb_bam_pdev->dev,
+					sps_connection->data.size,
+					sps_connection->data.base,
+					sps_connection->data.phys_base);
+		if (sps_connection->desc.phys_base)
+			dma_free_coherent(&ctx.usb_bam_pdev->dev,
+					sps_connection->desc.size,
+					sps_connection->desc.base,
+					sps_connection->desc.phys_base);
 	} else if (pipe_connect->mem_type == USB_PRIVATE_MEM) {
 		pr_debug("Freeing USB private memory used by BAM PIPE\n");
 		writel_relaxed(0x0, ctx.qscratch_ram1_reg);
@@ -806,10 +808,11 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	int ret;
 	u8 idx;
 	struct usb_bam_pipe_connect *pipe_connect;
+	struct sps_connect *sps_connection;
 
 	if (ipa_params->prod_clnt_hdl) {
 		/* close USB -> IPA pipe */
-		idx = ipa_params->src_idx;
+		idx = ipa_params->dst_idx;
 		ret = ipa_disconnect(ipa_params->prod_clnt_hdl);
 		if (ret) {
 			pr_err("%s: dst pipe disconnection failure\n",
@@ -817,11 +820,20 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 			return ret;
 		}
 		pipe_connect = &usb_bam_connections[idx];
-		pipe_connect->enabled = 0;
+		sps_connection = &ctx.usb_bam_sps.sps_connections[idx];
+		sps_connection->data.phys_base = 0;
+		sps_connection->desc.phys_base = 0;
+
+		ret = usb_bam_disconnect_pipe(idx);
+		if (ret) {
+			pr_err("%s: failure to disconnect pipe %d\n",
+				__func__, idx);
+			return ret;
+		}
 	}
 	if (ipa_params->cons_clnt_hdl) {
 		/* close IPA -> USB pipe */
-		idx = ipa_params->dst_idx;
+		idx = ipa_params->src_idx;
 		ret = ipa_disconnect(ipa_params->cons_clnt_hdl);
 		if (ret) {
 			pr_err("%s: src pipe disconnection failure\n",
@@ -829,7 +841,16 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 			return ret;
 		}
 		pipe_connect = &usb_bam_connections[idx];
-		pipe_connect->enabled = 0;
+		sps_connection = &ctx.usb_bam_sps.sps_connections[idx];
+		sps_connection->data.phys_base = 0;
+		sps_connection->desc.phys_base = 0;
+
+		ret = usb_bam_disconnect_pipe(idx);
+		if (ret) {
+			pr_err("%s: failure to disconnect pipe %d\n",
+				__func__, idx);
+			return ret;
+		}
 	}
 
 	ipa_rm_release_resource(IPA_CLIENT_USB_PROD);
