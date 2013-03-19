@@ -51,12 +51,17 @@ RGB Led is a tri-colored led, Red, Blue & Green.
 Required properties for RGB led:
 - qcom,mode: mode the led should operate in, options 0 = PWM, 1 = LPG
 - qcom,pwm-channel: pwm channel the led will operate on
+
+Required properties for PWM mode only:
 - qcom,pwm-us: time the pwm device will modulate at (us)
 
 Required properties for LPG mode only:
-- qcom,duty-ms: duty cycle time the led will operate at (ms)
 - qcom,duty-pcts: array of values for duty cycle to go through
 - qcom,start-idx: starting point duty-pcts array
+- qcom,pause-lo: pause at low end of cycle
+- qcom,pause-hi: pause at high end of cycle
+- qcom,ramp-step-ms: step between each cycle (ms)
+- qcom,lut-flags: flags to be used in lut configuration
 
 Optional properties for RGB led:
 - linux,default-trigger: trigger the led from external modules such as display
@@ -90,12 +95,14 @@ Example:
 			linux,name = "led:rgb_blue";
 			qcom,mode = <1>;
 			qcom,pwm-channel = <4>;
-			qcom,pwm-us = <1000>;
-			qcom,duty-ms = <20>;
 			qcom,start-idx = <1>;
 			qcom,idx-len = <10>;
 			qcom,duty-pcts = [00 19 32 4B 64
 					 64 4B 32 19 00];
+			qcom,lut-flags = <3>;
+			qcom,pause-lo = <0>;
+			qcom,pause-hi = <0>;
+			qcom,ramp-step-ms = <255>;
 			qcom,max-current = <12>;
 			qcom,default-state = "on";
 			qcom,turn-off-delay-ms = <500>;
