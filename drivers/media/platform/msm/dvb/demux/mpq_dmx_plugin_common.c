@@ -75,10 +75,6 @@ static int video_nonsecure_ion_heap = ION_IOMMU_HEAP_ID;
 module_param(video_nonsecure_ion_heap, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(video_nonsecure_ion_heap, "ION heap for non-secure video buffer allocation");
 
-static int generate_es_events;
-module_param(generate_es_events, int, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(generate_es_events, "Generate new elementary stream data events");
-
 /* Value of TS packet scramble bits field for even key */
 static int mpq_sdmx_scramble_even = 0x2;
 module_param(mpq_sdmx_scramble_even, int, S_IRUGO | S_IWUSR);
@@ -1223,13 +1219,6 @@ EXPORT_SYMBOL(mpq_dmx_unmap_buffer);
 int mpq_dmx_reuse_decoder_buffer(struct dvb_demux_feed *feed, int cookie)
 {
 	struct mpq_demux *mpq_demux = feed->demux->priv;
-
-	if (!generate_es_events) {
-		MPQ_DVB_ERR_PRINT(
-			"%s: Cannot release decoder buffer when not working with new elementary stream data events\n",
-			__func__);
-		return -EPERM;
-	}
 
 	if (cookie < 0) {
 		MPQ_DVB_ERR_PRINT("%s: invalid cookie parameter\n", __func__);
@@ -2834,13 +2823,11 @@ static int mpq_dmx_process_video_packet_framing(
 					__func__);
 			}
 
-			if (generate_es_events) {
-				mpq_dmx_prepare_es_event_data(
-					&packet, &meta_data, feed_data,
-					stream_buffer, &data);
+			mpq_dmx_prepare_es_event_data(
+				&packet, &meta_data, feed_data,
+				stream_buffer, &data);
 
-				feed->data_ready_cb.ts(&feed->feed.ts, &data);
-			}
+			feed->data_ready_cb.ts(&feed->feed.ts, &data);
 
 			feed_data->pending_pattern_len = 0;
 			mpq_streambuffer_get_data_rw_offset(
@@ -2975,15 +2962,13 @@ static int mpq_dmx_process_video_packet_no_framing(
 					NULL,
 					&feed_data->frame_offset);
 
-				if (generate_es_events) {
-					mpq_dmx_prepare_es_event_data(
-						&packet, &meta_data,
-						feed_data,
-						stream_buffer, &data);
+				mpq_dmx_prepare_es_event_data(
+					&packet, &meta_data,
+					feed_data,
+					stream_buffer, &data);
 
-					feed->data_ready_cb.ts(
-						&feed->feed.ts, &data);
-				}
+				feed->data_ready_cb.ts(
+					&feed->feed.ts, &data);
 			} else {
 				MPQ_DVB_ERR_PRINT(
 					"%s: received PUSI"
@@ -4122,6 +4107,8 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 	int ret;
 	int pes_cnt = 0;
 	struct dmx_data_ready data_event;
+	struct dmx_data_ready data;
+	struct dvb_demux_feed *feed = mpq_feed->dvb_demux_feed;
 
 	if ((!sts->metadata_fill_count) && (!sts->data_fill_count))
 		goto decoder_filter_check_overflow;
@@ -4249,15 +4236,11 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 		mpq_dmx_update_decoder_stat(mpq_demux);
 		mpq_streambuffer_pkt_write(sbuf, &packet, (u8 *)&meta_data);
 
-		if (generate_es_events) {
-			struct dmx_data_ready data;
-			struct dvb_demux_feed *feed = mpq_feed->dvb_demux_feed;
-			mpq_dmx_prepare_es_event_data(
-				&packet, &meta_data, &mpq_feed->video_info,
-				sbuf, &data);
-			MPQ_DVB_DBG_PRINT("%s: Notify ES Event\n", __func__);
-			feed->data_ready_cb.ts(&feed->feed.ts, &data);
-		}
+		mpq_dmx_prepare_es_event_data(
+			&packet, &meta_data, &mpq_feed->video_info,
+			sbuf, &data);
+		MPQ_DVB_DBG_PRINT("%s: Notify ES Event\n", __func__);
+		feed->data_ready_cb.ts(&feed->feed.ts, &data);
 
 		spin_unlock(&mpq_feed->video_info.video_buffer_lock);
 	}
