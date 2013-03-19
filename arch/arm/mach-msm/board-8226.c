@@ -24,9 +24,6 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/memory.h>
-#ifdef CONFIG_ANDROID_PMEM
-#include <linux/android_pmem.h>
-#endif
 #include <linux/regulator/qpnp-regulator.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
