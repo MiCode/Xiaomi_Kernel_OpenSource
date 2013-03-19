@@ -123,14 +123,17 @@
 		qcom,msm-bus,vectors-KBps =
 				<85 512 0 0>,
 				<85 512 40000 640000>;
+		qcom,pool-64-bit-align;
+		qcom,enable-hbm;
 	};
 
 	qcom,usbbam@f9a44000 {
 		compatible = "qcom,usb-bam-msm";
-		reg = <0xf9a44000 0x11000>;
-		reg-names = "hsusb";
-		interrupts = <0 135 0>;
-		interrupt-names = "hsusb";
+		reg = <0xf9a44000 0x11000>,
+		      <0xf9a04000 0x11000>;
+		reg-names = "hsusb", "hsic";
+		interrupts = <0 135 0 0 255 0>;
+		interrupt-names = "hsusb", "hsic";
 		qcom,usb-bam-num-pipes = <16>;
 		qcom,ignore-core-reset-ack;
 		qcom,disable-clk-gating;
@@ -178,6 +181,66 @@
 			qcom,data-fifo-size = <0x400>;
 			qcom,descriptor-fifo-offset = <0x4000>;
 			qcom,descriptor-fifo-size = <0x400>;
+		};
+		qcom,pipe3 {
+			label = "hsic-ipa-in-0";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <2>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <2>;
+			qcom,dst-bam-physical-address = <0xf9a04000>;
+			qcom,dst-bam-pipe-index = <3>;
+			qcom,data-fifo-size = <0xD480>;
+			qcom,descriptor-fifo-size = <0x1A80>;
+		};
+		qcom,pipe4 {
+			label = "hsic-ipa-in-1";
+			qcom,bam-type = <2>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <1>;
+			qcom,peer-bam = <2>;
+			qcom,usb-bam-mem-type = <2>;
+			qcom,dst-bam-physical-address = <0xf9a04000>;
+			qcom,dst-bam-pipe-index = <4>;
+			qcom,data-fifo-size = <0xD480>;
+			qcom,descriptor-fifo-size = <0x1A80>;
+		};
+		qcom,pipe5 {
+			label = "hsic-ipa-in-2";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <2>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <2>;
+			qcom,peer-bam = <2>;
+			qcom,dst-bam-physical-address = <0xf9a04000>;
+			qcom,dst-bam-pipe-index = <5>;
+			qcom,data-fifo-size = <0xD480>;
+			qcom,descriptor-fifo-size = <0x1A80>;
+		};
+		qcom,pipe6 {
+			label = "hsic-ipa-in-3";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <2>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <3>;
+			qcom,peer-bam = <2>;
+			qcom,dst-bam-physical-address = <0xf9a04000>;
+			qcom,dst-bam-pipe-index = <6>;
+			qcom,data-fifo-size = <0xD480>;
+			qcom,descriptor-fifo-size = <0x1A80>;
+		};
+		qcom,pipe7 {
+			label = "hsic-ipa-out-0";
+			qcom,usb-bam-mem-type = <2>;
+			qcom,bam-type = <2>;
+			qcom,dir = <0>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <2>;
+			qcom,src-bam-physical-address = <0xf9a04000>;
+			qcom,src-bam-pipe-index = <7>;
+			qcom,data-fifo-size = <0xD480>;
+			qcom,descriptor-fifo-size = <0x1A80>;
 		};
 	};
 
