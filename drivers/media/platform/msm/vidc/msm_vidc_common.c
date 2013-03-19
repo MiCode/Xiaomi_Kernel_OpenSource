@@ -949,7 +949,7 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 		dprintk(VIDC_WARN,
 				"Failed to scale DDR bus. Performance might be impacted\n");
 	}
-	if (call_hfi_op(hdev, is_ocmem_present, hdev->hfi_device_data)) {
+	if (core->resources.has_ocmem) {
 		if (msm_comm_scale_bus(core, inst->session_type,
 					OCMEM_MEM))
 			dprintk(VIDC_WARN,
@@ -1112,9 +1112,11 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	}
 	msm_comm_scale_clocks_and_bus(inst);
 	if (list_empty(&core->instances)) {
-		if (inst->state != MSM_VIDC_CORE_INVALID)
-			msm_comm_unset_ocmem(core);
-		call_hfi_op(hdev, free_ocmem, hdev->hfi_device_data);
+		if (core->resources.has_ocmem) {
+			if (inst->state != MSM_VIDC_CORE_INVALID)
+				msm_comm_unset_ocmem(core);
+			call_hfi_op(hdev, free_ocmem, hdev->hfi_device_data);
+		}
 		dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
 		rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
 		if (rc) {
@@ -1126,7 +1128,10 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		core->state = VIDC_CORE_UNINIT;
 		mutex_unlock(&core->lock);
 		call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
-		msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
+		if (core->resources.has_ocmem)
+			msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
+		else
+			msm_comm_unvote_buses(core, DDR_MEM);
 	}
 core_already_uninited:
 	change_inst_state(inst, MSM_VIDC_CORE_UNINIT);
@@ -1273,21 +1278,26 @@ static int msm_vidc_load_resources(int flipped_state,
 						inst, inst->state);
 		goto exit;
 	}
-	ocmem_sz = get_ocmem_requirement(inst->prop.height, inst->prop.width);
-	rc = msm_comm_scale_bus(inst->core, inst->session_type, OCMEM_MEM);
-	if (!rc) {
-		mutex_lock(&inst->core->sync_lock);
-		rc = call_hfi_op(hdev, alloc_ocmem, hdev->hfi_device_data,
-				ocmem_sz);
-		mutex_unlock(&inst->core->sync_lock);
-		if (rc) {
+	if (inst->core->resources.has_ocmem) {
+		ocmem_sz = get_ocmem_requirement(inst->prop.height,
+						inst->prop.width);
+		rc = msm_comm_scale_bus(inst->core, inst->session_type,
+					OCMEM_MEM);
+		if (!rc) {
+			mutex_lock(&inst->core->sync_lock);
+			rc = call_hfi_op(hdev, alloc_ocmem,
+					hdev->hfi_device_data,
+					ocmem_sz);
+			mutex_unlock(&inst->core->sync_lock);
+			if (rc) {
+				dprintk(VIDC_WARN,
+				"Failed to allocate OCMEM. Performance will be impacted\n");
+				msm_comm_unvote_buses(inst->core, OCMEM_MEM);
+			}
+		} else {
 			dprintk(VIDC_WARN,
-			"Failed to allocate OCMEM. Performance will be impacted\n");
-			msm_comm_unvote_buses(inst->core, OCMEM_MEM);
+			"Failed to vote for OCMEM BW. Performance will be impacted\n");
 		}
-	} else {
-		dprintk(VIDC_WARN,
-		"Failed to vote for OCMEM BW. Performance will be impacted\n");
 	}
 	rc = call_hfi_op(hdev, session_load_res, (void *) inst->session);
 	if (rc) {
