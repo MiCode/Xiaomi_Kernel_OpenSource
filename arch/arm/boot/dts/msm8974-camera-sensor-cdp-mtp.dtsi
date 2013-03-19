@@ -27,6 +27,7 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,actuator-src = <&actuator0>;
+		qcom,led-flash-src = <&led_flash0>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "s5k3l1yx";
 		cam_vdig-supply = <&pm8941_l3>;
