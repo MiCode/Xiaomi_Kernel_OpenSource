@@ -328,7 +328,6 @@ static struct map_desc msm_zinc_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(QGIC_DIST, MSMZINC),
 	MSM_CHIP_DEVICE(QGIC_CPU, MSMZINC),
 	MSM_CHIP_DEVICE(TLMM, MSMZINC),
-	MSM_CHIP_DEVICE(IMEM, MSMZINC),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
@@ -343,6 +342,7 @@ void __init msm_map_zinc_io(void)
 {
 	msm_shared_ram_phys = MSMZINC_SHARED_RAM_PHYS;
 	msm_map_io(msm_zinc_io_desc, ARRAY_SIZE(msm_zinc_io_desc));
+	of_scan_flat_dt(msm_scan_dt_map_imem, NULL);
 }
 #endif /* CONFIG_ARCH_MSMZINC */
 
