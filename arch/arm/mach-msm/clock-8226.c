@@ -2817,6 +2817,13 @@ static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, LONG_MAX);
 
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 
+static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, &xo.c);
+static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo.c);
+static DEFINE_CLK_BRANCH_VOTER(cxo_pil_mss_clk, &xo.c);
+static DEFINE_CLK_BRANCH_VOTER(cxo_wlan_clk, &xo.c);
+static DEFINE_CLK_BRANCH_VOTER(cxo_pil_pronto_clk, &xo.c);
+
+
 #ifdef CONFIG_DEBUG_FS
 static int measure_clk_set_parent(struct clk *c, struct clk *parent)
 {
@@ -3027,20 +3034,20 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("l2_m_clk", l2_m_clk, ""),
 
 	/* PIL-LPASS */
-	CLK_LOOKUP("xo",                         xo.c, "fe200000.qcom,lpass"),
+	CLK_LOOKUP("xo",          cxo_pil_lpass_clk.c, "fe200000.qcom,lpass"),
 	CLK_LOOKUP("core_clk",          q6ss_xo_clk.c, "fe200000.qcom,lpass"),
 	CLK_LOOKUP("bus_clk",  gcc_lpass_q6_axi_clk.c, "fe200000.qcom,lpass"),
 	CLK_LOOKUP("iface_clk", q6ss_ahb_lfabif_clk.c, "fe200000.qcom,lpass"),
 	CLK_LOOKUP("reg_clk",         q6ss_ahbm_clk.c, "fe200000.qcom,lpass"),
 
 	/* PIL-MODEM */
-	CLK_LOOKUP("xo",                           xo.c, "fc880000.qcom,mss"),
+	CLK_LOOKUP("xo",              cxo_pil_mss_clk.c, "fc880000.qcom,mss"),
 	CLK_LOOKUP("bus_clk", gcc_mss_q6_bimc_axi_clk.c, "fc880000.qcom,mss"),
 	CLK_LOOKUP("iface_clk",   gcc_mss_cfg_ahb_clk.c, "fc880000.qcom,mss"),
 	CLK_LOOKUP("mem_clk",    gcc_boot_rom_ahb_clk.c, "fc880000.qcom,mss"),
 
 	/* PIL-PRONTO */
-	CLK_LOOKUP("xo", xo.c, "fb21b000.qcom,pronto"),
+	CLK_LOOKUP("xo", cxo_pil_pronto_clk.c, "fb21b000.qcom,pronto"),
 
 	/* PIL-VENUS */
 	CLK_LOOKUP("src_clk",     vcodec0_clk_src.c, "fdce0000.qcom,venus"),
@@ -3055,8 +3062,8 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("a7sspll", a7sspll.c, "f9011050.qcom,acpuclk"),
 
 	/* WCNSS CLOCKS */
-	CLK_LOOKUP("xo", xo.c,         "fb000000.qcom,wcnss-wlan"),
-	CLK_LOOKUP("rf_clk", cxo_a2.c, "fb000000.qcom,wcnss-wlan"),
+	CLK_LOOKUP("xo", cxo_wlan_clk.c, "fb000000.qcom,wcnss-wlan"),
+	CLK_LOOKUP("rf_clk",   cxo_a2.c, "fb000000.qcom,wcnss-wlan"),
 
 	/* BUS DRIVER */
 	CLK_LOOKUP("bus_clk", cnoc_msmbus_clk.c, "msm_config_noc"),
@@ -3141,7 +3148,7 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc344000.cti"),
 
 	/* HSUSB-OTG Clocks */
-	CLK_LOOKUP("xo",                          xo.c, "f9a55000.usb"),
+	CLK_LOOKUP("xo",                 cxo_otg_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("iface_clk",   gcc_usb_hs_ahb_clk.c, "f9a55000.usb"),
 	CLK_LOOKUP("core_clk", gcc_usb_hs_system_clk.c, "f9a55000.usb"),
 
