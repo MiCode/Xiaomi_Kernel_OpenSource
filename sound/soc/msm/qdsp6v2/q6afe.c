@@ -403,6 +403,7 @@ static int afe_spk_prot_prepare(int port, int param_id,
 	int index = 0;
 	struct afe_spkr_prot_config_command config;
 
+	memset(&config, 0 , sizeof(config));
 	if (!prot_config) {
 		pr_err("%s Invalid params\n", __func__);
 		goto fail_cmd;
@@ -411,7 +412,6 @@ static int afe_spk_prot_prepare(int port, int param_id,
 		pr_err("%s invalid port %d", __func__, port);
 		goto fail_cmd;
 	}
-	memset(&config, 0 , sizeof(config));
 	index = q6audio_get_port_index(port);
 	switch (param_id) {
 	case AFE_PARAM_ID_FBSP_MODE_RX_CFG:
@@ -464,7 +464,7 @@ static int afe_spk_prot_prepare(int port, int param_id,
 	}
 	ret = 0;
 fail_cmd:
-	pr_err("%s config.pdata.param_id %x status %d\n",
+	pr_debug("%s config.pdata.param_id %x status %d\n",
 	__func__, config.pdata.param_id, ret);
 	return ret;
 }
