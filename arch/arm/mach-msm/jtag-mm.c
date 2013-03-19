@@ -124,6 +124,8 @@
 #define DBGBCRn(n)		(0x140 + (n * 4))
 #define DBGWVRn(n)		(0x180 + (n * 4))
 #define DBGWCRn(n)		(0x1C0 + (n * 4))
+#define DBGOSLAR		(0x300)
+#define DBGOSLSR		(0x304)
 #define DBGPRCR			(0x310)
 #define DBGITMISCOUT		(0xEF8)
 #define DBGITMISCIN		(0xEFC)
@@ -141,6 +143,7 @@
 
 #define ARCH_V3_5		(0x25)
 #define ARM_DEBUG_ARCH_V7B	(0x3)
+#define ARM_DEBUG_ARCH_V7p1	(0x5)
 
 #define etm_write(etm, val, off)	\
 			__raw_writel(val, etm->base + off)
@@ -457,22 +460,46 @@ static inline void dbg_save_state(struct dbg_cpu_ctx *dbgdata)
 	i = 0;
 	DBG_UNLOCK(dbgdata);
 
-	dbgdata->state[i++] =  dbg_read(dbgdata, DBGWFAR);
-	dbgdata->state[i++] =  dbg_read(dbgdata, DBGVCR);
-	for (j = 0; j < dbg.nr_bp; j++) {
-		dbgdata->state[i++] =  dbg_read(dbgdata, DBGBVRn(j));
-		dbgdata->state[i++] =  dbg_read(dbgdata, DBGBCRn(j));
+	switch (dbg.arch) {
+	case ARM_DEBUG_ARCH_V7B:
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGWFAR);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGVCR);
+		for (j = 0; j < dbg.nr_bp; j++) {
+			dbgdata->state[i++] =  dbg_read(dbgdata, DBGBVRn(j));
+			dbgdata->state[i++] =  dbg_read(dbgdata, DBGBCRn(j));
+		}
+		for (j = 0; j < dbg.nr_wp; j++) {
+			dbgdata->state[i++] =  dbg_read(dbgdata, DBGWVRn(j));
+			dbgdata->state[i++] =  dbg_read(dbgdata, DBGWCRn(j));
+		}
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGPRCR);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGDTRTXext);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGDTRRXext);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGDSCRext);
+		break;
+	case ARM_DEBUG_ARCH_V7p1:
+		/* Set OS Lock */
+		dbg_write(dbgdata, OSLOCK_MAGIC, DBGOSLAR);
+		/* Ensure OS lock is set before proceeding */
+		mb();
+
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGWFAR);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGVCR);
+		for (j = 0; j < dbg.nr_bp; j++) {
+			dbgdata->state[i++] =  dbg_read(dbgdata, DBGBVRn(j));
+			dbgdata->state[i++] =  dbg_read(dbgdata, DBGBCRn(j));
+		}
+		for (j = 0; j < dbg.nr_wp; j++) {
+			dbgdata->state[i++] =  dbg_read(dbgdata, DBGWVRn(j));
+			dbgdata->state[i++] =  dbg_read(dbgdata, DBGWCRn(j));
+		}
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGPRCR);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGCLAIMCLR);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGDTRTXext);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGDTRRXext);
+		dbgdata->state[i++] =  dbg_read(dbgdata, DBGDSCRext);
+		break;
 	}
-	for (j = 0; j < dbg.nr_wp; j++) {
-		dbgdata->state[i++] =  dbg_read(dbgdata, DBGWVRn(j));
-		dbgdata->state[i++] =  dbg_read(dbgdata, DBGWCRn(j));
-	}
-	dbgdata->state[i++] =  dbg_read(dbgdata, DBGPRCR);
-	dbgdata->state[i++] =  dbg_read(dbgdata, DBGCLAIMSET);
-	dbgdata->state[i++] =  dbg_read(dbgdata, DBGCLAIMCLR);
-	dbgdata->state[i++] =  dbg_read(dbgdata, DBGDTRTXext);
-	dbgdata->state[i++] =  dbg_read(dbgdata, DBGDTRRXext);
-	dbgdata->state[i++] =  dbg_read(dbgdata, DBGDSCRext);
 
 	DBG_LOCK(dbgdata);
 }
@@ -484,23 +511,55 @@ static inline void dbg_restore_state(struct dbg_cpu_ctx *dbgdata)
 	i = 0;
 	DBG_UNLOCK(dbgdata);
 
-	dbg_write(dbgdata, dbgdata->state[i++], DBGWFAR);
-	dbg_write(dbgdata, dbgdata->state[i++], DBGVCR);
-	for (j = 0; j < dbg.nr_bp; j++) {
-		dbg_write(dbgdata, dbgdata->state[i++], DBGBVRn(j));
-		dbg_write(dbgdata, dbgdata->state[i++], DBGBCRn(j));
-	}
-	for (j = 0; j < dbg.nr_wp; j++) {
-		dbg_write(dbgdata, dbgdata->state[i++], DBGWVRn(j));
-		dbg_write(dbgdata, dbgdata->state[i++], DBGWCRn(j));
-	}
-	dbg_write(dbgdata, dbgdata->state[i++], DBGPRCR);
-	dbg_write(dbgdata, dbgdata->state[i++], DBGCLAIMSET);
-	dbg_write(dbgdata, dbgdata->state[i++], DBGCLAIMCLR);
-	dbg_write(dbgdata, dbgdata->state[i++], DBGDTRTXext);
-	dbg_write(dbgdata, dbgdata->state[i++], DBGDTRRXext);
-	dbg_write(dbgdata, dbgdata->state[i++] & DBGDSCR_MASK,
+	switch (dbg.arch) {
+	case ARM_DEBUG_ARCH_V7B:
+		dbg_write(dbgdata, dbgdata->state[i++], DBGWFAR);
+		dbg_write(dbgdata, dbgdata->state[i++], DBGVCR);
+		for (j = 0; j < dbg.nr_bp; j++) {
+			dbg_write(dbgdata, dbgdata->state[i++], DBGBVRn(j));
+			dbg_write(dbgdata, dbgdata->state[i++], DBGBCRn(j));
+		}
+		for (j = 0; j < dbg.nr_wp; j++) {
+			dbg_write(dbgdata, dbgdata->state[i++], DBGWVRn(j));
+			dbg_write(dbgdata, dbgdata->state[i++], DBGWCRn(j));
+		}
+		dbg_write(dbgdata, dbgdata->state[i++], DBGPRCR);
+		dbg_write(dbgdata, dbgdata->state[i++], DBGDTRTXext);
+		dbg_write(dbgdata, dbgdata->state[i++], DBGDTRRXext);
+		dbg_write(dbgdata, dbgdata->state[i++] & DBGDSCR_MASK,
 								DBGDSCRext);
+		break;
+	case ARM_DEBUG_ARCH_V7p1:
+		/* Set OS lock. Lock will already be set after power collapse
+		 * but this write is included to ensure it is set.
+		 */
+		dbg_write(dbgdata, OSLOCK_MAGIC, DBGOSLAR);
+		/* Ensure OS lock is set before proceeding */
+		mb();
+
+		dbg_write(dbgdata, dbgdata->state[i++], DBGWFAR);
+		dbg_write(dbgdata, dbgdata->state[i++], DBGVCR);
+		for (j = 0; j < dbg.nr_bp; j++) {
+			dbg_write(dbgdata, dbgdata->state[i++], DBGBVRn(j));
+			dbg_write(dbgdata, dbgdata->state[i++], DBGBCRn(j));
+		}
+		for (j = 0; j < dbg.nr_wp; j++) {
+			dbg_write(dbgdata, dbgdata->state[i++], DBGWVRn(j));
+			dbg_write(dbgdata, dbgdata->state[i++], DBGWCRn(j));
+		}
+		dbg_write(dbgdata, dbgdata->state[i++], DBGPRCR);
+		dbg_write(dbgdata, dbgdata->state[i++], DBGCLAIMSET);
+		dbg_write(dbgdata, dbgdata->state[i++], DBGDTRTXext);
+		dbg_write(dbgdata, dbgdata->state[i++], DBGDTRRXext);
+		dbg_write(dbgdata, dbgdata->state[i++] & DBGDSCR_MASK,
+								DBGDSCRext);
+		/* Ensure all writes are completing before clearing OS lock */
+		mb();
+		dbg_write(dbgdata, 0x0, DBGOSLAR);
+		/* Ensure OS lock is cleared before proceeding */
+		mb();
+		break;
+	}
 
 	DBG_LOCK(dbgdata);
 }
@@ -657,6 +716,7 @@ static inline bool dbg_arch_supported(uint8_t arch)
 {
 	switch (arch) {
 	case ARM_DEBUG_ARCH_V7B:
+	case ARM_DEBUG_ARCH_V7p1:
 		break;
 	default:
 		return false;
