@@ -608,6 +608,10 @@
 		qcom,firmware-name = "wcnss";
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
 	qcom,lpass@fe200000 {
 		compatible = "qcom,pil-q6v5-lpass";
 		reg = <0xfe200000 0x00100>,
