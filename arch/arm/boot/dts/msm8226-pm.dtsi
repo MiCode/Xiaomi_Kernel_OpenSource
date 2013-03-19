@@ -114,8 +114,8 @@
 		qcom,lpm-resources@0 {
 			reg = <0x0>;
 			qcom,name = "vdd-dig";
-			qcom,type = <0x62706d73>;	/* "smpb" */
-			qcom,id = <0x02>;
+			qcom,type = <0x61706d73>;	/* "smpa" */
+			qcom,id = <0x01>;
 			qcom,key = <0x6e726f63>;	/* "corn" */
 			qcom,init-value = <5>;		/* Super Turbo */
 		};
@@ -123,8 +123,8 @@
 		qcom,lpm-resources@1 {
 			reg = <0x1>;
 			qcom,name = "vdd-mem";
-			qcom,type = <0x62706d73>;	/* "smpb" */
-			qcom,id = <0x01>;
+			qcom,type = <0x616F646C>;	/* "ldoa" */
+			qcom,id = <0x03>;
 			qcom,key = <0x7675>;		/* "uv" */
 			qcom,init-value = <1050000>;	/* Super Turbo */
 		};
