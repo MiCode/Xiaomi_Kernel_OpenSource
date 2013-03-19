@@ -90,6 +90,18 @@ static struct gpiomux_setting gpio_spi_cs_eth_config = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv  = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting wcnss_5wire_active_cfg = {
+	.func = GPIOMUX_FUNC_1,
+	.drv  = GPIOMUX_DRV_6MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_3,
 	.drv = GPIOMUX_DRV_2MA,
@@ -239,6 +251,43 @@ static struct msm_gpiomux_config sd_card_det __initdata = {
 	},
 };
 
+static struct msm_gpiomux_config wcnss_5wire_interface[] = {
+	{
+		.gpio = 40,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 41,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 42,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 43,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 44,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
+			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
+		},
+	},
+};
 void __init msm8226_init_gpiomux(void)
 {
 	int rc;
@@ -256,6 +305,8 @@ void __init msm8226_init_gpiomux(void)
 			ARRAY_SIZE(msm_keypad_configs));
 
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
+	msm_gpiomux_install(wcnss_5wire_interface,
+				ARRAY_SIZE(wcnss_5wire_interface));
 
 	msm_gpiomux_install(&sd_card_det, 1);
 	msm_gpiomux_install(msm_synaptics_configs,
