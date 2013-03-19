@@ -31,7 +31,8 @@ static int wcd9xxx_dealloc_slim_sh_ch(struct slim_device *slim,
 
 static int wcd9xxx_configure_ports(struct wcd9xxx *wcd9xxx)
 {
-	if (wcd9xxx->slim_slave_type == WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA) {
+	if (wcd9xxx->codec_type->slim_slave_type ==
+	    WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA) {
 		sh_ch.rx_port_ch_reg_base = 0x180;
 		sh_ch.port_rx_cfg_reg_base = 0x040;
 		sh_ch.port_tx_cfg_reg_base = 0x040;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -218,7 +218,8 @@ static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
 
 static int wcd9xxx_num_irq_regs(const struct wcd9xxx *wcd9xxx)
 {
-	return (wcd9xxx->num_irqs / 8) + ((wcd9xxx->num_irqs % 8) ? 1 : 0);
+	return (wcd9xxx->codec_type->num_irqs / 8) +
+		((wcd9xxx->codec_type->num_irqs % 8) ? 1 : 0);
 }
 
 static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
@@ -266,7 +267,8 @@ static irqreturn_t wcd9xxx_irq_thread(int irq, void *data)
 		if (status[BIT_BYTE(i)] & BYTE_BIT_MASK(i))
 			wcd9xxx_irq_dispatch(wcd9xxx, i);
 	}
-	for (i = WCD9XXX_IRQ_BG_PRECHARGE; i < wcd9xxx->num_irqs; i++) {
+	for (i = WCD9XXX_IRQ_BG_PRECHARGE; i < wcd9xxx->codec_type->num_irqs;
+	     i++) {
 		if (status[BIT_BYTE(i)] & BYTE_BIT_MASK(i))
 			wcd9xxx_irq_dispatch(wcd9xxx, i);
 	}
@@ -301,7 +303,7 @@ static int wcd9xxx_irq_setup_downstream_irq(struct wcd9xxx *wcd9xxx)
 
 	pr_debug("%s: enter\n", __func__);
 
-	for (irq = 0; irq < wcd9xxx->num_irqs; irq++) {
+	for (irq = 0; irq < wcd9xxx->codec_type->num_irqs; irq++) {
 		/* Map OF irq */
 		virq = wcd9xxx_map_irq(wcd9xxx, irq);
 		pr_debug("%s: irq %d -> %d\n", __func__, irq, virq);
@@ -365,7 +367,7 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 
 	/* mask all the interrupts */
 	memset(irq_level, 0, wcd9xxx_num_irq_regs(wcd9xxx));
-	for (i = 0; i < wcd9xxx->num_irqs; i++) {
+	for (i = 0; i < wcd9xxx->codec_type->num_irqs; i++) {
 		wcd9xxx->irq_masks_cur[BIT_BYTE(i)] |= BYTE_BIT_MASK(i);
 		wcd9xxx->irq_masks_cache[BIT_BYTE(i)] |= BYTE_BIT_MASK(i);
 		irq_level[BIT_BYTE(i)] |=
