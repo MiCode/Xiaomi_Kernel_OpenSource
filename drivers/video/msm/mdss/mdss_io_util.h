@@ -50,10 +50,9 @@ enum dss_vreg_type {
 struct dss_vreg {
 	struct regulator *vreg; /* vreg handle */
 	char vreg_name[32];
-	enum dss_vreg_type type;
 	int min_voltage;
 	int max_voltage;
-	int optimum_voltage;
+	int peak_current;
 };
 
 struct dss_gpio {
