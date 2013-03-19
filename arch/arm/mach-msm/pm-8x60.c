@@ -25,7 +25,9 @@
 #include <linux/smp.h>
 #include <linux/suspend.h>
 #include <linux/tick.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/of_platform.h>
 #include <linux/regulator/krait-regulator.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
@@ -127,6 +129,7 @@ static struct msm_pm_cp15_save_data cp15_data;
 static bool msm_pm_retention_calls_tz;
 static uint32_t msm_pm_max_sleep_time;
 static bool msm_no_ramp_down_pc;
+static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
 
 static int msm_pm_get_pc_mode(struct device_node *node,
 		const char *key, uint32_t *pc_mode_val)
@@ -953,6 +956,32 @@ cpuidle_enter_bail:
 	return sleep_mode;
 }
 
+int msm_pm_wait_cpu_shutdown(unsigned int cpu)
+{
+	int timeout = 10;
+
+	if (!msm_pm_slp_sts)
+		return 0;
+	if (!msm_pm_slp_sts[cpu].base_addr)
+		return 0;
+	while (timeout--) {
+		/*
+		 * Check for the SPM of the core being hotplugged to set
+		 * its sleep state.The SPM sleep state indicates that the
+		 * core has been power collapsed.
+		 */
+		int acc_sts = __raw_readl(msm_pm_slp_sts[cpu].base_addr);
+
+		if (acc_sts & msm_pm_slp_sts[cpu].mask)
+			return 0;
+		usleep(100);
+	}
+
+	pr_info("%s(): Timed out waiting for CPU %u SPM to enter sleep state",
+		__func__, cpu);
+	return -EBUSY;
+}
+
 void msm_pm_cpu_enter_lowpower(unsigned int cpu)
 {
 	int i;
@@ -1108,6 +1137,93 @@ void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops)
 static const struct platform_suspend_ops msm_pm_ops = {
 	.enter = msm_pm_enter,
 	.valid = suspend_valid_only_mem,
+};
+static int __devinit msm_cpu_status_probe(struct platform_device *pdev)
+{
+	struct msm_pm_sleep_status_data *pdata;
+	char *key;
+	u32 cpu;
+
+	if (!pdev)
+		return -EFAULT;
+
+	msm_pm_slp_sts =
+		kzalloc(sizeof(*msm_pm_slp_sts) * num_possible_cpus(),
+				GFP_KERNEL);
+
+	if (!msm_pm_slp_sts)
+		return -ENOMEM;
+
+	if (pdev->dev.of_node) {
+		struct resource *res;
+		u32 offset;
+		int rc;
+		u32 mask;
+
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res)
+			goto fail_free_mem;
+
+		key = "qcom,cpu-alias-addr";
+		rc = of_property_read_u32(pdev->dev.of_node, key, &offset);
+
+		if (rc)
+			goto fail_free_mem;
+
+		key = "qcom,sleep-status-mask";
+		rc = of_property_read_u32(pdev->dev.of_node, key,
+					&mask);
+		if (rc)
+			goto fail_free_mem;
+
+		for_each_possible_cpu(cpu) {
+			msm_pm_slp_sts[cpu].base_addr =
+				ioremap(res->start + cpu * offset,
+					resource_size(res));
+			msm_pm_slp_sts[cpu].mask = mask;
+
+			if (!msm_pm_slp_sts[cpu].base_addr)
+				goto failed_of_node;
+		}
+
+	} else {
+		pdata = pdev->dev.platform_data;
+		if (!pdev->dev.platform_data)
+			goto fail_free_mem;
+
+		for_each_possible_cpu(cpu) {
+			msm_pm_slp_sts[cpu].base_addr =
+				pdata->base_addr + cpu * pdata->cpu_offset;
+			msm_pm_slp_sts[cpu].mask = pdata->mask;
+		}
+	}
+
+	return 0;
+
+failed_of_node:
+	pr_info("%s(): Failed to key=%s\n", __func__, key);
+	for_each_possible_cpu(cpu) {
+		if (msm_pm_slp_sts[cpu].base_addr)
+			iounmap(msm_pm_slp_sts[cpu].base_addr);
+	}
+fail_free_mem:
+	kfree(msm_pm_slp_sts);
+	return -EINVAL;
+
+};
+
+static struct of_device_id msm_slp_sts_match_tbl[] = {
+	{.compatible = "qcom,cpu-sleep-status"},
+	{},
+};
+
+static struct platform_driver msm_cpu_status_driver = {
+	.probe = msm_cpu_status_probe,
+	.driver = {
+		.name = "cpu_slp_status",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_slp_sts_match_tbl,
+	},
 };
 
 static int __devinit msm_pm_init(void)
@@ -1378,6 +1494,9 @@ static int __devinit msm_pm_8x60_probe(struct platform_device *pdev)
 
 pm_8x60_probe_done:
 	msm_pm_init();
+	if (pdev->dev.of_node)
+		of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
 	return ret;
 }
 
@@ -1397,6 +1516,16 @@ static struct platform_driver msm_pm_8x60_driver = {
 
 static int __init msm_pm_8x60_init(void)
 {
+	int rc;
+
+	rc = platform_driver_register(&msm_cpu_status_driver);
+
+	if (rc) {
+		pr_err("%s(): failed to register driver %s\n", __func__,
+				msm_cpu_status_driver.driver.name);
+		return rc;
+	}
+
 	return platform_driver_register(&msm_pm_8x60_driver);
 }
 device_initcall(msm_pm_8x60_init);
