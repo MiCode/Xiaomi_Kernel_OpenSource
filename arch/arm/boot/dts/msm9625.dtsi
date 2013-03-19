@@ -140,31 +140,27 @@
 
 		qcom,pipe0 {
 			label = "hsusb-ipa-out-0";
-			qcom,usb-bam-mem-type = <0>;
+			qcom,usb-bam-mem-type = <2>;
 			qcom,bam-type = <1>;
 			qcom,dir = <0>;
 			qcom,pipe-num = <0>;
 			qcom,peer-bam = <2>;
 			qcom,src-bam-physical-address = <0xf9a44000>;
 			qcom,src-bam-pipe-index = <1>;
-			qcom,data-fifo-offset = <0x2200>;
-			qcom,data-fifo-size = <0x1e00>;
-			qcom,descriptor-fifo-offset = <0x2100>;
-			qcom,descriptor-fifo-size = <0x100>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
 		};
 		qcom,pipe1 {
 			label = "hsusb-ipa-in-0";
-			qcom,usb-bam-mem-type = <0>;
+			qcom,usb-bam-mem-type = <2>;
 			qcom,bam-type = <1>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <0>;
 			qcom,peer-bam = <2>;
 			qcom,dst-bam-physical-address = <0xf9a44000>;
 			qcom,dst-bam-pipe-index = <0>;
-			qcom,data-fifo-offset = <0x300>;
-			qcom,data-fifo-size = <0x1e00>;
-			qcom,descriptor-fifo-offset = <0>;
-			qcom,descriptor-fifo-size = <0x300>;
+			qcom,data-fifo-size = <0x8000>;
+			qcom,descriptor-fifo-size = <0x2000>;
 		};
 		qcom,pipe2 {
 			label = "hsusb-qdss-in-0";
