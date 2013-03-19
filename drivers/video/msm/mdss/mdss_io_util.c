@@ -131,6 +131,7 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 {
 	int i = 0, rc = 0;
 	struct dss_vreg *curr_vreg = NULL;
+	enum dss_vreg_type type;
 
 	if (config) {
 		for (i = 0; i < num_vreg; i++) {
@@ -145,7 +146,9 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 				curr_vreg->vreg = NULL;
 				goto vreg_get_fail;
 			}
-			if (curr_vreg->type == DSS_REG_LDO) {
+			type = (regulator_count_voltages(curr_vreg->vreg) > 0)
+					? DSS_REG_LDO : DSS_REG_VS;
+			if (type == DSS_REG_LDO) {
 				rc = regulator_set_voltage(
 					curr_vreg->vreg,
 					curr_vreg->min_voltage,
@@ -157,10 +160,10 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 						curr_vreg->vreg_name);
 					goto vreg_set_voltage_fail;
 				}
-				if (curr_vreg->optimum_voltage >= 0) {
+				if (curr_vreg->peak_current >= 0) {
 					rc = regulator_set_optimum_mode(
 						curr_vreg->vreg,
-						curr_vreg->optimum_voltage);
+						curr_vreg->peak_current);
 					if (rc < 0) {
 						DEV_ERR(
 						"%pS->%s: %s set opt m fail\n",
@@ -176,8 +179,11 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 		for (i = num_vreg-1; i >= 0; i--) {
 			curr_vreg = &in_vreg[i];
 			if (curr_vreg->vreg) {
-				if (curr_vreg->type == DSS_REG_LDO) {
-					if (curr_vreg->optimum_voltage >= 0) {
+				type = (regulator_count_voltages(
+					curr_vreg->vreg) > 0)
+					? DSS_REG_LDO : DSS_REG_VS;
+				if (type == DSS_REG_LDO) {
+					if (curr_vreg->peak_current >= 0) {
 						regulator_set_optimum_mode(
 							curr_vreg->vreg, 0);
 					}
@@ -192,11 +198,11 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 	return 0;
 
 vreg_unconfig:
-if (curr_vreg->type == DSS_REG_LDO)
+if (type == DSS_REG_LDO)
 	regulator_set_optimum_mode(curr_vreg->vreg, 0);
 
 vreg_set_opt_mode_fail:
-if (curr_vreg->type == DSS_REG_LDO)
+if (type == DSS_REG_LDO)
 	regulator_set_voltage(curr_vreg->vreg, 0, curr_vreg->max_voltage);
 
 vreg_set_voltage_fail:
@@ -206,6 +212,8 @@ vreg_set_voltage_fail:
 vreg_get_fail:
 	for (i--; i >= 0; i--) {
 		curr_vreg = &in_vreg[i];
+		type = (regulator_count_voltages(curr_vreg->vreg) > 0)
+			? DSS_REG_LDO : DSS_REG_VS;
 		goto vreg_unconfig;
 	}
 	return rc;

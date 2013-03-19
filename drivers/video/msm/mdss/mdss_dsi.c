@@ -326,19 +326,6 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		snprintf(mp->vreg_config[i].vreg_name,
 			ARRAY_SIZE((mp->vreg_config[i].vreg_name)), "%s", st);
 
-		/* vreg-type */
-		rc = of_property_read_string_index(of_node, "qcom,supply-type",
-			i, &st);
-		if (rc) {
-			pr_err("%s: error reading vreg type. rc=%d\n",
-				__func__, rc);
-			goto error;
-		}
-		if (!strncmp(st, "regulator", 9))
-			mp->vreg_config[i].type = 0;
-		else if (!strncmp(st, "switch", 6))
-			mp->vreg_config[i].type = 1;
-
 		/* vreg-min-voltage */
 		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
 		rc = of_property_read_u32_array(of_node,
@@ -373,14 +360,13 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 				__func__, rc);
 			goto error;
 		}
-		mp->vreg_config[i].optimum_voltage = val_array[i];
+		mp->vreg_config[i].peak_current = val_array[i];
 
-		pr_debug("%s: %s type=%d, min=%d, max=%d, op=%d\n",
-			__func__, mp->vreg_config[i].vreg_name,
-			mp->vreg_config[i].type,
+		pr_debug("%s: %s min=%d, max=%d, pc=%d\n", __func__,
+			mp->vreg_config[i].vreg_name,
 			mp->vreg_config[i].min_voltage,
 			mp->vreg_config[i].max_voltage,
-			mp->vreg_config[i].optimum_voltage);
+			mp->vreg_config[i].peak_current);
 	}
 
 	devm_kfree(dev, val_array);
