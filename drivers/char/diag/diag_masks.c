@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -734,8 +734,8 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 					(driver->log_on_demand_support)) {
 			driver->apps_rsp_buf[0] = 0x78;
 			/* Copy log code received */
-			*(uint16_t *)(driver->apps_rsp_buf+1) =
-							 *(uint16_t *)buf;
+			*(uint16_t *)(driver->apps_rsp_buf + 1) =
+							*(uint16_t *)(buf + 1);
 			driver->apps_rsp_buf[3] = 0x1;/* Unknown */
 			encode_rsp_and_send(3);
 		}
