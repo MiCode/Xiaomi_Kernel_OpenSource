@@ -96,6 +96,12 @@ Required properties:
    is 8, which indicates the rx path used for audio playback
    on HDMI device.
 
+* msm-lsm-client
+
+Required properties:
+
+ - compatible : "qcom,msm-lsm-client"
+
 * msm-dai-q6
 
 [First Level Nodes]

@@ -11,3 +11,4 @@ header-y += compress_offload.h
 header-y += tlv.h
 header-y += compress_params.h
 header-y += compress_offload.h
+header-y += lsm_params.h

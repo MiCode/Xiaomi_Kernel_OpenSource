@@ -798,6 +798,15 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_RX      0x4008
 /* SLIMbus Tx port on channel 4. */
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_TX      0x4009
+/* SLIMbus Rx port on channel 5. */
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_RX      0x400a
+/* SLIMbus Tx port on channel 5. */
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_TX      0x400b
+/* SLIMbus Rx port on channel 6. */
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_6_RX      0x400c
+/* SLIMbus Tx port on channel 6. */
+#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_6_TX      0x400d
+
 /* Generic pseudoport 1. */
 #define AFE_PORT_ID_PSEUDOPORT_01      0x8001
 /* Generic pseudoport 2. */
@@ -1971,7 +1980,6 @@ struct afe_param_id_pseudo_port_cfg {
 	 * - #AFE_PORT_SAMPLE_RATE_192K @tablebulletend
 	 */
 } __packed;
-
 
 union afe_port_config {
 	struct afe_param_id_pcm_cfg               pcm;
@@ -6441,6 +6449,54 @@ struct srs_trumedia_params {
 	struct srs_trumedia_params_HL		hl;
 } __packed;
 /* SRS TruMedia end */
+
+/* LSM Specific */
+#define VW_FEAT_DIM					(39)
+
+#define APRV2_IDS_SERVICE_ID_ADSP_LSM_V			(0xD)
+#define APRV2_IDS_DOMAIN_ID_ADSP_V			(0x4)
+#define APRV2_IDS_DOMAIN_ID_APPS_V			(0x5)
+
+#define LSM_SESSION_CMD_SHARED_MEM_MAP_REGIONS		(0x00012A7F)
+#define LSM_SESSION_CMDRSP_SHARED_MEM_MAP_REGIONS	(0x00012A80)
+#define LSM_SESSION_CMD_SHARED_MEM_UNMAP_REGIONS	(0x00012A81)
+#define LSM_SESSION_CMD_OPEN_TX				(0x00012A82)
+#define LSM_SESSION_CMD_CLOSE_TX			(0x00012A88)
+#define LSM_SESSION_CMD_SET_PARAMS			(0x00012A83)
+#define LSM_SESSION_CMD_REGISTER_SOUND_MODEL		(0x00012A84)
+#define LSM_SESSION_CMD_DEREGISTER_SOUND_MODEL		(0x00012A85)
+#define LSM_SESSION_CMD_START				(0x00012A86)
+#define LSM_SESSION_CMD_STOP				(0x00012A87)
+
+#define LSM_SESSION_EVENT_DETECTION_STATUS		(0x00012B00)
+
+#define LSM_MODULE_ID_VOICE_WAKEUP			(0x00012C00)
+#define LSM_PARAM_ID_ENDPOINT_DETECT_THRESHOLD		(0x00012C01)
+#define LSM_PARAM_ID_OPERATION_MODE			(0x00012C02)
+#define LSM_PARAM_ID_GAIN				(0x00012C03)
+#define LSM_PARAM_ID_CONNECT_TO_PORT			(0x00012C04)
+#define LSM_PARAM_ID_KEYWORD_DETECT_SENSITIVITY		(0x00012C05)
+#define LSM_PARAM_ID_USER_DETECT_SENSITIVITY		(0x00012C06)
+#define LSM_PARAM_ID_FEATURE_COMPENSATION_DATA		(0x00012C07)
+
+
+/* HW MAD specific */
+#define AFE_MODULE_HW_MAD				(0x00010230)
+#define AFE_PARAM_ID_HW_MAD_CFG				(0x00010231)
+#define AFE_PARAM_ID_HW_MAD_CTRL			(0x00010232)
+#define AFE_PARAM_ID_SLIMBUS_SLAVE_PORT_CFG		(0x00010233)
+
+/* SW MAD specific */
+#define AFE_MODULE_SW_MAD				(0x0001022D)
+#define AFE_PARAM_ID_SW_MAD_CFG				(0x0001022E)
+#define AFE_PARAM_ID_SVM_MODEL				(0x0001022F)
+
+/* Commands/Params to pass the codec/slimbus data to DSP */
+#define AFE_SVC_CMD_SET_PARAM				(0x000100f3)
+#define AFE_MODULE_CDC_DEV_CFG				(0x00010234)
+#define AFE_PARAM_ID_CDC_SLIMBUS_SLAVE_CFG		(0x00010235)
+#define AFE_PARAM_ID_CDC_REG_CFG			(0x00010236)
+#define AFE_PARAM_ID_CDC_REG_CFG_INIT			(0x00010237)
 
 /* ERROR CODES */
 /* Success. The operation completed with no errors. */
