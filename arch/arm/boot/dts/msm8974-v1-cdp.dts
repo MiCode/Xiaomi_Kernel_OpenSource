@@ -19,10 +19,6 @@
 	model = "Qualcomm MSM 8974 CDP";
 	compatible = "qcom,msm8974-cdp", "qcom,msm8974";
 	qcom,msm-id = <126 1 0>;
-
-	qcom,mdss_dsi_toshiba_720p_video {
-		qcom,cont-splash-enabled;
-	};
 };
 
 &ehci {
