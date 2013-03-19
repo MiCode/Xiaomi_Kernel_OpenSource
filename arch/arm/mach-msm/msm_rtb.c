@@ -55,7 +55,7 @@ struct msm_rtb_layout {
 
 struct msm_rtb_state {
 	struct msm_rtb_layout *rtb;
-	unsigned long phys;
+	phys_addr_t phys;
 	int nentries;
 	int size;
 	int enabled;
