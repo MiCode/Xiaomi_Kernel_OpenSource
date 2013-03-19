@@ -28,8 +28,6 @@
 
 
 static void __iomem *msm_wcnss_base;
-static struct msm_xo_voter *wlan_clock;
-static const char *id = "WLAN";
 static LIST_HEAD(power_on_lock_list);
 static DEFINE_MUTEX(list_lock);
 static DEFINE_SEMAPHORE(wcnss_power_on_lock);
@@ -124,6 +122,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 	void __iomem *pmu_conf_reg;
 	void __iomem *spare_reg;
 	struct clk *clk;
+	struct clk *clk_rf = NULL;
 
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		wcnss_phys_addr = MSM_PRONTO_PHYS;
@@ -135,6 +134,15 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 		if (IS_ERR(clk)) {
 			pr_err("Couldn't get xo clock\n");
 			return PTR_ERR(clk);
+		}
+
+		if (!use_48mhz_xo) {
+			clk_rf = clk_get(dev, "rf_clk");
+			if (IS_ERR(clk_rf)) {
+				pr_err("Couldn't get rf_clk\n");
+				clk_put(clk);
+				return PTR_ERR(clk_rf);
+			}
 		}
 	} else {
 		wcnss_phys_addr = MSM_RIVA_PHYS;
@@ -162,6 +170,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 			pr_err("clk enable failed\n");
 			goto fail;
 		}
+
 		/* NV bit is set to indicate that platform driver is capable
 		 * of doing NV download. SSR should not set NV bit; during
 		 * SSR NV bin is downloaded by WLAN driver.
@@ -205,40 +214,28 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on)
 		clk_disable_unprepare(clk);
 
 		if (!use_48mhz_xo) {
-			wlan_clock = msm_xo_get(MSM_XO_TCXO_A2, id);
-			if (IS_ERR(wlan_clock)) {
-				rc = PTR_ERR(wlan_clock);
-				pr_err("Failed to get MSM_XO_TCXO_A2 voter (%d)\n",
-						rc);
+			rc = clk_prepare_enable(clk_rf);
+			if (rc) {
+				pr_err("clk_rf enable failed\n");
 				goto fail;
 			}
-
-			rc = msm_xo_mode_vote(wlan_clock, MSM_XO_MODE_ON);
-			if (rc < 0) {
-				pr_err("Configuring MSM_XO_MODE_ON failed (%d)\n",
-						rc);
-				goto msm_xo_vote_fail;
-			}
 		}
-	}  else {
-		if (wlan_clock != NULL && !use_48mhz_xo) {
-			rc = msm_xo_mode_vote(wlan_clock, MSM_XO_MODE_OFF);
-			if (rc < 0)
-				pr_err("Configuring MSM_XO_MODE_OFF failed (%d)\n",
-						rc);
-		}
-	}
-
+	}  else if (clk_rf != NULL && !use_48mhz_xo)
+			clk_disable_unprepare(clk_rf);
 	/* Add some delay for XO to settle */
 	msleep(20);
 
 	clk_put(clk);
+
+	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
+		if (!use_48mhz_xo)
+			clk_put(clk_rf);
+	}
+
 	return rc;
-
-msm_xo_vote_fail:
-	msm_xo_put(wlan_clock);
-
 fail:
+	if (clk_rf != NULL)
+		clk_put(clk_rf);
 	clk_put(clk);
 	return rc;
 }

@@ -48,6 +48,10 @@ static int has_48mhz_xo = WCNSS_CONFIG_UNSPECIFIED;
 module_param(has_48mhz_xo, int, S_IWUSR | S_IRUGO);
 MODULE_PARM_DESC(has_48mhz_xo, "Is an external 48 MHz XO present");
 
+static int do_not_cancel_vote = WCNSS_CONFIG_UNSPECIFIED;
+module_param(do_not_cancel_vote, int, S_IWUSR | S_IRUGO);
+MODULE_PARM_DESC(do_not_cancel_vote, "Do not cancel votes for wcnss");
+
 static DEFINE_SPINLOCK(reg_spinlock);
 
 #define MSM_RIVA_PHYS			0x03204000
@@ -477,6 +481,11 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 
 static void wcnss_post_bootup(struct work_struct *work)
 {
+	if (do_not_cancel_vote == 1) {
+		pr_info("%s: Keeping APPS vote for Iris & WCNSS\n", __func__);
+		return;
+	}
+
 	pr_info("%s: Cancel APPS vote for Iris & WCNSS\n", __func__);
 
 	/* Since WCNSS is up, cancel any APPS vote for Iris & WCNSS VREGs  */
