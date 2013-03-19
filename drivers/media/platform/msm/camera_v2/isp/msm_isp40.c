@@ -120,7 +120,6 @@ static struct msm_cam_clk_info msm_vfe40_clk_info[] = {
 	{"camss_csi_vfe_clk", -1},
 	{"iface_clk", -1},
 	{"bus_clk", -1},
-	{"alt_bus_clk", -1},
 };
 
 static void msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev)
