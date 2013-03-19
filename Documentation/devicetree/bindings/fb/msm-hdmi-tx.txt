@@ -12,15 +12,12 @@ Required properties:
 - core-vcc-supply: phandle to the HDMI vcc regulator device tree node.
 - qcom,hdmi-tx-supply-names: a list of strings that map in order
   to the list of supplies.
-- qcom,hdmi-tx-supply-type: a type of supply(ies) mentioned above.
-    0 = supply with controlled output
-    1 = supply without controlled output. i.e. voltage switch
 - qcom,hdmi-tx-min-voltage-level: specifies minimum voltage level
   of supply(ies) mentioned above.
 - qcom,hdmi-tx-max-voltage-level: specifies maximum voltage level
   of supply(ies) mentioned above.
-- qcom,hdmi-tx-op-mode: specifies optimum operating mode of
-  supply(ies) mentioned above.
+- qcom,hdmi-tx-peak-current: specifies the peak current that will be
+  drawn from the supply(ies) mentioned above.
 
 - qcom,hdmi-tx-cec: gpio for Consumer Electronics Control (cec) line.
 - qcom,hdmi-tx-ddc-clk: gpio for Display Data Channel (ddc) clock line.
@@ -56,10 +53,9 @@ Example:
 		core-vdda-supply = <&pm8941_l12>;
 		core-vcc-supply = <&pm8941_s3>;
 		qcom,hdmi-tx-supply-names = "hpd-gdsc", "hpd-5v", "core-vdda", "core-vcc";
-		qcom,hdmi-tx-supply-type = <1 1 0 0>;
 		qcom,hdmi-tx-min-voltage-level = <0 0 1800000 1800000>;
 		qcom,hdmi-tx-max-voltage-level = <0 0 1800000 1800000>;
-		qcom,hdmi-tx-op-mode = <0 0 1800000 0>;
+		qcom,hdmi-tx-peak-current = <0 0 1800000 0>;
 
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
