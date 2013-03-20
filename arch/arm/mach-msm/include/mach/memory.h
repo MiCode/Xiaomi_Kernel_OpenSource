@@ -93,9 +93,9 @@ extern void store_ttbr0(void);
 #endif
 
 #define MAX_HOLE_ADDRESS    (PHYS_OFFSET + 0x10000000)
-extern unsigned long memory_hole_offset;
-extern unsigned long memory_hole_start;
-extern unsigned long memory_hole_end;
+extern phys_addr_t memory_hole_offset;
+extern phys_addr_t memory_hole_start;
+extern phys_addr_t memory_hole_end;
 extern unsigned long memory_hole_align;
 extern unsigned long virtual_hole_start;
 extern unsigned long virtual_hole_end;
@@ -107,11 +107,13 @@ void find_memory_hole(void);
 				memory_hole_align)
 
 #define __phys_to_virt(phys)				\
+	(unsigned long)\
 	((MEM_HOLE_END_PHYS_OFFSET && ((phys) >= MEM_HOLE_END_PHYS_OFFSET)) ? \
 	(phys) - MEM_HOLE_END_PHYS_OFFSET + MEM_HOLE_PAGE_OFFSET :	\
 	(phys) - PHYS_OFFSET + PAGE_OFFSET)
 
 #define __virt_to_phys(virt)				\
+	(unsigned long)\
 	((MEM_HOLE_END_PHYS_OFFSET && ((virt) >= MEM_HOLE_PAGE_OFFSET)) ? \
 	(virt) - MEM_HOLE_PAGE_OFFSET + MEM_HOLE_END_PHYS_OFFSET :	\
 	(virt) - PAGE_OFFSET + PHYS_OFFSET)
