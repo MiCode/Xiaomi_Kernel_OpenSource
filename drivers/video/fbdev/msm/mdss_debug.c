@@ -14,6 +14,7 @@
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
 #include <linux/debugfs.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/printk.h>
@@ -437,4 +438,152 @@ int mdss_debugfs_remove(struct mdss_data_type *mdata)
 	mdss_debugfs_cleanup(mdd);
 
 	return 0;
+}
+
+static struct mdss_mdp_misr_map {
+	u32 ctrl_reg;
+	u32 value_reg;
+	u32 crc_op_mode;
+	u32 crc_index;
+	u32 crc_value[MISR_CRC_BATCH_SIZE];
+} mdss_mdp_misr_table[DISPLAY_MISR_MAX] = {
+	[DISPLAY_MISR_DSI0] = {
+		.ctrl_reg = MDSS_MDP_LP_MISR_CTRL_DSI0,
+		.value_reg = MDSS_MDP_LP_MISR_SIGN_DSI0,
+	},
+	[DISPLAY_MISR_DSI1] = {
+		.ctrl_reg = MDSS_MDP_LP_MISR_CTRL_DSI1,
+		.value_reg = MDSS_MDP_LP_MISR_SIGN_DSI1,
+	},
+	[DISPLAY_MISR_EDP] = {
+		.ctrl_reg = MDSS_MDP_LP_MISR_CTRL_EDP,
+		.value_reg = MDSS_MDP_LP_MISR_SIGN_EDP,
+	},
+	[DISPLAY_MISR_HDMI] = {
+		.ctrl_reg = MDSS_MDP_LP_MISR_CTRL_HDMI,
+		.value_reg = MDSS_MDP_LP_MISR_SIGN_HDMI,
+	},
+};
+
+static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id)
+{
+	struct mdss_mdp_misr_map *map;
+
+	if (block_id > DISPLAY_MISR_LCDC) {
+		pr_err("MISR Block id (%d) out of range\n", block_id);
+		return NULL;
+	}
+
+	map = mdss_mdp_misr_table + block_id;
+	if ((map->ctrl_reg == 0) || (map->value_reg == 0)) {
+		pr_err("MISR Block id (%d) config not found\n", block_id);
+		return NULL;
+	}
+
+	return map;
+}
+
+int mdss_misr_crc_set(struct mdss_data_type *mdata, struct mdp_misr *req)
+{
+	struct mdss_mdp_misr_map *map;
+	u32 config = 0;
+
+	map = mdss_misr_get_map(req->block_id);
+	if (!map) {
+		pr_err("Invalid MISR Block=%d\n", req->block_id);
+		return -EINVAL;
+	}
+
+	map->crc_op_mode = req->crc_op_mode;
+	memset(map->crc_value, 0, sizeof(map->crc_value));
+
+	pr_debug("MISR Config (BlockId %d) (Frame Count = %d)\n",
+		req->block_id, req->frame_count);
+
+	config = (MDSS_MDP_LP_MISR_CTRL_FRAME_COUNT_MASK & req->frame_count) |
+			(MDSS_MDP_LP_MISR_CTRL_ENABLE);
+
+	writel_relaxed(MDSS_MDP_LP_MISR_CTRL_STATUS_CLEAR,
+			mdata->mdp_base + map->ctrl_reg);
+	/* ensure clear is done */
+	wmb();
+	if (MISR_OP_BM == map->crc_op_mode) {
+		writel_relaxed(MISR_CRC_BATCH_CFG,
+			mdata->mdp_base + map->ctrl_reg);
+	} else {
+		writel_relaxed(config,
+			mdata->mdp_base + map->ctrl_reg);
+
+		config = readl_relaxed(mdata->mdp_base + map->ctrl_reg);
+		pr_debug("MISR_CTRL = 0x%x", config);
+	}
+	return 0;
+}
+
+int mdss_misr_crc_get(struct mdss_data_type *mdata, struct mdp_misr *resp)
+{
+	struct mdss_mdp_misr_map *map;
+	u32 status;
+	int ret = 0;
+	int i;
+
+	map = mdss_misr_get_map(resp->block_id);
+	if (!map) {
+		pr_err("Invalid MISR Block=%d\n", resp->block_id);
+		return -EINVAL;
+	}
+
+	switch (map->crc_op_mode) {
+	case MISR_OP_SFM:
+	case MISR_OP_MFM:
+		ret = readl_poll_timeout(mdata->mdp_base + map->ctrl_reg,
+				status, status & MDSS_MDP_LP_MISR_CTRL_STATUS,
+				MISR_POLL_SLEEP, MISR_POLL_TIMEOUT);
+
+		pr_debug("Status of Get MISR_CTRL = 0x%x", status);
+		if (ret == 0) {
+			resp->crc_value[0] =
+				readl_relaxed(mdata->mdp_base + map->value_reg);
+			pr_debug("CRC %d=0x%x\n", resp->block_id,
+					resp->crc_value[0]);
+		} else {
+			pr_warn("MISR %d busy with status 0x%x\n",
+					resp->block_id, status);
+		}
+		break;
+	case MISR_OP_BM:
+		for (i = 0; i < MISR_CRC_BATCH_SIZE; i++)
+			resp->crc_value[i] = map->crc_value[i];
+		map->crc_index = 0;
+		break;
+	default:
+		ret = -ENOSYS;
+		break;
+	}
+
+	return ret;
+}
+
+/* This function is expected to be called from interrupt context */
+void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id)
+{
+	struct mdss_mdp_misr_map *map;
+	u32 status, config;
+
+	map = mdss_misr_get_map(block_id);
+	if (!map || (map->crc_op_mode != MISR_OP_BM))
+		return;
+
+	config = MISR_CRC_BATCH_CFG;
+
+	status = readl_relaxed(mdata->mdp_base + map->ctrl_reg);
+	if (status & MDSS_MDP_LP_MISR_CTRL_STATUS) {
+		map->crc_value[map->crc_index] =
+			readl_relaxed(mdata->mdp_base + map->value_reg);
+		map->crc_index++;
+		if (map->crc_index == MISR_CRC_BATCH_SIZE)
+			map->crc_index = 0;
+		config |= MDSS_MDP_LP_MISR_CTRL_STATUS_CLEAR;
+	}
+	writel_relaxed(config, mdata->mdp_base + map->ctrl_reg);
 }

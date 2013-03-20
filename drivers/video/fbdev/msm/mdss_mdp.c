@@ -980,6 +980,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 	mdata->irq = res->start;
+	mdss_mdp_hw.ptr = mdata;
 
 	/*populate hw iomem base info from device tree*/
 	rc = mdss_mdp_parse_dt(pdev);
@@ -1026,6 +1027,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
+		mdss_mdp_hw.ptr = NULL;
 		mdss_res = NULL;
 		mdss_mdp_pp_term(&pdev->dev);
 	}
