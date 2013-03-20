@@ -73,6 +73,8 @@ static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate(
 {
 	struct device *dev = heap->priv;
 	struct ion_secure_cma_buffer_info *info;
+	DEFINE_DMA_ATTRS(attrs);
+	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
 
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
 
@@ -82,12 +84,7 @@ static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate(
 		return ION_CMA_ALLOCATE_FAILED;
 	}
 
-	if (!ION_IS_CACHED(flags))
-		info->cpu_addr = dma_alloc_writecombine(dev, len,
-					&(info->handle), 0);
-	else
-		info->cpu_addr = dma_alloc_nonconsistent(dev, len,
-					&(info->handle), 0);
+	info->cpu_addr = dma_alloc_attrs(dev, len, &(info->handle), 0, &attrs);
 
 	if (!info->cpu_addr) {
 		dev_err(dev, "Fail to allocate buffer\n");
@@ -99,8 +96,6 @@ static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate(
 		dev_err(dev, "Fail to allocate sg table\n");
 		goto err;
 	}
-
-	info->is_cached = ION_IS_CACHED(flags);
 
 	ion_secure_cma_get_sgtable(dev,
 			info->table, info->cpu_addr, info->handle, len);
@@ -130,6 +125,13 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 			__func__, heap->name, flags);
 		return -ENOMEM;
 	}
+
+	if (ION_IS_CACHED(flags)) {
+		pr_err("%s: cannot allocate cached memory from secure heap %s\n",
+			__func__, heap->name);
+		return -ENOMEM;
+	}
+
 
 	buf = __ion_secure_cma_allocate(heap, buffer, len, align, flags);
 
@@ -191,24 +193,22 @@ static int ion_secure_cma_mmap(struct ion_heap *mapper,
 			struct ion_buffer *buffer,
 			struct vm_area_struct *vma)
 {
+	pr_info("%s: mmaping from secure heap %s disallowed\n",
+		__func__, mapper->name);
 	return -EINVAL;
 }
 
 static void *ion_secure_cma_map_kernel(struct ion_heap *heap,
 				struct ion_buffer *buffer)
 {
-	struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
-
-	atomic_inc(&info->secure.map_cnt);
-	return info->cpu_addr;
+	pr_info("%s: kernel mapping from secure heap %s disallowed\n",
+		__func__, heap->name);
+	return NULL;
 }
 
 static void ion_secure_cma_unmap_kernel(struct ion_heap *heap,
 				 struct ion_buffer *buffer)
 {
-	struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
-
-	atomic_dec(&info->secure.map_cnt);
 	return;
 }
 
@@ -311,32 +311,9 @@ int ion_secure_cma_cache_ops(struct ion_heap *heap,
 			unsigned int offset, unsigned int length,
 			unsigned int cmd)
 {
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t);
-
-	switch (cmd) {
-	case ION_IOC_CLEAN_CACHES:
-		dmac_clean_range(vaddr, vaddr + length);
-		outer_cache_op = outer_clean_range;
-		break;
-	case ION_IOC_INV_CACHES:
-		dmac_inv_range(vaddr, vaddr + length);
-		outer_cache_op = outer_inv_range;
-		break;
-	case ION_IOC_CLEAN_INV_CACHES:
-		dmac_flush_range(vaddr, vaddr + length);
-		outer_cache_op = outer_flush_range;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (cma_heap_has_outer_cache) {
-		struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
-
-		outer_cache_op(info->handle, info->handle + length);
-	}
-
-	return 0;
+	pr_info("%s: cache operations disallowed from secure heap %s\n",
+		__func__, heap->name);
+	return -EINVAL;
 }
 
 static int ion_secure_cma_print_debug(struct ion_heap *heap, struct seq_file *s,
