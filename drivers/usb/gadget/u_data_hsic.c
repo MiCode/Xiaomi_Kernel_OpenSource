@@ -644,6 +644,9 @@ static int ghsic_data_remove(struct platform_device *pdev)
 	if (ep_out)
 		usb_ep_fifo_flush(ep_out);
 
+	/* cancel pending writes to MDM */
+	cancel_work_sync(&port->write_tomdm_w);
+
 	ghsic_data_free_buffers(port);
 
 	cancel_work_sync(&port->connect_w);
