@@ -1483,27 +1483,6 @@ static int synaptics_rmi4_query_device(struct synaptics_rmi4_data *rmi4_data)
 				}
 				break;
 
-			case SYNAPTICS_RMI4_F34:
-				if (rmi_fd.intr_src_count == 0)
-					break;
-
-				retval = synaptics_rmi4_alloc_fh(&fhandler,
-					&rmi_fd, page_number);
-				if (retval < 0) {
-					dev_err(&rmi4_data->i2c_client->dev,
-					"%s: Failed to alloc for F%d\n",
-					__func__,
-					rmi_fd.fn_number);
-					return retval;
-				}
-				retval = synaptics_rmi4_i2c_read(rmi4_data,
-						rmi_fd.ctrl_base_addr,
-						rmi->config_id,
-						sizeof(rmi->config_id));
-				if (retval < 0)
-					return retval;
-				break;
-
 			case SYNAPTICS_RMI4_F11:
 				if (rmi_fd.intr_src_count == 0)
 					break;
@@ -1602,14 +1581,51 @@ flash_prog_mode:
 	return 0;
 }
 
-static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
+static int synaptics_rmi4_reset_command(struct synaptics_rmi4_data *rmi4_data)
 {
 	int retval;
+	int page_number;
 	unsigned char command = 0x01;
-	struct synaptics_rmi4_fn *fhandler;
-	struct synaptics_rmi4_device_info *rmi;
+	unsigned short pdt_entry_addr;
+	struct synaptics_rmi4_fn_desc rmi_fd;
+	bool done = false;
 
-	rmi = &(rmi4_data->rmi4_mod_info);
+	/* Scan the page description tables of the pages to service */
+	for (page_number = 0; page_number < PAGES_TO_SERVICE; page_number++) {
+		for (pdt_entry_addr = PDT_START; pdt_entry_addr > PDT_END;
+				pdt_entry_addr -= PDT_ENTRY_SIZE) {
+			retval = synaptics_rmi4_i2c_read(rmi4_data,
+				pdt_entry_addr,
+				(unsigned char *)&rmi_fd,
+				sizeof(rmi_fd));
+			if (retval < 0)
+				return retval;
+
+			if (rmi_fd.fn_number == 0)
+				break;
+
+			switch (rmi_fd.fn_number) {
+			case SYNAPTICS_RMI4_F01:
+				rmi4_data->f01_cmd_base_addr =
+					rmi_fd.cmd_base_addr;
+				done = true;
+				break;
+			}
+		}
+		if (done) {
+			dev_info(&rmi4_data->i2c_client->dev,
+				"%s: Find F01 in page description table 0x%x\n",
+				__func__, rmi4_data->f01_cmd_base_addr);
+			break;
+		}
+	}
+
+	if (!done) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"%s: Cannot find F01 in page description table\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	retval = synaptics_rmi4_i2c_write(rmi4_data,
 			rmi4_data->f01_cmd_base_addr,
@@ -1623,6 +1639,24 @@ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	msleep(100);
+	return retval;
+};
+
+static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval;
+	struct synaptics_rmi4_fn *fhandler;
+	struct synaptics_rmi4_device_info *rmi;
+
+	rmi = &(rmi4_data->rmi4_mod_info);
+
+	retval = synaptics_rmi4_reset_command(rmi4_data);
+	if (retval < 0) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"%s: Failed to send command reset\n",
+			__func__);
+		return retval;
+	}
 
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
@@ -2068,7 +2102,8 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		usleep(RMI4_GPIO_SLEEP_LOW_US);
 		gpio_set_value(platform_data->reset_gpio, 1);
 		msleep(RMI4_GPIO_WAIT_HIGH_MS);
-	}
+	} else
+		synaptics_rmi4_reset_command(rmi4_data);
 
 
 	init_waitqueue_head(&rmi4_data->wait);
