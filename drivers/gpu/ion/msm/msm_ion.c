@@ -54,6 +54,11 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.name	= ION_VMALLOC_HEAP_NAME,
 	},
 	{
+		.id	= ION_SYSTEM_CONTIG_HEAP_ID,
+		.type	= ION_HEAP_TYPE_SYSTEM_CONTIG,
+		.name	= ION_KMALLOC_HEAP_NAME,
+	},
+	{
 		.id	= ION_CP_MM_HEAP_ID,
 		.type	= ION_HEAP_TYPE_SECURE_DMA,
 		.name	= ION_MM_HEAP_NAME,
