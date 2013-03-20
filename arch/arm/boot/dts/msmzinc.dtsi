@@ -74,7 +74,13 @@
         qcom,msm-imem@fe805000 {
                 compatible = "qcom,msm-imem";
                 reg = <0xfe805000 0x1000>; /* Address and size of IMEM */
-        };
+	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x100000>; /* 1M EBI1 buffer */
+	};
 
 	qcom,ion {
 		compatible = "qcom,msm-ion";
