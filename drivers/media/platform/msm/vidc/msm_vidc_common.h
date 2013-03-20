@@ -21,8 +21,8 @@ struct vb2_buf_entry {
 struct msm_vidc_core *get_vidc_core(int core_id);
 const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
 	const struct msm_vidc_format fmt[], int size, int index, int fmt_type);
-const struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
-	const struct msm_vidc_format fmt[], int size, int fourcc, int fmt_type);
+struct msm_vidc_format *msm_comm_get_pixel_fmt_fourcc(
+	struct msm_vidc_format fmt[], int size, int fourcc, int fmt_type);
 struct buf_queue *msm_comm_get_vb2q(
 		struct msm_vidc_inst *inst, enum v4l2_buf_type type);
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state);
