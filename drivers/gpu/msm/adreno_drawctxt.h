@@ -89,6 +89,7 @@ struct adreno_context {
 	pid_t pid;
 	char pid_name[TASK_COMM_LEN];
 	unsigned int id;
+	unsigned int ib_gpu_time_used;
 	uint32_t flags;
 	struct kgsl_pagetable *pagetable;
 	struct kgsl_memdesc gpustate;
