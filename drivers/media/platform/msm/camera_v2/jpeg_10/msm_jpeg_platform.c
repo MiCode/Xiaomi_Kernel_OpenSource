@@ -73,7 +73,6 @@ static struct msm_cam_clk_info jpeg_8x_clk_info[] = {
 	{"core_clk", 228570000},
 	{"iface_clk", -1},
 	{"bus_clk0", -1},
-	{"alt_bus_clk", -1},
 	{"camss_top_ahb_clk", -1},
 };
 
