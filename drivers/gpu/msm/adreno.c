@@ -1416,20 +1416,179 @@ static void adreno_destroy_recovery_data(struct adreno_recovery_data *rec_data)
 	vfree(rec_data->bad_rb_buffer);
 }
 
+static int _find_start_of_cmd_seq(struct adreno_ringbuffer *rb,
+					unsigned int *ptr,
+					bool inc)
+{
+	int status = -EINVAL;
+	unsigned int val1;
+	unsigned int size = rb->buffer_desc.size;
+	unsigned int start_ptr = *ptr;
+
+	while ((start_ptr / sizeof(unsigned int)) != rb->wptr) {
+		if (inc)
+			start_ptr = adreno_ringbuffer_inc_wrapped(start_ptr,
+									size);
+		else
+			start_ptr = adreno_ringbuffer_dec_wrapped(start_ptr,
+									size);
+		kgsl_sharedmem_readl(&rb->buffer_desc, &val1, start_ptr);
+		if (KGSL_CMD_IDENTIFIER == val1) {
+			if ((start_ptr / sizeof(unsigned int)) != rb->wptr)
+				start_ptr = adreno_ringbuffer_dec_wrapped(
+							start_ptr, size);
+				*ptr = start_ptr;
+				status = 0;
+				break;
+		}
+	}
+	return status;
+}
+
+static int _find_cmd_seq_after_eop_ts(struct adreno_ringbuffer *rb,
+					unsigned int *rb_rptr,
+					unsigned int global_eop,
+					bool inc)
+{
+	int status = -EINVAL;
+	unsigned int temp_rb_rptr = *rb_rptr;
+	unsigned int size = rb->buffer_desc.size;
+	unsigned int val[3];
+	int i = 0;
+	bool check = false;
+
+	if (inc && temp_rb_rptr / sizeof(unsigned int) != rb->wptr)
+		return status;
+
+	do {
+		/*
+		 * when decrementing we need to decrement first and
+		 * then read make sure we cover all the data
+		 */
+		if (!inc)
+			temp_rb_rptr = adreno_ringbuffer_dec_wrapped(
+					temp_rb_rptr, size);
+		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i],
+					temp_rb_rptr);
+
+		if (check && ((inc && val[i] == global_eop) ||
+			(!inc && (val[i] ==
+			cp_type3_packet(CP_MEM_WRITE, 2) ||
+			val[i] == CACHE_FLUSH_TS)))) {
+			/* decrement i, i.e i = (i - 1 + 3) % 3 if
+			 * we are going forward, else increment i */
+			i = (i + 2) % 3;
+			if (val[i] == rb->device->memstore.gpuaddr +
+				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+						eoptimestamp)) {
+				int j = ((i + 2) % 3);
+				if ((inc && (val[j] == CACHE_FLUSH_TS ||
+						val[j] == cp_type3_packet(
+							CP_MEM_WRITE, 2))) ||
+					(!inc && val[j] == global_eop)) {
+						/* Found the global eop */
+						status = 0;
+						break;
+				}
+			}
+			/* if no match found then increment i again
+			 * since we decremented before matching */
+			i = (i + 1) % 3;
+		}
+		if (inc)
+			temp_rb_rptr = adreno_ringbuffer_inc_wrapped(
+						temp_rb_rptr, size);
+
+		i = (i + 1) % 3;
+		if (2 == i)
+			check = true;
+	} while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr);
+	/* temp_rb_rptr points to the command stream after global eop,
+	 * move backward till the start of command sequence */
+	if (!status) {
+		status = _find_start_of_cmd_seq(rb, &temp_rb_rptr, false);
+		if (!status) {
+			*rb_rptr = temp_rb_rptr;
+			KGSL_DRV_ERR(rb->device,
+			"Offset of cmd sequence after eop timestamp: 0x%x\n",
+			temp_rb_rptr / sizeof(unsigned int));
+		}
+	}
+	if (status)
+		KGSL_DRV_ERR(rb->device,
+		"Failed to find the command sequence after eop timestamp\n");
+	return status;
+}
+
+static int _find_hanging_ib_sequence(struct adreno_ringbuffer *rb,
+				unsigned int *rb_rptr,
+				unsigned int ib1)
+{
+	int status = -EINVAL;
+	unsigned int temp_rb_rptr = *rb_rptr;
+	unsigned int size = rb->buffer_desc.size;
+	unsigned int val[2];
+	int i = 0;
+	bool check = false;
+	bool ctx_switch = false;
+
+	while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr) {
+		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i], temp_rb_rptr);
+
+		if (check && val[i] == ib1) {
+			/* decrement i, i.e i = (i - 1 + 2) % 2 */
+			i = (i + 1) % 2;
+			if (adreno_cmd_is_ib(val[i])) {
+				/* go till start of command sequence */
+				status = _find_start_of_cmd_seq(rb,
+						&temp_rb_rptr, false);
+				KGSL_DRV_INFO(rb->device,
+				"Found the hanging IB at offset 0x%x\n",
+				temp_rb_rptr / sizeof(unsigned int));
+				break;
+			}
+			/* if no match the increment i since we decremented
+			 * before checking */
+			i = (i + 1) % 2;
+		}
+		/* Make sure you do not encounter a context switch twice, we can
+		 * encounter it once for the bad context as the start of search
+		 * can point to the context switch */
+		if (val[i] == KGSL_CONTEXT_TO_MEM_IDENTIFIER) {
+			if (ctx_switch) {
+				KGSL_DRV_ERR(rb->device,
+				"Context switch encountered before bad "
+				"IB found\n");
+				break;
+			}
+			ctx_switch = true;
+		}
+		i = (i + 1) % 2;
+		if (1 == i)
+			check = true;
+		temp_rb_rptr = adreno_ringbuffer_inc_wrapped(temp_rb_rptr,
+								size);
+	}
+	if  (!status)
+		*rb_rptr = temp_rb_rptr;
+	return status;
+}
+
 static int adreno_setup_recovery_data(struct kgsl_device *device,
 					struct adreno_recovery_data *rec_data)
 {
 	int ret = 0;
-	unsigned int ib1_sz, ib2_sz;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	struct kgsl_context *context;
+	struct adreno_context *adreno_context;
+	unsigned int rb_rptr = rb->wptr * sizeof(unsigned int);
 
 	memset(rec_data, 0, sizeof(*rec_data));
+	rec_data->start_of_replay_cmds = 0xFFFFFFFF;
+	rec_data->replay_for_snapshot = 0xFFFFFFFF;
 
-	adreno_regread(device, REG_CP_IB1_BUFSZ, &ib1_sz);
-	adreno_regread(device, REG_CP_IB2_BUFSZ, &ib2_sz);
-	if (ib1_sz || ib2_sz)
-		adreno_regread(device, REG_CP_IB1_BASE, &rec_data->ib1);
+	adreno_regread(device, REG_CP_IB1_BASE, &rec_data->ib1);
 
 	kgsl_sharedmem_readl(&device->memstore, &rec_data->context_id,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
@@ -1455,6 +1614,39 @@ static int adreno_setup_recovery_data(struct kgsl_device *device,
 		goto done;
 	}
 	rec_data->fault = device->mmu.fault;
+	/* find the start of bad command sequence in rb */
+	context = idr_find(&device->context_idr, rec_data->context_id);
+	/* Look for the command stream that is right after the global eop */
+
+	if (!context) {
+		/*
+		 * If there is no context then recovery does not need to
+		 * replay anything, just reset GPU and thats it
+		 */
+		goto done;
+	}
+	ret = _find_cmd_seq_after_eop_ts(rb, &rb_rptr,
+					rec_data->global_eop + 1, false);
+	if (ret)
+		goto done;
+
+	rec_data->start_of_replay_cmds = rb_rptr;
+
+	adreno_context = context->devctxt;
+	if (adreno_context->flags & CTXT_FLAGS_PREAMBLE) {
+		if (rec_data->ib1) {
+			ret = _find_hanging_ib_sequence(rb,
+					&rb_rptr, rec_data->ib1);
+			if (ret) {
+				KGSL_DRV_ERR(device,
+				"Start not found for replay IB sequence\n");
+				ret = 0;
+				goto done;
+			}
+			rec_data->start_of_replay_cmds = rb_rptr;
+			rec_data->replay_for_snapshot = rb_rptr;
+		}
+	}
 
 done:
 	if (ret) {
@@ -1492,9 +1684,7 @@ _adreno_recover_hang(struct kgsl_device *device,
 
 	/* Extract valid contents from rb which can still be executed after
 	 * hang */
-	ret = adreno_ringbuffer_extract(rb, rec_data);
-	if (ret)
-		goto done;
+	adreno_ringbuffer_extract(rb, rec_data);
 
 	/* restart device */
 	ret = adreno_stop(device);
@@ -1629,7 +1819,9 @@ adreno_recover_hang(struct kgsl_device *device,
 			/* setup new recovery parameters and retry, this
 			 * means more than 1 contexts are causing hang */
 			adreno_destroy_recovery_data(rec_data);
-			adreno_setup_recovery_data(device, rec_data);
+			ret = adreno_setup_recovery_data(device, rec_data);
+			if (ret)
+				goto done;
 			KGSL_DRV_ERR(device,
 			"Retry recovery from 3D GPU hang. Recovery parameters: "
 			"IB1: 0x%X, Bad context_id: %u, global_eop: 0x%x\n",
@@ -1702,8 +1894,10 @@ adreno_dump_and_recover(struct kgsl_device *device)
 		 */
 		kgsl_device_snapshot(device, 1);
 
-		result = adreno_recover_hang(device, &rec_data);
-		adreno_destroy_recovery_data(&rec_data);
+		if (!result) {
+			result = adreno_recover_hang(device, &rec_data);
+			adreno_destroy_recovery_data(&rec_data);
+		}
 		if (result) {
 			kgsl_pwrctrl_set_state(device, KGSL_STATE_HUNG);
 		} else {
@@ -2370,6 +2564,7 @@ static int adreno_handle_hang(struct kgsl_device *device,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int context_id = _get_context_id(context);
 	unsigned int ts_issued;
+	unsigned int rptr;
 
 	/* Do one last check to see if we somehow made it through */
 	if (kgsl_check_timestamp(device, context, timestamp))
@@ -2377,12 +2572,19 @@ static int adreno_handle_hang(struct kgsl_device *device,
 
 	ts_issued = adreno_dev->ringbuffer.timestamp[context_id];
 
+	adreno_regread(device, REG_CP_RB_RPTR, &rptr);
+
+	/* Make sure timestamp check finished before triggering a hang */
+	mb();
+
 	KGSL_DRV_ERR(device,
 		     "Device hang detected while waiting for timestamp: "
 		     "<%d:0x%x>, last submitted timestamp: <%d:0x%x>, "
-		     "wptr: 0x%x\n",
-		      context_id, timestamp, context_id, ts_issued,
-		      adreno_dev->ringbuffer.wptr);
+		     "retired timestamp: <%d:0x%x>, wptr: 0x%x, rptr: 0x%x\n",
+		      context_id, timestamp, context_id, ts_issued, context_id,
+			kgsl_readtimestamp(device, context,
+			KGSL_TIMESTAMP_RETIRED),
+		      adreno_dev->ringbuffer.wptr, rptr);
 
 	/* Return 0 after a successful recovery */
 	if (!adreno_dump_and_recover(device))
