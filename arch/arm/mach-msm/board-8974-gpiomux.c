@@ -100,6 +100,18 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting ath_gpio_active_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting ath_gpio_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
 static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_3,
 	/*
@@ -831,6 +843,24 @@ static struct msm_gpiomux_config wcnss_5wire_interface[] = {
 	},
 };
 
+
+static struct msm_gpiomux_config ath_gpio_configs[] = {
+	{
+		.gpio = 51,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &ath_gpio_active_cfg,
+			[GPIOMUX_SUSPENDED] = &ath_gpio_suspend_cfg,
+		},
+	},
+	{
+		.gpio = 79,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &ath_gpio_active_cfg,
+			[GPIOMUX_SUSPENDED] = &ath_gpio_suspend_cfg,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_taiko_config[] __initdata = {
 	{
 		.gpio	= 63,		/* SYS_RST_N */
@@ -1034,7 +1064,8 @@ void __init msm_8974_init_gpiomux(void)
 			 ARRAY_SIZE(msm_blsp2_uart7_configs));
 	msm_gpiomux_install(wcnss_5wire_interface,
 				ARRAY_SIZE(wcnss_5wire_interface));
-
+	msm_gpiomux_install_nowrite(ath_gpio_configs,
+				ARRAY_SIZE(ath_gpio_configs));
 	msm_gpiomux_install(msm8974_slimbus_config,
 			ARRAY_SIZE(msm8974_slimbus_config));
 
