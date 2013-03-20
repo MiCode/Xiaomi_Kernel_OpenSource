@@ -12,6 +12,8 @@
  */
 
 #include <linux/slab.h>
+#include <linux/iommu.h>
+#include <mach/iommu_domains.h>
 #include <mach/qdsp6v2/apr.h>
 #include <mach/subsystem_restart.h>
 #include "hfi_packetization.h"
@@ -190,22 +192,96 @@ static void q6_hfi_core_work_handler(struct work_struct *work)
 
 static int q6_hfi_register_iommu_domains(struct q6_hfi_device *device)
 {
-	(void)device;
+	struct iommu_domain *domain;
+	int rc = 0, i = 0;
+	struct iommu_set *iommu_group_set;
+	struct iommu_info *iommu_map;
 
-	dprintk(VIDC_ERR, "Not implemented: %s", __func__);
+	if (!device || !device->res) {
+		dprintk(VIDC_ERR, "Invalid parameter: %p", device);
+		return -EINVAL;
+	}
 
-	return 0;
+	iommu_group_set = &device->res->iommu_group_set;
+
+	for (i = 0; i < iommu_group_set->count; i++) {
+		iommu_map = &iommu_group_set->iommu_maps[i];
+		iommu_map->group = iommu_group_find(iommu_map->name);
+		if (!iommu_map->group) {
+			dprintk(VIDC_ERR, "Failed to find group :%s\n",
+					iommu_map->name);
+			goto fail_group;
+		}
+		domain = iommu_group_get_iommudata(iommu_map->group);
+		if (IS_ERR_OR_NULL(domain)) {
+			dprintk(VIDC_ERR,
+					"Failed to get domain data for group %p",
+					iommu_map->group);
+			goto fail_group;
+		}
+		iommu_map->domain = msm_find_domain_no(domain);
+		if (iommu_map->domain < 0) {
+			dprintk(VIDC_ERR,
+					"Failed to get domain index for domain %p",
+					domain);
+			goto fail_group;
+		}
+	}
+	return rc;
+
+fail_group:
+	for (--i; i >= 0; i--) {
+		iommu_map = &iommu_group_set->iommu_maps[i];
+		if (iommu_map->group)
+			iommu_group_put(iommu_map->group);
+		iommu_map->group = NULL;
+		iommu_map->domain = -1;
+	}
+	return -EINVAL;
 }
 
-static int q6_hfi_init_resources(struct q6_hfi_device *device)
+static void q6_hfi_deregister_iommu_domains(struct q6_hfi_device *device)
+{
+	struct iommu_set *iommu_group_set;
+	struct iommu_info *iommu_map;
+	int i = 0;
+
+	if (!device || !device->res) {
+		dprintk(VIDC_ERR, "Invalid parameter: %p", device);
+		return;
+	}
+
+	iommu_group_set = &device->res->iommu_group_set;
+	for (i = 0; i < iommu_group_set->count; i++) {
+		iommu_map = &iommu_group_set->iommu_maps[i];
+		if (iommu_map->group)
+			iommu_group_put(iommu_map->group);
+		iommu_map->group = NULL;
+		iommu_map->domain = -1;
+	}
+}
+
+static int q6_hfi_init_resources(struct q6_hfi_device *device,
+		struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
 
+	if (!device || !res) {
+		dprintk(VIDC_ERR, "Invalid device or resources");
+		return -EINVAL;
+	}
+
+	device->res = res;
 	rc = q6_hfi_register_iommu_domains(device);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to register iommu domains: %d\n", rc);
 
 	return rc;
+}
+
+static void q6_hfi_deinit_resources(struct q6_hfi_device *device)
+{
+	q6_hfi_deregister_iommu_domains(device);
 }
 
 static void *q6_hfi_add_device(u32 device_id,
@@ -249,6 +325,7 @@ err_alloc:
 }
 
 static void *q6_hfi_get_device(u32 device_id,
+				struct msm_vidc_platform_resources *res,
 				hfi_cmd_response_callback callback)
 {
 	struct q6_hfi_device *device;
@@ -266,7 +343,7 @@ static void *q6_hfi_get_device(u32 device_id,
 		return NULL;
 	}
 
-	rc = q6_hfi_init_resources(device);
+	rc = q6_hfi_init_resources(device, res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init resources: %d\n", rc);
 		goto err_fail_init_res;
@@ -283,6 +360,7 @@ void q6_hfi_delete_device(void *device)
 	struct q6_hfi_device *close, *dev;
 
 	if (device) {
+		q6_hfi_deinit_resources(device);
 		dev = (struct q6_hfi_device *) device;
 		list_for_each_entry(close, &hal_ctxt.dev_head, list) {
 				hal_ctxt.dev_count--;
@@ -1115,13 +1193,74 @@ static int q6_hfi_iommu_get_domain_partition(void *dev, u32 flags,
 	return -ENOTSUPP;
 }
 
-static int q6_hfi_iommu_attach(void *dev)
+static int q6_hfi_iommu_attach(struct q6_hfi_device *device)
 {
-	(void)dev;
+	int rc = 0;
+	struct iommu_domain *domain;
+	int i;
+	struct iommu_set *iommu_group_set;
+	struct iommu_group *group;
+	struct iommu_info *iommu_map;
 
-	dprintk(VIDC_ERR, "Not implemented: %s", __func__);
+	if (!device || !device->res) {
+		dprintk(VIDC_ERR, "Invalid parameter: %p", device);
+		return -EINVAL;
+	}
 
-	return 0;
+	iommu_group_set = &device->res->iommu_group_set;
+	for (i = 0; i < iommu_group_set->count; i++) {
+		iommu_map = &iommu_group_set->iommu_maps[i];
+		group = iommu_map->group;
+		domain = msm_get_iommu_domain(iommu_map->domain);
+		if (IS_ERR_OR_NULL(domain)) {
+			dprintk(VIDC_ERR, "Failed to get domain: %s",
+					iommu_map->name);
+			rc = IS_ERR(domain) ? PTR_ERR(domain) : -EINVAL;
+			break;
+		}
+		dprintk(VIDC_DBG, "Attaching domain(id:%d) %p to group %p",
+				iommu_map->domain, domain, group);
+		rc = iommu_attach_group(domain, group);
+		if (rc) {
+			dprintk(VIDC_ERR, "IOMMU attach failed: %s",
+					iommu_map->name);
+			break;
+		}
+	}
+	if (i < iommu_group_set->count) {
+		i--;
+		for (; i >= 0; i--) {
+			iommu_map = &iommu_group_set->iommu_maps[i];
+			group = iommu_map->group;
+			domain = msm_get_iommu_domain(iommu_map->domain);
+			if (group && domain)
+				iommu_detach_group(domain, group);
+		}
+	}
+	return rc;
+}
+
+static void q6_hfi_iommu_detach(struct q6_hfi_device *device)
+{
+	struct iommu_group *group;
+	struct iommu_domain *domain;
+	struct iommu_set *iommu_group_set;
+	struct iommu_info *iommu_map;
+	int i;
+
+	if (!device || !device->res) {
+		dprintk(VIDC_ERR, "Invalid parameter: %p", device);
+		return;
+	}
+
+	iommu_group_set = &device->res->iommu_group_set;
+	for (i = 0; i < iommu_group_set->count; i++) {
+		iommu_map = &iommu_group_set->iommu_maps[i];
+		group = iommu_map->group;
+		domain = msm_get_iommu_domain(iommu_map->domain);
+		if (group && domain)
+			iommu_detach_group(domain, group);
+	}
 }
 
 static int q6_hfi_load_fw(void *dev)
@@ -1181,6 +1320,7 @@ static void q6_hfi_unload_fw(void *hfi_device_data)
 		return;
 
 	if (device->resources.fw.cookie) {
+		q6_hfi_iommu_detach(device);
 		subsystem_put(device->resources.fw.cookie);
 		device->resources.fw.cookie = NULL;
 	}
@@ -1246,16 +1386,18 @@ static void q6_init_hfi_callbacks(struct hfi_device *hdev)
 
 
 int q6_hfi_initialize(struct hfi_device *hdev, u32 device_id,
+		struct msm_vidc_platform_resources *res,
 		hfi_cmd_response_callback callback)
 {
 	int rc = 0;
 
-	if (!hdev || !callback) {
-		dprintk(VIDC_ERR, "Invalid params: %p %p\n", hdev, callback);
+	if (!hdev || !res || !callback) {
+		dprintk(VIDC_ERR, "Invalid params: %p %p %p",
+				hdev, res, callback);
 		rc = -EINVAL;
 		goto err_hfi_init;
 	}
-	hdev->hfi_device_data = q6_hfi_get_device(device_id, callback);
+	hdev->hfi_device_data = q6_hfi_get_device(device_id, res, callback);
 
 	q6_init_hfi_callbacks(hdev);
 
