@@ -19,6 +19,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/cpr-regulator.h>
 
 #include <mach/clk-provider.h>
 #include <mach/msm_bus.h>
@@ -53,13 +54,13 @@ static struct msm_bus_scale_pdata bus_client_pdata = {
  * 3) Depending on Frodo version, may need minimum of LVL_NOM
  */
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
-	{ 0,   19200, CXO,     0, 0,   1150000,   1150000, 0 },
-	{ 1,  300000, PLL0,    4, 2,   1150000,   1150000, 4 },
-	{ 1,  384000, ACPUPLL, 5, 0,   1150000,   1150000, 4 },
-	{ 1,  600000, PLL0,    4, 0,   1150000,   1150000, 6 },
-	{ 1,  787200, ACPUPLL, 5, 0,   1150000,   1150000, 7 },
-	{ 0,  998400, ACPUPLL, 5, 0,   1150000,   1150000, 7 },
-	{ 0, 1190400, ACPUPLL, 5, 0,   1150000,   1150000, 7 },
+	{ 0,   19200, CXO,     0, 0,   CPR_CORNER_SVS,   1150000, 0 },
+	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,   1150000, 4 },
+	{ 1,  384000, ACPUPLL, 5, 0,   CPR_CORNER_SVS,   1150000, 4 },
+	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_NORMAL,   1150000, 6 },
+	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL,   1150000, 7 },
+	{ 0,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,   1150000, 7 },
+	{ 0, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,   1150000, 7 },
 	{ 0 }
 };
 
@@ -67,8 +68,7 @@ static struct acpuclk_drv_data drv_data = {
 	.freq_tbl = acpu_freq_tbl,
 	.current_speed = &(struct clkctl_acpu_speed){ 0 },
 	.bus_scale = &bus_client_pdata,
-	/* FIXME regulator doesn't support corners yet */
-	.vdd_max_cpu = 1150000,
+	.vdd_max_cpu = CPR_CORNER_TURBO,
 	.vdd_max_mem = 1150000,
 	.src_clocks = {
 		[PLL0].name = "gpll0",
