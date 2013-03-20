@@ -450,6 +450,8 @@ unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 {
 	if (adreno_is_a305(adreno_dev))
 		return A305_RBBM_CLOCK_CTL_DEFAULT;
+	else if (adreno_is_a305c(adreno_dev))
+		return A305C_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a320(adreno_dev))
 		return A320_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a330v2(adreno_dev))
@@ -2964,6 +2966,19 @@ static struct a3xx_vbif_data a305b_vbif[] = {
 	{0, 0},
 };
 
+static struct a3xx_vbif_data a305c_vbif[] = {
+	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x00101010 },
+	{ A3XX_VBIF_IN_WR_LIM_CONF0, 0x00101010 },
+	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x00000010 },
+	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x00000010 },
+	{ A3XX_VBIF_DDR_OUT_MAX_BURST, 0x00000101 },
+	{ A3XX_VBIF_ARB_CTL, 0x00000010 },
+	/* Set up AOOO */
+	{ A3XX_VBIF_OUT_AXI_AOOO_EN, 0x00000007 },
+	{ A3XX_VBIF_OUT_AXI_AOOO, 0x00070007 },
+	{0, 0},
+};
+
 static struct a3xx_vbif_data a320_vbif[] = {
 	/* Set up 16 deep read/write request queues */
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010 },
@@ -3035,6 +3050,7 @@ static struct {
 	struct a3xx_vbif_data *vbif;
 } a3xx_vbif_platforms[] = {
 	{ adreno_is_a305, a305_vbif },
+	{ adreno_is_a305c, a305c_vbif },
 	{ adreno_is_a320, a320_vbif },
 	/* A330v2 needs to be ahead of A330 so the right device matches */
 	{ adreno_is_a330v2, a330v2_vbif },
