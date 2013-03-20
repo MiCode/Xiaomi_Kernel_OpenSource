@@ -382,6 +382,21 @@
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <240>;
 		};
+
+                qcom,msm-dai-q6-incall-record-rx {
+                        compatible = "qcom,msm-dai-q6-dev";
+                        qcom,msm-dai-q6-dev-id = <32771>;
+                };
+
+                qcom,msm-dai-q6-incall-record-tx {
+                        compatible = "qcom,msm-dai-q6-dev";
+                        qcom,msm-dai-q6-dev-id = <32772>;
+                };
+
+                qcom,msm-dai-q6-incall-music-rx {
+                        compatible = "qcom,msm-dai-q6-dev";
+                        qcom,msm-dai-q6-dev-id = <32773>;
+                };
 	};
 
 	qcom,msm-pcm-hostless {
