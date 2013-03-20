@@ -162,6 +162,8 @@ struct diag_smd_info {
 	smd_channel_t *ch;
 	smd_channel_t *ch_save;
 
+	struct mutex smd_ch_mutex;
+
 	int in_busy_1;
 	int in_busy_2;
 
@@ -249,6 +251,7 @@ struct diagchar_dev {
 	unsigned char *buf_event_mask_update;
 	unsigned char *buf_feature_mask_update;
 	int read_len_legacy;
+	struct mutex diag_hdlc_mutex;
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
