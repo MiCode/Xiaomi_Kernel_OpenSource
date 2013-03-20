@@ -214,7 +214,7 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 
 	if (host->ops->check_power_status && host->pwr &&
 	    (mask & SDHCI_RESET_ALL))
-		host->ops->check_power_status(host);
+		host->ops->check_power_status(host, REQ_BUS_OFF);
 
 	/* hw clears the bit when it's done */
 	while (sdhci_readb(host, SDHCI_SOFTWARE_RESET) & mask) {
@@ -1354,7 +1354,7 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (pwr == 0) {
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
 		if (host->ops->check_power_status)
-			host->ops->check_power_status(host);
+			host->ops->check_power_status(host, REQ_BUS_OFF);
 		return 0;
 	}
 
@@ -1365,7 +1365,7 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (!(host->quirks & SDHCI_QUIRK_SINGLE_POWER_WRITE)) {
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
 		if (host->ops->check_power_status)
-			host->ops->check_power_status(host);
+			host->ops->check_power_status(host, REQ_BUS_OFF);
 	}
 
 	/*
@@ -1375,14 +1375,14 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (host->quirks & SDHCI_QUIRK_NO_SIMULT_VDD_AND_POWER) {
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 		if (host->ops->check_power_status)
-			host->ops->check_power_status(host);
+			host->ops->check_power_status(host, REQ_BUS_ON);
 	}
 
 	pwr |= SDHCI_POWER_ON;
 
 	sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 	if (host->ops->check_power_status)
-		host->ops->check_power_status(host);
+		host->ops->check_power_status(host, REQ_BUS_ON);
 
 	/*
 	 * Some controllers need an extra 10ms delay of 10ms before they
@@ -1902,7 +1902,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 		ctrl &= ~SDHCI_CTRL_VDD_180;
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 		if (host->ops->check_power_status)
-			host->ops->check_power_status(host);
+			host->ops->check_power_status(host, REQ_IO_HIGH);
 
 		if (host->vqmmc) {
 			ret = regulator_set_voltage(host->vqmmc, 2700000, 3600000);
@@ -1942,7 +1942,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 		ctrl |= SDHCI_CTRL_VDD_180;
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 		if (host->ops->check_power_status)
-			host->ops->check_power_status(host);
+			host->ops->check_power_status(host, REQ_IO_LOW);
 
 		/* Wait for 5ms */
 		usleep_range(5000, 5500);
