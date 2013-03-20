@@ -3729,6 +3729,20 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 }
 #endif
 
+#ifdef CONFIG_PM_RUNTIME
+void mmc_dump_dev_pm_state(struct mmc_host *host, struct device *dev)
+{
+	pr_err("%s: %s: err: runtime_error: %d\n", dev_name(dev),
+	       mmc_hostname(host), dev->power.runtime_error);
+	pr_err("%s: %s: disable_depth: %d runtime_status: %d idle_notification: %d\n",
+	       dev_name(dev), mmc_hostname(host), dev->power.disable_depth,
+	       dev->power.runtime_status,
+	       dev->power.idle_notification);
+	pr_err("%s: %s: request_pending: %d, request: %d\n",
+	       dev_name(dev), mmc_hostname(host),
+	       dev->power.request_pending, dev->power.request);
+}
+
 void mmc_rpm_hold(struct mmc_host *host, struct device *dev)
 {
 	int ret = 0;
@@ -3737,13 +3751,16 @@ void mmc_rpm_hold(struct mmc_host *host, struct device *dev)
 		return;
 
 	ret = pm_runtime_get_sync(dev);
-	if (ret < 0) {
-		pr_err("%s: %s: %s: error resuming device: %d\n",
+	if ((ret < 0) &&
+	    (dev->power.runtime_error || (dev->power.disable_depth > 0))) {
+		pr_err("%s: %s: %s: pm_runtime_get_sync: err: %d\n",
 		       dev_name(dev), mmc_hostname(host), __func__, ret);
+		mmc_dump_dev_pm_state(host, dev);
 		if (pm_runtime_suspended(dev))
 			BUG_ON(1);
 	}
 }
+
 EXPORT_SYMBOL(mmc_rpm_hold);
 
 void mmc_rpm_release(struct mmc_host *host, struct device *dev)
@@ -3754,11 +3771,22 @@ void mmc_rpm_release(struct mmc_host *host, struct device *dev)
 		return;
 
 	ret = pm_runtime_put_sync(dev);
-	if (ret < 0 && ret != -EBUSY)
-		pr_err("%s: %s: %s: put sync ret: %d\n",
+	if ((ret < 0) &&
+	    (dev->power.runtime_error || (dev->power.disable_depth > 0))) {
+		pr_err("%s: %s: %s: pm_runtime_put_sync: err: %d\n",
 		       dev_name(dev), mmc_hostname(host), __func__, ret);
+		mmc_dump_dev_pm_state(host, dev);
+	}
 }
+
 EXPORT_SYMBOL(mmc_rpm_release);
+#else
+void mmc_rpm_hold(struct mmc_host *host, struct device *dev) {}
+EXPORT_SYMBOL(mmc_rpm_hold);
+
+void mmc_rpm_release(struct mmc_host *host, struct device *dev) {}
+EXPORT_SYMBOL(mmc_rpm_release);
+#endif
 
 /**
  * mmc_init_context_info() - init synchronization context
