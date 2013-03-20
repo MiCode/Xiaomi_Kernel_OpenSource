@@ -33,7 +33,7 @@ struct msm_get_bufs {
 
 struct msm_buf_mngr_device {
 	struct list_head buf_qhead;
-	struct mutex buf_q_lock;
+	spinlock_t buf_q_spinlock;
 	struct msm_sd_subdev subdev;
 	struct msm_sd_req_vb2_q vb2_ops;
 };
