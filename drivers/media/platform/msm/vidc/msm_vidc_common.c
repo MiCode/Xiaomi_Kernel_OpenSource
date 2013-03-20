@@ -350,7 +350,15 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	if (response) {
+		struct vidc_hal_session_init_done *session_init_done =
+			(struct vidc_hal_session_init_done *) response->data;
 		inst = (struct msm_vidc_inst *)response->session_id;
+
+		inst->capability.width = session_init_done->width;
+		inst->capability.height = session_init_done->height;
+		inst->capability.frame_rate =
+				session_init_done->frame_rate;
+		inst->capability.capability_set = true;
 		signal_session_msg_receipt(cmd, inst);
 	} else {
 		dprintk(VIDC_ERR,
@@ -1789,6 +1797,13 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			mutex_unlock(&inst->sync_lock);
 	} else {
 		int64_t time_usec = timeval_to_ns(&vb->v4l2_buf.timestamp);
+
+		rc = msm_vidc_check_session_supported(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session not supported\n", __func__);
+			goto err_no_mem;
+		}
 		do_div(time_usec, NSEC_PER_USEC);
 		memset(&frame_data, 0 , sizeof(struct vidc_frame_data));
 		frame_data.alloc_len = vb->v4l2_planes[0].length;
@@ -2358,4 +2373,39 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		rc = call_hfi_op(hdev, core_trigger_ssr,
 				hdev->hfi_device_data, type);
 	return rc;
+}
+
+int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
+{
+	struct msm_vidc_core_capability *capability;
+
+	if (!inst) {
+		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
+		return -EINVAL;
+	}
+	capability = &inst->capability;
+
+	if (inst->capability.capability_set) {
+		if (inst->prop.width < capability->width.min ||
+			inst->prop.width > capability->width.max ||
+			(inst->prop.width % capability->width.step_size != 0)) {
+			dprintk(VIDC_ERR,
+			"Unsupported width = %d range min(%u) - max(%u) step_size(%u)",
+			inst->prop.width, capability->width.min,
+			capability->width.max, capability->width.step_size);
+			return -ENOTSUPP;
+		}
+
+		if (inst->prop.height < capability->height.min ||
+			inst->prop.height > capability->height.max ||
+			(inst->prop.height %
+			capability->height.step_size != 0)) {
+			dprintk(VIDC_ERR,
+			"Unsupported height = %d range min(%u) - max(%u) step_size(%u)",
+			inst->prop.height, capability->height.min,
+			capability->height.max, capability->height.step_size);
+			return -ENOTSUPP;
+		}
+	}
+	return 0;
 }
