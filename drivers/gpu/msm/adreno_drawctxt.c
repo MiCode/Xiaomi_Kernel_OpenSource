@@ -179,6 +179,9 @@ int adreno_drawctxt_create(struct kgsl_device *device,
 		drawctxt->flags |= CTXT_FLAGS_USER_GENERATED_TS;
 	}
 
+	if (flags & KGSL_CONTEXT_NO_FAULT_TOLERANCE)
+		drawctxt->flags |= CTXT_FLAGS_NO_FAULT_TOLERANCE;
+
 	ret = adreno_dev->gpudev->ctxt_create(adreno_dev, drawctxt);
 	if (ret)
 		goto err;

@@ -54,6 +54,8 @@
 #define CTXT_FLAGS_USER_GENERATED_TS    BIT(14)
 /* Context skip till EOF */
 #define CTXT_FLAGS_SKIP_EOF             BIT(15)
+/* Context no fault tolerance */
+#define CTXT_FLAGS_NO_FAULT_TOLERANCE  BIT(16)
 
 struct kgsl_device;
 struct adreno_device;

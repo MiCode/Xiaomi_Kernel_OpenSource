@@ -1839,7 +1839,17 @@ _adreno_ft(struct kgsl_device *device,
 			KGSL_FT_ERR(device, "Fault tolerance not supported\n");
 			goto play_good_cmds;
 		}
-		KGSL_FT_INFO(device, "Context found\n");
+
+		/*
+		 *  This flag will be set by userspace for contexts
+		 *  that do not want to be fault tolerant (ex: OPENCL)
+		 */
+		if (adreno_context->flags & CTXT_FLAGS_NO_FAULT_TOLERANCE) {
+			KGSL_FT_ERR(device,
+			"No FT set for this context play good cmds\n");
+			goto play_good_cmds;
+		}
+
 	}
 
 	/* Check if we detected a long running IB, if false return */
@@ -2836,7 +2846,9 @@ unsigned int adreno_ft_detect(struct kgsl_device *device,
 				return 1;
 			}
 
-			if (long_ib_detected) {
+			if ((long_ib_detected) &&
+				(!(curr_context->flags &
+				 CTXT_FLAGS_NO_FAULT_TOLERANCE))) {
 				curr_context->ib_gpu_time_used +=
 					KGSL_TIMEOUT_PART;
 				if (curr_context->ib_gpu_time_used >
