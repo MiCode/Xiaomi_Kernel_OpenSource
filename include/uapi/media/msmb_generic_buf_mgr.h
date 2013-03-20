@@ -9,6 +9,7 @@ struct msm_buf_mngr_info {
 	uint32_t index;
 };
 
+struct v4l2_subdev *msm_buf_mngr_get_subdev(void);
 
 #define VIDIOC_MSM_BUF_MNGR_GET_BUF \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 33, struct msm_buf_mngr_info)

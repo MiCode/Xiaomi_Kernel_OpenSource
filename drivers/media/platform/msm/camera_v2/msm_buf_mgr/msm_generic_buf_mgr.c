@@ -13,9 +13,15 @@
 
 static struct msm_buf_mngr_device *msm_buf_mngr_dev;
 
+struct v4l2_subdev *msm_buf_mngr_get_subdev(void)
+{
+	return &msm_buf_mngr_dev->subdev.sd;
+}
+
 static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	void __user *argp)
 {
+	unsigned long flags;
 	struct msm_buf_mngr_info *buf_info =
 		(struct msm_buf_mngr_info *)argp;
 	struct msm_get_bufs *new_entry =
@@ -35,9 +41,9 @@ static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	}
 	new_entry->session_id = buf_info->session_id;
 	new_entry->stream_id = buf_info->stream_id;
-	mutex_lock(&buf_mngr_dev->buf_q_lock);
+	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
 	list_add_tail(&new_entry->entry, &buf_mngr_dev->buf_qhead);
-	mutex_unlock(&buf_mngr_dev->buf_q_lock);
+	spin_unlock_irqrestore(&buf_mngr_dev->buf_q_spinlock, flags);
 	buf_info->index = new_entry->vb2_buf->v4l2_buf.index;
 	return 0;
 }
@@ -45,10 +51,11 @@ static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 	struct msm_buf_mngr_info *buf_info)
 {
+	unsigned long flags;
 	struct msm_get_bufs *bufs, *save;
 	int ret = -EINVAL;
 
-	mutex_lock(&buf_mngr_dev->buf_q_lock);
+	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
 		if ((bufs->session_id == buf_info->session_id) &&
 			(bufs->stream_id == buf_info->stream_id) &&
@@ -64,7 +71,7 @@ static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 			break;
 		}
 	}
-	mutex_unlock(&buf_mngr_dev->buf_q_lock);
+	spin_unlock_irqrestore(&buf_mngr_dev->buf_q_spinlock, flags);
 	return ret;
 }
 
@@ -72,10 +79,11 @@ static int msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 static int msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	struct msm_buf_mngr_info *buf_info)
 {
+	unsigned long flags;
 	struct msm_get_bufs *bufs, *save;
 	int ret = -EINVAL;
 
-	mutex_lock(&buf_mngr_dev->buf_q_lock);
+	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
 	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
 		if ((bufs->session_id == buf_info->session_id) &&
 			(bufs->stream_id == buf_info->stream_id) &&
@@ -87,7 +95,7 @@ static int msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 			break;
 		}
 	}
-	mutex_unlock(&buf_mngr_dev->buf_q_lock);
+	spin_unlock_irqrestore(&buf_mngr_dev->buf_q_spinlock, flags);
 	return ret;
 }
 
@@ -163,14 +171,13 @@ static int __init msm_buf_mngr_init(void)
 		&msm_buf_mngr_dev->vb2_ops);
 
 	INIT_LIST_HEAD(&msm_buf_mngr_dev->buf_qhead);
-	mutex_init(&msm_buf_mngr_dev->buf_q_lock);
+	spin_lock_init(&msm_buf_mngr_dev->buf_q_spinlock);
 end:
 	return rc;
 }
 
 static void __exit msm_buf_mngr_exit(void)
 {
-	mutex_destroy(&msm_buf_mngr_dev->buf_q_lock);
 	kfree(msm_buf_mngr_dev);
 }
 
