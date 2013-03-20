@@ -317,8 +317,6 @@ static void __init cpufreq_table_init(void) {}
 static struct acpuclk_data acpuclk_cortex_data = {
 	.set_rate = acpuclk_cortex_set_rate,
 	.get_rate = acpuclk_cortex_get_rate,
-	.power_collapse_khz = 19200,
-	.wait_for_irq_khz = 19200,
 };
 
 int __init acpuclk_cortex_init(struct platform_device *pdev,
@@ -330,18 +328,13 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 	priv = data;
 	mutex_init(&priv->lock);
 
+	acpuclk_cortex_data.power_collapse_khz = priv->wait_for_irq_khz;
+	acpuclk_cortex_data.wait_for_irq_khz = priv->wait_for_irq_khz;
+
 	bus_perf_client = msm_bus_scale_register_client(priv->bus_scale);
 	if (!bus_perf_client) {
 		pr_err("Unable to register bus client\n");
 		BUG();
-	}
-
-	for (i = 0; i < NUM_SRC; i++) {
-		if (!priv->src_clocks[i].name)
-			continue;
-		priv->src_clocks[i].clk =
-			devm_clk_get(&pdev->dev, priv->src_clocks[i].name);
-		BUG_ON(IS_ERR(priv->src_clocks[i].clk));
 	}
 
 	/* Improve boot time by ramping up CPU immediately */

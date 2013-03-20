@@ -63,6 +63,8 @@ struct acpuclk_drv_data {
 	unsigned long			vdd_max_mem;
 	struct src_clock		src_clocks[NUM_SRC];
 	struct acpuclk_reg_data		reg_data;
+	unsigned long                   power_collapse_khz;
+	unsigned long                   wait_for_irq_khz;
 };
 
 /* Instantaneous bandwidth requests in MB/s. */

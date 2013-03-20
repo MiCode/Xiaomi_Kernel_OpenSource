@@ -17,6 +17,7 @@
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/io.h>
+#include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/cpr-regulator.h>
@@ -82,17 +83,21 @@ static struct acpuclk_drv_data drv_data = {
 		.update_mask = RCG_CONFIG_UPDATE_BIT,
 		.poll_mask = RCG_CONFIG_UPDATE_BIT,
 	},
+	.power_collapse_khz = 300000,
+	.wait_for_irq_khz = 300000,
 };
 
 static int __init acpuclk_a7_probe(struct platform_device *pdev)
 {
 	struct resource *res;
+	u32 i;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rcg_base");
 	if (!res)
 		return -EINVAL;
 
-	drv_data.apcs_rcg_cmd = ioremap(res->start, resource_size(res));
+	drv_data.apcs_rcg_cmd = devm_ioremap(&pdev->dev, res->start,
+		resource_size(res));
 	if (!drv_data.apcs_rcg_cmd)
 		return -ENOMEM;
 
@@ -109,6 +114,21 @@ static int __init acpuclk_a7_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "regulator for %s get failed\n", "a7_mem");
 		return PTR_ERR(drv_data.vdd_mem);
 	}
+
+	for (i = 0; i < NUM_SRC; i++) {
+		if (!drv_data.src_clocks[i].name)
+			continue;
+		drv_data.src_clocks[i].clk =
+			devm_clk_get(&pdev->dev, drv_data.src_clocks[i].name);
+		if (IS_ERR(drv_data.src_clocks[i].clk)) {
+			dev_err(&pdev->dev, "Unable to get clock %s\n",
+				drv_data.src_clocks[i].name);
+			return -EPROBE_DEFER;
+		}
+	}
+
+	/* Enable the always on source */
+	clk_prepare_enable(drv_data.src_clocks[PLL0].clk);
 
 	return acpuclk_cortex_init(pdev, &drv_data);
 }
