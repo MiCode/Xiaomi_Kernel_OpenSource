@@ -13,9 +13,10 @@
 #ifndef __Q6_HFI_H__
 #define __Q6_HFI_H__
 
+#include <mach/qdsp6v2/apr.h>
 #include "vidc_hfi.h"
 #include "vidc_hfi_helper.h"
-#include <mach/qdsp6v2/apr.h>
+#include "msm_vidc_resources.h"
 
 #define Q6_IFACEQ_QUEUE_SIZE (8 * 1024)
 
@@ -40,6 +41,7 @@ struct q6_hfi_device {
 	u32 device_id;
 	msm_vidc_callback callback;
 	struct q6_resources resources;
+	struct msm_vidc_platform_resources *res;
 	void *apr;
 };
 
@@ -109,6 +111,7 @@ struct q6_apr_cmd_session_set_property_packet {
 };
 
 int q6_hfi_initialize(struct hfi_device *hdev, u32 device_id,
+		struct msm_vidc_platform_resources *res,
 		hfi_cmd_response_callback callback);
 
 void q6_hfi_delete_device(void *device);

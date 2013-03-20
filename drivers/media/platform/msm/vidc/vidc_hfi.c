@@ -37,7 +37,7 @@ void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
 		break;
 
 	case VIDC_HFI_Q6:
-		rc = q6_hfi_initialize(hdev, device_id, callback);
+		rc = q6_hfi_initialize(hdev, device_id, res, callback);
 		break;
 
 	default:
