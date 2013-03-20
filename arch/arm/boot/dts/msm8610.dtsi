@@ -16,6 +16,7 @@
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8610-coresight.dtsi"
 /include/ "msm8610-pm.dtsi"
+/include/ "msm8610-smp2p.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610";
