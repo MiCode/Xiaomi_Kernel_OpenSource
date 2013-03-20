@@ -20,3 +20,18 @@
 	compatible = "qcom,msm8974-mtp", "qcom,msm8974";
 	qcom,msm-id = <126 8 0x20000>;
 };
+
+&usb3 {
+	#address-cells = <0>;
+	interrupt-parent = <&usb3>;
+	interrupts = <0 1 2 3>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 131 0
+			1 &intc 0 179 0
+			2 &intc 0 133 0
+			3 &spmi_bus 0x0 0x0 0x9 0x0>;
+	interrupt-names = "irq", "otg_irq", "hs_phy_irq", "pmic_id_irq";
+
+	qcom,misc-ref = <&pm8941_misc>;
+};
