@@ -68,8 +68,8 @@ struct dmxdev_sec_feed {
 	struct dmx_section_feed *feed;
 };
 
-struct dmxdev_events_queue {
 #define DMX_EVENT_QUEUE_SIZE	500 /* number of events */
+struct dmxdev_events_queue {
 	/*
 	 * indices used to manage events queue.
 	 * read_index advanced when relevent data is read
@@ -93,6 +93,22 @@ struct dmxdev_events_queue {
 	/* internal tracking of PES and recording events */
 	u32 current_event_data_size;
 	u32 current_event_start_offset;
+
+	/* current setting of the events masking */
+	struct dmx_events_mask event_mask;
+
+	/*
+	 * indicates if an event used for data-reading from demux
+	 * filter is enabled or not. These are events on which
+	 * user may wait for before calling read() on the demux filter.
+	 */
+	int data_read_event_masked;
+
+	/*
+	 * holds the current number of pending events in the
+	 * events queue that are considered as a wake-up source
+	 */
+	u32 wakeup_events_counter;
 
 	struct dmx_filter_event queue[DMX_EVENT_QUEUE_SIZE];
 };

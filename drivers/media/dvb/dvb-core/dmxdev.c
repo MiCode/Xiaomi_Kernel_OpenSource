@@ -121,6 +121,7 @@ static inline void dvb_dmxdev_flush_events(struct dmxdev_events_queue *events)
 	events->notified_index = 0;
 	events->bytes_read_no_event = 0;
 	events->current_event_data_size = 0;
+	events->wakeup_events_counter = 0;
 }
 
 static inline void dvb_dmxdev_flush_output(struct dvb_ringbuffer *buffer,
@@ -222,6 +223,10 @@ static int dvb_dmxdev_add_event(struct dmxdev_events_queue *events,
 	int new_write_index;
 	int data_event;
 
+	/* Check if the event is disabled */
+	if (events->event_mask.disable_mask & event->type)
+		return 0;
+
 	/* Check if we are adding an event that user already read its data */
 	if (events->bytes_read_no_event) {
 		data_event = 1;
@@ -241,7 +246,7 @@ static int dvb_dmxdev_add_event(struct dmxdev_events_queue *events,
 		if (data_event) {
 			if (res) {
 				/*
-				 * Data relevent to this event was fully
+				 * Data relevant to this event was fully
 				 * consumed already, discard event.
 				 */
 				events->bytes_read_no_event -= res;
@@ -266,6 +271,9 @@ static int dvb_dmxdev_add_event(struct dmxdev_events_queue *events,
 	events->queue[events->write_index] = *event;
 	events->write_index = new_write_index;
 
+	if (!(events->event_mask.no_wakeup_mask & event->type))
+		events->wakeup_events_counter++;
+
 	return 0;
 }
 
@@ -280,6 +288,9 @@ static int dvb_dmxdev_remove_event(struct dmxdev_events_queue *events,
 	events->notified_index =
 		dvb_dmxdev_advance_event_idx(events->notified_index);
 
+	if (!(events->event_mask.no_wakeup_mask & event->type))
+		events->wakeup_events_counter--;
+
 	return 0;
 }
 
@@ -289,6 +300,13 @@ static int dvb_dmxdev_update_events(struct dmxdev_events_queue *events,
 	struct dmx_filter_event *event;
 	int res;
 	int data_event;
+
+	/*
+	 * If data events are not enabled on this filter,
+	 * there's nothing to update.
+	 */
+	if (events->data_read_event_masked)
+		return 0;
 
 	/*
 	 * Go through all events that were notified and
@@ -364,7 +382,7 @@ static int dvb_dmxdev_update_events(struct dmxdev_events_queue *events,
 		if (data_event) {
 			if (res) {
 				/*
-				 * Data relevent to this event was
+				 * Data relevant to this event was
 				 * fully consumed, remove it from the queue.
 				 */
 				bytes_read -= res;
@@ -616,6 +634,9 @@ static int dvb_dvr_open(struct inode *inode, struct file *file)
 		}
 		dvb_ringbuffer_init(&dmxdev->dvr_buffer, mem, DVR_BUFFER_SIZE);
 		dvb_dmxdev_flush_events(&dmxdev->dvr_output_events);
+		dmxdev->dvr_output_events.event_mask.disable_mask = 0;
+		dmxdev->dvr_output_events.event_mask.no_wakeup_mask = 0;
+		dmxdev->dvr_output_events.event_mask.wakeup_threshold = 1;
 		dmxdev->dvr_feeds_count = 0;
 		dmxdev->dvr_buffer_mode = DMX_BUFFER_MODE_INTERNAL;
 		dmxdev->dvr_priv_buff_handle = NULL;
@@ -1429,24 +1450,58 @@ static int dvb_dmxdev_set_source(struct dmxdev_filter *dmxdevfilter,
 static int dvb_dmxdev_reuse_decoder_buf(struct dmxdev_filter *dmxdevfilter,
 						int cookie)
 {
-	if ((dmxdevfilter->type == DMXDEV_TYPE_PES) &&
-		(dmxdevfilter->params.pes.output == DMX_OUT_DECODER)) {
-		struct dmxdev_feed *feed;
-		int ret = -ENODEV;
+	struct dmxdev_feed *feed;
 
-		/* Only one feed should be in the list in case of decoder */
-		feed = list_first_entry(&dmxdevfilter->feed.ts,
-					struct dmxdev_feed, next);
+	if ((dmxdevfilter->type != DMXDEV_TYPE_PES) ||
+		(dmxdevfilter->params.pes.output != DMX_OUT_DECODER) ||
+		(dmxdevfilter->events.event_mask.disable_mask &
+			DMX_EVENT_NEW_ES_DATA))
+		return -EPERM;
 
-		if (feed->ts->reuse_decoder_buffer)
-			ret = feed->ts->reuse_decoder_buffer(
-							feed->ts,
-							cookie);
+	/* Only one feed should be in the list in case of decoder */
+	feed = list_first_entry(&dmxdevfilter->feed.ts,
+				struct dmxdev_feed, next);
 
-		return ret;
-	}
+	if (feed->ts->reuse_decoder_buffer)
+		return feed->ts->reuse_decoder_buffer(feed->ts, cookie);
 
-	return -EPERM;
+	return -ENODEV;
+}
+
+static int dvb_dmxdev_set_event_mask(struct dmxdev_filter *dmxdevfilter,
+				struct dmx_events_mask *event_mask)
+{
+	if (!event_mask ||
+		(event_mask->wakeup_threshold >= DMX_EVENT_QUEUE_SIZE))
+		return -EINVAL;
+
+	if (dmxdevfilter->state == DMXDEV_STATE_GO)
+		return -EBUSY;
+
+	/*
+	 * Overflow event is not allowed to be masked.
+	 * This is because if overflow occurs, demux stops outputting data
+	 * until user is notified. If user is using events to read the data,
+	 * the overflow event must be always enabled or otherwise we would
+	 * never recover from overflow state.
+	 */
+	event_mask->disable_mask &= ~(u32)DMX_EVENT_BUFFER_OVERFLOW;
+	event_mask->no_wakeup_mask &= ~(u32)DMX_EVENT_BUFFER_OVERFLOW;
+
+	dmxdevfilter->events.event_mask = *event_mask;
+
+	return 0;
+}
+
+static int dvb_dmxdev_get_event_mask(struct dmxdev_filter *dmxdevfilter,
+				struct dmx_events_mask *event_mask)
+{
+	if (!event_mask)
+		return -EINVAL;
+
+	*event_mask = dmxdevfilter->events.event_mask;
+
+	return 0;
 }
 
 static int dvb_dmxdev_ts_fullness_callback(
@@ -1708,11 +1763,13 @@ static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 	}
 
 	/*
-	 * Decoder filters have no data in the data buffer and their
-	 * events can be removed now from the queue.
+	 * If no-data events are enabled on this filter,
+	 * the events can be removed from the queue when
+	 * user gets them.
+	 * For filters with data events enabled, the event is removed
+	 * from the queue only when the respective data is read.
 	 */
-	if ((dmxdevfilter->type == DMXDEV_TYPE_PES) &&
-		(dmxdevfilter->params.pes.output == DMX_OUT_DECODER))
+	if (dmxdevfilter->events.data_read_event_masked)
 		dmxdevfilter->events.read_index =
 			dvb_dmxdev_advance_event_idx(
 				dmxdevfilter->events.read_index);
@@ -2538,6 +2595,9 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 		(*secfilter)->filter_mask[2] = 0;
 
 		filter->todo = 0;
+		filter->events.data_read_event_masked =
+			filter->events.event_mask.disable_mask &
+			DMX_EVENT_NEW_SECTION;
 
 		ret = filter->feed.sec.feed->start_filtering(
 				filter->feed.sec.feed);
@@ -2557,6 +2617,21 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 			filter->buffer.size)
 			filter->params.pes.rec_chunk_size =
 				filter->buffer.size >> 2;
+
+		if (filter->params.pes.output == DMX_OUT_TS_TAP)
+			dmxdev->dvr_output_events.data_read_event_masked =
+			 dmxdev->dvr_output_events.event_mask.disable_mask &
+			 DMX_EVENT_NEW_REC_CHUNK;
+		else if (filter->params.pes.output == DMX_OUT_TSDEMUX_TAP)
+			filter->events.data_read_event_masked =
+				filter->events.event_mask.disable_mask &
+				DMX_EVENT_NEW_REC_CHUNK;
+		else if (filter->params.pes.output == DMX_OUT_TAP)
+			filter->events.data_read_event_masked =
+				filter->events.event_mask.disable_mask &
+				DMX_EVENT_NEW_PES;
+		else
+			filter->events.data_read_event_masked = 1;
 
 		ret = 0;
 		list_for_each_entry(feed, &filter->feed.ts, next) {
@@ -2627,6 +2702,9 @@ static int dvb_demux_open(struct inode *inode, struct file *file)
 	dmxdevfilter->priv_buff_handle = NULL;
 	dvb_ringbuffer_init(&dmxdevfilter->buffer, NULL, 8192);
 	dvb_dmxdev_flush_events(&dmxdevfilter->events);
+	dmxdevfilter->events.event_mask.disable_mask = DMX_EVENT_NEW_ES_DATA;
+	dmxdevfilter->events.event_mask.no_wakeup_mask = 0;
+	dmxdevfilter->events.event_mask.wakeup_threshold = 1;
 
 	dmxdevfilter->type = DMXDEV_TYPE_NONE;
 	dvb_dmxdev_filter_state_set(dmxdevfilter, DMXDEV_STATE_ALLOCATED);
@@ -3223,6 +3301,24 @@ static int dvb_demux_do_ioctl(struct file *file,
 		mutex_unlock(&dmxdevfilter->mutex);
 		break;
 
+	case DMX_SET_EVENTS_MASK:
+		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+			mutex_unlock(&dmxdev->mutex);
+			return -ERESTARTSYS;
+		}
+		ret = dvb_dmxdev_set_event_mask(dmxdevfilter, parg);
+		mutex_unlock(&dmxdevfilter->mutex);
+		break;
+
+	case DMX_GET_EVENTS_MASK:
+		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+			mutex_unlock(&dmxdev->mutex);
+			return -ERESTARTSYS;
+		}
+		ret = dvb_dmxdev_get_event_mask(dmxdevfilter, parg);
+		mutex_unlock(&dmxdevfilter->mutex);
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -3258,10 +3354,9 @@ static unsigned int dvb_demux_poll(struct file *file, poll_table *wait)
 	if (!dvb_ringbuffer_empty(&dmxdevfilter->buffer))
 		mask |= (POLLIN | POLLRDNORM);
 
-	if (dmxdevfilter->events.notified_index !=
-		dmxdevfilter->events.write_index) {
+	if (dmxdevfilter->events.wakeup_events_counter >=
+		dmxdevfilter->events.event_mask.wakeup_threshold)
 		mask |= POLLPRI;
-	}
 
 	return mask;
 }
@@ -3430,8 +3525,8 @@ static unsigned int dvb_dvr_poll(struct file *file, poll_table *wait)
 		if (!dvb_ringbuffer_empty(&dmxdev->dvr_buffer))
 			mask |= (POLLIN | POLLRDNORM);
 
-		if (dmxdev->dvr_output_events.notified_index !=
-			dmxdev->dvr_output_events.write_index)
+		if (dmxdev->dvr_output_events.wakeup_events_counter >=
+			dmxdev->dvr_output_events.event_mask.wakeup_threshold)
 			mask |= POLLPRI;
 	} else {
 		poll_wait(file, &dmxdev->dvr_input_buffer.queue, wait);

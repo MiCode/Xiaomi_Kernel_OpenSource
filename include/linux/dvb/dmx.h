@@ -189,28 +189,28 @@ struct dmx_buffer_status {
 /* Events associated with each demux filter */
 enum dmx_event {
 	/* New PES packet is ready to be consumed */
-	DMX_EVENT_NEW_PES,
+	DMX_EVENT_NEW_PES = 0x00000001,
 
 	/* New section is ready to be consumed */
-	DMX_EVENT_NEW_SECTION,
+	DMX_EVENT_NEW_SECTION = 0x00000002,
 
 	/* New recording chunk is ready to be consumed */
-	DMX_EVENT_NEW_REC_CHUNK,
+	DMX_EVENT_NEW_REC_CHUNK = 0x00000004,
 
 	/* New PCR value is ready */
-	DMX_EVENT_NEW_PCR,
+	DMX_EVENT_NEW_PCR = 0x00000008,
 
 	/* Overflow */
-	DMX_EVENT_BUFFER_OVERFLOW,
+	DMX_EVENT_BUFFER_OVERFLOW = 0x00000010,
 
 	/* Section was dropped due to CRC error */
-	DMX_EVENT_SECTION_CRC_ERROR,
+	DMX_EVENT_SECTION_CRC_ERROR = 0x00000020,
 
 	/* End-of-stream, no more data from this filter */
-	DMX_EVENT_EOS,
+	DMX_EVENT_EOS = 0x00000040,
 
 	/* New Elementary Stream data is ready */
-	DMX_EVENT_NEW_ES_DATA
+	DMX_EVENT_NEW_ES_DATA = 0x00000080
 };
 
 /* Flags passed in filter events */
@@ -552,7 +552,6 @@ struct dmx_buffer {
 	int handle;
 };
 
-
 struct dmx_decoder_buffers {
 	/*
 	 * Specify if linear buffer support is requested. If set, buffers_num
@@ -587,6 +586,35 @@ struct dmx_secure_mode {
 	__u32 key_ladder_id;
 };
 
+struct dmx_events_mask {
+	/*
+	 * Bitmask of events to be disabled (dmx_event).
+	 * Disabled events will not be notified to the user.
+	 * By default all events are enabled except for
+	 * DMX_EVENT_NEW_ES_DATA.
+	 * Overflow event can't be disabled.
+	 */
+	__u32 disable_mask;
+
+	/*
+	 * Bitmask of events that will not wake-up the user
+	 * when user calls poll with POLLPRI flag.
+	 * Events that are used as wake-up source should not be
+	 * disabled in disable_mask or they would not be used
+	 * as a wake-up source.
+	 * By default all enabled events are set as wake-up events.
+	 * Overflow event can't be disabled as a wake-up source.
+	 */
+	__u32 no_wakeup_mask;
+
+	/*
+	 * Number of ready wake-up events which will trigger
+	 * a wake-up when user calls poll with POLLPRI flag.
+	 * Default is set to 1.
+	 */
+	__u32 wakeup_threshold;
+};
+
 #define DMX_START                _IO('o', 41)
 #define DMX_STOP                 _IO('o', 42)
 #define DMX_SET_FILTER           _IOW('o', 43, struct dmx_sct_filter_params)
@@ -611,6 +639,8 @@ struct dmx_secure_mode {
 #define DMX_SET_DECODER_BUFFER	 _IOW('o', 63, struct dmx_decoder_buffers)
 #define DMX_REUSE_DECODER_BUFFER _IO('o', 64)
 #define DMX_SET_SECURE_MODE	_IOW('o', 65, struct dmx_secure_mode)
+#define DMX_SET_EVENTS_MASK	_IOW('o', 66, struct dmx_events_mask)
+#define DMX_GET_EVENTS_MASK	_IOR('o', 67, struct dmx_events_mask)
 
 
 #endif /*_DVBDMX_H_*/
