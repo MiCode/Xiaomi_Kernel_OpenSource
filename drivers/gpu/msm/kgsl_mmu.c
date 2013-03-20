@@ -333,6 +333,35 @@ kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu, unsigned int pt_base)
 }
 EXPORT_SYMBOL(kgsl_mmu_get_ptname_from_ptbase);
 
+unsigned int
+kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu, unsigned int pt_base,
+					unsigned int addr)
+{
+	struct kgsl_pagetable *pt;
+	unsigned int ret = 0;
+
+	if (!mmu->mmu_ops || !mmu->mmu_ops->mmu_pt_equal)
+		return 0;
+	spin_lock(&kgsl_driver.ptlock);
+	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
+		if (mmu->mmu_ops->mmu_pt_equal(mmu, pt, pt_base)) {
+			if ((addr & ~(PAGE_SIZE-1)) == pt->fault_addr) {
+				ret = 1;
+				break;
+			} else {
+				pt->fault_addr = (addr & ~(PAGE_SIZE-1));
+				ret = 0;
+				break;
+			}
+
+		}
+	}
+	spin_unlock(&kgsl_driver.ptlock);
+
+	return ret;
+}
+EXPORT_SYMBOL(kgsl_mmu_log_fault_addr);
+
 int kgsl_mmu_init(struct kgsl_device *device)
 {
 	int status = 0;
@@ -438,6 +467,7 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 
 	pagetable->name = name;
 	pagetable->max_entries = KGSL_PAGETABLE_ENTRIES(ptsize);
+	pagetable->fault_addr = 0xFFFFFFFF;
 
 	/*
 	 * create a separate kgsl pool for IOMMU, global mappings can be mapped
@@ -693,6 +723,8 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 {
 	struct gen_pool *pool;
 	int size;
+	unsigned int start_addr = 0;
+	unsigned int end_addr = 0;
 
 	if (memdesc->size == 0 || memdesc->gpuaddr == 0)
 		return 0;
@@ -704,10 +736,19 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 	size = kgsl_sg_size(memdesc->sg, memdesc->sglen);
 
+	start_addr = memdesc->gpuaddr;
+	end_addr = (memdesc->gpuaddr + size);
+
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 	pagetable->pt_ops->mmu_unmap(pagetable->priv, memdesc,
 					&pagetable->tlb_flags);
+
+	/* If buffer is unmapped 0 fault addr */
+	if ((pagetable->fault_addr >= start_addr) &&
+		(pagetable->fault_addr < end_addr))
+		pagetable->fault_addr = 0;
+
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 	/* Remove the statistics */
