@@ -19,8 +19,6 @@
 #include "msm_vidc_debug.h"
 
 #define MSM_VENC_DVC_NAME "msm_venc_8974"
-#define DEFAULT_HEIGHT 720
-#define DEFAULT_WIDTH 1280
 #define MIN_NUM_OUTPUT_BUFFERS 4
 #define MIN_BIT_RATE 64000
 #define MAX_BIT_RATE 160000000

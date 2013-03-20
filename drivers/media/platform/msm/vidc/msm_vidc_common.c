@@ -402,8 +402,11 @@ static void handle_event_change(enum command_response cmd, void *data)
 		inst->reconfig_height = event_notify->height;
 		inst->reconfig_width = event_notify->width;
 		inst->in_reconfig = true;
-		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
-		wake_up(&inst->kernel_event_queue);
+		rc = msm_vidc_check_session_supported(inst);
+		if (!rc) {
+			v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+			wake_up(&inst->kernel_event_queue);
+		}
 		return;
 	} else {
 		dprintk(VIDC_ERR,
@@ -2378,6 +2381,8 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core_capability *capability;
+	int rc = 0;
+	struct v4l2_event dqevent;
 
 	if (!inst) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -2386,6 +2391,11 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	capability = &inst->capability;
 
 	if (inst->capability.capability_set) {
+		if (msm_vp8_low_tier &&
+			inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_VP8) {
+			capability->width.max = DEFAULT_WIDTH;
+			capability->height.max = DEFAULT_HEIGHT;
+		}
 		if (inst->prop.width < capability->width.min ||
 			inst->prop.width > capability->width.max ||
 			(inst->prop.width % capability->width.step_size != 0)) {
@@ -2393,7 +2403,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			"Unsupported width = %d range min(%u) - max(%u) step_size(%u)",
 			inst->prop.width, capability->width.min,
 			capability->width.max, capability->width.step_size);
-			return -ENOTSUPP;
+			rc = -ENOTSUPP;
 		}
 
 		if (inst->prop.height < capability->height.min ||
@@ -2404,8 +2414,17 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			"Unsupported height = %d range min(%u) - max(%u) step_size(%u)",
 			inst->prop.height, capability->height.min,
 			capability->height.max, capability->height.step_size);
-			return -ENOTSUPP;
+			rc = -ENOTSUPP;
 		}
 	}
-	return 0;
+	if (rc) {
+		mutex_lock(&inst->sync_lock);
+		inst->state = MSM_VIDC_CORE_INVALID;
+		mutex_unlock(&inst->sync_lock);
+		dqevent.type = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
+		dqevent.id = 0;
+		v4l2_event_queue_fh(&inst->event_handler, &dqevent);
+		wake_up(&inst->kernel_event_queue);
+	}
+	return rc;
 }
