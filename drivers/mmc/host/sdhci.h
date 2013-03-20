@@ -577,10 +577,14 @@ struct sdhci_ops {
 	void	(*hw_reset)(struct sdhci_host *host);
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);
 	unsigned int	(*get_max_segments)(void);
+#define REQ_BUS_OFF	(1 << 0)
+#define REQ_BUS_ON	(1 << 1)
+#define REQ_IO_LOW	(1 << 2)
+#define REQ_IO_HIGH	(1 << 3)
 	void    (*card_event)(struct sdhci_host *host);
 	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
 	void	(*toggle_cdr)(struct sdhci_host *host, bool enable);
-	void	(*check_power_status)(struct sdhci_host *host);
+	void	(*check_power_status)(struct sdhci_host *host, u32 req_type);
 	void	(*voltage_switch)(struct sdhci_host *host);
 	int	(*select_drive_strength)(struct sdhci_host *host,
 					 struct mmc_card *card,
