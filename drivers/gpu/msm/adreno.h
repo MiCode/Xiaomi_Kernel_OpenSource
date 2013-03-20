@@ -112,6 +112,7 @@ struct adreno_device {
 	unsigned int gpulist_index;
 	struct ocmem_buf *ocmem_hdl;
 	unsigned int ocmem_base;
+	unsigned int gpu_cycles;
 };
 
 struct adreno_gpudev {
