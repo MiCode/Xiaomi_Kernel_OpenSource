@@ -1845,6 +1845,7 @@ _adreno_ft(struct kgsl_device *device,
 		 *  that do not want to be fault tolerant (ex: OPENCL)
 		 */
 		if (adreno_context->flags & CTXT_FLAGS_NO_FAULT_TOLERANCE) {
+			ft_data->status = 1;
 			KGSL_FT_ERR(device,
 			"No FT set for this context play good cmds\n");
 			goto play_good_cmds;
@@ -1876,14 +1877,19 @@ _adreno_ft(struct kgsl_device *device,
 	if ((ft_data->ft_policy & KGSL_FT_DISABLE) ||
 		(ft_data->ft_policy & KGSL_FT_TEMP_DISABLE)) {
 		KGSL_FT_ERR(device, "NO FT policy play only good cmds\n");
+		ft_data->status = 1;
 		goto play_good_cmds;
 	}
 
-	/* Do not try the bad commands if  hang is due to a fault */
-	if (device->mmu.fault) {
-		KGSL_FT_ERR(device, "MMU fault skipping bad cmds\n");
-		device->mmu.fault = 0;
-		goto play_good_cmds;
+	/* Do not try the reply if hang is due to a pagefault */
+	if (adreno_context->pagefault) {
+		if ((ft_data->context_id == adreno_context->id) &&
+			(ft_data->global_eop == adreno_context->pagefault_ts)) {
+			ft_data->ft_policy &= ~KGSL_FT_REPLAY;
+			KGSL_FT_ERR(device, "MMU fault skipping replay\n");
+		}
+
+		adreno_context->pagefault = 0;
 	}
 
 	if (ft_data->ft_policy & KGSL_FT_REPLAY) {

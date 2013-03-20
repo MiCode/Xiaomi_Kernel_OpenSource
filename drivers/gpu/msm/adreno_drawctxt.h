@@ -93,6 +93,8 @@ struct adreno_context {
 	unsigned int id;
 	unsigned int ib_gpu_time_used;
 	uint32_t flags;
+	uint32_t pagefault;
+	unsigned long pagefault_ts;
 	struct kgsl_pagetable *pagetable;
 	struct kgsl_memdesc gpustate;
 	unsigned int reg_restore[3];
