@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/io.h>
+#include <linux/clk.h>
 #include <linux/errno.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
@@ -80,18 +81,21 @@ static struct acpuclk_drv_data drv_data = {
 		.update_mask = RCG_CONFIG_PGM_DATA_BIT | RCG_CONFIG_PGM_ENA_BIT,
 		.poll_mask = RCG_CONFIG_PGM_DATA_BIT,
 	},
+	.power_collapse_khz = 19200,
+	.wait_for_irq_khz = 19200,
 };
 
 static int __init acpuclk_9625_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	u32 regval;
+	u32 regval, i;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rcg_base");
 	if (!res)
 		return -EINVAL;
 
-	drv_data.apcs_rcg_config = ioremap(res->start, resource_size(res));
+	drv_data.apcs_rcg_config = devm_ioremap(&pdev->dev, res->start,
+		resource_size(res));
 	if (!drv_data.apcs_rcg_config)
 		return -ENOMEM;
 
@@ -115,6 +119,18 @@ static int __init acpuclk_9625_probe(struct platform_device *pdev)
 	if (IS_ERR(drv_data.vdd_mem)) {
 		dev_err(&pdev->dev, "regulator for %s get failed\n", "a5_mem");
 		return PTR_ERR(drv_data.vdd_mem);
+	}
+
+	for (i = 0; i < NUM_SRC; i++) {
+		if (!drv_data.src_clocks[i].name)
+			continue;
+		drv_data.src_clocks[i].clk =
+			devm_clk_get(&pdev->dev, drv_data.src_clocks[i].name);
+		if (IS_ERR(drv_data.src_clocks[i].clk)) {
+			dev_err(&pdev->dev, "Unable to get clock %s\n",
+				drv_data.src_clocks[i].name);
+			return -EPROBE_DEFER;
+		}
 	}
 
 	/* Disable hardware gating of gpll0 to A5SS */
