@@ -22,6 +22,11 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		pm8941_misc: qcom,misc@900 {
+			compatible = "qcom,qpnp-misc";
+			reg = <0x900 0x100>;
+		};
+
 		qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
