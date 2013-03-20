@@ -619,6 +619,8 @@ static int rmidev_init_device(struct synaptics_rmi4_data *rmi4_data)
 		}
 	}
 
+	init_completion(&remove_complete);
+
 	return 0;
 
 err_sysfs_attrs:
