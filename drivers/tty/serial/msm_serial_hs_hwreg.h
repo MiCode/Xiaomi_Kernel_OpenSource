@@ -68,6 +68,14 @@ enum msm_hsl_regs {
  */
 #define UARTDM_BCR_STALE_IRQ_EMPTY	0x2
 
+/* TRANSFER_CONTROL Register for UARTDM Core v1.4 */
+#define UARTDM_RX_TRANS_CTRL_ADDR      0xcc
+
+/* TRANSFER_CONTROL Register bits */
+#define RX_STALE_AUTO_RE_EN		0x1
+#define RX_TRANS_AUTO_RE_ACTIVATE	0x2
+#define RX_DMRX_CYCLIC_EN		0x4
+
 /* write only register */
 #define UARTDM_CSR_115200 0xFF
 #define UARTDM_CSR_57600  0xEE
