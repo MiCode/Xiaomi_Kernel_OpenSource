@@ -27,6 +27,7 @@
 #include <mach/event_timer.h>
 
 #include "mdss.h"
+#include "mdss_debug.h"
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
@@ -1620,6 +1621,7 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 				struct msmfb_metadata *metadata)
 {
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 	int ret = 0;
 	switch (metadata->op) {
 	case metadata_op_vic:
@@ -1628,6 +1630,11 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 				metadata->data.video_info_code;
 		else
 			ret = -EINVAL;
+		break;
+	case metadata_op_crc:
+		if (!mfd->panel_power_on)
+			return -EPERM;
+		ret = mdss_misr_crc_set(mdata, &metadata->data.misr_request);
 		break;
 	default:
 		pr_warn("unsupported request to MDP META IOCTL\n");
@@ -1655,6 +1662,7 @@ static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
 static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 				struct msmfb_metadata *metadata)
 {
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 	int ret = 0;
 	switch (metadata->op) {
 	case metadata_op_frame_rate:
@@ -1663,6 +1671,11 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		break;
 	case metadata_op_get_caps:
 		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);
+		break;
+	case metadata_op_crc:
+		if (!mfd->panel_power_on)
+			return -EPERM;
+		ret = mdss_misr_crc_get(mdata, &metadata->data.misr_request);
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");
