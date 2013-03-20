@@ -119,7 +119,7 @@ static bool ip4_rt_tbl_lcl = 1;
 module_param(ip4_rt_tbl_lcl, bool, 0644);
 MODULE_PARM_DESC(ip4_rt_tbl_lcl,
 		"where ip4 rt tables reside 1-local; 0-system");
-static bool ip6_rt_tbl_lcl = 1;
+static bool ip6_rt_tbl_lcl;
 module_param(ip6_rt_tbl_lcl, bool, 0644);
 MODULE_PARM_DESC(ip6_rt_tbl_lcl,
 		"where ip6 rt tables reside 1-local; 0-system");

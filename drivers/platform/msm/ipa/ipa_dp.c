@@ -900,6 +900,8 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	*clnt_hdl = ipa_ep_idx;
 
+	IPADBG("client %d (ep: %d) connected\n", sys_in->client, ipa_ep_idx);
+
 	return 0;
 
 fail_register_event:
@@ -936,6 +938,9 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 			  ipa_ctx->ep[clnt_hdl].connect.desc.phys_base);
 	sps_free_endpoint(ipa_ctx->ep[clnt_hdl].ep_hdl);
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
+
+	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
+
 	return 0;
 }
 EXPORT_SYMBOL(ipa_teardown_sys_pipe);

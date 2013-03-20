@@ -268,6 +268,11 @@ int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
 		return -EINVAL;
 	}
 
+	if (meta->msg_type >= IPA_EVENT_MAX) {
+		IPAERR("unsupported message type %d\n", meta->msg_type);
+		return -EINVAL;
+	}
+
 	msg = kzalloc(sizeof(struct ipa_push_msg), GFP_KERNEL);
 	if (msg == NULL) {
 		IPAERR("fail to alloc ipa_msg container\n");
@@ -281,6 +286,7 @@ int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
 	mutex_lock(&ipa_ctx->msg_lock);
 	list_add_tail(&msg->link, &ipa_ctx->msg_list);
 	mutex_unlock(&ipa_ctx->msg_lock);
+	IPA_STATS_INC_CNT(ipa_ctx->stats.msg_w[meta->msg_type]);
 
 	wake_up(&ipa_ctx->msg_waitq);
 
@@ -424,6 +430,8 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 				msg->callback(msg->buff, msg->meta.msg_len,
 					       msg->meta.msg_type);
 			}
+			IPA_STATS_INC_CNT(
+				ipa_ctx->stats.msg_r[msg->meta.msg_type]);
 		}
 
 		ret = -EAGAIN;
