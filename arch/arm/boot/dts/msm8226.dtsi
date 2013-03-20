@@ -402,7 +402,35 @@
 	qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
 	};
+	qcom,pronto@fb21b000 {
+		compatible = "qcom,pil-pronto";
+		reg = <0xfb21b000 0x3000>,
+		      <0xfc401700 0x4>,
+		      <0xfd485300 0xc>;
+		reg-names = "pmu_base", "clk_base", "halt_base";
+		interrupts = <0 149 1>;
+		vdd_pronto_pll-supply = <&pm8226_l12>;
 
+		qcom,firmware-name = "wcnss";
+	};
+	qcom,wcnss-wlan@fb000000 {
+		compatible = "qcom,wcnss_wlan";
+		reg = <0xfb000000 0x280000>;
+		reg-names = "wcnss_mmio";
+		interrupts = <0 145 0 0 146 0>;
+		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+
+		qcom,pronto-vddmx-supply = <&pm8226_l3>;
+		qcom,pronto-vddcx-supply = <&pm8226_s1>;
+		qcom,pronto-vddpx-supply = <&pm8226_l6>;
+		qcom,iris-vddxo-supply = <&pm8226_l10>;
+		qcom,iris-vddrfa-supply = <&pm8226_l24>;
+		qcom,iris-vddpa-supply = <&pm8226_l16>;
+		qcom,iris-vdddig-supply = <&pm8226_l24>;
+
+		gpios = <&msmgpio 40 0>, <&msmgpio 41 0>, <&msmgpio 42 0>, <&msmgpio 43 0>, <&msmgpio 44 0>;
+		qcom,has_pronto_hw;
+	};
 	qcom,wdt@f9017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;
