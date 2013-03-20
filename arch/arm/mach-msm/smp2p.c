@@ -1599,8 +1599,8 @@ void msm_smp2p_interrupt_handler(int remote_pid)
  */
 static int __devinit msm_smp2p_probe(struct platform_device *pdev)
 {
-	struct resource *irq_out_base;
-	struct resource *irq_offset;
+	struct resource *r;
+	void *irq_out_ptr;
 	char *key;
 	uint32_t edge;
 	int ret;
@@ -1617,15 +1617,18 @@ static int __devinit msm_smp2p_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	key = "irq-reg-base";
-	irq_out_base = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
-	if (!irq_out_base)
-		goto missing_key;
-
-	key = "irq-reg-offset";
-	irq_offset = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
-	if (!irq_offset)
-		goto missing_key;
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!r) {
+		SMP2P_ERR("%s: failed gathering irq-reg resource for edge %d\n"
+				, __func__, edge);
+		goto fail;
+	}
+	irq_out_ptr = ioremap_nocache(r->start, resource_size(r));
+	if (!irq_out_ptr) {
+		SMP2P_ERR("%s: failed remap from phys to virt for edge %d\n",
+				__func__, edge);
+		return -ENOMEM;
+	}
 
 	key = "qcom,irq-bitmask";
 	ret = of_property_read_u32(node, key, &irq_bitmask);
@@ -1656,9 +1659,7 @@ static int __devinit msm_smp2p_probe(struct platform_device *pdev)
 	 */
 	smp2p_int_cfgs[edge].in_int_id = irq_line;
 	smp2p_int_cfgs[edge].out_int_mask = irq_bitmask;
-	smp2p_int_cfgs[edge].out_int_ptr =
-		(uint32_t *)((uint32_t)irq_out_base->start +
-				(uint32_t)irq_offset->start);
+	smp2p_int_cfgs[edge].out_int_ptr = irq_out_ptr;
 	smp2p_int_cfgs[edge].is_configured = true;
 	return 0;
 
