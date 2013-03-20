@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -821,7 +821,7 @@ static int qpnp_pin_apply_config(struct qpnp_pin_chip *q_chip,
 	param.invert	   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
 				       Q_REG_OUT_INVERT_SHIFT,
 				       Q_REG_OUT_INVERT_MASK);
-	param.pull	   = q_reg_get(&q_spec->regs[Q_REG_I_MODE_CTL],
+	param.pull	   = q_reg_get(&q_spec->regs[Q_REG_I_DIG_PULL_CTL],
 				       Q_REG_PULL_SHIFT, Q_REG_PULL_MASK);
 	param.vin_sel	   = q_reg_get(&q_spec->regs[Q_REG_I_DIG_VIN_CTL],
 				       Q_REG_VIN_SHIFT, Q_REG_VIN_MASK);
