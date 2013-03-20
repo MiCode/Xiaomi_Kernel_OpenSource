@@ -216,14 +216,17 @@ static int hw_device_init(struct ci13xxx *ci, void __iomem *base)
  */
 int hw_device_reset(struct ci13xxx *ci, u32 mode)
 {
+	int delay_count = 25; /* 250 usec */
+
 	/* should flush & stop before reset */
 	hw_write(ci, OP_ENDPTFLUSH, ~0, ~0);
 	hw_write(ci, OP_USBCMD, USBCMD_RS, 0);
 
 	hw_write(ci, OP_USBCMD, USBCMD_RST, USBCMD_RST);
-	while (hw_read(ci, OP_USBCMD, USBCMD_RST))
-		udelay(10);		/* not RTOS friendly */
-
+	while (delay_count-- && hw_read(ci, OP_USBCMD, USBCMD_RST))
+		udelay(10);
+	if (delay_count < 0)
+		pr_err("USB controller reset failed\n");
 
 	if (ci->platdata->notify_event)
 		ci->platdata->notify_event(ci,

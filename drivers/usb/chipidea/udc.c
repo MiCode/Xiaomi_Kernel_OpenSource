@@ -355,6 +355,8 @@ static void hw_usb_set_address(struct ci13xxx *ci, u8 value)
  */
 static int hw_usb_reset(struct ci13xxx *ci)
 {
+	int delay_count = 10; /* 100 usec delay */
+
 	hw_usb_set_address(ci, 0);
 
 	/* ESS flushes only at end?!? */
@@ -367,8 +369,10 @@ static int hw_usb_reset(struct ci13xxx *ci)
 	hw_write(ci, OP_ENDPTCOMPLETE,  0,  0);
 
 	/* wait until all bits cleared */
-	while (hw_read(ci, OP_ENDPTPRIME, ~0))
-		udelay(10);             /* not RTOS friendly */
+	while (delay_count-- && hw_read(ci, OP_ENDPTPRIME, ~0))
+		udelay(10);
+	if (delay_count < 0)
+		pr_err("ENDPTPRIME is not cleared during bus reset\n");
 
 	/* reset all endpoints ? */
 
