@@ -1047,7 +1047,7 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 		/* Producer pipe will handle this connection */
 		sps_connect_info->mode = SPS_MODE_SRC;
 		sps_connect_info->options =
-			SPS_O_AUTO_ENABLE | SPS_O_EOT | SPS_O_DESC_DONE;
+			SPS_O_AUTO_ENABLE | SPS_O_DESC_DONE;
 	} else {
 		/* For CE consumer transfer, source should be
 		 * system memory where as destination should
@@ -2333,6 +2333,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 
 	/* Register callback event for EOT (End of transfer) event. */
 	pce_dev->ce_sps.producer.event.callback = _aead_sps_producer_callback;
+	pce_dev->ce_sps.producer.event.options = SPS_O_DESC_DONE;
 	rc = sps_register_event(pce_dev->ce_sps.producer.pipe,
 					&pce_dev->ce_sps.producer.event);
 	if (rc) {
@@ -2341,6 +2342,7 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 	}
 	/* Register callback event for EOT (End of transfer) event. */
 	pce_dev->ce_sps.consumer.event.callback = _aead_sps_consumer_callback;
+	pce_dev->ce_sps.consumer.event.options = SPS_O_DESC_DONE;
 	rc = sps_register_event(pce_dev->ce_sps.consumer.pipe,
 					&pce_dev->ce_sps.consumer.event);
 	if (rc) {
@@ -2400,8 +2402,6 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		if (totallen_in > SPS_MAX_PKT_SIZE) {
 			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
 							SPS_IOVEC_FLAG_INT);
-			pce_dev->ce_sps.producer.event.options =
-							SPS_O_DESC_DONE;
 			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
 		} else {
 			_qce_sps_add_data(
@@ -2489,6 +2489,7 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	/* Register callback event for EOT (End of transfer) event. */
 	pce_dev->ce_sps.producer.event.callback =
 				_ablk_cipher_sps_producer_callback;
+	pce_dev->ce_sps.producer.event.options = SPS_O_DESC_DONE;
 	rc = sps_register_event(pce_dev->ce_sps.producer.pipe,
 					&pce_dev->ce_sps.producer.event);
 	if (rc) {
@@ -2498,6 +2499,7 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	/* Register callback event for EOT (End of transfer) event. */
 	pce_dev->ce_sps.consumer.event.callback =
 			_ablk_cipher_sps_consumer_callback;
+	pce_dev->ce_sps.consumer.event.options = SPS_O_DESC_DONE;
 	rc = sps_register_event(pce_dev->ce_sps.consumer.pipe,
 					&pce_dev->ce_sps.consumer.event);
 	if (rc) {
@@ -2519,7 +2521,6 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 	if (areq->nbytes > SPS_MAX_PKT_SIZE) {
 		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
 							SPS_IOVEC_FLAG_INT);
-		pce_dev->ce_sps.producer.event.options = SPS_O_DESC_DONE;
 		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
 	} else {
 		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
@@ -2571,6 +2572,7 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 
 	/* Register callback event for EOT (End of transfer) event. */
 	pce_dev->ce_sps.producer.event.callback = _sha_sps_producer_callback;
+	pce_dev->ce_sps.producer.event.options = SPS_O_DESC_DONE;
 	rc = sps_register_event(pce_dev->ce_sps.producer.pipe,
 					&pce_dev->ce_sps.producer.event);
 	if (rc) {
@@ -2580,6 +2582,7 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 
 	/* Register callback event for EOT (End of transfer) event. */
 	pce_dev->ce_sps.consumer.event.callback = _sha_sps_consumer_callback;
+	pce_dev->ce_sps.consumer.event.options = SPS_O_DESC_DONE;
 	rc = sps_register_event(pce_dev->ce_sps.consumer.pipe,
 					&pce_dev->ce_sps.consumer.event);
 	if (rc) {
