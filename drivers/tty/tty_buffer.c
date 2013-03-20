@@ -474,11 +474,6 @@ static void flush_to_ldisc(struct work_struct *work)
 				tty_buffer_free(tty, head);
 				continue;
 			}
-			/* Ldisc or user is trying to flush the buffers
-			   we are feeding to the ldisc, stop feeding the
-			   line discipline as we want to empty the queue */
-			if (test_bit(TTY_FLUSHPENDING, &tty->flags))
-				break;
 
 			/* update receive room */
 			spin_lock(&tty->read_lock);
@@ -513,16 +508,18 @@ static void flush_to_ldisc(struct work_struct *work)
 			disc->ops->receive_buf(tty, char_buf,
 							flag_buf, count);
 			spin_lock_irqsave(&tty->buf.lock, flags);
+			/* Ldisc or user is trying to flush the buffers.
+			   We may have a deferred request to flush the
+			   input buffer, if so pull the chain under the lock
+			   and empty the queue */
+			if (test_bit(TTY_FLUSHPENDING, &tty->flags)) {
+				__tty_buffer_flush(tty);
+				clear_bit(TTY_FLUSHPENDING, &tty->flags);
+				wake_up(&tty->read_wait);
+				break;
+			}
 		}
 		clear_bit(TTY_FLUSHING, &tty->flags);
-	}
-
-	/* We may have a deferred request to flush the input buffer,
-	   if so pull the chain under the lock and empty the queue */
-	if (test_bit(TTY_FLUSHPENDING, &tty->flags)) {
-		__tty_buffer_flush(tty);
-		clear_bit(TTY_FLUSHPENDING, &tty->flags);
-		wake_up(&tty->read_wait);
 	}
 	spin_unlock_irqrestore(&tty->buf.lock, flags);
 
