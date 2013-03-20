@@ -99,6 +99,23 @@ Optional properties:
 - qcom,reset-flush-race : indicates if a race exists between flushing and ddr
 			  being put into self-refresh during watchdog reset
 - qcom,write-64bit : only 64bit data writes supported by stm
+- vdd-supply: phandle to the regulator device tree node. Used for tpiu component
+- qcom,vdd-voltage-level : specifies voltage level for vdd supply. Should be
+			   specified in pairs (min, max) with units being uV
+- qcom,vdd-current-level : specifies current load levels for vdd supply. Should
+			   be specified in paris (lpm, hpm) with units being uA
+- qcom,seta-gpios : specifies gpios included in set A that are routed to the
+		    mictor connector. Used for tpiu component
+- qcom,seta-gpios-func : active function select for set A gpios
+- qcom,seta-gpios-drv : active drive strength for set A gpios
+- qcom,seta-gpios-pull : active pull configuration for set A gpios
+- qcom,seta-gpios-dir : active direction for set A gpios
+- qcom,setb-gpios : specifies gpios included in set B that are routed to the
+		    mictor connector. Used for tpiu component
+- qcom,setb-gpios-func : active function select for set B gpios
+- qcom,setb-gpios-drv : active drive strength for set B gpios
+- qcom,setb-gpios-pull : active pull configuration for set B gpios
+- qcom,setb-gpios-dir : active direction for set B gpios
 
 Examples:
 
@@ -123,6 +140,11 @@ Examples:
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
 		coresight-nr-inports = <1>;
+
+		vdd-supply = <&pm8941_l21>;
+
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <9000 800000>;
 	};
 
 2. Links
