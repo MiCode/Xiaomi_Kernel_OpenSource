@@ -523,7 +523,7 @@ config WL127X_RFKILL
 	 TI wl127x chips.
 
 config TSIF
-	depends on ARCH_MSM
+	depends on ARCH_MSM8X60 || ARCH_MSM8960 || ARCH_APQ8064
 	tristate "TSIF (Transport Stream InterFace) support"
 	default n
 	---help---
