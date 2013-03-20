@@ -3523,6 +3523,9 @@ static void __init msm8226_clock_pre_init(void)
 	 */
 	clk_set_rate(&mmssnoc_ahb_a_clk.c, 40000000);
 
+	/* Set an initial rate (fmax at nominal) on the MMSSNOC AXI clock */
+	clk_set_rate(&axi_clk_src.c, 200000000);
+
 	enable_rpm_scaling();
 
 	reg_init();
