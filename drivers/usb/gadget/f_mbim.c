@@ -84,6 +84,7 @@ struct f_mbim {
 	wait_queue_head_t read_wq;
 	wait_queue_head_t write_wq;
 
+	enum transport_type		xport;
 	u8				port_num;
 	struct data_port		bam_port;
 	struct mbim_notify_port		not_port;
@@ -142,6 +143,9 @@ static inline unsigned mbim_bitrate(struct usb_gadget *g)
 #define NTB_DEFAULT_IN_SIZE	(0x4000)
 #define NTB_OUT_SIZE		(0x1000)
 #define NDP_IN_DIVISOR		(0x4)
+
+#define NTB_DEFAULT_IN_SIZE_IPA	(0x2000)
+#define NTB_OUT_SIZE_IPA		(0x2000)
 
 #define FORMATS_SUPPORTED	USB_CDC_NCM_NTB16_SUPPORTED
 
@@ -659,26 +663,49 @@ static int mbim_bam_setup(int no_ports)
 	return 0;
 }
 
+int mbim_configure_params(void)
+{
+	struct teth_aggr_params aggr_params;
+	int ret = 0;
+
+	aggr_params.dl.aggr_prot = TETH_AGGR_PROTOCOL_MBIM;
+	aggr_params.dl.max_datagrams = ntb_parameters.wNtbOutMaxDatagrams;
+	aggr_params.dl.max_transfer_size_byte = ntb_parameters.dwNtbInMaxSize;
+
+	aggr_params.ul.aggr_prot = TETH_AGGR_PROTOCOL_MBIM;
+	aggr_params.ul.max_datagrams = ntb_parameters.wNtbOutMaxDatagrams;
+	aggr_params.ul.max_transfer_size_byte = ntb_parameters.dwNtbOutMaxSize;
+
+	ret = teth_bridge_set_aggr_params(&aggr_params);
+	if (ret)
+		pr_err("%s: teth_bridge_set_aggr_params failed\n", __func__);
+
+	return ret;
+}
+
 static int mbim_bam_connect(struct f_mbim *dev)
 {
 	int ret;
 	u8 src_connection_idx, dst_connection_idx;
 	struct usb_gadget *gadget = dev->cdev->gadget;
+	enum peer_bam bam_name = (dev->xport == USB_GADGET_XPORT_BAM2BAM_IPA) ?
+							IPA_P_BAM : A2_P_BAM;
 
 	pr_info("dev:%p portno:%d\n", dev, dev->port_num);
 
-	src_connection_idx = usb_bam_get_connection_idx(gadget->name, A2_P_BAM,
-		USB_TO_PEER_PERIPHERAL, dev->port_num);
-	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, A2_P_BAM,
-		PEER_PERIPHERAL_TO_USB, dev->port_num);
+	src_connection_idx = usb_bam_get_connection_idx(gadget->name, bam_name,
+					USB_TO_PEER_PERIPHERAL, dev->port_num);
+	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, bam_name,
+					PEER_PERIPHERAL_TO_USB, dev->port_num);
 	if (src_connection_idx < 0 || dst_connection_idx < 0) {
 		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
 		return ret;
 	}
 
 	ret = bam_data_connect(&dev->bam_port, dev->port_num,
-		USB_GADGET_XPORT_BAM2BAM, src_connection_idx,
-		dst_connection_idx, USB_FUNC_MBIM);
+		dev->xport, src_connection_idx, dst_connection_idx,
+		USB_FUNC_MBIM);
+
 	if (ret) {
 		pr_err("bam_data_setup failed: err:%d\n",
 				ret);
@@ -1603,7 +1630,8 @@ static void mbim_unbind(struct usb_configuration *c, struct usb_function *f)
  * Context: single threaded during gadget setup
  * Returns zero on success, else negative errno.
  */
-int mbim_bind_config(struct usb_configuration *c, unsigned portno)
+int mbim_bind_config(struct usb_configuration *c, unsigned portno,
+					 char *xport_name)
 {
 	struct f_mbim	*mbim = NULL;
 	int status = 0;
@@ -1662,6 +1690,19 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno)
 	mbim->function.disable = mbim_disable;
 	mbim->function.suspend = mbim_suspend;
 	mbim->function.resume = mbim_resume;
+	mbim->xport = str_to_xport(xport_name);
+
+	if (mbim->xport != USB_GADGET_XPORT_BAM2BAM_IPA) {
+		/* Use BAM2BAM by default if not IPA */
+		mbim->xport = USB_GADGET_XPORT_BAM2BAM;
+	} else  {
+		/* For IPA we use limit of 16 */
+		ntb_parameters.wNtbOutMaxDatagrams = 16;
+		/* For IPA this is proven to give maximum throughput */
+		ntb_parameters.dwNtbInMaxSize =
+		cpu_to_le32(NTB_DEFAULT_IN_SIZE_IPA);
+		ntb_parameters.dwNtbOutMaxSize = cpu_to_le32(NTB_OUT_SIZE_IPA);
+	}
 
 	INIT_LIST_HEAD(&mbim->cpkt_req_q);
 	INIT_LIST_HEAD(&mbim->cpkt_resp_q);
