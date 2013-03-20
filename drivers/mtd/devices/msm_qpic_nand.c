@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2264,19 +2264,22 @@ static int msm_nand_bam_init(struct msm_nand_info *nand_info)
 	 */
 	bam.manage = SPS_BAM_MGR_DEVICE_REMOTE | SPS_BAM_MGR_MULTI_EE;
 
+	rc = sps_phy2h(bam.phys_addr, &nand_info->sps.bam_handle);
+	if (!rc)
+		goto init_sps_ep;
 	rc = sps_register_bam_device(&bam, &nand_info->sps.bam_handle);
 	if (rc) {
-		pr_err("sps_register_bam_device() failed with %d\n", rc);
+		pr_err("%s: sps_register_bam_device() failed with %d\n",
+			__func__, rc);
 		goto out;
 	}
-	pr_info("BAM device registered: bam_handle 0x%x\n",
-			nand_info->sps.bam_handle);
-
+	pr_info("%s: BAM device registered: bam_handle 0x%x\n",
+			__func__, nand_info->sps.bam_handle);
+init_sps_ep:
 	rc = msm_nand_init_endpoint(nand_info, &nand_info->sps.data_prod,
 					SPS_DATA_PROD_PIPE_INDEX);
 	if (rc)
-		goto unregister_bam;
-
+		goto out;
 	rc = msm_nand_init_endpoint(nand_info, &nand_info->sps.data_cons,
 					SPS_DATA_CONS_PIPE_INDEX);
 	if (rc)
@@ -2291,22 +2294,20 @@ deinit_data_cons:
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.data_cons);
 deinit_data_prod:
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.data_prod);
-unregister_bam:
-	sps_deregister_bam_device(nand_info->sps.bam_handle);
 out:
 	return rc;
 }
 
 /*
- * This function de-registers BAM device, disconnects and frees its end points
- * for all the pipes.
+ * This function disconnects and frees its end points for all the pipes.
+ * Since the BAM is shared resource, it is not deregistered as its handle
+ * might be in use with LCDC.
  */
 static void msm_nand_bam_free(struct msm_nand_info *nand_info)
 {
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.data_prod);
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.data_cons);
 	msm_nand_deinit_endpoint(nand_info, &nand_info->sps.cmd_pipe);
-	sps_deregister_bam_device(nand_info->sps.bam_handle);
 }
 
 /* This function enables DMA support for the NANDc in BAM mode. */
