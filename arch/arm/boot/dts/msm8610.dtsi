@@ -71,7 +71,12 @@
 
 	qcom,vidc@fdc00000 {
 		compatible = "qcom,msm-vidc";
-		hfi = "q6";
+		qcom,vidc-ns-map = <0x40000000 0x40000000>;
+		qcom,iommu-groups = <&q6_domain_ns>;
+		qcom,iommu-group-buffer-types = <0xfff>;
+		qcom,buffer-type-tz-usage-map = <0x1 0x1>,
+						<0x1fe 0x2>;
+		qcom,hfi = "q6";
 	};
 
 	usb@f9a55000 {

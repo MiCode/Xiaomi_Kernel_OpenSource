@@ -27,7 +27,7 @@
 			qcom,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
 		};
 
-		qcom,iommu-domain3 {
+		q6_domain_ns:qcom,iommu-domain3 {
 			label = "lpass_video";
 			qcom,iommu-contexts = <&lpass_video_shared>;
 			qcom,virtual-addr-pool = <0x20000000 0x0FFFFFFF>;
