@@ -2106,7 +2106,9 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	}
 
 	if (mehci->async_irq) {
-		disable_irq_wake(mehci->async_irq);
+		/* Async IRQ is used only in absence of dedicated wakeup irq */
+		if (!mehci->wakeup_irq)
+			disable_irq_wake(mehci->async_irq);
 		free_irq(mehci->async_irq, mehci);
 	}
 	/*
