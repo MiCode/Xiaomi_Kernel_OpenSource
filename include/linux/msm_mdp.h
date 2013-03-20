@@ -436,6 +436,31 @@ struct mdp_histogram {
 	uint32_t *b;
 };
 
+enum {
+	DISPLAY_MISR_EDP,
+	DISPLAY_MISR_DSI0,
+	DISPLAY_MISR_DSI1,
+	DISPLAY_MISR_HDMI,
+	DISPLAY_MISR_LCDC,
+	DISPLAY_MISR_ATV,
+	DISPLAY_MISR_DSI_CMD,
+	DISPLAY_MISR_MAX
+};
+
+enum {
+	MISR_OP_NONE,
+	MISR_OP_SFM,
+	MISR_OP_MFM,
+	MISR_OP_BM,
+	MISR_OP_MAX
+};
+
+struct mdp_misr {
+	uint32_t block_id;
+	uint32_t frame_count;
+	uint32_t crc_op_mode;
+	uint32_t crc_value[32];
+};
 
 /*
 
@@ -684,6 +709,7 @@ enum {
 	metadata_op_vic,
 	metadata_op_wb_format,
 	metadata_op_get_caps,
+	metadata_op_crc,
 	metadata_op_max
 };
 
@@ -708,6 +734,7 @@ struct msmfb_metadata {
 	uint32_t op;
 	uint32_t flags;
 	union {
+		struct mdp_misr misr_request;
 		struct mdp_blend_cfg blend_cfg;
 		struct mdp_mixer_cfg mixer_cfg;
 		uint32_t panel_frame_rate;
