@@ -520,4 +520,15 @@
 		gpio = <&pm8941_mpps 5 0>;
 		enable-active-high;
 	};
+
+	/*
+	 * vph_pwr_vreg represents the unregulated battery voltage supply
+	 * VPH_PWR that is present whenever the device is powered on.
+	 */
+	vph_pwr_vreg: vph_pwr_vreg {
+		compatible = "regulator-fixed";
+		status = "disabled";
+		regulator-name = "vph_pwr";
+		regulator-always-on;
+	};
 };
