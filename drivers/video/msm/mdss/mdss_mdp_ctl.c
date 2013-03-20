@@ -71,7 +71,7 @@ static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 		}
 	}
 	if (flags & MDSS_MDP_PERF_UPDATE_BUS) {
-		bus_ab_quota = bus_ab_quota << MDSS_MDP_BUS_FACTOR_SHIFT;
+		bus_ab_quota = bus_ib_quota << MDSS_MDP_BUS_FACTOR_SHIFT;
 		bus_ib_quota = MDSS_MDP_BUS_FUDGE_FACTOR(bus_ib_quota);
 		bus_ib_quota <<= MDSS_MDP_BUS_FACTOR_SHIFT;
 
