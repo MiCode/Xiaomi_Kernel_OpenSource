@@ -137,8 +137,8 @@ struct adreno_gpudev {
 };
 
 /*
- * struct adreno_recovery_data - Structure that contains all information to
- * perform gpu recovery from hangs
+ * struct adreno_ft_data - Structure that contains all information to
+ * perform gpu fault tolerance
  * @ib1 - IB1 that the GPU was executing when hang happened
  * @context_id - Context which caused the hang
  * @global_eop - eoptimestamp at time of hang
@@ -150,15 +150,15 @@ struct adreno_gpudev {
  * good_rb_size - Number of valid dwords in good_rb_buffer
  * @last_valid_ctx_id - The last context from which commands were placed in
  * ringbuffer before the GPU hung
- * @step - Current recovery step being executed
- * @err_code - Recovery error code
+ * @step - Current fault tolerance step being executed
+ * @err_code - Fault tolerance error code
  * @fault - Indicates whether the hang was caused due to a pagefault
  * @start_of_replay_cmds - Offset in ringbuffer from where commands can be
- * replayed during recovery
+ * replayed during fault tolerance
  * @replay_for_snapshot - Offset in ringbuffer where IB's can be saved for
  * replaying with snapshot
  */
-struct adreno_recovery_data {
+struct adreno_ft_data {
 	unsigned int ib1;
 	unsigned int context_id;
 	unsigned int global_eop;
@@ -177,10 +177,11 @@ struct adreno_recovery_data {
 };
 
 /* Fault Tolerance policy flags */
-#define  KGSL_FT_DISABLE                  0x00000001
-#define  KGSL_FT_REPLAY                   0x00000002
-#define  KGSL_FT_SKIPIB                   0x00000004
-#define  KGSL_FT_SKIPFRAME                0x00000008
+#define  KGSL_FT_DISABLE                  BIT(0)
+#define  KGSL_FT_REPLAY                   BIT(1)
+#define  KGSL_FT_SKIPIB                   BIT(2)
+#define  KGSL_FT_SKIPFRAME                BIT(3)
+#define  KGSL_FT_TEMP_DISABLE             BIT(4)
 #define  KGSL_FT_DEFAULT_POLICY           (KGSL_FT_REPLAY + KGSL_FT_SKIPIB)
 
 extern struct adreno_gpudev adreno_a2xx_gpudev;
@@ -236,7 +237,10 @@ struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
 void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 		int hang);
 
-int adreno_dump_and_recover(struct kgsl_device *device);
+int adreno_dump_and_exec_ft(struct kgsl_device *device);
+
+void adreno_dump_rb(struct kgsl_device *device, const void *buf,
+			 size_t len, int start, int size);
 
 unsigned int adreno_hang_detect(struct kgsl_device *device,
 						unsigned int *prev_reg_val);
