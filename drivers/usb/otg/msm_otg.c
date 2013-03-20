@@ -3651,7 +3651,7 @@ static void msm_otg_pnoc_errata_fix(struct msm_otg *motg)
 	cmd_buf.vmid_idx = MSM_OTG_VMID_IDX;
 	cmd_buf.mem_type = MSM_OTG_MEM_TYPE;
 
-	ret = scm_call(SCM_SVC_CP, MSM_OTG_CMD_ID, &cmd_buf,
+	ret = scm_call(SCM_SVC_MP, MSM_OTG_CMD_ID, &cmd_buf,
 				sizeof(cmd_buf), NULL, 0);
 
 	if (ret)

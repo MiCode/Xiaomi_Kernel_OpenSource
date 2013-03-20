@@ -55,7 +55,7 @@ static int ion_cp_protect_mem_v1(unsigned int phy_base, unsigned int size,
 	cmd.permission_type = permission_type;
 	cmd.lock = SCM_CP_PROTECT;
 
-	return scm_call(SCM_SVC_CP, SCM_CP_LOCK_CMD_ID,
+	return scm_call(SCM_SVC_MP, SCM_CP_LOCK_CMD_ID,
 			&cmd, sizeof(cmd), NULL, 0);
 }
 
@@ -68,7 +68,7 @@ static int ion_cp_unprotect_mem_v1(unsigned int phy_base, unsigned int size,
 	cmd.permission_type = permission_type;
 	cmd.lock = SCM_CP_UNPROTECT;
 
-	return scm_call(SCM_SVC_CP, SCM_CP_LOCK_CMD_ID,
+	return scm_call(SCM_SVC_MP, SCM_CP_LOCK_CMD_ID,
 			&cmd, sizeof(cmd), NULL, 0);
 }
 
@@ -154,7 +154,7 @@ int ion_cp_change_chunks_state(unsigned long chunks, unsigned int nchunks,
 	request.chunks.chunk_list_size = nchunks;
 	request.chunks.chunk_size = chunk_size;
 
-	return scm_call(SCM_SVC_CP, MEM_PROTECT_LOCK_ID,
+	return scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID,
 			&request, sizeof(request), &resp, sizeof(resp));
 
 }

@@ -2604,7 +2604,7 @@ static int protect_cp_mem(struct venus_hfi_device *device)
 		}
 	}
 
-	rc = scm_call(SCM_SVC_CP, TZBSP_MEM_PROTECT_VIDEO_VAR, &memprot,
+	rc = scm_call(SCM_SVC_MP, TZBSP_MEM_PROTECT_VIDEO_VAR, &memprot,
 			sizeof(memprot), &resp, sizeof(resp));
 	if (rc)
 		dprintk(VIDC_ERR,
