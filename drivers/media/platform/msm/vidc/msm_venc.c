@@ -1040,6 +1040,26 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		switch (value) {
+		case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC:
+			return HAL_H264_ENTROPY_CAVLC;
+		case V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC:
+			return HAL_H264_ENTROPY_CABAC;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL_0:
+			return HAL_H264_CABAC_MODEL_0;
+		case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL_1:
+			return HAL_H264_CABAC_MODEL_1;
+		case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL_2:
+			return HAL_H264_CABAC_MODEL_2;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL:
 		switch (value) {
 		case V4L2_MPEG_VIDC_VIDEO_H263_LEVEL_1_0:
@@ -1241,8 +1261,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 		property_id =
 			HAL_PARAM_VENC_H264_ENTROPY_CONTROL;
-		h264_entropy_control.entropy_mode = ctrl->val;
-		h264_entropy_control.cabac_model = temp_ctrl->val;
+		h264_entropy_control.entropy_mode = venc_v4l2_to_hal(
+			V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE, ctrl->val);
+		h264_entropy_control.cabac_model = venc_v4l2_to_hal(
+			V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL,
+			temp_ctrl->val);
 		pdata = &h264_entropy_control;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL:
@@ -1250,8 +1273,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 		property_id =
 			HAL_PARAM_VENC_H264_ENTROPY_CONTROL;
-		h264_entropy_control.cabac_model = ctrl->val;
-		h264_entropy_control.entropy_mode = temp_ctrl->val;
+		h264_entropy_control.cabac_model = venc_v4l2_to_hal(
+			V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE, ctrl->val);
+		h264_entropy_control.entropy_mode = venc_v4l2_to_hal(
+			V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL,
+			temp_ctrl->val);
 		pdata = &h264_entropy_control;
 		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:

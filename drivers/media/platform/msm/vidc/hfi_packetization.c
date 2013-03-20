@@ -34,6 +34,17 @@ static int profile_table[] = {
 		HFI_H264_PROFILE_CONSTRAINED_HIGH,
 };
 
+static int entropy_mode[] = {
+	[ilog2(HAL_H264_ENTROPY_CAVLC)] = HFI_H264_ENTROPY_CAVLC,
+	[ilog2(HAL_H264_ENTROPY_CABAC)] = HFI_H264_ENTROPY_CABAC,
+};
+
+static int cabac_model[] = {
+	[ilog2(HAL_H264_CABAC_MODEL_0)] = HFI_H264_CABAC_MODEL_0,
+	[ilog2(HAL_H264_CABAC_MODEL_1)] = HFI_H264_CABAC_MODEL_1,
+	[ilog2(HAL_H264_CABAC_MODEL_2)] = HFI_H264_CABAC_MODEL_2,
+};
+
 static inline int hal_to_hfi_type(int property, int hal_type)
 {
 	if (hal_type && (roundup_pow_of_two(hal_type) != hal_type)) {
@@ -49,6 +60,12 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
 		return (hal_type >= ARRAY_SIZE(profile_table)) ?
 			-ENOTSUPP : profile_table[hal_type];
+	case HAL_PARAM_VENC_H264_ENTROPY_CONTROL:
+		return (hal_type >= ARRAY_SIZE(entropy_mode)) ?
+			-ENOTSUPP : entropy_mode[hal_type];
+	case HAL_PARAM_VENC_H264_ENTROPY_CABAC_MODEL:
+		return (hal_type >= ARRAY_SIZE(cabac_model)) ?
+			-ENOTSUPP : cabac_model[hal_type];
 	default:
 		return -ENOTSUPP;
 	}
@@ -918,35 +935,13 @@ int create_pkt_cmd_session_set_property(
 			HFI_PROPERTY_PARAM_VENC_H264_ENTROPY_CONTROL;
 		hfi = (struct hfi_h264_entropy_control *)
 			&pkt->rg_property_data[1];
-		switch (prop->entropy_mode) {
-		case HAL_H264_ENTROPY_CAVLC:
-			hfi->cabac_model = HFI_H264_ENTROPY_CAVLC;
-			break;
-		case HAL_H264_ENTROPY_CABAC:
-			hfi->cabac_model = HFI_H264_ENTROPY_CABAC;
-			switch (prop->cabac_model) {
-			case HAL_H264_CABAC_MODEL_0:
-				hfi->cabac_model = HFI_H264_CABAC_MODEL_0;
-				break;
-			case HAL_H264_CABAC_MODEL_1:
-				hfi->cabac_model = HFI_H264_CABAC_MODEL_1;
-				break;
-			case HAL_H264_CABAC_MODEL_2:
-				hfi->cabac_model = HFI_H264_CABAC_MODEL_2;
-				break;
-			default:
-				dprintk(VIDC_ERR,
-					"Invalid cabac model 0x%x",
-					prop->entropy_mode);
-				break;
-			}
-		break;
-		default:
-			dprintk(VIDC_ERR,
-				"Invalid entropy selected: 0x%x",
-				prop->cabac_model);
-			break;
-		}
+		hfi->entropy_mode = hal_to_hfi_type(
+		   HAL_PARAM_VENC_H264_ENTROPY_CONTROL,
+		   prop->entropy_mode);
+		if (hfi->entropy_mode == HAL_H264_ENTROPY_CABAC)
+			hfi->cabac_model = hal_to_hfi_type(
+			   HAL_PARAM_VENC_H264_ENTROPY_CABAC_MODEL,
+			   prop->cabac_model);
 		pkt->size += sizeof(u32) + sizeof(
 			struct hfi_h264_entropy_control);
 		break;
