@@ -28,11 +28,12 @@
 		qcom,saw2-spm-dly= <0x3C102800>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
-		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 03 d4 5b 0b 00 42 1b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 80 10 E0 03 3B E4 5B 82 10 0B
-			30 06 26 30 0F];
-		qcom,saw2-spm-cmd-pc = [00 20 50 80 60 70 10 E0 07 6E 70 3B
-			E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 c0 a0 90 03 d0 98 a2 c0
+				0b 00 42 1b 0f];
+		qcom,saw2-spm-cmd-spc = [00 20 80 10 90 a0 b0 03 3b 98 a2 b0 82
+				10 0b 30 06 26 30 0f];
+		qcom,saw2-spm-cmd-pc = [00 20 80 10 90 a0 b0 07 3b 98 a2 b0 82
+				10 0b 30 06 26 30 0f];
 	};
 
 	qcom,spm@f9099000 {
@@ -50,11 +51,12 @@
 		qcom,saw2-spm-dly= <0x3C102800>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
-		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 03 d4 5b 0b 00 42 1b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 80 10 E0 03 3B E4 5B 82 10 0B
-			30 06 26 30 0F];
-		qcom,saw2-spm-cmd-pc = [00 20 50 80 60 70 10 E0 07 6E 70 3B
-				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 c0 a0 90 03 d0 98 a2 c0
+				0b 00 42 1b 0f];
+		qcom,saw2-spm-cmd-spc = [00 20 80 10 90 a0 b0 03 3b 98 a2 b0 82
+				10 0b 30 06 26 30 0f];
+		qcom,saw2-spm-cmd-pc = [00 20 80 10 90 a0 b0 07 3b 98 a2 b0 82
+				10 0b 30 06 26 30 0f];
 	};
 
 	qcom,spm@f90a9000 {
@@ -72,11 +74,12 @@
 		qcom,saw2-spm-dly= <0x3C102800>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
-		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 03 d4 5b 0b 00 42 1b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 80 10 E0 03 3B E4 5B 82 10 0B
-			30 06 26 30 0F];
-		qcom,saw2-spm-cmd-pc = [00 20 50 80 60 70 10 E0 07 6E 70 3B
-				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 c0 a0 90 03 d0 98 a2 c0
+				0b 00 42 1b 0f];
+		qcom,saw2-spm-cmd-spc = [00 20 80 10 90 a0 b0 03 3b 98 a2 b0 82
+				10 0b 30 06 26 30 0f];
+		qcom,saw2-spm-cmd-pc = [00 20 80 10 90 a0 b0 07 3b 98 a2 b0 82
+				10 0b 30 06 26 30 0f];
 	};
 
 	qcom,spm@f90b9000 {
@@ -94,11 +97,12 @@
 		qcom,saw2-spm-dly= <0x3C102800>;
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
-		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 03 d4 5b 0b 00 42 1b 0f];
-		qcom,saw2-spm-cmd-spc = [00 20 80 10 E0 03 3B E4 5B 82 10 0B
-			30 06 26 30 0F];
-		qcom,saw2-spm-cmd-pc = [00 20 50 80 60 70 10 E0 07 6E 70 3B
-				E4 5B 82 3F 50 10 0B 30 06 26 30 0F];
+		qcom,saw2-spm-cmd-ret = [42 1b 00 d0 c0 a0 90 03 d0 98 a2 c0
+				0b 00 42 1b 0f];
+		qcom,saw2-spm-cmd-spc = [00 20 80 10 90 a0 b0 03 3b 98 a2 b0 82
+				10 0b 30 06 26 30 0f];
+		qcom,saw2-spm-cmd-pc = [00 20 80 10 90 a0 b0 07 3b 98 a2 b0 82
+				10 0b 30 06 26 30 0f];
 	};
 
 	qcom,spm@f9012000 {
@@ -122,10 +126,9 @@
 		qcom,phase-port = <0x1>;
 		qcom,pfm-port = <0x2>;
 		qcom,saw2-spm-cmd-ret = [1f 00 20 03 22 00 0f];
-		qcom,saw2-spm-cmd-gdhs = [00 20 32 60 70 80 42 07 78 80 44 22 50
-				3b 60 02 32 50 0f];
-		qcom,saw2-spm-cmd-pc = [00 10 32 60 70 80 b0 11 42 07 01 b0 78
-				80 12 44 50 3b 60 02 32 50 0f];
+		qcom,saw2-spm-cmd-gdhs = [00 20 32 42 07 44 22 50 02 32 50 0f];
+		qcom,saw2-spm-cmd-pc = [00 10 32 b0 11 42 07 01 b0 12 44
+				50 02 32 50 0f];
 	};
 
 	qcom,lpm-resources {
@@ -423,7 +426,6 @@
 		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
-		qcom,saw-turns-off-pll;
 
 		qcom,cpu-sleep-status@f9088008{
 			compatible = "qcom,cpu-sleep-status";
