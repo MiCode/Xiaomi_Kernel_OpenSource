@@ -708,23 +708,18 @@ static int __devinit tz_log_probe(struct platform_device *pdev)
 	 */
 	tzdiag_phy_iobase = readl_relaxed(virt_iobase);
 
-	if (!pdev->dev.of_node) {
+	/*
+	 * Map the 4KB diagnostic information area
+	 */
+	tzdbg.virt_iobase = devm_ioremap_nocache(&pdev->dev,
+				tzdiag_phy_iobase, DEBUG_MAX_RW_BUF);
 
-		/*
-		 * Map the 4KB diagnostic information area
-		 */
-		tzdbg.virt_iobase = devm_ioremap_nocache(&pdev->dev,
-					tzdiag_phy_iobase, DEBUG_MAX_RW_BUF);
-
-		if (!tzdbg.virt_iobase) {
-			dev_err(&pdev->dev,
-				"%s: ERROR could not ioremap: start=%p, len=%u\n",
-				__func__, (void *) tzdiag_phy_iobase,
-				DEBUG_MAX_RW_BUF);
-			return -ENXIO;
-		}
-	} else {
-		tzdbg.virt_iobase = virt_iobase;
+	if (!tzdbg.virt_iobase) {
+		dev_err(&pdev->dev,
+			"%s: ERROR could not ioremap: start=%p, len=%u\n",
+			__func__, (void *) tzdiag_phy_iobase,
+			DEBUG_MAX_RW_BUF);
+		return -ENXIO;
 	}
 
 	ptr = kzalloc(DEBUG_MAX_RW_BUF, GFP_KERNEL);
