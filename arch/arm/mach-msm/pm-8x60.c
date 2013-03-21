@@ -974,7 +974,7 @@ int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 
 		if (acc_sts & msm_pm_slp_sts[cpu].mask)
 			return 0;
-		usleep(100);
+		udelay(100);
 	}
 
 	pr_info("%s(): Timed out waiting for CPU %u SPM to enter sleep state",
