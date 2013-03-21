@@ -68,6 +68,9 @@ endif
 params_phys-$(CONFIG_ARCH_FSM9XXX)	:= 0x10000100
 initrd_phys-$(CONFIG_ARCH_FSM9XXX)	:= 0x12000000
 
+# FSM9900
+   zreladdr-$(CONFIG_ARCH_FSM9900)	:= 0x00008000
+
 # MPQ8092
    zreladdr-$(CONFIG_ARCH_MPQ8092)	:= 0x00008000
 

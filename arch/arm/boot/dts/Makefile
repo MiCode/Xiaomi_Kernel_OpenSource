@@ -114,6 +114,8 @@ dtb-$(CONFIG_ARCH_MSM8226) += msm8226-sim.dtb \
 	msm8226-qrd.dtb
 dtb-$(CONFIG_ARCH_MSM8610) += msm8610-rumi.dtb \
 	msm8610-sim.dtb
+dtb-$(CONFIG_ARCH_FSM9900) += fsm9900-rumi.dtb \
+	fsm9900-sim.dtb
 dtb-$(CONFIG_ARCH_MSMKRYPTON) += msmkrypton-sim.dtb
 dtb-$(CONFIG_ARCH_APQ8084) += apq8084-sim.dtb
 dtb-$(CONFIG_ARCH_MVEBU) += armada-370-db.dtb \
