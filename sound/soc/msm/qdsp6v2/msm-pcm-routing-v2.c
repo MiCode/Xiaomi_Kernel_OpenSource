@@ -56,6 +56,7 @@ static int fm_switch_enable;
 static int fm_pcmrx_switch_enable;
 static int srs_alsa_ctrl_ever_called;
 static int lsm_mux_slim_port;
+static int slim0_rx_aanc_fb_port;
 
 enum {
 	MADNONE,
@@ -867,6 +868,42 @@ static int msm_routing_lsm_func_put(struct snd_kcontrol *kcontrol,
 	return afe_port_set_mad_type(port_id, mad_type);
 }
 
+static int msm_routing_slim_0_rx_aanc_mux_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+
+	mutex_lock(&routing_lock);
+	ucontrol->value.integer.value[0] = slim0_rx_aanc_fb_port;
+	mutex_unlock(&routing_lock);
+	pr_debug("%s: AANC Mux Port %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+	return 0;
+};
+
+static int msm_routing_slim_0_rx_aanc_mux_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct aanc_data aanc_info;
+
+	mutex_lock(&routing_lock);
+	memset(&aanc_info, 0x00, sizeof(aanc_info));
+	pr_debug("%s: AANC Mux Port %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+	slim0_rx_aanc_fb_port = ucontrol->value.integer.value[0];
+	if (ucontrol->value.integer.value[0] == 0) {
+		aanc_info.aanc_active = false;
+		aanc_info.aanc_tx_port = 0;
+		aanc_info.aanc_rx_port = 0;
+	} else {
+		aanc_info.aanc_active = true;
+		aanc_info.aanc_rx_port = SLIMBUS_0_RX;
+		aanc_info.aanc_tx_port =
+			(SLIMBUS_0_RX - 1 + (slim0_rx_aanc_fb_port * 2));
+	}
+	afe_set_aanc_info(&aanc_info);
+	mutex_unlock(&routing_lock);
+	return 0;
+};
 static int msm_routing_get_port_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1942,6 +1979,21 @@ static const struct snd_kcontrol_new lsm_function[] = {
 		     msm_routing_lsm_func_get, msm_routing_lsm_func_put),
 };
 
+static const char * const aanc_slim_0_rx_text[] = {
+	"ZERO", "SLIMBUS_0_TX", "SLIMBUS_1_TX", "SLIMBUS_2_TX", "SLIMBUS_3_TX",
+	"SLIMBUS_4_TX", "SLIMBUS_5_TX", "SLIMBUS_6_TX"
+};
+
+static const struct soc_enum aanc_slim_0_rx_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(aanc_slim_0_rx_text),
+				aanc_slim_0_rx_text);
+
+static const struct snd_kcontrol_new aanc_slim_0_rx_mux[] = {
+	SOC_DAPM_ENUM_EXT("AANC_SLIM_0_RX MUX", aanc_slim_0_rx_enum,
+		msm_routing_slim_0_rx_aanc_mux_get,
+		msm_routing_slim_0_rx_aanc_mux_put)
+};
+
 static const struct snd_kcontrol_new int_fm_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("Internal FM RX Volume", SND_SOC_NOPM, 0,
 	INT_RX_VOL_GAIN, 0, msm_routing_get_fm_vol_mixer,
@@ -2397,6 +2449,8 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 
 	/* Mux Definitions */
 	SND_SOC_DAPM_MUX("LSM1 MUX", SND_SOC_NOPM, 0, 0, &lsm_mux),
+	SND_SOC_DAPM_MUX("SLIM_0_RX AANC MUX", SND_SOC_NOPM, 0, 0,
+			aanc_slim_0_rx_mux),
 
 	/* Mixer definitions */
 	SND_SOC_DAPM_MIXER("PRI_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
@@ -3072,6 +3126,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, lsm_function,
 				      ARRAY_SIZE(lsm_function));
+
+	snd_soc_add_platform_controls(platform,
+				aanc_slim_0_rx_mux,
+				ARRAY_SIZE(aanc_slim_0_rx_mux));
 	return 0;
 }
 

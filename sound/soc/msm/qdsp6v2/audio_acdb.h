@@ -19,6 +19,7 @@
 enum {
 	RX_CAL,
 	TX_CAL,
+	AANC_TX_CAL,
 	MAX_AUDPROC_TYPES
 };
 
