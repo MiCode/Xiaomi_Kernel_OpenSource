@@ -923,11 +923,12 @@ static struct cpufreq_frequency_table freq_table[NR_CPUS][35];
 static void __init cpufreq_table_init(void)
 {
 	int cpu;
+	int freq_cnt = 0;
 
 	for_each_possible_cpu(cpu) {
-		int i, freq_cnt = 0;
+		int i;
 		/* Construct the freq_table tables from acpu_freq_tbl. */
-		for (i = 0; drv.acpu_freq_tbl[i].speed.khz != 0
+		for (i = 0, freq_cnt = 0; drv.acpu_freq_tbl[i].speed.khz != 0
 				&& freq_cnt < ARRAY_SIZE(*freq_table); i++) {
 			if (drv.acpu_freq_tbl[i].use_for_scaling) {
 				freq_table[cpu][freq_cnt].index = freq_cnt;
@@ -942,12 +943,11 @@ static void __init cpufreq_table_init(void)
 		freq_table[cpu][freq_cnt].index = freq_cnt;
 		freq_table[cpu][freq_cnt].frequency = CPUFREQ_TABLE_END;
 
-		dev_info(drv.dev, "CPU%d: %d frequencies supported\n",
-			cpu, freq_cnt);
-
 		/* Register table with CPUFreq. */
 		cpufreq_frequency_table_get_attr(freq_table[cpu], cpu);
 	}
+
+	dev_info(drv.dev, "CPU Frequencies Supported: %d\n", freq_cnt);
 }
 #else
 static void __init cpufreq_table_init(void) {}
