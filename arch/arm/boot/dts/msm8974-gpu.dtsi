@@ -51,6 +51,14 @@
 		/* IOMMU Data */
 		iommu = <&kgsl_iommu>;
 
+		/* Trace bus */
+		coresight-id = <67>;
+		coresight-name = "coresight-gfx";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_mmss>;
+		coresight-child-ports = <7>;
+
 		qcom,gpu-pwrlevels {
 			#address-cells = <1>;
 			#size-cells = <0>;

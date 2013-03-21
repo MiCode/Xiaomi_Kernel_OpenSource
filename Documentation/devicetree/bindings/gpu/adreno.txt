@@ -72,6 +72,20 @@ Optional Properties:
 			   This is used to override faulty hardware readings.
 - qcom,strtstp-sleepwake:  Boolean. Enables use of GPU SLUMBER instead of SLEEP for power savings
 
+The following properties are optional as collecting data via coresight might
+not be supported for every chipset. The documentation for coresight
+properties can be found in:
+Documentation/devicetree/bindings/coresight/coresight.txt
+
+- coresight-id           Unique integer identifier for the bus.
+- coresight-name         Unique descriptive name of the bus.
+- coresight-nr-inports   Number of input ports on the bus.
+- coresight-outports     List of output port numbers on the bus.
+- coresight-child-list   List of phandles pointing to the children of this
+                         component.
+- coresight-child-ports  List of input port numbers of the children.
+
+
 Example of A330 GPU in MSM8974:
 
 / {

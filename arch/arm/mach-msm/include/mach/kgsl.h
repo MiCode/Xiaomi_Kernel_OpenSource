@@ -89,6 +89,8 @@ struct kgsl_device_platform_data {
 	struct kgsl_device_iommu_data *iommu_data;
 	int iommu_count;
 	struct msm_dcvs_core_info *core_info;
+	struct coresight_device *csdev;
+	struct coresight_platform_data *coresight_pdata;
 	unsigned int chipid;
 };
 

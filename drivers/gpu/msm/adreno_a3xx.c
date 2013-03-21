@@ -3235,6 +3235,108 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	adreno_dev->gpu_cycles = 0;
 }
 
+/**
+ * a3xx_coresight_enable() - Enables debugging through coresight
+ * debug bus for adreno a3xx devices.
+ * @device: Pointer to GPU device structure
+ */
+int a3xx_coresight_enable(struct kgsl_device *device)
+{
+	mutex_lock(&device->mutex);
+	if (!kgsl_active_count_get(device)) {
+		adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_CTL, 0x0001093F);
+		adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_STB_CTL0,
+				0x00000000);
+		adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_STB_CTL1,
+				0xFFFFFFFE);
+		adreno_regwrite(device, A3XX_RBBM_INT_TRACE_BUS_CTL,
+				0x00201111);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_BUS_CTL,
+				0x89100010);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_STOP_CNT,
+				0x00017fff);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_START_CNT,
+				0x0001000f);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_PERIOD_CNT ,
+				0x0001ffff);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_CMD,
+				0x00000001);
+		kgsl_active_count_put(device);
+	}
+	mutex_unlock(&device->mutex);
+	return 0;
+}
+
+/**
+ * a3xx_coresight_disable() - Disables debugging through coresight
+ * debug bus for adreno a3xx devices.
+ * @device: Pointer to GPU device structure
+ */
+void a3xx_coresight_disable(struct kgsl_device *device)
+{
+	mutex_lock(&device->mutex);
+	if (!kgsl_active_count_get(device)) {
+		adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_CTL, 0x0);
+		adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_STB_CTL0, 0x0);
+		adreno_regwrite(device, A3XX_RBBM_DEBUG_BUS_STB_CTL1, 0x0);
+		adreno_regwrite(device, A3XX_RBBM_INT_TRACE_BUS_CTL, 0x0);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_BUS_CTL, 0x0);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_STOP_CNT, 0x0);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_START_CNT, 0x0);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_PERIOD_CNT , 0x0);
+		adreno_regwrite(device, A3XX_RBBM_EXT_TRACE_CMD, 0x0);
+		kgsl_active_count_put(device);
+	}
+	mutex_unlock(&device->mutex);
+}
+
+static void a3xx_coresight_write_reg(struct kgsl_device *device,
+		unsigned int wordoffset, unsigned int val)
+{
+	mutex_lock(&device->mutex);
+	if (!kgsl_active_count_get(device)) {
+		adreno_regwrite(device, wordoffset, val);
+		kgsl_active_count_put(device);
+	}
+	mutex_unlock(&device->mutex);
+}
+
+void a3xx_coresight_config_debug_reg(struct kgsl_device *device,
+		int debug_reg, unsigned int val)
+{
+	switch (debug_reg) {
+
+	case DEBUG_BUS_CTL:
+		a3xx_coresight_write_reg(device, A3XX_RBBM_DEBUG_BUS_CTL, val);
+		break;
+
+	case TRACE_STOP_CNT:
+		a3xx_coresight_write_reg(device, A3XX_RBBM_EXT_TRACE_STOP_CNT,
+				val);
+		break;
+
+	case TRACE_START_CNT:
+		a3xx_coresight_write_reg(device, A3XX_RBBM_EXT_TRACE_START_CNT,
+				val);
+		break;
+
+	case TRACE_PERIOD_CNT:
+		a3xx_coresight_write_reg(device, A3XX_RBBM_EXT_TRACE_PERIOD_CNT,
+				val);
+		break;
+
+	case TRACE_CMD:
+		a3xx_coresight_write_reg(device, A3XX_RBBM_EXT_TRACE_CMD, val);
+		break;
+
+	case TRACE_BUS_CTL:
+		a3xx_coresight_write_reg(device, A3XX_RBBM_EXT_TRACE_BUS_CTL,
+				val);
+		break;
+	}
+
+}
+
 /*
  * Define the available perfcounter groups - these get used by
  * adreno_perfcounter_get and adreno_perfcounter_put
@@ -3381,4 +3483,7 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.snapshot = a3xx_snapshot,
 	.perfcounter_enable = a3xx_perfcounter_enable,
 	.perfcounter_read = a3xx_perfcounter_read,
+	.coresight_enable = a3xx_coresight_enable,
+	.coresight_disable = a3xx_coresight_disable,
+	.coresight_config_debug_reg = a3xx_coresight_config_debug_reg,
 };
