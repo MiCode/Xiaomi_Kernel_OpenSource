@@ -1225,10 +1225,10 @@ static int __devexit adreno_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
+static int adreno_init(struct kgsl_device *device)
 {
-	int status = -EINVAL;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 
 	if (KGSL_STATE_DUMP_AND_FT != device->state)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
@@ -1254,9 +1254,8 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	if (adreno_dev->gpurev == ADRENO_REV_UNKNOWN) {
 		KGSL_DRV_ERR(device, "Unknown chip ID %x\n",
 			adreno_dev->chip_id);
-		goto error_clk_off;
+		BUG_ON(1);
 	}
-
 
 	/*
 	 * Check if firmware supports the sync lock PM4 packets needed
@@ -1269,19 +1268,7 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 		adreno_gpulist[adreno_dev->gpulist_index].sync_lock_pfp_ver))
 		device->mmu.flags |= KGSL_MMU_FLAGS_IOMMU_SYNC;
 
-	/* Set up the MMU */
-	if (adreno_is_a2xx(adreno_dev)) {
-		/*
-		 * the MH_CLNT_INTF_CTRL_CONFIG registers aren't present
-		 * on older gpus
-		 */
-		if (adreno_is_a20x(adreno_dev)) {
-			device->mh.mh_intf_cfg1 = 0;
-			device->mh.mh_intf_cfg2 = 0;
-		}
-
-		kgsl_mh_start(device);
-	}
+	rb->timestamp[KGSL_MEMSTORE_GLOBAL] = 0;
 
 	/* Assign correct RBBM status register to hang detect regs
 	 */
@@ -1295,6 +1282,37 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 		ft_detect_regs[9] = A3XX_RBBM_PERFCTR_SP_6_HI;
 		ft_detect_regs[10] = A3XX_RBBM_PERFCTR_SP_5_LO;
 		ft_detect_regs[11] = A3XX_RBBM_PERFCTR_SP_5_HI;
+	}
+
+	/* Power down the device */
+	kgsl_pwrctrl_disable(device);
+
+	return 0;
+}
+
+static int adreno_start(struct kgsl_device *device)
+{
+	int status = -EINVAL;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (KGSL_STATE_DUMP_AND_FT != device->state)
+		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
+
+	/* Power up the device */
+	kgsl_pwrctrl_enable(device);
+
+	/* Set up a2xx special case */
+	if (adreno_is_a2xx(adreno_dev)) {
+		/*
+		 * the MH_CLNT_INTF_CTRL_CONFIG registers aren't present
+		 * on older gpus
+		 */
+		if (adreno_is_a20x(adreno_dev)) {
+			device->mh.mh_intf_cfg1 = 0;
+			device->mh.mh_intf_cfg2 = 0;
+		}
+
+		kgsl_mh_start(device);
 	}
 
 	status = kgsl_mmu_start(device);
@@ -1313,7 +1331,7 @@ static int adreno_start(struct kgsl_device *device, unsigned int init_ram)
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 	device->ftbl->irqctrl(device, 1);
 
-	status = adreno_ringbuffer_start(&adreno_dev->ringbuffer, init_ram);
+	status = adreno_ringbuffer_start(&adreno_dev->ringbuffer);
 	if (status)
 		goto error_irq_off;
 
@@ -1712,7 +1730,12 @@ _adreno_ft_restart_device(struct kgsl_device *device,
 		return 1;
 	}
 
-	if (adreno_start(device, true)) {
+	if (adreno_init(device)) {
+		KGSL_FT_ERR(device, "Device init failed\n");
+		return 1;
+	}
+
+	if (adreno_start(device)) {
 		KGSL_FT_ERR(device, "Device start failed\n");
 		return 1;
 	}
@@ -3270,6 +3293,7 @@ static const struct kgsl_functable adreno_functable = {
 	.idle = adreno_idle,
 	.isidle = adreno_isidle,
 	.suspend_context = adreno_suspend_context,
+	.init = adreno_init,
 	.start = adreno_start,
 	.stop = adreno_stop,
 	.getproperty = adreno_getproperty,
