@@ -361,6 +361,9 @@ static enum msm_cpu cpu_of_id[] = {
 	/* krypton IDs */
 	[187] = MSM_CPU_KRYPTON,
 
+	/* FSM9900 ID */
+	[188] = FSM_CPU_9900,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
