@@ -120,7 +120,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 			return rc;
 	}
 
-	rc = msm_spm_apcs_set_vdd(vreg->vlevel);
+	rc = msm_spm_set_vdd(0, vreg->vlevel); /* value of CPU is don't care */
 	if (rc) {
 		pr_err("%s: msm_spm_set_vdd failed %d\n", vreg->rdesc.name, rc);
 		return rc;
