@@ -2418,6 +2418,16 @@ struct asm_aac_cfg {
 	u32 sample_rate;
 } __packed;
 
+struct asm_amrwbplus_cfg {
+	u32  size_bytes;
+	u32  version;
+	u32  num_channels;
+	u32  amr_band_mode;
+	u32  amr_dtx_mode;
+	u32  amr_frame_fmt;
+	u32  amr_lsf_idx;
+} __packed;
+
 struct asm_softpause_params {
 	u32 enable;
 	u32 period;
