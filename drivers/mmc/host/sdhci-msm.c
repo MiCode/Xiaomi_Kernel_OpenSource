@@ -1604,7 +1604,32 @@ out:
 	return;
 }
 
+static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
+					unsigned int uhs)
+{
+	u16 ctrl_2;
+
+	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+	/* Select Bus Speed Mode for host */
+	ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
+	if (uhs == MMC_TIMING_MMC_HS200)
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
+	else if (uhs == MMC_TIMING_UHS_SDR12)
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR12;
+	else if (uhs == MMC_TIMING_UHS_SDR25)
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR25;
+	else if (uhs == MMC_TIMING_UHS_SDR50)
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR50;
+	else if (uhs == MMC_TIMING_UHS_SDR104)
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
+	else if (uhs == MMC_TIMING_UHS_DDR50)
+		ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
+	sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
+	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.check_power_status = sdhci_msm_check_power_status,
 	.platform_execute_tuning = sdhci_msm_execute_tuning,
 	.toggle_cdr = sdhci_msm_toggle_cdr,
