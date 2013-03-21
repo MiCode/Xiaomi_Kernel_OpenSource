@@ -52,6 +52,28 @@ struct usb_bam_sps_type {
 	struct sps_connect *sps_connections;
 };
 
+/**
+* struct usb_bam_ctx_type - represents the usb bam driver entity
+* @usb_bam_sps: holds the sps pipes the usb bam driver holds
+*	against the sps driver.
+* @usb_bam_pdev: the platfrom device that represents the usb bam.
+* @usb_bam_wq: Worqueue used for managing states of reset against
+*	a peer bam.
+* @qscratch_ram1_reg: The memory region mapped to the qscratch
+*	registers.
+* @max_connections: The maximum number of pipes that are configured
+*	in the platform data.
+* @mem_clk: Clock that controls the usb bam driver memory in
+*	case the usb bam uses its private memory for the pipes.
+* @mem_iface_clk: Clock that controls the usb bam private memory in
+*	case the usb bam uses its private memory for the pipes.
+* @qdss_core_name: Stores the name of the core ("ssusb", "hsusb" or "hsic")
+*	that it used as a peer of the qdss in bam2bam mode.
+* @h_bam: This array stores for each BAM ("ssusb", "hsusb" or "hsic") the
+*	handle/device of the sps driver.
+* @pipes_enabled_per_bam: This array stores for each BAM
+*	("ssusb", "hsusb" or "hsic") the number of pipes currently enabled.
+*/
 struct usb_bam_ctx_type {
 	struct usb_bam_sps_type usb_bam_sps;
 	struct platform_device *usb_bam_pdev;
@@ -61,8 +83,8 @@ struct usb_bam_ctx_type {
 	struct clk *mem_clk;
 	struct clk *mem_iface_clk;
 	char qdss_core_name[USB_BAM_MAX_STR_LEN];
-	char bam_enabled_list[USB_BAM_MAX_STR_LEN];
 	u32 h_bam[MAX_BAMS];
+	u8 pipes_enabled_per_bam[MAX_BAMS];
 };
 
 static char *bam_enable_strings[3] = {
@@ -442,7 +464,6 @@ static int disconnect_pipe(u8 idx)
 int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 {
 	int ret;
-	enum usb_bam bam;
 	struct usb_bam_pipe_connect *pipe_connect = &usb_bam_connections[idx];
 	struct msm_usb_bam_platform_data *pdata;
 
@@ -467,13 +488,11 @@ int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 		pr_err("idx is wrong %d", idx);
 		return -EINVAL;
 	}
-	bam = pipe_connect->bam_type;
-	if (bam < 0)
-		return -EINVAL;
 
-	/* Check if BAM requires RESET before connect */
-	if (pdata->reset_on_connect[bam] == true)
-		sps_device_reset(ctx.h_bam[bam]);
+	/* Check if BAM requires RESET before connect and reset of first pipe */
+	if ((pdata->reset_on_connect[pipe_connect->bam_type] == true) &&
+	    (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0))
+		sps_device_reset(ctx.h_bam[pipe_connect->bam_type]);
 
 	ret = connect_pipe(idx, bam_pipe_idx);
 	if (ret) {
@@ -482,6 +501,7 @@ int usb_bam_connect(u8 idx, u32 *bam_pipe_idx)
 	}
 
 	pipe_connect->enabled = 1;
+	ctx.pipes_enabled_per_bam[pipe_connect->bam_type] += 1;
 
 	return 0;
 }
@@ -548,6 +568,8 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	u8 idx;
 	struct usb_bam_pipe_connect *pipe_connect;
 	int ret;
+	struct msm_usb_bam_platform_data *pdata =
+					ctx.usb_bam_pdev->dev.platform_data;
 
 	if (!ipa_params) {
 		pr_err("%s: Invalid ipa params\n",
@@ -573,6 +595,11 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		return 0;
 	}
 
+	/* Check if BAM requires RESET before connect and reset of first pipe */
+	if ((pdata->reset_on_connect[pipe_connect->bam_type] == true) &&
+	    (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0))
+		sps_device_reset(ctx.h_bam[pipe_connect->bam_type]);
+
 	ret = connect_pipe_ipa(idx, ipa_params);
 	ipa_rm_request_resource(IPA_RM_RESOURCE_USB_PROD);
 
@@ -582,6 +609,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	}
 
 	pipe_connect->enabled = 1;
+	ctx.pipes_enabled_per_bam[pipe_connect->bam_type] += 1;
 
 	return 0;
 }
@@ -799,6 +827,11 @@ int usb_bam_disconnect_pipe(u8 idx)
 	}
 
 	pipe_connect->enabled = 0;
+	if (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0)
+		pr_err("%s: wrong pipes enabled counter for bam_type=%d\n",
+			__func__, pipe_connect->bam_type);
+	else
+		ctx.pipes_enabled_per_bam[pipe_connect->bam_type] -= 1;
 
 	return 0;
 }
@@ -993,6 +1026,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 				__func__);
 			goto err;
 		}
+		bam = usb_bam_connections[i].bam_type;
 
 		rc = of_property_read_u32(node, "qcom,peer-bam",
 			&usb_bam_connections[i].peer_bam);
@@ -1219,6 +1253,9 @@ static int usb_bam_probe(struct platform_device *pdev)
 		INIT_WORK(&usb_bam_connections[i].wake_event.event_w,
 			usb_bam_work);
 	}
+
+	for (i = 0; i < MAX_BAMS; i++)
+		ctx.pipes_enabled_per_bam[i] = 0;
 
 	spin_lock_init(&usb_bam_lock);
 	INIT_WORK(&peer_handshake_info.reset_event.event_w, usb_bam_sm_work);
