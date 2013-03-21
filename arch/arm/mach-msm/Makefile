@@ -121,7 +121,9 @@ ifndef CONFIG_ARCH_MPQ8092
 ifndef CONFIG_ARCH_MSM8610
 ifndef CONFIG_ARCH_APQ8084
 ifndef CONFIG_ARCH_MSMKRYPTON
+ifndef CONFIG_ARCH_FSM9900
 	obj-y += nand_partitions.o
+endif
 endif
 endif
 endif
@@ -230,6 +232,7 @@ obj-$(CONFIG_ARCH_FSM9XXX) += devices-fsm9xxx.o
 obj-$(CONFIG_ARCH_FSM9XXX) += clock-fsm9xxx.o clock-local.o acpuclock-fsm9xxx.o
 obj-$(CONFIG_ARCH_FSM9XXX) += dfe-fsm9xxx.o rfic-fsm9xxx.o
 obj-$(CONFIG_ARCH_FSM9XXX) += restart-fsm9xxx.o xo-fsm9xxx.o
+obj-$(CONFIG_ARCH_FSM9900) += board-fsm9900.o board-fsm9900-gpiomux.o
 
 obj-$(CONFIG_MSM_WATCHDOG) += msm_watchdog.o
 obj-$(CONFIG_MSM_WATCHDOG) += msm_watchdog_asm.o
@@ -377,6 +380,7 @@ obj-$(CONFIG_ARCH_MPQ8092) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM8226) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_MSM8610) += gpiomux-v2.o gpiomux.o
 obj-$(CONFIG_ARCH_APQ8084) += gpiomux-v2.o gpiomux.o
+obj-$(CONFIG_ARCH_FSM9900) += gpiomux-v2.o gpiomux.o
 
 obj-$(CONFIG_MSM_SLEEP_STATS_DEVICE) += idle_stats_device.o
 obj-$(CONFIG_MSM_DCVS) += msm_dcvs_scm.o msm_dcvs.o msm_mpdecision.o
