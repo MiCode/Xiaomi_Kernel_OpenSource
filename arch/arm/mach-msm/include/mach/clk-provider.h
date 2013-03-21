@@ -108,7 +108,9 @@ struct clk_ops {
 	int (*in_hwcg_mode)(struct clk *clk);
 	enum handoff (*handoff)(struct clk *clk);
 	int (*reset)(struct clk *clk, enum clk_reset_action action);
+	int (*pre_set_rate)(struct clk *clk, unsigned long new_rate);
 	int (*set_rate)(struct clk *clk, unsigned long rate);
+	void (*post_set_rate)(struct clk *clk, unsigned long old_rate);
 	int (*set_max_rate)(struct clk *clk, unsigned long rate);
 	int (*set_flags)(struct clk *clk, unsigned flags);
 	unsigned long (*get_rate)(struct clk *clk);
