@@ -494,6 +494,9 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 
 	power_supply_set_supply_type(dotg->psy, power_supply_type);
 
+	if ((dotg->charger->chg_type == DWC3_CDP_CHARGER) && mA > 2)
+		mA = DWC3_IDEV_CHG_MAX;
+
 	if (dotg->charger->max_power == mA)
 		return 0;
 
