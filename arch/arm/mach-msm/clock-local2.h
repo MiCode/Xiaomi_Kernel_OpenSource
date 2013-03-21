@@ -210,6 +210,9 @@ extern struct clk_ops clk_ops_rcg_hdmi;
 extern struct clk_ops clk_ops_byte;
 extern struct clk_ops clk_ops_pixel;
 
+enum handoff pixel_rcg_handoff(struct clk *clk);
+enum handoff byte_rcg_handoff(struct clk *clk);
+
 /*
  * Clock definition macros
  */
