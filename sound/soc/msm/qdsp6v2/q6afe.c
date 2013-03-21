@@ -45,6 +45,8 @@ struct afe_ctl {
 	u16 dtmf_gen_rx_portid;
 	struct afe_spkr_prot_calib_get_resp calib_data;
 	int vi_tx_port;
+	uint32_t afe_sample_rates[AFE_MAX_PORTS];
+	struct aanc_data aanc_info;
 };
 
 static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
@@ -56,6 +58,21 @@ static struct afe_ctl this_afe;
 
 #define SIZEOF_CFG_CMD(y) \
 		(sizeof(struct apr_hdr) + sizeof(u16) + (sizeof(struct y)))
+
+void afe_set_aanc_info(struct aanc_data *q6_aanc_info)
+{
+	pr_debug("%s\n", __func__);
+
+	this_afe.aanc_info.aanc_active = q6_aanc_info->aanc_active;
+	this_afe.aanc_info.aanc_rx_port = q6_aanc_info->aanc_rx_port;
+	this_afe.aanc_info.aanc_tx_port = q6_aanc_info->aanc_tx_port;
+
+	pr_debug("aanc active is %d rx port is %d, tx port is %d\n",
+		this_afe.aanc_info.aanc_active,
+		this_afe.aanc_info.aanc_rx_port,
+		this_afe.aanc_info.aanc_tx_port);
+}
+
 
 static int32_t afe_callback(struct apr_client_data *data, void *priv)
 {
@@ -342,7 +359,12 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 	struct afe_audioif_config_command_no_payload	afe_cal;
 	pr_debug("%s: path %d\n", __func__, path);
 
-	get_afe_cal(path, &cal_block);
+	if (path == AANC_TX_CAL) {
+		get_aanc_cal(&cal_block);
+	} else {
+		get_afe_cal(path, &cal_block);
+	}
+
 	if (cal_block.cal_size <= 0) {
 		pr_debug("%s: No AFE cal to send!\n", __func__);
 		goto done;
@@ -738,6 +760,166 @@ static int afe_send_slimbus_slave_port_cfg(
 	pr_debug("%s: leave %d\n", __func__, ret);
 	return ret;
 }
+static int afe_aanc_port_cfg(void *apr, uint16_t tx_port, uint16_t rx_port)
+{
+	struct afe_port_cmd_set_aanc_param cfg;
+	int ret = 0;
+	int index = 0;
+
+	pr_debug("%s: tx_port %d, rx_port %d\n",
+		__func__, tx_port, rx_port);
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return -EINVAL;
+
+	index = q6audio_get_port_index(tx_port);
+	if (q6audio_validate_port(tx_port) < 0) {
+		pr_err("%s: port id: %#x\n", __func__, tx_port);
+		return -EINVAL;
+	}
+
+	cfg.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cfg.hdr.pkt_size = sizeof(cfg);
+	cfg.hdr.src_port = 0;
+	cfg.hdr.dest_port = 0;
+	cfg.hdr.token = index;
+	cfg.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+
+	cfg.param.port_id = tx_port;
+	cfg.param.payload_size        = sizeof(struct afe_port_param_data_v2) +
+					sizeof(struct afe_param_aanc_port_cfg);
+	cfg.param.payload_address_lsw     = 0;
+	cfg.param.payload_address_msw     = 0;
+	cfg.param.mem_map_handle	  = 0;
+
+	cfg.pdata.module_id = AFE_MODULE_AANC;
+	cfg.pdata.param_id    = AFE_PARAM_ID_AANC_PORT_CONFIG;
+	cfg.pdata.param_size = sizeof(struct afe_param_aanc_port_cfg);
+	cfg.pdata.reserved    = 0;
+
+	cfg.data.aanc_port_cfg.aanc_port_cfg_minor_version =
+		AFE_API_VERSION_AANC_PORT_CONFIG;
+	cfg.data.aanc_port_cfg.tx_port_sample_rate =
+		this_afe.aanc_info.aanc_tx_port_sample_rate;
+	cfg.data.aanc_port_cfg.tx_port_channel_map[0] = AANC_TX_VOICE_MIC;
+	cfg.data.aanc_port_cfg.tx_port_channel_map[1] = AANC_TX_NOISE_MIC;
+	cfg.data.aanc_port_cfg.tx_port_channel_map[2] = AANC_TX_ERROR_MIC;
+	cfg.data.aanc_port_cfg.tx_port_channel_map[3] = AANC_TX_MIC_UNUSED;
+	cfg.data.aanc_port_cfg.tx_port_channel_map[4] = AANC_TX_MIC_UNUSED;
+	cfg.data.aanc_port_cfg.tx_port_channel_map[5] = AANC_TX_MIC_UNUSED;
+	cfg.data.aanc_port_cfg.tx_port_channel_map[6] = AANC_TX_MIC_UNUSED;
+	cfg.data.aanc_port_cfg.tx_port_channel_map[7] = AANC_TX_MIC_UNUSED;
+	cfg.data.aanc_port_cfg.tx_port_num_channels = 3;
+	cfg.data.aanc_port_cfg.rx_path_ref_port_id = rx_port;
+	cfg.data.aanc_port_cfg.ref_port_sample_rate =
+		 this_afe.aanc_info.aanc_rx_port_sample_rate;
+
+	ret = afe_apr_send_pkt((uint32_t *) &cfg, &this_afe.wait[index]);
+	if (ret) {
+		pr_err("%s: AFE AANC port config failed for tx_port %d, rx_port %d\n",
+			__func__, tx_port, rx_port);
+	} else if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+	}
+
+	pr_debug("%s: leave %d\n", __func__, ret);
+	return ret;
+}
+
+static int afe_aanc_mod_enable(void *apr, uint16_t tx_port, uint16_t enable)
+{
+	struct afe_port_cmd_set_aanc_param cfg;
+	int ret = 0;
+	int index = 0;
+
+	pr_debug("%s: tx_port %d\n",
+		__func__, tx_port);
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0)
+		return -EINVAL;
+
+	index = q6audio_get_port_index(tx_port);
+	if (q6audio_validate_port(tx_port) < 0) {
+		pr_err("%s: port id: %#x\n", __func__, tx_port);
+		return -EINVAL;
+	}
+
+	cfg.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cfg.hdr.pkt_size = sizeof(cfg);
+	cfg.hdr.src_port = 0;
+	cfg.hdr.dest_port = 0;
+	cfg.hdr.token = index;
+	cfg.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+
+	cfg.param.port_id = tx_port;
+	cfg.param.payload_size        = sizeof(struct afe_port_param_data_v2) +
+					sizeof(struct afe_mod_enable_param);
+	cfg.param.payload_address_lsw     = 0;
+	cfg.param.payload_address_lsw     = 0;
+	cfg.param.mem_map_handle          = 0;
+
+	cfg.pdata.module_id = AFE_MODULE_AANC;
+	cfg.pdata.param_id    = AFE_PARAM_ID_ENABLE;
+	cfg.pdata.param_size = sizeof(struct afe_mod_enable_param);
+	cfg.pdata.reserved    = 0;
+
+	cfg.data.mod_enable.enable = enable;
+	cfg.data.mod_enable.reserved = 0;
+
+	ret = afe_apr_send_pkt((uint32_t *) &cfg, &this_afe.wait[index]);
+	if (ret) {
+		pr_err("%s: AFE AANC enable failed for tx_port %d\n",
+			__func__, tx_port);
+	} else if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+	}
+	pr_debug("%s: leave %d\n", __func__, ret);
+	return ret;
+}
+
+int afe_send_aanc_version(
+	struct afe_param_id_cdc_aanc_version *version_cfg)
+{
+	int ret;
+	struct afe_svc_cmd_cdc_aanc_version config;
+
+	pr_debug("%s: enter\n", __func__);
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = IDX_GLOBAL_CFG;
+	config.hdr.opcode = AFE_SVC_CMD_SET_PARAM;
+
+	config.param.payload_size = sizeof(struct afe_port_param_data_v2) +
+				sizeof(struct afe_param_id_cdc_aanc_version);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+
+	config.pdata.module_id = AFE_MODULE_CDC_DEV_CFG;
+	config.pdata.param_id = AFE_PARAM_ID_CDC_AANC_VERSION;
+	config.pdata.param_size =
+		sizeof(struct afe_param_id_cdc_aanc_version);
+	config.version = *version_cfg;
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[IDX_GLOBAL_CFG]);
+	if (ret) {
+		pr_err("%s: AFE_PARAM_ID_CDC_AANC_VERSION failed %d\n",
+		__func__, ret);
+	} else if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+	ret = -EINVAL;
+	}
+	pr_debug("%s: leave ret %d\n", __func__, 0);
+	return ret;
+}
 
 int afe_port_set_mad_type(u16 port_id, enum afe_mad_type mad_type)
 {
@@ -790,6 +972,9 @@ int afe_set_config(enum afe_config_type config_type, void *config_data, int arg)
 	case AFE_SLIMBUS_SLAVE_PORT_CONFIG:
 		ret = afe_send_slimbus_slave_port_cfg(config_data, arg);
 		break;
+	case AFE_AANC_VERSION:
+		ret = afe_send_aanc_version(config_data);
+		break;
 	default:
 		pr_err("%s: unknown configuration type", __func__);
 		ret = -EINVAL;
@@ -837,6 +1022,24 @@ static int afe_send_cmd_port_start(u16 port_id)
 	return ret;
 }
 
+static int afe_aanc_start(uint16_t tx_port_id, uint16_t rx_port_id)
+{
+	int ret;
+
+	pr_debug("%s Tx port is %d, Rx port is %d\n",
+		 __func__, tx_port_id, rx_port_id);
+	ret = afe_aanc_port_cfg(this_afe.apr, tx_port_id, rx_port_id);
+	if (ret) {
+		pr_err("%s Send AANC Port Config failed %d\n",
+			__func__, ret);
+		goto fail_cmd;
+	}
+	afe_send_cal_block(AANC_TX_CAL, tx_port_id);
+
+fail_cmd:
+	return ret;
+}
+
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	u32 rate) /* This function is no blocking */
 {
@@ -845,6 +1048,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	int cfg_type;
 	int index = 0;
 	enum afe_mad_type mad_type;
+	uint16_t port_index;
 
 	if (!afe_config) {
 		pr_err("%s: Error, no configuration data\n", __func__);
@@ -886,6 +1090,22 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		}
 	}
 
+	if ((this_afe.aanc_info.aanc_active) &&
+	    (this_afe.aanc_info.aanc_tx_port == port_id)) {
+		this_afe.aanc_info.aanc_tx_port_sample_rate = rate;
+		port_index =
+			afe_get_port_index(this_afe.aanc_info.aanc_rx_port);
+		if ((port_index >= 0) && (port_index < AFE_MAX_PORTS)) {
+			this_afe.aanc_info.aanc_rx_port_sample_rate =
+				this_afe.afe_sample_rates[port_index];
+		} else {
+			ret = -EINVAL;
+			goto fail_cmd;
+		}
+		ret = afe_aanc_start(this_afe.aanc_info.aanc_tx_port,
+				this_afe.aanc_info.aanc_rx_port);
+		pr_debug("%s afe_aanc_start ret %d\n", __func__, ret);
+	}
 	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
 	config.hdr.pkt_size = sizeof(config);
@@ -971,6 +1191,14 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		goto fail_cmd;
 	} else if (atomic_read(&this_afe.status) != 0) {
 		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	port_index = afe_get_port_index(port_id);
+	if ((port_index >= 0) && (port_index < AFE_MAX_PORTS)) {
+		this_afe.afe_sample_rates[port_index] = rate;
+	} else {
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -2392,6 +2620,7 @@ int afe_close(int port_id)
 	enum afe_mad_type mad_type;
 	int ret = 0;
 	int index = 0;
+	uint16_t port_index;
 
 	if (this_afe.apr == NULL) {
 		pr_err("AFE is already closed\n");
@@ -2420,6 +2649,23 @@ int afe_close(int port_id)
 		}
 	} else {
 		pr_debug("%s: Not a MAD port\n", __func__);
+	}
+
+	port_index = afe_get_port_index(port_id);
+	if ((port_index >= 0) && (port_index < AFE_MAX_PORTS)) {
+		this_afe.afe_sample_rates[port_index] = 0;
+	} else {
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	if ((port_id == this_afe.aanc_info.aanc_tx_port) &&
+	    (this_afe.aanc_info.aanc_active)) {
+		memset(&this_afe.aanc_info, 0x00, sizeof(this_afe.aanc_info));
+		ret = afe_aanc_mod_enable(this_afe.apr, port_id, 0);
+		if (ret)
+			pr_err("%s: AFE mod disable failed %d\n",
+				__func__, ret);
 	}
 
 	stop.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,

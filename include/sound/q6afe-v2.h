@@ -127,6 +127,14 @@ struct afe_audio_client {
 	uint32_t               mem_map_handle;
 };
 
+struct aanc_data {
+	bool aanc_active;
+	uint16_t aanc_rx_port;
+	uint16_t aanc_tx_port;
+	uint32_t aanc_rx_port_sample_rate;
+	uint32_t aanc_tx_port_sample_rate;
+};
+
 int afe_open(u16 port_id, union afe_port_config *afe_config, int rate);
 int afe_close(int port_id);
 int afe_loopback(u16 enable, u16 rx_port, u16 tx_port);
@@ -188,4 +196,5 @@ enum afe_mad_type afe_port_get_mad_type(u16 port_id);
 int afe_set_config(enum afe_config_type config_type, void *config_data,
 		   int arg);
 
+void afe_set_aanc_info(struct aanc_data *aanc_info);
 #endif /* __Q6AFE_V2_H__ */
