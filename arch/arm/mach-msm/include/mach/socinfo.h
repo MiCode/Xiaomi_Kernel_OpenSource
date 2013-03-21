@@ -53,6 +53,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apq8084")
 #define early_machine_is_msmkrypton()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmkrypton")
+#define early_machine_is_fsm9900()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9900")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -70,6 +72,7 @@
 #define early_machine_is_mpq8092()	0
 #define early_machine_is_apq8084()	0
 #define early_machine_is_msmkrypton()	0
+#define early_machine_is_fsm9900()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -110,6 +113,7 @@ enum msm_cpu {
 	MSM_CPU_8625Q,
 	MSM_CPU_8084,
 	MSM_CPU_KRYPTON,
+	FSM_CPU_9900,
 };
 
 enum pmic_model {
