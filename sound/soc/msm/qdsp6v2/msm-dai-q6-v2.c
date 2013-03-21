@@ -1482,7 +1482,7 @@ static int msm_mi2s_get_port_id(u32 mi2s_id, int stream, u16 *port_id)
 	case SNDRV_PCM_STREAM_PLAYBACK:
 		switch (mi2s_id) {
 		case MSM_PRIM_MI2S:
-			*port_id = MI2S_RX;
+			*port_id = AFE_PORT_ID_PRIMARY_MI2S_RX;
 			break;
 		case MSM_SEC_MI2S:
 			*port_id = AFE_PORT_ID_SECONDARY_MI2S_RX;
@@ -1502,7 +1502,7 @@ static int msm_mi2s_get_port_id(u32 mi2s_id, int stream, u16 *port_id)
 	case SNDRV_PCM_STREAM_CAPTURE:
 		switch (mi2s_id) {
 		case MSM_PRIM_MI2S:
-			*port_id = MI2S_TX;
+			*port_id = AFE_PORT_ID_PRIMARY_MI2S_TX;
 			break;
 		case MSM_SEC_MI2S:
 			*port_id = AFE_PORT_ID_SECONDARY_MI2S_TX;
