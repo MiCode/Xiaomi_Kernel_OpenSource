@@ -344,6 +344,8 @@ static void msm_isp_reset_framedrop(struct vfe_device *vfe_dev,
 	stream_info->runtime_init_frame_drop = stream_info->init_frame_drop;
 	stream_info->runtime_burst_frame_count =
 		stream_info->burst_frame_count;
+	stream_info->runtime_num_burst_capture =
+		stream_info->num_burst_capture;
 	stream_info->runtime_framedrop_update = stream_info->framedrop_update;
 	vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(vfe_dev, stream_info);
 }
@@ -859,7 +861,7 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			 * buffer to ensure hardware write to a valid address
 			 */
 			if (stream_info->stream_type == BURST_STREAM &&
-				stream_info->num_burst_capture <= 1) {
+				stream_info->runtime_num_burst_capture <= 1) {
 				msm_isp_cfg_pong_address(vfe_dev, stream_info);
 			} else {
 				rc = msm_isp_cfg_ping_pong_address(vfe_dev,
@@ -991,11 +993,17 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 					__func__,
 					stream_idx, stream_info->frame_id);
 				stream_info->frame_id++;
+
+				if (stream_info->stream_type == BURST_STREAM)
+					stream_info->
+						runtime_num_burst_capture--;
+
 				msm_isp_get_done_buf(vfe_dev, stream_info,
 					pingpong_status, &done_buf);
 				if (stream_info->stream_type ==
 					CONTINUOUS_STREAM ||
-					stream_info->num_burst_capture > 1) {
+					stream_info->
+					runtime_num_burst_capture > 1) {
 					rc = msm_isp_cfg_ping_pong_address(
 							vfe_dev, stream_info,
 							pingpong_status);
@@ -1021,10 +1029,14 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				__func__,
 				stream_idx, stream_info->frame_id);
 			stream_info->frame_id++;
+
+			if (stream_info->stream_type == BURST_STREAM)
+				stream_info->runtime_num_burst_capture--;
+
 			msm_isp_get_done_buf(vfe_dev, stream_info,
 						pingpong_status, &done_buf);
 			if (stream_info->stream_type == CONTINUOUS_STREAM ||
-				stream_info->num_burst_capture > 1) {
+				stream_info->runtime_num_burst_capture > 1) {
 				rc = msm_isp_cfg_ping_pong_address(vfe_dev,
 					stream_info, pingpong_status);
 			}
