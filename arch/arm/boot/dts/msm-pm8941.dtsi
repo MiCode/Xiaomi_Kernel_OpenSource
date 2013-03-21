@@ -175,10 +175,10 @@
 			qcom,chg-ibatmax-ma = <1500>;
 			qcom,chg-ibatsafe-ma = <1500>;
 			qcom,chg-thermal-mitigation = <1500 700 600 325>;
-			qcom,chg-cool-bat-degc = <10>;
+			qcom,chg-cool-bat-decidegc = <100>;
 			qcom,chg-cool-bat-mv = <4100>;
 			qcom,chg-ibatmax-warm-ma = <350>;
-			qcom,chg-warm-bat-degc = <45>;
+			qcom,chg-warm-bat-decidegc = <450>;
 			qcom,chg-warm-bat-mv = <4100>;
 			qcom,chg-ibatmax-cool-ma = <350>;
 			qcom,chg-vbatdet-delta-mv = <350>;

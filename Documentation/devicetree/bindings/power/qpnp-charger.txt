@@ -45,8 +45,8 @@ Parent node optional properties:
 					battery temperature of 250 decidegree
 					Celsius, state of charge to be 50%
 					and disable charging.
-- qcom,chg-warm-bat-degc:		Warm battery temperature in degC.
-- qcom,chg-cool-bat-degc:		Cool battery temperature in degC.
+- qcom,chg-warm-bat-decidegc:		Warm battery temperature in decidegC.
+- qcom,chg-cool-bat-decidegc:		Cool battery temperature in decidegC.
 					Note that if both warm and cool battery
 					temperatures are set, the corresponding
 					ibatmax and bat-mv properties are
