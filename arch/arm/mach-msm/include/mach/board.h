@@ -600,6 +600,7 @@ void msm_map_apq8064_io(void);
 void msm_map_msm7x30_io(void);
 void msm_map_fsm9xxx_io(void);
 void msm_map_fsm9900_io(void);
+void fsm9900_init_gpiomux(void);
 void msm_map_8974_io(void);
 void msm_map_8084_io(void);
 void msm_map_msmkrypton_io(void);
