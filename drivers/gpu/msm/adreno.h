@@ -80,6 +80,15 @@ enum adreno_gpurev {
 	ADRENO_REV_A305B = 335,
 };
 
+enum coresight_debug_reg {
+	DEBUG_BUS_CTL,
+	TRACE_STOP_CNT,
+	TRACE_START_CNT,
+	TRACE_PERIOD_CNT,
+	TRACE_CMD,
+	TRACE_BUS_CTL,
+};
+
 struct adreno_gpudev;
 
 struct adreno_device {
@@ -187,6 +196,10 @@ struct adreno_gpudev {
 	uint64_t (*perfcounter_read)(struct adreno_device *adreno_dev,
 		unsigned int group, unsigned int counter,
 		unsigned int offset);
+	int (*coresight_enable) (struct kgsl_device *device);
+	void (*coresight_disable) (struct kgsl_device *device);
+	void (*coresight_config_debug_reg) (struct kgsl_device *device,
+			int debug_reg, unsigned int val);
 };
 
 /*
@@ -269,6 +282,10 @@ extern const unsigned int a330_registers_count;
 extern unsigned int ft_detect_regs[];
 extern const unsigned int ft_detect_regs_count;
 
+int adreno_coresight_enable(struct coresight_device *csdev);
+void adreno_coresight_disable(struct coresight_device *csdev);
+void adreno_coresight_remove(struct platform_device *pdev);
+int adreno_coresight_init(struct platform_device *pdev);
 
 int adreno_idle(struct kgsl_device *device);
 void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
