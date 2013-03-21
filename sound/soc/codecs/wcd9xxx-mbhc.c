@@ -3018,14 +3018,19 @@ wcd9xxx_event_to_micbias(const enum wcd9xxx_notify_event event)
 	switch (event) {
 	case WCD9XXX_EVENT_PRE_MICBIAS_1_ON:
 		ret = MBHC_MICBIAS1;
+		break;
 	case WCD9XXX_EVENT_PRE_MICBIAS_2_ON:
 		ret = MBHC_MICBIAS2;
+		break;
 	case WCD9XXX_EVENT_PRE_MICBIAS_3_ON:
 		ret = MBHC_MICBIAS3;
+		break;
 	case WCD9XXX_EVENT_PRE_MICBIAS_4_ON:
 		ret = MBHC_MICBIAS4;
+		break;
 	default:
 		ret = MBHC_MICBIAS_INVALID;
+		break;
 	}
 	return ret;
 }
