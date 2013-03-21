@@ -156,6 +156,8 @@ struct clk {
 
 int vote_vdd_level(struct clk_vdd_class *vdd_class, int level);
 int unvote_vdd_level(struct clk_vdd_class *vdd_class, int level);
+int __clk_pre_reparent(struct clk *c, struct clk *new, unsigned long *flags);
+void __clk_post_reparent(struct clk *c, struct clk *old, unsigned long *flags);
 
 /* Register clocks with the MSM clock driver */
 int msm_clock_register(struct clk_lookup *table, size_t size);
