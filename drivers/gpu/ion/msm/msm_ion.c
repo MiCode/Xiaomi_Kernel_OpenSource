@@ -750,6 +750,68 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 	return 0;
 }
 
+static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
+{
+	struct ion_heap *heap = NULL;
+
+	switch ((int)heap_data->type) {
+	case ION_HEAP_TYPE_IOMMU:
+		heap = ion_iommu_heap_create(heap_data);
+		break;
+	case ION_HEAP_TYPE_CP:
+		heap = ion_cp_heap_create(heap_data);
+		break;
+#ifdef CONFIG_CMA
+	case ION_HEAP_TYPE_DMA:
+		heap = ion_cma_heap_create(heap_data);
+		break;
+
+	case ION_HEAP_TYPE_SECURE_DMA:
+		heap = ion_secure_cma_heap_create(heap_data);
+		break;
+#endif
+	default:
+		heap = ion_heap_create(heap_data);
+	}
+
+	if (IS_ERR_OR_NULL(heap)) {
+		pr_err("%s: error creating heap %s type %d base %pa size %u\n",
+		       __func__, heap_data->name, heap_data->type,
+		       &heap_data->base, heap_data->size);
+		return ERR_PTR(-EINVAL);
+	}
+
+	heap->name = heap_data->name;
+	heap->id = heap_data->id;
+	heap->priv = heap_data->priv;
+	return heap;
+}
+
+static void msm_ion_heap_destroy(struct ion_heap *heap)
+{
+	if (!heap)
+		return;
+
+	switch ((int)heap->type) {
+	case ION_HEAP_TYPE_IOMMU:
+		ion_iommu_heap_destroy(heap);
+		break;
+	case ION_HEAP_TYPE_CP:
+		ion_cp_heap_destroy(heap);
+		break;
+#ifdef CONFIG_CMA
+	case ION_HEAP_TYPE_DMA:
+		ion_cma_heap_destroy(heap);
+		break;
+	case ION_HEAP_TYPE_SECURE_DMA:
+		ion_secure_cma_heap_destroy(heap);
+		break;
+#endif
+	default:
+		ion_heap_destroy(heap);
+	}
+}
+
 static int msm_ion_probe(struct platform_device *pdev)
 {
 	struct ion_platform_data *pdata;
@@ -791,7 +853,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 		msm_ion_allocate(heap_data);
 
 		heap_data->has_outer_cache = pdata->has_outer_cache;
-		heaps[i] = ion_heap_create(heap_data);
+		heaps[i] = msm_ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			heaps[i] = 0;
 			continue;
@@ -829,7 +891,7 @@ static int msm_ion_remove(struct platform_device *pdev)
 	int i;
 
 	for (i = 0; i < num_heaps; i++)
-		ion_heap_destroy(heaps[i]);
+		msm_ion_heap_destroy(heaps[i]);
 
 	ion_device_destroy(idev);
 	kfree(heaps);
