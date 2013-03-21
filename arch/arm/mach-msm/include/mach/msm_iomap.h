@@ -136,7 +136,7 @@
 #include "msm_iomap-8226.h"
 #include "msm_iomap-8610.h"
 #include "msm_iomap-krypton.h"
-
+#include "msm_iomap-fsm9900.h"
 #endif
 
 #endif
