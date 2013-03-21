@@ -171,6 +171,92 @@ static bool is_rate_valid(struct clk *clk, unsigned long rate)
 	return level >= 0;
 }
 
+/**
+ * __clk_pre_reparent() - Set up the new parent before switching to it and
+ * prevent the enable state of the child clock from changing.
+ * @c: The child clock that's going to switch parents
+ * @new: The new parent that the child clock is going to switch to
+ * @flags: Pointer to scratch space to save spinlock flags
+ *
+ * Cannot be called from atomic context.
+ *
+ * Use this API to set up the @new parent clock to be able to support the
+ * current prepare and enable state of the child clock @c. Once the parent is
+ * set up, the child clock can safely switch to it.
+ *
+ * The caller shall grab the prepare_lock of clock @c before calling this API
+ * and only release it after calling __clk_post_reparent() for clock @c (or
+ * if this API fails). This is necessary to prevent the prepare state of the
+ * child clock @c from changing while the reparenting is in progress. Since
+ * this API takes care of grabbing the enable lock of @c, only atomic
+ * operation are allowed between calls to __clk_pre_reparent and
+ * __clk_post_reparent()
+ *
+ * The scratch space pointed to by @flags should not be altered before
+ * calling __clk_post_reparent() for clock @c.
+ *
+ * See also: __clk_post_reparent()
+ */
+int __clk_pre_reparent(struct clk *c, struct clk *new, unsigned long *flags)
+{
+	int rc;
+
+	if (c->prepare_count) {
+		rc = clk_prepare(new);
+		if (rc)
+			return rc;
+	}
+
+	spin_lock_irqsave(&c->lock, *flags);
+	if (c->count) {
+		rc = clk_enable(new);
+		if (rc) {
+			spin_unlock_irqrestore(&c->lock, *flags);
+			clk_unprepare(new);
+			return rc;
+		}
+	}
+	return 0;
+}
+
+/**
+ * __clk_post_reparent() - Release requirements on old parent after switching
+ * away from it and allow changes to the child clock's enable state.
+ * @c:   The child clock that switched parents
+ * @old: The old parent that the child clock switched away from or the new
+ *	 parent of a failed reparent attempt.
+ * @flags: Pointer to scratch space where spinlock flags were saved
+ *
+ * Cannot be called from atomic context.
+ *
+ * This API works in tandem with __clk_pre_reparent. Use this API to
+ * - Remove prepare and enable requirements from the @old parent after
+ *   switching away from it
+ * - Or, undo the effects of __clk_pre_reparent() after a failed attempt to
+ *   change parents
+ *
+ * The caller shall release the prepare_lock of @c that was grabbed before
+ * calling __clk_pre_reparent() only after this API is called (or if
+ * __clk_pre_reparent() fails). This is necessary to prevent the prepare
+ * state of the child clock @c from changing while the reparenting is in
+ * progress. Since this API releases the enable lock of @c, the limit to
+ * atomic operations set by __clk_pre_reparent() is no longer present.
+ *
+ * The scratch space pointed to by @flags shall not be altered since the call
+ * to  __clk_pre_reparent() for clock @c.
+ *
+ * See also: __clk_pre_reparent()
+ */
+void __clk_post_reparent(struct clk *c, struct clk *old, unsigned long *flags)
+{
+	if (c->count)
+		clk_disable(old);
+	spin_unlock_irqrestore(&c->lock, *flags);
+
+	if (c->prepare_count)
+		clk_unprepare(old);
+}
+
 int clk_prepare(struct clk *clk)
 {
 	int ret = 0;
