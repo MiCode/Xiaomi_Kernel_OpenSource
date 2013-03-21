@@ -1469,7 +1469,6 @@ static int mpq_dmx_init_streambuffer(
 			dec_buffs->buffers_size,
 			dec_buffs->is_linear);
 
-	feed_data->buffer_desc.decoder_buffers_num = dec_buffs->buffers_num;
 	if (0 == dec_buffs->buffers_num)
 		ret = mpq_dmx_init_internal_buffers(
 			feed_data, dec_buffs, client);
@@ -1514,6 +1513,8 @@ static void mpq_dmx_release_streambuffer(
 		feed->dvb_demux_feed->feed.ts.decoder_buffers;
 
 	mpq_adapter_unregister_stream_if(feed_data->stream_interface);
+
+	mpq_streambuffer_terminate(video_buffer);
 
 	vfree(video_buffer->packet_data.data);
 

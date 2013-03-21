@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -209,6 +209,18 @@ int mpq_streambuffer_init(
 		u32 data_buff_num,
 		void *packet_buff,
 		size_t packet_buff_size);
+
+/**
+ * mpq_streambuffer_terminate - Terminate stream buffer
+ *
+ * @sbuff: The buffer to terminate
+ *
+ * The function sets the the buffers error flags to ENODEV
+ * and wakeup any waiting threads on the buffer queues.
+ * Threads waiting on the buffer queues should check if
+ * error was set.
+ */
+void mpq_streambuffer_terminate(struct mpq_streambuffer *sbuff);
 
 /**
  * mpq_streambuffer_packet_next - Returns index of next available packet.
