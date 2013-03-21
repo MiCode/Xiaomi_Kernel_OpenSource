@@ -574,7 +574,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	}
 
 	ret = connect_pipe_ipa(idx, ipa_params);
-	ipa_rm_request_resource(IPA_CLIENT_USB_PROD);
+	ipa_rm_request_resource(IPA_RM_RESOURCE_USB_PROD);
 
 	if (ret) {
 		pr_err("%s: dst pipe connection failure\n", __func__);
@@ -853,7 +853,7 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		}
 	}
 
-	ipa_rm_release_resource(IPA_CLIENT_USB_PROD);
+	ipa_rm_release_resource(IPA_RM_RESOURCE_USB_PROD);
 	return 0;
 }
 EXPORT_SYMBOL(usb_bam_disconnect_ipa);
