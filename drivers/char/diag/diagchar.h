@@ -270,6 +270,7 @@ struct diagchar_dev {
 	unsigned char *hdlc_buf;
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
+	int in_busy_pktdata;
 #ifdef CONFIG_DIAG_OVER_USB
 	int usb_connected;
 	struct usb_diag_ch *legacy_ch;

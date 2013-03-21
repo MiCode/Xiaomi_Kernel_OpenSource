@@ -86,14 +86,15 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			range = buf+HDR_SIZ+
 					sizeof(struct diag_ctrl_msg);
 			pkt_params->count = msg->count_entries;
-			temp = kzalloc(pkt_params->count * sizeof(struct
-					 bindpkt_params), GFP_KERNEL);
-			if (temp == NULL) {
+			pkt_params->params = kzalloc(pkt_params->count *
+				sizeof(struct bindpkt_params), GFP_KERNEL);
+			if (pkt_params->params == NULL) {
 				pr_alert("diag: In %s, Memory alloc fail\n",
 					__func__);
 				kfree(pkt_params);
 				return flag;
 			}
+			temp = pkt_params->params;
 			for (j = 0; j < pkt_params->count; j++) {
 				temp->cmd_code = msg->cmd_code;
 				temp->subsys_id = msg->subsysid;
@@ -104,8 +105,6 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 				range++;
 				temp++;
 			}
-			temp -= pkt_params->count;
-			pkt_params->params = temp;
 			flag = 1;
 			/* peripheral undergoing SSR should not
 			 * record new registration
@@ -116,7 +115,7 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			else
 				pr_err("diag: drop reg proc %d\n",
 						smd_info->peripheral);
-			kfree(temp);
+			kfree(pkt_params->params);
 		} else if ((type == DIAG_CTRL_MSG_FEATURE) &&
 				(smd_info->peripheral == MODEM_DATA)) {
 			feature_mask_len = *(int *)(buf + 8);

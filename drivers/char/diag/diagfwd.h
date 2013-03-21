@@ -48,6 +48,7 @@ int diag_switch_logging(unsigned long);
 int diag_command_reg(unsigned long);
 void diag_cmp_logging_modes_sdio_pipe(int old_mode, int new_mode);
 void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode);
+int diag_process_apps_pkt(unsigned char *buf, int len);
 /* State for diag forwarding */
 #ifdef CONFIG_DIAG_OVER_USB
 int diagfwd_connect(void);
