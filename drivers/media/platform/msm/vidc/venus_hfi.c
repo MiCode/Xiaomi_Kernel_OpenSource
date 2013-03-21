@@ -37,6 +37,8 @@
 
 #define SHARED_QSIZE 0x1000000
 
+static struct hal_device_data hal_ctxt;
+
 static const u32 venus_qdss_entries[][2] = {
 	{0xFC307000, 0x1000},
 	{0xFC322000, 0x1000},
@@ -2746,25 +2748,25 @@ static void *venus_hfi_add_device(u32 device_id,
 	if (rc)
 		goto err_init_regs;
 
-	INIT_LIST_HEAD(&hal_ctxt.dev_head);
-	INIT_LIST_HEAD(&hdevice->list);
-	list_add_tail(&hdevice->list, &hal_ctxt.dev_head);
-	hal_ctxt.dev_count++;
 	hdevice->device_id = device_id;
-
 	hdevice->callback = callback;
 
 	hdevice->vidc_workq = create_singlethread_workqueue(
-		"msm_vidc_workerq");
+		"msm_vidc_workerq_venus");
 	if (!hdevice->vidc_workq) {
 		dprintk(VIDC_ERR, ": create workq failed\n");
 		goto error_createq;
 	}
 
+	if (hal_ctxt.dev_count == 0)
+		INIT_LIST_HEAD(&hal_ctxt.dev_head);
+
+	INIT_LIST_HEAD(&hdevice->list);
+	list_add_tail(&hdevice->list, &hal_ctxt.dev_head);
+	hal_ctxt.dev_count++;
+
 	return (void *) hdevice;
 error_createq:
-	hal_ctxt.dev_count--;
-	list_del(&hal_ctxt.dev_head);
 err_init_regs:
 	kfree(hdevice);
 err_alloc:
