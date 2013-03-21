@@ -1289,7 +1289,7 @@ void kgsl_pwrctrl_wake(struct kgsl_device *device)
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_ACTIVE);
 	switch (device->state) {
 	case KGSL_STATE_SLUMBER:
-		status = device->ftbl->start(device, 0);
+		status = device->ftbl->start(device);
 		if (status) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 			KGSL_DRV_ERR(device, "start failed %d\n", status);

@@ -319,7 +319,7 @@ int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device)
 	return 0;
 }
 
-int adreno_ringbuffer_start(struct adreno_ringbuffer *rb, unsigned int init_ram)
+int adreno_ringbuffer_start(struct adreno_ringbuffer *rb)
 {
 	int status;
 	/*cp_rb_cntl_u cp_rb_cntl; */
@@ -330,9 +330,6 @@ int adreno_ringbuffer_start(struct adreno_ringbuffer *rb, unsigned int init_ram)
 
 	if (rb->flags & KGSL_FLAGS_STARTED)
 		return 0;
-
-	if (init_ram)
-		rb->timestamp[KGSL_MEMSTORE_GLOBAL] = 0;
 
 	kgsl_sharedmem_set(&rb->memptrs_desc, 0, 0,
 			   sizeof(struct kgsl_rbmemptrs));
