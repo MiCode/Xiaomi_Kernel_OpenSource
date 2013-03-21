@@ -1021,6 +1021,9 @@ static void msm_pm_ack_retention_disable(void *data)
  */
 void msm_pm_enable_retention(bool enable)
 {
+	if (enable == msm_pm_ldo_retention_enabled)
+		return;
+
 	msm_pm_ldo_retention_enabled = enable;
 	/*
 	 * If retention is being disabled, wakeup all online core to ensure
