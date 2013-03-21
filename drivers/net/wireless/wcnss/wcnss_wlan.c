@@ -400,12 +400,13 @@ void wcnss_reset_intr(void)
 {
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		wcnss_pronto_log_debug_regs();
-		pr_err("%s: reset interrupt not supported\n", __func__);
-		return;
+		wmb();
+		__raw_writel(1 << 16, MSM_APCS_GCC_BASE + 0x8);
+	} else {
+		wcnss_riva_log_debug_regs();
+		wmb();
+		__raw_writel(1 << 24, MSM_APCS_GCC_BASE + 0x8);
 	}
-	wcnss_riva_log_debug_regs();
-	wmb();
-	__raw_writel(1 << 24, MSM_APCS_GCC_BASE + 0x8);
 }
 EXPORT_SYMBOL(wcnss_reset_intr);
 
