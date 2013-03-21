@@ -60,6 +60,8 @@ int q6audio_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_PRIMARY_MI2S_RX;
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_PRIMARY_MI2S_TX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
@@ -76,8 +78,8 @@ int q6audio_get_port_index(u16 port_id)
 int q6audio_get_port_id(u16 port_id)
 {
 	switch (port_id) {
-	case PRIMARY_I2S_RX: return AFE_PORT_ID_PRIMARY_MI2S_RX;
-	case PRIMARY_I2S_TX: return AFE_PORT_ID_PRIMARY_MI2S_TX;
+	case PRIMARY_I2S_RX: return PRIMARY_I2S_RX;
+	case PRIMARY_I2S_TX: return PRIMARY_I2S_TX;
 	case AFE_PORT_ID_PRIMARY_PCM_RX:
 			return AFE_PORT_ID_PRIMARY_PCM_RX;
 	case AFE_PORT_ID_PRIMARY_PCM_TX:
@@ -114,6 +116,8 @@ int q6audio_get_port_id(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return AFE_PORT_ID_RT_PROXY_PORT_001_TX;
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 			     return AFE_PORT_ID_PRIMARY_MI2S_RX;
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
+			     return AFE_PORT_ID_PRIMARY_MI2S_TX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 			     return AFE_PORT_ID_QUATERNARY_MI2S_RX;
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
@@ -168,6 +172,10 @@ int q6audio_is_digital_pcm_interface(u16 port_id)
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 		break;
 	default:
 		ret = -EINVAL;
@@ -214,6 +222,7 @@ int q6audio_validate_port(u16 port_id)
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
 	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
