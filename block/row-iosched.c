@@ -954,46 +954,42 @@ static ssize_t row_var_store(int *var, const char *page, size_t count)
 	return count;
 }
 
-#define SHOW_FUNCTION(__FUNC, __VAR, __CONV)				\
+#define SHOW_FUNCTION(__FUNC, __VAR)				\
 static ssize_t __FUNC(struct elevator_queue *e, char *page)		\
 {									\
 	struct row_data *rowd = e->elevator_data;			\
 	int __data = __VAR;						\
-	if (__CONV)							\
-		__data = jiffies_to_msecs(__data);			\
 	return row_var_show(__data, (page));			\
 }
 SHOW_FUNCTION(row_hp_read_quantum_show,
-	rowd->row_queues[ROWQ_PRIO_HIGH_READ].disp_quantum, 0);
+	rowd->row_queues[ROWQ_PRIO_HIGH_READ].disp_quantum);
 SHOW_FUNCTION(row_rp_read_quantum_show,
-	rowd->row_queues[ROWQ_PRIO_REG_READ].disp_quantum, 0);
+	rowd->row_queues[ROWQ_PRIO_REG_READ].disp_quantum);
 SHOW_FUNCTION(row_hp_swrite_quantum_show,
-	rowd->row_queues[ROWQ_PRIO_HIGH_SWRITE].disp_quantum, 0);
+	rowd->row_queues[ROWQ_PRIO_HIGH_SWRITE].disp_quantum);
 SHOW_FUNCTION(row_rp_swrite_quantum_show,
-	rowd->row_queues[ROWQ_PRIO_REG_SWRITE].disp_quantum, 0);
+	rowd->row_queues[ROWQ_PRIO_REG_SWRITE].disp_quantum);
 SHOW_FUNCTION(row_rp_write_quantum_show,
-	rowd->row_queues[ROWQ_PRIO_REG_WRITE].disp_quantum, 0);
+	rowd->row_queues[ROWQ_PRIO_REG_WRITE].disp_quantum);
 SHOW_FUNCTION(row_lp_read_quantum_show,
-	rowd->row_queues[ROWQ_PRIO_LOW_READ].disp_quantum, 0);
+	rowd->row_queues[ROWQ_PRIO_LOW_READ].disp_quantum);
 SHOW_FUNCTION(row_lp_swrite_quantum_show,
-	rowd->row_queues[ROWQ_PRIO_LOW_SWRITE].disp_quantum, 0);
-SHOW_FUNCTION(row_rd_idle_data_show, rowd->rd_idle_data.idle_time_ms, 0);
-SHOW_FUNCTION(row_rd_idle_data_freq_show, rowd->rd_idle_data.freq_ms, 0);
+	rowd->row_queues[ROWQ_PRIO_LOW_SWRITE].disp_quantum);
+SHOW_FUNCTION(row_rd_idle_data_show, rowd->rd_idle_data.idle_time_ms);
+SHOW_FUNCTION(row_rd_idle_data_freq_show, rowd->rd_idle_data.freq_ms);
 SHOW_FUNCTION(row_reg_starv_limit_show,
-	rowd->reg_prio_starvation.starvation_limit, 0);
+	rowd->reg_prio_starvation.starvation_limit);
 SHOW_FUNCTION(row_low_starv_limit_show,
-	rowd->low_prio_starvation.starvation_limit, 0);
+	rowd->low_prio_starvation.starvation_limit);
 #undef SHOW_FUNCTION
 
-#define STORE_FUNCTION(__FUNC, __PTR, MIN, MAX, __CONV)			\
+#define STORE_FUNCTION(__FUNC, __PTR, MIN, MAX)			\
 static ssize_t __FUNC(struct elevator_queue *e,				\
 		const char *page, size_t count)				\
 {									\
 	struct row_data *rowd = e->elevator_data;			\
 	int __data;						\
 	int ret = row_var_store(&__data, (page), count);		\
-	if (__CONV)							\
-		__data = (int)msecs_to_jiffies(__data);			\
 	if (__data < (MIN))						\
 		__data = (MIN);						\
 	else if (__data > (MAX))					\
@@ -1002,35 +998,35 @@ static ssize_t __FUNC(struct elevator_queue *e,				\
 	return ret;							\
 }
 STORE_FUNCTION(row_hp_read_quantum_store,
-&rowd->row_queues[ROWQ_PRIO_HIGH_READ].disp_quantum, 1, INT_MAX, 0);
+&rowd->row_queues[ROWQ_PRIO_HIGH_READ].disp_quantum, 1, INT_MAX);
 STORE_FUNCTION(row_rp_read_quantum_store,
 			&rowd->row_queues[ROWQ_PRIO_REG_READ].disp_quantum,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_hp_swrite_quantum_store,
 			&rowd->row_queues[ROWQ_PRIO_HIGH_SWRITE].disp_quantum,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_rp_swrite_quantum_store,
 			&rowd->row_queues[ROWQ_PRIO_REG_SWRITE].disp_quantum,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_rp_write_quantum_store,
 			&rowd->row_queues[ROWQ_PRIO_REG_WRITE].disp_quantum,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_lp_read_quantum_store,
 			&rowd->row_queues[ROWQ_PRIO_LOW_READ].disp_quantum,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_lp_swrite_quantum_store,
 			&rowd->row_queues[ROWQ_PRIO_LOW_SWRITE].disp_quantum,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_rd_idle_data_store, &rowd->rd_idle_data.idle_time_ms,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_rd_idle_data_freq_store, &rowd->rd_idle_data.freq_ms,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_reg_starv_limit_store,
 			&rowd->reg_prio_starvation.starvation_limit,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 STORE_FUNCTION(row_low_starv_limit_store,
 			&rowd->low_prio_starvation.starvation_limit,
-			1, INT_MAX, 0);
+			1, INT_MAX);
 
 #undef STORE_FUNCTION
 
