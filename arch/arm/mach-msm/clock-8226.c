@@ -1668,7 +1668,7 @@ static struct clk_freq_tbl ftbl_mmss_mmssnoc_axi_clk[] = {
 	F_MMSS( 100000000,      gpll0,   6,    0,    0),
 	F_MMSS( 150000000,      gpll0,   4,    0,    0),
 	F_MMSS( 200000000, mmpll0_pll,   4,    0,    0),
-	F_MMSS( 266000000, mmpll0_pll,   3,    0,    0),
+	F_MMSS( 266666666, mmpll0_pll,   3,    0,    0),
 	F_END
 };
 
