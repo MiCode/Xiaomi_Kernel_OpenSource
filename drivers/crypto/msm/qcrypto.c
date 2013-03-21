@@ -121,7 +121,7 @@ struct crypto_priv {
 #define NUM_RETRY				1000
 #define CE_BUSY				        55
 
-static DEFINE_MUTEX(sent_bw_req);
+static DEFINE_MUTEX(qcrypto_sent_bw_req);
 
 static int qcrypto_scm_cmd(int resource, int cmd, int *response)
 {
@@ -346,25 +346,51 @@ static void qcrypto_ce_high_bw_req(struct crypto_priv *cp, bool high_bw_req)
 {
 	int ret = 0;
 
-	mutex_lock(&sent_bw_req);
+	mutex_lock(&qcrypto_sent_bw_req);
 	if (high_bw_req) {
-		if (cp->high_bw_req_count == 0)
+		if (cp->high_bw_req_count == 0) {
+			ret = qce_enable_clk(cp->qce);
+			if (ret) {
+				pr_err("%s Unable enable clk\n", __func__);
+				mutex_unlock(&qcrypto_sent_bw_req);
+				return;
+			}
 			ret = msm_bus_scale_client_update_request(
-				cp->bus_scale_handle, 1);
-		if (ret)
-			pr_err("%s Unable to set to high bandwidth\n",
+					cp->bus_scale_handle, 1);
+			if (ret) {
+				pr_err("%s Unable to set to high bandwidth\n",
 							__func__);
+				qce_disable_clk(cp->qce);
+				mutex_unlock(&qcrypto_sent_bw_req);
+				return;
+			}
+		}
 		cp->high_bw_req_count++;
 	} else {
-		if (cp->high_bw_req_count == 1)
+		if (cp->high_bw_req_count == 1) {
 			ret = msm_bus_scale_client_update_request(
-				cp->bus_scale_handle, 0);
-		if (ret)
-			pr_err("%s Unable to set to low bandwidth\n",
+					cp->bus_scale_handle, 0);
+			if (ret) {
+				pr_err("%s Unable to set to low bandwidth\n",
 							__func__);
+				mutex_unlock(&qcrypto_sent_bw_req);
+				return;
+			}
+			ret = qce_disable_clk(cp->qce);
+			if (ret) {
+				pr_err("%s Unable disable clk\n", __func__);
+				ret = msm_bus_scale_client_update_request(
+					cp->bus_scale_handle, 1);
+				if (ret)
+					pr_err("%s Unable to set to high bandwidth\n",
+							__func__);
+				mutex_unlock(&qcrypto_sent_bw_req);
+				return;
+			}
+		}
 		cp->high_bw_req_count--;
 	}
-	mutex_unlock(&sent_bw_req);
+	mutex_unlock(&qcrypto_sent_bw_req);
 }
 
 static int _start_qcrypto_process(struct crypto_priv *cp);
@@ -3336,6 +3362,14 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		cp->platform_support.hw_key_support = 0;
 		cp->platform_support.bus_scale_table =	NULL;
 		cp->platform_support.sha_hmac = 1;
+
+		if (cp->ce_support.is_shared == false) {
+			cp->platform_support.bus_scale_table =
+				(struct msm_bus_scale_pdata *)
+						msm_bus_cl_get_pdata(pdev);
+			if (!cp->platform_support.bus_scale_table)
+				pr_warn("bus_scale_table is NULL\n");
+		}
 	} else {
 		platform_support =
 			(struct msm_ce_hw_support *)pdev->dev.platform_data;

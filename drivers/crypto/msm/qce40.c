@@ -2426,6 +2426,18 @@ bad:
 }
 EXPORT_SYMBOL(qce_process_sha_req);
 
+int qce_enable_clk(void *handle)
+{
+	return 0;
+}
+EXPORT_SYMBOL(qce_enable_clk);
+
+int qce_disable_clk(void *handle)
+{
+	return 0;
+}
+EXPORT_SYMBOL(qce_disable_clk);
+
 /* crypto engine open function. */
 void *qce_open(struct platform_device *pdev, int *rc)
 {

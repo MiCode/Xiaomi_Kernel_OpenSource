@@ -98,7 +98,7 @@ struct qcedev_async_req {
 };
 
 static DEFINE_MUTEX(send_cmd_lock);
-static DEFINE_MUTEX(sent_bw_req);
+static DEFINE_MUTEX(qcedev_sent_bw_req);
 /**********************************************************************
  * Register ourselves as a misc device to be able to access the dev driver
  * from userspace. */
@@ -177,25 +177,51 @@ static void qcedev_ce_high_bw_req(struct qcedev_control *podev,
 {
 	int ret = 0;
 
-	mutex_lock(&sent_bw_req);
+	mutex_lock(&qcedev_sent_bw_req);
 	if (high_bw_req) {
-		if (podev->high_bw_req_count == 0)
+		if (podev->high_bw_req_count == 0) {
+			ret = qce_enable_clk(podev->qce);
+			if (ret) {
+				pr_err("%s Unable enable clk\n", __func__);
+				mutex_unlock(&qcedev_sent_bw_req);
+				return;
+			}
 			ret = msm_bus_scale_client_update_request(
 					podev->bus_scale_handle, 1);
-		if (ret)
-			pr_err("%s Unable to set to high bandwidth\n",
+			if (ret) {
+				pr_err("%s Unable to set to high bandwidth\n",
 							__func__);
+				ret = qce_disable_clk(podev->qce);
+				mutex_unlock(&qcedev_sent_bw_req);
+				return;
+			}
+		}
 		podev->high_bw_req_count++;
 	} else {
-		if (podev->high_bw_req_count == 1)
+		if (podev->high_bw_req_count == 1) {
 			ret = msm_bus_scale_client_update_request(
 					podev->bus_scale_handle, 0);
-		if (ret)
-			pr_err("%s Unable to set to low bandwidth\n",
+			if (ret) {
+				pr_err("%s Unable to set to low bandwidth\n",
 							__func__);
+				mutex_unlock(&qcedev_sent_bw_req);
+				return;
+			}
+			ret = qce_disable_clk(podev->qce);
+			if (ret) {
+				pr_err("%s Unable disable clk\n", __func__);
+				ret = msm_bus_scale_client_update_request(
+					podev->bus_scale_handle, 1);
+				if (ret)
+					pr_err("%s Unable to set to high bandwidth\n",
+							__func__);
+				mutex_unlock(&qcedev_sent_bw_req);
+				return;
+			}
+		}
 		podev->high_bw_req_count--;
 	}
-	mutex_unlock(&sent_bw_req);
+	mutex_unlock(&qcedev_sent_bw_req);
 }
 
 
@@ -1854,6 +1880,14 @@ static int qcedev_probe(struct platform_device *pdev)
 		podev->platform_support.hw_key_support = 0;
 		podev->platform_support.bus_scale_table = NULL;
 		podev->platform_support.sha_hmac = 1;
+
+		if (podev->ce_support.is_shared == false) {
+			podev->platform_support.bus_scale_table =
+				(struct msm_bus_scale_pdata *)
+						msm_bus_cl_get_pdata(pdev);
+			if (!podev->platform_support.bus_scale_table)
+				pr_err("bus_scale_table is NULL\n");
+		}
 	} else {
 		platform_support =
 			(struct msm_ce_hw_support *)pdev->dev.platform_data;
