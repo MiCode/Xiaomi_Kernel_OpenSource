@@ -707,6 +707,7 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(cxo_a2_pin, cxo_a2_a_pin, A2_ID);
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE_REG,
+	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS_REG,
 	.status_mask = BIT(17),
 	.base = &virt_bases[GCC_BASE],
