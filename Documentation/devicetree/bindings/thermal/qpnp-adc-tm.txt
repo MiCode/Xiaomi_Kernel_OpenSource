@@ -20,6 +20,13 @@ Required properties:
 - qcom,adc-bit-resolution : Bit resolution of the ADC.
 - qcom,adc-vdd-reference : Voltage reference used by the ADC.
 
+Optional properties:
+- qcom,thermal-node : If present a thermal node is created and the channel is registered as
+		part of the thermal sysfs which allows clients to use the thermal framework
+		to set temperature thresholds and receive notification when the temperature
+		crosses a set threshold, read temperature and enable/set trip types supported
+		by the thermal framework.
+
 Channel nodes
 NOTE: Atleast one Channel node is required.
 
@@ -105,7 +112,7 @@ Example:
                         qcom,adc-bit-resolution = <15>;
                         qcom,adc-vdd-reference = <1800>;
 
-			/* Channel Node */
+			/* Channel Node to be registered as part of thermal sysfs */
                         chan@b5 {
                                 label = "pa_therm1";
 				reg = <0xb5>;
@@ -116,5 +123,19 @@ Example:
                                 qcom,hw-settle-time = <0>;
                                 qcom,fast-avg-setup = <0>;
 				qcom,btm-channel-number = <0x70>;
+				qcom,thermal-node;
                         };
+
+			/* Channel Node */
+			chan@6 {
+				label = "vbat_sns";
+				reg = <6>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x78>;
+			};
 	};
