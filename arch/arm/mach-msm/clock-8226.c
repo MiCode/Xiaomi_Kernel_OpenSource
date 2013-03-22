@@ -3261,10 +3261,12 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("core_clk", mdss_axi_clk.c, "fd928000.qcom,iommu"),
 
 	/* MM sensor clocks */
-	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6f.qcom,camera"),
 	CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "90.qcom,camera"),
-	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6e.qcom,camera"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6d.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6f.qcom,camera"),
 	CLK_LOOKUP("cam_clk", camss_mclk1_clk.c, "90.qcom,camera"),
+	CLK_LOOKUP("cam_clk", camss_mclk0_clk.c, "6d.qcom,camera"),
 
 	/* CCI clocks */
 	CLK_LOOKUP("camss_top_ahb_clk", camss_top_ahb_clk.c,
