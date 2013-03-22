@@ -3531,19 +3531,6 @@ static int msm_hsusb_pmic_notif_init(void (*callback)(int online), int init)
 }
 #endif
 
-static struct android_pmem_platform_data android_pmem_pdata = {
-	.name = "pmem",
-	.allocator_type = PMEM_ALLOCATORTYPE_ALLORNOTHING,
-	.cached = 1,
-	.memory_type = MEMTYPE_EBI0,
-};
-
-static struct platform_device android_pmem_device = {
-	.name = "android_pmem",
-	.id = 0,
-	.dev = { .platform_data = &android_pmem_pdata },
-};
-
 #ifndef CONFIG_SPI_QSD
 static int lcdc_gpio_array_num[] = {
 				45, /* spi_clk */
@@ -4019,32 +4006,6 @@ static struct platform_device msm_v4l2_video_overlay_device = {
 static struct platform_device msm_migrate_pages_device = {
 	.name   = "msm_migrate_pages",
 	.id     = -1,
-};
-
-static struct android_pmem_platform_data android_pmem_adsp_pdata = {
-       .name = "pmem_adsp",
-       .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-       .cached = 0,
-	.memory_type = MEMTYPE_EBI0,
-};
-
-static struct android_pmem_platform_data android_pmem_audio_pdata = {
-       .name = "pmem_audio",
-       .allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-       .cached = 0,
-	.memory_type = MEMTYPE_EBI0,
-};
-
-static struct platform_device android_pmem_adsp_device = {
-       .name = "android_pmem",
-       .id = 2,
-       .dev = { .platform_data = &android_pmem_adsp_pdata },
-};
-
-static struct platform_device android_pmem_audio_device = {
-       .name = "android_pmem",
-       .id = 4,
-       .dev = { .platform_data = &android_pmem_audio_pdata },
 };
 
 #if defined(CONFIG_CRYPTO_DEV_QCRYPTO) || \
@@ -5395,7 +5356,6 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_I2C_SSBI
 	&msm_device_ssbi7,
 #endif
-	&android_pmem_device,
 	&msm_fb_device,
 #ifdef CONFIG_MSM_V4L2_VIDEO_OVERLAY_DEVICE
 	&msm_v4l2_video_overlay_device,
@@ -5407,8 +5367,6 @@ static struct platform_device *devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&lcdc_sharp_panel_device,
-	&android_pmem_adsp_device,
-	&android_pmem_audio_device,
 	&msm_device_i2c,
 	&msm_device_i2c_2,
 	&msm_device_uart_dm1,
@@ -7234,39 +7192,6 @@ static void fix_sizes(void)
 #endif
 }
 
-static void __init size_pmem_devices(void)
-{
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-
-	android_pmem_adsp_pdata.size = size;
-	android_pmem_audio_pdata.size = pmem_audio_size;
-	android_pmem_pdata.size = pmem_sf_size;
-#endif
-#endif
-}
-
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-static void __init reserve_memory_for(struct android_pmem_platform_data *p)
-{
-	msm7x30_reserve_table[p->memory_type].size += p->size;
-}
-#endif
-#endif
-
-static void __init reserve_pmem_memory(void)
-{
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	reserve_memory_for(&android_pmem_adsp_pdata);
-	reserve_memory_for(&android_pmem_audio_pdata);
-	reserve_memory_for(&android_pmem_pdata);
-	msm7x30_reserve_table[MEMTYPE_EBI0].size += pmem_kernel_ebi0_size;
-#endif
-#endif
-}
-
 static void __init reserve_mdp_memory(void)
 {
 	mdp_pdata.ov0_wb_size = MSM_FB_OVERLAY0_WRITEBACK_SIZE;
@@ -7294,8 +7219,6 @@ static void __init reserve_ion_memory(void)
 static void __init msm7x30_calculate_reserve_sizes(void)
 {
 	fix_sizes();
-	size_pmem_devices();
-	reserve_pmem_memory();
 	reserve_mdp_memory();
 	size_ion_devices();
 	reserve_ion_memory();
