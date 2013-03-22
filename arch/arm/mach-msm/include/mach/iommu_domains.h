@@ -76,6 +76,8 @@ struct msm_iova_layout {
 
 #if defined(CONFIG_MSM_IOMMU)
 
+extern void msm_iommu_set_client_name(struct iommu_domain *domain,
+				      char const *name);
 extern struct iommu_domain *msm_get_iommu_domain(int domain_num);
 extern int msm_find_domain_no(const struct iommu_domain *domain);
 
@@ -121,6 +123,11 @@ extern void msm_iommu_unmap_contig_buffer(unsigned long iova,
 extern int msm_register_domain(struct msm_iova_layout *layout);
 
 #else
+static inline void msm_iommu_set_client_name(struct iommu_domain *domain,
+					     char const *name)
+{
+}
+
 static inline struct iommu_domain
 	*msm_get_iommu_domain(int subsys_id) { return NULL; }
 
