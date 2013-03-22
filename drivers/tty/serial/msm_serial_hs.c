@@ -231,6 +231,7 @@ struct msm_hs_port {
 #define BUS_SCALING 1
 #define BUS_RESET 0
 #define RX_FLUSH_COMPLETE_TIMEOUT 300 /* In jiffies */
+#define BLSP_UART_CLK_FMAX 63160000
 
 static struct dentry *debug_base;
 static struct msm_hs_port q_uart_port[UARTDM_NR];
@@ -750,6 +751,17 @@ static void msm_hs_set_bps_locked(struct uart_port *uport,
 	mb();
 	if (bps > 460800) {
 		uport->uartclk = bps * 16;
+		if (is_blsp_uart(msm_uport)) {
+			/* BLSP based UART supports maximum clock frequency
+			 * of 63.16 Mhz. With this (63.16 Mhz) clock frequency
+			 * UART can support baud rate of 3.94 Mbps which is
+			 * equivalent to 4 Mbps.
+			 * UART hardware is robust enough to handle this
+			 * deviation to achieve baud rate ~4 Mbps.
+			 */
+			if (bps == 4000000)
+				uport->uartclk = BLSP_UART_CLK_FMAX;
+		}
 	} else {
 		uport->uartclk = 7372800;
 	}
