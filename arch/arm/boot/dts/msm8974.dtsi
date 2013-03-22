@@ -1118,9 +1118,9 @@
 		qcom,ipi-ping;
 	};
 
-	qcom,tz-log@fc03000 {
+	qcom,tz-log@fe805720 {
 		compatible = "qcom,tz-log";
-		reg = <0x0fc03000 0x1000>;
+		reg = <0xfe805720 0x1000>;
 	};
 
 	qcom,venus@fdce0000 {
