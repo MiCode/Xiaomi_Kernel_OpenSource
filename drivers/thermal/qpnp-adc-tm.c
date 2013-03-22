@@ -1534,6 +1534,10 @@ static int __devinit qpnp_adc_tm_probe(struct spmi_device *spmi)
 		adc_tm->sensor[sen_idx].vadc_channel_num =
 				adc_tm->adc->adc_channels[sen_idx].channel_num;
 		adc_tm->sensor[sen_idx].sensor_num = sen_idx;
+		pr_debug("btm_chan:%x, vadc_chan:%x\n", btm_channel_num,
+			adc_tm->adc->adc_channels[sen_idx].channel_num);
+		thermal_node = of_property_read_bool(child,
+						"qcom,thermal-node");
 		if (thermal_node) {
 			/* Register with the thermal zone */
 			pr_debug("thermal node%x\n", btm_channel_num);
