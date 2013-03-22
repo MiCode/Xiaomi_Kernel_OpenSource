@@ -45,7 +45,7 @@
 		compatible = "qca,ar6004-sdio";
 		qca,chip-pwd-l-gpios = <&msmgpio 62 0>;
 		qca,pm-enable-gpios = <&pm8019_gpios 3 0x0>;
-		qca,ar6004-vdd-io-supply = <&pm8019_l11>;
+		qca,vdd-io-supply = <&pm8019_l11>;
 	};
 
 	qca,wlan_ar6003 {
