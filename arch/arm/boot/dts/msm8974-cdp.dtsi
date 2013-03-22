@@ -194,6 +194,7 @@
 	sound {
 		qcom,model = "msm8974-taiko-cdp-snd-card";
 		qcom,hdmi-audio-rx;
+		qcom,us-euro-gpios = <&pm8941_gpios 20 0>;
 	};
 
 	usb2_otg_sw: regulator-tpd4s214 {
@@ -484,6 +485,14 @@
 	};
 
 	gpio@d300 { /* GPIO 20 */
+		qcom,mode = <1>;		/* QPNP_PIN_MODE_DIG_OUT */
+		qcom,output-type = <0>;		/* QPNP_PIN_OUT_BUF_CMOS */
+		qcom,invert = <0>; 		/* Output low initially */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
+		qcom,out-strength = <2>;	/* QPNP_PIN_OUT_STRENGTH_MED */
+		qcom,src-sel = <0>;		/* QPNP_PIN_SEL_FUNC_CONSTANT */
+		qcom,master-en = <1>;
 	};
 
 	gpio@d400 { /* GPIO 21 */
