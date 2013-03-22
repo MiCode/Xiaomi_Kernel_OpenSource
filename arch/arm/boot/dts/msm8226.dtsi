@@ -12,6 +12,7 @@
 
 /include/ "skeleton.dtsi"
 /include/ "msm8226-ion.dtsi"
+/include/ "msm8226-camera.dtsi"
 /include/ "msm-gdsc.dtsi"
 /include/ "msm8226-iommu.dtsi"
 /include/ "msm8226-pm.dtsi"
