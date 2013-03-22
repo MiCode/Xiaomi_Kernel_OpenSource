@@ -11,6 +11,16 @@
  * GNU General Public License for more details.
  */
 
+/ {
+
+	led_flash0: qcom,camera-led-flash {
+		cell-index = <0>;
+		compatible = "qcom,camera-led-flash";
+		qcom,flash-type = <1>;
+		qcom,flash-source = <&pm8226_flash0 &pm8226_flash1>;
+	};
+};
+
 &cci {
 
 	actuator0: qcom,actuator@6e {
@@ -27,6 +37,7 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,actuator-src = <&actuator0>;
+		qcom,led-flash-src = <&led_flash0>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "ov8825";
 		cam_vdig-supply = <&pm8226_l5>;
