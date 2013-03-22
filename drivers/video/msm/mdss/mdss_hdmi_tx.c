@@ -2283,15 +2283,14 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 		/* If power down is already underway, wait for it to finish */
 		flush_work_sync(&hdmi_ctrl->power_off_work);
 
-		if (!hdmi_ctrl->panel_power_on) {
+		if (!hdmi_ctrl->panel_power_on)
 			hdmi_tx_hpd_off(hdmi_ctrl);
-		} else {
+		else
 			hdmi_ctrl->hpd_off_pending = true;
 
-			hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
-			DEV_DBG("%s: Hdmi state switch to %d\n", __func__,
-				hdmi_ctrl->sdev.state);
-		}
+		hdmi_tx_send_cable_notification(hdmi_ctrl, 0);
+		DEV_DBG("%s: Hdmi state switch to %d\n", __func__,
+			hdmi_ctrl->sdev.state);
 	}
 
 	return rc;
