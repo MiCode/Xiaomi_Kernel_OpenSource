@@ -32,6 +32,7 @@
 #include <linux/uaccess.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/qpnp-misc.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/regulator/consumer.h>
 #include <linux/power_supply.h>
@@ -2395,17 +2396,30 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	if (msm->ext_xceiv.otg_capability) {
 		msm->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 		if (msm->pmic_id_irq > 0) {
-			ret = devm_request_irq(&pdev->dev, msm->pmic_id_irq,
-					       dwc3_pmic_id_irq,
-					       IRQF_TRIGGER_RISING |
-					       IRQF_TRIGGER_FALLING,
-					       "dwc3_msm_pmic_id", msm);
-			if (ret) {
-				dev_err(&pdev->dev, "irqreq IDINT failed\n");
+			/* check if PMIC ID IRQ is supported */
+			ret = qpnp_misc_irqs_available(&pdev->dev);
+
+			if (ret == -EPROBE_DEFER) {
+				/* qpnp hasn't probed yet; defer dwc probe */
 				goto disable_hs_ldo;
+			} else if (ret == 0) {
+				msm->pmic_id_irq = 0;
+			} else {
+				ret = devm_request_irq(&pdev->dev,
+						       msm->pmic_id_irq,
+						       dwc3_pmic_id_irq,
+						       IRQF_TRIGGER_RISING |
+						       IRQF_TRIGGER_FALLING,
+						       "dwc3_msm_pmic_id", msm);
+				if (ret) {
+					dev_err(&pdev->dev, "irqreq IDINT failed\n");
+					goto disable_hs_ldo;
+				}
+				enable_irq_wake(msm->pmic_id_irq);
 			}
-			enable_irq_wake(msm->pmic_id_irq);
-		} else {
+		}
+
+		if (msm->pmic_id_irq <= 0) {
 			/* If no PMIC ID IRQ, use ADC for ID pin detection */
 			queue_work(system_nrt_wq, &msm->init_adc_work.work);
 			device_create_file(&pdev->dev, &dev_attr_adc_enable);
