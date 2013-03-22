@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,20 +71,17 @@ __asm__ __volatile__ (                                                  \
 #define RCP15_PRRR(reg)   MRC(reg, p15, 0, c10, c2, 0)
 #define RCP15_NMRR(reg)   MRC(reg, p15, 0, c10, c2, 1)
 
-struct iommu_pt {
-	unsigned long *fl_table;
-	int redirect;
-};
+struct iommu_pt;
 
 void msm_iommu_pagetable_init(void);
-int msm_iommu_pagetable_alloc(struct iommu_pt *pt);
-void msm_iommu_pagetable_free(struct iommu_pt *pt);
-int msm_iommu_pagetable_map(struct iommu_pt *pt, unsigned long va,
+int msm_iommu_pagetable_alloc(struct msm_iommu_pt *pt);
+void msm_iommu_pagetable_free(struct msm_iommu_pt *pt);
+int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
 			phys_addr_t pa, size_t len, int prot);
-size_t msm_iommu_pagetable_unmap(struct iommu_pt *pt, unsigned long va,
+size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
 				size_t len);
-int msm_iommu_pagetable_map_range(struct iommu_pt *pt, unsigned int va,
+int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 			struct scatterlist *sg, unsigned int len, int prot);
-void msm_iommu_pagetable_unmap_range(struct iommu_pt *pt, unsigned int va,
+void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 				unsigned int len);
 #endif

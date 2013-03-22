@@ -31,6 +31,7 @@
 
 #include <mach/iommu_perfmon.h>
 #include <mach/iommu_hw-v1.h>
+#include <mach/msm_iommu_priv.h>
 #include <mach/iommu.h>
 #include <mach/scm.h>
 
@@ -44,10 +45,6 @@
 #define IOMMU_SECURE_UNMAP      7
 
 static DEFINE_MUTEX(msm_iommu_lock);
-
-struct msm_priv {
-	struct list_head list_attached;
-};
 
 struct msm_scm_paddr_list {
 	unsigned int list;
@@ -298,7 +295,7 @@ static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 
 static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -311,7 +308,7 @@ static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 
 static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 
 	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
@@ -323,7 +320,7 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 
 static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
@@ -424,7 +421,7 @@ static int get_drvdata(struct iommu_domain *domain,
 			struct msm_iommu_drvdata **iommu_drvdata,
 			struct msm_iommu_ctx_drvdata **ctx_drvdata)
 {
-	struct msm_priv *priv = domain->priv;
+	struct msm_iommu_priv *priv = domain->priv;
 	struct msm_iommu_ctx_drvdata *ctx;
 
 	list_for_each_entry(ctx, &priv->list_attached, attached_elm) {
