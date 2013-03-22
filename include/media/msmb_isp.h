@@ -168,12 +168,6 @@ struct msm_vfe_axi_stream_update_cmd {
 	enum msm_vfe_frame_skip_pattern skip_pattern;
 };
 
-enum msm_vfe_stats_pipeline_policy {
-	STATS_COMP_ALL,
-	STATS_COMP_NONE,
-	MAX_STATS_POLICY,
-};
-
 enum msm_isp_stats_type {
 	MSM_ISP_STATS_AEC,   /* legacy based AEC */
 	MSM_ISP_STATS_AF,    /* legacy based AF */
@@ -193,11 +187,11 @@ struct msm_vfe_stats_stream_request_cmd {
 	uint32_t session_id;
 	uint32_t stream_id;
 	enum msm_isp_stats_type stats_type;
+	uint32_t composite_flag;
 	uint32_t framedrop_pattern;
 	uint32_t irq_subsample_pattern;
 	uint32_t buffer_offset;
 	uint32_t stream_handle;
-	uint8_t comp_flag;
 };
 
 struct msm_vfe_stats_stream_release_cmd {
@@ -207,12 +201,6 @@ struct msm_vfe_stats_stream_cfg_cmd {
 	uint8_t num_streams;
 	uint32_t stream_handle[MSM_ISP_STATS_MAX];
 	uint8_t enable;
-};
-
-struct msm_vfe_stats_comp_policy_cfg {
-	enum msm_vfe_stats_pipeline_policy stats_pipeline_policy;
-	uint32_t comp_framedrop_pattern;
-	uint32_t comp_irq_subsample_pattern;
 };
 
 enum msm_vfe_reg_cfg_type {
@@ -319,7 +307,7 @@ enum msm_isp_event_idx {
 #define ISP_EVENT_EOF             (ISP_EVENT_BASE + ISP_EOF)
 #define ISP_EVENT_BUF_DIVERT      (ISP_BUF_EVENT_BASE)
 #define ISP_EVENT_STATS_NOTIFY    (ISP_STATS_EVENT_BASE)
-
+#define ISP_EVENT_COMP_STATS_NOTIFY (ISP_EVENT_STATS_NOTIFY + MSM_ISP_STATS_MAX)
 /* The msm_v4l2_event_data structure should match the
  * v4l2_event.u.data field.
  * should not exceed 64 bytes */
@@ -411,10 +399,6 @@ struct msm_isp_event_data {
 #define VIDIOC_MSM_ISP_RELEASE_STATS_STREAM \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+11, \
 	struct msm_vfe_stats_stream_release_cmd)
-
-#define VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+12,   \
-	      struct msm_vfe_stats_comp_policy_cfg)
 
 #define VIDIOC_MSM_ISP_UPDATE_STREAM \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+13, struct msm_vfe_axi_stream_update_cmd)

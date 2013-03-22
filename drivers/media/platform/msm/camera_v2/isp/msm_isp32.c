@@ -114,7 +114,7 @@ static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w(0x07FFFFFF, vfe_dev->vfe_base + 0xC);
 	/* BUS_CFG */
 	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x3C);
-	msm_camera_io_w(0x00000025, vfe_dev->vfe_base + 0x1C);
+	msm_camera_io_w(0x01000025, vfe_dev->vfe_base + 0x1C);
 	msm_camera_io_w_mb(0x1DFFFFFF, vfe_dev->vfe_base + 0x20);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x24);
 	msm_camera_io_w_mb(0x1FFFFFFF, vfe_dev->vfe_base + 0x28);
@@ -304,6 +304,8 @@ static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
 
 	if (vfe_dev->axi_data.stream_update)
 		msm_isp_axi_stream_update(vfe_dev);
+	if (atomic_read(&vfe_dev->stats_data.stats_update))
+		msm_isp_stats_stream_update(vfe_dev);
 	msm_isp_update_framedrop_reg(vfe_dev);
 	msm_isp_update_error_frame_count(vfe_dev);
 
@@ -767,7 +769,8 @@ static int msm_vfe32_get_stats_idx(enum msm_isp_stats_type stats_type)
 	}
 }
 
-static void msm_vfe32_stats_cfg_comp_mask(struct vfe_device *vfe_dev)
+static void msm_vfe32_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
+	uint32_t stats_mask, uint8_t enable)
 {
 	return;
 }
