@@ -30,7 +30,6 @@
 #include <linux/wakelock.h>
 #include <linux/memory_alloc.h>
 #include <linux/msm_audio.h>
-#include <linux/android_pmem.h>
 #include <linux/pm_qos.h>
 
 #include <mach/msm_adsp.h>

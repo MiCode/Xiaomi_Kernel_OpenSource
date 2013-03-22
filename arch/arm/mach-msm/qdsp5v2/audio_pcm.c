@@ -30,7 +30,6 @@
 #include <linux/delay.h>
 #include <linux/earlysuspend.h>
 #include <linux/list.h>
-#include <linux/android_pmem.h>
 #include <linux/memory_alloc.h>
 #include <linux/slab.h>
 #include <linux/msm_audio.h>
@@ -743,99 +742,6 @@ static long audpcm_process_event_req(struct audio *audio, void __user *arg)
 	return rc;
 }
 
-static int audpcm_pmem_check(struct audio *audio,
-		void *vaddr, unsigned long len)
-{
-	struct audpcm_pmem_region *region_elt;
-	struct audpcm_pmem_region t = { .vaddr = vaddr, .len = len };
-
-	list_for_each_entry(region_elt, &audio->pmem_region_queue, list) {
-		if (CONTAINS(region_elt, &t) || CONTAINS(&t, region_elt) ||
-		    OVERLAPS(region_elt, &t)) {
-			MM_ERR("region (vaddr %p len %ld)"
-				" clashes with registered region"
-				" (vaddr %p paddr %p len %ld)\n",
-				vaddr, len,
-				region_elt->vaddr,
-				(void *)region_elt->paddr,
-				region_elt->len);
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
-
-static int audpcm_pmem_add(struct audio *audio,
-	struct msm_audio_pmem_info *info)
-{
-	unsigned long paddr, kvaddr, len;
-	struct file *file;
-	struct audpcm_pmem_region *region;
-	int rc = -EINVAL;
-
-	MM_DBG("\n"); /* Macro prints the file name and function */
-	region = kmalloc(sizeof(*region), GFP_KERNEL);
-	if (!region)
-		return -ENOMEM;
-
-	if (get_pmem_file(info->fd, &paddr, &kvaddr, &len, &file)) {
-		kfree(region);
-		return -EINVAL;
-	}
-
-	rc = audpcm_pmem_check(audio, info->vaddr, len);
-	if (rc < 0) {
-		put_pmem_file(file);
-		kfree(region);
-		return rc;
-	}
-
-	region->vaddr = info->vaddr;
-	region->fd = info->fd;
-	region->paddr = paddr;
-	region->kvaddr = kvaddr;
-	region->len = len;
-	region->file = file;
-	region->ref_cnt = 0;
-	MM_DBG("add region paddr %lx vaddr %p, len %lu\n", region->paddr,
-			region->vaddr, region->len);
-	list_add_tail(&region->list, &audio->pmem_region_queue);
-	return rc;
-}
-
-static int audpcm_pmem_remove(struct audio *audio,
-	struct msm_audio_pmem_info *info)
-{
-	struct audpcm_pmem_region *region;
-	struct list_head *ptr, *next;
-	int rc = -EINVAL;
-
-	MM_DBG("info fd %d vaddr %p\n", info->fd, info->vaddr);
-
-	list_for_each_safe(ptr, next, &audio->pmem_region_queue) {
-		region = list_entry(ptr, struct audpcm_pmem_region, list);
-
-		if ((region->fd == info->fd) &&
-		    (region->vaddr == info->vaddr)) {
-			if (region->ref_cnt) {
-				MM_DBG("region %p in use ref_cnt %d\n", region,
-						region->ref_cnt);
-				break;
-			}
-			MM_DBG("remove region fd %d vaddr %p \n", info->fd,
-					info->vaddr);
-			list_del(&region->list);
-			put_pmem_file(region->file);
-			kfree(region);
-			rc = 0;
-			break;
-		}
-	}
-
-	return rc;
-}
-
 static int audpcm_pmem_lookup_vaddr(struct audio *audio, void *addr,
 		     unsigned long len, struct audpcm_pmem_region **region)
 {
@@ -1124,26 +1030,6 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		rc = audpp_pause(audio->dec_id, (int) arg);
 		break;
 
-	case AUDIO_REGISTER_PMEM: {
-			struct msm_audio_pmem_info info;
-			MM_DBG("AUDIO_REGISTER_PMEM\n");
-			if (copy_from_user(&info, (void *) arg, sizeof(info)))
-				rc = -EFAULT;
-			else
-				rc = audpcm_pmem_add(audio, &info);
-			break;
-		}
-
-	case AUDIO_DEREGISTER_PMEM: {
-			struct msm_audio_pmem_info info;
-			MM_DBG("AUDIO_DEREGISTER_PMEM\n");
-			if (copy_from_user(&info, (void *) arg, sizeof(info)))
-				rc = -EFAULT;
-			else
-				rc = audpcm_pmem_remove(audio, &info);
-			break;
-		}
-
 	case AUDIO_ASYNC_WRITE:
 		if (audio->drv_status & ADRV_STATUS_FSYNC)
 			rc = -EBUSY;
@@ -1344,21 +1230,6 @@ static ssize_t audio_write(struct file *file, const char __user *buf,
 	return rc;
 }
 
-static void audpcm_reset_pmem_region(struct audio *audio)
-{
-	struct audpcm_pmem_region *region;
-	struct list_head *ptr, *next;
-
-	list_for_each_safe(ptr, next, &audio->pmem_region_queue) {
-		region = list_entry(ptr, struct audpcm_pmem_region, list);
-		list_del(&region->list);
-		put_pmem_file(region->file);
-		kfree(region);
-	}
-
-	return;
-}
-
 static int audio_release(struct inode *inode, struct file *file)
 {
 	struct audio *audio = file->private_data;
@@ -1369,7 +1240,6 @@ static int audio_release(struct inode *inode, struct file *file)
 	auddev_unregister_evt_listner(AUDDEV_CLNT_DEC, audio->dec_id);
 	audio_disable(audio);
 	audio->drv_ops.out_flush(audio);
-	audpcm_reset_pmem_region(audio);
 
 	msm_adsp_put(audio->audplay);
 	audpp_adec_free(audio->dec_id);

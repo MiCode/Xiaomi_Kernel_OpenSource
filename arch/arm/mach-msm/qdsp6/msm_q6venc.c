@@ -22,7 +22,6 @@
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
 #include <linux/wakelock.h>
-#include <linux/android_pmem.h>
 #include <linux/msm_q6venc.h>
 #include <linux/pm_qos.h>
 

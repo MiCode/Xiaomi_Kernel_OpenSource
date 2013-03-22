@@ -30,7 +30,6 @@
 #include <linux/delay.h>
 #include <linux/list.h>
 #include <linux/earlysuspend.h>
-#include <linux/android_pmem.h>
 #include <linux/slab.h>
 #include <linux/msm_audio_aac.h>
 #include <linux/memory_alloc.h>
