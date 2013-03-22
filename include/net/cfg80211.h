@@ -462,12 +462,14 @@ enum plink_actions {
 /**
  * enum station_parameters_apply_mask - station parameter values to apply
  * @STATION_PARAM_APPLY_UAPSD: apply new uAPSD parameters (uapsd_queues, max_sp)
+ * @STATION_PARAM_APPLY_CAPABILITY: apply new capability
  *
  * Not all station parameters have in-band "no change" signalling,
  * for those that don't these flags will are used.
  */
 enum station_parameters_apply_mask {
 	STATION_PARAM_APPLY_UAPSD = BIT(0),
+	STATION_PARAM_APPLY_CAPABILITY = BIT(1),
 };
 
 /**
@@ -496,6 +498,9 @@ enum station_parameters_apply_mask {
  * @sta_modify_mask: bitmap indicating which parameters changed
  *	(for those that don't have a natural "no change" value),
  *	see &enum station_parameters_apply_mask
+ * @capability: station capability
+ * @ext_capab: extended capabilities of the station
+ * @ext_capab_len: number of extended capabilities
  */
 struct station_parameters {
 	u8 *supported_rates;
@@ -511,6 +516,9 @@ struct station_parameters {
 	struct ieee80211_vht_cap *vht_capa;
 	u8 uapsd_queues;
 	u8 max_sp;
+	u16 capability;
+	u8 *ext_capab;
+	u8 ext_capab_len;
 };
 
 /**
