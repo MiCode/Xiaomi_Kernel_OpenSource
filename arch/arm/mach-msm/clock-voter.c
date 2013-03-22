@@ -80,11 +80,13 @@ static int voter_clk_prepare(struct clk *clk)
 	struct clk *parent;
 	struct clk_voter *v = to_clk_voter(clk);
 
-	if (v->is_branch)
-		return 0;
-
 	mutex_lock(&voter_clk_lock);
 	parent = clk->parent;
+
+	if (v->is_branch) {
+		v->enabled = true;
+		goto out;
+	}
 
 	/*
 	 * Increase the rate if this clock is voting for a higher rate
@@ -109,8 +111,6 @@ static void voter_clk_unprepare(struct clk *clk)
 	struct clk *parent;
 	struct clk_voter *v = to_clk_voter(clk);
 
-	if (v->is_branch)
-		return;
 
 	mutex_lock(&voter_clk_lock);
 	parent = clk->parent;
@@ -120,12 +120,16 @@ static void voter_clk_unprepare(struct clk *clk)
 	 * the highest rate.
 	 */
 	v->enabled = false;
+	if (v->is_branch)
+		goto out;
+
 	new_rate = voter_clk_aggregate_rate(parent);
 	cur_rate = max(new_rate, clk->rate);
 
 	if (new_rate < cur_rate)
 		clk_set_rate(parent, new_rate);
 
+out:
 	mutex_unlock(&voter_clk_lock);
 }
 
