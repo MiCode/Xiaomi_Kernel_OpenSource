@@ -9,6 +9,8 @@
 #define ISP_VERSION_40        40
 #define ISP_VERSION_32        32
 #define ISP_NATIVE_BUF_BIT    0x10000
+#define ISP0_BIT              0x20000
+#define ISP1_BIT              0x40000
 #define ISP_STATS_STREAM_BIT  0x80000000
 
 enum ISP_START_PIXEL_PATTERN {
