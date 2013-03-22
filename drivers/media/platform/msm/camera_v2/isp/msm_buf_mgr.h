@@ -19,6 +19,7 @@
 
 /*Buffer source can be from userspace / HAL*/
 #define BUF_SRC(id) (id & ISP_NATIVE_BUF_BIT)
+#define ISP_SHARE_BUF_CLIENT 2
 
 struct msm_isp_buf_mgr;
 
@@ -59,6 +60,11 @@ struct msm_isp_buffer {
 	/*Vb2 buffer data*/
 	struct vb2_buffer *vb2_buf;
 
+	/*Share buffer cache state*/
+	struct list_head share_list;
+	uint8_t buf_used[ISP_SHARE_BUF_CLIENT];
+	uint8_t buf_get_count;
+	uint8_t buf_put_count;
 };
 
 struct msm_isp_bufq {
@@ -66,10 +72,14 @@ struct msm_isp_bufq {
 	uint32_t stream_id;
 	uint32_t num_bufs;
 	uint32_t bufq_handle;
+	enum msm_isp_buf_type buf_type;
 	struct msm_isp_buffer *bufs;
 
 	/*Native buffer queue*/
 	struct list_head head;
+	/*Share buffer cache queue*/
+	struct list_head share_head;
+	uint8_t buf_client_count;
 };
 
 struct msm_isp_buf_ops {
@@ -85,7 +95,7 @@ struct msm_isp_buf_ops {
 	int (*get_bufq_handle) (struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t session_id, uint32_t stream_id);
 
-	int (*get_buf) (struct msm_isp_buf_mgr *buf_mgr,
+	int (*get_buf) (struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 		uint32_t bufq_handle, struct msm_isp_buffer **buf_info);
 
 	int (*put_buf) (struct msm_isp_buf_mgr *buf_mgr,
