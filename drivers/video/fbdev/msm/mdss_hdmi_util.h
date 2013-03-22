@@ -201,6 +201,11 @@
 #define HDMI_TPG_INITIAL_VALUE           (0x00000354)
 #define HDMI_TPG_BLK_WHT_PATTERN_FRAMES  (0x00000358)
 #define HDMI_TPG_RGB_MAPPING             (0x0000035C)
+#define HDMI_CEC_COMPL_CTL               (0x00000360)
+#define HDMI_CEC_RD_START_RANGE          (0x00000364)
+#define HDMI_CEC_RD_TOTAL_RANGE          (0x00000368)
+#define HDMI_CEC_RD_ERR_RESP_LO          (0x0000036C)
+#define HDMI_CEC_WR_CHECK_CONFIG         (0x00000370)
 
 /* HDMI PHY Registers */
 #define HDMI_PHY_ANA_CFG0                (0x00000000)

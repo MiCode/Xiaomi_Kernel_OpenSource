@@ -26,9 +26,10 @@
 
 #include "mdss_debug.h"
 #include "mdss_fb.h"
-#include "mdss_hdmi_tx.h"
+#include "mdss_hdmi_cec.h"
 #include "mdss_hdmi_edid.h"
 #include "mdss_hdmi_hdcp.h"
+#include "mdss_hdmi_tx.h"
 #include "mdss.h"
 #include "mdss_panel.h"
 #include "mdss_hdmi_mhl.h"
@@ -644,12 +645,14 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	struct hdmi_edid_init_data edid_init_data;
 	struct hdmi_hdcp_init_data hdcp_init_data;
+	struct hdmi_cec_init_data cec_init_data;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
 
+	/* Initialize EDID feature */
 	edid_init_data.io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	edid_init_data.mutex = &hdmi_ctrl->mutex;
 	edid_init_data.sysfs_kobj = hdmi_ctrl->kobj;
@@ -688,6 +691,17 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		DEV_DBG("%s: HDCP feature initialized\n", __func__);
 	}
+
+	/* Initialize CEC feature */
+	cec_init_data.io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	cec_init_data.sysfs_kobj = hdmi_ctrl->kobj;
+	cec_init_data.workq = hdmi_ctrl->workq;
+
+	hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC] =
+		hdmi_cec_init(&cec_init_data);
+	if (!hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC])
+		DEV_WARN("%s: hdmi_cec_init failed\n", __func__);
+
 	return 0;
 } /* hdmi_tx_init_features */
 
@@ -2169,6 +2183,8 @@ static void hdmi_tx_power_off_work(struct work_struct *work)
 		hdmi_ctrl->hpd_off_pending = false;
 	}
 
+	hdmi_cec_deconfig(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
+
 	mutex_lock(&hdmi_ctrl->mutex);
 	hdmi_ctrl->panel_power_on = false;
 	mutex_unlock(&hdmi_ctrl->mutex);
@@ -2253,10 +2269,12 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 
 	mutex_lock(&hdmi_ctrl->mutex);
 	hdmi_ctrl->panel_power_on = true;
+	mutex_unlock(&hdmi_ctrl->mutex);
+
+	hdmi_cec_config(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
 	if (hdmi_ctrl->hpd_state) {
 		DEV_DBG("%s: Turning HDMI on\n", __func__);
-		mutex_unlock(&hdmi_ctrl->mutex);
 		rc = hdmi_tx_start(hdmi_ctrl);
 		if (rc) {
 			DEV_ERR("%s: hdmi_tx_start failed. rc=%d\n",
@@ -2264,8 +2282,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			hdmi_tx_power_off(panel_data);
 			return rc;
 		}
-	} else {
-		mutex_unlock(&hdmi_ctrl->mutex);
 	}
 
 	dss_reg_dump(io->base, io->len, "HDMI-ON: ", REG_DUMP);
@@ -2345,6 +2361,10 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		hdmi_ctrl->hpd_initialized = true;
 
+		DEV_INFO("%s: HDMI HW version = 0x%x\n", __func__,
+			DSS_REG_R_ND(&hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO],
+				HDMI_VERSION));
+
 		/* set timeout to 4.1ms (max) for hardware debounce */
 		reg_val = DSS_REG_R(io, HDMI_HPD_CTRL) | 0x1FFF;
 
@@ -2415,12 +2435,15 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		queue_work(hdmi_ctrl->workq, &hdmi_ctrl->hpd_int_work);
 	}
 
-	if (hdmi_ddc_isr(&hdmi_ctrl->ddc_ctrl) < 0)
+	if (hdmi_ddc_isr(&hdmi_ctrl->ddc_ctrl))
 		DEV_ERR("%s: hdmi_ddc_isr failed\n", __func__);
 
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC])
+		if (hdmi_cec_isr(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]))
+			DEV_ERR("%s: hdmi_cec_isr failed\n", __func__);
+
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP])
-		if (hdmi_hdcp_isr(
-			hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) < 0)
+		if (hdmi_hdcp_isr(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]))
 			DEV_ERR("%s: hdmi_hdcp_isr failed\n", __func__);
 
 	return IRQ_HANDLED;
@@ -2433,13 +2456,20 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return;
 	}
 
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]) {
+		hdmi_cec_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC] = NULL;
+	}
+
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) {
 		hdmi_hdcp_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP] = NULL;
 	}
 
-	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID])
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) {
 		hdmi_edid_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] = NULL;
+	}
 
 	switch_dev_unregister(&hdmi_ctrl->audio_sdev);
 	switch_dev_unregister(&hdmi_ctrl->sdev);
