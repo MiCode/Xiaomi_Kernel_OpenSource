@@ -1012,7 +1012,7 @@ bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 	return 0;
 
 error:
-	platform_device_put(__dev[ch_id]->pdev);
+	platform_device_unregister(__dev[ch_id]->pdev);
 	free_rx_urbs(__dev[ch_id]);
 	usb_set_intfdata(iface, NULL);
 out:
