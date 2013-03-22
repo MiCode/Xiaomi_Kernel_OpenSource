@@ -35,10 +35,6 @@
 #define CMD_STATUS_SUCCESS 0
 #define CMD_STATUS_FAIL 1
 
-#define VOC_PATH_PASSIVE 0
-#define VOC_PATH_FULL 1
-#define VOC_PATH_VOLTE_PASSIVE 2
-
 /* CVP CAL Size: 245760 = 240 * 1024 */
 #define CVP_CAL_SIZE 245760
 /* CVS CAL Size: 49152 = 48 * 1024 */
@@ -180,6 +176,9 @@ uint16_t voc_get_session_id(char *name)
 	if (name != NULL) {
 		if (!strncmp(name, "Voice session", 13))
 			session_id = common.voice[VOC_PATH_PASSIVE].session_id;
+		else if (!strncmp(name, "Voice2 session", 14))
+			session_id =
+			common.voice[VOC_PATH_VOICE2_PASSIVE].session_id;
 		else if (!strncmp(name, "VoLTE session", 13))
 			session_id =
 			common.voice[VOC_PATH_VOLTE_PASSIVE].session_id;
@@ -221,6 +220,11 @@ static bool is_voip_session(u16 session_id)
 static bool is_volte_session(u16 session_id)
 {
 	return (session_id == common.voice[VOC_PATH_VOLTE_PASSIVE].session_id);
+}
+
+static bool is_voice2_session(u16 session_id)
+{
+	return (session_id == common.voice[VOC_PATH_VOICE2_PASSIVE].session_id);
 }
 
 static int voice_apr_register(void)
@@ -347,7 +351,8 @@ static int voice_send_dual_control_cmd(struct voice_data *v)
 	}
 	pr_debug("%s: VoLTE command to MVM\n", __func__);
 	if (is_volte_session(v->session_id) ||
-		is_voice_session(v->session_id)) {
+		is_voice_session(v->session_id) ||
+		is_voice2_session(v->session_id)) {
 		mvm_handle = voice_get_mvm_handle(v);
 		mvm_voice_ctl_cmd.hdr.hdr_field = APR_HDR_FIELD(
 						APR_MSG_TYPE_SEQ_CMD,
@@ -421,7 +426,8 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 
 	if (!mvm_handle) {
 		if (is_voice_session(v->session_id) ||
-				is_volte_session(v->session_id)) {
+			is_volte_session(v->session_id) ||
+			is_voice2_session(v->session_id)) {
 			mvm_session_cmd.hdr.hdr_field = APR_HDR_FIELD(
 						APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(APR_HDR_SIZE),
@@ -441,8 +447,12 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 				strlcpy(mvm_session_cmd.mvm_session.name,
 				"default volte voice",
 				sizeof(mvm_session_cmd.mvm_session.name));
+			} else if (is_voice2_session(v->session_id)) {
+				strlcpy(mvm_session_cmd.mvm_session.name,
+				VOICE2_SESSION_VSID,
+				sizeof(mvm_session_cmd.mvm_session.name));
 			} else {
-			strlcpy(mvm_session_cmd.mvm_session.name,
+				strlcpy(mvm_session_cmd.mvm_session.name,
 				"default modem voice",
 				sizeof(mvm_session_cmd.mvm_session.name));
 			}
@@ -503,7 +513,8 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 	/* send cmd to create cvs session */
 	if (!cvs_handle) {
 		if (is_voice_session(v->session_id) ||
-			is_volte_session(v->session_id)) {
+			is_volte_session(v->session_id) ||
+			is_voice2_session(v->session_id)) {
 			pr_debug("%s: creating CVS passive session\n",
 				 __func__);
 
@@ -523,6 +534,10 @@ static int voice_create_mvm_cvs_session(struct voice_data *v)
 			if (is_volte_session(v->session_id)) {
 				strlcpy(cvs_session_cmd.cvs_session.name,
 				"default volte voice",
+				sizeof(cvs_session_cmd.cvs_session.name));
+			} else if (is_voice2_session(v->session_id)) {
+				strlcpy(cvs_session_cmd.cvs_session.name,
+				VOICE2_SESSION_VSID,
 				sizeof(cvs_session_cmd.cvs_session.name));
 			} else {
 			strlcpy(cvs_session_cmd.cvs_session.name,
