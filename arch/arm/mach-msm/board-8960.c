@@ -1459,8 +1459,9 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
 #define HSIC_HUB_RESET_GPIO	91
 static struct msm_hsic_host_platform_data msm_hsic_pdata = {
-	.strobe		= 150,
-	.data		= 151,
+	.strobe			= 150,
+	.data			= 151,
+	.phy_sof_workaround	= true,
 };
 
 static struct smsc_hub_platform_data hsic_hub_pdata = {

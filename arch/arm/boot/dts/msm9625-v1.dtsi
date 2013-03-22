@@ -57,3 +57,7 @@
 &ldrex_spinlock {
 	status = "ok";
 };
+
+&hsic_host {
+	qcom,phy-sof-workaround;
+};

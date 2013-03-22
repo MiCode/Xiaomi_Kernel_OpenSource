@@ -841,6 +841,10 @@ static struct ci13xxx_platform_data msm_hsic_peripheral_pdata = {
 	.prv_data = &msm_hsic_peripheral_pdata_private,
 };
 
+static struct msm_hsic_host_platform_data msm_hsic_pdata = {
+	.phy_sof_workaround	= true,
+};
+
 #define PID_MAGIC_ID		0x71432909
 #define SERIAL_NUM_MAGIC_ID	0x61945374
 #define SERIAL_NUMBER_LENGTH	127
@@ -1073,6 +1077,7 @@ static void __init msm9615_common_init(void)
 		&msm_peripheral_pdata;
 	msm_device_hsic_peripheral.dev.platform_data =
 		&msm_hsic_peripheral_pdata;
+	msm_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 	msm_device_usb_bam.dev.platform_data = &msm_usb_bam_pdata;
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 	msm9615_pm8xxx_gpio_mpp_init();
