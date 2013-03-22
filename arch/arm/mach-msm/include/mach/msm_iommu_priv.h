@@ -30,10 +30,12 @@ struct msm_iommu_pt {
  * attributes.
  * pt: Page table attribute structure
  * list_attached: List of devices (contexts) attached to this domain.
+ * client_name: Name of the domain client.
  */
 struct msm_iommu_priv {
 	struct msm_iommu_pt pt;
 	struct list_head list_attached;
+	const char *client_name;
 };
 
 #endif
