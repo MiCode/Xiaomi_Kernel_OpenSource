@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,9 +55,6 @@ static int adsp_loader_probe(struct platform_device *pdev)
 			devm_kfree(&pdev->dev, priv);
 			goto fail;
 		}
-
-		/* Query the DSP to check if resources are available */
-		msleep(Q6_PIL_GET_DELAY_MS);
 
 		/* Set the state of the ADSP in APR driver */
 		apr_set_q6_state(APR_SUBSYS_LOADED);
