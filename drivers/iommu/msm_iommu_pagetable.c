@@ -20,6 +20,7 @@
 #include <asm/cacheflush.h>
 
 #include <mach/iommu.h>
+#include <mach/msm_iommu_priv.h>
 #include "msm_iommu_pagetable.h"
 
 /* Sharability attributes of MSM IOMMU mappings */
@@ -41,7 +42,7 @@ static inline void clean_pte(unsigned long *start, unsigned long *end,
 		dmac_flush_range(start, end);
 }
 
-int msm_iommu_pagetable_alloc(struct iommu_pt *pt)
+int msm_iommu_pagetable_alloc(struct msm_iommu_pt *pt)
 {
 	pt->fl_table = (unsigned long *)__get_free_pages(GFP_KERNEL,
 							  get_order(SZ_16K));
@@ -54,7 +55,7 @@ int msm_iommu_pagetable_alloc(struct iommu_pt *pt)
 	return 0;
 }
 
-void msm_iommu_pagetable_free(struct iommu_pt *pt)
+void msm_iommu_pagetable_free(struct msm_iommu_pt *pt)
 {
 	unsigned long *fl_table;
 	int i;
@@ -110,7 +111,7 @@ static int __get_pgprot(int prot, int len)
 	return pgprot;
 }
 
-static unsigned long *make_second_level(struct iommu_pt *pt,
+static unsigned long *make_second_level(struct msm_iommu_pt *pt,
 					unsigned long *fl_pte)
 {
 	unsigned long *sl;
@@ -194,7 +195,7 @@ fail:
 	return ret;
 }
 
-int msm_iommu_pagetable_map(struct iommu_pt *pt, unsigned long va,
+int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
 			phys_addr_t pa, size_t len, int prot)
 {
 	unsigned long *fl_pte;
@@ -279,7 +280,7 @@ fail:
 	return ret;
 }
 
-size_t msm_iommu_pagetable_unmap(struct iommu_pt *pt, unsigned long va,
+size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
 				size_t len)
 {
 	unsigned long *fl_pte;
@@ -377,7 +378,7 @@ static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
 		&& (len >= align);
 }
 
-int msm_iommu_pagetable_map_range(struct iommu_pt *pt, unsigned int va,
+int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 		       struct scatterlist *sg, unsigned int len, int prot)
 {
 	phys_addr_t pa;
@@ -518,7 +519,7 @@ fail:
 	return ret;
 }
 
-void msm_iommu_pagetable_unmap_range(struct iommu_pt *pt, unsigned int va,
+void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 				 unsigned int len)
 {
 	unsigned int offset = 0;
