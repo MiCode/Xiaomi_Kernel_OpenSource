@@ -552,6 +552,65 @@ struct mdp_calib_config_data {
 	uint32_t data;
 };
 
+#define MDSS_AD_MODE_AUTO_BL	0x0
+#define MDSS_AD_MODE_AUTO_STR	0x1
+#define MDSS_AD_MODE_TARG_STR	0x3
+#define MDSS_AD_MODE_MAN_STR	0x7
+
+#define MDP_PP_AD_INIT	0x10
+#define MDP_PP_AD_CFG	0x20
+
+struct mdss_ad_init {
+	uint32_t asym_lut[33];
+	uint32_t color_corr_lut[33];
+	uint8_t i_control[2];
+	uint16_t black_lvl;
+	uint16_t white_lvl;
+	uint8_t var;
+	uint8_t limit_ampl;
+	uint8_t i_dither;
+	uint8_t slope_max;
+	uint8_t slope_min;
+	uint8_t dither_ctl;
+	uint8_t format;
+	uint8_t auto_size;
+	uint16_t frame_w;
+	uint16_t frame_h;
+	uint8_t logo_v;
+	uint8_t logo_h;
+};
+
+struct mdss_ad_cfg {
+	uint32_t mode;
+	uint32_t al_calib_lut[33];
+	uint16_t backlight_min;
+	uint16_t backlight_max;
+	uint16_t backlight_scale;
+	uint16_t amb_light_min;
+	uint16_t filter[2];
+	uint16_t calib[4];
+	uint8_t strength_limit;
+	uint8_t t_filter_recursion;
+};
+
+/* ops uses standard MDP_PP_* flags */
+struct mdss_ad_init_cfg {
+	uint32_t ops;
+	union {
+		struct mdss_ad_init init;
+		struct mdss_ad_cfg cfg;
+	} params;
+};
+
+/* mode uses MDSS_AD_MODE_* flags */
+struct mdss_ad_input {
+	uint32_t mode;
+	union {
+		uint32_t amb_light;
+		uint32_t strength;
+	} in;
+};
+
 enum {
 	mdp_op_pcc_cfg,
 	mdp_op_csc_cfg,
@@ -562,6 +621,8 @@ enum {
 	mdp_op_dither_cfg,
 	mdp_op_gamut_cfg,
 	mdp_op_calib_cfg,
+	mdp_op_ad_cfg,
+	mdp_op_ad_input,
 	mdp_op_max,
 };
 
@@ -586,6 +647,8 @@ struct msmfb_mdp_pp {
 		struct mdp_dither_cfg_data dither_cfg_data;
 		struct mdp_gamut_cfg_data gamut_cfg_data;
 		struct mdp_calib_config_data calib_cfg;
+		struct mdss_ad_init_cfg ad_init_cfg;
+		struct mdss_ad_input ad_input;
 	} data;
 };
 
