@@ -338,6 +338,16 @@ static int smd_tty_port_activate(struct tty_port *tport,
 		if (peripheral) {
 			info->pil = subsystem_get(peripheral);
 			if (IS_ERR(info->pil)) {
+				SMD_TTY_INFO(
+					"%s failed on smd_tty device :%s subsystem_get failed for %s",
+					__func__, smd_tty[n].smd->port_name,
+					peripheral);
+				/*
+				 * Sleep, inorder to reduce the frequency of
+				 * retry by user-space modules and to avoid
+				 * possible watchdog bite.
+				 */
+				msleep((smd_tty[n].open_wait * 1000));
 				res = PTR_ERR(info->pil);
 				goto out;
 			}
