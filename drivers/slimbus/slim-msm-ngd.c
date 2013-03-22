@@ -761,7 +761,13 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 		pr_info("ADSP P.C. CTRL state:%d NGD not enumerated:0x%x",
 					dev->state, laddr);
 	}
-
+	/* ADSP SSR scenario, need to disconnect pipe before connecting */
+	if (dev->use_rx_msgqs == MSM_MSGQ_DOWN) {
+		struct msm_slim_endp *endpoint = &dev->rx_msgq;
+		sps_disconnect(endpoint->sps);
+		sps_free_endpoint(endpoint->sps);
+		dev->use_rx_msgqs = MSM_MSGQ_RESET;
+	}
 	/*
 	 * ADSP power collapse case (OR SSR), where HW was reset
 	 * BAM programming will happen when capability message is received
@@ -911,6 +917,8 @@ static void ngd_adsp_down(struct work_struct *work)
 
 	ngd_slim_enable(dev, false);
 	/* disconnect BAM pipes */
+	if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
+		dev->use_rx_msgqs = MSM_MSGQ_DOWN;
 	msm_slim_sps_exit(dev, false);
 	mutex_lock(&ctrl->m_ctrl);
 	/* device up should be called again after SSR */

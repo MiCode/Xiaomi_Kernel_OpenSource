@@ -581,7 +581,7 @@ init_rx_msgq:
 
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 {
-	if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED) {
+	if (dev->use_rx_msgqs >= MSM_MSGQ_ENABLED) {
 		struct msm_slim_endp *endpoint = &dev->rx_msgq;
 		struct sps_connect *config = &endpoint->config;
 		struct sps_mem_buffer *descr = &config->desc;
@@ -590,10 +590,12 @@ void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 		memset(&sps_event, 0x00, sizeof(sps_event));
 		msm_slim_sps_mem_free(dev, mem);
 		sps_register_event(endpoint->sps, &sps_event);
-		sps_disconnect(endpoint->sps);
+		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED) {
+			sps_disconnect(endpoint->sps);
+			msm_slim_free_endpoint(endpoint);
+			dev->use_rx_msgqs = MSM_MSGQ_RESET;
+		}
 		msm_slim_sps_mem_free(dev, descr);
-		msm_slim_free_endpoint(endpoint);
-		dev->use_rx_msgqs = MSM_MSGQ_RESET;
 	}
 	if (dereg) {
 		sps_deregister_bam_device(dev->bam.hdl);

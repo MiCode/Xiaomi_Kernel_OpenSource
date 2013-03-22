@@ -159,6 +159,7 @@ enum msm_slim_msgq {
 	MSM_MSGQ_DISABLED,
 	MSM_MSGQ_RESET,
 	MSM_MSGQ_ENABLED,
+	MSM_MSGQ_DOWN,
 };
 
 struct msm_slim_sps_bam {
