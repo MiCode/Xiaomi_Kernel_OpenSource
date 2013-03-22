@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/iopoll.h>
+#include <linux/regulator/consumer.h>
 
 #include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
@@ -644,11 +645,11 @@ static const int vdd_corner[] = {
 	[VDD_DIG_HIGH]	  = RPM_REGULATOR_CORNER_SUPER_TURBO,
 };
 
-static struct rpm_regulator *vdd_dig_reg;
+static struct regulator *vdd_dig_reg;
 
 static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
 {
-	return rpm_regulator_set_voltage(vdd_dig_reg, vdd_corner[level],
+	return regulator_set_voltage(vdd_dig_reg, vdd_corner[level],
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 }
 
@@ -5489,7 +5490,7 @@ static void __init msm8974_clock_pre_init(void)
 
 	clk_ops_local_pll.enable = sr_hpm_lp_pll_clk_enable;
 
-	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
+	vdd_dig_reg = regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig_reg))
 		panic("clock-8974: Unable to get the vdd_dig regulator!");
 
@@ -5500,7 +5501,7 @@ static void __init msm8974_clock_pre_init(void)
 	 * its necessity.
 	 */
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	rpm_regulator_enable(vdd_dig_reg);
+	regulator_enable(vdd_dig_reg);
 
 	enable_rpm_scaling();
 
@@ -5555,7 +5556,7 @@ static void __init msm8974_rumi_clock_pre_init(void)
 	sdcc3_apps_clk_src.freq_tbl = ftbl_gcc_sdcc_apps_rumi_clk;
 	sdcc4_apps_clk_src.freq_tbl = ftbl_gcc_sdcc_apps_rumi_clk;
 
-	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
+	vdd_dig_reg = regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig_reg))
 		panic("clock-8974: Unable to get the vdd_dig regulator!");
 
@@ -5566,7 +5567,7 @@ static void __init msm8974_rumi_clock_pre_init(void)
 	 * its necessity.
 	 */
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	rpm_regulator_enable(vdd_dig_reg);
+	regulator_enable(vdd_dig_reg);
 }
 
 struct clock_init_data msm8974_clock_init_data __initdata = {
