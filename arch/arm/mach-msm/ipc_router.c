@@ -34,6 +34,7 @@
 #include <mach/smem_log.h>
 #include <mach/subsystem_notif.h>
 #include <mach/msm_ipc_router.h>
+#include <mach/msm_ipc_logging.h>
 
 #include "ipc_router.h"
 #include "modem_notifier.h"
@@ -52,15 +53,21 @@ static int msm_ipc_router_debug_mask;
 module_param_named(debug_mask, msm_ipc_router_debug_mask,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static void *ipc_rtr_log_ctxt;
+#define IPC_RTR_LOG_PAGES 5
 #define DIAG(x...) pr_info("[RR] ERROR " x)
 
 #if defined(DEBUG)
 #define D(x...) do { \
+if (ipc_rtr_log_ctxt) \
+	ipc_log_string(ipc_rtr_log_ctxt, x); \
 if (msm_ipc_router_debug_mask & RTR_DBG) \
 	pr_info(x); \
 } while (0)
 
 #define RR(x...) do { \
+if (ipc_rtr_log_ctxt) \
+	ipc_log_string(ipc_rtr_log_ctxt, x); \
 if (msm_ipc_router_debug_mask & R2R_MSG) \
 	pr_info("[RR] "x); \
 } while (0)
@@ -1660,10 +1667,10 @@ static void do_read_data(struct work_struct *work)
 		}
 
 		hdr = (struct rr_header *)(head_skb->data);
-		RR("- ver=%d type=%d src=%d:%08x crx=%d siz=%d dst=%d:%08x\n",
-		   hdr->version, hdr->type, hdr->src_node_id, hdr->src_port_id,
-		   hdr->confirm_rx, hdr->size, hdr->dst_node_id,
-		   hdr->dst_port_id);
+		RAW("ver=%d type=%d src=%d:%08x crx=%d siz=%d dst=%d:%08x\n",
+		     hdr->version, hdr->type, hdr->src_node_id,
+		     hdr->src_port_id, hdr->confirm_rx, hdr->size,
+		     hdr->dst_node_id, hdr->dst_port_id);
 
 		if (hdr->version != IPC_ROUTER_VERSION) {
 			pr_err("version %d != %d\n",
@@ -2867,6 +2874,12 @@ static int __init msm_ipc_router_init(void)
 	struct msm_ipc_routing_table_entry *rt_entry;
 
 	msm_ipc_router_debug_mask |= SMEM_LOG;
+	ipc_rtr_log_ctxt = ipc_log_context_create(IPC_RTR_LOG_PAGES,
+						  "ipc_router");
+	if (!ipc_rtr_log_ctxt)
+		pr_err("%s: Unable to create IPC logging for IPC RTR",
+			__func__);
+
 	msm_ipc_router_workqueue =
 		create_singlethread_workqueue("msm_ipc_router");
 	if (!msm_ipc_router_workqueue)
