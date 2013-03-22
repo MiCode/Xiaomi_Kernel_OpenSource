@@ -24,6 +24,7 @@
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
+#include <linux/of_gpio.h>
 
 #include <mach/subsystem_restart.h>
 #include <mach/clk.h>
@@ -92,6 +93,8 @@ struct mba_data {
 	bool crash_shutdown;
 	bool ignore_errors;
 	int is_loadable;
+	int err_fatal_irq;
+	int force_stop_gpio;
 };
 
 static int pbl_mba_boot_timeout_ms = 100;
@@ -470,18 +473,17 @@ static void restart_modem(struct mba_data *drv)
 	subsystem_restart_dev(drv->subsys);
 }
 
-static void smsm_state_cb(void *data, uint32_t old_state, uint32_t new_state)
+static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
 {
-	struct mba_data *drv = data;
+	struct mba_data *drv = dev_id;
 
-	/* Ignore if we're the one that set SMSM_RESET */
+	/* Ignore if we're the one that set the force stop GPIO */
 	if (drv->crash_shutdown)
-		return;
+		return IRQ_HANDLED;
 
-	if (new_state & SMSM_RESET) {
-		pr_err("Probable fatal error on the modem.\n");
-		restart_modem(drv);
-	}
+	pr_err("Fatal error on the modem.\n");
+	restart_modem(drv);
+	return IRQ_HANDLED;
 }
 
 static int modem_shutdown(const struct subsys_desc *subsys)
@@ -521,7 +523,7 @@ static void modem_crash_shutdown(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
 	drv->crash_shutdown = true;
-	smsm_reset_modem(SMSM_RESET);
+	gpio_set_value(drv->force_stop_gpio, 1);
 }
 
 static struct ramdump_segment smem_segments[] = {
@@ -658,10 +660,11 @@ static int __devinit pil_subsys_init(struct mba_data *drv,
 		goto err_irq;
 	}
 
-	ret = smsm_state_cb_register(SMSM_MODEM_STATE, SMSM_RESET,
-		smsm_state_cb, drv);
+	ret = devm_request_irq(&pdev->dev, drv->err_fatal_irq,
+			modem_err_fatal_intr_handler,
+			IRQF_TRIGGER_RISING, "pil-mss", drv);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to register SMSM callback!\n");
+		dev_err(&pdev->dev, "Unable to register SMP2P err fatal handler!\n");
 		goto err_irq;
 	}
 
@@ -671,14 +674,11 @@ static int __devinit pil_subsys_init(struct mba_data *drv,
 		ret = PTR_ERR(drv->adsp_state_notifier);
 		dev_err(&pdev->dev, "%s: Registration with the SSR notification driver failed (%d)",
 			__func__, ret);
-		goto err_smsm;
+		goto err_irq;
 	}
 
 	return 0;
 
-err_smsm:
-	smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET, smsm_state_cb,
-			drv);
 err_irq:
 	destroy_ramdump_device(drv->smem_ramdump_dev);
 err_ramdump_smem:
@@ -794,7 +794,7 @@ err_mba_desc:
 static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 {
 	struct mba_data *drv;
-	int ret;
+	int ret, err_fatal_gpio;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -809,6 +809,22 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+	/* Get the IRQ from the GPIO for registering inbound handler */
+	err_fatal_gpio = of_get_named_gpio(pdev->dev.of_node,
+			"qcom,gpio-err-fatal", 0);
+	if (err_fatal_gpio < 0)
+		return err_fatal_gpio;
+
+	drv->err_fatal_irq = gpio_to_irq(err_fatal_gpio);
+	if (drv->err_fatal_irq < 0)
+		return drv->err_fatal_irq;
+
+	/* Get the GPIO pin for writing the outbound bits: add more as needed */
+	drv->force_stop_gpio = of_get_named_gpio(pdev->dev.of_node,
+			"qcom,gpio-force-stop", 0);
+	if (drv->force_stop_gpio < 0)
+		return drv->force_stop_gpio;
+
 	return pil_subsys_init(drv, pdev);
 }
 
@@ -818,8 +834,6 @@ static int __devexit pil_mss_driver_exit(struct platform_device *pdev)
 
 	subsys_notif_unregister_notifier(drv->adsp_state_notifier,
 						&adsp_state_notifier_block);
-	smsm_state_cb_deregister(SMSM_MODEM_STATE, SMSM_RESET,
-			smsm_state_cb, drv);
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->smem_ramdump_dev);
 	destroy_ramdump_device(drv->ramdump_dev);
