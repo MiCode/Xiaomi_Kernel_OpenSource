@@ -33,7 +33,6 @@
 #include <linux/debugfs.h>
 #include <linux/earlysuspend.h>
 #include <linux/list.h>
-#include <linux/android_pmem.h>
 #include <linux/slab.h>
 #include <linux/msm_audio.h>
 #include <linux/memory_alloc.h>

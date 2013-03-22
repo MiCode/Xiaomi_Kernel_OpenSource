@@ -21,7 +21,6 @@
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 #include <linux/msm_adsp.h>
-#include <linux/android_pmem.h>
 #include <linux/export.h>
 #include "adsp.h"
 #include <mach/debug_mm.h>
@@ -86,71 +85,6 @@ static struct adsp_device *inode_to_device(struct inode *inode);
 	int res = (IN_RANGE(__r1, __v) || IN_RANGE(__r1, __e));	\
 	res;							\
 })
-
-static int adsp_pmem_check(struct msm_adsp_module *module,
-		void *vaddr, unsigned long len)
-{
-	struct adsp_pmem_region *region_elt;
-	struct hlist_node *node;
-	struct adsp_pmem_region t = { .vaddr = vaddr, .len = len };
-
-	hlist_for_each_entry(region_elt, node, &module->pmem_regions, list) {
-		if (CONTAINS(region_elt, &t) || CONTAINS(&t, region_elt) ||
-		    OVERLAPS(region_elt, &t)) {
-			MM_ERR("module %s:"
-				" region (vaddr %p len %ld)"
-				" clashes with registered region"
-				" (vaddr %p paddr %p len %ld)\n",
-				module->name,
-				vaddr, len,
-				region_elt->vaddr,
-				(void *)region_elt->paddr,
-				region_elt->len);
-			return -EINVAL;
-		}
-	}
-
-	return 0;
-}
-
-static int adsp_pmem_add(struct msm_adsp_module *module,
-			 struct adsp_pmem_info *info)
-{
-	unsigned long paddr, kvaddr, len;
-	struct file *file;
-	struct adsp_pmem_region *region;
-	int rc = -EINVAL;
-
-	mutex_lock(&module->pmem_regions_lock);
-	region = kmalloc(sizeof(*region), GFP_KERNEL);
-	if (!region) {
-		rc = -ENOMEM;
-		goto end;
-	}
-	INIT_HLIST_NODE(&region->list);
-	if (get_pmem_file(info->fd, &paddr, &kvaddr, &len, &file)) {
-		kfree(region);
-		goto end;
-	}
-
-	rc = adsp_pmem_check(module, info->vaddr, len);
-	if (rc < 0) {
-		put_pmem_file(file);
-		kfree(region);
-		goto end;
-	}
-
-	region->vaddr = info->vaddr;
-	region->paddr = paddr;
-	region->kvaddr = kvaddr;
-	region->len = len;
-	region->file = file;
-
-	hlist_add_head(&region->list, &module->pmem_regions);
-end:
-	mutex_unlock(&module->pmem_regions_lock);
-	return rc;
-}
 
 static int adsp_pmem_lookup_vaddr(struct msm_adsp_module *module, void **addr,
 		     unsigned long len, struct adsp_pmem_region **region)
@@ -417,24 +351,6 @@ end:
 	return rc;
 }
 
-static int adsp_pmem_del(struct msm_adsp_module *module)
-{
-	struct hlist_node *node, *tmp;
-	struct adsp_pmem_region *region;
-
-	mutex_lock(&module->pmem_regions_lock);
-	hlist_for_each_safe(node, tmp, &module->pmem_regions) {
-		region = hlist_entry(node, struct adsp_pmem_region, list);
-		hlist_del(node);
-		put_pmem_file(region->file);
-		kfree(region);
-	}
-	mutex_unlock(&module->pmem_regions_lock);
-	BUG_ON(!hlist_empty(&module->pmem_regions));
-
-	return 0;
-}
-
 static long adsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct adsp_device *adev = filp->private_data;
@@ -466,20 +382,10 @@ static long adsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return adsp_set_clkrate(adev->module, clk_rate);
 	}
 
-	case ADSP_IOCTL_REGISTER_PMEM: {
-		struct adsp_pmem_info info;
-		if (copy_from_user(&info, (void *) arg, sizeof(info)))
-			return -EFAULT;
-		return adsp_pmem_add(adev->module, &info);
-	}
-
 	case ADSP_IOCTL_ABORT_EVENT_READ:
 		adev->abort = 1;
 		wake_up(&adev->event_wait);
 		break;
-
-	case ADSP_IOCTL_UNREGISTER_PMEM:
-		return adsp_pmem_del(adev->module);
 
 	default:
 		break;
@@ -497,8 +403,6 @@ static int adsp_release(struct inode *inode, struct file *filp)
 
 	/* clear module before putting it to avoid race with open() */
 	adev->module = NULL;
-
-	rc = adsp_pmem_del(module);
 
 	msm_adsp_put(module);
 	return rc;

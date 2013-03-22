@@ -35,7 +35,6 @@
 #include <linux/delay.h>
 #include <linux/list.h>
 #include <linux/earlysuspend.h>
-#include <linux/android_pmem.h>
 #include <linux/msm_audio.h>
 #include <linux/slab.h>
 #include <linux/msm_audio_wmapro.h>

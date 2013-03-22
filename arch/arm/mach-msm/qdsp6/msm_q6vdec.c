@@ -32,7 +32,6 @@
 #include <linux/wakelock.h>
 #include <linux/pm_qos.h>
 
-#include <linux/android_pmem.h>
 #include <linux/msm_q6vdec.h>
 
 #include <mach/cpuidle.h>
