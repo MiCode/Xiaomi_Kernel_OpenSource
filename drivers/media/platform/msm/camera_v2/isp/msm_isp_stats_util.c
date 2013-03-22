@@ -43,7 +43,8 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 
 	vfe_dev->hw_info->vfe_ops.stats_ops.update_ping_pong_addr(
 		vfe_dev, stream_info,
-		pingpong_status, buf->mapped_info[0].paddr);
+		pingpong_status, buf->mapped_info[0].paddr +
+		stream_info->buffer_offset);
 
 	if (stream_info->buf[pingpong_bit] && done_buf)
 		*done_buf = stream_info->buf[pingpong_bit];
@@ -60,7 +61,7 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
-	int i;
+	int i, rc;
 	struct msm_isp_event_data buf_event;
 	struct msm_isp_stats_event *stats_event = &buf_event.u.stats;
 	struct msm_isp_buffer *done_buf;
@@ -93,13 +94,17 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 		msm_isp_stats_cfg_ping_pong_address(vfe_dev,
 			stream_info, pingpong_status, &done_buf);
 		if (done_buf) {
-			stats_event->stats_mask |= 1 << stream_info->stats_type;
-			stats_event->stats_buf_idxs[stream_info->stats_type] =
-				done_buf->buf_idx;
-			vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
+			rc = vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
 				done_buf->bufq_handle, done_buf->buf_idx,
 				&ts->buf_time, vfe_dev->axi_data.
 				src_info[VFE_PIX_0].frame_id);
+			if (rc == 0) {
+				stats_event->stats_mask |=
+					1 << stream_info->stats_type;
+				stats_event->stats_buf_idxs[
+					stream_info->stats_type] =
+					done_buf->buf_idx;
+			}
 		}
 	}
 
@@ -166,6 +171,7 @@ int msm_isp_stats_create_stream(struct vfe_device *vfe_dev,
 	stream_info->session_id = stream_req_cmd->session_id;
 	stream_info->stream_id = stream_req_cmd->stream_id;
 	stream_info->stats_type = stream_req_cmd->stats_type;
+	stream_info->buffer_offset = stream_req_cmd->buffer_offset;
 	stream_info->framedrop_pattern = stream_req_cmd->framedrop_pattern;
 	stream_info->irq_subsample_pattern =
 		stream_req_cmd->irq_subsample_pattern;
