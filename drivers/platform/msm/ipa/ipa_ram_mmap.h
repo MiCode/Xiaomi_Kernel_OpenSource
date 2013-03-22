@@ -15,22 +15,22 @@
 
 /*
  * This header defines the memory map of the IPA RAM (not all 8K is available
- * for SW use) the first 2K are set aside for NAT
+ * for SW use)
  */
 
 #define IPA_RAM_NAT_OFST    0
 #define IPA_RAM_NAT_SIZE    0
 #define IPA_RAM_HDR_OFST    (IPA_RAM_NAT_OFST + IPA_RAM_NAT_SIZE)
-#define IPA_RAM_HDR_SIZE    1288
+#define IPA_RAM_HDR_SIZE    1280
 #define IPA_RAM_V4_FLT_OFST (IPA_RAM_HDR_OFST + IPA_RAM_HDR_SIZE)
-#define IPA_RAM_V4_FLT_SIZE 1420
+#define IPA_RAM_V4_FLT_SIZE 1408
 #define IPA_RAM_V4_RT_OFST  (IPA_RAM_V4_FLT_OFST + IPA_RAM_V4_FLT_SIZE)
-#define IPA_RAM_V4_RT_SIZE  2192
+#define IPA_RAM_V4_RT_SIZE  2176
 #define IPA_RAM_V6_FLT_OFST (IPA_RAM_V4_RT_OFST + IPA_RAM_V4_RT_SIZE)
-#define IPA_RAM_V6_FLT_SIZE 1228
+#define IPA_RAM_V6_FLT_SIZE 1280
 #define IPA_RAM_V6_RT_OFST  (IPA_RAM_V6_FLT_OFST + IPA_RAM_V6_FLT_SIZE)
-#define IPA_RAM_V6_RT_SIZE  528
+#define IPA_RAM_V6_RT_SIZE  512
 #define IPA_RAM_END_OFST    (IPA_RAM_V6_RT_OFST + IPA_RAM_V6_RT_SIZE)
-#define IPA_RAM_V6_RT_SIZE_DDR 15764
+#define IPA_RAM_V6_RT_SIZE_DDR 16384
 
 #endif /* _IPA_RAM_MMAP_H_ */
