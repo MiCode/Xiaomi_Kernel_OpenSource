@@ -26,7 +26,7 @@
 
 #include <clocksource/arm_arch_timer.h>
 
-static inline void arch_timer_reg_write(int access, int reg, u32 val)
+static inline void arch_timer_reg_write_cp15(int access, int reg, u32 val)
 {
 	if (access == ARCH_TIMER_PHYS_ACCESS) {
 		switch (reg) {
@@ -57,7 +57,7 @@ static inline void arch_timer_reg_write(int access, int reg, u32 val)
 	isb();
 }
 
-static inline u32 arch_timer_reg_read(int access, int reg)
+static inline u32 arch_timer_reg_read_cp15(int access, int reg)
 {
 	u32 val;
 
