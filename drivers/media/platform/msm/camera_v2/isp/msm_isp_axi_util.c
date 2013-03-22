@@ -389,31 +389,6 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	msm_isp_send_event(vfe_dev, ISP_EVENT_SOF, &sof_event);
 }
 
-uint32_t msm_isp_get_framedrop_period(
-	enum msm_vfe_frame_skip_pattern frame_skip_pattern)
-{
-	switch (frame_skip_pattern) {
-	case NO_SKIP:
-	case EVERY_2FRAME:
-	case EVERY_3FRAME:
-	case EVERY_4FRAME:
-	case EVERY_5FRAME:
-	case EVERY_6FRAME:
-	case EVERY_7FRAME:
-	case EVERY_8FRAME:
-		return frame_skip_pattern + 1;
-	case EVERY_16FRAME:
-		return 16;
-		break;
-	case EVERY_32FRAME:
-		return 32;
-		break;
-	default:
-		return 1;
-	}
-	return 1;
-}
-
 void msm_isp_calculate_framedrop(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
@@ -611,6 +586,13 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev)
 				ACTIVE : INACTIVE;
 		}
 	}
+
+	if (vfe_dev->axi_data.pipeline_update == DISABLE_CAMIF) {
+		vfe_dev->hw_info->vfe_ops.stats_ops.
+			enable_module(vfe_dev, 0xFF, 0);
+		vfe_dev->axi_data.pipeline_update = NO_UPDATE;
+	}
+
 	vfe_dev->axi_data.stream_update--;
 	if (vfe_dev->axi_data.stream_update == 0)
 		complete(&vfe_dev->stream_config_complete);
@@ -849,12 +831,14 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 	return rc;
 }
 
-static int msm_isp_axi_wait_for_cfg_done(struct vfe_device *vfe_dev)
+static int msm_isp_axi_wait_for_cfg_done(struct vfe_device *vfe_dev,
+	enum msm_isp_camif_update_state camif_update)
 {
 	int rc;
 	unsigned long flags;
 	spin_lock_irqsave(&vfe_dev->shared_data_lock, flags);
 	init_completion(&vfe_dev->stream_config_complete);
+	vfe_dev->axi_data.pipeline_update = camif_update;
 	vfe_dev->axi_data.stream_update = 2;
 	spin_unlock_irqrestore(&vfe_dev->shared_data_lock, flags);
 	rc = wait_for_completion_interruptible_timeout(
@@ -958,7 +942,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			update_camif_state(vfe_dev, camif_update);
 
 	if (wait_for_complete)
-		rc = msm_isp_axi_wait_for_cfg_done(vfe_dev);
+		rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update);
 
 	return rc;
 }
@@ -976,7 +960,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		stream_info->state = STOP_PENDING;
 	}
 
-	rc = msm_isp_axi_wait_for_cfg_done(vfe_dev);
+	rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update);
 	if (rc < 0) {
 		pr_err("%s: wait for config done failed\n", __func__);
 		return rc;

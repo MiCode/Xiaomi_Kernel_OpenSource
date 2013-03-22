@@ -148,7 +148,8 @@ struct msm_vfe_stats_ops {
 		struct msm_vfe_stats_stream *stream_info);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
-	void (*cfg_comp_mask) (struct vfe_device *vfe_dev);
+	void (*cfg_comp_mask) (struct vfe_device *vfe_dev,
+		uint32_t stats_mask, uint8_t enable);
 	void (*cfg_wm_irq_mask) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
 	void (*clear_wm_irq_mask) (struct vfe_device *vfe_dev,
@@ -294,6 +295,7 @@ struct msm_vfe_axi_shared_data {
 		composite_info[MAX_NUM_COMPOSITE_MASK];
 	uint8_t num_used_composite_mask;
 	uint32_t stream_update;
+	enum msm_isp_camif_update_state pipeline_update;
 	struct msm_vfe_src_info src_info[VFE_SRC_MAX];
 	uint16_t stream_handle_cnt;
 	unsigned long event_mask;
@@ -312,6 +314,7 @@ enum msm_vfe_stats_state {
 	STATS_ACTIVE,
 	STATS_START_PENDING,
 	STATS_STOP_PENDING,
+	STATS_STARTING,
 	STATS_STOPPING,
 };
 
@@ -319,9 +322,11 @@ struct msm_vfe_stats_stream {
 	uint32_t session_id;
 	uint32_t stream_id;
 	uint32_t stream_handle;
+	uint32_t composite_flag;
 	enum msm_isp_stats_type stats_type;
 	enum msm_vfe_stats_state state;
 	uint32_t framedrop_pattern;
+	uint32_t framedrop_period;
 	uint32_t irq_subsample_pattern;
 
 	uint32_t buffer_offset;
@@ -331,11 +336,10 @@ struct msm_vfe_stats_stream {
 
 struct msm_vfe_stats_shared_data {
 	struct msm_vfe_stats_stream stream_info[MSM_ISP_STATS_MAX];
-	enum msm_vfe_stats_pipeline_policy stats_pipeline_policy;
-	uint32_t comp_framedrop_pattern;
-	uint32_t comp_irq_subsample_pattern;
 	uint8_t num_active_stream;
+	atomic_t stats_comp_mask;
 	uint16_t stream_handle_cnt;
+	atomic_t stats_update;
 };
 
 struct msm_vfe_tasklet_queue_cmd {
@@ -380,6 +384,7 @@ struct vfe_device {
 	struct completion reset_complete;
 	struct completion halt_complete;
 	struct completion stream_config_complete;
+	struct completion stats_config_complete;
 	struct mutex realtime_mutex;
 	struct mutex core_mutex;
 
