@@ -470,7 +470,7 @@ static void ib_parse_type0(struct kgsl_device *device, unsigned int *ptr,
 	int offset = type0_pkt_offset(*ptr);
 	int i;
 
-	for (i = 0; i < size; i++, offset++) {
+	for (i = 0; i < size - 1; i++, offset++) {
 
 		/* Visiblity stream buffer */
 
