@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -555,14 +555,14 @@ static void sps_debugfs_init(void)
 		return;
 	}
 
-	dfile_info = debugfs_create_file("info", 0666, dent, 0,
+	dfile_info = debugfs_create_file("info", 0664, dent, 0,
 			&sps_info_ops);
 	if (!dfile_info || IS_ERR(dfile_info)) {
 		pr_err("sps:fail to create the file for debug_fs info.\n");
 		goto info_err;
 	}
 
-	dfile_logging_option = debugfs_create_file("logging_option", 0666,
+	dfile_logging_option = debugfs_create_file("logging_option", 0664,
 			dent, 0, &sps_logging_option_ops);
 	if (!dfile_logging_option || IS_ERR(dfile_logging_option)) {
 		pr_err("sps:fail to create the file for debug_fs "
@@ -571,7 +571,7 @@ static void sps_debugfs_init(void)
 	}
 
 	dfile_debug_level_option = debugfs_create_u8("debug_level_option",
-					0666, dent, &debug_level_option);
+					0664, dent, &debug_level_option);
 	if (!dfile_debug_level_option || IS_ERR(dfile_debug_level_option)) {
 		pr_err("sps:fail to create the file for debug_fs "
 			"debug_level_option.\n");
@@ -579,14 +579,14 @@ static void sps_debugfs_init(void)
 	}
 
 	dfile_print_limit_option = debugfs_create_u8("print_limit_option",
-					0666, dent, &print_limit_option);
+					0664, dent, &print_limit_option);
 	if (!dfile_print_limit_option || IS_ERR(dfile_print_limit_option)) {
 		pr_err("sps:fail to create the file for debug_fs "
 			"print_limit_option.\n");
 		goto print_limit_option_err;
 	}
 
-	dfile_reg_dump_option = debugfs_create_u8("reg_dump_option", 0666,
+	dfile_reg_dump_option = debugfs_create_u8("reg_dump_option", 0664,
 						dent, &reg_dump_option);
 	if (!dfile_reg_dump_option || IS_ERR(dfile_reg_dump_option)) {
 		pr_err("sps:fail to create the file for debug_fs "
@@ -594,28 +594,28 @@ static void sps_debugfs_init(void)
 		goto reg_dump_option_err;
 	}
 
-	dfile_testbus_sel = debugfs_create_u32("testbus_sel", 0666,
+	dfile_testbus_sel = debugfs_create_u32("testbus_sel", 0664,
 						dent, &testbus_sel);
 	if (!dfile_testbus_sel || IS_ERR(dfile_testbus_sel)) {
 		pr_err("sps:fail to create debug_fs file for testbus_sel.\n");
 		goto testbus_sel_err;
 	}
 
-	dfile_bam_pipe_sel = debugfs_create_u32("bam_pipe_sel", 0666,
+	dfile_bam_pipe_sel = debugfs_create_u32("bam_pipe_sel", 0664,
 						dent, &bam_pipe_sel);
 	if (!dfile_bam_pipe_sel || IS_ERR(dfile_bam_pipe_sel)) {
 		pr_err("sps:fail to create debug_fs file for bam_pipe_sel.\n");
 		goto bam_pipe_sel_err;
 	}
 
-	dfile_desc_option = debugfs_create_u32("desc_option", 0666,
+	dfile_desc_option = debugfs_create_u32("desc_option", 0664,
 						dent, &desc_option);
 	if (!dfile_desc_option || IS_ERR(dfile_desc_option)) {
 		pr_err("sps:fail to create debug_fs file for desc_option.\n");
 		goto desc_option_err;
 	}
 
-	dfile_bam_addr = debugfs_create_file("bam_addr", 0666,
+	dfile_bam_addr = debugfs_create_file("bam_addr", 0664,
 			dent, 0, &sps_bam_addr_ops);
 	if (!dfile_bam_addr || IS_ERR(dfile_bam_addr)) {
 		pr_err("sps:fail to create the file for debug_fs "
