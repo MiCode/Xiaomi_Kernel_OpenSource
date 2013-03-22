@@ -98,6 +98,11 @@
 		qcom,has-ocmem;
 	};
 
+	qcom,vidc {
+		compatible = "qcom,msm-vidc";
+		qcom,hfi = "q6";
+	};
+
 	qcom,wfd {
 		compatible = "qcom,msm-wfd";
 	};
