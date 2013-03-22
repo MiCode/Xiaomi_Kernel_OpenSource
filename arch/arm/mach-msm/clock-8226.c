@@ -1820,14 +1820,17 @@ static struct clk dsipll0_pixel_clk_src = {
 	CLK_INIT(dsipll0_pixel_clk_src),
 };
 
-static struct clk_freq_tbl pixel_freq = {
-	.src_clk = &dsipll0_pixel_clk_src,
-	.div_src_val = BVAL(10, 8, dsipll0_pixel_mm_source_val),
+static struct clk_freq_tbl pixel_freq_tbl[] = {
+	{
+		.src_clk = &dsipll0_pixel_clk_src,
+		.div_src_val = BVAL(10, 8, dsipll0_pixel_mm_source_val),
+	},
+	F_END
 };
 
 static struct rcg_clk pclk0_clk_src = {
 	.cmd_rcgr_reg = PCLK0_CMD_RCGR,
-	.current_freq = &pixel_freq,
+	.current_freq = pixel_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.parent = &dsipll0_pixel_clk_src,
@@ -2009,14 +2012,17 @@ static struct rcg_clk cpp_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl byte_freq = {
-	.src_clk = &dsipll0_byte_clk_src,
-	.div_src_val = BVAL(10, 8, dsipll0_byte_mm_source_val),
+static struct clk_freq_tbl byte_freq_tbl[] = {
+	{
+		.src_clk = &dsipll0_byte_clk_src,
+		.div_src_val = BVAL(10, 8, dsipll0_byte_mm_source_val),
+	},
+	F_END
 };
 
 static struct rcg_clk byte0_clk_src = {
 	.cmd_rcgr_reg = BYTE0_CMD_RCGR,
-	.current_freq = &byte_freq,
+	.current_freq = byte_freq_tbl,
 	.base = &virt_bases[MMSS_BASE],
 	.c = {
 		.parent = &dsipll0_byte_clk_src,
