@@ -82,6 +82,7 @@ struct mdss_data_type {
 	u8 clk_ena;
 	u8 fs_ena;
 	u8 vsync_ena;
+	unsigned long min_mdp_clk;
 
 	u32 res_init;
 	u32 bus_hdl;

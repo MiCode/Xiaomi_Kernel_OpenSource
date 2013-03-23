@@ -520,11 +520,15 @@ int mdss_mdp_vsync_clk_enable(int enable)
 	return ret;
 }
 
-void mdss_mdp_set_clk_rate(unsigned long min_clk_rate)
+void mdss_mdp_set_clk_rate(unsigned long rate)
 {
 	struct mdss_data_type *mdata = mdss_res;
 	unsigned long clk_rate;
 	struct clk *clk = mdss_mdp_get_clk(MDSS_CLK_MDP_SRC);
+	unsigned long min_clk_rate;
+
+	min_clk_rate = max(rate, mdata->min_mdp_clk);
+
 	if (clk) {
 		mutex_lock(&mdp_clk_lock);
 		if (min_clk_rate < mdata->max_mdp_clk_rate)
