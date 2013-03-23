@@ -42,7 +42,7 @@ struct camera_v4l2_private {
 };
 
 static void camera_pack_event(struct file *filep, int evt_id,
-	int command, struct v4l2_event *event)
+	int command, int value, struct v4l2_event *event)
 {
 	struct msm_v4l2_event_data *event_data =
 		(struct msm_v4l2_event_data *)&event->u.data[0];
@@ -55,6 +55,7 @@ static void camera_pack_event(struct file *filep, int evt_id,
 	event_data->command = command;
 	event_data->session_id = pvdev->vdev->num;
 	event_data->stream_id = sp->stream_id;
+	event_data->arg_value = value;
 }
 
 static int camera_check_event_status(struct v4l2_event *event)
@@ -76,7 +77,7 @@ static int camera_v4l2_querycap(struct file *filep, void *fh,
 
 	/* can use cap->driver to make differentiation */
 	camera_pack_event(filep, MSM_CAMERA_GET_PARM,
-		MSM_CAMERA_PRIV_QUERY_CAP, &event);
+		MSM_CAMERA_PRIV_QUERY_CAP, -1, &event);
 
 	rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 	if (rc < 0)
@@ -96,7 +97,7 @@ static int camera_v4l2_s_crop(struct file *filep, void *fh,
 	if (crop->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
-			MSM_CAMERA_PRIV_S_CROP, &event);
+			MSM_CAMERA_PRIV_S_CROP, -1, &event);
 
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 		if (rc < 0)
@@ -116,7 +117,7 @@ static int camera_v4l2_g_crop(struct file *filep, void *fh,
 
 	if (crop->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		camera_pack_event(filep, MSM_CAMERA_GET_PARM,
-			MSM_CAMERA_PRIV_G_CROP, &event);
+			MSM_CAMERA_PRIV_G_CROP, -1, &event);
 
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 		if (rc < 0)
@@ -137,7 +138,7 @@ static int camera_v4l2_queryctrl(struct file *filep, void *fh,
 	if (ctrl->type == V4L2_CTRL_TYPE_MENU) {
 
 		camera_pack_event(filep, MSM_CAMERA_GET_PARM,
-			ctrl->id, &event);
+			ctrl->id, -1, &event);
 
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 		if (rc < 0)
@@ -156,7 +157,8 @@ static int camera_v4l2_g_ctrl(struct file *filep, void *fh,
 	struct v4l2_event event;
 
 	if (ctrl->id >= V4L2_CID_PRIVATE_BASE) {
-		camera_pack_event(filep, MSM_CAMERA_GET_PARM, ctrl->id, &event);
+		camera_pack_event(filep, MSM_CAMERA_GET_PARM, ctrl->id, -1,
+			&event);
 
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 		if (rc < 0)
@@ -173,13 +175,16 @@ static int camera_v4l2_s_ctrl(struct file *filep, void *fh,
 {
 	int rc = 0;
 	struct v4l2_event event;
+	struct msm_v4l2_event_data *event_data;
 	if (ctrl->id >= V4L2_CID_PRIVATE_BASE) {
-		camera_pack_event(filep, MSM_CAMERA_SET_PARM, ctrl->id, &event);
+		camera_pack_event(filep, MSM_CAMERA_SET_PARM, ctrl->id,
+		ctrl->value, &event);
 
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 		if (rc < 0)
 			return rc;
-
+		event_data = (struct msm_v4l2_event_data *)event.u.data;
+		ctrl->value = event_data->ret_value;
 		rc = camera_check_event_status(&event);
 	}
 
@@ -225,7 +230,7 @@ static int camera_v4l2_streamon(struct file *filep, void *fh,
 
 	rc = vb2_streamon(&sp->vb2_q, buf_type);
 	camera_pack_event(filep, MSM_CAMERA_SET_PARM,
-		MSM_CAMERA_PRIV_STREAM_ON, &event);
+		MSM_CAMERA_PRIV_STREAM_ON, -1, &event);
 
 	rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 	if (rc < 0)
@@ -243,7 +248,7 @@ static int camera_v4l2_streamoff(struct file *filep, void *fh,
 	struct camera_v4l2_private *sp = fh_to_private(fh);
 
 	camera_pack_event(filep, MSM_CAMERA_SET_PARM,
-		MSM_CAMERA_PRIV_STREAM_OFF, &event);
+		MSM_CAMERA_PRIV_STREAM_OFF, -1, &event);
 
 	rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 	if (rc < 0)
@@ -263,7 +268,7 @@ static int camera_v4l2_g_fmt_vid_cap_mplane(struct file *filep, void *fh,
 		struct v4l2_event event;
 
 		camera_pack_event(filep, MSM_CAMERA_GET_PARM,
-			MSM_CAMERA_PRIV_G_FMT, &event);
+			MSM_CAMERA_PRIV_G_FMT, -1, &event);
 
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 		if (rc < 0)
@@ -300,7 +305,7 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 					user_fmt->plane_sizes[i]);
 
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
-			MSM_CAMERA_PRIV_S_FMT, &event);
+			MSM_CAMERA_PRIV_S_FMT, -1, &event);
 
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 		if (rc < 0)
@@ -342,7 +347,7 @@ static int camera_v4l2_s_parm(struct file *filep, void *fh,
 	struct camera_v4l2_private *sp = fh_to_private(fh);
 
 	camera_pack_event(filep, MSM_CAMERA_SET_PARM,
-		MSM_CAMERA_PRIV_NEW_STREAM, &event);
+		MSM_CAMERA_PRIV_NEW_STREAM, -1, &event);
 
 	rc = msm_create_stream(event_data->session_id,
 		event_data->stream_id, &sp->vb2_q);
@@ -510,7 +515,7 @@ static int camera_v4l2_open(struct file *filep)
 		if (rc < 0)
 			goto command_ack_q_fail;
 
-		camera_pack_event(filep, MSM_CAMERA_NEW_SESSION, 0, &event);
+		camera_pack_event(filep, MSM_CAMERA_NEW_SESSION, 0, -1, &event);
 		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
 		if (rc < 0)
 			goto post_fail;
@@ -568,7 +573,7 @@ static int camera_v4l2_close(struct file *filep)
 
 	if (atomic_read(&pvdev->opened) == 0) {
 
-		camera_pack_event(filep, MSM_CAMERA_DEL_SESSION, 0, &event);
+		camera_pack_event(filep, MSM_CAMERA_DEL_SESSION, 0, -1, &event);
 
 		/* Donot wait, imaging server may have crashed */
 		msm_post_event(&event, -1);
@@ -579,7 +584,7 @@ static int camera_v4l2_close(struct file *filep)
 
 	} else {
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
-			MSM_CAMERA_PRIV_DEL_STREAM, &event);
+			MSM_CAMERA_PRIV_DEL_STREAM, -1, &event);
 
 		/* Donot wait, imaging server may have crashed */
 		msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
