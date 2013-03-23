@@ -6,12 +6,19 @@ memory spaces by separating the memory spaces into "heaps". Depending on the
 type of heap ION must reserve memory using the msm specific memory reservation
 bindings (see Documentation/devicetree/bindings/arm/msm/memory-reserve.txt).
 
-Required properties
+Required properties for Ion
 
 - compatible: "qcom,msm-ion"
+
+
+All child nodes of a qcom,msm-ion node are interpreted as Ion heap
+configurations.
+
+Required properties for Ion heaps
+
 - reg: The ID of the ION heap.
 
-Optional properties
+Optional properties for Ion heaps
 
 - compatible: "qcom,msm-ion-reserve" This is required if memory is to be reserved
   as specified by qcom,memory-reservation-size below.

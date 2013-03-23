@@ -20,6 +20,10 @@
 			reg = <30>;
 		};
 
+		qcom,ion-heap@21 { /* SYSTEM CONTIG HEAP */
+			reg = <21>;
+		};
+
 		qcom,ion-heap@8 { /* CP_MM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <8>;
