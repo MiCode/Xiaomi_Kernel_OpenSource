@@ -227,7 +227,7 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 
 	pr_info("Found %s, memory base %lx, size %ld MiB\n", uname,
 		(unsigned long)base, (unsigned long)size / SZ_1M);
-	dma_contiguous_reserve_area(size, &base, 0, name);
+	dma_contiguous_reserve_area(size, &base, MEMBLOCK_ALLOC_ANYWHERE, name);
 
 	return 0;
 }
