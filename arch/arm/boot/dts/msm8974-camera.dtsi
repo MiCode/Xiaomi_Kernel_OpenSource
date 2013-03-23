@@ -54,7 +54,8 @@
 		reg-names = "csid";
 		interrupts = <0 51 0>;
 		interrupt-names = "csid";
-                mipi_csi_vdd-supply = <&pm8941_l12>;
+		qcom,csi-vdd-voltage = <1800000>;
+		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
 	};
 
 	qcom,csid@fda08400 {
@@ -64,7 +65,8 @@
 		reg-names = "csid";
 		interrupts = <0 52 0>;
 		interrupt-names = "csid";
-                mipi_csi_vdd-supply = <&pm8941_l12>;
+		qcom,csi-vdd-voltage = <1800000>;
+		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
 	};
 
 	qcom,csid@fda08800 {
@@ -74,7 +76,8 @@
 		reg-names = "csid";
 		interrupts = <0 53 0>;
 		interrupt-names = "csid";
-                mipi_csi_vdd-supply = <&pm8941_l12>;
+		qcom,csi-vdd-voltage = <1800000>;
+		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
 	};
 
 	qcom,csid@fda08C00 {
@@ -84,7 +87,8 @@
 		reg-names = "csid";
 		interrupts = <0 54 0>;
 		interrupt-names = "csid";
-                mipi_csi_vdd-supply = <&pm8941_l12>;
+		qcom,csi-vdd-voltage = <1800000>;
+		qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
 	};
 
 	qcom,ispif@fda0A000 {

@@ -10,6 +10,10 @@ Required properties:
 - interrupts : should contain the csid interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
+- qcom,csi-vdd-voltage : should specify voltage level
+    for mipi csi in uV.
+- qcom,mipi-csi-vdd-supply : should contain regulator to be used for
+    this csid core
 
 Example:
 
@@ -20,4 +24,6 @@ Example:
        reg-names = "csid";
        interrupts = <0 51 0>;
        interrupt-names = "csiphy";
+       qcom,csi-vdd-voltage = <1800000>;
+       qcom,mipi-csi-vdd-supply = <&pm8941_l12>;
    };
