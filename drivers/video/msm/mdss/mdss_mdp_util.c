@@ -35,6 +35,10 @@ enum {
 	MDP_INTR_VSYNC_INTF_1,
 	MDP_INTR_VSYNC_INTF_2,
 	MDP_INTR_VSYNC_INTF_3,
+	MDP_INTR_UNDERRUN_INTF_0,
+	MDP_INTR_UNDERRUN_INTF_1,
+	MDP_INTR_UNDERRUN_INTF_2,
+	MDP_INTR_UNDERRUN_INTF_3,
 	MDP_INTR_PING_PONG_0,
 	MDP_INTR_PING_PONG_1,
 	MDP_INTR_PING_PONG_2,
@@ -56,6 +60,9 @@ static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 {
 	int index = -1;
 	switch (intr_type) {
+	case MDSS_MDP_IRQ_INTF_UNDER_RUN:
+		index = MDP_INTR_UNDERRUN_INTF_0 + (intf_num - MDSS_MDP_INTF0);
+		break;
 	case MDSS_MDP_IRQ_INTF_VSYNC:
 		index = MDP_INTR_VSYNC_INTF_0 + (intf_num - MDSS_MDP_INTF0);
 		break;
@@ -127,6 +134,18 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	isr &= mask;
 	if (isr == 0)
 		goto mdp_isr_done;
+
+	if (isr & MDSS_MDP_INTR_INTF_0_UNDERRUN)
+		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_0);
+
+	if (isr & MDSS_MDP_INTR_INTF_1_UNDERRUN)
+		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_1);
+
+	if (isr & MDSS_MDP_INTR_INTF_2_UNDERRUN)
+		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_2);
+
+	if (isr & MDSS_MDP_INTR_INTF_3_UNDERRUN)
+		mdss_mdp_intr_done(MDP_INTR_UNDERRUN_INTF_3);
 
 	if (isr & MDSS_MDP_INTR_PING_PONG_0_DONE)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0);
