@@ -142,6 +142,7 @@
 #define RGB_LED_ENABLE_MASK		0xE0
 #define RGB_LED_SRC_MASK		0x03
 #define QPNP_LED_PWM_FLAGS	(PM_PWM_LUT_LOOP | PM_PWM_LUT_RAMP_UP)
+#define QPNP_LUT_RAMP_STEP_DEFAULT	255
 #define	PWM_LUT_MAX_SIZE		63
 #define RGB_LED_DISABLE			0x00
 
@@ -957,7 +958,7 @@ static int __devinit qpnp_rgb_init(struct qpnp_led_data *led)
 				return -EINVAL;
 			}
 			rc = pwm_lut_config(led->rgb_cfg->pwm_dev,
-				led->rgb_cfg->pwm_period_us,
+				PM_PWM_PERIOD_MIN, /* ignored by hardware */
 				led->rgb_cfg->duty_cycles->duty_pcts,
 				led->rgb_cfg->lut_params);
 			if (rc < 0) {
@@ -1227,11 +1228,13 @@ static int __devinit qpnp_get_config_rgb(struct qpnp_led_data *led,
 	else
 		return rc;
 
-	rc = of_property_read_u32(node, "qcom,pwm-us", &val);
-	if (!rc)
-		led->rgb_cfg->pwm_period_us = val;
-	else
-		return rc;
+	if (led->rgb_cfg->mode == RGB_MODE_PWM) {
+		rc = of_property_read_u32(node, "qcom,pwm-us", &val);
+		if (!rc)
+			led->rgb_cfg->pwm_period_us = val;
+		else
+			return rc;
+	}
 
 	if (led->rgb_cfg->mode == RGB_MODE_LPG) {
 		led->rgb_cfg->duty_cycles =
@@ -1242,12 +1245,6 @@ static int __devinit qpnp_get_config_rgb(struct qpnp_led_data *led,
 				"Unable to allocate memory\n");
 			return -ENOMEM;
 		}
-
-		rc = of_property_read_u32(node, "qcom,duty-ms", &val);
-		if (!rc)
-			led->rgb_cfg->duty_cycles->duty_ms = (u8) val;
-		else
-			return rc;
 
 		prop = of_find_property(node, "qcom,duty-pcts",
 			&led->rgb_cfg->duty_cycles->num_duty_pcts);
@@ -1294,12 +1291,37 @@ static int __devinit qpnp_get_config_rgb(struct qpnp_led_data *led,
 		} else
 			return rc;
 
+		led->rgb_cfg->lut_params.lut_pause_hi = 0;
+		rc = of_property_read_u32(node, "qcom,pause-hi", &val);
+		if (!rc)
+			led->rgb_cfg->lut_params.lut_pause_hi = (u8) val;
+		else if (rc != -EINVAL)
+			return rc;
+
+		led->rgb_cfg->lut_params.lut_pause_lo = 0;
+		rc = of_property_read_u32(node, "qcom,pause-lo", &val);
+		if (!rc)
+			led->rgb_cfg->lut_params.lut_pause_lo = (u8) val;
+		else if (rc != -EINVAL)
+			return rc;
+
+		led->rgb_cfg->lut_params.ramp_step_ms =
+				QPNP_LUT_RAMP_STEP_DEFAULT;
+		rc = of_property_read_u32(node, "qcom,ramp-step-ms", &val);
+		if (!rc)
+			led->rgb_cfg->lut_params.ramp_step_ms = (u8) val;
+		else if (rc != -EINVAL)
+			return rc;
+
+		led->rgb_cfg->lut_params.flags = QPNP_LED_PWM_FLAGS;
+		rc = of_property_read_u32(node, "qcom,lut-flags", &val);
+		if (!rc)
+			led->rgb_cfg->lut_params.flags = (u8) val;
+		else if (rc != -EINVAL)
+			return rc;
+
 		led->rgb_cfg->lut_params.idx_len =
 			led->rgb_cfg->duty_cycles->num_duty_pcts;
-		led->rgb_cfg->lut_params.lut_pause_hi = 0;
-		led->rgb_cfg->lut_params.lut_pause_lo = 0;
-		led->rgb_cfg->lut_params.ramp_step_ms = 255;
-		led->rgb_cfg->lut_params.flags = QPNP_LED_PWM_FLAGS;
 	}
 
 	return 0;
