@@ -349,7 +349,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	atomic_set(&lpa_audio.audio_ocmem_req, 0);
 	runtime->private_data = prtd;
 	lpa_audio.prtd = prtd;
-	lpa_set_volume(lpa_audio.volume);
+	lpa_set_volume(0);
 	ret = q6asm_set_softpause(lpa_audio.prtd->audio_client, &softpause);
 	if (ret < 0)
 		pr_err("%s: Send SoftPause Param failed ret=%d\n",
