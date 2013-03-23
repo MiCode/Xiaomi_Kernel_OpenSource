@@ -1518,8 +1518,8 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 	struct soc_params params;
 
 	if (!chip->battery_present) {
-		pr_debug("battery gone, reporting 0\n");
-		new_calculated_soc = 0;
+		pr_debug("battery gone, reporting 100\n");
+		new_calculated_soc = 100;
 		goto done_calculating;
 	}
 	calculate_soc_params(chip, raw, &params, batt_temp);
