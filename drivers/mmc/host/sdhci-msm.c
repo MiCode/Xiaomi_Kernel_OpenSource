@@ -103,6 +103,10 @@ static const u32 tuning_block_128[] = {
 	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
 
+static int disable_slots;
+/* root can write, others read */
+module_param(disable_slots, int, S_IRUGO|S_IWUSR);
+
 /* This structure keeps information per regulator */
 struct sdhci_msm_reg_data {
 	/* voltage regulator handle */
@@ -2081,6 +2085,19 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 
 	/* Extract platform data */
 	if (pdev->dev.of_node) {
+		ret = of_alias_get_id(pdev->dev.of_node, "sdhc");
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Failed to get slot index %d\n",
+				ret);
+			goto pltfm_free;
+		}
+		if (disable_slots & (1 << (ret - 1))) {
+			dev_info(&pdev->dev, "%s: Slot %d disabled\n", __func__,
+				ret);
+			ret = -ENODEV;
+			goto pltfm_free;
+		}
+
 		msm_host->pdata = sdhci_msm_populate_pdata(&pdev->dev);
 		if (!msm_host->pdata) {
 			dev_err(&pdev->dev, "DT parsing error\n");
