@@ -149,6 +149,8 @@ struct rpm_regulator {
 	struct list_head	list;
 	bool			set_active;
 	bool			set_sleep;
+	bool			always_send_voltage;
+	bool			always_send_current;
 	struct rpm_vreg_request	req;
 	int			system_load;
 	int			min_uV;
@@ -636,8 +638,12 @@ static int rpm_vreg_set_voltage(struct regulator_dev *rdev, int min_uV,
 	prev_voltage = reg->req.param[RPM_REGULATOR_PARAM_VOLTAGE];
 	RPM_VREG_SET_PARAM(reg, VOLTAGE, min_uV);
 
-	/* Only send a new voltage if the regulator is currently enabled. */
-	if (rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
+	/*
+	 * Only send a new voltage if the regulator is currently enabled or
+	 * if the regulator has been configured to always send voltage updates.
+	 */
+	if (reg->always_send_voltage
+	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
@@ -690,8 +696,13 @@ static int rpm_vreg_set_voltage_corner(struct regulator_dev *rdev, int min_uV,
 	prev_corner = reg->req.param[RPM_REGULATOR_PARAM_CORNER];
 	RPM_VREG_SET_PARAM(reg, CORNER, corner);
 
-	/* Only send a new voltage if the regulator is currently enabled. */
-	if (rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
+	/*
+	 * Only send a new voltage corner if the regulator is currently enabled
+	 * or if the regulator has been configured to always send voltage
+	 * updates.
+	 */
+	if (reg->always_send_voltage
+	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
@@ -740,8 +751,13 @@ static int rpm_vreg_set_voltage_floor_corner(struct regulator_dev *rdev,
 	prev_corner = reg->req.param[RPM_REGULATOR_PARAM_FLOOR_CORNER];
 	RPM_VREG_SET_PARAM(reg, FLOOR_CORNER, corner);
 
-	/* Only send a new voltage if the regulator is currently enabled. */
-	if (rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
+	/*
+	 * Only send a new voltage floor corner if the regulator is currently
+	 * enabled or if the regulator has been configured to always send
+	 * voltage updates.
+	 */
+	if (reg->always_send_voltage
+	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
@@ -790,8 +806,13 @@ static int rpm_vreg_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		return -EINVAL;
 	}
 
-	/* Only send a new mode value if the regulator is currently enabled. */
-	if (rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
+	/*
+	 * Only send a new load current value if the regulator is currently
+	 * enabled or if the regulator has been configured to always send
+	 * current updates.
+	 */
+	if (reg->always_send_current
+	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg))
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
@@ -1287,6 +1308,11 @@ static int __devinit rpm_vreg_device_probe(struct platform_device *pdev)
 		else if (regulator_type == RPM_REGULATOR_SMD_TYPE_LDO)
 			reg->rdesc.ops = &ldo_floor_corner_ops;
 	}
+
+	reg->always_send_voltage
+		= of_property_read_bool(node, "qcom,always-send-voltage");
+	reg->always_send_current
+		= of_property_read_bool(node, "qcom,always-send-current");
 
 	if (regulator_type == RPM_REGULATOR_SMD_TYPE_VS)
 		reg->rdesc.n_voltages = 0;
