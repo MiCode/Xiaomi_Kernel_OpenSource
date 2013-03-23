@@ -1825,7 +1825,6 @@ config MSM_AVS_HW
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"
 	depends on ANDROID_PMEM
-	default y
 	help
 	  Provides access to registers needed by the userspace OpenGL|ES
 	  library.
