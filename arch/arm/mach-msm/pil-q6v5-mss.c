@@ -58,6 +58,7 @@
 #define RMB_PMI_CODE_LENGTH		0x18
 
 #define VDD_MSS_UV			1050000
+#define MAX_VDD_MSS_UV			1150000
 #define MAX_VDD_MX_UV			1150000
 
 #define PROXY_TIMEOUT_MS		10000
@@ -739,7 +740,7 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 	if (IS_ERR(q6->vreg_mx))
 		return PTR_ERR(q6->vreg_mx);
 
-	ret = regulator_set_voltage(q6->vreg, VDD_MSS_UV, VDD_MSS_UV);
+	ret = regulator_set_voltage(q6->vreg, VDD_MSS_UV, MAX_VDD_MSS_UV);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to set regulator's voltage.\n");
 
