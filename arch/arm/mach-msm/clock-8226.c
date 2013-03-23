@@ -1350,17 +1350,6 @@ static struct branch_clk gcc_mss_q6_bimc_axi_clk = {
 	},
 };
 
-static struct branch_clk gcc_noc_conf_xpu_ahb_clk = {
-	.cbcr_reg = NOC_CONF_XPU_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_noc_conf_xpu_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_noc_conf_xpu_ahb_clk.c),
-	},
-};
-
 static struct branch_clk gcc_pdm2_clk = {
 	.cbcr_reg = PDM2_CBCR,
 	.has_sibling = 0,
@@ -1574,7 +1563,6 @@ static struct branch_clk gcc_usb_hsic_system_clk = {
 
 static struct measure_mux_entry measure_mux_GCC[] = {
 	{ &gcc_periph_noc_ahb_clk.c,  GCC_BASE, 0x0010 },
-	{ &gcc_noc_conf_xpu_ahb_clk.c,  GCC_BASE, 0x0018 },
 	{ &gcc_mss_cfg_ahb_clk.c,  GCC_BASE, 0x0030 },
 	{ &gcc_mss_q6_bimc_axi_clk.c,  GCC_BASE, 0x0031 },
 	{ &gcc_usb_hsic_ahb_clk.c,  GCC_BASE, 0x0058 },
