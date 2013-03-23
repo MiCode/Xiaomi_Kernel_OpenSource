@@ -797,6 +797,7 @@ void ipa_enable_clks(void);
 void ipa_disable_clks(void);
 int __ipa_del_rt_rule(u32 rule_hdl);
 int __ipa_del_hdr(u32 hdr_hdl);
+int __ipa_release_hdr(u32 hdr_hdl);
 
 static inline u32 ipa_read_reg(void *base, u32 offset)
 {
