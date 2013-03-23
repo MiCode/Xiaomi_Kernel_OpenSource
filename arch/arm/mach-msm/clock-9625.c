@@ -278,22 +278,14 @@ enum vdd_dig_levels {
 	VDD_DIG_NUM
 };
 
-static const int vdd_corner[] = {
-	[VDD_DIG_NONE]	  = RPM_REGULATOR_CORNER_NONE,
-	[VDD_DIG_LOW]	  = RPM_REGULATOR_CORNER_SVS_SOC,
-	[VDD_DIG_NOMINAL] = RPM_REGULATOR_CORNER_NORMAL,
-	[VDD_DIG_HIGH]	  = RPM_REGULATOR_CORNER_SUPER_TURBO,
+static const int *vdd_corner[] = {
+	[VDD_DIG_NONE]	  = VDD_UV(RPM_REGULATOR_CORNER_NONE),
+	[VDD_DIG_LOW]	  = VDD_UV(RPM_REGULATOR_CORNER_SVS_SOC),
+	[VDD_DIG_NOMINAL] = VDD_UV(RPM_REGULATOR_CORNER_NORMAL),
+	[VDD_DIG_HIGH]	  = VDD_UV(RPM_REGULATOR_CORNER_SUPER_TURBO),
 };
 
-static struct regulator *vdd_dig_reg;
-
-int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
-{
-	return regulator_set_voltage(vdd_dig_reg, vdd_corner[level],
-					RPM_REGULATOR_CORNER_SUPER_TURBO);
-}
-
-static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig, VDD_DIG_NUM);
+static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner);
 
 /* TODO: Needs to confirm the below values */
 #define RPM_MISC_CLK_TYPE	0x306b6c63
@@ -2062,12 +2054,12 @@ static void __init msm9625_clock_pre_init(void)
 
 	clk_ops_local_pll.enable = sr_pll_clk_enable_9625;
 
-	vdd_dig_reg = regulator_get(NULL, "vdd_dig");
-	if (IS_ERR(vdd_dig_reg))
+	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
+	if (IS_ERR(vdd_dig.regulator[0]))
 		panic("clock-9625: Unable to get the vdd_dig regulator!");
 
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	regulator_enable(vdd_dig_reg);
+	regulator_enable(vdd_dig.regulator[0]);
 
 	enable_rpm_scaling();
 

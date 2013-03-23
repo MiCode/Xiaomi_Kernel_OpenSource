@@ -445,22 +445,14 @@ enum vdd_dig_levels {
 	VDD_DIG_NUM
 };
 
-static const int vdd_corner[] = {
-	[VDD_DIG_NONE]	  = RPM_REGULATOR_CORNER_NONE,
-	[VDD_DIG_LOW]	  = RPM_REGULATOR_CORNER_SVS_SOC,
-	[VDD_DIG_NOMINAL] = RPM_REGULATOR_CORNER_NORMAL,
-	[VDD_DIG_HIGH]	  = RPM_REGULATOR_CORNER_SUPER_TURBO,
+static const int *vdd_corner[] = {
+	[VDD_DIG_NONE]	  = VDD_UV(RPM_REGULATOR_CORNER_NONE),
+	[VDD_DIG_LOW]	  = VDD_UV(RPM_REGULATOR_CORNER_SVS_SOC),
+	[VDD_DIG_NOMINAL] = VDD_UV(RPM_REGULATOR_CORNER_NORMAL),
+	[VDD_DIG_HIGH]	  = VDD_UV(RPM_REGULATOR_CORNER_SUPER_TURBO),
 };
 
-static struct regulator *vdd_dig_reg;
-
-static int set_vdd_dig(struct clk_vdd_class *vdd_class, int level)
-{
-	return regulator_set_voltage(vdd_dig_reg, vdd_corner[level],
-					RPM_REGULATOR_CORNER_SUPER_TURBO);
-}
-
-static DEFINE_VDD_CLASS(vdd_dig, set_vdd_dig, VDD_DIG_NUM);
+static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner);
 
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_BUS_CLK_TYPE	0x316b6c63
@@ -550,20 +542,13 @@ enum vdd_sr2_pll_levels {
 	VDD_SR2_PLL_NUM
 };
 
-static struct regulator *vdd_sr2_reg;
+static const int *vdd_sr2_pll_levels[] = {
+	[VDD_SR2_PLL_OFF] = VDD_UV(0),
+	[VDD_SR2_PLL_ON]  = VDD_UV(1800000),
+};
 
-static int set_vdd_sr2_pll(struct clk_vdd_class *vdd_class, int level)
-{
-	if (level == VDD_SR2_PLL_ON) {
-		return regulator_set_voltage(vdd_sr2_reg, 1800000,
-		1800000);
-	} else {
-		return regulator_set_voltage(vdd_sr2_reg, 0, 1800000);
-	}
-}
-
-static DEFINE_VDD_CLASS(vdd_sr2_pll, set_vdd_sr2_pll,
-			VDD_SR2_PLL_NUM);
+static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 1,
+		vdd_sr2_pll_levels);
 
 static struct pll_freq_tbl apcs_pll_freq[] = {
 	F_APCS_PLL( 384000000, 20, 0x0, 0x1, 0x0, 0x0, 0x0),
@@ -3546,16 +3531,16 @@ static void __init msm8610_clock_pre_init(void)
 
 	clk_ops_local_pll.enable = sr_hpm_lp_pll_clk_enable;
 
-	vdd_dig_reg = regulator_get(NULL, "vdd_dig");
-	if (IS_ERR(vdd_dig_reg))
+	vdd_dig.regulator[0] = regulator_get(NULL, "vdd_dig");
+	if (IS_ERR(vdd_dig.regulator[0]))
 		panic("clock-8610: Unable to get the vdd_dig regulator!");
 
-	vdd_sr2_reg = regulator_get(NULL, "vdd_sr2_pll");
-	if (IS_ERR(vdd_sr2_reg))
+	vdd_sr2_pll.regulator[0] = regulator_get(NULL, "vdd_sr2_pll");
+	if (IS_ERR(vdd_sr2_pll.regulator[0]))
 		panic("clock-8610: Unable to get the vdd_sr2_pll regulator!");
 
-	regulator_set_voltage(vdd_sr2_reg, 1800000, 1800000);
-	regulator_enable(vdd_sr2_reg);
+	regulator_set_voltage(vdd_sr2_pll.regulator[0], 1800000, 1800000);
+	regulator_enable(vdd_sr2_pll.regulator[0]);
 
 	/*
 	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
@@ -3564,7 +3549,7 @@ static void __init msm8610_clock_pre_init(void)
 	 * its necessity.
 	 */
 	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	regulator_enable(vdd_dig_reg);
+	regulator_enable(vdd_dig.regulator[0]);
 
 	enable_rpm_scaling();
 
