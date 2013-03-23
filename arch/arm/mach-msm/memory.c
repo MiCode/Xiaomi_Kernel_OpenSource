@@ -191,6 +191,10 @@ static void __init reserve_memory_for_mempools(void)
 		BUG_ON(mr_candidate == NULL);
 		/* bump mt up against the top of the region */
 		mt->start = mr_candidate->base + mr_candidate->size - mt->size;
+		ret = memblock_reserve(mt->start, mt->size);
+		BUG_ON(ret);
+		ret = memblock_free(mt->start, mt->size);
+		BUG_ON(ret);
 		ret = memblock_remove(mt->start, mt->size);
 		BUG_ON(ret);
 	}
