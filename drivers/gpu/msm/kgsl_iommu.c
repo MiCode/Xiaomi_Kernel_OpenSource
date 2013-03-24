@@ -21,6 +21,7 @@
 #include <mach/socinfo.h>
 #include <mach/msm_iomap.h>
 #include <mach/board.h>
+#include <mach/iommu_domains.h>
 #include <stddef.h>
 
 #include "kgsl.h"
@@ -620,7 +621,19 @@ static void kgsl_iommu_destroy_pagetable(void *mmu_specific_pt)
  */
 void *kgsl_iommu_create_pagetable(void)
 {
+	int domain_num;
 	struct kgsl_iommu_pt *iommu_pt;
+
+	struct msm_iova_partition kgsl_partition = {
+		.start = 0,
+		.size = 0xFFFFFFFF,
+	};
+	struct msm_iova_layout kgsl_layout = {
+		.partitions = &kgsl_partition,
+		.npartitions = 1,
+		.client_name = "kgsl",
+		.domain_flags = 0,
+	};
 
 	iommu_pt = kzalloc(sizeof(struct kgsl_iommu_pt), GFP_KERNEL);
 	if (!iommu_pt) {
@@ -630,18 +643,17 @@ void *kgsl_iommu_create_pagetable(void)
 	}
 	/* L2 redirect is not stable on IOMMU v1 */
 	if (msm_soc_version_supports_iommu_v0())
-		iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
-					MSM_IOMMU_DOMAIN_PT_CACHEABLE);
-	else
-		iommu_pt->domain = iommu_domain_alloc(&platform_bus_type,
-					0);
-	if (!iommu_pt->domain) {
+		kgsl_layout.domain_flags = MSM_IOMMU_DOMAIN_PT_CACHEABLE;
+
+	domain_num = msm_register_domain(&kgsl_layout);
+	if (domain_num >= 0) {
+		iommu_pt->domain = msm_get_iommu_domain(domain_num);
+		iommu_set_fault_handler(iommu_pt->domain,
+			kgsl_iommu_fault_handler, NULL);
+	} else {
 		KGSL_CORE_ERR("Failed to create iommu domain\n");
 		kfree(iommu_pt);
 		return NULL;
-	} else {
-		iommu_set_fault_handler(iommu_pt->domain,
-			kgsl_iommu_fault_handler, NULL);
 	}
 
 	return iommu_pt;
