@@ -59,6 +59,8 @@
 #define PON_CNTRL_6		0x018
 #define WD_BIT			BIT(7)
 
+#define BATT_ALARM_ACCURACY	50	/* 50mV */
+
 enum pmic_bms_interrupts {
 	PM8921_BMS_SBI_WRITE_OK,
 	PM8921_BMS_CC_THR,
@@ -159,7 +161,6 @@ struct pm8921_bms_chip {
 	int			soc_at_cv;
 	int			prev_chg_soc;
 	struct power_supply	*batt_psy;
-	bool			low_voltage_wake_lock_held;
 	struct wake_lock	low_voltage_wake_lock;
 	int			soc_calc_period;
 	int			normal_voltage_calc_ms;
@@ -170,6 +171,9 @@ struct pm8921_bms_chip {
 	int			ocv_dis_high_soc;
 	int			ocv_dis_low_soc;
 	int			prev_vbat_batt_terminal_uv;
+	int			vbatt_cutoff_count;
+	int			low_voltage_detect;
+	int			vbatt_cutoff_retries;
 };
 
 /*
@@ -391,6 +395,20 @@ static int usb_chg_plugged_in(struct pm8921_bms_chip *chip)
 	return val;
 }
 
+static void pm8921_bms_low_voltage_config(struct pm8921_bms_chip *chip,
+								int time_ms)
+{
+	int ms = 0;
+
+	/* if work was pending and was cancelled, calculate SOC immediately */
+	if (!cancel_delayed_work_sync(&chip->calculate_soc_delayed_work))
+		ms = time_ms;
+
+	chip->soc_calc_period = time_ms;
+	schedule_delayed_work(&chip->calculate_soc_delayed_work,
+						msecs_to_jiffies(ms));
+}
+
 static int pm8921_bms_enable_batt_alarm(struct pm8921_bms_chip *chip)
 {
 	int rc = 0;
@@ -479,8 +497,12 @@ static int pm8921_battery_gauge_alarm_notify(struct notifier_block *nb,
 		 * hold the low voltage wakelock until the soc
 		 * work finds it appropriate to release it.
 		 */
-		wake_lock(&the_chip->low_voltage_wake_lock);
-		the_chip->low_voltage_wake_lock_held = 1;
+		if (!wake_lock_active(&the_chip->low_voltage_wake_lock)) {
+			pr_debug("Holding low voltage wakelock\n");
+			wake_lock(&the_chip->low_voltage_wake_lock);
+			pm8921_bms_low_voltage_config(the_chip,
+					the_chip->low_voltage_calc_ms);
+		}
 
 		rc = pm8xxx_batt_alarm_disable(
 				PM8XXX_BATT_ALARM_LOWER_COMPARATOR);
@@ -1788,24 +1810,40 @@ static void very_low_voltage_check(struct pm8921_bms_chip *chip,
 	 * if battery is very low (v_cutoff voltage + 20mv) hold
 	 * a wakelock untill soc = 0%
 	 */
-	if (vbat_uv <= (chip->v_cutoff + 20) * 1000
-			&& !chip->low_voltage_wake_lock_held) {
+	if (vbat_uv <= (chip->alarm_low_mv + 20) * 1000 &&
+		!wake_lock_active(&the_chip->low_voltage_wake_lock)) {
 		pr_debug("voltage = %d low holding wakelock\n", vbat_uv);
 		wake_lock(&chip->low_voltage_wake_lock);
-		chip->low_voltage_wake_lock_held = 1;
 		chip->soc_calc_period = chip->low_voltage_calc_ms;
 	}
 
-	if (vbat_uv > (chip->v_cutoff + 20) * 1000
-			&& chip->low_voltage_wake_lock_held) {
+	if (vbat_uv > (chip->alarm_low_mv + 20 + BATT_ALARM_ACCURACY) * 1000
+			&& wake_lock_active(&the_chip->low_voltage_wake_lock)) {
 		pr_debug("voltage = %d releasing wakelock\n", vbat_uv);
-		chip->low_voltage_wake_lock_held = 0;
-		wake_unlock(&chip->low_voltage_wake_lock);
+		chip->vbatt_cutoff_count = 0;
 		chip->soc_calc_period = chip->normal_voltage_calc_ms;
 		rc = pm8921_bms_enable_batt_alarm(chip);
 		if (rc)
 			pr_err("Unable to enable batt alarm\n");
+		wake_unlock(&chip->low_voltage_wake_lock);
 	}
+}
+
+static bool is_voltage_below_cutoff_window(struct pm8921_bms_chip *chip,
+						int ibat_ua, int vbat_uv)
+{
+	if (vbat_uv < (chip->v_cutoff * 1000) && ibat_ua > 0) {
+		chip->vbatt_cutoff_count++;
+		if (chip->vbatt_cutoff_count >= chip->vbatt_cutoff_retries) {
+			pr_debug("cutoff_count >= %d\n",
+					chip->vbatt_cutoff_retries);
+			return true;
+		}
+	} else {
+		chip->vbatt_cutoff_count = 0;
+	}
+
+	return false;
 }
 
 static int last_soc_est = -EINVAL;
@@ -1833,6 +1871,15 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 	}
 
 	very_low_voltage_check(chip, ibat_ua, vbat_uv);
+
+	if (chip->low_voltage_detect &&
+		wake_lock_active(&chip->low_voltage_wake_lock)) {
+		if (is_voltage_below_cutoff_window(chip, ibat_ua, vbat_uv)) {
+			soc = 0;
+			pr_info("Voltage below cutoff, setting soc to 0\n");
+			goto out;
+		}
+	}
 
 	delta_ocv_uv_limit = DIV_ROUND_CLOSEST(ibat_ua, 1000);
 
@@ -3327,6 +3374,8 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 
 	chip->alarm_low_mv = pdata->alarm_low_mv;
 	chip->alarm_high_mv = pdata->alarm_high_mv;
+	chip->low_voltage_detect = pdata->low_voltage_detect;
+	chip->vbatt_cutoff_retries = pdata->vbatt_cutoff_retries;
 
 	mutex_init(&chip->calib_mutex);
 	INIT_WORK(&chip->calib_hkadc_work, calibrate_hkadc_work);
