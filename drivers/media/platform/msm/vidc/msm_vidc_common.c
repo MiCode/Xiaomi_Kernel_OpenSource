@@ -50,9 +50,12 @@
 #define TIME_DIFF_THRESHOLD 200
 
 /*Load is in Macroblocks (MBs) per sec. This value is calculated
- * based on one 4k video instance @ 24 fps plus one 1080p video
+ * based on one 4k video instance @ 30 fps plus one 1080p video
  * instance @ 30fps. 1 MB = 16 X 16 pixels*/
-#define MAX_LOAD 1074240
+#define MAX_LOAD ({\
+		NUM_MBS_PER_SEC(3840, 2160, 30) + \
+		NUM_MBS_PER_SEC(1920, 1088, 30); \
+})
 
 static int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type)
@@ -1268,8 +1271,25 @@ static int msm_vidc_load_resources(int flipped_state,
 	num_mbs_per_sec = msm_comm_get_load(inst->core, MSM_VIDC_DECODER);
 	num_mbs_per_sec += msm_comm_get_load(inst->core, MSM_VIDC_ENCODER);
 	if (num_mbs_per_sec > MAX_LOAD) {
+		struct msm_vidc_inst *temp;
+
 		dprintk(VIDC_ERR, "HW is overloaded, needed:%d max: %d\n",
-			num_mbs_per_sec, MAX_LOAD);
+				num_mbs_per_sec, MAX_LOAD);
+		dprintk(VIDC_ERR, "Running instances:\n");
+		dprintk(VIDC_ERR, "%4s|%4s|%4s|%4s\n", "type", "w", "h", "fps");
+		list_for_each_entry(temp, &inst->core->instances, list) {
+			mutex_lock(&temp->lock);
+			if (temp->state >= MSM_VIDC_OPEN_DONE &&
+					temp->state < MSM_VIDC_STOP_DONE) {
+				dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d\n",
+						temp->session_type,
+						temp->prop.width,
+						temp->prop.height,
+						temp->prop.fps);
+			}
+			mutex_unlock(&temp->lock);
+		}
+
 		return -ENOMEM;
 	}
 	hdev = inst->core->device;
