@@ -29,6 +29,7 @@
 
 #include <mach/iommu_perfmon.h>
 #include <mach/iommu_hw-v0.h>
+#include <mach/msm_iommu_priv.h>
 #include <mach/iommu.h>
 #include <mach/msm_smsm.h>
 
@@ -131,12 +132,6 @@ void *msm_iommu_lock_initialize(void)
 	return msm_iommu_remote_lock.lock;
 }
 
-struct msm_priv {
-	unsigned long *pgtable;
-	int redirect;
-	struct list_head list_attached;
-};
-
 static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
 {
 	int ret;
@@ -198,7 +193,7 @@ EXPORT_SYMBOL(iommu_access_ops_v0);
 
 static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 {
-	struct msm_priv *priv = domain->priv;
+	struct msm_iommu_priv *priv = domain->priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = 0;
@@ -235,7 +230,7 @@ fail:
 
 static int __flush_iotlb(struct iommu_domain *domain)
 {
-	struct msm_priv *priv = domain->priv;
+	struct msm_iommu_priv *priv = domain->priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = 0;
@@ -396,26 +391,27 @@ static void __program_context(void __iomem *base, void __iomem *glb_base,
 
 static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 {
-	struct msm_priv *priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	struct msm_iommu_priv *priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 
 	if (!priv)
 		goto fail_nomem;
 
 	INIT_LIST_HEAD(&priv->list_attached);
-	priv->pgtable = (unsigned long *)__get_free_pages(GFP_KERNEL,
+	priv->pt.fl_table = (unsigned long *)__get_free_pages(GFP_KERNEL,
 							  get_order(SZ_16K));
 
-	if (!priv->pgtable)
+	if (!priv->pt.fl_table)
 		goto fail_nomem;
 
 #ifdef CONFIG_IOMMU_PGTABLES_L2
-	priv->redirect = flags & MSM_IOMMU_DOMAIN_PT_CACHEABLE;
+	priv->pt.redirect = flags & MSM_IOMMU_DOMAIN_PT_CACHEABLE;
 #endif
 
-	memset(priv->pgtable, 0, SZ_16K);
+	memset(priv->pt.fl_table, 0, SZ_16K);
 	domain->priv = priv;
 
-	clean_pte(priv->pgtable, priv->pgtable + NUM_FL_PTE, priv->redirect);
+	clean_pte(priv->pt.fl_table, priv->pt.fl_table + NUM_FL_PTE,
+		  priv->pt.redirect);
 
 	return 0;
 
@@ -426,7 +422,7 @@ fail_nomem:
 
 static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 	unsigned long *fl_table;
 	int i;
 
@@ -435,15 +431,15 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 	domain->priv = NULL;
 
 	if (priv) {
-		fl_table = priv->pgtable;
+		fl_table = priv->pt.fl_table;
 
 		for (i = 0; i < NUM_FL_PTE; i++)
 			if ((fl_table[i] & 0x03) == FL_TYPE_TABLE)
 				free_page((unsigned long) __va(((fl_table[i]) &
 								FL_BASE_MASK)));
 
-		free_pages((unsigned long)priv->pgtable, get_order(SZ_16K));
-		priv->pgtable = NULL;
+		free_pages((unsigned long)priv->pt.fl_table, get_order(SZ_16K));
+		priv->pt.fl_table = NULL;
 	}
 
 	kfree(priv);
@@ -452,7 +448,7 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 
 static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
@@ -497,7 +493,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	__program_context(iommu_drvdata->base, iommu_drvdata->glb_base,
 			  ctx_drvdata->num, iommu_drvdata->ncb,
-			  __pa(priv->pgtable), priv->redirect,
+			  __pa(priv->pt.fl_table), priv->pt.redirect,
 			  iommu_drvdata->ttbr_split);
 
 	__disable_clocks(iommu_drvdata);
@@ -517,7 +513,7 @@ unlock:
 static void msm_iommu_detach_dev(struct iommu_domain *domain,
 				 struct device *dev)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret;
@@ -605,7 +601,7 @@ static int __get_pgprot(int prot, int len)
 	return pgprot;
 }
 
-static unsigned long *make_second_level(struct msm_priv *priv,
+static unsigned long *make_second_level(struct msm_iommu_priv *priv,
 					unsigned long *fl_pte)
 {
 	unsigned long *sl;
@@ -617,12 +613,12 @@ static unsigned long *make_second_level(struct msm_priv *priv,
 		goto fail;
 	}
 	memset(sl, 0, SZ_4K);
-	clean_pte(sl, sl + NUM_SL_PTE, priv->redirect);
+	clean_pte(sl, sl + NUM_SL_PTE, priv->pt.redirect);
 
 	*fl_pte = ((((int)__pa(sl)) & FL_BASE_MASK) | \
 			FL_TYPE_TABLE);
 
-	clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+	clean_pte(fl_pte, fl_pte + 1, priv->pt.redirect);
 fail:
 	return sl;
 }
@@ -694,7 +690,7 @@ fail:
 static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 			 phys_addr_t pa, size_t len, int prot)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 	unsigned long *fl_table;
 	unsigned long *fl_pte;
 	unsigned long fl_offset;
@@ -712,7 +708,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 		goto fail;
 	}
 
-	fl_table = priv->pgtable;
+	fl_table = priv->pt.fl_table;
 
 	if (len != SZ_16M && len != SZ_1M &&
 	    len != SZ_64K && len != SZ_4K) {
@@ -741,14 +737,14 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 		ret = fl_16m(fl_pte, pa, pgprot);
 		if (ret)
 			goto fail;
-		clean_pte(fl_pte, fl_pte + 16, priv->redirect);
+		clean_pte(fl_pte, fl_pte + 16, priv->pt.redirect);
 	}
 
 	if (len == SZ_1M) {
 		ret = fl_1m(fl_pte, pa, pgprot);
 		if (ret)
 			goto fail;
-		clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+		clean_pte(fl_pte, fl_pte + 1, priv->pt.redirect);
 	}
 
 	/* Need a 2nd level table */
@@ -776,14 +772,14 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 		if (ret)
 			goto fail;
 
-		clean_pte(sl_pte, sl_pte + 1, priv->redirect);
+		clean_pte(sl_pte, sl_pte + 1, priv->pt.redirect);
 	}
 
 	if (len == SZ_64K) {
 		ret = sl_64k(sl_pte, pa, pgprot);
 		if (ret)
 			goto fail;
-		clean_pte(sl_pte, sl_pte + 16, priv->redirect);
+		clean_pte(sl_pte, sl_pte + 16, priv->pt.redirect);
 	}
 
 	ret = __flush_iotlb_va(domain, va);
@@ -795,7 +791,7 @@ fail:
 static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 			    size_t len)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 	unsigned long *fl_table;
 	unsigned long *fl_pte;
 	unsigned long fl_offset;
@@ -811,7 +807,7 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 	if (!priv)
 		goto fail;
 
-	fl_table = priv->pgtable;
+	fl_table = priv->pt.fl_table;
 
 	if (len != SZ_16M && len != SZ_1M &&
 	    len != SZ_64K && len != SZ_4K) {
@@ -837,13 +833,13 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 		for (i = 0; i < 16; i++)
 			*(fl_pte+i) = 0;
 
-		clean_pte(fl_pte, fl_pte + 16, priv->redirect);
+		clean_pte(fl_pte, fl_pte + 16, priv->pt.redirect);
 	}
 
 	if (len == SZ_1M) {
 		*fl_pte = 0;
 
-		clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+		clean_pte(fl_pte, fl_pte + 1, priv->pt.redirect);
 	}
 
 	sl_table = (unsigned long *) __va(((*fl_pte) & FL_BASE_MASK));
@@ -854,13 +850,13 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 		for (i = 0; i < 16; i++)
 			*(sl_pte+i) = 0;
 
-		clean_pte(sl_pte, sl_pte + 16, priv->redirect);
+		clean_pte(sl_pte, sl_pte + 16, priv->pt.redirect);
 	}
 
 	if (len == SZ_4K) {
 		*sl_pte = 0;
 
-		clean_pte(sl_pte, sl_pte + 1, priv->redirect);
+		clean_pte(sl_pte, sl_pte + 1, priv->pt.redirect);
 	}
 
 	if (len == SZ_4K || len == SZ_64K) {
@@ -873,7 +869,7 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 			free_page((unsigned long)sl_table);
 			*fl_pte = 0;
 
-			clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+			clean_pte(fl_pte, fl_pte + 1, priv->pt.redirect);
 		}
 	}
 
@@ -969,7 +965,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	unsigned long sl_offset, sl_start;
 	unsigned int chunk_size, chunk_offset = 0;
 	int ret = 0;
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 	unsigned int pgprot4k, pgprot64k, pgprot1m, pgprot16m;
 
 	mutex_lock(&msm_iommu_lock);
@@ -977,7 +973,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	BUG_ON(len & (SZ_4K - 1));
 
 	priv = domain->priv;
-	fl_table = priv->pgtable;
+	fl_table = priv->pt.fl_table;
 
 	pgprot4k = __get_pgprot(prot, SZ_4K);
 	pgprot64k = __get_pgprot(prot, SZ_64K);
@@ -1013,13 +1009,15 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 				ret = fl_16m(fl_pte, pa, pgprot16m);
 				if (ret)
 					goto fail;
-				clean_pte(fl_pte, fl_pte + 16, priv->redirect);
+				clean_pte(fl_pte, fl_pte + 16,
+					  priv->pt.redirect);
 				fl_pte += 16;
 			} else if (chunk_size == SZ_1M) {
 				ret = fl_1m(fl_pte, pa, pgprot1m);
 				if (ret)
 					goto fail;
-				clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+				clean_pte(fl_pte, fl_pte + 1,
+					  priv->pt.redirect);
 				fl_pte++;
 			}
 
@@ -1101,7 +1099,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 		}
 
 		clean_pte(sl_table + sl_start, sl_table + sl_offset,
-				priv->redirect);
+				priv->pt.redirect);
 
 		fl_pte++;
 		sl_offset = 0;
@@ -1123,14 +1121,14 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 	unsigned long *sl_table;
 	unsigned long sl_start, sl_end;
 	int used, i;
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 
 	mutex_lock(&msm_iommu_lock);
 
 	BUG_ON(len & (SZ_4K - 1));
 
 	priv = domain->priv;
-	fl_table = priv->pgtable;
+	fl_table = priv->pt.fl_table;
 
 	fl_offset = FL_OFFSET(va);	/* Upper 12 bits */
 	fl_pte = fl_table + fl_offset;	/* int pointers, 4 bytes */
@@ -1146,7 +1144,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 
 			memset(sl_table + sl_start, 0, (sl_end - sl_start) * 4);
 			clean_pte(sl_table + sl_start, sl_table + sl_end,
-					priv->redirect);
+					priv->pt.redirect);
 
 			offset += (sl_end - sl_start) * SZ_4K;
 			va += (sl_end - sl_start) * SZ_4K;
@@ -1171,13 +1169,14 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 				free_page((unsigned long)sl_table);
 				*fl_pte = 0;
 
-				clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+				clean_pte(fl_pte, fl_pte + 1,
+					  priv->pt.redirect);
 			}
 
 			sl_start = 0;
 		} else {
 			*fl_pte = 0;
-			clean_pte(fl_pte, fl_pte + 1, priv->redirect);
+			clean_pte(fl_pte, fl_pte + 1, priv->pt.redirect);
 			va += SZ_1M;
 			offset += SZ_1M;
 			sl_start = 0;
@@ -1193,7 +1192,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 					  unsigned long va)
 {
-	struct msm_priv *priv;
+	struct msm_iommu_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	unsigned int par;
@@ -1339,8 +1338,8 @@ fail:
 
 static phys_addr_t msm_iommu_get_pt_base_addr(struct iommu_domain *domain)
 {
-	struct msm_priv *priv = domain->priv;
-	return __pa(priv->pgtable);
+	struct msm_iommu_priv *priv = domain->priv;
+	return __pa(priv->pt.fl_table);
 }
 
 static struct iommu_ops msm_iommu_ops = {
