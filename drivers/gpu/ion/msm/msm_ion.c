@@ -89,7 +89,7 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	},
 	{
 		.id	= ION_QSECOM_HEAP_ID,
-		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.type	= ION_HEAP_TYPE_DMA,
 		.name	= ION_QSECOM_HEAP_NAME,
 	},
 	{
