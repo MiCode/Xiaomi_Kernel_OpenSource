@@ -25,6 +25,7 @@
 #include <asm/page.h>
 #include <mach/iommu.h>
 #include <mach/iommu_domains.h>
+#include <mach/msm_iommu_priv.h>
 #include <mach/socinfo.h>
 #include <mach/msm_subsystem_map.h>
 
@@ -39,6 +40,12 @@ struct msm_iova_data {
 static struct rb_root domain_root;
 DEFINE_MUTEX(domain_mutex);
 static atomic_t domain_nums = ATOMIC_INIT(-1);
+
+void msm_iommu_set_client_name(struct iommu_domain *domain, char const *name)
+{
+	struct msm_iommu_priv *priv = domain->priv;
+	priv->client_name = name;
+}
 
 int msm_use_iommu()
 {
@@ -434,6 +441,8 @@ int msm_register_domain(struct msm_iova_layout *layout)
 	if (!data->domain)
 		goto out;
 
+	msm_iommu_set_client_name(data->domain, layout->client_name);
+
 	add_domain(data);
 
 	return data->domain_num;
@@ -481,7 +490,8 @@ out:
 }
 
 static int create_and_add_domain(struct iommu_group *group,
-				 const struct device_node *node)
+				 struct device_node const *node,
+				 char const *name)
 {
 	unsigned int ret_val = 0;
 	unsigned int i, j;
@@ -541,6 +551,7 @@ static int create_and_add_domain(struct iommu_group *group,
 		part[0].size = 0xFFFFFFFF;
 	}
 
+	l.client_name = name;
 	l.partitions = part;
 
 	secure_domain = of_property_read_bool(node, "qcom,secure-domain");
@@ -596,7 +607,7 @@ static int iommu_domain_parse_dt(const struct device_node *dt_node)
 			ret_val = -EINVAL;
 			goto free_group;
 		}
-		ret_val = create_and_add_domain(group, node);
+		ret_val = create_and_add_domain(group, node, name);
 		if (ret_val) {
 			ret_val = -EINVAL;
 			goto free_group;
