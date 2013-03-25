@@ -87,6 +87,8 @@ bad_memory.txt
 	- how to use kernel parameters to exclude bad RAM regions.
 basic_profiling.txt
 	- basic instructions for those who wants to profile Linux kernel.
+bif-framework.txt
+	- information about MIPI-BIF support in the Linux kernel.
 binfmt_misc.txt
 	- info on the kernel support for extra binary formats.
 blackfin/

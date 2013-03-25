@@ -1,0 +1,508 @@
+Introduction
+============
+
+BIF (Battery Interface) is a MIPI (Mobile Industry Processor Interface)
+Alliance specification for a serial interface between a host device and a
+battery pack.  It provides a means to handle smart battery packs which can
+communicate over BIF as well as low cost battery packs which provide no
+serial communication interface.
+
+The BIF bus supports 1 master and up to 256 slaves.  It supports data rates
+up to 250 kbps.  The master is in charge of initiating all bus
+communications.  Slaves may only respond asynchronously when they need to
+signal the master that they have an interrupt pending and when the bus is
+configured for interrupt mode.
+
+The BIF framework consists of a core into which BIF controller drivers
+register.  At runtime, consumers are notified of various events (e.g. battery
+insertion and battery removal) via a notifier.  Various framework functions are
+available for consumers to read and write slave registers as well as to send
+arbitrary BIF commands on the bus.
+
+Hardware description
+====================
+
+The BIF bus is a 1-wire wired-or interface.  The bus signal is referred to as
+the battery communication line (BCL).  The BCL is pulled high by a resistor on
+the host side and is driven low when the master or one of the slaves is
+communicating.  Additionally, there is a pull down resistor in the battery
+pack which is used to identify whether or not the battery pack has BIF slaves.
+Battery removal detection is achieved by comparing the analog voltage of the BCL
+when idle to the host side reference voltage.  If these voltages are within a
+certain threshold, then a battery pack is not present.
+
+Slaves are addressed on the BIF bus using an 8-bit device address (DEV_ADR).
+Notably, it is possible for no slaves to have defined DEV_ADR.  In this case,
+slave addressing is achieved via the always present unique ID (UID).  The UID
+of a slave is 80 bits long and guaranteed to be globally unique.  A UID search
+algorithm can be followed in order determine the UID of all slaves on the bus.
+
+BIF slaves come in two varieties: primary and secondary.  A single primary
+slave may be present on the battery pack and a single primary slave may be
+present on the host.  A battery pack primary slave has DEV_ADR=0x01.  The
+DEV_ADR of a host primary slave is set by the manufacturer.  A given primary
+slave contains a list of the UIDs of all secondary slaves in the same
+subsystem.  This provides a fast mechanism to determine the address of all
+slaves without having to resort to the lengthy UID search algorithm.
+
+Each slave has a 64 kB address space.  Part of this address space consists of
+generic DDB L1 and L2 data structures at known addresses.  This allows for
+runtime discovery of supported battery properties and functions of a given
+smart battery pack.
+
+System Diagram:
+ +-------------------------------+         +---------------------------------+
+ |           Host                |         |        Smart Battery Pack       |
+ |                               |         |                                 |
+ |                         Vbat-<+>-------<+>----------------------------+   |
+ |                               |         |                             |   |
+ |  +--------------+             |         |          +--------------+   |   |
+ |  | Master   BIF<+>-+---------<+>--BCL--<+>------+-<+>BIF Primary  |   |   |
+ |  |              |  |          |         |       |  |     Slave    |   |   |
+ |  +--------------+  |          |         |       |  +--------------+   |   |
+ |                    |          |         |       |                     |   |
+ |  + - - - - - - -+  |          |         |       |  + - - - - - - -+   |   |
+ |  | Primary  BIF<+>-+          |         |       +-<+>BIF Secondary|   |   |
+ |  | Slave        |  |          |         |       |  |     Slave    |   |   |
+ |  +- - - - - - - +  |          |         |       |  +-- - - - - - -+   |   |
+ |                    |          |         |       |                     |   |
+ |  + - - - - - - -+  |          |         |       |  + - - - - - - -+   |   |
+ |  |Secondary BIF<+>-+          |         |       +-<+>BIF Secondary|   |   |
+ |  |Slave         |  |          |         |       |  |     Slave    |   |   |
+ |  +- - - - - - - +  |          |         |       |  +-- - - - - - -+   |   |
+ |                    /          |         |       /                     |   |
+ |           Vref     \ Rpu      |         |   Rid \                   ----  |
+ |           ___      /          |         |       /           Battery  --   |
+ |            |       \          |         |       \            Cell   ----  |
+ |            +-------+          |         |       |                    --   |
+ |                               |         |       |                     |   |
+ |                          GND-<+>-------<+>------+---------------------+   |
+ |                               |         |                                 |
+ +-------------------------------+         +---------------------------------+
+
+An overview of BIF is available at:
+http://mipi.org/specifications/battery-interface
+
+Software description
+====================
+
+A given BIF hardware interface driver registers as a BIF controller in the
+BIF framework during its probe function.  The controller specifies a set of
+callback functions which are used by the BIF framework to initiate bus
+transactions (e.g. register read, register write, wait for slave interrupt)
+and to configure the bus.  The framework exposes a small API to controllers
+which is used to notify the framework about asynchronous events such as
+battery pack insertion/removal and slave interrupts.
+
+A given BIF consumer is linked to a BIF controller by specifying a property
+in the consumer's device tree node which takes as its value the phandle of
+the BIF controller's device tree node.
+
+A consumer driver calls a get function during its probe function with its
+device pointer in order to get a handle to the BIF controller if it has probed.
+If it hasn't, then ERR_PTR(-EPROBE_DEFER) is returned.  The controller handle
+can be used directly by the consumer to issue raw bus transactions if needed.
+The controller handle can then be used to query which slaves are currently
+present on the bus, if any.  Handles to these slaves may be used by a consumer
+driver in high level framework APIs such as register read and register write
+which are slave oriented.  All BIF framework API functions are synchronous,
+blocking, and can sleep.
+
+Consumer drivers may also register a notifier function which is called when
+certain bus activities occur such as battery pack insertion and removal.
+Additionally, consumer drivers may register a notifier function which is called
+when a specified slave interrupt fires.
+
+The framework maintains several linked-lists.  One list contains all controllers
+that have been registered.  A second list contains all slaves that have been
+seen since the system booted as well as a flag to indicate if they are currently
+present or not.  This scheme is used to avoid issues with slave handles existing
+after a slave is removed and also so that function and object values do not have
+to be searched when a slave is reinserted in the system since slaves are
+globally unique and these features are read-only.  Two further lists are
+maintained inside slave device structures which contain BIF functions and
+objects found in the slave.  API functions are provided so that consumers can
+find functions supported by slaves.
+
+Design
+======
+
+Design Goals:
+One major goal of the BIF framework is to provide a uniform API for BIF
+consumers to communicate with battery packs.  This ensures that consumers are
+unaffected by changes in the controller driver which actually interfaces with
+the BCL at a hardware level.
+
+Another goal of the framework is to ensure the BIF bus can be shared between
+multiple consumers in a simple and functionally correct way.  Locking is used
+inside of the framework to provide mutual exclusion on the bus.
+
+The framework also exposes features that almost all consumers will need, such
+as BIF slave identification and BIF function enumeration within a given slave.
+
+The framework allows consumers to issue very specific bus commands which may
+not be used within high level APIs.  This provides maximum flexibility so
+that consumers can make use of manufacturer defined bus commands which cannot be
+handled in a generic fashion.
+
+Design Trade-offs:
+The choice to not treat BIF like a traditional Linux bus was made because
+there is nothing within BIF that naturally maps to a device on the bus for a
+driver to manage.  Slave devices would be a good candidate except that
+consumers will not be managing slaves so much as functions exposed within
+slaves.  Bus matching could then instead be made at a BIF slave function
+level.  Unfortunately, the BIF specification allows for manufacturer specific
+features to reside at any non-defined addresses.  Additionally, consumers may
+wish only to read and make policy decisions based on BIF non-volatile memory
+(NVM) objects read out of memory.  Thus, there are use-cases that require
+consumers to utilize the bus without having a particular function to match to.
+
+Another trade-off was the choice to use custom interrupt handling functions
+instead of the Linux interrupt framework.  This choice was made because there is
+no obvious way to handle IRQ chip registration given the dynamic nature of BIF
+slaves (i.e. slaves may come and go at runtime if battery packs are swapped).
+
+Software layering:
+BIF controller drivers register a set of callback functions with the BIF
+framework which implement various BIF transaction primitives.  These
+callbacks ensure that tight timing constraints are met such as when receiving
+a bus query response immediately after issuing a command.  Such actions
+cannot be carried out at the framework level as timing requirements are on
+the order of 32 us when using the maximum data rate.
+
+The BIF framework provides easy access to standard BIF features such as
+slave, functions, and interrupts.  The framework also ensures mutual exclusion
+between different BIF consumers.
+
+BIF consumer drivers make use of the API exposed by the framework in order
+utilize functionality found on smart battery packs.  One example of a
+consumer driver is a temperature monitoring driver which reads the
+temperature reported by the BIF temperature function on a BIF slave and
+reports it to the Linux thermal framework.
+
+Power Management
+================
+
+The framework does not perform any special actions during system suspend and
+resume.  Controller drivers may choose to enter low power states during
+suspend if they wish as long as it does not affect the logical state of the
+bus.
+
+SMP/multi-core
+==============
+
+Various linked lists are maintained inside of the framework which are
+protected by mutexes.  Mutex locks are also used during transactions at a bus
+level in order to ensure mutual exclusion between consumers of the bus.
+
+Performance
+===========
+
+The BIF bus is inherently slow.  Consumers should expect transactions to take
+a long time to execute.  Consumers are responsible for blocking suspend if
+their transactions must be completed before the system enters suspend.
+
+Interface - BIF Consumer API
+============================
+
+BIF framework structs, enums, and functions used by BIF consumers are defined in
+include/linux/bif/consumer.h
+
+Detailed descriptions of the BIF framework functions can be found in:
+drivers/bif/bif-core.c
+
+Get/put handle for a BIF controller:
+------------------------------------
+
+struct bif_ctrl *bif_ctrl_get(struct device *consumer_dev);
+
+void bif_ctrl_put(struct bif_ctrl *ctrl);
+
+int bif_ctrl_count(void);
+
+struct bif_ctrl *bif_ctrl_get_by_id(unsigned int id);
+
+The function bif_ctrl_get() is intended to be the primary way to get a consumer
+BIF controller handle.  It relies upon the consumer device specifying a
+"qcom,bif-ctrl" property in its device tree node which points to the phandle of
+the BIF controller it wishes to use.
+
+A secondary mechanism is also provided for drivers without device tree support.
+bif_ctrl_count() returns the number of BIF controllers currently registered.
+bif_ctrl_get_by_id() returns a handle to the id'th controller enumerated in
+registration order.
+
+Get/put handle for a BIF slave:
+-------------------------------
+
+int bif_slave_match_count(const struct bif_ctrl *ctrl,
+			const struct bif_match_criteria *match_criteria);
+
+struct bif_slave *bif_slave_match_get(const struct bif_ctrl *ctrl,
+	unsigned int id, const struct bif_match_criteria *match_criteria);
+
+void bif_slave_put(struct bif_slave *slave);
+
+A consumer finds a slave attached to a given BIF controller by specifying a set
+of matching criteria.  The criteria can include such quantities as manufacturer
+ID, product ID, function type or function version.  It is possible that multiple
+slaves will match the criteria.  bif_slave_match_count() returns how many slaves
+match the specified criteria.  bif_slave_match_get() returns the id'th slave
+which matches the criteria in an arbitrary, but fixed order (for a constant set
+of slaves).  Consumer drivers need to be able to handle the case of multiple
+slaves matching the criteria.
+
+Additionally, if a battery pack is inserted or removed, then the output of
+bif_slave_match_count() and bif_slave_match_get() could change.  A consumer
+driver can register to receive notification of battery pack insertion and
+removal using the bif_ctrl_notifier_register() function listed below.
+
+Check if slave handle is still meaningful:
+------------------------------------------
+
+int bif_slave_is_present(struct bif_slave *slave);
+
+If a battery pack is removed, then the handles for its slaves will no longer be
+meaningful.  All transactions using a handle for a slave that isn't present will
+fail.  The function bif_slave_is_present() allows a consumer to determine if
+a given slave is still physically present in the system.
+
+Get access to the controller handle present in a slave handle:
+--------------------------------------------------------------
+
+struct bif_ctrl *bif_get_ctrl_handle(struct bif_slave *slave);
+
+This function is useful if a consumer wishes to only store a slave handle but
+also has need to call bus oriented BIF framework functions.
+
+Get version and register offset of a BIF function if it is present in a slave:
+------------------------------------------------------------------------------
+
+int bif_slave_find_function(struct bif_slave *slave, u8 function, u8 *version,
+				u16 *function_pointer);
+
+This function is used by consumers who wish to support given BIF functions
+(e.g. temperature measurement, authentication, etc.) found inside of slaves.
+
+Receive notification upon battery insertion and removal:
+--------------------------------------------------------
+
+int bif_ctrl_notifier_register(struct bif_ctrl *ctrl,
+				struct notifier_block *nb);
+
+int bif_ctrl_notifier_unregister(struct bif_ctrl *ctrl,
+				struct notifier_block *nb);
+
+
+Read or write BIF slave registers:
+----------------------------------
+
+int bif_slave_read(struct bif_slave *slave, u16 addr, u8 *buf, int len);
+
+int bif_slave_write(struct bif_slave *slave, u16 addr, u8 *buf, int len);
+
+
+Get or set the BIF bus state or period:
+---------------------------------------
+
+int bif_ctrl_get_bus_state(struct bif_ctrl *ctrl);
+
+int bif_ctrl_set_bus_state(struct bif_ctrl *ctrl, enum bif_bus_state state);
+
+int bif_ctrl_get_bus_period(struct bif_ctrl *ctrl);
+
+int bif_ctrl_set_bus_period(struct bif_ctrl *ctrl, int period_ns);
+
+Bus states include: active for communication, active waiting for interrupt,
+standby, and power down.  The MIPI-BIF specification defines the allowed range
+of bus periods as 2000 ns to 153000 ns.  Individual controllers may further
+restrict the range of allowed periods.  When bif_ctrl_set_bus_period() is called
+the first supported period that greater than or equal to the specified period
+will be set.
+
+Measure battery pack resistance:
+--------------------------------
+
+int bif_ctrl_measure_rid(struct bif_ctrl *ctrl);
+
+This function returns an estimate of the battery pack resistance in ohms.  If
+no battery pack is connected, then the output of this function is undefined.
+
+Utilize BIF slave tasks and interrupts:
+---------------------------------------
+
+int bif_request_irq(struct bif_slave *slave, unsigned int task,
+			struct notifier_block *nb);
+
+int bif_free_irq(struct bif_slave *slave, unsigned int task,
+			struct notifier_block *nb);
+
+int bif_trigger_task(struct bif_slave *slave, unsigned int task);
+
+int bif_task_is_busy(struct bif_slave *slave, unsigned int task);
+
+A consumer can request a slave interrupt and specify a notifier to call when the
+interrupt is triggered.  Once the interrupt is requested the consumer will need
+to call bif_trigger_task() in order to start the task associated with the
+interrupt (both are identified by the same index).  Polling for task completion
+is also supported via the bif_task_is_busy() function.
+
+Raw BIF bus transactions:
+-------------------------
+
+void bif_ctrl_bus_lock(struct bif_ctrl *ctrl);
+
+void bif_ctrl_bus_unlock(struct bif_ctrl *ctrl);
+
+int bif_ctrl_raw_transaction(struct bif_ctrl *ctrl, int transaction, u8 data);
+
+int bif_ctrl_raw_transaction_read(struct bif_ctrl *ctrl, int transaction,
+					u8 data, int *response);
+
+int bif_ctrl_raw_transaction_query(struct bif_ctrl *ctrl, int transaction,
+		u8 data, bool *query_response);
+
+int bif_slave_is_selected(struct bif_slave *slave);
+
+int bif_slave_select(struct bif_slave *slave);
+
+The function bif_ctrl_bus_lock() locks the BIF bus for exclusive use by the
+consumer.  No other transactions will be allowed on the bus including those
+that would arise from battery insertion/removal or slave interrupt reception.
+This lock is primarily intended to be used along with the raw transaction
+functions.  These functions allow a consumer to issue any BIF transaction
+including manufacturer specific bus commands not handled by the BIF framework.
+
+While performing raw transactions, features normally performed transparently by
+the core, such as device selection, are not available.  The functions
+bif_slave_select() and bif_slave_is_selected() can be used to fill in this gap
+so that raw transactions are performed on the desired slave.
+
+Notify the BIF core that a battery has been inserted or removed:
+----------------------------------------------------------------
+
+int bif_ctrl_signal_battery_changed(struct bif_ctrl *ctrl);
+
+This function should only be called on systems where the BIF controller driver
+is architecturally unable to detect battery insertion and removal on its own.
+
+Perform BIF object CRC using CRC-CCITT algorithm:
+-------------------------------------------------
+
+u16 bif_crc_ccitt(const u8 *buffer, int len);
+
+Interface - BIF Controller API
+==============================
+
+BIF framework structs and functions used by BIF controllers are defined in:
+include/linux/bif/driver.h
+
+Ops found in struct bif_ctrl_ops:
+---------------------------------
+
+int (*bus_transaction) (struct bif_ctrl_dev *bdev, int transaction, u8 data);
+
+int (*bus_transaction_query) (struct bif_ctrl_dev *bdev, int transaction,
+				u8 data, bool *query_response);
+
+int (*bus_transaction_read) (struct bif_ctrl_dev *bdev, int transaction,
+				u8 data, int *response);
+
+int (*read_slave_registers) (struct bif_ctrl_dev *bdev, u16 addr,
+				u8 *data, int len);
+
+int (*write_slave_registers) (struct bif_ctrl_dev *bdev, u16 addr,
+				const u8 *data, int len);
+
+int (*get_bus_period) (struct bif_ctrl_dev *bdev);
+
+int (*set_bus_period) (struct bif_ctrl_dev *bdev, int period_ns);
+
+int (*get_battery_presence) (struct bif_ctrl_dev *bdev);
+
+int (*get_battery_rid) (struct bif_ctrl_dev *bdev);
+
+int (*get_bus_state) (struct bif_ctrl_dev *bdev);
+
+int (*set_bus_state) (struct bif_ctrl_dev *bdev, int state);
+
+A BIF controller driver registers a set of call back functions which instantiate
+these ops.  The BIF framework then calls these functions based on internal and
+consumer needs.
+
+The ops bus_transaction(), bus_transaction_query(), and bus_transaction_read()
+carry out the controller hardware specific actions to perform BIF transactions
+on the BIF bus.  These transactions result in no slave response, a pulse in
+response, or a word in response respectively.  The ops read_slave_registers()
+and write_slave_registers() internally must perform all transactions necessary
+to read and write to BIF slave registers.  These ops exist so that burst reads
+and writes can take place since these activities have very tight timing
+constraints that the BIF core cannot handle.
+
+The ops get_bus_period() and set_bus_period() return the current bus clock base
+period in nanoseconds and change the period to a new value respectively.  The
+ops get_bus_state() and set_bus_state() allow for monitoring and controlling the
+bus state (i.e. active for communication, active waiting for interrupt, standby,
+or power down).  The op get_battery_presence() returns if any battery pack
+(smart or low cost) is currently connected to the BCL.  The op get_battery_rid()
+returns a best estimate of the Rid battery pack pull down ID resistance in ohms
+which can be used to determine if the battery pack is smart or low cost.
+
+Register/unregister a BIF controller:
+-------------------------------------
+
+struct bif_ctrl_dev *bif_ctrl_register(struct bif_ctrl_desc *bif_desc,
+	struct device *dev, void *driver_data, struct device_node *of_node);
+
+void bif_ctrl_unregister(struct bif_ctrl_dev *bdev);
+
+Notify the BIF framework that a battery has been inserted or removed:
+---------------------------------------------------------------------
+
+int bif_ctrl_notify_battery_changed(struct bif_ctrl_dev *bdev);
+
+The BIF core will then call the get_battery_presence() op internally to
+determine if the event is an insertion or removal.
+
+Notify the BIF framework that a slave interrupt has been received:
+------------------------------------------------------------------
+
+int bif_ctrl_notify_slave_irq(struct bif_ctrl_dev *bdev);
+
+Upon receiving this call, the BIF core interrogates each slave to determine
+which slaves have pending interrupts.  It then iterates through all interrupts
+on those slaves clearing all pending interrupts and notifying any consumers
+waiting for the interrupts.
+
+Get BIF controller private data:
+--------------------------------
+
+void *bdev_get_drvdata(struct bif_ctrl_dev *bdev);
+
+Config options
+==============
+
+CONFIG_BIF - Enables BIF framework support.
+
+User space utilities
+====================
+
+No user space interface is provided in the BIF framework.  Therefore, user
+space will not be able to directly use it.
+
+To do
+=====
+
+It is conceivable that the BIF framework should take some action during
+system suspend and resume.  However, it is not clear exactly what should be
+done given that the BCL would still need to be active in order to detect
+battery removal while suspended.
+
+sysfs nodes could be added which describe slaves as well as functions and
+objects within the slaves.  However these nodes would be read-only and would
+really only be useful for descriptive as opposed to control purposes.
+
+The exact time at which slave searching, function enumeration, and object
+loading takes place could be optimized in order to improve performance to
+some degree.  It could also be made configurable at a controller level if
+needed.
