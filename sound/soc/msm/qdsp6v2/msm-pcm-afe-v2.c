@@ -32,16 +32,22 @@
 #include <linux/memory_alloc.h>
 #include "msm-pcm-afe-v2.h"
 
-#define MIN_PERIOD_SIZE (128 * 2)
-#define MAX_PERIOD_SIZE (128 * 2 * 2 * 6)
-#define MAX_NUM_PERIODS 384
-#define MIN_NUM_PERIODS 32
-static struct snd_pcm_hardware msm_afe_hardware = {
-	.info =			(SNDRV_PCM_INFO_MMAP |
+#define MIN_PLAYBACK_PERIOD_SIZE (128 * 2)
+#define MAX_PLAYBACK_PERIOD_SIZE (128 * 2 * 2 * 6)
+#define MIN_PLAYBACK_NUM_PERIODS (32)
+#define MAX_PLAYBACK_NUM_PERIODS (384)
+
+#define MIN_CAPTURE_PERIOD_SIZE (128 * 2 * 4)
+#define MAX_CAPTURE_PERIOD_SIZE (128 * 2 * 2 * 6 * 4)
+#define MIN_CAPTURE_NUM_PERIODS (32)
+#define MAX_CAPTURE_NUM_PERIODS (384)
+
+static struct snd_pcm_hardware msm_afe_hardware_playback = {
+	.info =                 (SNDRV_PCM_INFO_MMAP |
 				SNDRV_PCM_INFO_BLOCK_TRANSFER |
 				SNDRV_PCM_INFO_MMAP_VALID |
 				SNDRV_PCM_INFO_INTERLEAVED),
-	.formats =              SNDRV_PCM_FMTBIT_S16_LE |
+	.formats =              SNDRV_PCM_FMTBIT_S16_LE|
 				SNDRV_PCM_FMTBIT_S24_LE,
 	.rates =                (SNDRV_PCM_RATE_8000 |
 				SNDRV_PCM_RATE_16000 |
@@ -50,13 +56,39 @@ static struct snd_pcm_hardware msm_afe_hardware = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         6,
-	.buffer_bytes_max =     MAX_PERIOD_SIZE * MIN_NUM_PERIODS,
-	.period_bytes_min =     MIN_PERIOD_SIZE,
-	.period_bytes_max =     MAX_PERIOD_SIZE,
-	.periods_min =          MIN_NUM_PERIODS,
-	.periods_max =          MAX_NUM_PERIODS,
+	.buffer_bytes_max =     MAX_PLAYBACK_PERIOD_SIZE *
+				MIN_PLAYBACK_NUM_PERIODS,
+	.period_bytes_min =     MIN_PLAYBACK_PERIOD_SIZE,
+	.period_bytes_max =     MAX_PLAYBACK_PERIOD_SIZE,
+	.periods_min =          MIN_PLAYBACK_NUM_PERIODS,
+	.periods_max =          MAX_PLAYBACK_NUM_PERIODS,
 	.fifo_size =            0,
 };
+
+static struct snd_pcm_hardware msm_afe_hardware_capture = {
+	.info =                 (SNDRV_PCM_INFO_MMAP |
+				SNDRV_PCM_INFO_BLOCK_TRANSFER |
+				SNDRV_PCM_INFO_MMAP_VALID |
+				SNDRV_PCM_INFO_INTERLEAVED),
+	.formats =              SNDRV_PCM_FMTBIT_S16_LE|
+				SNDRV_PCM_FMTBIT_S24_LE,
+	.rates =                (SNDRV_PCM_RATE_8000 |
+				SNDRV_PCM_RATE_16000 |
+				SNDRV_PCM_RATE_48000),
+	.rate_min =             8000,
+	.rate_max =             48000,
+	.channels_min =         1,
+	.channels_max =         6,
+	.buffer_bytes_max =     MAX_CAPTURE_PERIOD_SIZE *
+				MIN_CAPTURE_NUM_PERIODS,
+	.period_bytes_min =     MIN_CAPTURE_PERIOD_SIZE,
+	.period_bytes_max =     MAX_CAPTURE_PERIOD_SIZE,
+	.periods_min =          MIN_CAPTURE_NUM_PERIODS,
+	.periods_max =          MAX_CAPTURE_NUM_PERIODS,
+	.fifo_size =            0,
+};
+
+
 static enum hrtimer_restart afe_hrtimer_callback(struct hrtimer *hrt);
 static enum hrtimer_restart afe_hrtimer_rec_callback(struct hrtimer *hrt);
 
@@ -130,6 +162,8 @@ static void pcm_afe_process_tx_pkt(uint32_t opcode,
 	struct snd_pcm_substream *substream = NULL;
 	struct snd_pcm_runtime *runtime = NULL;
 	uint16_t event;
+	uint64_t period_bytes;
+	uint64_t bytes_one_sec;
 
 	if (prtd == NULL)
 		return;
@@ -143,12 +177,28 @@ static void pcm_afe_process_tx_pkt(uint32_t opcode,
 			switch (event) {
 			case AFE_EVENT_RTPORT_START: {
 				prtd->dsp_cnt = 0;
-				prtd->poll_time = ((unsigned long)((
-						snd_pcm_lib_period_bytes
-						(prtd->substream) *
-						1000 * 1000)/
-						(runtime->rate *
-						runtime->channels * 2)));
+				/* Calculate poll time.
+				 * Split steps to avoid overflow.
+				 * Poll time-time corresponding to one period
+				 * in bytes.
+				 * (Samplerate * channelcount * format) =
+				 * bytes in 1 sec.
+				 * Poll time =
+				 *	(period bytes / bytes in one sec) *
+				 *	 1000000 micro seconds.
+				 * Multiplication by 1000000 is done in two
+				 * steps to keep the accuracy of poll time.
+				 */
+				period_bytes = ((uint64_t)(
+					(snd_pcm_lib_period_bytes(
+						prtd->substream)) *
+						1000));
+				bytes_one_sec =
+					(runtime->rate * runtime->channels * 2);
+				bytes_one_sec =
+					div_u64(bytes_one_sec, 1000);
+				prtd->poll_time =
+					div_u64(period_bytes, bytes_one_sec);
 				pr_debug("prtd->poll_time: %d",
 						prtd->poll_time);
 				break;
@@ -197,6 +247,8 @@ static void pcm_afe_process_rx_pkt(uint32_t opcode,
 	struct snd_pcm_substream *substream = NULL;
 	struct snd_pcm_runtime *runtime = NULL;
 	uint16_t event;
+	uint64_t period_bytes;
+	uint64_t bytes_one_sec;
 
 	if (prtd == NULL)
 		return;
@@ -210,11 +262,22 @@ static void pcm_afe_process_rx_pkt(uint32_t opcode,
 		switch (event) {
 		case AFE_EVENT_RTPORT_START: {
 			prtd->dsp_cnt = 0;
-			prtd->poll_time = ((unsigned long)((
-				snd_pcm_lib_period_bytes(prtd->substream)
-					* 1000 * 1000)/(runtime->rate
-					* runtime->channels * 2)));
-			pr_debug("prtd->poll_time : %d", prtd->poll_time);
+			/* Calculate poll time. Split steps to avoid overflow.
+			 * Poll time-time corresponding to one period in bytes.
+			 * (Samplerate * channelcount * format)=bytes in 1 sec.
+			 * Poll time =  (period bytes / bytes in one sec) *
+			 * 1000000 micro seconds.
+			 * Multiplication by 1000000 is done in two steps to
+			 * keep the accuracy of poll time.
+			 */
+			period_bytes = ((uint64_t)(
+				(snd_pcm_lib_period_bytes(prtd->substream)) *
+				 1000));
+			bytes_one_sec = (runtime->rate * runtime->channels * 2);
+			bytes_one_sec = div_u64(bytes_one_sec , 1000);
+			prtd->poll_time =
+				div_u64(period_bytes, bytes_one_sec);
+			pr_debug("prtd->poll_time : %d\n", prtd->poll_time);
 			break;
 		}
 		case AFE_EVENT_RTPORT_STOP:
@@ -326,7 +389,11 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 
 	mutex_lock(&prtd->lock);
 
-	runtime->hw = msm_afe_hardware;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		runtime->hw = msm_afe_hardware_playback;
+	else
+		runtime->hw = msm_afe_hardware_capture;
+
 	prtd->substream = substream;
 	runtime->private_data = prtd;
 	prtd->audio_client = q6afe_audio_client_alloc(prtd);
@@ -354,6 +421,18 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
 		pr_err("snd_pcm_hw_constraint_integer failed\n");
+
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		ret = snd_pcm_hw_constraint_minmax(runtime,
+			SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
+			MIN_CAPTURE_NUM_PERIODS * MIN_CAPTURE_PERIOD_SIZE,
+			MAX_CAPTURE_NUM_PERIODS * MAX_CAPTURE_PERIOD_SIZE);
+
+		if (ret < 0) {
+			pr_err("constraint for buffer bytes min max ret = %d\n",
+			      ret);
+		}
+	}
 
 	return 0;
 }
@@ -497,10 +576,18 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 		dir = IN;
 	else
 		dir = OUT;
+
 	rc = q6afe_audio_client_buf_alloc_contiguous(dir,
-			prtd->audio_client,
-			runtime->hw.period_bytes_min,
-			runtime->hw.periods_max);
+		prtd->audio_client,
+		(params_buffer_bytes(params) / params_periods(params)),
+		params_periods(params));
+	pr_debug("params_buffer_bytes(params) = %d\n",
+			(params_buffer_bytes(params)));
+	pr_debug("params_periods(params) = %d\n",
+			(params_periods(params)));
+	pr_debug("params_periodsize(params) = %d\n",
+		(params_buffer_bytes(params) / params_periods(params)));
+
 	if (rc < 0) {
 		pr_err("Audio Start: Buffer Allocation failed rc = %d\n", rc);
 		mutex_unlock(&prtd->lock);
@@ -519,14 +606,18 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->private_data = NULL;
 	dma_buf->area = buf[0].data;
 	dma_buf->addr = buf[0].phys;
-	dma_buf->bytes = runtime->hw.buffer_bytes_max;
+
+	dma_buf->bytes = params_buffer_bytes(params);
+
 	if (!dma_buf->area) {
 		pr_err("%s:MSM AFE physical memory allocation failed\n",
 							__func__);
 		mutex_unlock(&prtd->lock);
 		return -ENOMEM;
 	}
-	memset(dma_buf->area, 0, runtime->hw.buffer_bytes_max);
+
+	memset(dma_buf->area, 0,  params_buffer_bytes(params));
+
 	prtd->dma_addr = (u32) dma_buf->addr;
 
 	mutex_unlock(&prtd->lock);
