@@ -45,6 +45,16 @@
 		qcom,direct-connect-irqs = <8>;
 	};
 
+	memory {
+
+		qsecom_mem: qsecom_region {
+			linux,contiguous-region;
+			reg = <0 0x100000>;
+			label = "qsecom_mem";
+		};
+
+	};
+
 	aliases {
 		spi0 = &spi_0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */

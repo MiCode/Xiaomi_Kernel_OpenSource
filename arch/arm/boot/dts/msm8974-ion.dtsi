@@ -45,9 +45,7 @@
 		qcom,ion-heap@27 { /* QSECOM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <27>;
-			qcom,heap-align = <0x1000>;
-			qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
-			qcom,memory-reservation-size = <0x1100000>;
+			linux,contiguous-region = <&qsecom_mem>;
 		};
 
 		qcom,ion-heap@28 { /* AUDIO HEAP */
