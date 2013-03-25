@@ -18,7 +18,7 @@
 #include <linux/init.h>
 #include <linux/version.h>
 #include <linux/platform_device.h>
-#include <linux/android_pmem.h>
+
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/time.h>
