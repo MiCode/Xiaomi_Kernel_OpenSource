@@ -6,6 +6,9 @@ Required properties :
 	offset and length of the TCSR register for routing USB
 	signals to either picoPHY0 or picoPHY1.
 - interrupts: IRQ lines used by this controller
+- interrupt-names : Required interrupt resource entries are:
+	"irq" : Interrupt for DWC3 core
+	"otg_irq" : Interrupt for DWC3 core's OTG Events
 - <supply-name>-supply: phandle to the regulator device tree node
   Required "supply-name" examples are:
 	"SSUSB_lp8" : 1.8v supply for SSPHY
@@ -46,18 +49,13 @@ Optional properties :
 		bits 13-19 PARAMETER_OVERRIDE_C
 		bits 20-25 PARAMETER_OVERRIDE_D
 
-Sub nodes:
-- Sub node for "DWC3- USB3 controller".
-  This sub node is required property for device node. The properties of this subnode
-  are specified in dwc3.txt.
-
 Example MSM USB3.0 controller device node :
 	usb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
-		reg = <0xf9200000 0xfc000>,
-		      <0xfd4ab000 0x4>;
-		interrupts = <0 133 0>;
-		interrupt-names = "hs_phy_irq";
+		reg = <0xF9200000 0xFA000>,
+		      <0xFD4AB000 0x4>;
+		interrupts = <0 131 0>, <0 179 0>, <0 133 0>;
+		interrupt-names = "irq", "otg_irq", "hs_phy_irq";
 		ssusb_vdd_dig-supply = <&pm8841_s2_corner>;
 		SSUSB_1p8-supply = <&pm8941_l6>;
 		hsusb_vdd_dig-supply = <&pm8841_s2_corner>;
@@ -75,11 +73,4 @@ Example MSM USB3.0 controller device node :
 		qcom,msm_bus,vectors =
 				<61 512 0 0>,
 				<61 512 240000000 960000000>;
-		dwc3@f9200000 {
-			compatible = "synopsys,dwc3";
-			reg = <0xf9200000 0xfc000>;
-			interrupts = <0 131 0>, <0 179 0>;
-			interrupt-names = "irq", "otg_irq";
-			tx-fifo-resize;
-};
 	};
