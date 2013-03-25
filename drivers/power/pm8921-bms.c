@@ -1909,17 +1909,13 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 
 	/*
 	 * do not adjust
-	 * if soc is same as what bms calculated
-	 * if soc_est is between 45 and 25, this is the flat portion of the
-	 * curve where soc_est is not so accurate. We generally don't want to
-	 * adjust when soc_est is inaccurate except for the cases when soc is
-	 * way far off (higher than 50 or lesser than 20).
-	 * Also don't adjust soc if it is above 90 becuase we might pull it low
+	 * if soc_est is same as what bms calculated
+	 * OR if soc_est > 15
+	 * OR if soc it is above 90 because we might pull it low
 	 * and  cause a bad user experience
 	 */
 	if (soc_est == soc
-		|| (is_between(45, chip->adjust_soc_low_threshold, soc_est)
-		&& is_between(50, chip->adjust_soc_low_threshold - 5, soc))
+		|| soc_est > 15
 		|| soc >= 90)
 		goto out;
 
