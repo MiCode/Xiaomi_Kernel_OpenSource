@@ -26,7 +26,6 @@
 #include <linux/vmalloc.h>
 #include <linux/memory_alloc.h>
 #include <linux/seq_file.h>
-#include <linux/fmem.h>
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>
 #include <trace/events/kmem.h>
@@ -70,8 +69,6 @@
  *		user space.
  * @iommu_iova: saved iova when mapping full heap at once.
  * @iommu_partition: partition used to map full heap.
- * @reusable: indicates if the memory should be reused via fmem.
- * @reserved_vrange: reserved virtual address range for use with fmem
  * @iommu_map_all:	Indicates whether we should map whole heap into IOMMU.
  * @iommu_2x_map_domain: Indicates the domain to use for overmapping.
  * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
@@ -95,7 +92,6 @@ struct ion_cp_heap {
 	unsigned long umap_count;
 	unsigned long iommu_iova[MAX_DOMAINS];
 	unsigned long iommu_partition[MAX_DOMAINS];
-	int reusable;
 	void *reserved_vrange;
 	int iommu_map_all;
 	int iommu_2x_map_domain;
@@ -198,12 +194,6 @@ static int ion_on_first_alloc(struct ion_heap *heap)
 		container_of(heap, struct ion_cp_heap, heap);
 	int ret_value;
 
-	if (cp_heap->reusable) {
-		ret_value = fmem_set_state(FMEM_C_STATE);
-		if (ret_value)
-			return 1;
-	}
-
 	if (cp_heap->cma) {
 		ret_value = allocate_heap_memory(heap);
 		if (ret_value)
@@ -216,11 +206,6 @@ static void ion_on_last_free(struct ion_heap *heap)
 {
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
-
-	if (cp_heap->reusable)
-		if (fmem_set_state(FMEM_T_STATE) != 0)
-			pr_err("%s: unable to transition heap to T-state\n",
-				__func__);
 
 	if (cp_heap->cma)
 		free_heap_memory(heap);
@@ -549,29 +534,6 @@ static int ion_cp_release_region(struct ion_cp_heap *cp_heap)
 	return ret_value;
 }
 
-void *ion_map_fmem_buffer(struct ion_buffer *buffer, unsigned long phys_base,
-				void *virt_base, unsigned long flags)
-{
-	int ret;
-	struct ion_cp_buffer *buf = buffer->priv_virt;
-	unsigned int offset = buf->buffer - phys_base;
-	unsigned long start = ((unsigned long)virt_base) + offset;
-	const struct mem_type *type = ION_IS_CACHED(flags) ?
-				get_mem_type(MT_DEVICE_CACHED) :
-				get_mem_type(MT_DEVICE);
-
-	if (phys_base > buf->buffer)
-		return NULL;
-
-
-	ret = ioremap_pages(start, buf->buffer, buffer->size, type);
-
-	if (!ret)
-		return (void *)start;
-	else
-		return NULL;
-}
-
 void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 {
 	struct ion_cp_heap *cp_heap =
@@ -589,10 +551,7 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 			return NULL;
 		}
 
-		if (cp_heap->reusable) {
-			ret_value = ion_map_fmem_buffer(buffer, cp_heap->base,
-				cp_heap->reserved_vrange, buffer->flags);
-		} else if (cp_heap->cma) {
+		if (cp_heap->cma) {
 			int npages = PAGE_ALIGN(buffer->size) / PAGE_SIZE;
 			struct page **pages = vmalloc(
 						sizeof(struct page *) * npages);
@@ -645,9 +604,7 @@ void ion_cp_heap_unmap_kernel(struct ion_heap *heap,
 		container_of(heap, struct ion_cp_heap, heap);
 	struct ion_cp_buffer *buf = buffer->priv_virt;
 
-	if (cp_heap->reusable)
-		unmap_kernel_range((unsigned long)buffer->vaddr, buffer->size);
-	else if (cp_heap->cma)
+	if (cp_heap->cma)
 		vunmap(buffer->vaddr);
 	else
 		__arm_iounmap(buffer->vaddr);
@@ -826,7 +783,6 @@ static int ion_cp_print_debug(struct ion_heap *heap, struct seq_file *s,
 	seq_printf(s, "umapping count: %lx\n", umap_count);
 	seq_printf(s, "kmapping count: %lx\n", kmap_count);
 	seq_printf(s, "heap protected: %s\n", heap_protected ? "Yes" : "No");
-	seq_printf(s, "reusable: %s\n", cp_heap->reusable  ? "Yes" : "No");
 
 	if (mem_map) {
 		unsigned long base = cp_heap->base;
@@ -1151,8 +1107,6 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 	if (heap_data->extra_data) {
 		struct ion_cp_heap_pdata *extra_data =
 				heap_data->extra_data;
-		cp_heap->reusable = extra_data->reusable;
-		cp_heap->reserved_vrange = extra_data->virt_addr;
 		cp_heap->permission_type = extra_data->permission_type;
 		if (extra_data->secure_size) {
 			cp_heap->secure_base = extra_data->secure_base;
