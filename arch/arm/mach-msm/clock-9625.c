@@ -1574,6 +1574,10 @@ struct measure_mux_entry {
 };
 
 struct measure_mux_entry measure_mux_common[] __initdata = {
+	{&snoc_clk.c,				GCC_BASE, 0x0000},
+	{&cnoc_clk.c,				GCC_BASE, 0x0008},
+	{&pnoc_clk.c,				GCC_BASE, 0x0010},
+	{&bimc_clk.c,				GCC_BASE, 0x0155},
 	{&gcc_pdm_ahb_clk.c,			GCC_BASE, 0x00d0},
 	{&gcc_usb_hsic_io_cal_sleep_clk.c,	GCC_BASE, 0x005c},
 	{&gcc_usb_hsic_xcvr_fs_clk.c,		GCC_BASE, 0x005d},
