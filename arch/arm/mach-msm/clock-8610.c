@@ -2813,32 +2813,6 @@ struct clock_init_data msm8610_rumi_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(msm_clocks_8610_rumi),
 };
 
-static struct pll_config_regs gpll0_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL0_L_VAL,
-	.m_reg = (void __iomem *)GPLL0_M_VAL,
-	.n_reg = (void __iomem *)GPLL0_N_VAL,
-	.config_reg = (void __iomem *)GPLL0_USER_CTL,
-	.mode_reg = (void __iomem *)GPLL0_MODE,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* GPLL0 at 600 MHz, main output enabled. */
-static struct pll_config gpll0_config __initdata = {
-	.l = 0x1f,
-	.m = 0x1,
-	.n = 0x4,
-	.vco_val = 0x0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
 /* MMPLL0 at 800 MHz, main output enabled. */
 static struct pll_config mmpll0_config __initdata = {
 	.l = 0x29,
@@ -2894,17 +2868,8 @@ static void __init reg_init(void)
 {
 	u32 regval;
 
-	if (!(readl_relaxed(GCC_REG_BASE(GPLL0_STATUS))
-			& gpll0_clk_src.status_mask))
-		configure_sr_hpm_lp_pll(&gpll0_config, &gpll0_regs, 1);
-
 	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
 	configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
-
-	/* Enable GPLL0's aux outputs. */
-	regval = readl_relaxed(GCC_REG_BASE(GPLL0_USER_CTL));
-	regval |= BIT(PLL_AUX_OUTPUT_BIT) | BIT(PLL_AUX2_OUTPUT_BIT);
-	writel_relaxed(regval, GCC_REG_BASE(GPLL0_USER_CTL));
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
