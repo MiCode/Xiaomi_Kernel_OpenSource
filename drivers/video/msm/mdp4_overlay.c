@@ -771,6 +771,7 @@ static void mdp4_overlay_vg_get_src_offset(struct mdp4_overlay_pipe *pipe,
 			break;
 
 		case MDP_YCRYCB_H2V1:
+		case MDP_CBYCRY_H2V1:
 			if (pipe->src_x & 0x1)
 				pipe->src_x += 1;
 			*luma_off += pipe->src_x * 2 +
@@ -972,6 +973,7 @@ int mdp4_overlay_format2type(uint32 format)
 	case MDP_RGBX_8888:
 		return OVERLAY_TYPE_RGB;
 	case MDP_YCRYCB_H2V1:
+	case MDP_CBYCRY_H2V1:
 	case MDP_Y_CRCB_H2V1:
 	case MDP_Y_CBCR_H2V1:
 	case MDP_Y_CRCB_H1V2:
@@ -1157,6 +1159,24 @@ int mdp4_overlay_format2pipe(struct mdp4_overlay_pipe *pipe)
 		pipe->bpp = 4;          /* 4 bpp */
 		break;
 	case MDP_YCRYCB_H2V1:
+		pipe->frame_format = MDP4_FRAME_FORMAT_LINEAR;
+		pipe->fetch_plane = OVERLAY_PLANE_INTERLEAVED;
+		pipe->a_bit = 0;	/* alpha, 4 bits */
+		pipe->r_bit = 3;	/* R, 8 bits */
+		pipe->b_bit = 3;	/* B, 8 bits */
+		pipe->g_bit = 3;	/* G, 8 bits */
+		pipe->alpha_enable = 0;
+		pipe->unpack_tight = 1;
+		pipe->unpack_align_msb = 0;
+		pipe->unpack_count = 3;
+		pipe->element3 = C1_B_Cb;	/* B */
+		pipe->element2 = C0_G_Y;	/* G */
+		pipe->element1 = C2_R_Cr;	/* R */
+		pipe->element0 = C0_G_Y;	/* G */
+		pipe->bpp = 2;		/* 2 bpp */
+		pipe->chroma_sample = MDP4_CHROMA_H2V1;
+		break;
+	case MDP_CBYCRY_H2V1:
 		pipe->frame_format = MDP4_FRAME_FORMAT_LINEAR;
 		pipe->fetch_plane = OVERLAY_PLANE_INTERLEAVED;
 		pipe->a_bit = 0;	/* alpha, 4 bits */
