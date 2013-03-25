@@ -1023,13 +1023,13 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	if (offset > fbi->fix.smem_len) {
 		pr_err("invalid fb offset=%u total length=%u\n",
 		       offset, fbi->fix.smem_len);
-		return;
+		goto pan_display_error;
 	}
 
 	ret = mdss_mdp_overlay_start(mfd);
 	if (ret) {
 		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
-		return;
+		goto pan_display_error;
 	}
 
 	if (is_mdss_iommu_attached())
@@ -1044,18 +1044,18 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	ret = mdss_mdp_overlay_get_fb_pipe(mfd, &pipe, MDSS_MDP_MIXER_MUX_LEFT);
 	if (ret) {
 		pr_err("unable to allocate base pipe\n");
-		return;
+		goto pan_display_error;
 	}
 
 	if (mdss_mdp_pipe_map(pipe)) {
 		pr_err("unable to map base pipe\n");
-		return;
+		goto pan_display_error;
 	}
 	ret = mdss_mdp_pipe_queue_data(pipe, &data);
 	mdss_mdp_pipe_unmap(pipe);
 	if (ret) {
 		pr_err("unable to queue data\n");
-		return;
+		goto pan_display_error;
 	}
 
 	if (fbi->var.xres > MAX_MIXER_WIDTH || mfd->split_display) {
@@ -1063,17 +1063,17 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 						   MDSS_MDP_MIXER_MUX_RIGHT);
 		if (ret) {
 			pr_err("unable to allocate right base pipe\n");
-			return;
+			goto pan_display_error;
 		}
 		if (mdss_mdp_pipe_map(pipe)) {
 			pr_err("unable to map right base pipe\n");
-			return;
+			goto pan_display_error;
 		}
 		ret = mdss_mdp_pipe_queue_data(pipe, &data);
 		mdss_mdp_pipe_unmap(pipe);
 		if (ret) {
 			pr_err("unable to queue right data\n");
-			return;
+			goto pan_display_error;
 		}
 	}
 	mutex_unlock(&mfd->ov_lock);
@@ -1081,6 +1081,10 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	if ((fbi->var.activate & FB_ACTIVATE_VBL) ||
 	    (fbi->var.activate & FB_ACTIVATE_FORCE))
 		mdss_mdp_overlay_kickoff(mfd->ctl);
+	return;
+
+pan_display_error:
+	mutex_unlock(&mfd->ov_lock);
 }
 
 /* function is called in irq context should have minimum processing */
