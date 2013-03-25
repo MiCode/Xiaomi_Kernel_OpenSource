@@ -212,7 +212,7 @@ static int32_t qpnp_adc_map_voltage_temp(const struct qpnp_vadc_map_pt *pts,
 	bool descending = 1;
 	uint32_t i = 0;
 
-	if ((pts == NULL) || (output == NULL))
+	if (pts == NULL)
 		return -EINVAL;
 
 	/* Check if table is descending or ascending */
@@ -258,7 +258,7 @@ static int32_t qpnp_adc_map_temp_voltage(const struct qpnp_vadc_map_pt *pts,
 	bool descending = 1;
 	uint32_t i = 0;
 
-	if ((pts == NULL) || (output == NULL))
+	if (pts == NULL)
 		return -EINVAL;
 
 	/* Check if table is descending or ascending */
@@ -372,7 +372,7 @@ int32_t qpnp_adc_scale_millidegc_pmic_voltage_thr(
 		uint32_t *low_threshold, uint32_t *high_threshold)
 {
 	struct qpnp_vadc_linear_graph btm_param;
-	int64_t *low_output = 0, *high_output = 0;
+	int64_t low_output = 0, high_output = 0;
 	int rc = 0;
 
 	rc = qpnp_get_vadc_gain_and_offset(&btm_param, CALIB_ABSOLUTE);
@@ -382,21 +382,21 @@ int32_t qpnp_adc_scale_millidegc_pmic_voltage_thr(
 	}
 
 	/* Convert to Kelvin and account for voltage to be written as 2mV/K */
-	*low_output = (param->low_temp + KELVINMIL_DEGMIL) * 2;
+	low_output = (param->low_temp + KELVINMIL_DEGMIL) * 2;
 	/* Convert to voltage threshold */
-	*low_output *= btm_param.dy;
-	do_div(*low_output, btm_param.adc_vref);
-	*low_output += btm_param.adc_gnd;
+	low_output *= btm_param.dy;
+	do_div(low_output, btm_param.adc_vref);
+	low_output += btm_param.adc_gnd;
 
 	/* Convert to Kelvin and account for voltage to be written as 2mV/K */
-	*high_output = (param->high_temp + KELVINMIL_DEGMIL) * 2;
+	high_output = (param->high_temp + KELVINMIL_DEGMIL) * 2;
 	/* Convert to voltage threshold */
-	*high_output *= btm_param.dy;
-	do_div(*high_output, btm_param.adc_vref);
-	*high_output += btm_param.adc_gnd;
+	high_output *= btm_param.dy;
+	do_div(high_output, btm_param.adc_vref);
+	high_output += btm_param.adc_gnd;
 
-	low_threshold = (uint32_t *) low_output;
-	high_threshold = (uint32_t *) high_output;
+	*low_threshold = low_output;
+	*high_threshold = high_output;
 
 	return 0;
 }
@@ -612,7 +612,6 @@ int32_t qpnp_adc_scale_default(int32_t adc_code,
 }
 EXPORT_SYMBOL_GPL(qpnp_adc_scale_default);
 
-/* Converts millivolts to ADC high/low threshold code */
 int32_t qpnp_adc_usb_scaler(struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 {
@@ -655,45 +654,54 @@ int32_t qpnp_adc_vbatt_rscaler(struct qpnp_adc_tm_btm_param *param,
 }
 EXPORT_SYMBOL_GPL(qpnp_adc_vbatt_rscaler);
 
-/* Converts decidegreesC to voltage based on the mapping table */
 int32_t qpnp_adc_btm_scaler(struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 {
 	struct qpnp_vadc_linear_graph btm_param;
-	int64_t *low_output = 0, *high_output = 0;
+	int64_t low_output = 0, high_output = 0;
 	int rc = 0;
 
 	qpnp_get_vadc_gain_and_offset(&btm_param, CALIB_RATIOMETRIC);
 
-	rc = qpnp_adc_map_temp_voltage(
+	pr_debug("warm_temp:%d and cool_temp:%d\n", param->high_temp,
+				param->low_temp);
+	rc = qpnp_adc_map_voltage_temp(
 		adcmap_btm_threshold,
 		ARRAY_SIZE(adcmap_btm_threshold),
 		(param->low_temp),
-		low_output);
-	if (rc)
+		&low_output);
+	if (rc) {
+		pr_debug("low_temp mapping failed with %d\n", rc);
 		return rc;
+	}
 
-	*low_output *= btm_param.dy;
-	do_div(*low_output, btm_param.adc_vref);
-	*low_output += btm_param.adc_gnd;
+	pr_debug("low_output:%lld\n", low_output);
+	low_output *= btm_param.dy;
+	do_div(low_output, btm_param.adc_vref);
+	low_output += btm_param.adc_gnd;
 
-	rc = qpnp_adc_map_temp_voltage(
+	rc = qpnp_adc_map_voltage_temp(
 		adcmap_btm_threshold,
 		ARRAY_SIZE(adcmap_btm_threshold),
 		(param->high_temp),
-		high_output);
-	if (rc)
+		&high_output);
+	if (rc) {
+		pr_debug("high temp mapping failed with %d\n", rc);
 		return rc;
+	}
 
-	pr_debug("warm_temp:%d and cool_temp:%d\n", param->high_temp,
-				param->low_temp);
-	*high_output *= btm_param.dy;
-	do_div(*high_output, btm_param.adc_vref);
-	*high_output += btm_param.adc_gnd;
+	pr_debug("high_output:%lld\n", high_output);
+	high_output *= btm_param.dy;
+	do_div(high_output, btm_param.adc_vref);
+	high_output += btm_param.adc_gnd;
 
-	low_threshold = (uint32_t *) low_output;
-	high_threshold = (uint32_t *) high_output;
+	/* btm low temperature correspondes to high voltage threshold */
+	*low_threshold = high_output;
+	/* btm high temperature correspondes to low voltage threshold */
+	*high_threshold = low_output;
 
+	pr_debug("high_volt:%d, low_volt:%d\n", *high_threshold,
+				*low_threshold);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(qpnp_adc_btm_scaler);
