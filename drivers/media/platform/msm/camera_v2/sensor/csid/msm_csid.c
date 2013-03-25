@@ -244,8 +244,8 @@ static struct camera_vreg_t csid_8960_vreg_info[] = {
 	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
 };
 
-static struct camera_vreg_t csid_8974_vreg_info[] = {
-	{"mipi_csi_vdd", REG_LDO, 1800000, 1800000, 12000},
+static struct camera_vreg_t csid_vreg_info[] = {
+	{"qcom,mipi-csi-vdd", REG_LDO, 0, 0, 12000},
 };
 
 static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
@@ -309,7 +309,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	} else if (CSID_VERSION >= CSID_VERSION_V3) {
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_camera_config_vreg(&csid_dev->pdev->dev,
-			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 1);
 		if (rc < 0) {
 			pr_err("%s: regulator on failed\n", __func__);
@@ -318,7 +318,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 		CDBG("%s:%d called\n", __func__, __LINE__);
 
 		rc = msm_camera_enable_vreg(&csid_dev->pdev->dev,
-			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 1);
 		if (rc < 0) {
 			pr_err("%s: regulator enable failed\n", __func__);
@@ -382,7 +382,7 @@ csid0_clk_enable_failed:
 			NULL, 0, &csid_dev->csi_vdd, 0);
 	} else if (CSID_VERSION >= CSID_VERSION_V3) {
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
-			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
 	}
 vreg_enable_failed:
@@ -392,7 +392,7 @@ vreg_enable_failed:
 			NULL, 0, &csid_dev->csi_vdd, 0);
 	} else if (CSID_VERSION >= CSID_VERSION_V3) {
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
-			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
 	}
 vreg_config_failed:
@@ -442,11 +442,11 @@ static int msm_csid_release(struct csid_device *csid_dev)
 			csid_8974_clk_info[0].num_clk_info, 0);
 
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
-			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
 
 		msm_camera_config_vreg(&csid_dev->pdev->dev,
-			csid_8974_vreg_info, ARRAY_SIZE(csid_8974_vreg_info),
+			csid_vreg_info, ARRAY_SIZE(csid_vreg_info),
 			NULL, 0, &csid_dev->csi_vdd, 0);
 	}
 
@@ -576,7 +576,7 @@ static const struct v4l2_subdev_ops msm_csid_subdev_ops = {
 static int __devinit csid_probe(struct platform_device *pdev)
 {
 	struct csid_device *new_csid_dev;
-
+	uint32_t csi_vdd_voltage = 0;
 	int rc = 0;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	new_csid_dev = kzalloc(sizeof(struct csid_device), GFP_KERNEL);
@@ -590,11 +590,30 @@ static int __devinit csid_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &new_csid_dev->msm_sd.sd);
 	mutex_init(&new_csid_dev->mutex);
 
-	if (pdev->dev.of_node)
-		of_property_read_u32((&pdev->dev)->of_node,
+	if (pdev->dev.of_node) {
+		rc = of_property_read_u32((&pdev->dev)->of_node,
 			"cell-index", &pdev->id);
+		if (rc < 0) {
+			pr_err("%s:%d failed to read cell-index\n", __func__,
+				__LINE__);
+			goto csid_no_resource;
+		}
+		CDBG("%s device id %d\n", __func__, pdev->id);
 
-	CDBG("%s device id %d\n", __func__, pdev->id);
+		rc = of_property_read_u32((&pdev->dev)->of_node,
+			"qcom,csi-vdd-voltage", &csi_vdd_voltage);
+		if (rc < 0) {
+			pr_err("%s:%d failed to read qcom,csi-vdd-voltage\n",
+				__func__, __LINE__);
+			goto csid_no_resource;
+		}
+		CDBG("%s:%d reading mipi_csi_vdd is %d\n", __func__, __LINE__,
+			csi_vdd_voltage);
+
+		csid_vreg_info[0].min_voltage = csi_vdd_voltage;
+		csid_vreg_info[0].max_voltage = csi_vdd_voltage;
+	}
+
 	new_csid_dev->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "csid");
 	if (!new_csid_dev->mem) {
