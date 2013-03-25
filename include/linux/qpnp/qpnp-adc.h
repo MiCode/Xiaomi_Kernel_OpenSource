@@ -637,34 +637,48 @@ enum qpnp_adc_tm_trip_type {
  * enum qpnp_tm_state - This lets the client know whether the threshold
  *		that was crossed was high/low.
  * %ADC_TM_HIGH_STATE: Client is notified of crossing the requested high
- *			threshold.
+ *			voltage threshold.
+ * %ADC_TM_COOL_STATE: Client is notified of crossing the requested cool
+ *			temperature threshold.
  * %ADC_TM_LOW_STATE: Client is notified of crossing the requested low
- *			threshold.
+ *			voltage threshold.
+ * %ADC_TM_WARM_STATE: Client is notified of crossing the requested high
+ *			temperature threshold.
  */
 enum qpnp_tm_state {
 	ADC_TM_HIGH_STATE = 0,
+	ADC_TM_COOL_STATE = ADC_TM_HIGH_STATE,
 	ADC_TM_LOW_STATE,
+	ADC_TM_WARM_STATE = ADC_TM_LOW_STATE,
 	ADC_TM_STATE_NUM,
 };
 
 /**
  * enum qpnp_state_request - Request to enable/disable the corresponding
  *			high/low voltage/temperature thresholds.
- * %ADC_TM_HIGH_THR_ENABLE: Enable high voltage/temperature threshold.
+ * %ADC_TM_HIGH_THR_ENABLE: Enable high voltage threshold.
+ * %ADC_TM_COOL_THR_ENABLE = Enables cool temperature threshold.
  * %ADC_TM_LOW_THR_ENABLE: Enable low voltage/temperature threshold.
+ * %ADC_TM_WARM_THR_ENABLE = Enables warm temperature threshold.
  * %ADC_TM_HIGH_LOW_THR_ENABLE: Enable high and low voltage/temperature
  *				threshold.
  * %ADC_TM_HIGH_THR_DISABLE: Disable high voltage/temperature threshold.
+ * %ADC_TM_COOL_THR_ENABLE = Disables cool temperature threshold.
  * %ADC_TM_LOW_THR_DISABLE: Disable low voltage/temperature threshold.
+ * %ADC_TM_WARM_THR_ENABLE = Disables warm temperature threshold.
  * %ADC_TM_HIGH_THR_DISABLE: Disable high and low voltage/temperature
  *				threshold.
  */
 enum qpnp_state_request {
 	ADC_TM_HIGH_THR_ENABLE = 0,
+	ADC_TM_COOL_THR_ENABLE = ADC_TM_HIGH_THR_ENABLE,
 	ADC_TM_LOW_THR_ENABLE,
+	ADC_TM_WARM_THR_ENABLE = ADC_TM_LOW_THR_ENABLE,
 	ADC_TM_HIGH_LOW_THR_ENABLE,
 	ADC_TM_HIGH_THR_DISABLE,
+	ADC_TM_COOL_THR_DISABLE = ADC_TM_HIGH_THR_DISABLE,
 	ADC_TM_LOW_THR_DISABLE,
+	ADC_TM_WARM_THR_DISABLE = ADC_TM_LOW_THR_DISABLE,
 	ADC_TM_HIGH_LOW_THR_DISABLE,
 	ADC_TM_THR_NUM,
 };
