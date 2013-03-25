@@ -32,7 +32,7 @@
 #include <sound/control.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
-#include <linux/android_pmem.h>
+
 #include <linux/slab.h>
 #include "msm7kv2-pcm.h"
 #include <mach/qdsp5v2/audio_dev_ctl.h>

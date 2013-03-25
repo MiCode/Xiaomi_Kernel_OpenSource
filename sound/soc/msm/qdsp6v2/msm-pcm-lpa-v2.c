@@ -26,7 +26,7 @@
 #include <sound/control.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
-#include <linux/android_pmem.h>
+
 #include <linux/of_device.h>
 #include <sound/compress_params.h>
 #include <sound/compress_offload.h>
