@@ -294,6 +294,8 @@ int q6asm_media_format_block_wma(struct audio_client *ac,
 int q6asm_media_format_block_wmapro(struct audio_client *ac,
 			void *cfg);
 
+int q6asm_media_format_block_amrwbplus(struct audio_client *ac,
+			struct asm_amrwbplus_cfg *cfg);
 /* PP specific */
 int q6asm_equalizer(struct audio_client *ac, void *eq);
 
