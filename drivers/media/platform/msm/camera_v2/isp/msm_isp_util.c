@@ -418,6 +418,8 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 		break;
 	case V4L2_PIX_FMT_NV12:
 	case V4L2_PIX_FMT_NV21:
+	case V4L2_PIX_FMT_NV16:
+	case V4L2_PIX_FMT_NV61:
 		val = CAL_WORD(pixel_per_line, 1, 8);
 		break;
 		/*TD: Add more image format*/
@@ -461,6 +463,9 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_NV12:
 	case V4L2_PIX_FMT_NV21:
 		return 8;
+	case V4L2_PIX_FMT_NV16:
+	case V4L2_PIX_FMT_NV61:
+		return 16;
 		/*TD: Add more image format*/
 	default:
 		pr_err("%s: Invalid output format\n", __func__);
