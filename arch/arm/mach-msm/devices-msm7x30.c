@@ -18,7 +18,6 @@
 #include <linux/msm_rotator.h>
 #include <linux/dma-mapping.h>
 #include <mach/kgsl.h>
-#include <linux/android_pmem.h>
 #include <linux/regulator/machine.h>
 #include <linux/init.h>
 #include <mach/irqs.h>

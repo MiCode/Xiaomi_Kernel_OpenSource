@@ -34,7 +34,6 @@
 #include <linux/completion.h>
 #include <linux/err.h>
 #endif
-#include <linux/android_pmem.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <linux/sched.h>
