@@ -43,6 +43,7 @@ struct ipa_bridge_pipe_context {
 	struct sps_mem_buffer desc_mem_buf;
 	struct sps_register_event register_event;
 	struct list_head free_desc_list;
+	bool valid;
 };
 
 struct ipa_bridge_context {
@@ -465,6 +466,7 @@ static int setup_bridge_to_ipa(enum ipa_bridge_dir dir,
 	}
 
 	*clnt_hdl = ipa_ep_idx;
+	sys->valid = true;
 
 	return 0;
 
@@ -619,6 +621,8 @@ static int setup_bridge_to_a2(enum ipa_bridge_dir dir,
 				       dir, type, i);
 		}
 	}
+
+	sys->valid = true;
 
 	return 0;
 
@@ -809,12 +813,15 @@ int ipa_bridge_teardown(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
 
 	for (; lo <= hi; lo++) {
 		sys = &bridge[type].pipe[lo];
-		sps_disconnect(sys->pipe);
-		dma_free_coherent(NULL, sys->desc_mem_buf.size,
-				  sys->desc_mem_buf.base,
-				  sys->desc_mem_buf.phys_base);
-		sps_free_endpoint(sys->pipe);
-		ipa_bridge_free_resources(sys);
+		if (sys->valid) {
+			sps_disconnect(sys->pipe);
+			dma_free_coherent(NULL, sys->desc_mem_buf.size,
+					  sys->desc_mem_buf.base,
+					  sys->desc_mem_buf.phys_base);
+			sps_free_endpoint(sys->pipe);
+			ipa_bridge_free_resources(sys);
+			sys->valid = false;
+		}
 	}
 
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
