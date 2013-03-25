@@ -17,6 +17,7 @@
 #include "kgsl.h"
 #include "kgsl_cffdump.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_trace.h"
 
 #include "z180.h"
 #include "z180_reg.h"
@@ -483,6 +484,10 @@ z180_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 	z180_cmdwindow_write(device, ADDR_VGV3_CONTROL, cmd);
 	z180_cmdwindow_write(device, ADDR_VGV3_CONTROL, 0);
 error:
+
+	trace_kgsl_issueibcmds(device, context->id, ibdesc, numibs,
+		*timestamp, ctrl, result, 0);
+
 	return (int)result;
 }
 
