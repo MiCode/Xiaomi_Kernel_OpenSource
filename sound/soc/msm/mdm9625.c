@@ -761,6 +761,21 @@ static struct snd_soc_dai_link mdm9625_dai[] = {
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA1
 	},
 	{
+		.name = "MDM9625 Media2",
+		.stream_name = "MultiMedia2",
+		.cpu_dai_name   = "MultiMedia2",
+		.platform_name  = "msm-pcm-dsp.0",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA2,
+	},
+	{
 		.name = "MSM VoIP",
 		.stream_name = "VoIP",
 		.cpu_dai_name = "VoIP",
