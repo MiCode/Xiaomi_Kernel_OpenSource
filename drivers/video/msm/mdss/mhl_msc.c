@@ -339,8 +339,8 @@ static void mhl_handle_input(struct mhl_tx_ctrl *mhl_ctrl,
 {
 	int key_press = (key_code & 0x80) == 0;
 
-	pr_debug("%s: send key events[%x][%d]\n",
-		 __func__, key_code, key_press);
+	pr_debug("%s: send key events[%x][%x][%d]\n",
+		 __func__, key_code, input_key_code, key_press);
 	input_report_key(mhl_ctrl->input, input_key_code, key_press);
 	input_sync(mhl_ctrl->input);
 }
@@ -504,6 +504,7 @@ int mhl_msc_recv_set_int(struct mhl_tx_ctrl *mhl_ctrl,
 			/* SET_INT: GRT_WRT */
 			pr_debug("%s: recvd req to permit/grant write",
 				 __func__);
+			complete_all(&mhl_ctrl->req_write_done);
 			mhl_msc_write_burst(
 				mhl_ctrl,
 				MHL_SCRATCHPAD_OFFSET,
@@ -599,31 +600,53 @@ static int mhl_request_write_burst(struct mhl_tx_ctrl *mhl_ctrl,
 				   u8 start_reg,
 				   u8 length, u8 *data)
 {
-	int rc = 0;
+	int i, reg;
+	int timeout, retry = 20;
 
 	if (!(mhl_ctrl->devcap[DEVCAP_OFFSET_FEATURE_FLAG] &
 	      MHL_FEATURE_SP_SUPPORT)) {
 		pr_debug("MHL: SCRATCHPAD_NOT_SUPPORTED\n");
-		rc = -EFAULT;
-	} else {
-		if (mhl_ctrl->scrpd_busy) {
-			pr_debug("MHL: scratchpad_busy\n");
-			rc = -EBUSY;
-		} else {
-			int i, reg;
-			for (i = 0, reg = start_reg; (i < length) &&
-				     (reg < MHL_SCRATCHPAD_SIZE); i++, reg++)
-				mhl_ctrl->scrpd.data[reg] = data[i];
-			mhl_ctrl->scrpd.length = length;
-			mhl_ctrl->scrpd.offset = start_reg;
-			mhl_msc_send_set_int(
-				mhl_ctrl,
-				MHL_RCHANGE_INT,
-				MHL_INT_REQ_WRT,
-				MSC_PRIORITY_SEND);
-		}
+		return -EFAULT;
 	}
-	return rc;
+
+	/*
+	 * scratchpad remains busy as long as a peer's permission or
+	 * write bursts are pending; experimentally it was found that
+	 * 50ms is optimal
+	 */
+	while (mhl_ctrl->scrpd_busy && retry--)
+		msleep(50);
+	if (!retry) {
+		pr_debug("MHL: scratchpad_busy\n");
+		return -EBUSY;
+	}
+
+	for (i = 0, reg = start_reg; (i < length) &&
+		     (reg < MHL_SCRATCHPAD_SIZE); i++, reg++)
+		mhl_ctrl->scrpd.data[reg] = data[i];
+	mhl_ctrl->scrpd.length = length;
+	mhl_ctrl->scrpd.offset = start_reg;
+
+	retry = 5;
+	do {
+		init_completion(&mhl_ctrl->req_write_done);
+		mhl_msc_send_set_int(
+			mhl_ctrl,
+			MHL_RCHANGE_INT,
+			MHL_INT_REQ_WRT,
+			MSC_PRIORITY_SEND);
+		timeout = wait_for_completion_interruptible_timeout(
+			&mhl_ctrl->req_write_done,
+			msecs_to_jiffies(MHL_BURST_WAIT));
+		if (!timeout)
+			mhl_ctrl->scrpd_busy = false;
+	} while (retry-- && timeout == 0);
+	if (!timeout) {
+		pr_err("%s: timed out!\n", __func__);
+		return -EAGAIN;
+	}
+
+	return 0;
 }
 
 /* write scratchpad entry */

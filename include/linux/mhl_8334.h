@@ -157,6 +157,7 @@ struct mhl_tx_ctrl {
 	struct scrpd_struct scrpd;
 	int scrpd_busy;
 	int wr_burst_pending;
+	struct completion req_write_done;
 };
 
 int mhl_i2c_reg_read(struct i2c_client *client,

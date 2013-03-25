@@ -135,7 +135,7 @@ enum DevCapOffset_e {
 
 /* manually define highest number */
 #define		MHL_MAX_BUFFER_SIZE			MHL_SCRATCHPAD_SIZE
-
+#define		MHL_BURST_WAIT		(1000)
 
 
 enum {
