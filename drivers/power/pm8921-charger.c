@@ -3181,6 +3181,7 @@ module_param(vdd_max_increase_mv, int, 0644);
 static int ichg_threshold_ua = -400000;
 module_param(ichg_threshold_ua, int, 0644);
 
+#define MIN_DELTA_MV_TO_INCREASE_VDD_MAX	13
 #define PM8921_CHG_VDDMAX_RES_MV	10
 static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip,
 						int vbat_batt_terminal_uv)
@@ -3212,6 +3213,14 @@ static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip,
 
 	delta_mv =  chip->max_voltage_mv - vbat_batt_terminal_mv;
 
+	if (delta_mv > 0) /* meaning we want to increase the vddmax */ {
+		if (delta_mv < MIN_DELTA_MV_TO_INCREASE_VDD_MAX) {
+			pr_debug("vterm = %d is not low enough to inc vdd\n",
+							vbat_batt_terminal_mv);
+			return;
+		}
+	}
+
 	adj_vdd_max_mv = programmed_vdd_max + delta_mv;
 	pr_debug("vdd_max needs to be changed by %d mv from %d to %d\n",
 			delta_mv,
@@ -3223,8 +3232,8 @@ static void adjust_vdd_max_for_fastchg(struct pm8921_chg_chip *chip,
 		return;
 	}
 
-	adj_vdd_max_mv = DIV_ROUND_UP(adj_vdd_max_mv, PM8921_CHG_VDDMAX_RES_MV)
-					* PM8921_CHG_VDDMAX_RES_MV;
+	adj_vdd_max_mv = (adj_vdd_max_mv / PM8921_CHG_VDDMAX_RES_MV)
+						* PM8921_CHG_VDDMAX_RES_MV;
 
 	if (adj_vdd_max_mv > (chip->max_voltage_mv + vdd_max_increase_mv))
 		adj_vdd_max_mv = chip->max_voltage_mv + vdd_max_increase_mv;
@@ -3382,9 +3391,11 @@ static int is_charging_finished(struct pm8921_chg_chip *chip,
 		else
 			vbat_intended = chip->max_voltage_mv;
 
-		if (vbat_batt_terminal_uv / 1000 < vbat_intended) {
-			pr_debug("terminal_uv:%d < vbat_intended:%d.\n",
+		if (vbat_batt_terminal_uv / 1000
+			< vbat_intended - MIN_DELTA_MV_TO_INCREASE_VDD_MAX) {
+			pr_debug("terminal_uv:%d < vbat_intended:%d-hyst:%d\n",
 							vbat_batt_terminal_uv,
+							vbat_intended,
 							vbat_intended);
 			return CHG_IN_PROGRESS;
 		}
