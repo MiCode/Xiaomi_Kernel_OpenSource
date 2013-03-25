@@ -29,6 +29,7 @@
 #include <sound/pcm_params.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
+#include <linux/msm_audio_ion.h>
 
 #include <sound/timer.h>
 
@@ -723,25 +724,14 @@ static snd_pcm_uframes_t msm_compr_pointer(struct snd_pcm_substream *substream)
 static int msm_compr_mmap(struct snd_pcm_substream *substream,
 				struct vm_area_struct *vma)
 {
-	int result = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct compr_audio *compr = runtime->private_data;
-	struct msm_audio *prtd = &compr->prtd;
-
-	pr_debug("%s\n", __func__);
+	struct msm_audio *prtd = runtime->private_data;
+	struct audio_client *ac = prtd->audio_client;
+	struct audio_port_data *apd = ac->port;
+	struct audio_buffer *ab = &(apd[IN].buf[0]);
 	prtd->mmap_flag = 1;
-	runtime->render_flag = SNDRV_NON_DMA_MODE;
-	if (runtime->dma_addr && runtime->dma_bytes) {
-		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-		result = remap_pfn_range(vma, vma->vm_start,
-				runtime->dma_addr >> PAGE_SHIFT,
-				runtime->dma_bytes,
-				vma->vm_page_prot);
-	} else {
-		pr_err("Physical address or size of buf is NULL");
-		return -EINVAL;
-	}
-	return result;
+
+	return msm_audio_ion_mmap(ab, vma);
 }
 
 static int msm_compr_hw_params(struct snd_pcm_substream *substream,

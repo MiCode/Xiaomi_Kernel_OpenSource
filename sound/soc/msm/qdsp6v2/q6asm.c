@@ -342,6 +342,7 @@ static void q6asm_session_free(struct audio_client *ac)
 	mutex_unlock(&session_lock);
 	ac->session = 0;
 	ac->perf_mode = 0;
+	ac->fptr_cache_ops = NULL;
 	return;
 }
 
@@ -621,6 +622,7 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	ac->priv = priv;
 	ac->io_mode = SYNC_IO_MODE;
 	ac->perf_mode = false;
+	ac->fptr_cache_ops = NULL;
 	ac->apr = apr_register("ADSP", "ASM", \
 				(apr_fn)q6asm_callback,\
 				((ac->session) << 8 | 0x0001),\

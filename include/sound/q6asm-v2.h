@@ -153,6 +153,8 @@ struct audio_client {
 	wait_queue_head_t      cmd_wait;
 	wait_queue_head_t      time_wait;
 	bool                   perf_mode;
+	/* audio cache operations fptr*/
+	int (*fptr_cache_ops)(struct audio_buffer *abuff, int cache_op);
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);
