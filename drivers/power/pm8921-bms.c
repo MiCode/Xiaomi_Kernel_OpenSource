@@ -2514,6 +2514,65 @@ static int report_state_of_charge(struct pm8921_bms_chip *chip)
 	return last_soc;
 }
 
+void pm8921_bms_battery_removed(void)
+{
+	if (!the_chip) {
+		pr_err("called before initialization\n");
+		return;
+	}
+	pr_info("Battery Removed Cleaning up\n");
+
+	cancel_delayed_work_sync(&the_chip->calculate_soc_delayed_work);
+	calculated_soc = 0;
+	the_chip->start_percent = -EINVAL;
+	the_chip->end_percent = -EINVAL;
+	/* cleanup for charge time catchup */
+	the_chip->charge_time_us = 0;
+	the_chip->catch_up_time_us = 0;
+	/* cleanup for charge time adjusting */
+	the_chip->soc_at_cv = -EINVAL;
+	the_chip->soc_at_cv = -EINVAL;
+	the_chip->prev_chg_soc = -EINVAL;
+	the_chip->ibat_at_cv_ua = 0;
+	the_chip->prev_vbat_batt_terminal_uv = 0;
+	/* ocv cleanups */
+	the_chip->ocv_reading_at_100 = OCV_RAW_UNINITIALIZED;
+	the_chip->prev_last_good_ocv_raw = OCV_RAW_UNINITIALIZED;
+	the_chip->last_ocv_temp_decidegc = -EINVAL;
+
+	/* cleanup delta time */
+	the_chip->tm_sec = 0;
+
+	/* cc and avg current cleanups */
+	the_chip->prev_iavg_ua = 0;
+	the_chip->last_cc_uah = INT_MIN;
+
+	/* report SOC cleanups */
+	the_chip->t_soc_queried.tv_sec = 0;
+	the_chip->t_soc_queried.tv_nsec = 0;
+
+	last_soc = -EINVAL;
+	/* store invalid soc */
+	pm8xxx_writeb(the_chip->dev->parent, TEMP_SOC_STORAGE, 0);
+
+	/* UUC related data is left as is - use the same historical load avg */
+	update_power_supply(the_chip);
+}
+EXPORT_SYMBOL(pm8921_bms_battery_removed);
+
+void pm8921_bms_battery_inserted(void)
+{
+	if (!the_chip) {
+		pr_err("called before initialization\n");
+		return;
+	}
+
+	pr_info("Battery Inserted\n");
+	the_chip->last_ocv_uv = estimate_ocv(the_chip);
+	schedule_delayed_work(&the_chip->calculate_soc_delayed_work, 0);
+}
+EXPORT_SYMBOL(pm8921_bms_battery_inserted);
+
 void pm8921_bms_invalidate_shutdown_soc(void)
 {
 	int calculate_soc = 0;
@@ -3012,6 +3071,7 @@ enum bms_request_operation {
 	STOP_OCV,
 	START_OCV,
 	SET_OCV,
+	BATT_PRESENT,
 };
 
 static int test_batt_temp = 5;
@@ -3255,6 +3315,8 @@ static void create_debugfs_entries(struct pm8921_bms_chip *chip)
 				(void *)START_OCV, &calc_fops);
 	debugfs_create_file("set_ocv", 0644, chip->dent,
 				(void *)SET_OCV, &calc_fops);
+	debugfs_create_file("batt_present", 0644, chip->dent,
+				(void *)BATT_PRESENT, &calc_fops);
 
 	debugfs_create_file("simultaneous", 0644, chip->dent,
 			(void *)GET_VBAT_VSENSE_SIMULTANEOUS, &calc_fops);
