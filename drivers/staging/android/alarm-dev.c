@@ -49,6 +49,7 @@ static DECLARE_WAIT_QUEUE_HEAD(alarm_wait_queue);
 static uint32_t alarm_pending;
 static uint32_t alarm_enabled;
 static uint32_t wait_pending;
+static int rtc_local_time;
 
 struct devalarm {
 	union {
@@ -159,7 +160,10 @@ static int alarm_set_rtc(struct timespec *ts)
 	unsigned long flags;
 	int rv = 0;
 
-	rtc_time_to_tm(ts->tv_sec, &new_rtc_tm);
+	if (rtc_local_time)
+		rtc_time_to_tm((ts->tv_sec - sys_tz.tz_minuteswest * 60), &new_rtc_tm);
+	else
+		rtc_time_to_tm(ts->tv_sec, &new_rtc_tm);
 	rtc_dev = alarmtimer_get_rtcdev();
 	rv = do_settimeofday(ts);
 	if (rv < 0)
@@ -404,6 +408,29 @@ static struct miscdevice alarm_device = {
 	.fops = &alarm_fops,
 };
 
+static ssize_t alarm_sysfs_show_rtc_local_time(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", rtc_local_time);
+}
+
+static ssize_t alarm_sysfs_store_rtc_local_time(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int retval;
+	retval = sscanf(buf, " %d ", &rtc_local_time);
+	if (retval != 1) {
+		alarm_dbg(INFO, "Failed to store rtc local time.\n");
+		return -EINVAL;
+	}
+	return retval ? retval : count;
+}
+
+static DEVICE_ATTR(rtc_local_time, S_IRUGO | S_IWUSR,
+		alarm_sysfs_show_rtc_local_time,
+		alarm_sysfs_store_rtc_local_time);
+
 static int __init alarm_dev_init(void)
 {
 	int err;
@@ -431,6 +458,10 @@ static int __init alarm_dev_init(void)
 	}
 
 	wakeup_source_init(&alarm_wake_lock, "alarm");
+
+	err = device_create_file(alarm_device.this_device, &dev_attr_rtc_local_time);
+	if (err)
+		return err;
 	return 0;
 }
 
