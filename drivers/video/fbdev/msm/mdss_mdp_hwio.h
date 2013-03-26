@@ -431,8 +431,6 @@ enum mdss_mdp_pingpong_index {
 	MDSS_MDP_MAX_PINGPONG
 };
 
-#define MDSS_MDP_REG_PP_OFFSET(pp)	(0x21B00 + ((pp) * 0x100))
-
 #define MDSS_MDP_REG_PP_TEAR_CHECK_EN			0x000
 #define MDSS_MDP_REG_PP_SYNC_CONFIG_VSYNC		0x004
 #define MDSS_MDP_REG_PP_SYNC_CONFIG_HEIGHT		0x008
