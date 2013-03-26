@@ -58,9 +58,9 @@ enum {
 enum mdss_intf_events {
 	MDSS_EVENT_RESET,
 	MDSS_EVENT_UNBLANK,
-	MDSS_EVENT_TIMEGEN_ON,
+	MDSS_EVENT_PANEL_ON,
 	MDSS_EVENT_BLANK,
-	MDSS_EVENT_TIMEGEN_OFF,
+	MDSS_EVENT_PANEL_OFF,
 	MDSS_EVENT_CLOSE,
 	MDSS_EVENT_SUSPEND,
 	MDSS_EVENT_RESUME,
@@ -69,19 +69,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_FB_REGISTERED,
 };
 
-/* panel info type */
 struct lcd_panel_info {
-	u32 vsync_enable;
-	u32 refx100;
-	u32 v_back_porch;
-	u32 v_front_porch;
-	u32 v_pulse_width;
-	u32 hw_vsync_mode;
-	u32 vsync_notifier_period;
-	u32 rev;
-};
-
-struct lcdc_panel_info {
 	u32 h_back_porch;
 	u32 h_front_porch;
 	u32 h_pulse_width;
@@ -153,6 +141,9 @@ struct mipi_panel_info {
 	char no_max_pkt_size;
 	/* Clock required during LP commands */
 	char force_clk_lane_hs;
+
+	char vsync_enable;
+	char hw_vsync_mode;
 };
 
 enum lvds_mode {
@@ -183,13 +174,16 @@ struct mdss_panel_info {
 	u32 is_3d_panel;
 	u32 out_format;
 	u32 vic; /* video identification code */
+	int bklt_ctrl;	/* backlight ctrl */
+	int pwm_gpio;
+	int pwm_lpg_chan;
+	int pwm_period;
 
 	u32 cont_splash_enabled;
 	struct ion_handle *splash_ihdl;
 	u32 panel_power_on;
 
-	struct lcd_panel_info lcd;
-	struct lcdc_panel_info lcdc;
+	struct lcd_panel_info lcdc;
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
 };

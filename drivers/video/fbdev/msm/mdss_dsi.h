@@ -273,17 +273,27 @@ struct dsi_drv_cm_data {
 };
 
 struct mdss_dsi_ctrl_pdata {
+	int ndx;
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	struct mdss_panel_data panel_data;
+	struct mdss_hw *mdss_hw;
 	unsigned char *ctrl_base;
-	char bl_ctrl;
+	int reg_size;
 	struct clk *byte_clk;
 	struct clk *esc_clk;
 	struct clk *pixel_clk;
+	int irq_cnt;
 	int mdss_dsi_clk_on;
 	int rst_gpio;
 	int disp_en_gpio;
+	int disp_te_gpio;
+	int bklt_ctrl;	/* backlight ctrl */
+	int pwm_period;
+	int pwm_gpio;
+	int pwm_lpg_chan;
+	int bklt_max;
+	struct pwm_device *pwm_bl;
 	struct dsi_panel_cmds_list *on_cmds;
 	struct dsi_panel_cmds_list *off_cmds;
 	struct dsi_drv_cm_data shared_pdata;
@@ -293,8 +303,7 @@ struct mdss_dsi_ctrl_pdata {
 };
 
 int dsi_panel_device_register(struct platform_device *pdev,
-			      struct mdss_panel_common_pdata *panel_data,
-			      char bl_ctrl);
+			      struct mdss_panel_common_pdata *panel_data);
 
 char *mdss_dsi_buf_reserve_hdr(struct dsi_buf *dp, int hlen);
 char *mdss_dsi_buf_init(struct dsi_buf *dp);
@@ -343,5 +352,7 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
 void mdss_dsi_phy_enable(unsigned char *ctrl_base, int on);
 void mdss_dsi_phy_init(struct mdss_panel_data *pdata);
 void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base);
+void mdss_dsi_cmd_test_pattern(struct mdss_panel_data *pdata);
+void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl);
 
 #endif /* MDSS_DSI_H */

@@ -2539,7 +2539,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 				__func__, rc);
 		break;
 
-	case MDSS_EVENT_TIMEGEN_ON:
+	case MDSS_EVENT_PANEL_ON:
 		if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp) {
 			DEV_DBG("%s: Starting HDCP authentication\n", __func__);
 			rc = hdmi_hdcp_authenticate(
@@ -2575,7 +2575,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		}
 		break;
 
-	case MDSS_EVENT_TIMEGEN_OFF:
+	case MDSS_EVENT_PANEL_OFF:
 		hdmi_ctrl->timing_gen_on = false;
 		break;
 
