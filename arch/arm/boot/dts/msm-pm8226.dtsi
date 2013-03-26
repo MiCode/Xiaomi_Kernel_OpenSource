@@ -173,6 +173,9 @@
 			qcom,calculate-soc-ms = <20000>;
 			qcom,chg-term-ua = <100000>;
 			qcom,batt-type = <0>;
+			qcom,low-ocv-correction-limit-uv = <100>;
+			qcom,high-ocv-correction-limit-uv = <50>;
+			qcom,hold-soc-est = <3>;
 
 			qcom,bms-iadc@3800 {
 				reg = <0x3800 0x100>;
