@@ -446,7 +446,6 @@ static int __init arch_timer_common_register(void)
 
 	if (err)
 		goto out_free_irq;
-	percpu_timer_setup();
 
 	/* Use the architected timer for the delay loop. */
 	arch_delay_timer.read_current_timer = &arch_timer_read_current_timer;
