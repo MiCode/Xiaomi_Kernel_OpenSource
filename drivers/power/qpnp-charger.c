@@ -1019,7 +1019,8 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 
 	/* Only honour requests while USB is present */
 	if (qpnp_chg_is_usb_chg_plugged_in(chip)) {
-		if (ret.intval <= 2) {
+		if (ret.intval <= 2 && !chip->use_default_batt_values &&
+						get_prop_batt_present(chip)) {
 			qpnp_chg_usb_suspend_enable(chip, 1);
 			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 		} else {
