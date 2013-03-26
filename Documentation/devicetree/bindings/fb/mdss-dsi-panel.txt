@@ -55,6 +55,10 @@ Optional properties:
 - label:		        	A string used as a descriptive name of the panel
 - qcom,enable-gpio:			Specifies the panel lcd/display enable gpio.
 - qcom,rst-gpio:			Specifies the panel reset gpio.
+- qcom,te-gpio:				Specifies the gpio used for TE.
+- qcom,dsi-lpg-channel :		LPG channel for backlight.
+- qcom,dsi-pwm-period :			PWM period in microseconds.
+- qcom,dsi-pwm-gpio :			PWM gpio.
 - qcom,mdss-pan-broadcast-mode:		Boolean used to enable broadcast mode.
 - qcom,cont-splash-enabled:		Boolean used to enable continuous splash mode.
 - qcom,mdss-pan-porch-values:		An array of size 6 that specifies the panel blanking values.
@@ -71,6 +75,15 @@ Optional properties:
 - qcom,mdss-pan-dsi-mode:		Specifies the panel operating mode.
 					0 = enable video mode(default mode).
 					1 = enable command mode.
+- qcom,mdss-vsync-enable:		Specifies Tear Check configuration.
+					0 = TE disable.
+					1 = TE enable.
+- qcom,mdss-hw-vsync-mode:		Specifies TE type.
+					0 = software vsync.
+					1 = hardware vsync (TE gpio pin).
+- qcom,mdss-pan-te-sel:			Specifies TE operating mode.
+					0 = TE through embedded dcs command
+					1 = TE through TE gpio pin.
 - qcom,mdss-pan-dsi-h-pulse-mode:	Specifies the pulse mode option for the panel.
 					0 = Don't send hsa/he following vs/ve packet(default)
 					1 = Send hsa/he following vs/ve packet
