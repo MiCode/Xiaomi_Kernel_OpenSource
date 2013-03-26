@@ -1029,7 +1029,7 @@ int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
 
 	vbif_arr = of_get_property(pdev->dev.of_node, "qcom,vbif-settings",
 			&vbif_len);
-	if (!vbif_arr || (mdp_len & 1)) {
+	if (!vbif_arr || (vbif_len & 1)) {
 		pr_warn("MDSS VBIF settings not found\n");
 		vbif_len = 0;
 	}
