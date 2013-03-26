@@ -404,6 +404,8 @@ static int32_t qpnp_convert_raw_offset_voltage(void)
 	iadc->adc->calib.gain_uv = (num * QPNP_ADC_GAIN_NV)/
 		(iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw);
 
+	pr_debug("gain_uv:%d offset_uv:%d\n",
+			iadc->adc->calib.gain_uv, iadc->adc->calib.offset_uv);
 	return 0;
 }
 
@@ -439,6 +441,9 @@ static int32_t qpnp_iadc_calibrate_for_trim(void)
 		goto fail;
 	}
 
+	pr_debug("raw gain:0x%x, raw offset:0x%x\n",
+		iadc->adc->calib.gain_raw, iadc->adc->calib.offset_raw);
+
 	rc = qpnp_convert_raw_offset_voltage();
 	if (rc < 0) {
 		pr_err("qpnp raw_voltage conversion failed\n");
@@ -448,6 +453,8 @@ static int32_t qpnp_iadc_calibrate_for_trim(void)
 	rslt_msb = (raw_data & QPNP_RAW_CODE_16_BIT_MSB_MASK) >>
 							QPNP_BIT_SHIFT_8;
 	rslt_lsb = raw_data & QPNP_RAW_CODE_16_BIT_LSB_MASK;
+
+	pr_debug("trim values:lsb:0x%x and msb:0x%x\n", rslt_lsb, rslt_msb);
 
 	rc = qpnp_iadc_write_reg(QPNP_IADC_SEC_ACCESS,
 					QPNP_IADC_SEC_ACCESS_DATA);
@@ -545,6 +552,8 @@ int32_t qpnp_iadc_get_rsense(int32_t *rsense)
 		return rc;
 	}
 
+	pr_debug("rsense:0%x\n", rslt_rsense);
+
 	if (rslt_rsense & QPNP_RSENSE_MSB_SIGN_CHECK)
 		sign_bit = 1;
 
@@ -610,6 +619,8 @@ int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 	}
 
 	rc = qpnp_iadc_get_rsense(&rsense_n_ohms);
+	pr_debug("current raw:0%x and rsense:%d\n",
+			raw_data, rsense_n_ohms);
 
 	num = raw_data - iadc->adc->calib.offset_raw;
 	if (num < 0) {
@@ -658,6 +669,10 @@ int32_t qpnp_iadc_get_gain_and_offset(struct qpnp_iadc_calib *result)
 	result->ideal_offset_uv =
 				QPNP_OFFSET_CALIBRATION_SHORT_CADC_LEADS_IDEAL;
 	result->offset_uv = iadc->adc->calib.offset_uv;
+	pr_debug("raw gain:0%x, raw offset:0%x\n",
+			result->gain_raw, result->offset_raw);
+	pr_debug("gain_uv:%d offset_uv:%d\n",
+			result->gain_uv, result->offset_uv);
 	mutex_unlock(&iadc->adc->adc_lock);
 
 	return 0;
