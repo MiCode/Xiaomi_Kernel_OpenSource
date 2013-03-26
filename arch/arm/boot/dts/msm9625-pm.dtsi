@@ -80,7 +80,7 @@
 			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
 			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
-			qcom.gpios-detectable;
+			qcom,gpio-detectable;
 			qcom,latency-us = <100>;
 			qcom,ss-power = <8000>;
 			qcom,energy-overhead = <100000>;
@@ -97,7 +97,7 @@
 			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
 			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
-			qcom.gpios-detectable;
+			qcom,gpio-detectable;
 			qcom,latency-us = <2000>;
 			qcom,ss-power = <5000>;
 			qcom,energy-overhead = <60100000>;
@@ -114,7 +114,7 @@
 			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
 			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
-			qcom.gpios-detectable;
+			qcom,gpio-detectable;
 			qcom,latency-us = <3500>;
 			qcom,ss-power = <5000>;
 			qcom,energy-overhead = <60350000>;
@@ -131,7 +131,7 @@
 			qcom,vdd-dig-upper-bound = <4>; /* NORMAL */
 			qcom,vdd-dig-lower-bound = <3>;  /* SVS SOC */
 			qcom,irqs-detectable;
-			qcom.gpios-detectable;
+			qcom,gpio-detectable;
 			qcom,latency-us = <4500>;
 			qcom,ss-power = <5000>;
 			qcom,energy-overhead = <60350000>;
