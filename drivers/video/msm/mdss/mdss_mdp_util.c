@@ -405,8 +405,7 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 			if (data->flags & MDP_SECURE_OVERLAY_SESSION) {
 				domain = MDSS_IOMMU_DOMAIN_SECURE;
 				ret = msm_ion_secure_buffer(iclient,
-					data->srcp_ihdl, 0x2,
-					ION_UNSECURE_DELAYED);
+					data->srcp_ihdl, 0x2, 0);
 				if (IS_ERR_VALUE(ret)) {
 					ion_free(iclient, data->srcp_ihdl);
 					pr_err("failed to secure handle (%d)\n",
@@ -419,8 +418,7 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 
 			ret = ion_map_iommu(iclient, data->srcp_ihdl,
 					    mdss_get_iommu_domain(domain),
-					    0, SZ_4K, 0, start, len, 0,
-					    ION_IOMMU_UNMAP_DELAYED);
+					    0, SZ_4K, 0, start, len, 0, 0);
 		} else {
 			ret = ion_phys(iclient, data->srcp_ihdl, start,
 				       (size_t *) len);
