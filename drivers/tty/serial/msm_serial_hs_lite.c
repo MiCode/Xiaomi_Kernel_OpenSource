@@ -982,10 +982,6 @@ static int msm_hsl_startup(struct uart_port *port)
 			}
 		}
 	}
-#ifndef CONFIG_PM_RUNTIME
-	msm_hsl_init_clock(port);
-#endif
-	pm_runtime_get_sync(port->dev);
 
 	/*
 	 * Set RFR Level as 3/4 of UARTDM FIFO Size
@@ -1038,10 +1034,6 @@ static void msm_hsl_shutdown(struct uart_port *port)
 
 	free_irq(port->irq, port);
 
-#ifndef CONFIG_PM_RUNTIME
-	msm_hsl_deinit_clock(port);
-#endif
-	pm_runtime_put_sync(port->dev);
 	if (!(is_console(port)) || (!port->cons) ||
 		(port->cons && (!(port->cons->flags & CON_ENABLED)))) {
 		/* Free UART GPIOs */
