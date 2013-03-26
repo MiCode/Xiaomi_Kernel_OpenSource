@@ -36,6 +36,20 @@ Optional properties
 			key voltage rails, in degC.
 - qcom,vdd-restriction-temp-hysteresis: When temperature is above this threshold
 			will disable vdd restriction on key rails, in degC.
+- qcom,pmic-sw-mode-temp: Threshold temperature to disable auto mode on the
+			rail, in degC. If this property exists,
+			qcom,pmic-sw-mode-temp-hysteresis and
+			qcom,pmic-sw-mode-regs need to exist, otherwise return error.
+- qcom,pmic-sw-mode-temp-hysteresis: Degree below threshold temperature to
+			enable auto mode on the rail, in degC. If this property exists,
+			qcom,pmic-sw-mode-temp and qcom,pmic-sw-mode-regs need to
+			exist, otherwise return error.
+- qcom,pmic-sw-mode-regs: Array of the regulator names that will want to
+			disable/enable automode based on the threshold. If this
+			property exists, qcom,pmic-sw-mode-temp and
+			qcom,pmic-sw-mode-temp-hysteresis need to exist, otherwise
+			return error. Also, if this property is defined, will have to
+			define <consumer_supply_name>-supply = <&phandle_of_regulator>
 - <consumer_supply_name>-supply = <&phandle_of_regulator>: consumer_supply_name
 			is the name that's defined in thermal driver.
 			phandle_of_regulator is defined by reuglator device tree.
@@ -66,6 +80,9 @@ Example:
 		qcom,core-limit-temp = <90>;
 		qcom,core-temp-hysterisis = <10>;
 		qcom,core-control-mask = <7>;
+		qcom,pmic-sw-mode-temp = <90>;
+		qcom,pmic-sw-mode-temp-hysteresis = <80>;
+		qcom,pmic-sw-mode-regs = "vdd_dig";
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd_dig-supply=<&pm8841_s2_floor_corner>
