@@ -1,6 +1,6 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2010-2012 The Linux Foundation. All rights reserved.
+   Copyright (c) 2000-2001, 2010-2013 The Linux Foundation. All rights reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -1143,6 +1143,11 @@ struct hci_ev_cmd_status {
 	__u8     status;
 	__u8     ncmd;
 	__le16   opcode;
+} __packed;
+
+#define HCI_EV_HARDWARE_ERROR		0x10
+struct hci_ev_hardware_error {
+	__u8   hw_err_code;
 } __packed;
 
 #define HCI_EV_ROLE_CHANGE		0x12
