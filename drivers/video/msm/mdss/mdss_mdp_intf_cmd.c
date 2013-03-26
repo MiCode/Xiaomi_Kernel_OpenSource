@@ -39,29 +39,27 @@ struct mdss_mdp_cmd_ctx {
 
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
 
-static int mdss_mdp_cmd_tearcheck_cfg(u32 pp_num,
+static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 			struct mdss_mdp_cmd_ctx *ctx, int enable)
 {
-	u32 off, cfg;
-
-	off = MDSS_MDP_REG_PP_OFFSET(pp_num);
+	u32 cfg;
 
 	cfg = BIT(19); /* VSYNC_COUNTER_EN */
 	if (ctx->tear_check)
 		cfg |= BIT(20);	/* VSYNC_IN_EN */
 	cfg |= ctx->vsync_cnt;
 
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_PP_SYNC_CONFIG_VSYNC, cfg);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_PP_SYNC_CONFIG_HEIGHT,
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_CONFIG_VSYNC, cfg);
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_CONFIG_HEIGHT,
 				0xfff0); /* set to verh height */
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_PP_VSYNC_INIT_VAL, 0);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_PP_RD_PTR_IRQ, 0);
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_VSYNC_INIT_VAL, 0);
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_RD_PTR_IRQ, 0);
 
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_PP_START_POS, ctx->v_porch);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_PP_SYNC_THRESH,
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_START_POS, ctx->v_porch);
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_THRESH,
 			   (CONTINUE_TRESHOLD << 16) | (START_THRESHOLD));
 
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_PP_TEAR_CHECK_EN, enable);
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_TEAR_CHECK_EN, enable);
 	return 0;
 }
 
@@ -111,11 +109,11 @@ static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_ctl *ctl, int enable)
 
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	if (mixer)
-		mdss_mdp_cmd_tearcheck_cfg(mixer->num, ctx, enable);
+		mdss_mdp_cmd_tearcheck_cfg(mixer, ctx, enable);
 
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
 	if (mixer)
-		mdss_mdp_cmd_tearcheck_cfg(mixer->num, ctx, enable);
+		mdss_mdp_cmd_tearcheck_cfg(mixer, ctx, enable);
 
 	return 0;
 }

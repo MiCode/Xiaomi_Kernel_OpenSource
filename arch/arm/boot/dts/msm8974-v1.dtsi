@@ -56,6 +56,10 @@
 	qcom,write-64bit;
 };
 
+&mdss_mdp {
+	qcom,mdss-pingpong-off = <0x00021B00 0x00021C00 0x00021D00>;
+};
+
 &msm_vidc {
 	qcom,vidc-cp-map = <0x1000000 0x3f000000>;
 	qcom,vidc-ns-map = <0x40000000 0x40000000>;

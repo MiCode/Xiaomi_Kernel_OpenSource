@@ -1041,7 +1041,8 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 }
 
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
-	 u32 *mixer_offsets, u32 *dspp_offsets, u32 type, u32 len)
+	 u32 *mixer_offsets, u32 *dspp_offsets, u32 *pingpong_offsets,
+	 u32 type, u32 len)
 {
 	struct mdss_mdp_mixer *head;
 	u32 i;
@@ -1061,8 +1062,11 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
 		head[i].base = mdata->mdp_base + mixer_offsets[i];
 		head[i].ref_cnt = 0;
 		head[i].num = i;
-		if (type == MDSS_MDP_MIXER_TYPE_INTF)
+		if (type == MDSS_MDP_MIXER_TYPE_INTF) {
 			head[i].dspp_base = mdata->mdp_base + dspp_offsets[i];
+			head[i].pingpong_base = mdata->mdp_base +
+				pingpong_offsets[i];
+		}
 	}
 
 	switch (type) {
