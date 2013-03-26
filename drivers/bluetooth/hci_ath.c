@@ -5,7 +5,7 @@
  *  power management protocol extension to H4 to support AR300x Bluetooth Chip.
  *
  *  Copyright (c) 2009-2010 Atheros Communications Inc.
- *  Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  *  Acknowledgements:
  *  This file is based on hci_h4.c, which was written
@@ -38,7 +38,7 @@
 #include <linux/skbuff.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
-
+#include <linux/of_gpio.h>
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
@@ -52,6 +52,13 @@ module_param(enableuartsleep, uint, 0644);
 /*
  * Global variables
  */
+
+/** Device table */
+static struct of_device_id bluesleep_match_table[] = {
+	{ .compatible = "qca,ar3002_bluesleep" },
+	{}
+};
+
 /** Global state flags */
 static unsigned long flags;
 
@@ -436,10 +443,59 @@ static struct hci_uart_proto athp = {
 	.flush = ath_flush,
 };
 
-static int __init bluesleep_probe(struct platform_device *pdev)
+
+static int bluesleep_populate_dt_pinfo(struct platform_device *pdev)
+{
+	BT_DBG("");
+
+	if (!bsi)
+		return -ENOMEM;
+
+	bsi->host_wake = of_get_named_gpio(pdev->dev.of_node,
+					 "host-wake-gpio", 0);
+	if (bsi->host_wake < 0) {
+		BT_ERR("couldn't find host_wake gpio\n");
+		return -ENODEV;
+	}
+
+	bsi->ext_wake = of_get_named_gpio(pdev->dev.of_node,
+					 "ext-wake-gpio", 0);
+	if (bsi->ext_wake < 0) {
+		BT_ERR("couldn't find ext_wake gpio\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static int bluesleep_populate_pinfo(struct platform_device *pdev)
+{
+	struct resource *res;
+
+	BT_DBG("");
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_IO,
+				"gpio_host_wake");
+	if (!res) {
+		BT_ERR("couldn't find host_wake gpio\n");
+		return -ENODEV;
+	}
+	bsi->host_wake = res->start;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_IO,
+				"gpio_ext_wake");
+	if (!res) {
+		BT_ERR("couldn't find ext_wake gpio\n");
+		return -ENODEV;
+	}
+	bsi->ext_wake = res->start;
+
+	return 0;
+}
+
+static int __devinit bluesleep_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct resource *res;
 
 	BT_DBG("");
 
@@ -449,23 +505,22 @@ static int __init bluesleep_probe(struct platform_device *pdev)
 		goto failed;
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_IO,
-						"gpio_host_wake");
-	if (!res) {
-		BT_ERR("couldn't find host_wake gpio\n");
-		ret = -ENODEV;
-		goto free_bsi;
+	if (pdev->dev.of_node) {
+		ret = bluesleep_populate_dt_pinfo(pdev);
+		if (ret < 0) {
+			BT_ERR("Failed to populate device tree info");
+			goto free_bsi;
+		}
+	} else {
+		ret = bluesleep_populate_pinfo(pdev);
+		if (ret < 0) {
+			BT_ERR("Failed to populate device info");
+			goto free_bsi;
+		}
 	}
-	bsi->host_wake = res->start;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_IO,
-						"gpio_ext_wake");
-	if (!res) {
-		BT_ERR("couldn't find ext_wake gpio\n");
-		ret = -ENODEV;
-		goto free_bsi;
-	}
-	bsi->ext_wake = res->start;
+	BT_DBG("host_wake_gpio: %d ext_wake_gpio: %d",
+				bsi->host_wake, bsi->ext_wake);
 
 	bsi->host_wake_irq = platform_get_irq_byname(pdev, "host_wake");
 	if (bsi->host_wake_irq < 0) {
@@ -492,10 +547,12 @@ static int bluesleep_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver bluesleep_driver = {
+	.probe = bluesleep_probe,
 	.remove = bluesleep_remove,
 	.driver = {
 		.name = "bluesleep",
 		.owner = THIS_MODULE,
+		.of_match_table = bluesleep_match_table,
 	},
 };
 
@@ -511,9 +568,13 @@ int __init ath_init(void)
 		BT_ERR("HCIATH3K protocol registration failed");
 		return ret;
 	}
-	ret = platform_driver_probe(&bluesleep_driver, bluesleep_probe);
-	if (ret)
+
+	ret = platform_driver_register(&bluesleep_driver);
+	if (ret) {
+		BT_ERR("Failed to register bluesleep driver");
 		return ret;
+	}
+
 	return 0;
 }
 
