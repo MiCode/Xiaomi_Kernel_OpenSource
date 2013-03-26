@@ -3154,6 +3154,7 @@ struct platform_device apq8064_device_cache_erp = {
 
 static struct resource coresight_funnel_resources[] = {
 	{
+		.name  = "funnel-base",
 		.start = CORESIGHT_FUNNEL_PHYS_BASE,
 		.end   = CORESIGHT_FUNNEL_PHYS_BASE + SZ_4K - 1,
 		.flags = IORESOURCE_MEM,
@@ -3186,6 +3187,7 @@ struct platform_device apq8064_coresight_funnel_device = {
 
 static struct resource coresight_etm2_resources[] = {
 	{
+		.name  = "etm-base",
 		.start = CORESIGHT_ETM2_PHYS_BASE,
 		.end   = CORESIGHT_ETM2_PHYS_BASE + SZ_4K - 1,
 		.flags = IORESOURCE_MEM,
@@ -3218,6 +3220,7 @@ struct platform_device coresight_etm2_device = {
 
 static struct resource coresight_etm3_resources[] = {
 	{
+		.name  = "etm-base",
 		.start = CORESIGHT_ETM3_PHYS_BASE,
 		.end   = CORESIGHT_ETM3_PHYS_BASE + SZ_4K - 1,
 		.flags = IORESOURCE_MEM,
