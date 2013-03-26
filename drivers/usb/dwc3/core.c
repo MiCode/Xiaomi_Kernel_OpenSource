@@ -461,6 +461,7 @@ void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
 
 #define DWC3_ALIGN_MASK		(16 - 1)
 
+static u64 dwc3_dma_mask = DMA_BIT_MASK(64);
 static int __devinit dwc3_probe(struct platform_device *pdev)
 {
 	struct device_node	*node = pdev->dev.of_node;
@@ -482,6 +483,11 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 	}
 	dwc = PTR_ALIGN(mem, DWC3_ALIGN_MASK + 1);
 	dwc->mem = mem;
+
+	if (!dev->dma_mask)
+		dev->dma_mask = &dwc3_dma_mask;
+	if (!dev->coherent_dma_mask)
+		dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
