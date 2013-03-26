@@ -478,6 +478,7 @@ static int msm_otg_phy_reset(struct msm_otg *motg)
 	u32 val;
 	int ret;
 	int retries;
+	struct msm_otg_platform_data *pdata = motg->pdata;
 
 	ret = msm_otg_link_clk_reset(motg, 1);
 	if (ret)
@@ -496,6 +497,9 @@ static int msm_otg_phy_reset(struct msm_otg *motg)
 	if (ret)
 		return ret;
 
+	if (pdata && pdata->enable_sec_phy)
+		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
+							USB_PHY_CTRL2);
 	val = readl(USB_PORTSC) & ~PORTSC_PTS_MASK;
 	writel(val | PORTSC_PTS_ULPI, USB_PORTSC);
 
@@ -535,6 +539,7 @@ static int msm_otg_phy_reset(struct msm_otg *motg)
 static int msm_otg_link_reset(struct msm_otg *motg)
 {
 	int cnt = 0;
+	struct msm_otg_platform_data *pdata = motg->pdata;
 
 	writel_relaxed(USBCMD_RESET, USB_USBCMD);
 	while (cnt < LINK_RESET_TIMEOUT_USEC) {
@@ -551,6 +556,9 @@ static int msm_otg_link_reset(struct msm_otg *motg)
 	writel_relaxed(0x0, USB_AHBBURST);
 	writel_relaxed(0x08, USB_AHBMODE);
 
+	if (pdata && pdata->enable_sec_phy)
+		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
+								USB_PHY_CTRL2);
 	return 0;
 }
 
@@ -3796,6 +3804,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				"qcom,hsusb-otg-delay-lpm");
 	pdata->dp_manual_pullup = of_property_read_bool(node,
 				"qcom,dp-manual-pullup");
+	pdata->enable_sec_phy = of_property_read_bool(node,
+					"qcom,usb2-enable-hsphy2");
 
 	pdata->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (pdata->pmic_id_irq < 0)
@@ -4094,6 +4104,9 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	phy->otg->start_srp = msm_otg_start_srp;
 	if (pdata->dp_manual_pullup)
 		phy->flags |= ENABLE_DP_MANUAL_PULLUP;
+
+	if (pdata->enable_sec_phy)
+		phy->flags |= ENABLE_SECONDARY_PHY;
 
 	ret = usb_set_transceiver(&motg->phy);
 	if (ret) {
