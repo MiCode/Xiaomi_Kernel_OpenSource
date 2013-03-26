@@ -210,8 +210,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		"Output" : "Capture");
 		for (j = 0; j < inst->fmts[i]->num_planes; j++)
 			write_str(&dbg_buf, "size for plane %d: %u\n", j,
-			inst->fmts[i]->get_frame_size(j,
-			inst->prop.height, inst->prop.width));
+			inst->bufq[i].vb2_bufq.plane_sizes[j]);
 	}
 	write_str(&dbg_buf, "-------------------------------\n");
 	for (i = SESSION_MSG_START; i < SESSION_MSG_END; i++) {
