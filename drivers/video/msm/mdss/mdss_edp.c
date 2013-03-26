@@ -363,7 +363,7 @@ static int mdss_edp_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_UNBLANK:
 		rc = mdss_edp_on(pdata);
 		break;
-	case MDSS_EVENT_TIMEGEN_OFF:
+	case MDSS_EVENT_PANEL_OFF:
 		rc = mdss_edp_off(pdata);
 		break;
 	}
