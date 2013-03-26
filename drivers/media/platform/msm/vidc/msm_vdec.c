@@ -241,7 +241,7 @@ static u32 get_frame_size_nv12(int plane,
 static u32 get_frame_size_compressed(int plane,
 					u32 height, u32 width)
 {
-	return (MAX_SUPPORTED_WIDTH * MAX_SUPPORTED_HEIGHT * 3/2)/2;
+	return (width * height * 3/2)/2;
 }
 
 struct msm_vidc_format vdec_formats[] = {
@@ -630,8 +630,8 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			for (i = 0; i < fmt->num_planes; ++i) {
 				f->fmt.pix_mp.plane_fmt[i].sizeimage =
 					fmt->get_frame_size(i,
-						f->fmt.pix_mp.height,
-						f->fmt.pix_mp.width);
+						inst->capability.height.max,
+						inst->capability.width.max);
 				inst->bufq[OUTPUT_PORT].
 					vb2_bufq.plane_sizes[i] =
 					f->fmt.pix_mp.plane_fmt[i].sizeimage;
@@ -767,8 +767,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			for (i = 0; i < fmt->num_planes; ++i) {
 				f->fmt.pix_mp.plane_fmt[i].sizeimage =
 					fmt->get_frame_size(i,
-						f->fmt.pix_mp.height,
-						f->fmt.pix_mp.width);
+						inst->capability.height.max,
+						inst->capability.width.max);
 			}
 		} else {
 			buff_req_buffer =
@@ -827,8 +827,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		frame_sz.height = inst->prop.height;
 		msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			fmt->get_frame_size(0, f->fmt.pix_mp.height,
-					f->fmt.pix_mp.width);
+			fmt->get_frame_size(0, inst->capability.height.max,
+					inst->capability.width.max);
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		for (i = 0; i < fmt->num_planes; ++i) {
 			inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[i] =
@@ -921,7 +921,8 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			*num_buffers = MIN_NUM_OUTPUT_BUFFERS;
 		for (i = 0; i < *num_planes; i++) {
 			sizes[i] = inst->fmts[OUTPUT_PORT]->get_frame_size(
-					i, inst->prop.height, inst->prop.width);
+					i, inst->capability.height.max,
+					inst->capability.width.max);
 		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
