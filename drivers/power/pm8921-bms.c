@@ -170,6 +170,9 @@ struct pm8921_bms_chip {
 	int			disable_flat_portion_ocv;
 	int			ocv_dis_high_soc;
 	int			ocv_dis_low_soc;
+	int			high_ocv_correction_limit_uv;
+	int			low_ocv_correction_limit_uv;
+	int			hold_soc_est;
 	int			prev_vbat_batt_terminal_uv;
 	int			vbatt_cutoff_count;
 	int			low_voltage_detect;
@@ -1861,6 +1864,7 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 	int m = 0;
 	int rc = 0;
 	int delta_ocv_uv_limit = 0;
+	int correction_limit_uv = 0;
 
 	rc = pm8921_bms_get_simultaneous_battery_voltage_and_current(
 							&ibat_ua,
@@ -1964,6 +1968,22 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
 	}
 
+	if (chip->last_ocv_uv > 3800000)
+		correction_limit_uv = the_chip->high_ocv_correction_limit_uv;
+	else
+		correction_limit_uv = the_chip->low_ocv_correction_limit_uv;
+
+	if (abs(delta_ocv_uv) > correction_limit_uv) {
+		pr_debug("limiting delta ocv %d limit = %d\n", delta_ocv_uv,
+				correction_limit_uv);
+
+		if (delta_ocv_uv > 0)
+			delta_ocv_uv = correction_limit_uv;
+		else
+			delta_ocv_uv = -1 * correction_limit_uv;
+		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
+	}
+
 	chip->last_ocv_uv -= delta_ocv_uv;
 
 	if (chip->last_ocv_uv >= chip->max_voltage_uv)
@@ -1980,7 +2000,7 @@ static int adjust_soc(struct pm8921_bms_chip *chip, int soc,
 	 * if soc_new is ZERO force it higher so that phone doesnt report soc=0
 	 * soc = 0 should happen only when soc_est == 0
 	 */
-	if (soc_new == 0 && soc_est != 0)
+	if (soc_new == 0 && soc_est >= the_chip->hold_soc_est)
 		soc_new = 1;
 
 	soc = soc_new;
@@ -3383,6 +3403,11 @@ static int __devinit pm8921_bms_probe(struct platform_device *pdev)
 	chip->disable_flat_portion_ocv = pdata->disable_flat_portion_ocv;
 	chip->ocv_dis_high_soc = pdata->ocv_dis_high_soc;
 	chip->ocv_dis_low_soc = pdata->ocv_dis_low_soc;
+
+	chip->high_ocv_correction_limit_uv
+					= pdata->high_ocv_correction_limit_uv;
+	chip->low_ocv_correction_limit_uv = pdata->low_ocv_correction_limit_uv;
+	chip->hold_soc_est = pdata->hold_soc_est;
 
 	chip->alarm_low_mv = pdata->alarm_low_mv;
 	chip->alarm_high_mv = pdata->alarm_high_mv;

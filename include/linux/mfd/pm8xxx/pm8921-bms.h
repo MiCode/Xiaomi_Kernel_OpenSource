@@ -46,6 +46,14 @@ struct pm8xxx_bms_core_data {
  * @ocv_dis_low_soc:		the low soc percent when ocv should be enabled
  * @low_voltage_detect:		feature to enable 0 SOC reporting on low volatge
  * @vbatt_cutoff_retries:	number of tries before we report a 0 SOC
+ * @high_ocv_correction_limit_uv:	the max amount of OCV corrections
+ *					allowed when ocv is high
+ *					(higher than 3.8V)
+ * @low_ocv_correction_limit_uv:	the max amount of OCV corrections
+ *					allowed when ocv is low
+ *					(lower or equal to 3.8V)
+ * @hold_soc_est:		the min est soc below which the calculated soc
+ *				is allowed to go to 0%
  */
 struct pm8921_bms_platform_data {
 	struct pm8xxx_bms_core_data	bms_cdata;
@@ -69,6 +77,9 @@ struct pm8921_bms_platform_data {
 	int				ocv_dis_low_soc;
 	int				low_voltage_detect;
 	int				vbatt_cutoff_retries;
+	int				high_ocv_correction_limit_uv;
+	int				low_ocv_correction_limit_uv;
+	int				hold_soc_est;
 };
 
 #if defined(CONFIG_PM8921_BMS) || defined(CONFIG_PM8921_BMS_MODULE)
