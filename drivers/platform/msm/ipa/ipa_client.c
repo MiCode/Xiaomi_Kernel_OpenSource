@@ -13,6 +13,8 @@
 #include <linux/delay.h>
 #include "ipa_i.h"
 
+#define IPA_HOLB_TMR_VAL 0xff
+
 static void ipa_enable_data_path(u32 clnt_hdl)
 {
 	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
@@ -247,6 +249,20 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	*clnt_hdl = ipa_ep_idx;
 	memcpy(&sps->desc, &ep->connect.desc, sizeof(struct sps_mem_buffer));
 	memcpy(&sps->data, &ep->connect.data, sizeof(struct sps_mem_buffer));
+
+	if (in->client == IPA_CLIENT_HSIC1_CONS ||
+			in->client == IPA_CLIENT_HSIC2_CONS ||
+			in->client == IPA_CLIENT_HSIC3_CONS ||
+			in->client == IPA_CLIENT_HSIC4_CONS) {
+		IPADBG("disable holb for ep=%d tmr=%d\n", ipa_ep_idx,
+			IPA_HOLB_TMR_VAL);
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HOL_BLOCK_EN_n_OFST(ipa_ep_idx),
+			0x1);
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_OFST(ipa_ep_idx),
+			IPA_HOLB_TMR_VAL);
+	}
 
 	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
 
