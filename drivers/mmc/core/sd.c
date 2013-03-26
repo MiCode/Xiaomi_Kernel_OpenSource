@@ -1187,6 +1187,7 @@ static void mmc_sd_detect(struct mmc_host *host)
 	if (!retries) {
 		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
 		       __func__, mmc_hostname(host), err);
+		err = _mmc_detect_card_removed(host);
 	}
 #else
 	err = _mmc_detect_card_removed(host);
