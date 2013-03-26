@@ -64,6 +64,7 @@
 			    0x00011900 0x00011D00 0x00012100>;
 	qcom,mdss-intf-off = <0x00012500 0x00012700
 			      0x00012900 0x00012b00>;
+	qcom,mdss-pingpong-off = <0x00012D00 0x00012E00 0x00012F00>;
 };
 
 &msm_vidc {
