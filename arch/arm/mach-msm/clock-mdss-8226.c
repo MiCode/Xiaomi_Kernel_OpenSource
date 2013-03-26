@@ -111,7 +111,7 @@ static long mdss_dsi_pll_pixel_round_rate(struct clk *c, unsigned long rate)
 static int mdss_dsi_pll_pixel_set_rate(struct clk *c, unsigned long rate)
 {
 	if (pll_initialized) {
-		pll_pclk_rate = (rate * 3) / 2;
+		pll_pclk_rate = rate;
 		pr_debug("%s: pll_pclk_rate=%d\n", __func__, pll_pclk_rate);
 		return 0;
 	} else {
@@ -148,7 +148,7 @@ static int __mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	REG_W(0xdd, mdss_dsi_base + 0x0294); /* CAL CFG10 */
 	REG_W(0x01, mdss_dsi_base + 0x0298); /* CAL CFG11 */
 
-	REG_W(0x03, mdss_dsi_base + 0x0228); /* postDiv3 */
+	REG_W(0x05, mdss_dsi_base + 0x0228); /* postDiv3 */
 	REG_W(0x2b, mdss_dsi_base + 0x0278); /* Cal CFG3 */
 	REG_W(0x66, mdss_dsi_base + 0x027c); /* Cal CFG4 */
 	REG_W(0x05, mdss_dsi_base + 0x0264); /* LKDET CFG2 */
