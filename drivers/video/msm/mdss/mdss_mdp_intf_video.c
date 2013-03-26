@@ -242,7 +242,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 		ctx->timegen_en = false;
 
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_TIMEGEN_OFF, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_OFF, NULL);
 		WARN(rc, "intf %d timegen off error (%d)\n", ctl->intf_num, rc);
 
 		mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_UNDER_RUN,
@@ -359,8 +359,8 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 				rc, ctl->num);
 
 		ctx->timegen_en = true;
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_TIMEGEN_ON, NULL);
-		WARN(rc, "intf %d timegen on error (%d)\n", ctl->intf_num, rc);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL);
+		WARN(rc, "intf %d panel on error (%d)\n", ctl->intf_num, rc);
 	}
 
 	return 0;

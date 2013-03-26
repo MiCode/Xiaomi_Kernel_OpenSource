@@ -42,6 +42,9 @@ enum {
 	MDP_INTR_PING_PONG_0,
 	MDP_INTR_PING_PONG_1,
 	MDP_INTR_PING_PONG_2,
+	MDP_INTR_PING_PONG_0_RD_PTR,
+	MDP_INTR_PING_PONG_1_RD_PTR,
+	MDP_INTR_PING_PONG_2_RD_PTR,
 	MDP_INTR_WB_0,
 	MDP_INTR_WB_1,
 	MDP_INTR_WB_2,
@@ -68,6 +71,9 @@ static int mdss_mdp_intr2index(u32 intr_type, u32 intf_num)
 		break;
 	case MDSS_MDP_IRQ_PING_PONG_COMP:
 		index = MDP_INTR_PING_PONG_0 + intf_num;
+		break;
+	case MDSS_MDP_IRQ_PING_PONG_RD_PTR:
+		index = MDP_INTR_PING_PONG_0_RD_PTR + intf_num;
 		break;
 	case MDSS_MDP_IRQ_WB_ROT_COMP:
 		index = MDP_INTR_WB_0 + intf_num;
@@ -126,10 +132,11 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	if (isr == 0)
 		goto mdp_isr_done;
 
-	pr_debug("isr=%x\n", isr);
 
 	mask = MDSS_MDP_REG_READ(MDSS_MDP_REG_INTR_EN);
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_INTR_CLEAR, isr);
+
+	pr_debug("%s: isr=%x mask=%x\n", __func__, isr, mask);
 
 	isr &= mask;
 	if (isr == 0)
@@ -155,6 +162,15 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 
 	if (isr & MDSS_MDP_INTR_PING_PONG_2_DONE)
 		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2);
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_0_RD_PTR)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_0_RD_PTR);
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_1_RD_PTR)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_1_RD_PTR);
+
+	if (isr & MDSS_MDP_INTR_PING_PONG_2_RD_PTR)
+		mdss_mdp_intr_done(MDP_INTR_PING_PONG_2_RD_PTR);
 
 	if (isr & MDSS_MDP_INTR_INTF_0_VSYNC)
 		mdss_mdp_intr_done(MDP_INTR_VSYNC_INTF_0);
