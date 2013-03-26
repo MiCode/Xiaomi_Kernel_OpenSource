@@ -281,7 +281,6 @@ config ARCH_MSM8974
 	select MSM_RPM_STATS_LOG
 	select QMI_ENCDEC
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
-	select SENSORS_ADSP
 	select MSM_ULTRASOUND_B
 	select MSM_LPM_TEST
 	select MSM_RPM_LOG
@@ -2642,6 +2641,8 @@ config MSM_OCMEM_POWER_DISABLE
 
 config SENSORS_ADSP
 	bool "Enable Sensors Driver Support for ADSP"
+	depends on (ARCH_MSM8226 || ARCH_MSM8974)
+	default y
 	help
 	  Add support for sensors ADSP driver.
 	  This driver is used for exercising different sensors use cases,
