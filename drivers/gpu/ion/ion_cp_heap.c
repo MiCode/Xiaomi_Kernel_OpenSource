@@ -614,6 +614,11 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 			int i;
 			pgprot_t pgprot;
 
+			if (!pages) {
+				mutex_unlock(&cp_heap->lock);
+				return ERR_PTR(-ENOMEM);
+			}
+
 			if (ION_IS_CACHED(buffer->flags))
 				pgprot = PAGE_KERNEL;
 			else
