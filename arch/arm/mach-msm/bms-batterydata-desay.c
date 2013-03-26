@@ -84,4 +84,5 @@ struct bms_battery_data desay_5200_data = {
 	.pc_sf_lut		= &desay_5200_pc_sf,
 	.default_rbatt_mohm	= 156,
 	.rbatt_capacitive_mohm	= 50,
+	.flat_ocv_threshold_uv	= 3800000,
 };
