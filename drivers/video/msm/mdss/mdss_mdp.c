@@ -1215,9 +1215,10 @@ ftch_alloc_fail:
 static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 {
 
-	u32 nmixers, ndspp;
+	u32 nmixers, ndspp, npingpong;
 	int rc = 0;
-	u32 *mixer_offsets = NULL, *dspp_offsets = NULL;
+	u32 *mixer_offsets = NULL, *dspp_offsets = NULL,
+	    *pingpong_offsets = NULL;
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
@@ -1227,10 +1228,17 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 				"qcom,mdss-mixer-wb-off");
 	ndspp = mdss_mdp_parse_dt_prop_len(pdev,
 				"qcom,mdss-dspp-off");
+	npingpong = mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pingpong-off");
 	nmixers = mdata->nmixers_intf + mdata->nmixers_wb;
 
 	if (mdata->nmixers_intf != ndspp) {
 		pr_err("device tree err: unequal no of dspp and intf mixers\n");
+		return -EINVAL;
+	}
+
+	if (mdata->nmixers_intf != npingpong) {
+		pr_err("device tree err: unequal no of pingpong and intf mixers\n");
 		return -EINVAL;
 	}
 
@@ -1245,6 +1253,12 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 		pr_err("no mem assigned: kzalloc fail\n");
 		rc = -ENOMEM;
 		goto dspp_alloc_fail;
+	}
+	pingpong_offsets = kzalloc(sizeof(u32) * npingpong, GFP_KERNEL);
+	if (!pingpong_offsets) {
+		pr_err("no mem assigned: kzalloc fail\n");
+		rc = -ENOMEM;
+		goto pingpong_alloc_fail;
 	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-intf-off",
@@ -1262,19 +1276,26 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pingpong-off",
+		pingpong_offsets, npingpong);
+	if (rc)
+		goto parse_done;
+
 	rc = mdss_mdp_mixer_addr_setup(mdata, mixer_offsets,
-			dspp_offsets, MDSS_MDP_MIXER_TYPE_INTF,
-			mdata->nmixers_intf);
+			dspp_offsets, pingpong_offsets,
+			MDSS_MDP_MIXER_TYPE_INTF, mdata->nmixers_intf);
 	if (rc)
 		goto parse_done;
 
 	rc = mdss_mdp_mixer_addr_setup(mdata, mixer_offsets +
-			mdata->nmixers_intf, NULL,
+			mdata->nmixers_intf, NULL, NULL,
 			MDSS_MDP_MIXER_TYPE_WRITEBACK, mdata->nmixers_wb);
 	if (rc)
 		goto parse_done;
 
 parse_done:
+	kfree(pingpong_offsets);
+pingpong_alloc_fail:
 	kfree(dspp_offsets);
 dspp_alloc_fail:
 	kfree(mixer_offsets);

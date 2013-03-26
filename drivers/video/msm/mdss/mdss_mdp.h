@@ -156,6 +156,7 @@ struct mdss_mdp_mixer {
 	u32 ref_cnt;
 	char __iomem *base;
 	char __iomem *dspp_base;
+	char __iomem *pingpong_base;
 	u8 type;
 	u8 params_changed;
 	u16 width;
@@ -295,6 +296,17 @@ static inline u32 mdss_mdp_ctl_read(struct mdss_mdp_ctl *ctl, u32 reg)
 	return readl_relaxed(ctl->base + reg);
 }
 
+static inline void mdss_mdp_pingpong_write(struct mdss_mdp_mixer *mixer,
+				      u32 reg, u32 val)
+{
+	writel_relaxed(val, mixer->pingpong_base + reg);
+}
+
+static inline u32 mdss_mdp_pingpong_read(struct mdss_mdp_mixer *mixer, u32 reg)
+{
+	return readl_relaxed(mixer->pingpong_base + reg);
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_iommu_attach(struct mdss_data_type *mdata);
 int mdss_mdp_copy_splash_screen(struct mdss_panel_data *pdata);
@@ -401,7 +413,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer);
 int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata, u32 *offsets,
 		u32 *ftch_y_id, u32 type, u32 num_base, u32 len);
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata, u32 *mixer_offsets,
-		u32 *dspp_offsets, u32 type, u32 len);
+		u32 *dspp_offsets, u32 *pingpong_offsets, u32 type, u32 len);
 int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
 		u32 *wb_offsets, u32 len);
 
