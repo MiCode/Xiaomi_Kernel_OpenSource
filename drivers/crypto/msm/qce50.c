@@ -2728,6 +2728,7 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 		rc = clk_set_rate(pce_dev->ce_core_src_clk, 100000000);
 		if (rc) {
 			clk_put(pce_dev->ce_core_src_clk);
+			pce_dev->ce_core_src_clk = NULL;
 			pr_err("Unable to set the core src clk @100Mhz.\n");
 			goto err_clk;
 		}
@@ -2735,7 +2736,6 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 		pr_warn("Unable to get CE core src clk, set to NULL\n");
 		pce_dev->ce_core_src_clk = NULL;
 	}
-	pce_dev->ce_core_src_clk = ce_core_src_clk;
 
 	/* Get CE core clk */
 	ce_core_clk = clk_get(pce_dev->pdev, "core_clk");
@@ -2805,34 +2805,29 @@ static int __qce_enable_clk(void *handle)
 	int rc = 0;
 
 	/* Enable CE core clk */
-	rc = clk_prepare_enable(pce_dev->ce_core_clk);
-	if (rc) {
-		pr_err("Unable to enable/prepare CE core clk\n");
-		return rc;
+	if (pce_dev->ce_core_clk != NULL) {
+		rc = clk_prepare_enable(pce_dev->ce_core_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE core clk\n");
+			return rc;
+		}
 	}
 	/* Enable CE clk */
-	rc = clk_prepare_enable(pce_dev->ce_clk);
-	if (rc) {
-		pr_err("Unable to enable/prepare CE iface clk\n");
-		clk_disable_unprepare(pce_dev->ce_core_clk);
-	return rc;
+	if (pce_dev->ce_clk != NULL) {
+		rc = clk_prepare_enable(pce_dev->ce_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE iface clk\n");
+			clk_disable_unprepare(pce_dev->ce_core_clk);
+			return rc;
+		}
 	}
 	/* Enable AXI clk */
-	rc = clk_prepare_enable(pce_dev->ce_bus_clk);
-	if (rc) {
-		pr_err("Unable to enable/prepare CE BUS clk\n");
-		clk_disable_unprepare(pce_dev->ce_clk);
-		clk_disable_unprepare(pce_dev->ce_core_clk);
-		return rc;
-	}
-	/* Enable CORE SRC (INTERFACE)  clk */
-	if (pce_dev->ce_core_src_clk != NULL) {
-		rc = clk_prepare_enable(pce_dev->ce_core_src_clk);
+	if (pce_dev->ce_bus_clk != NULL) {
+		rc = clk_prepare_enable(pce_dev->ce_bus_clk);
 		if (rc) {
 			pr_err("Unable to enable/prepare CE BUS clk\n");
 			clk_disable_unprepare(pce_dev->ce_clk);
 			clk_disable_unprepare(pce_dev->ce_core_clk);
-			clk_disable_unprepare(pce_dev->ce_bus_clk);
 			return rc;
 		}
 	}
@@ -2846,8 +2841,6 @@ static int __qce_disable_clk(void *handle)
 
 	if (pce_dev->ce_clk != NULL)
 		clk_disable_unprepare(pce_dev->ce_clk);
-	if (pce_dev->ce_core_src_clk != NULL)
-		clk_disable_unprepare(pce_dev->ce_core_src_clk);
 	if (pce_dev->ce_core_clk != NULL)
 		clk_disable_unprepare(pce_dev->ce_core_clk);
 	if (pce_dev->ce_bus_clk != NULL)
