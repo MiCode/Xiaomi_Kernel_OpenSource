@@ -87,8 +87,13 @@ static struct devfreq_simple_ondemand_data adreno_ondemand_data = {
 	.downdifferential = 20,
 };
 
+static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
+	.device_id = KGSL_DEVICE_3D0,
+};
+
 static const struct devfreq_governor_data adreno_governors[] = {
 	{ .name = "simple_ondemand", .data = &adreno_ondemand_data },
+	{ .name = "msm-adreno-tz", .data = &adreno_tz_data },
 };
 
 static const struct kgsl_functable adreno_functable;
