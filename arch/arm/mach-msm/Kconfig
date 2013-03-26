@@ -368,10 +368,8 @@ config ARCH_MSM9625
 	select ARM_GIC
 	select MIGHT_HAVE_CACHE_L2X0
 	select ARCH_MSM_CORTEX_A5
-	select SMP
-	select MSM_SMP
 	select CPU_V7
-	select MSM_SCM if SMP
+	select MSM_SCM
 	select MSM_GPIOMUX
 	select MSM_RPM_SMD
 	select MSM_NATIVE_RESTART
