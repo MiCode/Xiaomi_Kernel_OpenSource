@@ -94,6 +94,31 @@ static void ci13xxx_msm_connect(struct ci13xxx *ci)
 	}
 }
 
+static void ci13xxx_msm_reset(struct ci13xxx* ci)
+{
+	struct usb_phy *phy = ci->transceiver;
+	struct device *dev = ci->gadget.dev.parent;
+
+	writel_relaxed(0, USB_AHBBURST);
+	writel_relaxed(0x08, USB_AHBMODE);
+
+	if (phy && (phy->flags & ENABLE_SECONDARY_PHY)) {
+		int	temp;
+
+		dev_dbg(dev, "using secondary hsphy\n");
+		temp = readl_relaxed(USB_PHY_CTRL2);
+		temp |= (1<<16);
+		writel_relaxed(temp, USB_PHY_CTRL2);
+
+		/*
+		 * Add memory barrier to make sure above LINK writes are
+		 * complete before moving ahead with USB peripheral mode
+		 * enumeration.
+		 */
+		mb();
+	}
+}
+
 static void ci13xxx_msm_notify_event(struct ci13xxx *ci, unsigned event)
 {
 	struct device *dev = ci->gadget.dev.parent;
@@ -101,8 +126,7 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *ci, unsigned event)
 	switch (event) {
 	case CI13XXX_CONTROLLER_RESET_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_RESET_EVENT received\n");
-		writel(0, USB_AHBBURST);
-		writel_relaxed(0x8, USB_AHBMODE);
+		ci13xxx_msm_reset(ci);
 		break;
 	case CI13XXX_CONTROLLER_DISCONNECT_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_DISCONNECT_EVENT received\n");
