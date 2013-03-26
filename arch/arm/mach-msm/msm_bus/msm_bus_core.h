@@ -182,7 +182,7 @@ struct msm_bus_fab_algorithm {
 };
 
 struct msm_bus_board_algorithm {
-	const int board_nfab;
+	int board_nfab;
 	void (*assign_iids)(struct msm_bus_fabric_registration *fabreg,
 		int fabid);
 	int (*get_iid)(int id);

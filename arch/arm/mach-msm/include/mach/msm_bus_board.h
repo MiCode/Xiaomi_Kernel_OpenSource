@@ -102,9 +102,8 @@ void msm_bus_rpm_set_mt_mask(void);
 int msm_bus_board_rpm_get_il_ids(uint16_t *id);
 int msm_bus_board_get_iid(int id);
 
-#ifdef CONFIG_ARCH_MSM8226
-#define NFAB 6
-#endif
+#define NFAB_MSM8226 6
+#define NFAB_MSM8610 5
 
 /*
  * These macros specify the convention followed for allocating
@@ -302,6 +301,7 @@ enum msm_bus_fabric_master_type {
 	MSM_BUS_MASTER_V_OCMEM_GFX3D,
 	MSM_BUS_MASTER_IPA,
 	MSM_BUS_MASTER_QPIC,
+	MSM_BUS_MASTER_MDPE,
 
 	MSM_BUS_MASTER_LAST,
 
@@ -459,6 +459,7 @@ enum msm_bus_fabric_slave_type {
 	MSM_BUS_SLAVE_SERVICE_CNOC,
 	MSM_BUS_SLAVE_IPS_CFG,
 	MSM_BUS_SLAVE_QPIC,
+	MSM_BUS_SLAVE_DSI_CFG,
 
 	MSM_BUS_SLAVE_LAST,
 

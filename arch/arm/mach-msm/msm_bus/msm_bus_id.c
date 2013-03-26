@@ -19,6 +19,7 @@
 #include <mach/msm_bus_board.h>
 #include <mach/board.h>
 #include <mach/rpm.h>
+#include <mach/socinfo.h>
 #include "msm_bus_core.h"
 #include "msm_bus_noc.h"
 #include "msm_bus_bimc.h"
@@ -67,7 +68,6 @@ static int msm_bus_get_iid(int id)
 
 
 static struct msm_bus_board_algorithm msm_bus_id_algo = {
-	.board_nfab = NFAB,
 	.get_iid = msm_bus_get_iid,
 	.assign_iids = msm_bus_assign_iids,
 };
@@ -79,5 +79,10 @@ int msm_bus_board_rpm_get_il_ids(uint16_t *id)
 
 void msm_bus_board_init(struct msm_bus_fabric_registration *pdata)
 {
+	if (machine_is_msm8226())
+		msm_bus_id_algo.board_nfab = NFAB_MSM8226;
+	else if (machine_is_msm8610())
+		msm_bus_id_algo.board_nfab = NFAB_MSM8610;
+
 	pdata->board_algo = &msm_bus_id_algo;
 }
