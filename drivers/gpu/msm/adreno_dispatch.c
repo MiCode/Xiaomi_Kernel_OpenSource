@@ -1335,11 +1335,12 @@ static void adreno_dispatcher_work(struct work_struct *work)
 	 * into suspend even if there are queued command batches
 	 */
 
-	if (count && dispatcher->inflight == 0) {
-		mutex_lock(&device->mutex);
+	mutex_lock(&device->mutex);
+	if (count && dispatcher->inflight == 0)
 		kgsl_active_count_put(device);
-		mutex_unlock(&device->mutex);
-	}
+	else
+		kgsl_pwrscale_update(device);
+	mutex_unlock(&device->mutex);
 
 	/* Dispatch new commands if we have the room */
 	if (dispatcher->inflight < _dispatcher_inflight)
@@ -1357,11 +1358,6 @@ done:
 		del_timer_sync(&dispatcher->timer);
 		del_timer_sync(&dispatcher->fault_timer);
 	}
-
-	/* Before leaving update the pwrscale information */
-	mutex_lock(&device->mutex);
-	kgsl_pwrscale_idle(device);
-	mutex_unlock(&device->mutex);
 
 	mutex_unlock(&dispatcher->mutex);
 }

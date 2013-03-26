@@ -88,7 +88,6 @@ struct kgsl_pwrctrl {
 	uint32_t pcl;
 	unsigned int idle_needed;
 	const char *irq_name;
-	s64 time;
 	struct kgsl_clk_stats clk_stats;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_latency;
@@ -115,6 +114,18 @@ bool kgsl_pwrctrl_isenabled(struct kgsl_device *device);
 static inline unsigned long kgsl_get_clkrate(struct clk *clk)
 {
 	return (clk != NULL) ? clk_get_rate(clk) : 0;
+}
+
+/*
+ * kgsl_pwrctrl_active_freq - get currently configured frequency
+ * @pwr: kgsl_pwrctrl structure for the device
+ *
+ * Returns the currently configured frequency for the device.
+ */
+static inline unsigned long
+kgsl_pwrctrl_active_freq(struct kgsl_pwrctrl *pwr)
+{
+	return pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq;
 }
 
 void kgsl_pwrctrl_set_state(struct kgsl_device *device, unsigned int state);
