@@ -37,9 +37,6 @@ struct rpm_clk {
 	const int rpm_clk_id;
 	const int rpm_status_id;
 	const bool active_only;
-	unsigned last_set_khz;
-	/* 0 if active_only. Otherwise, same as last_set_khz. */
-	unsigned last_set_sleep_khz;
 	bool enabled;
 	bool branch; /* true: RPM only accepts 1 for ON and 0 for OFF */
 	unsigned factor;
@@ -107,8 +104,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpm_status_id = (stat_id), \
 		.rpm_key = (key), \
 		.peer = &active, \
-		.last_set_khz = ((r) / 1000), \
-		.last_set_sleep_khz = ((r) / 1000), \
 		.factor = 1000, \
 		.branch = true, \
 		.rpmrs_data = (rpmrsdata),\
@@ -125,7 +120,6 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpm_status_id = (stat_id), \
 		.rpm_key = (key), \
 		.peer = &name, \
-		.last_set_khz = ((r) / 1000), \
 		.active_only = true, \
 		.factor = 1000, \
 		.branch = true, \
