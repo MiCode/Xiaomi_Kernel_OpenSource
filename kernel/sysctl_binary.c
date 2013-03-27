@@ -138,6 +138,7 @@ static const struct bin_table bin_kern_table[] = {
 	{ CTL_INT,	KERN_MAX_LOCK_DEPTH,		"max_lock_depth" },
 	{ CTL_INT,	KERN_PANIC_ON_NMI,		"panic_on_unrecovered_nmi" },
 	{ CTL_INT,	KERN_BOOT_REASON,		"boot_reason" },
+	{ CTL_INT,	KERN_COLD_BOOT,			"cold_boot" },
 	{}
 };
 
