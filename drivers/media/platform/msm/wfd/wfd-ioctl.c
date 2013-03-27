@@ -25,8 +25,9 @@
 #include <mach/board.h>
 
 #include <media/v4l2-dev.h>
-#include <media/v4l2-ioctl.h>
 #include <media/v4l2-device.h>
+#include <media/v4l2-event.h>
+#include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-msm-mem.h>
@@ -42,6 +43,7 @@
 #define DEFAULT_WFD_WIDTH 1280
 #define DEFAULT_WFD_HEIGHT 720
 #define VENC_INPUT_BUFFERS 4
+#define MAX_EVENTS 16
 
 struct wfd_device {
 	struct mutex dev_lock;
@@ -92,11 +94,17 @@ struct wfd_inst {
 	struct list_head input_mem_list;
 	struct wfd_stats stats;
 	struct completion stop_mdp_thread;
+	struct v4l2_fh event_handler;
 };
 
 struct wfd_vid_buffer {
 	struct vb2_buffer    vidbuf;
 };
+
+static inline struct wfd_inst *file_to_inst(struct file *filp)
+{
+	return container_of(filp->private_data, struct wfd_inst, event_handler);
+}
 
 static int wfd_vidbuf_queue_setup(struct vb2_queue *q,
 				   const struct v4l2_format *fmt,
@@ -105,7 +113,7 @@ static int wfd_vidbuf_queue_setup(struct vb2_queue *q,
 				   unsigned int sizes[], void *alloc_ctxs[])
 {
 	struct file *priv_data = (struct file *)(q->drv_priv);
-	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
+	struct wfd_inst *inst = file_to_inst(priv_data);
 	unsigned long flags;
 	int i;
 
@@ -124,10 +132,11 @@ static int wfd_vidbuf_queue_setup(struct vb2_queue *q,
 	return 0;
 }
 
-void wfd_vidbuf_wait_prepare(struct vb2_queue *q)
+static void wfd_vidbuf_wait_prepare(struct vb2_queue *q)
 {
 }
-void wfd_vidbuf_wait_finish(struct vb2_queue *q)
+
+static void wfd_vidbuf_wait_finish(struct vb2_queue *q)
 {
 }
 
@@ -236,7 +245,8 @@ static int wfd_flush_ion_buffer(struct ion_client *client,
 			ION_IOC_INV_CACHES);
 
 }
-int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
+
+static int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 			struct wfd_inst *inst)
 {
 	int i;
@@ -389,7 +399,8 @@ alloc_fail:
 recon_alloc_fail:
 	return rc;
 }
-void wfd_free_input_buffers(struct wfd_device *wfd_dev,
+
+static void wfd_free_input_buffers(struct wfd_device *wfd_dev,
 			struct wfd_inst *inst)
 {
 	struct list_head *ptr, *next;
@@ -450,7 +461,7 @@ void wfd_free_input_buffers(struct wfd_device *wfd_dev,
 		WFD_MSG_ERR("Failed to free recon buffers\n");
 }
 
-struct mem_info *wfd_get_mem_info(struct wfd_inst *inst,
+static struct mem_info *wfd_get_mem_info(struct wfd_inst *inst,
 			unsigned long userptr)
 {
 	struct mem_info_entry *temp;
@@ -468,7 +479,8 @@ struct mem_info *wfd_get_mem_info(struct wfd_inst *inst,
 	spin_unlock_irqrestore(&inst->inst_lock, flags);
 	return ret;
 }
-void wfd_put_mem_info(struct wfd_inst *inst,
+
+static void wfd_put_mem_info(struct wfd_inst *inst,
 			struct mem_info *minfo)
 {
 	struct list_head *ptr, *next;
@@ -497,12 +509,13 @@ static void wfd_unregister_out_buf(struct wfd_inst *inst,
 	}
 	wfd_put_mem_info(inst, minfo);
 }
-int wfd_vidbuf_buf_init(struct vb2_buffer *vb)
+
+static int wfd_vidbuf_buf_init(struct vb2_buffer *vb)
 {
 	int rc = 0;
 	struct vb2_queue *q = vb->vb2_queue;
 	struct file *priv_data = (struct file *)(q->drv_priv);
-	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
+	struct wfd_inst *inst = file_to_inst(priv_data);
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(priv_data);
 	struct mem_info *minfo = vb2_plane_cookie(vb, 0);
@@ -532,24 +545,24 @@ free_input_bufs:
 	return rc;
 }
 
-int wfd_vidbuf_buf_prepare(struct vb2_buffer *vb)
+static int wfd_vidbuf_buf_prepare(struct vb2_buffer *vb)
 {
 	return 0;
 }
 
-int wfd_vidbuf_buf_finish(struct vb2_buffer *vb)
+static int wfd_vidbuf_buf_finish(struct vb2_buffer *vb)
 {
 	return 0;
 }
 
-void wfd_vidbuf_buf_cleanup(struct vb2_buffer *vb)
+static void wfd_vidbuf_buf_cleanup(struct vb2_buffer *vb)
 {
 	int rc = 0;
 	struct vb2_queue *q = vb->vb2_queue;
 	struct file *priv_data = (struct file *)(q->drv_priv);
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(priv_data);
-	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
+	struct wfd_inst *inst = file_to_inst(priv_data);
 	struct mem_info *minfo = vb2_plane_cookie(vb, 0);
 	struct mem_region mregion;
 
@@ -574,7 +587,7 @@ static int mdp_output_thread(void *data)
 {
 	int rc = 0, no_sig_wait = 0;
 	struct file *filp = (struct file *)data;
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(filp);
 	struct mdp_buf_info obuf_mdp = {inst->mdp_inst, 0, 0, 0};
@@ -633,12 +646,12 @@ static int mdp_output_thread(void *data)
 	return rc;
 }
 
-int wfd_vidbuf_start_streaming(struct vb2_queue *q, unsigned int count)
+static int wfd_vidbuf_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct file *priv_data = (struct file *)(q->drv_priv);
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(priv_data);
-	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
+	struct wfd_inst *inst = file_to_inst(priv_data);
 	int rc = 0;
 
 	WFD_MSG_ERR("Stream on called\n");
@@ -657,6 +670,7 @@ int wfd_vidbuf_start_streaming(struct vb2_queue *q, unsigned int count)
 		WFD_MSG_ERR("Failed to start vsg\n");
 		goto subdev_start_fail;
 	}
+
 	init_completion(&inst->stop_mdp_thread);
 	inst->mdp_task = kthread_run(mdp_output_thread, priv_data,
 				"mdp_output_thread");
@@ -673,12 +687,12 @@ subdev_start_fail:
 	return rc;
 }
 
-int wfd_vidbuf_stop_streaming(struct vb2_queue *q)
+static int wfd_vidbuf_stop_streaming(struct vb2_queue *q)
 {
 	struct file *priv_data = (struct file *)(q->drv_priv);
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(priv_data);
-	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
+	struct wfd_inst *inst = file_to_inst(priv_data);
 	int rc = 0;
 	WFD_MSG_DBG("mdp stop\n");
 	rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
@@ -707,14 +721,14 @@ int wfd_vidbuf_stop_streaming(struct vb2_queue *q)
 	return rc;
 }
 
-void wfd_vidbuf_buf_queue(struct vb2_buffer *vb)
+static void wfd_vidbuf_buf_queue(struct vb2_buffer *vb)
 {
 	int rc = 0;
 	struct vb2_queue *q = vb->vb2_queue;
 	struct file *priv_data = (struct file *)(q->drv_priv);
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(priv_data);
-	struct wfd_inst *inst = (struct wfd_inst *)priv_data->private_data;
+	struct wfd_inst *inst = file_to_inst(priv_data);
 	struct mem_region mregion;
 	struct mem_info *minfo = vb2_plane_cookie(vb, 0);
 	mregion.fd = minfo->fd;
@@ -787,7 +801,7 @@ static int wfdioc_querycap(struct file *filp, void *fh,
 static int wfdioc_g_fmt(struct file *filp, void *fh,
 			struct v4l2_format *fmt)
 {
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	unsigned long flags;
 	if (!fmt) {
 		WFD_MSG_ERR("Invalid argument\n");
@@ -811,7 +825,7 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 			struct v4l2_format *fmt)
 {
 	int rc = 0;
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	struct wfd_device *wfd_dev = video_drvdata(filp);
 	struct mdp_prop prop;
 	unsigned long flags;
@@ -862,7 +876,7 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 static int wfdioc_reqbufs(struct file *filp, void *fh,
 		struct v4l2_requestbuffers *b)
 {
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	struct wfd_device *wfd_dev = video_drvdata(filp);
 	unsigned long flags;
 	int rc = 0;
@@ -918,7 +932,7 @@ static int wfdioc_qbuf(struct file *filp, void *fh,
 		struct v4l2_buffer *b)
 {
 	int rc = 0;
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	if (!inst || !b ||
 			(b->index < 0 || b->index >= inst->buf_count)) {
 		WFD_MSG_ERR("Invalid input parameters to QBUF IOCTL\n");
@@ -943,7 +957,7 @@ static int wfdioc_streamon(struct file *filp, void *fh,
 		enum v4l2_buf_type i)
 {
 	int rc = 0;
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	unsigned long flags;
 	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
 		WFD_MSG_ERR("stream on for buffer type = %d is not "
@@ -969,7 +983,7 @@ vidbuf_streamon_failed:
 static int wfdioc_streamoff(struct file *filp, void *fh,
 		enum v4l2_buf_type i)
 {
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	unsigned long flags;
 
 	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
@@ -993,7 +1007,7 @@ static int wfdioc_streamoff(struct file *filp, void *fh,
 static int wfdioc_dqbuf(struct file *filp, void *fh,
 		struct v4l2_buffer *b)
 {
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	int rc;
 
 	WFD_MSG_DBG("Waiting to dequeue buffer\n");
@@ -1057,7 +1071,7 @@ static int wfdioc_g_parm(struct file *filp, void *fh,
 {
 	int rc = 0;
 	struct wfd_device *wfd_dev = video_drvdata(filp);
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	int64_t frame_interval = 0,
 		max_frame_interval = 0; /* both in nsecs*/
 	struct v4l2_qcom_frameskip frameskip, *usr_frameskip;
@@ -1112,7 +1126,7 @@ static int wfdioc_s_parm(struct file *filp, void *fh,
 {
 	int rc = 0;
 	struct wfd_device *wfd_dev = video_drvdata(filp);
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	struct v4l2_qcom_frameskip frameskip;
 	int64_t frame_interval, max_frame_interval;
 	void *extendedmode = NULL;
@@ -1200,6 +1214,22 @@ set_parm_fail:
 	return rc;
 }
 
+static int wfdioc_subscribe_event(struct v4l2_fh *fh,
+		struct v4l2_event_subscription *sub)
+{
+	struct wfd_inst *inst = container_of(fh, struct wfd_inst,
+			event_handler);
+	return v4l2_event_subscribe(&inst->event_handler, sub, MAX_EVENTS);
+}
+
+static int wfdioc_unsubscribe_event(struct v4l2_fh *fh,
+		struct v4l2_event_subscription *sub)
+{
+	struct wfd_inst *inst = container_of(fh, struct wfd_inst,
+			event_handler);
+	return v4l2_event_unsubscribe(&inst->event_handler, sub);
+}
+
 static const struct v4l2_ioctl_ops g_wfd_ioctl_ops = {
 	.vidioc_querycap = wfdioc_querycap,
 	.vidioc_s_fmt_vid_cap = wfdioc_s_fmt,
@@ -1213,13 +1243,16 @@ static const struct v4l2_ioctl_ops g_wfd_ioctl_ops = {
 	.vidioc_s_ctrl = wfdioc_s_ctrl,
 	.vidioc_g_parm = wfdioc_g_parm,
 	.vidioc_s_parm = wfdioc_s_parm,
+	.vidioc_subscribe_event = wfdioc_subscribe_event,
+	.vidioc_unsubscribe_event = wfdioc_unsubscribe_event,
+
 };
 static int wfd_set_default_properties(struct file *filp)
 {
 	unsigned long flags;
 	struct v4l2_format fmt;
 	struct v4l2_control ctrl;
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	if (!inst) {
 		WFD_MSG_ERR("Invalid argument\n");
 		return -EINVAL;
@@ -1249,7 +1282,7 @@ static void venc_ip_buffer_done(void *cookie, u32 status,
 			struct mem_region *mregion)
 {
 	struct file *filp = cookie;
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	struct vsg_buf_info buf;
 	struct mdp_buf_info mdp_buf = {0};
 	struct wfd_device *wfd_dev =
@@ -1273,10 +1306,33 @@ static void venc_ip_buffer_done(void *cookie, u32 status,
 
 }
 
+static void venc_on_event(void *cookie, enum venc_event e)
+{
+	struct file *filp = cookie;
+	struct wfd_inst *inst = file_to_inst(filp);
+	struct v4l2_event event;
+	int type = 0;
+
+	switch (e) {
+	case VENC_EVENT_HARDWARE_ERROR:
+		type = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
+		break;
+	default:
+		/* Whatever~~ */
+		break;
+	}
+
+	if (type) {
+		event.id = 0;
+		event.type = type;
+		v4l2_event_queue_fh(&inst->event_handler, &event);
+	}
+}
+
 static int vsg_release_input_frame(void *cookie, struct vsg_buf_info *buf)
 {
 	struct file *filp = cookie;
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(filp);
 	int rc = 0;
@@ -1296,7 +1352,7 @@ static int vsg_release_input_frame(void *cookie, struct vsg_buf_info *buf)
 static int vsg_encode_frame(void *cookie, struct vsg_buf_info *buf)
 {
 	struct file *filp = cookie;
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 	struct wfd_device *wfd_dev =
 		(struct wfd_device *)video_drvdata(filp);
 	struct venc_buf_info venc_buf;
@@ -1389,10 +1445,14 @@ static int wfd_open(struct file *filp)
 		rc = -ENOMEM;
 		goto err_mdp_open;
 	}
-	filp->private_data = inst;
+	filp->private_data = &inst->event_handler;
 	spin_lock_init(&inst->inst_lock);
 	INIT_LIST_HEAD(&inst->input_mem_list);
 	INIT_LIST_HEAD(&inst->minfo_list);
+
+	/* Set up userspace event handlers */
+	v4l2_fh_init(&inst->event_handler, wfd_dev->pvdev);
+	v4l2_fh_add(&inst->event_handler);
 
 	wfd_stats_init(&inst->stats, MINOR(filp->f_dentry->d_inode->i_rdev));
 
@@ -1411,8 +1471,10 @@ static int wfd_open(struct file *filp)
 		WFD_MSG_ERR("Failed to load video encoder firmware: %d\n", rc);
 		goto err_venc;
 	}
+
 	enc_mops.op_buffer_done = venc_op_buffer_done;
 	enc_mops.ip_buffer_done = venc_ip_buffer_done;
+	enc_mops.on_event = venc_on_event;
 	enc_mops.cbdata = filp;
 	enc_mops.secure = wfd_dev->secure;
 	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core, ioctl, OPEN,
@@ -1444,9 +1506,12 @@ err_venc:
 	v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl,
 				MDP_CLOSE, (void *)inst->mdp_inst);
 err_mdp_open:
+	v4l2_fh_del(&inst->event_handler);
+
 	mutex_lock(&wfd_dev->dev_lock);
 	wfd_dev->in_use = false;
 	mutex_unlock(&wfd_dev->dev_lock);
+
 	kfree(inst);
 err_dev_busy:
 	return rc;
@@ -1459,7 +1524,7 @@ static int wfd_close(struct file *filp)
 	int rc = 0;
 	wfd_dev = video_drvdata(filp);
 	WFD_MSG_DBG("wfd_close: E\n");
-	inst = filp->private_data;
+	inst = file_to_inst(filp);
 	if (inst) {
 		wfdioc_streamoff(filp, NULL, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 		vb2_queue_release(&inst->vid_bufq);
@@ -1484,6 +1549,8 @@ static int wfd_close(struct file *filp)
 		kfree(inst);
 	}
 
+	v4l2_fh_del(&inst->event_handler);
+
 	mutex_lock(&wfd_dev->dev_lock);
 	wfd_dev->in_use = false;
 	mutex_unlock(&wfd_dev->dev_lock);
@@ -1491,12 +1558,28 @@ static int wfd_close(struct file *filp)
 	WFD_MSG_DBG("wfd_close: X\n");
 	return 0;
 }
+
+unsigned int wfd_poll(struct file *filp, struct poll_table_struct *pt)
+{
+	struct wfd_inst *inst = file_to_inst(filp);
+	unsigned int flags = 0;
+
+	poll_wait(filp, &inst->event_handler.wait, pt);
+
+	if (v4l2_event_pending(&inst->event_handler))
+		flags |= POLLPRI;
+
+	return flags;
+}
+
 static const struct v4l2_file_operations g_wfd_fops = {
 	.owner = THIS_MODULE,
 	.open = wfd_open,
 	.release = wfd_close,
-	.ioctl = video_ioctl2
+	.ioctl = video_ioctl2,
+	.poll = wfd_poll,
 };
+
 void release_video_device(struct video_device *pvdev)
 {
 
