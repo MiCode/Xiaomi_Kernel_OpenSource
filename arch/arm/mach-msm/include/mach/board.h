@@ -567,6 +567,8 @@ struct msm_vidc_v4l2_platform_data {
 	 */
 	int64_t **load_table;
 	int num_load_table;
+
+	uint32_t max_load;
 };
 
 struct vcap_platform_data {
