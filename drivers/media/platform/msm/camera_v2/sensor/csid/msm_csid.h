@@ -38,7 +38,6 @@ struct csid_device {
 	uint32_t hw_version;
 	enum msm_csid_state_t csid_state;
 
-	struct clk *csid0_clk[11];
 	struct clk *csid_clk[11];
 };
 

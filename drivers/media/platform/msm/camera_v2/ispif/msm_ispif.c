@@ -175,9 +175,9 @@ static void msm_ispif_sel_csid_core(struct ispif_device *ispif,
 		data |= (csid << 20);
 		break;
 	}
-	if (data)
-		msm_camera_io_w_mb(data, ispif->base +
-			ISPIF_VFE_m_INPUT_SEL(vfe_intf));
+
+	msm_camera_io_w_mb(data, ispif->base +
+		ISPIF_VFE_m_INPUT_SEL(vfe_intf));
 }
 
 static void msm_ispif_enable_crop(struct ispif_device *ispif,
@@ -294,6 +294,58 @@ static int msm_ispif_validate_intf_status(struct ispif_device *ispif,
 	return rc;
 }
 
+static void msm_ispif_select_clk_mux(struct ispif_device *ispif,
+	uint8_t intftype, uint8_t csid, uint8_t vfe_intf)
+{
+	uint32_t data = 0;
+
+	switch (intftype) {
+	case PIX0:
+		data = msm_camera_io_r(ispif->clk_mux_base);
+		data &= ~(0xf << (vfe_intf * 8));
+		data |= (csid << (vfe_intf * 8));
+		msm_camera_io_w(data, ispif->clk_mux_base);
+		break;
+
+	case RDI0:
+		data = msm_camera_io_r(ispif->clk_mux_base +
+			ISPIF_RDI_CLK_MUX_SEL_ADDR);
+		data &= ~(0xf << (vfe_intf * 12));
+		data |= (csid << (vfe_intf * 12));
+		msm_camera_io_w(data, ispif->clk_mux_base +
+			ISPIF_RDI_CLK_MUX_SEL_ADDR);
+		break;
+
+	case PIX1:
+		data = msm_camera_io_r(ispif->clk_mux_base);
+		data &= ~(0xf0 << (vfe_intf * 8));
+		data |= (csid << (4 + (vfe_intf * 8)));
+		msm_camera_io_w(data, ispif->clk_mux_base);
+		break;
+
+	case RDI1:
+		data = msm_camera_io_r(ispif->clk_mux_base +
+			ISPIF_RDI_CLK_MUX_SEL_ADDR);
+		data &= ~(0xf << (4 + (vfe_intf * 12)));
+		data |= (csid << (4 + (vfe_intf * 12)));
+		msm_camera_io_w(data, ispif->clk_mux_base +
+			ISPIF_RDI_CLK_MUX_SEL_ADDR);
+		break;
+
+	case RDI2:
+		data = msm_camera_io_r(ispif->clk_mux_base +
+			ISPIF_RDI_CLK_MUX_SEL_ADDR);
+		data &= ~(0xf << (8 + (vfe_intf * 12)));
+		data |= (csid << (8 + (vfe_intf * 12)));
+		msm_camera_io_w(data, ispif->clk_mux_base +
+			ISPIF_RDI_CLK_MUX_SEL_ADDR);
+		break;
+	}
+	CDBG("%s intftype %d data %x\n", __func__, intftype, data);
+	mb();
+	return;
+}
+
 static uint16_t msm_ispif_get_cids_mask_from_cfg(
 	struct msm_ispif_params_entry *entry)
 {
@@ -357,6 +409,10 @@ static int msm_ispif_config(struct ispif_device *ispif,
 				__func__, vfe_intf, ispif->csid_version);
 			return -EINVAL;
 		}
+
+		if (ispif->csid_version >= CSID_VERSION_V3)
+				msm_ispif_select_clk_mux(ispif, intftype,
+				params->entries[i].csid, vfe_intf);
 
 		rc = msm_ispif_validate_intf_status(ispif, intftype, vfe_intf);
 		if (rc) {
@@ -716,6 +772,22 @@ static int msm_ispif_init(struct ispif_device *ispif,
 
 	ispif->csid_version = csid_version;
 
+	if (ispif->csid_version >= CSID_VERSION_V3) {
+		if (!ispif->clk_mux_mem || !ispif->clk_mux_io) {
+			pr_err("%s csi clk mux mem %p io %p\n", __func__,
+				ispif->clk_mux_mem, ispif->clk_mux_io);
+			rc = -ENOMEM;
+			return rc;
+		}
+		ispif->clk_mux_base = ioremap(ispif->clk_mux_mem->start,
+			resource_size(ispif->clk_mux_mem));
+		if (!ispif->clk_mux_base) {
+			pr_err("%s: clk_mux_mem ioremap failed\n", __func__);
+			rc = -ENOMEM;
+			return rc;
+		}
+	}
+
 	ispif->base = ioremap(ispif->mem->start,
 		resource_size(ispif->mem));
 	if (!ispif->base) {
@@ -770,6 +842,8 @@ static void msm_ispif_release(struct ispif_device *ispif)
 	free_irq(ispif->irq->start, ispif);
 
 	iounmap(ispif->base);
+
+	iounmap(ispif->clk_mux_base);
 
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 }
@@ -941,6 +1015,16 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 		pr_err("%s: no valid mem region\n", __func__);
 		rc = -EBUSY;
 		goto error;
+	}
+	ispif->clk_mux_mem = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "csi_clk_mux");
+	if (ispif->clk_mux_mem) {
+		ispif->clk_mux_io = request_mem_region(
+			ispif->clk_mux_mem->start,
+			resource_size(ispif->clk_mux_mem),
+			ispif->clk_mux_mem->name);
+		if (!ispif->clk_mux_io)
+			pr_err("%s: no valid csi_mux region\n", __func__);
 	}
 
 	ispif->pdev = pdev;

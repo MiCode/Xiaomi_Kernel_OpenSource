@@ -43,14 +43,15 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	uint8_t lane_cnt = 0;
 	uint16_t lane_mask = 0;
 	void __iomem *csiphybase;
+	uint8_t csiphy_id = csiphy_dev->pdev->id;
 	csiphybase = csiphy_dev->base;
 	if (!csiphybase) {
 		pr_err("%s: csiphybase NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	csiphy_dev->lane_mask[csiphy_dev->pdev->id] |= csiphy_params->lane_mask;
-	lane_mask = csiphy_dev->lane_mask[csiphy_dev->pdev->id];
+	csiphy_dev->lane_mask[csiphy_id] |= csiphy_params->lane_mask;
+	lane_mask = csiphy_dev->lane_mask[csiphy_id];
 	lane_cnt = csiphy_params->lane_cnt;
 	if (csiphy_params->lane_cnt < 1 || csiphy_params->lane_cnt > 4) {
 		pr_err("%s: unsupported lane cnt %d\n",
@@ -58,11 +59,28 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		return rc;
 	}
 
-	CDBG("%s csiphy_params, mask = %x, cnt = %d, settle cnt = %x\n",
+	CDBG("%s csiphy_params, mask = %x cnt = %d settle cnt = %x csid %d\n",
 		__func__,
 		csiphy_params->lane_mask,
 		csiphy_params->lane_cnt,
-		csiphy_params->settle_cnt);
+		csiphy_params->settle_cnt,
+		csiphy_params->csid_core);
+
+	if (csiphy_dev->hw_version >= CSIPHY_VERSION_V3) {
+		val = msm_camera_io_r(csiphy_dev->clk_mux_base);
+		if (csiphy_params->combo_mode &&
+			(csiphy_params->lane_mask & 0x18)) {
+			val &= ~0xf0;
+			val |= csiphy_params->csid_core << 4;
+		} else {
+			val &= ~0xf;
+			val |= csiphy_params->csid_core;
+		}
+		msm_camera_io_w(val, csiphy_dev->clk_mux_base);
+		CDBG("%s clk mux addr %p val 0x%x\n", __func__,
+			csiphy_dev->clk_mux_base, val);
+		mb();
+	}
 	msm_camera_io_w(0x1, csiphybase + MIPI_CSIPHY_GLBL_T_INIT_CFG0_ADDR);
 	msm_camera_io_w(0x1, csiphybase + MIPI_CSIPHY_T_WAKEUP_CFG0_ADDR);
 
@@ -204,6 +222,22 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_8960_clk_info), 1);
 	} else {
+		if (!csiphy_dev->clk_mux_mem || !csiphy_dev->clk_mux_io) {
+			pr_err("%s clk mux mem %p io %p\n", __func__,
+				csiphy_dev->clk_mux_mem,
+				csiphy_dev->clk_mux_io);
+			rc = -ENOMEM;
+			return rc;
+		}
+		csiphy_dev->clk_mux_base = ioremap(
+			csiphy_dev->clk_mux_mem->start,
+			resource_size(csiphy_dev->clk_mux_mem));
+		if (!csiphy_dev->clk_mux_base) {
+			pr_err("%s: ERROR %d\n", __func__, __LINE__);
+			rc = -ENOMEM;
+			return rc;
+		}
+
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
@@ -269,12 +303,31 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
+
 	if (CSIPHY_VERSION < CSIPHY_VERSION_V3) {
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_8960_clk_info), 1);
 	} else {
+
+		if (!csiphy_dev->clk_mux_mem || !csiphy_dev->clk_mux_io) {
+			pr_err("%s clk mux mem %p io %p\n", __func__,
+				csiphy_dev->clk_mux_mem,
+				csiphy_dev->clk_mux_io);
+			rc = -ENOMEM;
+			return rc;
+		}
+
+		csiphy_dev->clk_mux_base = ioremap(
+			csiphy_dev->clk_mux_mem->start,
+			resource_size(csiphy_dev->clk_mux_mem));
+		if (!csiphy_dev->clk_mux_base) {
+			pr_err("%s: ERROR %d\n", __func__, __LINE__);
+			rc = -ENOMEM;
+			return rc;
+		}
+
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
@@ -359,14 +412,16 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 
 	disable_irq(csiphy_dev->irq->start);
 
-	if (CSIPHY_VERSION < CSIPHY_VERSION_V3)
+	if (CSIPHY_VERSION < CSIPHY_VERSION_V3) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_8960_clk_info), 0);
-	else
+	} else {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_8974_clk_info), 0);
+			iounmap(csiphy_dev->clk_mux_base);
+	}
 
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
@@ -426,20 +481,23 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_LNCK_CFG2_ADDR);
 	msm_camera_io_w(0x0, csiphy_dev->base + MIPI_CSIPHY_GLBL_PWR_CFG_ADDR);
 
-	if (CSIPHY_VERSION < CSIPHY_VERSION_V3)
+	if (CSIPHY_VERSION < CSIPHY_VERSION_V3) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8960_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_8960_clk_info), 0);
-	else
+	} else {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_8974_clk_info, csiphy_dev->csiphy_clk,
 			ARRAY_SIZE(csiphy_8974_clk_info), 0);
+			iounmap(csiphy_dev->clk_mux_base);
+	}
 
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
 	csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
 	return 0;
 }
+
 #endif
 
 static long msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
@@ -587,6 +645,17 @@ static int __devinit csiphy_probe(struct platform_device *pdev)
 		goto csiphy_no_resource;
 	}
 	disable_irq(new_csiphy_dev->irq->start);
+
+	new_csiphy_dev->clk_mux_mem = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "csiphy_clk_mux");
+	if (new_csiphy_dev->clk_mux_mem) {
+		new_csiphy_dev->clk_mux_io = request_mem_region(
+			new_csiphy_dev->clk_mux_mem->start,
+			resource_size(new_csiphy_dev->clk_mux_mem),
+			new_csiphy_dev->clk_mux_mem->name);
+		if (!new_csiphy_dev->clk_mux_io)
+			pr_err("%s: ERROR %d\n", __func__, __LINE__);
+	}
 
 	new_csiphy_dev->pdev = pdev;
 	new_csiphy_dev->msm_sd.sd.internal_ops = &msm_csiphy_internal_ops;

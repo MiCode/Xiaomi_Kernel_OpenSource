@@ -207,6 +207,7 @@ struct msm_camera_csiphy_params {
 	uint8_t settle_cnt;
 	uint16_t lane_mask;
 	uint8_t combo_mode;
+	uint8_t csid_core;
 };
 
 struct msm_camera_csi2_params {
