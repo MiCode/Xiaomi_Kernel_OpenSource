@@ -154,6 +154,7 @@ enum
 	KERN_PANIC_ON_NMI=76, /* int: whether we will panic on an unrecovered */
 	KERN_PANIC_ON_WARN=77, /* int: call panic() in WARN() functions */
 	KERN_BOOT_REASON=78, /* int: identify reason system was booted */
+	KERN_COLD_BOOT=79, /* int: identify if system cold booted */
 };
 
 

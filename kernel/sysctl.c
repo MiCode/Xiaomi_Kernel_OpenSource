@@ -1241,7 +1241,15 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0444,
 		.proc_handler	= proc_dointvec,
-},
+	},
+
+	{
+		.procname	= "cold_boot",
+		.data		= &cold_boot,
+		.maxlen		= sizeof(int),
+		.mode		= 0444,
+		.proc_handler	= proc_dointvec,
+	},
 #endif
 	{ }
 };
