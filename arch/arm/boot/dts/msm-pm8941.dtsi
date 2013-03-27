@@ -840,6 +840,7 @@
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
 				qcom,btm-channel-number = <0x70>;
+				qcom,thermal-node;
 			};
 
 			chan@b7 {
@@ -852,6 +853,7 @@
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
 				qcom,btm-channel-number = <0x78>;
+				qcom,thermal-node;
 			};
 
 			chan@b4 {
@@ -864,6 +866,7 @@
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
 				qcom,btm-channel-number = <0x80>;
+				qcom,thermal-node;
 			};
 		};
 	};
