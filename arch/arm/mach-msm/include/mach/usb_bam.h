@@ -39,6 +39,7 @@ enum usb_pipe_mem_type {
 	SPS_PIPE_MEM = 0,	/* Default, SPS dedicated pipe memory */
 	USB_PRIVATE_MEM,	/* USB's private memory */
 	SYSTEM_MEM,		/* System RAM, requires allocation */
+	OCI_MEM,		/* Shared memory among peripherals */
 };
 
 struct usb_bam_connect_ipa_params {
@@ -119,7 +120,9 @@ struct usb_bam_pipe_connect {
  * @connections: holds all pipe connections data.
  * @usb_bam_num_pipes: max number of pipes to use.
  * @active_conn_num: number of active pipe connections.
- * @usb_base_address: BAM physical address.
+ * @usb_bam_fifo_baseaddr: base address for bam pipe's data and descriptor
+ *                         fifos. This can be on chip memory (ocimem) or usb
+ *                         private memory.
  * @ignore_core_reset_ack: BAM can ignore ACK from USB core during PIPE RESET
  * @disable_clk_gating: Disable clock gating
  */
@@ -127,7 +130,7 @@ struct msm_usb_bam_platform_data {
 	struct usb_bam_pipe_connect *connections;
 	u8 max_connections;
 	int usb_bam_num_pipes;
-	u32 usb_base_address;
+	phys_addr_t usb_bam_fifo_baseaddr;
 	bool ignore_core_reset_ack;
 	bool reset_on_connect[MAX_BAMS];
 	bool disable_clk_gating;

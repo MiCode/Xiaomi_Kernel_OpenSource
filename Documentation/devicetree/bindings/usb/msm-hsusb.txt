@@ -173,7 +173,11 @@ Required properties:
             If HSUSB_BAM is used, "hsusb" should be present.
             If HSIC_BAM is used, "hsic" should be present.
 - qcom,usb-bam-num-pipes: max number of pipes that can be used
-- qcom,usb-base-address: physical base address of the BAM
+
+Optional properties:
+- qcom,usb-bam-fifo-baseaddr: base address for bam pipe's data and descriptor
+  fifos. This can be on chip memory (ocimem) or usb private memory. This
+  property is required if sub-node's mem-type is ocimem or usb private mem.
 
 A number of USB BAM pipe parameters are represented as sub-nodes:
 
@@ -186,8 +190,9 @@ Subnode Required:
 	pipe num options: 0..127
 - qcom,usb-bam-mem-type: Type of memory used by this PIPE. Can be one of
             0 - Uses SPS's dedicated pipe memory
-            1 - USB's private memory residing @ 'qcom,usb-base-address'
+            1 - USB's private memory residing @ 'qcom,usb-bam-fifo-baseaddr'
             2 - System RAM allocated by driver
+	    3 - OCI memory residing @ 'qcom,usb-bam-fifo-baseaddr'
 - qcom,bam-type: BAM type can be one of
 	0 - SSUSB_BAM
 	1 - HSUSB_BAM
