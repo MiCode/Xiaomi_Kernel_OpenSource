@@ -830,6 +830,30 @@
 				qcom,btm-channel-number = <0x68>;
 			};
 
+			chan@8 {
+				label = "die_temp";
+				reg = <8>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <1>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x88>;
+			};
+
+			chan@6 {
+				label = "vbat_sns";
+				reg = <6>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x90>;
+			};
+
 			chan@b5 {
 				label = "pa_therm1";
 				reg = <0xb5>;
@@ -866,6 +890,19 @@
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
 				qcom,btm-channel-number = <0x80>;
+				qcom,thermal-node;
+			};
+
+			chan@b3 {
+				label = "msm_therm";
+				reg = <0xb3>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x98>;
 				qcom,thermal-node;
 			};
 		};
