@@ -213,7 +213,7 @@
 		coresight-name = "coresight-csr";
 		coresight-nr-inports = <0>;
 
-		qcom,blk-size = <3>;
+		qcom,blk-size = <1>;
 	};
 
 	cti0: cti@fc308000 {
