@@ -77,6 +77,7 @@
 		qcom,buffer-type-tz-usage-map = <0x1 0x1>,
 						<0x1fe 0x2>;
 		qcom,hfi = "q6";
+		qcom,max-hw-load = <97200>; /* FWVGA @ 30 * 2 */
 	};
 
 	usb@f9a55000 {
