@@ -20,6 +20,7 @@ Optional property:
  - synaptics,y-flip		: modify orientation of the y axis
  - synaptics,panel-x		: panel x dimension
  - synaptics,panel-y		: panel y dimension
+ - synaptics,fw-image-name	: name of firmware .img file in /etc/firmware
 
 Example:
 	i2c@f9927000 { /* BLSP1 QUP5 */

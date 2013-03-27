@@ -30,7 +30,6 @@
 
 #define DEBUG_FW_UPDATE
 #define SHOW_PROGRESS
-#define FW_IMAGE_NAME "PR1063486-s7301_00000000.img"
 #define MAX_FIRMWARE_ID_LEN 10
 #define FORCE_UPDATE false
 #define INSIDE_FIRMWARE_UPDATE
@@ -585,7 +584,8 @@ static enum flash_area fwu_go_nogo(void)
 	deviceFirmwareID = extract_uint(firmware_id);
 
 	/* .img firmware id */
-	strptr = strstr(FW_IMAGE_NAME, "PR");
+	strptr = strnstr(fwu->rmi4_data->fw_image_name, "PR",
+			sizeof(fwu->rmi4_data->fw_image_name));
 	if (!strptr) {
 		dev_err(&i2c_client->dev,
 			"No valid PR number (PRxxxxxxx)" \
@@ -1219,19 +1219,28 @@ static int fwu_start_reflash(void)
 
 	pr_notice("%s: Start of reflash process\n", __func__);
 
+	if (!fwu->rmi4_data->fw_image_name) {
+		retval = 0;
+		dev_err(&fwu->rmi4_data->i2c_client->dev,
+			"Firmware image name not given, skipping update\n");
+		goto exit;
+	}
+
 	if (fwu->ext_data_source)
 		fw_image = fwu->ext_data_source;
 	else {
 		dev_dbg(&fwu->rmi4_data->i2c_client->dev,
 				"%s: Requesting firmware image %s\n",
-				__func__, FW_IMAGE_NAME);
+				__func__, fwu->rmi4_data->fw_image_name);
 
-		retval = request_firmware(&fw_entry, FW_IMAGE_NAME,
+		retval = request_firmware(&fw_entry,
+				fwu->rmi4_data->fw_image_name,
 				&fwu->rmi4_data->i2c_client->dev);
 		if (retval != 0) {
 			dev_err(&fwu->rmi4_data->i2c_client->dev,
 					"%s: Firmware image %s not available\n",
-					__func__, FW_IMAGE_NAME);
+					__func__,
+					fwu->rmi4_data->fw_image_name);
 			retval = -EINVAL;
 			goto exit;
 		}
