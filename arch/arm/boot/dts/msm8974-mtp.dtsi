@@ -267,6 +267,8 @@
 	vdd-supply = <&pm8941_l20>;
 	vdd-io-supply = <&pm8941_s3>;
 
+	qcom,vdd-always-on;
+	qcom,vdd-lpm-sup;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <800 500000>;
 
@@ -300,8 +302,6 @@
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <9000 800000>;
 
-	qcom,vdd-io-always-on;
-	qcom,vdd-io-lpm-sup;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
 	qcom,vdd-io-current-level = <6 22000>;
 
