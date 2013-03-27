@@ -414,7 +414,7 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 		}
 
 		if (timeout == 0)
-			return -ETIMEDOUT;
+			return 0;
 		lock_sock(sk);
 		mutex_lock(&port_ptr->port_rx_q_lock);
 	}
