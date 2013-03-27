@@ -93,7 +93,8 @@ enum z180_cmdwindow_type {
 #define Z180_CMDWINDOW_TARGET_SHIFT		0
 #define Z180_CMDWINDOW_ADDR_SHIFT		8
 
-static int z180_start(struct kgsl_device *device, unsigned int init_ram);
+static int z180_init(struct kgsl_device *device);
+static int z180_start(struct kgsl_device *device);
 static int z180_stop(struct kgsl_device *device);
 static int z180_wait(struct kgsl_device *device,
 				struct kgsl_context *context,
@@ -319,15 +320,10 @@ static void addcmd(struct z180_ringbuffer *rb, unsigned int timestamp,
 	*p++ = ADDR_VGV3_LAST << 24;
 }
 
-static void z180_cmdstream_start(struct kgsl_device *device, int init_ram)
+static void z180_cmdstream_start(struct kgsl_device *device)
 {
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 	unsigned int cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
-
-	if (init_ram) {
-		z180_dev->timestamp = 0;
-		z180_dev->current_timestamp = 0;
-	}
 
 	addmarker(&z180_dev->ringbuffer, 0);
 
@@ -552,7 +548,17 @@ static int __devexit z180_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int z180_start(struct kgsl_device *device, unsigned int init_ram)
+static int z180_init(struct kgsl_device *device)
+{
+	struct z180_device *z180_dev = Z180_DEVICE(device);
+
+	z180_dev->timestamp = 0;
+	z180_dev->current_timestamp = 0;
+
+	return 0;
+}
+
+static int z180_start(struct kgsl_device *device)
 {
 	int status = 0;
 
@@ -569,7 +575,7 @@ static int z180_start(struct kgsl_device *device, unsigned int init_ram)
 	if (status)
 		goto error_clk_off;
 
-	z180_cmdstream_start(device, init_ram);
+	z180_cmdstream_start(device);
 
 	mod_timer(&device->idle_timer, jiffies + FIRST_TIMEOUT);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
@@ -919,6 +925,7 @@ static const struct kgsl_functable z180_functable = {
 	.idle = z180_idle,
 	.isidle = z180_isidle,
 	.suspend_context = z180_suspend_context,
+	.init = z180_init,
 	.start = z180_start,
 	.stop = z180_stop,
 	.getproperty = z180_getproperty,
