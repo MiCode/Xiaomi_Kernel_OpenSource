@@ -744,7 +744,7 @@ int afe_port_set_mad_type(u16 port_id, enum afe_mad_type mad_type)
 	int i;
 
 	i = port_id - SLIMBUS_0_RX;
-	if (i < 0 || i > ARRAY_SIZE(afe_ports_mad_type)) {
+	if (i < 0 || i >= ARRAY_SIZE(afe_ports_mad_type)) {
 		pr_err("%s: Invalid port_id 0x%x\n", __func__, port_id);
 		return -EINVAL;
 	}
