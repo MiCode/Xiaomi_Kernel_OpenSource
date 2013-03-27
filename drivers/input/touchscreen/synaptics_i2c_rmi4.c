@@ -1006,6 +1006,13 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 		rmi4_pdata->panel_y = temp_val;
 	}
 
+	rc = of_property_read_string(np, "synaptics,fw-image-name",
+		&rmi4_pdata->fw_image_name);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read fw image name\n");
+		return rc;
+	}
+
 	/* reset, irq gpio info */
 	rmi4_pdata->reset_gpio = of_get_named_gpio_flags(np,
 			"synaptics,reset-gpio", 0, &rmi4_pdata->reset_flags);
@@ -2029,6 +2036,8 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 
 	rmi4_data->flip_x = rmi4_data->board->x_flip;
 	rmi4_data->flip_y = rmi4_data->board->y_flip;
+
+	rmi4_data->fw_image_name = rmi4_data->board->fw_image_name;
 
 	rmi4_data->input_dev->name = DRIVER_NAME;
 	rmi4_data->input_dev->phys = INPUT_PHYS_NAME;
