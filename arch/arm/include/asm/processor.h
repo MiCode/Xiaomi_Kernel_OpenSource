@@ -30,6 +30,7 @@
 #endif
 
 extern unsigned int boot_reason;
+extern unsigned int cold_boot;
 
 struct debug_info {
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
