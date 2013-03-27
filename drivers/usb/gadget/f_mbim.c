@@ -345,6 +345,7 @@ static struct usb_descriptor_header *mbim_hs_function[] = {
 	/* MBIM control descriptors */
 	(struct usb_descriptor_header *) &mbim_control_intf,
 	(struct usb_descriptor_header *) &mbim_header_desc,
+	(struct usb_descriptor_header *) &mbim_union_desc,
 	(struct usb_descriptor_header *) &mbb_desc,
 	(struct usb_descriptor_header *) &ext_mbb_desc,
 	(struct usb_descriptor_header *) &hs_mbim_notify_desc,
