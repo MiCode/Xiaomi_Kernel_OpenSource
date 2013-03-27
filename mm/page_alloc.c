@@ -1854,6 +1854,11 @@ static int fallbacks[MIGRATE_TYPES][4] = {
 #endif
 };
 
+int *get_migratetype_fallbacks(int mtype)
+{
+	return fallbacks[mtype];
+}
+
 #ifdef CONFIG_CMA
 static struct page *__rmqueue_cma_fallback(struct zone *zone,
 					unsigned int order)
