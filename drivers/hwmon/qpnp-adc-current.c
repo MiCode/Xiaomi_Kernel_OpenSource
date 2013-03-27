@@ -409,7 +409,7 @@ static int32_t qpnp_convert_raw_offset_voltage(void)
 	return 0;
 }
 
-static int32_t qpnp_iadc_calibrate_for_trim(void)
+int32_t qpnp_iadc_calibrate_for_trim(void)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	uint8_t rslt_lsb, rslt_msb;
@@ -487,6 +487,7 @@ fail:
 	mutex_unlock(&iadc->adc->adc_lock);
 	return rc;
 }
+EXPORT_SYMBOL(qpnp_iadc_calibrate_for_trim);
 
 static void qpnp_iadc_work(struct work_struct *work)
 {
