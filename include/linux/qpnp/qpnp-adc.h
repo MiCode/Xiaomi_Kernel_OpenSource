@@ -1359,6 +1359,12 @@ int32_t qpnp_iadc_is_ready(void);
 int32_t qpnp_iadc_vadc_sync_read(
 	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
 	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result);
+/**
+ * qpnp_iadc_calibrate_for_trim() - Clients can use this API to re-calibrate
+ *		IADC.
+ * @result:	0 on success.
+ */
+int32_t qpnp_iadc_calibrate_for_trim(void);
 #else
 static inline int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 						struct qpnp_iadc_result *result)
@@ -1373,6 +1379,8 @@ static inline int32_t qpnp_iadc_is_ready(void)
 static inline int32_t qpnp_iadc_vadc_sync_read(
 	enum qpnp_iadc_channels i_channel, struct qpnp_iadc_result *i_result,
 	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result)
+{ return -ENXIO; }
+static inline int32_t qpnp_iadc_calibrate_for_trim(void)
 { return -ENXIO; }
 #endif
 
