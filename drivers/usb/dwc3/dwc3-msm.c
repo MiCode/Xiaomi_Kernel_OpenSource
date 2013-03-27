@@ -2086,16 +2086,25 @@ static void dwc3_ext_notify_online(int on)
 static void dwc3_id_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, id_work);
+	int ret;
 
 	/* Give external client a chance to handle */
-	if (!mdwc->ext_inuse) {
-		if (usb_ext) {
-			int ret = usb_ext->notify(usb_ext->ctxt, mdwc->id_state,
-						  dwc3_ext_notify_online);
-			dev_dbg(mdwc->dev, "%s: external handler returned %d\n",
-				__func__, ret);
-			mdwc->ext_inuse = (ret == 0);
+	if (!mdwc->ext_inuse && usb_ext) {
+		if (mdwc->pmic_id_irq)
+			disable_irq(mdwc->pmic_id_irq);
+
+		ret = usb_ext->notify(usb_ext->ctxt, mdwc->id_state,
+				      dwc3_ext_notify_online);
+		dev_dbg(mdwc->dev, "%s: external handler returned %d\n",
+			__func__, ret);
+
+		if (mdwc->pmic_id_irq) {
+			/* ID may have changed while IRQ disabled; update it */
+			mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
+			enable_irq(mdwc->pmic_id_irq);
 		}
+
+		mdwc->ext_inuse = (ret == 0);
 	}
 
 	if (!mdwc->ext_inuse) { /* notify OTG */
@@ -2107,10 +2116,14 @@ static void dwc3_id_work(struct work_struct *w)
 static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
+	enum dwc3_id_state id;
 
 	/* If we can't read ID line state for some reason, treat it as float */
-	mdwc->id_state = !!irq_read_line(irq);
-	queue_work(system_nrt_wq, &mdwc->id_work);
+	id = !!irq_read_line(irq);
+	if (mdwc->id_state != id) {
+		mdwc->id_state = id;
+		queue_work(system_nrt_wq, &mdwc->id_work);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -2370,7 +2383,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto free_hs_ldo_init;
 	}
 
-	msm->ext_xceiv.id = DWC3_ID_FLOAT;
+	msm->id_state = msm->ext_xceiv.id = DWC3_ID_FLOAT;
 	msm->ext_xceiv.otg_capability = of_property_read_bool(node,
 				"qcom,otg-capability");
 	msm->charger.charging_disabled = of_property_read_bool(node,
