@@ -50,6 +50,8 @@
 
 
 
+/* CSID CLK MUX SEL REGISTERS */
+#define ISPIF_RDI_CLK_MUX_SEL_ADDR              0x8
 
 /*ISPIF RESET BITS*/
 #define VFE_CLK_DOMAIN_RST                 BIT(31)
