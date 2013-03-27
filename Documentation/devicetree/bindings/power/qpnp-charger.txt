@@ -7,12 +7,12 @@ There are seven different peripherals adding the following functionality.
 Each of these peripherals are implemented as subnodes in the example at the
 end of this file.
 
-- qcom,chg-chgr:	Supports charging control and status
+- qcom,chgr:		Supports charging control and status
 			reporting.
-- qcom,chg-bat-if:	Battery status reporting such as presence,
+- qcom,bat-if:		Battery status reporting such as presence,
 			temperature reporting and voltage collapse
 			protection.
-- qcom,chg-buck:	Charger buck configuration and status
+- qcom,buck:		Charger buck configuration and status
 			reporting with regards to several regulation
 			loops such as vdd, ibat etc.
 - qcom,usb-chgpth:	USB charge path detection and input current
@@ -23,38 +23,38 @@ end of this file.
 			settings, comparator override features etc.
 
 Parent node required properties:
-- qcom,chg-vddmax-mv:			Target voltage of battery in mV.
-- qcom,chg-vddsafe-mv:			Maximum Vdd voltage in mV.
-- qcom,chg-vinmin-mv:			Minimum input voltage in mV.
-- qcom,chg-ibatmax-ma:			Maximum battery charge current in mA
-- qcom,chg-ibatsafe-ma:			Safety battery current setting
-- qcom,chg-thermal-mitigation:		Array of ibatmax values for different
+- qcom,vddmax-mv:			Target voltage of battery in mV.
+- qcom,vddsafe-mv:			Maximum Vdd voltage in mV.
+- qcom,vinmin-mv:			Minimum input voltage in mV.
+- qcom,ibatmax-ma:			Maximum battery charge current in mA
+- qcom,ibatsafe-ma:			Safety battery current setting
+- qcom,thermal-mitigation:		Array of ibatmax values for different
 					system thermal mitigation level.
 
 Parent node optional properties:
-- qcom,chg-ibatterm-ma:			Current at which charging is terminated when
+- qcom,ibatterm-ma:			Current at which charging is terminated when
 					the analog end of charge option is selected.
-- qcom,chg-maxinput-usb-ma:		Maximum input current USB.
-- qcom,chg-maxinput-dc-ma:		Maximum input current DC.
-- qcom,chg-vbatdet-delta-mv:		Battery charging resume delta.
-- qcom,chg-charging-disabled:		Set this property to disable charging
+- qcom,maxinput-usb-ma:			Maximum input current USB.
+- qcom,maxinput-dc-ma:			Maximum input current DC.
+- qcom,vbatdet-delta-mv:		Battery charging resume delta.
+- qcom,charging-disabled:		Set this property to disable charging
 					by default. This can then be overriden
 					writing the the module parameter
 					"charging_disabled".
-- qcom,chg-use-default-batt-values:	Set this flag to force reporting of
+- qcom,use-default-batt-values:		Set this flag to force reporting of
 					battery temperature of 250 decidegree
 					Celsius, state of charge to be 50%
 					and disable charging.
-- qcom,chg-warm-bat-decidegc:		Warm battery temperature in decidegC.
-- qcom,chg-cool-bat-decidegc:		Cool battery temperature in decidegC.
+- qcom,warm-bat-decidegc:		Warm battery temperature in decidegC.
+- qcom,cool-bat-decidegc:		Cool battery temperature in decidegC.
 					Note that if both warm and cool battery
 					temperatures are set, the corresponding
 					ibatmax and bat-mv properties are
 					required to be set.
-- qcom,chg-ibatmax-cool-ma:		Maximum cool battery charge current.
-- qcom,chg-ibatmax-warm-ma:		Maximum warm battery charge current.
-- qcom,chg-warm-bat-mv:			Warm temperature battery target voltage.
-- qcom,chg-cool-bat-mv:			Cool temperature battery target voltage.
+- qcom,ibatmax-cool-ma:			Maximum cool battery charge current.
+- qcom,ibatmax-warm-ma:			Maximum warm battery charge current.
+- qcom,warm-bat-mv:			Warm temperature battery target voltage.
+- qcom,cool-bat-mv:			Cool temperature battery target voltage.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
@@ -77,13 +77,13 @@ Sub node required properties:
 
 			qcom,usb-chgpth:
 			 - usbin-valid
-			qcom,chg-chgr:
+			qcom,chgr:
 			 - chg-done
 			 - chg-failed
 
 			The following interrupts are available:
 
-			qcom,chg-chgr:
+			qcom,chgr:
 			 - chg-done:		Triggers on charge completion.
 			 - chg-failed:		Notifies of charge failures.
 			 - fast-chg-on:		Notifies of fast charging state.
@@ -98,7 +98,7 @@ Sub node required properties:
 						setting, can be used as
 						battery alarm.
 
-			qcom,chg-buck:
+			qcom,buck:
 			 - vdd-loop:		VDD loop change interrupt.
 			 - ibat-loop:		Ibat loop change interrupt.
 			 - ichg-loop:		Charge current loop change.
@@ -107,7 +107,7 @@ Sub node required properties:
 			 - vref-ov:		Reference overvoltage interrupt.
 			 - vbat-ov:		Battery overvoltage interrupt.
 
-			qcom,chg-bat-if:
+			qcom,bat-if:
 			 - psi:			PMIC serial interface interrupt.
 			 - vcp-on:		Voltage collapse protection
 						status interrupt.
@@ -140,22 +140,22 @@ Example:
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		qcom,chg-vddmax-mv = <4200>;
-		qcom,chg-vddsafe-mv = <4200>;
-		qcom,chg-vinmin-mv = <4200>;
-		qcom,chg-ibatmax-ma = <1500>;
-		qcom,chg-ibatterm-ma = <200>;
-		qcom,chg-ibatsafe-ma = <1500>;
-		qcom,chg-thermal-mitigation = <1500 700 600 325>;
-		qcom,chg-cool-bat-degc = <10>;
-		qcom,chg-cool-bat-mv = <4100>;
-		qcom,chg-ibatmax-warm-ma = <350>;
-		qcom,chg-warm-bat-degc = <45>;
-		qcom,chg-warm-bat-mv = <4100>;
-		qcom,chg-ibatmax-cool-ma = <350>;
-		qcom,chg-vbatdet-delta-mv = <60>;
+		qcom,vddmax-mv = <4200>;
+		qcom,vddsafe-mv = <4200>;
+		qcom,vinmin-mv = <4200>;
+		qcom,ibatmax-ma = <1500>;
+		qcom,ibatterm-ma = <200>;
+		qcom,ibatsafe-ma = <1500>;
+		qcom,thermal-mitigation = <1500 700 600 325>;
+		qcom,cool-bat-degc = <10>;
+		qcom,cool-bat-mv = <4100>;
+		qcom,ibatmax-warm-ma = <350>;
+		qcom,warm-bat-degc = <45>;
+		qcom,warm-bat-mv = <4100>;
+		qcom,ibatmax-cool-ma = <350>;
+		qcom,vbatdet-delta-mv = <60>;
 
-		qcom,chg-chgr@1000 {
+		qcom,chgr@1000 {
 			reg = <0x1000 0x100>;
 			interrupts =	<0x0 0x10 0x0>,
 				<0x0 0x10 0x1>,
@@ -176,7 +176,7 @@ Example:
 						"vbat-det-lo";
 		};
 
-		qcom,chg-buck@1100 {
+		qcom,buck@1100 {
 			reg = <0x1100 0x100>;
 			interrupts =	<0x0 0x11 0x0>,
 					<0x0 0x11 0x1>,
@@ -195,7 +195,7 @@ Example:
 						"vbat-ov";
 		};
 
-		qcom,chg-bat-if@1200 {
+		qcom,bat-if@1200 {
 			reg = <0x1200 0x100>;
 			interrupts =	<0x0 0x12 0x0>,
 					<0x0 0x12 0x1>,
@@ -210,7 +210,7 @@ Example:
 						"batt-pres";
 		};
 
-		qcom,chg-usb-chgpth@1300 {
+		qcom,usb-chgpth@1300 {
 			reg = <0x1300 0x100>;
 			interrupts =	<0 0x13 0x0>,
 					<0 0x13 0x1>,
@@ -221,7 +221,7 @@ Example:
 						"chg-gone";
 		};
 
-		qcom,chg-dc-chgpth@1400 {
+		qcom,dc-chgpth@1400 {
 			reg = <0x1400 0x100>;
 			interrupts =	<0x0 0x14 0x0>,
 					<0x0 0x14 0x1>;
@@ -230,7 +230,7 @@ Example:
 						"coarse-det-dc";
 		};
 
-		qcom,chg-boost@1500 {
+		qcom,boost@1500 {
 			reg = <0x1500 0x100>;
 			interrupts =	<0x0 0x15 0x0>,
 					<0x0 0x15 0x1>;
@@ -239,7 +239,7 @@ Example:
 						"boost-pwr-ok";
 		};
 
-		qcom,chg-misc@1600 {
+		qcom,misc@1600 {
 			reg = <0x1600 0x100>;
 		};
 	};
