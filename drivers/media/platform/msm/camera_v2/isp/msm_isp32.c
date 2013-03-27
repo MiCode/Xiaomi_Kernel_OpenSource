@@ -24,7 +24,7 @@
 
 #define VFE32_BURST_LEN 3
 #define VFE32_UB_SIZE 1024
-#define VFE32_EQUAL_SLICE_UB 117
+#define VFE32_EQUAL_SLICE_UB 204
 #define VFE32_WM_BASE(idx) (0x4C + 0x18 * idx)
 #define VFE32_RDI_BASE(idx) (idx ? 0x734 + 0x4 * (idx - 1) : 0x06FC)
 #define VFE32_XBAR_BASE(idx) (0x40 + 0x4 * (idx / 4))
@@ -633,7 +633,7 @@ static void msm_vfe32_axi_cfg_wm_reg(
 			stream_cfg_cmd->plane_cfg[plane_idx].
 			output_stride) << 16 |
 			(stream_cfg_cmd->plane_cfg[plane_idx].
-			output_height - 1) << 4 | VFE32_BURST_LEN >> 2;
+			output_height - 1) << 4 | VFE32_BURST_LEN;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
 	} else {
 		msm_camera_io_w(0x2, vfe_dev->vfe_base + wm_base);
@@ -643,7 +643,7 @@ static void msm_vfe32_axi_cfg_wm_reg(
 			stream_cfg_cmd->plane_cfg[plane_idx].
 			output_width) << 16 |
 			(stream_cfg_cmd->plane_cfg[plane_idx].
-			output_height - 1) << 4 | VFE32_BURST_LEN >> 2;
+			output_height - 1) << 4 | VFE32_BURST_LEN;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
 	}
 	return;
@@ -986,7 +986,7 @@ static void msm_vfe32_get_error_mask(uint32_t *error_mask0,
 }
 
 struct msm_vfe_axi_hardware_info msm_vfe32_axi_hw_info = {
-	.num_wm = 7,
+	.num_wm = 4,
 	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
