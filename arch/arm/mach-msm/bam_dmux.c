@@ -174,7 +174,7 @@ struct rx_pkt_info {
 #define A2_PHYS_BASE		0x124C2000
 #define A2_PHYS_SIZE		0x2000
 #define BUFFER_SIZE		2048
-#define NUM_BUFFERS		32
+#define DEFAULT_NUM_BUFFERS	32
 
 #ifndef A2_BAM_IRQ
 #define A2_BAM_IRQ -1
@@ -194,6 +194,7 @@ static struct sps_mem_buffer rx_desc_mem_buf;
 static struct sps_register_event tx_register_event;
 static struct sps_register_event rx_register_event;
 static bool satellite_mode;
+static uint32_t num_buffers;
 
 static struct bam_ch_info bam_ch[BAM_DMUX_NUM_CHANNELS];
 static int bam_mux_initialized;
@@ -396,7 +397,7 @@ static void queue_rx(void)
 	rx_len_cached = bam_rx_pool_len;
 	mutex_unlock(&bam_rx_pool_mutexlock);
 
-	while (bam_connection_is_active && rx_len_cached < NUM_BUFFERS) {
+	while (bam_connection_is_active && rx_len_cached < num_buffers) {
 		if (in_global_reset)
 			goto fail;
 
@@ -1182,14 +1183,14 @@ static void rx_timer_work_func(struct work_struct *work)
 				break;
 			}
 
-			buffs_used = NUM_BUFFERS - buffs_unused;
+			buffs_used = num_buffers - buffs_unused;
 
 			if (buffs_unused == 0) {
 				rx_timer_interval = MIN_POLLING_SLEEP;
 			} else {
 				if (buffs_used > 0) {
 					rx_timer_interval =
-						(2 * NUM_BUFFERS *
+						(2 * num_buffers *
 							rx_timer_interval)/
 						(3 * buffs_used);
 				} else {
@@ -2282,15 +2283,27 @@ static int bam_dmux_probe(struct platform_device *pdev)
 		satellite_mode = of_property_read_bool(pdev->dev.of_node,
 						"qcom,satellite-mode");
 
-		DBG("%s: base:%p size:%x irq:%d satellite:%d\n", __func__,
+		rc = of_property_read_u32(pdev->dev.of_node,
+						"qcom,rx-ring-size",
+						&num_buffers);
+		if (rc) {
+			DBG("%s: falling back to num_buffs default, rc:%d\n",
+							__func__, rc);
+			num_buffers = DEFAULT_NUM_BUFFERS;
+		}
+
+		DBG("%s: base:%p size:%x irq:%d satellite:%d num_buffs:%d\n",
+							__func__,
 							a2_phys_base,
 							a2_phys_size,
 							a2_bam_irq,
-							satellite_mode);
+							satellite_mode,
+							num_buffers);
 	} else { /* fallback to default init data */
 		a2_phys_base = (void *)(A2_PHYS_BASE);
 		a2_phys_size = A2_PHYS_SIZE;
 		a2_bam_irq = A2_BAM_IRQ;
+		num_buffers = DEFAULT_NUM_BUFFERS;
 	}
 
 	xo_clk = clk_get(&pdev->dev, "xo");
