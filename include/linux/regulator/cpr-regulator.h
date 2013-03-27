@@ -54,6 +54,21 @@ enum apc_pvs_process_enum {
 	NUM_APC_PVS,
 };
 
+/**
+ * enum vdd_mx_vmin_method - Method to determine vmin for vdd-mx
+ * %VDD_MX_VMIN_APC:			Equal to APC voltage
+ * %VDD_MX_VMIN_APC_CORNER_CEILING:	Equal to PVS corner ceiling voltage
+ * %VDD_MX_VMIN_APC_SLOW_CORNER_CEILING:
+ *					Equal to slow speed corner ceiling
+ * %VDD_MX_VMIN_MX_VMAX:		Equal to specified vdd-mx-vmax voltage
+ */
+enum vdd_mx_vmin_method {
+	VDD_MX_VMIN_APC,
+	VDD_MX_VMIN_APC_CORNER_CEILING,
+	VDD_MX_VMIN_APC_SLOW_CORNER_CEILING,
+	VDD_MX_VMIN_MX_VMAX,
+};
+
 #ifdef CONFIG_MSM_CPR_REGULATOR
 
 int __init cpr_regulator_init(void);
