@@ -177,8 +177,8 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 		*usb_pipe_idx = pipe_connect->dst_pipe_index;
 	}
 
-	/* If BAM is using dedicated SPS pipe memory, get it */
-	if (pipe_connect->mem_type == SPS_PIPE_MEM) {
+	switch (pipe_connect->mem_type) {
+	case SPS_PIPE_MEM:
 		pr_debug("%s: USB BAM using SPS pipe memory\n", __func__);
 		ret = sps_setup_bam2bam_fifo(
 			data_buf,
@@ -199,7 +199,8 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 				ret);
 			goto free_sps_endpoint;
 		}
-	} else if (pipe_connect->mem_type == USB_PRIVATE_MEM) {
+		break;
+	case USB_PRIVATE_MEM:
 		pr_debug("%s: USB BAM using private memory\n", __func__);
 
 		if (IS_ERR(ctx.mem_clk) || IS_ERR(ctx.mem_iface_clk)) {
@@ -227,10 +228,12 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 
 		pr_debug("Writing 0x%x to QSCRATCH_RAM1\n", ram1_value);
 		writel_relaxed(ram1_value, ctx.qscratch_ram1_reg);
-
+		/* fall through */
+	case OCI_MEM:
+		pr_debug("%s: USB BAM using oci memory\n", __func__);
 		data_buf->phys_base =
 			pipe_connect->data_fifo_base_offset +
-				pdata->usb_base_address;
+				pdata->usb_bam_fifo_baseaddr;
 		data_buf->size = pipe_connect->data_fifo_size;
 		data_buf->base =
 			ioremap(data_buf->phys_base, data_buf->size);
@@ -238,12 +241,13 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 
 		desc_buf->phys_base =
 			pipe_connect->desc_fifo_base_offset +
-				pdata->usb_base_address;
+				pdata->usb_bam_fifo_baseaddr;
 		desc_buf->size = pipe_connect->desc_fifo_size;
 		desc_buf->base =
 			ioremap(desc_buf->phys_base, desc_buf->size);
 		memset(desc_buf->base, 0, desc_buf->size);
-	} else {
+		break;
+	case SYSTEM_MEM:
 		pr_debug("%s: USB BAM using system memory\n", __func__);
 		/* BAM would use system memory, allocate FIFOs */
 		data_buf->size = pipe_connect->data_fifo_size;
@@ -261,6 +265,10 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 			&(desc_buf->phys_base),
 			0);
 		memset(desc_buf->base, 0, pipe_connect->desc_fifo_size);
+		break;
+	default:
+		pr_err("%s: invalid mem type\n", __func__);
+		goto free_sps_endpoint;
 	}
 
 	sps_connection->data = *data_buf;
@@ -436,7 +444,8 @@ static int disconnect_pipe(u8 idx)
 	sps_disconnect(pipe);
 	sps_free_endpoint(pipe);
 
-	if (pipe_connect->mem_type == SYSTEM_MEM) {
+	switch (pipe_connect->mem_type) {
+	case SYSTEM_MEM:
 		pr_debug("%s: Freeing system memory used by PIPE\n", __func__);
 		if (sps_connection->data.phys_base)
 			dma_free_coherent(&ctx.usb_bam_pdev->dev,
@@ -448,13 +457,20 @@ static int disconnect_pipe(u8 idx)
 					sps_connection->desc.size,
 					sps_connection->desc.base,
 					sps_connection->desc.phys_base);
-	} else if (pipe_connect->mem_type == USB_PRIVATE_MEM) {
-		pr_debug("Freeing USB private memory used by BAM PIPE\n");
+		break;
+	case USB_PRIVATE_MEM:
+		pr_debug("Freeing private memory used by BAM PIPE\n");
 		writel_relaxed(0x0, ctx.qscratch_ram1_reg);
-		iounmap(sps_connection->data.base);
-		iounmap(sps_connection->desc.base);
 		clk_disable_unprepare(ctx.mem_clk);
 		clk_disable_unprepare(ctx.mem_iface_clk);
+	case OCI_MEM:
+		pr_debug("Freeing oci memory used by BAM PIPE\n");
+		iounmap(sps_connection->data.base);
+		iounmap(sps_connection->desc.base);
+		break;
+	case SPS_PIPE_MEM:
+		pr_debug("%s: nothing to be be\n", __func__);
+		break;
 	}
 
 	sps_connection->options &= ~SPS_O_AUTO_ENABLE;
@@ -973,8 +989,8 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		return NULL;
 	}
 
-	rc = of_property_read_u32(node, "qcom,usb-base-address",
-		&pdata->usb_base_address);
+	rc = of_property_read_u32(node, "qcom,usb-bam-fifo-baseaddr",
+		&pdata->usb_bam_fifo_baseaddr);
 	if (rc)
 		pr_debug("%s: Invalid usb base address property\n", __func__);
 
@@ -1012,11 +1028,13 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		if (rc)
 			goto err;
 
-		if (usb_bam_connections[i].mem_type == USB_PRIVATE_MEM &&
-			!pdata->usb_base_address) {
-			pr_err("%s: base address is missing for private mem\n",
-				__func__);
-			goto err;
+		if (usb_bam_connections[i].mem_type == USB_PRIVATE_MEM ||
+				usb_bam_connections[i].mem_type == OCI_MEM) {
+			if (!pdata->usb_bam_fifo_baseaddr) {
+				pr_err("%s: base address is missing\n",
+					__func__);
+				goto err;
+			}
 		}
 
 		rc = of_property_read_u32(node, "qcom,bam-type",
@@ -1148,6 +1166,7 @@ static int usb_bam_init(int bam_idx)
 			goto free_bam_regs;
 		}
 	}
+
 	props.phys_addr = res->start;
 	props.virt_addr = usb_virt_addr;
 	props.virt_size = resource_size(res);
