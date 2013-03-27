@@ -44,6 +44,7 @@
 #define BTSCO_RATE_16KHZ 16000
 
 static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int hdmi_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
 #define SAMPLING_RATE_48KHZ 48000
 #define SAMPLING_RATE_96KHZ 96000
@@ -733,6 +734,46 @@ static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int hdmi_rx_bit_format_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+
+	switch (hdmi_rx_bit_format) {
+	case SNDRV_PCM_FORMAT_S24_LE:
+		ucontrol->value.integer.value[0] = 1;
+		break;
+
+	case SNDRV_PCM_FORMAT_S16_LE:
+	default:
+		ucontrol->value.integer.value[0] = 0;
+		break;
+	}
+
+	pr_debug("%s: hdmi_rx_bit_format = %d, ucontrol value = %ld\n",
+			 __func__, hdmi_rx_bit_format,
+			ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int hdmi_rx_bit_format_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		hdmi_rx_bit_format = SNDRV_PCM_FORMAT_S24_LE;
+		break;
+	case 0:
+	default:
+		hdmi_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+		break;
+	}
+	pr_debug("%s: hdmi_rx_bit_format = %d, ucontrol value = %ld\n",
+			 __func__, hdmi_rx_bit_format,
+			ucontrol->value.integer.value[0]);
+	return 0;
+}
+
 static int msm_hdmi_rx_ch_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -840,6 +881,8 @@ static int msm8974_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s channels->min %u channels->max %u ()\n", __func__,
 			channels->min, channels->max);
 
+	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				hdmi_rx_bit_format);
 	if (channels->max < 2)
 		channels->min = channels->max = 2;
 	rate->min = rate->max = 48000;
@@ -1067,6 +1110,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim0_rx_bit_format_get, slim0_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_0_RX SampleRate", msm_snd_enum[5],
 			slim0_rx_sample_rate_get, slim0_rx_sample_rate_put),
+	SOC_ENUM_EXT("HDMI_RX Bit Format", msm_snd_enum[4],
+			hdmi_rx_bit_format_get, hdmi_rx_bit_format_put),
 };
 
 static bool msm8974_swap_gnd_mic(struct snd_soc_codec *codec)
