@@ -19,6 +19,7 @@
 
 #include "kgsl.h"
 #include "kgsl_mmu.h"
+#include "kgsl_gpummu.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_trace.h"
@@ -364,10 +365,9 @@ int kgsl_gpummu_pt_equal(struct kgsl_mmu *mmu,
 	return gpummu_pt && pt_base && (gpummu_pt->base.gpuaddr == pt_base);
 }
 
-void kgsl_gpummu_destroy_pagetable(void *mmu_specific_pt)
+void kgsl_gpummu_destroy_pagetable(struct kgsl_pagetable *pt)
 {
-	struct kgsl_gpummu_pt *gpummu_pt = (struct kgsl_gpummu_pt *)
-						mmu_specific_pt;
+	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 	kgsl_ptpool_free((struct kgsl_ptpool *)kgsl_driver.ptpool,
 				gpummu_pt->base.hostptr);
 
@@ -528,6 +528,11 @@ static int kgsl_gpummu_init(struct kgsl_mmu *mmu)
 	 */
 	int status = 0;
 
+	mmu->pt_base = KGSL_PAGETABLE_BASE;
+	mmu->pt_size = CONFIG_MSM_KGSL_PAGE_TABLE_SIZE;
+	mmu->pt_per_process = KGSL_MMU_USE_PER_PROCESS_PT;
+	mmu->use_cpu_map = false;
+
 	/* sub-client MMU lookups require address translation */
 	if ((mmu->config & ~0x1) > 0) {
 		/*make sure virtual address range is a multiple of 64Kb */
@@ -584,7 +589,7 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 
 	if (mmu->defaultpagetable == NULL)
 		mmu->defaultpagetable =
-			kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
+			kgsl_mmu_getpagetable(mmu, KGSL_MMU_GLOBAL_PT);
 
 	/* Return error if the default pagetable doesn't exist */
 	if (mmu->defaultpagetable == NULL)
@@ -604,14 +609,14 @@ static int kgsl_gpummu_start(struct kgsl_mmu *mmu)
 }
 
 static int
-kgsl_gpummu_unmap(void *mmu_specific_pt,
+kgsl_gpummu_unmap(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc,
 		unsigned int *tlb_flags)
 {
 	unsigned int numpages;
 	unsigned int pte, ptefirst, ptelast, superpte;
 	unsigned int range = kgsl_sg_size(memdesc->sg, memdesc->sglen);
-	struct kgsl_gpummu_pt *gpummu_pt = mmu_specific_pt;
+	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 
 	/* All GPU addresses as assigned are page aligned, but some
 	   functions purturb the gpuaddr with an offset, so apply the
@@ -653,13 +658,13 @@ kgsl_gpummu_unmap(void *mmu_specific_pt,
 GSL_TLBFLUSH_FILTER_ISDIRTY((_p) / GSL_PT_SUPER_PTE))
 
 static int
-kgsl_gpummu_map(void *mmu_specific_pt,
+kgsl_gpummu_map(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc,
 		unsigned int protflags,
 		unsigned int *tlb_flags)
 {
 	unsigned int pte;
-	struct kgsl_gpummu_pt *gpummu_pt = mmu_specific_pt;
+	struct kgsl_gpummu_pt *gpummu_pt = pt->priv;
 	struct scatterlist *s;
 	int flushtlb = 0;
 	int i;
