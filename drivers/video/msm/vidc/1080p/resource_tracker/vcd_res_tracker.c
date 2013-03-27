@@ -800,9 +800,9 @@ unsigned int res_trk_get_ion_flags(void)
 	if (resource_context.vidc_platform_data->enable_ion) {
 		if (res_trk_check_for_sec_session()) {
 			if (resource_context.res_mem_type != DDL_FW_MEM)
-				flags |= ION_SECURE;
+				flags |= ION_FLAG_SECURE;
 			else if (res_trk_is_cp_enabled())
-				flags |= ION_SECURE;
+				flags |= ION_FLAG_SECURE;
 		}
 	}
 	return flags;

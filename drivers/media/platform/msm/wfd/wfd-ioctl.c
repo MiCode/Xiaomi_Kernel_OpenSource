@@ -168,7 +168,7 @@ static int wfd_allocate_ion_buffer(struct ion_client *client,
 
 	if (secure) {
 		alloc_regions = ION_HEAP(ION_CP_MM_HEAP_ID);
-		ion_flags = ION_SECURE;
+		ion_flags = ION_FLAG_SECURE;
 		align = SZ_1M;
 	} else {
 		alloc_regions = ION_HEAP(ION_IOMMU_HEAP_ID);

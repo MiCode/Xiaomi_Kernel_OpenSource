@@ -289,8 +289,8 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 				      unsigned long flags)
 {
 	unsigned long offset;
-	unsigned long secure_allocation = flags & ION_SECURE;
-	unsigned long force_contig = flags & ION_FORCE_CONTIGUOUS;
+	unsigned long secure_allocation = flags & ION_FLAG_SECURE;
+	unsigned long force_contig = flags & ION_FLAG_FORCE_CONTIGUOUS;
 
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
@@ -460,7 +460,7 @@ static int ion_cp_heap_allocate(struct ion_heap *heap,
 	buf->want_delayed_unsecure = 0;
 	atomic_set(&buf->secure_cnt, 0);
 	mutex_init(&buf->lock);
-	buf->is_secure = flags & ION_SECURE ? 1 : 0;
+	buf->is_secure = flags & ION_FLAG_SECURE ? 1 : 0;
 	buffer->priv_virt = buf;
 
 	return 0;
