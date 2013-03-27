@@ -142,9 +142,10 @@ struct msm_vidc_core *get_vidc_core(int core_id)
 	}
 	mutex_lock(&vidc_driver->lock);
 	list_for_each_entry(core, &vidc_driver->cores, list) {
-		if (core && core->id == core_id)
+		if (core && core->id == core_id) {
 			found = 1;
 			break;
+		}
 	}
 	mutex_unlock(&vidc_driver->lock);
 	if (found)
@@ -1212,6 +1213,10 @@ static enum hal_video_codec get_hal_codec_type(int fourcc)
 		  HAL_VIDEO_CODEC_SPARK
 		  HAL_VIDEO_CODEC_VP6
 		  HAL_VIDEO_CODEC_VP7*/
+	case V4L2_PIX_FMT_HEVC:
+		codec = HAL_VIDEO_CODEC_HEVC;
+		break;
+
 	default:
 		dprintk(VIDC_ERR, "Wrong codec: %d\n", fourcc);
 		codec = HAL_UNUSED_CODEC;
