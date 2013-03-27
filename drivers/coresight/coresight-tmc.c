@@ -1090,7 +1090,7 @@ static int __devinit tmc_etr_bam_init(struct platform_device *pdev,
 		return -ENOMEM;
 	drvdata->bamdata = bamdata;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "bam-base");
 	if (!res)
 		return -ENODEV;
 
@@ -1147,7 +1147,7 @@ static int __devinit tmc_probe(struct platform_device *pdev)
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tmc-base");
 	if (!res)
 		return -ENODEV;
 	reg_size = resource_size(res);

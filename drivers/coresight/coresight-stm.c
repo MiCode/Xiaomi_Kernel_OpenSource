@@ -806,7 +806,7 @@ static int __devinit stm_probe(struct platform_device *pdev)
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "stm-base");
 	if (!res)
 		return -ENODEV;
 
@@ -814,7 +814,8 @@ static int __devinit stm_probe(struct platform_device *pdev)
 	if (!drvdata->base)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "stm-data-base");
 	if (!res)
 		return -ENODEV;
 
