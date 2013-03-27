@@ -807,6 +807,7 @@ out:
 	}
 }
 
+static bool zlp_required;
 static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 		const struct dwc3_event_depevt *event)
 {
@@ -830,9 +831,17 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 	if (!r)
 		return;
 
+	ur = &r->request;
+	if ((epnum & 1) && ur->zero &&
+		(ur->length % ep0->endpoint.maxpacket == 0)) {
+		zlp_required = true;
+		ur->zero = false;
+	}
+
 	status = DWC3_TRB_SIZE_TRBSTS(trb->size);
 	if (status == DWC3_TRBSTS_SETUP_PENDING) {
 		dwc3_trace(trace_dwc3_ep0, "Setup Pending received");
+		zlp_required = false;
 
 		if (r)
 			dwc3_gadget_giveback(ep0, r, -ECONNRESET);
@@ -840,7 +849,8 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 		return;
 	}
 
-	ur = &r->request;
+	if (zlp_required)
+		return;
 
 	length = trb->size & DWC3_TRB_SIZE_MASK;
 
@@ -993,6 +1003,10 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 			return;
 		}
 
+		if (dep->number &&
+			!(req->request.length % dwc->gadget.ep0->maxpacket))
+			req->request.zero = true;
+
 		ret = dwc3_ep0_start_trans(dwc, dep->number, req->request.dma,
 				req->request.length, DWC3_TRBCTL_CONTROL_DATA);
 	}
@@ -1058,6 +1072,7 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 {
 	u8			epnum;
 	struct dwc3_ep		*dep;
+	int			ret;
 
 	dwc->setup_packet_pending = true;
 	epnum = event->endpoint_number;
@@ -1088,6 +1103,15 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 			return;
 		}
 
+		if (zlp_required) {
+			zlp_required = false;
+			ret = dwc3_ep0_start_trans(dwc, epnum,
+					dwc->ctrl_req_addr, 0,
+					DWC3_TRBCTL_CONTROL_DATA);
+			dbg_event(epnum, "ZLP", ret);
+			WARN_ON(ret < 0);
+		}
+
 		break;
 
 	case DEPEVT_STATUS_CONTROL_STATUS:
@@ -1097,6 +1121,7 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 
 		dwc3_trace(trace_dwc3_ep0, "Control Status");
 
+		zlp_required = false;
 		dwc->ep0state = EP0_STATUS_PHASE;
 
 		if (dwc->delayed_status &&
