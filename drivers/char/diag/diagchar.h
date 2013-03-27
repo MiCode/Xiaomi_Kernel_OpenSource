@@ -20,6 +20,7 @@
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 #include <linux/sched.h>
+#include <linux/wakelock.h>
 #include <mach/msm_smd.h>
 #include <asm/atomic.h>
 #include <asm/mach-types.h>
@@ -75,6 +76,9 @@
  */
 #define DIAG_STATUS_OPEN (0x00010000)	/* DCI channel open status mask   */
 #define DIAG_STATUS_CLOSED (0x00020000)	/* DCI channel closed status mask */
+
+#define MODE_REALTIME 1
+#define MODE_NONREALTIME 0
 
 #define NUM_SMD_DATA_CHANNELS 3
 #define NUM_SMD_CONTROL_CHANNELS 3
@@ -143,6 +147,14 @@ struct diag_client_map {
 	int pid;
 };
 
+struct diag_nrt_wake_lock {
+	int enabled;
+	int ref_count;
+	int copy_count;
+	struct wake_lock read_lock;
+	spinlock_t read_spinlock;
+};
+
 /* This structure is defined in USB header file */
 #ifndef CONFIG_DIAG_OVER_USB
 struct diag_request {
@@ -172,6 +184,8 @@ struct diag_smd_info {
 
 	struct diag_request *write_ptr_1;
 	struct diag_request *write_ptr_2;
+
+	struct diag_nrt_wake_lock nrt_lock;
 
 	struct work_struct diag_read_smd_work;
 	struct work_struct diag_notify_update_smd_work;
@@ -239,6 +253,7 @@ struct diagchar_dev {
 	struct diag_ctrl_msg_mask *msg_mask;
 	struct diag_ctrl_feature_mask *feature_mask;
 	/* State for diag forwarding */
+	int real_time_mode;
 	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
 	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
 	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
