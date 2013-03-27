@@ -184,6 +184,7 @@
 			qcom,warm-bat-mv = <4100>;
 			qcom,ibatmax-cool-ma = <350>;
 			qcom,vbatdet-delta-mv = <350>;
+			qcom,tchg-mins = <150>;
 
 			qcom,chgr@1000 {
 				status = "disabled";
