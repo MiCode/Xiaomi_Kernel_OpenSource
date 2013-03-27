@@ -1245,6 +1245,15 @@ static int read_platform_resources_from_dt(
 			"Failed to load buffer usage table: %d\n", rc);
 		goto err_load_buffer_usage_table;
 	}
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,max-hw-load",
+			&res->max_load);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to determine max load supported: %d\n", rc);
+		goto err_load_buffer_usage_table;
+	}
+
 	return rc;
 
 err_load_buffer_usage_table:
@@ -1295,6 +1304,8 @@ static int read_platform_resources_from_board(
 		res->load_freq_tbl[c].load = pdata->load_table[c][0];
 		res->load_freq_tbl[c].freq = pdata->load_table[c][1];
 	}
+
+	res->max_load = pdata->max_load;
 	return rc;
 }
 

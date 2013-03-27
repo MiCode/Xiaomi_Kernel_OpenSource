@@ -1093,6 +1093,7 @@ static struct msm_vidc_v4l2_platform_data vidc_v4l2_plaform_data = {
 	.num_iommu_table = 2,
 	.load_table = vidc_v4l2_load_table,
 	.num_load_table = 2,
+	.max_load = 800*480*30/256,
 };
 
 struct platform_device msm_device_vidc_v4l2 = {
