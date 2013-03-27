@@ -2040,7 +2040,7 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 	}
 	heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
 	heap_mask |= inst->secure ? 0 : ION_HEAP(ION_IOMMU_HEAP_ID);
-	ion_flags |= inst->secure ? ION_SECURE : 0;
+	ion_flags |= inst->secure ? ION_FLAG_SECURE : 0;
 
 	if (vcd_get_ion_status()) {
 		for (i = 0; i < 4; ++i) {

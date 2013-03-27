@@ -456,7 +456,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	struct ion_handle *handle;
 	struct ion_device *dev = client->dev;
 	struct ion_buffer *buffer = NULL;
-	unsigned long secure_allocation = flags & ION_SECURE;
+	unsigned long secure_allocation = flags & ION_FLAG_SECURE;
 	const unsigned int MAX_DBG_STR_LEN = 64;
 	char dbg_str[MAX_DBG_STR_LEN];
 	unsigned int dbg_str_idx = 0;

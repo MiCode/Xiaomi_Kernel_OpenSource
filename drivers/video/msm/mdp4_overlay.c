@@ -3273,10 +3273,10 @@ int mdp4_overlay_set(struct fb_info *info, struct mdp_overlay *req)
 		pr_debug("pipe->flags 0x%x\n", pipe->flags);
 		if (pipe->flags & MDP_SECURE_OVERLAY_SESSION) {
 			mfd->mem_hid &= ~BIT(ION_IOMMU_HEAP_ID);
-			mfd->mem_hid |= ION_SECURE;
+			mfd->mem_hid |= ION_FLAG_SECURE;
 		} else {
 			mfd->mem_hid |= BIT(ION_IOMMU_HEAP_ID);
-			mfd->mem_hid &= ~ION_SECURE;
+			mfd->mem_hid &= ~ION_FLAG_SECURE;
 		}
 	}
 

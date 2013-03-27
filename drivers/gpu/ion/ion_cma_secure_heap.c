@@ -117,7 +117,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 			    unsigned long len, unsigned long align,
 			    unsigned long flags)
 {
-	unsigned long secure_allocation = flags & ION_SECURE;
+	unsigned long secure_allocation = flags & ION_FLAG_SECURE;
 	struct ion_secure_cma_buffer_info *buf = NULL;
 
 	if (!secure_allocation) {
