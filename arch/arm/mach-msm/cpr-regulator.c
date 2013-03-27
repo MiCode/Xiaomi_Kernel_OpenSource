@@ -43,10 +43,16 @@ struct cpr_regulator {
 	/* Process voltage variables */
 	u32		pvs_bin;
 	u32		pvs_process;
-	u32		*process_vmax;
+	u32		*corner_ceiling;
 
 	/* APC voltage regulator */
 	struct regulator	*vdd_apc;
+
+	/* Dependency parameters */
+	struct regulator	*vdd_mx;
+	int			vdd_mx_vmax;
+	int			vdd_mx_vmin_method;
+	int			vdd_mx_vmin;
 };
 
 static int cpr_regulator_is_enabled(struct regulator_dev *rdev)
@@ -59,11 +65,23 @@ static int cpr_regulator_is_enabled(struct regulator_dev *rdev)
 static int cpr_regulator_enable(struct regulator_dev *rdev)
 {
 	struct cpr_regulator *cpr_vreg = rdev_get_drvdata(rdev);
-	int rc;
+	int rc = 0;
+
+	/* Enable dependency power before vdd_apc */
+	if (cpr_vreg->vdd_mx) {
+		rc = regulator_enable(cpr_vreg->vdd_mx);
+		if (rc) {
+			pr_err("regulator_enable: vdd_mx: rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	rc = regulator_enable(cpr_vreg->vdd_apc);
 	if (!rc)
 		cpr_vreg->enabled = true;
+	else
+		pr_err("regulator_enable: vdd_apc: rc=%d\n", rc);
+
 	return rc;
 }
 
@@ -73,8 +91,18 @@ static int cpr_regulator_disable(struct regulator_dev *rdev)
 	int rc;
 
 	rc = regulator_disable(cpr_vreg->vdd_apc);
-	if (!rc)
-		cpr_vreg->enabled = false;
+	if (!rc) {
+		if (cpr_vreg->vdd_mx)
+			rc = regulator_disable(cpr_vreg->vdd_mx);
+
+		if (rc)
+			pr_err("regulator_disable: vdd_mx: rc=%d\n", rc);
+		else
+			cpr_vreg->enabled = false;
+	} else {
+		pr_err("regulator_disable: vdd_apc: rc=%d\n", rc);
+	}
+
 	return rc;
 }
 
@@ -83,14 +111,84 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 {
 	struct cpr_regulator *cpr_vreg = rdev_get_drvdata(rdev);
 	int rc;
-	int vdd_apc_min, vdd_apc_max;
+	int vdd_apc_min, vdd_apc_max, vdd_mx_vmin = 0;
+	int change_dir = 0;
 
-	vdd_apc_min = cpr_vreg->process_vmax[min_uV];
-	vdd_apc_max = cpr_vreg->process_vmax[CPR_CORNER_SUPER_TURBO];
+	if (cpr_vreg->vdd_mx) {
+		if (min_uV > cpr_vreg->corner)
+			change_dir = 1;
+		else if (min_uV < cpr_vreg->corner)
+			change_dir = -1;
+	}
+
+	vdd_apc_min = cpr_vreg->corner_ceiling[min_uV];
+	vdd_apc_max = cpr_vreg->corner_ceiling[CPR_CORNER_SUPER_TURBO];
+
+	if (change_dir) {
+		/* Determine the vdd_mx voltage */
+		switch (cpr_vreg->vdd_mx_vmin_method) {
+		case VDD_MX_VMIN_APC:
+			vdd_mx_vmin = vdd_apc_min;
+			break;
+		case VDD_MX_VMIN_APC_CORNER_CEILING:
+			vdd_mx_vmin = vdd_apc_min;
+			break;
+		case VDD_MX_VMIN_APC_SLOW_CORNER_CEILING:
+			vdd_mx_vmin = cpr_vreg->pvs_corner_ceiling
+					[APC_PVS_SLOW][min_uV];
+			break;
+		case VDD_MX_VMIN_MX_VMAX:
+		default:
+			vdd_mx_vmin = cpr_vreg->vdd_mx_vmax;
+			break;
+		}
+	}
+
+	if (change_dir > 0) {
+		if (vdd_mx_vmin < cpr_vreg->vdd_mx_vmin) {
+			/* Check and report the value in case */
+			pr_err("Up: but new %d < old %d uV\n", vdd_mx_vmin,
+					cpr_vreg->vdd_mx_vmin);
+		}
+
+		rc = regulator_set_voltage(cpr_vreg->vdd_mx, vdd_mx_vmin,
+					   cpr_vreg->vdd_mx_vmax);
+		if (!rc) {
+			cpr_vreg->vdd_mx_vmin = vdd_mx_vmin;
+		} else {
+			pr_err("set: vdd_mx [%d] = %d uV: rc=%d\n",
+			       min_uV, vdd_mx_vmin, rc);
+			return rc;
+		}
+	}
+
 	rc = regulator_set_voltage(cpr_vreg->vdd_apc,
 				   vdd_apc_min, vdd_apc_max);
-	if (!rc)
+	if (!rc) {
 		cpr_vreg->corner = min_uV;
+	} else {
+		pr_err("set: vdd_apc [%d] = %d uV: rc=%d\n",
+		       min_uV, vdd_apc_min, rc);
+		return rc;
+	}
+
+	if (change_dir < 0) {
+		if (vdd_mx_vmin > cpr_vreg->vdd_mx_vmin) {
+			/* Check and report the value in case */
+			pr_err("Down: but new %d >= old %d uV\n", vdd_mx_vmin,
+			       cpr_vreg->vdd_mx_vmin);
+		}
+
+		rc = regulator_set_voltage(cpr_vreg->vdd_mx, vdd_mx_vmin,
+					   cpr_vreg->vdd_mx_vmax);
+		if (!rc) {
+			cpr_vreg->vdd_mx_vmin = vdd_mx_vmin;
+		} else {
+			pr_err("set: vdd_mx [%d] = %d uV: rc=%d\n",
+			       min_uV, vdd_mx_vmin, rc);
+			return rc;
+		}
+	}
 
 	pr_debug("set [corner:%d] = %d uV: rc=%d\n", min_uV, vdd_apc_min, rc);
 	return rc;
@@ -146,7 +244,7 @@ static int __init cpr_regulator_pvs_init(struct cpr_regulator *cpr_vreg)
 		= cpr_vreg->pvs_corner_ceiling[APC_PVS_SLOW]
 					[CPR_CORNER_SUPER_TURBO];
 
-	cpr_vreg->process_vmax =
+	cpr_vreg->corner_ceiling =
 		cpr_vreg->pvs_corner_ceiling[cpr_vreg->pvs_process];
 
 	iounmap(efuse_base);
@@ -162,19 +260,62 @@ static int __init cpr_regulator_pvs_init(struct cpr_regulator *cpr_vreg)
 static int __init cpr_regulator_apc_init(struct platform_device *pdev,
 					 struct cpr_regulator *cpr_vreg)
 {
+	struct device_node *of_node = pdev->dev.of_node;
+	int rc;
+
 	cpr_vreg->vdd_apc = devm_regulator_get(&pdev->dev, "vdd-apc");
 	if (IS_ERR_OR_NULL(cpr_vreg->vdd_apc)) {
-		pr_err("devm_regulator_get: rc=%d\n",
-		       (int)PTR_ERR(cpr_vreg->vdd_apc));
+		rc = PTR_RET(cpr_vreg->vdd_apc);
+		if (rc != -EPROBE_DEFER)
+			pr_err("devm_regulator_get: rc=%d\n", rc);
+		return rc;
 	}
 
-	return PTR_RET(cpr_vreg->vdd_apc);
+	/* Check dependencies */
+	if (of_property_read_bool(of_node, "vdd-mx-supply")) {
+		cpr_vreg->vdd_mx = devm_regulator_get(&pdev->dev, "vdd-mx");
+		if (IS_ERR_OR_NULL(cpr_vreg->vdd_mx)) {
+			rc = PTR_RET(cpr_vreg->vdd_mx);
+			if (rc != -EPROBE_DEFER)
+				pr_err("devm_regulator_get: vdd-mx: rc=%d\n",
+				       rc);
+			return rc;
+		}
+	}
+
+	/* Parse dependency parameters */
+	if (cpr_vreg->vdd_mx) {
+		rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmax",
+				 &cpr_vreg->vdd_mx_vmax);
+		if (rc < 0) {
+			pr_err("vdd-mx-vmax missing: rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmin-method",
+				 &cpr_vreg->vdd_mx_vmin_method);
+		if (rc < 0) {
+			pr_err("vdd-mx-vmin-method missing: rc=%d\n", rc);
+			return rc;
+		}
+		if (cpr_vreg->vdd_mx_vmin_method > VDD_MX_VMIN_MX_VMAX) {
+			pr_err("Invalid vdd-mx-vmin-method(%d)\n",
+				cpr_vreg->vdd_mx_vmin_method);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
 }
 
 static void cpr_regulator_apc_exit(struct cpr_regulator *cpr_vreg)
 {
-	if (cpr_vreg->enabled)
+	if (cpr_vreg->enabled) {
 		regulator_disable(cpr_vreg->vdd_apc);
+
+		if (cpr_vreg->vdd_mx)
+			regulator_disable(cpr_vreg->vdd_mx);
+	}
 }
 
 static int __init cpr_regulator_parse_dt(struct platform_device *pdev,
@@ -323,10 +464,10 @@ static int __devinit cpr_regulator_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, cpr_vreg);
 
 	pr_info("PVS [%d %d %d %d] uV\n",
-		cpr_vreg->process_vmax[CPR_CORNER_SVS],
-		cpr_vreg->process_vmax[CPR_CORNER_NORMAL],
-		cpr_vreg->process_vmax[CPR_CORNER_TURBO],
-		cpr_vreg->process_vmax[CPR_CORNER_SUPER_TURBO]);
+		cpr_vreg->corner_ceiling[CPR_CORNER_SVS],
+		cpr_vreg->corner_ceiling[CPR_CORNER_NORMAL],
+		cpr_vreg->corner_ceiling[CPR_CORNER_TURBO],
+		cpr_vreg->corner_ceiling[CPR_CORNER_SUPER_TURBO]);
 
 	return 0;
 }
