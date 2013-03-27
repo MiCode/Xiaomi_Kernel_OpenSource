@@ -9,61 +9,156 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+/ {
+	msm_gpu: qcom,kgsl-3d0@fdb00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0xfdb00000 0x10000
+		       0xfdb20000 0x10000>;
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
 
-/include/ "msm8974-gpu.dtsi"
+		qcom,chipid = <0x03000510>;
 
-&msm_gpu {
-	qcom,chipid = <0x03000510>;
+		qcom,initial-pwrlevel = <2>;
+		qcom,step-pwrlevel = <2>;
 
-	qcom,clk-map = <0x00000016>; /* KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE */
+		qcom,idle-timeout = <8>; //<HZ/12>
+		qcom,nap-allowed = <1>;
+		qcom,strtstp-sleepwake;
+		qcom,clk-map = <0x00000016>; /* KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE */
 
-	/* Bus Scale Settings */
-	qcom,msm-bus,name = "grp3d";
-	qcom,msm-bus,num-cases = <4>;
-	qcom,msm-bus,active-only = <0>;
-	qcom,msm-bus,num-paths = <2>;
-	qcom,msm-bus,vectors-KBps =
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
 			<26 512 0 0>, <89 604 0 0>,
 			<26 512 0 1600000>, <89 604 0 3200000>,
 			<26 512 0 3200000>, <89 604 0 5120000>,
 			<26 512 0 4256000>, <89 604 0 6400000>;
 
-	/* GDSC oxili regulators */
-	vddcx-supply = "\0";
-	vdd-supply = <&gdsc_oxili_cx>;
 
-	qcom,gpu-pwrlevels {
-		#address-cells = <1>;
-		#size-cells = <0>;
+		/* GDSC oxili regulators */
+		vddcx-supply = "\0";
+		vdd-supply = <&gdsc_oxili_cx>;
 
-		compatible = "qcom,gpu-pwrlevels";
 
-		qcom,gpu-pwrlevel@0 {
-			reg = <0>;
-			qcom,gpu-freq = <450000000>;
-			qcom,bus-freq = <3>;
-			qcom,io-fraction = <0>;
+		/* IOMMU Data */
+		iommu = <&kgsl_iommu>;
+
+		/* Power levels */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <450000000>;
+				qcom,bus-freq = <3>;
+				qcom,io-fraction = <0>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <320000000>;
+				qcom,bus-freq = <2>;
+				qcom,io-fraction = <33>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <200000000>;
+				qcom,bus-freq = <1>;
+				qcom,io-fraction = <100>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <19000000>;
+				qcom,bus-freq = <0>;
+				qcom,io-fraction = <0>;
+			};
 		};
 
-		qcom,gpu-pwrlevel@1 {
-			reg = <1>;
-			qcom,gpu-freq = <320000000>;
-			qcom,bus-freq = <2>;
-			qcom,io-fraction = <33>;
+		qcom,dcvs-core-info {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,dcvs-core-info";
+
+			qcom,num-cores = <1>;
+			qcom,sensors = <0>;
+
+			qcom,core-core-type = <1>;
+
+			qcom,algo-disable-pc-threshold = <0>;
+			qcom,algo-em-win-size-min-us = <100000>;
+			qcom,algo-em-win-size-max-us = <300000>;
+			qcom,algo-em-max-util-pct = <97>;
+			qcom,algo-group-id = <95>;
+			qcom,algo-max-freq-chg-time-us = <100000>;
+			qcom,algo-slack-mode-dynamic = <100000>;
+			qcom,algo-slack-weight-thresh-pct = <0>;
+			qcom,algo-slack-time-min-us = <39000>;
+			qcom,algo-slack-time-max-us = <39000>;
+			qcom,algo-ss-win-size-min-us = <1000000>;
+			qcom,algo-ss-win-size-max-us = <1000000>;
+			qcom,algo-ss-util-pct = <95>;
+			qcom,algo-ss-no-corr-below-freq = <0>;
+
+			qcom,energy-active-coeff-a = <2492>;
+			qcom,energy-active-coeff-b = <0>;
+			qcom,energy-active-coeff-c = <0>;
+			qcom,energy-leakage-coeff-a = <11>;
+			qcom,energy-leakage-coeff-b = <157150>;
+			qcom,energy-leakage-coeff-c = <0>;
+			qcom,energy-leakage-coeff-d = <0>;
+
+			qcom,power-current-temp = <25>;
+			qcom,power-num-freq = <4>;
+
+			qcom,dcvs-freq@0 {
+				reg = <0>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@1 {
+				reg = <1>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@2 {
+				reg = <2>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@3 {
+				reg = <3>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <844545>;
+				qcom,leakage-energy-offset = <0>;
+			};
 		};
 
-		qcom,gpu-pwrlevel@2 {
-			reg = <2>;
-			qcom,gpu-freq = <200000000>;
-			qcom,bus-freq = <1>;
-			qcom,io-fraction = <100>;
-		};
-
-		qcom,gpu-pwrlevel@3 {
-			reg = <3>;
-			qcom,gpu-freq = <19000000>;
-			qcom,bus-freq = <0>;
-			qcom,io-fraction = <0>;
-		};
 	};
 };
