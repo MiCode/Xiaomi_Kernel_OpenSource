@@ -13,6 +13,8 @@ Required properties:
 - interrupts: WCNSS to Apps watchdog bite interrupt
 - vdd_pronto_pll-supply: regulator to supply pronto pll.
 - qcom,firmware-name: Base name of the firmware image. Ex. "wcnss"
+- qcom,gpio-err-fatal: GPIO used by the wcnss to indicate error fatal to the Apps.
+- qcom,gpio-force-stop: GPIO used by the Apps to force the wcnss to shutdown.
 
 Example:
 	qcom,pronto@fb21b000 {
@@ -25,4 +27,10 @@ Example:
 		interrupts = <0 231 1>;
 
 		qcom,firmware-name = "wcnss";
+
+		/* GPIO input from wcnss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_4_in 0 0>;
+
+		/* GPIO output to wcnss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
 	};
