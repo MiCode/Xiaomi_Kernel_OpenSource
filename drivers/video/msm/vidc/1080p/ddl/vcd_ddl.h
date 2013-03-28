@@ -14,7 +14,6 @@
 #ifndef _VCD_DDL_H_
 #define _VCD_DDL_H_
 
-#include <mach/msm_subsystem_map.h>
 #include "vcd_ddl_api.h"
 #include "vcd_ddl_core.h"
 #include "vcd_ddl_utils.h"

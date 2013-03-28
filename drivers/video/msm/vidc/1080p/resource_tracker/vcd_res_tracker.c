@@ -18,6 +18,7 @@
 #include <linux/pm_runtime.h>
 #include <mach/clk.h>
 #include <mach/msm_memtypes.h>
+#include <mach/iommu_domains.h>
 #include <linux/interrupt.h>
 #include <linux/memory_alloc.h>
 #include <asm/sizes.h>
@@ -30,8 +31,6 @@
 static unsigned int vidc_clk_table[5] = {
 	48000000, 133330000, 200000000, 228570000, 266670000,
 };
-static unsigned int restrk_mmu_subsystem[] =	{
-		MSM_SUBSYSTEM_VIDEO, MSM_SUBSYSTEM_VIDEO_FWARE};
 static struct res_trk_context resource_context;
 
 #define VIDC_FW	"vidc_1080p.fw"
@@ -56,10 +55,8 @@ static void res_trk_put_clk(void);
 static void *res_trk_pmem_map
 	(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 {
-	u32 offset = 0, flags = 0;
-	u32 index = 0;
+	u32 offset = 0;
 	struct ddl_context *ddl_context;
-	struct msm_mapped_buffer *mapped_buffer = NULL;
 	int ret = 0;
 	unsigned long iova = 0;
 	unsigned long buffer_size  = 0;
@@ -100,53 +97,11 @@ static void *res_trk_pmem_map
 		addr->align_virtual_addr = addr->virtual_base_addr + offset;
 		addr->buffer_size = buffer_size;
 	} else {
-		if (!res_trk_check_for_sec_session()) {
-			if (!addr->alloced_phys_addr) {
-				pr_err(" %s() alloced addres NULL", __func__);
-				goto bail_out;
-			}
-			flags = MSM_SUBSYSTEM_MAP_IOVA |
-				MSM_SUBSYSTEM_MAP_KADDR;
-			if (alignment == DDL_KILO_BYTE(128))
-					index = 1;
-			else if (alignment > SZ_4K)
-				flags |= MSM_SUBSYSTEM_ALIGN_IOVA_8K;
-			addr->mapped_buffer =
-			msm_subsystem_map_buffer(
-			(unsigned long)addr->alloced_phys_addr,
-			sz, flags, &restrk_mmu_subsystem[index],
-			sizeof(restrk_mmu_subsystem[index])/
-				sizeof(unsigned int));
-			if (IS_ERR(addr->mapped_buffer)) {
-				pr_err(" %s() buffer map failed", __func__);
-				goto bail_out;
-			}
-			mapped_buffer = addr->mapped_buffer;
-			if (!mapped_buffer->vaddr || !mapped_buffer->iova[0]) {
-				pr_err("%s() map buffers failed\n", __func__);
-				goto bail_out;
-			}
-			addr->physical_base_addr =
-				 (u8 *)mapped_buffer->iova[0];
-			addr->virtual_base_addr =
-					mapped_buffer->vaddr;
-		} else {
-			addr->physical_base_addr =
-				(u8 *) addr->alloced_phys_addr;
-			addr->virtual_base_addr =
-				(u8 *)addr->alloced_phys_addr;
-		}
-		addr->align_physical_addr = (u8 *) DDL_ALIGN((u32)
-		addr->physical_base_addr, alignment);
-		offset = (u32)(addr->align_physical_addr -
-				addr->physical_base_addr);
-		addr->align_virtual_addr = addr->virtual_base_addr + offset;
-		addr->buffer_size = sz;
+		pr_err("ION must be enabled.");
+		goto bail_out;
 	}
 	return addr->virtual_base_addr;
 bail_out:
-	if (IS_ERR(addr->mapped_buffer))
-		msm_subsystem_unmap_buffer(addr->mapped_buffer);
 	return NULL;
 ion_unmap_bail_out:
 	if (!IS_ERR_OR_NULL(addr->alloc_handle)) {
@@ -171,12 +126,6 @@ static void res_trk_pmem_free(struct ddl_buf_addr *addr)
 			 addr->alloc_handle);
 			addr->alloc_handle = NULL;
 		}
-	} else {
-		if (addr->mapped_buffer)
-			msm_subsystem_unmap_buffer(addr->mapped_buffer);
-		if (addr->alloced_phys_addr)
-			free_contiguous_memory_by_paddr(
-			(unsigned long)addr->alloced_phys_addr);
 	}
 	memset(addr, 0 , sizeof(struct ddl_buf_addr));
 }
@@ -263,8 +212,7 @@ static void res_trk_pmem_unmap(struct ddl_buf_addr *addr)
 			addr->virtual_base_addr = NULL;
 			addr->physical_base_addr = NULL;
 		}
-	} else if (addr->mapped_buffer)
-		msm_subsystem_unmap_buffer(addr->mapped_buffer);
+	}
 	addr->mapped_buffer = NULL;
 }
 

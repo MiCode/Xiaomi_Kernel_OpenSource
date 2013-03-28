@@ -27,10 +27,10 @@
 #include <linux/workqueue.h>
 
 #include <linux/clk.h>
-#include <mach/msm_subsystem_map.h>
 #include <media/msm/vidc_type.h>
 #include <media/msm/vcd_api.h>
 #include <media/msm/vidc_init.h>
+#include <mach/iommu_domains.h>
 #include "vcd_res_tracker_api.h"
 #include "venc_internal.h"
 
@@ -1948,9 +1948,6 @@ u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx,
 			venc_recon->pbuffer);
 		return false;
 	}
-	if (control->client_data)
-		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
-		control->client_data);
 
 	vcd_property_hdr.prop_id = VCD_I_FREE_RECON_BUFFERS;
 	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
