@@ -22,6 +22,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/sysfs.h>
+#include <linux/of_gpio.h>
 
 #include <mach/clk.h>
 #include <mach/subsystem_restart.h>
@@ -50,6 +51,8 @@ struct lpass_data {
 	void *wcnss_notif_hdle;
 	void *modem_notif_hdle;
 	int crash_shutdown;
+	unsigned int err_fatal_irq;
+	int force_stop_gpio;
 };
 
 #define subsys_to_drv(d) container_of(d, struct lpass_data, subsys_desc)
@@ -259,20 +262,19 @@ static void adsp_fatal_fn(struct work_struct *work)
 	restart_adsp(drv);
 }
 
-static void adsp_smsm_state_cb(void *data, uint32_t old_state,
-				uint32_t new_state)
+static irqreturn_t adsp_err_fatal_intr_handler (int irq, void *dev_id)
 {
-	struct lpass_data *drv = data;
+	struct lpass_data *drv = dev_id;
 
-	/* Ignore if we're the one that set SMSM_RESET */
+	/* Ignore if we're the one that set the force stop bit in the outbound
+	 * entry
+	 */
 	if (drv->crash_shutdown)
-		return;
+		return IRQ_HANDLED;
 
-	if (new_state & SMSM_RESET) {
-		pr_err("%s: ADSP SMSM state changed to SMSM_RESET, new_state = %#x, old_state = %#x\n",
-				__func__, new_state, old_state);
-		restart_adsp(drv);
-	}
+	pr_err("Fatal error on the ADSP!\n");
+	restart_adsp(drv);
+	return IRQ_HANDLED;
 }
 
 #define SCM_Q6_NMI_CMD 0x1
@@ -356,6 +358,7 @@ static void adsp_crash_shutdown(const struct subsys_desc *subsys)
 	struct lpass_data *drv = subsys_to_lpass(subsys);
 
 	drv->crash_shutdown = 1;
+	gpio_set_value(drv->force_stop_gpio, 1);
 	send_q6_nmi();
 }
 
@@ -398,6 +401,17 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	drv->wdog_irq = platform_get_irq(pdev, 0);
 	if (drv->wdog_irq < 0)
 		return drv->wdog_irq;
+
+	ret = gpio_to_irq(of_get_named_gpio(pdev->dev.of_node,
+					    "qcom,gpio-err-fatal", 0));
+	if (ret < 0)
+		return ret;
+	drv->err_fatal_irq = ret;
+
+	drv->force_stop_gpio = of_get_named_gpio(pdev->dev.of_node,
+						"qcom,gpio-force-stop", 0);
+	if (drv->force_stop_gpio < 0)
+		return drv->force_stop_gpio;
 
 	q6 = pil_q6v5_init(pdev);
 	if (IS_ERR(q6))
@@ -470,10 +484,12 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_irq;
 
-	ret = smsm_state_cb_register(SMSM_Q6_STATE, SMSM_RESET,
-			adsp_smsm_state_cb, drv);
-	if (ret < 0)
-		goto err_smsm;
+	ret = devm_request_irq(&pdev->dev, drv->err_fatal_irq,
+				adsp_err_fatal_intr_handler,
+				IRQF_TRIGGER_RISING,
+				dev_name(&pdev->dev), drv);
+	if (ret)
+		goto err_irq;
 
 	drv->wcnss_notif_hdle = subsys_notif_register_notifier("wcnss", &wnb);
 	if (IS_ERR(drv->wcnss_notif_hdle)) {
@@ -507,9 +523,6 @@ err_kobj:
 err_notif_modem:
 	subsys_notif_unregister_notifier(drv->wcnss_notif_hdle, &wnb);
 err_notif_wcnss:
-	smsm_state_cb_deregister(SMSM_Q6_STATE, SMSM_RESET,
-			adsp_smsm_state_cb, drv);
-err_smsm:
 err_irq:
 	subsys_unregister(drv->subsys);
 err_subsys:
@@ -524,8 +537,6 @@ static int __devexit pil_lpass_driver_exit(struct platform_device *pdev)
 	struct lpass_data *drv = platform_get_drvdata(pdev);
 	subsys_notif_unregister_notifier(drv->wcnss_notif_hdle, &wnb);
 	subsys_notif_unregister_notifier(drv->modem_notif_hdle, &mnb);
-	smsm_state_cb_deregister(SMSM_Q6_STATE, SMSM_RESET,
-			adsp_smsm_state_cb, drv);
 	subsys_unregister(drv->subsys);
 	destroy_ramdump_device(drv->ramdump_dev);
 	pil_desc_release(&drv->q6->desc);
