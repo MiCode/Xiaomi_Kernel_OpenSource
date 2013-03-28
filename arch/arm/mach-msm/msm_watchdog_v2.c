@@ -568,6 +568,6 @@ static int __devinit init_watchdog(void)
 	return platform_driver_register(&msm_watchdog_driver);
 }
 
-late_initcall(init_watchdog);
+pure_initcall(init_watchdog);
 MODULE_DESCRIPTION("MSM Watchdog Driver");
 MODULE_LICENSE("GPL v2");
