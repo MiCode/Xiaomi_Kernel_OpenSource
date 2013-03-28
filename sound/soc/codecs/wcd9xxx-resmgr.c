@@ -391,8 +391,6 @@ int wcd9xxx_resmgr_enable_config_mode(struct snd_soc_codec *codec, int enable)
 	} else {
 		snd_soc_update_bits(codec, WCD9XXX_A_BIAS_OSC_BG_CTL, 0x1, 0);
 		snd_soc_update_bits(codec, WCD9XXX_A_RC_OSC_FREQ, 0x80, 0);
-		/* clk source to ext clk and clk buff ref to VBG */
-		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x0C, 0x04);
 	}
 
 	return 0;
@@ -423,9 +421,14 @@ static void wcd9xxx_enable_clock_block(struct wcd9xxx_resmgr *resmgr,
 			snd_soc_write(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02);
 			wcd9xxx_resmgr_enable_config_mode(codec, 0);
 		}
+		/* clk source to ext clk and clk buff ref to VBG */
+		snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x0C, 0x04);
 	}
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x01, 0x01);
+	/* sleep time required by codec hardware to enable clock buffer */
+	usleep_range(1000, 1200);
+
 	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN2, 0x02, 0x00);
 
 	/* on MCLK */
