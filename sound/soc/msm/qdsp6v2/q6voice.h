@@ -1339,7 +1339,7 @@ enum {
 #define VOLTE_SESSION_NAME  "VoLTE session"
 #define VOICE2_SESSION_NAME "Voice2 session"
 
-#define VOICE2_SESSION_VSID "10dc1000"
+#define VOICE2_SESSION_VSID "10DC1000"
 
 /* called  by alsa driver */
 int voc_set_pp_enable(uint16_t session_id, uint32_t module_id,
