@@ -227,6 +227,7 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 {
 	struct device_node *np = pdev->dev.of_node;
 	u32 res[6], tmp;
+	u32 fbc_res[7];
 	int rc, i, len;
 	int cmd_plen, data_offset;
 	const char *data;
@@ -234,6 +235,7 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	static const char *on_cmds_state, *off_cmds_state;
 	char *on_cmds = NULL, *off_cmds = NULL;
 	int num_of_on_cmds = 0, num_of_off_cmds = 0;
+	bool fbc_enabled = false;
 
 	rc = of_property_read_u32_array(np, "qcom,mdss-pan-res", res, 2);
 	if (rc) {
@@ -479,6 +481,53 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 		phy_params.laneCfg[i] = data[i];
 
 	panel_data->panel_info.mipi.dsi_phy_db = &phy_params;
+
+	fbc_enabled = of_property_read_bool(np,
+			"qcom,fbc-enabled");
+	if (fbc_enabled) {
+		pr_debug("%s:%d FBC panel enabled.\n", __func__, __LINE__);
+		panel_data->panel_info.fbc.enabled = 1;
+
+		rc = of_property_read_u32_array(np,
+				"qcom,fbc-mode", fbc_res, 7);
+		panel_data->panel_info.fbc.target_bpp =
+			(!rc ?	fbc_res[0] : panel_data->panel_info.bpp);
+		panel_data->panel_info.fbc.comp_mode = (!rc ? fbc_res[1] : 0);
+		panel_data->panel_info.fbc.qerr_enable =
+			(!rc ? fbc_res[2] : 0);
+		panel_data->panel_info.fbc.cd_bias = (!rc ? fbc_res[3] : 0);
+		panel_data->panel_info.fbc.pat_enable = (!rc ? fbc_res[4] : 0);
+		panel_data->panel_info.fbc.vlc_enable = (!rc ? fbc_res[5] : 0);
+		panel_data->panel_info.fbc.bflc_enable =
+			(!rc ? fbc_res[6] : 0);
+
+		rc = of_property_read_u32_array(np,
+				"qcom,fbc-budget-ctl", fbc_res, 3);
+		panel_data->panel_info.fbc.line_x_budget =
+			(!rc ? fbc_res[0] : 0);
+		panel_data->panel_info.fbc.block_x_budget =
+			(!rc ? fbc_res[1] : 0);
+		panel_data->panel_info.fbc.block_budget =
+			(!rc ? fbc_res[2] : 0);
+
+		rc = of_property_read_u32_array(np,
+				"qcom,fbc-lossy-mode", fbc_res, 4);
+		panel_data->panel_info.fbc.lossless_mode_thd =
+			(!rc ? fbc_res[0] : 0);
+		panel_data->panel_info.fbc.lossy_mode_thd =
+			(!rc ? fbc_res[1] : 0);
+		panel_data->panel_info.fbc.lossy_rgb_thd =
+			(!rc ? fbc_res[2] : 0);
+		panel_data->panel_info.fbc.lossy_mode_idx =
+			(!rc ? fbc_res[3] : 0);
+
+	} else {
+		pr_debug("%s:%d Panel does not support FBC.\n",
+				__func__, __LINE__);
+		panel_data->panel_info.fbc.enabled = 0;
+		panel_data->panel_info.fbc.target_bpp =
+			panel_data->panel_info.bpp;
+	}
 
 	data = of_get_property(np, "qcom,panel-on-cmds", &len);
 	if (!data) {
