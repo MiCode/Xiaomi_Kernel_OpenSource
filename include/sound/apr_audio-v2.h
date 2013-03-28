@@ -6515,6 +6515,54 @@ struct srs_trumedia_params {
 
 #define AFE_MAX_CDC_REGISTERS_TO_CONFIG			(20)
 
+/* AANC Port Config Specific */
+#define AFE_PARAM_ID_AANC_PORT_CONFIG			(0x00010215)
+#define AFE_API_VERSION_AANC_PORT_CONFIG		(0x1)
+#define AANC_TX_MIC_UNUSED				(0)
+#define AANC_TX_VOICE_MIC				(1)
+#define AANC_TX_ERROR_MIC				(2)
+#define AANC_TX_NOISE_MIC				(3)
+#define AFE_PORT_MAX_CHANNEL_CNT			(8)
+#define AFE_MODULE_AANC					(0x00010214)
+#define AFE_PARAM_ID_CDC_AANC_VERSION			(0x0001023A)
+#define AFE_API_VERSION_CDC_AANC_VERSION		(0x1)
+#define AANC_HW_BLOCK_VERSION_1				(1)
+#define AANC_HW_BLOCK_VERSION_2				(2)
+
+struct afe_param_aanc_port_cfg {
+	/* Minor version used for tracking the version of the module's
+	* source port configuration.
+	*/
+	uint32_t aanc_port_cfg_minor_version;
+
+	/* Sampling rate of the source Tx port. 8k - 192k*/
+	uint32_t tx_port_sample_rate;
+
+	/* Channel mapping for the Tx port signal carrying Noise (X),
+	* Error (E), and Voice (V) signals.
+	*/
+	uint8_t tx_port_channel_map[AFE_PORT_MAX_CHANNEL_CNT];
+
+	/* Number of channels on the source Tx port. */
+	uint16_t tx_port_num_channels;
+
+	/* Port ID of the Rx path reference signal. */
+	uint16_t rx_path_ref_port_id;
+
+	/* Sampling rate of the reference port. 8k - 192k*/
+	uint32_t ref_port_sample_rate;
+} __packed;
+
+struct afe_param_id_cdc_aanc_version {
+	/* Minor version used for tracking the version of the module's
+	* hw version
+	*/
+	uint32_t cdc_aanc_minor_version;
+
+	/* HW version. */
+	uint32_t aanc_hw_version;
+} __packed;
+
 /* ERROR CODES */
 /* Success. The operation completed with no errors. */
 #define ADSP_EOK          0x00000000
@@ -6746,6 +6794,7 @@ enum afe_config_type {
 	AFE_SLIMBUS_SLAVE_PORT_CONFIG,
 	AFE_SLIMBUS_SLAVE_CONFIG,
 	AFE_CDC_REGISTERS_CONFIG,
+	AFE_AANC_VERSION,
 	AFE_MAX_CONFIG_TYPES,
 };
 
@@ -6840,6 +6889,28 @@ struct afe_svc_cmd_sb_slave_cfg {
 	struct afe_svc_cmd_set_param param;
 	struct afe_port_param_data_v2 pdata;
 	struct afe_param_cdc_slimbus_slave_cfg sb_slave_cfg;
+} __packed;
+
+struct afe_svc_cmd_cdc_aanc_version {
+	struct apr_hdr hdr;
+	struct afe_svc_cmd_set_param param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_id_cdc_aanc_version version;
+} __packed;
+
+struct afe_port_cmd_set_aanc_param {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2 pdata;
+	union {
+		struct afe_param_aanc_port_cfg aanc_port_cfg;
+		struct afe_mod_enable_param    mod_enable;
+	} __packed data;
+} __packed;
+
+struct afe_port_cmd_set_aanc_acdb_table {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_set_param_v2 param;
 } __packed;
 
 #endif /*_APR_AUDIO_V2_H_ */
