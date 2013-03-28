@@ -1772,6 +1772,8 @@ static int _find_start_of_cmd_seq(struct adreno_ringbuffer *rb,
 			start_ptr = adreno_ringbuffer_dec_wrapped(start_ptr,
 									size);
 		kgsl_sharedmem_readl(&rb->buffer_desc, &val1, start_ptr);
+		/* Ensure above read is finished before next read */
+		rmb();
 		if (KGSL_CMD_IDENTIFIER == val1) {
 			if ((start_ptr / sizeof(unsigned int)) != rb->wptr)
 				start_ptr = adreno_ringbuffer_dec_wrapped(
@@ -1809,6 +1811,8 @@ static int _find_cmd_seq_after_eop_ts(struct adreno_ringbuffer *rb,
 					temp_rb_rptr, size);
 		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i],
 					temp_rb_rptr);
+		/* Ensure above read is finished before next read */
+		rmb();
 
 		if (check && ((inc && val[i] == global_eop) ||
 			(!inc && (val[i] ==
@@ -1873,6 +1877,8 @@ static int _find_hanging_ib_sequence(struct adreno_ringbuffer *rb,
 
 	while (temp_rb_rptr / sizeof(unsigned int) != rb->wptr) {
 		kgsl_sharedmem_readl(&rb->buffer_desc, &val[i], temp_rb_rptr);
+		/* Ensure above read is finished before next read */
+		rmb();
 
 		if (check && val[i] == ib1) {
 			/* decrement i, i.e i = (i - 1 + 2) % 2 */
@@ -1938,6 +1944,9 @@ static void adreno_setup_ft_data(struct kgsl_device *device,
 			&ft_data->global_eop,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 			eoptimestamp));
+
+	/* Ensure context id and global eop ts read complete */
+	rmb();
 
 	ft_data->rb_buffer = vmalloc(rb->buffer_desc.size);
 	if (!ft_data->rb_buffer) {
@@ -2016,6 +2025,8 @@ _adreno_check_long_ib(struct kgsl_device *device)
 			&curr_global_ts,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 			eoptimestamp));
+	/* Ensure above read is finished before long ib check */
+	rmb();
 
 	/* Mark long ib as handled */
 	adreno_dev->long_ib = 0;
