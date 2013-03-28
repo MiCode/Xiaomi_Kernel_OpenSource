@@ -644,109 +644,109 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 
 	debugfs_create_u32(
 		"hw_notification_interval",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->hw_notification_interval);
 
 	debugfs_create_u32(
 		"hw_notification_min_interval",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->hw_notification_min_interval);
 
 	debugfs_create_u32(
 		"hw_notification_count",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->hw_notification_count);
 
 	debugfs_create_u32(
 		"hw_notification_size",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->hw_notification_size);
 
 	debugfs_create_u32(
 		"hw_notification_min_size",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->hw_notification_min_size);
 
 	debugfs_create_u32(
 		"decoder_drop_count",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->decoder_drop_count);
 
 	debugfs_create_u32(
 		"decoder_out_count",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->decoder_out_count);
 
 	debugfs_create_u32(
 		"decoder_out_interval_sum",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->decoder_out_interval_sum);
 
 	debugfs_create_u32(
 		"decoder_out_interval_average",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->decoder_out_interval_average);
 
 	debugfs_create_u32(
 		"decoder_out_interval_max",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->decoder_out_interval_max);
 
 	debugfs_create_u32(
 		"decoder_ts_errors",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->decoder_ts_errors);
 
 	debugfs_create_u32(
 		"sdmx_process_count",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->sdmx_process_count);
 
 	debugfs_create_u32(
 		"sdmx_process_time_sum",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->sdmx_process_time_sum);
 
 	debugfs_create_u32(
 		"sdmx_process_time_average",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->sdmx_process_time_average);
 
 	debugfs_create_u32(
 		"sdmx_process_time_max",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->sdmx_process_time_max);
 
 	debugfs_create_u32(
 		"sdmx_process_packets_sum",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->sdmx_process_packets_sum);
 
 	debugfs_create_u32(
 		"sdmx_process_packets_average",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->sdmx_process_packets_average);
 
 	debugfs_create_u32(
 		"sdmx_process_packets_min",
-		S_IRUGO|S_IWUGO,
+		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->sdmx_process_packets_min);
 }
