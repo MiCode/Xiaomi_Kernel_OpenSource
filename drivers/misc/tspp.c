@@ -2582,28 +2582,27 @@ static void tsif_debugfs_init(struct tspp_tsif_device *tsif_device,
 
 		debugfs_create_u32(
 			"stat_rx_chunks",
-			S_IRUGO|S_IWUGO,
+			S_IRUGO | S_IWUSR | S_IWGRP,
 			tsif_device->dent_tsif,
 			&tsif_device->stat_rx);
 
 		debugfs_create_u32(
 			"stat_overflow",
-			S_IRUGO|S_IWUGO,
+			S_IRUGO | S_IWUSR | S_IWGRP,
 			tsif_device->dent_tsif,
 			&tsif_device->stat_overflow);
 
 		debugfs_create_u32(
 			"stat_lost_sync",
-			S_IRUGO|S_IWUGO,
+			S_IRUGO | S_IWUSR | S_IWGRP,
 			tsif_device->dent_tsif,
 			&tsif_device->stat_lost_sync);
 
 		debugfs_create_u32(
 			"stat_timeout",
-			S_IRUGO|S_IWUGO,
+			S_IRUGO | S_IWUSR | S_IWGRP,
 			tsif_device->dent_tsif,
 			&tsif_device->stat_timeout);
-
 	}
 }
 
