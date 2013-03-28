@@ -157,6 +157,26 @@ struct lvds_panel_info {
 	char channel_swap;
 };
 
+struct fbc_panel_info {
+	u32 enabled;
+	u32 target_bpp;
+	u32 comp_mode;
+	u32 qerr_enable;
+	u32 cd_bias;
+	u32 pat_enable;
+	u32 vlc_enable;
+	u32 bflc_enable;
+
+	u32 line_x_budget;
+	u32 block_x_budget;
+	u32 block_budget;
+
+	u32 lossless_mode_thd;
+	u32 lossy_mode_thd;
+	u32 lossy_rgb_thd;
+	u32 lossy_mode_idx;
+};
+
 struct mdss_panel_info {
 	u32 xres;
 	u32 yres;
@@ -184,6 +204,7 @@ struct mdss_panel_info {
 	u32 panel_power_on;
 
 	struct lcd_panel_info lcdc;
+	struct fbc_panel_info fbc;
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
 };

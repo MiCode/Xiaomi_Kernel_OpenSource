@@ -61,6 +61,30 @@ Optional properties:
 - qcom,dsi-pwm-gpio :			PWM gpio.
 - qcom,mdss-pan-broadcast-mode:		Boolean used to enable broadcast mode.
 - qcom,cont-splash-enabled:		Boolean used to enable continuous splash mode.
+- qcom,fbc-enabled:			Boolean used to enable frame buffer compression mode.
+- qcom,fbc-mode-select:			An array of length 7 that specifies the fbc mode supported
+					by the panel. FBC enabled panels may or may not support
+					the modes specified here. Each entry will
+					have the format specified below:
+					--> compressed bpp supported by the panel
+					--> component packing
+					--> enable/disable quantization error calculation
+					--> Bias for CD
+					--> enable/disable PAT mode
+					--> enable/disable VLC mode
+					--> enable/disable BFLC mode
+- qcom,fbc-budget-ctl:			An array of length 3 that specifies the budget control settings
+					supported by the fbc enabled panel. Each entry will have the format
+					specified below:
+					--> per line extra budget
+					--> extra budget level
+					--> per block budget
+- qcom,fbc-lossy-mode:			An array of 3 that specifies the lossy mode settings
+					supported by the fbc enabled panel. Each entry will
+					have the format specified below:
+					--> lossless mode threshold
+					--> lossy mode threshold
+					--> lossy RGB threshold
 - qcom,mdss-pan-porch-values:		An array of size 6 that specifies the panel blanking values.
 - qcom,mdss-pan-underflow-clr:		Specifies the controller settings for the panel underflow clear
 					settings. Default value is 0xff.
@@ -184,5 +208,9 @@ Example:
 		qcom,on-cmds-dsi-state = "DSI_LP_MODE";
 		qcom,panel-off-cmds = [22 01 00 00 00 00 00];
 		qcom,off-cmds-dsi-state = "DSI LP MODE";
+		qcom,fbc-enabled;
+		qcom,fbc-mode = <12 0 1 2 1 1 1>;
+		qcom,fbc-budget-ctl = <675 5 91>;
+		qcom,fbc-lossy-mode = <0 0xc0 0 3>;
 	};
 };
