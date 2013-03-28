@@ -2596,6 +2596,16 @@ adreno_ft(struct kgsl_device *device,
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned int timestamp;
 
+	/*
+	 * If GPU FT is turned off do not run FT.
+	 * If GPU stall detection is suspected to be false,
+	 * we can use this option to confirm stall detection.
+	 */
+	if (ft_data->ft_policy & KGSL_FT_OFF) {
+		KGSL_FT_ERR(device, "GPU FT turned off\n");
+		return 0;
+	}
+
 	KGSL_FT_INFO(device,
 	"Start Parameters: IB1: 0x%X, "
 	"Bad context_id: %u, global_eop: 0x%x\n",
@@ -2681,11 +2691,6 @@ adreno_dump_and_exec_ft(struct kgsl_device *device)
 
 		/* Get the fault tolerance data as soon as hang is detected */
 		adreno_setup_ft_data(device, &ft_data);
-		/*
-		 * Trigger an automatic dump of the state to
-		 * the console
-		 */
-		kgsl_postmortem_dump(device, 0);
 
 		/*
 		 * If long ib is detected, do not attempt postmortem or

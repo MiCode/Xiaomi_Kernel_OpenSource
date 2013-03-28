@@ -250,11 +250,12 @@ struct adreno_ft_data {
 #define FT_DETECT_REGS_COUNT 12
 
 /* Fault Tolerance policy flags */
-#define  KGSL_FT_DISABLE                  BIT(0)
+#define  KGSL_FT_OFF                      BIT(0)
 #define  KGSL_FT_REPLAY                   BIT(1)
 #define  KGSL_FT_SKIPIB                   BIT(2)
 #define  KGSL_FT_SKIPFRAME                BIT(3)
-#define  KGSL_FT_TEMP_DISABLE             BIT(4)
+#define  KGSL_FT_DISABLE                  BIT(4)
+#define  KGSL_FT_TEMP_DISABLE             BIT(5)
 #define  KGSL_FT_DEFAULT_POLICY           (KGSL_FT_REPLAY + KGSL_FT_SKIPIB)
 
 /* Pagefault policy flags */

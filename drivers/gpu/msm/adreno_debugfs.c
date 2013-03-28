@@ -51,10 +51,11 @@ void adreno_debugfs_init(struct kgsl_device *device)
 			   &adreno_dev->fast_hang_detect);
 	/*
 	 * FT policy can be set to any of the options below.
-	 * KGSL_FT_DISABLE -> BIT(0) Set to disable FT
+	 * KGSL_FT_OFF -> BIT(0) Set to turn off FT
 	 * KGSL_FT_REPLAY  -> BIT(1) Set to enable replay
 	 * KGSL_FT_SKIPIB  -> BIT(2) Set to skip IB
 	 * KGSL_FT_SKIPFRAME -> BIT(3) Set to skip frame
+	 * KGSL_FT_DISABLE -> BIT(4) Set to disable FT for faulting context
 	 * by default set FT policy to KGSL_FT_DEFAULT_POLICY
 	 */
 	adreno_dev->ft_policy = KGSL_FT_DEFAULT_POLICY;
