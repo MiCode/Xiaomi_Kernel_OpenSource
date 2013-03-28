@@ -1199,6 +1199,14 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		return err;
 	}
 
+	config_data = taiko_get_afe_config(codec, AFE_AANC_VERSION);
+	err = afe_set_config(AFE_AANC_VERSION, config_data, 0);
+	if (err) {
+		pr_err("%s: Failed to set aanc version %d\n",
+			__func__, err);
+		return err;
+	}
+
 	/* start mbhc */
 	mbhc_cfg.calibration = def_taiko_mbhc_cal();
 	if (mbhc_cfg.calibration)
