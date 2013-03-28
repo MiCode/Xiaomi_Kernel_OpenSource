@@ -30,7 +30,6 @@
 #include <sound/q6adm-v2.h>
 #include <asm/dma.h>
 #include <linux/memory_alloc.h>
-#include <mach/msm_subsystem_map.h>
 #include "msm-pcm-afe-v2.h"
 
 #define MIN_PERIOD_SIZE (128 * 2)

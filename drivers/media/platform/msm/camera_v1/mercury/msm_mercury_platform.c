@@ -16,7 +16,6 @@
 
 #include <mach/clk.h>
 #include <mach/camera.h>
-#include <mach/msm_subsystem_map.h>
 
 #include "msm_mercury_platform.h"
 #include "msm_mercury_sync.h"

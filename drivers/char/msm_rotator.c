@@ -32,7 +32,6 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #endif
-#include <mach/msm_subsystem_map.h>
 #include <mach/iommu_domains.h>
 
 #define DRIVER_NAME "msm_rotator"

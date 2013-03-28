@@ -18,7 +18,6 @@
 #include <sound/apr_audio-v2.h>
 #include <sound/lsm_params.h>
 #include <mach/qdsp6v2/apr.h>
-#include <mach/msm_subsystem_map.h>
 
 typedef void (*app_cb)(uint32_t opcode, uint32_t token,
 		       uint32_t *payload, void *priv);

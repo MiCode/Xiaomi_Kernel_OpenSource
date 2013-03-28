@@ -30,7 +30,6 @@
 #include <sound/q6adm.h>
 #include <asm/dma.h>
 #include <linux/memory_alloc.h>
-#include <mach/msm_subsystem_map.h>
 #include "msm-pcm-afe.h"
 #include "msm-pcm-q6.h"
 
