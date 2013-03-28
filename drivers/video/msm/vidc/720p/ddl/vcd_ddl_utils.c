@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,11 +87,9 @@ void ddl_pmem_free(struct ddl_buf_addr *buff_addr)
 void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 {
 	u32 guard_bytes, align_mask;
-	u32 physical_addr;
 	u32 align_offset;
-	u32 alloc_size, flags = 0;
+	u32 alloc_size;
 	struct ddl_context *ddl_context;
-	struct msm_mapped_buffer *mapped_buffer = NULL;
 	unsigned long *kernel_vaddr = NULL;
 	ion_phys_addr_t phyaddr = 0;
 	size_t len = 0;
@@ -155,36 +153,8 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 			(u32)buff_addr->virtual_base_addr,
 			alloc_size, align, len);
 	} else {
-		physical_addr = (u32)
-			allocate_contiguous_memory_nomap(alloc_size,
-						ddl_context->memtype, SZ_4K);
-		if (!physical_addr) {
-			ERR("\n%s(): DDL pmem allocate failed\n",
-			       __func__);
-			goto bailout;
-		}
-		buff_addr->physical_base_addr = (u32 *) physical_addr;
-		flags = MSM_SUBSYSTEM_MAP_KADDR;
-		buff_addr->mapped_buffer =
-		msm_subsystem_map_buffer((unsigned long)physical_addr,
-		alloc_size, flags, NULL, 0);
-		if (IS_ERR(buff_addr->mapped_buffer)) {
-			ERR("\n%s() buffer map failed\n", __func__);
-			goto free_pmem_buffer;
-		}
-		mapped_buffer = buff_addr->mapped_buffer;
-		if (!mapped_buffer->vaddr) {
-			ERR("\n%s() mapped virtual address is NULL\n",
-				__func__);
-			goto unmap_pmem_buffer;
-		}
-		buff_addr->virtual_base_addr = mapped_buffer->vaddr;
-		DBG("ddl_pmem_alloc: mem_type(0x%x), phys(0x%x),"\
-			" virt(0x%x), sz(%u), align(%u)",
-			(u32)buff_addr->mem_type,
-			(u32)buff_addr->physical_base_addr,
-			(u32)buff_addr->virtual_base_addr,
-			alloc_size, SZ_4K);
+		pr_err("ION must be enabled.");
+		goto bailout;
 	}
 
 	memset(buff_addr->virtual_base_addr, 0 , sz + guard_bytes);
@@ -203,16 +173,6 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 		(u32)buff_addr->align_physical_addr,
 		(u32)buff_addr->virtual_base_addr,
 		(u32)buff_addr->align_virtual_addr);
-	return;
-
-unmap_pmem_buffer:
-	if (buff_addr->mapped_buffer)
-		msm_subsystem_unmap_buffer(buff_addr->mapped_buffer);
-free_pmem_buffer:
-	if (buff_addr->physical_base_addr)
-		free_contiguous_memory_by_paddr((unsigned long)
-			buff_addr->physical_base_addr);
-	memset(buff_addr, 0, sizeof(struct ddl_buf_addr));
 	return;
 
 unmap_ion_buffer:
@@ -253,13 +213,6 @@ void ddl_pmem_free(struct ddl_buf_addr *buff_addr)
 			ion_free(ddl_context->video_ion_client,
 				buff_addr->alloc_handle);
 		}
-	} else {
-		if (buff_addr->mapped_buffer)
-			msm_subsystem_unmap_buffer(
-				buff_addr->mapped_buffer);
-		if (buff_addr->physical_base_addr)
-			free_contiguous_memory_by_paddr((unsigned long)
-				buff_addr->physical_base_addr);
 	}
 	memset(buff_addr, 0, sizeof(struct ddl_buf_addr));
 }

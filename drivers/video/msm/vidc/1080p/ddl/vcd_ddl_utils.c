@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
  */
 #include <linux/memory_alloc.h>
 #include <linux/delay.h>
-#include <mach/msm_subsystem_map.h>
+#include <mach/iommu_domains.h>
 #include <mach/subsystem_restart.h>
 #include "vcd_ddl_utils.h"
 #include "vcd_ddl.h"
@@ -25,8 +25,6 @@ struct time_data {
 };
 static struct time_data proc_time[MAX_TIME_DATA];
 #define DDL_MSG_TIME(x...) printk(KERN_DEBUG x)
-static unsigned int vidc_mmu_subsystem[] =	{
-		MSM_SUBSYSTEM_VIDEO, MSM_SUBSYSTEM_VIDEO_FWARE};
 
 #ifdef DDL_BUF_LOG
 static void ddl_print_buffer(struct ddl_context *ddl_context,
@@ -39,13 +37,10 @@ static void ddl_print_buffer_port(struct ddl_context *ddl_context,
 void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 {
 	u32 alloc_size, offset = 0 ;
-	u32 index = 0;
 	struct ddl_context *ddl_context;
-	struct msm_mapped_buffer *mapped_buffer = NULL;
 	unsigned long iova = 0;
 	unsigned long buffer_size = 0;
 	unsigned long *kernel_vaddr = NULL;
-	unsigned long flags = 0;
 	int ret = 0;
 	ion_phys_addr_t phyaddr = 0;
 	size_t len = 0;
@@ -128,51 +123,10 @@ void *ddl_pmem_alloc(struct ddl_buf_addr *addr, size_t sz, u32 alignment)
 		addr->align_virtual_addr = addr->virtual_base_addr + offset;
 		addr->buffer_size = alloc_size;
 	} else {
-		addr->alloced_phys_addr = (phys_addr_t)
-		allocate_contiguous_memory_nomap(alloc_size,
-			res_trk_get_mem_type(), SZ_4K);
-		if (!addr->alloced_phys_addr) {
-			DDL_MSG_ERROR("%s() : acm alloc failed (%d)\n",
-					 __func__, alloc_size);
-			goto bail_out;
-		}
-		flags = MSM_SUBSYSTEM_MAP_IOVA | MSM_SUBSYSTEM_MAP_KADDR;
-		if (alignment == DDL_KILO_BYTE(128))
-				index = 1;
-		else if (alignment > SZ_4K)
-			flags |= MSM_SUBSYSTEM_ALIGN_IOVA_8K;
-
-		addr->mapped_buffer =
-		msm_subsystem_map_buffer((unsigned long)addr->alloced_phys_addr,
-			alloc_size, flags, &vidc_mmu_subsystem[index],
-			sizeof(vidc_mmu_subsystem[index])/sizeof(unsigned int));
-		if (IS_ERR(addr->mapped_buffer)) {
-			pr_err(" %s() buffer map failed", __func__);
-			goto free_acm_alloc;
-		}
-		mapped_buffer = addr->mapped_buffer;
-		if (!mapped_buffer->vaddr || !mapped_buffer->iova[0]) {
-			pr_err("%s() map buffers failed\n", __func__);
-			goto free_map_buffers;
-		}
-		addr->physical_base_addr = (u8 *)mapped_buffer->iova[0];
-		addr->virtual_base_addr = mapped_buffer->vaddr;
-		addr->align_physical_addr = (u8 *) DDL_ALIGN((u32)
-			addr->physical_base_addr, alignment);
-		offset = (u32)(addr->align_physical_addr -
-				addr->physical_base_addr);
-		addr->align_virtual_addr = addr->virtual_base_addr + offset;
-		addr->buffer_size = sz;
+		pr_err("ION must be enabled.");
+		goto bail_out;
 	}
 	return addr->virtual_base_addr;
-free_map_buffers:
-	msm_subsystem_unmap_buffer(addr->mapped_buffer);
-	addr->mapped_buffer = NULL;
-free_acm_alloc:
-		free_contiguous_memory_by_paddr(
-			(unsigned long)addr->alloced_phys_addr);
-		addr->alloced_phys_addr = (phys_addr_t)NULL;
-		return NULL;
 unmap_ion_alloc:
 	ion_unmap_kernel(ddl_context->video_ion_client,
 		addr->alloc_handle);
@@ -207,12 +161,6 @@ void ddl_pmem_free(struct ddl_buf_addr *addr)
 			ion_free(ddl_context->video_ion_client,
 				addr->alloc_handle);
 			}
-	} else {
-		if (addr->mapped_buffer)
-			msm_subsystem_unmap_buffer(addr->mapped_buffer);
-		if (addr->alloced_phys_addr)
-			free_contiguous_memory_by_paddr(
-				(unsigned long)addr->alloced_phys_addr);
 	}
 	memset(addr, 0, sizeof(struct ddl_buf_addr));
 }

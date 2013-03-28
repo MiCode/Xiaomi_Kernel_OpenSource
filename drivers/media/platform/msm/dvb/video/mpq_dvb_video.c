@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@
 
 #include <linux/clk.h>
 #include <linux/timer.h>
-#include <mach/msm_subsystem_map.h>
+#include <mach/iommu_domains.h>
 #include <media/msm/vidc_type.h>
 #include <media/msm/vcd_api.h>
 #include <media/msm/vidc_init.h>
@@ -1188,9 +1188,6 @@ static int mpq_int_vid_dec_free_h264_mv_buffers(
 
 	if (!client_ctx)
 		return -EINVAL;
-	if (client_ctx->vcd_h264_mv_buffer.client_data)
-		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
-		client_ctx->vcd_h264_mv_buffer.client_data);
 
 	vcd_property_hdr.prop_id = VCD_I_FREE_H264_MV_BUFFER;
 	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
