@@ -1498,6 +1498,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		&data);
 	mdata->rot_block_size = (!rc ? data : 128);
 
+	mdata->has_bwc = of_property_read_bool(pdev->dev.of_node,
+					       "qcom,mdss-has-bwc");
 	return 0;
 }
 
