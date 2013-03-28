@@ -35,7 +35,7 @@
 #include <linux/platform_device.h>
 
 /* QPNP VADC TM register definition */
-#define QPNP_REVISION3					0x3
+#define QPNP_REVISION3					0x2
 #define QPNP_REVISION_EIGHT_CHANNEL_SUPPORT		2
 #define QPNP_STATUS1					0x8
 #define QPNP_STATUS1_OP_MODE				4
@@ -544,7 +544,7 @@ static int32_t qpnp_adc_tm_channel_configure(uint32_t btm_chan,
 			i++;
 	}
 
-	if ((i == adc_tm->max_channels_available) && (!chan_found)) {
+	if (!chan_found) {
 		pr_err("Channel not found\n");
 		return -EINVAL;
 	}
@@ -1292,7 +1292,8 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_btm_param *param)
 {
 	struct qpnp_adc_tm_drv *adc_tm = qpnp_adc_tm;
 	uint32_t channel, dt_index = 0, scale_type = 0;
-	int rc = 0;
+	int rc = 0, i = 0;
+	bool chan_found = false;
 
 	if (!adc_tm || !adc_tm->adc_tm_initialized)
 		return -ENODEV;
@@ -1305,11 +1306,17 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_btm_param *param)
 	mutex_lock(&adc_tm->adc->adc_lock);
 
 	channel = param->channel;
-	while ((adc_tm->adc->adc_channels[dt_index].channel_num
-		!= channel) && (dt_index < adc_tm->max_channels_available))
-		dt_index++;
+	while (i < adc_tm->max_channels_available) {
+		if (adc_tm->adc->adc_channels[i].channel_num ==
+							channel) {
+			dt_index = i;
+			chan_found = true;
+			i++;
+		} else
+			i++;
+	}
 
-	if (dt_index >= adc_tm->max_channels_available) {
+	if (!chan_found)  {
 		pr_err("not a valid ADC_TM channel\n");
 		rc = -EINVAL;
 		goto fail_unlock;
