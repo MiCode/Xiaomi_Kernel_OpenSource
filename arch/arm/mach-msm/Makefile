@@ -422,3 +422,4 @@ obj-$(CONFIG_MSM_SMCMOD) += smcmod.o
 obj-$(CONFIG_MSM_CPU_PWRCTL) +=  msm_cpu_pwrctl.o
 
 obj-$(CONFIG_ARCH_MSM8974) += msm_mpmctr.o
+obj-$(CONFIG_MSM_CPR_REGULATOR) += cpr-regulator.o

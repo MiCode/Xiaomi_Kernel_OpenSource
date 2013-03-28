@@ -2912,4 +2912,15 @@ config MSM_XPU_ERR_FATAL
 	bool "Configure XPU violations as fatal errors"
 	help
 	 Select if XPU violations have to be configured as fatal errors.
+
+config MSM_CPR_REGULATOR
+	bool "RBCPR regulator driver for APC"
+	depends on REGULATOR
+	depends on OF
+	help
+	  Compile in RBCPR (RapidBridge Core Power Reduction) driver to support
+	  corner vote for APC power rail. The driver takes PTE process voltage
+	  suggestions in efuse as initial settings. It converts corner vote
+	  to voltage value before writing to a voltage regulator API, such as
+	  that provided by spm-regulator driver.
 endif
