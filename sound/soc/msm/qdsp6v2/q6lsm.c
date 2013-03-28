@@ -30,7 +30,6 @@
 #include <asm/ioctls.h>
 #include <mach/memory.h>
 #include <mach/debug_mm.h>
-#include <mach/msm_subsystem_map.h>
 #include "audio_acdb.h"
 
 #define APR_TIMEOUT	(5 * HZ)

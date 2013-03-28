@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
  */
 #ifndef _VCD_API_H_
 #define _VCD_API_H_
+#include <linux/types.h>
 #include "vcd_property.h"
 #include "vcd_status.h"
 
