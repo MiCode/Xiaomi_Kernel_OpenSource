@@ -99,10 +99,17 @@ enum {
 	SB_PGD_PORT_TX_ENABLE_n,
 	SB_PGD_PORT_RX_WATERMARK_n,
 	SB_PGD_PORT_RX_ENABLE_n,
+	SB_PGD_TX_PORTn_MULTI_CHNL_0,
+	SB_PGD_TX_PORTn_MULTI_CHNL_1,
+	SB_PGD_RX_PORTn_MULTI_CHNL_0,
+	SB_PGD_RX_PORTn_MULTI_CHNL_1,
+	AANC_FF_GAIN_ADAPTIVE,
+	AANC_FFGAIN_ADAPTIVE_EN,
+	AANC_GAIN_CONTROL,
 	MAX_CFG_REGISTERS,
 };
 
-static struct afe_param_cdc_reg_cfg mad_audio_reg_cfg[] = {
+static struct afe_param_cdc_reg_cfg audio_reg_cfg[] = {
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_MAD_MAIN_CTL_1),
@@ -157,12 +164,30 @@ static struct afe_param_cdc_reg_cfg mad_audio_reg_cfg[] = {
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_SB_PGD_PORT_RX_BASE),
 		SB_PGD_PORT_RX_ENABLE_n, 0x1, 8, 0x1
-	}
+	},
+	{	1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_ANC1_IIR_B1_CTL),
+		AANC_FF_GAIN_ADAPTIVE, 0x4, 8, 0
+	},
+	{	1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_ANC1_IIR_B1_CTL),
+		AANC_FFGAIN_ADAPTIVE_EN, 0x8, 8, 0
+	},
+	{
+		1,
+		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_ANC1_GAIN_CTL),
+		AANC_GAIN_CONTROL, 0xFF, 8, 0
+	},
 };
 
-static struct afe_param_cdc_reg_cfg_data taiko_mad_audio_reg_cfg = {
-	.num_registers = ARRAY_SIZE(mad_audio_reg_cfg),
-	.reg_data = mad_audio_reg_cfg,
+static struct afe_param_cdc_reg_cfg_data taiko_audio_reg_cfg = {
+	.num_registers = ARRAY_SIZE(audio_reg_cfg),
+	.reg_data = audio_reg_cfg,
+};
+
+static struct afe_param_id_cdc_aanc_version taiko_cdc_aanc_version = {
+	.cdc_aanc_minor_version = AFE_API_VERSION_CDC_AANC_VERSION,
+	.aanc_hw_version        = AANC_HW_BLOCK_VERSION_2,
 };
 
 module_param_cb(spkr_drv_wrnd, &spkr_drv_wrnd_param_ops, &spkr_drv_wrnd, 0644);
@@ -3621,8 +3646,8 @@ static int taiko_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 		return 1;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(mad_audio_reg_cfg); i++)
-		if (mad_audio_reg_cfg[i].reg_logical_addr -
+	for (i = 0; i < ARRAY_SIZE(audio_reg_cfg); i++)
+		if (audio_reg_cfg[i].reg_logical_addr -
 		    TAIKO_REGISTER_START_OFFSET == reg)
 			return 1;
 
@@ -5678,9 +5703,11 @@ void *taiko_get_afe_config(struct snd_soc_codec *codec,
 	case AFE_SLIMBUS_SLAVE_CONFIG:
 		return &priv->slimbus_slave_cfg;
 	case AFE_CDC_REGISTERS_CONFIG:
-		return &taiko_mad_audio_reg_cfg;
+		return &taiko_audio_reg_cfg;
 	case AFE_SLIMBUS_SLAVE_PORT_CONFIG:
 		return &taiko_slimbus_slave_port_cfg;
+	case AFE_AANC_VERSION:
+		return &taiko_cdc_aanc_version;
 	default:
 		pr_err("%s: Unknown config_type 0x%x\n", __func__, config_type);
 		return NULL;
