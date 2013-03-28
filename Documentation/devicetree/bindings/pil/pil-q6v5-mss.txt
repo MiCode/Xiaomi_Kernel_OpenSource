@@ -10,8 +10,7 @@ Required properties:
 - reg:		      Pairs of physical base addresses and region sizes of
 		      memory mapped registers.
 - reg-names:	      Names of the bases for the above registers. "qdsp6_base",
-		      "halt_base", "rmb_base", "restart_reg", and
-		      "metadata_base" are expected.
+		      "halt_base", "rmb_base", and "restart_reg" are expected.
 - interrupts:         The modem watchdog interrupt
 - vdd_mss-supply:     Reference to the regulator that supplies the processor.
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
@@ -34,10 +33,9 @@ Example:
 		reg = <0xfc880000 0x100>,
 		      <0xfd485000 0x400>,
 		      <0xfc820000 0x020>,
-		      <0xfc401680 0x004>,
-		      <0x0d1f0000 0x4000>;
+		      <0xfc401680 0x004>;
 		reg-names = "qdsp6_base", "halt_base", "rmb_base",
-			    "restart_reg", metadata_base";
+			    "restart_reg";
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8841_s3>;
 		vdd_cx-supply = <&pm8841_s2>;

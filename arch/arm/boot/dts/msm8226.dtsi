@@ -645,10 +645,9 @@
 		      <0xfd485000 0x400>,
 		      <0xfc820000 0x020>,
 		      <0xfc401680 0x004>,
-		      <0x0d1fc000 0x4000>,
 		      <0xfd485194 0x4>;
 		reg-names = "qdsp6_base", "halt_base", "rmb_base",
-			    "restart_reg", "metadata_base", "cxrail_bhs_reg";
+			    "restart_reg", "cxrail_bhs_reg";
 
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8226_s1>;
