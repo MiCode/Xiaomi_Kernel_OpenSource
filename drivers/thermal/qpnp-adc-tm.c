@@ -1330,11 +1330,11 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_btm_param *param)
 					channel, scale_type, dt_index);
 	adc_tm->adc->amux_prop->amux_channel = channel;
 	adc_tm->adc->amux_prop->decimation =
-			adc_tm->adc->adc_channels[channel].adc_decimation;
+			adc_tm->adc->adc_channels[dt_index].adc_decimation;
 	adc_tm->adc->amux_prop->hw_settle_time =
-			adc_tm->adc->adc_channels[channel].hw_settle_time;
+			adc_tm->adc->adc_channels[dt_index].hw_settle_time;
 	adc_tm->adc->amux_prop->fast_avg_setup =
-			adc_tm->adc->adc_channels[channel].fast_avg_setup;
+			adc_tm->adc->adc_channels[dt_index].fast_avg_setup;
 	adc_tm->adc->amux_prop->mode_sel =
 		ADC_OP_MEASUREMENT_INTERVAL << QPNP_OP_MODE_SHIFT;
 	adc_tm->adc->amux_prop->chan_prop->meas_interval1 =
