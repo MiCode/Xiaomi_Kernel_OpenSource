@@ -465,6 +465,7 @@ config ARCH_MSM8226
 	select MSM_RPM_REGULATOR_SMD
 	select MSM_SPM_REGULATOR
 	select MSM_JTAG_MM if CORESIGHT_ETM
+	select MSM_CPR_REGULATOR
 endmenu
 
 choice
