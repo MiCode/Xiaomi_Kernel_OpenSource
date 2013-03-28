@@ -477,7 +477,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
-	u32 ystride, bpp, data;
+	u32 ystride, bpp, data, dst_bpp;
 	u32 dummy_xres, dummy_yres;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
@@ -516,13 +516,22 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	clk_rate = pdata->panel_info.clk_rate;
 	clk_rate = min(clk_rate, pdata->panel_info.clk_max);
 
-	hbp = pdata->panel_info.lcdc.h_back_porch;
-	hfp = pdata->panel_info.lcdc.h_front_porch;
-	vbp = pdata->panel_info.lcdc.v_back_porch;
-	vfp = pdata->panel_info.lcdc.v_front_porch;
-	hspw = pdata->panel_info.lcdc.h_pulse_width;
+	dst_bpp = pdata->panel_info.fbc.enabled ?
+		(pdata->panel_info.fbc.target_bpp) : (pinfo->bpp);
+
+	hbp = mult_frac(pdata->panel_info.lcdc.h_back_porch, dst_bpp,
+			pdata->panel_info.bpp);
+	hfp = mult_frac(pdata->panel_info.lcdc.h_front_porch, dst_bpp,
+			pdata->panel_info.bpp);
+	vbp = mult_frac(pdata->panel_info.lcdc.v_back_porch, dst_bpp,
+			pdata->panel_info.bpp);
+	vfp = mult_frac(pdata->panel_info.lcdc.v_front_porch, dst_bpp,
+			pdata->panel_info.bpp);
+	hspw = mult_frac(pdata->panel_info.lcdc.h_pulse_width, dst_bpp,
+			pdata->panel_info.bpp);
 	vspw = pdata->panel_info.lcdc.v_pulse_width;
-	width = pdata->panel_info.xres;
+	width = mult_frac(pdata->panel_info.xres, dst_bpp,
+			pdata->panel_info.bpp);
 	height = pdata->panel_info.yres;
 
 	mipi  = &pdata->panel_info.mipi;
