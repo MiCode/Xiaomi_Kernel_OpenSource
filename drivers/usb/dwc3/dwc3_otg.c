@@ -426,6 +426,9 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 
 		if (!init) {
 			init = true;
+			if (!work_busy(&dotg->sm_work))
+				schedule_work(&dotg->sm_work);
+
 			complete(&dotg->dwc3_xcvr_vbus_init);
 			dev_dbg(phy->dev, "XCVR: BSV init complete\n");
 			return;
@@ -610,8 +613,11 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
 	 * driver initialization. Wait for it.
 	 */
 	ret = wait_for_completion_timeout(&dotg->dwc3_xcvr_vbus_init, HZ * 5);
-	if (!ret)
+	if (!ret) {
 		dev_err(phy->dev, "%s: completion timeout\n", __func__);
+		/* We can safely assume no cable connected */
+		set_bit(ID, &dotg->inputs);
+	}
 
 	ext_xceiv = dotg->ext_xceiv;
 	dwc3_otg_reset(dotg);
