@@ -21,6 +21,7 @@
 #include "q6_hfi.h"
 #include "vidc_hfi_api.h"
 
+static struct hal_device_data hal_ctxt;
 
 static int write_queue(void *info, u8 *packet)
 {
@@ -289,7 +290,7 @@ static void *q6_hfi_add_device(u32 device_id,
 {
 	struct q6_hfi_device *hdevice = NULL;
 
-	if (device_id || !callback) {
+	if (!callback) {
 		dprintk(VIDC_ERR, "Invalid Paramters");
 		return NULL;
 	}
@@ -301,19 +302,23 @@ static void *q6_hfi_add_device(u32 device_id,
 		goto err_alloc;
 	}
 
-	INIT_LIST_HEAD(&hal_ctxt.dev_head);
-	INIT_LIST_HEAD(&hdevice->list);
 	hdevice->device_id = device_id;
 	hdevice->callback = callback;
 
+	dprintk(VIDC_DBG, "q6_hfi_add_device device_id %d\n", device_id);
+
 	INIT_WORK(&hdevice->vidc_worker, q6_hfi_core_work_handler);
 	hdevice->vidc_workq = create_singlethread_workqueue(
-		"msm_vidc_workerq");
+		"msm_vidc_workerq_q6");
 	if (!hdevice->vidc_workq) {
 		dprintk(VIDC_ERR, ": create workq failed\n");
 		goto error_createq;
 	}
 
+	if (hal_ctxt.dev_count == 0)
+		INIT_LIST_HEAD(&hal_ctxt.dev_head);
+
+	INIT_LIST_HEAD(&hdevice->list);
 	list_add_tail(&hdevice->list, &hal_ctxt.dev_head);
 	hal_ctxt.dev_count++;
 
@@ -363,10 +368,12 @@ void q6_hfi_delete_device(void *device)
 		q6_hfi_deinit_resources(device);
 		dev = (struct q6_hfi_device *) device;
 		list_for_each_entry(close, &hal_ctxt.dev_head, list) {
+			if (close->device_id == dev->device_id) {
 				hal_ctxt.dev_count--;
 				list_del(&close->list);
 				destroy_workqueue(close->vidc_workq);
 				kfree(close);
+			}
 		}
 
 	}
