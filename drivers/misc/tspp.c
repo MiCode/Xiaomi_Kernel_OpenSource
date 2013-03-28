@@ -1569,6 +1569,7 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 {
 	int i;
 	int id;
+	int table_idx;
 	u32 val;
 
 	struct sps_connect *config;
@@ -1606,16 +1607,18 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 	wmb();
 
 	/* unregister all filters for this channel */
-	for (i = 0; i < TSPP_NUM_PRIORITIES; i++) {
-		struct tspp_pid_filter *tspp_filter =
-			&pdev->filters[channel->src]->filter[i];
-		id = FILTER_GET_PIPE_NUMBER0(tspp_filter);
-		if (id == channel->id) {
-			if (FILTER_HAS_ENCRYPTION(tspp_filter))
-				tspp_free_key_entry(
-					FILTER_GET_KEY_NUMBER(tspp_filter));
-			tspp_filter->config = 0;
-			tspp_filter->filter = 0;
+	for (table_idx = 0; table_idx < TSPP_FILTER_TABLES; table_idx++) {
+		for (i = 0; i < TSPP_NUM_PRIORITIES; i++) {
+			struct tspp_pid_filter *filter =
+				&pdev->filters[table_idx]->filter[i];
+			id = FILTER_GET_PIPE_NUMBER0(filter);
+			if (id == channel->id) {
+				if (FILTER_HAS_ENCRYPTION(filter))
+					tspp_free_key_entry(
+						FILTER_GET_KEY_NUMBER(filter));
+				filter->config = 0;
+				filter->filter = 0;
+			}
 		}
 	}
 	channel->filter_count = 0;
