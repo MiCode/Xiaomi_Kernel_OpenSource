@@ -174,6 +174,7 @@ void __init msm8974_init_very_early(void)
 
 static const char *msm8974_dt_match[] __initconst = {
 	"qcom,msm8974",
+	"qcom,apq8074",
 	NULL
 };
 
