@@ -428,39 +428,39 @@ static const int comp_rx_path[] = {
 static const struct comp_sample_dependent_params comp_samp_params[] = {
 	{
 		/* 8 Khz */
-		.peak_det_timeout = 0x02,
+		.peak_det_timeout = 0x06,
 		.rms_meter_div_fact = 0x09,
 		.rms_meter_resamp_fact = 0x06,
 	},
 	{
 		/* 16 Khz */
-		.peak_det_timeout = 0x03,
+		.peak_det_timeout = 0x07,
 		.rms_meter_div_fact = 0x0A,
 		.rms_meter_resamp_fact = 0x0C,
 	},
 	{
 		/* 32 Khz */
-		.peak_det_timeout = 0x05,
+		.peak_det_timeout = 0x08,
 		.rms_meter_div_fact = 0x0B,
 		.rms_meter_resamp_fact = 0x1E,
 	},
 	{
 		/* 48 Khz */
-		.peak_det_timeout = 0x05,
+		.peak_det_timeout = 0x09,
 		.rms_meter_div_fact = 0x0B,
 		.rms_meter_resamp_fact = 0x28,
 	},
 	{
 		/* 96 Khz */
-		.peak_det_timeout = 0x06,
+		.peak_det_timeout = 0x0A,
 		.rms_meter_div_fact = 0x0C,
 		.rms_meter_resamp_fact = 0x50,
 	},
 	{
 		/* 192 Khz */
-		.peak_det_timeout = 0x07,
-		.rms_meter_div_fact = 0xD,
-		.rms_meter_resamp_fact = 0xA0,
+		.peak_det_timeout = 0x0B,
+		.rms_meter_div_fact = 0xC,
+		.rms_meter_resamp_fact = 0x50,
 	},
 };
 
@@ -849,26 +849,50 @@ static int taiko_config_gain_compander(struct snd_soc_codec *codec,
 
 static void taiko_discharge_comp(struct snd_soc_codec *codec, int comp)
 {
-	/* Update RSM to 1, DIVF to 5 */
-	snd_soc_write(codec, TAIKO_A_CDC_COMP0_B3_CTL + (comp * 8), 1);
+	/* Level meter DIV Factor to 5*/
 	snd_soc_update_bits(codec, TAIKO_A_CDC_COMP0_B2_CTL + (comp * 8), 0xF0,
-			    1 << 5);
-	/* Wait for 1ms */
-	usleep_range(1000, 1000);
+			    0x05 << 4);
+	/* RMS meter Sampling to 0x01 */
+	snd_soc_write(codec, TAIKO_A_CDC_COMP0_B3_CTL + (comp * 8), 0x01);
+
+	/* Worst case timeout for compander CnP sleep timeout */
+	usleep_range(3000, 3000);
+}
+
+static enum wcd9xxx_buck_volt taiko_codec_get_buck_mv(
+	struct snd_soc_codec *codec)
+{
+	int buck_volt = WCD9XXX_CDC_BUCK_UNSUPPORTED;
+	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_pdata *pdata = taiko->resmgr.pdata;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
+		if (!strncmp(pdata->regulator[i].name,
+					 WCD9XXX_SUPPLY_BUCK_NAME,
+					 sizeof(WCD9XXX_SUPPLY_BUCK_NAME))) {
+			if ((pdata->regulator[i].min_uV ==
+					WCD9XXX_CDC_BUCK_MV_1P8) ||
+				(pdata->regulator[i].min_uV ==
+					WCD9XXX_CDC_BUCK_MV_2P15))
+				buck_volt = pdata->regulator[i].min_uV;
+			break;
+		}
+	}
+	return buck_volt;
 }
 
 static int taiko_config_compander(struct snd_soc_dapm_widget *w,
 				  struct snd_kcontrol *kcontrol, int event)
 {
-	int mask, emask;
-	bool timedout;
-	unsigned long timeout;
+	int mask, enable_mask;
 	struct snd_soc_codec *codec = w->codec;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 	const int comp = w->shift;
 	const u32 rate = taiko->comp_fs[comp];
 	const struct comp_sample_dependent_params *comp_params =
 	    &comp_samp_params[rate];
+	enum wcd9xxx_buck_volt buck_mv;
 
 	pr_debug("%s: %s event %d compander %d, enabled %d", __func__,
 		 w->name, event, comp, taiko->comp_enabled[comp]);
@@ -878,72 +902,73 @@ static int taiko_config_compander(struct snd_soc_dapm_widget *w,
 
 	/* Compander 0 has single channel */
 	mask = (comp == COMPANDER_0 ? 0x01 : 0x03);
-	emask = (comp == COMPANDER_0 ? 0x02 : 0x03);
+	enable_mask = (comp == COMPANDER_0 ? 0x02 : 0x03);
+	buck_mv = taiko_codec_get_buck_mv(codec);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* Set gain source to compander */
-		taiko_config_gain_compander(codec, comp, true);
-		/* Enable RX interpolation path clocks */
+		/* Set compander Sample rate */
+		snd_soc_update_bits(codec,
+				    TAIKO_A_CDC_COMP0_FS_CFG + (comp * 8),
+				    0x07, rate);
+		/* Set the static gain offset */
+		if (comp == COMPANDER_1
+			&& buck_mv == WCD9XXX_CDC_BUCK_MV_2P15) {
+			snd_soc_update_bits(codec,
+					TAIKO_A_CDC_COMP0_B4_CTL + (comp * 8),
+					0x80, 0x80);
+		} else {
+			snd_soc_update_bits(codec,
+					TAIKO_A_CDC_COMP0_B4_CTL + (comp * 8),
+					0x80, 0x00);
+		}
+		/* Enable RX interpolation path compander clocks */
 		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_RX_B2_CTL,
 				    mask << comp_shift[comp],
 				    mask << comp_shift[comp]);
-
-		taiko_discharge_comp(codec, comp);
-
-		/* Clear compander halt */
-		snd_soc_update_bits(codec, TAIKO_A_CDC_COMP0_B1_CTL +
-					   (comp * 8),
-				    1 << 2, 0);
 		/* Toggle compander reset bits */
 		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_OTHR_RESET_B2_CTL,
 				    mask << comp_shift[comp],
 				    mask << comp_shift[comp]);
 		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_OTHR_RESET_B2_CTL,
 				    mask << comp_shift[comp], 0);
-		break;
-	case SND_SOC_DAPM_POST_PMU:
+
+		/* Set gain source to compander */
+		taiko_config_gain_compander(codec, comp, true);
+
+		/* Compander enable */
+		snd_soc_update_bits(codec, TAIKO_A_CDC_COMP0_B1_CTL +
+				    (comp * 8), enable_mask, enable_mask);
+
+		taiko_discharge_comp(codec, comp);
+
 		/* Set sample rate dependent paramater */
-		snd_soc_update_bits(codec,
-				    TAIKO_A_CDC_COMP0_FS_CFG + (comp * 8),
-				    0x07, rate);
 		snd_soc_write(codec, TAIKO_A_CDC_COMP0_B3_CTL + (comp * 8),
 			      comp_params->rms_meter_resamp_fact);
 		snd_soc_update_bits(codec,
 				    TAIKO_A_CDC_COMP0_B2_CTL + (comp * 8),
-				    0x0F, comp_params->peak_det_timeout);
-		snd_soc_update_bits(codec,
-				    TAIKO_A_CDC_COMP0_B2_CTL + (comp * 8),
 				    0xF0, comp_params->rms_meter_div_fact << 4);
-		/* Compander enable */
-		snd_soc_update_bits(codec, TAIKO_A_CDC_COMP0_B1_CTL +
-				    (comp * 8), emask, emask);
+		snd_soc_update_bits(codec,
+					TAIKO_A_CDC_COMP0_B2_CTL + (comp * 8),
+					0x0F, comp_params->peak_det_timeout);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		/* Halt compander */
-		snd_soc_update_bits(codec,
-				    TAIKO_A_CDC_COMP0_B1_CTL + (comp * 8),
-				    1 << 2, 1 << 2);
-		/* Wait up to a second for shutdown complete */
-		timeout = jiffies + HZ;
-		do {
-			if ((snd_soc_read(codec,
-					  TAIKO_A_CDC_COMP0_SHUT_DOWN_STATUS +
-					  (comp * 8)) & mask) == mask)
-				break;
-		} while (!(timedout = time_after(jiffies, timeout)));
-		pr_debug("%s: Compander %d shutdown %s in %dms\n", __func__,
-			 comp, timedout ? "timedout" : "completed",
-			 jiffies_to_msecs(timeout - HZ - jiffies));
-		break;
-	case SND_SOC_DAPM_POST_PMD:
 		/* Disable compander */
 		snd_soc_update_bits(codec,
 				    TAIKO_A_CDC_COMP0_B1_CTL + (comp * 8),
-				    emask, 0x00);
+				    enable_mask, 0x00);
+
+		/* Toggle compander reset bits */
+		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_OTHR_RESET_B2_CTL,
+				    mask << comp_shift[comp],
+				    mask << comp_shift[comp]);
+		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_OTHR_RESET_B2_CTL,
+				    mask << comp_shift[comp], 0);
+
 		/* Turn off the clock for compander in pair */
 		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_RX_B2_CTL,
 				    mask << comp_shift[comp], 0);
+
 		/* Set gain source to register */
 		taiko_config_gain_compander(codec, comp, false);
 		break;
@@ -4965,13 +4990,13 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("COMP0_CLK", SND_SOC_NOPM, 0, 0,
 		taiko_config_compander, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_POST_PMD),
+			SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_SUPPLY("COMP1_CLK", SND_SOC_NOPM, 1, 0,
 		taiko_config_compander, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_SUPPLY("COMP2_CLK", SND_SOC_NOPM, 2, 0,
 		taiko_config_compander, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD),
 
 
 	SND_SOC_DAPM_INPUT("AMIC1"),
@@ -5886,24 +5911,6 @@ static int wcd9xxx_ssr_register(struct wcd9xxx *control,
 	control->post_reset = post_reset_cb;
 	control->ssr_priv = priv;
 	return 0;
-}
-
-static int taiko_codec_get_buck_mv(struct snd_soc_codec *codec)
-{
-	int buck_volt = WCD9XXX_CDC_BUCK_UNSUPPORTED;
-	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
-	struct wcd9xxx_pdata *pdata = taiko->resmgr.pdata;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
-		if (!strncmp(pdata->regulator[i].name,
-					 WCD9XXX_SUPPLY_BUCK_NAME,
-					 sizeof(WCD9XXX_SUPPLY_BUCK_NAME))) {
-			buck_volt = pdata->regulator[i].min_uV;
-			break;
-		}
-	}
-	return buck_volt;
 }
 
 static const struct snd_soc_dapm_widget taiko_1_dapm_widgets[] = {
