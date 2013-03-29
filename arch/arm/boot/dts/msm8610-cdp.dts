@@ -13,6 +13,7 @@
 /dts-v1/;
 
 /include/ "msm8610.dtsi"
+/include/ "dsi-v2-panel-truly-wvga-video.dtsi"
 
 / {
 	model = "Qualcomm MSM 8610 CDP";
