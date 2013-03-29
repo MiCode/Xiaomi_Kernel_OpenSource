@@ -206,7 +206,7 @@ void kgsl_sync_timeline_signal(struct sync_timeline *timeline,
 	struct kgsl_sync_timeline *ktimeline =
 		(struct kgsl_sync_timeline *) timeline;
 
-	if (timestamp_cmp(timestamp, ktimeline->last_timestamp > 0))
+	if (timestamp_cmp(timestamp, ktimeline->last_timestamp) > 0)
 		ktimeline->last_timestamp = timestamp;
 	sync_timeline_signal(timeline);
 }
