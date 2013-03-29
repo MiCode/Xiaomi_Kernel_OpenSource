@@ -1729,4 +1729,4 @@ int __init mdss_fb_init(void)
 	return 0;
 }
 
-device_initcall_sync(mdss_fb_init);
+module_init(mdss_fb_init);
