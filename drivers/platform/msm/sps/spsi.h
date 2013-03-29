@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,8 @@
 /* "Clear" value for the connection parameter struct */
 #define SPSRM_CLEAR     0xcccccccc
 
+#define MAX_MSG_LEN 80
+
 extern u32 d_type;
 
 #ifdef CONFIG_DEBUG_FS
@@ -48,25 +50,28 @@ extern u8 logging_option;
 extern u8 debug_level_option;
 extern u8 print_limit_option;
 
-#define MAX_MSG_LEN 80
 #define SPS_DEBUGFS(msg, args...) do {					\
 		char buf[MAX_MSG_LEN];		\
 		snprintf(buf, MAX_MSG_LEN, msg"\n", ##args);	\
 		sps_debugfs_record(buf);	\
 	} while (0)
 #define SPS_ERR(msg, args...) do {					\
-		if (unlikely(print_limit_option > 2))	\
-			pr_err_ratelimited(msg, ##args);	\
-		else	\
-			pr_err(msg, ##args);	\
+		if (logging_option != 1) {	\
+			if (unlikely(print_limit_option > 2))	\
+				pr_err_ratelimited(msg, ##args);	\
+			else	\
+				pr_err(msg, ##args);	\
+		}	\
 		if (unlikely(debugfs_record_enabled))	\
 			SPS_DEBUGFS(msg, ##args);	\
 	} while (0)
 #define SPS_INFO(msg, args...) do {					\
-		if (unlikely(print_limit_option > 1))	\
-			pr_info_ratelimited(msg, ##args);	\
-		else	\
-			pr_info(msg, ##args);	\
+		if (logging_option != 1) {	\
+			if (unlikely(print_limit_option > 1))	\
+				pr_info_ratelimited(msg, ##args);	\
+			else	\
+				pr_info(msg, ##args);	\
+		}	\
 		if (unlikely(debugfs_record_enabled))	\
 			SPS_DEBUGFS(msg, ##args);	\
 	} while (0)
@@ -192,7 +197,7 @@ void print_bam_reg(void *);
 void print_bam_pipe_reg(void *, u32);
 
 /* output the content of selected BAM-level registers */
-void print_bam_selected_reg(void *);
+void print_bam_selected_reg(void *, u32);
 
 /* output the content of selected BAM pipe registers */
 void print_bam_pipe_selected_reg(void *, u32);
