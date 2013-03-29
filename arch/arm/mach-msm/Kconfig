@@ -2643,8 +2643,6 @@ config MSM_OCMEM_POWER_DISABLE
 
 config SENSORS_ADSP
 	bool "Enable Sensors Driver Support for ADSP"
-	depends on (ARCH_MSM8226 || ARCH_MSM8974)
-	default y
 	help
 	  Add support for sensors ADSP driver.
 	  This driver is used for exercising different sensors use cases,
