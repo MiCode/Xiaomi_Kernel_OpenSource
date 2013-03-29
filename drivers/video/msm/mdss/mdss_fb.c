@@ -45,11 +45,8 @@
 
 #include <mach/board.h>
 #include <mach/memory.h>
-#include <mach/msm_memtypes.h>
-#include <mach/iommu_domains.h>
 
 #include "mdss_fb.h"
-#include "mdss_mdp.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -67,6 +64,8 @@ static u32 mdss_fb_pseudo_palette[16] = {
 	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
 	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff
 };
+
+static struct msm_mdp_interface *mdp_instance;
 
 static int mdss_fb_register(struct msm_fb_data_type *mfd);
 static int mdss_fb_open(struct fb_info *info, int user);
@@ -261,6 +260,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->pdev = pdev;
 	if (pdata->next)
 		mfd->split_display = true;
+	mfd->mdp = *mdp_instance;
 
 	mutex_init(&mfd->lock);
 
@@ -271,6 +271,14 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	rc = mdss_fb_register(mfd);
 	if (rc)
 		return rc;
+
+	if (mfd->mdp.init_fnc) {
+		rc = mfd->mdp.init_fnc(mfd);
+		if (rc) {
+			pr_err("init_fnc failed\n");
+			return rc;
+		}
+	}
 
 	rc = pm_runtime_set_active(mfd->fbi->dev);
 	if (rc < 0)
@@ -301,11 +309,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		}
 	}
 
-	rc = mdss_mdp_overlay_init(mfd);
-	if (rc)
-		pr_err("unable to init overlay\n");
-
-	return 0;
+	return rc;
 }
 
 static int mdss_fb_remove(struct platform_device *pdev)
@@ -503,24 +507,6 @@ static struct platform_driver mdss_fb_driver = {
 static int unset_bl_level, bl_updated;
 static int bl_level_old;
 
-static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
-						struct mdp_bl_scale_data *data)
-{
-	int ret = 0;
-	int curr_bl;
-	mutex_lock(&mfd->lock);
-	curr_bl = mfd->bl_level;
-	mfd->bl_scale = data->scale;
-	mfd->bl_min_lvl = data->min_lvl;
-	pr_debug("update scale = %d, min_lvl = %d\n", mfd->bl_scale,
-							mfd->bl_min_lvl);
-
-	/* update current backlight to use new scaling*/
-	mdss_fb_set_backlight(mfd, curr_bl);
-	mutex_unlock(&mfd->lock);
-	return ret;
-}
-
 static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 {
 	u32 temp = *bl_lvl;
@@ -601,9 +587,8 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
-		if (!mfd->panel_power_on) {
-			msleep(20);
-			ret = mfd->on_fnc(mfd);
+		if (!mfd->panel_power_on && mfd->mdp.on_fnc) {
+			ret = mfd->mdp.on_fnc(mfd);
 			if (ret == 0)
 				mfd->panel_power_on = true;
 		}
@@ -614,7 +599,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	case FB_BLANK_NORMAL:
 	case FB_BLANK_POWERDOWN:
 	default:
-		if (mfd->panel_power_on) {
+		if (mfd->panel_power_on && mfd->mdp.off_fnc) {
 			int curr_pwr_state;
 
 			del_timer(&mfd->no_update.timer);
@@ -625,8 +610,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			mfd->panel_power_on = false;
 			bl_updated = 0;
 
-			msleep(20);
-			ret = mfd->off_fnc(mfd);
+			ret = mfd->mdp.off_fnc(mfd);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
 			else
@@ -731,28 +715,11 @@ static struct fb_ops mdss_fb_ops = {
 
 static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 {
-	void *virt = NULL;
-	unsigned long phys = 0;
-	size_t size;
-	u32 yres = mfd->fbi->var.yres_virtual;
-
-	size = PAGE_ALIGN(mfd->fbi->fix.line_length * yres);
-
-	if (mfd->index == 0) {
-		if (mdss_mdp_alloc_fb_mem(mfd, size, (u32 *)&phys, &virt))
-			return  -ENOMEM;
-		pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
-			size, virt, phys, mfd->index);
-	} else {
-		pr_debug("no memory allocated for fb%d\n", mfd->index);
-		size = 0;
+	if (!mfd->mdp.fb_mem_alloc_fnc) {
+		pr_err("no fb memory allocator function defined\n");
+		return -ENOMEM;
 	}
-
-	mfd->fbi->screen_base = virt;
-	mfd->fbi->fix.smem_start = phys;
-	mfd->fbi->fix.smem_len = size;
-
-	return 0;
+	return mfd->mdp.fb_mem_alloc_fnc(mfd);
 }
 
 static int mdss_fb_register(struct msm_fb_data_type *mfd)
@@ -899,7 +866,11 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		var->xres *= 2;
 
 	fix->type = panel_info->is_3d_panel;
-	fix->line_length = mdss_mdp_fb_stride(mfd->index, var->xres, bpp);
+	if (mfd->mdp.fb_stride)
+		fix->line_length = mfd->mdp.fb_stride(mfd->index, var->xres,
+							bpp);
+	else
+		fix->line_length = var->xres * bpp;
 
 	var->yres = panel_info->yres;
 	var->xres_virtual = var->xres;
@@ -949,15 +920,13 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		pr_err("error: not enough memory!\n");
 		return -ENOMEM;
 	}
-	if (mfd->lut_update) {
-		ret = fb_alloc_cmap(&fbi->cmap, 256, 0);
-		if (ret)
-			pr_err("fb_alloc_cmap() failed!\n");
-	}
+
+	ret = fb_alloc_cmap(&fbi->cmap, 256, 0);
+	if (ret)
+		pr_err("fb_alloc_cmap() failed!\n");
 
 	if (register_framebuffer(fbi) < 0) {
-		if (mfd->lut_update)
-			fb_dealloc_cmap(&fbi->cmap);
+		fb_dealloc_cmap(&fbi->cmap);
 
 		mfd->op_enable = false;
 		return -EPERM;
@@ -1200,8 +1169,8 @@ static int mdss_fb_pan_display_sub(struct fb_var_screeninfo *var,
 		(var->yoffset / info->fix.ypanstep) * info->fix.ypanstep;
 
 	mdss_fb_wait_for_fence(mfd);
-	if (mfd->dma_fnc)
-		mfd->dma_fnc(mfd);
+	if (mfd->mdp.dma_fnc)
+		mfd->mdp.dma_fnc(mfd);
 	else
 		pr_warn("dma function not set for panel type=%d\n",
 				mfd->panel.type);
@@ -1238,7 +1207,8 @@ static void mdss_fb_commit_wq_handler(struct work_struct *work)
 	if (fb_backup->disp_commit.flags &
 		MDP_DISPLAY_COMMIT_OVERLAY) {
 		mdss_fb_wait_for_fence(mfd);
-		mdss_mdp_overlay_kickoff(mfd->ctl);
+		if (mfd->mdp.kickoff_fnc)
+			mfd->mdp.kickoff_fnc(mfd);
 		mdss_fb_signal_timeline(mfd);
 	} else {
 		var = &fb_backup->disp_commit.var;
@@ -1403,8 +1373,14 @@ static int mdss_fb_set_par(struct fb_info *info)
 		return -EINVAL;
 	}
 
-	mfd->fbi->fix.line_length = mdss_mdp_fb_stride(mfd->index, var->xres,
+
+	if (mfd->mdp.fb_stride)
+		mfd->fbi->fix.line_length = mfd->mdp.fb_stride(mfd->index,
+						var->xres,
 						var->bits_per_pixel / 8);
+	else
+		mfd->fbi->fix.line_length = var->xres * var->bits_per_pixel / 8;
+
 
 	if (mfd->panel_reconfig || (mfd->fb_imgType != old_imgType)) {
 		mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
@@ -1422,14 +1398,14 @@ static int mdss_fb_cursor(struct fb_info *info, void __user *p)
 	struct fb_cursor cursor;
 	int ret;
 
-	if (!mfd->cursor_update)
+	if (!mfd->mdp.cursor_update)
 		return -ENODEV;
 
 	ret = copy_from_user(&cursor, p, sizeof(cursor));
 	if (ret)
 		return ret;
 
-	return mfd->cursor_update(mfd, &cursor);
+	return mfd->mdp.cursor_update(mfd, &cursor);
 }
 
 static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
@@ -1438,86 +1414,17 @@ static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 	struct fb_cmap cmap;
 	int ret;
 
-	if (!mfd->lut_update)
+	if (!mfd->mdp.lut_update)
 		return -ENODEV;
 
 	ret = copy_from_user(&cmap, p, sizeof(cmap));
 	if (ret)
 		return ret;
 
-	mfd->lut_update(mfd, &cmap);
+	mfd->mdp.lut_update(mfd, &cmap);
 	return 0;
 }
 
-static int mdss_fb_handle_pp_ioctl(struct msm_fb_data_type *mfd,
-							void __user *argp)
-{
-	int ret;
-	struct msmfb_mdp_pp mdp_pp;
-	u32 copyback = 0;
-
-	ret = copy_from_user(&mdp_pp, argp, sizeof(mdp_pp));
-	if (ret)
-		return ret;
-
-	switch (mdp_pp.op) {
-	case mdp_op_pa_cfg:
-		ret = mdss_mdp_pa_config(mfd->ctl, &mdp_pp.data.pa_cfg_data,
-				&copyback);
-		break;
-
-	case mdp_op_pcc_cfg:
-		ret = mdss_mdp_pcc_config(mfd->ctl, &mdp_pp.data.pcc_cfg_data,
-			   &copyback);
-		break;
-
-	case mdp_op_lut_cfg:
-		switch (mdp_pp.data.lut_cfg_data.lut_type) {
-		case mdp_lut_igc:
-			ret = mdss_mdp_igc_lut_config(mfd->ctl,
-					(struct mdp_igc_lut_data *)
-					&mdp_pp.data.lut_cfg_data.data,
-					&copyback);
-			break;
-
-		case mdp_lut_pgc:
-			ret = mdss_mdp_argc_config(mfd->ctl,
-				&mdp_pp.data.lut_cfg_data.data.pgc_lut_data,
-				&copyback);
-			break;
-
-		case mdp_lut_hist:
-			ret = mdss_mdp_hist_lut_config(mfd->ctl,
-				(struct mdp_hist_lut_data *)
-				&mdp_pp.data.lut_cfg_data.data, &copyback);
-			break;
-
-		default:
-			ret = -ENOTSUPP;
-			break;
-		}
-		break;
-	case mdp_op_dither_cfg:
-		ret = mdss_mdp_dither_config(mfd->ctl,
-				&mdp_pp.data.dither_cfg_data, &copyback);
-		break;
-	case mdp_op_gamut_cfg:
-		ret = mdss_mdp_gamut_config(mfd->ctl,
-					&mdp_pp.data.gamut_cfg_data, &copyback);
-		break;
-	case mdp_bl_scale_cfg:
-		ret = mdss_bl_scale_config(mfd, (struct mdp_bl_scale_data *)
-						&mdp_pp.data.bl_scale_data);
-		break;
-	default:
-		pr_err("Unsupported request to MDP_PP IOCTL.\n");
-		ret = -EINVAL;
-		break;
-	}
-	if ((ret == 0) && copyback)
-		ret = copy_to_user(argp, &mdp_pp, sizeof(struct msmfb_mdp_pp));
-	return ret;
-}
 static int mdss_fb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 						struct mdp_buf_sync *buf_sync)
 {
@@ -1618,74 +1525,15 @@ static int mdss_fb_display_commit(struct fb_info *info,
 	return ret;
 }
 
-static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
-				struct msmfb_metadata *metadata)
-{
-	int ret = 0;
-	switch (metadata->op) {
-	case metadata_op_vic:
-		if (mfd->panel_info)
-			mfd->panel_info->vic =
-				metadata->data.video_info_code;
-		else
-			ret = -EINVAL;
-		break;
-	default:
-		pr_warn("unsupported request to MDP META IOCTL\n");
-		ret = -EINVAL;
-		break;
-	}
-	return ret;
-}
-
-static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
-		struct mdss_hw_caps *caps)
-{
-	struct mdss_data_type *mdata = mfd->mdata;
-
-	if (!mdata)
-		return -ENODEV;
-
-	caps->mdp_rev = mdata->mdp_rev;
-	caps->vig_pipes = mdata->nvig_pipes;
-	caps->rgb_pipes = mdata->nrgb_pipes;
-	caps->dma_pipes = mdata->ndma_pipes;
-
-	return 0;
-}
-
-static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
-				struct msmfb_metadata *metadata)
-{
-	int ret = 0;
-	switch (metadata->op) {
-	case metadata_op_frame_rate:
-		metadata->data.panel_frame_rate =
-			mdss_get_panel_framerate(mfd);
-		break;
-	case metadata_op_get_caps:
-		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);
-		break;
-	default:
-		pr_warn("Unsupported request to MDP META IOCTL.\n");
-		ret = -EINVAL;
-		break;
-	}
-	return ret;
-}
 
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	void __user *argp = (void __user *)arg;
-	struct mdp_histogram_data hist;
-	struct mdp_histogram_start_req hist_req;
-	u32 block, hist_data_addr = 0;
 	struct mdp_page_protection fb_page_protection;
 	int ret = -ENOSYS;
 	struct mdp_buf_sync buf_sync;
-	struct msmfb_metadata metadata;
 
 	mdss_fb_power_setting_idle(mfd);
 
@@ -1700,43 +1548,6 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = mdss_fb_set_lut(info, argp);
 		break;
 
-	case MSMFB_HISTOGRAM:
-		if (!mfd->panel_power_on)
-			return -EPERM;
-
-		ret = copy_from_user(&hist, argp, sizeof(hist));
-		if (ret)
-			return ret;
-
-		ret = mdss_mdp_hist_collect(mfd->ctl, &hist, &hist_data_addr);
-		if ((ret == 0) && hist_data_addr) {
-			ret = copy_to_user(hist.c0, (u32 *)hist_data_addr,
-				sizeof(u32) * hist.bin_cnt);
-			if (ret == 0)
-				ret = copy_to_user(argp, &hist,
-						   sizeof(hist));
-		}
-		break;
-
-	case MSMFB_HISTOGRAM_START:
-		if (!mfd->panel_power_on)
-			return -EPERM;
-
-		ret = copy_from_user(&hist_req, argp, sizeof(hist_req));
-		if (ret)
-			return ret;
-
-		ret = mdss_mdp_histogram_start(mfd->ctl, &hist_req);
-		break;
-
-	case MSMFB_HISTOGRAM_STOP:
-		ret = copy_from_user(&block, argp, sizeof(int));
-		if (ret)
-			return ret;
-
-		ret = mdss_mdp_histogram_stop(mfd->ctl, block);
-		break;
-
 	case MSMFB_GET_PAGE_PROTECTION:
 		fb_page_protection.page_protection =
 			mfd->mdp_fb_page_protection;
@@ -1744,10 +1555,6 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 				   sizeof(fb_page_protection));
 		if (ret)
 			return ret;
-		break;
-
-	case MSMFB_MDP_PP:
-		ret = mdss_fb_handle_pp_ioctl(mfd, argp);
 		break;
 
 	case MSMFB_BUFFER_SYNC:
@@ -1769,25 +1576,9 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = mdss_fb_display_commit(info, argp);
 		break;
 
-	case MSMFB_METADATA_SET:
-		ret = copy_from_user(&metadata, argp, sizeof(metadata));
-		if (ret)
-			return ret;
-		ret = mdss_fb_set_metadata(mfd, &metadata);
-		break;
-
-	case MSMFB_METADATA_GET:
-		ret = copy_from_user(&metadata, argp, sizeof(metadata));
-		if (ret)
-			return ret;
-		ret = mdss_fb_get_metadata(mfd, &metadata);
-		if (!ret)
-			ret = copy_to_user(argp, &metadata, sizeof(metadata));
-		break;
-
 	default:
-		if (mfd->ioctl_handler)
-			ret = mfd->ioctl_handler(mfd, cmd, argp);
+		if (mfd->mdp.ioctl_handler)
+			ret = mfd->mdp.ioctl_handler(mfd, cmd, argp);
 		break;
 	}
 
@@ -1853,6 +1644,11 @@ int mdss_register_panel(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
+	if (!mdp_instance) {
+		pr_err("mdss mdp resource not initialized yet\n");
+		return -ENODEV;
+	}
+
 	node = of_parse_phandle(pdev->dev.of_node, "qcom,mdss-fb-map", 0);
 	if (!node) {
 		pr_err("Unable to find fb node for device: %s\n",
@@ -1876,22 +1672,26 @@ int mdss_register_panel(struct platform_device *pdev,
 		fb_pdev->dev.platform_data = pdata;
 	}
 
-	/*
-	 * Clocks are already on if continuous splash is enabled,
-	 * increasing ref_cnt to help balance clocks once done.
-	 */
-	if (pdata->panel_info.cont_splash_enabled) {
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-		mdss_mdp_footswitch_ctrl_splash(1);
-		mdss_mdp_copy_splash_screen(pdata);
-	}
+	if (mdp_instance->panel_register_done)
+		mdp_instance->panel_register_done(pdata);
 
 mdss_notfound:
 	of_node_put(node);
-
 	return rc;
 }
 EXPORT_SYMBOL(mdss_register_panel);
+
+int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp)
+{
+	if (mdp_instance) {
+		pr_err("multiple MDP instance registration");
+		return -EINVAL;
+	}
+
+	mdp_instance = mdp;
+	return 0;
+}
+EXPORT_SYMBOL(mdss_fb_register_mdp_instance);
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num)
 {

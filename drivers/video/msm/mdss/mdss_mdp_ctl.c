@@ -575,7 +575,8 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	struct mdss_mdp_ctl *ctl;
 	int ret = 0;
 
-	ctl = mdss_mdp_ctl_alloc(mfd->mdata);
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
+	ctl = mdss_mdp_ctl_alloc(mdata);
 	if (!ctl) {
 		pr_err("unable to allocate ctl\n");
 		return ERR_PTR(-ENOMEM);
