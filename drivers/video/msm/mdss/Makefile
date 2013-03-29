@@ -7,7 +7,6 @@ mdss-mdp-objs += mdss_mdp_rotator.o
 mdss-mdp-objs += mdss_mdp_overlay.o
 mdss-mdp-objs += mdss_mdp_wb.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss-mdp.o
-obj-$(CONFIG_FB_MSM_MDSS) += mdss_fb.o
 
 ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-$(CONFIG_DEBUG_FS) += mdss_debug.o
@@ -31,3 +30,5 @@ obj-$(CONFIG_FB_MSM_MDSS_WRITEBACK) += mdss_wb.o
 mdss-qpic-objs := mdss_qpic.o mdss_fb.o mdss_qpic_panel.o
 obj-$(CONFIG_FB_MSM_QPIC) += mdss-qpic.o
 obj-$(CONFIG_FB_MSM_QPIC_ILI_QVGA_PANEL) += qpic_panel_ili_qvga.o
+
+obj-$(CONFIG_FB_MSM_MDSS) += mdss_fb.o
