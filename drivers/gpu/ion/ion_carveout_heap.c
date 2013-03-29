@@ -112,26 +112,13 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 struct sg_table *ion_carveout_heap_map_dma(struct ion_heap *heap,
 					      struct ion_buffer *buffer)
 {
-	struct sg_table *table;
-	int ret;
+	size_t chunk_size = buffer->size;
 
-	table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
-	if (!table)
-		return ERR_PTR(-ENOMEM);
+	if (ION_IS_CACHED(buffer->flags))
+		chunk_size = PAGE_SIZE;
 
-	ret = sg_alloc_table(table, 1, GFP_KERNEL);
-	if (ret)
-		goto err0;
-
-	table->sgl->length = buffer->size;
-	table->sgl->offset = 0;
-	table->sgl->dma_address = buffer->priv_phys;
-
-	return table;
-
-err0:
-	kfree(table);
-	return ERR_PTR(ret);
+	return ion_create_chunked_sg_table(buffer->priv_phys, chunk_size,
+					buffer->size);
 }
 
 void ion_carveout_heap_unmap_dma(struct ion_heap *heap,
