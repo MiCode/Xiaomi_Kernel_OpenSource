@@ -382,7 +382,7 @@ static int ion_system_contig_heap_phys(struct ion_heap *heap,
 }
 
 struct sg_table *ion_system_contig_heap_map_dma(struct ion_heap *heap,
-						   struct ion_buffer *buffer)
+						struct ion_buffer *buffer)
 {
 	struct sg_table *table;
 	int ret;
@@ -398,6 +398,13 @@ struct sg_table *ion_system_contig_heap_map_dma(struct ion_heap *heap,
 	sg_set_page(table->sgl, virt_to_page(buffer->priv_virt), buffer->size,
 		    0);
 	return table;
+}
+
+void ion_system_contig_heap_unmap_dma(struct ion_heap *heap,
+				      struct ion_buffer *buffer)
+{
+	sg_free_table(buffer->sg_table);
+	kfree(buffer->sg_table);
 }
 
 int ion_system_contig_heap_map_user(struct ion_heap *heap,
@@ -561,7 +568,7 @@ static struct ion_heap_ops kmalloc_ops = {
 	.free = ion_system_contig_heap_free,
 	.phys = ion_system_contig_heap_phys,
 	.map_dma = ion_system_contig_heap_map_dma,
-	.unmap_dma = ion_system_heap_unmap_dma,
+	.unmap_dma = ion_system_contig_heap_unmap_dma,
 	.map_kernel = ion_system_contig_heap_map_kernel,
 	.unmap_kernel = ion_system_contig_heap_unmap_kernel,
 	.map_user = ion_system_contig_heap_map_user,
