@@ -2253,7 +2253,6 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 				MMC_CAP2_DETECT_ON_ERR);
 	msm_host->mmc->caps2 |= MMC_CAP2_SANITIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
-	msm_host->mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
 	msm_host->mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 
