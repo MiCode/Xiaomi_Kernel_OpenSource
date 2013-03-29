@@ -276,7 +276,6 @@
 };
 
 &sdcc1 {
-	qcom,bus-width = <4>;
 	status = "disabled";
 };
 
