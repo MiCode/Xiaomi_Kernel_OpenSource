@@ -1608,10 +1608,9 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 	pr_debug("SOC before adjustment = %d\n", soc);
 	new_calculated_soc = adjust_soc(chip, &params, soc, batt_temp);
 
-	/* clamp soc due to BMS HW inaccuracies in pm8941v2.0 */
-	if (chip->revision1 == 0 && chip->revision2 == 0)
-		new_calculated_soc = clamp_soc_based_on_voltage(chip,
-						new_calculated_soc);
+	/* always clamp soc due to BMS hw/sw immaturities */
+	new_calculated_soc = clamp_soc_based_on_voltage(chip,
+					new_calculated_soc);
 
 done_calculating:
 	if (new_calculated_soc != chip->calculated_soc
