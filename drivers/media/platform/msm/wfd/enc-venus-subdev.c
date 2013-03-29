@@ -767,6 +767,7 @@ static int venc_unmap_user_to_kernel(struct venc_inst *inst,
 	if (inst->secure)
 		msm_ion_unsecure_buffer(venc_ion_client, mregion->ion_handle);
 
+	ion_free(venc_ion_client, mregion->ion_handle);
 	return rc;
 }
 
@@ -1286,9 +1287,11 @@ long venc_munmap(struct v4l2_subdev *sd, void *arg)
 		return rc;
 	}
 
-	if (mregion->paddr)
+	if (mregion->paddr) {
 		ion_unmap_iommu(mmap->ion_client, mregion->ion_handle,
 			domain, partition);
+		mregion->paddr = NULL;
+	}
 
 	if (inst->secure)
 		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
