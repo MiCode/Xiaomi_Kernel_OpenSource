@@ -637,19 +637,26 @@ int32_t qpnp_adc_vbatt_rscaler(struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 {
 	struct qpnp_vadc_linear_graph vbatt_param;
+	int rc = 0;
 
-	qpnp_get_vadc_gain_and_offset(&vbatt_param, CALIB_ABSOLUTE);
+	rc = qpnp_get_vadc_gain_and_offset(&vbatt_param, CALIB_ABSOLUTE);
+	if (rc < 0)
+		return rc;
 
-	*low_threshold = param->low_thr * vbatt_param.dy;
-	do_div(*low_threshold, vbatt_param.adc_vref);
+	*low_threshold = (((param->low_thr/3) - QPNP_ADC_625_UV) *
+				vbatt_param.dy);
+	do_div(*low_threshold, QPNP_ADC_625_UV);
 	*low_threshold += vbatt_param.adc_gnd;
 
-	*high_threshold = param->high_thr * vbatt_param.dy;
-	do_div(*high_threshold, vbatt_param.adc_vref);
+	*high_threshold = (((param->high_thr/3) - QPNP_ADC_625_UV) *
+				vbatt_param.dy);
+	do_div(*high_threshold, QPNP_ADC_625_UV);
 	*high_threshold += vbatt_param.adc_gnd;
 
 	pr_debug("high_volt:%d, low_volt:%d\n", param->high_thr,
 				param->low_thr);
+	pr_debug("adc_code_high:%x, adc_code_low:%x\n", *high_threshold,
+				*low_threshold);
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_vbatt_rscaler);
