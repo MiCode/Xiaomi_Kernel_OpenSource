@@ -990,7 +990,7 @@ static int venus_hfi_core_init(void *device)
 		goto err_core_init;
 	}
 
-	rc = create_pkt_cmd_sys_init(&pkt, HFI_ARCH_OX_OFFSET);
+	rc = create_pkt_cmd_sys_init(&pkt, HFI_VIDEO_ARCH_OX);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to create sys init pkt");
 		goto err_core_init;
