@@ -63,6 +63,7 @@ static struct clk *codec_clk;
 static int clk_users;
 
 static int msm8930_headset_gpios_configured;
+static struct mutex cdc_mclk_mutex;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
@@ -265,35 +266,42 @@ static int msm8930_enable_codec_ext_clk(
 		struct snd_soc_codec *codec, int enable,
 		bool dapm)
 {
+	int r = 0;
 	pr_debug("%s: enable = %d\n", __func__, enable);
+
+	mutex_lock(&cdc_mclk_mutex);
 	if (enable) {
 		clk_users++;
 		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
-		if (clk_users != 1)
-			return 0;
-
-		if (codec_clk) {
-			clk_set_rate(codec_clk, SITAR_EXT_CLK_RATE);
-			clk_prepare_enable(codec_clk);
-			sitar_mclk_enable(codec, 1, dapm);
-		} else {
-			pr_err("%s: Error setting Sitar MCLK\n", __func__);
-			clk_users--;
-			return -EINVAL;
+		if (clk_users == 1) {
+			if (codec_clk) {
+				clk_set_rate(codec_clk, SITAR_EXT_CLK_RATE);
+				clk_prepare_enable(codec_clk);
+				sitar_mclk_enable(codec, 1, dapm);
+			} else {
+				pr_err("%s: Error setting Sitar MCLK\n",
+					__func__);
+				clk_users--;
+				r = -EINVAL;
+			}
 		}
 	} else {
-		pr_debug("%s: clk_users = %d\n", __func__, clk_users);
-		if (clk_users == 0)
-			return 0;
-		clk_users--;
-		if (!clk_users) {
-			pr_debug("%s: disabling MCLK. clk_users = %d\n",
+		if (clk_users > 0) {
+			clk_users--;
+			pr_debug("%s: clk_users = %d\n", __func__, clk_users);
+			if (clk_users == 0) {
+				pr_debug("%s: disabling MCLK. clk_users = %d\n",
 					 __func__, clk_users);
-			sitar_mclk_enable(codec, 0, dapm);
-			clk_disable_unprepare(codec_clk);
+				sitar_mclk_enable(codec, 0, dapm);
+				clk_disable_unprepare(codec_clk);
+			}
+		} else {
+			pr_err("%s: Error releasing Sitar MCLK\n", __func__);
+			r = -EINVAL;
 		}
 	}
-	return 0;
+	mutex_unlock(&cdc_mclk_mutex);
+	return r;
 }
 
 static int msm8930_mclk_event(struct snd_soc_dapm_widget *w,
@@ -1378,6 +1386,7 @@ static int __init msm8930_audio_init(void)
 		msm8930_headset_gpios_configured = 1;
 
 	atomic_set(&auxpcm_rsc_ref, 0);
+	mutex_init(&cdc_mclk_mutex);
 	return ret;
 
 }
@@ -1392,6 +1401,7 @@ static void __exit msm8930_audio_exit(void)
 	msm8930_free_headset_mic_gpios();
 	platform_device_unregister(msm8930_snd_device);
 	kfree(mbhc_cfg.calibration);
+	mutex_destroy(&cdc_mclk_mutex);
 }
 module_exit(msm8930_audio_exit);
 
