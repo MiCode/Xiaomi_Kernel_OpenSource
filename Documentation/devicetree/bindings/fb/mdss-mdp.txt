@@ -75,6 +75,12 @@ Required properties
 				The number of dspp blocks should match the
 				number of mixers driving data to interface
 				defined in property: qcom,mdss-mixer-intf-off
+- qcom,mdss-pingpong-off:	Array of offset addresses for the available
+				pingpong blocks. These offsets are calculated
+				from regsiter "mdp_phys" defined in reg property.
+				The number of pingpong blocks should match the
+				number of mixers driving data to interface
+				defined in property: qcom,mdss-mixer-intf-off
 - qcom,mdss-mixer-wb-off: 	Array of offset addresses for the available
 				mixer blocks that can be drive data to writeback
 				block.  These offsets will be calculated from
@@ -142,6 +148,7 @@ Example:
 					    0x00003A00>;
 		qcom,mdss-mixer-wb-off = <0x00003E00 0x00004200>;
 		qcom,mdss-dspp-off = <0x00004600 0x00004A00 0x00004E00>;
+		qcom,mdss-pingpong-off = <0x00012D00 0x00012E00 0x00012F00>;
 		qcom,mdss-wb-off = <0x00011100 0x00013100 0x00015100
 				    0x00017100 0x00019100>;
 		qcom,mdss-intf-off = <0x00021100 0x00021300
