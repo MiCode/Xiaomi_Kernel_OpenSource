@@ -2,21 +2,38 @@ taiko audio CODEC
 
 Required properties:
 
-  - compatible : "qcom,taiko-slim-pgd"
-  - elemental-addr: codec slimbus slave PGD enumeration address.(48 bits)
+ - compatible : "qcom,taiko-slim-pgd"
+ - elemental-addr: codec slimbus slave PGD enumeration address.(48 bits)
 
-  - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
+ - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
 
-  - <supply-name>-supply: phandle to the regulator device tree node
-  - qcom,<supply-name>-voltage - specifies voltage levels for supply.
-      Should be specified in pairs (min, max), units mV.
-  - qcom,<supply-name>-current - specifies max current in mA that can drawn
-      from the <supply-name>.
+ - cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
+ - qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-buck-current: buck supply's max current in mA.
 
-    above three properties with "supply-name" set to "qcom,cdc-vdd-buck",
-        "qcom,cdc-vdd-tx-h", "qcom,cdc-vdd-rx-h", "qcom,cdc-vddpx-1",
-	"qcom,cdc-vdd-a-1p2v", "qcom,cdc-vddcx-1", "qcom,cdc-vddcx-2"
-	should be present.
+ - cdc-vdd-tx-h-supply: phandle of tx-h supply's regulator device tree node.
+ - qcom,cdc-vdd-tx-h-voltage: tx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-tx-h-current: tx-h supply's max current in mA.
+
+ - cdc-vdd-rx-h-supply: phandle of rx-h supply's regulator device tree node.
+ - qcom,cdc-vdd-rx-h-voltage: rx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-rx-h-current: rx-h supply's max current in mA.
+
+ - cdc-vddpx-1-supply: phandle of px-1 supply's regulator device tree node.
+ - qcom,cdc-vddpx-1-voltage: px-1 supply's voltage level min and max in mV.
+ - qcom,cdc-vddpx-1-current: px-1 supply's max current in mA.
+
+ - cdc-vdd-a-1p2v-supply: phandle of 1.2v supply's regulator device tree node.
+ - qcom,cdc-vdd-a-1p2v-voltage: 1.2v supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-a-1p2v-current: 1.2v supply's max current in mA.
+
+ - cdc-vddcx-1-supply: phandle of cx-1 supply's regulator device tree node.
+ - qcom,cdc-vddcx-1-voltage: cx-1 supply's voltage level min and max in mV.
+ - qcom,cdc-vddcx-1-current: cx-1 supply's max current in mA.
+
+ - cdc-vddcx-2-supply: phandle of cx-2 supply's regulator device tree node.
+ - qcom,cdc-vddcx-2-voltage: cx-2 supply's voltage level min and max in mV.
+ - qcom,cdc-vddcx-2-current: cx-2 supply's max current in mA.
 
  - qcom,cdc-micbias-ldoh-v - LDOH output in volts (should be 1.95 V and 3.00 V).
 
@@ -99,19 +116,37 @@ taiko_codec {
 
 Wcd9xxx audio CODEC in I2C mode
 
-  - compatible = "qcom,wcd9xxx-i2c-device";
-  - reg: represents the slave address provided to the I2C driver.
-  - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
-  - <supply-name>-supply: phandle to the regulator device tree node.
-  - qcom,<supply-name>-voltage -  specifies voltage levels for supply.
-      Should be specified in pairs (min, max), units mV.
-  - qcom,<supply-name>-current - specifies max current in mA that can drawn
-      from the <supply-name>.
+ - compatible = "qcom,wcd9xxx-i2c-device";
+ - reg: represents the slave address provided to the I2C driver.
+ - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
 
-    above three properties with "supply-name" set to  "qcom,cdc-vdd-buck",
-    "qcom,cdc-vdd-tx-h", "qcom,cdc-vdd-rx-h", "qcom,cdc-vddpx-1",
-    "qcom,cdc-vdd-a-1p2v", "qcom,cdc-vddcx-1", "qcom,cdc-vddcx-2"
-    should be present.
+ - cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
+ - qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-buck-current: buck supply's max current in mA.
+
+ - cdc-vdd-tx-h-supply: phandle of tx-h supply's regulator device tree node.
+ - qcom,cdc-vdd-tx-h-voltage: tx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-tx-h-current: tx-h supply's max current in mA.
+
+ - cdc-vdd-rx-h-supply: phandle of rx-h supply's regulator device tree node.
+ - qcom,cdc-vdd-rx-h-voltage: rx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-rx-h-current: rx-h supply's max current in mA.
+
+ - cdc-vddpx-1-supply: phandle of px-1 supply's regulator device tree node.
+ - qcom,cdc-vddpx-1-voltage: px-1 supply's voltage level min and max in mV.
+ - qcom,cdc-vddpx-1-current: px-1 supply's max current in mA.
+
+ - cdc-vdd-a-1p2v-supply: phandle of 1.2v supply's regulator device tree node.
+ - qcom,cdc-vdd-a-1p2v-voltage: 1.2v supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-a-1p2v-current: 1.2v supply's max current in mA.
+
+ - cdc-vddcx-1-supply: phandle of cx-1 supply's regulator device tree node.
+ - qcom,cdc-vddcx-1-voltage: cx-1 supply's voltage level min and max in mV.
+ - qcom,cdc-vddcx-1-current: cx-1 supply's max current in mA.
+
+ - cdc-vddcx-2-supply: phandle of cx-2 supply's regulator device tree node.
+ - qcom,cdc-vddcx-2-voltage: cx-2 supply's voltage level min and max in mV.
+ - qcom,cdc-vddcx-2-current: cx-2 supply's max current in mA.
 
  - qcom,cdc-micbias-ldoh-v - LDOH output in volts (should be 1.95 V and 3.00 V).
 
@@ -121,13 +156,13 @@ Wcd9xxx audio CODEC in I2C mode
    cfilt voltage can be set to max of qcom,cdc-micbias-ldoh-v - 0.15V.
 
  - qcom,cdc-micbias1-cfilt-sel = cfilt to use for micbias1
-     (should be from 1 to 3).
+				 (should be from 1 to 3).
  - qcom,cdc-micbias2-cfilt-sel = cfilt to use for micbias2
-     (should be from 1 to 3).
+				 (should be from 1 to 3).
  - qcom,cdc-micbias3-cfilt-sel = cfilt to use for micbias3
-     (should be from 1 to 3).
+				 (should be from 1 to 3).
  - qcom,cdc-micbias4-cfilt-sel = cfilt to use for micbias4
-     (should be from 1 to 3).
+				 (should be from 1 to 3).
    This value represents the connected CFLIT to MIC Bias.
 
  - qcom,cdc-micbias1-ext-cap: Boolean. Enable micbias 1 external capacitor mode.
