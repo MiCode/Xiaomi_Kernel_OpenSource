@@ -85,6 +85,20 @@ struct ci_role_driver {
 	const char	*name;
 };
 
+struct ci13xxx_ebi_err_entry {
+	u32 *usb_req_buf;
+	u32 usb_req_length;
+	u32 ep_info;
+	struct ci13xxx_ebi_err_entry *next;
+};
+
+struct ci13xxx_ebi_err_data {
+	u32 ebi_err_addr;
+	u32 apkt0;
+	u32 apkt1;
+	struct ci13xxx_ebi_err_entry *ebi_err_entry;
+};
+
 /**
  * struct hw_bank - hardware register mapping representation
  * @lpm: set if the device is LPM capable

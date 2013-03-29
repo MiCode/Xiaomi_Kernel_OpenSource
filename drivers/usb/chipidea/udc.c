@@ -24,6 +24,8 @@
 #include <linux/usb/otg.h>
 #include <linux/usb/chipidea.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/tracepoint.h>
+#include <mach/usb_trace.h>
 
 #include "ci.h"
 #include "udc.h"
@@ -59,6 +61,8 @@ ctrl_endpt_in_desc = {
 	.bmAttributes    = USB_ENDPOINT_XFER_CONTROL,
 	.wMaxPacketSize  = cpu_to_le16(CTRL_PAYLOAD_MAX),
 };
+
+static struct ci13xxx_ebi_err_data *ebi_err_data;
 
 /**
  * hw_ep_bit: calculates the bit number
@@ -430,6 +434,72 @@ static int hw_usb_reset(struct ci13xxx *ci)
 	   no need to verify the port reset status (ESS does it) */
 
 	return 0;
+}
+
+static void dump_usb_info(void *ignore, unsigned int ebi_addr,
+	unsigned int ebi_apacket0, unsigned int ebi_apacket1)
+{
+	struct ci13xxx *udc = _udc;
+	unsigned long flags;
+	struct list_head   *ptr = NULL;
+	struct ci13xxx_req *req = NULL;
+	struct ci13xxx_ep *mEp;
+	unsigned i;
+	struct ci13xxx_ebi_err_entry *temp_dump;
+	static int count;
+	u32 epdir = 0;
+
+	if (count)
+		return;
+	count++;
+
+	pr_info("%s: USB EBI error detected\n", __func__);
+
+	ebi_err_data = kmalloc(sizeof(struct ci13xxx_ebi_err_data),
+				 GFP_ATOMIC);
+	if (!ebi_err_data) {
+		pr_err("%s: memory alloc failed for ebi_err_data\n", __func__);
+		return;
+	}
+
+	ebi_err_data->ebi_err_entry = kmalloc(
+					sizeof(struct ci13xxx_ebi_err_entry),
+					GFP_ATOMIC);
+	if (!ebi_err_data->ebi_err_entry) {
+		kfree(ebi_err_data);
+		pr_err("%s: memory alloc failed for ebi_err_entry\n", __func__);
+		return;
+	}
+
+	ebi_err_data->ebi_err_addr = ebi_addr;
+	ebi_err_data->apkt0 = ebi_apacket0;
+	ebi_err_data->apkt1 = ebi_apacket1;
+
+	temp_dump = ebi_err_data->ebi_err_entry;
+	pr_info("\n DUMPING USB Requests Information\n");
+	spin_lock_irqsave(udc->lock, flags);
+	for (i = 0; i < hw_ep_max; i++) {
+		list_for_each(ptr, &udc->ci13xxx_ep[i].qh.queue) {
+			mEp = &udc->ci13xxx_ep[i];
+			req = list_entry(ptr, struct ci13xxx_req, queue);
+
+			temp_dump->usb_req_buf = req->req.buf;
+			temp_dump->usb_req_length = req->req.length;
+			epdir = mEp->dir;
+			temp_dump->ep_info = mEp->num | (epdir << 15);
+
+			temp_dump->next = kmalloc(
+					  sizeof(struct ci13xxx_ebi_err_entry),
+					  GFP_ATOMIC);
+			if (!temp_dump->next) {
+				pr_err("%s: memory alloc failed\n", __func__);
+				spin_unlock_irqrestore(udc->lock, flags);
+				return;
+			}
+			temp_dump = temp_dump->next;
+		}
+	}
+	spin_unlock_irqrestore(udc->lock, flags);
 }
 
 /******************************************************************************
@@ -2180,6 +2250,11 @@ static int udc_start(struct ci13xxx *ci)
 	pm_runtime_no_callbacks(&ci->gadget.dev);
 	pm_runtime_enable(&ci->gadget.dev);
 
+	retval = register_trace_usb_daytona_invalid_access(dump_usb_info,
+								NULL);
+	if (retval)
+		pr_err("Registering trace failed\n");
+
 	return retval;
 
 remove_trans:
@@ -2211,6 +2286,9 @@ static void udc_stop(struct ci13xxx *ci)
 {
 	if (ci == NULL)
 		return;
+
+	if (unregister_trace_usb_daytona_invalid_access(dump_usb_info, NULL))
+		pr_err("Unregistering trace failed\n");
 
 	usb_del_gadget_udc(&ci->gadget);
 
