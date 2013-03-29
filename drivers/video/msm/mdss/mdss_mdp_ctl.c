@@ -599,6 +599,15 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
 		ctl->start_fnc = mdss_mdp_video_start;
 		break;
+	case MIPI_CMD_PANEL:
+		if (pdata->panel_info.pdest == DISPLAY_1)
+			ctl->intf_num = MDSS_MDP_INTF1;
+		else
+			ctl->intf_num = MDSS_MDP_INTF2;
+		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->opmode = MDSS_MDP_CTL_OP_CMD_MODE;
+		ctl->start_fnc = mdss_mdp_cmd_start;
+		break;
 	case DTV_PANEL:
 		ctl->intf_num = MDSS_MDP_INTF3;
 		ctl->intf_type = MDSS_INTF_HDMI;

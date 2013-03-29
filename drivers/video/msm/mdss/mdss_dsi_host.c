@@ -26,7 +26,6 @@
 #include "mdss_dsi.h"
 
 static struct completion dsi_dma_comp;
-static int dsi_irq_enabled;
 static spinlock_t dsi_irq_lock;
 static spinlock_t dsi_mdp_lock;
 static int dsi_mdp_busy;
@@ -51,88 +50,45 @@ void mdss_dsi_init(void)
 	spin_lock_init(&dsi_mdp_lock);
 }
 
-void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	if (ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1)
-		mdss_dsi0_hw.ptr = (void *)(ctrl_pdata);
-	else
-		mdss_dsi1_hw.ptr = (void *)(ctrl_pdata);
+	if (ctrl->panel_data.panel_info.pdest == DISPLAY_1) {
+		mdss_dsi0_hw.ptr = (void *)(ctrl);
+		ctrl->mdss_hw = &mdss_dsi0_hw;
+	} else {
+		mdss_dsi1_hw.ptr = (void *)(ctrl);
+		ctrl->mdss_hw = &mdss_dsi1_hw;
+	}
 }
 
-void mdss_dsi_enable_irq(struct mdss_panel_data *pdata)
+void mdss_dsi_irq_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable, int isr)
 {
 	unsigned long flags;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	if (pdata == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
+	if (ctrl == NULL) {
+		pr_err("%s: Invalid ctrl\n", __func__);
 		return;
 	}
-
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
 
 	spin_lock_irqsave(&dsi_irq_lock, flags);
-	if (dsi_irq_enabled) {
-		pr_debug("%s: IRQ aleady enabled\n", __func__);
-		spin_unlock_irqrestore(&dsi_irq_lock, flags);
-		return;
+	if (enable) {
+		if (ctrl->irq_cnt == 0)
+			mdss_enable_irq(ctrl->mdss_hw);
+		ctrl->irq_cnt++;
+	} else {
+		if (ctrl->irq_cnt) {
+			ctrl->irq_cnt--;
+			if (ctrl->irq_cnt == 0) {
+				if (isr)
+					mdss_disable_irq_nosync(ctrl->mdss_hw);
+				else
+					mdss_disable_irq(ctrl->mdss_hw);
+			}
+		}
 	}
-
-	if ((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1)
-		mdss_enable_irq(&mdss_dsi0_hw);
-	else
-		mdss_enable_irq(&mdss_dsi1_hw);
-
-	dsi_irq_enabled = 1;
-	/* TO DO: Check whether MDSS IRQ is enabled */
+	pr_debug("%s: ctrl=%d enable=%d cnt=%d\n", __func__,
+					ctrl->ndx, enable, ctrl->irq_cnt);
 	spin_unlock_irqrestore(&dsi_irq_lock, flags);
-}
-
-void mdss_dsi_disable_irq(struct mdss_panel_data *pdata)
-{
-	unsigned long flags;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
-	if (pdata == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-
-	spin_lock_irqsave(&dsi_irq_lock, flags);
-	if (dsi_irq_enabled == 0) {
-		pr_debug("%s: IRQ already disabled\n", __func__);
-		spin_unlock_irqrestore(&dsi_irq_lock, flags);
-		return;
-	}
-	if (ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1)
-		mdss_disable_irq(&mdss_dsi0_hw);
-	else
-		mdss_disable_irq(&mdss_dsi1_hw);
-
-	dsi_irq_enabled = 0;
-	/* TO DO: Check whether MDSS IRQ is Disabled */
-	spin_unlock_irqrestore(&dsi_irq_lock, flags);
-}
-
-/*
- * mdss_dsi_disale_irq_nosync() should be called
- * from interrupt context
- */
-void mdss_dsi_disable_irq_nosync(void)
-{
-	spin_lock(&dsi_irq_lock);
-	if (dsi_irq_enabled == 0) {
-		pr_debug("%s: IRQ cannot be disabled\n", __func__);
-		spin_unlock(&dsi_irq_lock);
-		return;
-	}
-
-	dsi_irq_enabled = 0;
-	spin_unlock(&dsi_irq_lock);
 }
 
 /*
@@ -689,6 +645,30 @@ static int mdss_dsi_long_read_resp(struct dsi_buf *rp)
 	return len;
 }
 
+void mdss_dsi_cmd_test_pattern(struct mdss_panel_data *pdata)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	int i;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x015c, 0x201);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x016c, 0xff0000); /* red */
+	i = 0;
+	while (i++ < 50) {
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0184, 0x1);
+		/* Add sleep to get ~50 fps frame rate*/
+		msleep(20);
+	}
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x015c, 0x0);
+}
+
 void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 				struct mdss_panel_data *pdata)
 {
@@ -745,7 +725,7 @@ void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 		if (pinfo->r_sel)
 			data |= BIT(4);
 		data |= (pinfo->dst_format & 0x0f);	/* 4 bits */
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x003c, data);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0040, data);
 
 		/* DSI_COMMAND_MODE_MDP_DCS_CMD_CTRL */
 		data = pinfo->wr_mem_continue & 0x0ff;
@@ -830,6 +810,7 @@ void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 
 	dsi_ctrl |= BIT(0);	/* enable dsi */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, dsi_ctrl);
+	mdss_dsi_irq_ctrl(ctrl_pdata, 1, 0); /* enable dsi irq */
 
 	wmb();
 }
@@ -977,8 +958,6 @@ void mdss_dsi_op_mode_config(int mode,
 				DSI_INTR_CMD_MDP_DONE_MASK;
 	}
 
-	pr_debug("%s: dsi_ctrl=%x intr=%x\n", __func__, dsi_ctrl, intr_ctrl);
-
 	if (ctrl_pdata->shared_pdata.broadcast_enable)
 		if ((pdata->panel_info.pdest == DISPLAY_2)
 		  && (left_ctrl_pdata != NULL)) {
@@ -993,17 +972,6 @@ void mdss_dsi_op_mode_config(int mode,
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, dsi_ctrl);
 	wmb();
 }
-
-void mdss_dsi_cmd_mdp_start(struct mdss_panel_data *pdata)
-{
-	unsigned long flag;
-
-	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	mdss_dsi_enable_irq(pdata);
-	dsi_mdp_busy = true;
-	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
-}
-
 
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata)
 {
@@ -1116,7 +1084,7 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 	}
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	mdss_dsi_enable_irq(pdata);
+	mdss_dsi_irq_ctrl(ctrl_pdata, 1, 0);
 
 	dsi_mdp_busy = true;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
@@ -1134,7 +1102,7 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	dsi_mdp_busy = false;
-	mdss_dsi_disable_irq(pdata);
+	mdss_dsi_irq_ctrl(ctrl_pdata, 0, 0);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	if (video_mode)
@@ -1206,7 +1174,7 @@ int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 	}
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
-	mdss_dsi_enable_irq(pdata);
+	mdss_dsi_irq_ctrl(ctrl_pdata, 1, 0);
 	dsi_mdp_busy = true;
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
@@ -1243,7 +1211,7 @@ int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 
 	spin_lock_irqsave(&dsi_mdp_lock, flag);
 	dsi_mdp_busy = false;
-	mdss_dsi_disable_irq(pdata);
+	mdss_dsi_irq_ctrl(ctrl_pdata, 0, 0);
 	spin_unlock_irqrestore(&dsi_mdp_lock, flag);
 
 	if (pdata->panel_info.mipi.no_max_pkt_size) {
@@ -1288,7 +1256,6 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 			struct mdss_panel_data *pdata)
 {
 	int len;
-	int i;
 	int domain = MDSS_IOMMU_DOMAIN_UNSECURE;
 	char *bp;
 	unsigned long size, addr;
@@ -1302,12 +1269,6 @@ int mdss_dsi_cmd_dma_tx(struct dsi_buf *tp,
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 	bp = tp->data;
-
-	pr_debug("%s: ", __func__);
-	for (i = 0; i < tp->len; i++)
-		pr_debug("%x ", *bp++);
-
-	pr_debug("\n");
 
 	len = ALIGN(tp->len, 4);
 	size = ALIGN(tp->len, SZ_4K);
@@ -1495,6 +1456,8 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 			MIPI_OUTP(left_ctrl_pdata->ctrl_base + 0x0110, isr0);
 		}
 
+	pr_debug("%s: isr=%x %x", __func__, isr, (int)DSI_INTR_ERROR);
+
 	if (isr & DSI_INTR_ERROR)
 		mdss_dsi_error(dsi_base);
 
@@ -1510,7 +1473,6 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 	if (isr & DSI_INTR_CMD_MDP_DONE) {
 		spin_lock(&dsi_mdp_lock);
 		dsi_mdp_busy = false;
-		mdss_dsi_disable_irq_nosync();
 		spin_unlock(&dsi_mdp_lock);
 	}
 
