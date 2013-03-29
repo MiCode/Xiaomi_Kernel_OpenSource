@@ -482,7 +482,7 @@ static unsigned long venus_hfi_get_clock_rate(struct venus_core_clock *clock,
 {
 	int num_rows = clock->count;
 	struct load_freq_table *table = clock->load_freq_tbl;
-	unsigned long ret = table[num_rows-1].freq;
+	unsigned long ret = table[0].freq;
 	int i;
 	for (i = 0; i < num_rows; i++) {
 		if (num_mbs_per_sec > table[i].load)
