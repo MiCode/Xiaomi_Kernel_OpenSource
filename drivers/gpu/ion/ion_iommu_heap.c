@@ -30,7 +30,6 @@
 
 struct ion_iommu_heap {
 	struct ion_heap heap;
-	unsigned int has_outer_cache;
 };
 
 /*
@@ -315,61 +314,6 @@ int ion_iommu_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
-static int ion_iommu_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
-			void *vaddr, unsigned int offset, unsigned int length,
-			unsigned int cmd)
-{
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t);
-	struct ion_iommu_heap *iommu_heap =
-	     container_of(heap, struct  ion_iommu_heap, heap);
-
-	switch (cmd) {
-	case ION_IOC_CLEAN_CACHES:
-		if (!vaddr)
-			dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
-				buffer->sg_table->nents, DMA_TO_DEVICE);
-		else
-			dmac_clean_range(vaddr, vaddr + length);
-		outer_cache_op = outer_clean_range;
-		break;
-	case ION_IOC_INV_CACHES:
-		if (!vaddr)
-			dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
-				buffer->sg_table->nents, DMA_FROM_DEVICE);
-		else
-			dmac_inv_range(vaddr, vaddr + length);
-		outer_cache_op = outer_inv_range;
-		break;
-	case ION_IOC_CLEAN_INV_CACHES:
-		if (!vaddr) {
-			dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
-				buffer->sg_table->nents, DMA_TO_DEVICE);
-			dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
-				buffer->sg_table->nents, DMA_FROM_DEVICE);
-		} else {
-			dmac_flush_range(vaddr, vaddr + length);
-		}
-		outer_cache_op = outer_flush_range;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (iommu_heap->has_outer_cache) {
-		unsigned long pstart;
-		unsigned int i;
-		struct ion_iommu_priv_data *data = buffer->priv_virt;
-		if (!data)
-			return -ENOMEM;
-
-		for (i = 0; i < data->nrpages; ++i) {
-			pstart = page_to_phys(data->pages[i]);
-			outer_cache_op(pstart, pstart + PAGE_SIZE);
-		}
-	}
-	return 0;
-}
-
 static struct sg_table *ion_iommu_heap_map_dma(struct ion_heap *heap,
 					      struct ion_buffer *buffer)
 {
@@ -387,7 +331,6 @@ static struct ion_heap_ops iommu_heap_ops = {
 	.map_user = ion_iommu_heap_map_user,
 	.map_kernel = ion_iommu_heap_map_kernel,
 	.unmap_kernel = ion_iommu_heap_unmap_kernel,
-	.cache_op = ion_iommu_cache_ops,
 	.map_dma = ion_iommu_heap_map_dma,
 	.unmap_dma = ion_iommu_heap_unmap_dma,
 };
@@ -402,7 +345,6 @@ struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
 
 	iommu_heap->heap.ops = &iommu_heap_ops;
 	iommu_heap->heap.type = ION_HEAP_TYPE_IOMMU;
-	iommu_heap->has_outer_cache = heap_data->has_outer_cache;
 
 	return &iommu_heap->heap;
 }

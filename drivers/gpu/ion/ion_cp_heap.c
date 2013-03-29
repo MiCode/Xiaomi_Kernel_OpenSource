@@ -623,91 +623,6 @@ void ion_cp_heap_unmap_user(struct ion_heap *heap,
 	mutex_unlock(&cp_heap->lock);
 }
 
-int ion_cp_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
-			void *vaddr, unsigned int offset, unsigned int length,
-			unsigned int cmd)
-{
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t) = NULL;
-	struct ion_cp_heap *cp_heap =
-		container_of(heap, struct  ion_cp_heap, heap);
-	unsigned int size_to_vmap, total_size;
-	struct ion_cp_buffer *buf = buffer->priv_virt;
-	int i, j;
-	void *ptr = NULL;
-	ion_phys_addr_t buff_phys = buffer->priv_phys;
-
-	if (!vaddr) {
-		/*
-		 * Split the vmalloc space into smaller regions in
-		 * order to clean and/or invalidate the cache.
-		 */
-		size_to_vmap = (VMALLOC_END - VMALLOC_START)/8;
-		total_size = buffer->size;
-		for (i = 0; i < total_size; i += size_to_vmap) {
-			size_to_vmap = min(size_to_vmap, total_size - i);
-			for (j = 0; j < 10 && size_to_vmap; ++j) {
-				ptr = ioremap(buff_phys, size_to_vmap);
-				if (ptr) {
-					switch (cmd) {
-					case ION_IOC_CLEAN_CACHES:
-						dmac_clean_range(ptr,
-							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_clean_range;
-						break;
-					case ION_IOC_INV_CACHES:
-						dmac_inv_range(ptr,
-							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_inv_range;
-						break;
-					case ION_IOC_CLEAN_INV_CACHES:
-						dmac_flush_range(ptr,
-							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_flush_range;
-						break;
-					default:
-						return -EINVAL;
-					}
-					buff_phys += size_to_vmap;
-					break;
-				} else {
-					size_to_vmap >>= 1;
-				}
-			}
-			if (!ptr) {
-				pr_err("Couldn't io-remap the memory\n");
-				return -EINVAL;
-			}
-			iounmap(ptr);
-		}
-	} else {
-		switch (cmd) {
-		case ION_IOC_CLEAN_CACHES:
-			dmac_clean_range(vaddr, vaddr + length);
-			outer_cache_op = outer_clean_range;
-			break;
-		case ION_IOC_INV_CACHES:
-			dmac_inv_range(vaddr, vaddr + length);
-			outer_cache_op = outer_inv_range;
-			break;
-		case ION_IOC_CLEAN_INV_CACHES:
-			dmac_flush_range(vaddr, vaddr + length);
-			outer_cache_op = outer_flush_range;
-			break;
-		default:
-			return -EINVAL;
-		}
-	}
-
-	if (cp_heap->has_outer_cache) {
-		unsigned long pstart = buf->buffer + offset;
-		outer_cache_op(pstart, pstart + length);
-	}
-	return 0;
-}
-
 static int ion_cp_print_debug(struct ion_heap *heap, struct seq_file *s,
 			      const struct rb_root *mem_map)
 {
@@ -818,7 +733,6 @@ static struct ion_heap_ops cp_heap_ops = {
 	.unmap_kernel = ion_cp_heap_unmap_kernel,
 	.map_dma = ion_cp_heap_map_dma,
 	.unmap_dma = ion_cp_heap_unmap_dma,
-	.cache_op = ion_cp_cache_ops,
 	.print_debug = ion_cp_print_debug,
 	.secure_heap = ion_cp_secure_heap,
 	.unsecure_heap = ion_cp_unsecure_heap,
