@@ -437,7 +437,7 @@ static int msm_otg_link_clk_reset(struct msm_otg *motg, bool assert)
 	int ret;
 
 	if (assert) {
-		if (!IS_ERR(motg->clk)) {
+		if (motg->clk) {
 			ret = clk_reset(motg->clk, CLK_RESET_ASSERT);
 		} else {
 			/* Using asynchronous block reset to the hardware */
@@ -449,7 +449,7 @@ static int msm_otg_link_clk_reset(struct msm_otg *motg, bool assert)
 		if (ret)
 			dev_err(motg->phy.dev, "usb hs_clk assert failed\n");
 	} else {
-		if (!IS_ERR(motg->clk)) {
+		if (motg->clk) {
 			ret = clk_reset(motg->clk, CLK_RESET_DEASSERT);
 		} else {
 			dev_dbg(motg->phy.dev, "block_reset DEASSERT\n");
@@ -564,7 +564,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 			motg->reset_counter++;
 	}
 
-	if (!IS_ERR(motg->clk))
+	if (motg->clk)
 		clk_prepare_enable(motg->clk);
 	ret = msm_otg_phy_reset(motg);
 	if (ret) {
@@ -593,7 +593,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 */
 	usb_phy_reset(motg);
 
-	if (!IS_ERR(motg->clk))
+	if (motg->clk)
 		clk_disable_unprepare(motg->clk);
 
 	if (pdata->otg_control == OTG_PHY_CONTROL) {
@@ -1022,7 +1022,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	/* usb phy no more require TCXO clock, hence vote for TCXO disable */
 	if (!host_bus_suspend || ((motg->caps & ALLOW_HOST_PHY_RETENTION) &&
 		(pdata->dpdm_pulldown_added || !(portsc & PORTSC_CCS)))) {
-		if (!IS_ERR(motg->xo_clk)) {
+		if (motg->xo_clk) {
 			clk_disable_unprepare(motg->xo_clk);
 			motg->lpm_flags |= XO_SHUTDOWN;
 		} else {
@@ -1109,7 +1109,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 
 	/* Vote for TCXO when waking up the phy */
 	if (motg->lpm_flags & XO_SHUTDOWN) {
-		if (!IS_ERR(motg->xo_clk)) {
+		if (motg->xo_clk) {
 			clk_prepare_enable(motg->xo_clk);
 		} else {
 			ret = msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_ON);
@@ -4157,11 +4157,104 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "msm_otg probe\n");
 
+	motg = kzalloc(sizeof(struct msm_otg), GFP_KERNEL);
+	if (!motg) {
+		dev_err(&pdev->dev, "unable to allocate msm_otg\n");
+		ret = -ENOMEM;
+		return ret;
+	}
+
+	/*
+	 * USB Core is running its protocol engine based on CORE CLK,
+	 * CORE CLK  must be running at >55Mhz for correct HSUSB
+	 * operation and USB core cannot tolerate frequency changes on
+	 * CORE CLK. For such USB cores, vote for maximum clk frequency
+	 * on pclk source
+	 */
+	motg->core_clk = clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(motg->core_clk)) {
+		ret = PTR_ERR(motg->core_clk);
+		motg->core_clk = NULL;
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "failed to get core_clk\n");
+		goto free_motg;
+	}
+
+	/*
+	 * Get Max supported clk frequency for USB Core CLK and request
+	 * to set the same.
+	 */
+	motg->core_clk_rate = clk_round_rate(motg->core_clk, LONG_MAX);
+	if (IS_ERR_VALUE(motg->core_clk_rate)) {
+		dev_err(&pdev->dev, "fail to get core clk max freq.\n");
+	} else {
+		ret = clk_set_rate(motg->core_clk, motg->core_clk_rate);
+		if (ret)
+			dev_err(&pdev->dev, "fail to set core_clk freq:%d\n",
+									ret);
+	}
+
+	motg->pclk = clk_get(&pdev->dev, "iface_clk");
+	if (IS_ERR(motg->pclk)) {
+		ret = PTR_ERR(motg->pclk);
+		motg->pclk = NULL;
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "failed to get iface_clk\n");
+		goto put_core_clk;
+	}
+
+	/*
+	 * Targets on which link uses asynchronous reset methodology,
+	 * free running clock is not required during the reset.
+	 */
+	motg->clk = clk_get(&pdev->dev, "alt_core_clk");
+	if (IS_ERR(motg->clk)) {
+		ret = PTR_ERR(motg->clk);
+		motg->clk = NULL;
+		if (ret != -EPROBE_DEFER)
+			dev_dbg(&pdev->dev, "alt_core_clk is not present\n");
+		else
+			goto put_pclk;
+	} else {
+		clk_set_rate(motg->clk, 60000000);
+	}
+
+	motg->xo_clk = clk_get(&pdev->dev, "xo");
+	if (IS_ERR(motg->xo_clk)) {
+		ret = PTR_ERR(motg->xo_clk);
+		motg->xo_clk = NULL;
+		if (ret == -EPROBE_DEFER)
+			goto put_clk;
+	}
+
+	/*
+	 * On few platforms USB PHY is fed with sleep clk.
+	 * Hence don't fail probe.
+	 */
+	motg->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
+	if (IS_ERR(motg->sleep_clk)) {
+		ret = PTR_ERR(motg->sleep_clk);
+		motg->sleep_clk = NULL;
+		if (ret == -EPROBE_DEFER)
+			goto put_xo_clk;
+		else
+			dev_dbg(&pdev->dev, "failed to get sleep_clk\n");
+	} else {
+		ret = clk_prepare_enable(motg->sleep_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "%s failed to vote sleep_clk%d\n",
+						__func__, ret);
+			goto put_xo_clk;
+		}
+	}
+
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
 		pdata = msm_otg_dt_to_pdata(pdev);
-		if (!pdata)
-			return -ENOMEM;
+		if (!pdata) {
+			ret = -ENOMEM;
+			goto put_sleep_clk;
+		}
 
 		pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 		if (!pdata->bus_scale_table)
@@ -4171,26 +4264,22 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		ret = msm_otg_setup_devices(pdev, pdata->mode, true);
 		if (ret) {
 			dev_err(&pdev->dev, "devices setup failed\n");
-			return ret;
+			goto put_sleep_clk;
 		}
 	} else if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto put_sleep_clk;
 	} else {
 		pdata = pdev->dev.platform_data;
-	}
-
-	motg = devm_kzalloc(&pdev->dev, sizeof(struct msm_otg), GFP_KERNEL);
-	if (!motg) {
-		dev_err(&pdev->dev, "unable to allocate msm_otg\n");
-		return -ENOMEM;
 	}
 
 	motg->phy.otg = devm_kzalloc(&pdev->dev, sizeof(struct usb_otg),
 							GFP_KERNEL);
 	if (!motg->phy.otg) {
 		dev_err(&pdev->dev, "unable to allocate usb_otg\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto otg_remove_devices;
 	}
 
 	the_msm_otg = motg;
@@ -4225,73 +4314,11 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	/* initialize reset counter */
 	motg->reset_counter = 0;
 
-	/*
-	 * Targets on which link uses asynchronous reset methodology,
-	 * free running clock is not required during the reset.
-	 */
-	motg->clk = clk_get(&pdev->dev, "alt_core_clk");
-	if (IS_ERR(motg->clk))
-		dev_dbg(&pdev->dev, "alt_core_clk is not present\n");
-	else
-		clk_set_rate(motg->clk, 60000000);
-
-	/*
-	 * USB Core is running its protocol engine based on CORE CLK,
-	 * CORE CLK  must be running at >55Mhz for correct HSUSB
-	 * operation and USB core cannot tolerate frequency changes on
-	 * CORE CLK. For such USB cores, vote for maximum clk frequency
-	 * on pclk source
-	 */
-	motg->core_clk = clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(motg->core_clk)) {
-		motg->core_clk = NULL;
-		dev_err(&pdev->dev, "failed to get core_clk\n");
-		ret = PTR_ERR(motg->core_clk);
-		goto put_clk;
-	}
-
-	/*
-	 * Get Max supported clk frequency for USB Core CLK and request
-	 * to set the same.
-	 */
-	motg->core_clk_rate = clk_round_rate(motg->core_clk, LONG_MAX);
-	if (IS_ERR_VALUE(motg->core_clk_rate)) {
-		dev_err(&pdev->dev, "fail to get core clk max freq.\n");
-	} else {
-		ret = clk_set_rate(motg->core_clk, motg->core_clk_rate);
-		if (ret)
-			dev_err(&pdev->dev, "fail to set core_clk freq:%d\n",
-									ret);
-	}
-
-	motg->pclk = clk_get(&pdev->dev, "iface_clk");
-	if (IS_ERR(motg->pclk)) {
-		dev_err(&pdev->dev, "failed to get iface_clk\n");
-		ret = PTR_ERR(motg->pclk);
-		goto put_core_clk;
-	}
-
-	/*
-	 * On few platforms USB PHY is fed with sleep clk.
-	 * Hence don't fail probe.
-	 */
-	motg->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
-	if (IS_ERR(motg->sleep_clk)) {
-		dev_dbg(&pdev->dev, "failed to get sleep_clk\n");
-	} else {
-		ret = clk_prepare_enable(motg->sleep_clk);
-		if (ret) {
-			dev_err(&pdev->dev, "%s failed to vote sleep_clk%d\n",
-							__func__, ret);
-			goto put_pclk;
-		}
-	}
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "failed to get platform resource mem\n");
 		ret = -ENODEV;
-		goto disable_sleep_clk;
+		goto devote_bus_bw;
 	}
 
 	motg->io_res = res;
@@ -4299,7 +4326,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 	if (!motg->regs) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENOMEM;
-		goto disable_sleep_clk;
+		goto devote_bus_bw;
 	}
 	dev_info(&pdev->dev, "OTG regs = %p\n", motg->regs);
 
@@ -4316,8 +4343,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		motg->async_irq = 0;
 	}
 
-	motg->xo_clk = clk_get(&pdev->dev, "xo");
-	if (IS_ERR(motg->xo_clk)) {
+	if (!motg->xo_clk) {
 		motg->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "usb");
 		if (IS_ERR(motg->xo_handle)) {
 			dev_err(&pdev->dev, "%s fail to get handle for TCXO\n",
@@ -4587,33 +4613,44 @@ free_config_vddcx:
 		vdd_val[motg->vdd_type][VDD_MAX]);
 devote_xo_handle:
 	clk_disable_unprepare(motg->pclk);
-	if (!IS_ERR(motg->xo_clk))
+	if (motg->xo_clk)
 		clk_disable_unprepare(motg->xo_clk);
 	else
 		msm_xo_mode_vote(motg->xo_handle, MSM_XO_MODE_OFF);
 free_xo_handle:
-	if (!IS_ERR(motg->xo_clk))
+	if (motg->xo_clk) {
 		clk_put(motg->xo_clk);
-	else
+		motg->xo_clk = NULL;
+	} else {
 		msm_xo_put(motg->xo_handle);
+	}
 free_regs:
 	iounmap(motg->regs);
-disable_sleep_clk:
-	if (!IS_ERR(motg->sleep_clk))
-		clk_disable_unprepare(motg->sleep_clk);
-put_pclk:
-	clk_put(motg->pclk);
-put_core_clk:
-	clk_put(motg->core_clk);
-put_clk:
-	if (!IS_ERR(motg->clk))
-		clk_put(motg->clk);
 devote_bus_bw:
 	if (motg->bus_perf_client) {
 		msm_otg_bus_vote(motg, USB_NO_PERF_VOTE);
 		msm_bus_scale_unregister_client(motg->bus_perf_client);
 	}
-
+otg_remove_devices:
+	if (pdev->dev.of_node)
+		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
+put_sleep_clk:
+	if (motg->sleep_clk)
+		clk_put(motg->sleep_clk);
+put_xo_clk:
+	if (motg->xo_clk)
+		clk_put(motg->xo_clk);
+put_clk:
+	if (motg->clk)
+		clk_put(motg->clk);
+put_pclk:
+	if (motg->pclk)
+		clk_put(motg->pclk);
+put_core_clk:
+	if (motg->core_clk)
+		clk_put(motg->core_clk);
+free_motg:
+	kfree(motg);
 	return ret;
 }
 
@@ -4687,7 +4724,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(motg->pclk);
 	clk_disable_unprepare(motg->core_clk);
-	if (!IS_ERR(motg->xo_clk)) {
+	if (motg->xo_clk) {
 		clk_disable_unprepare(motg->xo_clk);
 		clk_put(motg->xo_clk);
 	} else {
@@ -4708,7 +4745,7 @@ static int msm_otg_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 
 	clk_put(motg->pclk);
-	if (!IS_ERR(motg->clk))
+	if (motg->clk)
 		clk_put(motg->clk);
 	clk_put(motg->core_clk);
 

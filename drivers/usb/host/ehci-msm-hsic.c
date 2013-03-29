@@ -1498,8 +1498,10 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 	 *clock rate appropriately set by target specific clock driver */
 	mehci->core_clk = clk_get(mehci->dev, "core_clk");
 	if (IS_ERR(mehci->core_clk)) {
-		dev_err(mehci->dev, "failed to get core_clk\n");
 		ret = PTR_ERR(mehci->core_clk);
+		mehci->core_clk = NULL;
+		if (ret != -EPROBE_DEFER)
+			dev_err(mehci->dev, "failed to get core_clk\n");
 		return ret;
 	}
 
@@ -1507,31 +1509,43 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 	 * targets on which link does NOT use asynchronous reset methodology.
 	 * clock rate appropriately set by target specific clock driver */
 	mehci->alt_core_clk = clk_get(mehci->dev, "alt_core_clk");
-	if (IS_ERR(mehci->alt_core_clk))
-		dev_dbg(mehci->dev, "failed to get alt_core_clk\n");
+	if (IS_ERR(mehci->alt_core_clk)) {
+		ret = PTR_ERR(mehci->alt_core_clk);
+		mehci->alt_core_clk = NULL;
+		if (ret != -EPROBE_DEFER)
+			dev_dbg(mehci->dev, "failed to get alt_core_clk\n");
+		else
+			goto put_core_clk;
+	}
 
 	/* phy_clk is required for HSIC PHY operation
 	 * clock rate appropriately set by target specific clock driver */
 	mehci->phy_clk = clk_get(mehci->dev, "phy_clk");
 	if (IS_ERR(mehci->phy_clk)) {
-		dev_err(mehci->dev, "failed to get phy_clk\n");
 		ret = PTR_ERR(mehci->phy_clk);
+		mehci->phy_clk = NULL;
+		if (ret != -EPROBE_DEFER)
+			dev_err(mehci->dev, "failed to get phy_clk\n");
 		goto put_alt_core_clk;
 	}
 
 	/* 10MHz cal_clk is required for calibration of I/O pads */
 	mehci->cal_clk = clk_get(mehci->dev, "cal_clk");
 	if (IS_ERR(mehci->cal_clk)) {
-		dev_err(mehci->dev, "failed to get cal_clk\n");
 		ret = PTR_ERR(mehci->cal_clk);
+		mehci->cal_clk = NULL;
+		if (ret != -EPROBE_DEFER)
+			dev_err(mehci->dev, "failed to get cal_clk\n");
 		goto put_phy_clk;
 	}
 
 	/* ahb_clk is required for data transfers */
 	mehci->ahb_clk = clk_get(mehci->dev, "iface_clk");
 	if (IS_ERR(mehci->ahb_clk)) {
-		dev_err(mehci->dev, "failed to get iface_clk\n");
 		ret = PTR_ERR(mehci->ahb_clk);
+		mehci->ahb_clk = NULL;
+		if (ret != -EPROBE_DEFER)
+			dev_err(mehci->dev, "failed to get iface_clk\n");
 		goto put_cal_clk;
 	}
 
@@ -1570,8 +1584,9 @@ put_cal_clk:
 put_phy_clk:
 	clk_put(mehci->phy_clk);
 put_alt_core_clk:
-	if (!IS_ERR(mehci->alt_core_clk))
+	if (mehci->alt_core_clk)
 		clk_put(mehci->alt_core_clk);
+put_core_clk:
 	clk_put(mehci->core_clk);
 
 	return ret;
@@ -2009,7 +2024,6 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	ret = msm_hsic_init_clocks(mehci, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize clocks\n");
-		ret = -ENODEV;
 		goto unmap;
 	}
 
