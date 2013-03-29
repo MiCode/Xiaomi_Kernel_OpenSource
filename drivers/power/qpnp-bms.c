@@ -83,7 +83,7 @@
 #define IAVG_STEP_SIZE_MA		50
 #define IAVG_START			600
 #define IAVG_INVALID			0xFF
-#define SOC_ZERO			0xFF
+#define SOC_INVALID			0xFF
 
 #define IAVG_SAMPLES 16
 
@@ -1727,10 +1727,7 @@ static void backup_soc_and_iavg(struct qpnp_bms_chip *chip, int batt_temp,
 	rc = qpnp_write_wrapper(chip, &temp,
 			chip->base + IAVG_STORAGE_REG, 1);
 
-	if (soc == 0)
-		temp = SOC_ZERO;
-	else
-		temp = soc;
+	temp = soc;
 
 	/* don't store soc if temperature is below 5degC */
 	if (batt_temp > IGNORE_SOC_TEMP_DECIDEG)
@@ -2062,12 +2059,10 @@ static void read_shutdown_soc_and_iavg(struct qpnp_bms_chip *chip)
 		} else {
 			chip->shutdown_soc = temp;
 
-			if (chip->shutdown_soc == 0) {
+			if (chip->shutdown_soc == SOC_INVALID) {
 				pr_debug("No shutdown soc available\n");
 				chip->shutdown_soc_invalid = true;
 				chip->shutdown_iavg_ma = 0;
-			} else if (chip->shutdown_soc == SOC_ZERO) {
-				chip->shutdown_soc = 0;
 			}
 		}
 	}
