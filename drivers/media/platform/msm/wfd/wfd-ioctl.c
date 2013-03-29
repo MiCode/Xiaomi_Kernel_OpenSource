@@ -1036,7 +1036,7 @@ static int wfdioc_s_ctrl(struct file *filp, void *fh,
 {
 	int rc = 0;
 	struct wfd_device *wfd_dev = video_drvdata(filp);
-	struct wfd_inst *inst = filp->private_data;
+	struct wfd_inst *inst = file_to_inst(filp);
 
 	switch (a->id) {
 	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
