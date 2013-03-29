@@ -486,7 +486,7 @@ static int read_cc_raw(struct qpnp_bms_chip *chip, int64_t *reading)
 
 static int calib_vadc(struct qpnp_bms_chip *chip)
 {
-	int rc;
+	int rc, raw_0625, raw_1250;
 	struct qpnp_vadc_result result;
 
 	rc = qpnp_vadc_read(REF_625MV, &result);
@@ -494,16 +494,19 @@ static int calib_vadc(struct qpnp_bms_chip *chip)
 		pr_debug("vadc read failed with rc = %d\n", rc);
 		return rc;
 	}
-	chip->vadc_v0625 = result.physical;
+	raw_0625 = result.adc_code;
 
 	rc = qpnp_vadc_read(REF_125V, &result);
 	if (rc) {
 		pr_debug("vadc read failed with rc = %d\n", rc);
 		return rc;
 	}
-	chip->vadc_v1250 = result.physical;
-	pr_debug("vadc calib: 0625 = %d, 1250 = %d\n",
-			chip->vadc_v0625, chip->vadc_v1250);
+	raw_1250 = result.adc_code;
+	chip->vadc_v0625 = vadc_reading_to_uv(raw_0625);
+	chip->vadc_v1250 = vadc_reading_to_uv(raw_1250);
+	pr_debug("vadc calib: 0625 = %d raw (%d uv), 1250 = %d raw (%d uv)\n",
+			raw_0625, chip->vadc_v0625,
+			raw_1250, chip->vadc_v1250);
 	return 0;
 }
 
