@@ -44,7 +44,6 @@ struct ion_secure_cma_buffer_info {
 	bool is_cached;
 };
 
-static int cma_heap_has_outer_cache;
 /*
  * Create scatter-list for the already allocated DMA buffer.
  * This function could be replace by dma_common_get_sgtable
@@ -212,16 +211,6 @@ static void ion_secure_cma_unmap_kernel(struct ion_heap *heap,
 	return;
 }
 
-int ion_secure_cma_cache_ops(struct ion_heap *heap,
-			struct ion_buffer *buffer, void *vaddr,
-			unsigned int offset, unsigned int length,
-			unsigned int cmd)
-{
-	pr_info("%s: cache operations disallowed from secure heap %s\n",
-		__func__, heap->name);
-	return -EINVAL;
-}
-
 static int ion_secure_cma_print_debug(struct ion_heap *heap, struct seq_file *s,
 			const struct rb_root *mem_map)
 {
@@ -260,7 +249,6 @@ static struct ion_heap_ops ion_secure_cma_ops = {
 	.map_user = ion_secure_cma_mmap,
 	.map_kernel = ion_secure_cma_map_kernel,
 	.unmap_kernel = ion_secure_cma_unmap_kernel,
-	.cache_op = ion_secure_cma_cache_ops,
 	.print_debug = ion_secure_cma_print_debug,
 	.secure_buffer = ion_cp_secure_buffer,
 	.unsecure_buffer = ion_cp_unsecure_buffer,
@@ -280,7 +268,6 @@ struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *data)
 	 * used to make the link with reserved CMA memory */
 	heap->priv = data->priv;
 	heap->type = ION_HEAP_TYPE_SECURE_DMA;
-	cma_heap_has_outer_cache = data->has_outer_cache;
 	return heap;
 }
 

@@ -96,9 +96,6 @@ struct ion_heap_ops {
 	int (*map_user) (struct ion_heap *mapper, struct ion_buffer *buffer,
 			 struct vm_area_struct *vma);
 	void (*unmap_user) (struct ion_heap *mapper, struct ion_buffer *buffer);
-	int (*cache_op)(struct ion_heap *heap, struct ion_buffer *buffer,
-			void *vaddr, unsigned int offset,
-			unsigned int length, unsigned int cmd);
 	int (*print_debug)(struct ion_heap *heap, struct seq_file *s,
 			   const struct rb_root *mem_map);
 	int (*secure_heap)(struct ion_heap *heap, int version, void *data);
