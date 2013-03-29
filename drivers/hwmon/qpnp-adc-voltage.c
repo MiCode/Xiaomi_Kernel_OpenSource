@@ -741,7 +741,7 @@ int32_t qpnp_vadc_read(enum qpnp_vadc_channels channel,
 	return qpnp_vadc_conv_seq_request(ADC_SEQ_NONE,
 				channel, result);
 }
-EXPORT_SYMBOL_GPL(qpnp_vadc_read);
+EXPORT_SYMBOL(qpnp_vadc_read);
 
 static void qpnp_vadc_lock(void)
 {
