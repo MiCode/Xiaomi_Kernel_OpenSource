@@ -46,10 +46,6 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg);
 
-void msm_isp_axi_stream_enable_cfg(struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream *stream_info,
-	uint32_t *wm_reload_mask);
-
 void msm_isp_axi_stream_update(struct vfe_device *vfe_dev);
 
 void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev);

@@ -206,6 +206,7 @@ enum msm_vfe_axi_state {
 	PAUSE,
 	START_PENDING,
 	STOP_PENDING,
+	STARTING,
 	STOPPING,
 	PAUSE_PENDING,
 };
