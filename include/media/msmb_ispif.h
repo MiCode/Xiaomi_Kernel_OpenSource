@@ -69,6 +69,9 @@ struct msm_ispif_params_entry {
 	int num_cids;
 	enum msm_ispif_cid cids[3];
 	enum msm_ispif_csid csid;
+	int crop_enable;
+	uint16_t crop_start_pixel;
+	uint16_t crop_end_pixel;
 };
 
 struct msm_ispif_param_data {
