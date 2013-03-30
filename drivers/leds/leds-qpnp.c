@@ -61,6 +61,7 @@
 #define WLED_MAX_CURR_MASK		0x19
 #define WLED_OP_FDBCK_MASK		0x07
 #define WLED_OP_FDBCK_BIT_SHFT		0x00
+#define WLED_OP_FDBCK_DEFAULT		0x00
 
 #define WLED_MAX_LEVEL			4095
 #define WLED_8_BIT_MASK			0xFF
@@ -245,9 +246,9 @@ struct wled_config_data {
 	u8	cp_select;
 	u8	ctrl_delay_us;
 	u8	switch_freq;
+	u8	op_fdbck;
 	bool	dig_mod_gen_en;
 	bool	cs_out_en;
-	bool	op_fdbck;
 };
 
 /**
@@ -1099,6 +1100,13 @@ static int __devinit qpnp_get_config_wled(struct qpnp_led_data *led,
 	else if (rc != -EINVAL)
 		return rc;
 
+	led->wled_cfg->op_fdbck = WLED_OP_FDBCK_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,op-fdbck", &val);
+	if (!rc)
+		led->wled_cfg->op_fdbck = (u8) val;
+	else if (rc != -EINVAL)
+		return rc;
+
 	led->wled_cfg->switch_freq = WLED_SWITCH_FREQ_DEFAULT;
 	rc = of_property_read_u32(node, "qcom,switch-freq", &val);
 	if (!rc)
@@ -1111,9 +1119,6 @@ static int __devinit qpnp_get_config_wled(struct qpnp_led_data *led,
 
 	led->wled_cfg->cs_out_en =
 		of_property_read_bool(node, "qcom,cs-out-en");
-
-	led->wled_cfg->op_fdbck =
-		of_property_read_bool(node, "qcom,op-fdbck");
 
 	return 0;
 }
