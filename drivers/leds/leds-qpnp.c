@@ -91,6 +91,8 @@
 #define FLASH_VREG_OK_FORCE(base)	(base + 0x4F)
 #define FLASH_ENABLE_CONTROL(base)	(base + 0x46)
 #define FLASH_LED_STROBE_CTRL(base)	(base + 0x47)
+#define FLASH_LED_UNLOCK_SECURE(base)	(base + 0xD0)
+#define FLASH_LED_TORCH(base)		(base + 0xE4)
 
 #define FLASH_MAX_LEVEL			0x4F
 #define	FLASH_NO_MASK			0x00
@@ -100,6 +102,7 @@
 #define FLASH_HEADROOM_MASK		0x03
 #define FLASH_SAFETY_TIMER_MASK		0x7F
 #define FLASH_CURRENT_MASK		0xFF
+#define FLASH_MAX_CURRENT_MASK		0x7F
 #define FLASH_TMR_MASK			0x03
 #define FLASH_TMR_WATCHDOG		0x03
 #define FLASH_TMR_SAFETY		0x00
@@ -118,16 +121,25 @@
 #define FLASH_ENABLE_LED_1		0x20
 #define FLASH_INIT_MASK			0xE0
 
-#define FLASH_STROBE_ALL		0xC0
-#define FLASH_STROBE_MASK		0xC0
+#define FLASH_STROBE_SW			0xC0
+#define FLASH_STROBE_HW			0xC4
+#define FLASH_STROBE_MASK		0xC7
 #define FLASH_LED_0_OUTPUT		0x80
 #define FLASH_LED_1_OUTPUT		0x40
 
 #define FLASH_CURRENT_PRGM_MIN		1
 #define FLASH_CURRENT_PRGM_SHIFT	1
+#define FLASH_CURRENT_MAX		0x4F
+#define FLASH_CURRENT_TORCH		0x0F
 
 #define FLASH_DURATION_200ms		0x13
 #define FLASH_CLAMP_200mA		0x0F
+
+#define FLASH_TORCH_MASK		0x03
+#define FLASH_LED_TORCH_ENABLE		0x00
+#define FLASH_LED_TORCH_DISABLE		0x03
+#define FLASH_UNLOCK_SECURE		0xA5
+#define FLASH_SECURE_MASK		0xFF
 
 #define LED_TRIGGER_DEFAULT		"none"
 
@@ -260,9 +272,11 @@ struct wled_config_data {
  *  @enable_module - enable address for particular flash
  *  @trigger_flash - trigger flash
  *  @startup_dly - startup delay for flash
+ *  @strobe_type - select between sw and hw strobe
  *  @current_addr - address to write for current
  *  @second_addr - address of secondary flash to be written
  *  @safety_timer - enable safety timer or watchdog timer
+ *  @torch_enable - enable flash LED torch mode
  */
 struct flash_config_data {
 	u8	current_prgm;
@@ -272,9 +286,11 @@ struct flash_config_data {
 	u8	enable_module;
 	u8	trigger_flash;
 	u8	startup_dly;
+	u8	strobe_type;
 	u16	current_addr;
 	u16	second_addr;
 	bool	safety_timer;
+	bool	torch_enable;
 };
 
 /**
@@ -457,62 +473,176 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 
 	/* Set led current */
 	if (val > 0) {
-		rc = qpnp_led_masked_write(led, FLASH_ENABLE_CONTROL(led->base),
-			FLASH_ENABLE_MODULE_MASK, FLASH_ENABLE_MODULE);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"Enable reg write failed(%d)\n", rc);
-			return rc;
+		if (led->flash_cfg->torch_enable) {
+			rc = qpnp_led_masked_write(led,
+				FLASH_LED_UNLOCK_SECURE(led->base),
+				FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Secure reg write failed(%d)\n", rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				FLASH_LED_TORCH(led->base),
+				FLASH_TORCH_MASK, FLASH_LED_TORCH_ENABLE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Torch reg write failed(%d)\n", rc);
+				return rc;
+			}
+
+			qpnp_led_masked_write(led, FLASH_MAX_CURR(led->base),
+				FLASH_CURRENT_MASK, FLASH_CURRENT_TORCH);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Max current reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				led->flash_cfg->current_addr,
+				FLASH_CURRENT_MASK, FLASH_CURRENT_TORCH);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Current reg write failed(%d)\n", rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				led->flash_cfg->second_addr,
+				FLASH_CURRENT_MASK, FLASH_CURRENT_TORCH);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"2nd Current reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				FLASH_ENABLE_CONTROL(led->base),
+				FLASH_ENABLE_MODULE_MASK, FLASH_ENABLE_MODULE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Enable reg write failed(%d)\n", rc);
+				return rc;
+			}
+		} else {
+			rc = qpnp_led_masked_write(led,
+				FLASH_MAX_CURR(led->base),
+				FLASH_CURRENT_MASK, FLASH_CURRENT_MAX);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Max current reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
+
+			/* Write 0x80 to MODULE_ENABLE before writing 0xE0
+			 * in order to avoid reg value goes from 0x00 to
+			 * 0xE0. This causes a hardware bug.
+			 */
+			rc = qpnp_led_masked_write(led,
+				FLASH_ENABLE_CONTROL(led->base),
+				FLASH_ENABLE_MODULE_MASK, FLASH_ENABLE_MODULE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Enable reg write failed(%d)\n", rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				led->flash_cfg->current_addr,
+				FLASH_CURRENT_MASK,
+				led->flash_cfg->current_prgm);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Current reg write failed(%d)\n", rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				led->flash_cfg->second_addr,
+				FLASH_CURRENT_MASK,
+				led->flash_cfg->current_prgm);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"2nd Current reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				FLASH_CLAMP_CURR(led->base),
+				FLASH_CURRENT_MASK, FLASH_CURRENT_TORCH);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Clamp Current reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				FLASH_ENABLE_CONTROL(led->base),
+				FLASH_ENABLE_MASK, FLASH_ENABLE_ALL);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Enable reg write failed(%d)\n", rc);
+				return rc;
+			}
 		}
 
-		rc = qpnp_led_masked_write(led, led->flash_cfg->current_addr,
-			FLASH_CURRENT_MASK, led->flash_cfg->current_prgm);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"Current reg write failed(%d)\n", rc);
-			return rc;
-		}
-
-		rc = qpnp_led_masked_write(led, led->flash_cfg->second_addr,
-			FLASH_CURRENT_MASK, led->flash_cfg->current_prgm);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"Current reg write failed(%d)\n", rc);
-			return rc;
-		}
-
-		rc = qpnp_led_masked_write(led, FLASH_ENABLE_CONTROL(led->base),
-			FLASH_ENABLE_MASK,
-			FLASH_ENABLE_ALL);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"Enable reg write failed(%d)\n", rc);
-			return rc;
-		}
-		rc = qpnp_led_masked_write(led,
-			FLASH_LED_STROBE_CTRL(led->base),
-			FLASH_STROBE_MASK, FLASH_STROBE_ALL);
-
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"LED %d flash write failed(%d)\n", led->id, rc);
-			return rc;
-		}
-		rc = qpnp_led_masked_write(led, FLASH_VREG_OK_FORCE(led->base),
-			FLASH_VREG_MASK, FLASH_HW_VREG_OK);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"Vreg OK reg write failed(%d)\n", rc);
-			return rc;
+		if (!led->flash_cfg->strobe_type) {
+			rc = qpnp_led_masked_write(led,
+				FLASH_LED_STROBE_CTRL(led->base),
+				FLASH_STROBE_MASK, FLASH_STROBE_SW);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"LED %d strobe reg write failed(%d)\n",
+					led->id, rc);
+				return rc;
+			}
+		} else {
+			rc = qpnp_led_masked_write(led,
+				FLASH_LED_STROBE_CTRL(led->base),
+				FLASH_STROBE_MASK, FLASH_STROBE_HW);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"LED %d strobe reg write failed(%d)\n",
+					led->id, rc);
+				return rc;
+			}
 		}
 	} else {
-		rc = qpnp_led_masked_write(led, FLASH_ENABLE_CONTROL(led->base),
-			FLASH_ENABLE_MASK,
-			FLASH_DISABLE_ALL);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"Enable reg write failed(%d)\n", rc);
-			return rc;
+		if (led->flash_cfg->torch_enable) {
+			rc = qpnp_led_masked_write(led,
+				FLASH_LED_UNLOCK_SECURE(led->base),
+				FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Secure reg write failed(%d)\n", rc);
+			}
+
+			rc = qpnp_led_masked_write(led,
+				FLASH_LED_TORCH(led->base),
+				FLASH_TORCH_MASK, FLASH_LED_TORCH_DISABLE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Torch reg write failed(%d)\n", rc);
+				return rc;
+			}
+
+			rc = qpnp_led_masked_write(led,
+				FLASH_SAFETY_TIMER(led->base),
+				FLASH_SAFETY_TIMER_MASK,
+				led->flash_cfg->duration);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Safety timer reg write failed(%d)\n",
+					rc);
+				return rc;
+			}
 		}
 
 		rc = qpnp_led_masked_write(led,
@@ -522,6 +652,15 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
 				"LED %d flash write failed(%d)\n", led->id, rc);
+			return rc;
+		}
+
+		rc = qpnp_led_masked_write(led, FLASH_ENABLE_CONTROL(led->base),
+			FLASH_ENABLE_MASK,
+			FLASH_DISABLE_ALL);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"Enable reg write failed(%d)\n", rc);
 			return rc;
 		}
 	}
@@ -798,6 +937,66 @@ static int __devinit qpnp_wled_init(struct qpnp_led_data *led)
 	return 0;
 }
 
+static ssize_t led_mode_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct qpnp_led_data *led;
+	unsigned long state;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+
+	ret = kstrtoul(buf, 10, &state);
+	if (ret)
+		return ret;
+
+	led = container_of(led_cdev, struct qpnp_led_data, cdev);
+
+	/* '1' to enable torch mode; '0' to switch to flash mode */
+	if (state == 1)
+		led->flash_cfg->torch_enable = true;
+	else
+		led->flash_cfg->torch_enable = false;
+
+	return count;
+}
+
+static ssize_t led_strobe_type_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct qpnp_led_data *led;
+	unsigned long state;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+
+	ret = kstrtoul(buf, 10, &state);
+	if (ret)
+		return ret;
+
+	led = container_of(led_cdev, struct qpnp_led_data, cdev);
+
+	/* '0' for sw strobe; '1' for hw strobe */
+	if (state == 1)
+		led->flash_cfg->strobe_type = 1;
+	else
+		led->flash_cfg->strobe_type = 0;
+
+	return count;
+}
+
+static DEVICE_ATTR(led_mode, 0664, NULL, led_mode_store);
+static DEVICE_ATTR(strobe, 0664, NULL, led_strobe_type_store);
+
+static struct attribute *led_attrs[] = {
+	&dev_attr_led_mode.attr,
+	&dev_attr_strobe.attr,
+};
+
+static const struct attribute_group led_attr_group = {
+	.attrs = led_attrs,
+};
+
 static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 {
 	int rc;
@@ -891,7 +1090,7 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 		return rc;
 	}
 
-	/* Set led current and enable module */
+	/* Set led current and disable module */
 	rc = qpnp_led_masked_write(led, led->flash_cfg->current_addr,
 		FLASH_CURRENT_MASK, led->flash_cfg->current_prgm);
 	if (rc) {
@@ -907,6 +1106,10 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 			"Enable reg write failed(%d)\n", rc);
 		return rc;
 	}
+
+	led->flash_cfg->torch_enable = false;
+	led->flash_cfg->strobe_type = 0;
+
 	/* dump flash registers */
 	qpnp_dump_regs(led, flash_debug_regs, ARRAY_SIZE(flash_debug_regs));
 
@@ -1456,6 +1659,16 @@ static int __devinit qpnp_leds_probe(struct spmi_device *spmi)
 						 led->id, rc);
 			goto fail_id_check;
 		}
+
+		if (led->id == QPNP_ID_FLASH1_LED0 ||
+			led->id == QPNP_ID_FLASH1_LED1) {
+			rc = sysfs_create_group(&led->cdev.dev->kobj,
+							&led_attr_group);
+			if (rc)
+				goto fail_id_check;
+
+		}
+
 		/* configure default state */
 		if (led->default_on) {
 			led->cdev.brightness = led->cdev.max_brightness;
@@ -1482,8 +1695,26 @@ static int __devexit qpnp_leds_remove(struct spmi_device *spmi)
 	struct qpnp_led_data *led_array  = dev_get_drvdata(&spmi->dev);
 	int i, parsed_leds = led_array->num_leds;
 
-	for (i = 0; i < parsed_leds; i++)
+	for (i = 0; i < parsed_leds; i++) {
 		led_classdev_unregister(&led_array[i].cdev);
+		switch (led_array[i].id) {
+		case QPNP_ID_WLED:
+			break;
+		case QPNP_ID_FLASH1_LED0:
+		case QPNP_ID_FLASH1_LED1:
+			sysfs_remove_group(&led_array[i].cdev.dev->kobj,
+							&led_attr_group);
+			break;
+		case QPNP_ID_RGB_RED:
+		case QPNP_ID_RGB_GREEN:
+		case QPNP_ID_RGB_BLUE:
+		default:
+			dev_err(&led_array[i].spmi_dev->dev,
+					"Invalid LED(%d)\n",
+					led_array[i].id);
+			return -EINVAL;
+		}
+	}
 
 	return 0;
 }
