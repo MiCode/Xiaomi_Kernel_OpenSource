@@ -377,6 +377,7 @@ static struct ocmem_region *create_region(void)
 
 static int destroy_region(struct ocmem_region *region)
 {
+	idr_destroy(&region->region_idr);
 	kfree(region);
 	return 0;
 }
