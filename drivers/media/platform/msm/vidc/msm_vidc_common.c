@@ -821,6 +821,7 @@ static void  handle_seq_hdr_done(enum command_response cmd, void *data)
 	vb->v4l2_planes[0].bytesused = fill_buf_done->filled_len1;
 
 	vb->v4l2_buf.flags = V4L2_QCOM_BUF_FLAG_CODECCONFIG;
+	vb->v4l2_buf.timestamp = ns_to_timeval(0);
 
 	dprintk(VIDC_DBG, "Filled length = %d; flags %x\n",
 				vb->v4l2_planes[0].bytesused,
