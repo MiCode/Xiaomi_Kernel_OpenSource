@@ -1,0 +1,168 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/ {
+	msm_gpu: qcom,kgsl-3d0@fdc00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0xfdc00000 0x10000
+		       0xfdc10000 0x10000>;
+		reg-names = "kgsl_3d0_reg_memory", "kgsl_3d0_shader_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,chipid = <0x03000520>;
+
+		qcom,initial-pwrlevel = <1>;
+
+		qcom,idle-timeout = <8>; /* <HZ/12> */
+		qcom,nap-allowed = <1>;
+		qcom,strtstp-sleepwake;
+		qcom,clk-map = <0x000001E>; /* KGSL_CLK_CORE |
+			KGSL_CLK_IFACE | KGSL_CLK_MEM | KGSL_CLK_MEM_IFACE */
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<26 512 0 0>,
+			<26 512 0 800000>,
+			<26 512 0 1600000>,
+			<26 512 0 2128000>;
+
+		/* GDSC oxili regulators */
+		vdd-supply = <&gdsc_oxili_cx>;
+
+		/* IOMMU Data */
+		iommu = <&gfx_iommu>;
+
+		/* Power levels */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <400000000>;
+				qcom,bus-freq = <3>;
+				qcom,io-fraction = <0>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <300000000>;
+				qcom,bus-freq = <2>;
+				qcom,io-fraction = <33>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <200000000>;
+				qcom,bus-freq = <2>;
+				qcom,io-fraction = <33>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <150000000>;
+				qcom,bus-freq = <1>;
+				qcom,io-fraction = <100>;
+			};
+
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <27000000>;
+				qcom,bus-freq = <0>;
+				qcom,io-fraction = <0>;
+			};
+		};
+
+		/* DVCS Info */
+		qcom,dcvs-core-info {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,dcvs-core-info";
+
+			qcom,num-cores = <1>;
+			qcom,sensors = <0>;
+
+			qcom,core-core-type = <1>;
+
+			qcom,algo-disable-pc-threshold = <0>;
+			qcom,algo-em-win-size-min-us = <100000>;
+			qcom,algo-em-win-size-max-us = <300000>;
+			qcom,algo-em-max-util-pct = <97>;
+			qcom,algo-group-id = <95>;
+			qcom,algo-max-freq-chg-time-us = <100000>;
+			qcom,algo-slack-mode-dynamic = <100000>;
+			qcom,algo-slack-weight-thresh-pct = <0>;
+			qcom,algo-slack-time-min-us = <39000>;
+			qcom,algo-slack-time-max-us = <39000>;
+			qcom,algo-ss-win-size-min-us = <1000000>;
+			qcom,algo-ss-win-size-max-us = <1000000>;
+			qcom,algo-ss-util-pct = <95>;
+			qcom,algo-ss-no-corr-below-freq = <0>;
+
+			qcom,energy-active-coeff-a = <2492>;
+			qcom,energy-active-coeff-b = <0>;
+			qcom,energy-active-coeff-c = <0>;
+			qcom,energy-leakage-coeff-a = <11>;
+			qcom,energy-leakage-coeff-b = <157150>;
+			qcom,energy-leakage-coeff-c = <0>;
+			qcom,energy-leakage-coeff-d = <0>;
+
+			qcom,power-current-temp = <25>;
+			qcom,power-num-freq = <4>;
+
+			qcom,dcvs-freq@0 {
+				reg = <0>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@1 {
+				reg = <1>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@2 {
+				reg = <2>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
+			};
+
+			qcom,dcvs-freq@3 {
+				reg = <3>;
+				qcom,freq = <0>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <844545>;
+				qcom,leakage-energy-offset = <0>;
+			};
+		};
+	};
+};
