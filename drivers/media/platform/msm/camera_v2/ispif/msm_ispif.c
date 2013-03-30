@@ -366,6 +366,36 @@ static void msm_ispif_sel_csid_core(struct ispif_device *ispif,
 			ISPIF_VFE_m_INPUT_SEL(vfe_intf));
 }
 
+static void msm_ispif_enable_crop(struct ispif_device *ispif,
+	uint8_t intftype, uint8_t vfe_intf, uint16_t start_pixel,
+	uint16_t end_pixel)
+{
+	uint32_t data;
+	BUG_ON(!ispif);
+
+	if (!msm_ispif_is_intf_valid(ispif->csid_version, vfe_intf)) {
+		pr_err("%s: invalid interface type\n", __func__);
+		return;
+	}
+
+	data = msm_camera_io_r(ispif->base + ISPIF_VFE_m_CTRL_0(vfe_intf));
+	data |= (1 << (intftype + 7));
+	msm_camera_io_w(data,
+		ispif->base + ISPIF_VFE_m_CTRL_0(vfe_intf));
+
+	if (intftype == PIX0)
+		msm_camera_io_w_mb(start_pixel | (end_pixel << 16),
+			ispif->base + ISPIF_VFE_m_PIX_INTF_n_CROP(vfe_intf, 0));
+	else if (intftype == PIX1)
+		msm_camera_io_w_mb(start_pixel | (end_pixel << 16),
+			ispif->base + ISPIF_VFE_m_PIX_INTF_n_CROP(vfe_intf, 1));
+	else {
+		pr_err("%s: invalid intftype=%d\n", __func__, intftype);
+		BUG_ON(1);
+		return;
+	}
+}
+
 static void msm_ispif_enable_intf_cids(struct ispif_device *ispif,
 	uint8_t intftype, uint16_t cid_mask, uint8_t vfe_intf, uint8_t enable)
 {
@@ -523,6 +553,10 @@ static int msm_ispif_config(struct ispif_device *ispif,
 				&params->entries[i]);
 		msm_ispif_enable_intf_cids(ispif, intftype,
 			cid_mask, vfe_intf, 1);
+		if (params->entries[i].crop_enable)
+			msm_ispif_enable_crop(ispif, intftype, vfe_intf,
+				params->entries[i].crop_start_pixel,
+				params->entries[i].crop_end_pixel);
 	}
 
 	for (vfe_intf = 0; vfe_intf < 2; vfe_intf++) {
