@@ -18,7 +18,6 @@
 #include "../../pm.h"
 
 struct msm_cpuidle_state {
-	unsigned int cpu;
 	int state_nr;
 	char *name;
 	char *desc;

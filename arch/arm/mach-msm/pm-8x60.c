@@ -758,7 +758,8 @@ static inline void msm_pm_ftrace_lpm_exit(unsigned int cpu,
 
 static int msm_pm_idle_prepare(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int index,
-		void **msm_pm_idle_rs_limits)
+		void **msm_pm_idle_rs_limits,
+		const struct msm_cpuidle_state *states)
 {
 	int i;
 	unsigned int power_usage = -1;
@@ -782,14 +783,13 @@ static int msm_pm_idle_prepare(struct cpuidle_device *dev,
 
 	for (i = 0; i < dev->state_count; i++) {
 		struct cpuidle_state *state = &drv->states[i];
-		struct cpuidle_state_usage *st_usage = &dev->states_usage[i];
 		enum msm_pm_sleep_mode mode;
 		bool allow;
 		uint32_t power;
 		int idx;
 		void *rs_limits = NULL;
 
-		mode = (enum msm_pm_sleep_mode) cpuidle_get_statedata(st_usage);
+		mode = states[i].mode_nr;
 		idx = MSM_PM_MODE(dev->cpu, mode);
 
 		allow = msm_pm_sleep_modes[idx].idle_enabled &&
@@ -855,7 +855,8 @@ static int msm_pm_idle_prepare(struct cpuidle_device *dev,
 }
 
 enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
-	struct cpuidle_driver *drv, int index)
+	struct cpuidle_driver *drv, int index,
+	const struct msm_cpuidle_state *states)
 {
 	int64_t time;
 	bool collapsed = 1;
@@ -869,7 +870,7 @@ enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
 	bool timer_halted = false;
 
 	sleep_mode = msm_pm_idle_prepare(dev, drv, index,
-		&msm_pm_idle_rs_limits);
+		&msm_pm_idle_rs_limits, states);
 
 	if (!msm_pm_idle_rs_limits) {
 		sleep_mode = MSM_PM_SLEEP_MODE_NOT_SELECTED;

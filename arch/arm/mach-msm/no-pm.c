@@ -38,7 +38,8 @@ void msm_pm_set_max_sleep_time(int64_t max_sleep_time_ns) { }
 void msm_pm_set_irq_extns(struct msm_pm_irq_calls *irq_calls) {}
 
 enum msm_pm_sleep_mode msm_pm_idle_enter(struct cpuidle_device *dev,
-			struct cpuidle_driver *drv, int index)
+			struct cpuidle_driver *drv, int index,
+			const struct msm_cpuidle_state *states)
 {
 	return -ENOSYS;
 }
