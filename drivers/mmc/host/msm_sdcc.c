@@ -4703,10 +4703,10 @@ static int msmsdcc_sps_init_ep_conn(struct msmsdcc_host *host,
 	}
 	/* Now save the sps pipe handle */
 	ep->pipe_handle = sps_pipe_handle;
-	pr_debug("%s: %s, success !!! %s: pipe_handle=0x%x,"
-		" desc_fifo.phys_base=0x%x\n", mmc_hostname(host->mmc),
+	pr_debug("%s: %s, success !!! %s: pipe_handle=0x%x,"\
+		" desc_fifo.phys_base=%pa\n", mmc_hostname(host->mmc),
 		__func__, is_producer ? "READ" : "WRITE",
-		(u32)sps_pipe_handle, sps_config->desc.phys_base);
+		(u32)sps_pipe_handle, &sps_config->desc.phys_base);
 	goto out;
 
 reg_event_err:
@@ -4949,11 +4949,8 @@ static int msmsdcc_sps_init(struct msmsdcc_host *host)
 	host->bam_base = ioremap(host->bam_memres->start,
 				resource_size(host->bam_memres));
 	if (!host->bam_base) {
-		pr_err("%s: BAM ioremap() failed!!! phys_addr=0x%x,"
-			" size=0x%x", mmc_hostname(host->mmc),
-			host->bam_memres->start,
-			(host->bam_memres->end -
-			host->bam_memres->start));
+		pr_err("%s: BAM ioremap() failed!!! resource: %pr\n",
+			mmc_hostname(host->mmc), host->bam_memres);
 		rc = -ENOMEM;
 		goto out;
 	}
@@ -4974,7 +4971,7 @@ static int msmsdcc_sps_init(struct msmsdcc_host *host)
 	 */
 	bam.summing_threshold = SPS_MIN_XFER_SIZE;
 	/* SPS driver wll handle the SDCC BAM IRQ */
-	bam.irq = (u32)host->bam_irqres->start;
+	bam.irq = host->bam_irqres->start;
 	bam.manage = SPS_BAM_MGR_LOCAL;
 	bam.callback = msmsdcc_sps_bam_global_irq_cb;
 	bam.user = (void *)host;
@@ -5010,10 +5007,8 @@ static int msmsdcc_sps_init(struct msmsdcc_host *host)
 	if (rc)
 		goto cons_conn_err;
 
-	pr_info("%s: Qualcomm MSM SDCC-BAM at 0x%016llx irq %d\n",
-		mmc_hostname(host->mmc),
-		(unsigned long long)host->bam_memres->start,
-		(unsigned int)host->bam_irqres->start);
+	pr_info("%s: Qualcomm MSM SDCC-BAM at %pr %pr\n",
+		mmc_hostname(host->mmc), host->bam_memres, host->bam_irqres);
 	goto out;
 
 cons_conn_err:
@@ -5200,15 +5195,16 @@ store_enable_auto_cmd21(struct device *dev, struct device_attribute *attr,
 }
 
 static void msmsdcc_print_regs(const char *name, void __iomem *base,
-			       u32 phys_base, unsigned int no_of_regs)
+				resource_size_t phys_base,
+				unsigned int no_of_regs)
 {
 	unsigned int i;
 
 	if (!base)
 		return;
 
-	pr_err("===== %s: Register Dumps @phys_base=0x%x, @virt_base=0x%x"
-		" =====\n", name, phys_base, (u32)base);
+	pr_err("===== %s: Register Dumps @phys_base=%pa, @virt_base=0x%x"\
+		" =====\n", name, &phys_base, (u32)base);
 	for (i = 0; i < no_of_regs; i = i + 4) {
 		pr_err("Reg=0x%.2x: 0x%.8x, 0x%.8x, 0x%.8x, 0x%.8x\n", i*4,
 			(u32)readl_relaxed(base + i*4),
@@ -6279,10 +6275,8 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->clk_scaling.polling_delay_ms = 100;
 	mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 
-	pr_info("%s: Qualcomm MSM SDCC-core at 0x%016llx irq %d,%d dma %d"
-		" dmacrcri %d\n", mmc_hostname(mmc),
-		(unsigned long long)core_memres->start,
-		(unsigned int) core_irqres->start,
+	pr_info("%s: Qualcomm MSM SDCC-core %pr %pr,%d dma %d dmacrcri %d\n",
+		mmc_hostname(mmc), core_memres, core_irqres,
 		(unsigned int) plat->status_irq, host->dma.channel,
 		host->dma.crci);
 
@@ -6304,11 +6298,11 @@ msmsdcc_probe(struct platform_device *pdev)
 
 	if (is_dma_mode(host) && host->dma.channel != -1
 			&& host->dma.crci != -1) {
-		pr_info("%s: DM non-cached buffer at %p, dma_addr 0x%.8x\n",
-		       mmc_hostname(mmc), host->dma.nc, host->dma.nc_busaddr);
-		pr_info("%s: DM cmd busaddr 0x%.8x, cmdptr busaddr 0x%.8x\n",
-		       mmc_hostname(mmc), host->dma.cmd_busaddr,
-		       host->dma.cmdptr_busaddr);
+		pr_info("%s: DM non-cached buffer at %p, dma_addr: %pa\n",
+		       mmc_hostname(mmc), host->dma.nc, &host->dma.nc_busaddr);
+		pr_info("%s: DM cmd busaddr: %pa, cmdptr busaddr: %pa\n",
+		       mmc_hostname(mmc), &host->dma.cmd_busaddr,
+		       &host->dma.cmdptr_busaddr);
 	} else if (is_sps_mode(host)) {
 		pr_info("%s: SPS-BAM data transfer mode available\n",
 			mmc_hostname(mmc));
