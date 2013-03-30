@@ -42,7 +42,7 @@
 #define TAIKO_MAD_SLIMBUS_TX_PORT 12
 #define TAIKO_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
 
-#define TAIKO_HPH_PA_SETTLE_COMP_ON 2600
+#define TAIKO_HPH_PA_SETTLE_COMP_ON 3000
 #define TAIKO_HPH_PA_SETTLE_COMP_OFF 13000
 
 static atomic_t kp_taiko_priv;
@@ -824,6 +824,8 @@ static int taiko_set_compander(struct snd_kcontrol *kcontrol,
 		/* Enable Chopper */
 		snd_soc_update_bits(codec,
 			TAIKO_A_RX_HPH_CHOP_CTL, 0x80, 0x80);
+
+		snd_soc_write(codec, TAIKO_A_NCP_DTEST, 0x20);
 		pr_debug("%s: Enabled Chopper and set wavegen to 5 msec\n",
 				__func__);
 	} else if (comp == COMPANDER_1 &&
@@ -836,6 +838,8 @@ static int taiko_set_compander(struct snd_kcontrol *kcontrol,
 		/* Disable CHOPPER block */
 		snd_soc_update_bits(codec,
 			TAIKO_A_RX_HPH_CHOP_CTL, 0x80, 0x00);
+
+		snd_soc_write(codec, TAIKO_A_NCP_DTEST, 0x10);
 		pr_debug("%s: Disabled Chopper and set wavegen to 20 msec\n",
 				__func__);
 	}
@@ -5819,6 +5823,12 @@ static const struct wcd9xxx_reg_mask_val taiko_codec_reg_init_val[] = {
 	{TAIKO_A_RX_HPH_CNP_WG_TIME, 0xFF, 0x58},
 	{TAIKO_A_RX_HPH_BIAS_WG_OCP, 0xFF, 0x1A},
 	{TAIKO_A_RX_HPH_CHOP_CTL, 0xFF, 0x24},
+
+	/* Choose max non-overlap time for NCP */
+	{TAIKO_A_NCP_CLK, 0xFF, 0xFC},
+
+	/* Program the 0.85 volt VBG_REFERENCE */
+	{TAIKO_A_BIAS_CURR_CTL_2, 0xFF, 0x04},
 };
 
 static void taiko_codec_init_reg(struct snd_soc_codec *codec)
