@@ -213,6 +213,9 @@ static const struct {
 	{ ADRENO_REV_A305B, 3, 0, 5, 0x10,
 		"a330_pm4.fw", "a330_pfp.fw", &adreno_a3xx_gpudev,
 		512, 0, 2, SZ_128K, NO_VER, NO_VER },
+	{ ADRENO_REV_A305C, 3, 0, 5, 0x20,
+		"a300_pm4.fw", "a300_pfp.fw", &adreno_a3xx_gpudev,
+		512, 0, 2, SZ_128K, 0x3FF037, 0x3FF016 },
 };
 
 /**
