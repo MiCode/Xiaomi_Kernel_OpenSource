@@ -540,6 +540,8 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 	unsigned long flags;
 	struct qseecom_client_listener_data_irsp send_data_rsp;
 	struct qseecom_registered_listener_list *ptr_svc = NULL;
+	sigset_t new_sigset;
+	sigset_t old_sigset;
 
 	while (resp->result == QSEOS_RESULT_INCOMPLETE) {
 		lstnr = resp->data;
@@ -564,17 +566,24 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		}
 		pr_debug("waking up rcv_req_wq and "
 				"waiting for send_resp_wq\n");
-		if (wait_event_freezable(qseecom.send_resp_wq,
-				__qseecom_listener_has_sent_rsp(data))) {
-			pr_warning("Interrupted: exiting send_cmd loop\n");
-			ret = -ERESTARTSYS;
-		}
 
-		if ((data->abort) || (ret == -ERESTARTSYS)) {
+		/* initialize the new signal mask with all signals*/
+		sigfillset(&new_sigset);
+		/* block all signals */
+		sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
+
+		do {
+			if (!wait_event_freezable(qseecom.send_resp_wq,
+				__qseecom_listener_has_sent_rsp(data)))
+				break;
+		} while (1);
+
+		/* restore signal mask */
+		sigprocmask(SIG_SETMASK, &old_sigset, NULL);
+		if (data->abort) {
 			pr_err("Abort clnt %d waiting on lstnr svc %d, ret %d",
 				data->client.app_id, lstnr, ret);
-			if (data->abort)
-				rc = -ENODEV;
+			rc = -ENODEV;
 			send_data_rsp.status  = QSEOS_RESULT_FAILURE;
 		} else {
 			send_data_rsp.status  = QSEOS_RESULT_SUCCESS;
