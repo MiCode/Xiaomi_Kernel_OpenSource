@@ -1310,6 +1310,7 @@ drop:
 		COPY_USER_SPACE_OR_EXIT(buf+4, *(driver->pkt_buf),
 							 driver->pkt_length);
 		driver->data_ready[index] ^= PKT_TYPE;
+		driver->in_busy_pktdata = 0;
 		goto exit;
 	}
 
@@ -1396,6 +1397,117 @@ static int diagchar_write(struct file *file, const char __user *buf,
 		err = diag_process_dci_transaction(driver->user_space_data,
 							payload_size);
 		return err;
+	}
+	if (pkt_type == CALLBACK_DATA_TYPE) {
+		err = copy_from_user(driver->user_space_data, buf + 4,
+							 payload_size);
+		 if (err) {
+			pr_err("diag: copy failed for user space data\n");
+			return -EIO;
+		}
+		/* Check for proc_type */
+		remote_proc = diag_get_remote(*(int *)driver->user_space_data);
+
+		if (!remote_proc) {
+			wait_event_interruptible(driver->wait_q,
+				 (driver->in_busy_pktdata == 0));
+			return diag_process_apps_pkt(driver->user_space_data,
+							payload_size);
+		}
+		/* The packet is for the remote processor */
+		token_offset = 4;
+		payload_size -= 4;
+		buf += 4;
+		/* Perform HDLC encoding on incoming data */
+		send.state = DIAG_STATE_START;
+		send.pkt = (void *)(driver->user_space_data + token_offset);
+		send.last = (void *)(driver->user_space_data + token_offset -
+							1 + payload_size);
+		send.terminate = 1;
+
+		mutex_lock(&driver->diagchar_mutex);
+		if (!buf_hdlc)
+			buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+							POOL_TYPE_HDLC);
+		if (!buf_hdlc) {
+			ret = -ENOMEM;
+			goto fail_free_hdlc;
+		}
+		if (HDLC_OUT_BUF_SIZE < (2 * payload_size) + 3) {
+			pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
+					((2*payload_size) + 3));
+			driver->dropped_count++;
+			ret = -EBADMSG;
+			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
+			goto fail_free_hdlc;
+		}
+		enc.dest = buf_hdlc + driver->used;
+		enc.dest_last = (void *)(buf_hdlc + driver->used +
+					(2 * payload_size) + token_offset - 1);
+		diag_hdlc_encode(&send, &enc);
+
+#ifdef CONFIG_DIAG_SDIO_PIPE
+		/* send masks to 9k too */
+		if (driver->sdio_ch && (remote_proc == MDM)) {
+			wait_event_interruptible(driver->wait_q,
+				 (sdio_write_avail(driver->sdio_ch) >=
+					 payload_size));
+			if (driver->sdio_ch && (payload_size > 0)) {
+				sdio_write(driver->sdio_ch, (void *)
+				   (char *)buf_hdlc, payload_size + 3);
+			}
+		}
+#endif
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+		/* send masks to All 9k */
+		if ((remote_proc >= MDM) && (remote_proc <= MDM4)) {
+			index = remote_proc - MDM;
+			if (diag_hsic[index].hsic_ch && (payload_size > 0)) {
+				/* wait sending mask updates
+				 * if HSIC ch not ready */
+				if (diag_hsic[index].in_busy_hsic_write)
+					wait_event_interruptible(driver->wait_q,
+						(diag_hsic[index].
+						 in_busy_hsic_write != 1));
+				diag_hsic[index].in_busy_hsic_write = 1;
+				diag_hsic[index].in_busy_hsic_read_on_device =
+									0;
+				err = diag_bridge_write(index,
+					(char *)buf_hdlc, payload_size + 3);
+				if (err) {
+					pr_err("diag: err sending mask to MDM: %d\n",
+					       err);
+					/*
+					* If the error is recoverable, then
+					* clear the write flag, so we will
+					* resubmit a write on the next frame.
+					* Otherwise, don't resubmit a write
+					* on the next frame.
+					*/
+					if ((-ESHUTDOWN) != err)
+						diag_hsic[index].
+							in_busy_hsic_write = 0;
+				 }
+			 }
+		}
+		if (driver->diag_smux_enabled && (remote_proc == QSC)
+						&& driver->lcid) {
+			if (payload_size > 0) {
+				err = msm_smux_write(driver->lcid, NULL,
+					(char *)buf_hdlc, payload_size + 3);
+				if (err) {
+					pr_err("diag:send mask to MDM err %d",
+							err);
+					ret = err;
+				}
+			}
+		}
+#endif
+		diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
+		buf_hdlc = NULL;
+		driver->used = 0;
+		mutex_unlock(&driver->diagchar_mutex);
+		return ret;
 	}
 	if (pkt_type == USER_SPACE_DATA_TYPE) {
 		err = copy_from_user(driver->user_space_data, buf + 4,
@@ -1839,6 +1951,7 @@ static int __init diagchar_init(void)
 		driver->socket_process = NULL;
 		driver->callback_process = NULL;
 		driver->mask_check = 0;
+		driver->in_busy_pktdata = 0;
 		mutex_init(&driver->diagchar_mutex);
 		init_waitqueue_head(&driver->wait_q);
 		init_waitqueue_head(&driver->smd_wait_q);

@@ -641,9 +641,10 @@ static void diag_update_pkt_buffer(unsigned char *buf)
 	unsigned char *temp = buf;
 
 	mutex_lock(&driver->diagchar_mutex);
-	if (CHK_OVERFLOW(ptr, ptr, ptr + PKT_SIZE, driver->pkt_length))
+	if (CHK_OVERFLOW(ptr, ptr, ptr + PKT_SIZE, driver->pkt_length)) {
 		memcpy(ptr, temp , driver->pkt_length);
-	else
+		driver->in_busy_pktdata = 1;
+	} else
 		printk(KERN_CRIT " Not enough buffer space for PKT_RESP\n");
 	mutex_unlock(&driver->diagchar_mutex);
 }
@@ -718,7 +719,7 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 	}
 }
 
-static int diag_process_apps_pkt(unsigned char *buf, int len)
+int diag_process_apps_pkt(unsigned char *buf, int len)
 {
 	uint16_t subsys_cmd_code;
 	int subsys_id, ssid_first, ssid_last, ssid_range;
