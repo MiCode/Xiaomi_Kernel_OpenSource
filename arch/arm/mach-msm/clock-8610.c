@@ -524,17 +524,20 @@ static DEFINE_CLK_MEASURE(l2_m_clk);
 
 enum vdd_sr2_pll_levels {
 	VDD_SR2_PLL_OFF,
-	VDD_SR2_PLL_ON,
+	VDD_SR2_PLL_SVS,
+	VDD_SR2_PLL_NOM,
+	VDD_SR2_PLL_TUR,
 	VDD_SR2_PLL_NUM
 };
 
-static const int *vdd_sr2_pll_levels[] = {
-	[VDD_SR2_PLL_OFF] = VDD_UV(0),
-	[VDD_SR2_PLL_ON]  = VDD_UV(1800000),
+static const int *vdd_sr2_levels[] = {
+	[VDD_SR2_PLL_OFF] = VDD_UV(0,       RPM_REGULATOR_CORNER_NONE),
+	[VDD_SR2_PLL_SVS] = VDD_UV(1800000, RPM_REGULATOR_CORNER_SVS_SOC),
+	[VDD_SR2_PLL_NOM] = VDD_UV(1800000, RPM_REGULATOR_CORNER_NORMAL),
+	[VDD_SR2_PLL_TUR] = VDD_UV(1800000, RPM_REGULATOR_CORNER_SUPER_TURBO),
 };
 
-static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 1,
-		vdd_sr2_pll_levels);
+static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 2, vdd_sr2_levels);
 
 static struct pll_freq_tbl apcs_pll_freq[] = {
 	F_APCS_PLL( 384000000, 20, 0x0, 0x1, 0x0, 0x0, 0x0),
@@ -565,7 +568,8 @@ static struct pll_clk a7sspll = {
 		.ops = &clk_ops_sr2_pll,
 		.vdd_class = &vdd_sr2_pll,
 		.fmax = (unsigned long [VDD_SR2_PLL_NUM]) {
-			[VDD_SR2_PLL_ON] = ULONG_MAX,
+			[VDD_SR2_PLL_SVS] = 1000000000,
+			[VDD_SR2_PLL_NOM] = 1900000000,
 		},
 		.num_fmax = VDD_SR2_PLL_NUM,
 		CLK_INIT(a7sspll.c),
@@ -2948,8 +2952,13 @@ static void __init msm8610_clock_pre_init(void)
 	if (IS_ERR(vdd_sr2_pll.regulator[0]))
 		panic("clock-8610: Unable to get the vdd_sr2_pll regulator!");
 
-	regulator_set_voltage(vdd_sr2_pll.regulator[0], 1800000, 1800000);
+	vdd_sr2_pll.regulator[1] = regulator_get(NULL, "vdd_sr2_dig");
+	if (IS_ERR(vdd_sr2_pll.regulator[1]))
+		panic("clock-8610: Unable to get the vdd_sr2_dig regulator!");
+
+	vote_vdd_level(&vdd_sr2_pll, VDD_SR2_PLL_TUR);
 	regulator_enable(vdd_sr2_pll.regulator[0]);
+	regulator_enable(vdd_sr2_pll.regulator[1]);
 
 	/*
 	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
@@ -2978,7 +2987,9 @@ static void __init msm8610_clock_pre_init(void)
 
 static int __init msm8610_clock_late_init(void)
 {
-	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
+	unvote_vdd_level(&vdd_sr2_pll, VDD_SR2_PLL_TUR);
+	return 0;
 }
 
 struct clock_init_data msm8610_clock_init_data __initdata = {
