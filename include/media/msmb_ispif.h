@@ -64,6 +64,7 @@ enum msm_ispif_csid {
 };
 
 struct msm_ispif_params_entry {
+	enum msm_ispif_vfe_intf vfe_intf;
 	enum msm_ispif_intftype intftype;
 	int num_cids;
 	enum msm_ispif_cid cids[3];
@@ -71,7 +72,6 @@ struct msm_ispif_params_entry {
 };
 
 struct msm_ispif_param_data {
-	enum msm_ispif_vfe_intf vfe_intf;
 	uint32_t num;
 	struct msm_ispif_params_entry entries[INTF_MAX];
 };
