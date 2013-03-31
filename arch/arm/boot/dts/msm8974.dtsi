@@ -1021,6 +1021,12 @@
 		vdd_pronto_pll-supply = <&pm8941_l12>;
 
 		qcom,firmware-name = "wcnss";
+
+		/* GPIO input from wcnss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_4_in 0 0>;
+
+		/* GPIO output to wcnss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
 	};
 
 	qcom,iris-fm {
