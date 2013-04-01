@@ -4121,6 +4121,11 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 			if (v != NULL)
 				v->voc_state = VOC_ERROR;
 
+			session_id = voc_get_session_id(VOICE2_SESSION_NAME);
+			v = voice_get_session(session_id);
+			if (v != NULL)
+				v->voc_state = VOC_ERROR;
+
 			session_id = voc_get_session_id(VOLTE_SESSION_NAME);
 			v = voice_get_session(session_id);
 			if (v != NULL)
@@ -4251,6 +4256,11 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			pr_debug("%s: Received Modem reset event\n", __func__);
 
 			session_id = voc_get_session_id(VOICE_SESSION_NAME);
+			v = voice_get_session(session_id);
+			if (v != NULL)
+				v->voc_state = VOC_ERROR;
+
+			session_id = voc_get_session_id(VOICE2_SESSION_NAME);
 			v = voice_get_session(session_id);
 			if (v != NULL)
 				v->voc_state = VOC_ERROR;
@@ -4516,6 +4526,11 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 			pr_debug("%s: Received Modem reset event\n", __func__);
 
 			session_id = voc_get_session_id(VOICE_SESSION_NAME);
+			v = voice_get_session(session_id);
+			if (v != NULL)
+				v->voc_state = VOC_ERROR;
+
+			session_id = voc_get_session_id(VOICE2_SESSION_NAME);
 			v = voice_get_session(session_id);
 			if (v != NULL)
 				v->voc_state = VOC_ERROR;
