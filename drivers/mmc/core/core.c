@@ -820,7 +820,15 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 					context_info->is_done_rcv = false;
 					break; /* return err */
 				} else {
+					/*
+					 * We have stopped the ongoing request
+					 * and are sure that mmc_request_done()
+					 * is not going to get called. Update
+					 * stuff that we ought to do when the
+					 * request actually completes.
+					 */
 					mmc_update_clk_scaling(host);
+					mmc_host_clk_release(host);
 				}
 				err = host->areq->update_interrupted_req(
 						host->card, host->areq);
