@@ -96,6 +96,9 @@ struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *);
 void ion_secure_cma_heap_destroy(struct ion_heap *);
 #endif
 
+struct ion_heap *ion_removed_heap_create(struct ion_platform_heap *);
+void ion_removed_heap_destroy(struct ion_heap *);
+
 #define ION_CP_ALLOCATE_FAIL -1
 #define ION_RESERVED_ALLOCATE_FAIL -1
 
