@@ -65,8 +65,6 @@ struct ion_buffer {
 	struct sg_table *sg_table;
 	unsigned long *dirty;
 	struct list_head vmas;
-	unsigned int iommu_map_cnt;
-	struct rb_root iommu_maps;
 	int marked;
 };
 
@@ -101,14 +99,6 @@ struct ion_heap_ops {
 	int (*cache_op)(struct ion_heap *heap, struct ion_buffer *buffer,
 			void *vaddr, unsigned int offset,
 			unsigned int length, unsigned int cmd);
-	int (*map_iommu)(struct ion_buffer *buffer,
-				struct ion_iommu_map *map_data,
-				unsigned int domain_num,
-				unsigned int partition_num,
-				unsigned long align,
-				unsigned long iova_length,
-				unsigned long flags);
-	void (*unmap_iommu)(struct ion_iommu_map *data);
 	int (*print_debug)(struct ion_heap *heap, struct seq_file *s,
 			   const struct rb_root *mem_map);
 	int (*secure_heap)(struct ion_heap *heap, int version, void *data);
