@@ -16,6 +16,7 @@
 /* common registers */
 #define ISPIF_RST_CMD_ADDR                       0x0000
 #define ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR          0x0124
+#define PIX0_LINE_BUF_EN_BIT                     0
 
 #define ISPIF_VFE(m)                             (0x0)
 

@@ -17,6 +17,7 @@
 #define ISPIF_RST_CMD_ADDR                       0x008
 #define ISPIF_RST_CMD_1_ADDR                     0x00C
 #define ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR          0x01C
+#define PIX0_LINE_BUF_EN_BIT                     6
 
 #define ISPIF_VFE(m)                             ((m) * 0x200)
 

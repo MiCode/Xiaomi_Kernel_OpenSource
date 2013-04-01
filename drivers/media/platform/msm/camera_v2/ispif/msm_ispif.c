@@ -380,6 +380,8 @@ static void msm_ispif_enable_crop(struct ispif_device *ispif,
 
 	data = msm_camera_io_r(ispif->base + ISPIF_VFE_m_CTRL_0(vfe_intf));
 	data |= (1 << (intftype + 7));
+	if (intftype == PIX0)
+		data |= 1 << PIX0_LINE_BUF_EN_BIT;
 	msm_camera_io_w(data,
 		ispif->base + ISPIF_VFE_m_CTRL_0(vfe_intf));
 
