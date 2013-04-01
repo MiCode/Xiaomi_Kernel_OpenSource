@@ -26,7 +26,6 @@
 		interrupts = <0 158 1>;
 	};
 
-	/* SMP2P Test Driver for inbound entries */
 	smp2pgpio_smp2p_7_in: qcom,smp2pgpio-smp2p-7-in {
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "smp2p";
@@ -43,7 +42,6 @@
 		gpios = <&smp2pgpio_smp2p_7_in 0 0>;
 	};
 
-	/* SMP2P Test Driver for outbound entries */
 	smp2pgpio_smp2p_7_out: qcom,smp2pgpio-smp2p-7-out {
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "smp2p";
@@ -59,7 +57,6 @@
 		gpios = <&smp2pgpio_smp2p_7_out 0 0>;
 	};
 
-	/* SMP2P Test Driver for modem inbound */
 	smp2pgpio_smp2p_1_in: qcom,smp2pgpio-smp2p-1-in {
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "smp2p";
@@ -76,7 +73,6 @@
 		gpios = <&smp2pgpio_smp2p_1_in 0 0>;
 	};
 
-	/* SMP2P Test Driver for modem output */
 	smp2pgpio_smp2p_1_out: qcom,smp2pgpio-smp2p-1-out {
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "smp2p";
@@ -92,7 +88,6 @@
 		gpios = <&smp2pgpio_smp2p_1_out 0 0>;
 	};
 
-	/* SMP2P SSR Driver for inbound entry from modem. */
 	smp2pgpio_ssr_smp2p_1_in: qcom,smp2pgpio-ssr-smp2p-1-in {
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "slave-kernel";
@@ -104,7 +99,6 @@
 		#interrupt-cells = <2>;
 	};
 
-	/* SMP2P SSR Driver for outbound entry to modem */
 	smp2pgpio_ssr_smp2p_1_out: qcom,smp2pgpio-ssr-smp2p-1-out {
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "master-kernel";
@@ -115,7 +109,6 @@
 		#interrupt-cells = <2>;
 	};
 
-	/* SMP2P Test Driver for adsp inbound */
 	smp2pgpio_smp2p_2_in: qcom,smp2pgpio-smp2p-2-in {
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "smp2p";
@@ -132,7 +125,6 @@
 		gpios = <&smp2pgpio_smp2p_2_in 0 0>;
 	};
 
-	/* SMP2P Test Driver for adsp output */
 	smp2pgpio_smp2p_2_out: qcom,smp2pgpio-smp2p-2-out {
 		compatible = "qcom,smp2pgpio";
 		qcom,entry-name = "smp2p";
