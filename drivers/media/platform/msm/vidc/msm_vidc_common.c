@@ -1449,7 +1449,7 @@ static int msm_comm_session_close(int flipped_state,
 			"Failed to send close\n");
 		goto exit;
 	}
-	change_inst_state(inst, MSM_VIDC_OPEN);
+	change_inst_state(inst, MSM_VIDC_CLOSE);
 exit:
 	return rc;
 }

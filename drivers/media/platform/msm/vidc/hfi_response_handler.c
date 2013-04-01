@@ -1003,12 +1003,6 @@ static void hfi_process_session_end_done(
 		return;
 	}
 
-	sess_close = (struct hal_session *)pkt->session_id;
-	dprintk(VIDC_INFO, "deleted the session: 0x%x",
-			sess_close->session_id);
-	list_del(&sess_close->list);
-	kfree(sess_close);
-
 	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
 	cmd_done.device_id = device_id;
 	cmd_done.session_id =
@@ -1016,6 +1010,11 @@ static void hfi_process_session_end_done(
 	cmd_done.status = hfi_map_err_status((u32)pkt->error_type);
 	cmd_done.data = NULL;
 	cmd_done.size = 0;
+	sess_close = (struct hal_session *)pkt->session_id;
+	dprintk(VIDC_INFO, "deleted the session: 0x%x",
+		sess_close->session_id);
+	list_del(&sess_close->list);
+	kfree(sess_close);
 	callback(SESSION_END_DONE, &cmd_done);
 }
 
