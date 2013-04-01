@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ struct fs_clk_data {
 struct fs_driver_data {
 	int bus_port0, bus_port1;
 	struct fs_clk_data *clks;
+	unsigned long reset_delay_us;
 };
 
 #define FS_GENERIC(_drv_name, _id, _name, _dev_id, _data) \
