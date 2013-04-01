@@ -298,6 +298,10 @@
 	};
 };
 
+&sdcc1 {
+       status = "disabled";
+};
+
 &sdcc2 {
 	#address-cells = <0>;
 	interrupt-parent = <&sdcc2>;
@@ -310,6 +314,7 @@
 	interrupt-names = "core_irq", "bam_irq", "status_irq";
 	cd-gpios = <&msmgpio 62 0x1>;
 	wp-gpios = <&pm8941_gpios 29 0x1>;
+	status = "disabled";
 };
 
 &sdhc_1 {
@@ -331,6 +336,7 @@
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
 	qcom,nonremovable;
+	status = "ok";
 };
 
 &sdhc_2 {
@@ -358,6 +364,7 @@
 	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
+	status = "ok";
 };
 
 &uart7 {

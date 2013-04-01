@@ -210,6 +210,7 @@
 				<78 512 2048000 4096000>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
 		qcom,dat1-mpm-int = <42>;
+		status = "disable";
 	};
 
 	sdcc2: qcom,sdcc@f98a4000 {
@@ -256,6 +257,7 @@
 				<81 512 2048000 4096000>; /* Max. bandwidth */
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
 		qcom,dat1-mpm-int = <44>;
+		status = "disable";
 	};
 
 	sdcc3: qcom,sdcc@f9864000 {
