@@ -178,100 +178,6 @@ static void ion_cma_unmap_kernel(struct ion_heap *heap,
 	return;
 }
 
-int ion_cma_map_iommu(struct ion_buffer *buffer,
-				struct ion_iommu_map *data,
-				unsigned int domain_num,
-				unsigned int partition_num,
-				unsigned long align,
-				unsigned long iova_length,
-				unsigned long flags)
-{
-	int ret = 0;
-	struct iommu_domain *domain;
-	unsigned long extra;
-	unsigned long extra_iova_addr;
-	struct ion_cma_buffer_info *info = buffer->priv_virt;
-	struct sg_table *table = info->table;
-	int prot = IOMMU_WRITE | IOMMU_READ;
-
-	data->mapped_size = iova_length;
-
-	if (!msm_use_iommu()) {
-		data->iova_addr = info->handle;
-		return 0;
-	}
-
-	extra = iova_length - buffer->size;
-
-	ret = msm_allocate_iova_address(domain_num, partition_num,
-						data->mapped_size, align,
-						&data->iova_addr);
-
-	if (ret)
-		goto out;
-
-	domain = msm_get_iommu_domain(domain_num);
-
-	if (!domain) {
-		ret = -EINVAL;
-		goto out1;
-	}
-
-	ret = iommu_map_range(domain, data->iova_addr, table->sgl,
-				buffer->size, prot);
-
-	if (ret) {
-		pr_err("%s: could not map %lx in domain %p\n",
-			__func__, data->iova_addr, domain);
-		goto out1;
-	}
-
-	extra_iova_addr = data->iova_addr + buffer->size;
-	if (extra) {
-		unsigned long phys_addr = sg_phys(table->sgl);
-		ret = msm_iommu_map_extra(domain, extra_iova_addr, phys_addr,
-					extra, SZ_4K, prot);
-		if (ret)
-			goto out2;
-	}
-	return ret;
-
-out2:
-	iommu_unmap_range(domain, data->iova_addr, buffer->size);
-out1:
-	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
-				data->mapped_size);
-out:
-	return ret;
-}
-
-
-void ion_cma_unmap_iommu(struct ion_iommu_map *data)
-{
-	unsigned int domain_num;
-	unsigned int partition_num;
-	struct iommu_domain *domain;
-
-	if (!msm_use_iommu())
-		return;
-
-	domain_num = iommu_map_domain(data);
-	partition_num = iommu_map_partition(data);
-
-	domain = msm_get_iommu_domain(domain_num);
-
-	if (!domain) {
-		WARN(1, "Could not get domain %d. Corruption?\n", domain_num);
-		return;
-	}
-
-	iommu_unmap_range(domain, data->iova_addr, data->mapped_size);
-	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
-				data->mapped_size);
-
-	return;
-}
-
 int ion_cma_cache_ops(struct ion_heap *heap,
 			struct ion_buffer *buffer, void *vaddr,
 			unsigned int offset, unsigned int length,
@@ -358,8 +264,6 @@ static struct ion_heap_ops ion_cma_ops = {
 	.map_user = ion_cma_mmap,
 	.map_kernel = ion_cma_map_kernel,
 	.unmap_kernel = ion_cma_unmap_kernel,
-	.map_iommu = ion_cma_map_iommu,
-	.unmap_iommu = ion_cma_unmap_iommu,
 	.cache_op = ion_cma_cache_ops,
 	.print_debug = ion_cma_print_debug,
 };

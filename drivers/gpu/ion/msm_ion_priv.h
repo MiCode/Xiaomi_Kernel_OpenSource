@@ -26,42 +26,6 @@
 #include <linux/iommu.h>
 #include <linux/seq_file.h>
 
-enum {
-	DI_PARTITION_NUM = 0,
-	DI_DOMAIN_NUM = 1,
-	DI_MAX,
-};
-
-/**
- * struct ion_iommu_map - represents a mapping of an ion buffer to an iommu
- * @iova_addr - iommu virtual address
- * @node - rb node to exist in the buffer's tree of iommu mappings
- * @domain_info - contains the partition number and domain number
- *		domain_info[1] = domain number
- *		domain_info[0] = partition number
- * @ref - for reference counting this mapping
- * @mapped_size - size of the iova space mapped
- *		(may not be the same as the buffer size)
- * @flags - iommu domain/partition specific flags.
- *
- * Represents a mapping of one ion buffer to a particular iommu domain
- * and address range. There may exist other mappings of this buffer in
- * different domains or address ranges. All mappings will have the same
- * cacheability and security.
- */
-struct ion_iommu_map {
-	unsigned long iova_addr;
-	struct rb_node node;
-	union {
-		int domain_info[DI_MAX];
-		uint64_t key;
-	};
-	struct ion_buffer *buffer;
-	struct kref ref;
-	int mapped_size;
-	unsigned long flags;
-};
-
 /**
  * struct mem_map_data - represents information about the memory map for a heap
  * @node:		rb node used to store in the tree of mem_map_data
@@ -78,9 +42,6 @@ struct mem_map_data {
 	unsigned long size;
 	const char *client_name;
 };
-
-#define iommu_map_domain(__m)		((__m)->domain_info[1])
-#define iommu_map_partition(__m)	((__m)->domain_info[0])
 
 struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *);
 void ion_iommu_heap_destroy(struct ion_heap *);
