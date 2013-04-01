@@ -255,10 +255,8 @@ struct tty_struct {
 	int count;
 	struct winsize winsize;		/* termios mutex */
 	unsigned char stopped:1, hw_stopped:1, flow_stopped:1, packet:1;
-	unsigned char update_room_in_ldisc:1;
 	unsigned char ctrl_status;	/* ctrl_lock */
 	unsigned int receive_room;	/* Bytes free for queue */
-	unsigned int rr_bug;
 	int flow_change;
 
 	struct tty_struct *link;
