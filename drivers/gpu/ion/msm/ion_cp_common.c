@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include "ion_cp_common.h"
 
 #define MEM_PROTECT_LOCK_ID	0x05
+#define MEM_PROTECT_LOCK_ID2 0x0A
 
 struct cp2_mem_chunks {
 	unsigned int *chunk_list;
@@ -27,10 +28,11 @@ struct cp2_mem_chunks {
 	unsigned int chunk_size;
 } __attribute__ ((__packed__));
 
-struct cp2_lock_req {
+struct cp2_lock2_req {
 	struct cp2_mem_chunks chunks;
 	unsigned int mem_usage;
 	unsigned int lock;
+	unsigned int flags;
 } __attribute__ ((__packed__));
 
 /*  SCM related code for locking down memory for content protection */
@@ -144,17 +146,18 @@ int ion_cp_change_chunks_state(unsigned long chunks, unsigned int nchunks,
 				enum cp_mem_usage usage,
 				int lock)
 {
-	struct cp2_lock_req request;
+	struct cp2_lock2_req request;
 	u32 resp;
 
 	request.mem_usage = usage;
 	request.lock = lock;
+	request.flags = 0;
 
 	request.chunks.chunk_list = (unsigned int *)chunks;
 	request.chunks.chunk_list_size = nchunks;
 	request.chunks.chunk_size = chunk_size;
 
-	return scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID,
+	return scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
 			&request, sizeof(request), &resp, sizeof(resp));
 
 }
