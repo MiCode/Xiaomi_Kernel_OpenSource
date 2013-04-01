@@ -98,8 +98,20 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		return -EOVERFLOW;
 	}
 
+	if (req->horz_deci || req->vert_deci) {
+		if (!mdata->has_decimation) {
+			pr_err("No Decimation in MDP V=%x\n", mdata->mdp_rev);
+			return -EINVAL;
+		} else if ((req->horz_deci > MAX_DECIMATION) ||
+				(req->vert_deci > MAX_DECIMATION))  {
+			pr_err("Invalid decimation factors horz=%d vert=%d\n",
+					req->horz_deci, req->vert_deci);
+			return -EINVAL;
+		}
+	}
+
 	if (!(req->flags & MDSS_MDP_ROT_ONLY)) {
-		u32 dst_w, dst_h;
+		u32 src_w, src_h, dst_w, dst_h;
 
 		if ((CHECK_BOUNDS(req->dst_rect.x, req->dst_rect.w, xres) ||
 		     CHECK_BOUNDS(req->dst_rect.y, req->dst_rect.h, yres))) {
@@ -117,6 +129,9 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			dst_h = req->dst_rect.h;
 		}
 
+		src_w = req->src_rect.w >> req->horz_deci;
+		src_h = req->src_rect.h >> req->vert_deci;
+
 		if ((req->src_rect.w * MAX_UPSCALE_RATIO) < dst_w) {
 			pr_err("too much upscaling Width %d->%d\n",
 			       req->src_rect.w, req->dst_rect.w);
@@ -129,15 +144,15 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			return -EINVAL;
 		}
 
-		if (req->src_rect.w > (dst_w * MAX_DOWNSCALE_RATIO)) {
-			pr_err("too much downscaling. Width %d->%d\n",
-			       req->src_rect.w, req->dst_rect.w);
+		if (src_w > (dst_w * MAX_DOWNSCALE_RATIO)) {
+			pr_err("too much downscaling. Width %d->%d H Dec=%d\n",
+			       src_w, req->dst_rect.w, req->horz_deci);
 			return -EINVAL;
 		}
 
-		if (req->src_rect.h > (dst_h * MAX_DOWNSCALE_RATIO)) {
-			pr_err("too much downscaling. Height %d->%d\n",
-			       req->src_rect.h, req->dst_rect.h);
+		if (src_h > (dst_h * MAX_DOWNSCALE_RATIO)) {
+			pr_err("too much downscaling. Height %d->%d V Dec=%d\n",
+			       src_h, req->dst_rect.h, req->vert_deci);
 			return -EINVAL;
 		}
 
@@ -384,7 +399,8 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->dst.y = req->dst_rect.y;
 	pipe->dst.w = req->dst_rect.w;
 	pipe->dst.h = req->dst_rect.h;
-
+	pipe->horz_deci = req->horz_deci;
+	pipe->vert_deci = req->vert_deci;
 	pipe->src_fmt = fmt;
 
 	pipe->mixer_stage = req->z_order;
@@ -1580,6 +1596,8 @@ static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
 	caps->dma_pipes = mdata->ndma_pipes;
 	if (mdata->has_bwc)
 		caps->features |= MDP_BWC_EN;
+	if (mdata->has_decimation)
+		caps->features |= MDP_DECIMATION_EN;
 	return 0;
 }
 
