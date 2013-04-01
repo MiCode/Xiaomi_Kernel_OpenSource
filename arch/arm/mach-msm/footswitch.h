@@ -28,7 +28,8 @@
 #define FS_VFE		8
 #define FS_VPE		9
 #define FS_VCAP		10
-#define MAX_FS		11
+#define FS_GFX3D_8064	11
+#define MAX_FS		12
 
 struct fs_clk_data {
 	const char *name;
