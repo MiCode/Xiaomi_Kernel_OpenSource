@@ -71,7 +71,6 @@ struct ion_buffer {
 	struct sg_table *sg_table;
 	unsigned long *dirty;
 	struct list_head vmas;
-	int marked;
 };
 
 /**
