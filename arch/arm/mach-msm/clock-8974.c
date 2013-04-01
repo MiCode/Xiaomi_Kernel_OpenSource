@@ -4823,6 +4823,11 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "qseecom"),
 	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,         "qseecom"),
 
+	CLK_LOOKUP("ce_drv_core_clk",     gcc_ce2_clk.c,         "qseecom"),
+	CLK_LOOKUP("ce_drv_iface_clk",    gcc_ce2_ahb_clk.c,     "qseecom"),
+	CLK_LOOKUP("ce_drv_bus_clk",      gcc_ce2_axi_clk.c,     "qseecom"),
+	CLK_LOOKUP("ce_drv_core_clk_src", ce2_clk_src.c,         "qseecom"),
+
 	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "scm"),
 	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "scm"),
 	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "scm"),
