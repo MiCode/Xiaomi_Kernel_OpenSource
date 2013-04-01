@@ -47,6 +47,8 @@ struct kgsl_clk_stats {
  * @pwrlevels - List of supported power levels
  * @active_pwrlevel - The currently active power level
  * @thermal_pwrlevel - maximum powerlevel constraint from thermal
+ * @default_pwrlevel - device wake up power level
+ * @init_pwrlevel - device inital power level
  * @max_pwrlevel - maximum allowable powerlevel per the user
  * @min_pwrlevel - minimum allowable powerlevel per the user
  * @num_pwrlevels - number of available power levels
@@ -74,6 +76,7 @@ struct kgsl_pwrctrl {
 	unsigned int active_pwrlevel;
 	int thermal_pwrlevel;
 	unsigned int default_pwrlevel;
+	unsigned int init_pwrlevel;
 	unsigned int max_pwrlevel;
 	unsigned int min_pwrlevel;
 	unsigned int num_pwrlevels;
