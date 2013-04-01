@@ -38,6 +38,7 @@
 #define MAX_PLANES		4
 #define MAX_DOWNSCALE_RATIO	4
 #define MAX_UPSCALE_RATIO	20
+#define MAX_DECIMATION		4
 
 #define C3_ALPHA	3	/* alpha */
 #define C2_R_Cr		2	/* R/Cr */
@@ -267,6 +268,8 @@ struct mdss_mdp_pipe {
 
 	u16 img_width;
 	u16 img_height;
+	u8 horz_deci;
+	u8 vert_deci;
 	struct mdss_mdp_img_rect src;
 	struct mdss_mdp_img_rect dst;
 

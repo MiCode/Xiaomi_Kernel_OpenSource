@@ -1500,6 +1500,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 
 	mdata->has_bwc = of_property_read_bool(pdev->dev.of_node,
 					       "qcom,mdss-has-bwc");
+	mdata->has_decimation = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-decimation");
 	return 0;
 }
 

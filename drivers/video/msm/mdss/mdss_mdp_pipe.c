@@ -128,11 +128,10 @@ static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 			return rc;
 		pr_debug("BWC SMP strides ystride0=%x ystride1=%x\n",
 			ps.ystride[0], ps.ystride[1]);
-	} else if ((mdata->mdp_rev >= MDSS_MDP_HW_REV_102) &&
-			pipe->src_fmt->is_yuv) {
+	} else if (mdata->has_decimation && pipe->src_fmt->is_yuv) {
 		ps.num_planes = 2;
-		ps.ystride[0] = pipe->src.w;
-		ps.ystride[1] = pipe->src.w;
+		ps.ystride[0] = pipe->src.w >> pipe->horz_deci;
+		ps.ystride[1] = pipe->src.h >> pipe->vert_deci;
 	} else {
 		rc = mdss_mdp_get_plane_sizes(pipe->src_fmt->format,
 			pipe->src.w, pipe->src.h, &ps, 0);
@@ -376,6 +375,7 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 {
 	u32 img_size, src_size, src_xy, dst_size, dst_xy, ystride0, ystride1;
 	u32 width, height;
+	u32 decimation;
 
 	pr_debug("pnum=%d wh=%dx%d src={%d,%d,%d,%d} dst={%d,%d,%d,%d}\n",
 		   pipe->num, pipe->img_width, pipe->img_height,
@@ -395,6 +395,12 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 		width *= 2;
 		height /= 2;
 	}
+
+	decimation = ((1 << pipe->horz_deci) - 1) << 8;
+	decimation |= ((1 << pipe->vert_deci) - 1);
+	if (decimation)
+		pr_debug("Image decimation h=%d v=%d\n",
+				pipe->horz_deci, pipe->vert_deci);
 
 	img_size = (height << 16) | width;
 	src_size = (pipe->src.h << 16) | pipe->src.w;
@@ -418,6 +424,8 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_OUT_XY, dst_xy);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_YSTRIDE0, ystride0);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_YSTRIDE1, ystride1);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DECIMATION_CONFIG,
+		decimation);
 
 	return 0;
 }

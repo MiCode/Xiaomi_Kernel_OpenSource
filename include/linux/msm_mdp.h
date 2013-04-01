@@ -171,6 +171,7 @@ enum {
 #define MDP_OV_PIPE_FORCE_DMA		0x00004000
 #define MDP_MEMORY_ID_TYPE_FB		0x00001000
 #define MDP_BWC_EN			0x00000400
+#define MDP_DECIMATION_EN		0x00000800
 #define MDP_TRANSP_NOP 0xffffffff
 #define MDP_ALPHA_NOP 0xff
 
@@ -395,7 +396,9 @@ struct mdp_overlay {
 	uint32_t transp_mask;
 	uint32_t flags;
 	uint32_t id;
-	uint32_t user_data[8];
+	uint32_t user_data[7];
+	uint8_t horz_deci;
+	uint8_t vert_deci;
 	struct mdp_overlay_pp_params overlay_pp_cfg;
 };
 
