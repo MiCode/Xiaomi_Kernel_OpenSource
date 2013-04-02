@@ -41,10 +41,11 @@ import subprocess
 
 allowed_warnings = set([
     "return_address.c:63",
-    "kprobes.c:1483",
+    "kprobes.c:1493",
     "rcutree.c:1614",
-    "af_unix.c:892",
+    "af_unix.c:893",
     "nl80211.c:58",
+    "jhash.h:137",
  ])
 
 # Capture the name of the object file, can find it.
