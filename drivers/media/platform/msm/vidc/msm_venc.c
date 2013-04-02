@@ -641,6 +641,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED,
 		.cluster = MSM_VENC_CTRL_CLUSTER_TIMING,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER,
+		.name = "H264 AU Delimiter",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1680,6 +1689,23 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &vui_timing_info;
 		break;
 	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_AU_DELIMITER:
+		property_id = HAL_PARAM_VENC_H264_GENERATE_AUDNAL;
+
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED:
+			enable.enable = 0;
+			break;
+		case V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED:
+			enable.enable = 1;
+			break;
+		default:
+			rc = -ENOTSUPP;
+			break;
+		}
+
+		pdata = &enable;
+		break;
 	default:
 		rc = -ENOTSUPP;
 		break;
@@ -1713,10 +1739,13 @@ static int msm_venc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	for (c = 0; c < ctrl->ncontrols; ++c) {
 		if (ctrl->cluster[c]->is_new) {
-			rc = try_set_ctrl(inst, ctrl->cluster[c]);
+			struct v4l2_ctrl *temp = ctrl->cluster[c];
+
+			rc = try_set_ctrl(inst, temp);
 			if (rc) {
-				dprintk(VIDC_ERR, "Failed setting %x",
-						ctrl->cluster[c]->id);
+				dprintk(VIDC_ERR, "Failed setting %s (%x)",
+						v4l2_ctrl_get_name(temp->id),
+						temp->id);
 				break;
 			}
 		}

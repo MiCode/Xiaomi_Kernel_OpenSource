@@ -1203,6 +1203,16 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_CONFIG_VPE_DEINTERLACE:
 		break;
+	case HAL_PARAM_VENC_H264_GENERATE_AUDNAL:
+	{
+		struct hfi_enable *hfi;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_H264_GENERATE_AUDNAL;
+		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+		hfi->enable = ((struct hal_enable *) pdata)->enable;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
