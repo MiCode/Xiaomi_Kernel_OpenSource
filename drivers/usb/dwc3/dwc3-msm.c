@@ -2218,6 +2218,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	struct dwc3_msm *msm;
 	struct resource *res;
 	void __iomem *tcsr;
+	unsigned long flags;
 	int ret = 0;
 	int len = 0;
 	u32 tmp[3];
@@ -2430,6 +2431,11 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 					dev_err(&pdev->dev, "irqreq IDINT failed\n");
 					goto disable_hs_ldo;
 				}
+				local_irq_save(flags);
+				/* Update initial ID state */
+				msm->id_state = msm->ext_xceiv.id =
+					!!irq_read_line(msm->pmic_id_irq);
+				local_irq_restore(flags);
 				enable_irq_wake(msm->pmic_id_irq);
 			}
 		}
