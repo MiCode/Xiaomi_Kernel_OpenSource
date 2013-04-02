@@ -24,7 +24,7 @@
 #include "mdss_mdp.h"
 #include "mdss_debug.h"
 
-#define DEFAULT_BASE_REG_CNT 128
+#define DEFAULT_BASE_REG_CNT 0x100
 #define GROUP_BYTES 4
 #define ROW_BYTES 16
 
@@ -67,7 +67,8 @@ static ssize_t mdss_debug_base_offset_write(struct file *file,
 		    const char __user *user_buf, size_t count, loff_t *ppos)
 {
 	struct mdss_debug_base *dbg = file->private_data;
-	u32 off, cnt;
+	u32 off = 0;
+	u32 cnt = DEFAULT_BASE_REG_CNT;
 	char buf[24];
 
 	if (!dbg)
@@ -81,13 +82,10 @@ static ssize_t mdss_debug_base_offset_write(struct file *file,
 
 	buf[count] = 0;	/* end of string */
 
-	sscanf(buf, "%5x %d", &off, &cnt);
+	sscanf(buf, "%5x %x", &off, &cnt);
 
 	if (off > dbg->max_offset)
 		return -EINVAL;
-
-	if (cnt <= 0)
-		cnt = DEFAULT_BASE_REG_CNT;
 
 	if (cnt > (dbg->max_offset - off))
 		cnt = dbg->max_offset - off;
@@ -113,7 +111,7 @@ static ssize_t mdss_debug_base_offset_read(struct file *file,
 	if (*ppos)
 		return 0;	/* the end */
 
-	len = snprintf(buf, sizeof(buf), "0x%08x %d\n", dbg->off, dbg->off);
+	len = snprintf(buf, sizeof(buf), "0x%08x %x\n", dbg->off, dbg->cnt);
 	if (len < 0)
 		return 0;
 
