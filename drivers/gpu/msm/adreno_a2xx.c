@@ -1515,18 +1515,26 @@ static void a2xx_drawctxt_save(struct adreno_device *adreno_dev,
 			"Current active context has caused gpu hang\n");
 
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
-
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->reg_save[1],
+			context->reg_save[2] << 2, true);
 		/* save registers and constants. */
 		adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_NONE,
 			context->reg_save, 3);
 
 		if (context->flags & CTXT_FLAGS_SHADER_SAVE) {
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->shader_save[1],
+				context->shader_save[2] << 2, true);
 			/* save shader partitioning and instructions. */
 			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_PMODE,
 				context->shader_save, 3);
 
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->shader_fixup[1],
+				context->shader_fixup[2] << 2, true);
 			/*
 			 * fixup shader partitioning parameter for
 			 *  SET_SHADER_BASES.
@@ -1541,12 +1549,19 @@ static void a2xx_drawctxt_save(struct adreno_device *adreno_dev,
 
 	if ((context->flags & CTXT_FLAGS_GMEM_SAVE) &&
 	    (context->flags & CTXT_FLAGS_GMEM_SHADOW)) {
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->context_gmem_shadow.gmem_save[1],
+			context->context_gmem_shadow.gmem_save[2] << 2, true);
 		/* save gmem.
 		 * (note: changes shader. shader must already be saved.)
 		 */
 		adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_PMODE,
 			context->context_gmem_shadow.gmem_save, 3);
+
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->chicken_restore[1],
+			context->chicken_restore[2] << 2, true);
 
 		/* Restore TP0_CHICKEN */
 		if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
@@ -1584,21 +1599,24 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 					cmds, 5);
 	kgsl_mmu_setstate(&device->mmu, context->pagetable, context->id);
 
-#ifndef CONFIG_MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
-	kgsl_cffdump_syncmem(NULL, &context->gpustate,
-		context->gpustate.gpuaddr, LCC_SHADOW_SIZE +
-		REG_SHADOW_SIZE + CMD_BUFFER_SIZE + TEX_SHADOW_SIZE, false);
-#endif
-
 	/* restore gmem.
 	 *  (note: changes shader. shader must not already be restored.)
 	 */
 	if (context->flags & CTXT_FLAGS_GMEM_RESTORE) {
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->context_gmem_shadow.gmem_restore[1],
+			context->context_gmem_shadow.gmem_restore[2] << 2,
+			true);
+
 		adreno_ringbuffer_issuecmds(device, context,
 			KGSL_CMD_FLAGS_PMODE,
 			context->context_gmem_shadow.gmem_restore, 3);
 
 		if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->chicken_restore[1],
+				context->chicken_restore[2] << 2, true);
+
 			/* Restore TP0_CHICKEN */
 			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_NONE,
@@ -1609,6 +1627,9 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 	}
 
 	if (!(context->flags & CTXT_FLAGS_PREAMBLE)) {
+		kgsl_cffdump_syncmem(NULL, &context->gpustate,
+			context->reg_restore[1],
+			context->reg_restore[2] << 2, true);
 
 		/* restore registers and constants. */
 		adreno_ringbuffer_issuecmds(device, context,
@@ -1616,6 +1637,10 @@ static void a2xx_drawctxt_restore(struct adreno_device *adreno_dev,
 
 		/* restore shader instructions & partitioning. */
 		if (context->flags & CTXT_FLAGS_SHADER_RESTORE) {
+			kgsl_cffdump_syncmem(NULL, &context->gpustate,
+				context->shader_restore[1],
+				context->shader_restore[2] << 2, true);
+
 			adreno_ringbuffer_issuecmds(device, context,
 				KGSL_CMD_FLAGS_NONE,
 				context->shader_restore, 3);
