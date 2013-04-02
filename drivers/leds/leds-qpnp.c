@@ -991,6 +991,7 @@ static DEVICE_ATTR(strobe, 0664, NULL, led_strobe_type_store);
 static struct attribute *led_attrs[] = {
 	&dev_attr_led_mode.attr,
 	&dev_attr_strobe.attr,
+	NULL
 };
 
 static const struct attribute_group led_attr_group = {
