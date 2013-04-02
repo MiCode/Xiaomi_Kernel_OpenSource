@@ -5833,7 +5833,8 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	taiko_init_slim_slave_cfg(codec);
 
 	wcd9xxx_mbhc_deinit(&taiko->mbhc);
-	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec);
+	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
+				WCD9XXX_MBHC_VERSION_TAIKO);
 	if (ret)
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 	else
@@ -5993,7 +5994,8 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	wcd9xxx_clsh_init(&taiko->clsh_d, &taiko->resmgr);
 
 	/* init and start mbhc */
-	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec);
+	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
+				WCD9XXX_MBHC_VERSION_TAIKO);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		return ret;
