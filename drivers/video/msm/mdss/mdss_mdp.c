@@ -184,14 +184,15 @@ u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
 static inline int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
 {
 	struct mdss_hw *hw;
+	int rc = -ENODEV;
 
 	spin_lock(&mdss_lock);
 	hw = mdss_irq_handlers[hw_ndx];
-	spin_unlock(&mdss_lock);
 	if (hw)
-		return hw->irq_handler(irq, hw->ptr);
+		rc = hw->irq_handler(irq, hw->ptr);
+	spin_unlock(&mdss_lock);
 
-	return -ENODEV;
+	return rc;
 }
 
 static irqreturn_t mdss_irq_handler(int irq, void *ptr)
@@ -204,8 +205,11 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 
 	mdata->irq_buzy = true;
 
-	if (intr & MDSS_INTR_MDP)
+	if (intr & MDSS_INTR_MDP) {
+		spin_lock(&mdp_lock);
 		mdss_irq_dispatch(MDSS_HW_MDP, irq, ptr);
+		spin_unlock(&mdp_lock);
+	}
 
 	if (intr & MDSS_INTR_DSI0)
 		mdss_irq_dispatch(MDSS_HW_DSI0, irq, ptr);
@@ -284,6 +288,7 @@ void mdss_disable_irq(struct mdss_hw *hw)
 }
 EXPORT_SYMBOL(mdss_disable_irq);
 
+/* called from interrupt context */
 void mdss_disable_irq_nosync(struct mdss_hw *hw)
 {
 	u32 ndx_bit;
@@ -296,7 +301,6 @@ void mdss_disable_irq_nosync(struct mdss_hw *hw)
 	pr_debug("Disable HW=%d irq ena=%d mask=%x\n", hw->hw_ndx,
 			mdss_res->irq_ena, mdss_res->irq_mask);
 
-	spin_lock(&mdss_lock);
 	if (!(mdss_res->irq_mask & ndx_bit)) {
 		pr_warn("MDSS HW ndx=%d is NOT set, mask=%x, hist mask=%x\n",
 			hw->hw_ndx, mdss_res->mdp_irq_mask,
@@ -309,7 +313,6 @@ void mdss_disable_irq_nosync(struct mdss_hw *hw)
 			disable_irq_nosync(mdss_res->irq);
 		}
 	}
-	spin_unlock(&mdss_lock);
 }
 EXPORT_SYMBOL(mdss_disable_irq_nosync);
 
@@ -388,6 +391,21 @@ static inline u32 mdss_mdp_irq_mask(u32 intr_type, u32 intf_num)
 	    intr_type == MDSS_MDP_IRQ_INTF_VSYNC)
 		intf_num = (intf_num - MDSS_MDP_INTF0) * 2;
 	return 1 << (intr_type + intf_num);
+}
+
+/* function assumes that mdp is clocked to access hw registers */
+void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
+		u32 intr_type, u32 intf_num)
+{
+	unsigned long irq_flags;
+	u32 irq;
+
+	irq = mdss_mdp_irq_mask(intr_type, intf_num);
+
+	pr_debug("clearing mdp irq mask=%x\n", irq);
+	spin_lock_irqsave(&mdp_lock, irq_flags);
+	writel_relaxed(irq, mdata->mdp_base + MDSS_MDP_REG_INTR_CLEAR);
+	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
 int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num)
@@ -482,13 +500,13 @@ void mdss_mdp_hist_irq_disable(u32 irq)
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
+/* called from interrupt context */
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 {
 	u32 irq;
 
 	irq = mdss_mdp_irq_mask(intr_type, intf_num);
 
-	spin_lock(&mdp_lock);
 	if (!(mdss_res->mdp_irq_mask & irq)) {
 		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
 				irq, mdss_res->mdp_irq_mask);
@@ -500,7 +518,6 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 			(mdss_res->mdp_hist_irq_mask == 0))
 			mdss_disable_irq_nosync(&mdss_mdp_hw);
 	}
-	spin_unlock(&mdp_lock);
 }
 
 static inline struct clk *mdss_mdp_get_clk(u32 clk_idx)
