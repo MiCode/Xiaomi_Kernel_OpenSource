@@ -259,7 +259,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
 
-	transfer.iovec = dma_alloc_coherent(NULL, size, &dma_addr, 0);
+	transfer.iovec = dma_alloc_coherent(NULL, size, &dma_addr, mem_flag);
 	transfer.iovec_phys = dma_addr;
 	transfer.iovec_count = num_desc;
 	spin_lock_irqsave(&sys->spinlock, irq_flags);
