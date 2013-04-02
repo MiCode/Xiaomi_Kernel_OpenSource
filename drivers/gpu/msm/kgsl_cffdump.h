@@ -22,10 +22,10 @@
 
 void kgsl_cffdump_init(void);
 void kgsl_cffdump_destroy(void);
-void kgsl_cffdump_open(enum kgsl_deviceid device_id);
+void kgsl_cffdump_open(struct kgsl_device *device);
 void kgsl_cffdump_close(enum kgsl_deviceid device_id);
 void kgsl_cffdump_syncmem(struct kgsl_device_private *dev_priv,
-	const struct kgsl_memdesc *memdesc, uint physaddr, uint sizebytes,
+	struct kgsl_memdesc *memdesc, uint physaddr, uint sizebytes,
 	bool clean_cache);
 void kgsl_cffdump_setmem(uint addr, uint value, uint sizebytes);
 void kgsl_cffdump_regwrite(enum kgsl_deviceid device_id, uint addr,
@@ -49,7 +49,7 @@ void kgsl_cffdump_hang(enum kgsl_deviceid device_id);
 
 #define kgsl_cffdump_init()					(void)0
 #define kgsl_cffdump_destroy()					(void)0
-#define kgsl_cffdump_open(device_id)				(void)0
+#define kgsl_cffdump_open(device)				(void)0
 #define kgsl_cffdump_close(device_id)				(void)0
 #define kgsl_cffdump_syncmem(dev_priv, memdesc, addr, sizebytes, clean_cache) \
 	(void) 0
