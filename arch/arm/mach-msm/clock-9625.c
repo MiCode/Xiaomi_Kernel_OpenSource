@@ -147,6 +147,7 @@ static void __iomem *virt_bases[N_BASES];
 #define USB_HSIC_SYSTEM_CBCR                     0x040C
 #define USB_HSIC_CBCR                            0x0410
 #define USB_HSIC_IO_CAL_CBCR                     0x0414
+#define USB_HSIC_IO_CAL_SLEEP_CBCR		 0x0418
 #define USB_HSIC_XCVR_FS_CBCR                    0x042C
 #define USB_HS_SYSTEM_CBCR                       0x0484
 #define USB_HS_AHB_CBCR                          0x0488
@@ -187,6 +188,7 @@ static void __iomem *virt_bases[N_BASES];
 #define PDM2_CBCR                                0x0CCC
 #define PRNG_AHB_CBCR                            0x0D04
 #define BAM_DMA_AHB_CBCR                         0x0D44
+#define BAM_DMA_INACTIVITY_TIMERS_CBCR		 0x0D48
 #define MSG_RAM_AHB_CBCR                         0x0E44
 #define CE1_CBCR                                 0x1044
 #define CE1_AXI_CBCR                             0x1048
@@ -1002,6 +1004,18 @@ static struct local_vote_clk gcc_bam_dma_ahb_clk = {
 	},
 };
 
+static struct local_vote_clk gcc_bam_dma_inactivity_timers_clk = {
+	.cbcr_reg = BAM_DMA_INACTIVITY_TIMERS_CBCR,
+	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(11),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_bam_dma_inactivity_timers_clk",
+		.ops = &clk_ops_vote,
+		CLK_INIT(gcc_bam_dma_inactivity_timers_clk.c),
+	},
+};
+
 static struct local_vote_clk gcc_blsp1_ahb_clk = {
 	.cbcr_reg = BLSP1_AHB_CBCR,
 	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
@@ -1517,6 +1531,17 @@ static struct branch_clk gcc_usb_hsic_io_cal_clk = {
 	},
 };
 
+static struct branch_clk gcc_usb_hsic_io_cal_sleep_clk = {
+	.cbcr_reg = USB_HSIC_IO_CAL_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb_hsic_io_cal_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb_hsic_io_cal_sleep_clk.c),
+	},
+};
+
 static struct branch_clk gcc_usb_hsic_system_clk = {
 	.cbcr_reg = USB_HSIC_SYSTEM_CBCR,
 	.bcr_reg = USB_HS_HSIC_BCR,
@@ -1554,6 +1579,7 @@ struct measure_mux_entry {
 
 struct measure_mux_entry measure_mux_common[] __initdata = {
 	{&gcc_pdm_ahb_clk.c,			GCC_BASE, 0x00d0},
+	{&gcc_usb_hsic_io_cal_sleep_clk.c,	GCC_BASE, 0x005c},
 	{&gcc_usb_hsic_xcvr_fs_clk.c,		GCC_BASE, 0x005d},
 	{&gcc_usb_hsic_system_clk.c,		GCC_BASE, 0x0059},
 	{&gcc_usb_hsic_io_cal_clk.c,		GCC_BASE, 0x005b},
@@ -1583,6 +1609,7 @@ struct measure_mux_entry measure_mux_common[] __initdata = {
 	{&gcc_sdcc2_apps_clk.c,			GCC_BASE, 0x0070},
 	{&gcc_blsp1_uart1_apps_clk.c,		GCC_BASE, 0x008c},
 	{&gcc_blsp1_qup4_i2c_apps_clk.c,	GCC_BASE, 0x0099},
+	{&gcc_bam_dma_inactivity_timers_clk.c,	GCC_BASE, 0x00E1},
 	{&gcc_boot_rom_ahb_clk.c,		GCC_BASE, 0x00f8},
 	{&gcc_ce1_ahb_clk.c,			GCC_BASE, 0x013a},
 	{&gcc_pdm2_clk.c,			GCC_BASE, 0x00d2},
@@ -1786,6 +1813,8 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("pll14", apcspll_clk_src.c, "f9010008.qcom,acpuclk"),
 
 	CLK_LOOKUP("dma_bam_pclk", gcc_bam_dma_ahb_clk.c, "msm_sps"),
+	CLK_LOOKUP("inactivity_clk", gcc_bam_dma_inactivity_timers_clk.c,
+								"msm_sps"),
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "msm_serial_hsl.0"),
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f9924000.spi"),
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f9925000.i2c"),
@@ -1842,6 +1871,8 @@ static struct clk_lookup msm_clocks_9625[] = {
 	CLK_LOOKUP("cal_clk", gcc_usb_hsic_io_cal_clk.c,  "msm_hsic_host"),
 	CLK_LOOKUP("core_clk", gcc_usb_hsic_system_clk.c, "msm_hsic_host"),
 	CLK_LOOKUP("alt_core_clk", gcc_usb_hsic_xcvr_fs_clk.c, ""),
+	CLK_LOOKUP("inactivity_clk", gcc_usb_hsic_io_cal_sleep_clk.c,
+							"msm_hsic_host"),
 
 	CLK_LOOKUP("core_clk", gcc_ce1_clk.c, "fd400000.qcom,qcedev"),
 	CLK_LOOKUP("iface_clk", gcc_ce1_ahb_clk.c, "fd400000.qcom,qcedev"),
