@@ -1153,6 +1153,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	char **codec_supplies;
 	u32 num_of_supplies = 0;
 	u32 mclk_rate = 0;
+	u32 dmic_sample_rate = 0;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -1212,6 +1213,38 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 		goto err;
 	}
 	pdata->mclk_rate = mclk_rate;
+
+	ret = of_property_read_u32(dev->of_node,
+				"qcom,cdc-dmic-sample-rate",
+				&dmic_sample_rate);
+	if (ret) {
+		dev_err(dev, "Looking up %s property in node %s failed",
+			"qcom,cdc-dmic-sample-rate",
+			dev->of_node->full_name);
+		dmic_sample_rate = TAIKO_DMIC_SAMPLE_RATE_UNDEFINED;
+	}
+	if (pdata->mclk_rate == TAIKO_MCLK_CLK_9P6HZ) {
+		if ((dmic_sample_rate != TAIKO_DMIC_SAMPLE_RATE_2P4MHZ) &&
+		    (dmic_sample_rate != TAIKO_DMIC_SAMPLE_RATE_3P2MHZ) &&
+		    (dmic_sample_rate != TAIKO_DMIC_SAMPLE_RATE_4P8MHZ) &&
+		    (dmic_sample_rate != TAIKO_DMIC_SAMPLE_RATE_UNDEFINED)) {
+			dev_err(dev, "Invalid dmic rate %d for mclk %d\n",
+				dmic_sample_rate, pdata->mclk_rate);
+			ret = -EINVAL;
+			goto err;
+		}
+	} else if (pdata->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ) {
+		if ((dmic_sample_rate != TAIKO_DMIC_SAMPLE_RATE_3P072MHZ) &&
+		    (dmic_sample_rate != TAIKO_DMIC_SAMPLE_RATE_4P096MHZ) &&
+		    (dmic_sample_rate != TAIKO_DMIC_SAMPLE_RATE_6P144MHZ) &&
+		    (dmic_sample_rate != TAIKO_DMIC_SAMPLE_RATE_UNDEFINED)) {
+			dev_err(dev, "Invalid dmic rate %d for mclk %d\n",
+				dmic_sample_rate, pdata->mclk_rate);
+			ret = -EINVAL;
+			goto err;
+		}
+	}
+	pdata->dmic_sample_rate = dmic_sample_rate;
 	return pdata;
 err:
 	devm_kfree(dev, pdata);

@@ -61,6 +61,12 @@ Required properties:
  - qcom,cdc-slim-ifd-dev - namme of the codec slim interface device.
  - qcom,cdc-slim-ifd-elemental-addr - codec slimbus slave interface device
 				     enumeration address.
+
+Optional properties:
+ - cdc-dmic-sample-rate: Specifies the sample rate of digital mic in HZ. The
+			 values for 9.6MHZ mclk can be 2400000 Hz, 3200000 Hz
+			 and 4800000 Hz.  The values for 12.288MHz mclk can be
+			 3072200 Hz, 4096000 Hz and 6144000 Hz.
 Example:
 
 taiko_codec {
@@ -112,6 +118,7 @@ taiko_codec {
 	qcom,cdc-mclk-clk-rate = <9600000>;
 	qcom,cdc-slim-ifd = "taiko-slim-ifd";
 	qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 00 17 02];
+	qcom,cdc-dmic-sample-rate = <4800000>;
 };
 
 Wcd9xxx audio CODEC in I2C mode
