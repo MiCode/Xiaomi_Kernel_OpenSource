@@ -39,6 +39,9 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 
+/* Max bytes that can be read per CCI read transaction */
+#define CCI_READ_MAX 12
+
 static struct v4l2_subdev *g_cci_subdev;
 
 static void msm_cci_set_clk_param(struct cci_device *cci_dev)
@@ -377,6 +380,61 @@ ERROR:
 	return rc;
 }
 
+static int32_t msm_cci_i2c_read_bytes(struct v4l2_subdev *sd,
+	struct msm_camera_cci_ctrl *c_ctrl)
+{
+	int32_t rc = 0;
+	struct cci_device *cci_dev = NULL;
+	enum cci_i2c_master_t master;
+	struct msm_camera_cci_i2c_read_cfg *read_cfg = NULL;
+	uint16_t read_bytes = 0;
+
+	if (!sd || !c_ctrl) {
+		pr_err("%s:%d sd %p c_ctrl %p\n", __func__,
+			__LINE__, sd, c_ctrl);
+		return -EINVAL;
+	}
+	if (!c_ctrl->cci_info) {
+		pr_err("%s:%d cci_info NULL\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+	cci_dev = v4l2_get_subdevdata(sd);
+	if (!cci_dev) {
+		pr_err("%s:%d cci_dev NULL\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	master = c_ctrl->cci_info->cci_i2c_master;
+	read_cfg = &c_ctrl->cfg.cci_i2c_read_cfg;
+	if (!read_cfg->num_byte) {
+		pr_err("%s:%d read num bytes 0\n", __func__, __LINE__);
+		rc = -EINVAL;
+		goto ERROR;
+	}
+
+	read_bytes = read_cfg->num_byte;
+	do {
+		if (read_bytes > CCI_READ_MAX)
+			read_cfg->num_byte = CCI_READ_MAX;
+		else
+			read_cfg->num_byte = read_bytes;
+		rc = msm_cci_i2c_read(sd, c_ctrl);
+		if (rc < 0) {
+			pr_err("%s:%d failed rc %d\n", __func__, __LINE__, rc);
+			goto ERROR;
+		}
+		if (read_bytes > CCI_READ_MAX) {
+			read_cfg->addr += CCI_READ_MAX;
+			read_cfg->data += CCI_READ_MAX;
+			read_bytes -= CCI_READ_MAX;
+		} else {
+			read_bytes = 0;
+		}
+	} while (read_bytes);
+ERROR:
+	return rc;
+}
+
 static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *c_ctrl)
 {
@@ -589,7 +647,7 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		rc = msm_cci_i2c_config_sync_timer(sd, cci_ctrl);
 		break;
 	case MSM_CCI_I2C_READ:
-		rc = msm_cci_i2c_read(sd, cci_ctrl);
+		rc = msm_cci_i2c_read_bytes(sd, cci_ctrl);
 		break;
 	case MSM_CCI_I2C_WRITE:
 		rc = msm_cci_i2c_write(sd, cci_ctrl);
