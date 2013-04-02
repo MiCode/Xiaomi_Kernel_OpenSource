@@ -6,6 +6,7 @@
 enum msm_ion_heap_types {
 	ION_HEAP_TYPE_MSM_START = ION_HEAP_TYPE_CUSTOM + 1,
 	ION_HEAP_TYPE_IOMMU = ION_HEAP_TYPE_MSM_START,
+	ION_HEAP_TYPE_DMA,
 	ION_HEAP_TYPE_CP,
 	ION_HEAP_TYPE_SECURE_DMA,
 };
@@ -56,6 +57,7 @@ enum cp_mem_usage {
 };
 
 #define ION_HEAP_CP_MASK		(1 << ION_HEAP_TYPE_CP)
+#define ION_HEAP_TYPE_DMA_MASK         (1 << ION_HEAP_TYPE_DMA)
 
 /**
  * Flag to use when allocating to indicate that a heap is secure.
