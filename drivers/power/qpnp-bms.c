@@ -184,7 +184,6 @@ struct qpnp_bms_chip {
 	unsigned int			vadc_v1250;
 
 	int				ibat_max_ua;
-	int				prev_iavg_ua;
 	int				prev_uuc_iavg_ma;
 	int				prev_pc_unusable;
 	int				ibat_at_cv_ua;
@@ -849,22 +848,18 @@ static int get_rbatt(struct qpnp_bms_chip *chip,
 	return rbatt_mohm;
 }
 
+#define IAVG_MINIMAL_TIME	2
 static void calculate_iavg(struct qpnp_bms_chip *chip, int cc_uah,
 				int *iavg_ua, int delta_time_s)
 {
 	int delta_cc_uah = 0;
 
-	/* if anything fails report the previous iavg_ua */
-	*iavg_ua = chip->prev_iavg_ua;
-
-	if (chip->last_cc_uah == INT_MIN) {
+	/*
+	 * use the battery current if called too quickly
+	 */
+	if (delta_time_s < IAVG_MINIMAL_TIME
+			|| chip->last_cc_uah == INT_MIN) {
 		get_battery_current(chip, iavg_ua);
-		goto out;
-	}
-
-	/* use the previous iavg if called within 15 seconds */
-	if (delta_time_s < 15) {
-		*iavg_ua = chip->prev_iavg_ua;
 		goto out;
 	}
 
@@ -874,8 +869,6 @@ static void calculate_iavg(struct qpnp_bms_chip *chip, int cc_uah,
 
 out:
 	pr_debug("delta_cc = %d iavg_ua = %d\n", delta_cc_uah, (int)*iavg_ua);
-	/* remember the iavg */
-	chip->prev_iavg_ua = *iavg_ua;
 
 	/* remember cc_uah */
 	chip->last_cc_uah = cc_uah;
