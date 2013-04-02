@@ -15,13 +15,14 @@
  *
  */
 
+#include <linux/export.h>
+#include <linux/module.h>
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/sys_soc.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
-#include <linux/sysdev.h>
 #include <linux/types.h>
 
 #include <asm/mach-types.h>
@@ -523,217 +524,6 @@ enum msm_cpu socinfo_get_msm_cpu(void)
 EXPORT_SYMBOL_GPL(socinfo_get_msm_cpu);
 
 static ssize_t
-socinfo_show_id(struct sys_device *dev,
-		struct sysdev_attribute *attr,
-		char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%u\n", socinfo_get_id());
-}
-
-static ssize_t
-socinfo_show_version(struct sys_device *dev,
-		     struct sysdev_attribute *attr,
-		     char *buf)
-{
-	uint32_t version;
-
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-
-	version = socinfo_get_version();
-	return snprintf(buf, PAGE_SIZE, "%u.%u\n",
-			SOCINFO_VERSION_MAJOR(version),
-			SOCINFO_VERSION_MINOR(version));
-}
-
-static ssize_t
-socinfo_show_build_id(struct sys_device *dev,
-		      struct sysdev_attribute *attr,
-		      char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%-.32s\n", socinfo_get_build_id());
-}
-
-static ssize_t
-socinfo_show_raw_id(struct sys_device *dev,
-		    struct sysdev_attribute *attr,
-		    char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-	if (socinfo->v1.format < 2) {
-		pr_err("%s: Raw ID not available!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%u\n", socinfo_get_raw_id());
-}
-
-static ssize_t
-socinfo_show_raw_version(struct sys_device *dev,
-			 struct sysdev_attribute *attr,
-			 char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-	if (socinfo->v1.format < 2) {
-		pr_err("%s: Raw version not available!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%u\n", socinfo_get_raw_version());
-}
-
-static ssize_t
-socinfo_show_platform_type(struct sys_device *dev,
-			 struct sysdev_attribute *attr,
-			 char *buf)
-{
-	uint32_t hw_type;
-
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-	if (socinfo->v1.format < 3) {
-		pr_err("%s: platform type not available!\n", __func__);
-		return 0;
-	}
-
-	hw_type = socinfo_get_platform_type();
-	if (hw_type >= HW_PLATFORM_INVALID) {
-		pr_err("%s: Invalid hardware platform type found\n",
-								   __func__);
-		hw_type = HW_PLATFORM_UNKNOWN;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%-.32s\n", hw_platform[hw_type]);
-}
-
-static ssize_t
-socinfo_show_platform_version(struct sys_device *dev,
-			 struct sysdev_attribute *attr,
-			 char *buf)
-{
-
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-	if (socinfo->v1.format < 4) {
-		pr_err("%s: platform version not available!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%u\n",
-		socinfo_get_platform_version());
-}
-
-static ssize_t
-socinfo_show_accessory_chip(struct sys_device *dev,
-			struct sysdev_attribute *attr,
-			char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-	if (socinfo->v1.format < 5) {
-		pr_err("%s: accessory chip not available!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%u\n",
-		socinfo_get_accessory_chip());
-}
-
-static ssize_t
-socinfo_show_platform_subtype(struct sys_device *dev,
-			struct sysdev_attribute *attr,
-			char *buf)
-{
-	uint32_t hw_subtype;
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-	if (socinfo->v1.format < 6) {
-		pr_err("%s: platform subtype not available!\n", __func__);
-		return 0;
-	}
-
-	hw_subtype = socinfo_get_platform_subtype();
-	if (HW_PLATFORM_QRD == socinfo_get_platform_type()) {
-		if (hw_subtype >= PLATFORM_SUBTYPE_QRD_INVALID) {
-			pr_err("%s: Invalid hardware platform sub type for qrd found\n",
-				__func__);
-			hw_subtype = PLATFORM_SUBTYPE_QRD;
-		}
-		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
-					qrd_hw_platform_subtype[hw_subtype]);
-	}
-	if (hw_subtype >= PLATFORM_SUBTYPE_INVALID) {
-		pr_err("%s: Invalid hardware platform sub type found\n",
-			   __func__);
-		hw_subtype = PLATFORM_SUBTYPE_UNKNOWN;
-	}
-	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
-		hw_platform_subtype[hw_subtype]);
-}
-
-static ssize_t
-socinfo_show_pmic_model(struct sys_device *dev,
-			struct sysdev_attribute *attr,
-			char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-	if (socinfo->v1.format < 7) {
-		pr_err("%s: pmic_model not available!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%u\n",
-		socinfo_get_pmic_model());
-}
-
-static ssize_t
-socinfo_show_pmic_die_revision(struct sys_device *dev,
-			       struct sysdev_attribute *attr,
-			       char *buf)
-{
-	if (!socinfo) {
-		pr_err("%s: No socinfo found!\n", __func__);
-		return 0;
-	}
-	if (socinfo->v1.format < 7) {
-		pr_err("%s: pmic_die_revision not available!\n", __func__);
-		return 0;
-	}
-
-	return snprintf(buf, PAGE_SIZE, "%u\n",
-		socinfo_get_pmic_die_revision());
-}
-
-static ssize_t
 msm_get_vendor(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
@@ -901,43 +691,6 @@ msm_get_image_crm_version(struct device *dev,
 			string_address);
 }
 
-static struct sysdev_attribute socinfo_v1_files[] = {
-	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
-	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
-	_SYSDEV_ATTR(build_id, 0444, socinfo_show_build_id, NULL),
-};
-
-static struct sysdev_attribute socinfo_v2_files[] = {
-	_SYSDEV_ATTR(raw_id, 0444, socinfo_show_raw_id, NULL),
-	_SYSDEV_ATTR(raw_version, 0444, socinfo_show_raw_version, NULL),
-};
-
-static struct sysdev_attribute socinfo_v3_files[] = {
-	_SYSDEV_ATTR(hw_platform, 0444, socinfo_show_platform_type, NULL),
-};
-
-static struct sysdev_attribute socinfo_v4_files[] = {
-	_SYSDEV_ATTR(platform_version, 0444,
-			socinfo_show_platform_version, NULL),
-};
-
-static struct sysdev_attribute socinfo_v5_files[] = {
-	_SYSDEV_ATTR(accessory_chip, 0444,
-			socinfo_show_accessory_chip, NULL),
-};
-
-static struct sysdev_attribute socinfo_v6_files[] = {
-	_SYSDEV_ATTR(platform_subtype, 0444,
-			socinfo_show_platform_subtype, NULL),
-};
-
-static struct sysdev_attribute socinfo_v7_files[] = {
-	_SYSDEV_ATTR(pmic_model, 0444,
-			socinfo_show_pmic_model, NULL),
-	_SYSDEV_ATTR(pmic_die_revision, 0444,
-			socinfo_show_pmic_die_revision, NULL),
-};
-
 static struct device_attribute msm_soc_attr_raw_version =
 	__ATTR(raw_version, S_IRUGO, msm_get_raw_version,  NULL);
 
@@ -985,31 +738,6 @@ static struct device_attribute image_variant =
 static struct device_attribute image_crm_version =
 	__ATTR(image_crm_version, S_IRUGO,
 			msm_get_image_crm_version, NULL);
-
-static struct sysdev_class soc_sysdev_class = {
-	.name = "soc",
-};
-
-static struct sys_device soc_sys_device = {
-	.id = 0,
-	.cls = &soc_sysdev_class,
-};
-
-static int __init socinfo_create_files(struct sys_device *dev,
-					struct sysdev_attribute files[],
-					int size)
-{
-	int i;
-	for (i = 0; i < size; i++) {
-		int err = sysdev_create_file(dev, &files[i]);
-		if (err) {
-			pr_err("%s: sysdev_create_file(%s)=%d\n",
-			       __func__, files[i].attr.name, err);
-			return err;
-		}
-	}
-	return 0;
-}
 
 static void * __init setup_dummy_socinfo(void)
 {
@@ -1094,9 +822,8 @@ static void  __init soc_info_populate(struct soc_device_attribute *soc_dev_attr)
 
 }
 
-static int __init socinfo_init_sysdev(void)
+static int __init socinfo_init_sysfs(void)
 {
-	int err;
 	struct device *msm_soc_device;
 	struct soc_device *soc_dev;
 	struct soc_device_attribute *soc_dev_attr;
@@ -1122,59 +849,10 @@ static int __init socinfo_init_sysdev(void)
 
 	msm_soc_device = soc_device_to_device(soc_dev);
 	populate_soc_sysfs_files(msm_soc_device);
-	err = sysdev_class_register(&soc_sysdev_class);
-	if (err) {
-		pr_err("%s: sysdev_class_register fail (%d)\n",
-		       __func__, err);
-		return err;
-	}
-	err = sysdev_register(&soc_sys_device);
-	if (err) {
-		pr_err("%s: sysdev_register fail (%d)\n",
-		       __func__, err);
-		return err;
-	}
-	socinfo_create_files(&soc_sys_device, socinfo_v1_files,
-				ARRAY_SIZE(socinfo_v1_files));
-	if (socinfo->v1.format < 2)
-		return err;
-	socinfo_create_files(&soc_sys_device, socinfo_v2_files,
-				ARRAY_SIZE(socinfo_v2_files));
-
-	if (socinfo->v1.format < 3)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v3_files,
-				ARRAY_SIZE(socinfo_v3_files));
-
-	if (socinfo->v1.format < 4)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v4_files,
-				ARRAY_SIZE(socinfo_v4_files));
-
-	if (socinfo->v1.format < 5)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v5_files,
-				ARRAY_SIZE(socinfo_v5_files));
-
-	if (socinfo->v1.format < 6)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v6_files,
-				ARRAY_SIZE(socinfo_v6_files));
-
-	if (socinfo->v1.format < 7)
-		return err;
-
-	socinfo_create_files(&soc_sys_device, socinfo_v7_files,
-				ARRAY_SIZE(socinfo_v7_files));
-
 	return 0;
 }
 
-arch_initcall(socinfo_init_sysdev);
+arch_initcall(socinfo_init_sysfs);
 
 static void socinfo_print(void)
 {
