@@ -3179,6 +3179,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (override_timeout_clk)
 		host->timeout_clk = override_timeout_clk;
 
+
+	if (!(host->quirks2 & SDHCI_QUIRK2_USE_MAX_DISCARD_SIZE))
+		mmc->max_busy_timeout = (1 << 27) / host->timeout_clk;
+
 	mmc->caps |= MMC_CAP_SDIO_IRQ | MMC_CAP_ERASE | MMC_CAP_CMD23;
 	mmc->caps2 |= MMC_CAP2_SDIO_IRQ_NOTHREAD;
 
