@@ -42,8 +42,12 @@ import subprocess
 allowed_warnings = set([
     "alignment.c:327",
     "mmu.c:602",
-    "return_address.c:62",
+    "return_address.c:63",
     "extents.c:2091",
+    "kprobes.c:1483",
+    "rcutree.c:1614",
+    "af_unix.c:892",
+    "nl80211.c:58",
  ])
 
 # Capture the name of the object file, can find it.
