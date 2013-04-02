@@ -19,7 +19,8 @@ Required properties:
 	"arm,coresight-stm" for coresight stm trace device,
 	"arm,coresight-etm" for coresight etm trace devices,
 	"qcom,coresight-csr" for coresight csr device,
-	"arm,coresight-cti" for coresight cti devices
+	"arm,coresight-cti" for coresight cti devices,
+	"qcom,coresight-hwevent" for coresight hardware event devices
 - reg : physical base address and length of the register set(s) of the component
 - reg-names : names corresponding to each reg property value. The reg-names that
 	need to be used with corresponding compatible string for a coresight device
@@ -61,6 +62,12 @@ Required properties:
 		compatible : should be "arm,coresight-cti"
 		reg-names  : should be:
 			"cti<num>-base" - physical base address of cti registers
+	- for coresight hardware event devices:
+		compatible : should be "qcom,coresight-hwevent"
+		reg-names  : should be:
+			"<ss-mux>" - physical base address of hardware event mux
+				control registers where <ss-mux> is subsystem mux it
+				represents
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
@@ -105,6 +112,7 @@ Optional properties:
 - qcom,setb-gpios-drv : active drive strength for set B gpios
 - qcom,setb-gpios-pull : active pull configuration for set B gpios
 - qcom,setb-gpios-dir : active direction for set B gpios
+- qcom,hwevent-clks : list of clocks required by hardware event driver
 
 Examples:
 
@@ -212,4 +220,18 @@ Examples:
 		coresight-id = <16>;
 		coresight-name = "coresight-cti1";
 		coresight-nr-inports = <0>;
+	};
+
+	hwevent: hwevent@fdf30018 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0xfdf30018 0x80>,
+		      <0xf9011080 0x80>,
+		      <0xfd4ab160 0x80>;
+		reg-names = "mmss-mux", "apcs-mux", "ppss-mux";
+
+		coresight-id = <29>;
+		coresight-name = "coresight-hwevent";
+		coresight-nr-inports = <0>;
+
+		qcom,hwevent-clks = "core_mmss_clk";
 	};

@@ -73,6 +73,7 @@ do {									\
 
 struct csr_drvdata {
 	void __iomem		*base;
+	phys_addr_t		pbase;
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	uint32_t		blksize;
@@ -134,6 +135,30 @@ void msm_qdss_csr_disable_flush(void)
 }
 EXPORT_SYMBOL(msm_qdss_csr_disable_flush);
 
+int coresight_csr_hwctrl_set(phys_addr_t addr, uint32_t val)
+{
+	struct csr_drvdata *drvdata = csrdrvdata;
+	int ret = 0;
+
+	CSR_UNLOCK(drvdata);
+
+	if (addr == (drvdata->pbase + CSR_STMEXTHWCTRL0))
+		csr_writel(drvdata, val, CSR_STMEXTHWCTRL0);
+	else if (addr == (drvdata->pbase + CSR_STMEXTHWCTRL1))
+		csr_writel(drvdata, val, CSR_STMEXTHWCTRL1);
+	else if (addr == (drvdata->pbase + CSR_STMEXTHWCTRL2))
+		csr_writel(drvdata, val, CSR_STMEXTHWCTRL2);
+	else if (addr == (drvdata->pbase + CSR_STMEXTHWCTRL3))
+		csr_writel(drvdata, val, CSR_STMEXTHWCTRL3);
+	else
+		ret = -EINVAL;
+
+	CSR_LOCK(drvdata);
+
+	return ret;
+}
+EXPORT_SYMBOL(coresight_csr_hwctrl_set);
+
 static int __devinit csr_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -161,6 +186,7 @@ static int __devinit csr_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "csr-base");
 	if (!res)
 		return -ENODEV;
+	drvdata->pbase = res->start;
 
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
