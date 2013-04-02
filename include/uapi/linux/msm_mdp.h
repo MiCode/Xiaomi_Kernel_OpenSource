@@ -621,6 +621,7 @@ struct mdss_ad_input {
 		uint32_t amb_light;
 		uint32_t strength;
 	} in;
+	uint32_t output;
 };
 
 enum {

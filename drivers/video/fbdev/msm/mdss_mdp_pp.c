@@ -147,6 +147,8 @@ static u32 dither_depth_map[9] = {
  * MDSS_AD_INPUT_* bitfields
  */
 #define MDSS_AD_MODE_DATA_MATCH(mode, data) ((1 << (mode)) & (data))
+#define MDSS_AD_RUNNING_AUTO_BL(ad) (((ad)->state & PP_AD_STATE_RUN) &&\
+				((ad)->cfg.mode == MDSS_AD_MODE_AUTO_BL))
 
 #define SHARP_STRENGTH_DEFAULT	32
 #define SHARP_EDGE_THR_DEFAULT	112
@@ -2629,10 +2631,13 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 		ad->sts |= PP_AD_STS_DIRTY_CFG;
 	}
 
-	if (init_cfg->ops & MDP_PP_OPS_DISABLE)
+	if (init_cfg->ops & MDP_PP_OPS_DISABLE) {
 		ad->sts &= ~PP_STS_ENABLE;
-	else if (init_cfg->ops & MDP_PP_OPS_ENABLE)
+		ad->mfd = NULL;
+	} else if (init_cfg->ops & MDP_PP_OPS_ENABLE) {
 		ad->sts |= PP_STS_ENABLE;
+		ad->mfd = mfd;
+	}
 	mutex_unlock(&ad->lock);
 	mdss_mdp_pp_setup(ctl);
 	return 0;
@@ -2691,8 +2696,18 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 	ad->sts |= PP_AD_STS_DIRTY_DATA;
 error:
 	mutex_unlock(&ad->lock);
-	if (!ret)
+	if (!ret) {
+		mutex_lock(&ad->lock);
+		init_completion(&ad->comp);
+		mutex_unlock(&ad->lock);
 		mdss_mdp_pp_setup(ctl);
+		ret = wait_for_completion_interruptible_timeout(&ad->comp,
+							HIST_WAIT_TIMEOUT(1));
+		if (ret == 0)
+			ret = -ETIMEDOUT;
+		else if (ret > 0)
+			input->output = ad->last_str;
+	}
 	return ret;
 }
 
@@ -2800,8 +2815,6 @@ static void pp_ad_cfg_write(struct mdss_ad_info *ad, char __iomem *base)
 }
 
 #define MDSS_PP_AD_BYPASS_DEF 0x101
-#define MDSS_PP_AD_MAX_CYC 3
-#define MDSS_PP_AD_SLEEP 1000
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 {
 	int ad_num, ret = 0;
@@ -2809,7 +2822,6 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	struct mdss_data_type *mdata;
 	char __iomem *base;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF;
-	u32 calc_done, cyc = MDSS_PP_AD_MAX_CYC;
 
 	ad_num = mdss_ad_init_checks(mfd);
 	if (ad_num < 0)
@@ -2832,11 +2844,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		ad->state |= PP_AD_STATE_DATA;
 		pp_ad_input_write(ad, base, mfd->bl_level);
 	}
-	if ((ad->sts & PP_STS_ENABLE) && (PP_AD_STATE_RUN & ad->state) &&
-						!PP_AD_STS_IS_DIRTY(ad->sts)) {
-		/* Kick off calculation */
-		writel_relaxed(1, base + MDSS_MDP_REG_AD_START_CALC);
-	}
+
 	if (ad->sts & PP_AD_STS_DIRTY_CFG) {
 		ad->sts &= ~PP_AD_STS_DIRTY_CFG;
 		ad->state |= PP_AD_STATE_CFG;
@@ -2866,30 +2874,56 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	}
 	writel_relaxed(bypass, base);
 
-	if (ad->state & PP_AD_STATE_RUN &&
-			ad->cfg.mode == MDSS_AD_MODE_AUTO_BL) {
-		do {
-			calc_done = readl_relaxed(base +
-				MDSS_MDP_REG_AD_CALC_DONE);
-			if (!calc_done)
-				usleep(MDSS_PP_AD_SLEEP);
-			cyc--;
-		} while (calc_done == 0 && cyc > 0);
-		if (calc_done) {
-			cyc = readl_relaxed(base + MDSS_MDP_REG_AD_BL_OUT);
-			pr_debug("calc bl = %d", cyc);
-			mdss_fb_set_backlight(mfd, cyc);
-		}
-	}
-
 	if (ad->sts != last_sts || ad->state != last_state) {
 		last_sts = ad->sts;
 		last_state = ad->state;
 		pr_debug("ad->sts = 0x%08x, state = 0x%08x", ad->sts,
 								ad->state);
 	}
+	if (PP_AD_STATE_RUN & ad->state)
+		queue_work(mdata->ad_calc_wq, &ad->calc_work);
+
 	mutex_unlock(&ad->lock);
 	return ret;
+}
+
+#define MDSS_PP_AD_SLEEP 10
+static void pp_ad_calc_worker(struct work_struct *work)
+{
+	struct mdss_ad_info *ad;
+	u32 bl, calc_done = 0;
+	ad = container_of(work, struct mdss_ad_info, calc_work);
+
+	mutex_lock(&ad->lock);
+	if (PP_AD_STATE_RUN & ad->state) {
+		/* Kick off calculation */
+		writel_relaxed(1, ad->base + MDSS_MDP_REG_AD_START_CALC);
+	}
+	if (ad->state & PP_AD_STATE_RUN) {
+		do {
+			calc_done = readl_relaxed(ad->base +
+				MDSS_MDP_REG_AD_CALC_DONE);
+			if (!calc_done)
+				usleep(MDSS_PP_AD_SLEEP);
+		} while (!calc_done && (ad->state & PP_AD_STATE_RUN));
+		if (calc_done) {
+			ad->last_str = 0xFF & readl_relaxed(ad->base +
+						MDSS_MDP_REG_AD_STR_OUT);
+			if (MDSS_AD_RUNNING_AUTO_BL(ad)) {
+				bl = 0xFFFF & readl_relaxed(ad->base +
+						MDSS_MDP_REG_AD_BL_OUT);
+				ad->last_str |= bl << 16;
+				pr_debug("calc bl = %d", bl);
+				mutex_lock(&ad->mfd->lock);
+				mdss_fb_set_backlight(ad->mfd, bl);
+				mutex_unlock(&ad->mfd->lock);
+			}
+		} else {
+			ad->last_str = 0xFFFFFFFF;
+		}
+	}
+	complete(&ad->comp);
+	mutex_unlock(&ad->lock);
 }
 
 #define PP_AD_LUT_LEN 33
@@ -2920,9 +2954,12 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off)
 		pr_err("unable to setup assertive display:devm_kzalloc fail\n");
 		return -ENOMEM;
 	}
+
+	mdata->ad_calc_wq = create_singlethread_workqueue("ad_calc_wq");
 	for (i = 0; i < mdata->nad_cfgs; i++) {
 		mdata->ad_cfgs[i].base = mdata->mdp_base + ad_off[i];
 		mutex_init(&mdata->ad_cfgs[i].lock);
+		INIT_WORK(&mdata->ad_cfgs[i].calc_work, pp_ad_calc_worker);
 	}
 	return rc;
 }
