@@ -381,17 +381,7 @@
 	qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
 	};
-	qcom,pronto@fb21b000 {
-		compatible = "qcom,pil-pronto";
-		reg = <0xfb21b000 0x3000>,
-		      <0xfc401700 0x4>,
-		      <0xfd485300 0xc>;
-		reg-names = "pmu_base", "clk_base", "halt_base";
-		interrupts = <0 149 1>;
-		vdd_pronto_pll-supply = <&pm8226_l12>;
 
-		qcom,firmware-name = "wcnss";
-	};
 	qcom,wcnss-wlan@fb000000 {
 		compatible = "qcom,wcnss_wlan";
 		reg = <0xfb000000 0x280000>;
