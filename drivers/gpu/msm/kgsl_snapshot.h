@@ -320,10 +320,10 @@ void *kgsl_snapshot_indexed_registers(struct kgsl_device *device,
 	unsigned int data, unsigned int start, unsigned int count);
 
 /* Freeze a GPU buffer so it can be dumped in the snapshot */
-int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
+int kgsl_snapshot_get_object(struct kgsl_device *device, phys_addr_t ptbase,
 	unsigned int gpuaddr, unsigned int size, unsigned int type);
 
-int kgsl_snapshot_have_object(struct kgsl_device *device, unsigned int ptbase,
+int kgsl_snapshot_have_object(struct kgsl_device *device, phys_addr_t ptbase,
 	unsigned int gpuaddr, unsigned int size);
 
 #endif

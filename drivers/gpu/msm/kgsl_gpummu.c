@@ -359,7 +359,7 @@ err_ptpool_remove:
 
 int kgsl_gpummu_pt_equal(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt,
-			unsigned int pt_base)
+			phys_addr_t pt_base)
 {
 	struct kgsl_gpummu_pt *gpummu_pt = pt ? pt->priv : NULL;
 	return gpummu_pt && pt_base && (gpummu_pt->base.gpuaddr == pt_base);
@@ -458,14 +458,19 @@ static void *kgsl_gpummu_create_pagetable(void)
 	if (gpummu_pt->base.hostptr == NULL)
 		goto err_flushfilter;
 
+	/* Do a check before truncating phys_addr_t to unsigned 32 */
+	if (sizeof(phys_addr_t) > sizeof(unsigned int)) {
+		WARN_ONCE(1, "Cannot use LPAE with gpummu\n");
+		goto err_flushfilter;
+	}
+	gpummu_pt->base.gpuaddr = gpummu_pt->base.physaddr;
+	gpummu_pt->base.size = KGSL_PAGETABLE_SIZE;
+
 	/* ptpool allocations are from coherent memory, so update the
 	   device statistics acordingly */
 
 	KGSL_STATS_ADD(KGSL_PAGETABLE_SIZE, kgsl_driver.stats.coherent,
 		       kgsl_driver.stats.coherent_max);
-
-	gpummu_pt->base.gpuaddr = gpummu_pt->base.physaddr;
-	gpummu_pt->base.size = KGSL_PAGETABLE_SIZE;
 
 	return (void *)gpummu_pt;
 
@@ -723,7 +728,7 @@ static int kgsl_gpummu_close(struct kgsl_mmu *mmu)
 	return 0;
 }
 
-static unsigned int
+static phys_addr_t
 kgsl_gpummu_get_current_ptbase(struct kgsl_mmu *mmu)
 {
 	unsigned int ptbase;
@@ -731,7 +736,7 @@ kgsl_gpummu_get_current_ptbase(struct kgsl_mmu *mmu)
 	return ptbase;
 }
 
-static unsigned int
+static phys_addr_t
 kgsl_gpummu_get_pt_base_addr(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt)
 {
@@ -757,7 +762,7 @@ struct kgsl_mmu_ops gpummu_ops = {
 	.mmu_get_pt_base_addr = kgsl_gpummu_get_pt_base_addr,
 	.mmu_enable_clk = NULL,
 	.mmu_disable_clk_on_ts = NULL,
-	.mmu_get_pt_lsb = NULL,
+	.mmu_get_default_ttbr0 = NULL,
 	.mmu_get_reg_gpuaddr = NULL,
 	.mmu_get_reg_ahbaddr = NULL,
 	.mmu_get_num_iommu_units = kgsl_gpummu_get_num_iommu_units,

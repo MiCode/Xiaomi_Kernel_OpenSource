@@ -156,7 +156,7 @@ static inline void kgsl_sg_free(void *ptr, unsigned int sglen)
 
 static inline int
 memdesc_sg_phys(struct kgsl_memdesc *memdesc,
-		unsigned int physaddr, unsigned int size)
+		phys_addr_t physaddr, unsigned int size)
 {
 	memdesc->sg = kgsl_sg_alloc(1);
 	if (memdesc->sg == NULL)

@@ -603,10 +603,10 @@ error:
 
 static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
 					unsigned int *cmds_orig,
-					unsigned int pt_val,
+					phys_addr_t pt_val,
 					int num_iommu_units, uint32_t flags)
 {
-	unsigned int reg_pt_val;
+	phys_addr_t reg_pt_val;
 	unsigned int *cmds = cmds_orig;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i;
@@ -632,8 +632,10 @@ static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
 		 * IOMMU units
 		 */
 		for (i = 0; i < num_iommu_units; i++) {
-			reg_pt_val = (pt_val + kgsl_mmu_get_pt_lsb(&device->mmu,
-						i, KGSL_IOMMU_CONTEXT_USER));
+			reg_pt_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
+						i, KGSL_IOMMU_CONTEXT_USER);
+			reg_pt_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+			reg_pt_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 			/*
 			 * Set address of the new pagetable by writng to IOMMU
 			 * TTBR0 register
@@ -662,8 +664,11 @@ static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
 		 * tlb flush
 		 */
 		for (i = 0; i < num_iommu_units; i++) {
-			reg_pt_val = (pt_val + kgsl_mmu_get_pt_lsb(&device->mmu,
+			reg_pt_val = (pt_val + kgsl_mmu_get_default_ttbr0(
+						&device->mmu,
 						i, KGSL_IOMMU_CONTEXT_USER));
+			reg_pt_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+			reg_pt_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 
 			*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
 			*cmds++ = kgsl_mmu_get_reg_gpuaddr(&device->mmu, i,
@@ -707,17 +712,20 @@ static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
 
 static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 					unsigned int *cmds_orig,
-					unsigned int pt_val,
+					phys_addr_t pt_val,
 					int num_iommu_units, uint32_t flags)
 {
+	phys_addr_t ttbr0_val;
 	unsigned int reg_pt_val;
 	unsigned int *cmds = cmds_orig;
 	int i;
 	unsigned int ttbr0, tlbiall, tlbstatus, tlbsync, mmu_ctrl;
 
 	for (i = 0; i < num_iommu_units; i++) {
-		reg_pt_val = (pt_val + kgsl_mmu_get_pt_lsb(&device->mmu,
-				i, KGSL_IOMMU_CONTEXT_USER));
+		ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
+				i, KGSL_IOMMU_CONTEXT_USER);
+		ttbr0_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+		ttbr0_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 		if (flags & KGSL_MMUFLAGS_PTUPDATE) {
 			mmu_ctrl = kgsl_mmu_get_reg_ahbaddr(
 				&device->mmu, i,
@@ -753,8 +761,19 @@ static unsigned int _adreno_iommu_setstate_v1(struct kgsl_device *device,
 				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
 			}
 			/* set ttbr0 */
-			*cmds++ = cp_type0_packet(ttbr0, 1);
-			*cmds++ = reg_pt_val;
+			if (sizeof(phys_addr_t) > sizeof(unsigned long)) {
+				reg_pt_val = ttbr0_val & 0xFFFFFFFF;
+				*cmds++ = cp_type0_packet(ttbr0, 1);
+				*cmds++ = reg_pt_val;
+				reg_pt_val = (unsigned int)
+				((ttbr0_val & 0xFFFFFFFF00000000ULL) >> 32);
+				*cmds++ = cp_type0_packet(ttbr0 + 1, 1);
+				*cmds++ = reg_pt_val;
+			} else {
+				reg_pt_val = ttbr0_val;
+				*cmds++ = cp_type0_packet(ttbr0, 1);
+				*cmds++ = reg_pt_val;
+			}
 			if (kgsl_mmu_hw_halt_supported(&device->mmu, i)) {
 				/* unlock the IOMMU lock */
 				*cmds++ = cp_type3_packet(CP_REG_RMW, 3);
@@ -796,7 +815,7 @@ static void adreno_iommu_setstate(struct kgsl_device *device,
 					unsigned int context_id,
 					uint32_t flags)
 {
-	unsigned int pt_val;
+	phys_addr_t pt_val;
 	unsigned int link[230];
 	unsigned int *cmds = &link[0];
 	int sizedwords = 0;
@@ -2946,7 +2965,7 @@ static int adreno_suspend_context(struct kgsl_device *device)
 /* Find a memory structure attached to an adreno context */
 
 struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
-	unsigned int pt_base, unsigned int gpuaddr, unsigned int size)
+	phys_addr_t pt_base, unsigned int gpuaddr, unsigned int size)
 {
 	struct kgsl_context *context;
 	struct adreno_context *adreno_context = NULL;
@@ -2978,7 +2997,7 @@ struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
 }
 
 struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
-						unsigned int pt_base,
+						phys_addr_t pt_base,
 						unsigned int gpuaddr,
 						unsigned int size)
 {
@@ -3007,7 +3026,7 @@ struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
 	return adreno_find_ctxtmem(device, pt_base, gpuaddr, size);
 }
 
-uint8_t *adreno_convertaddr(struct kgsl_device *device, unsigned int pt_base,
+uint8_t *adreno_convertaddr(struct kgsl_device *device, phys_addr_t pt_base,
 			    unsigned int gpuaddr, unsigned int size)
 {
 	struct kgsl_memdesc *memdesc;
