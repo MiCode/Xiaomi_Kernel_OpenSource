@@ -116,6 +116,12 @@ struct sdhci_host {
  * required frequency.
  */
 #define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<4)
+/*
+ * Dont use the max_discard_to in sdhci driver so that the maximum discard
+ * unit gets picked by the mmc queue. Otherwise, it takes a long time for
+ * secure discard kind of operations to complete.
+ */
+#define SDHCI_QUIRK2_USE_MAX_DISCARD_SIZE		(1<<5)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
