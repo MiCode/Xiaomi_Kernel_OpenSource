@@ -375,7 +375,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 	struct msm_vidc_inst *inst;
 	struct v4l2_control control = {0};
 	struct msm_vidc_cb_event *event_notify;
-	int event = 0;
+	int event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 	int rc = 0;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
@@ -398,11 +398,14 @@ static void handle_event_change(enum command_response cmd, void *data)
 		default:
 			break;
 		}
-
-		inst->reconfig_height = event_notify->height;
-		inst->reconfig_width = event_notify->width;
-		inst->in_reconfig = true;
-
+		if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
+			inst->reconfig_height = event_notify->height;
+			inst->reconfig_width = event_notify->width;
+			inst->in_reconfig = true;
+		} else {
+			inst->prop.height = event_notify->height;
+			inst->prop.width = event_notify->width;
+		}
 		rc = msm_vidc_check_session_supported(inst);
 		if (!rc) {
 			queue_v4l2_event(inst, event);
