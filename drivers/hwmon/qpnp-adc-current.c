@@ -347,6 +347,8 @@ static int32_t qpnp_iadc_configure(enum qpnp_iadc_channels channel,
 		return rc;
 	}
 
+	INIT_COMPLETION(iadc->adc->adc_rslt_completion);
+
 	rc = qpnp_iadc_enable(true);
 	if (rc)
 		return rc;
