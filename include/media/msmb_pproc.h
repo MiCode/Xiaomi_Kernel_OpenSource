@@ -106,6 +106,7 @@ struct msm_cpp_frame_info_t {
 	struct ion_handle *dest_ion_handle;
 	struct timeval in_time, out_time;
 	void *cookie;
+	int32_t *status;
 
 	struct msm_cpp_buffer_info_t input_buffer_info;
 	struct msm_cpp_buffer_info_t output_buffer_info;
@@ -145,7 +146,7 @@ struct cpp_hw_info {
 struct msm_camera_v4l2_ioctl_t {
 	uint32_t id;
 	uint32_t len;
-	uint32_t trans_code;
+	int32_t trans_code;
 	void __user *ioctl_ptr;
 };
 
