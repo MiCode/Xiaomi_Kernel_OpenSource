@@ -246,6 +246,10 @@ struct mdss_ad_info {
 	struct mdss_ad_init init;
 	struct mdss_ad_cfg cfg;
 	struct mutex lock;
+	struct work_struct calc_work;
+	struct msm_fb_data_type *mfd;
+	struct completion comp;
+	u32 last_str;
 };
 
 struct pp_sts_type {

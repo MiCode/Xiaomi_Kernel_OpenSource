@@ -112,6 +112,7 @@ struct mdss_data_type {
 
 	struct mdss_ad_info *ad_cfgs;
 	u32 nad_cfgs;
+	struct workqueue_struct *ad_calc_wq;
 
 	struct ion_client *iclient;
 	int iommu_attached;
