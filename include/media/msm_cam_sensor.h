@@ -47,6 +47,7 @@
 enum msm_camera_i2c_reg_addr_type {
 	MSM_CAMERA_I2C_BYTE_ADDR = 1,
 	MSM_CAMERA_I2C_WORD_ADDR,
+	MSM_CAMERA_I2C_3B_ADDR,
 };
 
 enum msm_camera_i2c_data_type {
