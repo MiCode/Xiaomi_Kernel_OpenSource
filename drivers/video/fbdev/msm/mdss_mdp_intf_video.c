@@ -182,6 +182,9 @@ static inline void video_vsync_irq_enable(struct mdss_mdp_ctl *ctl)
 
 	if (atomic_inc_return(&ctx->vsync_ref) == 1)
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num);
+	else
+		mdss_mdp_irq_clear(ctl->mdata, MDSS_MDP_IRQ_INTF_VSYNC,
+				ctl->intf_num);
 }
 
 static inline void video_vsync_irq_disable(struct mdss_mdp_ctl *ctl)
@@ -197,6 +200,7 @@ static int mdss_mdp_video_set_vsync_handler(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_mdp_video_ctx *ctx;
 	unsigned long flags;
+	int need_update;
 
 	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -205,13 +209,17 @@ static int mdss_mdp_video_set_vsync_handler(struct mdss_mdp_ctl *ctl,
 	}
 
 	spin_lock_irqsave(&ctx->vsync_lock, flags);
-	if (!ctx->vsync_handler && vsync_handler)
-		video_vsync_irq_enable(ctl);
-	else if (ctx->vsync_handler && !vsync_handler)
-		video_vsync_irq_disable(ctl);
-
+	need_update = (!ctx->vsync_handler && vsync_handler) ||
+			(ctx->vsync_handler && !vsync_handler);
 	ctx->vsync_handler = vsync_handler;
 	spin_unlock_irqrestore(&ctx->vsync_lock, flags);
+
+	if (need_update) {
+		if (vsync_handler)
+			video_vsync_irq_enable(ctl);
+		else
+			video_vsync_irq_disable(ctl);
+	}
 
 	return 0;
 }
@@ -335,8 +343,8 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 	if (!ctx->wait_pending) {
 		ctx->wait_pending++;
-		INIT_COMPLETION(ctx->vsync_comp);
 		video_vsync_irq_enable(ctl);
+		INIT_COMPLETION(ctx->vsync_comp);
 	} else {
 		WARN(1, "commit without wait! ctl=%d", ctl->num);
 	}
