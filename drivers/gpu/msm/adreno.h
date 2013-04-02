@@ -302,15 +302,15 @@ unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 							*adreno_dev);
 
 struct kgsl_memdesc *adreno_find_region(struct kgsl_device *device,
-						unsigned int pt_base,
+						phys_addr_t pt_base,
 						unsigned int gpuaddr,
 						unsigned int size);
 
 uint8_t *adreno_convertaddr(struct kgsl_device *device,
-	unsigned int pt_base, unsigned int gpuaddr, unsigned int size);
+	phys_addr_t pt_base, unsigned int gpuaddr, unsigned int size);
 
 struct kgsl_memdesc *adreno_find_ctxtmem(struct kgsl_device *device,
-	unsigned int pt_base, unsigned int gpuaddr, unsigned int size);
+	phys_addr_t pt_base, unsigned int gpuaddr, unsigned int size);
 
 void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
 		int hang);

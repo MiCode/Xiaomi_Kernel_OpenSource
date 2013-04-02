@@ -118,7 +118,7 @@ static void z180_dump_ib(struct kgsl_device *device)
 	int rb_slot_num = -1;
 	struct z180_device *z180_dev = Z180_DEVICE(device);
 	struct kgsl_mem_entry *entry = NULL;
-	unsigned int pt_base;
+	phys_addr_t pt_base;
 	unsigned int i;
 	unsigned int j;
 	char linebuf[CHARS_PER_LINE];
