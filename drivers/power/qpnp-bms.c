@@ -71,9 +71,9 @@
 #define BMS1_VBAT_AVG_DATA0		0x9E
 #define BMS1_VBAT_AVG_DATA1		0x9F
 /* Extra bms registers */
-#define BMS1_BMS_DATA_REG_0		0xB0
+#define SOC_STORAGE_REG			0xB0
 #define IAVG_STORAGE_REG		0xB1
-#define SOC_STORAGE_REG			0xB2
+#define BMS1_BMS_DATA_REG_2		0xB2
 #define BMS1_BMS_DATA_REG_3		0xB3
 /* IADC Channel Select */
 #define IADC1_BMS_ADC_CH_SEL_CTL	0x48
