@@ -1,0 +1,322 @@
+Introduction
+============
+The SATA Host Controller developed for Qualcomm SoC is used
+to facilitate SATA storage devices that connect to SoC through a
+standard SATA cable interface. The MSM Advanced Host Controller
+Interface (AHCI) driver interfaces with the generic Linux AHCI driver
+and communicates with the AHCI controller for data movement between
+system memory and SATA devices (persistent storage).
+
+Hardware description
+====================
+Serial Advanced Technology Attachment (SATA) is a communication
+protocol designed to transfer data between a computer and storage
+devices (Hard Disk Drive(HDD), Solid State Drives(SSD) etc.).
+First generation (Gen1) SATA interfaces communicate at a serial
+rate of 1.5Gb/s and use low-voltage differential signaling on
+serial links. With 8b-10b encoding, the effective data throughput
+for Gen1 interface is 150MB/s.
+
+The SATA host controller in Qualcomm chipsets adheres to the AHCI 1.3
+specification which describes the interface between system software
+and the host controller, as well as the functional behavior needed
+for software to communicate with the SATA host controller.
+
+The SATA PHY hardware macro in Qualcomm chipsets adheres to the
+SATA 3.0 specification with Gen1 serial interface. This is used to
+serialize and de-serialize data and communicates with SATA HDD. Also,
+the PHY can detect SATA HDD during hot swap and raise an interrupt to
+the CPU through AHCI controller to notify about the detection/removal.
+
+The following figure shows the SATA architecture block diagram as
+implemented in MSM chipsets.
+
+                        +---------+
+                        |SATA Disk|
+                        |  Drive  |
+                        +---------+
+                           ^   ^
+                        Tx |   | Rx
+                           v   v
++--------------+     +--------------+     +-----------+
+| System Memory|     |   SATA PHY   |     |    CPU    |
++--------------+     +--------------+     +-----------+
+      ^                 ^       ^           ^     ^
+      |                 |       |           |     |
+      |                 v       v           |     |
+      |            +------------------+(Interrupt)|
+      |            | SATA CONTROLLER  |-----+     |
+      |            +------------------+           |
+      |                 ^       ^                 |
+      |                 |       |                 |
+      v                 v       v                 v
+ <--------------------------------------------------------->
+<             System Fabric (Control and Data)              >
+ <--------------------------------------------------------->
+
+Some controller capabilities:
+- Supports 64-bit addressing
+- Supports native command queueing (upto 32 commands)
+- Supports First-party DMA to move data to and from system memory
+- ATA-7 command set compliant
+- Port multiplier support for some chipsets
+- Supports aggressive power management (partial, slumber modes)
+- Supports asynchronous notification
+
+Software description
+====================
+The SATA driver uses the generic interface to read/write data to
+the Hard Disk Drive (HDD). It uses following components in Linux
+to interface with the generic block layer which then interfaces
+with file system or user processes.
+
+1) AHCI platform Driver (includes MSM-specific glue driver)
+2) LIBAHCI
+3) LIBATA
+4) SCSI
+
+AHCI platform driver registers as a device driver for platform
+device registered during SoC board initialization. It is responsible
+for platform specific tasks like PHY configuration, clock initial-
+ization, claiming memory resources etc. Also, implements certain
+functionality that deviates from the standard specification.
+
+Library "LIBAHCI" implements software layer functionality described
+in the standard AHCI specification. It interfaces with the LIBATA
+framework to execute SATA the command set. It converts ATA task files
+into AHCI command descriptors and pass them to the controller for
+execution. It handles controller interrupts and sends command
+completion events to the upper layers. It implements a controller-
+specific reset and recover mechanism in case of errors. It implements
+link power management policies - partial, slumber modes, runtime power
+management and platform power management. It abstracts the low-level
+controller details from the LIBATA framework.
+
+"LIBATA" is a helper library for implementing ATA and SATA command
+protocol as described in standard ATA and SATA specifications. It
+builds read/write requests from SCSI commands and pass them to the
+low-level controller driver (LLD). It handshakes with the SATA
+device using standard commands to understand capabilities and carry
+out device configurations. It interfaces with the SCSI layer to manage
+underlying disks. It manages different devices connected to each host
+port using a port multiplier. Also, it manages the link PHY component,
+the interconnect interface and any external interface (cables, etc.)
+that follow the SATA electrical specification.
+
+The SCSI layer is a helper library for translating generic block layer
+commands to SCSI commands and pass them on to the LIBATA framework.
+Certain generic stuff like device scan, media change, and hot plug
+detection are handled. This layer handles all types of SCSI devices,
+and SATA storage devices are one class of SCSI devices. It also provides
+the IOCTL interface to manage disks from userspace.
+
+Following is the logical code flow:
+
+                        +------------------------+
+                        | File System (ext4 etc.)|
+                        +------------------------+
+                                   ^
+                                   |
+                                   v
+                        +------------------------+
+                        |  Generic Block Layer   |
+                        +------------------------+
+                                   ^
+                                   |
+                                   v
+                        +------------------------+
+                        |       SCSI Layer       |
+                        +------------------------+
+                                   ^
+                                   |
+                                   v
+                        +------------------------+
+                        |     LIBATA library     |
+                        +------------------------+
+                                   ^
+                                   |
+                                   v
+                        +------------------------+
+                        |     LIBAHCI library    |
+                        +------------------------+
+                                   ^
+                                   |
+                                   v
+                        +------------------------+
+                        | AHCI platform driver + |
+                        | MSM AHCI glue driver   |
+                        +------------------------+
+
+Design
+======
+The MSM AHCI driver acts as a glue driver for the Linux
+AHCI controller driver. It provides the following functionality:
+- Registers as a driver for msm_sata device which has an AHCI-compliant
+  controller and PHY as resources.
+- Registers an AHCI platform device in the probe function providing
+  ahci platform data
+- AHCI platform data consists of the following callbacks:
+	- init
+		o PHY resource acquisition
+		o Clock and voltage regulator initialization
+		o PHY calibration
+	- exit
+		o PHY power down
+		o Clock and voltage regulator turn off
+	- suspend
+	- resume
+		o Sequence described in the next section.
+- The Linux AHCI platform driver then probes the AHCI device and
+  initializes it according to the standard AHCI specification.
+- The SATA drive is detected as part of scsi_scan_host() called by
+  LIBAHCI after controller initialization.
+
+Power Management
+================
+Various power modes are supported by this driver.
+
+Platform suspend/resume:
+During suspend:
+- PHY analog blocks are powered down
+- Controller and PHY is kept in Power-on-Reset (POR) mode
+- Clocks and voltage regulators are gated
+
+During resume:
+- Clocks and voltage regulators are ungated
+- PHY is powered up and calibrated to functional mode
+- Controller is re-initialized to process commands.
+
+Runtime suspend/resume:
+- Execute the same steps as in platform suspend/resume.
+- Runtime suspend/resume is disabled by default due to regressions
+  in hot-plug detection (specification limitation). The users can
+  enable runtime power management with following shell commands.
+
+  # cd /sys/devices/platform/msm_sata.0/ahci.0/
+  # echo auto > ./power/control
+  # echo auto > ./ata1/power/control
+  # echo auto > ./ata1/host0/target0:0:0/0:0:0:0/power/control
+
+  Note: The device will be runtime-suspended only when user unmounts
+  all the partitions.
+
+Link power management (defined by AHCI 1.3 specification):
+- Automatic low power mode transition are supported.
+- AHCI supports two power modes: partial and slumber.
+- Software uses Inteface Communication Control (ICC) bits in AHCI
+  register space to enable automatic partial/slumber state.
+- Partial mode:
+	- Software asserts automatic partial mode when the use
+	  case demands low latency resume.
+	- Upon receiving partial mode signal, PHY disables byte clocks
+	  and re-enables them during resume and thus has low latency.
+- Slumber mode:
+	- Software asserts automatic slumber mode when the use
+	  case demands low power consumption and can withstand
+	  high resume latencies.
+	- Upon receiving slumber mode signal, PHY disables byte
+	  clocks and some internal circuitry. Upon resume PHY
+	  enables byte clocks and reacquires the PLL lock.
+- Once the software enables partial/slumber modes, the transitioning
+  into these modes are automatic and is handled by hardware without
+  software intervention while the controller is idle with no outstanding
+  commands to process.
+
+- The Linux AHCI link power management defines three modes:
+	- max_performance (default mode)
+	  Doesn't allow partial/slumber transition when host is idle.
+	- medium_power (Partial mode)
+	  Following shell commands are used to enable this mode:
+
+	  # cd /sys/devices/platform/msm_sata.0/ahci.0/
+	  # echo medium_power > ./ata1/host0/scsi_host/host0/link_power_management_policy
+
+	- min_power (Slumber mode)
+	  Following shell commands are used to enable this mode:
+
+	  # cd /sys/devices/platform/msm_sata.0/ahci.0/
+	  # echo min_power > ./ata1/host0/scsi_host/host0/link_power_management_policy
+
+SMP/multi-core
+==============
+The MSM AHCI driver hooks only init, exit, suspend, resume callbacks to
+the AHCI driver which are serialized by design and hence the driver, which
+is inherently SMP safe.
+
+Security
+========
+None.
+
+Performance
+===========
+The theoretical performance with Gen1 SATA PHY is 150MB/s (8b/10b encoding).
+The performance is dependent on various factors, mainly:
+- Capabilities of the external SATA hard disk connected to the MSM SATA port
+- Various system bus frequencies and system loads
+- System memory capabilities
+- Benchmark test applications that collect performance numbers
+
+One example of the maximum performance achieved in a specific system
+configuration follows:
+
+Benchmark: Iozone sequential performance
+Block size: 128K
+File size: 1GB
+Platform: APQ8064 V2 CDP
+CPU Governor: Performance
+
+SanDisk SSD (i100 64GB):
+Read - 135MB/s
+Write - 125MB/s
+
+Western Digital HDD (WD20EURS 2TB):
+Read - 121MB/s
+Write - 98MB/s
+
+Interface
+=========
+The MSM AHCI controller driver provides function pointers as the
+required interface to the Linux AHCI controller driver. The main
+routines implemented are init, exit, suspend, and resume for handling
+MSM-specific initialization, freeing of resources on exit, and
+MSM-specific power management tweaks during suspend power collapse.
+
+Driver parameters
+=================
+None.
+
+Config options
+==============
+Config option SATA_AHCI_MSM in drivers/ata/Kconfig enables this driver.
+
+Dependencies
+============
+The MSM AHCI controller driver is dependent on Linux AHCI driver,
+Linux ATA framework, Linux SCSI framework and Linux generic block layer.
+
+While configuring the kernel, the following options should be set:
+
+- CONFIG_BLOCK
+- CONFIG_SCSI
+- CONFIG_ATA
+- CONFIG_SATA_AHCI_PLATFORM
+
+User space utilities
+====================
+Any user space component that can mount a block device can be used to
+read/write data into persistent storage. However, at the time of this
+writing there are no utilities that author is aware of that can manage
+h/w from userspace.
+
+Other
+=====
+None.
+
+Known issues
+============
+None.
+
+To do
+=====
+- Device tree support.
+- MSM bus frequency voting support.
