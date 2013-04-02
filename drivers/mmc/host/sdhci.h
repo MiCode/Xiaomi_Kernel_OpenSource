@@ -436,6 +436,8 @@ struct sdhci_host {
 
 #define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<19)
 
+#define SDHCI_QUIRK2_USE_MAX_DISCARD_SIZE		(1<<20)
+
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
