@@ -103,36 +103,6 @@ static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
 	clk_disable_unprepare(drvdata->pclk);
 }
 
-static int _iommu_power_off(void *data)
-{
-	struct msm_iommu_drvdata *drvdata;
-
-	drvdata = (struct msm_iommu_drvdata *)data;
-	__disable_clocks(drvdata);
-	__disable_regulators(drvdata);
-	return 0;
-}
-
-static int _iommu_power_on(void *data)
-{
-	int ret;
-	struct msm_iommu_drvdata *drvdata;
-
-	drvdata = (struct msm_iommu_drvdata *)data;
-	ret = __enable_regulators(drvdata);
-	if (ret)
-		goto fail;
-
-	ret = __enable_clocks(drvdata);
-	if (ret) {
-		__disable_regulators(drvdata);
-		goto fail;
-	}
-	return 0;
-fail:
-	return -EIO;
-}
-
 static void _iommu_lock_acquire(void)
 {
 	mutex_lock(&msm_iommu_lock);
@@ -144,8 +114,10 @@ static void _iommu_lock_release(void)
 }
 
 struct iommu_access_ops iommu_access_ops_v1 = {
-	.iommu_power_on = _iommu_power_on,
-	.iommu_power_off = _iommu_power_off,
+	.iommu_power_on = __enable_regulators,
+	.iommu_power_off = __disable_regulators,
+	.iommu_clk_on = __enable_clocks,
+	.iommu_clk_off = __disable_clocks,
 	.iommu_lock_acquire = _iommu_lock_acquire,
 	.iommu_lock_release = _iommu_lock_release,
 };

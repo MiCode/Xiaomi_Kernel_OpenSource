@@ -123,6 +123,24 @@ struct msm_iommu_drvdata {
 	unsigned int ctx_attach_count;
 };
 
+/**
+ * struct iommu_access_ops - Callbacks for accessing IOMMU
+ * @iommu_power_on:     Turn on power to unit
+ * @iommu_power_off:    Turn off power to unit
+ * @iommu_clk_on:       Turn on clks to unit
+ * @iommu_clk_off:      Turn off clks to unit
+ * @iommu_lock_acquire: Acquire any locks needed
+ * @iommu_lock_release: Release locks needed
+ */
+struct iommu_access_ops {
+	int (*iommu_power_on)(struct msm_iommu_drvdata *);
+	void (*iommu_power_off)(struct msm_iommu_drvdata *);
+	int (*iommu_clk_on)(struct msm_iommu_drvdata *);
+	void (*iommu_clk_off)(struct msm_iommu_drvdata *);
+	void (*iommu_lock_acquire)(void);
+	void (*iommu_lock_release)(void);
+};
+
 void msm_iommu_add_drv(struct msm_iommu_drvdata *drv);
 void msm_iommu_remove_drv(struct msm_iommu_drvdata *drv);
 void program_iommu_bfb_settings(void __iomem *base,
@@ -241,6 +259,7 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
  * This should only be called on IOMMUs for which kernel programming
  * of global registers is not possible
  */
+void msm_iommu_sec_set_access_ops(struct iommu_access_ops *access_ops);
 int msm_iommu_sec_program_iommu(int sec_id);
 
 static inline int msm_soc_version_supports_iommu_v0(void)

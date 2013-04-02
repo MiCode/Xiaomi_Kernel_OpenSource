@@ -44,7 +44,7 @@
 #define IOMMU_SECURE_MAP	6
 #define IOMMU_SECURE_UNMAP      7
 
-static DEFINE_MUTEX(msm_iommu_lock);
+static struct iommu_access_ops *iommu_access_ops;
 
 struct msm_scm_paddr_list {
 	unsigned int list;
@@ -63,6 +63,11 @@ struct msm_scm_map_req {
 	struct msm_scm_paddr_list plist;
 	struct msm_scm_mapping_info info;
 };
+
+void msm_iommu_sec_set_access_ops(struct iommu_access_ops *access_ops)
+{
+	iommu_access_ops = access_ops;
+}
 
 static int msm_iommu_sec_ptbl_init(void)
 {
@@ -262,37 +267,6 @@ static int msm_iommu_sec_ptbl_unmap(struct msm_iommu_drvdata *iommu_drvdata,
 	return ret;
 }
 
-static int __enable_clocks(struct msm_iommu_drvdata *drvdata)
-{
-	int ret;
-
-	ret = clk_prepare_enable(drvdata->pclk);
-	if (ret)
-		goto fail;
-
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
-		clk_disable_unprepare(drvdata->pclk);
-
-	if (drvdata->aclk) {
-		ret = clk_prepare_enable(drvdata->aclk);
-		if (ret) {
-			clk_disable_unprepare(drvdata->clk);
-			clk_disable_unprepare(drvdata->pclk);
-		}
-	}
-fail:
-	return ret;
-}
-
-static void __disable_clocks(struct msm_iommu_drvdata *drvdata)
-{
-	if (drvdata->aclk)
-		clk_disable_unprepare(drvdata->aclk);
-	clk_disable_unprepare(drvdata->clk);
-	clk_disable_unprepare(drvdata->pclk);
-}
-
 static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 {
 	struct msm_iommu_priv *priv;
@@ -310,12 +284,12 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 {
 	struct msm_iommu_priv *priv;
 
-	mutex_lock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_acquire();
 	priv = domain->priv;
 	domain->priv = NULL;
 
 	kfree(priv);
-	mutex_unlock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_release();
 }
 
 static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
@@ -326,7 +300,7 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct msm_iommu_ctx_drvdata *tmp_drvdata;
 	int ret = 0;
 
-	mutex_lock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_acquire();
 
 	priv = domain->priv;
 	if (!priv || !dev) {
@@ -352,15 +326,15 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			goto fail;
 		}
 
-	ret = regulator_enable(iommu_drvdata->gdsc);
+	ret = iommu_access_ops->iommu_power_on(iommu_drvdata);
 	if (ret)
 		goto fail;
 
 	/* We can only do this once */
 	if (!iommu_drvdata->ctx_attach_count) {
-		ret = __enable_clocks(iommu_drvdata);
+		ret = iommu_access_ops->iommu_clk_on(iommu_drvdata);
 		if (ret) {
-			regulator_disable(iommu_drvdata->gdsc);
+			iommu_access_ops->iommu_power_off(iommu_drvdata);
 			goto fail;
 		}
 
@@ -370,9 +344,9 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		program_iommu_bfb_settings(iommu_drvdata->base,
 					   iommu_drvdata->bfb_settings);
 
-		__disable_clocks(iommu_drvdata);
+		iommu_access_ops->iommu_clk_off(iommu_drvdata);
 		if (ret) {
-			regulator_disable(iommu_drvdata->gdsc);
+			iommu_access_ops->iommu_power_off(iommu_drvdata);
 			goto fail;
 		}
 	}
@@ -381,12 +355,12 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	ctx_drvdata->attached_domain = domain;
 	++iommu_drvdata->ctx_attach_count;
 
-	mutex_unlock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_release();
 
 	msm_iommu_attached(dev->parent);
 	return ret;
 fail:
-	mutex_unlock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_release();
 	return ret;
 }
 
@@ -398,7 +372,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	msm_iommu_detached(dev->parent);
 
-	mutex_lock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_acquire();
 	if (!dev)
 		goto fail;
 
@@ -410,11 +384,11 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	list_del_init(&ctx_drvdata->attached_elm);
 	ctx_drvdata->attached_domain = NULL;
 
-	regulator_disable(iommu_drvdata->gdsc);
+	iommu_access_ops->iommu_power_off(iommu_drvdata);
 	BUG_ON(iommu_drvdata->ctx_attach_count == 0);
 	--iommu_drvdata->ctx_attach_count;
 fail:
-	mutex_unlock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_release();
 }
 
 static int get_drvdata(struct iommu_domain *domain,
@@ -444,16 +418,18 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = 0;
 
-	mutex_lock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_acquire();
 
 	ret = get_drvdata(domain, &iommu_drvdata, &ctx_drvdata);
 	if (ret)
 		goto fail;
 
+	iommu_access_ops->iommu_clk_on(iommu_drvdata);
 	ret = msm_iommu_sec_ptbl_map(iommu_drvdata, ctx_drvdata,
 					va, pa, len);
+	iommu_access_ops->iommu_clk_off(iommu_drvdata);
 fail:
-	mutex_unlock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_release();
 	return ret;
 }
 
@@ -464,16 +440,18 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret = -ENODEV;
 
-	mutex_lock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_acquire();
 
 	ret = get_drvdata(domain, &iommu_drvdata, &ctx_drvdata);
 	if (ret)
 		goto fail;
 
+	iommu_access_ops->iommu_clk_on(iommu_drvdata);
 	ret = msm_iommu_sec_ptbl_unmap(iommu_drvdata, ctx_drvdata,
 					va, len);
+	iommu_access_ops->iommu_clk_off(iommu_drvdata);
 fail:
-	mutex_unlock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_release();
 
 	/* the IOMMU API requires us to return how many bytes were unmapped */
 	len = ret ? 0 : len;
@@ -488,15 +466,17 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 
-	mutex_lock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_acquire();
 
 	ret = get_drvdata(domain, &iommu_drvdata, &ctx_drvdata);
 	if (ret)
 		goto fail;
+	iommu_access_ops->iommu_clk_on(iommu_drvdata);
 	ret = msm_iommu_sec_ptbl_map_range(iommu_drvdata, ctx_drvdata,
 						va, sg, len);
+	iommu_access_ops->iommu_clk_off(iommu_drvdata);
 fail:
-	mutex_unlock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_release();
 	return ret;
 }
 
@@ -508,16 +488,18 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 	int ret;
 
-	mutex_lock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_acquire();
 
 	ret = get_drvdata(domain, &iommu_drvdata, &ctx_drvdata);
 	if (ret)
 		goto fail;
 
+	iommu_access_ops->iommu_clk_on(iommu_drvdata);
 	ret = msm_iommu_sec_ptbl_unmap(iommu_drvdata, ctx_drvdata, va, len);
+	iommu_access_ops->iommu_clk_off(iommu_drvdata);
 
 fail:
-	mutex_unlock(&msm_iommu_lock);
+	iommu_access_ops->iommu_lock_release();
 	return 0;
 }
 
