@@ -1605,6 +1605,10 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 		break;
 	case mdp_op_ad_input:
 		ret = mdss_mdp_ad_input(mfd, &mdp_pp.data.ad_input);
+		if (ret > 0) {
+			ret = 0;
+			copyback = 1;
+		}
 		break;
 	default:
 		pr_err("Unsupported request to MDP_PP IOCTL.\n");
