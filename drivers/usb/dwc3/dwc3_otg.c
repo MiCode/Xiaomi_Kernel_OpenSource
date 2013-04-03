@@ -216,6 +216,8 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 						ext_xceiv->ext_block_reset)
 			ext_xceiv->ext_block_reset(true);
 
+		dwc3_otg_set_peripheral_regs(dotg);
+
 		/* re-init core and OTG registers as block reset clears these */
 		dwc3_post_host_reset_core_init(dwc);
 		if (ext_xceiv && !ext_xceiv->otg_capability)
