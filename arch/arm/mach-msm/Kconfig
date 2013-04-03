@@ -429,6 +429,7 @@ config ARCH_MSM8610
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_CPR_REGULATOR
 	select MSM_RPM_LOG
+	select MSM_RPM_STATS_LOG
 
 config ARCH_MSM8226
 	bool "MSM8226"
@@ -468,6 +469,7 @@ config ARCH_MSM8226
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_CPR_REGULATOR
 	select MSM_RPM_LOG
+	select MSM_RPM_STATS_LOG
 endmenu
 
 choice
