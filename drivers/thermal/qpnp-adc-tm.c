@@ -36,6 +36,8 @@
 
 /* QPNP VADC TM register definition */
 #define QPNP_REVISION3					0x2
+#define QPNP_PERPH_SUBTYPE				0x5
+#define QPNP_PERPH_TYPE2				0x2
 #define QPNP_REVISION_EIGHT_CHANNEL_SUPPORT		2
 #define QPNP_STATUS1					0x8
 #define QPNP_STATUS1_OP_MODE				4
@@ -366,7 +368,7 @@ static int32_t qpnp_adc_tm_req_sts_check(void)
 
 static int32_t qpnp_adc_tm_check_revision(uint32_t btm_chan_num)
 {
-	u8 rev;
+	u8 rev, perph_subtype;
 	int rc = 0;
 
 	rc = qpnp_adc_tm_read_reg(QPNP_REVISION3, &rev);
@@ -375,10 +377,18 @@ static int32_t qpnp_adc_tm_check_revision(uint32_t btm_chan_num)
 		return rc;
 	}
 
-	if ((rev < QPNP_REVISION_EIGHT_CHANNEL_SUPPORT) &&
-		(btm_chan_num > QPNP_ADC_TM_M4_ADC_CH_SEL_CTL)) {
-		pr_debug("Version does not support more than 5 channels\n");
-		return -EINVAL;
+	rc = qpnp_adc_tm_read_reg(QPNP_PERPH_SUBTYPE, &perph_subtype);
+	if (rc) {
+		pr_err("adc-tm perph_subtype read failed\n");
+		return rc;
+	}
+
+	if (perph_subtype == QPNP_PERPH_TYPE2) {
+		if ((rev < QPNP_REVISION_EIGHT_CHANNEL_SUPPORT) &&
+			(btm_chan_num > QPNP_ADC_TM_M4_ADC_CH_SEL_CTL)) {
+			pr_debug("Version does not support more than 5 channels\n");
+			return -EINVAL;
+		}
 	}
 
 	return rc;
