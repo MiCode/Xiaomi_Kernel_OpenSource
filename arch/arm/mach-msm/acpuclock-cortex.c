@@ -121,7 +121,7 @@ static void select_clk_source_div(struct acpuclk_drv_data *drv_data,
 	writel_relaxed(regval, apcs_rcg_cmd);
 
 	/* Wait for the update to take effect */
-	rc = readl_poll_timeout(apcs_rcg_cmd, regval,
+	rc = readl_poll_timeout_noirq(apcs_rcg_cmd, regval,
 		   !(regval & r->poll_mask),
 		   POLL_INTERVAL_US,
 		   APCS_RCG_UPDATE_TIMEOUT_US);
