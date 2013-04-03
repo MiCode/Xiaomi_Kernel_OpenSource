@@ -21,6 +21,7 @@
 #include <linux/device.h>
 #include <mach/iommu_hw-v0.h>
 #include <mach/iommu_perfmon.h>
+#include <mach/iommu.h>
 
 #define PM_RESET_MASK		(0xF)
 #define PM_RESET_SHIFT		(0x8)
@@ -280,7 +281,9 @@ static void iommu_pm_initialize_hw(const struct iommu_pmon *pmon)
 	 * for locking here.
 	 */
 	iommu->ops->iommu_power_on(iommu_drvdata);
+	iommu->ops->iommu_clk_on(iommu_drvdata);
 	iommu_pm_set_int_active_high(iommu);
+	iommu->ops->iommu_clk_off(iommu_drvdata);
 	iommu->ops->iommu_power_off(iommu_drvdata);
 }
 

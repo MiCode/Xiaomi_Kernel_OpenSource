@@ -265,6 +265,8 @@ static int __devinit msm_iommu_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, drvdata);
 
+	msm_iommu_sec_set_access_ops(&iommu_access_ops_v1);
+
 	pmon_info = msm_iommu_pm_alloc(&pdev->dev);
 	if (pmon_info != NULL) {
 		ret = msm_iommu_pmon_parse_dt(pdev, pmon_info);

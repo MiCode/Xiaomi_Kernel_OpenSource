@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <mach/iommu_hw-v1.h>
 #include <mach/iommu_perfmon.h>
+#include <mach/iommu.h>
 
 #define PMCR_P_MASK		(0x1)
 #define PMCR_P_SHIFT		(1)
