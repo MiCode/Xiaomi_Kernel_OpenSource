@@ -217,7 +217,7 @@ int afe_get_port_type(u16 port_id)
 
 	switch (port_id) {
 	case PRIMARY_I2S_RX:
-	case PCM_RX:
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
 	case SECONDARY_I2S_RX:
 	case MI2S_RX:
 	case HDMI_RX:
@@ -241,7 +241,7 @@ int afe_get_port_type(u16 port_id)
 		break;
 
 	case PRIMARY_I2S_TX:
-	case PCM_TX:
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
 	case SECONDARY_I2S_TX:
 	case MI2S_TX:
 	case DIGI_MIC_TX:
@@ -307,8 +307,8 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case RT_PROXY_PORT_001_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_rt_proxy_port_cfg);
 		break;
-	case PCM_RX:
-	case PCM_TX:
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
 	case AFE_PORT_ID_SECONDARY_PCM_RX:
 	case AFE_PORT_ID_SECONDARY_PCM_TX:
 	default:
@@ -1153,8 +1153,8 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	case PRIMARY_I2S_TX:
 		cfg_type = AFE_PARAM_ID_PCM_CONFIG;
 		break;
-	case PCM_RX:
-	case PCM_TX:
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
 	case AFE_PORT_ID_SECONDARY_PCM_RX:
 	case AFE_PORT_ID_SECONDARY_PCM_TX:
 		cfg_type = AFE_PARAM_ID_PCM_CONFIG;
@@ -1250,8 +1250,10 @@ int afe_get_port_index(u16 port_id)
 	switch (port_id) {
 	case PRIMARY_I2S_RX: return IDX_PRIMARY_I2S_RX;
 	case PRIMARY_I2S_TX: return IDX_PRIMARY_I2S_TX;
-	case PCM_RX: return IDX_PCM_RX;
-	case PCM_TX: return IDX_PCM_TX;
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+		return IDX_AFE_PORT_ID_PRIMARY_PCM_RX;
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
+		return IDX_AFE_PORT_ID_PRIMARY_PCM_TX;
 	case AFE_PORT_ID_SECONDARY_PCM_RX:
 		return IDX_AFE_PORT_ID_SECONDARY_PCM_RX;
 	case AFE_PORT_ID_SECONDARY_PCM_TX:
@@ -1349,8 +1351,8 @@ int afe_open(u16 port_id,
 	case PRIMARY_I2S_TX:
 		cfg_type = AFE_PARAM_ID_I2S_CONFIG;
 		break;
-	case PCM_RX:
-	case PCM_TX:
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
 	case AFE_PORT_ID_SECONDARY_PCM_RX:
 	case AFE_PORT_ID_SECONDARY_PCM_TX:
 		cfg_type = AFE_PARAM_ID_PCM_CONFIG;
@@ -2538,8 +2540,8 @@ int afe_validate_port(u16 port_id)
 	switch (port_id) {
 	case PRIMARY_I2S_RX:
 	case PRIMARY_I2S_TX:
-	case PCM_RX:
-	case PCM_TX:
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
 	case AFE_PORT_ID_SECONDARY_PCM_RX:
 	case AFE_PORT_ID_SECONDARY_PCM_TX:
 	case SECONDARY_I2S_RX:
