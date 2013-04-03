@@ -65,6 +65,7 @@ struct msm_isp_buffer {
 	uint8_t buf_used[ISP_SHARE_BUF_CLIENT];
 	uint8_t buf_get_count;
 	uint8_t buf_put_count;
+	uint8_t buf_reuse_flag;
 };
 
 struct msm_isp_bufq {
