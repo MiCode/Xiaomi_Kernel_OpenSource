@@ -16,7 +16,7 @@
 
 / {
 	model = "Qualcomm MSM ZINC Simulator";
-	compatible = "qcom,msmzinc-sim", "qcom,msmzinc";
+	compatible = "qcom,msmzinc-sim", "qcom,msmzinc", "qcom,sim";
 	qcom,msm-id = <178 0 0>;
 
 	aliases {
