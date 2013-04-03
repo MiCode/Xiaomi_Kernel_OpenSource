@@ -718,14 +718,14 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 	},
 };
 
-static struct gpiomux_setting pri_auxpcm_act_cfg = {
+static struct gpiomux_setting auxpcm_act_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
 
-static struct gpiomux_setting pri_auxpcm_sus_cfg = {
+static struct gpiomux_setting auxpcm_sus_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
@@ -735,29 +735,60 @@ static struct msm_gpiomux_config msm8974_pri_auxpcm_configs[] __initdata = {
 	{
 		.gpio = 65,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &pri_auxpcm_sus_cfg,
-			[GPIOMUX_ACTIVE] = &pri_auxpcm_act_cfg,
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
 	{
 		.gpio = 66,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &pri_auxpcm_sus_cfg,
-			[GPIOMUX_ACTIVE] = &pri_auxpcm_act_cfg,
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
 	{
 		.gpio = 67,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &pri_auxpcm_sus_cfg,
-			[GPIOMUX_ACTIVE] = &pri_auxpcm_act_cfg,
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
 	{
 		.gpio = 68,
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &pri_auxpcm_sus_cfg,
-			[GPIOMUX_ACTIVE] = &pri_auxpcm_act_cfg,
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+};
+
+static struct msm_gpiomux_config msm8974_sec_auxpcm_configs[] __initdata = {
+	{
+		.gpio = 79,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 80,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 81,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 82,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
 		},
 	},
 };
@@ -1030,6 +1061,8 @@ void __init msm_8974_init_gpiomux(void)
 
 	msm_gpiomux_install(msm8974_pri_auxpcm_configs,
 				 ARRAY_SIZE(msm8974_pri_auxpcm_configs));
+	msm_gpiomux_install(msm8974_sec_auxpcm_configs,
+				 ARRAY_SIZE(msm8974_sec_auxpcm_configs));
 
 	msm_gpiomux_install_nowrite(msm_lcd_configs,
 			ARRAY_SIZE(msm_lcd_configs));
