@@ -35,7 +35,6 @@
 #include <mach/memory.h>
 #include <mach/debug_mm.h>
 #include <mach/qdsp6v2/rtac.h>
-#include <mach/msm_subsystem_map.h>
 
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>
