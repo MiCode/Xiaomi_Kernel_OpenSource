@@ -1220,6 +1220,8 @@ int mpq_dmx_reuse_decoder_buffer(struct dvb_demux_feed *feed, int cookie)
 {
 	struct mpq_demux *mpq_demux = feed->demux->priv;
 
+	MPQ_DVB_DBG_PRINT("%s: cookie=%d\n", __func__, cookie);
+
 	if (cookie < 0) {
 		MPQ_DVB_ERR_PRINT("%s: invalid cookie parameter\n", __func__);
 		return -EINVAL;
@@ -2441,9 +2443,15 @@ static inline void mpq_dmx_prepare_es_event_data(
 
 	data->data_length = 0;
 	data->buf.handle = packet->raw_data_handle;
+
 	/* this has to succeed when called here, after packet was written */
 	data->buf.cookie = mpq_streambuffer_pkt_next(stream_buffer,
 				feed_data->last_pkt_index, &len);
+	if (data->buf.cookie < 0)
+		MPQ_DVB_DBG_PRINT(
+			"%s: received invalid packet index %d\n",
+			__func__, data->buf.cookie);
+
 	data->buf.offset = packet->raw_data_offset;
 	data->buf.len = packet->raw_data_len;
 	data->buf.pts_exists = pts_dts->pts_exist;
@@ -2458,6 +2466,8 @@ static inline void mpq_dmx_prepare_es_event_data(
 
 	/* save for next time: */
 	feed_data->last_pkt_index = data->buf.cookie;
+
+	MPQ_DVB_DBG_PRINT("%s: cookie=%d\n", __func__, data->buf.cookie);
 
 	/* reset counters */
 	feed_data->ts_packets_num = 0;
@@ -4235,7 +4245,12 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 				__func__, ret);
 		}
 		mpq_dmx_update_decoder_stat(mpq_demux);
-		mpq_streambuffer_pkt_write(sbuf, &packet, (u8 *)&meta_data);
+		if (mpq_streambuffer_pkt_write(sbuf,
+				&packet,
+				(u8 *)&meta_data) < 0)
+			MPQ_DVB_ERR_PRINT(
+				"%s: Couldn't write packet. Should never happen\n",
+				__func__);
 
 		mpq_dmx_prepare_es_event_data(
 			&packet, &meta_data, &mpq_feed->video_info,
