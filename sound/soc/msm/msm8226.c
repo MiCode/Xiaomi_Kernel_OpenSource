@@ -56,7 +56,7 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.mclk_rate = TAPAN_EXT_CLK_RATE,
 	.gpio = 0,
 	.gpio_irq = 0,
-	.gpio_level_insert = 1,
+	.gpio_level_insert = 0,
 	.detect_extn_cable = true,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
@@ -402,11 +402,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* start mbhc */
 	mbhc_cfg.calibration = def_tapan_mbhc_cal();
-	if (mbhc_cfg.calibration) {
-		pr_info("%s: WCD9306: Headset detection disabled\n",
-				__func__);
-	}
-
+	if (mbhc_cfg.calibration)
+		err = tapan_hs_detect(codec, &mbhc_cfg);
 	else
 		err = -ENOMEM;
 
@@ -439,8 +436,8 @@ void *def_tapan_mbhc_cal(void)
 	S(t_ldoh, 100);
 	S(t_bg_fast_settle, 100);
 	S(t_shutdown_plug_rem, 255);
-	S(mbhc_nsa, 4);
-	S(mbhc_navg, 4);
+	S(mbhc_nsa, 2);
+	S(mbhc_navg, 128);
 #undef S
 #define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_DET_PTR(tapan_cal)->X) = (Y))
 	S(mic_current, TAPAN_PID_MIC_5_UA);
@@ -451,13 +448,13 @@ void *def_tapan_mbhc_cal(void)
 #undef S
 #define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(tapan_cal)->X) = (Y))
 	S(v_no_mic, 30);
-	S(v_hs_max, 2400);
+	S(v_hs_max, 1650);
 #undef S
 #define S(X, Y) ((WCD9XXX_MBHC_CAL_BTN_DET_PTR(tapan_cal)->X) = (Y))
 	S(c[0], 62);
 	S(c[1], 124);
 	S(nc, 1);
-	S(n_meas, 3);
+	S(n_meas, 5);
 	S(mbhc_nsc, 11);
 	S(n_btn_meas, 1);
 	S(n_btn_con, 2);
@@ -487,13 +484,13 @@ void *def_tapan_mbhc_cal(void)
 	btn_high[7] = 330;
 	n_ready = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_READY);
 	n_ready[0] = 80;
-	n_ready[1] = 68;
+	n_ready[1] = 12;
 	n_cic = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_CIC);
 	n_cic[0] = 60;
 	n_cic[1] = 47;
 	gain = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_GAIN);
 	gain[0] = 11;
-	gain[1] = 9;
+	gain[1] = 14;
 
 	return tapan_cal;
 }
