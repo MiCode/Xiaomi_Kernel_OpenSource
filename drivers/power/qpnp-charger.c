@@ -105,6 +105,13 @@
 #define SMBBP_BOOST_SUBTYPE			0x36
 #define SMBBP_MISC_SUBTYPE			0x37
 
+/* SMBCL peripheral subtype values */
+#define SMBCL_CHGR_SUBTYPE			0x41
+#define SMBCL_BUCK_SUBTYPE			0x42
+#define SMBCL_BAT_IF_SUBTYPE			0x43
+#define SMBCL_USB_CHGPTH_SUBTYPE		0x44
+#define SMBCL_MISC_SUBTYPE			0x47
+
 #define QPNP_CHARGER_DEV_NAME	"qcom,qpnp-charger"
 
 /* Status bits and masks */
@@ -1473,6 +1480,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	switch (subtype) {
 	case SMBB_CHGR_SUBTYPE:
 	case SMBBP_CHGR_SUBTYPE:
+	case SMBCL_CHGR_SUBTYPE:
 		chip->chg_done_irq = spmi_get_irq_byname(chip->spmi,
 						spmi_resource, "chg-done");
 		if (chip->chg_done_irq < 0) {
@@ -1594,6 +1602,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		break;
 	case SMBB_BUCK_SUBTYPE:
 	case SMBBP_BUCK_SUBTYPE:
+	case SMBCL_BUCK_SUBTYPE:
 		rc = qpnp_chg_masked_write(chip,
 			chip->chgr_base + CHGR_BUCK_BCK_VBAT_REG_MODE,
 			BUCK_VBAT_REG_NODE_SEL_BIT,
@@ -1605,6 +1614,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		break;
 	case SMBB_BAT_IF_SUBTYPE:
 	case SMBBP_BAT_IF_SUBTYPE:
+	case SMBCL_BAT_IF_SUBTYPE:
 		chip->batt_pres_irq = spmi_get_irq_byname(chip->spmi,
 						spmi_resource, "batt-pres");
 		if (chip->batt_pres_irq < 0) {
@@ -1625,6 +1635,7 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		break;
 	case SMBB_USB_CHGPTH_SUBTYPE:
 	case SMBBP_USB_CHGPTH_SUBTYPE:
+	case SMBCL_USB_CHGPTH_SUBTYPE:
 		chip->usbin_valid_irq = spmi_get_irq_byname(chip->spmi,
 						spmi_resource, "usbin-valid");
 		if (chip->usbin_valid_irq < 0) {
@@ -1691,6 +1702,8 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		chip->type = SMBB;
 	case SMBBP_MISC_SUBTYPE:
 		chip->type = SMBBP;
+	case SMBCL_MISC_SUBTYPE:
+		chip->type = SMBCL;
 		pr_debug("Setting BOOT_DONE\n");
 		rc = qpnp_chg_masked_write(chip,
 			chip->misc_base + CHGR_MISC_BOOT_DONE,
@@ -1860,6 +1873,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		switch (subtype) {
 		case SMBB_CHGR_SUBTYPE:
 		case SMBBP_CHGR_SUBTYPE:
+		case SMBCL_CHGR_SUBTYPE:
 			chip->chgr_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1870,6 +1884,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			break;
 		case SMBB_BUCK_SUBTYPE:
 		case SMBBP_BUCK_SUBTYPE:
+		case SMBCL_BUCK_SUBTYPE:
 			chip->buck_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1880,6 +1895,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			break;
 		case SMBB_BAT_IF_SUBTYPE:
 		case SMBBP_BAT_IF_SUBTYPE:
+		case SMBCL_BAT_IF_SUBTYPE:
 			chip->bat_if_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1890,6 +1906,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			break;
 		case SMBB_USB_CHGPTH_SUBTYPE:
 		case SMBBP_USB_CHGPTH_SUBTYPE:
+		case SMBCL_USB_CHGPTH_SUBTYPE:
 			chip->usb_chgpth_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
@@ -1919,6 +1936,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			break;
 		case SMBB_MISC_SUBTYPE:
 		case SMBBP_MISC_SUBTYPE:
+		case SMBCL_MISC_SUBTYPE:
 			chip->misc_base = resource->start;
 			rc = qpnp_chg_hwinit(chip, subtype, spmi_resource);
 			if (rc) {
