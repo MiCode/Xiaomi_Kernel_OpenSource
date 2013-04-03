@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -711,6 +711,40 @@ struct genlock_handle *genlock_get_handle_fd(int fd)
 	return file->private_data;
 }
 EXPORT_SYMBOL(genlock_get_handle_fd);
+
+/*
+ * Get a file descriptor reference to a lock suitable for sharing with
+ * other processes
+ */
+
+int genlock_get_fd_handle(struct genlock_handle *handle)
+{
+	int ret;
+	struct genlock *lock;
+
+	if (IS_ERR_OR_NULL(handle))
+		return -EINVAL;
+
+	lock = handle->lock;
+
+	if (IS_ERR(lock))
+		return PTR_ERR(lock);
+
+	if (!lock->file) {
+		GENLOCK_LOG_ERR("No file attached to the lock\n");
+		return -EINVAL;
+	}
+
+	ret = get_unused_fd_flags(0);
+
+	if (ret < 0)
+		return ret;
+
+	fd_install(ret, lock->file);
+
+	return ret;
+}
+EXPORT_SYMBOL(genlock_get_fd_handle);
 
 #ifdef CONFIG_GENLOCK_MISCDEVICE
 
