@@ -24,7 +24,7 @@
 #define MAX_NUM_OUTPUT_BUFFERS 6
 
 enum msm_vdec_ctrl_cluster {
-	MSM_VDEC_CTRL_CLUSTER_MAX = 1,
+	MSM_VDEC_CTRL_CLUSTER_MAX = 1 << 0,
 };
 
 static const char *const mpeg_video_vidc_divx_format[] = {
@@ -1364,7 +1364,7 @@ static struct v4l2_ctrl **get_cluster(int type, int *size)
 		return NULL;
 
 	for (c = 0; c < NUM_CTRLS; c++) {
-		if (msm_vdec_ctrls[c].cluster == type) {
+		if (msm_vdec_ctrls[c].cluster & type) {
 			cluster[sz] = msm_vdec_ctrls[c].priv;
 			++sz;
 		}

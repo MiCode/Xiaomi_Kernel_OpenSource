@@ -107,16 +107,17 @@ static const char *const mpeg_video_vidc_extradata[] = {
 };
 
 enum msm_venc_ctrl_cluster {
-	MSM_VENC_CTRL_CLUSTER_QP = 1,
-	MSM_VENC_CTRL_CLUSTER_INTRA_PERIOD,
-	MSM_VENC_CTRL_CLUSTER_H264_PROFILE_LEVEL,
-	MSM_VENC_CTRL_CLUSTER_MPEG_PROFILE_LEVEL,
-	MSM_VENC_CTRL_CLUSTER_H263_PROFILE_LEVEL,
-	MSM_VENC_CTRL_CLUSTER_H264_ENTROPY,
-	MSM_VENC_CTRL_CLUSTER_SLICING,
-	MSM_VENC_CTRL_CLUSTER_INTRA_REFRESH,
-	MSM_VENC_CTRL_CLUSTER_BITRATE,
-	MSM_VENC_CTRL_CLUSTER_MAX,
+	MSM_VENC_CTRL_CLUSTER_QP = 1 << 0,
+	MSM_VENC_CTRL_CLUSTER_INTRA_PERIOD = 1 << 1,
+	MSM_VENC_CTRL_CLUSTER_H264_PROFILE_LEVEL = 1 << 2,
+	MSM_VENC_CTRL_CLUSTER_MPEG_PROFILE_LEVEL = 1 << 3,
+	MSM_VENC_CTRL_CLUSTER_H263_PROFILE_LEVEL = 1 << 4,
+	MSM_VENC_CTRL_CLUSTER_H264_ENTROPY = 1 << 5,
+	MSM_VENC_CTRL_CLUSTER_SLICING = 1 << 6,
+	MSM_VENC_CTRL_CLUSTER_INTRA_REFRESH = 1 << 7,
+	MSM_VENC_CTRL_CLUSTER_BITRATE = 1 << 8,
+	MSM_VENC_CTRL_CLUSTER_TIMING = 1 << 9,
+	MSM_VENC_CTRL_CLUSTER_MAX = 1 << 10,
 };
 
 static struct msm_vidc_ctrl msm_venc_ctrls[] = {
@@ -2187,7 +2188,7 @@ static struct v4l2_ctrl **get_cluster(int type, int *size)
 		return NULL;
 
 	for (c = 0; c < NUM_CTRLS; c++) {
-		if (msm_venc_ctrls[c].cluster == type) {
+		if (msm_venc_ctrls[c].cluster & type) {
 			cluster[sz] = msm_venc_ctrls[c].priv;
 			++sz;
 		}
