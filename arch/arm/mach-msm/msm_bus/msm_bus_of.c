@@ -42,20 +42,9 @@ static int get_num(const char *const str[], const char *name)
 	return -EINVAL;
 }
 
-/**
- * msm_bus_cl_get_pdata() - Generate bus client data from device tree
- * provided by clients.
- *
- * of_node: Device tree node to extract information from
- *
- * The function returns a valid pointer to the allocated bus-scale-pdata
- * if the vectors were correctly read from the client's device node.
- * Any error in reading or parsing the device node will return NULL
- * to the caller.
- */
-struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
+static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
+	struct device_node *of_node)
 {
-	struct device_node *of_node;
 	struct msm_bus_scale_pdata *pdata = NULL;
 	struct msm_bus_paths *usecase = NULL;
 	int i = 0, j, ret, num_usecases = 0, num_paths, len;
@@ -67,7 +56,6 @@ struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
 		return NULL;
 	}
 
-	of_node = pdev->dev.of_node;
 	pdata = devm_kzalloc(&pdev->dev, sizeof(struct msm_bus_scale_pdata),
 		GFP_KERNEL);
 	if (!pdata) {
@@ -154,7 +142,79 @@ err:
 
 	return NULL;
 }
+
+/**
+ * msm_bus_cl_get_pdata() - Generate bus client data from device tree
+ * provided by clients.
+ *
+ * of_node: Device tree node to extract information from
+ *
+ * The function returns a valid pointer to the allocated bus-scale-pdata
+ * if the vectors were correctly read from the client's device node.
+ * Any error in reading or parsing the device node will return NULL
+ * to the caller.
+ */
+struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev)
+{
+	struct device_node *of_node;
+	struct msm_bus_scale_pdata *pdata = NULL;
+
+	if (!pdev) {
+		pr_err("Error: Null Platform device\n");
+		return NULL;
+	}
+
+	of_node = pdev->dev.of_node;
+	pdata = get_pdata(pdev, of_node);
+	if (!pdata) {
+		pr_err("Error getting bus pdata!\n");
+		return NULL;
+	}
+
+	return pdata;
+}
 EXPORT_SYMBOL(msm_bus_cl_get_pdata);
+
+/**
+ * msm_bus_cl_pdata_from_node() - Generate bus client data from device tree
+ * node provided by clients. This function should be used when a client
+ * driver needs to register multiple bus-clients from a single device-tree
+ * node associated with the platform-device.
+ *
+ * of_node: The subnode containing information about the bus scaling
+ * data
+ *
+ * pdev: Platform device associated with the device-tree node
+ *
+ * The function returns a valid pointer to the allocated bus-scale-pdata
+ * if the vectors were correctly read from the client's device node.
+ * Any error in reading or parsing the device node will return NULL
+ * to the caller.
+ */
+struct msm_bus_scale_pdata *msm_bus_pdata_from_node(
+		struct platform_device *pdev, struct device_node *of_node)
+{
+	struct msm_bus_scale_pdata *pdata = NULL;
+
+	if (!pdev) {
+		pr_err("Error: Null Platform device\n");
+		return NULL;
+	}
+
+	if (!of_node) {
+		pr_err("Error: Null of_node passed to bus driver\n");
+		return NULL;
+	}
+
+	pdata = get_pdata(pdev, of_node);
+	if (!pdata) {
+		pr_err("Error getting bus pdata!\n");
+		return NULL;
+	}
+
+	return pdata;
+}
+EXPORT_SYMBOL(msm_bus_pdata_from_node);
 
 /**
  * msm_bus_cl_clear_pdata() - Clear pdata allocated from device-tree
