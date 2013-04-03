@@ -2877,6 +2877,7 @@ static int q6asm_memory_unmap_regions(struct audio_client *ac, int dir,
 		if (buf_node->buf_addr_lsw == buf_add) {
 			list_del(&buf_node->list);
 			kfree(buf_node);
+			break;
 		}
 	}
 	rc = 0;
