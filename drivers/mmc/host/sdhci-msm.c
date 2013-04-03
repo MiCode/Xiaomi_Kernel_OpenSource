@@ -944,9 +944,12 @@ out:
 static unsigned int sdhci_get_bw_required(struct sdhci_host *host,
 					struct mmc_ios *ios)
 {
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
 	unsigned int bw;
 
-	bw = host->clock;
+	bw = msm_host->clk_rate;
 	/*
 	 * For DDR mode, SDCC controller clock will be at
 	 * the double rate than the actual clock that goes to card.
