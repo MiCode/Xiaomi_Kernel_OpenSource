@@ -437,7 +437,8 @@ static int map_device_to_port_id(int device)
 	if (device == DEVICE_OUT_ALL) {
 		port_id = PRIMARY_I2S_RX | SLIMBUS_0_RX | HDMI_RX |
 				INT_BT_SCO_RX | INT_FM_RX |
-				RT_PROXY_PORT_001_RX | PCM_RX |
+				RT_PROXY_PORT_001_RX |
+				AFE_PORT_ID_PRIMARY_PCM_RX |
 				MI2S_RX | SECONDARY_I2S_RX |
 				SLIMBUS_1_RX | SLIMBUS_4_RX | SLIMBUS_3_RX |
 				AFE_PORT_ID_SECONDARY_MI2S_RX;
