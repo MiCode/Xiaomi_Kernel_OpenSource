@@ -127,9 +127,9 @@ int mdp_close(struct v4l2_subdev *sd, void *arg)
 		if (inst->secure)
 			msm_fb_writeback_set_secure(inst->mdp, false);
 		msm_fb_writeback_terminate(fbi);
-		kfree(inst);
 		/* Unregister wfd node from switch driver */
 		switch_dev_unregister(&inst->sdev);
+		kfree(inst);
 	}
 	return 0;
 }
