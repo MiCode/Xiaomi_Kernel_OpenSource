@@ -610,6 +610,9 @@ static void mdss_mdp_clk_ctrl_update(struct mdss_data_type *mdata)
 	}
 	mdata->clk_ena = enable;
 
+	if (enable)
+		pm_runtime_get_sync(&mdata->pdev->dev);
+
 	pr_debug("MDP CLKS %s\n", (enable ? "Enable" : "Disable"));
 	mb();
 
@@ -620,6 +623,9 @@ static void mdss_mdp_clk_ctrl_update(struct mdss_data_type *mdata)
 	mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, enable);
 	if (mdata->vsync_ena)
 		mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
+
+	if (!enable)
+		pm_runtime_put(&mdata->pdev->dev);
 
 	mutex_unlock(&mdp_clk_lock);
 }
