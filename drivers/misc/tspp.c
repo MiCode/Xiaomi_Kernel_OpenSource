@@ -2839,8 +2839,6 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 	if (data->tsif_pclk) {
 		device->tsif_pclk = clk_get(&pdev->dev, data->tsif_pclk);
 		if (IS_ERR(device->tsif_pclk)) {
-			pr_err("tspp: failed to get %s",
-				data->tsif_pclk);
 			rc = PTR_ERR(device->tsif_pclk);
 			device->tsif_pclk = NULL;
 			goto err_pclock;
@@ -2849,8 +2847,6 @@ static int __devinit msm_tspp_probe(struct platform_device *pdev)
 	if (data->tsif_ref_clk) {
 		device->tsif_ref_clk = clk_get(&pdev->dev, data->tsif_ref_clk);
 		if (IS_ERR(device->tsif_ref_clk)) {
-			pr_err("tspp: failed to get %s",
-				data->tsif_ref_clk);
 			rc = PTR_ERR(device->tsif_ref_clk);
 			device->tsif_ref_clk = NULL;
 			goto err_refclock;
