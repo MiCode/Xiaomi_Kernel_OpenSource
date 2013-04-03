@@ -131,7 +131,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
-		.cluster = 0,
+		.cluster = MSM_VENC_CTRL_CLUSTER_TIMING,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD,
@@ -209,7 +209,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR)
 		),
 		.qmenu = mpeg_video_rate_control,
-		.cluster = MSM_VENC_CTRL_CLUSTER_BITRATE,
+		.cluster = MSM_VENC_CTRL_CLUSTER_BITRATE |
+			MSM_VENC_CTRL_CLUSTER_TIMING,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
@@ -629,6 +630,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 		.step = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO,
+		.name = "H264 VUI Timing Info",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED,
+		.cluster = MSM_VENC_CTRL_CLUSTER_TIMING,
 	},
 };
 
@@ -1117,8 +1128,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_multi_slice_control multi_slice_control;
 	struct hal_h264_db_control h264_db_control;
 	struct hal_enable enable;
+	struct hal_h264_vui_timing_info vui_timing_info;
 	u32 property_id = 0, property_val = 0;
-	void *pdata;
+	void *pdata = NULL;
 	struct v4l2_ctrl *temp_ctrl = NULL;
 	struct hfi_device *hdev;
 
@@ -1625,14 +1637,57 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &extra;
 		break;
 	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO:
+	{
+		struct v4l2_ctrl *rc_mode, *frame_rate;
+		bool cfr = false;
+
+		property_id = HAL_PARAM_VENC_H264_VUI_TIMING_INFO;
+		rc_mode = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL);
+		frame_rate = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE);
+
+		switch (rc_mode->val) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR:
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR:
+			cfr = true;
+			break;
+		default:
+			cfr = false;
+			break;
+		}
+
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED:
+			vui_timing_info.enable = 0;
+			break;
+		case V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED:
+			/* Only support this in CFR mode because we
+			 * don't really know how to fill out vui_timing_info.
+			 * time_scale in vfr mode.  The assumed framerate
+			 * might be incorrect. */
+			if (!cfr) {
+				dprintk(VIDC_ERR, "Can't set %x in VFR mode\n",
+						ctrl->id);
+				rc = -ENOTSUPP;
+				break;
+			}
+
+			vui_timing_info.enable = 1;
+			vui_timing_info.fixed_frame_rate = cfr;
+			vui_timing_info.time_scale = frame_rate->val;
+		}
+
+		pdata = &vui_timing_info;
+		break;
+	}
 	default:
 		rc = -ENOTSUPP;
 		break;
 	}
 #undef TRY_GET_CTRL
 
-	if (property_id) {
-		dprintk(VIDC_DBG, "Control: HAL property=%d,ctrl_value=%d\n",
+	if (!rc && property_id) {
+		dprintk(VIDC_DBG, "Control: HAL property=%x,ctrl_value=%d\n",
 				property_id,
 				ctrl->val);
 		rc = call_hfi_op(hdev, session_set_property,
