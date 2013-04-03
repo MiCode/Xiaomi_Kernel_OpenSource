@@ -108,7 +108,7 @@ void __init msm8226_add_drivers(void)
 	msm_spm_device_init();
 	rpm_regulator_smd_driver_init();
 	qpnp_regulator_init();
-	if (machine_is_msm8226_rumi())
+	if (of_board_is_rumi())
 		msm_clock_init(&msm8226_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8226_clock_init_data);

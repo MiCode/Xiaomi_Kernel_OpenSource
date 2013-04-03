@@ -2532,14 +2532,8 @@ static int voice_send_netid_timing_cmd(struct voice_data *v)
 	mvm_set_voice_timing.hdr.opcode = VSS_ICOMMON_CMD_SET_VOICE_TIMING;
 	mvm_set_voice_timing.timing.mode = 0;
 	mvm_set_voice_timing.timing.enc_offset = 8000;
-	if ((machine_is_apq8064_sim()) || (machine_is_msm8974_sim())) {
-		pr_debug("%s: Machine is MSM8974 sim\n", __func__);
-		mvm_set_voice_timing.timing.dec_req_offset = 0;
-		mvm_set_voice_timing.timing.dec_offset = 18000;
-	} else {
-		mvm_set_voice_timing.timing.dec_req_offset = 3300;
-		mvm_set_voice_timing.timing.dec_offset = 8300;
-	}
+	mvm_set_voice_timing.timing.dec_req_offset = 3300;
+	mvm_set_voice_timing.timing.dec_offset = 8300;
 
 	v->mvm_state = CMD_STATUS_FAIL;
 

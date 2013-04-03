@@ -97,7 +97,7 @@ void __init msm8974_add_drivers(void)
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	krait_power_init();
-	if (machine_is_msm8974_rumi())
+	if (of_board_is_rumi())
 		msm_clock_init(&msm8974_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8974_clock_init_data);
