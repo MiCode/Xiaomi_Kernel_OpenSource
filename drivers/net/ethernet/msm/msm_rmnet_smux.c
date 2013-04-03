@@ -804,7 +804,7 @@ static int smux_rmnet_probe(struct platform_device *pdev)
 	for (i = 0; i < RMNET_SMUX_DEVICE_COUNT; i++) {
 		p = netdev_priv(netdevs[i]);
 
-		if ((p != NULL) && (p->device_state == DEVICE_INACTIVE)) {
+		if (p != NULL) {
 			r =  msm_smux_open(p->ch_id,
 					   netdevs[i],
 					   rmnet_smux_notify,
@@ -828,7 +828,7 @@ static int smux_rmnet_remove(struct platform_device *pdev)
 	for (i = 0; i < RMNET_SMUX_DEVICE_COUNT; i++) {
 		p = netdev_priv(netdevs[i]);
 
-		if ((p != NULL) && (p->device_state == DEVICE_ACTIVE)) {
+		if (p != NULL) {
 			r =  msm_smux_close(p->ch_id);
 
 			if (r < 0) {
