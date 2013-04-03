@@ -845,25 +845,7 @@ static int __init socinfo_create_files(struct sys_device *dev,
 
 static void * __init setup_dummy_socinfo(void)
 {
-	if (machine_is_msm8960_cdp())
-		dummy_socinfo.id = 87;
-	else if (machine_is_msm9615_mtp() || machine_is_msm9615_cdp())
-		dummy_socinfo.id = 104;
-	else if (early_machine_is_msm8974()) {
-		dummy_socinfo.id = 126;
-		strlcpy(dummy_socinfo.build_id, "msm8974 - ",
-			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msm9625()) {
-		dummy_socinfo.id = 134;
-		strlcpy(dummy_socinfo.build_id, "msm9625 - ",
-			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msm8226()) {
-		dummy_socinfo.id = 145;
-		strlcpy(dummy_socinfo.build_id, "msm8226 - ",
-			sizeof(dummy_socinfo.build_id));
-	} else if (machine_is_msm8625_rumi3())
-		dummy_socinfo.id = 127;
-	else if (early_machine_is_mpq8092()) {
+	if (early_machine_is_mpq8092()) {
 		dummy_socinfo.id = 146;
 		strlcpy(dummy_socinfo.build_id, "mpq8092 - ",
 		sizeof(dummy_socinfo.build_id));
