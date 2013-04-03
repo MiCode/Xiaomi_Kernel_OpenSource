@@ -28,6 +28,7 @@
 #include "kgsl_log.h"
 #include "kgsl_sharedmem.h"
 #include "adreno_pm4types.h"
+#include "adreno.h"
 
 static struct rchan	*chan;
 static struct dentry	*dir;
@@ -334,7 +335,7 @@ void kgsl_cffdump_init()
 		return;
 	}
 
-	kgsl_cff_dump_enable = 1;
+	kgsl_cff_dump_enable = 0;
 
 	spin_lock_init(&cffdump_lock);
 
@@ -356,10 +357,21 @@ void kgsl_cffdump_destroy()
 		debugfs_remove(dir);
 }
 
-void kgsl_cffdump_open(enum kgsl_deviceid device_id)
+void kgsl_cffdump_open(struct kgsl_device *device)
 {
-	kgsl_cffdump_memory_base(device_id, KGSL_PAGETABLE_BASE,
-			kgsl_mmu_get_ptsize(), SZ_256K);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
+		kgsl_cffdump_memory_base(device->id,
+			kgsl_mmu_get_base_addr(&device->mmu),
+			kgsl_mmu_get_ptsize(&device->mmu) +
+			KGSL_IOMMU_GLOBAL_MEM_SIZE, adreno_dev->gmem_size);
+	} else {
+		kgsl_cffdump_memory_base(device->id,
+			kgsl_mmu_get_base_addr(&device->mmu),
+			kgsl_mmu_get_ptsize(&device->mmu),
+			adreno_dev->gmem_size);
+	}
 }
 
 void kgsl_cffdump_memory_base(enum kgsl_deviceid device_id, unsigned int base,
@@ -387,7 +399,7 @@ void kgsl_cffdump_user_event(unsigned int cff_opcode, unsigned int op1,
 }
 
 void kgsl_cffdump_syncmem(struct kgsl_device_private *dev_priv,
-	const struct kgsl_memdesc *memdesc, uint gpuaddr, uint sizebytes,
+	struct kgsl_memdesc *memdesc, uint gpuaddr, uint sizebytes,
 	bool clean_cache)
 {
 	const void *src;
@@ -522,7 +534,7 @@ static int subbuf_start_handler(struct rchan_buf *buf,
 }
 
 static struct dentry *create_buf_file_handler(const char *filename,
-	struct dentry *parent, int mode, struct rchan_buf *buf,
+	struct dentry *parent, unsigned short mode, struct rchan_buf *buf,
 	int *is_global)
 {
 	return debugfs_create_file(filename, mode, parent, buf,
