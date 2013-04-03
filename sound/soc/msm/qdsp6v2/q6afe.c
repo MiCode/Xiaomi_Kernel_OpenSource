@@ -224,6 +224,7 @@ int afe_get_port_type(u16 port_id)
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -247,6 +248,7 @@ int afe_get_port_type(u16 port_id)
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 	case AFE_PORT_ID_TERTIARY_MI2S_TX:
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
 		ret = MSM_AFE_PORT_TYPE_TX;
 		break;
 
@@ -295,6 +297,8 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 		break;
 	case PCM_RX:
 	case PCM_TX:
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
 	default:
 		ret_size = SIZEOF_CFG_CMD(afe_param_id_pcm_cfg);
 		break;
@@ -1120,7 +1124,9 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		break;
 	case PCM_RX:
 	case PCM_TX:
-		cfg_type = AFE_PARAM_ID_HDMI_CONFIG;
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
+		cfg_type = AFE_PARAM_ID_PCM_CONFIG;
 		break;
 	case SECONDARY_I2S_RX:
 	case SECONDARY_I2S_TX:
@@ -1215,6 +1221,10 @@ int afe_get_port_index(u16 port_id)
 	case PRIMARY_I2S_TX: return IDX_PRIMARY_I2S_TX;
 	case PCM_RX: return IDX_PCM_RX;
 	case PCM_TX: return IDX_PCM_TX;
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+		return IDX_AFE_PORT_ID_SECONDARY_PCM_RX;
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
+		return IDX_AFE_PORT_ID_SECONDARY_PCM_TX;
 	case SECONDARY_I2S_RX: return IDX_SECONDARY_I2S_RX;
 	case SECONDARY_I2S_TX: return IDX_SECONDARY_I2S_TX;
 	case MI2S_RX: return IDX_MI2S_RX;
@@ -1310,6 +1320,8 @@ int afe_open(u16 port_id,
 		break;
 	case PCM_RX:
 	case PCM_TX:
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
 		cfg_type = AFE_PARAM_ID_PCM_CONFIG;
 		break;
 	case SECONDARY_I2S_RX:
@@ -2521,6 +2533,8 @@ int afe_validate_port(u16 port_id)
 	case PRIMARY_I2S_TX:
 	case PCM_RX:
 	case PCM_TX:
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
 	case SECONDARY_I2S_RX:
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
