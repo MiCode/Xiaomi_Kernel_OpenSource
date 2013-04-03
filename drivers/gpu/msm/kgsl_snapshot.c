@@ -345,6 +345,7 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	struct kgsl_mem_entry *entry;
 	struct kgsl_snapshot_object *obj;
 	int offset;
+	int ret = -EINVAL;
 
 	entry = kgsl_get_mem_entry(device, ptbase, gpuaddr, size);
 
@@ -358,7 +359,7 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	if (entry->memtype != KGSL_MEM_ENTRY_KERNEL) {
 		KGSL_DRV_ERR(device,
 			"Only internal GPU buffers can be frozen\n");
-		return -EINVAL;
+		goto err_put;
 	}
 
 	/*
@@ -381,7 +382,7 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	if (size + offset > entry->memdesc.size) {
 		KGSL_DRV_ERR(device, "Invalid size for GPU buffer %8.8X\n",
 				gpuaddr);
-		return -EINVAL;
+		goto err_put;
 	}
 
 	/* If the buffer is already on the list, skip it */
@@ -390,26 +391,23 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 			/* If the size is different, use the bigger size */
 			if (obj->size < size)
 				obj->size = size;
-
-			return 0;
+			ret = 0;
+			goto err_put;
 		}
 	}
 
 	if (kgsl_memdesc_map(&entry->memdesc) == NULL) {
 		KGSL_DRV_ERR(device, "Unable to map GPU buffer %X\n",
 				gpuaddr);
-		return -EINVAL;
+		goto err_put;
 	}
 
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 
 	if (obj == NULL) {
 		KGSL_DRV_ERR(device, "Unable to allocate memory\n");
-		return -EINVAL;
+		goto err_put;
 	}
-
-	/* Ref count the mem entry */
-	kgsl_mem_entry_get(entry);
 
 	obj->type = type;
 	obj->entry = entry;
@@ -428,12 +426,15 @@ int kgsl_snapshot_get_object(struct kgsl_device *device, unsigned int ptbase,
 	 * 0 so it doesn't get counted twice
 	 */
 
-	if (entry->memdesc.priv & KGSL_MEMDESC_FROZEN)
-		return 0;
+	ret = (entry->memdesc.priv & KGSL_MEMDESC_FROZEN) ? 0
+		: entry->memdesc.size;
 
 	entry->memdesc.priv |= KGSL_MEMDESC_FROZEN;
 
-	return entry->memdesc.size;
+	return ret;
+err_put:
+	kgsl_mem_entry_put(entry);
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_snapshot_get_object);
 

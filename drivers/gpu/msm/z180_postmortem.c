@@ -168,6 +168,7 @@ static void z180_dump_ib(struct kgsl_device *device)
 				KGSL_LOG_DUMP(device,
 				"Could not map IB to kernel memory, Ringbuffer Slot: %d\n",
 				rb_slot_num);
+				kgsl_mem_entry_put(entry);
 				continue;
 			}
 
@@ -190,6 +191,7 @@ static void z180_dump_ib(struct kgsl_device *device)
 						linebuf);
 			}
 			KGSL_LOG_DUMP(device, "IB Dump Finished\n");
+			kgsl_mem_entry_put(entry);
 		}
 	}
 }
