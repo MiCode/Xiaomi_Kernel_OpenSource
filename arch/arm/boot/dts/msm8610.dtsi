@@ -332,6 +332,10 @@
 		qcom,firmware-name = "wcnss";
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
 	sound {
 		compatible = "qcom,msm8x10-audio-codec";
 		qcom,model = "msm8x10-snd-card";
