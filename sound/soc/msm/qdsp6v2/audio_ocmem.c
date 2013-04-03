@@ -20,18 +20,58 @@
 #include <linux/platform_device.h>
 #include <linux/device.h>
 #include <linux/slab.h>
+#include <linux/io.h>
 #include <linux/of_device.h>
+#include <linux/memory_alloc.h>
 #include <asm/mach-types.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/ocmem.h>
+#include <mach/subsystem_notif.h>
+#include <mach/subsystem_restart.h>
+#include <mach/msm_memtypes.h>
+#include <mach/ramdump.h>
 #include "q6core.h"
 #include "audio_ocmem.h"
 
+
 #define AUDIO_OCMEM_BUF_SIZE (512 * SZ_1K)
 
+/**
+ * Exercise OCMEM Dump if audio OCMEM state is
+ * one of the following. All other states indicate
+ * audio data is not mapped from DDR to OCMEM and
+ * therefore no need of dump.
+ */
+#define _DO_OCMEM_DUMP_BIT_MASK_\
+		((1 << OCMEM_STATE_MAP_COMPL) |\
+		(1 << OCMEM_STATE_MAP_TRANSITION) |\
+		(1 << OCMEM_STATE_UNMAP_TRANSITION) |\
+		(1 << OCMEM_STATE_SHRINK) |\
+		(1 << OCMEM_STATE_GROW))
+
+/**
+ * Wait for OCMEM driver to process and respond for
+ * ongoing map/unmap request before calling OCMEM dump.
+ */
+#define _WAIT_BFR_DUMP_BIT_MASK_\
+		((1 << OCMEM_STATE_MAP_COMPL) |\
+		(1 << OCMEM_STATE_UNMAP_COMPL) |\
+		(1 << OCMEM_STATE_MAP_FAIL) |\
+		(1 << OCMEM_STATE_UNMAP_FAIL))
+
+#define _MAP_RESPONSE_BIT_MASK_\
+		((1 << OCMEM_STATE_MAP_COMPL) |\
+		(1 << OCMEM_STATE_MAP_FAIL))
+
+
+#define _UNMAP_RESPONSE_BIT_MASK_\
+		((1 << OCMEM_STATE_UNMAP_COMPL) |\
+		(1 << OCMEM_STATE_UNMAP_FAIL))
+
 #define _BIT_MASK_\
-		((1 << OCMEM_STATE_EXIT) |\
+		((1 << OCMEM_STATE_SSR) |\
+		(1 << OCMEM_STATE_EXIT) |\
 		(1 << OCMEM_STATE_GROW) |\
 		(1 << OCMEM_STATE_SHRINK))
 
@@ -89,6 +129,10 @@ struct audio_ocmem_prv {
 	struct workqueue_struct *audio_ocmem_workqueue;
 	struct workqueue_struct *voice_ocmem_workqueue;
 	bool ocmem_en;
+	bool audio_ocmem_running;
+	void *ocmem_ramdump_dev;
+	struct ramdump_segment ocmem_ramdump_segment;
+	unsigned long ocmem_dump_addr;
 };
 
 static struct audio_ocmem_prv audio_ocmem_lcl;
@@ -114,7 +158,9 @@ static int audio_ocmem_client_cb(struct notifier_block *this,
 		break;
 	case OCMEM_MAP_FAIL:
 		pr_debug("%s: map fail\n", __func__);
-		atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_MAP_FAIL);
+		clear_bit_pos(audio_ocmem_lcl.audio_state,
+				OCMEM_STATE_MAP_TRANSITION);
+		set_bit_pos(audio_ocmem_lcl.audio_state, OCMEM_STATE_MAP_FAIL);
 		break;
 	case OCMEM_UNMAP_DONE:
 		pr_debug("%s: unmap done\n", __func__);
@@ -125,8 +171,10 @@ static int audio_ocmem_client_cb(struct notifier_block *this,
 		break;
 	case OCMEM_UNMAP_FAIL:
 		pr_debug("%s: unmap fail\n", __func__);
-		atomic_set(&audio_ocmem_lcl.audio_state,
-				OCMEM_STATE_UNMAP_FAIL);
+		clear_bit_pos(audio_ocmem_lcl.audio_state,
+				OCMEM_STATE_UNMAP_TRANSITION);
+		set_bit_pos(audio_ocmem_lcl.audio_state,
+			    OCMEM_STATE_UNMAP_FAIL);
 		break;
 	case OCMEM_ALLOC_GROW:
 		rbuf = data;
@@ -170,6 +218,9 @@ int get_state_to_process(atomic_t *state)
 	} else if (test_bit_pos((*state), OCMEM_STATE_EXIT)) {
 		pr_debug("%s: returning exit state\n", __func__);
 		return OCMEM_STATE_EXIT;
+	} else if (test_bit_pos((*state), OCMEM_STATE_SSR)) {
+		pr_debug("%s: returning ssr state\n", __func__);
+		return OCMEM_STATE_SSR;
 	} else
 		return -EINVAL;
 
@@ -278,8 +329,8 @@ int audio_ocmem_enable(int cid)
 	}
 
 	wait_event_interruptible(audio_ocmem_lcl.audio_wait,
-			test_bit_pos(audio_ocmem_lcl.audio_state,
-				OCMEM_STATE_MAP_COMPL) != 0);
+			(atomic_read(&audio_ocmem_lcl.audio_state) &
+					_MAP_RESPONSE_BIT_MASK_) != 0);
 	atomic_set(&audio_ocmem_lcl.audio_cond, 1);
 
 	mutex_unlock(&audio_ocmem_lcl.protect_lock);
@@ -322,8 +373,9 @@ int audio_ocmem_enable(int cid)
 			}
 
 			wait_event_interruptible(audio_ocmem_lcl.audio_wait,
-				test_bit_pos(audio_ocmem_lcl.audio_state,
-					OCMEM_STATE_UNMAP_COMPL) != 0);
+				(atomic_read(&audio_ocmem_lcl.audio_state) &
+					     _UNMAP_RESPONSE_BIT_MASK_)
+					     != 0);
 			ret = ocmem_shrink(cid, audio_ocmem_lcl.buf, 0);
 			if (ret) {
 				pr_err("%s: ocmem_shrink failed, state[%d]\n",
@@ -353,8 +405,8 @@ int audio_ocmem_enable(int cid)
 				goto fail_cmd;
 			}
 			wait_event_interruptible(audio_ocmem_lcl.audio_wait,
-				test_bit_pos(audio_ocmem_lcl.audio_state,
-					OCMEM_STATE_MAP_COMPL) != 0);
+				(atomic_read(&audio_ocmem_lcl.audio_state) &
+						_MAP_RESPONSE_BIT_MASK_) != 0);
 
 			clear_bit_pos(audio_ocmem_lcl.audio_state,
 					OCMEM_STATE_GROW);
@@ -377,8 +429,8 @@ int audio_ocmem_enable(int cid)
 				}
 				wait_event_interruptible(
 				audio_ocmem_lcl.audio_wait,
-				test_bit_pos(audio_ocmem_lcl.audio_state,
-					OCMEM_STATE_UNMAP_COMPL) != 0);
+				(atomic_read(&audio_ocmem_lcl.audio_state) &
+				_UNMAP_RESPONSE_BIT_MASK_) != 0);
 			}
 
 			if (test_bit_pos(audio_ocmem_lcl.audio_state,
@@ -434,13 +486,14 @@ int audio_ocmem_enable(int cid)
 				goto fail_cmd;
 			}
 			pr_debug("%s: ocmem_free success\n", __func__);
+		/* Fall through */
+		case OCMEM_STATE_SSR:
 			msm_bus_scale_client_update_request(
 				audio_ocmem_lcl.audio_ocmem_bus_client,
 				0);
 			set_bit_pos(audio_ocmem_lcl.audio_state,
-						OCMEM_STATE_DISABLE);
+					OCMEM_STATE_DISABLE);
 			break;
-
 
 		case -EINVAL:
 			pr_info("%s: audio_cond[%d] audio_state[0x%x]\n",
@@ -453,6 +506,7 @@ int audio_ocmem_enable(int cid)
 	ret = 0;
 fail_cmd:
 	pr_debug("%s: exit\n", __func__);
+	audio_ocmem_lcl.audio_ocmem_running = false;
 	return ret;
 }
 
@@ -470,8 +524,11 @@ int audio_ocmem_disable(int cid)
 	pr_debug("%s: audio_cond[0x%x], audio_state[0x%x]\n", __func__,
 			 atomic_read(&audio_ocmem_lcl.audio_cond),
 			 atomic_read(&audio_ocmem_lcl.audio_state));
-	set_bit_pos(audio_ocmem_lcl.audio_state,
-				OCMEM_STATE_EXIT);
+	if (!test_bit_pos(audio_ocmem_lcl.audio_state,
+			  OCMEM_STATE_SSR))
+		set_bit_pos(audio_ocmem_lcl.audio_state,
+			    OCMEM_STATE_EXIT);
+
 	wake_up(&audio_ocmem_lcl.audio_wait);
 
 	mutex_unlock(&audio_ocmem_lcl.protect_lock);
@@ -652,6 +709,7 @@ int audio_ocmem_process_req(int id, bool enable)
 		}
 		workdata->id = id;
 		workdata->en = enable;
+		audio_ocmem_lcl.audio_ocmem_running = true;
 
 		INIT_WORK(&workdata->work, audio_ocmem_process_workdata);
 		queue_work(audio_ocmem_lcl.audio_ocmem_workqueue,
@@ -684,12 +742,130 @@ static int audio_ocmem_platform_data_populate(struct platform_device *pdev)
 
 	return 0;
 }
+
+static void do_ocmem_ramdump(void)
+{
+	int ret = 0;
+	void *virt = NULL;
+
+	virt = ioremap(audio_ocmem_lcl.ocmem_dump_addr, AUDIO_OCMEM_BUF_SIZE);
+	ret = ocmem_dump(OCMEM_LP_AUDIO,
+			 audio_ocmem_lcl.buf,
+			 (unsigned long)virt);
+	iounmap(virt);
+
+	if (ret)
+		pr_err("%s: ocmem_dump failed\n", __func__);
+
+	audio_ocmem_lcl.ocmem_ramdump_segment.address
+			= (unsigned long)audio_ocmem_lcl.ocmem_dump_addr;
+	audio_ocmem_lcl.ocmem_ramdump_segment.size
+						= AUDIO_OCMEM_BUF_SIZE;
+	ret = do_ramdump(audio_ocmem_lcl.ocmem_ramdump_dev,
+			 &audio_ocmem_lcl.ocmem_ramdump_segment,
+			 1);
+	if (ret < 0)
+		pr_err("%s: do_ramdump failed\n", __func__);
+}
+
+static void process_ocmem_dump(void)
+{
+	int ret = 0;
+
+	set_bit_pos(audio_ocmem_lcl.audio_state, OCMEM_STATE_SSR);
+
+	if (atomic_read(&audio_ocmem_lcl.audio_state) &
+	    _DO_OCMEM_DUMP_BIT_MASK_) {
+
+		wait_event_interruptible(audio_ocmem_lcl.audio_wait,
+				(atomic_read(&audio_ocmem_lcl.audio_state) &
+				 _WAIT_BFR_DUMP_BIT_MASK_) != 0);
+
+		if (test_bit_pos(audio_ocmem_lcl.audio_state,
+				 OCMEM_STATE_MAP_COMPL) ||
+		    test_bit_pos(audio_ocmem_lcl.audio_state,
+				 OCMEM_STATE_UNMAP_FAIL)) {
+
+			if (audio_ocmem_lcl.ocmem_dump_addr &&
+			    audio_ocmem_lcl.ocmem_ramdump_dev)
+				do_ocmem_ramdump();
+			else
+				pr_err("%s: Error calling ocmem ramdump\n",
+					__func__);
+
+			ret = ocmem_drop(OCMEM_LP_AUDIO, audio_ocmem_lcl.buf,
+					 &audio_ocmem_lcl.mlist);
+			if (ret)
+				pr_err("%s: ocmem_drop failed\n", __func__);
+		}
+	}
+
+	ret = ocmem_free(OCMEM_LP_AUDIO, audio_ocmem_lcl.buf);
+	if (ret)
+		pr_err("%s: ocmem_free failed\n", __func__);
+}
+
+static int lpass_notifier_cb(struct notifier_block *this, unsigned long code,
+			     void *_cmd)
+{
+	int ret = NOTIFY_DONE;
+
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+	pr_debug("AO-Notify: Shutdown started\n");
+		break;
+	case SUBSYS_AFTER_SHUTDOWN:
+	pr_debug("AO-Notify: Shutdown Completed\n");
+		break;
+	case SUBSYS_RAMDUMP_NOTIFICATION:
+		pr_debug("AO-Notify: OCMEM dump\n");
+		if (audio_ocmem_lcl.ocmem_en &&
+		    audio_ocmem_lcl.audio_ocmem_running)
+			process_ocmem_dump();
+		pr_debug("AO-Notify: OCMEM dump done\n");
+		break;
+	case SUBSYS_BEFORE_POWERUP:
+		pr_debug("AO-Notify: Powerup started\n");
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		pr_debug("AO-Notify: Powerup completed\n");
+		break;
+	default:
+		pr_err("AO-Notify: Generel: %lu\n", code);
+		break;
+	}
+	return ret;
+}
+
+static struct notifier_block anb = {
+	.notifier_call = lpass_notifier_cb,
+};
+
 static int ocmem_audio_client_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct msm_bus_scale_pdata *audio_ocmem_bus_scale_pdata = NULL;
 
 	pr_debug("%s\n", __func__);
+
+	subsys_notif_register_notifier("adsp", &anb);
+
+	audio_ocmem_lcl.ocmem_dump_addr =
+		allocate_contiguous_memory_nomap(AUDIO_OCMEM_BUF_SIZE,
+						 MEMTYPE_EBI1,
+						 AUDIO_OCMEM_BUF_SIZE);
+
+	if (audio_ocmem_lcl.ocmem_dump_addr) {
+		audio_ocmem_lcl.ocmem_ramdump_dev =
+			create_ramdump_device("audio-ocmem", &pdev->dev);
+
+		if (!audio_ocmem_lcl.ocmem_ramdump_dev)
+			pr_err("%s: audio-ocmem ramdump device failed\n",
+				__func__);
+	} else {
+		pr_err("%s: ocmem dump memory alloc failed\n", __func__);
+	}
+
 	audio_ocmem_lcl.audio_ocmem_workqueue =
 		alloc_workqueue("ocmem_audio_client_driver_audio",
 					WQ_NON_REENTRANT | WQ_UNBOUND, 0);
@@ -715,6 +891,7 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	spin_lock_init(&audio_ocmem_lcl.audio_lock);
 	mutex_init(&audio_ocmem_lcl.protect_lock);
 	audio_ocmem_lcl.ocmem_en = true;
+	audio_ocmem_lcl.audio_ocmem_running = false;
 
 	/* populate platform data */
 	ret = audio_ocmem_platform_data_populate(pdev);
@@ -753,6 +930,7 @@ static int ocmem_audio_client_remove(struct platform_device *pdev)
 	msm_bus_cl_clear_pdata(audio_ocmem_bus_scale_pdata);
 	ocmem_notifier_unregister(audio_ocmem_lcl.audio_hdl,
 					&audio_ocmem_client_nb);
+	free_contiguous_memory_by_paddr(audio_ocmem_lcl.ocmem_dump_addr);
 	return 0;
 }
 static const struct of_device_id msm_ocmem_audio_dt_match[] = {
@@ -771,11 +949,9 @@ static struct platform_driver audio_ocmem_driver = {
 	.remove = ocmem_audio_client_remove,
 };
 
-
 static int __init ocmem_audio_client_init(void)
 {
 	int rc;
-
 	rc = platform_driver_register(&audio_ocmem_driver);
 
 	if (rc)
