@@ -135,6 +135,7 @@ struct qpnp_bms_chip {
 	struct sf_lut			*pc_sf_lut;
 	struct sf_lut			*rbatt_sf_lut;
 	int				default_rbatt_mohm;
+	int				rbatt_capacitive_mohm;
 
 	struct delayed_work		calculate_soc_delayed_work;
 	struct work_struct		recalc_work;
@@ -623,7 +624,8 @@ static int estimate_ocv(struct qpnp_bms_chip *chip)
 {
 	int ibat_ua, vbat_uv, ocv_est_uv;
 	int rc;
-	int rbatt_mohm = chip->default_rbatt_mohm + chip->r_conn_mohm;
+	int rbatt_mohm = chip->default_rbatt_mohm + chip->r_conn_mohm
+					+ chip->rbatt_capacitive_mohm;
 
 	rc = get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
 	if (rc) {
@@ -843,6 +845,9 @@ static int get_rbatt(struct qpnp_bms_chip *chip,
 	rbatt_mohm += chip->r_conn_mohm;
 	pr_debug("adding r_conn_mohm = %d rbatt = %d\n",
 				chip->r_conn_mohm, rbatt_mohm);
+	rbatt_mohm += chip->rbatt_capacitive_mohm;
+	pr_debug("adding rbatt_capacitive_mohm = %d rbatt = %d\n",
+				chip->rbatt_capacitive_mohm, rbatt_mohm);
 
 	pr_debug("RBATT = %d\n", rbatt_mohm);
 	return rbatt_mohm;
@@ -1221,6 +1226,10 @@ static int reset_bms_for_test(struct qpnp_bms_chip *chip)
 
 	rc = get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
 
+	/*
+	 * Don't include rbatt and rbatt_capacitative since we expect this to
+	 * be used with a fake battery which does not have internal resistances
+	 */
 	ocv_est_uv = vbat_uv + (ibat_ua * chip->r_conn_mohm) / 1000;
 	pr_debug("forcing ocv to be %d due to bms reset mode\n", ocv_est_uv);
 	chip->last_ocv_uv = ocv_est_uv;
@@ -2133,6 +2142,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	chip->pc_sf_lut = batt_data->pc_sf_lut;
 	chip->rbatt_sf_lut = batt_data->rbatt_sf_lut;
 	chip->default_rbatt_mohm = batt_data->default_rbatt_mohm;
+	chip->rbatt_capacitive_mohm = batt_data->rbatt_capacitive_mohm;
 
 	if (chip->pc_temp_ocv_lut == NULL) {
 		pr_err("temp ocv lut table is NULL\n");
