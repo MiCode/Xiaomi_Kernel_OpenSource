@@ -3897,7 +3897,20 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		ret = PTR_ERR(motg->core_clk);
 		goto put_clk;
 	}
-	clk_set_rate(motg->core_clk, INT_MAX);
+
+	/*
+	 * Get Max supported clk frequency for USB Core CLK and request
+	 * to set the same.
+	 */
+	motg->core_clk_rate = clk_round_rate(motg->core_clk, LONG_MAX);
+	if (IS_ERR_VALUE(motg->core_clk_rate)) {
+		dev_err(&pdev->dev, "fail to get core clk max freq.\n");
+	} else {
+		ret = clk_set_rate(motg->core_clk, motg->core_clk_rate);
+		if (ret)
+			dev_err(&pdev->dev, "fail to set core_clk freq:%d\n",
+									ret);
+	}
 
 	motg->pclk = clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(motg->pclk)) {
