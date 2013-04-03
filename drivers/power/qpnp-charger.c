@@ -265,6 +265,7 @@ struct qpnp_chg_chip {
 	struct power_supply		batt_psy;
 	uint32_t			flags;
 	struct qpnp_adc_tm_btm_param	adc_param;
+	struct work_struct		adc_measure_work;
 };
 
 static struct of_device_id qpnp_charger_match_table[] = {
@@ -517,6 +518,15 @@ qpnp_chg_usb_suspend_enable(struct qpnp_chg_chip *chip, int enable)
 			enable ? USB_SUSPEND_BIT : 0, 1);
 }
 
+static void qpnp_bat_if_adc_measure_work(struct work_struct *work)
+{
+	struct qpnp_chg_chip *chip = container_of(work,
+				struct qpnp_chg_chip, adc_measure_work);
+
+	if (qpnp_adc_tm_channel_measure(&chip->adc_param))
+		pr_err("request ADC error\n");
+}
+
 #define ENUM_T_STOP_BIT		BIT(0)
 static irqreturn_t
 qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
@@ -559,8 +569,7 @@ qpnp_chg_bat_if_batt_pres_irq_handler(int irq, void *_chip)
 
 		if (chip->cool_bat_decidegc && chip->warm_bat_decidegc
 						&& batt_present) {
-			if (qpnp_adc_tm_channel_measure(&chip->adc_param))
-				pr_err("request ADC error\n");
+			schedule_work(&chip->adc_measure_work);
 		}
 	}
 
@@ -2013,6 +2022,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			pr_err("batt failed to register rc = %d\n", rc);
 			goto fail_chg_enable;
 		}
+		INIT_WORK(&chip->adc_measure_work,
+			qpnp_bat_if_adc_measure_work);
 	}
 
 	if (chip->dc_chgpth_base) {
@@ -2093,6 +2104,8 @@ qpnp_charger_remove(struct spmi_device *spmi)
 						&& chip->batt_present) {
 		qpnp_adc_tm_disable_chan_meas(&chip->adc_param);
 	}
+	cancel_work_sync(&chip->adc_measure_work);
+
 	dev_set_drvdata(&spmi->dev, NULL);
 	kfree(chip);
 
