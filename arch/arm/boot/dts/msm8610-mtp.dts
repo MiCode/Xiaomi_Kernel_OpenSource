@@ -16,7 +16,7 @@
 
 / {
 	model = "Qualcomm MSM 8610 MTP";
-	compatible = "qcom,msm8610-mtp", "qcom,msm8610";
+	compatible = "qcom,msm8610-mtp", "qcom,msm8610", "qcom,mtp";
 	qcom,msm-id = <147 8 0>;
 
 	serial@f991f000 {

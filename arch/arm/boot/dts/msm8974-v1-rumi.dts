@@ -17,6 +17,6 @@
 
 / {
 	model = "Qualcomm MSM 8974 RUMI";
-	compatible = "qcom,msm8974-rumi", "qcom,msm8974";
+	compatible = "qcom,msm8974-rumi", "qcom,msm8974", "qcom,rumi";
 	qcom,msm-id = <126 15 0>;
 };

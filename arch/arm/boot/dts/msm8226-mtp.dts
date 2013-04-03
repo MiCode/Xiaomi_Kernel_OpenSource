@@ -17,7 +17,7 @@
 
 / {
 	model = "Qualcomm MSM 8226 MTP";
-	compatible = "qcom,msm8226-mtp", "qcom,msm8226";
+	compatible = "qcom,msm8226-mtp", "qcom,msm8226", "qcom,mtp";
 	qcom,msm-id = <145 8 0>;
 
 	serial@f991f000 {

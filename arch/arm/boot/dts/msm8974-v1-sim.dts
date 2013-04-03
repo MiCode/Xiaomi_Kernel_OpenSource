@@ -17,6 +17,6 @@
 
 / {
 	model = "Qualcomm MSM 8974 Simulator";
-	compatible = "qcom,msm8974-sim", "qcom,msm8974";
+	compatible = "qcom,msm8974-sim", "qcom,msm8974", "qcom,sim";
 	qcom,msm-id = <126 16 0>;
 };

@@ -16,7 +16,7 @@
 
 / {
 	model = "Qualcomm MSM 9625V1 MTP";
-	compatible = "qcom,msm9625-mtp", "qcom,msm9625";
+	compatible = "qcom,msm9625-mtp", "qcom,msm9625", "qcom,mtp";
 	qcom,msm-id = <134 7 0>, <152 7 0>, <149 7 0>, <150 7 0>,
 		      <151 7 0>, <148 7 0>, <173 7 0>, <174 7 0>,
 		      <175 7 0>;

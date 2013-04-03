@@ -16,7 +16,7 @@
 
 / {
 	model = "Qualcomm MSM 9625V1 RUMI";
-	compatible = "qcom,msm9625-rumi", "qcom,msm9625";
+	compatible = "qcom,msm9625-rumi", "qcom,msm9625", "qcom,rumi";
 	qcom,msm-id = <134 15 0>;
 
 	chosen{

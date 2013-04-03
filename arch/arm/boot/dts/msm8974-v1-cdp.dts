@@ -17,7 +17,7 @@
 
 / {
 	model = "Qualcomm MSM 8974 CDP";
-	compatible = "qcom,msm8974-cdp", "qcom,msm8974";
+	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
 	qcom,msm-id = <126 1 0>;
 };
 

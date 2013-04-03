@@ -16,7 +16,7 @@
 
 / {
 	model = "Qualcomm MSM 9625V2.1 MTP";
-	compatible = "qcom,msm9625-mtp", "qcom,msm9625";
+	compatible = "qcom,msm9625-mtp", "qcom,msm9625", "qcom,mtp";
 	qcom,msm-id = <134 7 0x20001>, <152 7 0x20001>, <149 7 0x20001>,
 		      <150 7 0x20001>, <151 7 0x20001>, <148 7 0x20001>,
 		      <173 7 0x20001>, <174 7 0x20001>, <175 7 0x20001>;

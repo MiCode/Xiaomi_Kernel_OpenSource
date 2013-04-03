@@ -16,7 +16,7 @@
 
 / {
 	model = "Qualcomm MSM 8610 CDP";
-	compatible = "qcom,msm8610-cdp", "qcom,msm8610";
+	compatible = "qcom,msm8610-cdp", "qcom,msm8610", "qcom,cdp";
 	qcom,msm-id = <147 1 0>;
 
 	serial@f991f000 {
