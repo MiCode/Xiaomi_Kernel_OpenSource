@@ -167,6 +167,7 @@ enum hal_property {
 	HAL_PARAM_VDEC_SYNC_FRAME_DECODE,
 	HAL_PARAM_VENC_H264_ENTROPY_CABAC_MODEL,
 	HAL_CONFIG_VENC_MAX_BITRATE,
+	HAL_PARAM_VENC_H264_VUI_TIMING_INFO,
 };
 
 enum hal_domain {
@@ -763,6 +764,13 @@ struct hal_multi_view_select {
 
 struct hal_timestamp_scale {
 	u32 time_stamp_scale;
+};
+
+
+struct hal_h264_vui_timing_info {
+	u32 enable;
+	u32 fixed_frame_rate;
+	u32 time_scale;
 };
 
 enum vidc_resource_id {
