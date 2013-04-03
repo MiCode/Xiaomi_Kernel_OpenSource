@@ -87,9 +87,11 @@ int wm5102_patch(struct arizona *arizona)
 	case 0:
 		wm5102_patch = wm5102_reva_patch;
 		patch_size = ARRAY_SIZE(wm5102_reva_patch);
+		break;
 	default:
 		wm5102_patch = wm5102_revb_patch;
 		patch_size = ARRAY_SIZE(wm5102_revb_patch);
+		break;
 	}
 
 	regcache_cache_bypass(arizona->regmap, true);
