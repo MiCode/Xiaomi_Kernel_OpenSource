@@ -1358,10 +1358,37 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	return rc;
 }
 
+static ssize_t msm_vidc_link_name_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	struct msm_vidc_core *core = dev_get_drvdata(dev);
+	if (core)
+		if (dev == &core->vdev[MSM_VIDC_DECODER].vdev.dev)
+			if (core->hfi_type == VIDC_HFI_Q6)
+				return snprintf(buf, PAGE_SIZE, "q6_dec");
+			else
+				return snprintf(buf, PAGE_SIZE, "venus_dec");
+		else if (dev == &core->vdev[MSM_VIDC_ENCODER].vdev.dev)
+			if (core->hfi_type == VIDC_HFI_Q6)
+				return snprintf(buf, PAGE_SIZE, "q6_enc");
+			else
+				return snprintf(buf, PAGE_SIZE, "venus_enc");
+		else
+			return 0;
+	else
+		return 0;
+}
+
+static DEVICE_ATTR(link_name, 0644, msm_vidc_link_name_show, NULL);
+
 static int __devinit msm_vidc_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_vidc_core *core;
+	struct device *dev;
+	int nr = BASE_DEVICE_NUMBER;
+
 	core = kzalloc(sizeof(*core), GFP_KERNEL);
 	if (!core || !vidc_driver) {
 		dprintk(VIDC_ERR,
@@ -1374,6 +1401,10 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 		dprintk(VIDC_ERR, "Failed to init core\n");
 		goto err_v4l2_register;
 	}
+	if (core->hfi_type == VIDC_HFI_Q6) {
+		dprintk(VIDC_ERR, "Q6 hfi device probe called\n");
+		nr += MSM_VIDC_MAX_DEVICES;
+	}
 	rc = v4l2_device_register(&pdev->dev, &core->v4l2_dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to register v4l2 device\n");
@@ -1385,12 +1416,19 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	core->vdev[MSM_VIDC_DECODER].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
 	core->vdev[MSM_VIDC_DECODER].type = MSM_VIDC_DECODER;
 	rc = video_register_device(&core->vdev[MSM_VIDC_DECODER].vdev,
-					VFL_TYPE_GRABBER, BASE_DEVICE_NUMBER);
+					VFL_TYPE_GRABBER, nr);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to register video decoder device");
 		goto err_dec_register;
 	}
 	video_set_drvdata(&core->vdev[MSM_VIDC_DECODER].vdev, core);
+	dev = &core->vdev[MSM_VIDC_DECODER].vdev.dev;
+	rc = device_create_file(dev, &dev_attr_link_name);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to create link name sysfs for decoder");
+		goto err_dec_attr_link_name;
+	}
 
 	core->vdev[MSM_VIDC_ENCODER].vdev.release =
 		msm_vidc_release_video_device;
@@ -1398,19 +1436,20 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	core->vdev[MSM_VIDC_ENCODER].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
 	core->vdev[MSM_VIDC_ENCODER].type = MSM_VIDC_ENCODER;
 	rc = video_register_device(&core->vdev[MSM_VIDC_ENCODER].vdev,
-				VFL_TYPE_GRABBER, BASE_DEVICE_NUMBER + 1);
+				VFL_TYPE_GRABBER, nr + 1);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to register video encoder device");
 		goto err_enc_register;
 	}
 	video_set_drvdata(&core->vdev[MSM_VIDC_ENCODER].vdev, core);
-
-	core->device = vidc_hfi_initialize(core->hfi_type, core->id,
-				&core->resources, &handle_cmd_response);
-	if (!core->device) {
-		dprintk(VIDC_ERR, "Failed to create HFI device\n");
-		goto err_cores_exceeded;
+	dev = &core->vdev[MSM_VIDC_ENCODER].vdev.dev;
+	rc = device_create_file(dev, &dev_attr_link_name);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to create link name sysfs for encoder");
+		goto err_enc_attr_link_name;
 	}
+
 	mutex_lock(&vidc_driver->lock);
 	if (vidc_driver->num_cores  + 1 > MSM_VIDC_CORES_MAX) {
 		mutex_unlock(&vidc_driver->lock);
@@ -1418,8 +1457,20 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 				vidc_driver->num_cores);
 		goto err_cores_exceeded;
 	}
-
 	core->id = vidc_driver->num_cores++;
+	mutex_unlock(&vidc_driver->lock);
+
+	core->device = vidc_hfi_initialize(core->hfi_type, core->id,
+				&core->resources, &handle_cmd_response);
+	if (!core->device) {
+		dprintk(VIDC_ERR, "Failed to create HFI device\n");
+		mutex_lock(&vidc_driver->lock);
+		vidc_driver->num_cores--;
+		mutex_unlock(&vidc_driver->lock);
+		goto err_cores_exceeded;
+	}
+
+	mutex_lock(&vidc_driver->lock);
 	list_add_tail(&core->list, &vidc_driver->cores);
 	mutex_unlock(&vidc_driver->lock);
 	core->debugfs_root = msm_vidc_debugfs_init_core(
@@ -1428,8 +1479,14 @@ static int __devinit msm_vidc_probe(struct platform_device *pdev)
 	return rc;
 
 err_cores_exceeded:
+	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
+			&dev_attr_link_name);
+err_enc_attr_link_name:
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
 err_enc_register:
+	device_remove_file(&core->vdev[MSM_VIDC_DECODER].vdev.dev,
+			&dev_attr_link_name);
+err_dec_attr_link_name:
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 err_dec_register:
 	v4l2_device_unregister(&core->v4l2_dev);
@@ -1456,7 +1513,11 @@ static int __devexit msm_vidc_remove(struct platform_device *pdev)
 	}
 
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
+	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
+				&dev_attr_link_name);
 	video_unregister_device(&core->vdev[MSM_VIDC_ENCODER].vdev);
+	device_remove_file(&core->vdev[MSM_VIDC_DECODER].vdev.dev,
+				&dev_attr_link_name);
 	video_unregister_device(&core->vdev[MSM_VIDC_DECODER].vdev);
 	v4l2_device_unregister(&core->v4l2_dev);
 
