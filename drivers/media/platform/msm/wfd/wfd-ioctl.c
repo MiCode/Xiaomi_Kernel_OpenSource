@@ -1550,10 +1550,10 @@ static int wfd_close(struct file *filp)
 			WFD_MSG_ERR("Failed to CLOSE vsg subdev: %d\n", rc);
 
 		wfd_stats_deinit(&inst->stats);
+		v4l2_fh_del(&inst->event_handler);
 		kfree(inst);
 	}
 
-	v4l2_fh_del(&inst->event_handler);
 
 	mutex_lock(&wfd_dev->dev_lock);
 	wfd_dev->in_use = false;
