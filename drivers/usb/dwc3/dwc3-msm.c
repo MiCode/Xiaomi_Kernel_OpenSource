@@ -64,6 +64,11 @@ static int override_phy_init;
 module_param(override_phy_init, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 
+/* Enable Proprietary charger detection */
+static bool prop_chg_detect;
+module_param(prop_chg_detect, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
+
 /**
  *  USB DBM Hardware registers.
  *
@@ -1390,12 +1395,12 @@ static void dwc3_chg_enable_secondary_det(struct dwc3_msm *mdwc)
 static bool dwc3_chg_det_check_linestate(struct dwc3_msm *mdwc)
 {
 	u32 chg_det;
-	bool ret = false;
+
+	if (!prop_chg_detect)
+		return false;
 
 	chg_det = dwc3_msm_read_reg(mdwc->base, CHARGING_DET_OUTPUT_REG);
-	ret = chg_det & (3 << 8);
-
-	return ret;
+	return chg_det & (3 << 8);
 }
 
 static bool dwc3_chg_det_check_output(struct dwc3_msm *mdwc)
