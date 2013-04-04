@@ -129,6 +129,35 @@
 		interrupts = <0 94 0>;
 	};
 
+	qcom,usbbam@f9a44000 {
+		compatible = "qcom,usb-bam-msm";
+		reg = <0xf9a44000 0x11000>;
+		reg-names = "hsusb";
+		interrupts = <0 135 0>;
+		interrupt-names = "hsusb";
+		qcom,usb-bam-num-pipes = <16>;
+		qcom,usb-bam-fifo-baseaddr = <0xfe803000>;
+		qcom,ignore-core-reset-ack;
+		qcom,disable-clk-gating;
+
+		qcom,pipe0 {
+			label = "hsusb-qdss-in-0";
+			qcom,usb-bam-mem-type = <3>;
+			qcom,bam-type = <1>;
+			qcom,dir = <1>;
+			qcom,pipe-num = <0>;
+			qcom,peer-bam = <1>;
+			qcom,src-bam-physical-address = <0xfc37c000>;
+			qcom,src-bam-pipe-index = <0>;
+			qcom,dst-bam-physical-address = <0xf9a44000>;
+			qcom,dst-bam-pipe-index = <2>;
+			qcom,data-fifo-offset = <0x0>;
+			qcom,data-fifo-size = <0x600>;
+			qcom,descriptor-fifo-offset = <0x600>;
+			qcom,descriptor-fifo-size = <0x200>;
+		};
+	};
+
         usb@f9a55000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9a55000 0x400>;
