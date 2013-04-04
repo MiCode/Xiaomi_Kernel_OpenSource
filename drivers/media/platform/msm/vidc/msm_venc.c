@@ -239,6 +239,18 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.cluster = MSM_VENC_CTRL_CLUSTER_BITRATE,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
+		.name = "Peak Bit Rate",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = MIN_BIT_RATE,
+		.maximum = MAX_BIT_RATE,
+		.default_value = DEFAULT_BIT_RATE,
+		.step = BIT_RATE_STEP,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_BITRATE,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
 		.name = "Entropy Mode",
 		.type = V4L2_CTRL_TYPE_MENU,
@@ -1256,6 +1268,29 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		bitrate.layer_id = 0;
 		pdata = &bitrate;
 		break;
+	case V4L2_CID_MPEG_VIDEO_BITRATE_PEAK:
+	{
+		struct v4l2_ctrl *avg_bitrate = TRY_GET_CTRL(
+			V4L2_CID_MPEG_VIDEO_BITRATE);
+
+		if (ctrl->val < avg_bitrate->val) {
+			dprintk(VIDC_ERR,
+				"Peak bitrate (%d) is lower than average bitrate (%d)",
+				ctrl->val, avg_bitrate->val);
+			rc = -EINVAL;
+			break;
+		} else if (ctrl->val < avg_bitrate->val * 2) {
+			dprintk(VIDC_WARN,
+				"Peak bitrate (%d) ideally should be twice the average bitrate (%d)",
+				ctrl->val, avg_bitrate->val);
+		}
+
+		property_id = HAL_CONFIG_VENC_MAX_BITRATE;
+		bitrate.bit_rate = ctrl->val;
+		bitrate.layer_id = 0;
+		pdata = &bitrate;
+		break;
+	}
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 		temp_ctrl = TRY_GET_CTRL(
 			V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL);
