@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 
  *
  * This program is free software; you can redistribute it and/or modify
@@ -463,7 +463,7 @@ static int qpnp_lpg_change_table(struct pwm_device *pwm,
 	int			i, pwm_size, rc = 0;
 	int			burst_size = SPMI_MAX_BUF_LEN;
 	int			list_len = lut->list_len << 1;
-	int			offset = lut->lo_index << 1;
+	int			offset = (lut->lo_index << 1) - 2;
 
 	pwm_size = QPNP_GET_PWM_SIZE(
 			chip->qpnp_lpg_registers[QPNP_LPG_PWM_SIZE_CLK]) &
@@ -1024,8 +1024,8 @@ static int _pwm_lut_config(struct pwm_device *pwm, int period_us,
 		raw_lut = 1;
 
 	lut_config->list_len = len;
-	lut_config->lo_index = start_idx;
-	lut_config->hi_index = start_idx + len - 1;
+	lut_config->lo_index = start_idx + 1;
+	lut_config->hi_index = start_idx + len;
 
 	rc = qpnp_lpg_change_table(pwm, duty_pct, raw_lut);
 	if (rc) {
