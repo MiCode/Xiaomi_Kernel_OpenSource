@@ -38,6 +38,7 @@
 struct camera_v4l2_private {
 	struct v4l2_fh fh;
 	unsigned int stream_id;
+	unsigned int is_vb2_valid; /*0 if no vb2 buffers on stream, else 1*/
 	struct vb2_queue vb2_q;
 };
 
@@ -314,6 +315,7 @@ static int camera_v4l2_s_fmt_vid_cap_mplane(struct file *filep, void *fh,
 		rc = camera_check_event_status(&event);
 		if (rc < 0)
 			goto set_fmt_fail;
+		sp->is_vb2_valid = 1;
 	}
 
 	return rc;
@@ -550,8 +552,8 @@ static unsigned int camera_v4l2_poll(struct file *filep,
 {
 	int rc = 0;
 	struct camera_v4l2_private *sp = fh_to_private(filep->private_data);
-
-	rc = vb2_poll(&sp->vb2_q, filep, wait);
+	if (sp->is_vb2_valid == 1)
+		rc = vb2_poll(&sp->vb2_q, filep, wait);
 
 	poll_wait(filep, &sp->fh.wait, wait);
 	if (v4l2_event_pending(&sp->fh))
