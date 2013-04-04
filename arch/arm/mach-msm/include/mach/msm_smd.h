@@ -279,6 +279,17 @@ int smd_write_segment(smd_channel_t *ch, void *data, int len, int user_buf);
  */
 int smd_write_end(smd_channel_t *ch);
 
+/**
+ * smd_write_segment_avail() - available write space for packet transactions
+ * @ch: channel to write packet to
+ * @returns: number of bytes available to write to, or -ENODEV for invalid ch
+ *
+ * This is a version of smd_write_avail() intended for use with packet
+ * transactions.  This version correctly accounts for any internal reserved
+ * space at all stages of the transaction.
+ */
+int smd_write_segment_avail(smd_channel_t *ch);
+
 /*
  * Returns a pointer to the subsystem name or NULL if no
  * subsystem name is available.
@@ -437,6 +448,11 @@ smd_write_segment(smd_channel_t *ch, void *data, int len, int user_buf)
 }
 
 static inline int smd_write_end(smd_channel_t *ch)
+{
+	return -ENODEV;
+}
+
+static inline int smd_write_segment_avail(smd_channel_t *ch)
 {
 	return -ENODEV;
 }
