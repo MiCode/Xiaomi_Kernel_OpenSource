@@ -827,9 +827,14 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 	}
 
 	if (bam_pipe_is_enabled(dev->base, pipe_index)) {
-		SPS_ERR("sps:BAM 0x%x pipe %d sharing violation",
-			BAM_ID(dev), pipe_index);
-		return SPS_ERROR;
+		if (params->options & SPS_O_NO_DISABLE)
+			SPS_DBG("sps:BAM 0x%x pipe %d is already enabled\n",
+				BAM_ID(dev), pipe_index);
+		else {
+			SPS_ERR("sps:BAM 0x%x pipe %d sharing violation\n",
+				BAM_ID(dev), pipe_index);
+			return SPS_ERROR;
+		}
 	}
 
 	if (bam_pipe_init(dev->base, pipe_index, &hw_params, dev->props.ee)) {
@@ -882,8 +887,13 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 	bam_pipe->state |= BAM_STATE_INIT;
 	result = 0;
 exit_err:
-	if (result)
-		bam_pipe_exit(dev->base, pipe_index, dev->props.ee);
+	if (result) {
+		if (params->options & SPS_O_NO_DISABLE)
+			SPS_DBG("sps:BAM 0x%x pipe %d connection exits\n",
+				BAM_ID(dev), pipe_index);
+		else
+			bam_pipe_exit(dev->base, pipe_index, dev->props.ee);
+	}
 exit_init_err:
 	if (result) {
 		/* Clear the client pipe state */
@@ -916,7 +926,11 @@ int sps_bam_pipe_disconnect(struct sps_bam *dev, u32 pipe_index)
 			dev->pipe_active_mask &= ~(1UL << pipe_index);
 		}
 		dev->pipe_remote_mask &= ~(1UL << pipe_index);
-		bam_pipe_exit(dev->base, pipe_index, dev->props.ee);
+		if (pipe->connect.options & SPS_O_NO_DISABLE)
+			SPS_DBG("sps:BAM 0x%x pipe %d exits\n", BAM_ID(dev),
+				pipe_index);
+		else
+			bam_pipe_exit(dev->base, pipe_index, dev->props.ee);
 		if (pipe->sys.desc_cache != NULL) {
 			u32 size = pipe->num_descs * sizeof(void *);
 			if (pipe->desc_size + size <= PAGE_SIZE)
@@ -1114,7 +1128,12 @@ int sps_bam_pipe_disable(struct sps_bam *dev, u32 pipe_index)
 	struct sps_pipe *pipe = dev->pipes[pipe_index];
 
 	/* Disable the BAM pipe */
-	bam_pipe_disable(dev->base, pipe_index);
+	if (pipe->connect.options & SPS_O_NO_DISABLE)
+		SPS_DBG("sps:BAM 0x%x pipe %d enters disable state\n",
+			BAM_ID(dev), pipe_index);
+	else
+		bam_pipe_disable(dev->base, pipe_index);
+
 	pipe->state &= ~BAM_STATE_ENABLED;
 
 	return 0;
