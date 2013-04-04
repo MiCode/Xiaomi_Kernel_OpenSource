@@ -7,7 +7,8 @@ Required properties :
 - regs : offset and length of the register set in the memory map
 - interrupts: IRQ line
 - interrupt-names: OTG interrupt name(s) referenced in interrupts above
-            HSUSB OTG expects "core_irq" and optionally "async_irq".
+            HSUSB OTG expects "core_irq" which is IRQ line from CORE and
+            optional ones are described in next section.
 - qcom,hsusb-otg-phy-type: PHY type can be one of
             1 - Chipidea 45nm PHY
 	    2 - Synopsis 28nm PHY
@@ -28,6 +29,9 @@ Required properties :
          "HSUSB_1p8-supply" and "HSUSB_3p3-supply".
 
 Optional properties :
+- interrupt-names : Optional interrupt resource entries are:
+    "async_irq" : Interrupt from HSPHY for asynchronous wakeup events in LPM.
+    "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
 - qcom,hsusb-otg-disable-reset: If present then core is RESET only during
 	    init, otherwise core is RESET for every cable disconnect as well
 - qcom,hsusb-otg-pnoc-errata-fix: If present then workaround for PNOC
@@ -43,7 +47,6 @@ Optional properties :
 - qcom,hsusb-otg-power-budget: VBUS power budget in mA
   0 will be treated as 500mA
 - qcom,hsusb-otg-pclk-src-name: The source of pclk
-- qcom,hsusb-otg-pmic-id-irq: ID, routed to PMIC IRQ number
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   below optional properties:
     - qcom,msm_bus,name
@@ -83,7 +86,6 @@ Example HSUSB OTG controller device node :
 		qcom,hsusb-otg-phy-init-seq = <0x01 0x90 0xffffffff>;
 		qcom,hsusb-otg-power-budget = <500>;
 		qcom,hsusb-otg-pclk-src-name = "dfab_usb_clk";
-		qcom,hsusb-otg-pmic-id-irq = <47>
 		qcom,hsusb-otg-lpm-on-dev-suspend;
 		qcom,hsusb-otg-clk-always-on-workaround;
 		hsusb_vdd_dig-supply = <&pm8226_s1_corner>;
