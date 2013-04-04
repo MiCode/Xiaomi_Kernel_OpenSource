@@ -2187,6 +2187,8 @@ static int __init msm_audio_init(void)
 	if (socinfo_get_pmic_model() == PMIC_MODEL_PM8917)
 		bottom_spk_pamp_gpio = PM8921_GPIO_PM_TO_SYS(16);
 
+	mutex_init(&cdc_mclk_mutex);
+
 	mbhc_cfg.calibration = def_tabla_mbhc_cal();
 	if (!mbhc_cfg.calibration) {
 		pr_err("Calibration data allocation failed\n");
@@ -2208,7 +2210,6 @@ static int __init msm_audio_init(void)
 		return ret;
 	}
 
-	mutex_init(&cdc_mclk_mutex);
 	atomic_set(&auxpcm_rsc_ref, 0);
 	return ret;
 

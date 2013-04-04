@@ -1778,6 +1778,7 @@ static int __init msm8960_audio_init(void)
 		return -ENODEV ;
 	}
 
+	mutex_init(&cdc_mclk_mutex);
 	mbhc_cfg.calibration = def_tabla_mbhc_cal();
 	if (!mbhc_cfg.calibration) {
 		pr_err("Calibration data allocation failed\n");
@@ -1837,7 +1838,6 @@ static int __init msm8960_audio_init(void)
 								__func__);
 	}
 
-	mutex_init(&cdc_mclk_mutex);
 	atomic_set(&auxpcm_rsc_ref, 0);
 	return ret;
 
