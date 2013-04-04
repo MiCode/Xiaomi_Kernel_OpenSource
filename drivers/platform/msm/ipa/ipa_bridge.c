@@ -403,7 +403,7 @@ static int setup_bridge_to_ipa(enum ipa_bridge_dir dir,
 		sys->connection.dest_pipe_index = ipa_ctx->a5_pipe_index++;
 		sys->connection.mode = SPS_MODE_SRC;
 		sys->connection.options = SPS_O_AUTO_ENABLE | SPS_O_EOT |
-		      SPS_O_ACK_TRANSFERS;
+		      SPS_O_ACK_TRANSFERS | SPS_O_NO_DISABLE;
 	}
 
 	sys->desc_mem_buf.size = props->desc_fifo_sz;
