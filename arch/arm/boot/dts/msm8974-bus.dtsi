@@ -296,6 +296,9 @@
 			qcom,mode = "Fixed";
 			qcom,qport = <1>;
 			qcom,mas-hw-id = <19>;
+			qcom,prio-rd = <1>;
+			qcom,prio-wr = <1>;
+			qcom,hw-sel = "NoC";
 		};
 
 		mas-snoc-cfg {
@@ -432,6 +435,9 @@
 			qcom,qport = <10>;
 			qcom,mode = "Fixed";
 			qcom,mas-hw-id = <31>;
+			qcom,prio-rd = <1>;
+			qcom,prio-wr = <1>;
+			qcom,hw-sel = "NoC";
 		};
 
 		mas-usb3 {
@@ -442,8 +448,8 @@
 			qcom,mode = "Fixed";
 			qcom,qport = <11>;
 			qcom,mas-hw-id = <32>;
-			qcom,prio-rd = <2>;
-			qcom,prio-wr = <2>;
+			qcom,prio-rd = <1>;
+			qcom,prio-wr = <1>;
 			qcom,hw-sel = "NoC";
 			qcom,iface-clk-node = "msm_usb3";
 		};
