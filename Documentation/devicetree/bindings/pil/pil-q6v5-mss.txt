@@ -46,8 +46,8 @@ Example:
 		qcom,pil-self-auth;
 
 		/* GPIO inputs from mss */
-		gpio_err_fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
 
 		/* GPIO output to mss */
-		gpio_force_stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
