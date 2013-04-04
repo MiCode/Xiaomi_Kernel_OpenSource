@@ -29,6 +29,7 @@
 #include <linux/debugfs.h>
 #include <linux/time.h>
 #include <linux/atomic.h>
+#include <linux/msm_audio_ion.h>
 
 #include <asm/ioctls.h>
 
@@ -455,11 +456,8 @@ int q6asm_audio_client_buf_free(unsigned int dir,
 
 		while (cnt >= 0) {
 			if (port->buf[cnt].data) {
-				ion_unmap_kernel(port->buf[cnt].client,
-						port->buf[cnt].handle);
-				ion_free(port->buf[cnt].client,
-						port->buf[cnt].handle);
-				ion_client_destroy(port->buf[cnt].client);
+				msm_audio_ion_free(port->buf[cnt].client,
+						   port->buf[cnt].handle);
 				port->buf[cnt].data = NULL;
 				port->buf[cnt].phys = 0;
 				--(port->max_buf_cnt);
@@ -496,9 +494,7 @@ int q6asm_audio_client_buf_free_contiguous(unsigned int dir,
 	}
 
 	if (port->buf[0].data) {
-		ion_unmap_kernel(port->buf[0].client, port->buf[0].handle);
-		ion_free(port->buf[0].client, port->buf[0].handle);
-		ion_client_destroy(port->buf[0].client);
+		msm_audio_ion_free(port->buf[0].client, port->buf[0].handle);
 		pr_debug("%s:data[%p]phys[%p][%p] , client[%p] handle[%p]\n",
 			__func__,
 			(void *)port->buf[0].data,
@@ -723,44 +719,19 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 		while (cnt < bufcnt) {
 			if (bufsz > 0) {
 				if (!buf[cnt].data) {
-					buf[cnt].client = msm_ion_client_create
-						(UINT_MAX, "audio_client");
-					if (IS_ERR_OR_NULL((void *)
-						buf[cnt].client)) {
-						pr_err("%s: ION create client for AUDIO failed\n",
-						__func__);
-						goto fail;
-					}
-					buf[cnt].handle = ion_alloc
-						(buf[cnt].client, bufsz, SZ_4K,
-						(0x1 << ION_AUDIO_HEAP_ID), 0);
-					if (IS_ERR_OR_NULL((void *)
-						buf[cnt].handle)) {
-						pr_err("%s: ION memory allocation for AUDIO failed\n",
-							__func__);
-						goto fail;
-					}
-
-					rc = ion_phys(buf[cnt].client,
-						buf[cnt].handle,
-						(ion_phys_addr_t *)
-						&buf[cnt].phys,
-						(size_t *)&len);
+					msm_audio_ion_alloc("audio_client",
+					&buf[cnt].client, &buf[cnt].handle,
+					      bufsz,
+					      (ion_phys_addr_t *)&buf[cnt].phys,
+					      (size_t *)&len,
+					      &buf[cnt].data);
 					if (rc) {
 						pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
 							__func__, rc);
-						goto fail;
+						mutex_unlock(&ac->cmd_lock);
+					goto fail;
 					}
 
-					buf[cnt].data = ion_map_kernel
-					(buf[cnt].client, buf[cnt].handle);
-					if (IS_ERR_OR_NULL((void *)
-						buf[cnt].data)) {
-						pr_err("%s: ION memory mapping for AUDIO failed\n",
-						 __func__);
-						goto fail;
-					}
-					memset((void *)buf[cnt].data, 0, bufsz);
 					buf[cnt].used = 1;
 					buf[cnt].size = bufsz;
 					buf[cnt].actual_size = bufsz;
@@ -823,35 +794,13 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 
 	ac->port[dir].buf = buf;
 
-	buf[0].client = msm_ion_client_create(UINT_MAX, "audio_client");
-	if (IS_ERR_OR_NULL((void *)buf[0].client)) {
-		pr_err("%s: ION create client for AUDIO failed\n", __func__);
-		goto fail;
-	}
-	buf[0].handle = ion_alloc(buf[0].client, bufsz * bufcnt, SZ_4K,
-				  (0x1 << ION_AUDIO_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL((void *) buf[0].handle)) {
-		pr_err("%s: ION memory allocation for AUDIO failed\n",
-			__func__);
-		goto fail;
-	}
-
-	rc = ion_phys(buf[0].client, buf[0].handle,
-		  (ion_phys_addr_t *)&buf[0].phys, (size_t *)&len);
+	rc = msm_audio_ion_alloc("audio_client", &buf[0].client, &buf[0].handle,
+		bufsz*bufcnt,
+		(ion_phys_addr_t *)&buf[0].phys, (size_t *)&len,
+		&buf[0].data);
 	if (rc) {
-		pr_err("%s: ION Get Physical for AUDIO failed, rc = %d\n",
+		pr_err("%s: Audio ION alloc is failed, rc = %d\n",
 			__func__, rc);
-		goto fail;
-	}
-
-	buf[0].data = ion_map_kernel(buf[0].client, buf[0].handle);
-	if (IS_ERR_OR_NULL((void *) buf[0].data)) {
-		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
-		goto fail;
-	}
-	memset((void *)buf[0].data, 0, (bufsz * bufcnt));
-	if (!buf[0].data) {
-		pr_err("%s:invalid vaddr, iomap failed\n", __func__);
 		mutex_unlock(&ac->cmd_lock);
 		goto fail;
 	}

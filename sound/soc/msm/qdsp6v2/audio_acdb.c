@@ -18,6 +18,7 @@
 #include <linux/uaccess.h>
 #include <linux/msm_ion.h>
 #include <linux/mm.h>
+#include <linux/msm_audio_ion.h>
 #include "audio_acdb.h"
 
 
@@ -870,9 +871,7 @@ static int deregister_memory(void)
 			kfree(acdb_data.col_data[i]);
 			acdb_data.col_data[i] = NULL;
 		}
-		ion_unmap_kernel(acdb_data.ion_client, acdb_data.ion_handle);
-		ion_free(acdb_data.ion_client, acdb_data.ion_handle);
-		ion_client_destroy(acdb_data.ion_client);
+		msm_audio_ion_free(acdb_data.ion_client, acdb_data.ion_handle);
 		mutex_unlock(&acdb_data.acdb_mutex);
 	}
 	return 0;
@@ -894,34 +893,16 @@ static int register_memory(void)
 			(uint32_t)acdb_data.col_data[i]);
 	}
 
-	acdb_data.ion_client =
-		msm_ion_client_create(UINT_MAX, "audio_acdb_client");
-	if (IS_ERR_OR_NULL(acdb_data.ion_client)) {
-		pr_err("%s: Could not register ION client!!!\n", __func__);
+	result = msm_audio_ion_import("audio_acdb_client",
+				&acdb_data.ion_client,
+				&acdb_data.ion_handle,
+				atomic_read(&acdb_data.map_handle),
+				NULL, 0,
+				&paddr, (size_t *)&mem_len, &kvptr);
+	if (result) {
+		pr_err("%s: audio ION alloc failed, rc = %d\n",
+			__func__, result);
 		result = PTR_ERR(acdb_data.ion_client);
-		goto err;
-	}
-
-	acdb_data.ion_handle = ion_import_dma_buf(acdb_data.ion_client,
-		atomic_read(&acdb_data.map_handle));
-	if (IS_ERR_OR_NULL(acdb_data.ion_handle)) {
-		pr_err("%s: Could not import map handle!!!\n", __func__);
-		result = PTR_ERR(acdb_data.ion_handle);
-		goto err_ion_client;
-	}
-
-	result = ion_phys(acdb_data.ion_client, acdb_data.ion_handle,
-				&paddr, (size_t *)&mem_len);
-	if (result != 0) {
-		pr_err("%s: Could not get phys addr!!!\n", __func__);
-		goto err_ion_handle;
-	}
-
-	kvptr = ion_map_kernel(acdb_data.ion_client,
-		acdb_data.ion_handle);
-	if (IS_ERR_OR_NULL(kvptr)) {
-		pr_err("%s: Could not get kernel virt addr!!!\n", __func__);
-		result = PTR_ERR(kvptr);
 		goto err_ion_handle;
 	}
 	kvaddr = (unsigned long)kvptr;
@@ -938,10 +919,8 @@ static int register_memory(void)
 
 	return result;
 err_ion_handle:
-	ion_free(acdb_data.ion_client, acdb_data.ion_handle);
-err_ion_client:
-	ion_client_destroy(acdb_data.ion_client);
-err:
+	msm_audio_ion_free(acdb_data.ion_client, acdb_data.ion_handle);
+
 	atomic64_set(&acdb_data.mem_len, 0);
 	mutex_unlock(&acdb_data.acdb_mutex);
 	return result;
