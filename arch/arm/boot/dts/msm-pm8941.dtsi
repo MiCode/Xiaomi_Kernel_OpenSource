@@ -791,7 +791,6 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <16>;
 			qcom,adc-vdd-reference = <1800>;
-			qcom,rsense = <1500>;
 
 			chan@0 {
 				label = "internal_rsense";
