@@ -782,26 +782,6 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_RX      0x4008
 /* SLIMbus Tx port on channel 4. */
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_TX      0x4009
-/* SLIMbus Rx port on channel 0. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_0_RX      0x4000
-/* SLIMbus Tx port on channel 0. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_0_TX      0x4001
-/* SLIMbus Rx port on channel 1. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_1_RX      0x4002
-/* SLIMbus Tx port on channel 1. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_1_TX      0x4003
-/* SLIMbus Rx port on channel 2. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_2_RX      0x4004
-/* SLIMbus Tx port on channel 2. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_2_TX      0x4005
-/* SLIMbus Rx port on channel 3. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_3_RX      0x4006
-/* SLIMbus Tx port on channel 3. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_3_TX      0x4007
-/* SLIMbus Rx port on channel 4. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_RX      0x4008
-/* SLIMbus Tx port on channel 4. */
-#define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_TX      0x4009
 /* SLIMbus Rx port on channel 5. */
 #define AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_RX      0x400a
 /* SLIMbus Tx port on channel 5. */
