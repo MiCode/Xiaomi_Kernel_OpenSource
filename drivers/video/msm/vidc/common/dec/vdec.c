@@ -28,10 +28,10 @@
 
 #include <linux/clk.h>
 #include <linux/timer.h>
-#include <mach/msm_subsystem_map.h>
 #include <media/msm/vidc_type.h>
 #include <media/msm/vcd_api.h>
 #include <media/msm/vidc_init.h>
+#include <mach/iommu_domains.h>
 #include "vcd_res_tracker_api.h"
 #include "vdec_internal.h"
 
@@ -1241,13 +1241,6 @@ static u32 vid_dec_free_meta_buffers(struct video_client_ctx *client_ctx)
 
 	if (!client_ctx)
 		return false;
-	if (client_ctx->vcd_meta_buffer.client_data)
-		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
-		client_ctx->vcd_meta_buffer.client_data);
-
-	if (client_ctx->vcd_meta_buffer.client_data_iommu)
-		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
-		client_ctx->vcd_meta_buffer.client_data_iommu);
 
 	vcd_property_hdr.prop_id = VCD_I_FREE_EXT_METABUFFER;
 	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
@@ -1300,9 +1293,6 @@ static u32 vid_dec_free_h264_mv_buffers(struct video_client_ctx *client_ctx)
 
 	if (!client_ctx)
 		return false;
-	if (client_ctx->vcd_h264_mv_buffer.client_data)
-		msm_subsystem_unmap_buffer((struct msm_mapped_buffer *)
-		client_ctx->vcd_h264_mv_buffer.client_data);
 
 	vcd_property_hdr.prop_id = VCD_I_FREE_H264_MV_BUFFER;
 	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
