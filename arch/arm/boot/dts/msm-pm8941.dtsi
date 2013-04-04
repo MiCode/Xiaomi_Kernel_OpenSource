@@ -105,7 +105,7 @@
 			qcom,r-sense-uohm = <10000>;
 			qcom,v-cutoff-uv = <3400000>;
 			qcom,max-voltage-uv = <4200000>;
-			qcom,r-conn-mohm = <18>;
+			qcom,r-conn-mohm = <0>;
 			qcom,shutdown-soc-valid-limit = <20>;
 			qcom,adjust-soc-low-threshold = <25>;
 			qcom,adjust-soc-high-threshold = <45>;
