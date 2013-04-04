@@ -3784,8 +3784,6 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				&pdata->default_mode);
 	of_property_read_u32(node, "qcom,hsusb-otg-phy-type",
 				&pdata->phy_type);
-	of_property_read_u32(node, "qcom,hsusb-otg-pmic-id-irq",
-				&pdata->pmic_id_irq);
 	pdata->disable_reset_on_disconnect = of_property_read_bool(node,
 				"qcom,hsusb-otg-disable-reset");
 	pdata->pnoc_errata_fix = of_property_read_bool(node,
@@ -3798,6 +3796,10 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				"qcom,hsusb-otg-delay-lpm");
 	pdata->dp_manual_pullup = of_property_read_bool(node,
 				"qcom,dp-manual-pullup");
+
+	pdata->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
+	if (pdata->pmic_id_irq < 0)
+		pdata->pmic_id_irq = 0;
 
 	return pdata;
 }
