@@ -117,6 +117,14 @@ struct qseecom_qseos_app_load_query {
 	int app_id; /* out */
 };
 
+struct qseecom_send_svc_cmd_req {
+	uint32_t cmd_id;
+	void *cmd_req_buf; /* in */
+	unsigned int cmd_req_len; /* in */
+	void *resp_buf; /* in/out */
+	unsigned int resp_len; /* in/out */
+};
+
 #define QSEECOM_IOC_MAGIC    0x97
 
 
@@ -164,6 +172,9 @@ struct qseecom_qseos_app_load_query {
 
 #define QSEECOM_IOCTL_APP_LOADED_QUERY_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 15, struct qseecom_qseos_app_load_query)
+
+#define QSEECOM_IOCTL_SEND_CMD_SERVICE_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 16, struct qseecom_send_svc_cmd_req)
 
 
 #endif /* __QSEECOM_H_ */
