@@ -28,8 +28,9 @@
 #include <linux/bitrev.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
+#include <linux/ctype.h>
 #include <mach/sps.h>
-
+#include <mach/msm_smsm.h>
 #define PAGE_SIZE_2K 2048
 #define PAGE_SIZE_4K 4096
 #define WRITE 1
@@ -284,6 +285,34 @@ struct onfi_param_page {
 	uint8_t  vendor_specific[88];
 	uint16_t integrity_crc;
 } __attribute__((__packed__));
+
+#define FLASH_PART_MAGIC1	0x55EE73AA
+#define FLASH_PART_MAGIC2	0xE35EBDDB
+#define FLASH_PTABLE_V3		3
+#define FLASH_PTABLE_V4		4
+#define FLASH_PTABLE_MAX_PARTS_V3 16
+#define FLASH_PTABLE_MAX_PARTS_V4 32
+#define FLASH_PTABLE_HDR_LEN (4*sizeof(uint32_t))
+#define FLASH_PTABLE_ENTRY_NAME_SIZE 16
+
+struct flash_partition_entry {
+	char name[FLASH_PTABLE_ENTRY_NAME_SIZE];
+	u32 offset;     /* Offset in blocks from beginning of device */
+	u32 length;     /* Length of the partition in blocks */
+	u8 attr;	/* Flags for this partition */
+};
+
+struct flash_partition_table {
+	u32 magic1;
+	u32 magic2;
+	u32 version;
+	u32 numparts;
+	struct flash_partition_entry part_entry[FLASH_PTABLE_MAX_PARTS_V4];
+};
+
+static struct flash_partition_table ptable;
+
+static struct mtd_partition mtd_part[FLASH_PTABLE_MAX_PARTS_V4];
 
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
@@ -2338,6 +2367,75 @@ out:
 
 }
 
+#ifdef CONFIG_MSM_SMD
+static int msm_nand_parse_smem_ptable(int *nr_parts)
+{
+
+	uint32_t  i, j;
+	uint32_t len = FLASH_PTABLE_HDR_LEN;
+	struct flash_partition_entry *pentry;
+	char *delimiter = ":";
+
+	pr_info("Parsing partition table info from SMEM\n");
+	/* Read only the header portion of ptable */
+	ptable = *(struct flash_partition_table *)
+			(smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len));
+	/* Verify ptable magic */
+	if (ptable.magic1 != FLASH_PART_MAGIC1 ||
+			ptable.magic2 != FLASH_PART_MAGIC2) {
+		pr_err("Partition table magic verification failed\n");
+		goto out;
+	}
+	/* Ensure that # of partitions is less than the max we have allocated */
+	if (ptable.numparts > FLASH_PTABLE_MAX_PARTS_V4) {
+		pr_err("Partition numbers exceed the max limit\n");
+		goto out;
+	}
+	/* Find out length of partition data based on table version. */
+	if (ptable.version <= FLASH_PTABLE_V3) {
+		len = FLASH_PTABLE_HDR_LEN + FLASH_PTABLE_MAX_PARTS_V3 *
+			sizeof(struct flash_partition_entry);
+	} else if (ptable.version == FLASH_PTABLE_V4) {
+		len = FLASH_PTABLE_HDR_LEN + FLASH_PTABLE_MAX_PARTS_V4 *
+			sizeof(struct flash_partition_entry);
+	} else {
+		pr_err("Unknown ptable version (%d)", ptable.version);
+		goto out;
+	}
+
+	*nr_parts = ptable.numparts;
+	ptable = *(struct flash_partition_table *)
+			(smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len));
+	for (i = 0; i < ptable.numparts; i++) {
+		pentry = &ptable.part_entry[i];
+		if (pentry->name == '\0')
+			continue;
+		/* Convert name to lower case and discard the initial chars */
+		mtd_part[i].name        = pentry->name;
+		for (j = 0; j < strlen(mtd_part[i].name); j++)
+			*(mtd_part[i].name + j) =
+				tolower(*(mtd_part[i].name + j));
+		strsep(&(mtd_part[i].name), delimiter);
+		mtd_part[i].offset      = pentry->offset;
+		mtd_part[i].mask_flags  = pentry->attr;
+		mtd_part[i].size        = pentry->length;
+		pr_debug("%d: %s offs=0x%08x size=0x%08x attr:0x%08x\n",
+			i, pentry->name, pentry->offset, pentry->length,
+			pentry->attr);
+	}
+	pr_info("SMEM partition table found: ver: %d len: %d\n",
+		ptable.version, ptable.numparts);
+	return 0;
+out:
+	return -EINVAL;
+}
+#else
+static int msm_nand_parse_smem_ptable(int *nr_parts)
+{
+	return -ENODEV;
+}
+#endif
+
 /*
  * This function gets called when its device named msm-nand is added to
  * device tree .dts file with all its resources such as physical addresses
@@ -2352,26 +2450,13 @@ static int __devinit msm_nand_probe(struct platform_device *pdev)
 {
 	struct msm_nand_info *info;
 	struct resource *res;
-	int err;
-	struct device_node *pnode;
-	struct mtd_part_parser_data parser_data;
-
-	if (!pdev->dev.of_node) {
-		pr_err("No valid device tree info for NANDc\n");
-		err = -ENODEV;
-		goto out;
-	}
+	int i, err, nr_parts;
 
 	/*
 	 * The partition information can also be passed from kernel command
 	 * line. Also, the MTD core layer supports adding the whole device as
 	 * one MTD device when no partition information is available at all.
-	 * Hence, do not bail out when partition information is not availabe
-	 * in device tree.
 	 */
-	pnode = of_find_node_by_path("/qcom,mtd-partitions");
-	if (!pnode)
-		pr_info("No partition info available in device tree\n");
 	info = devm_kzalloc(&pdev->dev, sizeof(struct msm_nand_info),
 				GFP_KERNEL);
 	if (!info) {
@@ -2379,7 +2464,6 @@ static int __devinit msm_nand_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto out;
 	}
-
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"nand_phys");
 	if (!res || !res->start) {
@@ -2438,14 +2522,22 @@ static int __devinit msm_nand_probe(struct platform_device *pdev)
 		pr_err("Failed to enable DMA in NANDc\n");
 		goto free_bam;
 	}
+	err = msm_nand_parse_smem_ptable(&nr_parts);
+	if (err < 0) {
+		pr_err("Failed to parse partition table in SMEM\n");
+		goto free_bam;
+	}
 	if (msm_nand_scan(&info->mtd)) {
 		pr_err("No nand device found\n");
 		err = -ENXIO;
 		goto free_bam;
 	}
-	parser_data.of_node = pnode;
-	err = mtd_device_parse_register(&info->mtd, NULL, &parser_data,
-					NULL, 0);
+	for (i = 0; i < nr_parts; i++) {
+		mtd_part[i].offset *= info->mtd.erasesize;
+		mtd_part[i].size *= info->mtd.erasesize;
+	}
+	err = mtd_device_parse_register(&info->mtd, NULL, NULL,
+		&mtd_part[0], nr_parts);
 	if (err < 0) {
 		pr_err("Unable to register MTD partitions %d\n", err);
 		goto free_bam;
