@@ -369,7 +369,8 @@ struct vfe_device {
 	struct completion reset_complete;
 	struct completion halt_complete;
 	struct completion stream_config_complete;
-	struct mutex mutex;
+	struct mutex realtime_mutex;
+	struct mutex core_mutex;
 
 	atomic_t irq_cnt;
 	uint8_t taskletq_idx;

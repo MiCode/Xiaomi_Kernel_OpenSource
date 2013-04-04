@@ -120,55 +120,82 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 	long rc = 0;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 
-	mutex_lock(&vfe_dev->mutex);
-	ISP_DBG("%s cmd: %d\n", __func__, cmd);
+	/* Use real time mutex for hard real-time ioctls such as
+	 * buffer operations and register updates.
+	 * Use core mutex for other ioctls that could take
+	 * longer time to complete such as start/stop ISP streams
+	 * which blocks until the hardware start/stop streaming
+	 */
+	ISP_DBG("%s cmd: %d\n", __func__, _IOC_TYPE(cmd));
 	switch (cmd) {
 	case VIDIOC_MSM_VFE_REG_CFG: {
+		mutex_lock(&vfe_dev->realtime_mutex);
 		rc = msm_isp_proc_cmd(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->realtime_mutex);
 		break;
 	}
 	case VIDIOC_MSM_ISP_REQUEST_BUF:
 	case VIDIOC_MSM_ISP_ENQUEUE_BUF:
 	case VIDIOC_MSM_ISP_RELEASE_BUF: {
+		mutex_lock(&vfe_dev->realtime_mutex);
 		rc = msm_isp_proc_buf_cmd(vfe_dev->buf_mgr, cmd, arg);
+		mutex_unlock(&vfe_dev->realtime_mutex);
 		break;
 	}
 	case VIDIOC_MSM_ISP_REQUEST_STREAM:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_request_axi_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_RELEASE_STREAM:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_release_axi_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_CFG_STREAM:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_INPUT_CFG:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_cfg_input(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_SET_SRC_STATE:
+		mutex_lock(&vfe_dev->core_mutex);
 		msm_isp_set_src_state(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_REQUEST_STATS_STREAM:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_request_stats_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_RELEASE_STATS_STREAM:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_release_stats_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_CFG_STATS_STREAM:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_cfg_stats_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_cfg_stats_comp_policy(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_UPDATE_STREAM:
+		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_update_axi_stream(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	default:
 		pr_err("%s: Invalid ISP command\n", __func__);
 		rc = -EINVAL;
 	}
-
-	mutex_unlock(&vfe_dev->mutex);
 	return rc;
 }
 
@@ -623,23 +650,27 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	long rc;
 	ISP_DBG("%s\n", __func__);
 
-	mutex_lock(&vfe_dev->mutex);
+	mutex_lock(&vfe_dev->realtime_mutex);
+	mutex_lock(&vfe_dev->core_mutex);
 	if (vfe_dev->vfe_open_cnt == 1) {
 		pr_err("VFE already open\n");
-		mutex_unlock(&vfe_dev->mutex);
+		mutex_unlock(&vfe_dev->core_mutex);
+		mutex_unlock(&vfe_dev->realtime_mutex);
 		return -ENODEV;
 	}
 
 	if (vfe_dev->hw_info->vfe_ops.core_ops.init_hw(vfe_dev) < 0) {
 		pr_err("%s: init hardware failed\n", __func__);
-		mutex_unlock(&vfe_dev->mutex);
+		mutex_unlock(&vfe_dev->core_mutex);
+		mutex_unlock(&vfe_dev->realtime_mutex);
 		return -EBUSY;
 	}
 
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev);
 	if (rc <= 0) {
 		pr_err("%s: reset timeout\n", __func__);
-		mutex_unlock(&vfe_dev->mutex);
+		mutex_unlock(&vfe_dev->core_mutex);
+		mutex_unlock(&vfe_dev->realtime_mutex);
 		return -EINVAL;
 	}
 	vfe_dev->vfe_hw_version = msm_camera_io_r(vfe_dev->vfe_base);
@@ -659,7 +690,8 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 	vfe_dev->vfe_open_cnt++;
 	vfe_dev->taskletq_idx = 0;
-	mutex_unlock(&vfe_dev->mutex);
+	mutex_unlock(&vfe_dev->core_mutex);
+	mutex_unlock(&vfe_dev->realtime_mutex);
 	return 0;
 }
 
@@ -669,10 +701,12 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	long rc;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	ISP_DBG("%s\n", __func__);
-	mutex_lock(&vfe_dev->mutex);
+	mutex_lock(&vfe_dev->realtime_mutex);
+	mutex_lock(&vfe_dev->core_mutex);
 	if (vfe_dev->vfe_open_cnt == 0) {
 		pr_err("%s: Invalid close\n", __func__);
-		mutex_unlock(&vfe_dev->mutex);
+		mutex_unlock(&vfe_dev->core_mutex);
+		mutex_unlock(&vfe_dev->realtime_mutex);
 		return -ENODEV;
 	}
 
@@ -689,6 +723,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
 
 	vfe_dev->vfe_open_cnt--;
-	mutex_unlock(&vfe_dev->mutex);
+	mutex_unlock(&vfe_dev->core_mutex);
+	mutex_unlock(&vfe_dev->realtime_mutex);
 	return 0;
 }
