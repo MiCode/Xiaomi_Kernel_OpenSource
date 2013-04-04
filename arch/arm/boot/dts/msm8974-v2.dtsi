@@ -67,6 +67,13 @@
 	qcom,mdss-pingpong-off = <0x00012D00 0x00012E00 0x00012F00>;
 };
 
+&mdss_hdmi_tx {
+	reg =	<0xfd922100 0x370>,
+		<0xfd922500 0x7C>,
+		<0xfc4b8000 0x60F0>;
+	reg-names = "core_physical", "phy_physical", "qfprom_physical";
+};
+
 &msm_vidc {
 	qcom,vidc-ns-map = <0x40000000 0x40000000>;
 	qcom,load-freq-tbl = <979200 465000000>,
