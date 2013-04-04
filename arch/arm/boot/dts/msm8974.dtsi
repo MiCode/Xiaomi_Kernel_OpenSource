@@ -1237,7 +1237,7 @@
 		interrupts = <0 132 0 0 135 0>;
 		interrupt-names = "ssusb", "hsusb";
 		qcom,usb-bam-num-pipes = <16>;
-		qcom,usb-base-address = <0xf9200000>;
+		qcom,usb-bam-fifo-baseaddr = <0xf9200000>;
 		qcom,ignore-core-reset-ack;
 		qcom,disable-clk-gating;
 
