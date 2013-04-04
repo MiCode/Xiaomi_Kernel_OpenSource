@@ -55,6 +55,10 @@ struct wcd9xxx_clsh_cdc_data {
 	struct wcd9xxx_resmgr *resmgr;
 };
 
+struct wcd9xxx_anc_header {
+	u32 reserved[3];
+	u32 num_anc_slots;
+};
 
 enum wcd9xxx_buck_volt {
 	WCD9XXX_CDC_BUCK_UNSUPPORTED = 0,

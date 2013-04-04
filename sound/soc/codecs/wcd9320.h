@@ -90,11 +90,6 @@ enum {
 	TAIKO_TX_MAX,
 };
 
-struct anc_header {
-	u32 reserved[3];
-	u32 num_anc_slots;
-};
-
 struct mad_audio_header {
 	u32 reserved[3];
 	u32 num_reg_cfg;
