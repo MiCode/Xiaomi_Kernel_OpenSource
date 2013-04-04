@@ -125,7 +125,6 @@
 #define QPNP_BIT_SHIFT_8				8
 #define QPNP_RSENSE_MSB_SIGN_CHECK			0x80
 #define QPNP_ADC_COMPLETION_TIMEOUT			HZ
-#define QPNP_IADC_ERR_CHK_RATELIMIT			3
 
 struct qpnp_iadc_drv {
 	struct qpnp_adc_drv			*adc;
@@ -136,7 +135,6 @@ struct qpnp_iadc_drv {
 	struct delayed_work			iadc_work;
 	struct mutex				iadc_vadc_lock;
 	bool					iadc_mode_sel;
-	uint32_t				iadc_err_cnt;
 	struct sensor_device_attribute		sens_attr[0];
 };
 
@@ -254,7 +252,7 @@ static int32_t qpnp_iadc_status_debug(void)
 		return rc;
 	}
 
-	pr_err("EOC not set with status:%x, dig:%x, ch:%x, mode:%x, en:%x\n",
+	pr_debug("EOC not set with status:%x, dig:%x, ch:%x, mode:%x, en:%x\n",
 			status1, dig, chan, mode, en);
 
 	rc = qpnp_iadc_enable(false);
@@ -495,16 +493,12 @@ static void qpnp_iadc_work(struct work_struct *work)
 	int rc = 0;
 
 	rc = qpnp_iadc_calibrate_for_trim();
-	if (rc) {
-		pr_err("periodic IADC calibration failed\n");
-		iadc->iadc_err_cnt++;
-	}
-
-	if (iadc->iadc_err_cnt < QPNP_IADC_ERR_CHK_RATELIMIT)
+	if (rc)
+		pr_debug("periodic IADC calibration failed\n");
+	else
 		schedule_delayed_work(&iadc->iadc_work,
 			round_jiffies_relative(msecs_to_jiffies
 					(QPNP_IADC_CALIB_SECONDS)));
-
 	return;
 }
 
@@ -857,7 +851,6 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 
 	mutex_init(&iadc->iadc_vadc_lock);
 	INIT_DELAYED_WORK(&iadc->iadc_work, qpnp_iadc_work);
-	iadc->iadc_err_cnt = 0;
 	iadc->iadc_initialized = true;
 
 	rc = qpnp_iadc_calibrate_for_trim();
