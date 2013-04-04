@@ -128,3 +128,7 @@
 &ldrex_spinlock {
 	status = "ok";
 };
+
+&usb_otg {
+	qcom,hsusb-otg-pnoc-errata-fix;
+};
