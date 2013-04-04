@@ -97,11 +97,23 @@
 	};
 
 	mpp@a300 { /* MPP 4 */
+		/* VADC channel 19 */
+		qcom,mode = <4>;
+		qcom,ain-route = <3>; /* AMUX 8 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		qcom,invert = <1>;
 	};
 
 	mpp@a400 { /* MPP 5 */
 	};
 
 	mpp@a500 { /* MPP 6 */
+		/* VADC channel 21 */
+		qcom,mode = <4>;
+		qcom,ain-route = <1>; /* AMUX 6 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		qcom,invert = <1>;
 	};
 };
