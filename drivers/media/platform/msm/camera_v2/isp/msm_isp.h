@@ -249,6 +249,7 @@ struct msm_vfe_axi_stream {
 	/*Run time update variables*/
 	uint32_t runtime_init_frame_drop;
 	uint32_t runtime_burst_frame_count;/*number of sof before burst stop*/
+	uint32_t runtime_num_burst_capture;
 	uint8_t runtime_framedrop_update;
 };
 
