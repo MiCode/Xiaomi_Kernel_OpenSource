@@ -242,7 +242,8 @@ static int footswitch_disable(struct regulator_dev *rdev)
 		return rc;
 
 	/* Allow core memory to collapse when its clock is gated. */
-	clk_set_flags(fs->core_clk, CLKFLAG_NORETAIN_MEM);
+	if (fs->desc.id != FS_GFX3D_8064)
+		clk_set_flags(fs->core_clk, CLKFLAG_NORETAIN_MEM);
 
 	/* Halt all bus ports in the power domain. */
 	if (fs->bus_port0) {
