@@ -1517,7 +1517,7 @@ static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
 {
 	int ret = 0;
 	int curr_bl;
-	mutex_lock(&mfd->lock);
+	mutex_lock(&mfd->bl_lock);
 	curr_bl = mfd->bl_level;
 	mfd->bl_scale = data->scale;
 	mfd->bl_min_lvl = data->min_lvl;
@@ -1526,7 +1526,7 @@ static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
 
 	/* update current backlight to use new scaling*/
 	mdss_fb_set_backlight(mfd, curr_bl);
-	mutex_unlock(&mfd->lock);
+	mutex_unlock(&mfd->bl_lock);
 	return ret;
 }
 

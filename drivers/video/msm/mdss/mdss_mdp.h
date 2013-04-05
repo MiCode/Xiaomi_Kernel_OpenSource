@@ -249,6 +249,7 @@ struct pp_hist_col_info {
 
 struct mdss_ad_info {
 	char __iomem *base;
+	u8 num;
 	u32 sts;
 	u32 state;
 	u32 ad_data;
@@ -258,8 +259,11 @@ struct mdss_ad_info {
 	struct mutex lock;
 	struct work_struct calc_work;
 	struct msm_fb_data_type *mfd;
+	struct mdss_mdp_vsync_handler handle;
 	struct completion comp;
 	u32 last_str;
+	u32 last_bl;
+	u32 calc_itr;
 };
 
 struct pp_sts_type {
@@ -438,7 +442,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 int mdss_mdp_pp_init(struct device *dev);
 void mdss_mdp_pp_term(struct device *dev);
 
-int mdss_mdp_pp_resume(u32 mixer_num);
+int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 mixer_num);
 
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl);
