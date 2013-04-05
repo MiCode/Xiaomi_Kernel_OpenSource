@@ -524,7 +524,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	struct mdss_data_type *mdata;
 
 	mdata = mdss_mdp_get_mdata();
-	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102)
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 && pipe->src_fmt->is_yuv)
 		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
 	else
 		filter_mode = MDSS_MDP_SCALE_FILTER_BIL;
