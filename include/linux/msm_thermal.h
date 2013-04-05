@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,8 @@ struct msm_thermal_data {
 	int32_t core_limit_temp_degC;
 	int32_t core_temp_hysteresis_degC;
 	uint32_t core_control_mask;
+	int32_t vdd_rstr_temp_degC;
+	int32_t vdd_rstr_temp_hyst_degC;
 };
 
 #ifdef CONFIG_THERMAL_MONITOR
