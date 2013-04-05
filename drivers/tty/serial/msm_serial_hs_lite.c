@@ -1706,6 +1706,30 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 	port->uartclk = 7372800;
 	msm_hsl_port = UART_TO_MSM(port);
 
+	msm_hsl_port->clk = clk_get(&pdev->dev, "core_clk");
+	if (unlikely(IS_ERR(msm_hsl_port->clk))) {
+		ret = PTR_ERR(msm_hsl_port->clk);
+		if (ret != -EPROBE_DEFER)
+			pr_err("Error getting clk\n");
+		return ret;
+	}
+
+	/* Interface clock is not required by all UART configurations.
+	 * GSBI UART and BLSP UART needs interface clock but Legacy UART
+	 * do not require interface clock. Hence, do not fail probe with
+	 * iface clk_get failure.
+	 */
+	msm_hsl_port->pclk = clk_get(&pdev->dev, "iface_clk");
+	if (unlikely(IS_ERR(msm_hsl_port->pclk))) {
+		ret = PTR_ERR(msm_hsl_port->pclk);
+		if (ret == -EPROBE_DEFER) {
+			clk_put(msm_hsl_port->clk);
+			return ret;
+		} else {
+			msm_hsl_port->pclk = NULL;
+		}
+	}
+
 	/* Identify UART functional mode as 2-wire or 4-wire. */
 	if (pdata && pdata->config_gpio == 4)
 		msm_hsl_port->func_mode = UART_FOUR_WIRE;
@@ -1743,22 +1767,12 @@ static int __devinit msm_serial_hsl_probe(struct platform_device *pdev)
 						     "gsbi_resource");
 	if (!gsbi_resource)
 		gsbi_resource = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	msm_hsl_port->clk = clk_get(&pdev->dev, "core_clk");
-	msm_hsl_port->pclk = clk_get(&pdev->dev, "iface_clk");
 
 	if (gsbi_resource)
 		msm_hsl_port->uart_type = GSBI_HSUART;
 	else
 		msm_hsl_port->uart_type = LEGACY_HSUART;
 
-	if (unlikely(IS_ERR(msm_hsl_port->clk))) {
-		pr_err("Error getting clk\n");
-		return PTR_ERR(msm_hsl_port->clk);
-	}
-	if (unlikely(IS_ERR(msm_hsl_port->pclk))) {
-		pr_err("Error getting pclk\n");
-		return PTR_ERR(msm_hsl_port->pclk);
-	}
 
 	uart_resource = platform_get_resource_byname(pdev,
 						     IORESOURCE_MEM,
