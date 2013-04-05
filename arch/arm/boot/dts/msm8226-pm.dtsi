@@ -368,6 +368,17 @@
 		qcom,use-sync-timer;
 	};
 
+	qcom,rpm-log@fc19dc00 {
+		compatible = "qcom,rpm-log";
+		reg = <0xfc19dc00 0x4000>;
+		qcom,rpm-addr-phys = <0xfc000000>;
+		qcom,offset-version = <4>;
+		qcom,offset-page-buffer-addr = <36>;
+		qcom,offset-log-len = <40>;
+		qcom,offset-log-len-mask = <44>;
+		qcom,offset-page-indices = <56>;
+	};
+
 	qcom,rpm-stats@0xfc19dbd0{
 		compatible = "qcom,rpm-stats";
 		reg = <0xfc19dbd0 0x1000>;
