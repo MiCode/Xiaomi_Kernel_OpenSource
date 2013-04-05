@@ -189,6 +189,8 @@ struct qpnp_bms_chip {
 	struct single_row_lut		*adjusted_fcc_temp_lut;
 
 	struct qpnp_adc_tm_btm_param	vbat_monitor_params;
+	struct qpnp_adc_tm_btm_param	die_temp_monitor_params;
+	int				temperature_margin;
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
 
@@ -1811,6 +1813,7 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	if (chip->use_voltage_soc) {
 		soc = calculate_soc_from_voltage(chip);
 	} else {
+		qpnp_iadc_calibrate_for_trim();
 		rc = qpnp_vadc_read(LR_MUX1_BATT_THERM, &result);
 		if (rc) {
 			pr_err("error reading vadc LR_MUX1_BATT_THERM = %d, rc = %d\n",
@@ -2572,6 +2575,7 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	SPMI_PROP_READ(ocv_low_threshold_uv,
 			"ocv-voltage-low-threshold-uv", rc);
 	SPMI_PROP_READ(low_voltage_threshold, "low-voltage-threshold", rc);
+	SPMI_PROP_READ(temperature_margin, "tm-temp-margin", rc);
 
 	if (chip->adjust_soc_low_threshold >= 45)
 		chip->adjust_soc_low_threshold = 45;
@@ -2745,6 +2749,64 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
+static int refresh_die_temp_monitor(struct qpnp_bms_chip *chip)
+{
+	struct qpnp_vadc_result result;
+	int rc;
+
+	rc = qpnp_vadc_read(DIE_TEMP, &result);
+
+	pr_debug("low = %lld, high = %lld\n",
+			result.physical - chip->temperature_margin,
+			result.physical + chip->temperature_margin);
+	chip->die_temp_monitor_params.high_temp = result.physical
+						+ chip->temperature_margin;
+	chip->die_temp_monitor_params.low_temp = result.physical
+						- chip->temperature_margin;
+	chip->die_temp_monitor_params.state_request =
+						ADC_TM_HIGH_LOW_THR_ENABLE;
+	return qpnp_adc_tm_channel_measure(&chip->die_temp_monitor_params);
+}
+
+static void btm_notify_die_temp(enum qpnp_tm_state state, void *ctx)
+{
+	struct qpnp_bms_chip *chip = ctx;
+	struct qpnp_vadc_result result;
+	int rc;
+
+	rc = qpnp_vadc_read(DIE_TEMP, &result);
+
+	if (state == ADC_TM_LOW_STATE)
+		pr_debug("low state triggered\n");
+	else if (state == ADC_TM_HIGH_STATE)
+		pr_debug("high state triggered\n");
+	pr_debug("die temp = %lld, raw = 0x%x\n",
+			result.physical, result.adc_code);
+	schedule_work(&chip->recalc_work);
+	refresh_die_temp_monitor(chip);
+}
+
+static int setup_die_temp_monitoring(struct qpnp_bms_chip *chip)
+{
+	int rc = qpnp_adc_tm_is_ready();
+	if (rc) {
+		pr_info("adc tm is not ready yet: %d, defer probe\n", rc);
+		return -EPROBE_DEFER;
+	}
+	chip->die_temp_monitor_params.channel = DIE_TEMP;
+	chip->die_temp_monitor_params.btm_ctx = (void *)chip;
+	chip->die_temp_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
+	chip->die_temp_monitor_params.threshold_notification =
+						&btm_notify_die_temp;
+	refresh_die_temp_monitor(chip);
+	if (rc) {
+		pr_err("tm setup failed: %d\n", rc);
+		return rc;
+	}
+	pr_debug("setup complete\n");
+	return 0;
+}
+
 static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip;
@@ -2854,6 +2916,12 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	rc = setup_vbat_monitoring(chip);
 	if (rc < 0) {
 		pr_err("failed to set up voltage notifications: %d\n", rc);
+		goto error_setup;
+	}
+
+	rc = setup_die_temp_monitoring(chip);
+	if (rc < 0) {
+		pr_err("failed to set up die temp notifications: %d\n", rc);
 		goto error_setup;
 	}
 
