@@ -280,10 +280,13 @@ static int tsens_tz_code_to_degc(int adc_code, int sensor_num)
 	num = ((adc_code * tmdev->tsens_factor) -
 				tmdev->sensor[sensor_num].offset);
 	den = (int) tmdev->sensor[sensor_num].slope_mul_tsens_factor;
-	degc = num/den;
 
-	if ((degc >= 0) && (num % den != 0))
-		degc++;
+	if (num > 0)
+		degc = ((num + (den/2))/den);
+	else if (num < 0)
+		degc = ((num - (den/2))/den);
+	else
+		degc = num/den;
 
 	return degc;
 }
