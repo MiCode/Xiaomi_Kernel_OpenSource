@@ -36,9 +36,9 @@
 #include <asm-generic/io-64-nonatomic-lo-hi.h>
 
 #include <mach/msm_iomap.h>
+#include <mach/ramdump.h>
 
 #include "peripheral-loader.h"
-#include "ramdump.h"
 
 #define pil_err(desc, fmt, ...)						\
 	dev_err(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)

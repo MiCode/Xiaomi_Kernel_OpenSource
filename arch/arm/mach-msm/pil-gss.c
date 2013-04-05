@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,11 +29,11 @@
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
 #include <mach/subsystem_restart.h>
+#include <mach/ramdump.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
 #include "smd_private.h"
-#include "ramdump.h"
 
 #define GSS_CSR_AHB_CLK_SEL	0x0
 #define GSS_CSR_RESET		0x4

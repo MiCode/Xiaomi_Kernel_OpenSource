@@ -27,11 +27,11 @@
 #include <mach/subsystem_restart.h>
 #include <mach/subsystem_notif.h>
 #include <mach/scm.h>
+#include <mach/ramdump.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
 #include "scm-pas.h"
-#include "ramdump.h"
 #include "sysmon.h"
 
 #define QDSP6SS_RST_EVB			0x010
