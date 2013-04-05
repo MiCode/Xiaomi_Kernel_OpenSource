@@ -155,6 +155,8 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	struct afe_clk_cfg *lpass_pcm_src_clk = NULL;
 	struct afe_clk_cfg lpass_pcm_oe_clk;
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata = NULL;
+	unsigned int rx_port = 0;
+	unsigned int tx_port = 0;
 
 	mutex_lock(&aux_pcm_mutex);
 
@@ -186,22 +188,32 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	auxpcm_pdata = (struct msm_dai_auxpcm_pdata *)dai->dev->platform_data;
 	lpass_pcm_src_clk = (struct afe_clk_cfg *)auxpcm_pdata->clk_cfg;
 
-	rc = afe_close(PCM_RX); /* can block */
+	if (dai->id == AFE_PORT_ID_PRIMARY_PCM_RX
+			|| dai->id == AFE_PORT_ID_PRIMARY_PCM_TX) {
+		rx_port = PCM_RX;
+		tx_port = PCM_TX;
+	} else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX
+			|| dai->id == AFE_PORT_ID_SECONDARY_PCM_TX) {
+		rx_port = AFE_PORT_ID_SECONDARY_PCM_RX;
+		tx_port = AFE_PORT_ID_SECONDARY_PCM_TX;
+	}
+
+	rc = afe_close(rx_port); /* can block */
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close PCM_RX  AFE port\n");
 
-	rc = afe_close(PCM_TX);
+	rc = afe_close(tx_port);
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close AUX PCM TX port\n");
 
 	lpass_pcm_src_clk->clk_val1 = 0;
-	afe_set_lpass_clock(PCM_TX, lpass_pcm_src_clk);
-	afe_set_lpass_clock(PCM_RX, lpass_pcm_src_clk);
+	afe_set_lpass_clock(tx_port, lpass_pcm_src_clk);
+	afe_set_lpass_clock(rx_port, lpass_pcm_src_clk);
 
 	memcpy(&lpass_pcm_oe_clk, &lpass_clk_cfg_default,
 			 sizeof(struct afe_clk_cfg));
 	lpass_pcm_oe_clk.clk_val1 = 0;
-	afe_set_lpass_clock(PCM_RX, &lpass_pcm_oe_clk);
+	afe_set_lpass_clock(rx_port, &lpass_pcm_oe_clk);
 
 	mutex_unlock(&aux_pcm_mutex);
 }
@@ -215,6 +227,8 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	unsigned long pcm_clk_rate;
 	struct afe_clk_cfg lpass_pcm_oe_clk;
 	struct afe_clk_cfg *lpass_pcm_src_clk = NULL;
+	unsigned int rx_port = 0;
+	unsigned int tx_port = 0;
 
 	auxpcm_pdata = dai->dev->platform_data;
 	lpass_pcm_src_clk = (struct afe_clk_cfg *)auxpcm_pdata->clk_cfg;
@@ -279,30 +293,39 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 			sizeof(struct afe_clk_cfg));
 	lpass_pcm_oe_clk.clk_val1 = Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
 
-	rc = afe_set_lpass_clock(PCM_RX, lpass_pcm_src_clk);
+	if (dai->id == AFE_PORT_ID_PRIMARY_PCM_RX ||
+			dai->id == AFE_PORT_ID_PRIMARY_PCM_TX) {
+		rx_port = PCM_RX;
+		tx_port = PCM_TX;
+	} else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX ||
+			dai->id == AFE_PORT_ID_SECONDARY_PCM_TX) {
+		rx_port = AFE_PORT_ID_SECONDARY_PCM_RX;
+		tx_port = AFE_PORT_ID_SECONDARY_PCM_TX;
+	}
+
+	rc = afe_set_lpass_clock(rx_port, lpass_pcm_src_clk);
 	if (rc < 0) {
 		pr_err("%s:afe_set_lpass_clock on RX pcm_src_clk failed\n",
 							__func__);
 		goto fail;
 	}
 
-	rc = afe_set_lpass_clock(PCM_TX, lpass_pcm_src_clk);
+	rc = afe_set_lpass_clock(tx_port, lpass_pcm_src_clk);
 	if (rc < 0) {
 		pr_err("%s:afe_set_lpass_clock on TX pcm_src_clk failed\n",
 							__func__);
 		goto fail;
 	}
 
-	rc = afe_set_lpass_clock(PCM_RX, &lpass_pcm_oe_clk);
+	rc = afe_set_lpass_clock(rx_port, &lpass_pcm_oe_clk);
 	if (rc < 0) {
 		pr_err("%s:afe_set_lpass_clock on pcm_oe_clk failed\n",
 							__func__);
 		goto fail;
 	}
 
-	afe_open(PCM_RX, &dai_data->port_config, dai_data->rate);
-
-	afe_open(PCM_TX, &dai_data->port_config, dai_data->rate);
+	afe_open(rx_port, &dai_data->port_config, dai_data->rate);
+	afe_open(tx_port, &dai_data->port_config, dai_data->rate);
 
 fail:
 	mutex_unlock(&aux_pcm_mutex);
@@ -314,7 +337,7 @@ static int msm_dai_q6_auxpcm_trigger(struct snd_pcm_substream *substream,
 {
 	int rc = 0;
 
-	pr_debug("%s:port:%d  cmd:%d  aux_pcm_count= %d",
+	pr_debug("%s:port:%d  cmd:%d  aux_pcm_count= %d\n",
 		__func__, dai->id, cmd, aux_pcm_count);
 
 	switch (cmd) {
@@ -359,7 +382,7 @@ static int msm_dai_q6_dai_auxpcm_probe(struct snd_soc_dai *dai)
 	} else
 		dev_set_drvdata(dai->dev, dai_data);
 
-	pr_err("%s : probe done for dai->id %d\n", __func__, dai->id);
+	pr_debug("%s : probe done for dai->id %d\n", __func__, dai->id);
 	return rc;
 }
 
@@ -367,6 +390,8 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_dai_data *dai_data;
 	int rc;
+	unsigned int rx_port = 0;
+	unsigned int tx_port = 0;
 
 	dai_data = dev_get_drvdata(dai->dev);
 
@@ -393,14 +418,22 @@ static int msm_dai_q6_dai_auxpcm_remove(struct snd_soc_dai *dai)
 	dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d.closing afe\n",
 		__func__, dai->id, aux_pcm_count);
 
-	rc = afe_close(PCM_RX); /* can block */
+	if (dai->id == AFE_PORT_ID_PRIMARY_PCM_RX ||
+			dai->id == AFE_PORT_ID_PRIMARY_PCM_TX) {
+		rx_port = PCM_RX;
+		tx_port = PCM_TX;
+	} else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX ||
+			dai->id == AFE_PORT_ID_SECONDARY_PCM_TX) {
+		rx_port = AFE_PORT_ID_SECONDARY_PCM_RX;
+		tx_port = AFE_PORT_ID_SECONDARY_PCM_TX;
+	}
+	rc = afe_close(rx_port); /* can block */
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close AUX PCM RX AFE port\n");
 
-	rc = afe_close(PCM_TX);
+	rc = afe_close(tx_port);
 	if (IS_ERR_VALUE(rc))
 		dev_err(dai->dev, "fail to close AUX PCM TX AFE port\n");
-
 done:
 	kfree(dai_data);
 	snd_soc_unregister_dai(dai->dev);
@@ -1085,10 +1118,12 @@ static int __devinit msm_auxpcm_dev_probe(struct platform_device *pdev)
 
 	switch (id) {
 	case AFE_PORT_ID_PRIMARY_PCM_RX:
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					&msm_dai_q6_aux_pcm_rx_dai);
 		break;
 	case AFE_PORT_ID_PRIMARY_PCM_TX:
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 					&msm_dai_q6_aux_pcm_tx_dai);
 		break;
