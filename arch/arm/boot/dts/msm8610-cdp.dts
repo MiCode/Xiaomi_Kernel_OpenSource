@@ -45,7 +45,7 @@
 	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 	qcom,nonremovable;
 
-	status = "disabled";
+	status = "ok";
 };
 
 &sdhc_2 {
@@ -77,5 +77,5 @@
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
 	cd-gpios = <&msmgpio 42 0x1>;
 
-	status = "disabled";
+	status = "ok";
 };
