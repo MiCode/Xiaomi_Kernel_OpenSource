@@ -986,6 +986,19 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 	if (ret) {
 		pr_warn("error powering off intf ctl=%d\n", ctl->num);
 	} else {
+		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_TOP, 0);
+		if (sctl)
+			mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP, 0);
+
+		if (ctl->mixer_left) {
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(
+					ctl->mixer_left->num), 0);
+		}
+		if (ctl->mixer_right) {
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(
+					ctl->mixer_right->num), 0);
+		}
+
 		ctl->power_on = false;
 		ctl->play_cnt = 0;
 		ctl->clk_rate = 0;
