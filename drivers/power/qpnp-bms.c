@@ -174,7 +174,7 @@ struct qpnp_bms_chip {
 	unsigned long			report_tm_sec;
 	bool				first_time_calc_soc;
 	bool				first_time_calc_uuc;
-	int				pon_ocv_uv;
+	int64_t				software_cc_uah;
 
 	int				iavg_samples_ma[IAVG_SAMPLES];
 	int				iavg_index;
@@ -437,7 +437,8 @@ static int read_vsense_avg(struct qpnp_bms_chip *chip, int *result_uv)
 
 static int get_battery_current(struct qpnp_bms_chip *chip, int *result_ua)
 {
-	int vsense_uv = 0;
+	int rc, vsense_uv = 0;
+	int64_t temp_current;
 
 	if (chip->r_sense_uohm == 0) {
 		pr_err("r_sense is zero\n");
@@ -452,8 +453,15 @@ static int get_battery_current(struct qpnp_bms_chip *chip, int *result_ua)
 
 	pr_debug("vsense_uv=%duV\n", vsense_uv);
 	/* cast for signed division */
-	*result_ua = div_s64((vsense_uv * 1000000LL), (int)chip->r_sense_uohm);
-	pr_debug("ibat=%duA\n", *result_ua);
+	temp_current = div_s64((vsense_uv * 1000000LL),
+				(int)chip->r_sense_uohm);
+
+	rc = qpnp_iadc_comp_result(&temp_current);
+	if (rc)
+		pr_debug("error compensation failed: %d\n", rc);
+
+	*result_ua = temp_current;
+	pr_debug("err compensated ibat=%duA\n", *result_ua);
 	return 0;
 }
 
@@ -541,6 +549,7 @@ static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
 					raw->last_good_ocv_raw);
 	chip->last_ocv_uv = raw->last_good_ocv_uv;
 	chip->last_ocv_temp = batt_temp;
+	chip->software_cc_uah = 0;
 	pr_debug("last_good_ocv_uv = %d\n", raw->last_good_ocv_uv);
 }
 
@@ -697,6 +706,7 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 	chip->shutdown_iavg_ma = 0;
 	chip->prev_pc_unusable = -EINVAL;
 	reset_cc(chip);
+	chip->software_cc_uah = 0;
 	chip->last_cc_uah = INT_MIN;
 	chip->last_ocv_temp = batt_temp;
 	chip->prev_batt_terminal_uv = 0;
@@ -779,6 +789,7 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		chip->last_ocv_uv = chip->max_voltage_uv;
 		chip->last_ocv_temp = batt_temp;
 		reset_cc(chip);
+		chip->software_cc_uah = 0;
 		raw->cc = 0;
 	}
 	pr_debug("last_good_ocv_raw= 0x%x, last_good_ocv_uv= %duV\n",
@@ -859,11 +870,25 @@ static s64 cc_uv_to_pvh(s64 cc_uv)
  */
 static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 {
-	int64_t cc_voltage_uv, cc_pvh, cc_uah;
 	struct qpnp_iadc_calib calibration;
+	struct qpnp_vadc_result result;
+	int64_t cc_voltage_uv, cc_pvh, cc_uah;
+	int ibat_ua, rc;
+
+	rc = qpnp_vadc_read(DIE_TEMP, &result);
+	if (rc) {
+		pr_err("could not read pmic die temperature: %d\n", rc);
+		return chip->software_cc_uah;
+	}
+
+	rc = get_battery_current(chip, &ibat_ua);
+	if (rc) {
+		pr_err("could not read battery current: %d\n", rc);
+		return chip->software_cc_uah;
+	}
 
 	qpnp_iadc_get_gain_and_offset(&calibration);
-	pr_debug("cc = %lld\n", cc);
+	pr_debug("cc = %lld, die_temp = %lld\n", cc, result.physical);
 	cc_voltage_uv = cc_reading_to_uv(cc);
 	cc_voltage_uv = cc_adjust_for_gain(cc_voltage_uv,
 					calibration.gain_raw
@@ -872,9 +897,12 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc)
 	cc_pvh = cc_uv_to_pvh(cc_voltage_uv);
 	pr_debug("cc_pvh = %lld pvh\n", cc_pvh);
 	cc_uah = div_s64(cc_pvh, chip->r_sense_uohm);
-	/* cc_raw had 4 bits of extra precision.
-	   By now it should be within 32 bit range */
-	return (int)cc_uah;
+	rc = qpnp_iadc_comp_result(&cc_uah);
+	if (rc)
+		pr_debug("error compensation failed: %d\n", rc);
+	chip->software_cc_uah += cc_uah;
+	reset_cc(chip);
+	return (int)chip->software_cc_uah;
 }
 
 static int get_rbatt(struct qpnp_bms_chip *chip,
@@ -1289,6 +1317,7 @@ static int reset_bms_for_test(struct qpnp_bms_chip *chip)
 	chip->last_soc_invalid = true;
 	mutex_unlock(&chip->last_soc_mutex);
 	reset_cc(chip);
+	chip->software_cc_uah = 0;
 	chip->last_cc_uah = INT_MIN;
 	stop_ocv_updates(chip);
 
@@ -1683,7 +1712,6 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 							soc, shutdown_soc);
 		find_ocv_for_soc(chip, &params, batt_temp,
 					shutdown_soc, &new_ocv_uv);
-		chip->pon_ocv_uv = chip->last_ocv_uv;
 		chip->last_ocv_uv = new_ocv_uv;
 
 		remaining_usable_charge_uah = params.ocv_charge_uah
@@ -2684,6 +2712,7 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 				return rc;
 			}
 			reset_cc(chip);
+			chip->software_cc_uah = 0;
 		}
 	} else {
 		pr_debug("Internal rsense selected\n");
@@ -2700,6 +2729,7 @@ static int read_iadc_channel_select(struct qpnp_bms_chip *chip)
 				return rc;
 			}
 			reset_cc(chip);
+			chip->software_cc_uah = 0;
 		}
 
 		rc = qpnp_iadc_get_rsense(&rds_rsense_nohm);
