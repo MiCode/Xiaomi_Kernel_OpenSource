@@ -629,10 +629,10 @@
 		qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
 		taiko-mclk-clk = <&pm8941_clkdiv1>;
 		qcom,taiko-mclk-clk-freq = <9600000>;
-		prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
-		prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
-		prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
-		prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
+		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
@@ -959,12 +959,12 @@
 		qcom,msm-cpudai-auxpcm-data = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 
-		qcom,msm-auxpcm-rx {
+		qcom,msm-prim-auxpcm-rx {
 			qcom,msm-auxpcm-dev-id = <4106>;
 			compatible = "qcom,msm-auxpcm-dev";
 		};
 
-		qcom,msm-auxpcm-tx {
+		qcom,msm-prim-auxpcm-tx {
 			qcom,msm-auxpcm-dev-id = <4107>;
 			compatible = "qcom,msm-auxpcm-dev";
 		};
