@@ -23,7 +23,7 @@
 		qcom,mdss-pan-porch-values = <164 8 140 1 1 6>;
 		qcom,mdss-pan-underflow-clr = <0xff>;
 		qcom,mdss-pan-bl-ctrl = "bl_ctrl_wled";
-		qcom,mdss-pan-bl-levels = <1 255>;
+		qcom,mdss-pan-bl-levels = <1 4095>;
 		qcom,mdss-pan-dsi-mode = <0>;
 		qcom,mdss-pan-dsi-h-pulse-mode = <1>;
 		qcom,mdss-pan-dsi-h-power-stop = <0 0 0>;
