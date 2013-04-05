@@ -434,8 +434,7 @@ static void queue_rx(void)
 		list_add_tail(&info->list_node, &bam_rx_pool);
 		rx_len_cached = ++bam_rx_pool_len;
 		ret = sps_transfer_one(bam_rx_pipe, info->dma_address,
-			BUFFER_SIZE, info,
-			SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+			BUFFER_SIZE, info, 0);
 		if (ret) {
 			list_del(&info->list_node);
 			rx_len_cached = --bam_rx_pool_len;
@@ -657,7 +656,7 @@ static int bam_mux_write_cmd(void *data, uint32_t len)
 	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, len,
-				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+				pkt, SPS_IOVEC_FLAG_EOT);
 	if (rc) {
 		DMUX_LOG_KERR("%s sps_transfer_one failed rc=%d\n",
 			__func__, rc);
@@ -830,7 +829,7 @@ int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb)
 	spin_lock_irqsave(&bam_tx_pool_spinlock, flags);
 	list_add_tail(&pkt->list_node, &bam_tx_pool);
 	rc = sps_transfer_one(bam_tx_pipe, dma_address, skb->len,
-				pkt, SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_EOT);
+				pkt, SPS_IOVEC_FLAG_EOT);
 	if (rc) {
 		DMUX_LOG_KERR("%s sps_transfer_one failed rc=%d\n",
 			__func__, rc);
