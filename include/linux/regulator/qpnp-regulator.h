@@ -101,6 +101,16 @@ enum qpnp_boost_current_limit {
  *			    0 = Disable OCP
  *			    QPNP_REGULATOR_USE_HW_DEFAULT = do not modify
  *			        OCP state
+ * @ocp_irq:                IRQ number of the voltage switch OCP IRQ.  If
+ *				specified the voltage switch will be toggled off
+ *				and back on when OCP triggers in order to handle
+ *				high in-rush current.
+ * @ocp_max_retries:        Maximum number of times to try toggling a voltage
+ *				switch off and back on as a result of
+ *				consecutive over current events.
+ * @ocp_retry_delay_ms:     Time to delay in milliseconds between each
+ *				voltage switch toggle after an over current
+ *				event takes place.
  * @boost_current_limit:    This parameter sets the current limit of boost type
  *				regulators.  Its value should be one of
  *				QPNP_BOOST_CURRENT_LIMIT_*.  If its value is
@@ -153,6 +163,9 @@ struct qpnp_regulator_platform_data {
 	int					system_load;
 	int					enable_time;
 	int					ocp_enable;
+	int					ocp_irq;
+	int					ocp_max_retries;
+	int					ocp_retry_delay_ms;
 	enum qpnp_boost_current_limit		boost_current_limit;
 	int					soft_start_enable;
 	enum qpnp_vs_soft_start_str		vs_soft_start_strength;
