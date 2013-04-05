@@ -40,7 +40,6 @@
 
 #define CRYPTO_CONFIG_RESET 0xE001F
 #define QCE_MAX_NUM_DSCR    0x400
-#define QCE_SIZE_BAM_DSCR   0x08
 #define QCE_SECTOR_SIZE	    0x200
 
 static DEFINE_MUTEX(bam_register_cnt);
@@ -1095,7 +1094,8 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 	 * descriptor memory (256 bytes + 8 bytes). But in order to be
 	 * in power of 2, we are allocating 512 bytes of memory.
 	 */
-	sps_connect_info->desc.size = QCE_MAX_NUM_DSCR * QCE_SIZE_BAM_DSCR;
+	sps_connect_info->desc.size = QCE_MAX_NUM_DSCR *
+					sizeof(struct sps_iovec);
 	sps_connect_info->desc.base = dma_alloc_coherent(pce_dev->pdev,
 					sps_connect_info->desc.size,
 					&sps_connect_info->desc.phys_base,
@@ -2216,12 +2216,12 @@ static int qce_setup_ce_sps_data(struct qce_device *pce_dev)
 	pce_dev->ce_sps.in_transfer.iovec = (struct sps_iovec *)vaddr;
 	pce_dev->ce_sps.in_transfer.iovec_phys =
 					(uint32_t)GET_PHYS_ADDR(vaddr);
-	vaddr += MAX_BAM_DESCRIPTORS * 8;
+	vaddr += QCE_MAX_NUM_DSCR * sizeof(struct sps_iovec);
 
 	pce_dev->ce_sps.out_transfer.iovec = (struct sps_iovec *)vaddr;
 	pce_dev->ce_sps.out_transfer.iovec_phys =
 					(uint32_t)GET_PHYS_ADDR(vaddr);
-	vaddr += MAX_BAM_DESCRIPTORS * 8;
+	vaddr += QCE_MAX_NUM_DSCR * sizeof(struct sps_iovec);
 
 	qce_setup_cmdlistptrs(pce_dev, &vaddr);
 	vaddr = (unsigned char *) ALIGN(((unsigned int)vaddr),
