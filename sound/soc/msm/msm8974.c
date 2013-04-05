@@ -138,19 +138,28 @@ struct msm8974_asoc_mach_data {
 	u32 mclk_freq;
 	int us_euro_gpio;
 	struct msm_auxpcm_ctrl *pri_auxpcm_ctrl;
+	struct msm_auxpcm_ctrl *sec_auxpcm_ctrl;
 };
 
 #define GPIO_NAME_INDEX 0
 #define DT_PARSE_INDEX  1
 
-static char *msm_auxpcm_gpio_name[][2] = {
+static char *msm_prim_auxpcm_gpio_name[][2] = {
 	{"PRIM_AUXPCM_CLK",       "prim-auxpcm-gpio-clk"},
 	{"PRIM_AUXPCM_SYNC",      "prim-auxpcm-gpio-sync"},
 	{"PRIM_AUXPCM_DIN",       "prim-auxpcm-gpio-din"},
 	{"PRIM_AUXPCM_DOUT",      "prim-auxpcm-gpio-dout"},
 };
 
+static char *msm_sec_auxpcm_gpio_name[][2] = {
+	{"SEC_AUXPCM_CLK",       "qcom,sec-auxpcm-gpio-clk"},
+	{"SEC_AUXPCM_SYNC",      "qcom,sec-auxpcm-gpio-sync"},
+	{"SEC_AUXPCM_DIN",       "qcom,sec-auxpcm-gpio-din"},
+	{"SEC_AUXPCM_DOUT",      "qcom,sec-auxpcm-gpio-dout"},
+};
+
 void *lpaif_pri_muxsel_virt_addr;
+void *lpaif_sec_muxsel_virt_addr;
 
 struct msm8974_liquid_dock_dev {
 	int dock_plug_gpio;
@@ -188,7 +197,8 @@ static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static struct mutex cdc_mclk_mutex;
 static struct q_clkdiv *codec_clk;
 static int clk_users;
-static atomic_t auxpcm_rsc_ref;
+static atomic_t prim_auxpcm_rsc_ref;
+static atomic_t sec_auxpcm_rsc_ref;
 
 
 static int msm8974_liquid_ext_spk_power_amp_init(void)
@@ -894,30 +904,13 @@ static int msm8974_hdmi_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-static int msm_aux_pcm_get_gpios(struct snd_pcm_substream *substream)
+static int msm_aux_pcm_get_gpios(struct msm_auxpcm_ctrl *auxpcm_ctrl)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_card *card = rtd->card;
-	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-	struct msm_auxpcm_ctrl *auxpcm_ctrl = NULL;
 	struct msm_auxpcm_gpio *pin_data = NULL;
 	int ret = 0;
 	int i;
 	int j;
 
-	if (pdata == NULL) {
-		pr_err("%s: pdata is NULL\n", __func__);
-		ret = -EINVAL;
-		goto err;
-	}
-
-	auxpcm_ctrl = pdata->pri_auxpcm_ctrl;
-
-	if (auxpcm_ctrl == NULL || auxpcm_ctrl->pin_data == NULL) {
-		pr_err("%s: Ctrl pointers are NULL\n", __func__);
-		ret = -EINVAL;
-		goto err;
-	}
 	pin_data = auxpcm_ctrl->pin_data;
 	for (i = 0; i < auxpcm_ctrl->cnt; i++, pin_data++) {
 		ret = gpio_request(pin_data->gpio_no,
@@ -933,31 +926,17 @@ static int msm_aux_pcm_get_gpios(struct snd_pcm_substream *substream)
 			/* Release all GPIOs on failure */
 			for (j = i; j >= 0; j--)
 				gpio_free(pin_data->gpio_no);
-			goto err;
+			return ret;
 		}
 	}
-
-err:
-	return ret;
+	return 0;
 }
 
-static int msm_aux_pcm_free_gpios(struct snd_pcm_substream *substream)
+static int msm_aux_pcm_free_gpios(struct msm_auxpcm_ctrl *auxpcm_ctrl)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_card *card = rtd->card;
-	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-	struct msm_auxpcm_ctrl *auxpcm_ctrl = NULL;
 	struct msm_auxpcm_gpio *pin_data = NULL;
-	int ret = 0;
 	int i;
-
-	if (pdata == NULL) {
-		pr_err("%s: pdata is NULL\n", __func__);
-		ret = -EINVAL;
-		goto err;
-	}
-
-	auxpcm_ctrl = pdata->pri_auxpcm_ctrl;
+	int ret = 0;
 
 	if (auxpcm_ctrl == NULL || auxpcm_ctrl->pin_data == NULL) {
 		pr_err("%s: Ctrl pointers are NULL\n", __func__);
@@ -976,40 +955,115 @@ err:
 	return ret;
 }
 
-static int msm_auxpcm_startup(struct snd_pcm_substream *substream)
+static int msm_prim_auxpcm_startup(struct snd_pcm_substream *substream)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_auxpcm_ctrl *auxpcm_ctrl = NULL;
 	int ret = 0;
 
-	pr_debug("%s(): substream = %s, auxpcm_rsc_ref counter = %d\n",
-		__func__, substream->name, atomic_read(&auxpcm_rsc_ref));
+	pr_debug("%s(): substream = %s, prim_auxpcm_rsc_ref counter = %d\n",
+		__func__, substream->name, atomic_read(&prim_auxpcm_rsc_ref));
 
-	if (atomic_inc_return(&auxpcm_rsc_ref) == 1) {
+	auxpcm_ctrl = pdata->pri_auxpcm_ctrl;
+
+	if (auxpcm_ctrl == NULL || auxpcm_ctrl->pin_data == NULL) {
+		pr_err("%s: Ctrl pointers are NULL\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	if (atomic_inc_return(&prim_auxpcm_rsc_ref) == 1) {
 		if (lpaif_pri_muxsel_virt_addr != NULL)
 			iowrite32(I2S_PCM_SEL << I2S_PCM_SEL_OFFSET,
 				lpaif_pri_muxsel_virt_addr);
 		else
 			pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
 				 __func__);
-		ret = msm_aux_pcm_get_gpios(substream);
+		ret = msm_aux_pcm_get_gpios(auxpcm_ctrl);
 	}
 	if (ret < 0) {
 		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
 		return -EINVAL;
 	}
+err:
 	return ret;
 }
 
-static void msm_auxpcm_shutdown(struct snd_pcm_substream *substream)
+static void msm_prim_auxpcm_shutdown(struct snd_pcm_substream *substream)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_auxpcm_ctrl *auxpcm_ctrl = NULL;
 
-	pr_debug("%s(): substream = %s, auxpcm_rsc_ref counter = %d\n",
-		__func__, substream->name, atomic_read(&auxpcm_rsc_ref));
-	if (atomic_dec_return(&auxpcm_rsc_ref) == 0)
-		msm_aux_pcm_free_gpios(substream);
+	pr_debug("%s(): substream = %s, prim_auxpcm_rsc_ref counter = %d\n",
+		__func__, substream->name, atomic_read(&prim_auxpcm_rsc_ref));
+
+	auxpcm_ctrl = pdata->pri_auxpcm_ctrl;
+
+	if (atomic_dec_return(&prim_auxpcm_rsc_ref) == 0)
+		msm_aux_pcm_free_gpios(auxpcm_ctrl);
 }
-static struct snd_soc_ops msm_auxpcm_be_ops = {
-	.startup = msm_auxpcm_startup,
-	.shutdown = msm_auxpcm_shutdown,
+static struct snd_soc_ops msm_pri_auxpcm_be_ops = {
+	.startup = msm_prim_auxpcm_startup,
+	.shutdown = msm_prim_auxpcm_shutdown,
+};
+
+static int msm_sec_auxpcm_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_auxpcm_ctrl *auxpcm_ctrl = NULL;
+	int ret = 0;
+
+	pr_debug("%s(): substream = %s, sec_auxpcm_rsc_ref counter = %d\n",
+		__func__, substream->name, atomic_read(&sec_auxpcm_rsc_ref));
+
+	auxpcm_ctrl = pdata->sec_auxpcm_ctrl;
+
+	if (auxpcm_ctrl == NULL || auxpcm_ctrl->pin_data == NULL) {
+		pr_err("%s: Ctrl pointers are NULL\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	if (atomic_inc_return(&sec_auxpcm_rsc_ref) == 1) {
+		if (lpaif_sec_muxsel_virt_addr != NULL)
+			iowrite32(I2S_PCM_SEL << I2S_PCM_SEL_OFFSET,
+				lpaif_sec_muxsel_virt_addr);
+		else
+			pr_err("%s lpaif_sec_muxsel_virt_addr is NULL\n",
+				 __func__);
+		ret = msm_aux_pcm_get_gpios(auxpcm_ctrl);
+	}
+	if (ret < 0) {
+		pr_err("%s: Aux PCM GPIO request failed\n", __func__);
+		return -EINVAL;
+	}
+err:
+	return ret;
+}
+
+static void msm_sec_auxpcm_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_auxpcm_ctrl *auxpcm_ctrl = NULL;
+
+	pr_debug("%s(): substream = %s, sec_auxpcm_rsc_ref counter = %d\n",
+		__func__, substream->name, atomic_read(&sec_auxpcm_rsc_ref));
+
+	auxpcm_ctrl = pdata->sec_auxpcm_ctrl;
+
+	if (atomic_dec_return(&sec_auxpcm_rsc_ref) == 0)
+		msm_aux_pcm_free_gpios(auxpcm_ctrl);
+}
+
+static struct snd_soc_ops msm_sec_auxpcm_be_ops = {
+	.startup = msm_sec_auxpcm_startup,
+	.shutdown = msm_sec_auxpcm_shutdown,
 };
 
 static int msm_slim_0_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
@@ -1787,7 +1841,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-	/* AUX PCM Backend DAI Links */
+	/* Primary AUX PCM Backend DAI Links */
 	{
 		.name = LPASS_BE_AUXPCM_RX,
 		.stream_name = "AUX PCM Playback",
@@ -1798,7 +1852,7 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
 		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
-		.ops = &msm_auxpcm_be_ops,
+		.ops = &msm_pri_auxpcm_be_ops,
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 		/* this dainlink has playback support */
@@ -1813,9 +1867,39 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
 		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
-		.ops = &msm_auxpcm_be_ops,
+		.ops = &msm_pri_auxpcm_be_ops,
 		.ignore_suspend = 1,
 	},
+	/* Secondary AUX PCM Backend DAI Links */
+	{
+		.name = LPASS_BE_SEC_AUXPCM_RX,
+		.stream_name = "Sec AUX PCM Playback",
+		.cpu_dai_name = "msm-dai-q6.4108",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_RX,
+		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
+		.ops = &msm_sec_auxpcm_be_ops,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+	},
+	{
+		.name = LPASS_BE_SEC_AUXPCM_TX,
+		.stream_name = "Sec AUX PCM Capture",
+		.cpu_dai_name = "msm-dai-q6.4109",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+		.be_hw_params_fixup = msm_auxpcm_be_params_fixup,
+		.ops = &msm_sec_auxpcm_be_ops,
+		.ignore_suspend = 1,
+	},
+
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_SLIMBUS_0_RX,
@@ -2033,7 +2117,8 @@ struct snd_soc_card snd_soc_card_msm8974 = {
 };
 
 static int msm8974_dtparse_auxpcm(struct platform_device *pdev,
-				struct msm8974_asoc_mach_data **pdata)
+				struct msm_auxpcm_ctrl **auxpcm_ctrl,
+				char *msm_auxpcm_gpio_name[][2])
 {
 	int ret = 0;
 	int i = 0;
@@ -2041,7 +2126,7 @@ static int msm8974_dtparse_auxpcm(struct platform_device *pdev,
 	struct msm_auxpcm_ctrl *ctrl;
 	unsigned int gpio_no[NUM_OF_AUXPCM_GPIOS];
 	enum of_gpio_flags flags = OF_GPIO_ACTIVE_LOW;
-	int prim_cnt = 0;
+	int auxpcm_cnt = 0;
 
 	pin_data = devm_kzalloc(&pdev->dev, (ARRAY_SIZE(gpio_no) *
 				sizeof(struct msm_auxpcm_gpio)),
@@ -2059,13 +2144,13 @@ static int msm8974_dtparse_auxpcm(struct platform_device *pdev,
 
 		if (gpio_no[i] > 0) {
 			pin_data[i].gpio_name =
-				msm_auxpcm_gpio_name[prim_cnt][GPIO_NAME_INDEX];
+			     msm_auxpcm_gpio_name[auxpcm_cnt][GPIO_NAME_INDEX];
 			pin_data[i].gpio_no = gpio_no[i];
 			dev_dbg(&pdev->dev, "%s:GPIO gpio[%s] =\n"
 				"0x%x\n", __func__,
 				pin_data[i].gpio_name,
 				pin_data[i].gpio_no);
-			prim_cnt++;
+			auxpcm_cnt++;
 		} else {
 			dev_err(&pdev->dev, "%s:Invalid AUXPCM GPIO[%s]= %x\n",
 				 __func__,
@@ -2085,8 +2170,8 @@ static int msm8974_dtparse_auxpcm(struct platform_device *pdev,
 	}
 
 	ctrl->pin_data = pin_data;
-	ctrl->cnt = prim_cnt;
-	(*pdata)->pri_auxpcm_ctrl = ctrl;
+	ctrl->cnt = auxpcm_cnt;
+	*auxpcm_ctrl = ctrl;
 	return ret;
 
 err:
@@ -2163,10 +2248,21 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	ret = msm8974_dtparse_auxpcm(pdev, &pdata);
+	/* Parse Primary AUXPCM info from DT */
+	ret = msm8974_dtparse_auxpcm(pdev, &pdata->pri_auxpcm_ctrl,
+					msm_prim_auxpcm_gpio_name);
 	if (ret) {
 		dev_err(&pdev->dev,
-		"%s: Auxpcm pin data parse failed\n", __func__);
+		"%s: Primary Auxpcm pin data parse failed\n", __func__);
+		goto err;
+	}
+
+	/* Parse Secondary AUXPCM info from DT */
+	ret = msm8974_dtparse_auxpcm(pdev, &pdata->sec_auxpcm_ctrl,
+					msm_sec_auxpcm_gpio_name);
+	if (ret) {
+		dev_err(&pdev->dev,
+		"%s: Secondary Auxpcm pin data parse failed\n", __func__);
 		goto err;
 	}
 
@@ -2251,7 +2347,8 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 
 	mutex_init(&cdc_mclk_mutex);
-	atomic_set(&auxpcm_rsc_ref, 0);
+	atomic_set(&prim_auxpcm_rsc_ref, 0);
+	atomic_set(&sec_auxpcm_rsc_ref, 0);
 	spdev = pdev;
 	ext_spk_amp_regulator = NULL;
 	msm8974_liquid_dock_dev = NULL;
@@ -2266,6 +2363,12 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
 	if (lpaif_pri_muxsel_virt_addr == NULL) {
 		pr_err("%s Pri muxsel virt addr is null\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	lpaif_sec_muxsel_virt_addr = ioremap(LPAIF_SEC_MODE_MUXSEL, 4);
+	if (lpaif_sec_muxsel_virt_addr == NULL) {
+		pr_err("%s Sec muxsel virt addr is null\n", __func__);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -2313,6 +2416,7 @@ static int __devexit msm8974_asoc_machine_remove(struct platform_device *pdev)
 	}
 
 	iounmap(lpaif_pri_muxsel_virt_addr);
+	iounmap(lpaif_sec_muxsel_virt_addr);
 	snd_soc_unregister_card(card);
 
 	return 0;

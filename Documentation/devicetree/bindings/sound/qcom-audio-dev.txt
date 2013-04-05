@@ -398,6 +398,16 @@ Example:
                         qcom,msm-auxpcm-dev-id = <4107>;
                         compatible = "qcom,msm-auxpcm-dev";
                 };
+
+		qcom,msm-sec-auxpcm-rx {
+			qcom,msm-auxpcm-dev-id = <4108>;
+			compatible = "qcom,msm-auxpcm-dev";
+		};
+
+		qcom,msm-sec-auxpcm-tx {
+			qcom,msm-auxpcm-dev-id = <4109>;
+			compatible = "qcom,msm-auxpcm-dev";
+		};
         };
 
         qcom,msm-pcm-hostless {
@@ -440,6 +450,10 @@ Required properties:
 - prim-auxpcm-gpio-sync : GPIO on which AUXPCM SYNC signal is coming.
 - prim-auxpcm-gpio-din : GPIO on which AUXPCM DIN signal is coming.
 - prim-auxpcm-gpio-dout : GPIO on which AUXPCM DOUT signal is coming.
+- qcom,sec-auxpcm-gpio-clk  : GPIO on which Secondary AUXPCM clk signal is coming.
+- qcom,sec-auxpcm-gpio-sync : GPIO on which Secondary AUXPCM SYNC signal is coming.
+- qcom,sec-auxpcm-gpio-din  : GPIO on which Secondary AUXPCM DIN signal is coming.
+- qcom,sec-auxpcm-gpio-dout : GPIO on which Secondary AUXPCM DOUT signal is coming.
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
 
 Optional properties:
@@ -491,6 +505,10 @@ sound {
 	prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
 	prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
 	prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
+	qcom,sec-auxpcm-gpio-clk  = <&msmgpio 79 0>;
+	qcom,sec-auxpcm-gpio-sync = <&msmgpio 80 0>;
+	qcom,sec-auxpcm-gpio-din  = <&msmgpio 81 0>;
+	qcom,sec-auxpcm-gpio-dout = <&msmgpio 82 0>;
 };
 
 * msm-dai-mi2s
