@@ -18,7 +18,7 @@
 
 / {
 	model = "Qualcomm MSM 9625V2 CDP";
-	compatible = "qcom,msm9625-cdp", "qcom,msm9625";
+	compatible = "qcom,msm9625-cdp", "qcom,msm9625", "qcom,cdp";
 	qcom,msm-id = <134 1 0x20000>, <152 1 0x20000>, <149 1 0x20000>,
 		      <150 1 0x20000>, <151 1 0x20000>, <148 1 0x20000>,
 		      <173 1 0x20000>, <174 1 0x20000>, <175 1 0x20000>;
