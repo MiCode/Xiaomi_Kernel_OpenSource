@@ -633,6 +633,10 @@
 		qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
 		qcom,prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
 		qcom,prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
+		qcom,sec-auxpcm-gpio-clk  = <&msmgpio 79 0>;
+		qcom,sec-auxpcm-gpio-sync = <&msmgpio 80 0>;
+		qcom,sec-auxpcm-gpio-din  = <&msmgpio 81 0>;
+		qcom,sec-auxpcm-gpio-dout = <&msmgpio 82 0>;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
@@ -966,6 +970,16 @@
 
 		qcom,msm-prim-auxpcm-tx {
 			qcom,msm-auxpcm-dev-id = <4107>;
+			compatible = "qcom,msm-auxpcm-dev";
+		};
+
+		qcom,msm-sec-auxpcm-rx {
+			qcom,msm-auxpcm-dev-id = <4108>;
+			compatible = "qcom,msm-auxpcm-dev";
+		};
+
+		qcom,msm-sec-auxpcm-tx {
+			qcom,msm-auxpcm-dev-id = <4109>;
 			compatible = "qcom,msm-auxpcm-dev";
 		};
 	};
