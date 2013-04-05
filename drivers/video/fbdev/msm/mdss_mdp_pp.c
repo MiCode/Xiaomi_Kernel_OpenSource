@@ -123,6 +123,7 @@ static u32 dither_depth_map[9] = {
 #define PP_AD_STATE_CFG		0x4
 #define PP_AD_STATE_DATA	0x8
 #define PP_AD_STATE_RUN		0x10
+#define PP_AD_STATE_VSYNC	0x20
 
 #define PP_AD_STATE_IS_INITCFG(st)	(((st) & PP_AD_STATE_INIT) &&\
 						((st) & PP_AD_STATE_CFG))
@@ -134,6 +135,7 @@ static u32 dither_depth_map[9] = {
 #define PP_AD_STS_DIRTY_INIT	0x2
 #define PP_AD_STS_DIRTY_CFG	0x4
 #define PP_AD_STS_DIRTY_DATA	0x8
+#define PP_AD_STS_DIRTY_VSYNC	0x10
 
 #define PP_AD_STS_IS_DIRTY(sts) (((sts) & PP_AD_STS_DIRTY_INIT) ||\
 					((sts) & PP_AD_STS_DIRTY_CFG))
@@ -218,6 +220,7 @@ static void pp_enhist_config(unsigned long flags, char __iomem *base,
 static void pp_sharp_config(char __iomem *offset,
 				struct pp_sts_type *pp_sts,
 				struct mdp_sharp_cfg *sharp_config);
+static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t);
 static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd);
 static void pp_ad_cfg_lut(char __iomem *offset, u32 *data);
 
@@ -1120,14 +1123,21 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
  * Set dirty and write bits on features that were enabled so they will be
  * reconfigured
  */
-int mdss_mdp_pp_resume(u32 mixer_num)
+int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 mixer_num)
 {
 	u32 flags = 0;
 	struct pp_sts_type pp_sts;
-
+	struct mdss_ad_info *ad;
+	struct mdss_data_type *mdata = ctl->mdata;
 	if (mixer_num >= MDSS_MDP_MAX_DSPP) {
 		pr_warn("invalid mixer_num");
 		return -EINVAL;
+	}
+
+	if (mixer_num < mdata->nad_cfgs) {
+		ad = &mdata->ad_cfgs[mixer_num];
+		if ((PP_AD_STATE_VSYNC & ad->state) && ad->calc_itr)
+			ctl->add_vsync_handler(ctl, &ad->handle);
 	}
 
 	pp_sts = mdss_pp_res->pp_dspp_sts[mixer_num];
@@ -2580,6 +2590,11 @@ int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 		return -ENODEV;
 	}
 
+	if (mfd->panel_info->type == MIPI_CMD_PANEL) {
+		pr_debug("Command panel not supported");
+		return -EINVAL;
+	}
+
 	mixer_num = mdss_mdp_get_ctl_mixers(mfd->index, mixer_id);
 	if (!mixer_num || mixer_num > MDSS_AD_MAX_MIXERS) {
 		pr_err("invalid mixer_num, %d", mixer_num);
@@ -2676,7 +2691,11 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			goto error;
 		}
 		ad->ad_data_mode = MDSS_AD_INPUT_AMBIENT;
+
 		ad->ad_data = input->in.amb_light;
+		ad->calc_itr = ad->cfg.stab_itr;
+		ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+		ad->sts |= PP_AD_STS_DIRTY_DATA;
 		break;
 	case MDSS_AD_MODE_TARG_STR:
 	case MDSS_AD_MODE_MAN_STR:
@@ -2687,13 +2706,15 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 		}
 		ad->ad_data_mode = MDSS_AD_INPUT_STRENGTH;
 		ad->ad_data = input->in.strength;
+		ad->calc_itr = ad->cfg.stab_itr;
+		ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+		ad->sts |= PP_AD_STS_DIRTY_DATA;
 		break;
 	default:
 		pr_warn("invalid default %d", input->mode);
 		ret = -EINVAL;
 		goto error;
 	}
-	ad->sts |= PP_AD_STS_DIRTY_DATA;
 error:
 	mutex_unlock(&ad->lock);
 	if (!ret) {
@@ -2808,9 +2829,21 @@ static void pp_ad_cfg_write(struct mdss_ad_info *ad, char __iomem *base)
 		writel_relaxed(ad->cfg.backlight_scale,
 				base + MDSS_MDP_REG_AD_BL_MAX);
 		writel_relaxed(ad->cfg.mode, base + MDSS_MDP_REG_AD_MODE_SEL);
+		pr_debug("stab_itr = %d", ad->cfg.stab_itr);
 		break;
 	default:
 		break;
+	}
+}
+
+static void pp_ad_vsync_handler(struct mdss_mdp_ctl *ctl, ktime_t t)
+{
+	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_ad_info *ad;
+
+	if (ctl->mixer_left && ctl->mixer_left->num < mdata->nad_cfgs) {
+		ad = &mdata->ad_cfgs[ctl->mixer_left->num];
+		queue_work(mdata->ad_calc_wq, &ad->calc_work);
 	}
 }
 
@@ -2820,6 +2853,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	int ad_num, ret = 0;
 	struct mdss_ad_info *ad;
 	struct mdss_data_type *mdata;
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	char __iomem *base;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF;
 
@@ -2832,9 +2866,16 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	base = ad->base;
 
 	mutex_lock(&ad->lock);
+	if (ad->sts != last_sts || ad->state != last_state) {
+		last_sts = ad->sts;
+		last_state = ad->state;
+		pr_debug("begining: ad->sts = 0x%08x, state = 0x%08x", ad->sts,
+								ad->state);
+	}
 	if (!PP_AD_STS_IS_DIRTY(ad->sts) &&
 		(ad->sts & PP_AD_STS_DIRTY_DATA ||
-			ad->state & PP_AD_STATE_RUN)) {
+			(ad->state & PP_AD_STATE_RUN &&
+				(ad->cfg.mode == MDSS_AD_MODE_AUTO_STR)))) {
 		/*
 		 * Write inputs to regs when the data has been updated or
 		 * Assertive Display is up and running as long as there are
@@ -2842,6 +2883,11 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		 */
 		ad->sts &= ~PP_AD_STS_DIRTY_DATA;
 		ad->state |= PP_AD_STATE_DATA;
+		if (mfd->bl_level != ad->last_bl) {
+			ad->last_bl = mfd->bl_level;
+			ad->calc_itr = ad->cfg.stab_itr;
+			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+		}
 		pp_ad_input_write(ad, base, mfd->bl_level);
 	}
 
@@ -2868,21 +2914,33 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		ret = 1;
 		ad->state |= PP_AD_STATE_RUN;
 	} else {
-		if (ad->state & PP_AD_STATE_RUN)
+		if (ad->state & PP_AD_STATE_RUN) {
 			ret = 1;
+			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+		}
 		ad->state &= ~PP_AD_STATE_RUN;
 	}
 	writel_relaxed(bypass, base);
 
+	if (PP_AD_STS_DIRTY_VSYNC & ad->sts) {
+		pr_debug("dirty vsync, calc_itr = %d", ad->calc_itr);
+		ad->sts &= ~PP_AD_STS_DIRTY_VSYNC;
+		if (!(PP_AD_STATE_VSYNC & ad->state) && ad->calc_itr) {
+			ctl->add_vsync_handler(ctl, &ad->handle);
+			ad->state |= PP_AD_STATE_VSYNC;
+		} else if ((PP_AD_STATE_VSYNC & ad->state) &&
+			(!ad->calc_itr || !(PP_AD_STATE_RUN & ad->state))) {
+			ctl->remove_vsync_handler(ctl, &ad->handle);
+			ad->state &= ~PP_AD_STATE_VSYNC;
+		}
+	}
+
 	if (ad->sts != last_sts || ad->state != last_state) {
 		last_sts = ad->sts;
 		last_state = ad->state;
-		pr_debug("ad->sts = 0x%08x, state = 0x%08x", ad->sts,
+		pr_debug("end: ad->sts = 0x%08x, state = 0x%08x", ad->sts,
 								ad->state);
 	}
-	if (PP_AD_STATE_RUN & ad->state)
-		queue_work(mdata->ad_calc_wq, &ad->calc_work);
-
 	mutex_unlock(&ad->lock);
 	return ret;
 }
@@ -2891,12 +2949,15 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 static void pp_ad_calc_worker(struct work_struct *work)
 {
 	struct mdss_ad_info *ad;
+	struct mdss_mdp_ctl *ctl;
 	u32 bl, calc_done = 0;
 	ad = container_of(work, struct mdss_ad_info, calc_work);
+	ctl = mfd_to_ctl(ad->mfd);
 
 	mutex_lock(&ad->lock);
 	if (PP_AD_STATE_RUN & ad->state) {
 		/* Kick off calculation */
+		ad->calc_itr--;
 		writel_relaxed(1, ad->base + MDSS_MDP_REG_AD_START_CALC);
 	}
 	if (ad->state & PP_AD_STATE_RUN) {
@@ -2912,18 +2973,29 @@ static void pp_ad_calc_worker(struct work_struct *work)
 			if (MDSS_AD_RUNNING_AUTO_BL(ad)) {
 				bl = 0xFFFF & readl_relaxed(ad->base +
 						MDSS_MDP_REG_AD_BL_OUT);
-				ad->last_str |= bl << 16;
 				pr_debug("calc bl = %d", bl);
-				mutex_lock(&ad->mfd->lock);
+				ad->last_str |= bl << 16;
+				mutex_lock(&ad->mfd->bl_lock);
 				mdss_fb_set_backlight(ad->mfd, bl);
-				mutex_unlock(&ad->mfd->lock);
+				mutex_unlock(&ad->mfd->bl_lock);
 			}
+			pr_debug("calc_str = %d, calc_itr %d",
+							ad->last_str & 0xFF,
+							ad->calc_itr);
 		} else {
 			ad->last_str = 0xFFFFFFFF;
 		}
 	}
 	complete(&ad->comp);
+
+	if (!ad->calc_itr) {
+		ad->state &= ~PP_AD_STATE_VSYNC;
+		ctl->remove_vsync_handler(ctl, &ad->handle);
+	}
 	mutex_unlock(&ad->lock);
+	mutex_lock(&ad->mfd->lock);
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, BIT(13 + ad->num));
+	mutex_unlock(&ad->mfd->lock);
 }
 
 #define PP_AD_LUT_LEN 33
@@ -2958,7 +3030,11 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_off)
 	mdata->ad_calc_wq = create_singlethread_workqueue("ad_calc_wq");
 	for (i = 0; i < mdata->nad_cfgs; i++) {
 		mdata->ad_cfgs[i].base = mdata->mdp_base + ad_off[i];
+		mdata->ad_cfgs[i].num = i;
+		mdata->ad_cfgs[i].calc_itr = 0;
+		mdata->ad_cfgs[i].last_str = 0xFFFFFFFF;
 		mutex_init(&mdata->ad_cfgs[i].lock);
+		mdata->ad_cfgs[i].handle.vsync_handler = pp_ad_vsync_handler;
 		INIT_WORK(&mdata->ad_cfgs[i].calc_work, pp_ad_calc_worker);
 	}
 	return rc;
