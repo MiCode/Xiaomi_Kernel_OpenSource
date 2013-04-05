@@ -944,7 +944,7 @@ enum afe_mad_type afe_port_get_mad_type(u16 port_id)
 
 	i = port_id - SLIMBUS_0_RX;
 	if (i < 0 || i > ARRAY_SIZE(afe_ports_mad_type)) {
-		pr_err("%s: Invalid port_id 0x%x\n", __func__, port_id);
+		pr_debug("%s: Non Slimbus port_id 0x%x\n", __func__, port_id);
 		return MAD_HW_NONE;
 	}
 	return (enum afe_mad_type) atomic_read(&afe_ports_mad_type[i]);
