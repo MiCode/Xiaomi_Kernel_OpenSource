@@ -335,6 +335,7 @@ struct adm_cmd_rsp_device_open_v5 {
 /*  Payload an #ADM_CMD_GET_PP_PARAMS_V5 command.
 */
 struct adm_cmd_get_pp_params_v5 {
+	struct apr_hdr hdr;
 	u32                  data_payload_addr_lsw;
 	/* LSW of parameter data payload address.*/
 
@@ -6920,5 +6921,8 @@ struct afe_port_cmd_set_aanc_acdb_table {
 	struct apr_hdr hdr;
 	struct afe_port_cmd_set_param_v2 param;
 } __packed;
+
+/* Dolby DAP topology */
+#define DOLBY_ADM_COPP_TOPOLOGY_ID	0x0001033B
 
 #endif /*_APR_AUDIO_V2_H_ */

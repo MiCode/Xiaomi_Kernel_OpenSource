@@ -33,6 +33,7 @@
 
 #define RESET_COPP_ID 99
 #define INVALID_COPP_ID 0xFF
+#define ADM_GET_PARAMETER_LENGTH 350
 
 struct adm_ctl {
 	void *apr;
@@ -63,6 +64,8 @@ struct adm_multi_ch_map {
 static struct adm_multi_ch_map multi_ch_map = { false,
 						{0, 0, 0, 0, 0, 0, 0, 0}
 					      };
+
+static int adm_dolby_get_parameters[ADM_GET_PARAMETER_LENGTH];
 
 int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
 {
@@ -266,6 +269,134 @@ fail_cmd:
 	return ret;
 }
 
+int adm_dolby_dap_send_params(int port_id, char *params, uint32_t params_length)
+{
+	struct adm_cmd_set_pp_params_v5	*adm_params = NULL;
+	int sz, rc = 0, index = afe_get_port_index(port_id);
+
+	pr_debug("%s\n", __func__);
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d portid %#x\n",
+			__func__, index, port_id);
+		return -EINVAL;
+	}
+	sz = sizeof(struct adm_cmd_set_pp_params_v5) + params_length;
+	adm_params = kzalloc(sz, GFP_KERNEL);
+	if (!adm_params) {
+		pr_err("%s, adm params memory alloc failed", __func__);
+		return -ENOMEM;
+	}
+
+	memcpy(((u8 *)adm_params + sizeof(struct adm_cmd_set_pp_params_v5)),
+			params, params_length);
+	adm_params->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	adm_params->hdr.pkt_size = sz;
+	adm_params->hdr.src_svc = APR_SVC_ADM;
+	adm_params->hdr.src_domain = APR_DOMAIN_APPS;
+	adm_params->hdr.src_port = port_id;
+	adm_params->hdr.dest_svc = APR_SVC_ADM;
+	adm_params->hdr.dest_domain = APR_DOMAIN_ADSP;
+	adm_params->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	adm_params->hdr.token = port_id;
+	adm_params->hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
+	adm_params->payload_addr_lsw = 0;
+	adm_params->payload_addr_msw = 0;
+	adm_params->mem_map_handle = 0;
+	adm_params->payload_size = params_length;
+
+	atomic_set(&this_adm.copp_stat[index], 0);
+	rc = apr_send_pkt(this_adm.apr, (uint32_t *)adm_params);
+	if (rc < 0) {
+		pr_err("%s: Set params failed port = %#x\n",
+			__func__, port_id);
+		rc = -EINVAL;
+		goto dolby_dap_send_param_return;
+	}
+	/* Wait for the callback */
+	rc = wait_event_timeout(this_adm.wait[index],
+		atomic_read(&this_adm.copp_stat[index]),
+		msecs_to_jiffies(TIMEOUT_MS));
+	if (!rc) {
+		pr_err("%s: Set params timed out port = %#x\n",
+			 __func__, port_id);
+		rc = -EINVAL;
+		goto dolby_dap_send_param_return;
+	}
+	rc = 0;
+dolby_dap_send_param_return:
+	kfree(adm_params);
+	return rc;
+}
+
+int adm_dolby_dap_get_params(int port_id, uint32_t module_id, uint32_t param_id,
+				uint32_t params_length, char *params)
+{
+	struct adm_cmd_get_pp_params_v5	*adm_params = NULL;
+	int sz, rc = 0, i = 0, index = afe_get_port_index(port_id);
+	int *params_data = (int *)params;
+
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: invalid port idx %d portid %#x\n",
+			__func__, index, port_id);
+		return -EINVAL;
+	}
+	sz = sizeof(struct adm_cmd_set_pp_params_v5) + params_length;
+	adm_params = kzalloc(sz, GFP_KERNEL);
+	if (!adm_params) {
+		pr_err("%s, adm params memory alloc failed", __func__);
+		return -ENOMEM;
+	}
+
+	memcpy(((u8 *)adm_params + sizeof(struct adm_cmd_set_pp_params_v5)),
+			params, params_length);
+	adm_params->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	adm_params->hdr.pkt_size = sz;
+	adm_params->hdr.src_svc = APR_SVC_ADM;
+	adm_params->hdr.src_domain = APR_DOMAIN_APPS;
+	adm_params->hdr.src_port = port_id;
+	adm_params->hdr.dest_svc = APR_SVC_ADM;
+	adm_params->hdr.dest_domain = APR_DOMAIN_ADSP;
+	adm_params->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
+	adm_params->hdr.token = port_id;
+	adm_params->hdr.opcode = ADM_CMD_GET_PP_PARAMS_V5;
+	adm_params->data_payload_addr_lsw = 0;
+	adm_params->data_payload_addr_msw = 0;
+	adm_params->mem_map_handle = 0;
+	adm_params->module_id = module_id;
+	adm_params->param_id = param_id;
+	adm_params->param_max_size = params_length;
+	adm_params->reserved = 0;
+
+	atomic_set(&this_adm.copp_stat[index], 0);
+	rc = apr_send_pkt(this_adm.apr, (uint32_t *)adm_params);
+	if (rc < 0) {
+		pr_err("%s: Failed to Get DOLBY Params on port %d\n", __func__,
+			port_id);
+		rc = -EINVAL;
+		goto dolby_dap_get_param_return;
+	}
+	/* Wait for the callback with copp id */
+	rc = wait_event_timeout(this_adm.wait[index],
+			atomic_read(&this_adm.copp_stat[index]),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!rc) {
+		pr_err("%s: DOLBY get params timed out port = %d\n", __func__,
+			port_id);
+		rc = -EINVAL;
+		goto dolby_dap_get_param_return;
+	}
+	if (params_data) {
+		for (i = 0; i < adm_dolby_get_parameters[0]; i++)
+			params_data[i] = adm_dolby_get_parameters[1+i];
+	}
+	rc = 0;
+dolby_dap_get_param_return:
+	kfree(adm_params);
+	return rc;
+}
+
 static void adm_callback_debug_print(struct apr_client_data *data)
 {
 	uint32_t *payload;
@@ -428,6 +559,13 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 					__func__, payload[0]);
 			rtac_make_adm_callback(payload,
 				data->payload_size);
+			adm_dolby_get_parameters[0] = payload[3];
+			pr_debug("GET_PP PARAM:received parameter length: %x\n",
+					adm_dolby_get_parameters[0]);
+			for (i = 0; i < payload[3]; i++)
+				adm_dolby_get_parameters[1+i] = payload[4+i];
+			atomic_set(&this_adm.copp_stat[index], 1);
+			wake_up(&this_adm.wait[index]);
 			break;
 		case ADM_CMDRSP_SHARED_MEM_MAP_REGIONS:
 			pr_debug("%s: ADM_CMDRSP_SHARED_MEM_MAP_REGIONS\n",
@@ -807,20 +945,10 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		open.endpoint_id_1 = tmp_port;
 		open.endpoint_id_2 = 0xFFFF;
 
-		/* convert path to acdb path */
-		if (path == ADM_PATH_PLAYBACK)
-			open.topology_id = get_adm_rx_topology();
-		else {
-			open.topology_id = get_adm_tx_topology();
-			if ((open.topology_id ==
-				VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
-			    (open.topology_id ==
-				VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
+		open.topology_id = topology;
+		if ((open.topology_id == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
+			(open.topology_id == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY))
 				rate = 16000;
-		}
-
-		if (open.topology_id  == 0)
-			open.topology_id = topology;
 
 		open.dev_num_channel = channel_mode & 0x00FF;
 		open.bit_width = bits_per_sample;
