@@ -344,6 +344,17 @@ int tsens_get_temp(struct tsens_device *device, unsigned long *temp)
 }
 EXPORT_SYMBOL(tsens_get_temp);
 
+int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors)
+{
+	if (!tmdev)
+		return -ENODEV;
+
+	*tsens_num_sensors = tmdev->tsens_num_sensor;
+
+	return 0;
+}
+EXPORT_SYMBOL(tsens_get_max_sensor_num);
+
 static int tsens_tz_get_mode(struct thermal_zone_device *thermal,
 			      enum thermal_device_mode *mode)
 {
