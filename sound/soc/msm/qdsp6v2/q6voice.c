@@ -16,6 +16,7 @@
 #include <linux/uaccess.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
+#include <linux/msm_audio_ion.h>
 
 #include <asm/mach-types.h>
 #include <mach/qdsp6v2/rtac.h>
@@ -4639,35 +4640,16 @@ static int voice_alloc_oob_shared_mem(void)
 		pr_err("%s: v is NULL\n", __func__);
 		return -EINVAL;
 	}
-	v->shmem_info.sh_buf.client = msm_ion_client_create(UINT_MAX,
-							    "voip_client");
-	if (IS_ERR_OR_NULL((void *)v->shmem_info.sh_buf.client)) {
-		pr_err("%s: ION create client failed\n", __func__);
-		goto err;
-	}
 
-	v->shmem_info.sh_buf.handle = ion_alloc(v->shmem_info.sh_buf.client,
-						bufsz * bufcnt, SZ_4K,
-						(0x1 << ION_AUDIO_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL((void *)v->shmem_info.sh_buf.handle)) {
-		pr_err("%s: ION memory allocation failed\n",
-			__func__);
-		goto err_ion_client;
-	}
-
-	rc = ion_phys(v->shmem_info.sh_buf.client, v->shmem_info.sh_buf.handle,
-		  (ion_phys_addr_t *)&phys, (size_t *)&len);
+	rc = msm_audio_ion_alloc("voip_client", &(v->shmem_info.sh_buf.client),
+			&(v->shmem_info.sh_buf.handle),
+			bufsz*bufcnt,
+			(ion_phys_addr_t *)&phys, (size_t *)&len,
+			&mem_addr);
 	if (rc) {
-		pr_err("%s: ION Get Physical failed, rc = %d\n",
+		pr_err("%s: audio ION alloc failed, rc = %d\n",
 			__func__, rc);
-		goto err_ion_handle;
-	}
-
-	mem_addr = ion_map_kernel(v->shmem_info.sh_buf.client,
-				  v->shmem_info.sh_buf.handle);
-	if (IS_ERR_OR_NULL(mem_addr)) {
-		pr_err("%s: ION memory mapping failed\n", __func__);
-		goto err_ion_handle;
+		return -EINVAL;
 	}
 
 	while (cnt < bufcnt) {
@@ -4691,13 +4673,6 @@ static int voice_alloc_oob_shared_mem(void)
 	memset((void *)v->shmem_info.sh_buf.buf[0].data, 0, (bufsz * bufcnt));
 
 	return 0;
-
-err_ion_handle:
-	ion_free(v->shmem_info.sh_buf.client, v->shmem_info.sh_buf.handle);
-err_ion_client:
-	ion_client_destroy(v->shmem_info.sh_buf.client);
-err:
-	return -EINVAL;
 }
 
 static int voice_alloc_oob_mem_table(void)
@@ -4711,40 +4686,18 @@ static int voice_alloc_oob_mem_table(void)
 		pr_err("%s: v is NULL\n", __func__);
 		return -EINVAL;
 	}
-	v->shmem_info.memtbl.client = msm_ion_client_create(UINT_MAX,
-							      "voip_client");
-	if (IS_ERR_OR_NULL((void *)v->shmem_info.memtbl.client)) {
-		pr_err("%s: ION create client for memtbl failed\n", __func__);
-		goto err;
-	}
 
-	v->shmem_info.memtbl.handle = ion_alloc(v->shmem_info.memtbl.client,
-				sizeof(struct vss_imemory_table_t), SZ_4K,
-				(0x1 << ION_AUDIO_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL((void *) v->shmem_info.memtbl.handle)) {
-		pr_err("%s: ION memory allocation for memtbl failed\n",
-			__func__);
-		goto err_ion_client;
-	}
-
-	rc = ion_phys(v->shmem_info.memtbl.client, v->shmem_info.memtbl.handle,
-		(ion_phys_addr_t *)&v->shmem_info.memtbl.phys, (size_t *)&len);
+	rc = msm_audio_ion_alloc("voip_client", &(v->shmem_info.memtbl.client),
+				&(v->shmem_info.memtbl.handle),
+				sizeof(struct vss_imemory_table_t),
+				(ion_phys_addr_t *)&v->shmem_info.memtbl.phys,
+				(size_t *)&len,
+				&(v->shmem_info.memtbl.data));
 	if (rc) {
-		pr_err("%s: ION Get Physical for memtbl failed, rc = %d\n",
+		pr_err("%s: audio ION alloc failed, rc = %d\n",
 			__func__, rc);
-		goto err_ion_handle;
+		return -EINVAL;
 	}
-
-	v->shmem_info.memtbl.data = ion_map_kernel(v->shmem_info.memtbl.client,
-						   v->shmem_info.memtbl.handle);
-	if (IS_ERR_OR_NULL((void *)v->shmem_info.memtbl.data)) {
-		pr_err("%s: ION memory mapping for memtbl failed\n",
-				__func__);
-		goto err_ion_handle;
-	}
-
-	memset(v->shmem_info.memtbl.data, 0,
-	       sizeof(struct vss_imemory_table_t));
 
 	v->shmem_info.memtbl.size = sizeof(struct vss_imemory_table_t);
 
@@ -4755,12 +4708,6 @@ static int voice_alloc_oob_mem_table(void)
 
 	return 0;
 
-err_ion_handle:
-	ion_free(v->shmem_info.memtbl.client, v->shmem_info.memtbl.handle);
-err_ion_client:
-	ion_client_destroy(v->shmem_info.memtbl.client);
-err:
-	return -EINVAL;
 }
 
 static int voice_alloc_cal_mem_map_table(void)
@@ -4768,67 +4715,25 @@ static int voice_alloc_cal_mem_map_table(void)
 	int ret = 0;
 	int len;
 
-	common.cal_mem_map_table.client = msm_ion_client_create(UINT_MAX,
-								"voc_client");
-
-	if (IS_ERR_OR_NULL((void *) common.cal_mem_map_table.client)) {
-		pr_err("%s: ION create client for cal mem map table failed\n",
-		       __func__);
-
-		goto err;
-	}
-
-	common.cal_mem_map_table.handle =
-				ion_alloc(common.cal_mem_map_table.client,
-					  sizeof(struct vss_imemory_table_t),
-					  SZ_4K, (0x1 << ION_AUDIO_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL((void *) common.cal_mem_map_table.handle)) {
-		pr_err("%s: ION memory alloc for cal mem map table failed\n",
-		       __func__);
-
-		goto err_ion_client;
-	}
-
-	ret = ion_phys(common.cal_mem_map_table.client,
-		      common.cal_mem_map_table.handle,
-		      (ion_phys_addr_t *) &common.cal_mem_map_table.phys,
-		      (size_t *) &len);
+	ret = msm_audio_ion_alloc("voip_client",
+				&(common.cal_mem_map_table.client),
+				&(common.cal_mem_map_table.handle),
+				sizeof(struct vss_imemory_table_t),
+			      (ion_phys_addr_t *)&common.cal_mem_map_table.phys,
+				(size_t *) &len,
+				&(common.cal_mem_map_table.data));
 	if (ret) {
-		pr_err("%s: Phy addr for cal mem map table failed %d\n",
-		       __func__, ret);
-
-		goto err_ion_handle;
+		pr_err("%s: audio ION alloc failed, rc = %d\n",
+			__func__, ret);
+		return -EINVAL;
 	}
-
-	common.cal_mem_map_table.data =
-				ion_map_kernel(common.cal_mem_map_table.client,
-					       common.cal_mem_map_table.handle);
-	if (IS_ERR_OR_NULL((void *) common.cal_mem_map_table.data)) {
-		pr_err("%s: Virtual addr for cal memory map table failed\n",
-		       __func__);
-
-		goto err_ion_handle;
-	}
-
-	memset(common.cal_mem_map_table.data, 0,
-	       sizeof(struct vss_imemory_table_t));
 
 	common.cal_mem_map_table.size = sizeof(struct vss_imemory_table_t);
-
 	pr_debug("%s: data 0x%x phys 0x%x\n", __func__,
 		 (unsigned int) common.cal_mem_map_table.data,
 		 common.cal_mem_map_table.phys);
 
 	return 0;
-
-err_ion_handle:
-	ion_free(common.cal_mem_map_table.client,
-		 common.cal_mem_map_table.handle);
-err_ion_client:
-	ion_client_destroy(common.cal_mem_map_table.client);
-	memset(&common.cal_mem_map_table, 0, sizeof(common.cal_mem_map_table));
-err:
-	return -EINVAL;
 }
 
 static int __init voice_init(void)
