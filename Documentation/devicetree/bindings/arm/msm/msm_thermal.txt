@@ -31,6 +31,28 @@ Optional properties
 - qcom,core-control-mask: The cpu mask that will be used to determine if a
 			core can be controlled or not. A mask of 0 indicates
 			the feature is disabled.
+- qcom,vdd-restriction-temp: When temperature is below this threshold, will
+			enable vdd restriction which will set higher voltage on
+			key voltage rails, in degC.
+- qcom,vdd-restriction-temp-hysteresis: When temperature is above this threshold
+			will disable vdd restriction on key rails, in degC.
+- <consumer_supply_name>-supply = <&phandle_of_regulator>: consumer_supply_name
+			is the name that's defined in thermal driver.
+			phandle_of_regulator is defined by reuglator device tree.
+
+Optional child nodes
+- qcom,<vdd restriction child node name>: Define the name of the child node.
+			If this property exisits, qcom,vdd-rstr-reg, qcom,levels,
+			qcom,min-level and qcom,freq-req need to exist, otherwise
+			we return an error.
+- qcom,vdd-rstr-reg: Name of the rail
+- qcom,levels: Array of the level values. Unit is corner voltage for voltage request
+			or kHz for frequency request.
+- qcom,min-level: Request this level as minimum level when disabling voltage
+			restriction. Unit is corner voltage for voltage request
+			or kHz for frequency request.
+- qcom,freq-req: Flag to determine if we should restrict frequency on this rail
+			instead of voltage.
 
 Example:
 
@@ -44,4 +66,14 @@ Example:
 		qcom,core-limit-temp = <90>;
 		qcom,core-temp-hysterisis = <10>;
 		qcom,core-control-mask = <7>;
+		qcom,vdd-restriction-temp = <5>;
+		qcom,vdd-restriction-temp-hysteresis = <10>;
+		vdd_dig-supply=<&pm8841_s2_floor_corner>
+
+		qcom,vdd-dig-rstr{
+			qcom,vdd-rstr-reg = "vdd_dig";
+			qcom,levels = <5 7 7>; /* Nominal, Super Turbo, Super Turbo */
+			qcom,min-level = <1>; /* No Request */
+		};
 	};
+
