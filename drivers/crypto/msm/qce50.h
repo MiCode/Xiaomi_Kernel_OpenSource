@@ -17,7 +17,6 @@
 /* MAX Data xfer block size between BAM and CE */
 #define MAX_CE_BAM_BURST_SIZE   0x40
 #define QCEBAM_BURST_SIZE	MAX_CE_BAM_BURST_SIZE
-#define MAX_BAM_DESCRIPTORS	(0x40 - 1)
 
 #define GET_VIRT_ADDR(x)  \
 		((uint32_t)pce_dev->coh_vmem +			\
