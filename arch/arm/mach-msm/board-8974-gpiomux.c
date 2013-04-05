@@ -1055,7 +1055,7 @@ void __init msm_8974_init_gpiomux(void)
 				ARRAY_SIZE(msm_hsic_hub_configs));
 
 	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
-	if (machine_is_msm8974_fluid())
+	if (of_board_is_fluid())
 		msm_gpiomux_install(msm_mhl_configs,
 				    ARRAY_SIZE(msm_mhl_configs));
 
@@ -1067,7 +1067,7 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install_nowrite(msm_lcd_configs,
 			ARRAY_SIZE(msm_lcd_configs));
 
-	if (machine_is_msm8974_rumi())
+	if (of_board_is_rumi())
 		msm_gpiomux_install(msm_rumi_blsp_configs,
 				    ARRAY_SIZE(msm_rumi_blsp_configs));
 }

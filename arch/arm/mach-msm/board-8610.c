@@ -103,7 +103,7 @@ void __init msm8610_add_drivers(void)
 	qpnp_regulator_init();
 	msm_thermal_device_init();
 
-	if (machine_is_msm8610_rumi())
+	if (of_board_is_rumi())
 		msm_clock_init(&msm8610_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8610_clock_init_data);

@@ -282,10 +282,9 @@ int __cpuinit msm8974_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	pr_debug("Starting secondary CPU %d\n", cpu);
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
-		if (machine_is_msm8974_sim() || machine_is_mpq8092_sim())
+		if (of_board_is_sim())
 			release_secondary_sim(0xf9088000, cpu);
-		else if (!machine_is_msm8974_rumi() &&
-			 !machine_is_msmzinc_sim())
+		else if (!of_board_is_rumi())
 			msm8974_release_secondary(0xf9088000, cpu);
 
 		per_cpu(cold_boot_done, cpu) = true;
@@ -298,9 +297,9 @@ int __cpuinit arm_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	pr_debug("Starting secondary CPU %d\n", cpu);
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
-		if (machine_is_msm8226_sim() || machine_is_msm8610_sim())
+		if (of_board_is_sim())
 			release_secondary_sim(0xf9088000, cpu);
-		else if (!machine_is_msm8610_rumi())
+		else if (!of_board_is_rumi())
 			arm_release_secondary(0xf9088000, cpu);
 
 		per_cpu(cold_boot_done, cpu) = true;
