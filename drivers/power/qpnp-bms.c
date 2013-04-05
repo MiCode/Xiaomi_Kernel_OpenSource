@@ -194,6 +194,8 @@ struct qpnp_bms_chip {
 	int				prev_voltage_based_soc;
 	bool				use_voltage_soc;
 
+	int				prev_batt_terminal_uv;
+
 	int				ocv_high_threshold_uv;
 	int				ocv_low_threshold_uv;
 	unsigned long			last_recalc_time;
@@ -651,6 +653,7 @@ static void reset_for_new_battery(struct qpnp_bms_chip *chip, int batt_temp)
 	chip->last_cc_uah = INT_MIN;
 	chip->last_ocv_temp = batt_temp;
 	chip->last_soc_invalid = true;
+	chip->prev_batt_terminal_uv = 0;
 }
 
 #define OCV_RAW_UNINITIALIZED	0xFFFF
@@ -1296,11 +1299,13 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 			pr_debug("CC_TO_CV ibat_ua = %d CHG SOC %d\n",
 					ibat_ua, soc);
 		}
+
+		chip->prev_batt_terminal_uv = batt_terminal_uv;
 		return soc;
 	}
 
 	/*
-	 * battery is in CV phase - begin liner inerpolation of soc based on
+	 * battery is in CV phase - begin linear interpolation of soc based on
 	 * battery charge current
 	 */
 
@@ -1308,10 +1313,11 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 	 * if voltage lessened (possibly because of a system load)
 	 * keep reporting the prev chg soc
 	 */
-	if (batt_terminal_uv <= chip->max_voltage_uv - 10000) {
+	if (batt_terminal_uv <= chip->prev_batt_terminal_uv) {
 		pr_debug("batt_terminal_uv %d < (max = %d - 10000); CC CHG SOC %d\n",
-			batt_terminal_uv,
-			chip->max_voltage_uv, chip->prev_chg_soc);
+			batt_terminal_uv, chip->prev_batt_terminal_uv,
+			chip->prev_chg_soc);
+		chip->prev_batt_terminal_uv = batt_terminal_uv;
 		return chip->prev_chg_soc;
 	}
 
@@ -1334,6 +1340,7 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 	}
 
 	pr_debug("Reporting CHG SOC %d\n", chip->prev_chg_soc);
+	chip->prev_batt_terminal_uv = batt_terminal_uv;
 	return chip->prev_chg_soc;
 }
 
