@@ -152,16 +152,7 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	rc = ion_handle_get_flags(client->clnt, hndl, &ionflags);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get ion flags: %d\n", rc);
-		goto fail_map;
-	}
-	if (ION_IS_CACHED(ionflags)) {
-		mem->kvaddr = ion_map_kernel(client->clnt, hndl);
-		if (!mem->kvaddr) {
-			dprintk(VIDC_ERR,
-					"Failed to map shared mem in kernel\n");
-			rc = -EIO;
-			goto fail_map;
-		}
+		goto fail_device_address;
 	}
 
 	mem->flags = ionflags;
@@ -184,9 +175,6 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 		mem->device_addr, mem->size);
 	return rc;
 fail_device_address:
-	if (mem->kvaddr)
-		ion_unmap_kernel(client->clnt, hndl);
-fail_map:
 	ion_free(client->clnt, hndl);
 fail_import_fd:
 	return rc;
@@ -366,20 +354,14 @@ static int ion_cache_operations(struct smem_client *client,
 			rc = -EINVAL;
 			goto cache_op_failed;
 		}
-		if (mem->kvaddr) {
-			rc = msm_ion_do_cache_op(client->clnt,
-					(struct ion_handle *)mem->smem_priv,
-					(unsigned long *) mem->kvaddr,
-					(unsigned long)mem->size,
-					msm_cache_ops);
-			if (rc) {
-				dprintk(VIDC_ERR,
+		rc = msm_ion_do_cache_op(client->clnt,
+				(struct ion_handle *)mem->smem_priv,
+				0, (unsigned long)mem->size,
+				msm_cache_ops);
+		if (rc) {
+			dprintk(VIDC_ERR,
 					"cache operation failed %d\n", rc);
-				goto cache_op_failed;
-			}
-		} else {
-			dprintk(VIDC_WARN,
-				"cache operation failed as no kernel mapping\n");
+			goto cache_op_failed;
 		}
 	}
 cache_op_failed:
