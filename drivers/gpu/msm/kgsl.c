@@ -413,27 +413,6 @@ kgsl_context_destroy(struct kref *kref)
 	kfree(context);
 }
 
-static void kgsl_check_idle_locked(struct kgsl_device *device)
-{
-	if (device->pwrctrl.nap_allowed == true &&
-	    device->state == KGSL_STATE_ACTIVE &&
-		device->requested_state == KGSL_STATE_NONE) {
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
-		kgsl_pwrscale_idle(device);
-		if (kgsl_pwrctrl_sleep(device) != 0)
-			mod_timer(&device->idle_timer,
-				  jiffies +
-				  device->pwrctrl.interval_timeout);
-	}
-}
-
-static void kgsl_check_idle(struct kgsl_device *device)
-{
-	mutex_lock(&device->mutex);
-	kgsl_check_idle_locked(device);
-	mutex_unlock(&device->mutex);
-}
-
 struct kgsl_device *kgsl_get_device(int dev_idx)
 {
 	int i;
@@ -496,13 +475,12 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 	policy_saved = device->pwrscale.policy;
 	device->pwrscale.policy = NULL;
 	kgsl_pwrctrl_request_state(device, KGSL_STATE_SUSPEND);
-	/* Make sure no user process is waiting for a timestamp *
-	 * before supending */
-	if (device->active_cnt != 0) {
-		mutex_unlock(&device->mutex);
-		wait_for_completion(&device->suspend_gate);
-		mutex_lock(&device->mutex);
-	}
+	/*
+	 * Make sure no user process is waiting for a timestamp
+	 * before supending.
+	 */
+	kgsl_active_count_wait(device);
+
 	/* Don't let the timer wake us during suspended sleep. */
 	del_timer_sync(&device->idle_timer);
 	switch (device->state) {
@@ -513,6 +491,8 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 			device->ftbl->idle(device);
 		case KGSL_STATE_NAP:
 		case KGSL_STATE_SLEEP:
+			/* make sure power is on to stop the device */
+			kgsl_pwrctrl_enable(device);
 			/* Get the completion ready to be waited upon. */
 			INIT_COMPLETION(device->hwaccess_gate);
 			device->ftbl->suspend_context(device);
@@ -632,9 +612,16 @@ void kgsl_late_resume_driver(struct early_suspend *h)
 	device->pwrctrl.restore_slumber = false;
 	if (device->pwrscale.policy == NULL)
 		kgsl_pwrctrl_pwrlevel_change(device, KGSL_PWRLEVEL_TURBO);
-	kgsl_pwrctrl_wake(device);
+	if (kgsl_pwrctrl_wake(device) != 0)
+		return;
+	/*
+	 * We don't have a way to go directly from
+	 * a deeper sleep state to NAP, which is
+	 * the desired state here.
+	 */
+	kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
+	kgsl_pwrctrl_sleep(device);
 	mutex_unlock(&device->mutex);
-	kgsl_check_idle(device);
 	KGSL_PWR_WARN(device, "late resume end\n");
 }
 EXPORT_SYMBOL(kgsl_late_resume_driver);
@@ -745,7 +732,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	filep->private_data = NULL;
 
 	mutex_lock(&device->mutex);
-	kgsl_check_suspended(device);
+	kgsl_active_count_get(device);
 
 	while (1) {
 		context = idr_get_next(&device->context_idr, &next);
@@ -767,10 +754,17 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 
 	device->open_count--;
 	if (device->open_count == 0) {
+		BUG_ON(device->active_cnt > 1);
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
+		/*
+		 * active_cnt special case: we just stopped the device,
+		 * so no need to use kgsl_active_count_put()
+		 */
+		device->active_cnt--;
+	} else {
+		kgsl_active_count_put(device);
 	}
-
 	mutex_unlock(&device->mutex);
 	kfree(dev_priv);
 
@@ -816,9 +810,14 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 	filep->private_data = dev_priv;
 
 	mutex_lock(&device->mutex);
-	kgsl_check_suspended(device);
 
 	if (device->open_count == 0) {
+		/*
+		 * active_cnt special case: we are starting up for the first
+		 * time, so use this sequence instead of the kgsl_pwrctrl_wake()
+		 * which will be called by kgsl_active_count_get().
+		 */
+		device->active_cnt++;
 		kgsl_sharedmem_set(&device->memstore, 0, 0,
 				device->memstore.size);
 
@@ -831,6 +830,7 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 			goto err_freedevpriv;
 
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
+		kgsl_active_count_put(device);
 	}
 	device->open_count++;
 	mutex_unlock(&device->mutex);
@@ -856,10 +856,15 @@ err_stop:
 	mutex_lock(&device->mutex);
 	device->open_count--;
 	if (device->open_count == 0) {
+		/* make sure power is on to stop the device */
+		kgsl_pwrctrl_enable(device);
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
 	}
 err_freedevpriv:
+	/* only the first open takes an active count */
+	if (device->open_count == 0)
+		device->active_cnt--;
 	mutex_unlock(&device->mutex);
 	filep->private_data = NULL;
 	kfree(dev_priv);
@@ -1073,10 +1078,6 @@ static long _device_waittimestamp(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 	unsigned int context_id = context ? context->id : KGSL_MEMSTORE_GLOBAL;
 
-	/* Set the active count so that suspend doesn't do the wrong thing */
-
-	device->active_cnt++;
-
 	trace_kgsl_waittimestamp_entry(device, context_id,
 				       kgsl_readtimestamp(device, context,
 							KGSL_TIMESTAMP_RETIRED),
@@ -1089,9 +1090,6 @@ static long _device_waittimestamp(struct kgsl_device_private *dev_priv,
 				      kgsl_readtimestamp(device, context,
 							KGSL_TIMESTAMP_RETIRED),
 				      result);
-
-	/* Fire off any pending suspend operations that are in flight */
-	kgsl_active_count_put(dev_priv->device);
 
 	return result;
 }
@@ -1887,7 +1885,6 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	trace_kgsl_mem_map(entry, param->fd);
 
-	kgsl_check_idle(dev_priv->device);
 	return result;
 
 error_unmap:
@@ -1907,7 +1904,6 @@ error_put_file_ptr:
 	}
 error:
 	kfree(entry);
-	kgsl_check_idle(dev_priv->device);
 	return result;
 }
 
@@ -2035,7 +2031,6 @@ _gpumem_alloc(struct kgsl_device_private *dev_priv,
 
 	entry->memtype = KGSL_MEM_ENTRY_KERNEL;
 
-	kgsl_check_idle(dev_priv->device);
 	*ret_entry = entry;
 	return result;
 err:
@@ -2370,7 +2365,7 @@ static const struct {
 			kgsl_ioctl_cff_user_event, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMESTAMP_EVENT,
 			kgsl_ioctl_timestamp_event,
-			KGSL_IOCTL_LOCK),
+			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SETPROPERTY,
 			kgsl_ioctl_device_setproperty,
 			KGSL_IOCTL_LOCK | KGSL_IOCTL_WAKE),
@@ -2462,14 +2457,19 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 	if (lock) {
 		mutex_lock(&dev_priv->device->mutex);
-		if (use_hw)
-			kgsl_check_suspended(dev_priv->device);
+		if (use_hw) {
+			ret = kgsl_active_count_get(dev_priv->device);
+			if (ret < 0)
+				goto unlock;
+		}
 	}
 
 	ret = func(dev_priv, cmd, uptr);
 
+unlock:
 	if (lock) {
-		kgsl_check_idle_locked(dev_priv->device);
+		if (use_hw)
+			kgsl_active_count_put(dev_priv->device);
 		mutex_unlock(&dev_priv->device->mutex);
 	}
 
@@ -3032,11 +3032,7 @@ int kgsl_postmortem_dump(struct kgsl_device *device, int manual)
 	/* For a manual dump, make sure that the system is idle */
 
 	if (manual) {
-		if (device->active_cnt != 0) {
-			mutex_unlock(&device->mutex);
-			wait_for_completion(&device->suspend_gate);
-			mutex_lock(&device->mutex);
-		}
+		kgsl_active_count_wait(device);
 
 		if (device->state == KGSL_STATE_ACTIVE)
 			kgsl_idle(device);

@@ -1055,6 +1055,14 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	pwr->power_flags = 0;
 }
 
+/**
+ * kgsl_idle_check() - Work function for GPU interrupts and idle timeouts.
+ * @device: The device
+ *
+ * This function is called for work that is queued by the interrupt
+ * handler or the idle timer. It attempts to transition to a clocks
+ * off state if the active_cnt is 0 and the hardware is idle.
+ */
 void kgsl_idle_check(struct work_struct *work)
 {
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
@@ -1064,15 +1072,22 @@ void kgsl_idle_check(struct work_struct *work)
 		return;
 
 	mutex_lock(&device->mutex);
-	if (device->state & (KGSL_STATE_ACTIVE | KGSL_STATE_NAP)) {
-		kgsl_pwrscale_idle(device);
 
-		if (kgsl_pwrctrl_sleep(device) != 0) {
+	kgsl_pwrscale_idle(device);
+
+	if (device->state == KGSL_STATE_ACTIVE
+		   || device->state ==  KGSL_STATE_NAP) {
+		if (device->active_cnt > 0 || kgsl_pwrctrl_sleep(device) != 0) {
+
+			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
+
 			mod_timer(&device->idle_timer,
 					jiffies +
 					device->pwrctrl.interval_timeout);
-			/* If the GPU has been too busy to sleep, make sure *
-			 * that is acurately reflected in the % busy numbers. */
+			/*
+			 * If the GPU has been too busy to sleep, make sure
+			 * that is acurately reflected in the % busy numbers.
+			 */
 			device->pwrctrl.clk_stats.no_nap_cnt++;
 			if (device->pwrctrl.clk_stats.no_nap_cnt >
 							 UPDATE_BUSY) {
@@ -1104,53 +1119,25 @@ void kgsl_timer(unsigned long data)
 	}
 }
 
+
+/**
+ * kgsl_pre_hwaccess - Enforce preconditions for touching registers
+ * @device: The device
+ *
+ * This function ensures that the correct lock is held and that the GPU
+ * clock is on immediately before a register is read or written. Note
+ * that this function does not check active_cnt because the registers
+ * must be accessed during device start and stop, when the active_cnt
+ * may legitimately be 0.
+ */
 void kgsl_pre_hwaccess(struct kgsl_device *device)
 {
+	/* In order to touch a register you must hold the device mutex...*/
 	BUG_ON(!mutex_is_locked(&device->mutex));
-	switch (device->state) {
-	case KGSL_STATE_ACTIVE:
-		return;
-	case KGSL_STATE_NAP:
-	case KGSL_STATE_SLEEP:
-	case KGSL_STATE_SLUMBER:
-		kgsl_pwrctrl_wake(device);
-		break;
-	case KGSL_STATE_SUSPEND:
-		kgsl_check_suspended(device);
-		break;
-	case KGSL_STATE_INIT:
-	case KGSL_STATE_HUNG:
-	case KGSL_STATE_DUMP_AND_FT:
-		if (test_bit(KGSL_PWRFLAGS_CLK_ON,
-					 &device->pwrctrl.power_flags))
-			break;
-		else
-			KGSL_PWR_ERR(device,
-					"hw access while clocks off from state %d\n",
-					device->state);
-		break;
-	default:
-		KGSL_PWR_ERR(device, "hw access while in unknown state %d\n",
-					 device->state);
-		break;
-	}
+	/* and have the clock on! */
+	BUG_ON(!test_bit(KGSL_PWRFLAGS_CLK_ON, &device->pwrctrl.power_flags));
 }
 EXPORT_SYMBOL(kgsl_pre_hwaccess);
-
-void kgsl_check_suspended(struct kgsl_device *device)
-{
-	if (device->requested_state == KGSL_STATE_SUSPEND ||
-				device->state == KGSL_STATE_SUSPEND) {
-		mutex_unlock(&device->mutex);
-		wait_for_completion(&device->hwaccess_gate);
-		mutex_lock(&device->mutex);
-	} else if (device->state == KGSL_STATE_DUMP_AND_FT) {
-		mutex_unlock(&device->mutex);
-		wait_for_completion(&device->ft_gate);
-		mutex_lock(&device->mutex);
-	} else if (device->state == KGSL_STATE_SLUMBER)
-		kgsl_pwrctrl_wake(device);
-}
 
 static int
 _nap(struct kgsl_device *device)
@@ -1230,6 +1217,8 @@ _slumber(struct kgsl_device *device)
 	case KGSL_STATE_NAP:
 	case KGSL_STATE_SLEEP:
 		del_timer_sync(&device->idle_timer);
+		/* make sure power is on to stop the device*/
+		kgsl_pwrctrl_enable(device);
 		device->ftbl->suspend_context(device);
 		device->ftbl->stop(device);
 		_sleep_accounting(device);
@@ -1278,9 +1267,9 @@ EXPORT_SYMBOL(kgsl_pwrctrl_sleep);
 
 /******************************************************************/
 /* Caller must hold the device mutex. */
-void kgsl_pwrctrl_wake(struct kgsl_device *device)
+int kgsl_pwrctrl_wake(struct kgsl_device *device)
 {
-	int status;
+	int status = 0;
 	unsigned int context_id;
 	unsigned int state = device->state;
 	unsigned int ts_processed = 0xdeaddead;
@@ -1329,8 +1318,10 @@ void kgsl_pwrctrl_wake(struct kgsl_device *device)
 		KGSL_PWR_WARN(device, "unhandled state %s\n",
 				kgsl_pwrstate_to_str(device->state));
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
+		status = -EINVAL;
 		break;
 	}
+	return status;
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_wake);
 
@@ -1396,3 +1387,124 @@ const char *kgsl_pwrstate_to_str(unsigned int state)
 }
 EXPORT_SYMBOL(kgsl_pwrstate_to_str);
 
+
+/**
+ * kgsl_active_count_get() - Increase the device active count
+ * @device: Pointer to a KGSL device
+ *
+ * Increase the active count for the KGSL device and turn on
+ * clocks if this is the first reference. Code paths that need
+ * to touch the hardware or wait for the hardware to complete
+ * an operation must hold an active count reference until they
+ * are finished. An error code will be returned if waking the
+ * device fails. The device mutex must be held while *calling
+ * this function.
+ */
+int kgsl_active_count_get(struct kgsl_device *device)
+{
+	int ret = 0;
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
+	if (device->active_cnt == 0) {
+		if (device->requested_state == KGSL_STATE_SUSPEND ||
+				device->state == KGSL_STATE_SUSPEND) {
+			mutex_unlock(&device->mutex);
+			wait_for_completion(&device->hwaccess_gate);
+			mutex_lock(&device->mutex);
+		} else if (device->state == KGSL_STATE_DUMP_AND_FT) {
+			mutex_unlock(&device->mutex);
+			wait_for_completion(&device->ft_gate);
+			mutex_lock(&device->mutex);
+		}
+		ret = kgsl_pwrctrl_wake(device);
+	}
+	if (ret == 0)
+		device->active_cnt++;
+	return ret;
+}
+EXPORT_SYMBOL(kgsl_active_count_get);
+
+/**
+ * kgsl_active_count_get_light() - Increase the device active count
+ * @device: Pointer to a KGSL device
+ *
+ * Increase the active count for the KGSL device WITHOUT
+ * turning on the clocks. Currently this is only used for creating
+ * kgsl_events. The device mutex must be held while calling this function.
+ */
+int kgsl_active_count_get_light(struct kgsl_device *device)
+{
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
+	if (device->state != KGSL_STATE_ACTIVE) {
+		dev_WARN_ONCE(device->dev, 1, "device in unexpected state %s\n",
+				kgsl_pwrstate_to_str(device->state));
+		return -EINVAL;
+	}
+
+	if (device->active_cnt == 0) {
+		dev_WARN_ONCE(device->dev, 1, "active count is 0!\n");
+		return -EINVAL;
+	}
+
+	device->active_cnt++;
+	return 0;
+}
+EXPORT_SYMBOL(kgsl_active_count_get_light);
+
+/**
+ * kgsl_active_count_put() - Decrease the device active count
+ * @device: Pointer to a KGSL device
+ *
+ * Decrease the active count for the KGSL device and turn off
+ * clocks if there are no remaining references. This function will
+ * transition the device to NAP if there are no other pending state
+ * changes. It also completes the suspend gate.  The device mutex must
+ * be held while calling this function.
+ */
+void kgsl_active_count_put(struct kgsl_device *device)
+{
+	BUG_ON(!mutex_is_locked(&device->mutex));
+	BUG_ON(device->active_cnt == 0);
+
+	kgsl_pwrscale_idle(device);
+	if (device->active_cnt > 1) {
+		device->active_cnt--;
+		return;
+	}
+
+	INIT_COMPLETION(device->suspend_gate);
+
+	if (device->pwrctrl.nap_allowed == true &&
+			(device->state == KGSL_STATE_ACTIVE &&
+			device->requested_state == KGSL_STATE_NONE)) {
+		kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
+		if (kgsl_pwrctrl_sleep(device) != 0)
+			mod_timer(&device->idle_timer,
+					jiffies
+					+ device->pwrctrl.interval_timeout);
+	}
+	device->active_cnt--;
+
+	if (device->active_cnt == 0)
+		complete(&device->suspend_gate);
+}
+EXPORT_SYMBOL(kgsl_active_count_put);
+
+/**
+ * kgsl_active_count_wait() - Wait for activity to finish.
+ * @device: Pointer to a KGSL device
+ *
+ * Block until all active_cnt users put() their reference.
+ */
+void kgsl_active_count_wait(struct kgsl_device *device)
+{
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
+	if (device->active_cnt != 0) {
+		mutex_unlock(&device->mutex);
+		wait_for_completion(&device->suspend_gate);
+		mutex_lock(&device->mutex);
+	}
+}
+EXPORT_SYMBOL(kgsl_active_count_wait);
