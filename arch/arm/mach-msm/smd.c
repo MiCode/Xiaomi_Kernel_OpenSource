@@ -38,6 +38,7 @@
 #include <linux/suspend.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
+
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/system.h>
@@ -45,11 +46,12 @@
 #include <mach/socinfo.h>
 #include <mach/proc_comm.h>
 #include <mach/msm_ipc_logging.h>
+#include <mach/ramdump.h>
+
 #include <asm/cacheflush.h>
 
 #include "smd_private.h"
 #include "modem_notifier.h"
-#include "ramdump.h"
 
 #if defined(CONFIG_ARCH_QSD8X50) || defined(CONFIG_ARCH_MSM8X60) \
 	|| defined(CONFIG_ARCH_MSM8960) || defined(CONFIG_ARCH_FSM9XXX) \

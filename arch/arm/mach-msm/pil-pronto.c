@@ -29,10 +29,10 @@
 
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
+#include <mach/ramdump.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
-#include "ramdump.h"
 
 #define PRONTO_PMU_COMMON_GDSCR				0x24
 #define PRONTO_PMU_COMMON_GDSCR_SW_COLLAPSE		BIT(0)

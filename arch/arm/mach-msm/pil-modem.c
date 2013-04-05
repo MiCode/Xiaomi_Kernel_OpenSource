@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,11 +24,11 @@
 
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
+#include <mach/ramdump.h>
 
 #include "modem_notifier.h"
 #include "peripheral-loader.h"
 #include "scm-pas.h"
-#include "ramdump.h"
 
 #define MARM_BOOT_CONTROL		0x0010
 #define MARM_RESET			0x2BD4

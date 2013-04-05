@@ -21,10 +21,10 @@
 
 #include <mach/subsystem_restart.h>
 #include <mach/msm_smsm.h>
+#include <mach/ramdump.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
-#include "ramdump.h"
 
 #define PPSS_RESET			0x2594
 #define PPSS_RESET_PROC_RESET		0x2
