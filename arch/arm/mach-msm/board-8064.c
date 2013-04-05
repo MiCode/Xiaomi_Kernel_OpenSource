@@ -675,6 +675,7 @@ static struct msm_bus_scale_pdata hsic_bus_scale_pdata = {
 static struct msm_hsic_host_platform_data msm_hsic_pdata = {
 	.strobe			= 88,
 	.data			= 89,
+	.phy_sof_workaround	= true,
 	.bus_scale_table	= &hsic_bus_scale_pdata,
 };
 #else

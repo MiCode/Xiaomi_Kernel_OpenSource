@@ -1332,43 +1332,47 @@ static int ehci_hsic_bus_resume(struct usb_hcd *hcd)
 	if (pdata->resume_gpio)
 		gpio_direction_output(pdata->resume_gpio, 1);
 
-	mehci->resume_status = 0;
-	resume_thread = kthread_run(msm_hsic_resume_thread,
-			mehci, "hsic_resume_thread");
-	if (IS_ERR(resume_thread)) {
-		pr_err("Error creating resume thread:%lu\n",
-				PTR_ERR(resume_thread));
-		return PTR_ERR(resume_thread);
+	if (!mehci->ehci.resume_sof_bug) {
+		ehci_bus_resume(hcd);
+	} else {
+		mehci->resume_status = 0;
+		resume_thread = kthread_run(msm_hsic_resume_thread,
+				mehci, "hsic_resume_thread");
+		if (IS_ERR(resume_thread)) {
+			pr_err("Error creating resume thread:%lu\n",
+					PTR_ERR(resume_thread));
+			return PTR_ERR(resume_thread);
+		}
+
+		wait_for_completion(&mehci->rt_completion);
+
+		if (mehci->resume_status < 0)
+			return mehci->resume_status;
+
+		dbg_log_event(NULL, "FPR: Wokeup", 0);
+		spin_lock_irq(&ehci->lock);
+		(void) ehci_readl(ehci, &ehci->regs->command);
+
+		temp = 0;
+		if (ehci->async->qh_next.qh)
+			temp |= CMD_ASE;
+		if (ehci->periodic_sched)
+			temp |= CMD_PSE;
+		if (temp) {
+			ehci->command |= temp;
+			ehci_writel(ehci, ehci->command, &ehci->regs->command);
+		}
+
+		ehci->next_statechange = jiffies + msecs_to_jiffies(5);
+		hcd->state = HC_STATE_RUNNING;
+		ehci->rh_state = EHCI_RH_RUNNING;
+		ehci->command |= CMD_RUN;
+
+		/* Now we can safely re-enable irqs */
+		ehci_writel(ehci, INTR_MASK, &ehci->regs->intr_enable);
+
+		spin_unlock_irq(&ehci->lock);
 	}
-
-	wait_for_completion(&mehci->rt_completion);
-
-	if (mehci->resume_status < 0)
-		return mehci->resume_status;
-
-	dbg_log_event(NULL, "FPR: Wokeup", 0);
-	spin_lock_irq(&ehci->lock);
-	(void) ehci_readl(ehci, &ehci->regs->command);
-
-	temp = 0;
-	if (ehci->async->qh_next.qh)
-		temp |= CMD_ASE;
-	if (ehci->periodic_sched)
-		temp |= CMD_PSE;
-	if (temp) {
-		ehci->command |= temp;
-		ehci_writel(ehci, ehci->command, &ehci->regs->command);
-	}
-
-	ehci->next_statechange = jiffies + msecs_to_jiffies(5);
-	hcd->state = HC_STATE_RUNNING;
-	ehci->rh_state = EHCI_RH_RUNNING;
-	ehci->command |= CMD_RUN;
-
-	/* Now we can safely re-enable irqs */
-	ehci_writel(ehci, INTR_MASK, &ehci->regs->intr_enable);
-
-	spin_unlock_irq(&ehci->lock);
 
 	if (pdata->resume_gpio)
 		gpio_direction_output(pdata->resume_gpio, 0);
@@ -1808,6 +1812,8 @@ struct msm_hsic_host_platform_data *msm_hsic_dt_to_pdata(
 		res_gpio = 0;
 	pdata->resume_gpio = res_gpio;
 
+	pdata->phy_sof_workaround = of_property_read_bool(node,
+					"qcom,phy-sof-workaround");
 	pdata->ignore_cal_pad_config = of_property_read_bool(node,
 					"hsic,ignore-cal-pad-config");
 	of_property_read_u32(node, "hsic,strobe-pad-offset",
@@ -1899,10 +1905,12 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	spin_lock_init(&mehci->wakeup_lock);
 
-	mehci->ehci.susp_sof_bug = 1;
-	mehci->ehci.reset_sof_bug = 1;
+	if (pdata->phy_sof_workaround) {
+		mehci->ehci.susp_sof_bug = 1;
+		mehci->ehci.reset_sof_bug = 1;
+		mehci->ehci.resume_sof_bug = 1;
+	}
 
-	mehci->ehci.resume_sof_bug = 1;
 	mehci->ehci.pool_64_bit_align = pdata->pool_64_bit_align;
 	mehci->enable_hbm = pdata->enable_hbm;
 

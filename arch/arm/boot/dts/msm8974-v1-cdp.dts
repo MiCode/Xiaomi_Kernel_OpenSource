@@ -25,3 +25,7 @@
 	status = "ok";
 	vbus-supply = <&usb2_otg_sw>;
 };
+
+&hsic_host {
+       qcom,phy-sof-workaround;
+};
