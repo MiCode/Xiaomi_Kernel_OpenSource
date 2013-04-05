@@ -53,7 +53,7 @@
 		qcom,gpio-no-mux = <0>;
 		gpios = <&msmgpio 26 0>,
 			<&msmgpio 37 0>,
-			<&msmgpio 35 0>;
+			<&msmgpio 36 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-req-tbl-num = <0 1 2>;
@@ -74,7 +74,7 @@
 		qcom,slave-id = <0x20 0x0 0x9724>;
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <90>;
+		qcom,mount-angle = <0>;
 		qcom,sensor-name = "ov9724";
 		cam_vdig-supply = <&pm8226_l5>;
 		cam_vana-supply = <&pm8226_l19>;
@@ -87,7 +87,7 @@
 		qcom,gpio-no-mux = <0>;
 		gpios = <&msmgpio 26 0>,
 				<&msmgpio 28 0>,
-				<&msmgpio 36 0>;
+				<&msmgpio 35 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-req-tbl-num = <0 1 2>;
