@@ -146,6 +146,8 @@ enum sps_option {
 	SPS_O_WRITE_NWD   = 0x00040000,
 
 	/* Options to enable software features */
+	/* Do not disable a pipe during disconnection */
+	SPS_O_NO_DISABLE      = 0x00800000,
 	/* Transfer operation should be polled */
 	SPS_O_POLL      = 0x01000000,
 	/* Disable queuing of transfer events for the connection end point */
