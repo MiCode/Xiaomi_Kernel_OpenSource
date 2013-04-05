@@ -1102,6 +1102,7 @@ void kgsl_idle_check(struct work_struct *work)
 
 	mutex_unlock(&device->mutex);
 }
+EXPORT_SYMBOL(kgsl_idle_check);
 
 void kgsl_timer(unsigned long data)
 {

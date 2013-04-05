@@ -325,6 +325,7 @@ int kgsl_snapshot_have_object(struct kgsl_device *device, unsigned int ptbase,
 
 	return 0;
 }
+EXPORT_SYMBOL(kgsl_snapshot_have_object);
 
 /* kgsl_snapshot_get_object - Mark a GPU buffer to be frozen
  * @device - the device that is being snapshotted
