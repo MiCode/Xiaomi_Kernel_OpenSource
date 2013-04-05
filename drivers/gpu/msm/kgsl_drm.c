@@ -18,6 +18,7 @@
 #include "drm.h"
 
 #include <linux/msm_ion.h>
+#include <linux/genlock.h>
 
 #include "kgsl.h"
 #include "kgsl_device.h"
@@ -119,6 +120,8 @@ struct drm_kgsl_gem_object {
 		uint32_t gpuaddr;
 	} bufs[DRM_KGSL_GEM_MAX_BUFFERS];
 
+	struct genlock_handle *glock_handle[DRM_KGSL_GEM_MAX_BUFFERS];
+
 	int bound;
 	int lockpid;
 	/* Put these here to avoid allocing all the time */
@@ -154,6 +157,7 @@ static int
 kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 {
 	struct drm_kgsl_gem_object *priv = obj->driver_private;
+	struct kgsl_mmu *mmu;
 	struct sg_table *sg_table;
 	struct scatterlist *s;
 	int index;
@@ -165,7 +169,17 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 		return 0;
 
 	if (priv->pagetable == NULL) {
-		priv->pagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
+		/* Hard coded to use A2X device for MSM7X27 and MSM8625
+		 * Others to use A3X device
+		 */
+#if defined(CONFIG_ARCH_MSM7X27) || defined(CONFIG_ARCH_MSM8625)
+		mmu = &kgsl_get_device(KGSL_DEVICE_2D0)->mmu;
+#else
+		mmu = &kgsl_get_device(KGSL_DEVICE_3D0)->mmu;
+#endif
+
+		priv->pagetable = kgsl_mmu_getpagetable(mmu,
+					KGSL_MMU_GLOBAL_PT);
 
 		if (priv->pagetable == NULL) {
 			DRM_ERROR("Unable to get the GPU MMU pagetable\n");
@@ -259,8 +273,7 @@ kgsl_gem_alloc_memory(struct drm_gem_object *obj)
 			priv->memdesc.sglen++;
 		}
 
-		result = kgsl_mmu_map(priv->pagetable, &priv->memdesc,
-				GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+		result = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
 		if (result) {
 			DRM_ERROR(
 			"kgsl_mmu_map failed.  result = %d\n", result);
@@ -293,6 +306,7 @@ static void
 kgsl_gem_free_memory(struct drm_gem_object *obj)
 {
 	struct drm_kgsl_gem_object *priv = obj->driver_private;
+	int index;
 
 	if (!kgsl_gem_memory_allocated(obj) || TYPE_IS_FD(priv->type))
 		return;
@@ -310,6 +324,11 @@ kgsl_gem_free_memory(struct drm_gem_object *obj)
 	priv->ion_handle = NULL;
 
 	memset(&priv->memdesc, 0, sizeof(priv->memdesc));
+
+	for (index = 0; index < priv->bufcount; index++) {
+		if (priv->glock_handle[index])
+			genlock_put_handle(priv->glock_handle[index]);
+	}
 
 	kgsl_mmu_putpagetable(priv->pagetable);
 	priv->pagetable = NULL;
@@ -552,6 +571,7 @@ kgsl_gem_create_from_ion_ioctl(struct drm_device *dev, void *data,
 	struct scatterlist *s;
 	int ret, handle;
 	unsigned long size;
+	struct kgsl_mmu *mmu;
 
 	ion_handle = ion_import_dma_buf(kgsl_drm_ion_client, args->ion_fd);
 	if (IS_ERR_OR_NULL(ion_handle)) {
@@ -591,7 +611,13 @@ kgsl_gem_create_from_ion_ioctl(struct drm_device *dev, void *data,
 	priv->type = DRM_KGSL_GEM_TYPE_KMEM;
 	list_add(&priv->list, &kgsl_mem_list);
 
-	priv->pagetable = kgsl_mmu_getpagetable(KGSL_MMU_GLOBAL_PT);
+#if defined(CONFIG_ARCH_MSM7X27) || defined(CONFIG_ARCH_MSM8625)
+	mmu = &kgsl_get_device(KGSL_DEVICE_2D0)->mmu;
+#else
+	mmu = &kgsl_get_device(KGSL_DEVICE_3D0)->mmu;
+#endif
+
+	priv->pagetable = kgsl_mmu_getpagetable(mmu, KGSL_MMU_GLOBAL_PT);
 
 	priv->memdesc.pagetable = priv->pagetable;
 
@@ -619,8 +645,7 @@ kgsl_gem_create_from_ion_ioctl(struct drm_device *dev, void *data,
 		priv->memdesc.sglen++;
 	}
 
-	ret = kgsl_mmu_map(priv->pagetable, &priv->memdesc,
-		GSL_PT_PAGE_RV | GSL_PT_PAGE_WV);
+	ret = kgsl_mmu_map(priv->pagetable, &priv->memdesc);
 	if (ret) {
 		DRM_ERROR("kgsl_mmu_map failed.  ret = %d\n", ret);
 		ion_free(kgsl_drm_ion_client,
@@ -877,6 +902,68 @@ out:
 	return ret;
 }
 
+/* Get the genlock handles base off the GEM handle
+ */
+
+int
+kgsl_gem_get_glock_handles_ioctl(struct drm_device *dev, void *data,
+					struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_glockinfo *args = data;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *priv;
+	int index;
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+
+	if (obj == NULL) {
+		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
+		return -EBADF;
+	}
+
+	mutex_lock(&dev->struct_mutex);
+	priv = obj->driver_private;
+
+	for (index = 0; index < priv->bufcount; index++) {
+		args->glockhandle[index] = genlock_get_fd_handle(
+						priv->glock_handle[index]);
+	}
+
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
+	return 0;
+}
+
+int
+kgsl_gem_set_glock_handles_ioctl(struct drm_device *dev, void *data,
+					struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_glockinfo *args = data;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *priv;
+	int index;
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+
+	if (obj == NULL) {
+		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
+		return -EBADF;
+	}
+
+	mutex_lock(&dev->struct_mutex);
+	priv = obj->driver_private;
+
+	for (index = 0; index < priv->bufcount; index++) {
+		priv->glock_handle[index] = genlock_get_handle_fd(
+						args->glockhandle[index]);
+	}
+
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
+
+	return 0;
+}
+
 int
 kgsl_gem_set_bufcount_ioctl(struct drm_device *dev, void *data,
 			  struct drm_file *file_priv)
@@ -916,6 +1003,32 @@ out:
 	mutex_unlock(&dev->struct_mutex);
 
 	return ret;
+}
+
+int
+kgsl_gem_get_bufcount_ioctl(struct drm_device *dev, void *data,
+			  struct drm_file *file_priv)
+{
+	struct drm_kgsl_gem_bufcount *args = data;
+	struct drm_gem_object *obj;
+	struct drm_kgsl_gem_object *priv;
+
+	obj = drm_gem_object_lookup(dev, file_priv, args->handle);
+
+	if (obj == NULL) {
+		DRM_ERROR("Invalid GEM handle %x\n", args->handle);
+		return -EBADF;
+	}
+
+	mutex_lock(&dev->struct_mutex);
+	priv = obj->driver_private;
+
+	args->bufcount =  priv->bufcount;
+
+	drm_gem_object_unreference(obj);
+	mutex_unlock(&dev->struct_mutex);
+
+	return 0;
 }
 
 int
@@ -1375,9 +1488,15 @@ struct drm_ioctl_desc kgsl_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_BUFINFO, kgsl_gem_get_bufinfo_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_ION_FD, kgsl_gem_get_ion_fd_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_CREATE_FROM_ION,
-		kgsl_gem_create_from_ion_ioctl, 0),
+				kgsl_gem_create_from_ion_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_BUFCOUNT,
-		      kgsl_gem_set_bufcount_ioctl, 0),
+				kgsl_gem_set_bufcount_ioctl, 0),
+	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_BUFCOUNT,
+				kgsl_gem_get_bufcount_ioctl, 0),
+	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_GLOCK_HANDLES_INFO,
+				kgsl_gem_set_glock_handles_ioctl, 0),
+	DRM_IOCTL_DEF_DRV(KGSL_GEM_GET_GLOCK_HANDLES_INFO,
+				kgsl_gem_get_glock_handles_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_SET_ACTIVE, kgsl_gem_set_active_ioctl, 0),
 	DRM_IOCTL_DEF_DRV(KGSL_GEM_LOCK_HANDLE,
 				  kgsl_gem_lock_handle_ioctl, 0),
