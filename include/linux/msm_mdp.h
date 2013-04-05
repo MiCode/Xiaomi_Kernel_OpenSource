@@ -613,6 +613,7 @@ struct mdss_ad_cfg {
 	uint16_t calib[4];
 	uint8_t strength_limit;
 	uint8_t t_filter_recursion;
+	uint16_t stab_itr;
 };
 
 /* ops uses standard MDP_PP_* flags */
