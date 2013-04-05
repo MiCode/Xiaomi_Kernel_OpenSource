@@ -145,10 +145,10 @@ struct msm8974_asoc_mach_data {
 #define DT_PARSE_INDEX  1
 
 static char *msm_prim_auxpcm_gpio_name[][2] = {
-	{"PRIM_AUXPCM_CLK",       "prim-auxpcm-gpio-clk"},
-	{"PRIM_AUXPCM_SYNC",      "prim-auxpcm-gpio-sync"},
-	{"PRIM_AUXPCM_DIN",       "prim-auxpcm-gpio-din"},
-	{"PRIM_AUXPCM_DOUT",      "prim-auxpcm-gpio-dout"},
+	{"PRIM_AUXPCM_CLK",       "qcom,prim-auxpcm-gpio-clk"},
+	{"PRIM_AUXPCM_SYNC",      "qcom,prim-auxpcm-gpio-sync"},
+	{"PRIM_AUXPCM_DIN",       "qcom,prim-auxpcm-gpio-din"},
+	{"PRIM_AUXPCM_DOUT",      "qcom,prim-auxpcm-gpio-dout"},
 };
 
 static char *msm_sec_auxpcm_gpio_name[][2] = {

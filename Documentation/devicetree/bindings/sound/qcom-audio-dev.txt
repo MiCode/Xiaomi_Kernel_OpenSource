@@ -389,12 +389,12 @@ Example:
                 qcom,msm-cpudai-auxpcm-data = <0>, <0>;
                 qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 
-                qcom,msm-auxpcm-rx {
+                qcom,msm-prim-auxpcm-rx {
                         qcom,msm-auxpcm-dev-id = <4106>;
                         compatible = "qcom,msm-auxpcm-dev";
                 };
 
-                qcom,msm-auxpcm-tx {
+                qcom,msm-prim-auxpcm-tx {
                         qcom,msm-auxpcm-dev-id = <4107>;
                         compatible = "qcom,msm-auxpcm-dev";
                 };
@@ -446,10 +446,10 @@ Required properties:
 - taiko-mclk-clk : phandle to PMIC8941 clkdiv1 node.
 - qcom,taiko-mclk-clk-freq : Taiko mclk Freq in Hz. currently only 9600000Hz
 				is supported.
-- prim-auxpcm-gpio-clk : GPIO on which AUXPCM clk signal is coming.
-- prim-auxpcm-gpio-sync : GPIO on which AUXPCM SYNC signal is coming.
-- prim-auxpcm-gpio-din : GPIO on which AUXPCM DIN signal is coming.
-- prim-auxpcm-gpio-dout : GPIO on which AUXPCM DOUT signal is coming.
+- qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
+- qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
+- qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
+- qcom,prim-auxpcm-gpio-dout : GPIO on which Primary AUXPCM DOUT signal is coming.
 - qcom,sec-auxpcm-gpio-clk  : GPIO on which Secondary AUXPCM clk signal is coming.
 - qcom,sec-auxpcm-gpio-sync : GPIO on which Secondary AUXPCM SYNC signal is coming.
 - qcom,sec-auxpcm-gpio-din  : GPIO on which Secondary AUXPCM DIN signal is coming.
@@ -501,10 +501,10 @@ sound {
 
 	qcom,hdmi-audio-rx;
 
-	prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
-	prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
-	prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
-	prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
+	qcom,prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
+	qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
+	qcom,prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
+	qcom,prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
 	qcom,sec-auxpcm-gpio-clk  = <&msmgpio 79 0>;
 	qcom,sec-auxpcm-gpio-sync = <&msmgpio 80 0>;
 	qcom,sec-auxpcm-gpio-din  = <&msmgpio 81 0>;
