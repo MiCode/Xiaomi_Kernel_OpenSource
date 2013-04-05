@@ -1,4 +1,5 @@
 header-y += tavarua.h
+header-y += radio-iris-commands.h
 
 header-y += msm_camera.h
 header-y += vcap_fmt.h
