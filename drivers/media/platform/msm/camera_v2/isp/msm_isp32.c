@@ -39,42 +39,6 @@
 	(VFE32_STATS_BASE(idx) + 0x4 * \
 	(~(ping_pong >> (idx + VFE32_STATS_PING_PONG_OFFSET)) & 0x1))
 
-/*Temporary use fixed bus vectors in VFE */
-static struct msm_bus_vectors msm_vfe32_init_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_VFE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	},
-};
-
-static struct msm_bus_vectors msm_vfe32_preview_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_VFE,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 1027648000,
-		.ib  = 1105920000,
-	},
-};
-
-static struct msm_bus_paths msm_vfe32_bus_client_config[] = {
-	{
-		ARRAY_SIZE(msm_vfe32_init_vectors),
-		msm_vfe32_init_vectors,
-	},
-	{
-		ARRAY_SIZE(msm_vfe32_preview_vectors),
-		msm_vfe32_preview_vectors,
-	},
-};
-
-static struct msm_bus_scale_pdata msm_vfe32_bus_client_pdata = {
-		msm_vfe32_bus_client_config,
-		ARRAY_SIZE(msm_vfe32_bus_client_config),
-		.name = "msm_camera_vfe",
-};
-
 #define VFE32_CLK_IDX 0
 static struct msm_cam_clk_info msm_vfe32_clk_info[] = {
 	{"vfe_clk", 266667000},
@@ -85,15 +49,11 @@ static struct msm_cam_clk_info msm_vfe32_clk_info[] = {
 static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 {
 	int rc = -1;
-
-	vfe_dev->bus_perf_client =
-		msm_bus_scale_register_client(&msm_vfe32_bus_client_pdata);
-	if (!vfe_dev->bus_perf_client) {
-		pr_err("%s: Registration Failed!\n", __func__);
-		vfe_dev->bus_perf_client = 0;
+	rc = msm_isp_init_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
+	if (rc < 0) {
+		pr_err("%s: Bandwidth registration Failed!\n", __func__);
 		goto bus_scale_register_failed;
 	}
-	msm_bus_scale_client_update_request(vfe_dev->bus_perf_client, 1);
 
 	if (vfe_dev->fs_vfe) {
 		rc = regulator_enable(vfe_dev->fs_vfe);
@@ -132,8 +92,7 @@ vfe_remap_failed:
 clk_enable_failed:
 	regulator_disable(vfe_dev->fs_vfe);
 fs_failed:
-	msm_bus_scale_client_update_request(vfe_dev->bus_perf_client, 0);
-	msm_bus_scale_unregister_client(vfe_dev->bus_perf_client);
+	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 bus_scale_register_failed:
 	return rc;
 }
@@ -146,8 +105,7 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_clk_info,
 		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_clk_info), 0);
 	regulator_disable(vfe_dev->fs_vfe);
-	msm_bus_scale_client_update_request(vfe_dev->bus_perf_client, 0);
-	msm_bus_scale_unregister_client(vfe_dev->bus_perf_client);
+	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 }
 
 static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
