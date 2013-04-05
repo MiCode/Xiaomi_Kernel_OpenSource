@@ -149,6 +149,8 @@
 		qcom,bus-width = <8>;
 		qcom,nonremovable;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+		status = "disabled";
 	};
 
 	sdcc2: qcom,sdcc@f98a4000 {
@@ -180,6 +182,8 @@
 		qcom,xpc;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 		qcom,current-limit = <800>;
+
+		status = "disabled";
 	};
 
 	sdhc_1: sdhci@f9824900 {
