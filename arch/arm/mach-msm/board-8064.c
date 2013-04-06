@@ -3805,6 +3805,8 @@ static void __init fsm8064_ep_init(void)
 	if (meminfo_init(SYS_MEMORY, SZ_256M) < 0)
 		pr_err("meminfo_init() failed!\n");
 
+	msm_thermal_pdata.limit_temp_degC = 80;
+
 	apq8064_common_init();
 	ethernet_init();
 	fsm8064_ep_pcie_init();
