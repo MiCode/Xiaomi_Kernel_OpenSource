@@ -6,7 +6,7 @@
 
 #define MAX_ION_FD  4
 #define MAX_APP_NAME_SIZE  32
-
+#define QSEECOM_HASH_SIZE  32
 /*
  * struct qseecom_register_listener_req -
  *      for register listener ioctl request
@@ -125,6 +125,19 @@ struct qseecom_send_svc_cmd_req {
 	unsigned int resp_len; /* in/out */
 };
 
+enum qseecom_key_management_usage_type {
+	QSEOS_KM_USAGE_DISK_ENCRYPTION = 0x01,
+};
+
+struct qseecom_create_key_req {
+	unsigned char hash32[QSEECOM_HASH_SIZE];
+	enum qseecom_key_management_usage_type usage;
+};
+
+struct qseecom_wipe_key_req {
+	enum qseecom_key_management_usage_type usage;
+};
+
 #define QSEECOM_IOC_MAGIC    0x97
 
 
@@ -175,6 +188,12 @@ struct qseecom_send_svc_cmd_req {
 
 #define QSEECOM_IOCTL_SEND_CMD_SERVICE_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 16, struct qseecom_send_svc_cmd_req)
+
+#define QSEECOM_IOCTL_CREATE_KEY_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 17, struct qseecom_create_key_req)
+
+#define QSEECOM_IOCTL_WIPE_KEY_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 18, struct qseecom_wipe_key_req)
 
 
 #endif /* __QSEECOM_H_ */
