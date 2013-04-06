@@ -825,7 +825,7 @@
 	};
 
 	chan@33 {
-		label = "pa_therm1";
+		label = "pa_therm0";
 		reg = <0x33>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
@@ -836,7 +836,7 @@
 	};
 
 	chan@34 {
-		label = "pa_therm2";
+		label = "pa_therm1";
 		reg = <0x34>;
 		qcom,decimation = <0>;
 		qcom,pre-div-channel-scaling = <0>;
