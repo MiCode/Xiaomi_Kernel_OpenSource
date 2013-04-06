@@ -28,11 +28,13 @@
 
 #define ARCH_TIMER_PHYS_ACCESS		0
 #define ARCH_TIMER_VIRT_ACCESS		1
+#define ARCH_TIMER_MEM_PHYS_ACCESS	2
+#define ARCH_TIMER_MEM_VIRT_ACCESS	3
 
 #ifdef CONFIG_ARM_ARCH_TIMER
 
 extern u32 arch_timer_get_rate(void);
-extern u64 arch_timer_read_counter(void);
+extern u64 (*arch_timer_read_counter)(void);
 extern struct timecounter *arch_timer_get_timecounter(void);
 
 #else
