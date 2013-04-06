@@ -112,11 +112,19 @@ static inline int msm_bus_axi_portunhalt(int master_port)
 #endif
 
 #if defined(CONFIG_OF) && defined(CONFIG_MSM_BUS_SCALING)
+struct msm_bus_scale_pdata *msm_bus_pdata_from_node(
+		struct platform_device *pdev, struct device_node *of_node);
 struct msm_bus_scale_pdata *msm_bus_cl_get_pdata(struct platform_device *pdev);
 void msm_bus_cl_clear_pdata(struct msm_bus_scale_pdata *pdata);
 #else
 static inline struct msm_bus_scale_pdata
 *msm_bus_cl_get_pdata(struct platform_device *pdev)
+{
+	return NULL;
+}
+
+static inline struct msm_bus_scale_pdata *msm_bus_pdata_from_node(
+		struct platform_device *pdev, struct device_node *of_node)
 {
 	return NULL;
 }
