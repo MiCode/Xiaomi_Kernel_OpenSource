@@ -46,55 +46,6 @@ static const char * const scm_clock_names[NUM_CLKS] = {
 
 static struct clk *scm_clocks[NUM_CLKS];
 
-int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
-{
-	int ret;
-	struct pas_init_image_req {
-		u32	proc;
-		u32	image_addr;
-	} request;
-	u32 scm_ret = 0;
-	/* Make memory physically contiguous */
-	void *mdata_buf = kmemdup(metadata, size, GFP_KERNEL);
-
-	if (!mdata_buf)
-		return -ENOMEM;
-
-	request.proc = id;
-	request.image_addr = virt_to_phys(mdata_buf);
-
-	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
-			sizeof(request), &scm_ret, sizeof(scm_ret));
-	kfree(mdata_buf);
-
-	if (ret)
-		return ret;
-	return scm_ret;
-}
-EXPORT_SYMBOL(pas_init_image);
-
-int pas_mem_setup(enum pas_id id, u32 start_addr, u32 len)
-{
-	int ret;
-	struct pas_init_image_req {
-		u32	proc;
-		u32	start_addr;
-		u32	len;
-	} request;
-	u32 scm_ret = 0;
-
-	request.proc = id;
-	request.start_addr = start_addr;
-	request.len = len;
-
-	ret = scm_call(SCM_SVC_PIL, PAS_MEM_SETUP_CMD, &request,
-			sizeof(request), &scm_ret, sizeof(scm_ret));
-	if (ret)
-		return ret;
-	return scm_ret;
-}
-EXPORT_SYMBOL(pas_mem_setup);
-
 static struct msm_bus_paths scm_pas_bw_tbl[] = {
 	{
 		.vectors = (struct msm_bus_vectors[]){
@@ -176,18 +127,78 @@ static void scm_pas_disable_bw(void)
 	mutex_unlock(&scm_pas_bw_mutex);
 }
 
+int pas_init_image(enum pas_id id, const u8 *metadata, size_t size)
+{
+	int ret;
+	struct pas_init_image_req {
+		u32	proc;
+		u32	image_addr;
+	} request;
+	u32 scm_ret = 0;
+	void *mdata_buf;
+
+	ret = scm_pas_enable_bw();
+	if (ret)
+		return ret;
+
+	/* Make memory physically contiguous */
+	mdata_buf = kmemdup(metadata, size, GFP_KERNEL);
+
+	if (!mdata_buf)
+		return -ENOMEM;
+
+	request.proc = id;
+	request.image_addr = virt_to_phys(mdata_buf);
+
+	ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
+			sizeof(request), &scm_ret, sizeof(scm_ret));
+
+	kfree(mdata_buf);
+	scm_pas_disable_bw();
+
+	if (ret)
+		return ret;
+	return scm_ret;
+}
+EXPORT_SYMBOL(pas_init_image);
+
+int pas_mem_setup(enum pas_id id, u32 start_addr, u32 len)
+{
+	int ret;
+	struct pas_init_image_req {
+		u32	proc;
+		u32	start_addr;
+		u32	len;
+	} request;
+	u32 scm_ret = 0;
+
+	request.proc = id;
+	request.start_addr = start_addr;
+	request.len = len;
+
+	ret = scm_call(SCM_SVC_PIL, PAS_MEM_SETUP_CMD, &request,
+			sizeof(request), &scm_ret, sizeof(scm_ret));
+	if (ret)
+		return ret;
+	return scm_ret;
+}
+EXPORT_SYMBOL(pas_mem_setup);
+
 int pas_auth_and_reset(enum pas_id id)
 {
-	int ret, bus_ret;
+	int ret;
 	u32 proc = id, scm_ret = 0;
 
-	bus_ret = scm_pas_enable_bw();
+	ret = scm_pas_enable_bw();
+	if (ret)
+		return ret;
+
 	ret = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &proc,
 			sizeof(proc), &scm_ret, sizeof(scm_ret));
 	if (ret)
 		scm_ret = ret;
-	if (!bus_ret)
-		scm_pas_disable_bw();
+
+	scm_pas_disable_bw();
 
 	return scm_ret;
 }
