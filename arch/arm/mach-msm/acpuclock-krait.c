@@ -22,6 +22,7 @@
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
 #include <linux/regulator/consumer.h>
+#include <linux/iopoll.h>
 
 #include <asm/mach-types.h>
 #include <asm/cpu.h>
@@ -131,8 +132,14 @@ static void hfpll_enable(struct scalable *sc, bool skip_regulators)
 	writel_relaxed(0x6, sc->hfpll_base + drv.hfpll_data->mode_offset);
 
 	/* Wait for PLL to lock. */
-	mb();
-	udelay(60);
+	if (drv.hfpll_data->has_lock_status) {
+		u32 regval;
+		readl_tight_poll(sc->hfpll_base + drv.hfpll_data->status_offset,
+			   regval, regval & BIT(16));
+	} else {
+		mb();
+		udelay(60);
+	}
 
 	/* Enable PLL output. */
 	writel_relaxed(0x7, sc->hfpll_base + drv.hfpll_data->mode_offset);

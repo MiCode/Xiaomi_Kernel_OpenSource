@@ -171,8 +171,10 @@ struct acpu_level {
  * @user_val: Value to initialize the @user_offset register to.
  * @user_vco_mask: Bit in the @user_offset to enable high-frequency VCO mode.
  * @has_droop_ctl: Indicates the presence of a voltage droop controller.
+ * @has_lock_status: Indicates the presence of a lock status bit.
  * @droop_offset: Droop controller register offset from base address.
  * @droop_val: Value to initialize the @config_offset register to.
+ * @status_offset: PLL status register offset.
  * @low_vdd_l_max: Maximum "L" value supported at HFPLL_VDD_LOW.
  * @nom_vdd_l_max: Maximum "L" value supported at HFPLL_VDD_NOM.
  * @low_vco_l_max: Maximum "L" value supported in low-frequency VCO mode.
@@ -190,8 +192,10 @@ struct hfpll_data {
 	const u32 user_val;
 	const u32 user_vco_mask;
 	const bool has_droop_ctl;
+	const bool has_lock_status;
 	const u32 droop_offset;
 	const u32 droop_val;
+	const u32 status_offset;
 	u32 low_vdd_l_max;
 	u32 nom_vdd_l_max;
 	const u32 low_vco_l_max;
