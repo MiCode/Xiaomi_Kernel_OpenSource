@@ -26,6 +26,7 @@
 
 &kgsl_iommu {
 	status = "ok";
+	qcom,needs-alt-core-clk;
 };
 
 &vfe_iommu {

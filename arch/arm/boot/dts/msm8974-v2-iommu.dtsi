@@ -177,6 +177,7 @@
 &kgsl_iommu {
 	status = "ok";
 	qcom,iommu-enable-halt;
+	qcom,needs-alt-core-clk;
 
 	qcom,iommu-bfb-regs =  <0x204c
 				0x2050
