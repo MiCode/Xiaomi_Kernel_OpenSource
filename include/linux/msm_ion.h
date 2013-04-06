@@ -62,14 +62,20 @@ enum cp_mem_usage {
 /**
  * Flag to use when allocating to indicate that a heap is secure.
  */
-#define ION_SECURE (1 << ION_HEAP_ID_RESERVED)
+#define ION_FLAG_SECURE (1 << ION_HEAP_ID_RESERVED)
 
 /**
  * Flag for clients to force contiguous memort allocation
  *
  * Use of this flag is carefully monitored!
  */
-#define ION_FORCE_CONTIGUOUS (1 << 30)
+#define ION_FLAG_FORCE_CONTIGUOUS (1 << 30)
+
+/**
+* Deprecated! Please use the corresponding ION_FLAG_*
+*/
+#define ION_SECURE ION_FLAG_SECURE
+#define ION_FORCE_CONTIGUOUS ION_FLAG_FORCE_CONTIGUOUS
 
 /**
  * Macro should be used with ion_heap_ids defined above.
