@@ -1840,14 +1840,14 @@ static void a2xx_irq_control(struct adreno_device *adreno_dev, int state)
 static unsigned int a2xx_irq_pending(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int rbbm, cp, mh;
+	unsigned int status;
 
-	adreno_regread(device, REG_RBBM_INT_CNTL, &rbbm);
-	adreno_regread(device, REG_CP_INT_CNTL, &cp);
-	adreno_regread(device, MH_INTERRUPT_MASK, &mh);
+	adreno_regread(device, REG_MASTER_INT_SIGNAL, &status);
 
-	return ((rbbm & RBBM_INT_MASK) || (cp & CP_INT_MASK) ||
-		(mh & kgsl_mmu_get_int_mask())) ? 1 : 0;
+	return (status &
+		(MASTER_INT_SIGNAL__MH_INT_STAT |
+		 MASTER_INT_SIGNAL__CP_INT_STAT |
+		 MASTER_INT_SIGNAL__RBBM_INT_STAT)) ? 1 : 0;
 }
 
 static int a2xx_rb_init(struct adreno_device *adreno_dev,
