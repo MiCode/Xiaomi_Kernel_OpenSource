@@ -528,6 +528,8 @@ int ipa_handle_rx_core(bool process_all, bool in_poll_state)
 	struct ipa_sys_context *sys = &ipa_ctx->sys[IPA_A5_LAN_WAN_IN];
 	struct ipa_ep_context *ep;
 	int cnt = 0;
+	struct completion *compl;
+	struct ipa_tree_node *node;
 	unsigned int src_pipe;
 
 	while ((in_poll_state ? atomic_read(&ipa_ctx->curr_polling_state) :
@@ -581,6 +583,35 @@ int ipa_handle_rx_core(bool process_all, bool in_poll_state)
 
 		IPA_STATS_INC_CNT(ipa_ctx->stats.rx_pkts);
 		IPA_STATS_EXCP_CNT(mux_hdr->flags, ipa_ctx->stats.rx_excp_pkts);
+
+		if (unlikely(mux_hdr->flags & IPA_A5_MUX_HDR_EXCP_FLAG_TAG)) {
+			if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL) {
+				/* retrieve the compl object from tag value */
+				mux_hdr++;
+				compl = (struct completion *)
+					ntohl(*((u32 *)mux_hdr));
+				IPADBG("%x %x %p\n", *(u32 *)mux_hdr,
+						*((u32 *)mux_hdr + 1), compl);
+
+				mutex_lock(&ipa_ctx->lock);
+				node = ipa_search(&ipa_ctx->tag_tree,
+						(u32)compl);
+				if (node) {
+					complete_all(compl);
+					rb_erase(&node->node,
+							&ipa_ctx->tag_tree);
+					kmem_cache_free(
+						ipa_ctx->tree_node_cache, node);
+				} else {
+					WARN_ON(1);
+				}
+				mutex_unlock(&ipa_ctx->lock);
+			}
+			dev_kfree_skb(rx_skb);
+			ipa_replenish_rx_cache();
+			++cnt;
+			continue;
+		}
 
 		/*
 		 * Any packets arriving over AMPDU_TX should be dispatched
@@ -791,7 +822,8 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 			ipa_ctx->a5_pipe_index++;
 		ipa_ctx->ep[ipa_ep_idx].connect.src_pipe_index = ipa_ep_idx;
 		ipa_ctx->ep[ipa_ep_idx].connect.options =
-			SPS_O_AUTO_ENABLE | SPS_O_EOT | SPS_O_ACK_TRANSFERS;
+			SPS_O_AUTO_ENABLE | SPS_O_EOT | SPS_O_ACK_TRANSFERS |
+			SPS_O_NO_DISABLE;
 		if (ipa_ctx->polling_mode)
 			ipa_ctx->ep[ipa_ep_idx].connect.options |= SPS_O_POLL;
 	} else {
