@@ -1040,30 +1040,9 @@ static int wfdioc_s_ctrl(struct file *filp, void *fh,
 {
 	int rc = 0;
 	struct wfd_device *wfd_dev = video_drvdata(filp);
-	struct wfd_inst *inst = file_to_inst(filp);
 
-	switch (a->id) {
-	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
-		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core,
-				ioctl, ENC_SECURE, NULL);
-		if (rc) {
-			WFD_MSG_ERR("Couldn't secure encoder");
-			break;
-		}
-
-		rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core,
-				ioctl, MDP_SECURE, (void *)inst->mdp_inst);
-		if (rc) {
-			WFD_MSG_ERR("Couldn't secure MDP");
-			break;
-		}
-
-		wfd_dev->secure = true;
-		break;
-	default:
-		rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core,
-				ioctl, SET_PROP, a);
-	}
+	rc = v4l2_subdev_call(&wfd_dev->enc_sdev, core,
+			ioctl, SET_PROP, a);
 
 	if (rc)
 		WFD_MSG_ERR("Failed to set encoder property\n");

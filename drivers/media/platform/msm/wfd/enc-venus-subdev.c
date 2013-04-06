@@ -28,6 +28,7 @@
 #define BUF_TYPE_INPUT V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE
 
 static struct ion_client *venc_ion_client;
+static long venc_secure(struct v4l2_subdev *sd);
 
 struct index_bitmap {
 	unsigned long *bitmap;
@@ -321,8 +322,9 @@ static long venc_open(struct v4l2_subdev *sd, void *arg)
 		goto venc_open_fail;
 	}
 
-	inst->secure = false;
 	inst->vmops = *vmops;
+	inst->secure = vmops->secure; /* We need to inform vidc, but defer
+					 until after s_fmt() */
 	INIT_LIST_HEAD(&inst->registered_output_bufs.list);
 	INIT_LIST_HEAD(&inst->registered_input_bufs.list);
 	init_completion(&inst->dq_complete);
@@ -903,6 +905,15 @@ static long venc_set_format(struct v4l2_subdev *sd, void *arg)
 		WFD_MSG_ERR("Failed to format for input port\n");
 		goto venc_set_format_fail;
 	}
+
+	/* If the device was secured previously, we need to inform vidc _now_ */
+	if (inst->secure) {
+		rc = venc_secure(sd);
+		if (rc) {
+			WFD_MSG_ERR("Failed secure vidc\n");
+			goto venc_set_format_fail;
+		}
+	}
 venc_set_format_fail:
 	return rc;
 }
@@ -1329,12 +1340,6 @@ static long venc_secure(struct v4l2_subdev *sd)
 		rc = -EEXIST;
 	}
 
-	if (inst->secure) {
-		/* Nothing to do! */
-		rc = 0;
-		goto secure_fail;
-	}
-
 	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_SECURE;
 	rc = msm_vidc_s_ctrl(inst->vidc_context, &ctrl);
 	if (rc) {
@@ -1342,7 +1347,6 @@ static long venc_secure(struct v4l2_subdev *sd)
 		goto secure_fail;
 	}
 
-	inst->secure = true;
 secure_fail:
 	return rc;
 }
@@ -1418,9 +1422,6 @@ long venc_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case SET_FRAMERATE_MODE:
 		rc = venc_set_framerate_mode(sd, arg);
-		break;
-	case ENC_SECURE:
-		rc = venc_secure(sd);
 		break;
 	default:
 		WFD_MSG_ERR("Unknown ioctl %d to enc-subdev\n", cmd);
