@@ -106,7 +106,12 @@ static int snapshot_context_info(int id, void *ptr, void *data)
 {
 	struct kgsl_snapshot_linux_context *header = _ctxtptr;
 	struct kgsl_context *context = ptr;
-	struct kgsl_device *device = context->dev_priv->device;
+	struct kgsl_device *device;
+
+	if (context)
+		device = context->dev_priv->device;
+	else
+		device = (struct kgsl_device *)data;
 
 	header->id = id;
 
@@ -140,6 +145,9 @@ static int snapshot_os(struct kgsl_device *device,
 	 * be appended on the end of the structure */
 
 	idr_for_each(&device->context_idr, snapshot_context_count, &ctxtcount);
+
+	/* Increment ctxcount for the global memstore */
+	ctxtcount++;
 
 	size += ctxtcount * sizeof(struct kgsl_snapshot_linux_context);
 
@@ -186,8 +194,10 @@ static int snapshot_os(struct kgsl_device *device,
 
 	header->ctxtcount = ctxtcount;
 
-	/* append information for each context */
 	_ctxtptr = snapshot + sizeof(*header);
+	/* append information for the global context */
+	snapshot_context_info(KGSL_MEMSTORE_GLOBAL, NULL, device);
+	/* append information for each context */
 	idr_for_each(&device->context_idr, snapshot_context_info, NULL);
 
 	/* Return the size of the data segment */
