@@ -72,6 +72,13 @@ struct sidetone_cal {
 	uint16_t	gain;
 };
 
+enum msm_spkr_prot_states {
+	MSM_SPKR_PROT_CALIBRATED,
+	MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS,
+	MSM_SPKR_PROT_DISABLED,
+	MSM_SPKR_PROT_NOT_CALIBRATED
+};
+
 struct msm_spk_prot_cfg {
 	int r0;
 	int t0;

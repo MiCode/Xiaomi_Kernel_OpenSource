@@ -56,6 +56,9 @@ static struct afe_ctl this_afe;
 #define TIMEOUT_MS 1000
 #define Q6AFE_MAX_VOLUME 0x3FFF
 
+#define Q6AFE_MSM_SPKR_PROCESSING 0
+#define Q6AFE_MSM_SPKR_CALIBRATION 1
+
 static int pcm_afe_instance[2];
 static int proxy_afe_instance[2];
 bool afe_close_done[2] = {true, true};
@@ -515,25 +518,31 @@ static void afe_send_cal_spkr_prot_tx(int port_id)
 	/*Get spkr protection cfg data*/
 	get_spk_protection_cfg(&prot_cfg);
 
-	if ((!prot_cfg.mode || prot_cfg.mode == 1) &&
+	if ((prot_cfg.mode != MSM_SPKR_PROT_DISABLED) &&
 		(this_afe.vi_tx_port == port_id)) {
 		afe_spk_config.mode_rx_cfg.minor_version = 1;
-		afe_spk_config.mode_rx_cfg.mode =
-		(uint32_t)prot_cfg.mode;
+		if (prot_cfg.mode == MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS)
+			afe_spk_config.mode_rx_cfg.mode =
+			Q6AFE_MSM_SPKR_CALIBRATION;
+		else
+			afe_spk_config.mode_rx_cfg.mode =
+			Q6AFE_MSM_SPKR_PROCESSING;
 		if (afe_spk_prot_prepare(port_id,
 			AFE_PARAM_ID_MODE_VI_PROC_CFG,
 			&afe_spk_config))
 			pr_err("%s TX VI_PROC_CFG failed\n", __func__);
-		afe_spk_config.vi_proc_cfg.minor_version = 1;
-		afe_spk_config.vi_proc_cfg.r0_cali_q24 =
-		(uint32_t) prot_cfg.r0;
-		afe_spk_config.vi_proc_cfg.t0_cali_q6 =
-		(uint32_t) prot_cfg.t0;
-		if (afe_spk_prot_prepare(port_id,
-			AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG,
-			&afe_spk_config))
-			pr_err("%s SPKR_CALIB_VI_PROC_CFG failed\n",
-				__func__);
+		if (prot_cfg.mode != MSM_SPKR_PROT_NOT_CALIBRATED) {
+			afe_spk_config.vi_proc_cfg.minor_version = 1;
+			afe_spk_config.vi_proc_cfg.r0_cali_q24 =
+			(uint32_t) prot_cfg.r0;
+			afe_spk_config.vi_proc_cfg.t0_cali_q6 =
+			(uint32_t) prot_cfg.t0;
+			if (afe_spk_prot_prepare(port_id,
+				AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG,
+				&afe_spk_config))
+				pr_err("%s SPKR_CALIB_VI_PROC_CFG failed\n",
+					__func__);
+		}
 	}
 }
 
@@ -545,9 +554,13 @@ static void afe_send_cal_spkr_prot_rx(int port_id)
 	/*Get spkr protection cfg data*/
 	get_spk_protection_cfg(&prot_cfg);
 
-	if (!prot_cfg.mode || prot_cfg.mode == 1) {
-		afe_spk_config.mode_rx_cfg.mode =
-		(uint32_t)prot_cfg.mode;
+	if (prot_cfg.mode != MSM_SPKR_PROT_DISABLED) {
+		if (prot_cfg.mode == MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS)
+			afe_spk_config.mode_rx_cfg.mode =
+			Q6AFE_MSM_SPKR_CALIBRATION;
+		else
+			afe_spk_config.mode_rx_cfg.mode =
+			Q6AFE_MSM_SPKR_PROCESSING;
 		afe_spk_config.mode_rx_cfg.minor_version = 1;
 		if (afe_spk_prot_prepare(port_id,
 			AFE_PARAM_ID_FBSP_MODE_RX_CFG,

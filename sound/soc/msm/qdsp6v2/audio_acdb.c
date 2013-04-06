@@ -1010,10 +1010,11 @@ static long acdb_ioctl(struct file *f,
 	case AUDIO_GET_SPEAKER_PROT:
 		mutex_lock(&acdb_data.acdb_mutex);
 		/*Indicates calibration was succesfull*/
-		if (!acdb_data.spk_prot_cfg.mode) {
+		if (acdb_data.spk_prot_cfg.mode == MSM_SPKR_PROT_CALIBRATED) {
 			prot_status.r0 = acdb_data.spk_prot_cfg.r0;
 			prot_status.status = 0;
-		} else if (acdb_data.spk_prot_cfg.mode == 1) {
+		} else if (acdb_data.spk_prot_cfg.mode ==
+				   MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS) {
 			/*Call AFE to query the status*/
 			acdb_spk_status.status = -EINVAL;
 			acdb_spk_status.r0 = -1;
@@ -1021,7 +1022,8 @@ static long acdb_ioctl(struct file *f,
 			prot_status.r0 = acdb_spk_status.r0;
 			prot_status.status = acdb_spk_status.status;
 			if (!acdb_spk_status.status) {
-				acdb_data.spk_prot_cfg.mode = 0;
+				acdb_data.spk_prot_cfg.mode =
+					MSM_SPKR_PROT_CALIBRATED;
 				acdb_data.spk_prot_cfg.r0 = prot_status.r0;
 			}
 		} else {
@@ -1206,7 +1208,7 @@ static int __init acdb_init(void)
 {
 	memset(&acdb_data, 0, sizeof(acdb_data));
 	/*Speaker protection disabled*/
-	acdb_data.spk_prot_cfg.mode = -1;
+	acdb_data.spk_prot_cfg.mode = MSM_SPKR_PROT_DISABLED;
 	mutex_init(&acdb_data.acdb_mutex);
 	atomic_set(&usage_count, 0);
 	atomic_set(&acdb_data.valid_adm_custom_top, 1);
