@@ -115,7 +115,7 @@
 #define QPNP_ADC_GAIN_NV				17857
 #define QPNP_OFFSET_CALIBRATION_SHORT_CADC_LEADS_IDEAL	0
 #define QPNP_IADC_INTERNAL_RSENSE_N_OHMS_FACTOR		10000000
-#define QPNP_IADC_NANO_VOLTS_FACTOR			1000000000
+#define QPNP_IADC_NANO_VOLTS_FACTOR			1000000
 #define QPNP_IADC_CALIB_SECONDS				300000
 #define QPNP_IADC_RSENSE_LSB_N_OHMS_PER_BIT		15625
 #define QPNP_IADC_DIE_TEMP_CALIB_OFFSET			5000
@@ -593,6 +593,7 @@ int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	int32_t rc, rsense_n_ohms, sign = 0, num, mode_sel = 0;
+	int32_t rsense_u_ohms = 0;
 	int64_t result_current;
 	uint16_t raw_data;
 
@@ -618,7 +619,7 @@ int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 	rc = qpnp_iadc_get_rsense(&rsense_n_ohms);
 	pr_debug("current raw:0%x and rsense:%d\n",
 			raw_data, rsense_n_ohms);
-
+	rsense_u_ohms = rsense_n_ohms/1000;
 	num = raw_data - iadc->adc->calib.offset_raw;
 	if (num < 0) {
 		sign = 1;
@@ -629,7 +630,7 @@ int32_t qpnp_iadc_read(enum qpnp_iadc_channels channel,
 		(iadc->adc->calib.gain_raw - iadc->adc->calib.offset_raw);
 	result_current = result->result_uv;
 	result_current *= QPNP_IADC_NANO_VOLTS_FACTOR;
-	do_div(result_current, rsense_n_ohms);
+	do_div(result_current, rsense_u_ohms);
 
 	if (sign) {
 		result->result_uv = -result->result_uv;
