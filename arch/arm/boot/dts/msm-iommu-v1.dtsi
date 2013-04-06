@@ -321,7 +321,6 @@
 		interrupts = <0 38 0>;
 		vdd-supply = <&gdsc_oxili_cx>;
 		qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
-		qcom,needs-alt-core-clk;
 		label = "kgsl_iommu";
 		status = "disabled";
 
