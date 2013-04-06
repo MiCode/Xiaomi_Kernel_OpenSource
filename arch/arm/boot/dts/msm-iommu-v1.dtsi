@@ -408,6 +408,15 @@
 			qcom,iommu-ctx-sids = <1>;
 			label = "gfx3d_priv";
 		};
+
+		qcom,iommu-ctx@fdb1a000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfdb1a000 0x1000>;
+			interrupts = <0 241 0>;
+			qcom,iommu-ctx-sids = <2>;
+			label = "gfx3d_spare";
+		};
+
 	};
 
 	vfe_iommu: qcom,iommu@fda44000 {
@@ -509,6 +518,542 @@
 			interrupts = <0 65 0>;
 			qcom,iommu-ctx-sids = <2>;
 			label = "cpp";
+		};
+	};
+
+	copss_iommu: qcom,iommu@f9bc4000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xf9bc4000 0x10000>;
+		reg-names = "iommu_base";
+		interrupts = <0 153 0>;
+		label = "copss_iommu";
+		qcom,msm-bus,name = "copss_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<88 512 0 0>,
+				<88 512 0 1000>;
+		status = "disabled";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <8>;
+		qcom,iommu-pmu-event-classes = <0x00
+						0x01
+						0x08
+						0x09
+						0x0a
+						0x10
+						0x11
+						0x12
+						0x80
+						0x81
+						0x82
+						0x83
+						0x90
+						0x91
+						0x92
+						0xb0
+						0xb1>;
+
+		qcom,iommu-bfb-regs =  <0x204c
+					0x2514
+					0x2540
+					0x256c
+					0x20ac
+					0x215c
+					0x220c
+					0x22bc
+					0x2314
+					0x2394
+					0x2414
+					0x2494
+					0x2008>;
+
+		qcom,iommu-bfb-data =  <0x3
+					0x4
+					0x4
+					0x0
+					0x0
+					0x0
+					0x1
+					0x0
+					0x0
+					0x40
+					0x44
+					0x0
+					0x0>;
+
+		qcom,iommu-lpae-bfb-regs = <0x204c
+					    0x2514
+					    0x2540
+					    0x256c
+					    0x20ac
+					    0x215c
+					    0x220c
+					    0x22bc
+					    0x2314
+					    0x2394
+					    0x2414
+					    0x2494
+					    0x2008>;
+
+		qcom,iommu-lpae-bfb-data = <0x3
+					    0x0
+					    0x4
+					    0x4
+					    0x0
+					    0x5
+					    0x0
+					    0x1
+					    0x0
+					    0x0
+					    0x40
+					    0x44
+					    0x0>;
+
+
+		copss_cb_0: qcom,iommu-ctx@f9bcc000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xf9bcc000 0x1000>;
+			interrupts = <0 142 0>;
+			qcom,iommu-ctx-sids = <0>;
+			label = "copss_cb_0";
+		};
+
+		copss_cb_1: qcom,iommu-ctx@f9bcd000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xf9bcd000 0x1000>;
+			interrupts = <0 142 0>;
+			qcom,iommu-ctx-sids = <1>;
+			label = "copss_cb_1";
+		};
+
+		copss_cb_2: qcom,iommu-ctx@f9bce000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xf9bce000 0x1000>;
+			interrupts = <0 142 0>;
+			qcom,iommu-ctx-sids = <2>;
+			label = "copss_cb_2";
+		};
+
+		copss_cb_3: qcom,iommu-ctx@f9bcf000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xf9bcf000 0x1000>;
+			interrupts = <0 142 0>;
+			qcom,iommu-ctx-sids = <3>;
+			label = "copss_cb_3";
+		};
+
+		copss_cb_4: qcom,iommu-ctx@f9bd0000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xf9bd0000 0x1000>;
+			interrupts = <0 142 0>;
+			qcom,iommu-ctx-sids = <4>;
+			label = "copss_cb_4";
+		};
+
+		copss_cb_5: qcom,iommu-ctx@f9bd1000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xf9bd1000 0x1000>;
+			interrupts = <0 142 0>;
+			qcom,iommu-ctx-sids = <5>;
+			label = "copss_cb_5";
+		};
+
+		copss_cb_6: qcom,iommu-ctx@f9bd2000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xf9bd2000 0x1000>;
+			interrupts = <0 142 0>;
+			qcom,iommu-ctx-sids = <6>;
+			label = "copss_cb_6";
+		};
+
+		copss_cb_7: qcom,iommu-ctx@f9bd3000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xf9bd3000 0x1000>;
+			interrupts = <0 142 0>;
+			qcom,iommu-ctx-sids = <7>;
+			label = "copss_cb_7";
+		};
+	};
+
+	vpu_iommu: qcom,iommu@fdee4000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfdee4000 0x10000>;
+		reg-names = "iommu_base";
+		interrupts = <0 147 0>;
+		label = "vpu_iommu";
+		qcom,msm-bus,name = "vpu_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<93 512 0 0>,
+				<93 512 0 1000>;
+		status = "disabled";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <8>;
+		qcom,iommu-pmu-event-classes = <0x00
+						0x01
+						0x08
+						0x09
+						0x0a
+						0x10
+						0x11
+						0x12
+						0x80
+						0x81
+						0x82
+						0x83
+						0x90
+						0x91
+						0x92
+						0xb0
+						0xb1>;
+
+		qcom,iommu-bfb-regs =  <0x204c
+					0x2514
+					0x2540
+					0x256c
+					0x2314
+					0x2394
+					0x2414
+					0x2494
+					0x20ac
+					0x215c
+					0x220c
+					0x22bc
+					0x2008
+					0x200c
+					0x2010
+					0x2014>;
+
+		qcom,iommu-bfb-data =  <0xffff
+					0x4
+					0x10
+					0x0
+					0x0
+					0xf
+					0x4b
+					0x0
+					0x1e00
+					0x1e00
+					0x5a0f
+					0x0
+					0x0
+					0x0
+					0x0
+					0x0>;
+
+		qcom,iommu-lpae-bfb-regs = <0x204c
+					    0x2514
+					    0x2540
+					    0x256c
+					    0x2314
+					    0x2394
+					    0x2414
+					    0x2494
+					    0x20ac
+					    0x215c
+					    0x220c
+					    0x22bc
+					    0x2008
+					    0x200c
+					    0x2010
+					    0x2014>;
+
+		qcom,iommu-lpae-bfb-data = <0xffff
+					    0x0
+					    0x4
+					    0x10
+					    0x0
+					    0x0
+					    0xf
+					    0x4b
+					    0x1e00
+					    0x5a2d
+					    0x1e00
+					    0x5a0f
+					    0x0
+					    0x0
+					    0x0
+					    0x0>;
+
+
+		vpu_cb_0: qcom,iommu-ctx@fdeec000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfdeec000 0x1000>;
+			interrupts = <0 145 0>;
+			qcom,iommu-ctx-sids = <0 1 3>;
+			label = "vpu_cb_0";
+		};
+
+		vpu_cb_1: qcom,iommu-ctx@fdeed000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfdeed000 0x1000>;
+			interrupts = <0 145 0>;
+			qcom,iommu-ctx-sids = <8 9>;
+			label = "vpu_cb_1";
+		};
+
+		vpu_cb_2: qcom,iommu-ctx@fdeee000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfdeee000 0x1000>;
+			interrupts = <0 145 0>;
+			qcom,iommu-ctx-sids = <5 7 15>;
+			label = "vpu_cb_2";
+		};
+	};
+
+	lpass_qdsp_iommu: qcom,iommu@fe054000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfe054000 0x10000>;
+		reg-names = "iommu_base";
+		interrupts = <0 202 0>;
+		label = "lpass_qdsp_iommu";
+		qcom,msm-bus,name = "lpass_qdsp_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<11 512 0 0>,
+				<11 512 0 1000>;
+		status = "disabled";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <8>;
+		qcom,iommu-pmu-event-classes = <0x00
+						0x01
+						0x08
+						0x09
+						0x0a
+						0x10
+						0x11
+						0x12
+						0x80
+						0x81
+						0x82
+						0x83
+						0x90
+						0x91
+						0x92
+						0xb0
+						0xb1>;
+
+		qcom,iommu-bfb-regs =  <0x204c
+					0x2514
+					0x2540
+					0x256c
+					0x20ac
+					0x215c
+					0x220c
+					0x22bc
+					0x2314
+					0x2394
+					0x2414
+					0x2494
+					0x2008>;
+
+		qcom,iommu-bfb-data =  <0x3
+					0x4
+					0x4
+					0x0
+					0x0
+					0x0
+					0x10
+					0x0
+					0x0
+					0x15e
+					0x19e
+					0x0
+					0x0>;
+
+		qcom,iommu-lpae-bfb-regs = <0x204c
+					    0x2514
+					    0x2540
+					    0x256c
+					    0x20ac
+					    0x215c
+					    0x220c
+					    0x22bc
+					    0x2314
+					    0x2394
+					    0x2414
+					    0x2494
+					    0x2008>;
+
+		qcom,iommu-lpae-bfb-data = <0x3
+					    0x0
+					    0x4
+					    0x4
+					    0x0
+					    0x20
+					    0x0
+					    0x10
+					    0x0
+					    0x0
+					    0x15e
+					    0x19e
+					    0x0>;
+
+
+		lpass_qdsp_cb_0: qcom,iommu-ctx@fe05c000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfe05c000 0x1000>;
+			interrupts = <0 265 0>;
+			qcom,iommu-ctx-sids = <0>;
+			label = "lpass_qdsp_cb_0";
+		};
+
+		lpass_qdsp_cb_1: qcom,iommu-ctx@fe05d000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfe05d000 0x1000>;
+			interrupts = <0 265 0>;
+			qcom,iommu-ctx-sids = <1>;
+			label = "lpass_qdsp_cb_1";
+		};
+
+		lpass_qdsp_cb_2: qcom,iommu-ctx@fe05e000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfe05e000 0x1000>;
+			interrupts = <0 265 0>;
+			qcom,iommu-ctx-sids = <2>;
+			label = "lpass_qdsp_cb_2";
+		};
+
+		lpass_qdsp_cb_3: qcom,iommu-ctx@fe05f000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfe05f000 0x1000>;
+			interrupts = <0 265 0>;
+			qcom,iommu-ctx-sids = <3>;
+			label = "lpass_qdsp_cb_3";
+		};
+	};
+
+	lpass_core_iommu: qcom,iommu@fe064000 {
+		compatible = "qcom,msm-smmu-v1";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xfe064000 0x10000>;
+		reg-names = "iommu_base";
+		interrupts = <0 166 0>;
+		label = "lpass_core_iommu";
+		qcom,msm-bus,name = "lpass_core_ebi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<52 512 0 0>,
+				<52 512 0 1000>;
+		status = "disabled";
+		qcom,iommu-pmu-ngroups = <1>;
+		qcom,iommu-pmu-ncounters = <8>;
+		qcom,iommu-pmu-event-classes = <0x00
+						0x01
+						0x08
+						0x09
+						0x0a
+						0x10
+						0x11
+						0x12
+						0x80
+						0x81
+						0x82
+						0x83
+						0x90
+						0x91
+						0x92
+						0xb0
+						0xb1>;
+
+		qcom,iommu-bfb-regs =  <0x204c
+					0x2514
+					0x2540
+					0x256c
+					0x20ac
+					0x215c
+					0x220c
+					0x22bc
+					0x2314
+					0x2394
+					0x2414
+					0x2494
+					0x2008>;
+
+		qcom,iommu-bfb-data =  <0x3
+					0x4
+					0x4
+					0x0
+					0x0
+					0x0
+					0x4
+					0x0
+					0x0
+					0x40
+					0x50
+					0x0
+					0x0>;
+
+		qcom,iommu-lpae-bfb-regs = <0x204c
+					    0x2514
+					    0x2540
+					    0x256c
+					    0x20ac
+					    0x215c
+					    0x220c
+					    0x22bc
+					    0x2314
+					    0x2394
+					    0x2414
+					    0x2494
+					    0x2008>;
+
+		qcom,iommu-lpae-bfb-data = <0x3
+					    0x0
+					    0x4
+					    0x4
+					    0x0
+					    0xc
+					    0x0
+					    0x4
+					    0x0
+					    0x0
+					    0x40
+					    0x50
+					    0x0>;
+
+
+		lpass_core_cb_0: qcom,iommu-ctx@fe06c000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfe06c000 0x1000>;
+			interrupts = <0 267 0>;
+			qcom,iommu-ctx-sids = <0>;
+			label = "lpass_core_cb_0";
+		};
+
+		lpass_core_cb_1: qcom,iommu-ctx@fe06d000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfe06d000 0x1000>;
+			interrupts = <0 267 0>;
+			qcom,iommu-ctx-sids = <1>;
+			label = "lpass_core_cb_1";
+		};
+
+		lpass_core_cb_2: qcom,iommu-ctx@fe06e000 {
+			compatible = "qcom,msm-smmu-v1-ctx";
+			reg = <0xfe06e000 0x1000>;
+			interrupts = <0 267 0>;
+			qcom,iommu-ctx-sids = <2>;
+			label = "lpass_core_cb_2";
 		};
 	};
 };
