@@ -186,7 +186,9 @@ static void mpq_get_frame_and_write(struct mpq_dvb_video_inst *dev_inst,
 		case DMX_EOS_PACKET:
 			break;
 		case DMX_PES_PACKET:
-		case DMX_PADDING_PACKET:
+		case DMX_MARKER_PACKET:
+			break;
+		default:
 			break;
 		}
 	} while (!frame_found);

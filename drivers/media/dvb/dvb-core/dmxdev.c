@@ -485,23 +485,56 @@ static struct dmx_frontend *get_fe(struct dmx_demux *demux, int type)
 	return NULL;
 }
 
-static int dvr_input_thread_entry(void *arg)
+static void dvb_dvr_oob_cmd(struct dmxdev *dmxdev, struct dmx_oob_command *cmd)
 {
-	struct dmxdev *dmxdev = arg;
-	struct dvb_ringbuffer *src = &dmxdev->dvr_input_buffer;
-	int ret;
-	size_t todo;
-	int bytes_written;
-	size_t split;
+	int i;
+	struct dmxdev_filter *filter;
+	struct dmxdev_feed *feed;
 
-	while (1) {
+	for (i = 0; i < dmxdev->filternum; i++) {
+		filter = &dmxdev->filter[i];
+		if (!filter || filter->state != DMXDEV_STATE_GO)
+			continue;
+
+		switch (filter->type) {
+		case DMXDEV_TYPE_SEC:
+			filter->feed.sec.feed->oob_command(
+				filter->feed.sec.feed, cmd);
+			break;
+		case DMXDEV_TYPE_PES:
+			feed = list_first_entry(&filter->feed.ts,
+						struct dmxdev_feed, next);
+			feed->ts->oob_command(feed->ts, cmd);
+			break;
+		case DMXDEV_TYPE_NONE:
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+static int dvb_dvr_feed_cmd(struct dmxdev *dmxdev, struct dvr_command *dvr_cmd)
+{
+	int ret = 0;
+	size_t todo;
+	int bytes_written = 0;
+	size_t split;
+	size_t tsp_size;
+	struct dvb_ringbuffer *src = &dmxdev->dvr_input_buffer;
+	todo = dvr_cmd->cmd.data_feed_count;
+
+	if (dmxdev->demux->get_tsp_size)
+		tsp_size = dmxdev->demux->get_tsp_size(dmxdev->demux);
+	else
+		tsp_size = 188;
+
+	while (todo >= tsp_size) {
 		/* wait for input */
 		ret = wait_event_interruptible(
 			src->queue,
-			(!src->data) ||
-			(dvb_ringbuffer_avail(src) > 188) ||
-			(src->error != 0) ||
-			dmxdev->dvr_in_exit);
+			(dvb_ringbuffer_avail(src) >= tsp_size) || (!src->data)
+			|| (dmxdev->dvr_in_exit) || (src->error));
 
 		if (ret < 0)
 			break;
@@ -510,23 +543,21 @@ static int dvr_input_thread_entry(void *arg)
 
 		if (!src->data || dmxdev->exit || dmxdev->dvr_in_exit) {
 			spin_unlock(&dmxdev->dvr_in_lock);
+			ret = -ENODEV;
 			break;
 		}
 
 		if (src->error) {
 			spin_unlock(&dmxdev->dvr_in_lock);
 			wake_up_all(&src->queue);
+			ret = -EINVAL;
 			break;
 		}
 
 		dmxdev->dvr_processing_input = 1;
 
-		ret = dvb_ringbuffer_avail(src);
-		todo = ret;
-
-		split = (src->pread + ret > src->size) ?
-				src->size - src->pread :
-				0;
+		split = (src->pread + todo > src->size) ?
+			src->size - src->pread : 0;
 
 		/*
 		 * In DVR PULL mode, write might block.
@@ -537,52 +568,126 @@ static int dvr_input_thread_entry(void *arg)
 		 */
 		if (split > 0) {
 			spin_unlock(&dmxdev->dvr_in_lock);
-			bytes_written = dmxdev->demux->write(dmxdev->demux,
+			ret = dmxdev->demux->write(dmxdev->demux,
 						src->data + src->pread,
 						split);
 
-			if (bytes_written < 0) {
+			if (ret < 0) {
 				printk(KERN_ERR "dmxdev: dvr write error %d\n",
-					bytes_written);
+					ret);
 				continue;
 			}
 
-			if (dmxdev->dvr_in_exit)
+			if (dmxdev->dvr_in_exit) {
+				ret = -ENODEV;
 				break;
+			}
 
 			spin_lock(&dmxdev->dvr_in_lock);
 
-			todo -= bytes_written;
-			DVB_RINGBUFFER_SKIP(src, bytes_written);
-			if (bytes_written < split) {
+			todo -= ret;
+			bytes_written += ret;
+			DVB_RINGBUFFER_SKIP(src, ret);
+			if (ret < split) {
 				dmxdev->dvr_processing_input = 0;
 				spin_unlock(&dmxdev->dvr_in_lock);
 				wake_up_all(&src->queue);
 				continue;
 			}
-
 		}
 
 		spin_unlock(&dmxdev->dvr_in_lock);
-		bytes_written = dmxdev->demux->write(dmxdev->demux,
-					src->data + src->pread, todo);
+		ret = dmxdev->demux->write(dmxdev->demux,
+			src->data + src->pread, todo);
 
-		if (bytes_written < 0) {
+		if (ret < 0) {
 			printk(KERN_ERR "dmxdev: dvr write error %d\n",
-				bytes_written);
+				ret);
 			continue;
 		}
 
-		if (dmxdev->dvr_in_exit)
+		if (dmxdev->dvr_in_exit) {
+			ret = -ENODEV;
 			break;
+		}
 
 		spin_lock(&dmxdev->dvr_in_lock);
 
-		DVB_RINGBUFFER_SKIP(src, bytes_written);
+		todo -= ret;
+		bytes_written += ret;
+		DVB_RINGBUFFER_SKIP(src, ret);
 		dmxdev->dvr_processing_input = 0;
 		spin_unlock(&dmxdev->dvr_in_lock);
 
 		wake_up_all(&src->queue);
+	}
+
+	if (ret < 0)
+		return ret;
+
+	return bytes_written;
+}
+
+static int dvr_input_thread_entry(void *arg)
+{
+	struct dmxdev *dmxdev = arg;
+	struct dvb_ringbuffer *cmdbuf = &dmxdev->dvr_cmd_buffer;
+	struct dvr_command dvr_cmd;
+	int leftover = 0;
+	int ret;
+
+	while (1) {
+		/* wait for input */
+		ret = wait_event_interruptible(
+			cmdbuf->queue,
+			(!cmdbuf->data) ||
+			(dvb_ringbuffer_avail(cmdbuf) >= sizeof(dvr_cmd)) ||
+			(dmxdev->dvr_in_exit));
+
+		if (ret < 0)
+			break;
+
+		spin_lock(&dmxdev->dvr_in_lock);
+
+		if (!cmdbuf->data || dmxdev->exit || dmxdev->dvr_in_exit) {
+			spin_unlock(&dmxdev->dvr_in_lock);
+			break;
+		}
+
+		dvb_ringbuffer_read(cmdbuf, (u8 *)&dvr_cmd, sizeof(dvr_cmd));
+
+		spin_unlock(&dmxdev->dvr_in_lock);
+
+		if (dvr_cmd.type == DVR_DATA_FEED_CMD) {
+			dvr_cmd.cmd.data_feed_count += leftover;
+
+			ret = dvb_dvr_feed_cmd(dmxdev, &dvr_cmd);
+			if (ret < 0) {
+				printk(KERN_ERR
+					"%s: DVR data feed failed, ret=%d\n",
+					__func__, ret);
+				continue;
+			}
+
+			leftover = dvr_cmd.cmd.data_feed_count - ret;
+		} else {
+			/*
+			 * For EOS, try to process leftover data in the input
+			 * buffer.
+			 */
+			if (dvr_cmd.cmd.oobcmd.type == DMX_OOB_CMD_EOS) {
+				struct dvr_command feed_cmd;
+
+				feed_cmd.type = DVR_DATA_FEED_CMD;
+				feed_cmd.cmd.data_feed_count =
+					dvb_ringbuffer_avail(
+						&dmxdev->dvr_input_buffer);
+
+				dvb_dvr_feed_cmd(dmxdev, &dvr_cmd);
+			}
+
+			dvb_dvr_oob_cmd(dmxdev, &dvr_cmd.cmd.oobcmd);
+		}
 	}
 
 	set_current_state(TASK_INTERRUPTIBLE);
@@ -675,6 +780,15 @@ static int dvb_dvr_open(struct inode *inode, struct file *file)
 
 		dmxdev->demux->dvr_input.priv_handle = NULL;
 		dmxdev->demux->dvr_input.ringbuff = &dmxdev->dvr_input_buffer;
+		mem = vmalloc(DVR_CMDS_BUFFER_SIZE);
+		if (!mem) {
+			vfree(dmxdev->dvr_input_buffer.data);
+			dmxdev->dvr_input_buffer.data = NULL;
+			mutex_unlock(&dmxdev->mutex);
+			return -ENOMEM;
+		}
+		dvb_ringbuffer_init(&dmxdev->dvr_cmd_buffer, mem,
+			DVR_CMDS_BUFFER_SIZE);
 		dvbdev->writers--;
 
 		dmxdev->dvr_input_thread =
@@ -684,6 +798,10 @@ static int dvb_dvr_open(struct inode *inode, struct file *file)
 				"dvr_input");
 
 		if (IS_ERR(dmxdev->dvr_input_thread)) {
+			vfree(dmxdev->dvr_input_buffer.data);
+			vfree(dmxdev->dvr_cmd_buffer.data);
+			dmxdev->dvr_input_buffer.data = NULL;
+			dmxdev->dvr_cmd_buffer.data = NULL;
 			mutex_unlock(&dmxdev->mutex);
 			return -ENOMEM;
 		}
@@ -725,7 +843,8 @@ static int dvb_dvr_release(struct inode *inode, struct file *file)
 		int i;
 
 		dmxdev->dvr_in_exit = 1;
-		wake_up_all(&dmxdev->dvr_input_buffer.queue);
+
+		wake_up_all(&dmxdev->dvr_cmd_buffer.queue);
 
 		/*
 		 * There might be dmx filters reading now from DVR
@@ -775,6 +894,15 @@ static int dvb_dvr_release(struct inode *inode, struct file *file)
 			dmxdev->demux->unmap_buffer(dmxdev->demux,
 					dmxdev->demux->dvr_input.priv_handle);
 			dmxdev->demux->dvr_input.priv_handle = NULL;
+		}
+
+		if (dmxdev->dvr_cmd_buffer.data) {
+			void *mem = dmxdev->dvr_cmd_buffer.data;
+			mb();
+			spin_lock_irq(&dmxdev->dvr_in_lock);
+			dmxdev->dvr_cmd_buffer.data = NULL;
+			spin_unlock_irq(&dmxdev->dvr_in_lock);
+			vfree(mem);
 		}
 	}
 	/* TODO */
@@ -850,12 +978,57 @@ static int dvb_dvr_mmap(struct file *filp, struct vm_area_struct *vma)
 	return ret;
 }
 
+static void dvb_dvr_queue_data_feed(struct dmxdev *dmxdev, size_t count)
+{
+	struct dvb_ringbuffer *cmdbuf = &dmxdev->dvr_cmd_buffer;
+	struct dvr_command *dvr_cmd;
+	int last_dvr_cmd;
+
+	spin_lock(&dmxdev->dvr_in_lock);
+
+	/* Peek at the last DVR command queued, try to coalesce FEED commands */
+	if (dvb_ringbuffer_avail(cmdbuf) >= sizeof(*dvr_cmd)) {
+		last_dvr_cmd = cmdbuf->pwrite - sizeof(*dvr_cmd);
+		if (last_dvr_cmd < 0)
+			last_dvr_cmd += cmdbuf->size;
+
+		dvr_cmd = (struct dvr_command *)&cmdbuf->data[last_dvr_cmd];
+		if (dvr_cmd->type == DVR_DATA_FEED_CMD) {
+			dvr_cmd->cmd.data_feed_count += count;
+			spin_unlock(&dmxdev->dvr_in_lock);
+			return;
+		}
+	}
+
+	/*
+	 * We assume command buffer is large enough so that overflow should not
+	 * happen. Overflow to the command buffer means data previously written
+	 * to the input buffer is 'orphan' - does not have a matching FEED
+	 * command. Issue a warning if this ever happens.
+	 * Orphan data might still be processed if EOS is issued.
+	 */
+	if (dvb_ringbuffer_free(cmdbuf) < sizeof(*dvr_cmd)) {
+		printk(KERN_ERR "%s: DVR command buffer overflow\n", __func__);
+		spin_unlock(&dmxdev->dvr_in_lock);
+		return;
+	}
+
+	dvr_cmd = (struct dvr_command *)&cmdbuf->data[cmdbuf->pwrite];
+	dvr_cmd->type = DVR_DATA_FEED_CMD;
+	dvr_cmd->cmd.data_feed_count = count;
+	DVB_RINGBUFFER_PUSH(cmdbuf, sizeof(*dvr_cmd));
+	spin_unlock(&dmxdev->dvr_in_lock);
+
+	wake_up_all(&cmdbuf->queue);
+}
+
 static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 			     size_t count, loff_t *ppos)
 {
 	struct dvb_device *dvbdev = file->private_data;
 	struct dmxdev *dmxdev = dvbdev->priv;
 	struct dvb_ringbuffer *src = &dmxdev->dvr_input_buffer;
+	struct dvb_ringbuffer *cmdbuf = &dmxdev->dvr_cmd_buffer;
 	int ret;
 	size_t todo;
 	ssize_t free_space;
@@ -864,7 +1037,7 @@ static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 		return -EOPNOTSUPP;
 
 	if (((file->f_flags & O_ACCMODE) == O_RDONLY) ||
-		(!src->data))
+		(!src->data) || (!cmdbuf->data))
 		return -EINVAL;
 
 	if ((file->f_flags & O_NONBLOCK) &&
@@ -874,10 +1047,9 @@ static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 	ret = 0;
 	for (todo = count; todo > 0; todo -= ret) {
 		ret = wait_event_interruptible(src->queue,
-						   (!src->data) ||
-					       (dvb_ringbuffer_free(src)) ||
-					       (src->error != 0) ||
-					       (dmxdev->dvr_in_exit));
+			(dvb_ringbuffer_free(src)) ||
+			(!src->data) || (!cmdbuf->data) ||
+			(src->error != 0) || (dmxdev->dvr_in_exit));
 
 		if (ret < 0)
 			return ret;
@@ -885,7 +1057,7 @@ static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 		if (mutex_lock_interruptible(&dmxdev->mutex))
 			return -ERESTARTSYS;
 
-		if (!src->data) {
+		if ((!src->data) || (!cmdbuf->data)) {
 			mutex_unlock(&dmxdev->mutex);
 			return 0;
 		}
@@ -917,8 +1089,9 @@ static ssize_t dvb_dvr_write(struct file *file, const char __user *buf,
 
 		buf += ret;
 
+		dvb_dvr_queue_data_feed(dmxdev, ret);
+
 		mutex_unlock(&dmxdev->mutex);
-		wake_up_all(&src->queue);
 	}
 
 	return (count - todo) ? (count - todo) : ret;
@@ -966,6 +1139,34 @@ static ssize_t dvb_dvr_read(struct file *file, char __user *buf, size_t count,
 	}
 
 	return res;
+}
+
+/*
+ * dvb_dvr_push_oob_cmd
+ *
+ * Note: this function assume dmxdev->mutex was taken, so command buffer cannot
+ * be released during its operation.
+ */
+static int dvb_dvr_push_oob_cmd(struct dmxdev *dmxdev, unsigned int f_flags,
+		struct dmx_oob_command *cmd)
+{
+	struct dvb_ringbuffer *cmdbuf = &dmxdev->dvr_cmd_buffer;
+	struct dvr_command *dvr_cmd;
+
+	if ((f_flags & O_ACCMODE) == O_RDONLY ||
+		dmxdev->source < DMX_SOURCE_DVR0)
+		return -EPERM;
+
+	if (dvb_ringbuffer_free(cmdbuf) < sizeof(*dvr_cmd))
+		return -ENOMEM;
+
+	dvr_cmd = (struct dvr_command *)&cmdbuf->data[cmdbuf->pwrite];
+	dvr_cmd->type = DVR_OOB_CMD;
+	dvr_cmd->cmd.oobcmd = *cmd;
+	DVB_RINGBUFFER_PUSH(cmdbuf, sizeof(*dvr_cmd));
+	wake_up_all(&cmdbuf->queue);
+
+	return 0;
 }
 
 static int dvb_dvr_set_buffer_size(struct dmxdev *dmxdev,
@@ -1245,9 +1446,19 @@ static int dvb_dvr_release_data(struct dmxdev *dmxdev,
 	return 0;
 }
 
+/*
+ * dvb_dvr_feed_data - Notify new data in DVR input buffer
+ *
+ * @dmxdev - demux device instance
+ * @f_flags - demux device file flag (access mode)
+ * @bytes_count - how many bytes were written to the input buffer
+ *
+ * Note: this function assume dmxdev->mutex was taken, so buffer cannot
+ * be released during its operation.
+ */
 static int dvb_dvr_feed_data(struct dmxdev *dmxdev,
-					unsigned int f_flags,
-					u32 bytes_count)
+	unsigned int f_flags,
+	u32 bytes_count)
 {
 	ssize_t free_space;
 	struct dvb_ringbuffer *buffer = &dmxdev->dvr_input_buffer;
@@ -1263,10 +1474,9 @@ static int dvb_dvr_feed_data(struct dmxdev *dmxdev,
 	if (bytes_count > free_space)
 		return -EINVAL;
 
-	buffer->pwrite =
-		(buffer->pwrite + bytes_count) % buffer->size;
+	DVB_RINGBUFFER_PUSH(buffer, bytes_count);
 
-	wake_up_all(&buffer->queue);
+	dvb_dvr_queue_data_feed(dmxdev, bytes_count);
 
 	return 0;
 }
@@ -1825,8 +2035,10 @@ static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 		wake_up_all(&dmxdevfilter->buffer.queue);
 		return 0;
 	}
+
 	spin_lock(&dmxdevfilter->dev->lock);
-	if (dmxdevfilter->state != DMXDEV_STATE_GO) {
+	if (dmxdevfilter->state != DMXDEV_STATE_GO ||
+		dmxdevfilter->eos_state) {
 		spin_unlock(&dmxdevfilter->dev->lock);
 		return 0;
 	}
@@ -1896,13 +2108,15 @@ static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 	int ret;
 
 	spin_lock(&dmxdevfilter->dev->lock);
-	if (dmxdevfilter->params.pes.output == DMX_OUT_DECODER) {
+
+	if (dmxdevfilter->params.pes.output == DMX_OUT_DECODER ||
+		dmxdevfilter->state != DMXDEV_STATE_GO ||
+		dmxdevfilter->eos_state) {
 		spin_unlock(&dmxdevfilter->dev->lock);
 		return 0;
 	}
 
-	if (dmxdevfilter->params.pes.output == DMX_OUT_TAP
-	    || dmxdevfilter->params.pes.output == DMX_OUT_TSDEMUX_TAP) {
+	if (dmxdevfilter->params.pes.output != DMX_OUT_TS_TAP) {
 		buffer = &dmxdevfilter->buffer;
 		events = &dmxdevfilter->events;
 	} else {
@@ -1913,11 +2127,6 @@ static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 	if (buffer->error) {
 		spin_unlock(&dmxdevfilter->dev->lock);
 		wake_up_all(&buffer->queue);
-		return 0;
-	}
-
-	if (dmxdevfilter->state != DMXDEV_STATE_GO) {
-		spin_unlock(&dmxdevfilter->dev->lock);
 		return 0;
 	}
 
@@ -2010,7 +2219,8 @@ static int dvb_dmxdev_section_event_cb(struct dmx_section_filter *filter,
 
 	spin_lock(&dmxdevfilter->dev->lock);
 
-	if (dmxdevfilter->state != DMXDEV_STATE_GO) {
+	if (dmxdevfilter->state != DMXDEV_STATE_GO ||
+		dmxdevfilter->eos_state) {
 		spin_unlock(&dmxdevfilter->dev->lock);
 		return 0;
 	}
@@ -2021,6 +2231,17 @@ static int dvb_dmxdev_section_event_cb(struct dmx_section_filter *filter,
 			event.type = DMX_EVENT_SECTION_CRC_ERROR;
 			dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
 
+			spin_unlock(&dmxdevfilter->dev->lock);
+			wake_up_all(&dmxdevfilter->buffer.queue);
+		} else if (dmx_data_ready->status == DMX_OK_EOS) {
+			event.type = DMX_EVENT_EOS;
+			dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
+			spin_unlock(&dmxdevfilter->dev->lock);
+			wake_up_all(&dmxdevfilter->buffer.queue);
+		} else if (dmx_data_ready->status == DMX_OK_MARKER) {
+			event.type = DMX_EVENT_MARKER;
+			event.params.marker.id = dmx_data_ready->marker.id;
+			dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
 			spin_unlock(&dmxdevfilter->dev->lock);
 			wake_up_all(&dmxdevfilter->buffer.queue);
 		} else {
@@ -2076,7 +2297,8 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 
 	spin_lock(&dmxdevfilter->dev->lock);
 
-	if (dmxdevfilter->state != DMXDEV_STATE_GO) {
+	if (dmxdevfilter->state != DMXDEV_STATE_GO ||
+		dmxdevfilter->eos_state) {
 		spin_unlock(&dmxdevfilter->dev->lock);
 		return 0;
 	}
@@ -2087,6 +2309,27 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 	} else {
 		buffer = &dmxdevfilter->dev->dvr_buffer;
 		events = &dmxdevfilter->dev->dvr_output_events;
+	}
+
+	if (dmx_data_ready->status == DMX_OK_EOS) {
+		dmxdevfilter->eos_state = 1;
+		dprintk("dmxdev: DMX_OK_EOS - entering EOS state\n");
+		event.type = DMX_EVENT_EOS;
+		dvb_dmxdev_add_event(events, &event);
+		spin_unlock(&dmxdevfilter->dev->lock);
+		wake_up_all(&dmxdevfilter->buffer.queue);
+		return 0;
+	}
+
+	if (dmx_data_ready->status == DMX_OK_MARKER) {
+		dprintk("dmxdev: DMX_OK_MARKER - id=%llu\n",
+			dmx_data_ready->marker.id);
+		event.type = DMX_EVENT_MARKER;
+		event.params.marker.id = dmx_data_ready->marker.id;
+		dvb_dmxdev_add_event(events, &event);
+		spin_unlock(&dmxdevfilter->dev->lock);
+		wake_up_all(&dmxdevfilter->buffer.queue);
+		return 0;
 	}
 
 	if (dmx_data_ready->status == DMX_OK_PCR) {
@@ -2505,6 +2748,8 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 		spin_unlock_irq(&filter->dev->lock);
 	}
 
+	filter->eos_state = 0;
+
 	spin_lock_irq(&filter->dev->lock);
 	dvb_dmxdev_flush_output(&filter->buffer, &filter->events);
 	spin_unlock_irq(&filter->dev->lock);
@@ -2535,7 +2780,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 						secfeed,
 						dvb_dmxdev_section_callback);
 			if (ret < 0) {
-				printk("DVB (%s): could not alloc feed\n",
+				printk(KERN_ERR "DVB (%s): could not alloc feed\n",
 				       __func__);
 				return ret;
 			}
@@ -2556,7 +2801,7 @@ static int dvb_dmxdev_filter_start(struct dmxdev_filter *filter)
 			ret = (*secfeed)->set(*secfeed, para->pid, 32768,
 					      (para->flags & DMX_CHECK_CRC) ? 1 : 0);
 			if (ret < 0) {
-				printk("DVB (%s): could not set feed\n",
+				printk(KERN_ERR "DVB (%s): could not set feed\n",
 				       __func__);
 				dvb_dmxdev_feed_restart(filter);
 				return ret;
@@ -3033,6 +3278,12 @@ dvb_demux_read(struct file *file, char __user *buf, size_t count,
 	if (mutex_lock_interruptible(&dmxdevfilter->mutex))
 		return -ERESTARTSYS;
 
+	if (dmxdevfilter->eos_state &&
+		dvb_ringbuffer_empty(&dmxdevfilter->buffer)) {
+		mutex_unlock(&dmxdevfilter->mutex);
+		return 0;
+	}
+
 	if (dmxdevfilter->type == DMXDEV_TYPE_SEC)
 		ret = dvb_dmxdev_read_sec(dmxdevfilter, file, buf, count, ppos);
 	else
@@ -3492,6 +3743,10 @@ static int dvb_dvr_do_ioctl(struct file *file,
 
 	case DMX_GET_EVENT:
 		ret = dvb_dvr_get_event(dmxdev, file->f_flags, parg);
+		break;
+
+	case DMX_PUSH_OOB_COMMAND:
+		ret = dvb_dvr_push_oob_cmd(dmxdev, file->f_flags, parg);
 		break;
 
 	default:

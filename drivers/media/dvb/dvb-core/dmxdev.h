@@ -144,6 +144,9 @@ struct dmxdev_filter {
 	enum dmx_tsp_format_t dmx_tsp_format;
 	u32 rec_chunk_size;
 
+	/* End-of-stream indication has been received */
+	int eos_state;
+
 	/* only for sections */
 	struct timer_list timer;
 	int todo;
@@ -186,6 +189,8 @@ struct dmxdev {
 	struct dvb_ringbuffer dvr_input_buffer;
 	enum dmx_buffer_mode dvr_input_buffer_mode;
 	struct task_struct *dvr_input_thread;
+	/* DVR commands (data feed / OOB command) queue */
+	struct dvb_ringbuffer dvr_cmd_buffer;
 
 #define DVR_BUFFER_SIZE (10*188*1024)
 
@@ -193,6 +198,21 @@ struct dmxdev {
 	spinlock_t lock;
 	spinlock_t dvr_in_lock;
 };
+
+enum dvr_cmd {
+	DVR_DATA_FEED_CMD,
+	DVR_OOB_CMD
+};
+
+struct dvr_command {
+	enum dvr_cmd type;
+	union {
+		struct dmx_oob_command oobcmd;
+		size_t data_feed_count;
+	} cmd;
+};
+
+#define DVR_CMDS_BUFFER_SIZE (sizeof(struct dvr_command)*500)
 
 
 int dvb_dmxdev_init(struct dmxdev *dmxdev, struct dvb_adapter *);
