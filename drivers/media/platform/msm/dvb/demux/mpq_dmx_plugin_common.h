@@ -242,7 +242,7 @@ struct mpq_decoder_buffers_desc {
  * @pes_header: Used for feeds that output data to decoder,
  * holds PES header of current processed PES.
  * @pes_header_left_bytes: Used for feeds that output data to decoder,
- * holds remainning PES header bytes of current processed PES.
+ * holds remaining PES header bytes of current processed PES.
  * @pes_header_offset: Holds the offset within the current processed
  * pes header.
  * @fullness_wait_cancel: Flag used to signal to abort waiting for
@@ -369,6 +369,7 @@ struct mpq_feed {
  * Used before each call to sdmx_process() to build up to date state.
  * @sdmx_session_handle: Secure demux open session handle
  * @sdmx_filter_count: Number of active secure demux filters
+ * @sdmx_eos: End-of-stream indication flag for current sdmx session
  * @plugin_priv: Underlying plugin's own private data
  * @hw_notification_interval: Notification interval in msec,
  *                            exposed in debugfs.
@@ -415,6 +416,7 @@ struct mpq_demux {
 	int sdmx_session_handle;
 	int sdmx_session_ref_count;
 	int sdmx_filter_count;
+	int sdmx_eos;
 	void *plugin_priv;
 
 	/* debug-fs */
@@ -725,6 +727,22 @@ int mpq_sdmx_process(struct mpq_demux *mpq_demux,
  */
 int mpq_sdmx_is_loaded(void);
 
+/**
+ * mpq_dmx_oob_command - Handles OOB command from dvb-demux.
+ *
+ * OOB marker commands trigger callback to the dmxdev.
+ * Handling of EOS command may trigger current (last on stream) PES/Frame to
+ * be reported, in addition to callback to the dmxdev.
+ * In case secure demux is active for the feed, EOS command is passed to the
+ * secure demux for handling.
+ *
+ * @feed: dvb demux feed object
+ * @cmd: oob command data
+ *
+ * returns 0 on success or error
+ */
+int mpq_dmx_oob_command(struct dvb_demux_feed *feed,
+	struct dmx_oob_command *cmd);
 
 #endif /* _MPQ_DMX_PLUGIN_COMMON_H */
 

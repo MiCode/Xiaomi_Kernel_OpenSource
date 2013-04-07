@@ -139,6 +139,8 @@ struct dvb_demux {
 			    const u8 *buf, size_t len);
 	void (*memcopy)(struct dvb_demux_feed *feed, u8 *dst,
 			 const u8 *src, size_t len);
+	int (*oob_command)(struct dvb_demux_feed *feed,
+		struct dmx_oob_command *cmd);
 
 	int users;
 #define MAX_DVB_DEMUX_USERS 10
