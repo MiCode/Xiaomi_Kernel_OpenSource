@@ -1909,25 +1909,26 @@ static __devinit int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	u32  rx_line = 0;
 	u32 mi2s_intf = 0;
 	struct msm_mi2s_pdata *mi2s_pdata;
-	int rc = 0;
-
+	int rc;
+	struct snd_soc_dai_driver *mi2s_dai;
 
 	rc = of_property_read_u32(pdev->dev.of_node, q6_mi2s_dev_id,
 				  &mi2s_intf);
 	if (rc) {
 		dev_err(&pdev->dev,
 			"%s: missing %x in dt node\n", __func__, mi2s_intf);
-		return rc;
+		goto rtn;
 	}
 
 	dev_dbg(&pdev->dev, "dev name %s dev id %x\n", dev_name(&pdev->dev),
-			     mi2s_intf);
+		mi2s_intf);
 
 	if (mi2s_intf < MSM_PRIM_MI2S || mi2s_intf > MSM_QUAT_MI2S) {
 		dev_err(&pdev->dev,
 			"%s: Invalid MI2S ID %u from Device Tree\n",
 			__func__, mi2s_intf);
-		return -ENXIO;
+		rc = -ENXIO;
+		goto rtn;
 	}
 
 	dev_set_name(&pdev->dev, "%s.%d", "msm-dai-q6-mi2s", mi2s_intf);
@@ -1945,7 +1946,7 @@ static __devinit int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "%s: Rx line from DT file %s\n", __func__,
 			"qcom,msm-mi2s-rx-lines");
-		goto rtn;
+		goto free_pdata;
 	}
 
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-mi2s-tx-lines",
@@ -1953,36 +1954,53 @@ static __devinit int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "%s: Tx line from DT file %s\n", __func__,
 			"qcom,msm-mi2s-tx-lines");
-		goto rtn;
+		goto free_pdata;
 	}
 	dev_dbg(&pdev->dev, "dev name %s Rx line %x , Tx ine %x\n",
 		dev_name(&pdev->dev), rx_line, tx_line);
 	mi2s_pdata->rx_sd_lines = rx_line;
 	mi2s_pdata->tx_sd_lines = tx_line;
+
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_mi2s_dai_data),
-				GFP_KERNEL);
+			   GFP_KERNEL);
 	if (!dai_data) {
 		dev_err(&pdev->dev, "fail to allocate dai data\n");
 		rc = -ENOMEM;
-		goto rtn;
+		goto free_pdata;
 	} else
 		dev_set_drvdata(&pdev->dev, dai_data);
+
 	pdev->dev.platform_data = mi2s_pdata;
-	rc = msm_dai_q6_mi2s_platform_data_validation(pdev,
-					&msm_dai_q6_mi2s_dai);
+
+	mi2s_dai = kzalloc(sizeof(struct snd_soc_dai_driver), GFP_KERNEL);
+	if (!mi2s_dai) {
+		dev_err(&pdev->dev, "fail to allocate for mi2s_dai\n");
+		rc = -ENOMEM;
+		goto free_dai_data;
+	}
+
+	memcpy(mi2s_dai, &msm_dai_q6_mi2s_dai,
+	       sizeof(struct snd_soc_dai_driver));
+	rc = msm_dai_q6_mi2s_platform_data_validation(pdev, mi2s_dai);
 	if (IS_ERR_VALUE(rc))
-		goto err_pdata;
+		goto free_dai;
+
 	dai_data->rate_constraint.count = 1;
 	dai_data->bitwidth_constraint.count = 1;
-	rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_mi2s_dai);
+	rc = snd_soc_register_dai(&pdev->dev, mi2s_dai);
 	if (IS_ERR_VALUE(rc))
-		goto err_pdata;
+		goto err_register;
 	return 0;
-err_pdata:
+
+err_register:
 	dev_err(&pdev->dev, "fail to msm_dai_q6_mi2s_dev_probe\n");
+free_dai:
+	kfree(mi2s_dai);
+free_dai_data:
 	kfree(dai_data);
-rtn:
+free_pdata:
 	kfree(mi2s_pdata);
+rtn:
 	return rc;
 }
 
