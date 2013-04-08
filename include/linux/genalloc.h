@@ -45,14 +45,14 @@ struct gen_pool_chunk {
 	struct list_head next_chunk;	/* next chunk in pool */
 	atomic_t avail;
 	phys_addr_t phys_addr;		/* physical starting address of memory chunk */
-	unsigned long start_addr;	/* starting address of memory chunk */
-	unsigned long end_addr;		/* ending address of memory chunk */
+	u64 start_addr;			/* starting address of memory chunk */
+	u64 end_addr;			/* ending address of memory chunk */
 	unsigned long bits[0];		/* bitmap for allocating memory chunk */
 };
 
 extern struct gen_pool *gen_pool_create(int, int);
-extern phys_addr_t gen_pool_virt_to_phys(struct gen_pool *pool, unsigned long);
-extern int gen_pool_add_virt(struct gen_pool *, unsigned long, phys_addr_t,
+extern phys_addr_t gen_pool_virt_to_phys(struct gen_pool *pool, u64);
+extern int gen_pool_add_virt(struct gen_pool *, u64, phys_addr_t,
 			     size_t, int);
 /**
  * gen_pool_add - add a new chunk of special memory to the pool
@@ -66,19 +66,19 @@ extern int gen_pool_add_virt(struct gen_pool *, unsigned long, phys_addr_t,
  *
  * Returns 0 on success or a -ve errno on failure.
  */
-static inline int gen_pool_add(struct gen_pool *pool, unsigned long addr,
+static inline int gen_pool_add(struct gen_pool *pool, u64 addr,
 			       size_t size, int nid)
 {
 	return gen_pool_add_virt(pool, addr, -1, size, nid);
 }
 extern void gen_pool_destroy(struct gen_pool *);
-extern void gen_pool_free(struct gen_pool *, unsigned long, size_t);
+extern void gen_pool_free(struct gen_pool *, u64, size_t);
 extern void gen_pool_for_each_chunk(struct gen_pool *,
 	void (*)(struct gen_pool *, struct gen_pool_chunk *, void *), void *);
 extern size_t gen_pool_avail(struct gen_pool *);
 extern size_t gen_pool_size(struct gen_pool *);
 
-unsigned long __must_check
+u64 __must_check
 gen_pool_alloc_aligned(struct gen_pool *pool, size_t size,
                        unsigned alignment_order);
 
@@ -90,7 +90,7 @@ gen_pool_alloc_aligned(struct gen_pool *pool, size_t size,
  * Allocate the requested number of bytes from the specified pool.
  * Uses a first-fit algorithm.
  */
-static inline unsigned long __must_check
+static inline u64 __must_check
 gen_pool_alloc(struct gen_pool *pool, size_t size)
 {
         return gen_pool_alloc_aligned(pool, size, 0);
