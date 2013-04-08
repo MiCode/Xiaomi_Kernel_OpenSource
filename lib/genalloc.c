@@ -175,7 +175,7 @@ EXPORT_SYMBOL(gen_pool_create);
  *
  * Returns 0 on success or a -ve errno on failure.
  */
-int gen_pool_add_virt(struct gen_pool *pool, unsigned long virt, phys_addr_t phys,
+int gen_pool_add_virt(struct gen_pool *pool, u64 virt, phys_addr_t phys,
 		 size_t size, int nid)
 {
 	struct gen_pool_chunk *chunk;
@@ -212,7 +212,7 @@ EXPORT_SYMBOL(gen_pool_add_virt);
  *
  * Returns the physical address on success, or -1 on error.
  */
-phys_addr_t gen_pool_virt_to_phys(struct gen_pool *pool, unsigned long addr)
+phys_addr_t gen_pool_virt_to_phys(struct gen_pool *pool, u64 addr)
 {
 	struct gen_pool_chunk *chunk;
 	phys_addr_t paddr = -1;
@@ -278,11 +278,11 @@ EXPORT_SYMBOL(gen_pool_destroy);
  * Can not be used in NMI handler on architectures without
  * NMI-safe cmpxchg implementation.
  */
-unsigned long gen_pool_alloc_aligned(struct gen_pool *pool, size_t size,
+u64 gen_pool_alloc_aligned(struct gen_pool *pool, size_t size,
 				     unsigned alignment_order)
 {
 	struct gen_pool_chunk *chunk;
-	unsigned long addr = 0, align_mask = 0;
+	u64 addr = 0, align_mask = 0;
 	int order = pool->min_alloc_order;
 	int nbits, start_bit = 0, remain;
 
@@ -319,7 +319,7 @@ retry:
 			goto retry;
 		}
 
-		addr = chunk->start_addr + ((unsigned long)start_bit << order);
+		addr = chunk->start_addr + ((u64)start_bit << order);
 		size = nbits << pool->min_alloc_order;
 		atomic_sub(size, &chunk->avail);
 		break;
@@ -339,7 +339,7 @@ EXPORT_SYMBOL(gen_pool_alloc_aligned);
  * pool.  Can not be used in NMI handler on architectures without
  * NMI-safe cmpxchg implementation.
  */
-void gen_pool_free(struct gen_pool *pool, unsigned long addr, size_t size)
+void gen_pool_free(struct gen_pool *pool, u64 addr, size_t size)
 {
 	struct gen_pool_chunk *chunk;
 	int order = pool->min_alloc_order;
@@ -461,7 +461,7 @@ EXPORT_SYMBOL(gen_pool_set_algo);
  * @nr: The number of zeroed bits we're looking for
  * @data: additional data - unused
  */
-unsigned long gen_pool_first_fit(unsigned long *map, unsigned long size,
+u64 gen_pool_first_fit(unsigned long *map, unsigned long size,
 		unsigned long start, unsigned int nr, void *data)
 {
 	return bitmap_find_next_zero_area(map, size, start, nr, 0);
@@ -480,7 +480,7 @@ EXPORT_SYMBOL(gen_pool_first_fit);
  * Iterate over the bitmap to find the smallest free region
  * which we can allocate the memory.
  */
-unsigned long gen_pool_best_fit(unsigned long *map, unsigned long size,
+u64 gen_pool_best_fit(unsigned long *map, unsigned long size,
 		unsigned long start, unsigned int nr, void *data)
 {
 	unsigned long start_bit = size;
