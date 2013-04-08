@@ -309,7 +309,7 @@
 
 	qcom,smem@d900000 {
 		compatible = "qcom,smem";
-		reg = <0xd900000 0x200000>,
+		reg = <0xd900000 0x100000>,
 			<0xf9011000 0x1000>,
 			<0xfc428000 0x4000>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1";
