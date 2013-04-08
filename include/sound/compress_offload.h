@@ -169,4 +169,6 @@ struct snd_compr_audio_info {
  *
  */
 #define SND_COMPR_TRIGGER_DRAIN 7 /*FIXME move this to pcm.h */
+
+#define SNDRV_COMPRESS_METADATA_MODE          _IOW('C', 0x99, bool)
 #endif
