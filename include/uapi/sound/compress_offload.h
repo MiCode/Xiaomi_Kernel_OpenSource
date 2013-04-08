@@ -187,4 +187,6 @@ struct snd_compr_metadata {
 #define SND_COMPR_TRIGGER_DRAIN 7 /*FIXME move this to pcm.h */
 #define SND_COMPR_TRIGGER_NEXT_TRACK 8
 #define SND_COMPR_TRIGGER_PARTIAL_DRAIN 9
+
+#define SNDRV_COMPRESS_METADATA_MODE          _IOW('C', 0x99, bool)
 #endif
