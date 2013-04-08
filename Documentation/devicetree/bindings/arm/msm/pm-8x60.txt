@@ -25,6 +25,7 @@ The optional properties are:
 - qcom,saw-turns-off-pll: Version of SAW2.1 or can turn off the HFPLL, when
 	doing power collapse and so the core need to switch to Global PLL before
 	PC.
+- qcom,pc-resets-timer: Indicates that the timer gets reset during power collapse.
 
 Example:
 
