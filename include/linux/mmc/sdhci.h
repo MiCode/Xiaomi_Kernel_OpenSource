@@ -208,6 +208,7 @@ struct sdhci_host {
 	struct pm_qos_request pm_qos_req_dma;
 
 	struct sdhci_next next_data;
+	ktime_t data_start_time;
 
 	unsigned long private[0] ____cacheline_aligned;
 };
