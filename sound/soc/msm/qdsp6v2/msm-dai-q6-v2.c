@@ -1864,8 +1864,8 @@ static int msm_dai_q6_mi2s_platform_data_validation(
 
 	if (ch_cnt) {
 		dai_data->rx_dai.mi2s_dai_data.port_config.i2s.channel_mode =
-				mi2s_pdata->rx_sd_lines;
-		dai_data->rx_dai.pdata_mi2s_lines = mi2s_pdata->rx_sd_lines;
+		sd_line;
+		dai_data->rx_dai.pdata_mi2s_lines = sd_line;
 		dai_driver->playback.channels_min = 1;
 		dai_driver->playback.channels_max = ch_cnt << 1;
 	} else {
@@ -1882,8 +1882,8 @@ static int msm_dai_q6_mi2s_platform_data_validation(
 
 	if (ch_cnt) {
 		dai_data->tx_dai.mi2s_dai_data.port_config.i2s.channel_mode =
-			mi2s_pdata->tx_sd_lines;
-		dai_data->tx_dai.pdata_mi2s_lines = mi2s_pdata->tx_sd_lines;
+		sd_line;
+		dai_data->tx_dai.pdata_mi2s_lines = sd_line;
 		dai_driver->capture.channels_min = 1;
 		dai_driver->capture.channels_max = ch_cnt << 1;
 	} else {
