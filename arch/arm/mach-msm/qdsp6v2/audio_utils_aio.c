@@ -769,13 +769,13 @@ static int audio_aio_ion_check(struct q6audio_aio *audio,
 static int audio_aio_ion_add(struct q6audio_aio *audio,
 				struct msm_audio_ion_info *info)
 {
-	ion_phys_addr_t paddr;
-	size_t len;
+	ion_phys_addr_t paddr = 0;
+	size_t len = 0;
 	struct audio_aio_ion_region *region;
 	int rc = -EINVAL;
-	struct ion_handle *handle;
+	struct ion_handle *handle = NULL;
 	unsigned long ionflag;
-	void *kvaddr;
+	void *kvaddr = NULL;
 
 	pr_debug("%s[%p]:\n", __func__, audio);
 	region = kmalloc(sizeof(*region), GFP_KERNEL);
