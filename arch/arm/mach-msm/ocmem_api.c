@@ -473,6 +473,7 @@ unsigned long get_max_quota(int client_id)
 	}
 	return process_quota(client_id);
 }
+EXPORT_SYMBOL(get_max_quota);
 
 /* Synchronous eviction/restore calls */
 /* Only a single eviction or restoration is allowed */
