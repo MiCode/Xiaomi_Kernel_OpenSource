@@ -157,6 +157,11 @@
 /* smbb_misc_interrupts */
 #define TFTWDOG_IRQ			BIT(0)
 
+/* SMBB types */
+#define SMBB				BIT(1)
+#define SMBBP				BIT(2)
+#define SMBCL				BIT(3)
+
 /* Workaround flags */
 #define CHG_FLAGS_VCP_WA		BIT(0)
 
@@ -194,6 +199,8 @@
  * @warm_bat_decidegc		Warm battery temperature in degree Celsius
  * @cool_bat_decidegc		Cool battery temperature in degree Celsius
  * @revision:			PMIC revision
+ * @type:			SMBB type
+ * @tchg_mins			maximum allowed software initiated charge time
  * @thermal_levels		amount of thermal mitigation levels
  * @thermal_mitigation		thermal mitigation level values
  * @therm_lvl_sel		thermal mitigation level selection
@@ -247,6 +254,8 @@ struct qpnp_chg_chip {
 	unsigned int			cool_bat_decidegc;
 	unsigned int			safe_current;
 	unsigned int			revision;
+	unsigned int			type;
+	unsigned int			tchg_mins;
 	unsigned int			thermal_levels;
 	unsigned int			therm_lvl_sel;
 	unsigned int			*thermal_mitigation;
@@ -813,16 +822,16 @@ get_prop_battery_voltage_now(struct qpnp_chg_chip *chip)
 	int rc = 0;
 	struct qpnp_vadc_result results;
 
-	if (chip->revision > 0) {
+	if (chip->revision == 0 && chip->type == SMBB) {
+		pr_err("vbat reading not supported for 1.0 rc=%d\n", rc);
+		return 0;
+	} else {
 		rc = qpnp_vadc_read(VBAT_SNS, &results);
 		if (rc) {
 			pr_err("Unable to read vbat rc=%d\n", rc);
 			return 0;
 		}
 		return results.physical;
-	} else {
-		pr_err("vbat reading not supported for 1.0 rc=%d\n", rc);
-		return 0;
 	}
 }
 
@@ -1421,7 +1430,7 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 static void
 qpnp_chg_setup_flags(struct qpnp_chg_chip *chip)
 {
-	if (chip->revision > 0)
+	if (chip->revision > 0 && chip->type == SMBB)
 		chip->flags |= CHG_FLAGS_VCP_WA;
 }
 
@@ -1651,7 +1660,9 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBBP_BOOST_SUBTYPE:
 		break;
 	case SMBB_MISC_SUBTYPE:
+		chip->type = SMBB;
 	case SMBBP_MISC_SUBTYPE:
+		chip->type = SMBBP;
 		pr_debug("Setting BOOT_DONE\n");
 		rc = qpnp_chg_masked_write(chip,
 			chip->misc_base + CHGR_MISC_BOOT_DONE,
