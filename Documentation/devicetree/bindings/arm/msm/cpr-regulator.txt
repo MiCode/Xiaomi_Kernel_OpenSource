@@ -47,6 +47,22 @@ Required properties:
 				  3 (SUPER_TURBO voltage):	1275000 uV
 - vdd-apc-supply:		Regulator to supply VDD APC power
 
+
+Optional properties:
+- vdd-mx-supply:		Regulator to supply memory power as dependency
+				of VDD APC.
+- qcom,vdd-mx-vmax:		The maximum voltage in uV for vdd-mx-supply. This
+				is required when vdd-mx-supply is present.
+- qcom,vdd-mx-vmin-method:	The method to determine the minimum voltage for
+				vdd-mx-supply, which can be one of following
+				choices compared with VDD APC:
+				  0 => equal to the voltage(vmin) of VDD APC
+				  1 => equal to PVS corner ceiling voltage
+				  2 => equal to slow speed corner ceiling
+				  3 => equal to qcom,vdd-mx-vmax
+				This is required when vdd-mx-supply is present.
+
+
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
@@ -65,5 +81,8 @@ Example:
 		qcom,pvs-corner-ceiling-nom  =  <975000 1075000 1200000 1200000>;
 		qcom,pvs-corner-ceiling-fast =  <900000 1000000 1140000 1140000>;
 		vdd-apc-supply = <&pm8226_s2>;
+		vdd-mx-supply = <&pm8226_l3_ao>;
+		qcom,vdd-mx-vmax = <1350000>;
+		qcom,vdd-mx-vmin-method = <1>;
 	};
 
