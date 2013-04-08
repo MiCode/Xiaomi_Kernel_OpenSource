@@ -532,6 +532,7 @@ struct sdhci_host {
 #define SDHCI_TUNING_MODE_1	0
 	unsigned int		cpu_dma_latency_us;
 	struct pm_qos_request	pm_qos_req_dma;
+	ktime_t data_start_time;
 
 	unsigned long private[0] ____cacheline_aligned;
 };
