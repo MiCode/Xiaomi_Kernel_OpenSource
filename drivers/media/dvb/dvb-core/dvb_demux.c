@@ -1250,6 +1250,93 @@ static int dmx_ts_set_indexing_params(
 	return 0;
 }
 
+static int dvbdmx_ts_feed_oob_cmd(struct dmx_ts_feed *ts_feed,
+		struct dmx_oob_command *cmd)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
+	struct dmx_data_ready data;
+	struct dvb_demux *dvbdmx = feed->demux;
+	int ret;
+
+	mutex_lock(&dvbdmx->mutex);
+
+	if (feed->state != DMX_STATE_GO) {
+		mutex_unlock(&dvbdmx->mutex);
+		return -EINVAL;
+	}
+
+	/* Decoder feeds are handled by plug-in */
+	if (feed->ts_type & TS_DECODER) {
+		if (feed->demux->oob_command)
+			ret = feed->demux->oob_command(feed, cmd);
+		else
+			ret = 0;
+
+		mutex_unlock(&dvbdmx->mutex);
+		return ret;
+	}
+
+	data.data_length = 0;
+
+	switch (cmd->type) {
+	case DMX_OOB_CMD_EOS:
+		if (feed->ts_type & TS_PAYLOAD_ONLY) {
+			if (feed->secure_mode.is_secured) {
+				/* Secure feeds are handled by plug-in */
+				if (feed->demux->oob_command)
+					ret = feed->demux->oob_command(feed,
+						cmd);
+				else
+					ret = 0;
+				break;
+			}
+
+			/* Close last PES on non-secure feeds */
+			if (feed->pusi_seen) {
+				data.status = DMX_OK_PES_END;
+				data.pes_end.start_gap = 0;
+				data.pes_end.actual_length =
+					feed->peslen;
+				data.pes_end.disc_indicator_set = 0;
+				data.pes_end.pes_length_mismatch = 0;
+				data.pes_end.stc = 0;
+				data.pes_end.tei_counter =
+					feed->pes_tei_counter;
+				data.pes_end.cont_err_counter =
+					feed->pes_cont_err_counter;
+				data.pes_end.ts_packets_num =
+					feed->pes_ts_packets_num;
+
+				feed->peslen = 0;
+				feed->pes_tei_counter = 0;
+				feed->pes_ts_packets_num = 0;
+				feed->pes_cont_err_counter = 0;
+
+				ret = feed->data_ready_cb.ts(&feed->feed.ts,
+					&data);
+				if (ret)
+					break;
+			}
+		}
+		data.status = DMX_OK_EOS;
+		ret = feed->data_ready_cb.ts(&feed->feed.ts, &data);
+		break;
+
+	case DMX_OOB_CMD_MARKER:
+		data.status = DMX_OK_MARKER;
+		data.marker.id = cmd->params.marker.id;
+		ret = feed->data_ready_cb.ts(&feed->feed.ts, &data);
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	mutex_unlock(&dvbdmx->mutex);
+	return ret;
+}
+
 static int dmx_ts_set_tsp_out_format(
 	struct dmx_ts_feed *ts_feed,
 	enum dmx_tsp_format_t tsp_format)
@@ -1319,6 +1406,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->data_ready_cb = dmx_ts_feed_data_ready_cb;
 	(*ts_feed)->notify_data_read = NULL;
 	(*ts_feed)->set_secure_mode = dmx_ts_set_secure_mode;
+	(*ts_feed)->oob_command = dvbdmx_ts_feed_oob_cmd;
 
 	if (!(feed->filter = dvb_dmx_filter_alloc(demux))) {
 		feed->state = DMX_STATE_FREE;
@@ -1598,6 +1686,55 @@ static int dmx_section_feed_release_filter(struct dmx_section_feed *feed,
 	return 0;
 }
 
+static int dvbdmx_section_feed_oob_cmd(struct dmx_section_feed *section_feed,
+		struct dmx_oob_command *cmd)
+{
+	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)section_feed;
+	struct dvb_demux *dvbdmx = feed->demux;
+	struct dmx_data_ready data;
+	int ret;
+
+	data.data_length = 0;
+
+	mutex_lock(&dvbdmx->mutex);
+
+	if (feed->state != DMX_STATE_GO) {
+		mutex_unlock(&dvbdmx->mutex);
+		return -EINVAL;
+	}
+
+	/* Secure section feeds are handled by the plug-in */
+	if (feed->secure_mode.is_secured) {
+		if (feed->demux->oob_command)
+			ret = feed->demux->oob_command(feed, cmd);
+		else
+			ret = 0;
+
+		mutex_unlock(&dvbdmx->mutex);
+		return ret;
+	}
+
+	switch (cmd->type) {
+	case DMX_OOB_CMD_EOS:
+		data.status = DMX_OK_EOS;
+		ret = feed->data_ready_cb.sec(&feed->filter->filter, &data);
+		break;
+
+	case DMX_OOB_CMD_MARKER:
+		data.status = DMX_OK_MARKER;
+		data.marker.id = cmd->params.marker.id;
+		ret = feed->data_ready_cb.sec(&feed->filter->filter, &data);
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	mutex_unlock(&dvbdmx->mutex);
+	return ret;
+}
+
 static int dvbdmx_allocate_section_feed(struct dmx_demux *demux,
 					struct dmx_section_feed **feed,
 					dmx_section_cb callback)
@@ -1637,6 +1774,7 @@ static int dvbdmx_allocate_section_feed(struct dmx_demux *demux,
 	(*feed)->data_ready_cb = dmx_section_feed_data_ready_cb;
 	(*feed)->notify_data_read = NULL;
 	(*feed)->set_secure_mode = dmx_section_set_secure_mode;
+	(*feed)->oob_command = dvbdmx_section_feed_oob_cmd;
 
 	mutex_unlock(&dvbdmx->mutex);
 	return 0;
@@ -1814,6 +1952,18 @@ static int dvbdmx_get_pes_pids(struct dmx_demux *demux, u16 * pids)
 	return 0;
 }
 
+static int dvbdmx_get_tsp_size(struct dmx_demux *demux)
+{
+	int tsp_size;
+	struct dvb_demux *dvbdemux = (struct dvb_demux *)demux;
+
+	mutex_lock(&dvbdemux->mutex);
+	tsp_size = dvbdemux->ts_packet_size;
+	mutex_unlock(&dvbdemux->mutex);
+
+	return tsp_size;
+}
+
 static int dvbdmx_set_tsp_format(
 	struct dmx_demux *demux,
 	enum dmx_tsp_format_t tsp_format)
@@ -1944,6 +2094,7 @@ int dvb_dmx_init(struct dvb_demux *dvbdemux)
 	dmx->get_pes_pids = dvbdmx_get_pes_pids;
 
 	dmx->set_tsp_format = dvbdmx_set_tsp_format;
+	dmx->get_tsp_size = dvbdmx_get_tsp_size;
 
 	mutex_init(&dvbdemux->mutex);
 	spin_lock_init(&dvbdemux->lock);

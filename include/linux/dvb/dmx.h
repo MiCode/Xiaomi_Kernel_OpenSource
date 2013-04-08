@@ -153,7 +153,7 @@ struct dmx_pes_filter_params
 	 * DMX_EVENT_NEW_REC_CHUNK will be triggered.
 	 * When new recorded data is received with size
 	 * equal or larger than this value a new event
-	 * will be triggered. This is relevent when
+	 * will be triggered. This is relevant when
 	 * output is DMX_OUT_TS_TAP or DMX_OUT_TSDEMUX_TAP,
 	 * size must be at least DMX_REC_BUFF_CHUNK_MIN_SIZE
 	 * and smaller than buffer size.
@@ -210,7 +210,18 @@ enum dmx_event {
 	DMX_EVENT_EOS = 0x00000040,
 
 	/* New Elementary Stream data is ready */
-	DMX_EVENT_NEW_ES_DATA = 0x00000080
+	DMX_EVENT_NEW_ES_DATA = 0x00000080,
+
+	/* Data markers */
+	DMX_EVENT_MARKER = 0x00000100
+};
+
+enum dmx_oob_cmd {
+	/* End-of-stream, no more data from this filter */
+	DMX_OOB_CMD_EOS,
+
+	/* Data markers */
+	DMX_OOB_CMD_MARKER,
 };
 
 /* Flags passed in filter events */
@@ -360,6 +371,12 @@ struct dmx_es_data_event_info {
 	__u32 ts_dropped_bytes;
 };
 
+/* Marker details associated with DMX_EVENT_MARKER event */
+struct dmx_marker_event_info {
+	/* Marker id */
+	__u64 id;
+};
+
 /*
  * Filter's event returned through DMX_GET_EVENT.
  * poll with POLLPRI would block until events are available.
@@ -373,6 +390,7 @@ struct dmx_filter_event {
 		struct dmx_rec_chunk_event_info recording_chunk;
 		struct dmx_pcr_event_info pcr;
 		struct dmx_es_data_event_info es_data;
+		struct dmx_marker_event_info marker;
 	} params;
 };
 
@@ -404,6 +422,15 @@ struct dmx_buffer_requirement {
 
 /* Filter output can be output to a linear buffer group */
 #define DMX_BUFFER_LINEAR_GROUP_SUPPORT		0x10
+};
+
+/* Out-of-band (OOB) command */
+struct dmx_oob_command {
+	enum dmx_oob_cmd type;
+
+	union {
+		struct dmx_marker_event_info marker;
+	} params;
 };
 
 typedef struct dmx_caps {
@@ -641,6 +668,6 @@ struct dmx_events_mask {
 #define DMX_SET_SECURE_MODE	_IOW('o', 65, struct dmx_secure_mode)
 #define DMX_SET_EVENTS_MASK	_IOW('o', 66, struct dmx_events_mask)
 #define DMX_GET_EVENTS_MASK	_IOR('o', 67, struct dmx_events_mask)
-
+#define DMX_PUSH_OOB_COMMAND	_IOW('o', 68, struct dmx_oob_command)
 
 #endif /*_DVBDMX_H_*/

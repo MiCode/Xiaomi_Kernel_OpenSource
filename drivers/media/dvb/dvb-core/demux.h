@@ -66,6 +66,8 @@ enum dmx_success {
 	DMX_OK = 0, /* Received Ok */
 	DMX_OK_PES_END, /* Received OK, data reached end of PES packet */
 	DMX_OK_PCR, /* Received OK, data with new PCR/STC pair */
+	DMX_OK_EOS, /* Received OK, reached End-of-Stream (EOS) */
+	DMX_OK_MARKER, /* Received OK, reached a data Marker */
 	DMX_LENGTH_ERROR, /* Incorrect length */
 	DMX_OVERRUN_ERROR, /* Receiver ring buffer overrun */
 	DMX_CRC_ERROR, /* Incorrect CRC */
@@ -87,7 +89,7 @@ struct dmx_data_ready {
 	enum dmx_success status;
 
 	/*
-	 * data_length may be 0 in case of DMX_OK_PES_END
+	 * data_length may be 0 in case of DMX_OK_PES_END or DMX_OK_EOS
 	 * and in non-DMX_OK_XXX events. In DMX_OK_PES_END,
 	 * data_length is for data comming after the end of PES.
 	 */
@@ -125,6 +127,10 @@ struct dmx_data_ready {
 			u32 ts_packets_num;
 			u32 ts_dropped_bytes;
 		} buf;
+
+		struct {
+			u64 id;
+		} marker;
 	};
 };
 
@@ -232,6 +238,9 @@ struct dmx_ts_feed {
 				enum dmx_tsp_format_t tsp_format);
 	int (*set_secure_mode)(struct dmx_ts_feed *feed,
 				struct dmx_secure_mode *sec_mode);
+	int (*oob_command) (struct dmx_ts_feed *feed,
+			struct dmx_oob_command *cmd);
+
 };
 
 /*--------------------------------------------------------------------------*/
@@ -280,6 +289,8 @@ struct dmx_section_feed {
 			u32 bytes_num);
 	int (*set_secure_mode)(struct dmx_section_feed *feed,
 				struct dmx_secure_mode *sec_mode);
+	int (*oob_command) (struct dmx_section_feed *feed,
+				struct dmx_oob_command *cmd);
 };
 
 /*--------------------------------------------------------------------------*/
@@ -413,6 +424,8 @@ struct dmx_demux {
 
 	int (*unmap_buffer) (struct dmx_demux *demux,
 			void *priv_handle);
+
+	int (*get_tsp_size) (struct dmx_demux *demux);
 };
 
 #endif /* #ifndef __DEMUX_H */

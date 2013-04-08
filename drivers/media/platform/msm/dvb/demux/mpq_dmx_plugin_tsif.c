@@ -687,6 +687,7 @@ static int mpq_tsif_dmx_init(
 	mpq_demux->demux.decoder_buffer_status = mpq_dmx_decoder_buffer_status;
 	mpq_demux->demux.reuse_decoder_buffer = mpq_dmx_reuse_decoder_buffer;
 	mpq_demux->demux.set_secure_mode = NULL;
+	mpq_demux->demux.oob_command = mpq_dmx_oob_command;
 
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);

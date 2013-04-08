@@ -62,10 +62,10 @@ enum dmx_framing_pattern_type {
 };
 
 enum dmx_packet_type {
-	DMX_PADDING_PACKET,
 	DMX_PES_PACKET,
 	DMX_FRAMING_INFO_PACKET,
-	DMX_EOS_PACKET
+	DMX_EOS_PACKET,
+	DMX_MARKER_PACKET
 };
 
 struct dmx_pts_dts_info {
@@ -94,6 +94,11 @@ struct dmx_pes_packet_info {
 	struct dmx_pts_dts_info pts_dts_info;
 };
 
+struct dmx_marker_info {
+	/* marker id */
+	u64 id;
+};
+
 /** The meta-data used for video interface */
 struct mpq_adapter_video_meta_data {
 	/** meta-data packet type */
@@ -103,6 +108,7 @@ struct mpq_adapter_video_meta_data {
 	union {
 		struct dmx_framing_packet_info framing;
 		struct dmx_pes_packet_info pes;
+		struct dmx_marker_info marker;
 	} info;
 } __packed;
 

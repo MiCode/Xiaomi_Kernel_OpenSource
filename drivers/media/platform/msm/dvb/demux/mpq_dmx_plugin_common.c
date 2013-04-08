@@ -907,6 +907,7 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 		mpq_demux->num_active_feeds = 0;
 		mpq_demux->sdmx_filter_count = 0;
 		mpq_demux->sdmx_session_handle = SDMX_INVALID_SESSION_HANDLE;
+		mpq_demux->sdmx_eos = 0;
 
 		if (mpq_demux->demux.feednum > MPQ_MAX_DMX_FILES) {
 			MPQ_DVB_ERR_PRINT(
@@ -2476,6 +2477,174 @@ static inline void mpq_dmx_prepare_es_event_data(
 	feed_data->continuity_errs = 0;
 }
 
+static int mpq_sdmx_dvr_buffer_desc(struct mpq_demux *mpq_demux,
+	struct sdmx_buff_descr *buf_desc)
+{
+	struct dvb_ringbuffer *rbuf = (struct dvb_ringbuffer *)
+				mpq_demux->demux.dmx.dvr_input.ringbuff;
+	struct ion_handle *ion_handle =
+		mpq_demux->demux.dmx.dvr_input.priv_handle;
+	ion_phys_addr_t phys_addr;
+	size_t len;
+	int ret;
+
+	ret = ion_phys(mpq_demux->ion_client, ion_handle, &phys_addr, &len);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT(
+			"%s: Failed to obtain physical address of input buffer. ret = %d\n",
+			__func__, ret);
+		return ret;
+	}
+
+	buf_desc->base_addr = (void *)phys_addr;
+	buf_desc->size = rbuf->size;
+
+	return 0;
+}
+
+/**
+ * mpq_dmx_decoder_frame_closure - Helper function to handle closing current
+ * pending frame upon reaching EOS.
+ *
+ * @mpq_demux - mpq demux instance
+ * @mpq_feed - mpq feed object
+ */
+static void mpq_dmx_decoder_frame_closure(struct mpq_demux *mpq_demux,
+		struct mpq_feed *mpq_feed)
+{
+	struct mpq_streambuffer_packet_header packet;
+	struct mpq_streambuffer *stream_buffer;
+	struct mpq_adapter_video_meta_data meta_data;
+	struct mpq_video_feed_info *feed_data;
+	struct dvb_demux_feed *feed = mpq_feed->dvb_demux_feed;
+	struct dmx_data_ready data;
+
+	feed_data = &mpq_feed->video_info;
+
+	/*
+	 * spin-lock is taken to protect against manipulation of video
+	 * output buffer by the API (terminate video feed, re-use of video
+	 * buffers).
+	 */
+	spin_lock(&feed_data->video_buffer_lock);
+	stream_buffer = feed_data->video_buffer;
+
+	if (stream_buffer == NULL) {
+		MPQ_DVB_ERR_PRINT("%s: video_buffer released\n", __func__);
+		spin_unlock(&feed_data->video_buffer_lock);
+		return;
+	}
+
+	/* Report last pattern found */
+	if ((feed_data->pending_pattern_len) &&
+		mpq_dmx_is_video_frame(feed->indexing_params.standard,
+			feed_data->last_framing_match_type)) {
+		meta_data.packet_type = DMX_FRAMING_INFO_PACKET;
+		mpq_dmx_write_pts_dts(feed_data,
+			&(meta_data.info.framing.pts_dts_info));
+		mpq_dmx_save_pts_dts(feed_data);
+		packet.user_data_len =
+			sizeof(struct mpq_adapter_video_meta_data);
+		packet.raw_data_len = feed_data->pending_pattern_len;
+		packet.raw_data_offset = feed_data->frame_offset;
+		meta_data.info.framing.pattern_type =
+			feed_data->last_framing_match_type;
+
+		mpq_streambuffer_get_buffer_handle(stream_buffer,
+			0, /* current write buffer handle */
+			&packet.raw_data_handle);
+
+		mpq_dmx_update_decoder_stat(mpq_demux);
+
+		/* Writing meta-data that includes the framing information */
+		if (mpq_streambuffer_pkt_write(stream_buffer, &packet,
+			(u8 *)&meta_data) < 0)
+			MPQ_DVB_ERR_PRINT("%s: Couldn't write packet\n",
+				__func__);
+
+		mpq_dmx_prepare_es_event_data(&packet, &meta_data, feed_data,
+			stream_buffer, &data);
+		feed->data_ready_cb.ts(&feed->feed.ts, &data);
+	}
+
+	spin_unlock(&feed_data->video_buffer_lock);
+}
+
+/**
+ * mpq_dmx_decoder_pes_closure - Helper function to handle closing current PES
+ * upon reaching EOS.
+ *
+ * @mpq_demux - mpq demux instance
+ * @mpq_feed - mpq feed object
+ */
+static void mpq_dmx_decoder_pes_closure(struct mpq_demux *mpq_demux,
+	struct mpq_feed *mpq_feed)
+{
+	struct mpq_streambuffer_packet_header packet;
+	struct mpq_streambuffer *stream_buffer;
+	struct mpq_adapter_video_meta_data meta_data;
+	struct mpq_video_feed_info *feed_data;
+	struct dvb_demux_feed *feed = mpq_feed->dvb_demux_feed;
+	struct dmx_data_ready data;
+
+	feed_data = &mpq_feed->video_info;
+
+	/*
+	 * spin-lock is taken to protect against manipulation of video
+	 * output buffer by the API (terminate video feed, re-use of video
+	 * buffers).
+	 */
+	spin_lock(&feed_data->video_buffer_lock);
+	stream_buffer = feed_data->video_buffer;
+
+	if (stream_buffer == NULL) {
+		MPQ_DVB_ERR_PRINT("%s: video_buffer released\n", __func__);
+		spin_unlock(&feed_data->video_buffer_lock);
+		return;
+	}
+
+	/*
+	 * Close previous PES.
+	 * Push new packet to the meta-data buffer.
+	 */
+	if ((feed->pusi_seen) && (0 == feed_data->pes_header_left_bytes)) {
+		packet.raw_data_len = feed->peslen;
+		mpq_streambuffer_get_buffer_handle(stream_buffer,
+			0, /* current write buffer handle */
+			&packet.raw_data_handle);
+		packet.raw_data_offset = feed_data->frame_offset;
+		packet.user_data_len =
+			sizeof(struct mpq_adapter_video_meta_data);
+
+		mpq_dmx_write_pts_dts(feed_data,
+			&(meta_data.info.pes.pts_dts_info));
+		mpq_dmx_save_pts_dts(feed_data);
+
+		meta_data.packet_type = DMX_PES_PACKET;
+
+		mpq_dmx_update_decoder_stat(mpq_demux);
+
+		if (mpq_streambuffer_pkt_write(stream_buffer, &packet,
+			(u8 *)&meta_data) < 0)
+			MPQ_DVB_ERR_PRINT("%s: Couldn't write packet\n",
+				__func__);
+
+		/* Save write offset where new PES will begin */
+		mpq_streambuffer_get_data_rw_offset(stream_buffer, NULL,
+			&feed_data->frame_offset);
+
+		mpq_dmx_prepare_es_event_data(&packet, &meta_data, feed_data,
+			stream_buffer, &data);
+		feed->data_ready_cb.ts(&feed->feed.ts, &data);
+	}
+	/* Reset PES info */
+	feed->peslen = 0;
+	feed_data->pes_header_offset = 0;
+	feed_data->pes_header_left_bytes = PES_MANDATORY_FIELDS_LEN;
+
+	spin_unlock(&feed_data->video_buffer_lock);
+}
+
 static int mpq_dmx_process_video_packet_framing(
 			struct dvb_demux_feed *feed,
 			const u8 *buf)
@@ -3234,6 +3403,34 @@ int mpq_dmx_process_pcr_packet(
 }
 EXPORT_SYMBOL(mpq_dmx_process_pcr_packet);
 
+static int mpq_dmx_decoder_eos_cmd(struct mpq_feed *mpq_feed)
+{
+	struct mpq_video_feed_info *feed_data = &mpq_feed->video_info;
+	struct mpq_streambuffer *stream_buffer;
+	struct mpq_streambuffer_packet_header oob_packet;
+	struct mpq_adapter_video_meta_data oob_meta_data;
+	int ret;
+
+	spin_lock(&feed_data->video_buffer_lock);
+	stream_buffer = feed_data->video_buffer;
+
+	if (stream_buffer == NULL) {
+		MPQ_DVB_ERR_PRINT("%s: video_buffer released\n", __func__);
+		spin_unlock(&feed_data->video_buffer_lock);
+		return 0;
+	}
+
+	memset(&oob_packet, 0, sizeof(oob_packet));
+	oob_packet.user_data_len = sizeof(oob_meta_data);
+	oob_meta_data.packet_type = DMX_EOS_PACKET;
+
+	ret = mpq_streambuffer_pkt_write(stream_buffer, &oob_packet,
+					(u8 *)&oob_meta_data);
+
+	spin_unlock(&feed_data->video_buffer_lock);
+	return ret;
+}
+
 int mpq_sdmx_open_session(struct mpq_demux *mpq_demux)
 {
 	enum sdmx_status ret = SDMX_SUCCESS;
@@ -3329,6 +3526,7 @@ int mpq_sdmx_close_session(struct mpq_demux *mpq_demux)
 				__func__, status);
 			return -EINVAL;
 		}
+		mpq_demux->sdmx_eos = 0;
 		mpq_demux->sdmx_session_handle = SDMX_INVALID_SESSION_HANDLE;
 	}
 
@@ -4055,6 +4253,12 @@ pes_filter_check_overflow:
 		data_event.data_length = 0;
 		feed->data_ready_cb.ts(&feed->feed.ts, &data_event);
 	}
+
+	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
+		data_event.data_length = 0;
+		data_event.status = DMX_OK_EOS;
+		feed->data_ready_cb.ts(&feed->feed.ts, &data_event);
+	}
 }
 
 static void mpq_sdmx_section_filter_results(struct mpq_demux *mpq_demux,
@@ -4080,7 +4284,7 @@ static void mpq_sdmx_section_filter_results(struct mpq_demux *mpq_demux,
 			__func__);
 
 	if ((!sts->metadata_fill_count) && (!sts->data_fill_count))
-		return;
+		goto section_filter_check_eos;
 
 	mpq_feed->metadata_buf.pwrite = sts->metadata_write_offset;
 	mpq_feed->sdmx_buf.pwrite = sts->data_write_offset;
@@ -4101,6 +4305,19 @@ static void mpq_sdmx_section_filter_results(struct mpq_demux *mpq_demux,
 
 		DVB_RINGBUFFER_SKIP(&mpq_feed->sdmx_buf, header.payload_length);
 	}
+
+section_filter_check_eos:
+	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
+		event.data_length = 0;
+		event.status = DMX_OK_EOS;
+		f = feed->filter;
+
+		while (f && sec->is_filtering) {
+			feed->data_ready_cb.sec(&f->filter, &event);
+			f = f->next;
+		}
+	}
+
 }
 
 static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
@@ -4122,7 +4339,7 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 	struct dvb_demux_feed *feed = mpq_feed->dvb_demux_feed;
 
 	if ((!sts->metadata_fill_count) && (!sts->data_fill_count))
-		goto decoder_filter_check_overflow;
+		goto decoder_filter_check_flags;
 
 	/* Update meta data buffer write pointer */
 	mpq_feed->metadata_buf.pwrite = sts->metadata_write_offset;
@@ -4220,7 +4437,8 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 		mpq_feed->video_info.ts_packets_num =
 			counters.pes_ts_count;
 		mpq_feed->video_info.ts_dropped_bytes =
-			counters.drop_count * mpq_demux->demux.ts_packet_size;
+			counters.drop_count *
+			mpq_demux->demux.ts_packet_size;
 
 		sbuf = mpq_feed->video_info.video_buffer;
 		if (sbuf == NULL) {
@@ -4261,12 +4479,27 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 		spin_unlock(&mpq_feed->video_info.video_buffer_lock);
 	}
 
-decoder_filter_check_overflow:
+decoder_filter_check_flags:
 	if ((mpq_demux->demux.playback_mode == DMX_PB_MODE_PUSH) &&
 		(sts->error_indicators & SDMX_FILTER_ERR_D_LIN_BUFS_FULL)) {
 		MPQ_DVB_ERR_PRINT("%s: DMX_OVERRUN_ERROR\n", __func__);
 		data_event.status = DMX_OVERRUN_ERROR;
 		data_event.data_length = 0;
+		mpq_feed->dvb_demux_feed->data_ready_cb.ts(
+			&mpq_feed->dvb_demux_feed->feed.ts, &data_event);
+	}
+
+	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
+		/* Notify decoder via the stream buffer */
+		ret = mpq_dmx_decoder_eos_cmd(mpq_feed);
+		if (ret)
+			MPQ_DVB_ERR_PRINT(
+				"%s: Failed to notify decoder on EOS, ret=%d\n",
+				__func__, ret);
+
+		/* Notify user filter */
+		data_event.data_length = 0;
+		data_event.status = DMX_OK_EOS;
 		mpq_feed->dvb_demux_feed->data_ready_cb.ts(
 			&mpq_feed->dvb_demux_feed->feed.ts, &data_event);
 	}
@@ -4289,10 +4522,8 @@ static void mpq_sdmx_pcr_filter_results(struct mpq_demux *mpq_demux,
 		MPQ_DVB_ERR_PRINT("%s: internal PCR buffer overflowed!\n",
 			__func__);
 
-	/* MPQ_TODO: Parse rest of error indicators ? */
-
 	if ((!sts->metadata_fill_count) && (!sts->data_fill_count))
-		return;
+		goto pcr_filter_check_eos;
 
 	if (DMX_TSP_FORMAT_192_TAIL == mpq_demux->demux.tsp_format)
 		stc_len = 4;
@@ -4338,6 +4569,13 @@ static void mpq_sdmx_pcr_filter_results(struct mpq_demux *mpq_demux,
 			feed->data_ready_cb.ts(&feed->feed.ts, &data);
 		}
 	}
+
+pcr_filter_check_eos:
+	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
+		data.data_length = 0;
+		data.status = DMX_OK_EOS;
+		feed->data_ready_cb.ts(&feed->feed.ts, &data);
+	}
 }
 
 static void mpq_sdmx_raw_filter_results(struct mpq_demux *mpq_demux,
@@ -4352,7 +4590,7 @@ static void mpq_sdmx_raw_filter_results(struct mpq_demux *mpq_demux,
 					feed->feed.ts.buffer.ringbuff;
 
 	if ((!sts->metadata_fill_count) && (!sts->data_fill_count))
-		goto raw_filter_check_overflow;
+		goto raw_filter_check_flags;
 
 	new_data = sts->data_write_offset -
 		buf->pwrite;
@@ -4374,7 +4612,7 @@ static void mpq_sdmx_raw_filter_results(struct mpq_demux *mpq_demux,
 	MPQ_DVB_DBG_PRINT("%s: Callback DMX_OK, size=%d\n",
 		__func__, data_event.data_length);
 
-raw_filter_check_overflow:
+raw_filter_check_flags:
 	if ((mpq_demux->demux.playback_mode == DMX_PB_MODE_PUSH) &&
 		(sts->error_indicators & SDMX_FILTER_ERR_D_BUF_FULL)) {
 		MPQ_DVB_DBG_PRINT("%s: DMX_OVERRUN_ERROR\n", __func__);
@@ -4382,6 +4620,13 @@ raw_filter_check_overflow:
 		data_event.data_length = 0;
 		feed->data_ready_cb.ts(&feed->feed.ts, &data_event);
 	}
+
+	if (sts->status_indicators & SDMX_FILTER_STATUS_EOS) {
+		data_event.data_length = 0;
+		data_event.status = DMX_OK_EOS;
+		feed->data_ready_cb.ts(&feed->feed.ts, &data_event);
+	}
+
 }
 
 static void mpq_sdmx_process_results(struct mpq_demux *mpq_demux)
@@ -4457,8 +4702,7 @@ static int mpq_sdmx_process_buffer(struct mpq_demux *mpq_demux,
 {
 	struct sdmx_filter_status *sts;
 	struct mpq_feed *mpq_feed;
-	/* MPQ_TODO: EOS handling */
-	u8 flags = mpq_sdmx_debug ? SDMX_INPUT_FLAG_DBG_ENABLE : 0;
+	u8 flags = 0;
 	u32 errors;
 	u32 status;
 	u32 prev_read_offset;
@@ -4484,6 +4728,12 @@ static int mpq_sdmx_process_buffer(struct mpq_demux *mpq_demux,
 		mutex_unlock(&mpq_demux->mutex);
 		return 0;
 	}
+
+	/* Set input flags */
+	if (mpq_demux->sdmx_eos)
+		flags |= SDMX_INPUT_FLAG_EOS;
+	if (mpq_sdmx_debug)
+		flags |= SDMX_INPUT_FLAG_DBG_ENABLE;
 
 	/* Build up to date filter status array */
 	for (i = 0; i < MPQ_MAX_DMX_FILES; i++) {
@@ -4590,11 +4840,7 @@ static int mpq_sdmx_write(struct mpq_demux *mpq_demux,
 	size_t count)
 {
 	struct sdmx_buff_descr buf_desc;
-	struct dvb_ringbuffer *rbuf = (struct dvb_ringbuffer *)
-				mpq_demux->demux.dmx.dvr_input.ringbuff;
-	ion_phys_addr_t phys_addr;
 	u32 read_offset;
-	size_t len;
 	int ret;
 
 	if (mpq_demux == NULL || input_handle == NULL) {
@@ -4602,17 +4848,14 @@ static int mpq_sdmx_write(struct mpq_demux *mpq_demux,
 		return -EINVAL;
 	}
 
-	ret = ion_phys(mpq_demux->ion_client, input_handle, &phys_addr, &len);
+	ret = mpq_sdmx_dvr_buffer_desc(mpq_demux, &buf_desc);
 	if (ret) {
 		MPQ_DVB_ERR_PRINT(
-			"%s: Failed to obtain physical address of input buffer. ret = %d\n",
+			"%s: Failed to init input buffer descriptor. ret = %d\n",
 			__func__, ret);
 		return ret;
 	}
-
-	buf_desc.base_addr = (void *)phys_addr;
-	buf_desc.size = rbuf->size;
-	read_offset = rbuf->pread;
+	read_offset = mpq_demux->demux.dmx.dvr_input.ringbuff->pread;
 
 	return mpq_sdmx_process(mpq_demux, &buf_desc, count, read_offset);
 }
@@ -4649,10 +4892,9 @@ int mpq_dmx_write(struct dmx_demux *demux, const char *buf, size_t count)
 	 * process managed to consume, unless some sdmx error occurred, for
 	 * which should process the whole buffer
 	 */
-	if (mpq_demux->num_active_feeds > mpq_demux->num_secure_feeds) {
+	if (mpq_demux->num_active_feeds > mpq_demux->num_secure_feeds)
 		dvb_dmx_swfilter_format(dvb_demux, buf, ret,
 			dvb_demux->tsp_format);
-	}
 
 	if (signal_pending(current))
 		return -EINTR;
@@ -4676,3 +4918,78 @@ int mpq_sdmx_is_loaded(void)
 	return mpq_dmx_info.secure_demux_app_loaded;
 }
 EXPORT_SYMBOL(mpq_sdmx_is_loaded);
+
+int mpq_dmx_oob_command(struct dvb_demux_feed *feed,
+	struct dmx_oob_command *cmd)
+{
+	struct mpq_feed *mpq_feed = feed->priv;
+	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
+	struct dmx_data_ready event;
+	int ret = 0;
+
+	mutex_lock(&mpq_demux->mutex);
+	mpq_feed = feed->priv;
+
+	event.data_length = 0;
+
+	switch (cmd->type) {
+	case DMX_OOB_CMD_EOS:
+		event.status = DMX_OK_EOS;
+		if (!feed->secure_mode.is_secured) {
+			if (dvb_dmx_is_video_feed(feed)) {
+				if (mpq_dmx_info.decoder_framing)
+					mpq_dmx_decoder_pes_closure(mpq_demux,
+						mpq_feed);
+				else
+					mpq_dmx_decoder_frame_closure(mpq_demux,
+						mpq_feed);
+				ret = mpq_dmx_decoder_eos_cmd(mpq_feed);
+				if (ret)
+					MPQ_DVB_ERR_PRINT(
+						"%s: Couldn't write oob eos packet\n",
+						__func__);
+			}
+			ret = feed->data_ready_cb.ts(&feed->feed.ts, &event);
+		} else if (!mpq_demux->sdmx_eos) {
+			struct sdmx_buff_descr buf_desc;
+
+			mpq_demux->sdmx_eos = 1;
+			ret = mpq_sdmx_dvr_buffer_desc(mpq_demux, &buf_desc);
+			if (!ret) {
+				mutex_unlock(&mpq_demux->mutex);
+				mpq_sdmx_process_buffer(mpq_demux, &buf_desc,
+					0, 0);
+				return 0;
+			}
+		}
+		break;
+	case DMX_OOB_CMD_MARKER:
+		event.status = DMX_OK_MARKER;
+		event.marker.id = cmd->params.marker.id;
+
+		if (feed->type == DMX_TYPE_SEC) {
+			struct dvb_demux_filter *f = feed->filter;
+			struct dmx_section_feed *sec = &feed->feed.sec;
+
+			while (f && sec->is_filtering) {
+				ret = feed->data_ready_cb.sec(&f->filter,
+					&event);
+				if (ret)
+					break;
+				f = f->next;
+			}
+		} else {
+			/* MPQ_TODO: Notify decoder via the stream buffer */
+			ret = feed->data_ready_cb.ts(&feed->feed.ts, &event);
+		}
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	mutex_unlock(&mpq_demux->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(mpq_dmx_oob_command);
