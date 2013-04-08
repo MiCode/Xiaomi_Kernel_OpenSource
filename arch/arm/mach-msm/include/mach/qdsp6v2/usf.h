@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,10 @@ enum us_detect_mode_enum {
 
 /* Max size of the client name */
 #define USF_MAX_CLIENT_NAME_SIZE	20
+
+/* Max number of the ports (mics/speakers) */
+#define USF_MAX_PORT_NUM                8
+
 /* Info structure common for TX and RX */
 struct us_xx_info_type {
 /* Input:  general info */
@@ -115,7 +119,7 @@ struct us_xx_info_type {
 /* Number of the microphones (TX) or speakers(RX) */
 	uint16_t port_cnt;
 /* Microphones(TX) or speakers(RX) indexes in their enumeration */
-	uint8_t  port_id[4];
+	uint8_t  port_id[USF_MAX_PORT_NUM];
 /* Bits per sample 16 or 32 */
 	uint16_t bits_per_sample;
 /* Input:  Transparent info for encoder in the LPASS */

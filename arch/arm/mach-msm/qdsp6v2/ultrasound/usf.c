@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +27,8 @@
 #include "usfcdev.h"
 
 /* The driver version*/
-#define DRV_VERSION "1.4.1"
-#define USF_VERSION_ID 0x0141
+#define DRV_VERSION "1.4.2"
+#define USF_VERSION_ID 0x0142
 
 /* Standard timeout in the asynchronous ops */
 #define USF_TIMEOUT_JIFFIES (1*HZ) /* 1 sec */
@@ -430,12 +430,14 @@ static int config_xx(struct usf_xx_type *usf_xx, struct us_xx_info_type *config)
 {
 	int rc = 0;
 	uint16_t data_map_size = 0;
+	uint16_t min_map_size = 0;
 
 	if ((usf_xx == NULL) ||
 	    (config == NULL))
 		return -EINVAL;
 
 	data_map_size = sizeof(usf_xx->encdec_cfg.cfg_common.data_map);
+	min_map_size = min(data_map_size, config->port_cnt);
 
 	if (config->client_name != NULL) {
 		if (strncpy_from_user(usf_xx->client_name,
@@ -454,20 +456,13 @@ static int config_xx(struct usf_xx_type *usf_xx, struct us_xx_info_type *config)
 		__func__, config->buf_num, config->stream_format,
 		config->port_cnt, config->params_data_size);
 
-	pr_debug("%s: p_id[0]=%d, p_id[1]=%d, p_id[2]=%d, p_id[3]=%d\n",
+	pr_debug("%s: id[0]=%d, id[1]=%d, id[2]=%d, id[3]=%d, id[4]=%d\n",
 		__func__,
 		config->port_id[0],
 		config->port_id[1],
 		config->port_id[2],
-		config->port_id[3]);
-
-	if (data_map_size < config->port_cnt) {
-		pr_err("%s: number of supported ports:%d < requested:%d\n",
-			__func__,
-			data_map_size,
-			config->port_cnt);
-		return -EINVAL;
-	}
+		config->port_id[3],
+		config->port_id[4]);
 
 	/* q6usm allocation & configuration */
 	usf_xx->buffer_size = config->buf_size;
@@ -481,7 +476,8 @@ static int config_xx(struct usf_xx_type *usf_xx, struct us_xx_info_type *config)
 	usf_xx->encdec_cfg.cfg_common.ch_cfg = config->port_cnt;
 	memcpy((void *)&usf_xx->encdec_cfg.cfg_common.data_map,
 	       (void *)config->port_id,
-	       config->port_cnt);
+	       min_map_size);
+
 	if (rc) {
 		pr_err("%s: ports offsets copy failure\n", __func__);
 		return -EINVAL;
@@ -897,8 +893,10 @@ static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 	rc = q6usm_us_client_buf_alloc(OUT, usf_xx->usc,
 				       usf_xx->buffer_size,
 				       usf_xx->buffer_count);
-	if (rc)
+	if (rc) {
+		(void)q6usm_cmd(usf_xx->usc, CMD_CLOSE);
 		return rc;
+	}
 
 	rc = q6usm_enc_cfg_blk(usf_xx->usc,
 			       &usf_xx->encdec_cfg);
@@ -908,7 +906,9 @@ static int usf_set_tx_info(struct usf_type *usf, unsigned long arg)
 					   &config_tx.input_info);
 	}
 
-	if (!rc)
+	if (rc)
+		(void)q6usm_cmd(usf_xx->usc, CMD_CLOSE);
+	else
 		usf_xx->usf_state = USF_CONFIGURED_STATE;
 
 	return rc;
@@ -948,13 +948,17 @@ static int usf_set_rx_info(struct usf_type *usf, unsigned long arg)
 					usf_xx->usc,
 					usf_xx->buffer_size,
 					usf_xx->buffer_count);
-		if (rc)
+		if (rc) {
+			(void)q6usm_cmd(usf_xx->usc, CMD_CLOSE);
 			return rc;
+		}
 	}
 
 	rc = q6usm_dec_cfg_blk(usf_xx->usc,
 			       &usf_xx->encdec_cfg);
-	if (!rc) {
+	if (rc)
+		(void)q6usm_cmd(usf_xx->usc, CMD_CLOSE);
+	else {
 		init_waitqueue_head(&usf_xx->wait);
 		usf_xx->usf_state = USF_CONFIGURED_STATE;
 	}
