@@ -79,3 +79,25 @@
 
 	status = "ok";
 };
+
+&pm8110_chg {
+	status = "ok";
+	qcom,chg-charging-disabled;
+	qcom,chg-use-default-batt-values;
+
+	qcom,chg-chgr@1000 {
+		status = "ok";
+	};
+
+	qcom,chg-buck@1100 {
+		status = "ok";
+	};
+
+	qcom,chg-usb-chgpth@1300 {
+		status = "ok";
+	};
+
+	qcom,chg-misc@1600 {
+		status = "ok";
+	};
+};
