@@ -91,6 +91,8 @@ enum battery_type {
  *			compensate for battery capacitance.
  * @rbatt_capacitve_mohm: the resistance to be added to compensate for
  *				battery capacitance
+ * @flat_ocv_threshold_uv: the voltage where the battery's discharge curve
+ *				starts flattening out.
  */
 
 struct bms_battery_data {
@@ -103,6 +105,7 @@ struct bms_battery_data {
 	int			default_rbatt_mohm;
 	int			delta_rbatt_mohm;
 	int			rbatt_capacitive_mohm;
+	int			flat_ocv_threshold_uv;
 };
 
 #if defined(CONFIG_PM8921_BMS) || \

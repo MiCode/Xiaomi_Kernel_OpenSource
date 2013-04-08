@@ -195,6 +195,10 @@ struct qpnp_bms_chip {
 	bool				use_voltage_soc;
 
 	int				prev_batt_terminal_uv;
+	int				high_ocv_correction_limit_uv;
+	int				low_ocv_correction_limit_uv;
+	int				flat_ocv_threshold_uv;
+	int				hold_soc_est;
 
 	int				ocv_high_threshold_uv;
 	int				ocv_low_threshold_uv;
@@ -1376,6 +1380,7 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 	int slope = 0;
 	int rc = 0;
 	int delta_ocv_uv_limit = 0;
+	int correction_limit_uv = 0;
 
 	rc = get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
 	if (rc < 0) {
@@ -1467,6 +1472,21 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
 	}
 
+	if (chip->last_ocv_uv > chip->flat_ocv_threshold_uv)
+		correction_limit_uv = chip->high_ocv_correction_limit_uv;
+	else
+		correction_limit_uv = chip->low_ocv_correction_limit_uv;
+
+	if (abs(delta_ocv_uv) > correction_limit_uv) {
+		pr_debug("limiting delta ocv %d limit = %d\n",
+			delta_ocv_uv, correction_limit_uv);
+		if (delta_ocv_uv > 0)
+			delta_ocv_uv = correction_limit_uv;
+		else
+			delta_ocv_uv = -correction_limit_uv;
+		pr_debug("new delta ocv = %d\n", delta_ocv_uv);
+	}
+
 	chip->last_ocv_uv -= delta_ocv_uv;
 
 	if (chip->last_ocv_uv >= chip->max_voltage_uv)
@@ -1481,9 +1501,9 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 
 	/*
 	 * if soc_new is ZERO force it higher so that phone doesnt report soc=0
-	 * soc = 0 should happen only when soc_est == 0
+	 * soc = 0 should happen only when soc_est is above a set value
 	 */
-	if (soc_new == 0 && soc_est != 0)
+	if (soc_new == 0 && soc_est >= chip->hold_soc_est)
 		soc_new = 1;
 
 	soc = soc_new;
@@ -2150,6 +2170,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	chip->rbatt_sf_lut = batt_data->rbatt_sf_lut;
 	chip->default_rbatt_mohm = batt_data->default_rbatt_mohm;
 	chip->rbatt_capacitive_mohm = batt_data->rbatt_capacitive_mohm;
+	chip->flat_ocv_threshold_uv = batt_data->flat_ocv_threshold_uv;
 
 	if (chip->pc_temp_ocv_lut == NULL) {
 		pr_err("temp ocv lut table is NULL\n");
@@ -2202,6 +2223,14 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	chip->use_ocv_thresholds = of_property_read_bool(
 			chip->spmi->dev.of_node,
 			"qcom,use-ocv-thresholds");
+	SPMI_PROP_READ(high_ocv_correction_limit_uv,
+			"high-ocv-correction-limit-uv", rc);
+	SPMI_PROP_READ(low_ocv_correction_limit_uv,
+			"low-ocv-correction-limit-uv", rc);
+	SPMI_PROP_READ(hold_soc_est,
+			"hold-soc-est", rc);
+	SPMI_PROP_READ(ocv_high_threshold_uv,
+			"ocv-voltage-high-threshold-uv", rc);
 	SPMI_PROP_READ(ocv_high_threshold_uv,
 			"ocv-voltage-high-threshold-uv", rc);
 	SPMI_PROP_READ(ocv_low_threshold_uv,
