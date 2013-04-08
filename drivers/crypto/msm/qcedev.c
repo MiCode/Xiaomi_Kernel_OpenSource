@@ -1623,6 +1623,11 @@ static int qcedev_check_sha_params(struct qcedev_sha_op_req *req,
 	if (req->alg >= QCEDEV_ALG_SHA_ALG_LAST)
 		goto sha_error;
 
+	if ((req->alg == QCEDEV_ALG_SHA1_HMAC) ||
+			(req->alg == QCEDEV_ALG_SHA1_HMAC)) {
+		if (req->authklen == 0)
+			goto sha_error;
+	}
 	return 0;
 sha_error:
 	return -EINVAL;
