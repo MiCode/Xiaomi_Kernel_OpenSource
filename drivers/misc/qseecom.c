@@ -2839,6 +2839,7 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			ret = qseecom_unload_app(data);
 			break;
 		case QSEECOM_SECURE_SERVICE:
+		case QSEECOM_GENERIC:
 			ret = qseecom_unmap_ion_allocated_memory(data);
 			if (ret) {
 				pr_err("Close failed\n");
