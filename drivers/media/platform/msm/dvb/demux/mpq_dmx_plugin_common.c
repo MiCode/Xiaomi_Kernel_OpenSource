@@ -1128,7 +1128,7 @@ static int mpq_map_buffer_to_kernel(
 		goto map_buffer_failed_free_buff;
 	}
 
-	if (ionflag & ION_SECURE) {
+	if (ionflag & ION_FLAG_SECURE) {
 		MPQ_DVB_DBG_PRINT("%s: secured buffer\n", __func__);
 		*kernel_mem = NULL;
 	} else {
@@ -1208,7 +1208,7 @@ int mpq_dmx_unmap_buffer(struct dmx_demux *demux,
 		return -EINVAL;
 	}
 
-	if (!(ionflag & ION_SECURE))
+	if (!(ionflag & ION_FLAG_SECURE))
 		ion_unmap_kernel(mpq_demux->ion_client, ion_handle);
 
 	ion_free(mpq_demux->ion_client, ion_handle);

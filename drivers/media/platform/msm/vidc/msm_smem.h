@@ -25,7 +25,7 @@ enum smem_type {
 
 enum smem_prop {
 	SMEM_CACHED = ION_FLAG_CACHED,
-	SMEM_SECURE = ION_SECURE,
+	SMEM_SECURE = ION_FLAG_SECURE,
 };
 
 enum hal_buffer {

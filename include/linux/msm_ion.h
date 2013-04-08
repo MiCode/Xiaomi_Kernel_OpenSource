@@ -38,7 +38,7 @@ enum ion_heap_ids {
 	ION_MM_FIRMWARE_HEAP_ID = 29,
 	ION_SYSTEM_HEAP_ID = 30,
 
-	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_SECURE flag */
+	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_FLAG_SECURE flag */
 };
 
 enum ion_fixed_position {
