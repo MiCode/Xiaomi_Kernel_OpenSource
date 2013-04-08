@@ -45,6 +45,9 @@
 #include "sd_ops.h"
 #include "sdio_ops.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/mmc.h>
+
 static void mmc_clk_scaling(struct mmc_host *host, bool from_wq);
 
 /* If the device is not responding */
@@ -1486,6 +1489,19 @@ void mmc_set_ios(struct mmc_host *host)
 	if (ios->clock > 0)
 		mmc_set_ungated(host);
 	host->ops->set_ios(host, ios);
+	if (ios->old_rate != ios->clock) {
+		if (likely(ios->clk_ts)) {
+			char trace_info[80];
+			snprintf(trace_info, 80,
+				"%s: freq_KHz %d --> %d | t = %d",
+				mmc_hostname(host), ios->old_rate / 1000,
+				ios->clock / 1000, jiffies_to_msecs(
+					(long)jiffies - (long)ios->clk_ts));
+			trace_mmc_clk(trace_info);
+		}
+		ios->old_rate = ios->clock;
+		ios->clk_ts = jiffies;
+	}
 }
 EXPORT_SYMBOL(mmc_set_ios);
 
