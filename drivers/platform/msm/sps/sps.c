@@ -2434,7 +2434,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 static int __devinit msm_sps_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret = -ENODEV;
 
 	SPS_DBG2("sps:%s.", __func__);
 
@@ -2471,7 +2471,10 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 
 	sps->dfab_clk = clk_get(sps->dev, "dfab_clk");
 	if (IS_ERR(sps->dfab_clk)) {
-		SPS_ERR("sps:fail to get dfab_clk.");
+		if (IS_ERR(sps->dfab_clk) == -EPROBE_DEFER)
+			ret = -EPROBE_DEFER;
+		else
+			SPS_ERR("sps:fail to get dfab_clk.");
 		goto clk_err;
 	} else {
 		ret = clk_set_rate(sps->dfab_clk, 64000000);
@@ -2485,7 +2488,10 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 	if (!d_type) {
 		sps->pmem_clk = clk_get(sps->dev, "mem_clk");
 		if (IS_ERR(sps->pmem_clk)) {
-			SPS_ERR("sps:fail to get pmem_clk.");
+			if (IS_ERR(sps->pmem_clk) == -EPROBE_DEFER)
+				ret = -EPROBE_DEFER;
+			else
+				SPS_ERR("sps:fail to get pmem_clk.");
 			goto clk_err;
 		} else {
 			ret = clk_prepare_enable(sps->pmem_clk);
@@ -2499,7 +2505,10 @@ static int __devinit msm_sps_probe(struct platform_device *pdev)
 #ifdef CONFIG_SPS_SUPPORT_BAMDMA
 	sps->bamdma_clk = clk_get(sps->dev, "dma_bam_pclk");
 	if (IS_ERR(sps->bamdma_clk)) {
-		SPS_ERR("sps:fail to get bamdma_clk.");
+		if (IS_ERR(sps->bamdma_clk) == -EPROBE_DEFER)
+			ret = -EPROBE_DEFER;
+		else
+			SPS_ERR("sps:fail to get bamdma_clk.");
 		goto clk_err;
 	} else {
 		ret = clk_prepare_enable(sps->bamdma_clk);
@@ -2539,7 +2548,7 @@ device_create_err:
 alloc_chrdev_region_err:
 	class_destroy(sps->dev_class);
 
-	return -ENODEV;
+	return ret;
 }
 
 static int __devexit msm_sps_remove(struct platform_device *pdev)
