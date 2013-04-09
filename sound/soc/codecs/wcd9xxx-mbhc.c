@@ -34,6 +34,7 @@
 #include <linux/kernel.h>
 #include <linux/gpio.h>
 #include "wcd9320.h"
+#include "wcd9306.h"
 #include "wcd9xxx-mbhc.h"
 #include "wcd9xxx-resmgr.h"
 
@@ -92,6 +93,9 @@
 
 #define WCD9XXX_USLEEP_RANGE_MARGIN_US 1000
 
+#define WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAIKO 28
+#define WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAPAN 21
+
 static bool detect_use_vddio_switch;
 
 struct wcd9xxx_mbhc_detect {
@@ -140,6 +144,64 @@ static void wcd9xxx_turn_onoff_override(struct snd_soc_codec *codec, bool on)
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x04, on << 2);
 }
 
+static int wcd9xxx_enable_mux_bias_block(struct snd_soc_codec *codec,
+					 struct wcd9xxx_mbhc *mbhc)
+{
+	switch (mbhc->mbhc_version) {
+	case WCD9XXX_MBHC_VERSION_TAIKO:
+		snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_1,
+				    0x80, 0x80);
+		break;
+	case WCD9XXX_MBHC_VERSION_TAPAN:
+		snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_1,
+				    0x80, 0x00);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int wcd9xxx_put_cfilt_fast_mode(struct snd_soc_codec *codec,
+				       struct wcd9xxx_mbhc *mbhc)
+{
+	switch (mbhc->mbhc_version) {
+	case WCD9XXX_MBHC_VERSION_TAIKO:
+		snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl,
+				    0x70, 0x00);
+		break;
+	case WCD9XXX_MBHC_VERSION_TAPAN:
+		snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl,
+				    0x70, 0x70);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int wcd9xxx_codec_specific_cal_setup(struct snd_soc_codec *codec,
+					    struct wcd9xxx_mbhc *mbhc)
+{
+	switch (mbhc->mbhc_version) {
+	case WCD9XXX_MBHC_VERSION_TAIKO:
+		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL,
+				    0x04, 0x04);
+		break;
+	case WCD9XXX_MBHC_VERSION_TAPAN:
+		snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL,
+				    0x0C, 0x04);
+		snd_soc_update_bits(codec, WCD9XXX_A_TX_7_MBHC_EN, 0xE0, 0xE0);
+		/* Make sure the calibration is ON */
+		snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_val,
+				    0x02, 0x02);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 /* called under codec_resource_lock acquisition */
 static void wcd9xxx_pause_hs_polling(struct wcd9xxx_mbhc *mbhc)
 {
@@ -161,17 +223,24 @@ static void wcd9xxx_start_hs_polling(struct wcd9xxx_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 	int mbhc_state = mbhc->mbhc_state;
+	int ret;
 
 	pr_debug("%s: enter\n", __func__);
 	if (!mbhc->polling_active) {
 		pr_debug("Polling is not active, do not start polling\n");
 		return;
 	}
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x84);
+	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
+	if (ret) {
+		pr_err("%s: Error returned, ret: %d\n", __func__, ret);
+		return;
+	}
+
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 
 	if (!mbhc->no_mic_headset_override &&
 	    mbhc_state == MBHC_STATE_POTENTIAL) {
-		pr_debug("%s recovering MBHC state macine\n", __func__);
+		pr_debug("%s recovering MBHC state machine\n", __func__);
 		mbhc->mbhc_state = MBHC_STATE_POTENTIAL_RECOVERY;
 		/* set to max button press threshold */
 		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_VOLT_B2_CTL, 0x7F);
@@ -347,33 +416,65 @@ static void wcd9xxx_calibrate_hs_polling(struct wcd9xxx_mbhc *mbhc)
 		      (mbhc->mbhc_data.v_brl >> 8) & 0xFF);
 }
 
-static void wcd9xxx_codec_switch_cfilt_mode(struct wcd9xxx_mbhc *mbhc,
+static int wcd9xxx_codec_switch_cfilt_mode(struct wcd9xxx_mbhc *mbhc,
 					    bool fast)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 	u8 reg_mode_val, cur_mode_val;
 
-	if (fast)
-		reg_mode_val = WCD9XXX_CFILT_FAST_MODE;
-	else
-		reg_mode_val = WCD9XXX_CFILT_SLOW_MODE;
+	switch (mbhc->mbhc_version) {
+	case WCD9XXX_MBHC_VERSION_TAIKO:
+		if (fast)
+			reg_mode_val = WCD9XXX_CFILT_FAST_MODE;
+		else
+			reg_mode_val = WCD9XXX_CFILT_SLOW_MODE;
 
-	cur_mode_val =
-	    snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl) & 0x40;
+		cur_mode_val =
+		    snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl) & 0x40;
 
-	if (cur_mode_val != reg_mode_val) {
-		if (mbhc->polling_active)
-			wcd9xxx_pause_hs_polling(mbhc);
-		snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl, 0x40,
-				    reg_mode_val);
-		if (mbhc->polling_active)
-			wcd9xxx_start_hs_polling(mbhc);
-		pr_debug("%s: CFILT mode change (%x to %x)\n", __func__,
-			cur_mode_val, reg_mode_val);
-	} else {
-		pr_debug("%s: CFILT Value is already %x\n",
-			__func__, cur_mode_val);
+		if (cur_mode_val != reg_mode_val) {
+			if (mbhc->polling_active)
+				wcd9xxx_pause_hs_polling(mbhc);
+			snd_soc_update_bits(codec,
+					    mbhc->mbhc_bias_regs.cfilt_ctl,
+					    0x40, reg_mode_val);
+			if (mbhc->polling_active)
+				wcd9xxx_start_hs_polling(mbhc);
+			pr_debug("%s: CFILT mode change (%x to %x)\n", __func__,
+				cur_mode_val, reg_mode_val);
+		} else {
+			pr_debug("%s: CFILT Value is already %x\n",
+				 __func__, cur_mode_val);
+		}
+		break;
+	case WCD9XXX_MBHC_VERSION_TAPAN:
+		if (fast)
+			reg_mode_val = WCD9XXX_CFILT_EXT_PRCHG_EN;
+		else
+			reg_mode_val = WCD9XXX_CFILT_EXT_PRCHG_DSBL;
+
+		cur_mode_val =
+		    snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl) & 0x70;
+
+		if (cur_mode_val != reg_mode_val) {
+			if (mbhc->polling_active)
+				wcd9xxx_pause_hs_polling(mbhc);
+			snd_soc_update_bits(codec,
+					    mbhc->mbhc_bias_regs.cfilt_ctl,
+					    0x70, reg_mode_val);
+			if (mbhc->polling_active)
+				wcd9xxx_start_hs_polling(mbhc);
+			pr_debug("%s: CFILT mode change (%x to %x)\n", __func__,
+				cur_mode_val, reg_mode_val);
+		} else {
+			pr_debug("%s: CFILT Value is already %x\n",
+				__func__, cur_mode_val);
+		}
+		break;
+	default:
+		return -EINVAL;
 	}
+	return 0;
 }
 
 static void wcd9xxx_jack_report(struct wcd9xxx_mbhc *mbhc,
@@ -838,6 +939,7 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	struct snd_soc_codec *codec = mbhc->codec;
 	short bias_value;
 	u8 cfilt_mode;
+	int ret;
 
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
@@ -858,10 +960,14 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 
 	/* Make sure CFILT is in fast mode, save current mode */
 	cfilt_mode = snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl);
-	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl, 0x70, 0x00);
-
+	ret = wcd9xxx_put_cfilt_fast_mode(codec, mbhc);
+	if (ret)
+		goto gen_err;
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x84);
+	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
+	if (ret)
+		goto gen_err;
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 
 	snd_soc_update_bits(codec, WCD9XXX_A_TX_7_MBHC_EN, 0x80, 0x80);
 	snd_soc_update_bits(codec, WCD9XXX_A_TX_7_MBHC_EN, 0x1F, 0x1C);
@@ -878,11 +984,14 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 
 	/* don't flip override */
 	bias_value = __wcd9xxx_codec_sta_dce(mbhc, 1, true, true);
-	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl, 0x40,
-			    cfilt_mode);
+	snd_soc_write(codec, mbhc->mbhc_bias_regs.cfilt_ctl, cfilt_mode);
 	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_HPH, 0x13, 0x00);
 
 	return bias_value;
+
+gen_err:
+	pr_err("%s: Error returned, ret: %d\n", __func__, ret);
+	return ret;
 }
 
 static void wcd9xxx_shutdown_hs_removal_detect(struct wcd9xxx_mbhc *mbhc)
@@ -1273,8 +1382,9 @@ static int wcd9xxx_enable_hs_detect(struct wcd9xxx_mbhc *mbhc,
 					    0);
 	}
 
-	snd_soc_update_bits(codec, mbhc->resmgr->reg_addr->micb_4_mbhc, 0x3,
-			    mbhc->mbhc_cfg->micbias);
+	if (mbhc->resmgr->reg_addr->micb_4_mbhc)
+		snd_soc_update_bits(codec, mbhc->resmgr->reg_addr->micb_4_mbhc,
+				    0x3, mbhc->mbhc_cfg->micbias);
 
 	wcd9xxx_enable_irq(mbhc->resmgr->core, WCD9XXX_IRQ_MBHC_INSERTION);
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_INT_CTL, 0x1, 0x1);
@@ -2580,6 +2690,7 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 {
 	u8 cfilt_mode;
 	u16 reg0, reg1;
+	int ret;
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
@@ -2596,8 +2707,9 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	 * Need to restore defaults once calculation is done.
 	 */
 	cfilt_mode = snd_soc_read(codec, mbhc->mbhc_bias_regs.cfilt_ctl);
-	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl, 0x40, 0x00);
-
+	ret = wcd9xxx_put_cfilt_fast_mode(codec, mbhc);
+	if (ret)
+		goto gen_err;
 	/*
 	 * Micbias, CFILT, LDOH, MBHC MUX mode settings
 	 * to perform ADC calibration
@@ -2607,8 +2719,9 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.ctl_reg, 0x01, 0x00);
 	snd_soc_update_bits(codec, WCD9XXX_A_LDO_H_MODE_1, 0x60, 0x60);
 	snd_soc_write(codec, WCD9XXX_A_TX_7_MBHC_TEST_CTL, 0x78);
-	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x04, 0x04);
-
+	ret = wcd9xxx_codec_specific_cal_setup(codec, mbhc);
+	if (ret)
+		goto gen_err;
 	/* Pull down micbias to ground */
 	reg0 = snd_soc_read(codec, mbhc->mbhc_bias_regs.ctl_reg);
 	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.ctl_reg, 1, 1);
@@ -2616,7 +2729,10 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	reg1 = snd_soc_read(codec, WCD9XXX_A_MAD_ANA_CTRL);
 	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4, 1 << 0);
 	/* Connect the MUX to micbias */
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x82);
+	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
+	if (ret)
+		goto gen_err;
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	usleep_range(WCD9XXX_MUX_SWITCH_READY_WAIT_US,
 		     WCD9XXX_MUX_SWITCH_READY_WAIT_US +
 		     WCD9XXX_USLEEP_RANGE_MARGIN_US);
@@ -2635,7 +2751,10 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	/* DCE measurment for MB voltage */
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x02);
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x82);
+	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
+	if (ret)
+		goto gen_err;
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	usleep_range(100, 100);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x04);
 	usleep_range(mbhc->mbhc_data.t_dce, mbhc->mbhc_data.t_dce);
@@ -2645,7 +2764,10 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x02);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x02);
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x82);
+	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
+	if (ret)
+		goto gen_err;
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	usleep_range(100, 100);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x02);
 	usleep_range(mbhc->mbhc_data.t_sta, mbhc->mbhc_data.t_sta);
@@ -2653,16 +2775,20 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 
 	/* Restore default settings. */
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x04, 0x00);
-	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl, 0x40,
-			    cfilt_mode);
-
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x84);
+	snd_soc_write(codec, mbhc->mbhc_bias_regs.cfilt_ctl, cfilt_mode);
+	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
+	if (ret)
+		goto gen_err;
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 	usleep_range(100, 100);
 
 	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
 	wcd9xxx_turn_onoff_rel_detection(codec, true);
 
 	pr_debug("%s: leave\n", __func__);
+
+gen_err:
+	pr_err("%s: Error returned, ret: %d\n", __func__, ret);
 }
 
 static void wcd9xxx_mbhc_setup(struct wcd9xxx_mbhc *mbhc)
@@ -2702,8 +2828,9 @@ static void wcd9xxx_mbhc_setup(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x78,
 			    btn_det->mbhc_nsc << 3);
 
-	snd_soc_update_bits(codec, mbhc->resmgr->reg_addr->micb_4_mbhc, 0x03,
-			    MBHC_MICBIAS2);
+	if (mbhc->resmgr->reg_addr->micb_4_mbhc)
+		snd_soc_update_bits(codec, mbhc->resmgr->reg_addr->micb_4_mbhc,
+				    0x03, MBHC_MICBIAS2);
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x02, 0x02);
 
@@ -2720,6 +2847,7 @@ static int wcd9xxx_setup_jack_detect_irq(struct wcd9xxx_mbhc *mbhc)
 {
 	int ret = 0;
 	void *core = mbhc->resmgr->core;
+	int jack_irq;
 
 	if (mbhc->mbhc_cfg->gpio) {
 		ret = request_threaded_irq(mbhc->mbhc_cfg->gpio_irq, NULL,
@@ -2741,13 +2869,25 @@ static int wcd9xxx_setup_jack_detect_irq(struct wcd9xxx_mbhc *mbhc)
 		/* Enable HPHL_10K_SW */
 		snd_soc_update_bits(mbhc->codec, WCD9XXX_A_RX_HPH_OCP_CTL,
 				    1 << 1, 1 << 1);
-		ret = wcd9xxx_request_irq(core, WCD9XXX_IRQ_MBHC_JACK_SWITCH,
+
+		switch (mbhc->mbhc_version) {
+		case WCD9XXX_MBHC_VERSION_TAIKO:
+			jack_irq = WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAIKO;
+			break;
+		case WCD9XXX_MBHC_VERSION_TAPAN:
+			jack_irq = WCD9XXX_IRQ_MBHC_JACK_SWITCH_TAPAN;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		ret = wcd9xxx_request_irq(core, jack_irq,
 					  wcd9xxx_mech_plug_detect_irq,
 					  "Jack Detect",
 					  mbhc);
 		if (ret)
 			pr_err("%s: Failed to request insert detect irq %d\n",
-			       __func__, WCD9XXX_IRQ_MBHC_JACK_SWITCH);
+				__func__, jack_irq);
 	}
 
 	return ret;
@@ -2977,7 +3117,7 @@ static void wcd9xxx_cleanup_debugfs(struct wcd9xxx_mbhc *mbhc)
 int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 		       struct wcd9xxx_mbhc_config *mbhc_cfg)
 {
-	int rc = 0;
+	int rc;
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
@@ -3001,10 +3141,10 @@ int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 	wcd9xxx_get_mbhc_micbias_regs(mbhc, &mbhc->mbhc_bias_regs);
 
 	/* Put CFILT in fast mode by default */
-	snd_soc_update_bits(codec, mbhc->mbhc_bias_regs.cfilt_ctl,
-			    0x40, WCD9XXX_CFILT_FAST_MODE);
-
-	if (!mbhc->mbhc_cfg->read_fw_bin)
+	rc = wcd9xxx_put_cfilt_fast_mode(codec, mbhc);
+	if (rc)
+		pr_err("%s: Error returned, ret: %d\n", __func__, rc);
+	else if (!mbhc->mbhc_cfg->read_fw_bin)
 		rc = wcd9xxx_init_and_calibrate(mbhc);
 	else
 		schedule_delayed_work(&mbhc->mbhc_firmware_dwork,
@@ -3211,7 +3351,7 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 			 * Switch CFILT to slow mode if MBHC CFILT is being
 			 * used.
 			 */
-			wcd9xxx_codec_switch_cfilt_mode(mbhc, false);
+			ret = wcd9xxx_codec_switch_cfilt_mode(mbhc, false);
 		break;
 	case WCD9XXX_EVENT_POST_CFILT_1_OFF:
 	case WCD9XXX_EVENT_POST_CFILT_2_OFF:
@@ -3222,7 +3362,7 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 			 * Switch CFILT to fast mode if MBHC CFILT is not
 			 * used anymore.
 			 */
-			wcd9xxx_codec_switch_cfilt_mode(mbhc, true);
+			ret = wcd9xxx_codec_switch_cfilt_mode(mbhc, true);
 		break;
 	/* System resume */
 	case WCD9XXX_EVENT_POST_RESUME:
@@ -3244,7 +3384,7 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 
 	pr_debug("%s: leave\n", __func__);
 
-	return 0;
+	return ret;
 }
 
 /*
@@ -3253,7 +3393,7 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
  * NOTE: mbhc->mbhc_cfg is not YET configure so shouldn't be used
  */
 int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
-		      struct snd_soc_codec *codec)
+		      struct snd_soc_codec *codec, int version)
 {
 	int ret;
 	void *core;
@@ -3276,6 +3416,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->codec = codec;
 	mbhc->resmgr = resmgr;
 	mbhc->resmgr->mbhc = mbhc;
+	mbhc->mbhc_version = version;
 
 	if (mbhc->headset_jack.jack == NULL) {
 		ret = snd_soc_jack_new(codec, "Headset Jack", WCD9XXX_JACK_MASK,

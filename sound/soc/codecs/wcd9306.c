@@ -4228,7 +4228,12 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 
-	/* TODO: wcd9xxx_mbhc_init to enable mbhc */
+	ret = wcd9xxx_mbhc_init(&tapan->mbhc, &tapan->resmgr, codec,
+				WCD9XXX_MBHC_VERSION_TAPAN);
+	if (ret) {
+		pr_err("%s: mbhc init failed %d\n", __func__, ret);
+		return ret;
+	}
 
 	tapan->codec = codec;
 	for (i = 0; i < COMPANDER_MAX; i++) {
