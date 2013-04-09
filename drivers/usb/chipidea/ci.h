@@ -58,6 +58,8 @@ struct ci13xxx_ep {
 	struct ci13xxx				*ci;
 	spinlock_t				*lock;
 	struct dma_pool				*td_pool;
+	struct ci13xxx_td			*last_zptr;
+	dma_addr_t				last_zdma;
 	unsigned long dTD_update_fail_count;
 	unsigned long			      prime_fail_count;
 	int				      prime_timer_count;
@@ -173,6 +175,7 @@ struct ci13xxx {
 	struct ci13xxx_ep		*ep0out, *ep0in;
 
 	struct usb_request		*status;
+	void				*status_buf;/* GET_STATUS buffer */
 	bool				setaddr;
 	u8				address;
 	u8				remote_wakeup;
