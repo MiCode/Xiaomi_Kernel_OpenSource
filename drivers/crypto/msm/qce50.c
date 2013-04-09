@@ -610,7 +610,8 @@ static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
 			/* write xts du size */
 			pce = cmdlistinfo->encr_xts_du_size;
 			if (use_pipe_key == true)
-				pce->data = QCE_SECTOR_SIZE;
+				pce->data = min((unsigned int)QCE_SECTOR_SIZE,
+						creq->cryptlen);
 			else
 				pce->data = creq->cryptlen;
 		}
