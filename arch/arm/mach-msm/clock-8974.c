@@ -5010,6 +5010,8 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("csi3_rdi_clk", camss_csi3rdi_clk.c, "fda08c00.qcom,csid"),
 
 	/* ISPIF clocks */
+	CLK_LOOKUP("ispif_ahb_clk", camss_ispif_ahb_clk.c,
+		"fda0a000.qcom,ispif"),
 	CLK_LOOKUP("camss_vfe_vfe_clk", camss_vfe_vfe0_clk.c,
 		"fda0a000.qcom,ispif"),
 	CLK_LOOKUP("camss_csi_vfe_clk", camss_csi_vfe0_clk.c,

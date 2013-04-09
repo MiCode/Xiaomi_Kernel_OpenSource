@@ -58,5 +58,6 @@ struct ispif_device {
 	enum msm_ispif_state_t ispif_state;
 	struct clk *ispif_clk[VFE_MAX][INTF_MAX];
 	struct msm_ispif_vfe_info vfe_info;
+	struct clk *ahb_clk;
 };
 #endif
