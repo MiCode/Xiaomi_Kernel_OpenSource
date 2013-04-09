@@ -13,8 +13,10 @@ CPR regulator device is for Qualcomm RBCPR (RapidBridge CPR) on
 Required properties:
 - compatible:			Must be "qcom,cpr-regulator"
 - reg:				Register addresses for RBCPR and efuse
-- reg-names:			Register names. Must be "rbcpr" and "efuse_phys"
+- reg-names:			Register names. Must be "rbcpr", "pvs_efuse"
+				and "cpr_efuse"
 - regulator-name:		A string used to describe the regulator
+- interrupts:			Interrupt line from RBCPR to interrupt controller.
 - regulator-min-microvolt:	Minimum corner value as min constraint, which
 				should be 1 for SVS corner
 - regulator-max-microvolt:	Maximum corner value as max constraint, which
@@ -23,9 +25,6 @@ Required properties:
 				represent total number of PVS bins. It should
 				not exceed a maximum of 5 for total number of
 				32 bins.
-- qcom,efuse-bit-pos:		A list of integers whose length must equal
-				to qcom,num-efuse-bits and each integer indicates
-				bit position in efuse memory from LSB to MSB
 - qcom,pvs-bin-process:		A list of integers whose length is equal to 2 to
 				the power of qcom,num-efuse-bits. The location or
 				0-based index of an element in the list corresponds
@@ -44,8 +43,25 @@ Required properties:
 				  0 (SVS voltage):		1050000 uV
 				  1 (NORMAL voltage):		1150000 uV
 				  2 (TURBO voltage):		1275000 uV
-				  3 (SUPER_TURBO voltage):	1275000 uV
 - vdd-apc-supply:		Regulator to supply VDD APC power
+- qcom,vdd-apc-step-up-limit:	Limit of vdd-apc-supply steps for scaling up.
+- qcom,vdd-apc-step-down-limit:	Limit of vdd-apc-supply steps for scaling down.
+- qcom,cpr-ref-clk:		The reference clock in kHz.
+- qcom,cpr-timer-delay:		The delay in microseconds for the timer interval.
+- qcom,cpr-timer-cons-up:	Consecutive number of timer interval (qcom,cpr-timer-delay)
+				occurred before issuing UP interrupt.
+- qcom,cpr-timer-cons-down:	Consecutive number of timer interval (qcom,cpr-timer-delay)
+				occurred before issuing DOWN interrupt.
+- qcom,cpr-irq-line:		Internal interrupt route signal of RBCPR, one of 0, 1 or 2.
+- qcom,cpr-step-quotient:	Number of CPR quotient (RO count) per vdd-apc-supply step
+				to issue error_steps.
+- qcom,cpr-up-threshold:	The threshold for CPR to issue interrupt when
+				error_steps is greater than it when stepping up.
+- qcom,cpr-down-threshold:	The threshold for CPR to issue interrupt when
+				error_steps is greater than it when stepping down.
+- qcom,cpr-idle-clocks:		Idle clock cycles RO can be in.
+- qcom,cpr-gcnt-time:		The time for gate count in microseconds.
+- qcom,cpr-apc-volt-step:	The voltage in microvolt per CPR step, such as 5000uV.
 
 
 Optional properties:
@@ -61,28 +77,42 @@ Optional properties:
 				  2 => equal to slow speed corner ceiling
 				  3 => equal to qcom,vdd-mx-vmax
 				This is required when vdd-mx-supply is present.
+- qcom,cpr-enable:		Present: CPR enabled by default.
+				Not Present: CPR disable by default.
 
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
 		compatible = "qcom,cpr-regulator";
-		reg = <0xf9018000 0x1000>,
-			<0xfc4b80b0 8>;
-		reg-names = "rbcpr", "efuse_phys";
+		reg = <0xf9018000 0x1000>, <0xfc4b80b0 8>, <0xfc4bc450 16>;
+		reg-names = "rbcpr", "pvs_efuse", "cpr_efuse";
+		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <4>;
+		regulator-max-microvolt = <3>;
 		qcom,num-efuse-bits = <5>;
-		qcom,efuse-bit-pos = <6 7 8 9 10>;
-		qcom,pvs-bin-process = <0 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2
+		qcom,pvs-bin-process = <0 0 0 0 0 1 1 1 1 1 2 2 2 2 2 2
 					2 2 2 2 3 3 3 3 3 3 3 3 0 0 0 0>;
-		qcom,pvs-corner-ceiling-slow = <1050000 1150000 1275000 1350000>;
-		qcom,pvs-corner-ceiling-nom  =  <975000 1075000 1200000 1200000>;
-		qcom,pvs-corner-ceiling-fast =  <900000 1000000 1140000 1140000>;
+		qcom,pvs-corner-ceiling-slow = <1050000 1160000 1275000>;
+		qcom,pvs-corner-ceiling-nom  =  <975000 1075000 1200000>;
+		qcom,pvs-corner-ceiling-fast =  <900000 1000000 1140000>;
 		vdd-apc-supply = <&pm8226_s2>;
 		vdd-mx-supply = <&pm8226_l3_ao>;
 		qcom,vdd-mx-vmax = <1350000>;
 		qcom,vdd-mx-vmin-method = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <1>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <15>;
+		qcom,cpr-up-threshold = <1>;
+		qcom,cpr-down-threshold = <2>;
+		qcom,cpr-idle-clocks = <5>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,cpr-apc-volt-step = <5000>;
 	};
 
