@@ -6516,6 +6516,11 @@ struct srs_trumedia_params {
 #define AANC_HW_BLOCK_VERSION_1				(1)
 #define AANC_HW_BLOCK_VERSION_2				(2)
 
+/*Clip bank selection*/
+#define AFE_API_VERSION_CLIP_BANK_SEL_CFG 0x1
+#define AFE_CLIP_MAX_BANKS		4
+#define AFE_PARAM_ID_CLIP_BANK_SEL_CFG 0x00010242
+
 struct afe_param_aanc_port_cfg {
 	/* Minor version used for tracking the version of the module's
 	* source port configuration.
@@ -6548,6 +6553,18 @@ struct afe_param_id_cdc_aanc_version {
 
 	/* HW version. */
 	uint32_t aanc_hw_version;
+} __packed;
+
+struct afe_param_id_clip_bank_sel {
+	/* Minor version used for tracking the version of the module's
+	* hw version
+	*/
+	uint32_t minor_version;
+
+	/* Number of banks to be read */
+	uint32_t num_banks;
+
+	uint32_t bank_map[AFE_CLIP_MAX_BANKS];
 } __packed;
 
 /* ERROR CODES */
@@ -6782,6 +6799,8 @@ enum afe_config_type {
 	AFE_SLIMBUS_SLAVE_CONFIG,
 	AFE_CDC_REGISTERS_CONFIG,
 	AFE_AANC_VERSION,
+	AFE_CDC_CLIP_REGISTERS_CONFIG,
+	AFE_CLIP_BANK_SEL,
 	AFE_MAX_CONFIG_TYPES,
 };
 
@@ -6903,4 +6922,10 @@ struct afe_port_cmd_set_aanc_acdb_table {
 /* Dolby DAP topology */
 #define DOLBY_ADM_COPP_TOPOLOGY_ID	0x0001033B
 
+struct afe_svc_cmd_set_clip_bank_selection {
+	struct apr_hdr hdr;
+	struct afe_svc_cmd_set_param param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_id_clip_bank_sel bank_sel;
+} __packed;
 #endif /*_APR_AUDIO_V2_H_ */
