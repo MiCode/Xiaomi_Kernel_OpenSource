@@ -528,8 +528,8 @@ static int __init msm_pcie_setup(int nr, struct pci_sys_data *sys)
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, BIT(0), 0);
 
 	/* PARF programming */
-	writel_relaxed(0x282828, dev->parf + PCIE20_PARF_PCS_DEEMPH);
-	writel_relaxed(0x7F7F, dev->parf + PCIE20_PARF_PCS_SWING);
+	writel_relaxed(dev->parf_deemph, dev->parf + PCIE20_PARF_PCS_DEEMPH);
+	writel_relaxed(dev->parf_swing, dev->parf + PCIE20_PARF_PCS_SWING);
 	writel_relaxed((4<<24), dev->parf + PCIE20_PARF_CONFIG_BITS);
 	/* ensure that hardware registers the PARF configuration */
 	wmb();
@@ -621,6 +621,8 @@ static int __init msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev.gpio = pdata->gpio;
 	msm_pcie_dev.wake_n = pdata->wake_n;
 	msm_pcie_dev.vreg_n = pdata->vreg_n;
+	msm_pcie_dev.parf_deemph = pdata->parf_deemph;
+	msm_pcie_dev.parf_swing = pdata->parf_swing;
 	msm_pcie_dev.vreg = msm_pcie_vreg_info;
 	msm_pcie_dev.clk = msm_pcie_clk_info;
 	msm_pcie_dev.res = msm_pcie_res_info;
