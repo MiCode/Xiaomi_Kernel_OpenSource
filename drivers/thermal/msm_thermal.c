@@ -28,6 +28,7 @@
 #include <linux/of.h>
 #include <linux/sysfs.h>
 #include <linux/types.h>
+#include <linux/android_alarm.h>
 #include <mach/cpufreq.h>
 #include <mach/rpm-regulator.h>
 #include <mach/rpm-regulator-smd.h>
@@ -41,6 +42,10 @@ static struct delayed_work check_temp_work;
 static bool core_control_enabled;
 static uint32_t cpus_offlined;
 static DEFINE_MUTEX(core_control_mutex);
+static uint32_t wakeup_ms;
+static struct alarm thermal_rtc;
+static struct kobject *tt_kobj;
+static struct work_struct timer_work;
 
 static int enabled;
 static int rails_cnt;
@@ -392,7 +397,7 @@ static ssize_t vdd_rstr_reg_level_store(struct kobject *kobj,
 	if (vdd_rstr_en.enabled == 0)
 		goto done_store_level;
 
-	ret = kstrtoint(buf, 10, &val);
+	ret = kstrtouint(buf, 10, &val);
 	if (ret) {
 		pr_err("Invalid input %s for level\n", buf);
 		goto done_store_level;
@@ -746,6 +751,39 @@ static struct notifier_block __refdata msm_thermal_cpu_notifier = {
 	.notifier_call = msm_thermal_cpu_callback,
 };
 
+static void thermal_rtc_setup(void)
+{
+	ktime_t wakeup_time;
+	ktime_t curr_time;
+
+	curr_time = alarm_get_elapsed_realtime();
+	wakeup_time = ktime_add_us(curr_time,
+			(wakeup_ms * USEC_PER_MSEC));
+	alarm_start_range(&thermal_rtc, wakeup_time,
+			wakeup_time);
+	pr_debug("%s: Current Time: %ld %ld, Alarm set to: %ld %ld\n",
+			KBUILD_MODNAME,
+			ktime_to_timeval(curr_time).tv_sec,
+			ktime_to_timeval(curr_time).tv_usec,
+			ktime_to_timeval(wakeup_time).tv_sec,
+			ktime_to_timeval(wakeup_time).tv_usec);
+
+}
+
+static void timer_work_fn(struct work_struct *work)
+{
+	sysfs_notify(tt_kobj, NULL, "wakeup_ms");
+}
+
+static void thermal_rtc_callback(struct alarm *al)
+{
+	struct timeval ts;
+	ts = ktime_to_timeval(alarm_get_elapsed_realtime());
+	schedule_work(&timer_work);
+	pr_debug("%s: Time on alarm expiry: %ld %ld\n", KBUILD_MODNAME,
+			ts.tv_sec, ts.tv_usec);
+}
+
 /**
  * We will reset the cpu frequencies limits here. The core online/offline
  * status will be carried over to the process stopping the msm_thermal, as
@@ -902,6 +940,52 @@ static __cpuinitdata struct attribute_group cc_attr_group = {
 	.attrs = cc_attrs,
 };
 
+static ssize_t show_wakeup_ms(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", wakeup_ms);
+}
+
+static ssize_t store_wakeup_ms(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	ret = kstrtouint(buf, 10, &wakeup_ms);
+
+	if (ret) {
+		pr_err("%s: Trying to set invalid wakeup timer\n",
+				KBUILD_MODNAME);
+		return ret;
+	}
+
+	if (wakeup_ms > 0) {
+		thermal_rtc_setup();
+		pr_debug("%s: Timer started for %ums\n", KBUILD_MODNAME,
+				wakeup_ms);
+	} else {
+		ret = alarm_cancel(&thermal_rtc);
+		if (ret)
+			pr_debug("%s: Timer canceled\n", KBUILD_MODNAME);
+		else
+			pr_debug("%s: No active timer present to cancel\n",
+					KBUILD_MODNAME);
+
+	}
+	return count;
+}
+
+static __cpuinitdata struct kobj_attribute timer_attr =
+__ATTR(wakeup_ms, 0644, show_wakeup_ms, store_wakeup_ms);
+
+static __cpuinitdata struct attribute *tt_attrs[] = {
+	&timer_attr.attr,
+	NULL,
+};
+
+static __cpuinitdata struct attribute_group tt_attr_group = {
+	.attrs = tt_attrs,
+};
+
 static __init int msm_thermal_add_cc_nodes(void)
 {
 	struct kobject *module_kobj = NULL;
@@ -935,6 +1019,41 @@ static __init int msm_thermal_add_cc_nodes(void)
 done_cc_nodes:
 	if (cc_kobj)
 		kobject_del(cc_kobj);
+	return ret;
+}
+
+static __init int msm_thermal_add_timer_nodes(void)
+{
+	struct kobject *module_kobj = NULL;
+	int ret = 0;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("%s: cannot find kobject for module\n",
+			KBUILD_MODNAME);
+		ret = -ENOENT;
+		goto failed;
+	}
+
+	tt_kobj = kobject_create_and_add("thermal_timer", module_kobj);
+	if (!tt_kobj) {
+		pr_err("%s: cannot create timer kobj\n",
+				KBUILD_MODNAME);
+		ret = -ENOMEM;
+		goto failed;
+	}
+
+	ret = sysfs_create_group(tt_kobj, &tt_attr_group);
+	if (ret) {
+		pr_err("%s: cannot create group\n", KBUILD_MODNAME);
+		goto failed;
+	}
+
+	return 0;
+
+failed:
+	if (tt_kobj)
+		kobject_del(tt_kobj);
 	return ret;
 }
 
@@ -1449,6 +1568,10 @@ int __init msm_thermal_late_init(void)
 	msm_thermal_add_cc_nodes();
 	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
+	alarm_init(&thermal_rtc, ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
+			thermal_rtc_callback);
+	INIT_WORK(&timer_work, timer_work_fn);
+	msm_thermal_add_timer_nodes();
 
 	return 0;
 }
