@@ -618,7 +618,7 @@ static int msm_routing_put_audio_mixer(struct snd_kcontrol *kcontrol,
 
 static void msm_pcm_routing_process_voice(u16 reg, u16 val, int set)
 {
-	u16 session_id = 0;
+	u32 session_id = 0;
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
 

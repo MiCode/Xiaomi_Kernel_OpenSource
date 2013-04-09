@@ -67,9 +67,9 @@ static int is_voice2(struct msm_voice *pvoice2)
 		return false;
 }
 
-static uint16_t get_session_id(struct msm_voice *pvoc)
+static uint32_t get_session_id(struct msm_voice *pvoc)
 {
-	uint16_t session_id = 0;
+	uint32_t session_id = 0;
 
 	if (is_volte(pvoc))
 		session_id = voc_get_session_id(VOLTE_SESSION_NAME);
@@ -175,7 +175,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
-	uint16_t session_id = 0;
+	uint32_t session_id = 0;
 	int ret = 0;
 
 	mutex_lock(&prtd->lock);
@@ -201,7 +201,7 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
-	uint16_t session_id = 0;
+	uint32_t session_id = 0;
 
 	mutex_lock(&prtd->lock);
 
@@ -236,7 +236,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
-	uint16_t session_id = 0;
+	uint32_t session_id = 0;
 
 	pr_debug("%s: cmd = %d\n", __func__, cmd);
 
