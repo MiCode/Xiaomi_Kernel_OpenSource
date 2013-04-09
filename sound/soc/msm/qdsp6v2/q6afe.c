@@ -899,6 +899,44 @@ static int afe_aanc_mod_enable(void *apr, uint16_t tx_port, uint16_t enable)
 	return ret;
 }
 
+static int afe_send_bank_selection_clip(
+		struct afe_param_id_clip_bank_sel *param)
+{
+	int ret;
+	struct afe_svc_cmd_set_clip_bank_selection config;
+	if (!param) {
+		pr_err("%s: Invalid params", __func__);
+		return -EINVAL;
+	}
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = IDX_GLOBAL_CFG;
+	config.hdr.opcode = AFE_SVC_CMD_SET_PARAM;
+
+	config.param.payload_size = sizeof(struct afe_port_param_data_v2) +
+				sizeof(struct afe_param_id_clip_bank_sel);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+
+	config.pdata.module_id = AFE_MODULE_CDC_DEV_CFG;
+	config.pdata.param_id = AFE_PARAM_ID_CLIP_BANK_SEL_CFG;
+	config.pdata.param_size =
+		sizeof(struct afe_param_id_clip_bank_sel);
+	config.bank_sel = *param;
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[IDX_GLOBAL_CFG]);
+	if (ret) {
+		pr_err("%s: AFE_PARAM_ID_CLIP_BANK_SEL_CFG failed %d\n",
+		__func__, ret);
+	} else if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EAGAIN;
+	}
+	return ret;
+}
 int afe_send_aanc_version(
 	struct afe_param_id_cdc_aanc_version *version_cfg)
 {
@@ -990,6 +1028,12 @@ int afe_set_config(enum afe_config_type config_type, void *config_data, int arg)
 		break;
 	case AFE_AANC_VERSION:
 		ret = afe_send_aanc_version(config_data);
+		break;
+	case AFE_CLIP_BANK_SEL:
+		ret = afe_send_bank_selection_clip(config_data);
+		break;
+	case AFE_CDC_CLIP_REGISTERS_CONFIG:
+		ret = afe_send_codec_reg_config(config_data);
 		break;
 	default:
 		pr_err("%s: unknown configuration type", __func__);
