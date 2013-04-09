@@ -781,6 +781,27 @@ struct kgsl_perfcounter_read {
 
 #define IOCTL_KGSL_PERFCOUNTER_READ \
 	_IOWR(KGSL_IOC_TYPE, 0x3B, struct kgsl_perfcounter_read)
+/*
+ * struct kgsl_gpumem_sync_cache_bulk - argument to
+ * IOCTL_KGSL_GPUMEM_SYNC_CACHE_BULK
+ * @id_list: list of GPU buffer ids of the buffers to sync
+ * @count: number of GPU buffer ids in id_list
+ * @op: a mask of KGSL_GPUMEM_CACHE_* values
+ *
+ * Sync the cache for memory headed to and from the GPU. Certain
+ * optimizations can be made on the cache operation based on the total
+ * size of the working set of memory to be managed.
+ */
+struct kgsl_gpumem_sync_cache_bulk {
+	unsigned int *id_list;
+	unsigned int count;
+	unsigned int op;
+/* private: reserved for future use */
+	unsigned int __pad[2]; /* For future binary compatibility */
+};
+
+#define IOCTL_KGSL_GPUMEM_SYNC_CACHE_BULK \
+	_IOWR(KGSL_IOC_TYPE, 0x3C, struct kgsl_gpumem_sync_cache_bulk)
 
 #ifdef __KERNEL__
 #ifdef CONFIG_MSM_KGSL_DRM
