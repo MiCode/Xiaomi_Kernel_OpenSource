@@ -2855,7 +2855,7 @@ static int taiko_codec_enable_anc(struct snd_soc_dapm_widget *w,
 	int i;
 	int ret;
 	int num_anc_slots;
-	struct anc_header *anc_head;
+	struct wcd9xxx_anc_header *anc_head;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 	u32 anc_writes_size = 0;
 	int anc_size_remaining;
@@ -2878,16 +2878,18 @@ static int taiko_codec_enable_anc(struct snd_soc_dapm_widget *w,
 			return -ENODEV;
 		}
 
-		if (fw->size < sizeof(struct anc_header)) {
+		if (fw->size < sizeof(struct wcd9xxx_anc_header)) {
 			dev_err(codec->dev, "Not enough data\n");
 			release_firmware(fw);
 			return -ENOMEM;
 		}
 
 		/* First number is the number of register writes */
-		anc_head = (struct anc_header *)(fw->data);
-		anc_ptr = (u32 *)((u32)fw->data + sizeof(struct anc_header));
-		anc_size_remaining = fw->size - sizeof(struct anc_header);
+		anc_head = (struct wcd9xxx_anc_header *)(fw->data);
+		anc_ptr = (u32 *)((u32)fw->data +
+				  sizeof(struct wcd9xxx_anc_header));
+		anc_size_remaining = fw->size -
+				     sizeof(struct wcd9xxx_anc_header);
 		num_anc_slots = anc_head->num_anc_slots;
 
 		if (taiko->anc_slot >= num_anc_slots) {
