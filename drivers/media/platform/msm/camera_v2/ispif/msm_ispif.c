@@ -167,6 +167,30 @@ static int msm_ispif_clk_enable(struct ispif_device *ispif,
 	return rc;
 }
 
+static struct msm_cam_clk_info ispif_8974_ahb_clk_info[] = {
+	{"ispif_ahb_clk", -1},
+};
+
+static int msm_ispif_clk_ahb_enable(struct ispif_device *ispif, int enable)
+{
+	int rc = 0;
+
+	if (ispif->csid_version < CSID_VERSION_V3) {
+		/* Older ISPIF versiond don't need ahb clokc */
+		return 0;
+	}
+
+	rc = msm_cam_clk_enable(&ispif->pdev->dev,
+		ispif_8974_ahb_clk_info, &ispif->ahb_clk,
+		ARRAY_SIZE(ispif_8974_ahb_clk_info), enable);
+	if (rc < 0) {
+		pr_err("%s: cannot enable clock, error = %d",
+			__func__, rc);
+	}
+
+	return rc;
+}
+
 static int msm_ispif_intf_reset(struct ispif_device *ispif,
 	struct msm_ispif_param_data *params)
 {
@@ -979,12 +1003,20 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		goto error_irq;
 	}
 
+	rc = msm_ispif_clk_ahb_enable(ispif, 1);
+	if (rc) {
+		pr_err("%s: ahb_clk enable failed", __func__);
+		goto error_ahb;
+	}
+
 	rc = msm_ispif_reset(ispif);
 	if (rc == 0) {
 		ispif->ispif_state = ISPIF_POWER_UP;
 		CDBG("%s: power up done\n", __func__);
 		goto end;
 	}
+
+error_ahb:
 	free_irq(ispif->irq->start, ispif);
 error_irq:
 	iounmap(ispif->base);
@@ -1017,6 +1049,8 @@ static void msm_ispif_release(struct ispif_device *ispif)
 
 	/* make sure no streaming going on */
 	msm_ispif_reset(ispif);
+
+	msm_ispif_clk_ahb_enable(ispif, 0);
 
 	free_irq(ispif->irq->start, ispif);
 
