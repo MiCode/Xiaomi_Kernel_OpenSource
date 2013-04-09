@@ -2782,6 +2782,9 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("measure_clk", apc3_m_clk, ""),
 	CLK_LOOKUP("measure_clk",   l2_m_clk, ""),
 
+	CLK_LOOKUP("xo",   gcc_xo_clk_src.c, "fb000000.qcom,wcnss-wlan"),
+	CLK_LOOKUP("rf_clk",       cxo_a2.c, "fb000000.qcom,wcnss-wlan"),
+
 	CLK_LOOKUP("iface_clk", mdp_ahb_clk.c, "fd900000.qcom,mdss_mdp"),
 	CLK_LOOKUP("core_clk", mdp_axi_clk.c, "fd900000.qcom,mdss_mdp"),
 	CLK_LOOKUP("lcdc_clk", mdp_lcdc_clk.c, "fd900000.qcom,mdss_mdp"),
