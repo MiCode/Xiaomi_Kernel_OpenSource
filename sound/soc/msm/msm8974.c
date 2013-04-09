@@ -1424,7 +1424,26 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			__func__, err);
 		goto out;
 	}
-
+	config_data = taiko_get_afe_config(codec,
+				AFE_CDC_CLIP_REGISTERS_CONFIG);
+	if (config_data) {
+		err = afe_set_config(AFE_CDC_CLIP_REGISTERS_CONFIG,
+					config_data, 0);
+		if (err) {
+			pr_err("%s: Failed to set clip registers %d\n",
+				__func__, err);
+			return err;
+		}
+	}
+	config_data = taiko_get_afe_config(codec, AFE_CLIP_BANK_SEL);
+	if (config_data) {
+		err = afe_set_config(AFE_CLIP_BANK_SEL, config_data, 0);
+		if (err) {
+			pr_err("%s: Failed to set AFE bank selection %d\n",
+				__func__, err);
+			return err;
+		}
+	}
 	/* start mbhc */
 	mbhc_cfg.calibration = def_taiko_mbhc_cal();
 	if (mbhc_cfg.calibration) {
