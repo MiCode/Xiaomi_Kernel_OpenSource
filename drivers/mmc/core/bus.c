@@ -204,9 +204,11 @@ static int mmc_runtime_idle(struct device *dev)
 
 	if (mmc_use_core_runtime_pm(card->host)) {
 		ret = pm_schedule_suspend(dev, card->idle_timeout);
-		if (ret) {
-			pr_err("%s: %s: pm_schedule_suspend failed: err: %d\n",
-			       mmc_hostname(host), __func__, ret);
+		if ((ret < 0) && (dev->power.runtime_error ||
+				  dev->power.disable_depth > 0)) {
+			pr_err("%s: %s: %s: pm_schedule_suspend failed: err: %d\n",
+			       mmc_hostname(host), __func__, dev_name(dev),
+			       ret);
 			return ret;
 		}
 	}
