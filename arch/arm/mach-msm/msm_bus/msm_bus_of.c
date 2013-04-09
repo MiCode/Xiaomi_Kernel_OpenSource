@@ -79,9 +79,10 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 	}
 
 	pdata->num_usecases = num_usecases;
-	ret = of_property_read_u32(of_node, "qcom,msm-bus,active-only",
-		&pdata->active_only);
-	if (ret) {
+
+	if (of_property_read_bool(of_node, "qcom,msm-bus,active-only"))
+		pdata->active_only = 1;
+	else {
 		pr_debug("active_only flag absent.\n");
 		pr_debug("Using dual context by default\n");
 	}
