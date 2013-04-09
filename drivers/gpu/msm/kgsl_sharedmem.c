@@ -234,6 +234,29 @@ static int kgsl_drv_histogram_show(struct device *dev,
 	return len;
 }
 
+static int kgsl_drv_full_cache_threshold_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	int ret;
+	unsigned int thresh;
+	ret = sscanf(buf, "%d", &thresh);
+	if (ret != 1)
+		return count;
+
+	kgsl_driver.full_cache_threshold = thresh;
+
+	return count;
+}
+
+static int kgsl_drv_full_cache_threshold_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			kgsl_driver.full_cache_threshold);
+}
+
 DEVICE_ATTR(vmalloc, 0444, kgsl_drv_memstat_show, NULL);
 DEVICE_ATTR(vmalloc_max, 0444, kgsl_drv_memstat_show, NULL);
 DEVICE_ATTR(page_alloc, 0444, kgsl_drv_memstat_show, NULL);
@@ -243,6 +266,9 @@ DEVICE_ATTR(coherent_max, 0444, kgsl_drv_memstat_show, NULL);
 DEVICE_ATTR(mapped, 0444, kgsl_drv_memstat_show, NULL);
 DEVICE_ATTR(mapped_max, 0444, kgsl_drv_memstat_show, NULL);
 DEVICE_ATTR(histogram, 0444, kgsl_drv_histogram_show, NULL);
+DEVICE_ATTR(full_cache_threshold, 0644,
+		kgsl_drv_full_cache_threshold_show,
+		kgsl_drv_full_cache_threshold_store);
 
 static const struct device_attribute *drv_attr_list[] = {
 	&dev_attr_vmalloc,
@@ -254,6 +280,7 @@ static const struct device_attribute *drv_attr_list[] = {
 	&dev_attr_mapped,
 	&dev_attr_mapped_max,
 	&dev_attr_histogram,
+	&dev_attr_full_cache_threshold,
 	NULL
 };
 
