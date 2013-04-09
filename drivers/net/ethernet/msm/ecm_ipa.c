@@ -114,7 +114,7 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 static void ecm_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 		unsigned long data);
 static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *dev);
-static void ecm_ipa_destory_rm_resource(void);
+static void ecm_ipa_destory_rm_resource(struct ecm_ipa_dev *dev);
 static bool rx_filter(struct sk_buff *skb);
 static bool tx_filter(struct sk_buff *skb);
 static bool rm_enabled(struct ecm_ipa_dev *dev);
@@ -460,7 +460,7 @@ fail_register_netdev:
 fail_register_tx:
 fail_set_device_ethernet:
 	ecm_ipa_rules_destroy(dev);
-	ecm_ipa_destory_rm_resource();
+	ecm_ipa_destory_rm_resource(dev);
 	free_netdev(net);
 	return result;
 }
@@ -529,6 +529,10 @@ static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *dev)
 	struct ipa_rm_create_params create_params = {0};
 	int result;
 	ECM_IPA_LOG_ENTRY();
+	if (!dev->rm_enable) {
+		pr_debug("RM feature not used\n");
+		return 0;
+	}
 	create_params.name = IPA_RM_RESOURCE_STD_ECM_PROD;
 	create_params.reg_params.user_data = dev;
 	create_params.reg_params.notify_cb = ecm_ipa_rm_notify;
@@ -562,10 +566,11 @@ fail_rm_create:
 	return result;
 }
 
-static void ecm_ipa_destory_rm_resource(void)
+static void ecm_ipa_destory_rm_resource(struct ecm_ipa_dev *dev)
 {
 	ECM_IPA_LOG_ENTRY();
-
+	if (!dev->rm_enable)
+		return;
 	ipa_rm_delete_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
 			IPA_RM_RESOURCE_USB_CONS);
 	ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_STD_ECM_PROD);
@@ -621,10 +626,10 @@ void ecm_ipa_cleanup(void *priv)
 		ECM_IPA_ERROR("dev NULL pointer\n");
 		return;
 	}
-	if (rm_enabled(dev)) {
-		ecm_ipa_destory_rm_resource();
-		ecm_ipa_debugfs_destroy(dev);
-	}
+
+	ecm_ipa_destory_rm_resource(dev);
+	ecm_ipa_debugfs_destroy(dev);
+
 	if (!dev->net) {
 		unregister_netdev(dev->net);
 		free_netdev(dev->net);
