@@ -193,6 +193,7 @@ struct tapan_priv {
 	s32 dmic_5_6_clk_cnt;
 
 	u32 anc_slot;
+	bool anc_func;
 
 	/*track tapan interface type*/
 	u8 intf_type;
@@ -345,6 +346,58 @@ static int tapan_put_anc_slot(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 	tapan->anc_slot = ucontrol->value.integer.value[0];
+	return 0;
+}
+
+static int tapan_get_anc_func(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = (tapan->anc_func == true ? 1 : 0);
+	return 0;
+}
+
+static int tapan_put_anc_func(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+
+	mutex_lock(&dapm->codec->mutex);
+	tapan->anc_func = (!ucontrol->value.integer.value[0] ? false : true);
+
+	dev_err(codec->dev, "%s: anc_func %x", __func__, tapan->anc_func);
+
+	if (tapan->anc_func == true) {
+		pr_info("enable anc virtual widgets");
+		snd_soc_dapm_enable_pin(dapm, "ANC HPHR");
+		snd_soc_dapm_enable_pin(dapm, "ANC HPHL");
+		snd_soc_dapm_enable_pin(dapm, "ANC HEADPHONE");
+		snd_soc_dapm_enable_pin(dapm, "ANC EAR PA");
+		snd_soc_dapm_enable_pin(dapm, "ANC EAR");
+		snd_soc_dapm_disable_pin(dapm, "HPHR");
+		snd_soc_dapm_disable_pin(dapm, "HPHL");
+		snd_soc_dapm_disable_pin(dapm, "HEADPHONE");
+		snd_soc_dapm_disable_pin(dapm, "EAR PA");
+		snd_soc_dapm_disable_pin(dapm, "EAR");
+	} else {
+		pr_info("disable anc virtual widgets");
+		snd_soc_dapm_disable_pin(dapm, "ANC HPHR");
+		snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
+		snd_soc_dapm_disable_pin(dapm, "ANC HEADPHONE");
+		snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
+		snd_soc_dapm_disable_pin(dapm, "ANC EAR");
+		snd_soc_dapm_enable_pin(dapm, "HPHR");
+		snd_soc_dapm_enable_pin(dapm, "HPHL");
+		snd_soc_dapm_enable_pin(dapm, "HEADPHONE");
+		snd_soc_dapm_enable_pin(dapm, "EAR PA");
+		snd_soc_dapm_enable_pin(dapm, "EAR");
+	}
+	snd_soc_dapm_sync(dapm);
+	mutex_unlock(&dapm->codec->mutex);
 	return 0;
 }
 
@@ -713,6 +766,10 @@ static const struct soc_enum tapan_ear_pa_gain_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, tapan_ear_pa_gain_text),
 };
 
+static const char *const tapan_anc_func_text[] = {"OFF", "ON"};
+static const struct soc_enum tapan_anc_func_enum =
+		SOC_ENUM_SINGLE_EXT(2, tapan_anc_func_text);
+
 /*cut of frequency for high pass filter*/
 static const char * const cf_text[] = {
 	"MIN_3DB_4Hz", "MIN_3DB_75Hz", "MIN_3DB_150Hz"
@@ -770,11 +827,11 @@ static const struct snd_kcontrol_new tapan_snd_controls[] = {
 	SOC_SINGLE_TLV("SPK DRV Volume", TAPAN_A_SPKR_DRV_GAIN, 3, 7, 1,
 		line_gain),
 
-	SOC_SINGLE_TLV("ADC1 Volume", TAPAN_A_TX_1_EN, 2, 13, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC2 Volume", TAPAN_A_TX_2_EN, 2, 13, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC3 Volume", TAPAN_A_TX_3_EN, 2, 13, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC4 Volume", TAPAN_A_TX_4_EN, 2, 13, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC5 Volume", TAPAN_A_TX_5_EN, 2, 13, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC1 Volume", TAPAN_A_TX_1_EN, 2, 19, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC2 Volume", TAPAN_A_TX_2_EN, 2, 19, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC3 Volume", TAPAN_A_TX_3_EN, 2, 19, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC4 Volume", TAPAN_A_TX_4_EN, 2, 19, 0, analog_gain),
+	SOC_SINGLE_TLV("ADC5 Volume", TAPAN_A_TX_5_EN, 2, 19, 0, analog_gain),
 
 	SOC_SINGLE_S8_TLV("RX1 Digital Volume", TAPAN_A_CDC_RX1_VOL_CTL_B2_CTL,
 		-84, 40, digital_gain),
@@ -803,9 +860,10 @@ static const struct snd_kcontrol_new tapan_snd_controls[] = {
 	SOC_SINGLE_S8_TLV("IIR1 INP4 Volume", TAPAN_A_CDC_IIR1_GAIN_B4_CTL, -84,
 		40, digital_gain),
 
-	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 0, 100, tapan_get_anc_slot,
+	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 100, 0, tapan_get_anc_slot,
 		tapan_put_anc_slot),
-
+	SOC_ENUM_EXT("ANC Function", tapan_anc_func_enum, tapan_get_anc_func,
+		tapan_put_anc_func),
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
 	SOC_ENUM("TX2 HPF cut off", cf_dec2_enum),
 	SOC_ENUM("TX3 HPF cut off", cf_dec3_enum),
@@ -943,6 +1001,10 @@ static const char * const anc_mux_text[] = {
 	"RSVD", "RSVD"
 };
 
+static const char * const anc1_fb_mux_text[] = {
+	"ZERO", "EAR_HPH_L", "EAR_LINE_1",
+};
+
 static const char * const iir1_inp1_text[] = {
 	"ZERO", "DEC1", "DEC2", "DEC3", "DEC4",
 	"RX1", "RX2", "RX3", "RX4", "RX5"
@@ -1030,6 +1092,9 @@ static const struct soc_enum anc1_mux_enum =
 
 static const struct soc_enum anc2_mux_enum =
 	SOC_ENUM_SINGLE(TAPAN_A_CDC_CONN_ANC_B1_CTL, 4, 15, anc_mux_text);
+
+static const struct soc_enum anc1_fb_mux_enum =
+	SOC_ENUM_SINGLE(TAPAN_A_CDC_CONN_ANC_B2_CTL, 0, 3, anc1_fb_mux_text);
 
 static const struct soc_enum iir1_inp1_mux_enum =
 	SOC_ENUM_SINGLE(TAPAN_A_CDC_CONN_EQ1_B1_CTL, 0, 10, iir1_inp1_text);
@@ -1200,6 +1265,9 @@ static const struct snd_kcontrol_new anc1_mux =
 static const struct snd_kcontrol_new anc2_mux =
 	SOC_DAPM_ENUM("ANC2 MUX Mux", anc2_mux_enum);
 
+static const struct snd_kcontrol_new anc1_fb_mux =
+	SOC_DAPM_ENUM("ANC1 FB MUX Mux", anc1_fb_mux_enum);
+
 static const struct snd_kcontrol_new dac1_switch[] = {
 	SOC_DAPM_SINGLE("Switch", TAPAN_A_RX_EAR_EN, 5, 1, 0)
 };
@@ -1322,11 +1390,11 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			return 0;
 		}
 		break;
-		default:
-			dev_err(codec->dev, "Unknown AIF %d\n", dai_id);
-			mutex_unlock(&codec->mutex);
-			return -EINVAL;
-		}
+	default:
+		dev_err(codec->dev, "Unknown AIF %d\n", dai_id);
+		mutex_unlock(&codec->mutex);
+		return -EINVAL;
+	}
 	dev_dbg(codec->dev, "%s: name %s sname %s updated value %u shift %d\n",
 		 __func__, widget->name, widget->sname,
 		 widget->value, widget->shift);
@@ -1392,14 +1460,14 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	break;
 	case 2:
 		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&tapan_p->dai[AIF1_PB].wcd9xxx_ch_list))
+			&tapan_p->dai[AIF2_PB].wcd9xxx_ch_list))
 			goto pr_err;
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &tapan_p->dai[AIF2_PB].wcd9xxx_ch_list);
 	break;
 	case 3:
 		if (wcd9xxx_rx_vport_validation(port_id + core->num_tx_port,
-			&tapan_p->dai[AIF1_PB].wcd9xxx_ch_list))
+			&tapan_p->dai[AIF3_PB].wcd9xxx_ch_list))
 			goto pr_err;
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &tapan_p->dai[AIF3_PB].wcd9xxx_ch_list);
@@ -1668,9 +1736,11 @@ static int tapan_codec_enable_anc(struct snd_soc_dapm_widget *w,
 	int anc_size_remaining;
 	u32 *anc_ptr;
 	u16 reg;
-	u8 mask, val;
+	u8 mask, val, old_val;
 
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
+	if (tapan->anc_func == 0)
+		return 0;
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 
@@ -1737,14 +1807,21 @@ static int tapan_codec_enable_anc(struct snd_soc_dapm_widget *w,
 		for (i = 0; i < anc_writes_size; i++) {
 			TAPAN_CODEC_UNPACK_ENTRY(anc_ptr[i], reg,
 				mask, val);
-			snd_soc_write(codec, reg, val);
+			old_val = snd_soc_read(codec, reg);
+			snd_soc_write(codec, reg, (old_val & ~mask) |
+					(val & mask));
 		}
 		release_firmware(fw);
 
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		snd_soc_write(codec, TAPAN_A_CDC_CLK_ANC_RESET_CTL, 0xFF);
+		msleep(40);
+		snd_soc_update_bits(codec, TAPAN_A_CDC_ANC1_B1_CTL, 0x01, 0x00);
+		snd_soc_update_bits(codec, TAPAN_A_CDC_ANC2_B1_CTL, 0x02, 0x00);
+		msleep(20);
+		snd_soc_write(codec, TAPAN_A_CDC_CLK_ANC_RESET_CTL, 0x0F);
 		snd_soc_write(codec, TAPAN_A_CDC_CLK_ANC_CLK_EN_CTL, 0);
+		snd_soc_write(codec, TAPAN_A_CDC_CLK_ANC_RESET_CTL, 0xFF);
 		break;
 	}
 	return 0;
@@ -2137,12 +2214,12 @@ static int tapan_hph_pa_event(struct snd_soc_dapm_widget *w,
 
 	dev_dbg(codec->dev, "%s: %s event = %d\n", __func__, w->name, event);
 	if (w->shift == 5) {
-		e_pre_on = WCD9XXX_EVENT_PRE_HPHL_PA_ON;
-		e_post_off = WCD9XXX_EVENT_POST_HPHL_PA_OFF;
-		req_clsh_state = WCD9XXX_CLSH_STATE_HPHL;
-	} else if (w->shift == 4) {
 		e_pre_on = WCD9XXX_EVENT_PRE_HPHR_PA_ON;
 		e_post_off = WCD9XXX_EVENT_POST_HPHR_PA_OFF;
+		req_clsh_state = WCD9XXX_CLSH_STATE_HPHL;
+	} else if (w->shift == 4) {
+		e_pre_on = WCD9XXX_EVENT_PRE_HPHL_PA_ON;
+		e_post_off = WCD9XXX_EVENT_POST_HPHL_PA_OFF;
 		req_clsh_state = WCD9XXX_CLSH_STATE_HPHR;
 	} else {
 		pr_err("%s: Invalid w->shift %d\n", __func__, w->shift);
@@ -2180,6 +2257,46 @@ static int tapan_hph_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 	}
 	return 0;
+}
+
+static int tapan_codec_enable_anc_hph(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ret = tapan_hph_pa_event(w, kcontrol, event);
+		if (w->shift == 4) {
+			ret |= tapan_codec_enable_anc(w, kcontrol, event);
+			msleep(50);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMU:
+		if (w->shift == 4) {
+			snd_soc_update_bits(codec,
+					TAPAN_A_RX_HPH_CNP_EN, 0x30, 0x30);
+			msleep(30);
+		}
+		ret = tapan_hph_pa_event(w, kcontrol, event);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		if (w->shift == 5) {
+			snd_soc_update_bits(codec,
+					TAPAN_A_RX_HPH_CNP_EN, 0x30, 0x00);
+			msleep(40);
+		}
+		if (w->shift == 5) {
+			snd_soc_update_bits(codec,
+					TAPAN_A_TX_7_MBHC_EN, 0x80, 00);
+			ret |= tapan_codec_enable_anc(w, kcontrol, event);
+		}
+	case SND_SOC_DAPM_POST_PMD:
+		ret = tapan_hph_pa_event(w, kcontrol, event);
+		break;
+	}
+	return ret;
 }
 
 static const struct snd_soc_dapm_widget tapan_dapm_i2s_widgets[] = {
@@ -2296,6 +2413,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"EAR_PA_MIXER", NULL, "DAC1"},
 	{"DAC1", NULL, "RX_BIAS"},
 
+	{"ANC EAR", NULL, "ANC EAR PA"},
+	{"ANC EAR PA", NULL, "EAR_PA_MIXER"},
+	{"ANC1 FB MUX", "EAR_HPH_L", "RX1 MIX2"},
+	{"ANC1 FB MUX", "EAR_LINE_1", "RX2 MIX2"},
+
 	/* Headset (RX MIX1 and RX MIX2) */
 	{"HEADPHONE", NULL, "HPHL"},
 	{"HEADPHONE", NULL, "HPHR"},
@@ -2307,6 +2429,33 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HPHR", NULL, "HPHR_PA_MIXER"},
 	{"HPHR_PA_MIXER", NULL, "HPHR DAC"},
 	{"HPHR DAC", NULL, "RX_BIAS"},
+
+	{"ANC HEADPHONE", NULL, "ANC HPHL"},
+	{"ANC HEADPHONE", NULL, "ANC HPHR"},
+
+	{"ANC HPHL", NULL, "HPHL_PA_MIXER"},
+	{"ANC HPHR", NULL, "HPHR_PA_MIXER"},
+
+	{"ANC1 MUX", "ADC1", "ADC1"},
+	{"ANC1 MUX", "ADC2", "ADC2"},
+	{"ANC1 MUX", "ADC3", "ADC3"},
+	{"ANC1 MUX", "ADC4", "ADC4"},
+	{"ANC1 MUX", "ADC5", "ADC5"},
+	{"ANC1 MUX", "DMIC1", "DMIC1"},
+	{"ANC1 MUX", "DMIC2", "DMIC2"},
+	{"ANC1 MUX", "DMIC3", "DMIC3"},
+	{"ANC1 MUX", "DMIC4", "DMIC4"},
+	{"ANC2 MUX", "ADC1", "ADC1"},
+	{"ANC2 MUX", "ADC2", "ADC2"},
+	{"ANC2 MUX", "ADC3", "ADC3"},
+	{"ANC2 MUX", "ADC4", "ADC4"},
+	{"ANC2 MUX", "ADC5", "ADC5"},
+	{"ANC2 MUX", "DMIC1", "DMIC1"},
+	{"ANC2 MUX", "DMIC2", "DMIC2"},
+	{"ANC2 MUX", "DMIC3", "DMIC3"},
+	{"ANC2 MUX", "DMIC4", "DMIC4"},
+
+	{"ANC HPHR", NULL, "CDC_CONN"},
 
 	{"DAC1", "Switch", "CLASS_H_DSM MUX"},
 	{"HPHL DAC", "Switch", "CLASS_H_DSM MUX"},
@@ -2336,6 +2485,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX1 CHAIN", NULL, "RX1 MIX2"},
 	{"RX2 CHAIN", NULL, "RX2 MIX2"},
 	{"CLASS_H_DSM MUX", "RX_HPHL", "RX1 CHAIN"},
+	{"RX1 MIX2", NULL, "ANC1 MUX"},
+	{"RX2 MIX2", NULL, "ANC2 MUX"},
 
 	{"LINEOUT1 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT2 DAC", NULL, "RX_BIAS"},
@@ -2562,6 +2713,14 @@ static int tapan_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	/* IIR Coeff registers are not cacheable */
 	if ((reg >= TAPAN_A_CDC_IIR1_COEF_B1_CTL) &&
 		(reg <= TAPAN_A_CDC_IIR2_COEF_B2_CTL))
+		return 1;
+
+	/* ANC filter registers are not cacheable */
+	if ((reg >= TAPAN_A_CDC_ANC1_IIR_B1_CTL) &&
+		(reg <= TAPAN_A_CDC_ANC1_LPF_B2_CTL))
+		return 1;
+	if ((reg >= TAPAN_A_CDC_ANC2_IIR_B1_CTL) &&
+		(reg <= TAPAN_A_CDC_ANC2_LPF_B2_CTL))
 		return 1;
 
 	/* Digital gain register is not cacheable so we have to write
@@ -2850,7 +3009,7 @@ static int tapan_set_interpolator_rate(struct snd_soc_dai *dai,
 					tapan->comp_fs[comp_rx_path[j]]
 					= compander_fs;
 			}
-			if (j <= 2)
+			if (j <= 1)
 				rx_mix_1_reg_1 += 3;
 			else
 				rx_mix_1_reg_1 += 2;
@@ -3419,6 +3578,33 @@ static int tapan_codec_dsm_mux_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int tapan_codec_enable_anc_ear(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ret = tapan_codec_enable_anc(w, kcontrol, event);
+		msleep(50);
+		snd_soc_update_bits(codec, TAPAN_A_RX_EAR_EN, 0x10, 0x10);
+		break;
+	case SND_SOC_DAPM_POST_PMU:
+		ret = tapan_codec_enable_ear_pa(w, kcontrol, event);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, TAPAN_A_RX_EAR_EN, 0x10, 0x00);
+		msleep(40);
+		ret |= tapan_codec_enable_anc(w, kcontrol, event);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		ret = tapan_codec_enable_ear_pa(w, kcontrol, event);
+		break;
+	}
+	return ret;
+}
+
 
 /* Todo: Have seperate dapm widgets for I2S and Slimbus.
  * Might Need to have callbacks registered only for slimbus
@@ -3695,9 +3881,21 @@ static const struct snd_soc_dapm_widget tapan_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("ANC1 MUX", SND_SOC_NOPM, 0, 0, &anc1_mux),
 	SND_SOC_DAPM_MUX("ANC2 MUX", SND_SOC_NOPM, 0, 0, &anc2_mux),
 
-	SND_SOC_DAPM_MIXER_E("ANC", SND_SOC_NOPM, 0, 0, NULL, 0,
-		tapan_codec_enable_anc, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_OUTPUT("ANC HEADPHONE"),
+	SND_SOC_DAPM_PGA_E("ANC HPHL", SND_SOC_NOPM, 5, 0, NULL, 0,
+		tapan_codec_enable_anc_hph,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
+		SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_PGA_E("ANC HPHR", SND_SOC_NOPM, 4, 0, NULL, 0,
+		tapan_codec_enable_anc_hph, SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD |
+		SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_OUTPUT("ANC EAR"),
+	SND_SOC_DAPM_PGA_E("ANC EAR PA", SND_SOC_NOPM, 0, 0, NULL, 0,
+		tapan_codec_enable_anc_ear,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("ANC1 FB MUX", SND_SOC_NOPM, 0, 0, &anc1_fb_mux),
 
 	SND_SOC_DAPM_INPUT("AMIC2"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2 External", TAPAN_A_MICB_2_CTL, 7, 0,
@@ -4304,6 +4502,14 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	(void) tapan_setup_irqs(tapan);
 
 	atomic_set(&kp_tapan_priv, (unsigned long)tapan);
+	mutex_lock(&dapm->codec->mutex);
+	snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
+	snd_soc_dapm_disable_pin(dapm, "ANC HPHR");
+	snd_soc_dapm_disable_pin(dapm, "ANC HEADPHONE");
+	snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
+	snd_soc_dapm_disable_pin(dapm, "ANC EAR");
+	snd_soc_dapm_sync(dapm);
+	mutex_unlock(&dapm->codec->mutex);
 
 	codec->ignore_pmdown_time = 1;
 	return ret;
