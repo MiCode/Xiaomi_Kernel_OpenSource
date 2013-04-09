@@ -125,7 +125,6 @@ struct qpnp_bms_chip {
 	int				r_conn_mohm;
 	int				shutdown_soc_valid_limit;
 	int				adjust_soc_low_threshold;
-	int				adjust_soc_high_threshold;
 	int				chg_term_ua;
 	enum battery_type		batt_type;
 	unsigned int			fcc;
@@ -1367,6 +1366,7 @@ static void very_low_voltage_check(struct qpnp_bms_chip *chip, int vbat_uv)
 	}
 }
 
+#define NO_ADJUST_HIGH_SOC_THRESHOLD	90
 static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 							int soc, int batt_temp)
 {
@@ -1416,18 +1416,15 @@ static int adjust_soc(struct qpnp_bms_chip *chip, struct soc_params *params,
 
 	/*
 	 * do not adjust
-	 * if soc is same as what bms calculated
-	 * if soc_est is between 45 and 25, this is the flat portion of the
-	 * curve where soc_est is not so accurate. We generally don't want to
-	 * adjust when soc_est is inaccurate except for the cases when soc is
-	 * way far off (higher than 50 or lesser than 20).
-	 * Also don't adjust soc if it is above 90 becuase it might be pulled
-	 * low and cause a bad user experience
+	 * if soc_est is same as what bms calculated
+	 * OR if soc_est > adjust_soc_low_threshold
+	 * OR if soc is above 90
+	 * because we might pull it low
+	 * and cause a bad user experience
 	 */
 	if (soc_est == soc
-		|| (is_between(45, chip->adjust_soc_low_threshold, soc_est)
-		&& is_between(50, chip->adjust_soc_low_threshold - 5, soc))
-		|| soc >= 90)
+		|| soc_est > chip->adjust_soc_low_threshold
+		|| soc >= NO_ADJUST_HIGH_SOC_THRESHOLD)
 		goto out;
 
 	if (chip->last_soc_est == -EINVAL)
@@ -2202,8 +2199,6 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	SPMI_PROP_READ(chg_term_ua, "chg-term-ua", rc);
 	SPMI_PROP_READ(shutdown_soc_valid_limit,
 			"shutdown-soc-valid-limit", rc);
-	SPMI_PROP_READ(adjust_soc_high_threshold,
-			"adjust-soc-high-threshold", rc);
 	SPMI_PROP_READ(adjust_soc_low_threshold,
 			"adjust-soc-low-threshold", rc);
 	SPMI_PROP_READ(batt_type, "batt-type", rc);
@@ -2231,8 +2226,6 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 			"hold-soc-est", rc);
 	SPMI_PROP_READ(ocv_high_threshold_uv,
 			"ocv-voltage-high-threshold-uv", rc);
-	SPMI_PROP_READ(ocv_high_threshold_uv,
-			"ocv-voltage-high-threshold-uv", rc);
 	SPMI_PROP_READ(ocv_low_threshold_uv,
 			"ocv-voltage-low-threshold-uv", rc);
 	SPMI_PROP_READ(low_voltage_threshold, "low-voltage-threshold", rc);
@@ -2246,8 +2239,8 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	pr_debug("r_conn:%d, shutdown_soc: %d, adjust_soc_low:%d\n",
 			chip->r_conn_mohm, chip->shutdown_soc_valid_limit,
 			chip->adjust_soc_low_threshold);
-	pr_debug("adjust_soc_high:%d, chg_term_ua:%d, batt_type:%d\n",
-			chip->adjust_soc_high_threshold, chip->chg_term_ua,
+	pr_debug("chg_term_ua:%d, batt_type:%d\n",
+			chip->chg_term_ua,
 			chip->batt_type);
 	pr_debug("ignore_shutdown_soc:%d, use_voltage_soc:%d\n",
 			chip->ignore_shutdown_soc, chip->use_voltage_soc);
