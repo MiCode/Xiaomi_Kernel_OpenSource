@@ -59,7 +59,7 @@ static struct memtype_reserve msm8974_reserve_table[] __initdata = {
 	},
 };
 
-static int msm8974_paddr_to_memtype(unsigned int paddr)
+static int msm8974_paddr_to_memtype(phys_addr_t paddr)
 {
 	return MEMTYPE_EBI1;
 }
