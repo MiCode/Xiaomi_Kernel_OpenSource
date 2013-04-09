@@ -2015,7 +2015,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 {
 	int rc = 0;
 	int i;
-	struct vidc_buffer_addr_info buffer_info;
+	struct vidc_buffer_addr_info buffer_info = {0};
 	struct hfi_device *hdev;
 	int extra_idx = 0;
 
@@ -2078,7 +2078,7 @@ int msm_venc_release_buf(struct msm_vidc_inst *inst,
 					struct v4l2_buffer *b)
 {
 	int i, rc = 0, extra_idx = 0;
-	struct vidc_buffer_addr_info buffer_info;
+	struct vidc_buffer_addr_info buffer_info = {0};
 	struct hfi_device *hdev;
 
 	if (!inst || !inst->core || !inst->core->device) {
