@@ -1258,7 +1258,7 @@ struct voice_data {
 
 	struct voice_dev_route_state voc_route_state;
 
-	u16 session_id;
+	u32 session_id;
 
 	struct incall_rec_info rec_info;
 
@@ -1274,7 +1274,6 @@ struct cal_mem {
 };
 
 #define MAX_VOC_SESSIONS 4
-#define SESSION_ID_BASE 0xFFF0
 
 struct common_data {
 	/* these default values are for all devices */
@@ -1337,34 +1336,39 @@ enum {
 #define VOLTE_SESSION_NAME  "VoLTE session"
 #define VOICE2_SESSION_NAME "Voice2 session"
 
-#define VOICE2_SESSION_VSID "10DC1000"
+#define VOICE2_SESSION_VSID_STR "10DC1000"
+#define VOICE_SESSION_VSID  0x10C01000
+#define VOICE2_SESSION_VSID 0x10DC1000
+#define VOLTE_SESSION_VSID  0x10C02000
+#define VOIP_SESSION_VSID   0x10004000
+#define ALL_SESSION_VSID    0xFFFFFFFF
 
 /* called  by alsa driver */
-int voc_set_pp_enable(uint16_t session_id, uint32_t module_id,
+int voc_set_pp_enable(uint32_t session_id, uint32_t module_id,
 		      uint32_t enable);
-int voc_get_pp_enable(uint16_t session_id, uint32_t module_id);
-uint8_t voc_get_tty_mode(uint16_t session_id);
-int voc_set_tty_mode(uint16_t session_id, uint8_t tty_mode);
-int voc_start_voice_call(uint16_t session_id);
-int voc_end_voice_call(uint16_t session_id);
-int voc_standby_voice_call(uint16_t session_id);
-int voc_resume_voice_call(uint16_t session_id);
-int voc_set_lch(uint16_t session_id, enum voice_lch_mode lch_mode);
-int voc_set_rxtx_port(uint16_t session_id,
+int voc_get_pp_enable(uint32_t session_id, uint32_t module_id);
+uint8_t voc_get_tty_mode(uint32_t session_id);
+int voc_set_tty_mode(uint32_t session_id, uint8_t tty_mode);
+int voc_start_voice_call(uint32_t session_id);
+int voc_end_voice_call(uint32_t session_id);
+int voc_standby_voice_call(uint32_t session_id);
+int voc_resume_voice_call(uint32_t session_id);
+int voc_set_lch(uint32_t session_id, enum voice_lch_mode lch_mode);
+int voc_set_rxtx_port(uint32_t session_id,
 		      uint32_t dev_port_id,
 		      uint32_t dev_type);
-int voc_set_rx_vol_index(uint16_t session_id, uint32_t dir, uint32_t voc_idx);
-int voc_set_tx_mute(uint16_t session_id, uint32_t dir, uint32_t mute);
-int voc_set_rx_device_mute(uint16_t session_id, uint32_t mute);
-int voc_get_rx_device_mute(uint16_t session_id);
-int voc_disable_cvp(uint16_t session_id);
-int voc_enable_cvp(uint16_t session_id);
-int voc_set_route_flag(uint16_t session_id, uint8_t path_dir, uint8_t set);
-uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
-int voc_enable_dtmf_rx_detection(uint16_t session_id, uint32_t enable);
+int voc_set_rx_vol_index(uint32_t session_id, uint32_t dir, uint32_t voc_idx);
+int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute);
+int voc_set_rx_device_mute(uint32_t session_id, uint32_t mute);
+int voc_get_rx_device_mute(uint32_t session_id);
+int voc_disable_cvp(uint32_t session_id);
+int voc_enable_cvp(uint32_t session_id);
+int voc_set_route_flag(uint32_t session_id, uint8_t path_dir, uint8_t set);
+uint8_t voc_get_route_flag(uint32_t session_id, uint8_t path_dir);
+int voc_enable_dtmf_rx_detection(uint32_t session_id, uint32_t enable);
 void voc_disable_dtmf_det_on_active_sessions(void);
 
-uint16_t voc_get_session_id(char *name);
+uint32_t voc_get_session_id(char *name);
 
 int voc_start_playback(uint32_t set);
 int voc_start_record(uint32_t port_id, uint32_t set);
