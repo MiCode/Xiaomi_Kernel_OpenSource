@@ -391,7 +391,7 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	struct q6v5_data *q6;
 	struct pil_desc *desc;
 	struct resource *res;
-	int ret;
+	int ret, gpio_clk_ready;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -408,6 +408,12 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 		return ret;
 	drv->err_fatal_irq = ret;
 
+	ret = gpio_to_irq(of_get_named_gpio(pdev->dev.of_node,
+					    "qcom,gpio-proxy-unvote", 0));
+	if (ret < 0)
+		return ret;
+	gpio_clk_ready = ret;
+
 	drv->force_stop_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,gpio-force-stop", 0);
 	if (drv->force_stop_gpio < 0)
@@ -421,6 +427,7 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	desc = &q6->desc;
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = PROXY_TIMEOUT_MS;
+	desc->proxy_unvote_irq = gpio_clk_ready;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "restart_reg");
 	q6->restart_reg = devm_request_and_ioremap(&pdev->dev, res);
