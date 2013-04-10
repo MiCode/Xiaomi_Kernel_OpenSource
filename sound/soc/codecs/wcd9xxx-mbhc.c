@@ -1551,6 +1551,9 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
 		wcd9xxx_schedule_hs_detect_plug(mbhc,
 						&mbhc->correct_plug_swch);
+	} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
+		wcd9xxx_schedule_hs_detect_plug(mbhc,
+						&mbhc->correct_plug_swch);
 	} else {
 		pr_debug("%s: Valid plug found, determine plug type %d\n",
 			 __func__, plug_type);
@@ -2151,6 +2154,9 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 				wcd9xxx_report_plug(mbhc, 1,
 						    SND_JACK_HEADPHONE);
 			}
+		} else if (plug_type == PLUG_TYPE_HIGH_HPH) {
+			pr_debug("%s: High HPH detected, continue polling\n",
+				  __func__);
 		} else {
 			if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
 				pt_gnd_mic_swap_cnt++;
@@ -2189,6 +2195,11 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 		}
 	}
 
+	if (plug_type == PLUG_TYPE_HIGH_HPH) {
+		pr_debug("%s: polling is done, still HPH, so enabling MIC trigger\n",
+			 __func__);
+		wcd9xxx_find_plug_and_report(mbhc, plug_type);
+	}
 	/* Turn off override */
 	if (!correction)
 		wcd9xxx_turn_onoff_override(codec, false);
