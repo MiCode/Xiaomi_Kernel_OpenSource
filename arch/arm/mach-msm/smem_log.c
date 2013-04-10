@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,8 @@
 
 #include <mach/msm_iomap.h>
 #include <mach/smem_log.h>
+
+#include <asm/arch_timer.h>
 
 #include "smd_private.h"
 #include "smd_rpc_sym.h"
@@ -652,13 +654,7 @@ static inline unsigned int read_timestamp(void)
 #else
 static inline unsigned int read_timestamp(void)
 {
-	unsigned long long val;
-
-	/* SMEM LOG uses a 32.768KHz timestamp */
-	val = sched_clock() * 32768U;
-	do_div(val, 1000000000U);
-
-	return (unsigned int)val;
+	return (unsigned int)(arch_counter_get_cntpct());
 }
 #endif
 
