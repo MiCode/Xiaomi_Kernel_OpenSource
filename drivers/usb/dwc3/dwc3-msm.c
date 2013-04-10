@@ -2434,10 +2434,14 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 					dev_err(&pdev->dev, "irqreq IDINT failed\n");
 					goto disable_hs_ldo;
 				}
+
 				local_irq_save(flags);
 				/* Update initial ID state */
-				msm->id_state = msm->ext_xceiv.id =
+				msm->id_state =
 					!!irq_read_line(msm->pmic_id_irq);
+				if (msm->id_state == DWC3_ID_GROUND)
+					queue_work(system_nrt_wq,
+							&msm->id_work);
 				local_irq_restore(flags);
 				enable_irq_wake(msm->pmic_id_irq);
 			}
