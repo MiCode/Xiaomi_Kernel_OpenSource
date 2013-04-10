@@ -1082,13 +1082,6 @@ static const struct snd_kcontrol_new taiko_snd_controls[] = {
 		40, digital_gain),
 	SOC_SINGLE_S8_TLV("IIR2 INP4 Volume", TAIKO_A_CDC_IIR2_GAIN_B4_CTL, -84,
 		40, digital_gain),
-	SOC_SINGLE_TLV("ADC1 Volume", TAIKO_A_TX_1_2_EN, 5, 3, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC2 Volume", TAIKO_A_TX_1_2_EN, 1, 3, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC3 Volume", TAIKO_A_TX_3_4_EN, 5, 3, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC4 Volume", TAIKO_A_TX_3_4_EN, 1, 3, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC5 Volume", TAIKO_A_TX_5_6_EN, 5, 3, 0, analog_gain),
-	SOC_SINGLE_TLV("ADC6 Volume", TAIKO_A_TX_5_6_EN, 1, 3, 0, analog_gain),
-
 
 	SOC_SINGLE_EXT("ANC Slot", SND_SOC_NOPM, 0, 100, 0, taiko_get_anc_slot,
 		taiko_put_anc_slot),
