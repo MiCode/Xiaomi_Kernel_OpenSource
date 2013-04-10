@@ -531,6 +531,7 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 
 	result = adreno_dev->gpudev->irq_handler(adreno_dev);
 
+	device->pwrctrl.irq_last = 1;
 	if (device->requested_state == KGSL_STATE_NONE) {
 		if (device->pwrctrl.nap_allowed == true) {
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NAP);
