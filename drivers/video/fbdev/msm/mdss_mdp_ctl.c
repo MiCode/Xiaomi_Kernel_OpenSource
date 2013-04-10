@@ -1235,6 +1235,7 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed)
 {
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_mixer *mixer;
+	int i;
 
 	if (!pipe)
 		return -EINVAL;
@@ -1258,7 +1259,12 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed)
 
 	if (params_changed) {
 		mixer->params_changed++;
-		mixer->stage_pipe[pipe->mixer_stage] = pipe;
+		for (i = 0; i < MDSS_MDP_MAX_STAGE; i++) {
+			if (i == pipe->mixer_stage)
+				mixer->stage_pipe[i] = pipe;
+			else if (mixer->stage_pipe[i] == pipe)
+				mixer->stage_pipe[i] = NULL;
+		}
 	}
 
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
