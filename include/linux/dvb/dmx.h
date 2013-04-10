@@ -120,25 +120,39 @@ struct dmx_sct_filter_params
 };
 
 
-/* Indexing: supported video standards */
-enum dmx_indexing_video_standard {
-	DMX_INDEXING_MPEG2,
-	DMX_INDEXING_H264,
-	DMX_INDEXING_VC1
+enum dmx_video_codec {
+	DMX_VIDEO_CODEC_MPEG2,
+	DMX_VIDEO_CODEC_H264,
+	DMX_VIDEO_CODEC_VC1
 };
 
-/* Indexing: Supported video profiles */
-enum dmx_indexing_video_profile {
-	DMX_INDEXING_MPEG2_ANY,
-	DMX_INDEXING_H264_ANY,
-	DMX_INDEXING_VC1_ANY
-};
-
-/* Indexing: video configuration parameters */
-struct dmx_indexing_video_params {
-	enum dmx_indexing_video_standard standard;
-	enum dmx_indexing_video_profile profile;
-};
+/* Index entries types */
+#define DMX_IDX_RAI                         0x00000001
+#define DMX_IDX_PUSI                        0x00000002
+#define DMX_IDX_MPEG_SEQ_HEADER             0x00000004
+#define DMX_IDX_MPEG_GOP                    0x00000008
+#define DMX_IDX_MPEG_FIRST_SEQ_FRAME_START  0x00000010
+#define DMX_IDX_MPEG_FIRST_SEQ_FRAME_END    0x00000020
+#define DMX_IDX_MPEG_I_FRAME_START          0x00000040
+#define DMX_IDX_MPEG_I_FRAME_END            0x00000080
+#define DMX_IDX_MPEG_P_FRAME_START          0x00000100
+#define DMX_IDX_MPEG_P_FRAME_END            0x00000200
+#define DMX_IDX_MPEG_B_FRAME_START          0x00000400
+#define DMX_IDX_MPEG_B_FRAME_END            0x00000800
+#define DMX_IDX_H264_SPS                    0x00001000
+#define DMX_IDX_H264_PPS                    0x00002000
+#define DMX_IDX_H264_FIRST_SPS_FRAME_START  0x00004000
+#define DMX_IDX_H264_FIRST_SPS_FRAME_END    0x00008000
+#define DMX_IDX_H264_IDR_START              0x00010000
+#define DMX_IDX_H264_IDR_END                0x00020000
+#define DMX_IDX_H264_NON_IDR_START          0x00040000
+#define DMX_IDX_H264_NON_IDR_END            0x00080000
+#define DMX_IDX_VC1_SEQ_HEADER              0x00100000
+#define DMX_IDX_VC1_ENTRY_POINT             0x00200000
+#define DMX_IDX_VC1_FIRST_SEQ_FRAME_START   0x00400000
+#define DMX_IDX_VC1_FIRST_SEQ_FRAME_END     0x00800000
+#define DMX_IDX_VC1_FRAME_START             0x01000000
+#define DMX_IDX_VC1_FRAME_END               0x02000000
 
 struct dmx_pes_filter_params
 {
@@ -160,7 +174,7 @@ struct dmx_pes_filter_params
 	 */
 	__u32          rec_chunk_size;
 
-	struct dmx_indexing_video_params video_params;
+	enum dmx_video_codec video_codec;
 };
 
 struct dmx_buffer_status {

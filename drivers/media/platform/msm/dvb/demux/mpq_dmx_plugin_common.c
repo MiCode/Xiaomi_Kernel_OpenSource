@@ -95,12 +95,6 @@ module_param(mpq_sdmx_proc_limit, int, S_IRUGO | S_IWUSR);
 static int mpq_sdmx_debug;
 module_param(mpq_sdmx_debug, int, S_IRUGO | S_IWUSR);
 
-
-/**
- * Maximum allowed framing pattern size
- */
-#define MPQ_MAX_PATTERN_SIZE				6
-
 /**
  * Number of patterns to look for when doing framing, per video standard
  */
@@ -109,64 +103,49 @@ module_param(mpq_sdmx_debug, int, S_IRUGO | S_IWUSR);
 #define MPQ_VC1_PATTERN_NUM				3
 
 /*
- * mpq_framing_pattern_lookup_params - framing pattern lookup parameters.
- *
- * @pattern: the byte pattern to look for.
- * @mask: the byte mask to use (same length as pattern).
- * @size: the length of the pattern, in bytes.
- * @type: the type of the pattern.
- */
-struct mpq_framing_pattern_lookup_params {
-	u8 pattern[MPQ_MAX_PATTERN_SIZE];
-	u8 mask[MPQ_MAX_PATTERN_SIZE];
-	size_t size;
-	enum dmx_framing_pattern_type type;
-};
-
-/*
  * Pre-defined video framing lookup pattern information.
  * Note: the first pattern in each patterns database must
  * be the Sequence Header (or equivalent SPS in H.264).
  * The code assumes this is the case when prepending
  * Sequence Header data in case it is required.
  */
-static const struct mpq_framing_pattern_lookup_params
+static const struct dvb_dmx_video_patterns
 		mpeg2_patterns[MPQ_MPEG2_PATTERN_NUM] = {
 	{{0x00, 0x00, 0x01, 0xB3}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_FRM_MPEG2_SEQUENCE_HEADER},
+			DMX_IDX_MPEG_SEQ_HEADER},
 	{{0x00, 0x00, 0x01, 0xB8}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_FRM_MPEG2_GOP_HEADER},
+			DMX_IDX_MPEG_GOP},
 	{{0x00, 0x00, 0x01, 0x00, 0x00, 0x08},
 			{0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x38}, 6,
-			DMX_FRM_MPEG2_I_PIC},
+			DMX_IDX_MPEG_I_FRAME_START},
 	{{0x00, 0x00, 0x01, 0x00, 0x00, 0x10},
 			{0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x38}, 6,
-			DMX_FRM_MPEG2_P_PIC},
+			DMX_IDX_MPEG_P_FRAME_START},
 	{{0x00, 0x00, 0x01, 0x00, 0x00, 0x18},
 			{0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x38}, 6,
-			DMX_FRM_MPEG2_B_PIC}
+			DMX_IDX_MPEG_B_FRAME_START}
 };
 
-static const struct mpq_framing_pattern_lookup_params
+static const struct dvb_dmx_video_patterns
 		h264_patterns[MPQ_H264_PATTERN_NUM] = {
 	{{0x00, 0x00, 0x01, 0x07}, {0xFF, 0xFF, 0xFF, 0x1F}, 4,
-			DMX_FRM_H264_SPS},
+			DMX_IDX_H264_SPS},
 	{{0x00, 0x00, 0x01, 0x08}, {0xFF, 0xFF, 0xFF, 0x1F}, 4,
-			DMX_FRM_H264_PPS},
+			DMX_IDX_H264_PPS},
 	{{0x00, 0x00, 0x01, 0x05, 0x80}, {0xFF, 0xFF, 0xFF, 0x1F, 0x80}, 5,
-			DMX_FRM_H264_IDR_PIC},
+			DMX_IDX_H264_IDR_START},
 	{{0x00, 0x00, 0x01, 0x01, 0x80}, {0xFF, 0xFF, 0xFF, 0x1F, 0x80}, 5,
-			DMX_FRM_H264_NON_IDR_PIC}
+			DMX_IDX_H264_NON_IDR_START}
 };
 
-static const struct mpq_framing_pattern_lookup_params
+static const struct dvb_dmx_video_patterns
 		vc1_patterns[MPQ_VC1_PATTERN_NUM] = {
 	{{0x00, 0x00, 0x01, 0x0F}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_FRM_VC1_SEQUENCE_HEADER},
+			DMX_IDX_VC1_SEQ_HEADER},
 	{{0x00, 0x00, 0x01, 0x0E}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_FRM_VC1_ENTRY_POINT_HEADER},
+			DMX_IDX_VC1_ENTRY_POINT},
 	{{0x00, 0x00, 0x01, 0x0D}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_FRM_VC1_FRAME_START_CODE}
+			DMX_IDX_VC1_FRAME_START}
 };
 
 /* Global data-structure for managing demux devices */
@@ -211,279 +190,31 @@ static int mpq_dmx_is_valid_video_pes(struct pes_packet_header *pes_header)
 
 /* Check if a framing pattern is a video frame pattern or a header pattern */
 static inline int mpq_dmx_is_video_frame(
-				enum dmx_indexing_video_standard standard,
-				enum dmx_framing_pattern_type pattern_type)
+				enum dmx_video_codec codec,
+				u64 pattern_type)
 {
-	switch (standard) {
-	case DMX_INDEXING_MPEG2:
-		if ((pattern_type == DMX_FRM_MPEG2_I_PIC) ||
-			(pattern_type == DMX_FRM_MPEG2_P_PIC) ||
-			(pattern_type == DMX_FRM_MPEG2_B_PIC))
+	switch (codec) {
+	case DMX_VIDEO_CODEC_MPEG2:
+		if ((pattern_type == DMX_IDX_MPEG_I_FRAME_START) ||
+			(pattern_type == DMX_IDX_MPEG_P_FRAME_START) ||
+			(pattern_type == DMX_IDX_MPEG_B_FRAME_START))
 			return 1;
 		return 0;
-	case DMX_INDEXING_H264:
-		if ((pattern_type == DMX_FRM_H264_IDR_PIC) ||
-			(pattern_type == DMX_FRM_H264_NON_IDR_PIC))
+
+	case DMX_VIDEO_CODEC_H264:
+		if ((pattern_type == DMX_IDX_H264_IDR_START) ||
+			(pattern_type == DMX_IDX_H264_NON_IDR_START))
 			return 1;
 		return 0;
-	case DMX_INDEXING_VC1:
-		if (pattern_type == DMX_FRM_VC1_FRAME_START_CODE)
+
+	case DMX_VIDEO_CODEC_VC1:
+		if (pattern_type == DMX_IDX_VC1_FRAME_START)
 			return 1;
 		return 0;
+
 	default:
 		return -EINVAL;
 	}
-}
-
-/*
- * mpq_framing_pattern_lookup_results - framing lookup results
- *
- * @offset: The offset in the buffer where the pattern was found.
- * If a pattern is found using a prefix (i.e. started on the
- * previous buffer), offset is zero.
- * @type: the type of the pattern found.
- * @used_prefix_size: the prefix size that was used to find this pattern
- */
-struct mpq_framing_pattern_lookup_results {
-	struct {
-		u32 offset;
-		enum dmx_framing_pattern_type type;
-		u32 used_prefix_size;
-	} info[MPQ_MAX_FOUND_PATTERNS];
-};
-
-/*
- * Check if two patterns are identical, taking mask into consideration.
- * @pattern1: the first byte pattern to compare.
- * @pattern2: the second byte pattern to compare.
- * @mask: the bit mask to use.
- * @pattern_size: the length of both patterns and the mask, in bytes.
- *
- * Return: 1 if patterns match, 0 otherwise.
- */
-static inline int mpq_dmx_patterns_match(const u8 *pattern1, const u8 *pattern2,
-					const u8 *mask, size_t pattern_size)
-{
-	int i;
-
-	/*
-	 * Assumption: it is OK to access pattern1, pattern2 and mask.
-	 * This function performs no sanity checks to keep things fast.
-	 */
-
-	for (i = 0; i < pattern_size; i++)
-		if ((pattern1[i] & mask[i]) != (pattern2[i] & mask[i]))
-			return 0;
-
-	return 1;
-}
-
-/*
- * mpq_dmx_framing_pattern_search -
- * search for framing patterns in a given buffer.
- *
- * Optimized version: first search for a common substring, e.g. 0x00 0x00 0x01.
- * If this string is found, go over all the given patterns (all must start
- * with this string) and search for their ending in the buffer.
- *
- * Assumption: the patterns we look for do not spread over more than two
- * buffers.
- *
- * @paterns: the full patterns information to look for.
- * @patterns_num: the number of patterns to look for.
- * @buf: the buffer to search.
- * @buf_size: the size of the buffer to search. we search the entire buffer.
- * @prefix_size_masks: a bit mask (per pattern) of possible prefix sizes to use
- * when searching for a pattern that started at the last buffer.
- * Updated in this function for use in the next lookup.
- * @results: lookup results (offset, type, used_prefix_size) per found pattern,
- * up to MPQ_MAX_FOUND_PATTERNS.
- *
- * Return:
- *   Number of patterns found (up to MPQ_MAX_FOUND_PATTERNS).
- *   0 if pattern was not found.
- *   Negative error value on failure.
- */
-static int mpq_dmx_framing_pattern_search(
-		const struct mpq_framing_pattern_lookup_params *patterns,
-		int patterns_num,
-		const u8 *buf,
-		size_t buf_size,
-		struct mpq_framing_prefix_size_masks *prefix_size_masks,
-		struct mpq_framing_pattern_lookup_results *results)
-{
-	int i, j;
-	unsigned int current_size;
-	u32 prefix;
-	int found = 0;
-	int start_offset = 0;
-	/* the starting common substring to look for */
-	u8 string[] = {0x00, 0x00, 0x01};
-	/* the mask for the starting string */
-	u8 string_mask[] = {0xFF, 0xFF, 0xFF};
-	/* the size of the starting string (in bytes) */
-	size_t string_size = 3;
-
-	/* sanity checks - can be commented out for optimization purposes */
-	if ((patterns == NULL) || (patterns_num <= 0) || (buf == NULL)) {
-		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	memset(results, 0, sizeof(struct mpq_framing_pattern_lookup_results));
-
-	/*
-	 * handle prefix - disregard string, simply check all patterns,
-	 * looking for a matching suffix at the very beginning of the buffer.
-	 */
-	for (j = 0; (j < patterns_num) && !found; j++) {
-		prefix = prefix_size_masks->size_mask[j];
-		current_size = 32;
-		while (prefix) {
-			if (prefix & (0x1 << (current_size - 1))) {
-				/*
-				 * check that we don't look further
-				 * than buf_size boundary
-				 */
-				if ((int)(patterns[j].size - current_size) >
-						buf_size)
-					break;
-
-				if (mpq_dmx_patterns_match(
-					(patterns[j].pattern + current_size),
-					buf, (patterns[j].mask + current_size),
-					(patterns[j].size - current_size))) {
-
-					MPQ_DVB_DBG_PRINT(
-						"%s: Found matching pattern using prefix of size %d\n",
-						__func__, current_size);
-					/*
-					 * pattern found using prefix at the
-					 * very beginning of the buffer, so
-					 * offset is 0, but we already zeroed
-					 * everything in the beginning of the
-					 * function. that's why the next line
-					 * is commented.
-					 */
-					/* results->info[found].offset = 0; */
-					results->info[found].type =
-							patterns[j].type;
-					results->info[found].used_prefix_size =
-							current_size;
-					found++;
-					/*
-					 * save offset to start looking from
-					 * in the buffer, to avoid reusing the
-					 * data of a pattern we already found.
-					 */
-					start_offset = (patterns[j].size -
-							current_size);
-
-					if (found >= MPQ_MAX_FOUND_PATTERNS)
-						goto next_prefix_lookup;
-					/*
-					 * we don't want to search for the same
-					 * pattern with several possible prefix
-					 * sizes if we have already found it,
-					 * so we break from the inner loop.
-					 * since we incremented 'found', we
-					 * will not search for additional
-					 * patterns using a prefix - that would
-					 * imply ambiguous patterns where one
-					 * pattern can be included in another.
-					 * the for loop will exit.
-					 */
-					break;
-				}
-			}
-			prefix &= ~(0x1 << (current_size - 1));
-			current_size--;
-		}
-	}
-
-	/*
-	 * Search buffer for entire pattern, starting with the string.
-	 * Note the external for loop does not execute if buf_size is
-	 * smaller than string_size (the cast to int is required, since
-	 * size_t is unsigned).
-	 */
-	for (i = start_offset; i < (int)(buf_size - string_size + 1); i++) {
-		if (mpq_dmx_patterns_match(string, (buf + i), string_mask,
-							string_size)) {
-			/* now search for patterns: */
-			for (j = 0; j < patterns_num; j++) {
-				/* avoid overflow to next buffer */
-				if ((i + patterns[j].size) > buf_size)
-					continue;
-
-				if (mpq_dmx_patterns_match(
-					(patterns[j].pattern + string_size),
-					(buf + i + string_size),
-					(patterns[j].mask + string_size),
-					(patterns[j].size - string_size))) {
-
-					results->info[found].offset = i;
-					results->info[found].type =
-						patterns[j].type;
-					/*
-					 * save offset to start next prefix
-					 * lookup, to avoid reusing the data
-					 * of any pattern we already found.
-					 */
-					if ((i + patterns[j].size) >
-							start_offset)
-						start_offset = (i +
-							patterns[j].size);
-					/*
-					 * did not use a prefix to find this
-					 * pattern, but we zeroed everything
-					 * in the beginning of the function.
-					 * So no need to zero used_prefix_size
-					 * for results->info[found]
-					 */
-
-					found++;
-					if (found >= MPQ_MAX_FOUND_PATTERNS)
-						goto next_prefix_lookup;
-					/*
-					 * theoretically we don't have to break
-					 * here, but we don't want to search
-					 * for the other matching patterns on
-					 * the very same same place in the
-					 * buffer. That would mean the
-					 * (pattern & mask) combinations are
-					 * not unique. So we break from inner
-					 * loop and move on to the next place
-					 * in the buffer.
-					 */
-					break;
-				}
-			}
-		}
-	}
-
-next_prefix_lookup:
-	/* check for possible prefix sizes for the next buffer */
-	for (j = 0; j < patterns_num; j++) {
-		prefix_size_masks->size_mask[j] = 0;
-		for (i = 1; i < patterns[j].size; i++) {
-			/*
-			 * avoid looking outside of the buffer
-			 * or reusing previously used data.
-			 */
-			if (i > (buf_size - start_offset))
-				break;
-
-			if (mpq_dmx_patterns_match(patterns[j].pattern,
-					(buf + buf_size - i),
-					patterns[j].mask, i)) {
-				prefix_size_masks->size_mask[j] |=
-						(1 << (i - 1));
-			}
-		}
-	}
-
-	return found;
 }
 
 /*
@@ -491,29 +222,32 @@ next_prefix_lookup:
  * get a pointer to the relevant pattern parameters structure,
  * based on the video parameters.
  *
- * @video_params: the video parameters (e.g. video standard).
+ * @video_codec: the video codec.
  * @patterns: a pointer to a pointer to the pattern parameters,
  * updated by this function.
  * @patterns_num: number of patterns, updated by this function.
  */
 static inline int mpq_dmx_get_pattern_params(
-		struct dmx_indexing_video_params *video_params,
-		const struct mpq_framing_pattern_lookup_params **patterns,
+		enum dmx_video_codec video_codec,
+		const struct dvb_dmx_video_patterns **patterns,
 		int *patterns_num)
 {
-	switch (video_params->standard) {
-	case DMX_INDEXING_MPEG2:
+	switch (video_codec) {
+	case DMX_VIDEO_CODEC_MPEG2:
 		*patterns = mpeg2_patterns;
 		*patterns_num = MPQ_MPEG2_PATTERN_NUM;
 		break;
-	case DMX_INDEXING_H264:
+
+	case DMX_VIDEO_CODEC_H264:
 		*patterns = h264_patterns;
 		*patterns_num = MPQ_H264_PATTERN_NUM;
 		break;
-	case DMX_INDEXING_VC1:
+
+	case DMX_VIDEO_CODEC_VC1:
 		*patterns = vc1_patterns;
 		*patterns_num = MPQ_VC1_PATTERN_NUM;
 		break;
+
 	default:
 		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
 		*patterns = NULL;
@@ -1572,7 +1306,7 @@ static int mpq_dmx_init_video_feed(struct mpq_feed *mpq_feed)
 	/* get and store framing information if required */
 	if (!mpq_dmx_info.decoder_framing) {
 		mpq_dmx_get_pattern_params(
-			&mpq_feed->dvb_demux_feed->indexing_params,
+			mpq_feed->dvb_demux_feed->video_codec,
 			&feed_data->patterns, &feed_data->patterns_num);
 		if (feed_data->patterns == NULL) {
 			MPQ_DVB_ERR_PRINT(
@@ -1664,10 +1398,10 @@ static int mpq_dmx_init_video_feed(struct mpq_feed *mpq_feed)
 		&feed_data->frame_offset);
 	feed_data->last_pattern_offset = 0;
 	feed_data->pending_pattern_len = 0;
-	feed_data->last_framing_match_type = DMX_FRM_UNKNOWN;
+	feed_data->last_framing_match_type = 0;
 	feed_data->found_sequence_header_pattern = 0;
 	memset(&feed_data->prefix_size, 0,
-			sizeof(struct mpq_framing_prefix_size_masks));
+			sizeof(struct dvb_dmx_video_prefix_size_masks));
 	feed_data->first_prefix_size = 0;
 	feed_data->saved_pts_dts_info.pts_exist = 0;
 	feed_data->saved_pts_dts_info.dts_exist = 0;
@@ -2537,7 +2271,7 @@ static void mpq_dmx_decoder_frame_closure(struct mpq_demux *mpq_demux,
 
 	/* Report last pattern found */
 	if ((feed_data->pending_pattern_len) &&
-		mpq_dmx_is_video_frame(feed->indexing_params.standard,
+		mpq_dmx_is_video_frame(feed->video_codec,
 			feed_data->last_framing_match_type)) {
 		meta_data.packet_type = DMX_FRAMING_INFO_PACKET;
 		mpq_dmx_write_pts_dts(feed_data,
@@ -2658,7 +2392,7 @@ static int mpq_dmx_process_video_packet_framing(
 	struct mpq_demux *mpq_demux;
 	struct mpq_feed *mpq_feed;
 
-	struct mpq_framing_pattern_lookup_results framing_res;
+	struct dvb_dmx_video_patterns_results framing_res;
 	struct mpq_streambuffer_packet_header packet;
 	struct mpq_adapter_video_meta_data meta_data;
 	int bytes_written = 0;
@@ -2788,7 +2522,7 @@ static int mpq_dmx_process_video_packet_framing(
 	 * the decoder requires demux to do framing,
 	 * so search for the patterns now.
 	 */
-	found_patterns = mpq_dmx_framing_pattern_search(
+	found_patterns = dvb_dmx_video_pattern_search(
 				feed_data->patterns,
 				feed_data->patterns_num,
 				(buf + ts_payload_offset),
@@ -2796,17 +2530,17 @@ static int mpq_dmx_process_video_packet_framing(
 				&feed_data->prefix_size,
 				&framing_res);
 
-	if (!(feed_data->found_sequence_header_pattern)) {
+	if (!feed_data->found_sequence_header_pattern) {
 		for (i = 0; i < found_patterns; i++) {
 			if ((framing_res.info[i].type ==
-				DMX_FRM_MPEG2_SEQUENCE_HEADER) ||
+				DMX_IDX_MPEG_SEQ_HEADER) ||
 			    (framing_res.info[i].type ==
-				DMX_FRM_H264_SPS) ||
-			    (framing_res.info[i].type ==
-				DMX_FRM_VC1_SEQUENCE_HEADER)) {
+				DMX_IDX_H264_SPS) ||
+				(framing_res.info[i].type ==
+				DMX_IDX_VC1_SEQ_HEADER)) {
 
 				MPQ_DVB_DBG_PRINT(
-					"%s: Found Sequence Pattern, buf %p, i = %d, offset = %d, type = %d\n",
+					"%s: Found Sequence Pattern, buf %p, i = %d, offset = %d, type = %lld\n",
 					__func__, buf, i,
 					framing_res.info[i].offset,
 					framing_res.info[i].type);
@@ -2849,10 +2583,10 @@ static int mpq_dmx_process_video_packet_framing(
 	if (feed_data->first_pts_dts_copy) {
 		for (i = first_pattern; i < found_patterns; i++) {
 			is_video_frame = mpq_dmx_is_video_frame(
-					feed->indexing_params.standard,
+					feed->video_codec,
 					framing_res.info[i].type);
 
-			if (is_video_frame) {
+			if (is_video_frame == 1) {
 				mpq_dmx_save_pts_dts(feed_data);
 				feed_data->first_pts_dts_copy = 0;
 				break;
@@ -2969,9 +2703,8 @@ static int mpq_dmx_process_video_packet_framing(
 		}
 
 		is_video_frame = mpq_dmx_is_video_frame(
-				feed->indexing_params.standard,
+				feed->video_codec,
 				feed_data->last_framing_match_type);
-
 		if (is_video_frame == 1) {
 			mpq_dmx_write_pts_dts(feed_data,
 				&(meta_data.info.framing.pts_dts_info));

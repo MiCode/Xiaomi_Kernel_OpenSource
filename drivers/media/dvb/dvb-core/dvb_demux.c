@@ -122,6 +122,235 @@ static u32 dvb_dmx_calc_time_delta(struct timespec past_time)
  * Software filter functions
  ******************************************************************************/
 
+/*
+ * Check if two patterns are identical, taking mask into consideration.
+ * @pattern1: the first byte pattern to compare.
+ * @pattern2: the second byte pattern to compare.
+ * @mask: the bit mask to use.
+ * @pattern_size: the length of both patterns and the mask, in bytes.
+ *
+ * Return: 1 if patterns match, 0 otherwise.
+ */
+static inline int dvb_dmx_patterns_match(const u8 *pattern1, const u8 *pattern2,
+					const u8 *mask, size_t pattern_size)
+{
+	int i;
+
+	/*
+	 * Assumption: it is OK to access pattern1, pattern2 and mask.
+	 * This function performs no sanity checks to keep things fast.
+	 */
+
+	for (i = 0; i < pattern_size; i++)
+		if ((pattern1[i] & mask[i]) != (pattern2[i] & mask[i]))
+			return 0;
+
+	return 1;
+}
+
+/*
+ * dvb_dmx_video_pattern_search -
+ * search for framing patterns in a given buffer.
+ *
+ * Optimized version: first search for a common substring, e.g. 0x00 0x00 0x01.
+ * If this string is found, go over all the given patterns (all must start
+ * with this string) and search for their ending in the buffer.
+ *
+ * Assumption: the patterns we look for do not spread over more than two
+ * buffers.
+ *
+ * @paterns: the full patterns information to look for.
+ * @patterns_num: the number of patterns to look for.
+ * @buf: the buffer to search.
+ * @buf_size: the size of the buffer to search. we search the entire buffer.
+ * @prefix_size_masks: a bit mask (per pattern) of possible prefix sizes to use
+ * when searching for a pattern that started at the last buffer.
+ * Updated in this function for use in the next lookup.
+ * @results: lookup results (offset, type, used_prefix_size) per found pattern,
+ * up to DVB_DMX_MAX_FOUND_PATTERNS.
+ *
+ * Return:
+ *   Number of patterns found (up to DVB_DMX_MAX_FOUND_PATTERNS).
+ *   0 if pattern was not found.
+ *   error value on failure.
+ */
+int dvb_dmx_video_pattern_search(
+		const struct dvb_dmx_video_patterns *patterns,
+		int patterns_num,
+		const u8 *buf,
+		size_t buf_size,
+		struct dvb_dmx_video_prefix_size_masks *prefix_size_masks,
+		struct dvb_dmx_video_patterns_results *results)
+{
+	int i, j;
+	unsigned int current_size;
+	u32 prefix;
+	int found = 0;
+	int start_offset = 0;
+	/* the starting common substring to look for */
+	u8 string[] = {0x00, 0x00, 0x01};
+	/* the mask for the starting string */
+	u8 string_mask[] = {0xFF, 0xFF, 0xFF};
+	/* the size of the starting string (in bytes) */
+	size_t string_size = 3;
+
+	if ((patterns == NULL) || (patterns_num <= 0) || (buf == NULL))
+		return -EINVAL;
+
+	memset(results, 0, sizeof(struct dvb_dmx_video_patterns_results));
+
+	/*
+	 * handle prefix - disregard string, simply check all patterns,
+	 * looking for a matching suffix at the very beginning of the buffer.
+	 */
+	for (j = 0; (j < patterns_num) && !found; j++) {
+		prefix = prefix_size_masks->size_mask[j];
+		current_size = 32;
+		while (prefix) {
+			if (prefix & (0x1 << (current_size - 1))) {
+				/*
+				 * check that we don't look further
+				 * than buf_size boundary
+				 */
+				if ((int)(patterns[j].size - current_size) >
+						buf_size)
+					break;
+
+				if (dvb_dmx_patterns_match(
+					(patterns[j].pattern + current_size),
+					buf, (patterns[j].mask + current_size),
+					(patterns[j].size - current_size))) {
+
+					/*
+					 * pattern found using prefix at the
+					 * very beginning of the buffer, so
+					 * offset is 0, but we already zeroed
+					 * everything in the beginning of the
+					 * function. that's why the next line
+					 * is commented.
+					 */
+					/* results->info[found].offset = 0; */
+					results->info[found].type =
+							patterns[j].type;
+					results->info[found].used_prefix_size =
+							current_size;
+					found++;
+					/*
+					 * save offset to start looking from
+					 * in the buffer, to avoid reusing the
+					 * data of a pattern we already found.
+					 */
+					start_offset = (patterns[j].size -
+							current_size);
+
+					if (found >= DVB_DMX_MAX_FOUND_PATTERNS)
+						goto next_prefix_lookup;
+					/*
+					 * we don't want to search for the same
+					 * pattern with several possible prefix
+					 * sizes if we have already found it,
+					 * so we break from the inner loop.
+					 * since we incremented 'found', we
+					 * will not search for additional
+					 * patterns using a prefix - that would
+					 * imply ambiguous patterns where one
+					 * pattern can be included in another.
+					 * the for loop will exit.
+					 */
+					break;
+				}
+			}
+			prefix &= ~(0x1 << (current_size - 1));
+			current_size--;
+		}
+	}
+
+	/*
+	 * Search buffer for entire pattern, starting with the string.
+	 * Note the external for loop does not execute if buf_size is
+	 * smaller than string_size (the cast to int is required, since
+	 * size_t is unsigned).
+	 */
+	for (i = start_offset; i < (int)(buf_size - string_size + 1); i++) {
+		if (dvb_dmx_patterns_match(string, (buf + i), string_mask,
+							string_size)) {
+			/* now search for patterns: */
+			for (j = 0; j < patterns_num; j++) {
+				/* avoid overflow to next buffer */
+				if ((i + patterns[j].size) > buf_size)
+					continue;
+
+				if (dvb_dmx_patterns_match(
+					(patterns[j].pattern + string_size),
+					(buf + i + string_size),
+					(patterns[j].mask + string_size),
+					(patterns[j].size - string_size))) {
+
+					results->info[found].offset = i;
+					results->info[found].type =
+						patterns[j].type;
+					/*
+					 * save offset to start next prefix
+					 * lookup, to avoid reusing the data
+					 * of any pattern we already found.
+					 */
+					if ((i + patterns[j].size) >
+							start_offset)
+						start_offset = (i +
+							patterns[j].size);
+					/*
+					 * did not use a prefix to find this
+					 * pattern, but we zeroed everything
+					 * in the beginning of the function.
+					 * So no need to zero used_prefix_size
+					 * for results->info[found]
+					 */
+
+					found++;
+					if (found >= DVB_DMX_MAX_FOUND_PATTERNS)
+						goto next_prefix_lookup;
+					/*
+					 * theoretically we don't have to break
+					 * here, but we don't want to search
+					 * for the other matching patterns on
+					 * the very same same place in the
+					 * buffer. That would mean the
+					 * (pattern & mask) combinations are
+					 * not unique. So we break from inner
+					 * loop and move on to the next place
+					 * in the buffer.
+					 */
+					break;
+				}
+			}
+		}
+	}
+
+next_prefix_lookup:
+	/* check for possible prefix sizes for the next buffer */
+	for (j = 0; j < patterns_num; j++) {
+		prefix_size_masks->size_mask[j] = 0;
+		for (i = 1; i < patterns[j].size; i++) {
+			/*
+			 * avoid looking outside of the buffer
+			 * or reusing previously used data.
+			 */
+			if (i > (buf_size - start_offset))
+				break;
+
+			if (dvb_dmx_patterns_match(patterns[j].pattern,
+					(buf + buf_size - i),
+					patterns[j].mask, i)) {
+				prefix_size_masks->size_mask[j] |=
+						(1 << (i - 1));
+			}
+		}
+	}
+
+	return found;
+}
+EXPORT_SYMBOL(dvb_dmx_video_pattern_search);
+
 static inline int dvb_dmx_swfilter_payload(struct dvb_demux_feed *feed,
 					   const u8 *buf)
 {
@@ -1238,14 +1467,13 @@ static int dmx_ts_set_secure_mode(struct dmx_ts_feed *feed,
 	return ret;
 }
 
-static int dmx_ts_set_indexing_params(
+static int dmx_ts_set_video_codec(
 	struct dmx_ts_feed *ts_feed,
-	struct dmx_indexing_video_params *params)
+	enum dmx_video_codec video_codec)
 {
 	struct dvb_demux_feed *feed = (struct dvb_demux_feed *)ts_feed;
 
-	memcpy(&feed->indexing_params, params,
-			sizeof(struct dmx_indexing_video_params));
+	feed->video_codec = video_codec;
 
 	return 0;
 }
@@ -1382,8 +1610,6 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	feed->secure_mode.is_secured = 0;
 	feed->buffer = NULL;
 	feed->tsp_out_format = DMX_TSP_FORMAT_188;
-	memset(&feed->indexing_params, 0,
-			sizeof(struct dmx_indexing_video_params));
 
 	/* default behaviour - pass first PES data even if it is
 	 * partial PES data from previous PES that we didn't receive its header.
@@ -1399,7 +1625,7 @@ static int dvbdmx_allocate_ts_feed(struct dmx_demux *dmx,
 	(*ts_feed)->start_filtering = dmx_ts_feed_start_filtering;
 	(*ts_feed)->stop_filtering = dmx_ts_feed_stop_filtering;
 	(*ts_feed)->set = dmx_ts_feed_set;
-	(*ts_feed)->set_indexing_params = dmx_ts_set_indexing_params;
+	(*ts_feed)->set_video_codec = dmx_ts_set_video_codec;
 	(*ts_feed)->set_tsp_out_format = dmx_ts_set_tsp_out_format;
 	(*ts_feed)->get_decoder_buff_status = dmx_ts_feed_decoder_buff_status;
 	(*ts_feed)->reuse_decoder_buffer = dmx_ts_feed_reuse_decoder_buffer;
