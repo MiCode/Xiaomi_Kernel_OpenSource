@@ -153,3 +153,8 @@ config MSMB_JPEG
 	  This module serves as the common driver
 	  for the JPEG 1.0 encoder and decoder.
 
+config MSM_GEMINI
+	tristate "Qualcomm MSM Gemini JPEG engine support"
+	depends on MSMB_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM8960)
+	---help---
+	  Enables support for the Gemini JPEG encoder engine for 8x60.
