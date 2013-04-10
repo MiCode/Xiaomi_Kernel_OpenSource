@@ -1530,6 +1530,45 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 
 }
 
+static int qcedev_check_cipher_key(struct qcedev_cipher_op_req *req,
+						struct qcedev_control *podev)
+{
+	/* if intending to use HW key make sure key fields are set
+	 * correctly and HW key is indeed supported in target
+	 */
+	if (req->encklen == 0) {
+		int i;
+		for (i = 0; i < QCEDEV_MAX_KEY_SIZE; i++)
+			if (req->enckey[i])
+				goto error;
+		if ((req->op != QCEDEV_OPER_ENC_NO_KEY) &&
+			(req->op != QCEDEV_OPER_DEC_NO_KEY))
+			if (!podev->platform_support.hw_key_support)
+				goto error;
+	} else {
+		if (req->encklen == QCEDEV_AES_KEY_192) {
+			if (!podev->ce_support.aes_key_192)
+				goto error;
+		} else {
+			/* if not using HW key make sure key
+			 * length is valid
+			 */
+			if ((req->mode == QCEDEV_AES_MODE_XTS)) {
+				if (!((req->encklen == QCEDEV_AES_KEY_128*2) ||
+					(req->encklen == QCEDEV_AES_KEY_256*2)))
+					goto error;
+			} else {
+				if (!((req->encklen == QCEDEV_AES_KEY_128) ||
+					(req->encklen == QCEDEV_AES_KEY_256)))
+					goto error;
+			}
+		}
+	}
+	return 0;
+error:
+	return -EINVAL;
+}
+
 static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
 						struct qcedev_control *podev)
 {
@@ -1542,36 +1581,13 @@ static int qcedev_check_cipher_params(struct qcedev_cipher_op_req *req,
 	if ((req->alg >= QCEDEV_ALG_LAST) ||
 		(req->mode >= QCEDEV_AES_DES_MODE_LAST))
 		goto error;
-	if (req->alg == QCEDEV_ALG_AES) {
-		if ((req->mode == QCEDEV_AES_MODE_XTS) &&
-					(!podev->ce_support.aes_xts))
-			goto error;
-		/* if intending to use HW key make sure key fields are set
-		 * correctly and HW key is indeed supported in target
-		 */
-		if (req->encklen == 0) {
-			int i;
-			for (i = 0; i < QCEDEV_MAX_KEY_SIZE; i++)
-				if (req->enckey[i])
+
+	if ((req->mode == QCEDEV_AES_MODE_XTS) && (!podev->ce_support.aes_xts))
 					goto error;
-			if ((req->op != QCEDEV_OPER_ENC_NO_KEY) &&
-				(req->op != QCEDEV_OPER_DEC_NO_KEY))
-				if (!podev->platform_support.hw_key_support)
+
+	if (req->alg == QCEDEV_ALG_AES)
+		if (qcedev_check_cipher_key(req, podev))
 					goto error;
-		} else {
-			if (req->encklen == QCEDEV_AES_KEY_192) {
-				if (!podev->ce_support.aes_key_192)
-					goto error;
-			} else {
-				/* if not using HW key make sure key
-				 * length is valid
-				 */
-				if (!((req->encklen == QCEDEV_AES_KEY_128) ||
-					(req->encklen == QCEDEV_AES_KEY_256)))
-					goto error;
-			}
-		}
-	}
 	/* if using a byteoffset, make sure it is CTR mode using vbuf */
 	if (req->byteoffset) {
 		if (req->mode != QCEDEV_AES_MODE_CTR)
