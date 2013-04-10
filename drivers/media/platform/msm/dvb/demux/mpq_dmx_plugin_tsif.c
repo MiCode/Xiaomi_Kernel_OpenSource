@@ -719,7 +719,7 @@ static int mpq_tsif_dmx_init(
 	}
 
 	/* Extend dvb-demux debugfs with TSIF statistics. */
-	mpq_dmx_init_hw_statistics(mpq_demux);
+	mpq_dmx_init_debugfs_entries(mpq_demux);
 
 	return 0;
 
