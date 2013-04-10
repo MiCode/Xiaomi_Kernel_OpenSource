@@ -4959,6 +4959,10 @@ static int msmsdcc_sps_init(struct msmsdcc_host *host)
 	bam.callback = msmsdcc_sps_bam_global_irq_cb;
 	bam.user = (void *)host;
 
+	/* bam reset messages will be limited to 5 times */
+	bam.constrained_logging = true;
+	bam.logging_number = 5;
+
 	pr_info("%s: bam physical base=0x%x\n", mmc_hostname(host->mmc),
 			(u32)bam.phys_addr);
 	pr_info("%s: bam virtual base=0x%x\n", mmc_hostname(host->mmc),
