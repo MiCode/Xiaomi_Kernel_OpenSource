@@ -743,7 +743,8 @@ static struct gpiomux_setting auxpcm_sus_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-static struct msm_gpiomux_config msm8974_pri_auxpcm_configs[] __initdata = {
+/* Primary AUXPCM port sharing GPIO lines with Primary MI2S */
+static struct msm_gpiomux_config msm8974_pri_pri_auxpcm_configs[] __initdata = {
 	{
 		.gpio = 65,
 		.settings = {
@@ -767,6 +768,38 @@ static struct msm_gpiomux_config msm8974_pri_auxpcm_configs[] __initdata = {
 	},
 	{
 		.gpio = 68,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+};
+
+/* Primary AUXPCM port sharing GPIO lines with Tertiary MI2S */
+static struct msm_gpiomux_config msm8974_pri_ter_auxpcm_configs[] __initdata = {
+	{
+		.gpio = 74,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 75,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 76,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
+			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
+		},
+	},
+	{
+		.gpio = 77,
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &auxpcm_sus_cfg,
 			[GPIOMUX_ACTIVE] = &auxpcm_act_cfg,
@@ -1090,8 +1123,13 @@ void __init msm_8974_init_gpiomux(void)
 		msm_gpiomux_install(msm_mhl_configs,
 				    ARRAY_SIZE(msm_mhl_configs));
 
-	msm_gpiomux_install(msm8974_pri_auxpcm_configs,
-				 ARRAY_SIZE(msm8974_pri_auxpcm_configs));
+	if (of_board_is_liquid())
+		msm_gpiomux_install(msm8974_pri_ter_auxpcm_configs,
+				 ARRAY_SIZE(msm8974_pri_ter_auxpcm_configs));
+	else
+		msm_gpiomux_install(msm8974_pri_pri_auxpcm_configs,
+				 ARRAY_SIZE(msm8974_pri_pri_auxpcm_configs));
+
 	msm_gpiomux_install(msm8974_sec_auxpcm_configs,
 				 ARRAY_SIZE(msm8974_sec_auxpcm_configs));
 
