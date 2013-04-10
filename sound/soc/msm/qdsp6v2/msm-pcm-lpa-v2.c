@@ -24,6 +24,7 @@
 #include <sound/pcm.h>
 #include <sound/initval.h>
 #include <sound/control.h>
+#include <sound/pcm_params.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 
@@ -493,8 +494,8 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		return -EPERM;
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
 			prtd->audio_client,
-			runtime->hw.period_bytes_min,
-			runtime->hw.periods_max);
+			params_period_bytes(params),
+			params_periods(params));
 	if (ret < 0) {
 		pr_err("Audio Start: Buffer Allocation failed rc = %d\n",
 						ret);
@@ -511,7 +512,7 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->private_data = NULL;
 	dma_buf->area = buf[0].data;
 	dma_buf->addr =  buf[0].phys;
-	dma_buf->bytes = runtime->hw.buffer_bytes_max;
+	dma_buf->bytes = params_period_bytes(params) * params_periods(params);
 	if (!dma_buf->area)
 		return -ENOMEM;
 
