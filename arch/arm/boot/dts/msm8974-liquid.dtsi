@@ -347,6 +347,12 @@
 		qcom,ext-spk-amp-gpio = <&pm8841_mpps 1 0>;
 		qcom,dock-plug-det-irq = <&pm8841_mpps 2 0>;
 		qcom,hdmi-audio-rx;
+
+		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 74 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msmgpio 75 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msmgpio 76 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msmgpio 77 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-tert";
 	};
 
 	hsic_hub {
