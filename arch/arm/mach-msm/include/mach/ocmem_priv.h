@@ -85,6 +85,12 @@ struct ocmem_zone {
 	atomic_long_t z_stat[NR_OCMEM_ZSTAT_ITEMS];
 	struct gen_pool *z_pool;
 	struct ocmem_zone_ops *z_ops;
+	unsigned int max_alloc_time;
+	unsigned int min_alloc_time;
+	u64 total_alloc_time;
+	unsigned int max_free_time;
+	unsigned int min_free_time;
+	u64 total_free_time;
 };
 
 enum op_code {
