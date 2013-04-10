@@ -47,7 +47,7 @@ struct lpass_data {
 	void *ramdump_dev;
 	int wdog_irq;
 	struct work_struct work;
-	void *riva_notif_hdle;
+	void *wcnss_notif_hdle;
 	void *modem_notif_hdle;
 	int crash_shutdown;
 };
@@ -189,24 +189,19 @@ static struct pil_reset_ops pil_lpass_ops_trusted = {
 	.shutdown = pil_lpass_shutdown_trusted,
 };
 
-static int riva_notifier_cb(struct notifier_block *this, unsigned long code,
+static int wcnss_notifier_cb(struct notifier_block *this, unsigned long code,
 								void *ss_handle)
 {
 	int ret;
-	switch (code) {
-	case SUBSYS_BEFORE_SHUTDOWN:
-		pr_debug("%s: R-Notify: Shutdown started\n", __func__);
-		ret = sysmon_send_event(SYSMON_SS_LPASS, "wcnss",
-				SUBSYS_BEFORE_SHUTDOWN);
-		if (ret < 0)
-			pr_err("%s: sysmon_send_event error %d", __func__, ret);
-		break;
-	}
+	pr_debug("%s: W-Notify: event %lu\n", __func__, code);
+	ret = sysmon_send_event(SYSMON_SS_LPASS, "wcnss", code);
+	if (ret < 0)
+		pr_err("%s: sysmon_send_event error %d", __func__, ret);
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block rnb = {
-	.notifier_call = riva_notifier_cb,
+static struct notifier_block wnb = {
+	.notifier_call = wcnss_notifier_cb,
 };
 
 static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
@@ -480,10 +475,10 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_smsm;
 
-	drv->riva_notif_hdle = subsys_notif_register_notifier("riva", &rnb);
-	if (IS_ERR(drv->riva_notif_hdle)) {
-		ret = PTR_ERR(drv->riva_notif_hdle);
-		goto err_notif_riva;
+	drv->wcnss_notif_hdle = subsys_notif_register_notifier("wcnss", &wnb);
+	if (IS_ERR(drv->wcnss_notif_hdle)) {
+		ret = PTR_ERR(drv->wcnss_notif_hdle);
+		goto err_notif_wcnss;
 	}
 
 	drv->modem_notif_hdle = subsys_notif_register_notifier("modem", &mnb);
@@ -510,8 +505,8 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 err_kobj:
 	kobject_put(lpass_status);
 err_notif_modem:
-	subsys_notif_unregister_notifier(drv->riva_notif_hdle, &rnb);
-err_notif_riva:
+	subsys_notif_unregister_notifier(drv->wcnss_notif_hdle, &wnb);
+err_notif_wcnss:
 	smsm_state_cb_deregister(SMSM_Q6_STATE, SMSM_RESET,
 			adsp_smsm_state_cb, drv);
 err_smsm:
@@ -527,7 +522,7 @@ err_ramdump:
 static int __devexit pil_lpass_driver_exit(struct platform_device *pdev)
 {
 	struct lpass_data *drv = platform_get_drvdata(pdev);
-	subsys_notif_unregister_notifier(drv->riva_notif_hdle, &rnb);
+	subsys_notif_unregister_notifier(drv->wcnss_notif_hdle, &wnb);
 	subsys_notif_unregister_notifier(drv->modem_notif_hdle, &mnb);
 	smsm_state_cb_deregister(SMSM_Q6_STATE, SMSM_RESET,
 			adsp_smsm_state_cb, drv);
