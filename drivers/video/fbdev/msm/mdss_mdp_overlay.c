@@ -374,8 +374,8 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 				pr_err("Can't switch mixer %d->%d pnum %d!\n",
 						pipe->mixer->num, mixer->num,
 						pipe->num);
-				mdss_mdp_pipe_unmap(pipe);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto exit_fail;
 			}
 			pr_debug("switching pipe mixer %d->%d pnum %d\n",
 					pipe->mixer->num, mixer->num,
@@ -474,6 +474,12 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 	}
 
+	ret = mdss_mdp_smp_reserve(pipe);
+	if (ret) {
+		pr_debug("mdss_mdp_smp_reserve failed. ret=%d\n", ret);
+		goto exit_fail;
+	}
+
 	pipe->params_changed++;
 
 	req->id = pipe->ndx;
@@ -482,6 +488,25 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 
 	mdss_mdp_pipe_unmap(pipe);
 
+	return ret;
+
+exit_fail:
+	mdss_mdp_pipe_unmap(pipe);
+
+	mutex_lock(&mfd->lock);
+	if (pipe->play_cnt == 0) {
+		pr_debug("failed for pipe %d\n", pipe->num);
+		list_del(&pipe->used_list);
+		mdss_mdp_pipe_destroy(pipe);
+	}
+
+	/* invalidate any overlays in this framebuffer after failure */
+	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
+		pr_debug("freeing allocations for pipe %d\n", pipe->num);
+		mdss_mdp_smp_unreserve(pipe);
+		pipe->params_changed = 0;
+	}
+	mutex_unlock(&mfd->lock);
 	return ret;
 }
 
@@ -732,15 +757,16 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 		} else if (pipe->front_buf.num_planes) {
 			buf = &pipe->front_buf;
 		} else {
-			pr_warn("pipe queue without buffer\n");
-			buf = NULL;
+			pr_warn("pipe queue w/o buffer. unstaging layer\n");
+			mdss_mdp_mixer_pipe_unstage(pipe);
+			continue;
 		}
 
 		ret = mdss_mdp_pipe_queue_data(pipe, buf);
 		if (IS_ERR_VALUE(ret)) {
 			pr_warn("Unable to queue data for pnum=%d\n",
 					pipe->num);
-			mdss_mdp_overlay_free_buf(buf);
+			mdss_mdp_mixer_pipe_unstage(pipe);
 		}
 	}
 

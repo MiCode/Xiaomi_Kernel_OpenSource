@@ -40,17 +40,18 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 	return readl_relaxed(pipe->base + reg);
 }
 
-static u32 mdss_mdp_smp_mmb_reserve(unsigned long *smp, size_t n)
+static u32 mdss_mdp_smp_mmb_reserve(unsigned long *existing,
+	unsigned long *reserve, size_t n)
 {
 	u32 i, mmb;
 
 	/* reserve more blocks if needed, but can't free mmb at this point */
-	for (i = bitmap_weight(smp, SMP_MB_CNT); i < n; i++) {
+	for (i = bitmap_weight(existing, SMP_MB_CNT); i < n; i++) {
 		if (bitmap_full(mdss_mdp_smp_mmb_pool, SMP_MB_CNT))
 			break;
 
 		mmb = find_first_zero_bit(mdss_mdp_smp_mmb_pool, SMP_MB_CNT);
-		set_bit(mmb, smp);
+		set_bit(mmb, reserve);
 		set_bit(mmb, mdss_mdp_smp_mmb_pool);
 	}
 	return i;
@@ -74,10 +75,17 @@ static int mdss_mdp_smp_mmb_set(int client_id, unsigned long *smp)
 	return cnt;
 }
 
-static void mdss_mdp_smp_mmb_free(unsigned long *smp)
+static void mdss_mdp_smp_mmb_amend(unsigned long *smp, unsigned long *extra)
+{
+	bitmap_or(smp, smp, extra, SMP_MB_CNT);
+	bitmap_zero(extra, SMP_MB_CNT);
+}
+
+static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
 {
 	if (!bitmap_empty(smp, SMP_MB_CNT)) {
-		mdss_mdp_smp_mmb_set(MDSS_MDP_SMP_CLIENT_UNUSED, smp);
+		if (write)
+			mdss_mdp_smp_mmb_set(MDSS_MDP_SMP_CLIENT_UNUSED, smp);
 		bitmap_andnot(mdss_mdp_smp_mmb_pool, mdss_mdp_smp_mmb_pool,
 			      smp, SMP_MB_CNT);
 		bitmap_zero(smp, SMP_MB_CNT);
@@ -104,19 +112,33 @@ static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 
 static void mdss_mdp_smp_free(struct mdss_mdp_pipe *pipe)
 {
+	int i;
+
 	mutex_lock(&mdss_mdp_smp_lock);
-	mdss_mdp_smp_mmb_free(&pipe->smp[0]);
-	mdss_mdp_smp_mmb_free(&pipe->smp[1]);
-	mdss_mdp_smp_mmb_free(&pipe->smp[2]);
+	for (i = 0; i < MAX_PLANES; i++) {
+		mdss_mdp_smp_mmb_free(&pipe->smp_reserved[i], false);
+		mdss_mdp_smp_mmb_free(&pipe->smp[i], true);
+	}
 	mutex_unlock(&mdss_mdp_smp_lock);
 }
 
-static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
+void mdss_mdp_smp_unreserve(struct mdss_mdp_pipe *pipe)
+{
+	int i;
+
+	mutex_lock(&mdss_mdp_smp_lock);
+	for (i = 0; i < MAX_PLANES; i++)
+		mdss_mdp_smp_mmb_free(&pipe->smp_reserved[i], false);
+	mutex_unlock(&mdss_mdp_smp_lock);
+}
+
+int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 num_blks = 0, reserved = 0;
 	struct mdss_mdp_plane_sizes ps;
-	int i, rc;
+	int i;
+	int rc = 0;
 	u32 nlines;
 
 	if (pipe->bwc_mode) {
@@ -140,29 +162,29 @@ static int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < ps.num_planes; i++) {
 		nlines = pipe->bwc_mode ? ps.rau_h[i] : 2;
-		num_blks = DIV_ROUND_UP(nlines * ps.ystride[i],
-			mdss_res->smp_mb_size);
+		num_blks = DIV_ROUND_UP(nlines * ps.ystride[i], SMP_MB_SIZE);
 
 		if (mdata->mdp_rev == MDSS_MDP_HW_REV_100)
 			num_blks = roundup_pow_of_two(num_blks);
 
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
-		reserved = mdss_mdp_smp_mmb_reserve(&pipe->smp[i], num_blks);
+		reserved = mdss_mdp_smp_mmb_reserve(&pipe->smp[i],
+			&pipe->smp_reserved[i], num_blks);
 
 		if (reserved < num_blks)
 			break;
 	}
 
 	if (reserved < num_blks) {
-		pr_err("insufficient MMB blocks\n");
+		pr_debug("insufficient MMB blocks\n");
 		for (; i >= 0; i--)
-			mdss_mdp_smp_mmb_free(&pipe->smp[i]);
-		return -ENOMEM;
+			mdss_mdp_smp_mmb_free(&pipe->smp_reserved[i], false);
+		rc = -ENOMEM;
 	}
 	mutex_unlock(&mdss_mdp_smp_lock);
 
-	return 0;
+	return rc;
 }
 
 static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
@@ -171,8 +193,10 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 	int cnt = 0;
 
 	mutex_lock(&mdss_mdp_smp_lock);
-	for (i = 0; i < MAX_PLANES; i++)
+	for (i = 0; i < MAX_PLANES; i++) {
+		mdss_mdp_smp_mmb_amend(&pipe->smp[i], &pipe->smp_reserved[i]);
 		cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i, &pipe->smp[i]);
+	}
 	mdss_mdp_smp_set_wm_levels(pipe, cnt);
 	mutex_unlock(&mdss_mdp_smp_lock);
 	return 0;
@@ -644,13 +668,6 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)
 			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_OP_MODE,
 			opmode);
-
-		ret = mdss_mdp_smp_reserve(pipe);
-		if (ret) {
-			pr_err("unable to reserve smp for pnum=%d\n",
-			       pipe->num);
-			goto done;
-		}
 
 		mdss_mdp_smp_alloc(pipe);
 	}

@@ -204,9 +204,16 @@ static int mdss_mdp_rotator_queue_sub(struct mdss_mdp_rotator_session *rot,
 		rot_pipe->params_changed++;
 	}
 
+	ret = mdss_mdp_smp_reserve(rot->pipe);
+	if (ret) {
+		pr_err("unable to mdss_mdp_smp_reserve rot data\n");
+		return ret;
+	}
+
 	ret = mdss_mdp_pipe_queue_data(rot->pipe, src_data);
 	if (ret) {
 		pr_err("unable to queue rot data\n");
+		mdss_mdp_smp_unreserve(rot->pipe);
 		return ret;
 	}
 
