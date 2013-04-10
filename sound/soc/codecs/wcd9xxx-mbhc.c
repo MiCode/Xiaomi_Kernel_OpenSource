@@ -230,13 +230,13 @@ static void wcd9xxx_start_hs_polling(struct wcd9xxx_mbhc *mbhc)
 		pr_debug("Polling is not active, do not start polling\n");
 		return;
 	}
+
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret) {
 		pr_err("%s: Error returned, ret: %d\n", __func__, ret);
 		return;
 	}
-
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 
 	if (!mbhc->no_mic_headset_override &&
 	    mbhc_state == MBHC_STATE_POTENTIAL) {
@@ -964,10 +964,10 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	if (ret)
 		goto gen_err;
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret)
 		goto gen_err;
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 
 	snd_soc_update_bits(codec, WCD9XXX_A_TX_7_MBHC_EN, 0x80, 0x80);
 	snd_soc_update_bits(codec, WCD9XXX_A_TX_7_MBHC_EN, 0x1F, 0x1C);
@@ -2729,10 +2729,10 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	reg1 = snd_soc_read(codec, WCD9XXX_A_MAD_ANA_CTRL);
 	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL, 1 << 4, 1 << 0);
 	/* Connect the MUX to micbias */
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret)
 		goto gen_err;
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	usleep_range(WCD9XXX_MUX_SWITCH_READY_WAIT_US,
 		     WCD9XXX_MUX_SWITCH_READY_WAIT_US +
 		     WCD9XXX_USLEEP_RANGE_MARGIN_US);
@@ -2751,10 +2751,10 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	/* DCE measurment for MB voltage */
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x02);
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret)
 		goto gen_err;
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	usleep_range(100, 100);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x04);
 	usleep_range(mbhc->mbhc_data.t_dce, mbhc->mbhc_data.t_dce);
@@ -2764,10 +2764,10 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x0A);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x02);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x02);
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret)
 		goto gen_err;
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x02);
 	usleep_range(100, 100);
 	snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x02);
 	usleep_range(mbhc->mbhc_data.t_sta, mbhc->mbhc_data.t_sta);
@@ -2776,10 +2776,10 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	/* Restore default settings. */
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x04, 0x00);
 	snd_soc_write(codec, mbhc->mbhc_bias_regs.cfilt_ctl, cfilt_mode);
+	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 	ret = wcd9xxx_enable_mux_bias_block(codec, mbhc);
 	if (ret)
 		goto gen_err;
-	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x04);
 	usleep_range(100, 100);
 
 	wcd9xxx_enable_irq(codec->control_data, WCD9XXX_IRQ_MBHC_POTENTIAL);
