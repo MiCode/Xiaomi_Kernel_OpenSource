@@ -49,7 +49,6 @@ config MSM_IOMMU_PMON
 config IOMMU_PGTABLES_L2
 	bool "Allow SMMU page tables in the L2 cache (Experimental)"
 	depends on MSM_IOMMU && MMU && SMP && CPU_DCACHE_DISABLE=n
-	default y
         help
          Improves TLB miss latency at the expense of potential L2 pollution.
          However, with large multimedia buffers, the TLB should mostly contain
