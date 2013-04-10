@@ -71,6 +71,11 @@ Optional properties:
 			 values for 9.6MHZ mclk can be 2400000 Hz, 3200000 Hz
 			 and 4800000 Hz.  The values for 12.288MHz mclk can be
 			 3072200 Hz, 4096000 Hz and 6144000 Hz.
+
+ - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
+				dynamically.
+				Supplies in this list are off by default.
+
 Example:
 
 taiko_codec {
@@ -114,6 +119,8 @@ taiko_codec {
 				   "cdc-vdd-a-1p2v",
 				   "cdc-vddcx-1",
 				   "cdc-vddcx-2";
+
+	com,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
 
 	qcom,cdc-micbias-ldoh-v = <0x3>;
 	qcom,cdc-micbias-cfilt1-mv = <1800>;
@@ -195,6 +202,12 @@ Wcd9xxx audio CODEC in I2C mode
  - qcom,cdc-mclk-clk-rate - Specifies the master clock rate in Hz required for
 			    codec.
 
+Optional properties:
+
+ - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
+				dynamically.
+				Supplies in this list are off by default.
+
 Example:
 i2c@f9925000 {
 	cell-index = <3>;
@@ -251,6 +264,8 @@ i2c@f9925000 {
 					   "cdc-vdd-a-1p2v",
 					   "cdc-vddcx-1",
 					   "cdc-vddcx-2";
+
+		com,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
 
 		qcom,cdc-micbias-ldoh-v = <0x3>;
 		qcom,cdc-micbias-cfilt1-mv = <1800>;
