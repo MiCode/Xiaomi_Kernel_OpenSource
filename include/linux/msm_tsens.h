@@ -41,5 +41,10 @@ struct tsens_device {
 
 int32_t tsens_get_temp(struct tsens_device *dev, unsigned long *temp);
 int msm_tsens_early_init(struct tsens_platform_data *pdata);
+#if defined(CONFIG_THERMAL_TSENS8974) || defined(CONFIG_THERMAL_TSENS8960)
 int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors);
+#else
+static inline int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors)
+{ return -ENXIO; }
+#endif
 #endif /*MSM_TSENS_H */
