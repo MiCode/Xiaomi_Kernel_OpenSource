@@ -24,6 +24,7 @@
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <linux/mfd/wcd9xxx/wcd9320_registers.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
+#include <linux/regulator/consumer.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -394,6 +395,7 @@ struct taiko_priv {
 	u8 aux_r_gain;
 
 	bool spkr_pa_widget_on;
+	struct regulator *spkdrv_reg;
 
 	struct afe_param_cdc_slimbus_slave_cfg slimbus_slave_cfg;
 
@@ -404,7 +406,6 @@ struct taiko_priv {
 
 	/* class h specific data */
 	struct wcd9xxx_clsh_cdc_data clsh_d;
-
 };
 
 static const u32 comp_shift[] = {
@@ -2707,10 +2708,20 @@ static int taiko_codec_enable_vdd_spkr(struct snd_soc_dapm_widget *w,
 	int ret = 0;
 	struct snd_soc_codec *codec = w->codec;
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+	struct taiko_priv *priv = snd_soc_codec_get_drvdata(codec);
 
 	pr_debug("%s: %d %s\n", __func__, event, w->name);
+
+	WARN_ONCE(!priv->spkdrv_reg, "SPKDRV supply %s isn't defined\n",
+		  WCD9XXX_VDD_SPKDRV_NAME);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		if (priv->spkdrv_reg) {
+			ret = regulator_enable(priv->spkdrv_reg);
+			if (ret)
+				pr_err("%s: Failed to enable spkdrv_reg %s\n",
+				       __func__, WCD9XXX_VDD_SPKDRV_NAME);
+		}
 		if (spkr_drv_wrnd > 0) {
 			WARN_ON(!(snd_soc_read(codec, TAIKO_A_SPKR_DRV_EN) &
 				  0x80));
@@ -2730,6 +2741,12 @@ static int taiko_codec_enable_vdd_spkr(struct snd_soc_dapm_widget *w,
 				   0x80));
 			snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_EN, 0x80,
 					    0x80);
+		}
+		if (priv->spkdrv_reg) {
+			ret = regulator_disable(priv->spkdrv_reg);
+			if (ret)
+				pr_err("%s: Failed to disable spkdrv_reg %s\n",
+				       __func__, WCD9XXX_VDD_SPKDRV_NAME);
 		}
 		break;
 	}
@@ -5378,7 +5395,8 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(pdata->regulator); i++) {
-		if (!strncmp(pdata->regulator[i].name, "CDC_VDDA_RX", 11)) {
+		if (pdata->regulator[i].name &&
+		    !strncmp(pdata->regulator[i].name, "CDC_VDDA_RX", 11)) {
 			if (pdata->regulator[i].min_uV == 1800000 &&
 			    pdata->regulator[i].max_uV == 1800000) {
 				snd_soc_write(codec, TAIKO_A_BIAS_REF_CTL,
@@ -5945,6 +5963,21 @@ static const struct snd_soc_dapm_widget taiko_2_dapm_widgets[] = {
 			   SND_SOC_DAPM_POST_PMU),
 };
 
+static struct regulator *taiko_codec_find_regulator(struct snd_soc_codec *codec,
+						    const char *name)
+{
+	int i;
+	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+
+	for (i = 0; i < core->num_of_supplies; i++) {
+		if (core->supplies[i].supply &&
+		    !strcmp(core->supplies[i].supply, name))
+			return core->supplies[i].consumer;
+	}
+
+	return NULL;
+}
+
 static int taiko_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -6022,6 +6055,9 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 		pr_err("%s: bad pdata\n", __func__);
 		goto err_pdata;
 	}
+
+	taiko->spkdrv_reg = taiko_codec_find_regulator(codec,
+						       WCD9XXX_VDD_SPKDRV_NAME);
 
 	if (spkr_drv_wrnd > 0) {
 		WCD9XXX_BCL_LOCK(&taiko->resmgr);
@@ -6126,6 +6162,8 @@ static int taiko_codec_remove(struct snd_soc_codec *codec)
 	wcd9xxx_mbhc_deinit(&taiko->mbhc);
 	/* cleanup resmgr */
 	wcd9xxx_resmgr_deinit(&taiko->resmgr);
+
+	taiko->spkdrv_reg = NULL;
 
 	kfree(taiko);
 	return 0;
