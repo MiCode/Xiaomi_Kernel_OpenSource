@@ -1648,7 +1648,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	data->abort = 0;
 	data->type = QSEECOM_CLIENT_APP;
 	data->released = false;
-	data->client.app_id = ret;
 	data->client.sb_length = size;
 	data->client.user_virt_sb_base = 0;
 	data->client.ihandle = NULL;
@@ -1693,7 +1692,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		*handle = NULL;
 		return -EINVAL;
 	}
-
+	data->client.app_id = ret;
 	if (ret > 0) {
 		pr_warn("App id %d for [%s] app exists\n", ret,
 			(char *)app_ireq.app_name);
