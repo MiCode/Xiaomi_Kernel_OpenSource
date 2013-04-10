@@ -58,14 +58,6 @@
 		clock-frequency = <32768>;
 	};
 
-	timer: msm-qtimer@f9021000 {
-		compatible = "arm,armv7-timer";
-		reg = <0xF9021000 0x1000>;
-		interrupts = <0 7 0>;
-		irq-is-not-percpu;
-		clock-frequency = <19200000>;
-	};
-
 	timer@f9020000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
