@@ -131,24 +131,24 @@ static void mpq_get_frame_and_write(struct mpq_dvb_video_inst *dev_inst,
 		switch (meta_data.packet_type) {
 		case DMX_FRAMING_INFO_PACKET:
 			switch (meta_data.info.framing.pattern_type) {
-			case DMX_FRM_H264_SPS:
-			case DMX_FRM_MPEG2_SEQUENCE_HEADER:
-			case DMX_FRM_VC1_SEQUENCE_HEADER:
+			case DMX_IDX_H264_SPS:
+			case DMX_IDX_MPEG_SEQ_HEADER:
+			case DMX_IDX_VC1_SEQ_HEADER:
 				DBG("SPS FOUND\n");
 				frame_found = false;
 				break;
-			case DMX_FRM_H264_PPS:
-			case DMX_FRM_MPEG2_GOP_HEADER:
-			case DMX_FRM_VC1_ENTRY_POINT_HEADER:
+			case DMX_IDX_H264_PPS:
+			case DMX_IDX_MPEG_GOP:
+			case DMX_IDX_VC1_ENTRY_POINT:
 				DBG("PPS FOUND\n");
 				frame_found = false;
 				break;
-			case DMX_FRM_H264_IDR_PIC:
-			case DMX_FRM_H264_NON_IDR_PIC:
-			case DMX_FRM_MPEG2_I_PIC:
-			case DMX_FRM_MPEG2_P_PIC:
-			case DMX_FRM_MPEG2_B_PIC:
-			case DMX_FRM_VC1_FRAME_START_CODE:
+			case DMX_IDX_H264_IDR_START:
+			case DMX_IDX_H264_NON_IDR_START:
+			case DMX_IDX_MPEG_I_FRAME_START:
+			case DMX_IDX_MPEG_P_FRAME_START:
+			case DMX_IDX_MPEG_B_FRAME_START:
+			case DMX_IDX_VC1_FRAME_START:
 				DBG("FRAME FOUND\n");
 				frame_found = true;
 				break;

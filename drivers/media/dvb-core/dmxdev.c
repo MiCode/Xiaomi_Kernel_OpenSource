@@ -2711,10 +2711,9 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 	    (para->pes_type == DMX_PES_VIDEO1) ||
 	    (para->pes_type == DMX_PES_VIDEO2) ||
 	    (para->pes_type == DMX_PES_VIDEO3)) {
-
-		if (tsfeed->set_indexing_params) {
-			ret = tsfeed->set_indexing_params(tsfeed,
-							&para->video_params);
+		if (tsfeed->set_video_codec) {
+			ret = tsfeed->set_video_codec(tsfeed,
+							para->video_codec);
 
 			if (ret < 0) {
 				dmxdev->demux->release_ts_feed(dmxdev->demux,

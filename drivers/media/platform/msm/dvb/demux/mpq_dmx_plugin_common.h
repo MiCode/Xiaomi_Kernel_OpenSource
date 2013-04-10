@@ -31,8 +31,6 @@
  */
 #define TSIF_NAME_LENGTH				20
 
-#define MPQ_MAX_FOUND_PATTERNS				5
-
 /**
  * struct ts_packet_header - Transport packet header
  * as defined in MPEG2 transport stream standard.
@@ -200,17 +198,6 @@ struct pes_packet_header {
 #endif
 } __packed;
 
-/*
- * mpq_framing_prefix_size_masks - possible prefix sizes.
- *
- * @size_mask: a bit mask (per pattern) of possible prefix sizes to use
- * when searching for a pattern that started in the last buffer.
- * Updated in mpq_dmx_framing_pattern_search for use in the next lookup
- */
-struct mpq_framing_prefix_size_masks {
-	u32 size_mask[MPQ_MAX_FOUND_PATTERNS];
-};
-
 /**
  * mpq_decoder_buffers_desc - decoder buffer(s) management information.
  *
@@ -295,14 +282,14 @@ struct mpq_video_feed_info {
 	u32 pes_header_offset;
 	int fullness_wait_cancel;
 	enum mpq_adapter_stream_if stream_interface;
-	const struct mpq_framing_pattern_lookup_params *patterns;
+	const struct dvb_dmx_video_patterns *patterns;
 	int patterns_num;
 	u32 frame_offset;
 	u32 last_pattern_offset;
 	u32 pending_pattern_len;
-	enum dmx_framing_pattern_type last_framing_match_type;
+	u64 last_framing_match_type;
 	int found_sequence_header_pattern;
-	struct mpq_framing_prefix_size_masks prefix_size;
+	struct dvb_dmx_video_prefix_size_masks prefix_size;
 	u32 first_prefix_size;
 	struct dmx_pts_dts_info saved_pts_dts_info;
 	struct dmx_pts_dts_info new_pts_dts_info;
