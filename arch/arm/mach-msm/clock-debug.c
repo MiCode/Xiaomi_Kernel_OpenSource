@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,9 +21,22 @@
 #include <linux/clk.h>
 #include <linux/list.h>
 #include <linux/clkdev.h>
+#include <linux/uaccess.h>
 #include <mach/clk-provider.h>
 
 #include "clock.h"
+
+static LIST_HEAD(clk_list);
+static DEFINE_SPINLOCK(clk_list_lock);
+
+static struct dentry *debugfs_base;
+static u32 debug_suspend;
+
+struct clk_table {
+	struct list_head node;
+	struct clk_lookup *clocks;
+	size_t num_clocks;
+};
 
 static int clock_debug_rate_set(void *data, u64 val)
 {
@@ -218,35 +231,68 @@ static const struct file_operations list_rates_fops = {
 	.release	= seq_release,
 };
 
-static int clock_parent_show(struct seq_file *m, void *unused)
+static ssize_t clock_parent_read(struct file *filp, char __user *ubuf,
+		size_t cnt, loff_t *ppos)
 {
-	struct clk *clock = m->private;
-	struct clk *parent = clk_get_parent(clock);
+	struct clk *clock = filp->private_data;
+	struct clk *p = clock->parent;
+	char name[256] = {0};
 
-	seq_printf(m, "%s\n", (parent ? parent->dbg_name : "None"));
+	snprintf(name, sizeof(name), "%s\n", p ? p->dbg_name : "None\n");
 
-	return 0;
+	return simple_read_from_buffer(ubuf, cnt, ppos, name, strlen(name));
 }
 
-static int clock_parent_open(struct inode *inode, struct file *file)
+
+static ssize_t clock_parent_write(struct file *filp,
+		const char __user *ubuf, size_t cnt, loff_t *ppos)
 {
-	return single_open(file, clock_parent_show, inode->i_private);
+	struct clk *clock = filp->private_data;
+	char buf[256];
+	char *cmp;
+	unsigned long flags;
+	struct clk_table *table;
+	int i, ret;
+	struct clk *parent = NULL;
+
+	cnt = min(cnt, sizeof(buf) - 1);
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+	buf[cnt] = '\0';
+	cmp = strstrip(buf);
+
+	spin_lock_irqsave(&clk_list_lock, flags);
+	list_for_each_entry(table, &clk_list, node) {
+		for (i = 0; i < table->num_clocks; i++)
+			if (!strcmp(cmp, table->clocks[i].clk->dbg_name)) {
+				parent = table->clocks[i].clk;
+				break;
+			}
+		if (parent)
+			break;
+	}
+
+	if (!parent) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	spin_unlock_irqrestore(&clk_list_lock, flags);
+	ret = clk_set_parent(clock, table->clocks[i].clk);
+	if (ret)
+		return ret;
+
+	return cnt;
+err:
+	spin_unlock_irqrestore(&clk_list_lock, flags);
+	return ret;
 }
+
 
 static const struct file_operations clock_parent_fops = {
-	.open		= clock_parent_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-};
-
-static struct dentry *debugfs_base;
-static u32 debug_suspend;
-
-struct clk_table {
-	struct list_head node;
-	struct clk_lookup *clocks;
-	size_t num_clocks;
+	.open		= simple_open,
+	.read		= clock_parent_read,
+	.write		= clock_parent_write,
 };
 
 static int clock_debug_add(struct clk *clock)
@@ -305,8 +351,6 @@ error:
 	debugfs_remove_recursive(clk_dir);
 	return -ENOMEM;
 }
-static LIST_HEAD(clk_list);
-static DEFINE_SPINLOCK(clk_list_lock);
 
 /**
  * clock_debug_register() - Add additional clocks to clock debugfs hierarchy
