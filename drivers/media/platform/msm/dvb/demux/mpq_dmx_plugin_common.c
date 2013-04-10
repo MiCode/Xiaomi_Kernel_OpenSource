@@ -95,59 +95,6 @@ module_param(mpq_sdmx_proc_limit, int, S_IRUGO | S_IWUSR);
 static int mpq_sdmx_debug;
 module_param(mpq_sdmx_debug, int, S_IRUGO | S_IWUSR);
 
-/**
- * Number of patterns to look for when doing framing, per video standard
- */
-#define MPQ_MPEG2_PATTERN_NUM				5
-#define MPQ_H264_PATTERN_NUM				5
-#define MPQ_VC1_PATTERN_NUM				3
-
-/*
- * Pre-defined video framing lookup pattern information.
- * Note: the first pattern in each patterns database must
- * be the Sequence Header (or equivalent SPS in H.264).
- * The code assumes this is the case when prepending
- * Sequence Header data in case it is required.
- */
-static const struct dvb_dmx_video_patterns
-		mpeg2_patterns[MPQ_MPEG2_PATTERN_NUM] = {
-	{{0x00, 0x00, 0x01, 0xB3}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_IDX_MPEG_SEQ_HEADER},
-	{{0x00, 0x00, 0x01, 0xB8}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_IDX_MPEG_GOP},
-	{{0x00, 0x00, 0x01, 0x00, 0x00, 0x08},
-			{0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x38}, 6,
-			DMX_IDX_MPEG_I_FRAME_START},
-	{{0x00, 0x00, 0x01, 0x00, 0x00, 0x10},
-			{0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x38}, 6,
-			DMX_IDX_MPEG_P_FRAME_START},
-	{{0x00, 0x00, 0x01, 0x00, 0x00, 0x18},
-			{0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x38}, 6,
-			DMX_IDX_MPEG_B_FRAME_START}
-};
-
-static const struct dvb_dmx_video_patterns
-		h264_patterns[MPQ_H264_PATTERN_NUM] = {
-	{{0x00, 0x00, 0x01, 0x07}, {0xFF, 0xFF, 0xFF, 0x1F}, 4,
-			DMX_IDX_H264_SPS},
-	{{0x00, 0x00, 0x01, 0x08}, {0xFF, 0xFF, 0xFF, 0x1F}, 4,
-			DMX_IDX_H264_PPS},
-	{{0x00, 0x00, 0x01, 0x05, 0x80}, {0xFF, 0xFF, 0xFF, 0x1F, 0x80}, 5,
-			DMX_IDX_H264_IDR_START},
-	{{0x00, 0x00, 0x01, 0x01, 0x80}, {0xFF, 0xFF, 0xFF, 0x1F, 0x80}, 5,
-			DMX_IDX_H264_NON_IDR_START}
-};
-
-static const struct dvb_dmx_video_patterns
-		vc1_patterns[MPQ_VC1_PATTERN_NUM] = {
-	{{0x00, 0x00, 0x01, 0x0F}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_IDX_VC1_SEQ_HEADER},
-	{{0x00, 0x00, 0x01, 0x0E}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_IDX_VC1_ENTRY_POINT},
-	{{0x00, 0x00, 0x01, 0x0D}, {0xFF, 0xFF, 0xFF, 0xFF}, 4,
-			DMX_IDX_VC1_FRAME_START}
-};
-
 /* Global data-structure for managing demux devices */
 static struct
 {
@@ -218,39 +165,46 @@ static inline int mpq_dmx_is_video_frame(
 }
 
 /*
- * mpq_dmx_get_pattern_params -
- * get a pointer to the relevant pattern parameters structure,
- * based on the video parameters.
+ * mpq_dmx_get_pattern_params - Returns the required video
+ * patterns for framing operation based on video codec.
  *
  * @video_codec: the video codec.
- * @patterns: a pointer to a pointer to the pattern parameters,
- * updated by this function.
+ * @patterns: a pointer to the pattern parameters, updated by this function.
  * @patterns_num: number of patterns, updated by this function.
  */
 static inline int mpq_dmx_get_pattern_params(
-		enum dmx_video_codec video_codec,
-		const struct dvb_dmx_video_patterns **patterns,
-		int *patterns_num)
+	enum dmx_video_codec video_codec,
+	const struct dvb_dmx_video_patterns
+		 *patterns[DVB_DMX_MAX_SEARCH_PATTERN_NUM],
+	int *patterns_num)
 {
 	switch (video_codec) {
 	case DMX_VIDEO_CODEC_MPEG2:
-		*patterns = mpeg2_patterns;
-		*patterns_num = MPQ_MPEG2_PATTERN_NUM;
+		patterns[0] = dvb_dmx_get_pattern(DMX_IDX_MPEG_SEQ_HEADER);
+		patterns[1] = dvb_dmx_get_pattern(DMX_IDX_MPEG_GOP);
+		patterns[2] = dvb_dmx_get_pattern(DMX_IDX_MPEG_I_FRAME_START);
+		patterns[3] = dvb_dmx_get_pattern(DMX_IDX_MPEG_P_FRAME_START);
+		patterns[4] = dvb_dmx_get_pattern(DMX_IDX_MPEG_B_FRAME_START);
+		*patterns_num = 5;
 		break;
 
 	case DMX_VIDEO_CODEC_H264:
-		*patterns = h264_patterns;
-		*patterns_num = MPQ_H264_PATTERN_NUM;
+		patterns[0] = dvb_dmx_get_pattern(DMX_IDX_H264_SPS);
+		patterns[1] = dvb_dmx_get_pattern(DMX_IDX_H264_PPS);
+		patterns[2] = dvb_dmx_get_pattern(DMX_IDX_H264_IDR_START);
+		patterns[3] = dvb_dmx_get_pattern(DMX_IDX_H264_NON_IDR_START);
+		*patterns_num = 4;
 		break;
 
 	case DMX_VIDEO_CODEC_VC1:
-		*patterns = vc1_patterns;
-		*patterns_num = MPQ_VC1_PATTERN_NUM;
+		patterns[0] = dvb_dmx_get_pattern(DMX_IDX_VC1_SEQ_HEADER);
+		patterns[1] = dvb_dmx_get_pattern(DMX_IDX_VC1_ENTRY_POINT);
+		patterns[2] = dvb_dmx_get_pattern(DMX_IDX_VC1_FRAME_START);
+		*patterns_num = 3;
 		break;
 
 	default:
 		MPQ_DVB_ERR_PRINT("%s: invalid parameters\n", __func__);
-		*patterns = NULL;
 		*patterns_num = 0;
 		return -EINVAL;
 	}
@@ -1307,8 +1261,8 @@ static int mpq_dmx_init_video_feed(struct mpq_feed *mpq_feed)
 	if (!mpq_dmx_info.decoder_framing) {
 		mpq_dmx_get_pattern_params(
 			mpq_feed->dvb_demux_feed->video_codec,
-			&feed_data->patterns, &feed_data->patterns_num);
-		if (feed_data->patterns == NULL) {
+			feed_data->patterns, &feed_data->patterns_num);
+		if (!feed_data->patterns_num) {
 			MPQ_DVB_ERR_PRINT(
 				"%s: FAILED to get framing pattern parameters\n",
 				__func__);
@@ -2596,12 +2550,12 @@ static int mpq_dmx_process_video_packet_framing(
 
 	/*
 	 * write prefix used to find first Sequence pattern, if needed.
-	 * feed_data->patterns[0].pattern always contains the Sequence
-	 * pattern.
+	 * feed_data->patterns[0]->pattern always contains the sequence
+	 * header pattern.
 	 */
 	if (feed_data->first_prefix_size) {
 		if (mpq_streambuffer_data_write(stream_buffer,
-					(feed_data->patterns[0].pattern),
+					(feed_data->patterns[0]->pattern),
 					feed_data->first_prefix_size) < 0) {
 			mpq_demux->decoder_drop_count +=
 				feed_data->first_prefix_size;
@@ -3163,6 +3117,20 @@ static int mpq_dmx_decoder_eos_cmd(struct mpq_feed *mpq_feed)
 	spin_unlock(&feed_data->video_buffer_lock);
 	return ret;
 }
+
+void mpq_dmx_convert_tts(struct dvb_demux_feed *feed,
+			const u8 timestamp[TIMESTAMP_LEN],
+			u64 *timestampIn27Mhz)
+{
+	if (unlikely(!timestampIn27Mhz))
+		return;
+
+	*timestampIn27Mhz = timestamp[2] << 16;
+	*timestampIn27Mhz += timestamp[1] << 8;
+	*timestampIn27Mhz += timestamp[0];
+	*timestampIn27Mhz *= 256; /* convert from 105.47 KHZ to 27MHz */
+}
+EXPORT_SYMBOL(mpq_dmx_convert_tts);
 
 int mpq_sdmx_open_session(struct mpq_demux *mpq_demux)
 {

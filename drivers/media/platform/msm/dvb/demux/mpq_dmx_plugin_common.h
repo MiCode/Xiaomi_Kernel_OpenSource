@@ -282,7 +282,8 @@ struct mpq_video_feed_info {
 	u32 pes_header_offset;
 	int fullness_wait_cancel;
 	enum mpq_adapter_stream_if stream_interface;
-	const struct dvb_dmx_video_patterns *patterns;
+	const struct dvb_dmx_video_patterns
+		*patterns[DVB_DMX_MAX_SEARCH_PATTERN_NUM];
 	int patterns_num;
 	u32 frame_offset;
 	u32 last_pattern_offset;
@@ -634,6 +635,20 @@ void mpq_dmx_update_hw_statistics(struct mpq_demux *mpq_demux);
 */
 int mpq_dmx_set_secure_mode(struct dvb_demux_feed *feed,
 		struct dmx_secure_mode *secure_mode);
+
+/**
+ * mpq_dmx_convert_tts - Convert timestamp attached by HW to each TS
+ * packet to 27MHz.
+ *
+ * @feed: The feed with TTS attached
+ * @timestamp: Buffer holding the timestamp attached by the HW
+ * @timestampIn27Mhz: Timestamp result in 27MHz
+ *
+ * Return error code
+*/
+void mpq_dmx_convert_tts(struct dvb_demux_feed *feed,
+		const u8 timestamp[TIMESTAMP_LEN],
+		u64 *timestampIn27Mhz);
 
 /**
  * mpq_sdmx_open_session - Handle the details of opening a new secure demux
