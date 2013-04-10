@@ -689,7 +689,6 @@
 			"MIC BIAS4 External", "Digital Mic6";
 
 		qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
-		taiko-mclk-clk = <&pm8941_clkdiv1>;
 		qcom,taiko-mclk-clk-freq = <9600000>;
 		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
 		qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
