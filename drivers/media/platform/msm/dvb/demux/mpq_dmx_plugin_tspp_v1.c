@@ -1774,7 +1774,7 @@ static int mpq_tspp_dmx_init(
 	}
 
 	/* Extend dvb-demux debugfs with TSPP statistics. */
-	mpq_dmx_init_hw_statistics(mpq_demux);
+	mpq_dmx_init_debugfs_entries(mpq_demux);
 
 	return 0;
 

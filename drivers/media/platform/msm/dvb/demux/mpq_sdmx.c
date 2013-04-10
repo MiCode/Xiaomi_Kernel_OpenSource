@@ -38,7 +38,9 @@ enum sdmx_cmd_id {
 	SDMX_PROCESS_CMD,
 	SDMX_GET_DBG_COUNTERS_CMD,
 	SDMX_RESET_DBG_COUNTERS_CMD,
-	SDMX_GET_VERSION_CMD
+	SDMX_GET_VERSION_CMD,
+	SDMX_INVALIDATE_KL_CMD,
+	SDMX_SET_LOG_LEVEL_CMD
 };
 
 struct sdmx_proc_req {
@@ -184,6 +186,15 @@ struct sdmx_get_version_rsp {
 	int32_t version;
 };
 
+struct sdmx_set_log_level_req {
+	enum sdmx_cmd_id cmd_id;
+	enum sdmx_log_level level;
+	u32 session_handle;
+};
+
+struct sdmx_set_log_level_rsp {
+	enum sdmx_status ret;
+};
 static void get_cmd_rsp_buffers(int handle_index,
 	void **cmd,
 	int *cmd_len,
@@ -935,3 +946,48 @@ int sdmx_reset_dbg_counters(int session_handle)
 	return ret;
 }
 EXPORT_SYMBOL(sdmx_reset_dbg_counters);
+
+/*
+ * Set debug log verbosity level
+ *
+ * @session_handle: secure demux instance
+ * @level: requested log level
+ *
+ * Return error code
+ */
+int sdmx_set_log_level(int session_handle, enum sdmx_log_level level)
+{
+	int res, cmd_len, rsp_len;
+	struct sdmx_set_log_level_req *cmd;
+	struct sdmx_set_log_level_rsp *rsp;
+	enum sdmx_status ret;
+
+	cmd_len = sizeof(struct sdmx_set_log_level_req);
+	rsp_len = sizeof(struct sdmx_set_log_level_rsp);
+
+	/* Get command and response buffers */
+	get_cmd_rsp_buffers(session_handle, (void **)&cmd, &cmd_len,
+		(void **)&rsp, &rsp_len);
+
+	/* Lock shared memory */
+	mutex_lock(&sdmx_lock[session_handle]);
+
+	/* Populate command struct */
+	cmd->cmd_id = SDMX_SET_LOG_LEVEL_CMD;
+	cmd->session_handle = session_handle;
+	cmd->level = level;
+
+	/* Issue QSEECom command */
+	res = qseecom_send_command(sdmx_qseecom_handles[session_handle],
+		(void *)cmd, cmd_len, (void *)rsp, rsp_len);
+	if (res < 0) {
+		mutex_unlock(&sdmx_lock[session_handle]);
+		return SDMX_STATUS_GENERAL_FAILURE;
+	}
+	ret = rsp->ret;
+
+	/* Unlock */
+	mutex_unlock(&sdmx_lock[session_handle]);
+	return ret;
+}
+

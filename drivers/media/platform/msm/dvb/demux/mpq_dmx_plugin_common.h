@@ -438,6 +438,7 @@ struct mpq_demux {
 	u32 sdmx_process_packets_sum;
 	u32 sdmx_process_packets_average;
 	u32 sdmx_process_packets_min;
+	enum sdmx_log_level sdmx_log_level;
 
 	struct timespec decoder_out_last_time;
 	struct timespec last_notification_time;
@@ -622,12 +623,13 @@ int mpq_dmx_process_video_packet(struct dvb_demux_feed *feed, const u8 *buf);
 int mpq_dmx_process_pcr_packet(struct dvb_demux_feed *feed, const u8 *buf);
 
 /**
- * mpq_dmx_init_hw_statistics -
- * Extend dvb-demux debugfs with HW statistics.
+ * mpq_dmx_init_debugfs_entries -
+ * Extend dvb-demux debugfs with mpq related entries (HW statistics and secure
+ * demux log level).
  *
  * @mpq_demux: The mpq_demux device to initialize.
  */
-void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux);
+void mpq_dmx_init_debugfs_entries(struct mpq_demux *mpq_demux);
 
 /**
  * mpq_dmx_update_hw_statistics -
