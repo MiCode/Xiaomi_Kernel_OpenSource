@@ -1979,6 +1979,8 @@ static int bam_init(void)
 	a2_props.options = SPS_BAM_OPT_IRQ_WAKEUP;
 	a2_props.num_pipes = A2_NUM_PIPES;
 	a2_props.summing_threshold = A2_SUMMING_THRESHOLD;
+	a2_props.constrained_logging = true;
+	a2_props.logging_number = 1;
 	if (cpu_is_msm9615() || satellite_mode)
 		a2_props.manage = SPS_BAM_MGR_DEVICE_REMOTE;
 	/* need to free on tear down */
