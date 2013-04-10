@@ -449,6 +449,10 @@ Required properties:
 - qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
 - qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
 - qcom,prim-auxpcm-gpio-dout : GPIO on which Primary AUXPCM DOUT signal is coming.
+- qcom,prim-auxpcm-gpio-set : set of GPIO lines used for Primary AUXPCM port
+		 Possible Values:
+		 prim-gpio-prim : Primary AUXPCM shares GPIOs with Primary MI2S
+		 prim-gpio-tert : Primary AUXPCM shares GPIOs with Tertiary MI2S
 - qcom,sec-auxpcm-gpio-clk  : GPIO on which Secondary AUXPCM clk signal is coming.
 - qcom,sec-auxpcm-gpio-sync : GPIO on which Secondary AUXPCM SYNC signal is coming.
 - qcom,sec-auxpcm-gpio-din  : GPIO on which Secondary AUXPCM DIN signal is coming.
@@ -503,6 +507,7 @@ sound {
 	qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
 	qcom,prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
 	qcom,prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
+	qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
 	qcom,sec-auxpcm-gpio-clk  = <&msmgpio 79 0>;
 	qcom,sec-auxpcm-gpio-sync = <&msmgpio 80 0>;
 	qcom,sec-auxpcm-gpio-din  = <&msmgpio 81 0>;
