@@ -15,6 +15,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 #include <linux/slab.h>
+#include <linux/ratelimit.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
 #include <linux/mfd/wcd9xxx/core.h>
