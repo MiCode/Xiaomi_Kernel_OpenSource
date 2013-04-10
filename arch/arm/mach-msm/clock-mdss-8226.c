@@ -71,7 +71,6 @@ static int mdss_dsi_check_pll_lock(void)
 {
 	u32 status;
 
-	clk_prepare_enable(mdss_dsi_ahb_clk);
 	/* poll for PLL ready status */
 	if (readl_poll_timeout_noirq((mdss_dsi_base + 0x02c0),
 				status,
@@ -83,7 +82,6 @@ static int mdss_dsi_check_pll_lock(void)
 	} else {
 		pll_initialized = 1;
 	}
-	clk_disable_unprepare(mdss_dsi_ahb_clk);
 
 	return pll_initialized;
 }
@@ -177,28 +175,141 @@ static int mdss_dsi_pll_byte_set_rate(struct clk *c, unsigned long rate)
 	return ret;
 }
 
-static void mdss_dsi_uniphy_pll_lock_detect_setting(void)
-{
-	REG_W(0x04, mdss_dsi_base + 0x0264); /* LKDetect CFG2 */
-	udelay(100);
-	REG_W(0x05, mdss_dsi_base + 0x0264); /* LKDetect CFG2 */
-	udelay(500);
-}
-
 static void mdss_dsi_uniphy_pll_sw_reset(void)
 {
+	/*
+	 * Add hardware recommended delays after toggling the
+	 * software reset bit off and back on.
+	 */
 	REG_W(0x01, mdss_dsi_base + 0x0268); /* PLL TEST CFG */
-	udelay(1);
+	udelay(300);
 	REG_W(0x00, mdss_dsi_base + 0x0268); /* PLL TEST CFG */
+	udelay(300);
+}
+
+static void mdss_dsi_pll_enable_casem(void)
+{
+	int i;
+
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock.
+	 */
+	REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1000);
+
+	for (i = 0; (i < 3) && !mdss_dsi_check_pll_lock(); i++) {
+		REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(1);
+
+		REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+		udelay(1000);
+	}
+
+	if (pll_initialized)
+		pr_debug("%s: PLL Locked after %d attempts\n", __func__, i);
+	else
+		pr_debug("%s: PLL failed to lock\n", __func__);
+}
+
+static void mdss_dsi_pll_enable_casef1(void)
+{
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock.
+	 */
+	REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x0d, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1000);
+
+	if (mdss_dsi_check_pll_lock())
+		pr_debug("%s: PLL Locked\n", __func__);
+	else
+		pr_debug("%s: PLL failed to lock\n", __func__);
+}
+
+static void mdss_dsi_pll_enable_cased(void)
+{
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock.
+	 */
+	REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
 	udelay(1);
+	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1);
+	REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1);
+	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1);
+	REG_W(0x07, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1);
+	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1);
+
+	if (mdss_dsi_check_pll_lock())
+		pr_debug("%s: PLL Locked\n", __func__);
+	else
+		pr_debug("%s: PLL failed to lock\n", __func__);
+}
+
+static void mdss_dsi_pll_enable_casec(void)
+{
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock.
+	 */
+	REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1000);
+
+	if (mdss_dsi_check_pll_lock())
+		pr_debug("%s: PLL Locked\n", __func__);
+	else
+		pr_debug("%s: PLL failed to lock\n", __func__);
+}
+
+static void mdss_dsi_pll_enable_casee(void)
+{
+	/*
+	 * Add hardware recommended delays between register writes for
+	 * the updates to take effect. These delays are necessary for the
+	 * PLL to successfully lock.
+	 */
+	REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(200);
+	REG_W(0x0d, mdss_dsi_base + 0x0220); /* GLB CFG */
+	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
+	udelay(1000);
+
+	if (mdss_dsi_check_pll_lock())
+		pr_debug("%s: PLL Locked\n", __func__);
+	else
+		pr_debug("%s: PLL failed to lock\n", __func__);
 }
 
 static int __mdss_dsi_pll_enable(struct clk *c)
 {
-	u32 status;
-	u32 max_reads, timeout_us;
-	int i;
-
 	if (!pll_initialized) {
 		if (dsi_pll_rate)
 			__mdss_dsi_pll_byte_set_rate(c, dsi_pll_rate);
@@ -207,56 +318,45 @@ static int __mdss_dsi_pll_enable(struct clk *c)
 				__func__);
 	}
 
+	/*
+	 * Try all PLL power-up sequences one-by-one until
+	 * PLL lock is detected
+	 */
 	mdss_dsi_uniphy_pll_sw_reset();
-	/* PLL power up */
-	/* Add HW recommended delay between
-	   register writes for the update to propagate */
-	REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
-	udelay(20);
-	REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
-	udelay(100);
-	REG_W(0x0d, mdss_dsi_base + 0x0220); /* GLB CFG */
-	udelay(20);
-	REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
-	udelay(200);
+	mdss_dsi_pll_enable_casem();
+	if (pll_initialized)
+		goto pll_locked;
 
-	for (i = 0; i < 3; i++) {
-		mdss_dsi_uniphy_pll_lock_detect_setting();
-		/* poll for PLL ready status */
-		max_reads = 5;
-		timeout_us = 100;
-		if (readl_poll_timeout_noirq((mdss_dsi_base + 0x02c0),
-				   status,
-				   ((status & 0x01) == 1),
-					     max_reads, timeout_us)) {
-			pr_debug("%s: DSI PLL status=%x failed to Lock\n",
-			       __func__, status);
-			pr_debug("%s:Trying to power UP PLL again\n",
-			       __func__);
-		} else
-			break;
+	mdss_dsi_uniphy_pll_sw_reset();
+	mdss_dsi_pll_enable_cased();
+	if (pll_initialized)
+		goto pll_locked;
 
-		mdss_dsi_uniphy_pll_sw_reset();
-		udelay(1000);
-		/* Add HW recommended delay between
-		   register writes for the update to propagate */
-		REG_W(0x01, mdss_dsi_base + 0x0220); /* GLB CFG */
-		udelay(20);
-		REG_W(0x05, mdss_dsi_base + 0x0220); /* GLB CFG */
-		udelay(100);
-		REG_W(0x0d, mdss_dsi_base + 0x0220); /* GLB CFG */
-		udelay(20);
-		REG_W(0x0f, mdss_dsi_base + 0x0220); /* GLB CFG */
-		udelay(200);
-	}
+	mdss_dsi_uniphy_pll_sw_reset();
+	mdss_dsi_pll_enable_cased();
+	if (pll_initialized)
+		goto pll_locked;
 
-	if ((status & 0x01) != 1) {
-		pr_err("%s: DSI PLL status=%x failed to Lock\n",
-		       __func__, status);
-		return -EINVAL;
-	}
+	mdss_dsi_uniphy_pll_sw_reset();
+	mdss_dsi_pll_enable_casef1();
+	if (pll_initialized)
+		goto pll_locked;
 
-	pr_debug("%s: **** PLL Lock success\n", __func__);
+	mdss_dsi_uniphy_pll_sw_reset();
+	mdss_dsi_pll_enable_casec();
+	if (pll_initialized)
+		goto pll_locked;
+
+	mdss_dsi_uniphy_pll_sw_reset();
+	mdss_dsi_pll_enable_casee();
+	if (pll_initialized)
+		goto pll_locked;
+
+	pr_err("%s: DSI PLL failed to Lock\n", __func__);
+	return -EINVAL;
+
+pll_locked:
+	pr_debug("%s: PLL Lock success\n", __func__);
 
 	return 0;
 }
@@ -264,7 +364,7 @@ static int __mdss_dsi_pll_enable(struct clk *c)
 static void __mdss_dsi_pll_disable(void)
 {
 	writel_relaxed(0x00, mdss_dsi_base + 0x0220); /* GLB CFG */
-	pr_debug("%s: **** disable pll Initialize\n", __func__);
+	pr_debug("%s: PLL disabled\n", __func__);
 	pll_initialized = 0;
 }
 
@@ -305,13 +405,17 @@ out:
 /* todo: Adjust these values appropriately */
 static enum handoff mdss_dsi_pll_byte_handoff(struct clk *c)
 {
-	if (mdss_gdsc_enabled() && mdss_dsi_check_pll_lock()) {
-		c->rate = 59000000;
-		dsi_pll_rate = 59000000;
-		pll_byte_clk_rate = 59000000;
-		pll_pclk_rate = 117000000;
-		dsipll_refcount++;
-		return HANDOFF_ENABLED_CLK;
+	if (mdss_gdsc_enabled()) {
+		clk_prepare_enable(mdss_dsi_ahb_clk);
+		if (mdss_dsi_check_pll_lock()) {
+			c->rate = 59000000;
+			dsi_pll_rate = 59000000;
+			pll_byte_clk_rate = 59000000;
+			pll_pclk_rate = 117000000;
+			dsipll_refcount++;
+			return HANDOFF_ENABLED_CLK;
+		}
+		clk_disable_unprepare(mdss_dsi_ahb_clk);
 	}
 
 	return HANDOFF_DISABLED_CLK;
@@ -320,10 +424,14 @@ static enum handoff mdss_dsi_pll_byte_handoff(struct clk *c)
 /* todo: Adjust these values appropriately */
 static enum handoff mdss_dsi_pll_pixel_handoff(struct clk *c)
 {
-	if (mdss_gdsc_enabled() && mdss_dsi_check_pll_lock()) {
-		c->rate = 117000000;
-		dsipll_refcount++;
-		return HANDOFF_ENABLED_CLK;
+	if (mdss_gdsc_enabled()) {
+		clk_prepare_enable(mdss_dsi_ahb_clk);
+		if (mdss_dsi_check_pll_lock()) {
+			c->rate = 117000000;
+			dsipll_refcount++;
+			return HANDOFF_ENABLED_CLK;
+		}
+		clk_disable_unprepare(mdss_dsi_ahb_clk);
 	}
 
 	return HANDOFF_DISABLED_CLK;
