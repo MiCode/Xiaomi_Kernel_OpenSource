@@ -1683,10 +1683,10 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		rc = qpnp_chg_masked_write(chip, chip->chgr_base + 0x62,
 			0xFF, 0xA0, 1);
 
-		/* HACK: use digital EOC */
+		/* HACK: use analog EOC */
 		rc = qpnp_chg_masked_write(chip, chip->chgr_base +
 			CHGR_IBAT_TERM_CHGR,
-			0x88, 0x80, 1);
+			0x80, 0x00, 1);
 
 		break;
 	case SMBB_BUCK_SUBTYPE:
