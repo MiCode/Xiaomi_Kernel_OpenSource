@@ -1165,6 +1165,16 @@ int create_pkt_cmd_session_set_property(
 			sizeof(struct hfi_index_extradata_config);
 		break;
 	}
+	case HAL_PARAM_VENC_SLICE_DELIVERY_MODE:
+	{
+		struct hfi_enable *hfi;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_SLICE_DELIVERY_MODE;
+		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+		hfi->enable = ((struct hal_enable *) pdata)->enable;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+		break;
+	}
 	case HAL_CONFIG_VPE_DEINTERLACE:
 		break;
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
@@ -1187,7 +1197,6 @@ int create_pkt_cmd_session_set_property(
 	case HAL_PARAM_VDEC_MB_QUANTIZATION:
 	case HAL_PARAM_VDEC_NUM_CONCEALED_MB:
 	case HAL_PARAM_VDEC_H264_ENTROPY_SWITCHING:
-	case HAL_PARAM_VENC_SLICE_DELIVERY_MODE:
 	case HAL_PARAM_VENC_MPEG4_DATA_PARTITIONING:
 	case HAL_CONFIG_BUFFER_COUNT_ACTUAL:
 	case HAL_CONFIG_VDEC_MULTI_STREAM:

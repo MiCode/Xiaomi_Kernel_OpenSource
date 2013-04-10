@@ -22,7 +22,6 @@
 #define DEFAULT_HEIGHT 720
 #define DEFAULT_WIDTH 1280
 #define MIN_NUM_OUTPUT_BUFFERS 4
-#define MAX_NUM_OUTPUT_BUFFERS 8
 #define MIN_BIT_RATE 64000
 #define MAX_BIT_RATE 160000000
 #define DEFAULT_BIT_RATE 64000
@@ -439,6 +438,18 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.cluster = MSM_VENC_CTRL_CLUSTER_SLICING,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_DELIVERY_MODE,
+		.name = "Slice delivery mode",
+		.type = V4L2_CTRL_TYPE_BUTTON,
+		.minimum = 0,
+		.maximum = 1,
+		.default_value = 0,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+		.cluster = MSM_VENC_CTRL_CLUSTER_SLICING,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE,
 		.name = "Intra Refresh Mode",
 		.type = V4L2_CTRL_TYPE_MENU,
@@ -640,6 +651,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	struct hal_buffer_count_actual new_buf_count;
 	enum hal_property property_id;
 	struct hfi_device *hdev;
+	struct hal_buffer_requirements *buff_req;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
 		return -EINVAL;
@@ -655,13 +667,26 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		*num_planes = 1;
-		if (*num_buffers < MIN_NUM_OUTPUT_BUFFERS ||
-				*num_buffers > MAX_NUM_OUTPUT_BUFFERS)
-			*num_buffers = MIN_NUM_OUTPUT_BUFFERS;
+		buff_req = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+		*num_buffers = buff_req->buffer_count_actual =
+			max(*num_buffers, buff_req->buffer_count_actual);
+			if (*num_buffers > VIDEO_MAX_FRAME) {
+				dprintk(VIDC_ERR,
+					"Failed : No of slices requested = %d"\
+					" Max supported slices = %d",
+					*num_buffers, VIDEO_MAX_FRAME);
+				rc = -EINVAL;
+				break;
+			}
 		for (i = 0; i < *num_planes; i++) {
 			sizes[i] = inst->fmts[CAPTURE_PORT]->get_frame_size(
 					i, inst->prop.height, inst->prop.width);
 		}
+		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
+		new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
+		new_buf_count.buffer_count_actual = *num_buffers;
+		rc = call_hfi_op(hdev, session_set_property, inst->session,
+			property_id, &new_buf_count);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
@@ -1342,6 +1367,25 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		multi_slice_control.slice_size = ctrl->val;
 		pdata = &multi_slice_control;
 		break;
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_DELIVERY_MODE: {
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
+		if ((temp_ctrl->val ==
+				V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) &&
+			(inst->fmts[CAPTURE_PORT]->fourcc ==
+				V4L2_PIX_FMT_H264 ||
+			inst->fmts[CAPTURE_PORT]->fourcc ==
+				V4L2_PIX_FMT_H264_NO_SC)) {
+			property_id = HAL_PARAM_VENC_SLICE_DELIVERY_MODE;
+			enable.enable = true;
+		} else {
+			dprintk(VIDC_WARN,
+				"Failed : slice delivery mode is valid "\
+				"only for H264 encoder and MB based slicing");
+			enable.enable = false;
+		}
+		pdata = &enable;
+		break;
+	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_INTRA_REFRESH_MODE: {
 		struct v4l2_ctrl *air_mbs, *air_ref, *cir_mbs;
 		air_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_MBS);
