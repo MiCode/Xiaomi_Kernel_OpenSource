@@ -888,13 +888,18 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	return ret;
 }
 
-static int pp_mixer_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
+static int pp_mixer_setup(u32 disp_num,
 		struct mdss_mdp_mixer *mixer)
 {
 	u32 flags, offset, dspp_num, opmode = 0;
 	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
+	struct mdss_mdp_ctl *ctl;
 	dspp_num = mixer->num;
+
+	if (!mixer || !mixer->ctl)
+		return -EINVAL;
+	ctl = mixer->ctl;
 
 	/* no corresponding dspp */
 	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
@@ -1003,8 +1008,7 @@ error:
 	return ret;
 }
 
-static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
-				struct mdss_mdp_mixer *mixer)
+static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 {
 	u32 flags, base, offset, dspp_num, opmode = 0;
 	struct mdp_dither_cfg_data *dither_cfg;
@@ -1014,12 +1018,12 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_ctl *ctl,
 	char __iomem *basel;
 	int i, ret = 0;
 	struct mdss_data_type *mdata;
+	struct mdss_mdp_ctl *ctl;
 
-	mdata = ctl->mdata;
-
-	if (!mixer || !ctl || !mdata)
+	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
 		return -EINVAL;
-
+	ctl = mixer->ctl;
+	mdata = ctl->mdata;
 	dspp_num = mixer->num;
 	/* no corresponding dspp */
 	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
@@ -1174,12 +1178,12 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 
 	mutex_lock(&mdss_pp_mutex);
 	if (ctl->mixer_left) {
-		pp_mixer_setup(disp_num, ctl, ctl->mixer_left);
-		pp_dspp_setup(disp_num, ctl, ctl->mixer_left);
+		pp_mixer_setup(disp_num, ctl->mixer_left);
+		pp_dspp_setup(disp_num, ctl->mixer_left);
 	}
 	if (ctl->mixer_right) {
-		pp_mixer_setup(disp_num, ctl, ctl->mixer_right);
-		pp_dspp_setup(disp_num, ctl, ctl->mixer_right);
+		pp_mixer_setup(disp_num, ctl->mixer_right);
+		pp_dspp_setup(disp_num, ctl->mixer_right);
 	}
 	/* clear dirty flag */
 	if (disp_num < MDSS_BLOCK_DISP_NUM)
