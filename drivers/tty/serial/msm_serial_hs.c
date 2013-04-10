@@ -1920,6 +1920,22 @@ static irqreturn_t msm_hs_isr(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+/*
+ * Find UART device port using its port index value.
+ */
+struct uart_port *msm_hs_get_uart_port(int port_index)
+{
+	int i;
+
+	for (i = 0; i < UARTDM_NR; i++) {
+		if (q_uart_port[i].uport.line == port_index)
+			return &q_uart_port[i].uport;
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(msm_hs_get_uart_port);
+
 /* request to turn off uart clock once pending TX is flushed */
 void msm_hs_request_clock_off(struct uart_port *uport) {
 	unsigned long flags;
