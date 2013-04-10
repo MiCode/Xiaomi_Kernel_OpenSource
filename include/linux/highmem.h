@@ -39,6 +39,12 @@ extern unsigned long totalhigh_pages;
 
 void kmap_flush_unused(void);
 
+#ifdef CONFIG_ARCH_WANT_KMAP_ATOMIC_FLUSH
+void kmap_atomic_flush_unused(void);
+#else
+static inline void kmap_atomic_flush_unused(void) { }
+#endif
+
 struct page *kmap_to_page(void *addr);
 
 #else /* CONFIG_HIGHMEM */
@@ -79,6 +85,7 @@ static inline void __kunmap_atomic(void *addr)
 #define kmap_atomic_to_page(ptr)	virt_to_page(ptr)
 
 #define kmap_flush_unused()	do {} while(0)
+#define kmap_atomic_flush_unused()	do {} while (0)
 #endif
 
 #endif /* CONFIG_HIGHMEM */
