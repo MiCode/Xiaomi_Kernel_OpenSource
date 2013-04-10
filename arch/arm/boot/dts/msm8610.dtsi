@@ -404,7 +404,7 @@
 		reg = <0xf9011050 0x8>;
 		reg-names = "rcg_base";
 		a7_cpu-supply = <&apc_vreg_corner>;
-		a7_mem-supply = <&pm8110_l3>;
+		a7_mem-supply = <&pm8110_l3_ao>;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
@@ -766,6 +766,7 @@
 
 /include/ "msm8610-iommu-domains.dtsi"
 
+/include/ "msm-pm8110-rpm-regulator.dtsi"
 /include/ "msm-pm8110.dtsi"
 /include/ "msm8610-regulator.dtsi"
 
