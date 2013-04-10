@@ -85,6 +85,9 @@
 #define CHGR_BUCK_BCK_VBAT_REG_MODE		0x74
 #define MISC_REVISION2				0x01
 #define USB_OVP_CTL				0x42
+#define USB_CHG_GONE_REV_BST			0xED
+#define BUCK_VCHG_OV				0x77
+#define BUCK_TEST_SMBC_MODES			0xE6
 #define SEC_ACCESS				0xD0
 
 #define REG_OFFSET_PERP_SUBTYPE			0x05
@@ -232,6 +235,7 @@ struct qpnp_chg_chip {
 	u16				freq_base;
 	unsigned int			usbin_valid_irq;
 	unsigned int			dcin_valid_irq;
+	unsigned int			chg_gone_irq;
 	unsigned int			chg_fastchg_irq;
 	unsigned int			chg_trklchg_irq;
 	unsigned int			chg_failed_irq;
@@ -272,6 +276,7 @@ struct qpnp_chg_chip {
 	uint32_t			flags;
 	struct qpnp_adc_tm_btm_param	adc_param;
 	struct work_struct		adc_measure_work;
+	struct delayed_work		arb_stop_work;
 };
 
 static struct of_device_id qpnp_charger_match_table[] = {
@@ -524,13 +529,64 @@ qpnp_chg_usb_suspend_enable(struct qpnp_chg_chip *chip, int enable)
 			enable ? USB_SUSPEND_BIT : 0, 1);
 }
 
-static void qpnp_bat_if_adc_measure_work(struct work_struct *work)
+static int
+qpnp_chg_charge_en(struct qpnp_chg_chip *chip, int enable)
+{
+	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
+			CHGR_CHG_EN,
+			enable ? CHGR_CHG_EN : 0, 1);
+}
+
+static int
+qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
+{
+	/* Don't run on battery for batteryless hardware */
+	if (chip->use_default_batt_values)
+		return 0;
+
+	/* This bit forces the charger to run off of the battery rather
+	 * than a connected charger */
+	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
+			CHGR_ON_BAT_FORCE_BIT,
+			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
+}
+
+static void
+qpnp_arb_stop_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct qpnp_chg_chip *chip = container_of(dwork,
+				struct qpnp_chg_chip, arb_stop_work);
+
+	qpnp_chg_charge_en(chip, !chip->charging_disabled);
+	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
+}
+
+static void
+qpnp_bat_if_adc_measure_work(struct work_struct *work)
 {
 	struct qpnp_chg_chip *chip = container_of(work,
 				struct qpnp_chg_chip, adc_measure_work);
 
 	if (qpnp_adc_tm_channel_measure(&chip->adc_param))
 		pr_err("request ADC error\n");
+}
+
+#define ARB_STOP_WORK_MS	1000
+static irqreturn_t
+qpnp_chg_usb_chg_gone_irq_handler(int irq, void *_chip)
+{
+	struct qpnp_chg_chip *chip = _chip;
+
+	pr_debug("chg_gone triggered\n");
+	if (qpnp_chg_is_usb_chg_plugged_in(chip)) {
+		qpnp_chg_charge_en(chip, 0);
+		qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
+		schedule_delayed_work(&chip->arb_stop_work,
+			msecs_to_jiffies(ARB_STOP_WORK_MS));
+	}
+
+	return IRQ_HANDLED;
 }
 
 #define ENUM_T_STOP_BIT		BIT(0)
@@ -552,7 +608,8 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 	if (chip->usb_present ^ usb_present) {
 		chip->usb_present = usb_present;
 		if (!usb_present)
-			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
+			qpnp_chg_usb_suspend_enable(chip, 1);
+
 		power_supply_set_present(chip->usb_psy,
 			chip->usb_present);
 	}
@@ -658,28 +715,6 @@ qpnp_batt_property_is_writeable(struct power_supply *psy,
 	}
 
 	return 0;
-}
-
-static int
-qpnp_chg_charge_en(struct qpnp_chg_chip *chip, int enable)
-{
-	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
-			CHGR_CHG_EN,
-			enable ? CHGR_CHG_EN : 0, 1);
-}
-
-static int
-qpnp_chg_force_run_on_batt(struct qpnp_chg_chip *chip, int disable)
-{
-	/* Don't run on battery for batteryless hardware */
-	if (chip->use_default_batt_values)
-		return 0;
-
-	/* This bit forces the charger to run off of the battery rather
-	 * than a connected charger */
-	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_CHG_CTRL,
-			CHGR_ON_BAT_FORCE_BIT,
-			disable ? CHGR_ON_BAT_FORCE_BIT : 0, 1);
 }
 
 static int
@@ -1059,8 +1094,8 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 			  POWER_SUPPLY_PROP_CURRENT_MAX, &ret);
 		if (ret.intval <= 2 && !chip->use_default_batt_values &&
 						get_prop_batt_present(chip)) {
-			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 			qpnp_chg_usb_suspend_enable(chip, 1);
+			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
 		} else {
 			qpnp_chg_usb_suspend_enable(chip, 0);
 			qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
@@ -1596,7 +1631,24 @@ qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
 						chip->usbin_valid_irq, rc);
 				return rc;
 			}
+
+			chip->chg_gone_irq = spmi_get_irq_byname(spmi,
+						spmi_resource, "chg-gone");
+			if (chip->chg_gone_irq < 0) {
+				pr_err("Unable to get chg-gone irq\n");
+				return rc;
+			}
+			rc = devm_request_irq(chip->dev, chip->chg_gone_irq,
+				qpnp_chg_usb_chg_gone_irq_handler,
+				IRQF_TRIGGER_RISING,
+					"chg_gone_irq", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d chg_gone: %d\n",
+						chip->chg_gone_irq, rc);
+				return rc;
+			}
 			enable_irq_wake(chip->usbin_valid_irq);
+			enable_irq_wake(chip->chg_gone_irq);
 			break;
 		case SMBB_DC_CHGPTH_SUBTYPE:
 			chip->dcin_valid_irq = spmi_get_irq_byname(spmi,
@@ -1729,6 +1781,16 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			chip->usb_chgpth_base + CHGR_USB_ENUM_T_STOP,
 			ENUM_T_STOP_BIT,
 			ENUM_T_STOP_BIT, 1);
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + SEC_ACCESS,
+			0xFF,
+			0xA5, 1);
+
+		rc = qpnp_chg_masked_write(chip,
+			chip->usb_chgpth_base + USB_CHG_GONE_REV_BST,
+			0xFF,
+			0x80, 1);
 
 		break;
 	case SMBB_DC_CHGPTH_SUBTYPE:
@@ -1931,6 +1993,27 @@ qpnp_charger_probe(struct spmi_device *spmi)
 						subtype, rc);
 				goto fail_chg_enable;
 			}
+
+			rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + SEC_ACCESS,
+				0xFF,
+				0xA5, 1);
+
+			rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + BUCK_VCHG_OV,
+				0xff,
+				0x00, 1);
+
+			rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + SEC_ACCESS,
+				0xFF,
+				0xA5, 1);
+
+			rc = qpnp_chg_masked_write(chip,
+				chip->buck_base + BUCK_TEST_SMBC_MODES,
+				0xFF,
+				0x80, 1);
+
 			break;
 		case SMBB_BAT_IF_SUBTYPE:
 		case SMBBP_BAT_IF_SUBTYPE:
@@ -2025,6 +2108,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		}
 		INIT_WORK(&chip->adc_measure_work,
 			qpnp_bat_if_adc_measure_work);
+		INIT_DELAYED_WORK(&chip->arb_stop_work, qpnp_arb_stop_work);
 	}
 
 	if (chip->dc_chgpth_base) {
