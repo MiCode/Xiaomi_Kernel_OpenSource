@@ -59,16 +59,6 @@ struct wcd9xxx_i2c {
 	int mod_id;
 };
 
-static char *taiko_supplies[] = {
-	WCD9XXX_SUPPLY_BUCK_NAME, "cdc-vdd-tx-h", "cdc-vdd-rx-h", "cdc-vddpx-1",
-	"cdc-vdd-a-1p2v", "cdc-vddcx-1", "cdc-vddcx-2",
-};
-
-static char *tapan_supplies[] = {
-	WCD9XXX_SUPPLY_BUCK_NAME, "cdc-vdd-h", "cdc-vdd-px",
-	"cdc-vdd-a-1p2v", "cdc-vdd-cx"
-};
-
 static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
 	struct wcd9xxx_regulator *vreg, const char *vreg_name);
 static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
@@ -1150,40 +1140,44 @@ static int wcd9xxx_dt_parse_slim_interface_dev_info(struct device *dev,
 static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 {
 	struct wcd9xxx_pdata *pdata;
-	int ret, i;
-	char **codec_supplies;
-	u32 num_of_supplies = 0;
+	int ret, static_cnt, i;
+	const char *name = NULL;
 	u32 mclk_rate = 0;
 	u32 dmic_sample_rate = 0;
+	const char *static_prop_name = "qcom,cdc-static-supplies";
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
 		dev_err(dev, "could not allocate memory for platform data\n");
 		return NULL;
 	}
-	if (!strcmp(dev_name(dev), "taiko-slim-pgd") ||
-		(!strcmp(dev_name(dev), WCD9XXX_I2C_GSBI_SLAVE_ID))) {
-		codec_supplies = taiko_supplies;
-		num_of_supplies = ARRAY_SIZE(taiko_supplies);
-	} else if (!strcmp(dev_name(dev), "tapan-slim-pgd")) {
-		codec_supplies = tapan_supplies;
-		num_of_supplies = ARRAY_SIZE(tapan_supplies);
-	} else {
-		dev_err(dev, "%s unsupported device %s\n",
-				__func__, dev_name(dev));
+
+	static_cnt = of_property_count_strings(dev->of_node, static_prop_name);
+	if (IS_ERR_VALUE(static_cnt)) {
+		dev_err(dev, "%s: Failed to get static supplies %d\n", __func__,
+			static_cnt);
 		goto err;
 	}
 
-	if (num_of_supplies > ARRAY_SIZE(pdata->regulator)) {
+	if (static_cnt > ARRAY_SIZE(pdata->regulator)) {
 		dev_err(dev, "%s: Num of supplies %u > max supported %u\n",
-		      __func__, num_of_supplies, ARRAY_SIZE(pdata->regulator));
-
+			__func__, static_cnt, ARRAY_SIZE(pdata->regulator));
 		goto err;
 	}
 
-	for (i = 0; i < num_of_supplies; i++) {
+	for (i = 0; i < static_cnt; i++) {
+		ret = of_property_read_string_index(dev->of_node,
+						    static_prop_name, i, &name);
+		if (ret) {
+			dev_err(dev, "%s: of read string %s idx %d error %d\n",
+				__func__, static_prop_name, i, ret);
+			goto err;
+		}
+
+		dev_dbg(dev, "%s: Found static cdc supply %s\n", __func__,
+			name);
 		ret = wcd9xxx_dt_parse_vreg_info(dev, &pdata->regulator[i],
-			codec_supplies[i]);
+						 name);
 		if (ret)
 			goto err;
 	}
