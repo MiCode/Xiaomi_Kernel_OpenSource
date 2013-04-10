@@ -60,7 +60,8 @@ struct wcd9xxx_i2c {
 };
 
 static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
-	struct wcd9xxx_regulator *vreg, const char *vreg_name);
+				      struct wcd9xxx_regulator *vreg,
+				      const char *vreg_name, bool ondemand);
 static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
 	struct wcd9xxx_micbias_setting *micbias);
 static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev);
@@ -595,8 +596,8 @@ static const struct file_operations codec_debug_ops = {
 };
 #endif
 
-static int wcd9xxx_enable_supplies(struct wcd9xxx *wcd9xxx,
-				struct wcd9xxx_pdata *pdata)
+static int wcd9xxx_init_supplies(struct wcd9xxx *wcd9xxx,
+				 struct wcd9xxx_pdata *pdata)
 {
 	int ret;
 	int i;
@@ -610,7 +611,7 @@ static int wcd9xxx_enable_supplies(struct wcd9xxx *wcd9xxx,
 
 	wcd9xxx->num_of_supplies = 0;
 
-	if (ARRAY_SIZE(pdata->regulator) > MAX_REGULATOR) {
+	if (ARRAY_SIZE(pdata->regulator) > WCD9XXX_MAX_REGULATOR) {
 		pr_err("%s: Array Size out of bound\n", __func__);
 		ret = -EINVAL;
 		goto err;
@@ -632,8 +633,12 @@ static int wcd9xxx_enable_supplies(struct wcd9xxx *wcd9xxx,
 	}
 
 	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
+		if (regulator_count_voltages(wcd9xxx->supplies[i].consumer) <=
+		    0)
+			continue;
 		ret = regulator_set_voltage(wcd9xxx->supplies[i].consumer,
-			pdata->regulator[i].min_uV, pdata->regulator[i].max_uV);
+					    pdata->regulator[i].min_uV,
+					    pdata->regulator[i].max_uV);
 		if (ret) {
 			pr_err("%s: Setting regulator voltage failed for "
 				"regulator %s err = %d\n", __func__,
@@ -642,35 +647,51 @@ static int wcd9xxx_enable_supplies(struct wcd9xxx *wcd9xxx,
 		}
 
 		ret = regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer,
-			pdata->regulator[i].optimum_uA);
+						pdata->regulator[i].optimum_uA);
 		if (ret < 0) {
 			pr_err("%s: Setting regulator optimum mode failed for "
 				"regulator %s err = %d\n", __func__,
 				wcd9xxx->supplies[i].supply, ret);
 			goto err_get;
+		} else {
+			ret = 0;
 		}
 	}
 
-	ret = regulator_bulk_enable(wcd9xxx->num_of_supplies,
-				    wcd9xxx->supplies);
-	if (ret != 0) {
-		dev_err(wcd9xxx->dev, "Failed to enable supplies: err = %d\n",
-				ret);
-		goto err_configure;
-	}
 	return ret;
 
-err_configure:
-	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
-		regulator_set_voltage(wcd9xxx->supplies[i].consumer, 0,
-			pdata->regulator[i].max_uV);
-		regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer, 0);
-	}
 err_get:
 	regulator_bulk_free(wcd9xxx->num_of_supplies, wcd9xxx->supplies);
 err_supplies:
 	kfree(wcd9xxx->supplies);
 err:
+	return ret;
+}
+
+static int wcd9xxx_enable_static_supplies(struct wcd9xxx *wcd9xxx,
+					  struct wcd9xxx_pdata *pdata)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
+		if (pdata->regulator[i].ondemand)
+			continue;
+		ret = regulator_enable(wcd9xxx->supplies[i].consumer);
+		if (ret) {
+			pr_err("%s: Failed to enable %s\n", __func__,
+			       wcd9xxx->supplies[i].supply);
+			break;
+		} else {
+			pr_debug("%s: Enabled regulator %s\n", __func__,
+				 wcd9xxx->supplies[i].supply);
+		}
+	}
+
+	while (ret && --i)
+		if (!pdata->regulator[i].ondemand)
+			regulator_disable(wcd9xxx->supplies[i].consumer);
+
 	return ret;
 }
 
@@ -682,8 +703,11 @@ static void wcd9xxx_disable_supplies(struct wcd9xxx *wcd9xxx,
 	regulator_bulk_disable(wcd9xxx->num_of_supplies,
 				    wcd9xxx->supplies);
 	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
+		if (regulator_count_voltages(wcd9xxx->supplies[i].consumer) <=
+		    0)
+			continue;
 		regulator_set_voltage(wcd9xxx->supplies[i].consumer, 0,
-			pdata->regulator[i].max_uV);
+				      pdata->regulator[i].max_uV);
 		regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer, 0);
 	}
 	regulator_bulk_free(wcd9xxx->num_of_supplies, wcd9xxx->supplies);
@@ -903,18 +927,26 @@ static int __devinit wcd9xxx_i2c_probe(struct i2c_client *client,
 		wcd9xxx->slim_device_bootup = true;
 		if (client->dev.of_node)
 			wcd9xxx->mclk_rate = pdata->mclk_rate;
-		ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
+
+		ret = wcd9xxx_init_supplies(wcd9xxx, pdata);
 		if (ret) {
 			pr_err("%s: Fail to enable Codec supplies\n",
 			       __func__);
 			goto err_codec;
 		}
 
+		ret = wcd9xxx_enable_static_supplies(wcd9xxx, pdata);
+		if (ret) {
+			pr_err("%s: Fail to enable Codec pre-reset supplies\n",
+			       __func__);
+			goto err_codec;
+		}
 		usleep_range(5, 5);
+
 		ret = wcd9xxx_reset(wcd9xxx);
 		if (ret) {
 			pr_err("%s: Resetting Codec failed\n", __func__);
-		goto err_supplies;
+			goto err_supplies;
 		}
 
 		ret = wcd9xxx_i2c_get_client_index(client, &wcd9xx_index);
@@ -978,7 +1010,9 @@ static int __devexit wcd9xxx_i2c_remove(struct i2c_client *client)
 }
 
 static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
-	struct wcd9xxx_regulator *vreg, const char *vreg_name)
+				      struct wcd9xxx_regulator *vreg,
+				      const char *vreg_name,
+				      bool ondemand)
 {
 	int len, ret = 0;
 	const __be32 *prop;
@@ -996,6 +1030,7 @@ static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
 		return -ENODEV;
 	}
 	vreg->name = vreg_name;
+	vreg->ondemand = ondemand;
 
 	snprintf(prop_name, CODEC_DT_MAX_PROP_SIZE,
 		"qcom,%s-voltage", vreg_name);
@@ -1004,7 +1039,7 @@ static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
 	if (!prop || (len != (2 * sizeof(__be32)))) {
 		dev_err(dev, "%s %s property\n",
 				prop ? "invalid format" : "no", prop_name);
-		return -ENODEV;
+		return -EINVAL;
 	} else {
 		vreg->min_uV = be32_to_cpup(&prop[0]);
 		vreg->max_uV = be32_to_cpup(&prop[1]);
@@ -1017,12 +1052,12 @@ static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
 	if (ret) {
 		dev_err(dev, "Looking up %s property in node %s failed",
 				prop_name, dev->of_node->full_name);
-		return -ENODEV;
+		return -EFAULT;
 	}
 	vreg->optimum_uA = prop_val;
 
-	dev_info(dev, "%s: vol=[%d %d]uV, curr=[%d]uA\n", vreg->name,
-		vreg->min_uV, vreg->max_uV, vreg->optimum_uA);
+	dev_info(dev, "%s: vol=[%d %d]uV, curr=[%d]uA, ond %d\n", vreg->name,
+		vreg->min_uV, vreg->max_uV, vreg->optimum_uA, vreg->ondemand);
 	return 0;
 }
 
@@ -1140,11 +1175,12 @@ static int wcd9xxx_dt_parse_slim_interface_dev_info(struct device *dev,
 static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 {
 	struct wcd9xxx_pdata *pdata;
-	int ret, static_cnt, i;
+	int ret, static_cnt, ond_cnt, idx, i;
 	const char *name = NULL;
 	u32 mclk_rate = 0;
 	u32 dmic_sample_rate = 0;
 	const char *static_prop_name = "qcom,cdc-static-supplies";
+	const char *ond_prop_name = "qcom,cdc-on-demand-supplies";
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -1159,25 +1195,46 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 		goto err;
 	}
 
-	if (static_cnt > ARRAY_SIZE(pdata->regulator)) {
+	/* On-demand supply list is an optional property */
+	ond_cnt = of_property_count_strings(dev->of_node, ond_prop_name);
+	if (IS_ERR_VALUE(ond_cnt))
+		ond_cnt = 0;
+
+	BUG_ON(static_cnt <= 0 || ond_cnt < 0);
+	if ((static_cnt + ond_cnt) > ARRAY_SIZE(pdata->regulator)) {
 		dev_err(dev, "%s: Num of supplies %u > max supported %u\n",
 			__func__, static_cnt, ARRAY_SIZE(pdata->regulator));
 		goto err;
 	}
 
-	for (i = 0; i < static_cnt; i++) {
+	for (idx = 0; idx < static_cnt; idx++) {
 		ret = of_property_read_string_index(dev->of_node,
-						    static_prop_name, i, &name);
+						    static_prop_name, idx,
+						    &name);
 		if (ret) {
 			dev_err(dev, "%s: of read string %s idx %d error %d\n",
-				__func__, static_prop_name, i, ret);
+				__func__, static_prop_name, idx, ret);
 			goto err;
 		}
 
 		dev_dbg(dev, "%s: Found static cdc supply %s\n", __func__,
 			name);
-		ret = wcd9xxx_dt_parse_vreg_info(dev, &pdata->regulator[i],
-						 name);
+		ret = wcd9xxx_dt_parse_vreg_info(dev, &pdata->regulator[idx],
+						 name, false);
+		if (ret)
+			goto err;
+	}
+
+	for (i = 0; i < ond_cnt; i++, idx++) {
+		ret = of_property_read_string_index(dev->of_node, ond_prop_name,
+						    i, &name);
+		if (ret)
+			goto err;
+
+		dev_dbg(dev, "%s: Found on-demand cdc supply %s\n", __func__,
+			name);
+		ret = wcd9xxx_dt_parse_vreg_info(dev, &pdata->regulator[idx],
+						 name, true);
 		if (ret)
 			goto err;
 	}
@@ -1319,9 +1376,17 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	wcd9xxx->mclk_rate = pdata->mclk_rate;
 	wcd9xxx->slim_device_bootup = true;
 
-	ret = wcd9xxx_enable_supplies(wcd9xxx, pdata);
-	if (ret)
+	ret = wcd9xxx_init_supplies(wcd9xxx, pdata);
+	if (ret) {
+		pr_err("%s: Fail to init Codec supplies %d\n", __func__, ret);
 		goto err_codec;
+	}
+	ret = wcd9xxx_enable_static_supplies(wcd9xxx, pdata);
+	if (ret) {
+		pr_err("%s: Fail to enable Codec pre-reset supplies\n",
+		       __func__);
+		goto err_codec;
+	}
 	usleep_range(5, 5);
 
 	ret = wcd9xxx_reset(wcd9xxx);
