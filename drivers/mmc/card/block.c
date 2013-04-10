@@ -688,6 +688,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 
 	mrq.cmd = &cmd;
 
+	mmc_rpm_hold(card->host, &card->dev);
 	mmc_claim_host(card->host);
 
 	err = mmc_blk_part_switch(card, md);
@@ -747,6 +748,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 
 cmd_rel_host:
 	mmc_release_host(card->host);
+	mmc_rpm_release(card->host, &card->dev);
 
 cmd_done:
 	mmc_blk_put(md);
@@ -828,6 +830,7 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 		goto idata_free;
 	}
 
+	mmc_rpm_hold(card->host, &card->dev);
 	mmc_claim_host(card->host);
 
 	err = mmc_blk_part_switch(card, md);
@@ -924,6 +927,7 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 
 cmd_rel_host:
 	mmc_release_host(card->host);
+	mmc_rpm_release(card->host, &card->dev);
 
 idata_free:
 	for (i = 0; i < MMC_IOC_MAX_RPMB_CMD; i++) {
