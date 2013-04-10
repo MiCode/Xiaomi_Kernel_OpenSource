@@ -327,3 +327,52 @@
 	mpp@a300 { /* MPP 4 */
 	};
 };
+
+/* CoreSight */
+&tpiu {
+	qcom,seta-gpios = <&msmgpio 4 0>,
+			  <&msmgpio 5 0>,
+			  <&msmgpio 6 0>,
+			  <&msmgpio 7 0>,
+			  <&msmgpio 22 0>,
+			  <&msmgpio 23 0>,
+			  <&msmgpio 24 0>,
+			  <&msmgpio 25 0>,
+			  <&msmgpio 26 0>,
+			  <&msmgpio 27 0>,
+			  <&msmgpio 28 0>,
+			  <&msmgpio 29 0>,
+			  <&msmgpio 30 0>,
+			  <&msmgpio 31 0>,
+			  <&msmgpio 94 0>,
+			  <&msmgpio 95 0>,
+			  <&msmgpio 96 0>,
+			  <&msmgpio 97 0>;
+	qcom,seta-gpios-func = <9 9 8 11 2 2 2 2 2 2 3 2 3 3 4 4 4 4>;
+	qcom,seta-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
+	qcom,seta-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	qcom,seta-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+
+	qcom,setb-gpios = <&msmgpio 8 0>,
+			  <&msmgpio 10 0>,
+			  <&msmgpio 11 0>,
+			  <&msmgpio 13 0>,
+			  <&msmgpio 14 0>,
+			  <&msmgpio 15 0>,
+			  <&msmgpio 16 0>,
+			  <&msmgpio 17 0>,
+			  <&msmgpio 18 0>,
+			  <&msmgpio 19 0>,
+			  <&msmgpio 20 0>,
+			  <&msmgpio 21 0>,
+			  <&msmgpio 42 0>,
+			  <&msmgpio 80 0>,
+			  <&msmgpio 81 0>,
+			  <&msmgpio 82 0>,
+			  <&msmgpio 83 0>,
+			  <&msmgpio 84 0>;
+	qcom,setb-gpios-func = <10 8 8 6 9 9 9 9 9 9 9 9 5 7 7 8 8 8>;
+	qcom,setb-gpios-drv =  <7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7>;
+	qcom,setb-gpios-pull = <0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
+	qcom,setb-gpios-dir =  <2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2>;
+};

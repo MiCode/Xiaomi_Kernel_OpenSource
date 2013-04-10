@@ -34,6 +34,11 @@
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
 		coresight-nr-inports = <1>;
+
+		vdd-supply = <&pm8110_l18>;
+
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <15000 400000>;
 	};
 
 	replicator: replicator@fc324000 {
