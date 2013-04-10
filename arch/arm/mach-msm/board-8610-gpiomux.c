@@ -47,6 +47,36 @@ static struct gpiomux_setting wcnss_5wire_active_cfg = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
+static struct gpiomux_setting lcd_en_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_HIGH,
+};
+
+static struct gpiomux_setting lcd_en_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
+	{
+		.gpio = 41,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
+			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
+		},
+	},
+	{
+		.gpio = 7,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
+			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 10,	/* BLSP1 QUP3 I2C_SDA */
@@ -137,4 +167,5 @@ void __init msm8610_init_gpiomux(void)
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
 	msm_gpiomux_install(wcnss_5wire_interface,
 			ARRAY_SIZE(wcnss_5wire_interface));
+	msm_gpiomux_install(msm_lcd_configs, ARRAY_SIZE(msm_lcd_configs));
 }
