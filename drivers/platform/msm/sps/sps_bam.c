@@ -403,9 +403,21 @@ int sps_bam_enable(struct sps_bam *dev)
 	}
 
 	dev->state |= BAM_STATE_ENABLED;
-	SPS_INFO("sps:BAM 0x%x (va:0x%x) enabled: ver:0x%x, number of pipes:%d",
-		BAM_ID(dev), (u32) dev->base, dev->version,
-		dev->props.num_pipes);
+
+	if (!dev->props.constrained_logging ||
+		(dev->props.constrained_logging && dev->props.logging_number)) {
+		if (dev->props.logging_number > 0)
+			dev->props.logging_number--;
+		SPS_INFO(
+			"sps:BAM 0x%x (va:0x%x) enabled: ver:0x%x, number of pipes:%d\n",
+			BAM_ID(dev), (u32) dev->base, dev->version,
+			dev->props.num_pipes);
+	} else
+		SPS_DBG2(
+			"sps:BAM 0x%x (va:0x%x) enabled: ver:0x%x, number of pipes:%d\n",
+			BAM_ID(dev), (u32) dev->base, dev->version,
+			dev->props.num_pipes);
+
 	return 0;
 }
 

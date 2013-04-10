@@ -410,6 +410,11 @@ struct sps_bam_props {
 
 	u32 sec_config;
 	struct sps_bam_sec_config_props *p_sec_config_props;
+
+	/* Logging control */
+
+	bool constrained_logging;
+	u32 logging_number;
 };
 
 /**
