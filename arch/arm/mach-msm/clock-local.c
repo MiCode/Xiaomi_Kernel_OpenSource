@@ -756,10 +756,10 @@ static int branch_set_flags(struct branch *b, unsigned flags)
 	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
 	reg_val = readl_relaxed(b->retain_reg);
 	switch (flags) {
-	case CLKFLAG_RETAIN:
+	case CLKFLAG_RETAIN_MEM:
 		reg_val |= b->retain_mask;
 		break;
-	case CLKFLAG_NORETAIN:
+	case CLKFLAG_NORETAIN_MEM:
 		reg_val &= ~b->retain_mask;
 		break;
 	default:
