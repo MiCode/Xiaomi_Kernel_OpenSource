@@ -25,6 +25,7 @@
 #include <linux/of_irq.h>
 #include <linux/memory.h>
 #include <linux/regulator/qpnp-regulator.h>
+#include <linux/msm_tsens.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
@@ -111,7 +112,7 @@ void __init msm8226_add_drivers(void)
 		msm_clock_init(&msm8226_rumi_clock_init_data);
 	else
 		msm_clock_init(&msm8226_clock_init_data);
-
+	tsens_tm_init_driver();
 	msm_thermal_device_init();
 }
 

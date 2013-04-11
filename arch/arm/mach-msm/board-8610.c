@@ -24,6 +24,7 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/memory.h>
+#include <linux/msm_tsens.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -102,6 +103,7 @@ void __init msm8610_add_drivers(void)
 	msm_lpmrs_module_init();
 	msm_spm_device_init();
 	qpnp_regulator_init();
+	tsens_tm_init_driver();
 	msm_thermal_device_init();
 
 	if (of_board_is_rumi())
