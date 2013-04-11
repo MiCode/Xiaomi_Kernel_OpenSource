@@ -282,8 +282,9 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 	}
 
 	vsync_time = ktime_get();
+	ctl->vsync_cnt++;
 
-	pr_debug("intr ctl=%d\n", ctl->num);
+	pr_debug("intr ctl=%d vsync cnt=%u\n", ctl->num, ctl->vsync_cnt);
 
 	complete_all(&ctx->vsync_comp);
 	spin_lock(&ctx->vsync_lock);

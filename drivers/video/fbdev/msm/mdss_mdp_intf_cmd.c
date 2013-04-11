@@ -180,6 +180,7 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 	pr_debug("%s: ctl=%d intf_num=%d\n", __func__, ctl->num, ctl->intf_num);
 
 	vsync_time = ktime_get();
+	ctl->vsync_cnt++;
 
 	spin_lock(&ctx->vsync_lock);
 	if (ctx->vsync_handler)
