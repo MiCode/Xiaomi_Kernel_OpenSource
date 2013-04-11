@@ -1433,7 +1433,7 @@ static int __devinit qpnp_get_config_rgb(struct qpnp_led_data *led,
 
 	rc = of_property_read_u32(node, "qcom,pwm-channel", &val);
 	if (!rc)
-		led->rgb_cfg->pwm_channel = (u8) val;
+		led->rgb_cfg->pwm_channel = val;
 	else
 		return rc;
 
@@ -1495,22 +1495,22 @@ static int __devinit qpnp_get_config_rgb(struct qpnp_led_data *led,
 
 		rc = of_property_read_u32(node, "qcom,start-idx", &val);
 		if (!rc) {
-			led->rgb_cfg->lut_params.start_idx = (u8) val;
-			led->rgb_cfg->duty_cycles->start_idx = (u8) val;
+			led->rgb_cfg->lut_params.start_idx = val;
+			led->rgb_cfg->duty_cycles->start_idx = val;
 		} else
 			return rc;
 
 		led->rgb_cfg->lut_params.lut_pause_hi = 0;
 		rc = of_property_read_u32(node, "qcom,pause-hi", &val);
 		if (!rc)
-			led->rgb_cfg->lut_params.lut_pause_hi = (u8) val;
+			led->rgb_cfg->lut_params.lut_pause_hi = val;
 		else if (rc != -EINVAL)
 			return rc;
 
 		led->rgb_cfg->lut_params.lut_pause_lo = 0;
 		rc = of_property_read_u32(node, "qcom,pause-lo", &val);
 		if (!rc)
-			led->rgb_cfg->lut_params.lut_pause_lo = (u8) val;
+			led->rgb_cfg->lut_params.lut_pause_lo = val;
 		else if (rc != -EINVAL)
 			return rc;
 
@@ -1518,14 +1518,14 @@ static int __devinit qpnp_get_config_rgb(struct qpnp_led_data *led,
 				QPNP_LUT_RAMP_STEP_DEFAULT;
 		rc = of_property_read_u32(node, "qcom,ramp-step-ms", &val);
 		if (!rc)
-			led->rgb_cfg->lut_params.ramp_step_ms = (u8) val;
+			led->rgb_cfg->lut_params.ramp_step_ms = val;
 		else if (rc != -EINVAL)
 			return rc;
 
 		led->rgb_cfg->lut_params.flags = QPNP_LED_PWM_FLAGS;
 		rc = of_property_read_u32(node, "qcom,lut-flags", &val);
 		if (!rc)
-			led->rgb_cfg->lut_params.flags = (u8) val;
+			led->rgb_cfg->lut_params.flags = val;
 		else if (rc != -EINVAL)
 			return rc;
 
