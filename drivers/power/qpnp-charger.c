@@ -232,7 +232,6 @@ struct qpnp_chg_chip {
 	u16				freq_base;
 	unsigned int			usbin_valid_irq;
 	unsigned int			dcin_valid_irq;
-	unsigned int			chg_done_irq;
 	unsigned int			chg_fastchg_irq;
 	unsigned int			chg_trklchg_irq;
 	unsigned int			chg_failed_irq;
@@ -641,26 +640,6 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 	pr_debug("FAST_CHG IRQ triggered\n");
 
 	chip->chg_done = false;
-	power_supply_changed(&chip->batt_psy);
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t
-qpnp_chg_chgr_chg_done_irq_handler(int irq, void *_chip)
-{
-	struct qpnp_chg_chip *chip = _chip;
-	u8 chgr_sts;
-	int rc;
-
-	pr_debug("CHG_DONE IRQ triggered\n");
-
-	rc = qpnp_chg_read(chip, &chgr_sts,
-				INT_RT_STS(chip->chgr_base), 1);
-	if (rc)
-		pr_err("failed to read interrupt sts %d\n", rc);
-
-	chip->chg_done = true;
 	power_supply_changed(&chip->batt_psy);
 
 	return IRQ_HANDLED;
@@ -1481,13 +1460,6 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_CHGR_SUBTYPE:
 	case SMBBP_CHGR_SUBTYPE:
 	case SMBCL_CHGR_SUBTYPE:
-		chip->chg_done_irq = spmi_get_irq_byname(chip->spmi,
-						spmi_resource, "chg-done");
-		if (chip->chg_done_irq < 0) {
-			pr_err("Unable to get chg_done irq\n");
-			return -ENXIO;
-		}
-
 		chip->chg_fastchg_irq = spmi_get_irq_byname(chip->spmi,
 						spmi_resource, "fast-chg-on");
 		if (chip->chg_fastchg_irq < 0) {
@@ -1506,16 +1478,6 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 						spmi_resource, "chg-failed");
 		if (chip->chg_failed_irq < 0) {
 			pr_err("Unable to get chg_failed irq\n");
-			return -ENXIO;
-		}
-
-		rc |= devm_request_irq(chip->dev, chip->chg_done_irq,
-				qpnp_chg_chgr_chg_done_irq_handler,
-				IRQF_TRIGGER_RISING,
-				"chg_done", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d chg_done for chg: %d\n",
-						chip->chg_done_irq, rc);
 			return -ENXIO;
 		}
 
@@ -1598,7 +1560,6 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 		enable_irq_wake(chip->chg_fastchg_irq);
 		enable_irq_wake(chip->chg_trklchg_irq);
 		enable_irq_wake(chip->chg_failed_irq);
-		enable_irq_wake(chip->chg_done_irq);
 		break;
 	case SMBB_BUCK_SUBTYPE:
 	case SMBBP_BUCK_SUBTYPE:
