@@ -59,6 +59,9 @@ void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl)
 		mdss_dsi1_hw.ptr = (void *)(ctrl);
 		ctrl->mdss_hw = &mdss_dsi1_hw;
 	}
+
+	if (!mdss_register_irq(ctrl->mdss_hw))
+		pr_err("%s: mdss_register_irq failed.\n", __func__);
 }
 
 void mdss_dsi_irq_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable, int isr)
