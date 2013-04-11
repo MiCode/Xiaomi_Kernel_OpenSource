@@ -14,6 +14,7 @@
 
 #include <mach/qdsp6v2/apr.h>
 #include <linux/msm_ion.h>
+#include <sound/voice_params.h>
 
 #define MAX_VOC_PKT_SIZE 642
 #define SESSION_NAME_LEN 20
@@ -41,11 +42,15 @@ struct voice_init {
 	void *cb_handle;
 };
 
-/* Device information payload structure */
+/* Stream information payload structure */
+struct stream_data {
+	uint32_t stream_mute;
+};
 
+/* Device information payload structure */
 struct device_data {
 	uint32_t volume; /* in index */
-	uint32_t mute;
+	uint32_t dev_mute;
 	uint32_t sample;
 	uint32_t enabled;
 	uint32_t dev_id;
@@ -904,7 +909,7 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 
 #define APRV2_IBASIC_CMD_DESTROY_SESSION		0x0001003C
 
-#define VSS_IVOCPROC_CMD_SET_DEVICE			0x000100C4
+#define VSS_IVOCPROC_CMD_SET_DEVICE_V2			0x000112C6
 
 #define VSS_IVOCPROC_CMD_SET_VP3_DATA			0x000110EB
 
@@ -1042,8 +1047,8 @@ struct vss_ivocproc_cmd_set_volume_index_t {
 	 */
 } __packed;
 
-struct vss_ivocproc_cmd_set_device_t {
-	uint32_t tx_port_id;
+struct vss_ivocproc_cmd_set_device_v2_t {
+	uint16_t tx_port_id;
 	/*
 	 * TX device port ID which vocproc will connect to.
 	 * VSS_IVOCPROC_PORT_ID_NONE means vocproc will not connect to any port.
@@ -1054,7 +1059,7 @@ struct vss_ivocproc_cmd_set_device_t {
 	 * VSS_IVOCPROC_TOPOLOGY_ID_NONE means vocproc does not contain any
 	 * pre/post-processing blocks and is pass-through.
 	 */
-	int32_t rx_port_id;
+	uint16_t rx_port_id;
 	/*
 	 * RX device port ID which vocproc will connect to.
 	 * VSS_IVOCPROC_PORT_ID_NONE means vocproc will not connect to any port.
@@ -1064,6 +1069,15 @@ struct vss_ivocproc_cmd_set_device_t {
 	 * RX leg topology ID.
 	 * VSS_IVOCPROC_TOPOLOGY_ID_NONE means vocproc does not contain any
 	 * pre/post-processing blocks and is pass-through.
+	 */
+	uint32_t vocproc_mode;
+	/* Vocproc mode. The supported values:
+	 * VSS_IVOCPROC_VOCPROC_MODE_EC_INT_MIXING - 0x00010F7C
+	 * VSS_IVOCPROC_VOCPROC_MODE_EC_EXT_MIXING - 0x00010F7D
+	 */
+	uint16_t ec_ref_port_id;
+	/* Port ID to which the vocproc connects for receiving
+	 * echo
 	 */
 } __packed;
 
@@ -1128,7 +1142,7 @@ struct cvp_command {
 
 struct cvp_set_device_cmd {
 	struct apr_hdr hdr;
-	struct vss_ivocproc_cmd_set_device_t cvp_set_device;
+	struct vss_ivocproc_cmd_set_device_v2_t cvp_set_device_v2;
 } __packed;
 
 struct cvp_set_vp3_data_cmd {
@@ -1230,9 +1244,13 @@ struct voice_data {
 	wait_queue_head_t cvs_wait;
 	wait_queue_head_t cvp_wait;
 
-	/* cache the values related to Rx and Tx */
+	/* Cache the values related to Rx and Tx devices */
 	struct device_data dev_rx;
 	struct device_data dev_tx;
+
+	/* Cache the values related to Rx and Tx streams */
+	struct stream_data stream_rx;
+	struct stream_data stream_tx;
 
 	u32 mvm_state;
 	u32 cvs_state;
@@ -1257,6 +1275,8 @@ struct voice_data {
 	uint32_t fens_enable;
 
 	uint32_t dtmf_rx_detect_en;
+	/* Local Call Hold mode */
+	uint8_t lch_mode;
 
 	struct voice_dev_route_state voc_route_state;
 
@@ -1353,6 +1373,7 @@ int voc_start_voice_call(uint16_t session_id);
 int voc_end_voice_call(uint16_t session_id);
 int voc_standby_voice_call(uint16_t session_id);
 int voc_resume_voice_call(uint16_t session_id);
+int voc_set_lch(uint16_t session_id, enum voice_lch_mode lch_mode);
 int voc_set_rxtx_port(uint16_t session_id,
 		      uint32_t dev_port_id,
 		      uint32_t dev_type);

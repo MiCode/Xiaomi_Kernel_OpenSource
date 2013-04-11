@@ -1444,6 +1444,34 @@ fail:
 	return -EINVAL;
 }
 
+static void voc_get_tx_rx_topology(struct voice_data *v,
+				   uint32_t *tx_topology_id,
+				   uint32_t *rx_topology_id)
+{
+	uint32_t tx_id = 0;
+	uint32_t rx_id = 0;
+
+	if (v->lch_mode == VOICE_LCH_START) {
+		pr_debug("%s: Setting TX and RX topology to NONE for LCH\n",
+			 __func__);
+
+		tx_id = VSS_IVOCPROC_TOPOLOGY_ID_NONE;
+		rx_id = VSS_IVOCPROC_TOPOLOGY_ID_NONE;
+	} else {
+		/* Use default topology if invalid value in ACDB */
+		tx_id = get_voice_tx_topology();
+		if (tx_id == 0)
+			tx_id = VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS;
+
+		rx_id = get_voice_rx_topology();
+		if (rx_id == 0)
+			rx_id = VSS_IVOCPROC_TOPOLOGY_ID_RX_DEFAULT;
+	}
+
+	*tx_topology_id = tx_id;
+	*rx_topology_id = rx_id;
+}
+
 static int voice_send_set_device_cmd(struct voice_data *v)
 {
 	struct cvp_set_device_cmd  cvp_setdev_cmd;
@@ -1474,26 +1502,22 @@ static int voice_send_set_device_cmd(struct voice_data *v)
 	cvp_setdev_cmd.hdr.src_port = v->session_id;
 	cvp_setdev_cmd.hdr.dest_port = cvp_handle;
 	cvp_setdev_cmd.hdr.token = 0;
-	cvp_setdev_cmd.hdr.opcode = VSS_IVOCPROC_CMD_SET_DEVICE;
+	cvp_setdev_cmd.hdr.opcode = VSS_IVOCPROC_CMD_SET_DEVICE_V2;
 
-	/* Use default topology if invalid value in ACDB */
-	cvp_setdev_cmd.cvp_set_device.tx_topology_id =
-				get_voice_tx_topology();
-	if (cvp_setdev_cmd.cvp_set_device.tx_topology_id == 0)
-		cvp_setdev_cmd.cvp_set_device.tx_topology_id =
-				VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS;
+	voc_get_tx_rx_topology(v,
+			&cvp_setdev_cmd.cvp_set_device_v2.tx_topology_id,
+			&cvp_setdev_cmd.cvp_set_device_v2.rx_topology_id);
 
-	cvp_setdev_cmd.cvp_set_device.rx_topology_id =
-				get_voice_rx_topology();
-	if (cvp_setdev_cmd.cvp_set_device.rx_topology_id == 0)
-		cvp_setdev_cmd.cvp_set_device.rx_topology_id =
-				VSS_IVOCPROC_TOPOLOGY_ID_RX_DEFAULT;
-	cvp_setdev_cmd.cvp_set_device.tx_port_id = v->dev_tx.port_id;
-	cvp_setdev_cmd.cvp_set_device.rx_port_id = v->dev_rx.port_id;
+	cvp_setdev_cmd.cvp_set_device_v2.tx_port_id = v->dev_tx.port_id;
+	cvp_setdev_cmd.cvp_set_device_v2.rx_port_id = v->dev_rx.port_id;
+	cvp_setdev_cmd.cvp_set_device_v2.vocproc_mode =
+				    VSS_IVOCPROC_VOCPROC_MODE_EC_INT_MIXING;
+	cvp_setdev_cmd.cvp_set_device_v2.ec_ref_port_id =
+				    VSS_IVOCPROC_PORT_ID_NONE;
 	pr_debug("topology=%d , tx_port_id=%d, rx_port_id=%d\n",
-		cvp_setdev_cmd.cvp_set_device.tx_topology_id,
-		cvp_setdev_cmd.cvp_set_device.tx_port_id,
-		cvp_setdev_cmd.cvp_set_device.rx_port_id);
+		cvp_setdev_cmd.cvp_set_device_v2.tx_topology_id,
+		cvp_setdev_cmd.cvp_set_device_v2.tx_port_id,
+		cvp_setdev_cmd.cvp_set_device_v2.rx_port_id);
 
 	v->cvp_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(apr_cvp, (uint32_t *) &cvp_setdev_cmd);
@@ -2249,18 +2273,9 @@ static int voice_setup_vocproc(struct voice_data *v)
 	cvp_session_cmd.hdr.opcode =
 			VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION_V2;
 
-	/* Use default topology if invalid value in ACDB */
-	cvp_session_cmd.cvp_session.tx_topology_id =
-				get_voice_tx_topology();
-	if (cvp_session_cmd.cvp_session.tx_topology_id == 0)
-		cvp_session_cmd.cvp_session.tx_topology_id =
-			VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS;
-
-	cvp_session_cmd.cvp_session.rx_topology_id =
-				get_voice_rx_topology();
-	if (cvp_session_cmd.cvp_session.rx_topology_id == 0)
-		cvp_session_cmd.cvp_session.rx_topology_id =
-			VSS_IVOCPROC_TOPOLOGY_ID_RX_DEFAULT;
+	voc_get_tx_rx_topology(v,
+			&cvp_session_cmd.cvp_session.tx_topology_id,
+			&cvp_session_cmd.cvp_session.rx_topology_id);
 
 	cvp_session_cmd.cvp_session.direction = 2; /*tx and rx*/
 	cvp_session_cmd.cvp_session.tx_port_id = v->dev_tx.port_id;
@@ -2645,6 +2660,9 @@ static int voice_destroy_vocproc(struct voice_data *v)
 	if (v->dtmf_rx_detect_en)
 		voice_send_dtmf_rx_detection_cmd(v, 0);
 
+	/* reset LCH mode */
+	v->lch_mode = 0;
+
 	/* detach VOCPROC and wait for response from mvm */
 	mvm_d_vocproc_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(APR_HDR_SIZE),
@@ -2884,7 +2902,7 @@ fail:
 	return -EINVAL;
 }
 
-static int voice_send_mute_cmd(struct voice_data *v)
+static int voice_send_stream_mute_cmd(struct voice_data *v)
 {
 	struct cvs_set_mute_cmd cvs_mute_cmd;
 	int ret = 0;
@@ -2912,7 +2930,7 @@ static int voice_send_mute_cmd(struct voice_data *v)
 	cvs_mute_cmd.hdr.token = 0;
 	cvs_mute_cmd.hdr.opcode = VSS_IVOLUME_CMD_MUTE_V2;
 	cvs_mute_cmd.cvs_set_mute.direction = VSS_IVOLUME_DIRECTION_TX;
-	cvs_mute_cmd.cvs_set_mute.mute_flag = v->dev_tx.mute;
+	cvs_mute_cmd.cvs_set_mute.mute_flag = v->stream_tx.stream_mute;
 	cvs_mute_cmd.cvs_set_mute.ramp_duration_ms = DEFAULT_MUTE_RAMP_DURATION;
 
 	v->cvs_state = CMD_STATUS_FAIL;
@@ -2937,7 +2955,8 @@ fail:
 	return -EINVAL;
 }
 
-static int voice_send_rx_device_mute_cmd(struct voice_data *v)
+static int voice_send_device_mute_cmd(struct voice_data *v, uint16_t direction,
+				      uint16_t mute_flag)
 {
 	struct cvp_set_mute_cmd cvp_mute_cmd;
 	int ret = 0;
@@ -2963,8 +2982,8 @@ static int voice_send_rx_device_mute_cmd(struct voice_data *v)
 	cvp_mute_cmd.hdr.dest_port = voice_get_cvp_handle(v);
 	cvp_mute_cmd.hdr.token = 0;
 	cvp_mute_cmd.hdr.opcode = VSS_IVOLUME_CMD_MUTE_V2;
-	cvp_mute_cmd.cvp_set_mute.direction = VSS_IVOLUME_DIRECTION_RX;
-	cvp_mute_cmd.cvp_set_mute.mute_flag = v->dev_rx.mute;
+	cvp_mute_cmd.cvp_set_mute.direction = direction;
+	cvp_mute_cmd.cvp_set_mute.mute_flag = mute_flag;
 	cvp_mute_cmd.cvp_set_mute.ramp_duration_ms = DEFAULT_MUTE_RAMP_DURATION;
 
 	v->cvp_state = CMD_STATUS_FAIL;
@@ -3493,7 +3512,7 @@ int voc_enable_cvp(uint16_t session_id)
 	int ret = 0;
 
 	if (v == NULL) {
-		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+		pr_err("%s: Invalid session_id 0x%x\n", __func__, session_id);
 
 		return -EINVAL;
 	}
@@ -3503,7 +3522,7 @@ int voc_enable_cvp(uint16_t session_id)
 	if (v->voc_state == VOC_CHANGE) {
 		ret = voice_send_set_device_cmd(v);
 		if (ret < 0) {
-			pr_err("%s:  set device failed\n", __func__);
+			pr_err("%s:  Set device failed\n", __func__);
 			goto fail;
 		}
 
@@ -3511,9 +3530,35 @@ int voc_enable_cvp(uint16_t session_id)
 		voice_send_cvp_register_cal_cmd(v);
 		voice_send_cvp_register_vol_cal_cmd(v);
 
+		if (v->lch_mode == VOICE_LCH_START) {
+			pr_debug("%s: TX and RX mute ON\n", __func__);
+
+			voice_send_device_mute_cmd(v,
+						   VSS_IVOLUME_DIRECTION_TX,
+						   VSS_IVOLUME_MUTE_ON);
+			voice_send_device_mute_cmd(v,
+						   VSS_IVOLUME_DIRECTION_RX,
+						   VSS_IVOLUME_MUTE_ON);
+		} else if (v->lch_mode == VOICE_LCH_STOP) {
+			pr_debug("%s: TX and RX mute OFF\n", __func__);
+
+			voice_send_device_mute_cmd(v,
+						   VSS_IVOLUME_DIRECTION_TX,
+						   VSS_IVOLUME_MUTE_OFF);
+			voice_send_device_mute_cmd(v,
+						   VSS_IVOLUME_DIRECTION_RX,
+						   VSS_IVOLUME_MUTE_OFF);
+			/* Reset lch mode when VOICE_LCH_STOP is recieved */
+			v->lch_mode = 0;
+		} else {
+			pr_debug("%s: Mute commands not sent for lch_mode=%d\n",
+				 __func__, v->lch_mode);
+		}
+
 		ret = voice_send_enable_vocproc_cmd(v);
 		if (ret < 0) {
-			pr_err("%s: enable vocproc failed %d\n", __func__, ret);
+			pr_err("%s: Enable vocproc failed %d\n", __func__, ret);
+
 			goto fail;
 		}
 
@@ -3593,12 +3638,12 @@ int voc_set_tx_mute(uint16_t session_id, uint32_t dir, uint32_t mute)
 
 	mutex_lock(&v->lock);
 
-	v->dev_tx.mute = mute;
+	v->stream_tx.stream_mute = mute;
 
 	if ((v->voc_state == VOC_RUN) ||
 	    (v->voc_state == VOC_CHANGE) ||
 	    (v->voc_state == VOC_STANDBY))
-		ret = voice_send_mute_cmd(v);
+		ret = voice_send_stream_mute_cmd(v);
 
 	mutex_unlock(&v->lock);
 
@@ -3618,10 +3663,12 @@ int voc_set_rx_device_mute(uint16_t session_id, uint32_t mute)
 
 	mutex_lock(&v->lock);
 
-	v->dev_rx.mute = mute;
+	v->dev_rx.dev_mute = mute;
 
 	if (v->voc_state == VOC_RUN)
-		ret = voice_send_rx_device_mute_cmd(v);
+		ret = voice_send_device_mute_cmd(v,
+						 VSS_IVOLUME_DIRECTION_RX,
+						 v->dev_rx.dev_mute);
 
 	mutex_unlock(&v->lock);
 
@@ -3641,7 +3688,7 @@ int voc_get_rx_device_mute(uint16_t session_id)
 
 	mutex_lock(&v->lock);
 
-	ret = v->dev_rx.mute;
+	ret = v->dev_rx.dev_mute;
 
 	mutex_unlock(&v->lock);
 
@@ -3957,6 +4004,49 @@ int voc_standby_voice_call(uint16_t session_id)
 		v->voc_state = VOC_STANDBY;
 	}
 fail:
+	return ret;
+}
+
+int voc_set_lch(uint16_t session_id, enum voice_lch_mode lch_mode)
+{
+	struct voice_data *v = voice_get_session(session_id);
+	int ret = 0;
+
+	if (v == NULL) {
+		pr_err("%s: Invalid session_id 0x%x\n", __func__, session_id);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mutex_lock(&v->lock);
+	if (v->lch_mode == lch_mode) {
+		pr_debug("%s: Session %d already in LCH mode %d\n",
+				 __func__, session_id, lch_mode);
+
+		mutex_unlock(&v->lock);
+		goto done;
+	}
+
+	v->lch_mode = lch_mode;
+	mutex_unlock(&v->lock);
+
+	ret = voc_disable_cvp(session_id);
+	if (ret < 0) {
+		pr_err("%s: voc_disable_cvp failed ret=%d\n", __func__, ret);
+
+		goto done;
+	}
+
+	/* Mute and topology_none will be set as part of voc_enable_cvp() */
+	ret = voc_enable_cvp(session_id);
+	if (ret < 0) {
+		pr_err("%s: voc_enable_cvp failed ret=%d\n", __func__, ret);
+
+		goto done;
+	}
+
+done:
 	return ret;
 }
 
@@ -4580,7 +4670,7 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 				v->cvp_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->cvp_wait);
 				break;
-			case VSS_IVOCPROC_CMD_SET_DEVICE:
+			case VSS_IVOCPROC_CMD_SET_DEVICE_V2:
 			case VSS_IVOCPROC_CMD_SET_RX_VOLUME_INDEX:
 			case VSS_IVOCPROC_CMD_ENABLE:
 			case VSS_IVOCPROC_CMD_DISABLE:
@@ -4769,13 +4859,16 @@ static int __init voice_init(void)
 
 		/* initialize dev_rx and dev_tx */
 		common.voice[i].dev_rx.volume = common.default_vol_val;
-		common.voice[i].dev_rx.mute =  0;
-		common.voice[i].dev_tx.mute = common.default_mute_val;
+		common.voice[i].dev_rx.dev_mute =  0;
+		common.voice[i].dev_tx.dev_mute =  0;
+		common.voice[i].stream_rx.stream_mute = common.default_mute_val;
+		common.voice[i].stream_tx.stream_mute = common.default_mute_val;
 
 		common.voice[i].dev_tx.port_id = 0x100B;
 		common.voice[i].dev_rx.port_id = 0x100A;
 		common.voice[i].sidetone_gain = 0x512;
 		common.voice[i].dtmf_rx_detect_en = 0;
+		common.voice[i].lch_mode = 0;
 
 		common.voice[i].voc_state = VOC_INIT;
 
