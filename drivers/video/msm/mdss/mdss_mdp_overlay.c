@@ -1302,7 +1302,7 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 
 	if (!ctl)
 		return -ENODEV;
-	if (!ctl->set_vsync_handler)
+	if (!ctl->add_vsync_handler || !ctl->remove_vsync_handler)
 		return -ENOTSUPP;
 
 	rc = mutex_lock_interruptible(&ctl->lock);
@@ -1325,9 +1325,9 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	if (en)
-		rc = ctl->set_vsync_handler(ctl, mdss_mdp_overlay_handle_vsync);
+		rc = ctl->add_vsync_handler(ctl, &ctl->vsync_handler);
 	else
-		rc = ctl->set_vsync_handler(ctl, NULL);
+		rc = ctl->remove_vsync_handler(ctl, &ctl->vsync_handler);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	mutex_unlock(&ctl->lock);
@@ -1875,6 +1875,8 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 				mfd->index);
 			return PTR_ERR(ctl);
 		}
+		ctl->vsync_handler.vsync_handler =
+						mdss_mdp_overlay_handle_vsync;
 
 		if (mfd->split_display && pdata->next) {
 			/* enable split display */
