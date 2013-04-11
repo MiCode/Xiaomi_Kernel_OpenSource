@@ -228,6 +228,27 @@ static irqreturn_t mdss_irq_handler(int irq, void *ptr)
 	return IRQ_HANDLED;
 }
 
+int mdss_register_irq(struct mdss_hw *hw)
+{
+	unsigned long irq_flags;
+	u32 ndx_bit;
+
+	if (!hw || hw->hw_ndx >= MDSS_MAX_HW_BLK)
+		return -EINVAL;
+
+	ndx_bit = BIT(hw->hw_ndx);
+
+	spin_lock_irqsave(&mdss_lock, irq_flags);
+	if (!mdss_irq_handlers[hw->hw_ndx])
+		mdss_irq_handlers[hw->hw_ndx] = hw;
+	else
+		pr_err("panel %d's irq at %p is already registered\n",
+			hw->hw_ndx, hw->irq_handler);
+	spin_unlock_irqrestore(&mdss_lock, irq_flags);
+
+	return 0;
+} /* mdss_regsiter_irq */
+EXPORT_SYMBOL(mdss_register_irq);
 
 void mdss_enable_irq(struct mdss_hw *hw)
 {
@@ -236,6 +257,11 @@ void mdss_enable_irq(struct mdss_hw *hw)
 
 	if (hw->hw_ndx >= MDSS_MAX_HW_BLK)
 		return;
+
+	if (!mdss_irq_handlers[hw->hw_ndx]) {
+		pr_err("failed. First register the irq then enable it.\n");
+		return;
+	}
 
 	ndx_bit = BIT(hw->hw_ndx);
 
@@ -247,7 +273,6 @@ void mdss_enable_irq(struct mdss_hw *hw)
 		pr_debug("MDSS HW ndx=%d is already set, mask=%x\n",
 				hw->hw_ndx, mdss_res->irq_mask);
 	} else {
-		mdss_irq_handlers[hw->hw_ndx] = hw;
 		mdss_res->irq_mask |= ndx_bit;
 		if (!mdss_res->irq_ena) {
 			mdss_res->irq_ena = true;
@@ -277,7 +302,6 @@ void mdss_disable_irq(struct mdss_hw *hw)
 			hw->hw_ndx, mdss_res->mdp_irq_mask,
 			mdss_res->mdp_hist_irq_mask);
 	} else {
-		mdss_irq_handlers[hw->hw_ndx] = NULL;
 		mdss_res->irq_mask &= ~ndx_bit;
 		if (mdss_res->irq_mask == 0) {
 			mdss_res->irq_ena = false;
@@ -1044,6 +1068,10 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	rc = mdss_fb_register_mdp_instance(&mdp5);
 	if (rc)
 		pr_err("unable to register mdp instance\n");
+
+	rc = mdss_register_irq(&mdss_mdp_hw);
+	if (rc)
+		pr_err("mdss_register_irq failed.\n");
 
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
