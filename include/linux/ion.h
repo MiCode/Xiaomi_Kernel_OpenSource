@@ -100,11 +100,6 @@ struct ion_platform_heap {
  * struct ion_platform_data - array of platform heaps passed from board file
  * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
  * @nr:    number of structures in the array
- * @request_region: function to be called when the number of allocations goes
- *						from 0 -> 1
- * @release_region: function to be called when the number of allocations goes
- *						from 1 -> 0
- * @setup_region:   function to be called upon ion registration
  * @heaps: array of platform_heap structions
  *
  * Provided by the board file in the form of platform data to a platform device.
@@ -112,9 +107,6 @@ struct ion_platform_heap {
 struct ion_platform_data {
 	unsigned int has_outer_cache;
 	int nr;
-	int (*request_region)(void *);
-	int (*release_region)(void *);
-	void *(*setup_region)(void);
 	struct ion_platform_heap *heaps;
 };
 
