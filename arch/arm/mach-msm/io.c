@@ -45,7 +45,7 @@
 /* msm_shared_ram_phys default value of 0x00100000 is the most common value
  * and should work as-is for any target without stacked memory.
  */
-unsigned int msm_shared_ram_phys = 0x00100000;
+phys_addr_t msm_shared_ram_phys = 0x00100000;
 
 static void __init msm_map_io(struct map_desc *io_desc, int size)
 {
