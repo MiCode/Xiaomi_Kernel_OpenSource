@@ -290,10 +290,12 @@ static int segment_is_loadable(const struct elf32_phdr *p)
 static void pil_dump_segs(const struct pil_priv *priv)
 {
 	struct pil_seg *seg;
+	phys_addr_t seg_h_paddr;
 
 	list_for_each_entry(seg, &priv->segs, list) {
-		pil_info(priv->desc, "%d: %#08zx %#08lx\n", seg->num,
-				seg->paddr, seg->paddr + seg->sz);
+		seg_h_paddr = seg->paddr + seg->sz;
+		pil_info(priv->desc, "%d: %pa %pa\n", seg->num,
+				&seg->paddr, &seg_h_paddr);
 	}
 }
 
@@ -322,7 +324,7 @@ static int pil_init_entry_addr(struct pil_priv *priv, const struct pil_mdt *mdt)
 				return 0;
 		}
 	}
-	pil_err(priv->desc, "entry address %08zx not within range\n", entry);
+	pil_err(priv->desc, "entry address %pa not within range\n", &entry);
 	pil_dump_segs(priv);
 	return -EADDRNOTAVAIL;
 }
@@ -489,7 +491,8 @@ static void pil_release_mmap(struct pil_desc *desc)
 
 static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 {
-	int ret = 0, count, paddr;
+	int ret = 0, count;
+	phys_addr_t paddr;
 	char fw_name[30];
 	const struct firmware *fw = NULL;
 	const u8 *data;

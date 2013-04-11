@@ -55,7 +55,8 @@ struct pil_reset_ops {
 	int (*init_image)(struct pil_desc *pil, const u8 *metadata,
 			  size_t size);
 	int (*mem_setup)(struct pil_desc *pil, phys_addr_t addr, size_t size);
-	int (*verify_blob)(struct pil_desc *pil, u32 phy_addr, size_t size);
+	int (*verify_blob)(struct pil_desc *pil, phys_addr_t phy_addr,
+			   size_t size);
 	int (*proxy_vote)(struct pil_desc *pil);
 	int (*auth_and_reset)(struct pil_desc *pil);
 	void (*proxy_unvote)(struct pil_desc *pil);
