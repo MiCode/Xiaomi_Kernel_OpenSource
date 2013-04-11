@@ -196,7 +196,7 @@ static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int msm_proxy_rx_ch = 2;
 
 static struct mutex cdc_mclk_mutex;
-static struct q_clkdiv *codec_clk;
+static struct clk *codec_clk;
 static int clk_users;
 static atomic_t prim_auxpcm_rsc_ref;
 static atomic_t sec_auxpcm_rsc_ref;
@@ -515,23 +515,24 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 		if (clk_users != 1)
 			goto exit;
 
-		ret = qpnp_clkdiv_enable(codec_clk);
-		if (ret) {
-			dev_err(codec->dev, "%s: Error enabling taiko MCLK\n",
-			       __func__);
-			ret = -ENODEV;
+		if (codec_clk) {
+			clk_set_rate(codec_clk, TAIKO_EXT_CLK_RATE);
+			clk_prepare_enable(codec_clk);
+			taiko_mclk_enable(codec, 1, dapm);
+		} else {
+			pr_err("%s: Error setting Taiko MCLK\n", __func__);
+			clk_users--;
 			goto exit;
 		}
-		taiko_mclk_enable(codec, 1, dapm);
 	} else {
 		if (clk_users > 0) {
 			clk_users--;
 			if (clk_users == 0) {
 				taiko_mclk_enable(codec, 0, dapm);
-				qpnp_clkdiv_disable(codec_clk);
+				clk_disable_unprepare(codec_clk);
 			}
 		} else {
-			pr_err("%s: Error releasing Tabla MCLK\n", __func__);
+			pr_err("%s: Error releasing Taiko MCLK\n", __func__);
 			ret = -EINVAL;
 			goto exit;
 		}
@@ -1276,6 +1277,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
+	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
@@ -1285,7 +1288,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (err) {
 		pr_err("%s: Failed to set codec registers config %d\n",
 		       __func__, err);
-		return err;
+		goto out;
 	}
 
 	config_data = taiko_get_afe_config(codec, AFE_SLIMBUS_SLAVE_CONFIG);
@@ -1293,7 +1296,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (err) {
 		pr_err("%s: Failed to set slimbus slave config %d\n", __func__,
 		       err);
-		return err;
+		goto out;
 	}
 
 	config_data = taiko_get_afe_config(codec, AFE_AANC_VERSION);
@@ -1301,16 +1304,23 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (err) {
 		pr_err("%s: Failed to set aanc version %d\n",
 			__func__, err);
-		return err;
+		goto out;
 	}
 
 	/* start mbhc */
 	mbhc_cfg.calibration = def_taiko_mbhc_cal();
-	if (mbhc_cfg.calibration)
+	if (mbhc_cfg.calibration) {
 		err = taiko_hs_detect(codec, &mbhc_cfg);
-	else
+		if (err)
+			goto out;
+		else
+			return err;
+	} else {
 		err = -ENOMEM;
-
+		goto out;
+	}
+out:
+	clk_put(codec_clk);
 	return err;
 }
 
@@ -2234,20 +2244,6 @@ static int msm8974_prepare_codec_mclk(struct snd_soc_card *card)
 		}
 	}
 
-	codec_clk = qpnp_clkdiv_get(card->dev, "taiko-mclk");
-	if (IS_ERR(codec_clk)) {
-		dev_err(card->dev,
-			"%s: Failed to request taiko mclk from pmic %ld\n",
-			__func__, PTR_ERR(codec_clk));
-		return -ENODEV ;
-	}
-
-	ret = qpnp_clkdiv_config(codec_clk, Q_CLKDIV_XO_DIV_2);
-	if (ret) {
-		dev_err(card->dev, "%s: Failed to set taiko mclk to %u\n",
-			__func__, pdata->mclk_gpio);
-			return ret;
-	}
 	return 0;
 }
 

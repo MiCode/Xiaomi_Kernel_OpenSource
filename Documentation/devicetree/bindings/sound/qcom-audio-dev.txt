@@ -443,7 +443,6 @@ Required properties:
   Each entry is a pair of strings, the first being the connection's sink,
   the second being the connection's source.
 - qcom,cdc-mclk-gpios : GPIO on which mclk signal is comming.
-- taiko-mclk-clk : phandle to PMIC8941 clkdiv1 node.
 - qcom,taiko-mclk-clk-freq : Taiko mclk Freq in Hz. currently only 9600000Hz
 				is supported.
 - qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
@@ -495,7 +494,6 @@ sound {
 		"MIC BIAS4 External", "Digital Mic6";
 
 	qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
-	taiko-mclk-clk = <&pm8941_clkdiv1>;
 	qcom,taiko-mclk-clk-freq = <9600000>;
 	qcom,us-euro-gpios = <&pm8941_gpios 20 0>;
 
