@@ -2810,6 +2810,9 @@ static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, LONG_MAX);
 
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 
+static DEFINE_CLK_VOTER(qseecom_ce1_clk_src, &ce1_clk_src.c, LONG_MAX);
+static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, LONG_MAX);
+
 static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_mss_clk, &xo.c);
@@ -3171,12 +3174,14 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "qseecom"),
 	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "qseecom"),
 	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "qseecom"),
-	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,         "qseecom"),
+	CLK_LOOKUP("core_clk_src", qseecom_ce1_clk_src.c, "qseecom"),
 
 	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "scm"),
 	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "scm"),
 	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "scm"),
-	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,         "scm"),
+	CLK_LOOKUP("core_clk_src", scm_ce1_clk_src.c,     "scm"),
+
+	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,     ""),
 
 	/* SDCC */
 	CLK_LOOKUP("iface_clk", gcc_sdcc1_ahb_clk.c, "f9824000.qcom,sdcc"),
