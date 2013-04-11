@@ -18,6 +18,11 @@ enum msm_cpp_frame_type {
 	MSM_CPP_REALTIME_FRAME,
 };
 
+enum msm_vpe_frame_type {
+	MSM_VPE_OFFLINE_FRAME,
+	MSM_VPE_REALTIME_FRAME,
+};
+
 struct msm_cpp_frame_strip_info {
 	int scale_v_en;
 	int scale_h_en;
@@ -117,6 +122,57 @@ struct cpp_hw_info {
 	uint32_t cpp_hw_caps;
 };
 
+struct msm_vpe_frame_strip_info {
+	uint32_t src_w;
+	uint32_t src_h;
+	uint32_t dst_w;
+	uint32_t dst_h;
+	uint32_t src_x;
+	uint32_t src_y;
+	uint32_t phase_step_x;
+	uint32_t phase_step_y;
+	uint32_t phase_init_x;
+	uint32_t phase_init_y;
+};
+
+struct msm_vpe_buffer_info_t {
+	int fd;
+	uint32_t index;
+	uint32_t offset;
+	uint8_t native_buff;
+	uint8_t processed_divert;
+};
+
+struct msm_vpe_stream_buff_info_t {
+	uint32_t identity;
+	uint32_t num_buffs;
+	struct msm_vpe_buffer_info_t *buffer_info;
+};
+
+struct msm_vpe_frame_info_t {
+	int32_t frame_id;
+	struct timeval timestamp;
+	uint32_t inst_id;
+	uint32_t identity;
+	uint32_t client_id;
+	enum msm_vpe_frame_type frame_type;
+	struct msm_vpe_frame_strip_info strip_info;
+	int src_fd;
+	int dst_fd;
+	struct ion_handle *src_ion_handle;
+	struct ion_handle *dest_ion_handle;
+	unsigned long src_phyaddr;
+	unsigned long dest_phyaddr;
+	unsigned long src_chroma_plane_offset;
+	unsigned long dest_chroma_plane_offset;
+	struct timeval in_time, out_time;
+	void *cookie;
+
+	struct msm_vpe_buffer_info_t input_buffer_info;
+	struct msm_vpe_buffer_info_t output_buffer_info;
+};
+
+
 #define VIDIOC_MSM_CPP_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_camera_v4l2_ioctl_t)
 
@@ -141,7 +197,27 @@ struct cpp_hw_info {
 #define VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct msm_camera_v4l2_ioctl_t)
 
+
+#define VIDIOC_MSM_VPE_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_VPE_TRANSACTION_SETUP \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_VPE_GET_EVENTPAYLOAD \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_VPE_GET_INST_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_VPE_ENQUEUE_STREAM_BUFF_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 12, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_VPE_DEQUEUE_STREAM_BUFF_INFO \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_camera_v4l2_ioctl_t)
+
 #define V4L2_EVENT_CPP_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 0)
+#define V4L2_EVENT_VPE_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 1)
 
 struct msm_camera_v4l2_ioctl_t {
 	uint32_t id;
