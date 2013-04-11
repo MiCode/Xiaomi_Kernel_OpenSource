@@ -435,6 +435,10 @@ struct hfi_max_num_b_frames {
 	u32 max_num_b_frames;
 };
 
+struct hfi_conceal_color {
+	u32 conceal_color;
+};
+
 struct hfi_intra_period {
 	u32 pframes;
 	u32 bframes;
