@@ -622,8 +622,77 @@ static inline void mpq_dmx_update_sdmx_stat(struct mpq_demux *mpq_demux,
 		mpq_demux->sdmx_process_time_max = process_time;
 }
 
-/* Extend dvb-demux debugfs with HW statistics */
-void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
+static int mpq_sdmx_log_level_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t mpq_sdmx_log_level_read(struct file *fp,
+	char __user *user_buffer, size_t count, loff_t *position)
+{
+	char user_str[16];
+	struct mpq_demux *mpq_demux = fp->private_data;
+	int ret;
+
+	ret = scnprintf(user_str, 16, "%d", mpq_demux->sdmx_log_level);
+	ret = simple_read_from_buffer(user_buffer, count, position,
+		user_str, ret+1);
+
+	return ret;
+}
+
+static ssize_t mpq_sdmx_log_level_write(struct file *fp,
+	const char __user *user_buffer, size_t count, loff_t *position)
+{
+	char user_str[16];
+	int ret;
+	int ret_count;
+	int level;
+	struct mpq_demux *mpq_demux = fp->private_data;
+
+	if (count >= 16)
+		return -EINVAL;
+
+	ret_count = simple_write_to_buffer(user_str, 16, position, user_buffer,
+		count);
+	if (ret_count < 0)
+		return ret_count;
+
+	ret = sscanf(user_str, "%d", &level);
+	if (ret != 1)
+		return -EINVAL;
+
+	if (level < SDMX_LOG_NO_PRINT || level > SDMX_LOG_VERBOSE)
+		return -EINVAL;
+
+	mutex_lock(&mpq_demux->mutex);
+	mpq_demux->sdmx_log_level = level;
+	if (mpq_demux->sdmx_session_handle != SDMX_INVALID_SESSION_HANDLE) {
+		ret = sdmx_set_log_level(mpq_demux->sdmx_session_handle,
+			mpq_demux->sdmx_log_level);
+		if (ret) {
+			MPQ_DVB_ERR_PRINT(
+				"%s: Could not set sdmx log level. ret = %d\n",
+				__func__, ret);
+			mutex_unlock(&mpq_demux->mutex);
+			return -EINVAL;
+		}
+	}
+
+	mutex_unlock(&mpq_demux->mutex);
+	return ret_count;
+}
+
+static const struct file_operations sdmx_debug_fops = {
+	.open = mpq_sdmx_log_level_open,
+	.read = mpq_sdmx_log_level_read,
+	.write = mpq_sdmx_log_level_write,
+	.owner = THIS_MODULE,
+};
+
+/* Extend dvb-demux debugfs with common plug-in entries */
+void mpq_dmx_init_debugfs_entries(struct mpq_demux *mpq_demux)
 {
 	/*
 	 * Extend dvb-demux debugfs with HW statistics.
@@ -745,8 +814,14 @@ void mpq_dmx_init_hw_statistics(struct mpq_demux *mpq_demux)
 		S_IRUGO | S_IWUSR | S_IWGRP,
 		mpq_demux->demux.dmx.debugfs_demux_dir,
 		&mpq_demux->sdmx_process_packets_min);
+
+	debugfs_create_file("sdmx_log_level",
+		S_IRUGO | S_IWUSR | S_IWGRP,
+		mpq_demux->demux.dmx.debugfs_demux_dir,
+		mpq_demux,
+		&sdmx_debug_fops);
 }
-EXPORT_SYMBOL(mpq_dmx_init_hw_statistics);
+EXPORT_SYMBOL(mpq_dmx_init_debugfs_entries);
 
 /* Update dvb-demux debugfs with HW notification statistics */
 void mpq_dmx_update_hw_statistics(struct mpq_demux *mpq_demux)
@@ -908,6 +983,7 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 		mpq_demux->sdmx_filter_count = 0;
 		mpq_demux->sdmx_session_handle = SDMX_INVALID_SESSION_HANDLE;
 		mpq_demux->sdmx_eos = 0;
+		mpq_demux->sdmx_log_level = SDMX_LOG_NO_PRINT;
 
 		if (mpq_demux->demux.feednum > MPQ_MAX_DMX_FILES) {
 			MPQ_DVB_ERR_PRINT(
@@ -3491,6 +3567,15 @@ int mpq_sdmx_open_session(struct mpq_demux *mpq_demux)
 		sdmx_close_session(mpq_demux->sdmx_session_handle);
 		mpq_demux->sdmx_session_handle = SDMX_INVALID_SESSION_HANDLE;
 		return -EINVAL;
+	}
+
+	ret = sdmx_set_log_level(mpq_demux->sdmx_session_handle,
+		mpq_demux->sdmx_log_level);
+	if (ret != SDMX_SUCCESS) {
+		MPQ_DVB_ERR_PRINT("%s: Could not set log level. ret=%d\n",
+				__func__, ret);
+		/* Don't fail open session if just log level setting failed */
+		ret = 0;
 	}
 
 	mpq_demux->sdmx_process_count = 0;

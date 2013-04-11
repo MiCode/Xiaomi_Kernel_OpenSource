@@ -78,6 +78,13 @@ enum sdmx_pkt_format {
 	SDMX_195_BYTE_PKT = 195,
 };
 
+enum sdmx_log_level {
+	SDMX_LOG_NO_PRINT,
+	SDMX_LOG_MSG_ERROR,
+	SDMX_LOG_DEBUG,
+	SDMX_LOG_VERBOSE
+};
+
 enum sdmx_status {
 	SDMX_SUCCESS = 0,
 	SDMX_STATUS_GENERAL_FAILURE = -1,
@@ -249,5 +256,7 @@ int sdmx_get_dbg_counters(int session_handle,
 	struct sdmx_filter_dbg_counters *filter_counters);
 
 int sdmx_reset_dbg_counters(int session_handle);
+
+int sdmx_set_log_level(int session_handle, enum sdmx_log_level level);
 
 #endif /* _MPQ_SDMX_H */
