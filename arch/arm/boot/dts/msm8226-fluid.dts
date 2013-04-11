@@ -22,3 +22,7 @@
 		status = "disabled";
 	};
 };
+
+&pm8226_bms {
+	status = "ok";
+};
