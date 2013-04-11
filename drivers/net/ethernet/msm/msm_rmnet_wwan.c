@@ -34,6 +34,7 @@
 #include <mach/ipa.h>
 
 #define WWAN_DEV_NAME "rmnet%d"
+#define WWAN_METADATA_SHFT 16
 #define WWAN_METADATA_MASK 0x00FF0000
 #define IPA_RM_INACTIVITY_TIMER 1000
 #define WWAN_DEVICE_COUNT (8)
@@ -304,13 +305,15 @@ static int wwan_register_to_ipa(struct net_device *dev)
 	rx_ipv4_property = &rx_properties.prop[0];
 	rx_ipv4_property->ip = IPA_IP_v4;
 	rx_ipv4_property->attrib.attrib_mask |= IPA_FLT_META_DATA;
-	rx_ipv4_property->attrib.meta_data = wwan_ptr->ch_id;
+	rx_ipv4_property->attrib.meta_data =
+		wwan_ptr->ch_id << WWAN_METADATA_SHFT;
 	rx_ipv4_property->attrib.meta_data_mask = WWAN_METADATA_MASK;
 	rx_ipv4_property->src_pipe = IPA_CLIENT_A2_EMBEDDED_PROD;
 	rx_ipv6_property = &rx_properties.prop[1];
 	rx_ipv6_property->ip = IPA_IP_v6;
 	rx_ipv6_property->attrib.attrib_mask |= IPA_FLT_META_DATA;
-	rx_ipv6_property->attrib.meta_data = wwan_ptr->ch_id;
+	rx_ipv6_property->attrib.meta_data =
+		wwan_ptr->ch_id << WWAN_METADATA_SHFT;
 	rx_ipv6_property->attrib.meta_data_mask = WWAN_METADATA_MASK;
 	rx_ipv6_property->src_pipe = IPA_CLIENT_A2_EMBEDDED_PROD;
 	rx_properties.num_props = 2;
