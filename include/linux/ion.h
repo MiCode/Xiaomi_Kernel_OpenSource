@@ -29,10 +29,6 @@ struct ion_handle;
  * @ION_HEAP_TYPE_CARVEOUT:	 memory allocated from a prereserved
  * 				 carveout heap, allocations are physically
  * 				 contiguous
- * @ION_HEAP_TYPE_IOMMU: IOMMU memory
- * @ION_HEAP_TYPE_CP:	 memory allocated from a prereserved
- *				carveout heap, allocations are physically
- *				contiguous. Used for content protection.
  * @ION_HEAP_END:		helper for iterating over heaps
  */
 enum ion_heap_type {
