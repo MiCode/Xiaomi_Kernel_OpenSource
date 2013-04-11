@@ -11,6 +11,9 @@ Required properties:
 
 Optional properties:
  - parent-supply:   phandle to the parent supply/regulator node
+ - qcom,retain-mems: For Oxili GDSCs only: Presence currently denotes a hardware
+		     requirement to assert the forced memory retention signals
+		     in the core's clock branch control register.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {

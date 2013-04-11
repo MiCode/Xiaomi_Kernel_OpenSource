@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,8 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/clk.h>
+#include <mach/clk.h>
 
 #define PWR_ON_MASK		BIT(31)
 #define EN_REST_WAIT_MASK	(0xF << 20)
@@ -42,6 +44,7 @@ struct gdsc {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
 	void __iomem		*gdscr;
+	struct clk		*core_clk;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -108,6 +111,7 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct gdsc *sc;
 	uint32_t regval;
+	bool retain_mems;
 	int ret;
 
 	sc = devm_kzalloc(&pdev->dev, sizeof(struct gdsc), GFP_KERNEL);
@@ -150,6 +154,16 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 	regval &= ~(EN_REST_WAIT_MASK | EN_FEW_WAIT_MASK | CLK_DIS_WAIT_MASK);
 	regval |= EN_REST_WAIT_VAL | EN_FEW_WAIT_VAL | CLK_DIS_WAIT_VAL;
 	writel_relaxed(regval, sc->gdscr);
+
+	retain_mems = of_property_read_bool(pdev->dev.of_node,
+					    "qcom,retain-mems");
+	if (retain_mems) {
+		sc->core_clk = devm_clk_get(&pdev->dev, "core_clk");
+		if (IS_ERR(sc->core_clk))
+			return PTR_ERR(sc->core_clk);
+		clk_set_flags(sc->core_clk, CLKFLAG_RETAIN_MEM);
+		clk_set_flags(sc->core_clk, CLKFLAG_RETAIN_PERIPH);
+	}
 
 	sc->rdev = regulator_register(&sc->rdesc, &pdev->dev, init_data, sc,
 				      pdev->dev.of_node);
