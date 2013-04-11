@@ -109,6 +109,12 @@ enum mdss_mdp_csc_type {
 struct mdss_mdp_ctl;
 typedef void (*mdp_vsync_handler_t)(struct mdss_mdp_ctl *, ktime_t);
 
+struct mdss_mdp_vsync_handler {
+	mdp_vsync_handler_t vsync_handler;
+	u32 ref_cnt;
+	struct list_head list;
+};
+
 struct mdss_mdp_ctl {
 	u32 num;
 	char __iomem *base;
@@ -144,14 +150,18 @@ struct mdss_mdp_ctl {
 	struct mutex lock;
 
 	struct mdss_panel_data *panel_data;
+	struct mdss_mdp_vsync_handler vsync_handler;
 
 	int (*start_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*stop_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*display_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*wait_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
-	int (*set_vsync_handler) (struct mdss_mdp_ctl *, mdp_vsync_handler_t);
 	u32 (*read_line_cnt_fnc) (struct mdss_mdp_ctl *);
+	int (*add_vsync_handler) (struct mdss_mdp_ctl *,
+					struct mdss_mdp_vsync_handler *);
+	int (*remove_vsync_handler) (struct mdss_mdp_ctl *,
+					struct mdss_mdp_vsync_handler *);
 
 	void *priv_data;
 };
