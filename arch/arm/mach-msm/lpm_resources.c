@@ -429,7 +429,7 @@ static void msm_lpm_aggregate_l2(struct msm_rpmrs_limits *limits)
 	trace_lpm_resources(rs->sleep_value, rs->name);
 }
 
-static void msm_lpm_set_l2_mode(int sleep_mode, int notify_rpm)
+static void msm_lpm_set_l2_mode(int sleep_mode)
 {
 	int lpm, rc;
 
@@ -453,7 +453,7 @@ static void msm_lpm_set_l2_mode(int sleep_mode, int notify_rpm)
 		break;
 	}
 
-	rc = msm_spm_l2_set_low_power_mode(lpm, notify_rpm);
+	rc = msm_spm_l2_set_low_power_mode(lpm, true);
 
 	if (rc < 0)
 		pr_err("%s: Failed to set L2 low power mode %d",
@@ -474,7 +474,7 @@ static void msm_lpm_flush_l2(int notify_rpm)
 {
 	struct msm_lpm_resource *rs = &msm_lpm_l2;
 
-	msm_lpm_set_l2_mode(rs->sleep_value, notify_rpm);
+	msm_lpm_set_l2_mode(rs->sleep_value);
 }
 
 int msm_lpm_get_l2_cache_value(struct device_node *node,
@@ -786,7 +786,7 @@ void msm_lpmrs_exit_sleep(struct msm_rpmrs_limits *limits,
 		msm_mpm_exit_sleep(from_idle);
 
 	if (msm_lpm_l2.valid)
-		msm_lpm_set_l2_mode(msm_lpm_l2.rs_data.default_value, false);
+		msm_lpm_set_l2_mode(msm_lpm_l2.rs_data.default_value);
 }
 
 static int msm_lpm_cpu_callback(struct notifier_block *cpu_nb,
