@@ -465,17 +465,12 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 			fmt->fetch_planes != MDSS_MDP_PLANE_INTERLEAVED)
 		src_format |= BIT(8); /* SRCC3_EN */
 
-	if (fmt->fetch_planes != MDSS_MDP_PLANE_PLANAR) {
-		unpack = (fmt->element[3] << 24) | (fmt->element[2] << 16) |
+	unpack = (fmt->element[3] << 24) | (fmt->element[2] << 16) |
 			(fmt->element[1] << 8) | (fmt->element[0] << 0);
-
-		src_format |= ((fmt->unpack_count - 1) << 12) |
-			  (fmt->unpack_tight << 17) |
-			  (fmt->unpack_align_msb << 18) |
-			  ((fmt->bpp - 1) << 9);
-	} else {
-		unpack = 0;
-	}
+	src_format |= ((fmt->unpack_count - 1) << 12) |
+			(fmt->unpack_tight << 17) |
+			(fmt->unpack_align_msb << 18) |
+			((fmt->bpp - 1) << 9);
 
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 
@@ -537,7 +532,7 @@ int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata, u32 *offsets,
 static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 				   struct mdss_mdp_data *data)
 {
-	int is_rot = pipe->mixer->rotator_mode;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int ret = 0;
 
 	pr_debug("pnum=%d\n", pipe->num);
@@ -553,8 +548,9 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 			&pipe->src_planes, pipe->src_fmt);
 
 	/* planar format expects YCbCr, swap chroma planes if YCrCb */
-	if (!is_rot && (pipe->src_fmt->fetch_planes == MDSS_MDP_PLANE_PLANAR) &&
-	    (pipe->src_fmt->element[0] == C2_R_Cr))
+	if (mdata->mdp_rev < MDSS_MDP_HW_REV_102 &&
+			(pipe->src_fmt->fetch_planes == MDSS_MDP_PLANE_PLANAR)
+				&& (pipe->src_fmt->element[0] == C1_B_Cb))
 		swap(data->p[1].addr, data->p[2].addr);
 
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC0_ADDR, data->p[0].addr);
