@@ -21,6 +21,10 @@
 #define DRM_KGSL_GEM_CREATE_FD 0x0E
 #define DRM_KGSL_GEM_GET_ION_FD 0x0F
 #define DRM_KGSL_GEM_CREATE_FROM_ION 0x10
+#define DRM_KGSL_GEM_SET_GLOCK_HANDLES_INFO 0x11
+#define DRM_KGSL_GEM_GET_GLOCK_HANDLES_INFO 0x12
+#define DRM_KGSL_GEM_GET_BUFCOUNT 0x13
+
 
 #define DRM_IOCTL_KGSL_GEM_CREATE \
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_CREATE, struct drm_kgsl_gem_create)
@@ -57,6 +61,10 @@ DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_GET_BUFINFO, \
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_SET_BUFCOUNT, \
 	 struct drm_kgsl_gem_bufcount)
 
+#define DRM_IOCTL_KGSL_GEM_GET_BUFCOUNT \
+DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_GET_BUFCOUNT, \
+	 struct drm_kgsl_gem_bufcount)
+
 #define DRM_IOCTL_KGSL_GEM_SET_ACTIVE \
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_SET_ACTIVE, \
 	 struct drm_kgsl_gem_active)
@@ -84,6 +92,16 @@ struct drm_kgsl_gem_get_ion_fd)
 #define DRM_IOCTL_KGSL_GEM_CREATE_FROM_ION \
 DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_CREATE_FROM_ION, \
 struct drm_kgsl_gem_create_from_ion)
+
+#define DRM_IOCTL_KGSL_GEM_SET_GLOCK_HANDLES_INFO \
+DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_SET_GLOCK_HANDLES_INFO, \
+struct drm_kgsl_gem_glockinfo)
+
+#define DRM_IOCTL_KGSL_GEM_GET_GLOCK_HANDLES_INFO \
+DRM_IOWR(DRM_COMMAND_BASE + DRM_KGSL_GEM_GET_GLOCK_HANDLES_INFO, \
+struct drm_kgsl_gem_glockinfo)
+
+
 
 /* Maximum number of sub buffers per GEM object */
 #define DRM_KGSL_GEM_MAX_BUFFERS 3
@@ -165,6 +183,11 @@ struct drm_kgsl_gem_bufinfo {
 	uint32_t active;
 	uint32_t offset[DRM_KGSL_GEM_MAX_BUFFERS];
 	uint32_t gpuaddr[DRM_KGSL_GEM_MAX_BUFFERS];
+};
+
+struct drm_kgsl_gem_glockinfo {
+	uint32_t handle;
+	int glockhandle[DRM_KGSL_GEM_MAX_BUFFERS];
 };
 
 struct drm_kgsl_gem_bufcount {
