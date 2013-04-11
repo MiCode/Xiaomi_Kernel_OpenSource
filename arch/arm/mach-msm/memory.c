@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/memory_alloc.h>
 #include <linux/memblock.h>
+#include <asm/memblock.h>
 #include <asm/pgtable.h>
 #include <asm/io.h>
 #include <asm/mach/map.h>
@@ -160,42 +161,18 @@ static void __init adjust_reserve_sizes(void)
 
 static void __init reserve_memory_for_mempools(void)
 {
-	int memtype, memreg_type;
+	int memtype;
 	struct memtype_reserve *mt;
-	struct memblock_region *mr, *mr_candidate = NULL;
-	int ret;
+	phys_addr_t alignment;
 
 	mt = &reserve_info->memtype_reserve_table[0];
 	for (memtype = 0; memtype < MEMTYPE_MAX; memtype++, mt++) {
 		if (mt->flags & MEMTYPE_FLAGS_FIXED || !mt->size)
 			continue;
-
-		/* Choose the memory block with the highest physical
-		 * address which is large enough, so that we will not
-		 * take memory from the lowest memory bank which the kernel
-		 * is in (and cause boot problems) and so that we might
-		 * be able to steal memory that would otherwise become
-		 * highmem.
-		 */
-		for_each_memblock(memory, mr) {
-			memreg_type =
-				reserve_info->paddr_to_memtype(mr->base);
-			if (memtype != memreg_type)
-				continue;
-			if (mr->size >= mt->size
-				&& (mr_candidate == NULL
-					|| mr->base > mr_candidate->base))
-				mr_candidate = mr;
-		}
-		BUG_ON(mr_candidate == NULL);
-		/* bump mt up against the top of the region */
-		mt->start = mr_candidate->base + mr_candidate->size - mt->size;
-		ret = memblock_reserve(mt->start, mt->size);
-		BUG_ON(ret);
-		ret = memblock_free(mt->start, mt->size);
-		BUG_ON(ret);
-		ret = memblock_remove(mt->start, mt->size);
-		BUG_ON(ret);
+		alignment = (mt->flags & MEMTYPE_FLAGS_1M_ALIGN) ?
+			SZ_1M : PAGE_SIZE;
+		mt->start = arm_memblock_steal(mt->size, alignment);
+		BUG_ON(!mt->start);
 	}
 }
 
