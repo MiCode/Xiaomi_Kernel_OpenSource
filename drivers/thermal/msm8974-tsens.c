@@ -1504,11 +1504,10 @@ static struct platform_driver tsens_tm_driver = {
 	},
 };
 
-static int __init tsens_tm_init_driver(void)
+int __init tsens_tm_init_driver(void)
 {
 	return platform_driver_register(&tsens_tm_driver);
 }
-arch_initcall(tsens_tm_init_driver);
 
 static int __init tsens_thermal_register(void)
 {

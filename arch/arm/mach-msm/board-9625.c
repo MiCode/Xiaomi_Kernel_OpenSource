@@ -21,6 +21,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
 #include <linux/memory.h>
+#include <linux/msm_tsens.h>
 #include <asm/mach/map.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/arch.h>
@@ -237,6 +238,7 @@ void __init msm9625_add_drivers(void)
 	msm_spm_device_init();
 	msm_clock_init(&msm9625_clock_init_data);
 	msm9625_init_buses();
+	tsens_tm_init_driver();
 }
 
 void __init msm9625_init(void)
