@@ -8,6 +8,7 @@ struct genlock_handle;
 
 struct genlock_handle *genlock_get_handle(void);
 struct genlock_handle *genlock_get_handle_fd(int fd);
+int genlock_get_fd_handle(struct genlock_handle *handle);
 void genlock_put_handle(struct genlock_handle *handle);
 struct genlock *genlock_create_lock(struct genlock_handle *);
 struct genlock *genlock_attach_lock(struct genlock_handle *, int fd);
