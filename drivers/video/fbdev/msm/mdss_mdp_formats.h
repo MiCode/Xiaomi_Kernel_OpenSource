@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,6 +108,8 @@ enum {
 		FMT_YUV_COMMON(fmt),				\
 		.fetch_planes = MDSS_MDP_PLANE_PLANAR,		\
 		.chroma_sample = samp,				\
+		.bpp = 1,					\
+		.unpack_count = 1,				\
 		.element = { (e0), (e1) }			\
 	}
 
@@ -134,9 +136,9 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_VENUS, MDSS_MDP_CHROMA_420,
 		       C1_B_Cb, C2_R_Cr),
 
-	FMT_YUV_PLANR(MDP_Y_CR_CB_H2V2, MDSS_MDP_CHROMA_420, C2_R_Cr, C1_B_Cb),
-	FMT_YUV_PLANR(MDP_Y_CB_CR_H2V2, MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
-	FMT_YUV_PLANR(MDP_Y_CR_CB_GH2V2, MDSS_MDP_CHROMA_420, C2_R_Cr, C1_B_Cb),
+	FMT_YUV_PLANR(MDP_Y_CB_CR_H2V2, MDSS_MDP_CHROMA_420, C2_R_Cr, C1_B_Cb),
+	FMT_YUV_PLANR(MDP_Y_CR_CB_H2V2, MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
+	FMT_YUV_PLANR(MDP_Y_CR_CB_GH2V2, MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
 
 	{
 		FMT_YUV_COMMON(MDP_YCBCR_H1V1),
