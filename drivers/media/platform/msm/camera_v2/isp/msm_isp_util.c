@@ -770,7 +770,8 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
 	queue_cmd = &vfe_dev->tasklet_queue_cmd[vfe_dev->taskletq_idx];
 	if (queue_cmd->cmd_used) {
-		pr_err("%s: Tasklet queue overflow\n", __func__);
+		pr_err("%s: Tasklet queue overflow: %d\n",
+			__func__, vfe_dev->pdev->id);
 		list_del(&queue_cmd->list);
 	} else {
 		atomic_add(1, &vfe_dev->irq_cnt);
@@ -838,7 +839,6 @@ void msm_isp_set_src_state(struct vfe_device *vfe_dev, void *arg)
 
 int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-	uint32_t i;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	long rc;
 	ISP_DBG("%s\n", __func__);
@@ -871,9 +871,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 
-	for (i = 0; i < vfe_dev->hw_info->num_iommu_ctx; i++)
-		vfe_dev->buf_mgr->ops->attach_ctx(vfe_dev->buf_mgr,
-			vfe_dev->iommu_ctx[i]);
 	vfe_dev->buf_mgr->ops->buf_mgr_init(vfe_dev->buf_mgr, "msm_isp", 28);
 
 	memset(&vfe_dev->axi_data, 0, sizeof(struct msm_vfe_axi_shared_data));
@@ -890,7 +887,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-	int i;
 	long rc;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	ISP_DBG("%s\n", __func__);
@@ -908,11 +904,6 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		pr_err("%s: halt timeout\n", __func__);
 
 	vfe_dev->buf_mgr->ops->buf_mgr_deinit(vfe_dev->buf_mgr);
-
-	for (i = vfe_dev->hw_info->num_iommu_ctx - 1; i >= 0; i--)
-		vfe_dev->buf_mgr->ops->detach_ctx(vfe_dev->buf_mgr,
-			vfe_dev->iommu_ctx[i]);
-
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
 
 	vfe_dev->vfe_open_cnt--;
