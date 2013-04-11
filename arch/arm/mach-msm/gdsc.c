@@ -22,6 +22,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/slab.h>
 #include <linux/clk.h>
 #include <mach/clk.h>
 
@@ -44,7 +45,9 @@ struct gdsc {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
 	void __iomem		*gdscr;
-	struct clk		*core_clk;
+	struct clk		**clocks;
+	int			clock_count;
+	bool			toggle_mems;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -58,7 +61,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
-	int ret;
+	int i, ret;
 
 	regval = readl_relaxed(sc->gdscr);
 	regval &= ~SW_COLLAPSE_MASK;
@@ -71,9 +74,18 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		return ret;
 	}
 
+	if (sc->toggle_mems) {
+		for (i = 0; i < sc->clock_count; i++) {
+			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_MEM);
+			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_PERIPH);
+		}
+	}
+
 	/*
 	 * If clocks to this power domain were already on, they will take an
 	 * additional 4 clock cycles to re-enable after the rail is enabled.
+	 * Delay to account for this. A delay is also needed to ensure clocks
+	 * are not enabled within 400ns of enabling power to the memories.
 	 */
 	udelay(1);
 
@@ -84,7 +96,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
-	int ret;
+	int i, ret;
 
 	regval = readl_relaxed(sc->gdscr);
 	regval |= SW_COLLAPSE_MASK;
@@ -94,6 +106,13 @@ static int gdsc_disable(struct regulator_dev *rdev)
 				       !(regval & PWR_ON_MASK), TIMEOUT_US);
 	if (ret)
 		dev_err(&rdev->dev, "%s disable timed out\n", sc->rdesc.name);
+
+	if (sc->toggle_mems) {
+		for (i = 0; i < sc->clock_count; i++) {
+			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
+			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
+		}
+	}
 
 	return ret;
 }
@@ -112,7 +131,7 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 	struct gdsc *sc;
 	uint32_t regval;
 	bool retain_mems;
-	int ret;
+	int i, ret;
 
 	sc = devm_kzalloc(&pdev->dev, sizeof(struct gdsc), GFP_KERNEL);
 	if (sc == NULL)
@@ -137,6 +156,34 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 	if (sc->gdscr == NULL)
 		return -ENOMEM;
 
+	sc->clock_count = of_property_count_strings(pdev->dev.of_node,
+					    "qcom,clock-names");
+	if (sc->clock_count == -EINVAL) {
+		sc->clock_count = 0;
+	} else if (IS_ERR_VALUE(sc->clock_count)) {
+		dev_err(&pdev->dev, "Failed to get clock names\n");
+		return -EINVAL;
+	}
+
+	sc->clocks = devm_kzalloc(&pdev->dev,
+			sizeof(struct clk *) * sc->clock_count, GFP_KERNEL);
+	if (!sc->clocks)
+		return -ENOMEM;
+	for (i = 0; i < sc->clock_count; i++) {
+		const char *clock_name;
+		of_property_read_string_index(pdev->dev.of_node,
+					      "qcom,clock-names", i,
+					      &clock_name);
+		sc->clocks[i] = devm_clk_get(&pdev->dev, clock_name);
+		if (IS_ERR(sc->clocks[i])) {
+			int rc = PTR_ERR(sc->clocks[i]);
+			if (rc != -EPROBE_DEFER)
+				dev_err(&pdev->dev, "Failed to get %s\n",
+					clock_name);
+			return rc;
+		}
+	}
+
 	sc->rdesc.id = atomic_inc_return(&gdsc_count);
 	sc->rdesc.ops = &gdsc_ops;
 	sc->rdesc.type = REGULATOR_VOLTAGE;
@@ -157,13 +204,16 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 
 	retain_mems = of_property_read_bool(pdev->dev.of_node,
 					    "qcom,retain-mems");
-	if (retain_mems) {
-		sc->core_clk = devm_clk_get(&pdev->dev, "core_clk");
-		if (IS_ERR(sc->core_clk))
-			return PTR_ERR(sc->core_clk);
-		clk_set_flags(sc->core_clk, CLKFLAG_RETAIN_MEM);
-		clk_set_flags(sc->core_clk, CLKFLAG_RETAIN_PERIPH);
+	for (i = 0; i < sc->clock_count; i++) {
+		if (retain_mems || (regval & PWR_ON_MASK)) {
+			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_MEM);
+			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_PERIPH);
+		} else {
+			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
+			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
+		}
 	}
+	sc->toggle_mems = !retain_mems;
 
 	sc->rdev = regulator_register(&sc->rdesc, &pdev->dev, init_data, sc,
 				      pdev->dev.of_node);
