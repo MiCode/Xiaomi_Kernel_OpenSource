@@ -90,6 +90,19 @@ static unsigned int iommu_pm_create_sup_cls_str(char **buf,
 	return pos;
 }
 
+static int iommu_pm_event_class_supported(struct iommu_pmon *pmon,
+					  int event_class)
+{
+	unsigned int nevent_cls = pmon->nevent_cls_supported;
+	unsigned int i;
+
+	for (i = 0; i < nevent_cls; ++i) {
+		if (event_class == pmon->event_cls_supported[i])
+			return event_class;
+	}
+	return MSM_IOMMU_PMU_NO_EVENT_CLASS;
+}
+
 static const char *iommu_pm_find_event_class_name(int event_class)
 {
 	size_t array_len;
@@ -113,7 +126,8 @@ out:
 	return event_class_name;
 }
 
-static int iommu_pm_find_event_class(const char *event_class_name)
+static int iommu_pm_find_event_class(struct iommu_pmon *pmon,
+				     const char *event_class_name)
 {
 	size_t array_len;
 	struct event_class *ptr;
@@ -134,6 +148,7 @@ static int iommu_pm_find_event_class(const char *event_class_name)
 	}
 
 out:
+	event_class = iommu_pm_event_class_supported(pmon, event_class);
 	return event_class;
 }
 
@@ -389,11 +404,11 @@ static ssize_t iommu_pm_event_class_write(struct file *fp,
 		rv = kstrtol(buf, 10, &value);
 		if (!rv) {
 			counter->current_event_class =
-				iommu_pm_find_event_class(
+				iommu_pm_find_event_class(pmon,
 					iommu_pm_find_event_class_name(value));
 		} else {
 			counter->current_event_class =
-						iommu_pm_find_event_class(buf);
+					iommu_pm_find_event_class(pmon, buf);
 	}	}
 
 	if (current_event_class != counter->current_event_class)
