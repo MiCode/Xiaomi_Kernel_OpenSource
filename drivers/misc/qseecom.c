@@ -157,8 +157,6 @@ struct qseecom_client_handle {
 	uint32_t user_virt_sb_base;
 	size_t sb_length;
 	struct ion_handle *ihandle;		/* Retrieve phy addr */
-	bool  perf_enabled;
-	bool  fast_load_enabled;
 };
 
 struct qseecom_listener_handle {
@@ -177,6 +175,8 @@ struct qseecom_dev_handle {
 	int               abort;
 	wait_queue_head_t abort_wq;
 	atomic_t          ioctl_count;
+	bool  perf_enabled;
+	bool  fast_load_enabled;
 };
 
 enum qseecom_set_clear_key_flag {
@@ -1789,9 +1789,9 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 		pr_err("Unable to find the handle, exiting\n");
 	else
 		ret = qseecom_unload_app(data);
-	if (data->client.fast_load_enabled == true)
+	if (data->fast_load_enabled == true)
 		qsee_disable_clock_vote(data, CLK_SFPB);
-	if (data->client.perf_enabled == true)
+	if (data->perf_enabled == true)
 		qsee_disable_clock_vote(data, CLK_DFAB);
 	if (ret == 0) {
 		kzfree(data);
@@ -1972,11 +1972,11 @@ static int qsee_vote_for_clock(struct qseecom_dev_handle *data,
 								ret);
 			else {
 				qseecom.qsee_bw_count++;
-				data->client.perf_enabled = true;
+				data->perf_enabled = true;
 			}
 		} else {
 			qseecom.qsee_bw_count++;
-			data->client.perf_enabled = true;
+			data->perf_enabled = true;
 		}
 		mutex_unlock(&qsee_bw_mutex);
 		break;
@@ -2004,11 +2004,11 @@ static int qsee_vote_for_clock(struct qseecom_dev_handle *data,
 								ret);
 			else {
 				qseecom.qsee_sfpb_bw_count++;
-				data->client.fast_load_enabled = true;
+				data->fast_load_enabled = true;
 			}
 		} else {
 			qseecom.qsee_sfpb_bw_count++;
-			data->client.fast_load_enabled = true;
+			data->fast_load_enabled = true;
 		}
 		mutex_unlock(&qsee_bw_mutex);
 		break;
@@ -2053,11 +2053,11 @@ static void qsee_disable_clock_vote(struct qseecom_dev_handle *data,
 								ret);
 			else {
 				qseecom.qsee_bw_count--;
-				data->client.perf_enabled = false;
+				data->perf_enabled = false;
 			}
 		} else {
 			qseecom.qsee_bw_count--;
-			data->client.perf_enabled = false;
+			data->perf_enabled = false;
 		}
 		mutex_unlock(&qsee_bw_mutex);
 		break;
@@ -2083,11 +2083,11 @@ static void qsee_disable_clock_vote(struct qseecom_dev_handle *data,
 								ret);
 			else {
 				qseecom.qsee_sfpb_bw_count--;
-				data->client.fast_load_enabled = false;
+				data->fast_load_enabled = false;
 			}
 		} else {
 			qseecom.qsee_sfpb_bw_count--;
-			data->client.fast_load_enabled = false;
+			data->fast_load_enabled = false;
 		}
 		mutex_unlock(&qsee_bw_mutex);
 		break;
@@ -2853,9 +2853,9 @@ static int qseecom_release(struct inode *inode, struct file *file)
 		}
 	}
 
-	if (data->client.fast_load_enabled == true)
+	if (data->fast_load_enabled == true)
 		qsee_disable_clock_vote(data, CLK_SFPB);
-	if (data->client.perf_enabled == true)
+	if (data->perf_enabled == true)
 		qsee_disable_clock_vote(data, CLK_DFAB);
 
 	if (qseecom.qseos_version == QSEOS_VERSION_13) {
