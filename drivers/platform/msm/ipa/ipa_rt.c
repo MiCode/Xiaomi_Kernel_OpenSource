@@ -505,6 +505,8 @@ static struct ipa_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 			IPAERR("failed to add to tree\n");
 			WARN_ON(1);
 		}
+	} else {
+		kmem_cache_free(ipa_ctx->tree_node_cache, node);
 	}
 
 	return entry;
