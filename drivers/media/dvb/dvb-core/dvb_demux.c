@@ -376,6 +376,10 @@ static int dvb_dmx_swfilter_section_packet(struct dvb_demux_feed *feed,
 	else
 		ccok = ((feed->cc + 1) & 0x0f) == cc;
 
+	/* discard TS packets holding sections with TEI bit set */
+	if (buf[1] & 0x80)
+		return -EINVAL;
+
 	feed->first_cc = 0;
 	feed->cc = cc;
 
