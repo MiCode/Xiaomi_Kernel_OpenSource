@@ -2018,12 +2018,6 @@ static void __init msm9625_clock_post_init(void)
 	 */
 	clk_prepare_enable(&cxo_a_clk_src.c);
 
-	/*
-	 * TODO: This call is to prevent sending 0Hz to rpm to turn off pnoc.
-	 * Needs to remove this after vote of pnoc from sdcc driver is ready.
-	 */
-	clk_prepare_enable(&pnoc_msmbus_a_clk.c);
-
 	/* Set rates for single-rate clocks. */
 	clk_set_rate(&usb_hs_system_clk_src.c,
 			usb_hs_system_clk_src.freq_tbl[0].freq_hz);
