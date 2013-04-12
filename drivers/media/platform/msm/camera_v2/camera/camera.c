@@ -195,9 +195,18 @@ static int camera_v4l2_s_ctrl(struct file *filep, void *fh,
 static int camera_v4l2_reqbufs(struct file *filep, void *fh,
 	struct v4l2_requestbuffers *req)
 {
+	int ret;
+	struct msm_session *session;
 	struct camera_v4l2_private *sp = fh_to_private(fh);
-
-	return vb2_reqbufs(&sp->vb2_q, req);
+	struct msm_video_device *pvdev = video_drvdata(filep);
+	unsigned int session_id = pvdev->vdev->num;
+	session = msm_session_find(session_id);
+	if (WARN_ON(!session))
+		return -EIO;
+	mutex_lock(&session->lock);
+	ret = vb2_reqbufs(&sp->vb2_q, req);
+	mutex_unlock(&session->lock);
+	return ret;
 }
 
 static int camera_v4l2_querybuf(struct file *filep, void *fh,
@@ -209,17 +218,35 @@ static int camera_v4l2_querybuf(struct file *filep, void *fh,
 static int camera_v4l2_qbuf(struct file *filep, void *fh,
 	struct v4l2_buffer *pb)
 {
+	int ret;
+	struct msm_session *session;
 	struct camera_v4l2_private *sp = fh_to_private(fh);
-
-	return vb2_qbuf(&sp->vb2_q, pb);
+		struct msm_video_device *pvdev = video_drvdata(filep);
+	unsigned int session_id = pvdev->vdev->num;
+	session = msm_session_find(session_id);
+	if (WARN_ON(!session))
+		return -EIO;
+	mutex_lock(&session->lock);
+	ret = vb2_qbuf(&sp->vb2_q, pb);
+	mutex_unlock(&session->lock);
+	return ret;
 }
 
 static int camera_v4l2_dqbuf(struct file *filep, void *fh,
 	struct v4l2_buffer *pb)
 {
+	int ret;
+	struct msm_session *session;
 	struct camera_v4l2_private *sp = fh_to_private(fh);
-
-	return vb2_dqbuf(&sp->vb2_q, pb, filep->f_flags & O_NONBLOCK);
+		struct msm_video_device *pvdev = video_drvdata(filep);
+	unsigned int session_id = pvdev->vdev->num;
+	session = msm_session_find(session_id);
+	if (WARN_ON(!session))
+		return -EIO;
+	mutex_lock(&session->lock);
+	ret = vb2_dqbuf(&sp->vb2_q, pb, filep->f_flags & O_NONBLOCK);
+	mutex_unlock(&session->lock);
+	return ret;
 }
 
 static int camera_v4l2_streamon(struct file *filep, void *fh,

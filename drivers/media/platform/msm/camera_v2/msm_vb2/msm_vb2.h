@@ -42,7 +42,6 @@ struct msm_vb2_buffer {
 	struct vb2_buffer vb2_buf;
 	struct list_head list;
 	int in_freeq;
-	struct msm_stream *stream;
 };
 
 struct msm_vb2_private_data {
