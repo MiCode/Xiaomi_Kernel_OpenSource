@@ -24,6 +24,24 @@
 	};
 };
 
+&spmi_bus {
+	qcom,pm8110@0 {
+		qcom,leds@a200 {
+			status = "okay";
+			qcom,led_mpp_3 {
+				label = "mpp";
+				linux,name = "wled-backlight";
+				linux-default-trigger = "none";
+				qcom,default-state = "on";
+				qcom,max-current = <40>;
+				qcom,id = <6>;
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x10>;
+			};
+		};
+	};
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8110_l17>;
 	qcom,vdd-always-on;
