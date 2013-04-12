@@ -2546,6 +2546,9 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 					host->busy_handle = 1;
 				return;
 			}
+			if (host->quirks2 &
+				SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD)
+				return;
 		}
 
 		pr_err("%s: Got data interrupt 0x%08x even "

@@ -119,7 +119,13 @@ struct sdhci_host {
 #define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<5)
 /* Ignore CMD CRC errors for tuning commands */
 #define SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING		(1<<6)
-
+/*
+ * Ignore data timeout error for R1B commands as there will be no
+ * data associated and the busy timeout value for these commands
+ * could be lager than the maximum timeout value that controller
+ * can handle.
+ */
+#define SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD		(1<<9)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
