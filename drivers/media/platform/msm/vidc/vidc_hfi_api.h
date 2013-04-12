@@ -130,6 +130,7 @@ enum hal_property {
 	HAL_PARAM_VENC_H264_DEBLOCK_CONTROL,
 	HAL_PARAM_VENC_TEMPORAL_SPATIAL_TRADEOFF,
 	HAL_PARAM_VENC_SESSION_QP,
+	HAL_PARAM_VENC_SESSION_QP_RANGE,
 	HAL_CONFIG_VENC_INTRA_PERIOD,
 	HAL_CONFIG_VENC_IDR_PERIOD,
 	HAL_CONFIG_VPE_OPERATIONS,
@@ -593,6 +594,12 @@ struct hal_quantization {
 	u32 qpi;
 	u32 qpp;
 	u32 qpb;
+	u32 layer_id;
+};
+
+struct hal_quantization_range {
+	u32 min_qp;
+	u32 max_qp;
 	u32 layer_id;
 };
 
