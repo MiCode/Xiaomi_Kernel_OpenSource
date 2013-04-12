@@ -677,12 +677,10 @@ static int _qcrypto_remove(struct platform_device *pdev)
 	return 0;
 };
 
-static int _qcrypto_setkey_aes(struct crypto_ablkcipher *cipher, const u8 *key,
-		unsigned int len)
+
+static int _qcrypto_check_aes_keylen(struct crypto_ablkcipher *cipher,
+		struct crypto_priv *cp, unsigned int len)
 {
-	struct crypto_tfm *tfm = crypto_ablkcipher_tfm(cipher);
-	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
-	struct crypto_priv *cp = ctx->cp;
 
 	switch (len) {
 	case AES_KEYSIZE_128:
@@ -695,8 +693,40 @@ static int _qcrypto_setkey_aes(struct crypto_ablkcipher *cipher, const u8 *key,
 		crypto_ablkcipher_set_flags(cipher, CRYPTO_TFM_RES_BAD_KEY_LEN);
 		return -EINVAL;
 	};
-	ctx->enc_key_len = len;
-	memcpy(ctx->enc_key, key, len);
+
+	return 0;
+}
+
+static int _qcrypto_setkey_aes(struct crypto_ablkcipher *cipher, const u8 *key,
+		unsigned int len)
+{
+	struct crypto_tfm *tfm = crypto_ablkcipher_tfm(cipher);
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct crypto_priv *cp = ctx->cp;
+
+	if (_qcrypto_check_aes_keylen(cipher, cp, len)) {
+		return -EINVAL;
+	} else {
+		ctx->enc_key_len = len;
+		memcpy(ctx->enc_key, key, len);
+	}
+	return 0;
+};
+
+static int _qcrypto_setkey_aes_xts(struct crypto_ablkcipher *cipher,
+		const u8 *key, unsigned int len)
+{
+	struct crypto_tfm *tfm = crypto_ablkcipher_tfm(cipher);
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
+	struct crypto_priv *cp = ctx->cp;
+
+
+	if (_qcrypto_check_aes_keylen(cipher, cp, len/2)) {
+		return -EINVAL;
+	} else {
+		ctx->enc_key_len = len;
+		memcpy(ctx->enc_key, key, len);
+	}
 	return 0;
 };
 
@@ -3124,7 +3154,7 @@ static struct crypto_alg _qcrypto_ablk_cipher_xts_algo = {
 			.ivsize		= AES_BLOCK_SIZE,
 			.min_keysize	= AES_MIN_KEY_SIZE,
 			.max_keysize	= AES_MAX_KEY_SIZE,
-			.setkey		= _qcrypto_setkey_aes,
+			.setkey		= _qcrypto_setkey_aes_xts,
 			.encrypt	= _qcrypto_enc_aes_xts,
 			.decrypt	= _qcrypto_dec_aes_xts,
 		},
