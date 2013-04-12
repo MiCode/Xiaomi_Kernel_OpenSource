@@ -53,6 +53,14 @@ static struct reserve_info apq8084_reserve_info __initdata = {
 	.paddr_to_memtype = apq8084_paddr_to_memtype,
 };
 
+static struct of_dev_auxdata apq8084_auxdata_lookup[] __initdata = {
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9824000, \
+			"msm_sdcc.1", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
+			"msm_sdcc.2", NULL),
+	{}
+};
+
 void __init apq8084_reserve(void)
 {
 	reserve_info = &apq8084_reserve_info;
@@ -95,11 +103,13 @@ static void __init apq8084_map_io(void)
 
 void __init apq8084_init(void)
 {
+	struct of_dev_auxdata *adata = apq8084_auxdata_lookup;
+
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
 	apq8084_init_gpiomux();
-	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+	of_platform_populate(NULL, of_default_bus_match_table, adata, NULL);
 	apq8084_add_drivers();
 }
 
