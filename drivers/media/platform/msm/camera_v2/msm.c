@@ -709,7 +709,7 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 		msecs_to_jiffies(timeout));
 	if (list_empty_careful(&cmd_ack->command_q.list)) {
 		if (!rc) {
-			pr_err("%s: Ankit Timed out\n", __func__);
+			pr_err("%s: Timed out\n", __func__);
 			rc = -ETIMEDOUT;
 		}
 		if (rc < 0) {
