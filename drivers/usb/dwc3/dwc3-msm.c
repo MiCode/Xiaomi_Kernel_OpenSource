@@ -1254,49 +1254,10 @@ static int dwc3_msm_link_clk_reset(bool assert)
 	return ret;
 }
 
-/* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
-static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
+/* Reinitialize SSPHY parameters by overriding using QSCRATCH CR interface */
+static void dwc3_msm_ss_phy_reg_init(struct dwc3_msm *msm)
 {
 	u32 data = 0;
-
-	/* SSPHY Initialization: Use ref_clk from pads and set its parameters */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
-	msleep(30);
-	/* Assert SSPHY reset */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210082);
-	usleep_range(2000, 2200);
-	/* De-assert SSPHY reset - power and ref_clock must be ON */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
-	usleep_range(2000, 2200);
-	/* Ref clock must be stable now, enable ref clock for HS mode */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210102);
-	usleep_range(2000, 2200);
-	/*
-	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
-	 * and disable RETENTION (power-on default is ENABLED)
-	 */
-	dwc3_msm_write_reg(msm->base, HS_PHY_CTRL_REG, 0x5220bb2);
-	usleep_range(2000, 2200);
-	/* Disable (bypass) VBUS and ID filters */
-	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
-	/*
-	 * write HSPHY init value to QSCRATCH reg to set HSPHY parameters like
-	 * VBUS valid threshold, disconnect valid threshold, DC voltage level,
-	 * preempasis and rise/fall time.
-	 */
-	if (override_phy_init)
-		msm->hsphy_init_seq = override_phy_init;
-	if (msm->hsphy_init_seq)
-		dwc3_msm_write_readback(msm->base,
-					PARAMETER_OVERRIDE_X_REG, 0x03FFFFFF,
-					msm->hsphy_init_seq & 0x03FFFFFF);
-
-	/* Enable master clock for RAMs to allow BAM to access RAMs when
-	 * RAM clock gating is enabled via DWC3's GCTL. Otherwise, issues
-	 * are seen where RAM clocks get turned OFF in SS mode
-	 */
-	dwc3_msm_write_reg(msm->base, CGCTL_REG,
-		dwc3_msm_read_reg(msm->base, CGCTL_REG) | 0x18);
 
 	/*
 	 * WORKAROUND: There is SSPHY suspend bug due to which USB enumerates
@@ -1342,6 +1303,51 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
 
 	/* Set LOS_BIAS to 0x5 */
 	dwc3_msm_write_readback(msm->base, SS_PHY_PARAM_CTRL_1, 0x07, 0x5);
+}
+
+/* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
+static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *msm)
+{
+	/* SSPHY Initialization: Use ref_clk from pads and set its parameters */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
+	msleep(30);
+	/* Assert SSPHY reset */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210082);
+	usleep_range(2000, 2200);
+	/* De-assert SSPHY reset - power and ref_clock must be ON */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
+	usleep_range(2000, 2200);
+	/* Ref clock must be stable now, enable ref clock for HS mode */
+	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210102);
+	usleep_range(2000, 2200);
+	/*
+	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
+	 * and disable RETENTION (power-on default is ENABLED)
+	 */
+	dwc3_msm_write_reg(msm->base, HS_PHY_CTRL_REG, 0x5220bb2);
+	usleep_range(2000, 2200);
+	/* Disable (bypass) VBUS and ID filters */
+	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x78);
+	/*
+	 * write HSPHY init value to QSCRATCH reg to set HSPHY parameters like
+	 * VBUS valid threshold, disconnect valid threshold, DC voltage level,
+	 * preempasis and rise/fall time.
+	 */
+	if (override_phy_init)
+		msm->hsphy_init_seq = override_phy_init;
+	if (msm->hsphy_init_seq)
+		dwc3_msm_write_readback(msm->base,
+					PARAMETER_OVERRIDE_X_REG, 0x03FFFFFF,
+					msm->hsphy_init_seq & 0x03FFFFFF);
+
+	/* Enable master clock for RAMs to allow BAM to access RAMs when
+	 * RAM clock gating is enabled via DWC3's GCTL. Otherwise, issues
+	 * are seen where RAM clocks get turned OFF in SS mode
+	 */
+	dwc3_msm_write_reg(msm->base, CGCTL_REG,
+		dwc3_msm_read_reg(msm->base, CGCTL_REG) | 0x18);
+
+	dwc3_msm_ss_phy_reg_init(msm);
 }
 
 static void dwc3_msm_block_reset(bool core_reset)
@@ -1791,6 +1797,11 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	udelay(10);
 	dwc3_msm_write_readback(mdwc->base, SS_PHY_CTRL_REG, (1 << 7), 0x0);
 
+	/*
+	 * Reinitilize SSPHY parameters as SS_PHY RESET will reset
+	 * the internal registers to default values.
+	 */
+	dwc3_msm_ss_phy_reg_init(mdwc);
 	atomic_set(&mdwc->in_lpm, 0);
 
 	/* match disable_irq call from isr */
