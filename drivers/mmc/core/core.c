@@ -167,10 +167,12 @@ static inline void mmc_should_fail_request(struct mmc_host *host,
 
 static inline void mmc_update_clk_scaling(struct mmc_host *host)
 {
-	if (host->clk_scaling.enable)
+	if (host->clk_scaling.enable) {
 		host->clk_scaling.busy_time_us +=
 			ktime_to_us(ktime_sub(ktime_get(),
 					host->clk_scaling.start_busy));
+		host->clk_scaling.start_busy = ktime_get();
+	}
 }
 /**
  *	mmc_request_done - finish processing an MMC request
@@ -811,6 +813,12 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 			context_info->is_urgent = false;
 			context_info->is_new_req = false;
 			if (mmc_should_stop_curr_req(host)) {
+				/*
+				 * We are going to stop the ongoing request.
+				 * Update stuff that we ought to do when the
+				 * request actually completes.
+				 */
+				mmc_update_clk_scaling(host);
 				err = mmc_stop_request(host);
 				if (err && !context_info->is_done_rcv) {
 					err = MMC_BLK_ABORT;
@@ -823,14 +831,6 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 					context_info->is_done_rcv = false;
 					break; /* return err */
 				} else {
-					/*
-					 * We have stopped the ongoing request
-					 * and are sure that mmc_request_done()
-					 * is not going to get called. Update
-					 * stuff that we ought to do when the
-					 * request actually completes.
-					 */
-					mmc_update_clk_scaling(host);
 					mmc_host_clk_release(host);
 				}
 				err = host->areq->update_interrupted_req(
