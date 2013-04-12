@@ -2734,6 +2734,10 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return rc;
 	}
 
+	rc = mdss_register_irq(&hdmi_tx_hw);
+	if (rc)
+		DEV_ERR("%s: mdss_register_irq failed.\n", __func__);
+
 	return rc;
 } /* hdmi_tx_register_panel */
 
