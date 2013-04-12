@@ -964,7 +964,10 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		 */
 		mb();
 		if (is_blsp_uart(msm_uport)) {
-			sps_disconnect(sps_pipe_handle);
+			ret = sps_disconnect(sps_pipe_handle);
+			if (ret)
+				pr_err("%s(): sps_disconnect failed\n",
+							__func__);
 			msm_hs_spsconnect_rx(uport);
 			msm_serial_hs_rx_tlet((unsigned long) &rx->tlet);
 		} else {
@@ -1023,8 +1026,12 @@ static void hsuart_disconnect_rx_endpoint_work(struct work_struct *w)
 						disconnect_rx_endpoint);
 	struct msm_hs_rx *rx = &msm_uport->rx;
 	struct sps_pipe *sps_pipe_handle = rx->prod.pipe_handle;
+	int ret = 0;
 
-	sps_disconnect(sps_pipe_handle);
+	ret = sps_disconnect(sps_pipe_handle);
+	if (ret)
+		pr_err("%s(): sps_disconnect failed\n", __func__);
+
 	wake_lock_timeout(&msm_uport->rx.wake_lock, HZ / 2);
 	msm_uport->rx.flush = FLUSH_SHUTDOWN;
 	wake_up(&msm_uport->rx.wait);
@@ -1699,8 +1706,6 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 	int ret;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct circ_buf *tx_buf = &uport->state->xmit;
-	struct msm_hs_rx *rx = &msm_uport->rx;
-	struct sps_pipe *sps_pipe_handle = rx->prod.pipe_handle;
 
 	mutex_lock(&msm_uport->clk_mutex);
 	spin_lock_irqsave(&uport->lock, flags);
@@ -1745,7 +1750,6 @@ static int msm_hs_check_clock_off(struct uart_port *uport)
 		if (is_blsp_uart(msm_uport)) {
 			msm_uport->clk_req_off_state =
 				CLK_REQ_OFF_RXSTALE_FLUSHED;
-			sps_disconnect(sps_pipe_handle);
 		}
 		mutex_unlock(&msm_uport->clk_mutex);
 		return 0;  /* RXSTALE flush not complete - retry */
@@ -3163,7 +3167,10 @@ static void msm_hs_shutdown(struct uart_port *uport)
 				pr_err("%s():HSUART TX Stalls.\n", __func__);
 		} else {
 			/* BAM Disconnect for TX */
-			sps_disconnect(sps_pipe_handle);
+			ret = sps_disconnect(sps_pipe_handle);
+			if (ret)
+				pr_err("%s(): sps_disconnect failed\n",
+							__func__);
 		}
 	}
 	tasklet_kill(&msm_uport->tx.tlet);
