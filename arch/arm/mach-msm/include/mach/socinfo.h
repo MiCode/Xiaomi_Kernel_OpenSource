@@ -48,6 +48,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mpq8092")
 #define early_machine_is_msmzinc()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmzinc")
+#define early_machine_is_msmkrypton()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmkrypton")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -62,6 +64,7 @@
 #define early_machine_is_msm8610()	0
 #define early_machine_is_mpq8092()	0
 #define early_machine_is_msmzinc()	0
+#define early_machine_is_msmkrypton()	0
 #endif
 
 #define PLATFORM_SUBTYPE_SGLTE	6
@@ -100,6 +103,7 @@ enum msm_cpu {
 	MSM_CPU_8610,
 	MSM_CPU_8625Q,
 	MSM_CPU_ZINC,
+	MSM_CPU_KRYPTON,
 };
 
 enum pmic_model {
