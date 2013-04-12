@@ -87,6 +87,10 @@ qcom,buswidth:		Width of the interconnect between a node and the bus.
 			(In Bytes).
 qcom,prio-rd:		Read priority for a BIMC bus master (Can be 0/1/2)
 qcom,prio-wr:		Write priority for a BIMC bus master (Can be 0/1/2)
+qcom,prio0:		Priority low signal for a NoC bus master
+			(Can be 0/1/2).
+qcom,prio1:		Priority high signal for a NoC bus master
+			(Can be 0/1/2)
 
 
 Example:
