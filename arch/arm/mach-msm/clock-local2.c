@@ -570,6 +570,40 @@ static int branch_clk_reset(struct clk *c, enum clk_reset_action action)
 	return __branch_clk_reset(BCR_REG(branch), action);
 }
 
+static int branch_clk_set_flags(struct clk *c, unsigned flags)
+{
+	u32 cbcr_val;
+	unsigned long irq_flags;
+	struct branch_clk *branch = to_branch_clk(c);
+	int ret = 0;
+
+	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
+	cbcr_val = readl_relaxed(CBCR_REG(branch));
+	switch (flags) {
+	case CLKFLAG_RETAIN_PERIPH:
+		cbcr_val |= BIT(13);
+		break;
+	case CLKFLAG_NORETAIN_PERIPH:
+		cbcr_val &= ~BIT(13);
+		break;
+	case CLKFLAG_RETAIN_MEM:
+		cbcr_val |= BIT(14);
+		break;
+	case CLKFLAG_NORETAIN_MEM:
+		cbcr_val &= ~BIT(14);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	writel_relaxed(cbcr_val, CBCR_REG(branch));
+	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
+
+	/* Make sure write is issued before returning. */
+	mb();
+
+	return ret;
+}
+
 /*
  * Voteable clock functions
  */
@@ -824,6 +858,7 @@ struct clk_ops clk_ops_branch = {
 	.list_rate = branch_clk_list_rate,
 	.round_rate = branch_clk_round_rate,
 	.reset = branch_clk_reset,
+	.set_flags = branch_clk_set_flags,
 	.handoff = branch_clk_handoff,
 };
 
