@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,6 +128,7 @@ static int mpq_tspp_dmx_init(
 	mpq_demux->demux.reuse_decoder_buffer = NULL;
 	mpq_demux->demux.set_secure_mode = NULL;
 	mpq_demux->demux.oob_command = NULL;
+	mpq_demux->demux.convert_ts = NULL;
 
 	/* Initialize dvb_demux object */
 	result = dvb_dmx_init(&mpq_demux->demux);

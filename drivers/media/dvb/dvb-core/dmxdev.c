@@ -1714,8 +1714,44 @@ static int dvb_dmxdev_get_event_mask(struct dmxdev_filter *dmxdevfilter,
 	return 0;
 }
 
-static int dvb_dmxdev_ts_fullness_callback(
-				struct dmx_ts_feed *filter,
+static int dvb_dmxdev_set_indexing_params(struct dmxdev_filter *dmxdevfilter,
+				struct dmx_indexing_params *idx_params)
+{
+	int found_pid;
+	struct dmxdev_feed *feed;
+	struct dmxdev_feed *ts_feed = NULL;
+
+	if (!idx_params ||
+		(dmxdevfilter->state < DMXDEV_STATE_SET) ||
+		(dmxdevfilter->type != DMXDEV_TYPE_PES) ||
+		((dmxdevfilter->params.pes.output != DMX_OUT_TS_TAP) &&
+		 (dmxdevfilter->params.pes.output != DMX_OUT_TSDEMUX_TAP)))
+		return -EINVAL;
+
+	if (idx_params->enable && !idx_params->types)
+		return -EINVAL;
+
+	found_pid = 0;
+	list_for_each_entry(feed, &dmxdevfilter->feed.ts, next) {
+		if (feed->pid == idx_params->pid) {
+			found_pid = 1;
+			ts_feed = feed;
+			ts_feed->idx_params = *idx_params;
+			if ((dmxdevfilter->state == DMXDEV_STATE_GO) &&
+				ts_feed->ts->set_idx_params)
+				ts_feed->ts->set_idx_params(
+						ts_feed->ts, idx_params);
+			break;
+		}
+	}
+
+	if (!found_pid)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int dvb_dmxdev_ts_fullness_callback(struct dmx_ts_feed *filter,
 				int required_space)
 {
 	struct dmxdev_filter *dmxdevfilter = filter->priv;
@@ -2349,6 +2385,17 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 		return 0;
 	}
 
+	if (dmx_data_ready->status == DMX_OK_IDX) {
+		dprintk("dmxdev: event callback DMX_OK_IDX\n");
+		event.type = DMX_EVENT_NEW_INDEX_ENTRY;
+		event.params.index = dmx_data_ready->idx_event;
+
+		dvb_dmxdev_add_event(events, &event);
+		spin_unlock(&dmxdevfilter->dev->lock);
+		wake_up_all(&buffer->queue);
+		return 0;
+	}
+
 	if (dmx_data_ready->status == DMX_OK_DECODER_BUF) {
 		event.type = DMX_EVENT_NEW_ES_DATA;
 		event.params.es_data.buf_handle = dmx_data_ready->buf.handle;
@@ -2706,7 +2753,6 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 	if (tsfeed->set_secure_mode)
 		tsfeed->set_secure_mode(tsfeed, &feed->sec_mode);
 
-	/* Support indexing for video PES */
 	if ((para->pes_type == DMX_PES_VIDEO0) ||
 	    (para->pes_type == DMX_PES_VIDEO1) ||
 	    (para->pes_type == DMX_PES_VIDEO2) ||
@@ -2722,6 +2768,12 @@ static int dvb_dmxdev_start_feed(struct dmxdev *dmxdev,
 			}
 		}
 	}
+
+	if ((filter->params.pes.output == DMX_OUT_TS_TAP) ||
+		(filter->params.pes.output == DMX_OUT_TSDEMUX_TAP))
+		if (tsfeed->set_idx_params)
+			tsfeed->set_idx_params(
+					tsfeed, &feed->idx_params);
 
 	ret = tsfeed->start_filtering(tsfeed);
 	if (ret < 0) {
@@ -3033,6 +3085,7 @@ static int dvb_dmxdev_add_pid(struct dmxdev *dmxdev,
 
 	feed->pid = pid;
 	feed->sec_mode.is_secured = 0;
+	feed->idx_params.enable = 0;
 	list_add(&feed->next, &filter->feed.ts);
 
 	if (filter->state >= DMXDEV_STATE_GO)
@@ -3156,23 +3209,6 @@ static int dvb_dmxdev_pes_filter_set(struct dmxdev *dmxdev,
 
 	if (params->pes_type > DMX_PES_OTHER || params->pes_type < 0)
 		return -EINVAL;
-
-	if (params->flags & DMX_ENABLE_INDEXING) {
-		if (!(dmxdev->capabilities & DMXDEV_CAP_INDEXING))
-			return -EINVAL;
-
-		/* can do indexing only on video PES */
-		if ((params->pes_type != DMX_PES_VIDEO0) &&
-		    (params->pes_type != DMX_PES_VIDEO1) &&
-		    (params->pes_type != DMX_PES_VIDEO2) &&
-		    (params->pes_type != DMX_PES_VIDEO3))
-			return -EINVAL;
-
-		/* can do indexing only when recording */
-		if ((params->output != DMX_OUT_TS_TAP) &&
-		    (params->output != DMX_OUT_TSDEMUX_TAP))
-			return -EINVAL;
-	}
 
 	dmxdevfilter->type = DMXDEV_TYPE_PES;
 	memcpy(&dmxdevfilter->params, params,
@@ -3576,6 +3612,15 @@ static int dvb_demux_do_ioctl(struct file *file,
 			return -ERESTARTSYS;
 		}
 		ret = dvb_dmxdev_get_event_mask(dmxdevfilter, parg);
+		mutex_unlock(&dmxdevfilter->mutex);
+		break;
+
+	case DMX_SET_INDEXING_PARAMS:
+		if (mutex_lock_interruptible(&dmxdevfilter->mutex)) {
+			mutex_unlock(&dmxdev->mutex);
+			return -ERESTARTSYS;
+		}
+		ret = dvb_dmxdev_set_indexing_params(dmxdevfilter, parg);
 		mutex_unlock(&dmxdevfilter->mutex);
 		break;
 

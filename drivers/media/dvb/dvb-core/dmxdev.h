@@ -59,6 +59,7 @@ enum dmxdev_state {
 struct dmxdev_feed {
 	u16 pid;
 	struct dmx_secure_mode sec_mode;
+	struct dmx_indexing_params idx_params;
 	struct dmx_ts_feed *ts;
 	struct list_head next;
 };

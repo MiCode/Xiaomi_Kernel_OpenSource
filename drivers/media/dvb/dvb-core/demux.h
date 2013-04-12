@@ -74,7 +74,8 @@ enum dmx_success {
 	DMX_FRAME_ERROR, /* Frame alignment error */
 	DMX_FIFO_ERROR, /* Receiver FIFO overrun */
 	DMX_MISSED_ERROR, /* Receiver missed packet */
-	DMX_OK_DECODER_BUF /* Received OK, new ES data in decoder buffer */
+	DMX_OK_DECODER_BUF, /* Received OK, new ES data in decoder buffer */
+	DMX_OK_IDX /* Received OK, new index event */
 } ;
 
 
@@ -131,6 +132,8 @@ struct dmx_data_ready {
 		struct {
 			u64 id;
 		} marker;
+
+		struct dmx_index_event_info idx_event;
 	};
 };
 
@@ -224,6 +227,8 @@ struct dmx_ts_feed {
 	int (*stop_filtering) (struct dmx_ts_feed* feed);
 	int (*set_video_codec) (struct dmx_ts_feed *feed,
 				enum dmx_video_codec video_codec);
+	int (*set_idx_params) (struct dmx_ts_feed *feed,
+				struct dmx_indexing_params *idx_params);
 	int (*get_decoder_buff_status)(
 			struct dmx_ts_feed *feed,
 			struct dmx_buffer_status *dmx_buffer_status);
