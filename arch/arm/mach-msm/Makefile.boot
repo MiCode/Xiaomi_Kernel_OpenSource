@@ -64,6 +64,7 @@ endif
 
 # MSMKRYPTON
    zreladdr-$(CONFIG_ARCH_MSMKRYPTON)	:= 0x00208000
+	dtb-$(CONFIG_ARCH_MSMKRYPTON)	+= msmkrypton-sim.dtb
 
 # MSM9615
    zreladdr-$(CONFIG_ARCH_MSM9615)	:= 0x40808000
