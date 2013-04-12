@@ -125,7 +125,7 @@ struct audio_ocmem_prv {
 	atomic_t  audio_cond;
 	atomic_t  audio_exit;
 	spinlock_t audio_lock;
-	struct mutex protect_lock;
+	struct mutex state_process_lock;
 	struct workqueue_struct *audio_ocmem_workqueue;
 	struct workqueue_struct *voice_ocmem_workqueue;
 	bool ocmem_en;
@@ -252,6 +252,7 @@ int audio_ocmem_enable(int cid)
 		if (ret != 0) {
 			pr_err("%s: get low power segments from DSP failed, rc=%d\n",
 					__func__, ret);
+			mutex_unlock(&audio_ocmem_lcl.state_process_lock);
 			goto fail_cmd;
 		}
 	}
@@ -273,7 +274,9 @@ int audio_ocmem_enable(int cid)
 	buf = ocmem_allocate_nb(cid, AUDIO_OCMEM_BUF_SIZE);
 	if (IS_ERR_OR_NULL(buf)) {
 		pr_err("%s: failed: %d\n", __func__, cid);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		mutex_unlock(&audio_ocmem_lcl.state_process_lock);
+		goto fail_cmd;
 	}
 
 	set_bit_pos(audio_ocmem_lcl.audio_state, OCMEM_STATE_ALLOC);
@@ -285,7 +288,7 @@ int audio_ocmem_enable(int cid)
 	if (!buf->len) {
 		pr_debug("%s: buf.len is 0, waiting for ocmem region\n",
 								__func__);
-		mutex_unlock(&audio_ocmem_lcl.protect_lock);
+		mutex_unlock(&audio_ocmem_lcl.state_process_lock);
 		wait_event_interruptible(audio_ocmem_lcl.audio_wait,
 			(atomic_read(&audio_ocmem_lcl.audio_cond) == 0)	||
 			(atomic_read(&audio_ocmem_lcl.audio_exit) == 1));
@@ -302,7 +305,7 @@ int audio_ocmem_enable(int cid)
 			goto fail_cmd;
 		}
 		clear_bit_pos(audio_ocmem_lcl.audio_state, OCMEM_STATE_GROW);
-		mutex_trylock(&audio_ocmem_lcl.protect_lock);
+		mutex_trylock(&audio_ocmem_lcl.state_process_lock);
 	}
 	pr_debug("%s: buf->len: %ld\n", __func__, (audio_ocmem_lcl.buf)->len);
 
@@ -333,7 +336,7 @@ int audio_ocmem_enable(int cid)
 					_MAP_RESPONSE_BIT_MASK_) != 0);
 	atomic_set(&audio_ocmem_lcl.audio_cond, 1);
 
-	mutex_unlock(&audio_ocmem_lcl.protect_lock);
+	mutex_unlock(&audio_ocmem_lcl.state_process_lock);
 	pr_debug("%s: audio_cond[%d] audio_state[0x%x]\n", __func__,
 				atomic_read(&audio_ocmem_lcl.audio_cond),
 				atomic_read(&audio_ocmem_lcl.audio_state));
@@ -344,7 +347,7 @@ int audio_ocmem_enable(int cid)
 		wait_event_interruptible(audio_ocmem_lcl.audio_wait,
 				(atomic_read(&audio_ocmem_lcl.audio_state) &
 						_BIT_MASK_) != 0);
-
+		mutex_lock(&audio_ocmem_lcl.state_process_lock);
 		state_bit = get_state_to_process(&audio_ocmem_lcl.audio_state);
 		switch (state_bit) {
 		case OCMEM_STATE_MAP_COMPL:
@@ -502,6 +505,7 @@ int audio_ocmem_enable(int cid)
 				atomic_read(&audio_ocmem_lcl.audio_state));
 			break;
 		}
+		mutex_unlock(&audio_ocmem_lcl.state_process_lock);
 	}
 	ret = 0;
 fail_cmd:
@@ -531,7 +535,7 @@ int audio_ocmem_disable(int cid)
 
 	wake_up(&audio_ocmem_lcl.audio_wait);
 
-	mutex_unlock(&audio_ocmem_lcl.protect_lock);
+	mutex_unlock(&audio_ocmem_lcl.state_process_lock);
 	pr_debug("%s: exit\n", __func__);
 	return 0;
 }
@@ -654,7 +658,7 @@ static void audio_ocmem_process_workdata(struct work_struct *work)
 			container_of(work, struct audio_ocmem_workdata, work);
 
 	en = audio_ocm_work->en;
-	mutex_lock(&audio_ocmem_lcl.protect_lock);
+	mutex_lock(&audio_ocmem_lcl.state_process_lock);
 	/* if previous work waiting for ocmem - signal it to exit */
 	atomic_set(&audio_ocmem_lcl.audio_exit, 1);
 	pr_debug("%s: acquired mutex for %d\n", __func__, en);
@@ -889,7 +893,7 @@ static int ocmem_audio_client_probe(struct platform_device *pdev)
 	atomic_set(&audio_ocmem_lcl.audio_state, OCMEM_STATE_DEFAULT);
 	atomic_set(&audio_ocmem_lcl.audio_exit, 0);
 	spin_lock_init(&audio_ocmem_lcl.audio_lock);
-	mutex_init(&audio_ocmem_lcl.protect_lock);
+	mutex_init(&audio_ocmem_lcl.state_process_lock);
 	audio_ocmem_lcl.ocmem_en = true;
 	audio_ocmem_lcl.audio_ocmem_running = false;
 
