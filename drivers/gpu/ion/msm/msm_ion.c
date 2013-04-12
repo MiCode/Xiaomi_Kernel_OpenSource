@@ -770,6 +770,10 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 		heap = ion_secure_cma_heap_create(heap_data);
 		break;
 #endif
+	case ION_HEAP_TYPE_REMOVED:
+		heap = ion_removed_heap_create(heap_data);
+		break;
+
 	default:
 		heap = ion_heap_create(heap_data);
 	}
@@ -807,6 +811,9 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 		ion_secure_cma_heap_destroy(heap);
 		break;
 #endif
+	case ION_HEAP_TYPE_REMOVED:
+		ion_removed_heap_destroy(heap);
+		break;
 	default:
 		ion_heap_destroy(heap);
 	}

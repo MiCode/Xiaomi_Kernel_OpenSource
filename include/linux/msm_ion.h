@@ -9,6 +9,7 @@ enum msm_ion_heap_types {
 	ION_HEAP_TYPE_DMA,
 	ION_HEAP_TYPE_CP,
 	ION_HEAP_TYPE_SECURE_DMA,
+	ION_HEAP_TYPE_REMOVED,
 };
 
 /**
