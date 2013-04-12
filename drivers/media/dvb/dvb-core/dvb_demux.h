@@ -113,7 +113,7 @@ struct dvb_demux_feed {
 	struct list_head list_head;
 	unsigned int index;	/* a unique index for each feed (can be used as hardware pid filter index) */
 
-	struct dmx_indexing_video_params indexing_params;
+	enum dmx_video_codec video_codec;
 };
 
 struct dvb_demux {
@@ -189,6 +189,51 @@ struct dvb_demux {
 	u32 total_crc_time;
 };
 
+/*
+ * dvb_dmx_video_patterns - video pattern lookup parameters.
+ *
+ * @pattern: the byte pattern to look for.
+ * @mask: the byte mask to use (same length as pattern).
+ * @size: the length of the pattern, in bytes.
+ * @type: the type of the pattern. One of DMX_IDX_* definitions.
+ */
+#define DVB_DMX_MAX_PATTERN_LEN			6
+struct dvb_dmx_video_patterns {
+	u8 pattern[DVB_DMX_MAX_PATTERN_LEN];
+	u8 mask[DVB_DMX_MAX_PATTERN_LEN];
+	size_t size;
+	u64 type;
+};
+
+/*
+ * dvb_dmx_video_prefix_size_masks  - possible prefix sizes.
+ *
+ * @size_mask: a bit mask (per pattern) of possible prefix sizes to use
+ * when searching for a pattern that started in the previous TS packet.
+ * Updated by dvb_dmx_video_pattern_search for use in the next lookup.
+ */
+#define DVB_DMX_MAX_FOUND_PATTERNS				10
+struct dvb_dmx_video_prefix_size_masks {
+	u32 size_mask[DVB_DMX_MAX_FOUND_PATTERNS];
+};
+
+/*
+ * dvb_dmx_video_patterns_results - video patterns results
+ *
+ * @offset: The offset in the buffer where the pattern was found.
+ * If a pattern is found using a prefix (i.e. started on the
+ * previous buffer), offset is zero.
+ * @type: The type of the pattern found. One of DMX_IDX_* definitions.
+ * @used_prefix_size: The prefix size that was used to find this pattern
+ */
+struct dvb_dmx_video_patterns_results {
+	struct {
+		u32 offset;
+		u64 type;
+		u32 used_prefix_size;
+	} info[DVB_DMX_MAX_FOUND_PATTERNS];
+};
+
 int dvb_dmx_init(struct dvb_demux *dvbdemux);
 void dvb_dmx_release(struct dvb_demux *dvbdemux);
 void dvb_dmx_swfilter_section_packets(struct dvb_demux *demux, const u8 *buf,
@@ -204,6 +249,11 @@ void dvb_dmx_swfilter_format(
 			enum dmx_tsp_format_t tsp_format);
 void dvb_dmx_swfilter_packet(struct dvb_demux *demux, const u8 *buf,
 				const u8 timestamp[TIMESTAMP_LEN]);
+int dvb_dmx_video_pattern_search(
+		const struct dvb_dmx_video_patterns *patterns, int patterns_num,
+		const u8 *buf, size_t buf_size,
+		struct dvb_dmx_video_prefix_size_masks *prefix_size_masks,
+		struct dvb_dmx_video_patterns_results *results);
 
 /**
  * dvb_dmx_is_video_feed - Returns whether the PES feed
