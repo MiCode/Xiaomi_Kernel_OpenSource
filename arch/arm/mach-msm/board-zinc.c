@@ -43,7 +43,7 @@ static struct memtype_reserve msmzinc_reserve_table[] __initdata = {
 	},
 };
 
-static int msmzinc_paddr_to_memtype(unsigned int paddr)
+static int msmzinc_paddr_to_memtype(phys_addr_t paddr)
 {
 	return MEMTYPE_EBI1;
 }

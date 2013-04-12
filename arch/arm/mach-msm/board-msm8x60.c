@@ -5558,7 +5558,7 @@ static void __init msm8x60_calculate_reserve_sizes(void)
 	reserve_rtb_memory();
 }
 
-static int msm8x60_paddr_to_memtype(unsigned int paddr)
+static int msm8x60_paddr_to_memtype(phys_addr_t paddr)
 {
 	if (paddr >= 0x40000000 && paddr < 0x60000000)
 		return MEMTYPE_EBI1;
