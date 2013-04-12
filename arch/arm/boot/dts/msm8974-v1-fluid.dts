@@ -25,3 +25,7 @@
 &pm8941_chg {
 	qcom,chg-charging-disabled;
 };
+
+&sdcc1 {
+	qcom,bus-width = <4>;
+};
