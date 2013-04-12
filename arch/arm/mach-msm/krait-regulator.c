@@ -133,6 +133,7 @@
 #define LDO_DELTA_MIN		10000
 #define LDO_DELTA_MAX		100000
 
+#define MSM_L2_SAW_PHYS		0xf9012000
 /**
  * struct pmic_gang_vreg -
  * @name:			the string used to represent the gang
@@ -1313,6 +1314,8 @@ module_exit(krait_power_exit);
 
 void secondary_cpu_hs_init(void *base_ptr)
 {
+	void *l2_saw_base;
+
 	/* Turn on the BHS, turn off LDO Bypass and power down LDO */
 	writel_relaxed(
 		BHS_CNT_DEFAULT << BHS_CNT_BIT_POS
@@ -1339,6 +1342,23 @@ void secondary_cpu_hs_init(void *base_ptr)
 		| BHS_SEG_EN_DEFAULT << BHS_SEG_EN_BIT_POS
 		| BHS_EN_MASK,
 		base_ptr + APC_PWR_GATE_CTL);
+
+	if (the_gang && the_gang->manage_phases)
+		return;
+
+	/* If the driver has not yet started to manage phases then enable
+	 * max phases.
+	 */
+	l2_saw_base = ioremap_nocache(MSM_L2_SAW_PHYS, SZ_4K);
+	if (!l2_saw_base) {
+		__WARN();
+		return;
+	}
+	writel_relaxed(0x10003, l2_saw_base + 0x1c);
+	mb();
+	udelay(PHASE_SETTLING_TIME_US);
+
+	iounmap(l2_saw_base);
 }
 
 MODULE_LICENSE("GPL v2");
