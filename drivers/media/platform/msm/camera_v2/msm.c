@@ -30,69 +30,6 @@
 #include "msm_vb2.h"
 #include "msm_sd.h"
 
-struct msm_queue_head {
-	struct list_head list;
-	spinlock_t lock;
-	int len;
-	int max;
-};
-
-/** msm_event:
- *
- *  event sent by imaging server
- **/
-struct msm_event {
-	struct video_device *vdev;
-	atomic_t on_heap;
-};
-
-struct msm_command {
-	struct list_head list;
-	struct v4l2_event event;
-	atomic_t on_heap;
-};
-
-/** struct msm_command_ack
- *
- *  Object of command_ack_q, which is
- *  created per open operation
- *
- *  contains struct msm_command
- **/
-struct msm_command_ack {
-	struct list_head list;
-	struct msm_queue_head command_q;
-	wait_queue_head_t wait;
-	int stream_id;
-};
-
-struct msm_v4l2_subdev {
-	/* FIXME: for session close and error handling such
-	 * as daemon shutdown */
-	int    close_sequence;
-};
-
-struct msm_session {
-	struct list_head list;
-
-	/* session index */
-	unsigned int session_id;
-
-	/* event queue sent by imaging server */
-	struct msm_event event_q;
-
-	/* ACK by imaging server. Object type of
-	 * struct msm_command_ack per open,
-	 * assumption is application can send
-	 * command on every opened video node */
-	struct msm_queue_head command_ack_q;
-
-	/* real streams(either data or metadate) owned by one
-	 * session struct msm_stream */
-	struct msm_queue_head stream_q;
-	struct mutex lock;
-};
-
 static struct v4l2_device *msm_v4l2_dev;
 
 static struct msm_queue_head *msm_session_q;
@@ -246,6 +183,17 @@ static inline int __msm_queue_find_command_ack_q(void *d1, void *d2)
 {
 	struct msm_command_ack *ack = d1;
 	return (ack->stream_id == *(unsigned int *)d2) ? 1 : 0;
+}
+
+
+struct msm_session *msm_session_find(unsigned int session_id)
+{
+	struct msm_session *session;
+	session = msm_queue_find(msm_session_q, struct msm_session,
+		list, __msm_queue_find_session, &session_id);
+	if (WARN_ON(!session))
+		return NULL;
+	return session;
 }
 
 int msm_create_stream(unsigned int session_id,
@@ -492,7 +440,7 @@ static inline int __msm_destroy_session_streams(void *d1, void *d2)
 		list_for_each_entry(sd, &msm_v4l2_dev->subdevs, list)
 			__msm_sd_close_session_streams(sd, sd_close);
 	spin_unlock_irqrestore(&msm_v4l2_dev->lock, flags);
-
+	INIT_LIST_HEAD(&stream->queued_list);
 	return 0;
 }
 
