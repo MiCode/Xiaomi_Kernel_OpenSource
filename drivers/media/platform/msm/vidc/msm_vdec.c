@@ -1280,7 +1280,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 
-	if (property_id) {
+	if (!rc && property_id) {
 		dprintk(VIDC_DBG,
 			"Control: HAL property=%d,ctrl_id=%d,ctrl_value=%d\n",
 			property_id,
