@@ -768,6 +768,17 @@
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
 			};
+
+			chan@39 {
+				label = "usb_id_nopull";
+				reg = <0x39>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+			};
 		};
 
 		iadc@3600 {
