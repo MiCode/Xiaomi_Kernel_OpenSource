@@ -351,6 +351,9 @@ static enum msm_cpu cpu_of_id[] = {
 	/* zinc IDs */
 	[178] = MSM_CPU_ZINC,
 
+	/* krypton IDs */
+	[187] = MSM_CPU_KRYPTON,
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -853,6 +856,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msmzinc()) {
 		dummy_socinfo.id = 178;
 		strlcpy(dummy_socinfo.build_id, "msmzinc - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msmkrypton()) {
+		dummy_socinfo.id = 187;
+		strlcpy(dummy_socinfo.build_id, "msmkrypton - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 	strlcat(dummy_socinfo.build_id, "Dummy socinfo",
