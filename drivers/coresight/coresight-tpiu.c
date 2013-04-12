@@ -218,6 +218,24 @@ static int __tpiu_enable_to_mictor(struct tpiu_drvdata *drvdata)
 	return 0;
 }
 
+static int tpiu_reg_set_optimum_mode(struct regulator *reg,
+				     unsigned int reg_hpm)
+{
+	if (regulator_count_voltages(reg) <= 0)
+		return 0;
+
+	return regulator_set_optimum_mode(reg, reg_hpm);
+}
+
+static int tpiu_reg_set_voltage(struct regulator *reg, unsigned int reg_low,
+				unsigned int reg_high)
+{
+	if (regulator_count_voltages(reg) <= 0)
+		return 0;
+
+	return regulator_set_voltage(reg, reg_low, reg_high);
+}
+
 static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 {
 	int ret;
@@ -225,11 +243,11 @@ static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 	if (!drvdata->reg)
 		return -EINVAL;
 
-	ret = regulator_set_optimum_mode(drvdata->reg, drvdata->reg_hpm);
+	ret = tpiu_reg_set_optimum_mode(drvdata->reg, drvdata->reg_hpm);
 	if (ret < 0)
 		return ret;
-	ret = regulator_set_voltage(drvdata->reg, drvdata->reg_low,
-				    drvdata->reg_high);
+	ret = tpiu_reg_set_voltage(drvdata->reg, drvdata->reg_low,
+				   drvdata->reg_high);
 	if (ret)
 		goto err0;
 	ret = regulator_enable(drvdata->reg);
@@ -248,9 +266,9 @@ static int __tpiu_enable_to_sdc(struct tpiu_drvdata *drvdata)
 
 	return 0;
 err1:
-	regulator_set_voltage(drvdata->reg, 0, drvdata->reg_high);
+	tpiu_reg_set_voltage(drvdata->reg, 0, drvdata->reg_high);
 err0:
-	regulator_set_optimum_mode(drvdata->reg, 0);
+	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
 	return ret;
 }
 
@@ -325,8 +343,8 @@ static void __tpiu_disable_to_sdc(struct tpiu_drvdata *drvdata)
 	msm_tlmm_misc_reg_write(TLMM_ETM_MODE_REG, 0);
 
 	regulator_disable(drvdata->reg);
-	regulator_set_optimum_mode(drvdata->reg, 0);
-	regulator_set_voltage(drvdata->reg, 0, drvdata->reg_high);
+	tpiu_reg_set_optimum_mode(drvdata->reg, 0);
+	tpiu_reg_set_voltage(drvdata->reg, 0, drvdata->reg_high);
 }
 
 static void tpiu_disable(struct coresight_device *csdev)
@@ -531,7 +549,7 @@ static int __devinit tpiu_parse_of_data(struct platform_device *pdev,
 		prop = of_get_property(node, "qcom,vdd-voltage-level", &len);
 		if (!prop || (len != (2 * sizeof(__be32)))) {
 			of_node_put(reg_node);
-			return -EINVAL;
+			dev_err(dev, "sdc voltage levels not specified\n");
 		} else {
 			drvdata->reg_low = be32_to_cpup(&prop[0]);
 			drvdata->reg_high = be32_to_cpup(&prop[1]);
@@ -540,7 +558,7 @@ static int __devinit tpiu_parse_of_data(struct platform_device *pdev,
 		prop = of_get_property(node, "qcom,vdd-current-level", &len);
 		if (!prop || (len != (2 * sizeof(__be32)))) {
 			of_node_put(reg_node);
-			return -EINVAL;
+			dev_err(dev, "sdc current levels not specified\n");
 		} else {
 			drvdata->reg_lpm = be32_to_cpup(&prop[0]);
 			drvdata->reg_hpm = be32_to_cpup(&prop[1]);
