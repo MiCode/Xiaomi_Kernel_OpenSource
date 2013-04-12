@@ -2416,6 +2416,9 @@ static int sdhci_msm_suspend(struct device *dev)
 		goto out;
 	}
 
+	if (msm_host->msm_bus_vote.client_handle)
+		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+
 	return sdhci_msm_runtime_suspend(dev);
 out:
 	return ret;
