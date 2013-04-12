@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,7 @@ struct q6core_str {
 	struct avcs_cmd_rsp_get_low_power_segments_info_t *lp_ocm_payload;
 };
 
-struct q6core_str q6core_lcl;
+static struct q6core_str q6core_lcl;
 
 static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 {
@@ -40,7 +40,7 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 	uint32_t nseg;
 	int i, j;
 
-	pr_info("core msg: payload len = %u, apr resp opcode = 0x%X\n",
+	pr_debug("core msg: payload len = %u, apr resp opcode = 0x%X\n",
 		data->payload_size, data->opcode);
 
 	switch (data->opcode) {
@@ -119,6 +119,33 @@ void ocm_core_open(void)
 	pr_debug("Open_q %p\n", q6core_lcl.core_handle_q);
 	if (q6core_lcl.core_handle_q == NULL)
 		pr_err("%s: Unable to register CORE\n", __func__);
+}
+
+uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
+{
+	struct adsp_dolby_manufacturer_id payload;
+	int rc = 0;
+	pr_debug("%s manufacturer_id :%d\n", __func__, manufacturer_id);
+	ocm_core_open();
+	if (q6core_lcl.core_handle_q) {
+		payload.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+		payload.hdr.pkt_size =
+			sizeof(struct adsp_dolby_manufacturer_id);
+		payload.hdr.src_port = 0;
+		payload.hdr.dest_port = 0;
+		payload.hdr.token = 0;
+		payload.hdr.opcode = ADSP_CMD_SET_DOLBY_MANUFACTURER_ID;
+		payload.manufacturer_id = manufacturer_id;
+		pr_debug("Send Dolby security opcode=%x manufacturer ID = %d\n",
+			payload.hdr.opcode, payload.manufacturer_id);
+		rc = apr_send_pkt(q6core_lcl.core_handle_q,
+						(uint32_t *)&payload);
+		if (rc < 0)
+			pr_err("%s: SET_DOLBY_MANUFACTURER_ID failed op[0x%x]rc[%d]\n",
+				__func__, payload.hdr.opcode, rc);
+	}
+	return rc;
 }
 
 int core_get_low_power_segments(
