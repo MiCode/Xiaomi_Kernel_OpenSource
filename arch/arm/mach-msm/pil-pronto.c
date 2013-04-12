@@ -410,6 +410,15 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	int ret, err_fatal_gpio, irq;
 	uint32_t regval;
 
+	int clk_ready = of_get_named_gpio(pdev->dev.of_node,
+			"qcom,gpio-proxy-unvote", 0);
+	if (clk_ready < 0)
+		return clk_ready;
+
+	clk_ready = gpio_to_irq(clk_ready);
+	if (clk_ready < 0)
+		return clk_ready;
+
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
 		return -ENOMEM;
@@ -460,6 +469,7 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
 	desc->proxy_timeout = 10000;
+	desc->proxy_unvote_irq = clk_ready;
 
 	if (pas_supported(PAS_WCNSS) > 0) {
 		desc->ops = &pil_pronto_ops_trusted;
