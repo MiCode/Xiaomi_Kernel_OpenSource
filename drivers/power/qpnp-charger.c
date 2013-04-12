@@ -1226,6 +1226,23 @@ qpnp_chg_ibatmax_set(struct qpnp_chg_chip *chip, int chg_current)
 			QPNP_CHG_I_MASK, temp, 1);
 }
 
+#define QPNP_CHG_TCHG_MASK	0x7F
+#define QPNP_CHG_TCHG_MIN	4
+#define QPNP_CHG_TCHG_MAX	512
+#define QPNP_CHG_TCHG_STEP	4
+static int qpnp_chg_tchg_max_set(struct qpnp_chg_chip *chip, int minutes)
+{
+	u8 temp;
+
+	if (minutes < QPNP_CHG_TCHG_MIN || minutes > QPNP_CHG_TCHG_MAX) {
+		pr_err("bad max minutes =%d asked to set\n", minutes);
+		return -EINVAL;
+	}
+
+	temp = (minutes - 1)/QPNP_CHG_TCHG_STEP;
+	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_TCHG_MAX,
+			QPNP_CHG_I_MASK, temp, 1);
+}
 #define QPNP_CHG_VBATDET_MIN_MV	3240
 #define QPNP_CHG_VBATDET_MAX_MV	5780
 #define QPNP_CHG_VBATDET_STEP_MV	20
@@ -1652,6 +1669,12 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			pr_debug("failed setting ibat_Safe rc=%d\n", rc);
 			return rc;
 		}
+		rc = qpnp_chg_tchg_max_set(chip, chip->tchg_mins);
+		if (rc) {
+			pr_debug("failed setting tchg_mins rc=%d\n", rc);
+			return rc;
+		}
+
 		/* HACK: Disable wdog */
 		rc = qpnp_chg_masked_write(chip, chip->chgr_base + 0x62,
 			0xFF, 0xA0, 1);
@@ -1769,6 +1792,7 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	OF_PROP_READ(chip, maxinput_usb_ma, "maxinput-usb-ma", rc, 1);
 	OF_PROP_READ(chip, warm_bat_decidegc, "warm-bat-decidegc", rc, 1);
 	OF_PROP_READ(chip, cool_bat_decidegc, "cool-bat-decidegc", rc, 1);
+	OF_PROP_READ(chip, tchg_mins, "tchg-mins", rc, 1);
 	if (rc)
 		return rc;
 
