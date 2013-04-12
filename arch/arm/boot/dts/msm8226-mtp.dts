@@ -33,7 +33,7 @@
 			compatible = "synaptics,rmi4";
 			reg = <0x20>;
 			interrupt-parent = <&msmgpio>;
-			interrupts = <17 0x2>;
+			interrupts = <17 0x2008>;
 			vdd-supply = <&pm8226_l19>;
 			vcc_i2c-supply = <&pm8226_lvs1>;
 			synaptics,reset-gpio = <&msmgpio 16 0x00>;
