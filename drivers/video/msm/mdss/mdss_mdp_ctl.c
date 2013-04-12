@@ -294,6 +294,8 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	ctl->stop_fnc = NULL;
 	ctl->prepare_fnc = NULL;
 	ctl->display_fnc = NULL;
+	ctl->wait_fnc = NULL;
+	ctl->set_vsync_handler = NULL;
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return 0;
