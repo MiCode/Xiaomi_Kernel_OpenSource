@@ -618,7 +618,7 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 
 	/* Wait until READY bit is set in BCAPS */
 	timeout_count = 50;
-	while (!(bcaps && BIT(5)) && timeout_count) {
+	while (!(bcaps & BIT(5)) && timeout_count) {
 		msleep(100);
 		timeout_count--;
 		/* Read BCAPS at offset 0x40 */
