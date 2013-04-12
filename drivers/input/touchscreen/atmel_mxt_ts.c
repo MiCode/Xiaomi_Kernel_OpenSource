@@ -123,6 +123,7 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_SPT_DIGITIZER_T43		43
 #define MXT_SPT_MESSAGECOUNT_T44	44
 #define MXT_SPT_CTECONFIG_T46		46
+#define MXT_SPT_EXTRANOISESUPCTRLS_T58	58
 #define MXT_SPT_TIMER_T61		61
 
 /* MXT_GEN_COMMAND_T6 field */
@@ -427,6 +428,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_SPT_USERDATA_T38:
 	case MXT_SPT_DIGITIZER_T43:
 	case MXT_SPT_CTECONFIG_T46:
+	case MXT_SPT_EXTRANOISESUPCTRLS_T58:
 	case MXT_SPT_TIMER_T61:
 	case MXT_PROCI_ADAPTIVETHRESHOLD_T55:
 		return true;
@@ -464,6 +466,7 @@ static bool mxt_object_writable(unsigned int type)
 	case MXT_SPT_CTECONFIG_T28:
 	case MXT_SPT_DIGITIZER_T43:
 	case MXT_SPT_CTECONFIG_T46:
+	case MXT_SPT_EXTRANOISESUPCTRLS_T58:
 	case MXT_SPT_TIMER_T61:
 	case MXT_PROCI_ADAPTIVETHRESHOLD_T55:
 		return true;
