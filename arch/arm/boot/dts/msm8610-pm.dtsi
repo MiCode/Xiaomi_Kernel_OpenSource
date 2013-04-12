@@ -368,6 +368,7 @@
 		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
+		qcom,pc-resets-timer;
 	};
 
 	qcom,rpm-log@fc19dc00 {
