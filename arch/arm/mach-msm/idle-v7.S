@@ -239,7 +239,7 @@ skip_pc_debug1:
 	SUSPEND_8x25_L2
 	SET_SMP_COHERENCY OFF
 	wfi
-	DELAY_8x25 300
+	DELAY 300
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,9 +12,9 @@
 
 #include <asm/hardware/cache-l2x0.h>
 
-/* Add 300 NOPs after 'wfi' for 8x25 target */
-.macro DELAY_8x25, rept
-#ifdef CONFIG_ARCH_MSM8625
+/* Add 300 NOPs after 'wfi' for Cortex tagets */
+.macro DELAY, rept
+#if !defined(CONFIG_ARCH_MSM_SCORPION) && !defined(CONFIG_ARCH_MSM_KRAIT)
 	.rept   \rept
 	nop
 	.endr
