@@ -55,6 +55,7 @@ Parent node optional properties:
 - qcom,ibatmax-warm-ma:			Maximum warm battery charge current.
 - qcom,warm-bat-mv:			Warm temperature battery target voltage.
 - qcom,cool-bat-mv:			Cool temperature battery target voltage.
+- qcom,tchg-mins:			Maximum total software initialized charge time.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified
