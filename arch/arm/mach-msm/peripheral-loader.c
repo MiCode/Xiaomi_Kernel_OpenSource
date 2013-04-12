@@ -335,6 +335,14 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	unsigned int mask;
 	size_t size = max_addr - min_addr;
 
+	/* Don't reallocate due to fragmentation concerns, just sanity check */
+	if (priv->region) {
+		if (WARN(priv->region_end - priv->region_start < size,
+			"Can't reuse PIL memory, too small\n"))
+			return -ENOMEM;
+		return 0;
+	}
+
 	if (!ion) {
 		WARN_ON_ONCE("No ION client, can't support relocation\n");
 		return -ENOMEM;
@@ -471,9 +479,6 @@ static void pil_release_mmap(struct pil_desc *desc)
 	writeq(0, &priv->info->start);
 	writel_relaxed(0, &priv->info->size);
 
-	if (priv->region)
-		ion_free(ion, priv->region);
-	priv->region = NULL;
 	list_for_each_entry_safe(p, tmp, &priv->segs, list) {
 		list_del(&p->list);
 		kfree(p);
@@ -661,8 +666,13 @@ release_fw:
 	release_firmware(fw);
 out:
 	up_read(&pil_pm_rwsem);
-	if (ret)
+	if (ret) {
+		if (priv->region) {
+			ion_free(ion, priv->region);
+			priv->region = NULL;
+		}
 		pil_release_mmap(desc);
+	}
 	return ret;
 }
 EXPORT_SYMBOL(pil_boot);
