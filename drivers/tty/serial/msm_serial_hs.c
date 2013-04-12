@@ -631,7 +631,7 @@ static int msm_hs_spsconnect_rx(struct uart_port *uport)
 		"pipe_handle=0x%x ret=%d", (u32)sps_pipe_handle, ret);
 		return ret;
 	}
-	/* Register callback event for EOT (End of transfer) event. */
+	/* Register callback event for DESC_DONE event. */
 	ret = sps_register_event(sps_pipe_handle, sps_event);
 	if (ret) {
 		pr_err("msm_serial_hs: sps_connect() failed for rx!!\n"
@@ -1158,7 +1158,7 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct msm_hs_rx *rx = &msm_uport->rx;
 	struct sps_pipe *sps_pipe_handle;
-	u32 flags = SPS_IOVEC_FLAG_EOT;
+	u32 flags = SPS_IOVEC_FLAG_INT;
 	unsigned int buffer_pending = msm_uport->rx.buffer_pending;
 	unsigned int data;
 
@@ -1284,7 +1284,7 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 	struct sps_event_notify *notify;
 	struct msm_hs_rx *rx;
 	struct sps_pipe *sps_pipe_handle;
-	u32 sps_flags = SPS_IOVEC_FLAG_EOT;
+	u32 sps_flags = SPS_IOVEC_FLAG_INT;
 
 	msm_uport = container_of((struct tasklet_struct *)tlet_ptr,
 				 struct msm_hs_port, rx.tlet);
@@ -2654,7 +2654,7 @@ static int msm_hs_sps_init_ep_conn(struct msm_hs_port *msm_uport,
 		sps_config->mode = SPS_MODE_SRC;
 		sps_config->src_pipe_index = msm_uport->bam_rx_ep_pipe_index;
 		sps_config->dest_pipe_index = 0;
-		sps_config->options = SPS_O_EOT;
+		sps_config->options = SPS_O_DESC_DONE;
 	} else {
 		/* For UART consumer transfer, source is system memory
 		where as destination is UART peripheral */
@@ -2682,11 +2682,14 @@ static int msm_hs_sps_init_ep_conn(struct msm_hs_port *msm_uport,
 	memset(sps_config->desc.base, 0x00, sps_config->desc.size);
 
 	sps_event->mode = SPS_TRIGGER_CALLBACK;
-	sps_event->options = SPS_O_EOT;
-	if (is_producer)
+
+	if (is_producer) {
 		sps_event->callback = msm_hs_sps_rx_callback;
-	else
+		sps_event->options = SPS_O_DESC_DONE;
+	} else {
 		sps_event->callback = msm_hs_sps_tx_callback;
+		sps_event->options = SPS_O_EOT;
+	}
 
 	sps_event->user = (void *)msm_uport;
 
