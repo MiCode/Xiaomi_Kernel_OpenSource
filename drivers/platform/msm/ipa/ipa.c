@@ -41,6 +41,7 @@
 #define IPA_DMA_POOL_SIZE (512)
 #define IPA_DMA_POOL_ALIGNMENT (4)
 #define IPA_DMA_POOL_BOUNDARY (1024)
+#define IPA_NUM_DESC_PER_SW_TX (2)
 #define IPA_ROUTING_RULE_BYTE_SIZE (4)
 #define IPA_BAM_CNFG_BITS_VAL (0x7FFFE004)
 
@@ -1761,15 +1762,20 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	 * This is an issue with IPA HW v1.0 only.
 	 */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
-		ipa_ctx->one_kb_no_straddle_pool = dma_pool_create("ipa_1k",
+		ipa_ctx->dma_pool = dma_pool_create("ipa_1k",
 				NULL,
 				IPA_DMA_POOL_SIZE, IPA_DMA_POOL_ALIGNMENT,
 				IPA_DMA_POOL_BOUNDARY);
-		if (!ipa_ctx->one_kb_no_straddle_pool) {
-			IPAERR("cannot setup 1kb alloc DMA pool.\n");
-			result = -ENOMEM;
-			goto fail_dma_pool;
-		}
+	} else {
+		ipa_ctx->dma_pool = dma_pool_create("ipa_tx", NULL,
+			IPA_NUM_DESC_PER_SW_TX * sizeof(struct sps_iovec),
+			0, 0);
+	}
+
+	if (!ipa_ctx->dma_pool) {
+		IPAERR("cannot alloc DMA pool.\n");
+		result = -ENOMEM;
+		goto fail_dma_pool;
 	}
 
 	ipa_ctx->glob_flt_tbl[IPA_IP_v4].in_sys = !ipa_ctx->ip4_flt_tbl_lcl;
@@ -1976,7 +1982,7 @@ fail_rx_wq:
 	 * DMA pool need to be released only for IPA HW v1.0 only.
 	 */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
-		dma_pool_destroy(ipa_ctx->one_kb_no_straddle_pool);
+		dma_pool_destroy(ipa_ctx->dma_pool);
 fail_dma_pool:
 	kmem_cache_destroy(ipa_ctx->tree_node_cache);
 fail_tree_node_cache:
