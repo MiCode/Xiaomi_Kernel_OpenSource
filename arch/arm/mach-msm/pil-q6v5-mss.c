@@ -30,10 +30,10 @@
 #include <mach/subsystem_restart.h>
 #include <mach/clk.h>
 #include <mach/msm_smsm.h>
+#include <mach/ramdump.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
-#include "ramdump.h"
 #include "sysmon.h"
 
 /* Q6 Register Offsets */

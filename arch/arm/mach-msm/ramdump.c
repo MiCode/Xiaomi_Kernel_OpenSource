@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #include <linux/elf.h>
 #include <linux/wait.h>
 
-#include "ramdump.h"
+#include <mach/ramdump.h>
 
 #define RAMDUMP_WAIT_MSECS	120000
 

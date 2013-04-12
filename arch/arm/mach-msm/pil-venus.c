@@ -30,10 +30,10 @@
 #include <mach/subsystem_restart.h>
 #include <mach/msm_bus_board.h>
 #include <mach/msm_bus.h>
+#include <mach/ramdump.h>
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
-#include "ramdump.h"
 
 /* VENUS WRAPPER registers */
 #define VENUS_WRAPPER_HW_VERSION			0x0
