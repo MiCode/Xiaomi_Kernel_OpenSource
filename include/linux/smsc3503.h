@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -42,9 +42,9 @@
 #define OCSPINSEL	(1<<5)
 
 struct smsc_hub_platform_data {
-	unsigned hub_reset;
-	unsigned refclk_gpio;
-	unsigned int_gpio;
+	int hub_reset;
+	int refclk_gpio;
+	int int_gpio;
 };
 
 #endif
