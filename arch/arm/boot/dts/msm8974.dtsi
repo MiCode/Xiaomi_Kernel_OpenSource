@@ -1455,6 +1455,7 @@
 };
 
 &gdsc_oxili_gx {
+	qcom,retain-mems;
 	status = "ok";
 };
 
