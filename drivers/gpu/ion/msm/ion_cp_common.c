@@ -15,6 +15,7 @@
 #include <linux/memory_alloc.h>
 #include <linux/types.h>
 #include <mach/scm.h>
+#include <linux/highmem.h>
 
 #include "../ion_priv.h"
 #include "ion_cp_common.h"
@@ -157,6 +158,8 @@ int ion_cp_change_chunks_state(unsigned long chunks, unsigned int nchunks,
 	request.chunks.chunk_list_size = nchunks;
 	request.chunks.chunk_size = chunk_size;
 
+	kmap_flush_unused();
+	kmap_atomic_flush_unused();
 	return scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
 			&request, sizeof(request), &resp, sizeof(resp));
 
