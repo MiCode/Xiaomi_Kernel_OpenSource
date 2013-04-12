@@ -42,7 +42,7 @@ static DECLARE_WORK(rx_work, ipa_wq_handle_rx);
  *   the order for sent packet is the same as expected
  * - delete all the tx packet descriptors from the system
  *   pipe context (not needed anymore)
- * - return the tx buffer back to one_kb_no_straddle_pool
+ * - return the tx buffer back to dma_pool
  */
 void ipa_wq_write_done(struct work_struct *work)
 {
@@ -80,7 +80,7 @@ void ipa_wq_write_done(struct work_struct *work)
 		list_del(&tx_pkt->link);
 		spin_unlock_irqrestore(&tx_pkt->sys->spinlock, irq_flags);
 		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
-			dma_pool_free(ipa_ctx->one_kb_no_straddle_pool,
+			dma_pool_free(ipa_ctx->dma_pool,
 					tx_pkt->bounce,
 					tx_pkt->mem.phys_base);
 		} else {
@@ -97,7 +97,7 @@ void ipa_wq_write_done(struct work_struct *work)
 	}
 
 	if (mult.phys_base)
-		dma_free_coherent(NULL, mult.size, mult.base, mult.phys_base);
+		dma_pool_free(ipa_ctx->dma_pool, mult.base, mult.phys_base);
 }
 
 /**
@@ -144,7 +144,7 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		 * does not cross a 1KB boundary
 		 */
 		tx_pkt->bounce = dma_pool_alloc(
-					ipa_ctx->one_kb_no_straddle_pool,
+					ipa_ctx->dma_pool,
 					mem_flag, &dma_address);
 		if (!tx_pkt->bounce) {
 			dma_address = 0;
@@ -208,7 +208,7 @@ fail_sps_send:
 	list_del(&tx_pkt->link);
 	spin_unlock_irqrestore(&sys->spinlock, irq_flags);
 	if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0))
-		dma_pool_free(ipa_ctx->one_kb_no_straddle_pool, tx_pkt->bounce,
+		dma_pool_free(ipa_ctx->dma_pool, tx_pkt->bounce,
 				dma_address);
 	else
 		dma_unmap_single(NULL, dma_address, desc->len, DMA_TO_DEVICE);
@@ -259,7 +259,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
 
-	transfer.iovec = dma_alloc_coherent(NULL, size, &dma_addr, mem_flag);
+	transfer.iovec = dma_pool_alloc(ipa_ctx->dma_pool, mem_flag, &dma_addr);
 	transfer.iovec_phys = dma_addr;
 	transfer.iovec_count = num_desc;
 	spin_lock_irqsave(&sys->spinlock, irq_flags);
@@ -306,7 +306,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 			 * packet does not cross a 1KB boundary
 			 */
 			tx_pkt->bounce =
-			   dma_pool_alloc(ipa_ctx->one_kb_no_straddle_pool,
+			   dma_pool_alloc(ipa_ctx->dma_pool,
 					   mem_flag,
 					   &tx_pkt->mem.phys_base);
 			if (!tx_pkt->bounce) {
@@ -377,7 +377,7 @@ failure:
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
 		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0))
-			dma_pool_free(ipa_ctx->one_kb_no_straddle_pool,
+			dma_pool_free(ipa_ctx->dma_pool,
 					tx_pkt->bounce,
 					tx_pkt->mem.phys_base);
 		else
@@ -392,7 +392,7 @@ failure:
 		if (fail_dma_wrap)
 			kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 	if (transfer.iovec_phys)
-		dma_free_coherent(NULL, size, transfer.iovec,
+		dma_pool_free(ipa_ctx->dma_pool, transfer.iovec,
 				  transfer.iovec_phys);
 failure_coherent:
 	spin_unlock_irqrestore(&sys->spinlock, irq_flags);

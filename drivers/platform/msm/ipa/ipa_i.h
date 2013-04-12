@@ -585,7 +585,7 @@ struct ipa_stats {
  * @ip6_flt_tbl_lcl: where ip6 flt tables reside 1-local; 0-system
  * @empty_rt_tbl_mem: empty routing tables memory
  * @pipe_mem_pool: pipe memory pool
- * @one_kb_no_straddle_pool: one kb no straddle pool
+ * @dma_pool: special purpose DMA pool
  * @ipa_hw_type: type of IPA HW type (e.g. IPA 1.0, IPA 1.1 etc')
  * @ipa_hw_mode: mode of IPA HW mode (e.g. Normal, Virtual or over PCIe)
  *
@@ -643,7 +643,7 @@ struct ipa_context {
 	bool ip6_flt_tbl_lcl;
 	struct ipa_mem_buffer empty_rt_tbl_mem;
 	struct gen_pool *pipe_mem_pool;
-	struct dma_pool *one_kb_no_straddle_pool;
+	struct dma_pool *dma_pool;
 	atomic_t ipa_active_clients;
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
