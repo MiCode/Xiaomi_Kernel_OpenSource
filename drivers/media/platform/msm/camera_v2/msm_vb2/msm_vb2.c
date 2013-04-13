@@ -48,7 +48,6 @@ int msm_vb2_buf_init(struct vb2_buffer *vb)
 	}
 	msm_vb2_buf = container_of(vb, struct msm_vb2_buffer, vb2_buf);
 	msm_vb2_buf->in_freeq = 0;
-	msm_vb2_buf->stream = stream;
 
 	return 0;
 }
@@ -66,7 +65,7 @@ static void msm_vb2_buf_queue(struct vb2_buffer *vb)
 		return;
 	}
 
-	stream = msm_vb2->stream;
+	stream = msm_get_stream_from_vb2q(vb->vb2_queue);
 	if (!stream) {
 		pr_err("%s:%d] NULL stream", __func__, __LINE__);
 		return;
@@ -91,7 +90,7 @@ static int msm_vb2_buf_finish(struct vb2_buffer *vb)
 		return -EINVAL;
 	}
 
-	stream = msm_vb2->stream;
+	stream = msm_get_stream_from_vb2q(vb->vb2_queue);
 	if (!stream) {
 		pr_err("%s:%d] NULL stream", __func__, __LINE__);
 		return -EINVAL;
@@ -122,7 +121,7 @@ static void msm_vb2_buf_cleanup(struct vb2_buffer *vb)
 		return;
 	}
 
-	stream = msm_vb2->stream;
+	stream = msm_get_stream_from_vb2q(vb->vb2_queue);
 	if (!stream) {
 		pr_err("%s:%d] NULL stream", __func__, __LINE__);
 		return;
