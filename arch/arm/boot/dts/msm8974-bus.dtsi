@@ -284,8 +284,8 @@
 			qcom,qport = <0>;
 			qcom,mas-hw-id = <18>;
 			qcom,mode = "Fixed";
-			qcom,prio-rd = <2>;
-			qcom,prio-wr = <2>;
+			qcom,prio1 = <2>;
+			qcom,prio0 = <2>;
 		};
 
 		mas-qdss-bam {
@@ -296,8 +296,8 @@
 			qcom,mode = "Fixed";
 			qcom,qport = <1>;
 			qcom,mas-hw-id = <19>;
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 			qcom,hw-sel = "NoC";
 		};
 
@@ -342,8 +342,8 @@
 			qcom,mas-hw-id = <29>;
 			qcom,slv-hw-id = <28>;
 			qcom,mode = "Fixed";
-			qcom,prio-rd = <2>;
-			qcom,prio-wr = <2>;
+			qcom,prio1 = <2>;
+			qcom,prio0 = <2>;
 		};
 
 		fab-ovnoc {
@@ -364,8 +364,8 @@
 			qcom,qport = <2>;
 			qcom,mas-hw-id = <23>;
 			qcom,hw-sel = "NoC";
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 		};
 
 		mas-crypto-core1 {
@@ -377,8 +377,8 @@
 			qcom,qport = <3>;
 			qcom,mas-hw-id = <24>;
 			qcom,hw-sel = "NoC";
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 		};
 
 		mas-lpass-proc {
@@ -389,8 +389,8 @@
 			qcom,qport = <4>;
 			qcom,mas-hw-id = <25>;
 			qcom,mode = "Fixed";
-			qcom,prio-rd = <2>;
-			qcom,prio-wr = <2>;
+			qcom,prio1 = <2>;
+			qcom,prio0 = <2>;
 		};
 
 		mas-mss {
@@ -435,8 +435,8 @@
 			qcom,qport = <10>;
 			qcom,mode = "Fixed";
 			qcom,mas-hw-id = <31>;
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 			qcom,hw-sel = "NoC";
 		};
 
@@ -448,8 +448,8 @@
 			qcom,mode = "Fixed";
 			qcom,qport = <11>;
 			qcom,mas-hw-id = <32>;
-			qcom,prio-rd = <1>;
-			qcom,prio-wr = <1>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 			qcom,hw-sel = "NoC";
 			qcom,iface-clk-node = "msm_usb3";
 		};
