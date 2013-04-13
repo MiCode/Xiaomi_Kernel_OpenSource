@@ -33,8 +33,6 @@
 
 static atomic_t system_heap_allocated;
 static atomic_t system_contig_heap_allocated;
-static unsigned int system_heap_has_outer_cache;
-static unsigned int system_heap_contig_has_outer_cache;
 
 struct page_info {
 	struct page *page;
@@ -234,66 +232,6 @@ int ion_system_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	return 0;
 }
 
-int ion_system_heap_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
-			void *vaddr, unsigned int offset, unsigned int length,
-			unsigned int cmd)
-{
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t);
-
-	switch (cmd) {
-	case ION_IOC_CLEAN_CACHES:
-		if (!vaddr)
-			dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
-				buffer->sg_table->nents, DMA_TO_DEVICE);
-		else
-			dmac_clean_range(vaddr, vaddr + length);
-		outer_cache_op = outer_clean_range;
-		break;
-	case ION_IOC_INV_CACHES:
-		if (!vaddr)
-			dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
-				buffer->sg_table->nents, DMA_FROM_DEVICE);
-		else
-			dmac_inv_range(vaddr, vaddr + length);
-		outer_cache_op = outer_inv_range;
-		break;
-	case ION_IOC_CLEAN_INV_CACHES:
-		if (!vaddr) {
-			dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
-				buffer->sg_table->nents, DMA_TO_DEVICE);
-			dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
-				buffer->sg_table->nents, DMA_FROM_DEVICE);
-		} else {
-			dmac_flush_range(vaddr, vaddr + length);
-		}
-		outer_cache_op = outer_flush_range;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (system_heap_has_outer_cache) {
-		unsigned long pstart;
-		struct sg_table *table = buffer->priv_virt;
-		struct scatterlist *sg;
-		int i;
-		for_each_sg(table->sgl, sg, table->nents, i) {
-			struct page *page = sg_page(sg);
-			pstart = page_to_phys(page);
-			/*
-			 * If page -> phys is returning NULL, something
-			 * has really gone wrong...
-			 */
-			if (!pstart) {
-				WARN(1, "Could not translate virtual address to physical address\n");
-				return -EINVAL;
-			}
-			outer_cache_op(pstart, pstart + PAGE_SIZE);
-		}
-	}
-	return 0;
-}
-
 static int ion_system_print_debug(struct ion_heap *heap, struct seq_file *s,
 				  const struct rb_root *unused)
 {
@@ -311,7 +249,6 @@ static struct ion_heap_ops vmalloc_ops = {
 	.map_kernel = ion_system_heap_map_kernel,
 	.unmap_kernel = ion_system_heap_unmap_kernel,
 	.map_user = ion_system_heap_map_user,
-	.cache_op = ion_system_heap_cache_ops,
 	.print_debug = ion_system_print_debug,
 };
 
@@ -324,7 +261,6 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *pheap)
 		return ERR_PTR(-ENOMEM);
 	heap->ops = &vmalloc_ops;
 	heap->type = ION_HEAP_TYPE_SYSTEM;
-	system_heap_has_outer_cache = pheap->has_outer_cache;
 	return heap;
 }
 
@@ -403,46 +339,6 @@ int ion_system_contig_heap_map_user(struct ion_heap *heap,
 	}
 }
 
-int ion_system_contig_heap_cache_ops(struct ion_heap *heap,
-			struct ion_buffer *buffer, void *vaddr,
-			unsigned int offset, unsigned int length,
-			unsigned int cmd)
-{
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t);
-
-	switch (cmd) {
-	case ION_IOC_CLEAN_CACHES:
-		dmac_clean_range(vaddr, vaddr + length);
-		outer_cache_op = outer_clean_range;
-		break;
-	case ION_IOC_INV_CACHES:
-		dmac_inv_range(vaddr, vaddr + length);
-		outer_cache_op = outer_inv_range;
-		break;
-	case ION_IOC_CLEAN_INV_CACHES:
-		dmac_flush_range(vaddr, vaddr + length);
-		outer_cache_op = outer_flush_range;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (system_heap_contig_has_outer_cache) {
-		unsigned long pstart;
-
-		pstart = virt_to_phys(buffer->priv_virt) + offset;
-		if (!pstart) {
-			WARN(1, "Could not do virt to phys translation on %p\n",
-				buffer->priv_virt);
-			return -EINVAL;
-		}
-
-		outer_cache_op(pstart, pstart + PAGE_SIZE);
-	}
-
-	return 0;
-}
-
 static int ion_system_contig_print_debug(struct ion_heap *heap,
 					 struct seq_file *s,
 					 const struct rb_root *unused)
@@ -474,7 +370,6 @@ static struct ion_heap_ops kmalloc_ops = {
 	.map_kernel = ion_system_contig_heap_map_kernel,
 	.unmap_kernel = ion_system_contig_heap_unmap_kernel,
 	.map_user = ion_system_contig_heap_map_user,
-	.cache_op = ion_system_contig_heap_cache_ops,
 	.print_debug = ion_system_contig_print_debug,
 };
 
@@ -487,7 +382,6 @@ struct ion_heap *ion_system_contig_heap_create(struct ion_platform_heap *pheap)
 		return ERR_PTR(-ENOMEM);
 	heap->ops = &kmalloc_ops;
 	heap->type = ION_HEAP_TYPE_SYSTEM_CONTIG;
-	system_heap_contig_has_outer_cache = pheap->has_outer_cache;
 	return heap;
 }
 

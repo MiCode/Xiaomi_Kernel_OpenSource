@@ -41,7 +41,6 @@ struct ion_removed_heap {
 	int (*release_region)(void *);
 	atomic_t map_count;
 	void *bus_id;
-	unsigned int has_outer_cache;
 };
 
 ion_phys_addr_t ion_removed_allocate(struct ion_heap *heap,
@@ -233,91 +232,6 @@ void ion_removed_heap_unmap_user(struct ion_heap *heap,
 	ion_removed_release_region(removed_heap);
 }
 
-int ion_removed_cache_ops(struct ion_heap *heap, struct ion_buffer *buffer,
-			void *vaddr, unsigned int offset, unsigned int length,
-			unsigned int cmd)
-{
-	void (*outer_cache_op)(phys_addr_t, phys_addr_t) = NULL;
-	struct ion_removed_heap *removed_heap =
-	     container_of(heap, struct  ion_removed_heap, heap);
-	unsigned int size_to_vmap, total_size;
-	int i, j;
-	void *ptr = NULL;
-	ion_phys_addr_t buff_phys = buffer->priv_phys;
-
-	if (!vaddr) {
-		/*
-		 * Split the vmalloc space into smaller regions in
-		 * order to clean and/or invalidate the cache.
-		 */
-		size_to_vmap = ((VMALLOC_END - VMALLOC_START)/8);
-		total_size = buffer->size;
-
-		for (i = 0; i < total_size; i += size_to_vmap) {
-			size_to_vmap = min(size_to_vmap, total_size - i);
-			for (j = 0; j < 10 && size_to_vmap; ++j) {
-				ptr = ioremap(buff_phys, size_to_vmap);
-				if (ptr) {
-					switch (cmd) {
-					case ION_IOC_CLEAN_CACHES:
-						dmac_clean_range(ptr,
-							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_clean_range;
-						break;
-					case ION_IOC_INV_CACHES:
-						dmac_inv_range(ptr,
-							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_inv_range;
-						break;
-					case ION_IOC_CLEAN_INV_CACHES:
-						dmac_flush_range(ptr,
-							ptr + size_to_vmap);
-						outer_cache_op =
-							outer_flush_range;
-						break;
-					default:
-						return -EINVAL;
-					}
-					buff_phys += size_to_vmap;
-					break;
-				} else {
-					size_to_vmap >>= 1;
-				}
-			}
-			if (!ptr) {
-				pr_err("Couldn't io-remap the memory\n");
-				return -EINVAL;
-			}
-			iounmap(ptr);
-		}
-	} else {
-		switch (cmd) {
-		case ION_IOC_CLEAN_CACHES:
-			dmac_clean_range(vaddr, vaddr + length);
-			outer_cache_op = outer_clean_range;
-			break;
-		case ION_IOC_INV_CACHES:
-			dmac_inv_range(vaddr, vaddr + length);
-			outer_cache_op = outer_inv_range;
-			break;
-		case ION_IOC_CLEAN_INV_CACHES:
-			dmac_flush_range(vaddr, vaddr + length);
-			outer_cache_op = outer_flush_range;
-			break;
-		default:
-			return -EINVAL;
-		}
-	}
-
-	if (removed_heap->has_outer_cache) {
-		unsigned long pstart = buffer->priv_phys + offset;
-		outer_cache_op(pstart, pstart + length);
-	}
-	return 0;
-}
-
 static int ion_removed_print_debug(struct ion_heap *heap, struct seq_file *s,
 				    const struct rb_root *mem_map)
 {
@@ -382,7 +296,6 @@ static struct ion_heap_ops removed_heap_ops = {
 	.unmap_kernel = ion_removed_heap_unmap_kernel,
 	.map_dma = ion_removed_heap_map_dma,
 	.unmap_dma = ion_removed_heap_unmap_dma,
-	.cache_op = ion_removed_cache_ops,
 	.print_debug = ion_removed_print_debug,
 };
 
@@ -412,7 +325,6 @@ struct ion_heap *ion_removed_heap_create(struct ion_platform_heap *heap_data)
 	removed_heap->heap.type = ION_HEAP_TYPE_REMOVED;
 	removed_heap->allocated_bytes = 0;
 	removed_heap->total_size = heap_data->size;
-	removed_heap->has_outer_cache = heap_data->has_outer_cache;
 
 	if (heap_data->extra_data) {
 		struct ion_co_heap_pdata *extra_data =
