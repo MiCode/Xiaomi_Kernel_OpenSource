@@ -171,6 +171,9 @@ enum krait_supply_mode {
 	LDO_MODE = REGULATOR_MODE_IDLE,
 };
 
+#define WAIT_FOR_LOAD		0x2
+#define WAIT_FOR_VOLTAGE	0x1
+
 struct krait_power_vreg {
 	struct list_head		link;
 	struct regulator_desc		desc;
@@ -191,6 +194,7 @@ struct krait_power_vreg {
 	int				coeff1;
 	int				coeff2;
 	bool				online;
+	int				online_at_probe;
 };
 
 DEFINE_PER_CPU(struct krait_power_vreg *, krait_vregs);
@@ -373,6 +377,19 @@ static int num_online(struct pmic_gang_vreg *pvreg)
 	return online_total;
 }
 
+static bool enable_phase_management(struct pmic_gang_vreg *pvreg)
+{
+	struct krait_power_vreg *kvreg;
+
+	list_for_each_entry(kvreg, &pvreg->krait_power_vregs, link) {
+		pr_debug("%s online_at_probe:0x%x\n", kvreg->name,
+							kvreg->online_at_probe);
+		if (kvreg->online_at_probe)
+			return false;
+	}
+	return true;
+}
+
 #define PMIC_FTS_MODE_PFM	0x00
 #define PMIC_FTS_MODE_PWM	0x80
 #define ONE_PHASE_COEFF		1000000
@@ -387,8 +404,12 @@ static unsigned int pmic_gang_set_phases(struct krait_power_vreg *from,
 	int rc = 0;
 	int n_online = num_online(pvreg);
 
-	if (pvreg->manage_phases == false)
-		return 0;
+	if (pvreg->manage_phases == false) {
+		if (enable_phase_management(pvreg))
+			pvreg->manage_phases = true;
+		else
+			return 0;
+	}
 
 	/* First check if the coeff is low for PFM mode */
 	if (coeff_total < pvreg->pfm_threshold && n_online == 1) {
@@ -460,6 +481,7 @@ static unsigned int _get_optimum_mode(struct regulator_dev *rdev,
 	int coeff_total;
 	int rc;
 
+	kvreg->online_at_probe &= ~WAIT_FOR_LOAD;
 	coeff_total = get_coeff_total(kvreg);
 
 	rc = pmic_gang_set_phases(kvreg, coeff_total);
@@ -779,6 +801,7 @@ static int _set_voltage(struct regulator_dev *rdev,
 				kvreg->name, requested_uV, orig_krait_uV, rc);
 	}
 
+	kvreg->online_at_probe &= ~WAIT_FOR_VOLTAGE;
 	coeff_total = get_coeff_total(kvreg);
 	/* adjust the phases since coeff2 would have changed */
 	rc = pmic_gang_set_phases(kvreg, coeff_total);
@@ -914,8 +937,10 @@ static int set_retention_dbg_uV(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(retention_fops,
 			get_retention_dbg_uV, set_retention_dbg_uV, "%llu\n");
 
+#define CPU_PWR_CTL_ONLINE_MASK 0x80
 static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 {
+	int online;
 	/*
 	 * bhs_cnt value sets the ramp-up time from power collapse,
 	 * initialize the ramp up time
@@ -928,6 +953,10 @@ static void kvreg_hw_init(struct krait_power_vreg *kvreg)
 	/* Enable MDD */
 	writel_relaxed(0x00000002, kvreg->mdd_base + MDD_MODE);
 	mb();
+	online = CPU_PWR_CTL_ONLINE_MASK
+			& readl_relaxed(kvreg->reg_base + CPU_PWR_CTL);
+	kvreg->online_at_probe
+		= online ? (WAIT_FOR_LOAD | WAIT_FOR_VOLTAGE) : 0x0;
 }
 
 static void glb_init(void __iomem *apcs_gcc_base)
@@ -1307,14 +1336,6 @@ void secondary_cpu_hs_init(void *base_ptr)
 		| BHS_EN_MASK,
 		base_ptr + APC_PWR_GATE_CTL);
 }
-
-static int __devinit begin_pmic_phase_management(void)
-{
-	if (the_gang != NULL)
-		the_gang->manage_phases = true;
-	return 0;
-}
-late_initcall(begin_pmic_phase_management);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("KRAIT POWER regulator driver");
