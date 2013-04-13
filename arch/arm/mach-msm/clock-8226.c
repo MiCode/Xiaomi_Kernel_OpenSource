@@ -2776,6 +2776,7 @@ static struct pll_clk a7sspll = {
 	},
 	.base = &virt_bases[APCS_PLL_BASE],
 	.c = {
+		.parent = &xo_a_clk.c,
 		.dbg_name = "a7sspll",
 		.ops = &clk_ops_sr2_pll,
 		.vdd_class = &vdd_sr2_pll,
