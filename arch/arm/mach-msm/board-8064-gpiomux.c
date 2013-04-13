@@ -968,7 +968,6 @@ static struct gpiomux_setting mdm2ap_pblrdy = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-
 static struct gpiomux_setting ap2mdm_soft_reset_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_4MA,
