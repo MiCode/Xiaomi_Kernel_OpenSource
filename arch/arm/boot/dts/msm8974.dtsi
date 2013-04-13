@@ -130,7 +130,6 @@
 
 		qcom,msm-bus,name = "serial_uart2";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<84 512 0 0>,
@@ -157,7 +156,6 @@
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
@@ -198,7 +196,6 @@
 
 		qcom,msm-bus,name = "sdcc1";
 		qcom,msm-bus,num-cases = <8>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
 				<78 512 1600 3200>,    /* 400 KB/s*/
@@ -245,7 +242,6 @@
 
 		qcom,msm-bus,name = "sdcc2";
 		qcom,msm-bus,num-cases = <8>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
 				<81 512 1600 3200>,    /* 400 KB/s*/
@@ -292,7 +288,6 @@
 
 		qcom,msm-bus,name = "sdcc3";
 		qcom,msm-bus,num-cases = <8>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <79 512 0 0>, /* No vote */
 				<79 512 1600 3200>,    /* 400 KB/s*/
@@ -338,7 +333,6 @@
 
 		qcom,msm-bus,name = "sdcc4";
 		qcom,msm-bus,num-cases = <8>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <80 512 0 0>, /* No vote */
 				<80 512 1600 3200>,    /* 400 KB/s*/
@@ -365,7 +359,6 @@
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <8>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
 				<78 512 1600 3200>,    /* 400 KB/s*/
@@ -392,7 +385,6 @@
 
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
 				<81 512 1600 3200>,    /* 400 KB/s*/
@@ -426,7 +418,6 @@
 
 		qcom,msm-bus,name = "sdhc3";
 		qcom,msm-bus,num-cases = <8>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <79 512 0 0>, /* No vote */
 				<79 512 1600 3200>,    /* 400 KB/s*/
@@ -460,7 +451,6 @@
 
 		qcom,msm-bus,name = "sdhc4";
 		qcom,msm-bus,num-cases = <8>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps = <80 512 0 0>, /* No vote */
 				<80 512 1600 3200>,    /* 400 KB/s*/
@@ -734,7 +724,6 @@
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<61 512 0 0>,
@@ -1002,7 +991,6 @@
 		compatible = "qcom,msm-ocmem-audio";
 		qcom,msm-bus,name = "audio-ocmem";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<11 604 0 0>,
@@ -1143,7 +1131,6 @@
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
@@ -1224,7 +1211,6 @@
 		qcom,ce-hw-instance = <1>;
                 qcom,msm-bus,name = "qcedev-noc";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<56 512 0 0>,
@@ -1241,7 +1227,6 @@
 		qcom,ce-hw-instance = <1>;
                 qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<56 512 0 0>,
@@ -1331,7 +1316,6 @@
 		qcom,bam-rx-ep-pipe-index = <1>;
 		qcom,msm-bus,name = "uart7";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<84 512 0 0>,

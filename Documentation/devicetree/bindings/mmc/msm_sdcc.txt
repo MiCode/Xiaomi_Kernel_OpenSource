@@ -92,7 +92,6 @@ Example:
 
 	qcom,msm-bus,name = "sdcc2";
 	qcom,msm-bus,num-cases = <7>;
-	qcom,msm-bus,active-only = <0>;
 	qcom,msm-bus,num-paths = <1>;
 	qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
 			<81 512 6656 13312>, /* 13 MB/s*/

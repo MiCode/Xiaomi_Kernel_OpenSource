@@ -9,7 +9,7 @@ Required properties:
   - qcom,ce-hw-instance : should contain crypto HW instance.
   - qcom,msm_bus,name: Should be "qcrypto-noc"
   - qcom,msm_bus,num_cases: Depends on the use cases for bus scaling
-  - qcom,msm_bus,active-only: Default vector index
+  - qcom,msm_bus,active-only: Boolean flag for context of request (actve/dual)
   - qcom,msm_bus,num_paths: The paths for source and destination ports
   - qcom,msm_bus,vectors: Vectors for bus topology.
 
@@ -30,7 +30,6 @@ Example:
 		qcom,ce-hw-shared;
                 qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<56 512 0 0>,
