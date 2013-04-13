@@ -67,10 +67,6 @@
  *			kernel space (un-cached).
  * @umap_count:	the total number of times this heap has been mapped in
  *		user space.
- * @iommu_iova: saved iova when mapping full heap at once.
- * @iommu_partition: partition used to map full heap.
- * @iommu_map_all:	Indicates whether we should map whole heap into IOMMU.
- * @iommu_2x_map_domain: Indicates the domain to use for overmapping.
  * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
 */
 struct ion_cp_heap {
@@ -90,11 +86,6 @@ struct ion_cp_heap {
 	unsigned long kmap_cached_count;
 	unsigned long kmap_uncached_count;
 	unsigned long umap_count;
-	unsigned long iommu_iova[MAX_DOMAINS];
-	unsigned long iommu_partition[MAX_DOMAINS];
-	void *reserved_vrange;
-	int iommu_map_all;
-	int iommu_2x_map_domain;
 	unsigned int has_outer_cache;
 	atomic_t protect_cnt;
 	void *cpu_addr;
@@ -361,29 +352,6 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 	return offset;
 }
 
-static void iommu_unmap_all(unsigned long domain_num,
-			    struct ion_cp_heap *cp_heap)
-{
-	unsigned long left_to_unmap = cp_heap->total_size;
-	unsigned long page_size = SZ_64K;
-
-	struct iommu_domain *domain = msm_get_iommu_domain(domain_num);
-	if (domain) {
-		unsigned long temp_iova = cp_heap->iommu_iova[domain_num];
-
-		while (left_to_unmap) {
-			iommu_unmap(domain, temp_iova, page_size);
-			temp_iova += page_size;
-			left_to_unmap -= page_size;
-		}
-		if (domain_num == cp_heap->iommu_2x_map_domain)
-			msm_iommu_unmap_extra(domain, temp_iova,
-					      cp_heap->total_size, SZ_64K);
-	} else {
-		pr_err("Unable to get IOMMU domain %lu\n", domain_num);
-	}
-}
-
 void ion_cp_free(struct ion_heap *heap, ion_phys_addr_t addr,
 		       unsigned long size)
 {
@@ -401,25 +369,6 @@ void ion_cp_free(struct ion_heap *heap, ion_phys_addr_t addr,
 		cp_heap->heap_protected == HEAP_NOT_PROTECTED)
 		ion_on_last_free(heap);
 
-	/* Unmap everything if we previously mapped the whole heap at once. */
-	if (!cp_heap->allocated_bytes) {
-		unsigned int i;
-		for (i = 0; i < MAX_DOMAINS; ++i) {
-			if (cp_heap->iommu_iova[i]) {
-				unsigned long vaddr_len = cp_heap->total_size;
-
-				if (i == cp_heap->iommu_2x_map_domain)
-					vaddr_len <<= 1;
-				iommu_unmap_all(i, cp_heap);
-
-				msm_free_iova_address(cp_heap->iommu_iova[i], i,
-						cp_heap->iommu_partition[i],
-						vaddr_len);
-			}
-			cp_heap->iommu_iova[i] = 0;
-			cp_heap->iommu_partition[i] = 0;
-		}
-	}
 	mutex_unlock(&cp_heap->lock);
 }
 
@@ -859,205 +808,6 @@ int ion_cp_unsecure_heap(struct ion_heap *heap, int version, void *data)
 	return ret_value;
 }
 
-static int iommu_map_all(unsigned long domain_num, struct ion_cp_heap *cp_heap,
-			int partition, unsigned long prot)
-{
-	unsigned long left_to_map = cp_heap->total_size;
-	unsigned long page_size = SZ_64K;
-	int ret_value = 0;
-	unsigned long virt_addr_len = cp_heap->total_size;
-	struct iommu_domain *domain = msm_get_iommu_domain(domain_num);
-
-	/* If we are mapping into the video domain we need to map twice the
-	 * size of the heap to account for prefetch issue in video core.
-	 */
-	if (domain_num == cp_heap->iommu_2x_map_domain)
-		virt_addr_len <<= 1;
-
-	if (cp_heap->total_size & (SZ_64K-1)) {
-		pr_err("Heap size is not aligned to 64K, cannot map into IOMMU\n");
-		ret_value = -EINVAL;
-	}
-	if (cp_heap->base & (SZ_64K-1)) {
-		pr_err("Heap physical address is not aligned to 64K, cannot map into IOMMU\n");
-		ret_value = -EINVAL;
-	}
-	if (!ret_value && domain) {
-		unsigned long temp_phys = cp_heap->base;
-		unsigned long temp_iova;
-
-		ret_value = msm_allocate_iova_address(domain_num, partition,
-						virt_addr_len, SZ_64K,
-						&temp_iova);
-
-		if (ret_value) {
-			pr_err("%s: could not allocate iova from domain %lu, partition %d\n",
-				__func__, domain_num, partition);
-			goto out;
-		}
-		cp_heap->iommu_iova[domain_num] = temp_iova;
-
-		while (left_to_map) {
-			int ret = iommu_map(domain, temp_iova, temp_phys,
-					page_size, prot);
-			if (ret) {
-				pr_err("%s: could not map %lx in domain %p, error: %d\n",
-					__func__, temp_iova, domain, ret);
-				ret_value = -EAGAIN;
-				goto free_iova;
-			}
-			temp_iova += page_size;
-			temp_phys += page_size;
-			left_to_map -= page_size;
-		}
-		if (domain_num == cp_heap->iommu_2x_map_domain)
-			ret_value = msm_iommu_map_extra(domain, temp_iova,
-							cp_heap->base,
-							cp_heap->total_size,
-							SZ_64K, prot);
-		if (ret_value)
-			goto free_iova;
-	} else {
-		pr_err("Unable to get IOMMU domain %lu\n", domain_num);
-		ret_value = -ENOMEM;
-	}
-	goto out;
-
-free_iova:
-	msm_free_iova_address(cp_heap->iommu_iova[domain_num], domain_num,
-			      partition, virt_addr_len);
-out:
-	return ret_value;
-}
-
-static int ion_cp_heap_map_iommu(struct ion_buffer *buffer,
-				struct ion_iommu_map *data,
-				unsigned int domain_num,
-				unsigned int partition_num,
-				unsigned long align,
-				unsigned long iova_length,
-				unsigned long flags)
-{
-	struct iommu_domain *domain;
-	int ret = 0;
-	unsigned long extra;
-	struct ion_cp_heap *cp_heap =
-		container_of(buffer->heap, struct ion_cp_heap, heap);
-	int prot = IOMMU_WRITE | IOMMU_READ;
-	struct ion_cp_buffer *buf = buffer->priv_virt;
-	prot |= ION_IS_CACHED(flags) ? IOMMU_CACHE : 0;
-
-	data->mapped_size = iova_length;
-
-	if (!msm_use_iommu()) {
-		data->iova_addr = buf->buffer;
-		return 0;
-	}
-
-	if (cp_heap->iommu_iova[domain_num]) {
-		/* Already mapped. */
-		unsigned long offset = buf->buffer - cp_heap->base;
-		data->iova_addr = cp_heap->iommu_iova[domain_num] + offset;
-		return 0;
-	} else if (cp_heap->iommu_map_all) {
-		ret = iommu_map_all(domain_num, cp_heap, partition_num, prot);
-		if (!ret) {
-			unsigned long offset =
-					buf->buffer - cp_heap->base;
-			data->iova_addr =
-				cp_heap->iommu_iova[domain_num] + offset;
-			cp_heap->iommu_partition[domain_num] = partition_num;
-			/*
-			clear delayed map flag so that we don't interfere
-			with this feature (we are already delaying).
-			*/
-			data->flags &= ~ION_IOMMU_UNMAP_DELAYED;
-			return 0;
-		} else {
-			cp_heap->iommu_iova[domain_num] = 0;
-			cp_heap->iommu_partition[domain_num] = 0;
-			return ret;
-		}
-	}
-
-	extra = iova_length - buffer->size;
-
-	ret = msm_allocate_iova_address(domain_num, partition_num,
-						data->mapped_size, align,
-						&data->iova_addr);
-
-	if (ret)
-		goto out;
-
-	domain = msm_get_iommu_domain(domain_num);
-
-	if (!domain) {
-		ret = -ENOMEM;
-		goto out1;
-	}
-
-	ret = iommu_map_range(domain, data->iova_addr, buffer->sg_table->sgl,
-			      buffer->size, prot);
-	if (ret) {
-		pr_err("%s: could not map %lx in domain %p\n",
-			__func__, data->iova_addr, domain);
-		goto out1;
-	}
-
-	if (extra) {
-		unsigned long extra_iova_addr = data->iova_addr + buffer->size;
-		unsigned long phys_addr = sg_phys(buffer->sg_table->sgl);
-		ret = msm_iommu_map_extra(domain, extra_iova_addr, phys_addr,
-					extra, SZ_4K, prot);
-		if (ret)
-			goto out2;
-	}
-	return ret;
-
-out2:
-	iommu_unmap_range(domain, data->iova_addr, buffer->size);
-out1:
-	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
-				data->mapped_size);
-out:
-	return ret;
-}
-
-static void ion_cp_heap_unmap_iommu(struct ion_iommu_map *data)
-{
-	unsigned int domain_num;
-	unsigned int partition_num;
-	struct iommu_domain *domain;
-	struct ion_cp_heap *cp_heap =
-		container_of(data->buffer->heap, struct ion_cp_heap, heap);
-
-	if (!msm_use_iommu())
-		return;
-
-
-	domain_num = iommu_map_domain(data);
-
-	/* If we are mapping everything we'll wait to unmap until everything
-	   is freed. */
-	if (cp_heap->iommu_iova[domain_num])
-		return;
-
-	partition_num = iommu_map_partition(data);
-
-	domain = msm_get_iommu_domain(domain_num);
-
-	if (!domain) {
-		WARN(1, "Could not get domain %d. Corruption?\n", domain_num);
-		return;
-	}
-
-	iommu_unmap_range(domain, data->iova_addr, data->mapped_size);
-	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
-				data->mapped_size);
-
-	return;
-}
-
 static struct ion_heap_ops cp_heap_ops = {
 	.allocate = ion_cp_heap_allocate,
 	.free = ion_cp_heap_free,
@@ -1072,8 +822,6 @@ static struct ion_heap_ops cp_heap_ops = {
 	.print_debug = ion_cp_print_debug,
 	.secure_heap = ion_cp_secure_heap,
 	.unsecure_heap = ion_cp_unsecure_heap,
-	.map_iommu = ion_cp_heap_map_iommu,
-	.unmap_iommu = ion_cp_heap_unmap_iommu,
 	.secure_buffer = ion_cp_secure_buffer,
 	.unsecure_buffer = ion_cp_unsecure_buffer,
 };
@@ -1120,10 +868,6 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 		if (extra_data->release_region)
 			cp_heap->heap_release_region =
 				extra_data->release_region;
-		cp_heap->iommu_map_all =
-				extra_data->iommu_map_all;
-		cp_heap->iommu_2x_map_domain =
-				extra_data->iommu_2x_map_domain;
 		cp_heap->cma = extra_data->is_cma;
 		cp_heap->allow_non_secure_allocation =
 			extra_data->allow_nonsecure_alloc;
