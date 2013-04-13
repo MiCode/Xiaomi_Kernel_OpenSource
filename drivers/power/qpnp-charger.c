@@ -1710,6 +1710,99 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	return rc;
 }
 
+#define OF_PROP_READ(chip, prop, qpnp_dt_property, retval, optional)	\
+do {									\
+	if (retval)							\
+		break;							\
+									\
+	retval = of_property_read_u32(chip->spmi->dev.of_node,		\
+					"qcom," qpnp_dt_property,	\
+					&chip->prop);			\
+									\
+	if ((retval == -EINVAL) && optional)				\
+		retval = 0;						\
+	else if (retval)						\
+		pr_err("Error reading " #qpnp_dt_property		\
+				" property rc = %d\n", rc);		\
+} while (0)
+
+static int
+qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
+{
+	int rc = 0;
+
+	OF_PROP_READ(chip, max_voltage_mv, "vddmax-mv", rc, 0);
+	OF_PROP_READ(chip, min_voltage_mv, "vinmin-mv", rc, 0);
+	OF_PROP_READ(chip, safe_voltage_mv, "vddsafe-mv", rc, 0);
+	OF_PROP_READ(chip, resume_delta_mv, "vbatdet-delta-mv", rc, 0);
+	OF_PROP_READ(chip, safe_current, "ibatsafe-ma", rc, 0);
+	OF_PROP_READ(chip, max_bat_chg_current, "ibatmax-ma", rc, 0);
+	if (rc)
+		pr_err("failed to read required dt parameters %d\n", rc);
+
+	OF_PROP_READ(chip, term_current, "ibatterm-ma", rc, 1);
+	OF_PROP_READ(chip, maxinput_dc_ma, "maxinput-dc-ma", rc, 1);
+	OF_PROP_READ(chip, maxinput_usb_ma, "maxinput-usb-ma", rc, 1);
+	OF_PROP_READ(chip, warm_bat_decidegc, "warm-bat-decidegc", rc, 1);
+	OF_PROP_READ(chip, cool_bat_decidegc, "cool-bat-decidegc", rc, 1);
+	if (rc)
+		return rc;
+
+	/* Look up JEITA compliance parameters if cool and warm temp provided */
+	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc) {
+		rc = qpnp_adc_tm_is_ready();
+		if (rc) {
+			pr_err("tm not ready %d\n", rc);
+			return rc;
+		}
+
+		OF_PROP_READ(chip, warm_bat_chg_ma, "ibatmax-warm-ma", rc, 1);
+		OF_PROP_READ(chip, cool_bat_chg_ma, "ibatmax-cool-ma", rc, 1);
+		OF_PROP_READ(chip, warm_bat_mv, "warm-bat-mv", rc, 1);
+		OF_PROP_READ(chip, cool_bat_mv, "cool-bat-mv", rc, 1);
+		if (rc)
+			return rc;
+	}
+
+	/* Get the charging-disabled property */
+	chip->charging_disabled = of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,charging-disabled");
+
+	/* Get the fake-batt-values property */
+	chip->use_default_batt_values =
+			of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,use-default-batt-values");
+
+	/* Disable charging when faking battery values */
+	if (chip->use_default_batt_values)
+		chip->charging_disabled = true;
+
+	of_get_property(chip->spmi->dev.of_node, "qcom,thermal-mitigation",
+		&(chip->thermal_levels));
+
+	if (chip->thermal_levels > sizeof(int)) {
+		chip->thermal_mitigation = kzalloc(
+			chip->thermal_levels,
+			GFP_KERNEL);
+
+		if (chip->thermal_mitigation == NULL) {
+			pr_err("thermal mitigation kzalloc() failed.\n");
+			return rc;
+		}
+
+		chip->thermal_levels /= sizeof(int);
+		rc = of_property_read_u32_array(chip->spmi->dev.of_node,
+				"qcom,thermal-mitigation",
+				chip->thermal_mitigation, chip->thermal_levels);
+		if (rc) {
+			pr_err("qcom,thermal-mitigation missing in dt\n");
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 static int __devinit
 qpnp_charger_probe(struct spmi_device *spmi)
 {
@@ -1736,178 +1829,10 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		goto fail_chg_enable;
 	}
 
-	/* Get the vddmax property */
-	rc = of_property_read_u32(spmi->dev.of_node, "qcom,vddmax-mv",
-						&chip->max_voltage_mv);
-	if (rc) {
-		pr_err("Error reading vddmax property %d\n", rc);
+	/* Get all device tree properties */
+	rc = qpnp_charger_read_dt_props(chip);
+	if (rc)
 		goto fail_chg_enable;
-	}
-
-	/* Get the vinmin property */
-	rc = of_property_read_u32(spmi->dev.of_node, "qcom,vinmin-mv",
-						&chip->min_voltage_mv);
-	if (rc) {
-		pr_err("Error reading vddmax property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the vddmax property */
-	rc = of_property_read_u32(spmi->dev.of_node, "qcom,vddsafe-mv",
-						&chip->safe_voltage_mv);
-	if (rc) {
-		pr_err("Error reading vddsave property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the vbatdet-delta property */
-	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,vbatdet-delta-mv",
-				&chip->resume_delta_mv);
-	if (rc && rc != -EINVAL) {
-		pr_err("Error reading vbatdet-delta property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the ibatsafe property */
-	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,ibatsafe-ma",
-				&chip->safe_current);
-	if (rc) {
-		pr_err("Error reading ibatsafe property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the ibatterm property */
-	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,ibatterm-ma",
-				&chip->term_current);
-	if (rc && rc != -EINVAL) {
-		pr_err("Error reading ibatterm property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the ibatmax property */
-	rc = of_property_read_u32(spmi->dev.of_node, "qcom,ibatmax-ma",
-						&chip->max_bat_chg_current);
-	if (rc) {
-		pr_err("Error reading ibatmax property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the maxinput-dc-ma property */
-	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,maxinput-dc-ma",
-				&chip->maxinput_dc_ma);
-	if (rc && rc != -EINVAL) {
-		pr_err("Error reading maxinput-dc-ma property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the maxinput-usb-ma property */
-	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,maxinput-usb-ma",
-				&chip->maxinput_usb_ma);
-	if (rc && rc != -EINVAL) {
-		pr_err("Error reading maxinput-usb-ma property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the charging-disabled property */
-	chip->charging_disabled = of_property_read_bool(spmi->dev.of_node,
-					"qcom,charging-disabled");
-
-	/* Get the warm-bat-degc property */
-	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,warm-bat-decidegc",
-				&chip->warm_bat_decidegc);
-	if (rc && rc != -EINVAL) {
-		pr_err("Error reading warm-bat-degc property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	/* Get the cool-bat-degc property */
-	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,cool-bat-decidegc",
-				&chip->cool_bat_decidegc);
-	if (rc && rc != -EINVAL) {
-		pr_err("Error reading cool-bat-degc property %d\n", rc);
-		goto fail_chg_enable;
-	}
-
-	if (chip->cool_bat_decidegc && chip->warm_bat_decidegc) {
-		rc = qpnp_adc_tm_is_ready();
-		if (rc) {
-			pr_err("tm not ready %d\n", rc);
-			goto fail_chg_enable;
-		}
-
-		/* Get the ibatmax-warm property */
-		rc = of_property_read_u32(spmi->dev.of_node,
-					"qcom,ibatmax-warm-ma",
-					&chip->warm_bat_chg_ma);
-		if (rc) {
-			pr_err("Error reading ibatmax-warm-ma %d\n", rc);
-			goto fail_chg_enable;
-		}
-
-		/* Get the ibatmax-cool property */
-		rc = of_property_read_u32(spmi->dev.of_node,
-					"qcom,ibatmax-cool-ma",
-					&chip->cool_bat_chg_ma);
-		if (rc) {
-			pr_err("Error reading ibatmax-cool-ma %d\n", rc);
-			goto fail_chg_enable;
-		}
-		/* Get the cool-bat-mv property */
-		rc = of_property_read_u32(spmi->dev.of_node,
-					"qcom,cool-bat-mv",
-					&chip->cool_bat_mv);
-		if (rc) {
-			pr_err("Error reading cool-bat-mv property %d\n", rc);
-			goto fail_chg_enable;
-		}
-
-		/* Get the warm-bat-mv property */
-		rc = of_property_read_u32(spmi->dev.of_node,
-					"qcom,warm-bat-mv",
-					&chip->warm_bat_mv);
-		if (rc) {
-			pr_err("Error reading warm-bat-mv property %d\n", rc);
-			goto fail_chg_enable;
-		}
-	}
-
-	/* Get the fake-batt-values property */
-	chip->use_default_batt_values = of_property_read_bool(spmi->dev.of_node,
-					"qcom,use-default-batt-values");
-
-	of_get_property(spmi->dev.of_node, "qcom,thermal-mitigation",
-		&(chip->thermal_levels));
-
-	if (chip->thermal_levels > sizeof(int)) {
-		chip->thermal_mitigation = kzalloc(
-			chip->thermal_levels,
-			GFP_KERNEL);
-
-		if (chip->thermal_mitigation == NULL) {
-			pr_err("thermal mitigation kzalloc() failed.\n");
-			goto fail_chg_enable;
-		}
-
-		chip->thermal_levels /= sizeof(int);
-		rc = of_property_read_u32_array(spmi->dev.of_node,
-				"qcom,thermal-mitigation",
-				chip->thermal_mitigation, chip->thermal_levels);
-		if (rc) {
-			pr_err("qcom,thermal-mitigation missing in dt\n");
-			goto fail_chg_enable;
-		}
-	}
-
-	/* Disable charging when faking battery values */
-	if (chip->use_default_batt_values)
-		chip->charging_disabled = true;
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
