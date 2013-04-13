@@ -37,6 +37,7 @@
 #define HDLC_OUT_BUF_SIZE	8192
 #define POOL_TYPE_COPY		1
 #define POOL_TYPE_HDLC		2
+#define POOL_TYPE_USER		3
 #define POOL_TYPE_WRITE_STRUCT	4
 #define POOL_TYPE_HSIC		5
 #define POOL_TYPE_HSIC_2	6
@@ -55,7 +56,7 @@
 #define MSG_MASK_SIZE 10000
 #define LOG_MASK_SIZE 8000
 #define EVENT_MASK_SIZE 1000
-#define USER_SPACE_DATA 8000
+#define USER_SPACE_DATA 8192
 #define PKT_SIZE 4096
 #define MAX_EQUIP_ID 15
 #define DIAG_CTRL_MSG_LOG_MASK	9
@@ -234,16 +235,20 @@ struct diagchar_dev {
 	unsigned int poolsize;
 	unsigned int itemsize_hdlc;
 	unsigned int poolsize_hdlc;
+	unsigned int itemsize_user;
+	unsigned int poolsize_user;
 	unsigned int itemsize_write_struct;
 	unsigned int poolsize_write_struct;
 	unsigned int debug_flag;
 	/* State for the mempool for the char driver */
 	mempool_t *diagpool;
 	mempool_t *diag_hdlc_pool;
+	mempool_t *diag_user_pool;
 	mempool_t *diag_write_struct_pool;
 	struct mutex diagmem_mutex;
 	int count;
 	int count_hdlc_pool;
+	int count_user_pool;
 	int count_write_struct_pool;
 	int used;
 	/* Buffers for masks */
@@ -259,7 +264,6 @@ struct diagchar_dev {
 	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
 	unsigned char *usb_buf_out;
 	unsigned char *apps_rsp_buf;
-	unsigned char *user_space_data;
 	/* buffer for updating mask to peripherals */
 	unsigned char *buf_msg_mask_update;
 	unsigned char *buf_log_mask_update;

@@ -402,7 +402,7 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 				return;
 			}
 			if (pkt_len > r) {
-				pr_err("diag: In %s, SMD sending partial pkt %d %d %d %d %d %d\n",
+				pr_debug("diag: In %s, SMD sending partial pkt %d %d %d %d %d %d\n",
 				__func__, pkt_len, r, total_recd, loop_count,
 				smd_info->peripheral, smd_info->type);
 			}
@@ -1783,11 +1783,6 @@ void diagfwd_init(void)
 	    && (driver->hdlc_buf = kzalloc(HDLC_MAX, GFP_KERNEL)) == NULL)
 		goto err;
 	kmemleak_not_leak(driver->hdlc_buf);
-	if (driver->user_space_data == NULL)
-		driver->user_space_data = kzalloc(USER_SPACE_DATA, GFP_KERNEL);
-		if (driver->user_space_data == NULL)
-			goto err;
-	kmemleak_not_leak(driver->user_space_data);
 	if (driver->client_map == NULL &&
 	    (driver->client_map = kzalloc
 	     ((driver->num_clients) * sizeof(struct diag_client_map),
@@ -1862,7 +1857,6 @@ err:
 	kfree(driver->pkt_buf);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
-	kfree(driver->user_space_data);
 	if (driver->diag_wq)
 		destroy_workqueue(driver->diag_wq);
 }
@@ -1895,6 +1889,5 @@ void diagfwd_exit(void)
 	kfree(driver->pkt_buf);
 	kfree(driver->usb_read_ptr);
 	kfree(driver->apps_rsp_buf);
-	kfree(driver->user_space_data);
 	destroy_workqueue(driver->diag_wq);
 }
