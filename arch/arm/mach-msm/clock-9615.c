@@ -1754,8 +1754,6 @@ static void __init msm9615_clock_pre_init(void)
 {
 	u32 regval, is_pll_enabled, pll9_lval;
 
-	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-
 	clk_ops_local_pll.enable = sr_pll_clk_enable;
 
 	/* Enable PDM CXO source. */
@@ -1831,15 +1829,9 @@ static void __init msm9615_clock_post_init(void)
 	clk_disable_unprepare(&pdm_clk.c);
 }
 
-static int __init msm9615_clock_late_init(void)
-{
-	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-}
-
 struct clock_init_data msm9615_clock_init_data __initdata = {
 	.table = msm_clocks_9615,
 	.size = ARRAY_SIZE(msm_clocks_9615),
 	.pre_init = msm9615_clock_pre_init,
 	.post_init = msm9615_clock_post_init,
-	.late_init = msm9615_clock_late_init,
 };

@@ -2090,9 +2090,6 @@ static void __init msm9625_clock_pre_init(void)
 	if (IS_ERR(vdd_dig.regulator[0]))
 		panic("clock-9625: Unable to get the vdd_dig regulator!");
 
-	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	regulator_enable(vdd_dig.regulator[0]);
-
 	enable_rpm_scaling();
 
 	reg_init();
@@ -2108,15 +2105,9 @@ static void __init msm9625_clock_pre_init(void)
 			measure_mux_common, sizeof(measure_mux_common));
 }
 
-static int __init msm9625_clock_late_init(void)
-{
-	return unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-}
-
 struct clock_init_data msm9625_clock_init_data __initdata = {
 	.table = msm_clocks_9625,
 	.size = ARRAY_SIZE(msm_clocks_9625),
 	.pre_init = msm9625_clock_pre_init,
 	.post_init = msm9625_clock_post_init,
-	.late_init = msm9625_clock_late_init,
 };

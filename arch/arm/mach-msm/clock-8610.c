@@ -2970,19 +2970,6 @@ static void __init msm8610_clock_pre_init(void)
 	if (IS_ERR(vdd_sr2_pll.regulator[1]))
 		panic("clock-8610: Unable to get the vdd_sr2_dig regulator!");
 
-	vote_vdd_level(&vdd_sr2_pll, VDD_SR2_PLL_TUR);
-	regulator_enable(vdd_sr2_pll.regulator[0]);
-	regulator_enable(vdd_sr2_pll.regulator[1]);
-
-	/*
-	 * TODO: Set a voltage and enable vdd_dig, leaving the voltage high
-	 * until late_init. This may not be necessary with clock handoff;
-	 * Investigate this code on a real non-simulator target to determine
-	 * its necessity.
-	 */
-	vote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	regulator_enable(vdd_dig.regulator[0]);
-
 	enable_rpm_scaling();
 
 	/* Enable a clock to allow access to MMSS clock registers */
@@ -2999,17 +2986,9 @@ static void __init msm8610_clock_pre_init(void)
 	clk_prepare_enable(&mmss_s0_axi_clk.c);
 }
 
-static int __init msm8610_clock_late_init(void)
-{
-	unvote_vdd_level(&vdd_dig, VDD_DIG_HIGH);
-	unvote_vdd_level(&vdd_sr2_pll, VDD_SR2_PLL_TUR);
-	return 0;
-}
-
 struct clock_init_data msm8610_clock_init_data __initdata = {
 	.table = msm_clocks_8610,
 	.size = ARRAY_SIZE(msm_clocks_8610),
 	.pre_init = msm8610_clock_pre_init,
 	.post_init = msm8610_clock_post_init,
-	.late_init = msm8610_clock_late_init,
 };
