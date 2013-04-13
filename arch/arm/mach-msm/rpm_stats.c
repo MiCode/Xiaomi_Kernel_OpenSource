@@ -63,6 +63,8 @@ struct msm_rpm_stats_data_v2 {
 	u32 count;
 	u64 last_entered_at;
 	u64 last_exited_at;
+	u64 accumulated;
+	u32 reserved[4];
 };
 
 static inline u64 get_time_in_sec(u64 counter)
@@ -84,6 +86,7 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 	char stat_type[5];
 	u64 time_in_last_mode;
 	u64 time_since_last_mode;
+	u64 actual_last_sleep;
 
 	stat_type[4] = 0;
 	memcpy(stat_type, &data->stat_type, sizeof(u32));
@@ -92,12 +95,13 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 	time_in_last_mode = get_time_in_msec(time_in_last_mode);
 	time_since_last_mode = arch_counter_get_cntpct() - data->last_exited_at;
 	time_since_last_mode = get_time_in_sec(time_since_last_mode);
+	actual_last_sleep = get_time_in_msec(data->accumulated);
 
 	return  snprintf(buf , buflength,
 		"RPM Mode:%s\n\t count:%d\n time in last mode(msec):%llu\n"
-		"time since last mode(sec):%llu\n",
+		"time since last mode(sec):%llu\n actual last sleep(msec):%llu\n",
 		stat_type, data->count, time_in_last_mode,
-		time_since_last_mode);
+		time_since_last_mode, actual_last_sleep);
 }
 
 static inline u32 msm_rpmstats_read_long_register_v2(void __iomem *regbase,
@@ -140,6 +144,9 @@ static inline int msm_rpmstats_copy_stats_v2(
 				i, offsetof(struct msm_rpm_stats_data_v2,
 					last_exited_at));
 
+		data.accumulated = msm_rpmstats_read_quad_register_v2(reg,
+				i, offsetof(struct msm_rpm_stats_data_v2,
+					accumulated));
 		length += msm_rpmstats_append_data_to_buf(prvdata->buf + length,
 				&data, sizeof(prvdata->buf) - length);
 		prvdata->read_idx++;
