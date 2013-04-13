@@ -1499,6 +1499,7 @@ int a2_mux_init(void)
 	a2_props.options		= SPS_BAM_OPT_IRQ_WAKEUP;
 	a2_props.num_pipes		= A2_NUM_PIPES;
 	a2_props.summing_threshold	= A2_SUMMING_THRESHOLD;
+	a2_props.manage                 = SPS_BAM_MGR_DEVICE_REMOTE;
 	/* need to free on tear down */
 	rc = sps_register_bam_device(&a2_props, &h);
 	if (rc < 0) {

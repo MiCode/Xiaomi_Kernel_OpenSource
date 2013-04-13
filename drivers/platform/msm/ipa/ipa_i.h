@@ -30,7 +30,7 @@
 #define IPA_COOKIE 0xfacefeed
 
 #define IPA_NUM_PIPES 0x14
-#define IPA_SYS_DESC_FIFO_SZ (0x800)
+#define IPA_SYS_DESC_FIFO_SZ 0x800
 
 #ifdef IPA_DEBUG
 #define IPADBG(fmt, args...) \
@@ -40,10 +40,11 @@
 #define IPADBG(fmt, args...)
 #endif
 
-#define WLAN_AMPDU_TX_EP (15)
-#define WLAN_PROD_TX_EP (19)
-#define MAX_NUM_EXCP	 (8)
-#define MAX_NUM_IMM_CMD	 (17)
+#define WLAN_AMPDU_TX_EP 15
+#define WLAN_PROD_TX_EP  19
+
+#define MAX_NUM_EXCP     8
+#define MAX_NUM_IMM_CMD 17
 
 #define IPA_STATS
 
@@ -665,6 +666,7 @@ struct ipa_context {
 	enum ipa_hw_mode ipa_hw_mode;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
+	void *smem_pipe_mem;
 };
 
 /**
