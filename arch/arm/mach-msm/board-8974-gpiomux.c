@@ -1097,8 +1097,9 @@ void __init msm_8974_init_gpiomux(void)
 			 ARRAY_SIZE(msm_blsp2_uart7_configs));
 	msm_gpiomux_install(wcnss_5wire_interface,
 				ARRAY_SIZE(wcnss_5wire_interface));
-	msm_gpiomux_install_nowrite(ath_gpio_configs,
-				ARRAY_SIZE(ath_gpio_configs));
+	if (of_board_is_liquid())
+		msm_gpiomux_install_nowrite(ath_gpio_configs,
+					ARRAY_SIZE(ath_gpio_configs));
 	msm_gpiomux_install(msm8974_slimbus_config,
 			ARRAY_SIZE(msm8974_slimbus_config));
 
