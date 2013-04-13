@@ -102,6 +102,7 @@
 	qcom,vidc {
 		compatible = "qcom,msm-vidc";
 		qcom,hfi = "q6";
+		qcom,max-hw-load = <108000>; /* 720p @ 30 */
 	};
 
 	qcom,wfd {
