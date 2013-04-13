@@ -15,9 +15,30 @@
 
 #define MDM_DEBUG_MASK_VDDMIN_SETUP (0x00000002)
 #define MDM_DEBUG_MASK_SHDN_LOG     (0x00000004)
+#define INVALID_GPIO (-1)
 #define GPIO_IS_VALID(gpio) \
-	(gpio != -1)
+	(gpio != INVALID_GPIO)
+#define MDM_GPIO(i) \
+	(mdm_drv->gpios[i])
+
 struct mdm_modem_drv;
+
+enum {
+	MDM2AP_ERRFATAL = 0,
+	AP2MDM_ERRFATAL,
+	MDM2AP_STATUS,
+	AP2MDM_STATUS,
+	AP2MDM_SOFT_RESET,
+	MDM2AP_WAKEUP,
+	AP2MDM_WAKEUP,
+	AP2MDM_KPDPWR,
+	AP2MDM_PMIC_PWR_EN,
+	MDM2AP_PBLRDY,
+	USB_SW,
+	AP2MDM_VDDMIN,
+	MDM2AP_VDDMIN,
+	GPIO_TOTAL
+};
 
 struct mdm_ops {
 	void (*power_on_mdm_cb)(struct mdm_modem_drv *mdm_drv);
@@ -32,18 +53,7 @@ struct mdm_ops {
 
 /* Private mdm2 data structure */
 struct mdm_modem_drv {
-	unsigned mdm2ap_errfatal_gpio;
-	unsigned ap2mdm_errfatal_gpio;
-	unsigned mdm2ap_status_gpio;
-	unsigned ap2mdm_status_gpio;
-	unsigned mdm2ap_wakeup_gpio;
-	unsigned ap2mdm_wakeup_gpio;
-	unsigned ap2mdm_kpdpwr_n_gpio;
-	unsigned ap2mdm_soft_reset_gpio;
-	unsigned ap2mdm_pmic_pwr_en_gpio;
-	unsigned mdm2ap_pblrdy;
-	unsigned usb_switch_gpio;
-
+	unsigned gpios[GPIO_TOTAL];
 	atomic_t mdm_ready;
 	int mdm_boot_status;
 	int mdm_ram_dump_status;

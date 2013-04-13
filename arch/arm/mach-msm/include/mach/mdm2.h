@@ -32,14 +32,16 @@ struct mdm_platform_data {
 	int no_powerdown_after_ramdumps;
 	struct mdm_vddmin_resource *vddmin_resource;
 	struct platform_device *peripheral_platform_device;
-	const unsigned int ramdump_timeout_ms;
+	unsigned int ramdump_timeout_ms;
 	int image_upgrade_supported;
 	struct gpiomux_setting *mdm2ap_status_gpio_run_cfg;
 	int send_shdn;
 	int cascading_ssr;
 	int sysmon_subsys_id_valid;
-	enum subsys_id sysmon_subsys_id;
+	int sysmon_subsys_id;
+	int no_a2m_errfatal_on_ssr;
+	int no_reset_on_first_powerup;
+	int kpd_not_inverted;
 };
-
 #endif
 
