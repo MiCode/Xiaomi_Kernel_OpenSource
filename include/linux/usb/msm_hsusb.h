@@ -201,6 +201,7 @@ enum usb_vdd_value {
  *              USB enters LPM.
  * @delay_lpm_on_disconnect: Use a delay before entering LPM
  *              upon USB cable disconnection.
+ * @enable_sec_phy: Use second HSPHY with USB2 core
  * @bus_scale_table: parameters for bus bandwidth requirements
  * @mhl_dev_name: MHL device name used to register with MHL driver.
  */
@@ -222,12 +223,14 @@ struct msm_otg_platform_data {
 	bool core_clk_always_on_workaround;
 	bool delay_lpm_on_disconnect;
 	bool dp_manual_pullup;
+	bool enable_sec_phy;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	const char *mhl_dev_name;
 };
 
 /* phy related flags */
 #define ENABLE_DP_MANUAL_PULLUP		BIT(0)
+#define ENABLE_SECONDARY_PHY		BIT(1)
 
 /* Timeout (in msec) values (min - max) associated with OTG timers */
 

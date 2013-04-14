@@ -69,6 +69,8 @@ Optional properties :
 - qcom,dp-manual-pullup: If present, vbus is not routed to USB controller/phy
 	and controller driver therefore enables pull-up explicitly before
 	starting controller using usbcmd run/stop bit.
+- qcom,usb2-enable-hsphy2: If present then USB2 controller is connected to 2nd
+	HSPHY.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
