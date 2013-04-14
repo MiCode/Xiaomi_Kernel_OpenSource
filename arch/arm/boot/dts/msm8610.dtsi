@@ -619,6 +619,24 @@
 		reg = <0xfc834000 0x7000>;
 		interrupts = <0 29 1>;
 	};
+
+	qcom,qseecom@7B00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x7B00000 0x500000>;
+		reg-names = "secapp-region";
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 3936000 393600>,
+				<55 512 3936000 393600>,
+				<55 512 3936000 393600>;
+	};
 };
 
 &gdsc_vfe {
