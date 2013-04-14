@@ -34,14 +34,6 @@
  * @init_hw: Callback for hw specific startup
  * @deinit_hw: Callback for hw specific shutdown
  */
-struct bmp18x_platform_data {
-	u8	chip_id;
-	u8	default_oversampling;
-	u8	default_sw_oversampling;
-	u32	temp_measurement_period;
-	int	(*init_hw)(void);
-	void	(*deinit_hw)(void);
-};
 
 struct bmp18x_bus_ops {
 	int	(*read_block)(void *client, u8 reg, int len, char *buf);
@@ -50,8 +42,17 @@ struct bmp18x_bus_ops {
 };
 
 struct bmp18x_data_bus {
-	const struct bmp18x_bus_ops	*bops;
+	const struct bmp18x_bus_ops *bops;
 	void	*client;
+};
+
+struct bmp18x_platform_data {
+	u8	chip_id;
+	u8	default_oversampling;
+	u8	default_sw_oversampling;
+	u32	temp_measurement_period;
+	int	(*init_hw)(struct bmp18x_data_bus *);
+	void	(*deinit_hw)(struct bmp18x_data_bus *);
 };
 
 int bmp18x_probe(struct device *dev, struct bmp18x_data_bus *data_bus);
