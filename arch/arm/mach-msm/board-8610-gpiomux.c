@@ -110,6 +110,31 @@ static struct gpiomux_setting gpio_keys_suspend = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+/* define gpio used as interrupt input */
+static struct gpiomux_setting gpio_int_act_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+static struct gpiomux_setting gpio_int_sus_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+	.dir = GPIOMUX_IN,
+};
+
+static struct msm_gpiomux_config msm_gpio_int_configs[] __initdata = {
+	{
+		.gpio = 84,
+		.settings = {
+			[GPIOMUX_ACTIVE]	= &gpio_int_act_cfg,
+			[GPIOMUX_SUSPENDED]	= &gpio_int_sus_cfg,
+		},
+	},
+};
+
 static struct msm_gpiomux_config msm_lcd_configs[] __initdata = {
 	{
 		.gpio = 41,
@@ -439,4 +464,6 @@ void __init msm8610_init_gpiomux(void)
 				ARRAY_SIZE(msm_keypad_configs));
 	msm_gpiomux_install(sd_card_det, ARRAY_SIZE(sd_card_det));
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
+	msm_gpiomux_install(msm_gpio_int_configs,
+			ARRAY_SIZE(msm_gpio_int_configs));
 }

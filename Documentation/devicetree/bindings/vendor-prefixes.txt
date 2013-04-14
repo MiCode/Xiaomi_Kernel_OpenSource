@@ -31,6 +31,7 @@ ibm	International Business Machines (IBM)
 idt	Integrated Device Technologies, Inc.
 img	Imagination Technologies Ltd.
 intercontrol	Inter Control Group
+invn	InvenSense Inc.
 linux	Linux-specific binding
 kionix	Kionix Inc.
 marvell	Marvell Technology Group Ltd.
