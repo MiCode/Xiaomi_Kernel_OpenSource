@@ -23,6 +23,7 @@ hp	Hewlett Packard
 ibm	International Business Machines (IBM)
 idt	Integrated Device Technologies, Inc.
 intercontrol	Inter Control Group
+invn	InvenSense Inc.
 linux	Linux-specific binding
 kionix	Kionix Inc.
 marvell	Marvell Technology Group Ltd.
