@@ -200,9 +200,9 @@ struct row_data {
 	struct request			*pending_urgent_rq;
 	int				last_served_ioprio_class;
 
-#define	ROW_REG_STARVATION_TOLLERANCE	50
+#define	ROW_REG_STARVATION_TOLLERANCE	5000
 	struct starvation_data		reg_prio_starvation;
-#define	ROW_LOW_STARVATION_TOLLERANCE	1000
+#define	ROW_LOW_STARVATION_TOLLERANCE	10000
 	struct starvation_data		low_prio_starvation;
 
 	unsigned int			cycle_flags;
