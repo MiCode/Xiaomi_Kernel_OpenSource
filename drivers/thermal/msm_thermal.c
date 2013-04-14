@@ -44,6 +44,7 @@ static DEFINE_MUTEX(core_control_mutex);
 
 static int enabled;
 static int rails_cnt;
+static int psm_rails_cnt;
 static int limit_idx;
 static int limit_idx_low;
 static int limit_idx_high;
@@ -54,7 +55,11 @@ static int freq_table_get;
 static bool vdd_rstr_enabled;
 static bool vdd_rstr_nodes_called;
 static bool vdd_rstr_probed;
+static bool psm_enabled;
+static bool psm_nodes_called;
+static bool psm_probed;
 static DEFINE_MUTEX(vdd_rstr_mutex);
+static DEFINE_MUTEX(psm_mutex);
 
 struct rail {
 	const char *name;
@@ -68,11 +73,29 @@ struct rail {
 	struct regulator *reg;
 	struct attribute_group attr_gp;
 };
+
+struct psm_rail {
+	const char *name;
+	uint8_t init;
+	uint8_t mode;
+	struct kobj_attribute mode_attr;
+	struct rpm_regulator *reg;
+	struct attribute_group attr_gp;
+};
+
+static struct psm_rail *psm_rails;
 static struct rail *rails;
 
 struct vdd_rstr_enable {
 	struct kobj_attribute ko_attr;
 	uint32_t enabled;
+};
+
+/* For SMPS only*/
+enum PMIC_SW_MODE {
+	PMIC_AUTO_MODE  = RPM_REGULATOR_MODE_AUTO,
+	PMIC_IPEAK_MODE = RPM_REGULATOR_MODE_IPEAK,
+	PMIC_PWM_MODE   = RPM_REGULATOR_MODE_HPM,
 };
 
 #define VDD_RES_RO_ATTRIB(_rail, ko_attr, j, _name) \
@@ -97,6 +120,16 @@ struct vdd_rstr_enable {
 
 #define VDD_RSTR_REG_LEVEL_FROM_ATTRIBS(attr) \
 	(container_of(attr, struct rail, level_attr));
+
+#define PSM_RW_ATTRIB(_rail, ko_attr, j, _name) \
+	ko_attr.attr.name = __stringify(_name); \
+	ko_attr.attr.mode = 644; \
+	ko_attr.show = psm_reg_##_name##_show; \
+	ko_attr.store = psm_reg_##_name##_store; \
+	_rail.attr_gp.attrs[j] = &ko_attr.attr;
+
+#define PSM_REG_MODE_FROM_ATTRIBS(attr) \
+	(container_of(attr, struct psm_rail, mode_attr));
 /* If freq table exists, then we can send freq request */
 static int check_freq_table(void)
 {
@@ -224,6 +257,28 @@ static int vdd_restriction_apply_all(int en)
 		return -EFAULT;
 
 	return ret;
+}
+
+/* Setting all rails the same mode */
+static int psm_set_mode_all(int mode)
+{
+	int i = 0;
+	int fail_cnt = 0;
+	int ret = 0;
+
+	for (i = 0; i < psm_rails_cnt; i++) {
+		if (psm_rails[i].mode != mode) {
+			ret = rpm_regulator_set_mode(psm_rails[i].reg, mode);
+			if (ret) {
+				pr_err("Cannot set mode:%d for %s",
+					mode, psm_rails[i].name);
+				fail_cnt++;
+			} else
+				psm_rails[i].mode = mode;
+		}
+	}
+
+	return fail_cnt ? (-EFAULT) : ret;
 }
 
 static int vdd_rstr_en_show(
@@ -365,6 +420,48 @@ static ssize_t vdd_rstr_reg_level_store(struct kobject *kobj,
 
 done_store_level:
 	mutex_unlock(&vdd_rstr_mutex);
+	return count;
+}
+
+static int psm_reg_mode_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct psm_rail *reg = PSM_REG_MODE_FROM_ATTRIBS(attr);
+	return snprintf(buf, PAGE_SIZE, "%d\n", reg->mode);
+}
+
+static ssize_t psm_reg_mode_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	int val = 0;
+	struct psm_rail *reg = PSM_REG_MODE_FROM_ATTRIBS(attr);
+
+	mutex_lock(&psm_mutex);
+	ret = kstrtoint(buf, 10, &val);
+	if (ret) {
+		pr_err("Invalid input %s for mode\n", buf);
+		goto done_psm_store;
+	}
+
+	if ((val != PMIC_PWM_MODE) && (val != PMIC_AUTO_MODE)) {
+		pr_err(" Invalid number %d for mode\n", val);
+		goto done_psm_store;
+	}
+
+	if (val != reg->mode) {
+		ret = rpm_regulator_set_mode(reg->reg, val);
+		if (ret) {
+			pr_err( \
+			"Fail to set PMIC SW Mode:%d for %s\n",
+			val, reg->name);
+			goto done_psm_store;
+		}
+		reg->mode = val;
+	}
+
+done_psm_store:
+	mutex_unlock(&psm_mutex);
 	return count;
 }
 
@@ -513,6 +610,52 @@ exit:
 	return ret;
 }
 
+static int do_psm(void)
+{
+	struct tsens_device tsens_dev;
+	long temp = 0;
+	int ret = 0;
+	int i = 0;
+	int auto_cnt = 0;
+
+	mutex_lock(&psm_mutex);
+	for (i = 0; i < max_tsens_num; i++) {
+		tsens_dev.sensor_num = i;
+		ret = tsens_get_temp(&tsens_dev, &temp);
+		if (ret) {
+			pr_debug("%s: Unable to read TSENS sensor %d\n",
+					__func__, tsens_dev.sensor_num);
+			auto_cnt++;
+			continue;
+		}
+
+		/* As long as one sensor is above the threshold, set PWM mode
+		 * on all rails, and loop stops. Set auto mode when all rails
+		 * are below thershold */
+		if (temp >  msm_thermal_info.psm_temp_degC) {
+			ret = psm_set_mode_all(PMIC_PWM_MODE);
+			if (ret) {
+				pr_err("Set pwm mode for all failed\n");
+				goto exit;
+			}
+			break;
+		} else if (temp <= msm_thermal_info.psm_temp_hyst_degC)
+			auto_cnt++;
+	}
+
+	if (auto_cnt == max_tsens_num) {
+		ret = psm_set_mode_all(PMIC_AUTO_MODE);
+		if (ret) {
+			pr_err("Set auto mode for all failed\n");
+			goto exit;
+		}
+	}
+
+exit:
+	mutex_unlock(&psm_mutex);
+	return ret;
+}
+
 static void __cpuinit check_temp(struct work_struct *work)
 {
 	static int limit_init;
@@ -539,6 +682,7 @@ static void __cpuinit check_temp(struct work_struct *work)
 
 	do_core_control(temp);
 	do_vdd_restriction();
+	do_psm();
 
 	if (temp >= msm_thermal_info.limit_temp_degC) {
 		if (limit_idx == limit_idx_low)
@@ -853,6 +997,49 @@ static int vdd_restriction_reg_init(struct platform_device *pdev)
 	return ret;
 }
 
+static int psm_reg_init(struct platform_device *pdev)
+{
+	int ret = 0;
+	int i = 0;
+	int j = 0;
+
+	for (i = 0; i < psm_rails_cnt; i++) {
+		psm_rails[i].reg = rpm_regulator_get(&pdev->dev,
+				psm_rails[i].name);
+		if (IS_ERR_OR_NULL(psm_rails[i].reg)) {
+			ret = PTR_ERR(psm_rails[i].reg);
+			if (ret != -EPROBE_DEFER) {
+				pr_err("%s, could not get rpm regulator: %s\n",
+					psm_rails[i].name, __func__);
+				psm_rails[i].reg = NULL;
+				goto psm_reg_exit;
+			}
+			return ret;
+		}
+		/* Apps default vote for PWM mode */
+		psm_rails[i].init = PMIC_PWM_MODE;
+		ret = rpm_regulator_set_mode(psm_rails[i].reg,
+				psm_rails[i].init);
+		if (ret) {
+			pr_err("%s: Cannot set PMIC PWM mode\n", __func__);
+			return ret;
+		} else
+			psm_rails[i].mode = PMIC_PWM_MODE;
+	}
+
+	return ret;
+
+psm_reg_exit:
+	if (ret) {
+		for (j = 0; j < i; j++) {
+			if (psm_rails[j].reg != NULL)
+				rpm_regulator_put(psm_rails[j].reg);
+		}
+	}
+
+	return ret;
+}
+
 static int msm_thermal_add_vdd_rstr_nodes(void)
 {
 	struct kobject *module_kobj = NULL;
@@ -931,6 +1118,78 @@ thermal_sysfs_add_exit:
 		}
 		if (vdd_rstr_kobj)
 			kobject_del(vdd_rstr_kobj);
+	}
+	return rc;
+}
+
+static int msm_thermal_add_psm_nodes(void)
+{
+	struct kobject *module_kobj = NULL;
+	struct kobject *psm_kobj = NULL;
+	struct kobject *psm_reg_kobj[MAX_RAILS] = {0};
+	int rc = 0;
+	int i = 0;
+
+	if (!psm_probed) {
+		psm_nodes_called = true;
+		return rc;
+	}
+
+	if (psm_probed && psm_rails_cnt == 0)
+		return rc;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("%s: cannot find kobject for module %s\n",
+			__func__, KBUILD_MODNAME);
+		rc = -ENOENT;
+		goto psm_node_exit;
+	}
+
+	psm_kobj = kobject_create_and_add("pmic_sw_mode", module_kobj);
+	if (!psm_kobj) {
+		pr_err("%s: cannot create psm kobject\n", KBUILD_MODNAME);
+		rc = -ENOMEM;
+		goto psm_node_exit;
+	}
+
+	for (i = 0; i < psm_rails_cnt; i++) {
+		psm_reg_kobj[i] = kobject_create_and_add(psm_rails[i].name,
+					psm_kobj);
+		if (!psm_reg_kobj[i]) {
+			pr_err("%s: cannot create for kobject for %s\n",
+					KBUILD_MODNAME, psm_rails[i].name);
+			rc = -ENOMEM;
+			goto psm_node_exit;
+		}
+		psm_rails[i].attr_gp.attrs = kzalloc( \
+				sizeof(struct attribute *) * 2, GFP_KERNEL);
+		if (!psm_rails[i].attr_gp.attrs) {
+			rc = -ENOMEM;
+			goto psm_node_exit;
+		}
+
+		PSM_RW_ATTRIB(psm_rails[i], psm_rails[i].mode_attr, 0, mode);
+		psm_rails[i].attr_gp.attrs[1] = NULL;
+
+		rc = sysfs_create_group(psm_reg_kobj[i], &psm_rails[i].attr_gp);
+		if (rc) {
+			pr_err("%s: cannot create attribute group for %s\n",
+					KBUILD_MODNAME, psm_rails[i].name);
+			goto psm_node_exit;
+		}
+	}
+
+	return rc;
+
+psm_node_exit:
+	if (rc) {
+		for (i = 0; i < psm_rails_cnt; i++) {
+			kobject_del(psm_reg_kobj[i]);
+			kfree(psm_rails[i].attr_gp.attrs);
+		}
+		if (psm_kobj)
+			kobject_del(psm_kobj);
 	}
 	return rc;
 }
@@ -1032,6 +1291,64 @@ read_node_fail:
 	return ret;
 }
 
+static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
+		struct platform_device *pdev)
+{
+	int ret = 0;
+	int j = 0;
+	char *key = NULL;
+
+	key = "qcom,pmic-sw-mode-temp";
+	ret = of_property_read_u32(node, key, &data->psm_temp_degC);
+	if (ret)
+		goto read_node_fail;
+
+	key = "qcom,pmic-sw-mode-temp-hysteresis";
+	ret = of_property_read_u32(node, key, &data->psm_temp_hyst_degC);
+	if (ret)
+		goto read_node_fail;
+
+	key = "qcom,pmic-sw-mode-regs";
+	psm_rails_cnt = of_property_count_strings(node, key);
+	psm_rails = kzalloc(sizeof(struct psm_rail) * psm_rails_cnt,
+			GFP_KERNEL);
+	if (!psm_rails) {
+		pr_err("%s: Fail to allocate memory for psm rails\n", __func__);
+		psm_rails_cnt = 0;
+		return -ENOMEM;
+	}
+
+	for (j = 0; j < psm_rails_cnt; j++) {
+		ret = of_property_read_string_index(node, key, j,
+				&psm_rails[j].name);
+		if (ret)
+			goto read_node_fail;
+	}
+
+	if (psm_rails_cnt) {
+		ret = psm_reg_init(pdev);
+		if (ret) {
+			pr_info("%s:Failed to get regulators. KTM continues.\n",
+					__func__);
+			goto read_node_fail;
+		}
+		psm_enabled = true;
+	}
+
+read_node_fail:
+	psm_probed = true;
+	if (ret) {
+		dev_info(&pdev->dev,
+			"%s:Failed reading node=%s, key=%s. KTM continues\n",
+			__func__, node->full_name, key);
+		kfree(psm_rails);
+		psm_rails_cnt = 0;
+	}
+	if (ret == -EPROBE_DEFER)
+		psm_probed = false;
+	return ret;
+}
+
 static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1076,12 +1393,22 @@ static int __devinit msm_thermal_dev_probe(struct platform_device *pdev)
 	key = "qcom,core-control-mask";
 	ret = of_property_read_u32(node, key, &data.core_control_mask);
 
-	/* Probe optional properties below*/
+	/* Probe optional properties below. Call probe_psm before
+	 * probe_vdd_rstr because rpm_regulator_get has to be called
+	 * before devm_regulator_get*/
+	ret = probe_psm(node, &data, pdev);
+	if (ret == -EPROBE_DEFER)
+		goto fail;
 	ret = probe_vdd_rstr(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
+
 	/* In case sysfs add nodes get called before probe function.
 	 * Need to make sure sysfs node is created again */
+	if (psm_nodes_called) {
+		msm_thermal_add_psm_nodes();
+		psm_nodes_called = false;
+	}
 	if (vdd_rstr_nodes_called) {
 		msm_thermal_add_vdd_rstr_nodes();
 		vdd_rstr_nodes_called = false;
@@ -1096,6 +1423,7 @@ fail:
 
 	return ret;
 }
+
 
 static struct of_device_id msm_thermal_match_table[] = {
 	{.compatible = "qcom,msm-thermal"},
@@ -1119,6 +1447,7 @@ int __init msm_thermal_device_init(void)
 int __init msm_thermal_late_init(void)
 {
 	msm_thermal_add_cc_nodes();
+	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
 
 	return 0;
