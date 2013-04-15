@@ -2124,6 +2124,11 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 	sdhci_runtime_pm_put(host);
 }
 
+static int sdhci_stop_request(struct mmc_host *mmc)
+{
+	return -ENOSYS;
+}
+
 static const struct mmc_host_ops sdhci_ops = {
 	.pre_req	= sdhci_pre_req,
 	.post_req	= sdhci_post_req,
@@ -2137,6 +2142,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.enable_preset_value		= sdhci_enable_preset_value,
 	.enable		= sdhci_enable,
 	.disable	= sdhci_disable,
+	.stop_request = sdhci_stop_request,
 };
 
 /*****************************************************************************\
