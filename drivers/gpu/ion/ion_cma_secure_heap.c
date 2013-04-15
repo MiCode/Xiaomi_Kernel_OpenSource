@@ -52,7 +52,7 @@ struct ion_secure_cma_buffer_info {
 int ion_secure_cma_get_sgtable(struct device *dev, struct sg_table *sgt,
 			void *cpu_addr, dma_addr_t handle, size_t size)
 {
-	struct page *page = virt_to_page(cpu_addr);
+	struct page *page = phys_to_page(handle);
 	int ret;
 
 	ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
