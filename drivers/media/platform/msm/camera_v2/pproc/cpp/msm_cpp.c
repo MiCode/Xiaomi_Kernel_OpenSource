@@ -974,7 +974,9 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 		event_qcmd->command = processed_frame;
 		CPP_DBG("fid %d\n", processed_frame->frame_id);
 		msm_enqueue(&cpp_dev->eventData_q, &event_qcmd->list_eventdata);
-		if (!processed_frame->output_buffer_info[0].processed_divert) {
+
+		if (!processed_frame->output_buffer_info[0].processed_divert &&
+			!processed_frame->output_buffer_info[0].native_buff) {
 			memset(&buff_mgr_info, 0 ,
 				sizeof(struct msm_buf_mngr_info));
 			buff_mgr_info.session_id =
@@ -1259,17 +1261,21 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		goto ERROR2;
 	}
 
-	memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
-	buff_mgr_info.session_id = ((new_frame->identity >> 16) & 0xFFFF);
-	buff_mgr_info.stream_id = (new_frame->identity & 0xFFFF);
-	rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
-		&buff_mgr_info);
-	if (rc < 0) {
-		rc = -EAGAIN;
-		pr_debug("error getting buffer rc:%d\n", rc);
-		goto ERROR2;
+	if (new_frame->output_buffer_info[0].native_buff == 0) {
+		memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
+		buff_mgr_info.session_id = ((new_frame->identity >> 16) &
+			0xFFFF);
+		buff_mgr_info.stream_id = (new_frame->identity & 0xFFFF);
+		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
+			&buff_mgr_info);
+		if (rc < 0) {
+			rc = -EAGAIN;
+			pr_err("error getting buffer rc:%d\n", rc);
+			goto ERROR2;
+		}
+		new_frame->output_buffer_info[0].index = buff_mgr_info.index;
 	}
-	new_frame->output_buffer_info[0].index = buff_mgr_info.index;
+
 	out_phyaddr0 = msm_cpp_fetch_buffer_info(cpp_dev,
 		&new_frame->output_buffer_info[0],
 		((new_frame->identity >> 16) & 0xFFFF),
@@ -1367,8 +1373,9 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 ERROR4:
 	kfree(frame_qcmd);
 ERROR3:
-	msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_PUT_BUF,
-		&buff_mgr_info);
+	if (new_frame->output_buffer_info[0].native_buff == 0)
+		msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_PUT_BUF,
+			&buff_mgr_info);
 ERROR2:
 	kfree(cpp_frame_msg);
 ERROR1:
