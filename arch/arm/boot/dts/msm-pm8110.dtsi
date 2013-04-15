@@ -492,5 +492,12 @@
 			reg = <0x5500 0x100>;
 			status = "disabled";
 		};
+
+		qcom,vibrator@c000 {
+			compatible = "qcom,qpnp-vibrator";
+			reg = <0xc000 0x100>;
+			label = "vibrator";
+			status = "disabled";
+		};
 	};
 };
