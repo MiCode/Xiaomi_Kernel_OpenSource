@@ -2089,6 +2089,9 @@ static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 	if (host->version < SDHCI_SPEC_300)
 		return;
 
+	if (host->quirks2 & SDHCI_QUIRK2_BROKEN_PRESET_VALUE)
+		return;
+
 	spin_lock_irqsave(&host->lock, flags);
 
 	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
