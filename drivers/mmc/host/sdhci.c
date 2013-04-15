@@ -2261,6 +2261,11 @@ static void sdhci_card_event(struct mmc_host *mmc)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+static int sdhci_stop_request(struct mmc_host *mmc)
+{
+	return -ENOSYS;
+}
+
 static const struct mmc_host_ops sdhci_ops = {
 	.pre_req	= sdhci_pre_req,
 	.post_req	= sdhci_post_req,
@@ -2276,6 +2281,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.card_busy	= sdhci_card_busy,
 	.enable		= sdhci_enable,
 	.disable	= sdhci_disable,
+	.stop_request = sdhci_stop_request,
 };
 
 /*****************************************************************************\
