@@ -18,6 +18,14 @@
 
 #define QSEECOM_KEY_ID_SIZE   32
 
+#define	QSEOS_RESULT_FAIL_LOAD_KS         -48
+#define	QSEOS_RESULT_FAIL_SAVE_KS         -49
+#define	QSEOS_RESULT_FAIL_MAX_KEYS        -50
+#define	QSEOS_RESULT_FAIL_KEY_ID_EXISTS   -51
+#define	QSEOS_RESULT_FAIL_KEY_ID_DNE      -52
+#define	QSEOS_RESULT_FAIL_KS_OP           -53
+#define	QSEOS_RESULT_FAIL_CE_PIPE_INVALID -54
+
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
 	QSEOS_LISTENER_ID
@@ -47,6 +55,22 @@ enum qseecom_qceos_cmd_status {
 	QSEOS_RESULT_SUCCESS = 0,
 	QSEOS_RESULT_INCOMPLETE,
 	QSEOS_RESULT_FAILURE  = 0xFFFFFFFF
+};
+
+/* Key Management requests */
+enum qseecom_qceos_key_gen_cmd_id {
+	QSEOS_GENERATE_KEY  = 0x11,
+	QSEOS_DELETE_KEY,
+	QSEOS_MAX_KEY_COUNT,
+	QSEOS_SET_KEY,
+	QSEOS_KEY_CMD_MAX   = 0xEFFFFFFF
+};
+
+enum qseecom_pipe_type {
+	QSEOS_PIPE_ENC = 0,
+	QSEOS_PIPE_ENC_XTS,
+	QSEOS_PIPE_AUTH,
+	QSEOS_PIPE_ENUM_FILL = 0x7FFFFFFF
 };
 
 __packed  struct qsee_apps_region_info_ireq {
@@ -143,29 +167,24 @@ __packed struct qseecom_client_send_service_ireq {
 	unsigned int rsp_len; /* in/out */
 };
 
-/* Key Management requests */
-enum qseecom_qceos_key_gen_cmd_id {
-	QSEOS_GENERATE_KEY      = 0x02,
-	QSEOS_SET_KEY,
-	QSEOS_DELETE_KEY,
-	QSEOS_MAX_KEY_COUNT,
-	QSEOS_KEY_CMD_MAX     = 0xEFFFFFFF
-};
-
 __packed struct qseecom_key_generate_ireq {
+	uint32_t qsee_command_id;
 	uint32_t flags;
 	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
 };
 
 __packed struct qseecom_key_select_ireq {
+	uint32_t qsee_command_id;
 	uint32_t ce;
 	uint32_t pipe;
+	uint32_t pipe_type;
 	uint32_t flags;
 	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
 	unsigned char hash[QSEECOM_HASH_SIZE];
 };
 
 __packed struct qseecom_key_delete_ireq {
+	uint32_t qsee_command_id;
 	uint32_t flags;
 	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
 };
