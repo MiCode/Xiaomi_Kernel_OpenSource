@@ -32,7 +32,7 @@
 #include <linux/err.h>
 #include <linux/hwmon.h>
 #include <linux/input-polldev.h>
-
+#include <linux/regulator/consumer.h>
 
 #define MMA8X5X_I2C_ADDR	0x1D
 #define MMA8451_ID			0x1A
@@ -54,6 +54,19 @@
 
 #define MMA8X5X_STATUS_ZYXDR	0x08
 #define MMA8X5X_BUF_SIZE	7
+
+struct sensor_regulator {
+	struct regulator *vreg;
+	const char *name;
+	u32	min_uV;
+	u32	max_uV;
+};
+
+static struct sensor_regulator mma_vreg[] = {
+	{NULL, "vdd", 2850000, 2850000},
+	{NULL, "vio", 1800000, 1800000},
+};
+
 /* register enum for mma8x5x registers */
 enum {
 	MMA8X5X_STATUS = 0x00,
@@ -166,6 +179,67 @@ static int mma8x5x_position_setting[8][3][3] = {
 	{{ 0,  1,  0}, { 1,  0,	0}, {0, 0,  -1} },
 	{{ 1,  0,  0}, { 0, -1,	0}, {0, 0,  -1} },
 };
+
+static int mma8x5x_config_regulator(struct i2c_client *client, bool on)
+{
+	int rc = 0, i;
+	int num_vreg = sizeof(mma_vreg)/sizeof(struct sensor_regulator);
+
+	if (on) {
+		for (i = 0; i < num_vreg; i++) {
+			mma_vreg[i].vreg = regulator_get(&client->dev,
+					mma_vreg[i].name);
+			if (IS_ERR(mma_vreg[i].vreg)) {
+				rc = PTR_ERR(mma_vreg[i].vreg);
+				dev_err(&client->dev, "%s:regulator get failed rc=%d\n",
+						__func__, rc);
+				mma_vreg[i].vreg = NULL;
+				goto error_vdd;
+			}
+			if (regulator_count_voltages(mma_vreg[i].vreg) > 0) {
+				rc = regulator_set_voltage(mma_vreg[i].vreg,
+					mma_vreg[i].min_uV, mma_vreg[i].max_uV);
+				if (rc) {
+					dev_err(&client->dev, "%s:set_voltage failed rc=%d\n",
+							__func__, rc);
+					regulator_put(mma_vreg[i].vreg);
+					mma_vreg[i].vreg = NULL;
+					goto error_vdd;
+				}
+			}
+			rc = regulator_enable(mma_vreg[i].vreg);
+			if (rc) {
+				dev_err(&client->dev, "%s: regulator_enable failed rc =%d\n",
+						__func__, rc);
+				if (regulator_count_voltages(mma_vreg[i].vreg)
+						> 0) {
+					regulator_set_voltage(mma_vreg[i].vreg,
+							0, mma_vreg[i].max_uV);
+				}
+				regulator_put(mma_vreg[i].vreg);
+				mma_vreg[i].vreg = NULL;
+				goto error_vdd;
+			}
+		}
+		return rc;
+	} else {
+		i = num_vreg;
+	}
+error_vdd:
+	while (--i >= 0) {
+		if (!IS_ERR_OR_NULL(mma_vreg[i].vreg)) {
+			if (regulator_count_voltages(
+				mma_vreg[i].vreg) > 0) {
+				regulator_set_voltage(mma_vreg[i].vreg, 0,
+						mma_vreg[i].max_uV);
+			}
+			regulator_disable(mma_vreg[i].vreg);
+			regulator_put(mma_vreg[i].vreg);
+			mma_vreg[i].vreg = NULL;
+		}
+	}
+	return rc;
+}
 
 static int mma8x5x_data_convert(struct mma8x5x_data *pdata,
 		struct mma8x5x_data_axis *axis_data)
@@ -398,6 +472,11 @@ static int __devinit mma8x5x_probe(struct i2c_client *client,
 	struct i2c_adapter *adapter;
 	struct input_polled_dev *poll_dev;
 	adapter = to_i2c_adapter(client->dev.parent);
+	/* power on the device */
+	result = mma8x5x_config_regulator(client, 1);
+	if (result)
+		goto err_power_on;
+
 	result = i2c_check_functionality(adapter,
 					 I2C_FUNC_SMBUS_BYTE |
 					 I2C_FUNC_SMBUS_BYTE_DATA);
@@ -414,6 +493,7 @@ static int __devinit mma8x5x_probe(struct i2c_client *client,
 		result = -EINVAL;
 		goto err_out;
 	}
+	/* set the private data */
 	pdata = kzalloc(sizeof(struct mma8x5x_data), GFP_KERNEL);
 	if (!pdata) {
 		result = -ENOMEM;
@@ -427,7 +507,9 @@ static int __devinit mma8x5x_probe(struct i2c_client *client,
 	pdata->position = CONFIG_SENSORS_MMA_POSITION;
 	mutex_init(&pdata->data_lock);
 	i2c_set_clientdata(client, pdata);
+	/* Initialize the MMA8X5X chip */
 	mma8x5x_device_init(client);
+	/* create the input poll device */
 	poll_dev = input_allocate_polled_device();
 	if (!poll_dev) {
 		result = -ENOMEM;
@@ -468,14 +550,17 @@ err_register_polled_device:
 err_alloc_poll_device:
 	kfree(pdata);
 err_out:
+	mma8x5x_config_regulator(client, 0);
+err_power_on:
 	return result;
 }
 static int __devexit mma8x5x_remove(struct i2c_client *client)
 {
 	struct mma8x5x_data *pdata = i2c_get_clientdata(client);
-	struct input_polled_dev *poll_dev = pdata->poll_dev;
+	struct input_polled_dev *poll_dev;
 	mma8x5x_device_stop(client);
 	if (pdata) {
+		poll_dev = pdata->poll_dev;
 		input_unregister_polled_device(poll_dev);
 		input_free_polled_device(poll_dev);
 		kfree(pdata);
@@ -513,14 +598,20 @@ static const struct i2c_device_id mma8x5x_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mma8x5x_id);
 
+static const struct of_device_id mma8x5x_of_match[] = {
+	{ .compatible = "fsl,mma8x5x", },
+	{ },
+};
+
 static SIMPLE_DEV_PM_OPS(mma8x5x_pm_ops, mma8x5x_suspend, mma8x5x_resume);
 static struct i2c_driver mma8x5x_driver = {
 	.class  = I2C_CLASS_HWMON,
 	.driver = {
-		   .name = "mma8x5x",
-		   .owner = THIS_MODULE,
-		   .pm = &mma8x5x_pm_ops,
-		   },
+		.name = "mma8x5x",
+		.owner = THIS_MODULE,
+		.pm = &mma8x5x_pm_ops,
+		.of_match_table = mma8x5x_of_match,
+	},
 	.probe = mma8x5x_probe,
 	.remove = __devexit_p(mma8x5x_remove),
 	.id_table = mma8x5x_id,
