@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -682,6 +682,13 @@ static int __devexit pm8xxx_tm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void pm8xxx_tm_shutdown(struct platform_device *pdev)
+{
+	struct pm8xxx_tm_chip *chip = platform_get_drvdata(pdev);
+
+	pm8xxx_tm_write_pwm(chip, TEMP_ALARM_PWM_EN_NEVER);
+}
+
 #ifdef CONFIG_PM
 static int pm8xxx_tm_suspend(struct device *dev)
 {
@@ -719,6 +726,7 @@ static const struct dev_pm_ops pm8xxx_tm_pm_ops = {
 static struct platform_driver pm8xxx_tm_driver = {
 	.probe	= pm8xxx_tm_probe,
 	.remove	= __devexit_p(pm8xxx_tm_remove),
+	.shutdown = pm8xxx_tm_shutdown,
 	.driver	= {
 		.name = PM8XXX_TM_DEV_NAME,
 		.owner = THIS_MODULE,
