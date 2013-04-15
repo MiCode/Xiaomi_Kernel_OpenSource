@@ -63,6 +63,7 @@ struct iommu_pmon_cnt_group {
  * @iommu_dev:  pointer to iommu device
  * @ops:        iommu access operations pointer.
  * @hw_ops:     iommu pm hw access operations pointer.
+ * @always_on:  1 if iommu is always on, 0 otherwise.
  */
 struct iommu_info {
 	const char *iommu_name;
@@ -71,6 +72,7 @@ struct iommu_info {
 	struct device *iommu_dev;
 	struct iommu_access_ops *ops;
 	struct iommu_pm_hw_ops *hw_ops;
+	unsigned int always_on;
 };
 
 /**

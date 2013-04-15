@@ -503,14 +503,17 @@ static ssize_t iommu_pm_enable_counters_write(struct file *fp,
 		rv = kstrtoul(buf, 10, &cmd);
 		if (!rv && (cmd < 2)) {
 			if (pmon->enabled == 1 && cmd == 0) {
-				if (pmon->iommu_attach_count > 0)
+				if (pmon->iommu.always_on ||
+				    pmon->iommu_attach_count > 0)
 					iommu_pm_off(pmon);
 			} else if (pmon->enabled == 0 && cmd == 1) {
 				/* We can only turn on perf. monitoring if
-				 * iommu is attached. Delay turning on perf.
-				 * monitoring until we are attached.
+				 * iommu is attached (if not always on).
+				 * Delay turning on perf. monitoring until
+				 * we are attached.
 				 */
-				if (pmon->iommu_attach_count > 0)
+				if (pmon->iommu.always_on ||
+				    pmon->iommu_attach_count > 0)
 					iommu_pm_on(pmon);
 				else
 					pmon->enabled = 1;
@@ -803,9 +806,9 @@ void msm_iommu_attached(struct device *dev)
 		++pmon->iommu_attach_count;
 		if (pmon->iommu_attach_count == 1) {
 			/* If perf. mon was enabled before we attached we do
-			 * the actual after we attach.
+			 * the actual enabling after we attach.
 			 */
-			if (pmon->enabled)
+			if (pmon->enabled && !pmon->iommu.always_on)
 				iommu_pm_on(pmon);
 		}
 		mutex_unlock(&pmon->lock);
@@ -820,9 +823,9 @@ void msm_iommu_detached(struct device *dev)
 		mutex_lock(&pmon->lock);
 		if (pmon->iommu_attach_count == 1) {
 			/* If perf. mon is still enabled we have to disable
-			 * before we do the detach.
+			 * before we do the detach if iommu is not always on.
 			 */
-			if (pmon->enabled)
+			if (pmon->enabled && !pmon->iommu.always_on)
 				iommu_pm_off(pmon);
 		}
 		BUG_ON(pmon->iommu_attach_count == 0);

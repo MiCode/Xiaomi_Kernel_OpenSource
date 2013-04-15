@@ -414,6 +414,7 @@ static int msm_iommu_probe(struct platform_device *pdev)
 			pmon_info->iommu.ops = &iommu_access_ops_v0;
 			pmon_info->iommu.hw_ops = iommu_pm_get_hw_ops_v0();
 			pmon_info->iommu.iommu_name = drvdata->name;
+			pmon_info->iommu.always_on = 1;
 			ret = msm_iommu_pm_iommu_register(pmon_info);
 			if (ret) {
 				pr_err("%s iommu register fail\n",
