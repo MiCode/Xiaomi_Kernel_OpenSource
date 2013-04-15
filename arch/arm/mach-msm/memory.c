@@ -234,7 +234,7 @@ void *allocate_contiguous_ebi(unsigned long size,
 }
 EXPORT_SYMBOL(allocate_contiguous_ebi);
 
-unsigned long allocate_contiguous_ebi_nomap(unsigned long size,
+phys_addr_t allocate_contiguous_ebi_nomap(unsigned long size,
 	unsigned long align)
 {
 	return _allocate_contiguous_memory_nomap(size, get_ebi_memtype(),
