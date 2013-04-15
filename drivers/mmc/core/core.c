@@ -657,6 +657,11 @@ static bool mmc_should_stop_curr_req(struct mmc_host *host)
 {
 	int remainder;
 
+	if (host->areq->cmd_flags & REQ_URGENT ||
+	    !(host->areq->cmd_flags & REQ_WRITE) ||
+	    (host->areq->cmd_flags & REQ_FUA))
+		return false;
+
 	remainder = (host->ops->get_xfer_remain) ?
 		host->ops->get_xfer_remain(host) : -1;
 	return (remainder > 0);
@@ -743,14 +748,12 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 	unsigned long flags;
 
 	while (1) {
-		context_info->is_waiting = true;
 		wait_io_event_interruptible(context_info->wait,
 				(context_info->is_done_rcv ||
 				 context_info->is_new_req  ||
 				 context_info->is_urgent));
 		spin_lock_irqsave(&context_info->lock, flags);
 		is_urgent = context_info->is_urgent;
-		context_info->is_waiting = false;
 		context_info->is_waiting_last_req = false;
 		spin_unlock_irqrestore(&context_info->lock, flags);
 		if (context_info->is_done_rcv) {
@@ -769,7 +772,10 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 					 */
 					if ((err == MMC_BLK_PARTIAL) ||
 						(err == MMC_BLK_SUCCESS))
-						err = MMC_BLK_URGENT;
+						err = pending_is_urgent ?
+						       MMC_BLK_URGENT_DONE
+						       : MMC_BLK_URGENT;
+
 					/* reset is_urgent for next request */
 					context_info->is_urgent = false;
 				}
@@ -942,6 +948,8 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 	int err = 0;
 	int start_err = 0;
 	struct mmc_async_req *data = host->areq;
+	unsigned long flags;
+	bool is_urgent;
 
 	/* Prepare a new request */
 	if (areq) {
@@ -949,20 +957,29 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 		 * start waiting here for possible interrupt
 		 * because mmc_pre_req() taking long time
 		 */
-		host->context_info.is_waiting = true;
 		mmc_pre_req(host, areq->mrq, !host->areq);
 	}
 
 	if (host->areq) {
 		err = mmc_wait_for_data_req_done(host, host->areq->mrq,
 				areq);
-		if (err == MMC_BLK_URGENT) {
+		if (err == MMC_BLK_URGENT || err == MMC_BLK_URGENT_DONE) {
 			mmc_post_req(host, host->areq->mrq, 0);
-			if (areq) { /* reinsert ready request */
-				areq->reinsert_req(areq);
-				mmc_post_req(host, areq->mrq, 0);
-			}
 			host->areq = NULL;
+			if (areq) {
+				if (!(areq->cmd_flags & REQ_URGENT)) {
+					areq->reinsert_req(areq);
+					mmc_post_req(host, areq->mrq, 0);
+				} else {
+					start_err = __mmc_start_data_req(host,
+							areq->mrq);
+					if (start_err)
+						mmc_post_req(host, areq->mrq,
+								-EINVAL);
+					else
+						host->areq = areq;
+				}
+			}
 			goto exit;
 		} else if (err == MMC_BLK_NEW_REQUEST) {
 			if (error)
@@ -985,12 +1002,28 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 				 mmc_hostname(host), __func__);
 		}
 	}
-
 	if (!err && areq) {
 		trace_mmc_blk_rw_start(areq->mrq->cmd->opcode,
 				       areq->mrq->cmd->arg,
 				       areq->mrq->data);
-		start_err = __mmc_start_data_req(host, areq->mrq);
+		/* urgent notification may come again */
+		spin_lock_irqsave(&host->context_info.lock, flags);
+		is_urgent = host->context_info.is_urgent;
+		host->context_info.is_urgent = false;
+		spin_unlock_irqrestore(&host->context_info.lock, flags);
+		if (!is_urgent || (areq->cmd_flags & REQ_URGENT)) {
+			start_err = __mmc_start_data_req(host, areq->mrq);
+		} else {
+			/* previous request was done */
+			err = MMC_BLK_URGENT_DONE;
+			if (host->areq) {
+				mmc_post_req(host, host->areq->mrq, 0);
+				host->areq = NULL;
+			}
+			areq->reinsert_req(areq);
+			mmc_post_req(host, areq->mrq, 0);
+			goto exit;
+		}
 	}
 
 	if (host->areq)

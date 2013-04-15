@@ -203,6 +203,7 @@ enum mmc_blk_status {
 	MMC_BLK_NOMEDIUM,
 	MMC_BLK_NEW_REQUEST,
 	MMC_BLK_URGENT,
+	MMC_BLK_URGENT_DONE,
 };
 
 enum mmc_packed_stop_reasons {
