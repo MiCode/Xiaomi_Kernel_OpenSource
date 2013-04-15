@@ -18,10 +18,10 @@
 #include <linux/init.h>
 #include <linux/version.h>
 #include <linux/platform_device.h>
-
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/time.h>
+#include <linux/slab.h>
 #include <mach/board.h>
 
 #include <media/v4l2-dev.h>

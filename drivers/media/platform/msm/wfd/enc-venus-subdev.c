@@ -18,6 +18,7 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/wait.h>
+#include <linux/slab.h>
 #include <mach/iommu_domains.h>
 #include <media/msm_vidc.h>
 #include <media/v4l2-subdev.h>
