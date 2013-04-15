@@ -631,6 +631,7 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 	if (mc == SLIM_USR_MC_MASTER_CAPABILITY &&
 		mt == SLIM_MSG_MT_SRC_REFERRED_USER) {
 		struct slim_msg_txn txn;
+		int retries = 0;
 		u8 wbuf[8];
 		txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 		txn.ec = 0;
@@ -638,7 +639,6 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 		txn.mc = SLIM_USR_MC_REPORT_SATELLITE;
 		txn.mt = SLIM_MSG_MT_SRC_REFERRED_USER;
 		txn.la = SLIM_LA_MGR;
-		txn.rl = 8;
 		wbuf[0] = SAT_MAGIC_LSB;
 		wbuf[1] = SAT_MAGIC_MSB;
 		wbuf[2] = SAT_MSG_VER;
@@ -655,7 +655,8 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 			/* make sure NGD MSG-Q config goes through */
 			mb();
 		}
-
+capability_retry:
+		txn.rl = 8;
 		ret = ngd_xfer_msg(&dev->ctrl, &txn);
 		if (!ret) {
 			enum msm_ctrl_state prev_state = dev->state;
@@ -668,6 +669,13 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 			/* ADSP SSR, send device_up notifications */
 			if (prev_state == MSM_CTRL_DOWN)
 				schedule_work(&dev->slave_notify);
+		} else if (ret == -EIO) {
+			pr_info("capability message NACKed, retrying");
+			if (retries < INIT_MX_RETRIES) {
+				msleep(DEF_RETRY_MS);
+				retries++;
+				goto capability_retry;
+			}
 		}
 	}
 	if (mc == SLIM_MSG_MC_REPLY_INFORMATION ||

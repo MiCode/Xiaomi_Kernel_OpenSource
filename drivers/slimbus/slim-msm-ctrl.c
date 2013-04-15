@@ -37,8 +37,6 @@
 #define QC_DEVID_SAT2	0x4
 #define QC_DEVID_PGD	0x5
 #define QC_MSM_DEVS	5
-#define INIT_MX_RETRIES 10
-#define DEF_RETRY_MS	10
 
 /* Manager registers */
 enum mgr_reg {
