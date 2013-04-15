@@ -22,7 +22,6 @@
 #define SCM_SVC_FUSE			0x8
 #define SCM_SVC_PWR			0x9
 #define SCM_SVC_MP			0xC
-#define SCM_SVC_CRYPTO			0xA
 #define SCM_SVC_DCVS			0xD
 #define SCM_SVC_ES			0x10
 #define SCM_SVC_TZSCHEDULER		0xFC

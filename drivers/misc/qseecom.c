@@ -52,6 +52,8 @@
 #define QSEE_VERSION_02			0x402000
 #define QSEE_VERSION_03			0x403000
 #define QSEE_VERSION_04			0x404000
+#define QSEE_VERSION_05			0x405000
+
 
 
 #define QSEOS_CHECK_VERSION_CMD		0x00001803
@@ -2381,9 +2383,11 @@ static int __qseecom_generate_and_save_key(struct qseecom_dev_handle *data,
 
 	memcpy(ireq.key_id, key_id, QSEECOM_KEY_ID_SIZE);
 	ireq.flags = flags;
+	ireq.qsee_command_id = QSEOS_GENERATE_KEY;
 
 	__qseecom_enable_clk(CLK_QSEE);
-	ret = scm_call(SCM_SVC_CRYPTO, QSEOS_GENERATE_KEY,
+
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,
 				&ireq, sizeof(struct qseecom_key_generate_ireq),
 				&resp, sizeof(resp));
 	if (ret) {
@@ -2395,10 +2399,19 @@ static int __qseecom_generate_and_save_key(struct qseecom_dev_handle *data,
 	switch (resp.result) {
 	case QSEOS_RESULT_SUCCESS:
 		break;
+	case QSEOS_RESULT_FAIL_KEY_ID_EXISTS:
+		break;
 	case QSEOS_RESULT_INCOMPLETE:
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
-		if (ret)
-			pr_err("process_incomplete_cmd FAILED\n");
+		if (ret) {
+			if (resp.result == QSEOS_RESULT_FAIL_KEY_ID_EXISTS) {
+				pr_warn("process_incomplete_cmd return Key ID exits.\n");
+				ret = 0;
+			} else {
+				pr_err("process_incomplete_cmd FAILED, resp.result %d\n",
+					resp.result);
+			}
+		}
 		break;
 	case QSEOS_RESULT_FAILURE:
 	default:
@@ -2425,9 +2438,11 @@ static int __qseecom_delete_saved_key(struct qseecom_dev_handle *data,
 
 	memcpy(ireq.key_id, key_id, QSEECOM_KEY_ID_SIZE);
 	ireq.flags = flags;
+	ireq.qsee_command_id = QSEOS_DELETE_KEY;
 
 	__qseecom_enable_clk(CLK_QSEE);
-	ret = scm_call(SCM_SVC_CRYPTO, QSEOS_DELETE_KEY,
+
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,
 				&ireq, sizeof(struct qseecom_key_delete_ireq),
 				&resp, sizeof(struct qseecom_command_scm_resp));
 	if (ret) {
@@ -2442,7 +2457,8 @@ static int __qseecom_delete_saved_key(struct qseecom_dev_handle *data,
 	case QSEOS_RESULT_INCOMPLETE:
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
 		if (ret)
-			pr_err("process_incomplete_cmd FAILED\n");
+			pr_err("process_incomplete_cmd FAILED, resp.result %d\n",
+					resp.result);
 		break;
 	case QSEOS_RESULT_FAILURE:
 	default:
@@ -2474,9 +2490,13 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 		__qseecom_enable_clk(CLK_CE_DRV);
 
 	memcpy(ireq.key_id, set_key_para->key_id, QSEECOM_KEY_ID_SIZE);
+	ireq.qsee_command_id = QSEOS_SET_KEY;
 	ireq.ce = set_key_para->ce_hw;
 	ireq.pipe = set_key_para->pipe;
 	ireq.flags = set_key_para->flags;
+
+	/* set PIPE_ENC */
+	ireq.pipe_type = QSEOS_PIPE_ENC;
 
 	if (set_key_para->set_clear_key_flag ==
 			QSEECOM_SET_CE_KEY_CMD)
@@ -2485,11 +2505,22 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 	else
 		memset((void *)ireq.hash, 0, QSEECOM_HASH_SIZE);
 
-	ret = scm_call(SCM_SVC_CRYPTO, QSEOS_SET_KEY,
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,
 				&ireq, sizeof(struct qseecom_key_select_ireq),
 				&resp, sizeof(struct qseecom_command_scm_resp));
 	if (ret) {
-		pr_err("scm call to set key failed : %d\n", ret);
+		pr_err("scm call to set QSEOS_PIPE_ENC key failed : %d\n", ret);
+		return ret;
+	}
+
+	/* set PIPE_ENC_XTS */
+	ireq.pipe_type = QSEOS_PIPE_ENC_XTS;
+	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,
+				&ireq, sizeof(struct qseecom_key_select_ireq),
+				&resp, sizeof(struct qseecom_command_scm_resp));
+	if (ret) {
+		pr_err("scm call to set QSEOS_PIPE_ENC_XTS key failed : %d\n",
+			ret);
 		return ret;
 	}
 
@@ -2499,7 +2530,8 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 	case QSEOS_RESULT_INCOMPLETE:
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
 		if (ret)
-			pr_err("process_incomplete_cmd FAILED\n");
+			pr_err("process_incomplete_cmd FAILED, resp.result %d\n",
+					resp.result);
 		break;
 	case QSEOS_RESULT_FAILURE:
 	default:
@@ -2878,6 +2910,11 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_CREATE_KEY_REQ: {
+		if (qseecom.qsee_version < QSEE_VERSION_05) {
+			pr_err("Create Key feature not supported in qsee version %u\n",
+				qseecom.qsee_version);
+			return -EINVAL;
+		}
 		data->released = true;
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
@@ -2890,6 +2927,11 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		break;
 	}
 	case QSEECOM_IOCTL_WIPE_KEY_REQ: {
+		if (qseecom.qsee_version < QSEE_VERSION_05) {
+			pr_err("Wipe Key feature not supported in qsee version %u\n",
+				qseecom.qsee_version);
+			return -EINVAL;
+		}
 		data->released = true;
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
