@@ -34,6 +34,9 @@
 
 #define DRIVER_NAME "synaptics_rmi4_i2c"
 #define INPUT_PHYS_NAME "synaptics_rmi4_i2c/input0"
+
+#define RESET_DELAY 100
+
 #define TYPE_B_PROTOCOL
 
 #define NO_0D_WHILE_2D
@@ -68,6 +71,16 @@
 #define NO_SLEEP_OFF (0 << 2)
 #define NO_SLEEP_ON (1 << 2)
 
+enum device_status {
+	STATUS_NO_ERROR = 0x00,
+	STATUS_RESET_OCCURED = 0x01,
+	STATUS_INVALID_CONFIG = 0x02,
+	STATUS_DEVICE_FAILURE = 0x03,
+	STATUS_CONFIG_CRC_FAILURE = 0x04,
+	STATUS_FIRMWARE_CRC_FAILURE = 0x05,
+	STATUS_CRC_IN_PROGRESS = 0x06
+};
+
 #define RMI4_VTG_MIN_UV		2700000
 #define RMI4_VTG_MAX_UV		3300000
 #define RMI4_ACTIVE_LOAD_UA	15000
@@ -79,7 +92,6 @@
 #define RMI4_I2C_LPM_LOAD_UA	10
 
 #define RMI4_GPIO_SLEEP_LOW_US 10000
-#define RMI4_GPIO_WAIT_HIGH_MS 25
 
 static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr, unsigned char *data,
@@ -1482,6 +1494,16 @@ static int synaptics_rmi4_query_device(struct synaptics_rmi4_data *rmi4_data)
 				if (retval < 0)
 					return retval;
 
+				while (status.status_code == STATUS_CRC_IN_PROGRESS) {
+					msleep(1);
+					retval = synaptics_rmi4_i2c_read(rmi4_data,
+						rmi4_data->f01_data_base_addr,
+						status.data,
+						sizeof(status.data));
+					if (retval < 0)
+						return retval;
+				}
+
 				if (status.flash_prog == 1) {
 					pr_notice("%s: In flash prog mode, status = 0x%02x\n",
 							__func__,
@@ -1645,7 +1667,7 @@ static int synaptics_rmi4_reset_command(struct synaptics_rmi4_data *rmi4_data)
 		return retval;
 	}
 
-	msleep(100);
+	msleep(RESET_DELAY);
 	return retval;
 };
 
@@ -2110,7 +2132,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		gpio_set_value(platform_data->reset_gpio, 0);
 		usleep(RMI4_GPIO_SLEEP_LOW_US);
 		gpio_set_value(platform_data->reset_gpio, 1);
-		msleep(RMI4_GPIO_WAIT_HIGH_MS);
+		msleep(RESET_DELAY);
 	} else
 		synaptics_rmi4_reset_command(rmi4_data);
 
