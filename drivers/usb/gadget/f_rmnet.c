@@ -301,6 +301,7 @@ static int rmnet_gport_setup(void)
 	int	ret;
 	int	port_idx;
 	int	i;
+	u8 base;
 
 	pr_debug("%s: bam ports: %u bam2bam ports: %u data hsic ports: %u data hsuart ports: %u"
 		" smd ports: %u ctrl hsic ports: %u ctrl hsuart ports: %u"
@@ -317,9 +318,13 @@ static int rmnet_gport_setup(void)
 	}
 
 	if (no_ctrl_smd_ports) {
-		ret = gsmd_ctrl_setup(no_ctrl_smd_ports);
+		ret = gsmd_ctrl_setup(FRMNET_CTRL_CLIENT,
+				no_ctrl_smd_ports, &base);
 		if (ret)
 			return ret;
+		for (i = 0; i < nr_rmnet_ports; i++)
+			if (rmnet_ports[i].port)
+				rmnet_ports[i].port->port_num += base;
 	}
 
 	if (no_data_hsic_ports) {
