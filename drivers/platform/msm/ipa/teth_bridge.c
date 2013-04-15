@@ -283,14 +283,7 @@ static int configure_ipa_header_block(void)
 		TETH_ERR("Configuration of header removal/insertion failed\n");
 		goto bail;
 	}
-
-	res = ipa_commit_hdr();
-	if (res) {
-		TETH_ERR("Failed committing headers\n");
-		goto bail;
-	}
 	TETH_DBG_FUNC_EXIT();
-
 bail:
 	return res;
 }
@@ -425,20 +418,7 @@ static int configure_ipa_routing_block(void)
 		TETH_ERR("A2 to USB routing block configuration failed\n");
 		goto bail;
 	}
-
-	/* Commit all the changes to HW in one shot */
-	res = ipa_commit_rt(IPA_IP_v4);
-	if (res) {
-		TETH_ERR("Failed commiting IPv4 routing tables\n");
-		goto bail;
-	}
-	res = ipa_commit_rt(IPA_IP_v6);
-	if (res) {
-		TETH_ERR("Failed commiting IPv6 routing tables\n");
-		goto bail;
-	}
 	TETH_DBG_FUNC_EXIT();
-
 bail:
 	return res;
 }
@@ -533,20 +513,7 @@ static int configure_ipa_filtering_block(void)
 		TETH_ERR("A2_PROD filtering configuration failed\n");
 		goto bail;
 	}
-
-	/* Commit all the changes to HW in one shot */
-	res = ipa_commit_flt(IPA_IP_v4);
-	if (res) {
-		TETH_ERR("Failed commiting IPv4 filtering tables\n");
-		goto bail;
-	}
-	res = ipa_commit_flt(IPA_IP_v6);
-	if (res) {
-		TETH_ERR("Failed commiting IPv6 filtering tables\n");
-		goto bail;
-	}
 	TETH_DBG_FUNC_EXIT();
-
 bail:
 	return res;
 }
@@ -699,9 +666,6 @@ bail:
 static void complete_hw_bridge(struct work_struct *work)
 {
 	int res;
-	static DEFINE_MUTEX(f_lock);
-
-	mutex_lock(&f_lock);
 
 	TETH_DBG_FUNC_ENTRY();
 	TETH_DBG("Completing HW bridge in %s mode\n",
@@ -712,17 +676,6 @@ static void complete_hw_bridge(struct work_struct *work)
 	res = teth_set_aggregation();
 	if (res) {
 		TETH_ERR("Failed setting aggregation params\n");
-		goto bail;
-	}
-
-	/*
-	 * Reset the Header, Routing and Filtering blocks.
-	 * Resetting the Header block will also reset the other blocks.
-	 * This reset is not comitted to HW.
-	 */
-	res = ipa_reset_hdr();
-	if (res) {
-		TETH_ERR("Failed resetting IPA\n");
 		goto bail;
 	}
 
@@ -744,10 +697,19 @@ static void complete_hw_bridge(struct work_struct *work)
 		goto bail;
 	}
 
+	/*
+	 * Commit all the data to HW, including header, routing and filtering
+	 * blocks, IPv4 and IPv6
+	 */
+	res = ipa_commit_hdr();
+	if (res) {
+		TETH_ERR("Failed committing headers / routing / filtering.\n");
+		goto bail;
+	}
+
 	teth_ctx->is_hw_bridge_complete = true;
-	teth_ctx->comp_hw_bridge_in_progress = false;
 bail:
-	mutex_unlock(&f_lock);
+	teth_ctx->comp_hw_bridge_in_progress = false;
 	TETH_DBG_FUNC_EXIT();
 
 	return;
@@ -1110,10 +1072,8 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 
 	teth_ctx->aggr_params_known = true;
 	res = teth_set_aggregation();
-	if (res) {
+	if (res)
 		TETH_ERR("Failed setting aggregation params\n");
-		res = -EFAULT;
-	}
 
 	return res;
 }
