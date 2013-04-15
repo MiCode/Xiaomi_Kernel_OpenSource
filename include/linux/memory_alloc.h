@@ -20,7 +20,7 @@
 struct mem_pool {
 	struct mutex pool_mutex;
 	struct gen_pool *gpool;
-	unsigned long paddr;
+	phys_addr_t paddr;
 	unsigned long size;
 	unsigned long free;
 	unsigned int id;
@@ -28,29 +28,34 @@ struct mem_pool {
 
 struct alloc {
 	struct rb_node rb_node;
-	void *vaddr;
-	unsigned long paddr;
+	/*
+	 * The physical address may be used for lookup in the tree so the
+	 * 'virtual address' needs to be able to accomodate larger physical
+	 * addresses.
+	 */
+	phys_addr_t vaddr;
+	phys_addr_t paddr;
 	struct mem_pool *mpool;
 	unsigned long len;
 	void *caller;
 };
 
-struct mem_pool *initialize_memory_pool(unsigned long start,
+struct mem_pool *initialize_memory_pool(phys_addr_t start,
 	unsigned long size, int mem_type);
 
 void *allocate_contiguous_memory(unsigned long size,
 	int mem_type, unsigned long align, int cached);
 
-unsigned long _allocate_contiguous_memory_nomap(unsigned long size,
+phys_addr_t _allocate_contiguous_memory_nomap(unsigned long size,
 	int mem_type, unsigned long align, void *caller);
 
-unsigned long allocate_contiguous_memory_nomap(unsigned long size,
+phys_addr_t allocate_contiguous_memory_nomap(unsigned long size,
 	int mem_type, unsigned long align);
 
 void free_contiguous_memory(void *addr);
-void free_contiguous_memory_by_paddr(unsigned long paddr);
+void free_contiguous_memory_by_paddr(phys_addr_t paddr);
 
-unsigned long memory_pool_node_paddr(void *vaddr);
+phys_addr_t memory_pool_node_paddr(void *vaddr);
 
 unsigned long memory_pool_node_len(void *vaddr);
 
