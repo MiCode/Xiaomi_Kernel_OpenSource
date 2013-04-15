@@ -3060,7 +3060,7 @@ static struct clk_lookup msm_clocks_8226[] = {
 
 	/* WCNSS CLOCKS */
 	CLK_LOOKUP("xo", cxo_wlan_clk.c, "fb000000.qcom,wcnss-wlan"),
-	CLK_LOOKUP("rf_clk",   cxo_a2.c, "fb000000.qcom,wcnss-wlan"),
+	CLK_LOOKUP("rf_clk",   cxo_a1.c, "fb000000.qcom,wcnss-wlan"),
 
 	/* BUS DRIVER */
 	CLK_LOOKUP("bus_clk", cnoc_msmbus_clk.c, "msm_config_noc"),
