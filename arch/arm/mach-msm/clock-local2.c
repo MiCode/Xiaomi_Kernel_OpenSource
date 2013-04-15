@@ -596,6 +596,13 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 		ret = -EINVAL;
 	}
 	writel_relaxed(cbcr_val, CBCR_REG(branch));
+	/*
+	 * 8974v2.2 has a requirement that writes to set bits 13 and 14 are
+	 * separated by at least 2 bus cycles. Cover one of these cycles by
+	 * performing an extra write here. The other cycle is covered by the
+	 * read-modify-write design of this function.
+	 */
+	writel_relaxed(cbcr_val, CBCR_REG(branch));
 	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
 
 	/* Make sure write is issued before returning. */
