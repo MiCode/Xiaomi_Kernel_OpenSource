@@ -1111,6 +1111,19 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 		return -EINVAL;
 	}
 
+	/*
+	 * In case the requested max transfer size is larger than 8K, set it to
+	 * to the default 8K
+	 */
+	if (aggr_params->dl.max_transfer_size_byte >
+	    TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT)
+		aggr_params->dl.max_transfer_size_byte =
+			TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT;
+	if (aggr_params->ul.max_transfer_size_byte >
+	    TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT)
+		aggr_params->ul.max_transfer_size_byte =
+			TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT;
+
 	memcpy(&teth_ctx->aggr_params,
 	       aggr_params,
 	       sizeof(struct teth_aggr_params));
