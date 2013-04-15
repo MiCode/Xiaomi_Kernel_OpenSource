@@ -432,6 +432,7 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 			}
 			IPA_STATS_INC_CNT(
 				ipa_ctx->stats.msg_r[msg->meta.msg_type]);
+			kfree(msg);
 		}
 
 		ret = -EAGAIN;
