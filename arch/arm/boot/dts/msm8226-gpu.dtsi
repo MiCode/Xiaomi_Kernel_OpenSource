@@ -22,8 +22,7 @@
 
 		qcom,chipid = <0x03000510>;
 
-		qcom,initial-pwrlevel = <2>;
-		qcom,step-pwrlevel = <2>;
+		qcom,initial-pwrlevel = <1>;
 
 		qcom,idle-timeout = <8>; //<HZ/12>
 		qcom,nap-allowed = <1>;
