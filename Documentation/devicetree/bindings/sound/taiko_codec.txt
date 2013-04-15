@@ -76,6 +76,8 @@ Optional properties:
 				dynamically.
 				Supplies in this list are off by default.
 
+ - qcom,cdc-micbias2-headset-only: Boolean. Allow micbias 2 only to headset mic.
+
 Example:
 
 taiko_codec {
@@ -138,6 +140,7 @@ taiko_codec {
 	qcom,cdc-slim-ifd = "taiko-slim-ifd";
 	qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 00 17 02];
 	qcom,cdc-dmic-sample-rate = <4800000>;
+	qcom,cdc-micbias2-headset-only;
 };
 
 Wcd9xxx audio CODEC in I2C mode

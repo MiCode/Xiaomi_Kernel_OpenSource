@@ -126,6 +126,7 @@ struct wcd9xxx_micbias_setting {
 	u8 bias2_cap_mode;
 	u8 bias3_cap_mode;
 	u8 bias4_cap_mode;
+	bool bias2_is_headset_only;
 };
 
 struct wcd9xxx_ocp_setting {

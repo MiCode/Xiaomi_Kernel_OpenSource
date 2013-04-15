@@ -1147,6 +1147,10 @@ static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
 	    (of_property_read_bool(dev->of_node, "qcom,cdc-micbias4-ext-cap") ?
 	     MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
 
+	micbias->bias2_is_headset_only =
+	    of_property_read_bool(dev->of_node,
+				  "qcom,cdc-micbias2-headset-only");
+
 	dev_dbg(dev, "ldoh_v  %u cfilt1_mv %u cfilt2_mv %u cfilt3_mv %u",
 		(u32)micbias->ldoh_v, (u32)micbias->cfilt1_mv,
 		(u32)micbias->cfilt2_mv, (u32)micbias->cfilt3_mv);
@@ -1162,6 +1166,8 @@ static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
 	dev_dbg(dev, "bias3_ext_cap %d bias4_ext_cap %d\n",
 		micbias->bias3_cap_mode, micbias->bias4_cap_mode);
 
+	dev_dbg(dev, "bias2_is_headset_only %d\n",
+		micbias->bias2_is_headset_only);
 	return 0;
 }
 
