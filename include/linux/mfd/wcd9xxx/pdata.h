@@ -136,7 +136,7 @@ struct wcd9xxx_ocp_setting {
 	unsigned int	hph_ocp_limit:3; /* Headphone OCP current limit */
 };
 
-#define MAX_REGULATOR	7
+#define WCD9XXX_MAX_REGULATOR	8
 /*
  *      format : TABLA_<POWER_SUPPLY_PIN_NAME>_CUR_MAX
  *
@@ -156,6 +156,7 @@ struct wcd9xxx_regulator {
 	int min_uV;
 	int max_uV;
 	int optimum_uA;
+	bool ondemand;
 	struct regulator *regulator;
 };
 
@@ -168,7 +169,7 @@ struct wcd9xxx_pdata {
 	struct slim_device slimbus_slave_device;
 	struct wcd9xxx_micbias_setting micbias;
 	struct wcd9xxx_ocp_setting ocp;
-	struct wcd9xxx_regulator regulator[MAX_REGULATOR];
+	struct wcd9xxx_regulator regulator[WCD9XXX_MAX_REGULATOR];
 	u32 mclk_rate;
 	u32 dmic_sample_rate;
 };
