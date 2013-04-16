@@ -18,6 +18,17 @@ Required properties:
     qcom,gpio-req-tbl-num property (in the same order)
 - qcom,gpio-req-tbl-label : should contain name of gpios present in
     qcom,gpio-req-tbl-num property (in the same order)
+
+Optional properties:
+- master0: qcom,cci-master0 - node should contain clock settings for
+    cci master 0 bus
+- master1: qcom,cci-master1 - node should contain clock settings for
+    cci master 1 bus
+
+[Second level nodes]
+* Qualcomm CCI clock settings
+
+Optional properties:
 - qcom,hw-thigh : should contain high period of the SCL clock in terms of CCI
     clock cycle
 - qcom,hw-tlow : should contain high period of the SCL clock in terms of CCI
@@ -31,7 +42,6 @@ Required properties:
 - qcom,hw-trdhld : should contain internal hold time for SDA
 - qcom,hw-tsp : should contain filtering of glitches
 
-[Second level nodes]
 * Qualcomm MSM Sensor
 
 MSM sensor node contains properties of camera sensor
@@ -175,16 +185,12 @@ Example:
                              "CCI_I2C_CLK0",
                              "CCI_I2C_DATA1",
                              "CCI_I2C_CLK1";
-       qcom,hw-thigh = <78>;
-       qcom,hw-tlow = <114>;
-       qcom,hw-tsu-sto = <28>;
-       qcom,hw-tsu-sta = <28>;
-       qcom,hw-thd-dat = <10>;
-       qcom,hw-thd-sta = <77>;
-       qcom,hw-tbuf = <118>;
-       qcom,hw-scl-stretch-en = <0>;
-       qcom,hw-trdhld = <6>;
-       qcom,hw-tsp = <1>;
+       master0: qcom,cci-master0 {
+                status = "disabled";
+       };
+       master1: qcom,cci-master1 {
+                status = "disabled";
+       };
 
         actuator0: qcom,actuator@18 {
                 cell-index = <0>;
@@ -234,4 +240,32 @@ Example:
                qcom,sensor-position = <0>;
                qcom,sensor-mode = <1>;
        };
+   };
+
+   &master0 {
+           qcom,hw-thigh = <78>;
+           qcom,hw-tlow = <114>;
+           qcom,hw-tsu-sto = <28>;
+           qcom,hw-tsu-sta = <28>;
+           qcom,hw-thd-dat = <10>;
+           qcom,hw-thd-sta = <77>;
+           qcom,hw-tbuf = <118>;
+           qcom,hw-scl-stretch-en = <0>;
+           qcom,hw-trdhld = <6>;
+           qcom,hw-tsp = <1>;
+           status = "ok";
+   };
+
+   &master1 {
+           qcom,hw-thigh = <78>;
+           qcom,hw-tlow = <114>;
+           qcom,hw-tsu-sto = <28>;
+           qcom,hw-tsu-sta = <28>;
+           qcom,hw-thd-dat = <10>;
+           qcom,hw-thd-sta = <77>;
+           qcom,hw-tbuf = <118>;
+           qcom,hw-scl-stretch-en = <0>;
+           qcom,hw-trdhld = <6>;
+           qcom,hw-tsp = <1>;
+           status = "ok";
    };

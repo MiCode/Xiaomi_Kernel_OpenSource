@@ -139,7 +139,7 @@ struct cci_device {
 	struct msm_camera_cci_i2c_queue_info
 		cci_i2c_queue_info[NUM_MASTERS][NUM_QUEUES];
 	struct msm_camera_cci_master_info cci_master_info[NUM_MASTERS];
-	struct msm_cci_clk_params_t cci_clk_params;
+	struct msm_cci_clk_params_t cci_clk_params[MASTER_MAX];
 	struct gpio *cci_gpio_tbl;
 	uint8_t cci_gpio_tbl_size;
 };
