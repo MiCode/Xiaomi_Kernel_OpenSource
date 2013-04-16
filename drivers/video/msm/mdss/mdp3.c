@@ -47,7 +47,7 @@
 #include "mdp3_hwio.h"
 #include "mdp3_ctrl.h"
 
-#define MDP_CORE_HW_VERSION	0x03030304
+#define MDP_CORE_HW_VERSION	0x03040310
 struct mdp3_hw_resource *mdp3_res;
 
 #define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
@@ -302,16 +302,7 @@ static int mdp3_clk_update(u32 clk_idx, u32 enable)
 	return ret;
 }
 
-int mdp3_vsync_clk_enable(int enable)
-{
-	int ret = 0;
 
-	pr_debug("vsync clk enable=%d\n", enable);
-	mutex_lock(&mdp3_res->res_mutex);
-	mdp3_clk_update(MDP3_CLK_VSYNC, enable);
-	mutex_unlock(&mdp3_res->res_mutex);
-	return ret;
-}
 
 int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate)
 {
@@ -400,6 +391,9 @@ static int mdp3_clk_setup(void)
 	if (rc)
 		return rc;
 
+	rc = mdp3_clk_register("dsi_clk", MDP3_CLK_DSI);
+	if (rc)
+		return rc;
 	return rc;
 }
 
@@ -409,6 +403,7 @@ static void mdp3_clk_remove(void)
 	clk_put(mdp3_res->clocks[MDP3_CLK_CORE]);
 	clk_put(mdp3_res->clocks[MDP3_CLK_VSYNC]);
 	clk_put(mdp3_res->clocks[MDP3_CLK_LCDC]);
+	clk_put(mdp3_res->clocks[MDP3_CLK_DSI]);
 }
 
 int mdp3_clk_enable(int enable)
@@ -421,6 +416,7 @@ int mdp3_clk_enable(int enable)
 	rc = mdp3_clk_update(MDP3_CLK_AHB, enable);
 	rc |= mdp3_clk_update(MDP3_CLK_CORE, enable);
 	rc |= mdp3_clk_update(MDP3_CLK_VSYNC, enable);
+	rc |= mdp3_clk_update(MDP3_CLK_DSI, enable);
 	mutex_unlock(&mdp3_res->res_mutex);
 	return rc;
 }
@@ -577,12 +573,14 @@ static int mdp3_check_version(void)
 	int rc;
 
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
+	rc |= mdp3_clk_update(MDP3_CLK_CORE, 1);
 	if (rc)
 		return rc;
 
 	mdp3_res->mdp_rev = MDP3_REG_READ(MDP3_REG_HW_VERSION);
 
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 0);
+	rc |= mdp3_clk_update(MDP3_CLK_CORE, 0);
 	if (rc)
 		pr_err("fail to turn off the MDP3_CLK_AHB clk\n");
 
