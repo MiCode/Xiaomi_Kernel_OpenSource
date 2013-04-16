@@ -335,6 +335,8 @@ static int tsens_tz_code_to_degc(int adc_code, int sensor_sw_id)
 	else
 		degc = num/den;
 
+	pr_debug("raw_code:0x%x, sensor_num:%d, degc:%d\n",
+			adc_code, idx, degc);
 	return degc;
 }
 
@@ -347,6 +349,8 @@ static int tsens_tz_degc_to_code(int degc, int idx)
 		code = TSENS_THRESHOLD_MAX_CODE;
 	else if (code < TSENS_THRESHOLD_MIN_CODE)
 		code = TSENS_THRESHOLD_MIN_CODE;
+	pr_debug("raw_code:0x%x, sensor_num:%d, degc:%d\n",
+			code, idx, degc);
 	return code;
 }
 
@@ -731,6 +735,7 @@ static int tsens_calib_8x10_sensors(void)
 
 	tsens_calibration_mode = (calib_data[0] & TSENS_8X10_TSENS_CAL_SEL)
 			>> TSENS_8X10_CAL_SEL_SHIFT;
+	pr_debug("calib mode scheme:%x\n", tsens_calibration_mode);
 
 	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
 		(tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2)) {
@@ -785,6 +790,9 @@ compute_intercept_slope:
 		int32_t num = 0, den = 0;
 		tmdev->sensor[i].calib_data_point2 = calib_tsens_point2_data[i];
 		tmdev->sensor[i].calib_data_point1 = calib_tsens_point1_data[i];
+		pr_debug("sensor:%d - calib_data_point1:0x%x, calib_data_point2:0x%x\n",
+			i, tmdev->sensor[i].calib_data_point1,
+			tmdev->sensor[i].calib_data_point2);
 		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
 			/* slope (m) = adc_code2 - adc_code1 (y2 - y1)/
 				temp_120_degc - temp_30_degc (x2 - x1) */
@@ -829,6 +837,7 @@ static int tsens_calib_8x26_sensors(void)
 
 	tsens_calibration_mode = (calib_data[5] & TSENS_8X26_TSENS_CAL_SEL)
 			>> TSENS_8X26_CAL_SEL_SHIFT;
+	pr_debug("calib mode scheme:%x\n", tsens_calibration_mode);
 
 	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
 		(tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2)) {
@@ -938,6 +947,9 @@ compute_intercept_slope:
 		int32_t num = 0, den = 0;
 		tmdev->sensor[i].calib_data_point2 = calib_tsens_point2_data[i];
 		tmdev->sensor[i].calib_data_point1 = calib_tsens_point1_data[i];
+		pr_debug("sensor:%d - calib_data_point1:0x%x, calib_data_point2:0x%x\n",
+			i, tmdev->sensor[i].calib_data_point1,
+			tmdev->sensor[i].calib_data_point2);
 		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
 			/* slope (m) = adc_code2 - adc_code1 (y2 - y1)/
 				temp_120_degc - temp_30_degc (x2 - x1) */
@@ -978,11 +990,14 @@ static int tsens_calib_8974_sensors(void)
 			TSENS_EEPROM_REDUNDANCY_SEL(tmdev->tsens_calib_addr));
 	calib_redun_sel = calib_redun_sel & TSENS_QFPROM_BACKUP_REDUN_SEL;
 	calib_redun_sel >>= TSENS_QFPROM_BACKUP_REDUN_SHIFT;
+	pr_debug("calib_redun_sel:%x\n", calib_redun_sel);
 
-	for (i = 0; i < TSENS_MAIN_CALIB_ADDR_RANGE; i++)
+	for (i = 0; i < TSENS_MAIN_CALIB_ADDR_RANGE; i++) {
 		calib_data[i] = readl_relaxed(
 			(TSENS_EEPROM(tmdev->tsens_calib_addr))
 					+ (i * TSENS_SN_ADDR_OFFSET));
+		pr_debug("calib raw data row%d:0x%x\n", i, calib_data[i]);
+	}
 
 	if (calib_redun_sel == TSENS_QFPROM_BACKUP_SEL) {
 		tsens_calibration_mode = (calib_data[4] & TSENS_CAL_SEL_0_1)
@@ -990,6 +1005,7 @@ static int tsens_calib_8974_sensors(void)
 		temp = (calib_data[5] & TSENS_CAL_SEL_2)
 				>> TSENS_CAL_SEL_SHIFT_2;
 		tsens_calibration_mode |= temp;
+		pr_debug("backup calib mode:%x\n", calib_redun_sel);
 
 		for (i = 0; i < TSENS_BACKUP_CALIB_ADDR_RANGE; i++)
 			calib_data_backup[i] = readl_relaxed(
@@ -1075,6 +1091,7 @@ static int tsens_calib_8974_sensors(void)
 		temp = (calib_data[3] & TSENS_CAL_SEL_2)
 			>> TSENS_CAL_SEL_SHIFT_2;
 		tsens_calibration_mode |= temp;
+		pr_debug("calib mode scheme:%x\n", tsens_calibration_mode);
 		if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB) ||
 			(tsens_calibration_mode ==
 					TSENS_ONE_POINT_CALIB_OPTION_2) ||
@@ -1186,6 +1203,7 @@ calibration_less_mode:
 
 	if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2) ||
 			(tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
+		pr_debug("one point calibration calculation\n");
 		calib_tsens_point1_data[0] =
 			((((tsens_base1_data) + tsens0_point1) << 2) |
 						TSENS_BIT_APPEND);
@@ -1263,6 +1281,9 @@ compute_intercept_slope:
 		int32_t num = 0, den = 0;
 		tmdev->sensor[i].calib_data_point2 = calib_tsens_point2_data[i];
 		tmdev->sensor[i].calib_data_point1 = calib_tsens_point1_data[i];
+		pr_debug("sensor:%d - calib_data_point1:0x%x, calib_data_point2:0x%x\n",
+			i, tmdev->sensor[i].calib_data_point1,
+			tmdev->sensor[i].calib_data_point2);
 		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
 			/* slope (m) = adc_code2 - adc_code1 (y2 - y1)/
 				temp_120_degc - temp_30_degc (x2 - x1) */
@@ -1275,6 +1296,7 @@ compute_intercept_slope:
 		tmdev->sensor[i].offset = (tmdev->sensor[i].calib_data_point1 *
 			tmdev->tsens_factor) - (TSENS_CAL_DEGC_POINT1 *
 				tmdev->sensor[i].slope_mul_tsens_factor);
+		pr_debug("offset:%d\n", tmdev->sensor[i].offset);
 		INIT_WORK(&tmdev->sensor[i].work, notify_uspace_tsens_fn);
 		tmdev->prev_reading_avail = false;
 	}
