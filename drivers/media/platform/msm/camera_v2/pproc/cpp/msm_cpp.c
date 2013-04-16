@@ -588,7 +588,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		pr_err("%s: Bandwidth registration Failed!\n", __func__);
 		goto bus_scale_register_failed;
 	}
-	msm_isp_update_bandwidth(ISP_CPP, 981345600, 1600020000);
+	msm_isp_update_bandwidth(ISP_CPP, 981345600, 1066680000);
 
 	if (cpp_dev->fs_cpp == NULL) {
 		cpp_dev->fs_cpp =
