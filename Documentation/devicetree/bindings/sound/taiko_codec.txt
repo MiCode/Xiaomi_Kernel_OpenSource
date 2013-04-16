@@ -204,6 +204,14 @@ Wcd9xxx audio CODEC in I2C mode
 
 Optional properties:
 
+ - cdc-vdd-spkdrv-supply: phandle of spkdrv supply's regulator device tree node.
+ - qcom,cdc-vdd-spkdrv-voltage: spkdrv supply voltage level min and max in mV.
+ - qcom,cdc-vdd-spkdrv-current: spkdrv supply max current in mA.
+
+ - cdc-vdd-spkdrv-supply: phandle of spkdrv supply's regulator device tree node.
+ - qcom,cdc-vdd-spkdrv-voltage: spkdrv supply voltage level min and max in mV.
+ - qcom,cdc-vdd-spkdrv-current: spkdrv supply max current in mA.
+
  - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
 				dynamically.
 				Supplies in this list are off by default.
