@@ -310,7 +310,7 @@ static int msm_rpm_set_exclusive(int ctx,
 	unsigned long flags;
 	uint32_t ctx_mask = msm_rpm_get_ctx_mask(ctx);
 	uint32_t ctx_mask_ack = 0;
-	uint32_t sel_masks_ack[SEL_MASK_SIZE];
+	uint32_t sel_masks_ack[SEL_MASK_SIZE] = {0};
 	int i;
 
 	msm_rpm_request_irq_mode.req = req;
@@ -369,7 +369,7 @@ static int msm_rpm_set_exclusive_noirq(int ctx,
 	unsigned long flags;
 	uint32_t ctx_mask = msm_rpm_get_ctx_mask(ctx);
 	uint32_t ctx_mask_ack = 0;
-	uint32_t sel_masks_ack[SEL_MASK_SIZE];
+	uint32_t sel_masks_ack[SEL_MASK_SIZE] = {0};
 	struct irq_chip *irq_chip, *err_chip;
 	int i;
 
