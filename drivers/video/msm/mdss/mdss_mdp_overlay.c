@@ -742,12 +742,13 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 	if (ndx == BORDERFILL_NDX) {
 		pr_debug("borderfill disable\n");
 		mdp5_data->borderfill_enable = false;
-		return 0;
+		ret = 0;
+		goto done;
 	}
 
 	if (!mfd->panel_power_on) {
-		mutex_unlock(&mdp5_data->ov_lock);
-		return -EPERM;
+		ret = -EPERM;
+		goto done;
 	}
 
 	pr_debug("unset ndx=%x\n", ndx);
@@ -757,6 +758,7 @@ static int mdss_mdp_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
 	else
 		ret = mdss_mdp_overlay_release(mfd, ndx);
 
+done:
 	mutex_unlock(&mdp5_data->ov_lock);
 
 	return ret;
@@ -898,14 +900,14 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 		return ret;
 
 	if (!mfd->panel_power_on) {
-		mutex_unlock(&mdp5_data->ov_lock);
-		return -EPERM;
+		ret = -EPERM;
+		goto done;
 	}
 
 	ret = mdss_mdp_overlay_start(mfd);
 	if (ret) {
 		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
-		return ret;
+		goto done;
 	}
 
 	if (req->id & MDSS_MDP_ROT_SESSION_MASK) {
@@ -918,6 +920,7 @@ static int mdss_mdp_overlay_play(struct msm_fb_data_type *mfd,
 		ret = mdss_mdp_overlay_queue(mfd, req);
 	}
 
+done:
 	mutex_unlock(&mdp5_data->ov_lock);
 
 	return ret;
