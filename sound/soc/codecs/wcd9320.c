@@ -42,6 +42,9 @@
 #define TAIKO_MAD_SLIMBUS_TX_PORT 12
 #define TAIKO_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
 
+#define TAIKO_HPH_PA_SETTLE_COMP_ON 2600
+#define TAIKO_HPH_PA_SETTLE_COMP_OFF 13000
+
 static atomic_t kp_taiko_priv;
 static int spkr_drv_wrnd_param_set(const char *val,
 				   const struct kernel_param *kp);
@@ -810,6 +813,32 @@ static int taiko_set_compander(struct snd_kcontrol *kcontrol,
 	pr_debug("%s: Compander %d enable current %d, new %d\n",
 		 __func__, comp, taiko->comp_enabled[comp], value);
 	taiko->comp_enabled[comp] = value;
+
+	if (comp == COMPANDER_1 &&
+			taiko->comp_enabled[comp] == 1) {
+		/* Wavegen to 5 msec */
+		snd_soc_write(codec, TAIKO_A_RX_HPH_CNP_WG_CTL, 0xDA);
+		snd_soc_write(codec, TAIKO_A_RX_HPH_CNP_WG_TIME, 0x15);
+		snd_soc_write(codec, TAIKO_A_RX_HPH_BIAS_WG_OCP, 0x2A);
+
+		/* Enable Chopper */
+		snd_soc_update_bits(codec,
+			TAIKO_A_RX_HPH_CHOP_CTL, 0x80, 0x80);
+		pr_debug("%s: Enabled Chopper and set wavegen to 5 msec\n",
+				__func__);
+	} else if (comp == COMPANDER_1 &&
+			taiko->comp_enabled[comp] == 0) {
+		/* Wavegen to 20 msec */
+		snd_soc_write(codec, TAIKO_A_RX_HPH_CNP_WG_CTL, 0xDB);
+		snd_soc_write(codec, TAIKO_A_RX_HPH_CNP_WG_TIME, 0x58);
+		snd_soc_write(codec, TAIKO_A_RX_HPH_BIAS_WG_OCP, 0x1A);
+
+		/* Disable CHOPPER block */
+		snd_soc_update_bits(codec,
+			TAIKO_A_RX_HPH_CHOP_CTL, 0x80, 0x00);
+		pr_debug("%s: Disabled Chopper and set wavegen to 20 msec\n",
+				__func__);
+	}
 	return 0;
 }
 
@@ -2990,6 +3019,7 @@ static int taiko_hph_pa_event(struct snd_soc_dapm_widget *w,
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 	enum wcd9xxx_notify_event e_pre_on, e_post_off;
 	u8 req_clsh_state;
+	u32 pa_settle_time = TAIKO_HPH_PA_SETTLE_COMP_OFF;
 
 	pr_debug("%s: %s event = %d\n", __func__, w->name, event);
 	if (w->shift == 5) {
@@ -3005,6 +3035,9 @@ static int taiko_hph_pa_event(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
+	if (taiko->comp_enabled[COMPANDER_1])
+		pa_settle_time = TAIKO_HPH_PA_SETTLE_COMP_ON;
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/* Let MBHC module know PA is turning on */
@@ -3012,16 +3045,21 @@ static int taiko_hph_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 
 	case SND_SOC_DAPM_POST_PMU:
+		usleep_range(pa_settle_time, pa_settle_time + 1000);
+		pr_debug("%s: sleep %d us after %s PA enable\n", __func__,
+				pa_settle_time, w->name);
 		wcd9xxx_clsh_fsm(codec, &taiko->clsh_d,
 						 req_clsh_state,
 						 WCD9XXX_CLSH_REQ_ENABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
 
-
-		usleep_range(5000, 5000);
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
+		usleep_range(pa_settle_time, pa_settle_time + 1000);
+		pr_debug("%s: sleep %d us after %s PA disable\n", __func__,
+				pa_settle_time, w->name);
+
 		/* Let MBHC module know PA turned off */
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_off);
 
@@ -3030,9 +3068,6 @@ static int taiko_hph_pa_event(struct snd_soc_dapm_widget *w,
 						 WCD9XXX_CLSH_REQ_DISABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
 
-		pr_debug("%s: sleep 10 ms after %s PA disable.\n", __func__,
-			 w->name);
-		usleep_range(5000, 5000);
 		break;
 	}
 	return 0;
@@ -5775,6 +5810,15 @@ static const struct wcd9xxx_reg_mask_val taiko_codec_reg_init_val[] = {
 	{TAIKO_A_CDC_COMP0_B5_CTL, 0x7F, 0x7F},
 	{TAIKO_A_CDC_COMP1_B5_CTL, 0x7F, 0x7F},
 	{TAIKO_A_CDC_COMP2_B5_CTL, 0x7F, 0x7F},
+
+	/*
+	 * Setup wavegen timer to 20msec and disable chopper
+	 * as default. This corresponds to Compander OFF
+	 */
+	{TAIKO_A_RX_HPH_CNP_WG_CTL, 0xFF, 0xDB},
+	{TAIKO_A_RX_HPH_CNP_WG_TIME, 0xFF, 0x58},
+	{TAIKO_A_RX_HPH_BIAS_WG_OCP, 0xFF, 0x1A},
+	{TAIKO_A_RX_HPH_CHOP_CTL, 0xFF, 0x24},
 };
 
 static void taiko_codec_init_reg(struct snd_soc_codec *codec)
