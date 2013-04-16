@@ -76,8 +76,8 @@ endif
         dtb-$(CONFIG_ARCH_MSM9625)	+= msm9625-v1-rumi.dtb
 	dtb-$(CONFIG_ARCH_MSM9625)      += msm9625-v2-cdp.dtb
 	dtb-$(CONFIG_ARCH_MSM9625)      += msm9625-v2-mtp.dtb
-	dtb-$(CONFIG_ARCH_MSM9625)      += msm9625-v2-1-mtp.dtb
-	dtb-$(CONFIG_ARCH_MSM9625)      += msm9625-v2-1-cdp.dtb
+	dtb-$(CONFIG_ARCH_MSM9625)      += msm9625-v2.1-mtp.dtb
+	dtb-$(CONFIG_ARCH_MSM9625)      += msm9625-v2.1-cdp.dtb
 
 # MSM8226
    zreladdr-$(CONFIG_ARCH_MSM8226)	:= 0x00008000

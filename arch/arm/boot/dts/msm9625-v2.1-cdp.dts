@@ -12,13 +12,13 @@
 
 /dts-v1/;
 
-/include/ "msm9625-v2-1.dtsi"
-/include/ "msm9625-mtp.dtsi"
+/include/ "msm9625-v2.1.dtsi"
+/include/ "msm9625-cdp.dtsi"
 
 / {
-	model = "Qualcomm MSM 9625V2.1 MTP";
-	compatible = "qcom,msm9625-mtp", "qcom,msm9625", "qcom,mtp";
-	qcom,msm-id = <134 7 0x20001>, <152 7 0x20001>, <149 7 0x20001>,
-		      <150 7 0x20001>, <151 7 0x20001>, <148 7 0x20001>,
-		      <173 7 0x20001>, <174 7 0x20001>, <175 7 0x20001>;
+	model = "Qualcomm MSM 9625V2.1 CDP";
+	compatible = "qcom,msm9625-cdp", "qcom,msm9625", "qcom,cdp";
+	qcom,msm-id = <134 1 0x20001>, <152 1 0x20001>, <149 1 0x20001>,
+		      <150 1 0x20001>, <151 1 0x20001>, <148 1 0x20001>,
+		      <173 1 0x20001>, <174 1 0x20001>, <175 1 0x20001>;
 };
