@@ -1078,12 +1078,12 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	cont_splash_enabled = of_property_read_bool(pdev->dev.of_node,
 			"qcom,cont-splash-enabled");
 	if (!cont_splash_enabled) {
-		pr_info("%s:%d Continous splash flag not found.\n",
+		pr_info("%s:%d Continuous splash flag not found.\n",
 				__func__, __LINE__);
 		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 0;
 		ctrl_pdata->panel_data.panel_info.panel_power_on = 0;
 	} else {
-		pr_info("%s:%d Continous splash flag enabled.\n",
+		pr_info("%s:%d Continuous splash flag enabled.\n",
 				__func__, __LINE__);
 
 		ctrl_pdata->panel_data.panel_info.cont_splash_enabled = 1;
