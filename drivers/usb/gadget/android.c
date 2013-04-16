@@ -53,6 +53,7 @@
 #include "f_rmnet_sdio.c"
 #include "f_rmnet_smd_sdio.c"
 #include "f_rmnet.c"
+#include "f_gps.c"
 #ifdef CONFIG_SND_PCM
 #include "f_audio_source.c"
 #endif
@@ -730,6 +731,47 @@ static struct android_usb_function rmnet_function = {
 	.bind_config	= rmnet_function_bind_config,
 	.attributes	= rmnet_function_attributes,
 };
+
+static void gps_function_cleanup(struct android_usb_function *f)
+{
+	gps_cleanup();
+}
+
+static int gps_function_bind_config(struct android_usb_function *f,
+					 struct usb_configuration *c)
+{
+	int err;
+	static int gps_initialized;
+
+	if (!gps_initialized) {
+		gps_initialized = 1;
+		err = gps_init_port();
+		if (err) {
+			pr_err("gps: Cannot init gps port");
+			return err;
+		}
+	}
+
+	err = gps_gport_setup();
+	if (err) {
+		pr_err("gps: Cannot setup transports");
+		return err;
+	}
+	err = gps_bind_config(c);
+	if (err) {
+		pr_err("Could not bind gps config\n");
+		return err;
+	}
+
+	return 0;
+}
+
+static struct android_usb_function gps_function = {
+	.name		= "gps",
+	.cleanup	= gps_function_cleanup,
+	.bind_config	= gps_function_bind_config,
+};
+
 
 /* ecm transport string */
 static char ecm_transports[MAX_XPORT_STR_LEN];
@@ -1783,6 +1825,7 @@ static struct android_usb_function *supported_functions[] = {
 	&rmnet_sdio_function,
 	&rmnet_smd_sdio_function,
 	&rmnet_function,
+	&gps_function,
 	&diag_function,
 	&qdss_function,
 	&serial_function,
