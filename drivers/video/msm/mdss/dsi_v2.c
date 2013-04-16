@@ -29,6 +29,14 @@ static int dsi_off(struct mdss_panel_data *pdata)
 	if (!panel_common_data || !pdata)
 		return -ENODEV;
 
+	if (dsi_intf.op_mode_config)
+		dsi_intf.op_mode_config(DSI_CMD_MODE, pdata);
+
+	pr_debug("panel off commands\n");
+	if (panel_common_data->off)
+		panel_common_data->off(pdata);
+
+	pr_debug("turn off dsi controller\n");
 	if (dsi_intf.off)
 		rc = dsi_intf.off(pdata);
 
@@ -37,9 +45,9 @@ static int dsi_off(struct mdss_panel_data *pdata)
 		return rc;
 	}
 
-	pr_debug("dsi_off reset\n");
-	if (panel_common_data->off)
-		panel_common_data->off(pdata);
+	pr_debug("turn off panel power\n");
+	if (panel_common_data->reset)
+		panel_common_data->reset(pdata, 0);
 
 	return rc;
 }
@@ -53,8 +61,6 @@ static int dsi_on(struct mdss_panel_data *pdata)
 	if (!panel_common_data || !pdata)
 		return -ENODEV;
 
-	if (panel_common_data->reset)
-		panel_common_data->reset(1);
 
 	pr_debug("dsi_on DSI controller ont\n");
 	if (dsi_intf.on)
@@ -64,6 +70,9 @@ static int dsi_on(struct mdss_panel_data *pdata)
 		pr_err("mdss_dsi_on DSI failed %d\n", rc);
 		return rc;
 	}
+	pr_debug("dsi_on power on panel\n");
+	if (panel_common_data->reset)
+		panel_common_data->reset(pdata, 1);
 
 	pr_debug("dsi_on DSI panel ont\n");
 	if (panel_common_data->on)

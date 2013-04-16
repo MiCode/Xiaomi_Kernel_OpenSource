@@ -29,7 +29,9 @@ int msm_dsi_prepare_clocks(void);
 
 int msm_dsi_unprepare_clocks(void);
 
-int msm_dsi_clk_set_rate(unsigned long esc_rate, unsigned long byte_rate,
+int msm_dsi_clk_set_rate(unsigned long esc_rate,
+			unsigned long dsi_rate,
+			unsigned long byte_rate,
 			unsigned long pixel_rate);
 
 int msm_dsi_clk_enable(void);
