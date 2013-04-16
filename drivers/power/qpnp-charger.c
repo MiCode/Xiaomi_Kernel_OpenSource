@@ -89,6 +89,7 @@
 #define BUCK_VCHG_OV				0x77
 #define BUCK_TEST_SMBC_MODES			0xE6
 #define SEC_ACCESS				0xD0
+#define BAT_IF_VREF_BAT_THM_CTRL		0x4A
 
 #define REG_OFFSET_PERP_SUBTYPE			0x05
 /* SMBB peripheral subtype values */
@@ -123,6 +124,8 @@
 #define CHGR_ON_BAT_FORCE_BIT		BIT(0)
 #define USB_VALID_DEB_20MS		0x03
 #define BUCK_VBAT_REG_NODE_SEL_BIT	BIT(0)
+#define VREF_BATT_THERM_FORCE_ON	0xC0
+#define VREF_BAT_THM_ENABLED_FSM	0x80
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -1756,6 +1759,15 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_BAT_IF_SUBTYPE:
 	case SMBBP_BAT_IF_SUBTYPE:
 	case SMBCL_BAT_IF_SUBTYPE:
+		/* Force on VREF_BAT_THM */
+		rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
+			VREF_BATT_THERM_FORCE_ON,
+			VREF_BATT_THERM_FORCE_ON, 1);
+		if (rc) {
+			pr_debug("failed to force on VREF_BAT_THM rc=%d\n", rc);
+			return rc;
+		}
 		break;
 	case SMBB_USB_CHGPTH_SUBTYPE:
 	case SMBBP_USB_CHGPTH_SUBTYPE:
@@ -2202,6 +2214,41 @@ qpnp_charger_remove(struct spmi_device *spmi)
 
 	return 0;
 }
+
+static int qpnp_chg_resume(struct device *dev)
+{
+	struct qpnp_chg_chip *chip = dev_get_drvdata(dev);
+	int rc = 0;
+
+	rc = qpnp_chg_masked_write(chip,
+	chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
+		VREF_BATT_THERM_FORCE_ON,
+		VREF_BATT_THERM_FORCE_ON, 1);
+	if (rc)
+		pr_debug("failed to force on VREF_BAT_THM rc=%d\n", rc);
+
+	return rc;
+}
+
+static int qpnp_chg_suspend(struct device *dev)
+{
+	struct qpnp_chg_chip *chip = dev_get_drvdata(dev);
+	int rc = 0;
+
+	rc = qpnp_chg_masked_write(chip,
+	chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL,
+		VREF_BATT_THERM_FORCE_ON,
+		VREF_BAT_THM_ENABLED_FSM, 1);
+	if (rc)
+		pr_debug("failed to enable FSM ctrl VREF_BAT_THM rc=%d\n", rc);
+
+	return rc;
+}
+
+static const struct dev_pm_ops qpnp_bms_pm_ops = {
+	.resume		= qpnp_chg_resume,
+	.suspend	= qpnp_chg_suspend,
+};
 
 static struct spmi_driver qpnp_charger_driver = {
 	.probe		= qpnp_charger_probe,
