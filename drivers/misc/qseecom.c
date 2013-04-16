@@ -565,13 +565,14 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		if (wait_event_freezable(qseecom.send_resp_wq,
 				__qseecom_listener_has_sent_rsp(data))) {
 			pr_warning("Interrupted: exiting send_cmd loop\n");
-			return -ERESTARTSYS;
+			ret = -ERESTARTSYS;
 		}
 
-		if (data->abort) {
-			pr_err("Aborting listener service %d\n",
-				data->listener.id);
-			rc = -ENODEV;
+		if ((data->abort) || (ret == -ERESTARTSYS)) {
+			pr_err("Abort clnt %d waiting on lstnr svc %d, ret %d",
+				data->client.app_id, lstnr, ret);
+			if (data->abort)
+				rc = -ENODEV;
 			send_data_rsp.status  = QSEOS_RESULT_FAILURE;
 		} else {
 			send_data_rsp.status  = QSEOS_RESULT_SUCCESS;
