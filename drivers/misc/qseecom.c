@@ -1,5 +1,3 @@
-
-
 /*Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
  * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
@@ -53,6 +51,7 @@
 #define QSEE_VERSION_01			0x401000
 #define QSEE_VERSION_02			0x402000
 #define QSEE_VERSION_03			0x403000
+#define QSEE_VERSION_04			0x404000
 
 
 #define QSEOS_CHECK_VERSION_CMD		0x00001803
@@ -61,6 +60,12 @@
 
 #define QSEECOM_MAX_SG_ENTRY	512
 #define QSEECOM_DISK_ENCRYTPION_KEY_ID 0
+
+/* Save partition image hash for authentication check */
+#define	SCM_SAVE_PARTITION_HASH_ID	0x01
+
+/* Check if enterprise security is activate */
+#define	SCM_IS_ACTIVATED_ID		0x02
 
 enum qseecom_clk_definitions {
 	CLK_DFAB = 0,
@@ -2570,6 +2575,70 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 	return ret;
 }
 
+static int qseecom_is_es_activated(void __user *argp)
+{
+	struct qseecom_is_es_activated_req req;
+	int ret;
+	int resp_buf;
+
+	if (qseecom.qsee_version < QSEE_VERSION_04) {
+		pr_err("invalid qsee version");
+		return -ENODEV;
+	}
+
+	if (argp == NULL) {
+		pr_err("arg is null");
+		return -EINVAL;
+	}
+
+	ret = scm_call(SCM_SVC_ES, SCM_IS_ACTIVATED_ID, NULL, 0,
+		       (void *) &resp_buf, sizeof(resp_buf));
+	if (ret) {
+		pr_err("scm_call failed");
+		return ret;
+	}
+
+	req.is_activated = resp_buf;
+	ret = copy_to_user(argp, &req, sizeof(req));
+	if (ret) {
+		pr_err("copy_to_user failed");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int qseecom_save_partition_hash(void __user *argp)
+{
+	struct qseecom_save_partition_hash_req req;
+	int ret;
+
+	if (qseecom.qsee_version < QSEE_VERSION_04) {
+		pr_err("invalid qsee version ");
+		return -ENODEV;
+	}
+
+	if (argp == NULL) {
+		pr_err("arg is null");
+		return -EINVAL;
+	}
+
+	ret = copy_from_user(&req, argp, sizeof(req));
+	if (ret) {
+		pr_err("copy_from_user failed");
+		return ret;
+	}
+
+	ret = scm_call(SCM_SVC_ES, SCM_SAVE_PARTITION_HASH_ID,
+		       (void *) &req, sizeof(req), NULL, 0);
+	if (ret) {
+		pr_err("scm_call failed");
+		return ret;
+	}
+
+	return 0;
+}
+
 static long qseecom_ioctl(struct file *file, unsigned cmd,
 		unsigned long arg)
 {
@@ -2778,6 +2847,24 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		ret = qseecom_wipe_key(data, argp);
 		if (ret)
 			pr_err("failed to wipe encryption key: %d\n", ret);
+		atomic_dec(&data->ioctl_count);
+		mutex_unlock(&app_access_lock);
+		break;
+	}
+	case QSEECOM_IOCTL_SAVE_PARTITION_HASH_REQ: {
+		data->released = true;
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
+		ret = qseecom_save_partition_hash(argp);
+		atomic_dec(&data->ioctl_count);
+		mutex_unlock(&app_access_lock);
+		break;
+	}
+	case QSEECOM_IOCTL_IS_ES_ACTIVATED_REQ: {
+		data->released = true;
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
+		ret = qseecom_is_es_activated(argp);
 		atomic_dec(&data->ioctl_count);
 		mutex_unlock(&app_access_lock);
 		break;
