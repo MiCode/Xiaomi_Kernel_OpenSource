@@ -1579,8 +1579,22 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		return;
 	}
 
-	/* Firstly check card presence */
+	/*
+	 * Firstly check card presence from cd-gpio.  The return could
+	 * be one of the following possibilities:
+	 *     negative: cd-gpio is not available
+	 *     zero: cd-gpio is used, and card is removed
+	 *     one: cd-gpio is used, and card is present
+	 */
 	present = mmc->ops->get_cd(mmc);
+	if (present < 0) {
+		/* If polling, assume that the card is always present. */
+		if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
+			present = 1;
+		else
+			present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+					SDHCI_CARD_PRESENT;
+	}
 
 	spin_lock_irqsave(&host->lock, flags);
 
