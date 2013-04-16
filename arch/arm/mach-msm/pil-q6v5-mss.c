@@ -402,7 +402,7 @@ static int pil_mba_init_image(struct pil_desc *pil,
 	return ret;
 }
 
-static int pil_mba_verify_blob(struct pil_desc *pil, u32 phy_addr,
+static int pil_mba_verify_blob(struct pil_desc *pil, phys_addr_t phy_addr,
 			       size_t size)
 {
 	struct mba_data *drv = dev_get_drvdata(pil->dev);
