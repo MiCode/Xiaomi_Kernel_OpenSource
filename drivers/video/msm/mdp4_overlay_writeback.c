@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -806,4 +806,24 @@ static void mdp4_wfd_queue_wakeup(struct msm_fb_data_type *mfd,
 	mfd->writeback_active_cnt--;
 	mutex_unlock(&mfd->writeback_mutex);
 	wake_up(&mfd->wait_q);
+}
+
+int mdp4_writeback_set_mirroring_hint(struct fb_info *info, int hint)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
+	if (mfd->panel.type != WRITEBACK_PANEL)
+		return -ENOTSUPP;
+
+	switch (hint) {
+	case MDP_WRITEBACK_MIRROR_ON:
+	case MDP_WRITEBACK_MIRROR_PAUSE:
+	case MDP_WRITEBACK_MIRROR_RESUME:
+	case MDP_WRITEBACK_MIRROR_OFF:
+		pr_info("wfd state switched to %d\n", hint);
+		switch_set_state(&mfd->writeback_sdev, hint);
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
