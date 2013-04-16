@@ -778,66 +778,6 @@ bail:
 	return ret;
 }
 
-static int ipa_handle_tx_poll_for_pipe(struct ipa_sys_context *sys,
-		bool process_all)
-{
-	struct ipa_tx_pkt_wrapper *tx_pkt, *t;
-	struct sps_iovec iov;
-	unsigned long irq_flags;
-	int ret;
-	int cnt = 0;
-
-	do {
-		iov.addr = 0;
-		ret = sps_get_iovec(sys->ep->ep_hdl, &iov);
-		if (ret) {
-			pr_err("%s: sps_get_iovec failed %d\n", __func__, ret);
-			break;
-		}
-		if (!iov.addr)
-			break;
-		spin_lock_irqsave(&sys->spinlock, irq_flags);
-		tx_pkt = list_first_entry(&sys->head_desc_list,
-					  struct ipa_tx_pkt_wrapper, link);
-		spin_unlock_irqrestore(&sys->spinlock, irq_flags);
-
-		switch (tx_pkt->cnt) {
-		case 1:
-			ipa_wq_write_done(&tx_pkt->work);
-			++cnt;
-			break;
-		case 0xFFFF:
-			/* reached end of set */
-			spin_lock_irqsave(&sys->spinlock, irq_flags);
-			list_for_each_entry_safe(tx_pkt, t,
-						 &sys->wait_desc_list, link) {
-				list_del(&tx_pkt->link);
-				list_add(&tx_pkt->link, &sys->head_desc_list);
-			}
-			tx_pkt =
-			   list_first_entry(&sys->head_desc_list,
-					    struct ipa_tx_pkt_wrapper, link);
-			spin_unlock_irqrestore(&sys->spinlock, irq_flags);
-			ipa_wq_write_done(&tx_pkt->work);
-			++cnt;
-			break;
-		default:
-			/* keep looping till reach the end of the set */
-			spin_lock_irqsave(&sys->spinlock,
-					  irq_flags);
-			list_del(&tx_pkt->link);
-			list_add_tail(&tx_pkt->link,
-				      &sys->wait_desc_list);
-			spin_unlock_irqrestore(&sys->spinlock,
-					       irq_flags);
-			++cnt;
-			break;
-		}
-	} while (process_all);
-
-	return cnt;
-}
-
 static void ipa_poll_function(struct work_struct *work)
 {
 	int ret;
@@ -857,13 +797,15 @@ static void ipa_poll_function(struct work_struct *work)
 
 		/* check all the system pipes for tx comp and rx avail */
 		if (ipa_ctx->sys[IPA_A5_LAN_WAN_IN].ep->valid)
-			cnt |= ipa_handle_rx_core(false, true);
+			cnt |= ipa_handle_rx_core(
+					&ipa_ctx->sys[IPA_A5_LAN_WAN_IN],
+					false, true);
 
 		for (i = 0; i < num_tx_pipes; i++)
 			if (ipa_ctx->sys[tx_pipes[i]].ep->valid)
-				cnt |= ipa_handle_tx_poll_for_pipe(
+				cnt |= ipa_handle_tx_core(
 						&ipa_ctx->sys[tx_pipes[i]],
-						false);
+						false, true);
 	} while (cnt);
 
 	/* re-post the poll work */
@@ -1666,10 +1608,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 
 	IPADBG("polling_mode=%u delay_ms=%u\n", polling_mode, polling_delay_ms);
 	ipa_ctx->polling_mode = polling_mode;
-	if (ipa_ctx->polling_mode)
-		atomic_set(&ipa_ctx->curr_polling_state, 1);
-	else
-		atomic_set(&ipa_ctx->curr_polling_state, 0);
 	IPADBG("hdr_lcl=%u ip4_rt=%u ip6_rt=%u ip4_flt=%u ip6_flt=%u\n",
 	       hdr_tbl_lcl, ip4_rt_tbl_lcl, ip6_rt_tbl_lcl, ip4_flt_tbl_lcl,
 	       ip6_flt_tbl_lcl);
@@ -1891,7 +1829,10 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 			ipa_ctx->sys[i].ep = &ipa_ctx->ep[i];
 		else
 			ipa_ctx->sys[i].ep = &ipa_ctx->ep[WLAN_AMPDU_TX_EP];
-		INIT_LIST_HEAD(&ipa_ctx->sys[i].wait_desc_list);
+		if (ipa_ctx->polling_mode)
+			atomic_set(&ipa_ctx->sys[i].curr_polling_state, 1);
+		else
+			atomic_set(&ipa_ctx->sys[i].curr_polling_state, 0);
 	}
 
 	ipa_ctx->rx_wq = create_singlethread_workqueue("ipa rx wq");
@@ -1901,7 +1842,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 		goto fail_rx_wq;
 	}
 
-	ipa_ctx->tx_wq = create_singlethread_workqueue("ipa tx wq");
+	ipa_ctx->tx_wq = alloc_workqueue("ipa tx wq", WQ_MEM_RECLAIM |
+			WQ_CPU_INTENSIVE, 2);
 	if (!ipa_ctx->tx_wq) {
 		IPAERR(":fail to create tx wq\n");
 		result = -ENOMEM;

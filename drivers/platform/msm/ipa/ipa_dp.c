@@ -20,14 +20,15 @@
 #define list_next_entry(pos, member) \
 	list_entry(pos->member.next, typeof(*pos), member)
 #define IPA_LAST_DESC_CNT 0xFFFF
-#define POLLING_INACTIVITY 40
-#define POLLING_MIN_SLEEP 950
-#define POLLING_MAX_SLEEP 1050
+#define POLLING_INACTIVITY_RX 40
+#define POLLING_MIN_SLEEP_RX 950
+#define POLLING_MAX_SLEEP_RX 1050
+#define POLLING_INACTIVITY_TX 40
+#define POLLING_MIN_SLEEP_TX 400
+#define POLLING_MAX_SLEEP_TX 500
 
 static void replenish_rx_work_func(struct work_struct *work);
 static struct delayed_work replenish_rx_work;
-static void switch_to_intr_work_func(struct work_struct *work);
-static struct delayed_work switch_to_intr_work;
 static void ipa_wq_handle_rx(struct work_struct *work);
 static DECLARE_WORK(rx_work, ipa_wq_handle_rx);
 
@@ -47,57 +48,164 @@ static DECLARE_WORK(rx_work, ipa_wq_handle_rx);
 void ipa_wq_write_done(struct work_struct *work)
 {
 	struct ipa_tx_pkt_wrapper *tx_pkt;
-	struct ipa_tx_pkt_wrapper *next_pkt;
 	struct ipa_tx_pkt_wrapper *tx_pkt_expected;
 	unsigned long irq_flags;
-	struct ipa_mem_buffer mult = { 0 };
-	int i;
-	u32 cnt;
 
 	tx_pkt = container_of(work, struct ipa_tx_pkt_wrapper, work);
-	cnt = tx_pkt->cnt;
-	IPADBG("cnt=%d\n", cnt);
 
-	if (unlikely(cnt == 0))
+	if (unlikely(tx_pkt == NULL))
 		WARN_ON(1);
+	WARN_ON(tx_pkt->cnt != 1);
 
-	if (cnt > 1 && cnt != IPA_LAST_DESC_CNT)
-		mult = tx_pkt->mult;
+	spin_lock_irqsave(&tx_pkt->sys->spinlock, irq_flags);
+	tx_pkt_expected = list_first_entry(&tx_pkt->sys->head_desc_list,
+					   struct ipa_tx_pkt_wrapper,
+					   link);
+	if (unlikely(tx_pkt != tx_pkt_expected)) {
+		spin_unlock_irqrestore(&tx_pkt->sys->spinlock,
+				irq_flags);
+		WARN_ON(1);
+	}
+	list_del(&tx_pkt->link);
+	spin_unlock_irqrestore(&tx_pkt->sys->spinlock, irq_flags);
+	if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
+		dma_pool_free(ipa_ctx->dma_pool,
+				tx_pkt->bounce,
+				tx_pkt->mem.phys_base);
+	} else {
+		dma_unmap_single(NULL, tx_pkt->mem.phys_base,
+				tx_pkt->mem.size,
+				DMA_TO_DEVICE);
+	}
 
-	for (i = 0; i < cnt; i++) {
-		if (unlikely(tx_pkt == NULL))
-			WARN_ON(1);
-		spin_lock_irqsave(&tx_pkt->sys->spinlock, irq_flags);
-		tx_pkt_expected = list_first_entry(&tx_pkt->sys->head_desc_list,
-						   struct ipa_tx_pkt_wrapper,
-						   link);
-		if (unlikely(tx_pkt != tx_pkt_expected)) {
-			spin_unlock_irqrestore(&tx_pkt->sys->spinlock,
-					irq_flags);
-			WARN_ON(1);
+	if (tx_pkt->callback)
+		tx_pkt->callback(tx_pkt->user1, tx_pkt->user2);
+
+	kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
+}
+
+int ipa_handle_tx_core(struct ipa_sys_context *sys, bool process_all,
+		bool in_poll_state)
+{
+	struct ipa_tx_pkt_wrapper *tx_pkt;
+	struct sps_iovec iov;
+	int ret;
+	int cnt = 0;
+	unsigned long irq_flags;
+
+	while ((in_poll_state ? atomic_read(&sys->curr_polling_state) :
+				!atomic_read(&sys->curr_polling_state))) {
+		if (cnt && !process_all)
+			break;
+		ret = sps_get_iovec(sys->ep->ep_hdl, &iov);
+		if (ret) {
+			IPAERR("sps_get_iovec failed %d\n", ret);
+			break;
 		}
-		next_pkt = list_next_entry(tx_pkt, link);
+
+		if (iov.addr == 0)
+			break;
+
+		if (unlikely(list_empty(&sys->head_desc_list)))
+			continue;
+
+		spin_lock_irqsave(&sys->spinlock, irq_flags);
+		tx_pkt = list_first_entry(&sys->head_desc_list,
+					  struct ipa_tx_pkt_wrapper, link);
+
+		sys->len--;
 		list_del(&tx_pkt->link);
-		spin_unlock_irqrestore(&tx_pkt->sys->spinlock, irq_flags);
-		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
+		spin_unlock_irqrestore(&sys->spinlock, irq_flags);
+
+		IPADBG("--curr_cnt=%d\n", sys->len);
+
+		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0))
 			dma_pool_free(ipa_ctx->dma_pool,
 					tx_pkt->bounce,
 					tx_pkt->mem.phys_base);
-		} else {
+		else
 			dma_unmap_single(NULL, tx_pkt->mem.phys_base,
 					tx_pkt->mem.size,
 					DMA_TO_DEVICE);
-		}
 
 		if (tx_pkt->callback)
 			tx_pkt->callback(tx_pkt->user1, tx_pkt->user2);
 
+		if (tx_pkt->cnt > 1 && tx_pkt->cnt != IPA_LAST_DESC_CNT)
+			dma_pool_free(ipa_ctx->dma_pool, tx_pkt->mult.base,
+					tx_pkt->mult.phys_base);
+
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
-		tx_pkt = next_pkt;
+		cnt++;
+	};
+
+	return cnt;
+}
+
+/**
+ * ipa_tx_switch_to_intr_mode() - Operate the Tx data path in interrupt mode
+ */
+static void ipa_tx_switch_to_intr_mode(struct ipa_sys_context *sys)
+{
+	int ret;
+
+	if (!atomic_read(&sys->curr_polling_state)) {
+		IPAERR("already in intr mode\n");
+		goto fail;
 	}
 
-	if (mult.phys_base)
-		dma_pool_free(ipa_ctx->dma_pool, mult.base, mult.phys_base);
+	ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
+	if (ret) {
+		IPAERR("sps_get_config() failed %d\n", ret);
+		goto fail;
+	}
+	sys->event.options = SPS_O_EOT;
+	ret = sps_register_event(sys->ep->ep_hdl, &sys->event);
+	if (ret) {
+		IPAERR("sps_register_event() failed %d\n", ret);
+		goto fail;
+	}
+	sys->ep->connect.options =
+		SPS_O_AUTO_ENABLE | SPS_O_ACK_TRANSFERS | SPS_O_EOT;
+	ret = sps_set_config(sys->ep->ep_hdl, &sys->ep->connect);
+	if (ret) {
+		IPAERR("sps_set_config() failed %d\n", ret);
+		goto fail;
+	}
+	atomic_set(&sys->curr_polling_state, 0);
+	ipa_handle_tx_core(sys, true, false);
+	return;
+
+fail:
+	IPA_STATS_INC_CNT(ipa_ctx->stats.x_intr_repost_tx);
+	schedule_delayed_work(&sys->switch_to_intr_work, msecs_to_jiffies(1));
+	return;
+}
+
+static void ipa_handle_tx(struct ipa_sys_context *sys)
+{
+	int inactive_cycles = 0;
+	int cnt;
+
+	do {
+		cnt = ipa_handle_tx_core(sys, true, true);
+		if (cnt == 0) {
+			inactive_cycles++;
+			usleep_range(POLLING_MIN_SLEEP_TX,
+					POLLING_MAX_SLEEP_TX);
+		} else {
+			inactive_cycles = 0;
+		}
+	} while (inactive_cycles <= POLLING_INACTIVITY_TX);
+
+	ipa_tx_switch_to_intr_mode(sys);
+}
+
+static void ipa_wq_handle_tx(struct work_struct *work)
+{
+	struct ipa_tx_pkt_wrapper *tx_pkt;
+	tx_pkt = container_of(work, struct ipa_tx_pkt_wrapper, work);
+	ipa_handle_tx(tx_pkt->sys);
 }
 
 /**
@@ -165,7 +273,6 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 	}
 
 	INIT_LIST_HEAD(&tx_pkt->link);
-	INIT_WORK(&tx_pkt->work, ipa_wq_write_done);
 	tx_pkt->type = desc->type;
 	tx_pkt->cnt = 1;    /* only 1 desc in this "set" */
 
@@ -187,9 +294,14 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		IPADBG("sending cmd=%d pyld_len=%d sps_flags=%x\n",
 				desc->opcode, desc->len, sps_flags);
 		IPA_DUMP_BUFF(desc->pyld, dma_address, desc->len);
+		INIT_WORK(&tx_pkt->work, ipa_wq_write_done);
 	} else {
 		len = desc->len;
+		INIT_WORK(&tx_pkt->work, ipa_wq_handle_tx);
 	}
+
+	if (unlikely(ipa_ctx->polling_mode))
+		INIT_WORK(&tx_pkt->work, ipa_wq_handle_tx);
 
 	spin_lock_irqsave(&sys->spinlock, irq_flags);
 	list_add_tail(&tx_pkt->link, &sys->head_desc_list);
@@ -286,7 +398,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 			tx_pkt->mult.base = transfer.iovec;
 			tx_pkt->mult.size = size;
 			tx_pkt->cnt = num_desc;
-			INIT_WORK(&tx_pkt->work, ipa_wq_write_done);
+			INIT_WORK(&tx_pkt->work, ipa_wq_handle_tx);
 		}
 
 		iovec = &transfer.iovec[i];
@@ -475,6 +587,49 @@ bail:
 
 /**
  * ipa_sps_irq_tx_notify() - Callback function which will be called by
+ * the SPS driver to start a Tx poll operation.
+ * Called in an interrupt context.
+ * @notify:	SPS driver supplied notification struct
+ *
+ * This function defer the work for this event to the tx workqueue.
+ */
+static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
+{
+	struct ipa_sys_context *sys = &ipa_ctx->sys[IPA_A5_LAN_WAN_OUT];
+	struct ipa_tx_pkt_wrapper *tx_pkt;
+	int ret;
+
+	IPADBG("event %d notified\n", notify->event_id);
+
+	switch (notify->event_id) {
+	case SPS_EVENT_EOT:
+		tx_pkt = notify->data.transfer.user;
+		if (!atomic_read(&sys->curr_polling_state)) {
+			ret = sps_get_config(sys->ep->ep_hdl,
+					&sys->ep->connect);
+			if (ret) {
+				IPAERR("sps_get_config() failed %d\n", ret);
+				break;
+			}
+			sys->ep->connect.options = SPS_O_AUTO_ENABLE |
+				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
+			ret = sps_set_config(sys->ep->ep_hdl,
+					&sys->ep->connect);
+			if (ret) {
+				IPAERR("sps_set_config() failed %d\n", ret);
+				break;
+			}
+			atomic_set(&sys->curr_polling_state, 1);
+			queue_work(ipa_ctx->tx_wq, &tx_pkt->work);
+		}
+		break;
+	default:
+		IPAERR("recieved unexpected event id %d\n", notify->event_id);
+	}
+}
+
+/**
+ * ipa_sps_irq_tx_no_aggr_notify() - Callback function which will be called by
  * the SPS driver after a Tx operation is complete.
  * Called in an interrupt context.
  * @notify:	SPS driver supplied notification struct
@@ -482,7 +637,7 @@ bail:
  * This function defer the work for this event to the tx workqueue.
  * This event will be later handled by ipa_write_done.
  */
-static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
+static void ipa_sps_irq_tx_no_aggr_notify(struct sps_event_notify *notify)
 {
 	struct ipa_tx_pkt_wrapper *tx_pkt;
 
@@ -512,7 +667,8 @@ static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
  *  - Call the endpoints notify function, passing the skb in the parameters
  *  - Replenish the rx cache
  */
-int ipa_handle_rx_core(bool process_all, bool in_poll_state)
+int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
+		bool in_poll_state)
 {
 	struct ipa_a5_mux_hdr *mux_hdr;
 	struct ipa_rx_pkt_wrapper *rx_pkt;
@@ -521,15 +677,14 @@ int ipa_handle_rx_core(bool process_all, bool in_poll_state)
 	unsigned int pull_len;
 	unsigned int padding;
 	int ret;
-	struct ipa_sys_context *sys = &ipa_ctx->sys[IPA_A5_LAN_WAN_IN];
 	struct ipa_ep_context *ep;
 	int cnt = 0;
 	struct completion *compl;
 	struct ipa_tree_node *node;
 	unsigned int src_pipe;
 
-	while ((in_poll_state ? atomic_read(&ipa_ctx->curr_polling_state) :
-				!atomic_read(&ipa_ctx->curr_polling_state))) {
+	while ((in_poll_state ? atomic_read(&sys->curr_polling_state) :
+				!atomic_read(&sys->curr_polling_state))) {
 		if (cnt && !process_all)
 			break;
 
@@ -654,18 +809,14 @@ int ipa_handle_rx_core(bool process_all, bool in_poll_state)
 /**
  * ipa_rx_switch_to_intr_mode() - Operate the Rx data path in interrupt mode
  */
-static void ipa_rx_switch_to_intr_mode(void)
+static void ipa_rx_switch_to_intr_mode(struct ipa_sys_context *sys)
 {
 	int ret;
-	struct ipa_sys_context *sys;
 
-	IPADBG("Enter");
-	if (!atomic_read(&ipa_ctx->curr_polling_state)) {
+	if (!atomic_read(&sys->curr_polling_state)) {
 		IPAERR("already in intr mode\n");
 		goto fail;
 	}
-
-	sys = &ipa_ctx->sys[IPA_A5_LAN_WAN_IN];
 
 	ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
 	if (ret) {
@@ -685,14 +836,15 @@ static void ipa_rx_switch_to_intr_mode(void)
 		IPAERR("sps_set_config() failed %d\n", ret);
 		goto fail;
 	}
-	atomic_set(&ipa_ctx->curr_polling_state, 0);
-	ipa_handle_rx_core(true, false);
+	atomic_set(&sys->curr_polling_state, 0);
+	ipa_handle_rx_core(sys, true, false);
 	return;
 
 fail:
 	IPA_STATS_INC_CNT(ipa_ctx->stats.x_intr_repost);
-	schedule_delayed_work(&switch_to_intr_work, msecs_to_jiffies(1));
+	schedule_delayed_work(&sys->switch_to_intr_work, msecs_to_jiffies(1));
 }
+
 
 /**
  * ipa_rx_notify() - Callback function which is called by the SPS driver when a
@@ -709,35 +861,80 @@ fail:
  */
 static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 {
-	struct ipa_ep_context *ep;
+	struct ipa_sys_context *sys = &ipa_ctx->sys[IPA_A5_LAN_WAN_IN];
 	int ret;
 
 	IPADBG("event %d notified\n", notify->event_id);
 
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
-		if (!atomic_read(&ipa_ctx->curr_polling_state)) {
-			ep = ipa_ctx->sys[IPA_A5_LAN_WAN_IN].ep;
-
-			ret = sps_get_config(ep->ep_hdl, &ep->connect);
+		if (!atomic_read(&sys->curr_polling_state)) {
+			ret = sps_get_config(sys->ep->ep_hdl,
+					&sys->ep->connect);
 			if (ret) {
 				IPAERR("sps_get_config() failed %d\n", ret);
 				break;
 			}
-			ep->connect.options = SPS_O_AUTO_ENABLE |
+			sys->ep->connect.options = SPS_O_AUTO_ENABLE |
 				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
-			ret = sps_set_config(ep->ep_hdl, &ep->connect);
+			ret = sps_set_config(sys->ep->ep_hdl,
+					&sys->ep->connect);
 			if (ret) {
 				IPAERR("sps_set_config() failed %d\n", ret);
 				break;
 			}
-			atomic_set(&ipa_ctx->curr_polling_state, 1);
+			atomic_set(&sys->curr_polling_state, 1);
 			queue_work(ipa_ctx->rx_wq, &rx_work);
 		}
 		break;
 	default:
 		IPAERR("recieved unexpected event id %d\n", notify->event_id);
 	}
+}
+
+static void switch_to_intr_tx_work_func(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct ipa_sys_context *sys;
+	dwork = container_of(work, struct delayed_work, work);
+	sys = container_of(dwork, struct ipa_sys_context, switch_to_intr_work);
+	ipa_handle_tx(sys);
+}
+
+/**
+ * ipa_handle_rx() - handle packet reception. This function is executed in the
+ * context of a work queue.
+ * @work: work struct needed by the work queue
+ *
+ * ipa_handle_rx_core() is run in polling mode. After all packets has been
+ * received, the driver switches back to interrupt mode.
+ */
+static void ipa_handle_rx(struct ipa_sys_context *sys)
+{
+	int inactive_cycles = 0;
+	int cnt;
+
+	do {
+		cnt = ipa_handle_rx_core(sys, true, true);
+		if (cnt == 0) {
+			inactive_cycles++;
+			usleep_range(POLLING_MIN_SLEEP_RX,
+					POLLING_MAX_SLEEP_RX);
+		} else {
+			inactive_cycles = 0;
+		}
+	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
+
+	ipa_rx_switch_to_intr_mode(sys);
+}
+
+static void switch_to_intr_rx_work_func(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct ipa_sys_context *sys;
+	dwork = container_of(work, struct delayed_work, work);
+	sys = container_of(dwork, struct ipa_sys_context, switch_to_intr_work);
+	ipa_handle_rx(sys);
 }
 
 /**
@@ -858,14 +1055,18 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 
 	switch (ipa_ep_idx) {
 	case 1:
-		/* fall through */
+		sys_idx = ipa_ep_idx;
+		break;
 	case 2:
-		/* fall through */
+		sys_idx = ipa_ep_idx;
+		INIT_DELAYED_WORK(&ipa_ctx->sys[sys_idx].switch_to_intr_work,
+				switch_to_intr_tx_work_func);
+		break;
 	case 3:
 		sys_idx = ipa_ep_idx;
 		INIT_DELAYED_WORK(&replenish_rx_work, replenish_rx_work_func);
-		INIT_DELAYED_WORK(&switch_to_intr_work,
-				switch_to_intr_work_func);
+		INIT_DELAYED_WORK(&ipa_ctx->sys[sys_idx].switch_to_intr_work,
+				switch_to_intr_rx_work_func);
 		break;
 	case WLAN_AMPDU_TX_EP:
 		sys_idx = IPA_A5_WLAN_AMPDU_OUT;
@@ -886,7 +1087,10 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ipa_ctx->sys[sys_idx].event.callback =
 				IPA_CLIENT_IS_CONS(sys_in->client) ?
 					ipa_sps_irq_rx_notify :
-					ipa_sps_irq_tx_notify;
+					(sys_in->client ==
+					 IPA_CLIENT_A5_LAN_WAN_PROD ?
+					ipa_sps_irq_tx_notify :
+					ipa_sps_irq_tx_no_aggr_notify);
 		result = sps_register_event(ipa_ctx->ep[ipa_ep_idx].ep_hdl,
 					  &ipa_ctx->sys[sys_idx].event);
 		if (result < 0) {
@@ -1078,37 +1282,9 @@ fail_gen:
 }
 EXPORT_SYMBOL(ipa_tx_dp);
 
-static void ipa_handle_rx(void)
-{
-	int inactive_cycles = 0;
-	int cnt;
-
-	ipa_inc_client_enable_clks();
-	do {
-		cnt = ipa_handle_rx_core(true, true);
-		if (cnt == 0) {
-			inactive_cycles++;
-			usleep_range(POLLING_MIN_SLEEP, POLLING_MAX_SLEEP);
-		} else {
-			inactive_cycles = 0;
-		}
-	} while (inactive_cycles <= POLLING_INACTIVITY);
-
-	ipa_rx_switch_to_intr_mode();
-	ipa_dec_client_disable_clks();
-}
-
-/**
- * ipa_handle_rx() - handle packet reception. This function is executed in the
- * context of a work queue.
- * @work: work struct needed by the work queue
- *
- * ipa_handle_rx_core() is run in polling mode. After all packets has been
- * received, the driver switches back to interrupt mode.
- */
 static void ipa_wq_handle_rx(struct work_struct *work)
 {
-	ipa_handle_rx();
+	ipa_handle_rx(&ipa_ctx->sys[IPA_A5_LAN_WAN_IN]);
 }
 
 /**
@@ -1200,11 +1376,6 @@ fail_kmem_cache_alloc:
 static void replenish_rx_work_func(struct work_struct *work)
 {
 	ipa_replenish_rx_cache();
-}
-
-static void switch_to_intr_work_func(struct work_struct *work)
-{
-	ipa_handle_rx();
 }
 
 /**
