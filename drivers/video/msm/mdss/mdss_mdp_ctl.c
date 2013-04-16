@@ -1084,14 +1084,6 @@ static int mdss_mdp_mixer_setup(struct mdss_mdp_ctl *ctl,
 					stage);
 		}
 
-		if (mixercfg == MDSS_MDP_LM_BORDER_COLOR &&
-				pipe->src_fmt->alpha_enable &&
-				pipe->dst.w == mixer->width &&
-				pipe->dst.h == mixer->height) {
-			pr_debug("setting pipe=%d as BG_PIPE\n", pipe->num);
-			bgalpha = 1;
-		}
-
 		mixercfg |= stage << (3 * pipe->num);
 
 		mdp_mixer_write(mixer, off + MDSS_MDP_REG_LM_OP_MODE, blend_op);
