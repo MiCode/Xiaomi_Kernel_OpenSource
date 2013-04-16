@@ -693,8 +693,7 @@ void diag_send_data(struct diag_master_table entry, unsigned char *buf,
 		diag_update_sleeping_process(entry.process_id, PKT_TYPE);
 	} else {
 		if (len > 0) {
-			if ((entry.client_id >= 0) &&
-				(entry.client_id < NUM_SMD_DATA_CHANNELS)) {
+			if (entry.client_id < NUM_SMD_DATA_CHANNELS) {
 				int index = entry.client_id;
 				if (driver->smd_data[index].ch) {
 					if ((index == MODEM_DATA) &&
@@ -907,94 +906,186 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		/* bld time masks */
 		switch (ssid_first) {
 		case MSG_SSID_0:
+			if (ssid_range > sizeof(msg_bld_masks_0)) {
+				pr_warning("diag: truncating ssid range for ssid 0");
+				ssid_range = sizeof(msg_bld_masks_0);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_0[i/4];
 			break;
 		case MSG_SSID_1:
+			if (ssid_range > sizeof(msg_bld_masks_1)) {
+				pr_warning("diag: truncating ssid range for ssid 1");
+				ssid_range = sizeof(msg_bld_masks_1);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_1[i/4];
 			break;
 		case MSG_SSID_2:
+			if (ssid_range > sizeof(msg_bld_masks_2)) {
+				pr_warning("diag: truncating ssid range for ssid 2");
+				ssid_range = sizeof(msg_bld_masks_2);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_2[i/4];
 			break;
 		case MSG_SSID_3:
+			if (ssid_range > sizeof(msg_bld_masks_3)) {
+				pr_warning("diag: truncating ssid range for ssid 3");
+				ssid_range = sizeof(msg_bld_masks_3);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_3[i/4];
 			break;
 		case MSG_SSID_4:
+			if (ssid_range > sizeof(msg_bld_masks_4)) {
+				pr_warning("diag: truncating ssid range for ssid 4");
+				ssid_range = sizeof(msg_bld_masks_4);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_4[i/4];
 			break;
 		case MSG_SSID_5:
+			if (ssid_range > sizeof(msg_bld_masks_5)) {
+				pr_warning("diag: truncating ssid range for ssid 5");
+				ssid_range = sizeof(msg_bld_masks_5);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_5[i/4];
 			break;
 		case MSG_SSID_6:
+			if (ssid_range > sizeof(msg_bld_masks_6)) {
+				pr_warning("diag: truncating ssid range for ssid 6");
+				ssid_range = sizeof(msg_bld_masks_6);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_6[i/4];
 			break;
 		case MSG_SSID_7:
+			if (ssid_range > sizeof(msg_bld_masks_7)) {
+				pr_warning("diag: truncating ssid range for ssid 7");
+				ssid_range = sizeof(msg_bld_masks_7);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_7[i/4];
 			break;
 		case MSG_SSID_8:
+			if (ssid_range > sizeof(msg_bld_masks_8)) {
+				pr_warning("diag: truncating ssid range for ssid 8");
+				ssid_range = sizeof(msg_bld_masks_8);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_8[i/4];
 			break;
 		case MSG_SSID_9:
+			if (ssid_range > sizeof(msg_bld_masks_9)) {
+				pr_warning("diag: truncating ssid range for ssid 9");
+				ssid_range = sizeof(msg_bld_masks_9);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_9[i/4];
 			break;
 		case MSG_SSID_10:
+			if (ssid_range > sizeof(msg_bld_masks_10)) {
+				pr_warning("diag: truncating ssid range for ssid 10");
+				ssid_range = sizeof(msg_bld_masks_10);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_10[i/4];
 			break;
 		case MSG_SSID_11:
+			if (ssid_range > sizeof(msg_bld_masks_11)) {
+				pr_warning("diag: truncating ssid range for ssid 11");
+				ssid_range = sizeof(msg_bld_masks_11);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_11[i/4];
 			break;
 		case MSG_SSID_12:
+			if (ssid_range > sizeof(msg_bld_masks_12)) {
+				pr_warning("diag: truncating ssid range for ssid 12");
+				ssid_range = sizeof(msg_bld_masks_12);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_12[i/4];
 			break;
 		case MSG_SSID_13:
+			if (ssid_range > sizeof(msg_bld_masks_13)) {
+				pr_warning("diag: truncating ssid range for ssid 13");
+				ssid_range = sizeof(msg_bld_masks_13);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_13[i/4];
 			break;
 		case MSG_SSID_14:
+			if (ssid_range > sizeof(msg_bld_masks_14)) {
+				pr_warning("diag: truncating ssid range for ssid 14");
+				ssid_range = sizeof(msg_bld_masks_14);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_14[i/4];
 			break;
 		case MSG_SSID_15:
+			if (ssid_range > sizeof(msg_bld_masks_15)) {
+				pr_warning("diag: truncating ssid range for ssid 15");
+				ssid_range = sizeof(msg_bld_masks_15);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_15[i/4];
 			break;
 		case MSG_SSID_16:
+			if (ssid_range > sizeof(msg_bld_masks_16)) {
+				pr_warning("diag: truncating ssid range for ssid 16");
+				ssid_range = sizeof(msg_bld_masks_16);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_16[i/4];
 			break;
 		case MSG_SSID_17:
+			if (ssid_range > sizeof(msg_bld_masks_17)) {
+				pr_warning("diag: truncating ssid range for ssid 17");
+				ssid_range = sizeof(msg_bld_masks_17);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_17[i/4];
 			break;
 		case MSG_SSID_18:
+			if (ssid_range > sizeof(msg_bld_masks_18)) {
+				pr_warning("diag: truncating ssid range for ssid 18");
+				ssid_range = sizeof(msg_bld_masks_18);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_18[i/4];
 			break;
 		case MSG_SSID_19:
+			if (ssid_range > sizeof(msg_bld_masks_19)) {
+				pr_warning("diag: truncating ssid range for ssid 19");
+				ssid_range = sizeof(msg_bld_masks_19);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_19[i/4];
 			break;
 		case MSG_SSID_20:
+			if (ssid_range > sizeof(msg_bld_masks_20)) {
+				pr_warning("diag: truncating ssid range for ssid 20");
+				ssid_range = sizeof(msg_bld_masks_20);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_20[i/4];
 			break;
 		case MSG_SSID_21:
+			if (ssid_range > sizeof(msg_bld_masks_21)) {
+				pr_warning("diag: truncating ssid range for ssid 21");
+				ssid_range = sizeof(msg_bld_masks_21);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_21[i/4];
 			break;
 		case MSG_SSID_22:
+			if (ssid_range > sizeof(msg_bld_masks_22)) {
+				pr_warning("diag: truncating ssid range for ssid 22");
+				ssid_range = sizeof(msg_bld_masks_22);
+			}
 			for (i = 0; i < ssid_range; i += 4)
 				*(int *)(ptr + i) = msg_bld_masks_22[i/4];
 			break;
