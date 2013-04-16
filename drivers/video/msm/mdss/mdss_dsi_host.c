@@ -52,6 +52,8 @@ void mdss_dsi_init(void)
 
 void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	int ret;
+
 	if (ctrl->panel_data.panel_info.pdest == DISPLAY_1) {
 		mdss_dsi0_hw.ptr = (void *)(ctrl);
 		ctrl->mdss_hw = &mdss_dsi0_hw;
@@ -60,7 +62,8 @@ void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl)
 		ctrl->mdss_hw = &mdss_dsi1_hw;
 	}
 
-	if (!mdss_register_irq(ctrl->mdss_hw))
+	ret = mdss_register_irq(ctrl->mdss_hw);
+	if (ret)
 		pr_err("%s: mdss_register_irq failed.\n", __func__);
 }
 
