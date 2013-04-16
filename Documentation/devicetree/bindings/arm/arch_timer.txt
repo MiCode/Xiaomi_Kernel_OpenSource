@@ -6,7 +6,7 @@ provides a per-cpu local timer.
 The timer is attached to a GIC to deliver its two per-processor
 interrupts (one for the secure mode, one for the non-secure mode).
 
-** Timer node properties:
+** CP15 Timer node properties:
 
 - compatible : Should be "arm,armv7-timer"
 
@@ -20,4 +20,53 @@ Example:
 		compatible = "arm,armv7-timer"";
 		interrupts = <1 13 0xf08 1 14 0xf08>;
 		clock-frequency = <100000000>;
+	};
+
+** Memory mapped timer node properties:
+
+- compatible : Should at least contain "arm,armv7-timer-mem".
+
+- clock-frequency : The frequency of the main counter, in Hz. Optional.
+
+- reg : The control frame base address.
+
+Note that #address-cells, #size-cells, and ranges shall be present to ensure
+the CPU can address the frame's registers.
+
+Each timer node has up to 8 frame sub-nodes with the following properties:
+
+- frame-number: 0 to 7.
+
+- interrupts : Interrupt list for physical and virtual timers in that order.
+  The virtual timer interrupt is optional.
+
+- reg : The first and second view base addresses in that order. The second view
+  base address is optional.
+
+- status : "disabled" indicates the frame is not available for use. Optional.
+
+Example:
+
+	timer@f0000000 {
+		compatible = "arm,armv7-timer-mem";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reg = <0xf0000000 0x1000>;
+		clock-frequency = <50000000>;
+
+		frame0@f0001000 {
+			frame-number = <0>
+			interrupts = <0 13 0x8>,
+				     <0 14 0x8>;
+			reg = <0xf0001000 0x1000>,
+			      <0xf0002000 0x1000>;
+		};
+
+		frame1@f0003000 {
+			frame-number = <1>
+			interrupts = <0 15 0x8>;
+			reg = <0xf0003000 0x1000>;
+			status = "disabled";
+		};
 	};
