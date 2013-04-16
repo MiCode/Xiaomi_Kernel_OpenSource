@@ -46,30 +46,44 @@ static struct v4l2_subdev *g_cci_subdev;
 
 static void msm_cci_set_clk_param(struct cci_device *cci_dev)
 {
-	struct msm_cci_clk_params_t *clk_params = &cci_dev->cci_clk_params;
+	struct msm_cci_clk_params_t *clk_params = NULL;
+	uint8_t count = 0;
 
-	msm_camera_io_w(clk_params->hw_thigh << 16 | clk_params->hw_tlow,
-		cci_dev->base + CCI_I2C_M0_SCL_CTL_ADDR);
-	msm_camera_io_w(clk_params->hw_tsu_sto << 16 | clk_params->hw_tsu_sta,
-		cci_dev->base + CCI_I2C_M0_SDA_CTL_0_ADDR);
-	msm_camera_io_w(clk_params->hw_thd_dat << 16 | clk_params->hw_thd_sta,
-		cci_dev->base + CCI_I2C_M0_SDA_CTL_1_ADDR);
-	msm_camera_io_w(clk_params->hw_tbuf,
-		cci_dev->base + CCI_I2C_M0_SDA_CTL_2_ADDR);
-	msm_camera_io_w(clk_params->hw_scl_stretch_en << 8 |
-		clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
-		cci_dev->base + CCI_I2C_M0_MISC_CTL_ADDR);
-	msm_camera_io_w(clk_params->hw_thigh << 16 | clk_params->hw_tlow,
-		cci_dev->base + CCI_I2C_M1_SCL_CTL_ADDR);
-	msm_camera_io_w(clk_params->hw_tsu_sto << 16 | clk_params->hw_tsu_sta,
-		cci_dev->base + CCI_I2C_M1_SDA_CTL_0_ADDR);
-	msm_camera_io_w(clk_params->hw_thd_dat << 16 | clk_params->hw_thd_sta,
-		cci_dev->base + CCI_I2C_M1_SDA_CTL_1_ADDR);
-	msm_camera_io_w(clk_params->hw_tbuf,
-		cci_dev->base + CCI_I2C_M1_SDA_CTL_2_ADDR);
-	msm_camera_io_w(clk_params->hw_scl_stretch_en << 8 |
-		clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
-		cci_dev->base + CCI_I2C_M1_MISC_CTL_ADDR);
+	for (count = 0; count < MASTER_MAX; count++) {
+		if (MASTER_0 == count) {
+			clk_params = &cci_dev->cci_clk_params[count];
+			msm_camera_io_w(clk_params->hw_thigh << 16 |
+				clk_params->hw_tlow,
+				cci_dev->base + CCI_I2C_M0_SCL_CTL_ADDR);
+			msm_camera_io_w(clk_params->hw_tsu_sto << 16 |
+				clk_params->hw_tsu_sta,
+				cci_dev->base + CCI_I2C_M0_SDA_CTL_0_ADDR);
+			msm_camera_io_w(clk_params->hw_thd_dat << 16 |
+				clk_params->hw_thd_sta,
+				cci_dev->base + CCI_I2C_M0_SDA_CTL_1_ADDR);
+			msm_camera_io_w(clk_params->hw_tbuf,
+				cci_dev->base + CCI_I2C_M0_SDA_CTL_2_ADDR);
+			msm_camera_io_w(clk_params->hw_scl_stretch_en << 8 |
+				clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
+				cci_dev->base + CCI_I2C_M0_MISC_CTL_ADDR);
+		} else if (MASTER_1 == count) {
+			clk_params = &cci_dev->cci_clk_params[count];
+			msm_camera_io_w(clk_params->hw_thigh << 16 |
+				clk_params->hw_tlow,
+				cci_dev->base + CCI_I2C_M1_SCL_CTL_ADDR);
+			msm_camera_io_w(clk_params->hw_tsu_sto << 16 |
+				clk_params->hw_tsu_sta,
+				cci_dev->base + CCI_I2C_M1_SDA_CTL_0_ADDR);
+			msm_camera_io_w(clk_params->hw_thd_dat << 16 |
+				clk_params->hw_thd_sta,
+				cci_dev->base + CCI_I2C_M1_SDA_CTL_1_ADDR);
+			msm_camera_io_w(clk_params->hw_tbuf,
+				cci_dev->base + CCI_I2C_M1_SDA_CTL_2_ADDR);
+			msm_camera_io_w(clk_params->hw_scl_stretch_en << 8 |
+				clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
+				cci_dev->base + CCI_I2C_M1_MISC_CTL_ADDR);
+		}
+	}
 	return;
 }
 
@@ -910,58 +924,96 @@ static void msm_cci_init_clk_params(struct cci_device *cci_dev)
 {
 	int32_t rc = 0;
 	uint32_t val = 0;
+	uint8_t count = 0;
 	struct device_node *of_node = cci_dev->pdev->dev.of_node;
+	struct device_node *src_node = NULL;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-thigh", &val);
-	CDBG("%s qcom,hw-thigh %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_thigh = val;
+	for (count = 0; count < MASTER_MAX; count++) {
 
-	rc = of_property_read_u32(of_node, "qcom,hw-tlow", &val);
-	CDBG("%s qcom,hw-tlow %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_tlow = val;
+		if (MASTER_0 == count)
+			src_node = of_find_node_by_name(of_node,
+				"qcom,cci-master0");
+		else if (MASTER_1 == count)
+			src_node = of_find_node_by_name(of_node,
+				"qcom,cci-master1");
+		else
+			return;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-tsu-sto", &val);
-	CDBG("%s qcom,hw-tsu-sto %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_tsu_sto = val;
+		rc = of_property_read_u32(src_node, "qcom,hw-thigh", &val);
+		CDBG("%s qcom,hw-thigh %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_thigh = val;
+		else
+			cci_dev->cci_clk_params[count].hw_thigh = 78;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-tsu-sta", &val);
-	CDBG("%s qcom,hw-tsu-sta %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_tsu_sta = val;
+		rc = of_property_read_u32(src_node, "qcom,hw-tlow", &val);
+		CDBG("%s qcom,hw-tlow %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_tlow = val;
+		else
+			cci_dev->cci_clk_params[count].hw_tlow = 114;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-thd-dat", &val);
-	CDBG("%s qcom,hw-thd-dat %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_thd_dat = val;
+		rc = of_property_read_u32(src_node, "qcom,hw-tsu-sto", &val);
+		CDBG("%s qcom,hw-tsu-sto %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_tsu_sto = val;
+		else
+			cci_dev->cci_clk_params[count].hw_tsu_sto = 28;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-thd-sta", &val);
-	CDBG("%s qcom,hwthd-sta %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_thd_sta = val;
+		rc = of_property_read_u32(src_node, "qcom,hw-tsu-sta", &val);
+		CDBG("%s qcom,hw-tsu-sta %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_tsu_sta = val;
+		else
+			cci_dev->cci_clk_params[count].hw_tsu_sta = 28;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-tbuf", &val);
-	CDBG("%s qcom,hw-tbuf %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_tbuf = val;
+		rc = of_property_read_u32(src_node, "qcom,hw-thd-dat", &val);
+		CDBG("%s qcom,hw-thd-dat %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_thd_dat = val;
+		else
+			cci_dev->cci_clk_params[count].hw_thd_dat = 10;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-scl-stretch-en", &val);
-	CDBG("%s qcom,hw-scl-stretch-en %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_scl_stretch_en = val;
+		rc = of_property_read_u32(src_node, "qcom,hw-thd-sta", &val);
+		CDBG("%s qcom,hwthd-sta %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_thd_sta = val;
+		else
+			cci_dev->cci_clk_params[count].hw_thd_sta = 77;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-trdhld", &val);
-	CDBG("%s qcom,hw-trdhld %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_trdhld = val;
+		rc = of_property_read_u32(src_node, "qcom,hw-tbuf", &val);
+		CDBG("%s qcom,hw-tbuf %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_tbuf = val;
+		else
+			cci_dev->cci_clk_params[count].hw_tbuf = 118;
 
-	rc = of_property_read_u32(of_node, "qcom,hw-tsp", &val);
-	CDBG("%s qcom,hw-tsp %d, rc %d\n", __func__, val, rc);
-	if (!rc)
-		cci_dev->cci_clk_params.hw_tsp = val;
+		rc = of_property_read_u32(src_node,
+			"qcom,hw-scl-stretch-en", &val);
+		CDBG("%s qcom,hw-scl-stretch-en %d, rc %d\n",
+			__func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_scl_stretch_en = val;
+		else
+			cci_dev->cci_clk_params[count].hw_scl_stretch_en = 0;
 
+		rc = of_property_read_u32(src_node, "qcom,hw-trdhld", &val);
+		CDBG("%s qcom,hw-trdhld %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_trdhld = val;
+		else
+			cci_dev->cci_clk_params[count].hw_trdhld = 6;
+
+		rc = of_property_read_u32(src_node, "qcom,hw-tsp", &val);
+		CDBG("%s qcom,hw-tsp %d, rc %d\n", __func__, val, rc);
+		if (!rc)
+			cci_dev->cci_clk_params[count].hw_tsp = val;
+		else
+			cci_dev->cci_clk_params[count].hw_tsp = 1;
+
+		of_node_put(src_node);
+		src_node = NULL;
+	}
 	return;
 }
 
