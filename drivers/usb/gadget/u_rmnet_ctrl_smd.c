@@ -28,6 +28,7 @@
 #define MAX_CTRL_PORT		(MAX_CTRL_PER_CLIENT * NR_CTRL_CLIENTS)
 static char *ctrl_names[NR_CTRL_CLIENTS][MAX_CTRL_PER_CLIENT] = {
 	{"DATA40_CNTL", "DATA39_CNTL", "DATA38_CNTL"},
+	{"DATA39_CNTL"},
 };
 static struct workqueue_struct *grmnet_ctrl_wq;
 
