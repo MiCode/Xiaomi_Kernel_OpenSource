@@ -2798,6 +2798,12 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("byte_clk", dsi_byte_clk.c, "fdd00000.qcom,mdss_dsi"),
 	CLK_LOOKUP("esc_clk", dsi_esc_clk.c, "fdd00000.qcom,mdss_dsi"),
 	CLK_LOOKUP("pixel_clk", dsi_pclk_clk.c, "fdd00000.qcom,mdss_dsi"),
+
+	/* QSEECOM Clocks */
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,      "qseecom"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,  "qseecom"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,  "qseecom"),
+	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,      "qseecom"),
 };
 
 static struct clk_lookup msm_clocks_8610_rumi[] = {
