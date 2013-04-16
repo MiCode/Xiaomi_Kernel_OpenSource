@@ -330,7 +330,6 @@ void mdss_disable_irq_nosync(struct mdss_hw *hw)
 			hw->hw_ndx, mdss_res->mdp_irq_mask,
 			mdss_res->mdp_hist_irq_mask);
 	} else {
-		mdss_irq_handlers[hw->hw_ndx] = NULL;
 		mdss_res->irq_mask &= ~ndx_bit;
 		if (mdss_res->irq_mask == 0) {
 			mdss_res->irq_ena = false;
