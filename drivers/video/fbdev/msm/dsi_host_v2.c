@@ -29,6 +29,7 @@
 #define DSI_POLL_SLEEP_US 1000
 #define DSI_POLL_TIMEOUT_US 16000
 #define DSI_ESC_CLK_RATE 19200000
+#define DSI_DMA_CMD_TIMEOUT_MS 200
 
 struct dsi_host_v2_private {
 	struct completion dma_comp;
@@ -426,18 +427,15 @@ void msm_dsi_op_mode_config(int mode, struct mdss_panel_data *pdata)
 
 	dsi_ctrl = MIPI_INP(ctrl_base + DSI_CTRL);
 	/*If Video enabled, Keep Video and Cmd mode ON */
-	if (dsi_ctrl & 0x02)
-		dsi_ctrl &= ~0x05;
-	else
-		dsi_ctrl &= ~0x07;
+
+
+	dsi_ctrl &= ~0x06;
 
 	if (mode == DSI_VIDEO_MODE) {
-		dsi_ctrl |= 0x03;
+		dsi_ctrl |= 0x02;
 		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK;
 	} else {		/* command mode */
-		dsi_ctrl |= 0x05;
-		if (pdata->panel_info.type == MIPI_VIDEO_PANEL)
-			dsi_ctrl |= 0x02;
+		dsi_ctrl |= 0x04;
 
 		intr_ctrl = DSI_INTR_CMD_DMA_DONE_MASK | DSI_INTR_ERROR_MASK |
 				DSI_INTR_CMD_MDP_DONE_MASK;
@@ -480,7 +478,7 @@ int msm_dsi_cmd_reg_tx(u32 data)
 
 int msm_dsi_cmd_dma_tx(struct dsi_buf *tp)
 {
-	int len;
+	int len, rc;
 	unsigned long size, addr;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
 
@@ -505,12 +503,17 @@ int msm_dsi_cmd_dma_tx(struct dsi_buf *tp)
 	MIPI_OUTP(ctrl_base + DSI_CMD_MODE_DMA_SW_TRIGGER, 0x01);
 	wmb();
 
-	wait_for_completion_interruptible(&dsi_host_private->dma_comp);
+	rc = wait_for_completion_timeout(&dsi_host_private->dma_comp,
+				msecs_to_jiffies(DSI_DMA_CMD_TIMEOUT_MS));
+	if (rc == 0) {
+		pr_err("DSI command transaction time out\n");
+		rc = -ETIME;
+	}
 
 	dma_unmap_single(&dsi_host_private->dis_dev, tp->dmap, size,
 			DMA_TO_DEVICE);
 	tp->dmap = 0;
-	return 0;
+	return rc;
 }
 
 int msm_dsi_cmd_dma_rx(struct dsi_buf *rp, int rlen)
@@ -723,6 +726,7 @@ int msm_dsi_cmds_rx(struct mdss_panel_data *pdata,
 
 static int msm_dsi_cal_clk_rate(struct mdss_panel_data *pdata,
 				u32 *bitclk_rate,
+				u32 *dsiclk_rate,
 				u32 *byteclk_rate,
 				u32 *pclk_rate)
 {
@@ -761,10 +765,11 @@ static int msm_dsi_cal_clk_rate(struct mdss_panel_data *pdata,
 	*bitclk_rate /= lanes;
 
 	*byteclk_rate = *bitclk_rate / 8;
+	*dsiclk_rate = *byteclk_rate * lanes;
 	*pclk_rate = *byteclk_rate * lanes * 8 / pdata->panel_info.bpp;
 
-	pr_debug("bitclk=%u, byteclk=%u, pck_=%u\n",
-		*bitclk_rate, *byteclk_rate, *pclk_rate);
+	pr_debug("dsiclk_rate=%u, byteclk=%u, pck_=%u\n",
+		*dsiclk_rate, *byteclk_rate, *pclk_rate);
 	return 0;
 }
 
@@ -777,7 +782,7 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, data;
 	u32 dummy_xres, dummy_yres;
-	u32 bitclk_rate = 0, byteclk_rate = 0, pclk_rate = 0;
+	u32 bitclk_rate = 0, byteclk_rate = 0, pclk_rate = 0, dsiclk_rate = 0;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
 
 	pr_debug("msm_dsi_on\n");
@@ -794,8 +799,10 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 	msm_dsi_phy_sw_reset(dsi_host_private->dsi_base);
 	msm_dsi_phy_init(dsi_host_private->dsi_base, pdata);
 
-	msm_dsi_cal_clk_rate(pdata, &bitclk_rate, &byteclk_rate, &pclk_rate);
-	msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, byteclk_rate, pclk_rate);
+	msm_dsi_cal_clk_rate(pdata, &bitclk_rate, &dsiclk_rate,
+				&byteclk_rate, &pclk_rate);
+	msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, dsiclk_rate,
+				byteclk_rate, pclk_rate);
 	msm_dsi_prepare_clocks();
 	msm_dsi_clk_enable();
 
@@ -879,12 +886,11 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 	int ret = 0;
 
 	pr_debug("msm_dsi_off\n");
-	msm_dsi_clk_set_rate(0, 0, 0);
+	msm_dsi_controller_cfg(0);
+	msm_dsi_clk_set_rate(DSI_ESC_CLK_RATE, 0, 0, 0);
 	msm_dsi_clk_disable();
 	msm_dsi_unprepare_clocks();
 
-	/* disable DSI controller */
-	msm_dsi_controller_cfg(0);
 	msm_dsi_ahb_ctrl(0);
 
 	ret = msm_dsi_regulator_disable();
