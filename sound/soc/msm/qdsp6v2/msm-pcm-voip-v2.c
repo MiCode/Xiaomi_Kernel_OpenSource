@@ -109,10 +109,9 @@ struct voip_drv_info {
 	wait_queue_head_t in_wait;
 
 	struct mutex lock;
-	struct mutex in_lock;
-	struct mutex out_lock;
 
 	spinlock_t dsp_lock;
+	spinlock_t dsp_ul_lock;
 
 	uint32_t mode;
 	uint32_t rate_type;
@@ -272,7 +271,7 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 		return;
 
 	/* Copy up-link packet into out_queue. */
-	spin_lock_irqsave(&prtd->dsp_lock, dsp_flags);
+	spin_lock_irqsave(&prtd->dsp_ul_lock, dsp_flags);
 
 	/* discarding UL packets till start is received */
 	if (!list_empty(&prtd->free_out_queue) && prtd->capture_start) {
@@ -325,10 +324,10 @@ static void voip_process_ul_pkt(uint8_t *voc_pkt,
 		pr_debug("ul_pkt: pkt_len =%d, frame.len=%d\n", pkt_len,
 			buf_node->frame.len);
 		prtd->pcm_capture_irq_pos += prtd->pcm_capture_count;
-		spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
+		spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
 		snd_pcm_period_elapsed(prtd->capture_substream);
 	} else {
-		spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
+		spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
 		pr_err("UL data dropped\n");
 	}
 
@@ -526,6 +525,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	struct voip_buf_node *buf_node = NULL;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct voip_drv_info *prtd = runtime->private_data;
+	unsigned long dsp_flags;
 
 	int count = frames_to_bytes(runtime, frames);
 	pr_debug("%s: count = %d, frames=%d\n", __func__, count, (int)frames);
@@ -535,12 +535,13 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 				prtd->state == VOIP_STOPPED),
 				1 * HZ);
 	if (ret > 0) {
-		mutex_lock(&prtd->in_lock);
 		if (count <= VOIP_MAX_VOC_PKT_SIZE) {
+			spin_lock_irqsave(&prtd->dsp_lock, dsp_flags);
 			buf_node =
 				list_first_entry(&prtd->free_in_queue,
 						struct voip_buf_node, list);
 			list_del(&buf_node->list);
+			spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
 			if (prtd->mode == MODE_PCM) {
 				ret = copy_from_user(&buf_node->frame.voc_pkt,
 							buf, count);
@@ -548,14 +549,15 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 			} else
 				ret = copy_from_user(&buf_node->frame,
 							buf, count);
+			spin_lock_irqsave(&prtd->dsp_lock, dsp_flags);
 			list_add_tail(&buf_node->list, &prtd->in_queue);
+			spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
 		} else {
 			pr_err("%s: Write cnt %d is > VOIP_MAX_VOC_PKT_SIZE\n",
 				__func__, count);
 			ret = -ENOMEM;
 		}
 
-		mutex_unlock(&prtd->in_lock);
 	} else if (ret == 0) {
 		pr_err("%s: No free DL buffs\n", __func__);
 		ret = -ETIMEDOUT;
@@ -574,6 +576,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	struct voip_buf_node *buf_node = NULL;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct voip_drv_info *prtd = runtime->private_data;
+	unsigned long dsp_flags;
 
 	count = frames_to_bytes(runtime, frames);
 
@@ -585,12 +588,13 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 				1 * HZ);
 
 	if (ret > 0) {
-		mutex_lock(&prtd->out_lock);
 
 		if (count <= VOIP_MAX_VOC_PKT_SIZE) {
+			spin_lock_irqsave(&prtd->dsp_ul_lock, dsp_flags);
 			buf_node = list_first_entry(&prtd->out_queue,
 					struct voip_buf_node, list);
 			list_del(&buf_node->list);
+			spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
 			if (prtd->mode == MODE_PCM)
 				ret = copy_to_user(buf,
 						   &buf_node->frame.voc_pkt,
@@ -604,15 +608,17 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 					__func__, ret);
 				ret = -EFAULT;
 			}
+			spin_lock_irqsave(&prtd->dsp_ul_lock, dsp_flags);
 			list_add_tail(&buf_node->list,
 						&prtd->free_out_queue);
+			spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
+
 		} else {
 			pr_err("%s: Read count %d > VOIP_MAX_VOC_PKT_SIZE\n",
 				__func__, count);
 			ret = -ENOMEM;
 		}
 
-		mutex_unlock(&prtd->out_lock);
 
 	} else if (ret == 0) {
 		pr_err("%s: No UL data available\n", __func__);
@@ -646,6 +652,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_substream *p_substream, *c_substream;
 	struct snd_pcm_runtime *runtime;
 	struct voip_drv_info *prtd;
+	unsigned long dsp_flags;
 
 	if (substream == NULL) {
 		pr_err("substream is NULL\n");
@@ -684,7 +691,7 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 			goto capt;
 		}
 		if (p_dma_buf->area != NULL) {
-			mutex_lock(&prtd->in_lock);
+			spin_lock_irqsave(&prtd->dsp_lock, dsp_flags);
 			list_for_each_safe(ptr, next, &prtd->in_queue) {
 				buf_node = list_entry(ptr,
 						struct voip_buf_node, list);
@@ -695,11 +702,11 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 						struct voip_buf_node, list);
 				list_del(&buf_node->list);
 			}
+			spin_unlock_irqrestore(&prtd->dsp_lock, dsp_flags);
 			dma_free_coherent(p_substream->pcm->card->dev,
 				runtime->hw.buffer_bytes_max, p_dma_buf->area,
 				p_dma_buf->addr);
 			p_dma_buf->area = NULL;
-			mutex_unlock(&prtd->in_lock);
 		}
 		/* release out_queue and free_out_queue */
 capt:		c_substream = prtd->capture_substream;
@@ -713,7 +720,7 @@ capt:		c_substream = prtd->capture_substream;
 			goto done;
 		}
 		if (c_dma_buf->area != NULL) {
-			mutex_lock(&prtd->out_lock);
+			spin_lock_irqsave(&prtd->dsp_ul_lock, dsp_flags);
 			list_for_each_safe(ptr, next, &prtd->out_queue) {
 				buf_node = list_entry(ptr,
 						struct voip_buf_node, list);
@@ -724,11 +731,11 @@ capt:		c_substream = prtd->capture_substream;
 						struct voip_buf_node, list);
 				list_del(&buf_node->list);
 			}
+			spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
 			dma_free_coherent(c_substream->pcm->card->dev,
 				runtime->hw.buffer_bytes_max, c_dma_buf->area,
 				c_dma_buf->addr);
 			c_dma_buf->area = NULL;
-			mutex_unlock(&prtd->out_lock);
 		}
 done:
 		prtd->capture_substream = NULL;
@@ -899,19 +906,15 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 		for (i = 0; i < VOIP_MAX_Q_LEN; i++) {
 			buf_node = (void *)dma_buf->area + offset;
 
-			mutex_lock(&voip_info.in_lock);
 			list_add_tail(&buf_node->list,
 					&voip_info.free_in_queue);
-			mutex_unlock(&voip_info.in_lock);
 			offset = offset + sizeof(struct voip_buf_node);
 		}
 	} else {
 		for (i = 0; i < VOIP_MAX_Q_LEN; i++) {
 			buf_node = (void *) dma_buf->area + offset;
-			mutex_lock(&voip_info.out_lock);
 			list_add_tail(&buf_node->list,
 					&voip_info.free_out_queue);
-			mutex_unlock(&voip_info.out_lock);
 			offset = offset + sizeof(struct voip_buf_node);
 		}
 	}
@@ -1164,10 +1167,9 @@ static int __init msm_soc_platform_init(void)
 	memset(&voip_info, 0, sizeof(voip_info));
 	voip_info.mode = MODE_PCM;
 	mutex_init(&voip_info.lock);
-	mutex_init(&voip_info.in_lock);
-	mutex_init(&voip_info.out_lock);
 
 	spin_lock_init(&voip_info.dsp_lock);
+	spin_lock_init(&voip_info.dsp_ul_lock);
 
 	init_waitqueue_head(&voip_info.out_wait);
 	init_waitqueue_head(&voip_info.in_wait);
