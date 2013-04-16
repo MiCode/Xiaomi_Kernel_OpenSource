@@ -22,5 +22,5 @@
 };
 
 &pm8941_chg {
-	qcom,chg-charging-disabled;
+	qcom,charging-disabled;
 };

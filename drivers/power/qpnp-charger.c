@@ -1737,7 +1737,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 
 	/* Get the vddmax property */
-	rc = of_property_read_u32(spmi->dev.of_node, "qcom,chg-vddmax-mv",
+	rc = of_property_read_u32(spmi->dev.of_node, "qcom,vddmax-mv",
 						&chip->max_voltage_mv);
 	if (rc) {
 		pr_err("Error reading vddmax property %d\n", rc);
@@ -1745,7 +1745,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 
 	/* Get the vinmin property */
-	rc = of_property_read_u32(spmi->dev.of_node, "qcom,chg-vinmin-mv",
+	rc = of_property_read_u32(spmi->dev.of_node, "qcom,vinmin-mv",
 						&chip->min_voltage_mv);
 	if (rc) {
 		pr_err("Error reading vddmax property %d\n", rc);
@@ -1753,7 +1753,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 
 	/* Get the vddmax property */
-	rc = of_property_read_u32(spmi->dev.of_node, "qcom,chg-vddsafe-mv",
+	rc = of_property_read_u32(spmi->dev.of_node, "qcom,vddsafe-mv",
 						&chip->safe_voltage_mv);
 	if (rc) {
 		pr_err("Error reading vddsave property %d\n", rc);
@@ -1762,7 +1762,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	/* Get the vbatdet-delta property */
 	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-vbatdet-delta-mv",
+				"qcom,vbatdet-delta-mv",
 				&chip->resume_delta_mv);
 	if (rc && rc != -EINVAL) {
 		pr_err("Error reading vbatdet-delta property %d\n", rc);
@@ -1771,7 +1771,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	/* Get the ibatsafe property */
 	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-ibatsafe-ma",
+				"qcom,ibatsafe-ma",
 				&chip->safe_current);
 	if (rc) {
 		pr_err("Error reading ibatsafe property %d\n", rc);
@@ -1780,7 +1780,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	/* Get the ibatterm property */
 	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-ibatterm-ma",
+				"qcom,ibatterm-ma",
 				&chip->term_current);
 	if (rc && rc != -EINVAL) {
 		pr_err("Error reading ibatterm property %d\n", rc);
@@ -1788,7 +1788,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	}
 
 	/* Get the ibatmax property */
-	rc = of_property_read_u32(spmi->dev.of_node, "qcom,chg-ibatmax-ma",
+	rc = of_property_read_u32(spmi->dev.of_node, "qcom,ibatmax-ma",
 						&chip->max_bat_chg_current);
 	if (rc) {
 		pr_err("Error reading ibatmax property %d\n", rc);
@@ -1797,7 +1797,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	/* Get the maxinput-dc-ma property */
 	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-maxinput-dc-ma",
+				"qcom,maxinput-dc-ma",
 				&chip->maxinput_dc_ma);
 	if (rc && rc != -EINVAL) {
 		pr_err("Error reading maxinput-dc-ma property %d\n", rc);
@@ -1806,7 +1806,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	/* Get the maxinput-usb-ma property */
 	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-maxinput-usb-ma",
+				"qcom,maxinput-usb-ma",
 				&chip->maxinput_usb_ma);
 	if (rc && rc != -EINVAL) {
 		pr_err("Error reading maxinput-usb-ma property %d\n", rc);
@@ -1815,11 +1815,11 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(spmi->dev.of_node,
-					"qcom,chg-charging-disabled");
+					"qcom,charging-disabled");
 
 	/* Get the warm-bat-degc property */
 	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-warm-bat-decidegc",
+				"qcom,warm-bat-decidegc",
 				&chip->warm_bat_decidegc);
 	if (rc && rc != -EINVAL) {
 		pr_err("Error reading warm-bat-degc property %d\n", rc);
@@ -1828,7 +1828,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	/* Get the cool-bat-degc property */
 	rc = of_property_read_u32(spmi->dev.of_node,
-				"qcom,chg-cool-bat-decidegc",
+				"qcom,cool-bat-decidegc",
 				&chip->cool_bat_decidegc);
 	if (rc && rc != -EINVAL) {
 		pr_err("Error reading cool-bat-degc property %d\n", rc);
@@ -1844,7 +1844,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 		/* Get the ibatmax-warm property */
 		rc = of_property_read_u32(spmi->dev.of_node,
-					"qcom,chg-ibatmax-warm-ma",
+					"qcom,ibatmax-warm-ma",
 					&chip->warm_bat_chg_ma);
 		if (rc) {
 			pr_err("Error reading ibatmax-warm-ma %d\n", rc);
@@ -1853,7 +1853,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 		/* Get the ibatmax-cool property */
 		rc = of_property_read_u32(spmi->dev.of_node,
-					"qcom,chg-ibatmax-cool-ma",
+					"qcom,ibatmax-cool-ma",
 					&chip->cool_bat_chg_ma);
 		if (rc) {
 			pr_err("Error reading ibatmax-cool-ma %d\n", rc);
@@ -1861,7 +1861,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		}
 		/* Get the cool-bat-mv property */
 		rc = of_property_read_u32(spmi->dev.of_node,
-					"qcom,chg-cool-bat-mv",
+					"qcom,cool-bat-mv",
 					&chip->cool_bat_mv);
 		if (rc) {
 			pr_err("Error reading cool-bat-mv property %d\n", rc);
@@ -1870,7 +1870,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 		/* Get the warm-bat-mv property */
 		rc = of_property_read_u32(spmi->dev.of_node,
-					"qcom,chg-warm-bat-mv",
+					"qcom,warm-bat-mv",
 					&chip->warm_bat_mv);
 		if (rc) {
 			pr_err("Error reading warm-bat-mv property %d\n", rc);
@@ -1880,9 +1880,9 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	/* Get the fake-batt-values property */
 	chip->use_default_batt_values = of_property_read_bool(spmi->dev.of_node,
-					"qcom,chg-use-default-batt-values");
+					"qcom,use-default-batt-values");
 
-	of_get_property(spmi->dev.of_node, "qcom,chg-thermal-mitigation",
+	of_get_property(spmi->dev.of_node, "qcom,thermal-mitigation",
 		&(chip->thermal_levels));
 
 	if (chip->thermal_levels > sizeof(int)) {
@@ -1897,10 +1897,10 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 		chip->thermal_levels /= sizeof(int);
 		rc = of_property_read_u32_array(spmi->dev.of_node,
-				"qcom,chg-thermal-mitigation",
+				"qcom,thermal-mitigation",
 				chip->thermal_mitigation, chip->thermal_levels);
 		if (rc) {
-			pr_err("qcom,chg-thermal-mitigation missing in dt\n");
+			pr_err("qcom,thermal-mitigation missing in dt\n");
 			goto fail_chg_enable;
 		}
 	}
