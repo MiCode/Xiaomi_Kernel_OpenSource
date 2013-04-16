@@ -284,6 +284,7 @@ config ARCH_MSM8974
 	select MSM_ULTRASOUND_B
 	select MSM_LPM_TEST
 	select MSM_RPM_LOG
+	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 
 config ARCH_MSMZINC
 	bool "MSMZINC"
@@ -302,6 +303,7 @@ config ARCH_MSMZINC
 	select REGULATOR
 	select ARM_HAS_SG_CHAIN
 	select ARCH_DMA_ADDR_T_64BIT if ARM_LPAE
+	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 
 config ARCH_MPQ8092
 	bool "MPQ8092"
@@ -485,6 +487,7 @@ config ARCH_MSM8226
 	select MSM_CPR_REGULATOR
 	select MSM_RPM_LOG
 	select MSM_RPM_STATS_LOG
+	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 endmenu
 
 choice
