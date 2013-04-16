@@ -1448,6 +1448,160 @@ qpnp_chg_setup_flags(struct qpnp_chg_chip *chip)
 		chip->flags |= CHG_FLAGS_VCP_WA;
 }
 
+static int
+qpnp_chg_request_irqs(struct qpnp_chg_chip *chip)
+{
+	int rc = 0;
+	struct resource *resource;
+	struct spmi_resource *spmi_resource;
+	u8 subtype;
+	struct spmi_device *spmi = chip->spmi;
+
+	spmi_for_each_container_dev(spmi_resource, chip->spmi) {
+		if (!spmi_resource) {
+				pr_err("qpnp_chg: spmi resource absent\n");
+			return rc;
+		}
+
+		resource = spmi_get_resource(spmi, spmi_resource,
+						IORESOURCE_MEM, 0);
+		if (!(resource && resource->start)) {
+			pr_err("node %s IO resource absent!\n",
+				spmi->dev.of_node->full_name);
+			return rc;
+		}
+
+		rc = qpnp_chg_read(chip, &subtype,
+				resource->start + REG_OFFSET_PERP_SUBTYPE, 1);
+		if (rc) {
+			pr_err("Peripheral subtype read failed rc=%d\n", rc);
+			return rc;
+		}
+
+		switch (subtype) {
+		case SMBB_CHGR_SUBTYPE:
+		case SMBBP_CHGR_SUBTYPE:
+		case SMBCL_CHGR_SUBTYPE:
+			chip->chg_fastchg_irq = spmi_get_irq_byname(spmi,
+						spmi_resource, "fast-chg-on");
+			if (chip->chg_fastchg_irq < 0) {
+				pr_err("Unable to get fast-chg-on irq\n");
+				return rc;
+			}
+
+			chip->chg_trklchg_irq = spmi_get_irq_byname(spmi,
+						spmi_resource, "trkl-chg-on");
+			if (chip->chg_trklchg_irq < 0) {
+				pr_err("Unable to get trkl-chg-on irq\n");
+				return rc;
+			}
+
+			chip->chg_failed_irq = spmi_get_irq_byname(spmi,
+						spmi_resource, "chg-failed");
+			if (chip->chg_failed_irq < 0) {
+				pr_err("Unable to get chg_failed irq\n");
+				return rc;
+			}
+
+			rc |= devm_request_irq(chip->dev, chip->chg_failed_irq,
+				qpnp_chg_chgr_chg_failed_irq_handler,
+				IRQF_TRIGGER_RISING, "chg_failed", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d chg_failed chg: %d\n",
+						chip->chg_failed_irq, rc);
+				return rc;
+			}
+
+			rc |= devm_request_irq(chip->dev, chip->chg_fastchg_irq,
+					qpnp_chg_chgr_chg_fastchg_irq_handler,
+					IRQF_TRIGGER_RISING,
+					"fast-chg-on", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d fast-chg-on: %d\n",
+						chip->chg_fastchg_irq, rc);
+				return rc;
+			}
+
+			rc |= devm_request_irq(chip->dev, chip->chg_trklchg_irq,
+				qpnp_chg_chgr_chg_trklchg_irq_handler,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				"fast-chg-on", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d trkl-chg-on: %d\n",
+						chip->chg_trklchg_irq, rc);
+				return rc;
+			}
+			enable_irq_wake(chip->chg_fastchg_irq);
+			enable_irq_wake(chip->chg_trklchg_irq);
+			enable_irq_wake(chip->chg_failed_irq);
+
+			break;
+		case SMBB_BAT_IF_SUBTYPE:
+		case SMBBP_BAT_IF_SUBTYPE:
+		case SMBCL_BAT_IF_SUBTYPE:
+			chip->batt_pres_irq = spmi_get_irq_byname(spmi,
+						spmi_resource, "batt-pres");
+			if (chip->batt_pres_irq < 0) {
+				pr_err("Unable to get batt-pres irq\n");
+				return rc;
+			}
+			rc = devm_request_irq(chip->dev, chip->batt_pres_irq,
+				qpnp_chg_bat_if_batt_pres_irq_handler,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				"bat_if_batt_pres", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d batt-pres irq: %d\n",
+						chip->batt_pres_irq, rc);
+				return rc;
+			}
+
+			enable_irq_wake(chip->batt_pres_irq);
+			break;
+		case SMBB_USB_CHGPTH_SUBTYPE:
+		case SMBBP_USB_CHGPTH_SUBTYPE:
+		case SMBCL_USB_CHGPTH_SUBTYPE:
+			chip->usbin_valid_irq = spmi_get_irq_byname(spmi,
+						spmi_resource, "usbin-valid");
+			if (chip->usbin_valid_irq < 0) {
+				pr_err("Unable to get usbin irq\n");
+				return rc;
+			}
+			rc = devm_request_irq(chip->dev, chip->usbin_valid_irq,
+				qpnp_chg_usb_usbin_valid_irq_handler,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+					"chg_usbin_valid", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d usbinvalid: %d\n",
+						chip->usbin_valid_irq, rc);
+				return rc;
+			}
+			enable_irq_wake(chip->usbin_valid_irq);
+			break;
+		case SMBB_DC_CHGPTH_SUBTYPE:
+			chip->dcin_valid_irq = spmi_get_irq_byname(spmi,
+					spmi_resource, "dcin-valid");
+			if (chip->dcin_valid_irq < 0) {
+				pr_err("Unable to get dcin irq\n");
+				return -rc;
+			}
+			rc = devm_request_irq(chip->dev, chip->dcin_valid_irq,
+				qpnp_chg_dc_dcin_valid_irq_handler,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+				"chg_dcin_valid", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d dcinvalid: %d\n",
+						chip->dcin_valid_irq, rc);
+				return rc;
+			}
+
+			enable_irq_wake(chip->dcin_valid_irq);
+			break;
+		}
+	}
+
+	return rc;
+}
+
 #define WDOG_EN_BIT	BIT(7)
 static int
 qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
@@ -1460,56 +1614,6 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_CHGR_SUBTYPE:
 	case SMBBP_CHGR_SUBTYPE:
 	case SMBCL_CHGR_SUBTYPE:
-		chip->chg_fastchg_irq = spmi_get_irq_byname(chip->spmi,
-						spmi_resource, "fast-chg-on");
-		if (chip->chg_fastchg_irq < 0) {
-			pr_err("Unable to get fast-chg-on irq\n");
-			return -ENXIO;
-		}
-
-		chip->chg_trklchg_irq = spmi_get_irq_byname(chip->spmi,
-						spmi_resource, "trkl-chg-on");
-		if (chip->chg_trklchg_irq < 0) {
-			pr_err("Unable to get trkl-chg-on irq\n");
-			return -ENXIO;
-		}
-
-		chip->chg_failed_irq = spmi_get_irq_byname(chip->spmi,
-						spmi_resource, "chg-failed");
-		if (chip->chg_failed_irq < 0) {
-			pr_err("Unable to get chg_failed irq\n");
-			return -ENXIO;
-		}
-
-		rc |= devm_request_irq(chip->dev, chip->chg_failed_irq,
-				qpnp_chg_chgr_chg_failed_irq_handler,
-				IRQF_TRIGGER_RISING, "chg_failed", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d chg_failed chg: %d\n",
-						chip->chg_failed_irq, rc);
-			return -ENXIO;
-		}
-
-		rc |= devm_request_irq(chip->dev, chip->chg_fastchg_irq,
-				qpnp_chg_chgr_chg_fastchg_irq_handler,
-				IRQF_TRIGGER_RISING,
-				"fast-chg-on", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d fast-chg-on for chg: %d\n",
-						chip->chg_fastchg_irq, rc);
-			return -ENXIO;
-		}
-
-		rc |= devm_request_irq(chip->dev, chip->chg_trklchg_irq,
-				qpnp_chg_chgr_chg_trklchg_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"fast-chg-on", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d trkl-chg-on for chg: %d\n",
-						chip->chg_trklchg_irq, rc);
-			return -ENXIO;
-		}
-
 		rc = qpnp_chg_vinmin_set(chip, chip->min_voltage_mv);
 		if (rc) {
 			pr_debug("failed setting  min_voltage rc=%d\n", rc);
@@ -1557,9 +1661,6 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 			CHGR_IBAT_TERM_CHGR,
 			0x88, 0x80, 1);
 
-		enable_irq_wake(chip->chg_fastchg_irq);
-		enable_irq_wake(chip->chg_trklchg_irq);
-		enable_irq_wake(chip->chg_failed_irq);
 		break;
 	case SMBB_BUCK_SUBTYPE:
 	case SMBBP_BUCK_SUBTYPE:
@@ -1576,44 +1677,10 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 	case SMBB_BAT_IF_SUBTYPE:
 	case SMBBP_BAT_IF_SUBTYPE:
 	case SMBCL_BAT_IF_SUBTYPE:
-		chip->batt_pres_irq = spmi_get_irq_byname(chip->spmi,
-						spmi_resource, "batt-pres");
-		if (chip->batt_pres_irq < 0) {
-			pr_err("Unable to get batt-pres irq\n");
-			return -ENXIO;
-		}
-		rc = devm_request_irq(chip->dev, chip->batt_pres_irq,
-				qpnp_chg_bat_if_batt_pres_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"bat_if_batt_pres", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d batt-pres irq for chg: %d\n",
-						chip->batt_pres_irq, rc);
-			return -ENXIO;
-		}
-
-		enable_irq_wake(chip->batt_pres_irq);
 		break;
 	case SMBB_USB_CHGPTH_SUBTYPE:
 	case SMBBP_USB_CHGPTH_SUBTYPE:
 	case SMBCL_USB_CHGPTH_SUBTYPE:
-		chip->usbin_valid_irq = spmi_get_irq_byname(chip->spmi,
-						spmi_resource, "usbin-valid");
-		if (chip->usbin_valid_irq < 0) {
-			pr_err("Unable to get usbin irq\n");
-			return -ENXIO;
-		}
-		rc = devm_request_irq(chip->dev, chip->usbin_valid_irq,
-				qpnp_chg_usb_usbin_valid_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"chg_usbin_valid", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d usbinvalid  for chg: %d\n",
-						chip->usbin_valid_irq, rc);
-			return -ENXIO;
-		}
-
-		enable_irq_wake(chip->usbin_valid_irq);
 		chip->usb_present = qpnp_chg_is_usb_chg_plugged_in(chip);
 		if (chip->usb_present) {
 			rc = qpnp_chg_masked_write(chip,
@@ -1638,23 +1705,6 @@ qpnp_chg_hwinit(struct qpnp_chg_chip *chip, u8 subtype,
 
 		break;
 	case SMBB_DC_CHGPTH_SUBTYPE:
-		chip->dcin_valid_irq = spmi_get_irq_byname(chip->spmi,
-						spmi_resource, "dcin-valid");
-		if (chip->dcin_valid_irq < 0) {
-			pr_err("Unable to get dcin irq\n");
-			return -ENXIO;
-		}
-		rc = devm_request_irq(chip->dev, chip->dcin_valid_irq,
-				qpnp_chg_dc_dcin_valid_irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				"chg_dcin_valid", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d dcinvalid  for chg: %d\n",
-						chip->dcin_valid_irq, rc);
-			return -ENXIO;
-		}
-
-		enable_irq_wake(chip->dcin_valid_irq);
 		break;
 	case SMBB_BOOST_SUBTYPE:
 	case SMBBP_BOOST_SUBTYPE:
@@ -2000,6 +2050,12 @@ qpnp_charger_probe(struct spmi_device *spmi)
 
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
 	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
+
+	rc = qpnp_chg_request_irqs(chip);
+	if (rc) {
+		pr_err("failed to request interrupts %d\n", rc);
+		goto unregister_batt;
+	}
 
 	pr_info("success chg_dis = %d, usb = %d, dc = %d b_health = %d batt_present = %d\n",
 			chip->charging_disabled,
