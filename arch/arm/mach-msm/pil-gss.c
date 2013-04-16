@@ -203,7 +203,7 @@ static int pil_gss_reset(struct pil_desc *pil)
 {
 	struct gss_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
-	unsigned long start_addr = pil_get_entry_addr(pil);
+	phys_addr_t start_addr = pil_get_entry_addr(pil);
 	void __iomem *cbase = drv->cbase;
 	int ret;
 

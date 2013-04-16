@@ -127,7 +127,7 @@ static int pil_lpass_shutdown(struct pil_desc *pil)
 static int pil_lpass_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
-	unsigned long start_addr = pil_get_entry_addr(pil);
+	phys_addr_t start_addr = pil_get_entry_addr(pil);
 	int ret;
 
 	/* Deassert reset to subsystem and wait for propagation */

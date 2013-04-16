@@ -243,7 +243,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	struct platform_device *pdev = to_platform_device(pil->dev);
 	struct mba_data *mba = platform_get_drvdata(pdev);
-	unsigned long start_addr = pil_get_entry_addr(pil);
+	phys_addr_t start_addr = pil_get_entry_addr(pil);
 	int ret;
 
 	/*

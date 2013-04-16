@@ -116,7 +116,7 @@ static int pil_q6v3_reset(struct pil_desc *pil)
 {
 	u32 reg;
 	struct q6v3_data *drv = dev_get_drvdata(pil->dev);
-	unsigned long start_addr = pil_get_entry_addr(pil);
+	phys_addr_t start_addr = pil_get_entry_addr(pil);
 
 	/* Put Q6 into reset */
 	reg = readl_relaxed(drv->cbase + LCC_Q6_FUNC);

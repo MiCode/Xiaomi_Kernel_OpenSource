@@ -93,7 +93,7 @@ static int modem_reset(struct pil_desc *pil)
 {
 	u32 reg;
 	const struct modem_data *drv = dev_get_drvdata(pil->dev);
-	unsigned long start_addr = pil_get_entry_addr(pil);
+	phys_addr_t start_addr = pil_get_entry_addr(pil);
 
 	/* Put modem AHB0,1,2 clocks into reset */
 	writel_relaxed(BIT(0) | BIT(1), drv->cbase + MAHB0_SFAB_PORT_RESET);
