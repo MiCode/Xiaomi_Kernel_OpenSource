@@ -80,6 +80,8 @@ void afe_set_aanc_info(struct aanc_data *q6_aanc_info)
 
 static int32_t afe_callback(struct apr_client_data *data, void *priv)
 {
+	int i;
+
 	if (!data) {
 		pr_err("%s: Invalid param data\n", __func__);
 		return -EINVAL;
@@ -87,6 +89,12 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 	if (data->opcode == RESET_EVENTS) {
 		pr_debug("q6afe: reset event = %d %d apr[%p]\n",
 			data->reset_event, data->reset_proc, this_afe.apr);
+
+		for (i = 0; i < MAX_AUDPROC_TYPES; i++) {
+			this_afe.afe_cal_addr[i].cal_paddr = 0;
+			this_afe.afe_cal_addr[i].cal_size = 0;
+		}
+
 		if (this_afe.apr) {
 			apr_reset(this_afe.apr);
 			atomic_set(&this_afe.state, 0);
