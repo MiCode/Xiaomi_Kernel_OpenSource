@@ -197,6 +197,7 @@ static struct {
 	void __iomem *riva_ccu_base;
 	void __iomem *pronto_a2xb_base;
 	void __iomem *pronto_ccpu_base;
+	void __iomem *fiq_reg;
 } *penv = NULL;
 
 static ssize_t wcnss_serial_number_show(struct device *dev,
@@ -401,7 +402,7 @@ void wcnss_reset_intr(void)
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		wcnss_pronto_log_debug_regs();
 		wmb();
-		__raw_writel(1 << 16, MSM_APCS_GCC_BASE + 0x8);
+		__raw_writel(1 << 16, penv->fiq_reg);
 	} else {
 		wcnss_riva_log_debug_regs();
 		wmb();
@@ -1068,6 +1069,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	struct qcom_wcnss_opts *pdata;
 	unsigned long wcnss_phys_addr;
 	int size = 0;
+	struct resource *res;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
 									"qcom,has_pronto_hw");
 
@@ -1183,11 +1185,28 @@ wcnss_trigger_config(struct platform_device *pdev)
 			pr_err("%s: ioremap wcnss physical failed\n", __func__);
 			goto fail_ioremap2;
 		}
+		/* for reset FIQ */
+		res = platform_get_resource_byname(penv->pdev,
+				IORESOURCE_MEM, "wcnss_fiq");
+		if (!res) {
+			dev_err(&pdev->dev, "insufficient irq mem resources\n");
+			ret = -ENOENT;
+			goto fail_ioremap3;
+		}
+		penv->fiq_reg = ioremap_nocache(res->start, resource_size(res));
+		if (!penv->fiq_reg) {
+			pr_err("wcnss: %s: ioremap_nocache() failed fiq_reg addr:%pr\n",
+				__func__, &res->start);
+			ret = -ENOMEM;
+			goto fail_ioremap3;
+		}
 	}
 	penv->cold_boot_done = 1;
 
 	return 0;
 
+fail_ioremap3:
+	iounmap(penv->pronto_ccpu_base);
 fail_ioremap2:
 	iounmap(penv->pronto_a2xb_base);
 fail_ioremap:
