@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,18 +10,10 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-/include/ "msm9625-v2.dtsi"
-/include/ "msm9625-mtp.dtsi"
+/include/ "msm9625-display.dtsi"
+/include/ "qpic-panel-ili-qvga.dtsi"
 
 / {
-	model = "Qualcomm MSM 9625V2 MTP";
-	compatible = "qcom,msm9625-mtp", "qcom,msm9625", "qcom,mtp";
-	qcom,msm-id = <134 7 0x20000>, <152 7 0x20000>, <149 7 0x20000>,
-		      <150 7 0x20000>, <151 7 0x20000>, <148 7 0x20000>,
-		      <173 7 0x20000>, <174 7 0x20000>, <175 7 0x20000>;
-
 	i2c@f9925000 {
 		charger@57 {
 			compatible = "summit,smb137c";
@@ -98,23 +90,11 @@
 	};
 
 	mpp@a300 { /* MPP 4 */
-		/* VADC channel 19 */
-		qcom,mode = <4>;
-		qcom,ain-route = <3>; /* AMUX 8 */
-		qcom,master-en = <1>;
-		qcom,src-sel = <0>; /* Function constant */
-		qcom,invert = <1>;
 	};
 
 	mpp@a400 { /* MPP 5 */
 	};
 
 	mpp@a500 { /* MPP 6 */
-		/* channel 21 */
-		qcom,mode = <4>;
-		qcom,ain-route = <1>; /* AMUX 6 */
-		qcom,master-en = <1>;
-		qcom,src-sel = <0>; /* Function constant */
-		qcom,invert = <1>;
 	};
 };
