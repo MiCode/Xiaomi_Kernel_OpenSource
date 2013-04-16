@@ -189,7 +189,7 @@ struct dsi_panel_common_pdata {
 	struct mdss_panel_info panel_info;
 	int (*on) (struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
-	void (*reset)(int enable);
+	void (*reset)(struct mdss_panel_data *pdata, int enable);
 	void (*bl_fnc) (struct mdss_panel_data *pdata, u32 bl_level);
 	struct dsi_panel_cmds_list *dsi_panel_on_cmds;
 	struct dsi_panel_cmds_list *dsi_panel_off_cmds;

@@ -29,6 +29,7 @@ struct msm_dsi_io_private {
 	struct clk *dsi_esc_clk;
 	struct clk *dsi_pixel_clk;
 	struct clk *dsi_ahb_clk;
+	struct clk *dsi_clk;
 	int msm_dsi_clk_on;
 	int msm_dsi_ahb_clk_on;
 };
@@ -97,6 +98,13 @@ int msm_dsi_clk_init(struct platform_device *dev)
 {
 	int rc = 0;
 
+	dsi_io_private->dsi_clk = clk_get(&dev->dev, "dsi_clk");
+	if (IS_ERR(dsi_io_private->dsi_clk)) {
+		pr_err("can't find dsi core_clk\n");
+		rc = PTR_ERR(dsi_io_private->dsi_clk);
+		dsi_io_private->dsi_clk = NULL;
+		return rc;
+	}
 	dsi_io_private->dsi_byte_clk = clk_get(&dev->dev, "byte_clk");
 	if (IS_ERR(dsi_io_private->dsi_byte_clk)) {
 		pr_err("can't find dsi byte_clk\n");
@@ -135,6 +143,10 @@ int msm_dsi_clk_init(struct platform_device *dev)
 
 void msm_dsi_clk_deinit(void)
 {
+	if (dsi_io_private->dsi_clk) {
+		clk_put(dsi_io_private->dsi_clk);
+		dsi_io_private->dsi_clk = NULL;
+	}
 	if (dsi_io_private->dsi_byte_clk) {
 		clk_put(dsi_io_private->dsi_byte_clk);
 		dsi_io_private->dsi_byte_clk = NULL;
@@ -156,6 +168,7 @@ void msm_dsi_clk_deinit(void)
 
 int msm_dsi_prepare_clocks(void)
 {
+	clk_prepare(dsi_io_private->dsi_clk);
 	clk_prepare(dsi_io_private->dsi_byte_clk);
 	clk_prepare(dsi_io_private->dsi_esc_clk);
 	clk_prepare(dsi_io_private->dsi_pixel_clk);
@@ -164,16 +177,24 @@ int msm_dsi_prepare_clocks(void)
 
 int msm_dsi_unprepare_clocks(void)
 {
+	clk_unprepare(dsi_io_private->dsi_clk);
 	clk_unprepare(dsi_io_private->dsi_esc_clk);
 	clk_unprepare(dsi_io_private->dsi_byte_clk);
 	clk_unprepare(dsi_io_private->dsi_pixel_clk);
 	return 0;
 }
 
-int msm_dsi_clk_set_rate(unsigned long esc_rate, unsigned long byte_rate,
+int msm_dsi_clk_set_rate(unsigned long esc_rate,
+			unsigned long dsi_rate,
+			unsigned long byte_rate,
 			unsigned long pixel_rate)
 {
 	int rc;
+	rc = clk_set_rate(dsi_io_private->dsi_clk, dsi_rate);
+	if (rc) {
+		pr_err("dsi_esc_clk - clk_set_rate failed =%d\n", rc);
+		return rc;
+	}
 
 	rc = clk_set_rate(dsi_io_private->dsi_esc_clk, esc_rate);
 	if (rc) {
@@ -202,6 +223,7 @@ int  msm_dsi_clk_enable(void)
 		return 0;
 	}
 
+	clk_enable(dsi_io_private->dsi_clk);
 	clk_enable(dsi_io_private->dsi_esc_clk);
 	clk_enable(dsi_io_private->dsi_byte_clk);
 	clk_enable(dsi_io_private->dsi_pixel_clk);
@@ -217,6 +239,7 @@ int msm_dsi_clk_disable(void)
 		return 0;
 	}
 
+	clk_disable(dsi_io_private->dsi_clk);
 	clk_disable(dsi_io_private->dsi_byte_clk);
 	clk_disable(dsi_io_private->dsi_esc_clk);
 	clk_disable(dsi_io_private->dsi_pixel_clk);
@@ -246,7 +269,7 @@ int msm_dsi_regulator_init(struct platform_device *dev)
 
 void msm_dsi_regulator_deinit(void)
 {
-	if (dsi_io_private->vdda_vreg) {
+	if (!IS_ERR(dsi_io_private->vdda_vreg)) {
 		devm_regulator_put(dsi_io_private->vdda_vreg);
 		dsi_io_private->vdda_vreg = NULL;
 	}
