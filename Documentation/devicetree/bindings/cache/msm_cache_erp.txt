@@ -7,6 +7,17 @@ Required properties:
 - interrupt-names: Should contain the interrupt names "l1_irq" and
   "l2_irq"
 
+Optional properties:
+- reg: A set of I/O regions to be dumped in the event of a hardware fault being
+  detected. If this property is present, the "reg-names" property is must be
+  present as well.
+- reg-names: Human-readable names assigned to the I/O regions defined by the
+  "reg" property. The names can be completely arbitrary, since they are
+  intended to be human-read during failure analysis, and because the set of I/O
+  regions of interest may vary with the overall system design. This property
+  shall only be present if the "reg" property is present, and must contain as
+  many elements as the "reg" property.
+
 Example:
 	qcom,cache_erp {
 		compatible = "qcom,cache_erp";
@@ -14,3 +25,17 @@ Example:
 		interrupt-names = "l1_irq", "l2_irq";
 	};
 
+Example with "reg" property defined:
+	qcom,cache_erp@f9012000 {
+		reg = <0xf9012000 0x80>,
+		      <0xf9089000 0x80>,
+		      <0xf9099000 0x80>;
+
+		reg-names = "l2_saw",
+			    "krait0_saw",
+			    "krait1_saw";
+
+		compatible = "qcom,cache_erp";
+		interrupts = <1 9 0>, <0 2 0>;
+		interrupt-names = "l1_irq", "l2_irq";
+	};
