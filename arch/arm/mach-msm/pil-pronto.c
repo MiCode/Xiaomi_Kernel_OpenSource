@@ -123,7 +123,7 @@ static int pil_pronto_reset(struct pil_desc *pil)
 	int rc;
 	struct pronto_data *drv = dev_get_drvdata(pil->dev);
 	void __iomem *base = drv->base;
-	unsigned long start_addr = pil_get_entry_addr(pil);
+	phys_addr_t start_addr = pil_get_entry_addr(pil);
 
 	/* Deassert reset to subsystem and wait for propagation */
 	reg = readl_relaxed(drv->reset_base);
