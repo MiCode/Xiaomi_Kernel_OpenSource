@@ -135,6 +135,12 @@ struct sdhci_host {
  * such controllers.
  */
 #define SDHCI_QUIRK2_BROKEN_PRESET_VALUE		(1<<7)
+/*
+ * Some controllers define the usage of 0xF in data timeout counter
+ * register (0x2E) which is actually a reserved bit as per
+ * specification.
+ */
+#define SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT		(1<<8)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
