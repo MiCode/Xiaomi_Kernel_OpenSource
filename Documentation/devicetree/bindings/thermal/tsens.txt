@@ -43,6 +43,9 @@ Optional properties:
 		no need to re-initialize them. The control registers are also
 		under a secure domain which can prevent them from being initialized
 		locally.
+- qcom,sensor-id : If the flag is present map the TSENS sensors based on the
+		remote sensors that are enabled in HW. Ensure the mapping is not
+		more than the number of supported sensors.
 Example:
 
 tsens@fc4a8000 {

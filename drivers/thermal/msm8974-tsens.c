@@ -244,7 +244,11 @@ enum tsens_trip_type {
 struct tsens_tm_device_sensor {
 	struct thermal_zone_device	*tz_dev;
 	enum thermal_device_mode	mode;
-	unsigned int			sensor_num;
+	/* Physical HW sensor number */
+	unsigned int			sensor_hw_num;
+	/* Software index. This is keep track of the HW/SW
+	 * sensor_ID mapping */
+	unsigned int			sensor_sw_id;
 	struct work_struct		work;
 	int				offset;
 	int				calib_data_point1;
@@ -273,13 +277,54 @@ struct tsens_tm_device {
 
 struct tsens_tm_device *tmdev;
 
-static int tsens_tz_code_to_degc(int adc_code, int sensor_num)
+int tsens_get_sw_id_mapping(int sensor_hw_num, int *sensor_sw_idx)
 {
-	int degc, num, den;
+	int i = 0;
+	bool id_found = false;
 
+	while (i < tmdev->tsens_num_sensor && !id_found) {
+		if (sensor_hw_num == tmdev->sensor[i].sensor_hw_num) {
+			*sensor_sw_idx = i;
+			id_found = true;
+		}
+		i++;
+	}
+
+	if (!id_found)
+		return -EINVAL;
+
+	return 0;
+}
+EXPORT_SYMBOL(tsens_get_sw_id_mapping);
+
+int tsens_get_hw_id_mapping(int sensor_sw_id, int *sensor_hw_num)
+{
+	int i = 0;
+	bool id_found = false;
+
+	while (i < tmdev->tsens_num_sensor && !id_found) {
+		if (sensor_sw_id == tmdev->sensor[i].sensor_sw_id) {
+			*sensor_hw_num = i;
+			id_found = true;
+		}
+		i++;
+	}
+
+	if (!id_found)
+		return -EINVAL;
+
+	return 0;
+}
+EXPORT_SYMBOL(tsens_get_hw_id_mapping);
+
+static int tsens_tz_code_to_degc(int adc_code, int sensor_sw_id)
+{
+	int degc, num, den, idx;
+
+	idx = sensor_sw_id;
 	num = ((adc_code * tmdev->tsens_factor) -
-				tmdev->sensor[sensor_num].offset);
-	den = (int) tmdev->sensor[sensor_num].slope_mul_tsens_factor;
+				tmdev->sensor[idx].offset);
+	den = (int) tmdev->sensor[idx].slope_mul_tsens_factor;
 
 	if (num > 0)
 		degc = ((num + (den/2))/den);
@@ -291,10 +336,10 @@ static int tsens_tz_code_to_degc(int adc_code, int sensor_num)
 	return degc;
 }
 
-static int tsens_tz_degc_to_code(int degc, int sensor_num)
+static int tsens_tz_degc_to_code(int degc, int idx)
 {
-	int code = ((degc * tmdev->sensor[sensor_num].slope_mul_tsens_factor)
-		+ tmdev->sensor[sensor_num].offset)/tmdev->tsens_factor;
+	int code = ((degc * tmdev->sensor[idx].slope_mul_tsens_factor)
+		+ tmdev->sensor[idx].offset)/tmdev->tsens_factor;
 
 	if (code > TSENS_THRESHOLD_MAX_CODE)
 		code = TSENS_THRESHOLD_MAX_CODE;
@@ -303,9 +348,10 @@ static int tsens_tz_degc_to_code(int degc, int sensor_num)
 	return code;
 }
 
-static void msm_tsens_get_temp(int sensor_num, unsigned long *temp)
+static void msm_tsens_get_temp(int sensor_hw_num, unsigned long *temp)
 {
 	unsigned int code, sensor_addr;
+	int sensor_sw_id = -EINVAL, rc = 0;
 
 	if (!tmdev->prev_reading_avail) {
 		while (!(readl_relaxed(TSENS_TRDY_ADDR(tmdev->tsens_addr))
@@ -318,9 +364,17 @@ static void msm_tsens_get_temp(int sensor_num, unsigned long *temp)
 	sensor_addr =
 		(unsigned int)TSENS_S0_STATUS_ADDR(tmdev->tsens_addr);
 	code = readl_relaxed(sensor_addr +
-			(sensor_num << TSENS_STATUS_ADDR_OFFSET));
+			(sensor_hw_num << TSENS_STATUS_ADDR_OFFSET));
+	/* Obtain SW index to map the corresponding thermal zone's
+	 * offset and slope for code to degc conversion. */
+	rc = tsens_get_sw_id_mapping(sensor_hw_num, &sensor_sw_id);
+	if (rc < 0) {
+		pr_err("tsens mapping index not found\n");
+		return;
+	}
+
 	*temp = tsens_tz_code_to_degc((code & TSENS_SN_STATUS_TEMP_MASK),
-								sensor_num);
+								sensor_sw_id);
 }
 
 static int tsens_tz_get_temp(struct thermal_zone_device *thermal,
@@ -331,7 +385,7 @@ static int tsens_tz_get_temp(struct thermal_zone_device *thermal,
 	if (!tm_sensor || tm_sensor->mode != THERMAL_DEVICE_ENABLED || !temp)
 		return -EINVAL;
 
-	msm_tsens_get_temp(tm_sensor->sensor_num, temp);
+	msm_tsens_get_temp(tm_sensor->sensor_hw_num, temp);
 
 	return 0;
 }
@@ -406,8 +460,9 @@ static int tsens_tz_activate_trip_type(struct thermal_zone_device *thermal,
 	hi_code = TSENS_THRESHOLD_MAX_CODE;
 
 	reg_cntl = readl_relaxed((TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
-				(tmdev->tsens_addr) +
-				(tm_sensor->sensor_num * 4)));
+					(tmdev->tsens_addr) +
+					(tm_sensor->sensor_hw_num *
+					TSENS_SN_ADDR_OFFSET)));
 	switch (trip) {
 	case TSENS_TRIP_WARM:
 		code = (reg_cntl & TSENS_UPPER_THRESHOLD_MASK)
@@ -432,8 +487,8 @@ static int tsens_tz_activate_trip_type(struct thermal_zone_device *thermal,
 	if (mode == THERMAL_TRIP_ACTIVATION_DISABLED)
 		writel_relaxed(reg_cntl | mask,
 			(TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
-					(tmdev->tsens_addr) +
-					(tm_sensor->sensor_num * 4)));
+						(tmdev->tsens_addr) +
+			(tm_sensor->sensor_hw_num * TSENS_SN_ADDR_OFFSET)));
 	else {
 		if (code < lo_code || code > hi_code) {
 			pr_err("%s with invalid code %x\n", __func__, code);
@@ -441,7 +496,7 @@ static int tsens_tz_activate_trip_type(struct thermal_zone_device *thermal,
 		}
 		writel_relaxed(reg_cntl & ~mask,
 		(TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(tmdev->tsens_addr) +
-		(tm_sensor->sensor_num * 4)));
+		(tm_sensor->sensor_hw_num * TSENS_SN_ADDR_OFFSET)));
 	}
 	mb();
 	return 0;
@@ -452,13 +507,14 @@ static int tsens_tz_get_trip_temp(struct thermal_zone_device *thermal,
 {
 	struct tsens_tm_device_sensor *tm_sensor = thermal->devdata;
 	unsigned int reg;
+	int sensor_sw_id = -EINVAL, rc = 0;
 
 	if (!tm_sensor || trip < 0 || !temp)
 		return -EINVAL;
 
 	reg = readl_relaxed(TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
 						(tmdev->tsens_addr) +
-			(tm_sensor->sensor_num * TSENS_SN_ADDR_OFFSET));
+			(tm_sensor->sensor_hw_num * TSENS_SN_ADDR_OFFSET));
 	switch (trip) {
 	case TSENS_TRIP_WARM:
 		reg = (reg & TSENS_UPPER_THRESHOLD_MASK) >>
@@ -471,7 +527,12 @@ static int tsens_tz_get_trip_temp(struct thermal_zone_device *thermal,
 		return -EINVAL;
 	}
 
-	*temp = tsens_tz_code_to_degc(reg, tm_sensor->sensor_num);
+	rc = tsens_get_sw_id_mapping(tm_sensor->sensor_hw_num, &sensor_sw_id);
+	if (rc < 0) {
+		pr_err("tsens mapping index not found\n");
+		return rc;
+	}
+	*temp = tsens_tz_code_to_degc(reg, sensor_sw_id);
 
 	return 0;
 }
@@ -479,9 +540,8 @@ static int tsens_tz_get_trip_temp(struct thermal_zone_device *thermal,
 static int tsens_tz_notify(struct thermal_zone_device *thermal,
 				int count, enum thermal_trip_type type)
 {
-	/* TSENS driver does not shutdown the device.
-	   All Thermal notification are sent to the
-	   thermal daemon to take appropriate action */
+	/* Critical temperature threshold are enabled and will
+	 * shutdown the device once critical thresholds are crossed. */
 	pr_debug("%s debug\n", __func__);
 	return 1;
 }
@@ -491,10 +551,14 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 {
 	struct tsens_tm_device_sensor *tm_sensor = thermal->devdata;
 	unsigned int reg_cntl;
-	int code, hi_code, lo_code, code_err_chk;
+	int code, hi_code, lo_code, code_err_chk, sensor_sw_id = 0, rc = 0;
 
-	code_err_chk = code = tsens_tz_degc_to_code(temp,
-					tm_sensor->sensor_num);
+	rc = tsens_get_sw_id_mapping(tm_sensor->sensor_hw_num, &sensor_sw_id);
+	if (rc < 0) {
+		pr_err("tsens mapping index not found\n");
+		return rc;
+	}
+	code_err_chk = code = tsens_tz_degc_to_code(temp, sensor_sw_id);
 	if (!tm_sensor || trip < 0)
 		return -EINVAL;
 
@@ -502,8 +566,8 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 	hi_code = TSENS_THRESHOLD_MAX_CODE;
 
 	reg_cntl = readl_relaxed(TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
-				(tmdev->tsens_addr) +
-				(tm_sensor->sensor_num * TSENS_SN_ADDR_OFFSET));
+			(tmdev->tsens_addr) + (tm_sensor->sensor_hw_num *
+					TSENS_SN_ADDR_OFFSET));
 	switch (trip) {
 	case TSENS_TRIP_WARM:
 		code <<= TSENS_UPPER_THRESHOLD_SHIFT;
@@ -526,7 +590,7 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 
 	writel_relaxed(reg_cntl | code, (TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
 					(tmdev->tsens_addr) +
-					(tm_sensor->sensor_num *
+					(tm_sensor->sensor_hw_num *
 					TSENS_SN_ADDR_OFFSET)));
 	mb();
 	return 0;
@@ -557,35 +621,48 @@ static void tsens_scheduler_fn(struct work_struct *work)
 						tsens_work);
 	unsigned int i, status, threshold;
 	unsigned int sensor_status_addr, sensor_status_ctrl_addr;
+	int sensor_sw_id = -EINVAL, rc = 0;
 
 	sensor_status_addr =
 		(unsigned int)TSENS_S0_STATUS_ADDR(tmdev->tsens_addr);
 	sensor_status_ctrl_addr =
 		(unsigned int)TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
 		(tmdev->tsens_addr);
-	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+	for (i = 0; i < tm->tsens_num_sensor; i++) {
 		bool upper_thr = false, lower_thr = false;
-		status = readl_relaxed(sensor_status_addr);
-		threshold = readl_relaxed(sensor_status_ctrl_addr);
+		uint32_t addr_offset;
+
+		addr_offset = tm->sensor[i].sensor_hw_num *
+						TSENS_SN_ADDR_OFFSET;
+		status = readl_relaxed(sensor_status_addr + addr_offset);
+		threshold = readl_relaxed(sensor_status_ctrl_addr +
+								addr_offset);
 		if (status & TSENS_SN_STATUS_UPPER_STATUS) {
 			writel_relaxed(threshold | TSENS_UPPER_STATUS_CLR,
-				sensor_status_ctrl_addr);
+				TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(
+					tmdev->tsens_addr + addr_offset));
 			upper_thr = true;
 		}
 		if (status & TSENS_SN_STATUS_LOWER_STATUS) {
 			writel_relaxed(threshold | TSENS_LOWER_STATUS_CLR,
-				sensor_status_ctrl_addr);
+				TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(
+					tmdev->tsens_addr + addr_offset));
 			lower_thr = true;
 		}
 		if (upper_thr || lower_thr) {
 			/* Notify user space */
 			schedule_work(&tm->sensor[i].work);
-			pr_debug("sensor:%d trigger temp (%d degC)\n", i,
+			rc = tsens_get_sw_id_mapping(
+					tm->sensor[i].sensor_hw_num,
+					&sensor_sw_id);
+			if (rc < 0)
+				pr_err("tsens mapping index not found\n");
+			pr_debug("sensor:%d trigger temp (%d degC)\n",
+				tm->sensor[i].sensor_hw_num,
 				tsens_tz_code_to_degc((status &
-				TSENS_SN_STATUS_TEMP_MASK), i));
+				TSENS_SN_STATUS_TEMP_MASK),
+				sensor_sw_id));
 		}
-		sensor_status_addr += TSENS_SN_ADDR_OFFSET;
-		sensor_status_ctrl_addr += TSENS_SN_ADDR_OFFSET;
 	}
 	mb();
 }
@@ -599,17 +676,19 @@ static irqreturn_t tsens_isr(int irq, void *data)
 
 static void tsens_hw_init(void)
 {
-	unsigned int reg_cntl = 0;
+	unsigned int reg_cntl = 0, sensor_en = 0;
 	unsigned int i;
 
 	if (tmdev->tsens_local_init) {
 		writel_relaxed(reg_cntl, TSENS_CTRL_ADDR(tmdev->tsens_addr));
 		writel_relaxed(reg_cntl | TSENS_SW_RST,
 			TSENS_CTRL_ADDR(tmdev->tsens_addr));
-		reg_cntl |= ((TSENS_62_5_MS_MEAS_PERIOD <<
-		TSENS_MEAS_PERIOD_SHIFT) |
-		(((1 << tmdev->tsens_num_sensor) - 1) << TSENS_SENSOR0_SHIFT) |
-		TSENS_EN);
+		reg_cntl |= (TSENS_62_5_MS_MEAS_PERIOD <<
+		TSENS_MEAS_PERIOD_SHIFT);
+		for (i = 0; i < tmdev->tsens_num_sensor; i++)
+			sensor_en |= (1 << tmdev->sensor[i].sensor_hw_num);
+		sensor_en <<= TSENS_SENSOR0_SHIFT;
+		reg_cntl |= (sensor_en | TSENS_EN);
 		writel_relaxed(reg_cntl, TSENS_CTRL_ADDR(tmdev->tsens_addr));
 		writel_relaxed(TSENS_GLOBAL_INIT_DATA,
 			TSENS_GLOBAL_CONFIG(tmdev->tsens_addr));
@@ -618,10 +697,12 @@ static void tsens_hw_init(void)
 		for (i = 0; i < tmdev->tsens_num_sensor; i++) {
 			writel_relaxed(TSENS_SN_MIN_MAX_STATUS_CTRL_DATA,
 			TSENS_SN_MIN_MAX_STATUS_CTRL(tmdev->tsens_addr)
-				+ (i * TSENS_SN_ADDR_OFFSET));
+				+ (tmdev->sensor[i].sensor_hw_num *
+						TSENS_SN_ADDR_OFFSET));
 			writel_relaxed(TSENS_SN_REMOTE_CFG_DATA,
 			TSENS_SN_REMOTE_CONFIG(tmdev->tsens_addr)
-				+ (i * TSENS_SN_ADDR_OFFSET));
+				+ (tmdev->sensor[i].sensor_hw_num *
+						TSENS_SN_ADDR_OFFSET));
 		}
 		pr_debug("Local TSENS control initialization\n");
 	}
@@ -1223,6 +1304,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	const struct device_node *of_node = pdev->dev.of_node;
 	struct resource *res_mem = NULL;
 	u32 *tsens_slope_data;
+	u32 *sensor_id;
 	u32 rc = 0, i, tsens_num_sensors, calib_type;
 	const char *tsens_calib_mode;
 
@@ -1279,6 +1361,25 @@ static int get_device_tree_data(struct platform_device *pdev)
 	tmdev->calib_mode = calib_type;
 	tmdev->tsens_local_init = of_property_read_bool(of_node,
 				"qcom,tsens-local-init");
+
+	sensor_id = devm_kzalloc(&pdev->dev,
+		tsens_num_sensors * sizeof(u32), GFP_KERNEL);
+	if (!sensor_id) {
+		dev_err(&pdev->dev, "can not allocate sensor id\n");
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(of_node,
+		"qcom,sensor-id", sensor_id, tsens_num_sensors);
+	if (rc) {
+		pr_debug("Default sensor id mapping\n");
+		for (i = 0; i < tsens_num_sensors; i++)
+			tmdev->sensor[i].sensor_hw_num = i;
+	} else {
+		pr_debug("Use specified sensor id mapping\n");
+		for (i = 0; i < tsens_num_sensors; i++)
+			tmdev->sensor[i].sensor_hw_num = sensor_id[i];
+	}
 
 	tmdev->tsens_irq = platform_get_irq(pdev, 0);
 	if (tmdev->tsens_irq < 0) {
@@ -1422,9 +1523,9 @@ static int __devinit _tsens_register_thermal(void)
 
 	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
 		char name[18];
-		snprintf(name, sizeof(name), "tsens_tz_sensor%d", i);
+		snprintf(name, sizeof(name), "tsens_tz_sensor%d",
+					tmdev->sensor[i].sensor_hw_num);
 		tmdev->sensor[i].mode = THERMAL_DEVICE_ENABLED;
-		tmdev->sensor[i].sensor_num = i;
 		tmdev->sensor[i].tz_dev = thermal_zone_device_register(name,
 				TSENS_TRIP_NUM, &tmdev->sensor[i],
 				&tsens_thermal_zone_ops, 0, 0, 0, 0);
