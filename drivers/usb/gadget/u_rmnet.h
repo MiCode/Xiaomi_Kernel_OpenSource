@@ -48,6 +48,7 @@ struct grmnet {
 
 enum ctrl_client {
 	FRMNET_CTRL_CLIENT,
+	GPS_CTRL_CLIENT,
 
 	NR_CTRL_CLIENTS
 };
