@@ -128,6 +128,7 @@ struct mdss_mdp_ctl {
 	u16 width;
 	u16 height;
 	u32 dst_format;
+	bool is_secure;
 
 	u32 bus_ab_quota;
 	u32 bus_ib_quota;
