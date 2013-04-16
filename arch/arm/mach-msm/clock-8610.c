@@ -2620,6 +2620,10 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc352000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc353000.cti"),
 	CLK_LOOKUP("core_clk", qdss_clk.c, "fc354000.cti"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34c000.jtagmm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34d000.jtagmm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34e000.jtagmm"),
+	CLK_LOOKUP("core_clk", qdss_clk.c, "fc34f000.jtagmm"),
 
 
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc326000.tmc"),
@@ -2649,6 +2653,10 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc352000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc353000.cti"),
 	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc354000.cti"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34c000.jtagmm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34d000.jtagmm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34e000.jtagmm"),
+	CLK_LOOKUP("core_a_clk", qdss_a_clk.c, "fc34f000.jtagmm"),
 
 
 
