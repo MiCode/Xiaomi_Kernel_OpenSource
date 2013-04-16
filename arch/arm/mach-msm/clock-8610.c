@@ -143,6 +143,7 @@ static void __iomem *virt_bases[N_BASES];
 #define                   CE1_AHB_CBCR	    0x104C
 #define            COPSS_SMMU_AHB_CBCR      0x015C
 #define             LPSS_SMMU_AHB_CBCR      0x0158
+#define                 BIMC_SMMU_CBCR      0x1120
 #define              LPASS_Q6_AXI_CBCR	    0x11C0
 #define             APCS_GPLL_ENA_VOTE	    0x1480
 #define     APCS_CLOCK_BRANCH_ENA_VOTE	    0x1484
@@ -1500,6 +1501,17 @@ static struct branch_clk gcc_usb_hs_system_clk = {
 	},
 };
 
+static struct branch_clk gcc_bimc_smmu_clk = {
+	.cbcr_reg = BIMC_SMMU_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_bimc_smmu_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_bimc_smmu_clk.c),
+	},
+};
+
 static struct clk_freq_tbl ftbl_csi0_1_clk[] = {
 	F_MM(100000000,  gpll0, 6, 0, 0),
 	F_MM(200000000, mmpll0, 4, 0, 0),
@@ -1795,6 +1807,8 @@ static struct branch_clk bimc_gfx_clk = {
 		.dbg_name = "bimc_gfx_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(bimc_gfx_clk.c),
+		/* FIXME: Remove once kgsl votes on the depends clock. */
+		.depends = &gcc_bimc_smmu_clk.c,
 	},
 };
 
@@ -2290,6 +2304,7 @@ static struct measure_mux_entry measure_mux[] = {
 	{            &gcc_ce1_ahb_clk.c, GCC_BASE, 0x013a},
 	{             &gcc_xo_clk_src.c, GCC_BASE, 0x0149},
 	{                   &bimc_clk.c, GCC_BASE, 0x0154},
+	{          &gcc_bimc_smmu_clk.c, GCC_BASE, 0x015e},
 	{       &gcc_lpass_q6_axi_clk.c, GCC_BASE, 0x0160},
 
 	{     &mmssnoc_ahb_clk.c, MMSS_BASE, 0x0001},
@@ -2755,6 +2770,8 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("iface_clk",    oxili_ahb_clk.c, "fdc00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("mem_iface_clk", bimc_gfx_clk.c, "fdc00000.qcom,kgsl-3d0"),
 	CLK_LOOKUP("mem_clk",     gmem_gfx3d_clk.c, "fdc00000.qcom,kgsl-3d0"),
+	CLK_LOOKUP("alt_mem_iface_clk", gcc_bimc_smmu_clk.c,
+						"fdc00000.qcom,kgsl-3d0"),
 
 	CLK_LOOKUP("iface_clk",           vfe_ahb_clk.c, "fd890000.qcom,iommu"),
 	CLK_LOOKUP("core_clk",            vfe_axi_clk.c, "fd890000.qcom,iommu"),
@@ -2764,6 +2781,7 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk",            mdp_axi_clk.c, "fd870000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk",         oxili_ahb_clk.c, "fd880000.qcom,iommu"),
 	CLK_LOOKUP("core_clk",           bimc_gfx_clk.c, "fd880000.qcom,iommu"),
+	CLK_LOOKUP("alt_core_clk",  gcc_bimc_smmu_clk.c, "fd880000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", gcc_lpss_smmu_ahb_clk.c, "fd000000.qcom,iommu"),
 	CLK_LOOKUP("core_clk",   gcc_lpass_q6_axi_clk.c, "fd000000.qcom,iommu"),
 	CLK_LOOKUP("iface_clk", gcc_copss_smmu_ahb_clk.c,
