@@ -197,6 +197,7 @@ static int msm_ipc_router_extract_msg(struct msghdr *m,
 	struct sockaddr_msm_ipc *addr;
 	struct rr_header *hdr;
 	struct sk_buff *temp;
+	union rr_control_msg *ctl_msg;
 	int offset = 0, data_len = 0, copy_len;
 
 	if (!m || !msg_head) {
@@ -207,6 +208,16 @@ static int msm_ipc_router_extract_msg(struct msghdr *m,
 
 	temp = skb_peek(msg_head);
 	hdr = (struct rr_header *)(temp->data);
+	if (addr && (hdr->type == IPC_ROUTER_CTRL_CMD_RESUME_TX)) {
+		skb_pull(temp, IPC_ROUTER_HDR_SIZE);
+		ctl_msg = (union rr_control_msg *)(temp->data);
+		addr->family = AF_MSM_IPC;
+		addr->address.addrtype = MSM_IPC_ADDR_ID;
+		addr->address.addr.port_addr.node_id = ctl_msg->cli.node_id;
+		addr->address.addr.port_addr.port_id = ctl_msg->cli.port_id;
+		m->msg_namelen = sizeof(struct sockaddr_msm_ipc);
+		return offset;
+	}
 	if (addr && (hdr->src_port_id != IPC_ROUTER_ADDRESS)) {
 		addr->family = AF_MSM_IPC;
 		addr->address.addrtype = MSM_IPC_ADDR_ID;
@@ -415,8 +426,10 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 				return -EFAULT;
 		}
 
-		if (timeout == 0)
+		if (timeout == 0) {
+			m->msg_namelen = 0;
 			return 0;
+		}
 		lock_sock(sk);
 		mutex_lock(&port_ptr->port_rx_q_lock);
 	}
