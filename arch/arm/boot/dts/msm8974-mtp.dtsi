@@ -187,6 +187,7 @@
 
 	sound {
 		qcom,model = "msm8974-taiko-mtp-snd-card";
+		qcom,cdc-micbias2-headset-only;
 	};
 };
 

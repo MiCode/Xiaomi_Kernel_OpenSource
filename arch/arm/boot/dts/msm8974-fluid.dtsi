@@ -230,6 +230,7 @@
 
 		qcom,hdmi-audio-rx;
 		qcom,ext-ult-lo-amp-gpio = <&pm8941_gpios 6 0>;
+		qcom,cdc-micbias2-headset-only;
 	};
 };
 
