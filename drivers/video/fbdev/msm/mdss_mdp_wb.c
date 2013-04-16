@@ -132,7 +132,13 @@ int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 
 	pr_debug("setting secure=%d\n", enable);
 
+	ctl->is_secure = enable;
 	wb->is_secure = enable;
+
+	/* newer revisions don't require secure src pipe for secure session */
+	if (ctl->mdata->mdp_rev > MDSS_MDP_HW_REV_100)
+		return 0;
+
 	pipe = wb->secure_pipe;
 
 	if (!enable) {
@@ -243,6 +249,7 @@ static int mdss_mdp_wb_terminate(struct msm_fb_data_type *mfd)
 		mdss_mdp_pipe_destroy(wb->secure_pipe);
 	mutex_unlock(&wb->lock);
 
+	mdp5_data->ctl->is_secure = false;
 	mdp5_data->wb = NULL;
 	mutex_unlock(&mdss_mdp_wb_buf_lock);
 

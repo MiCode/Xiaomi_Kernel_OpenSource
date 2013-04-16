@@ -348,6 +348,8 @@ enum mdss_mdp_writeback_index {
 #define MDSS_MDP_REG_WB_OUT_SIZE			0x074
 #define MDSS_MDP_REG_WB_ALPHA_X_VALUE			0x078
 #define MDSS_MDP_REG_WB_CSC_BASE			0x260
+#define MDSS_MDP_REG_WB_DST_ADDR_SW_STATUS		0x2B0
+
 
 enum mdss_mdp_dspp_index {
 	MDSS_MDP_DSPP0,
