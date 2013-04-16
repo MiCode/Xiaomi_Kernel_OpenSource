@@ -793,7 +793,7 @@ static int mmc_select_bus_width(struct mmc_card *card, int ddr, u8 *ext_csd)
 		MMC_BUS_WIDTH_1
 	};
 	unsigned idx, bus_width = 0;
-	int err = -EINVAL;
+	int err = 0;
 
 	host = card->host;
 
@@ -986,11 +986,9 @@ static int mmc_select_hs200(struct mmc_card *card, u8 *ext_csd)
 
 	if (card->ext_csd.card_type & EXT_CSD_CARD_TYPE_SDR_1_2V &&
 			host->caps2 & MMC_CAP2_HS200_1_2V_SDR)
-		err = __mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_120);
-
-	if (err && card->ext_csd.card_type & EXT_CSD_CARD_TYPE_SDR_1_8V &&
-			host->caps2 & MMC_CAP2_HS200_1_8V_SDR)
-		err = __mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180);
+		if (__mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_120))
+			err = __mmc_set_signal_voltage(host,
+					MMC_SIGNAL_VOLTAGE_180);
 
 	/* If fails try again during next card power cycle */
 	if (err)
