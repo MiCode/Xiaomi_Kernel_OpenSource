@@ -217,47 +217,47 @@ static struct afe_param_cdc_reg_cfg clip_reg_cfg[] = {
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_B1_CTL),
-		SPKR_CLIP_PIPE_BANK_SEL, 0x1, 8, 0
+		SPKR_CLIP_PIPE_BANK_SEL, 0x3, 8, 0
 	},
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL0),
-		SPKR_CLIPDET_VAL0, 0x1, 8, 0
+		SPKR_CLIPDET_VAL0, 0xff, 8, 0
 	},
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL1),
-		SPKR_CLIPDET_VAL1, 0x1, 8, 0
+		SPKR_CLIPDET_VAL1, 0xff, 8, 0
 	},
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL2),
-		SPKR_CLIPDET_VAL2, 0x1, 8, 0
+		SPKR_CLIPDET_VAL2, 0xff, 8, 0
 	},
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL3),
-		SPKR_CLIPDET_VAL3, 0x1, 8, 0
+		SPKR_CLIPDET_VAL3, 0xff, 8, 0
 	},
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL4),
-		SPKR_CLIPDET_VAL4, 0x1, 8, 0
+		SPKR_CLIPDET_VAL4, 0xff, 8, 0
 	},
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL5),
-		SPKR_CLIPDET_VAL5, 0x1, 8, 0
+		SPKR_CLIPDET_VAL5, 0xff, 8, 0
 	},
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL6),
-		SPKR_CLIPDET_VAL6, 0x1, 8, 0
+		SPKR_CLIPDET_VAL6, 0xff, 8, 0
 	},
 	{
 		1,
 		(TAIKO_REGISTER_START_OFFSET + TAIKO_A_CDC_SPKR_CLIPDET_VAL7),
-		SPKR_CLIPDET_VAL7, 0x1, 8, 0
+		SPKR_CLIPDET_VAL7, 0xff, 8, 0
 	},
 };
 
@@ -4708,9 +4708,6 @@ static int taiko_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 	dai = &taiko_p->dai[w->shift];
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		/*Enable Clip Detection*/
-		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_CLIP_DET,
-				0x8, 0x8);
 		/*Enable V&I sensing*/
 		snd_soc_update_bits(codec, TAIKO_A_SPKR_PROT_EN,
 				0x88, 0x88);
@@ -4723,6 +4720,7 @@ static int taiko_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 		/*Enable Current Decimator*/
 		snd_soc_update_bits(codec,
 		TAIKO_A_CDC_CONN_TX_SB_B10_CTL, 0x1F, 0x13);
+		(void) taiko_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 					dai->rate, dai->bit_width,
 					&dai->grph);
@@ -4745,9 +4743,6 @@ static int taiko_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 		/*Disable V&I sensing*/
 		snd_soc_update_bits(codec, TAIKO_A_SPKR_PROT_EN,
 				0x88, 0x00);
-		/*Disable clip detection*/
-		snd_soc_update_bits(codec, TAIKO_A_SPKR_DRV_CLIP_DET,
-				0x8, 0x0);
 		break;
 	}
 out_vi:
