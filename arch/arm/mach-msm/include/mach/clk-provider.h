@@ -49,6 +49,8 @@
  * @set_vdd: function to call when applying a new voltage setting.
  * @vdd_uv: sorted 2D array of legal voltage settings. Indexed by level, then
 		regulator.
+ * @vdd_ua: sorted 2D array of legal cureent settings. Indexed by level, then
+		regulator. Optional parameter.
  * @level_votes: array of votes for each level.
  * @num_levels: specifies the size of level_votes array.
  * @cur_level: the currently set voltage level
@@ -60,6 +62,7 @@ struct clk_vdd_class {
 	int num_regulators;
 	int (*set_vdd)(struct clk_vdd_class *v_class, int level);
 	int **vdd_uv;
+	int **vdd_ua;
 	int *level_votes;
 	int num_levels;
 	unsigned long cur_level;
@@ -76,10 +79,12 @@ struct clk_vdd_class {
 		.lock = __MUTEX_INITIALIZER(_name.lock) \
 	}
 
-#define DEFINE_VDD_REGULATORS(_name, _num_levels, _num_regulators, _vdd_uv) \
+#define DEFINE_VDD_REGULATORS(_name, _num_levels, _num_regulators, _vdd_uv, \
+	 _vdd_ua) \
 	struct clk_vdd_class _name = { \
 		.class_name = #_name, \
 		.vdd_uv = _vdd_uv, \
+		.vdd_ua = _vdd_ua, \
 		.regulator = (struct regulator * [_num_regulators]) {}, \
 		.num_regulators = _num_regulators, \
 		.level_votes = (int [_num_levels]) {}, \
@@ -89,6 +94,7 @@ struct clk_vdd_class {
 	}
 
 #define VDD_UV(...) ((int []){__VA_ARGS__})
+#define VDD_UA(...) ((int []){__VA_ARGS__})
 
 enum handoff {
 	HANDOFF_ENABLED_CLK,
