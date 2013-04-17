@@ -59,7 +59,7 @@ struct clk_vdd_class {
 	struct regulator **regulator;
 	int num_regulators;
 	int (*set_vdd)(struct clk_vdd_class *v_class, int level);
-	const int **vdd_uv;
+	int **vdd_uv;
 	int *level_votes;
 	int num_levels;
 	unsigned long cur_level;
