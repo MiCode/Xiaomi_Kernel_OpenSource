@@ -3837,6 +3837,12 @@ static int smd_core_devicetree_init(struct platform_device *pdev)
 
 	for_each_child_of_node(pdev->dev.of_node, node) {
 		compatible = of_get_property(node, "compatible", NULL);
+		if (!compatible) {
+			pr_err("%s: invalid child node: compatible null\n",
+				__func__);
+			ret = -ENODEV;
+			goto rollback_subnodes;
+		}
 		if (!strcmp(compatible, "qcom,smd")) {
 			ret = parse_smd_devicetree(node, irq_out_base);
 			if (ret)
