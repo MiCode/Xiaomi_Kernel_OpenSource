@@ -58,6 +58,8 @@
 #define TETH_AGGR_MAX_DATAGRAMS_DEFAULT 16
 #define TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT (8*1024)
 
+#define TETH_MTU_BYTE 1500
+
 struct mac_addresses_type {
 	u8 host_pc_mac_addr[ETH_ALEN];
 	bool host_pc_mac_addr_known;
@@ -578,8 +580,15 @@ static int prepare_ipa_aggr_struct(
 		return -EFAULT;
 	}
 
+	/*
+	 * Due to a HW 'feature', the maximal aggregated packet size may be the
+	 * requested aggr_byte_limit plus the MTU. Therefore, the MTU is
+	 * subtracted from the requested aggr_byte_limit so that the requested
+	 * byte limit is honored .
+	 */
 	ipa_aggr_params->aggr_byte_limit =
-		teth_aggr_params->max_transfer_size_byte / 1024;
+		(teth_aggr_params->max_transfer_size_byte - TETH_MTU_BYTE) /
+		1024;
 	ipa_aggr_params->aggr_time_limit = TETH_DEFAULT_AGGR_TIME_LIMIT;
 	TETH_DBG_FUNC_EXIT();
 
