@@ -2786,6 +2786,7 @@ static void wcd9xxx_mbhc_cal(struct wcd9xxx_mbhc *mbhc)
 	wcd9xxx_turn_onoff_rel_detection(codec, true);
 
 	pr_debug("%s: leave\n", __func__);
+	return;
 
 gen_err:
 	pr_err("%s: Error returned, ret: %d\n", __func__, ret);
