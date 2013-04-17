@@ -153,10 +153,10 @@
 			qcom,mode = "wfi";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_active";
-			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
-			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
-			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
-			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
+			qcom,vdd-mem-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <4>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
 			qcom,latency-us = <1>;
@@ -170,10 +170,10 @@
 			qcom,mode = "standalone_pc";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_active";
-			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
-			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
-			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
-			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
+			qcom,vdd-mem-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <4>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
 			qcom,latency-us = <3000>;
@@ -187,10 +187,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_retention";
-			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
-			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
-			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
-			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
+			qcom,vdd-mem-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <4>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
 			qcom,latency-us = <8000>;
@@ -204,10 +204,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_on";
 			qcom,l2 = "l2_cache_pc";
-			qcom,vdd-mem-upper-bound = <3>; /* NORMAL */
-			qcom,vdd-mem-lower-bound = <2>;  /* SVS SOC */
-			qcom,vdd-dig-upper-bound = <3>;  /* NORMAL */
-			qcom,vdd-dig-lower-bound = <2>;  /* SVS SOC */
+			qcom,vdd-mem-upper-bound = <4>; /* NORMAL */
+			qcom,vdd-mem-lower-bound = <3>;  /* SVS SOC */
+			qcom,vdd-dig-upper-bound = <4>;  /* NORMAL */
+			qcom,vdd-dig-lower-bound = <3>;  /* SVS SOC */
 			qcom,irqs-detectable;
 			qcom,gpio-detectable;
 			qcom,latency-us = <9000>;
@@ -221,10 +221,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
-			qcom,vdd-mem-upper-bound = <5>; /* SUPER TURBO */
-			qcom,vdd-mem-lower-bound = <3>; /* NORMAL */
-			qcom,vdd-dig-upper-bound = <5>; /* SUPER TURBO */
-			qcom,vdd-dig-lower-bound = <3>;  /* NORMAL */
+			qcom,vdd-mem-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-mem-lower-bound = <4>; /* NORMAL */
+			qcom,vdd-dig-upper-bound = <6>; /* SUPER TURBO */
+			qcom,vdd-dig-lower-bound = <4>;  /* NORMAL */
 			qcom,latency-us = <16300>;
 			qcom,ss-power = <63>;
 			qcom,energy-overhead = <2128000>;
@@ -236,10 +236,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
-			qcom,vdd-mem-upper-bound = <3>; /* NORMAL */
-			qcom,vdd-mem-lower-bound = <2>;  /* SVS SOC */
-			qcom,vdd-dig-upper-bound = <3>;  /* NORMAL */
-			qcom,vdd-dig-lower-bound = <2>;  /* SVS SOC */
+			qcom,vdd-mem-upper-bound = <4>; /* NORMAL */
+			qcom,vdd-mem-lower-bound = <3>;  /* SVS SOC */
+			qcom,vdd-dig-upper-bound = <4>;  /* NORMAL */
+			qcom,vdd-dig-lower-bound = <3>;  /* SVS SOC */
 			qcom,latency-us = <24000>;
 			qcom,ss-power = <10>;
 			qcom,energy-overhead = <3202600>;
@@ -251,10 +251,10 @@
 			qcom,mode = "pc";
 			qcom,xo = "xo_off";
 			qcom,l2 = "l2_cache_pc";
-			qcom,vdd-mem-upper-bound = <2>; /* SVS SOC */
-			qcom,vdd-mem-lower-bound = <0>; /* RETENTION */
-			qcom,vdd-dig-upper-bound = <2>; /* SVS SOC */
-			qcom,vdd-dig-lower-bound = <0>; /* RETENTION */
+			qcom,vdd-mem-upper-bound = <3>; /* SVS SOC */
+			qcom,vdd-mem-lower-bound = <1>; /* RETENTION */
+			qcom,vdd-dig-upper-bound = <3>; /* SVS SOC */
+			qcom,vdd-dig-lower-bound = <1>; /* RETENTION */
 			qcom,latency-us = <26000>;
 			qcom,ss-power = <2>;
 			qcom,energy-overhead = <4252000>;
