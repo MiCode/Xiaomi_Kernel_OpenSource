@@ -94,6 +94,8 @@ const char *ipa_event_name[] = {
 static struct dentry *dent;
 static struct dentry *dfile_gen_reg;
 static struct dentry *dfile_ep_reg;
+static struct dentry *dfile_ep_hol_en;
+static struct dentry *dfile_ep_hol_timer;
 static struct dentry *dfile_hdr;
 static struct dentry *dfile_ip4_rt;
 static struct dentry *dfile_ip6_rt;
@@ -142,6 +144,58 @@ static ssize_t ipa_read_gen_reg(struct file *file, char __user *ubuf,
 				);
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
+}
+
+static ssize_t ipa_write_ep_hol_en_reg(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	u32 endp_reg_val;
+	unsigned long missing;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, buf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtou32(dbg_buff, 16, &endp_reg_val))
+		return -EFAULT;
+
+	ipa_write_reg(ipa_ctx->mmio,
+		IPA_ENDP_INIT_HOL_BLOCK_EN_n_OFST(ep_reg_idx),
+		endp_reg_val);
+
+	ipa_ctx->hol_en = endp_reg_val;
+
+	return count;
+}
+
+static ssize_t ipa_write_ep_hol_timer_reg(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	u32 endp_reg_val;
+	unsigned long missing;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, buf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtou32(dbg_buff, 16, &endp_reg_val))
+		return -EFAULT;
+
+	ipa_write_reg(ipa_ctx->mmio,
+		IPA_ENDP_INIT_HOL_BLOCK_TIMER_n_OFST(ep_reg_idx),
+		endp_reg_val);
+
+	ipa_ctx->hol_timer = endp_reg_val;
+
+	return count;
 }
 
 static ssize_t ipa_write_ep_reg(struct file *file, const char __user *buf,
@@ -675,6 +729,13 @@ const struct file_operations ipa_ep_reg_ops = {
 	.write = ipa_write_ep_reg,
 };
 
+const struct file_operations ipa_ep_hol_en_ops = {
+	.write = ipa_write_ep_hol_en_reg,
+};
+const struct file_operations ipa_ep_hol_timer_ops = {
+	.write = ipa_write_ep_hol_timer_reg,
+};
+
 const struct file_operations ipa_hdr_ops = {
 	.read = ipa_read_hdr,
 };
@@ -707,6 +768,7 @@ void ipa_debugfs_init(void)
 	const mode_t read_only_mode = S_IRUSR | S_IRGRP | S_IROTH;
 	const mode_t read_write_mode = S_IRUSR | S_IRGRP | S_IROTH |
 			S_IWUSR | S_IWGRP | S_IWOTH;
+	const mode_t write_only_mode = S_IWUSR | S_IWGRP | S_IWOTH;
 
 	dent = debugfs_create_dir("ipa", 0);
 	if (IS_ERR(dent)) {
@@ -725,6 +787,20 @@ void ipa_debugfs_init(void)
 			&ipa_ep_reg_ops);
 	if (!dfile_ep_reg || IS_ERR(dfile_ep_reg)) {
 		IPAERR("fail to create file for debug_fs ep_reg\n");
+		goto fail;
+	}
+
+	dfile_ep_hol_en = debugfs_create_file("hol_en", write_only_mode, dent,
+			0, &ipa_ep_hol_en_ops);
+	if (!dfile_ep_hol_en || IS_ERR(dfile_ep_hol_en)) {
+		IPAERR("fail to create file for debug_fs dfile_ep_hol_en\n");
+		goto fail;
+	}
+
+	dfile_ep_hol_timer = debugfs_create_file("hol_timer", write_only_mode,
+			dent, 0, &ipa_ep_hol_timer_ops);
+	if (!dfile_ep_hol_timer || IS_ERR(dfile_ep_hol_timer)) {
+		IPAERR("fail to create file for debug_fs dfile_ep_hol_timer\n");
 		goto fail;
 	}
 
