@@ -161,7 +161,7 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	struct list_head pages;
 	struct page_info *info, *tmp_info;
 	int i = 0;
-	long size_remaining = PAGE_ALIGN(size);
+	unsigned long size_remaining = PAGE_ALIGN(size);
 	unsigned int max_order = orders[0];
 	bool split_pages = ion_buffer_fault_user_mappings(buffer);
 
