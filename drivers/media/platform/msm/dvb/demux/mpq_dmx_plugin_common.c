@@ -1085,7 +1085,7 @@ static int mpq_dmx_init_internal_buffers(
 	feed_data->buffer_desc.desc[0].read_ptr = 0;
 	feed_data->buffer_desc.desc[0].write_ptr = 0;
 	feed_data->buffer_desc.desc[0].handle =
-		ion_share_dma_buf(client, temp_handle);
+		ion_share_dma_buf_fd(client, temp_handle);
 	if (IS_ERR_VALUE(feed_data->buffer_desc.desc[0].handle)) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: FAILED to share payload buffer %d\n",

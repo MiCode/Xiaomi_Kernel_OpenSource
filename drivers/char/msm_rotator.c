@@ -181,8 +181,7 @@ int msm_rotator_iommu_map_buf(int mem_id, int domain,
 		pr_err("ion_import_dma_buf() failed\n");
 		return PTR_ERR(*pihdl);
 	}
-	pr_debug("%s(): ion_hdl %p, ion_fd %d\n", __func__, *pihdl,
-		ion_share_dma_buf(msm_rotator_dev->client, *pihdl));
+	pr_debug("%s(): ion_hdl %p, ion_fd %d\n", __func__, *pihdl, mem_id);
 
 	if (rot_iommu_split_domain) {
 		if (secure) {
