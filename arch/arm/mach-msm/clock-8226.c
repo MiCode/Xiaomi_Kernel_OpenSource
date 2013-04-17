@@ -3328,6 +3328,8 @@ static struct clk_lookup msm_clocks_8226[] = {
 	CLK_LOOKUP("csi1_rdi_clk", camss_csi1rdi_clk.c,  "fda08400.qcom,csid"),
 
 	/* ISPIF clocks */
+	CLK_LOOKUP("ispif_ahb_clk", camss_ispif_ahb_clk.c,
+		"fda0a000.qcom,ispif"),
 	CLK_LOOKUP("camss_vfe_vfe_clk", camss_vfe_vfe0_clk.c,
 		"fda0a000.qcom,ispif"),
 	CLK_LOOKUP("camss_csi_vfe_clk", camss_csi_vfe0_clk.c,
