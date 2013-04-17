@@ -428,7 +428,7 @@ int qpic_flush_buffer_sw(u32 cmd, u32 len, u32 *param, u32 is_cmd)
 					param[0]);
 				param++;
 				bytes_left -= 4;
-				space++;
+				space--;
 			} else if (bytes_left == 2) {
 				QPIC_OUTPW(QPIC_REG_QPIC_LCDC_FIFO_DATA_PORT0,
 					*(u16 *)param);
