@@ -80,7 +80,8 @@ static int ipa_rm_resource_consumer_request(
 	int result = 0;
 	int driver_result;
 	unsigned long flags;
-	IPADBG("IPA RM ::ipa_rm_resource_consumer_request ENTER\n");
+	IPADBG("IPA RM ::ipa_rm_resource_consumer_request %d ENTER\n",
+		consumer->resource.name);
 	spin_lock_irqsave(&consumer->resource.state_lock, flags);
 	switch (consumer->resource.state) {
 	case IPA_RM_RELEASED:
@@ -114,7 +115,8 @@ static int ipa_rm_resource_consumer_request(
 	consumer->usage_count++;
 bail:
 	spin_unlock_irqrestore(&consumer->resource.state_lock, flags);
-	IPADBG("IPA RM ::ipa_rm_resource_consumer_request EXIT [%d]\n", result);
+	IPADBG("IPA RM ::ipa_rm_resource_consumer_request %d EXIT %d\n",
+		consumer->resource.name, result);
 	return result;
 }
 
@@ -125,7 +127,8 @@ static int ipa_rm_resource_consumer_release(
 	int driver_result;
 	unsigned long flags;
 	enum ipa_rm_resource_state save_state;
-	IPADBG("IPA RM ::ipa_rm_resource_consumer_release ENTER\n");
+	IPADBG("IPA RM ::ipa_rm_resource_consumer_release %d ENTER\n",
+		consumer->resource.name);
 	spin_lock_irqsave(&consumer->resource.state_lock, flags);
 	switch (consumer->resource.state) {
 	case IPA_RM_RELEASED:
@@ -160,7 +163,8 @@ static int ipa_rm_resource_consumer_release(
 	}
 bail:
 	spin_unlock_irqrestore(&consumer->resource.state_lock, flags);
-	IPADBG("IPA RM ::ipa_rm_resource_consumer_release EXIT [%d]\n", result);
+	IPADBG("IPA RM ::ipa_rm_resource_consumer_release %d EXIT %d\n",
+		consumer->resource.name, result);
 	return result;
 }
 
@@ -564,7 +568,7 @@ int ipa_rm_resource_producer_request(struct ipa_rm_resource_prod *producer)
 	unsigned long flags;
 	struct ipa_rm_resource *consumer;
 	int consumer_result;
-	IPADBG("IPA RM ::ipa_rm_resource_producer_request [%d] ENTER\n",
+	IPADBG("IPA RM ::ipa_rm_resource_producer_request %d ENTER\n",
 			producer->resource.name);
 	if (ipa_rm_peers_list_is_empty(producer->resource.peers_list)) {
 		spin_lock_irqsave(&producer->resource.state_lock, flags);
@@ -628,7 +632,8 @@ int ipa_rm_resource_producer_request(struct ipa_rm_resource_prod *producer)
 unlock_and_bail:
 	spin_unlock_irqrestore(&producer->resource.state_lock, flags);
 bail:
-	IPADBG("IPA RM ::ipa_rm_resource_producer_request EXIT[%d]\n", result);
+	IPADBG("IPA RM ::ipa_rm_resource_producer_request %d EXIT %d\n",
+		producer->resource.name, result);
 	return result;
 }
 
@@ -646,7 +651,8 @@ int ipa_rm_resource_producer_release(struct ipa_rm_resource_prod *producer)
 	unsigned long flags;
 	struct ipa_rm_resource *consumer;
 	int consumer_result;
-	IPADBG("IPA RM ::ipa_rm_resource_producer_release ENTER\n");
+	IPADBG("IPA RM ::ipa_rm_resource_producer_release %d ENTER\n",
+		producer->resource.name);
 	if (ipa_rm_peers_list_is_empty(producer->resource.peers_list)) {
 		spin_lock_irqsave(&producer->resource.state_lock, flags);
 		producer->resource.state = IPA_RM_RELEASED;
@@ -702,7 +708,8 @@ int ipa_rm_resource_producer_release(struct ipa_rm_resource_prod *producer)
 	return result;
 bail:
 	spin_unlock_irqrestore(&producer->resource.state_lock, flags);
-	IPADBG("IPA RM ::ipa_rm_resource_producer_release EXIT[%d]\n", result);
+	IPADBG("IPA RM ::ipa_rm_resource_producer_release %d EXIT %d\n",
+		producer->resource.name, result);
 	return result;
 }
 
