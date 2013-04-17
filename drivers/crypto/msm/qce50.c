@@ -1337,19 +1337,6 @@ static void _aead_sps_producer_callback(struct sps_event_notify *notify)
 	}
 };
 
-static void _aead_sps_consumer_callback(struct sps_event_notify *notify)
-{
-	struct qce_device *pce_dev = (struct qce_device *)
-		((struct sps_event_notify *)notify)->user;
-
-	pce_dev->ce_sps.notify = *notify;
-	pr_debug("sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-			notify->event_id,
-			notify->data.transfer.iovec.addr,
-			notify->data.transfer.iovec.size,
-			notify->data.transfer.iovec.flags);
-};
-
 static void _sha_sps_producer_callback(struct sps_event_notify *notify)
 {
 	struct qce_device *pce_dev = (struct qce_device *)
@@ -1363,19 +1350,6 @@ static void _sha_sps_producer_callback(struct sps_event_notify *notify)
 			notify->data.transfer.iovec.flags);
 	/* done */
 	_sha_complete(pce_dev);
-};
-
-static void _sha_sps_consumer_callback(struct sps_event_notify *notify)
-{
-	struct qce_device *pce_dev = (struct qce_device *)
-		((struct sps_event_notify *)notify)->user;
-
-	pce_dev->ce_sps.notify = *notify;
-	pr_debug("sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-			notify->event_id,
-			notify->data.transfer.iovec.addr,
-			notify->data.transfer.iovec.size,
-			notify->data.transfer.iovec.flags);
 };
 
 static void _ablk_cipher_sps_producer_callback(struct sps_event_notify *notify)
@@ -1410,19 +1384,6 @@ static void _ablk_cipher_sps_producer_callback(struct sps_event_notify *notify)
 				(u32)pce_dev->ce_sps.producer.pipe, rc);
 		}
 	}
-};
-
-static void _ablk_cipher_sps_consumer_callback(struct sps_event_notify *notify)
-{
-	struct qce_device *pce_dev = (struct qce_device *)
-		((struct sps_event_notify *)notify)->user;
-
-	pce_dev->ce_sps.notify = *notify;
-	pr_debug("sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-			notify->event_id,
-			notify->data.transfer.iovec.addr,
-			notify->data.transfer.iovec.size,
-			notify->data.transfer.iovec.flags);
 };
 
 static void qce_add_cmd_element(struct qce_device *pdev,
@@ -2371,16 +2332,6 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 		pr_err("Producer callback registration failed rc = %d\n", rc);
 		goto bad;
 	}
-	/* Register callback event for EOT (End of transfer) event. */
-	pce_dev->ce_sps.consumer.event.callback = _aead_sps_consumer_callback;
-	pce_dev->ce_sps.consumer.event.options = SPS_O_DESC_DONE;
-	rc = sps_register_event(pce_dev->ce_sps.consumer.pipe,
-					&pce_dev->ce_sps.consumer.event);
-	if (rc) {
-		pr_err("Consumer callback registration failed rc = %d\n", rc);
-		goto bad;
-	}
-
 	_qce_sps_iovec_count_init(pce_dev);
 
 	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
@@ -2539,17 +2490,6 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 		pr_err("Producer callback registration failed rc = %d\n", rc);
 		goto bad;
 	}
-	/* Register callback event for EOT (End of transfer) event. */
-	pce_dev->ce_sps.consumer.event.callback =
-			_ablk_cipher_sps_consumer_callback;
-	pce_dev->ce_sps.consumer.event.options = SPS_O_DESC_DONE;
-	rc = sps_register_event(pce_dev->ce_sps.consumer.pipe,
-					&pce_dev->ce_sps.consumer.event);
-	if (rc) {
-		pr_err("Consumer callback registration failed rc = %d\n", rc);
-		goto bad;
-	}
-
 	_qce_sps_iovec_count_init(pce_dev);
 
 	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
@@ -2626,17 +2566,6 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 		pr_err("Producer callback registration failed rc = %d\n", rc);
 		goto bad;
 	}
-
-	/* Register callback event for EOT (End of transfer) event. */
-	pce_dev->ce_sps.consumer.event.callback = _sha_sps_consumer_callback;
-	pce_dev->ce_sps.consumer.event.options = SPS_O_DESC_DONE;
-	rc = sps_register_event(pce_dev->ce_sps.consumer.pipe,
-					&pce_dev->ce_sps.consumer.event);
-	if (rc) {
-		pr_err("Consumer callback registration failed rc = %d\n", rc);
-		goto bad;
-	}
-
 	_qce_sps_iovec_count_init(pce_dev);
 
 	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
