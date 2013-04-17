@@ -305,6 +305,7 @@ static int dolby_dap_send_enddep_params(int port_id, int device_channels)
 	}
 	if (idx >= NUM_DOLBY_ENDP_DEVICE) {
 		pr_err("%s: device is not set accordingly\n", __func__);
+		kfree(params_value);
 		return -EINVAL;
 	}
 	for (i = 0; i < DOLBY_ENDDEP_PARAM_LENGTH; i++) {
@@ -367,6 +368,7 @@ static int dolby_dap_send_cached_params(int port_id, int commit)
 						params_length);
 		if (rc) {
 			pr_err("%s: send dolby params failed\n", __func__);
+			kfree(params_value);
 			return -EINVAL;
 		}
 		for (i = 0; i < MAX_DOLBY_PARAMS; i++) {
@@ -584,7 +586,7 @@ int msm_routing_get_dolby_dap_param_to_get_control(
 	if (rc) {
 		pr_err("%s: get parameters failed\n", __func__);
 		kfree(params_value);
-		rc = -EINVAL;
+		return -EINVAL;
 	}
 	update_params_value = (int *)params_value;
 	ucontrol->value.integer.value[0] = dolby_dap_params_get.device_id;
