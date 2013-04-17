@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,8 +40,12 @@
 	might_sleep_if(timeout_us); \
 	for (;;) { \
 		(val) = readl(addr); \
-		if ((cond) || (timeout_us && time_after(jiffies, timeout))) \
+		if (cond) \
 			break; \
+		if (timeout_us && time_after(jiffies, timeout)) { \
+			(val) = readl(addr); \
+			break; \
+		} \
 		if (sleep_us) \
 			usleep_range(DIV_ROUND_UP(sleep_us, 4), sleep_us); \
 	} \
