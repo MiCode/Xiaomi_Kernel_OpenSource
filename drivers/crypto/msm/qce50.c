@@ -2800,7 +2800,7 @@ static void __qce_deinit_clk(struct qce_device *pce_dev)
 	}
 }
 
-static int __qce_enable_clk(void *handle)
+int qce_enable_clk(void *handle)
 {
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 	int rc = 0;
@@ -2813,6 +2813,7 @@ static int __qce_enable_clk(void *handle)
 			return rc;
 		}
 	}
+
 	/* Enable CE clk */
 	if (pce_dev->ce_clk != NULL) {
 		rc = clk_prepare_enable(pce_dev->ce_clk);
@@ -2834,8 +2835,9 @@ static int __qce_enable_clk(void *handle)
 	}
 	return rc;
 }
+EXPORT_SYMBOL(qce_enable_clk);
 
-static int __qce_disable_clk(void *handle)
+int qce_disable_clk(void *handle)
 {
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 	int rc = 0;
@@ -2849,6 +2851,7 @@ static int __qce_disable_clk(void *handle)
 
 	return rc;
 }
+EXPORT_SYMBOL(qce_disable_clk);
 
 /* crypto engine open function. */
 void *qce_open(struct platform_device *pdev, int *rc)
@@ -2886,18 +2889,19 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	if (*rc)
 		goto err_mem;
 
-	*rc = __qce_enable_clk(pce_dev);
+	*rc = qce_enable_clk(pce_dev);
 	if (*rc)
 		goto err;
 
 	if (_probe_ce_engine(pce_dev)) {
 		*rc = -ENXIO;
-		__qce_disable_clk(pce_dev);
 		goto err;
 	}
 	*rc = 0;
 	qce_setup_ce_sps_data(pce_dev);
 	qce_sps_init(pce_dev);
+
+	qce_disable_clk(pce_dev);
 
 	return pce_dev;
 err:
@@ -2932,7 +2936,7 @@ int qce_close(void *handle)
 		dma_free_coherent(pce_dev->pdev, pce_dev->memsize,
 				pce_dev->coh_vmem, pce_dev->coh_pmem);
 
-	__qce_disable_clk(pce_dev);
+	qce_disable_clk(pce_dev);
 	__qce_deinit_clk(pce_dev);
 
 	qce_sps_exit(pce_dev);
