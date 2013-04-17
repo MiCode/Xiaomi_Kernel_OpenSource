@@ -41,7 +41,7 @@
 #ifdef CONFIG_ARCH_FSM9XXX
 #define NUM_SMD_PKT_PORTS 4
 #else
-#define NUM_SMD_PKT_PORTS 27
+#define NUM_SMD_PKT_PORTS 28
 #endif
 
 #define PDRIVER_NAME_MAX_SIZE 32
@@ -729,6 +729,7 @@ static char *smd_pkt_dev_name[] = {
 	"smd_test_framework",
 	"smd_logging_0",
 	"smd_data_0",
+	"apr",
 	"smd_pkt_loopback",
 };
 
@@ -759,6 +760,7 @@ static char *smd_ch_name[] = {
 	"TESTFRAMEWORK",
 	"LOGGING",
 	"DATA",
+	"apr",
 	"LOOPBACK",
 };
 
@@ -786,6 +788,7 @@ static uint32_t smd_ch_edge[] = {
 	SMD_APPS_MODEM,
 	SMD_APPS_QDSP,
 	SMD_APPS_WCNSS,
+	SMD_APPS_QDSP,
 	SMD_APPS_QDSP,
 	SMD_APPS_QDSP,
 	SMD_APPS_QDSP,
