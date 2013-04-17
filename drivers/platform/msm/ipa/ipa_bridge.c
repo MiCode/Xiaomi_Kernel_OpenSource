@@ -726,10 +726,7 @@ int ipa_bridge_setup(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
 		return -EINVAL;
 	}
 
-	if (atomic_inc_return(&ipa_ctx->ipa_active_clients) == 1) {
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_enable_clks();
-	}
+	ipa_inc_client_enable_clks();
 
 	if (setup_bridge_to_ipa(dir, type, props, clnt_hdl)) {
 		IPAERR("fail to setup SYS pipe to IPA dir=%d type=%d\n",
@@ -751,10 +748,7 @@ int ipa_bridge_setup(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
 bail_a2:
 	ipa_bridge_teardown(dir, type, *clnt_hdl);
 bail_ipa:
-	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0) {
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_disable_clks();
-	}
+	ipa_dec_client_disable_clks();
 	return ret;
 }
 EXPORT_SYMBOL(ipa_bridge_setup);
@@ -826,10 +820,7 @@ int ipa_bridge_teardown(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
 
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 
-	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0) {
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_disable_clks();
-	}
+	ipa_dec_client_disable_clks();
 
 	return 0;
 }

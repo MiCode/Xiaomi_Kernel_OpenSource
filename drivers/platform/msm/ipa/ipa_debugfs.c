@@ -563,7 +563,7 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 			ipa_ctx->stats.rx_repl_repost,
 			ipa_ctx->stats.x_intr_repost,
 			ipa_ctx->stats.rx_q_len,
-			atomic_read(&ipa_ctx->ipa_active_clients),
+			ipa_ctx->ipa_active_clients,
 			connect);
 	cnt += nbytes;
 
