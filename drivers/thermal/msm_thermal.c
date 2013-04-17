@@ -63,6 +63,7 @@ static bool vdd_rstr_probed;
 static bool psm_enabled;
 static bool psm_nodes_called;
 static bool psm_probed;
+static int *tsens_id_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
 
@@ -473,6 +474,62 @@ done_psm_store:
 	return count;
 }
 
+
+static int check_sensor_id(int sensor_id)
+{
+	int i = 0;
+	bool hw_id_found;
+	int ret = 0;
+
+	for (i = 0; i < max_tsens_num; i++) {
+		if (sensor_id == tsens_id_map[i]) {
+			hw_id_found = true;
+			break;
+		}
+	}
+	if (!hw_id_found) {
+		pr_err("%s: Invalid sensor hw id :%d\n", __func__, sensor_id);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int create_sensor_id_map(void)
+{
+	int i = 0;
+	int ret = 0;
+
+	tsens_id_map = kzalloc(sizeof(int) * max_tsens_num,
+			GFP_KERNEL);
+	if (!tsens_id_map) {
+		pr_err("%s: Cannot allocate memory for tsens_id_map\n",
+				__func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < max_tsens_num; i++) {
+		ret = tsens_get_hw_id_mapping(i, &tsens_id_map[i]);
+		/* If return -ENXIO, hw_id is default in sequence */
+		if (ret) {
+			if (ret == -ENXIO) {
+				tsens_id_map[i] = i;
+				ret = 0;
+			} else {
+				pr_err( \
+				"%s: Failed to get hw id for sw id %d\n",
+				__func__, i);
+				goto fail;
+			}
+		}
+	}
+
+	return ret;
+fail:
+	kfree(tsens_id_map);
+	return ret;
+}
+
 static int msm_thermal_get_freq_table(void)
 {
 	int ret = 0;
@@ -583,7 +640,7 @@ static int do_vdd_restriction(void)
 
 	mutex_lock(&vdd_rstr_mutex);
 	for (i = 0; i < max_tsens_num; i++) {
-		tsens_dev.sensor_num = i;
+		tsens_dev.sensor_num = tsens_id_map[i];
 		ret = tsens_get_temp(&tsens_dev, &temp);
 		if (ret) {
 			pr_debug("%s: Unable to read TSENS sensor %d\n",
@@ -628,7 +685,7 @@ static int do_psm(void)
 
 	mutex_lock(&psm_mutex);
 	for (i = 0; i < max_tsens_num; i++) {
-		tsens_dev.sensor_num = i;
+		tsens_dev.sensor_num = tsens_id_map[i];
 		ret = tsens_get_temp(&tsens_dev, &temp);
 		if (ret) {
 			pr_debug("%s: Unable to read TSENS sensor %d\n",
@@ -1061,8 +1118,12 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 
 	BUG_ON(!pdata);
 	tsens_get_max_sensor_num(&max_tsens_num);
-	BUG_ON(msm_thermal_info.sensor_id >= max_tsens_num);
 	memcpy(&msm_thermal_info, pdata, sizeof(struct msm_thermal_data));
+
+	if (create_sensor_id_map())
+		return -EINVAL;
+	if (check_sensor_id(msm_thermal_info.sensor_id))
+		return -EINVAL;
 
 	enabled = 1;
 	core_control_enabled = 1;
