@@ -1460,6 +1460,41 @@ void ipa_disable_clks(void)
 		WARN_ON(1);
 }
 
+/**
+* ipa_inc_client_enable_clks() - Increase active clients counter, and
+* enable ipa clocks if necessary
+*
+* Return codes:
+* None
+*/
+void ipa_inc_client_enable_clks(void)
+{
+	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_ctx->ipa_active_clients++;
+	if (ipa_ctx->ipa_active_clients == 1)
+		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
+			ipa_enable_clks();
+	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+}
+
+/**
+* ipa_dec_client_disable_clks() - Decrease active clients counter, and
+* disable ipa clocks if necessary
+*
+* Return codes:
+* None
+*/
+void ipa_dec_client_disable_clks(void)
+{
+	mutex_lock(&ipa_ctx->ipa_active_clients_lock);
+	ipa_ctx->ipa_active_clients--;
+	if (ipa_ctx->ipa_active_clients == 0)
+		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
+			ipa_disable_clks();
+	mutex_unlock(&ipa_ctx->ipa_active_clients_lock);
+}
+
+
 static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
 {
 	void *bam_cnfg_bits;
@@ -1845,7 +1880,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	ipa_ctx->flt_rule_hdl_tree = RB_ROOT;
 	ipa_ctx->tag_tree = RB_ROOT;
 
-	atomic_set(&ipa_ctx->ipa_active_clients, 0);
+	mutex_init(&ipa_ctx->ipa_active_clients_lock);
+	ipa_ctx->ipa_active_clients = 0;
 
 	result = ipa_bridge_init();
 	if (result) {

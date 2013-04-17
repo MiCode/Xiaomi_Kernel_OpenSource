@@ -644,7 +644,8 @@ struct ipa_context {
 	struct ipa_mem_buffer empty_rt_tbl_mem;
 	struct gen_pool *pipe_mem_pool;
 	struct dma_pool *dma_pool;
-	atomic_t ipa_active_clients;
+	struct mutex ipa_active_clients_lock;
+	int ipa_active_clients;
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
@@ -795,6 +796,8 @@ int ipa_straddle_boundary(u32 start, u32 end, u32 boundary);
 struct ipa_context *ipa_get_ctx(void);
 void ipa_enable_clks(void);
 void ipa_disable_clks(void);
+void ipa_inc_client_enable_clks(void);
+void ipa_dec_client_disable_clks(void);
 int __ipa_del_rt_rule(u32 rule_hdl);
 int __ipa_del_hdr(u32 hdr_hdl);
 int __ipa_release_hdr(u32 hdr_hdl);

@@ -204,9 +204,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	int result = -EFAULT;
 	struct ipa_ep_context *ep;
 
-	if (atomic_inc_return(&ipa_ctx->ipa_active_clients) == 1)
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_enable_clks();
+	ipa_inc_client_enable_clks();
 
 	if (in == NULL || sps == NULL || clnt_hdl == NULL ||
 	    in->client >= IPA_CLIENT_MAX ||
@@ -342,11 +340,7 @@ desc_mem_alloc_fail:
 ipa_cfg_ep_fail:
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
 fail:
-	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0) {
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_disable_clks();
-	}
-
+	ipa_dec_client_disable_clks();
 	return result;
 }
 EXPORT_SYMBOL(ipa_connect);
@@ -421,10 +415,7 @@ int ipa_disconnect(u32 clnt_hdl)
 	ipa_enable_data_path(clnt_hdl);
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 
-	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0) {
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_disable_clks();
-	}
+	ipa_dec_client_disable_clks();
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
