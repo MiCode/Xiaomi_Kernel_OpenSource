@@ -673,7 +673,7 @@ bool msm_rpm_waiting_for_ack(void)
 static struct msm_rpm_wait_data *msm_rpm_get_entry_from_msg_id(uint32_t msg_id)
 {
 	struct list_head *ptr;
-	struct msm_rpm_wait_data *elem;
+	struct msm_rpm_wait_data *elem = NULL;
 	unsigned long flags;
 
 	spin_lock_irqsave(&msm_rpm_list_lock, flags);
@@ -739,7 +739,7 @@ static void msm_rpm_free_list_entry(struct msm_rpm_wait_data *elem)
 static void msm_rpm_process_ack(uint32_t msg_id, int errno)
 {
 	struct list_head *ptr;
-	struct msm_rpm_wait_data *elem;
+	struct msm_rpm_wait_data *elem = NULL;
 	unsigned long flags;
 
 	spin_lock_irqsave(&msm_rpm_list_lock, flags);
