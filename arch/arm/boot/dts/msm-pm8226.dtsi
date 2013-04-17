@@ -64,6 +64,7 @@
 			qcom,ibatterm-ma = <200>;
 			qcom,ibatsafe-ma = <1500>;
 			qcom,thermal-mitigation = <1500 700 600 325>;
+			qcom,tchg-mins = <150>;
 
 			qcom,chgr@1000 {
 				status = "disabled";
