@@ -547,7 +547,7 @@ static int venus_hfi_iface_cmdq_write(struct venus_hfi_device *device,
 	q_info = &device->iface_queues[VIDC_IFACEQ_CMDQ_IDX];
 	if (!q_info) {
 		dprintk(VIDC_ERR, "cannot write to shared Q's");
-		goto err_q_write;
+		goto err_q_null;
 	}
 	mutex_lock(&device->clock_lock);
 	result = venus_hfi_clk_gating_off(device);
@@ -572,8 +572,9 @@ static int venus_hfi_iface_cmdq_write(struct venus_hfi_device *device,
 		dprintk(VIDC_ERR, "venus_hfi_iface_cmdq_write:queue_full");
 	}
 err_q_write:
-	mutex_unlock(&device->write_lock);
 	mutex_unlock(&device->clock_lock);
+err_q_null:
+	mutex_unlock(&device->write_lock);
 	return result;
 }
 
@@ -592,7 +593,7 @@ static int venus_hfi_iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		q_array.align_virtual_addr == 0) {
 		dprintk(VIDC_ERR, "cannot read from shared MSG Q's");
 		rc = -ENODATA;
-		goto read_error;
+		goto read_error_null;
 	}
 	q_info = &device->iface_queues[VIDC_IFACEQ_MSGQ_IDX];
 	mutex_lock(&device->clock_lock);
@@ -614,8 +615,9 @@ static int venus_hfi_iface_msgq_read(struct venus_hfi_device *device, void *pkt)
 		rc = -ENODATA;
 	}
 read_error:
-	mutex_unlock(&device->read_lock);
 	mutex_unlock(&device->clock_lock);
+read_error_null:
+	mutex_unlock(&device->read_lock);
 	return rc;
 }
 
@@ -634,7 +636,7 @@ static int venus_hfi_iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 		q_array.align_virtual_addr == 0) {
 		dprintk(VIDC_ERR, "cannot read from shared DBG Q's");
 		rc = -ENODATA;
-		goto dbg_error;
+		goto dbg_error_null;
 	}
 	mutex_lock(&device->clock_lock);
 	rc = venus_hfi_clk_gating_off(device);
@@ -656,8 +658,9 @@ static int venus_hfi_iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 		rc = -ENODATA;
 	}
 dbg_error:
-	mutex_unlock(&device->read_lock);
 	mutex_unlock(&device->clock_lock);
+dbg_error_null:
+	mutex_unlock(&device->read_lock);
 	return rc;
 }
 
@@ -1070,8 +1073,8 @@ static int venus_hfi_core_release(void *device)
 			disable_irq_nosync(dev->hal_data->irq);
 		dev->intr_status = 0;
 		venus_hfi_interface_queues_release(dev);
+		mutex_unlock(&dev->clock_lock);
 	}
-	mutex_unlock(&dev->clock_lock);
 	dprintk(VIDC_INFO, "HAL exited\n");
 	return 0;
 }
@@ -1867,8 +1870,8 @@ static int venus_hfi_try_clk_gating(struct venus_hfi_device *device)
 	if (((ctrl_status & VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_INIT_IDLE_MSG_BMSK)
 		!= 0) && !rc)
 		venus_hfi_clk_gating_on(device);
-	mutex_unlock(&device->write_lock);
 	mutex_unlock(&device->clock_lock);
+	mutex_unlock(&device->write_lock);
 	return rc;
 }
 
