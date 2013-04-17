@@ -11,7 +11,7 @@ Required properties:
  - qcom,panel-maxx	: Maximum x-coordinate of touch panel
  - qcom,panel-maxy	: Maximum y-coordinate of touch panel
  - qcom,key-codes	: Array of key codes for virtual keys
-
+ - qcom,y-offset	: Offset of y-location for virtual keys
 Example:
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
@@ -21,4 +21,5 @@ Example:
 		qcom,panel-maxx = <760>;
 		qcom,panel-maxy = <1424>;
 		qcom,key-codes = <158 139 102 217>;
+		qcom,y-offset = <35>;
 	};
