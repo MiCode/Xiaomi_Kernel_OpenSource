@@ -39,7 +39,7 @@
 #include "qcryptohw_50.h"
 
 #define CRYPTO_CONFIG_RESET 0xE001F
-#define QCE_MAX_NUM_DSCR    0x400
+#define QCE_MAX_NUM_DSCR    0x500
 #define QCE_SECTOR_SIZE	    0x200
 
 static DEFINE_MUTEX(bam_register_cnt);
@@ -919,17 +919,23 @@ static void _qce_set_flag(struct sps_transfer *sps_bam_pipe, uint32_t flag)
 	iovec->flags |= flag;
 }
 
-static void _qce_sps_add_data(uint32_t addr, uint32_t len,
+static int _qce_sps_add_data(uint32_t addr, uint32_t len,
 		struct sps_transfer *sps_bam_pipe)
 {
 	struct sps_iovec *iovec = sps_bam_pipe->iovec +
 					sps_bam_pipe->iovec_count;
+	if (sps_bam_pipe->iovec_count == QCE_MAX_NUM_DSCR) {
+		pr_err("Num of descrptor %d exceed max (%d)",
+			sps_bam_pipe->iovec_count, (uint32_t)QCE_MAX_NUM_DSCR);
+		return -ENOMEM;
+	}
 	if (len) {
 		iovec->size = len;
 		iovec->addr = addr;
 		iovec->flags = 0;
 		sps_bam_pipe->iovec_count++;
 	}
+	return 0;
 }
 
 static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
@@ -947,6 +953,12 @@ static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
 		if (pce_dev->ce_sps.minor_version == 0)
 			len = ALIGN(len, pce_dev->ce_sps.ce_burst_size);
 		while (len > 0) {
+			if (sps_bam_pipe->iovec_count == QCE_MAX_NUM_DSCR) {
+				pr_err("Num of descrptor %d exceed max (%d)",
+						sps_bam_pipe->iovec_count,
+						(uint32_t)QCE_MAX_NUM_DSCR);
+				return -ENOMEM;
+			}
 			if (len > SPS_MAX_PKT_SIZE) {
 				data_cnt = SPS_MAX_PKT_SIZE;
 				iovec->size = data_cnt;
@@ -2375,15 +2387,17 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 					&pce_dev->ce_sps.in_transfer);
 
 	if (pce_dev->ce_sps.minor_version == 0) {
-		_qce_sps_add_sg_data(pce_dev, areq->src, totallen_in,
-					&pce_dev->ce_sps.in_transfer);
+		if (_qce_sps_add_sg_data(pce_dev, areq->src, totallen_in,
+					&pce_dev->ce_sps.in_transfer))
+			goto bad;
 
 		_qce_set_flag(&pce_dev->ce_sps.in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-		_qce_sps_add_sg_data(pce_dev, areq->dst, out_len +
+		if (_qce_sps_add_sg_data(pce_dev, areq->dst, out_len +
 					areq->assoclen + hw_pad_out,
-				&pce_dev->ce_sps.out_transfer);
+				&pce_dev->ce_sps.out_transfer))
+			goto bad;
 		if (totallen_in > SPS_MAX_PKT_SIZE) {
 			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
 							SPS_IOVEC_FLAG_INT);
@@ -2391,42 +2405,52 @@ int qce_aead_req(void *handle, struct qce_req *q_req)
 							SPS_O_DESC_DONE;
 			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
 		} else {
-			_qce_sps_add_data(GET_PHYS_ADDR(
+			if (_qce_sps_add_data(GET_PHYS_ADDR(
 					pce_dev->ce_sps.result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
-					  &pce_dev->ce_sps.out_transfer);
+					&pce_dev->ce_sps.out_transfer))
+				goto bad;
 			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
 							SPS_IOVEC_FLAG_INT);
 			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
 		}
 	} else {
-		_qce_sps_add_sg_data(pce_dev, areq->assoc, areq->assoclen,
-					 &pce_dev->ce_sps.in_transfer);
-		_qce_sps_add_data((uint32_t)pce_dev->phy_iv_in, ivsize,
-					&pce_dev->ce_sps.in_transfer);
-		_qce_sps_add_sg_data(pce_dev, areq->src, areq->cryptlen,
-					&pce_dev->ce_sps.in_transfer);
+		if (_qce_sps_add_sg_data(pce_dev, areq->assoc, areq->assoclen,
+					 &pce_dev->ce_sps.in_transfer))
+			goto bad;
+		if (_qce_sps_add_data((uint32_t)pce_dev->phy_iv_in, ivsize,
+					&pce_dev->ce_sps.in_transfer))
+			goto bad;
+		if (_qce_sps_add_sg_data(pce_dev, areq->src, areq->cryptlen,
+					&pce_dev->ce_sps.in_transfer))
+			goto bad;
 		_qce_set_flag(&pce_dev->ce_sps.in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
 		/* Pass through to ignore associated (+iv, if applicable) data*/
-		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.ignore_buffer),
+		if (_qce_sps_add_data(
+				GET_PHYS_ADDR(pce_dev->ce_sps.ignore_buffer),
 				(ivsize + areq->assoclen),
-				&pce_dev->ce_sps.out_transfer);
-		_qce_sps_add_sg_data(pce_dev, areq->dst, out_len,
-					&pce_dev->ce_sps.out_transfer);
+				&pce_dev->ce_sps.out_transfer))
+			goto bad;
+		if (_qce_sps_add_sg_data(pce_dev, areq->dst, out_len,
+					&pce_dev->ce_sps.out_transfer))
+			goto bad;
 		/* Pass through to ignore hw_pad (padding of the MAC data) */
-		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.ignore_buffer),
-				hw_pad_out, &pce_dev->ce_sps.out_transfer);
+		if (_qce_sps_add_data(
+				GET_PHYS_ADDR(pce_dev->ce_sps.ignore_buffer),
+				hw_pad_out, &pce_dev->ce_sps.out_transfer))
+			goto bad;
 		if (totallen_in > SPS_MAX_PKT_SIZE) {
 			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
 							SPS_IOVEC_FLAG_INT);
 			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
 		} else {
-			_qce_sps_add_data(
+			if (_qce_sps_add_data(
 				GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
-					  &pce_dev->ce_sps.out_transfer);
+					  &pce_dev->ce_sps.out_transfer))
+				goto bad;
 			_qce_set_flag(&pce_dev->ce_sps.out_transfer,
 							SPS_IOVEC_FLAG_INT);
 			pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
@@ -2530,22 +2554,26 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 
 	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
 					&pce_dev->ce_sps.in_transfer);
-	_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
-					&pce_dev->ce_sps.in_transfer);
+	if (_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
+					&pce_dev->ce_sps.in_transfer))
+		goto bad;
 	_qce_set_flag(&pce_dev->ce_sps.in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-	_qce_sps_add_sg_data(pce_dev, areq->dst, areq->nbytes,
-					&pce_dev->ce_sps.out_transfer);
+	if (_qce_sps_add_sg_data(pce_dev, areq->dst, areq->nbytes,
+					&pce_dev->ce_sps.out_transfer))
+		goto bad;
 	if (areq->nbytes > SPS_MAX_PKT_SIZE) {
 		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
 							SPS_IOVEC_FLAG_INT);
 		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
 	} else {
 		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_COMP;
-		_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
-					CRYPTO_RESULT_DUMP_SIZE,
-					  &pce_dev->ce_sps.out_transfer);
+		if (_qce_sps_add_data(
+				GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
+				CRYPTO_RESULT_DUMP_SIZE,
+				&pce_dev->ce_sps.out_transfer))
+			goto bad;
 		_qce_set_flag(&pce_dev->ce_sps.out_transfer,
 							SPS_IOVEC_FLAG_INT);
 	}
@@ -2613,14 +2641,16 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 
 	_qce_sps_add_cmd(pce_dev, SPS_IOVEC_FLAG_LOCK, cmdlistinfo,
 					&pce_dev->ce_sps.in_transfer);
-	_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
-						 &pce_dev->ce_sps.in_transfer);
+	if (_qce_sps_add_sg_data(pce_dev, areq->src, areq->nbytes,
+						 &pce_dev->ce_sps.in_transfer))
+		goto bad;
 	_qce_set_flag(&pce_dev->ce_sps.in_transfer,
 				SPS_IOVEC_FLAG_EOT|SPS_IOVEC_FLAG_NWD);
 
-	_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
+	if (_qce_sps_add_data(GET_PHYS_ADDR(pce_dev->ce_sps.result_dump),
 					CRYPTO_RESULT_DUMP_SIZE,
-					  &pce_dev->ce_sps.out_transfer);
+					  &pce_dev->ce_sps.out_transfer))
+		goto bad;
 	_qce_set_flag(&pce_dev->ce_sps.out_transfer, SPS_IOVEC_FLAG_INT);
 	rc = _qce_sps_transfer(pce_dev);
 	if (rc)
