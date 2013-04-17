@@ -462,9 +462,9 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner);
 
 #define D0_ID		 1
 #define D1_ID		 2
-#define A0_ID		 3
-#define A1_ID		 4
-#define A2_ID		 5
+#define A0_ID		 4
+#define A1_ID		 5
+#define A2_ID		 6
 #define DIFF_CLK_ID	 7
 #define DIV_CLK_ID	11
 
@@ -2804,7 +2804,7 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("measure_clk",   l2_m_clk, ""),
 
 	CLK_LOOKUP("xo",   gcc_xo_clk_src.c, "fb000000.qcom,wcnss-wlan"),
-	CLK_LOOKUP("rf_clk",       cxo_a2.c, "fb000000.qcom,wcnss-wlan"),
+	CLK_LOOKUP("rf_clk",       cxo_a1.c, "fb000000.qcom,wcnss-wlan"),
 
 	CLK_LOOKUP("iface_clk", mdp_ahb_clk.c, "fd900000.qcom,mdss_mdp"),
 	CLK_LOOKUP("core_clk", mdp_axi_clk.c, "fd900000.qcom,mdss_mdp"),
