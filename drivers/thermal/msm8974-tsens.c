@@ -284,7 +284,7 @@ int tsens_get_sw_id_mapping(int sensor_hw_num, int *sensor_sw_idx)
 
 	while (i < tmdev->tsens_num_sensor && !id_found) {
 		if (sensor_hw_num == tmdev->sensor[i].sensor_hw_num) {
-			*sensor_sw_idx = i;
+			*sensor_sw_idx = tmdev->sensor[i].sensor_sw_id;
 			id_found = true;
 		}
 		i++;
@@ -304,7 +304,7 @@ int tsens_get_hw_id_mapping(int sensor_sw_id, int *sensor_hw_num)
 
 	while (i < tmdev->tsens_num_sensor && !id_found) {
 		if (sensor_sw_id == tmdev->sensor[i].sensor_sw_id) {
-			*sensor_hw_num = i;
+			*sensor_hw_num = tmdev->sensor[i].sensor_hw_num;
 			id_found = true;
 		}
 		i++;
@@ -1373,12 +1373,16 @@ static int get_device_tree_data(struct platform_device *pdev)
 		"qcom,sensor-id", sensor_id, tsens_num_sensors);
 	if (rc) {
 		pr_debug("Default sensor id mapping\n");
-		for (i = 0; i < tsens_num_sensors; i++)
+		for (i = 0; i < tsens_num_sensors; i++) {
 			tmdev->sensor[i].sensor_hw_num = i;
+			tmdev->sensor[i].sensor_sw_id = i;
+		}
 	} else {
 		pr_debug("Use specified sensor id mapping\n");
-		for (i = 0; i < tsens_num_sensors; i++)
+		for (i = 0; i < tsens_num_sensors; i++) {
 			tmdev->sensor[i].sensor_hw_num = sensor_id[i];
+			tmdev->sensor[i].sensor_sw_id = i;
+		}
 	}
 
 	tmdev->tsens_irq = platform_get_irq(pdev, 0);
