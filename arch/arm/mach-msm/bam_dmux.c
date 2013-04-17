@@ -913,8 +913,10 @@ int msm_bam_dmux_open(uint32_t id, void *priv,
 	if (!bam_is_connected) {
 		read_unlock(&ul_wakeup_lock);
 		ul_wakeup();
-		if (unlikely(in_global_reset == 1))
+		if (unlikely(in_global_reset == 1)) {
+			kfree(hdr);
 			return -EFAULT;
+		}
 		read_lock(&ul_wakeup_lock);
 		notify_all(BAM_DMUX_UL_CONNECTED, (unsigned long)(NULL));
 	}
