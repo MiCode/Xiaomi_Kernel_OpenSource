@@ -456,4 +456,8 @@ config SND_SOC_MSM_STUB
 	tristate
 
 config SND_SOC_MSM_HDMI_CODEC_RX
-	tristate
+	bool "HDMI Audio Playback"
+	depends on FB_MSM_MDSS_HDMI_PANEL && SND_SOC_MSM8974
+	help
+	HDMI audio drivers should be built only if the platform
+        supports hdmi panel.
