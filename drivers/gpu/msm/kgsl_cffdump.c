@@ -363,9 +363,11 @@ void kgsl_cffdump_open(struct kgsl_device *device)
 
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
 		kgsl_cffdump_memory_base(device->id,
-			kgsl_mmu_get_base_addr(&device->mmu),
-			kgsl_mmu_get_ptsize(&device->mmu) +
-			KGSL_IOMMU_GLOBAL_MEM_SIZE, adreno_dev->gmem_size);
+			KGSL_PAGETABLE_BASE,
+			KGSL_IOMMU_GLOBAL_MEM_BASE +
+			KGSL_IOMMU_GLOBAL_MEM_SIZE -
+			KGSL_PAGETABLE_BASE,
+			adreno_dev->gmem_size);
 	} else {
 		kgsl_cffdump_memory_base(device->id,
 			kgsl_mmu_get_base_addr(&device->mmu),
