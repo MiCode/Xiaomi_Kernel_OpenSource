@@ -475,6 +475,7 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 	void			*mem;
 
 	u8			mode;
+	bool			host_only_mode;
 
 	mem = devm_kzalloc(dev, sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
 	if (!mem) {
@@ -548,6 +549,7 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 		dwc->maximum_speed = DWC3_DCFG_SUPERSPEED;
 
 	dwc->needs_fifo_resize = of_property_read_bool(node, "tx-fifo-resize");
+	host_only_mode = of_property_read_bool(node, "host-only-mode");
 
 	pm_runtime_no_callbacks(dev);
 	pm_runtime_set_active(dev);
@@ -560,6 +562,12 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 	}
 
 	mode = DWC3_MODE(dwc->hwparams.hwparams0);
+
+	/* Override mode if user selects host-only config with DRD core */
+	if (host_only_mode && (mode == DWC3_MODE_DRD)) {
+		dev_dbg(dev, "host only mode selected\n");
+		mode = DWC3_MODE_HOST;
+	}
 
 	switch (mode) {
 	case DWC3_MODE_DEVICE:

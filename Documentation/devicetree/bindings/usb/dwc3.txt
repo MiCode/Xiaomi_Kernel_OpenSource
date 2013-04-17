@@ -12,6 +12,7 @@ Required properties:
 
 Optional properties:
  - tx-fifo-resize: determines if the FIFO *has* to be reallocated.
+ - host-only-mode: if present then dwc3 should be run in HOST only mode.
 
 This is usually a subnode to DWC3 glue to which it is connected.
 
