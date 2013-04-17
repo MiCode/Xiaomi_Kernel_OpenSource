@@ -1606,7 +1606,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 								0x37, 0x0);
 	}
 
-	dcp = mdwc->charger.chg_type == DWC3_DCP_CHARGER;
+	dcp = ((mdwc->charger.chg_type == DWC3_DCP_CHARGER) ||
+	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER));
 	host_bus_suspend = mdwc->host_mode == 1;
 
 	/* Sequence to put SSPHY in low power state:
@@ -1684,15 +1685,19 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	dwc3_ssusb_ldo_enable(0);
 	dwc3_ssusb_config_vddcx(0);
-	if (!host_bus_suspend)
+	if (!host_bus_suspend && !dcp)
 		dwc3_hsusb_config_vddcx(0);
 	wake_unlock(&mdwc->wlock);
 	atomic_set(&mdwc->in_lpm, 1);
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 
-	if (mdwc->hs_phy_irq)
+	if (mdwc->hs_phy_irq) {
 		enable_irq(mdwc->hs_phy_irq);
+		/* with DCP we dont require wakeup using HS_PHY_IRQ */
+		if (dcp)
+			disable_irq_wake(mdwc->hs_phy_irq);
+	}
 
 	return 0;
 }
@@ -1719,7 +1724,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "Failed to vote for bus scaling\n");
 	}
 
-	dcp = mdwc->charger.chg_type == DWC3_DCP_CHARGER;
+	dcp = ((mdwc->charger.chg_type == DWC3_DCP_CHARGER) ||
+	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER));
 	host_bus_suspend = mdwc->host_mode == 1;
 
 	if (!host_bus_suspend) {
@@ -1728,6 +1734,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		if (ret)
 			dev_err(mdwc->dev, "%s failed to vote TCXO buffer%d\n",
 						__func__, ret);
+
+		clk_prepare_enable(mdwc->utmi_clk);
 	}
 
 	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp &&
@@ -1737,10 +1745,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	dwc3_ssusb_ldo_enable(1);
 	dwc3_ssusb_config_vddcx(1);
 
-	if (!host_bus_suspend) {
+	if (!host_bus_suspend && !dcp)
 		dwc3_hsusb_config_vddcx(1);
-		clk_prepare_enable(mdwc->utmi_clk);
-	}
 
 	clk_prepare_enable(mdwc->ref_clk);
 	usleep_range(1000, 1200);
@@ -1809,6 +1815,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		enable_irq(mdwc->hs_phy_irq);
 		mdwc->lpm_irq_seen = false;
 	}
+	/* it must DCP disconnect, re-enable HS_PHY wakeup IRQ */
+	if (mdwc->hs_phy_irq && dcp)
+		enable_irq_wake(mdwc->hs_phy_irq);
 
 	dev_info(mdwc->dev, "DWC3 exited from low power mode\n");
 
