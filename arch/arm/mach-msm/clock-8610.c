@@ -434,7 +434,7 @@ enum vdd_dig_levels {
 	VDD_DIG_NUM
 };
 
-static const int *vdd_corner[] = {
+static int *vdd_corner[] = {
 	[VDD_DIG_NONE]	  = VDD_UV(RPM_REGULATOR_CORNER_NONE),
 	[VDD_DIG_LOW]	  = VDD_UV(RPM_REGULATOR_CORNER_SVS_SOC),
 	[VDD_DIG_NOMINAL] = VDD_UV(RPM_REGULATOR_CORNER_NORMAL),
@@ -533,7 +533,7 @@ enum vdd_sr2_pll_levels {
 	VDD_SR2_PLL_NUM
 };
 
-static const int *vdd_sr2_levels[] = {
+static int *vdd_sr2_levels[] = {
 	[VDD_SR2_PLL_OFF] = VDD_UV(0,       RPM_REGULATOR_CORNER_NONE),
 	[VDD_SR2_PLL_SVS] = VDD_UV(1800000, RPM_REGULATOR_CORNER_SVS_SOC),
 	[VDD_SR2_PLL_NOM] = VDD_UV(1800000, RPM_REGULATOR_CORNER_NORMAL),
