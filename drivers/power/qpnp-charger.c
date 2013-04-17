@@ -1209,7 +1209,7 @@ qpnp_chg_ibatterm_set(struct qpnp_chg_chip *chip, int term_current)
 			QPNP_CHG_ITERM_MASK, temp, 1);
 }
 
-#define QPNP_CHG_IBATMAX_MIN	100
+#define QPNP_CHG_IBATMAX_MIN	50
 #define QPNP_CHG_IBATMAX_MAX	3250
 static int
 qpnp_chg_ibatmax_set(struct qpnp_chg_chip *chip, int chg_current)
@@ -1221,7 +1221,7 @@ qpnp_chg_ibatmax_set(struct qpnp_chg_chip *chip, int chg_current)
 		pr_err("bad mA=%d asked to set\n", chg_current);
 		return -EINVAL;
 	}
-	temp = (chg_current - QPNP_CHG_I_MIN_MA) / QPNP_CHG_I_STEP_MA;
+	temp = chg_current / QPNP_CHG_I_STEP_MA;
 	return qpnp_chg_masked_write(chip, chip->chgr_base + CHGR_IBAT_MAX,
 			QPNP_CHG_I_MASK, temp, 1);
 }
