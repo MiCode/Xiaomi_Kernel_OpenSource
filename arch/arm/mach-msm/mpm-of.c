@@ -377,7 +377,7 @@ int msm_mpm_enable_pin(unsigned int pin, unsigned int enable)
 	if (!msm_mpm_is_initialized())
 		return -EINVAL;
 
-	if (pin > MSM_MPM_NR_MPM_IRQS)
+	if (pin >= MSM_MPM_NR_MPM_IRQS)
 		return -EINVAL;
 
 	spin_lock_irqsave(&msm_mpm_lock, flags);
@@ -767,7 +767,7 @@ void __init of_mpm_init(struct device_node *node)
 	return;
 
 failed_malloc:
-	for (i = 0; i < MSM_MPM_NR_MPM_IRQS; i++) {
+	for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
 		mpm_of_map[i].chip->irq_mask = NULL;
 		mpm_of_map[i].chip->irq_unmask = NULL;
 		mpm_of_map[i].chip->irq_disable = NULL;
