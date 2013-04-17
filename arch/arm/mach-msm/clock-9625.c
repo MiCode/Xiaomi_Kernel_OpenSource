@@ -287,7 +287,7 @@ static int *vdd_corner[] = {
 	[VDD_DIG_HIGH]	  = VDD_UV(RPM_REGULATOR_CORNER_SUPER_TURBO),
 };
 
-static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 /* TODO: Needs to confirm the below values */
 #define RPM_MISC_CLK_TYPE	0x306b6c63

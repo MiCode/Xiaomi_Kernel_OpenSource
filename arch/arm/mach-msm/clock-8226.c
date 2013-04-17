@@ -176,7 +176,7 @@ static int *vdd_corner[] = {
 	[VDD_DIG_HIGH]	  = VDD_UV(RPM_REGULATOR_CORNER_SUPER_TURBO),
 };
 
-static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_BUS_CLK_TYPE	0x316b6c63
@@ -2760,7 +2760,8 @@ static int *vdd_sr2_levels[] = {
 	[VDD_SR2_PLL_TUR] = VDD_UV(1800000, RPM_REGULATOR_CORNER_SUPER_TURBO),
 };
 
-static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 2, vdd_sr2_levels);
+static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 2,
+				vdd_sr2_levels, NULL);
 
 static struct pll_freq_tbl apcs_pll_freq[] = {
 	F_APCS_PLL( 384000000, 20, 0x0, 0x1, 0x0, 0x0, 0x0),
