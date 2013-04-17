@@ -89,7 +89,7 @@ static int __ipa_commit_hdr(void)
 	if (ipa_ctx->hdr_tbl_lcl && mem->size > IPA_RAM_HDR_SIZE) {
 		IPAERR("tbl too big, needed %d avail %d\n", mem->size,
 				IPA_RAM_HDR_SIZE);
-		goto fail_hw_tbl_gen;
+		goto fail_send_cmd;
 	}
 
 	cmd->hdr_table_addr = mem->phys_base;
@@ -126,7 +126,7 @@ static int __ipa_commit_hdr(void)
 	return 0;
 
 fail_send_cmd:
-	if (mem->phys_base)
+	if (mem->base)
 		dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
 fail_hw_tbl_gen:
 	kfree(cmd);
