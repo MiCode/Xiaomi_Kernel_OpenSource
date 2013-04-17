@@ -367,7 +367,8 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (port_ptr->type == CLIENT_PORT)
 		wait_for_irsc_completion();
 	ipc_buf = skb_peek(msg);
-	msm_ipc_router_ipc_log(IPC_SEND, ipc_buf, port_ptr);
+	if (ipc_buf)
+		msm_ipc_router_ipc_log(IPC_SEND, ipc_buf, port_ptr);
 	ret = msm_ipc_router_send_to(port_ptr, msg, &dest->address);
 	if (ret == (IPC_ROUTER_HDR_SIZE + total_len))
 		ret = total_len;
@@ -429,7 +430,8 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	ret = msm_ipc_router_extract_msg(m, msg);
 	ipc_buf = skb_peek(msg);
-	msm_ipc_router_ipc_log(IPC_RECV, ipc_buf, port_ptr);
+	if (ipc_buf)
+		msm_ipc_router_ipc_log(IPC_RECV, ipc_buf, port_ptr);
 	msm_ipc_router_release_msg(msg);
 	msg = NULL;
 	release_sock(sk);
