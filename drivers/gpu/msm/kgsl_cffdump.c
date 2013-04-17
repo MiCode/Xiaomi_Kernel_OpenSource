@@ -360,6 +360,8 @@ void kgsl_cffdump_destroy()
 void kgsl_cffdump_open(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	if (!kgsl_cff_dump_enable)
+		return;
 
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
 		kgsl_cffdump_memory_base(device->id,
@@ -379,24 +381,33 @@ void kgsl_cffdump_open(struct kgsl_device *device)
 void kgsl_cffdump_memory_base(enum kgsl_deviceid device_id, unsigned int base,
 			      unsigned int range, unsigned gmemsize)
 {
+	if (!kgsl_cff_dump_enable)
+		return;
 	cffdump_printline(device_id, CFF_OP_MEMORY_BASE, base,
 			range, gmemsize, 0, 0);
 }
 
 void kgsl_cffdump_hang(enum kgsl_deviceid device_id)
 {
+	if (!kgsl_cff_dump_enable)
+		return;
 	cffdump_printline(device_id, CFF_OP_HANG, 0, 0, 0, 0, 0);
 }
 
 void kgsl_cffdump_close(enum kgsl_deviceid device_id)
 {
+	if (!kgsl_cff_dump_enable)
+		return;
 	cffdump_printline(device_id, CFF_OP_EOF, 0, 0, 0, 0, 0);
 }
+
 
 void kgsl_cffdump_user_event(unsigned int cff_opcode, unsigned int op1,
 		unsigned int op2, unsigned int op3,
 		unsigned int op4, unsigned int op5)
 {
+	if (!kgsl_cff_dump_enable)
+		return;
 	cffdump_printline(-1, cff_opcode, op1, op2, op3, op4, op5);
 }
 
