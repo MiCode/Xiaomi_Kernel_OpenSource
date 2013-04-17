@@ -433,9 +433,7 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 	struct ipa_desc *desc;
 	int result = 0;
 
-	if (atomic_inc_return(&ipa_ctx->ipa_active_clients) == 1)
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_enable_clks();
+	ipa_inc_client_enable_clks();
 
 	if (num_desc == 1) {
 		init_completion(&descr->xfer_done);
@@ -471,9 +469,7 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 
 	IPA_STATS_INC_IC_CNT(num_desc, descr, ipa_ctx->stats.imm_cmds);
 bail:
-	if (atomic_dec_return(&ipa_ctx->ipa_active_clients) == 0)
-		if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_NORMAL)
-			ipa_disable_clks();
+	ipa_dec_client_disable_clks();
 	return result;
 }
 
@@ -1087,6 +1083,7 @@ static void ipa_handle_rx(void)
 	int inactive_cycles = 0;
 	int cnt;
 
+	ipa_inc_client_enable_clks();
 	do {
 		cnt = ipa_handle_rx_core(true, true);
 		if (cnt == 0) {
@@ -1098,6 +1095,7 @@ static void ipa_handle_rx(void)
 	} while (inactive_cycles <= POLLING_INACTIVITY);
 
 	ipa_rx_switch_to_intr_mode();
+	ipa_dec_client_disable_clks();
 }
 
 /**
