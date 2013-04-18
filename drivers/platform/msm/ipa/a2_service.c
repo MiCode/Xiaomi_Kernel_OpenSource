@@ -205,6 +205,7 @@ static void toggle_apps_ack(void)
 	smsm_change_state(SMSM_APPS_STATE,
 				clear_bit & SMSM_A2_POWER_CONTROL_ACK,
 				~clear_bit & SMSM_A2_POWER_CONTROL_ACK);
+	IPA_STATS_INC_CNT(ipa_ctx->stats.a2_power_apps_acks);
 	clear_bit = ~clear_bit;
 }
 
@@ -216,10 +217,13 @@ static void power_vote(int vote)
 	if (a2_mux_ctx->bam_dmux_uplink_vote == vote)
 		IPADBG("%s: warning - duplicate power vote\n", __func__);
 	a2_mux_ctx->bam_dmux_uplink_vote = vote;
-	if (vote)
+	if (vote) {
 		smsm_change_state(SMSM_APPS_STATE, 0, SMSM_A2_POWER_CONTROL);
-	else
+		IPA_STATS_INC_CNT(ipa_ctx->stats.a2_power_on_reqs_out);
+	} else {
 		smsm_change_state(SMSM_APPS_STATE, SMSM_A2_POWER_CONTROL, 0);
+		IPA_STATS_INC_CNT(ipa_ctx->stats.a2_power_off_reqs_out);
+	}
 }
 
 static inline void ul_powerdown(void)
@@ -634,12 +638,14 @@ static void bam_dmux_smsm_cb(void *priv,
 	last_processed_state = new_state & SMSM_A2_POWER_CONTROL;
 	if (new_state & SMSM_A2_POWER_CONTROL) {
 		IPADBG("%s: MODEM PWR CTRL 1\n", __func__);
+		IPA_STATS_INC_CNT(ipa_ctx->stats.a2_power_on_reqs_in);
 		grab_wakelock();
 		(void) connect_to_bam();
 		queue_work(a2_mux_ctx->a2_mux_tx_workqueue,
 			   &a2_mux_ctx->kickoff_ul_request_resource);
 	} else if (!(new_state & SMSM_A2_POWER_CONTROL)) {
 		IPADBG("%s: MODEM PWR CTRL 0\n", __func__);
+		IPA_STATS_INC_CNT(ipa_ctx->stats.a2_power_off_reqs_in);
 		(void) disconnect_to_bam();
 		release_wakelock();
 	} else {
@@ -653,6 +659,7 @@ static void bam_dmux_smsm_ack_cb(void *priv, u32 old_state,
 {
 	IPADBG("%s: 0x%08x -> 0x%08x\n", __func__, old_state,
 			new_state);
+	IPA_STATS_INC_CNT(ipa_ctx->stats.a2_power_modem_acks);
 	complete_all(&a2_mux_ctx->ul_wakeup_ack_completion);
 }
 
