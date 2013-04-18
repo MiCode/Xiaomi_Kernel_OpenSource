@@ -575,15 +575,21 @@ static int32_t qpnp_check_pmic_temp(void)
 {
 	struct qpnp_iadc_drv *iadc = qpnp_iadc;
 	struct qpnp_vadc_result result_pmic_therm;
+	int64_t die_temp_offset;
 	int rc = 0;
 
 	rc = qpnp_vadc_read(DIE_TEMP, &result_pmic_therm);
 	if (rc < 0)
 		return rc;
 
-	if (((uint64_t) (result_pmic_therm.physical -
-				iadc->die_temp_calib_offset))
-			> QPNP_IADC_DIE_TEMP_CALIB_OFFSET) {
+	die_temp_offset = result_pmic_therm.physical -
+			iadc->die_temp_calib_offset;
+	if (die_temp_offset < 0)
+		die_temp_offset = -die_temp_offset;
+
+	if (die_temp_offset > QPNP_IADC_DIE_TEMP_CALIB_OFFSET) {
+		iadc->die_temp_calib_offset =
+			result_pmic_therm.physical;
 		rc = qpnp_iadc_calibrate_for_trim();
 		if (rc)
 			pr_err("periodic IADC calibration failed\n");
