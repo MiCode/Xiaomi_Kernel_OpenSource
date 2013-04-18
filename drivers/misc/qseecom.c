@@ -673,7 +673,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		app_id = ret;
 
 	if (app_id) {
-		pr_warn("App id %d (%s) already exists\n", app_id,
+		pr_debug("App id %d (%s) already exists\n", app_id,
 			(char *)(req.app_name));
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(entry,
@@ -831,7 +831,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 					break;
 				} else {
 					ptr_app->ref_cnt--;
-					pr_warn("Can't unload app(%d) inuse\n",
+					pr_debug("Can't unload app(%d) inuse\n",
 							ptr_app->app_id);
 					break;
 				}
@@ -2316,7 +2316,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 		pr_err(" scm call to check if app is loaded failed");
 		return ret;	/* scm call failed */
 	} else if (ret > 0) {
-		pr_warn("App id %d (%s) already exists\n", ret,
+		pr_debug("App id %d (%s) already exists\n", ret,
 			(char *)(req.app_name));
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(entry,
