@@ -129,6 +129,7 @@ struct msm_iommu_drvdata {
  * @iommu_power_off:    Turn off power to unit
  * @iommu_clk_on:       Turn on clks to unit
  * @iommu_clk_off:      Turn off clks to unit
+ * @iommu_lock_initialize: Initialize the remote lock
  * @iommu_lock_acquire: Acquire any locks needed
  * @iommu_lock_release: Release locks needed
  */
@@ -137,6 +138,7 @@ struct iommu_access_ops {
 	void (*iommu_power_off)(struct msm_iommu_drvdata *);
 	int (*iommu_clk_on)(struct msm_iommu_drvdata *);
 	void (*iommu_clk_off)(struct msm_iommu_drvdata *);
+	void * (*iommu_lock_initialize)(void);
 	void (*iommu_lock_acquire)(void);
 	void (*iommu_lock_release)(void);
 };
