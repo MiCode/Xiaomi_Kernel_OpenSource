@@ -2600,12 +2600,18 @@ err_put:
 	return ret;
 }
 
+static inline bool
+mmap_range_valid(unsigned long addr, unsigned long len)
+{
+	return (addr + len) > addr && (addr + len) < TASK_SIZE;
+}
+
 static unsigned long
 kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 			unsigned long len, unsigned long pgoff,
 			unsigned long flags)
 {
-	unsigned long ret = 0;
+	unsigned long ret = 0, orig_len = len;
 	unsigned long vma_offset = pgoff << PAGE_SHIFT;
 	struct kgsl_device_private *dev_priv = file->private_data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
@@ -2650,10 +2656,26 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 
 	if (align)
 		len += 1 << align;
+
+	if (!mmap_range_valid(addr, len))
+		addr = 0;
 	do {
 		ret = get_unmapped_area(NULL, addr, len, pgoff, flags);
-		if (IS_ERR_VALUE(ret))
+		if (IS_ERR_VALUE(ret)) {
+			/*
+			 * If we are really fragmented, there may not be room
+			 * for the alignment padding, so try again without it.
+			 */
+			if (!retry && (ret == (unsigned long)-ENOMEM)
+				&& (align > PAGE_SHIFT)) {
+				align = PAGE_SHIFT;
+				addr = 0;
+				len = orig_len;
+				retry = 1;
+				continue;
+			}
 			break;
+		}
 		if (align)
 			ret = ALIGN(ret, (1 << align));
 
@@ -2675,13 +2697,13 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 		 * the whole address space at least once by wrapping
 		 * back around once.
 		 */
-		if (!retry && (addr + len >= TASK_SIZE)) {
+		if (!retry && !mmap_range_valid(addr, len)) {
 			addr = 0;
 			retry = 1;
 		} else {
 			ret = -EBUSY;
 		}
-	} while (addr + len < TASK_SIZE);
+	} while (mmap_range_valid(addr, len));
 
 	if (IS_ERR_VALUE(ret))
 		KGSL_MEM_INFO(device,
