@@ -348,8 +348,8 @@ static enum msm_cpu cpu_of_id[] = {
 	/* 8064AA IDs */
 	[172] = MSM_CPU_8064AA,
 
-	/* zinc IDs */
-	[178] = MSM_CPU_ZINC,
+	/* 8084 IDs */
+	[178] = MSM_CPU_8084,
 
 	/* krypton IDs */
 	[187] = MSM_CPU_KRYPTON,
@@ -853,9 +853,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 146;
 		strlcpy(dummy_socinfo.build_id, "mpq8092 - ",
 		sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmzinc()) {
+	} else if (early_machine_is_apq8084()) {
 		dummy_socinfo.id = 178;
-		strlcpy(dummy_socinfo.build_id, "msmzinc - ",
+		strlcpy(dummy_socinfo.build_id, "apq8084 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msmkrypton()) {
 		dummy_socinfo.id = 187;

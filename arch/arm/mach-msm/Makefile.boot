@@ -58,9 +58,9 @@ endif
         dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2-liquid.dtb
         dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974-v2-mtp.dtb
 
-# MSMZINC
-   zreladdr-$(CONFIG_ARCH_MSMZINC)	:= 0x00008000
-        dtb-$(CONFIG_ARCH_MSMZINC)	+= msmzinc-sim.dtb
+# APQ8084
+   zreladdr-$(CONFIG_ARCH_APQ8084)	:= 0x00008000
+        dtb-$(CONFIG_ARCH_APQ8084)	+= apq8084-sim.dtb
 
 # MSMKRYPTON
    zreladdr-$(CONFIG_ARCH_MSMKRYPTON)	:= 0x00208000

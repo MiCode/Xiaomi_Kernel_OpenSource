@@ -46,8 +46,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8610")
 #define early_machine_is_mpq8092()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mpq8092")
-#define early_machine_is_msmzinc()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmzinc")
+#define early_machine_is_apq8084()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apq8084")
 #define early_machine_is_msmkrypton()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmkrypton")
 #else
@@ -63,7 +63,7 @@
 
 #define early_machine_is_msm8610()	0
 #define early_machine_is_mpq8092()	0
-#define early_machine_is_msmzinc()	0
+#define early_machine_is_apq8084()	0
 #define early_machine_is_msmkrypton()	0
 #endif
 
@@ -102,7 +102,7 @@ enum msm_cpu {
 	MSM_CPU_8226,
 	MSM_CPU_8610,
 	MSM_CPU_8625Q,
-	MSM_CPU_ZINC,
+	MSM_CPU_8084,
 	MSM_CPU_KRYPTON,
 };
 
