@@ -206,8 +206,8 @@ static int ion_iommu_map_iommu(struct ion_iommu_meta *meta,
 	 * biggest entry. To take advantage of bigger mapping sizes both the
 	 * VA and PA addresses have to be aligned to the biggest size.
 	 */
-	if (table->sgl->length > align)
-		align = table->sgl->length;
+	if (sg_dma_len(table->sgl) > align)
+		align = sg_dma_len(table->sgl);
 
 	ret = msm_allocate_iova_address(domain_num, partition_num,
 						data->mapped_size, align,
