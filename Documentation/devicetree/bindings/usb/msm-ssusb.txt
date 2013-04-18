@@ -45,6 +45,8 @@ Optional properties :
 		bits 6-12  PARAMETER_OVERRIDE_B
 		bits 13-19 PARAMETER_OVERRIDE_C
 		bits 20-25 PARAMETER_OVERRIDE_D
+- qcom,skip-charger-detection: If present then charger detection using BC1.2
+  is not supported and attached host should always be assumed as SDP.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".

@@ -2433,6 +2433,8 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	msm->charger.charging_disabled = of_property_read_bool(node,
 				"qcom,charging-disabled");
 
+	msm->charger.skip_chg_detect = of_property_read_bool(node,
+				"qcom,skip-charger-detection");
 	/*
 	 * DWC3 has separate IRQ line for OTG events (ID/BSV) and for
 	 * DP and DM linestate transitions during low power mode.
@@ -2606,12 +2608,17 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	msm->otg_xceiv = usb_get_transceiver();
 	/* Register with OTG if present, ignore USB2 OTG using other PHY */
 	if (msm->otg_xceiv && !(msm->otg_xceiv->flags & ENABLE_SECONDARY_PHY)) {
-		msm->charger.start_detection = dwc3_start_chg_det;
-		ret = dwc3_set_charger(msm->otg_xceiv->otg, &msm->charger);
-		if (ret || !msm->charger.notify_detection_complete) {
-			dev_err(&pdev->dev, "failed to register charger: %d\n",
-									ret);
-			goto put_xcvr;
+		/* Skip charger detection for simulator targets */
+		if (!msm->charger.skip_chg_detect) {
+			msm->charger.start_detection = dwc3_start_chg_det;
+			ret = dwc3_set_charger(msm->otg_xceiv->otg,
+					&msm->charger);
+			if (ret || !msm->charger.notify_detection_complete) {
+				dev_err(&pdev->dev,
+					"failed to register charger: %d\n",
+					ret);
+				goto put_xcvr;
+			}
 		}
 
 		if (msm->ext_xceiv.otg_capability)
