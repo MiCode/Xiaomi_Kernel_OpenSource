@@ -247,6 +247,7 @@ struct csc_coeff {
 #define DRM_I915_REG_READ		0x31
 #define DRM_I915_GET_RESET_STATS	0x32
 #define DRM_I915_GEM_USERPTR		0x33
+#define DRM_I915_SET_PLANE_ZORDER	0x34
 #define DRM_I915_ENABLE_PLANE_RESERVED_REG_BIT_2	0x37
 #define DRM_I915_SET_CSC		0x39
 #define DRM_I915_GEM_ACCESS_USERDATA	0x3c
@@ -299,6 +300,9 @@ struct csc_coeff {
 #define DRM_IOCTL_I915_GEM_CONTEXT_CREATE	DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_GEM_CONTEXT_CREATE, struct drm_i915_gem_context_create)
 #define DRM_IOCTL_I915_GEM_CONTEXT_DESTROY	DRM_IOW (DRM_COMMAND_BASE + DRM_I915_GEM_CONTEXT_DESTROY, struct drm_i915_gem_context_destroy)
 #define DRM_IOCTL_I915_REG_READ			DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_REG_READ, struct drm_i915_reg_read)
+#define DRM_IOCTL_I915_SET_PLANE_ZORDER		\
+			DRM_IOW(DRM_COMMAND_BASE + DRM_I915_SET_PLANE_ZORDER, \
+			struct drm_i915_set_plane_zorder)
 #define DRM_IOCTL_I915_GET_RESET_STATS		DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_GET_RESET_STATS, struct drm_i915_reset_stats)
 #define DRM_IOCTL_I915_GEM_USERPTR			DRM_IOWR (DRM_COMMAND_BASE + DRM_I915_GEM_USERPTR, struct drm_i915_gem_userptr)
 #define DRM_IOCTL_I915_ENABLE_PLANE_RESERVED_REG_BIT_2	\
@@ -1084,6 +1088,12 @@ struct drm_i915_reg_read {
 	__u64 offset;
 	__u64 val; /* Return value */
 };
+
+
+struct drm_i915_set_plane_zorder {
+	__u32 order;
+};
+
 
 struct drm_i915_reset_stats {
 	__u32 ctx_id;

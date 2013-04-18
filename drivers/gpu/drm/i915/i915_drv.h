@@ -2605,6 +2605,8 @@ extern int intel_enable_rc6(const struct drm_device *dev);
 extern bool i915_semaphore_is_enabled(struct drm_device *dev);
 int i915_reg_read_ioctl(struct drm_device *dev, void *data,
 			struct drm_file *file);
+int i915_set_plane_zorder(struct drm_device *dev, void *data,
+			  struct drm_file *file);
 int i915_get_reset_stats_ioctl(struct drm_device *dev, void *data,
 			       struct drm_file *file);
 int i915_enable_plane_reserved_reg_bit_2(struct drm_device *dev, void *data,
