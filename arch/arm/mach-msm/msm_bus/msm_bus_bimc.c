@@ -477,9 +477,11 @@ enum bimc_m_clk_ctrl {
 #define M_MODE_ADDR(b, n) \
 		(M_REG_BASE(b) + (0x4000 * (n)) + 0x00000210)
 enum bimc_m_mode {
-	M_MODE_RMSK				= 0xf0000001,
+	M_MODE_RMSK				= 0xf0000011,
 	M_MODE_WR_GATHER_BEATS_BMSK		= 0xf0000000,
 	M_MODE_WR_GATHER_BEATS_SHFT		= 0x1c,
+	M_MODE_NARROW_WR_BMSK			= 0x10,
+	M_MODE_NARROW_WR_SHFT			= 0x4,
 	M_MODE_ORDERING_MODEL_BMSK		= 0x1,
 	M_MODE_ORDERING_MODEL_SHFT		= 0x0,
 };
@@ -1526,10 +1528,10 @@ static void msm_bus_bimc_set_qos_prio(struct msm_bus_bimc_info *binfo,
 		reg_val = readl_relaxed(M_PRIOLVL_OVERRIDE_ADDR(binfo->
 			base, mas_index)) & M_PRIOLVL_OVERRIDE_RMSK;
 		val =  qmode->fixed.prio_level <<
-			M_PRIOLVL_OVERRIDE_OVERRIDE_PRIOLVL_SHFT;
+			M_PRIOLVL_OVERRIDE_SHFT;
 		writel_relaxed(((reg_val &
-			~(M_PRIOLVL_OVERRIDE_OVERRIDE_PRIOLVL_BMSK)) | (val
-			& M_PRIOLVL_OVERRIDE_OVERRIDE_PRIOLVL_BMSK)),
+			~(M_PRIOLVL_OVERRIDE_BMSK)) | (val
+			& M_PRIOLVL_OVERRIDE_BMSK)),
 			M_PRIOLVL_OVERRIDE_ADDR(binfo->base, mas_index));
 
 		reg_val = readl_relaxed(M_RD_CMD_OVERRIDE_ADDR(binfo->
