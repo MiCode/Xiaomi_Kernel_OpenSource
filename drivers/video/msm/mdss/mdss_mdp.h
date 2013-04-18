@@ -328,6 +328,7 @@ struct mdss_overlay_private {
 	struct list_head overlay_list;
 	struct list_head pipes_used;
 	struct list_head pipes_cleanup;
+	bool mixer_swap;
 };
 
 #define is_vig_pipe(_pipe_id_) ((_pipe_id_) <= MDSS_MDP_SSPP_VIG2)
