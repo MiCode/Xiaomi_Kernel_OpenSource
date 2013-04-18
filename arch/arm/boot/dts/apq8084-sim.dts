@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-/include/ "msmzinc.dtsi"
+/include/ "apq8084.dtsi"
 
 / {
-	model = "Qualcomm MSM ZINC Simulator";
-	compatible = "qcom,msmzinc-sim", "qcom,msmzinc", "qcom,sim";
+	model = "Qualcomm APQ 8084 Simulator";
+	compatible = "qcom,apq8084-sim", "qcom,apq8084", "qcom,sim";
 	qcom,msm-id = <178 0 0>;
 
 	aliases {

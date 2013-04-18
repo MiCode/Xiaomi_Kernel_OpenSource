@@ -11,8 +11,8 @@
  */
 
 
-#ifndef __ASM_ARCH_MSM_IOMAP_zinc_H
-#define __ASM_ARCH_MSM_IOMAP_zinc_H
+#ifndef __ASM_ARCH_MSM_IOMAP_8084_H
+#define __ASM_ARCH_MSM_IOMAP_8084_H
 
 /* Physical base address and size of peripherals.
  * Ordered by the virtual base addresses they will be mapped at.
@@ -23,15 +23,15 @@
  *
  */
 
-#define MSMZINC_SHARED_RAM_PHYS     0x0FA00000
+#define APQ8084_SHARED_RAM_PHYS     0x0FA00000
 
-#define MSMZINC_QGIC_DIST_PHYS	0xF9000000
-#define MSMZINC_QGIC_DIST_SIZE	SZ_4K
+#define APQ8084_QGIC_DIST_PHYS	0xF9000000
+#define APQ8084_QGIC_DIST_SIZE	SZ_4K
 
-#define MSMZINC_TLMM_PHYS	0xFD510000
-#define MSMZINC_TLMM_SIZE	SZ_16K
+#define APQ8084_TLMM_PHYS	0xFD510000
+#define APQ8084_TLMM_SIZE	SZ_16K
 
-#ifdef CONFIG_DEBUG_MSMZINC_UART
+#ifdef CONFIG_DEBUG_APQ8084_UART
 #define MSM_DEBUG_UART_BASE	IOMEM(0xFA71E000)
 #define MSM_DEBUG_UART_PHYS	0xF991E000
 #endif

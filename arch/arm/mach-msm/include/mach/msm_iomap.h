@@ -129,7 +129,7 @@
 #include "msm_iomap-8064.h"
 #include "msm_iomap-9615.h"
 #include "msm_iomap-8974.h"
-#include "msm_iomap-zinc.h"
+#include "msm_iomap-8084.h"
 #include "msm_iomap-9625.h"
 #include "msm_iomap-8092.h"
 #include "msm_iomap-8226.h"
