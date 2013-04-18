@@ -64,6 +64,7 @@
 			      0x00012900 0x00012b00>;
 	qcom,mdss-pingpong-off = <0x00012D00 0x00012E00 0x00012F00>;
 	qcom,mdss-has-bwc;
+	qcom,mdss-has-decimation;
 };
 
 &mdss_hdmi_tx {
