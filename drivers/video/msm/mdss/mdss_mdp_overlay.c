@@ -37,6 +37,7 @@
 
 static atomic_t ov_active_panels = ATOMIC_INIT(0);
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
+static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 
 static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
 				struct mdp_overlay *req)
@@ -1906,6 +1907,10 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	}
 	mfd->mdp.private1 = mdp5_data;
 
+	rc = mdss_mdp_overlay_fb_parse_dt(mfd);
+	if (rc)
+		return rc;
+
 	rc = sysfs_create_group(&dev->kobj, &vsync_fs_attr_group);
 	if (rc) {
 		pr_err("vsync sysfs group creation failed, ret=%d\n", rc);
@@ -1922,4 +1927,19 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 init_fail:
 	kfree(mdp5_data);
 	return rc;
+}
+
+static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd)
+{
+	struct platform_device *pdev = mfd->pdev;
+	struct mdss_overlay_private *mdp5_mdata = mfd_to_mdp5_data(mfd);
+
+	mdp5_mdata->mixer_swap = of_property_read_bool(pdev->dev.of_node,
+					   "qcom,mdss-mixer-swap");
+	if (mdp5_mdata->mixer_swap) {
+		pr_info("mixer swap is enabled for fb device=%s\n",
+			pdev->name);
+	}
+
+	return 0;
 }
