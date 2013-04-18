@@ -139,9 +139,6 @@ static struct usb_descriptor_header *ss_diag_desc[] = {
  * @out_desc: USB OUT endpoint descriptor struct
  * @read_pool: List of requests used for Rx (OUT ep)
  * @write_pool: List of requests used for Tx (IN ep)
- * @config_work: Work item schedule after interface is configured to notify
- *               CONNECT event to diag char driver and updating product id
- *               and serial number to MODEM/IMEM.
  * @lock: Spinlock to proctect read_pool, write_pool lists
  * @cdev: USB composite device struct
  * @ch: USB diag channel
@@ -153,7 +150,6 @@ struct diag_context {
 	struct usb_ep *in;
 	struct list_head read_pool;
 	struct list_head write_pool;
-	struct work_struct config_work;
 	spinlock_t lock;
 	unsigned configured;
 	struct usb_composite_dev *cdev;
@@ -176,19 +172,11 @@ static inline struct diag_context *func_to_diag(struct usb_function *f)
 	return container_of(f, struct diag_context, function);
 }
 
-static void usb_config_work_func(struct work_struct *work)
+static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 {
-	struct diag_context *ctxt = container_of(work,
-			struct diag_context, config_work);
 	struct usb_composite_dev *cdev = ctxt->cdev;
 	struct usb_gadget_strings *table;
 	struct usb_string *s;
-
-	if (!ctxt->ch)
-		return;
-
-	if (ctxt->ch->notify)
-		ctxt->ch->notify(ctxt->ch->priv, USB_DIAG_CONNECT, NULL);
 
 	if (!ctxt->update_pid_and_serial_num)
 		return;
@@ -612,7 +600,6 @@ static int diag_function_set_alt(struct usb_function *f,
 		usb_ep_disable(dev->in);
 		return rc;
 	}
-	schedule_work(&dev->config_work);
 
 	dev->dpkts_tolaptop = 0;
 	dev->dpkts_tomodem = 0;
@@ -621,6 +608,9 @@ static int diag_function_set_alt(struct usb_function *f,
 	spin_lock_irqsave(&dev->lock, flags);
 	dev->configured = 1;
 	spin_unlock_irqrestore(&dev->lock, flags);
+
+	if (dev->ch->notify)
+		dev->ch->notify(dev->ch->priv, USB_DIAG_CONNECT, NULL);
 
 	return rc;
 }
@@ -699,6 +689,7 @@ static int diag_function_bind(struct usb_configuration *c,
 		if (!f->ss_descriptors)
 			goto fail;
 	}
+	diag_update_pid_and_serial_num(ctxt);
 	return 0;
 fail:
 	if (f->ss_descriptors)
@@ -761,7 +752,6 @@ int diag_function_add(struct usb_configuration *c, const char *name,
 	spin_lock_init(&dev->lock);
 	INIT_LIST_HEAD(&dev->read_pool);
 	INIT_LIST_HEAD(&dev->write_pool);
-	INIT_WORK(&dev->config_work, usb_config_work_func);
 
 	ret = usb_add_function(c, &dev->function);
 	if (ret) {
