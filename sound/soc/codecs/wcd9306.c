@@ -4371,6 +4371,12 @@ exit:
 	return ret;
 }
 
+static void tapan_cleanup_irqs(struct tapan_priv *tapan)
+{
+	struct snd_soc_codec *codec = tapan->codec;
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, tapan);
+}
+
 int tapan_hs_detect(struct snd_soc_codec *codec,
 		    struct wcd9xxx_mbhc_config *mbhc_cfg)
 {
@@ -4512,6 +4518,10 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	mutex_unlock(&dapm->codec->mutex);
 
 	codec->ignore_pmdown_time = 1;
+
+	if (ret)
+		tapan_cleanup_irqs(tapan);
+
 	return ret;
 
 err_pdata:
@@ -4532,6 +4542,9 @@ static int tapan_codec_remove(struct snd_soc_codec *codec)
 		wcd9xxx_resmgr_put_bandgap(&tapan->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 	WCD9XXX_BCL_UNLOCK(&tapan->resmgr);
+
+	tapan_cleanup_irqs(tapan);
+
 	/* cleanup MBHC */
 	wcd9xxx_mbhc_deinit(&tapan->mbhc);
 	/* cleanup resmgr */
