@@ -1145,6 +1145,7 @@ static int msm_pcm_remove(struct platform_device *pdev)
 
 static const struct of_device_id msm_voip_dt_match[] = {
 	{.compatible = "qcom,msm-voip-dsp"},
+	{}
 };
 MODULE_DEVICE_TABLE(of, msm_voip_dt_match);
 
