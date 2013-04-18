@@ -367,18 +367,6 @@ void ion_system_contig_heap_unmap_dma(struct ion_heap *heap,
 	kfree(buffer->sg_table);
 }
 
-void *ion_system_contig_heap_map_kernel(struct ion_heap *heap,
-	struct ion_buffer *buffer)
-{
-	return buffer->priv_virt;
-}
-
-void ion_system_contig_heap_unmap_kernel(struct ion_heap *heap,
-	struct ion_buffer *buffer)
-{
-	return;
-}
-
 static struct ion_heap_ops kmalloc_ops = {
 	.allocate = ion_system_contig_heap_allocate,
 	.free = ion_system_contig_heap_free,
