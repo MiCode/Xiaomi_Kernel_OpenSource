@@ -303,6 +303,7 @@ struct mmc_host {
 #define MMC_CAP2_STOP_REQUEST	(1 << 18)	/* Allow stop ongoing request */
 /* Use runtime PM framework provided by MMC core */
 #define MMC_CAP2_CORE_RUNTIME_PM (1 << 19)
+#define MMC_CAP2_SANITIZE	(1 << 20)		/* Support Sanitize */
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 	int			clk_requests;	/* internal reference counter */

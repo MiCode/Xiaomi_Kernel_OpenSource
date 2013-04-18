@@ -760,6 +760,7 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 			context_info->is_done_rcv = false;
 			context_info->is_new_req = false;
 			cmd = mrq->cmd;
+
 			if (!cmd->error || !cmd->retries ||
 			    mmc_card_removed(host->card)) {
 				err = host->areq->err_check(host->card,
@@ -859,17 +860,21 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 
 		/*
 		 * If host has timed out waiting for the blocking BKOPs
-		 * to complete, card might be still in programming state
-		 * so let's try to bring the card out of programming state.
+		 * or sanitize to complete, card might be still in programming
+		 * state so let's try to bring the card out of programming
+		 * state.
 		 */
-		if (cmd->bkops_busy && cmd->error == -ETIMEDOUT) {
+		if ((cmd->bkops_busy || cmd->sanitize_busy) &&
+		     cmd->error == -ETIMEDOUT) {
 			if (!mmc_interrupt_hpi(host->card)) {
-				pr_warning("%s: %s: Interrupted blocking bkops\n",
+				pr_warning("%s: %s: Interrupted blocking bkops"
+					   "or sanitize\n",
 					   mmc_hostname(host), __func__);
 				cmd->error = 0;
 				break;
 			} else {
-				pr_err("%s: %s: Failed to interrupt blocking bkops\n",
+				pr_err("%s: %s: Failed to interrupt blocking "
+				       "bkops or sanitize\n",
 				       mmc_hostname(host), __func__);
 			}
 		}
@@ -1997,7 +2002,7 @@ void mmc_power_up(struct mmc_host *host)
 		bit = fls(host->ocr_avail) - 1;
 
 	host->ios.vdd = bit;
-	if (mmc_host_is_spi(host)) 
+	if (mmc_host_is_spi(host))
 		host->ios.chip_select = MMC_CS_HIGH;
 	else {
 		host->ios.chip_select = MMC_CS_DONTCARE;
