@@ -833,6 +833,12 @@
 		interrupts = <0 162 1>;
 
 		qcom,firmware-name = "adsp";
+
+		/* GPIO input from lpass */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+
+		/* GPIO output to lpass */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
 
 	qcom,msm-adsp-loader {

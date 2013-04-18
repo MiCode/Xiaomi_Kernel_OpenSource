@@ -14,6 +14,8 @@ Required properties:
 - interrupts:         The lpass watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - qcom,firmware-name: Base name of the firmware image. Ex. "lpass"
+- qcom,gpio-err-fatal: GPIO used by the lpass to indicate error fatal to the apps.
+- qcom,gpio-force-stop: GPIO used by the apps to force the lpass to shutdown.
 
 Optional properties:
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
@@ -29,4 +31,10 @@ Example:
 		interrupts = <0 194 1>;
 		vdd_cx-supply = <&pm8841_s2>;
 	        qcom,firmware-name = "lpass";
+
+		/* GPIO input from lpass */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+
+		/* GPIO output to lpass */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
