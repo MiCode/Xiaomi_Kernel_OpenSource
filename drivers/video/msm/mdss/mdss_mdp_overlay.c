@@ -176,6 +176,7 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_rotator_session *rot;
 	struct mdss_mdp_format_params *fmt;
 	int ret = 0;
+	u32 bwc_enabled;
 
 	pr_debug("rot ctl=%u req id=%x\n", mdp5_data->ctl->num, req->id);
 
@@ -212,7 +213,14 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 	rot->flags = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD |
 				   MDP_SECURE_OVERLAY_SESSION);
 
-	rot->bwc_mode = (req->flags & MDP_BWC_EN) ? 1 : 0;
+	bwc_enabled = req->flags & MDP_BWC_EN;
+	if (bwc_enabled  &&  !mdp5_data->mdata->has_bwc) {
+		pr_err("BWC is not supported in MDP version %x\n",
+			mdp5_data->mdata->mdp_rev);
+		rot->bwc_mode = 0;
+	} else {
+		rot->bwc_mode = bwc_enabled ? 1 : 0;
+	}
 	rot->format = fmt->format;
 	rot->img_width = req->src.width;
 	rot->img_height = req->src.height;
@@ -248,6 +256,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdp_histogram_start_req hist;
 	int ret;
+	u32 bwc_enabled;
 
 	if (mdp5_data->ctl == NULL)
 		return -ENODEV;
@@ -356,8 +365,15 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	}
 
 	pipe->flags = req->flags;
-	pipe->bwc_mode = pipe->mixer->rotator_mode ?
-		0 : (req->flags & MDP_BWC_EN ? 1 : 0) ;
+	bwc_enabled = req->flags & MDP_BWC_EN;
+	if (bwc_enabled  &&  !mdp5_data->mdata->has_bwc) {
+		pr_err("BWC is not supported in MDP version %x\n",
+			mdp5_data->mdata->mdp_rev);
+		pipe->bwc_mode = 0;
+	} else {
+		pipe->bwc_mode = pipe->mixer->rotator_mode ?
+			0 : (bwc_enabled ? 1 : 0) ;
+	}
 	pipe->img_width = req->src.width & 0x3fff;
 	pipe->img_height = req->src.height & 0x3fff;
 	pipe->src.x = req->src_rect.x;
@@ -1562,6 +1578,8 @@ static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
 	caps->vig_pipes = mdata->nvig_pipes;
 	caps->rgb_pipes = mdata->nrgb_pipes;
 	caps->dma_pipes = mdata->ndma_pipes;
+	if (mdata->has_bwc)
+		caps->features |= MDP_BWC_EN;
 	return 0;
 }
 
