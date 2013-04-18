@@ -16,7 +16,6 @@
  *
  */
 
-#include <linux/module.h>
 #include <linux/device.h>
 #include <linux/file.h>
 #include <linux/freezer.h>
@@ -27,6 +26,7 @@
 #include <linux/list.h>
 #include <linux/memblock.h>
 #include <linux/miscdevice.h>
+#include <linux/export.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
 #include <linux/rbtree.h>
@@ -41,7 +41,6 @@
 #include <trace/events/kmem.h>
 
 
-#include <mach/iommu_domains.h>
 #include "ion_priv.h"
 
 /**
@@ -83,7 +82,6 @@ struct ion_client {
 	struct ion_device *dev;
 	struct rb_root handles;
 	struct mutex lock;
-	unsigned int heap_type_mask;
 	char *name;
 	struct task_struct *task;
 	pid_t pid;
@@ -108,7 +106,6 @@ struct ion_handle {
 	struct ion_buffer *buffer;
 	struct rb_node node;
 	unsigned int kmap_cnt;
-	unsigned int iommu_map_cnt;
 };
 
 bool ion_buffer_fault_user_mappings(struct ion_buffer *buffer)
@@ -545,8 +542,8 @@ void ion_free(struct ion_client *client, struct ion_handle *handle)
 	mutex_lock(&client->lock);
 	valid_handle = ion_handle_validate(client, handle);
 	if (!valid_handle) {
-		mutex_unlock(&client->lock);
 		WARN(1, "%s: invalid handle passed to free.\n", __func__);
+		mutex_unlock(&client->lock);
 		return;
 	}
 	ion_handle_put(handle);
@@ -1278,8 +1275,8 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ion_free(client, data.handle);
 		break;
 	}
-	case ION_IOC_MAP:
 	case ION_IOC_SHARE:
+	case ION_IOC_MAP:
 	{
 		struct ion_fd_data data;
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
@@ -1382,7 +1379,7 @@ static const struct file_operations ion_fops = {
 };
 
 static size_t ion_debug_heap_total(struct ion_client *client,
-				   enum ion_heap_ids id)
+				   unsigned int id)
 {
 	size_t size = 0;
 	struct rb_node *n;

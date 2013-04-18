@@ -16,12 +16,3 @@ config ION_MSM
 	depends on ARCH_MSM && ION
 	help
 	  Choose this option if you wish to use ion on an MSM target.
-
-config ION_LEAK_CHECK
-	bool "Check for leaked Ion buffers (debugging)"
-	depends on ION
-	help
-	  Choose this option if you wish to enable checking for leaked
-	  ion buffers at runtime. Choosing this option will also add a
-	  debugfs node under the ion directory that can be used to
-	  enable/disable the leak checking.
