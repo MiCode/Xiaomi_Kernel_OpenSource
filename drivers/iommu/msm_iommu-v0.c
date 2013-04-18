@@ -170,6 +170,11 @@ static void __disable_regulators(struct msm_iommu_drvdata *drvdata)
 	/* No need to do anything. IOMMUv0 is always on. */
 }
 
+static void *_iommu_lock_initialize(void)
+{
+	return msm_iommu_lock_initialize();
+}
+
 static void _iommu_lock_acquire(void)
 {
 	msm_iommu_lock();
@@ -185,6 +190,7 @@ struct iommu_access_ops iommu_access_ops_v0 = {
 	.iommu_power_off = __disable_regulators,
 	.iommu_clk_on = __enable_clocks,
 	.iommu_clk_off = __disable_clocks,
+	.iommu_lock_initialize = _iommu_lock_initialize,
 	.iommu_lock_acquire = _iommu_lock_acquire,
 	.iommu_lock_release = _iommu_lock_release,
 };
