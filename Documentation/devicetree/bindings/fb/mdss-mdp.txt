@@ -118,6 +118,9 @@ Child nodes representing the frame buffer virtual devices.
 Subnode properties:
 - compatible :		Must be "qcom,mdss-fb"
 - cell-index :		Index representing frame buffer
+- qcom,mdss-mixer-swap: A boolean property that indicates if the mixer muxes
+			 need to be swapped based on the target panel.
+			 By default the property is not defined.
 
 
 
@@ -162,6 +165,7 @@ Example:
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
+			qcom,mdss-mixer-swap;
 		};
 	};
 
