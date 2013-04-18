@@ -181,6 +181,13 @@ static void diag_update_pid_and_serial_num(struct diag_context *ctxt)
 	if (!ctxt->update_pid_and_serial_num)
 		return;
 
+	/*
+	 * update pid and serail number to dload only if diag
+	 * interface is zeroth interface.
+	 */
+	if (intf_desc.bInterfaceNumber)
+		return;
+
 	/* pass on product id and serial number to dload */
 	if (!cdev->desc.iSerialNumber) {
 		ctxt->update_pid_and_serial_num(
