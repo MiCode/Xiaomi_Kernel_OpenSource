@@ -37,7 +37,6 @@ struct ion_carveout_heap {
 	ion_phys_addr_t base;
 	unsigned long allocated_bytes;
 	unsigned long total_size;
-	unsigned int has_outer_cache;
 };
 
 ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
@@ -254,7 +253,6 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
 	carveout_heap->allocated_bytes = 0;
 	carveout_heap->total_size = heap_data->size;
-	carveout_heap->has_outer_cache = heap_data->has_outer_cache;
 
 	return &carveout_heap->heap;
 }
