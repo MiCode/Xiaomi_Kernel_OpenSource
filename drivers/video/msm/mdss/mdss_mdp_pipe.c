@@ -255,11 +255,12 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	}
 
 	if (pipe) {
-		pr_info("type=%x   pnum=%d\n", pipe->type, pipe->num);
+		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
 		mutex_init(&pipe->pp_res.hist.hist_mutex);
 		spin_lock_init(&pipe->pp_res.hist.hist_lock);
-	} else
+	} else {
 		pr_err("no %d type pipes available\n", type);
+	}
 
 	return pipe;
 }
