@@ -81,6 +81,7 @@ Optional properties :
 	interrupt threshold (ITC), when log2_itc is between 1 to 7.
 - qcom,hsusb-l1-supported: If present, the device supports l1 (Link power
 	management).
+- qcom,no-selective-suspend: If present selective suspend is disabled on hub ports.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
