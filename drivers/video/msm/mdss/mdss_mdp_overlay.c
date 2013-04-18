@@ -132,13 +132,19 @@ static int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		src_w = req->src_rect.w >> req->horz_deci;
 		src_h = req->src_rect.h >> req->vert_deci;
 
-		if ((req->src_rect.w * MAX_UPSCALE_RATIO) < dst_w) {
+		if (src_w > MAX_MIXER_WIDTH) {
+			pr_err("invalid source width=%d HDec=%d\n",
+					req->src_rect.w, req->horz_deci);
+			return -EINVAL;
+		}
+
+		if ((src_w * MAX_UPSCALE_RATIO) < dst_w) {
 			pr_err("too much upscaling Width %d->%d\n",
 			       req->src_rect.w, req->dst_rect.w);
 			return -EINVAL;
 		}
 
-		if ((req->src_rect.h * MAX_UPSCALE_RATIO) < dst_h) {
+		if ((src_h * MAX_UPSCALE_RATIO) < dst_h) {
 			pr_err("too much upscaling. Height %d->%d\n",
 			       req->src_rect.h, req->dst_rect.h);
 			return -EINVAL;
