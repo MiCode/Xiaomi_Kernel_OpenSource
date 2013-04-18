@@ -699,6 +699,34 @@
 				<55 512 3936000 393600>,
 				<55 512 3936000 393600>;
 	};
+
+	jtag_mm0: jtagmm@fc34c000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0xfc34c000 0x1000>,
+		      <0xfc340000 0x1000>;
+		reg-names = "etm-base","debug-base";
+	};
+
+	jtag_mm1: jtagmm@fc34d000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0xfc34d000 0x1000>,
+		      <0xfc342000 0x1000>;
+		reg-names = "etm-base","debug-base";
+	};
+
+	jtag_mm2: jtagmm@fc34e000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0xfc34e000 0x1000>,
+		      <0xfc344000 0x1000>;
+		reg-names = "etm-base","debug-base";
+	};
+
+	jtag_mm3: jtagmm@fc34f000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0xfc34f000 0x1000>,
+		      <0xfc346000 0x1000>;
+		reg-names = "etm-base","debug-base";
+	};
 };
 
 &gdsc_vfe {
