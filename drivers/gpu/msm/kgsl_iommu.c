@@ -62,6 +62,20 @@ static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x6C, 0, 0 }				/* FSYNR1 */
 };
 
+static struct iommu_access_ops *iommu_access_ops;
+
+static void _iommu_lock(void)
+{
+	if (iommu_access_ops && iommu_access_ops->iommu_lock_acquire)
+		iommu_access_ops->iommu_lock_acquire();
+}
+
+static void _iommu_unlock(void)
+{
+	if (iommu_access_ops && iommu_access_ops->iommu_lock_release)
+		iommu_access_ops->iommu_lock_release();
+}
+
 struct remote_iommu_petersons_spinlock kgsl_iommu_sync_lock_vars;
 
 static int get_iommu_unit(struct device *dev, struct kgsl_mmu **mmu_out,
@@ -889,11 +903,14 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 	if (iommu->sync_lock_initialized)
 		return status;
 
-	/* Get the physical address of the Lock variables */
-	lock_phy_addr = (msm_iommu_lock_initialize()
+	iommu_access_ops = get_iommu_access_ops_v0();
+
+	if (iommu_access_ops && iommu_access_ops->iommu_lock_initialize)
+		lock_phy_addr = (iommu_access_ops->iommu_lock_initialize()
 			- MSM_SHARED_RAM_BASE + msm_shared_ram_phys);
 
 	if (!lock_phy_addr) {
+		iommu_access_ops = NULL;
 		KGSL_DRV_ERR(mmu->device,
 				"GPU CPU sync lock is not supported by kernel\n");
 		return -ENXIO;
@@ -911,8 +928,10 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 				 iommu->sync_lock_desc.physaddr,
 				 iommu->sync_lock_desc.size);
 
-	if (status)
+	if (status) {
+		iommu_access_ops = NULL;
 		return status;
+	}
 
 	/* Flag Sync Lock is Initialized  */
 	iommu->sync_lock_initialized = 1;
@@ -1535,7 +1554,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	 * changing pagetables we can use this lsb value of the pagetable w/o
 	 * having to read it again
 	 */
-	msm_iommu_lock();
+	_iommu_lock();
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
@@ -1547,7 +1566,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		}
 	}
 	kgsl_iommu_lock_rb_in_tlb(mmu);
-	msm_iommu_unlock();
+	_iommu_unlock();
 
 	/* For complete CFF */
 	kgsl_cffdump_setmem(mmu->setstate_memory.gpuaddr +
@@ -1667,12 +1686,12 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 				for (j = 0; j < iommu_unit->dev_count; j++) {
 					if (iommu_unit->dev[j].fault) {
 						kgsl_iommu_enable_clk(mmu, j);
-						msm_iommu_lock();
+						_iommu_lock();
 						KGSL_IOMMU_SET_CTX_REG(iommu,
 						iommu_unit,
 						iommu_unit->dev[j].ctx_id,
 						RESUME, 1);
-						msm_iommu_unlock();
+						_iommu_unlock();
 						iommu_unit->dev[j].fault = 0;
 					}
 				}
@@ -1772,7 +1791,7 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 		kgsl_idle(mmu->device);
 
 	/* Acquire GPU-CPU sync Lock here */
-	msm_iommu_lock();
+	_iommu_lock();
 
 	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
 		if (!msm_soc_version_supports_iommu_v0())
@@ -1803,7 +1822,7 @@ static void kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	}
 
 	/* Release GPU-CPU sync Lock here */
-	msm_iommu_unlock();
+	_iommu_unlock();
 
 	/* Disable smmu clock */
 	kgsl_iommu_disable_clk_on_ts(mmu, 0, false);
