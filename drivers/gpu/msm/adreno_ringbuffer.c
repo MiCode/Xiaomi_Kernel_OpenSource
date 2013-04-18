@@ -1122,8 +1122,9 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 		ret = 0;
 
 done:
-	kgsl_trace_issueibcmds(device, context->id, ibdesc, numibs,
-		*timestamp, flags, ret, drawctxt->type);
+	kgsl_trace_issueibcmds(device, context ? context->id : 0, ibdesc,
+		numibs, *timestamp, flags, ret,
+		drawctxt ? drawctxt->type : 0);
 
 	kfree(link);
 	return ret;
