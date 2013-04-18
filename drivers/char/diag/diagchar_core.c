@@ -1885,6 +1885,11 @@ static int diagchar_cleanup(void)
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static void diag_connect_work_fn(struct work_struct *w)
+{
+	diagfwd_connect_bridge(1);
+}
+
 static void diag_disconnect_work_fn(struct work_struct *w)
 {
 	diagfwd_disconnect_bridge(1);
@@ -1969,6 +1974,8 @@ static int __init diagchar_init(void)
 			pr_err("diag: could not register HSIC device, ret: %d\n",
 				ret);
 		diagfwd_bridge_init(SMUX);
+		INIT_WORK(&(driver->diag_connect_work),
+						 diag_connect_work_fn);
 		INIT_WORK(&(driver->diag_disconnect_work),
 						 diag_disconnect_work_fn);
 #endif
