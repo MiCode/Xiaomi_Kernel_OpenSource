@@ -661,6 +661,7 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 			rc = -ETIMEDOUT;
 		}
 		if (rc < 0) {
+			pr_err("%s: rc = %d\n", __func__, rc);
 			mutex_unlock(&session->lock);
 			return rc;
 		}
