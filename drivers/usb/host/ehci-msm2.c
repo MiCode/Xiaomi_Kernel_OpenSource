@@ -1152,6 +1152,8 @@ struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
 					"qcom,usb2-enable-hsphy2");
 	of_property_read_u32(node, "qcom,usb2-power-budget",
 					&pdata->power_budget);
+	pdata->no_selective_suspend = of_property_read_bool(node,
+					"qcom,no-selective-suspend");
 	return pdata;
 }
 
@@ -1306,6 +1308,13 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 	if (pdata && (!pdata->dock_connect_irq ||
 				!irq_read_line(pdata->dock_connect_irq)))
 		msm_ehci_vbus_power(mhcd, 1);
+
+	/* For peripherals directly conneted to downstream port of root hub
+	 * and require to drive suspend and resume by controller driver instead
+	 * of root hub.
+	 */
+	if (pdata)
+		mhcd->ehci.no_selective_suspend = pdata->no_selective_suspend;
 
 	device_init_wakeup(&pdev->dev, 1);
 	wakeup_source_init(&mhcd->ws, dev_name(&pdev->dev));
