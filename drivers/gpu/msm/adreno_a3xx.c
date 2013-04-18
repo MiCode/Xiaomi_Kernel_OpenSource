@@ -2758,7 +2758,7 @@ static void a3xx_perfcounter_enable_vbif(struct kgsl_device *device,
 {
 	unsigned int in, out, bit, sel;
 
-	if (countable > 0x7f)
+	if (counter > 1 || countable > 0x7f)
 		return;
 
 	adreno_regread(device, A3XX_VBIF_PERF_CNT_EN, &in);
@@ -2767,7 +2767,7 @@ static void a3xx_perfcounter_enable_vbif(struct kgsl_device *device,
 	if (counter == 0) {
 		bit = VBIF_PERF_CNT_0;
 		sel = (sel & ~VBIF_PERF_CNT_0_SEL_MASK) | countable;
-	} else if (counter == 1) {
+	} else {
 		bit = VBIF_PERF_CNT_1;
 		sel = (sel & ~VBIF_PERF_CNT_1_SEL_MASK)
 			| (countable << VBIF_PERF_CNT_1_SEL);
