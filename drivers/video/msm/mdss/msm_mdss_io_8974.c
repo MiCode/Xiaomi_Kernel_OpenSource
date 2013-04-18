@@ -275,8 +275,8 @@ void mdss_dsi_phy_enable(unsigned char *ctrl_base, int on)
 
 	} else {
 		MIPI_OUTP(ctrl_base + 0x0220, 0x006);
-		usleep(10);
 		MIPI_OUTP(ctrl_base + 0x0470, 0x000);
+		MIPI_OUTP(ctrl_base + 0x0598, 0x000);
 		wmb();
 	}
 }

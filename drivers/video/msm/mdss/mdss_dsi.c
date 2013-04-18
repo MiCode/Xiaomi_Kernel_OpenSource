@@ -414,6 +414,8 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	/* disable DSI controller */
 	mdss_dsi_controller_cfg(0, pdata);
 
+	/* disable DSI phy */
+	mdss_dsi_phy_enable(ctrl_pdata->ctrl_base, 0);
 	ret = mdss_dsi_panel_power_on(pdata, 0);
 	if (ret) {
 		pr_err("%s: Panel power off failed\n", __func__);
