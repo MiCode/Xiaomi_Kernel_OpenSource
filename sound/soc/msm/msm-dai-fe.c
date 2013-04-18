@@ -560,6 +560,34 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.name = "SEC_I2S_RX_HOSTLESS",
 	},
 	{
+		.capture = {
+			.stream_name = "Primary MI2S_TX Hostless Capture",
+			.aif_name = "PRI_MI2S_UL_HL",
+			.rates = SNDRV_PCM_RATE_8000_48000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 48000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "PRI_MI2S_TX_HOSTLESS",
+	},
+	{
+		.playback = {
+			.stream_name = "Secondary MI2S_RX Hostless Playback",
+			.aif_name = "SEC_MI2S_DL_HL",
+			.rates = SNDRV_PCM_RATE_8000_48000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min =	8000,
+			.rate_max =    48000,
+		},
+		.ops = &msm_fe_dai_ops,
+		.name = "SEC_MI2S_RX_HOSTLESS",
+	},
+	{
 		.playback = {
 			.stream_name = "Voice2 Playback",
 			.aif_name = "VOICE2_DL",
