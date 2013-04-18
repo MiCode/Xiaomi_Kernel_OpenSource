@@ -664,15 +664,18 @@ void *kgsl_iommu_create_pagetable(void)
 	domain_num = msm_register_domain(&kgsl_layout);
 	if (domain_num >= 0) {
 		iommu_pt->domain = msm_get_iommu_domain(domain_num);
-		iommu_set_fault_handler(iommu_pt->domain,
-			kgsl_iommu_fault_handler, NULL);
-	} else {
-		KGSL_CORE_ERR("Failed to create iommu domain\n");
-		kfree(iommu_pt);
-		return NULL;
+
+		if (iommu_pt->domain) {
+			iommu_set_fault_handler(iommu_pt->domain,
+				kgsl_iommu_fault_handler, NULL);
+
+			return iommu_pt;
+		}
 	}
 
-	return iommu_pt;
+	KGSL_CORE_ERR("Failed to create iommu domain\n");
+	kfree(iommu_pt);
+	return NULL;
 }
 
 /*
