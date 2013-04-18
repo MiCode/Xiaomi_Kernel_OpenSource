@@ -2749,6 +2749,7 @@ static void venus_hfi_unload_fw(void *dev)
 		return;
 	}
 	if (device->resources.fw.cookie) {
+		flush_workqueue(device->vidc_workq);
 		venus_hfi_disable_clks(device);
 		venus_hfi_iommu_detach(device);
 		subsystem_put(device->resources.fw.cookie);
