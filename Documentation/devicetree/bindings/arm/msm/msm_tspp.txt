@@ -28,6 +28,13 @@ Required properties:
 	Note: it is assumed that the functionality value (e.g. 1 in 8974 case)
 	is applicable to all TSIF GPIOs.
 
+Optional properties:
+
+- vdd_cx-supply: Reference to the regulator that supplies the CX rail.
+	Some hardware platforms (e.g. 8974-v2) require the voltage of the rail
+	supplying power to the TSIF hardware block to be elevated before
+	enabling the TSIF clocks.
+
 Example (for 8974 platform, avaialble at msm8974.dtsi):
 
 	tspp: msm_tspp@f99d8000 {
