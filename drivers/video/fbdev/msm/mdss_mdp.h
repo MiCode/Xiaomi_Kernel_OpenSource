@@ -150,6 +150,7 @@ struct mdss_mdp_ctl {
 	int (*display_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*wait_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*set_vsync_handler) (struct mdss_mdp_ctl *, mdp_vsync_handler_t);
+	u32 (*read_line_cnt_fnc) (struct mdss_mdp_ctl *);
 
 	void *priv_data;
 };
@@ -317,6 +318,7 @@ struct mdss_overlay_private {
 	int borderfill_enable;
 	int overlay_play_enable;
 	int hw_refresh;
+	void *cpu_pm_hdl;
 
 	struct mdss_data_type *mdata;
 	struct mutex ov_lock;
@@ -399,6 +401,8 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe, int params_changed);
 int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg);
 int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
+				 ktime_t *wakeup_time);
 
 int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type);
 int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
