@@ -276,23 +276,32 @@ static bool etm_os_lock_present(struct etm_drvdata *drvdata)
 }
 
 /*
- * Memory mapped writes to clear os lock are not supported on Krait v1, v2
- * and OS lock must be unlocked before any memory mapped access, otherwise
- * memory mapped reads/writes will be invalid.
+ * Unlock OS lock to allow memory mapped access on Krait and in general
+ * so that ETMSR[1] can be polled while clearing the ETMCR[10] prog bit
+ * since ETMSR[1] is set when prog bit is set or OS lock is set.
  */
 static void etm_os_unlock(void *info)
 {
 	struct etm_drvdata *drvdata = (struct etm_drvdata *) info;
 
-	ETM_UNLOCK(drvdata);
+	/*
+	 * Memory mapped writes to clear os lock are not supported on Krait v1,
+	 * v2 and OS lock must be unlocked before any memory mapped access,
+	 * otherwise memory mapped reads/writes will be invalid.
+	 */
 	if (cpu_is_krait()) {
 		etm_writel_cp14(0x0, ETMOSLAR);
+		/* ensure os lock is unlocked before we return */
 		isb();
-	} else if (etm_os_lock_present(drvdata)) {
-		etm_writel(drvdata, 0x0, ETMOSLAR);
-		mb();
+	} else {
+		ETM_UNLOCK(drvdata);
+		if (etm_os_lock_present(drvdata)) {
+			etm_writel(drvdata, 0x0, ETMOSLAR);
+			/* ensure os lock is unlocked before we return */
+			mb();
+		}
+		ETM_LOCK(drvdata);
 	}
-	ETM_LOCK(drvdata);
 }
 
 /*
@@ -1876,11 +1885,26 @@ static int etm_cpu_callback(struct notifier_block *nfb, unsigned long action,
 			    void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
+	static bool clk_disable[NR_CPUS];
+	int ret;
 
 	if (!etmdrvdata[cpu])
 		goto out;
 
 	switch (action & (~CPU_TASKS_FROZEN)) {
+	case CPU_UP_PREPARE:
+		if (!etmdrvdata[cpu]->os_unlock) {
+			ret = clk_prepare_enable(etmdrvdata[cpu]->clk);
+			if (ret) {
+				dev_err(etmdrvdata[cpu]->dev,
+					"ETM clk enable during hotplug failed"
+					"for cpu: %d, ret: %d\n", cpu, ret);
+				return notifier_from_errno(ret);
+			}
+			clk_disable[cpu] = true;
+		}
+		break;
+
 	case CPU_STARTING:
 		spin_lock(&etmdrvdata[cpu]->spinlock);
 		if (!etmdrvdata[cpu]->os_unlock) {
@@ -1894,6 +1918,11 @@ static int etm_cpu_callback(struct notifier_block *nfb, unsigned long action,
 		break;
 
 	case CPU_ONLINE:
+		if (clk_disable[cpu]) {
+			clk_disable_unprepare(etmdrvdata[cpu]->clk);
+			clk_disable[cpu] = false;
+		}
+
 		if (etmdrvdata[cpu]->boot_enable &&
 		    !etmdrvdata[cpu]->sticky_enable)
 			coresight_enable(etmdrvdata[cpu]->csdev);
@@ -1901,6 +1930,13 @@ static int etm_cpu_callback(struct notifier_block *nfb, unsigned long action,
 		if (etmdrvdata[cpu]->pcsave_boot_enable &&
 		    !etmdrvdata[cpu]->pcsave_sticky_enable)
 			__etm_store_pcsave(etmdrvdata[cpu], 1);
+		break;
+
+	case CPU_UP_CANCELED:
+		if (clk_disable[cpu]) {
+			clk_disable_unprepare(etmdrvdata[cpu]->clk);
+			clk_disable[cpu] = false;
+		}
 		break;
 
 	case CPU_DYING:
