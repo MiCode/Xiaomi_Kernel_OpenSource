@@ -2111,6 +2111,29 @@ int smd_write_end(smd_channel_t *ch)
 }
 EXPORT_SYMBOL(smd_write_end);
 
+int smd_write_segment_avail(smd_channel_t *ch)
+{
+	int n;
+
+	if (!ch) {
+		pr_err("%s: Invalid channel specified\n", __func__);
+		return -ENODEV;
+	}
+	if (!ch->is_pkt_ch) {
+		pr_err("%s: non-packet channel specified\n", __func__);
+		return -ENODEV;
+	}
+
+	n = smd_stream_write_avail(ch);
+
+	/* pkt hdr already written, no need to reserve space for it */
+	if (ch->pending_pkt_sz)
+		return n;
+
+	return n > SMD_HEADER_SIZE ? n - SMD_HEADER_SIZE : 0;
+}
+EXPORT_SYMBOL(smd_write_segment_avail);
+
 int smd_read(smd_channel_t *ch, void *data, int len)
 {
 	if (!ch) {

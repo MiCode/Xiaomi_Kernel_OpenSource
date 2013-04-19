@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,11 +146,11 @@ static int msm_ipc_router_smd_remote_write(void *data,
 	skb_queue_walk(pkt->pkt_fragment_q, ipc_rtr_pkt) {
 		offset = 0;
 		while (offset < ipc_rtr_pkt->len) {
-			if (!smd_write_avail(smd_xprtp->channel))
+			if (!smd_write_segment_avail(smd_xprtp->channel))
 				smd_enable_read_intr(smd_xprtp->channel);
 
 			wait_event(smd_xprtp->write_avail_wait_q,
-				(smd_write_avail(smd_xprtp->channel) ||
+				(smd_write_segment_avail(smd_xprtp->channel) ||
 				smd_xprtp->ss_reset));
 			smd_disable_read_intr(smd_xprtp->channel);
 			spin_lock_irqsave(&smd_xprtp->ss_reset_lock, flags);
@@ -175,11 +175,11 @@ static int msm_ipc_router_smd_remote_write(void *data,
 	}
 
 	if (align_sz) {
-		if (smd_write_avail(smd_xprtp->channel) < align_sz)
+		if (smd_write_segment_avail(smd_xprtp->channel) < align_sz)
 			smd_enable_read_intr(smd_xprtp->channel);
 
 		wait_event(smd_xprtp->write_avail_wait_q,
-			((smd_write_avail(smd_xprtp->channel) >=
+			((smd_write_segment_avail(smd_xprtp->channel) >=
 			 align_sz) || smd_xprtp->ss_reset));
 		smd_disable_read_intr(smd_xprtp->channel);
 		spin_lock_irqsave(&smd_xprtp->ss_reset_lock, flags);
@@ -357,7 +357,7 @@ static void msm_ipc_router_smd_remote_notify(void *_dev, unsigned event)
 		if (smd_read_avail(smd_xprtp->channel))
 			queue_delayed_work(smd_xprtp->smd_xprt_wq,
 					   &smd_xprtp->read_work, 0);
-		if (smd_write_avail(smd_xprtp->channel))
+		if (smd_write_segment_avail(smd_xprtp->channel))
 			wake_up(&smd_xprtp->write_avail_wait_q);
 		break;
 
