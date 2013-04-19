@@ -2830,6 +2830,11 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,  "qseecom"),
 	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,  "qseecom"),
 	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,      "qseecom"),
+
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,      "scm"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,  "scm"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,  "scm"),
+	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,      "scm"),
 };
 
 static struct clk_lookup msm_clocks_8610_rumi[] = {
