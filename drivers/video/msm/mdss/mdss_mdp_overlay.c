@@ -24,6 +24,7 @@
 #include <linux/msm_mdp.h>
 
 #include <mach/iommu_domains.h>
+#include <mach/event_timer.h>
 
 #include "mdss.h"
 #include "mdss_fb.h"
@@ -740,6 +741,19 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	return rc;
 }
 
+static void mdss_mdp_overlay_update_pm(struct mdss_overlay_private *mdp5_data)
+{
+	ktime_t wakeup_time;
+
+	if (!mdp5_data->cpu_pm_hdl)
+		return;
+
+	if (mdss_mdp_display_wakeup_time(mdp5_data->ctl, &wakeup_time))
+		return;
+
+	activate_event_timer(mdp5_data->cpu_pm_hdl, wakeup_time);
+}
+
 int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
@@ -779,6 +793,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 
 	if (IS_ERR_VALUE(ret))
 		goto commit_fail;
+
+	mdss_mdp_overlay_update_pm(mdp5_data);
 
 	ret = mdss_mdp_display_wait4comp(mdp5_data->ctl);
 
@@ -1946,6 +1962,10 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
 	pr_debug("vsync kobject_uevent(KOBJ_ADD)\n");
+
+	mdp5_data->cpu_pm_hdl = add_event_timer(NULL, (void *)mdp5_data);
+	if (!mdp5_data->cpu_pm_hdl)
+		pr_warn("%s: unable to add event timer\n", __func__);
 
 	return rc;
 init_fail:

@@ -59,6 +59,22 @@ static inline void mdp_video_write(struct mdss_mdp_video_ctx *ctx,
 	writel_relaxed(val, ctx->base + reg);
 }
 
+static inline u32 mdp_video_read(struct mdss_mdp_video_ctx *ctx,
+				   u32 reg)
+{
+	return readl_relaxed(ctx->base + reg);
+}
+
+static inline u32 mdss_mdp_video_line_count(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_video_ctx *ctx = ctl->priv_data;
+	u32 line_cnt = 0;
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	line_cnt = mdp_video_read(ctx, MDSS_MDP_REG_INTF_LINE_COUNT);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	return line_cnt;
+}
+
 int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 				u32 *offsets,  u32 count)
 {
@@ -171,6 +187,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_video_ctx *ctx,
 			   p->underflow_clr);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_SKEW, p->hsync_skew);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_POLARITY_CTL, polarity_ctl);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_FRAME_LINE_COUNT_EN, 0x3);
 
 	return 0;
 }
@@ -284,7 +301,8 @@ static void mdss_mdp_video_vsync_intr_done(void *arg)
 	vsync_time = ktime_get();
 	ctl->vsync_cnt++;
 
-	pr_debug("intr ctl=%d vsync cnt=%u\n", ctl->num, ctl->vsync_cnt);
+	pr_debug("intr ctl=%d vsync cnt=%u vsync_time=%d\n",
+		 ctl->num, ctl->vsync_cnt, (int)ktime_to_ms(vsync_time));
 
 	complete_all(&ctx->vsync_comp);
 	spin_lock(&ctx->vsync_lock);
@@ -454,6 +472,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctl->display_fnc = mdss_mdp_video_display;
 	ctl->wait_fnc = mdss_mdp_video_wait4comp;
 	ctl->set_vsync_handler = mdss_mdp_video_set_vsync_handler;
+	ctl->read_line_cnt_fnc = mdss_mdp_video_line_count;
 
 	return 0;
 }
