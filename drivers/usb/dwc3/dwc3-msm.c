@@ -127,6 +127,8 @@ MODULE_PARM_DESC(prop_chg_detect, "Enable Proprietary charger detection");
 #define DBM_TRB_DMA		0x20000000
 #define DBM_TRB_EP_NUM(ep)	(ep<<24)
 
+#define USB3_PORTSC		(0x430)
+#define PORT_PE			(0x1 << 1)
 /**
  *  USB QSCRATCH Hardware registers
  *
@@ -213,6 +215,9 @@ struct dwc3_msm {
 	bool			vbus_active;
 	bool			ext_inuse;
 	enum dwc3_id_state	id_state;
+	unsigned long		lpm_flags;
+#define MDWC3_CORECLK_OFF		BIT(0)
+#define MDWC3_TCXO_SHUTDOWN		BIT(1)
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1588,6 +1593,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	int ret;
 	bool dcp;
 	bool host_bus_suspend;
+	bool host_ss_active;
 
 	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
 
@@ -1596,6 +1602,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
+	host_ss_active = dwc3_msm_read_reg(mdwc->base, USB3_PORTSC) & PORT_PE;
 	if (mdwc->hs_phy_irq)
 		disable_irq(mdwc->hs_phy_irq);
 
@@ -1665,14 +1672,19 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
-	clk_disable_unprepare(mdwc->core_clk);
+	if (!host_bus_suspend || !host_ss_active) {
+		clk_disable_unprepare(mdwc->core_clk);
+		mdwc->lpm_flags |= MDWC3_CORECLK_OFF;
+	}
 	clk_disable_unprepare(mdwc->iface_clk);
 
-	if (!host_bus_suspend) {
+	if (!host_bus_suspend)
 		clk_disable_unprepare(mdwc->utmi_clk);
 
+	if (!host_bus_suspend) {
 		/* USB PHY no more requires TCXO */
 		clk_disable_unprepare(mdwc->xo_clk);
+		mdwc->lpm_flags |= MDWC3_TCXO_SHUTDOWN;
 	}
 
 	if (mdwc->bus_perf_client) {
@@ -1731,15 +1743,17 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	      (mdwc->charger.chg_type == DWC3_PROPRIETARY_CHARGER));
 	host_bus_suspend = mdwc->host_mode == 1;
 
-	if (!host_bus_suspend) {
+	if (mdwc->lpm_flags & MDWC3_TCXO_SHUTDOWN) {
 		/* Vote for TCXO while waking up USB HSPHY */
 		ret = clk_prepare_enable(mdwc->xo_clk);
 		if (ret)
 			dev_err(mdwc->dev, "%s failed to vote TCXO buffer%d\n",
 						__func__, ret);
-
-		clk_prepare_enable(mdwc->utmi_clk);
+		mdwc->lpm_flags &= ~MDWC3_TCXO_SHUTDOWN;
 	}
+
+	if (!host_bus_suspend)
+		clk_prepare_enable(mdwc->utmi_clk);
 
 	if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability && !dcp &&
 							!host_bus_suspend)
@@ -1755,7 +1769,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	usleep_range(1000, 1200);
 
 	clk_prepare_enable(mdwc->iface_clk);
-	clk_prepare_enable(mdwc->core_clk);
+	if (mdwc->lpm_flags & MDWC3_CORECLK_OFF) {
+		clk_prepare_enable(mdwc->core_clk);
+		mdwc->lpm_flags &= ~MDWC3_CORECLK_OFF;
+	}
 
 	if (host_bus_suspend) {
 		/* Disable HV interrupt */
