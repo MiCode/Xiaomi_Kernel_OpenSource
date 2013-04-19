@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/leds.h>
+#include <linux/err.h>
 #include <linux/regulator/consumer.h>
 
 #include "dsi_v2.h"
@@ -32,6 +33,7 @@ struct dsi_panel_private {
 
 	int rst_gpio;
 	int disp_en_gpio;
+	int video_mode_gpio;
 	char bl_ctrl;
 
 	struct regulator *vddio_vreg;
@@ -40,6 +42,9 @@ struct dsi_panel_private {
 	struct dsi_panel_cmds_list *on_cmds_list;
 	struct dsi_panel_cmds_list *off_cmds_list;
 	struct mdss_dsi_phy_ctrl phy_params;
+
+	char *on_cmds;
+	char *off_cmds;
 };
 
 static struct dsi_panel_private *panel_private;
@@ -82,14 +87,53 @@ void dsi_panel_deinit(void)
 	kfree(panel_private->dsi_panel_tx_buf.start);
 	kfree(panel_private->dsi_panel_rx_buf.start);
 
-	if (panel_private->vddio_vreg)
+	if (!IS_ERR(panel_private->vddio_vreg))
 		devm_regulator_put(panel_private->vddio_vreg);
 
-	if (panel_private->vdda_vreg)
-		devm_regulator_put(panel_private->vddio_vreg);
+	if (!IS_ERR(panel_private->vdda_vreg))
+		devm_regulator_put(panel_private->vdda_vreg);
 
+	if (panel_private->on_cmds_list) {
+		kfree(panel_private->on_cmds_list->buf);
+		kfree(panel_private->on_cmds_list);
+	}
+	if (panel_private->off_cmds_list) {
+		kfree(panel_private->off_cmds_list->buf);
+		kfree(panel_private->off_cmds_list);
+	}
+
+	kfree(panel_private->on_cmds);
+	kfree(panel_private->off_cmds);
 	kfree(panel_private);
 	panel_private = NULL;
+}
+int dsi_panel_power(int enable)
+{
+	int ret;
+	if (enable) {
+		ret = regulator_enable(panel_private->vddio_vreg);
+		if (ret) {
+			pr_err("dsi_panel_power regulator enable vddio fail\n");
+			return ret;
+		}
+		ret = regulator_enable(panel_private->vdda_vreg);
+		if (ret) {
+			pr_err("dsi_panel_power regulator enable vdda fail\n");
+			return ret;
+		}
+	} else {
+		ret = regulator_disable(panel_private->vddio_vreg);
+		if (ret) {
+			pr_err("dsi_panel_power regulator disable vddio fail\n");
+			return ret;
+		}
+		ret = regulator_disable(panel_private->vdda_vreg);
+		if (ret) {
+			pr_err("dsi_panel_power regulator dsiable vdda fail\n");
+			return ret;
+		}
+	}
+	return 0;
 }
 
 void dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
@@ -113,6 +157,8 @@ void dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	pr_debug("%s: enable = %d\n", __func__, enable);
 
 	if (enable) {
+		dsi_panel_power(1);
+		gpio_request(panel_private->rst_gpio, "panel_reset");
 		gpio_set_value(panel_private->rst_gpio, 1);
 		/*
 		 * these delay values are by experiments currently, will need
@@ -123,12 +169,34 @@ void dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		udelay(200);
 		gpio_set_value(panel_private->rst_gpio, 1);
 		msleep(20);
-		if (gpio_is_valid(panel_private->disp_en_gpio))
+		if (gpio_is_valid(panel_private->disp_en_gpio)) {
+			gpio_request(panel_private->disp_en_gpio,
+					"panel_enable");
 			gpio_set_value(panel_private->disp_en_gpio, 1);
+		}
+		if (gpio_is_valid(panel_private->video_mode_gpio)) {
+			gpio_request(panel_private->video_mode_gpio,
+					"panel_video_mdoe");
+			if (pdata->panel_info.mipi.mode == DSI_VIDEO_MODE)
+				gpio_set_value(panel_private->video_mode_gpio,
+						1);
+			else
+				gpio_set_value(panel_private->video_mode_gpio,
+						0);
+		}
 	} else {
 		gpio_set_value(panel_private->rst_gpio, 0);
-		if (gpio_is_valid(panel_private->disp_en_gpio))
+		gpio_free(panel_private->rst_gpio);
+
+		if (gpio_is_valid(panel_private->disp_en_gpio)) {
 			gpio_set_value(panel_private->disp_en_gpio, 0);
+			gpio_free(panel_private->disp_en_gpio);
+		}
+
+		if (gpio_is_valid(panel_private->video_mode_gpio))
+			gpio_free(panel_private->video_mode_gpio);
+
+		dsi_panel_power(0);
 	}
 }
 
@@ -196,13 +264,42 @@ static int dsi_panel_parse_gpio(struct platform_device *pdev)
 	panel_private->disp_en_gpio = of_get_named_gpio(np,
 						"qcom,enable-gpio", 0);
 	panel_private->rst_gpio = of_get_named_gpio(np, "qcom,rst-gpio", 0);
+	panel_private->video_mode_gpio = of_get_named_gpio(np,
+						"qcom,mode-selection-gpio", 0);
 	return 0;
 }
 
 static int dsi_panel_parse_regulator(struct platform_device *pdev)
 {
+	int ret;
 	panel_private->vddio_vreg = devm_regulator_get(&pdev->dev, "vddio");
+	if (IS_ERR(panel_private->vddio_vreg)) {
+		pr_err("%s: could not get vddio vreg, rc=%ld\n",
+			__func__, PTR_ERR(panel_private->vddio_vreg));
+		return PTR_ERR(panel_private->vddio_vreg);
+	}
+	ret = regulator_set_voltage(panel_private->vddio_vreg,
+					1800000,
+					1800000);
+	if (ret) {
+		pr_err("%s: set voltage failed on vddio_vreg, rc=%d\n",
+			__func__, ret);
+		return ret;
+	}
 	panel_private->vdda_vreg = devm_regulator_get(&pdev->dev, "vdda");
+	if (IS_ERR(panel_private->vdda_vreg)) {
+		pr_err("%s: could not get vdda_vreg , rc=%ld\n",
+			__func__, PTR_ERR(panel_private->vdda_vreg));
+		return PTR_ERR(panel_private->vdda_vreg);
+	}
+	ret = regulator_set_voltage(panel_private->vdda_vreg,
+					2850000,
+					2850000);
+	if (ret) {
+		pr_err("%s: set voltage failed on vdda_vreg, rc=%d\n",
+			__func__, ret);
+		return ret;
+	}
 	return 0;
 }
 
@@ -398,180 +495,163 @@ static int dsi_panel_parse_init_cmds(struct platform_device *pdev,
 	int cmd_plen, data_offset;
 	const char *data;
 	const char *on_cmds_state, *off_cmds_state;
-	char *on_cmds = NULL, *off_cmds = NULL;
 	int num_of_on_cmds = 0, num_of_off_cmds = 0;
 
 	data = of_get_property(np, "qcom,panel-on-cmds", &len);
 	if (!data) {
 		pr_err("%s:%d, Unable to read ON cmds", __func__, __LINE__);
-		goto parse_init_cmds_error;
+		return -EINVAL;
 	}
 
-	on_cmds = kzalloc(sizeof(char) * len, GFP_KERNEL);
-	if (!on_cmds)
-		goto parse_init_cmds_error;
+	panel_private->on_cmds = kzalloc(sizeof(char) * len, GFP_KERNEL);
+	if (!panel_private->on_cmds)
+		return -ENOMEM;
 
-	memcpy(on_cmds, data, len);
+	memcpy(panel_private->on_cmds, data, len);
 
 	data_offset = 0;
 	cmd_plen = 0;
 	while ((len - data_offset) >= DT_CMD_HDR) {
 		data_offset += (DT_CMD_HDR - 1);
-		cmd_plen = on_cmds[data_offset++];
+		cmd_plen = panel_private->on_cmds[data_offset++];
 		data_offset += cmd_plen;
 		num_of_on_cmds++;
 	}
 	if (!num_of_on_cmds) {
 		pr_err("%s:%d, No ON cmds specified", __func__, __LINE__);
-		goto parse_init_cmds_error;
+		return -EINVAL;
 	}
 
-	panel_data->dsi_panel_on_cmds =
+	panel_private->on_cmds_list =
 		kzalloc(sizeof(struct dsi_panel_cmds_list), GFP_KERNEL);
-	if (!panel_data->dsi_panel_on_cmds)
-		goto parse_init_cmds_error;
+	if (!panel_private->on_cmds_list)
+		return -ENOMEM;
 
-	(panel_data->dsi_panel_on_cmds)->buf =
+	panel_private->on_cmds_list->buf =
 		kzalloc((num_of_on_cmds * sizeof(struct dsi_cmd_desc)),
 			GFP_KERNEL);
-	if (!(panel_data->dsi_panel_on_cmds)->buf)
-		goto parse_init_cmds_error;
+	if (!panel_private->on_cmds_list->buf)
+		return -ENOMEM;
 
 	data_offset = 0;
 	for (i = 0; i < num_of_on_cmds; i++) {
-		panel_data->dsi_panel_on_cmds->buf[i].dtype =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].last =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].vc =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].ack =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].wait =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].dlen =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].payload =
-						&on_cmds[data_offset];
-		data_offset += (panel_data->dsi_panel_on_cmds->buf[i].dlen);
+		panel_private->on_cmds_list->buf[i].dtype =
+					panel_private->on_cmds[data_offset++];
+		panel_private->on_cmds_list->buf[i].last =
+					panel_private->on_cmds[data_offset++];
+		panel_private->on_cmds_list->buf[i].vc =
+					panel_private->on_cmds[data_offset++];
+		panel_private->on_cmds_list->buf[i].ack =
+					panel_private->on_cmds[data_offset++];
+		panel_private->on_cmds_list->buf[i].wait =
+					panel_private->on_cmds[data_offset++];
+		panel_private->on_cmds_list->buf[i].dlen =
+					panel_private->on_cmds[data_offset++];
+		panel_private->on_cmds_list->buf[i].payload =
+					&panel_private->on_cmds[data_offset];
+		data_offset += (panel_private->on_cmds_list->buf[i].dlen);
 	}
 
 	if (data_offset != len) {
 		pr_err("%s:%d, Incorrect ON command entries",
 						__func__, __LINE__);
-		goto parse_init_cmds_error;
+		return -EINVAL;
 	}
 
-	(panel_data->dsi_panel_on_cmds)->size = num_of_on_cmds;
+	panel_private->on_cmds_list->size = num_of_on_cmds;
 
 	on_cmds_state = of_get_property(pdev->dev.of_node,
 					"qcom,on-cmds-dsi-state", NULL);
 	if (!strncmp(on_cmds_state, "DSI_LP_MODE", 11)) {
-		(panel_data->dsi_panel_on_cmds)->ctrl_state = DSI_LP_MODE;
+		panel_private->on_cmds_list->ctrl_state = DSI_LP_MODE;
 	} else if (!strncmp(on_cmds_state, "DSI_HS_MODE", 11)) {
-		(panel_data->dsi_panel_on_cmds)->ctrl_state = DSI_HS_MODE;
+		panel_private->on_cmds_list->ctrl_state = DSI_HS_MODE;
 	} else {
 		pr_debug("%s: ON cmds state not specified. Set Default\n",
 							__func__);
-		(panel_data->dsi_panel_on_cmds)->ctrl_state = DSI_LP_MODE;
+		panel_private->on_cmds_list->ctrl_state = DSI_LP_MODE;
 	}
 
-	panel_private->on_cmds_list = panel_data->dsi_panel_on_cmds;
+	panel_data->dsi_panel_on_cmds = panel_private->on_cmds_list;
+
 	data = of_get_property(np, "qcom,panel-off-cmds", &len);
 	if (!data) {
 		pr_err("%s:%d, Unable to read OFF cmds", __func__, __LINE__);
-		goto parse_init_cmds_error;
+		return -EINVAL;
 	}
 
-	off_cmds = kzalloc(sizeof(char) * len, GFP_KERNEL);
-	if (!off_cmds)
-		goto parse_init_cmds_error;
+	panel_private->off_cmds = kzalloc(sizeof(char) * len, GFP_KERNEL);
+	if (!panel_private->off_cmds)
+		return -ENOMEM;
 
-	memcpy(off_cmds, data, len);
+	memcpy(panel_private->off_cmds, data, len);
 
 	data_offset = 0;
 	cmd_plen = 0;
 	while ((len - data_offset) >= DT_CMD_HDR) {
 		data_offset += (DT_CMD_HDR - 1);
-		cmd_plen = off_cmds[data_offset++];
+		cmd_plen = panel_private->off_cmds[data_offset++];
 		data_offset += cmd_plen;
 		num_of_off_cmds++;
 	}
 	if (!num_of_off_cmds) {
 		pr_err("%s:%d, No OFF cmds specified", __func__, __LINE__);
-		goto parse_init_cmds_error;
+		return -ENOMEM;
 	}
 
-	panel_data->dsi_panel_off_cmds =
+	panel_private->off_cmds_list =
 		kzalloc(sizeof(struct dsi_panel_cmds_list), GFP_KERNEL);
-	if (!panel_data->dsi_panel_off_cmds)
-		goto parse_init_cmds_error;
+	if (!panel_private->off_cmds_list)
+		return -ENOMEM;
 
-	(panel_data->dsi_panel_off_cmds)->buf = kzalloc(num_of_off_cmds
+	panel_private->off_cmds_list->buf = kzalloc(num_of_off_cmds
 					* sizeof(struct dsi_cmd_desc),
 						GFP_KERNEL);
-	if (!(panel_data->dsi_panel_off_cmds)->buf)
-		goto parse_init_cmds_error;
+	if (!panel_private->off_cmds_list->buf)
+		return -ENOMEM;
 
 	data_offset = 0;
 	for (i = 0; i < num_of_off_cmds; i++) {
-		panel_data->dsi_panel_off_cmds->buf[i].dtype =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].last =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].vc =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].ack =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].wait =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].dlen =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].payload =
-						&off_cmds[data_offset];
-		data_offset += (panel_data->dsi_panel_off_cmds->buf[i].dlen);
+		panel_private->off_cmds_list->buf[i].dtype =
+					panel_private->off_cmds[data_offset++];
+		panel_private->off_cmds_list->buf[i].last =
+					panel_private->off_cmds[data_offset++];
+		panel_private->off_cmds_list->buf[i].vc =
+					panel_private->off_cmds[data_offset++];
+		panel_private->off_cmds_list->buf[i].ack =
+					panel_private->off_cmds[data_offset++];
+		panel_private->off_cmds_list->buf[i].wait =
+					panel_private->off_cmds[data_offset++];
+		panel_private->off_cmds_list->buf[i].dlen =
+					panel_private->off_cmds[data_offset++];
+		panel_private->off_cmds_list->buf[i].payload =
+					&panel_private->off_cmds[data_offset];
+		data_offset += (panel_private->off_cmds_list->buf[i].dlen);
 	}
 
 	if (data_offset != len) {
 		pr_err("%s:%d, Incorrect OFF command entries",
 						__func__, __LINE__);
-		goto parse_init_cmds_error;
+		return -EINVAL;
 	}
 
-	(panel_data->dsi_panel_off_cmds)->size = num_of_off_cmds;
-			off_cmds_state = of_get_property(pdev->dev.of_node,
+	panel_private->off_cmds_list->size = num_of_off_cmds;
+	off_cmds_state = of_get_property(pdev->dev.of_node,
 				"qcom,off-cmds-dsi-state", NULL);
 	if (!strncmp(off_cmds_state, "DSI_LP_MODE", 11)) {
-		(panel_data->dsi_panel_off_cmds)->ctrl_state =
+		panel_private->off_cmds_list->ctrl_state =
 						DSI_LP_MODE;
 	} else if (!strncmp(off_cmds_state, "DSI_HS_MODE", 11)) {
-		(panel_data->dsi_panel_off_cmds)->ctrl_state = DSI_HS_MODE;
+		panel_private->off_cmds_list->ctrl_state = DSI_HS_MODE;
 	} else {
 		pr_debug("%s: ON cmds state not specified. Set Default\n",
 							__func__);
-		(panel_data->dsi_panel_off_cmds)->ctrl_state = DSI_LP_MODE;
+		panel_private->off_cmds_list->ctrl_state = DSI_LP_MODE;
 	}
 
-	panel_private->off_cmds_list = panel_data->dsi_panel_on_cmds;
-	kfree(on_cmds);
-	kfree(off_cmds);
+	panel_data->dsi_panel_off_cmds = panel_private->off_cmds_list;
 
 	return 0;
-parse_init_cmds_error:
-	if (panel_data->dsi_panel_on_cmds) {
-		kfree((panel_data->dsi_panel_on_cmds)->buf);
-		kfree(panel_data->dsi_panel_on_cmds);
-		panel_data->dsi_panel_on_cmds = NULL;
-	}
-	if (panel_data->dsi_panel_off_cmds) {
-		kfree((panel_data->dsi_panel_off_cmds)->buf);
-		kfree(panel_data->dsi_panel_off_cmds);
-		panel_data->dsi_panel_off_cmds = NULL;
-	}
-
-	kfree(on_cmds);
-	kfree(off_cmds);
-	return -EINVAL;
 }
 
 static int dsi_panel_parse_backlight(struct platform_device *pdev,
@@ -709,6 +789,7 @@ static int __devinit dsi_panel_probe(struct platform_device *pdev)
 
 	vendor_pdata.on = dsi_panel_on;
 	vendor_pdata.off = dsi_panel_off;
+	vendor_pdata.reset = dsi_panel_reset;
 	vendor_pdata.bl_fnc = dsi_panel_bl_ctrl;
 
 	rc = dsi_panel_device_register_v2(pdev, &vendor_pdata,
