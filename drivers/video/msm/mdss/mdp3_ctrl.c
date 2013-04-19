@@ -28,7 +28,7 @@
 
 void vsync_notify_handler(void *arg)
 {
-	struct mdp3_session_data *session = (struct mdp3_session_data *)session;
+	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
 	complete(&session->vsync_comp);
 }
 
@@ -100,18 +100,30 @@ static struct attribute_group vsync_fs_attr_group = {
 	.attrs = vsync_fs_attrs,
 };
 
-static int mdp3_ctrl_res_req_dma(struct msm_fb_data_type *mfd, int status)
+static int mdp3_ctrl_res_req_bus(struct msm_fb_data_type *mfd, int status)
 {
 	int rc = 0;
 	if (status) {
 		struct mdss_panel_info *panel_info = mfd->panel_info;
 		int ab = 0;
 		int ib = 0;
-		unsigned long core_clk = 0;
-		int vtotal = 0;
 		ab = panel_info->xres * panel_info->yres * 4;
 		ab *= panel_info->mipi.frame_rate;
 		ib = (ab * 3) / 2;
+		rc = mdp3_bus_scale_set_quota(MDP3_BW_CLIENT_DMA_P, ab, ib);
+	} else {
+		rc = mdp3_bus_scale_set_quota(MDP3_BW_CLIENT_DMA_P, 0, 0);
+	}
+	return rc;
+}
+
+static int mdp3_ctrl_res_req_clk(struct msm_fb_data_type *mfd, int status)
+{
+	int rc = 0;
+	if (status) {
+		struct mdss_panel_info *panel_info = mfd->panel_info;
+		unsigned long core_clk;
+		int vtotal;
 		vtotal = panel_info->lcdc.v_back_porch +
 			panel_info->lcdc.v_front_porch +
 			panel_info->lcdc.v_pulse_width +
@@ -126,10 +138,8 @@ static int mdp3_ctrl_res_req_dma(struct msm_fb_data_type *mfd, int status)
 		if (rc)
 			return rc;
 
-		mdp3_bus_scale_set_quota(MDP3_BW_CLIENT_DMA_P, ab, ib);
 	} else {
 		rc = mdp3_clk_enable(false);
-		rc |= mdp3_bus_scale_set_quota(MDP3_BW_CLIENT_DMA_P, 0, 0);
 	}
 	return rc;
 }
@@ -285,13 +295,25 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	}
 	mutex_lock(&mdp3_session->lock);
 	if (mdp3_session->status) {
-		pr_info("fb%d is on already", mfd->index);
+		pr_debug("fb%d is on already", mfd->index);
 		goto on_error;
 	}
 
-	rc = mdp3_ctrl_res_req_dma(mfd, 1);
+	/* request bus bandwidth before DSI DMA traffic */
+	rc = mdp3_ctrl_res_req_bus(mfd, 1);
+	if (rc)
+		pr_err("fail to request bus resource\n");
+
+	panel = mdp3_session->panel;
+	if (panel->event_handler)
+		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_ON, NULL);
 	if (rc) {
-		pr_err("resource request for dma on failed\n");
+		pr_err("fail to turn on the panel\n");
+		goto on_error;
+	}
+	rc = mdp3_ctrl_res_req_clk(mfd, 1);
+	if (rc) {
+		pr_err("fail to request mdp clk resource\n");
 		goto on_error;
 	}
 
@@ -304,16 +326,9 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	rc = mdp3_ctrl_intf_init(mfd, mdp3_session->intf);
 	if (rc) {
 		pr_err("display interface init failed\n");
-		goto on_error;
-	}
 
-	panel = mdp3_session->panel;
 
-	if (panel->event_handler)
-		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_ON, NULL);
 
-	if (rc) {
-		pr_err("fail to turn on the panel\n");
 		goto on_error;
 	}
 
@@ -348,26 +363,31 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdp3_session->lock);
 
 	if (!mdp3_session->status) {
-		pr_info("fb%d is off already", mfd->index);
+		pr_debug("fb%d is off already", mfd->index);
 		goto off_error;
 	}
 
-	panel = mdp3_session->panel;
-	if (panel->event_handler)
-		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF, NULL);
-
-	if (rc)
-		pr_err("fail to turn off the panel\n");
+	pr_debug("mdp3_ctrl_off stop mdp3 dma engine\n");
 
 	rc = mdp3_session->dma->stop(mdp3_session->dma, mdp3_session->intf);
 
 	if (rc)
 		pr_err("fail to stop the MDP3 dma\n");
 
-	rc = mdp3_ctrl_res_req_dma(mfd, 0);
+	pr_debug("mdp3_ctrl_off stop dsi panel and controller\n");
+	panel = mdp3_session->panel;
+	if (panel->event_handler)
+		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF, NULL);
 	if (rc)
-		pr_err("resource release  for dma on failed\n");
+		pr_err("fail to turn off the panel\n");
 
+	pr_debug("mdp3_ctrl_off release bus and clock\n");
+	rc = mdp3_ctrl_res_req_bus(mfd, 0);
+	if (rc)
+		pr_err("mdp bus resource release failed\n");
+	rc = mdp3_ctrl_res_req_clk(mfd, 0);
+	if (rc)
+		pr_err("mdp clock resource release failed\n");
 off_error:
 	mdp3_session->status = 0;
 
