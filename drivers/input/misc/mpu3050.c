@@ -333,7 +333,7 @@ static struct device_attribute attributes[] = {
 	__ATTR(pollrate_ms, 0664,
 		mpu3050_attr_get_polling_rate,
 		mpu3050_attr_set_polling_rate),
-	__ATTR(enable, 0664,
+	__ATTR(enable, 0644,
 		mpu3050_attr_get_enable,
 		mpu3050_attr_set_enable),
 };
@@ -721,7 +721,7 @@ static int __devinit mpu3050_probe(struct i2c_client *client,
 	idev->open = mpu3050_input_open;
 	idev->close = mpu3050_input_close;
 
-	__set_bit(EV_ABS, idev->evbit);
+	input_set_capability(idev, EV_ABS, ABS_MISC);
 	input_set_abs_params(idev, ABS_X,
 			     MPU3050_MIN_VALUE, MPU3050_MAX_VALUE, 0, 0);
 	input_set_abs_params(idev, ABS_Y,
