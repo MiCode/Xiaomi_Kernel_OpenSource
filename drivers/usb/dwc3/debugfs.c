@@ -693,9 +693,10 @@ static int dwc3_ep_req_list_show(struct seq_file *s, void *unused)
 	list_for_each(ptr, &dep->request_list) {
 		req = list_entry(ptr, struct dwc3_request, list);
 
-		seq_printf(s, "req:0x%p len: %d sts: %d dma:0x%x num_sgs: %d\n",
+		seq_printf(s,
+			"req:0x%p len: %d sts: %d dma:0x%pa num_sgs: %d\n",
 			req, req->request.length, req->request.status,
-			req->request.dma, req->request.num_sgs);
+			&req->request.dma, req->request.num_sgs);
 	}
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
@@ -731,9 +732,10 @@ static int dwc3_ep_queued_req_show(struct seq_file *s, void *unused)
 	list_for_each(ptr, &dep->req_queued) {
 		req = list_entry(ptr, struct dwc3_request, list);
 
-		seq_printf(s, "req:0x%p len:%d sts:%d dma:%x nsg:%d trb:0x%p\n",
+		seq_printf(s,
+			"req:0x%p len:%d sts:%d dma:%pa nsg:%d trb:0x%p\n",
 			req, req->request.length, req->request.status,
-			req->request.dma, req->request.num_sgs, req->trb);
+			&req->request.dma, req->request.num_sgs, req->trb);
 	}
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
