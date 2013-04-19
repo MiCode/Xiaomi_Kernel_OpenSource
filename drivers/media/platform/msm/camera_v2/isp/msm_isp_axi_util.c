@@ -892,6 +892,20 @@ static int msm_isp_init_stream_ping_pong_reg(
 	return rc;
 }
 
+static void msm_isp_deinit_stream_ping_pong_reg(
+	struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info)
+{
+	int i;
+	for (i = 0; i < 2; i++) {
+		struct msm_isp_buffer *buf;
+		buf = stream_info->buf[i];
+		if (buf)
+			vfe_dev->buf_mgr->ops->put_buf(vfe_dev->buf_mgr,
+				buf->bufq_handle, buf->buf_idx);
+	}
+}
+
 static void msm_isp_get_stream_wm_mask(
 	struct msm_vfe_axi_stream *stream_info,
 	uint32_t *wm_reload_mask)
@@ -977,6 +991,12 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, DISABLE_CAMIF);
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
+
+	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		stream_info = &axi_data->stream_info[
+			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
+		msm_isp_deinit_stream_ping_pong_reg(vfe_dev, stream_info);
+	}
 	return rc;
 }
 

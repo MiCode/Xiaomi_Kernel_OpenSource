@@ -256,6 +256,13 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 				buf_info->state ==
 					MSM_ISP_BUFFER_STATE_INITIALIZED)
 			continue;
+
+		if (!BUF_SRC(bufq->stream_id)) {
+			if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED ||
+			buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED)
+				buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
+					bufq->session_id, bufq->stream_id);
+		}
 		msm_isp_unprepare_v4l2_buf(buf_mgr, buf_info);
 	}
 	return 0;
@@ -378,7 +385,6 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 	switch (buf_info->state) {
 	case MSM_ISP_BUFFER_STATE_PREPARED:
 	case MSM_ISP_BUFFER_STATE_DEQUEUED:
-	case MSM_ISP_BUFFER_STATE_DISPATCHED:
 	case MSM_ISP_BUFFER_STATE_DIVERTED:
 		if (BUF_SRC(bufq->stream_id))
 			list_add_tail(&buf_info->list, &bufq->head);
@@ -386,6 +392,13 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 			buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
 				bufq->session_id, bufq->stream_id);
 		buf_info->state = MSM_ISP_BUFFER_STATE_QUEUED;
+		rc = 0;
+		break;
+	case MSM_ISP_BUFFER_STATE_DISPATCHED:
+		buf_info->state = MSM_ISP_BUFFER_STATE_QUEUED;
+		rc = 0;
+		break;
+	case MSM_ISP_BUFFER_STATE_QUEUED:
 		rc = 0;
 		break;
 	default:
