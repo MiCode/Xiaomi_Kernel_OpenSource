@@ -131,3 +131,7 @@
 &krait_pdn {
 	qcom,use-phase-switching;
 };
+
+&tspp {
+	vdd_cx-supply = <&pm8841_s2_corner>;
+};
