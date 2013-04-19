@@ -727,6 +727,11 @@
 		      <0xfc346000 0x1000>;
 		reg-names = "etm-base","debug-base";
 	};
+
+	qcom,tz-log@fe805720 {
+		compatible = "qcom,tz-log";
+		reg = <0x0fe805720 0x1000>;
+	};
 };
 
 &gdsc_vfe {
