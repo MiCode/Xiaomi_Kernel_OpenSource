@@ -2782,7 +2782,7 @@ static unsigned int adreno_isidle(struct kgsl_device *device)
 	if (device->state == KGSL_STATE_ACTIVE) {
 		/* Is the ring buffer is empty? */
 		GSL_RB_GET_READPTR(rb, &rb->rptr);
-		if (!device->active_cnt && (rb->rptr == rb->wptr)) {
+		if (rb->rptr == rb->wptr) {
 			/*
 			 * Are there interrupts pending? If so then pretend we
 			 * are not idle - this avoids the possiblity that we go
@@ -3596,15 +3596,20 @@ static void adreno_power_stats(struct kgsl_device *device,
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	unsigned int cycles;
+	unsigned int cycles = 0;
 
-	/* Get the busy cycles counted since the counter was last reset */
-	/* Calling this function also resets and restarts the counter */
+	/*
+	 * Get the busy cycles counted since the counter was last reset.
+	 * If we're not currently active, there shouldn't have been
+	 * any cycles since the last time this function was called.
+	 */
+	if (device->state == KGSL_STATE_ACTIVE)
+		cycles = adreno_dev->gpudev->busy_cycles(adreno_dev);
 
-	cycles = adreno_dev->gpudev->busy_cycles(adreno_dev);
-
-	/* In order to calculate idle you have to have run the algorithm *
-	 * at least once to get a start time. */
+	/*
+	 * In order to calculate idle you have to have run the algorithm
+	 * at least once to get a start time.
+	 */
 	if (pwr->time != 0) {
 		s64 tmp = ktime_to_us(ktime_get());
 		stats->total_time = tmp - pwr->time;

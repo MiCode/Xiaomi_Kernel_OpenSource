@@ -51,6 +51,7 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	void (*cb)(struct kgsl_device *, void *, u32, u32), void *priv,
 	void *owner)
 {
+	int ret;
 	struct kgsl_event *event;
 	unsigned int cur_ts;
 	struct kgsl_context *context = NULL;
@@ -82,6 +83,16 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 	if (event == NULL)
 		return -ENOMEM;
 
+	/*
+	 * Increase the active count on the device to avoid going into power
+	 * saving modes while events are pending
+	 */
+	ret = kgsl_active_count_get_light(device);
+	if (ret < 0) {
+		kfree(event);
+		return ret;
+	}
+
 	event->context = context;
 	event->timestamp = ts;
 	event->priv = priv;
@@ -111,13 +122,6 @@ int kgsl_add_event(struct kgsl_device *device, u32 id, u32 ts,
 
 	} else
 		_add_event_to_list(&device->events, event);
-
-	/*
-	 * Increase the active count on the device to avoid going into power
-	 * saving modes while events are pending
-	 */
-
-	device->active_cnt++;
 
 	queue_work(device->work_queue, &device->ts_expired_ws);
 	return 0;
