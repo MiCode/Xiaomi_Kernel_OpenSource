@@ -19,9 +19,6 @@ Optional properties:
 - qcom,system-load:            Load in uA present on regulator that is not
 				captured by any consumer request
 - qcom,enable-time:            Time in us to delay after enabling the regulator
-- qcom,ocp-enable-time:        Time to delay in us between enabling a switch and
-				subsequently enabling over current protection
-				(OCP) for the switch
 - qcom,auto-mode-enable:       1 = Enable automatic hardware selection of
 				regulator mode (HPM vs LPM); not available on
 				boost type regulators
@@ -30,10 +27,11 @@ Optional properties:
 				so that it acts like a switch and simply outputs
 				its input voltage
 			       0 = Do not enable bypass mode
-- qcom,ocp-enable:             1 = Enable over current protection (OCP) for
-				voltage switch type regulators so that they
-				latch off automatically when over current is
-				detected
+- qcom,ocp-enable:             1 = Allow over current protection (OCP) to be
+				enabled for voltage switch type regulators so
+				that they latch off automatically when over
+				current is detected.  OCP is enabled when in
+				HPM or auto mode.
 			       0 = Disable OCP
 - qcom,pull-down-enable:       1 = Enable output pull down resistor when the
 				regulator is disabled

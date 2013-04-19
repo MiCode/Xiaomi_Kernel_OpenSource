@@ -156,9 +156,8 @@ enum qpnp_common_control_register_index {
 #define QPNP_LDO_SOFT_START_ENABLE_MASK		0x80
 
 /* VS regulator over current protection control register layout */
-#define QPNP_VS_OCP_ENABLE_MASK			0x80
-#define QPNP_VS_OCP_OVERRIDE_MASK		0x01
-#define QPNP_VS_OCP_DISABLE			0x00
+#define QPNP_VS_OCP_OVERRIDE			0x01
+#define QPNP_VS_OCP_NO_OVERRIDE			0x00
 
 /* VS regulator soft start control register layout */
 #define QPNP_VS_SOFT_START_ENABLE_MASK		0x80
@@ -208,7 +207,6 @@ struct qpnp_regulator {
 	struct qpnp_voltage_set_points		*set_points;
 	enum qpnp_regulator_logical_type	logical_type;
 	int					enable_time;
-	int					ocp_enable_time;
 	int					ocp_enable;
 	int					system_load;
 	int					hpm_min_load;
@@ -494,40 +492,6 @@ static int qpnp_regulator_common_enable(struct regulator_dev *rdev)
 		vreg_err(vreg, "qpnp_vreg_masked_write failed, rc=%d\n", rc);
 	else
 		qpnp_vreg_show_state(rdev, QPNP_REGULATOR_ACTION_ENABLE);
-
-	return rc;
-}
-
-static int qpnp_regulator_vs_enable(struct regulator_dev *rdev)
-{
-	struct qpnp_regulator *vreg = rdev_get_drvdata(rdev);
-	int rc;
-	u8 reg;
-
-	if (vreg->ocp_enable == QPNP_REGULATOR_ENABLE) {
-		/* Disable OCP */
-		reg = QPNP_VS_OCP_DISABLE;
-		rc = qpnp_vreg_write(vreg, QPNP_VS_REG_OCP, &reg, 1);
-		if (rc)
-			goto fail;
-	}
-
-	rc = qpnp_regulator_common_enable(rdev);
-	if (rc)
-		goto fail;
-
-	if (vreg->ocp_enable == QPNP_REGULATOR_ENABLE) {
-		/* Wait for inrush current to subsided, then enable OCP. */
-		udelay(vreg->ocp_enable_time);
-		reg = QPNP_VS_OCP_ENABLE_MASK;
-		rc = qpnp_vreg_write(vreg, QPNP_VS_REG_OCP, &reg, 1);
-		if (rc)
-			goto fail;
-	}
-
-	return rc;
-fail:
-	vreg_err(vreg, "qpnp_vreg_write failed, rc=%d\n", rc);
 
 	return rc;
 }
@@ -953,7 +917,7 @@ static struct regulator_ops qpnp_ldo_ops = {
 };
 
 static struct regulator_ops qpnp_vs_ops = {
-	.enable			= qpnp_regulator_vs_enable,
+	.enable			= qpnp_regulator_common_enable,
 	.disable		= qpnp_regulator_common_disable,
 	.is_enabled		= qpnp_regulator_common_is_enabled,
 	.enable_time		= qpnp_regulator_common_enable_time,
@@ -1236,7 +1200,8 @@ static int qpnp_regulator_init_registers(struct qpnp_regulator *vreg,
 		}
 
 		if (pdata->ocp_enable != QPNP_REGULATOR_USE_HW_DEFAULT) {
-			reg = pdata->ocp_enable ? QPNP_VS_OCP_ENABLE_MASK : 0;
+			reg = pdata->ocp_enable ? QPNP_VS_OCP_NO_OVERRIDE
+						: QPNP_VS_OCP_OVERRIDE;
 			rc = qpnp_vreg_write(vreg, QPNP_VS_REG_OCP, &reg, 1);
 			if (rc) {
 				vreg_err(vreg, "spmi write failed, rc=%d\n",
@@ -1303,8 +1268,6 @@ static int qpnp_regulator_get_dt_config(struct spmi_device *spmi,
 		&pdata->vs_soft_start_strength);
 	of_property_read_u32(node, "qcom,system-load", &pdata->system_load);
 	of_property_read_u32(node, "qcom,enable-time", &pdata->enable_time);
-	of_property_read_u32(node, "qcom,ocp-enable-time",
-		&pdata->ocp_enable_time);
 
 	return rc;
 }
@@ -1378,7 +1341,6 @@ static int __devinit qpnp_regulator_probe(struct spmi_device *spmi)
 	vreg->enable_time	= pdata->enable_time;
 	vreg->system_load	= pdata->system_load;
 	vreg->ocp_enable	= pdata->ocp_enable;
-	vreg->ocp_enable_time	= pdata->ocp_enable_time;
 
 	rdesc			= &vreg->rdesc;
 	rdesc->id		= spmi->ctrl->nr;
