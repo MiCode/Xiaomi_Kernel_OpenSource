@@ -1735,10 +1735,36 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	return ret;
 }
 
-static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
+void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	int i, j;
+
+	if (mmu->fault) {
+		for (i = 0; i < iommu->unit_count; i++) {
+			struct kgsl_iommu_unit *iommu_unit =
+						&iommu->iommu_units[i];
+			for (j = 0; j < iommu_unit->dev_count; j++) {
+				if (iommu_unit->dev[j].fault) {
+					kgsl_iommu_enable_clk(mmu, j);
+					_iommu_lock();
+					KGSL_IOMMU_SET_CTX_REG(iommu,
+						iommu_unit,
+						iommu_unit->dev[j].ctx_id,
+						RESUME, 1);
+					_iommu_unlock();
+					iommu_unit->dev[j].fault = 0;
+				}
+			}
+		}
+		mmu->fault = 0;
+	}
+}
+
+
+static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
 	/*
 	 *  stop device mmu
 	 *
@@ -1751,25 +1777,7 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 
 		mmu->flags &= ~KGSL_FLAGS_STARTED;
 
-		if (mmu->fault) {
-			for (i = 0; i < iommu->unit_count; i++) {
-				struct kgsl_iommu_unit *iommu_unit =
-					&iommu->iommu_units[i];
-				for (j = 0; j < iommu_unit->dev_count; j++) {
-					if (iommu_unit->dev[j].fault) {
-						kgsl_iommu_enable_clk(mmu, j);
-						_iommu_lock();
-						KGSL_IOMMU_SET_CTX_REG(iommu,
-						iommu_unit,
-						iommu_unit->dev[j].ctx_id,
-						RESUME, 1);
-						_iommu_unlock();
-						iommu_unit->dev[j].fault = 0;
-					}
-				}
-			}
-			mmu->fault = 0;
-		}
+		kgsl_iommu_pagefault_resume(mmu);
 	}
 	/* switch off MMU clocks and cancel any events it has queued */
 	iommu->clk_event_queued = false;
@@ -1987,6 +1995,7 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_setstate = kgsl_iommu_setstate,
 	.mmu_device_setstate = kgsl_iommu_default_setstate,
 	.mmu_pagefault = NULL,
+	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
 	.mmu_disable_clk_on_ts = kgsl_iommu_disable_clk_on_ts,
