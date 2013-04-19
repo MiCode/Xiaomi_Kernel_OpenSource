@@ -26,6 +26,63 @@
 #define MDP_VSYNC_CLK_RATE	19200000
 #define VSYNC_PERIOD 16
 
+static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd);
+
+static void mdp3_bufq_init(struct mdp3_buffer_queue *bufq)
+{
+	bufq->count = 0;
+	bufq->push_idx = 0;
+	bufq->pop_idx = 0;
+}
+
+static void mdp3_bufq_deinit(struct mdp3_buffer_queue *bufq)
+{
+	int count = bufq->count;
+
+	if (!count)
+		return;
+
+	while (count--) {
+		struct mdp3_img_data *data = &bufq->img_data[bufq->pop_idx];
+		bufq->pop_idx = (bufq->pop_idx + 1) % MDP3_MAX_BUF_QUEUE;
+		mdp3_put_img(data);
+	}
+	bufq->count = 0;
+	bufq->push_idx = 0;
+	bufq->pop_idx = 0;
+}
+
+static int mdp3_bufq_push(struct mdp3_buffer_queue *bufq,
+			struct mdp3_img_data *data)
+{
+	if (bufq->count >= MDP3_MAX_BUF_QUEUE) {
+		pr_err("bufq full\n");
+		return -EPERM;
+	}
+
+	bufq->img_data[bufq->push_idx] = *data;
+	bufq->push_idx = (bufq->push_idx + 1) % MDP3_MAX_BUF_QUEUE;
+	bufq->count++;
+	return 0;
+}
+
+static struct mdp3_img_data *mdp3_bufq_pop(struct mdp3_buffer_queue *bufq)
+{
+	struct mdp3_img_data *data;
+	if (bufq->count == 0)
+		return NULL;
+
+	data = &bufq->img_data[bufq->pop_idx];
+	bufq->count--;
+	bufq->pop_idx = (bufq->pop_idx + 1) % MDP3_MAX_BUF_QUEUE;
+	return data;
+}
+
+static int mdp3_bufq_count(struct mdp3_buffer_queue *bufq)
+{
+	return bufq->count;
+}
+
 void vsync_notify_handler(void *arg)
 {
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
@@ -409,6 +466,148 @@ off_error:
 	return 0;
 }
 
+static int mdp3_overlay_get(struct msm_fb_data_type *mfd,
+				struct mdp_overlay *req)
+{
+	int rc = 0;
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+
+	mutex_lock(&mdp3_session->lock);
+
+	if (mdp3_session->overlay.id == req->id)
+		*req = mdp3_session->overlay;
+	else
+		rc = -EINVAL;
+
+	mutex_unlock(&mdp3_session->lock);
+
+	return rc;
+}
+
+static int mdp3_overlay_set(struct msm_fb_data_type *mfd,
+				struct mdp_overlay *req)
+{
+	int rc = 0;
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+
+	mutex_lock(&mdp3_session->lock);
+
+	if (mdp3_session->overlay.id == req->id) {
+		mdp3_session->overlay = *req;
+		if (req->id == MSMFB_NEW_REQUEST) {
+			mdp3_session->overlay.id = 1;
+			req->id = 1;
+		}
+	} else {
+		rc = -EINVAL;
+	}
+	mutex_unlock(&mdp3_session->lock);
+
+	return rc;
+}
+
+static int mdp3_overlay_unset(struct msm_fb_data_type *mfd, int ndx)
+{
+	int rc = 0;
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+
+	mdp3_ctrl_pan_display(mfd);
+
+	mutex_lock(&mdp3_session->lock);
+
+	if (mdp3_session->overlay.id == ndx && ndx == 1) {
+		mdp3_session->overlay.id = MSMFB_NEW_REQUEST;
+		mdp3_bufq_deinit(&mdp3_session->bufq_in);
+		mdp3_bufq_deinit(&mdp3_session->bufq_out);
+	} else {
+		rc = -EINVAL;
+	}
+
+	mutex_unlock(&mdp3_session->lock);
+
+	return rc;
+}
+
+static int mdp3_overlay_queue_buffer(struct msm_fb_data_type *mfd,
+					struct msmfb_overlay_data *req)
+{
+	int rc;
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	struct msmfb_data *img = &req->data;
+	struct mdp3_img_data data;
+
+	rc = mdp3_get_img(img, &data);
+	if (rc) {
+		pr_err("fail to get overlay buffer\n");
+		return rc;
+	}
+
+	rc = mdp3_bufq_push(&mdp3_session->bufq_in, &data);
+	if (rc) {
+		pr_err("fail to queue the overlay buffer, buffer drop\n");
+		mdp3_put_img(&data);
+		return rc;
+	}
+	return 0;
+}
+
+static int mdp3_overlay_play(struct msm_fb_data_type *mfd,
+				 struct msmfb_overlay_data *req)
+{
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	int rc = 0;
+
+	pr_debug("mdp3_overlay_play req id=%x mem_id=%d\n",
+		req->id, req->data.memory_id);
+
+	mutex_lock(&mdp3_session->lock);
+
+	if (mfd->panel_power_on)
+		rc = mdp3_overlay_queue_buffer(mfd, req);
+	else
+		rc = -EPERM;
+
+	mutex_unlock(&mdp3_session->lock);
+
+	return rc;
+}
+
+static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd)
+{
+	struct mdp3_session_data *mdp3_session;
+	struct mdp3_img_data *data;
+	int rc = 0;
+
+	if (!mfd || !mfd->mdp.private1)
+		return -EINVAL;
+
+	mdp3_session = mfd->mdp.private1;
+	if (!mdp3_session || !mdp3_session->dma)
+		return -EINVAL;
+
+	if (!mdp3_session->status) {
+		pr_err("%s, display off!\n", __func__);
+		return -EPERM;
+	}
+
+	mutex_lock(&mdp3_session->lock);
+
+	data = mdp3_bufq_pop(&mdp3_session->bufq_in);
+	if (data) {
+		mdp3_session->dma->update(mdp3_session->dma,
+			(void *)data->addr);
+		mdp3_bufq_push(&mdp3_session->bufq_out, data);
+	}
+
+	if (mdp3_bufq_count(&mdp3_session->bufq_out) > 1) {
+		data = mdp3_bufq_pop(&mdp3_session->bufq_out);
+		mdp3_put_img(data);
+	}
+
+	mutex_unlock(&mdp3_session->lock);
+	return rc;
+}
+
 static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 {
 	struct fb_info *fbi;
@@ -459,6 +658,9 @@ static int mdp3_get_metadata(struct msm_fb_data_type *mfd,
 		break;
 	case metadata_op_get_caps:
 		metadata->data.caps.mdp_rev = 304;
+		metadata->data.caps.rgb_pipes = 0;
+		metadata->data.caps.vig_pipes = 0;
+		metadata->data.caps.dma_pipes = 1;
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");
@@ -474,6 +676,8 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 	int rc = -EINVAL;
 	struct mdp3_session_data *mdp3_session;
 	struct msmfb_metadata metadata;
+	struct mdp_overlay req;
+	struct msmfb_overlay_data ov_data;
 	int val;
 
 	pr_debug("mdp3_ctrl_ioctl_handler\n");
@@ -505,10 +709,42 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 		if (!rc)
 			rc = copy_to_user(argp, &metadata, sizeof(metadata));
 		break;
+	case MSMFB_OVERLAY_GET:
+		rc = copy_from_user(&req, argp, sizeof(req));
+		if (!rc) {
+			rc = mdp3_overlay_get(mfd, &req);
+
+		if (!IS_ERR_VALUE(rc))
+			rc = copy_to_user(argp, &req, sizeof(req));
+		}
+		if (rc)
+			pr_err("OVERLAY_GET failed (%d)\n", rc);
+		break;
+	case MSMFB_OVERLAY_SET:
+		rc = copy_from_user(&req, argp, sizeof(req));
+		if (!rc) {
+			rc = mdp3_overlay_set(mfd, &req);
+
+		if (!IS_ERR_VALUE(rc))
+			rc = copy_to_user(argp, &req, sizeof(req));
+		}
+		if (rc)
+			pr_err("OVERLAY_SET failed (%d)\n", rc);
+		break;
+	case MSMFB_OVERLAY_UNSET:
+		if (!IS_ERR_VALUE(copy_from_user(&val, argp, sizeof(val))))
+			rc = mdp3_overlay_unset(mfd, val);
+		break;
+	case MSMFB_OVERLAY_PLAY:
+		rc = copy_from_user(&ov_data, argp, sizeof(ov_data));
+		if (!rc)
+			rc = mdp3_overlay_play(mfd, &ov_data);
+		if (rc)
+			pr_err("OVERLAY_PLAY failed (%d)\n", rc);
+		break;
 	default:
 		break;
 	}
-
 	return rc;
 }
 
@@ -527,7 +763,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mdp3_interface->cursor_update = NULL;
 	mdp3_interface->dma_fnc = mdp3_ctrl_pan_display;
 	mdp3_interface->ioctl_handler = mdp3_ctrl_ioctl_handler;
-	mdp3_interface->kickoff_fnc = NULL;
+	mdp3_interface->kickoff_fnc = mdp3_ctrl_display_commit_kickoff;
 
 	mdp3_session = kmalloc(sizeof(struct mdp3_session_data), GFP_KERNEL);
 	if (!mdp3_session) {
@@ -553,6 +789,10 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 
 	mdp3_session->panel = dev_get_platdata(&mfd->pdev->dev);
 	mdp3_session->status = 0;
+	mdp3_session->overlay.id = MSMFB_NEW_REQUEST;
+	mdp3_bufq_init(&mdp3_session->bufq_in);
+	mdp3_bufq_init(&mdp3_session->bufq_out);
+
 	mfd->mdp.private1 = mdp3_session;
 
 	rc = sysfs_create_group(&dev->kobj, &vsync_fs_attr_group);
