@@ -728,7 +728,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	struct v4l2_ctrl *ctrl = NULL;
 	u32 extradata = 0;
 	if (!q || !q->drv_priv) {
-		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
+		dprintk(VIDC_ERR, "Invalid input\n");
 		return -EINVAL;
 	}
 	inst = q->drv_priv;

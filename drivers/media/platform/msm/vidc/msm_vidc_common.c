@@ -1668,6 +1668,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 			core->state == VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR,
 				"Core is in bad state can't change the state");
+		rc = -EINVAL;
 		goto exit;
 	}
 	flipped_state = get_flipped_state(inst->state, state);
@@ -1901,8 +1902,14 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;
 	}
-	hdev = inst->core->device;
 
+	if (inst->state == MSM_VIDC_CORE_INVALID ||
+			inst->core->state == VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR,
+				"Core is in bad state can't query get_bufreqs()");
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
 	mutex_lock(&inst->sync_lock);
 	if (inst->state < MSM_VIDC_OPEN_DONE || inst->state >= MSM_VIDC_CLOSE) {
 		dprintk(VIDC_ERR,
