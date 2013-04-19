@@ -1386,12 +1386,11 @@ static void notify_all(int event, unsigned long data)
 	struct list_head *temp;
 	struct outside_notify_func *func;
 
+	BAM_DMUX_LOG("%s: event=%d, data=%lu\n", __func__, event, data);
+
 	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
-		if (bam_ch_is_open(i)) {
+		if (bam_ch_is_open(i))
 			bam_ch[i].notify(bam_ch[i].priv, event, data);
-			BAM_DMUX_LOG("%s: cid=%d, event=%d, data=%lu\n",
-					__func__, i, event, data);
-		}
 	}
 
 	__list_for_each(temp, &bam_other_notify_funcs) {
