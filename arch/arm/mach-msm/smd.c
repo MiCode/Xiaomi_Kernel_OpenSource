@@ -76,6 +76,7 @@
 #define SMSM_SNAPSHOT_CNT 64
 #define SMSM_SNAPSHOT_SIZE ((SMSM_NUM_ENTRIES + 1) * 4)
 #define RSPIN_INIT_WAIT_MS 1000
+#define SMD_FIFO_FULL_RESERVE 4
 
 uint32_t SMSM_NUM_ENTRIES = 8;
 uint32_t SMSM_NUM_HOSTS = 3;
@@ -1053,8 +1054,16 @@ static int smd_stream_read_avail(struct smd_channel *ch)
 /* how many bytes we are free to write */
 static int smd_stream_write_avail(struct smd_channel *ch)
 {
-	return ch->fifo_mask - ((ch->half_ch->get_head(ch->send) -
-			ch->half_ch->get_tail(ch->send)) & ch->fifo_mask);
+	int bytes_avail;
+
+	bytes_avail = ch->fifo_mask - ((ch->half_ch->get_head(ch->send) -
+			ch->half_ch->get_tail(ch->send)) & ch->fifo_mask) + 1;
+
+	if (bytes_avail < SMD_FIFO_FULL_RESERVE)
+		bytes_avail = 0;
+	else
+		bytes_avail -= SMD_FIFO_FULL_RESERVE;
+	return bytes_avail;
 }
 
 static int smd_packet_read_avail(struct smd_channel *ch)
@@ -1176,7 +1185,18 @@ static void update_packet_state(struct smd_channel *ch)
 	}
 }
 
-/* provide a pointer and length to next free space in the fifo */
+/**
+ * ch_write_buffer() - Provide a pointer and length for the next segment of
+ * free space in the FIFO.
+ * @ch: channel
+ * @ptr: Address to pointer for the next segment write
+ * @returns: Maximum size that can be written until the FIFO is either full
+ *           or the end of the FIFO has been reached.
+ *
+ * The returned pointer and length are passed to memcpy, so the next segment is
+ * defined as either the space available between the read index (tail) and the
+ * write index (head) or the space available to the end of the FIFO.
+ */
 static unsigned ch_write_buffer(struct smd_channel *ch, void **ptr)
 {
 	unsigned head = ch->half_ch->get_head(ch->send);
@@ -1184,10 +1204,11 @@ static unsigned ch_write_buffer(struct smd_channel *ch, void **ptr)
 	*ptr = (void *) (ch->send_data + head);
 
 	if (head < tail) {
-		return tail - head - 1;
+		return tail - head - SMD_FIFO_FULL_RESERVE;
 	} else {
-		if (tail == 0)
-			return ch->fifo_size - head - 1;
+		if (tail < SMD_FIFO_FULL_RESERVE)
+			return ch->fifo_size + tail - head
+					- SMD_FIFO_FULL_RESERVE;
 		else
 			return ch->fifo_size - head;
 	}
