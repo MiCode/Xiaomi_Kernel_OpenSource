@@ -281,13 +281,16 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 		list_for_each_entry(temp_buf_info,
 			&bufq->share_head, share_list) {
 			if (!temp_buf_info->buf_used[id]) {
-				*buf_info = temp_buf_info;
 				temp_buf_info->buf_used[id] = 1;
 				temp_buf_info->buf_get_count++;
 				if (temp_buf_info->buf_get_count ==
 					bufq->buf_client_count)
 					list_del_init(
 					&temp_buf_info->share_list);
+				if (temp_buf_info->buf_reuse_flag)
+					kfree(temp_buf_info);
+				else
+					*buf_info = temp_buf_info;
 				spin_unlock_irqrestore(
 					&bufq->bufq_lock, flags);
 				return 0;
@@ -322,21 +325,30 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	}
 
 	if (!(*buf_info)) {
-		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
-		return rc;
-	}
-
-	(*buf_info)->state = MSM_ISP_BUFFER_STATE_DEQUEUED;
-	if (bufq->buf_type == ISP_SHARE_BUF) {
-		memset((*buf_info)->buf_used, 0,
-			   sizeof(uint8_t) * bufq->buf_client_count);
-		(*buf_info)->buf_used[id] = 1;
-		(*buf_info)->buf_get_count = 1;
-		(*buf_info)->buf_put_count = 0;
-		list_add_tail(&(*buf_info)->share_list, &bufq->share_head);
+		if (bufq->buf_type == ISP_SHARE_BUF) {
+			temp_buf_info = kzalloc(
+			   sizeof(struct msm_isp_buffer), GFP_ATOMIC);
+			temp_buf_info->buf_reuse_flag = 1;
+			temp_buf_info->buf_used[id] = 1;
+			temp_buf_info->buf_get_count = 1;
+			list_add_tail(&temp_buf_info->share_list,
+						  &bufq->share_head);
+		}
+	} else {
+		(*buf_info)->state = MSM_ISP_BUFFER_STATE_DEQUEUED;
+		if (bufq->buf_type == ISP_SHARE_BUF) {
+			memset((*buf_info)->buf_used, 0,
+				   sizeof(uint8_t) * bufq->buf_client_count);
+			(*buf_info)->buf_used[id] = 1;
+			(*buf_info)->buf_get_count = 1;
+			(*buf_info)->buf_put_count = 0;
+			list_add_tail(&(*buf_info)->share_list,
+						  &bufq->share_head);
+		}
+		rc = 0;
 	}
 	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
-	return 0;
+	return rc;
 }
 
 static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
