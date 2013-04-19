@@ -22,6 +22,7 @@
 #include <mach/iommu_domains.h>
 
 #include "mdp3_dma.h"
+#include "mdss_fb.h"
 
 enum  {
 	MDP3_CLK_AHB,
@@ -104,6 +105,15 @@ struct mdp3_hw_resource {
 	struct mdp3_intr_cb callbacks[MDP3_MAX_INTR];
 };
 
+struct mdp3_img_data {
+	u32 addr;
+	u32 len;
+	u32 flags;
+	int p_need;
+	struct file *srcp_file;
+	struct ion_handle *srcp_ihdl;
+};
+
 extern struct mdp3_hw_resource *mdp3_res;
 
 struct mdp3_dma *mdp3_get_dma_pipe(int capability);
@@ -115,6 +125,8 @@ int mdp3_set_intr_callback(u32 type, struct mdp3_intr_cb *cb);
 int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate);
 int mdp3_clk_enable(int enable);
 int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
+int mdp3_put_img(struct mdp3_img_data *data);
+int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
