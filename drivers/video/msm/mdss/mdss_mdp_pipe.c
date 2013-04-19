@@ -331,14 +331,16 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx)
 	mutex_lock(&mdss_mdp_sspp_lock);
 
 	pipe = mdss_mdp_pipe_search(mdata, ndx);
-	if (!pipe)
-		return ERR_PTR(-EINVAL);
+	if (!pipe) {
+		pipe = ERR_PTR(-EINVAL);
+		goto error;
+	}
 
 	if (mdss_mdp_pipe_map(pipe))
-		return ERR_PTR(-EACCES);
+		pipe = ERR_PTR(-EACCES);
 
+error:
 	mutex_unlock(&mdss_mdp_sspp_lock);
-
 	return pipe;
 }
 
