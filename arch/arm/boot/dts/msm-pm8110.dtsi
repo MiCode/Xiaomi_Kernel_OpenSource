@@ -116,6 +116,66 @@
 			};
 		};
 
+		pm8110_gpios: gpios {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8110-gpio";
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+			};
+		};
+
+		pm8110_mpps: mpps {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8110-mpp";
+
+			mpp@a000 {
+				reg = <0xa000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			mpp@a100 {
+				reg = <0xa100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			mpp@a200 {
+				reg = <0xa200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			mpp@a300 {
+				reg = <0xa300 0x100>;
+				qcom,pin-num = <4>;
+			};
+		};
+
 		pm8110_vadc: vadc@3100 {
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
