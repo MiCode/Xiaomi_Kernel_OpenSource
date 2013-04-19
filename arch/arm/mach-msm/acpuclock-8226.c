@@ -26,12 +26,13 @@
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
 #include <mach/rpm-regulator-smd.h>
+#include <mach/socinfo.h>
 
 #include "acpuclock-cortex.h"
 
 #define RCG_CONFIG_UPDATE_BIT		BIT(0)
 
-static struct msm_bus_paths bw_level_tbl[] = {
+static struct msm_bus_paths bw_level_tbl_8226[] = {
 	[0] =  BW_MBPS(152), /* At least 19 MHz on bus. */
 	[1] =  BW_MBPS(300), /* At least 37.5 MHz on bus. */
 	[2] =  BW_MBPS(400), /* At least 50 MHz on bus. */
@@ -42,9 +43,18 @@ static struct msm_bus_paths bw_level_tbl[] = {
 	[7] = BW_MBPS(4264), /* At least 533 MHz on bus. */
 };
 
+static struct msm_bus_paths bw_level_tbl_8610[] = {
+	[0] =  BW_MBPS(152), /* At least 19 MHz on bus. */
+	[1] =  BW_MBPS(300), /* At least 37.5 MHz on bus. */
+	[2] =  BW_MBPS(400), /* At least 50 MHz on bus. */
+	[3] =  BW_MBPS(800), /* At least 100 MHz on bus. */
+	[4] = BW_MBPS(1600), /* At least 200 MHz on bus. */
+	[5] = BW_MBPS(2128), /* At least 266 MHz on bus. */
+};
+
 static struct msm_bus_scale_pdata bus_client_pdata = {
-	.usecase = bw_level_tbl,
-	.num_usecases = ARRAY_SIZE(bw_level_tbl),
+	.usecase = bw_level_tbl_8226,
+	.num_usecases = ARRAY_SIZE(bw_level_tbl_8226),
 	.active_only = 1,
 	.name = "acpuclock",
 };
@@ -54,7 +64,7 @@ static struct msm_bus_scale_pdata bus_client_pdata = {
  * 2) Update bus bandwidth
  * 3) Depending on Frodo version, may need minimum of LVL_NOM
  */
-static struct clkctl_acpu_speed acpu_freq_tbl[] = {
+static struct clkctl_acpu_speed acpu_freq_tbl_8226[] = {
 	{ 0,   19200, CXO,     0, 0,   CPR_CORNER_SVS,   1150000, 0 },
 	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,   1150000, 4 },
 	{ 1,  384000, ACPUPLL, 5, 0,   CPR_CORNER_SVS,   1150000, 4 },
@@ -65,8 +75,19 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 0 }
 };
 
+static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
+	{ 0,   19200, CXO,     0, 0,   CPR_CORNER_SVS,   1150000, 0 },
+	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_SVS,   1150000, 3 },
+	{ 1,  384000, ACPUPLL, 5, 0,   CPR_CORNER_SVS,   1150000, 3 },
+	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_NORMAL,   1150000, 4 },
+	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_NORMAL,   1150000, 4 },
+	{ 0,  998400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,   1275000, 5 },
+	{ 0, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_TURBO,   1275000, 5 },
+	{ 0 }
+};
+
 static struct acpuclk_drv_data drv_data = {
-	.freq_tbl = acpu_freq_tbl,
+	.freq_tbl = acpu_freq_tbl_8226,
 	.current_speed = &(struct clkctl_acpu_speed){ 0 },
 	.bus_scale = &bus_client_pdata,
 	.vdd_max_cpu = CPR_CORNER_TURBO,
@@ -146,8 +167,18 @@ static struct platform_driver acpuclk_a7_driver = {
 	},
 };
 
+void msm8610_acpu_init(void)
+{
+	drv_data.bus_scale->usecase = bw_level_tbl_8610;
+	drv_data.bus_scale->num_usecases = ARRAY_SIZE(bw_level_tbl_8610);
+	drv_data.freq_tbl = acpu_freq_tbl_8610;
+}
+
 static int __init acpuclk_a7_init(void)
 {
+	if (cpu_is_msm8610())
+		msm8610_acpu_init();
+
 	return platform_driver_probe(&acpuclk_a7_driver, acpuclk_a7_probe);
 }
 device_initcall(acpuclk_a7_init);
