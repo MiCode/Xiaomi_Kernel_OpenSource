@@ -35,6 +35,7 @@
 #define P_FRAME_QP 28
 #define B_FRAME_QP 30
 #define MAX_INTRA_REFRESH_MBS 300
+#define MAX_NUM_B_FRAMES 4
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 #define CODING V4L2_MPEG_VIDEO_MPEG4_PROFILE_ADVANCED_CODING_EFFICIENCY
 
@@ -1237,11 +1238,24 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES);
-
-		property_id =
-			HAL_CONFIG_VENC_INTRA_PERIOD;
 		intra_period.bframes = ctrl->val;
 		intra_period.pframes = temp_ctrl->val;
+		if (intra_period.bframes) {
+			u32 max_num_b_frames = MAX_NUM_B_FRAMES;
+			property_id =
+				HAL_PARAM_VENC_MAX_NUM_B_FRAMES;
+			pdata = &max_num_b_frames;
+			rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session, property_id, pdata);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed : Setprop MAX_NUM_B_FRAMES"
+					"%d", rc);
+				break;
+			}
+		}
+		property_id =
+			HAL_CONFIG_VENC_INTRA_PERIOD;
 		pdata = &intra_period;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_IFRAME:
