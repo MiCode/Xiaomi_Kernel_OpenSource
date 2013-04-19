@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -834,7 +834,8 @@ static void qpnp_vreg_show_state(struct regulator_dev *rdev,
 
 	if (type == QPNP_REGULATOR_LOGICAL_TYPE_SMPS
 	    || type == QPNP_REGULATOR_LOGICAL_TYPE_LDO
-	    || type == QPNP_REGULATOR_LOGICAL_TYPE_FTSMPS) {
+	    || type == QPNP_REGULATOR_LOGICAL_TYPE_FTSMPS
+	    || type == QPNP_REGULATOR_LOGICAL_TYPE_VS) {
 		mode = qpnp_regulator_common_get_mode(rdev);
 		mode_label = mode == REGULATOR_MODE_NORMAL ? "HPM" : "LPM";
 	}
@@ -903,9 +904,9 @@ static void qpnp_vreg_show_state(struct regulator_dev *rdev,
 		pc_mode_label[1] =
 		     mode_reg & QPNP_COMMON_MODE_FOLLOW_AWAKE_MASK  ? 'W' : '_';
 
-		pr_info("%s %-11s: %s, pc_en=%s, alt_mode=%s\n",
+		pr_info("%s %-11s: %s, mode=%s, pc_en=%s, alt_mode=%s\n",
 			action_label, vreg->rdesc.name, enable_label,
-			pc_enable_label, pc_mode_label);
+			mode_label, pc_enable_label, pc_mode_label);
 		break;
 	case QPNP_REGULATOR_LOGICAL_TYPE_BOOST:
 		pr_info("%s %-11s: %s, v=%7d uV\n",
@@ -1099,6 +1100,17 @@ static int qpnp_regulator_init_registers(struct qpnp_regulator *vreg,
 		    pdata->pin_ctrl_enable & QPNP_COMMON_ENABLE_FOLLOW_ALL_MASK;
 	}
 
+	/* Set up HPM control. */
+	if ((type == QPNP_REGULATOR_LOGICAL_TYPE_SMPS
+	     || type == QPNP_REGULATOR_LOGICAL_TYPE_LDO
+	     || type == QPNP_REGULATOR_LOGICAL_TYPE_VS
+	     || type == QPNP_REGULATOR_LOGICAL_TYPE_FTSMPS)
+	    && (pdata->hpm_enable != QPNP_REGULATOR_USE_HW_DEFAULT)) {
+		ctrl_reg[QPNP_COMMON_IDX_MODE] &= ~QPNP_COMMON_MODE_HPM_MASK;
+		ctrl_reg[QPNP_COMMON_IDX_MODE] |=
+		     (pdata->hpm_enable ? QPNP_COMMON_MODE_HPM_MASK : 0);
+	}
+
 	/* Set up auto mode control. */
 	if ((type == QPNP_REGULATOR_LOGICAL_TYPE_SMPS
 	     || type == QPNP_REGULATOR_LOGICAL_TYPE_LDO
@@ -1269,6 +1281,7 @@ static int qpnp_regulator_get_dt_config(struct spmi_device *spmi,
 	pdata->pin_ctrl_enable	    = QPNP_REGULATOR_PIN_CTRL_ENABLE_HW_DEFAULT;
 	pdata->pin_ctrl_hpm	    = QPNP_REGULATOR_PIN_CTRL_HPM_HW_DEFAULT;
 	pdata->vs_soft_start_strength	= QPNP_VS_SOFT_START_STR_HW_DEFAULT;
+	pdata->hpm_enable		= QPNP_REGULATOR_USE_HW_DEFAULT;
 
 	/* These bindings are optional, so it is okay if they are not found. */
 	of_property_read_u32(node, "qcom,auto-mode-enable",
@@ -1285,6 +1298,7 @@ static int qpnp_regulator_get_dt_config(struct spmi_device *spmi,
 	of_property_read_u32(node, "qcom,pin-ctrl-enable",
 		&pdata->pin_ctrl_enable);
 	of_property_read_u32(node, "qcom,pin-ctrl-hpm", &pdata->pin_ctrl_hpm);
+	of_property_read_u32(node, "qcom,hpm-enable", &pdata->hpm_enable);
 	of_property_read_u32(node, "qcom,vs-soft-start-strength",
 		&pdata->vs_soft_start_strength);
 	of_property_read_u32(node, "qcom,system-load", &pdata->system_load);
