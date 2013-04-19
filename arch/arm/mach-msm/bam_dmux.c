@@ -1757,10 +1757,13 @@ static void disconnect_to_bam(void)
 	/* in_ssr documentation/assumptions found in restart_notifier_cb */
 	if (!power_management_only_mode) {
 		if (likely(!in_ssr)) {
+			BAM_DMUX_LOG("%s: disconnect tx\n", __func__);
 			sps_disconnect(bam_tx_pipe);
+			BAM_DMUX_LOG("%s: disconnect rx\n", __func__);
 			sps_disconnect(bam_rx_pipe);
 			__memzero(rx_desc_mem_buf.base, rx_desc_mem_buf.size);
 			__memzero(tx_desc_mem_buf.base, tx_desc_mem_buf.size);
+			BAM_DMUX_LOG("%s: device reset\n", __func__);
 			sps_device_reset(a2_device_handle);
 		} else {
 			ssr_skipped_disconnect = 1;
