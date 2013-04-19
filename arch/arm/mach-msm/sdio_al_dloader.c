@@ -2487,6 +2487,7 @@ int sdio_downloader_setup(struct mmc_card *card,
 		pr_err(MODULE_NAME ": %s - tty_register_device() "
 			"failed\n", __func__);
 		tty_unregister_driver(sdio_dld->tty_drv);
+		put_tty_driver(sdio_dld->tty_drv);
 		kfree(sdio_dld);
 		return PTR_ERR(tty_dev);
 	}
@@ -2536,6 +2537,7 @@ exit_err:
 	if (result)
 		pr_err(MODULE_NAME ": %s - tty_unregister_driver() "
 		       "failed. result=%d\n", __func__, -result);
+	put_tty_driver(sdio_dld->tty_drv);
 	kfree(sdio_dld);
 	atomic_set(&sdio_dld_setup_done, 0);
 	return status;
@@ -2554,12 +2556,12 @@ static void sdio_dld_tear_down(struct work_struct *work)
 	tty_unregister_device(sdio_dld->tty_drv, 0);
 
 	status = tty_unregister_driver(sdio_dld->tty_drv);
-
 	if (status) {
 		pr_err(MODULE_NAME ": %s - tty_unregister_driver() failed\n",
 		       __func__);
 	}
 
+	put_tty_driver(sdio_dld->tty_drv);
 	kfree(sdio_dld);
 	atomic_set(&sdio_dld_in_use, 0);
 	atomic_set(&sdio_dld_setup_done, 0);
