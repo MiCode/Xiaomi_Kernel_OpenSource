@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,8 +120,10 @@ static void bcl_calculate_imax_trigger(void)
 
 	if (psy == NULL) {
 		psy = power_supply_get_by_name("battery");
-		if (psy == NULL)
+		if (psy == NULL) {
+			pr_err("failed to get ps battery\n");
 			return;
+		}
 	}
 
 	if (psy->get_property(psy, POWER_SUPPLY_PROP_CURRENT_NOW, &ret))
@@ -143,6 +145,7 @@ static void bcl_calculate_imax_trigger(void)
 	gbcl->bcl_imax_ma = imax_ma;
 	gbcl->bcl_vbat_mv = vbatt_mv;
 
+	pr_debug("ibatt %d, imax %d, vbatt %d\n", ibatt_ma, imax_ma, vbatt_mv);
 	if (gbcl->bcl_threshold_mode[BCL_IBAT_IMAX_THRESHOLD_TYPE_HIGH]
 		== BCL_IBAT_IMAX_THRESHOLD_ENABLED) {
 		imax_high_threshold =
@@ -179,8 +182,7 @@ static void bcl_imax_work(struct work_struct *work)
 		bcl_calculate_imax_trigger();
 		/* restart the delay work for caculating imax */
 		schedule_delayed_work(&bcl->bcl_imax_work,
-			round_jiffies_relative(msecs_to_jiffies
-				(bcl->bcl_poll_interval_msec)));
+			msecs_to_jiffies(bcl->bcl_poll_interval_msec));
 	}
 }
 
