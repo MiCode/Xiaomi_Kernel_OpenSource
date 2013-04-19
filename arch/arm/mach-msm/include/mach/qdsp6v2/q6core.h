@@ -53,19 +53,10 @@ struct adsp_dts_modelid {
 	uint8_t   model_ID[128];
 };
 
-#define ADSP_CMD_SET_DOLBY_MANUFACTURER_ID 0x00012918
-
-struct adsp_dolby_manufacturer_id {
-	struct apr_hdr hdr;
-	int manufacturer_id;
-};
-
 int core_req_bus_bandwith(u16 bus_id, u32 ab_bps, u32 ib_bps);
 
 uint32_t core_get_adsp_version(void);
 
 uint32_t core_set_dts_model_id(uint32_t id_size, uint8_t *id);
-
-uint32_t core_set_dolby_manufacturer_id(int manufacturer_id);
 
 #endif /* __Q6CORE_H__ */
