@@ -276,6 +276,7 @@ struct msm_gpiomux_config sdc2_card_det_config[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_FB_MSM_QPIC
 static struct gpiomux_setting qpic_lcdc_a_d = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_10MA,
@@ -327,6 +328,17 @@ static struct msm_gpiomux_config msm9625_qpic_lcdc_configs[] __initdata = {
 	},
 };
 
+static void msm9625_disp_init_gpiomux(void)
+{
+	msm_gpiomux_install(msm9625_qpic_lcdc_configs,
+			ARRAY_SIZE(msm9625_qpic_lcdc_configs));
+}
+#else
+static void msm9625_disp_init_gpiomux(void)
+{
+}
+#endif /* CONFIG_FB_MSM_QPIC */
+
 void __init msm9625_init_gpiomux(void)
 {
 	int rc;
@@ -347,7 +359,5 @@ void __init msm9625_init_gpiomux(void)
 			ARRAY_SIZE(mdm9625_cdc_reset_config));
 	msm_gpiomux_install(sdc2_card_det_config,
 		ARRAY_SIZE(sdc2_card_det_config));
-	msm_gpiomux_install(msm9625_qpic_lcdc_configs,
-			ARRAY_SIZE(msm9625_qpic_lcdc_configs));
-
+	msm9625_disp_init_gpiomux();
 }
