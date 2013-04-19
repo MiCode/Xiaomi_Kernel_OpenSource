@@ -2323,7 +2323,7 @@ _adreno_ft(struct kgsl_device *device,
 	}
 
 	/* Check if we detected a long running IB, if false return */
-	if (adreno_dev->long_ib) {
+	if ((adreno_context) && (adreno_dev->long_ib)) {
 		long_ib = _adreno_check_long_ib(device);
 		if (!long_ib) {
 			adreno_context->flags &= ~CTXT_FLAGS_GPU_HANG;
