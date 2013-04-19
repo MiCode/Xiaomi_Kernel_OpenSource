@@ -16,6 +16,14 @@ Required structure:
 	the spmi-slave-container property
 
 Optional properties:
+- interrupts:                  List of interrupts used by the regulator.
+- interrupt-names:             List of strings defining the names of the
+				interrupts in the 'interrupts' property 1-to-1.
+				Supported values are "ocp" for voltage switch
+				type regulators.  If an OCP interrupt is
+				specified, then the voltage switch will be
+				toggled off and back on when OCP triggers in
+				order to handle high in-rush current.
 - qcom,system-load:            Load in uA present on regulator that is not
 				captured by any consumer request
 - qcom,enable-time:            Time in us to delay after enabling the regulator
@@ -33,6 +41,12 @@ Optional properties:
 				current is detected.  OCP is enabled when in
 				HPM or auto mode.
 			       0 = Disable OCP
+- qcom,ocp-max-retries:        Maximum number of times to try toggling a voltage
+				switch off and back on as a result of
+				consecutive over current events.
+- qcom,ocp-retry-delay:        Time to delay in milliseconds between each
+				voltage switch toggle after an over current
+				event takes place.
 - qcom,pull-down-enable:       1 = Enable output pull down resistor when the
 				regulator is disabled
 			       0 = Disable pull down resistor
