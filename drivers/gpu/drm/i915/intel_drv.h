@@ -508,6 +508,20 @@ struct intel_hdmi {
 			       bool enable,
 			       struct drm_display_mode *adjusted_mode);
 };
+/*VLV clock bending*/
+#define VLV_ACCUMULATOR_SIZE	249
+#define ACCURACY_MULTIPLIER	1000000
+#define BENDADJUST_MULT		10000000
+#define PPM_MULTIPLIER		1000000
+#define NANOSEC_MULTIPLIER	1000000000
+#define INVERSE_BEND_RESOLUTION	(VLV_ACCUMULATOR_SIZE*48*128)
+
+struct intel_program_clock_bending {
+	u32 dotclock;
+	u32 referenceclk;
+	u32 targetclk;
+	bool is_enable;
+};
 
 #define DP_MAX_DOWNSTREAM_PORTS		0x10
 
@@ -1009,5 +1023,9 @@ int intel_sprite_get_colorkey(struct drm_device *dev, void *data,
 
 /* intel_tv.c */
 void intel_tv_init(struct drm_device *dev);
+
+/* VLV LP clock bending */
+extern void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
+		struct intel_program_clock_bending *clockbendargs);
 
 #endif /* __INTEL_DRV_H__ */

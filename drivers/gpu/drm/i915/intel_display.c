@@ -785,7 +785,9 @@ vlv_find_best_dpll(const intel_limit_t *limit, struct drm_crtc *crtc,
 			}
 		}
 	}
-
+	/*clock = (refclk * m1 * m2) / (n * p1 * (p2 / 2)) / 10*/
+	best_clock->dot = (2 * ((refclk * clock.m1 * clock.m2) /
+		clock.n)) / (clock.p1 * clock.p2) / 10;
 	return found;
 }
 
@@ -6186,6 +6188,192 @@ static void i9xx_set_pipeconf(struct intel_crtc *intel_crtc)
 	POSTING_READ(PIPECONF(intel_crtc->pipe));
 }
 
+void intel_iosf_rw(struct drm_i915_private *dev_priv,
+		u8 opcode, u32 port, u32 reg, u32 *val)
+{
+	u32 cmd, devfn, be, bar;
+	bar = 0;
+	be = 0xf;
+	devfn = 16;
+	cmd = (devfn << IOSF_DEVFN_SHIFT) | (opcode << IOSF_OPCODE_SHIFT) |
+		(port << IOSF_PORT_SHIFT) | (be << IOSF_BYTE_ENABLES_SHIFT) |
+		(bar << IOSF_BAR_SHIFT);
+
+	if (I915_READ(VLV_IOSF_DOORBELL_REQ) & IOSF_SB_BUSY) {
+		DRM_DEBUG_DRIVER("warning: pcode (%s) mailbox access failed\n",
+			opcode == OPCODE_REG_READ ?
+			"read" : "write");
+			return;
+	}
+
+	I915_WRITE(VLV_IOSF_ADDR, reg);
+	if (opcode == OPCODE_REG_WRITE)
+		I915_WRITE(VLV_IOSF_DATA, *val);
+	I915_WRITE(VLV_IOSF_DOORBELL_REQ, cmd);
+
+	if (wait_for((I915_READ(VLV_IOSF_DOORBELL_REQ) & IOSF_SB_BUSY) == 0,
+		500)) {
+		DRM_ERROR("timeout waiting for pcode %s (%d) to finish\n",
+			opcode == OPCODE_REG_READ ? "read" : "write",
+			reg);
+		return;
+	}
+
+	if (opcode == OPCODE_REG_READ)
+		*val = I915_READ(VLV_IOSF_DATA);
+	I915_WRITE(VLV_IOSF_DATA, 0);
+
+	return;
+}
+
+void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
+		struct intel_program_clock_bending *clockbend)
+{
+	unsigned long refclk = 0, targetclk = 0, currentclk = 0;
+	unsigned long long idealrefclk = 0, errorPPM = 0;
+	bool ssbendupdown = 0, clkbenden = 0;
+	u32 iClk1val = 0, iClk0val = 0, iClk5val = 0, writeval = 0;
+	unsigned long long bendadjust = 0, bendstepsize = 0;
+	u32 bendtimetosw = 0;
+	unsigned long long mult = 0, div = 0;
+
+	clkbenden = clockbend->is_enable;
+	if (clockbend->is_enable) {
+		/*clocks in Hz*/
+		refclk = (unsigned long)clockbend->referenceclk * 1000;
+		currentclk =  (unsigned long)clockbend->dotclock * 1000;
+		targetclk = (unsigned long)clockbend->targetclk * 1000;
+
+		/*errorPPM = (targetclock - actualclock)*1000000/actualclock*/
+		if (targetclk > currentclk) {
+			errorPPM = (unsigned long long)(targetclk - currentclk)*
+					PPM_MULTIPLIER;
+			do_div(errorPPM, currentclk);
+		} else {
+			errorPPM = (unsigned long long)(currentclk - targetclk)*
+					PPM_MULTIPLIER;
+			do_div(errorPPM, currentclk);
+		}
+
+		if (errorPPM > 1) {
+			/* multiplication by ACCURACY_MULTIPLIER
+			to increase accuracy of result */
+
+			/*IdealReferenceClock =
+			TargetClock/ActualClock*RefClkinMHz */
+			mult = ((unsigned long long)targetclk *
+				ACCURACY_MULTIPLIER);
+			div = (unsigned long long)currentclk;
+			do_div(mult, div);
+			div = (unsigned long long)NANOSEC_MULTIPLIER/refclk;
+			idealrefclk = mult * div;
+
+			/*BendAdjustment =
+			(10 - IdealRefClock)*4.8*128*249 */
+
+			/* need to set ssbendupdown based on sign
+				of bendadjust.
+			ssbendupdown = 1 ; BendAdjustment > 0.
+			ssbendupdown = 0 ; BendAdjustment < 0.*/
+			if (idealrefclk >= BENDADJUST_MULT) {
+				bendadjust = ((idealrefclk -
+				(unsigned long long)(BENDADJUST_MULT)) *
+					INVERSE_BEND_RESOLUTION);
+				div = (unsigned long long)BENDADJUST_MULT;
+				do_div(bendadjust, div);
+				ssbendupdown = true;
+			} else {
+				bendadjust = (((unsigned long long)
+					(BENDADJUST_MULT) -
+					idealrefclk) *
+					INVERSE_BEND_RESOLUTION);
+				div = (unsigned long long)BENDADJUST_MULT;
+				do_div(bendadjust, div);
+				ssbendupdown = false;
+			}
+
+			/*BendStepSize = BendAdjustment/249 */
+			bendstepsize = bendadjust;
+			div = (unsigned long long) VLV_ACCUMULATOR_SIZE;
+			do_div(bendstepsize, div);
+
+			/*BendTimetoSwitch = (BendAdjustment % 249) + 0.5 */
+			div_u64_rem(bendadjust, VLV_ACCUMULATOR_SIZE,
+					&bendtimetosw);
+			bendtimetosw = (2*bendtimetosw)+1;
+			do_div(bendtimetosw, 2);
+
+			/* Program and Enable clock bending to achieve 1ppm.
+			Enabled only for required CE modes for HDMI.
+
+			Disable clock bending if enabled: toggling of enable bit
+			is required for new parameters to take effect.*/
+			intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK5_REG, &iClk5val);
+			if (true == ((iClk5val & iCLK5_DISPBENDCLKEN)
+					>> iCLK5_BENDCLKEN_SHIFT)) {
+				writeval = ~iCLK5_DISPBENDCLKEN;
+				iClk5val = iClk5val & writeval;
+				intel_iosf_rw(dev_priv, OPCODE_REG_WRITE,
+					IOSF_PORT_CCU, CCU_iCLK5_REG,
+					&iClk5val);
+			}
+
+			/*program step size*/
+			intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK0_REG, &iClk0val);
+			writeval = bendstepsize << iCLK0_STEPSIZE_SHIFT;
+			iClk0val = iClk0val & ~iCLK0_BENDSTEPSIZE;
+			iClk0val = iClk0val | writeval;
+			intel_iosf_rw(dev_priv, OPCODE_REG_WRITE,
+				IOSF_PORT_CCU, CCU_iCLK0_REG,  &iClk0val);
+
+			/*program number of times to switch up/down*/
+			intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK1_REG, &iClk1val);
+			writeval = (bendtimetosw << iCLK1_BENDTIME_SHIFT) |
+				(ssbendupdown << iCLK1_BENDUPDOWN_SHIFT);
+			iClk1val = iClk1val &
+				~(iCLK1_BENDTIMETOSW | iCLK1_BENDUPDOWN);
+			iClk1val = iClk1val | writeval;
+			intel_iosf_rw(dev_priv, OPCODE_REG_WRITE,
+				IOSF_PORT_CCU, CCU_iCLK1_REG, &iClk1val);
+
+			/*enable clock bend*/
+			intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK5_REG, &iClk5val);
+			writeval = iCLK5_DISPBENDCLKREQ | iCLK5_DISPBENDCLKEN;
+			iClk5val = iClk5val | writeval;
+			intel_iosf_rw(dev_priv, OPCODE_REG_WRITE,
+				IOSF_PORT_CCU, CCU_iCLK5_REG, &iClk5val);
+		} else {
+			clkbenden = false;
+		}
+	}
+
+	if (false == clkbenden) {
+		/*Disable clock bending for non HDMI modes and
+			HDMI modes with 0 ppm*/
+		intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK0_REG, &iClk0val);
+		iClk0val = iClk0val & ~iCLK0_BENDSTEPSIZE;
+		intel_iosf_rw(dev_priv, OPCODE_REG_WRITE, IOSF_PORT_CCU,
+				CCU_iCLK0_REG, &iClk0val);
+
+		intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK1_REG, &iClk1val);
+		iClk1val = iClk1val & ~(iCLK1_BENDTIMETOSW | iCLK1_BENDUPDOWN);
+		intel_iosf_rw(dev_priv, OPCODE_REG_WRITE, IOSF_PORT_CCU,
+				CCU_iCLK1_REG, &iClk1val);
+
+		intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK5_REG, &iClk5val);
+		iClk5val = iClk5val & ~iCLK5_DISPBENDCLKEN;
+		intel_iosf_rw(dev_priv, OPCODE_REG_WRITE, IOSF_PORT_CCU,
+				CCU_iCLK5_REG, &iClk5val);
+	}
+}
+
 static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 			      int x, int y,
 			      struct drm_framebuffer *fb)
@@ -6199,6 +6387,7 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 	bool is_lvds = false, is_dsi = false;
 	struct intel_encoder *encoder;
 	const intel_limit_t *limit;
+	struct intel_program_clock_bending clockbend;
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
 		switch (encoder->type) {
@@ -6253,6 +6442,27 @@ static int i9xx_crtc_mode_set(struct drm_crtc *crtc,
 		intel_crtc->config.dpll.m2 = clock.m2;
 		intel_crtc->config.dpll.p1 = clock.p1;
 		intel_crtc->config.dpll.p2 = clock.p2;
+	}
+
+	if (IS_VALLEYVIEW(dev)) {
+		clockbend.referenceclk = refclk;
+		clockbend.dotclock = clock.dot;
+		clockbend.targetclk = intel_crtc->config.port_clock;
+		/*TODO: Check with the patch Author */
+		/* clockbend.targetclk = adjusted_mode->clock; */
+
+		/* HDMI clock bending */
+		for_each_encoder_on_crtc(dev, crtc, encoder) {
+			if (encoder->type == INTEL_OUTPUT_HDMI) {
+				clockbend.is_enable = true;
+				valleyview_program_clock_bending(
+					dev_priv, &clockbend);
+			} else {
+				clockbend.is_enable = false;
+				valleyview_program_clock_bending(
+					dev_priv, &clockbend);
+			}
+		}
 	}
 
 	if (IS_GEN2(dev)) {
