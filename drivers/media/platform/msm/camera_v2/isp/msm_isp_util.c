@@ -121,7 +121,7 @@ int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 	path->vectors[0].ab = MSM_ISP_MIN_AB;
 	path->vectors[0].ib = MSM_ISP_MIN_IB;
 	for (i = 0; i < MAX_ISP_CLIENT; i++) {
-		if (isp_bandwidth_mgr.client_info[client].active) {
+		if (isp_bandwidth_mgr.client_info[i].active) {
 			path->vectors[0].ab +=
 				isp_bandwidth_mgr.client_info[i].ab;
 			path->vectors[0].ib +=
