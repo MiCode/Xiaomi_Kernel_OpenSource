@@ -610,6 +610,7 @@ void kgsl_mh_start(struct kgsl_device *device)
 	 * kgsl_pwrctrl_irq() is called
 	 */
 }
+EXPORT_SYMBOL(kgsl_mh_start);
 
 int
 kgsl_mmu_map(struct kgsl_pagetable *pagetable,

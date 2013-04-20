@@ -226,6 +226,14 @@ int kgsl_resume_driver(struct platform_device *pdev);
 void kgsl_early_suspend_driver(struct early_suspend *h);
 void kgsl_late_resume_driver(struct early_suspend *h);
 
+void kgsl_trace_regwrite(struct kgsl_device *device, unsigned int offset,
+		unsigned int value);
+
+void kgsl_trace_issueibcmds(struct kgsl_device *device, int id,
+		struct kgsl_ibdesc *ibdesc, int numibs,
+		unsigned int timestamp, unsigned int flags,
+		int result, unsigned int type);
+
 #ifdef CONFIG_MSM_KGSL_DRM
 extern int kgsl_drm_init(struct platform_device *dev);
 extern void kgsl_drm_exit(void);
