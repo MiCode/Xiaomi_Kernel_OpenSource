@@ -14,7 +14,7 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/ioctl.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <linux/init.h>
 #include <linux/version.h>
 #include <linux/platform_device.h>
@@ -78,7 +78,7 @@ struct mem_region_pair {
 
 struct wfd_inst {
 	struct vb2_queue vid_bufq;
-	spinlock_t inst_lock;
+	struct mutex lock;
 	u32 buf_count;
 	struct task_struct *mdp_task;
 	void *mdp_inst;
@@ -114,7 +114,6 @@ static int wfd_vidbuf_queue_setup(struct vb2_queue *q,
 {
 	struct file *priv_data = (struct file *)(q->drv_priv);
 	struct wfd_inst *inst = file_to_inst(priv_data);
-	unsigned long flags;
 	int i;
 
 	WFD_MSG_DBG("In %s\n", __func__);
@@ -122,12 +121,12 @@ static int wfd_vidbuf_queue_setup(struct vb2_queue *q,
 		return -EINVAL;
 
 	*num_planes = 1;
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	for (i = 0; i < *num_planes; ++i) {
 		sizes[i] = inst->out_buf_size;
 		alloc_ctxs[i] = inst;
 	}
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 
 	return 0;
 }
@@ -257,16 +256,15 @@ static int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 	struct mem_region *enc_mregion, *mdp_mregion;
 	struct mem_region_pair *mpair;
 	int rc;
-	unsigned long flags;
 	struct mdp_buf_info mdp_buf = {0};
 	struct mem_region_map mmap_context = {0};
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	if (inst->input_bufs_allocated) {
-		spin_unlock_irqrestore(&inst->inst_lock, flags);
+		mutex_unlock(&inst->lock);
 		return 0;
 	}
 	inst->input_bufs_allocated = true;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 
 	for (i = 0; i < VENC_INPUT_BUFFERS; ++i) {
 		mpair = kzalloc(sizeof(*mpair), GFP_KERNEL);
@@ -409,15 +407,14 @@ static void wfd_free_input_buffers(struct wfd_device *wfd_dev,
 {
 	struct list_head *ptr, *next;
 	struct mem_region_pair *mpair;
-	unsigned long flags;
 	int rc = 0;
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	if (!inst->input_bufs_allocated) {
-		spin_unlock_irqrestore(&inst->inst_lock, flags);
+		mutex_unlock(&inst->lock);
 		return;
 	}
 	inst->input_bufs_allocated = false;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 	if (!list_empty(&inst->input_mem_list)) {
 		list_for_each_safe(ptr, next,
 				&inst->input_mem_list) {
@@ -470,8 +467,7 @@ static struct mem_info *wfd_get_mem_info(struct wfd_inst *inst,
 {
 	struct mem_info_entry *temp;
 	struct mem_info *ret = NULL;
-	unsigned long flags;
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	if (!list_empty(&inst->minfo_list)) {
 		list_for_each_entry(temp, &inst->minfo_list, list) {
 			if (temp && temp->userptr == userptr) {
@@ -480,7 +476,7 @@ static struct mem_info *wfd_get_mem_info(struct wfd_inst *inst,
 			}
 		}
 	}
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 	return ret;
 }
 
@@ -489,8 +485,7 @@ static void wfd_put_mem_info(struct wfd_inst *inst,
 {
 	struct list_head *ptr, *next;
 	struct mem_info_entry *temp;
-	unsigned long flags;
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	if (!list_empty(&inst->minfo_list)) {
 		list_for_each_safe(ptr, next,
 				&inst->minfo_list) {
@@ -502,7 +497,7 @@ static void wfd_put_mem_info(struct wfd_inst *inst,
 			}
 		}
 	}
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 }
 static void wfd_unregister_out_buf(struct wfd_inst *inst,
 		struct mem_info *minfo)
@@ -806,7 +801,6 @@ static int wfdioc_g_fmt(struct file *filp, void *fh,
 			struct v4l2_format *fmt)
 {
 	struct wfd_inst *inst = file_to_inst(filp);
-	unsigned long flags;
 	if (!fmt) {
 		WFD_MSG_ERR("Invalid argument\n");
 		return -EINVAL;
@@ -815,13 +809,13 @@ static int wfdioc_g_fmt(struct file *filp, void *fh,
 		WFD_MSG_ERR("Only V4L2_BUF_TYPE_VIDEO_CAPTURE is supported\n");
 		return -EINVAL;
 	}
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	fmt->fmt.pix.width = inst->width;
 	fmt->fmt.pix.height = inst->height;
 	fmt->fmt.pix.pixelformat = inst->pixelformat;
 	fmt->fmt.pix.sizeimage = inst->out_buf_size;
 	fmt->fmt.pix.priv = 0;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 	return 0;
 }
 
@@ -832,7 +826,6 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 	struct wfd_inst *inst = file_to_inst(filp);
 	struct wfd_device *wfd_dev = video_drvdata(filp);
 	struct mdp_prop prop;
-	unsigned long flags;
 	struct bufreq breq;
 	if (!fmt) {
 		WFD_MSG_ERR("Invalid argument\n");
@@ -864,13 +857,13 @@ static int wfdioc_s_fmt(struct file *filp, void *fh,
 		WFD_MSG_ERR("Failed to set buffer reqs on encoder\n");
 		return rc;
 	}
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	inst->input_buf_size = breq.size;
 	inst->out_buf_size = fmt->fmt.pix.sizeimage;
 	prop.height = inst->height = fmt->fmt.pix.height;
 	prop.width = inst->width = fmt->fmt.pix.width;
 	prop.inst = inst->mdp_inst;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 	rc = v4l2_subdev_call(&wfd_dev->mdp_sdev, core, ioctl, MDP_SET_PROP,
 				(void *)&prop);
 	if (rc)
@@ -882,7 +875,6 @@ static int wfdioc_reqbufs(struct file *filp, void *fh,
 {
 	struct wfd_inst *inst = file_to_inst(filp);
 	struct wfd_device *wfd_dev = video_drvdata(filp);
-	unsigned long flags;
 	int rc = 0;
 
 	if (b->type != V4L2_CAP_VIDEO_CAPTURE ||
@@ -897,9 +889,9 @@ static int wfdioc_reqbufs(struct file *filp, void *fh,
 		WFD_MSG_ERR("Failed to get buf reqs from encoder\n");
 		return rc;
 	}
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	inst->buf_count = b->count;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 	rc = vb2_reqbufs(&inst->vid_bufq, b);
 	return rc;
 }
@@ -908,7 +900,6 @@ static int wfd_register_out_buf(struct wfd_inst *inst,
 {
 	struct mem_info_entry *minfo_entry;
 	struct mem_info *minfo;
-	unsigned long flags;
 	if (!b || !inst || !b->reserved) {
 		WFD_MSG_ERR("Invalid arguments\n");
 		return -EINVAL;
@@ -924,9 +915,9 @@ static int wfd_register_out_buf(struct wfd_inst *inst,
 			return -EINVAL;
 		}
 		minfo_entry->userptr = b->m.userptr;
-		spin_lock_irqsave(&inst->inst_lock, flags);
+		mutex_lock(&inst->lock);
 		list_add_tail(&minfo_entry->list, &inst->minfo_list);
-		spin_unlock_irqrestore(&inst->inst_lock, flags);
+		mutex_unlock(&inst->lock);
 	} else
 		WFD_MSG_DBG("Buffer already registered\n");
 
@@ -962,16 +953,15 @@ static int wfdioc_streamon(struct file *filp, void *fh,
 {
 	int rc = 0;
 	struct wfd_inst *inst = file_to_inst(filp);
-	unsigned long flags;
 	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
 		WFD_MSG_ERR("stream on for buffer type = %d is not "
 			"supported.\n", i);
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	inst->streamoff = false;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 
 	rc = vb2_streamon(&inst->vid_bufq, i);
 	if (rc) {
@@ -988,7 +978,6 @@ static int wfdioc_streamoff(struct file *filp, void *fh,
 		enum v4l2_buf_type i)
 {
 	struct wfd_inst *inst = file_to_inst(filp);
-	unsigned long flags;
 
 	if (i != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
 		WFD_MSG_ERR("stream off for buffer type = %d is not "
@@ -996,14 +985,14 @@ static int wfdioc_streamoff(struct file *filp, void *fh,
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	if (inst->streamoff) {
 		WFD_MSG_ERR("Module is already in streamoff state\n");
-		spin_unlock_irqrestore(&inst->inst_lock, flags);
+		mutex_unlock(&inst->lock);
 		return -EINVAL;
 	}
 	inst->streamoff = true;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 	WFD_MSG_DBG("Calling videobuf_streamoff\n");
 	vb2_streamoff(&inst->vid_bufq, i);
 	wake_up(&inst->event_handler.wait);
@@ -1233,7 +1222,6 @@ static const struct v4l2_ioctl_ops g_wfd_ioctl_ops = {
 };
 static int wfd_set_default_properties(struct file *filp)
 {
-	unsigned long flags;
 	struct v4l2_format fmt;
 	struct v4l2_control ctrl;
 	struct wfd_inst *inst = file_to_inst(filp);
@@ -1241,13 +1229,13 @@ static int wfd_set_default_properties(struct file *filp)
 		WFD_MSG_ERR("Invalid argument\n");
 		return -EINVAL;
 	}
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	fmt.fmt.pix.height = inst->height = DEFAULT_WFD_HEIGHT;
 	fmt.fmt.pix.width = inst->width = DEFAULT_WFD_WIDTH;
 	fmt.fmt.pix.pixelformat = inst->pixelformat
 			= V4L2_PIX_FMT_H264;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 	wfdioc_s_fmt(filp, filp->private_data, &fmt);
 
 	ctrl.id = V4L2_CID_MPEG_VIDEO_HEADER_MODE;
@@ -1430,7 +1418,7 @@ static int wfd_open(struct file *filp)
 		goto err_mdp_open;
 	}
 	filp->private_data = &inst->event_handler;
-	spin_lock_init(&inst->inst_lock);
+	mutex_init(&inst->lock);
 	INIT_LIST_HEAD(&inst->input_mem_list);
 	INIT_LIST_HEAD(&inst->minfo_list);
 
@@ -1546,22 +1534,21 @@ static int wfd_close(struct file *filp)
 unsigned int wfd_poll(struct file *filp, struct poll_table_struct *pt)
 {
 	struct wfd_inst *inst = file_to_inst(filp);
-	unsigned int poll_flags = 0;
-	unsigned long flags;
+	unsigned long flags = 0;
 	bool streamoff = false;
 
 	poll_wait(filp, &inst->event_handler.wait, pt);
 
-	spin_lock_irqsave(&inst->inst_lock, flags);
+	mutex_lock(&inst->lock);
 	streamoff = inst->streamoff;
-	spin_unlock_irqrestore(&inst->inst_lock, flags);
+	mutex_unlock(&inst->lock);
 
 	if (v4l2_event_pending(&inst->event_handler))
-		poll_flags |= POLLPRI;
+		flags |= POLLPRI;
 	if (streamoff)
-		poll_flags |= POLLERR;
+		flags |= POLLERR;
 
-	return poll_flags;
+	return flags;
 }
 
 static const struct v4l2_file_operations g_wfd_fops = {
