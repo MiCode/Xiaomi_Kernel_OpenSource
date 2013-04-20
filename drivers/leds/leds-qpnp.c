@@ -159,6 +159,27 @@
 #define	PWM_LUT_MAX_SIZE		63
 #define RGB_LED_DISABLE			0x00
 
+#define MPP_MAX_LEVEL			LED_FULL
+#define LED_MPP_MODE_CTRL(base)		(base + 0x40)
+#define LED_MPP_VIN_CTRL(base)		(base + 0x41)
+#define LED_MPP_EN_CTRL(base)		(base + 0x46)
+#define LED_MPP_SINK_CTRL(base)		(base + 0x4C)
+
+#define LED_MPP_CURRENT_DEFAULT		10
+#define LED_MPP_SOURCE_SEL_DEFAULT	LED_MPP_MODE_ENABLE
+
+#define LED_MPP_SINK_MASK		0x07
+#define LED_MPP_MODE_MASK		0x7F
+#define LED_MPP_EN_MASK			0x80
+
+#define LED_MPP_MODE_SINK		(0x06 << 4)
+#define LED_MPP_MODE_ENABLE		0x01
+#define LED_MPP_MODE_OUTPUT		0x10
+#define LED_MPP_MODE_DISABLE		0x00
+#define LED_MPP_EN_ENABLE		0x80
+#define LED_MPP_EN_DISABLE		0x00
+
+#define MPP_SOURCE_DTEST1		0x08
 /**
  * enum qpnp_leds - QPNP supported led ids
  * @QPNP_ID_WLED - White led backlight
@@ -170,6 +191,7 @@ enum qpnp_leds {
 	QPNP_ID_RGB_RED,
 	QPNP_ID_RGB_GREEN,
 	QPNP_ID_RGB_BLUE,
+	QPNP_ID_LED_MPP,
 	QPNP_ID_MAX,
 };
 
@@ -240,6 +262,11 @@ static u8 flash_debug_regs[] = {
 static u8 rgb_pwm_debug_regs[] = {
 	0x45, 0x46, 0x47,
 };
+
+static u8 mpp_debug_regs[] = {
+	0x40, 0x41, 0x42, 0x45, 0x46, 0x4c,
+};
+
 /**
  *  wled_config_data - wled configuration data
  *  @num_strings - number of wled strings supported
@@ -261,6 +288,16 @@ struct wled_config_data {
 	u8	op_fdbck;
 	bool	dig_mod_gen_en;
 	bool	cs_out_en;
+};
+
+/**
+ *  mpp_config_data - mpp configuration data
+ *  @current_setting - current setting, 5ma-40ma in 5ma increments
+ */
+struct mpp_config_data {
+	u8	current_setting;
+	u8	source_sel;
+	u8	mode_ctrl;
 };
 
 /**
@@ -336,6 +373,7 @@ struct qpnp_led_data {
 	struct wled_config_data *wled_cfg;
 	struct flash_config_data	*flash_cfg;
 	struct rgb_config_data	*rgb_cfg;
+	struct mpp_config_data	*mpp_cfg;
 	int			max_current;
 	bool			default_on;
 	int			turn_off_delay_ms;
@@ -455,6 +493,68 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 				"WLED reset sync reg failed(%d)\n", rc);
 		return rc;
 	}
+	return 0;
+}
+
+static int qpnp_mpp_set(struct qpnp_led_data *led)
+{
+	int rc, val;
+
+	if (led->cdev.brightness) {
+		val = (led->cdev.brightness * LED_MPP_SINK_MASK) / LED_FULL;
+		rc = qpnp_led_masked_write(led,
+				LED_MPP_SINK_CTRL(led->base),
+				LED_MPP_SINK_MASK, val);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"Failed to write led enable reg\n");
+			return rc;
+		}
+
+		val = led->mpp_cfg->source_sel | led->mpp_cfg->mode_ctrl;
+
+		rc = qpnp_led_masked_write(led,
+		LED_MPP_MODE_CTRL(led->base), LED_MPP_MODE_MASK,
+		val);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Failed to write led mode reg\n");
+			return rc;
+		}
+
+		rc = qpnp_led_masked_write(led,
+				LED_MPP_EN_CTRL(led->base), LED_MPP_EN_MASK,
+				LED_MPP_EN_ENABLE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+						"Failed to write led enable " \
+						"reg\n");
+				return rc;
+			}
+	} else {
+		rc = qpnp_led_masked_write(led,
+					LED_MPP_MODE_CTRL(led->base),
+					LED_MPP_MODE_MASK,
+					LED_MPP_MODE_DISABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Failed to write led mode reg\n");
+			return rc;
+		}
+
+		rc = qpnp_led_masked_write(led,
+					LED_MPP_EN_CTRL(led->base),
+					LED_MPP_EN_MASK,
+					LED_MPP_EN_DISABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Failed to write led enable reg\n");
+			return rc;
+		}
+	}
+
+	qpnp_dump_regs(led, mpp_debug_regs, ARRAY_SIZE(mpp_debug_regs));
+
 	return 0;
 }
 
@@ -750,6 +850,12 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 			dev_err(&led->spmi_dev->dev,
 				"RGB set brightness failed (%d)\n", rc);
 		break;
+	case QPNP_ID_LED_MPP:
+		rc = qpnp_mpp_set(led);
+		if (rc < 0)
+			dev_err(&led->spmi_dev->dev,
+					"MPP set brightness failed (%d)\n", rc);
+		break;
 	default:
 		dev_err(&led->spmi_dev->dev, "Invalid LED(%d)\n", led->id);
 		break;
@@ -771,6 +877,9 @@ static int __devinit qpnp_led_set_max_brightness(struct qpnp_led_data *led)
 	case QPNP_ID_RGB_GREEN:
 	case QPNP_ID_RGB_BLUE:
 		led->cdev.max_brightness = RGB_MAX_LEVEL;
+		break;
+	case QPNP_ID_LED_MPP:
+		led->cdev.max_brightness = MPP_MAX_LEVEL;
 		break;
 	default:
 		dev_err(&led->spmi_dev->dev, "Invalid LED(%d)\n", led->id);
@@ -1211,6 +1320,8 @@ static int __devinit qpnp_led_initialize(struct qpnp_led_data *led)
 			dev_err(&led->spmi_dev->dev,
 				"RGB initialize failed(%d)\n", rc);
 		break;
+	case QPNP_ID_LED_MPP:
+		break;
 	default:
 		dev_err(&led->spmi_dev->dev, "Invalid LED(%d)\n", led->id);
 		return -EINVAL;
@@ -1536,6 +1647,43 @@ static int __devinit qpnp_get_config_rgb(struct qpnp_led_data *led,
 	return 0;
 }
 
+static int __devinit qpnp_get_config_mpp(struct qpnp_led_data *led,
+		struct device_node *node)
+{
+	int rc;
+	u32 val;
+
+	led->mpp_cfg = devm_kzalloc(&led->spmi_dev->dev,
+			sizeof(struct mpp_config_data), GFP_KERNEL);
+	if (!led->mpp_cfg) {
+		dev_err(&led->spmi_dev->dev, "Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	led->mpp_cfg->current_setting = LED_MPP_CURRENT_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,current-setting", &val);
+	if (!rc)
+		led->mpp_cfg->current_setting = (u8) val;
+	else if (rc != -EINVAL)
+		return rc;
+
+	led->mpp_cfg->source_sel = LED_MPP_SOURCE_SEL_DEFAULT;
+	rc = of_property_read_u32(node, "qcom,source-sel", &val);
+	if (!rc)
+		led->mpp_cfg->source_sel = (u8) val;
+	else if (rc != -EINVAL)
+		return rc;
+
+	led->mpp_cfg->mode_ctrl = LED_MPP_MODE_SINK;
+	rc = of_property_read_u32(node, "qcom,mode-ctrl", &val);
+	if (!rc)
+		led->mpp_cfg->mode_ctrl = (u8) val;
+	else if (rc != -EINVAL)
+		return rc;
+
+	return 0;
+}
+
 static int __devinit qpnp_leds_probe(struct spmi_device *spmi)
 {
 	struct qpnp_led_data *led, *led_array;
@@ -1636,6 +1784,13 @@ static int __devinit qpnp_leds_probe(struct spmi_device *spmi)
 			if (rc < 0) {
 				dev_err(&led->spmi_dev->dev,
 					"Unable to read rgb config data\n");
+				goto fail_id_check;
+			}
+		} else if (strncmp(led_label, "mpp", sizeof("mpp")) == 0) {
+			rc = qpnp_get_config_mpp(led, temp);
+			if (rc < 0) {
+				dev_err(&led->spmi_dev->dev,
+						"Unable to read mpp config data\n");
 				goto fail_id_check;
 			}
 		} else {
