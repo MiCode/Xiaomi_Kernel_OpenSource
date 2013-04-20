@@ -142,7 +142,7 @@
 			qcom,type = <0x62706d73>;	/* "smpb" */
 			qcom,id = <0x02>;
 			qcom,key = <0x6e726f63>;	/* "corn" */
-			qcom,init-value = <5>;		/* Super Turbo */
+			qcom,init-value = <6>;		/* Super Turbo */
 		};
 
 		qcom,lpm-resources@1 {
