@@ -240,7 +240,7 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 			ps->ystride[1] = 32 * 2;
 	} else if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
 		ps->rau_cnt = DIV_ROUND_UP(w, 32);
-		ps->ystride[0] = 32 * 4;
+		ps->ystride[0] = 32 * 4 * fmt->bpp;
 		ps->ystride[1] = 0;
 		ps->rau_h[0] = 4;
 		ps->rau_h[1] = 0;
@@ -250,8 +250,8 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 	}
 
 	stride_off = DIV_ROUND_UP(ps->rau_cnt, 8);
-	ps->ystride[0] = ps->ystride[0] * ps->rau_cnt * fmt->bpp + stride_off;
-	ps->ystride[1] = ps->ystride[1] * ps->rau_cnt * fmt->bpp + stride_off;
+	ps->ystride[0] = ps->ystride[0] * ps->rau_cnt + stride_off;
+	ps->ystride[1] = ps->ystride[1] * ps->rau_cnt + stride_off;
 	ps->num_planes = 2;
 
 	return 0;
@@ -262,8 +262,7 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 {
 	struct mdss_mdp_format_params *fmt;
 	int i, rc;
-	u32 bpp, stride_off;
-
+	u32 bpp, ystride0_off, ystride1_off;
 	if (ps == NULL)
 		return -EINVAL;
 
@@ -281,12 +280,14 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 		rc = mdss_mdp_get_rau_strides(w, h, fmt, ps);
 		if (rc)
 			return rc;
-		stride_off = DIV_ROUND_UP(h, ps->rau_h[0]);
-		ps->ystride[0] = ps->ystride[0] + ps->ystride[1];
-		ps->plane_size[0] = ps->ystride[0] * stride_off;
+		ystride0_off = DIV_ROUND_UP(h, ps->rau_h[0]);
+		ystride1_off = DIV_ROUND_UP(h, ps->rau_h[1]);
+		ps->plane_size[0] = (ps->ystride[0] * ystride0_off) +
+				    (ps->ystride[1] * ystride1_off);
+		ps->ystride[0] += ps->ystride[1];
 		ps->ystride[1] = 2;
-		ps->plane_size[1] = ps->rau_cnt * ps->ystride[1] * stride_off;
-
+		ps->plane_size[1] = ps->rau_cnt * ps->ystride[1] *
+				   (ystride0_off + ystride1_off);
 	} else {
 		if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
 			ps->num_planes = 1;
@@ -346,43 +347,38 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 int mdss_mdp_data_check(struct mdss_mdp_data *data,
 			struct mdss_mdp_plane_sizes *ps)
 {
+	struct mdss_mdp_img_data *prev, *curr;
+	int i;
+
 	if (!ps)
 		return 0;
 
 	if (!data || data->num_planes == 0)
 		return -ENOMEM;
 
-	if (data->bwc_enabled) {
-		data->num_planes = ps->num_planes;
-		data->p[1].addr = data->p[0].addr + ps->plane_size[0];
-	} else {
-		struct mdss_mdp_img_data *prev, *curr;
-		int i;
+	pr_debug("srcp0=%x len=%u frame_size=%u\n", data->p[0].addr,
+		data->p[0].len, ps->total_size);
 
-		pr_debug("srcp0=%x len=%u frame_size=%u\n", data->p[0].addr,
-				data->p[0].len, ps->total_size);
-
-		for (i = 0; i < ps->num_planes; i++) {
-			curr = &data->p[i];
-			if (i >= data->num_planes) {
-				u32 psize = ps->plane_size[i-1];
-				prev = &data->p[i-1];
-				if (prev->len > psize) {
-					curr->len = prev->len - psize;
-					prev->len = psize;
-				}
-				curr->addr = prev->addr + psize;
+	for (i = 0; i < ps->num_planes; i++) {
+		curr = &data->p[i];
+		if (i >= data->num_planes) {
+			u32 psize = ps->plane_size[i-1];
+			prev = &data->p[i-1];
+			if (prev->len > psize) {
+				curr->len = prev->len - psize;
+				prev->len = psize;
 			}
-			if (curr->len < ps->plane_size[i]) {
-				pr_err("insufficient mem=%u p=%d len=%u\n",
-				       curr->len, i, ps->plane_size[i]);
-				return -ENOMEM;
-			}
-			pr_debug("plane[%d] addr=%x len=%u\n", i,
-					curr->addr, curr->len);
+			curr->addr = prev->addr + psize;
 		}
-		data->num_planes = ps->num_planes;
+		if (curr->len < ps->plane_size[i]) {
+			pr_err("insufficient mem=%u p=%d len=%u\n",
+			       curr->len, i, ps->plane_size[i]);
+			return -ENOMEM;
+		}
+		pr_debug("plane[%d] addr=%x len=%u\n", i,
+				curr->addr, curr->len);
 	}
+	data->num_planes = ps->num_planes;
 
 	return 0;
 }
