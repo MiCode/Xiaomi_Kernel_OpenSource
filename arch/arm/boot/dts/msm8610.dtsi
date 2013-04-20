@@ -700,6 +700,12 @@
 				<55 512 3936000 393600>;
 	};
 
+        qcom,msm-rng@f9bff000 {
+                compatible = "qcom,msm-rng";
+                reg = <0xf9bff000 0x200>;
+                qcom,msm-rng-iface-clk;
+        };
+
 	jtag_mm0: jtagmm@fc34c000 {
 		compatible = "qcom,jtag-mm";
 		reg = <0xfc34c000 0x1000>,
