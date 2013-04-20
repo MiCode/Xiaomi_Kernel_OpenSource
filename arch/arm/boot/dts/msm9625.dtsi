@@ -761,9 +761,9 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
 
-	qcom,smem@fa00000 {
+	qcom,smem@0 {
 		compatible = "qcom,smem";
-		reg = <0xfa00000 0x200000>,
+		reg = <0x0 0x100000>,
 			<0xf9011000 0x1000>,
 			<0xfc428000 0x4000>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1";
