@@ -1349,27 +1349,15 @@
 			qcom,hw-sel = "NoC";
 		};
 
-		mas-video-p0-ocmem {
+		mas-video-ocmem {
 			cell-id = <68>;
-			label = "mas-video-p0-ocmem";
-			qcom,masterp = <3>;
+			label = "mas-video-ocmem";
+			qcom,masterp = <3 4>;
 			qcom,tier = <2>;
 			qcom,perm-mode = "Fixed";
 			qcom,mode = "Fixed";
-			qcom,qport = <2>;
+			qcom,qport = <2 3>;
 			qcom,mas-hw-id = <15>;
-			qcom,hw-sel = "NoC";
-		};
-
-		mas-video-p1-ocmem {
-			cell-id = <69>;
-			label = "mas-video-p1-ocmem";
-			qcom,masterp = <4>;
-			qcom,tier = <2>;
-			qcom,perm-mode = "Fixed";
-			qcom,mode = "Fixed";
-			qcom,qport = <3>;
-			qcom,mas-hw-id = <16>;
 			qcom,hw-sel = "NoC";
 		};
 
