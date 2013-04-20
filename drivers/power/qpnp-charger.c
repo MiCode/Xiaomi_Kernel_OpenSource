@@ -1383,6 +1383,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 
 	if (state == ADC_TM_WARM_STATE) {
 		if (temp > chip->warm_bat_decidegc) {
+			/* Normal to warm */
 			bat_warm = true;
 			bat_cool = false;
 			chip->adc_param.low_temp =
@@ -1391,6 +1392,7 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 				ADC_TM_COOL_THR_ENABLE;
 		} else if (temp >
 				chip->cool_bat_decidegc + HYSTERISIS_DECIDEGC){
+			/* Cool to normal */
 			bat_warm = false;
 			bat_cool = false;
 
@@ -1401,14 +1403,16 @@ qpnp_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		}
 	} else {
 		if (temp < chip->cool_bat_decidegc) {
+			/* Normal to cool */
 			bat_warm = false;
 			bat_cool = true;
 			chip->adc_param.high_temp =
 				chip->cool_bat_decidegc + HYSTERISIS_DECIDEGC;
 			chip->adc_param.state_request =
 				ADC_TM_WARM_THR_ENABLE;
-		} else if (temp >
+		} else if (temp <
 				chip->warm_bat_decidegc - HYSTERISIS_DECIDEGC){
+			/* Warm to normal */
 			bat_warm = false;
 			bat_cool = false;
 
