@@ -849,6 +849,10 @@ ecm_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_ep_free_request(ecm->notify, ecm->notify_req);
 
 	ecm_qc_string_defs[1].s = NULL;
+
+	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA)
+		ecm_ipa_cleanup(ipa_params.ipa_priv);
+
 	kfree(ecm);
 }
 
