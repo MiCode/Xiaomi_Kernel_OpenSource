@@ -47,16 +47,12 @@ struct ispif_device {
 	void __iomem *base;
 	struct mutex mutex;
 	uint8_t start_ack_pending;
-	struct completion reset_complete[VFE_MAX];
-	spinlock_t auto_complete_lock;
-	uint8_t wait_timeout[VFE_MAX];
 	uint32_t csid_version;
 	int enb_dump_reg;
 	uint32_t open_cnt;
 	struct ispif_sof_count sof_count[VFE_MAX];
 	struct ispif_intf_cmd applied_intf_cmd[VFE_MAX];
 	enum msm_ispif_state_t ispif_state;
-	struct clk *ispif_clk[VFE_MAX][INTF_MAX];
 	struct msm_ispif_vfe_info vfe_info;
 	struct clk *ahb_clk;
 };
