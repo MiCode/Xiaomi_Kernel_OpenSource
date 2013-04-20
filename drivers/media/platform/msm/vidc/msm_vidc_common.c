@@ -1282,7 +1282,6 @@ static int msm_vidc_load_resources(int flipped_state,
 	}
 
 	hdev = inst->core->device;
-
 	if (IS_ALREADY_IN_STATE(flipped_state, MSM_VIDC_LOAD_RESOURCES)) {
 		dprintk(VIDC_INFO, "inst: %p is already in state: %d\n",
 						inst, inst->state);
