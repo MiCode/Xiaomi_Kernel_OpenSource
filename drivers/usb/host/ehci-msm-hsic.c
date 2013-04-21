@@ -78,6 +78,7 @@ struct msm_hsic_hcd {
 	struct clk		*alt_core_clk;
 	struct clk		*phy_clk;
 	struct clk		*cal_clk;
+	struct clk		*inactivity_clk;
 	struct regulator	*hsic_vddcx;
 	struct regulator	*hsic_gdsc;
 	atomic_t		async_int;
@@ -575,6 +576,8 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 		clk_disable_unprepare(mehci->phy_clk);
 		clk_disable_unprepare(mehci->cal_clk);
 		clk_disable_unprepare(mehci->ahb_clk);
+		if (!IS_ERR(mehci->inactivity_clk))
+			clk_disable_unprepare(mehci->inactivity_clk);
 
 		ret = clk_reset(mehci->core_clk, CLK_RESET_ASSERT);
 		if (ret) {
@@ -596,6 +599,8 @@ static void msm_hsic_clk_reset(struct msm_hsic_hcd *mehci)
 		clk_prepare_enable(mehci->phy_clk);
 		clk_prepare_enable(mehci->cal_clk);
 		clk_prepare_enable(mehci->ahb_clk);
+		if (!IS_ERR(mehci->inactivity_clk))
+			clk_prepare_enable(mehci->inactivity_clk);
 	}
 }
 
@@ -794,6 +799,8 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 	clk_disable_unprepare(mehci->phy_clk);
 	clk_disable_unprepare(mehci->cal_clk);
 	clk_disable_unprepare(mehci->ahb_clk);
+	if (!IS_ERR(mehci->inactivity_clk))
+		clk_disable_unprepare(mehci->inactivity_clk);
 
 	none_vol = vdd_val[mehci->vdd_type][VDD_NONE];
 	max_vol = vdd_val[mehci->vdd_type][VDD_MAX];
@@ -876,6 +883,8 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	clk_prepare_enable(mehci->phy_clk);
 	clk_prepare_enable(mehci->cal_clk);
 	clk_prepare_enable(mehci->ahb_clk);
+	if (!IS_ERR(mehci->inactivity_clk))
+		clk_prepare_enable(mehci->inactivity_clk);
 
 	temp = readl_relaxed(USB_USBCMD);
 	temp &= ~ASYNC_INTR_CTRL;
@@ -1507,10 +1516,21 @@ static int msm_hsic_init_clocks(struct msm_hsic_hcd *mehci, u32 init)
 		goto put_cal_clk;
 	}
 
+	/*
+	 * Inactivity_clk is required for hsic bam inactivity timer.
+	 * This clock is not compulsory and is defined in clock lookup
+	 * only for targets that need to use the inactivity timer feature.
+	 */
+	mehci->inactivity_clk = clk_get(mehci->dev, "inactivity_clk");
+	if (IS_ERR(mehci->inactivity_clk))
+		dev_dbg(mehci->dev, "failed to get inactivity_clk\n");
+
 	clk_prepare_enable(mehci->core_clk);
 	clk_prepare_enable(mehci->phy_clk);
 	clk_prepare_enable(mehci->cal_clk);
 	clk_prepare_enable(mehci->ahb_clk);
+	if (!IS_ERR(mehci->inactivity_clk))
+		clk_prepare_enable(mehci->inactivity_clk);
 
 	return 0;
 
@@ -1520,7 +1540,11 @@ put_clocks:
 		clk_disable_unprepare(mehci->phy_clk);
 		clk_disable_unprepare(mehci->cal_clk);
 		clk_disable_unprepare(mehci->ahb_clk);
+		if (!IS_ERR(mehci->inactivity_clk))
+			clk_disable_unprepare(mehci->inactivity_clk);
 	}
+	if (!IS_ERR(mehci->inactivity_clk))
+		clk_put(mehci->inactivity_clk);
 	clk_put(mehci->ahb_clk);
 put_cal_clk:
 	clk_put(mehci->cal_clk);
