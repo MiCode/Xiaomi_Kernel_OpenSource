@@ -1086,6 +1086,14 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 		aggr_params->ul.max_transfer_size_byte =
 			TETH_AGGR_MAX_AGGR_PACKET_SIZE_DEFAULT;
 
+	/* Ethernet link protocol and MBIM aggregation is not supported */
+	if (teth_ctx->link_protocol == TETH_LINK_PROTOCOL_ETHERNET &&
+	    (aggr_params->dl.aggr_prot == TETH_AGGR_PROTOCOL_MBIM ||
+	     aggr_params->ul.aggr_prot == TETH_AGGR_PROTOCOL_MBIM)) {
+		TETH_ERR("Ethernet with MBIM is not supported.\n");
+		return -EINVAL;
+	}
+
 	memcpy(&teth_ctx->aggr_params,
 	       aggr_params,
 	       sizeof(struct teth_aggr_params));
