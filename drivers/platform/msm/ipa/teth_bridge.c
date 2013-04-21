@@ -64,6 +64,11 @@
 
 #define TETH_WORKQUEUE_NAME "tethering_bridge_wq"
 
+#define TETH_TOTAL_HDR_ENTRIES 6
+#define TETH_TOTAL_RT_ENTRIES_IP 3
+#define TETH_TOTAL_FLT_ENTRIES_IP 2
+#define TETH_IP_FAMILIES 2
+
 struct mac_addresses_type {
 	u8 host_pc_mac_addr[ETH_ALEN];
 	bool host_pc_mac_addr_known;
@@ -101,6 +106,9 @@ struct teth_bridge_ctx {
 	struct stats stats;
 	struct workqueue_struct *teth_wq;
 	u16 a2_ipa_hdr_len;
+	struct ipa_ioc_del_hdr *hdr_del;
+	struct ipa_ioc_del_rt_rule *routing_del[TETH_IP_FAMILIES];
+	struct ipa_ioc_del_flt_rule *filtering_del[TETH_IP_FAMILIES];
 };
 static struct teth_bridge_ctx *teth_ctx;
 
@@ -127,6 +135,7 @@ static int add_eth_hdrs(char *hdr_name_ipv4, char *hdr_name_ipv6,
 	struct ipa_ioc_add_hdr *hdrs;
 	struct ethhdr hdr_ipv4;
 	struct ethhdr hdr_ipv6;
+	int idx1;
 
 	TETH_DBG_FUNC_ENTRY();
 	memcpy(hdr_ipv4.h_source, src_mac_addr, ETH_ALEN);
@@ -161,6 +170,13 @@ static int add_eth_hdrs(char *hdr_name_ipv4, char *hdr_name_ipv6,
 	res = ipa_add_hdr(hdrs);
 	if (res || hdrs->hdr[0].status || hdrs->hdr[1].status)
 		TETH_ERR("Header insertion failed\n");
+
+	/* Save the headers handles in order to delete them later */
+	for (idx1 = 0; idx1 < hdrs->num_hdrs; idx1++) {
+		int idx2 = teth_ctx->hdr_del->num_hdls++;
+		teth_ctx->hdr_del->hdl[idx2].hdl = hdrs->hdr[idx1].hdr_hdl;
+	}
+
 	kfree(hdrs);
 	TETH_DBG_FUNC_EXIT();
 
@@ -218,6 +234,7 @@ static int add_mbim_hdr(void)
 	int res;
 	struct ipa_ioc_add_hdr *mbim_hdr;
 	u8 mbim_stream_id = 0;
+	int idx;
 
 	TETH_DBG_FUNC_ENTRY();
 	mbim_hdr = kzalloc(sizeof(struct ipa_ioc_add_hdr) +
@@ -241,6 +258,11 @@ static int add_mbim_hdr(void)
 	} else {
 		TETH_DBG("Added MBIM stream ID header\n");
 	}
+
+	/* Save the header handle in order to delete it later */
+	idx = teth_ctx->hdr_del->num_hdls++;
+	teth_ctx->hdr_del->hdl[idx].hdl = mbim_hdr->hdr[0].hdr_hdl;
+
 	kfree(mbim_hdr);
 	TETH_DBG_FUNC_EXIT();
 
@@ -317,6 +339,7 @@ static int configure_routing_by_ip(char *hdr_name,
 	struct ipa_ioc_add_rt_rule *rt_rule;
 	struct ipa_ioc_get_hdr hdr_info;
 	int res;
+	int idx;
 
 	TETH_DBG_FUNC_ENTRY();
 	/* Get the header handle */
@@ -343,6 +366,12 @@ static int configure_routing_by_ip(char *hdr_name,
 	res = ipa_add_rt_rule(rt_rule);
 	if (res || rt_rule->rules[0].status)
 		TETH_ERR("Failed adding routing rule\n");
+
+	/* Save the routing rule handle in order to delete it later */
+	idx = teth_ctx->routing_del[ip_address_family]->num_hdls++;
+	teth_ctx->routing_del[ip_address_family]->hdl[idx].hdl =
+		rt_rule->rules[0].rt_rule_hdl;
+
 	kfree(rt_rule);
 	TETH_DBG_FUNC_EXIT();
 
@@ -450,6 +479,7 @@ static int configure_filtering_by_ip(char *rt_tbl_name,
 	struct ipa_ioc_add_flt_rule *flt_tbl;
 	struct ipa_ioc_get_rt_tbl rt_tbl_info;
 	int res;
+	int idx;
 
 	TETH_DBG_FUNC_ENTRY();
 	/* Get the needed routing table handle */
@@ -480,6 +510,12 @@ static int configure_filtering_by_ip(char *rt_tbl_name,
 	res = ipa_add_flt_rule(flt_tbl);
 	if (res || flt_tbl->rules[0].status)
 		TETH_ERR("Failed adding filtering table\n");
+
+	/* Save the filtering rule handle in order to delete it later */
+	idx = teth_ctx->filtering_del[ip_address_family]->num_hdls++;
+	teth_ctx->filtering_del[ip_address_family]->hdl[idx].hdl =
+		flt_tbl->rules[0].flt_rule_hdl;
+
 	kfree(flt_tbl);
 	TETH_DBG_FUNC_EXIT();
 
@@ -586,7 +622,6 @@ static int teth_set_aggr_per_ep(
 	u32 pipe_hdl)
 {
 	struct ipa_ep_cfg_aggr agg_params;
-	struct ipa_ep_cfg_hdr hdr_params;
 	int res;
 
 	TETH_DBG_FUNC_ENTRY();
@@ -603,18 +638,7 @@ static int teth_set_aggr_per_ep(
 		TETH_ERR("ipa_cfg_ep_aggr() failed\n");
 		goto bail;
 	}
-
-	if (!client_is_prod) {
-		memset(&hdr_params, 0, sizeof(hdr_params));
-		hdr_params.hdr_len = 1;
-		res = ipa_cfg_ep_hdr(pipe_hdl, &hdr_params);
-		if (res) {
-			TETH_ERR("ipa_cfg_ep_hdr() failed\n");
-			goto bail;
-		}
-	}
 	TETH_DBG_FUNC_EXIT();
-
 bail:
 	return res;
 }
@@ -645,6 +669,19 @@ static int teth_set_aggregation(void)
 	char aggr_prot_str[20];
 
 	TETH_DBG_FUNC_ENTRY();
+	if (!teth_ctx->aggr_params_known) {
+		TETH_ERR("Aggregation parameters unknown.\n");
+		return -EINVAL;
+	}
+
+	if ((teth_ctx->usb_ipa_pipe_hdl == 0) ||
+	    (teth_ctx->ipa_usb_pipe_hdl == 0))
+		return 0;
+		/*
+		 * Returning 0 in case pipe handles are 0 becuase aggregation
+		 * params will be set later
+		 */
+
 	if (teth_ctx->aggr_params.ul.aggr_prot == TETH_AGGR_PROTOCOL_MBIM ||
 	    teth_ctx->aggr_params.dl.aggr_prot == TETH_AGGR_PROTOCOL_MBIM) {
 		res = ipa_set_aggr_mode(IPA_MBIM);
@@ -1108,6 +1145,57 @@ bail:
 }
 EXPORT_SYMBOL(teth_bridge_init);
 
+static void initialize_context(void)
+{
+	TETH_DBG_FUNC_ENTRY();
+	/* Initialize context variables */
+	teth_ctx->usb_ipa_pipe_hdl = 0;
+	teth_ctx->ipa_a2_pipe_hdl = 0;
+	teth_ctx->a2_ipa_pipe_hdl = 0;
+	teth_ctx->ipa_usb_pipe_hdl = 0;
+	teth_ctx->is_connected = false;
+
+	/* The default link protocol is Ethernet */
+	teth_ctx->link_protocol = TETH_LINK_PROTOCOL_ETHERNET;
+
+	memset(&teth_ctx->mac_addresses, 0, sizeof(teth_ctx->mac_addresses));
+	teth_ctx->is_hw_bridge_complete = false;
+	memset(&teth_ctx->aggr_params, 0, sizeof(teth_ctx->aggr_params));
+	teth_ctx->aggr_params_known = false;
+	teth_ctx->tethering_mode = 0;
+	INIT_COMPLETION(teth_ctx->is_bridge_prod_up);
+	INIT_COMPLETION(teth_ctx->is_bridge_prod_down);
+	teth_ctx->comp_hw_bridge_in_progress = false;
+	memset(&teth_ctx->stats, 0, sizeof(teth_ctx->stats));
+	teth_ctx->a2_ipa_hdr_len = 0;
+	memset(teth_ctx->hdr_del,
+	       0,
+	       sizeof(struct ipa_ioc_del_hdr) + TETH_TOTAL_HDR_ENTRIES *
+	       sizeof(struct ipa_hdr_del));
+	memset(teth_ctx->routing_del[IPA_IP_v4],
+	       0,
+	       sizeof(struct ipa_ioc_del_rt_rule) +
+	       TETH_TOTAL_RT_ENTRIES_IP * sizeof(struct ipa_rt_rule_del));
+	teth_ctx->routing_del[IPA_IP_v4]->ip = IPA_IP_v4;
+	memset(teth_ctx->routing_del[IPA_IP_v6],
+	       0,
+	       sizeof(struct ipa_ioc_del_rt_rule) +
+	       TETH_TOTAL_RT_ENTRIES_IP * sizeof(struct ipa_rt_rule_del));
+	teth_ctx->routing_del[IPA_IP_v6]->ip = IPA_IP_v6;
+	memset(teth_ctx->filtering_del[IPA_IP_v4],
+	       0,
+	       sizeof(struct ipa_ioc_del_flt_rule) +
+	       TETH_TOTAL_FLT_ENTRIES_IP * sizeof(struct ipa_flt_rule_del));
+	teth_ctx->filtering_del[IPA_IP_v4]->ip = IPA_IP_v4;
+	memset(teth_ctx->filtering_del[IPA_IP_v6],
+	       0,
+	       sizeof(struct ipa_ioc_del_flt_rule) +
+	       TETH_TOTAL_FLT_ENTRIES_IP * sizeof(struct ipa_flt_rule_del));
+	teth_ctx->filtering_del[IPA_IP_v6]->ip = IPA_IP_v6;
+
+	TETH_DBG_FUNC_EXIT();
+}
+
 /**
 * teth_bridge_disconnect() - Disconnect tethering bridge module
 *
@@ -1139,8 +1227,32 @@ int teth_bridge_disconnect(void)
 	if (a2_mux_close_channel(A2_MUX_TETHERED_0))
 		TETH_ERR("a2_mux_close_channel() failed\n");
 
-	/* Initialize statistics */
-	memset(&teth_ctx->stats, 0, sizeof(teth_ctx->stats));
+	if (teth_ctx->is_hw_bridge_complete) {
+		/* Delete header entries */
+		if (ipa_del_hdr(teth_ctx->hdr_del))
+			TETH_ERR("ipa_del_hdr() failed\n");
+
+		/* Delete installed routing rules */
+		if (ipa_del_rt_rule(teth_ctx->routing_del[IPA_IP_v4]))
+			TETH_ERR("ipa_del_rt_rule() failed\n");
+		if (ipa_del_rt_rule(teth_ctx->routing_del[IPA_IP_v6]))
+			TETH_ERR("ipa_del_rt_rule() failed\n");
+
+		/* Delete installed filtering rules */
+		if (ipa_del_flt_rule(teth_ctx->filtering_del[IPA_IP_v4]))
+			TETH_ERR("ipa_del_flt_rule() failed\n");
+		if (ipa_del_flt_rule(teth_ctx->filtering_del[IPA_IP_v6]))
+			TETH_ERR("ipa_del_flt_rule() failed\n");
+
+		/*
+		 * Commit all the data to HW, including header, routing and
+		 * filtering blocks, IPv4 and IPv6
+		 */
+		if (ipa_commit_hdr())
+			TETH_ERR("Failed committing headers\n");
+	}
+
+	initialize_context();
 
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
 
@@ -1265,6 +1377,7 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 {
 	int res;
 
+	TETH_DBG_FUNC_ENTRY();
 	if (!aggr_params) {
 		TETH_ERR("Invalid parameter\n");
 		return -EINVAL;
@@ -1293,6 +1406,7 @@ int teth_bridge_set_aggr_params(struct teth_aggr_params *aggr_params)
 	res = teth_set_aggregation();
 	if (res)
 		TETH_ERR("Failed setting aggregation params\n");
+	TETH_DBG_FUNC_EXIT();
 
 	return res;
 }
@@ -1387,7 +1501,7 @@ static long teth_bridge_ioctl(struct file *filp,
 	return res;
 }
 
-static void set_aggr_capabilities(void)
+static int set_aggr_capabilities(void)
 {
 	u16 NUM_PROTOCOLS = 2;
 
@@ -1395,9 +1509,9 @@ static void set_aggr_capabilities(void)
 				      NUM_PROTOCOLS *
 				      sizeof(struct teth_aggr_params_link),
 				      GFP_KERNEL);
-	if (teth_ctx->aggr_caps == NULL) {
+	if (!teth_ctx->aggr_caps) {
 		TETH_ERR("Memory alloc failed for aggregation capabilities.\n");
-		return;
+		return -ENOMEM;
 	}
 
 	teth_ctx->aggr_caps->num_protocols = NUM_PROTOCOLS;
@@ -1407,6 +1521,8 @@ static void set_aggr_capabilities(void)
 
 	teth_ctx->aggr_caps->prot_caps[1].aggr_prot = TETH_AGGR_PROTOCOL_TLP;
 	set_aggr_default_params(&teth_ctx->aggr_caps->prot_caps[1]);
+
+	return 0;
 }
 
 void teth_bridge_get_client_handles(u32 *producer_handle,
@@ -1707,7 +1823,59 @@ int teth_bridge_driver_init(void)
 		return -ENOMEM;
 	}
 
-	set_aggr_capabilities();
+	res = set_aggr_capabilities();
+	if (res) {
+		TETH_ERR("kzalloc err.\n");
+		goto fail_alloc_aggr_caps;
+	}
+
+	res = -ENOMEM;
+	teth_ctx->hdr_del = kzalloc(sizeof(struct ipa_ioc_del_hdr) +
+				    TETH_TOTAL_HDR_ENTRIES *
+				    sizeof(struct ipa_hdr_del),
+				    GFP_KERNEL);
+	if (!teth_ctx->hdr_del) {
+		TETH_ERR("kzalloc err.\n");
+		goto fail_alloc_hdr_del;
+	}
+
+	teth_ctx->routing_del[IPA_IP_v4] =
+		kzalloc(sizeof(struct ipa_ioc_del_rt_rule) +
+			TETH_TOTAL_RT_ENTRIES_IP *
+			sizeof(struct ipa_rt_rule_del),
+			GFP_KERNEL);
+	if (!teth_ctx->routing_del[IPA_IP_v4]) {
+		TETH_ERR("kzalloc err.\n");
+		goto fail_alloc_routing_del_ipv4;
+	}
+	teth_ctx->routing_del[IPA_IP_v6] =
+		kzalloc(sizeof(struct ipa_ioc_del_rt_rule) +
+			TETH_TOTAL_RT_ENTRIES_IP *
+			sizeof(struct ipa_rt_rule_del),
+			GFP_KERNEL);
+	if (!teth_ctx->routing_del[IPA_IP_v6]) {
+		TETH_ERR("kzalloc err.\n");
+		goto fail_alloc_routing_del_ipv6;
+	}
+
+	teth_ctx->filtering_del[IPA_IP_v4] =
+		kzalloc(sizeof(struct ipa_ioc_del_flt_rule) +
+			TETH_TOTAL_FLT_ENTRIES_IP *
+			sizeof(struct ipa_flt_rule_del),
+			GFP_KERNEL);
+	if (!teth_ctx->filtering_del[IPA_IP_v4]) {
+		TETH_ERR("kzalloc err.\n");
+		goto fail_alloc_filtering_del_ipv4;
+	}
+	teth_ctx->filtering_del[IPA_IP_v6] =
+		kzalloc(sizeof(struct ipa_ioc_del_flt_rule) +
+			TETH_TOTAL_FLT_ENTRIES_IP *
+			sizeof(struct ipa_flt_rule_del),
+			GFP_KERNEL);
+	if (!teth_ctx->filtering_del[IPA_IP_v6]) {
+		TETH_ERR("kzalloc err.\n");
+		goto fail_alloc_filtering_del_ipv6;
+	}
 
 	teth_ctx->class = class_create(THIS_MODULE, TETH_BRIDGE_DRV_NAME);
 
@@ -1738,8 +1906,6 @@ int teth_bridge_driver_init(void)
 		goto fail_cdev_add;
 	}
 
-	teth_ctx->comp_hw_bridge_in_progress = false;
-
 	teth_debugfs_init();
 
 	/* Create BRIDGE_PROD entity in IPA Resource Manager */
@@ -1768,9 +1934,7 @@ int teth_bridge_driver_init(void)
 		goto fail_cdev_add;
 	}
 
-	/* The default link protocol is Ethernet */
-	teth_ctx->link_protocol = TETH_LINK_PROTOCOL_ETHERNET;
-
+	initialize_context();
 	TETH_DBG("Tethering bridge driver init OK\n");
 
 	return 0;
@@ -1779,7 +1943,18 @@ fail_cdev_add:
 fail_device_create:
 	unregister_chrdev_region(teth_ctx->dev_num, 1);
 fail_alloc_chrdev_region:
+	kfree(teth_ctx->filtering_del[IPA_IP_v6]);
+fail_alloc_filtering_del_ipv6:
+	kfree(teth_ctx->filtering_del[IPA_IP_v4]);
+fail_alloc_filtering_del_ipv4:
+	kfree(teth_ctx->routing_del[IPA_IP_v6]);
+fail_alloc_routing_del_ipv6:
+	kfree(teth_ctx->routing_del[IPA_IP_v4]);
+fail_alloc_routing_del_ipv4:
+	kfree(teth_ctx->hdr_del);
+fail_alloc_hdr_del:
 	kfree(teth_ctx->aggr_caps);
+fail_alloc_aggr_caps:
 	kfree(teth_ctx);
 	teth_ctx = NULL;
 
