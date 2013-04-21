@@ -64,11 +64,17 @@ struct dmx_framing_packet_info {
 
 	/** PTS/DTS information */
 	struct dmx_pts_dts_info pts_dts_info;
+
+	/** STC value attached to first TS packet holding the pattern */
+	u64 stc;
 };
 
 struct dmx_pes_packet_info {
 	/** PTS/DTS information */
 	struct dmx_pts_dts_info pts_dts_info;
+
+	/** STC value attached to first TS packet holding the PES */
+	u64 stc;
 };
 
 struct dmx_marker_info {

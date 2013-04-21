@@ -368,6 +368,9 @@ struct dmx_es_data_event_info {
 	/* DTS value associated with the buffer */
 	__u64 dts;
 
+	/* STC value associated with the buffer in 27MHz */
+	__u64 stc;
+
 	/*
 	 * Number of TS packets with Transport Error Indicator (TEI) set
 	 * in the TS packet header since last reported event
