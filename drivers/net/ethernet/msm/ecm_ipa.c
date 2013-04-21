@@ -29,6 +29,7 @@
 #define INACTIVITY_MSEC_DELAY 100
 #define DEFAULT_OUTSTANDING_HIGH 64
 #define DEFAULT_OUTSTANDING_LOW 32
+#define DEBUGFS_TEMP_BUF_SIZE 4
 
 #define ECM_IPA_ERROR(fmt, args...) \
 	pr_err(DRIVER_NAME "@%s@%d@ctx:%s: "\
@@ -57,6 +58,7 @@
  * @tx_file: saved debugfs entry to allow cleanup
  * @rx_file: saved debugfs entry to allow cleanup
  * @rm_file: saved debugfs entry to allow cleanup
+ * @outstanding_file:  saved debugfs entry to allow cleanup
  * @outstanding_high_file saved debugfs entry to allow cleanup
  * @outstanding_low_file saved debugfs entry to allow cleanup
  * @dma_file: saved debugfs entry to allow cleanup
@@ -82,6 +84,7 @@ struct ecm_ipa_dev {
 	struct dentry *outstanding_high_file;
 	struct dentry *outstanding_low_file;
 	struct dentry *dma_file;
+	struct dentry *outstanding_file;
 	uint32_t eth_ipv4_hdr_hdl;
 	uint32_t eth_ipv6_hdr_hdl;
 	u32 usb_to_ipa_hdl;
@@ -129,7 +132,10 @@ static int ecm_ipa_debugfs_tx_open(struct inode *inode, struct file *file);
 static int ecm_ipa_debugfs_rx_open(struct inode *inode, struct file *file);
 static int ecm_ipa_debugfs_rm_open(struct inode *inode, struct file *file);
 static int ecm_ipa_debugfs_dma_open(struct inode *inode, struct file *file);
+static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file);
 static ssize_t ecm_ipa_debugfs_enable_read(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos);
+static ssize_t ecm_ipa_debugfs_atomic_read(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos);
 static ssize_t ecm_ipa_debugfs_enable_write(struct file *file,
 		const char __user *buf, size_t count, loff_t *ppos);
@@ -167,6 +173,11 @@ const struct file_operations ecm_ipa_debugfs_dma_ops = {
 	.open = ecm_ipa_debugfs_dma_open,
 	.read = ecm_ipa_debugfs_enable_read,
 	.write = ecm_ipa_debugfs_enable_write_dma,
+};
+
+const struct file_operations ecm_ipa_debugfs_atomic_ops = {
+		.open = ecm_ipa_debugfs_atomic_open,
+		.read = ecm_ipa_debugfs_atomic_read,
 };
 
 /**
@@ -833,6 +844,15 @@ static int ecm_ipa_debugfs_rm_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file)
+{
+	struct ecm_ipa_dev *dev = inode->i_private;
+	ECM_IPA_LOG_ENTRY();
+	file->private_data = &(dev->outstanding_pkts);
+	ECM_IPA_LOG_EXIT();
+	return 0;
+}
+
 static ssize_t ecm_ipa_debugfs_enable_write_dma(struct file *file,
 		const char __user *buf, size_t count, loff_t *ppos)
 {
@@ -904,9 +924,22 @@ static ssize_t ecm_ipa_debugfs_enable_read(struct file *file,
 	return size;
 }
 
+static ssize_t ecm_ipa_debugfs_atomic_read(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int nbytes;
+	u8 atomic_str[DEBUGFS_TEMP_BUF_SIZE] = {0};
+	atomic_t *atomic_var = file->private_data;
+	nbytes = scnprintf(atomic_str, sizeof(atomic_str), "%d\n",
+			atomic_read(atomic_var));
+	return simple_read_from_buffer(ubuf, count, ppos, atomic_str, nbytes);
+}
+
+
 static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev)
 {
 	const mode_t flags = S_IRUGO | S_IWUGO;
+	const mode_t flags_read_only = S_IRUGO;
 
 	int ret = -EINVAL;
 	ECM_IPA_LOG_ENTRY();
@@ -958,6 +991,14 @@ static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *dev)
 			flags, dev->folder, &dev->outstanding_low);
 	if (!dev->outstanding_low_file) {
 		ECM_IPA_ERROR("could not create outstanding_low file\n");
+		ret = -EFAULT;
+		goto fail_file;
+	}
+	dev->outstanding_file = debugfs_create_file("outstanding",
+			flags_read_only, dev->folder, dev,
+			&ecm_ipa_debugfs_atomic_ops);
+	if (!dev->outstanding_file) {
+		ECM_IPA_ERROR("could not create outstanding file\n");
 		ret = -EFAULT;
 		goto fail_file;
 	}
