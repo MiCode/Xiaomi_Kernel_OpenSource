@@ -755,7 +755,7 @@ int ipa_get_a2_mux_pipe_info(enum a2_mux_pipe_direction pipe_dir,
 				struct a2_mux_pipe_connection *pipe_connect);
 int ipa_get_a2_mux_bam_info(u32 *a2_bam_mem_base, u32 *a2_bam_mem_size,
 			    u32 *a2_bam_irq);
-void rmnet_bridge_get_client_handles(u32 *producer_handle,
+void teth_bridge_get_client_handles(u32 *producer_handle,
 		u32 *consumer_handle);
 int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		bool in_atomic);
