@@ -1212,6 +1212,11 @@ static void set_aggr_capabilities(void)
 	set_aggr_default_params(&teth_ctx->aggr_caps->prot_caps[1]);
 }
 
+/**
+* teth_bridge_get_client_handles() - Get USB <--> IPA pipe handles
+* @producer_handle:	USB --> IPA pipe handle
+* @consumer_handle:	IPA --> USB pipe handle
+*/
 void teth_bridge_get_client_handles(u32 *producer_handle,
 		u32 *consumer_handle)
 {
