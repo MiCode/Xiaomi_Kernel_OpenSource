@@ -2406,6 +2406,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 		event.params.es_data.pts = dmx_data_ready->buf.pts;
 		event.params.es_data.dts_valid = dmx_data_ready->buf.dts_exists;
 		event.params.es_data.dts = dmx_data_ready->buf.dts;
+		event.params.es_data.stc = dmx_data_ready->buf.stc;
 		event.params.es_data.transport_error_indicator_counter =
 				dmx_data_ready->buf.tei_counter;
 		event.params.es_data.continuity_error_counter =

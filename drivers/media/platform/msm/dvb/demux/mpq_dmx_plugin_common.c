@@ -25,6 +25,9 @@
 /* Length of mandatory fields that must exist in header of video PES */
 #define PES_MANDATORY_FIELDS_LEN			9
 
+/* Index of first byte in TS packet holding STC */
+#define STC_LOCATION_IDX			188
+
 #define MAX_PES_LENGTH	(SZ_64K)
 
 #define MAX_TS_PACKETS_FOR_SDMX_PROCESS	(500)
@@ -2202,6 +2205,14 @@ static inline void mpq_dmx_prepare_es_event_data(
 	size_t len = 0;
 	struct dmx_pts_dts_info *pts_dts;
 
+	if (meta_data->packet_type == DMX_PES_PACKET) {
+		pts_dts = &meta_data->info.pes.pts_dts_info;
+		data->buf.stc = meta_data->info.pes.stc;
+	} else {
+		pts_dts = &meta_data->info.framing.pts_dts_info;
+		data->buf.stc = meta_data->info.framing.stc;
+	}
+
 	pts_dts = meta_data->packet_type == DMX_PES_PACKET ?
 		&meta_data->info.pes.pts_dts_info :
 		&meta_data->info.framing.pts_dts_info;
@@ -2313,6 +2324,7 @@ static void mpq_dmx_decoder_frame_closure(struct mpq_demux *mpq_demux,
 		packet.raw_data_offset = feed_data->frame_offset;
 		meta_data.info.framing.pattern_type =
 			feed_data->last_framing_match_type;
+		meta_data.info.framing.stc = feed_data->last_framing_match_stc;
 
 		mpq_streambuffer_get_buffer_handle(stream_buffer,
 			0, /* current write buffer handle */
@@ -2385,6 +2397,7 @@ static void mpq_dmx_decoder_pes_closure(struct mpq_demux *mpq_demux,
 		mpq_dmx_save_pts_dts(feed_data);
 
 		meta_data.packet_type = DMX_PES_PACKET;
+		meta_data.info.pes.stc = feed_data->prev_stc;
 
 		mpq_dmx_update_decoder_stat(mpq_demux);
 
@@ -2411,7 +2424,8 @@ static void mpq_dmx_decoder_pes_closure(struct mpq_demux *mpq_demux,
 
 static int mpq_dmx_process_video_packet_framing(
 			struct dvb_demux_feed *feed,
-			const u8 *buf)
+			const u8 *buf,
+			u64 curr_stc)
 {
 	int bytes_avail;
 	u32 ts_payload_offset;
@@ -2596,7 +2610,8 @@ static int mpq_dmx_process_video_packet_framing(
 	 * pass data to decoder only after sequence header
 	 * or equivalent is found. Otherwise the data is dropped.
 	 */
-	if (!(feed_data->found_sequence_header_pattern)) {
+	if (!feed_data->found_sequence_header_pattern) {
+		feed_data->prev_stc = curr_stc;
 		spin_unlock(&feed_data->video_buffer_lock);
 		return 0;
 	}
@@ -2699,6 +2714,12 @@ static int mpq_dmx_process_video_packet_framing(
 					framing_res.info[i].type;
 				feed_data->last_pattern_offset =
 					framing_res.info[i].offset;
+				if (framing_res.info[i].used_prefix_size)
+					feed_data->last_framing_match_stc =
+						feed_data->prev_stc;
+				else
+					feed_data->last_framing_match_stc =
+						curr_stc;
 				continue;
 			}
 			/*
@@ -2744,6 +2765,8 @@ static int mpq_dmx_process_video_packet_framing(
 			packet.raw_data_offset = feed_data->frame_offset;
 			meta_data.info.framing.pattern_type =
 				feed_data->last_framing_match_type;
+			meta_data.info.framing.stc =
+				feed_data->last_framing_match_stc;
 
 			mpq_streambuffer_get_buffer_handle(
 				stream_buffer,
@@ -2784,8 +2807,13 @@ static int mpq_dmx_process_video_packet_framing(
 			framing_res.info[i].type;
 		feed_data->last_pattern_offset =
 			framing_res.info[i].offset;
+		if (framing_res.info[i].used_prefix_size)
+			feed_data->last_framing_match_stc = feed_data->prev_stc;
+		else
+			feed_data->last_framing_match_stc = curr_stc;
 	}
 
+	feed_data->prev_stc = curr_stc;
 	feed_data->first_prefix_size = 0;
 
 	if (pending_data_len) {
@@ -2810,7 +2838,8 @@ static int mpq_dmx_process_video_packet_framing(
 
 static int mpq_dmx_process_video_packet_no_framing(
 			struct dvb_demux_feed *feed,
-			const u8 *buf)
+			const u8 *buf,
+			u64 curr_stc)
 {
 	int bytes_avail;
 	u32 ts_payload_offset;
@@ -2886,6 +2915,7 @@ static int mpq_dmx_process_video_packet_no_framing(
 				mpq_dmx_save_pts_dts(feed_data);
 
 				meta_data.packet_type = DMX_PES_PACKET;
+				meta_data.info.pes.stc = feed_data->prev_stc;
 
 				mpq_dmx_update_decoder_stat(mpq_demux);
 
@@ -2928,6 +2958,8 @@ static int mpq_dmx_process_video_packet_no_framing(
 		} else {
 			feed->pusi_seen = 1;
 		}
+
+		feed_data->prev_stc = curr_stc;
 	}
 
 	/*
@@ -3077,10 +3109,25 @@ int mpq_dmx_process_video_packet(
 			struct dvb_demux_feed *feed,
 			const u8 *buf)
 {
+	u64 curr_stc;
+	struct mpq_demux *mpq_demux = feed->demux->priv;
+
+	if ((mpq_demux->source >= DMX_SOURCE_DVR0) &&
+		(mpq_demux->demux.tsp_format != DMX_TSP_FORMAT_192_TAIL)) {
+		curr_stc = 0;
+	} else {
+		curr_stc = buf[STC_LOCATION_IDX + 2] << 16;
+		curr_stc += buf[STC_LOCATION_IDX + 1] << 8;
+		curr_stc += buf[STC_LOCATION_IDX];
+		curr_stc *= 256; /* convert from 105.47 KHZ to 27MHz */
+	}
+
 	if (mpq_dmx_info.decoder_framing)
-		return mpq_dmx_process_video_packet_no_framing(feed, buf);
+		return mpq_dmx_process_video_packet_no_framing(feed, buf,
+				curr_stc);
 	else
-		return mpq_dmx_process_video_packet_framing(feed, buf);
+		return mpq_dmx_process_video_packet_framing(feed, buf,
+				curr_stc);
 }
 EXPORT_SYMBOL(mpq_dmx_process_video_packet);
 
@@ -3151,9 +3198,9 @@ int mpq_dmx_process_pcr_packet(
 		(mpq_demux->demux.tsp_format != DMX_TSP_FORMAT_192_TAIL)) {
 		stc = 0;
 	} else {
-		stc = buf[190] << 16;
-		stc += buf[189] << 8;
-		stc += buf[188];
+		stc = buf[STC_LOCATION_IDX + 2] << 16;
+		stc += buf[STC_LOCATION_IDX + 1] << 8;
+		stc += buf[STC_LOCATION_IDX];
 		stc *= 256; /* convert from 105.47 KHZ to 27MHz */
 	}
 
@@ -4190,6 +4237,9 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 		pes_header = (struct pes_packet_header *)
 			&metadata_buf[pes_header_offset];
 		meta_data.packet_type = DMX_PES_PACKET;
+		/* TODO - set to real STC when SDMX supports it */
+		meta_data.info.pes.stc = 0;
+
 		if (pes_header->pts_dts_flag & 0x2) {
 			meta_data.info.pes.pts_dts_info.pts_exist = 1;
 			meta_data.info.pes.pts_dts_info.pts =
