@@ -244,6 +244,8 @@ struct mpq_decoder_buffers_desc {
  * reported for this frame.
  * @last_framing_match_type: Used for saving the type of
  * the previous pattern match found in this video feed.
+ * @last_framing_match_stc: Used for saving the STC attached to TS packet
+ * of the previous pattern match found in this video feed.
  * @found_sequence_header_pattern: Flag used to note that an MPEG-2
  * Sequence Header, H.264 SPS or VC-1 Sequence Header pattern
  * (whichever is relevant according to the video standard) had already
@@ -272,6 +274,7 @@ struct mpq_decoder_buffers_desc {
  * buffer space.
  * @last_pkt_index: used to save the last streambuffer packet index reported in
  * a new elementary stream data event.
+ * @prev_stc: STC attached to the previous video TS packet
  */
 struct mpq_video_feed_info {
 	struct mpq_streambuffer *video_buffer;
@@ -289,6 +292,7 @@ struct mpq_video_feed_info {
 	u32 last_pattern_offset;
 	u32 pending_pattern_len;
 	u64 last_framing_match_type;
+	u64 last_framing_match_stc;
 	int found_sequence_header_pattern;
 	struct dvb_dmx_video_prefix_size_masks prefix_size;
 	u32 first_prefix_size;
@@ -303,6 +307,7 @@ struct mpq_video_feed_info {
 	u32 ts_packets_num;
 	u32 ts_dropped_bytes;
 	int last_pkt_index;
+	u64 prev_stc;
 };
 
 /**

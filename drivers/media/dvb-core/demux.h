@@ -127,6 +127,7 @@ struct dmx_data_ready {
 			u32 cont_err_counter;
 			u32 ts_packets_num;
 			u32 ts_dropped_bytes;
+			u64 stc;
 		} buf;
 
 		struct {
