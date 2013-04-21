@@ -256,6 +256,18 @@ void smd_sleep_exit(void);
 int smsm_check_for_modem_crash(void);
 void *smem_find(unsigned id, unsigned size);
 void *smem_get_entry(unsigned id, unsigned *size);
+
+/**
+ * smem_virt_to_phys() - Convert SMEM address to physical address.
+ *
+ * @smem_address: Virtual address returned by smem_alloc()/smem_alloc2()
+ * @returns: Physical address (or NULL if there is a failure)
+ *
+ * This function should only be used if an SMEM item needs to be handed
+ * off to a DMA engine.
+ */
+phys_addr_t smem_virt_to_phys(void *smem_address);
+
 #else
 static inline void *smem_alloc(unsigned id, unsigned size)
 {
@@ -336,6 +348,10 @@ static inline int smsm_check_for_modem_crash(void)
 	return -ENODEV;
 }
 static inline void *smem_find(unsigned id, unsigned size)
+{
+	return NULL;
+}
+static inline phys_addr_t smem_virt_to_phys(void *smem_address)
 {
 	return NULL;
 }

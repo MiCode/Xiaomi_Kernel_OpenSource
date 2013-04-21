@@ -34,7 +34,6 @@
 #include <linux/kfifo.h>
 #include <linux/wakelock.h>
 #include <linux/notifier.h>
-#include <linux/sort.h>
 #include <linux/suspend.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -47,6 +46,7 @@
 #include <mach/proc_comm.h>
 #include <mach/msm_ipc_logging.h>
 #include <mach/ramdump.h>
+#include <mach/board.h>
 
 #include <asm/cacheflush.h>
 
@@ -184,7 +184,7 @@ static uint32_t num_smem_areas;
 static struct smem_area *smem_areas;
 static struct ramdump_segment *smem_ramdump_segments;
 static void *smem_ramdump_dev;
-static void *smem_range_check(phys_addr_t base, unsigned offset);
+static void *smem_phys_to_virt(phys_addr_t base, unsigned offset);
 static void *smd_dev;
 
 struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
@@ -243,6 +243,17 @@ static void *smd_log_ctx;
 #define SMSM_INFO(x...) do { } while (0)
 #define SMx_POWER_INFO(x...) do { } while (0)
 #endif
+
+/**
+ * OVERFLOW_ADD_UNSIGNED() - check for unsigned overflow
+ *
+ * @type: type to check for overflow
+ * @a: left value to use
+ * @b: right value to use
+ * @returns: true if a + b will result in overflow; false otherwise
+ */
+#define OVERFLOW_ADD_UNSIGNED(type, a, b) \
+	(((type)~0 - (a)) < (b) ? true : false)
 
 static unsigned last_heap_free = 0xffffffff;
 
@@ -2400,36 +2411,106 @@ EXPORT_SYMBOL(smd_is_pkt_avail);
 
 /* -------------------------------------------------------------------------- */
 
-/*
- * Shared Memory Range Check
- *
- * Takes a physical address and an offset and checks if the resulting physical
- * address would fit into one of the aux smem regions.  If so, returns the
- * corresponding virtual address.  Otherwise returns NULL.  Expects the array
- * of smem regions to be in ascending physical address order.
+/**
+ * smem_phys_to_virt() - Convert a physical base and offset to virtual address
  *
  * @base: physical base address to check
  * @offset: offset from the base to get the final address
+ * @returns: virtual SMEM address; NULL for failure
+ *
+ * Takes a physical address and an offset and checks if the resulting physical
+ * address would fit into one of the smem regions.  If so, returns the
+ * corresponding virtual address.  Otherwise returns NULL.
  */
-static void *smem_range_check(phys_addr_t base, unsigned offset)
+static void *smem_phys_to_virt(phys_addr_t base, unsigned offset)
 {
 	int i;
 	phys_addr_t phys_addr;
 	resource_size_t size;
 
+	if (OVERFLOW_ADD_UNSIGNED(phys_addr_t, base, offset))
+		return NULL;
+
+	if (!smem_areas) {
+		/*
+		 * Early boot - no area configuration yet, so default
+		 * to using the main memory region.
+		 *
+		 * To remove the MSM_SHARED_RAM_BASE and the static
+		 * mapping of SMEM in the future, add dump_stack()
+		 * to identify the early callers of smem_get_entry()
+		 * (which calls this function) and replace those calls
+		 * with a new function that knows how to lookup the
+		 * SMEM base address before SMEM has been probed.
+		 */
+		phys_addr = msm_shared_ram_phys;
+		size = MSM_SHARED_RAM_SIZE;
+
+		if (base >= phys_addr && base + offset < phys_addr + size) {
+			if (OVERFLOW_ADD_UNSIGNED(uintptr_t,
+				(uintptr_t)MSM_SHARED_RAM_BASE, offset)) {
+				pr_err("%s: overflow %p %x\n", __func__,
+					MSM_SHARED_RAM_BASE, offset);
+				return NULL;
+			}
+
+			return MSM_SHARED_RAM_BASE + offset;
+		} else {
+			return NULL;
+		}
+	}
 	for (i = 0; i < num_smem_areas; ++i) {
 		phys_addr = smem_areas[i].phys_addr;
 		size = smem_areas[i].size;
-		if (base < phys_addr)
-			return NULL;
-		if (base > phys_addr + size)
+
+		if (base < phys_addr || base + offset >= phys_addr + size)
 			continue;
-		if (base >= phys_addr && base + offset < phys_addr + size)
-			return smem_areas[i].virt_addr + offset;
+
+		if (OVERFLOW_ADD_UNSIGNED(uintptr_t,
+				(uintptr_t)smem_areas[i].virt_addr, offset)) {
+			pr_err("%s: overflow %p %x\n", __func__,
+				smem_areas[i].virt_addr, offset);
+			return NULL;
+		}
+
+		return smem_areas[i].virt_addr + offset;
 	}
 
 	return NULL;
 }
+
+/**
+ * smem_virt_to_phys() - Convert SMEM address to physical address.
+ *
+ * @smem_address: Address of SMEM item (returned by smem_alloc(), etc)
+ * @returns: Physical address (or NULL if there is a failure)
+ *
+ * This function should only be used if an SMEM item needs to be handed
+ * off to a DMA engine.
+ */
+phys_addr_t smem_virt_to_phys(void *smem_address)
+{
+	phys_addr_t phys_addr = 0;
+	int i;
+	void *vend;
+
+	if (!smem_areas)
+		return phys_addr;
+
+	for (i = 0; i < num_smem_areas; ++i) {
+		vend = (void *)(smem_areas[i].virt_addr + smem_areas[i].size);
+
+		if (smem_address >= smem_areas[i].virt_addr &&
+				smem_address < vend) {
+			phys_addr = smem_address - smem_areas[i].virt_addr;
+			phys_addr +=  smem_areas[i].phys_addr;
+			break;
+		}
+	}
+
+	return phys_addr;
+}
+EXPORT_SYMBOL(smem_virt_to_phys);
 
 /* smem_alloc returns the pointer to smem item if it is already allocated.
  * Otherwise, it returns NULL.
@@ -2504,14 +2585,15 @@ void *smem_get_entry(unsigned id, unsigned *size)
 		remote_spin_lock_irqsave(&remote_spinlock, flags);
 	/* toc is in device memory and cannot be speculatively accessed */
 	if (toc[id].allocated) {
+		phys_addr_t phys_base;
+
 		*size = toc[id].size;
 		barrier();
-		if (!(toc[id].reserved & BASE_ADDR_MASK))
-			ret = (void *) (MSM_SHARED_RAM_BASE + toc[id].offset);
-		else
-			ret = smem_range_check(
-				toc[id].reserved & BASE_ADDR_MASK,
-				toc[id].offset);
+
+		phys_base = toc[id].reserved & BASE_ADDR_MASK;
+		if (!phys_base)
+			phys_base = (phys_addr_t)msm_shared_ram_phys;
+		ret = smem_phys_to_virt(phys_base, toc[id].offset);
 	} else {
 		*size = 0;
 	}
@@ -3464,14 +3546,6 @@ static int intr_init(struct interrupt_config_item *private_irq,
 	return ret;
 }
 
-int sort_cmp_func(const void *a, const void *b)
-{
-	struct smem_area *left = (struct smem_area *)(a);
-	struct smem_area *right = (struct smem_area *)(b);
-
-	return left->phys_addr - right->phys_addr;
-}
-
 int smd_core_platform_init(struct platform_device *pdev)
 {
 	int i;
@@ -3482,7 +3556,8 @@ int smd_core_platform_init(struct platform_device *pdev)
 	struct smd_subsystem_config *cfg;
 	int err_ret = 0;
 	struct smd_smem_regions *smd_smem_areas;
-	int smem_idx = 0;
+	struct smem_area *smem_areas_tmp = NULL;
+	int smem_idx;
 
 	smd_platform_data = pdev->dev.platform_data;
 	num_ss = smd_platform_data->num_ss_configs;
@@ -3493,37 +3568,54 @@ int smd_core_platform_init(struct platform_device *pdev)
 			   smd_ssr_config->disable_smsm_reset_handshake;
 
 	smd_smem_areas = smd_platform_data->smd_smem_areas;
-	if (smd_smem_areas) {
-		num_smem_areas = smd_platform_data->num_smem_areas;
-		smem_areas = kmalloc(sizeof(struct smem_area) * num_smem_areas,
-						GFP_KERNEL);
-		if (!smem_areas) {
-			pr_err("%s: smem_areas kmalloc failed\n", __func__);
+	num_smem_areas = smd_platform_data->num_smem_areas + 1;
+
+	/* Initialize main SMEM region */
+	smem_areas_tmp = kmalloc_array(num_smem_areas, sizeof(struct smem_area),
+				GFP_KERNEL);
+	if (!smem_areas_tmp) {
+		pr_err("%s: smem_areas kmalloc failed\n", __func__);
+		err_ret = -ENOMEM;
+		goto smem_areas_alloc_fail;
+	}
+
+	smem_areas_tmp[0].phys_addr =  msm_shared_ram_phys;
+	smem_areas_tmp[0].size = MSM_SHARED_RAM_SIZE;
+	smem_areas_tmp[0].virt_addr = MSM_SHARED_RAM_BASE;
+
+	/* Configure auxiliary SMEM regions */
+	for (smem_idx = 1; smem_idx < num_smem_areas; ++smem_idx) {
+		smem_areas_tmp[smem_idx].phys_addr =
+				smd_smem_areas[smem_idx].phys_addr;
+		smem_areas_tmp[smem_idx].size =
+				smd_smem_areas[smem_idx].size;
+		smem_areas_tmp[smem_idx].virt_addr = ioremap_nocache(
+			(unsigned long)(smem_areas_tmp[smem_idx].phys_addr),
+			smem_areas_tmp[smem_idx].size);
+		if (!smem_areas_tmp[smem_idx].virt_addr) {
+			pr_err("%s: ioremap_nocache() of addr: %pa size: %pa\n",
+				__func__,
+				&smem_areas_tmp[smem_idx].phys_addr,
+				&smem_areas_tmp[smem_idx].size);
 			err_ret = -ENOMEM;
-			goto smem_areas_alloc_fail;
+			goto smem_failed;
 		}
 
-		for (smem_idx = 0; smem_idx < num_smem_areas; ++smem_idx) {
-			smem_areas[smem_idx].phys_addr =
-					smd_smem_areas[smem_idx].phys_addr;
-			smem_areas[smem_idx].size =
-					smd_smem_areas[smem_idx].size;
-			smem_areas[smem_idx].virt_addr = ioremap_nocache(
-				(unsigned long)(smem_areas[smem_idx].phys_addr),
-				smem_areas[smem_idx].size);
-			if (!smem_areas[smem_idx].virt_addr) {
-				pr_err("%s: ioremap_nocache() of addr: %pa size: %pa\n",
-					__func__,
-					&smem_areas[smem_idx].phys_addr,
-					&smem_areas[smem_idx].size);
-				err_ret = -ENOMEM;
-				++smem_idx;
-				goto smem_failed;
-			}
+		if (OVERFLOW_ADD_UNSIGNED(uintptr_t,
+				(uintptr_t)smem_areas_tmp[smem_idx].virt_addr,
+				smem_areas_tmp[smem_idx].size)) {
+			pr_err("%s: invalid virtual address block %i: %p:%pa\n",
+					__func__, smem_idx,
+					smem_areas_tmp[smem_idx].virt_addr,
+					&smem_areas_tmp[smem_idx].size);
+			++smem_idx;
+			err_ret = -EINVAL;
+			goto smem_failed;
 		}
-		sort(smem_areas, num_smem_areas,
-				sizeof(struct smem_area),
-				sort_cmp_func, NULL);
+
+		SMD_DBG("%s: %d = %pa %pa", __func__, smem_idx,
+				&smd_smem_areas[smem_idx].phys_addr,
+				&smd_smem_areas[smem_idx].size);
 	}
 
 	for (i = 0; i < num_ss; i++) {
@@ -3567,8 +3659,9 @@ int smd_core_platform_init(struct platform_device *pdev)
 				cfg->subsys_name, SMD_MAX_CH_NAME_LEN);
 	}
 
-
 	SMD_INFO("smd_core_platform_init() done\n");
+
+	smem_areas = smem_areas_tmp;
 	return 0;
 
 intr_failed:
@@ -3586,9 +3679,12 @@ intr_failed:
 				);
 	}
 smem_failed:
-	for (smem_idx = smem_idx - 1; smem_idx >= 0; --smem_idx)
-		iounmap(smem_areas[smem_idx].virt_addr);
-	kfree(smem_areas);
+	for (smem_idx = smem_idx - 1; smem_idx >= 1; --smem_idx)
+		iounmap(smem_areas_tmp[smem_idx].virt_addr);
+
+	num_smem_areas = 0;
+	kfree(smem_areas_tmp);
+
 smem_areas_alloc_fail:
 	return err_ret;
 }
@@ -3762,12 +3858,14 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 	resource_size_t aux_mem_size;
 	int temp_string_size = 11; /* max 3 digit count */
 	char temp_string[temp_string_size];
-	int count;
 	struct device_node *node;
 	int ret;
 	const char *compatible;
-	struct ramdump_segment *ramdump_segments_tmp;
+	struct ramdump_segment *ramdump_segments_tmp = NULL;
+	struct smem_area *smem_areas_tmp = NULL;
+	int smem_idx = 0;
 	int subnode_num = 0;
+	int i;
 	resource_size_t irq_out_size;
 
 	disable_smsm_reset_handshake = 1;
@@ -3787,97 +3885,105 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 	}
 	SMD_DBG("%s: %s = %p", __func__, key, irq_out_base);
 
-	count = 1;
+	num_smem_areas = 1;
 	while (1) {
-		scnprintf(temp_string, temp_string_size, "aux-mem%d", count);
+		scnprintf(temp_string, temp_string_size, "aux-mem%d",
+				num_smem_areas);
 		r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 								temp_string);
 		if (!r)
 			break;
 
 		++num_smem_areas;
-		++count;
-		if (count > 999) {
+		if (num_smem_areas > 999) {
 			pr_err("%s: max num aux mem regions reached\n",
 								__func__);
 			break;
 		}
 	}
 
-	/* initialize SSR ramdump regions */
+	/* Initialize main SMEM region and SSR ramdump region */
 	key = "smem";
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, key);
 	if (!r) {
 		pr_err("%s: missing '%s'\n", __func__, key);
 		return -ENODEV;
 	}
-	ramdump_segments_tmp = kmalloc_array(num_smem_areas + 1,
-			sizeof(struct ramdump_segment), GFP_KERNEL);
 
+	smem_areas_tmp = kmalloc_array(num_smem_areas, sizeof(struct smem_area),
+				GFP_KERNEL);
+	if (!smem_areas_tmp) {
+		pr_err("%s: smem areas kmalloc failed\n", __func__);
+		ret = -ENOMEM;
+		goto free_smem_areas;
+	}
+
+	ramdump_segments_tmp = kmalloc_array(num_smem_areas,
+			sizeof(struct ramdump_segment), GFP_KERNEL);
 	if (!ramdump_segments_tmp) {
 		pr_err("%s: ramdump segment kmalloc failed\n", __func__);
 		ret = -ENOMEM;
 		goto free_smem_areas;
 	}
-	ramdump_segments_tmp[0].address = r->start;
-	ramdump_segments_tmp[0].size = resource_size(r);
 
-	if (num_smem_areas) {
+	smem_areas_tmp[smem_idx].phys_addr =  r->start;
+	smem_areas_tmp[smem_idx].size = resource_size(r);
+	smem_areas_tmp[smem_idx].virt_addr = MSM_SHARED_RAM_BASE;
 
-		smem_areas = kmalloc(sizeof(struct smem_area) * num_smem_areas,
-					GFP_KERNEL);
+	ramdump_segments_tmp[smem_idx].address = r->start;
+	ramdump_segments_tmp[smem_idx].size = resource_size(r);
+	++smem_idx;
 
-		if (!smem_areas) {
-			pr_err("%s: smem areas kmalloc failed\n", __func__);
+	/* Configure auxiliary SMEM regions */
+	while (1) {
+		scnprintf(temp_string, temp_string_size, "aux-mem%d",
+								smem_idx);
+		r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							temp_string);
+		if (!r)
+			break;
+		aux_mem_base = r->start;
+		aux_mem_size = resource_size(r);
+
+		ramdump_segments_tmp[smem_idx].address = aux_mem_base;
+		ramdump_segments_tmp[smem_idx].size = aux_mem_size;
+
+		smem_areas_tmp[smem_idx].phys_addr = aux_mem_base;
+		smem_areas_tmp[smem_idx].size = aux_mem_size;
+		smem_areas_tmp[smem_idx].virt_addr = ioremap_nocache(
+			(unsigned long)(smem_areas_tmp[smem_idx].phys_addr),
+			smem_areas_tmp[smem_idx].size);
+		SMD_DBG("%s: %s = %pa %pa -> %p", __func__, temp_string,
+				&aux_mem_base, &aux_mem_size,
+				smem_areas_tmp[smem_idx].virt_addr);
+
+		if (!smem_areas_tmp[smem_idx].virt_addr) {
+			pr_err("%s: ioremap_nocache() of addr:%pa size: %pa\n",
+				__func__,
+				&smem_areas_tmp[smem_idx].phys_addr,
+				&smem_areas_tmp[smem_idx].size);
 			ret = -ENOMEM;
 			goto free_smem_areas;
 		}
-		count = 1;
-		while (1) {
-			scnprintf(temp_string, temp_string_size, "aux-mem%d",
-									count);
-			r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-								temp_string);
-			if (!r)
-				break;
-			aux_mem_base = r->start;
-			aux_mem_size = resource_size(r);
 
-			/*
-			 * Add to ram-dumps segments.
-			 * ramdump_segments_tmp[0] is the main SMEM region,
-			 * so auxiliary segments are indexed by count
-			 * instead of count - 1.
-			 */
-			ramdump_segments_tmp[count].address = aux_mem_base;
-			ramdump_segments_tmp[count].size = aux_mem_size;
-
-			SMD_DBG("%s: %s = %pa %pa", __func__, temp_string,
-					&aux_mem_base, &aux_mem_size);
-			smem_areas[count - 1].phys_addr = aux_mem_base;
-			smem_areas[count - 1].size = aux_mem_size;
-			smem_areas[count - 1].virt_addr = ioremap_nocache(
-				(unsigned long)(smem_areas[count-1].phys_addr),
-				smem_areas[count - 1].size);
-			if (!smem_areas[count - 1].virt_addr) {
-				pr_err("%s: ioremap_nocache() of addr:%pa size: %pa\n",
-					__func__,
-					&smem_areas[count - 1].phys_addr,
-					&smem_areas[count - 1].size);
-				ret = -ENOMEM;
-				goto free_smem_areas;
-			}
-
-			++count;
-			if (count > 999) {
-				pr_err("%s: max num aux mem regions reached\n",
-								__func__);
-				break;
-			}
+		if (OVERFLOW_ADD_UNSIGNED(uintptr_t,
+				(uintptr_t)smem_areas_tmp[smem_idx].virt_addr,
+				smem_areas_tmp[smem_idx].size)) {
+			pr_err("%s: invalid virtual address block %i: %p:%pa\n",
+					__func__, smem_idx,
+					smem_areas_tmp[smem_idx].virt_addr,
+					&smem_areas_tmp[smem_idx].size);
+			++smem_idx;
+			ret = -EINVAL;
+			goto free_smem_areas;
 		}
-		sort(smem_areas, num_smem_areas,
-				sizeof(struct smem_area),
-				sort_cmp_func, NULL);
+
+		++smem_idx;
+		if (smem_idx > 999) {
+			pr_err("%s: max num aux mem regions reached\n",
+							__func__);
+			break;
+		}
 	}
 
 	for_each_child_of_node(pdev->dev.of_node, node) {
@@ -3905,15 +4011,16 @@ static int __devinit smd_core_devicetree_init(struct platform_device *pdev)
 		++subnode_num;
 	}
 
+	smem_areas = smem_areas_tmp;
 	smem_ramdump_segments = ramdump_segments_tmp;
 	return 0;
 
 rollback_subnodes:
-	count = 0;
+	i = 0;
 	for_each_child_of_node(pdev->dev.of_node, node) {
-		if (count >= subnode_num)
+		if (i >= subnode_num)
 			break;
-		++count;
+		++i;
 		compatible = of_get_property(node, "compatible", NULL);
 		if (!strcmp(compatible, "qcom,smd"))
 			unparse_smd_devicetree(node);
@@ -3921,10 +4028,12 @@ rollback_subnodes:
 			unparse_smsm_devicetree(node);
 	}
 free_smem_areas:
+	for (smem_idx = smem_idx - 1; smem_idx >= 1; --smem_idx)
+		iounmap(smem_areas_tmp[smem_idx].virt_addr);
+
 	num_smem_areas = 0;
 	kfree(ramdump_segments_tmp);
-	kfree(smem_areas);
-	smem_areas = NULL;
+	kfree(smem_areas_tmp);
 	return ret;
 }
 
