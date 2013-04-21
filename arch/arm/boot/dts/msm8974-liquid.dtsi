@@ -294,9 +294,19 @@
 		enable-active-high;
 	};
 
+	ath_chip_pwd_l: ath_chip_reset {
+		compatible = "regulator-fixed";
+		regulator-name = "ath_chip_pwd_l";
+		gpio = <&pm8941_gpios 33 0>;
+		enable-active-high;
+	};
+
 	bt_ar3002 {
 		compatible = "qca,ar3002";
 		qca,bt-reset-gpio = <&pm8941_gpios 34 0>;
+		qca,bt-chip-pwd-supply = <&ath_chip_pwd_l>;
+		qca,bt-vdd-io-supply = <&pm8941_s3>;
+		qca,bt-vdd-pa-supply = <&pm8941_l19>;
 	};
 
 	bt_ar3002_sleep {
