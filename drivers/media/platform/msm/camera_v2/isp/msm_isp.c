@@ -138,6 +138,8 @@ static int __devinit vfe_probe(struct platform_device *pdev)
 		kfree(vfe_dev);
 		return -EINVAL;
 	}
+	vfe_dev->buf_mgr->ops->register_ctx(vfe_dev->buf_mgr,
+		&vfe_dev->iommu_ctx[0], vfe_dev->hw_info->num_iommu_ctx);
 	vfe_dev->vfe_open_cnt = 0;
 end:
 	return rc;

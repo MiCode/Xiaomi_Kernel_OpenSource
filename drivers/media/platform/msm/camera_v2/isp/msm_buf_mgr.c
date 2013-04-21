@@ -660,22 +660,35 @@ static void msm_isp_release_all_bufq(
 	}
 }
 
-static int msm_isp_attach_ctx(struct msm_isp_buf_mgr *buf_mgr,
-	struct device *iommu_ctx)
+static void msm_isp_register_ctx(struct msm_isp_buf_mgr *buf_mgr,
+	struct device **iommu_ctx, int num_iommu_ctx)
 {
-	int rc;
-	rc = iommu_attach_device(buf_mgr->iommu_domain, iommu_ctx);
-	if (rc) {
-		pr_err("%s: Iommu attach error\n", __func__);
-		return -EINVAL;
+	int i;
+	buf_mgr->num_iommu_ctx = num_iommu_ctx;
+	for (i = 0; i < num_iommu_ctx; i++)
+		buf_mgr->iommu_ctx[i] = iommu_ctx[i];
+}
+
+static int msm_isp_attach_ctx(struct msm_isp_buf_mgr *buf_mgr)
+{
+	int rc, i;
+	for (i = 0; i < buf_mgr->num_iommu_ctx; i++) {
+		rc = iommu_attach_device(buf_mgr->iommu_domain,
+			buf_mgr->iommu_ctx[i]);
+		if (rc) {
+			pr_err("%s: Iommu attach error\n", __func__);
+			return -EINVAL;
+		}
 	}
 	return 0;
 }
 
-static void msm_isp_detach_ctx(struct msm_isp_buf_mgr *buf_mgr,
-	struct device *iommu_ctx)
+static void msm_isp_detach_ctx(struct msm_isp_buf_mgr *buf_mgr)
 {
-	iommu_detach_device(buf_mgr->iommu_domain, iommu_ctx);
+	int i;
+	for (i = 0; i < buf_mgr->num_iommu_ctx; i++)
+		iommu_detach_device(buf_mgr->iommu_domain,
+			buf_mgr->iommu_ctx[i]);
 }
 
 static int msm_isp_init_isp_buf_mgr(
@@ -692,6 +705,7 @@ static int msm_isp_init_isp_buf_mgr(
 	}
 
 	CDBG("%s: E\n", __func__);
+	msm_isp_attach_ctx(buf_mgr);
 	buf_mgr->num_buf_q = num_buf_q;
 	buf_mgr->bufq =
 		kzalloc(sizeof(struct msm_isp_bufq) * num_buf_q,
@@ -716,6 +730,7 @@ static int msm_isp_deinit_isp_buf_mgr(
 	ion_client_destroy(buf_mgr->client);
 	kfree(buf_mgr->bufq);
 	buf_mgr->num_buf_q = 0;
+	msm_isp_detach_ctx(buf_mgr);
 	return 0;
 }
 
@@ -752,8 +767,7 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 	.flush_buf = msm_isp_flush_buf,
 	.buf_done = msm_isp_buf_done,
 	.buf_divert = msm_isp_buf_divert,
-	.attach_ctx = msm_isp_attach_ctx,
-	.detach_ctx = msm_isp_detach_ctx,
+	.register_ctx = msm_isp_register_ctx,
 	.buf_mgr_init = msm_isp_init_isp_buf_mgr,
 	.buf_mgr_deinit = msm_isp_deinit_isp_buf_mgr,
 };

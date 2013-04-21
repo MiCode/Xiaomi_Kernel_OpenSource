@@ -112,10 +112,8 @@ struct msm_isp_buf_ops {
 	int (*buf_divert) (struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index,
 		struct timeval *tv, uint32_t frame_id);
-	int (*attach_ctx) (struct msm_isp_buf_mgr *buf_mgr,
-		struct device *iommu_ctx);
-	void (*detach_ctx) (struct msm_isp_buf_mgr *buf_mgr,
-		struct device *iommu_ctx);
+	void (*register_ctx) (struct msm_isp_buf_mgr *buf_mgr,
+		struct device **iommu_ctx, int num_iommu_ctx);
 	int (*buf_mgr_init) (struct msm_isp_buf_mgr *buf_mgr,
 		const char *ctx_name, uint16_t num_buf_q);
 	int (*buf_mgr_deinit) (struct msm_isp_buf_mgr *buf_mgr);
@@ -137,6 +135,9 @@ struct msm_isp_buf_mgr {
 	/*IOMMU specific*/
 	int iommu_domain_num;
 	struct iommu_domain *iommu_domain;
+
+	int num_iommu_ctx;
+	struct device *iommu_ctx[2];
 };
 
 int msm_isp_create_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
