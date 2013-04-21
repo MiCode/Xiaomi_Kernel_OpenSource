@@ -43,6 +43,9 @@ struct msm_isp_bandwidth_mgr {
 	struct msm_isp_bandwidth_info client_info[MAX_ISP_CLIENT];
 };
 
+uint32_t msm_isp_get_framedrop_period(
+	enum msm_vfe_frame_skip_pattern frame_skip_pattern);
+
 int msm_isp_init_bandwidth_mgr(enum msm_isp_hw_client client);
 int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 	uint64_t ab, uint64_t ib);

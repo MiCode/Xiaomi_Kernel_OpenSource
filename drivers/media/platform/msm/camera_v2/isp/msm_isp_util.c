@@ -154,6 +154,31 @@ void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client)
 	mutex_unlock(&bandwidth_mgr_mutex);
 }
 
+uint32_t msm_isp_get_framedrop_period(
+	enum msm_vfe_frame_skip_pattern frame_skip_pattern)
+{
+	switch (frame_skip_pattern) {
+	case NO_SKIP:
+	case EVERY_2FRAME:
+	case EVERY_3FRAME:
+	case EVERY_4FRAME:
+	case EVERY_5FRAME:
+	case EVERY_6FRAME:
+	case EVERY_7FRAME:
+	case EVERY_8FRAME:
+		return frame_skip_pattern + 1;
+	case EVERY_16FRAME:
+		return 16;
+		break;
+	case EVERY_32FRAME:
+		return 32;
+		break;
+	default:
+		return 1;
+	}
+	return 1;
+}
+
 static inline void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
 {
 	struct timespec ts;
@@ -353,11 +378,6 @@ long msm_isp_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STATS_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_cfg_stats_stream(vfe_dev, arg);
-		mutex_unlock(&vfe_dev->core_mutex);
-		break;
-	case VIDIOC_MSM_ISP_CFG_STATS_COMP_POLICY:
-		mutex_lock(&vfe_dev->core_mutex);
-		rc = msm_isp_cfg_stats_comp_policy(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_UPDATE_STREAM:
