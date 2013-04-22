@@ -254,9 +254,49 @@
 				qcom,max-current = <40>;
 				qcom,current-setting = <5>;
 				qcom,id = <6>;
-				qcom,mode = <2>;
+				qcom,mode = "manual";
 				qcom,source-sel = <1>;
 				qcom,mode-ctrl = <0x60>;
+			};
+		};
+
+		qcom,leds@a300 {
+			status = "okay";
+			qcom,led_mpp_4 {
+				label = "mpp";
+				linux,name = "green";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode = "lpg";
+				qcom,source-sel = <8>;
+				qcom,mode-ctrl = <0x60>;
+				qcom,pwm-channel = <0>;
+				qcom,start-idx = <1>;
+				qcom,duty-pcts = [00 00 00 00 64
+						 64 00 00 00 00];
+			};
+		};
+
+		qcom,leds@a500 {
+			status = "okay";
+			qcom,led_mpp_6 {
+				label = "mpp";
+				linux,name = "red";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode-ctrl = <0x60>;
+				qcom,source-sel = <10>;
+				qcom,mode = "lpg";
+				qcom,pwm-channel = <5>;
+				qcom,start-idx = <1>;
+				qcom,duty-pcts = [00 00 00 00 64
+						 64 00 00 00 00];
 			};
 		};
 	};
