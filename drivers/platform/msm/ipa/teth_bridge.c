@@ -1348,6 +1348,24 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 
 	if (teth_ctx->tethering_mode == TETH_TETHERING_MODE_MBIM)
 		teth_ctx->link_protocol = TETH_LINK_PROTOCOL_IP;
+
+	if (teth_ctx->aggr_params_known) {
+		res = teth_set_aggregation();
+		if (res) {
+			TETH_ERR("Failed setting aggregation params\n");
+			goto bail;
+		}
+	}
+
+	/* In case of IP link protocol, complete HW bridge */
+	if ((teth_ctx->link_protocol == TETH_LINK_PROTOCOL_IP) &&
+	    (!teth_ctx->comp_hw_bridge_in_progress) &&
+	    (teth_ctx->aggr_params_known) &&
+	    (!teth_ctx->is_hw_bridge_complete)) {
+		INIT_WORK(&teth_ctx->comp_hw_bridge_work, complete_hw_bridge);
+		teth_ctx->comp_hw_bridge_in_progress = true;
+		queue_work(teth_ctx->teth_wq, &teth_ctx->comp_hw_bridge_work);
+	}
 bail:
 	ipa_rm_inactivity_timer_release_resource(IPA_RM_RESOURCE_BRIDGE_PROD);
 	TETH_DBG_FUNC_EXIT();
@@ -1446,6 +1464,19 @@ static long teth_bridge_ioctl(struct file *filp,
 		}
 
 		res = teth_bridge_set_aggr_params(&aggr_params);
+		if (res)
+			break;
+
+		/* In case of IP link protocol, complete HW bridge */
+		if ((teth_ctx->link_protocol == TETH_LINK_PROTOCOL_IP) &&
+		    (!teth_ctx->comp_hw_bridge_in_progress) &&
+		    (!teth_ctx->is_hw_bridge_complete)) {
+			INIT_WORK(&teth_ctx->comp_hw_bridge_work,
+				  complete_hw_bridge);
+			teth_ctx->comp_hw_bridge_in_progress = true;
+			queue_work(teth_ctx->teth_wq,
+				   &teth_ctx->comp_hw_bridge_work);
+		}
 		break;
 
 	case TETH_BRIDGE_IOC_GET_AGGR_PARAMS:
