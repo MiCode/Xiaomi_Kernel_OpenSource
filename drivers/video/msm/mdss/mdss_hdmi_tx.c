@@ -2298,6 +2298,7 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc = 0;
+	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -2308,6 +2309,15 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_DBG("%s: HPD is already OFF, returning\n", __func__);
 		return;
 	}
+
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		DEV_ERR("%s: core io not inititalized\n", __func__);
+		return;
+	}
+
+	/* Turn off HPD interrupts */
+	DSS_REG_W(io, HDMI_HPD_INT_CTRL, 0);
 
 	mdss_disable_irq(&hdmi_tx_hw);
 
@@ -2411,7 +2421,7 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 	struct dss_io_data *io = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)data;
 
-	if (!hdmi_ctrl || !hdmi_ctrl->hpd_initialized) {
+	if (!hdmi_ctrl) {
 		DEV_WARN("%s: invalid input data, ISR ignored\n", __func__);
 		return IRQ_HANDLED;
 	}
