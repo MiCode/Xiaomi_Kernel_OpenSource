@@ -30,7 +30,7 @@
 
 int qpnp_misc_irqs_available(struct device *consumer_dev);
 #else
-static int qpnp_misc_irq_available(struct device *consumer_dev)
+static int qpnp_misc_irqs_available(struct device *consumer_dev)
 {
 	return 0;
 }
