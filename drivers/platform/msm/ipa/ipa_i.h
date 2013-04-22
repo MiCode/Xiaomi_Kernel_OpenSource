@@ -31,6 +31,7 @@
 
 #define IPA_NUM_PIPES 0x14
 #define IPA_SYS_DESC_FIFO_SZ 0x800
+#define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 
 #ifdef IPA_DEBUG
 #define IPADBG(fmt, args...) \

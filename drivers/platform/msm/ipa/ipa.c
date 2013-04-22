@@ -932,7 +932,7 @@ static int ipa_setup_a5_pipes(void)
 	/* LAN-WAN OUT (A5->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_A5_LAN_WAN_PROD;
-	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+	sys_in.desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
 	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
 	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_A5_LAN_WAN_CONS;
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_out)) {
