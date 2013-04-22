@@ -24,6 +24,7 @@
 #include "mdp3.h"
 #include "mdp3_ppp.h"
 
+#define MDP_CORE_CLK_RATE	100000000
 #define MDP_VSYNC_CLK_RATE	19200000
 #define VSYNC_PERIOD 16
 
@@ -240,17 +241,8 @@ static int mdp3_ctrl_res_req_clk(struct msm_fb_data_type *mfd, int status)
 {
 	int rc = 0;
 	if (status) {
-		struct mdss_panel_info *panel_info = mfd->panel_info;
-		unsigned long core_clk;
-		int vtotal;
-		vtotal = panel_info->lcdc.v_back_porch +
-			panel_info->lcdc.v_front_porch +
-			panel_info->lcdc.v_pulse_width +
-			panel_info->yres;
-		core_clk = panel_info->xres * panel_info->yres;
-		core_clk *= panel_info->mipi.frame_rate;
-		core_clk = (core_clk / panel_info->yres) * vtotal;
-		mdp3_clk_set_rate(MDP3_CLK_CORE, core_clk);
+
+		mdp3_clk_set_rate(MDP3_CLK_CORE, MDP_CORE_CLK_RATE);
 		mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE);
 
 		rc = mdp3_clk_enable(true);
