@@ -922,8 +922,8 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 
 	if (ci->driver)
 		ci->driver->disconnect(gadget);
-	usb_ep_fifo_flush(&ci->ep0out->ep);
-	usb_ep_fifo_flush(&ci->ep0in->ep);
+	_ep_nuke(&ci->ep0out);
+	_ep_nuke(&ci->ep0in);
 
 	if (ci->ep0in.last_zptr) {
 		dma_pool_free(ci->ep0in.td_pool, ci->ep0in.last_zptr,
@@ -1634,17 +1634,11 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 	int retval = 0;
 	unsigned long flags;
 
-	if (ep == NULL || req == NULL || mEp->ep.desc == NULL)
-		return -EINVAL;
-
-	if (!ci->softconnect)
-		return -ENODEV;
-
 	spin_lock_irqsave(mEp->lock, flags);
 	if (!ci->configured && mEp->type !=
 		USB_ENDPOINT_XFER_CONTROL) {
-		spin_unlock_irqrestore(mEp->lock, flags);
-		return -ESHUTDOWN;
+		retval = -ESHUTDOWN;
+		goto done;
 	}
 	retval = _ep_queue(ep, req, gfp_flags);
 	spin_unlock_irqrestore(mEp->lock, flags);
@@ -1663,12 +1657,19 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 	struct ci13xxx_req *mReq = container_of(req, struct ci13xxx_req, req);
 	unsigned long flags;
 
-	if (ep == NULL || req == NULL || mReq->req.status != -EALREADY ||
-		mEp->ep.desc == NULL || list_empty(&mReq->queue) ||
-		list_empty(&mEp->qh.queue))
-		return -EINVAL;
-
 	spin_lock_irqsave(mEp->lock, flags);
+	/*
+	 * Only ep0 IN is exposed to composite.  When a req is dequeued
+	 * on ep0, check both ep0 IN and ep0 OUT queues.
+	 */
+	if (ep == NULL || req == NULL || mReq->req.status != -EALREADY ||
+		mEp->desc == NULL || list_empty(&mReq->queue) ||
+		(list_empty(&mEp->qh.queue) && ((mEp->type !=
+			USB_ENDPOINT_XFER_CONTROL) ||
+			list_empty(&mEP->ci->ep0out.qh.queue)))) {
+		spin_unlock_irqrestore(mEp->lock, flags);
+		return -EINVAL;
+	}
 
 	if ((mEp->type == USB_ENDPOINT_XFER_CONTROL)) {
 		hw_ep_flush(mEp->ci, mEp->num, RX);
