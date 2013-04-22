@@ -112,7 +112,7 @@
 		reg = <0x6c>;
 		qcom,slave-id = <0x6c 0x300A 0x2720>;
 		qcom,csiphy-sd-index = <2>;
-		qcom,csid-sd-index = <0>;
+		qcom,csid-sd-index = <2>;
 		qcom,mount-angle = <90>;
 		qcom,sensor-name = "ov2720";
 		cam_vdig-supply = <&pm8941_l3>;

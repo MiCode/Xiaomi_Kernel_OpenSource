@@ -32,9 +32,12 @@ struct csiphy_device {
 	struct msm_sd_subdev msm_sd;
 	struct v4l2_subdev subdev;
 	struct resource *mem;
+	struct resource *clk_mux_mem;
 	struct resource *irq;
 	struct resource *io;
+	struct resource *clk_mux_io;
 	void __iomem *base;
+	void __iomem *clk_mux_base;
 	struct mutex mutex;
 	uint32_t hw_version;
 	enum msm_csiphy_state_t csiphy_state;
