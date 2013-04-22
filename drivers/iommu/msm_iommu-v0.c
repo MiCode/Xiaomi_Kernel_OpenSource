@@ -1030,12 +1030,6 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 				chunk_offset = 0;
 				sg = sg_next(sg);
 				pa = get_phys_addr(sg);
-				if (pa == 0) {
-					pr_debug("No dma address for sg %p\n",
-							sg);
-					ret = -EINVAL;
-					goto fail;
-				}
 			}
 			continue;
 		}
@@ -1089,12 +1083,6 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 				chunk_offset = 0;
 				sg = sg_next(sg);
 				pa = get_phys_addr(sg);
-				if (pa == 0) {
-					pr_debug("No dma address for sg %p\n",
-							sg);
-					ret = -EINVAL;
-					goto fail;
-				}
 			}
 		}
 
