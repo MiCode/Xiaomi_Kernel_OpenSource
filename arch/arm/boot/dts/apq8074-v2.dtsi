@@ -19,9 +19,9 @@
 /include/ "msm8974-v2.dtsi"
 
 / {
-	qcom,qseecom@7f00000 {
+	qcom,qseecom@a700000 {
 		compatible = "qcom,qseecom";
-		reg = <0x07f00000 0x500000>;
+		reg = <0x0a700000 0x500000>;
 		reg-names = "secapp-region";
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,hlos-ce-hw-instance = <1>;
@@ -39,10 +39,10 @@
 };
 
 &memory_hole {
-	qcom,memblock-remove = <0x07f00000 0x8000000>; /* Address and size of the hole */
+	qcom,memblock-remove = <0x0a700000 0x5800000>; /* Address and size of the hole */
 };
 
 &qseecom {
-	status = "enabled";
+	status = "disabled";
 };
 
