@@ -44,13 +44,21 @@ struct mdss_mdp_cmd_ctx {
 
 	/* te config */
 	u8 tear_check;
-	u16 total_lcd_lines;
-	u16 v_porch;	/* vertical porches */
-	u32 vsync_cnt;
+	u16 height;	/* panel height */
+	u16 vporch;	/* vertical porches */
+	u32 vclk_line;	/* vsync clock per line */
 };
 
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
 
+/*
+ * TE configuration:
+ * dsi byte clock calculated base on 70 fps
+ * around 14 ms to complete a kickoff cycle if te disabled
+ * vclk_line base on 60 fps
+ * write is faster than read
+ * init == start == rdptr
+ */
 static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 			struct mdss_mdp_cmd_ctx *ctx, int enable)
 {
@@ -59,15 +67,21 @@ static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 	cfg = BIT(19); /* VSYNC_COUNTER_EN */
 	if (ctx->tear_check)
 		cfg |= BIT(20);	/* VSYNC_IN_EN */
-	cfg |= ctx->vsync_cnt;
+	cfg |= ctx->vclk_line;
 
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_CONFIG_VSYNC, cfg);
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_CONFIG_HEIGHT,
 				0xfff0); /* set to verh height */
-	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_VSYNC_INIT_VAL, 0);
-	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_RD_PTR_IRQ, 0);
 
-	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_START_POS, ctx->v_porch);
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_VSYNC_INIT_VAL,
+						ctx->height);
+
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_RD_PTR_IRQ,
+						ctx->height + 1);
+
+	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_START_POS,
+						ctx->height);
+
 	mdss_mdp_pingpong_write(mixer, MDSS_MDP_REG_PP_SYNC_THRESH,
 			   (CONTINUE_TRESHOLD << 16) | (START_THRESHOLD));
 
@@ -85,7 +99,6 @@ static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_ctl *ctl, int enable)
 
 	if (pinfo->mipi.vsync_enable && enable) {
 		u32 mdp_vsync_clk_speed_hz, total_lines;
-		u32 vsync_cnt_cfg_dem;
 
 		mdss_mdp_vsync_clk_enable(1);
 
@@ -100,21 +113,18 @@ static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_ctl *ctl, int enable)
 		}
 
 		ctx->tear_check = pinfo->mipi.hw_vsync_mode;
-
-		total_lines = pinfo->lcdc.v_back_porch +
-				    pinfo->lcdc.v_front_porch +
-				    pinfo->lcdc.v_pulse_width + pinfo->yres;
-
-		vsync_cnt_cfg_dem =
-			mult_frac(pinfo->mipi.frame_rate * total_lines,
-						1, 100);
-
-		ctx->vsync_cnt = mdp_vsync_clk_speed_hz / vsync_cnt_cfg_dem;
-
-		ctx->v_porch = pinfo->lcdc.v_back_porch +
+		ctx->height = pinfo->yres;
+		ctx->vporch = pinfo->lcdc.v_back_porch +
 				    pinfo->lcdc.v_front_porch +
 				    pinfo->lcdc.v_pulse_width;
-		ctx->total_lcd_lines = total_lines;
+
+		total_lines = ctx->height + ctx->vporch;
+		total_lines *= pinfo->mipi.frame_rate;
+		ctx->vclk_line = mdp_vsync_clk_speed_hz / total_lines;
+
+		pr_debug("%s: fr=%d tline=%d vcnt=%d vrate=%d\n",
+			__func__, pinfo->mipi.frame_rate, total_lines,
+				ctx->vclk_line, mdp_vsync_clk_speed_hz);
 	} else {
 		enable = 0;
 	}
