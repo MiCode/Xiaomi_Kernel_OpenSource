@@ -756,8 +756,9 @@
 
 		qcom,firmware-name = "adsp";
 
-		/* GPIO input from lpass */
+		/* GPIO inputs from lpass */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
 
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;

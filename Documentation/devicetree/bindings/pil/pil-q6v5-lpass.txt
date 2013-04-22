@@ -16,6 +16,7 @@ Required properties:
 - qcom,firmware-name: Base name of the firmware image. Ex. "lpass"
 - qcom,gpio-err-fatal: GPIO used by the lpass to indicate error fatal to the apps.
 - qcom,gpio-force-stop: GPIO used by the apps to force the lpass to shutdown.
+- qcom,gpio-proxy-unvote: GPIO used by the lpass to indicate apps clock is ready.
 
 Optional properties:
 - vdd_pll-supply:     Reference to the regulator that supplies the PLL's rail.
@@ -32,8 +33,9 @@ Example:
 		vdd_cx-supply = <&pm8841_s2>;
 	        qcom,firmware-name = "lpass";
 
-		/* GPIO input from lpass */
+		/* GPIO inputs from lpass */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
 
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
