@@ -721,13 +721,15 @@ int mpq_dmx_write(struct dmx_demux *demux, const char *buf, size_t count);
  * @input: input buffer descriptor
  * @fill_count: number of data bytes in input buffer that can be read
  * @read_offset: offset in buffer for reading
+ * @tsp_size: size of single TS packet
  *
  * Return number of bytes read or error code
  */
 int mpq_sdmx_process(struct mpq_demux *mpq_demux,
 	struct sdmx_buff_descr *input,
 	u32 fill_count,
-	u32 read_offset);
+	u32 read_offset,
+	size_t tsp_size);
 
 /**
  * mpq_sdmx_loaded - Returns 1 if secure demux application is loaded,
