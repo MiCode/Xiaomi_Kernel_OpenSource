@@ -27,6 +27,7 @@
 #include <asm/page.h>
 #include <asm/cacheflush.h>
 #include <mach/iommu_domains.h>
+#include <trace/events/kmem.h>
 
 struct ion_iommu_heap {
 	struct ion_heap heap;
@@ -83,9 +84,13 @@ static struct page_info *alloc_largest_available(unsigned long size,
 		} else {
 			gfp |= GFP_KERNEL;
 		}
+		trace_alloc_pages_iommu_start(gfp, orders[i]);
 		page = alloc_pages(gfp, orders[i]);
-		if (!page)
+		trace_alloc_pages_iommu_end(gfp, orders[i]);
+		if (!page) {
+			trace_alloc_pages_iommu_fail(gfp, orders[i]);
 			continue;
+		}
 
 		info = kmalloc(sizeof(struct page_info), GFP_KERNEL);
 		info->page = page;
