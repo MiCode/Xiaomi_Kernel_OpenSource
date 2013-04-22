@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,7 @@
 	};
 };
 
-&pm8644_gpios {
+&pma8084_gpios {
 	gpio@c000 { /* GPIO 1 */
 	};
 
@@ -94,72 +94,9 @@
 
 	gpio@d500 { /* GPIO 22 */
 	};
-
-	gpio@d600 { /* GPIO 23 */
-	};
-
-	gpio@d700 { /* GPIO 24 */
-	};
-
-	gpio@d800 { /* GPIO 25 */
-	};
-
-	gpio@d900 { /* GPIO 26 */
-	};
-
-	gpio@da00 { /* GPIO 27 */
-	};
-
-	gpio@db00 { /* GPIO 28 */
-	};
-
-	gpio@dc00 { /* GPIO 29 */
-	};
-
-	gpio@dd00 { /* GPIO 30 */
-	};
-
-	gpio@de00 { /* GPIO 31 */
-	};
-
-	gpio@df00 { /* GPIO 32 */
-	};
-
-	gpio@e000 { /* GPIO 33 */
-	};
-
-	gpio@e100 { /* GPIO 34 */
-	};
-
-	gpio@e200 { /* GPIO 35 */
-	};
-
-	gpio@e300 { /* GPIO 36 */
-	};
-
-	gpio@e400 { /* GPIO 37 */
-	};
-
-	gpio@e500 { /* GPIO 38 */
-	};
-
-	gpio@e600 { /* GPIO 39 */
-	};
-
-	gpio@e700 { /* GPIO 40 */
-	};
-
-	gpio@e800 { /* GPIO 41 */
-	};
-
-	gpio@e900 { /* GPIO 42 */
-	};
-
-	gpio@ea00 { /* GPIO 43 */
-	};
 };
 
-&pm8644_mpps {
+&pma8084_mpps {
 	mpp@a000 { /* MPP 1 */
 	};
 
@@ -176,5 +113,11 @@
 	};
 
 	mpp@a500 { /* MPP 6 */
+	};
+
+	mpp@a600 { /* MPP 7 */
+	};
+
+	mpp@a700 { /* MPP 8 */
 	};
 };
