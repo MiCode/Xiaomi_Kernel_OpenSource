@@ -691,9 +691,9 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 
 	/* Lookup the 'APPS' partition's first page address */
 	for (i = 0; i < FLASH_PTABLE_MAX_PARTS_V4; i++) {
-		if (!strncmp("apps", ptable.part_entry[i].name,
-				strlen(ptable.part_entry[i].name))) {
-			page_address = ptable.part_entry[i].offset << 6;
+		if (!strncmp("apps", mtd_part[i].name,
+				strlen(mtd_part[i].name))) {
+			page_address = mtd_part[i].offset << 6;
 			break;
 		}
 	}
