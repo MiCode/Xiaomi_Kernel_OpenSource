@@ -97,7 +97,7 @@ struct coresight_platform_data *of_get_coresight_platform_data(
 						    "coresight-default-sink");
 	return pdata;
 }
-EXPORT_SYMBOL_GPL(of_get_coresight_platform_data);
+EXPORT_SYMBOL(of_get_coresight_platform_data);
 
 struct coresight_cti_data *of_get_coresight_cti_data(
 				struct device *dev, struct device_node *node)
