@@ -218,7 +218,7 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 	 * NOTE: MDP_DMA_P_FETCH_CFG: max_burst_size need to use value 4, not
 	 * the default 16 for MDP hang issue workaround
 	 */
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_FETCH_CFG, 0x10);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_FETCH_CFG, 0x20);
 	MDP3_REG_WRITE(MDP3_REG_PRIMARY_RD_PTR_IRQ, 0x10);
 
 	dma->source_config = *source_config;
@@ -809,6 +809,7 @@ int dsi_video_config(struct mdp3_intf *intf, struct mdp3_intf_cfg *cfg)
 		temp |= BIT(2);
 	MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_CTL_POLARITY, temp);
 
+	MDP3_REG_WRITE(MDP3_REG_DSI_VIDEO_UNDERFLOW_CTL, 0x800000ff);
 	return 0;
 }
 
