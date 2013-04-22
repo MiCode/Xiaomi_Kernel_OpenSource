@@ -211,6 +211,18 @@
 			label = "mpp";
 		};
 
+		qcom,leds@a300 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa300 0x100>;
+			label = "mpp";
+		};
+
+		qcom,leds@a500 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa500 0x100>;
+			label = "mpp";
+		};
+
 		pm8226_gpios: gpios {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
