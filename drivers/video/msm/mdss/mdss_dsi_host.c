@@ -813,7 +813,6 @@ void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 
 	dsi_ctrl |= BIT(0);	/* enable dsi */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, dsi_ctrl);
-	mdss_dsi_irq_ctrl(ctrl_pdata, 1, 0); /* enable dsi irq */
 
 	wmb();
 }
