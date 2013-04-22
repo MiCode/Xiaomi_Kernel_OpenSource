@@ -368,7 +368,7 @@ err:
 	pr_err("coresight: enable failed\n");
 	return ret;
 }
-EXPORT_SYMBOL_GPL(coresight_enable);
+EXPORT_SYMBOL(coresight_enable);
 
 void coresight_disable(struct coresight_device *csdev)
 {
@@ -391,7 +391,7 @@ void coresight_disable(struct coresight_device *csdev)
 out:
 	up(&coresight_mutex);
 }
-EXPORT_SYMBOL_GPL(coresight_disable);
+EXPORT_SYMBOL(coresight_disable);
 
 void coresight_abort(void)
 {
@@ -415,7 +415,7 @@ void coresight_abort(void)
 out:
 	up(&coresight_mutex);
 }
-EXPORT_SYMBOL_GPL(coresight_abort);
+EXPORT_SYMBOL(coresight_abort);
 
 static ssize_t coresight_show_type(struct device *dev,
 				   struct device_attribute *attr, char *buf)
@@ -681,7 +681,7 @@ err_kzalloc_refcnts:
 err_kzalloc_csdev:
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL_GPL(coresight_register);
+EXPORT_SYMBOL(coresight_register);
 
 void coresight_unregister(struct coresight_device *csdev)
 {
@@ -693,7 +693,7 @@ void coresight_unregister(struct coresight_device *csdev)
 		put_device(&csdev->dev);
 	}
 }
-EXPORT_SYMBOL_GPL(coresight_unregister);
+EXPORT_SYMBOL(coresight_unregister);
 
 static int __init coresight_init(void)
 {
