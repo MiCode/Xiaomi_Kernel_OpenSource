@@ -495,6 +495,70 @@ DEFINE_EVENT(migrate_pages, migrate_pages_end,
 	TP_ARGS(mode)
 );
 
+DECLARE_EVENT_CLASS(ion_alloc_pages,
+
+	TP_PROTO(gfp_t gfp_flags,
+		unsigned int order),
+
+	TP_ARGS(gfp_flags, order),
+
+	TP_STRUCT__entry(
+		__field(gfp_t, gfp_flags)
+		__field(unsigned int, order)
+		),
+
+	TP_fast_assign(
+		__entry->gfp_flags = gfp_flags;
+		__entry->order = order;
+		),
+
+	TP_printk("gfp_flags=%s order=%d",
+		show_gfp_flags(__entry->gfp_flags),
+		__entry->order)
+	);
+
+DEFINE_EVENT(ion_alloc_pages, alloc_pages_iommu_start,
+	TP_PROTO(gfp_t gfp_flags,
+		unsigned int order),
+
+	TP_ARGS(gfp_flags, order)
+	);
+
+DEFINE_EVENT(ion_alloc_pages, alloc_pages_iommu_end,
+	TP_PROTO(gfp_t gfp_flags,
+		unsigned int order),
+
+	TP_ARGS(gfp_flags, order)
+	);
+
+DEFINE_EVENT(ion_alloc_pages, alloc_pages_iommu_fail,
+	TP_PROTO(gfp_t gfp_flags,
+		unsigned int order),
+
+	TP_ARGS(gfp_flags, order)
+	);
+
+DEFINE_EVENT(ion_alloc_pages, alloc_pages_sys_start,
+	TP_PROTO(gfp_t gfp_flags,
+		unsigned int order),
+
+	TP_ARGS(gfp_flags, order)
+	);
+
+DEFINE_EVENT(ion_alloc_pages, alloc_pages_sys_end,
+	TP_PROTO(gfp_t gfp_flags,
+		unsigned int order),
+
+	TP_ARGS(gfp_flags, order)
+	);
+
+DEFINE_EVENT(ion_alloc_pages, alloc_pages_sys_fail,
+	TP_PROTO(gfp_t gfp_flags,
+		unsigned int order),
+
+	TP_ARGS(gfp_flags, order)
+	);
+
 #endif /* _TRACE_KMEM_H */
 
 /* This part must be outside protection */
