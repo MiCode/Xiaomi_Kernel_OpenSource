@@ -63,6 +63,7 @@ static int srs_alsa_ctrl_ever_called;
 static int lsm_mux_slim_port;
 static int slim0_rx_aanc_fb_port;
 static int msm_route_ec_ref_rx = 3; /* NONE */
+static uint32_t voc_session_id = ALL_SESSION_VSID;
 
 enum {
 	MADNONE,
@@ -572,7 +573,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	}
 	if ((msm_bedais[reg].port_id == VOICE_RECORD_RX)
 			|| (msm_bedais[reg].port_id == VOICE_RECORD_TX))
-		voc_start_record(msm_bedais[reg].port_id, set);
+		voc_start_record(msm_bedais[reg].port_id, set, voc_session_id);
 
 	mutex_unlock(&routing_lock);
 }
@@ -2632,6 +2633,30 @@ static const struct snd_kcontrol_new get_rms_controls[] = {
 	msm_routing_put_rms_value_control),
 };
 
+static int msm_voc_session_id_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	voc_session_id = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: voc_session_id=%u\n", __func__, voc_session_id);
+
+	return 0;
+}
+
+static int msm_voc_session_id_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = voc_session_id;
+
+	return 0;
+}
+
+static struct snd_kcontrol_new msm_voc_session_controls[] = {
+	SOC_SINGLE_MULTI_EXT("Voc VSID", SND_SOC_NOPM, 0,
+			     0xFFFFFFFF, 0, 1, msm_voc_session_id_get,
+			     msm_voc_session_id_put),
+};
+
 static const struct snd_kcontrol_new eq_enable_mixer_controls[] = {
 	SOC_SINGLE_EXT("MultiMedia1 EQ Enable", SND_SOC_NOPM,
 	MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_eq_enable_mixer,
@@ -3910,6 +3935,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				get_rms_controls,
 			ARRAY_SIZE(get_rms_controls));
+
+	snd_soc_add_platform_controls(platform, msm_voc_session_controls,
+				      ARRAY_SIZE(msm_voc_session_controls));
+
 	return 0;
 }
 
