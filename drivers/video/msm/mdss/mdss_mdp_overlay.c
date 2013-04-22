@@ -1775,11 +1775,8 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			struct msmfb_overlay_data data;
 
 			ret = copy_from_user(&data, argp, sizeof(data));
-			if (!ret) {
+			if (!ret)
 				ret = mdss_mdp_overlay_play(mfd, &data);
-				if (!IS_ERR_VALUE(ret))
-					mdss_fb_update_backlight(mfd);
-			}
 
 			if (ret)
 				pr_debug("OVERLAY_PLAY failed (%d)\n", ret);

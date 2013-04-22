@@ -1210,6 +1210,7 @@ static void mdss_fb_commit_wq_handler(struct work_struct *work)
 		mdss_fb_wait_for_fence(mfd);
 		if (mfd->mdp.kickoff_fnc)
 			mfd->mdp.kickoff_fnc(mfd);
+		mdss_fb_update_backlight(mfd);
 		mdss_fb_signal_timeline(mfd);
 	} else {
 		var = &fb_backup->disp_commit.var;
