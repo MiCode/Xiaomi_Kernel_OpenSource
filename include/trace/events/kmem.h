@@ -557,6 +557,46 @@ DEFINE_EVENT(ion_alloc_pages, alloc_pages_sys_fail,
 		unsigned int order),
 
 	TP_ARGS(gfp_flags, order)
+
+	);
+
+DECLARE_EVENT_CLASS(smmu_map,
+
+	TP_PROTO(unsigned int va,
+		phys_addr_t pa,
+		unsigned int chunk_size,
+		size_t len),
+
+	TP_ARGS(va, pa, chunk_size, len),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, va)
+		__field(phys_addr_t, pa)
+		__field(unsigned int, chunk_size)
+		__field(size_t, len)
+		),
+
+	TP_fast_assign(
+		__entry->va = va;
+		__entry->pa = pa;
+		__entry->chunk_size = chunk_size;
+		__entry->len = len;
+		),
+
+	TP_printk("v_addr=%p p_addr=%pa chunk_size=0x%x len=%zu",
+		(void *)__entry->va,
+		&__entry->pa,
+		__entry->chunk_size,
+		__entry->len)
+	);
+
+DEFINE_EVENT(smmu_map, iommu_map_range,
+	TP_PROTO(unsigned int va,
+		phys_addr_t pa,
+		unsigned int chunk_size,
+		size_t len),
+
+	TP_ARGS(va, pa, chunk_size, len)
 	);
 
 #endif /* _TRACE_KMEM_H */
