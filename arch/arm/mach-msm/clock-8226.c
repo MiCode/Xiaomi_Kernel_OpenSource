@@ -2697,7 +2697,6 @@ static struct branch_clk q6ss_xo_clk = {
 	.base = &virt_bases[LPASS_BASE],
 	.c = {
 		.dbg_name = "q6ss_xo_clk",
-		.parent = &xo.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(q6ss_xo_clk.c),
 	},
