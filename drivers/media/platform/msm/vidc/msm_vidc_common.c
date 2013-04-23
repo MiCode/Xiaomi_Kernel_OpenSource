@@ -726,13 +726,15 @@ static void handle_fbd(enum command_response cmd, void *data)
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_CODECCONFIG)
 			vb->v4l2_buf.flags &= ~V4L2_QCOM_BUF_FLAG_CODECCONFIG;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_SYNCFRAME)
-			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
+			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOSEQ)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_EOSEQ;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DECODEONLY)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_DECODEONLY;
 		switch (fill_buf_done->picture_type) {
 		case HAL_PICTURE_IDR:
+			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
+			break;
 		case HAL_PICTURE_I:
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
 			break;
