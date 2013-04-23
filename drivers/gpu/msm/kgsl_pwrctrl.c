@@ -59,6 +59,10 @@ struct clk_pair clks[KGSL_MAX_CLKS] = {
 		.name = "mem_iface_clk",
 		.map = KGSL_CLK_MEM_IFACE,
 	},
+	{
+		.name = "alt_mem_iface_clk",
+		.map = KGSL_CLK_ALT_MEM_IFACE,
+	},
 };
 
 /* Update the elapsed time at a particular clock level
