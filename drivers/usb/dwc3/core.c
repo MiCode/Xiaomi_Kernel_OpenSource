@@ -488,7 +488,7 @@ static int __devinit dwc3_probe(struct platform_device *pdev)
 	if (!dev->dma_mask)
 		dev->dma_mask = &dwc3_dma_mask;
 	if (!dev->coherent_dma_mask)
-		dev->coherent_dma_mask = DMA_BIT_MASK(32);
+		dev->coherent_dma_mask = DMA_BIT_MASK(64);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
