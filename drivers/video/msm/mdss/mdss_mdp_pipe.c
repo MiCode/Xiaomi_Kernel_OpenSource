@@ -22,6 +22,7 @@
 #define SMP_MB_SIZE		(mdss_res->smp_mb_size)
 #define SMP_MB_CNT		(mdss_res->smp_mb_cnt)
 #define SMP_ENTRIES_PER_MB	(SMP_MB_SIZE / 16)
+#define SMP_MB_ENTRY_SIZE	16
 #define MAX_BPP 4
 
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
@@ -95,17 +96,31 @@ static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
 
 static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 {
-	u32 entries, val, wm[3];
+	u32 fetch_size, val, wm[3];
 
-	entries = mb_cnt * SMP_ENTRIES_PER_MB;
-	val = entries >> 2;
+	fetch_size = mb_cnt * SMP_MB_SIZE;
+
+	/*
+	 * when doing hflip, one line is reserved to be consumed down the
+	 * pipeline. This line will always be marked as full even if it doesn't
+	 * have any data. In order to generate proper priority levels ignore
+	 * this region while setting up watermark levels
+	 */
+	if (pipe->flags & MDP_FLIP_LR) {
+		u8 bpp = pipe->src_fmt->is_yuv ? 1 :
+			pipe->src_fmt->bpp;
+		fetch_size -= (pipe->src.w * bpp);
+	}
+
+	/* 1/4 of SMP pool that is being fetched */
+	val = (fetch_size / SMP_MB_ENTRY_SIZE) >> 2;
 
 	wm[0] = val;
 	wm[1] = wm[0] + val;
 	wm[2] = wm[1] + val;
 
-	pr_debug("pnum=%d watermarks %u,%u,%u\n", pipe->num,
-			wm[0], wm[1], wm[2]);
+	pr_debug("pnum=%d fetch_size=%u watermarks %u,%u,%u\n", pipe->num,
+			fetch_size, wm[0], wm[1], wm[2]);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_REQPRIO_FIFO_WM_0, wm[0]);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_REQPRIO_FIFO_WM_1, wm[1]);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_REQPRIO_FIFO_WM_2, wm[2]);
