@@ -81,6 +81,7 @@ struct hdmi_tx_audio_acr_arry {
 	struct hdmi_tx_audio_acr lut[AUDIO_SAMPLE_RATE_MAX];
 };
 
+static int hdmi_tx_set_mhl_hpd(struct platform_device *pdev, uint8_t on);
 static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on);
 static irqreturn_t hdmi_tx_isr(int irq, void *data);
 static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl);
@@ -1950,7 +1951,7 @@ static int hdmi_tx_set_mhl_max_pclk(struct platform_device *pdev, u32 max_val)
 }
 
 int msm_hdmi_register_mhl(struct platform_device *pdev,
-		struct msm_hdmi_mhl_ops *ops)
+			  struct msm_hdmi_mhl_ops *ops, void *data)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
 
@@ -1966,6 +1967,8 @@ int msm_hdmi_register_mhl(struct platform_device *pdev,
 
 	ops->tmds_enabled = hdmi_tx_tmds_enabled;
 	ops->set_mhl_max_pclk = hdmi_tx_set_mhl_max_pclk;
+	ops->set_upstream_hpd = hdmi_tx_set_mhl_hpd;
+
 	return 0;
 }
 
@@ -2437,6 +2440,41 @@ static int hdmi_tx_sysfs_enable_hpd(struct hdmi_tx_ctrl *hdmi_ctrl, int on)
 
 	return rc;
 } /* hdmi_tx_sysfs_enable_hpd */
+
+static int hdmi_tx_set_mhl_hpd(struct platform_device *pdev, uint8_t on)
+{
+	int rc = 0;
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+
+	hdmi_ctrl = platform_get_drvdata(pdev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!on && hdmi_ctrl->hpd_feature_on) {
+		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, false);
+	} else if (on && !hdmi_ctrl->hpd_feature_on) {
+		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
+	} else {
+		DEV_DBG("%s: hpd is already '%s'. return\n", __func__,
+			hdmi_ctrl->hpd_feature_on ? "enabled" : "disabled");
+		return rc;
+	}
+
+	if (!rc) {
+		hdmi_ctrl->hpd_feature_on =
+			(~hdmi_ctrl->hpd_feature_on) & BIT(0);
+		DEV_DBG("%s: '%d'\n", __func__, hdmi_ctrl->hpd_feature_on);
+	} else {
+		DEV_ERR("%s: failed to '%s' hpd. rc = %d\n", __func__,
+			on ? "enable" : "disable", rc);
+	}
+
+	return rc;
+
+}
 
 static irqreturn_t hdmi_tx_isr(int irq, void *data)
 {
