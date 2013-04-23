@@ -11,11 +11,11 @@
  */
 
 /include/ "skeleton.dtsi"
-/include/ "msmzinc-ion.dtsi"
+/include/ "apq8084-ion.dtsi"
 
 / {
-	model = "Qualcomm MSM ZINC";
-	compatible = "qcom,msmzinc";
+	model = "Qualcomm APQ 8084";
+	compatible = "qcom,apq8084";
 	interrupt-parent = <&intc>;
 
 	intc: interrupt-controller@f9000000 {

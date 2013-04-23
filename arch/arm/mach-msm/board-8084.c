@@ -32,7 +32,7 @@
 #include "devices.h"
 #include "platsmp.h"
 
-static struct memtype_reserve msmzinc_reserve_table[] __initdata = {
+static struct memtype_reserve apq8084_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
 	[MEMTYPE_EBI0] = {
@@ -43,27 +43,27 @@ static struct memtype_reserve msmzinc_reserve_table[] __initdata = {
 	},
 };
 
-static int msmzinc_paddr_to_memtype(phys_addr_t paddr)
+static int apq8084_paddr_to_memtype(phys_addr_t paddr)
 {
 	return MEMTYPE_EBI1;
 }
 
-static struct reserve_info msmzinc_reserve_info __initdata = {
-	.memtype_reserve_table = msmzinc_reserve_table,
-	.paddr_to_memtype = msmzinc_paddr_to_memtype,
+static struct reserve_info apq8084_reserve_info __initdata = {
+	.memtype_reserve_table = apq8084_reserve_table,
+	.paddr_to_memtype = apq8084_paddr_to_memtype,
 };
 
-void __init msmzinc_reserve(void)
+void __init apq8084_reserve(void)
 {
-	reserve_info = &msmzinc_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_reserve, msmzinc_reserve_table);
+	reserve_info = &apq8084_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_reserve, apq8084_reserve_table);
 	msm_reserve();
 }
 
-static void __init msmzinc_early_memory(void)
+static void __init apq8084_early_memory(void)
 {
-	reserve_info = &msmzinc_reserve_info;
-	of_scan_flat_dt(dt_scan_for_memory_hole, msmzinc_reserve_table);
+	reserve_info = &apq8084_reserve_info;
+	of_scan_flat_dt(dt_scan_for_memory_hole, apq8084_reserve_table);
 }
 
 static struct clk_lookup msm_clocks_dummy[] = {
@@ -82,46 +82,46 @@ static struct clock_init_data msm_dummy_clock_init_data __initdata = {
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-void __init msmzinc_add_drivers(void)
+void __init apq8084_add_drivers(void)
 {
 	msm_smd_init();
 	msm_clock_init(&msm_dummy_clock_init_data);
 }
 
-static void __init msmzinc_map_io(void)
+static void __init apq8084_map_io(void)
 {
-	msm_map_zinc_io();
+	msm_map_8084_io();
 }
 
-void __init msmzinc_init(void)
+void __init apq8084_init(void)
 {
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
-	msmzinc_init_gpiomux();
+	apq8084_init_gpiomux();
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
-	msmzinc_add_drivers();
+	apq8084_add_drivers();
 }
 
-void __init msmzinc_init_very_early(void)
+void __init apq8084_init_very_early(void)
 {
-	msmzinc_early_memory();
+	apq8084_early_memory();
 }
 
-static const char *msmzinc_dt_match[] __initconst = {
-	"qcom,msmzinc",
+static const char *apq8084_dt_match[] __initconst = {
+	"qcom,apq8084",
 	NULL
 };
 
-DT_MACHINE_START(MSMZINC_DT, "Qualcomm MSM ZINC (Flattened Device Tree)")
-	.map_io = msmzinc_map_io,
+DT_MACHINE_START(APQ8084_DT, "Qualcomm APQ 8084 (Flattened Device Tree)")
+	.map_io = apq8084_map_io,
 	.init_irq = msm_dt_init_irq,
-	.init_machine = msmzinc_init,
+	.init_machine = apq8084_init,
 	.handle_irq = gic_handle_irq,
 	.timer = &msm_dt_timer,
-	.dt_compat = msmzinc_dt_match,
-	.reserve = msmzinc_reserve,
-	.init_very_early = msmzinc_init_very_early,
+	.dt_compat = apq8084_dt_match,
+	.reserve = apq8084_reserve,
+	.init_very_early = apq8084_init_very_early,
 	.restart = msm_restart,
 	.smp = &msm8974_smp_ops,
 MACHINE_END

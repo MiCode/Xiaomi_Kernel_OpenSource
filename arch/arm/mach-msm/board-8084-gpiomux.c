@@ -17,7 +17,7 @@
 #include <mach/board.h>
 #include <mach/gpiomux.h>
 
-void __init msmzinc_init_gpiomux(void)
+void __init apq8084_init_gpiomux(void)
 {
 	int rc;
 
