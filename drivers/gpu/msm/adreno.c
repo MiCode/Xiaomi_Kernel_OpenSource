@@ -2304,6 +2304,7 @@ _adreno_ft(struct kgsl_device *device,
 		context->wait_on_invalid_ts = false;
 
 		if (!(adreno_context->flags & CTXT_FLAGS_PER_CONTEXT_TS)) {
+			ft_data->status = 1;
 			KGSL_FT_ERR(device, "Fault tolerance not supported\n");
 			goto play_good_cmds;
 		}
@@ -2338,6 +2339,7 @@ _adreno_ft(struct kgsl_device *device,
 
 	/* If long IB detected do not attempt replay of bad cmds */
 	if (long_ib) {
+		ft_data->status = 1;
 		_adreno_debug_ft_info(device, ft_data);
 		goto play_good_cmds;
 	}
