@@ -2963,6 +2963,7 @@ static int voice_send_rx_device_mute_cmd(struct voice_data *v)
 	cvp_mute_cmd.hdr.opcode = VSS_IVOLUME_CMD_MUTE_V2;
 	cvp_mute_cmd.cvp_set_mute.direction = VSS_IVOLUME_DIRECTION_RX;
 	cvp_mute_cmd.cvp_set_mute.mute_flag = v->dev_rx.mute;
+	cvp_mute_cmd.cvp_set_mute.ramp_duration_ms = DEFAULT_MUTE_RAMP_DURATION;
 
 	v->cvp_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(common.apr_q6_cvp, (uint32_t *) &cvp_mute_cmd);
