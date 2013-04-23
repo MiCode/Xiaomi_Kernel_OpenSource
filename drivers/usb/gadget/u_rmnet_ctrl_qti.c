@@ -259,20 +259,6 @@ rmnet_ctrl_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 		return -EBUSY;
 	}
 
-	/* block until online */
-	while (!(atomic_read(&port->connected))) {
-		pr_debug("Not connected. Wait.\n");
-		ret = wait_event_interruptible(port->read_wq,
-			atomic_read(&port->connected));
-		if (ret < 0) {
-			rmnet_ctrl_unlock(&port->read_excl);
-			if (ret == -ERESTARTSYS)
-				return -ERESTARTSYS;
-			else
-				return -EINTR;
-		}
-	}
-
 	/* block until a new packet is available */
 	do {
 		spin_lock_irqsave(&port->lock, flags);
