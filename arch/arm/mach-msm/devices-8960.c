@@ -2510,6 +2510,11 @@ struct platform_device msm_pcm_afe = {
 	.id	= -1,
 };
 
+struct platform_device msm_fm_loopback = {
+	.name	= "msm-pcm-loopback",
+	.id	= -1,
+};
+
 static struct fs_driver_data gfx2d0_fs_data = {
 	.clks = (struct fs_clk_data[]){
 		{ .name = "core_clk" },
