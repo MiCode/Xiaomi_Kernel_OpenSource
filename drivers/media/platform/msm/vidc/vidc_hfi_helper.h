@@ -304,7 +304,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01E)
 #define HFI_PROPERTY_PARAM_VENC_VC1_PERF_CFG		\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01F)
-
+#define  HFI_PROPERTY_PARAM_VENC_MAX_NUM_B_FRAMES \
+	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x020)
 #define HFI_PROPERTY_CONFIG_VENC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_COMMON_OFFSET + 0x6000)
 #define HFI_PROPERTY_CONFIG_VENC_TARGET_BITRATE				\
@@ -422,6 +423,10 @@ struct hfi_intra_refresh {
 
 struct hfi_idr_period {
 	u32 idr_period;
+};
+
+struct hfi_max_num_b_frames {
+	u32 max_num_b_frames;
 };
 
 struct hfi_intra_period {
