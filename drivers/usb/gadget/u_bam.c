@@ -717,6 +717,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	ipa_notify_cb usb_notify_cb;
 	void *priv;
 	int ret;
+	unsigned long flags;
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
 		ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
@@ -769,9 +770,21 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		}
 	}
 
-	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_KERNEL);
-	if (!d->rx_req)
+	spin_lock_irqsave(&port->port_lock_ul, flags);
+	spin_lock(&port->port_lock_dl);
+	if (!port->port_usb) {
+		pr_debug("%s: usb cable is disconnected, exiting\n", __func__);
+		spin_unlock(&port->port_lock_dl);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		return;
+	}
+	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_ATOMIC);
+	if (!d->rx_req) {
+		spin_unlock(&port->port_lock_dl);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags);
+		pr_err("%s: out of memory\n", __func__);
+		return;
+	}
 
 	d->rx_req->context = port;
 	d->rx_req->complete = gbam_endless_rx_complete;
@@ -779,9 +792,14 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	sps_params = (MSM_SPS_MODE | d->src_pipe_idx |
 				 MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
 	d->rx_req->udc_priv = sps_params;
-	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_KERNEL);
-	if (!d->tx_req)
+
+	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_ATOMIC);
+	spin_unlock(&port->port_lock_dl);
+	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+	if (!d->tx_req) {
+		pr_err("%s: out of memory\n", __func__);
 		return;
+	}
 
 	d->tx_req->context = port;
 	d->tx_req->complete = gbam_endless_tx_complete;
