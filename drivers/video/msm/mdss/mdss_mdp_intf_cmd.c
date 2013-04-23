@@ -54,6 +54,50 @@ struct mdss_mdp_cmd_ctx {
 
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
 
+static inline u32 mdss_mdp_cmd_line_count(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_mixer *mixer;
+	u32 cnt = 0xffff;	/* init it to an invalid value */
+	u32 init;
+	u32 height;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
+	if (!mixer) {
+		mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
+		if (!mixer) {
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+			goto exit;
+		}
+	}
+
+	init = mdss_mdp_pingpong_read
+		(mixer, MDSS_MDP_REG_PP_VSYNC_INIT_VAL) & 0xffff;
+
+	height = mdss_mdp_pingpong_read
+		(mixer, MDSS_MDP_REG_PP_SYNC_CONFIG_HEIGHT) & 0xffff;
+
+	if (height < init) {
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+		goto exit;
+	}
+
+	cnt = mdss_mdp_pingpong_read
+		(mixer, MDSS_MDP_REG_PP_INT_COUNT_VAL) & 0xffff;
+
+	if (cnt < init)		/* wrap around happened at height */
+		cnt += (height - init);
+	else
+		cnt -= init;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+
+	pr_debug("cnt=%d init=%d height=%d\n", cnt, init, height);
+exit:
+	return cnt;
+}
+
 /*
  * TE configuration:
  * dsi byte clock calculated base on 70 fps
@@ -159,11 +203,12 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 
 	complete_all(&ctx->vsync_comp);
 
-	pr_debug("%s: num=%d ctx=%d expire=%d koff=%d\n", __func__, ctl->num,
-			ctx->pp_num, ctx->expire, ctx->koff_cnt);
-
 	vsync_time = ktime_get();
 	ctl->vsync_cnt++;
+
+	pr_debug("%s: num=%d ctx=%d expire=%d koff=%d vsync_time=%d\n",
+		 __func__, ctl->num, ctx->pp_num, ctx->expire, ctx->koff_cnt,
+		 (int)ktime_to_ms(vsync_time));
 
 	spin_lock(&ctx->clk_lock);
 	if (ctx->send_vsync)
@@ -526,6 +571,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	ctl->wait_pingpong = mdss_mdp_cmd_wait4pingpong;
 	ctl->add_vsync_handler = mdss_mdp_cmd_vsync_ctrl;
 	ctl->remove_vsync_handler = mdss_mdp_cmd_vsync_ctrl;
+	ctl->read_line_cnt_fnc = mdss_mdp_cmd_line_count;
 
 	pr_debug("%s:-\n", __func__);
 
