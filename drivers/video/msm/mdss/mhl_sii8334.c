@@ -190,7 +190,7 @@ uint8_t slave_addrs[MAX_PAGES] = {
 
 static irqreturn_t mhl_tx_isr(int irq, void *dev_id);
 static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl,
-			enum mhl_st_type to_mode);
+			enum mhl_st_type to_mode, bool hpd_off);
 static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 				  bool mhl_disc_en);
 
@@ -703,9 +703,18 @@ static void mhl_init_reg_settings(struct mhl_tx_ctrl *mhl_ctrl,
 }
 
 
-static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
+static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode,
+			bool hpd_off)
 {
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
+	unsigned long flags;
+	int rc;
+	struct msm_hdmi_mhl_ops *hdmi_mhl_ops = mhl_ctrl->hdmi_mhl_ops;
+
+	pr_debug("%s: tx pwr on\n", __func__);
+	spin_lock_irqsave(&mhl_ctrl->lock, flags);
+	mhl_ctrl->tx_powered_off = false;
+	spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
 
 	switch (to_mode) {
 	case POWER_STATE_D0_NO_MHL:
@@ -722,8 +731,11 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 		mhl_ctrl->cur_state = to_mode;
 		break;
 	case POWER_STATE_D3:
-		if (mhl_ctrl->cur_state == POWER_STATE_D3)
+		if (mhl_ctrl->cur_state == POWER_STATE_D3) {
+			pr_debug("%s: mhl tx already in low power mode\n",
+				__func__);
 			break;
+		}
 
 		/* Force HPD to 0 when not in MHL mode.  */
 		mhl_drive_hpd(mhl_ctrl, HPD_DOWN);
@@ -736,7 +748,19 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 		msleep(50);
 		if (!mhl_ctrl->disc_enabled)
 			MHL_SII_REG_NAME_MOD(REG_DISC_CTRL1, BIT1 | BIT0, 0x00);
-		MHL_SII_PAGE3_MOD(0x003D, BIT0, 0x00);
+
+		spin_lock_irqsave(&mhl_ctrl->lock, flags);
+		mhl_ctrl->tx_powered_off = true;
+		spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
+
+		if (hdmi_mhl_ops && hpd_off) {
+			rc = hdmi_mhl_ops->set_upstream_hpd(
+				mhl_ctrl->pdata->hdmi_pdev, 0);
+			pr_debug("%s: hdmi unset hpd %s\n", __func__,
+				 rc ? "failed" : "passed");
+		}
+		msleep(200);
+		MHL_SII_PAGE1_MOD(0x003D, BIT0, 0x00);
 		mhl_ctrl->cur_state = POWER_STATE_D3;
 		break;
 	default:
@@ -744,6 +768,22 @@ static void switch_mode(struct mhl_tx_ctrl *mhl_ctrl, enum mhl_st_type to_mode)
 	}
 }
 
+static bool is_mhl_powered(void *mhl_ctx)
+{
+	struct mhl_tx_ctrl *mhl_ctrl = (struct mhl_tx_ctrl *)mhl_ctx;
+	unsigned long flags;
+	bool r = false;
+
+	spin_lock_irqsave(&mhl_ctrl->lock, flags);
+	if (mhl_ctrl->tx_powered_off)
+		r = false;
+	else
+		r = true;
+	spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
+
+	pr_debug("%s: ret pwr state as %x\n", __func__, r);
+	return r;
+}
 
 void mhl_tmds_ctrl(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on)
 {
@@ -759,6 +799,7 @@ void mhl_tmds_ctrl(struct mhl_tx_ctrl *mhl_ctrl, uint8_t on)
 void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl, uint8_t to_state)
 {
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
+	unsigned long flags;
 
 	pr_debug("%s: To state=[0x%x]\n", __func__, to_state);
 	if (to_state == HPD_UP) {
@@ -769,10 +810,13 @@ void mhl_drive_hpd(struct mhl_tx_ctrl *mhl_ctrl, uint8_t to_state)
 		 * propogate to src let HPD float by clearing
 		 * HPD OUT OVRRD EN
 		 */
-		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT4, 0x00);
+		spin_lock_irqsave(&mhl_ctrl->lock, flags);
+		mhl_ctrl->tx_powered_off = false;
+		spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
+		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT4, 0);
 	} else {
 		/* Drive HPD to DOWN state */
-		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, BIT4, BIT4);
+		MHL_SII_REG_NAME_MOD(REG_INT_CTRL, (BIT4 | BIT5), BIT4);
 	}
 }
 
@@ -789,9 +833,7 @@ static void mhl_msm_connection(struct mhl_tx_ctrl *mhl_ctrl)
 		pr_err("%s: cur st not D0\n", __func__);
 		return;
 	}
-	/* spin_lock_irqsave(&mhl_state_lock, flags); */
-	switch_mode(mhl_ctrl, POWER_STATE_D0_MHL);
-	/* spin_unlock_irqrestore(&mhl_state_lock, flags); */
+	switch_mode(mhl_ctrl, POWER_STATE_D0_MHL, true);
 
 	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL1, 0x10);
 	MHL_SII_CBUS_WR(0x07, 0xF2);
@@ -823,19 +865,29 @@ static void mhl_msm_connection(struct mhl_tx_ctrl *mhl_ctrl)
 static void mhl_msm_disconnection(struct mhl_tx_ctrl *mhl_ctrl)
 {
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
-	/*
-	 * MHL TX CTL1
-	 * Disabling Tx termination
-	 */
-	MHL_SII_PAGE3_WR(0x30, 0xD0);
+	unsigned long flags;
 
-	switch_mode(mhl_ctrl, POWER_STATE_D3);
+	spin_lock_irqsave(&mhl_ctrl->lock, flags);
+	mhl_ctrl->dwnstream_hpd &= ~BIT6;
+	spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
+
+	/* disabling Tx termination */
+	MHL_SII_REG_NAME_WR(REG_MHLTX_CTL1, 0xD0);
+	switch_mode(mhl_ctrl, POWER_STATE_D3, true);
 }
 
 static int  mhl_msm_read_rgnd_int(struct mhl_tx_ctrl *mhl_ctrl)
 {
 	uint8_t rgnd_imp;
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
+	struct msm_hdmi_mhl_ops *hdmi_mhl_ops = mhl_ctrl->hdmi_mhl_ops;
+	unsigned long flags;
+	int rc;
+
+	spin_lock_irqsave(&mhl_ctrl->lock, flags);
+	mhl_ctrl->tx_powered_off = false;
+	spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
+
 	/* DISC STATUS REG 2 */
 	rgnd_imp = (mhl_i2c_reg_read(client, TX_PAGE_3, 0x001C) &
 		    (BIT1 | BIT0));
@@ -843,6 +895,12 @@ static int  mhl_msm_read_rgnd_int(struct mhl_tx_ctrl *mhl_ctrl)
 
 	if (0x02 == rgnd_imp) {
 		pr_debug("%s: mhl sink\n", __func__);
+		if (hdmi_mhl_ops) {
+			rc = hdmi_mhl_ops->set_upstream_hpd(
+				mhl_ctrl->pdata->hdmi_pdev, 1);
+			pr_debug("%s: hdmi set hpd %s\n", __func__,
+				 rc ? "failed" : "passed");
+		}
 		mhl_ctrl->mhl_mode = 1;
 		power_supply_changed(&mhl_ctrl->mhl_psy);
 		if (mhl_ctrl->notify_usb_online)
@@ -850,7 +908,7 @@ static int  mhl_msm_read_rgnd_int(struct mhl_tx_ctrl *mhl_ctrl)
 	} else {
 		pr_debug("%s: non-mhl sink\n", __func__);
 		mhl_ctrl->mhl_mode = 0;
-		switch_mode(mhl_ctrl, POWER_STATE_D3);
+		switch_mode(mhl_ctrl, POWER_STATE_D3, true);
 	}
 	complete(&mhl_ctrl->rgnd_done);
 	return mhl_ctrl->mhl_mode ?
@@ -904,9 +962,9 @@ static void scdt_st_chg(struct i2c_client *client)
 }
 
 
-static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
+static int dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 {
-	uint8_t status, reg ;
+	uint8_t status, reg;
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
 
 	/* INTR_STATUS4 */
@@ -916,13 +974,13 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 	if ((0x00 == status) &&\
 	    (mhl_ctrl->cur_state == POWER_STATE_D3)) {
 		pr_err("%s: invalid intr\n", __func__);
-		return;
+		return 0;
 	}
 
 	if (0xFF == status) {
 		pr_debug("%s: invalid intr 0xff\n", __func__);
 		MHL_SII_REG_NAME_WR(REG_INTR4, status);
-		return;
+		return 0;
 	}
 
 	if ((status & BIT0) && (mhl_ctrl->chip_rev_id < 1)) {
@@ -940,31 +998,35 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		mhl_msm_connection(mhl_ctrl);
 	} else if (status & BIT3) {
 		pr_debug("%s: uUSB-a type dev detct\n", __func__);
+
 		/* Short RGND */
 		MHL_SII_REG_NAME_MOD(REG_DISC_STAT2, BIT0 | BIT1, 0x00);
 		mhl_msm_disconnection(mhl_ctrl);
 		power_supply_changed(&mhl_ctrl->mhl_psy);
 		if (mhl_ctrl->notify_usb_online)
 			mhl_ctrl->notify_usb_online(0);
+		return -EACCES;
 	}
 
 	if (status & BIT5) {
 		/* clr intr - reg int4 */
 		pr_debug("%s: mhl discon: int4 st=%02X\n", __func__,
 			 (int)status);
+
 		reg = MHL_SII_REG_NAME_RD(REG_INTR4);
 		MHL_SII_REG_NAME_WR(REG_INTR4, reg);
 		mhl_msm_disconnection(mhl_ctrl);
 		power_supply_changed(&mhl_ctrl->mhl_psy);
 		if (mhl_ctrl->notify_usb_online)
 			mhl_ctrl->notify_usb_online(0);
+		return -EACCES;
 	}
 
 	if ((mhl_ctrl->cur_state != POWER_STATE_D0_NO_MHL) &&\
 	    (status & BIT6)) {
 		/* rgnd rdy Intr */
 		pr_debug("%s: rgnd ready intr\n", __func__);
-		switch_mode(mhl_ctrl, POWER_STATE_D0_NO_MHL);
+		switch_mode(mhl_ctrl, POWER_STATE_D0_NO_MHL, true);
 		mhl_msm_read_rgnd_int(mhl_ctrl);
 	}
 
@@ -981,6 +1043,7 @@ static void dev_detect_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		release_usb_switch_open(mhl_ctrl);
 	}
 	MHL_SII_REG_NAME_WR(REG_INTR4, status);
+	return 0;
 }
 
 static void mhl_misc_isr(struct mhl_tx_ctrl *mhl_ctrl)
@@ -1000,9 +1063,12 @@ static void mhl_misc_isr(struct mhl_tx_ctrl *mhl_ctrl)
 
 static void mhl_hpd_stat_isr(struct mhl_tx_ctrl *mhl_ctrl)
 {
-	uint8_t intr_1_stat;
-	uint8_t cbus_stat;
+	uint8_t intr_1_stat, cbus_stat, t;
+	unsigned long flags;
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
+
+	if (!is_mhl_powered(mhl_ctrl))
+		return;
 
 	/* INTR STATUS 1 */
 	intr_1_stat = MHL_SII_PAGE0_RD(0x0071);
@@ -1012,6 +1078,7 @@ static void mhl_hpd_stat_isr(struct mhl_tx_ctrl *mhl_ctrl)
 
 	/* Clear interrupts */
 	MHL_SII_PAGE0_WR(0x0071, intr_1_stat);
+
 	if (BIT6 & intr_1_stat) {
 		/*
 		 * HPD status change event is pending
@@ -1019,11 +1086,21 @@ static void mhl_hpd_stat_isr(struct mhl_tx_ctrl *mhl_ctrl)
 		 * MSC REQ ABRT REASON
 		 */
 		cbus_stat = MHL_SII_CBUS_RD(0x0D);
-		if (BIT6 & cbus_stat)
-			mhl_drive_hpd(mhl_ctrl, HPD_UP);
-		else
-			mhl_drive_hpd(mhl_ctrl, HPD_DOWN);
+		pr_debug("%s: cbus_stat=[0x%02x] cur_pwr=[%u]\n",
+			 __func__, cbus_stat, mhl_ctrl->cur_state);
 
+		spin_lock_irqsave(&mhl_ctrl->lock, flags);
+		t = mhl_ctrl->dwnstream_hpd;
+		spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
+
+		if (BIT6 & (cbus_stat ^ t)) {
+			u8 status = cbus_stat & BIT6;
+			mhl_drive_hpd(mhl_ctrl, status ? HPD_UP : HPD_DOWN);
+
+			spin_lock_irqsave(&mhl_ctrl->lock, flags);
+			mhl_ctrl->dwnstream_hpd = cbus_stat;
+			spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
+		}
 	}
 }
 
@@ -1257,122 +1334,9 @@ static void mhl_cbus_isr(struct mhl_tx_ctrl *mhl_ctrl)
 
 }
 
-static void clear_all_intrs(struct i2c_client *client)
-{
-	uint8_t regval = 0x00;
-
-	pr_debug_intr("********* exiting isr mask check ?? *************\n");
-	pr_debug_intr("int1 mask = %02X\n",
-		(int) MHL_SII_REG_NAME_RD(REG_INTR1));
-	pr_debug_intr("int3 mask = %02X\n",
-		(int) MHL_SII_PAGE0_RD(0x0077));
-	pr_debug_intr("int4 mask = %02X\n",
-		(int) MHL_SII_REG_NAME_RD(REG_INTR4));
-	pr_debug_intr("int5 mask = %02X\n",
-		(int) MHL_SII_REG_NAME_RD(REG_INTR5));
-	pr_debug_intr("cbus1 mask = %02X\n",
-		(int) MHL_SII_CBUS_RD(0x0009));
-	pr_debug_intr("cbus2 mask = %02X\n",
-		(int) MHL_SII_CBUS_RD(0x001F));
-	pr_debug_intr("********* end of isr mask check *************\n");
-
-	regval = MHL_SII_REG_NAME_RD(REG_INTR1);
-	pr_debug_intr("int1 st = %02X\n", (int)regval);
-	MHL_SII_REG_NAME_WR(REG_INTR1, regval);
-
-	regval =  MHL_SII_REG_NAME_RD(REG_INTR2);
-	pr_debug_intr("int2 st = %02X\n", (int)regval);
-	MHL_SII_REG_NAME_WR(REG_INTR2, regval);
-
-	regval =  MHL_SII_PAGE0_RD(0x0073);
-	pr_debug_intr("int3 st = %02X\n", (int)regval);
-	MHL_SII_PAGE0_WR(0x0073, regval);
-
-	regval =  MHL_SII_REG_NAME_RD(REG_INTR4);
-	pr_debug_intr("int4 st = %02X\n", (int)regval);
-	MHL_SII_REG_NAME_WR(REG_INTR4, regval);
-
-	regval =  MHL_SII_REG_NAME_RD(REG_INTR5);
-	pr_debug_intr("int5 st = %02X\n", (int)regval);
-	MHL_SII_REG_NAME_WR(REG_INTR5, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x0008);
-	pr_debug_intr("cbusInt st = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x0008, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x001E);
-	pr_debug_intr("CBUS intR_2: %d\n", (int)regval);
-	MHL_SII_CBUS_WR(0x001E, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00A0);
-	pr_debug_intr("A0 int set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00A0, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00A1);
-	pr_debug_intr("A1 int set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00A1, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00A2);
-	pr_debug_intr("A2 int set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00A2, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00A3);
-	pr_debug_intr("A3 int set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00A3, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00B0);
-	pr_debug_intr("B0 st set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00B0, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00B1);
-	pr_debug_intr("B1 st set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00B1, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00B2);
-	pr_debug_intr("B2 st set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00B2, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00B3);
-	pr_debug_intr("B3 st set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00B3, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00E0);
-	pr_debug_intr("E0 st set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00E0, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00E1);
-	pr_debug_intr("E1 st set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00E1, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00E2);
-	pr_debug_intr("E2 st set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00E2, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00E3);
-	pr_debug_intr("E3 st set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00E3, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00F0);
-	pr_debug_intr("F0 int set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00F0, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00F1);
-	pr_debug_intr("F1 int set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00F1, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00F2);
-	pr_debug_intr("F2 int set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00F2, regval);
-
-	regval =  MHL_SII_CBUS_RD(0x00F3);
-	pr_debug_intr("F3 int set = %02X\n", (int)regval);
-	MHL_SII_CBUS_WR(0x00F3, regval);
-	pr_debug_intr("********* end of exiting in isr *************\n");
-}
-
-
 static irqreturn_t mhl_tx_isr(int irq, void *data)
 {
+	int rc;
 	struct mhl_tx_ctrl *mhl_ctrl = (struct mhl_tx_ctrl *)data;
 	pr_debug("%s: Getting Interrupts\n", __func__);
 
@@ -1380,7 +1344,11 @@ static irqreturn_t mhl_tx_isr(int irq, void *data)
 	 * Check RGND, MHL_EST, CBUS_LOCKOUT, SCDT
 	 * interrupts. In D3, we get only RGND
 	 */
-	dev_detect_isr(mhl_ctrl);
+	rc = dev_detect_isr(mhl_ctrl);
+	if (rc) {
+		pr_info("%s: dev_detect_isr rc=[%d]\n", __func__, rc);
+		return IRQ_HANDLED;
+	}
 
 	pr_debug("%s: cur pwr state is [0x%x]\n",
 		 __func__, mhl_ctrl->cur_state);
@@ -1401,8 +1369,6 @@ static irqreturn_t mhl_tx_isr(int irq, void *data)
 		mhl_hpd_stat_isr(mhl_ctrl);
 	}
 
-	clear_all_intrs(mhl_ctrl->i2c_handle);
-
 	return IRQ_HANDLED;
 }
 
@@ -1410,6 +1376,13 @@ static int mhl_tx_chip_init(struct mhl_tx_ctrl *mhl_ctrl)
 {
 	uint8_t chip_rev_id = 0x00;
 	struct i2c_client *client = mhl_ctrl->i2c_handle;
+	unsigned long flags;
+
+
+	spin_lock_irqsave(&mhl_ctrl->lock, flags);
+	mhl_ctrl->dwnstream_hpd = 0;
+	mhl_ctrl->tx_powered_off = false;
+	spin_unlock_irqrestore(&mhl_ctrl->lock, flags);
 
 	/* Reset the TX chip */
 	mhl_sii_reset_pin(mhl_ctrl, 0);
@@ -1428,7 +1401,7 @@ static int mhl_tx_chip_init(struct mhl_tx_ctrl *mhl_ctrl)
 	 * MHL-USB handshake is implemented
 	 */
 	mhl_init_reg_settings(mhl_ctrl, true);
-	switch_mode(mhl_ctrl, POWER_STATE_D3);
+	switch_mode(mhl_ctrl, POWER_STATE_D0_NO_MHL, false);
 	return 0;
 }
 
@@ -1710,6 +1683,7 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	mhl_ctrl->cur_state = POWER_STATE_D0_MHL;
 	INIT_LIST_HEAD(&mhl_ctrl->list_cmd);
 	init_completion(&mhl_ctrl->msc_cmd_done);
+	spin_lock_init(&mhl_ctrl->lock);
 	mhl_ctrl->msc_send_workqueue = create_singlethread_workqueue
 		("mhl_msc_cmd_queue");
 
@@ -1813,7 +1787,7 @@ static int mhl_i2c_probe(struct i2c_client *client,
 	pr_debug("%s: i2c client addr is [%x]\n", __func__, client->addr);
 	if (mhl_ctrl->pdata->hdmi_pdev) {
 		rc = msm_hdmi_register_mhl(mhl_ctrl->pdata->hdmi_pdev,
-					   hdmi_mhl_ops);
+					   hdmi_mhl_ops, mhl_ctrl);
 		if (rc) {
 			pr_err("%s: register with hdmi failed\n", __func__);
 			rc = -EPROBE_DEFER;

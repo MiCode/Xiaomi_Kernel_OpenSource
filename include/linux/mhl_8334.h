@@ -158,6 +158,9 @@ struct mhl_tx_ctrl {
 	int scrpd_busy;
 	int wr_burst_pending;
 	struct completion req_write_done;
+	spinlock_t lock;
+	bool tx_powered_off;
+	uint8_t dwnstream_hpd;
 };
 
 int mhl_i2c_reg_read(struct i2c_client *client,
