@@ -1290,9 +1290,10 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe)
 	if (mutex_lock_interruptible(&ctl->lock))
 		return -EINTR;
 
-	mixer->params_changed++;
-	mixer->stage_pipe[pipe->mixer_stage] = NULL;
-
+	if (pipe == mixer->stage_pipe[pipe->mixer_stage]) {
+		mixer->params_changed++;
+		mixer->stage_pipe[pipe->mixer_stage] = NULL;
+	}
 	mutex_unlock(&ctl->lock);
 
 	return 0;
