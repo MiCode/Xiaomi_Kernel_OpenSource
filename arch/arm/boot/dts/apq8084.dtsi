@@ -130,3 +130,5 @@
 		#interrupt-cells = <3>;
 	};
 };
+
+/include/ "msm-pma8084.dtsi"
