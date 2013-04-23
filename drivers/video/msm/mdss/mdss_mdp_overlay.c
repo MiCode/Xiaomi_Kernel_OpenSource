@@ -632,94 +632,6 @@ static int mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
-int mdss_mdp_copy_splash_screen(struct mdss_panel_data *pdata)
-{
-	void *virt = NULL;
-	unsigned long bl_fb_addr = 0;
-	unsigned long *bl_fb_addr_va;
-	unsigned long  pipe_addr, pipe_src_size;
-	u32 height, width, rgb_size, bpp;
-	size_t size;
-	static struct ion_handle *ihdl;
-	struct ion_client *iclient = mdss_get_ionclient();
-	static ion_phys_addr_t phys;
-
-	pipe_addr = MDSS_MDP_REG_SSPP_OFFSET(3) +
-		MDSS_MDP_REG_SSPP_SRC0_ADDR;
-	pipe_src_size =
-		MDSS_MDP_REG_SSPP_OFFSET(3) + MDSS_MDP_REG_SSPP_SRC_SIZE;
-
-	bpp        = 3;
-	rgb_size   = MDSS_MDP_REG_READ(pipe_src_size);
-	bl_fb_addr = MDSS_MDP_REG_READ(pipe_addr);
-
-	height = (rgb_size >> 16) & 0xffff;
-	width  = rgb_size & 0xffff;
-	size = PAGE_ALIGN(height * width * bpp);
-	pr_debug("%s:%d splash_height=%d splash_width=%d Buffer size=%d\n",
-			__func__, __LINE__, height, width, size);
-
-	ihdl = ion_alloc(iclient, size, SZ_1M,
-			ION_HEAP(ION_QSECOM_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL(ihdl)) {
-		pr_err("unable to alloc fbmem from ion (%p)\n", ihdl);
-		return -ENOMEM;
-	}
-
-	pdata->panel_info.splash_ihdl = ihdl;
-
-	virt = ion_map_kernel(iclient, ihdl);
-	ion_phys(iclient, ihdl, &phys, &size);
-
-	pr_debug("%s %d Allocating %u bytes at 0x%lx (%pa phys)\n",
-			__func__, __LINE__, size,
-			(unsigned long int)virt, &phys);
-
-	bl_fb_addr_va = (unsigned long *)ioremap(bl_fb_addr, size);
-
-	memcpy(virt, bl_fb_addr_va, size);
-
-	MDSS_MDP_REG_WRITE(pipe_addr, phys);
-	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_CTL_FLUSH + MDSS_MDP_REG_CTL_OFFSET(0),
-			0x48);
-
-	return 0;
-
-}
-
-int mdss_mdp_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
-{
-	struct ion_client *iclient = mdss_get_ionclient();
-	struct mdss_panel_data *pdata;
-	int ret = 0, off;
-	int mdss_mdp_rev = MDSS_MDP_REG_READ(MDSS_MDP_REG_HW_VERSION);
-	int mdss_v2_intf_off = 0;
-
-	off = 0;
-
-	pdata = ctl->panel_data;
-
-	pdata->panel_info.cont_splash_enabled = 0;
-
-	ion_free(iclient, pdata->panel_info.splash_ihdl);
-
-	mdss_mdp_ctl_write(ctl, 0, MDSS_MDP_LM_BORDER_COLOR);
-	off = MDSS_MDP_REG_INTF_OFFSET(ctl->intf_num);
-
-	if (mdss_mdp_rev == MDSS_MDP_HW_REV_102)
-		mdss_v2_intf_off =  0xEC00;
-
-	/* wait for 1 VSYNC for the pipe to be unstaged */
-	msleep(20);
-	MDSS_MDP_REG_WRITE(off + MDSS_MDP_REG_INTF_TIMING_ENGINE_EN -
-			mdss_v2_intf_off, 0);
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_FINISH,
-			NULL);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-	mdss_mdp_footswitch_ctrl_splash(0);
-	return ret;
-}
-
 static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 {
 	int rc;
@@ -736,8 +648,10 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		return rc;
 	}
 
-	if (mfd->panel_info->cont_splash_enabled)
-		mdss_mdp_reconfigure_splash_done(mdp5_data->ctl);
+	if (mfd->panel_info->cont_splash_enabled) {
+		mdss_mdp_ctl_splash_finish(mdp5_data->ctl);
+		mdss_mdp_footswitch_ctrl_splash(0);
+	}
 
 	if (!is_mdss_iommu_attached()) {
 		mdss_iommu_attach(mdss_res);
@@ -1971,7 +1885,7 @@ int mdss_panel_register_done(struct mdss_panel_data *pdata)
 	if (pdata->panel_info.cont_splash_enabled) {
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		mdss_mdp_footswitch_ctrl_splash(1);
-		mdss_mdp_copy_splash_screen(pdata);
+		mdss_mdp_ctl_splash_start(pdata);
 	}
 	return 0;
 }
