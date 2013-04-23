@@ -46,7 +46,7 @@ static struct kgsl_iommu_register_list kgsl_iommuv0_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x03C, 1 },			/* TLBLKCR */
 	{ 0x818, 1 },			/* V2PUR */
 	{ 0x2C, 1 },			/* FSYNR0 */
-	{ 0x2C, 1 },			/* FSYNR0 */
+	{ 0x30, 1 },			/* FSYNR1 */
 	{ 0, 0 },			/* TLBSYNC, not in v0 */
 	{ 0, 0 },			/* TLBSTATUS, not in v0 */
 	{ 0, 0 }			/* IMPLDEF_MICRO_MMU_CRTL, not in v0 */
