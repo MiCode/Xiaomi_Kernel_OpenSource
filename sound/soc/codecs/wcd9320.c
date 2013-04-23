@@ -5841,26 +5841,37 @@ static void taiko_codec_init_reg(struct snd_soc_codec *codec)
 				taiko_codec_reg_init_val[i].val);
 }
 
-static int taiko_setup_irqs(struct taiko_priv *taiko)
+static void taiko_slim_interface_init_reg(struct snd_soc_codec *codec)
 {
 	int i;
-	int ret = 0;
-	struct snd_soc_codec *codec = taiko->codec;
-
-	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS,
-				  taiko_slimbus_irq, "SLIMBUS Slave", taiko);
-	if (ret) {
-		pr_err("%s: Failed to request irq %d\n", __func__,
-		       WCD9XXX_IRQ_SLIMBUS);
-		goto exit;
-	}
 
 	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++)
 		wcd9xxx_interface_reg_write(codec->control_data,
 					    TAIKO_SLIM_PGD_PORT_INT_EN0 + i,
 					    0xFF);
-exit:
+}
+
+static int taiko_setup_irqs(struct taiko_priv *taiko)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = taiko->codec;
+
+	ret = wcd9xxx_request_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS,
+				  taiko_slimbus_irq, "SLIMBUS Slave", taiko);
+	if (ret)
+		pr_err("%s: Failed to request irq %d\n", __func__,
+		       WCD9XXX_IRQ_SLIMBUS);
+	else
+		taiko_slim_interface_init_reg(codec);
+
 	return ret;
+}
+
+static void taiko_cleanup_irqs(struct taiko_priv *taiko)
+{
+	struct snd_soc_codec *codec = taiko->codec;
+
+	wcd9xxx_free_irq(codec->control_data, WCD9XXX_IRQ_SLIMBUS, taiko);
 }
 
 int taiko_hs_detect(struct snd_soc_codec *codec,
@@ -5921,6 +5932,7 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		pr_err("%s: bad pdata\n", __func__);
 
 	taiko_init_slim_slave_cfg(codec);
+	taiko_slim_interface_init_reg(codec);
 
 	wcd9xxx_mbhc_deinit(&taiko->mbhc);
 	ret = wcd9xxx_mbhc_init(&taiko->mbhc, &taiko->resmgr, codec,
@@ -6063,9 +6075,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 			tx_hpf_corner_freq_callback);
 	}
 
-
 	snd_soc_codec_set_drvdata(codec, taiko);
-
 
 	/* codec resmgr module init */
 	wcd9xxx = codec->control_data;
@@ -6074,7 +6084,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 				  &taiko_reg_address);
 	if (ret) {
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
-		return ret;
+		goto err_init;
 	}
 
 	taiko->clsh_d.buck_mv = taiko_codec_get_buck_mv(codec);
@@ -6085,7 +6095,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 				WCD9XXX_MBHC_VERSION_TAIKO);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
-		return ret;
+		goto err_init;
 	}
 
 	taiko->codec = codec;
@@ -6179,7 +6189,11 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_dapm_sync(dapm);
 
-	(void) taiko_setup_irqs(taiko);
+	ret = taiko_setup_irqs(taiko);
+	if (ret) {
+		pr_err("%s: taiko irq setup failed %d\n", __func__, ret);
+		goto err_irq;
+	}
 
 	atomic_set(&kp_taiko_priv, (unsigned long)taiko);
 	mutex_lock(&dapm->codec->mutex);
@@ -6194,10 +6208,13 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	codec->ignore_pmdown_time = 1;
 	return ret;
 
+err_irq:
+	taiko_cleanup_irqs(taiko);
 err_pdata:
 	kfree(ptr);
 err_nomem_slimch:
 	kfree(taiko);
+err_init:
 	return ret;
 }
 static int taiko_codec_remove(struct snd_soc_codec *codec)
@@ -6211,6 +6228,8 @@ static int taiko_codec_remove(struct snd_soc_codec *codec)
 		wcd9xxx_resmgr_put_bandgap(&taiko->resmgr,
 					   WCD9XXX_BANDGAP_AUDIO_MODE);
 	WCD9XXX_BCL_UNLOCK(&taiko->resmgr);
+
+	taiko_cleanup_irqs(taiko);
 
 	/* cleanup MBHC */
 	wcd9xxx_mbhc_deinit(&taiko->mbhc);
