@@ -2810,8 +2810,8 @@ static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, LONG_MAX);
 
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, LONG_MAX);
 
-static DEFINE_CLK_VOTER(qseecom_ce1_clk_src, &ce1_clk_src.c, LONG_MAX);
-static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, LONG_MAX);
+static DEFINE_CLK_VOTER(qseecom_ce1_clk_src, &ce1_clk_src.c, 100000000);
+static DEFINE_CLK_VOTER(scm_ce1_clk_src, &ce1_clk_src.c, 100000000);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_otg_clk, &xo.c);
 static DEFINE_CLK_BRANCH_VOTER(cxo_pil_lpass_clk, &xo.c);
