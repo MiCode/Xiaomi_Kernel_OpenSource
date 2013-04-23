@@ -165,18 +165,20 @@ int mdss_dsi_buf_alloc(struct dsi_buf *dp, int size)
  */
 static int mdss_dsi_generic_lwrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	char *bp;
 	u32 *hp;
 	int i, len;
 
+	dchdr = &cm->dchdr;
 	bp = mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 
 	/* fill up payload */
 	if (cm->payload) {
-		len = cm->dlen;
+		len = dchdr->dlen;
 		len += 3;
 		len &= ~0x03;	/* multipled by 4 */
-		for (i = 0; i < cm->dlen; i++)
+		for (i = 0; i < dchdr->dlen; i++)
 			*bp++ = cm->payload[i];
 
 		/* append 0xff to the end */
@@ -189,11 +191,11 @@ static int mdss_dsi_generic_lwrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	/* fill up header */
 	hp = dp->hdr;
 	*hp = 0;
-	*hp = DSI_HDR_WC(cm->dlen);
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp = DSI_HDR_WC(dchdr->dlen);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_LONG_PKT;
 	*hp |= DSI_HDR_DTYPE(DTYPE_GEN_LWRITE);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	mdss_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
@@ -206,10 +208,12 @@ static int mdss_dsi_generic_lwrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
  */
 static int mdss_dsi_generic_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 	int len;
 
-	if (cm->dlen && cm->payload == 0) {
+	dchdr = &cm->dchdr;
+	if (dchdr->dlen && cm->payload == 0) {
 		pr_err("%s: NO payload error\n", __func__);
 		return 0;
 	}
@@ -217,12 +221,12 @@ static int mdss_dsi_generic_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
-	if (cm->last)
+	*hp |= DSI_HDR_VC(dchdr->vc);
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 
-	len = (cm->dlen > 2) ? 2 : cm->dlen;
+	len = (dchdr->dlen > 2) ? 2 : dchdr->dlen;
 
 	if (len == 1) {
 		*hp |= DSI_HDR_DTYPE(DTYPE_GEN_WRITE1);
@@ -248,10 +252,12 @@ static int mdss_dsi_generic_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
  */
 static int mdss_dsi_generic_read(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 	int len;
 
-	if (cm->dlen && cm->payload == 0) {
+	dchdr = &cm->dchdr;
+	if (dchdr->dlen && cm->payload == 0) {
 		pr_err("%s: NO payload error\n", __func__);
 		return 0;
 	}
@@ -259,12 +265,12 @@ static int mdss_dsi_generic_read(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_BTA;
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
-	len = (cm->dlen > 2) ? 2 : cm->dlen;
+	len = (dchdr->dlen > 2) ? 2 : dchdr->dlen;
 
 	if (len == 1) {
 		*hp |= DSI_HDR_DTYPE(DTYPE_GEN_READ1);
@@ -289,10 +295,12 @@ static int mdss_dsi_generic_read(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
  */
 static int mdss_dsi_dcs_lwrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	char *bp;
 	u32 *hp;
 	int i, len;
 
+	dchdr = &cm->dchdr;
 	bp = mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 
 	/*
@@ -300,10 +308,10 @@ static int mdss_dsi_dcs_lwrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	 * dcs command byte (first byte) followed by payload
 	 */
 	if (cm->payload) {
-		len = cm->dlen;
+		len = dchdr->dlen;
 		len += 3;
 		len &= ~0x03;	/* multipled by 4 */
-		for (i = 0; i < cm->dlen; i++)
+		for (i = 0; i < dchdr->dlen; i++)
 			*bp++ = cm->payload[i];
 
 		/* append 0xff to the end */
@@ -316,11 +324,11 @@ static int mdss_dsi_dcs_lwrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	/* fill up header */
 	hp = dp->hdr;
 	*hp = 0;
-	*hp = DSI_HDR_WC(cm->dlen);
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp = DSI_HDR_WC(dchdr->dlen);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_LONG_PKT;
 	*hp |= DSI_HDR_DTYPE(DTYPE_DCS_LWRITE);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	mdss_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
@@ -333,9 +341,11 @@ static int mdss_dsi_dcs_lwrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
  */
 static int mdss_dsi_dcs_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 	int len;
 
+	dchdr = &cm->dchdr;
 	if (cm->payload == 0) {
 		pr_err("%s: NO payload error\n", __func__);
 		return -EINVAL;
@@ -344,13 +354,13 @@ static int mdss_dsi_dcs_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
-	if (cm->ack)		/* ask ACK trigger msg from peripeheral */
+	*hp |= DSI_HDR_VC(dchdr->vc);
+	if (dchdr->ack)		/* ask ACK trigger msg from peripeheral */
 		*hp |= DSI_HDR_BTA;
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
-	len = (cm->dlen > 1) ? 1 : cm->dlen;
+	len = (dchdr->dlen > 1) ? 1 : dchdr->dlen;
 
 	*hp |= DSI_HDR_DTYPE(DTYPE_DCS_WRITE);
 	*hp |= DSI_HDR_DATA1(cm->payload[0]);	/* dcs command byte */
@@ -365,9 +375,11 @@ static int mdss_dsi_dcs_swrite(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
  */
 static int mdss_dsi_dcs_swrite1(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
-	if (cm->dlen < 2 || cm->payload == 0) {
+	dchdr = &cm->dchdr;
+	if (dchdr->dlen < 2 || cm->payload == 0) {
 		pr_err("%s: NO payload error\n", __func__);
 		return -EINVAL;
 	}
@@ -375,10 +387,10 @@ static int mdss_dsi_dcs_swrite1(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
-	if (cm->ack)		/* ask ACK trigger msg from peripeheral */
+	*hp |= DSI_HDR_VC(dchdr->vc);
+	if (dchdr->ack)		/* ask ACK trigger msg from peripeheral */
 		*hp |= DSI_HDR_BTA;
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	*hp |= DSI_HDR_DTYPE(DTYPE_DCS_WRITE1);
@@ -395,8 +407,10 @@ static int mdss_dsi_dcs_swrite1(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 static int mdss_dsi_dcs_read(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
+	dchdr = &cm->dchdr;
 	if (cm->payload == 0) {
 		pr_err("%s: NO payload error\n", __func__);
 		return -EINVAL;
@@ -405,10 +419,10 @@ static int mdss_dsi_dcs_read(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_BTA;
 	*hp |= DSI_HDR_DTYPE(DTYPE_DCS_READ);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	*hp |= DSI_HDR_DATA1(cm->payload[0]);	/* dcs command byte */
@@ -421,14 +435,16 @@ static int mdss_dsi_dcs_read(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 static int mdss_dsi_cm_on(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
+	dchdr = &cm->dchdr;
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_DTYPE(DTYPE_CM_ON);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	mdss_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
@@ -438,14 +454,16 @@ static int mdss_dsi_cm_on(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 static int mdss_dsi_cm_off(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
+	dchdr = &cm->dchdr;
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_DTYPE(DTYPE_CM_OFF);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	mdss_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
@@ -455,14 +473,16 @@ static int mdss_dsi_cm_off(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 static int mdss_dsi_peripheral_on(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
+	dchdr = &cm->dchdr;
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_DTYPE(DTYPE_PERIPHERAL_ON);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	mdss_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
@@ -472,14 +492,16 @@ static int mdss_dsi_peripheral_on(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 static int mdss_dsi_peripheral_off(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
+	dchdr = &cm->dchdr;
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_DTYPE(DTYPE_PERIPHERAL_OFF);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	mdss_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
@@ -489,8 +511,10 @@ static int mdss_dsi_peripheral_off(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 static int mdss_dsi_set_max_pktsize(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
+	dchdr = &cm->dchdr;
 	if (cm->payload == 0) {
 		pr_err("%s: NO payload error\n", __func__);
 		return 0;
@@ -499,9 +523,9 @@ static int mdss_dsi_set_max_pktsize(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_DTYPE(DTYPE_MAX_PKTSIZE);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	*hp |= DSI_HDR_DATA1(cm->payload[0]);
@@ -514,16 +538,18 @@ static int mdss_dsi_set_max_pktsize(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 static int mdss_dsi_null_pkt(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
+	dchdr = &cm->dchdr;
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp = DSI_HDR_WC(cm->dlen);
+	*hp = DSI_HDR_WC(dchdr->dlen);
 	*hp |= DSI_HDR_LONG_PKT;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_DTYPE(DTYPE_NULL_PKT);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	mdss_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
@@ -533,16 +559,18 @@ static int mdss_dsi_null_pkt(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 
 static int mdss_dsi_blank_pkt(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	u32 *hp;
 
+	dchdr = &cm->dchdr;
 	mdss_dsi_buf_reserve_hdr(dp, DSI_HOST_HDR_SIZE);
 	hp = dp->hdr;
 	*hp = 0;
-	*hp = DSI_HDR_WC(cm->dlen);
+	*hp = DSI_HDR_WC(dchdr->dlen);
 	*hp |= DSI_HDR_LONG_PKT;
-	*hp |= DSI_HDR_VC(cm->vc);
+	*hp |= DSI_HDR_VC(dchdr->vc);
 	*hp |= DSI_HDR_DTYPE(DTYPE_BLANK_PKT);
-	if (cm->last)
+	if (dchdr->last)
 		*hp |= DSI_HDR_LAST;
 
 	mdss_dsi_buf_push(dp, DSI_HOST_HDR_SIZE);
@@ -555,9 +583,12 @@ static int mdss_dsi_blank_pkt(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
  */
 int mdss_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 {
+	struct dsi_ctrl_hdr *dchdr;
 	int len = 0;
 
-	switch (cm->dtype) {
+	dchdr = &cm->dchdr;
+
+	switch (dchdr->dtype) {
 	case DTYPE_GEN_WRITE:
 	case DTYPE_GEN_WRITE1:
 	case DTYPE_GEN_WRITE2:
@@ -606,7 +637,7 @@ int mdss_dsi_cmd_dma_add(struct dsi_buf *dp, struct dsi_cmd_desc *cm)
 		break;
 	default:
 		pr_debug("%s: dtype=%x NOT supported\n",
-					__func__, cm->dtype);
+					__func__, dchdr->dtype);
 		break;
 
 	}
@@ -1042,6 +1073,7 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 		struct dsi_buf *tp, struct dsi_cmd_desc *cmds, int cnt)
 {
 	struct dsi_cmd_desc *cm;
+	struct dsi_ctrl_hdr *dchdr;
 	u32 dsi_ctrl, ctrl;
 	int i, video_mode;
 	unsigned long flag;
@@ -1100,8 +1132,9 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 		mdss_dsi_buf_init(tp);
 		mdss_dsi_cmd_dma_add(tp, cm);
 		mdss_dsi_cmd_dma_tx(tp, pdata);
-		if (cm->wait)
-			msleep(cm->wait);
+		dchdr = &cm->dchdr;
+		if (dchdr->wait)
+			usleep(dchdr->wait * 1000);
 		cm++;
 	}
 
@@ -1119,9 +1152,9 @@ int mdss_dsi_cmds_tx(struct mdss_panel_data *pdata,
 /* MDSS_DSI_MRPS, Maximum Return Packet Size */
 static char max_pktsize[2] = {0x00, 0x00}; /* LSB tx first, 10 bytes */
 
-static struct dsi_cmd_desc pkt_size_cmd[] = {
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0,
-		sizeof(max_pktsize), max_pktsize}
+static struct dsi_cmd_desc pkt_size_cmd = {
+	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0, sizeof(max_pktsize)},
+	max_pktsize,
 };
 
 /*
@@ -1188,7 +1221,7 @@ int mdss_dsi_cmds_rx(struct mdss_panel_data *pdata,
 		pkt_size = len;
 		max_pktsize[0] = pkt_size;
 		mdss_dsi_buf_init(tp);
-		mdss_dsi_cmd_dma_add(tp, pkt_size_cmd);
+		mdss_dsi_cmd_dma_add(tp, &pkt_size_cmd);
 		mdss_dsi_cmd_dma_tx(tp, pdata);
 		pr_debug("%s: Max packet size sent\n", __func__);
 	}
