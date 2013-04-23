@@ -174,8 +174,8 @@ static void hfi_process_event_notify(
 
 	switch (pkt->event_id) {
 	case HFI_EVENT_SYS_ERROR:
-		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d\n",
-			pkt->event_data1);
+		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d, 0x%x\n",
+			pkt->event_data1, pkt->event_data2);
 		hfi_process_sys_error(callback, device_id);
 		break;
 	case HFI_EVENT_SESSION_ERROR:

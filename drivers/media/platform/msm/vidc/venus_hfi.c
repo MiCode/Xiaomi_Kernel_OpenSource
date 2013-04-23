@@ -1874,17 +1874,42 @@ static int venus_hfi_try_clk_gating(struct venus_hfi_device *device)
 	mutex_unlock(&device->write_lock);
 	return rc;
 }
+static void venus_hfi_process_msg_event_notify(
+	struct venus_hfi_device *device, void *packet)
+{
+	struct hfi_sfr_struct *vsfr = NULL;
+	struct hfi_msg_event_notify_packet *event_pkt;
+	struct vidc_hal_msg_pkt_hdr *msg_hdr;
 
+	msg_hdr = (struct vidc_hal_msg_pkt_hdr *)packet;
+	event_pkt =
+		(struct hfi_msg_event_notify_packet *)msg_hdr;
+	if (event_pkt && event_pkt->event_id ==
+		HFI_EVENT_SYS_ERROR) {
+		vsfr = (struct hfi_sfr_struct *)
+				device->sfr.align_virtual_addr;
+		if (vsfr)
+			dprintk(VIDC_ERR, "SFR Message from FW : %s",
+				vsfr->rg_data);
+	}
+}
 static void venus_hfi_response_handler(struct venus_hfi_device *device)
 {
 	u8 packet[VIDC_IFACEQ_MED_PKT_SIZE];
 	u32 rc = 0;
+	struct hfi_sfr_struct *vsfr = NULL;
 	dprintk(VIDC_INFO, "#####venus_hfi_response_handler#####\n");
 	if (device) {
 		if ((device->intr_status &
 			VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK)) {
 			dprintk(VIDC_ERR, "Received: Watchdog timeout %s",
 				__func__);
+			vsfr = (struct hfi_sfr_struct *)
+					device->sfr.align_virtual_addr;
+			if (vsfr)
+				dprintk(VIDC_ERR,
+					"SFR Message from FW : %s",
+						vsfr->rg_data);
 			venus_hfi_process_sys_watchdog_timeout(device);
 		}
 
@@ -1892,6 +1917,9 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 			rc = hfi_process_msg_packet(device->callback,
 				device->device_id,
 				(struct vidc_hal_msg_pkt_hdr *) packet);
+			if (rc == HFI_MSG_EVENT_NOTIFY)
+				venus_hfi_process_msg_event_notify(
+					device, (void *)packet);
 		}
 		while (!venus_hfi_iface_dbgq_read(device, packet)) {
 			struct hfi_msg_sys_debug_packet *pkt =
