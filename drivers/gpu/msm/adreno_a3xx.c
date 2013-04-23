@@ -2821,10 +2821,10 @@ static void a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	unsigned int val = 0;
 	struct a3xx_perfcounter_register *reg;
 
-	if (group > ARRAY_SIZE(a3xx_perfcounter_reglist))
+	if (group >= ARRAY_SIZE(a3xx_perfcounter_reglist))
 		return;
 
-	if (counter > a3xx_perfcounter_reglist[group].count)
+	if (counter >= a3xx_perfcounter_reglist[group].count)
 		return;
 
 	/* Special cases */
@@ -2858,7 +2858,10 @@ static uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 	unsigned int lo = 0, hi = 0;
 	unsigned int val;
 
-	if (group > ARRAY_SIZE(a3xx_perfcounter_reglist))
+	if (group >= ARRAY_SIZE(a3xx_perfcounter_reglist))
+		return 0;
+
+	if (counter >= a3xx_perfcounter_reglist[group].count)
 		return 0;
 
 	reg = &(a3xx_perfcounter_reglist[group].regs[counter]);
