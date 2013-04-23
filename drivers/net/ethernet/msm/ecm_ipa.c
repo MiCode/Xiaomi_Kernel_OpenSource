@@ -22,7 +22,6 @@
 #include <mach/ecm_ipa.h>
 
 #define DRIVER_NAME "ecm_ipa"
-#define DRIVER_VERSION "20-Mar-2013"
 #define ECM_IPA_IPV4_HDR_NAME "ecm_eth_ipv4"
 #define ECM_IPA_IPV6_HDR_NAME "ecm_eth_ipv6"
 #define IPA_TO_USB_CLIENT	IPA_CLIENT_USB_CONS
@@ -206,7 +205,7 @@ int ecm_ipa_init(ecm_ipa_callback *ecm_ipa_rx_dp_notify,
 	struct net_device *net;
 	struct ecm_ipa_dev *dev;
 	ECM_IPA_LOG_ENTRY();
-	pr_debug("%s version %s\n", DRIVER_NAME, DRIVER_VERSION);
+	pr_debug("%s initializing\n", DRIVER_NAME);
 	NULL_CHECK(ecm_ipa_rx_dp_notify);
 	NULL_CHECK(ecm_ipa_tx_dp_notify);
 	NULL_CHECK(priv);
@@ -1021,7 +1020,6 @@ static void eth_get_drvinfo(struct net_device *net,
 {
 	ECM_IPA_LOG_ENTRY();
 	strlcpy(drv_info->driver, DRIVER_NAME, sizeof(drv_info->driver));
-	strlcpy(drv_info->version, DRIVER_VERSION, sizeof(drv_info->version));
 	ECM_IPA_LOG_EXIT();
 }
 
