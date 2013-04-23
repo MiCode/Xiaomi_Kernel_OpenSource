@@ -2394,6 +2394,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 
 	if (inst->capability.capability_set) {
 		if (msm_vp8_low_tier &&
+			inst->core->hfi_type == VIDC_HFI_VENUS &&
 			inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_VP8) {
 			capability->width.max = DEFAULT_WIDTH;
 			capability->height.max = DEFAULT_HEIGHT;
