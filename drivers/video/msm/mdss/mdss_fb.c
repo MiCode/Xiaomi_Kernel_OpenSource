@@ -656,6 +656,11 @@ static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
+	if (!start) {
+		pr_warn("No framebuffer memory is allocated.\n");
+		return -ENOMEM;
+	}
+
 	mdss_fb_pan_idle(mfd);
 	if (off >= len) {
 		/* memory mapped io */
