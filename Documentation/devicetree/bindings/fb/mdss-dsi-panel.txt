@@ -174,6 +174,19 @@ Optional properties:
 - qcom,off-cmds-dsi-state:		A string that Specifies the ctrl state for sending ON commands.
 					Supported modes are "DSI_LP_MODE" and "DSI_HS_MODE".
 
+
+- qcom,panel-on-cmds: 			A byte stream formed by multiple dcs packets base on
+					qcom dsi controller protocol.
+					byte 0 : dcs data type
+					byte 1 : set to indicate this is an individual packet
+						(no chain).
+					byte 2 : virtual channel number
+					byte 3 : expect ack from client (dcs read command)
+					byte 4 : wait number of specified ms after dcs command
+						transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
 
@@ -204,7 +217,7 @@ Example:
 		qcom,mdss-pan-dsi-mdp-tr = <0x04>;
 		qcom,mdss-pan-dsi-dma-tr = <0x04>;
 		qcom,mdss-pan-frame-rate = <60>;
-		qcom,panel-on-cmds = [32 01 00 00 00 02 00 00];
+		qcom,panel-on-cmds = [32 01 00 00 00 00 02 00 00];
 		qcom,on-cmds-dsi-state = "DSI_LP_MODE";
 		qcom,panel-off-cmds = [22 01 00 00 00 00 00];
 		qcom,off-cmds-dsi-state = "DSI LP MODE";
