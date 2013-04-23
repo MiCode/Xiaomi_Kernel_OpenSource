@@ -159,13 +159,31 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	}
 }
 
-static char set_tear_on[2] = {0x35, 0x00};
-static struct dsi_cmd_desc dsi_tear_on_cmd = {
-	DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(set_tear_on), set_tear_on};
+static int mdss_dsi_panel_dcs_cmds(struct mdss_panel_data *pdata,
+				char *cmd_bytes, int len)
+{
+	char *bp;
+	struct dsi_ctrl_hdr *dchdr;
+	struct dsi_cmd_desc cmd;
+	int cnt = 0;
 
-static char set_tear_off[2] = {0x34, 0x00};
-static struct dsi_cmd_desc dsi_tear_off_cmd = {
-	DTYPE_DCS_WRITE, 1, 0, 0, 0, sizeof(set_tear_off), set_tear_off};
+	bp = cmd_bytes;
+	while (len >= sizeof(*dchdr)) {
+		dchdr = (struct dsi_ctrl_hdr *)bp;
+		pr_debug("%s: bp=%x len=%d tot=%d\n", __func__,
+					*bp, dchdr->dlen, len);
+		len -= sizeof(*dchdr);
+		bp += sizeof(*dchdr);
+		cmd.dchdr = *dchdr;
+		cmd.payload = bp;
+		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf, &cmd, 1);
+		bp += dchdr->dlen;
+		len -= dchdr->dlen;
+		cnt++;
+	}
+
+	return cnt;
+}
 
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
@@ -183,14 +201,10 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
-	if (ctrl->on_cmds->size)
-		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf,
-				 ctrl->on_cmds->buf,
-				 ctrl->on_cmds->size);
-
-	mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf,
-			&dsi_tear_on_cmd, 1);
-
+	if (ctrl->on_cmd_len)
+		mdss_dsi_panel_dcs_cmds(pdata,
+				 ctrl->on_cmd_buf,
+				 ctrl->on_cmd_len);
 	return 0;
 }
 
@@ -211,13 +225,10 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 
 	mipi  = &pdata->panel_info.mipi;
 
-	mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf,
-			&dsi_tear_off_cmd, 1);
-
-	if (ctrl->off_cmds->size)
-		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf,
-				 ctrl->off_cmds->buf,
-				 ctrl->off_cmds->size);
+	if (ctrl->off_cmd_len)
+		mdss_dsi_panel_dcs_cmds(pdata,
+				 ctrl->off_cmd_buf,
+				 ctrl->off_cmd_len);
 
 	return 0;
 }
@@ -229,12 +240,12 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	u32 res[6], tmp;
 	u32 fbc_res[7];
 	int rc, i, len;
-	int cmd_plen, data_offset;
 	const char *data;
 	static const char *bl_ctrl_type, *pdest;
 	static const char *on_cmds_state, *off_cmds_state;
 	char *on_cmds = NULL, *off_cmds = NULL;
-	int num_of_on_cmds = 0, num_of_off_cmds = 0;
+	struct dsi_ctrl_hdr *dchdr;
+	char *bp;
 	bool fbc_enabled = false;
 
 	rc = of_property_read_u32_array(np, "qcom,mdss-pan-res", res, 2);
@@ -529,6 +540,30 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 			panel_data->panel_info.bpp;
 	}
 
+	on_cmds_state = of_get_property(pdev->dev.of_node,
+				"qcom,on-cmds-dsi-state", NULL);
+	if (!strncmp(on_cmds_state, "DSI_LP_MODE", 11)) {
+		panel_data->dsi_on_state = DSI_LP_MODE;
+	} else if (!strncmp(on_cmds_state, "DSI_HS_MODE", 11)) {
+		panel_data->dsi_on_state = DSI_HS_MODE;
+	} else {
+		pr_debug("%s: ON cmds state not specified. Set Default\n",
+							__func__);
+		panel_data->dsi_on_state = DSI_LP_MODE;
+	}
+
+	off_cmds_state = of_get_property(pdev->dev.of_node,
+				"qcom,off-cmds-dsi-state", NULL);
+	if (!strncmp(off_cmds_state, "DSI_LP_MODE", 11)) {
+		panel_data->dsi_off_state = DSI_LP_MODE;
+	} else if (!strncmp(off_cmds_state, "DSI_HS_MODE", 11)) {
+		panel_data->dsi_off_state = DSI_HS_MODE;
+	} else {
+		pr_debug("%s: ON cmds state not specified. Set Default\n",
+							__func__);
+		panel_data->dsi_off_state = DSI_LP_MODE;
+	}
+
 	data = of_get_property(np, "qcom,panel-on-cmds", &len);
 	if (!data) {
 		pr_err("%s:%d, Unable to read ON cmds", __func__, __LINE__);
@@ -540,160 +575,68 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 		return -ENOMEM;
 
 	memcpy(on_cmds, data, len);
+	panel_data->on_cmd_len = len;
+	panel_data->on_cmd_buf = on_cmds;
 
-	data_offset = 0;
-	cmd_plen = 0;
-	while ((len - data_offset) >= DT_CMD_HDR) {
-		data_offset += (DT_CMD_HDR - 1);
-		cmd_plen = on_cmds[data_offset++];
-		data_offset += cmd_plen;
-		num_of_on_cmds++;
-	}
-	if (!num_of_on_cmds) {
-		pr_err("%s:%d, No ON cmds specified", __func__, __LINE__);
-		goto error;
-	}
-
-	panel_data->dsi_panel_on_cmds =
-		kzalloc(sizeof(struct dsi_panel_cmds_list), GFP_KERNEL);
-	if (!panel_data->dsi_panel_on_cmds)
-		return -ENOMEM;
-
-	(panel_data->dsi_panel_on_cmds)->buf =
-		kzalloc((num_of_on_cmds * sizeof(struct dsi_cmd_desc)),
-						GFP_KERNEL);
-	if (!(panel_data->dsi_panel_on_cmds)->buf)
-		return -ENOMEM;
-
-	data_offset = 0;
-	for (i = 0; i < num_of_on_cmds; i++) {
-		panel_data->dsi_panel_on_cmds->buf[i].dtype =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].last =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].vc =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].ack =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].wait =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].dlen =
-						on_cmds[data_offset++];
-		panel_data->dsi_panel_on_cmds->buf[i].payload =
-						&on_cmds[data_offset];
-		data_offset += (panel_data->dsi_panel_on_cmds->buf[i].dlen);
+	/* scan dcs commands */
+	bp = on_cmds;
+	while (len > sizeof(*dchdr)) {
+		dchdr = (struct dsi_ctrl_hdr *)bp;
+		dchdr->dlen = ntohs(dchdr->dlen);
+		pr_debug("%s: bp=%x len=%d\n", __func__, *bp, dchdr->dlen);
+		bp += sizeof(*dchdr);
+		len -= sizeof(*dchdr);
+		bp += dchdr->dlen;
+		len -= dchdr->dlen;
 	}
 
-	if (data_offset != len) {
-		pr_err("%s:%d, Incorrect ON command entries",
-						__func__, __LINE__);
-		goto error;
-	}
-
-	(panel_data->dsi_panel_on_cmds)->size = num_of_on_cmds;
-
-	on_cmds_state = of_get_property(pdev->dev.of_node,
-				"qcom,on-cmds-dsi-state", NULL);
-	if (!strncmp(on_cmds_state, "DSI_LP_MODE", 11)) {
-		(panel_data->dsi_panel_on_cmds)->ctrl_state =
-						DSI_LP_MODE;
-	} else if (!strncmp(on_cmds_state, "DSI_HS_MODE", 11)) {
-		(panel_data->dsi_panel_on_cmds)->ctrl_state =
-						DSI_HS_MODE;
-	} else {
-		pr_debug("%s: ON cmds state not specified. Set Default\n",
-							__func__);
-		(panel_data->dsi_panel_on_cmds)->ctrl_state =
-						DSI_LP_MODE;
+	if (len != 0) {
+		pr_err("%s: dcs on command byte Error, len=%d", __func__, len);
+		panel_data->on_cmd_len = 0;
+		goto error2;
 	}
 
 	data = of_get_property(np, "qcom,panel-off-cmds", &len);
 	if (!data) {
 		pr_err("%s:%d, Unable to read OFF cmds", __func__, __LINE__);
-		goto error;
+		goto error2;
 	}
 
 	off_cmds = kzalloc(sizeof(char) * len, GFP_KERNEL);
 	if (!off_cmds)
-		return -ENOMEM;
+		goto error2;
 
 	memcpy(off_cmds, data, len);
+	panel_data->off_cmd_len = len;
+	panel_data->off_cmd_buf = off_cmds;
 
-	data_offset = 0;
-	cmd_plen = 0;
-	while ((len - data_offset) >= DT_CMD_HDR) {
-		data_offset += (DT_CMD_HDR - 1);
-		cmd_plen = off_cmds[data_offset++];
-		data_offset += cmd_plen;
-		num_of_off_cmds++;
-	}
-	if (!num_of_off_cmds) {
-		pr_err("%s:%d, No OFF cmds specified", __func__, __LINE__);
-		goto error;
-	}
-
-	panel_data->dsi_panel_off_cmds =
-		kzalloc(sizeof(struct dsi_panel_cmds_list), GFP_KERNEL);
-	if (!panel_data->dsi_panel_off_cmds)
-		return -ENOMEM;
-
-	(panel_data->dsi_panel_off_cmds)->buf = kzalloc(num_of_off_cmds
-				* sizeof(struct dsi_cmd_desc),
-					GFP_KERNEL);
-	if (!(panel_data->dsi_panel_off_cmds)->buf)
-		return -ENOMEM;
-
-	data_offset = 0;
-	for (i = 0; i < num_of_off_cmds; i++) {
-		panel_data->dsi_panel_off_cmds->buf[i].dtype =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].last =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].vc =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].ack =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].wait =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].dlen =
-						off_cmds[data_offset++];
-		panel_data->dsi_panel_off_cmds->buf[i].payload =
-						&off_cmds[data_offset];
-		data_offset += (panel_data->dsi_panel_off_cmds->buf[i].dlen);
+	/* scan dcs commands */
+	bp = off_cmds;
+	while (len > sizeof(*dchdr)) {
+		dchdr = (struct dsi_ctrl_hdr *)bp;
+		dchdr->dlen = ntohs(dchdr->dlen);
+		pr_debug("%s: bp=%x len=%d\n", __func__, *bp, dchdr->dlen);
+		bp += sizeof(*dchdr);
+		len -= sizeof(*dchdr);
+		bp += dchdr->dlen;
+		len -= dchdr->dlen;
 	}
 
-	if (data_offset != len) {
-		pr_err("%s:%d, Incorrect OFF command entries",
-						__func__, __LINE__);
-		goto error;
-	}
-
-	(panel_data->dsi_panel_off_cmds)->size = num_of_off_cmds;
-
-	off_cmds_state = of_get_property(pdev->dev.of_node,
-				"qcom,off-cmds-dsi-state", NULL);
-	if (!strncmp(off_cmds_state, "DSI_LP_MODE", 11)) {
-		(panel_data->dsi_panel_off_cmds)->ctrl_state =
-						DSI_LP_MODE;
-	} else if (!strncmp(off_cmds_state, "DSI_HS_MODE", 11)) {
-		(panel_data->dsi_panel_off_cmds)->ctrl_state =
-						DSI_HS_MODE;
-	} else {
-		pr_debug("%s: ON cmds state not specified. Set Default\n",
-							__func__);
-		(panel_data->dsi_panel_off_cmds)->ctrl_state =
-						DSI_LP_MODE;
+	if (len != 0) {
+		pr_err("%s: dcs OFF command byte Error, len=%d", __func__, len);
+		panel_data->off_cmd_len = 0;
+		goto error1;
 	}
 
 	return 0;
-error:
-	kfree((panel_data->dsi_panel_on_cmds)->buf);
-	kfree((panel_data->dsi_panel_off_cmds)->buf);
-	kfree(panel_data->dsi_panel_on_cmds);
-	kfree(panel_data->dsi_panel_off_cmds);
-	kfree(on_cmds);
-	kfree(off_cmds);
 
+error1:
+	kfree(panel_data->off_cmd_buf);
+	panel_data->off_cmd_buf = NULL;
+error2:
+	kfree(panel_data->on_cmd_buf);
+	panel_data->on_cmd_buf = NULL;
+error:
 	return -EINVAL;
 }
 
