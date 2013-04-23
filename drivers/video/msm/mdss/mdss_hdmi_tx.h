@@ -25,6 +25,7 @@ enum hdmi_tx_io_type {
 
 enum hdmi_tx_power_module_type {
 	HDMI_TX_HPD_PM,
+	HDMI_TX_DDC_PM,
 	HDMI_TX_CORE_PM,
 	HDMI_TX_CEC_PM,
 	HDMI_TX_MAX_PM
