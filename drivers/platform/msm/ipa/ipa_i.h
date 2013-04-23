@@ -667,6 +667,9 @@ struct ipa_context {
 	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
 	void *smem_pipe_mem;
+	/* store HOLB configuration for WLAN TX pipes */
+	u32 hol_en;
+	u32 hol_timer;
 };
 
 /**
