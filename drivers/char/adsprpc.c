@@ -527,11 +527,9 @@ static void fastrpc_deinit(void)
 {
 	struct fastrpc_apps *me = &gfa;
 
-	if (me->chan)
-		(void)smd_close(me->chan);
+	smd_close(me->chan);
 	context_list_dtor(&me->clst);
-	if (me->iclient)
-		ion_client_destroy(me->iclient);
+	ion_client_destroy(me->iclient);
 	me->iclient = 0;
 	me->chan = 0;
 }
@@ -584,25 +582,32 @@ static int fastrpc_init(void)
 			INIT_HLIST_HEAD(&me->htbl[i]);
 		VERIFY(err, 0 == context_list_ctor(&me->clst, SZ_4K));
 		if (err)
-			goto bail;
+			goto context_list_bail;
 		me->iclient = msm_ion_client_create(ION_HEAP_CARVEOUT_MASK,
 							DEVICE_NAME);
 		VERIFY(err, 0 == IS_ERR_OR_NULL(me->iclient));
 		if (err)
-			goto bail;
+			goto ion_bail;
 		VERIFY(err, 0 == smd_named_open_on_edge(FASTRPC_SMD_GUID,
 						SMD_APPS_QDSP, &me->chan,
 						me, smd_event_handler));
 		if (err)
-			goto bail;
+			goto smd_bail;
 		VERIFY(err, 0 != wait_for_completion_timeout(&me->work,
 							RPC_TIMEOUT));
 		if (err)
-			goto bail;
+			goto completion_bail;
 	}
- bail:
-	if (err)
-		fastrpc_deinit();
+
+	return 0;
+
+completion_bail:
+	smd_close(me->chan);
+smd_bail:
+	ion_client_destroy(me->iclient);
+ion_bail:
+	context_list_dtor(&me->clst);
+context_list_bail:
 	return err;
 }
 
@@ -1090,35 +1095,37 @@ static int __init fastrpc_device_init(void)
 
 	VERIFY(err, 0 == fastrpc_init());
 	if (err)
-		goto bail;
+		goto fastrpc_bail;
 	VERIFY(err, 0 == alloc_chrdev_region(&me->dev_no, 0, 1, DEVICE_NAME));
 	if (err)
-		goto bail;
+		goto alloc_chrdev_bail;
 	cdev_init(&me->cdev, &fops);
 	me->cdev.owner = THIS_MODULE;
 	VERIFY(err, 0 == cdev_add(&me->cdev, MKDEV(MAJOR(me->dev_no), 0), 1));
 	if (err)
-		goto bail;
+		goto cdev_init_bail;
 	me->class = class_create(THIS_MODULE, "chardrv");
 	VERIFY(err, !IS_ERR(me->class));
 	if (err)
-		goto bail;
+		goto class_create_bail;
 	me->dev = device_create(me->class, NULL, MKDEV(MAJOR(me->dev_no), 0),
 				NULL, DEVICE_NAME);
 	VERIFY(err, !IS_ERR(me->dev));
 	if (err)
-		goto bail;
+		goto device_create_bail;
 	pr_info("'created /dev/%s c %d 0'\n", DEVICE_NAME, MAJOR(me->dev_no));
- bail:
-	if (err) {
-		if (me->dev_no)
-			unregister_chrdev_region(me->dev_no, 1);
-		if (me->class)
-			class_destroy(me->class);
-		if (me->cdev.owner)
-			cdev_del(&me->cdev);
-		fastrpc_deinit();
-	}
+
+	return 0;
+
+device_create_bail:
+	class_destroy(me->class);
+class_create_bail:
+	cdev_del(&me->cdev);
+cdev_init_bail:
+	unregister_chrdev_region(me->dev_no, 1);
+alloc_chrdev_bail:
+	fastrpc_deinit();
+fastrpc_bail:
 	return err;
 }
 
