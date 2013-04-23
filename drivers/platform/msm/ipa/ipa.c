@@ -73,12 +73,36 @@ static struct msm_bus_vectors ipa_init_vectors[]  = {
 		.ab = 0,
 		.ib = 0,
 	},
+	{
+		.src = MSM_BUS_MASTER_BAM_DMA,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 0,
+		.ib = 0,
+	},
+	{
+		.src = MSM_BUS_MASTER_BAM_DMA,
+		.dst = MSM_BUS_SLAVE_OCIMEM,
+		.ab = 0,
+		.ib = 0,
+	},
 };
 
 static struct msm_bus_vectors ipa_max_perf_vectors[]  = {
 	{
 		.src = MSM_BUS_MASTER_IPA,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 50000000,
+		.ib = 960000000,
+	},
+	{
+		.src = MSM_BUS_MASTER_BAM_DMA,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab = 50000000,
+		.ib = 960000000,
+	},
+	{
+		.src = MSM_BUS_MASTER_BAM_DMA,
+		.dst = MSM_BUS_SLAVE_OCIMEM,
 		.ab = 50000000,
 		.ib = 960000000,
 	},
@@ -1712,6 +1736,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	bam_props.num_pipes = IPA_NUM_PIPES;
 	bam_props.summing_threshold = IPA_SUMMING_THRESHOLD;
 	bam_props.event_threshold = IPA_EVENT_THRESHOLD;
+	bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
 
 	result = sps_register_bam_device(&bam_props, &ipa_ctx->bam_handle);
 	if (result) {
@@ -1887,7 +1912,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p)
 	if (result) {
 		IPAERR("ipa bridge init err.\n");
 		result = -ENODEV;
-		goto fail_bridge_init;
+		goto fail_a5_pipes;
 	}
 
 	/* setup the A5-IPA pipes */
@@ -2008,8 +2033,6 @@ fail_empty_rt_tbl:
 	ipa_cleanup_rx();
 	ipa_teardown_a5_pipes();
 fail_a5_pipes:
-	ipa_bridge_cleanup();
-fail_bridge_init:
 	destroy_workqueue(ipa_ctx->tx_wq);
 fail_tx_wq:
 	destroy_workqueue(ipa_ctx->rx_wq);
