@@ -76,8 +76,13 @@ enum {
  *				 - negative if the configuration is invalid
  *				 - 0 if there is no panel reconfig needed
  *				 - 1 if reconfig is needed to take effect
+ * @MDSS_EVENT_CONT_SPLASH_BEGIN: Special event used to handle transition of
+ *				display state from boot loader to panel driver.
+ *				The event handler will disable the panel.
  * @MDSS_EVENT_CONT_SPLASH_FINISH: Special event used to handle transition of
  *				display state from boot loader to panel driver.
+ *				The event handler will enable the panel and
+ *				vote for the display clocks.
  * @MDSS_EVENT_FB_REGISTERED:	Called after fb dev driver has been registered,
  *				panel driver gets ptr to struct fb_info which
  *				holds fb dev information.
@@ -96,6 +101,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_SUSPEND,
 	MDSS_EVENT_RESUME,
 	MDSS_EVENT_CHECK_PARAMS,
+	MDSS_EVENT_CONT_SPLASH_BEGIN,
 	MDSS_EVENT_CONT_SPLASH_FINISH,
 	MDSS_EVENT_FB_REGISTERED,
 	MDSS_EVENT_PANEL_CLK_CTRL,
