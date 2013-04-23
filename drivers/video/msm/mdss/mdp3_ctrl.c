@@ -434,11 +434,32 @@ pan_error:
 	mutex_unlock(&mdp3_session->lock);
 }
 
+static int mdp3_get_metadata(struct msm_fb_data_type *mfd,
+				struct msmfb_metadata *metadata)
+{
+	int ret = 0;
+	switch (metadata->op) {
+	case metadata_op_frame_rate:
+		metadata->data.panel_frame_rate =
+			mfd->panel_info->mipi.frame_rate;
+		break;
+	case metadata_op_get_caps:
+		metadata->data.caps.mdp_rev = 304;
+		break;
+	default:
+		pr_warn("Unsupported request to MDP META IOCTL.\n");
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 					u32 cmd, void __user *argp)
 {
 	int rc = -EINVAL;
 	struct mdp3_session_data *mdp3_session;
+	struct msmfb_metadata metadata;
 	int val;
 
 	pr_debug("mdp3_ctrl_ioctl_handler\n");
@@ -463,6 +484,14 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 			pr_err("MSMFB_OVERLAY_VSYNC_CTRL failed\n");
 			rc = -EFAULT;
 		}
+		break;
+	case MSMFB_METADATA_GET:
+		rc = copy_from_user(&metadata, argp, sizeof(metadata));
+		if (rc)
+			return rc;
+		rc = mdp3_get_metadata(mfd, &metadata);
+		if (!rc)
+			rc = copy_to_user(argp, &metadata, sizeof(metadata));
 		break;
 	default:
 		break;
