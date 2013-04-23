@@ -867,14 +867,6 @@ static const struct file_operations ctrldev_fops = {
 	.poll = rmnet_ctl_poll,
 };
 
-void rmnet_usb_ctrl_cleanup(struct rmnet_ctrl_dev *dev)
-{
-	if (dev) {
-		usb_free_urb(dev->inturb);
-		kfree(dev->intbuf);
-	}
-}
-
 int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 			 struct usb_host_endpoint *int_in,
 			 unsigned long rmnet_devnum,

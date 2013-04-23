@@ -113,6 +113,5 @@ extern int rmnet_usb_ctrl_probe(struct usb_interface *intf,
 				unsigned long rmnet_devnum,
 				unsigned long *data);
 extern void rmnet_usb_ctrl_disconnect(struct rmnet_ctrl_dev *);
-extern void rmnet_usb_ctrl_cleanup(struct rmnet_ctrl_dev *dev);
 
 #endif /* __RMNET_USB_H*/
