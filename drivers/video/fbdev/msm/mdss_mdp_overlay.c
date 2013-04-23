@@ -774,6 +774,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 			buf = &pipe->front_buf;
 		} else {
 			pr_warn("pipe queue w/o buffer. unstaging layer\n");
+			pipe->params_changed = 0;
 			mdss_mdp_mixer_pipe_unstage(pipe);
 			continue;
 		}
