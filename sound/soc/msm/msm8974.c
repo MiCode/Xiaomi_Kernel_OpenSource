@@ -2271,6 +2271,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 	struct snd_soc_card *card = &snd_soc_card_msm8974;
 	struct msm8974_asoc_mach_data *pdata;
 	int ret;
+	const char *auxpcm_pri_gpio_set = NULL;
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
@@ -2396,7 +2397,24 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
+	ret = of_property_read_string(pdev->dev.of_node,
+			"qcom,prim-auxpcm-gpio-set", &auxpcm_pri_gpio_set);
+	if (ret) {
+		dev_err(&pdev->dev, "Looking up %s property in node %s failed",
+			"qcom,prim-auxpcm-gpio-set",
+			pdev->dev.of_node->full_name);
+		goto err;
+	}
+	if (!strcmp(auxpcm_pri_gpio_set, "prim-gpio-prim")) {
+		lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_PRI_MODE_MUXSEL, 4);
+	} else if (!strcmp(auxpcm_pri_gpio_set, "prim-gpio-tert")) {
+		lpaif_pri_muxsel_virt_addr = ioremap(LPAIF_TER_MODE_MUXSEL, 4);
+	} else {
+		dev_err(&pdev->dev, "Invalid value %s for AUXPCM GPIO set\n",
+			auxpcm_pri_gpio_set);
+		ret = -EINVAL;
+		goto err;
+	}
 	if (lpaif_pri_muxsel_virt_addr == NULL) {
 		pr_err("%s Pri muxsel virt addr is null\n", __func__);
 		ret = -EINVAL;
