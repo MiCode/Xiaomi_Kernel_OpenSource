@@ -368,6 +368,7 @@ int ipa_generate_flt_hw_tbl(enum ipa_ip_type ip, struct ipa_mem_buffer *mem)
 	return 0;
 proc_err:
 	dma_free_coherent(NULL, mem->size, mem->base, mem->phys_base);
+	mem->base = NULL;
 error:
 
 	return -EPERM;
@@ -456,7 +457,7 @@ static int __ipa_commit_flt(enum ipa_ip_type ip)
 
 	if (mem->size > avail) {
 		IPAERR("tbl too big, needed %d avail %d\n", mem->size, avail);
-		goto fail_hw_tbl_gen;
+		goto fail_send_cmd;
 	}
 
 	if (ip == IPA_IP_v4) {
