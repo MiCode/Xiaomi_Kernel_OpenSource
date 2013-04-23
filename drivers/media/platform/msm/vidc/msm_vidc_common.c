@@ -22,7 +22,7 @@
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
 
-#define HW_RESPONSE_TIMEOUT 200
+#define HW_RESPONSE_TIMEOUT 1000
 
 #define IS_ALREADY_IN_STATE(__p, __d) ({\
 	int __rc = (__p >= __d);\
