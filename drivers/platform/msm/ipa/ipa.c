@@ -1154,7 +1154,7 @@ static void ipa_set_aggregation_params(void)
 	u32 producer_hdl = 0;
 	u32 consumer_hdl = 0;
 
-	rmnet_bridge_get_client_handles(&producer_hdl, &consumer_hdl);
+	teth_bridge_get_client_handles(&producer_hdl, &consumer_hdl);
 
 	/* configure aggregation on producer */
 	memset(&agg_params, 0, sizeof(struct ipa_ep_cfg_aggr));

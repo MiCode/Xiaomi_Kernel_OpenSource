@@ -557,17 +557,6 @@ int ipa_set_qcncm_ndp_sig(char sig[3]);
 int ipa_set_single_ndp_per_mbim(bool enable);
 
 /*
- * rmnet bridge
- */
-int rmnet_bridge_init(void);
-
-int rmnet_bridge_disconnect(void);
-
-int rmnet_bridge_connect(u32 producer_hdl,
-			 u32 consumer_hdl,
-			 int wwan_logical_channel_id);
-
-/*
  * SW bridge (between IPA and A2)
  */
 int ipa_bridge_setup(enum ipa_bridge_dir dir, enum ipa_bridge_type type,
@@ -912,26 +901,6 @@ static inline int ipa_set_qcncm_ndp_sig(char sig[3])
 }
 
 static inline int ipa_set_single_ndp_per_mbim(bool enable)
-{
-	return -EPERM;
-}
-
-/*
- * rmnet bridge
- */
-static inline int rmnet_bridge_init(void)
-{
-	return -EPERM;
-}
-
-static inline int rmnet_bridge_disconnect(void)
-{
-	return -EPERM;
-}
-
-static inline int rmnet_bridge_connect(u32 producer_hdl,
-			 u32 consumer_hdl,
-			 int wwan_logical_channel_id)
 {
 	return -EPERM;
 }
